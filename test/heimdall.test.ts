@@ -58,6 +58,10 @@ test('prison de chemins : .., absolu et lien symbolique refusés', () => {
   assert.throws(() => jailPath(root, '/etc/passwd'));
   symlinkSync('/etc', join(root, 'evasion'));
   assert.throws(() => jailPath(root, 'evasion/passwd'));
+  // Lien cassé vers un fichier qui n'existe pas encore : écrire à travers lui le créerait dehors.
+  symlinkSync(join(tmpdir(), `absent-${Date.now()}`, 'piege.txt'), join(root, 'casse'));
+  assert.throws(() => jailPath(root, 'casse'));
+  assert.throws(() => jailPath(root, 'casse/x'));
 });
 
 test('anti-SSRF : adresses internes refusées', () => {

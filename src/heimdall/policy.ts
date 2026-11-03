@@ -6,7 +6,7 @@
 // droit d'écrire, d'exécuter ou d'envoyer quoi que ce soit sans validation humaine.
 // C'est vérifié par le code, pas par le prompt.
 
-import { appendFileSync, existsSync, realpathSync } from 'node:fs';
+import { appendFileSync, lstatSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { OdinConfig, PolicyMode } from '../config.ts';
 import type { Risk } from '../types.ts';
@@ -227,9 +227,14 @@ export function jailPath(root: string, p: string): string {
   const rootReal = realpathSync(root);
   const target = isAbsolute(p) ? resolve(p) : resolve(rootReal, p);
   // On résout le parent existant le plus proche (le fichier peut ne pas encore exister).
+  // lstat (et non exists) : un lien symbolique « cassé » compte comme existant, sinon on
+  // pourrait créer un fichier hors de l'espace de travail en écrivant à travers lui.
+  const lexists = (q: string) => { try { lstatSync(q); return true; } catch { return false; } };
   let probe = target;
-  while (!existsSync(probe) && dirname(probe) !== probe) probe = dirname(probe);
-  const real = join(realpathSync(probe), relative(probe, target));
+  while (!lexists(probe) && dirname(probe) !== probe) probe = dirname(probe);
+  let resolved: string;
+  try { resolved = realpathSync(probe); } catch { throw new Error(`Chemin hors de l'espace de travail refusé : ${p} (lien symbolique cassé)`); }
+  const real = join(resolved, relative(probe, target));
   const rel = relative(rootReal, real);
   if (rel === '' || (!rel.startsWith('..' + sep) && rel !== '..' && !isAbsolute(rel))) return real;
   throw new Error(`Chemin hors de l'espace de travail refusé : ${p}`);
