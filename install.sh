@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+#  Installateur d'Odin pour macOS et Linux
+#
+#    curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash
+#
+#  Ce que fait ce script (rien d'autre) :
+#    1. vérifie Node.js ≥ 22.18, sinon télécharge Node 22 officiel (somme SHA-256 vérifiée)
+#       dans ~/.odin/node, sans toucher au Node du système ;
+#    2. télécharge Odin dans ~/.odin/app ;
+#    3. crée la commande « odin » dans ~/.local/bin ;
+#    4. initialise ~/.odin (configuration, persona, mémoire) ;
+#    5. te propose : clé d'API, inventaire du réseau local, démarrage automatique.
+#
+#  Variables utiles : ODIN_YES=1 (tout accepter), ODIN_NO_SERVICE=1, ODIN_NO_SCAN=1,
+#  ODIN_REPO=<url git>, ODIN_HOME=<dossier>.
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+ODIN_REPO="${ODIN_REPO:-https://github.com/TOUFATECH/Odin}"
+ODIN_HOME="${ODIN_HOME:-$HOME/.odin}"
+APP_DIR="$ODIN_HOME/app"
+NODE_DIR="$ODIN_HOME/node"
+BIN_DIR="$HOME/.local/bin"
+
+gold() { printf '\033[33m%s\033[0m\n' "$*"; }
+info() { printf '  \033[2m%s\033[0m\n' "$*"; }
+ok()   { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+die()  { printf '\033[31mErreur : %s\033[0m\n' "$*" >&2; exit 1; }
+
+# Questions : lues sur le terminal même quand le script arrive par « curl | bash ».
+ask() {  # ask "Question ?" défaut(o/n)
+  local q="$1" def="${2:-o}" a=""
+  if [ "${ODIN_YES:-}" = "1" ] || [ ! -r /dev/tty ]; then [ "$def" = "o" ]; return; fi
+  printf '  %s [%s] ' "$q" "$([ "$def" = o ] && echo O/n || echo o/N)" > /dev/tty
+  read -r a < /dev/tty || true
+  a="${a:-$def}"; case "$a" in o|O|oui|y|Y|yes) return 0 ;; *) return 1 ;; esac
+}
+
+gold "ᛟ  Installation d'Odin"
+
+# ---------- 1. Système et architecture ----------
+case "$(uname -s)" in
+  Darwin) OS=darwin ;;
+  Linux)  OS=linux ;;
+  *) die "système non pris en charge : $(uname -s). Sous Windows, utilise install.ps1." ;;
+esac
+case "$(uname -m)" in
+  x86_64|amd64) ARCH=x64 ;;
+  arm64|aarch64) ARCH=arm64 ;;
+  *) die "processeur non pris en charge : $(uname -m)" ;;
+esac
+command -v curl >/dev/null || die "curl est requis"
+command -v tar  >/dev/null || die "tar est requis"
+
+# ---------- 2. Node.js ----------
+node_ok() {  # vrai si $1 est un Node ≥ 22.18
+  local v; v="$("$1" -p 'process.versions.node' 2>/dev/null)" || return 1
+  local maj="${v%%.*}" rest="${v#*.}"; local min="${rest%%.*}"
+  [ "$maj" -gt 22 ] || { [ "$maj" -eq 22 ] && [ "$min" -ge 18 ]; }
+}
+
+NODE_BIN=""
+if command -v node >/dev/null && node_ok "$(command -v node)"; then
+  NODE_BIN="$(command -v node)"; ok "Node $("$NODE_BIN" -v) déjà présent"
+elif [ -x "$NODE_DIR/bin/node" ] && node_ok "$NODE_DIR/bin/node"; then
+  NODE_BIN="$NODE_DIR/bin/node"; ok "Node $("$NODE_BIN" -v) (installé par Odin)"
+else
+  info "Téléchargement de Node.js 22 (officiel, nodejs.org)…"
+  BASE="https://nodejs.org/dist/latest-v22.x"
+  SUMS="$(curl -fsSL "$BASE/SHASUMS256.txt")" || die "impossible de joindre nodejs.org"
+  LINE="$(printf '%s\n' "$SUMS" | grep -E "node-v[0-9.]+-$OS-$ARCH\.tar\.gz$" | head -n1)"
+  [ -n "$LINE" ] || die "aucune version de Node pour $OS-$ARCH"
+  SHA="${LINE%% *}"; FILE="${LINE##* }"
+  TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+  curl -fsSL "$BASE/$FILE" -o "$TMP/$FILE"
+  if command -v sha256sum >/dev/null; then GOT="$(sha256sum "$TMP/$FILE" | cut -d' ' -f1)"; else GOT="$(shasum -a 256 "$TMP/$FILE" | cut -d' ' -f1)"; fi
+  [ "$GOT" = "$SHA" ] || die "somme de contrôle de Node invalide (téléchargement corrompu ?)"
+  rm -rf "$NODE_DIR"; mkdir -p "$NODE_DIR"
+  tar -xzf "$TMP/$FILE" -C "$NODE_DIR" --strip-components=1
+  NODE_BIN="$NODE_DIR/bin/node"
+  ok "Node $("$NODE_BIN" -v) installé dans $NODE_DIR (somme SHA-256 vérifiée)"
+fi
+
+# ---------- 3. Odin ----------
+mkdir -p "$ODIN_HOME"
+if [ -d "$APP_DIR/.git" ] && command -v git >/dev/null; then
+  info "Mise à jour d'Odin…"; git -C "$APP_DIR" pull --ff-only --quiet; ok "Odin mis à jour"
+elif command -v git >/dev/null; then
+  rm -rf "$APP_DIR"; git clone --depth 1 --quiet "$ODIN_REPO" "$APP_DIR"; ok "Odin téléchargé"
+else
+  rm -rf "$APP_DIR"; mkdir -p "$APP_DIR"
+  curl -fsSL "$ODIN_REPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$APP_DIR" --strip-components=1
+  ok "Odin téléchargé (archive)"
+fi
+
+# ---------- 4. Commande « odin » ----------
+mkdir -p "$BIN_DIR"
+cat > "$BIN_DIR/odin" <<EOF
+#!/bin/sh
+# Lanceur d'Odin (généré par install.sh). Les clés éventuelles sont dans ~/.odin/env (droits 600).
+[ -f "$ODIN_HOME/env" ] && { set -a; . "$ODIN_HOME/env"; set +a; }
+export ODIN_HOME="$ODIN_HOME"
+exec "$NODE_BIN" --disable-warning=ExperimentalWarning "$APP_DIR/bin/odin.mjs" "\$@"
+EOF
+chmod +x "$BIN_DIR/odin"
+ok "Commande installée : $BIN_DIR/odin"
+
+case ":$PATH:" in
+  *":$BIN_DIR:"*) ;;
+  *)
+    for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+      if [ -f "$rc" ] && ! grep -q 'odin-installer' "$rc"; then
+        printf '\nexport PATH="$HOME/.local/bin:$PATH"  # odin-installer\n' >> "$rc"
+        info "$BIN_DIR ajouté au PATH dans $rc"
+      fi
+    done
+    export PATH="$BIN_DIR:$PATH" ;;
+esac
+
+"$BIN_DIR/odin" init >/dev/null
+ok "Configuration créée dans $ODIN_HOME"
+
+# ---------- 5. Choix ----------
+echo
+gold "Réglages"
+if [ ! -f "$ODIN_HOME/env" ] && [ -r /dev/tty ] && [ "${ODIN_YES:-}" != "1" ]; then
+  printf '  Clé Anthropic (Entrée pour passer, ou plus tard dans %s/env) : ' "$ODIN_HOME" > /dev/tty
+  stty -echo < /dev/tty 2>/dev/null || true; read -r KEY < /dev/tty || KEY=""; stty echo < /dev/tty 2>/dev/null || true; echo > /dev/tty
+  if [ -n "$KEY" ]; then
+    umask 077; printf 'ANTHROPIC_API_KEY=%s\n' "$KEY" > "$ODIN_HOME/env"; chmod 600 "$ODIN_HOME/env"
+    ok "Clé enregistrée dans $ODIN_HOME/env (lisible par toi seul)"
+  else
+    info "Sans clé, Odin démarre en mode démo. Modèle local possible avec Ollama."
+  fi
+fi
+
+if [ "${ODIN_NO_SCAN:-}" != "1" ] && ask "Inventorier les appareils de ton réseau local (et suivre leurs changements) ?" o; then
+  "$BIN_DIR/odin" net enable >/dev/null
+  info "Balayage du réseau local en cours (environ 30 secondes)…"
+  "$BIN_DIR/odin" net scan --full || info "Balayage impossible pour l'instant ; Odin réessaiera automatiquement."
+fi
+
+SERVICE=""
+if [ "${ODIN_NO_SERVICE:-}" != "1" ] && ask "Lancer Odin automatiquement au démarrage (interface web + Telegram + tâches) ?" o; then
+  if [ "$OS" = darwin ]; then
+    PLIST="$HOME/Library/LaunchAgents/ai.odin.gateway.plist"
+    mkdir -p "$(dirname "$PLIST")" "$ODIN_HOME/logs"
+    cat > "$PLIST" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>ai.odin.gateway</string>
+  <key>ProgramArguments</key><array><string>$BIN_DIR/odin</string><string>gateway</string></array>
+  <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$ODIN_HOME/logs/gateway.log</string>
+  <key>StandardErrorPath</key><string>$ODIN_HOME/logs/gateway.log</string>
+</dict></plist>
+EOF
+    launchctl unload "$PLIST" 2>/dev/null || true
+    launchctl load "$PLIST" && SERVICE=1 && ok "Service macOS installé (launchd)"
+  elif command -v systemctl >/dev/null; then
+    UNIT="$HOME/.config/systemd/user/odin.service"
+    mkdir -p "$(dirname "$UNIT")"
+    cat > "$UNIT" <<EOF
+[Unit]
+Description=Odin, agent IA personnel
+After=network-online.target
+
+[Service]
+ExecStart=$BIN_DIR/odin gateway
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+    systemctl --user daemon-reload && systemctl --user enable --now odin.service >/dev/null 2>&1 && SERVICE=1 && ok "Service Linux installé (systemd --user)"
+    command -v loginctl >/dev/null && loginctl enable-linger "$USER" >/dev/null 2>&1 || true
+  else
+    info "Pas de systemd : lance « odin gateway » toi-même (ou via cron @reboot)."
+  fi
+fi
+
+# ---------- Fin ----------
+echo
+gold "ᛟ  Odin est installé"
+TOKEN="$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
+if [ -n "$SERVICE" ]; then
+  sleep 2; TOKEN="$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
+  echo "  Interface web : http://127.0.0.1:7777/?token=$TOKEN"
+else
+  echo "  Interface web : odin web"
+fi
+echo "  Terminal      : odin chat"
+echo "  Diagnostic    : odin doctor"
+echo "  Réseau        : odin net list"
+[ -n "${KEY:-}" ] || [ -f "$ODIN_HOME/env" ] || echo "  Clé d'API     : ajoute ANTHROPIC_API_KEY=… dans $ODIN_HOME/env"
+echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"

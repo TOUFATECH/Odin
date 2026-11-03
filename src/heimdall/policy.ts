@@ -1,0 +1,253 @@
+// Heimdall — le gardien du Bifröst. Chaque appel d'outil passe par ici AVANT d'être exécuté.
+//
+// Principe clé : l'autorité des outils dépend de
+// l'ORIGINE du contenu présent dans la conversation (« taint tracking »). Une page web
+// ou un message d'inconnu peut contenir une injection ; dès qu'il est lu, Odin perd le
+// droit d'écrire, d'exécuter ou d'envoyer quoi que ce soit sans validation humaine.
+// C'est vérifié par le code, pas par le prompt.
+
+import { appendFileSync, existsSync, realpathSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import type { OdinConfig, PolicyMode } from '../config.ts';
+import type { Risk } from '../types.ts';
+
+export const RISK_ORDER: Risk[] = ['read', 'write', 'network', 'exec', 'external'];
+export const riskRank = (r: Risk): number => RISK_ORDER.indexOf(r);
+
+export type Severity = 'routine' | 'important' | 'grave' | 'blocked';
+
+export interface ApprovalRequest {
+  id: string;
+  tool: string;
+  risk: Risk;
+  summary: string;
+  reason: string;
+  sessionId: string;
+  /** Gravité estimée par Mímir (si disponible). */
+  severity?: Severity;
+  /** L'utilisateur peut répondre « toujours » (autorisation permanente) ; jamais pour le grave. */
+  grantable: boolean;
+}
+
+/** Réponse humaine : oui, non, ou oui « toujours » (autorisation permanente pour ce type d'action). */
+export type ApprovalAnswer = boolean | 'always';
+
+/** Qui valide : terminal, propriétaire sur Telegram, interface web, refus automatique (tâches planifiées)… */
+export interface Approver {
+  approve(req: ApprovalRequest): Promise<ApprovalAnswer>;
+}
+
+/** Autorisations permanentes données par l'utilisateur (« toujours autoriser npm test »). */
+export interface GrantStore {
+  find(key: string): { id: number } | undefined;
+  add(key: string, tool: string, example: string): void;
+  touch(id: number): void;
+}
+
+export const denyAll: Approver = { approve: async () => false };
+export const allowAll: Approver = { approve: async () => true };
+
+export interface GateInput {
+  tool: string;
+  risk: Risk;
+  summary: string;
+  sessionId: string;
+  tainted: boolean;
+  /** Pour l'outil shell : la commande exacte, contrôlée par les règles dédiées. */
+  command?: string;
+  unattended?: boolean;
+  /** Ce que le propriétaire a demandé dans ce tour (vide si l'auteur n'est pas le propriétaire). */
+  userRequest?: string;
+  /** Un contenu manipulateur a été détecté dans ce tour (Mímir ou règles). */
+  suspicious?: boolean;
+  /** Clé d'autorisation permanente (ex. « shell:npm test », « fs_write:notes »). */
+  grantKey?: string;
+}
+
+export type Via = 'policy' | 'human' | 'mimir' | 'grant';
+export type GateDecision =
+  | { allowed: true; via: Via; severity?: Severity; why?: string; notes?: string[] }
+  | { allowed: false; reason: string; severity?: Severity; notes?: string[] };
+
+/** Avis de Mímir sur une action : une gravité et une explication. Le code de Heimdall garde le dernier mot. */
+export type Review = { severity: Severity; reason: string; flags: string[] };
+/** Lève une erreur si le juge est indisponible (jamais lu comme un « non »). */
+export type Reviewer = (g: GateInput) => Promise<Review>;
+export type Autonomy = 'prudent' | 'equilibre' | 'autonome';
+/** Niveaux de risque soumis à la revue (la lecture et le simple téléchargement n'en ont pas besoin). */
+const REVIEWED: Risk[] = ['write', 'exec', 'external'];
+
+// Commandes refusées dans TOUS les cas, même avec validation humaine.
+const HARD_DENY: RegExp[] = [
+  /\brm\s+(-[a-z]*r[a-z]*f|-[a-z]*f[a-z]*r)[a-z]*\s+(\/|~|\$HOME|\*)(\s|$)/i,
+  /\bmkfs(\.\w+)?\b/,
+  /\bdd\s+[^|]*of=\/dev\//,
+  /:\(\)\s*\{\s*:\|:&\s*\};:/,                  // fork bomb
+  /\b(shutdown|reboot|halt|poweroff)\b/,
+  /\bchmod\s+(-R\s+)?[0-7]*777\s+\//,
+  />\s*\/dev\/sd[a-z]/,
+  /\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(ba|z)?sh\b/,
+  /\bhistory\s+-c\b/,
+  // Windows
+  /\bformat(\.com)?\s+[a-z]:/i,
+  /\b(rd|rmdir)\s+\/s\s+(\/q\s+)?[a-z]:\\?(\s|$)/i,
+  /\bRemove-Item\b[^\n]*-Recurse[^\n]*\s[a-z]:\\?(\s|$)/i,
+  /\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^\n]*\|\s*iex\b/i,
+  /\bStop-Computer\b|\bRestart-Computer\b/i,
+  /\bbcdedit\b|\bdiskpart\b/i,
+];
+
+// Constructions qui rendent une liste blanche inefficace : toujours validation humaine.
+const SHELL_META = /[;&|`$<>]|\$\(|\n/;
+
+export class Heimdall {
+  private seq = 0;
+  private cfg: OdinConfig['policy'];
+  private approver: Approver;
+  private auditFile: string | undefined;
+  constructor(cfg: OdinConfig['policy'], approver: Approver, auditFile?: string) {
+    this.cfg = cfg; this.approver = approver; this.auditFile = auditFile;
+  }
+
+  private reviewer: Reviewer | undefined;
+  private autonomy: Autonomy = 'prudent';
+  private grants: GrantStore | undefined;
+
+  setApprover(a: Approver): void { this.approver = a; }
+
+  /** Branche Mímir et fixe le niveau d'autonomie (prudent, equilibre, autonome). */
+  setReviewer(r: Reviewer | undefined, autonomy: Autonomy = 'equilibre'): void { this.reviewer = r; this.autonomy = autonomy; }
+  setGrantStore(g: GrantStore | undefined): void { this.grants = g; }
+  setAutonomy(a: Autonomy): void { this.autonomy = a; }
+  getAutonomy(): Autonomy { return this.autonomy; }
+
+  /** Décide si un appel d'outil peut s'exécuter. */
+  async gate(g: GateInput): Promise<GateDecision> {
+    if (g.command !== undefined) {
+      const hard = HARD_DENY.find((re) => re.test(g.command!));
+      if (hard) return this.log(g, { allowed: false, reason: `commande interdite (règle ${hard.source})` });
+    }
+
+    let mode: PolicyMode = this.cfg.modes[g.risk];
+    const notes: string[] = [];
+
+    // Liste blanche shell : seulement pour des commandes simples, sans métacaractères.
+    if (g.command !== undefined && mode === 'ask' && this.isAllowlisted(g.command)) {
+      mode = 'allow';
+      notes.push('commande en liste blanche');
+    }
+
+    // Escalade par marquage : contenu non fiable lu → validation obligatoire.
+    if (g.tainted && mode === 'allow' && riskRank(g.risk) >= riskRank(this.cfg.taintEscalatesFrom)) {
+      mode = 'ask';
+      notes.push('la conversation contient du contenu non fiable (web, inconnu)');
+    }
+
+    if (mode === 'deny') return this.log(g, { allowed: false, reason: `niveau « ${g.risk} » interdit par la configuration` });
+
+    // Contenu manipulateur détecté dans ce tour : aucun envoi vers l'extérieur.
+    if (g.suspicious && g.risk === 'external') {
+      return this.log(g, { allowed: false, reason: 'un contenu manipulateur a été détecté dans cette conversation : envoi bloqué' });
+    }
+
+    // Revue par Mímir : le juge estime la gravité, ce code décide selon le niveau d'autonomie.
+    let review: Review | undefined;
+    if (this.reviewer && REVIEWED.includes(g.risk)) {
+      try { review = await this.reviewer(g); } catch (e) { notes.push(`Mímir indisponible (${(e as Error).message.slice(0, 80)}) : politique de base appliquée`); }
+    }
+    if (review) {
+      const sev = review.severity;
+      notes.push(`Mímir : ${review.flags.join(', ') || 'aucun constat'}`);
+      if (sev === 'blocked') return this.log(g, { allowed: false, severity: sev, reason: `Mímir : ${review.reason}`, notes });
+      if (mode === 'allow') {
+        // Action déjà permise par la politique : seule une gravité « grave » la fait remonter jusqu'à toi.
+        if (sev === 'grave') mode = 'ask';
+        else return this.log(g, { allowed: true, via: 'policy', severity: sev, why: review.reason, notes });
+      } else if (this.autonomy !== 'prudent') {
+        const clean = !g.tainted && !g.suspicious;
+        if (sev === 'routine' && clean) return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: review.reason, notes });
+        if (sev === 'important' && clean) {
+          const grant = g.grantKey ? this.grants?.find(g.grantKey) : undefined;
+          if (grant) { this.grants!.touch(grant.id); return this.log(g, { allowed: true, via: 'grant', severity: sev, why: `autorisation permanente « ${g.grantKey} »`, notes }); }
+          if (this.autonomy === 'autonome') return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: `${review.reason} (mode autonome)`, notes });
+        }
+      }
+    }
+
+    if (mode === 'allow') return this.log(g, { allowed: true, via: 'policy', ...(notes.length ? { notes } : {}) });
+
+    // mode 'ask' — sans humain disponible (tâche planifiée), on refuse.
+    if (g.unattended) return this.log(g, { allowed: false, severity: review?.severity, reason: 'validation requise mais exécution sans surveillance', notes });
+    const grantable = Boolean(g.grantKey && this.grants && review && review.severity === 'important' && !g.tainted && !g.suspicious);
+    const req: ApprovalRequest = {
+      id: `a${Date.now().toString(36)}${(this.seq++).toString(36)}`,
+      tool: g.tool,
+      risk: g.risk,
+      summary: g.summary,
+      reason: review ? `${review.severity === 'grave' ? 'GRAVE' : 'Important'} : ${review.reason}` : notes.join(' ; ') || `niveau « ${g.risk} » soumis à validation`,
+      sessionId: g.sessionId,
+      severity: review?.severity,
+      grantable,
+    };
+    const answer = await withTimeout<ApprovalAnswer>(this.approver.approve(req), this.cfg.approvalTimeoutSec * 1000, false);
+    if (answer === 'always' && grantable) {
+      this.grants!.add(g.grantKey!, g.tool, g.summary.slice(0, 200));
+      notes.push(`autorisation permanente ajoutée : « ${g.grantKey} »`);
+    }
+    return this.log(g, answer ? { allowed: true, via: 'human', severity: review?.severity, why: `${answer === 'always' ? 'autorisé par toi, pour toujours' : 'autorisé par toi'} — ${req.reason}`, notes } : { allowed: false, severity: review?.severity, reason: 'refusé par l\'utilisateur (ou délai dépassé)', notes });
+  }
+
+  isAllowlisted(cmd: string): boolean {
+    const c = cmd.trim();
+    if (SHELL_META.test(c)) return false;
+    return this.cfg.shellAllowlist.some((p) => c === p || c.startsWith(p + ' '));
+  }
+
+  private log(g: GateInput, d: GateDecision): GateDecision {
+    if (this.auditFile) {
+      const line = { t: new Date().toISOString(), session: g.sessionId, tool: g.tool, risk: g.risk, tainted: g.tainted, summary: g.summary.slice(0, 300), ...d };
+      try { appendFileSync(this.auditFile, JSON.stringify(line) + '\n'); } catch { /* le journal ne doit jamais bloquer l'agent */ }
+    }
+    return d;
+  }
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((res) => {
+    const t = setTimeout(() => res(fallback), ms);
+    p.then((v) => { clearTimeout(t); res(v); }, () => { clearTimeout(t); res(fallback); });
+  });
+}
+
+/**
+ * Prison de chemins : renvoie un chemin absolu garanti DANS `root`, ou lève une erreur.
+ * Résout les liens symboliques pour empêcher une évasion via `ln -s / sortie`.
+ */
+export function jailPath(root: string, p: string): string {
+  const rootReal = realpathSync(root);
+  const target = isAbsolute(p) ? resolve(p) : resolve(rootReal, p);
+  // On résout le parent existant le plus proche (le fichier peut ne pas encore exister).
+  let probe = target;
+  while (!existsSync(probe) && dirname(probe) !== probe) probe = dirname(probe);
+  const real = join(realpathSync(probe), relative(probe, target));
+  const rel = relative(rootReal, real);
+  if (rel === '' || (!rel.startsWith('..' + sep) && rel !== '..' && !isAbsolute(rel))) return real;
+  throw new Error(`Chemin hors de l'espace de travail refusé : ${p}`);
+}
+
+/** Bloque les adresses internes (SSRF) : localhost, réseaux privés, métadonnées cloud. */
+export function assertPublicUrl(raw: string): URL {
+  const u = new URL(raw);
+  if (!['http:', 'https:'].includes(u.protocol)) throw new Error(`Protocole refusé : ${u.protocol}`);
+  const h = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (isPrivateHost(h)) throw new Error(`Adresse interne refusée : ${h}`);
+  return u;
+}
+
+export function isPrivateHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^::ffff:/, '');
+  return h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.internal') || h.endsWith('.local') ||
+    /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) ||
+    /^0\./.test(h) || h === '0.0.0.0' || h === '::1' || h === '::' || /^f[cd][0-9a-f]{2}:/.test(h) || /^fe80:/.test(h);
+}

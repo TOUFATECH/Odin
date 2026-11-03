@@ -1,0 +1,6 @@
+node_modules/
+.odin/
+*.db
+*.db-wal
+*.db-shm
+.env

@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Odin</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#0B0E14;--panel:#11151D;--panel2:#0E121A;--line:#1F2633;--ink:#E8E6E1;--muted:#A3ACBA;--dim:#8A93A3;--accent:#E2A93B;--good:#7FC8A9;--warn:#F0B860;--bad:#E88E7A}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+a{color:var(--accent)}
+.app{display:flex;height:100vh;height:100dvh}
+nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px;background:var(--panel2)}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 10px 18px;font-weight:800;letter-spacing:.06em;font-size:19px}
+.brand .rune{color:var(--accent);font-size:26px;line-height:1}
+.tab{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--muted);text-align:left}
+.tab:hover{background:#151A24;color:var(--ink)}
+.tab[aria-current=page]{background:#171D29;color:var(--ink)}
+.badge{min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:var(--accent);color:#14100A;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.badge[hidden]{display:none}
+.side .foot{margin-top:auto;padding:12px 10px 0;font-size:13px;color:var(--dim)}
+main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.view{display:none;flex:1;min-height:0}
+.view.on{display:flex;flex-direction:column}
+.head{padding:22px 28px 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.head h1{margin:0;font-size:22px}
+.sub{color:var(--muted);font-size:14px}
+.body{padding:22px 28px;overflow:auto;flex:1}
+.btn{min-height:40px;padding:0 16px;border-radius:10px;border:1px solid #2A3140;background:none}
+.btn:hover{border-color:#3A4458}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#14100A;font-weight:600}
+.btn.small{min-height:34px;padding:0 12px;font-size:14px}
+.btn.danger{color:var(--bad);border-color:#4A2B27}
+/* Discussion */
+.chat{display:flex;flex:1;min-height:0}
+.convs{width:220px;flex:none;border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:6px;overflow:auto}
+.conv{border:0;background:none;text-align:left;padding:10px 12px;border-radius:10px;color:var(--muted);min-height:44px}
+.conv[aria-current=true]{background:#171D29;color:var(--ink)}
+.conv small{display:block;color:var(--dim);font-size:12px}
+.thread{flex:1;min-width:0;display:flex;flex-direction:column}
+.msgs{flex:1;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:14px}
+.msg{max-width:760px;white-space:pre-wrap;word-wrap:break-word}
+.msg.user{align-self:flex-end;background:#1A2130;border:1px solid #273044;padding:12px 16px;border-radius:14px 14px 4px 14px}
+.msg.assistant{align-self:flex-start}
+.msg.assistant .who{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.06em;margin-bottom:4px}
+.activity{align-self:flex-start;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:2px}
+.activity .blocked{color:var(--warn)}
+.approval{align-self:stretch;max-width:760px;border:1px solid #5A4520;background:#1B1710;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.approval .t{color:var(--warn);font-weight:700}
+.approval .row{display:flex;gap:10px;flex-wrap:wrap}
+.approval.done{opacity:.6}
+.approval.grave{border-color:#6B2A22;background:#1F1211}
+.approval.grave .t{color:var(--bad)}
+.activity .decided{color:#8FC1E3}
+.seg{display:inline-flex;border:1px solid #2A3140;border-radius:10px;overflow:hidden}
+.seg button{border:0;background:none;min-height:38px;padding:0 14px;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--accent);color:#14100A;font-weight:600}
+.composer{border-top:1px solid var(--line);padding:16px 28px;display:flex;gap:12px;align-items:flex-end}
+.composer textarea{flex:1;min-height:52px;max-height:220px;resize:vertical;padding:14px 16px;border-radius:12px;border:1px solid #2A3140;background:var(--panel);outline:none}
+.composer textarea:focus{border-color:var(--accent)}
+.typing{color:var(--dim);font-size:14px;padding:0 28px 8px;min-height:22px}
+/* Cartes, tableaux */
+.grid{display:flex;flex-wrap:wrap;gap:16px}
+.card{flex:1 1 300px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card h3{margin:0;font-size:17px}
+.kind{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.on-dot{background:var(--good)}.off-dot{background:#5B6475}.rm-dot{background:var(--bad)}
+.links{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{text-align:left;color:var(--dim);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line)}
+.tbl td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;border:1px solid #2A3140;color:var(--muted)}
+.pill.warn{border-color:#5A4520;color:var(--warn)}.pill.good{border-color:#29453A;color:var(--good)}.pill.bad{border-color:#4A2B27;color:var(--bad)}
+.empty{color:var(--dim);padding:28px 0}
+pre.body-skill{white-space:pre-wrap;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px;max-height:260px;overflow:auto;margin:0}
+.stats{display:flex;flex-wrap:wrap;gap:24px;margin-bottom:22px}
+.stat b{display:block;font-size:26px}
+.stat span{color:var(--muted);font-size:13px}
+.login{margin:auto;max-width:420px;padding:32px;display:flex;flex-direction:column;gap:14px}
+.login input{min-height:48px;padding:0 14px;border-radius:10px;border:1px solid #2A3140;background:var(--panel)}
+label{font-size:14px;color:var(--muted)}
+@media (max-width:860px){
+  .app{flex-direction:column}
+  .head{padding-top:14px}
+  .head .sub{display:none}
+  nav.side{width:auto;flex-direction:row;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line)}
+  .brand{padding:0 10px 0 4px}
+  .side .foot{display:none}
+  .tab{width:auto;white-space:nowrap}
+  .convs{display:none}
+  .head,.body,.msgs,.composer{padding-left:16px;padding-right:16px}
+}
+</style>
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
+  <p class="sub">Colle le jeton affiché par « odin web » (ou contenu du fichier ~/.odin/web-token).</p>
+  <form id="loginForm" method="get" action="/" style="display:flex;flex-direction:column;gap:10px">
+    <label for="tok">Jeton d'accès</label>
+    <input id="tok" name="token" autocomplete="off" required>
+    <button class="btn primary" type="submit">Entrer</button>
+  </form>
+</div>
+
+<div class="app" id="app" hidden>
+  <nav class="side" aria-label="Sections">
+    <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
+    <button class="tab" data-view="chat" aria-current="page">Discussion <span class="badge" id="b-approvals" hidden>0</span></button>
+    <button class="tab" data-view="net">Réseau <span class="badge" id="b-net" hidden>0</span></button>
+    <button class="tab" data-view="memory">Mémoire</button>
+    <button class="tab" data-view="skills">Compétences <span class="badge" id="b-drafts" hidden>0</span></button>
+    <button class="tab" data-view="jobs">Tâches planifiées</button>
+    <button class="tab" data-view="audit">Décisions</button>
+    <div class="foot" id="usage">—</div>
+  </nav>
+
+  <main>
+    <section class="view on" id="v-chat" aria-label="Discussion">
+      <div class="chat">
+        <div class="convs" id="convs" aria-label="Conversations"></div>
+        <div class="thread">
+          <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
+            <div style="display:flex;gap:8px"><button class="btn small" id="newConv">Nouvelle conversation</button><button class="btn small" id="stopBtn">Arrêter</button></div></div>
+          <div class="msgs" id="msgs" aria-live="polite"></div>
+          <div class="typing" id="typing"></div>
+          <form class="composer" id="composer">
+            <label for="input" style="position:absolute;left:-9999px">Message pour Odin</label>
+            <textarea id="input" placeholder="Demande quelque chose à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne"></textarea>
+            <button class="btn primary" type="submit" style="min-height:52px">Envoyer</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-net" aria-label="Réseau">
+      <div class="head"><div><h1>Réseau local</h1><div class="sub" id="netSub">—</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="scanQuick">Balayage rapide</button><button class="btn small primary" id="scanFull">Balayage complet</button></div></div>
+      <div class="body">
+        <div class="stats" id="netStats"></div>
+        <div class="grid" id="devices"></div>
+        <h2 style="font-size:18px;margin:32px 0 12px">Derniers évènements</h2>
+        <div class="wrap"><table class="tbl"><thead><tr><th>Quand</th><th>Appareil</th><th>Évènement</th><th>Détail</th></tr></thead><tbody id="devEvents"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-memory" aria-label="Mémoire">
+      <div class="head"><div><h1>Mémoire</h1><div class="sub">Les souvenirs en quarantaine viennent d'un contenu non fiable : valide-les ou oublie-les.</div></div></div>
+      <div class="body"><div class="wrap"><table class="tbl"><thead><tr><th>#</th><th>Souvenir</th><th>Origine</th><th>Actions</th></tr></thead><tbody id="mems"></tbody></table></div></div>
+    </section>
+
+    <section class="view" id="v-skills" aria-label="Compétences">
+      <div class="head"><div><h1>Compétences</h1><div class="sub">Odin propose, tu relis et tu approuves.</div></div></div>
+      <div class="body"><h2 style="font-size:18px;margin:0 0 12px">Brouillons à relire</h2><div class="grid" id="drafts"></div>
+        <h2 style="font-size:18px;margin:32px 0 12px">Actives</h2><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Version</th><th>Utilisations</th><th>Description</th></tr></thead><tbody id="skills"></tbody></table></div></div>
+    </section>
+
+    <section class="view" id="v-jobs" aria-label="Tâches planifiées">
+      <div class="head"><div><h1>Tâches planifiées</h1><div class="sub">Pour en créer : demande à Odin, par exemple « chaque jour à 18 h, fais mon rapport ».</div></div></div>
+      <div class="body"><div class="wrap"><table class="tbl"><thead><tr><th>Cron</th><th>Demande</th><th>Prochaine exécution</th><th></th></tr></thead><tbody id="jobs"></tbody></table></div></div>
+    </section>
+
+    <section class="view" id="v-audit" aria-label="Journal">
+      <div class="head"><div><h1>Décisions</h1><div class="sub" id="autoSub">Chaque action d'Odin, qui l'a décidée, et pourquoi.</div></div>
+        <div class="seg" role="group" aria-label="Niveau d'autonomie"><button data-auto="prudent">Prudent</button><button data-auto="equilibre">Équilibré</button><button data-auto="autonome">Autonome</button></div></div>
+      <div class="body">
+        <div class="wrap"><table class="tbl"><thead><tr><th>Heure</th><th>Gravité</th><th>Décision</th><th>Action et raison</th></tr></thead><tbody id="audit"></tbody></table></div>
+        <h2 style="font-size:18px;margin:32px 0 12px">Autorisations permanentes</h2>
+        <div class="wrap"><table class="tbl"><thead><tr><th>Type d'action</th><th>Exemple</th><th>Utilisations</th><th></th></tr></thead><tbody id="grants"></tbody></table></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script nonce="__NONCE__">
+(() => {
+  const AUTHED = __AUTHED__;
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') n.className = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (v !== false && v != null) n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const k of kids.flat()) if (k != null) n.append(k instanceof Node ? k : document.createTextNode(String(k)));
+    return n;
+  };
+  const fmt = (t) => t ? new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  if (!AUTHED) { $('#login').hidden = false; return; }
+  $('#app').hidden = false;
+
+  let state = null, peer = localStorage.getItem('odin.peer') || 'principal', busy = false;
+  const answered = new Set();
+
+  async function api(path, body) {
+    const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : {});
+    if (r.status === 401) { location.reload(); throw new Error('session expirée'); }
+    return r.json();
+  }
+
+  // ---------- Navigation ----------
+  for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => show(b.dataset.view));
+  function show(v) {
+    for (const b of document.querySelectorAll('.tab')) { if (b.dataset.view === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
+    for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
+  }
+
+  // ---------- Discussion ----------
+  const msgs = $('#msgs');
+  let activity = null;
+  function addMsg(role, text) {
+    activity = null;
+    const m = text.match(/\/yes ([A-Za-z0-9]+)/);
+    if (role === 'assistant' && m && /validation|GRAVE/i.test(text)) return addApproval(text, m[1]);
+    const node = role === 'assistant' ? el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'ODIN'), text) : el('div', { class: 'msg user' }, text);
+    msgs.append(node); msgs.scrollTop = msgs.scrollHeight;
+  }
+  function addApproval(text, id) {
+    const grave = /GRAVE/.test(text), always = /\/always [A-Za-z0-9]+/.test(text);
+    const body = text.split('\n').filter((l) => !/^Réponds \//.test(l) && !/^(⚠️|🛑)/.test(l)).join('\n').trim();
+    const box = el('div', { class: 'approval' + (grave ? ' grave' : '') + (answered.has(id) ? ' done' : '') },
+      el('div', { class: 't' }, grave ? 'Décision grave : Odin a besoin de toi' : 'Validation demandée'), el('div', { style: 'white-space:pre-wrap' }, body));
+    const row = el('div', { class: 'row' },
+      el('button', { class: 'btn primary', onclick: () => answer(id, true, box) }, 'Autoriser'),
+      always ? el('button', { class: 'btn', onclick: () => answer(id, 'always', box), title: 'Ne plus me demander pour ce type d\'action' }, 'Toujours autoriser') : null,
+      el('button', { class: 'btn', onclick: () => answer(id, false, box) }, 'Refuser'));
+    if (!answered.has(id)) { box.append(row); pending.add(id); }
+    msgs.append(box); msgs.scrollTop = msgs.scrollHeight; badges();
+  }
+  const pending = new Set();
+  async function answer(id, ok, box) {
+    answered.add(id); pending.delete(id); box.classList.add('done'); box.querySelector('.row')?.remove();
+    box.append(el('div', { class: 'sub' }, ok === 'always' ? 'Autorisé, et autorisé pour la suite.' : ok ? 'Autorisé.' : 'Refusé.'));
+    await api('/api/message', { peer, text: `/${ok === 'always' ? 'always' : ok ? 'yes' : 'no'} ${id}` }); badges();
+  }
+  function addActivity(e) {
+    if (!activity) { activity = el('div', { class: 'activity' }); msgs.append(activity); }
+    if (e.type === 'tool_start') activity.append(el('span', {}, `⚙ ${e.name}`));
+    else if (e.type === 'tool_end') activity.append(el('span', {}, `${e.ok ? '✓' : '✗'} ${e.preview.replace(/\s+/g, ' ').slice(0, 110)}`));
+    else if (e.type === 'blocked') activity.append(el('span', { class: 'blocked' }, `⛔ ${e.name} : ${e.reason}`));
+    else if (e.type === 'compacted') activity.append(el('span', {}, `♻ contexte résumé`));
+    else if (e.type === 'decision' && e.allowed && (e.via === 'mimir' || e.via === 'grant')) activity.append(el('span', { class: 'decided' }, `🛡 décidé seul (${e.via === 'grant' ? 'autorisation permanente' : e.severity}) : ${e.summary} — ${e.why}`));
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+  async function loadHistory() {
+    msgs.textContent = ''; activity = null;
+    const h = await api('/api/history?peer=' + encodeURIComponent(peer));
+    for (const m of h.messages) { const yes = m.text.match(/\/yes ([A-Za-z0-9]+)/); if (yes) answered.add(yes[1]); addMsg(m.role, m.text); }
+    if (!h.messages.length) msgs.append(el('div', { class: 'empty' }, 'Nouvelle conversation. Essaie : « Quels appareils sont sur mon réseau ? » ou « Range mon dossier Téléchargements ».'));
+    $('#convTitle').textContent = peer === 'principal' ? 'Discussion' : (state?.conversations.find((c) => c.peer === peer)?.title || 'Conversation');
+  }
+  $('#composer').addEventListener('submit', (ev) => { ev.preventDefault(); send(); });
+  $('#input').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); send(); } });
+  async function send() {
+    const t = $('#input').value.trim(); if (!t) return;
+    $('#input').value = ''; msgs.querySelector('.empty')?.remove();
+    addMsg('user', t); setBusy(true);
+    await api('/api/message', { peer, text: t });
+  }
+  function setBusy(b) { busy = b; $('#typing').textContent = b ? 'Odin réfléchit…' : ''; }
+  $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
+  $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
+
+  function renderConvs() {
+    const box = $('#convs'); box.textContent = '';
+    const list = [...(state?.conversations || [])];
+    if (!list.some((c) => c.peer === peer)) list.unshift({ peer, title: 'Nouvelle conversation', updated: Date.now() });
+    for (const c of list) box.append(el('button', { class: 'conv', 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); } },
+      (c.tainted ? '⚠ ' : '') + (c.title || c.peer), el('small', {}, fmt(c.updated))));
+  }
+
+  // ---------- Réseau ----------
+  function renderNet() {
+    const n = state.network, d = state.devices;
+    $('#netSub').textContent = n.enabled ? `Balayage automatique toutes les ${n.intervalMin} min · dernier : ${fmt(n.lastScan?.at)}` : `Balayage automatique désactivé (odin net enable) · dernier : ${fmt(n.lastScan?.at)}`;
+    const on = d.filter((x) => x.status === 'online').length, off = d.filter((x) => x.status === 'offline').length, rm = d.filter((x) => x.status === 'removed').length;
+    $('#netStats').replaceChildren(
+      el('div', { class: 'stat' }, el('b', {}, on), el('span', {}, 'en ligne')),
+      el('div', { class: 'stat' }, el('b', {}, off), el('span', {}, 'déconnectés')),
+      el('div', { class: 'stat' }, el('b', {}, rm), el('span', {}, 'retirés')));
+    const grid = $('#devices'); grid.textContent = '';
+    if (!d.length) grid.append(el('div', { class: 'empty' }, 'Aucun appareil connu. Lance un balayage complet.'));
+    for (const x of d) {
+      const dot = x.status === 'online' ? 'on-dot' : x.status === 'offline' ? 'off-dot' : 'rm-dot';
+      const links = x.links.map((l) => el('li', {}, l.action + ' — ', /^https?:\/\//.test(l.how) ? el('a', { href: l.how, target: '_blank', rel: 'noopener noreferrer' }, l.how) : l.how));
+      grid.append(el('article', { class: 'card' },
+        el('div', { class: 'kind' }, el('span', { class: 'dot ' + dot, 'aria-hidden': 'true' }), `${x.kind} · ${x.status === 'online' ? 'en ligne' : x.status === 'offline' ? 'déconnecté' : 'retiré'}`),
+        el('h3', {}, x.label),
+        el('div', { class: 'sub mono' }, `${x.ip}${x.mac ? ' · ' + x.mac : ''}`),
+        x.ports.length ? el('div', { class: 'sub' }, 'Ports : ' + x.ports.join(', ')) : null,
+        links.length ? el('ul', { class: 'links' }, links) : null,
+        el('div', { class: 'sub' }, `Vu depuis le ${fmt(x.first_seen)} · dernière fois ${fmt(x.last_seen)}`),
+        el('div', {}, el('button', { class: 'btn small', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'))));
+    }
+    $('#devEvents').replaceChildren(...state.deviceEvents.map((e) => el('tr', {}, el('td', {}, fmt(e.at)), el('td', {}, e.device), el('td', {}, el('span', { class: 'pill ' + (e.kind === 'nouveau' ? 'good' : e.kind === 'retiré' || e.kind === 'déconnecté' ? 'bad' : '') }, e.kind)), el('td', { class: 'sub' }, e.detail))));
+    const recent = state.deviceEvents.filter((e) => Date.now() - e.at < 86400000 && e.kind !== 'reconnecté').length;
+    $('#b-net').hidden = !recent; $('#b-net').textContent = recent;
+  }
+  $('#scanQuick').addEventListener('click', () => { $('#netSub').textContent = 'Balayage rapide en cours…'; api('/api/action', { kind: 'net_scan', full: false }); });
+  $('#scanFull').addEventListener('click', () => { $('#netSub').textContent = 'Balayage complet en cours (environ 30 secondes)…'; api('/api/action', { kind: 'net_scan', full: true }); });
+
+  // ---------- Mémoire, compétences, tâches, journal ----------
+  function renderMemory() {
+    $('#mems').replaceChildren(...state.memories.map((m) => el('tr', {},
+      el('td', { class: 'sub' }, m.id), el('td', {}, (m.pinned ? '📌 ' : '') + m.content),
+      el('td', {}, el('span', { class: 'pill ' + (m.origin === 'untrusted' ? 'warn' : m.origin === 'owner' ? 'good' : '') }, m.origin === 'untrusted' ? 'quarantaine' : m.origin === 'owner' ? 'validé' : 'Odin')),
+      el('td', { style: 'white-space:nowrap' },
+        m.origin === 'untrusted' ? el('button', { class: 'btn small', onclick: () => api('/api/action', { kind: 'memory_vouch', id: m.id }) }, 'Valider') : el('button', { class: 'btn small', onclick: () => api('/api/action', { kind: 'memory_pin', id: m.id, on: !m.pinned }) }, m.pinned ? 'Désépingler' : 'Épingler'), ' ',
+        el('button', { class: 'btn small danger', onclick: () => confirm('Oublier ce souvenir ?') && api('/api/action', { kind: 'memory_forget', id: m.id }) }, 'Oublier')))));
+    if (!state.memories.length) $('#mems').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucun souvenir pour l\'instant.')));
+  }
+  function renderSkills() {
+    const dr = $('#drafts'); dr.textContent = '';
+    if (!state.drafts.length) dr.append(el('div', { class: 'empty' }, 'Aucun brouillon. Odin en proposera après des tâches en plusieurs étapes.'));
+    for (const s of state.drafts) dr.append(el('article', { class: 'card' },
+      el('div', { class: 'kind' }, `brouillon · v${s.version}`), el('h3', {}, s.name), el('div', { class: 'sub' }, s.description),
+      s.reason ? el('div', { class: 'sub' }, 'Pourquoi : ' + s.reason) : null,
+      s.warnings ? el('div', {}, el('span', { class: 'pill warn' }, 'Alerte : ' + s.warnings)) : null,
+      el('pre', { class: 'body-skill' }, s.body),
+      el('div', { style: 'display:flex;gap:8px' }, el('button', { class: 'btn small primary', onclick: () => api('/api/action', { kind: 'skill_approve', name: s.name }) }, 'Approuver'),
+        el('button', { class: 'btn small danger', onclick: () => api('/api/action', { kind: 'skill_reject', name: s.name }) }, 'Rejeter'))));
+    $('#skills').replaceChildren(...state.skills.map((s) => el('tr', {}, el('td', {}, s.name), el('td', {}, 'v' + s.version), el('td', {}, s.uses), el('td', { class: 'sub' }, s.description))));
+    if (!state.skills.length) $('#skills').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune compétence active.')));
+    $('#b-drafts').hidden = !state.drafts.length; $('#b-drafts').textContent = state.drafts.length;
+  }
+  function renderJobs() {
+    $('#jobs').replaceChildren(...state.jobs.map((j) => el('tr', {}, el('td', { class: 'mono' }, j.cron), el('td', {}, j.prompt), el('td', {}, fmt(j.next_run)),
+      el('td', {}, el('button', { class: 'btn small danger', onclick: () => confirm('Supprimer cette tâche ?') && api('/api/action', { kind: 'cron_remove', id: j.id }) }, 'Supprimer')))));
+    if (!state.jobs.length) $('#jobs').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune tâche planifiée.')));
+  }
+  const AUTO_TXT = { prudent: 'Prudent : Odin te demande pour chaque action soumise à validation.', equilibre: 'Équilibré : Odin décide seul la routine, te demande pour l\'important et le grave.', autonome: 'Autonome : Odin décide seul la routine et l\'important, ne te demande que pour le grave.' };
+  for (const b of document.querySelectorAll('[data-auto]')) b.addEventListener('click', () => api('/api/action', { kind: 'set_autonomy', autonomy: b.dataset.auto }));
+  function renderAudit() {
+    for (const b of document.querySelectorAll('[data-auto]')) b.setAttribute('aria-pressed', String(b.dataset.auto === state.autonomy));
+    $('#autoSub').textContent = (AUTO_TXT[state.autonomy] || '') + (state.judge ? ` Juge : ${state.judge}.` : '');
+    const label = (a) => !a.allowed ? 'refusé' : a.via === 'mimir' ? 'décidé seul' : a.via === 'grant' ? 'autorisation permanente' : a.via === 'human' ? 'autorisé par toi' : 'autorisé';
+    const pill = (a) => !a.allowed ? 'bad' : a.via === 'mimir' || a.via === 'grant' ? 'good' : '';
+    $('#audit').replaceChildren(...state.audit.map((a) => el('tr', {}, el('td', { class: 'sub' }, fmt(a.t)),
+      el('td', {}, a.severity ? el('span', { class: 'pill ' + (a.severity === 'grave' || a.severity === 'blocked' ? 'bad' : a.severity === 'important' ? 'warn' : '') }, a.severity) : '—'),
+      el('td', {}, el('span', { class: 'pill ' + pill(a) }, label(a))),
+      el('td', {}, el('div', {}, a.summary), el('div', { class: 'sub' }, a.allowed ? (a.why || '') : a.reason)))));
+    $('#grants').replaceChildren(...(state.grants || []).map((g) => el('tr', {}, el('td', { class: 'mono' }, g.key), el('td', { class: 'sub' }, g.example), el('td', {}, g.uses),
+      el('td', {}, el('button', { class: 'btn small danger', onclick: () => api('/api/action', { kind: 'grant_revoke', id: g.id }) }, 'Retirer')))));
+    if (!(state.grants || []).length) $('#grants').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune. Réponds « Toujours autoriser » à une demande importante pour en créer une.')));
+  }
+  function badges() { $('#b-approvals').hidden = !pending.size; $('#b-approvals').textContent = pending.size; }
+
+  async function refresh() {
+    state = await api('/api/state');
+    $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
+    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit();
+  }
+
+  // ---------- Flux temps réel ----------
+  function connect() {
+    const es = new EventSource('/api/stream');
+    es.onmessage = (ev) => {
+      const d = JSON.parse(ev.data);
+      if (d.type === 'message' && d.peer === peer) { addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
+      else if (d.type === 'message') refresh();
+      else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') addActivity(d.event);
+      else if (d.type === 'refresh') refresh();
+    };
+    es.onerror = () => { es.close(); setTimeout(connect, 3000); };
+  }
+  refresh().then(loadHistory); connect();
+})();
+</script>
+</body>
+</html>

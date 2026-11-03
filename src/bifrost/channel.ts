@@ -1,0 +1,38 @@
+// Bifröst — le pont entre Odin et les messageries. Un canal = une petite classe.
+import type { AgentEvent } from '../types.ts';
+
+export interface Inbound {
+  channel: string;
+  peer: string;
+  name: string;
+  text: string;
+}
+
+export interface Channel {
+  readonly name: string;
+  /** Le canal permet-il de répondre « /yes id » pour valider une action ? */
+  readonly interactive: boolean;
+  start(onMessage: (m: Inbound) => Promise<void>): Promise<void>;
+  send(peer: string, text: string): Promise<void>;
+  stop(): Promise<void>;
+  /** Destinataire par défaut quand tout détenteur du jeton est propriétaire (interface web). */
+  readonly defaultPeer?: string;
+  /** Progression d'un tour (outils en cours…), pour les canaux qui savent l'afficher. */
+  event?(peer: string, e: AgentEvent): void;
+  /** Signale qu'une donnée a changé (inventaire, compétences…), pour rafraîchir l'affichage. */
+  notify?(topic: string): void;
+}
+
+/** Découpe un long texte en morceaux sans couper au milieu d'une ligne si possible. */
+export function chunk(text: string, size = 3900): string[] {
+  const out: string[] = [];
+  let rest = text;
+  while (rest.length > size) {
+    let cut = rest.lastIndexOf('\n', size);
+    if (cut < size / 2) cut = size;
+    out.push(rest.slice(0, cut));
+    rest = rest.slice(cut).replace(/^\n/, '');
+  }
+  if (rest) out.push(rest);
+  return out;
+}
