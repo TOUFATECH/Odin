@@ -11,8 +11,6 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         node: ['22', '24']
     runs-on: ${{ matrix.os }}
-    # Windows : certains tests supposent un shell POSIX ; résultat indicatif pour l'instant.
-    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
