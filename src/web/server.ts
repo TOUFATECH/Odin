@@ -18,6 +18,7 @@ import type { Autonomy } from '../heimdall/policy.ts';
 import { deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
+import { applySettings, providerFor, settingsView, testProvider, type ModelPreset } from '../settings.ts';
 
 export function ensureWebToken(paths: OdinPaths): string {
   const f = join(paths.home, 'web-token');
@@ -30,6 +31,8 @@ export function ensureWebToken(paths: OdinPaths): string {
 
 export interface WebHooks {
   scanNetwork(full: boolean): Promise<unknown>;
+  /** Relance les services avec la nouvelle configuration (fourni par la passerelle). */
+  reload?(): Promise<void>;
 }
 
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
@@ -166,6 +169,7 @@ export class WebChannel implements Channel {
       grants: muninn.listGrants(),
       autonomy: cfg.mimir.enabled ? cfg.mimir.autonomy : 'prudent',
       judge: this.odin.mimir?.judgeName ?? null,
+      settings: settingsView(cfg, Boolean(this.odin.demo)),
       audit,
     };
   }
@@ -189,6 +193,27 @@ export class WebChannel implements Channel {
         this.odin.cfg.mimir.autonomy = a;
         this.odin.heimdall.setAutonomy(a);
         break;
+      }
+      case 'settings_save': {
+        let restart: boolean;
+        try { restart = applySettings(this.odin.paths, this.odin.cfg, String(b.section), b); } catch (e) { return { ok: false, error: (e as Error).message }; }
+        for (const v of [b.apiKey, b.token, b.value]) if (typeof v === 'string') this.odin.redactor.add(v.trim());
+        if (restart && this.hooks.reload) {
+          // On répond d'abord : la page se reconnecte toute seule au flux après le redémarrage.
+          setTimeout(() => void this.hooks.reload!().catch((e) => console.error('[web] redémarrage :', (e as Error).message)), 200);
+          return { ok: true, reloading: true };
+        }
+        this.notify('state');
+        return { ok: true, reloading: false, restartNeeded: restart };
+      }
+      case 'settings_test': {
+        try {
+          const p = providerFor({ preset: String(b.preset) as ModelPreset, model: String(b.model ?? ''), baseUrl: typeof b.baseUrl === 'string' ? b.baseUrl : undefined });
+          // Clé saisie mais pas encore enregistrée : on la teste sans l'écrire.
+          const key = typeof b.apiKey === 'string' ? b.apiKey.trim() : '';
+          const env = key && p.apiKeyEnv ? { ...process.env, [p.apiKeyEnv]: key } : process.env;
+          return await testProvider(p, 20_000, env);
+        } catch (e) { return { ok: false, message: (e as Error).message }; }
       }
       case 'conversation_reset': muninn.resetSession(`web:${safePeer(b.peer as string)}`); break;
       case 'net_scan': void this.hooks.scanNetwork(Boolean(b.full)); return { ok: true, started: true };

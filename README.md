@@ -83,19 +83,18 @@ Dans un conteneur, parle à Odin par Telegram ou par l'API HTTP (`"http": { "hos
 
 ## Premiers pas
 
-### 1. Donner un cerveau à Odin
+### 1. Choisir le modèle dans l'interface web
 
-Odin fonctionne avec le modèle de ton choix. L'installateur te demande ta clé ; tu peux aussi la mettre plus tard dans `~/.odin/env` (lisible par toi seul) :
+À la fin de l'installation, l'interface web s'ouvre sur l'onglet **Réglages** (sinon : `odin web`).
+
+1. Choisis un fournisseur : **Anthropic**, **OpenRouter**, **OpenAI**, **Ollama** (local, sans clé) ou un autre service compatible OpenAI.
+2. Colle ta clé d'API, clique **Tester**, puis **Enregistrer**. Odin redémarre ses services tout seul et sort du mode démo.
+3. Dans le même onglet : niveau d'autonomie, juge des décisions, bot Telegram, suivi du réseau local.
+
+Les clés sont écrites dans `~/.odin/env` (lisible par toi seul) : jamais dans `config.json`, jamais renvoyées à la page. Tu peux aussi éditer ce fichier à la main :
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-…          # Claude (recommandé)
-# ou OPENROUTER_API_KEY=sk-or-…     # des centaines de modèles
-```
-
-**Sans clé, 100 % local** avec [Ollama](https://ollama.com) : dans `~/.odin/config.json` :
-
-```json
-"providers": [{ "kind": "openai", "model": "qwen3:14b", "baseUrl": "http://localhost:11434/v1" }]
+ANTHROPIC_API_KEY=sk-ant-…
 ```
 
 Sans aucun modèle, Odin démarre en **mode démo** pour que tu puisses explorer.
@@ -131,6 +130,7 @@ Essaie : *« Quels appareils sont sur mon réseau ? »*, *« Range mon dossier T
 | **Compétences** | relire et approuver les compétences qu'Odin propose |
 | **Tâches planifiées** | voir et supprimer les tâches récurrentes |
 | **Décisions** | tout ce qu'Odin a fait, qui l'a décidé et pourquoi ; niveau d'autonomie ; autorisations permanentes |
+| **Réglages** | modèle et clés (avec test), autonomie et juge, Telegram, réseau local, accès |
 
 L'interface n'écoute que sur ta machine. Depuis ton téléphone : tunnel SSH, Tailscale, ou Telegram.
 
@@ -141,9 +141,8 @@ L'interface n'écoute que sur ta machine. Depuis ton téléphone : tunnel SSH, T
 ### Telegram
 
 1. Crée un bot avec [@BotFather](https://t.me/BotFather) (`/newbot`) et copie son jeton.
-2. Ajoute `TELEGRAM_BOT_TOKEN=…` dans `~/.odin/env`.
-3. Dans `~/.odin/config.json` : `"telegram": { "enabled": true, "tokenEnv": "TELEGRAM_BOT_TOKEN", "owners": [] }`.
-4. Lance `odin web` (ou `odin gateway`) et écris à ton bot : il te répond avec ton identifiant. Mets-le dans `owners`, puis relance.
+2. Dans l'interface web, **Réglages → Telegram** : colle le jeton, coche « Activer », enregistre.
+3. Écris à ton bot : il te répond avec ton identifiant. Ajoute-le dans « Tes identifiants Telegram » et enregistre : Odin relance le canal tout seul.
 
 Dans Telegram : `/stop` interrompt, `/new` repart de zéro, `/status` affiche les coûts, `/yes ID` · `/always ID` · `/no ID` répondent aux validations. Un inconnu reçoit un code d'appairage ; tu l'acceptes avec `odin pairing approve telegram CODE`.
 
@@ -306,7 +305,7 @@ La personnalité d'Odin est dans `~/.odin/ODIN.md` : modifie-la librement.
 |---|---|
 | `odin : commande introuvable` | ouvre un nouveau terminal (le PATH a été mis à jour) |
 | Odin répond « mode démo » | ajoute une clé dans `~/.odin/env` ou configure Ollama, puis `odin doctor` |
-| Telegram ne répond pas | vérifie `TELEGRAM_BOT_TOKEN`, `enabled: true`, ton identifiant dans `owners`, puis `odin doctor` |
+| Telegram ne répond pas | Réglages → Telegram : jeton enregistré, « Activer » coché, ton identifiant ajouté ; puis `odin doctor` |
 | Odin me demande trop souvent | réponds « toujours » aux demandes importantes récurrentes, ou `odin jev autonomy autonome` |
 | Aucun appareil trouvé | la machine doit être sur un réseau privé (Wi-Fi, Ethernet) ; lance `odin net scan --full` |
 
@@ -331,7 +330,8 @@ npm run check      # vérification des types + tests
 | `src/tools` | outils (**Gungnir**) |
 | `src/bifrost` | passerelle et canaux |
 | `src/hlidskjalf` | inventaire du réseau |
-| `src/web` | interface web |
+| `src/web` | interface web (dont l'onglet Réglages) |
+| `src/settings.ts` | réglages modifiables depuis le web : modèle, clés (~/.odin/env), Telegram, réseau |
 | `src/providers` · `src/cron` · `src/cli` | modèles · planification · commandes |
 
 Ajouter un outil = un objet avec un nom, une description, un **niveau de risque** et une fonction `run` ; Heimdall et Mímir s'occupent du reste.

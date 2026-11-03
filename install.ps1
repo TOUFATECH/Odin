@@ -9,7 +9,8 @@
 #    2. télécharge Odin dans %LOCALAPPDATA%\Odin\app ;
 #    3. crée la commande « odin » et l'ajoute au PATH de l'utilisateur ;
 #    4. initialise %USERPROFILE%\.odin ;
-#    5. propose : clé d'API, inventaire du réseau local, démarrage à l'ouverture de session.
+#    5. propose : inventaire du réseau local, démarrage à l'ouverture de session ;
+#    6. ouvre l'interface web : tu y choisis le modèle et tes clés (onglet Réglages).
 #
 #  Variables utiles : $env:ODIN_YES = "1", $env:ODIN_NO_SERVICE = "1", $env:ODIN_NO_SCAN = "1",
 #  $env:ODIN_REPO = "<url git>".
@@ -109,14 +110,7 @@ Ok "Configuration créée dans $OdinHome"
 # ---------- 4. Choix ----------
 Write-Host ''
 Gold 'Réglages'
-if ($env:ODIN_YES -ne '1' -and -not [Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY', 'User')) {
-  $sec = Read-Host '  Clé Anthropic (Entrée pour passer)' -AsSecureString
-  $key = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
-  if ($key) {
-    [Environment]::SetEnvironmentVariable('ANTHROPIC_API_KEY', $key, 'User'); $env:ANTHROPIC_API_KEY = $key
-    Ok 'Clé enregistrée dans tes variables d''environnement utilisateur'
-  } else { Info 'Sans clé, Odin démarre en mode démo. Modèle local possible avec Ollama.' }
-}
+Info 'Le modèle, les clés et Telegram se règlent ensuite dans l''interface web (onglet Réglages).'
 
 if ($env:ODIN_NO_SCAN -ne '1' -and (Ask 'Inventorier les appareils de ton réseau local (et suivre leurs changements) ?')) {
   & $Odin net enable | Out-Null
@@ -135,15 +129,20 @@ if ($env:ODIN_NO_SERVICE -ne '1' -and (Ask 'Lancer Odin automatiquement à l''ou
   Ok 'Démarrage automatique installé (Planificateur de tâches, sans droits administrateur)'
 }
 
-# ---------- Fin ----------
+# ---------- Fin : configuration dans le navigateur ----------
 Write-Host ''
 Gold 'ᛟ  Odin est installé'
+Write-Host '  Dernière étape : choisis ton modèle dans l''interface web, onglet Réglages.'
 if ($service) {
-  Start-Sleep -Seconds 3
-  $tok = Get-Content (Join-Path $OdinHome 'web-token') -ErrorAction SilentlyContinue
-  Write-Host "  Interface web : http://127.0.0.1:7777/?token=$tok"
-} else { Write-Host '  Interface web : odin web' }
-Write-Host '  Terminal      : odin chat'
-Write-Host '  Diagnostic    : odin doctor'
-Write-Host '  Réseau        : odin net list'
-Write-Host '  (ouvre un nouveau terminal si la commande « odin » est introuvable)'
+  $tokFile = Join-Path $OdinHome 'web-token'
+  for ($i = 0; $i -lt 10 -and -not (Test-Path $tokFile); $i++) { Start-Sleep -Seconds 1 }
+  $url = "http://127.0.0.1:7777/?token=$(Get-Content $tokFile -ErrorAction SilentlyContinue)"
+  Write-Host "  Interface web : $url"
+  Start-Process $url
+  Write-Host '  Plus tard     : odin web (rouvre l''interface) · odin doctor (diagnostic)'
+  Write-Host '  (ouvre un nouveau terminal si la commande « odin » est introuvable)'
+} else {
+  Write-Host '  Plus tard     : odin web (rouvre l''interface) · odin gateway (tout en arrière-plan)'
+  Write-Host '  (ouvre un nouveau terminal si la commande « odin » est introuvable)'
+  if ($env:ODIN_YES -ne '1' -and (Ask 'Ouvrir l''interface web maintenant ? (Ctrl+C pour l''arrêter)')) { & $Odin web }
+}

@@ -19,6 +19,7 @@ import { NETWORK_TOOLS } from './tools/network.ts';
 import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
 import { Mimir } from './mimir/decisions.ts';
+import { loadEnvFile } from './settings.ts';
 
 export interface Odin {
   paths: OdinPaths;
@@ -30,6 +31,9 @@ export interface Odin {
   tools: ToolRegistry;
   inventory: Inventory;
   mimir?: Mimir;
+  redactor: Redactor;
+  /** Vrai quand Odin tourne sans vrai modèle (mode démo) : l'interface propose alors la configuration. */
+  demo?: boolean;
   close(): void;
 }
 
@@ -47,6 +51,7 @@ export interface CreateOptions {
 export function createOdin(opts: CreateOptions = {}): Odin {
   const paths = odinPaths(opts.home);
   initHome(paths);
+  loadEnvFile(paths); // clés enregistrées depuis l'interface web ou l'installateur
   let cfg = loadConfig(paths);
   if (opts.configOverride) cfg = opts.configOverride(cfg);
   ensureWorkspace(paths.workspace);
@@ -85,5 +90,5 @@ export function createOdin(opts: CreateOptions = {}): Odin {
 
   const persona = existsSync(paths.persona) ? readFileSync(paths.persona, 'utf8') : DEFAULT_PERSONA;
   const agent = new Agent({ cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, persona, send: opts.send, inventory, mimir });
-  return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, close: () => muninn.close() };
+  return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, close: () => muninn.close() };
 }

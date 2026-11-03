@@ -24,6 +24,11 @@ export class Redactor {
     this.exact = knownSecrets.filter((s) => s && s.length >= 8);
   }
 
+  /** Ajoute un secret saisi en cours de route (ex. clé enregistrée depuis l'interface web). */
+  add(secret: string): void {
+    if (secret && secret.length >= 8 && !this.exact.includes(secret)) this.exact.push(secret);
+  }
+
   redact(text: string): string {
     let out = text;
     for (const s of this.exact) out = out.split(s).join('[SECRET]');

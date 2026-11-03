@@ -150,24 +150,29 @@ async function runOnce(prompt: string): Promise<void> {
   process.exitCode = r.stopReason === 'done' ? 0 : 1;
 }
 
-async function gateway(openBrowser = false): Promise<void> {
+let stopping: (() => Promise<void>) | undefined;
+
+async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   let gw: Gateway | undefined;
   const send = (ch: string, peer: string, text: string) => gw!.send(ch, peer, text);
   let odin: Odin;
-  try { odin = createOdin({ provider: demo ? demoProvider() : undefined, send }); } catch (e) {
+  try { odin = createOdin({ provider: demo ? demoProvider() : undefined, send }); if (demo) odin.demo = true; } catch (e) {
     if (!/Aucun fournisseur/.test((e as Error).message)) throw e;
-    console.log(c.yellow('Aucune clé de modèle configurée : démarrage en mode démo. Définis ANTHROPIC_API_KEY (ou un Ollama local) puis relance.'));
+    console.log(c.yellow('Aucun modèle configuré : démarrage en mode démo. Ouvre l\'interface web, onglet Réglages, pour en choisir un.'));
     odin = createOdin({ provider: demoProvider(), send });
+    odin.demo = true;
   }
   const owners: Record<string, string[]> = {};
   gw = new Gateway(odin, { owners });
   const tg = odin.cfg.channels.telegram;
   if (tg?.enabled) {
     const token = process.env[tg.tokenEnv];
-    if (!token) throw new Error(`Variable ${tg.tokenEnv} absente`);
-    if (!tg.owners.length) console.log(c.yellow('[bifrost] aucun propriétaire Telegram : ajoute ton identifiant dans channels.telegram.owners'));
-    owners.telegram = tg.owners.map(String);
-    gw.add(new TelegramChannel(token));
+    if (!token) console.log(c.yellow(`[bifrost] Telegram activé mais ${tg.tokenEnv} absente : canal ignoré (Réglages → Telegram)`));
+    else {
+      if (!tg.owners.length) console.log(c.yellow('[bifrost] aucun propriétaire Telegram : écris au bot, puis ajoute ton identifiant dans Réglages → Telegram'));
+      owners.telegram = tg.owners.map(String);
+      gw.add(new TelegramChannel(token));
+    }
   }
   const http = odin.cfg.channels.http;
   if (http?.enabled) {
@@ -176,18 +181,34 @@ async function gateway(openBrowser = false): Promise<void> {
     owners.http = ['*']; // quiconque détient le jeton est le propriétaire
     gw.add(new HttpChannel(http.port, token, http.host ?? '127.0.0.1'));
   }
+  const shutdown = async () => { await gw!.stop(); odin.close(); };
+  // Rechargement demandé par l'onglet Réglages : on arrête tout puis on relance avec la nouvelle config.
+  const reload = async () => {
+    console.log(c.dim('[odin] nouveaux réglages : redémarrage des services…'));
+    await shutdown();
+    try { await gateway(false, true); } catch (e) {
+      console.error(c.red(`[odin] redémarrage impossible : ${(e as Error).message}`));
+      process.exit(1);
+    }
+  };
   if (odin.cfg.web.enabled || openBrowser) {
     owners.web = ['*']; // quiconque détient le jeton local est le propriétaire
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full) }, { port: odin.cfg.web.port, host: odin.cfg.web.host, token: ensureWebToken(odin.paths) });
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), reload }, { port: odin.cfg.web.port, host: odin.cfg.web.host, token: ensureWebToken(odin.paths) });
     gw.add(web);
     await gw.start();
-    console.log(`\n${c.cyan('ᛟ')} Interface web : ${c.bold(web.url)}\n${c.dim('  (lien personnel : il contient ton jeton d\'accès, ne le partage pas)')}\n`);
+    if (!reloaded) {
+      console.log(`\n${c.cyan('ᛟ')} Interface web : ${c.bold(web.url)}\n${c.dim('  (lien personnel : il contient ton jeton d\'accès, ne le partage pas)')}\n`);
+      if (odin.demo) console.log(c.yellow('  → Termine la configuration dans l\'onglet Réglages.\n'));
+    } else console.log(c.dim('[odin] services relancés'));
     if (openBrowser) openUrl(web.url);
   } else await gw.start();
   if (odin.cfg.network.enabled) void gw.tick();
-  const stop = async () => { console.log('\n[bifrost] arrêt…'); await gw!.stop(); odin.close(); process.exit(0); };
-  process.on('SIGINT', stop);
-  process.on('SIGTERM', stop);
+  stopping = shutdown;
+  if (!reloaded) {
+    const stop = async () => { console.log('\n[bifrost] arrêt…'); await stopping?.(); process.exit(0); };
+    process.on('SIGINT', stop);
+    process.on('SIGTERM', stop);
+  }
 }
 
 function openUrl(url: string): void {

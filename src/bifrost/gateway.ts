@@ -84,7 +84,7 @@ export class Gateway {
       const status = this.odin.muninn.pairingStatus(m.channel, m.peer);
       if (status !== 'approved') {
         const code = this.odin.muninn.requestPairing(m.channel, m.peer, m.name);
-        return ch.send(m.peer, `Bonjour ! Je ne te connais pas encore. Code d'appairage : ${code}\nDemande à mon propriétaire de lancer : odin pairing approve ${m.channel} ${code}\n(Ton identifiant ${m.channel} : ${m.peer} — si tu es le propriétaire, ajoute-le dans channels.${m.channel}.owners.)`);
+        return ch.send(m.peer, `Bonjour ! Je ne te connais pas encore. Code d'appairage : ${code}\nDemande à mon propriétaire de lancer : odin pairing approve ${m.channel} ${code}\n(Ton identifiant ${m.channel} : ${m.peer} — si tu es le propriétaire, ajoute-le dans l'interface web, Réglages → Telegram.)`);
       }
     }
     if (owner && /^\/pair\s+(\S+)/i.test(text)) {

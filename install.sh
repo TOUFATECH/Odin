@@ -10,7 +10,8 @@
 #    2. télécharge Odin dans ~/.odin/app ;
 #    3. crée la commande « odin » dans ~/.local/bin ;
 #    4. initialise ~/.odin (configuration, persona, mémoire) ;
-#    5. te propose : clé d'API, inventaire du réseau local, démarrage automatique.
+#    5. te propose : inventaire du réseau local, démarrage automatique ;
+#    6. ouvre l'interface web : tu y choisis le modèle et tes clés (onglet Réglages).
 #
 #  Variables utiles : ODIN_YES=1 (tout accepter), ODIN_NO_SERVICE=1, ODIN_NO_SCAN=1,
 #  ODIN_REPO=<url git>, ODIN_HOME=<dossier>.
@@ -124,16 +125,7 @@ ok "Configuration créée dans $ODIN_HOME"
 # ---------- 5. Choix ----------
 echo
 gold "Réglages"
-if [ ! -f "$ODIN_HOME/env" ] && [ -r /dev/tty ] && [ "${ODIN_YES:-}" != "1" ]; then
-  printf '  Clé Anthropic (Entrée pour passer, ou plus tard dans %s/env) : ' "$ODIN_HOME" > /dev/tty
-  stty -echo < /dev/tty 2>/dev/null || true; read -r KEY < /dev/tty || KEY=""; stty echo < /dev/tty 2>/dev/null || true; echo > /dev/tty
-  if [ -n "$KEY" ]; then
-    umask 077; printf 'ANTHROPIC_API_KEY=%s\n' "$KEY" > "$ODIN_HOME/env"; chmod 600 "$ODIN_HOME/env"
-    ok "Clé enregistrée dans $ODIN_HOME/env (lisible par toi seul)"
-  else
-    info "Sans clé, Odin démarre en mode démo. Modèle local possible avec Ollama."
-  fi
-fi
+info "Le modèle, les clés et Telegram se règlent ensuite dans l'interface web (onglet Réglages)."
 
 if [ "${ODIN_NO_SCAN:-}" != "1" ] && ask "Inventorier les appareils de ton réseau local (et suivre leurs changements) ?" o; then
   "$BIN_DIR/odin" net enable >/dev/null
@@ -182,18 +174,25 @@ EOF
   fi
 fi
 
-# ---------- Fin ----------
+# ---------- Fin : configuration dans le navigateur ----------
+open_url() {
+  if [ "$OS" = darwin ]; then open "$1" >/dev/null 2>&1 || true
+  elif command -v xdg-open >/dev/null; then xdg-open "$1" >/dev/null 2>&1 || true; fi
+}
 echo
 gold "ᛟ  Odin est installé"
-TOKEN="$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
+echo "  Dernière étape : choisis ton modèle dans l'interface web, onglet Réglages."
 if [ -n "$SERVICE" ]; then
-  sleep 2; TOKEN="$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
-  echo "  Interface web : http://127.0.0.1:7777/?token=$TOKEN"
+  for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$ODIN_HOME/web-token" ] && break; sleep 1; done
+  URL="http://127.0.0.1:7777/?token=$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
+  echo "  Interface web : $URL"
+  open_url "$URL"
+  echo "  Plus tard     : odin web (rouvre l'interface) · odin doctor (diagnostic)"
+  echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"
 else
-  echo "  Interface web : odin web"
+  echo "  Plus tard     : odin web (rouvre l'interface) · odin gateway (tout en arrière-plan)"
+  echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"
+  if [ "${ODIN_YES:-}" != "1" ] && ask "Ouvrir l'interface web maintenant ? (Ctrl+C pour l'arrêter)" o; then
+    exec "$BIN_DIR/odin" web
+  fi
 fi
-echo "  Terminal      : odin chat"
-echo "  Diagnostic    : odin doctor"
-echo "  Réseau        : odin net list"
-[ -n "${KEY:-}" ] || [ -f "$ODIN_HOME/env" ] || echo "  Clé d'API     : ajoute ANTHROPIC_API_KEY=… dans $ODIN_HOME/env"
-echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"

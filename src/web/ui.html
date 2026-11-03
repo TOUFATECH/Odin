@@ -10,7 +10,8 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-button,input,textarea{font:inherit;color:inherit}
+button,input,textarea,select{font:inherit;color:inherit}
+select option{background:var(--panel);color:var(--ink)}
 button{cursor:pointer}
 code,pre,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 a{color:var(--accent)}
@@ -86,6 +87,26 @@ pre.body-skill{white-space:pre-wrap;background:var(--panel2);border:1px solid va
 .login{margin:auto;max-width:420px;padding:32px;display:flex;flex-direction:column;gap:14px}
 .login input{min-height:48px;padding:0 14px;border-radius:10px;border:1px solid #2A3140;background:var(--panel)}
 label{font-size:14px;color:var(--muted)}
+/* Réglages */
+.form{display:flex;flex-direction:column;gap:14px;max-width:760px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field input,.field select{color:var(--ink);min-height:44px;padding:0 12px;border-radius:10px;border:1px solid #2A3140;background:var(--panel2);outline:none;width:100%}
+.field .seg{align-self:flex-start}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.hint{font-size:13px;color:var(--dim)}
+.choices{display:flex;flex-wrap:wrap;gap:8px}
+.choice{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid #2A3140;background:none;color:var(--muted)}
+.choice[aria-pressed=true]{border-color:var(--accent);color:var(--ink);background:#1B1710}
+.check{display:flex;align-items:center;gap:10px;min-height:40px;color:var(--ink)}
+.check input{width:20px;height:20px;accent-color:var(--accent)}
+.status{font-size:14px;min-height:20px}
+.status.ok{color:var(--good)}.status.err{color:var(--bad)}
+.welcome{border:1px solid #5A4520;background:#1B1710;border-radius:14px;padding:16px 18px;margin-bottom:20px}
+.welcome b{color:var(--accent)}
+.notice{margin:12px 28px 0;border:1px solid #5A4520;background:#1B1710;border-radius:12px;padding:10px 14px;font-size:14px}
+.settings .card{flex-basis:100%}
+.settings h2{font-size:18px;margin:0}
+ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 @media (max-width:860px){
   .app{flex-direction:column}
   .head{padding-top:14px}
@@ -119,6 +140,7 @@ label{font-size:14px;color:var(--muted)}
     <button class="tab" data-view="skills">Compétences <span class="badge" id="b-drafts" hidden>0</span></button>
     <button class="tab" data-view="jobs">Tâches planifiées</button>
     <button class="tab" data-view="audit">Décisions</button>
+    <button class="tab" data-view="settings">Réglages <span class="badge" id="b-settings" hidden>!</span></button>
     <div class="foot" id="usage">—</div>
   </nav>
 
@@ -129,6 +151,7 @@ label{font-size:14px;color:var(--muted)}
         <div class="thread">
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
             <div style="display:flex;gap:8px"><button class="btn small" id="newConv">Nouvelle conversation</button><button class="btn small" id="stopBtn">Arrêter</button></div></div>
+          <div class="notice" id="demoNotice" hidden>Odin n'a pas encore de modèle (mode démo). <a href="#" id="goSettings">Ouvre les Réglages</a> pour en choisir un : c'est l'affaire d'une minute.</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="typing" id="typing"></div>
           <form class="composer" id="composer">
@@ -174,6 +197,64 @@ label{font-size:14px;color:var(--muted)}
         <div class="wrap"><table class="tbl"><thead><tr><th>Heure</th><th>Gravité</th><th>Décision</th><th>Action et raison</th></tr></thead><tbody id="audit"></tbody></table></div>
         <h2 style="font-size:18px;margin:32px 0 12px">Autorisations permanentes</h2>
         <div class="wrap"><table class="tbl"><thead><tr><th>Type d'action</th><th>Exemple</th><th>Utilisations</th><th></th></tr></thead><tbody id="grants"></tbody></table></div>
+      </div>
+    </section>
+    <section class="view" id="v-settings" aria-label="Réglages">
+      <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
+      <div class="body settings">
+        <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.</div>
+        <div class="grid">
+          <article class="card"><form class="form" id="f-model">
+            <h2>Modèle</h2>
+            <div class="field"><label>Fournisseur</label><div class="choices" id="presetChoices" role="group" aria-label="Fournisseur"></div></div>
+            <div class="field"><label for="m-model">Nom du modèle</label><input id="m-model" autocomplete="off" spellcheck="false"></div>
+            <div class="field" id="m-urlField"><label for="m-url">Adresse du service</label><input id="m-url" autocomplete="off" spellcheck="false" placeholder="http://localhost:11434/v1"></div>
+            <div class="field" id="m-keyField"><label for="m-key">Clé d'API</label><input id="m-key" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="m-keyHint"></span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="m-test">Tester</button><button class="btn primary" type="submit">Enregistrer</button></div>
+            <div class="status" id="m-status" role="status"></div>
+          </form></article>
+
+          <article class="card"><form class="form" id="f-mimir">
+            <h2>Décisions</h2>
+            <div class="field"><label>Autonomie</label><div class="seg" role="group" aria-label="Niveau d'autonomie"><button type="button" data-auto="prudent">Prudent</button><button type="button" data-auto="equilibre">Équilibré</button><button type="button" data-auto="autonome">Autonome</button></div><span class="hint" id="autoHint"></span></div>
+            <div class="field"><label for="j-judge">Juge de Mímir</label><select id="j-judge">
+              <option value="auto">Automatique (local, puis Jev si une clé est présente)</option>
+              <option value="local">Local, sans clé (instantané)</option>
+              <option value="local+llm">Local, puis le modèle en cas de doute</option>
+              <option value="llm">Le modèle choisi ci-dessus</option>
+              <option value="local+jev">Local, puis Jev en cas de doute</option>
+              <option value="jev">Jev (TypeSafe)</option>
+            </select></div>
+            <div class="field" id="j-keyField"><label for="j-key">Clé Jev (facultative)</label><input id="j-key" type="password" autocomplete="off"><span class="hint" id="j-keyHint"></span></div>
+            <div><button class="btn primary" type="submit">Enregistrer</button></div>
+            <div class="status" id="j-status" role="status"></div>
+          </form></article>
+
+          <article class="card"><form class="form" id="f-telegram">
+            <h2>Telegram</h2>
+            <ol class="steps"><li>Dans Telegram, écris à <b>@BotFather</b>, envoie <code>/newbot</code> et copie le jeton.</li><li>Colle-le ci-dessous, coche « Activer » et enregistre.</li><li>Écris à ton bot : il répond avec un code ; ajoute ton identifiant ci-dessous (ou accepte le code avec <code>odin pairing approve telegram &lt;code&gt;</code>).</li></ol>
+            <label class="check"><input type="checkbox" id="t-enabled"> Activer Telegram</label>
+            <div class="field"><label for="t-token">Jeton du bot</label><input id="t-token" type="password" autocomplete="off" placeholder="123456789:ABC…"><span class="hint" id="t-tokenHint"></span></div>
+            <div class="field"><label for="t-owners">Tes identifiants Telegram (propriétaires)</label><input id="t-owners" autocomplete="off" placeholder="ex. 123456789"><span class="hint">Les propriétaires peuvent tout demander ; les autres doivent être appairés.</span></div>
+            <div><button class="btn primary" type="submit">Enregistrer</button></div>
+            <div class="status" id="t-status" role="status"></div>
+          </form></article>
+
+          <article class="card"><form class="form" id="f-network">
+            <h2>Réseau local</h2>
+            <label class="check"><input type="checkbox" id="n-enabled"> Suivre les appareils du réseau (balayage automatique)</label>
+            <div class="field"><label for="n-interval">Intervalle entre deux balayages (minutes)</label><input id="n-interval" type="number" min="5" max="1440" step="5"></div>
+            <label class="check"><input type="checkbox" id="n-notify"> Me prévenir quand un appareil apparaît, se déconnecte ou disparaît</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" id="n-scan">Balayer maintenant</button></div>
+            <div class="status" id="n-status" role="status"></div>
+          </form></article>
+
+          <article class="card">
+            <h2>Accès et service</h2>
+            <div class="sub" id="accessInfo"></div>
+            <ul class="links"><li>Ouvrir l'interface : <code>odin web</code></li><li>Tout faire tourner en arrière-plan : <code>odin gateway</code> (installé comme service si tu l'as accepté à l'installation)</li><li>Diagnostic : <code>odin doctor</code> · Mettre Odin à jour : <code>odin update</code></li></ul>
+          </article>
+        </div>
       </div>
     </section>
   </main>
@@ -278,7 +359,7 @@ label{font-size:14px;color:var(--muted)}
   // ---------- Réseau ----------
   function renderNet() {
     const n = state.network, d = state.devices;
-    $('#netSub').textContent = n.enabled ? `Balayage automatique toutes les ${n.intervalMin} min · dernier : ${fmt(n.lastScan?.at)}` : `Balayage automatique désactivé (odin net enable) · dernier : ${fmt(n.lastScan?.at)}`;
+    $('#netSub').textContent = n.enabled ? `Balayage automatique toutes les ${n.intervalMin} min · dernier : ${fmt(n.lastScan?.at)}` : `Balayage automatique désactivé (Réglages → Réseau local) · dernier : ${fmt(n.lastScan?.at)}`;
     const on = d.filter((x) => x.status === 'online').length, off = d.filter((x) => x.status === 'offline').length, rm = d.filter((x) => x.status === 'removed').length;
     $('#netStats').replaceChildren(
       el('div', { class: 'stat' }, el('b', {}, on), el('span', {}, 'en ligne')),
@@ -349,12 +430,78 @@ label{font-size:14px;color:var(--muted)}
       el('td', {}, el('button', { class: 'btn small danger', onclick: () => api('/api/action', { kind: 'grant_revoke', id: g.id }) }, 'Retirer')))));
     if (!(state.grants || []).length) $('#grants').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune. Réponds « Toujours autoriser » à une demande importante pour en créer une.')));
   }
+
+  // ---------- Réglages ----------
+  let preset = null, settingsShown = false;
+  const st = (id, text, ok) => { const n = $(id); n.textContent = text; n.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); };
+  function keyHint(name) { const k = state.settings.secrets[name]; return k && k.set ? `Clé enregistrée (${k.hint}). Laisse vide pour la garder.` : 'Aucune clé enregistrée.'; }
+  function pickPreset(p, keepModel) {
+    preset = p; const S = state.settings, P = S.presets[p];
+    for (const b of document.querySelectorAll('#presetChoices .choice')) b.setAttribute('aria-pressed', String(b.dataset.preset === p));
+    if (!keepModel) { $('#m-model').value = P ? P.model : ''; $('#m-url').value = P ? P.baseUrl : ''; }
+    $('#m-urlField').hidden = !(p === 'ollama' || p === 'custom');
+    const keyEnv = p === 'custom' ? 'OPENAI_API_KEY' : P?.keyEnv;
+    $('#m-keyField').hidden = !keyEnv;
+    if (keyEnv) $('#m-keyHint').textContent = keyHint(keyEnv) + (p === 'anthropic' ? ' Clé sur console.anthropic.com.' : p === 'openrouter' ? ' Clé sur openrouter.ai/keys.' : '');
+  }
+  function renderSettings() {
+    const S = state.settings; if (!S) return;
+    $('#welcome').hidden = !S.demo; $('#demoNotice').hidden = !S.demo; $('#b-settings').hidden = !S.demo;
+    const box = $('#presetChoices');
+    if (!box.children.length) {
+      for (const [k, v] of Object.entries(S.presets)) box.append(el('button', { type: 'button', class: 'choice', 'data-preset': k, onclick: () => pickPreset(k) }, v.label));
+      box.append(el('button', { type: 'button', class: 'choice', 'data-preset': 'custom', onclick: () => pickPreset('custom') }, 'Autre service compatible OpenAI'));
+    }
+    if (!settingsDirty) {
+      pickPreset(S.model.preset, true);
+      $('#m-model').value = S.model.model; $('#m-url').value = S.model.baseUrl || (S.presets[S.model.preset]?.baseUrl ?? '');
+      $('#j-judge').value = S.mimir.judge;
+      $('#t-enabled').checked = S.telegram.enabled; $('#t-owners').value = S.telegram.owners.join(', ');
+      $('#n-enabled').checked = S.network.enabled; $('#n-interval').value = S.network.intervalMin; $('#n-notify').checked = S.network.notify;
+    }
+    $('#j-keyHint').textContent = keyHint('JEV_API_KEY'); $('#t-tokenHint').textContent = keyHint('TELEGRAM_BOT_TOKEN').replace('Clé', 'Jeton');
+    $('#j-keyField').hidden = !/jev|auto/.test($('#j-judge').value);
+    $('#autoHint').textContent = AUTO_TXT[state.autonomy] || '';
+    $('#accessInfo').textContent = `Interface sur http://127.0.0.1:${S.web.port}, accessible uniquement depuis cet ordinateur. Pour y accéder à distance, passe par un tunnel SSH ou Tailscale.`;
+    if (S.demo && !settingsShown) { settingsShown = true; show('settings'); }
+  }
+  let settingsDirty = false;
+  for (const f of document.querySelectorAll('.settings form')) f.addEventListener('input', () => { settingsDirty = true; });
+  $('#j-judge').addEventListener('change', () => { $('#j-keyField').hidden = !/jev|auto/.test($('#j-judge').value); });
+  $('#goSettings').addEventListener('click', (e) => { e.preventDefault(); show('settings'); });
+
+  async function waitBack() {
+    await new Promise((r) => setTimeout(r, 1000)); // laisse l'ancien serveur s'arrêter
+    for (let i = 0; i < 40; i++) {
+      await new Promise((r) => setTimeout(r, 500));
+      try { if ((await fetch('/health')).ok) { settingsDirty = false; await refresh(); return true; } } catch { /* pas encore relancé */ }
+    }
+    return false;
+  }
+  async function save(section, body, statusId, okText) {
+    st(statusId, 'Enregistrement…');
+    const r = await api('/api/action', { kind: 'settings_save', section, ...body });
+    if (!r.ok) return st(statusId, r.error || 'Erreur', false);
+    if (r.reloading) { st(statusId, 'Enregistré. Odin redémarre ses services…'); const back = await waitBack(); return st(statusId, back ? okText : 'Enregistré. Relance Odin pour appliquer.', back); }
+    settingsDirty = false; st(statusId, r.restartNeeded ? 'Enregistré. Relance Odin (odin gateway) pour appliquer.' : okText, true);
+  }
+  const modelBody = () => ({ preset, model: $('#m-model').value.trim(), baseUrl: $('#m-url').value.trim(), apiKey: $('#m-key').value.trim() });
+  $('#m-test').addEventListener('click', async () => {
+    st('#m-status', 'Test en cours…');
+    const r = await api('/api/action', { kind: 'settings_test', ...modelBody() });
+    st('#m-status', (r.ok ? '✓ ' : '✗ ') + r.message, r.ok);
+  });
+  $('#f-model').addEventListener('submit', async (e) => { e.preventDefault(); await save('model', modelBody(), '#m-status', '✓ Modèle enregistré. Odin est prêt : passe à la Discussion.'); $('#m-key').value = ''; });
+  $('#f-mimir').addEventListener('submit', async (e) => { e.preventDefault(); await save('mimir', { judge: $('#j-judge').value, apiKey: $('#j-key').value.trim() }, '#j-status', '✓ Juge enregistré.'); $('#j-key').value = ''; });
+  $('#f-telegram').addEventListener('submit', async (e) => { e.preventDefault(); await save('telegram', { enabled: $('#t-enabled').checked, token: $('#t-token').value.trim(), owners: $('#t-owners').value }, '#t-status', '✓ Telegram enregistré.'); $('#t-token').value = ''; });
+  $('#f-network').addEventListener('submit', async (e) => { e.preventDefault(); await save('network', { enabled: $('#n-enabled').checked, intervalMin: Number($('#n-interval').value), notify: $('#n-notify').checked }, '#n-status', '✓ Réseau enregistré.'); });
+  $('#n-scan').addEventListener('click', () => { st('#n-status', 'Balayage complet lancé (environ 30 secondes) : résultats dans l\'onglet Réseau.'); api('/api/action', { kind: 'net_scan', full: true }); });
   function badges() { $('#b-approvals').hidden = !pending.size; $('#b-approvals').textContent = pending.size; }
 
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit();
+    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings();
   }
 
   // ---------- Flux temps réel ----------
@@ -367,6 +514,8 @@ label{font-size:14px;color:var(--muted)}
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') addActivity(d.event);
       else if (d.type === 'refresh') refresh();
     };
+    let opened = false;
+    es.onopen = () => { if (opened) refresh(); opened = true; };
     es.onerror = () => { es.close(); setTimeout(connect, 3000); };
   }
   refresh().then(loadHistory); connect();
