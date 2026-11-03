@@ -107,16 +107,38 @@ label{font-size:14px;color:var(--muted)}
 .settings .card{flex-basis:100%}
 .settings h2{font-size:18px;margin:0}
 ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
+.mbar{display:none}
 @media (max-width:860px){
   .app{flex-direction:column}
-  .head{padding-top:14px}
-  .head .sub{display:none}
-  nav.side{width:auto;flex-direction:row;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line)}
-  .brand{padding:0 10px 0 4px}
+  .mbar{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
+  .mbar .brand{padding:0;font-size:17px}
+  .mcur{flex:1;min-width:0;color:var(--muted);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mbtn{min-height:44px;display:inline-flex;align-items:center;gap:8px}
+  nav.side{display:none;width:auto;padding:8px 12px 12px;border-right:0;border-bottom:1px solid var(--line);flex-direction:row;flex-wrap:wrap;gap:6px}
+  nav.side.open{display:flex}
+  nav.side>.brand{display:none}
   .side .foot{display:none}
-  .tab{width:auto;white-space:nowrap}
+  .tab{width:auto;flex:1 1 44%;white-space:nowrap;border:1px solid var(--line)}
   .convs{display:none}
+  .head{padding-top:14px;padding-bottom:12px}
+  .head .sub{display:none}
+  .head h1{font-size:20px}
   .head,.body,.msgs,.composer{padding-left:16px;padding-right:16px}
+  .body{padding-top:16px}
+  .composer{padding-top:10px;padding-bottom:10px;gap:8px}
+  .composer textarea{min-height:48px}
+  .notice{margin:10px 16px 0}
+  .msg{max-width:100%}
+  /* Tableaux empilés en fiches */
+  .wrap{border:0;overflow:visible}
+  .tbl,.tbl tbody,.tbl tr,.tbl td{display:block;width:auto}
+  .tbl thead{display:none}
+  .tbl tr{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:10px;background:var(--panel)}
+  .tbl td{border:0;padding:4px 0}
+  .tbl td[data-label]::before{content:attr(data-label);display:block;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+  .tbl td.empty{padding:6px 0}
+  .stats{gap:18px}
+  .settings .card{padding:16px}
 }
 </style>
 </head>
@@ -132,7 +154,12 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 </div>
 
 <div class="app" id="app" hidden>
-  <nav class="side" aria-label="Sections">
+  <div class="mbar">
+    <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
+    <span class="mcur" id="mcur">Discussion</span>
+    <button class="btn small mbtn" id="menuBtn" type="button" aria-expanded="false" aria-controls="sideNav">Menu <span class="badge" id="b-menu" hidden>!</span></button>
+  </div>
+  <nav class="side" id="sideNav" aria-label="Sections">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
     <button class="tab" data-view="chat" aria-current="page">Discussion <span class="badge" id="b-approvals" hidden>0</span></button>
     <button class="tab" data-view="net">Réseau <span class="badge" id="b-net" hidden>0</span></button>
@@ -287,8 +314,11 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 
   // ---------- Navigation ----------
   for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => show(b.dataset.view));
+  const menuBtn = $('#menuBtn'), sideNav = $('#sideNav');
+  menuBtn.addEventListener('click', () => { const o = !sideNav.classList.contains('open'); sideNav.classList.toggle('open', o); menuBtn.setAttribute('aria-expanded', String(o)); });
   function show(v) {
-    for (const b of document.querySelectorAll('.tab')) { if (b.dataset.view === v) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }
+    sideNav.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false');
+    for (const b of document.querySelectorAll('.tab')) { if (b.dataset.view === v) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = b.firstChild.textContent.trim(); } else b.removeAttribute('aria-current'); }
     for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
   }
 
@@ -496,12 +526,19 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   $('#f-telegram').addEventListener('submit', async (e) => { e.preventDefault(); await save('telegram', { enabled: $('#t-enabled').checked, token: $('#t-token').value.trim(), owners: $('#t-owners').value }, '#t-status', '✓ Telegram enregistré.'); $('#t-token').value = ''; });
   $('#f-network').addEventListener('submit', async (e) => { e.preventDefault(); await save('network', { enabled: $('#n-enabled').checked, intervalMin: Number($('#n-interval').value), notify: $('#n-notify').checked }, '#n-status', '✓ Réseau enregistré.'); });
   $('#n-scan').addEventListener('click', () => { st('#n-status', 'Balayage complet lancé (environ 30 secondes) : résultats dans l\'onglet Réseau.'); api('/api/action', { kind: 'net_scan', full: true }); });
-  function badges() { $('#b-approvals').hidden = !pending.size; $('#b-approvals').textContent = pending.size; }
+  // Sur téléphone, chaque ligne de tableau devient une fiche : on y recopie le titre de colonne.
+  function labelTables() {
+    for (const t of document.querySelectorAll('table.tbl')) {
+      const heads = [...t.querySelectorAll('thead th')].map((h) => h.textContent.trim());
+      for (const tr of t.querySelectorAll('tbody tr')) [...tr.children].forEach((td, i) => { if (heads[i] && !td.hasAttribute('colspan')) td.setAttribute('data-label', heads[i]); });
+    }
+  }
+  function badges() { $('#b-approvals').hidden = !pending.size; $('#b-approvals').textContent = pending.size; if (pending.size) $('#b-menu').hidden = false; }
 
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings();
+    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------

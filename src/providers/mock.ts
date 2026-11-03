@@ -38,6 +38,6 @@ export function demoProvider(): MockProvider {
     if (/souviens|mémoire|remember/i.test(text)) {
       return { toolCalls: [{ id: `demo_${Date.now()}`, name: 'memory_search', input: { query: text } }] };
     }
-    return { text: `(mode démo, sans modèle) Tu as dit : « ${text.slice(0, 200)} ». Définis ANTHROPIC_API_KEY (ou un autre fournisseur) pour un vrai cerveau.` };
+    return { text: `(mode démo, sans modèle) Tu as dit : « ${text.slice(0, 200)} ». Choisis un modèle dans l'onglet Réglages de l'interface web (odin web) pour un vrai cerveau.` };
   });
 }
