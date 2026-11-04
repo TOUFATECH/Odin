@@ -48,6 +48,8 @@ export interface RunOptions {
   trusted?: boolean;
   /** Aucun humain pour valider (tâche planifiée) : toute demande de validation est refusée. */
   unattended?: boolean;
+  /** Sous-agent : demande d'origine du propriétaire (le but rédigé par le modèle n'en tient pas lieu). */
+  ownerRequest?: string;
   signal?: AbortSignal;
   onEvent?: (e: AgentEvent) => void;
   maxSteps?: number;
@@ -79,7 +81,7 @@ export interface RunResult {
   reflection?: Promise<string | undefined>;
 }
 
-const SUBAGENT_FORBIDDEN = new Set(['delegate', 'send_message', 'schedule_task', 'schedule_cancel', 'skill_propose', 'memory_save']);
+const SUBAGENT_FORBIDDEN = new Set(['delegate', 'send_message', 'schedule_task', 'schedule_cancel', 'reminder_set', 'skill_propose', 'memory_save', 'codex_run']);
 
 export class Agent {
   readonly deps: AgentDeps;
@@ -105,7 +107,7 @@ export class Agent {
 
     // 1. Message entrant : celui d'un non-propriétaire est enveloppé et marque la session.
     // État du tour partagé avec l'exécution des outils.
-    const turn = { suspicious: false, userRequest: trusted ? userText : '' };
+    const turn = { suspicious: false, userRequest: o.ownerRequest ?? (trusted ? userText : '') };
     let content = trusted ? userText : wrapUntrusted(`${channel}:${peer}`, userText);
     if (!trusted) {
       turn.suspicious = scanForInjection(userText).suspicious;
@@ -166,7 +168,7 @@ export class Agent {
         return r.text;
       },
       send: this.deps.send,
-      delegate: depth === 0 ? (tasks) => this.delegate(tasks, o, tainted) : undefined,
+      delegate: depth === 0 ? (tasks) => this.delegate(tasks, o, tainted, turn.userRequest) : undefined,
     };
 
     for (let step = 1; step <= maxSteps; step++) {
@@ -231,7 +233,7 @@ export class Agent {
     // 5. Apprentissage rapide : retenir ce qui compte de cet échange (préférences, environnement,
     //    missions), en arrière-plan, à partir de TES messages seulement (jamais d'une page web).
     const learning: Array<Promise<unknown>> = [];
-    if (depth === 0 && cfg.learning.observe && trusted && res.stopReason === 'done' && userText.trim().length >= 12) {
+    if (depth === 0 && cfg.learning.observe && trusted && !tainted && res.stopReason === 'done' && userText.trim().length >= 12) {
       learning.push(this.observe(userText, res.text, emit, signal).catch(() => undefined));
     }
     // 6. Boucle d'apprentissage : après une tâche complexe réussie, apprendre une compétence.
@@ -296,8 +298,9 @@ export class Agent {
       let content = this.deps.redactor.redact(r.output);
       const tainted = Boolean(tool.taints || r.tainted);
       if (tainted) {
-        if (scanForInjection(content).suspicious) turn.suspicious = true;
-        const warn = await this.inspect(content, tool.name, ctx.signal);
+        // On examine le contenu SANS l'enveloppe <untrusted> ajoutée par l'outil (sinon elle se dénoncerait elle-même).
+        if (scanForInjection(stripEnvelope(content)).suspicious) turn.suspicious = true;
+        const warn = await this.inspect(stripEnvelope(content), tool.name, ctx.signal);
         if (warn) { content += warn.text; turn.suspicious ||= warn.suspicious; }
       }
       emit({ type: 'tool_end', name: tool.name, ok: true, preview: content.slice(0, 160) });
@@ -310,7 +313,7 @@ export class Agent {
   }
 
   /** Sleipnir — le cheval à huit jambes : sous-agents parallèles, outils restreints. */
-  private async delegate(tasks: Array<{ goal: string; context?: string }>, parent: RunOptions, parentTainted: boolean): Promise<ToolResult> {
+  private async delegate(tasks: Array<{ goal: string; context?: string }>, parent: RunOptions, parentTainted: boolean, ownerRequest = ''): Promise<ToolResult> {
     const sub = new Agent({
       ...this.deps,
       router: this.deps.router,
@@ -323,6 +326,7 @@ export class Agent {
       trusted: !parentTainted,
       startTainted: parentTainted,
       unattended: parent.unattended,
+      ownerRequest,
       signal: parent.signal,
       depth: 1,
       maxSteps: Math.min(12, this.deps.cfg.agent.maxSteps),
@@ -338,7 +342,7 @@ export class Agent {
     if (cut <= 0) return;
     const old = hist.slice(0, cut);
     const prev = muninn.getSession(sessionId)!.summary;
-    const router = this.deps.router; // résumé : tâche simple, un modèle local suffit
+    const router = this.deps.cheapRouter ?? this.deps.router; // résumé : tâche simple, un modèle local suffit
     let summary: string;
     try {
       const r = await router.complete({
@@ -357,7 +361,7 @@ export class Agent {
 
   /** Réflexion après une tâche : faut-il en tirer une compétence réutilisable ? */
   private async reflect(goal: string, turn: Message[], tainted: boolean, emit: (e: AgentEvent) => void): Promise<string | undefined> {
-    const router = this.deps.router;
+    const router = this.deps.cheapRouter ?? this.deps.router;
     const existing = this.deps.skills.list().map((s) => s.name).join(', ') || 'aucune';
     const r = await router.complete({
       system: `Tu analyses une tâche que l'agent vient de réussir. Si elle révèle une procédure réutilisable (plusieurs étapes, pièges évités), réponds UNIQUEMENT par un JSON :
@@ -381,7 +385,7 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
 
   /** Retient jusqu'à 3 faits durables de l'échange (vérifiés par Mímir : pas de secret, pas d'éphémère). */
   private async observe(userText: string, answer: string, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<string[]> {
-    const router = this.deps.router;
+    const router = this.deps.cheapRouter ?? this.deps.router;
     const known = this.deps.muninn.recall(userText, 6).map((m) => `- ${m.content}`).join('\n') || '(rien)';
     const r = await router.complete({
       system: `Tu aides un agent à apprendre vite sur son propriétaire. À partir de l'échange, extrais au plus 3 faits DURABLES et utiles plus tard :
@@ -429,6 +433,11 @@ export function grantKeyFor(tool: string, input: Record<string, unknown>, comman
   if (typeof input.channel === 'string' && typeof input.peer === 'string') return `${tool}:${input.channel}:${input.peer}`;
   if (typeof input.manager === 'string') return `${tool}:${input.manager}`;
   return tool;
+}
+
+/** Retire l'enveloppe <untrusted …>…</untrusted> posée par un outil, pour n'analyser que le contenu. */
+function stripEnvelope(t: string): string {
+  return t.replace(/<untrusted[^>]*>/gi, '').replace(/<\/untrusted>/gi, '');
 }
 
 async function sequential<T, R>(items: T[], fn: (x: T) => Promise<R>): Promise<R[]> {

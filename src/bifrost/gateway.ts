@@ -28,6 +28,7 @@ export class Gateway {
   private pendingApprovals = new Map<string, (answer: ApprovalAnswer) => void>();
   private timer?: NodeJS.Timeout;
   private scanning = false;
+  private ticking = false;
 
   private odin: Odin;
   private opts: GatewayOptions;
@@ -39,9 +40,20 @@ export class Gateway {
 
   add(ch: Channel): this { this.channels.set(ch.name, ch); return this; }
 
+  /** Canaux qui n'ont pas pu démarrer (jeton Telegram invalide…) : affiché dans l'interface. */
+  readonly failed = new Map<string, string>();
+
   async start(): Promise<void> {
-    for (const ch of this.channels.values()) await ch.start((m) => this.handle(m));
-    this.timer = setInterval(() => void this.tick(), this.opts.tickMs ?? 30_000);
+    // Chaque canal démarre indépendamment : un jeton Telegram invalide ne doit pas priver de l'interface web.
+    for (const ch of this.channels.values()) {
+      try { await ch.start((m) => this.handle(m)); } catch (e) {
+        this.failed.set(ch.name, (e as Error).message);
+        this.channels.delete(ch.name);
+        console.error(`[bifrost] canal ${ch.name} non démarré : ${(e as Error).message}`);
+      }
+    }
+    if (!this.channels.size) throw new Error(`aucun canal n'a pu démarrer : ${[...this.failed.values()].join(' ; ')}`);
+    this.timer = setInterval(() => { if (this.ticking) return; this.ticking = true; this.tick().catch((e) => console.error('[bifrost] tick :', (e as Error).message)).finally(() => { this.ticking = false; }); }, this.opts.tickMs ?? 30_000);
     console.log(`[bifrost] passerelle prête (${[...this.channels.keys()].join(', ') || 'aucun canal'})`);
   }
 
@@ -136,6 +148,8 @@ export class Gateway {
       const options = req.grantable ? `Réponds /yes ${req.id} · /always ${req.id} (toujours autoriser ce type d'action) · /no ${req.id}` : `Réponds /yes ${req.id} ou /no ${req.id}`;
       const msg = `${head}\nAction : ${req.summary}\nPourquoi : ${req.reason}\n${options}`;
       const answer = new Promise<ApprovalAnswer>((r) => this.pendingApprovals.set(req.id, r));
+      // Heimdall tranche « non » après approvalTimeoutSec ; on oublie la demande peu après pour ne pas accumuler.
+      setTimeout(() => this.pendingApprovals.delete(req.id), (this.odin.cfg.policy.approvalTimeoutSec + 60) * 1000).unref?.();
       await target.ch.send(target.peer, msg);
       return answer;
     },
@@ -189,8 +203,12 @@ export class Gateway {
     // Initiative du soir : Odin relit sa journée et met lui-même en place routines et rappels utiles.
     const t = this.ownerTarget();
     if (m.breaker.proactive && !this.odin.demo) {
+      // Le bilan du soir (rapport à 21 h) peut tomber hors de la plage « nuit » : on applique Breaker le temps du bilan.
+      const wasBreaker = this.odin.heimdall.breakerActive();
+      if (!wasBreaker) this.odin.heimdall.setBreaker({ ...m.breaker, schedule: 'always' });
       const r = await this.odin.agent.run(PROACTIVE_PROMPT, { sessionId: 'breaker:soir', channel: t?.ch.name ?? 'web', peer: t?.peer ?? 'principal', trusted: true, unattended: true })
         .catch((e) => ({ text: `(bilan impossible : ${(e as Error).message.slice(0, 120)})` }));
+      if (!wasBreaker) this.odin.heimdall.setBreaker(m.breaker);
       if (r.text.trim()) text = `${text || '⚡ Rapport du soir — Odin Breaker'}\n\n🧭 Initiative : ${r.text.trim().slice(0, 1200)}`;
     }
     if (text && t) await t.ch.send(t.peer, text).catch(() => {});
@@ -216,7 +234,8 @@ export class Gateway {
       }
       this.odin.muninn.advanceJob(job.id, now, nextRun(job.cron, new Date(now)).getTime());
       const r = await this.odin.agent.run(job.prompt, {
-        sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: true, unattended: true,
+        // Une tâche née sous l'influence d'un contenu non fiable n'a pas la confiance du propriétaire.
+        sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: !job.tainted, unattended: true,
       }).catch((e) => ({ text: `Échec : ${(e as Error).message}` }));
       const text = `⏰ ${job.prompt.slice(0, 60)}\n\n${r.text}`;
       const ch = this.channels.get(job.channel);

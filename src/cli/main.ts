@@ -195,7 +195,10 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   }
   const shutdown = async () => { await gw!.stop(); odin.close(); };
   // Rechargement demandé par l'onglet Réglages : on arrête tout puis on relance avec la nouvelle config.
+  let reloading = false;
   const reload = async () => {
+    if (reloading) return; // deux « Enregistrer » rapprochés : un seul redémarrage
+    reloading = true;
     console.log(c.dim('[odin] nouveaux réglages : redémarrage des services…'));
     await shutdown();
     try { await gateway(false, true); } catch (e) {
@@ -216,7 +219,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), reload }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), reload, failedChannels: () => Object.fromEntries(gw!.failed) }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {

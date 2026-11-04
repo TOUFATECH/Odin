@@ -95,8 +95,8 @@ test('choix du juge : auto sans clé → local ; jev sans clé → local avec av
   assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'auto' }, { env: {} }).name, 'local');
   const j = buildJudge({ ...DEFAULT_MIMIR, judge: 'jev' }, { env: {} });
   assert.equal(j.name, 'local');
-  assert.match(j.warning!, /TYPESAFE_API_KEY/);
-  assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'auto' }, { env: { TYPESAFE_API_KEY: 'k' } }).name, 'jev');
+  assert.match(j.warning!, /JEV_API_KEY/);
+  assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'auto' }, { env: { JEV_API_KEY: 'k' } }).name, 'jev');
   assert.equal(buildJudge({ ...DEFAULT_MIMIR, judge: 'local+llm' }, { env: {} }).name, 'local', 'sans modèle : local');
   assert.equal(DEFAULT_MIMIR.enabled, true, 'actif par défaut : le juge local ne fait rien sortir de la machine');
 });

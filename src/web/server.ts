@@ -36,6 +36,8 @@ export function ensureWebToken(paths: OdinPaths, rotate = false): string {
 
 export interface WebHooks {
   scanNetwork(full: boolean): Promise<unknown>;
+  /** Canaux qui n'ont pas pu démarrer (nom → raison). */
+  failedChannels?(): Record<string, string>;
   /** Relance les services avec la nouvelle configuration (fourni par la passerelle). */
   reload?(): Promise<void>;
 }
@@ -57,6 +59,8 @@ export class WebChannel implements Channel {
   private access: WebAccess;
   private tls?: TlsMaterial;
   private throttle = new AuthThrottle();
+  /** Jeton précédent après rotation : refusé, mais pas compté comme une attaque. */
+  private lastToken = '';
 
   constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string; access?: WebAccess; tls?: TlsMaterial }) {
     this.odin = odin; this.hooks = hooks;
@@ -82,7 +86,7 @@ export class WebChannel implements Channel {
     const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
     const ok = this.tokenOk(cookie) || this.tokenOk(bearer);
     if (ok) this.throttle.success(this.clientIp(req));
-    else if (cookie || bearer) this.throttle.fail(this.clientIp(req)); // un jeton faux = un essai raté
+    else if (bearer || (cookie && cookie !== this.lastToken)) this.throttle.fail(this.clientIp(req)); // un jeton faux = un essai raté (sauf l'ancien jeton juste remplacé)
     return ok;
   }
 
@@ -96,7 +100,8 @@ export class WebChannel implements Channel {
   private clientIp(req: IncomingMessage): string {
     const sock = remoteOf(req);
     if (this.access === 'wan' && this.odin.cfg.web.behindProxy) {
-      const fwd = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+      // Le proxy AJOUTE l'adresse réelle en fin de liste ; le début peut être forgé par le client.
+      const fwd = String(req.headers['x-forwarded-for'] ?? '').split(',').map((x) => x.trim()).filter(Boolean).at(-1) ?? '';
       if (fwd) return `fwd:${fwd}`; // préfixe : jamais confondu avec la machine elle-même
     }
     return sock;
@@ -175,7 +180,11 @@ export class WebChannel implements Channel {
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
     }
     if (!url.pathname.startsWith('/api/')) return json(res, 404, { error: 'introuvable' });
-    if (!this.authed(req)) return json(res, 401, { error: 'jeton requis' });
+    if (!this.authed(req)) {
+      // Cookie périmé (nouveau jeton) : on le fait oublier au navigateur, pour qu'il n'insiste pas en boucle.
+      if (/odin_token=/.test(req.headers.cookie ?? '')) res.setHeader('set-cookie', 'odin_token=; Max-Age=0; Path=/');
+      return json(res, 401, { error: 'jeton requis' });
+    }
 
     if (req.method === 'GET' && url.pathname === '/api/stream') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
@@ -258,6 +267,7 @@ export class WebChannel implements Channel {
       judge: this.odin.mimir?.judgeName ?? null,
       settings: settingsView(cfg, Boolean(this.odin.demo)),
       voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), speakReplies: cfg.voice.speakReplies },
+      failedChannels: this.hooks.failedChannels?.() ?? {},
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
     };
@@ -324,6 +334,7 @@ export class WebChannel implements Channel {
       case 'access_links': return { ok: true, links: this.urls }; // avec le jeton, pour ouvrir sur un autre appareil
       case 'token_rotate': {
         // Nouveau jeton : tous les liens et navigateurs déjà connectés sont déconnectés.
+        this.lastToken = this.token;
         this.token = ensureWebToken(this.odin.paths, true);
         setTimeout(() => { for (const c of this.clients) c.end(); this.clients.clear(); }, 100);
         return { ok: true, token: this.token };
@@ -354,7 +365,8 @@ async function readRaw(req: IncomingMessage, max: number): Promise<Uint8Array> {
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
-  let raw = '';
-  for await (const c of req) { raw += c; if (raw.length > MAX_BODY) throw new Error('requête trop grosse'); }
+  const parts: Buffer[] = []; let n = 0;
+  for await (const c of req) { n += (c as Buffer).length; if (n > MAX_BODY) throw new Error('requête trop grosse'); parts.push(c as Buffer); }
+  const raw = Buffer.concat(parts).toString('utf8');
   try { return raw ? JSON.parse(raw) as Record<string, unknown> : {}; } catch { throw new Error('JSON invalide'); }
 }

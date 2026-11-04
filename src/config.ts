@@ -227,7 +227,7 @@ export function validateConfig(c: OdinConfig): string[] {
 }
 
 export function loadConfig(paths: OdinPaths): OdinConfig {
-  const raw = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8')) : {};
+  const raw = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8').replace(/^\uFEFF/, '')) : {};
   const cfg = merge(DEFAULT_CONFIG, raw);
   const errs = validateConfig(cfg);
   if (errs.length) throw new Error(`Configuration invalide (${paths.config}) :\n- ${errs.join('\n- ')}`);
@@ -261,7 +261,7 @@ export function initHome(paths: OdinPaths): string[] {
 
 /** Modifie une clé de config.json (ex. ['network','enabled'], true) en gardant le reste. */
 export function setConfigValue(paths: OdinPaths, keyPath: string[], value: unknown): void {
-  const raw = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8')) as Record<string, unknown> : {};
+  const raw = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8').replace(/^\uFEFF/, '')) as Record<string, unknown> : {};
   let node: Record<string, unknown> = raw;
   for (const k of keyPath.slice(0, -1)) node = (node[k] ??= {}) as Record<string, unknown>;
   node[keyPath[keyPath.length - 1]] = value;

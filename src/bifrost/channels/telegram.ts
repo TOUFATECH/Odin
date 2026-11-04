@@ -82,7 +82,8 @@ export class TelegramChannel implements Channel {
     while (this.running) {
       try {
         const res = await fetch(`${this.url('getUpdates')}?timeout=30&offset=${this.offset}&allowed_updates=["message"]`, { signal: this.ctrl.signal });
-        const data = await res.json() as { ok: boolean; result: Array<{ update_id: number; message?: unknown }> };
+        const data = await res.json() as { ok: boolean; result: Array<{ update_id: number; message?: unknown }>; description?: string };
+        if (!data.ok) throw new Error(`getUpdates : ${data.description ?? `HTTP ${res.status}`}`); // 401, 409… : on attend avant de réessayer
         backoff = 1000;
         for (const u of data.result ?? []) {
           this.offset = u.update_id + 1;

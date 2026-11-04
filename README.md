@@ -287,7 +287,7 @@ Par défaut, un **juge local** : hors ligne, sans clé, moins d'une milliseconde
 |---|---|---|
 | `local` (défaut) | aucune | aucun |
 | `local+llm` | aucune avec Ollama | seulement si le juge local hésite |
-| `local+jev` | `TYPESAFE_API_KEY` ([Jev de TypeSafe](https://docs.typesafe.ai)) | seulement si le juge local hésite |
+| `local+jev` | `JEV_API_KEY` ([Jev de TypeSafe](https://docs.typesafe.ai)) | seulement si le juge local hésite |
 | `llm` · `jev` | idem | à chaque question |
 
 `odin mimir test` montre les jugements sur 5 exemples ; `odin mimir eval` mesure le juge sur 140 cas étiquetés (ajoute les tiens dans `src/mimir/cases.ts`). Sur des cas écrits après le gel de ses règles, le juge local voit juste 78 % du temps ; ses erreurs ajoutent moins de protection, jamais moins de sécurité, car les règles de base de Heimdall restent en place. Une panne du juge n'est jamais lue comme un « non ».

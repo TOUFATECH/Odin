@@ -65,8 +65,11 @@ const SEND_CMD = [
 ];
 const URL_WITH_VARS = /\b(curl|wget|iwr|invoke-webrequest)\b[^\n]*https?:\/\/[^\s]*(\$\(|\$\{?\w|`)/;
 
+const HTTP_WRITE = /\b(post|put|patch|delete)\b/;
 function sendsOut(a: ActionState): number {
   if (a.tool === 'send_message') return 0.97;
+  if (a.tool === 'http_request') return HTTP_WRITE.test(a.text) ? 0.97 : 0.8; // requête vers un appareil ou un service : ça sort de la machine
+  if (a.tool === 'codex_run') return 0.6; // Codex parle à OpenAI et lit l'espace de travail
   if (any(a.cmd, SEND_CMD) || URL_WITH_VARS.test(a.cmd)) return STRONG;
   if (/\b(curl|wget|iwr|invoke-webrequest)\b/.test(a.cmd)) return 0.4; // simple lecture d'une page : incertain
   if (a.tool === 'system_update_apply') return UNLIKELY;
@@ -100,7 +103,9 @@ const EMAIL_OR_PHONE = /\b[\w.+-]+@[\w-]+\.[\w.]+\b|\b(?:\+?\d[\s.-]?){9,14}\b/;
 function privateData(a: ActionState): number {
   const shares = a.tool === 'send_message' || sendsOut(a) >= 0.7;
   if (!shares) return NONE;
-  if (PRIVATE.test(a.text) || EMAIL_OR_PHONE.test(a.text.replace(/telegram:\d+/g, ''))) return LIKELY;
+  // Adresses web, IP et identifiants techniques retirés avant de chercher un numéro de téléphone.
+  const plain = a.text.replace(/https?:\/\/\S+/g, ' ').replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, ' ').replace(/telegram:\d+/g, '');
+  if (PRIVATE.test(a.text) || /(^|[\s/~'"])\.(env|ssh|aws|kube|netrc|gnupg)\b|\bid_(rsa|ed25519)\b/.test(a.text) || EMAIL_OR_PHONE.test(plain)) return LIKELY;
   return a.tool === 'send_message' ? 0.15 : UNLIKELY;
 }
 
@@ -108,6 +113,8 @@ const IRREVERSIBLE_CMD = [/\brm\s+-\w*r\w*f|\brm\s+-\w*f\w*r/, /\bshred\b/, /\s-
   /\bdrop\s+(table|database)\b/, /\bdelete\s+from\b/, /\btruncate\b/, /\bmkfs/, /\bdd\b[^\n]*\bof=/, /\bcrontab\s+-r\b/, /\bdocker\s+(system\s+prune|volume\s+rm)\b/, /\bremove-item\b[^\n]*-recurse/];
 function irreversible(a: ActionState): number {
   if (a.tool === 'send_message') return LIKELY; // un message envoyé ne se reprend pas
+  if (a.tool === 'http_request') return HTTP_WRITE.test(a.text) ? LIKELY : UNLIKELY;
+  if (a.tool === 'codex_run' || a.tool === 'media_convert') return 0.45; // modifie des fichiers du projet / écrase la sortie
   if (any(a.cmd, IRREVERSIBLE_CMD)) return STRONG;
   if (sendsOut(a) >= 0.7) return LIKELY;
   if (/(^|[\s;&|])rm\s/.test(a.cmd) || /(^|\s)del\s/.test(a.cmd)) return 0.6; // sans -r/-f : souvent récupérable… ou pas
@@ -123,7 +130,7 @@ const INTENT: Record<string, RegExp> = {
   delete: /\b(supprim\w*|effac\w*|vid(e|er|ez)|nettoi\w*|nettoy\w*|menage|purg\w*|desinstall\w*|retir\w*|arrete\w*|annul\w*|enleve\w*|delete|remove|erase|wipe|clean\w*|uninstall|cancel|stop)\b/,
   send: /\b(envoi\w*|envoy\w*|transmet\w*|partag\w*|previen\w*|prevenir|dis[- ](a|lui|leur)|ecris[- ]a|reponds? a|repondre a|publi\w*|pousse|televers\w*|send|share|tell|notify|email|mail|post|push|upload|forward|reply to)\b|\bcopi\w*\b[^.]{0,40}\b(sur|vers|chez|to)\b/,
   write: /\b(ecri\w*|cree\w*|creer|enregistr\w*|sauvegard\w*|not(e|er)|ajout\w*|modifi\w*|corrig\w*|mets|mettre|remplac\w*|renomm\w*|rang\w*|deplac\w*|organis\w*|gener\w*|redig\w*|complete\w*|write|create|save|edit|add|change|rename|move|fix|update)\b/,
-  run: /\b(lanc\w*|execut\w*|demarr\w*|compil\w*|test\w*|construi\w*|analys\w*|convert\w*|install\w*|verifi\w*|fais|faire|ouvr\w*|ferm\w*|activ\w*|desactiv\w*|configur\w*|autoris\w*|bloqu\w*|redemarr\w*|run|start|build|check|exec\w*|convert|open|close|enable|disable|configure|allow|block|restart)\b/,
+  run: /\b(allum\w*|etein\w*|eteign\w*|baisse\w*|monte[rz]?|verrouill\w*|deverrouill\w*|regl\w*|turn (on|off)|switch (on|off)|lock|unlock|dim|lanc\w*|execut\w*|demarr\w*|compil\w*|test\w*|construi\w*|analys\w*|convert\w*|install\w*|verifi\w*|fais|faire|ouvr\w*|ferm\w*|activ\w*|desactiv\w*|configur\w*|autoris\w*|bloqu\w*|redemarr\w*|run|start|build|check|exec\w*|convert|open|close|enable|disable|configure|allow|block|restart)\b/,
   schedule: /\b(planifi\w*|programm\w*|rappel\w*|chaque|tous les|toutes les|schedule|every|daily|weekly|remind)\b/,
   update: /\b(mets? a jour|met a jour|mettre a jour|fai(s|re) (les |la )?mises? a jour|applique\w*|installe\w*|update|upgrade|install)\b/,
 };
@@ -136,10 +143,13 @@ function actionIntents(a: ActionState, d: number, s: number, c: number): string[
   if (s >= 0.7) out.add('send');
   if (a.tool === 'system_update_apply') out.add('update');
   else if (c >= 0.7) out.add('run');
-  if (a.tool === 'fs_write' || a.tool === 'fs_edit') out.add('write');
+  if (a.tool === 'fs_write' || a.tool === 'fs_edit' || a.tool === 'doc_create' || a.tool === 'media_convert') out.add('write');
   if (a.tool === 'shell' && !out.size) out.add('run');
-  if (a.tool === 'schedule_task') out.add('schedule');
+  if (a.tool === 'codex_run' || a.tool === 'system_update_apply' || a.tool === 'net_scan') out.add('run');
+  if (a.tool === 'http_request') { out.add('send'); if (HTTP_WRITE.test(a.text)) out.add('run'); } // piloter un appareil = agir dessus
+  if (a.tool === 'schedule_task' || a.tool === 'reminder_set') out.add('schedule');
   if (a.tool === 'schedule_cancel') out.add('delete');
+  if (!out.size) out.add('run'); // tout outil inconnu compte comme « faire quelque chose », jamais comme rien
   return [...out];
 }
 
@@ -160,10 +170,11 @@ function requested(a: ActionState, reqRaw: unknown, d: number, s: number, c: num
   const risky = intents.some((i) => i === 'delete' || i === 'send' || i === 'update') || c >= 0.7;
   if (NEGATED.test(req) && !matched.length) return 0.05;
   if (NEGATED.test(req) && intents.some((i) => i === 'write' || i === 'delete')) return 0.1;
-  if (matched.length === intents.length && intents.length) return ov ? STRONG : LIKELY;
+  const full = matched.length === intents.length || (a.tool === 'http_request' && matched.length > 0); // piloter un appareil : « allume », « éteins », « ouvre » suffisent
+  if (full && intents.length) return ov ? STRONG : LIKELY;
   if (risky && READ_ONLY.test(req) && !matched.some((m) => m !== 'run')) return 0.06;
   // Une action sans effet risqué qui sert une simple question (« combien… ? » → du -sh) est demandée.
-  if (!risky && (READ_ONLY.test(req) || /\?\s*$/.test(req)) && intents.every((i) => i === 'run')) return 0.75;
+  if (!risky && (READ_ONLY.test(req) || /\?\s*$/.test(req)) && intents.length > 0 && intents.every((i) => i === 'run')) return 0.75;
   if (matched.length) return ov ? 0.75 : UNSURE;
   if (ov >= 2) return 0.6;
   return risky ? 0.1 : 0.35;

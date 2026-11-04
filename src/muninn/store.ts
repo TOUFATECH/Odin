@@ -49,10 +49,13 @@ export interface JobRow {
   enabled: number;
   last_run: number;
   next_run: number;
+  /** 1 si créée pendant un tour marqué (contenu non fiable lu) : exécutée sans confiance. */
+  tainted?: number;
 }
 
 const SCHEMA = `
 PRAGMA journal_mode = WAL;
+PRAGMA busy_timeout = 5000;
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS sessions(
   id TEXT PRIMARY KEY, channel TEXT NOT NULL DEFAULT 'cli', peer TEXT NOT NULL DEFAULT 'owner',
@@ -106,6 +109,7 @@ export class Muninn {
   constructor(file: string) {
     this.db = new DatabaseSync(file);
     this.db.exec(SCHEMA);
+    try { this.db.exec('ALTER TABLE jobs ADD COLUMN tainted INTEGER NOT NULL DEFAULT 0'); } catch { /* colonne déjà présente */ }
   }
 
   close(): void { this.db.close(); }
@@ -271,7 +275,7 @@ export class Muninn {
   // ---------- Tâches planifiées ----------
 
   addJob(j: Omit<JobRow, 'enabled' | 'last_run'>): void {
-    this.db.prepare('INSERT INTO jobs(id, cron, prompt, channel, peer, next_run, created_at) VALUES (?,?,?,?,?,?,?)').run(j.id, j.cron, j.prompt, j.channel, j.peer, j.next_run, Date.now());
+    this.db.prepare('INSERT INTO jobs(id, cron, prompt, channel, peer, next_run, created_at, tainted) VALUES (?,?,?,?,?,?,?,?)').run(j.id, j.cron, j.prompt, j.channel, j.peer, j.next_run, Date.now(), j.tainted ? 1 : 0);
   }
 
   listJobs(): JobRow[] { return this.db.prepare('SELECT * FROM jobs ORDER BY next_run').all() as unknown as JobRow[]; }

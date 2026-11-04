@@ -3,7 +3,7 @@
 // calibrées. Odin lui demande des JUGEMENTS ; les DÉCISIONS restent dans le code
 // (voir decisions.ts), visibles et testables.
 //
-// API : POST https://api.typesafe.ai/v1/systemone (jeton TYPESAFE_API_KEY)
+// API : POST https://api.typesafe.ai/v1/systemone (jeton JEV_API_KEY)
 // Corps : { model, state, questions: { <nom>: { type, instructions, criteria? } } }
 // Réponse : { model, answers: { <nom>: { type, noul | choice+probabilities | score+probabilities } }, usage }
 // Référence à jour : https://docs.typesafe.ai/llms.txt et https://api.typesafe.ai/openapi.json

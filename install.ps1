@@ -93,8 +93,11 @@ if ($git -and (Test-Path (Join-Path $AppDir '.git'))) {
 }
 
 # ---------- 3. Commande « odin » ----------
-$cmd = "@echo off`r`nset ODIN_HOME=$OdinHome`r`n`"$NodeExe`" --disable-warning=ExperimentalWarning `"$AppDir\bin\odin.mjs`" %*`r`n"
-Set-Content -Path (Join-Path $BinDir 'odin.cmd') -Value $cmd -Encoding ASCII
+# Chemins écrits avec des variables d'environnement : pas de problème d'accents (Jérôme) ni d'encodage du .cmd.
+$nodeRef = if ($NodeExe -like "$env:LOCALAPPDATA*") { '%LOCALAPPDATA%' + $NodeExe.Substring($env:LOCALAPPDATA.Length) } else { $NodeExe }
+$homeRef = if ($OdinHome -like "$HOME*") { '%USERPROFILE%' + $OdinHome.Substring($HOME.Length) } else { $OdinHome }
+$cmd = "@echo off`r`nset ODIN_HOME=$homeRef`r`n`"$nodeRef`" --disable-warning=ExperimentalWarning `"%LOCALAPPDATA%\Odin\app\bin\odin.mjs`" %*`r`n"
+[System.IO.File]::WriteAllText((Join-Path $BinDir 'odin.cmd'), $cmd, (New-Object System.Text.UTF8Encoding $false))
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if (-not ($userPath -split ';' | Where-Object { $_ -eq $BinDir })) {
   [Environment]::SetEnvironmentVariable('Path', ($(if ($userPath) { "$userPath;" } else { '' }) + $BinDir), 'User')
@@ -145,7 +148,7 @@ if ($env:ODIN_NO_SCAN -ne '1' -and (Ask 'Inventorier les appareils de ton résea
 
 $service = $false
 if ($env:ODIN_NO_SERVICE -ne '1' -and (Ask 'Lancer Odin automatiquement à l''ouverture de session (interface web + Telegram + tâches) ?')) {
-  $action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"& '$Odin' gateway *> '$OdinHome\logs\gateway.log'`""
+  $action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"& '$Odin' gateway *>> '$OdinHome\logs\gateway.log'`""
   $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
   $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
   Register-ScheduledTask -TaskName 'Odin' -Action $action -Trigger $trigger -Settings $settings -Description 'Odin, agent IA personnel' -Force | Out-Null

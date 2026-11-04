@@ -3,8 +3,8 @@
 // est un contenu NON FIABLE : la session est marquée, ses consignes ne sont jamais suivies.
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, extname, relative } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, extname, relative, sep } from 'node:path';
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { jailPath } from '../heimdall/policy.ts';
 import { hasCommand } from '../learn/environment.ts';
@@ -13,13 +13,14 @@ import { convertMedia, IMAGE_MIME, mediaInfo, type ConvertOptions } from '../fil
 import { createDocx, createPptx, createXlsx, parseCsv, readDocx, readPptx, readXlsx, toCsv, type Slide } from '../files/office.ts';
 import { createPdf, readPdf } from '../files/pdf.ts';
 import { bool, num, obj, str, type Tool, type ToolContext, type ToolResult } from './registry.ts';
+import { isExternal, safeEnv } from './builtin.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const clip = (t: string, n = 40_000) => (t.length > n ? `${t.slice(0, n)}\n… [${t.length - n} caractères tronqués]` : t);
 const MAX_FILE = 100 * 1024 * 1024;
 
 function result(ctx: ToolContext, rel: string, text: string): ToolResult {
-  const outside = /^(inbox|telechargements|downloads)\//i.test(rel);
+  const outside = isExternal(rel);
   return outside ? { output: wrapUntrusted(`fichier ${rel}`, clip(text)), tainted: true } : { output: clip(text) };
 }
 
@@ -30,8 +31,7 @@ export const docRead: Tool = {
   schema: obj({ path: str('chemin du fichier'), sheet: str('Excel : nom de la feuille (toutes par défaut)') }, ['path']),
   async run(i, ctx) {
     const p = jailPath(ctx.workspace, s(i.path));
-    // Chemin tel que demandé (pas le chemin réel : sur macOS l'espace de travail passe par des liens).
-    const rel = s(i.path).replace(/\\/g, '/').replace(/^\.\//, '');
+    const rel = relative(realpathSync(ctx.workspace), realpathSync(p)).split(sep).join('/');
     if (statSync(p).size > MAX_FILE) return 'Fichier trop volumineux (100 Mo au plus).';
     const buf = readFileSync(p);
     const ext = extname(p).toLowerCase();
@@ -163,7 +163,9 @@ export const audioTranscribe: Tool = {
       p = tmp;
     }
     const mime = { '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.oga': 'audio/ogg', '.wav': 'audio/wav', '.webm': 'audio/webm' }[extname(p).toLowerCase()] ?? 'audio/mpeg';
-    const text = await transcribe(new Uint8Array(readFileSync(p)), mime, ctx.voice, ctx.signal);
+    let text: string;
+    try { text = await transcribe(new Uint8Array(readFileSync(p)), mime, ctx.voice, ctx.signal); }
+    finally { if (p.includes('.odin-tmp')) rmSync(p, { force: true }); }
     return { output: wrapUntrusted(`transcription de ${s(i.path)}`, clip(text || '(rien entendu)')), tainted: true };
   },
 };
@@ -188,7 +190,8 @@ export const codexRun: Tool = {
     if (!hasCommand('codex')) return 'Codex n\'est pas installé : « npm install -g @openai/codex », puis « codex login » (ou une clé OPENAI_API_KEY).';
     const dir = jailPath(ctx.workspace, s(i.dir) || '.');
     mkdirSync(dir, { recursive: true });
-    const env = { ...process.env };
+    // Pas de secrets d'Odin pour un agent tiers : seule la clé OpenAI (ou la session « codex login ») lui sert.
+    const env = { ...safeEnv(), ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}) };
     return new Promise((resolve) => {
       // Mode non interactif, bac à sable « écriture dans le dossier » de Codex.
       const p = spawn('codex', ['exec', '--full-auto', '--skip-git-repo-check', '-C', dir, s(i.task)], { env, signal: ctx.signal, windowsHide: true, timeout: 30 * 60_000 });

@@ -39,6 +39,8 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .btn.danger{color:var(--bad);border-color:#4A2B27}
 /* Discussion */
 .chat{display:flex;flex:1;min-height:0}
+.convs-btn{display:none}
+@media (max-width:860px){.convs-btn{display:inline-flex}.chat{position:relative}}
 .convs{width:220px;flex:none;border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:6px;overflow:auto}
 .conv{border:0;background:none;text-align:left;padding:10px 12px;border-radius:10px;color:var(--muted);min-height:44px}
 .conv[aria-current=true]{background:#171D29;color:var(--ink)}
@@ -130,6 +132,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   .side .foot{display:none}
   .tab{width:auto;flex:1 1 44%;white-space:nowrap;border:1px solid var(--line)}
   .convs{display:none}
+  .convs.open{display:flex;position:absolute;inset:0;z-index:5;width:auto;background:var(--bg);padding:16px}
   .head{padding-top:14px;padding-bottom:12px}
   .head .sub{display:none}
   .head h1{font-size:20px}
@@ -187,7 +190,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
         <div class="convs" id="convs" aria-label="Conversations"></div>
         <div class="thread">
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute">🔈 Voix</button><button class="btn small" id="newConv">Nouvelle conversation</button><button class="btn small" id="stopBtn">Arrêter</button></div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute">🔈 Voix</button><button class="btn small convs-btn" id="convsBtn" type="button">Conversations</button><button class="btn small" id="newConv">Nouvelle conversation</button><button class="btn small" id="stopBtn">Arrêter</button></div></div>
           <div class="notice" id="demoNotice" hidden>Odin n'a pas encore de modèle (mode démo). <a href="#" id="goSettings">Ouvre les Réglages</a> pour en choisir un : c'est l'affaire d'une minute.</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="typing" id="typing"></div>
@@ -463,17 +466,18 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     const t = $('#input').value.trim(); if (!t) return;
     $('#input').value = ''; msgs.querySelector('.empty')?.remove();
     addMsg('user', t); setBusy(true);
-    await api('/api/message', { peer, text: t });
+    try { const r = await api('/api/message', { peer, text: t }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
   function setBusy(b) { busy = b; $('#typing').textContent = b ? 'Odin réfléchit…' : ''; }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
+  $('#convsBtn').addEventListener('click', () => $('#convs').classList.toggle('open'));
   $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
 
   function renderConvs() {
     const box = $('#convs'); box.textContent = '';
     const list = [...(state?.conversations || [])];
     if (!list.some((c) => c.peer === peer)) list.unshift({ peer, title: 'Nouvelle conversation', updated: Date.now() });
-    for (const c of list) box.append(el('button', { class: 'conv', 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); } },
+    for (const c of list) box.append(el('button', { class: 'conv', 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; try { localStorage.setItem('odin.peer', peer); } catch { /* rien */ } $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
       (c.tainted ? '⚠ ' : '') + (c.title || c.peer), el('small', {}, fmt(c.updated))));
   }
 
@@ -728,6 +732,8 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   function renderSettings() {
     const S = state.settings; if (!S) return;
     $('#welcome').hidden = !S.demo; $('#demoNotice').hidden = !S.demo; $('#b-settings').hidden = !S.demo;
+    const fc = Object.entries(state.failedChannels || {});
+    $('#t-status').textContent = fc.length ? `⚠ ${fc.map(([k, v]) => `${k} : ${v}`).join(' · ')}` : $('#t-status').textContent; if (fc.length) $('#t-status').className = 'status err';
     const box = $('#presetChoices');
     if (!box.children.length) {
       for (const [k, v] of Object.entries(S.presets)) box.append(el('button', { type: 'button', class: 'choice', 'data-preset': k, onclick: () => pickPreset(k) }, v.label));
@@ -813,6 +819,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   }
 
   // ---------- Flux temps réel ----------
+  let everOpened = false;
   function connect() {
     const es = new EventSource('/api/stream');
     es.onmessage = (ev) => {
@@ -822,9 +829,13 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') addActivity(d.event);
       else if (d.type === 'refresh') refresh();
     };
-    let opened = false;
-    es.onopen = () => { if (opened) refresh(); opened = true; };
-    es.onerror = () => { es.close(); setTimeout(connect, 3000); };
+    es.onopen = () => { if (everOpened) refresh(); everOpened = true; };
+    es.onerror = async () => {
+      es.close();
+      // Jeton remplacé ou serveur redémarré ? On vérifie avant de réessayer, au lieu d'insister en boucle.
+      try { const r = await fetch('/api/state'); if (r.status === 401) { location.reload(); return; } } catch { /* serveur en train de redémarrer */ }
+      setTimeout(connect, 3000);
+    };
   }
   refresh().then(loadHistory); connect();
 })();

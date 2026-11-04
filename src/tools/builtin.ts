@@ -3,8 +3,11 @@
 
 import { spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, relative } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, relative, sep } from 'node:path';
+
+/** Dossiers où atterrissent les fichiers venus de l'extérieur (Telegram, téléchargements). */
+export const isExternal = (rel: string) => /^(inbox|telechargements|téléchargements|downloads)(\/|$)/i.test(rel);
 import { assertPublicUrl, isPrivateHost, jailPath } from '../heimdall/policy.ts';
 
 /** Adresse d'un service de métadonnées cloud (vol d'identifiants) : refusée partout. */
@@ -35,7 +38,10 @@ export const fsRead: Tool = {
     const lines = readFileSync(p, 'utf8').split('\n');
     const start = Math.max(1, Number(i.offset ?? 1));
     const end = Math.min(lines.length, start - 1 + Number(i.limit ?? 400));
-    return clip(lines.slice(start - 1, end).map((l, k) => `${start + k}\t${l}`).join('\n') + (end < lines.length ? `\n… (${lines.length - end} lignes de plus)` : ''));
+    const text = clip(lines.slice(start - 1, end).map((l, k) => `${start + k}\t${l}`).join('\n') + (end < lines.length ? `\n… (${lines.length - end} lignes de plus)` : ''));
+    // Un fichier arrivé de l'extérieur (inbox/, téléchargements) est une donnée non fiable.
+    const rel = relative(realpathSync(ctx.workspace), realpathSync(p)).split(sep).join('/');
+    return isExternal(rel) ? { output: wrapUntrusted(`fichier ${rel}`, text), tainted: true } : text;
   },
 };
 
@@ -263,7 +269,8 @@ export const scheduleTask: Tool = {
   async run(i, ctx) {
     const next = nextRun(s(i.cron), new Date());
     const id = `job_${Date.now().toString(36)}`;
-    ctx.muninn.addJob({ id, cron: s(i.cron), prompt: s(i.prompt), channel: ctx.channel, peer: ctx.peer, next_run: next.getTime() });
+    // Créée après lecture d'un contenu non fiable : la tâche garde cette origine et tournera sans confiance.
+    ctx.muninn.addJob({ id, cron: s(i.cron), prompt: s(i.prompt), channel: ctx.channel, peer: ctx.peer, next_run: next.getTime(), tainted: ctx.isTainted() ? 1 : 0 });
     return `Tâche ${id} planifiée. Prochaine exécution : ${next.toLocaleString('fr-FR')}.`;
   },
 };
@@ -300,7 +307,7 @@ export const reminderSet: Tool = {
     if (Number.isNaN(when.getTime())) throw new Error('date invalide : utilise AAAA-MM-JJ HH:MM');
     if (when.getTime() < Date.now() - 60_000) throw new Error('cette date est déjà passée');
     const id = `rem_${Date.now().toString(36)}`;
-    ctx.muninn.addJob({ id, cron: '@reminder', prompt: s(i.text).slice(0, 1000), channel: ctx.channel, peer: ctx.peer, next_run: when.getTime() });
+    ctx.muninn.addJob({ id, cron: '@reminder', prompt: s(i.text).slice(0, 1000), channel: ctx.channel, peer: ctx.peer, next_run: when.getTime(), tainted: ctx.isTainted() ? 1 : 0 });
     return `Rappel ${id} programmé pour le ${when.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}.`;
   },
 };

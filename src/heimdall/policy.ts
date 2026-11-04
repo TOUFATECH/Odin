@@ -80,7 +80,7 @@ const REVIEWED: Risk[] = ['write', 'exec', 'external'];
 
 // Commandes refusées dans TOUS les cas, même avec validation humaine.
 const HARD_DENY: RegExp[] = [
-  /\brm\s+(-[a-z]*r[a-z]*f|-[a-z]*f[a-z]*r)[a-z]*\s+(\/|~|\$HOME|\*)(\s|$)/i,
+  /\brm\s+(?:(?:-[a-z]*|--[a-z-]+)\s+)*(?:-[a-z]*(?:r[a-z]*f|f[a-z]*r)[a-z]*|--recursive\s+(?:-[a-z]*f|--force)|(?:-[a-z]*f|--force)\s+--recursive|-r\s+-f|-f\s+-r)(?:\s+(?:-[a-z]*|--[a-z-]+))*\s+["']?(?:\/\*?|~\/?|\$HOME\/?|\*|\/\w+\/?\*?)["']?(?:\s|$)/i,
   /\bmkfs(\.\w+)?\b/,
   /\bdd\s+[^|]*of=\/dev\//,
   /:\(\)\s*\{\s*:\|:&\s*\};:/,                  // fork bomb
@@ -202,7 +202,7 @@ export class Heimdall {
 
     // mode 'ask' — sans humain disponible (tâche planifiée), on refuse.
     if (g.unattended) return this.log(g, { allowed: false, severity: review?.severity, reason: 'validation requise mais exécution sans surveillance', notes });
-    const grantable = Boolean(g.grantKey && this.grants && review && review.severity === 'important' && !g.tainted && !g.suspicious);
+    const grantable = Boolean(g.grantKey && this.grants && review && review.severity === 'important' && !g.tainted && !g.suspicious && autonomy !== 'prudent');
     const req: ApprovalRequest = {
       id: `a${Date.now().toString(36)}${(this.seq++).toString(36)}`,
       tool: g.tool,
@@ -218,19 +218,24 @@ export class Heimdall {
       this.grants!.add(g.grantKey!, g.tool, g.summary.slice(0, 200));
       notes.push(`autorisation permanente ajoutée : « ${g.grantKey} »`);
     }
-    return this.log(g, answer ? { allowed: true, via: 'human', severity: review?.severity, why: `${answer === 'always' ? 'autorisé par toi, pour toujours' : 'autorisé par toi'} — ${req.reason}`, notes } : { allowed: false, severity: review?.severity, reason: 'refusé par l\'utilisateur (ou délai dépassé)', notes });
+    return this.log(g, answer ? { allowed: true, via: 'human', severity: review?.severity, why: `${answer === 'always' && grantable ? 'autorisé par toi, pour toujours' : 'autorisé par toi'} — ${req.reason}`, notes } : { allowed: false, severity: review?.severity, reason: 'refusé par l\'utilisateur (ou délai dépassé)', notes });
   }
 
   isAllowlisted(cmd: string): boolean {
     const c = cmd.trim();
     if (SHELL_META.test(c)) return false;
+    // Jamais hors de l'espace de travail sans validation : « cat ~/.aws/credentials », « grep -r x / »…
+    if (/(^|\s)["']?(\/|~|\.\.(\/|$)|[A-Za-z]:\\)/.test(c)) return false;
     return this.cfg.shellAllowlist.some((p) => c === p || c.startsWith(p + ' '));
   }
 
+  /** Masqueur de secrets pour le journal (posé par le runtime). */
+  redactor?: { redact(t: string): string };
   private log(g: GateInput, d: GateDecision): GateDecision {
     if (this.auditFile) {
       const line = { t: new Date().toISOString(), session: g.sessionId, tool: g.tool, risk: g.risk, tainted: g.tainted, summary: g.summary.slice(0, 300), ...d };
-      try { appendFileSync(this.auditFile, JSON.stringify(line) + '\n'); } catch { /* le journal ne doit jamais bloquer l'agent */ }
+      const text = JSON.stringify(line);
+      try { appendFileSync(this.auditFile, (this.redactor ? this.redactor.redact(text) : text) + '\n'); } catch { /* le journal ne doit jamais bloquer l'agent */ }
     }
     return d;
   }

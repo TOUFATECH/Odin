@@ -20,7 +20,7 @@ export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
 export function loadEnvFile(paths: OdinPaths, env: NodeJS.ProcessEnv = process.env): void {
   const f = envFile(paths);
   if (!existsSync(f)) return;
-  for (const [k, v] of parseEnv(readFileSync(f, 'utf8'))) if (env[k] === undefined) env[k] = v;
+  for (const [k, v] of parseEnv(readFileSync(f, 'utf8').replace(/^\uFEFF/, ''))) if (env[k] === undefined) env[k] = v;
 }
 
 function parseEnv(text: string): Array<[string, string]> {
@@ -147,7 +147,9 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       const same = (x: ProviderConfig) => x.kind === p.kind && x.model === p.model && (x.baseUrl ?? '') === (p.baseUrl ?? '');
       if (b.asBackup) {
         // Ajouté comme modèle de secours (ou de palier différent), le principal ne change pas.
-        setConfigValue(paths, ['providers'], [...cfg.providers.filter((x) => !same(x)), p].slice(0, 6));
+        const list = [...cfg.providers.filter((x) => !same(x)), p];
+        if (list.length > 6) throw new Error('6 modèles au plus : retire-en un d\'abord');
+        setConfigValue(paths, ['providers'], list);
       } else {
         // Le choix devient le fournisseur par défaut ; les autres restent en secours.
         setConfigValue(paths, ['providers'], [p, ...cfg.providers.filter((x) => !same(x))].slice(0, 6));

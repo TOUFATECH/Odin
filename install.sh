@@ -86,7 +86,9 @@ fi
 # ---------- 3. Odin ----------
 mkdir -p "$ODIN_HOME"
 if [ -d "$APP_DIR/.git" ] && command -v git >/dev/null; then
-  info "Mise à jour d'Odin…"; git -C "$APP_DIR" pull --ff-only --quiet; ok "Odin mis à jour"
+  info "Mise à jour d'Odin…"
+  if git -C "$APP_DIR" pull --ff-only --quiet; then ok "Odin mis à jour"; else
+    echo "  Mise à jour impossible (modifications locales dans $APP_DIR ?). Déplace ce dossier puis relance." >&2; exit 1; fi
 elif command -v git >/dev/null; then
   rm -rf "$APP_DIR"; git clone --depth 1 --quiet "$ODIN_REPO" "$APP_DIR"; ok "Odin téléchargé"
 else
@@ -102,7 +104,12 @@ cat > "$BIN_DIR/odin" <<EOF
 # Lanceur d'Odin (généré par install.sh). Les clés éventuelles sont dans ~/.odin/env (droits 600).
 [ -f "$ODIN_HOME/env" ] && { set -a; . "$ODIN_HOME/env"; set +a; }
 export ODIN_HOME="$ODIN_HOME"
-exec "$NODE_BIN" --disable-warning=ExperimentalWarning "$APP_DIR/bin/odin.mjs" "\$@"
+# Node : celui vu à l'installation ; sinon (nvm mis à jour…) celui du PATH, sinon celui installé par Odin.
+NODE="$NODE_BIN"
+[ -x "\$NODE" ] || NODE="\$(command -v node 2>/dev/null)"
+[ -x "\$NODE" ] || NODE="$NODE_DIR/bin/node"
+[ -x "\$NODE" ] || { echo "Node.js introuvable : relance l'installateur d'Odin." >&2; exit 1; }
+exec "\$NODE" --disable-warning=ExperimentalWarning "$APP_DIR/bin/odin.mjs" "\$@"
 EOF
 chmod +x "$BIN_DIR/odin"
 ok "Commande installée : $BIN_DIR/odin"
@@ -158,6 +165,7 @@ if [ "${ODIN_NO_SERVICE:-}" != "1" ] && ask "Lancer Odin automatiquement au dém
 <plist version="1.0"><dict>
   <key>Label</key><string>ai.odin.gateway</string>
   <key>ProgramArguments</key><array><string>$BIN_DIR/odin</string><string>gateway</string></array>
+  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>$ODIN_HOME/logs/gateway.log</string>
   <key>StandardErrorPath</key><string>$ODIN_HOME/logs/gateway.log</string>
@@ -174,7 +182,7 @@ Description=Odin, agent IA personnel
 After=network-online.target
 
 [Service]
-ExecStart=$BIN_DIR/odin gateway
+ExecStart="$BIN_DIR/odin" gateway
 Restart=on-failure
 RestartSec=5
 
@@ -182,7 +190,9 @@ RestartSec=5
 WantedBy=default.target
 EOF
     systemctl --user daemon-reload && systemctl --user enable --now odin.service >/dev/null 2>&1 && SERVICE=1 && ok "Service Linux installé (systemd --user)"
-    command -v loginctl >/dev/null && loginctl enable-linger "$USER" >/dev/null 2>&1 || true
+    if command -v loginctl >/dev/null && ! loginctl enable-linger "$USER" >/dev/null 2>&1; then
+      info "Pour qu'Odin continue après ta déconnexion : sudo loginctl enable-linger $USER"
+    fi
   else
     info "Pas de systemd : lance « odin gateway » toi-même (ou via cron @reboot)."
   fi

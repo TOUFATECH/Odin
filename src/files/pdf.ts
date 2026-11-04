@@ -19,6 +19,7 @@ export function readPdf(buf: Buffer, path?: string): { text: string; via: 'pdfto
 
 /** Extracteur intégré : flux décompressés, polices à table ToUnicode (Word, LibreOffice…). */
 export function extractPdfText(buf: Buffer): string {
+  if (buf.length > 20 * 1024 * 1024) throw new Error('PDF trop volumineux pour le lecteur intégré (20 Mo) : installe pdftotext (Poppler) pour celui-ci');
   const raw = buf.toString('latin1');
   // 1. Tous les flux (décompressés), et le texte des objets, y compris dans les flux d'objets (PDF 1.5+).
   const streams: Array<{ dict: string; data: Buffer; num?: number }> = [];

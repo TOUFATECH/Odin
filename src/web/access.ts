@@ -224,7 +224,7 @@ export class AuthThrottle {
     if (!f || now - f.first > this.windowMs) { this.fails.set(ip, { n: 1, first: now, until: 0 }); return; }
     f.n++;
     if (f.n >= this.max) f.until = now + this.banMs;
-    if (this.fails.size > 10_000) this.fails.clear(); // pas de croissance sans fin
+    if (this.fails.size > 10_000) for (const [k, v] of this.fails) if (v.until <= now && now - v.first > this.windowMs) this.fails.delete(k); // on n'oublie que les entrées périmées
   }
   success(ip: string): void { this.fails.delete(ip); }
 }

@@ -84,3 +84,12 @@ test('enveloppe untrusted : impossible d\'en sortir, injection signalée', () =>
   assert.match(w, /ATTENTION/);
   assert.equal(scanForInjection('Une recette de crêpes').suspicious, false);
 });
+
+test('commandes interdites : variantes de rm -rf et liste blanche hors espace de travail', async () => {
+  const h = new Heimdall(DEFAULT_CONFIG.policy, denyAll);
+  for (const command of ['rm -rf /*', 'rm -rf ~/', 'rm -r -f /', 'rm -rf "/"', 'rm --recursive --force /', 'rm -fr $HOME/', 'rm -rf /home/*']) {
+    assert.equal((await h.gate({ tool: 'shell', risk: 'exec', command, sessionId: 's', summary: command, tainted: false })).allowed, false, command);
+  }
+  assert.equal(h.isAllowlisted('cat notes.txt'), true);
+  for (const c of ['cat ~/.aws/credentials', 'cat /etc/passwd', 'grep -r password /home', 'head ../secret', 'cat C:\\Users\\x\\.env']) assert.equal(h.isAllowlisted(c), false, c);
+});

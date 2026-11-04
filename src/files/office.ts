@@ -5,9 +5,10 @@ import { unzip, zip } from './zip.ts';
 
 const decode = (s: string) => s
   .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-  .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => cp(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => cp(Number(d)))
   .replace(/&amp;/g, '&');
+const cp = (n: number) => (n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : '\uFFFD');
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   // XML 1.0 refuse les caractères de contrôle : on les retire.
   .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
@@ -41,7 +42,8 @@ export function readXlsx(buf: Buffer, maxRows = 2000): Array<{ name: string; row
     .map((si) => [...si.matchAll(/<t(?: [^>]*)?>([\s\S]*?)<\/t>/g)].map((m) => decode(m[1])).join(''));
   const rels = files.get('xl/_rels/workbook.xml.rels')?.toString('utf8') ?? '';
   const target = (rid: string) => {
-    const t = new RegExp(`Id="${rid}"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="${rid}"`).exec(rels);
+    const id = rid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // identifiant issu du fichier : échappé
+    const t = new RegExp(`Id="${id}"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Id="${id}"`).exec(rels);
     const path = (t?.[1] ?? t?.[2] ?? '').replace(/^\/?xl\//, '').replace(/^\//, '');
     return `xl/${path}`;
   };
@@ -55,7 +57,7 @@ export function readXlsx(buf: Buffer, maxRows = 2000): Array<{ name: string; row
       for (const c of r.matchAll(/<c ([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
         const attrs = c[1], body = c[2] ?? '';
         const ref = /r="([A-Z]+)\d+"/.exec(attrs)?.[1];
-        const col = ref ? [...ref].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : row.length;
+        const col = Math.min(16_383, ref ? [...ref].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1 : row.length);
         const type = /t="([^"]+)"/.exec(attrs)?.[1];
         const v = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1];
         const f = /<f(?: [^>]*)?>([\s\S]*?)<\/f>/.exec(body)?.[1];

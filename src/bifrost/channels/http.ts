@@ -31,15 +31,21 @@ export class HttpChannel implements Channel {
       if (req.method === 'GET' && req.url === '/health') return reply(200, { ok: true, name: 'odin' });
       if (req.method !== 'POST' || req.url !== '/v1/message') return reply(404, { error: 'introuvable' });
       if (!this.authorized(req.headers.authorization)) return reply(401, { error: 'jeton invalide' });
-      let raw = '';
-      for await (const c of req) { raw += c; if (raw.length > 1_000_000) return reply(413, { error: 'trop gros' }); }
+      const parts: Buffer[] = []; let n = 0;
+      for await (const c of req) { n += (c as Buffer).length; if (n > 1_000_000) return reply(413, { error: 'trop gros' }); parts.push(c as Buffer); }
+      const raw = Buffer.concat(parts).toString('utf8');
       let body: { peer?: string; text?: string };
       try { body = JSON.parse(raw); } catch { return reply(400, { error: 'JSON invalide' }); }
       if (!body.text) return reply(400, { error: 'champ text requis' });
       const peer = String(body.peer ?? 'http');
+      if (this.waiting.has(peer)) return reply(409, { error: 'une demande est déjà en cours pour ce correspondant' });
+      // La réponse arrive par send() ; au-delà de 10 minutes, ou si le traitement échoue, on libère le client.
       const done = new Promise<string>((r) => this.waiting.set(peer, r));
-      void onMessage({ channel: this.name, peer, name: peer, text: body.text });
-      reply(200, { reply: await done });
+      const timer = setTimeout(() => this.send(peer, 'Délai dépassé : Odin n\'a pas répondu en 10 minutes.'), 10 * 60_000);
+      onMessage({ channel: this.name, peer, name: peer, text: body.text }).catch((e) => this.send(peer, `Erreur : ${(e as Error).message}`));
+      const answer = await done;
+      clearTimeout(timer);
+      reply(200, { reply: answer });
     });
     await new Promise<void>((r) => this.server!.listen(this.port, this.host, r));
     console.log(`[bifrost] API HTTP sur http://${this.host}:${this.port}`);

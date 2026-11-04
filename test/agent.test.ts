@@ -157,3 +157,14 @@ test('apprentissage : une tâche complexe produit un BROUILLON de compétence', 
   assert.match(o.provider.calls.at(-1)!.system, /init-notes : Initialiser un carnet/);
   o.cleanup();
 });
+
+test('une page web propre ne déclenche pas l\'alerte « contenu manipulateur » (l\'enveloppe ne se dénonce pas elle-même)', async () => {
+  const { wrapUntrusted } = await import('../src/heimdall/injection.ts');
+  const clean = { name: 'fake_page', description: '', risk: 'network' as const, taints: true, schema: { type: 'object' }, run: async () => ({ output: wrapUntrusted('https://exemple.fr', 'Horaires : ouvert du lundi au vendredi de 9 h à 18 h.'), tainted: true }) };
+  const o = makeOdin([call('fake_page', {}), call('send_message', { channel: 'telegram', peer: '1', text: 'Ouvert 9 h-18 h' }), { text: 'Envoyé.' }], { approve: true });
+  o.tools.register(clean);
+  const r = await o.agent.run('Lis la page puis préviens Paul des horaires', { sessionId: 's' });
+  assert.equal(r.suspicious, false);
+  assert.doesNotMatch(o.provider.calls[2].messages.at(-1)!.content, /manipulateur/);
+  o.cleanup();
+});

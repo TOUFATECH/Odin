@@ -43,7 +43,7 @@ export class OpenAIProvider implements Provider {
       headers: { 'content-type': 'application/json', ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}) },
       body: JSON.stringify({
         model: req.model,
-        max_tokens: req.maxTokens,
+        ...(/api\.openai\.com/.test(this.baseUrl ?? '') ? { max_completion_tokens: req.maxTokens } : { max_tokens: req.maxTokens }),
         messages: toOpenAIMessages(req.system, req.messages),
         ...(req.tools.length ? { tools: req.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } })) } : {}),
       }),
@@ -54,7 +54,8 @@ export class OpenAIProvider implements Provider {
       choices: Array<{ message: { content: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> }; finish_reason: string }>;
       usage?: { prompt_tokens: number; completion_tokens: number };
     };
-    const choice = data.choices[0];
+    const choice = data.choices?.[0];
+    if (!choice) throw new Error('réponse du modèle sans contenu (choices vide)');
     const toolCalls: ToolCall[] = (choice.message.tool_calls ?? []).map((c, i) => ({
       id: c.id || `call_${i}`, name: c.function.name, input: parseArgs(c.function.arguments),
     }));

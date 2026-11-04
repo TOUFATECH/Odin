@@ -91,7 +91,7 @@ export const DEFAULT_MIMIR: MimirConfig = {
   breaker: DEFAULT_BREAKER,
   model: 'jev-latest',
   baseUrl: 'https://api.typesafe.ai',
-  apiKeyEnv: 'TYPESAFE_API_KEY',
+  apiKeyEnv: 'JEV_API_KEY',
   timeoutMs: 8000,
   uses: { actionReview: true, injection: true, memory: true, reflection: true, routing: true },
 };
@@ -126,7 +126,7 @@ export interface ActionLevels {
 }
 
 /** Table de vérité de la gravité (pure, testable sans réseau). Lue de haut en bas : la première règle qui s'applique gagne. */
-export function decideAction(l: ActionLevels, i: Pick<ActionInput, 'risk' | 'tainted'>): ActionVerdict {
+export function decideAction(l: ActionLevels, i: Pick<ActionInput, 'risk' | 'tainted'> & { tool?: string }): ActionVerdict {
   const flags: string[] = [];
   if (l.requested === 'yes') flags.push('demandé par toi');
   if (l.requested === 'no') flags.push('pas demandé explicitement');
@@ -145,6 +145,7 @@ export function decideAction(l: ActionLevels, i: Pick<ActionInput, 'risk' | 'tai
   // Bloqué : contenu non fiable lu + envoi vers l'extérieur que tu n'as pas demandé.
   if (i.tainted && l.sends_out === 'yes' && l.requested !== 'yes') return v('blocked', 'envoi de données non demandé après lecture de contenu non fiable (exfiltration probable)');
   // Grave : toujours ta décision.
+  if (i.tainted && (i.tool === 'schedule_task' || i.tool === 'reminder_set') && l.requested !== 'yes') return v('grave', 'tâche ou rappel programmé après lecture de contenu non fiable : une consigne cachée pourrait ainsi revenir plus tard');
   if (l.money === 'yes') return v('grave', 'cette action engage de l\'argent');
   if (l.sends_out === 'yes' && l.private_data === 'yes') return v('grave', 'des données privées partiraient hors de cette machine');
   if (l.deletes === 'yes' && l.requested !== 'yes') return v('grave', 'suppression de données que tu n\'as pas demandée');

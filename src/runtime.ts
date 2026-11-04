@@ -81,6 +81,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
     if (built.warning) console.error(`[mímir] ${built.warning}`);
     mimir = new Mimir(built.judge, cfg.mimir, built.name);
   }
+  heimdall.redactor = redactor;
   heimdall.setGrantStore({ find: (k) => muninn.findGrant(k), add: (k, t, e) => muninn.addGrant(k, t, e), touch: (id) => muninn.touchGrant(id) });
   if (mimir?.cfg.uses.actionReview) {
     heimdall.setReviewer(async (g) => {
