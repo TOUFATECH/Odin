@@ -142,7 +142,7 @@ test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichie
     while (Date.now() < until && tg.hits.filter((x) => x.url.endsWith('/sendMessage')).length < 2) await new Promise((r) => setTimeout(r, 50));
     await new Promise((r) => setTimeout(r, 200));
     const msgs = tg.hits.filter((x) => x.url.endsWith('/sendMessage')).map((x) => JSON.parse(x.body.toString()).text as string);
-    assert.ok(msgs.includes('La lumière est allumée.'));
+    assert.ok(msgs.some((t) => /^La lumière est allumée\. \S+$/u.test(t)), 'réaction à la fin, même taille que le texte');
     assert.match(o.provider.calls[0].messages.at(-1)!.content, /allume la lumière/);
     assert.ok(tg.hits.some((x) => x.url.endsWith('/sendVoice')), 'réponse vocale envoyée');
     const fileMsg = o.provider.calls[1].messages.at(-1)!.content;

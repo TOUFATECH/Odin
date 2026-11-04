@@ -3,6 +3,7 @@
 // propriétaire, et exécute les tâches planifiées.
 
 import { MOODS, moodSticker } from '../mood/stickers.ts';
+import { MOOD_EMOJI, type Mood } from '../mood/mood.ts';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Approver, ApprovalAnswer, ApprovalRequest } from '../heimdall/policy.ts';
@@ -149,7 +150,9 @@ export class Gateway {
         if (webp) await ch.sendSticker(m.peer, webp).catch((e) => console.error('[humeur]', (e as Error).message));
       }
       if (mood) this.lastMood.set(sessionId, mood);
-      await ch.send(m.peer, (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
+      // Sa réaction : un émoji à la fin du texte (même taille que le texte), sur Telegram.
+      const face = mood && ch.sendSticker && this.odin.cfg.mood.emoji ? ` ${MOOD_EMOJI[mood as Mood]}` : '';
+      await ch.send(m.peer, (r.text || '(pas de réponse)') + face + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));

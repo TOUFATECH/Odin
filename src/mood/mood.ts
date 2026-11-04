@@ -29,6 +29,11 @@ export const MOODS = {
 } as const;
 
 export type Mood = keyof typeof MOODS;
+/** Émoji de chaque humeur, ajouté à la fin des réponses Telegram (même taille que le texte). */
+export const MOOD_EMOJI: Record<Mood, string> = {
+  neutre: '🙂', joie: '😊', rire: '😄', amour: '🥰', fierte: '😎', excite: '🤩', clin: '😉', malice: '😏', surprise: '😮', reflexion: '🤔',
+  concentration: '🧐', confus: '😕', inquiet: '😟', triste: '😢', colere: '😠', peur: '😨', gene: '😳', fatigue: '😴', ecoute: '🙂', regarde: '👀',
+};
 export const MOOD_IDS = Object.keys(MOODS) as Mood[];
 export const isMood = (m: unknown): m is Mood => typeof m === 'string' && m in MOODS;
 

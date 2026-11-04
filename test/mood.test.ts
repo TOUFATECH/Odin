@@ -32,14 +32,14 @@ class Tg implements Channel {
 }
 
 test('Odin choisit son humeur : marqueur invisible, évènement émis, autocollant Telegram quand elle change', async () => {
-  const o = makeOdin([{ text: '[humeur:joie] Bonjour ! Prêt à t\'aider.' }, { text: '[humeur:joie] Encore là.' }, { text: '[humeur:reflexion] Hmm, laquelle ?' }]);
+  const o = makeOdin([{ text: '[humeur:joie] Bonjour ! Prêt à t\'aider.' }, { text: '[humeur:joie] Encore là.' }, { text: '[humeur:reflexion] Hmm, laquelle ?' }], { config: (c) => ({ ...c, mood: { emoji: true, stickers: true } }) });
   const ch = new Tg();
   const gw = new Gateway(o, { owners: { fake: ['boss'] } }).add(ch);
   const events: string[] = [];
   ch.event = (_p: string, e: { type: string; mood?: string }) => { if (e.type === 'mood') events.push(e.mood!); };
   const msg = (text: string): Inbound => ({ channel: 'fake', peer: 'boss', name: 'boss', text });
   await gw.handle(msg('salut'));
-  assert.equal(ch.sent[0], 'Bonjour ! Prêt à t\'aider.', 'marqueur retiré, pas d\'émoji');
+  assert.equal(ch.sent[0], 'Bonjour ! Prêt à t\'aider. 😊', 'marqueur retiré, réaction à la fin du texte');
   assert.match(o.provider.calls[0].system, /\[humeur:X\]/, 'le modèle sait qu\'il a un visage');
   assert.equal(ch.stickers, 1);
   await gw.handle(msg('encore'));

@@ -65,8 +65,8 @@ export interface OdinConfig {
   };
   /** Recherche web : moteur (auto = Brave ou Tavily si clé, SearXNG si adresse, sinon DuckDuckGo). */
   search: { provider: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng'; searxngUrl: string };
-  /** Humeur d'Odin : autocollant de son visage sur Telegram quand elle change. */
-  mood: { stickers: boolean };
+  /** Humeur d'Odin sur Telegram : émoji à la fin du texte (défaut) ; autocollant en plus si demandé. */
+  mood: { emoji: boolean; stickers: boolean };
   learning: {
     /** Proposer des compétences après une tâche complexe. */
     proposeSkills: boolean;
@@ -139,7 +139,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     approvalTimeoutSec: 300,
     sandbox: { kind: 'none', image: 'node:22-bookworm-slim', network: false },
   },
-  mood: { stickers: true },
+  mood: { emoji: true, stickers: false },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
