@@ -112,6 +112,31 @@ Write-Host ''
 Gold 'Réglages'
 Info 'Le modèle, les clés et Telegram se règlent ensuite dans l''interface web (onglet Réglages).'
 
+# Qui peut ouvrir l'interface web ? (modifiable plus tard : Réglages → Accès, ou « odin web access »)
+$Access = $env:ODIN_WEB_ACCESS
+if (-not $Access -and $env:ODIN_YES -ne '1') {
+  Write-Host '  Accès à l''interface web :'
+  Write-Host '    1) ton réseau local, en HTTPS (recommandé : téléphone, tablette…)'
+  Write-Host '    2) cette machine seulement'
+  Write-Host '    3) Internet aussi (HTTPS obligatoire, port à ouvrir sur ta box)'
+  $ch = Read-Host '  Ton choix [1]'
+  $Access = switch ($ch) { '2' { 'local' } '3' { 'wan' } default { 'lan' } }
+}
+if ($Access -notin @('local', 'lan', 'wan')) { $Access = 'lan' }
+& $Odin web access $Access | Out-Null
+Ok "Interface web : $(@{ local = 'cette machine seulement'; lan = 'réseau local en HTTPS'; wan = 'réseau local et Internet en HTTPS' }[$Access])"
+if ($Access -ne 'local') {
+  # Pare-feu Windows : autoriser le port 7777 (réseaux privés ; tous les profils pour Internet).
+  $fwProfile = if ($Access -eq 'wan') { 'Any' } else { 'Private' }
+  $rule = "New-NetFirewallRule -DisplayName 'Odin (interface web)' -Direction Inbound -Protocol TCP -LocalPort 7777 -Action Allow -Profile $fwProfile | Out-Null"
+  if (-not (Get-NetFirewallRule -DisplayName 'Odin (interface web)' -ErrorAction SilentlyContinue)) {
+    if (Ask 'Autoriser Odin dans le pare-feu Windows (une fenêtre administrateur va s''ouvrir) ?') {
+      try { Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "-NoProfile -Command $rule"; Ok 'Pare-feu : port 7777 autorisé' }
+      catch { Info 'Pare-feu non modifié : autorise le port 7777 toi-même si les autres appareils n''y arrivent pas.' }
+    }
+  }
+}
+
 if ($env:ODIN_NO_SCAN -ne '1' -and (Ask 'Inventorier les appareils de ton réseau local (et suivre leurs changements) ?')) {
   & $Odin net enable | Out-Null
   Info 'Balayage du réseau local en cours (environ 30 secondes)…'
@@ -136,8 +161,15 @@ Write-Host '  Dernière étape : choisis ton modèle dans l''interface web, ongl
 if ($service) {
   $tokFile = Join-Path $OdinHome 'web-token'
   for ($i = 0; $i -lt 10 -and -not (Test-Path $tokFile); $i++) { Start-Sleep -Seconds 1 }
-  $url = "http://127.0.0.1:7777/?token=$(Get-Content $tokFile -ErrorAction SilentlyContinue)"
+  $scheme = if ($Access -eq 'local') { 'http' } else { 'https' }
+  $tok = Get-Content $tokFile -ErrorAction SilentlyContinue
+  $url = "$($scheme)://127.0.0.1:7777/?token=$tok"
   Write-Host "  Interface web : $url"
+  if ($Access -ne 'local') {
+    $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -match '^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)' } | Select-Object -First 1).IPAddress
+    if ($ip) { Write-Host "  Depuis ton téléphone ou un autre appareil du réseau : $($scheme)://$($ip):7777/?token=$tok" }
+    Write-Host '  (certificat créé par Odin : le navigateur demandera de l''accepter une fois)'
+  }
   Start-Process $url
   Write-Host '  Plus tard     : odin web (rouvre l''interface) · odin doctor (diagnostic)'
   Write-Host '  (ouvre un nouveau terminal si la commande « odin » est introuvable)'

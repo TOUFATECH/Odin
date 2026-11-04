@@ -123,8 +123,13 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
-    web: { port: cfg.web.port },
+    web: { port: cfg.web.port, access: cfg.web.access, https: cfg.web.tls.enabled, cert: cfg.web.tls.cert, key: cfg.web.tls.key, behindProxy: cfg.web.behindProxy, publicUrl: cfg.web.publicUrl, networks: cfg.web.allowedNetworks.join(', ') },
   };
+}
+
+/** Bloc « web » tel qu'écrit dans config.json (pour ne rien perdre en le réécrivant). */
+function readWeb(paths: OdinPaths): Record<string, unknown> {
+  try { return (JSON.parse(readFileSync(paths.config, 'utf8')) as { web?: Record<string, unknown> }).web ?? {}; } catch { return {}; }
 }
 
 /** Applique un bloc de réglages ; renvoie true si Odin doit redémarrer ses services. */
@@ -165,6 +170,22 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       const judge = String(b.judge ?? cfg.mimir.judge);
       saveKey(judge.includes('jev') || judge === 'auto' ? 'JEV_API_KEY' : undefined);
       setConfigValue(paths, ['mimir', 'judge'], judge);
+      return true;
+    }
+    case 'access': {
+      const access = String(b.access);
+      if (!['local', 'lan', 'wan'].includes(access)) throw new Error('accès inconnu');
+      const port = b.port === undefined || b.port === '' ? cfg.web.port : Math.round(Number(b.port));
+      const cert = String(b.cert ?? '').trim(), key = String(b.key ?? '').trim();
+      for (const f of [cert, key]) if (f && !existsSync(f)) throw new Error(`fichier introuvable : ${f}`);
+      setConfigValue(paths, ['web'], {
+        ...readWeb(paths),
+        access, port,
+        tls: { enabled: access === 'wan' ? true : Boolean(b.https), cert, key },
+        behindProxy: access === 'wan' && Boolean(b.behindProxy),
+        publicUrl: String(b.publicUrl ?? '').trim(),
+        allowedNetworks: String(b.networks ?? '').split(/[\s,;]+/).filter(Boolean),
+      });
       return true;
     }
     case 'secret': {

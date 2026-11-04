@@ -1,16 +1,20 @@
 // Interface web locale d'Odin : un canal Bifröst comme Telegram, servi par node:http.
 //
 // Sécurité :
-// - écoute sur 127.0.0.1 uniquement (accès distant : tunnel SSH ou Tailscale) ;
+// - accès au choix (web.access, voir access.ts) : cette machine seulement (par défaut),
+//   réseau local (adresses privées uniquement) ou Internet (HTTPS obligatoire) ;
 // - jeton aléatoire stocké dans ~/.odin/web-token (droits 600), échangé contre un cookie
-//   HttpOnly + SameSite=Strict ;
-// - vérification de l'en-tête Host (contre le « DNS rebinding ») et en-tête x-odin
-//   obligatoire sur chaque POST (contre les requêtes intersites) ;
+//   HttpOnly + SameSite=Strict (+ Secure en HTTPS), exigé pour chaque appel /api ;
+// - essais de jeton ratés limités par adresse (10 en 10 min, puis 15 min de blocage) ;
+// - en mode local, vérification de l'en-tête Host (contre le « DNS rebinding ») ;
+// - en-tête x-odin obligatoire sur chaque POST (contre les requêtes intersites) ;
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
+import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
 import { join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
@@ -20,9 +24,9 @@ import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
 import { applySettings, providerFor, settingsView, testProvider, type ModelPreset } from '../settings.ts';
 
-export function ensureWebToken(paths: OdinPaths): string {
+export function ensureWebToken(paths: OdinPaths, rotate = false): string {
   const f = join(paths.home, 'web-token');
-  if (existsSync(f)) return readFileSync(f, 'utf8').trim();
+  if (!rotate && existsSync(f)) return readFileSync(f, 'utf8').trim();
   const t = randomBytes(24).toString('hex');
   writeFileSync(f, t, { mode: 0o600 });
   try { chmodSync(f, 0o600); } catch { /* Windows : droits gérés par le profil utilisateur */ }
@@ -49,13 +53,23 @@ export class WebChannel implements Channel {
   private port: number;
   private host: string;
   private token: string;
+  private access: WebAccess;
+  private tls?: TlsMaterial;
+  private throttle = new AuthThrottle();
 
-  constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string }) {
+  constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string; access?: WebAccess; tls?: TlsMaterial }) {
     this.odin = odin; this.hooks = hooks;
     this.port = opts.port; this.host = opts.host; this.token = opts.token;
+    this.access = opts.access ?? 'local'; this.tls = opts.tls;
   }
 
-  get url(): string { return `http://${this.host === '::1' ? '[::1]' : this.host}:${this.port}/?token=${this.token}`; }
+  /** Lien à ouvrir sur cette machine. */
+  get url(): string {
+    const h = this.host === '::1' ? '[::1]' : this.host === '::' || this.host === '0.0.0.0' ? '127.0.0.1' : this.host;
+    return `${this.tls ? 'https' : 'http'}://${h}:${this.port}/?token=${this.token}`;
+  }
+  /** Tous les liens utiles (cette machine, réseau local, adresse publique). */
+  get urls(): string[] { return accessUrls(this.odin.cfg.web, this.token, { access: this.access, https: Boolean(this.tls) }); }
 
   private tokenOk(given: string | undefined): boolean {
     const a = Buffer.from(given ?? ''), b = Buffer.from(this.token);
@@ -65,12 +79,37 @@ export class WebChannel implements Channel {
   private authed(req: IncomingMessage): boolean {
     const cookie = /(?:^|;\s*)odin_token=([a-f0-9]+)/.exec(req.headers.cookie ?? '')?.[1];
     const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-    return this.tokenOk(cookie) || this.tokenOk(bearer);
+    const ok = this.tokenOk(cookie) || this.tokenOk(bearer);
+    if (ok) this.throttle.success(this.clientIp(req));
+    else if (cookie || bearer) this.throttle.fail(this.clientIp(req)); // un jeton faux = un essai raté
+    return ok;
+  }
+
+  // Réseaux autorisés (recalculés toutes les minutes : le Wi-Fi peut changer).
+  private nets?: { at: number; list: string[] };
+  private networks(): string[] {
+    if (!this.nets || Date.now() - this.nets.at > 60_000) this.nets = { at: Date.now(), list: allowedNetworks(this.odin.cfg.web) };
+    return this.nets.list;
+  }
+
+  private clientIp(req: IncomingMessage): string {
+    const sock = remoteOf(req);
+    if (this.access === 'wan' && this.odin.cfg.web.behindProxy) {
+      const fwd = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+      if (fwd) return `fwd:${fwd}`; // préfixe : jamais confondu avec la machine elle-même
+    }
+    return sock;
   }
 
   private hostOk(req: IncomingMessage): boolean {
+    // Réseau local ou Internet : le nom utilisé varie (IP, nom.local, domaine) ; le jeton protège.
+    if (this.access !== 'local') return true;
     const h = (req.headers.host ?? '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '');
     return ['127.0.0.1', 'localhost', '::1'].includes(h);
+  }
+
+  private cookie(token: string): string {
+    return `odin_token=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000${this.tls ? '; Secure' : ''}`;
   }
 
   private push(data: unknown): void {
@@ -83,10 +122,16 @@ export class WebChannel implements Channel {
   notify(topic: string): void { this.push({ type: 'refresh', topic }); }
 
   async start(onMessage: (m: Inbound) => Promise<void>): Promise<void> {
-    this.server = createServer((req, res) => {
+    const handler = (req: IncomingMessage, res: ServerResponse) => {
       void this.route(req, res, onMessage).catch((e) => json(res, 500, { error: (e as Error).message }));
-    });
-    await new Promise<void>((r, j) => { this.server!.once('error', j); this.server!.listen(this.port, this.host, r); });
+    };
+    this.server = this.tls ? createHttpsServer({ key: this.tls.key, cert: this.tls.cert }, handler) : createServer(handler);
+    const listen = (host: string) => new Promise<void>((r, j) => { this.server!.once('error', j); this.server!.listen(this.port, host, () => { this.server!.removeListener('error', j); r(); }); });
+    try { await listen(this.host); } catch (e) {
+      // Machine sans IPv6 : « :: » est refusé, on écoute alors sur toutes les adresses IPv4.
+      if (this.host !== '::' || !['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes((e as NodeJS.ErrnoException).code ?? '')) throw e;
+      this.host = '0.0.0.0'; await listen(this.host);
+    }
     const ping = setInterval(() => { for (const c of this.clients) c.write(': ping\n\n'); }, 25_000);
     this.server.on('close', () => clearInterval(ping));
   }
@@ -98,19 +143,28 @@ export class WebChannel implements Channel {
 
   private async route(req: IncomingMessage, res: ServerResponse, onMessage: (m: Inbound) => Promise<void>): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
+    // Derrière un proxy HTTPS, seul le proxy (sur la machine ou le réseau local) peut se connecter ;
+    // l'adresse réelle du visiteur vient alors de X-Forwarded-For (pour la limite d'essais).
+    const proxied = this.access === 'wan' && this.odin.cfg.web.behindProxy;
+    if (!remoteAllowed(proxied ? 'lan' : this.access, remoteOf(req), this.networks())) { req.socket.destroy(); return; } // hors du périmètre choisi : on ne répond pas
+    const ip = this.clientIp(req);
+    if (this.throttle.blocked(ip)) return json(res, 429, { error: 'trop d\'essais de jeton : réessaie dans 15 minutes' });
     if (!this.hostOk(req)) return json(res, 403, { error: 'hôte refusé' });
 
     if (req.method === 'GET' && url.pathname === '/') {
       const t = url.searchParams.get('token');
       if (t && this.tokenOk(t)) {
-        res.writeHead(302, { location: '/', 'set-cookie': `odin_token=${this.token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000` });
+        this.throttle.success(ip);
+        res.writeHead(302, { location: '/', 'set-cookie': this.cookie(this.token) });
         return void res.end();
       }
+      if (t) this.throttle.fail(ip);
       const nonce = randomBytes(16).toString('base64');
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
         'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
-        'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
+        ...(this.tls && !this.tls.selfSigned ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
       return void res.end(UI.replace('__NONCE__', nonce).replace('__AUTHED__', this.authed(req) ? 'true' : 'false'));
     }
@@ -170,6 +224,7 @@ export class WebChannel implements Channel {
       autonomy: cfg.mimir.enabled ? cfg.mimir.autonomy : 'prudent',
       judge: this.odin.mimir?.judgeName ?? null,
       settings: settingsView(cfg, Boolean(this.odin.demo)),
+      access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
     };
   }
@@ -215,6 +270,13 @@ export class WebChannel implements Channel {
           return await testProvider(p, 20_000, env);
         } catch (e) { return { ok: false, message: (e as Error).message }; }
       }
+      case 'access_links': return { ok: true, links: this.urls }; // avec le jeton, pour ouvrir sur un autre appareil
+      case 'token_rotate': {
+        // Nouveau jeton : tous les liens et navigateurs déjà connectés sont déconnectés.
+        this.token = ensureWebToken(this.odin.paths, true);
+        setTimeout(() => { for (const c of this.clients) c.end(); this.clients.clear(); }, 100);
+        return { ok: true, token: this.token };
+      }
       case 'conversation_reset': muninn.resetSession(`web:${safePeer(b.peer as string)}`); break;
       case 'net_scan': void this.hooks.scanNetwork(Boolean(b.full)); return { ok: true, started: true };
       default: return { ok: false, error: 'action inconnue' };
@@ -223,6 +285,8 @@ export class WebChannel implements Channel {
     return { ok: true };
   }
 }
+
+const remoteOf = (req: IncomingMessage) => (req.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
 
 const safePeer = (p: string | null | undefined) => (p && /^[a-z0-9-]{1,40}$/i.test(p) ? p : 'principal');
 

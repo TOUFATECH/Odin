@@ -7,6 +7,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Risk } from './types.ts';
 import { DEFAULT_MIMIR, type MimirConfig } from './mimir/decisions.ts';
+import { validCidr } from './web/access.ts';
 
 export type PolicyMode = 'allow' | 'ask' | 'deny';
 
@@ -64,7 +65,22 @@ export interface OdinConfig {
     /** Prévenir le propriétaire des changements (nouvel appareil, déconnexion…). */
     notify: boolean;
   };
-  web: { enabled: boolean; port: number; host: string };
+  web: {
+    enabled: boolean;
+    port: number;
+    /** Qui peut ouvrir l'interface : 'lan' (réseau local, par défaut), 'local' (cette machine), 'wan' (Internet, HTTPS). */
+    access: 'local' | 'lan' | 'wan';
+    /** Réseaux autorisés en LAN (CIDR, ex. 192.168.1.0/24) ; vide = sous-réseaux détectés de la machine. */
+    allowedNetworks: string[];
+    /** Adresse d'écoute en mode local (127.0.0.1 ou ::1). */
+    host: string;
+    /** HTTPS servi par Odin : actif par défaut en LAN, toujours actif sur Internet (sauf behindProxy). */
+    tls: { enabled: boolean; cert: string; key: string };
+    /** Internet derrière un proxy HTTPS (Caddy, Cloudflare Tunnel…) : Odin reste en HTTP derrière lui. */
+    behindProxy: boolean;
+    /** Adresse publique éventuelle (ex. https://odin.mondomaine.fr), seulement pour afficher le lien. */
+    publicUrl: string;
+  };
   /** Mímir : jugements typés (juge local sans clé par défaut, Jev ou modèle en option), décisions en code. */
   mimir: MimirConfig;
   channels: {
@@ -89,7 +105,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   },
   learning: { proposeSkills: true, minToolCallsForReflection: 5, recallLimit: 6 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
-  web: { enabled: true, port: 7777, host: '127.0.0.1' },
+  web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
   mimir: DEFAULT_MIMIR,
   channels: {
     telegram: { enabled: false, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners: [] },
@@ -153,7 +169,12 @@ export function validateConfig(c: OdinConfig): string[] {
   if (!['none', 'docker'].includes(c.policy.sandbox?.kind)) errs.push('policy.sandbox.kind doit valoir none ou docker');
   if (!['auto', 'local', 'llm', 'jev', 'local+llm', 'local+jev'].includes(c.mimir.judge)) errs.push('mimir.judge doit valoir auto, local, llm, jev, local+llm ou local+jev');
   if (c.network.intervalMin < 5) errs.push('network.intervalMin doit valoir au moins 5 minutes');
-  if (c.web.host !== '127.0.0.1' && c.web.host !== 'localhost' && c.web.host !== '::1') errs.push('web.host : l\'interface web n\'écoute que sur la machine locale (127.0.0.1) ; passe par un tunnel SSH ou Tailscale pour y accéder à distance');
+  if (!['local', 'lan', 'wan'].includes(c.web.access)) errs.push('web.access doit valoir local, lan ou wan');
+  if (!['127.0.0.1', 'localhost', '::1'].includes(c.web.host)) errs.push('web.host : 127.0.0.1, localhost ou ::1 (pour ouvrir au réseau, utilise web.access = lan ou wan)');
+  if (!Number.isInteger(c.web.port) || c.web.port < 1024 || c.web.port > 65535) errs.push('web.port doit être entre 1024 et 65535');
+  if (Boolean(c.web.tls.cert) !== Boolean(c.web.tls.key)) errs.push('web.tls : indique à la fois cert et key (chemins des fichiers PEM)');
+  if (c.web.publicUrl && !/^https:\/\//.test(c.web.publicUrl)) errs.push('web.publicUrl doit commencer par https://');
+  if (!Array.isArray(c.web.allowedNetworks) || c.web.allowedNetworks.some((n) => !validCidr(String(n)))) errs.push('web.allowedNetworks : des réseaux au format CIDR, ex. 192.168.1.0/24');
   if (c.policy.modes.external === 'allow') errs.push('policy.modes.external = allow est refusé : un envoi externe doit toujours être validé');
   return errs;
 }

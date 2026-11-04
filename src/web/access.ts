@@ -1,0 +1,230 @@
+// Qui peut joindre l'interface web, et comment.
+//
+//   lan   : (par défaut) toutes les interfaces, en HTTPS, mais seuls les appareils de TON
+//           sous-réseau sont acceptés (ex. 192.168.1.0/24, détecté automatiquement, ou la
+//           liste web.allowedNetworks). Lien type https://192.168.1.20:7777.
+//   local : 127.0.0.1 uniquement. Rien n'est visible depuis le réseau.
+//   wan   : toutes les adresses, y compris Internet. HTTPS obligatoire : certificat fourni,
+//           certificat auto-signé généré ici, ou chiffrement assuré par un proxy (Caddy,
+//           Cloudflare Tunnel…) avec behindProxy.
+//
+// Dans tous les cas le jeton reste exigé pour chaque appel /api, et les essais de jeton
+// ratés sont limités par adresse.
+
+import { generateKeyPairSync, randomBytes, sign, X509Certificate } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { hostname, networkInterfaces } from 'node:os';
+import { join } from 'node:path';
+import type { OdinConfig, OdinPaths } from '../config.ts';
+import { isPrivateHost } from '../heimdall/policy.ts';
+
+export type WebAccess = 'local' | 'lan' | 'wan';
+export const ACCESS_LEVELS: WebAccess[] = ['local', 'lan', 'wan'];
+
+/** Adresse d'écoute : la boucle locale, ou toutes les interfaces (IPv4 et IPv6). */
+export function bindHost(web: OdinConfig['web']): string {
+  return web.access === 'local' ? web.host : '::';
+}
+
+/** HTTPS est-il servi par Odin lui-même ? */
+export function servesTls(web: OdinConfig['web']): boolean {
+  if (web.access === 'wan') return !web.behindProxy;
+  if (web.access === 'lan') return web.tls.enabled;
+  return false;
+}
+
+/** L'adresse de l'appareil qui se connecte est-elle autorisée pour ce mode ? */
+export function remoteAllowed(access: WebAccess, remote: string | undefined, networks: string[] = localNetworks()): boolean {
+  const ip = (remote ?? '').replace(/^::ffff:/, '');
+  if (!ip) return false;
+  const loopback = ip === '::1' || /^127\./.test(ip);
+  if (access === 'local') return loopback;
+  if (access === 'lan') return loopback || networks.some((n) => inCidr(ip, n));
+  return true; // wan : le jeton et la limite d'essais protègent
+}
+
+/**
+ * Sous-réseaux de cette machine (ex. 192.168.1.0/24), seulement les plages privées,
+ * plus Tailscale (100.64.0.0/10) si une interface y est. Sert de liste par défaut en LAN.
+ */
+export function localNetworks(): string[] {
+  const out = new Set<string>();
+  for (const list of Object.values(networkInterfaces())) {
+    for (const a of list ?? []) {
+      if (a.internal || !a.cidr) continue;
+      if (a.family === 'IPv4' && isPrivateHost(a.address)) {
+        if (inCidr(a.address, '100.64.0.0/10')) { out.add('100.64.0.0/10'); continue; }
+        const bits = Math.max(16, Number(a.cidr.split('/')[1])); // jamais plus large qu'un /16
+        out.add(`${networkOf(a.address, bits)}/${bits}`);
+      } else if (a.family === 'IPv6' && /^(fe80|f[cd][0-9a-f]{2}):/i.test(a.address)) {
+        out.add(/^fe80/i.test(a.address) ? 'fe80::/10' : `${a.address.split(':').slice(0, 4).join(':')}::/64`);
+      }
+    }
+  }
+  return [...out];
+}
+
+/** Liste effective : celle de la configuration, sinon les sous-réseaux détectés. */
+export const allowedNetworks = (web: OdinConfig['web']) => (web.allowedNetworks.length ? web.allowedNetworks : localNetworks());
+
+export function validCidr(c: string): boolean {
+  const [ip, b] = c.split('/');
+  const bits = Number(b);
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip ?? '')) return ip.split('.').every((x) => Number(x) <= 255) && Number.isInteger(bits) && bits >= 8 && bits <= 32;
+  return Boolean(ip?.includes(':')) && Number.isInteger(bits) && bits >= 8 && bits <= 128 && v6(ip) !== null;
+}
+
+export function inCidr(ip: string, cidr: string): boolean {
+  const [net, b] = cidr.split('/'); const bits = Number(b);
+  if (!net || !Number.isInteger(bits)) return false;
+  if (ip.includes(':') !== net.includes(':')) return false;
+  if (!ip.includes(':')) {
+    const a = v4(ip), n = v4(net);
+    if (a === null || n === null) return false;
+    const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+    return ((a & mask) >>> 0) === ((n & mask) >>> 0);
+  }
+  const a = v6(ip), n = v6(net);
+  if (!a || !n) return false;
+  for (let i = 0; i < 128; i += 16) {
+    const k = i / 16, take = Math.min(16, Math.max(0, bits - i));
+    const mask = take === 0 ? 0 : (0xffff << (16 - take)) & 0xffff;
+    if ((a[k] & mask) !== (n[k] & mask)) return false;
+  }
+  return true;
+}
+
+const v4 = (s: string) => { const p = s.split('.').map(Number); return p.length === 4 && p.every((x) => Number.isInteger(x) && x >= 0 && x <= 255) ? ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0 : null; };
+const networkOf = (ip: string, bits: number) => { const n = (v4(ip)! & ((~0 << (32 - bits)) >>> 0)) >>> 0; return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.'); };
+function v6(s: string): number[] | null {
+  const ip = s.split('%')[0];
+  const [head, tail] = ip.split('::');
+  const h = head ? head.split(':') : [], t = tail !== undefined ? (tail ? tail.split(':') : []) : [];
+  if (tail === undefined && h.length !== 8) return null;
+  const parts = [...h, ...Array(8 - h.length - t.length).fill('0'), ...t];
+  if (parts.length !== 8 || parts.some((x) => !/^[0-9a-f]{1,4}$/i.test(x))) return null;
+  return parts.map((x) => parseInt(x, 16));
+}
+
+/** Adresses de cette machine sur le réseau local (pour afficher les liens). */
+export function lanAddresses(): string[] {
+  const out: string[] = [];
+  for (const list of Object.values(networkInterfaces())) {
+    for (const a of list ?? []) {
+      if (a.internal) continue;
+      if (a.family === 'IPv4' && isPrivateHost(a.address)) out.push(a.address);
+    }
+  }
+  return [...new Set(out)];
+}
+
+/** Liens d'accès à afficher, du plus local au plus large. */
+export function accessUrls(web: OdinConfig['web'], token: string, actual?: { access: WebAccess; https: boolean }): string[] {
+  if (actual) web = { ...web, access: actual.access };
+  const scheme = (actual ? actual.https : servesTls(web)) ? 'https' : 'http';
+  const q = `/?token=${token}`;
+  const urls = [`${scheme}://${web.access === 'local' && web.host === '::1' ? '[::1]' : '127.0.0.1'}:${web.port}${q}`];
+  if (web.access !== 'local') {
+    for (const ip of lanAddresses()) urls.push(`${scheme}://${ip}:${web.port}${q}`);
+    const name = hostname().replace(/\.local$/, '');
+    if (/^[a-z0-9-]+$/i.test(name)) urls.push(`${scheme}://${name}.local:${web.port}${q}`);
+  }
+  if (web.access === 'wan' && web.publicUrl) urls.push(`${web.publicUrl.replace(/\/$/, '')}${q}`);
+  return urls;
+}
+
+export interface TlsMaterial { key: string; cert: string; fingerprint: string; selfSigned: boolean }
+
+/**
+ * Certificat HTTPS : celui configuré (web.tls.cert/key), sinon un certificat auto-signé
+ * créé par Odin lui-même dans ~/.odin/tls (aucun outil externe : marche aussi sous Windows).
+ * Il couvre localhost, 127.0.0.1, les adresses locales de la machine et son nom ; il est
+ * recréé si ces adresses changent. Le navigateur demandera de l'accepter une fois :
+ * compare l'empreinte affichée dans Réglages.
+ */
+export function ensureTls(paths: OdinPaths, web: OdinConfig['web']): TlsMaterial {
+  if (web.tls.cert && web.tls.key) {
+    const cert = readFileSync(web.tls.cert, 'utf8'), key = readFileSync(web.tls.key, 'utf8');
+    return { cert, key, fingerprint: new X509Certificate(cert).fingerprint256, selfSigned: false };
+  }
+  const dir = join(paths.home, 'tls');
+  const certFile = join(dir, 'cert.pem'), keyFile = join(dir, 'key.pem'), namesFile = join(dir, 'names.json');
+  const name = hostname().replace(/\.local$/, '');
+  const dns = ['localhost', ...(/^[a-z0-9-]+$/i.test(name) ? [name, `${name}.local`] : [])];
+  if (web.publicUrl) { try { const h = new URL(web.publicUrl).hostname; if (!/^[\d.]+$/.test(h)) dns.push(h); } catch { /* ignorée */ } }
+  const ips = ['127.0.0.1', ...lanAddresses()];
+  const wanted = JSON.stringify({ dns, ips });
+  const current = existsSync(namesFile) ? readFileSync(namesFile, 'utf8') : '';
+  if (!existsSync(certFile) || !existsSync(keyFile) || current !== wanted) {
+    mkdirSync(dir, { recursive: true });
+    const { cert, key } = selfSignedCertificate('Odin', dns, ips);
+    writeFileSync(keyFile, key, { mode: 0o600 });
+    try { chmodSync(keyFile, 0o600); } catch { /* Windows */ }
+    writeFileSync(certFile, cert);
+    writeFileSync(namesFile, wanted);
+  }
+  const cert = readFileSync(certFile, 'utf8');
+  return { cert, key: readFileSync(keyFile, 'utf8'), fingerprint: new X509Certificate(cert).fingerprint256, selfSigned: true };
+}
+
+// ---- Certificat X.509 auto-signé (ECDSA P-256), encodé à la main en DER ----
+
+const der = (tag: number, body: Buffer): Buffer => {
+  const n = body.length;
+  const len = n < 0x80 ? Buffer.from([n]) : n < 0x100 ? Buffer.from([0x81, n]) : Buffer.from([0x82, n >> 8, n & 255]);
+  return Buffer.concat([Buffer.from([tag]), len, body]);
+};
+const seq = (...b: Buffer[]) => der(0x30, Buffer.concat(b));
+const oid = (dotted: string): Buffer => {
+  const [a, b, ...rest] = dotted.split('.').map(Number);
+  const bytes = [a * 40 + b];
+  for (const v of rest) { const t = [v & 127]; for (let x = v >> 7; x > 0; x >>= 7) t.unshift((x & 127) | 128); bytes.push(...t); }
+  return der(0x06, Buffer.from(bytes));
+};
+const utcTime = (d: Date) => der(0x17, Buffer.from(d.toISOString().replace(/[-:T]/g, '').slice(2, 14) + 'Z'));
+const cn = (v: string) => seq(der(0x31, seq(oid('2.5.4.3'), der(0x0c, Buffer.from(v, 'utf8')))));
+
+export function selfSignedCertificate(commonName: string, dns: string[], ips: string[], days = 825): { cert: string; key: string } {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  const serial = randomBytes(16); serial[0] &= 0x7f; serial[0] |= 0x01; // positif, non nul
+  const ecdsaSha256 = seq(oid('1.2.840.10045.4.3.2'));
+  const now = new Date(Date.now() - 3600_000), end = new Date(now.getTime() + days * 86_400_000);
+  const san = seq(...dns.map((d) => der(0x82, Buffer.from(d, 'ascii'))), ...ips.map((ip) => der(0x87, Buffer.from(ip.split('.').map(Number)))));
+  const ext = (id: string, value: Buffer, critical = false) => seq(oid(id), ...(critical ? [der(0x01, Buffer.from([0xff]))] : []), der(0x04, value));
+  const extensions = der(0xa3, seq(
+    ext('2.5.29.17', san),                                           // subjectAltName
+    ext('2.5.29.19', seq(), true),                                   // basicConstraints : pas une autorité
+    ext('2.5.29.15', der(0x03, Buffer.from([0x07, 0x80])), true),    // keyUsage : digitalSignature
+    ext('2.5.29.37', seq(oid('1.3.6.1.5.5.7.3.1'))),                 // extKeyUsage : serverAuth
+  ));
+  const tbs = seq(
+    der(0xa0, der(0x02, Buffer.from([2]))),                          // version 3
+    der(0x02, serial), ecdsaSha256, cn(commonName), seq(utcTime(now), utcTime(end)), cn(commonName),
+    publicKey.export({ type: 'spki', format: 'der' }), extensions,
+  );
+  const signature = sign('sha256', tbs, privateKey);
+  const certDer = seq(tbs, ecdsaSha256, der(0x03, Buffer.concat([Buffer.from([0]), signature])));
+  const b64 = certDer.toString('base64').replace(/(.{64})/g, '$1\n').replace(/\n$/, '');
+  return { cert: `-----BEGIN CERTIFICATE-----\n${b64}\n-----END CERTIFICATE-----\n`, key: privateKey.export({ type: 'pkcs8', format: 'pem' }) as string };
+}
+
+/** Limite les essais de jeton ratés : 10 en 10 minutes, puis 15 minutes de blocage. */
+export class AuthThrottle {
+  private fails = new Map<string, { n: number; first: number; until: number }>();
+  private max: number; private windowMs: number; private banMs: number;
+  constructor(max = 10, windowMs = 600_000, banMs = 900_000) { this.max = max; this.windowMs = windowMs; this.banMs = banMs; }
+
+  blocked(ip: string, now = Date.now()): boolean {
+    const f = this.fails.get(ip);
+    return Boolean(f && f.until > now);
+  }
+  fail(ip: string, now = Date.now()): void {
+    if (/^(::ffff:)?127\.|^::1$/.test(ip)) return; // la machine elle-même n'est jamais bloquée
+    const f = this.fails.get(ip);
+    if (!f || now - f.first > this.windowMs) { this.fails.set(ip, { n: 1, first: now, until: 0 }); return; }
+    f.n++;
+    if (f.n >= this.max) f.until = now + this.banMs;
+    if (this.fails.size > 10_000) this.fails.clear(); // pas de croissance sans fin
+  }
+  success(ip: string): void { this.fails.delete(ip); }
+}

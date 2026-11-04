@@ -74,7 +74,7 @@ docker run -d --name odin -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
 docker exec -it odin node bin/odin.mjs chat
 ```
 
-Dans un conteneur, parle à Odin par Telegram ou par l'API HTTP (`"http": { "host": "0.0.0.0" }` dans `/data/config.json`, port 7778). L'interface web, elle, n'écoute que sur la machine locale.
+Dans un conteneur, l'interface web est en mode réseau local par défaut : publie le port (`-p 7777:7777`) et ouvre `https://<ip-de-la-machine>:7777`. L'API HTTP reste disponible (`"http": { "host": "0.0.0.0" }` dans `/data/config.json`, port 7778).
 </details>
 
 **Mise à jour** : `odin update` · **Désinstallation** : voir [Dépannage](#dépannage).
@@ -120,7 +120,7 @@ Essaie : *« Quels appareils sont sur mon réseau ? »*, *« Range mon dossier T
 
 ### Interface web
 
-`odin web` ouvre `http://127.0.0.1:7777` (lien personnel avec jeton, affiché au démarrage ; le jeton est aussi dans `~/.odin/web-token`).
+`odin web` ouvre l'interface. Par défaut elle est **joignable sur ton réseau local, en HTTPS** : `https://127.0.0.1:7777` sur la machine, `https://192.168.1.20:7777` (son adresse locale) depuis ton téléphone. Les liens personnels, avec jeton, s'affichent au démarrage ; le jeton est aussi dans `~/.odin/web-token`.
 
 | Onglet | Ce que tu y fais |
 |---|---|
@@ -132,7 +132,19 @@ Essaie : *« Quels appareils sont sur mon réseau ? »*, *« Range mon dossier T
 | **Décisions** | tout ce qu'Odin a fait, qui l'a décidé et pourquoi ; niveau d'autonomie ; autorisations permanentes |
 | **Réglages** | modèle et clés (avec test), autonomie et juge, Telegram, réseau local, accès |
 
-L'interface n'écoute que sur ta machine. Depuis ton téléphone : tunnel SSH, Tailscale, ou Telegram.
+#### Qui peut ouvrir l'interface ?
+
+Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou avec `odin web access` :
+
+| Mode | Qui peut l'ouvrir | Chiffrement |
+|---|---|---|
+| **lan** (par défaut) | cette machine et les appareils de ton sous-réseau (ex. `192.168.1.0/24`, détecté tout seul, ou ta liste de réseaux) ; les autres adresses sont ignorées | HTTPS (désactivable avec `--http`) |
+| **local** | cette machine seulement (`127.0.0.1`) | HTTP (rien ne circule sur le réseau) |
+| **wan** | tout Internet (pense à rediriger le port sur ta box, ou à utiliser un tunnel) | HTTPS obligatoire ; ou `--proxy` si Caddy, Nginx ou Cloudflare Tunnel chiffre devant Odin |
+
+Le certificat HTTPS est créé par Odin lui-même (aucun outil à installer) pour `localhost`, l'adresse locale et le nom de la machine. Ton navigateur demandera de l'accepter une fois : compare son empreinte avec celle de Réglages. Tu peux aussi donner ton propre certificat (Let's Encrypt…).
+
+Dans tous les modes, chaque appel exige le jeton, et une adresse qui se trompe 10 fois en 10 minutes est bloquée 15 minutes. **Nouveau jeton** (Réglages, ou `odin web rotate`) déconnecte tous les appareils.
 
 ### Terminal
 
@@ -252,7 +264,7 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 - **Secrets masqués** partout : avant le modèle, dans la mémoire, les journaux et les messages. La configuration ne contient jamais de clé, seulement le nom de la variable qui la contient.
 - **Fichiers confinés** à l'espace de travail (`~/.odin/workspace`), liens symboliques compris.
 - **Anti-SSRF** : l'outil web n'accède pas aux adresses internes.
-- **Inconnus** appairés par code, **interface web** liée à 127.0.0.1 avec jeton, **journal** de chaque décision (`~/.odin/logs/audit.jsonl`).
+- **Inconnus** appairés par code ; **interface web** en HTTPS sur ton réseau local (ou cette machine seulement, ou Internet en HTTPS obligatoire), jeton exigé partout, essais ratés limités ; **journal** de chaque décision (`~/.odin/logs/audit.jsonl`).
 
 ---
 
@@ -263,6 +275,8 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 | `odin init` | crée `~/.odin` |
 | `odin doctor` | diagnostic complet |
 | `odin web` | interface web + Telegram + API + tâches planifiées |
+| `odin web access [lan\|local\|wan]` | qui peut ouvrir l'interface (`--http`, `--proxy`) |
+| `odin web rotate` | nouveau jeton : déconnecte tous les appareils |
 | `odin gateway` | pareil, sans ouvrir le navigateur (service) |
 | `odin chat` · `odin run "…"` | terminal · une seule demande |
 | `odin decisions [N]` | ce qu'Odin a décidé et pourquoi |
@@ -292,7 +306,11 @@ Tout est dans `~/.odin/config.json`, validé au démarrage ; les clés vont dans
 | `policy.sandbox` | `none` | `docker` pour isoler le shell |
 | `mimir.autonomy` · `mimir.judge` | `equilibre` · `auto` | autonomie · juge des décisions |
 | `network.enabled` · `network.intervalMin` | false · 30 | inventaire du réseau |
-| `web.port` | 7777 | interface web (toujours sur 127.0.0.1) |
+| `web.port` | 7777 | port de l'interface web |
+| `web.access` | `lan` | `lan` (réseau local), `local` (cette machine), `wan` (Internet) |
+| `web.allowedNetworks` | `[]` | réseaux autorisés en LAN, ex. `["192.168.1.0/24"]` (vide = détectés) |
+| `web.tls` | HTTPS actif | `cert` et `key` : ton propre certificat (sinon Odin en crée un) |
+| `web.behindProxy` | `false` | Internet via un proxy HTTPS placé devant Odin |
 | `channels.telegram` · `channels.http` | désactivés | canaux de messagerie |
 
 La personnalité d'Odin est dans `~/.odin/ODIN.md` : modifie-la librement.
@@ -303,8 +321,10 @@ La personnalité d'Odin est dans `~/.odin/ODIN.md` : modifie-la librement.
 
 | Problème | Solution |
 |---|---|
+| Le téléphone n'arrive pas à ouvrir l'interface | même Wi-Fi que l'ordinateur ; utilise l'adresse `https://…` affichée au démarrage ; vérifie que son réseau figure dans Réglages → Accès ; autorise le port 7777 dans le pare-feu |
+| « Ta connexion n'est pas privée » | normal la première fois avec le certificat créé par Odin : compare l'empreinte (Réglages → Accès) puis accepte |
 | `odin : commande introuvable` | ouvre un nouveau terminal (le PATH a été mis à jour) |
-| Odin répond « mode démo » | ajoute une clé dans `~/.odin/env` ou configure Ollama, puis `odin doctor` |
+| Odin répond « mode démo » | Réglages → Modèle : colle ta clé (ou choisis Ollama), « Tester », « Enregistrer » |
 | Telegram ne répond pas | Réglages → Telegram : jeton enregistré, « Activer » coché, ton identifiant ajouté ; puis `odin doctor` |
 | Odin me demande trop souvent | réponds « toujours » aux demandes importantes récurrentes, ou `odin jev autonomy autonome` |
 | Aucun appareil trouvé | la machine doit être sur un réseau privé (Wi-Fi, Ethernet) ; lance `odin net scan --full` |

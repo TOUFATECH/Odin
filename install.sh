@@ -127,6 +127,20 @@ echo
 gold "Réglages"
 info "Le modèle, les clés et Telegram se règlent ensuite dans l'interface web (onglet Réglages)."
 
+# Qui peut ouvrir l'interface web ? (modifiable plus tard : Réglages → Accès, ou « odin web access »)
+ACCESS="${ODIN_WEB_ACCESS:-}"
+if [ -z "$ACCESS" ] && [ "${ODIN_YES:-}" != "1" ] && [ -r /dev/tty ]; then
+  printf '  Accès à l'"'"'interface web :\n    1) ton réseau local, en HTTPS (recommandé : téléphone, tablette…)\n    2) cette machine seulement\n    3) Internet aussi (HTTPS obligatoire, port à ouvrir sur ta box)\n  Ton choix [1] : ' > /dev/tty
+  read -r CH < /dev/tty || CH=""
+  case "${CH:-1}" in 2) ACCESS=local ;; 3) ACCESS=wan ;; *) ACCESS=lan ;; esac
+fi
+ACCESS="${ACCESS:-lan}"
+case "$ACCESS" in local|lan|wan) ;; *) ACCESS=lan ;; esac
+"$BIN_DIR/odin" web access "$ACCESS" >/dev/null && ok "Interface web : $( [ "$ACCESS" = local ] && echo 'cette machine seulement' || { [ "$ACCESS" = lan ] && echo 'réseau local en HTTPS' || echo 'réseau local et Internet en HTTPS'; } )"
+if [ "$ACCESS" != local ] && command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+  info "Pare-feu ufw actif : autorise le port avec « sudo ufw allow 7777/tcp »."
+fi
+
 if [ "${ODIN_NO_SCAN:-}" != "1" ] && ask "Inventorier les appareils de ton réseau local (et suivre leurs changements) ?" o; then
   "$BIN_DIR/odin" net enable >/dev/null
   info "Balayage du réseau local en cours (environ 30 secondes)…"
@@ -182,10 +196,19 @@ open_url() {
 echo
 gold "ᛟ  Odin est installé"
 echo "  Dernière étape : choisis ton modèle dans l'interface web, onglet Réglages."
+lan_ip() {
+  if [ "$OS" = darwin ]; then ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null
+  else hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^(10|172\.(1[6-9]|2[0-9]|3[01])|192\.168)\.' | head -n1; fi
+}
+SCHEME=https; [ "$ACCESS" = local ] && SCHEME=http
 if [ -n "$SERVICE" ]; then
   for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$ODIN_HOME/web-token" ] && break; sleep 1; done
-  URL="http://127.0.0.1:7777/?token=$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
+  TOKEN="$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
+  URL="$SCHEME://127.0.0.1:7777/?token=$TOKEN"
   echo "  Interface web : $URL"
+  IP="$(lan_ip || true)"
+  [ "$ACCESS" != local ] && [ -n "$IP" ] && echo "  Depuis ton téléphone ou un autre appareil du réseau : $SCHEME://$IP:7777/?token=$TOKEN"
+  [ "$SCHEME" = https ] && echo "  (certificat créé par Odin : le navigateur demandera de l'accepter une fois)"
   open_url "$URL"
   echo "  Plus tard     : odin web (rouvre l'interface) · odin doctor (diagnostic)"
   echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"

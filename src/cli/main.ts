@@ -22,6 +22,8 @@ import { Gateway } from '../bifrost/gateway.ts';
 import { TelegramChannel } from '../bifrost/channels/telegram.ts';
 import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
+import { allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
+import { applySettings } from '../settings.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { nextRun } from '../cron/cron.ts';
@@ -52,7 +54,10 @@ Usage : odin <commande>
   net [scan [--full]|list [--all]|show IP|events|label ID NOM|enable|disable]
                                inventaire du réseau local (Hliðskjálf)
   updates                      mises à jour disponibles sur cette machine
-  web                          interface web locale (+ canaux et tâches planifiées)
+  web                          interface web (+ canaux et tâches planifiées)
+  web access [lan|local|wan]   qui peut l'ouvrir : ton réseau local en HTTPS (défaut), cette machine,
+                               ou Internet (--http : LAN sans chiffrement ; --proxy : proxy HTTPS devant)
+  web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
   update                       met Odin à jour
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
   grants [list|revoke ID]      autorisations permanentes (« toujours autoriser »)
@@ -193,11 +198,28 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   };
   if (odin.cfg.web.enabled || openBrowser) {
     owners.web = ['*']; // quiconque détient le jeton local est le propriétaire
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), reload }, { port: odin.cfg.web.port, host: odin.cfg.web.host, token: ensureWebToken(odin.paths) });
+    const w = odin.cfg.web;
+    let access = w.access, tls: TlsMaterial | undefined;
+    if (servesTls(w)) {
+      try { tls = ensureTls(odin.paths, w); } catch (e) {
+        // Jamais d'Internet sans chiffrement : on se replie sur cette machine seulement.
+        console.log(c.red(`[web] ${(e as Error).message}`));
+        console.log(c.yellow('[web] repli : interface accessible depuis cette machine seulement.'));
+        access = 'local';
+      }
+    }
+    const host = access === 'local' ? w.host : bindHost(w);
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), reload }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {
-      console.log(`\n${c.cyan('ᛟ')} Interface web : ${c.bold(web.url)}\n${c.dim('  (lien personnel : il contient ton jeton d\'accès, ne le partage pas)')}\n`);
+      const where = access === 'local' ? 'cette machine seulement' : access === 'lan' ? 'cette machine et ton réseau local' : 'cette machine, ton réseau local et Internet';
+      console.log(`\n${c.cyan('ᛟ')} Interface web (${where}${tls ? ', HTTPS' : ''}) :`);
+      for (const u of access === 'local' ? [web.url] : web.urls) console.log(`  ${c.bold(u)}`);
+      if (access === 'lan') console.log(c.dim(`  Réseaux autorisés : ${allowedNetworks(w).join(', ') || 'aucun détecté (cette machine seulement)'}`));
+      if (tls?.selfSigned) console.log(c.dim(`  Certificat auto-signé : accepte-le dans le navigateur après avoir vérifié l'empreinte\n  ${tls.fingerprint}`));
+      if (access === 'wan' && w.behindProxy) console.log(c.dim('  Internet via ton proxy HTTPS (web.behindProxy).'));
+      console.log(c.dim('  (liens personnels : ils contiennent ton jeton d\'accès, ne les partage pas)\n'));
       if (odin.demo) console.log(c.yellow('  → Termine la configuration dans l\'onglet Réglages.\n'));
     } else console.log(c.dim('[odin] services relancés'));
     if (openBrowser) openUrl(web.url);
@@ -209,6 +231,25 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     process.on('SIGINT', stop);
     process.on('SIGTERM', stop);
   }
+}
+
+/** odin web access [local|lan|wan] [--https] [--proxy] : qui peut ouvrir l'interface web. */
+function webAccess(mode: string | undefined): void {
+  const paths = odinPaths();
+  initHome(paths);
+  const cfg = loadConfig(paths);
+  if (!mode) {
+    const w = cfg.web;
+    console.log(`Accès à l'interface web : ${c.bold(w.access)}${servesTls(w) ? ' (HTTPS)' : ''}${w.access === 'wan' && w.behindProxy ? ' derrière un proxy' : ''}, port ${w.port}`);
+    if (w.access === 'lan') console.log(`Réseaux autorisés : ${allowedNetworks(w).join(', ') || '—'}${w.allowedNetworks.length ? '' : ' (détectés)'}`);
+    console.log(c.dim('  odin web access lan     ton réseau local en HTTPS (par défaut ; --http pour ne pas chiffrer)\n  odin web access local   cette machine seulement\n  odin web access wan     + Internet (HTTPS obligatoire ; --proxy si un proxy HTTPS est devant)'));
+    return;
+  }
+  if (!['local', 'lan', 'wan'].includes(mode)) throw new Error('mode inconnu : local, lan ou wan');
+  applySettings(paths, cfg, 'access', { access: mode, https: !flags.has('--http'), behindProxy: flags.has('--proxy'), cert: cfg.web.tls.cert, key: cfg.web.tls.key, publicUrl: cfg.web.publicUrl, networks: cfg.web.allowedNetworks.join(',') });
+  const msg = { local: 'cette machine seulement', lan: `ton réseau local${flags.has('--http') ? '' : ' en HTTPS'} (${allowedNetworks(loadConfig(paths).web).join(', ') || 'aucun réseau privé détecté pour l\'instant'})`, wan: 'cette machine, ton réseau local et Internet (HTTPS)' }[mode];
+  console.log(c.green(`✓ Interface web : ${msg}. Relance « odin web » (ou le service) pour l'appliquer.`));
+  if (mode === 'wan' && !flags.has('--proxy')) console.log(c.yellow('  Pense à rediriger le port ' + cfg.web.port + ' sur ta box vers cette machine. Le navigateur demandera d\'accepter le certificat auto-signé.'));
 }
 
 function openUrl(url: string): void {
@@ -233,6 +274,10 @@ async function doctor(): Promise<void> {
   for (const p of cfg.providers) ok(Boolean(buildProvider(p)), `Fournisseur ${p.kind}:${p.model}`, p.apiKeyEnv ? `variable ${p.apiKeyEnv} absente` : 'non configuré');
   ok(usable.length > 0, 'Au moins un modèle utilisable', 'définis une clé, ou utilise --demo');
   ok(cfg.policy.modes.exec !== 'allow', 'Shell soumis à validation', 'policy.modes.exec = allow est risqué');
+  {
+    const w = cfg.web, where = { local: 'cette machine seulement', lan: `réseau local (${allowedNetworks(w).join(', ') || 'aucun réseau privé détecté'})`, wan: w.behindProxy ? 'Internet via un proxy HTTPS' : 'Internet' }[w.access];
+    ok(w.access !== 'wan' || servesTls(w) || w.behindProxy, `Interface web : ${where}${servesTls(w) ? ', HTTPS' : ''}, port ${w.port}`, 'Internet sans HTTPS');
+  }
   if (cfg.mimir.enabled) ok(true, `Mímir actif (juge ${cfg.mimir.judge}${cfg.mimir.judge === 'auto' ? (process.env[cfg.mimir.apiKeyEnv] ? ' → Jev' : ' → local, sans clé') : ''})`);
   else console.log(c.dim('  (Mímir désactivé : « odin jev enable » pour l\'activer)'));
   if (cfg.policy.sandbox.kind === 'docker') {
@@ -402,6 +447,8 @@ async function main(): Promise<void> {
     return;
   }
   if (cmd === 'gateway') return gateway();
+  if (cmd === 'web' && pos[1] === 'access') return webAccess(pos[2]);
+  if (cmd === 'web' && pos[1] === 'rotate') { ensureWebToken(odinPaths(), true); console.log(c.green('✓ Nouveau jeton : les anciens liens ne marchent plus. Relance « odin web » pour voir les nouveaux.')); return; }
   if (cmd === 'web') return gateway(!flags.has('--no-open'));
   if (cmd === 'doctor') return doctor();
   if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'jev', 'decisions', 'grants'].includes(cmd)) return admin();
