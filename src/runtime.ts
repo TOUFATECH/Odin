@@ -5,6 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanupRestore } from './backup.ts';
+import { machineSecrets } from './machines/access.ts';
 import { type OdinConfig, loadConfig, odinPaths, initHome, type OdinPaths, DEFAULT_PERSONA } from './config.ts';
 import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
@@ -62,6 +63,8 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   const muninn = new Muninn(paths.db);
   const skills = new Yggdrasil(paths.skills, paths.drafts);
   const redactor = Redactor.fromEnv();
+  // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
+  for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
   const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS);
   const inventory = new Inventory(muninn.db);
@@ -99,6 +102,6 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   heimdall.setBreaker(cfg.mimir.breaker);
 
   const persona = existsSync(paths.persona) ? readFileSync(paths.persona, 'utf8') : DEFAULT_PERSONA;
-  const agent = new Agent({ cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, persona, send: opts.send, inventory, mimir });
+  const agent = new Agent({ cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, home: paths.home, persona, send: opts.send, inventory, mimir });
   return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, close: () => muninn.close() };
 }

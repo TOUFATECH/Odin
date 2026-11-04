@@ -258,6 +258,19 @@ Odin a **sa propre connexion**, rangée dans `~/.odin/codex-auth.json` (lisible 
 
 Odin a un visage, une petite boule aux deux yeux qui **change de couleur selon son humeur** ; ses yeux, toujours droits, changent de taille, de place et de mouvement selon l'émotion (tout petits quand il est gêné, plissés quand il est fâché, mi-clos quand il est fatigué, grands quand il est surpris, un clin d'œil…). Une vingtaine d'humeurs en tout : content, rieur, attendri, fier, enthousiaste, complice, malicieux, surpris, pensif, concentré, perplexe, inquiet, triste, fâché, effrayé, gêné, fatigué, à l'écoute, attentif… **Il choisit lui-même son humeur** à chaque réponse, selon ce qu'il vit avec toi. Entre deux réponses, son visage réagit tout seul : il t'écoute quand tu écris ou parles, se concentre quand il travaille, regarde quand tu lui montres une photo (bouton 📷), parle quand il lit sa réponse à voix haute, **ferme les yeux quand tu tapes une clé** dans les réglages, sourit quand un réglage est enregistré, s'endort si on l'oublie. Touche-le : il saute ; touche-le trop, il se fâche, devient rouge, puis bleu, puis redevient jaune. Chaque mouvement a son petit **son**, synthétisé dans le navigateur : « boing » quand il saute, grognement quand il se fâche, petit « tic » quand il ferme puis rouvre les yeux, carillon montant quand il est content, descendant quand il est triste (bouton pour couper les sons, sur le site comme dans l'interface). Sur **Telegram**, il t'envoie l'autocollant de son visage, à la couleur de son humeur, quand elle change (`mood.stickers` dans la configuration).
 
+### Droits : sa machine et les machines du réseau
+
+Odin peut **tout faire sur sa machine** et sur **les machines de ton réseau** : il suffit de lui donner les mots de passe (Réglages → **Droits et machines**, ou en ligne de commande).
+
+```bash
+odin admin password                       # mot de passe sudo : chaque « sudo » d'Odin le reçoit tout seul
+odin admin nopasswd                       # ou : sudo sans mot de passe pour Odin (règle vérifiée par visudo)
+odin machines add 192.168.1.30 admin --nom NAS   # une machine du réseau (SSH) : mot de passe demandé
+odin machines list · odin machines test NAS · odin machines remove NAS
+```
+
+En root (conteneur LXC…), Odin est déjà administrateur. Sur les autres machines, il se connecte en SSH (client du système) ; « sudo » y fonctionne aussi avec le mot de passe donné, et sa propre clé SSH peut y être installée. Les mots de passe restent dans `~/.odin` (fichiers lisibles par toi seul, inclus dans la sauvegarde chiffrée), ne sont jamais réaffichés ni montrés au modèle, et sont masqués dans tout ce qu'il lit et écrit. Les règles de sécurité restent : commandes destructrices interdites, validation selon ton niveau d'autonomie.
+
 ### Personnes : famille, équipe
 
 Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`). Trois rôles :
@@ -365,6 +378,8 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 | `odin cron [list\|add\|remove]` | tâches planifiées |
 | `odin pairing [list\|users\|approve CANAL CODE [--membre NOM]]` | inconnus sur Telegram ; membres de la maison |
 | `odin backup [fichier]` · `odin restore fichier` | sauvegarde chiffrée · restauration |
+| `odin admin [status\|password\|nopasswd\|forget]` | droits administrateur sur sa machine |
+| `odin machines [list\|add ADRESSE UTILISATEUR\|test\|remove]` | machines du réseau (SSH, mot de passe) |
 | `odin auth add openai-codex` · `odin auth list` · `odin auth remove openai-codex` | connexion à ton abonnement ChatGPT (Codex) |
 | `odin model [codex\|PRÉRÉGLAGE] [MODÈLE]` | modèle par défaut (ex. `odin model codex gpt-6-luna`) |
 | `odin sessions [search Q]` · `odin audit [N]` | conversations · journal brut |

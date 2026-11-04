@@ -3,7 +3,10 @@ import { spawn } from 'node:child_process';
 import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } from '../hlidskjalf/inventory.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
 import { safeEnv } from './builtin.ts';
-import { bool, obj, str, type Tool } from './registry.ts';
+import { bool, num, obj, str, type Tool } from './registry.ts';
+import { findMachine, listMachines, runOnMachine, withAdmin } from '../machines/access.ts';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, relative, resolve } from 'node:path';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -66,13 +69,14 @@ export const systemUpdateApply: Tool = {
     const m = findManager(s(i.manager));
     if (!m) return Promise.resolve(`Gestionnaire inconnu sur ce système : ${s(i.manager)}`);
     return new Promise((res) => {
-      const [bin, args] = process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-Command', m.apply]] : ['/bin/sh', ['-c', m.apply.replace(/sudo /g, 'sudo -n ')]];
-      const child = spawn(bin, args, { env: safeEnv(), signal: ctx.signal, windowsHide: true });
+      const admin = ctx.home ? withAdmin(m.apply, ctx.home) : { command: m.apply.replace(/sudo /g, 'sudo -n '), env: {} };
+      const [bin, args] = process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-Command', m.apply]] : ['/bin/sh', ['-c', admin.command]];
+      const child = spawn(bin, args, { env: { ...safeEnv(), ...admin.env }, signal: ctx.signal, windowsHide: true });
       let out = '';
       child.stdout.on('data', (d) => { out += d; });
       child.stderr.on('data', (d) => { out += d; });
       child.on('error', (e) => res(`Erreur : ${e.message}`));
-      child.on('close', (code) => res(`${out.slice(-6000)}\n[code de sortie : ${code}]${/sudo: a (terminal|password) is required/.test(out) ? '\nIl faut le mot de passe administrateur : lance la commande toi-même dans un terminal.' : ''}`));
+      child.on('close', (code) => res(`${out.slice(-6000)}\n[code de sortie : ${code}]${/sudo: a (terminal|password) is required/.test(out) ? '\nIl faut le mot de passe administrateur : donne-le à Odin dans Réglages → Droits et machines (ou « odin admin password »).' : ''}`));
     });
   },
 };
@@ -81,4 +85,61 @@ function findManager(name: string) {
   return (UPDATE_MANAGERS[process.platform] ?? []).find((m) => m.manager.toLowerCase() === name.toLowerCase());
 }
 
-export const NETWORK_TOOLS: Tool[] = [netInventory, netScan, systemUpdates, systemUpdateApply];
+// ---------------- Machines du réseau (SSH) ----------------
+
+const machineList: Tool = {
+  name: 'machine_list',
+  description: 'Liste les machines du réseau auxquelles Odin peut se connecter (nom, adresse, utilisateur). Les mots de passe ne sont jamais montrés.',
+  risk: 'read',
+  schema: obj({}),
+  async run(_i, ctx) {
+    if (!ctx.home) return 'Coffre des machines indisponible.';
+    const list = listMachines(ctx.home);
+    if (!list.length) return 'Aucune machine enregistrée. Le propriétaire peut en ajouter dans Réglages → Droits et machines (ou « odin machines add »).';
+    return list.map((m) => `- ${m.label} : ${m.user}@${m.host}:${m.port}${m.keyInstalled ? ' (clé SSH d\'Odin)' : ''}${m.lastOk ? `, dernière connexion ${new Date(m.lastOk).toLocaleString('fr-FR')}` : ''}`).join('\n');
+  },
+};
+
+const machineExec: Tool = {
+  name: 'machine_exec',
+  description: 'Exécute une commande sur une machine du réseau enregistrée (SSH). « sudo » fonctionne : le mot de passe est fourni tout seul. Désigne la machine par son nom ou son adresse (voir machine_list).',
+  risk: 'exec',
+  schema: obj({ machine: str('nom ou adresse de la machine'), command: str('commande à exécuter là-bas'), timeout_sec: num('délai max en secondes (120 par défaut, 1800 max)') }, ['machine', 'command']),
+  summarize: (i) => `[${s(i.machine)}] $ ${s(i.command)}`,
+  command: (i) => s(i.command),
+  async run(i, ctx) {
+    if (!ctx.home) return 'Coffre des machines indisponible.';
+    const m = findMachine(ctx.home, s(i.machine));
+    if (!m) return `Machine inconnue : ${s(i.machine)}. Machines enregistrées : ${listMachines(ctx.home).map((x) => x.label).join(', ') || 'aucune'}.`;
+    const r = await runOnMachine(ctx.home, m, s(i.command), { signal: ctx.signal, timeoutMs: Math.min(1800, Math.max(1, Number(i.timeout_sec ?? 120))) * 1000 });
+    return `${ctx.redactor.redact(r.out.trim()).slice(-20_000) || '(aucune sortie)'}\n[${m.label} · code de sortie : ${r.code}]`;
+  },
+};
+
+const machineCopy: Tool = {
+  name: 'machine_copy',
+  description: 'Copie un fichier entre l\'espace de travail d\'Odin et une machine du réseau (send = vers la machine, get = depuis la machine).',
+  risk: 'exec',
+  schema: obj({ machine: str('nom ou adresse'), direction: str('send ou get'), local: str('chemin dans l\'espace de travail'), remote: str('chemin sur la machine') }, ['machine', 'direction', 'local', 'remote']),
+  summarize: (i) => `[${s(i.machine)}] copie ${s(i.direction) === 'get' ? `${s(i.remote)} → ${s(i.local)}` : `${s(i.local)} → ${s(i.remote)}`}`,
+  command: (i) => `scp ${s(i.local)} ${s(i.remote)}`,
+  async run(i, ctx) {
+    if (!ctx.home) return 'Coffre des machines indisponible.';
+    const m = findMachine(ctx.home, s(i.machine));
+    if (!m) return `Machine inconnue : ${s(i.machine)}.`;
+    const local = resolve(ctx.workspace, s(i.local));
+    if (relative(ctx.workspace, local).startsWith('..')) return 'Chemin local hors de l\'espace de travail : refusé.';
+    const rq = `'${s(i.remote).replace(/'/g, `'\\''`)}'`;
+    if (s(i.direction) === 'get') {
+      const r = await runOnMachine(ctx.home, m, `cat ${rq}`, { signal: ctx.signal, timeoutMs: 600_000, binary: true });
+      if (r.code !== 0) return `Échec : ${r.out.slice(0, 300)}`;
+      mkdirSync(dirname(local), { recursive: true }); writeFileSync(local, r.data ?? Buffer.alloc(0));
+      return `Copié depuis ${m.label} : ${s(i.remote)} → ${s(i.local)} (${Math.round((r.data?.length ?? 0) / 1024)} Ko).`;
+    }
+    if (!existsSync(local)) return `Fichier local introuvable : ${s(i.local)}`;
+    const r = await runOnMachine(ctx.home, m, `cat > ${rq}`, { signal: ctx.signal, timeoutMs: 600_000, stdin: readFileSync(local) });
+    return r.code === 0 ? `Copié vers ${m.label} : ${s(i.local)} → ${s(i.remote)}.` : `Échec : ${r.out.slice(0, 300)}`;
+  },
+};
+
+export const NETWORK_TOOLS: Tool[] = [netInventory, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];

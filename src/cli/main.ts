@@ -26,6 +26,8 @@ import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMa
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
+import { adminMode, checkSudoPassword, findMachine, listMachines, removeMachine, saveMachine, setAdminPassword, sudoersLine, testMachine } from '../machines/access.ts';
+import { userInfo } from 'node:os';
 import { sttReady, transcribe } from '../voice/voice.ts';
 import { refreshEnvironment } from '../learn/environment.ts';
 import { spawn, spawnSync } from 'node:child_process';
@@ -66,6 +68,8 @@ Usage : odin <commande>
   update                       met Odin à jour
   auth add openai-codex        connexion à ton abonnement ChatGPT (Codex) ; auth list · auth remove openai-codex
   model [codex|PRESET] [MODÈLE] choisit le modèle par défaut (ex. odin model codex gpt-6-luna)
+  admin [status|password|nopasswd|forget]  droits administrateur d'Odin sur cette machine
+  machines [list|add ADRESSE UTILISATEUR|test NOM|remove NOM]  machines du réseau (SSH, mot de passe)
   backup [fichier]             sauvegarde chiffrée de ~/.odin (config, clés, mémoire, compétences)
   restore <fichier>            restaure une sauvegarde (Odin arrêté)
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
@@ -480,9 +484,9 @@ async function admin(): Promise<void> {
 }
 
 /** Mot de passe sans écho (ou ODIN_BACKUP_PASSWORD pour les scripts). */
-async function askPassword(prompt: string): Promise<string> {
-  if (process.env.ODIN_BACKUP_PASSWORD) return process.env.ODIN_BACKUP_PASSWORD;
-  if (!stdin.isTTY) throw new Error('mot de passe requis : définis ODIN_BACKUP_PASSWORD (pas de terminal interactif)');
+async function askPassword(prompt: string, envVar = 'ODIN_BACKUP_PASSWORD'): Promise<string> {
+  if (process.env[envVar]) return process.env[envVar]!;
+  if (!stdin.isTTY) throw new Error(`mot de passe requis : définis ${envVar} (pas de terminal interactif)`);
   return new Promise((resolve) => {
     stdout.write(prompt);
     const was = stdin.isRaw; stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
@@ -521,6 +525,60 @@ async function restoreCmd(): Promise<void> {
   const r = restoreBackup(paths, readFileSync(file), pw);
   console.log(c.green(`✓ ${r.files} fichiers restaurés dans ${paths.home}${r.replaced.length ? ` (${r.replaced.length} remplacés, anciens gardés en .avant-restauration)` : ''}.`));
   console.log(c.dim('Relance Odin ; les anciennes copies seront nettoyées au démarrage suivant.'));
+}
+
+/** odin admin — droits administrateur d'Odin sur cette machine. */
+async function adminCmd(): Promise<void> {
+  const paths = odinPaths(); initHome(paths);
+  const sub = pos[1] ?? 'status';
+  const say = { root: 'administrateur (root) : Odin peut tout faire ici', nopasswd: 'administrateur : sudo sans mot de passe', password: 'administrateur : sudo avec le mot de passe donné à Odin', none: 'pas administrateur : « odin admin password » (ou « odin admin nopasswd »)', absent: 'sudo absent sur cette machine' };
+  if (sub === 'status') { console.log(`Cette machine : ${say[adminMode(paths.home)]}.`); return; }
+  if (sub === 'forget') { setAdminPassword(paths.home, undefined); console.log(c.green('✓ Mot de passe administrateur oublié.')); return; }
+  if (sub === 'password') {
+    const pw = await askPassword(`Mot de passe sudo de ${userInfo().username} : `, 'ODIN_PASSWORD');
+    const r = checkSudoPassword(pw, paths.home);
+    if (!r.ok) throw new Error(r.message);
+    setAdminPassword(paths.home, pw);
+    console.log(c.green('✓ Odin a les droits administrateur sur cette machine (mot de passe rangé dans ~/.odin/admin.json, lisible par toi seul).'));
+    return;
+  }
+  if (sub === 'nopasswd') {
+    // Règle sudoers vérifiée par visudo avant d'être gardée : une erreur ne bloque jamais sudo.
+    if (adminMode(paths.home) === 'root') { console.log('Odin tourne déjà en root : rien à faire.'); return; }
+    const user = userInfo().username, line = sudoersLine(user).trim().replace(/'/g, '');
+    console.log(`Ajoute « ${line} » dans /etc/sudoers.d/odin (sudo va te demander ton mot de passe une fois).`);
+    const r = spawnSync('sudo', ['sh', '-c', `t=$(mktemp) && printf '%s\n' '${line}' > "$t" && visudo -cf "$t" >/dev/null && install -m 0440 "$t" /etc/sudoers.d/odin; s=$?; rm -f "$t"; exit $s`], { stdio: 'inherit' });
+    if (r.status !== 0) throw new Error('règle non installée (mot de passe refusé, ou visudo absent)');
+    console.log(c.green('✓ Odin peut utiliser sudo sans mot de passe. Pour revenir en arrière : sudo rm /etc/sudoers.d/odin'));
+    return;
+  }
+  throw new Error('usage : odin admin [status|password|nopasswd|forget]');
+}
+
+/** odin machines — machines du réseau accessibles à Odin (SSH). */
+async function machinesCmd(): Promise<void> {
+  const paths = odinPaths(); initHome(paths);
+  const sub = pos[1] ?? 'list';
+  const opt = (name: string) => { const i = process.argv.indexOf(`--${name}`); return i > 0 ? process.argv[i + 1] : undefined; };
+  if (sub === 'list') {
+    const list = listMachines(paths.home);
+    if (!list.length) { console.log('Aucune machine. Ajouter : odin machines add 192.168.1.30 admin [--port 22] [--nom NAS]'); return; }
+    for (const m of list) console.log(`  ${m.label.padEnd(16)} ${m.user}@${m.host}:${m.port}${m.keyInstalled ? '  clé SSH' : ''}${m.lastOk ? `  ✓ ${new Date(m.lastOk).toLocaleString('fr-FR')}` : ''}`);
+    return;
+  }
+  if (sub === 'add') {
+    const host = pos[2], user = pos[3];
+    if (!host || !user) throw new Error('usage : odin machines add <adresse> <utilisateur> [--port 22] [--nom NAS]');
+    const password = await askPassword(`Mot de passe de ${user}@${host} : `, 'ODIN_PASSWORD');
+    const m = saveMachine(paths.home, { host, user, password, port: Number(opt('port') ?? 22), label: opt('nom') });
+    const t = await testMachine(paths.home, m, !flags.has('--sans-cle'));
+    console.log(t.ok ? c.green(`✓ ${m.label} ajoutée. ${t.message}`) : c.yellow(`Enregistrée, mais ${t.message}`));
+    return;
+  }
+  const m = pos[2] ? findMachine(paths.home, pos[2]) : undefined;
+  if (sub === 'test') { if (!m) throw new Error('machine inconnue (odin machines list)'); const t = await testMachine(paths.home, m, true); console.log(t.ok ? c.green(`✓ ${t.message}`) : c.red(t.message)); return; }
+  if (sub === 'remove') { if (!pos[2] || !removeMachine(paths.home, pos[2])) throw new Error('machine inconnue (odin machines list)'); console.log(c.green('✓ Machine retirée : Odin n\'y a plus accès.')); return; }
+  throw new Error('usage : odin machines [list|add|test|remove]');
 }
 
 /** odin auth add|list|remove openai-codex — connexion ChatGPT (Codex), comme « hermes auth add openai-codex ». */
@@ -582,6 +640,8 @@ async function modelCmd(): Promise<void> {
 async function main(): Promise<void> {
   const cmd = pos[0];
   if (cmd === 'auth') return authCmd();
+  if (cmd === 'admin') return adminCmd();
+  if (cmd === 'machines') return machinesCmd();
   if (cmd === 'model') return modelCmd();
   if (cmd === 'backup') return backupCmd();
   if (cmd === 'restore') return restoreCmd();

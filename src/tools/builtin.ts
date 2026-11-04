@@ -1,6 +1,7 @@
 // Outils intégrés d'Odin. Tous les chemins passent par la prison de l'espace de travail,
 // le shell tourne SANS les secrets dans son environnement, et le web est marqué non fiable.
 
+import { withAdmin } from '../machines/access.ts';
 import { spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
@@ -105,6 +106,8 @@ export const shell: Tool = {
     const timeout = Math.min(600, Math.max(1, Number(i.timeout_sec ?? 60))) * 1000;
     return new Promise((resolveP) => {
       const sb = ctx.sandbox;
+      // Droits administrateur : « sudo » reçoit le mot de passe que tu as donné à Odin (jamais affiché).
+      const admin = sb?.kind === 'docker' || !ctx.home ? { command: s(i.command), env: {} as NodeJS.ProcessEnv, hint: undefined } : withAdmin(s(i.command), ctx.home);
       // Conteneur jetable : seul l'espace de travail est monté, pas de réseau par défaut,
       // système de fichiers en lecture seule, CPU / mémoire / processus limités.
       const [bin, argv] = sb?.kind === 'docker'
@@ -112,8 +115,8 @@ export const shell: Tool = {
             '--memory', '1g', '--cpus', '1', '--pids-limit', '256', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges',
             '-v', `${ctx.workspace}:/work`, '-w', '/work', sb.image, 'sh', '-c', s(i.command)]]
         : process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', s(i.command)]]
-        : ['/bin/sh', ['-c', s(i.command)]];
-      const child = spawn(bin, argv as string[], { cwd: ctx.workspace, env: safeEnv(), signal: ctx.signal, windowsHide: true });
+        : ['/bin/sh', ['-c', admin.command]];
+      const child = spawn(bin, argv as string[], { cwd: ctx.workspace, env: { ...safeEnv(), ...admin.env }, signal: ctx.signal, windowsHide: true });
       let out = '';
       const add = (d: Buffer) => { if (out.length < MAX_OUT * 2) out += d.toString(); };
       child.stdout.on('data', add);
@@ -122,7 +125,8 @@ export const shell: Tool = {
       child.on('error', (e) => { clearTimeout(timer); resolveP(`Erreur : ${e.message}`); });
       child.on('close', (code, sig) => {
         clearTimeout(timer);
-        resolveP(clip(`${out.trim() || '(aucune sortie)'}\n[code de sortie : ${code ?? sig}]`));
+        const needPw = admin.hint && /sudo: (a (terminal|password) is required|il est nécessaire de saisir un mot de passe)/i.test(out) ? `\n${admin.hint}` : '';
+        resolveP(clip(`${ctx.redactor.redact(out.trim()) || '(aucune sortie)'}\n[code de sortie : ${code ?? sig}]${needPw}`));
       });
     });
   },

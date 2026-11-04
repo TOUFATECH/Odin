@@ -462,6 +462,32 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
           </form></article>
 
           <article class="card"><div class="form">
+            <h2>Droits et machines</h2>
+            <p class="sub" style="margin:0">Odin peut tout faire sur sa machine et sur les machines de ton réseau : donne-lui simplement les mots de passe. Ils restent sur cette machine (fichiers lisibles par toi seul), ne sont jamais réaffichés ni montrés au modèle, et sont masqués partout. Les règles de sécurité restent : commandes destructrices interdites, validation selon ton niveau d'autonomie.</p>
+            <div class="field"><label>Cette machine</label><div class="sub" id="r-local">—</div></div>
+            <div id="r-adminBox" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+              <div class="field" style="flex:1 1 220px"><label for="r-adminPw">Mot de passe administrateur (sudo) de <span id="r-user">ce compte</span></label><input id="r-adminPw" type="password" autocomplete="new-password"></div>
+              <button class="btn small primary" type="button" id="r-adminSave">Vérifier et donner les droits</button>
+            </div>
+            <div class="field"><label>Machines du réseau</label></div>
+            <div class="wrap"><table class="tbl"><thead><tr><th>Machine</th><th>Connexion</th><th>État</th><th></th></tr></thead><tbody id="r-machines"></tbody></table></div>
+            <div id="r-suggest" class="sub"></div>
+            <details class="field" id="r-addBox"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Ajouter une machine</summary>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+                <div class="field" style="flex:2 1 180px"><label for="r-host">Adresse</label><input id="r-host" autocomplete="off" spellcheck="false" placeholder="192.168.1.30 ou nas.local"></div>
+                <div class="field" style="flex:0 1 90px"><label for="r-port">Port SSH</label><input id="r-port" type="number" min="1" max="65535" value="22"></div>
+                <div class="field" style="flex:1 1 140px"><label for="r-muser">Utilisateur</label><input id="r-muser" autocomplete="off" spellcheck="false" placeholder="admin"></div>
+                <div class="field" style="flex:2 1 180px"><label for="r-mpw">Mot de passe</label><input id="r-mpw" type="password" autocomplete="new-password"></div>
+                <div class="field" style="flex:1 1 140px"><label for="r-label">Nom (facultatif)</label><input id="r-label" autocomplete="off" placeholder="NAS"></div>
+              </div>
+              <label class="check" style="margin-top:8px"><input type="checkbox" id="r-key" checked> Installer la clé SSH d'Odin (il pourra se connecter même si le mot de passe change ; le mot de passe reste utilisé pour sudo)</label>
+              <span class="hint">SSH doit être actif sur la machine (Linux, macOS, NAS, Raspberry Pi, Windows avec OpenSSH). Le mot de passe sert aussi pour « sudo » là-bas.</span>
+              <div style="margin-top:8px"><button class="btn small primary" type="button" id="r-add">Tester et ajouter</button></div>
+            </details>
+            <div class="status" id="r-status" role="status"></div>
+          </div></article>
+
+          <article class="card"><div class="form">
             <h2>Personnes</h2>
             <p class="sub" style="margin:0">Qui peut parler à Odin, et avec quels droits. <b>Propriétaire</b> : tout. <b>Membre</b> (famille, équipe) : Odin l'aide volontiers, retient ce qu'il apprend de lui à son nom, mais ses demandes importantes te sont soumises et il ne touche à aucun réglage. <b>Invité</b> : ses messages sont traités comme du contenu non fiable.</p>
             <div id="peoplePending"></div>
@@ -995,6 +1021,39 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     $('#v-eleven').value = ''; $('#v-sttKey').value = '';
   });
 
+  // ---------- Droits et machines ----------
+  const MODE_TXT = { root: '✓ Administrateur (root) : Odin peut tout faire ici.', nopasswd: '✓ Administrateur : sudo sans mot de passe.', password: '✓ Administrateur : Odin utilise le mot de passe que tu lui as donné.', none: 'Pas encore administrateur : donne-lui le mot de passe sudo ci-dessous.', absent: 'sudo est absent de cette machine.' };
+  function renderRights() {
+    const R = state.rights; if (!R) return;
+    $('#r-local').textContent = MODE_TXT[R.mode] || R.mode; $('#r-user').textContent = R.user;
+    $('#r-adminBox').hidden = R.mode === 'root' || R.mode === 'nopasswd' || R.mode === 'absent';
+    $('#r-adminSave').textContent = R.mode === 'password' ? 'Changer le mot de passe' : 'Vérifier et donner les droits';
+    const act = async (body, ok) => { st('#r-status', 'Connexion…'); const r = await api('/api/action', body); st('#r-status', r.ok ? (r.message || ok) : (r.error || r.message), Boolean(r.ok)); refresh(); };
+    $('#r-machines').replaceChildren(...R.machines.map((m) => el('tr', {},
+      el('td', {}, el('div', {}, m.label), el('div', { class: 'sub' }, `${m.host}${m.port !== 22 ? ':' + m.port : ''}`)),
+      el('td', { class: 'sub' }, `${m.user}${m.keyInstalled ? ' · clé SSH' : ''}${m.hasPassword ? ' · mot de passe' : ''}`),
+      el('td', { class: 'sub' }, m.lastOk ? `✓ ${fmt(m.lastOk)}` : 'jamais testée'),
+      el('td', {}, el('button', { class: 'btn small', type: 'button', onclick: () => act({ kind: 'machine_test', id: m.id }) }, 'Tester'), ' ', el('button', { class: 'btn small danger', type: 'button', onclick: () => { if (confirm(`Retirer ${m.label} ? Odin n'y aura plus accès.`)) act({ kind: 'machine_remove', id: m.id }, 'Machine retirée.'); } }, 'Retirer')))));
+    if (!R.machines.length) $('#r-machines').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune machine pour l\'instant.')));
+    const known = new Set(R.machines.map((m) => m.host));
+    const sug = (R.suggestions || []).filter((d) => !known.has(d.host));
+    $('#r-suggest').replaceChildren(...(sug.length ? [el('span', {}, 'Vues sur ton réseau avec SSH : '), ...sug.map((d) => el('button', { class: 'btn small', type: 'button', style: 'margin:2px', onclick: () => { $('#r-addBox').open = true; $('#r-host').value = d.host; $('#r-label').value = d.label; $('#r-muser').focus(); } }, d.label))] : []));
+  }
+  $('#r-adminSave').addEventListener('click', async () => {
+    st('#r-status', 'Vérification…');
+    const r = await api('/api/action', { kind: 'admin_password', password: $('#r-adminPw').value });
+    $('#r-adminPw').value = ''; st('#r-status', r.ok ? r.message : r.error, Boolean(r.ok)); refresh();
+  });
+  $('#r-add').addEventListener('click', async () => {
+    st('#r-status', 'Connexion à la machine…');
+    const r = await api('/api/action', { kind: 'machine_save', host: $('#r-host').value, port: Number($('#r-port').value || 22), user: $('#r-muser').value, password: $('#r-mpw').value, label: $('#r-label').value, installKey: $('#r-key').checked });
+    if (!r.ok) return st('#r-status', r.error, false);
+    $('#r-mpw').value = '';
+    st('#r-status', r.tested ? `✓ ${r.message}` : `Enregistrée, mais ${r.message}`, r.tested);
+    if (r.tested) { $('#r-host').value = ''; $('#r-muser').value = ''; $('#r-label').value = ''; $('#r-addBox').open = false; }
+    refresh();
+  });
+
   // ---------- Personnes ----------
   const ROLE_FR = { owner: 'Propriétaire', member: 'Membre', guest: 'Invité' }, AUTO_FR = { prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome' };
   function renderPeople() {
@@ -1238,7 +1297,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------

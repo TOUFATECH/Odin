@@ -21,6 +21,7 @@ import type { Yggdrasil } from '../yggdrasil/skills.ts';
 import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForSummary } from './compaction.ts';
 import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
+import { rightsSummary } from '../machines/access.ts';
 import type { Tier } from '../providers/router.ts';
 
 export interface AgentDeps {
@@ -34,6 +35,8 @@ export interface AgentDeps {
   heimdall: Heimdall;
   redactor: Redactor;
   workspace: string;
+  /** Dossier d'Odin (~/.odin) : coffre des machines, clé SSH. */
+  home?: string;
   persona: string;
   send?: ToolContext['send'];
   inventory?: ToolContext['inventory'];
@@ -162,6 +165,7 @@ export class Agent {
       isSubAgent: depth > 0,
       breaker: Boolean(breaker),
       speaker: o.speaker,
+      rights: this.deps.home ? rightsSummary(this.deps.home) : undefined,
     });
 
     const history: Message[] = repairHistory(muninn.history(o.sessionId).map(({ rowId: _r, ...m }) => m));
@@ -187,7 +191,7 @@ export class Agent {
     const turnLog: Message[] = [];
 
     const ctx: ToolContext = {
-      sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, muninn, skills: this.deps.skills, redactor, signal,
+      sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, muninn, skills: this.deps.skills, redactor, signal,
       isTainted: () => tainted,
       mimir,
       sandbox: cfg.policy.sandbox,

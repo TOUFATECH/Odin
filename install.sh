@@ -198,6 +198,14 @@ EOF
   fi
 fi
 
+# ---------- Droits administrateur ----------
+# Odin peut tout faire sur sa machine s'il a les droits administrateur. En root (conteneur LXC…), rien à faire.
+if [ "$(id -u)" != "0" ] && command -v sudo >/dev/null && [ -r /dev/tty ] && [ "${ODIN_YES:-}" != "1" ]; then
+  if ask "Donner à Odin les droits administrateur sur cette machine (sudo sans mot de passe) ?" o; then
+    "$BIN_DIR/odin" admin nopasswd < /dev/tty || echo "  (plus tard : odin admin nopasswd, ou odin admin password)"
+  fi
+fi
+
 # ---------- Fin : configuration dans le navigateur ----------
 open_url() {
   if [ "$OS" = darwin ]; then open "$1" >/dev/null 2>&1 || true

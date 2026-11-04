@@ -21,6 +21,8 @@ export interface ToolContext {
   channel: string;
   peer: string;
   workspace: string;
+  /** Dossier d'Odin (~/.odin) : coffre des machines, clé SSH, askpass. */
+  home?: string;
   muninn: Muninn;
   skills: Yggdrasil;
   redactor: Redactor;

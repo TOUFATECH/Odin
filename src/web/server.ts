@@ -19,6 +19,8 @@ import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMater
 import { join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
+import { adminMode, checkSudoPassword, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine } from '../machines/access.ts';
+import { userInfo } from 'node:os';
 import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
 import type { Autonomy } from '../heimdall/policy.ts';
@@ -344,6 +346,12 @@ export class WebChannel implements Channel {
       voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), local: ttsIsLocal(cfg.voice), provider: cfg.voice.tts.provider, speakReplies: cfg.voice.speakReplies, ttsDefaults: TTS_DEFAULTS },
       failedChannels: this.hooks.failedChannels?.() ?? {},
       missions: muninn.listMissions(60),
+      rights: {
+        mode: adminMode(this.odin.paths.home), user: userInfo().username, platform: process.platform,
+        machines: listMachines(this.odin.paths.home).map(viewMachine),
+        // Appareils du réseau où SSH répond : proposés en un clic.
+        suggestions: inventory.list().filter((d) => (d.ports ?? []).includes(22)).map((d) => ({ host: d.ip, label: d.label || d.hostname || d.ip })).slice(0, 20),
+      },
       people: { users: muninn.listUsers(), pending: muninn.listPairings().filter((p) => p.status === 'pending') },
       budget: { monthlyUsd: cfg.routing.monthlyBudgetUsd, spentUsd: muninn.monthCost(), breakdown: muninn.usageBreakdown(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) },
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
@@ -392,6 +400,30 @@ export class WebChannel implements Channel {
           return await testProvider(p, 20_000, env, this.odin.paths);
         } catch (e) { return { ok: false, message: (e as Error).message }; }
       }
+      case 'admin_password': {
+        const pw = String(b.password ?? '');
+        if (!pw) { setAdminPassword(this.odin.paths.home, undefined); return { ok: true, message: 'Mot de passe administrateur oublié.' }; }
+        const r = checkSudoPassword(pw, this.odin.paths.home);
+        if (!r.ok) return { ok: false, error: r.message };
+        setAdminPassword(this.odin.paths.home, pw); this.odin.redactor.add(pw); forgetRights();
+        return { ok: true, message: 'Odin a maintenant les droits administrateur sur cette machine.' };
+      }
+      case 'machine_save': {
+        try {
+          const m = saveMachine(this.odin.paths.home, { id: b.id ? String(b.id) : undefined, label: String(b.label ?? ''), host: String(b.host ?? ''), port: Number(b.port ?? 22), user: String(b.user ?? ''), password: typeof b.password === 'string' ? b.password : undefined, sudoPassword: typeof b.sudoPassword === 'string' ? b.sudoPassword : undefined });
+          for (const p of [m.password, m.sudoPassword]) if (p) this.odin.redactor.add(p);
+          forgetRights();
+          const t = await testMachine(this.odin.paths.home, m, b.installKey !== false);
+          return { ok: true, id: m.id, tested: t.ok, message: t.message };
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
+      case 'machine_test': {
+        const m = listMachines(this.odin.paths.home).find((x) => x.id === String(b.id));
+        if (!m) return { ok: false, error: 'machine inconnue' };
+        const t = await testMachine(this.odin.paths.home, m, true);
+        return { ok: t.ok, message: t.message, error: t.ok ? undefined : t.message };
+      }
+      case 'machine_remove': removeMachine(this.odin.paths.home, String(b.id)); forgetRights(); break;
       case 'codex_login_start': {
         // Connexion ChatGPT : lien à ouvrir ; si le navigateur est sur cette machine, le retour est capté tout seul.
         this.codexLogin = startCodexLogin();
