@@ -187,6 +187,17 @@ export class OdinBrowser {
     return r.result.value as T;
   }
 
+  /** Après un clic ou une touche : si une nouvelle page commence à charger (dans 1,5 s), on l'attend. */
+  private async afterAction(before: number): Promise<void> {
+    const end = Date.now() + 1500;
+    while (Date.now() < end) {
+      const now = await this.eval<number>('performance.timeOrigin').catch(() => -1);
+      if (now !== before) return this.settle(15_000);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await this.settle(3_000);
+  }
+
   /** Attend que la page ait fini de charger (ou 15 s), puis un court moment pour les scripts. */
   private async settle(ms = 15_000): Promise<void> {
     const end = Date.now() + ms;
@@ -228,10 +239,11 @@ export class OdinBrowser {
   async click(target: { n?: number; x?: number; y?: number }): Promise<Look> {
     const { cdp, sid } = await this.page();
     const p = target.n !== undefined ? await this.center(target.n) : { x: Number(target.x), y: Number(target.y) };
+    const before = await this.eval<number>('performance.timeOrigin');
     for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
       await cdp.send('Input.dispatchMouseEvent', { type, x: p.x, y: p.y, button: 'left', clickCount: 1 }, sid);
     }
-    await this.settle(8_000);
+    await this.afterAction(before);
     return this.look();
   }
 
@@ -257,9 +269,10 @@ export class OdinBrowser {
     const { cdp, sid } = await this.page();
     const KEYS: Record<string, { code: string; keyCode: number; text?: string }> = { Enter: { code: 'Enter', keyCode: 13, text: '\r' }, Tab: { code: 'Tab', keyCode: 9 }, Escape: { code: 'Escape', keyCode: 27 }, Backspace: { code: 'Backspace', keyCode: 8 }, ArrowDown: { code: 'ArrowDown', keyCode: 40 }, ArrowUp: { code: 'ArrowUp', keyCode: 38 }, PageDown: { code: 'PageDown', keyCode: 34 }, PageUp: { code: 'PageUp', keyCode: 33 }, Space: { code: 'Space', keyCode: 32, text: ' ' } };
     const k = KEYS[key]; if (!k) throw new Error(`touche inconnue : ${key} (${Object.keys(KEYS).join(', ')})`);
+    const before = await this.eval<number>('performance.timeOrigin');
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: key === 'Space' ? ' ' : key, code: k.code, windowsVirtualKeyCode: k.keyCode, ...(k.text ? { text: k.text } : {}) }, sid);
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: key === 'Space' ? ' ' : key, code: k.code, windowsVirtualKeyCode: k.keyCode }, sid);
-    await this.settle(8_000);
+    await this.afterAction(before);
     return this.look();
   }
 
@@ -269,7 +282,14 @@ export class OdinBrowser {
     return this.look();
   }
 
-  async back(): Promise<Look> { await this.eval('history.back()'); await this.settle(8_000); return this.look(); }
+  async back(): Promise<Look> { const before = await this.eval<number>('performance.timeOrigin'); await this.eval('history.back()'); await this.afterAction(before); return this.look(); }
+
+  /** Ferme et attend que le navigateur soit vraiment arrêté (profil libéré). */
+  async shutdown(): Promise<void> {
+    const p = this.proc;
+    this.close();
+    if (p && p.exitCode === null) await new Promise<void>((r) => { const t = setTimeout(r, 5000); p.once('exit', () => { clearTimeout(t); r(); }); });
+  }
 
   close(): void {
     clearTimeout(this.idle);

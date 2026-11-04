@@ -55,5 +55,5 @@ test('navigateur : ouvrir, voir, remplir un formulaire, choisir, cocher, envoyer
     assert.equal(png.subarray(1, 4).toString(), 'PNG');
     await assert.rejects(checkBrowserUrl('http://169.254.169.254/latest/meta-data'), /métadonnées/);
     await assert.rejects(checkBrowserUrl('file:///etc/passwd'), /http/);
-  } finally { b.close(); srv.close(); rmSync(home, { recursive: true, force: true }); }
+  } finally { await b.shutdown(); srv.close(); rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); }
 });
