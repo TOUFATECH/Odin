@@ -145,7 +145,7 @@ Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou ave
 
 Le certificat HTTPS est créé par Odin lui-même (aucun outil à installer) pour `localhost`, l'adresse locale et le nom de la machine. Ton navigateur demandera de l'accepter une fois : compare son empreinte avec celle de Réglages. Tu peux aussi donner ton propre certificat (Let's Encrypt…).
 
-**Première connexion** : tant qu'aucun appareil ne s'est jamais connecté, le premier navigateur de ton réseau local qui ouvre Odin (tant qu'il n'est pas configuré, ou dans l'heure qui suit son démarrage) devient le tien, sans jeton à chercher : bouton **Commencer**. Ensuite, le jeton est obligatoire. Pour retrouver tes liens à tout moment : `odin web link` (dans un LXC Proxmox, depuis l'hôte : `pct exec <ID> -- odin web link`).
+**Première connexion** : tant qu'aucun appareil ne s'est jamais connecté, le premier navigateur de ton réseau local qui ouvre Odin (tant qu'il n'est pas configuré, ou dans l'heure qui suit son démarrage) devient le tien, sans jeton à chercher : bouton **Commencer**. Ensuite, le jeton est obligatoire. Pour retrouver tes liens à tout moment, en ligne de commande : `odin link` (dans un LXC Proxmox, depuis l'hôte : `pct exec <ID> -- odin link`). L'installateur les affiche aussi à la fin.
 
 Dans tous les modes, chaque appel exige le jeton, et une adresse qui se trompe 10 fois en 10 minutes est bloquée 15 minutes. **Nouveau jeton** (Réglages, ou `odin web rotate`) déconnecte tous les appareils.
 
@@ -351,7 +351,7 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 | `odin doctor` | diagnostic complet |
 | `odin web` | interface web + Telegram + API + tâches planifiées |
 | `odin web access [lan\|local\|wan]` | qui peut ouvrir l'interface (`--http`, `--proxy`) |
-| `odin web link` | affiche les liens personnels (avec jeton) |
+| `odin link` (ou `odin web link`) | affiche les liens personnels (avec jeton) |
 | `odin web rotate` | nouveau jeton : déconnecte tous les appareils |
 | `odin breaker [on\|nuit\|off]` | ⚡ Odin Breaker : autonomie totale (tout le temps, ou la nuit) |
 | `odin gateway` | pareil, sans ouvrir le navigateur (service) |

@@ -174,10 +174,12 @@ if ($service) {
     Write-Host '  (certificat créé par Odin : le navigateur demandera de l''accepter une fois)'
   }
   Start-Process $url
-  Write-Host '  Plus tard     : odin web (rouvre l''interface) · odin doctor (diagnostic)'
+  Write-Host '  Plus tard     : odin link (affiche ce lien) · odin doctor (diagnostic)'
   Write-Host '  (ouvre un nouveau terminal si la commande « odin » est introuvable)'
 } else {
-  Write-Host '  Plus tard     : odin web (rouvre l''interface) · odin gateway (tout en arrière-plan)'
+  Write-Host '  Ton lien personnel (avec jeton) :'
+  & $Odin web link
+  Write-Host '  Plus tard     : odin link (affiche ce lien) · odin web (rouvre l''interface) · odin gateway (tout en arrière-plan)'
   Write-Host '  (ouvre un nouveau terminal si la commande « odin » est introuvable)'
   if ($env:ODIN_YES -ne '1' -and (Ask 'Ouvrir l''interface web maintenant ? (Ctrl+C pour l''arrêter)')) { & $Odin web }
 }

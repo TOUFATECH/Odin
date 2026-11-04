@@ -61,7 +61,7 @@ Usage : odin <commande>
   web                          interface web (+ canaux et tâches planifiées)
   web access [lan|local|wan]   qui peut l'ouvrir : ton réseau local en HTTPS (défaut), cette machine,
                                ou Internet (--http : LAN sans chiffrement ; --proxy : proxy HTTPS devant)
-  web link                     affiche les liens personnels (avec jeton) pour ouvrir l'interface
+  link  (ou web link)          affiche les liens personnels (avec jeton) pour ouvrir l'interface
   web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
   update                       met Odin à jour
   auth add openai-codex        connexion à ton abonnement ChatGPT (Codex) ; auth list · auth remove openai-codex
@@ -607,7 +607,7 @@ async function main(): Promise<void> {
   }
   if (cmd === 'gateway') return gateway();
   if (cmd === 'web' && pos[1] === 'access') return webAccess(pos[2]);
-  if (cmd === 'web' && pos[1] === 'link') {
+  if (cmd === 'link' || (cmd === 'web' && pos[1] === 'link')) {
     // Les liens personnels (avec jeton), sans démarrer l'interface : utile quand Odin tourne en service.
     const paths = odinPaths(); initHome(paths);
     const cfg = loadConfig(paths), token = ensureWebToken(paths);

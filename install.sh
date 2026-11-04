@@ -221,10 +221,12 @@ if [ -n "$SERVICE" ]; then
   [ "$SCHEME" = https ] && echo "  (certificat créé par Odin : le navigateur demandera de l'accepter une fois)"
   open_url "$URL"
   echo "  Première fois : le premier navigateur de ton réseau qui ouvre Odin devient le tien (bouton Commencer)."
-  echo "  Plus tard     : odin web link (tes liens) · odin doctor (diagnostic)"
+  echo "  Plus tard     : odin link (affiche ce lien) · odin doctor (diagnostic)"
   echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"
 else
-  echo "  Plus tard     : odin web (rouvre l'interface) · odin gateway (tout en arrière-plan)"
+  echo "  Ton lien personnel (avec jeton) :"
+  "$BIN_DIR/odin" web link || true
+  echo "  Plus tard     : odin link (affiche ce lien) · odin web (rouvre l'interface) · odin gateway (tout en arrière-plan)"
   echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"
   if [ "${ODIN_YES:-}" != "1" ] && ask "Ouvrir l'interface web maintenant ? (Ctrl+C pour l'arrêter)" o; then
     exec "$BIN_DIR/odin" web

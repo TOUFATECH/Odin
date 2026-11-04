@@ -264,8 +264,8 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   </form>
   <details style="margin-top:12px"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Où trouver mon lien ?</summary>
     <div class="sub" style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
-      <span>Sur la machine d'Odin, tape : <code>odin web link</code> (affiche les liens avec jeton).</span>
-      <span>Odin dans un conteneur LXC (Proxmox) : depuis l'hôte, <code>pct exec &lt;ID&gt; -- odin web link</code> (ou <code>pct enter &lt;ID&gt;</code> puis <code>odin web link</code>).</span>
+      <span>Sur la machine d'Odin, tape : <code>odin link</code> (affiche les liens avec jeton).</span>
+      <span>Odin dans un conteneur LXC (Proxmox) : depuis l'hôte, <code>pct exec &lt;ID&gt; -- odin link</code> (ou <code>pct enter &lt;ID&gt;</code> puis <code>odin link</code>).</span>
       <span>Odin en service : le lien est aussi dans son journal, <code>journalctl --user -u odin | grep token</code>.</span>
       <span>Le jeton seul est dans le fichier <code>~/.odin/web-token</code>.</span>
     </div>
@@ -1101,7 +1101,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       ...links.map((u) => el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
         el('code', { style: 'overflow-wrap:anywhere;flex:1 1 260px;font-size:13px' }, u),
         el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(u); e.target.textContent = 'Copié ✓'; } catch { e.target.textContent = 'Sélectionne et copie'; } setTimeout(() => { e.target.textContent = 'Copier'; }, 1800); } }, 'Copier'))),
-      el('span', { class: 'hint' }, 'Tu le retrouves plus tard dans Réglages → Accès à l\'interface, ou avec « odin web link » sur la machine.'));
+      el('span', { class: 'hint' }, 'Tu le retrouves plus tard dans Réglages → Accès à l\'interface, ou avec « odin link » en ligne de commande sur la machine.'));
   }
   $('#a-show').addEventListener('click', async () => {
     const r = await api('/api/action', { kind: 'access_links' });
