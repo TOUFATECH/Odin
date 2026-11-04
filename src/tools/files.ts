@@ -30,7 +30,8 @@ export const docRead: Tool = {
   schema: obj({ path: str('chemin du fichier'), sheet: str('Excel : nom de la feuille (toutes par défaut)') }, ['path']),
   async run(i, ctx) {
     const p = jailPath(ctx.workspace, s(i.path));
-    const rel = relative(ctx.workspace, p).replace(/\\/g, '/');
+    // Chemin tel que demandé (pas le chemin réel : sur macOS l'espace de travail passe par des liens).
+    const rel = s(i.path).replace(/\\/g, '/').replace(/^\.\//, '');
     if (statSync(p).size > MAX_FILE) return 'Fichier trop volumineux (100 Mo au plus).';
     const buf = readFileSync(p);
     const ext = extname(p).toLowerCase();
