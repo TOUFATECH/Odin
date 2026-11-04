@@ -53,19 +53,27 @@
   }
 
   // Mascotte : elle réagit quand on la touche, et ses yeux suivent le doigt ou la souris.
-  const faces = $$('.odin'), moods = ['poke', 'wow', 'bounce'];
-  let mood = 0;
+  const faces = $$('.odin');
   const clamp = (v, m) => Math.max(-m, Math.min(m, v));
-  const look = (f, x, y) => { const r = f.getBoundingClientRect(); f.style.setProperty('--ex', `${clamp((x - r.left - r.width / 2) / 28, 6)}px`); f.style.setProperty('--ey', `${clamp((y - r.top - r.height / 2) / 28, 5)}px`); f.classList.add('follow'); };
+  // Un toucher : il saute et change d'expression. Trop de touchers d'affilée (4 en 2 s) : il se fâche,
+  // rougit, bleuit, puis redevient jaune.
+  const F = () => window.OdinFace;
+  const HAPPY = ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite', 'malice'];
+  const react = (f) => {
+    if (f.classList.contains('angry')) return;
+    const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
+    f._touched = now;
+    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); F()?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
+    f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
+    F()?.flash(f, HAPPY[Math.floor(Math.random() * HAPPY.length)], 2200);
+  };
   faces.forEach((f) => {
     f.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
-      const m = moods[mood++ % moods.length];
-      f.classList.remove(...moods); void f.offsetWidth; f.classList.add(m);
       look(f, e.clientX, e.clientY);
-      setTimeout(() => f.classList.remove(m), 950);
       setTimeout(() => f.classList.remove('follow'), 1800);
+      react(f);
     });
   });
   if (faces.length && matchMedia('(hover:hover) and (pointer:fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -88,6 +96,20 @@
 
   // Révélation au défilement
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Humeur autonome : la mascotte du héros change d'expression toute seule, au fil de la démo.
+  const hero = $('#heroOdin');
+  if (hero && !reduce) {
+    const LIFE = ['neutre', 'joie', 'reflexion', 'clin', 'regarde', 'rire', 'concentration', 'amour', 'surprise', 'fierte', 'malice', 'excite'];
+    let li = 0;
+    setInterval(() => { if (document.hidden || Date.now() - (hero._touched || 0) < 4000 || hero.classList.contains('angry')) return; F()?.flash(hero, LIFE[li++ % LIFE.length], 2600); }, 5200);
+  }
+  // Galerie des humeurs : chaque petite mascotte montre la sienne ; toucher l'une la montre sur la grande.
+  $$('[data-show-mood]').forEach((el) => {
+    const m = el.dataset.showMood, face = el.querySelector('.odin');
+    F()?.set(face, m);
+    el.addEventListener('click', () => { if (hero) { hero._touched = Date.now(); F()?.flash(hero, m, 3000); } F()?.flash(face, m, 1200); });
+  });
+
   const rv = $$('.rv');
   if (reduce || !('IntersectionObserver' in window)) rv.forEach((el) => el.classList.add('in'));
   else {

@@ -37,20 +37,43 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 .odin .ring.r2{animation-delay:-2.2s}
 .odin .orbit{transform-origin:60px 60px;animation:o-orbit 7s linear infinite}.odin .orbit.o2{animation-duration:9.5s;animation-direction:reverse}.odin .orbit .halo{animation:none}
 @keyframes o-orbit{to{transform:rotate(360deg)}}
-.odin .ripple{transform-origin:60px 60px}
-.odin.poke .ripple,.odin.wow .ripple,.odin.bounce .ripple{animation:o-ripple .9s ease-out}
-.odin.poke .body{animation:o-poke .8s cubic-bezier(.3,1.5,.4,1)}
-.odin.poke .eye{animation:none;transform:scaleY(.4) translateY(-3px)}
-.odin.wow .body{animation:o-wow .8s ease}
-.odin.wow .eye{animation:none;transform:scale(1.4)}
 .odin.bounce .body{animation:o-bounce .9s cubic-bezier(.3,.9,.4,1)}
 .odin.bounce .eye{animation:o-bounce-eye .9s ease}
-@keyframes o-ring{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.55}}
-@keyframes o-ripple{0%{transform:scale(1);opacity:.95}100%{transform:scale(1.32);opacity:0}}
-@keyframes o-poke{0%{transform:scale(1)}22%{transform:scale(1.12,.88) translateY(5px)}50%{transform:scale(.95,1.06) translateY(-7px)}75%{transform:scale(1.03,.98) translateY(1px)}100%{transform:scale(1)}}
-@keyframes o-wow{0%,100%{transform:rotate(0) scale(1)}15%{transform:rotate(-8deg) scale(1.06)}35%{transform:rotate(8deg) scale(1.06)}55%{transform:rotate(-5deg) scale(1.03)}75%{transform:rotate(3deg)}}
+.odin.angry .body{animation:o-shake .5s ease-in-out 3}
+.odin.angry .eye{animation:none}
+.odin.angry .brow.l{transform:rotate(22deg) scaleY(.7)}.odin.angry .brow.r{transform:rotate(-22deg) scaleY(.7)}
+.odin.angry .s1{animation:o-c1 3s ease forwards}.odin.angry .s2{animation:o-c2 3s ease forwards}.odin.angry .s3{animation:o-c3 3s ease forwards}.odin.angry .s4{animation:o-c4 3s ease forwards}
 @keyframes o-bounce{0%{transform:translateY(0) scale(1)}20%{transform:translateY(-16px) scale(.97,1.05)}45%{transform:translateY(0) scale(1.08,.92)}62%{transform:translateY(-6px) scale(.99,1.02)}80%{transform:translateY(0) scale(1.03,.97)}100%{transform:translateY(0) scale(1)}}
 @keyframes o-bounce-eye{0%,35%{transform:scaleY(1)}45%,55%{transform:scaleY(.12)}65%,100%{transform:scaleY(1)}}
+@keyframes o-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px) rotate(-3deg)}40%{transform:translateX(4px) rotate(3deg)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+@keyframes o-c1{0%{stop-color:#E19B1F}8%,40%{stop-color:#C8231C}62%,78%{stop-color:#2F6FE0}100%{stop-color:#E19B1F}}
+@keyframes o-c2{0%{stop-color:#EDB03D}8%,40%{stop-color:#E0352B}62%,78%{stop-color:#3F82F0}100%{stop-color:#EDB03D}}
+@keyframes o-c3{0%{stop-color:#F8CC70}8%,40%{stop-color:#F06A55}62%,78%{stop-color:#7EAEF8}100%{stop-color:#F8CC70}}
+@keyframes o-c4{0%{stop-color:#FFE3A0}8%,40%{stop-color:#FFA593}62%,78%{stop-color:#C3DBFF}100%{stop-color:#FFE3A0}}
+/* Expressions d'Odin (humeurs) : émoji, animations propres à chaque humeur. */
+.odin{position:relative;container-type:inline-size}
+.mood-emoji{position:absolute;right:-4%;top:-2%;font-size:clamp(11px,24cqw,34px);line-height:1;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));opacity:0}
+.mood-emoji.pop{animation:o-emoji 2.6s ease forwards}
+@container (max-width:46px){.mood-emoji{display:none}}
+@keyframes o-emoji{0%{opacity:0;transform:translateY(6px) scale(.4)}12%{opacity:1;transform:translateY(-2px) scale(1.15)}20%{transform:none}80%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-6px) scale(.9)}}
+.odin .brows path,.odin .mouth>*,.odin .cheeks>*{transition:opacity .2s}
+.odin.m-laugh .body{animation:o-laugh .42s ease-in-out 4}
+.odin.m-hop .body{animation:o-hop .55s cubic-bezier(.3,.9,.4,1) 3}
+.odin.m-shake .body{animation:o-shake .5s ease-in-out 3}
+.odin.m-tremble .body{animation:o-tremble .12s linear 14}
+.odin.m-tilt .body{animation:none;transform:rotate(-8deg);transition:transform .4s}
+.odin.m-look .eyes{animation:o-glance 2.4s ease-in-out infinite}
+.odin .talk{transform-box:fill-box;transform-origin:center;animation:o-talk-m .32s ease-in-out infinite alternate}
+.odin .tear{animation:o-tear 1.6s ease-in infinite}
+.odin .sweat{animation:o-tear 2.2s ease-in infinite}
+.odin .zzz{animation:o-zzz 2.4s ease-in-out infinite}.odin .zzz.z2{animation-delay:.6s}
+@keyframes o-laugh{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(3deg) scale(1.03,.97)}}
+@keyframes o-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-10px) scale(.98,1.03)}70%{transform:translateY(0) scale(1.04,.96)}}
+@keyframes o-tremble{0%,100%{transform:translateX(0)}25%{transform:translateX(-1.2px)}75%{transform:translateX(1.2px)}}
+@keyframes o-talk-m{from{transform:scaleY(.35)}to{transform:scaleY(1.15)}}
+@keyframes o-tear{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(10px);opacity:0}}
+@keyframes o-zzz{0%,100%{transform:translateY(0);opacity:.35}50%{transform:translateY(-4px);opacity:1}}
+@media (prefers-reduced-motion:reduce){.odin .talk,.odin .tear,.odin .sweat,.odin .zzz,.mood-emoji.pop{animation:none!important}.mood-emoji.pop{opacity:1}}
 @media (prefers-reduced-motion:reduce){.odin *{animation:none!important}}
 .tab{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--muted);text-align:left}
 .tab:hover{background:#151A24;color:var(--ink)}
@@ -153,6 +176,8 @@ label{font-size:14px;color:var(--muted)}
 .warn-box.bad{border-color:#6B2A22;background:#1F1211}
 ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 .mbar{display:none}
+.buddy{display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px 0 16px}.buddy .odin{width:84px;height:84px}.buddy-txt{font-size:12.5px;color:var(--dim)}
+.buddy-m{width:34px;height:34px;flex:none}
 @media (max-width:860px){
   .app{flex-direction:column}
   .mbar{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
@@ -190,7 +215,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 </head>
 <body>
 <div id="login" class="login" hidden>
-  <span class="odin" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 6px;display:block"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop offset="0" stop-color="#E19B1F"/><stop offset=".5" stop-color="#EDB03D"/><stop offset=".82" stop-color="#F8CC70"/><stop offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><circle class="ripple" cx="60" cy="60" r="46" fill="none" stroke="#FFEBB8" stroke-width="1.6" opacity="0"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
+  <span class="odin" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 6px;display:block"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
   <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
   <p class="sub">Colle le jeton affiché par « odin web » (ou contenu du fichier ~/.odin/web-token).</p>
   <form id="loginForm" method="get" action="/" style="display:flex;flex-direction:column;gap:10px">
@@ -203,11 +228,13 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 <div class="app" id="app" hidden>
   <div class="mbar">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
+    <span class="odin buddy-m" id="buddyM" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
     <span class="mcur" id="mcur">Discussion</span>
     <button class="btn small mbtn" id="menuBtn" type="button" aria-expanded="false" aria-controls="sideNav">Menu <span class="badge" id="b-menu" hidden>!</span></button>
   </div>
   <nav class="side" id="sideNav" aria-label="Sections">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
+    <div class="buddy" title="L'humeur d'Odin : il la choisit lui-même"><span class="odin" id="buddy" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span><span class="buddy-txt" id="buddyTxt">tranquille</span></div>
     <button class="tab" data-view="chat" aria-current="page">Discussion <span class="badge" id="b-approvals" hidden>0</span></button>
     <button class="tab" data-view="missions">Missions <span class="badge" id="b-missions" hidden>0</span></button>
     <button class="tab" data-view="net">Réseau <span class="badge" id="b-net" hidden>0</span></button>
@@ -232,6 +259,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
           <form class="composer" id="composer">
             <label for="input" style="position:absolute;left:-9999px">Message pour Odin</label>
             <textarea id="input" placeholder="Demande quelque chose à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne"></textarea>
+            <label class="btn mic" id="camBtn" title="Montrer quelque chose à Odin (caméra ou image)" aria-label="Montrer quelque chose à Odin"><input type="file" id="camFile" accept="image/*" capture="environment" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></label>
             <button class="btn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Parler à Odin (micro)" title="Parler à Odin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
             <button class="btn primary" type="submit" style="min-height:52px">Envoyer</button>
           </form>
@@ -481,10 +509,50 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   </main>
 </div>
 
+<script nonce="__NONCE__" src="/face.js"></script>
 <script nonce="__NONCE__">
 (() => {
   const AUTHED = __AUTHED__;
   const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
+
+  // ---------- Humeur d'Odin ----------
+  // Odin choisit son humeur à chaque réponse (évènement « mood ») ; entre-temps son visage réagit tout
+  // seul à ce qui se passe : il écoute quand tu écris ou parles, se concentre quand il travaille, ferme
+  // les yeux quand tu tapes une clé, sourit quand un réglage est enregistré, s'endort si on l'oublie.
+  const MOOD_LABEL = { neutre: 'tranquille', joie: 'content', rire: 'rieur', amour: 'attendri', fierte: 'fier', excite: 'enthousiaste', clin: 'complice', malice: 'malicieux', surprise: 'surpris', reflexion: 'pensif', concentration: 'concentré', confus: 'perplexe', inquiet: 'inquiet', triste: 'triste', colere: 'fâché', peur: 'effrayé', gene: 'gêné', fatigue: 'fatigué', ecoute: 'à l\'écoute', regarde: 'attentif', parle: 'parle', cache: 'ne regarde pas' };
+  const buddies = () => ['#buddy', '#buddyM'].map((q) => document.querySelector(q)).filter(Boolean);
+  let baseMood = 'neutre', held = 0, lastAct = Date.now();
+  const label = (m) => { const t = document.querySelector('#buddyTxt'); if (t) t.textContent = MOOD_LABEL[m] || m; };
+  function moodBase(m) { baseMood = m; if (!held) { buddies().forEach((b) => window.OdinFace?.base(b, m)); label(m); } }
+  function moodFlash(m, ms = 2000) { if (held) return; buddies().forEach((b) => window.OdinFace?.flash(b, m, ms)); label(m); clearTimeout(moodFlash._t); moodFlash._t = setTimeout(() => { if (!held) label(baseMood); }, ms); }
+  function moodHold(m) { held++; buddies().forEach((b) => { clearTimeout(b._flash); b._flash = null; b._base = null; window.OdinFace?.set(b, m); }); label(m); }
+  function moodRelease() { held = Math.max(0, held - 1); if (!held) { buddies().forEach((b) => window.OdinFace?.set(b, baseMood)); label(baseMood); } }
+  function moodFromEvent(e) {
+    if (e.type === 'tool_start') moodFlash(/vision|image|photo|web|fetch|scan|net|look|camera/i.test(e.name) ? 'regarde' : 'concentration', 1600);
+    else if (e.type === 'tool_end' && !e.ok) moodFlash('confus', 1800);
+    else if (e.type === 'blocked') moodFlash('colere', 2600);
+    else if (e.type === 'learned' || e.type === 'skill_proposed') moodFlash('fierte', 2600);
+  }
+  document.addEventListener('DOMContentLoaded', () => moodBase('neutre'));
+  setTimeout(() => moodBase(baseMood), 0);
+  // Tu écris : il écoute. Une clé ou un mot de passe : il ferme les yeux. Les autres réglages : il se concentre.
+  let typingT = 0;
+  document.addEventListener('input', (e) => {
+    const t = e.target; if (!(t instanceof HTMLElement) || t.type === 'password') return;
+    if (Date.now() - typingT < 900) return; typingT = Date.now();
+    moodFlash(t.id === 'input' ? 'ecoute' : 'concentration', 1600);
+  });
+  document.addEventListener('focusin', (e) => { if (e.target instanceof HTMLInputElement && e.target.type === 'password') { moodHold('cache'); e.target._held = true; } });
+  document.addEventListener('focusout', (e) => { if (e.target instanceof HTMLInputElement && e.target._held) { e.target._held = false; moodRelease(); } });
+  document.addEventListener('change', (e) => { const t = e.target; if (t instanceof HTMLInputElement && t.type === 'checkbox') moodFlash(t.checked ? 'joie' : 'neutre', 1400); });
+  document.addEventListener('click', (e) => { const b = e.target.closest?.('button'); if (b && /breaker/i.test(b.textContent + (b.dataset.autonomy || ''))) moodFlash('excite', 3000); else if (b && b.dataset.view) moodFlash(b.dataset.view === 'settings' ? 'concentration' : b.dataset.view === 'net' ? 'regarde' : 'joie', 1300); });
+  // Vie autonome : il s'endort quand on l'oublie, se réveille dès qu'on revient, et vit un peu tout seul.
+  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { const was = Date.now() - lastAct > 180000; lastAct = Date.now(); if (was && baseMood === 'fatigue') moodBase('surprise'); }, { passive: true });
+  setInterval(() => {
+    if (held || document.hidden) return;
+    if (Date.now() - lastAct > 180000) { if (baseMood !== 'fatigue') moodBase('fatigue'); return; }
+    if (Math.random() < 0.35) moodFlash(['regarde', 'reflexion', 'clin', 'joie', 'malice'][Math.floor(Math.random() * 5)], 2200);
+  }, 20000);
   const el = (tag, attrs = {}, ...kids) => {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(attrs)) {
@@ -585,13 +653,14 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     try { const r = await api('/api/message', { peer, text: t }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
   // Mascotte : elle réagit quand on la touche (écran de connexion, « Odin réfléchit… »).
-  const MOODS = ['poke', 'wow', 'bounce']; let moodI = 0;
+  // Un toucher : il saute. Trop de touchers d'affilée (4 en 2 s) : il se fâche, rougit, bleuit, puis redevient jaune.
   document.addEventListener('pointerdown', (e) => {
-    const f = e.target.closest?.('.odin'); if (!f) return;
+    const f = e.target.closest?.('.odin'); if (!f || f.classList.contains('angry')) return;
     e.preventDefault();
-    const m = MOODS[moodI++ % MOODS.length];
-    f.classList.remove(...MOODS); void f.offsetWidth; f.classList.add(m);
-    setTimeout(() => f.classList.remove(m), 950);
+    const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
+    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
+    f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
+    window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
   });
   const faceTpl = document.querySelector('#login .odin');
   function setBusy(b) { busy = b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; if (b && faceTpl) { const f = faceTpl.cloneNode(true); f.removeAttribute('style'); t.prepend(f); } $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); }
@@ -753,7 +822,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return;
       if (player) { player.pause(); URL.revokeObjectURL(player.src); }
       player = new Audio(URL.createObjectURL(await r.blob()));
-      const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking')); player.onended = player.onpause = () => faces.forEach((o) => o.classList.remove('talking'));
+      const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking')); moodHold('parle'); player.onended = player.onpause = () => { faces.forEach((o) => o.classList.remove('talking')); moodRelease(); };
       await player.play();
     } catch { /* lecture bloquée par le navigateur */ }
   }
@@ -764,10 +833,22 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { hintEl.textContent = 'Accès au micro refusé par le navigateur.'; return; }
     const rec = new MediaRecorder(stream); const parts = [];
     rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };
-    rec.onstop = () => { stream.getTracks().forEach((t) => t.stop()); btn._rec = null; btn.setAttribute('aria-pressed', 'false'); onDone(new Blob(parts, { type: rec.mimeType || 'audio/webm' })); };
-    btn._rec = rec; btn.setAttribute('aria-pressed', 'true'); rec.start();
+    rec.onstop = () => { moodRelease(); stream.getTracks().forEach((t) => t.stop()); btn._rec = null; btn.setAttribute('aria-pressed', 'false'); onDone(new Blob(parts, { type: rec.mimeType || 'audio/webm' })); };
+    btn._rec = rec; btn.setAttribute('aria-pressed', 'true'); rec.start(); moodHold('ecoute');
     hintEl.textContent = '🎙 Je t\'écoute… clique encore pour terminer.';
   }
+  // Les yeux d'Odin : une photo de la caméra (sur téléphone) ou une image de l'ordinateur.
+  $('#camBtn').addEventListener('click', () => moodHold('regarde'));
+  $('#camFile').addEventListener('cancel', () => moodRelease());
+  $('#camFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; moodRelease();
+    if (!f) return;
+    const said = $('#input').value.trim(); $('#input').value = '';
+    addMsg('user', `${said ? said + '\n' : ''}📷 ${f.name || 'photo'}`); setBusy(true); moodFlash('regarde', 3000);
+    const q = new URLSearchParams({ peer, text: said });
+    const r = await (await fetch('/api/photo?' + q, { method: 'POST', headers: { 'content-type': f.type || 'image/jpeg', 'x-odin': '1' }, body: f })).json().catch(() => ({ ok: false, error: 'Envoi impossible.' }));
+    if (!r.ok) { setBusy(false); $('#typing').textContent = r.error; }
+  });
   $('#micBtn').addEventListener('click', () => {
     if (!state?.voice?.stt && !$('#micBtn')._rec) { $('#typing').textContent = 'Pour parler à Odin, active Whisper dans Réglages → Voix.'; return; }
     record($('#micBtn'), async (blob) => {
@@ -943,7 +1024,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 
   // ---------- Réglages ----------
   let preset = null, settingsShown = false;
-  const st = (id, text, ok) => { const n = $(id); n.textContent = text; n.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); };
+  const st = (id, text, ok) => { const n = $(id); n.textContent = text; n.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); if (ok === true) moodFlash(/sauvegarde|Breaker|copiée/i.test(text) ? 'fierte' : 'joie', 2600); else if (ok === false) moodFlash('confus', 2600); else if (text) moodFlash('concentration', 1800); };
   function keyHint(name) { const k = state.settings.secrets[name]; return k && k.set ? `Clé enregistrée (${k.hint}). Laisse vide pour la garder.` : 'Aucune clé enregistrée.'; }
   function pickPreset(p, keepModel) {
     preset = p; const S = state.settings, P = S.presets[p];
@@ -1053,9 +1134,10 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       const d = JSON.parse(ev.data);
       if (d.type === 'message' && d.peer === peer) { addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
-      else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) approvalCard(d.event);
+      else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) { approvalCard(d.event); moodFlash('inquiet', 4000); }
       else if (d.type === 'event' && d.event.type === 'approval_done') approvalDone(d.event);
-      else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') addActivity(d.event);
+      else if (d.type === 'event' && d.event.type === 'mood') { if (d.peer === peer) moodBase(d.event.mood); }
+      else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') { addActivity(d.event); moodFromEvent(d.event); }
       else if (d.type === 'refresh') refresh();
     };
     es.onopen = () => { if (everOpened) refresh(); everOpened = true; };

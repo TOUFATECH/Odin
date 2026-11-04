@@ -80,5 +80,7 @@ export type AgentEvent =
   | { type: 'approval'; id: string; summary: string; reason: string; severity?: 'routine' | 'important' | 'grave' | 'blocked'; grantable: boolean }
   | { type: 'approval_done'; id: string; answer: 'yes' | 'no' | 'always' }
   | { type: 'budget'; tokens: number; costUsd: number }
+  /** Humeur d'Odin (visage dans l'interface, autocollant Telegram). */
+  | { type: 'mood'; mood: string }
   /** Décision de Heimdall/Mímir sur une action, pour la transparence. */
   | { type: 'decision'; tool: string; summary: string; allowed: boolean; via?: 'policy' | 'human' | 'mimir' | 'grant' | 'breaker'; severity?: 'routine' | 'important' | 'grave' | 'blocked'; why: string };

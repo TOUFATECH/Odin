@@ -20,6 +20,7 @@ import type { AgentEvent, Message, ToolCall } from '../types.ts';
 import type { Yggdrasil } from '../yggdrasil/skills.ts';
 import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForSummary } from './compaction.ts';
 import { buildSystemPrompt } from './prompt.ts';
+import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import type { Tier } from '../providers/router.ts';
 
 export interface AgentDeps {
@@ -81,6 +82,8 @@ export interface RunResult {
   suspicious?: boolean;
   /** Réflexion d'apprentissage lancée en arrière-plan (proposition de compétence). */
   reflection?: Promise<string | undefined>;
+  /** Humeur d'Odin à la fin du tour (choisie par le modèle, sinon estimée). */
+  mood?: Mood;
 }
 
 const SUBAGENT_FORBIDDEN = new Set(['delegate', 'send_message', 'schedule_task', 'schedule_cancel', 'reminder_set', 'skill_propose', 'memory_save', 'codex_run']);
@@ -121,7 +124,8 @@ export class Agent {
   private async turn(userText: string, o: RunOptions, t: { emit: (e: AgentEvent) => void; channel: string; peer: string; depth: number; breaker: OdinConfig['mimir']['breaker'] | undefined; maxSteps: number; costCap: number; signal: AbortSignal; trusted: boolean; spent: { usd: number }; missionId?: string }): Promise<RunResult> {
     const { cfg, muninn, tools, redactor, mimir } = this.deps;
     let router = this.deps.router;
-    const { emit, channel, peer, depth, breaker, maxSteps, costCap, signal, trusted, spent, missionId } = t;
+    const { channel, peer, depth, breaker, maxSteps, costCap, signal, trusted, spent, missionId } = t;
+    let emit = t.emit;
 
     const session = muninn.ensureSession(o.sessionId, channel, peer);
     if (o.startTainted) muninn.markTainted(o.sessionId);
@@ -163,6 +167,10 @@ export class Agent {
     const history: Message[] = repairHistory(muninn.history(o.sessionId).map(({ rowId: _r, ...m }) => m));
     const specs = tools.specs();
     const res: RunResult = { text: '', steps: 0, toolCalls: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, tainted, stopReason: 'done', decisions: [], notices: [] };
+    let modelMood: Mood | undefined;
+    const moodCtx = { blocked: 0, errors: 0, approvals: 0 };
+    const emitBase = emit;
+    emit = (e: AgentEvent): void => { if (e.type === 'blocked') moodCtx.blocked++; if (e.type === 'tool_end' && !e.ok) moodCtx.errors++; if (e.type === 'approval') moodCtx.approvals++; emitBase(e); };
 
     // Routage : le modèle le moins cher qui suffit. Simple → local/gratuit (si tu en as un),
     // ordinaire → standard, complexe → le plus capable. Le jugement vient de Mímir, le choix du code.
@@ -222,7 +230,9 @@ export class Agent {
       res.costUsd += reply.costUsd;
       emit({ type: 'budget', tokens: res.tokensIn + res.tokensOut, costUsd: res.costUsd });
 
-      const assistant: Message = { role: 'assistant', content: redactor.redact(reply.text), toolCalls: reply.toolCalls.length ? reply.toolCalls : undefined };
+      const tagged = extractMood(reply.text);
+      if (tagged.mood) modelMood = tagged.mood;
+      const assistant: Message = { role: 'assistant', content: redactor.redact(tagged.text), toolCalls: reply.toolCalls.length ? reply.toolCalls : undefined };
       history.push(assistant);
       turnLog.push(assistant);
       muninn.addMessage(o.sessionId, assistant);
@@ -253,6 +263,8 @@ export class Agent {
 
     res.tainted = tainted;
     res.suspicious = turn.suspicious;
+    res.mood = depth > 0 ? undefined : (res.stopReason === 'done' && modelMood) || guessMood(res.text, { ...moodCtx, stopReason: res.stopReason, toolCalls: res.toolCalls, userText });
+    if (res.mood) emit({ type: 'mood', mood: res.mood });
     if (turn.suspicious) muninn.markSuspicious(o.sessionId);
     if (res.stopReason !== 'done' && res.text) muninn.addMessage(o.sessionId, { role: 'assistant', content: res.text });
 

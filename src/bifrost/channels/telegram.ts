@@ -120,6 +120,14 @@ export class TelegramChannel implements Channel {
     await fetch(this.url('sendVoice'), { method: 'POST', body: form });
   }
 
+  /** Autocollant : le visage d'Odin selon son humeur. */
+  async sendSticker(peer: string, webp: Uint8Array): Promise<void> {
+    const form = new FormData();
+    form.append('chat_id', peer);
+    form.append('sticker', new Blob([webp], { type: 'image/webp' }), 'odin.webp');
+    await fetch(this.url('sendSticker'), { method: 'POST', body: form });
+  }
+
   async stop(): Promise<void> { this.running = false; this.ctrl.abort(); }
 }
 

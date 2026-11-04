@@ -41,4 +41,6 @@ for slug, meta in PAGES.items():
 urls = [(BASE + ('/' if s == 'index' else f'/{s}.html'), m.get('priority', '0.6')) for s, m in PAGES.items() if not m.get('noindex')]
 (OUT / 'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + ''.join(f'  <url><loc>{u}</loc><lastmod>{today}</lastmod><priority>{p}</priority></url>\n' for u, p in urls) + '</urlset>\n', encoding='utf-8')
 (OUT / 'robots.txt').write_text(f'User-agent: *\nAllow: /\nSitemap: {BASE}/sitemap.xml\n', encoding='utf-8')
+import shutil
+shutil.copyfile(ROOT / 'src' / 'web' / 'face.js', OUT / 'assets' / 'face.js')  # même visage que l'interface d'Odin
 print('pages :', ', '.join(PAGES))

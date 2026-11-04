@@ -2,6 +2,7 @@
 // inconnus, sérialise les tours par conversation, relaie les demandes de validation au
 // propriétaire, et exécute les tâches planifiées.
 
+import { MOODS, moodSticker } from '../mood/stickers.ts';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Approver, ApprovalAnswer, ApprovalRequest } from '../heimdall/policy.ts';
@@ -24,6 +25,8 @@ export interface GatewayOptions {
 export class Gateway {
   private channels = new Map<string, Channel>();
   private queues = new Map<string, Promise<void>>();
+  /** Dernière humeur montrée par conversation (autocollant envoyé seulement quand elle change). */
+  private lastMood = new Map<string, string>();
   private aborts = new Map<string, AbortController>();
   private pendingApprovals = new Map<string, (answer: ApprovalAnswer) => void>();
   private timer?: NodeJS.Timeout;
@@ -139,7 +142,15 @@ export class Gateway {
           if (e.type === 'skill_proposed') void ch.send(m.peer, e.active ? `💡 Nouvelle compétence apprise, active tout de suite : ${e.name}` : `💡 Nouvelle compétence proposée : ${e.name} (odin skills approve ${e.name})`);
         },
       });
-      await ch.send(m.peer, (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
+      // Son visage : l'autocollant de son humeur quand elle change, et l'émoji en tête de réponse.
+      const mood = r.mood && MOODS[r.mood] ? r.mood : undefined;
+      if (mood && ch.sendSticker && this.odin.cfg.mood.stickers && this.lastMood.get(sessionId) !== mood) {
+        const webp = moodSticker(mood);
+        if (webp) await ch.sendSticker(m.peer, webp).catch((e) => console.error('[humeur]', (e as Error).message));
+      }
+      if (mood) this.lastMood.set(sessionId, mood);
+      const face = mood && ch.sendSticker && this.odin.cfg.mood.emoji ? `${MOODS[mood].emoji} ` : '';
+      await ch.send(m.peer, face + (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));

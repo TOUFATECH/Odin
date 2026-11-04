@@ -1,0 +1,85 @@
+// Les humeurs d'Odin.
+//
+// Odin choisit lui-même son humeur à chaque réponse : le modèle commence sa réponse par un
+// marqueur [humeur:xxx], retiré avant affichage. S'il l'oublie, une estimation à partir du texte
+// et de ce qui s'est passé pendant le tour (erreur, refus, validation, réussite) prend le relais.
+// Le visage (site, interface web) et l'autocollant Telegram suivent cette humeur.
+
+export const MOODS = {
+  neutre: { emoji: '🙂', label: 'tranquille' },
+  joie: { emoji: '😊', label: 'content' },
+  rire: { emoji: '😄', label: 'rieur' },
+  amour: { emoji: '🥰', label: 'attendri' },
+  fierte: { emoji: '😎', label: 'fier' },
+  excite: { emoji: '🤩', label: 'enthousiaste' },
+  clin: { emoji: '😉', label: 'complice' },
+  malice: { emoji: '😏', label: 'malicieux' },
+  surprise: { emoji: '😮', label: 'surpris' },
+  reflexion: { emoji: '🤔', label: 'pensif' },
+  concentration: { emoji: '🧐', label: 'concentré' },
+  confus: { emoji: '😕', label: 'perplexe' },
+  inquiet: { emoji: '😟', label: 'inquiet' },
+  triste: { emoji: '😢', label: 'triste' },
+  colere: { emoji: '😠', label: 'fâché' },
+  peur: { emoji: '😨', label: 'effrayé' },
+  gene: { emoji: '😳', label: 'gêné' },
+  fatigue: { emoji: '😴', label: 'fatigué' },
+  ecoute: { emoji: '👂', label: 'à l\'écoute' },
+  regarde: { emoji: '👀', label: 'attentif' },
+} as const;
+
+export type Mood = keyof typeof MOODS;
+export const MOOD_IDS = Object.keys(MOODS) as Mood[];
+export const isMood = (m: unknown): m is Mood => typeof m === 'string' && m in MOODS;
+
+const TAG = /^\s*\[\s*humeur\s*:\s*([a-zàâçéèêëîïôûùüÿñæœ_-]+)\s*\]\s*/i;
+const ALIAS: Record<string, Mood> = {
+  content: 'joie', heureux: 'joie', joyeux: 'joie', rieur: 'rire', drole: 'rire', drôle: 'rire', fier: 'fierte', fierté: 'fierte',
+  enthousiaste: 'excite', excité: 'excite', complice: 'clin', malicieux: 'malice', surpris: 'surprise', pensif: 'reflexion', réflexion: 'reflexion',
+  concentré: 'concentration', perplexe: 'confus', inquiète: 'inquiet', fâché: 'colere', colère: 'colere', effrayé: 'peur', gêné: 'gene', gêne: 'gene',
+  fatigué: 'fatigue', attendri: 'amour', calme: 'neutre', tranquille: 'neutre', attentif: 'regarde', écoute: 'ecoute',
+};
+
+/** Retire le marqueur [humeur:xxx] du début de la réponse ; renvoie l'humeur reconnue. */
+export function extractMood(text: string): { text: string; mood?: Mood } {
+  const m = text.match(TAG);
+  if (!m) return { text };
+  const raw = m[1].toLowerCase();
+  const mood = isMood(raw) ? raw : ALIAS[raw];
+  return { text: text.slice(m[0].length), mood };
+}
+
+export interface MoodContext {
+  stopReason?: string;
+  blocked?: number;
+  errors?: number;
+  approvals?: number;
+  learned?: boolean;
+  toolCalls?: number;
+  userText?: string;
+}
+
+/** Estimation de secours, quand le modèle n'a pas donné d'humeur. */
+export function guessMood(text: string, c: MoodContext = {}): Mood {
+  const t = text.toLowerCase(), u = (c.userText ?? '').toLowerCase();
+  if (c.stopReason === 'error' || c.stopReason === 'loop') return 'confus';
+  if (c.stopReason === 'budget' || c.stopReason === 'max_steps') return 'fatigue';
+  if (c.stopReason === 'aborted') return 'surprise';
+  if (/manipul|pirat|page piégée|refusé pour te protéger|tentait de/.test(t)) return 'colere';
+  if (c.blocked) return 'inquiet';
+  if (/désolé|malheureusement|impossible|je n'arrive pas|échec|erreur/.test(t)) return c.errors ? 'triste' : 'confus';
+  if (/^(merci|bravo|génial|super|top|parfait)\b/.test(u.trim())) return 'amour';
+  if (/\b(haha|mdr|lol|blague|😂|🤣)\b/.test(t + ' ' + u)) return 'rire';
+  if (/^(bonjour|salut|coucou|hello|bonsoir|hey)\b/.test(u.trim())) return 'joie';
+  if (c.approvals) return 'concentration';
+  if (c.learned) return 'fierte';
+  if (/\?\s*$/.test(t.trim())) return 'reflexion';
+  if (c.toolCalls && c.toolCalls >= 3) return 'fierte';
+  if (/(c'est fait|terminé|voilà|réussi|prêt|à jour|enregistré)/.test(t)) return 'joie';
+  if (/(attention|prudence|risque|grave)/.test(t)) return 'inquiet';
+  return 'neutre';
+}
+
+/** Ligne du prompt système qui apprend au modèle à donner son humeur. */
+export const MOOD_PROMPT = `## Ton humeur
+Tu as un visage (une petite boule dorée) qui montre ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas.`;

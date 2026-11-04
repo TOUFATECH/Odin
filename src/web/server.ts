@@ -11,7 +11,7 @@
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
@@ -47,6 +47,7 @@ export interface WebHooks {
 }
 
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
+const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
 const MAX_BODY = 200_000;
 
 export class WebChannel implements Channel {
@@ -176,9 +177,10 @@ export class WebChannel implements Channel {
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         ...(this.tls && !this.tls.selfSigned ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
-      return void res.end(UI.replace('__NONCE__', nonce).replace('__AUTHED__', this.authed(req) ? 'true' : 'false'));
+      return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', this.authed(req) ? 'true' : 'false'));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
+    if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }
     if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=86400' });
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
@@ -253,6 +255,22 @@ export class WebChannel implements Channel {
         const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), v);
         res.writeHead(200, { 'content-type': audio.mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
         return void res.end(audio.data);
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    if (url.pathname === '/api/photo') {
+      // Les yeux d'Odin : une photo de la caméra (téléphone) ou une image, déposée dans inbox/ puis montrée à Odin.
+      try {
+        const data = await readRaw(req, 20 * 1024 * 1024);
+        const type = String(req.headers['content-type'] ?? '');
+        const ext = /png/.test(type) ? 'png' : /webp/.test(type) ? 'webp' : /gif/.test(type) ? 'gif' : 'jpg';
+        if (!/^image\//.test(type) || !data.byteLength) return json(res, 200, { ok: false, error: 'image attendue' });
+        const dir = join(this.odin.paths.workspace, 'inbox'); mkdirSync(dir, { recursive: true });
+        const name = `camera-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.${ext}`;
+        writeFileSync(join(dir, name), data);
+        const peer = safePeer(url.searchParams.get('peer') ?? undefined);
+        const said = (url.searchParams.get('text') ?? '').slice(0, 4000).trim();
+        void onMessage({ channel: 'web', peer, name: 'navigateur', text: `${said || 'Regarde ce que je te montre et dis-moi ce que tu vois.'}\n\n[Photo prise par la caméra : inbox/${name} (${type}, ${Math.round(data.byteLength / 1024)} Ko)]` });
+        return json(res, 202, { ok: true, file: `inbox/${name}` });
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/message') {

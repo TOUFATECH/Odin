@@ -242,6 +242,10 @@ Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secou
 
 **Budget mensuel** (Réglages → Modèle) : un plafond en dollars ; tous les appels sont comptés (agent, juges, résumés, observation, vision), la dépense s'affiche par modèle et par usage, et une fois le plafond atteint seuls les modèles gratuits servent, Odin te le dit.
 
+### Son visage et ses humeurs
+
+Odin a un visage, une petite boule dorée, et une vingtaine d'expressions : content, rieur, attendri, fier, enthousiaste, complice, malicieux, surpris, pensif, concentré, perplexe, inquiet, triste, fâché, effrayé, gêné, fatigué, à l'écoute, attentif… **Il choisit lui-même son humeur** à chaque réponse, selon ce qu'il vit avec toi. Entre deux réponses, son visage réagit tout seul : il t'écoute quand tu écris ou parles, se concentre quand il travaille, regarde quand tu lui montres une photo (bouton 📷), parle quand il lit sa réponse à voix haute, **ferme les yeux quand tu tapes une clé** dans les réglages, sourit quand un réglage est enregistré, s'endort si on l'oublie. Touche-le : il saute ; touche-le trop, il se fâche, devient rouge, puis bleu, puis redevient jaune. Sur **Telegram**, il t'envoie l'autocollant de son humeur quand elle change, et l'émoji en tête de chaque réponse (`mood.stickers`, `mood.emoji` dans la configuration).
+
 ### Personnes : famille, équipe
 
 Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`). Trois rôles :
