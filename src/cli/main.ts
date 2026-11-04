@@ -22,7 +22,7 @@ import { Gateway } from '../bifrost/gateway.ts';
 import { TelegramChannel } from '../bifrost/channels/telegram.ts';
 import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
-import { allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
+import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
@@ -61,6 +61,7 @@ Usage : odin <commande>
   web                          interface web (+ canaux et tâches planifiées)
   web access [lan|local|wan]   qui peut l'ouvrir : ton réseau local en HTTPS (défaut), cette machine,
                                ou Internet (--http : LAN sans chiffrement ; --proxy : proxy HTTPS devant)
+  web link                     affiche les liens personnels (avec jeton) pour ouvrir l'interface
   web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
   update                       met Odin à jour
   auth add openai-codex        connexion à ton abonnement ChatGPT (Codex) ; auth list · auth remove openai-codex
@@ -606,6 +607,15 @@ async function main(): Promise<void> {
   }
   if (cmd === 'gateway') return gateway();
   if (cmd === 'web' && pos[1] === 'access') return webAccess(pos[2]);
+  if (cmd === 'web' && pos[1] === 'link') {
+    // Les liens personnels (avec jeton), sans démarrer l'interface : utile quand Odin tourne en service.
+    const paths = odinPaths(); initHome(paths);
+    const cfg = loadConfig(paths), token = ensureWebToken(paths);
+    console.log(`${c.cyan('ᛟ')} Liens personnels d'Odin (ils contiennent ton jeton : ne les partage pas) :`);
+    for (const u of accessUrls(cfg.web, token)) console.log(`  ${u}`);
+    if (!cfg.web.tls.enabled && cfg.web.access !== 'local') console.log(c.dim('  (HTTPS : le navigateur demandera d\'accepter le certificat d\'Odin une fois)'));
+    return;
+  }
   if (cmd === 'web' && pos[1] === 'rotate') { ensureWebToken(odinPaths(), true); console.log(c.green('✓ Nouveau jeton : les anciens liens ne marchent plus. Relance « odin web » pour voir les nouveaux.')); return; }
   if (cmd === 'web') return gateway(!flags.has('--no-open'));
   if (cmd === 'breaker') return breakerCmd(pos[1]);

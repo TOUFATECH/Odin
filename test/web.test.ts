@@ -55,3 +55,26 @@ test('Heimdall bloque aussi les commandes destructrices Windows', async () => {
     assert.equal((await h.gate({ tool: 'shell', risk: 'exec', command, sessionId: 's', summary: command, tainted: false })).allowed, false, command);
   }
 });
+
+test('première connexion sans jeton : une seule fois, depuis le réseau local, puis jeton obligatoire', async () => {
+  const o = makeOdin([]);
+  const port = 21000 + Math.floor(Math.random() * 20000);
+  const token = ensureWebToken(o.paths);
+  const gw = new Gateway(o, { owners: { web: ['*'] } });
+  gw.add(new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token }));
+  await gw.start();
+  const B = `http://127.0.0.1:${port}`;
+  try {
+    assert.match(await (await fetch(`${B}/`)).text(), /if \(true\) \{\s*\$\('#claimBox'\)/, 'page d\'accueil : bouton « Commencer »');
+    assert.equal((await fetch(`${B}/api/claim`, { method: 'POST' })).status, 403, 'en-tête anti-CSRF exigé');
+    const r = await fetch(`${B}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } });
+    assert.equal(r.status, 200);
+    const cookie = (r.headers.get('set-cookie') ?? '').split(';')[0];
+    assert.equal(cookie, `odin_token=${token}`, 'ce navigateur reçoit l\'accès');
+    assert.equal((await fetch(`${B}/api/state`, { headers: { cookie } })).status, 200);
+    // Déjà fait : plus jamais sans jeton.
+    assert.equal((await fetch(`${B}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } })).status, 403);
+    assert.match(await (await fetch(`${B}/`)).text(), /if \(false\) \{\s*\$\('#claimBox'\)/);
+    assert.equal((await fetch(`${B}/api/state`)).status, 401);
+  } finally { await gw.stop(); o.cleanup(); }
+});

@@ -14,6 +14,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
+import { isPrivateHost } from '../heimdall/policy.ts';
 import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
 import { join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
@@ -90,11 +91,30 @@ export class WebChannel implements Channel {
     return a.length === b.length && timingSafeEqual(a, b);
   }
 
+  // ---- Première connexion (comme l'accueil de Home Assistant) ----
+  // Tant qu'aucun appareil ne s'est jamais connecté, le premier navigateur du réseau LOCAL qui ouvre
+  // Odin reçoit l'accès, sans jeton, pendant la première heure après le démarrage. Ensuite, le jeton
+  // redevient obligatoire. Utile quand Odin tourne en service (LXC, serveur) et que personne n'a vu le lien.
+  private readonly startedAt = Date.now();
+  private claimedFile(): string { return join(this.odin.paths.home, 'web-claimed'); }
+  private markClaimed(by: string): void {
+    if (existsSync(this.claimedFile())) return;
+    try { writeFileSync(this.claimedFile(), `${new Date().toISOString()} ${by}\n`, { mode: 0o600 }); } catch { /* lecture seule : sans effet */ }
+  }
+  /** La première connexion sans jeton est-elle encore possible pour cette requête ? */
+  private claimable(req: IncomingMessage): boolean {
+    if (existsSync(this.claimedFile())) return false;
+    if (Date.now() - this.startedAt > 60 * 60_000) return false;
+    if (this.odin.muninn.listSessions(500).some((s) => s.id.startsWith('web:'))) { this.markClaimed('déjà utilisé'); return false; }
+    const ip = this.clientIp(req).replace(/^fwd:/, '');
+    return isPrivateHost(ip); // jamais depuis Internet
+  }
+
   private authed(req: IncomingMessage): boolean {
     const cookie = /(?:^|;\s*)odin_token=([a-f0-9]+)/.exec(req.headers.cookie ?? '')?.[1];
     const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
     const ok = this.tokenOk(cookie) || this.tokenOk(bearer);
-    if (ok) this.throttle.success(this.clientIp(req));
+    if (ok) { this.throttle.success(this.clientIp(req)); if (cookie) this.markClaimed('jeton'); }
     else if (bearer || (cookie && cookie !== this.lastToken)) this.throttle.fail(this.clientIp(req)); // un jeton faux = un essai raté (sauf l'ancien jeton juste remplacé)
     return ok;
   }
@@ -182,7 +202,8 @@ export class WebChannel implements Channel {
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         ...(this.tls && !this.tls.selfSigned ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
-      return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', this.authed(req) ? 'true' : 'false'));
+      const authed = this.authed(req);
+      return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIMABLE__', !authed && this.claimable(req) ? 'true' : 'false'));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }
@@ -191,6 +212,14 @@ export class WebChannel implements Channel {
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
     }
     if (!url.pathname.startsWith('/api/')) return json(res, 404, { error: 'introuvable' });
+    if (req.method === 'POST' && url.pathname === '/api/claim') {
+      if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+      if (!this.claimable(req)) return json(res, 403, { error: 'la première connexion est déjà faite : utilise le lien avec jeton (odin web link)' });
+      this.markClaimed(this.clientIp(req));
+      console.log(`[web] première connexion : accès donné au navigateur ${this.clientIp(req)}`);
+      res.setHeader('set-cookie', this.cookie(this.token));
+      return json(res, 200, { ok: true });
+    }
     if (!this.authed(req)) {
       // Cookie périmé (nouveau jeton) : on le fait oublier au navigateur, pour qu'il n'insiste pas en boucle.
       if (/odin_token=/.test(req.headers.cookie ?? '')) res.setHeader('set-cookie', 'odin_token=; Max-Age=0; Path=/');

@@ -220,7 +220,8 @@ if [ -n "$SERVICE" ]; then
   [ "$ACCESS" != local ] && [ -n "$IP" ] && echo "  Depuis ton téléphone ou un autre appareil du réseau : $SCHEME://$IP:7777/?token=$TOKEN"
   [ "$SCHEME" = https ] && echo "  (certificat créé par Odin : le navigateur demandera de l'accepter une fois)"
   open_url "$URL"
-  echo "  Plus tard     : odin web (rouvre l'interface) · odin doctor (diagnostic)"
+  echo "  Première fois : le premier navigateur de ton réseau qui ouvre Odin devient le tien (bouton Commencer)."
+  echo "  Plus tard     : odin web link (tes liens) · odin doctor (diagnostic)"
   echo "  (ouvre un nouveau terminal si la commande « odin » est introuvable)"
 else
   echo "  Plus tard     : odin web (rouvre l'interface) · odin gateway (tout en arrière-plan)"
