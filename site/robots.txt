@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://toufatech.github.io/Odin/sitemap.xml

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guide d'utilisation d'Odin — réglages, quotidien, commandes</title>
+<meta name="description" content="Comment se servir d'Odin au quotidien : l'onglet Réglages, la discussion, Telegram, la voix, les documents, les tâches planifiées, la mémoire, le réseau, les commandes et le dépannage.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://toufatech.github.io/Odin/guide.html">
+<meta name="theme-color" content="#0B0E14">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Odin Agent Majordome">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Guide d'utilisation d'Odin — réglages, quotidien, commandes">
+<meta property="og:description" content="Comment se servir d'Odin au quotidien : l'onglet Réglages, la discussion, Telegram, la voix, les documents, les tâches planifiées, la mémoire, le réseau, les commandes et le dépannage.">
+<meta property="og:url" content="https://toufatech.github.io/Odin/guide.html">
+<meta property="og:image" content="https://toufatech.github.io/Odin/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Guide d'utilisation d'Odin — réglages, quotidien, commandes">
+<meta name="twitter:description" content="Comment se servir d'Odin au quotidien : l'onglet Réglages, la discussion, Telegram, la voix, les documents, les tâches planifiées, la mémoire, le réseau, les commandes et le dépannage.">
+<meta name="twitter:image" content="https://toufatech.github.io/Odin/assets/og.png">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+<link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./assets/site.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://toufatech.github.io/Odin/"}, {"@type": "ListItem", "position": 2, "name": "Guide", "item": "https://toufatech.github.io/Odin/guide.html"}]}</script>
+</head>
+<body data-page="guide">
+<a class="skip" href="#contenu">Aller au contenu</a>
+<header class="site-header" id="haut">
+  <div class="wrap bar">
+    <a class="brand" href="./" aria-label="Odin Agent Majordome, accueil"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></a>
+    <nav class="nav" aria-label="Navigation principale"><ul><li><a href="./">Accueil</a></li>
+<li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
+<li><a href="./autonomie.html">Autonomie</a></li>
+<li><a href="./securite.html">Sécurité</a></li>
+<li><a href="./installation.html">Installation</a></li>
+<li><a href="./guide.html" aria-current="page">Guide</a></li>
+<li><a href="./faq.html">FAQ</a></li></ul></nav>
+    <div class="bar-actions">
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Changer de thème" title="Thème clair / sombre"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="ico-sun" d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/><circle class="ico-sun" cx="12" cy="12" r="4"/><path class="ico-moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+      <a class="btn ghost gh" href="https://github.com/TOUFATECH/Odin" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg><span>GitHub</span></a>
+      <a class="btn primary" href="./installation.html">Installer</a>
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobileNav"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobileNav" aria-label="Navigation mobile" hidden><ul><li><a href="./">Accueil</a></li>
+<li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
+<li><a href="./autonomie.html">Autonomie</a></li>
+<li><a href="./securite.html">Sécurité</a></li>
+<li><a href="./installation.html">Installation</a></li>
+<li><a href="./guide.html" aria-current="page">Guide</a></li>
+<li><a href="./faq.html">FAQ</a></li></ul><a class="btn primary" href="./installation.html">Installer Odin</a></nav>
+</header>
+
+<main id="contenu">
+<div class="wrap page-head">
+  <p class="eyebrow">Guide d'utilisation</p>
+  <h1 style="font-size:clamp(36px,5vw,60px)">Tout ce qu'il faut savoir pour se servir d'Odin.</h1>
+  <nav class="toc" aria-label="Sommaire"><a href="#reglages">Réglages</a><a href="#quotidien">Au quotidien</a><a href="#telegram">Telegram</a><a href="#voix">Voix</a><a href="#documents">Documents</a><a href="#taches">Tâches et rappels</a><a href="#memoire">Mémoire et compétences</a><a href="#reseau">Réseau</a><a href="#commandes">Commandes</a><a href="#depannage">Dépannage</a></nav>
+</div>
+
+<section class="wrap sub" id="reglages" style="padding-top:32px">
+  <div class="stack" style="margin-bottom:24px"><h2>Configurer Odin : l'onglet Réglages</h2><p class="lead">Tout se règle depuis l'interface web (<span class="ic">odin web</span>). Rien à éditer à la main ; les clés restent sur ta machine, dans un fichier lisible par toi seul, et ne sont jamais renvoyées à la page.</p></div>
+  <div class="grid">
+    <article class="card rv"><h3>Modèle</h3><p>Le modèle par défaut, des modèles de secours, leur palier (gratuit, standard, le plus capable) et les règles de choix. « Tester » puis « Enregistrer » : Odin redémarre ses services tout seul.</p></article>
+    <article class="card rv d1"><h3>Décisions</h3><p>Niveau d'autonomie, Odin Breaker (tout le temps ou la nuit, rapport du soir, plafonds), juge des décisions.</p></article>
+    <article class="card rv d2"><h3>Voix</h3><p>Clé de synthèse vocale, choix ou copie de la voix, service de transcription, lecture des réponses, notes vocales en retour.</p></article>
+    <article class="card rv d3"><h3>Telegram</h3><p>Jeton du bot, activation, tes identifiants.</p></article>
+    <article class="card rv"><h3>Réseau local</h3><p>Suivi des appareils, intervalle de balayage, alertes, « Balayer maintenant ».</p></article>
+    <article class="card rv d1"><h3>Accès à l'interface</h3><p>Réseau local (HTTPS, par défaut), cette machine seulement, ou Internet. Réseaux autorisés, port, certificat, nouveau jeton.</p></article>
+  </div>
+</section>
+
+<section class="band sub" id="quotidien"><div class="wrap">
+  <div class="stack" style="margin-bottom:24px"><h2>Au quotidien</h2><p class="lead">Parle à Odin comme à un assistant : il agit, te montre ce qu'il fait, et te demande quand c'est important.</p></div>
+  <div class="grid">
+    <article class="card rv"><h3>Discussion</h3><p>Écris ou parle (micro). Les outils utilisés s'affichent en direct ; une demande d'accord apparaît avec Autoriser, Toujours autoriser, Refuser. « Arrêter » interrompt. </p></article>
+    <article class="card rv d1"><h3>Terminal</h3><p><span class="ic">odin chat</span> pour discuter, <span class="ic">odin run "résume ce dossier"</span> pour une demande ponctuelle, idéale dans un script.</p></article>
+    <article class="card rv d2"><h3>Plusieurs conversations</h3><p>« Nouvelle conversation » ouvre un fil séparé ; chaque fil garde son contexte.</p></article>
+    <article class="card rv d3"><h3>Fin de réponse</h3><p>« 🛡 Décidé sans te déranger » liste ce qu'Odin a fait seul. En Breaker, une ligne résume, le détail est dans Décisions.</p></article>
+  </div>
+</div></section>
+
+<section class="wrap sub" id="telegram">
+  <div class="grid two" style="gap:40px;align-items:start">
+    <div class="stack" style="gap:14px"><h2>Telegram</h2><p class="lead">Odin dans ta poche, de n'importe où : texte, notes vocales, fichiers, photos.</p></div>
+    <ol class="steps">
+      <li><div><b>Crée un bot</b><span class="muted">Dans Telegram, écris à @BotFather, envoie <span class="ic">/newbot</span> et copie le jeton.</span></div></li>
+      <li><div><b>Colle le jeton dans Réglages → Telegram</b><span class="muted">Coche « Activer », enregistre.</span></div></li>
+      <li><div><b>Écris à ton bot</b><span class="muted">Il te répond avec ton identifiant : ajoute-le dans « Tes identifiants Telegram ». Un inconnu reçoit un code d'appairage.</span></div></li>
+      <li><div><b>Commandes utiles</b><span class="muted"><span class="ic">/stop</span> interrompt, <span class="ic">/new</span> repart de zéro, <span class="ic">/status</span> affiche les coûts, <span class="ic">/oui ID</span> · <span class="ic">/toujours ID</span> · <span class="ic">/non ID</span> répondent aux validations.</span></div></li>
+    </ol>
+  </div>
+</section>
+
+<section class="band sub" id="voix"><div class="wrap grid two" style="gap:40px;align-items:start">
+  <div class="stack" style="gap:14px"><h2>Voix</h2><p class="lead">Odin comprend ce que tu dis et te répond à voix haute.</p></div>
+  <div class="stack">
+    <div class="card"><h3>Comprendre</h3><p>Réglages → Voix → Service de transcription : en ligne (clé OpenAI) ou serveur local sur ta machine, sans clé. Puis le bouton micro dans la discussion, les notes vocales Telegram et les fichiers audio sont compris.</p></div>
+    <div class="card"><h3>Parler</h3><p>Clé ElevenLabs, « Charger mes voix », choisis-en une, « Écouter un essai ». Bouton 🔊 dans la discussion pour lire les réponses ; note vocale automatique en retour sur Telegram.</p></div>
+    <div class="card"><h3>Copier une voix</h3><p>Un enregistrement d'une à trois minutes (fichier ou micro), un nom, la case de consentement cochée, « Copier cette voix ». Elle devient la voix d'Odin.</p></div>
+  </div>
+</div></section>
+
+<section class="wrap sub" id="documents">
+  <div class="stack" style="margin-bottom:24px"><h2>Documents et médias</h2><p class="lead">Dépose un fichier dans <span class="ic">~/.odin/workspace</span> ou envoie-le sur Telegram (il arrive dans <span class="ic">inbox/</span>), puis demande.</p></div>
+  <div class="grid">
+    <article class="card rv"><h3>« Résume ce PDF »</h3><p>PDF, Word, PowerPoint, Excel : Odin lit le texte, les tableaux, les diapositives.</p></article>
+    <article class="card rv d1"><h3>« Fais-en un Excel avec le total »</h3><p>Classeur créé avec formules, plusieurs feuilles si besoin. Même chose pour Word, PDF, PowerPoint, CSV.</p></article>
+    <article class="card rv d2"><h3>« Qu'y a-t-il sur cette photo ? »</h3><p>Description, texte lu (facture, panneau), objets, défauts.</p></article>
+    <article class="card rv d3"><h3>« Transcris cette réunion »</h3><p>Audio ou vidéo transcrit en texte ; découpe, conversion, extraction du son, miniature.</p></article>
+  </div>
+</section>
+
+<section class="band sub" id="taches"><div class="wrap grid two" style="gap:40px;align-items:start">
+  <div class="stack" style="gap:14px"><h2>Tâches planifiées et rappels</h2><p class="lead">Demande simplement : « chaque lundi à 9 h, fais le point sur mes sauvegardes », « rappelle-moi jeudi 18 h de payer le plombier ».</p></div>
+  <div class="stack">
+    <div class="card"><h3>Elles tournent tant qu'Odin tourne</h3><p>Avec <span class="ic">odin gateway</span> ou le démarrage automatique. L'onglet Tâches planifiées les liste ; <span class="ic">odin cron</span> aussi.</p></div>
+    <div class="card"><h3>Sans surveillance</h3><p>Une tâche planifiée refuse ce qui demande une validation, sauf en mode Breaker, où Odin agit et rend compte le soir.</p></div>
+    <div class="card"><h3>Initiative</h3><p>En Breaker, Odin crée lui-même les routines et rappels utiles, et te le dit dans son rapport.</p></div>
+  </div>
+</div></section>
+
+<section class="wrap sub" id="memoire">
+  <div class="stack" style="margin-bottom:24px"><h2>Mémoire et compétences</h2></div>
+  <div class="grid">
+    <article class="card rv"><h3>Ce qu'il retient</h3><p>Tes préférences, ton environnement, tes missions, les faits utiles que tu lui donnes. Jamais de secret. Onglet Mémoire pour corriger, épingler, oublier.</p></article>
+    <article class="card rv d1"><h3>Quarantaine</h3><p>Ce qui vient du web ou d'un inconnu reste en quarantaine jusqu'à ce que tu le valides.</p></article>
+    <article class="card rv d2"><h3>Compétences</h3><p>Après une tâche réussie, Odin propose une compétence réutilisable (un fichier lisible). Tu la relis et l'approuves ; en Breaker, elle est active tout de suite.</p></article>
+    <article class="card rv d3"><h3>Les tiennes</h3><p>Un fichier <span class="ic">SKILL.md</span> dans <span class="ic">~/.odin/skills/&lt;nom&gt;/</span> suffit. Odin ne le charge que quand il en a besoin.</p></article>
+  </div>
+</section>
+
+<section class="band sub" id="reseau"><div class="wrap grid two" style="gap:40px;align-items:start">
+  <div class="stack" style="gap:14px"><h2>Réseau local</h2><p class="lead">L'onglet Réseau liste tes appareils, leur état et ce qu'Odin peut faire avec chacun.</p></div>
+  <div class="stack">
+    <div class="card"><h3>Balayer</h3><p>Réglages → Réseau local → « Balayer maintenant », ou <span class="ic">odin net scan --full</span>. Certains appareils n'apparaissent qu'au bout de quelques minutes.</p></div>
+    <div class="card"><h3>Mises à jour</h3><p><span class="ic">odin updates</span> liste les mises à jour système disponibles ; les appliquer demande ton accord (sauf en Breaker).</p></div>
+    <div class="card"><h3>Agir sur un appareil</h3><p>« Allume la lampe du salon », « ouvre l'interface du NAS » : en Breaker, Odin parle directement aux API locales.</p></div>
+  </div>
+</div></section>
+
+<section class="wrap sub" id="commandes">
+  <div class="stack" style="margin-bottom:24px"><h2>Commandes utiles</h2></div>
+  <div class="twrap rv"><table class="rtable"><thead><tr><th>Commande</th><th>Rôle</th></tr></thead><tbody>
+    <tr><td><span class="ic">odin web</span></td><td>ouvre l'interface web (tout y est)</td></tr>
+    <tr><td><span class="ic">odin gateway</span></td><td>fait tout tourner en arrière-plan : web, Telegram, tâches, réseau</td></tr>
+    <tr><td><span class="ic">odin chat</span> · <span class="ic">odin run "…"</span></td><td>discussion dans le terminal, demande ponctuelle</td></tr>
+    <tr><td><span class="ic">odin doctor</span> · <span class="ic">odin audit</span></td><td>diagnostic ; contrôle de sécurité de la configuration</td></tr>
+    <tr><td><span class="ic">odin breaker on</span> · <span class="ic">nuit</span> · <span class="ic">off</span></td><td>Odin Breaker : tout le temps, la nuit, ou retour au niveau choisi</td></tr>
+    <tr><td><span class="ic">odin mimir autonomy …</span></td><td>prudent, equilibre, autonome, breaker</td></tr>
+    <tr><td><span class="ic">odin web access lan</span> · <span class="ic">local</span> · <span class="ic">wan</span></td><td>qui peut ouvrir l'interface ; <span class="ic">odin web rotate</span> change le jeton</td></tr>
+    <tr><td><span class="ic">odin net list</span> · <span class="ic">scan</span></td><td>inventaire du réseau local</td></tr>
+    <tr><td><span class="ic">odin decisions</span> · <span class="ic">odin grants</span></td><td>journal des décisions, autorisations permanentes</td></tr>
+    <tr><td><span class="ic">odin skills</span> · <span class="ic">memory</span> · <span class="ic">cron</span></td><td>compétences, mémoire, tâches</td></tr>
+    <tr><td><span class="ic">odin update</span></td><td>met Odin à jour</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="band sub" id="depannage"><div class="wrap narrow" style="max-width:860px">
+  <div class="stack" style="margin-bottom:16px"><h2>Dépannage</h2></div>
+  <details id="d-commande"><summary>« odin : commande introuvable »<span class="plus" aria-hidden="true">+</span></summary><p>Ouvre un nouveau terminal : le PATH vient d'être modifié par l'installateur.</p></details>
+  <details id="d-demo"><summary>Odin répond en mode démo<span class="plus" aria-hidden="true">+</span></summary><p>Aucun modèle n'est configuré. Réglages → Modèle : colle ta clé (ou choisis Ollama et vérifie qu'il tourne), « Tester », « Enregistrer ».</p></details>
+  <details id="d-telephone"><summary>Le téléphone n'arrive pas à ouvrir Odin<span class="plus" aria-hidden="true">+</span></summary><p>Même Wi-Fi que l'ordinateur ; utilise l'adresse en <span class="ic">https://</span> affichée au démarrage ; vérifie que son réseau figure dans Réglages → Accès ; autorise le port 7777 dans le pare-feu.</p></details>
+  <details id="d-certificat"><summary>« Ta connexion n'est pas privée »<span class="plus" aria-hidden="true">+</span></summary><p>Normal la première fois : le certificat est créé par Odin, pas par une autorité. Compare son empreinte avec celle de Réglages → Accès, puis accepte. Tu peux aussi installer ton propre certificat.</p></details>
+  <details id="d-quota"><summary>« Quota épuisé chez … »<span class="plus" aria-hidden="true">+</span></summary><p>Ton fournisseur a refusé la demande pour quota ou crédit. Odin l'a mis de côté et a utilisé le suivant. Recharge le compte ou ajoute un modèle de secours dans Réglages → Modèle ; il reviendra tout seul.</p></details>
+  <details id="d-voix"><summary>Le micro ne marche pas<span class="plus" aria-hidden="true">+</span></summary><p>Le navigateur n'autorise le micro qu'en HTTPS (ou sur la machine elle-même). Vérifie aussi que le service de transcription est configuré dans Réglages → Voix.</p></details>
+  <details id="d-telegram"><summary>Telegram ne répond pas<span class="plus" aria-hidden="true">+</span></summary><p>Réglages → Telegram : jeton enregistré, « Activer » coché, ton identifiant ajouté. Odin doit tourner (<span class="ic">odin gateway</span> ou le démarrage automatique).</p></details>
+  <details id="d-video"><summary>Vidéo ou audio : « ffmpeg est introuvable »<span class="plus" aria-hidden="true">+</span></summary><p>Installe ffmpeg : <span class="ic">brew install ffmpeg</span> (macOS), <span class="ic">winget install Gyan.FFmpeg</span> (Windows), <span class="ic">sudo apt install ffmpeg</span> (Debian/Ubuntu).</p></details>
+  <details id="d-desinstaller"><summary>Désinstaller Odin<span class="plus" aria-hidden="true">+</span></summary><p>Arrête le démarrage automatique (macOS : <span class="ic">launchctl unload ~/Library/LaunchAgents/ai.odin.gateway.plist</span> · Linux : <span class="ic">systemctl --user disable --now odin</span> · Windows : supprime la tâche « Odin » du Planificateur), puis supprime <span class="ic">~/.odin</span> (et <span class="ic">%LOCALAPPDATA%\Odin</span> sous Windows).</p></details>
+</div></section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap foot">
+    <div class="foot-brand">
+      <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></div>
+      <p>Agent IA personnel, open source, qui travaille chez toi et pour toi. Licence MIT · © 2026 TOUFATECH.</p>
+    </div>
+    <nav aria-label="Produit"><h2>Produit</h2><ul><li><a href="./fonctionnalites.html">Fonctionnalités</a></li><li><a href="./autonomie.html">Autonomie et Odin Breaker</a></li><li><a href="./securite.html">Sécurité</a></li><li><a href="./faq.html">Questions fréquentes</a></li></ul></nav>
+    <nav aria-label="Utiliser"><h2>Utiliser</h2><ul><li><a href="./installation.html">Installation</a></li><li><a href="./guide.html">Guide d'utilisation</a></li><li><a href="./guide.html#commandes">Commandes</a></li><li><a href="./guide.html#depannage">Dépannage</a></li></ul></nav>
+    <nav aria-label="Projet"><h2>Projet</h2><ul><li><a href="https://github.com/TOUFATECH/Odin" rel="noopener">Code source</a></li><li><a href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Signaler un problème</a></li><li><a href="./confidentialite.html">Confidentialité (RGPD)</a></li><li><a href="./mentions-legales.html">Mentions légales</a></li></ul></nav>
+  </div>
+  <div class="wrap foot-note"><p>Ce site n'utilise aucun cookie, aucun traceur et ne demande aucune inscription.</p><a href="#haut" class="to-top-link">Haut de page ↑</a></div>
+</footer>
+<a href="#haut" class="to-top" id="toTop" aria-label="Revenir en haut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>
+<script src="./assets/site.js" defer></script>
+</body>
+</html>

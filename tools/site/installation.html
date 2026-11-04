@@ -1,0 +1,84 @@
+<div class="wrap page-head">
+  <p class="eyebrow">Installation</p>
+  <h1 style="font-size:clamp(36px,5vw,60px)">Une commande, puis tout se règle dans le navigateur.</h1>
+  <p class="lead">L'installateur s'occupe de Node.js s'il manque, installe Odin, te pose trois questions, puis ouvre l'interface web sur l'onglet Réglages. Cinq minutes.</p>
+</div>
+
+<section class="wrap" id="choisir" style="padding-top:32px">
+  <div class="tabs" role="tablist" aria-label="Système d'exploitation">
+    <button class="tab" role="tab" id="tab-mac" aria-controls="p-mac" aria-selected="true" data-os="mac">macOS</button>
+    <button class="tab" role="tab" id="tab-linux" aria-controls="p-linux" aria-selected="false" data-os="linux">Linux</button>
+    <button class="tab" role="tab" id="tab-win" aria-controls="p-win" aria-selected="false" data-os="win">Windows</button>
+    <button class="tab" role="tab" id="tab-src" aria-controls="p-src" aria-selected="false" data-os="src">Depuis les sources</button>
+  </div>
+  <div style="height:20px"></div>
+
+  <div class="panel" id="p-mac" role="tabpanel" aria-labelledby="tab-mac">
+    <ol class="steps">
+      <li><div><b>Ouvre le Terminal</b><span class="muted">Applications → Utilitaires → Terminal (ou Cmd + Espace, puis « Terminal »).</span></div></li>
+      <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash</code><span><button class="btn small" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></span><span class="muted">Mac Intel et Apple Silicon. Node.js 22 est téléchargé (somme de contrôle vérifiée) s'il manque, sans toucher à ton système.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Qui peut ouvrir l'interface (ton réseau local en HTTPS par défaut), inventorier ton réseau, lancer Odin au démarrage.</span></div></li>
+      <li><div><b>Termine dans le navigateur</b><span class="muted">L'interface s'ouvre sur Réglages : choisis ton modèle, colle ta clé (ou Ollama, sans clé), « Tester », « Enregistrer ».</span></div></li>
+    </ol>
+  </div>
+
+  <div class="panel" id="p-linux" role="tabpanel" aria-labelledby="tab-linux" hidden>
+    <ol class="steps">
+      <li><div><b>Ouvre un terminal</b><span class="muted">Ubuntu, Debian, Fedora, Arch, Raspberry Pi OS… Il faut <span class="ic">curl</span> et, de préférence, <span class="ic">git</span>.</span></div></li>
+      <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash</code><span><button class="btn small" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></span><span class="muted">Sans droits administrateur : tout va dans ~/.odin. Service systemd utilisateur proposé pour le démarrage automatique.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage automatique. Si ufw est actif : <span class="ic">sudo ufw allow 7777/tcp</span>.</span></div></li>
+      <li><div><b>Termine dans le navigateur</b><span class="muted">Réglages → Modèle. Pour la vidéo et l'audio, installe <span class="ic">ffmpeg</span> (apt, dnf, pacman).</span></div></li>
+    </ol>
+  </div>
+
+  <div class="panel" id="p-win" role="tabpanel" aria-labelledby="tab-win" hidden>
+    <ol class="steps">
+      <li><div><b>Ouvre PowerShell</b><span class="muted">Menu Démarrer → tape « PowerShell » → Entrée. Pas besoin de l'ouvrir en administrateur.</span></div></li>
+      <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex</code><span><button class="btn small" type="button" data-copy="irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex">Copier</button></span><span class="muted">Windows 10 et 11, x64 ou ARM. Odin s'installe dans %LOCALAPPDATA%\Odin et la commande <span class="ic">odin</span> est ajoutée à ton PATH.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage à l'ouverture de session. L'installateur propose d'autoriser le port 7777 dans le pare-feu Windows.</span></div></li>
+      <li><div><b>Termine dans le navigateur</b><span class="muted">Réglages → Modèle. Pour la vidéo et l'audio : <span class="ic">winget install Gyan.FFmpeg</span>.</span></div></li>
+    </ol>
+  </div>
+
+  <div class="panel" id="p-src" role="tabpanel" aria-labelledby="tab-src" hidden>
+    <ol class="steps">
+      <li><div><b>Vérifie Node.js 22.18 ou plus récent</b><code class="code">node --version</code><span class="muted">Sinon, installe-le depuis nodejs.org.</span></div></li>
+      <li><div><b>Récupère le code et installe la commande</b><code class="code">git clone https://github.com/TOUFATECH/Odin.git
+cd Odin
+npm install
+npm link
+odin init
+odin web</code><span class="muted">Avec Docker : <span class="ic">docker build -t odin .</span> puis publie le port 7777.</span></div></li>
+      <li><div><b>Tests et vérification des types</b><code class="code">npm test
+npm run typecheck</code></div></li>
+    </ol>
+  </div>
+
+  <p class="dim" style="margin-top:18px;font-size:15px">Installation sans question : <span class="ic">ODIN_YES=1</span> devant la commande (et <span class="ic">ODIN_WEB_ACCESS=local|lan|wan</span> pour choisir l'accès). Mise à jour plus tard : <span class="ic">odin update</span>.</p>
+</section>
+
+<section class="band" id="apres"><div class="wrap">
+  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Juste après</p><h2>Les premières minutes avec Odin</h2></div>
+  <div class="grid">
+    <article class="card rv"><span class="k">1</span><h3>Choisis le cerveau</h3><p>Réglages → Modèle : Anthropic, OpenRouter, OpenAI, Ollama (local, gratuit) ou un service compatible. Ajoute des modèles de secours et leur palier.</p></article>
+    <article class="card rv d1"><span class="k">2</span><h3>Ouvre-le sur ton téléphone</h3><p>Sur le même Wi-Fi, le lien <span class="ic">https://192.168.1.x:7777</span> affiché à la fin. Accepte le certificat créé par Odin après avoir comparé son empreinte dans Réglages → Accès.</p></article>
+    <article class="card rv d2"><span class="k">3</span><h3>Branche Telegram et la voix</h3><p>Réglages → Telegram (jeton du bot, ton identifiant) et Réglages → Voix (transcription, synthèse, voix copiée).</p></article>
+    <article class="card rv d3"><span class="k">4</span><h3>Essaie</h3><p>« Quels appareils sont sur mon réseau ? », « Résume ce PDF », « Chaque lundi à 9 h, fais le point sur mes sauvegardes ».</p></article>
+  </div>
+</div></section>
+
+<section class="wrap" id="prerequis">
+  <div class="stack" style="margin-bottom:24px"><p class="eyebrow">Prérequis et options</p><h2>Ce qu'il faut, et ce qui est facultatif</h2></div>
+  <div class="twrap rv"><table class="rtable"><thead><tr><th>Quoi</th><th>Nécessaire ?</th><th>Pour</th></tr></thead><tbody>
+    <tr><td>Node.js 22.18+</td><td>installé automatiquement</td><td>faire tourner Odin</td></tr>
+    <tr><td>Un modèle</td><td>oui : clé d'API, ou Ollama en local</td><td>réfléchir ; sans modèle, Odin démarre en mode démo</td></tr>
+    <tr><td>ffmpeg</td><td>facultatif</td><td>vidéo, audio, miniatures, transcription de vidéos</td></tr>
+    <tr><td>pdftotext (Poppler)</td><td>facultatif</td><td>meilleure lecture des PDF ; un lecteur intégré existe</td></tr>
+    <tr><td>Clé ElevenLabs</td><td>facultatif</td><td>la voix d'Odin</td></tr>
+    <tr><td>Service de transcription</td><td>facultatif</td><td>comprendre la voix (en ligne, ou serveur local sans clé)</td></tr>
+    <tr><td>Codex</td><td>facultatif</td><td>confier des tâches de code à l'agent d'OpenAI</td></tr>
+    <tr><td>Docker</td><td>facultatif</td><td>bac à sable pour les commandes</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="band cta-band" style="padding-inline:24px"><p class="eyebrow">Ensuite</p><h2>Le guide d'utilisation t'attend.</h2><div class="cta"><a class="btn primary" href="./guide.html">Lire le guide</a><a class="btn ghost" href="./faq.html">Questions fréquentes</a></div></section>

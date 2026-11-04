@@ -1,0 +1,40 @@
+<div class="wrap page-head narrow" style="max-width:860px">
+  <p class="eyebrow">Confidentialité · RGPD</p>
+  <h1 style="font-size:clamp(34px,5vw,52px)">Ce site ne collecte rien. Le logiciel, lui, travaille chez toi.</h1>
+  <p class="lead">Cette page explique, en langage clair, ce que font le site et le logiciel Odin de tes données, conformément au Règlement général sur la protection des données (RGPD, règlement UE 2016/679) et à la loi Informatique et Libertés.</p>
+</div>
+<section class="wrap" style="padding-top:16px"><div class="prose">
+  <h2>1. Le site odin (toufatech.github.io/Odin)</h2>
+  <p><strong>Aucun cookie, aucun traceur, aucune inscription.</strong> Le site est composé de pages statiques. Il ne dépose aucun cookie, n'embarque aucun outil de mesure d'audience, aucune police ni script tiers, aucun bouton de réseau social, et ne propose aucun formulaire de collecte.</p>
+  <p>Le seul élément stocké dans ton navigateur est ton choix de thème (clair ou sombre), dans le stockage local de ton navigateur (<span class="ic">localStorage</span>), jamais transmis à personne. Ce n'est pas un cookie et aucune bannière de consentement n'est donc nécessaire.</p>
+  <p><strong>Hébergement.</strong> Le site est hébergé par GitHub Pages (GitHub, Inc., États-Unis). Comme tout hébergeur, GitHub peut enregistrer des journaux techniques de connexion (adresse IP, page demandée, date) pour la sécurité et le fonctionnement du service, selon sa propre <a href="https://docs.github.com/fr/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">déclaration de confidentialité</a>. TOUFATECH n'a pas accès à ces journaux et n'en fait aucun usage.</p>
+  <p><strong>Liens externes.</strong> Le site renvoie vers GitHub et vers nodejs.org. Ces sites ont leurs propres règles de confidentialité.</p>
+
+  <h2>2. Le logiciel Odin</h2>
+  <p>Odin s'installe et s'exécute <strong>sur ta propre machine</strong>. TOUFATECH n'exploite aucun serveur, ne reçoit aucune donnée d'usage, aucune télémétrie, aucun rapport de plantage.</p>
+  <h3>Ce qui reste sur ta machine</h3>
+  <ul>
+    <li>Tes conversations, la mémoire d'Odin, ses compétences, l'inventaire de ton réseau, le journal des décisions : dans <span class="ic">~/.odin</span> (base SQLite et fichiers texte).</li>
+    <li>Tes clés d'API : dans <span class="ic">~/.odin/env</span>, lisible par toi seul, jamais dans la configuration ni dans l'interface.</li>
+    <li>Les fichiers que tu lui confies : dans <span class="ic">~/.odin/workspace</span>.</li>
+  </ul>
+  <h3>Ce qui peut sortir de ta machine, parce que tu l'as configuré</h3>
+  <ul>
+    <li><strong>Le fournisseur de modèle</strong> que tu choisis (Anthropic, OpenAI, OpenRouter, ou aucun avec un modèle local) reçoit tes messages, le contexte nécessaire et, si tu utilises la vision, les images que tu lui montres.</li>
+    <li><strong>Le service de transcription</strong> reçoit l'audio à comprendre (ou rien, avec un serveur local).</li>
+    <li><strong>Le service de synthèse vocale</strong> reçoit le texte à lire et, si tu copies une voix, l'enregistrement fourni.</li>
+    <li><strong>Telegram</strong> transporte les messages échangés avec ton bot.</li>
+  </ul>
+  <p>Chacun de ces services a sa propre politique de confidentialité. Odin masque tes clés et secrets avant tout envoi, et ne transmet jamais de contenu non fiable vers l'extérieur sans ton accord.</p>
+  <h3>Voix copiée : règle de consentement</h3>
+  <p>La copie d'une voix exige que tu confirmes explicitement qu'il s'agit de ta propre voix ou de celle d'une personne ayant donné son accord pour cet usage. Copier la voix d'une personne sans son consentement est interdit et peut constituer une infraction.</p>
+  <h3>Odin Breaker et réseau local</h3>
+  <p>En mode Breaker, Odin peut agir sur les appareils de ton réseau local. Tu es responsable de l'usage que tu en fais sur un réseau qui ne t'appartient pas. L'inventaire ne balaie que les réseaux privés de la machine.</p>
+
+  <h2>3. Tes droits</h2>
+  <p>Le site ne traite aucune donnée personnelle te concernant ; il n'y a donc rien à consulter, rectifier ou effacer de notre côté. Pour le logiciel, toutes tes données sont sur ta machine : tu peux les lire, les exporter et les supprimer à tout moment (supprimer le dossier <span class="ic">~/.odin</span> efface tout). Pour exercer tes droits auprès des services tiers que tu as choisis, adresse-toi directement à eux.</p>
+  <p>Pour toute question : ouvre un ticket sur <a href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">GitHub</a>. Tu peux aussi saisir la CNIL (<a href="https://www.cnil.fr" rel="noopener">cnil.fr</a>) si tu estimes que tes droits ne sont pas respectés.</p>
+
+  <h2>4. Responsable</h2>
+  <p>TOUFATECH, éditeur du site et du logiciel Odin (voir les <a href="./mentions-legales.html">mentions légales</a>). Dernière mise à jour : novembre 2026.</p>
+</div></section>

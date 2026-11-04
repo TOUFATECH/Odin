@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESC}}">
+<meta name="robots" content="{{ROBOTS}}">
+<link rel="canonical" href="{{URL}}">
+<meta name="theme-color" content="#0B0E14">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Odin Agent Majordome">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="{{TITLE}}">
+<meta property="og:description" content="{{DESC}}">
+<meta property="og:url" content="{{URL}}">
+<meta property="og:image" content="{{BASE}}/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{TITLE}}">
+<meta name="twitter:description" content="{{DESC}}">
+<meta name="twitter:image" content="{{BASE}}/assets/og.png">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+<link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./assets/site.css">
+{{JSONLD}}
+</head>
+<body data-page="{{SLUG}}">
+<a class="skip" href="#contenu">Aller au contenu</a>
+<header class="site-header" id="haut">
+  <div class="wrap bar">
+    <a class="brand" href="./" aria-label="Odin Agent Majordome, accueil"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></a>
+    <nav class="nav" aria-label="Navigation principale"><ul>{{NAV}}</ul></nav>
+    <div class="bar-actions">
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Changer de thème" title="Thème clair / sombre"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="ico-sun" d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/><circle class="ico-sun" cx="12" cy="12" r="4"/><path class="ico-moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+      <a class="btn ghost gh" href="https://github.com/TOUFATECH/Odin" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg><span>GitHub</span></a>
+      <a class="btn primary" href="./installation.html">Installer</a>
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobileNav"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobileNav" aria-label="Navigation mobile" hidden><ul>{{NAV}}</ul><a class="btn primary" href="./installation.html">Installer Odin</a></nav>
+</header>
+
+<main id="contenu">
+{{BODY}}
+</main>
+
+<footer class="site-footer">
+  <div class="wrap foot">
+    <div class="foot-brand">
+      <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></div>
+      <p>Agent IA personnel, open source, qui travaille chez toi et pour toi. Licence MIT · © {{YEAR}} TOUFATECH.</p>
+    </div>
+    <nav aria-label="Produit"><h2>Produit</h2><ul><li><a href="./fonctionnalites.html">Fonctionnalités</a></li><li><a href="./autonomie.html">Autonomie et Odin Breaker</a></li><li><a href="./securite.html">Sécurité</a></li><li><a href="./faq.html">Questions fréquentes</a></li></ul></nav>
+    <nav aria-label="Utiliser"><h2>Utiliser</h2><ul><li><a href="./installation.html">Installation</a></li><li><a href="./guide.html">Guide d'utilisation</a></li><li><a href="./guide.html#commandes">Commandes</a></li><li><a href="./guide.html#depannage">Dépannage</a></li></ul></nav>
+    <nav aria-label="Projet"><h2>Projet</h2><ul><li><a href="https://github.com/TOUFATECH/Odin" rel="noopener">Code source</a></li><li><a href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Signaler un problème</a></li><li><a href="./confidentialite.html">Confidentialité (RGPD)</a></li><li><a href="./mentions-legales.html">Mentions légales</a></li></ul></nav>
+  </div>
+  <div class="wrap foot-note"><p>Ce site n'utilise aucun cookie, aucun traceur et ne demande aucune inscription.</p><a href="#haut" class="to-top-link">Haut de page ↑</a></div>
+</footer>
+<a href="#haut" class="to-top" id="toTop" aria-label="Revenir en haut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>
+<script src="./assets/site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+{
+  "index": {
+    "nav": "Accueil", "priority": "1.0",
+    "title": "Odin Agent Majordome — l'agent IA qui travaille chez toi",
+    "description": "Odin est un agent IA personnel open source : il agit sur ta machine et ton réseau, parle, lit tes documents, apprend vite et ne fait rien de risqué sans ton accord. Installation en une commande sur macOS, Linux et Windows.",
+    "jsonld": [
+      {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Odin Agent Majordome", "alternateName": "Odin", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS, Linux, Windows", "softwareVersion": "0.9", "license": "https://opensource.org/license/mit", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "url": "https://toufatech.github.io/Odin/", "downloadUrl": "https://github.com/TOUFATECH/Odin", "author": {"@type": "Organization", "name": "TOUFATECH", "url": "https://github.com/TOUFATECH"}, "inLanguage": "fr", "description": "Agent IA personnel open source qui agit sur ta machine et ton réseau local, avec des décisions transparentes et une sécurité écrite dans le code."},
+      {"@context": "https://schema.org", "@type": "WebSite", "name": "Odin Agent Majordome", "url": "https://toufatech.github.io/Odin/", "inLanguage": "fr"}
+    ]
+  },
+  "fonctionnalites": {
+    "nav": "Fonctionnalités", "priority": "0.9",
+    "title": "Fonctionnalités d'Odin — documents, voix, réseau, mémoire",
+    "description": "Tout ce qu'Odin sait faire : agir sur tes fichiers et ta machine, lire et créer PDF, Word, Excel, PowerPoint, images, vidéo et audio, parler et comprendre la voix, surveiller ton réseau, apprendre tes habitudes."
+  },
+  "autonomie": {
+    "nav": "Autonomie", "priority": "0.9",
+    "title": "Autonomie et Odin Breaker — quatre niveaux de confiance",
+    "description": "Prudent, équilibré, autonome ou Odin Breaker : choisis à quel point Odin décide seul. Chaque action reçoit une gravité, la règle est écrite dans le code, et tout est journalisé."
+  },
+  "securite": {
+    "nav": "Sécurité", "priority": "0.8",
+    "title": "Sécurité d'Odin — ce qui est garanti par le code",
+    "description": "Contenu web marqué non fiable, injections détectées, commandes destructrices interdites, secrets masqués, interface en HTTPS limitée à ton réseau : la sécurité d'Odin ne dépend pas d'un prompt."
+  },
+  "installation": {
+    "nav": "Installation", "priority": "0.9",
+    "title": "Installer Odin sur macOS, Linux ou Windows",
+    "description": "Une commande installe Odin, Node.js compris, puis l'interface web s'ouvre pour choisir ton modèle. Instructions pas à pas pour macOS, Linux, Windows et depuis les sources.",
+    "jsonld": [
+      {"@context": "https://schema.org", "@type": "HowTo", "name": "Installer Odin Agent Majordome", "inLanguage": "fr", "totalTime": "PT5M", "step": [
+        {"@type": "HowToStep", "name": "Ouvrir un terminal", "text": "Terminal sur macOS ou Linux, PowerShell sur Windows (sans droits administrateur)."},
+        {"@type": "HowToStep", "name": "Lancer la commande d'installation", "text": "curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash sur macOS et Linux ; irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex sur Windows."},
+        {"@type": "HowToStep", "name": "Répondre aux trois questions", "text": "Accès à l'interface (réseau local en HTTPS par défaut), inventaire du réseau, démarrage automatique."},
+        {"@type": "HowToStep", "name": "Choisir le modèle dans le navigateur", "text": "L'interface s'ouvre sur l'onglet Réglages : fournisseur, clé, Tester, Enregistrer."}
+      ]}
+    ]
+  },
+  "guide": {
+    "nav": "Guide", "priority": "0.8",
+    "title": "Guide d'utilisation d'Odin — réglages, quotidien, commandes",
+    "description": "Comment se servir d'Odin au quotidien : l'onglet Réglages, la discussion, Telegram, la voix, les documents, les tâches planifiées, la mémoire, le réseau, les commandes et le dépannage."
+  },
+  "faq": {
+    "nav": "FAQ", "priority": "0.7",
+    "title": "Questions fréquentes sur Odin",
+    "description": "Odin est-il gratuit ? Où vont mes données ? Peut-il tourner sans Internet ? Comment change-t-on de modèle ? Les réponses aux questions les plus posées.",
+    "jsonld": [
+      {"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": "fr", "mainEntity": [
+        {"@type": "Question", "name": "Odin est-il gratuit ?", "acceptedAnswer": {"@type": "Answer", "text": "Oui. Odin est open source sous licence MIT. Tu paies seulement le fournisseur de modèle que tu choisis, ou rien du tout avec un modèle installé sur ta machine (Ollama)."}},
+        {"@type": "Question", "name": "Où vont mes données ?", "acceptedAnswer": {"@type": "Answer", "text": "Mémoire, conversations, compétences et inventaire restent dans un fichier SQLite sur ta machine (~/.odin). Seuls tes messages partent vers le fournisseur de modèle que tu as configuré. Ce site, lui, ne collecte rien."}},
+        {"@type": "Question", "name": "Odin peut-il fonctionner sans Internet ?", "acceptedAnswer": {"@type": "Answer", "text": "Oui, avec un modèle local (Ollama, LM Studio…) et un serveur Whisper local pour la voix. Le juge des décisions fonctionne hors ligne par défaut."}},
+        {"@type": "Question", "name": "Comment changer de modèle ou de clé ?", "acceptedAnswer": {"@type": "Answer", "text": "Dans l'interface web, Réglages → Modèle. Odin redémarre ses services tout seul. Tu peux ajouter des modèles de secours : si l'un arrive à bout de quota, il passe au suivant et te prévient."}},
+        {"@type": "Question", "name": "Et si je ne suis pas là pour valider ?", "acceptedAnswer": {"@type": "Answer", "text": "Sans réponse dans le délai fixé, l'action est refusée. Les tâches planifiées refusent ce qui demande une validation, sauf en mode Odin Breaker, où Odin agit seul et rend compte le soir."}},
+        {"@type": "Question", "name": "Puis-je utiliser l'interface depuis mon téléphone ?", "acceptedAnswer": {"@type": "Answer", "text": "Oui. Par défaut l'interface est ouverte à ton réseau local en HTTPS : sur le même Wi-Fi, ouvre le lien affiché au démarrage. Telegram marche aussi, de n'importe où."}}
+      ]}
+    ]
+  },
+  "confidentialite": {
+    "nav": "Confidentialité", "priority": "0.4",
+    "title": "Confidentialité et RGPD — Odin Agent Majordome",
+    "description": "Ce site ne dépose aucun cookie, n'utilise aucun traceur et ne demande aucune inscription. Ce que fait le logiciel Odin de tes données, et tes droits."
+  },
+  "mentions-legales": {
+    "nav": "Mentions légales", "priority": "0.3",
+    "title": "Mentions légales — Odin Agent Majordome",
+    "description": "Éditeur, hébergement, propriété intellectuelle et licence du site et du logiciel Odin."
+  },
+  "404": {
+    "nav": "Page introuvable", "noindex": true,
+    "title": "Page introuvable — Odin Agent Majordome",
+    "description": "Cette page n'existe pas ou plus."
+  }
+}

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Installer Odin sur macOS, Linux ou Windows</title>
+<meta name="description" content="Une commande installe Odin, Node.js compris, puis l'interface web s'ouvre pour choisir ton modèle. Instructions pas à pas pour macOS, Linux, Windows et depuis les sources.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://toufatech.github.io/Odin/installation.html">
+<meta name="theme-color" content="#0B0E14">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Odin Agent Majordome">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Installer Odin sur macOS, Linux ou Windows">
+<meta property="og:description" content="Une commande installe Odin, Node.js compris, puis l'interface web s'ouvre pour choisir ton modèle. Instructions pas à pas pour macOS, Linux, Windows et depuis les sources.">
+<meta property="og:url" content="https://toufatech.github.io/Odin/installation.html">
+<meta property="og:image" content="https://toufatech.github.io/Odin/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Installer Odin sur macOS, Linux ou Windows">
+<meta name="twitter:description" content="Une commande installe Odin, Node.js compris, puis l'interface web s'ouvre pour choisir ton modèle. Instructions pas à pas pour macOS, Linux, Windows et depuis les sources.">
+<meta name="twitter:image" content="https://toufatech.github.io/Odin/assets/og.png">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+<link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./assets/site.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "HowTo", "name": "Installer Odin Agent Majordome", "inLanguage": "fr", "totalTime": "PT5M", "step": [{"@type": "HowToStep", "name": "Ouvrir un terminal", "text": "Terminal sur macOS ou Linux, PowerShell sur Windows (sans droits administrateur)."}, {"@type": "HowToStep", "name": "Lancer la commande d'installation", "text": "curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash sur macOS et Linux ; irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex sur Windows."}, {"@type": "HowToStep", "name": "Répondre aux trois questions", "text": "Accès à l'interface (réseau local en HTTPS par défaut), inventaire du réseau, démarrage automatique."}, {"@type": "HowToStep", "name": "Choisir le modèle dans le navigateur", "text": "L'interface s'ouvre sur l'onglet Réglages : fournisseur, clé, Tester, Enregistrer."}]}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://toufatech.github.io/Odin/"}, {"@type": "ListItem", "position": 2, "name": "Installation", "item": "https://toufatech.github.io/Odin/installation.html"}]}</script>
+</head>
+<body data-page="installation">
+<a class="skip" href="#contenu">Aller au contenu</a>
+<header class="site-header" id="haut">
+  <div class="wrap bar">
+    <a class="brand" href="./" aria-label="Odin Agent Majordome, accueil"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></a>
+    <nav class="nav" aria-label="Navigation principale"><ul><li><a href="./">Accueil</a></li>
+<li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
+<li><a href="./autonomie.html">Autonomie</a></li>
+<li><a href="./securite.html">Sécurité</a></li>
+<li><a href="./installation.html" aria-current="page">Installation</a></li>
+<li><a href="./guide.html">Guide</a></li>
+<li><a href="./faq.html">FAQ</a></li></ul></nav>
+    <div class="bar-actions">
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Changer de thème" title="Thème clair / sombre"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="ico-sun" d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/><circle class="ico-sun" cx="12" cy="12" r="4"/><path class="ico-moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+      <a class="btn ghost gh" href="https://github.com/TOUFATECH/Odin" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg><span>GitHub</span></a>
+      <a class="btn primary" href="./installation.html">Installer</a>
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobileNav"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobileNav" aria-label="Navigation mobile" hidden><ul><li><a href="./">Accueil</a></li>
+<li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
+<li><a href="./autonomie.html">Autonomie</a></li>
+<li><a href="./securite.html">Sécurité</a></li>
+<li><a href="./installation.html" aria-current="page">Installation</a></li>
+<li><a href="./guide.html">Guide</a></li>
+<li><a href="./faq.html">FAQ</a></li></ul><a class="btn primary" href="./installation.html">Installer Odin</a></nav>
+</header>
+
+<main id="contenu">
+<div class="wrap page-head">
+  <p class="eyebrow">Installation</p>
+  <h1 style="font-size:clamp(36px,5vw,60px)">Une commande, puis tout se règle dans le navigateur.</h1>
+  <p class="lead">L'installateur s'occupe de Node.js s'il manque, installe Odin, te pose trois questions, puis ouvre l'interface web sur l'onglet Réglages. Cinq minutes.</p>
+</div>
+
+<section class="wrap" id="choisir" style="padding-top:32px">
+  <div class="tabs" role="tablist" aria-label="Système d'exploitation">
+    <button class="tab" role="tab" id="tab-mac" aria-controls="p-mac" aria-selected="true" data-os="mac">macOS</button>
+    <button class="tab" role="tab" id="tab-linux" aria-controls="p-linux" aria-selected="false" data-os="linux">Linux</button>
+    <button class="tab" role="tab" id="tab-win" aria-controls="p-win" aria-selected="false" data-os="win">Windows</button>
+    <button class="tab" role="tab" id="tab-src" aria-controls="p-src" aria-selected="false" data-os="src">Depuis les sources</button>
+  </div>
+  <div style="height:20px"></div>
+
+  <div class="panel" id="p-mac" role="tabpanel" aria-labelledby="tab-mac">
+    <ol class="steps">
+      <li><div><b>Ouvre le Terminal</b><span class="muted">Applications → Utilitaires → Terminal (ou Cmd + Espace, puis « Terminal »).</span></div></li>
+      <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash</code><span><button class="btn small" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></span><span class="muted">Mac Intel et Apple Silicon. Node.js 22 est téléchargé (somme de contrôle vérifiée) s'il manque, sans toucher à ton système.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Qui peut ouvrir l'interface (ton réseau local en HTTPS par défaut), inventorier ton réseau, lancer Odin au démarrage.</span></div></li>
+      <li><div><b>Termine dans le navigateur</b><span class="muted">L'interface s'ouvre sur Réglages : choisis ton modèle, colle ta clé (ou Ollama, sans clé), « Tester », « Enregistrer ».</span></div></li>
+    </ol>
+  </div>
+
+  <div class="panel" id="p-linux" role="tabpanel" aria-labelledby="tab-linux" hidden>
+    <ol class="steps">
+      <li><div><b>Ouvre un terminal</b><span class="muted">Ubuntu, Debian, Fedora, Arch, Raspberry Pi OS… Il faut <span class="ic">curl</span> et, de préférence, <span class="ic">git</span>.</span></div></li>
+      <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash</code><span><button class="btn small" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></span><span class="muted">Sans droits administrateur : tout va dans ~/.odin. Service systemd utilisateur proposé pour le démarrage automatique.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage automatique. Si ufw est actif : <span class="ic">sudo ufw allow 7777/tcp</span>.</span></div></li>
+      <li><div><b>Termine dans le navigateur</b><span class="muted">Réglages → Modèle. Pour la vidéo et l'audio, installe <span class="ic">ffmpeg</span> (apt, dnf, pacman).</span></div></li>
+    </ol>
+  </div>
+
+  <div class="panel" id="p-win" role="tabpanel" aria-labelledby="tab-win" hidden>
+    <ol class="steps">
+      <li><div><b>Ouvre PowerShell</b><span class="muted">Menu Démarrer → tape « PowerShell » → Entrée. Pas besoin de l'ouvrir en administrateur.</span></div></li>
+      <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex</code><span><button class="btn small" type="button" data-copy="irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex">Copier</button></span><span class="muted">Windows 10 et 11, x64 ou ARM. Odin s'installe dans %LOCALAPPDATA%\Odin et la commande <span class="ic">odin</span> est ajoutée à ton PATH.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage à l'ouverture de session. L'installateur propose d'autoriser le port 7777 dans le pare-feu Windows.</span></div></li>
+      <li><div><b>Termine dans le navigateur</b><span class="muted">Réglages → Modèle. Pour la vidéo et l'audio : <span class="ic">winget install Gyan.FFmpeg</span>.</span></div></li>
+    </ol>
+  </div>
+
+  <div class="panel" id="p-src" role="tabpanel" aria-labelledby="tab-src" hidden>
+    <ol class="steps">
+      <li><div><b>Vérifie Node.js 22.18 ou plus récent</b><code class="code">node --version</code><span class="muted">Sinon, installe-le depuis nodejs.org.</span></div></li>
+      <li><div><b>Récupère le code et installe la commande</b><code class="code">git clone https://github.com/TOUFATECH/Odin.git
+cd Odin
+npm install
+npm link
+odin init
+odin web</code><span class="muted">Avec Docker : <span class="ic">docker build -t odin .</span> puis publie le port 7777.</span></div></li>
+      <li><div><b>Tests et vérification des types</b><code class="code">npm test
+npm run typecheck</code></div></li>
+    </ol>
+  </div>
+
+  <p class="dim" style="margin-top:18px;font-size:15px">Installation sans question : <span class="ic">ODIN_YES=1</span> devant la commande (et <span class="ic">ODIN_WEB_ACCESS=local|lan|wan</span> pour choisir l'accès). Mise à jour plus tard : <span class="ic">odin update</span>.</p>
+</section>
+
+<section class="band" id="apres"><div class="wrap">
+  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Juste après</p><h2>Les premières minutes avec Odin</h2></div>
+  <div class="grid">
+    <article class="card rv"><span class="k">1</span><h3>Choisis le cerveau</h3><p>Réglages → Modèle : Anthropic, OpenRouter, OpenAI, Ollama (local, gratuit) ou un service compatible. Ajoute des modèles de secours et leur palier.</p></article>
+    <article class="card rv d1"><span class="k">2</span><h3>Ouvre-le sur ton téléphone</h3><p>Sur le même Wi-Fi, le lien <span class="ic">https://192.168.1.x:7777</span> affiché à la fin. Accepte le certificat créé par Odin après avoir comparé son empreinte dans Réglages → Accès.</p></article>
+    <article class="card rv d2"><span class="k">3</span><h3>Branche Telegram et la voix</h3><p>Réglages → Telegram (jeton du bot, ton identifiant) et Réglages → Voix (transcription, synthèse, voix copiée).</p></article>
+    <article class="card rv d3"><span class="k">4</span><h3>Essaie</h3><p>« Quels appareils sont sur mon réseau ? », « Résume ce PDF », « Chaque lundi à 9 h, fais le point sur mes sauvegardes ».</p></article>
+  </div>
+</div></section>
+
+<section class="wrap" id="prerequis">
+  <div class="stack" style="margin-bottom:24px"><p class="eyebrow">Prérequis et options</p><h2>Ce qu'il faut, et ce qui est facultatif</h2></div>
+  <div class="twrap rv"><table class="rtable"><thead><tr><th>Quoi</th><th>Nécessaire ?</th><th>Pour</th></tr></thead><tbody>
+    <tr><td>Node.js 22.18+</td><td>installé automatiquement</td><td>faire tourner Odin</td></tr>
+    <tr><td>Un modèle</td><td>oui : clé d'API, ou Ollama en local</td><td>réfléchir ; sans modèle, Odin démarre en mode démo</td></tr>
+    <tr><td>ffmpeg</td><td>facultatif</td><td>vidéo, audio, miniatures, transcription de vidéos</td></tr>
+    <tr><td>pdftotext (Poppler)</td><td>facultatif</td><td>meilleure lecture des PDF ; un lecteur intégré existe</td></tr>
+    <tr><td>Clé ElevenLabs</td><td>facultatif</td><td>la voix d'Odin</td></tr>
+    <tr><td>Service de transcription</td><td>facultatif</td><td>comprendre la voix (en ligne, ou serveur local sans clé)</td></tr>
+    <tr><td>Codex</td><td>facultatif</td><td>confier des tâches de code à l'agent d'OpenAI</td></tr>
+    <tr><td>Docker</td><td>facultatif</td><td>bac à sable pour les commandes</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="band cta-band" style="padding-inline:24px"><p class="eyebrow">Ensuite</p><h2>Le guide d'utilisation t'attend.</h2><div class="cta"><a class="btn primary" href="./guide.html">Lire le guide</a><a class="btn ghost" href="./faq.html">Questions fréquentes</a></div></section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap foot">
+    <div class="foot-brand">
+      <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></div>
+      <p>Agent IA personnel, open source, qui travaille chez toi et pour toi. Licence MIT · © 2026 TOUFATECH.</p>
+    </div>
+    <nav aria-label="Produit"><h2>Produit</h2><ul><li><a href="./fonctionnalites.html">Fonctionnalités</a></li><li><a href="./autonomie.html">Autonomie et Odin Breaker</a></li><li><a href="./securite.html">Sécurité</a></li><li><a href="./faq.html">Questions fréquentes</a></li></ul></nav>
+    <nav aria-label="Utiliser"><h2>Utiliser</h2><ul><li><a href="./installation.html">Installation</a></li><li><a href="./guide.html">Guide d'utilisation</a></li><li><a href="./guide.html#commandes">Commandes</a></li><li><a href="./guide.html#depannage">Dépannage</a></li></ul></nav>
+    <nav aria-label="Projet"><h2>Projet</h2><ul><li><a href="https://github.com/TOUFATECH/Odin" rel="noopener">Code source</a></li><li><a href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Signaler un problème</a></li><li><a href="./confidentialite.html">Confidentialité (RGPD)</a></li><li><a href="./mentions-legales.html">Mentions légales</a></li></ul></nav>
+  </div>
+  <div class="wrap foot-note"><p>Ce site n'utilise aucun cookie, aucun traceur et ne demande aucune inscription.</p><a href="#haut" class="to-top-link">Haut de page ↑</a></div>
+</footer>
+<a href="#haut" class="to-top" id="toTop" aria-label="Revenir en haut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>
+<script src="./assets/site.js" defer></script>
+</body>
+</html>

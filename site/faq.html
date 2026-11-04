@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Questions fréquentes sur Odin</title>
+<meta name="description" content="Odin est-il gratuit ? Où vont mes données ? Peut-il tourner sans Internet ? Comment change-t-on de modèle ? Les réponses aux questions les plus posées.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://toufatech.github.io/Odin/faq.html">
+<meta name="theme-color" content="#0B0E14">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Odin Agent Majordome">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Questions fréquentes sur Odin">
+<meta property="og:description" content="Odin est-il gratuit ? Où vont mes données ? Peut-il tourner sans Internet ? Comment change-t-on de modèle ? Les réponses aux questions les plus posées.">
+<meta property="og:url" content="https://toufatech.github.io/Odin/faq.html">
+<meta property="og:image" content="https://toufatech.github.io/Odin/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Questions fréquentes sur Odin">
+<meta name="twitter:description" content="Odin est-il gratuit ? Où vont mes données ? Peut-il tourner sans Internet ? Comment change-t-on de modèle ? Les réponses aux questions les plus posées.">
+<meta name="twitter:image" content="https://toufatech.github.io/Odin/assets/og.png">
+<link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+<link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="./assets/site.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "inLanguage": "fr", "mainEntity": [{"@type": "Question", "name": "Odin est-il gratuit ?", "acceptedAnswer": {"@type": "Answer", "text": "Oui. Odin est open source sous licence MIT. Tu paies seulement le fournisseur de modèle que tu choisis, ou rien du tout avec un modèle installé sur ta machine (Ollama)."}}, {"@type": "Question", "name": "Où vont mes données ?", "acceptedAnswer": {"@type": "Answer", "text": "Mémoire, conversations, compétences et inventaire restent dans un fichier SQLite sur ta machine (~/.odin). Seuls tes messages partent vers le fournisseur de modèle que tu as configuré. Ce site, lui, ne collecte rien."}}, {"@type": "Question", "name": "Odin peut-il fonctionner sans Internet ?", "acceptedAnswer": {"@type": "Answer", "text": "Oui, avec un modèle local (Ollama, LM Studio…) et un serveur Whisper local pour la voix. Le juge des décisions fonctionne hors ligne par défaut."}}, {"@type": "Question", "name": "Comment changer de modèle ou de clé ?", "acceptedAnswer": {"@type": "Answer", "text": "Dans l'interface web, Réglages → Modèle. Odin redémarre ses services tout seul. Tu peux ajouter des modèles de secours : si l'un arrive à bout de quota, il passe au suivant et te prévient."}}, {"@type": "Question", "name": "Et si je ne suis pas là pour valider ?", "acceptedAnswer": {"@type": "Answer", "text": "Sans réponse dans le délai fixé, l'action est refusée. Les tâches planifiées refusent ce qui demande une validation, sauf en mode Odin Breaker, où Odin agit seul et rend compte le soir."}}, {"@type": "Question", "name": "Puis-je utiliser l'interface depuis mon téléphone ?", "acceptedAnswer": {"@type": "Answer", "text": "Oui. Par défaut l'interface est ouverte à ton réseau local en HTTPS : sur le même Wi-Fi, ouvre le lien affiché au démarrage. Telegram marche aussi, de n'importe où."}}]}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://toufatech.github.io/Odin/"}, {"@type": "ListItem", "position": 2, "name": "FAQ", "item": "https://toufatech.github.io/Odin/faq.html"}]}</script>
+</head>
+<body data-page="faq">
+<a class="skip" href="#contenu">Aller au contenu</a>
+<header class="site-header" id="haut">
+  <div class="wrap bar">
+    <a class="brand" href="./" aria-label="Odin Agent Majordome, accueil"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></a>
+    <nav class="nav" aria-label="Navigation principale"><ul><li><a href="./">Accueil</a></li>
+<li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
+<li><a href="./autonomie.html">Autonomie</a></li>
+<li><a href="./securite.html">Sécurité</a></li>
+<li><a href="./installation.html">Installation</a></li>
+<li><a href="./guide.html">Guide</a></li>
+<li><a href="./faq.html" aria-current="page">FAQ</a></li></ul></nav>
+    <div class="bar-actions">
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="Changer de thème" title="Thème clair / sombre"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path class="ico-sun" d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/><circle class="ico-sun" cx="12" cy="12" r="4"/><path class="ico-moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg></button>
+      <a class="btn ghost gh" href="https://github.com/TOUFATECH/Odin" rel="noopener"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.7.3 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg><span>GitHub</span></a>
+      <a class="btn primary" href="./installation.html">Installer</a>
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobileNav"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
+  </div>
+  <nav class="mobile-nav" id="mobileNav" aria-label="Navigation mobile" hidden><ul><li><a href="./">Accueil</a></li>
+<li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
+<li><a href="./autonomie.html">Autonomie</a></li>
+<li><a href="./securite.html">Sécurité</a></li>
+<li><a href="./installation.html">Installation</a></li>
+<li><a href="./guide.html">Guide</a></li>
+<li><a href="./faq.html" aria-current="page">FAQ</a></li></ul><a class="btn primary" href="./installation.html">Installer Odin</a></nav>
+</header>
+
+<main id="contenu">
+<div class="wrap page-head narrow" style="max-width:860px">
+  <p class="eyebrow">FAQ</p>
+  <h1 style="font-size:clamp(36px,5vw,56px)">Questions fréquentes</h1>
+</div>
+<section class="wrap narrow" style="max-width:860px;padding-top:16px">
+  <details id="gratuit" open><summary>Odin est-il gratuit ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui. Odin est open source sous licence MIT. Tu paies seulement le fournisseur de modèle que tu choisis, ou rien du tout avec un modèle installé sur ta machine (Ollama, LM Studio…). Il n'y a ni compte, ni abonnement, ni inscription nulle part.</p></details>
+  <details id="donnees"><summary>Où vont mes données ?<span class="plus" aria-hidden="true">+</span></summary><p>Mémoire, conversations, compétences et inventaire restent dans un fichier SQLite sur ta machine (<span class="ic">~/.odin</span>). Seuls tes messages partent vers le fournisseur de modèle que tu as configuré, et, si tu les actives, l'audio vers ton service de transcription et le texte à lire vers ton service de synthèse vocale. Ce site, lui, ne collecte rien.</p></details>
+  <details id="hors-ligne"><summary>Odin peut-il fonctionner sans Internet ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui : un modèle local pour réfléchir, un serveur de transcription local pour la voix, et le juge des décisions, qui fonctionne hors ligne par défaut. Seule la synthèse vocale demande un service en ligne.</p></details>
+  <details id="modele"><summary>Comment changer de modèle ou de clé ?<span class="plus" aria-hidden="true">+</span></summary><p>Interface web → Réglages → Modèle. Odin redémarre ses services tout seul. Tu peux ajouter des modèles de secours et leur palier (gratuit, standard, le plus capable) : Odin prend le moins cher qui suffit, et si l'un arrive à bout de quota il passe au suivant et te prévient.</p></details>
+  <details id="absent"><summary>Et si je ne suis pas là pour valider ?<span class="plus" aria-hidden="true">+</span></summary><p>Sans réponse dans le délai fixé (5 minutes par défaut), l'action est refusée. Les tâches planifiées refusent ce qui demande une validation. En mode Odin Breaker, en revanche, Odin agit seul et te fait un rapport le soir.</p></details>
+  <details id="breaker"><summary>Odin Breaker, c'est dangereux ?<span class="plus" aria-hidden="true">+</span></summary><p>C'est le niveau où tu lui fais entièrement confiance : il ne te demande plus rien. Les protections contre les attaques restent actives (commandes destructrices, contenus piégés, exfiltration), tout est journalisé, et tu peux le limiter à la nuit ou le couper en un clic. Commence en équilibré et monte quand tu te sens prêt.</p></details>
+  <details id="telephone"><summary>Puis-je utiliser l'interface depuis mon téléphone ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui. Par défaut l'interface est ouverte à ton réseau local en HTTPS : sur le même Wi-Fi, ouvre le lien affiché au démarrage. Depuis l'extérieur : le mode Internet (HTTPS obligatoire), un tunnel, ou simplement Telegram.</p></details>
+  <details id="voix"><summary>Peut-il parler avec ma voix ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui, à partir d'un enregistrement d'une à trois minutes, via un service de synthèse vocale. Odin exige que tu confirmes qu'il s'agit de ta voix, ou de celle d'une personne qui a donné son accord. Ne copie jamais la voix de quelqu'un sans son consentement.</p></details>
+  <details id="fichiers"><summary>Quels fichiers sait-il traiter ?<span class="plus" aria-hidden="true">+</span></summary><p>PDF, Word, Excel, PowerPoint, CSV, images (vision), vidéo et audio (informations, conversion, découpe, transcription). Lecture et création, sans rien installer ; ffmpeg est nécessaire pour la vidéo et l'audio.</p></details>
+  <details id="appareils"><summary>Odin met-il à jour mes appareils tout seul ?<span class="plus" aria-hidden="true">+</span></summary><p>Hors Breaker, non : il repère les mises à jour disponibles et te les propose. En Odin Breaker, il peut les appliquer et te le dit dans son rapport.</p></details>
+  <details id="competences"><summary>Puis-je écrire mes propres compétences ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui. Une compétence est un simple fichier <span class="ic">SKILL.md</span> dans <span class="ic">~/.odin/skills/&lt;nom&gt;/</span>. Odin charge son contenu seulement quand il en a besoin, et peut en proposer de nouvelles après une tâche réussie.</p></details>
+  <details id="code"><summary>Sur quoi tourne Odin ?<span class="plus" aria-hidden="true">+</span></summary><p>Node.js 22 (installé automatiquement), TypeScript exécuté nativement, SQLite intégré, aucune dépendance à l'exécution. Environ 6 000 lignes commentées en français, 118 tests sur macOS, Linux et Windows. Le code est sur <a href="https://github.com/TOUFATECH/Odin" rel="noopener">GitHub</a>.</p></details>
+</section>
+<section class="band cta-band" style="padding-inline:24px"><p class="eyebrow">Une autre question ?</p><h2>Ouvre un ticket sur GitHub, ou installe Odin et demande-lui.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Poser une question</a></div></section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap foot">
+    <div class="foot-brand">
+      <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></div>
+      <p>Agent IA personnel, open source, qui travaille chez toi et pour toi. Licence MIT · © 2026 TOUFATECH.</p>
+    </div>
+    <nav aria-label="Produit"><h2>Produit</h2><ul><li><a href="./fonctionnalites.html">Fonctionnalités</a></li><li><a href="./autonomie.html">Autonomie et Odin Breaker</a></li><li><a href="./securite.html">Sécurité</a></li><li><a href="./faq.html">Questions fréquentes</a></li></ul></nav>
+    <nav aria-label="Utiliser"><h2>Utiliser</h2><ul><li><a href="./installation.html">Installation</a></li><li><a href="./guide.html">Guide d'utilisation</a></li><li><a href="./guide.html#commandes">Commandes</a></li><li><a href="./guide.html#depannage">Dépannage</a></li></ul></nav>
+    <nav aria-label="Projet"><h2>Projet</h2><ul><li><a href="https://github.com/TOUFATECH/Odin" rel="noopener">Code source</a></li><li><a href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Signaler un problème</a></li><li><a href="./confidentialite.html">Confidentialité (RGPD)</a></li><li><a href="./mentions-legales.html">Mentions légales</a></li></ul></nav>
+  </div>
+  <div class="wrap foot-note"><p>Ce site n'utilise aucun cookie, aucun traceur et ne demande aucune inscription.</p><a href="#haut" class="to-top-link">Haut de page ↑</a></div>
+</footer>
+<a href="#haut" class="to-top" id="toTop" aria-label="Revenir en haut"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></a>
+<script src="./assets/site.js" defer></script>
+</body>
+</html>
