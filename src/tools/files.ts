@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, extname, relative, sep } from 'node:path';
 import { wrapUntrusted } from '../heimdall/injection.ts';
-import { jailPath } from '../heimdall/policy.ts';
+import { toolPath } from '../heimdall/policy.ts';
 import { hasCommand } from '../learn/environment.ts';
 import { transcribe, sttReady } from '../voice/voice.ts';
 import { convertMedia, IMAGE_MIME, mediaInfo, type ConvertOptions } from '../files/media.ts';
@@ -30,7 +30,7 @@ export const docRead: Tool = {
   risk: 'read',
   schema: obj({ path: str('chemin du fichier'), sheet: str('Excel : nom de la feuille (toutes par défaut)') }, ['path']),
   async run(i, ctx) {
-    const p = jailPath(ctx.workspace, s(i.path));
+    const p = toolPath(ctx, s(i.path));
     const rel = relative(realpathSync(ctx.workspace), realpathSync(p)).split(sep).join('/');
     if (statSync(p).size > MAX_FILE) return 'Fichier trop volumineux (100 Mo au plus).';
     const buf = readFileSync(p);
@@ -69,7 +69,7 @@ export const docCreate: Tool = {
   }, ['path']),
   summarize: (i) => `créer ${s(i.path)}`,
   async run(i, ctx) {
-    const p = jailPath(ctx.workspace, s(i.path));
+    const p = toolPath(ctx, s(i.path));
     const ext = extname(p).toLowerCase();
     let data: Buffer;
     const sheets = (Array.isArray(i.sheets) ? i.sheets : []) as Array<{ name?: string; rows?: unknown[][] }>;
@@ -98,7 +98,7 @@ export const imageView: Tool = {
   taints: true,
   schema: obj({ path: str('chemin de l\'image (.png, .jpg, .webp, .gif)'), question: str('ce qu\'il faut regarder (facultatif)') }, ['path']),
   async run(i, ctx) {
-    const p = jailPath(ctx.workspace, s(i.path));
+    const p = toolPath(ctx, s(i.path));
     const ext = extname(p).slice(1).toLowerCase();
     const mime = IMAGE_MIME[ext];
     if (!mime) return 'Format d\'image non pris en charge (png, jpg, webp, gif). Convertis-la avec media_convert.';
@@ -115,7 +115,7 @@ export const mediaInfoTool: Tool = {
   risk: 'read',
   schema: obj({ path: str('chemin du fichier') }, ['path']),
   async run(i, ctx) {
-    const info = mediaInfo(jailPath(ctx.workspace, s(i.path)));
+    const info = mediaInfo(toolPath(ctx, s(i.path)));
     const d = info.durationSec;
     return `${info.format} · ${d ? `${Math.floor(d / 60)} min ${Math.round(d % 60)} s · ` : ''}${info.sizeKo} Ko\n${info.streams.map((x) => `- ${x}`).join('\n')}`;
   },
@@ -132,7 +132,7 @@ export const mediaConvert: Tool = {
   }, ['input', 'output']),
   summarize: (i) => `convertir ${s(i.input)} → ${s(i.output)}`,
   async run(i, ctx) {
-    const input = jailPath(ctx.workspace, s(i.input)), output = jailPath(ctx.workspace, s(i.output));
+    const input = toolPath(ctx, s(i.input)), output = toolPath(ctx, s(i.output));
     if (!existsSync(input)) return `Fichier introuvable : ${s(i.input)}`;
     mkdirSync(dirname(output), { recursive: true });
     const o: ConvertOptions = {
@@ -153,11 +153,11 @@ export const audioTranscribe: Tool = {
   schema: obj({ path: str('fichier audio ou vidéo') }, ['path']),
   async run(i, ctx) {
     if (!ctx.voice || !sttReady(ctx.voice)) return 'Whisper n\'est pas configuré (Réglages → Voix).';
-    let p = jailPath(ctx.workspace, s(i.path));
+    let p = toolPath(ctx, s(i.path));
     const ext = extname(p).toLowerCase();
     // Vidéo ou fichier lourd : on extrait un son compact (mono 16 kHz) pour rester sous 25 Mo.
     if (!['.mp3', '.m4a', '.ogg', '.oga', '.wav', '.webm'].includes(ext) || statSync(p).size > 24 * 1024 * 1024) {
-      const tmp = jailPath(ctx.workspace, `.odin-tmp/transcription-${Date.now()}.mp3`);
+      const tmp = toolPath(ctx, `.odin-tmp/transcription-${Date.now()}.mp3`);
       mkdirSync(dirname(tmp), { recursive: true });
       await runFfmpeg(['-hide_banner', '-loglevel', 'error', '-y', '-i', p, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', tmp], ctx.signal);
       p = tmp;
@@ -188,7 +188,7 @@ export const codexRun: Tool = {
   command: (i) => `codex exec ${s(i.task)}`,
   async run(i, ctx) {
     if (!hasCommand('codex')) return 'Codex n\'est pas installé : « npm install -g @openai/codex », puis « codex login » (ou une clé OPENAI_API_KEY).';
-    const dir = jailPath(ctx.workspace, s(i.dir) || '.');
+    const dir = toolPath(ctx, s(i.dir) || '.');
     mkdirSync(dir, { recursive: true });
     // Pas de secrets d'Odin pour un agent tiers : seule la clé OpenAI (ou la session « codex login ») lui sert.
     const env = { ...safeEnv(), ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}) };

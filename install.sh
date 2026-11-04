@@ -165,7 +165,7 @@ if [ "${ODIN_NO_SERVICE:-}" != "1" ] && ask "Lancer Odin automatiquement au dém
 <plist version="1.0"><dict>
   <key>Label</key><string>ai.odin.gateway</string>
   <key>ProgramArguments</key><array><string>$BIN_DIR/odin</string><string>gateway</string></array>
-  <key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+  <key>EnvironmentVariables</key><dict><key>ODIN_SERVICE</key><string>1</string><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
   <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>$ODIN_HOME/logs/gateway.log</string>
   <key>StandardErrorPath</key><string>$ODIN_HOME/logs/gateway.log</string>
@@ -183,6 +183,7 @@ After=network-online.target
 
 [Service]
 ExecStart="$BIN_DIR/odin" gateway
+Environment=ODIN_SERVICE=1
 Restart=on-failure
 RestartSec=5
 

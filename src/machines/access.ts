@@ -92,7 +92,9 @@ export function rightsSummary(home: string, env = process.env): string {
   const mode = adminMode(home, env);
   const local = { root: 'tu es administrateur (root) sur cette machine', nopasswd: 'tu as les droits administrateur sur cette machine (sudo sans mot de passe)', password: 'tu as les droits administrateur sur cette machine : « sudo » reçoit le mot de passe tout seul', none: 'sudo demande un mot de passe que tu n\'as pas encore : le propriétaire peut te le donner dans Réglages → Droits et machines', absent: process.platform === 'win32' ? 'Windows : pas de sudo' : 'sudo est absent de cette machine' }[mode];
   const ms = listMachines(home);
-  const text = `## Droits\n- Machine locale : ${local}.\n- Machines du réseau accessibles (outil machine_exec, machine_copy) : ${ms.length ? ms.map((m) => `${m.label} (${m.user}@${m.host})`).join(', ') : 'aucune pour l\'instant (le propriétaire les ajoute avec leurs mots de passe dans Réglages → Droits et machines)'}.\n- N'affiche jamais un mot de passe ; tu n'en as pas besoin, ils sont fournis tout seuls.`;
+  const text = `## Droits\n- Machine locale : ${local}.\n- Machines du réseau accessibles (outil machine_exec, machine_copy) : ${ms.length ? ms.map((m) => `${m.label} (${m.user}@${m.host})`).join(', ') : 'aucune pour l\'instant (le propriétaire les ajoute avec leurs mots de passe dans Réglages → Droits et machines)'}.\n- Fichiers : tout le disque (chemin absolu ou ~/… dans fs_read, fs_list, fs_write, fs_edit ; « cwd » pour shell et python). Python 3 est disponible (outil python).
+- Ton propre code : tu peux te mettre à jour (self_update) et t'améliorer toi-même (self_info, self_read, self_edit, self_check, self_restart, self_rollback). Toujours : lire le code, modifier, self_check, puis prévenir l'utilisateur et self_restart.
+- N'affiche jamais un mot de passe ; tu n'en as pas besoin, ils sont fournis tout seuls.`;
   rightsCache = { at: Date.now(), home, text };
   return text;
 }

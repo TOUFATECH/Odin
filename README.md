@@ -274,6 +274,14 @@ Odin pilote un vrai navigateur (le Chrome, Chromium ou Edge de la machine, sans 
 
 Pour chaque appareil du réseau, Odin récupère son **nom** (Bonjour/mDNS, UPnP avec fabricant et modèle, NetBIOS des ordinateurs Windows et des NAS, DNS inverse), ses **ports ouverts** parmi une soixantaine (SSH, partage de fichiers, impression, bases de données, Proxmox, Plex, Jellyfin, Home Assistant, VNC…), chacun nommé, et les **liens** vers ses interfaces web (http ou https détecté) avec leur titre. Tout est dans l'onglet Réseau et dans `odin net show <appareil>` ; le balayage complet (bouton ou `odin net scan --full`) remplit ports et liens.
 
+### Accès complet à sa machine
+
+Pour toi (le propriétaire), Odin n'est pas limité à son espace de travail : ses outils de fichiers acceptent n'importe quel chemin de la machine (`/etc/…`, `~/Documents/…`), le shell et Python s'exécutent dans le dossier de ton choix, et `sudo` marche dès que tu lui as donné les droits administrateur. Les membres de la famille restent dans l'espace de travail. Seuls les fichiers où Odin garde tes secrets (mots de passe, clés) restent hors de la conversation. Pour revenir à l'espace de travail seul : `agent.fullAccess: false` dans la configuration.
+
+### Il se met à jour et s'améliore lui-même
+
+Odin lit son propre code, le modifie pour s'améliorer, vérifie qu'il se charge (et lance les tests si besoin), puis redémarre pour appliquer — en te prévenant. Chaque fichier modifié est sauvegardé avant (`~/.odin/self-backups/`) : un retour arrière est toujours possible. Il se met aussi à jour avec la dernière version publiée en **gardant ses propres améliorations**. Le code de sécurité ne se modifie jamais depuis une conversation qui a lu du contenu extérieur, et un redémarrage est refusé si le code ne se charge plus. Toi aussi : `odin update`.
+
 ### Droits : sa machine et les machines du réseau
 
 Odin peut **tout faire sur sa machine** et sur **les machines de ton réseau** : il suffit de lui donner les mots de passe (Réglages → **Droits et machines**, ou en ligne de commande).

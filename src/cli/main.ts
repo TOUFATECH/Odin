@@ -655,10 +655,10 @@ async function main(): Promise<void> {
   if (cmd === 'chat') return chat();
   if (cmd === 'run') return runOnce(pos.slice(1).join(' '));
   if (cmd === 'update') {
-    const root = fileURLToPath(new URL('../../', import.meta.url));
-    if (existsSync(join(root, '.git'))) {
-      const r = spawnSync('git', ['-C', root, 'pull', '--ff-only'], { stdio: 'inherit' });
-      console.log(r.status === 0 ? c.green('✓ Odin est à jour. Redémarre « odin web » ou le service pour en profiter.') : c.red('Mise à jour impossible (voir ci-dessus).'));
+    const { updateApp, hasGit } = await import('../tools/self.ts');
+    if (hasGit()) {
+      const r = updateApp();
+      console.log(r.ok ? c.green(`✓ ${r.message}\n  Redémarre « odin web » ou le service pour en profiter (ou demande à Odin de redémarrer).`) : c.red(r.message));
     } else {
       console.log('Relance l\'installateur pour mettre Odin à jour :');
       console.log(process.platform === 'win32' ? '  irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex' : '  curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash');

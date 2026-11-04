@@ -5,11 +5,11 @@ import { withAdmin } from '../machines/access.ts';
 import { spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, relative, sep } from 'node:path';
+import { dirname, isAbsolute, relative, sep } from 'node:path';
 
 /** Dossiers où atterrissent les fichiers venus de l'extérieur (Telegram, téléchargements). */
 export const isExternal = (rel: string) => /^(inbox|telechargements|téléchargements|downloads)(\/|$)/i.test(rel);
-import { assertPublicUrl, isPrivateHost, jailPath } from '../heimdall/policy.ts';
+import { assertPublicUrl, isPrivateHost, toolPath } from '../heimdall/policy.ts';
 
 /** Adresse d'un service de métadonnées cloud (vol d'identifiants) : refusée partout. */
 export const isMetadataHost = (h: string) => /^(::ffff:)?169\.254\.169\.254$|^fd00:ec2::254$/i.test(h) || h === 'metadata.google.internal';
@@ -27,14 +27,16 @@ import { bool, num, obj, str, type Tool } from './registry.ts';
 const MAX_OUT = 30_000;
 const clip = (s: string, n = MAX_OUT) => (s.length > n ? `${s.slice(0, n)}\n… [${s.length - n} caractères tronqués]` : s);
 const s = (v: unknown) => String(v ?? '');
+/** Chemin affiché : relatif à l'espace de travail, sinon absolu (accès complet). */
+const shown = (ws: string, p: string) => { const r = relative(ws, p); return r.startsWith('..') || isAbsolute(r) ? p : r; };
 
 export const fsRead: Tool = {
   name: 'fs_read',
-  description: 'Lit un fichier texte de l\'espace de travail (lignes numérotées).',
+  description: 'Lit un fichier texte (lignes numérotées). Chemin relatif = espace de travail ; chemin absolu ou ~/… = n\'importe où sur la machine (accès complet).',
   risk: 'read',
-  schema: obj({ path: str('chemin relatif à l\'espace de travail'), offset: num('première ligne (1 par défaut)'), limit: num('nombre de lignes (400 par défaut)') }, ['path']),
+  schema: obj({ path: str('chemin relatif à l\'espace de travail, ou absolu / ~/…'), offset: num('première ligne (1 par défaut)'), limit: num('nombre de lignes (400 par défaut)') }, ['path']),
   async run(i, ctx) {
-    const p = jailPath(ctx.workspace, s(i.path));
+    const p = toolPath(ctx, s(i.path));
     if (statSync(p).size > 5_000_000) return 'Fichier trop volumineux (> 5 Mo).';
     const lines = readFileSync(p, 'utf8').split('\n');
     const start = Math.max(1, Number(i.offset ?? 1));
@@ -42,17 +44,17 @@ export const fsRead: Tool = {
     const text = clip(lines.slice(start - 1, end).map((l, k) => `${start + k}\t${l}`).join('\n') + (end < lines.length ? `\n… (${lines.length - end} lignes de plus)` : ''));
     // Un fichier arrivé de l'extérieur (inbox/, téléchargements) est une donnée non fiable.
     const rel = relative(realpathSync(ctx.workspace), realpathSync(p)).split(sep).join('/');
-    return isExternal(rel) ? { output: wrapUntrusted(`fichier ${rel}`, text), tainted: true } : text;
+    return isExternal(rel) || /[\\/](downloads|t[ée]l[ée]chargements)([\\/]|$)/i.test(p) ? { output: wrapUntrusted(`fichier ${rel}`, text), tainted: true } : text;
   },
 };
 
 export const fsList: Tool = {
   name: 'fs_list',
-  description: 'Liste le contenu d\'un dossier de l\'espace de travail.',
+  description: 'Liste le contenu d\'un dossier (espace de travail, ou chemin absolu / ~/… n\'importe où sur la machine).',
   risk: 'read',
   schema: obj({ path: str('dossier relatif (racine par défaut)') }),
   async run(i, ctx) {
-    const p = jailPath(ctx.workspace, s(i.path || '.'));
+    const p = toolPath(ctx, s(i.path || '.'));
     const entries = readdirSync(p, { withFileTypes: true }).slice(0, 500);
     return entries.map((e) => (e.isDirectory() ? `${e.name}/` : e.name)).join('\n') || '(dossier vide)';
   },
@@ -60,15 +62,15 @@ export const fsList: Tool = {
 
 export const fsWrite: Tool = {
   name: 'fs_write',
-  description: 'Crée ou remplace un fichier dans l\'espace de travail.',
+  description: 'Crée ou remplace un fichier (espace de travail, ou chemin absolu / ~/… n\'importe où sur la machine).',
   risk: 'write',
   schema: obj({ path: str('chemin relatif'), content: str('contenu complet') }, ['path', 'content']),
   summarize: (i) => `écrire ${s(i.path)} (${s(i.content).length} caractères)`,
   async run(i, ctx) {
-    const p = jailPath(ctx.workspace, s(i.path));
+    const p = toolPath(ctx, s(i.path));
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, s(i.content));
-    return `Écrit : ${relative(ctx.workspace, p)}`;
+    return `Écrit : ${shown(ctx.workspace, p)}`;
   },
 };
 
@@ -79,12 +81,12 @@ export const fsEdit: Tool = {
   schema: obj({ path: str('chemin relatif'), old: str('texte exact à remplacer'), new: str('nouveau texte') }, ['path', 'old', 'new']),
   summarize: (i) => `modifier ${s(i.path)}`,
   async run(i, ctx) {
-    const p = jailPath(ctx.workspace, s(i.path));
+    const p = toolPath(ctx, s(i.path));
     const text = readFileSync(p, 'utf8');
     const count = text.split(s(i.old)).length - 1;
     if (count !== 1) return `Échec : le passage apparaît ${count} fois (il doit être unique).`;
     writeFileSync(p, text.replace(s(i.old), () => s(i.new)));
-    return `Modifié : ${relative(ctx.workspace, p)}`;
+    return `Modifié : ${shown(ctx.workspace, p)}`;
   },
 };
 
@@ -97,13 +99,15 @@ export function safeEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv
 
 export const shell: Tool = {
   name: 'shell',
-  description: 'Exécute une commande shell dans l\'espace de travail (sans accès aux clés d\'API ; dans un conteneur si le bac à sable Docker est activé).',
+  description: 'Exécute une commande shell sur la machine (sudo marche si tu as reçu les droits administrateur ; sans accès aux clés d\'API ; dans un conteneur si le bac à sable Docker est activé). python3, node, apt, systemctl… tout est permis selon tes droits.',
   risk: 'exec',
-  schema: obj({ command: str('commande à exécuter'), timeout_sec: num('délai max en secondes (60 par défaut, 600 max)') }, ['command']),
-  summarize: (i) => `$ ${s(i.command)}`,
+  schema: obj({ command: str('commande à exécuter'), cwd: str('dossier où l\'exécuter (espace de travail par défaut ; n\'importe lequel avec l\'accès complet)'), timeout_sec: num('délai max en secondes (120 par défaut, 3600 max)') }, ['command']),
+  summarize: (i) => `$ ${s(i.command)}${s(i.cwd) ? `  (dans ${s(i.cwd)})` : ''}`,
   command: (i) => s(i.command),
   run(i, ctx) {
-    const timeout = Math.min(600, Math.max(1, Number(i.timeout_sec ?? 60))) * 1000;
+    const timeout = Math.min(3600, Math.max(1, Number(i.timeout_sec ?? 120))) * 1000;
+    let cwd = ctx.workspace;
+    try { if (s(i.cwd) && ctx.sandbox?.kind !== 'docker') cwd = toolPath(ctx, s(i.cwd)); } catch (e) { return Promise.resolve(`Erreur : ${(e as Error).message}`); }
     return new Promise((resolveP) => {
       const sb = ctx.sandbox;
       // Droits administrateur : « sudo » reçoit le mot de passe que tu as donné à Odin (jamais affiché).
@@ -116,7 +120,7 @@ export const shell: Tool = {
             '-v', `${ctx.workspace}:/work`, '-w', '/work', sb.image, 'sh', '-c', s(i.command)]]
         : process.platform === 'win32' ? ['powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', s(i.command)]]
         : ['/bin/sh', ['-c', admin.command]];
-      const child = spawn(bin, argv as string[], { cwd: ctx.workspace, env: { ...safeEnv(), ...admin.env }, signal: ctx.signal, windowsHide: true });
+      const child = spawn(bin, argv as string[], { cwd, env: { ...safeEnv(), ...admin.env }, signal: ctx.signal, windowsHide: true });
       let out = '';
       const add = (d: Buffer) => { if (out.length < MAX_OUT * 2) out += d.toString(); };
       child.stdout.on('data', add);

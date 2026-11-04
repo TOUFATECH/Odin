@@ -193,6 +193,7 @@ export class Agent {
     const ctx: ToolContext = {
       sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, search: cfg.search, muninn, skills: this.deps.skills, redactor, signal,
       isTainted: () => tainted,
+      fullAccess: cfg.agent.fullAccess !== false && (!o.speaker || o.speaker.role === 'owner'),
       mimir,
       sandbox: cfg.policy.sandbox,
       inventory: this.deps.inventory,

@@ -21,6 +21,8 @@ export interface ToolContext {
   channel: string;
   peer: string;
   workspace: string;
+  /** Accès complet à la machine (propriétaire) : chemins absolus et « ~/ » acceptés partout. */
+  fullAccess?: boolean;
   /** Dossier d'Odin (~/.odin) : coffre des machines, clé SSH, askpass. */
   home?: string;
   muninn: Muninn;

@@ -51,6 +51,8 @@ export interface OdinConfig {
     contextBudget: number;
     /** Plafond de dépense par tour, en dollars (0 = illimité). */
     maxCostPerTurnUsd: number;
+    /** Accès complet à la machine (tout le disque, n'importe quel dossier) pour le propriétaire ; sinon l'espace de travail seul. */
+    fullAccess: boolean;
   };
   policy: {
     /** Décision par niveau de risque quand la conversation est « propre ». */
@@ -131,7 +133,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     { kind: 'openai', model: 'anthropic/claude-sonnet-5.5', baseUrl: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
   ],
   routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15, monthlyBudgetUsd: 0 },
-  agent: { maxSteps: 25, maxTokens: 4096, contextBudget: 60000, maxCostPerTurnUsd: 1 },
+  agent: { maxSteps: 100, maxTokens: 4096, contextBudget: 60000, maxCostPerTurnUsd: 1, fullAccess: true },
   policy: {
     modes: { read: 'allow', write: 'allow', network: 'allow', exec: 'ask', external: 'ask' },
     taintEscalatesFrom: 'write',
@@ -209,7 +211,7 @@ export function validateConfig(c: OdinConfig): string[] {
     if (!MODES.includes(c.policy.modes[r])) errs.push(`policy.modes.${r} doit valoir allow, ask ou deny`);
   }
   if (!RISKS.includes(c.policy.taintEscalatesFrom)) errs.push('policy.taintEscalatesFrom invalide');
-  if (c.agent.maxSteps < 1 || c.agent.maxSteps > 200) errs.push('agent.maxSteps doit être entre 1 et 200');
+  if (c.agent.maxSteps < 1 || c.agent.maxSteps > 1000) errs.push('agent.maxSteps doit être entre 1 et 1000');
   if (!['none', 'docker'].includes(c.policy.sandbox?.kind)) errs.push('policy.sandbox.kind doit valoir none ou docker');
   if (!['auto', 'local', 'llm', 'jev', 'local+llm', 'local+jev'].includes(c.mimir.judge)) errs.push('mimir.judge doit valoir auto, local, llm, jev, local+llm ou local+jev');
   if (!/^https?:\/\//.test(c.voice.stt.baseUrl) || !/^https?:\/\//.test(c.voice.tts.baseUrl)) errs.push('voice.stt.baseUrl / voice.tts.baseUrl : des adresses http(s)');

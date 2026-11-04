@@ -272,6 +272,26 @@ export function jailPath(root: string, p: string): string {
   throw new Error(`Chemin hors de l'espace de travail refusé : ${p}`);
 }
 
+/** Fichiers d'Odin qui contiennent tes secrets : jamais lus ni écrits par les outils de fichiers. */
+const SECRET_FILES = /(^|[\\/])\.odin[\\/](\.env|env|admin\.json|machines\.json|codex-auth\.json|web-token|askpass[^\\/]*|id_ed25519[^\\/]*|secrets?[^\\/]*)$/i;
+
+/**
+ * Chemin pour les outils de fichiers. Avec l'accès complet (propriétaire), un chemin absolu
+ * ou « ~/… » vise n'importe où sur la machine ; un chemin relatif reste dans l'espace de travail.
+ * Sans accès complet : l'espace de travail seulement (jailPath).
+ */
+export function toolPath(ctx: { workspace: string; fullAccess?: boolean }, p: string): string {
+  if (ctx.fullAccess && (isAbsolute(p) || p === '~' || p.startsWith('~/') || p.startsWith('~\\'))) {
+    const home = process.env.HOME ?? process.env.USERPROFILE ?? '';
+    const abs = resolve(p.startsWith('~') ? join(home, p.slice(1)) : p);
+    let real = abs;
+    try { real = realpathSync(abs); } catch { /* n'existe pas encore */ }
+    if (SECRET_FILES.test(abs) || SECRET_FILES.test(real)) throw new Error(`Fichier de secrets d'Odin : ${p} (mots de passe et clés restent hors de la conversation ; utilise Réglages ou « odin admin »)`);
+    return real;
+  }
+  return jailPath(ctx.workspace, p);
+}
+
 /** Bloque les adresses internes (SSRF) : localhost, réseaux privés, métadonnées cloud. */
 export function assertPublicUrl(raw: string): URL {
   const u = new URL(raw);
