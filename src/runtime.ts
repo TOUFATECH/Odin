@@ -16,6 +16,7 @@ import type { Provider } from './types.ts';
 import { Yggdrasil } from './yggdrasil/skills.ts';
 import { Inventory } from './hlidskjalf/inventory.ts';
 import { NETWORK_TOOLS } from './tools/network.ts';
+import { FILE_TOOLS } from './tools/files.ts';
 import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
 import { Mimir } from './mimir/decisions.ts';
@@ -60,7 +61,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   const skills = new Yggdrasil(paths.skills, paths.drafts);
   const redactor = Redactor.fromEnv();
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
-  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS);
+  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS);
   const inventory = new Inventory(muninn.db);
 
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];

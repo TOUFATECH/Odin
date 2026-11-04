@@ -7,7 +7,7 @@ import { HttpError } from './http.ts';
 export function toOpenAIMessages(system: string, messages: Message[]): Array<Record<string, unknown>> {
   const out: Array<Record<string, unknown>> = [{ role: 'system', content: system }];
   for (const m of messages) {
-    if (m.role === 'user') out.push({ role: 'user', content: m.content });
+    if (m.role === 'user') out.push({ role: 'user', content: m.images?.length ? [{ type: 'text', text: m.content }, ...m.images.map((i) => ({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.data}` } }))] : m.content });
     else if (m.role === 'tool') out.push({ role: 'tool', tool_call_id: m.toolCallId, content: m.content });
     else {
       out.push({

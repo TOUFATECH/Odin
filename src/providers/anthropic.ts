@@ -13,7 +13,10 @@ export function toAnthropicMessages(messages: Message[]): Array<{ role: 'user' |
     else out.push({ role, content: [block] });
   };
   for (const m of messages) {
-    if (m.role === 'user') push('user', { type: 'text', text: m.content || '(vide)' });
+    if (m.role === 'user') {
+      for (const img of m.images ?? []) push('user', { type: 'image', source: { type: 'base64', media_type: img.mime, data: img.data } });
+      push('user', { type: 'text', text: m.content || '(vide)' });
+    }
     else if (m.role === 'tool') push('user', { type: 'tool_result', tool_use_id: m.toolCallId, content: m.content });
     else {
       if (m.content) push('assistant', { type: 'text', text: m.content });

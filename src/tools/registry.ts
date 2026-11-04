@@ -33,6 +33,10 @@ export interface ToolContext {
   netConfig?: OdinConfig['network'];
   /** Mode Odin Breaker actif (réseau local ouvert aux outils web). */
   breaker?: boolean;
+  /** Vision du modèle : répond à une question sur des images. */
+  vision?(question: string, images: Array<{ mime: string; data: string }>): Promise<string>;
+  /** Réglages de la voix (transcription de fichiers audio). */
+  voice?: OdinConfig['voice'];
   /** Isolation du shell (conteneur Docker) si configurée. */
   sandbox?: { kind: 'none' | 'docker'; image: string; network: boolean };
   /** Fourni par l'agent : lance des sous-agents en parallèle (Sleipnir). */

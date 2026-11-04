@@ -16,6 +16,8 @@ export interface Message {
   toolName?: string;
   /** Vrai si le contenu vient d'une source non fiable (web, inconnu…). */
   tainted?: boolean;
+  /** Images jointes à un message utilisateur (vision du modèle), en base64. */
+  images?: Array<{ mime: string; data: string }>;
 }
 
 export interface Usage {
