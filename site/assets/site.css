@@ -142,7 +142,41 @@ section{padding-block:clamp(56px,9vw,104px)}
 .odin svg{display:block;width:100%;height:100%;overflow:visible}
 .odin .body{transform-origin:60px 60px;animation:o-breathe 4.4s ease-in-out infinite}
 .odin .eyes{animation:o-glance 11s ease-in-out infinite}
-.odin .brow{transform:none!important;animation:none!important}
+/* Yeux d'Odin selon l'humeur : toujours des pilules droites ; seules leur taille, leur position
+   et une petite animation changent. Jamais de rotation. */
+.odin .brow{transform-box:fill-box;transform-origin:center;transition:scale .45s cubic-bezier(.3,1.4,.5,1),translate .45s cubic-bezier(.3,1.4,.5,1)}
+.odin .brow.l{scale:var(--lsx,1) var(--lsy,1);translate:var(--edx,0px) var(--edy,0px)}
+.odin .brow.r{scale:var(--rsx,1) var(--rsy,1);translate:calc(-1 * var(--edx,0px)) var(--edy,0px)}
+.odin.e-bob .brow{animation:e-bob 1.6s ease-in-out infinite}
+.odin.e-giggle .brow{animation:e-giggle .32s ease-in-out infinite}
+.odin.e-pulse .brow{animation:e-pulse 1.1s ease-in-out infinite}
+.odin.e-sparkle .brow{animation:e-sparkle .5s ease-in-out infinite}
+.odin.e-wink .brow.r{animation:e-wink 1.4s ease-in-out infinite}
+.odin.e-sly .brow{animation:e-sly 2.4s ease-in-out infinite}
+.odin.e-pop .brow{animation:e-pop .6s cubic-bezier(.3,1.8,.5,1)}
+.odin.e-ponder .brow{animation:e-ponder 3s ease-in-out infinite}
+.odin.e-dart .brow{animation:e-dart 1.4s steps(1) infinite}
+.odin.e-sink .brow{animation:e-sink 2.6s ease-in-out infinite}
+.odin.e-shiver .brow{animation:e-shiver .12s linear infinite}
+.odin.e-shy .brow{animation:e-shy 2.2s ease-in-out infinite}
+.odin.e-droop .brow{animation:e-droop 2.8s ease-in-out infinite}
+.odin.e-attent .brow{animation:e-attent 1.8s ease-in-out infinite}
+.odin.e-talk .brow{animation:e-bob .4s ease-in-out infinite}
+@keyframes e-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes e-giggle{0%,100%{transform:translateY(0) scaleY(1)}50%{transform:translateY(-1.5px) scaleY(.75)}}
+@keyframes e-pulse{0%,100%{transform:scale(1)}15%{transform:scale(1.18)}30%{transform:scale(1)}45%{transform:scale(1.12)}}
+@keyframes e-sparkle{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+@keyframes e-wink{0%,70%,100%{transform:scaleY(1)}80%,90%{transform:scaleY(1.4)}}
+@keyframes e-sly{0%,100%{transform:translateX(0)}30%,55%{transform:translateX(3px)}}
+@keyframes e-pop{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes e-ponder{0%,100%{transform:translateX(0)}35%,60%{transform:translateX(-3px)}}
+@keyframes e-dart{0%{transform:translateX(0)}25%{transform:translateX(-3px)}50%{transform:translateX(3px)}75%{transform:translateX(0)}}
+@keyframes e-sink{0%,100%{transform:translateY(0)}50%{transform:translateY(1.5px)}}
+@keyframes e-shiver{0%,100%{transform:translateX(0)}50%{transform:translateX(.8px)}}
+@keyframes e-shy{0%,100%{transform:translateX(0)}50%{transform:translateX(2.5px)}}
+@keyframes e-droop{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
+@keyframes e-attent{0%,100%{transform:scale(1)}50%{transform:scale(1.06,1.1)}}
+@media (prefers-reduced-motion:reduce){.odin .brow{animation:none!important}}
 .odin .eye{transform-box:fill-box;transform-origin:center;animation:o-blink 5.2s infinite}
 .odin .eye.r{animation-delay:.04s}
 .odin .halo{transform-origin:60px 60px;animation:o-halo 4.4s ease-in-out infinite}

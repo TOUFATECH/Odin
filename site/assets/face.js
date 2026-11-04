@@ -7,28 +7,28 @@
   // (4 teintes du centre vers le bord, la dernière colore aussi les halos).
   const C = (a, b, c, d) => [a, b, c, d];
   const MOODS = {
-    neutre: { tint: C('#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0') },
-    joie: { tint: C('#F0A818', '#F7BD32', '#FDD66B', '#FFEDAE') },
-    rire: { tint: C('#F28A12', '#F8A630', '#FCC468', '#FFE1A8'), anim: 'laugh' },
-    amour: { tint: C('#E0457B', '#EE6A97', '#F7A3C0', '#FFD3E2') },
-    fierte: { tint: C('#7A4BD8', '#9166E6', '#B596F2', '#DCCBFF') },
-    excite: { tint: C('#F06A12', '#F7872E', '#FBAE66', '#FFD6AE'), anim: 'hop' },
-    clin: { tint: C('#14A3A0', '#25BAB4', '#6AD6CF', '#B8F1EC') },
-    malice: { tint: C('#8E3FB8', '#A659CC', '#C68DE0', '#EACBF7') },
-    surprise: { tint: C('#16A6D8', '#30BCE8', '#76D6F3', '#BFEEFC') },
-    reflexion: { tint: C('#4256C9', '#5A6FDB', '#8E9DEB', '#C9D1FA') },
-    concentration: { tint: C('#2558B8', '#3570D0', '#6E9CE6', '#B5CDF7') },
-    confus: { tint: C('#7C7FA0', '#9396B4', '#B6B8CF', '#DEDFEB') },
-    inquiet: { tint: C('#C77A1E', '#D6913A', '#E6B575', '#F5DDB8') },
-    triste: { tint: C('#2F6FE0', '#3F82F0', '#7EAEF8', '#C3DBFF') },
-    colere: { tint: C('#C8231C', '#E0352B', '#F06A55', '#FFA593'), anim: 'shake' },
-    peur: { tint: C('#6E5BB8', '#8574CC', '#AB9FE2', '#D9D2F7'), anim: 'tremble' },
-    gene: { tint: C('#E2557A', '#EE7896', '#F6A9BD', '#FFD8E2') },
-    fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4') },
-    ecoute: { tint: C('#2E9E5B', '#43B672', '#7CD29E', '#C2EDD3') },
-    regarde: { tint: C('#0E8FB8', '#22A7CF', '#64C6E2', '#B2E6F4'), anim: 'look' },
-    parle: { tint: C('#D8A112', '#E8B62C', '#F3CF68', '#FCEAB0'), anim: 'talk' },
-    cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6') },
+    neutre: { tint: C('#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0'), eyes: {} },
+    joie: { tint: C('#F0A818', '#F7BD32', '#FDD66B', '#FFEDAE'), eyes: { l: [1, .8], r: [1, .8], d: [0, -2], a: 'bob' } },
+    rire: { tint: C('#F28A12', '#F8A630', '#FCC468', '#FFE1A8'), eyes: { l: [1.05, .55], r: [1.05, .55], a: 'giggle' }, anim: 'laugh' },
+    amour: { tint: C('#E0457B', '#EE6A97', '#F7A3C0', '#FFD3E2'), eyes: { l: [1.12, 1.08], r: [1.12, 1.08], a: 'pulse' } },
+    fierte: { tint: C('#7A4BD8', '#9166E6', '#B596F2', '#DCCBFF'), eyes: { l: [1, .62], r: [1, .62], d: [0, -3] } },
+    excite: { tint: C('#F06A12', '#F7872E', '#FBAE66', '#FFD6AE'), eyes: { l: [1.1, 1.2], r: [1.1, 1.2], a: 'sparkle' }, anim: 'hop' },
+    clin: { tint: C('#14A3A0', '#25BAB4', '#6AD6CF', '#B8F1EC'), eyes: { r: [1.05, .12], a: 'wink' } },
+    malice: { tint: C('#8E3FB8', '#A659CC', '#C68DE0', '#EACBF7'), eyes: { l: [1, .55], r: [1, .55], a: 'sly' } },
+    surprise: { tint: C('#16A6D8', '#30BCE8', '#76D6F3', '#BFEEFC'), eyes: { l: [1.3, 1.25], r: [1.3, 1.25], d: [-1.5, -2], a: 'pop' } },
+    reflexion: { tint: C('#4256C9', '#5A6FDB', '#8E9DEB', '#C9D1FA'), eyes: { l: [.95, .9], r: [.95, .9], d: [0, -5], a: 'ponder' } },
+    concentration: { tint: C('#2558B8', '#3570D0', '#6E9CE6', '#B5CDF7'), eyes: { l: [1.05, .45], r: [1.05, .45], d: [2.5, 0] } },
+    confus: { tint: C('#7C7FA0', '#9396B4', '#B6B8CF', '#DEDFEB'), eyes: { l: [1, 1], r: [.95, .6], a: 'ponder' } },
+    inquiet: { tint: C('#C77A1E', '#D6913A', '#E6B575', '#F5DDB8'), eyes: { l: [.9, .85], r: [.9, .85], a: 'dart' } },
+    triste: { tint: C('#2F6FE0', '#3F82F0', '#7EAEF8', '#C3DBFF'), eyes: { l: [.75, .7], r: [.75, .7], d: [-1.5, 4], a: 'sink' } },
+    colere: { tint: C('#C8231C', '#E0352B', '#F06A55', '#FFA593'), eyes: { l: [1.1, .4], r: [1.1, .4], d: [3, 1] }, anim: 'shake' },
+    peur: { tint: C('#6E5BB8', '#8574CC', '#AB9FE2', '#D9D2F7'), eyes: { l: [.6, .7], r: [.6, .7], d: [1.5, 0], a: 'shiver' }, anim: 'tremble' },
+    gene: { tint: C('#E2557A', '#EE7896', '#F6A9BD', '#FFD8E2'), eyes: { l: [.55, .5], r: [.55, .5], d: [0, 3], a: 'shy' } },
+    fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4'), eyes: { l: [1, .25], r: [1, .25], d: [0, 3], a: 'droop' } },
+    ecoute: { tint: C('#2E9E5B', '#43B672', '#7CD29E', '#C2EDD3'), eyes: { l: [1, 1.08], r: [1, 1.08], a: 'attent' } },
+    regarde: { tint: C('#0E8FB8', '#22A7CF', '#64C6E2', '#B2E6F4'), eyes: { l: [1.05, 1.05], r: [1.05, 1.05] }, anim: 'look' },
+    parle: { tint: C('#D8A112', '#E8B62C', '#F3CF68', '#FCEAB0'), eyes: { a: 'talk' }, anim: 'talk' },
+    cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6'), eyes: { l: [1, .08], r: [1, .08] } },
   };
   const TINTS = {
     gold: ['#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0'],
@@ -113,6 +113,14 @@
     // Yeux : toujours la forme habituelle.
     if (!f.eyes.querySelector('.eye')) { const [le, re] = EYES.pill(); f.eyes.innerHTML = `<g class="brow l">${le}</g><g class="brow r">${re}</g>`; }
     for (const k of ['brows', 'mouth', 'cheeks', 'extra']) f[k].innerHTML = '';
+    // Mouvement des yeux propre à l'humeur : taille, écart, hauteur, et petite animation ; jamais inclinés.
+    const e = (m.eyes && typeof m.eyes === 'object') ? m.eyes : {};
+    const [lx, ly] = e.l || [1, 1], [rx, ry] = e.r || [1, 1], [dx, dy] = e.d || [0, 0];
+    el.style.setProperty('--lsx', lx); el.style.setProperty('--lsy', ly);
+    el.style.setProperty('--rsx', rx); el.style.setProperty('--rsy', ry);
+    el.style.setProperty('--edx', `${dx}px`); el.style.setProperty('--edy', `${dy}px`);
+    [...el.classList].filter((c) => c.startsWith('e-')).forEach((c) => el.classList.remove(c));
+    if (e.a) el.classList.add(`e-${e.a}`);
     // Couleur de l'humeur (transition douce), halos compris.
     const tint = m.tint || MOODS.neutre.tint;
     svg.querySelectorAll('[id^="odinBody"] stop').forEach((st, i) => { st.style.stopColor = tint[i] || tint[3]; });

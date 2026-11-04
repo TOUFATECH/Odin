@@ -9,7 +9,7 @@ const out = path.join(root, 'src/mood/stickers');
 (async () => {
   const b = await chromium.launch();
   const p = await (await b.newContext({ viewport: { width: 600, height: 600 }, deviceScaleFactor: 1 })).newPage();
-  await p.setContent(`<html><body style="margin:0;background:transparent"><style>*{animation:none!important;transition:none!important}.mood-emoji{display:none}</style><span class="odin" style="display:block;width:512px;height:512px">${svg}</span><script>${face}</script></body></html>`);
+  await p.setContent(`<html><body style="margin:0;background:transparent"><style>*{animation:none!important;transition:none!important}${require("fs").readFileSync(require("path").join(root,"tools/site/parts/eyes.css"),"utf8")}.mood-emoji{display:none}</style><span class="odin" style="display:block;width:512px;height:512px">${svg}</span><script>${face}</script></body></html>`);
   const moods = await p.evaluate(() => Object.keys(window.OdinFace.MOODS));
   const tmp = fs.mkdtempSync(path.join(require('os').tmpdir(), 'odin-moods-'));
   for (const m of moods) {
