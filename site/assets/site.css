@@ -182,7 +182,7 @@ section{padding-block:clamp(56px,9vw,104px)}
 .hero h1{max-width:14ch}
 .hero .cta{display:flex;gap:12px;flex-wrap:wrap}
 .scene{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;min-width:0}
-.scene .odin{width:clamp(130px,16vw,190px);height:clamp(130px,16vw,190px);margin-bottom:-26px;z-index:2;filter:drop-shadow(0 24px 30px rgba(226,169,59,.18))}
+.scene .odin{width:clamp(130px,16vw,190px);height:clamp(130px,16vw,190px);margin-bottom:-26px;z-index:2}
 .scene .term{width:100%}
 .scene-bg{position:absolute;inset:-10% -8%;z-index:0;pointer-events:none;background:radial-gradient(closest-side at 50% 30%,var(--accent-soft),transparent 70%);animation:o-halo 6s ease-in-out infinite}
 .scene>*{position:relative}
