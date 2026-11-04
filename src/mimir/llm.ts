@@ -70,3 +70,43 @@ export function cascadeJudge(first: Judge, second: Judge): Judge {
     }
   };
 }
+
+/**
+ * Vérification croisée : pour une question d'action (gravité), plusieurs modèles différents sont
+ * interrogés et leurs avis fusionnés avec prudence : pour chaque question, on garde la réponse la
+ * plus « sûre » (la plus proche de oui pour un danger). Un désaccord net ne tranche jamais vers
+ * « sans risque ». Utilisé quand une action paraît grave ou incertaine.
+ */
+export function crossCheckJudge(router: Router, minVoices = 2, maxVoices = 3): Judge {
+  return async (state, questions, signal) => {
+    const voices: Answers[] = [];
+    const used: string[] = [];
+    for (const route of router.order({ minTier: 'standard' })) {
+      if (voices.length >= maxVoices) break;
+      try {
+        const r = await router.complete({ system: SYSTEM, messages: [{ role: 'user', content: JSON.stringify({ state, questions }) }], tools: [], maxTokens: 400, signal }, { exclude: router.routes.filter((x) => x !== route).map((x) => x.provider.name) });
+        voices.push(parseLlmAnswers(r.text, questions)); used.push(r.providerName);
+      } catch { /* ce modèle n'est pas disponible : on demande au suivant */ }
+    }
+    if (!voices.length) throw new Error('aucun modèle disponible pour la vérification croisée');
+    if (voices.length < minVoices) return voices[0];
+    const merged: Answers = {};
+    for (const name of Object.keys(questions)) {
+      const got = voices.map((v) => v[name]).filter(Boolean);
+      if (!got.length) continue;
+      if (got[0].type === 'noul') {
+        const ps = got.map((g) => (g.type === 'noul' ? g.noul : 0.5));
+        // Pessimiste : la plus forte probabilité de danger l'emporte ; pour « demandé par
+        // l'utilisateur » ou « a réussi », c'est au contraire le doute le plus fort qui reste.
+        merged[name] = { type: 'noul', noul: /^(requested|succeeded|durable)$/.test(name) ? Math.min(...ps) : Math.max(...ps) };
+      } else {
+        const counts = new Map<string, number>();
+        for (const g of got) if (g.type === 'choice') counts.set(g.choice, (counts.get(g.choice) ?? 0) + (g.probabilities[g.choice] ?? 0.5));
+        const [top, score] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+        const agree = got.filter((g) => g.type === 'choice' && g.choice === top).length / got.length;
+        merged[name] = { type: 'choice', choice: top, probabilities: { [top]: Math.min(score / got.length, agree) } };
+      }
+    }
+    return merged;
+  };
+}

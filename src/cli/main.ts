@@ -151,7 +151,7 @@ async function runOnce(prompt: string): Promise<void> {
   let lr: LineReader | undefined;
   const odin = open(cliApprover(() => (lr ??= new LineReader())));
   const r = await odin.agent.run(prompt, { sessionId: `run:${Date.now().toString(36)}`, trusted: true, onEvent: (e) => { if (e.type !== 'text') printEvent(e); } });
-  console.log(r.text);
+  console.log(r.text + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
   await r.reflection;
   lr?.close();
   odin.close();

@@ -66,6 +66,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
 
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];
   const router = opts.provider ? new Router(fixed) : Router.fromConfig(cfg);
+  router.onPause = (name, reason, until) => console.error(`[modèles] ${name} mis de côté jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')} : ${reason}`);
   const cheapProvider = !opts.provider && cfg.cheapProvider ? buildProvider(cfg.cheapProvider) : undefined;
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
 
@@ -74,7 +75,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   if (opts.judge) mimir = new Mimir(opts.judge, cfg.mimir, 'test');
   else if (cfg.mimir.enabled) {
     const built = buildJudge(cfg.mimir, {
-      router, cheapRouter, redactor, logFile: join(paths.logs, 'mimir.jsonl'),
+      router, cheapRouter, redactor, logFile: join(paths.logs, 'mimir.jsonl'), crossCheck: cfg.routing.crossCheckRisky,
       onUsage: (tin, tout, cost) => muninn.recordUsage('mimir', 'jev', tin, tout, cost),
     });
     if (built.warning) console.error(`[mímir] ${built.warning}`);

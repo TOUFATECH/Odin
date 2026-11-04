@@ -117,7 +117,7 @@ export class Gateway {
           if (e.type === 'skill_proposed') void ch.send(m.peer, e.active ? `💡 Nouvelle compétence apprise, active tout de suite : ${e.name}` : `💡 Nouvelle compétence proposée : ${e.name} (odin skills approve ${e.name})`);
         },
       });
-      await ch.send(m.peer, (r.text || '(pas de réponse)') + decisionsFooter(r.decisions));
+      await ch.send(m.peer, (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
         await speak(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));

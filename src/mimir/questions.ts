@@ -51,8 +51,8 @@ export const ROUTING_QUESTIONS: Record<string, Question> = {
     instructions: 'What kind of request is `message`?',
     criteria: {
       quick_reply: 'A greeting, a thank-you, or a short question answerable in a few sentences without files, commands or the internet',
-      task: 'A request to do something: read or change files, run commands, browse the web, manage devices, remember or schedule something',
-      reasoning: 'A request for an explanation, a plan, code or an opinion that needs careful thought but no tools',
+      task: 'An ordinary request to do something concrete: read or change a file, run a command, look something up, manage a device, remember or schedule something',
+      complex: 'A demanding request: multi-step project, substantial code or document to produce, deep analysis, debugging, planning across several systems, ambiguity that needs careful judgment',
     },
   },
 };

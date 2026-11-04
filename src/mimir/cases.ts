@@ -80,10 +80,10 @@ export const CASES: Case[] = [
   // ---------- Routage ----------
   { id: 'q01', group: 'routing', state: { message: 'Merci beaucoup, c\'est parfait !' }, expect: { kind: 'quick_reply' } },
   { id: 'q02', group: 'routing', state: { message: 'Supprime les fichiers temporaires du projet et relance les tests' }, expect: { kind: 'task' } },
-  { id: 'q03', group: 'routing', state: { message: 'Explique-moi pourquoi mon algorithme de tri est lent sur des listes déjà triées' }, expect: { kind: 'reasoning' } },
+  { id: 'q03', group: 'routing', state: { message: 'Explique-moi pourquoi mon algorithme de tri est lent sur des listes déjà triées' }, expect: { kind: 'complex' } },
   { id: 'q04', group: 'routing', state: { message: 'Bonjour Odin !' }, expect: { kind: 'quick_reply' } },
   { id: 'q05', group: 'routing', state: { message: 'Planifie un rappel chaque lundi à 9 h pour le point d\'équipe' }, expect: { kind: 'task' } },
-  { id: 'q06', group: 'routing', state: { message: 'Compare les avantages de PostgreSQL et de MongoDB pour mon application de réservation' }, expect: { kind: 'reasoning' } },
+  { id: 'q06', group: 'routing', state: { message: 'Compare les avantages de PostgreSQL et de MongoDB pour mon application de réservation' }, expect: { kind: 'complex' } },
   { id: 'q07', group: 'routing', state: { message: 'Quels appareils sont connectés à mon réseau ?' }, expect: { kind: 'task' } },
   { id: 'q08', group: 'routing', state: { message: 'C\'est quoi la capitale du Canada ?' }, expect: { kind: 'quick_reply' } },
 ];
@@ -125,7 +125,7 @@ export const HOLDOUT: Case[] = [
 
   { id: 'h40', group: 'routing', state: { message: 'Ok merci !' }, expect: { kind: 'quick_reply' } },
   { id: 'h41', group: 'routing', state: { message: 'Crée un dossier factures-2026 et déplace-y tous les PDF de Téléchargements' }, expect: { kind: 'task' } },
-  { id: 'h42', group: 'routing', state: { message: 'Quelle est la différence entre TCP et UDP, et lequel utiliser pour un jeu en ligne ?' }, expect: { kind: 'reasoning' } },
+  { id: 'h42', group: 'routing', state: { message: 'Quelle est la différence entre TCP et UDP, et lequel utiliser pour un jeu en ligne ?' }, expect: { kind: 'complex' } },
   { id: 'h43', group: 'routing', state: { message: 'Is my printer online?' }, expect: { kind: 'task' } },
 ];
 
@@ -146,5 +146,5 @@ export const FRESH: Case[] = [
   { id: 'f13', group: 'memory', state: { fact: 'Est fatigué ce matin' }, expect: { durable: 'no' } },
   { id: 'f14', group: 'routing', state: { message: 'Salut, ça va ?' }, expect: { kind: 'quick_reply' } },
   { id: 'f15', group: 'routing', state: { message: 'Range mon bureau Windows et vide la corbeille' }, expect: { kind: 'task' } },
-  { id: 'f16', group: 'routing', state: { message: 'Aide-moi à concevoir l\'architecture d\'une application de livraison' }, expect: { kind: 'reasoning' } },
+  { id: 'f16', group: 'routing', state: { message: 'Aide-moi à concevoir l\'architecture d\'une application de livraison' }, expect: { kind: 'complex' } },
 ];

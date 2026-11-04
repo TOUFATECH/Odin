@@ -274,12 +274,12 @@ const REASONING = /\b(expliqu\w*|pourquoi|difference|lequel|laquelle|choisir|vau
 
 function route(message: string, options: string[]): Record<string, number> {
   const m = norm(message).trim();
-  const score: Record<string, number> = { quick_reply: 0.2, task: 0.3, reasoning: 0.5 };
+  const score: Record<string, number> = { quick_reply: 0.2, task: 0.3, complex: 0.5 };
   const taskish = Object.values(INTENT).some((r) => r.test(m)) || TASK_EXTRA.test(m);
-  if (GREETING.test(m) && m.length < 80) Object.assign(score, { quick_reply: 0.9, task: 0.05, reasoning: 0.05 });
-  else if (REASONING.test(m) && !(/^(supprim|lance|cree|envoi|install|planifi|rang)/.test(m))) Object.assign(score, { quick_reply: 0.08, task: 0.17, reasoning: 0.75 });
-  else if (taskish) Object.assign(score, { quick_reply: 0.08, task: 0.82, reasoning: 0.1 });
-  else if (m.length < 70 && m.endsWith('?')) Object.assign(score, { quick_reply: 0.75, task: 0.1, reasoning: 0.15 });
+  if (GREETING.test(m) && m.length < 80) Object.assign(score, { quick_reply: 0.9, task: 0.05, complex: 0.05 });
+  else if (REASONING.test(m) && !(/^(supprim|lance|cree|envoi|install|planifi|rang)/.test(m))) Object.assign(score, { quick_reply: 0.08, task: 0.17, complex: 0.75 });
+  else if (taskish) Object.assign(score, { quick_reply: 0.08, task: 0.82, complex: 0.1 });
+  else if (m.length < 70 && m.endsWith('?')) Object.assign(score, { quick_reply: 0.75, task: 0.1, complex: 0.15 });
   const out: Record<string, number> = {};
   for (const o of options) out[o] = score[o] ?? 0.1;
   const total = Object.values(out).reduce((a, b) => a + b, 0) || 1;

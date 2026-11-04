@@ -93,7 +93,7 @@ export const DEFAULT_MIMIR: MimirConfig = {
   baseUrl: 'https://api.typesafe.ai',
   apiKeyEnv: 'TYPESAFE_API_KEY',
   timeoutMs: 8000,
-  uses: { actionReview: true, injection: true, memory: true, reflection: true, routing: false },
+  uses: { actionReview: true, injection: true, memory: true, reflection: true, routing: true },
 };
 
 // ---------- 1. Gravité d'une action ----------
@@ -191,7 +191,9 @@ export const decideReflection = (l: { succeeded: Level; reusable: Level }): bool
 
 // ---------- 5. Routage ----------
 
-export const decideRoute = (top: string, p: number): 'cheap' | 'main' => (top === 'quick_reply' && p >= YES ? 'cheap' : 'main');
+export type RouteTier = 'local' | 'standard' | 'strong';
+/** Palier minimal : simple → local/gratuit, ordinaire → standard, complexe → le plus capable. Doute → standard. */
+export const decideRoute = (top: string, p: number): RouteTier => (p < YES ? 'standard' : top === 'quick_reply' ? 'local' : top === 'complex' ? 'strong' : 'standard');
 
 // ---------- Mímir : pose les questions, applique les tables ----------
 
@@ -242,7 +244,7 @@ export class Mimir {
     return this.ask({ goal: clip(goal, 2000), transcript: clip(transcript, 15_000) }, REFLECTION_QUESTIONS, (a) => decideReflection({ succeeded: level(yes(a, 'succeeded')), reusable: level(yes(a, 'reusable')) }), signal);
   }
 
-  route(message: string, signal?: AbortSignal): Promise<Outcome<'cheap' | 'main'>> {
+  route(message: string, signal?: AbortSignal): Promise<Outcome<RouteTier>> {
     return this.ask({ message: clip(message, 4000) }, ROUTING_QUESTIONS, (a) => { const c = choice(a, 'kind'); return decideRoute(c.top, c.p); }, signal);
   }
 }

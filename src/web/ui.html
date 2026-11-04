@@ -248,7 +248,16 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="field"><label for="m-model">Nom du modèle</label><input id="m-model" autocomplete="off" spellcheck="false"></div>
             <div class="field" id="m-urlField"><label for="m-url">Adresse du service</label><input id="m-url" autocomplete="off" spellcheck="false" placeholder="http://localhost:11434/v1"></div>
             <div class="field" id="m-keyField"><label for="m-key">Clé d'API</label><input id="m-key" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="m-keyHint"></span></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="m-test">Tester</button><button class="btn primary" type="submit">Enregistrer</button></div>
+            <div class="field"><label>Palier de ce modèle</label><div class="choices" role="group" aria-label="Palier"><button type="button" class="choice" data-tier="local">Installé / gratuit</button><button type="button" class="choice" data-tier="standard">Standard</button><button type="button" class="choice" data-tier="strong">Le plus capable</button></div><span class="hint">Odin choisit le moins cher qui suffit : simple → gratuit, ordinaire → standard, complexe → le plus capable.</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="m-test">Tester</button><button class="btn primary" type="submit">Enregistrer comme modèle par défaut</button><button class="btn" type="button" id="m-backup">Ajouter en secours</button></div>
+            <div class="field"><label>Modèles configurés (essayés dans cet ordre quand l'un tombe en panne ou à bout de quota)</label><ul class="links" id="m-list"></ul></div>
+            <div class="form" style="gap:8px">
+              <label class="check"><input type="checkbox" id="r-local"> Préférer un modèle installé/gratuit quand la tâche ne demande pas plus</label>
+              <label class="check"><input type="checkbox" id="r-strong"> Envoyer les tâches complexes au modèle le plus capable</label>
+              <label class="check"><input type="checkbox" id="r-cross"> Décision risquée : croiser l'avis de plusieurs modèles avant de trancher</label>
+              <div class="field" style="max-width:260px"><label for="r-pause">Minutes de mise à l'écart d'un modèle à bout de quota</label><input id="r-pause" type="number" min="1" max="240"></div>
+              <div><button class="btn small" type="button" id="r-save">Enregistrer ces règles</button></div>
+            </div>
             <div class="status" id="m-status" role="status"></div>
           </form></article>
 
@@ -711,6 +720,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     for (const b of document.querySelectorAll('#presetChoices .choice')) b.setAttribute('aria-pressed', String(b.dataset.preset === p));
     if (!keepModel) { $('#m-model').value = P ? P.model : ''; $('#m-url').value = P ? P.baseUrl : ''; }
     $('#m-urlField').hidden = !(p === 'ollama' || p === 'custom');
+    if (!keepModel) pickTier(p === 'ollama' ? 'local' : 'standard');
     const keyEnv = p === 'custom' ? 'OPENAI_API_KEY' : P?.keyEnv;
     $('#m-keyField').hidden = !keyEnv;
     if (keyEnv) $('#m-keyHint').textContent = keyHint(keyEnv) + (p === 'anthropic' ? ' Clé sur console.anthropic.com.' : p === 'openrouter' ? ' Clé sur openrouter.ai/keys.' : '');
@@ -764,7 +774,19 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     if (r.reloading) { st(statusId, 'Enregistré. Odin redémarre ses services…'); const back = await waitBack(); return st(statusId, back ? okText : 'Enregistré. Relance Odin pour appliquer.', back); }
     settingsDirty = false; st(statusId, r.restartNeeded ? 'Enregistré. Relance Odin (odin gateway) pour appliquer.' : okText, true);
   }
-  const modelBody = () => ({ preset, model: $('#m-model').value.trim(), baseUrl: $('#m-url').value.trim(), apiKey: $('#m-key').value.trim() });
+  let tierPick = 'standard';
+  function pickTier(t) { tierPick = t; for (const b of document.querySelectorAll('[data-tier]')) b.setAttribute('aria-pressed', String(b.dataset.tier === t)); }
+  for (const b of document.querySelectorAll('[data-tier]')) b.addEventListener('click', () => { settingsDirty = true; pickTier(b.dataset.tier); });
+  const TIER_TXT = { local: 'installé / gratuit', standard: 'standard', strong: 'le plus capable' };
+  function renderModels() {
+    const S = state.settings; if (!S?.providers) return;
+    $('#m-list').replaceChildren(...S.providers.map((p) => el('li', {}, `${p.index === 0 ? '★ ' : ''}${S.presets[p.preset]?.label || p.preset} · ${p.model} · ${TIER_TXT[p.tier]}${p.ready ? '' : ' · ⚠ clé absente'} `,
+      S.providers.length > 1 ? el('button', { class: 'btn small danger', type: 'button', onclick: () => save('model_remove', { index: p.index }, '#m-status', '✓ Modèle retiré.') }, 'Retirer') : null)));
+    if (!settingsDirty) { pickTier(S.model.tier || 'standard'); $('#r-local').checked = S.routing.preferLocal; $('#r-strong').checked = S.routing.strongForComplex; $('#r-cross').checked = S.routing.crossCheckRisky; $('#r-pause').value = S.routing.quotaPauseMin; }
+  }
+  $('#r-save').addEventListener('click', () => save('routing', { preferLocal: $('#r-local').checked, strongForComplex: $('#r-strong').checked, crossCheckRisky: $('#r-cross').checked, quotaPauseMin: Number($('#r-pause').value) }, '#m-status', '✓ Règles de choix du modèle enregistrées.'));
+  $('#m-backup').addEventListener('click', async () => { await save('model', { ...modelBody(), asBackup: true }, '#m-status', '✓ Modèle de secours ajouté.'); $('#m-key').value = ''; });
+  const modelBody = () => ({ preset, model: $('#m-model').value.trim(), baseUrl: $('#m-url').value.trim(), apiKey: $('#m-key').value.trim(), tier: tierPick });
   $('#m-test').addEventListener('click', async () => {
     st('#m-status', 'Test en cours…');
     const r = await api('/api/action', { kind: 'settings_test', ...modelBody() });
@@ -787,7 +809,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------

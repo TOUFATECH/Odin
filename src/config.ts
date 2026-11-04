@@ -20,12 +20,25 @@ export interface ProviderConfig {
   /** Prix en dollars par million de jetons, pour le suivi des coûts. */
   priceInPerM?: number;
   priceOutPerM?: number;
+  /** Palier : 'local' (installé, gratuit), 'standard', 'strong' (le plus capable). Deviné si absent. */
+  tier?: 'local' | 'standard' | 'strong';
 }
 
 export interface OdinConfig {
   name: string;
-  /** Fournisseurs essayés dans l'ordre : le suivant prend le relais en cas de panne. */
+  /** Fournisseurs essayés dans l'ordre : le suivant prend le relais en cas de panne ou de quota épuisé. */
   providers: ProviderConfig[];
+  /** Choix du modèle selon la tâche. */
+  routing: {
+    /** Préférer un modèle local/gratuit quand la tâche ne demande pas plus. */
+    preferLocal: boolean;
+    /** Envoyer les tâches complexes au palier le plus capable disponible. */
+    strongForComplex: boolean;
+    /** Décision risquée : demander l'avis de plusieurs modèles avant de trancher. */
+    crossCheckRisky: boolean;
+    /** Minutes de mise à l'écart d'un fournisseur à bout de quota. */
+    quotaPauseMin: number;
+  };
   /** Fournisseur (moins cher) pour la compaction, la réflexion et les sous-agents. */
   cheapProvider?: ProviderConfig;
   agent: {
@@ -109,6 +122,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     { kind: 'anthropic', model: 'claude-sonnet-5-5', apiKeyEnv: 'ANTHROPIC_API_KEY', priceInPerM: 3, priceOutPerM: 15 },
     { kind: 'openai', model: 'anthropic/claude-sonnet-5.5', baseUrl: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
   ],
+  routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15 },
   agent: { maxSteps: 25, maxTokens: 4096, contextBudget: 60000, maxCostPerTurnUsd: 1 },
   policy: {
     modes: { read: 'allow', write: 'allow', network: 'allow', exec: 'ask', external: 'ask' },
@@ -179,6 +193,7 @@ export function validateConfig(c: OdinConfig): string[] {
   c.providers?.forEach((p, i) => {
     if (!['anthropic', 'openai', 'mock'].includes(p.kind)) errs.push(`providers[${i}].kind invalide : ${p.kind}`);
     if (!p.model) errs.push(`providers[${i}].model manquant`);
+    if (p.tier && !['local', 'standard', 'strong'].includes(p.tier)) errs.push(`providers[${i}].tier doit valoir local, standard ou strong`);
   });
   for (const r of RISKS) {
     if (!MODES.includes(c.policy.modes[r])) errs.push(`policy.modes.${r} doit valoir allow, ask ou deny`);

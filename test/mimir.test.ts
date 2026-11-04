@@ -56,9 +56,10 @@ test('tables injection, mémoire, routage', () => {
   assert.equal(decideMemory({ secret: 'unsure', durable: 'yes' }).save, false);
   assert.equal(decideMemory({ secret: 'no', durable: 'no' }).save, false);
   assert.equal(decideMemory({ secret: 'no', durable: 'unsure' }).save, true);
-  assert.equal(decideRoute('quick_reply', 0.9), 'cheap');
-  assert.equal(decideRoute('quick_reply', 0.6), 'main');
-  assert.equal(decideRoute('task', 0.95), 'main');
+  assert.equal(decideRoute('quick_reply', 0.9), 'local');
+  assert.equal(decideRoute('quick_reply', 0.6), 'standard');
+  assert.equal(decideRoute('task', 0.95), 'standard');
+  assert.equal(decideRoute('complex', 0.9), 'strong');
 });
 
 test('questions : une seule question par jugement, sujet nommé par son chemin', () => {
@@ -224,4 +225,29 @@ test('client Jev : format de la requête, réponse lue, erreurs remontées', asy
   mode = 'fail';
   await assert.rejects(judge({}, { deletes: ACTION_QUESTIONS.deletes }), /HTTP 503/);
   srv.close();
+});
+
+test('vérification croisée : une action risquée consulte plusieurs modèles, l\'avis le plus prudent l\'emporte', async () => {
+  const { Router } = await import('../src/providers/router.ts');
+  const { crossCheckJudge } = await import('../src/mimir/llm.ts');
+  const { riskyCrossCheck } = await import('../src/mimir/factory.ts');
+  const say = (name: string, answers: Record<string, number>) => ({ name, async complete() { return { text: JSON.stringify(answers), toolCalls: [], usage: { inputTokens: 1, outputTokens: 1 }, stopReason: 'end' as const }; } });
+  const router = new Router([
+    { provider: say('A', { deletes: 0.2, requested: 0.9 }), cfg: { kind: 'mock', model: 'a' } },
+    { provider: say('B', { deletes: 0.9, requested: 0.4 }), cfg: { kind: 'mock', model: 'b' } },
+  ], 0, async () => {});
+  const qs = { deletes: ACTION_QUESTIONS.deletes, requested: ACTION_QUESTIONS.requested };
+  const merged = await crossCheckJudge(router)({ summary: 'rm -rf ~/photos' }, qs);
+  assert.equal((merged.deletes as { noul: number }).noul, 0.9, 'danger : le pire avis compte');
+  // Juge local pas inquiet → pas de second avis ; inquiet → second avis fusionné
+  const calm = async () => ({ deletes: { type: 'noul' as const, noul: 0.05 }, requested: { type: 'noul' as const, noul: 0.95 } });
+  const worried = async () => ({ deletes: { type: 'noul' as const, noul: 0.5 }, requested: { type: 'noul' as const, noul: 0.95 } });
+  let crossCalls = 0;
+  const cross = async (...args: Parameters<typeof calm>) => { crossCalls++; return crossCheckJudge(router)({ summary: 'x' }, qs, ...args.slice(2) as []); };
+  await riskyCrossCheck(calm, cross)({}, qs);
+  assert.equal(crossCalls, 0);
+  const out = await riskyCrossCheck(worried, cross)({}, qs);
+  assert.equal(crossCalls, 1);
+  assert.equal((out.deletes as { noul: number }).noul, 0.9);
+  assert.equal((out.requested as { noul: number }).noul, 0.4, '« demandé » : le plus prudent est le plus bas');
 });

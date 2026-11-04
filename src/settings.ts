@@ -9,7 +9,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OdinConfig, OdinPaths, ProviderConfig } from './config.ts';
 import { setConfigValue } from './config.ts';
-import { buildProvider, Router } from './providers/router.ts';
+import { buildProvider, Router, tierOf, type Tier } from './providers/router.ts';
 
 export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
@@ -117,7 +117,9 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
   const main = cfg.providers[0];
   return {
     demo,
-    model: { preset: detectPreset(main), model: main?.model ?? '', baseUrl: main?.baseUrl ?? '', backups: cfg.providers.slice(1).map((p) => `${p.kind}:${p.model}`) },
+    model: { preset: detectPreset(main), model: main?.model ?? '', baseUrl: main?.baseUrl ?? '', tier: tierOf(main ?? { kind: 'mock', model: '' }) },
+    providers: cfg.providers.map((p, i) => ({ index: i, preset: detectPreset(p), model: p.model, baseUrl: p.baseUrl ?? '', tier: tierOf(p), ready: Boolean(buildProvider(p, env)) })),
+    routing: cfg.routing,
     presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '' }])),
     secrets: Object.fromEntries(SECRET_NAMES.map((n) => [n, secretHint(n, env)])),
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
@@ -140,10 +142,30 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
   switch (section) {
     case 'model': {
       const p = providerFor({ preset: String(b.preset) as ModelPreset, model: String(b.model ?? ''), baseUrl: str('baseUrl') });
+      if (['local', 'standard', 'strong'].includes(String(b.tier))) p.tier = String(b.tier) as Tier;
       saveKey(p.apiKeyEnv);
-      // Le choix devient le fournisseur principal ; les autres restent en secours.
-      const rest = cfg.providers.filter((x) => !(x.kind === p.kind && x.model === p.model && x.baseUrl === p.baseUrl)).slice(0, 3);
-      setConfigValue(paths, ['providers'], [p, ...rest]);
+      const same = (x: ProviderConfig) => x.kind === p.kind && x.model === p.model && (x.baseUrl ?? '') === (p.baseUrl ?? '');
+      if (b.asBackup) {
+        // Ajouté comme modèle de secours (ou de palier différent), le principal ne change pas.
+        setConfigValue(paths, ['providers'], [...cfg.providers.filter((x) => !same(x)), p].slice(0, 6));
+      } else {
+        // Le choix devient le fournisseur par défaut ; les autres restent en secours.
+        setConfigValue(paths, ['providers'], [p, ...cfg.providers.filter((x) => !same(x))].slice(0, 6));
+      }
+      return true;
+    }
+    case 'model_remove': {
+      const idx = Number(b.index);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= cfg.providers.length) throw new Error('modèle inconnu');
+      if (cfg.providers.length === 1) throw new Error('garde au moins un modèle');
+      setConfigValue(paths, ['providers'], cfg.providers.filter((_, i) => i !== idx));
+      return true;
+    }
+    case 'routing': {
+      setConfigValue(paths, ['routing'], {
+        preferLocal: Boolean(b.preferLocal), strongForComplex: Boolean(b.strongForComplex), crossCheckRisky: Boolean(b.crossCheckRisky),
+        quotaPauseMin: Math.min(240, Math.max(1, Math.round(Number(b.quotaPauseMin ?? cfg.routing.quotaPauseMin)) || 15)),
+      });
       return true;
     }
     case 'telegram': {

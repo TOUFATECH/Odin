@@ -64,7 +64,7 @@ test('bout en bout, SANS CLÉ : secret refusé en mémoire, préférence accept�
 
 test('juge LLM : réponse JSON lue, normalisée, et refus d\'une réponse incomplète', async () => {
   const qs = { secret: MEMORY_QUESTIONS.secret, kind: ROUTING_QUESTIONS.kind };
-  const a = parseLlmAnswers('Voici : {"secret": 0.12, "kind": {"quick_reply": 0.6, "task": 0.3, "reasoning": 0.3}}', qs);
+  const a = parseLlmAnswers('Voici : {"secret": 0.12, "kind": {"quick_reply": 0.6, "task": 0.3, "complex": 0.3}}', qs);
   assert.deepEqual(a.secret, { type: 'noul', noul: 0.12 });
   assert.equal((a.kind as { choice: string }).choice, 'quick_reply');
   assert.equal((a.kind as { probabilities: Record<string, number> }).probabilities.quick_reply, 0.5);
