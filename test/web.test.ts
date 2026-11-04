@@ -78,3 +78,16 @@ test('première connexion sans jeton : une seule fois, depuis le réseau local, 
     assert.equal((await fetch(`${B}/api/state`)).status, 401);
   } finally { await gw.stop(); o.cleanup(); }
 });
+
+test('première configuration : sans jeton même après l\'heure, tant qu\'Odin n\'est pas configuré', async () => {
+  const o = makeOdin([]);
+  o.demo = true;
+  const port = 21000 + Math.floor(Math.random() * 20000);
+  const token = ensureWebToken(o.paths);
+  const web = new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token });
+  (web as unknown as { startedAt: number }).startedAt = Date.now() - 5 * 3600_000; // démarré il y a 5 h
+  const gw = new Gateway(o, { owners: { web: ['*'] } }); gw.add(web); await gw.start();
+  try {
+    assert.equal((await fetch(`http://127.0.0.1:${port}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } })).status, 200);
+  } finally { await gw.stop(); o.cleanup(); }
+});

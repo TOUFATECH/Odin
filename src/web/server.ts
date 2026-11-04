@@ -93,7 +93,7 @@ export class WebChannel implements Channel {
 
   // ---- Première connexion (comme l'accueil de Home Assistant) ----
   // Tant qu'aucun appareil ne s'est jamais connecté, le premier navigateur du réseau LOCAL qui ouvre
-  // Odin reçoit l'accès, sans jeton, pendant la première heure après le démarrage. Ensuite, le jeton
+  // Odin reçoit l'accès, sans jeton : tant qu'Odin n'est pas configuré, ou dans l'heure qui suit son démarrage. Ensuite, le jeton
   // redevient obligatoire. Utile quand Odin tourne en service (LXC, serveur) et que personne n'a vu le lien.
   private readonly startedAt = Date.now();
   private claimedFile(): string { return join(this.odin.paths.home, 'web-claimed'); }
@@ -104,7 +104,8 @@ export class WebChannel implements Channel {
   /** La première connexion sans jeton est-elle encore possible pour cette requête ? */
   private claimable(req: IncomingMessage): boolean {
     if (existsSync(this.claimedFile())) return false;
-    if (Date.now() - this.startedAt > 60 * 60_000) return false;
+    // Pas encore configuré (aucun modèle) : pas de limite de temps ; sinon, la première heure après le démarrage.
+    if (!this.odin.demo && Date.now() - this.startedAt > 60 * 60_000) return false;
     if (this.odin.muninn.listSessions(500).some((s) => s.id.startsWith('web:'))) { this.markClaimed('déjà utilisé'); return false; }
     const ip = this.clientIp(req).replace(/^fwd:/, '');
     return isPrivateHost(ip); // jamais depuis Internet
