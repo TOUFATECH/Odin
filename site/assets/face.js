@@ -25,7 +25,7 @@
     peur: { tint: C('#6E5BB8', '#8574CC', '#AB9FE2', '#D9D2F7'), anim: 'tremble' },
     gene: { tint: C('#E2557A', '#EE7896', '#F6A9BD', '#FFD8E2') },
     fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4') },
-    ecoute: { tint: C('#2E9E5B', '#43B672', '#7CD29E', '#C2EDD3'), anim: 'tilt' },
+    ecoute: { tint: C('#2E9E5B', '#43B672', '#7CD29E', '#C2EDD3') },
     regarde: { tint: C('#0E8FB8', '#22A7CF', '#64C6E2', '#B2E6F4'), anim: 'look' },
     parle: { tint: C('#D8A112', '#E8B62C', '#F3CF68', '#FCEAB0'), anim: 'talk' },
     cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6') },

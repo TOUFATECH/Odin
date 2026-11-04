@@ -141,16 +141,13 @@ section{padding-block:clamp(56px,9vw,104px)}
 .odin svg{display:block;width:100%;height:100%;overflow:visible}
 .odin .body{transform-origin:60px 60px;animation:o-breathe 4.4s ease-in-out infinite}
 .odin .eyes{animation:o-glance 11s ease-in-out infinite}
-.odin .brow{transform-box:fill-box;transform-origin:center;animation:o-focus 13s ease-in-out infinite}
-.odin .brow.r{animation-name:o-focus-r}
+.odin .brow{transform:none!important;animation:none!important}
 .odin .eye{transform-box:fill-box;transform-origin:center;animation:o-blink 5.2s infinite}
 .odin .eye.r{animation-delay:.04s}
 .odin .halo{transform-origin:60px 60px;animation:o-halo 4.4s ease-in-out infinite}
 .odin.float{animation:o-float 6s ease-in-out infinite}
-.odin.thinking .brow{animation:none;transform:rotate(-14deg) scaleY(.72)}.odin.thinking .brow.r{transform:rotate(14deg) scaleY(.72)}
 .odin.thinking .body{animation-duration:2.2s}
 .odin.talking .body{animation:o-talk .5s ease-in-out infinite}
-.odin.happy .eye{animation:none;transform:scaleY(.45) translateY(-4px)}
 @keyframes o-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035) translateY(-1px)}}
 @keyframes o-halo{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.08);opacity:1}}
 @keyframes o-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
@@ -171,7 +168,6 @@ section{padding-block:clamp(56px,9vw,104px)}
 .odin.bounce .eye{animation:o-bounce-eye .9s ease}
 .odin.angry .body{animation:o-shake .5s ease-in-out 3}
 .odin.angry .eye{animation:none}
-.odin.angry .brow.l{transform:rotate(22deg) scaleY(.7)}.odin.angry .brow.r{transform:rotate(-22deg) scaleY(.7)}
 .odin.angry .s1{animation:o-c1 3s ease forwards}.odin.angry .s2{animation:o-c2 3s ease forwards}.odin.angry .s3{animation:o-c3 3s ease forwards}.odin.angry .s4{animation:o-c4 3s ease forwards}
 @keyframes o-bounce{0%{transform:translateY(0) scale(1)}20%{transform:translateY(-16px) scale(.97,1.05)}45%{transform:translateY(0) scale(1.08,.92)}62%{transform:translateY(-6px) scale(.99,1.02)}80%{transform:translateY(0) scale(1.03,.97)}100%{transform:translateY(0) scale(1)}}
 @keyframes o-bounce-eye{0%,35%{transform:scaleY(1)}45%,55%{transform:scaleY(.12)}65%,100%{transform:scaleY(1)}}
