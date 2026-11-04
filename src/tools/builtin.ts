@@ -12,7 +12,7 @@ export const isExternal = (rel: string) => /^(inbox|telechargements|télécharge
 import { assertPublicUrl, isPrivateHost, jailPath } from '../heimdall/policy.ts';
 
 /** Adresse d'un service de métadonnées cloud (vol d'identifiants) : refusée partout. */
-const isMetadataHost = (h: string) => /^(::ffff:)?169\.254\.169\.254$|^fd00:ec2::254$/i.test(h) || h === 'metadata.google.internal';
+export const isMetadataHost = (h: string) => /^(::ffff:)?169\.254\.169\.254$|^fd00:ec2::254$/i.test(h) || h === 'metadata.google.internal';
 /** http(s) vers n'importe quelle machine, réseau local compris (Odin Breaker, http_request). */
 function assertReachableUrl(raw: string): URL {
   const u = new URL(raw);
