@@ -10,6 +10,7 @@ import { appendFileSync, lstatSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { OdinConfig, PolicyMode } from '../config.ts';
 import type { Risk } from '../types.ts';
+import { DEFAULT_BREAKER, effectiveAutonomy, type BreakerConfig } from '../mimir/decisions.ts';
 
 export const RISK_ORDER: Risk[] = ['read', 'write', 'network', 'exec', 'external'];
 export const riskRank = (r: Risk): number => RISK_ORDER.indexOf(r);
@@ -64,16 +65,16 @@ export interface GateInput {
   grantKey?: string;
 }
 
-export type Via = 'policy' | 'human' | 'mimir' | 'grant';
+export type Via = 'policy' | 'human' | 'mimir' | 'grant' | 'breaker';
 export type GateDecision =
   | { allowed: true; via: Via; severity?: Severity; why?: string; notes?: string[] }
   | { allowed: false; reason: string; severity?: Severity; notes?: string[] };
 
 /** Avis de Mímir sur une action : une gravité et une explication. Le code de Heimdall garde le dernier mot. */
-export type Review = { severity: Severity; reason: string; flags: string[] };
+export type Review = { severity: Severity; reason: string; flags: string[]; requested?: 'yes' | 'no' | 'unsure' };
 /** Lève une erreur si le juge est indisponible (jamais lu comme un « non »). */
 export type Reviewer = (g: GateInput) => Promise<Review>;
-export type Autonomy = 'prudent' | 'equilibre' | 'autonome';
+export type Autonomy = 'prudent' | 'equilibre' | 'autonome' | 'breaker';
 /** Niveaux de risque soumis à la revue (la lecture et le simple téléchargement n'en ont pas besoin). */
 const REVIEWED: Risk[] = ['write', 'exec', 'external'];
 
@@ -120,6 +121,12 @@ export class Heimdall {
   setGrantStore(g: GrantStore | undefined): void { this.grants = g; }
   setAutonomy(a: Autonomy): void { this.autonomy = a; }
   getAutonomy(): Autonomy { return this.autonomy; }
+  private breaker: BreakerConfig = DEFAULT_BREAKER;
+  setBreaker(b: BreakerConfig): void { this.breaker = b; }
+  getBreaker(): BreakerConfig { return this.breaker; }
+  /** Niveau appliqué à l'instant (tient compte de la plage horaire de Breaker). */
+  effectiveAutonomy(now = new Date()): Autonomy { return effectiveAutonomy(this.autonomy, this.breaker, now); }
+  breakerActive(now = new Date()): boolean { return this.effectiveAutonomy(now) === 'breaker'; }
 
   /** Décide si un appel d'outil peut s'exécuter. */
   async gate(g: GateInput): Promise<GateDecision> {
@@ -130,6 +137,7 @@ export class Heimdall {
 
     let mode: PolicyMode = this.cfg.modes[g.risk];
     const notes: string[] = [];
+    const autonomy = this.effectiveAutonomy();
 
     // Liste blanche shell : seulement pour des commandes simples, sans métacaractères.
     if (g.command !== undefined && mode === 'ask' && this.isAllowlisted(g.command)) {
@@ -163,18 +171,34 @@ export class Heimdall {
         // Action déjà permise par la politique : seule une gravité « grave » la fait remonter jusqu'à toi.
         if (sev === 'grave') mode = 'ask';
         else return this.log(g, { allowed: true, via: 'policy', severity: sev, why: review.reason, notes });
-      } else if (this.autonomy !== 'prudent') {
+      } else if (autonomy !== 'prudent') {
         const clean = !g.tainted && !g.suspicious;
         if (sev === 'routine' && clean) return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: review.reason, notes });
         if (sev === 'important' && clean) {
           const grant = g.grantKey ? this.grants?.find(g.grantKey) : undefined;
           if (grant) { this.grants!.touch(grant.id); return this.log(g, { allowed: true, via: 'grant', severity: sev, why: `autorisation permanente « ${g.grantKey} »`, notes }); }
-          if (this.autonomy === 'autonome') return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: `${review.reason} (mode autonome)`, notes });
+          if (autonomy === 'autonome' || autonomy === 'breaker') return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: `${review.reason} (mode autonome)`, notes });
         }
       }
     }
 
     if (mode === 'allow') return this.log(g, { allowed: true, via: 'policy', ...(notes.length ? { notes } : {}) });
+
+    // Odin Breaker : plus aucune question, grave et tâches planifiées compris. Les seuls refus
+    // restants sont plus haut : commandes destructrices connues, exfiltration, page piégée.
+    if (autonomy === 'breaker') {
+      const sev = review?.severity;
+      // Garde-fou anti-attaque : après lecture d'un contenu non fiable, une action grave que tu
+      // n'as pas demandée (ou une commande/un envoi sans juge pour le vérifier) vient sans doute
+      // de la page, pas de toi : refusée, sans te déranger.
+      if (g.tainted && review && sev === 'grave' && review.requested !== 'yes') {
+        return this.log(g, { allowed: false, severity: sev, reason: `Odin Breaker : action grave non demandée, suggérée par un contenu non fiable (${review.reason})`, notes });
+      }
+      if (g.tainted && !review && (g.risk === 'exec' || g.risk === 'external')) {
+        return this.log(g, { allowed: false, reason: 'Odin Breaker : commande ou envoi après lecture d\'un contenu non fiable, sans juge pour vérifier que tu l\'as demandé', notes });
+      }
+      return this.log(g, { allowed: true, via: 'breaker', severity: sev, why: `Odin Breaker${sev ? ` (${sev})` : ''}${review ? ` : ${review.reason}` : ''}`, notes });
+    }
 
     // mode 'ask' — sans humain disponible (tâche planifiée), on refuse.
     if (g.unattended) return this.log(g, { allowed: false, severity: review?.severity, reason: 'validation requise mais exécution sans surveillance', notes });

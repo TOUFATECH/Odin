@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Risk } from './types.ts';
-import { DEFAULT_MIMIR, type MimirConfig } from './mimir/decisions.ts';
+import { AUTONOMY_LEVELS, DEFAULT_MIMIR, type MimirConfig, validHhmm } from './mimir/decisions.ts';
 import { validCidr } from './web/access.ts';
 
 export type PolicyMode = 'allow' | 'ask' | 'deny';
@@ -168,6 +168,16 @@ export function validateConfig(c: OdinConfig): string[] {
   if (c.agent.maxSteps < 1 || c.agent.maxSteps > 200) errs.push('agent.maxSteps doit être entre 1 et 200');
   if (!['none', 'docker'].includes(c.policy.sandbox?.kind)) errs.push('policy.sandbox.kind doit valoir none ou docker');
   if (!['auto', 'local', 'llm', 'jev', 'local+llm', 'local+jev'].includes(c.mimir.judge)) errs.push('mimir.judge doit valoir auto, local, llm, jev, local+llm ou local+jev');
+  if (!AUTONOMY_LEVELS.includes(c.mimir.autonomy)) errs.push('mimir.autonomy doit valoir prudent, equilibre, autonome ou breaker');
+  {
+    const b = c.mimir.breaker;
+    if (!['always', 'night'].includes(b.schedule)) errs.push('mimir.breaker.schedule doit valoir always ou night');
+    if (!validHhmm(b.from) || !validHhmm(b.to)) errs.push('mimir.breaker.from / to : des heures au format HH:MM');
+    if (b.reportAt && !validHhmm(b.reportAt)) errs.push('mimir.breaker.reportAt : une heure HH:MM (ou vide)');
+    if (!['prudent', 'equilibre', 'autonome'].includes(b.fallback)) errs.push('mimir.breaker.fallback doit valoir prudent, equilibre ou autonome');
+    if (!Number.isInteger(b.maxSteps) || b.maxSteps < 1 || b.maxSteps > 1000) errs.push('mimir.breaker.maxSteps doit être entre 1 et 1000');
+    if (!(b.maxCostPerTurnUsd >= 0)) errs.push('mimir.breaker.maxCostPerTurnUsd doit être positif (0 = sans limite)');
+  }
   if (c.network.intervalMin < 5) errs.push('network.intervalMin doit valoir au moins 5 minutes');
   if (!['local', 'lan', 'wan'].includes(c.web.access)) errs.push('web.access doit valoir local, lan ou wan');
   if (!['127.0.0.1', 'localhost', '::1'].includes(c.web.host)) errs.push('web.host : 127.0.0.1, localhost ou ::1 (pour ouvrir au réseau, utilise web.access = lan ou wan)');

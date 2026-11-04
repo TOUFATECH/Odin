@@ -221,7 +221,9 @@ export class WebChannel implements Channel {
       drafts: skills.drafts().map((s) => ({ name: s.name, description: s.description, version: s.version, reason: s.meta.reason ?? '', warnings: s.meta.warnings ?? '', body: s.body })),
       jobs: muninn.listJobs(),
       grants: muninn.listGrants(),
-      autonomy: cfg.mimir.enabled ? cfg.mimir.autonomy : 'prudent',
+      autonomy: cfg.mimir.autonomy,
+      autonomyNow: this.odin.heimdall.effectiveAutonomy(),
+      breaker: cfg.mimir.breaker,
       judge: this.odin.mimir?.judgeName ?? null,
       settings: settingsView(cfg, Boolean(this.odin.demo)),
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
@@ -243,7 +245,7 @@ export class WebChannel implements Channel {
       case 'grant_revoke': muninn.revokeGrant(Number(b.id)); break;
       case 'set_autonomy': {
         const a = String(b.autonomy) as Autonomy;
-        if (!['prudent', 'equilibre', 'autonome'].includes(a)) return { ok: false, error: 'niveau inconnu' };
+        if (!['prudent', 'equilibre', 'autonome', 'breaker'].includes(a)) return { ok: false, error: 'niveau inconnu' };
         setConfigValue(this.odin.paths, ['mimir', 'autonomy'], a);
         this.odin.cfg.mimir.autonomy = a;
         this.odin.heimdall.setAutonomy(a);
@@ -269,6 +271,23 @@ export class WebChannel implements Channel {
           const env = key && p.apiKeyEnv ? { ...process.env, [p.apiKeyEnv]: key } : process.env;
           return await testProvider(p, 20_000, env);
         } catch (e) { return { ok: false, message: (e as Error).message }; }
+      }
+      case 'breaker_save': {
+        // Réglages d'Odin Breaker : appliqués tout de suite, sans redémarrer.
+        const cur = this.odin.cfg.mimir.breaker;
+        const next = {
+          schedule: b.schedule === 'night' ? 'night' : 'always',
+          from: String(b.from ?? cur.from), to: String(b.to ?? cur.to),
+          fallback: ['prudent', 'equilibre', 'autonome'].includes(String(b.fallback)) ? String(b.fallback) : cur.fallback,
+          reportAt: String(b.reportAt ?? cur.reportAt),
+          maxSteps: Math.round(Number(b.maxSteps ?? cur.maxSteps)),
+          maxCostPerTurnUsd: Number(b.maxCostPerTurnUsd ?? cur.maxCostPerTurnUsd),
+          proactive: b.proactive === undefined ? cur.proactive : Boolean(b.proactive),
+        } as typeof cur;
+        try { setConfigValue(this.odin.paths, ['mimir', 'breaker'], next); } catch (e) { return { ok: false, error: (e as Error).message }; }
+        this.odin.cfg.mimir.breaker = next;
+        this.odin.heimdall.setBreaker(next);
+        break;
       }
       case 'access_links': return { ok: true, links: this.urls }; // avec le jeton, pour ouvrir sur un autre appareil
       case 'token_rotate': {

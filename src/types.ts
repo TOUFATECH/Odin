@@ -76,4 +76,4 @@ export type AgentEvent =
   | { type: 'skill_proposed'; name: string }
   | { type: 'budget'; tokens: number; costUsd: number }
   /** Décision de Heimdall/Mímir sur une action, pour la transparence. */
-  | { type: 'decision'; tool: string; summary: string; allowed: boolean; via?: 'policy' | 'human' | 'mimir' | 'grant'; severity?: 'routine' | 'important' | 'grave' | 'blocked'; why: string };
+  | { type: 'decision'; tool: string; summary: string; allowed: boolean; via?: 'policy' | 'human' | 'mimir' | 'grant' | 'breaker'; severity?: 'routine' | 'important' | 'grave' | 'blocked'; why: string };

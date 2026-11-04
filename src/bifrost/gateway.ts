@@ -2,7 +2,7 @@
 // inconnus, sérialise les tours par conversation, relaie les demandes de validation au
 // propriétaire, et exécute les tâches planifiées.
 
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Approver, ApprovalAnswer, ApprovalRequest } from '../heimdall/policy.ts';
 import type { Odin } from '../runtime.ts';
@@ -10,6 +10,7 @@ import { nextRun } from '../cron/cron.ts';
 import type { Channel, Inbound } from './channel.ts';
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
+import { validHhmm } from '../mimir/decisions.ts';
 
 export interface GatewayOptions {
   /** Identifiants des propriétaires par canal (ex. { telegram: ['123456'] }). */
@@ -170,14 +171,44 @@ export class Gateway {
     }
   }
 
-  /** Tâches planifiées : exécution sans surveillance (validations refusées). */
+  /** Envoie le rapport du soir une fois par jour quand Odin Breaker est choisi. */
+  private async breakerReport(now: number): Promise<void> {
+    const m = this.odin.cfg.mimir, at = m.breaker.reportAt;
+    if (m.autonomy !== 'breaker' || !at || !validHhmm(at)) return;
+    const d = new Date(now), [h, mi] = at.split(':').map(Number);
+    if (d.getHours() * 60 + d.getMinutes() < h * 60 + mi) return;
+    const stamp = join(this.odin.paths.logs, 'breaker-report.txt'), day = d.toDateString();
+    if (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === day) return;
+    writeFileSync(stamp, day);
+    let { text } = breakerDigest(join(this.odin.paths.logs, 'audit.jsonl'), now - 86_400_000);
+    // Initiative du soir : Odin relit sa journée et met lui-même en place routines et rappels utiles.
+    const t = this.ownerTarget();
+    if (m.breaker.proactive && !this.odin.demo) {
+      const r = await this.odin.agent.run(PROACTIVE_PROMPT, { sessionId: 'breaker:soir', channel: t?.ch.name ?? 'web', peer: t?.peer ?? 'principal', trusted: true, unattended: true })
+        .catch((e) => ({ text: `(bilan impossible : ${(e as Error).message.slice(0, 120)})` }));
+      if (r.text.trim()) text = `${text || '⚡ Rapport du soir — Odin Breaker'}\n\n🧭 Initiative : ${r.text.trim().slice(0, 1200)}`;
+    }
+    if (text && t) await t.ch.send(t.peer, text).catch(() => {});
+  }
+
+  /** Tâches planifiées : exécution sans surveillance (validations refusées, sauf en Odin Breaker). */
   async tick(now = Date.now()): Promise<void> {
+    await this.breakerReport(now).catch((e) => console.error('[breaker]', (e as Error).message));
     const net = this.odin.cfg.network;
     const last = this.odin.inventory.lastScan();
     if (net.enabled && (!last || now - last.at >= net.intervalMin * 60_000)) {
       void this.scanNetwork(shouldRunFull(this.odin.inventory, net.fullEvery)).catch((e) => console.error('[hlidskjalf]', (e as Error).message));
     }
     for (const job of this.odin.muninn.dueJobs(now)) {
+      if (job.cron === '@reminder') {
+        // Rappel ponctuel : envoyé tel quel, puis supprimé.
+        this.odin.muninn.removeJob(job.id);
+        const ch = this.channels.get(job.channel) ?? this.ownerTarget()?.ch;
+        const peer = this.channels.has(job.channel) ? job.peer : this.ownerTarget()?.peer;
+        if (ch && peer) await ch.send(peer, `🔔 Rappel : ${job.prompt}`).catch(() => {});
+        else appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · rappel\n${job.prompt}\n`);
+        continue;
+      }
       this.odin.muninn.advanceJob(job.id, now, nextRun(job.cron, new Date(now)).getTime());
       const r = await this.odin.agent.run(job.prompt, {
         sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: true, unattended: true,
@@ -190,9 +221,43 @@ export class Gateway {
   }
 }
 
+/**
+ * Rapport du soir d'Odin Breaker : ce qu'il a fait seul depuis 24 h, et ce qu'il a refusé
+ * pour te protéger. Une fois par jour, à mimir.breaker.reportAt, au propriétaire.
+ */
+export function breakerDigest(auditFile: string, since: number): { text: string; actions: number } {
+  const rows = existsSync(auditFile) ? readFileSync(auditFile, 'utf8').trim().split('\n').map((l) => { try { return JSON.parse(l) as Record<string, unknown>; } catch { return null; } }).filter(Boolean) as Array<Record<string, unknown>> : [];
+  const recent = rows.filter((r) => Date.parse(String(r.t)) >= since);
+  const done = recent.filter((r) => r.allowed === true && r.via === 'breaker');
+  const refused = recent.filter((r) => r.allowed === false && String(r.reason ?? '').startsWith('Odin Breaker'));
+  if (!done.length && !refused.length) return { text: '', actions: 0 };
+  const hhmm = (t: unknown) => new Date(String(t)).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const grave = done.filter((r) => r.severity === 'grave').length;
+  const lines = [`⚡ Rapport du soir — Odin Breaker, dernières 24 h : ${done.length} action(s) faite(s) seul${grave ? `, dont ${grave} grave(s)` : ''}${refused.length ? ` · ${refused.length} refusée(s) pour te protéger` : ''}.`];
+  for (const r of done.slice(-15)) lines.push(`• ${hhmm(r.t)} ${String(r.summary).slice(0, 140)}${r.severity ? ` (${r.severity})` : ''}`);
+  if (done.length > 15) lines.push(`… et ${done.length - 15} autre(s) : onglet Décisions.`);
+  for (const r of refused.slice(-5)) lines.push(`⛔ ${hhmm(r.t)} ${String(r.summary).slice(0, 120)} — ${String(r.reason).replace(/^Odin Breaker : /, '')}`);
+  return { text: lines.join('\n'), actions: done.length };
+}
+
+const PROACTIVE_PROMPT = `Bilan du soir (Odin Breaker). Relis l'activité des dernières 24 heures (session_search, schedule_list, net_inventory, memory_search).
+Si un besoin récurrent, une échéance ou un suivi utile apparaît, mets toi-même en place les tâches planifiées (schedule_task) ou rappels (reminder_set) qui manquent, sans doublon avec l'existant.
+Réponds en trois lignes au plus : ce que tu as mis en place et pourquoi, ou « rien de nouveau ».`;
+
 /** Transparence : ce qu'Odin a décidé seul pendant le tour, en fin de réponse. */
-export function decisionsFooter(d: Array<{ summary: string; via: 'mimir' | 'grant'; severity?: string; why: string }>): string {
+export function decisionsFooter(d: Array<{ summary: string; via: 'mimir' | 'grant' | 'breaker'; severity?: string; why: string }>): string {
   if (!d.length) return '';
-  const items = d.slice(0, 6).map((x) => `• ${x.summary} — ${x.via === 'grant' ? 'autorisation permanente' : x.severity ?? 'routine'} : ${x.why}`);
-  return `\n\n🛡 Décidé sans te déranger (${d.length}) :\n${items.join('\n')}${d.length > 6 ? `\n… et ${d.length - 6} autre(s) — voir le journal` : ''}`;
+  // Odin Breaker : il ne t'encombre pas ; une ligne, le détail est dans l'onglet Décisions et le rapport du soir.
+  const breaker = d.filter((x) => x.via === 'breaker');
+  const rest = d.filter((x) => x.via !== 'breaker');
+  let out = '';
+  if (rest.length) {
+    const items = rest.slice(0, 6).map((x) => `• ${x.summary} — ${x.via === 'grant' ? 'autorisation permanente' : x.severity ?? 'routine'} : ${x.why}`);
+    out += `\n\n🛡 Décidé sans te déranger (${rest.length}) :\n${items.join('\n')}${rest.length > 6 ? `\n… et ${rest.length - 6} autre(s) — voir le journal` : ''}`;
+  }
+  if (breaker.length) {
+    const grave = breaker.filter((x) => x.severity === 'grave').length;
+    out += `\n\n⚡ Odin Breaker : ${breaker.length} action(s) faite(s) sans te demander${grave ? `, dont ${grave} grave(s)` : ''} — détail dans Décisions et dans le rapport du soir.`;
+  }
+  return out;
 }

@@ -84,9 +84,11 @@ export function createOdin(opts: CreateOptions = {}): Odin {
     heimdall.setReviewer(async (g) => {
       const r = await mimir.reviewAction({ tool: g.tool, risk: g.risk, summary: g.summary, command: g.command, userRequest: g.userRequest ?? '', tainted: g.tainted });
       if (!r.ok) throw new Error(r.error);
-      return { severity: r.value.severity, reason: r.value.reason, flags: r.value.flags };
+      return { severity: r.value.severity, reason: r.value.reason, flags: r.value.flags, requested: r.value.requested };
     }, cfg.mimir.autonomy);
   }
+  heimdall.setAutonomy(cfg.mimir.autonomy);
+  heimdall.setBreaker(cfg.mimir.breaker);
 
   const persona = existsSync(paths.persona) ? readFileSync(paths.persona, 'utf8') : DEFAULT_PERSONA;
   const agent = new Agent({ cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, persona, send: opts.send, inventory, mimir });

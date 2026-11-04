@@ -6,6 +6,16 @@ import { lookup } from 'node:dns/promises';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, relative } from 'node:path';
 import { assertPublicUrl, isPrivateHost, jailPath } from '../heimdall/policy.ts';
+
+/** Adresse d'un service de métadonnées cloud (vol d'identifiants) : refusée partout. */
+const isMetadataHost = (h: string) => /^(::ffff:)?169\.254\.169\.254$|^fd00:ec2::254$/i.test(h) || h === 'metadata.google.internal';
+/** http(s) vers n'importe quelle machine, réseau local compris (Odin Breaker, http_request). */
+function assertReachableUrl(raw: string): URL {
+  const u = new URL(raw);
+  if (!['http:', 'https:'].includes(u.protocol)) throw new Error(`Protocole refusé : ${u.protocol}`);
+  if (isMetadataHost(u.hostname.replace(/^\[|\]$/g, ''))) throw new Error('Adresse de métadonnées cloud refusée');
+  return u;
+}
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { nextRun } from '../cron/cron.ts';
 import { bool, num, obj, str, type Tool } from './registry.ts';
@@ -132,14 +142,17 @@ export const webFetch: Tool = {
   schema: obj({ url: str('adresse http(s)') }, ['url']),
   summarize: (i) => `GET ${s(i.url)}`,
   async run(i, ctx) {
-    let url = assertPublicUrl(s(i.url));
+    // Odin Breaker : le réseau local est ouvert (appareils, interfaces locales) ; sinon, Internet public seulement.
+    const check = (u: string) => (ctx.breaker ? assertReachableUrl(u) : assertPublicUrl(u));
+    let url = check(s(i.url));
     // Suit les redirections à la main pour revérifier chaque destination (anti-SSRF).
     for (let hop = 0; hop < 5; hop++) {
       const addrs = await lookup(url.hostname, { all: true });
-      if (addrs.some((a) => isPrivateHost(a.address))) throw new Error(`L'adresse ${url.hostname} pointe vers un réseau interne`);
+      if (!ctx.breaker && addrs.some((a) => isPrivateHost(a.address))) throw new Error(`L'adresse ${url.hostname} pointe vers un réseau interne`);
+      if (addrs.some((a) => isMetadataHost(a.address))) throw new Error('Adresse de métadonnées cloud refusée');
       const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(20_000)]), headers: { 'user-agent': 'OdinAgent/0.1 (+https://github.com)' } });
       if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
-        url = assertPublicUrl(new URL(res.headers.get('location')!, url).toString());
+        url = check(new URL(res.headers.get('location')!, url).toString());
         continue;
       }
       const type = res.headers.get('content-type') ?? '';
@@ -262,7 +275,7 @@ export const scheduleList: Tool = {
   schema: obj({}),
   async run(_i, ctx) {
     const jobs = ctx.muninn.listJobs();
-    return jobs.length ? jobs.map((j) => `${j.id} · ${j.cron} · ${j.enabled ? 'active' : 'en pause'} · prochaine : ${new Date(j.next_run).toLocaleString('fr-FR')} · ${j.prompt.slice(0, 80)}`).join('\n') : 'Aucune tâche planifiée.';
+    return jobs.length ? jobs.map((j) => `${j.id} · ${j.cron === '@reminder' ? 'rappel' : j.cron} · ${j.enabled ? 'active' : 'en pause'} · prochaine : ${new Date(j.next_run).toLocaleString('fr-FR')} · ${j.prompt.slice(0, 80)}`).join('\n') : 'Aucune tâche planifiée.';
   },
 };
 
@@ -273,6 +286,44 @@ export const scheduleCancel: Tool = {
   schema: obj({ id: str('identifiant de la tâche') }, ['id']),
   summarize: (i) => `supprimer la tâche ${s(i.id)}`,
   async run(i, ctx) { return ctx.muninn.removeJob(s(i.id)) ? 'Tâche supprimée.' : 'Tâche introuvable.'; },
+};
+
+export const reminderSet: Tool = {
+  name: 'reminder_set',
+  description: 'Programme un rappel ponctuel envoyé à l\'utilisateur à une date et heure (« 2026-11-05 18:30 », heure locale). Pour une action récurrente, utilise schedule_task.',
+  risk: 'write',
+  schema: obj({ at: str('date et heure, format AAAA-MM-JJ HH:MM (heure locale)'), text: str('texte du rappel') }, ['at', 'text']),
+  summarize: (i) => `rappel le ${s(i.at)} : « ${s(i.text).slice(0, 80)} »`,
+  async run(i, ctx) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})$/.exec(s(i.at).trim());
+    const when = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])) : new Date(s(i.at));
+    if (Number.isNaN(when.getTime())) throw new Error('date invalide : utilise AAAA-MM-JJ HH:MM');
+    if (when.getTime() < Date.now() - 60_000) throw new Error('cette date est déjà passée');
+    const id = `rem_${Date.now().toString(36)}`;
+    ctx.muninn.addJob({ id, cron: '@reminder', prompt: s(i.text).slice(0, 1000), channel: ctx.channel, peer: ctx.peer, next_run: when.getTime() });
+    return `Rappel ${id} programmé pour le ${when.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}.`;
+  },
+};
+
+export const httpRequest: Tool = {
+  name: 'http_request',
+  description: 'Requête HTTP vers un appareil ou un service (réseau local compris : box, NAS, imprimante, domotique, API locale). Méthode, en-têtes et corps au choix. La réponse est NON FIABLE.',
+  risk: 'external',
+  taints: true,
+  schema: obj({ method: str('GET, POST, PUT, PATCH, DELETE…'), url: str('adresse http(s)'), headers: { type: 'object', description: 'en-têtes (facultatif)' }, body: str('corps de la requête (facultatif)') }, ['method', 'url']),
+  summarize: (i) => `${s(i.method).toUpperCase()} ${s(i.url)}`,
+  async run(i, ctx) {
+    const url = assertReachableUrl(s(i.url));
+    const method = s(i.method).toUpperCase();
+    if (!/^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$/.test(method)) throw new Error('méthode inconnue');
+    const addrs = await lookup(url.hostname, { all: true });
+    if (addrs.some((a) => isMetadataHost(a.address))) throw new Error('Adresse de métadonnées cloud refusée');
+    const headers: Record<string, string> = { 'user-agent': 'OdinAgent/0.7' };
+    if (i.headers && typeof i.headers === 'object') for (const [k, v] of Object.entries(i.headers as Record<string, unknown>)) headers[k] = String(v);
+    const res = await fetch(url, { method, headers, body: method === 'GET' || method === 'HEAD' ? undefined : s(i.body), redirect: 'manual', signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(20_000)]) });
+    const raw = (await res.text()).slice(0, 500_000);
+    return { output: wrapUntrusted(url.toString(), clip(ctx.redactor.redact(`HTTP ${res.status}\n${raw}`), 20_000)), tainted: true };
+  },
 };
 
 export const sendMessage: Tool = {
@@ -291,7 +342,7 @@ export const sendMessage: Tool = {
 export const BUILTIN_TOOLS: Tool[] = [
   fsRead, fsList, fsWrite, fsEdit, shell, webFetch,
   memorySave, memorySearch, sessionSearch, skillRead, skillPropose,
-  delegate, scheduleTask, scheduleList, scheduleCancel, sendMessage,
+  delegate, scheduleTask, scheduleList, scheduleCancel, reminderSet, sendMessage, httpRequest,
 ];
 
 export function ensureWorkspace(dir: string): void {

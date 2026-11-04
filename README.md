@@ -1,6 +1,6 @@
 <div align="center">
 
-# ᛟ Odin
+# ᛟ Odin Agent Majordome
 
 **Ton agent IA personnel : il réfléchit avant d'agir, apprend de chaque tâche, et ne te dérange que quand ça compte.**
 
@@ -226,18 +226,31 @@ Odin découvre les appareils sans droits administrateur (table ARP, balayage TCP
 
 Avant chaque action qui écrit, exécute ou envoie, Odin se pose 7 questions simples : l'as-tu demandée ? supprime-t-elle des données ? envoie-t-elle des données dehors ? modifie-t-elle le système ? engage-t-elle de l'argent ? partage-t-elle des données privées ? est-elle difficile à annuler ? Une table de vérité, écrite dans le code, en déduit une **gravité** :
 
-| Gravité | Exemples | Prudent | **Équilibré** (défaut) | Autonome |
-|---|---|---|---|---|
-| routine | créer le dossier demandé, envoyer le message dicté | demande | **fait seul, et te le dit** | fait seul |
-| important | droits administrateur, suppression définitive, effet incertain, contenu web douteux lu | demande | **demande** (ou autorisation permanente) | fait seul\* |
-| grave | argent, données privées envoyées, suppression ou changement système non demandés | demande | **demande toujours** | demande toujours |
-| bloqué | envoi non demandé après lecture d'une page piégée | refus | **refus** | refus |
+| Gravité | Exemples | Prudent | **Équilibré** (défaut) | Autonome | ⚡ Odin Breaker |
+|---|---|---|---|---|---|
+| routine | créer le dossier demandé, envoyer le message dicté | demande | **fait seul, et te le dit** | fait seul | fait seul |
+| important | droits administrateur, suppression définitive, effet incertain, contenu web douteux lu | demande | **demande** (ou autorisation permanente) | fait seul\* | fait seul |
+| grave | argent, données privées envoyées, suppression ou changement système non demandés | demande | **demande toujours** | demande toujours | fait seul\*\* |
+| bloqué | envoi non demandé après lecture d'une page piégée | refus | **refus** | refus | refus |
 
-\* sauf après lecture de contenu non fiable.
+\* sauf après lecture de contenu non fiable. \*\* sauf si un contenu non fiable vient de la suggérer.
+
+### ⚡ Odin Breaker : l'autonomie totale
+
+Le quatrième niveau. Odin mène ses missions **sans plus rien te demander**, actions graves et tâches planifiées comprises ; il discute simplement avec toi quand tu lui parles.
+
+- **Initiative** : il crée lui-même tâches planifiées et rappels (`reminder_set`) quand il repère un besoin ; chaque soir, il relit sa journée et met en place ce qui manque.
+- **Réseau local ouvert** : il agit directement sur tes appareils et services locaux (box, NAS, imprimante, domotique, API locales) avec `http_request`, inventaire et mises à jour compris.
+- **Missions longues** : jusqu'à 100 étapes par mission et un plafond de coût réglable (5 $ par défaut, 0 = sans plafond).
+- **Rapport du soir** (21 h par défaut) : tout ce qu'il a fait seul, les actions graves, et ce qu'il a refusé pour te protéger.
+- **Quand** : tout le temps, ou **seulement la nuit** (de 22 h à 7 h par défaut, avec le niveau de ton choix le jour).
+- **Ce qui reste refusé** : les seules limites protègent contre les attaques, pas contre toi. Ce sont les commandes destructrices connues (effacer le disque…), les envois de données dictés par une page piégée, les actions graves qu'un contenu non fiable vient de suggérer, et les services de métadonnées cloud.
+
+Activer : onglet Décisions ou Réglages (bouton **⚡ Odin Breaker**), ou `odin breaker on` (`odin breaker nuit` pour la nuit seulement, `odin breaker off` pour revenir).
 
 - **Transparence** : chaque décision prise seul est annoncée pendant le travail et résumée à la fin de la réponse (« 🛡 Décidé sans te déranger »). Historique complet : onglet **Décisions** ou `odin decisions`.
 - **Autorisation permanente** : pour une action importante, réponds « toujours » ; Odin ne te redemandera plus pour ce type d'action (`shell:make install`, par exemple). Jamais pour le grave. Liste et retrait : `odin grants`.
-- **Niveau** : `odin jev autonomy prudent|equilibre|autonome`, ou les boutons de l'onglet Décisions.
+- **Niveau** : `odin jev autonomy prudent|equilibre|autonome|breaker`, ou les boutons de l'onglet Décisions.
 
 ### Qui répond aux questions ?
 
@@ -277,6 +290,7 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 | `odin web` | interface web + Telegram + API + tâches planifiées |
 | `odin web access [lan\|local\|wan]` | qui peut ouvrir l'interface (`--http`, `--proxy`) |
 | `odin web rotate` | nouveau jeton : déconnecte tous les appareils |
+| `odin breaker [on\|nuit\|off]` | ⚡ Odin Breaker : autonomie totale (tout le temps, ou la nuit) |
 | `odin gateway` | pareil, sans ouvrir le navigateur (service) |
 | `odin chat` · `odin run "…"` | terminal · une seule demande |
 | `odin decisions [N]` | ce qu'Odin a décidé et pourquoi |

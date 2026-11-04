@@ -61,6 +61,7 @@ Usage : odin <commande>
   update                       met Odin à jour
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
   grants [list|revoke ID]      autorisations permanentes (« toujours autoriser »)
+  breaker [on|nuit|off]        Odin Breaker : Odin ne demande plus rien (toujours, ou la nuit)
   jev [status|autonomy NIVEAU|use JUGE|eval|test|enable|disable]
                                Mímir : jugements typés (local sans clé, llm, jev), décisions en code
 
@@ -233,6 +234,29 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   }
 }
 
+/** odin breaker [on|off|nuit|status] : le mode où Odin ne demande plus rien. */
+function breakerCmd(sub: string | undefined): void {
+  const paths = odinPaths();
+  initHome(paths);
+  const cfg = loadConfig(paths), b = cfg.mimir.breaker;
+  if (sub === 'on' || sub === 'nuit' || sub === 'night') {
+    if (sub !== 'on') setConfigValue(paths, ['mimir', 'breaker'], { ...b, schedule: 'night' });
+    else setConfigValue(paths, ['mimir', 'breaker'], { ...b, schedule: 'always' });
+    setConfigValue(paths, ['mimir', 'autonomy'], 'breaker');
+    console.log(c.yellow(`⚡ Odin Breaker activé${sub === 'on' ? '' : ` de ${b.from} à ${b.to} (sinon ${b.fallback})`} : Odin ne te demandera plus rien.`));
+    console.log(c.dim('  Restent refusés : commandes destructrices connues et ordres venus d\'un contenu piégé. Rapport chaque soir' + (b.reportAt ? ` à ${b.reportAt}` : '') + '.\n  Relance « odin web » ou le service pour l\'appliquer.'));
+    return;
+  }
+  if (sub === 'off') {
+    setConfigValue(paths, ['mimir', 'autonomy'], b.fallback);
+    console.log(c.green(`✓ Odin Breaker désactivé : retour au niveau « ${b.fallback} ».`));
+    return;
+  }
+  const on = cfg.mimir.autonomy === 'breaker';
+  console.log(`Odin Breaker : ${on ? c.yellow('activé') : 'désactivé'}${on && b.schedule === 'night' ? ` (de ${b.from} à ${b.to}, sinon ${b.fallback})` : ''} · rapport du soir : ${b.reportAt || 'aucun'} · missions : ${b.maxSteps} étapes, ${b.maxCostPerTurnUsd ? b.maxCostPerTurnUsd + ' $' : 'sans plafond de coût'}`);
+  console.log(c.dim('  odin breaker on | nuit | off'));
+}
+
 /** odin web access [local|lan|wan] [--https] [--proxy] : qui peut ouvrir l'interface web. */
 function webAccess(mode: string | undefined): void {
   const paths = odinPaths();
@@ -366,7 +390,7 @@ async function admin(): Promise<void> {
         if ('warning' in b && b.warning) console.log(c.yellow(`  ${b.warning}`));
         if (a === 'jev' || a === 'local+jev') console.log(c.dim('  Des extraits (actions, demandes, contenus à vérifier, souvenirs) seront envoyés à TypeSafe.'));
       } else if (sub === 'autonomy' || sub === 'autonomie') {
-        if (!['prudent', 'equilibre', 'autonome'].includes(a)) { console.log('Niveaux : prudent · equilibre · autonome'); return; }
+        if (!['prudent', 'equilibre', 'autonome', 'breaker'].includes(a)) { console.log('Niveaux : prudent · equilibre · autonome · breaker (Odin Breaker : plus aucune question)'); return; }
         setConfigValue(odin.paths, ['mimir', 'autonomy'], a);
         console.log(c.green(`✓ Autonomie : ${a}`) + c.dim({ prudent: '\n  Odin te demande pour chaque action soumise à validation.', equilibre: '\n  Odin décide seul la routine ; il te demande pour l\'important et le grave.', autonome: '\n  Odin décide seul la routine et l\'important ; il ne te demande que pour le grave.' }[a as 'prudent']));
       } else if (sub === 'eval') {
@@ -450,6 +474,7 @@ async function main(): Promise<void> {
   if (cmd === 'web' && pos[1] === 'access') return webAccess(pos[2]);
   if (cmd === 'web' && pos[1] === 'rotate') { ensureWebToken(odinPaths(), true); console.log(c.green('✓ Nouveau jeton : les anciens liens ne marchent plus. Relance « odin web » pour voir les nouveaux.')); return; }
   if (cmd === 'web') return gateway(!flags.has('--no-open'));
+  if (cmd === 'breaker') return breakerCmd(pos[1]);
   if (cmd === 'doctor') return doctor();
   if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'jev', 'decisions', 'grants'].includes(cmd)) return admin();
   console.log(HELP);

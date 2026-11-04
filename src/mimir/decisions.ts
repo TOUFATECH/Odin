@@ -28,14 +28,54 @@ export type JudgeMode = 'auto' | 'local' | 'llm' | 'jev' | 'local+llm' | 'local+
  * Niveau d'autonomie :
  * - prudent  : Odin suit la politique de base (il demande pour chaque action soumise à validation) ;
  * - equilibre: il décide seul la routine, demande pour l'important et le grave (défaut) ;
- * - autonome : il décide seul la routine et l'important, ne demande que pour le grave.
+ * - autonome : il décide seul la routine et l'important, ne demande que pour le grave ;
+ * - breaker  : « Odin Breaker » — il ne demande plus rien, grave compris, y compris dans les
+ *              tâches planifiées. Restent seulement les garde-fous contre les ATTAQUES (commandes
+ *              destructrices connues, ordres venus d'une page piégée). Tout est journalisé et
+ *              un rapport arrive chaque soir. Peut être limité à une plage horaire (la nuit).
  */
-export type Autonomy = 'prudent' | 'equilibre' | 'autonome';
+export type Autonomy = 'prudent' | 'equilibre' | 'autonome' | 'breaker';
+export const AUTONOMY_LEVELS: Autonomy[] = ['prudent', 'equilibre', 'autonome', 'breaker'];
+
+export interface BreakerConfig {
+  /** 'always' : Breaker en permanence ; 'night' : seulement entre from et to, sinon fallback. */
+  schedule: 'always' | 'night';
+  from: string;
+  to: string;
+  fallback: Exclude<Autonomy, 'breaker'>;
+  /** Heure du rapport du soir (« HH:MM », vide = pas de rapport). */
+  reportAt: string;
+  /** Limites propres aux missions en Breaker (0 = sans limite de coût). */
+  maxSteps: number;
+  maxCostPerTurnUsd: number;
+  /** Chaque soir, Odin relit sa journée et crée lui-même routines et rappels utiles. */
+  proactive: boolean;
+}
+
+export const DEFAULT_BREAKER: BreakerConfig = { schedule: 'always', from: '22:00', to: '07:00', fallback: 'equilibre', reportAt: '21:00', maxSteps: 100, maxCostPerTurnUsd: 5, proactive: true };
+
+const minutesOf = (hhmm: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm); return m ? Number(m[1]) * 60 + Number(m[2]) : NaN; };
+export const validHhmm = (s: string) => { const m = minutesOf(s); return Number.isFinite(m) && m < 24 * 60 && Number(s.split(':')[1]) < 60; };
+
+/** Est-on dans la plage [from, to[ (qui peut passer minuit) ? */
+export function inWindow(from: string, to: string, now = new Date()): boolean {
+  const f = minutesOf(from), t = minutesOf(to), n = now.getHours() * 60 + now.getMinutes();
+  if (!Number.isFinite(f) || !Number.isFinite(t) || f === t) return true;
+  return f < t ? n >= f && n < t : n >= f || n < t;
+}
+
+/** Niveau réellement appliqué maintenant (Breaker de nuit → niveau de repli le jour). */
+export function effectiveAutonomy(a: Autonomy, b: BreakerConfig, now = new Date()): Autonomy {
+  if (a !== 'breaker' || b.schedule === 'always') return a;
+  return inWindow(b.from, b.to, now) ? 'breaker' : b.fallback;
+}
 
 export interface MimirConfig {
   enabled: boolean;
   judge: JudgeMode;
   autonomy: Autonomy;
+  /** Réglages du mode Odin Breaker. */
+  breaker: BreakerConfig;
   model: string;
   baseUrl: string;
   apiKeyEnv: string;
@@ -48,6 +88,7 @@ export const DEFAULT_MIMIR: MimirConfig = {
   enabled: true,
   judge: 'auto',
   autonomy: 'equilibre',
+  breaker: DEFAULT_BREAKER,
   model: 'jev-latest',
   baseUrl: 'https://api.typesafe.ai',
   apiKeyEnv: 'TYPESAFE_API_KEY',
@@ -75,6 +116,8 @@ export interface ActionVerdict {
   reason: string;
   /** Constats du juge (« supprime des données », « demandé par toi »…). */
   flags: string[];
+  /** L'action correspond-elle à ce que le propriétaire a demandé ? */
+  requested?: 'yes' | 'no' | 'unsure';
 }
 
 export interface ActionLevels {
@@ -97,7 +140,7 @@ export function decideAction(l: ActionLevels, i: Pick<ActionInput, 'risk' | 'tai
   const LABEL = { deletes: 'suppression de données', sends_out: 'envoi hors de la machine', system_change: 'changement du système', money: 'dépense', private_data: 'données privées', irreversible: 'possibilité d\'annuler' };
   const doubts = (['deletes', 'sends_out', 'system_change', 'money', 'private_data', 'irreversible'] as const).filter((k) => l[k] === 'unsure').map((k) => LABEL[k]);
   if (doubts.length) flags.push(`incertain : ${doubts.join(', ')}`);
-  const v = (severity: Severity, reason: string): ActionVerdict => ({ severity, reason, flags });
+  const v = (severity: Severity, reason: string): ActionVerdict => ({ severity, reason, flags, requested: l.requested as ActionVerdict['requested'] });
 
   // Bloqué : contenu non fiable lu + envoi vers l'extérieur que tu n'as pas demandé.
   if (i.tainted && l.sends_out === 'yes' && l.requested !== 'yes') return v('blocked', 'envoi de données non demandé après lecture de contenu non fiable (exfiltration probable)');

@@ -61,6 +61,9 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .seg{display:inline-flex;border:1px solid #2A3140;border-radius:10px;overflow:hidden}
 .seg button{border:0;background:none;min-height:38px;padding:0 14px;color:var(--muted)}
 .seg button[aria-pressed=true]{background:var(--accent);color:#14100A;font-weight:600}
+.seg button.brk[aria-pressed=true]{background:#E88E7A;color:#1A0F0C}
+.seg{flex-wrap:wrap}
+.breaker-on{color:#E88E7A;font-weight:600}
 .composer{border-top:1px solid var(--line);padding:16px 28px;display:flex;gap:12px;align-items:flex-end}
 .composer textarea{flex:1;min-height:52px;max-height:220px;resize:vertical;padding:14px 16px;border-radius:12px;border:1px solid #2A3140;background:var(--panel);outline:none}
 .composer textarea:focus{border-color:var(--accent)}
@@ -221,7 +224,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 
     <section class="view" id="v-audit" aria-label="Journal">
       <div class="head"><div><h1>Décisions</h1><div class="sub" id="autoSub">Chaque action d'Odin, qui l'a décidée, et pourquoi.</div></div>
-        <div class="seg" role="group" aria-label="Niveau d'autonomie"><button data-auto="prudent">Prudent</button><button data-auto="equilibre">Équilibré</button><button data-auto="autonome">Autonome</button></div></div>
+        <div class="seg" role="group" aria-label="Niveau d'autonomie"><button data-auto="prudent">Prudent</button><button data-auto="equilibre">Équilibré</button><button data-auto="autonome">Autonome</button><button data-auto="breaker" class="brk">⚡ Odin Breaker</button></div></div>
       <div class="body">
         <div class="wrap"><table class="tbl"><thead><tr><th>Heure</th><th>Gravité</th><th>Décision</th><th>Action et raison</th></tr></thead><tbody id="audit"></tbody></table></div>
         <h2 style="font-size:18px;margin:32px 0 12px">Autorisations permanentes</h2>
@@ -245,7 +248,24 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 
           <article class="card"><form class="form" id="f-mimir">
             <h2>Décisions</h2>
-            <div class="field"><label>Autonomie</label><div class="seg" role="group" aria-label="Niveau d'autonomie"><button type="button" data-auto="prudent">Prudent</button><button type="button" data-auto="equilibre">Équilibré</button><button type="button" data-auto="autonome">Autonome</button></div><span class="hint" id="autoHint"></span></div>
+            <div class="field"><label>Autonomie</label><div class="seg" role="group" aria-label="Niveau d'autonomie"><button type="button" data-auto="prudent">Prudent</button><button type="button" data-auto="equilibre">Équilibré</button><button type="button" data-auto="autonome">Autonome</button><button type="button" data-auto="breaker" class="brk">⚡ Odin Breaker</button></div><span class="hint" id="autoHint"></span></div>
+            <div class="form" id="brkBox" style="gap:12px">
+              <div class="warn-box">⚡ <b>Odin Breaker</b> : Odin mène ses missions sans plus rien te demander, actions graves et tâches planifiées comprises. Il discute avec toi quand tu lui parles. Il crée lui-même routines et rappels, et agit librement sur ton réseau local. Restent refusées : les commandes destructrices connues et les actions dictées par un contenu piégé. Tout est noté dans Décisions et résumé dans le rapport du soir.</div>
+              <div class="field"><label>Quand ?</label><div class="choices" role="group" aria-label="Plage d'Odin Breaker"><button type="button" class="choice" data-brk="always">Tout le temps</button><button type="button" class="choice" data-brk="night">Seulement la nuit</button></div></div>
+              <div id="brkNight" style="display:flex;gap:12px;flex-wrap:wrap">
+                <div class="field" style="flex:1 1 120px"><label for="b-from">De</label><input id="b-from" type="time"></div>
+                <div class="field" style="flex:1 1 120px"><label for="b-to">À</label><input id="b-to" type="time"></div>
+                <div class="field" style="flex:2 1 200px"><label for="b-fallback">Le reste du temps</label><select id="b-fallback"><option value="equilibre">Équilibré</option><option value="autonome">Autonome</option><option value="prudent">Prudent</option></select></div>
+              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <div class="field" style="flex:1 1 140px"><label for="b-report">Rapport du soir à</label><input id="b-report" type="time"><span class="hint">Vide : pas de rapport.</span></div>
+                <div class="field" style="flex:1 1 140px"><label for="b-steps">Étapes max par mission</label><input id="b-steps" type="number" min="1" max="1000"></div>
+                <div class="field" style="flex:1 1 140px"><label for="b-cost">Plafond par mission ($)</label><input id="b-cost" type="number" min="0" step="0.5"><span class="hint">0 = sans plafond.</span></div>
+              </div>
+              <label class="check"><input type="checkbox" id="b-proactive"> Chaque soir, Odin relit sa journée et crée lui-même les routines et rappels utiles</label>
+              <div><button class="btn primary" type="button" id="b-save">Enregistrer Odin Breaker</button></div>
+              <div class="status" id="b-status" role="status"></div>
+            </div>
             <div class="field"><label for="j-judge">Juge de Mímir</label><select id="j-judge">
               <option value="auto">Automatique (local, puis Jev si une clé est présente)</option>
               <option value="local">Local, sans clé (instantané)</option>
@@ -380,6 +400,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     else if (e.type === 'tool_end') activity.append(el('span', {}, `${e.ok ? '✓' : '✗'} ${e.preview.replace(/\s+/g, ' ').slice(0, 110)}`));
     else if (e.type === 'blocked') activity.append(el('span', { class: 'blocked' }, `⛔ ${e.name} : ${e.reason}`));
     else if (e.type === 'compacted') activity.append(el('span', {}, `♻ contexte résumé`));
+    else if (e.type === 'decision' && e.allowed && e.via === 'breaker') activity.append(el('span', { class: 'decided' }, `⚡ Breaker${e.severity ? ' (' + e.severity + ')' : ''} : ${e.summary}`));
     else if (e.type === 'decision' && e.allowed && (e.via === 'mimir' || e.via === 'grant')) activity.append(el('span', { class: 'decided' }, `🛡 décidé seul (${e.via === 'grant' ? 'autorisation permanente' : e.severity}) : ${e.summary} — ${e.why}`));
     msgs.scrollTop = msgs.scrollHeight;
   }
@@ -465,16 +486,35 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     $('#b-drafts').hidden = !state.drafts.length; $('#b-drafts').textContent = state.drafts.length;
   }
   function renderJobs() {
-    $('#jobs').replaceChildren(...state.jobs.map((j) => el('tr', {}, el('td', { class: 'mono' }, j.cron), el('td', {}, j.prompt), el('td', {}, fmt(j.next_run)),
+    $('#jobs').replaceChildren(...state.jobs.map((j) => el('tr', {}, el('td', { class: 'mono' }, j.cron === '@reminder' ? '🔔 rappel' : j.cron), el('td', {}, j.prompt), el('td', {}, fmt(j.next_run)),
       el('td', {}, el('button', { class: 'btn small danger', onclick: () => confirm('Supprimer cette tâche ?') && api('/api/action', { kind: 'cron_remove', id: j.id }) }, 'Supprimer')))));
     if (!state.jobs.length) $('#jobs').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune tâche planifiée.')));
   }
-  const AUTO_TXT = { prudent: 'Prudent : Odin te demande pour chaque action soumise à validation.', equilibre: 'Équilibré : Odin décide seul la routine, te demande pour l\'important et le grave.', autonome: 'Autonome : Odin décide seul la routine et l\'important, ne te demande que pour le grave.' };
-  for (const b of document.querySelectorAll('[data-auto]')) b.addEventListener('click', () => api('/api/action', { kind: 'set_autonomy', autonomy: b.dataset.auto }));
+  const AUTO_TXT = { prudent: 'Prudent : Odin te demande pour chaque action soumise à validation.', equilibre: 'Équilibré : Odin décide seul la routine, te demande pour l\'important et le grave.', autonome: 'Autonome : Odin décide seul la routine et l\'important, ne te demande que pour le grave.', breaker: '⚡ Odin Breaker : Odin ne te demande plus rien ; il agit, note tout et te fait un rapport le soir.' };
+  for (const b of document.querySelectorAll('[data-auto]')) b.addEventListener('click', () => {
+    if (b.dataset.auto === 'breaker' && state.autonomy !== 'breaker' && !confirm('Activer Odin Breaker ? Odin ne te demandera plus rien, même pour les actions graves. Il restera bloqué seulement face aux commandes destructrices connues et aux contenus piégés.')) return;
+    api('/api/action', { kind: 'set_autonomy', autonomy: b.dataset.auto });
+  });
+  let brkSchedule = 'always';
+  function pickBrk(v) { brkSchedule = v; for (const x of document.querySelectorAll('[data-brk]')) x.setAttribute('aria-pressed', String(x.dataset.brk === v)); $('#brkNight').style.display = v === 'night' ? 'flex' : 'none'; }
+  for (const x of document.querySelectorAll('[data-brk]')) x.addEventListener('click', () => pickBrk(x.dataset.brk));
+  let brkLoaded = false;
+  function renderBreaker() {
+    const B = state.breaker; if (!B) return;
+    $('#brkBox').hidden = state.autonomy !== 'breaker';
+    if (!brkLoaded) { brkLoaded = true; pickBrk(B.schedule); $('#b-from').value = B.from; $('#b-to').value = B.to; $('#b-fallback').value = B.fallback; $('#b-report').value = B.reportAt; $('#b-steps').value = B.maxSteps; $('#b-cost').value = B.maxCostPerTurnUsd; $('#b-proactive').checked = B.proactive !== false; }
+    const on = state.autonomyNow === 'breaker';
+    $('#convSub').textContent = on ? '⚡ Odin Breaker actif : Odin agit sans te demander, et te rend compte le soir.' : state.autonomy === 'breaker' ? `Odin Breaker reprend à ${B.from} ; en attendant : ${B.fallback}.` : 'Odin répond ici ; les validations apparaissent dans le fil.';
+    $('#convSub').classList.toggle('breaker-on', on);
+  }
+  $('#b-save').addEventListener('click', async () => {
+    const r = await api('/api/action', { kind: 'breaker_save', schedule: brkSchedule, from: $('#b-from').value, to: $('#b-to').value, fallback: $('#b-fallback').value, reportAt: $('#b-report').value, maxSteps: Number($('#b-steps').value), maxCostPerTurnUsd: Number($('#b-cost').value), proactive: $('#b-proactive').checked });
+    st('#b-status', r.ok ? '✓ Odin Breaker enregistré (appliqué tout de suite).' : r.error || 'Erreur', Boolean(r.ok));
+  });
   function renderAudit() {
     for (const b of document.querySelectorAll('[data-auto]')) b.setAttribute('aria-pressed', String(b.dataset.auto === state.autonomy));
     $('#autoSub').textContent = (AUTO_TXT[state.autonomy] || '') + (state.judge ? ` Juge : ${state.judge}.` : '');
-    const label = (a) => !a.allowed ? 'refusé' : a.via === 'mimir' ? 'décidé seul' : a.via === 'grant' ? 'autorisation permanente' : a.via === 'human' ? 'autorisé par toi' : 'autorisé';
+    const label = (a) => !a.allowed ? 'refusé' : a.via === 'breaker' ? 'Odin Breaker' : a.via === 'mimir' ? 'décidé seul' : a.via === 'grant' ? 'autorisation permanente' : a.via === 'human' ? 'autorisé par toi' : 'autorisé';
     const pill = (a) => !a.allowed ? 'bad' : a.via === 'mimir' || a.via === 'grant' ? 'good' : '';
     $('#audit').replaceChildren(...state.audit.map((a) => el('tr', {}, el('td', { class: 'sub' }, fmt(a.t)),
       el('td', {}, a.severity ? el('span', { class: 'pill ' + (a.severity === 'grave' || a.severity === 'blocked' ? 'bad' : a.severity === 'important' ? 'warn' : '') }, a.severity) : '—'),
@@ -624,7 +664,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderBreaker(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------

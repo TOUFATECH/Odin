@@ -31,6 +31,8 @@ export interface ToolContext {
   /** Inventaire du réseau (Hliðskjálf). */
   inventory?: Inventory;
   netConfig?: OdinConfig['network'];
+  /** Mode Odin Breaker actif (réseau local ouvert aux outils web). */
+  breaker?: boolean;
   /** Isolation du shell (conteneur Docker) si configurée. */
   sandbox?: { kind: 'none' | 'docker'; image: string; network: boolean };
   /** Fourni par l'agent : lance des sous-agents en parallèle (Sleipnir). */

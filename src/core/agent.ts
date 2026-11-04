@@ -68,7 +68,7 @@ export interface RunResult {
   /** Modèle choisi pour ce tour par le routage Mímir (si activé). */
   routed?: 'cheap' | 'main';
   /** Décisions prises SANS te demander pendant ce tour (Mímir ou autorisation permanente). */
-  decisions: Array<{ tool: string; summary: string; via: 'mimir' | 'grant'; severity?: string; why: string }>;
+  decisions: Array<{ tool: string; summary: string; via: 'mimir' | 'grant' | 'breaker'; severity?: string; why: string }>;
   /** Un contenu manipulateur a été détecté pendant ce tour. */
   suspicious?: boolean;
   /** Réflexion d'apprentissage lancée en arrière-plan (proposition de compétence). */
@@ -88,7 +88,10 @@ export class Agent {
     const channel = o.channel ?? 'cli';
     const peer = o.peer ?? 'owner';
     const depth = o.depth ?? 0;
-    const maxSteps = o.maxSteps ?? cfg.agent.maxSteps;
+    // En Odin Breaker, les missions ont leurs propres limites (plus d'étapes, plafond de coût réglable).
+    const breaker = this.deps.heimdall.breakerActive() ? cfg.mimir.breaker : undefined;
+    const maxSteps = o.maxSteps ?? (breaker ? breaker.maxSteps : cfg.agent.maxSteps);
+    const costCap = breaker ? breaker.maxCostPerTurnUsd : cfg.agent.maxCostPerTurnUsd;
     const signal = o.signal ?? new AbortController().signal;
     const trusted = o.trusted ?? true;
 
@@ -124,6 +127,7 @@ export class Agent {
       skillsIndex: this.deps.skills.index(),
       tainted,
       isSubAgent: depth > 0,
+      breaker: Boolean(breaker),
     });
 
     const history: Message[] = repairHistory(muninn.history(o.sessionId).map(({ rowId: _r, ...m }) => m));
@@ -146,13 +150,14 @@ export class Agent {
       sandbox: cfg.policy.sandbox,
       inventory: this.deps.inventory,
       netConfig: cfg.network,
+      breaker: Boolean(breaker),
       send: this.deps.send,
       delegate: depth === 0 ? (tasks) => this.delegate(tasks, o, tainted) : undefined,
     };
 
     for (let step = 1; step <= maxSteps; step++) {
       if (signal.aborted) { res.stopReason = 'aborted'; res.text = 'Interrompu.'; break; }
-      if (cfg.agent.maxCostPerTurnUsd > 0 && res.costUsd >= cfg.agent.maxCostPerTurnUsd) {
+      if (costCap > 0 && res.costUsd >= costCap) {
         res.stopReason = 'budget';
         res.text = `Budget du tour atteint (${res.costUsd.toFixed(3)} $). Dis-moi si je dois continuer.`;
         break;
@@ -250,7 +255,7 @@ export class Agent {
       grantKey: grantKeyFor(tool.name, call.input, tool.command?.(call.input)),
     });
     const summary = tool.summarize?.(call.input) ?? tool.name;
-    if (decision.allowed && (decision.via === 'mimir' || decision.via === 'grant')) decisions.push({ tool: tool.name, summary, via: decision.via, severity: decision.severity, why: decision.why ?? '' });
+    if (decision.allowed && (decision.via === 'mimir' || decision.via === 'grant' || decision.via === 'breaker')) decisions.push({ tool: tool.name, summary, via: decision.via, severity: decision.severity, why: decision.why ?? '' });
     if (!decision.allowed || decision.severity || decision.via !== 'policy') {
       emit({ type: 'decision', tool: tool.name, summary, allowed: decision.allowed, via: decision.allowed ? decision.via : undefined, severity: decision.severity, why: decision.allowed ? decision.why ?? '' : decision.reason });
     }
