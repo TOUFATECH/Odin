@@ -6,7 +6,13 @@
 <title>Odin</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
-:root{--bg:#0B0E14;--panel:#11151D;--panel2:#0E121A;--line:#1F2633;--ink:#E8E6E1;--muted:#A3ACBA;--dim:#8A93A3;--accent:#E2A93B;--good:#7FC8A9;--warn:#F0B860;--bad:#E88E7A}
+:root{color-scheme:dark;--bg:#0A0D13;--panel:#121722;--panel2:#0D1119;--line:#1E2532;--ink:#ECEAE4;--muted:#A6AEBB;--dim:#8B94A4;--accent:#E7AE3E;--accent-2:#F6C766;--good:#7FC8A9;--warn:#F0B860;--bad:#E88E7A;
+  --field:#2A3243;--field-h:#3A4458;--hover:#151B27;--sel:#1A2131;--user:#1B2333;--user-l:#283247;--warn-l:#5A4520;--warn-bg:#1C1710;--bad-l:#6B2A22;--bad-bg:#201211;--bad-l2:#4A2B27;--good-l:#29453A;--on-accent:#17110A;--off:#5B6475;
+  --shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.25);--r:14px}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]){color-scheme:light;--bg:#F6F4EF;--panel:#FFFFFF;--panel2:#FBFAF7;--line:#E6E1D8;--ink:#1D1B17;--muted:#5E5A52;--dim:#77726A;--accent:#C98A14;--accent-2:#E0A532;--good:#2E8A63;--warn:#A86A00;--bad:#B9472F;
+  --field:#D9D3C8;--field-h:#BDB5A7;--hover:#F0ECE4;--sel:#EDE6D8;--user:#FFF4DC;--user-l:#F0D9A6;--warn-l:#E9C98A;--warn-bg:#FFF7E6;--bad-l:#E7B3A7;--bad-bg:#FDF0EC;--bad-l2:#E7B3A7;--good-l:#A9D8C2;--on-accent:#1A1408;--off:#B4AEA3;--shadow:0 1px 2px rgba(60,40,0,.06),0 8px 24px rgba(60,40,0,.06)}}
+:root[data-theme=light]{color-scheme:light;--bg:#F6F4EF;--panel:#FFFFFF;--panel2:#FBFAF7;--line:#E6E1D8;--ink:#1D1B17;--muted:#5E5A52;--dim:#77726A;--accent:#C98A14;--accent-2:#E0A532;--good:#2E8A63;--warn:#A86A00;--bad:#B9472F;
+  --field:#D9D3C8;--field-h:#BDB5A7;--hover:#F0ECE4;--sel:#EDE6D8;--user:#FFF4DC;--user-l:#F0D9A6;--warn-l:#E9C98A;--warn-bg:#FFF7E6;--bad-l:#E7B3A7;--bad-bg:#FDF0EC;--bad-l2:#E7B3A7;--good-l:#A9D8C2;--on-accent:#1A1408;--off:#B4AEA3;--shadow:0 1px 2px rgba(60,40,0,.06),0 8px 24px rgba(60,40,0,.06)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -107,9 +113,9 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @media (prefers-reduced-motion:reduce){.odin .talk,.odin .tear,.odin .sweat,.odin .zzz,}
 @media (prefers-reduced-motion:reduce){.odin *{animation:none!important}}
 .tab{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--muted);text-align:left}
-.tab:hover{background:#151A24;color:var(--ink)}
-.tab[aria-current=page]{background:#171D29;color:var(--ink)}
-.badge{min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:var(--accent);color:#14100A;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.tab:hover{background:var(--hover);color:var(--ink)}
+.tab[aria-current=page]{background:var(--sel);color:var(--ink)}
+.badge{min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .badge[hidden]{display:none}
 .side .foot{margin-top:auto;padding:12px 10px 0;font-size:13px;color:var(--dim)}
 main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
@@ -119,45 +125,45 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .head h1{margin:0;font-size:22px}
 .sub{color:var(--muted);font-size:14px}
 .body{padding:22px 28px;overflow:auto;flex:1}
-.btn{min-height:40px;padding:0 16px;border-radius:10px;border:1px solid #2A3140;background:none}
-.btn:hover{border-color:#3A4458}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#14100A;font-weight:600}
+.btn{min-height:40px;padding:0 16px;border-radius:10px;border:1px solid var(--field);background:none}
+.btn:hover{border-color:var(--field-h)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
 .btn.small{min-height:34px;padding:0 12px;font-size:14px}
-.btn.danger{color:var(--bad);border-color:#4A2B27}
+.btn.danger{color:var(--bad);border-color:var(--bad-l2)}
 /* Discussion */
 .chat{display:flex;flex:1;min-height:0}
 .convs-btn{display:none}
 @media (max-width:860px){.convs-btn{display:inline-flex}.chat{position:relative}}
 .convs{width:220px;flex:none;border-right:1px solid var(--line);padding:14px;display:flex;flex-direction:column;gap:6px;overflow:auto}
 .conv{border:0;background:none;text-align:left;padding:10px 12px;border-radius:10px;color:var(--muted);min-height:44px}
-.conv[aria-current=true]{background:#171D29;color:var(--ink)}
+.conv[aria-current=true]{background:var(--sel);color:var(--ink)}
 .conv small{display:block;color:var(--dim);font-size:12px}
 .thread{flex:1;min-width:0;display:flex;flex-direction:column}
 .msgs{flex:1;overflow:auto;padding:24px 28px;display:flex;flex-direction:column;gap:14px}
 .msg{max-width:760px;white-space:pre-wrap;word-wrap:break-word}
-.msg.user{align-self:flex-end;background:#1A2130;border:1px solid #273044;padding:12px 16px;border-radius:14px 14px 4px 14px}
+.msg.user{align-self:flex-end;background:var(--user);border:1px solid var(--user-l);padding:12px 16px;border-radius:14px 14px 4px 14px}
 .msg.assistant{align-self:flex-start}
 .msg.assistant .who{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.06em;margin-bottom:4px}
 .activity{align-self:flex-start;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--dim);display:flex;flex-direction:column;gap:2px}
 .activity .blocked{color:var(--warn)}
-.approval{align-self:stretch;max-width:760px;border:1px solid #5A4520;background:#1B1710;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.approval{align-self:stretch;max-width:760px;border:1px solid var(--warn-l);background:var(--warn-bg);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
 .approval .t{color:var(--warn);font-weight:700}
 .approval .row{display:flex;gap:10px;flex-wrap:wrap}
 .approval.done{opacity:.6}
-.approval.grave{border-color:#6B2A22;background:#1F1211}
+.approval.grave{border-color:var(--bad-l);background:var(--bad-bg)}
 .approval.grave .t{color:var(--bad)}
 .activity .decided{color:#8FC1E3}
-.seg{display:inline-flex;border:1px solid #2A3140;border-radius:10px;overflow:hidden}
+.seg{display:inline-flex;border:1px solid var(--field);border-radius:10px;overflow:hidden}
 .seg button{border:0;background:none;min-height:38px;padding:0 14px;color:var(--muted)}
-.seg button[aria-pressed=true]{background:var(--accent);color:#14100A;font-weight:600}
-.seg button.brk[aria-pressed=true]{background:#E88E7A;color:#1A0F0C}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);font-weight:600}
+.seg button.brk[aria-pressed=true]{background:#E88E7A;color:var(--on-accent)}
 .seg{flex-wrap:wrap}
 .breaker-on{color:#E88E7A;font-weight:600}
 .composer{border-top:1px solid var(--line);padding:16px 28px;display:flex;gap:12px;align-items:flex-end}
-.composer textarea{flex:1;min-height:52px;max-height:220px;resize:vertical;padding:14px 16px;border-radius:12px;border:1px solid #2A3140;background:var(--panel);outline:none}
+.composer textarea{flex:1;min-height:52px;max-height:220px;resize:vertical;padding:14px 16px;border-radius:12px;border:1px solid var(--field);background:var(--panel);outline:none}
 .composer textarea:focus{border-color:var(--accent)}
 .btn.mic{min-height:52px;min-width:52px;padding:0;display:inline-flex;align-items:center;justify-content:center}
-.btn.mic[aria-pressed=true]{background:#3A1712;border-color:var(--bad);color:var(--bad);animation:pulse 1.2s ease-in-out infinite}
+.btn.mic[aria-pressed=true]{background:var(--bad-bg);border-color:var(--bad);color:var(--bad);animation:pulse 1.2s ease-in-out infinite}
 #speakBtn[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
 @keyframes pulse{50%{box-shadow:0 0 0 6px rgba(232,142,122,.18)}}
 @media (prefers-reduced-motion:reduce){.btn.mic[aria-pressed=true]{animation:none}}
@@ -168,48 +174,48 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .card h3{margin:0;font-size:17px}
 .kind{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
-.on-dot{background:var(--good)}.off-dot{background:#5B6475}.rm-dot{background:var(--bad)}
+.on-dot{background:var(--good)}.off-dot{background:var(--off)}.rm-dot{background:var(--bad)}
 .links{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
 .tbl{width:100%;border-collapse:collapse;font-size:14px}
 .tbl th{text-align:left;color:var(--dim);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line)}
 .tbl td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
 .wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
-.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;border:1px solid #2A3140;color:var(--muted)}
-.pill.warn{border-color:#5A4520;color:var(--warn)}.pill.good{border-color:#29453A;color:var(--good)}.pill.bad{border-color:#4A2B27;color:var(--bad)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;border:1px solid var(--field);color:var(--muted)}
+.pill.warn{border-color:var(--warn-l);color:var(--warn)}.pill.good{border-color:var(--good-l);color:var(--good)}.pill.bad{border-color:var(--bad-l2);color:var(--bad)}
 .empty{color:var(--dim);padding:28px 0}
 pre.body-skill{white-space:pre-wrap;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px;max-height:260px;overflow:auto;margin:0}
 .stats{display:flex;flex-wrap:wrap;gap:24px;margin-bottom:22px}
 .stat b{display:block;font-size:26px}
 .stat span{color:var(--muted);font-size:13px}
 .login{margin:auto;max-width:420px;padding:32px;display:flex;flex-direction:column;gap:14px}
-.login input{min-height:48px;padding:0 14px;border-radius:10px;border:1px solid #2A3140;background:var(--panel)}
+.login input{min-height:48px;padding:0 14px;border-radius:10px;border:1px solid var(--field);background:var(--panel)}
 label{font-size:14px;color:var(--muted)}
 /* Réglages */
 .form{display:flex;flex-direction:column;gap:14px;max-width:760px}
 .field{display:flex;flex-direction:column;gap:6px}
-.field input,.field select{color:var(--ink);min-height:44px;padding:0 12px;border-radius:10px;border:1px solid #2A3140;background:var(--panel2);outline:none;width:100%}
+.field input,.field select{color:var(--ink);min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);outline:none;width:100%}
 .field .seg{align-self:flex-start}
 .field input:focus,.field select:focus{border-color:var(--accent)}
 .hint{font-size:13px;color:var(--dim)}
 .choices{display:flex;flex-wrap:wrap;gap:8px}
-.choice{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid #2A3140;background:none;color:var(--muted)}
-.choice[aria-pressed=true]{border-color:var(--accent);color:var(--ink);background:#1B1710}
+.choice{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--field);background:none;color:var(--muted)}
+.choice[aria-pressed=true]{border-color:var(--accent);color:var(--ink);background:var(--warn-bg)}
 .check{display:flex;align-items:center;gap:10px;min-height:40px;color:var(--ink)}
 .check input{width:20px;height:20px;accent-color:var(--accent)}
 .status{font-size:14px;min-height:20px}
 .status.ok{color:var(--good)}.status.err{color:var(--bad)}
-.welcome{border:1px solid #5A4520;background:#1B1710;border-radius:14px;padding:16px 18px;margin-bottom:20px}
+.welcome{border:1px solid var(--warn-l);background:var(--warn-bg);border-radius:14px;padding:16px 18px;margin-bottom:20px}
 .welcome b{color:var(--accent)}
-.notice{margin:12px 28px 0;border:1px solid #5A4520;background:#1B1710;border-radius:12px;padding:10px 14px;font-size:14px}
+.notice{margin:12px 28px 0;border:1px solid var(--warn-l);background:var(--warn-bg);border-radius:12px;padding:10px 14px;font-size:14px}
 .settings .card{flex-basis:100%}
 .settings h2{font-size:18px;margin:0}
-.warn-box{border:1px solid #5A4520;background:#1B1710;border-radius:12px;padding:10px 14px;font-size:14px;color:var(--ink)}
-.warn-box.bad{border-color:#6B2A22;background:#1F1211}
+.warn-box{border:1px solid var(--warn-l);background:var(--warn-bg);border-radius:12px;padding:10px 14px;font-size:14px;color:var(--ink)}
+.warn-box.bad{border-color:var(--bad-l);background:var(--bad-bg)}
 ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 .mbar{display:none}
 .buddy{display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px 0 16px}.buddy .odin{width:84px;height:84px}.buddy-txt{font-size:12.5px;color:var(--dim)}
 .buddy-m{width:34px;height:34px;flex:none}
-.buddy-snd{border:0;background:none;color:var(--dim);font:inherit;font-size:11.5px;padding:4px 8px;border-radius:8px;cursor:pointer}.buddy-snd:hover{color:var(--ink);background:#151A24}
+.buddy-snd{border:0;background:none;color:var(--dim);font:inherit;font-size:11.5px;padding:4px 8px;border-radius:8px;cursor:pointer}.buddy-snd:hover{color:var(--ink);background:var(--hover)}
 @media (max-width:860px){
   .app{flex-direction:column}
   .mbar{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
@@ -243,6 +249,88 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   .stats{gap:18px}
   .settings .card{padding:16px}
 }
+
+/* ===== Refonte : navigation à icônes, barre du bas sur mobile, réglages par rubrique ===== */
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
+.nav-h{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:14px 12px 6px}
+.tab{justify-content:flex-start;gap:12px;font-size:15px;transition:background .15s,color .15s}
+.tab .lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.tab[aria-current=page]{color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.tab[aria-current=page] .ic{color:var(--accent);opacity:1}
+.side .foot{display:flex;flex-direction:column;gap:6px}
+.theme-btn{align-self:flex-start;border:0;background:none;color:var(--dim);font:inherit;font-size:12.5px;padding:4px 0;cursor:pointer}.theme-btn:hover{color:var(--ink)}
+.head{padding:20px 28px 16px;background:var(--bg);position:relative;z-index:1}
+.head h1{font-size:22px;letter-spacing:-.01em}
+.card{box-shadow:var(--shadow);border-radius:var(--r)}
+.btn{transition:border-color .15s,background .15s,transform .1s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.98)}
+.btn.primary:hover{background:var(--accent-2);border-color:var(--accent-2)}
+.field input,.field select,.field textarea{transition:border-color .15s,box-shadow .15s}
+.field input:focus,.field select:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.msg.assistant{background:var(--panel);border:1px solid var(--line);padding:12px 16px;border-radius:14px 14px 14px 4px;box-shadow:var(--shadow)}
+.msg{line-height:1.6}
+.composer{background:var(--bg)}
+.composer textarea{background:var(--panel);box-shadow:var(--shadow);transition:border-color .15s}
+.btn.send{min-height:52px;padding:0 20px}.send-i{display:none}
+.hello{align-self:center;margin:auto 0;max-width:640px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px;padding:24px 0}
+.hello-t{font-size:26px;font-weight:700;letter-spacing:-.01em}
+.ideas{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:12px}
+.idea{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:10px 16px;min-height:44px;font-size:14.5px;box-shadow:var(--shadow);transition:border-color .15s,transform .15s}
+.idea:hover{border-color:var(--accent);transform:translateY(-1px)}
+.convs{background:var(--panel2)}
+.conv{transition:background .15s}.conv:hover{background:var(--hover)}
+/* Réglages : rubriques */
+.settings{display:flex;flex-direction:column;align-items:stretch}
+.snav{flex:none;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:12px 28px;background:var(--bg);border-bottom:1px solid var(--line)}
+.snav::-webkit-scrollbar{display:none}
+.schip{flex:none;min-height:38px;padding:0 15px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:14px;white-space:nowrap;transition:all .15s}
+.schip:hover{color:var(--ink);border-color:var(--field-h)}
+.schip[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+.sgrid{max-width:820px;width:100%}
+.sgrid>.card{animation:fadein .22s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.welcome{max-width:820px}
+/* Mobile : barre du bas, menu « Plus » en feuille */
+.bnav,.scrim{display:none}
+.convs-btn{display:none!important}
+@media (max-width:860px){
+  .mbtn{display:none!important}
+  .mbar{padding:8px 16px;gap:10px;min-height:54px}
+  .mcur{font-weight:600;color:var(--ink)}
+  .bnav{display:flex;flex:none;border-top:1px solid var(--line);background:var(--panel2);padding:4px 4px calc(4px + env(safe-area-inset-bottom));order:9}
+  .tab.bt{flex:1;flex-direction:column;gap:3px;min-height:56px;padding:6px 2px;border:0;border-radius:12px;font-size:11.5px;justify-content:center;position:relative;box-shadow:none;width:auto}
+  .tab.bt .lbl{flex:none}
+  .tab.bt .ic{width:22px;height:22px}
+  .tab.bt[aria-current=page],.tab.bt.cur{color:var(--accent);background:none}
+  .tab.bt[aria-current=page] .ic,.tab.bt.cur .ic{color:var(--accent)}
+  .tab.bt .badge{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;font-size:11px;padding:0 5px}
+  nav.side{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;flex-wrap:nowrap;max-height:78dvh;padding:10px 14px calc(14px + env(safe-area-inset-bottom));border:0;border-top:1px solid var(--line);border-radius:20px 20px 0 0;background:var(--panel);box-shadow:0 -12px 40px rgba(0,0,0,.35);transform:translateY(105%);transition:transform .25s cubic-bezier(.3,.9,.4,1);visibility:hidden}
+  nav.side.open{transform:none;visibility:visible}
+  nav.side::before{content:"";align-self:center;width:40px;height:4px;border-radius:2px;background:var(--field);margin-bottom:8px}
+  nav.side>.buddy{display:none}
+  .side .tab{flex:none;width:100%;border:0;min-height:48px}
+  .side .foot{display:flex;padding-top:10px}
+  .scrim{display:block;position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45)}
+  .scrim[hidden]{display:none}
+  .snav{padding:10px 16px}
+  .head h1{display:none}
+  .head>div:first-child{display:none}
+  .head .seg{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .head .seg button{min-height:42px}
+  .head:not(:has(.btn,.seg)){display:none}
+  .head{padding-top:10px;padding-bottom:10px}
+  .head>div:last-child:has(.btn){flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;max-width:100%}
+  .head .btn{flex:none}
+  .convs-btn{display:inline-flex!important}
+  .btn.send{min-width:52px;padding:0}.send-t{display:none}.send-i{display:block}
+  .hello-t{font-size:22px}
+  .idea{font-size:14px;padding:9px 14px}
+  .msg.assistant{padding:10px 14px}
+}
+@media (prefers-reduced-motion:reduce){nav.side,.sgrid>.card,.idea{transition:none;animation:none}}
 </style>
 </head>
 <body>
@@ -283,15 +371,17 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   <nav class="side" id="sideNav" aria-label="Sections">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
     <div class="buddy" title="L'humeur d'Odin : il la choisit lui-même"><span class="odin" id="buddy" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span><span class="buddy-txt" id="buddyTxt">tranquille</span><button class="buddy-snd" id="buddySnd" type="button" aria-pressed="true">Sons activés</button></div>
-    <button class="tab" data-view="chat" aria-current="page">Discussion <span class="badge" id="b-approvals" hidden>0</span></button>
-    <button class="tab" data-view="missions">Missions <span class="badge" id="b-missions" hidden>0</span></button>
-    <button class="tab" data-view="net">Réseau <span class="badge" id="b-net" hidden>0</span></button>
-    <button class="tab" data-view="memory">Mémoire</button>
-    <button class="tab" data-view="skills">Compétences <span class="badge" id="b-drafts" hidden>0</span></button>
-    <button class="tab" data-view="jobs">Tâches planifiées</button>
-    <button class="tab" data-view="audit">Décisions</button>
-    <button class="tab" data-view="settings">Réglages <span class="badge" id="b-settings" hidden>!</span></button>
-    <div class="foot" id="usage">—</div>
+    <div class="nav-h">Odin</div>
+    <button class="tab" data-view="chat" aria-current="page"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span> <span class="badge" id="b-approvals" hidden>0</span></button>
+    <button class="tab" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Missions</span> <span class="badge" id="b-missions" hidden>0</span></button>
+    <button class="tab" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Réseau</span> <span class="badge" id="b-net" hidden>0</span></button>
+    <div class="nav-h">Gérer</div>
+    <button class="tab" data-view="memory"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5v-15z"/><path d="M19 18v3H6.5A1.5 1.5 0 0 1 5 19.5"/><path d="M9 7h6"/></svg><span class="lbl">Mémoire</span></button>
+    <button class="tab" data-view="skills"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5.2 5.2 2.3-5.2 2.3L12 18.5l-2.3-5.2L4.5 11l5.2-2.3z"/><path d="M19 17v4M17 19h4"/></svg><span class="lbl">Compétences</span> <span class="badge" id="b-drafts" hidden>0</span></button>
+    <button class="tab" data-view="jobs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span class="lbl">Tâches planifiées</span></button>
+    <button class="tab" data-view="audit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="lbl">Décisions</span></button>
+    <button class="tab" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span> <span class="badge" id="b-settings" hidden>!</span></button>
+    <div class="foot"><div id="usage">—</div><button class="theme-btn" id="themeBtn" type="button" title="Thème de l'interface">Thème : auto</button></div>
   </nav>
 
   <main>
@@ -309,7 +399,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <textarea id="input" placeholder="Demande quelque chose à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne"></textarea>
             <label class="btn mic" id="camBtn" title="Montrer quelque chose à Odin (caméra ou image)" aria-label="Montrer quelque chose à Odin"><input type="file" id="camFile" accept="image/*" capture="environment" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></label>
             <button class="btn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Parler à Odin (micro)" title="Parler à Odin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
-            <button class="btn primary" type="submit" style="min-height:52px">Envoyer</button>
+            <button class="btn primary send" type="submit" aria-label="Envoyer"><span class="send-t">Envoyer</span><svg class="send-i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
           </form>
         </div>
       </div>
@@ -363,11 +453,12 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
-        <div class="grid">
-          <article class="card"><form class="form" id="f-model">
+        <div class="grid sgrid">
+          <article class="card" data-sec="modele"><form class="form" id="f-model">
             <h2>Modèle</h2>
             <div class="field"><label>Fournisseur</label><div class="choices" id="presetChoices" role="group" aria-label="Fournisseur"></div></div>
             <div class="field"><label for="m-model">Nom du modèle</label><input id="m-model" autocomplete="off" spellcheck="false"></div>
@@ -399,7 +490,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="m-status" role="status"></div>
           </form></article>
 
-          <article class="card"><div class="form">
+          <article class="card" data-sec="sauvegarde"><div class="form">
             <h2>Sauvegarde</h2>
             <p class="sub" style="margin:0">Tout Odin (configuration, clés, mémoire, compétences, espace de travail) dans un seul fichier chiffré (AES-256, mot de passe). Garde-le ailleurs que sur cette machine ; la restauration remet tout en place sur une nouvelle installation.</p>
             <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
@@ -418,7 +509,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="bk-status" role="status"></div>
           </div></article>
 
-          <article class="card"><form class="form" id="f-mimir">
+          <article class="card" data-sec="autonomie"><form class="form" id="f-mimir">
             <h2>Décisions</h2>
             <div class="field"><label>Autonomie</label><div class="seg" role="group" aria-label="Niveau d'autonomie"><button type="button" data-auto="prudent">Prudent</button><button type="button" data-auto="equilibre">Équilibré</button><button type="button" data-auto="autonome">Autonome</button><button type="button" data-auto="breaker" class="brk">⚡ Odin Breaker</button></div><span class="hint" id="autoHint"></span></div>
             <div class="form" id="brkBox" style="gap:12px">
@@ -451,7 +542,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="j-status" role="status"></div>
           </form></article>
 
-          <article class="card"><form class="form" id="f-telegram">
+          <article class="card" data-sec="telegram"><form class="form" id="f-telegram">
             <h2>Telegram</h2>
             <ol class="steps"><li>Dans Telegram, écris à <b>@BotFather</b>, envoie <code>/newbot</code> et copie le jeton.</li><li>Colle-le ci-dessous, coche « Activer » et enregistre.</li><li>Écris à ton bot : il répond avec un code ; ajoute ton identifiant ci-dessous (ou accepte le code avec <code>odin pairing approve telegram &lt;code&gt;</code>).</li></ol>
             <label class="check"><input type="checkbox" id="t-enabled"> Activer Telegram</label>
@@ -461,7 +552,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="t-status" role="status"></div>
           </form></article>
 
-          <article class="card"><form class="form" id="f-search">
+          <article class="card" data-sec="recherche"><form class="form" id="f-search">
             <h2>Recherche web</h2>
             <p class="sub" style="margin:0">Odin cherche sur le web, ou sur un site ou réseau précis (Reddit, X, YouTube, GitHub…). Sans rien régler, il utilise DuckDuckGo ; une clé Brave Search (gratuite jusqu'à un certain volume) ou Tavily donne des résultats plus fiables, et SearXNG reste chez toi.</p>
             <div class="field"><label for="s-provider">Moteur</label><select id="s-provider"><option value="auto">Automatique (le meilleur disponible)</option><option value="duckduckgo">DuckDuckGo (sans clé)</option><option value="brave">Brave Search (clé)</option><option value="tavily">Tavily (clé)</option><option value="searxng">SearXNG (ton instance)</option></select></div>
@@ -472,7 +563,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="s-status" role="status"></div>
           </form></article>
 
-          <article class="card"><div class="form">
+          <article class="card" data-sec="droits"><div class="form">
             <h2>Droits et machines</h2>
             <p class="sub" style="margin:0">Odin peut tout faire sur sa machine et sur les machines de ton réseau : donne-lui simplement les mots de passe. Ils restent sur cette machine (fichiers lisibles par toi seul), ne sont jamais réaffichés ni montrés au modèle, et sont masqués partout. Les règles de sécurité restent : commandes destructrices interdites, validation selon ton niveau d'autonomie.</p>
             <div class="field"><label>Cette machine</label><div class="sub" id="r-local">—</div></div>
@@ -498,7 +589,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="r-status" role="status"></div>
           </div></article>
 
-          <article class="card"><div class="form">
+          <article class="card" data-sec="personnes"><div class="form">
             <h2>Personnes</h2>
             <p class="sub" style="margin:0">Qui peut parler à Odin, et avec quels droits. <b>Propriétaire</b> : tout. <b>Membre</b> (famille, équipe) : Odin l'aide volontiers, retient ce qu'il apprend de lui à son nom, mais ses demandes importantes te sont soumises et il ne touche à aucun réglage. <b>Invité</b> : ses messages sont traités comme du contenu non fiable.</p>
             <div id="peoplePending"></div>
@@ -516,7 +607,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="p-status" role="status"></div>
           </div></article>
 
-          <article class="card"><form class="form" id="f-voice">
+          <article class="card" data-sec="voix"><form class="form" id="f-voice">
             <h2>Voix</h2>
             <p class="sub" style="margin:0">Odin comprend ce que tu dis (Whisper) et te répond à voix haute, dans l'interface et en notes vocales sur Telegram. Avec Piper et un Whisper local, tout reste sur ta machine, gratuitement.</p>
             <label class="check"><input type="checkbox" id="v-enabled"> Activer la voix</label>
@@ -564,7 +655,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="v-status" role="status"></div>
           </form></article>
 
-          <article class="card"><form class="form" id="f-network">
+          <article class="card" data-sec="reseau"><form class="form" id="f-network">
             <h2>Réseau local</h2>
             <label class="check"><input type="checkbox" id="n-enabled"> Suivre les appareils du réseau (balayage automatique)</label>
             <div class="field"><label for="n-interval">Intervalle entre deux balayages (minutes)</label><input id="n-interval" type="number" min="5" max="1440" step="5"></div>
@@ -573,7 +664,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="n-status" role="status"></div>
           </form></article>
 
-          <article class="card"><form class="form" id="f-access">
+          <article class="card" data-sec="acces"><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
               <button type="button" class="choice" data-access="lan">Réseau local (recommandé)</button>
@@ -596,7 +687,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="a-status" role="status"></div>
             <div class="field"><label>Actuellement</label><div class="sub" id="accessInfo"></div><ul class="links" id="a-links"></ul>
               <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="a-show">Afficher les liens avec le jeton</button></div>
-              <textarea id="a-tok" readonly hidden rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid #2A3140;background:var(--panel2);font-family:ui-monospace,monospace;font-size:13px"></textarea>
+              <textarea id="a-tok" readonly hidden rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);font-family:ui-monospace,monospace;font-size:13px"></textarea>
               <span class="hint">Ces liens ouvrent Odin sans mot de passe : ne les partage avec personne.</span></div>
             <ul class="links"><li>Tout faire tourner en arrière-plan : <code>odin gateway</code> · Diagnostic : <code>odin doctor</code> · Mise à jour : <code>odin update</code></li></ul>
           </form></article>
@@ -604,6 +695,8 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       </div>
     </section>
   </main>
+  <nav class="bnav" aria-label="Sections principales"><button class="tab bt" data-view="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span><span class="badge" data-mirror="b-approvals" hidden></span></button><button class="tab bt" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Missions</span><span class="badge" data-mirror="b-missions" hidden></span></button><button class="tab bt" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Réseau</span><span class="badge" data-mirror="b-net" hidden></span></button><button class="tab bt" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span><span class="badge" data-mirror="b-settings" hidden></span></button><button class="tab bt more" type="button" id="moreBtn" aria-controls="sideNav"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg><span class="lbl">Plus</span><span class="badge" data-mirror="b-drafts" hidden></span></button></nav>
+  <div class="scrim" id="scrim" hidden></div>
 </div>
 
 <script nonce="__NONCE__" src="/face.js"></script>
@@ -690,12 +783,41 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   // ---------- Navigation ----------
   for (const b of document.querySelectorAll('.tab')) b.addEventListener('click', () => show(b.dataset.view));
   const menuBtn = $('#menuBtn'), sideNav = $('#sideNav');
-  menuBtn.addEventListener('click', () => { const o = !sideNav.classList.contains('open'); sideNav.classList.toggle('open', o); menuBtn.setAttribute('aria-expanded', String(o)); });
+  const scrim = $('#scrim');
+  function toggleNav(o) { sideNav.classList.toggle('open', o); scrim.hidden = !o; menuBtn.setAttribute('aria-expanded', String(o)); $('#moreBtn').setAttribute('aria-expanded', String(o)); }
+  menuBtn.addEventListener('click', () => toggleNav(!sideNav.classList.contains('open')));
+  $('#moreBtn').addEventListener('click', () => toggleNav(!sideNav.classList.contains('open')));
+  scrim.addEventListener('click', () => toggleNav(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sideNav.classList.contains('open')) toggleNav(false); });
   function show(v) {
-    sideNav.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false');
-    for (const b of document.querySelectorAll('.tab')) { if (b.dataset.view === v) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = b.firstChild.textContent.trim(); } else b.removeAttribute('aria-current'); }
+    toggleNav(false);
+    for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === v) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
+    $('#moreBtn').classList.toggle('cur', !['chat', 'missions', 'net', 'settings'].includes(v));
     for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
+    try { localStorage.setItem('odin.view', v); } catch {}
+    const main = document.querySelector('#v-' + v + ' .body'); if (main) main.scrollTop = 0;
   }
+  // Pastilles de la barre du bas : copies de celles du menu.
+  const mirror = () => { for (const m of document.querySelectorAll('[data-mirror]')) { const src = document.getElementById(m.dataset.mirror); if (src) { m.hidden = src.hidden; m.textContent = src.textContent; } } };
+  new MutationObserver(mirror).observe(sideNav, { subtree: true, attributes: true, childList: true, characterData: true });
+  // Thème : auto (suit l'appareil), clair, sombre.
+  const THEMES = ['auto', 'clair', 'sombre'];
+  let theme = 'auto'; try { theme = localStorage.getItem('odin.theme') || 'auto'; } catch {}
+  function applyTheme() { document.documentElement.dataset.theme = theme === 'clair' ? 'light' : theme === 'sombre' ? 'dark' : ''; if (!document.documentElement.dataset.theme) delete document.documentElement.dataset.theme; $('#themeBtn').textContent = 'Thème : ' + theme; }
+  $('#themeBtn').addEventListener('click', () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; try { localStorage.setItem('odin.theme', theme); } catch {} applyTheme(); });
+  applyTheme();
+
+  // ---------- Réglages : une rubrique à la fois ----------
+  function openSettings(sec) {
+    for (const c of document.querySelectorAll('.sgrid > .card')) c.hidden = c.dataset.sec !== sec;
+    for (const b of document.querySelectorAll('.schip')) b.setAttribute('aria-selected', String(b.dataset.sec === sec));
+    const chip = document.querySelector('.schip[data-sec="' + sec + '"]'); if (chip) chip.scrollIntoView({ block: 'nearest', inline: 'center' });
+    try { localStorage.setItem('odin.sec', sec); } catch {}
+    const body = document.querySelector('#v-settings .body'); if (body) body.scrollTop = 0;
+  }
+  for (const b of document.querySelectorAll('.schip')) b.addEventListener('click', () => openSettings(b.dataset.sec));
+  { let s = 'modele'; try { s = localStorage.getItem('odin.sec') || 'modele'; } catch {} openSettings(document.querySelector('.schip[data-sec="' + s + '"]') ? s : 'modele'); }
+  window.openSettings = (sec) => { show('settings'); openSettings(sec); };
 
   // ---------- Discussion ----------
   const msgs = $('#msgs');
@@ -754,7 +876,11 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     msgs.textContent = ''; activity = null;
     const h = await api('/api/history?peer=' + encodeURIComponent(peer));
     for (const m of h.messages) { const yes = m.text.match(/\/yes ([A-Za-z0-9]+)/); if (yes) answered.add(yes[1]); addMsg(m.role, m.text); }
-    if (!h.messages.length) msgs.append(el('div', { class: 'empty' }, 'Nouvelle conversation. Essaie : « Quels appareils sont sur mon réseau ? » ou « Range mon dossier Téléchargements ».'));
+    if (!h.messages.length) {
+      const ideas = ['Quels appareils sont sur mon réseau ?', 'Mets à jour cette machine', 'Cherche sur le web les nouveautés de Proxmox', 'Ouvre le site de la météo et dis-moi le temps demain', 'Range mon dossier Téléchargements', 'Améliore-toi : propose une nouvelle compétence utile'];
+      msgs.append(el('div', { class: 'hello' }, el('div', { class: 'hello-t' }, 'Que fait-on ?'), el('div', { class: 'sub' }, 'Écris, parle (micro) ou montre une image. Odin agit sur ta machine, ton réseau et le web.'),
+        el('div', { class: 'ideas' }, ...ideas.map((q) => el('button', { type: 'button', class: 'idea', onclick: () => { const i = $('#input'); i.value = q; i.focus(); } }, q)))));
+    };
     $('#convTitle').textContent = peer === 'principal' ? 'Discussion' : (state?.conversations.find((c) => c.peer === peer)?.title || 'Conversation');
   }
   $('#composer').addEventListener('submit', (ev) => { ev.preventDefault(); send(); });
@@ -1265,12 +1391,12 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       $('#a-nets').value = S.web.networks || ''; $('#a-public').value = S.web.publicUrl || ''; $('#a-cert').value = S.web.cert || ''; $('#a-key').value = S.web.key || ''; $('#a-port').value = S.web.port;
     }
     accessUi();
-    if (S.demo && !settingsShown) { settingsShown = true; show('settings'); }
+    if (S.demo && !settingsShown) { settingsShown = true; show('settings'); openSettings('modele'); }
   }
   let settingsDirty = false;
   for (const f of document.querySelectorAll('.settings form')) f.addEventListener('input', () => { settingsDirty = true; });
   $('#j-judge').addEventListener('change', () => { $('#j-keyField').hidden = !/jev|auto/.test($('#j-judge').value); });
-  $('#goSettings').addEventListener('click', (e) => { e.preventDefault(); show('settings'); });
+  $('#goSettings').addEventListener('click', (e) => { e.preventDefault(); show('settings'); openSettings('modele'); });
 
   async function waitBack() {
     await new Promise((r) => setTimeout(r, 1000)); // laisse l'ancien serveur s'arrêter
