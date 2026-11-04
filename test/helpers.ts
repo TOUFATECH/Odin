@@ -20,7 +20,12 @@ export function makeOdin(script: Script, opts: { approve?: boolean | 'always'; c
   const approvals: ApprovalRequest[] = [];
   const approver: Approver = { approve: async (r) => { approvals.push(r); return opts.approve ?? false; } };
   // Par défaut, les tests isolent la boucle de l'agent : Mímir n'est actif que si un juge est fourni.
-  const configOverride = (c: OdinConfig) => { const base = opts.judge ? c : { ...c, mimir: { ...c.mimir, enabled: false } }; return opts.config ? opts.config(base) : base; };
+  // L'observation (un appel de modèle en plus après chaque tour) est coupée sauf demande explicite.
+  const configOverride = (c: OdinConfig) => {
+    const quiet = { ...c, learning: { ...c.learning, observe: false } };
+    const base = opts.judge ? quiet : { ...quiet, mimir: { ...quiet.mimir, enabled: false } };
+    return opts.config ? opts.config(base) : base;
+  };
   const odin = createOdin({ home, provider, approver, configOverride, judge: opts.judge });
   return { ...odin, provider, approvals, cleanup: () => { odin.close(); rmSync(home, { recursive: true, force: true }); } };
 }

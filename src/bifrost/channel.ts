@@ -6,6 +6,8 @@ export interface Inbound {
   peer: string;
   name: string;
   text: string;
+  /** Le message est arrivé en vocal (et a été transcrit). */
+  voice?: boolean;
 }
 
 export interface Channel {
@@ -19,6 +21,8 @@ export interface Channel {
   readonly defaultPeer?: string;
   /** Progression d'un tour (outils en cours…), pour les canaux qui savent l'afficher. */
   event?(peer: string, e: AgentEvent): void;
+  /** Envoie une note vocale (Telegram). */
+  sendVoice?(peer: string, audio: Uint8Array): Promise<void>;
   /** Signale qu'une donnée a changé (inventaire, compétences…), pour rafraîchir l'affichage. */
   notify?(topic: string): void;
 }

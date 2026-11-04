@@ -213,7 +213,13 @@ export class Agent {
     res.suspicious = turn.suspicious;
     if (res.stopReason !== 'done' && res.text) muninn.addMessage(o.sessionId, { role: 'assistant', content: res.text });
 
-    // 5. Boucle d'apprentissage : après une tâche complexe réussie, proposer une compétence.
+    // 5. Apprentissage rapide : retenir ce qui compte de cet échange (préférences, environnement,
+    //    missions), en arrière-plan, à partir de TES messages seulement (jamais d'une page web).
+    const learning: Array<Promise<unknown>> = [];
+    if (depth === 0 && cfg.learning.observe && trusted && res.stopReason === 'done' && userText.trim().length >= 12) {
+      learning.push(this.observe(userText, res.text, emit, signal).catch(() => undefined));
+    }
+    // 6. Boucle d'apprentissage : après une tâche complexe réussie, apprendre une compétence.
     if (depth === 0 && res.stopReason === 'done' && cfg.learning.proposeSkills && res.toolCalls >= cfg.learning.minToolCallsForReflection) {
       res.reflection = (async () => {
         // Filtre Jev : la réflexion (appel coûteux à un grand modèle) n'a lieu que si la tâche
@@ -224,6 +230,10 @@ export class Agent {
         }
         return this.reflect(userText, turnLog, tainted, emit);
       })().catch(() => undefined);
+    }
+    if (learning.length) {
+      const before = res.reflection;
+      res.reflection = Promise.all([before, ...learning]).then(([r]) => r as string | undefined);
     }
     return res;
   }
@@ -345,9 +355,45 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
     if (!json) return undefined;
     const p = JSON.parse(json) as { propose?: boolean; name?: string; description?: string; body?: string; reason?: string };
     if (!p.propose || !p.name || !p.body) return undefined;
-    this.deps.skills.propose({ name: p.name, description: p.description ?? '', body: this.deps.redactor.redact(p.body), reason: p.reason ?? 'réflexion automatique', tainted });
-    emit({ type: 'skill_proposed', name: p.name });
+    const prop = this.deps.skills.propose({ name: p.name, description: p.description ?? '', body: this.deps.redactor.redact(p.body), reason: p.reason ?? 'réflexion automatique', tainted });
+    // Apprentissage immédiat : en Odin Breaker (ou si tu l'as choisi), la compétence sert dès la tâche suivante.
+    const auto = this.deps.cfg.learning.autoApproveSkills;
+    const active = !tainted && prop.warnings.length === 0 && (auto === 'always' || (auto === 'breaker' && this.deps.heimdall.breakerActive()));
+    if (active) this.deps.skills.approve(p.name);
+    emit({ type: 'skill_proposed', name: p.name, active });
     return p.name;
+  }
+
+  /** Retient jusqu'à 3 faits durables de l'échange (vérifiés par Mímir : pas de secret, pas d'éphémère). */
+  private async observe(userText: string, answer: string, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<string[]> {
+    const router = this.deps.cheapRouter ?? this.deps.router;
+    const known = this.deps.muninn.recall(userText, 6).map((m) => `- ${m.content}`).join('\n') || '(rien)';
+    const r = await router.complete({
+      system: `Tu aides un agent à apprendre vite sur son propriétaire. À partir de l'échange, extrais au plus 3 faits DURABLES et utiles plus tard :
+préférences (façon de travailler, formats, horaires), environnement (machines, appareils, dossiers, logiciels, comptes), missions et projets en cours, personnes importantes.
+Ignore le ponctuel, les politesses, et tout secret (mots de passe, clés, codes). N'invente rien. Ne répète pas ce qui est déjà connu :
+${known}
+Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|mission|person","text":"phrase courte et autonome"}]} (liste vide si rien).`,
+      messages: [{ role: 'user', content: `Propriétaire : ${userText.slice(0, 4000)}\n\nRéponse de l'agent : ${answer.slice(0, 2000)}` }],
+      tools: [], maxTokens: 400, signal,
+    });
+    const json = r.text.match(/\{[\s\S]*\}/)?.[0];
+    if (!json) return [];
+    const facts = ((JSON.parse(json) as { facts?: Array<{ kind?: string; text?: string }> }).facts ?? []).slice(0, 3);
+    const saved: string[] = [];
+    for (const f of facts) {
+      const text = this.deps.redactor.redact(String(f.text ?? '').trim()).slice(0, 300);
+      if (text.length < 8 || text.includes('[SECRET]')) continue;
+      if (this.deps.mimir?.cfg.uses.memory) {
+        const g = await this.deps.mimir.memoryGate(text, signal);
+        if (g.ok && !g.value.save) continue;
+      }
+      const kind = ['preference', 'environment', 'mission', 'person'].includes(String(f.kind)) ? String(f.kind) : 'fact';
+      const { updated } = this.deps.muninn.remember(text, 'agent', kind);
+      if (!updated) saved.push(text);
+    }
+    if (saved.length) emit({ type: 'learned', facts: saved });
+    return saved;
   }
 
   /** Estimation de la taille actuelle du contexte d'une session (pour /status). */

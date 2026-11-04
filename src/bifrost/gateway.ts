@@ -11,6 +11,7 @@ import type { Channel, Inbound } from './channel.ts';
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
 import { validHhmm } from '../mimir/decisions.ts';
+import { speak, ttsReady } from '../voice/voice.ts';
 
 export interface GatewayOptions {
   /** Identifiants des propriétaires par canal (ex. { telegram: ['123456'] }). */
@@ -113,10 +114,14 @@ export class Gateway {
         sessionId, channel: m.channel, peer: m.peer, trusted: owner, signal: ctrl.signal,
         onEvent: (e) => {
           ch.event?.(m.peer, e);
-          if (e.type === 'skill_proposed') void ch.send(m.peer, `💡 Nouvelle compétence proposée : ${e.name} (odin skills approve ${e.name})`);
+          if (e.type === 'skill_proposed') void ch.send(m.peer, e.active ? `💡 Nouvelle compétence apprise, active tout de suite : ${e.name}` : `💡 Nouvelle compétence proposée : ${e.name} (odin skills approve ${e.name})`);
         },
       });
       await ch.send(m.peer, (r.text || '(pas de réponse)') + decisionsFooter(r.decisions));
+      // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
+      if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
+        await speak(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
+      }
     } finally {
       this.aborts.delete(sessionId);
     }

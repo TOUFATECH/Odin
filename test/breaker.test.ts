@@ -9,6 +9,7 @@ import { breakerDigest, decisionsFooter, Gateway } from '../src/bifrost/gateway.
 import type { Channel } from '../src/bifrost/channel.ts';
 import { type Answers, type Judge } from '../src/mimir/client.ts';
 import { DEFAULT_BREAKER, effectiveAutonomy, inWindow } from '../src/mimir/decisions.ts';
+import { environmentProfile } from '../src/learn/environment.ts';
 import type { OdinConfig } from '../src/config.ts';
 import type { Tool } from '../src/tools/registry.ts';
 import { call, makeOdin } from './helpers.ts';
@@ -169,4 +170,33 @@ test('réseau local : ouvert en Odin Breaker (appareils, API locales), fermé si
     assert.match(o.provider.calls[1].messages.at(-1)!.content, /métadonnées cloud refusée/);
     o.cleanup();
   } finally { srv.close(); }
+});
+
+test('apprentissage rapide : faits durables retenus, secrets ignorés ; compétence active tout de suite en Breaker', async () => {
+  const facts = JSON.stringify({ facts: [
+    { kind: 'preference', text: 'Le propriétaire veut ses rapports en PDF, le lundi matin.' },
+    { kind: 'environment', text: 'Le NAS de la maison est à 192.168.1.30.' },
+    { kind: 'preference', text: 'Son mot de passe est sk-ant-abcdefghijklmnopqrstuvwxyz1234' },
+  ] });
+  const o = makeOdin([{ text: 'Noté.' }, { text: facts }], { config: (c) => ({ ...c, learning: { ...c.learning, observe: true } }) });
+  const r = await o.agent.run('Fais-moi mes rapports en PDF le lundi matin, le NAS est en 192.168.1.30', { sessionId: 's' });
+  await r.reflection;
+  const mem = o.muninn.listMemories(50).map((m) => `${m.kind}:${m.content}`);
+  assert.ok(mem.includes('preference:Le propriétaire veut ses rapports en PDF, le lundi matin.'));
+  assert.ok(mem.includes('environment:Le NAS de la maison est à 192.168.1.30.'));
+  assert.equal(mem.some((m) => /sk-ant|SECRET/.test(m)), false, 'aucun secret retenu');
+  o.cleanup();
+
+  const skill = JSON.stringify({ propose: true, name: 'rapport-nas', description: 'rapport des sauvegardes du NAS', body: '1. lister\n2. vérifier\n3. rapporter', reason: 'tâche réussie' });
+  const steps = [call('fs_list', { path: '.' }), call('fs_list', { path: 'a' }), call('fs_list', { path: 'b' })];
+  const b = makeOdin([...steps, { text: 'Rapport prêt.' }, { text: skill }], { config: breaker() });
+  const rb = await b.agent.run('fais le rapport du NAS', { sessionId: 's' });
+  await rb.reflection;
+  assert.equal(b.skills.list().some((s) => s.name === 'rapport-nas'), true, 'active sans attendre de validation');
+  b.cleanup();
+});
+
+test('profil de l\'environnement : système, ressources et outils', () => {
+  const p = environmentProfile();
+  assert.match(p, /^Environnement de la machine « .+ » : (Linux|macOS|Windows) .* cœurs, \d+ Go de mémoire, Node /);
 });

@@ -24,6 +24,8 @@ import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
 import { allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings } from '../settings.ts';
+import { sttReady, transcribe } from '../voice/voice.ts';
+import { refreshEnvironment } from '../learn/environment.ts';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { nextRun } from '../cron/cron.ts';
@@ -177,7 +179,11 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     else {
       if (!tg.owners.length) console.log(c.yellow('[bifrost] aucun propriétaire Telegram : écris au bot, puis ajoute ton identifiant dans Réglages → Telegram'));
       owners.telegram = tg.owners.map(String);
-      gw.add(new TelegramChannel(token));
+      const vc = odin.cfg.voice;
+      gw.add(new TelegramChannel(token, undefined, {
+        transcribe: sttReady(vc) ? (audio, mime) => transcribe(audio, mime, vc) : undefined,
+        inbox: join(odin.paths.workspace, 'inbox'),
+      }));
     }
   }
   const http = odin.cfg.channels.http;
@@ -225,6 +231,8 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     } else console.log(c.dim('[odin] services relancés'));
     if (openBrowser) openUrl(web.url);
   } else await gw.start();
+  // Apprentissage de l'environnement : profil de la machine (système, ressources, outils), épinglé.
+  try { refreshEnvironment(odin.muninn); } catch { /* jamais bloquant */ }
   if (odin.cfg.network.enabled) void gw.tick();
   stopping = shutdown;
   if (!reloaded) {

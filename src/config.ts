@@ -48,8 +48,12 @@ export interface OdinConfig {
     sandbox: { kind: 'none' | 'docker'; image: string; network: boolean };
   };
   learning: {
-    /** Proposer des compétences après une tâche complexe (toujours en brouillon). */
+    /** Proposer des compétences après une tâche complexe. */
     proposeSkills: boolean;
+    /** Activer tout de suite les compétences apprises : jamais, en Odin Breaker, ou toujours. */
+    autoApproveSkills: 'never' | 'breaker' | 'always';
+    /** Après chaque échange, retenir les faits durables (préférences, environnement, missions). */
+    observe: boolean;
     minToolCallsForReflection: number;
     recallLimit: number;
   };
@@ -81,6 +85,16 @@ export interface OdinConfig {
     /** Adresse publique éventuelle (ex. https://odin.mondomaine.fr), seulement pour afficher le lien. */
     publicUrl: string;
   };
+  /** La voix : Whisper pour comprendre, ElevenLabs pour parler. */
+  voice: {
+    enabled: boolean;
+    /** Lire à voix haute les réponses dans l'interface web. */
+    speakReplies: boolean;
+    /** Répondre aussi par une note vocale quand on écrit à Odin en vocal (Telegram). */
+    voiceReplies: boolean;
+    tts: { provider: 'elevenlabs'; voiceId: string; voiceName: string; model: string; baseUrl: string; apiKeyEnv: string };
+    stt: { provider: 'whisper'; model: string; baseUrl: string; apiKeyEnv: string; language: string };
+  };
   /** Mímir : jugements typés (juge local sans clé par défaut, Jev ou modèle en option), décisions en code. */
   mimir: MimirConfig;
   channels: {
@@ -103,9 +117,14 @@ export const DEFAULT_CONFIG: OdinConfig = {
     approvalTimeoutSec: 300,
     sandbox: { kind: 'none', image: 'node:22-bookworm-slim', network: false },
   },
-  learning: { proposeSkills: true, minToolCallsForReflection: 5, recallLimit: 6 },
+  learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
+  voice: {
+    enabled: false, speakReplies: false, voiceReplies: true,
+    tts: { provider: 'elevenlabs', voiceId: '', voiceName: '', model: 'eleven_multilingual_v2', baseUrl: 'https://api.elevenlabs.io', apiKeyEnv: 'ELEVENLABS_API_KEY' },
+    stt: { provider: 'whisper', model: 'whisper-1', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', language: 'fr' },
+  },
   mimir: DEFAULT_MIMIR,
   channels: {
     telegram: { enabled: false, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners: [] },
@@ -168,6 +187,9 @@ export function validateConfig(c: OdinConfig): string[] {
   if (c.agent.maxSteps < 1 || c.agent.maxSteps > 200) errs.push('agent.maxSteps doit être entre 1 et 200');
   if (!['none', 'docker'].includes(c.policy.sandbox?.kind)) errs.push('policy.sandbox.kind doit valoir none ou docker');
   if (!['auto', 'local', 'llm', 'jev', 'local+llm', 'local+jev'].includes(c.mimir.judge)) errs.push('mimir.judge doit valoir auto, local, llm, jev, local+llm ou local+jev');
+  if (!/^https?:\/\//.test(c.voice.stt.baseUrl) || !/^https?:\/\//.test(c.voice.tts.baseUrl)) errs.push('voice.stt.baseUrl / voice.tts.baseUrl : des adresses http(s)');
+  if (c.voice.tts.voiceId && !/^[A-Za-z0-9_-]{4,64}$/.test(c.voice.tts.voiceId)) errs.push('voice.tts.voiceId : identifiant de voix ElevenLabs invalide');
+  if (!['never', 'breaker', 'always'].includes(c.learning.autoApproveSkills)) errs.push('learning.autoApproveSkills doit valoir never, breaker ou always');
   if (!AUTONOMY_LEVELS.includes(c.mimir.autonomy)) errs.push('mimir.autonomy doit valoir prudent, equilibre, autonome ou breaker');
   {
     const b = c.mimir.breaker;

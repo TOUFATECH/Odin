@@ -23,6 +23,7 @@ import { deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
 import { applySettings, providerFor, settingsView, testProvider, type ModelPreset } from '../settings.ts';
+import { cloneVoice, listVoices, speak, sttReady, transcribe, ttsReady } from '../voice/voice.ts';
 
 export function ensureWebToken(paths: OdinPaths, rotate = false): string {
   const f = join(paths.home, 'web-token');
@@ -162,7 +163,7 @@ export class WebChannel implements Channel {
       const nonce = randomBytes(16).toString('base64');
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
-        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         ...(this.tls && !this.tls.selfSigned ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
@@ -184,6 +185,9 @@ export class WebChannel implements Channel {
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, this.state());
+    if (req.method === 'GET' && url.pathname === '/api/voice/voices') {
+      try { return json(res, 200, { ok: true, voices: await listVoices(this.odin.cfg.voice) }); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
     if (req.method === 'GET' && url.pathname === '/api/history') {
       const peer = safePeer(url.searchParams.get('peer'));
       const msgs = this.odin.muninn.history(`web:${peer}`).filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content).map((m) => ({ role: m.role, text: m.content }));
@@ -192,7 +196,34 @@ export class WebChannel implements Channel {
 
     if (req.method !== 'POST') return json(res, 405, { error: 'méthode refusée' });
     if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+    const v = this.odin.cfg.voice;
+    if (url.pathname === '/api/voice/transcribe') {
+      // Micro de l'interface : l'audio arrive brut, Whisper le transforme en texte.
+      if (!sttReady(v)) return json(res, 200, { ok: false, error: 'Whisper n\'est pas configuré (Réglages → Voix)' });
+      try { const audio = await readRaw(req, 25 * 1024 * 1024); return json(res, 200, { ok: true, text: await transcribe(audio, String(req.headers['content-type'] ?? 'audio/webm'), v) }); }
+      catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    if (url.pathname === '/api/voice/clone') {
+      // Copie d'une voix : un enregistrement d'une à quelques minutes, avec consentement explicite.
+      try {
+        const audio = await readRaw(req, 25 * 1024 * 1024);
+        const name = url.searchParams.get('name') ?? '';
+        const id = await cloneVoice(name, [{ data: audio, mime: String(req.headers['content-type'] ?? 'audio/mpeg'), filename: url.searchParams.get('file') ?? 'echantillon.mp3' }], url.searchParams.get('consent') === '1', v);
+        setConfigValue(this.odin.paths, ['voice', 'tts'], { ...v.tts, voiceId: id, voiceName: name.trim().slice(0, 60) });
+        v.tts.voiceId = id; v.tts.voiceName = name.trim().slice(0, 60);
+        this.notify('state');
+        return json(res, 200, { ok: true, voiceId: id });
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
     const body = await readJson(req);
+    if (url.pathname === '/api/voice/speak') {
+      if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'ElevenLabs n\'est pas configuré (Réglages → Voix)' });
+      try {
+        const audio = await speak(String(body.text ?? '').slice(0, 5000), v);
+        res.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+        return void res.end(audio);
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
     if (url.pathname === '/api/message') {
       const text = String(body.text ?? '').slice(0, 20_000);
       if (!text.trim()) return json(res, 400, { error: 'message vide' });
@@ -226,6 +257,7 @@ export class WebChannel implements Channel {
       breaker: cfg.mimir.breaker,
       judge: this.odin.mimir?.judgeName ?? null,
       settings: settingsView(cfg, Boolean(this.odin.demo)),
+      voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), speakReplies: cfg.voice.speakReplies },
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
     };
@@ -313,6 +345,12 @@ function json(res: ServerResponse, code: number, body: unknown): void {
   if (res.headersSent) return void res.end();
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
   res.end(JSON.stringify(body));
+}
+
+async function readRaw(req: IncomingMessage, max: number): Promise<Uint8Array> {
+  const parts: Buffer[] = []; let n = 0;
+  for await (const c of req) { n += (c as Buffer).length; if (n > max) throw new Error('fichier trop gros'); parts.push(c as Buffer); }
+  return new Uint8Array(Buffer.concat(parts));
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {

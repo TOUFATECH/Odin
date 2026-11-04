@@ -67,6 +67,11 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .composer{border-top:1px solid var(--line);padding:16px 28px;display:flex;gap:12px;align-items:flex-end}
 .composer textarea{flex:1;min-height:52px;max-height:220px;resize:vertical;padding:14px 16px;border-radius:12px;border:1px solid #2A3140;background:var(--panel);outline:none}
 .composer textarea:focus{border-color:var(--accent)}
+.btn.mic{min-height:52px;min-width:52px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.btn.mic[aria-pressed=true]{background:#3A1712;border-color:var(--bad);color:var(--bad);animation:pulse 1.2s ease-in-out infinite}
+#speakBtn[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(232,142,122,.18)}}
+@media (prefers-reduced-motion:reduce){.btn.mic[aria-pressed=true]{animation:none}}
 .typing{color:var(--dim);font-size:14px;padding:0 28px 8px;min-height:22px}
 /* Cartes, tableaux */
 .grid{display:flex;flex-wrap:wrap;gap:16px}
@@ -182,13 +187,14 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
         <div class="convs" id="convs" aria-label="Conversations"></div>
         <div class="thread">
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
-            <div style="display:flex;gap:8px"><button class="btn small" id="newConv">Nouvelle conversation</button><button class="btn small" id="stopBtn">Arrêter</button></div></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute">🔈 Voix</button><button class="btn small" id="newConv">Nouvelle conversation</button><button class="btn small" id="stopBtn">Arrêter</button></div></div>
           <div class="notice" id="demoNotice" hidden>Odin n'a pas encore de modèle (mode démo). <a href="#" id="goSettings">Ouvre les Réglages</a> pour en choisir un : c'est l'affaire d'une minute.</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="typing" id="typing"></div>
           <form class="composer" id="composer">
             <label for="input" style="position:absolute;left:-9999px">Message pour Odin</label>
             <textarea id="input" placeholder="Demande quelque chose à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne"></textarea>
+            <button class="btn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Parler à Odin (micro)" title="Parler à Odin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
             <button class="btn primary" type="submit" style="min-height:52px">Envoyer</button>
           </form>
         </div>
@@ -287,6 +293,35 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="field"><label for="t-owners">Tes identifiants Telegram (propriétaires)</label><input id="t-owners" autocomplete="off" placeholder="ex. 123456789"><span class="hint">Les propriétaires peuvent tout demander ; les autres doivent être appairés.</span></div>
             <div><button class="btn primary" type="submit">Enregistrer</button></div>
             <div class="status" id="t-status" role="status"></div>
+          </form></article>
+
+          <article class="card"><form class="form" id="f-voice">
+            <h2>Voix</h2>
+            <p class="sub" style="margin:0">Odin comprend ce que tu dis (Whisper) et te répond à voix haute (ElevenLabs), dans l'interface et en notes vocales sur Telegram.</p>
+            <label class="check"><input type="checkbox" id="v-enabled"> Activer la voix</label>
+            <div class="field"><label for="v-eleven">Clé ElevenLabs</label><input id="v-eleven" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="v-elevenHint"></span></div>
+            <div class="field"><label for="v-voice">Voix d'Odin</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><select id="v-voice" style="flex:1 1 220px"><option value="">— choisis une voix —</option></select><button class="btn small" type="button" id="v-load">Charger mes voix</button><button class="btn small" type="button" id="v-try">Écouter un essai</button></div>
+              <span class="hint" id="v-voiceHint"></span></div>
+            <details class="field" id="v-cloneBox"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Copier une voix à partir d'un enregistrement</summary>
+              <div class="form" style="gap:10px;margin-top:8px">
+                <span class="hint">Une à trois minutes de parole claire, sans musique. Envoie un fichier audio, ou enregistre-toi directement.</span>
+                <div class="field"><label for="v-cloneName">Nom de la voix</label><input id="v-cloneName" autocomplete="off" placeholder="ex. Ma voix"></div>
+                <div class="field"><label for="v-cloneFile">Enregistrement</label><input id="v-cloneFile" type="file" accept="audio/*"></div>
+                <div><button class="btn small" type="button" id="v-cloneRec" aria-pressed="false">🎙 M'enregistrer</button> <span class="hint" id="v-recHint"></span></div>
+                <label class="check"><input type="checkbox" id="v-consent"> C'est ma voix, ou la personne enregistrée a donné son accord pour cet usage.</label>
+                <div><button class="btn primary" type="button" id="v-clone">Copier cette voix</button></div>
+              </div>
+            </details>
+            <div class="field"><label for="v-sttUrl">Service Whisper</label><input id="v-sttUrl" autocomplete="off" spellcheck="false" placeholder="https://api.openai.com/v1"><span class="hint">OpenAI par défaut (clé OpenAI). Pour rester 100 % local, un serveur Whisper sur ta machine : http://localhost:8000/v1 (sans clé).</span></div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div class="field" style="flex:2 1 220px"><label for="v-sttKey">Clé OpenAI (Whisper)</label><input id="v-sttKey" type="password" autocomplete="off"><span class="hint" id="v-sttHint"></span></div>
+              <div class="field" style="flex:1 1 120px"><label for="v-lang">Langue</label><input id="v-lang" autocomplete="off" placeholder="fr" maxlength="2"></div>
+            </div>
+            <label class="check"><input type="checkbox" id="v-speak"> Lire les réponses à voix haute dans l'interface</label>
+            <label class="check"><input type="checkbox" id="v-replies"> Répondre en note vocale quand je parle à Odin sur Telegram</label>
+            <div><button class="btn primary" type="submit">Enregistrer</button></div>
+            <div class="status" id="v-status" role="status"></div>
           </form></article>
 
           <article class="card"><form class="form" id="f-network">
@@ -400,6 +435,8 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     else if (e.type === 'tool_end') activity.append(el('span', {}, `${e.ok ? '✓' : '✗'} ${e.preview.replace(/\s+/g, ' ').slice(0, 110)}`));
     else if (e.type === 'blocked') activity.append(el('span', { class: 'blocked' }, `⛔ ${e.name} : ${e.reason}`));
     else if (e.type === 'compacted') activity.append(el('span', {}, `♻ contexte résumé`));
+    else if (e.type === 'learned') activity.append(el('span', { class: 'decided' }, `🧠 appris : ${e.facts.join(' · ')}`));
+    else if (e.type === 'skill_proposed') activity.append(el('span', { class: 'decided' }, e.active ? `💡 compétence apprise et active : ${e.name}` : `💡 compétence proposée : ${e.name} (onglet Compétences)`));
     else if (e.type === 'decision' && e.allowed && e.via === 'breaker') activity.append(el('span', { class: 'decided' }, `⚡ Breaker${e.severity ? ' (' + e.severity + ')' : ''} : ${e.summary}`));
     else if (e.type === 'decision' && e.allowed && (e.via === 'mimir' || e.via === 'grant')) activity.append(el('span', { class: 'decided' }, `🛡 décidé seul (${e.via === 'grant' ? 'autorisation permanente' : e.severity}) : ${e.summary} — ${e.why}`));
     msgs.scrollTop = msgs.scrollHeight;
@@ -525,6 +562,92 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     if (!(state.grants || []).length) $('#grants').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune. Réponds « Toujours autoriser » à une demande importante pour en créer une.')));
   }
 
+
+
+  // ---------- Voix : micro (Whisper) et lecture (ElevenLabs) ----------
+  let speakOn = false, speakPref = null;
+  try { speakPref = localStorage.getItem('odin.speak'); speakOn = speakPref === '1'; } catch { /* stockage indisponible */ }
+  const speakBtn = $('#speakBtn');
+  function renderSpeak() { speakBtn.setAttribute('aria-pressed', String(speakOn)); speakBtn.textContent = speakOn ? '🔊 Voix' : '🔈 Voix'; }
+  renderSpeak();
+  speakBtn.addEventListener('click', () => { speakOn = !speakOn; speakPref = speakOn ? '1' : '0'; try { localStorage.setItem('odin.speak', speakOn ? '1' : '0'); } catch { /* rien */ } renderSpeak(); if (speakOn && !state?.voice?.tts) $('#typing').textContent = 'La voix n\'est pas encore réglée : Réglages → Voix.'; });
+  let player = null;
+  async function sayAloud(text) {
+    if (!speakOn || !state?.voice?.tts || !text.trim()) return;
+    try {
+      const r = await fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text }) });
+      if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return;
+      if (player) { player.pause(); URL.revokeObjectURL(player.src); }
+      player = new Audio(URL.createObjectURL(await r.blob())); await player.play();
+    } catch { /* lecture bloquée par le navigateur */ }
+  }
+  async function record(btn, onDone, hintEl) {
+    if (btn._rec) { btn._rec.stop(); return; }
+    if (!navigator.mediaDevices?.getUserMedia) { hintEl.textContent = 'Micro indisponible : ouvre Odin en HTTPS (ou sur cette machine).'; return; }
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { hintEl.textContent = 'Accès au micro refusé par le navigateur.'; return; }
+    const rec = new MediaRecorder(stream); const parts = [];
+    rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };
+    rec.onstop = () => { stream.getTracks().forEach((t) => t.stop()); btn._rec = null; btn.setAttribute('aria-pressed', 'false'); onDone(new Blob(parts, { type: rec.mimeType || 'audio/webm' })); };
+    btn._rec = rec; btn.setAttribute('aria-pressed', 'true'); rec.start();
+    hintEl.textContent = '🎙 Je t\'écoute… clique encore pour terminer.';
+  }
+  $('#micBtn').addEventListener('click', () => {
+    if (!state?.voice?.stt && !$('#micBtn')._rec) { $('#typing').textContent = 'Pour parler à Odin, active Whisper dans Réglages → Voix.'; return; }
+    record($('#micBtn'), async (blob) => {
+      $('#typing').textContent = 'Transcription…';
+      const r = await (await fetch('/api/voice/transcribe', { method: 'POST', headers: { 'content-type': blob.type, 'x-odin': '1' }, body: blob })).json();
+      $('#typing').textContent = '';
+      if (!r.ok) { $('#typing').textContent = r.error; return; }
+      if (!r.text) { $('#typing').textContent = 'Je n\'ai rien entendu.'; return; }
+      $('#input').value = r.text; send();
+    }, $('#typing'));
+  });
+  // Réglages de la voix
+  let voicesLoaded = false;
+  function renderVoice() {
+    const V = state.settings?.voice; if (!V) return;
+    if (speakPref === null) { speakOn = Boolean(state.voice?.speakReplies); renderSpeak(); }
+    const sec = state.settings.secrets;
+    $('#v-elevenHint').textContent = sec.ELEVENLABS_API_KEY?.set ? `Clé enregistrée (${sec.ELEVENLABS_API_KEY.hint}). Laisse vide pour la garder.` : 'Clé sur elevenlabs.io → Profil → API Keys.';
+    $('#v-sttHint').textContent = sec.OPENAI_API_KEY?.set ? `Clé enregistrée (${sec.OPENAI_API_KEY.hint}).` : 'Inutile avec un serveur Whisper local.';
+    $('#v-voiceHint').textContent = V.voiceId ? `Voix actuelle : ${V.voiceName || V.voiceId}` : 'Aucune voix choisie.';
+    if (V.voiceId && ![...$('#v-voice').options].some((o) => o.value === V.voiceId)) $('#v-voice').append(el('option', { value: V.voiceId }, V.voiceName || V.voiceId));
+    if (!settingsDirty) {
+      $('#v-enabled').checked = V.enabled; $('#v-voice').value = V.voiceId; $('#v-sttUrl').value = V.sttUrl; $('#v-lang').value = V.language;
+      $('#v-speak').checked = V.speakReplies; $('#v-replies').checked = V.voiceReplies;
+    }
+  }
+  $('#v-load').addEventListener('click', async () => {
+    st('#v-status', 'Chargement des voix…');
+    const r = await api('/api/voice/voices');
+    if (!r.ok) return st('#v-status', r.error + ' (enregistre d\'abord ta clé ElevenLabs)', false);
+    const cur = $('#v-voice').value; const sel = $('#v-voice'); sel.replaceChildren(el('option', { value: '' }, '— choisis une voix —'));
+    for (const v of r.voices) sel.append(el('option', { value: v.id }, `${v.name}${v.category === 'cloned' ? ' (copiée)' : ''}`));
+    sel.value = cur; voicesLoaded = true; st('#v-status', `✓ ${r.voices.length} voix disponibles.`, true);
+  });
+  $('#v-try').addEventListener('click', async () => {
+    if (!state.voice.tts) return st('#v-status', 'Enregistre d\'abord la clé et une voix.', false);
+    const was = speakOn; speakOn = true; await sayAloud('Bonjour, je suis Odin, ton agent majordome. Que puis-je faire pour toi ?'); speakOn = was;
+  });
+  let cloneBlob = null;
+  $('#v-cloneRec').addEventListener('click', () => record($('#v-cloneRec'), (b) => { cloneBlob = b; $('#v-recHint').textContent = `Enregistrement prêt (${Math.round(b.size / 1024)} Ko).`; }, $('#v-recHint')));
+  $('#v-clone').addEventListener('click', async () => {
+    const file = $('#v-cloneFile').files[0] || cloneBlob;
+    if (!$('#v-consent').checked) return st('#v-status', 'Coche la case de consentement pour copier une voix.', false);
+    if (!file) return st('#v-status', 'Ajoute un enregistrement (fichier ou micro).', false);
+    st('#v-status', 'Copie de la voix chez ElevenLabs…');
+    const q = new URLSearchParams({ name: $('#v-cloneName').value || 'Ma voix', consent: '1', file: file.name || 'echantillon.webm' });
+    const r = await (await fetch('/api/voice/clone?' + q, { method: 'POST', headers: { 'content-type': file.type || 'audio/mpeg', 'x-odin': '1' }, body: file })).json();
+    st('#v-status', r.ok ? '✓ Voix copiée et choisie pour Odin.' : r.error, Boolean(r.ok));
+    if (r.ok) { settingsDirty = false; refresh(); }
+  });
+  $('#f-voice').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const opt = $('#v-voice').selectedOptions[0];
+    await save('voice', { enabled: $('#v-enabled').checked, elevenKey: $('#v-eleven').value.trim(), voiceId: $('#v-voice').value, voiceName: opt && opt.value ? opt.textContent.replace(/ \(copiée\)$/, '') : '', sttUrl: $('#v-sttUrl').value.trim(), sttKey: $('#v-sttKey').value.trim(), language: $('#v-lang').value.trim(), speakReplies: $('#v-speak').checked, voiceReplies: $('#v-replies').checked }, '#v-status', '✓ Voix enregistrée.');
+    $('#v-eleven').value = ''; $('#v-sttKey').value = '';
+  });
 
   // ---------- Accès à l'interface ----------
   let accessMode = 'local';
@@ -664,7 +787,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderBreaker(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------
@@ -672,7 +795,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     const es = new EventSource('/api/stream');
     es.onmessage = (ev) => {
       const d = JSON.parse(ev.data);
-      if (d.type === 'message' && d.peer === peer) { addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
+      if (d.type === 'message' && d.peer === peer) { addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') addActivity(d.event);
       else if (d.type === 'refresh') refresh();

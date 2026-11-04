@@ -11,7 +11,7 @@ import type { OdinConfig, OdinPaths, ProviderConfig } from './config.ts';
 import { setConfigValue } from './config.ts';
 import { buildProvider, Router } from './providers/router.ts';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY'] as const;
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -123,6 +123,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
+    voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language },
     web: { port: cfg.web.port, access: cfg.web.access, https: cfg.web.tls.enabled, cert: cfg.web.tls.cert, key: cfg.web.tls.key, behindProxy: cfg.web.behindProxy, publicUrl: cfg.web.publicUrl, networks: cfg.web.allowedNetworks.join(', ') },
   };
 }
@@ -185,6 +186,22 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
         behindProxy: access === 'wan' && Boolean(b.behindProxy),
         publicUrl: String(b.publicUrl ?? '').trim(),
         allowedNetworks: String(b.networks ?? '').split(/[\s,;]+/).filter(Boolean),
+      });
+      return true;
+    }
+    case 'voice': {
+      const v = cfg.voice;
+      if (str('elevenKey')) writeSecret(paths, 'ELEVENLABS_API_KEY', str('elevenKey')!);
+      if (str('sttKey')) writeSecret(paths, 'OPENAI_API_KEY', str('sttKey')!);
+      const sttUrl = str('sttUrl')?.trim() || v.stt.baseUrl;
+      if (!/^https?:\/\//.test(sttUrl)) throw new Error('adresse Whisper invalide (ex. https://api.openai.com/v1 ou http://localhost:8000/v1)');
+      const lang = (str('language') ?? v.stt.language).trim();
+      if (lang && !/^[a-z]{2}$/.test(lang)) throw new Error('langue : un code à deux lettres (fr, en…) ou vide pour la détection automatique');
+      setConfigValue(paths, ['voice'], {
+        ...v,
+        enabled: Boolean(b.enabled), speakReplies: Boolean(b.speakReplies), voiceReplies: b.voiceReplies === undefined ? v.voiceReplies : Boolean(b.voiceReplies),
+        tts: { ...v.tts, voiceId: str('voiceId')?.trim() ?? v.tts.voiceId, voiceName: str('voiceName')?.trim() ?? v.tts.voiceName, model: str('ttsModel')?.trim() || v.tts.model },
+        stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
       });
       return true;
     }
