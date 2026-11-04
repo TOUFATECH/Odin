@@ -53,7 +53,7 @@
   }
 
   // Mascotte : elle réagit quand on la touche, et ses yeux suivent le doigt ou la souris.
-  const faces = $$('.odin'), moods = ['poke', 'wow', 'spin'];
+  const faces = $$('.odin'), moods = ['poke', 'wow', 'bounce'];
   let mood = 0;
   const clamp = (v, m) => Math.max(-m, Math.min(m, v));
   const look = (f, x, y) => { const r = f.getBoundingClientRect(); f.style.setProperty('--ex', `${clamp((x - r.left - r.width / 2) / 28, 6)}px`); f.style.setProperty('--ey', `${clamp((y - r.top - r.height / 2) / 28, 5)}px`); f.classList.add('follow'); };

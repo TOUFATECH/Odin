@@ -33,7 +33,22 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes o-talk{0%,100%{transform:scale(1)}50%{transform:scale(1.04,.97)}}
 @keyframes o-blink{0%,91%,100%{transform:scaleY(1)}93.5%{transform:scaleY(.08)}96%{transform:scaleY(1)}}
 @keyframes o-glance{0%,18%{transform:translateX(0)}24%,36%{transform:translateX(5px)}42%,60%{transform:translateX(0)}66%,76%{transform:translateX(-5px)}82%,100%{transform:translateX(0)}}
-/* Réactions au toucher : il se tasse et sourit, s'étonne, ou fait une pirouette ; ses yeux suivent le doigt ou la souris. */ .odin{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none} .odin.follow .eyes{animation:none;transform:translate(var(--ex,0),var(--ey,0));transition:transform .12s ease-out} .odin.poke .body{animation:o-poke .75s cubic-bezier(.3,1.6,.4,1)} .odin.poke .eye{animation:none;transform:scaleY(.42) translateY(-3px)} .odin.wow .body{animation:o-wow .8s ease} .odin.wow .eye{animation:none;transform:scale(1.35)} .odin.spin .body{animation:o-spin .9s cubic-bezier(.5,0,.2,1)} .odin.spin .eye{animation:none;transform:scaleY(.15)} @keyframes o-poke{0%{transform:scale(1)}25%{transform:scale(1.18,.82) translateY(7px)}55%{transform:scale(.94,1.1) translateY(-9px)}80%{transform:scale(1.03,.98)}100%{transform:scale(1)}} @keyframes o-wow{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg) scale(1.07)}45%{transform:rotate(8deg) scale(1.07)}70%{transform:rotate(-4deg)}} @keyframes o-spin{0%{transform:scaleX(1)}50%{transform:scaleX(-1) scale(1.08)}100%{transform:scaleX(1)}}
+/* Réactions au toucher : il se tasse et sourit, s'étonne, ou fait une pirouette ; ses yeux suivent le doigt ou la souris. */ .odin{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none} .odin.follow .eyes{animation:none;transform:translate(var(--ex,0),var(--ey,0));transition:transform .12s ease-out} .odin .ring{transform-origin:60px 60px;animation:o-ring 4.4s ease-in-out infinite}
+.odin .ring.r2{animation-delay:-2.2s}
+.odin .ripple{transform-origin:60px 60px}
+.odin.poke .ripple,.odin.wow .ripple,.odin.bounce .ripple{animation:o-ripple .9s ease-out}
+.odin.poke .body{animation:o-poke .8s cubic-bezier(.3,1.5,.4,1)}
+.odin.poke .eye{animation:none;transform:scaleY(.4) translateY(-3px)}
+.odin.wow .body{animation:o-wow .8s ease}
+.odin.wow .eye{animation:none;transform:scale(1.4)}
+.odin.bounce .body{animation:o-bounce .9s cubic-bezier(.3,.9,.4,1)}
+.odin.bounce .eye{animation:o-bounce-eye .9s ease}
+@keyframes o-ring{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.04);opacity:.55}}
+@keyframes o-ripple{0%{transform:scale(1);opacity:.95}100%{transform:scale(1.32);opacity:0}}
+@keyframes o-poke{0%{transform:scale(1)}22%{transform:scale(1.12,.88) translateY(5px)}50%{transform:scale(.95,1.06) translateY(-7px)}75%{transform:scale(1.03,.98) translateY(1px)}100%{transform:scale(1)}}
+@keyframes o-wow{0%,100%{transform:rotate(0) scale(1)}15%{transform:rotate(-8deg) scale(1.06)}35%{transform:rotate(8deg) scale(1.06)}55%{transform:rotate(-5deg) scale(1.03)}75%{transform:rotate(3deg)}}
+@keyframes o-bounce{0%{transform:translateY(0) scale(1)}20%{transform:translateY(-16px) scale(.97,1.05)}45%{transform:translateY(0) scale(1.08,.92)}62%{transform:translateY(-6px) scale(.99,1.02)}80%{transform:translateY(0) scale(1.03,.97)}100%{transform:translateY(0) scale(1)}}
+@keyframes o-bounce-eye{0%,35%{transform:scaleY(1)}45%,55%{transform:scaleY(.12)}65%,100%{transform:scaleY(1)}}
 @media (prefers-reduced-motion:reduce){.odin *{animation:none!important}}
 .tab{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--muted);text-align:left}
 .tab:hover{background:#151A24;color:var(--ink)}
@@ -173,7 +188,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 </head>
 <body>
 <div id="login" class="login" hidden>
-  <span class="odin" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 6px;display:block"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop offset="0" stop-color="#E19B1F"/><stop offset=".5" stop-color="#EDB03D"/><stop offset=".82" stop-color="#F8CC70"/><stop offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE9B8" stop-opacity=".3"/><stop offset=".92" stop-color="#FFE9B8" stop-opacity=".1"/><stop offset="1" stop-color="#FFE9B8" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter></defs><circle class="halo" cx="61" cy="62" r="52" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
+  <span class="odin" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 6px;display:block"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop offset="0" stop-color="#E19B1F"/><stop offset=".5" stop-color="#EDB03D"/><stop offset=".82" stop-color="#F8CC70"/><stop offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".72" stop-color="#FFD98A" stop-opacity=".38"/><stop offset=".86" stop-color="#FFD98A" stop-opacity=".14"/><stop offset="1" stop-color="#FFD98A" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g filter="url(#odinGlow)"><circle class="ring r2" cx="60" cy="60" r="55" fill="none" stroke="#FFE7A8" stroke-opacity=".28" stroke-width="1"/><circle class="ring r1" cx="60" cy="60" r="49" fill="none" stroke="#FFEBB8" stroke-opacity=".6" stroke-width="1.4"/></g><circle class="ripple" cx="60" cy="60" r="46" fill="none" stroke="#FFEBB8" stroke-width="1.8" opacity="0" filter="url(#odinGlow)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
   <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
   <p class="sub">Colle le jeton affiché par « odin web » (ou contenu du fichier ~/.odin/web-token).</p>
   <form id="loginForm" method="get" action="/" style="display:flex;flex-direction:column;gap:10px">
@@ -568,7 +583,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     try { const r = await api('/api/message', { peer, text: t }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
   // Mascotte : elle réagit quand on la touche (écran de connexion, « Odin réfléchit… »).
-  const MOODS = ['poke', 'wow', 'spin']; let moodI = 0;
+  const MOODS = ['poke', 'wow', 'bounce']; let moodI = 0;
   document.addEventListener('pointerdown', (e) => {
     const f = e.target.closest?.('.odin'); if (!f) return;
     e.preventDefault();
