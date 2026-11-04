@@ -35,7 +35,8 @@ jobs:
           docker run --rm -v "$PWD:/src:ro" debian:bookworm-slim bash -euo pipefail -c '
             apt-get update -qq >/dev/null && apt-get install -y -qq curl git ca-certificates xz-utils procps >/dev/null
             useradd -m tester
-            su tester -c "set -euo pipefail; cd ~
+            git config --system --add safe.directory "*"
+            su tester -s /bin/bash -c "set -euo pipefail; cd ~
               export ODIN_YES=1 ODIN_NO_SERVICE=1 ODIN_NO_SCAN=1 ODIN_WEB_ACCESS=local ODIN_REPO=file:///src
               bash /src/install.sh
               export PATH=\$HOME/.local/bin:\$PATH
