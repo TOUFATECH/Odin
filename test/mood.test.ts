@@ -39,7 +39,7 @@ test('Odin choisit son humeur : marqueur invisible, évènement émis, autocolla
   ch.event = (_p: string, e: { type: string; mood?: string }) => { if (e.type === 'mood') events.push(e.mood!); };
   const msg = (text: string): Inbound => ({ channel: 'fake', peer: 'boss', name: 'boss', text });
   await gw.handle(msg('salut'));
-  assert.equal(ch.sent[0], '😊 Bonjour ! Prêt à t\'aider.', 'émoji en tête, marqueur retiré');
+  assert.equal(ch.sent[0], 'Bonjour ! Prêt à t\'aider.', 'marqueur retiré, pas d\'émoji');
   assert.match(o.provider.calls[0].system, /\[humeur:X\]/, 'le modèle sait qu\'il a un visage');
   assert.equal(ch.stickers, 1);
   await gw.handle(msg('encore'));

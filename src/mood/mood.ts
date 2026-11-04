@@ -6,26 +6,26 @@
 // Le visage (site, interface web) et l'autocollant Telegram suivent cette humeur.
 
 export const MOODS = {
-  neutre: { emoji: '🙂', label: 'tranquille' },
-  joie: { emoji: '😊', label: 'content' },
-  rire: { emoji: '😄', label: 'rieur' },
-  amour: { emoji: '🥰', label: 'attendri' },
-  fierte: { emoji: '😎', label: 'fier' },
-  excite: { emoji: '🤩', label: 'enthousiaste' },
-  clin: { emoji: '😉', label: 'complice' },
-  malice: { emoji: '😏', label: 'malicieux' },
-  surprise: { emoji: '😮', label: 'surpris' },
-  reflexion: { emoji: '🤔', label: 'pensif' },
-  concentration: { emoji: '🧐', label: 'concentré' },
-  confus: { emoji: '😕', label: 'perplexe' },
-  inquiet: { emoji: '😟', label: 'inquiet' },
-  triste: { emoji: '😢', label: 'triste' },
-  colere: { emoji: '😠', label: 'fâché' },
-  peur: { emoji: '😨', label: 'effrayé' },
-  gene: { emoji: '😳', label: 'gêné' },
-  fatigue: { emoji: '😴', label: 'fatigué' },
-  ecoute: { emoji: '👂', label: 'à l\'écoute' },
-  regarde: { emoji: '👀', label: 'attentif' },
+  neutre: { label: 'tranquille' },
+  joie: { label: 'content' },
+  rire: { label: 'rieur' },
+  amour: { label: 'attendri' },
+  fierte: { label: 'fier' },
+  excite: { label: 'enthousiaste' },
+  clin: { label: 'complice' },
+  malice: { label: 'malicieux' },
+  surprise: { label: 'surpris' },
+  reflexion: { label: 'pensif' },
+  concentration: { label: 'concentré' },
+  confus: { label: 'perplexe' },
+  inquiet: { label: 'inquiet' },
+  triste: { label: 'triste' },
+  colere: { label: 'fâché' },
+  peur: { label: 'effrayé' },
+  gene: { label: 'gêné' },
+  fatigue: { label: 'fatigué' },
+  ecoute: { label: 'à l\'écoute' },
+  regarde: { label: 'attentif' },
 } as const;
 
 export type Mood = keyof typeof MOODS;
@@ -82,4 +82,4 @@ export function guessMood(text: string, c: MoodContext = {}): Mood {
 
 /** Ligne du prompt système qui apprend au modèle à donner son humeur. */
 export const MOOD_PROMPT = `## Ton humeur
-Tu as un visage (une petite boule dorée) qui montre ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas.`;
+Tu as un visage (une petite boule dorée) dont les yeux montrent ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas.`;

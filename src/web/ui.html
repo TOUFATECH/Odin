@@ -52,16 +52,14 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes o-c4{0%{stop-color:#FFE3A0}8%,40%{stop-color:#FFA593}62%,78%{stop-color:#C3DBFF}100%{stop-color:#FFE3A0}}
 /* Expressions d'Odin (humeurs) : émoji, animations propres à chaque humeur. */
 .odin{position:relative;container-type:inline-size}
-.mood-emoji{position:absolute;right:-4%;top:-2%;font-size:clamp(11px,24cqw,34px);line-height:1;pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));opacity:0}
-.mood-emoji.pop{animation:o-emoji 2.6s ease forwards}
-@container (max-width:46px){.mood-emoji{display:none}}
-@keyframes o-emoji{0%{opacity:0;transform:translateY(6px) scale(.4)}12%{opacity:1;transform:translateY(-2px) scale(1.15)}20%{transform:none}80%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-6px) scale(.9)}}
+@container (max-width:46px){}
 .odin .brows path,.odin .mouth>*,.odin .cheeks>*{transition:opacity .2s}
 .odin.m-laugh .body{animation:o-laugh .42s ease-in-out 4}
 .odin.m-hop .body{animation:o-hop .55s cubic-bezier(.3,.9,.4,1) 3}
 .odin.m-shake .body{animation:o-shake .5s ease-in-out 3}
 .odin.m-tremble .body{animation:o-tremble .12s linear 14}
 .odin.m-tilt .body{animation:none;transform:rotate(-8deg);transition:transform .4s}
+.odin.m-talk .body{animation:o-talk .5s ease-in-out infinite}
 .odin.m-look .eyes{animation:o-glance 2.4s ease-in-out infinite}
 .odin .talk{transform-box:fill-box;transform-origin:center;animation:o-talk-m .32s ease-in-out infinite alternate}
 .odin .tear{animation:o-tear 1.6s ease-in infinite}
@@ -73,7 +71,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes o-talk-m{from{transform:scaleY(.35)}to{transform:scaleY(1.15)}}
 @keyframes o-tear{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(10px);opacity:0}}
 @keyframes o-zzz{0%,100%{transform:translateY(0);opacity:.35}50%{transform:translateY(-4px);opacity:1}}
-@media (prefers-reduced-motion:reduce){.odin .talk,.odin .tear,.odin .sweat,.odin .zzz,.mood-emoji.pop{animation:none!important}.mood-emoji.pop{opacity:1}}
+@media (prefers-reduced-motion:reduce){.odin .talk,.odin .tear,.odin .sweat,.odin .zzz,}
 @media (prefers-reduced-motion:reduce){.odin *{animation:none!important}}
 .tab{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--muted);text-align:left}
 .tab:hover{background:#151A24;color:var(--ink)}

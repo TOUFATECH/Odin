@@ -142,15 +142,14 @@ export class Gateway {
           if (e.type === 'skill_proposed') void ch.send(m.peer, e.active ? `💡 Nouvelle compétence apprise, active tout de suite : ${e.name}` : `💡 Nouvelle compétence proposée : ${e.name} (odin skills approve ${e.name})`);
         },
       });
-      // Son visage : l'autocollant de son humeur quand elle change, et l'émoji en tête de réponse.
+      // Son visage : l'autocollant de son humeur (ses yeux) quand elle change.
       const mood = r.mood && MOODS[r.mood] ? r.mood : undefined;
       if (mood && ch.sendSticker && this.odin.cfg.mood.stickers && this.lastMood.get(sessionId) !== mood) {
         const webp = moodSticker(mood);
         if (webp) await ch.sendSticker(m.peer, webp).catch((e) => console.error('[humeur]', (e as Error).message));
       }
       if (mood) this.lastMood.set(sessionId, mood);
-      const face = mood && ch.sendSticker && this.odin.cfg.mood.emoji ? `${MOODS[mood].emoji} ` : '';
-      await ch.send(m.peer, face + (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
+      await ch.send(m.peer, (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));

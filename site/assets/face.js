@@ -3,29 +3,30 @@
 // API : OdinFace.set(el, humeur) · OdinFace.all(humeur) · OdinFace.MOODS · OdinFace.flash(el, humeur, ms)
 (() => {
   const W = '#fff';
+  // Chaque humeur ne se lit que dans ses yeux : forme, et inclinaison (degrés, œil gauche ; le droit en miroir).
   const MOODS = {
-    neutre: { emoji: '🙂', eyes: 'pill' },
-    joie: { emoji: '😊', eyes: 'happy', mouth: 'smile', cheeks: true },
-    rire: { emoji: '😄', eyes: 'happy', mouth: 'grin', cheeks: true, anim: 'laugh' },
-    amour: { emoji: '🥰', eyes: 'heart', mouth: 'smile', cheeks: true, tint: 'pink' },
-    fierte: { emoji: '😎', eyes: 'shades', mouth: 'smirk' },
-    excite: { emoji: '🤩', eyes: 'star', mouth: 'grin', anim: 'hop' },
-    clin: { emoji: '😉', eyes: 'wink', mouth: 'smile' },
-    malice: { emoji: '😏', eyes: 'half', mouth: 'smirk', brows: 'one' },
-    surprise: { emoji: '😮', eyes: 'wide', mouth: 'o', brows: 'raised' },
-    reflexion: { emoji: '🤔', eyes: 'up', mouth: 'side', brows: 'one' },
-    concentration: { emoji: '🧐', eyes: 'squint', mouth: 'flat', brows: 'focus' },
-    confus: { emoji: '😕', eyes: 'uneven', mouth: 'wavy', brows: 'one' },
-    inquiet: { emoji: '😟', eyes: 'pill', mouth: 'wavy', brows: 'sad', extra: 'sweat' },
-    triste: { emoji: '😢', eyes: 'small', mouth: 'frown', brows: 'sad', extra: 'tear', tint: 'blue' },
-    colere: { emoji: '😠', eyes: 'squint', mouth: 'frown', brows: 'angry', tint: 'red', anim: 'shake' },
-    peur: { emoji: '😨', eyes: 'wide', mouth: 'wobble', brows: 'sad', extra: 'sweat', anim: 'tremble' },
-    gene: { emoji: '😳', eyes: 'wide', mouth: 'flat', cheeks: 'strong' },
-    fatigue: { emoji: '😴', eyes: 'closed', mouth: 'flat', extra: 'zzz' },
-    ecoute: { emoji: '👂', eyes: 'pill', mouth: 'smile', anim: 'tilt' },
-    regarde: { emoji: '👀', eyes: 'pill', anim: 'look' },
-    parle: { emoji: '🗣️', eyes: 'pill', mouth: 'talk' },
-    cache: { emoji: '🙈', eyes: 'closed', mouth: 'smile', cheeks: true, extra: 'hands' },
+    neutre: { eyes: 'pill' },
+    joie: { eyes: 'happy' },
+    rire: { eyes: 'happy', anim: 'laugh' },
+    amour: { eyes: 'heart' },
+    fierte: { eyes: 'half', tilt: -8 },
+    excite: { eyes: 'star', anim: 'hop' },
+    clin: { eyes: 'wink' },
+    malice: { eyes: 'half', tilt: 12 },
+    surprise: { eyes: 'wide' },
+    reflexion: { eyes: 'up' },
+    concentration: { eyes: 'squint' },
+    confus: { eyes: 'uneven' },
+    inquiet: { eyes: 'pill', tilt: -14 },
+    triste: { eyes: 'small', tilt: -18 },
+    colere: { eyes: 'squint', tilt: 24, anim: 'shake' },
+    peur: { eyes: 'wide', tilt: -12, anim: 'tremble' },
+    gene: { eyes: 'small' },
+    fatigue: { eyes: 'closed' },
+    ecoute: { eyes: 'pill', anim: 'tilt' },
+    regarde: { eyes: 'pill', anim: 'look' },
+    parle: { eyes: 'pill', anim: 'talk' },
+    cache: { eyes: 'closed' },
   };
   const TINTS = {
     gold: ['#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0'],
@@ -108,19 +109,14 @@
     el.dataset.mood = key;
     // Les yeux restent dans .eyes (ils suivent le doigt et clignent) ; seul leur dessin change.
     const [le, re] = EYES[m.eyes || 'pill']();
-    f.eyes.innerHTML = `<g class="brow l">${le}</g><g class="brow r">${re}</g>`;
-    f.brows.innerHTML = m.brows ? BROWS[m.brows]() : '';
-    f.mouth.innerHTML = m.mouth ? MOUTH[m.mouth]() : '';
-    f.cheeks.innerHTML = m.cheeks ? `<ellipse cx="37" cy="69" rx="6.5" ry="3.6" fill="#FF6F6F" opacity="${m.cheeks === 'strong' ? .75 : .42}"/><ellipse cx="83" cy="69" rx="6.5" ry="3.6" fill="#FF6F6F" opacity="${m.cheeks === 'strong' ? .75 : .42}"/>` : '';
-    f.extra.innerHTML = m.extra ? EXTRA[m.extra]() : '';
-    const tint = TINTS[m.tint || 'gold'];
-    svg.querySelectorAll('[id^="odinBody"] stop').forEach((s, i) => s.setAttribute('stop-color', tint[i] || tint[3]));
-    el.classList.remove('m-laugh', 'm-hop', 'm-shake', 'm-tremble', 'm-tilt', 'm-look');
+    const t = m.tilt || 0;
+    f.eyes.innerHTML = `<g class="brow l"><g transform="rotate(${t} ${L} ${Y})">${le}</g></g><g class="brow r"><g transform="rotate(${-t} ${R} ${Y})">${re}</g></g>`;
+    for (const k of ['brows', 'mouth', 'cheeks', 'extra']) f[k].innerHTML = '';
+    const gold = TINTS.gold;
+    svg.querySelectorAll('[id^="odinBody"] stop').forEach((s, i) => s.setAttribute('stop-color', gold[i] || gold[3]));
+    el.classList.remove('m-laugh', 'm-hop', 'm-shake', 'm-tremble', 'm-tilt', 'm-look', 'm-talk');
     if (m.anim) el.classList.add(`m-${m.anim}`);
-    // Petit émoji qui apparaît à côté du visage
-    let b = el.querySelector('.mood-emoji');
-    if (!b) { b = document.createElement('span'); b.className = 'mood-emoji'; b.setAttribute('aria-hidden', 'true'); el.append(b); }
-    b.textContent = m.emoji; b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+    el.querySelector('.mood-emoji')?.remove();
     el.setAttribute('title', `Odin : ${key}`);
   }
   const all = (mood) => document.querySelectorAll('.odin').forEach((el) => set(el, mood));

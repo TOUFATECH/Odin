@@ -62,8 +62,8 @@ export interface OdinConfig {
     /** Isolation du shell : 'docker' = conteneur jetable sans réseau, limité en CPU/mémoire. */
     sandbox: { kind: 'none' | 'docker'; image: string; network: boolean };
   };
-  /** Humeur d'Odin : autocollant de son visage et émoji sur Telegram. */
-  mood: { stickers: boolean; emoji: boolean };
+  /** Humeur d'Odin : autocollant de son visage sur Telegram quand elle change. */
+  mood: { stickers: boolean };
   learning: {
     /** Proposer des compétences après une tâche complexe. */
     proposeSkills: boolean;
@@ -136,7 +136,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     approvalTimeoutSec: 300,
     sandbox: { kind: 'none', image: 'node:22-bookworm-slim', network: false },
   },
-  mood: { stickers: true, emoji: true },
+  mood: { stickers: true },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
