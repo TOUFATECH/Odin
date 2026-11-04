@@ -284,10 +284,31 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
               <label class="check"><input type="checkbox" id="r-strong"> Envoyer les tâches complexes au modèle le plus capable</label>
               <label class="check"><input type="checkbox" id="r-cross"> Décision risquée : croiser l'avis de plusieurs modèles avant de trancher</label>
               <div class="field" style="max-width:260px"><label for="r-pause">Minutes de mise à l'écart d'un modèle à bout de quota</label><input id="r-pause" type="number" min="1" max="240"></div>
+              <div class="field" style="max-width:260px"><label for="r-budget">Budget mensuel (en dollars, 0 = sans plafond)</label><input id="r-budget" type="number" min="0" step="1"><div class="sub">Plafond atteint : seuls les modèles gratuits (installés) servent, et Odin te prévient.</div></div>
               <div><button class="btn small" type="button" id="r-save">Enregistrer ces règles</button></div>
+              <div id="budgetBox" class="sub"></div>
             </div>
             <div class="status" id="m-status" role="status"></div>
           </form></article>
+
+          <article class="card"><div class="form">
+            <h2>Sauvegarde</h2>
+            <p class="sub" style="margin:0">Tout Odin (configuration, clés, mémoire, compétences, espace de travail) dans un seul fichier chiffré (AES-256, mot de passe). Garde-le ailleurs que sur cette machine ; la restauration remet tout en place sur une nouvelle installation.</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+              <div class="field" style="flex:1 1 220px"><label for="bk-pw">Mot de passe (8 caractères au moins)</label><input id="bk-pw" type="password" autocomplete="new-password"></div>
+              <label class="check" style="flex:1 1 200px"><input type="checkbox" id="bk-ws" checked> Inclure l'espace de travail</label>
+            </div>
+            <div><button class="btn primary" type="button" id="bk-dl">Télécharger une sauvegarde chiffrée</button></div>
+            <details class="field"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Restaurer une sauvegarde</summary>
+              <div class="form" style="gap:10px;margin-top:8px">
+                <span class="hint">Remplace la configuration, les clés et la mémoire actuelles par celles du fichier (les anciens fichiers sont gardés jusqu'au prochain démarrage). Odin redémarre ses services ensuite.</span>
+                <div class="field"><label for="bk-file">Fichier .odinbk</label><input id="bk-file" type="file" accept=".odinbk"></div>
+                <div class="field" style="max-width:320px"><label for="bk-pw2">Mot de passe du fichier</label><input id="bk-pw2" type="password" autocomplete="off"></div>
+                <div><button class="btn small danger" type="button" id="bk-restore">Restaurer</button></div>
+              </div>
+            </details>
+            <div class="status" id="bk-status" role="status"></div>
+          </div></article>
 
           <article class="card"><form class="form" id="f-mimir">
             <h2>Décisions</h2>
@@ -332,12 +353,42 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="status" id="t-status" role="status"></div>
           </form></article>
 
+          <article class="card"><div class="form">
+            <h2>Personnes</h2>
+            <p class="sub" style="margin:0">Qui peut parler à Odin, et avec quels droits. <b>Propriétaire</b> : tout. <b>Membre</b> (famille, équipe) : Odin l'aide volontiers, retient ce qu'il apprend de lui à son nom, mais ses demandes importantes te sont soumises et il ne touche à aucun réglage. <b>Invité</b> : ses messages sont traités comme du contenu non fiable.</p>
+            <div id="peoplePending"></div>
+            <div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Rôle</th><th>Autonomie</th><th>Identités</th><th></th></tr></thead><tbody id="peopleTable"></tbody></table></div>
+            <details class="field"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Ajouter une personne</summary>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:8px">
+                <div class="field" style="flex:1 1 160px"><label for="p-name">Nom</label><input id="p-name" autocomplete="off" placeholder="ex. Léa"></div>
+                <div class="field" style="flex:1 1 140px"><label for="p-role">Rôle</label><select id="p-role"><option value="member">Membre</option><option value="owner">Propriétaire</option><option value="guest">Invité</option></select></div>
+                <div class="field" style="flex:1 1 140px"><label for="p-auto">Autonomie (membre)</label><select id="p-auto"><option value="prudent">Prudent</option><option value="equilibre">Équilibré</option><option value="autonome">Autonome</option></select></div>
+                <div class="field" style="flex:1 1 200px"><label for="p-ident">Identité (facultatif)</label><input id="p-ident" autocomplete="off" placeholder="telegram:123456789"></div>
+                <div><button class="btn small" type="button" id="p-add">Ajouter</button></div>
+              </div>
+              <span class="hint">L'identité Telegram d'une personne s'affiche quand elle écrit au bot (code d'appairage) ; tu peux aussi l'accepter directement ci-dessus.</span>
+            </details>
+            <div class="status" id="p-status" role="status"></div>
+          </div></article>
+
           <article class="card"><form class="form" id="f-voice">
             <h2>Voix</h2>
-            <p class="sub" style="margin:0">Odin comprend ce que tu dis (Whisper) et te répond à voix haute (ElevenLabs), dans l'interface et en notes vocales sur Telegram.</p>
+            <p class="sub" style="margin:0">Odin comprend ce que tu dis (Whisper) et te répond à voix haute, dans l'interface et en notes vocales sur Telegram. Avec Piper et un Whisper local, tout reste sur ta machine, gratuitement.</p>
             <label class="check"><input type="checkbox" id="v-enabled"> Activer la voix</label>
-            <div class="field"><label for="v-eleven">Clé ElevenLabs</label><input id="v-eleven" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="v-elevenHint"></span></div>
-            <div class="field"><label for="v-voice">Voix d'Odin</label>
+            <div class="field"><label for="v-ttsProvider">Qui parle</label>
+              <select id="v-ttsProvider"><option value="elevenlabs">ElevenLabs (en ligne, voix naturelles, copie de voix)</option><option value="piper">Piper (sur ta machine, gratuit, hors ligne)</option><option value="openai">OpenAI ou serveur local compatible (Kokoro, openedai-speech…)</option></select>
+              <span class="hint" id="v-ttsHint"></span></div>
+            <div class="field" id="v-ttsUrlBox"><label for="v-ttsUrl">Adresse du service</label><input id="v-ttsUrl" autocomplete="off" spellcheck="false" placeholder="http://localhost:5000"></div>
+            <details class="field" id="v-piperHelp"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Installer Piper sur cette machine (2 minutes)</summary>
+              <div class="sub" style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
+                <span>1. <code>pip install piper-tts</code> (ou <code>pipx install piper-tts</code>).</span>
+                <span>2. Lance le serveur avec une voix française : <code>python3 -m piper.http_server --model fr_FR-siwis-medium --port 5000</code> — la voix se télécharge toute seule la première fois. Autres voix : <code>fr_FR-upmc-medium</code>, <code>fr_FR-tom-medium</code>, <code>en_US-lessac-medium</code>.</span>
+                <span>3. Laisse l'adresse <code>http://localhost:5000</code>, clique « Écouter un essai ». Pour qu'il démarre avec la machine, demande à Odin : « installe Piper comme service au démarrage ».</span>
+              </div>
+            </details>
+            <div class="field" id="v-elevenBox"><label for="v-eleven">Clé ElevenLabs</label><input id="v-eleven" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="v-elevenHint"></span></div>
+            <div class="field" id="v-nameBox"><label for="v-voiceName">Voix (nom)</label><input id="v-voiceName" autocomplete="off" spellcheck="false" placeholder="alloy"><span class="hint">OpenAI : alloy, nova, onyx, shimmer… Piper : vide (voix du serveur) ou le nom du modèle si le serveur en sert plusieurs.</span></div>
+            <div class="field" id="v-voiceBox"><label for="v-voice">Voix d'Odin</label>
               <div style="display:flex;gap:8px;flex-wrap:wrap"><select id="v-voice" style="flex:1 1 220px"><option value="">— choisis une voix —</option></select><button class="btn small" type="button" id="v-load">Charger mes voix</button><button class="btn small" type="button" id="v-try">Écouter un essai</button></div>
               <span class="hint" id="v-voiceHint"></span></div>
             <details class="field" id="v-cloneBox"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Copier une voix à partir d'un enregistrement</summary>
@@ -350,7 +401,14 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
                 <div><button class="btn primary" type="button" id="v-clone">Copier cette voix</button></div>
               </div>
             </details>
-            <div class="field"><label for="v-sttUrl">Service Whisper</label><input id="v-sttUrl" autocomplete="off" spellcheck="false" placeholder="https://api.openai.com/v1"><span class="hint">OpenAI par défaut (clé OpenAI). Pour rester 100 % local, un serveur Whisper sur ta machine : http://localhost:8000/v1 (sans clé).</span></div>
+            <div class="field"><label for="v-sttUrl">Service Whisper (comprendre)</label><input id="v-sttUrl" autocomplete="off" spellcheck="false" placeholder="https://api.openai.com/v1"><span class="hint">OpenAI par défaut (clé OpenAI). Pour rester 100 % local, un serveur Whisper sur ta machine : http://localhost:8000/v1 (sans clé).</span></div>
+            <details class="field"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Installer Whisper en local (gratuit, hors ligne)</summary>
+              <div class="sub" style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
+                <span>1. <code>pip install speaches</code> puis <code>speaches</code> (ou avec Docker : <code>docker run -p 8000:8000 ghcr.io/speaches-ai/speaches:latest-cpu</code>).</span>
+                <span>2. Adresse ci-dessus : <code>http://localhost:8000/v1</code>, pas de clé. Modèle conseillé : <code>Systran/faster-whisper-small</code> (rapide) ou <code>large-v3-turbo</code> (précis).</span>
+                <span>3. Enregistre, puis parle à Odin avec le bouton 🎙. Demande-lui « installe Whisper au démarrage » pour qu'il s'en occupe.</span>
+              </div>
+            </details>
             <div style="display:flex;gap:12px;flex-wrap:wrap">
               <div class="field" style="flex:2 1 220px"><label for="v-sttKey">Clé OpenAI (Whisper)</label><input id="v-sttKey" type="password" autocomplete="off"><span class="hint" id="v-sttHint"></span></div>
               <div class="field" style="flex:1 1 120px"><label for="v-lang">Langue</label><input id="v-lang" autocomplete="off" placeholder="fr" maxlength="2"></div>
@@ -517,6 +575,18 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     if (!list.some((c) => c.peer === peer)) list.unshift({ peer, title: 'Nouvelle conversation', updated: Date.now() });
     for (const c of list) box.append(el('button', { class: 'conv', 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; try { localStorage.setItem('odin.peer', peer); } catch { /* rien */ } $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
       (c.tainted ? '⚠ ' : '') + (c.title || c.peer), el('small', {}, fmt(c.updated))));
+  }
+
+  // ---------- Budget du mois ----------
+  function renderBudget() {
+    const b = state.budget, box = $('#budgetBox'); if (!b || !box) return;
+    const pct = b.monthlyUsd ? Math.min(100, Math.round(b.spentUsd / b.monthlyUsd * 100)) : 0;
+    const bar = el('div', { style: 'height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin:6px 0 10px' }, el('div', { style: `height:100%;width:${pct}%;background:${pct >= 100 ? 'var(--bad)' : pct >= 80 ? 'var(--warn)' : 'var(--accent)'}` }));
+    const rows = (b.breakdown || []).map((r) => el('tr', {}, el('td', {}, r.provider), el('td', {}, r.purpose), el('td', {}, r.calls), el('td', {}, Number(r.tokens).toLocaleString('fr-FR')), el('td', {}, r.cost_usd.toFixed(3) + ' $')));
+    box.replaceChildren(
+      el('div', {}, el('strong', { style: 'color:var(--ink)' }, `Ce mois : ${b.spentUsd.toFixed(2)} $`), b.monthlyUsd ? ` sur ${b.monthlyUsd} $ (${pct} %)` : ' · sans plafond'),
+      b.monthlyUsd ? bar : el('div', { style: 'height:6px' }),
+      rows.length ? el('div', { class: 'wrap' }, el('table', { class: 'tbl' }, el('thead', {}, el('tr', {}, el('th', {}, 'Modèle'), el('th', {}, 'Usage'), el('th', {}, 'Appels'), el('th', {}, 'Jetons'), el('th', {}, 'Coût'))), el('tbody', {}, ...rows))) : el('div', {}, 'Aucun appel payant ce mois.'));
   }
 
   // ---------- Missions ----------
@@ -690,10 +760,20 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     $('#v-voiceHint').textContent = V.voiceId ? `Voix actuelle : ${V.voiceName || V.voiceId}` : 'Aucune voix choisie.';
     if (V.voiceId && ![...$('#v-voice').options].some((o) => o.value === V.voiceId)) $('#v-voice').append(el('option', { value: V.voiceId }, V.voiceName || V.voiceId));
     if (!settingsDirty) {
+      $('#v-ttsProvider').value = V.ttsProvider || 'elevenlabs'; $('#v-ttsUrl').value = V.ttsUrl || ''; $('#v-voiceName').value = V.voiceId || '';
       $('#v-enabled').checked = V.enabled; $('#v-voice').value = V.voiceId; $('#v-sttUrl').value = V.sttUrl; $('#v-lang').value = V.language;
       $('#v-speak').checked = V.speakReplies; $('#v-replies').checked = V.voiceReplies;
     }
+    ttsProviderUi();
   }
+  function ttsProviderUi() {
+    const p = $('#v-ttsProvider').value, d = state.voice?.ttsDefaults?.[p];
+    $('#v-elevenBox').hidden = p !== 'elevenlabs'; $('#v-voiceBox').hidden = p !== 'elevenlabs'; $('#v-cloneBox').hidden = p !== 'elevenlabs';
+    $('#v-nameBox').hidden = p === 'elevenlabs'; $('#v-ttsUrlBox').hidden = p === 'elevenlabs'; $('#v-piperHelp').hidden = p !== 'piper';
+    $('#v-ttsHint').textContent = p === 'piper' ? 'Rien ne sort de ta machine. Qualité correcte, réponse immédiate.' : p === 'openai' ? 'Clé OpenAI (Réglages → Modèle ou ci-dessous pour Whisper), ou un serveur local sans clé.' : 'Les meilleures voix, et la copie de la tienne. Le texte des réponses est envoyé à ElevenLabs.';
+    if (d && !$('#v-ttsUrl').value) $('#v-ttsUrl').placeholder = d.baseUrl;
+  }
+  $('#v-ttsProvider').addEventListener('change', () => { const d = state.voice?.ttsDefaults?.[$('#v-ttsProvider').value]; if (d) { $('#v-ttsUrl').value = d.baseUrl; $('#v-voiceName').value = d.voiceId; } ttsProviderUi(); });
   $('#v-load').addEventListener('click', async () => {
     st('#v-status', 'Chargement des voix…');
     const r = await api('/api/voice/voices');
@@ -703,7 +783,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     sel.value = cur; voicesLoaded = true; st('#v-status', `✓ ${r.voices.length} voix disponibles.`, true);
   });
   $('#v-try').addEventListener('click', async () => {
-    if (!state.voice.tts) return st('#v-status', 'Enregistre d\'abord la clé et une voix.', false);
+    if (!state.voice.tts) return st('#v-status', 'Enregistre d\'abord le réglage de la voix (et active-la).', false);
     const was = speakOn; speakOn = true; await sayAloud('Bonjour, je suis Odin, ton agent IA personnel. Que puis-je faire pour toi ?'); speakOn = was;
   });
   let cloneBlob = null;
@@ -720,9 +800,62 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   });
   $('#f-voice').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const opt = $('#v-voice').selectedOptions[0];
-    await save('voice', { enabled: $('#v-enabled').checked, elevenKey: $('#v-eleven').value.trim(), voiceId: $('#v-voice').value, voiceName: opt && opt.value ? opt.textContent.replace(/ \(copiée\)$/, '') : '', sttUrl: $('#v-sttUrl').value.trim(), sttKey: $('#v-sttKey').value.trim(), language: $('#v-lang').value.trim(), speakReplies: $('#v-speak').checked, voiceReplies: $('#v-replies').checked }, '#v-status', '✓ Voix enregistrée.');
+    const opt = $('#v-voice').selectedOptions[0], p = $('#v-ttsProvider').value;
+    const voiceId = p === 'elevenlabs' ? $('#v-voice').value : $('#v-voiceName').value.trim();
+    const voiceName = p === 'elevenlabs' ? (opt && opt.value ? opt.textContent.replace(/ \(copiée\)$/, '') : '') : voiceId;
+    await save('voice', { enabled: $('#v-enabled').checked, ttsProvider: p, ttsUrl: $('#v-ttsUrl').value.trim(), elevenKey: $('#v-eleven').value.trim(), voiceId, voiceName, sttUrl: $('#v-sttUrl').value.trim(), sttKey: $('#v-sttKey').value.trim(), language: $('#v-lang').value.trim(), speakReplies: $('#v-speak').checked, voiceReplies: $('#v-replies').checked }, '#v-status', '✓ Voix enregistrée.');
     $('#v-eleven').value = ''; $('#v-sttKey').value = '';
+  });
+
+  // ---------- Personnes ----------
+  const ROLE_FR = { owner: 'Propriétaire', member: 'Membre', guest: 'Invité' }, AUTO_FR = { prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome' };
+  function renderPeople() {
+    const P = state.people; if (!P) return;
+    const act = async (body) => { const r = await api('/api/action', body); st('#p-status', r.ok ? '✓ Enregistré.' : r.error, Boolean(r.ok)); refresh(); };
+    const pend = $('#peoplePending'); pend.textContent = '';
+    for (const p of P.pending) pend.append(el('div', { class: 'notice', style: 'display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px' },
+      el('span', {}, `${p.name || 'Quelqu\'un'} veut parler à Odin sur ${p.channel} (${p.peer}) · code ${p.code}`),
+      el('button', { class: 'btn small', onclick: () => act({ kind: 'pairing_approve', channel: p.channel, code: p.code, role: 'member', name: p.name }) }, 'Accepter comme membre'),
+      el('button', { class: 'btn small', onclick: () => act({ kind: 'pairing_approve', channel: p.channel, code: p.code, role: 'guest' }) }, 'Comme invité'),
+      el('button', { class: 'btn small danger', onclick: () => act({ kind: 'pairing_reject', channel: p.channel, peer: p.peer }) }, 'Refuser')));
+    $('#peopleTable').replaceChildren(...P.users.map((u) => el('tr', {},
+      el('td', {}, u.name),
+      el('td', {}, el('select', { onchange: (e) => act({ kind: 'user_save', id: u.id, name: u.name, role: e.target.value, autonomy: u.autonomy }) }, ...Object.entries(ROLE_FR).map(([v, t]) => el('option', { value: v, selected: v === u.role ? '' : null }, t)))),
+      el('td', {}, u.role === 'member' ? el('select', { onchange: (e) => act({ kind: 'user_save', id: u.id, name: u.name, role: u.role, autonomy: e.target.value }) }, ...Object.entries(AUTO_FR).map(([v, t]) => el('option', { value: v, selected: v === u.autonomy ? '' : null }, t))) : '—'),
+      el('td', { class: 'sub' }, u.identities.length ? u.identities.map((i) => el('div', {}, `${i.channel}:${i.peer} `, el('button', { class: 'btn small', title: 'Détacher', onclick: () => act({ kind: 'user_unlink', channel: i.channel, peer: i.peer }) }, '×'))) : 'aucune'),
+      el('td', {}, el('button', { class: 'btn small danger', onclick: () => { if (confirm(`Retirer ${u.name} ?`)) act({ kind: 'user_delete', id: u.id }); } }, 'Retirer')))));
+    if (!P.users.length) $('#peopleTable').append(el('tr', {}, el('td', { colspan: 5, class: 'empty' }, 'Personne d\'autre que toi pour l\'instant.')));
+  }
+  $('#p-add').addEventListener('click', async () => {
+    const r = await api('/api/action', { kind: 'user_save', name: $('#p-name').value, role: $('#p-role').value, autonomy: $('#p-auto').value });
+    if (!r.ok) return st('#p-status', r.error, false);
+    const ident = $('#p-ident').value.trim().match(/^([a-z]+):(.+)$/);
+    if (ident) { const l = await api('/api/action', { kind: 'user_link', id: r.id, channel: ident[1], peer: ident[2] }); if (!l.ok) return st('#p-status', l.error, false); }
+    st('#p-status', '✓ Personne ajoutée.', true); $('#p-name').value = ''; $('#p-ident').value = ''; refresh();
+  });
+
+  // ---------- Sauvegarde ----------
+  $('#bk-dl').addEventListener('click', async () => {
+    const password = $('#bk-pw').value;
+    if (password.length < 8) return st('#bk-status', 'Mot de passe : 8 caractères au moins.', false);
+    st('#bk-status', 'Préparation de la sauvegarde…');
+    const r = await fetch('/api/backup', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ password, workspace: $('#bk-ws').checked }) });
+    if ((r.headers.get('content-type') || '').includes('json')) { const j = await r.json(); return st('#bk-status', j.error || 'Sauvegarde impossible.', false); }
+    const blob = await r.blob(), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = (r.headers.get('content-disposition') || '').match(/filename="([^"]+)"/)?.[1] || 'odin-sauvegarde.odinbk'; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    st('#bk-status', `✓ Sauvegarde téléchargée (${(blob.size / 1024 / 1024).toFixed(1)} Mo). Range-la en lieu sûr.`, true);
+    $('#bk-pw').value = '';
+  });
+  $('#bk-restore').addEventListener('click', async () => {
+    const file = $('#bk-file').files[0], password = $('#bk-pw2').value;
+    if (!file) return st('#bk-status', 'Choisis un fichier .odinbk.', false);
+    if (!password) return st('#bk-status', 'Entre le mot de passe du fichier.', false);
+    if (!confirm('Remplacer la configuration, les clés et la mémoire actuelles par cette sauvegarde ?')) return;
+    st('#bk-status', 'Restauration…');
+    const r = await (await fetch('/api/restore', { method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-odin': '1', 'x-odin-password': encodeURIComponent(password) }, body: file })).json();
+    st('#bk-status', r.ok ? `✓ ${r.files} fichiers restaurés. Odin redémarre ses services…` : r.error, Boolean(r.ok));
+    if (r.ok) { $('#bk-pw2').value = ''; setTimeout(refresh, 2500); }
   });
 
   // ---------- Accès à l'interface ----------
@@ -851,9 +984,10 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     const S = state.settings; if (!S?.providers) return;
     $('#m-list').replaceChildren(...S.providers.map((p) => el('li', {}, `${p.index === 0 ? '★ ' : ''}${S.presets[p.preset]?.label || p.preset} · ${p.model} · ${TIER_TXT[p.tier]}${p.ready ? '' : ' · ⚠ clé absente'} `,
       S.providers.length > 1 ? el('button', { class: 'btn small danger', type: 'button', onclick: () => save('model_remove', { index: p.index }, '#m-status', '✓ Modèle retiré.') }, 'Retirer') : null)));
-    if (!settingsDirty) { pickTier(S.model.tier || 'standard'); $('#r-local').checked = S.routing.preferLocal; $('#r-strong').checked = S.routing.strongForComplex; $('#r-cross').checked = S.routing.crossCheckRisky; $('#r-pause').value = S.routing.quotaPauseMin; }
+    if (!settingsDirty) { pickTier(S.model.tier || 'standard'); $('#r-local').checked = S.routing.preferLocal; $('#r-strong').checked = S.routing.strongForComplex; $('#r-cross').checked = S.routing.crossCheckRisky; $('#r-pause').value = S.routing.quotaPauseMin; $('#r-budget').value = S.routing.monthlyBudgetUsd || 0; }
+    renderBudget();
   }
-  $('#r-save').addEventListener('click', () => save('routing', { preferLocal: $('#r-local').checked, strongForComplex: $('#r-strong').checked, crossCheckRisky: $('#r-cross').checked, quotaPauseMin: Number($('#r-pause').value) }, '#m-status', '✓ Règles de choix du modèle enregistrées.'));
+  $('#r-save').addEventListener('click', () => save('routing', { preferLocal: $('#r-local').checked, strongForComplex: $('#r-strong').checked, crossCheckRisky: $('#r-cross').checked, quotaPauseMin: Number($('#r-pause').value), monthlyBudgetUsd: Number($('#r-budget').value) }, '#m-status', '✓ Règles de choix du modèle enregistrées.'));
   $('#m-backup').addEventListener('click', async () => { await save('model', { ...modelBody(), asBackup: true }, '#m-status', '✓ Modèle de secours ajouté.'); $('#m-key').value = ''; });
   const modelBody = () => ({ preset, model: $('#m-model').value.trim(), baseUrl: $('#m-url').value.trim(), apiKey: $('#m-key').value.trim(), tier: tierPick });
   $('#m-test').addEventListener('click', async () => {
@@ -878,7 +1012,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------

@@ -11,7 +11,7 @@ import type { Channel, Inbound } from './channel.ts';
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
 import { validHhmm } from '../mimir/decisions.ts';
-import { speak, ttsReady } from '../voice/voice.ts';
+import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 
 export interface GatewayOptions {
   /** Identifiants des propriétaires par canal (ex. { telegram: ['123456'] }). */
@@ -65,7 +65,13 @@ export class Gateway {
 
   isOwner(channel: string, peer: string): boolean {
     const owners = this.opts.owners[channel] ?? [];
-    return owners.includes('*') || owners.includes(peer);
+    return owners.includes('*') || owners.includes(peer) || this.odin.muninn.userFor(channel, peer)?.role === 'owner';
+  }
+  /** Qui parle : propriétaire, membre (famille, équipe) ou invité. */
+  speakerOf(channel: string, peer: string, name = ''): { name: string; role: 'owner' | 'member' | 'guest'; autonomy?: 'prudent' | 'equilibre' | 'autonome' } {
+    const u = this.odin.muninn.userFor(channel, peer);
+    if (u) return { name: u.name, role: u.role, autonomy: u.role === 'member' ? u.autonomy : undefined };
+    return { name: name || peer, role: this.isOwner(channel, peer) ? 'owner' : 'guest' };
   }
 
   async send(channel: string, peer: string, text: string): Promise<void> {
@@ -95,8 +101,9 @@ export class Gateway {
     const sessionId = `${m.channel}:${m.peer}`;
     if (/^\/stop\b/i.test(text)) { this.aborts.get(sessionId)?.abort(); return ch.send(m.peer, '⏹ Arrêté.'); }
 
+    const speaker = this.speakerOf(m.channel, m.peer, m.name);
     // Appairage : un inconnu reçoit un code que le propriétaire doit approuver.
-    if (!owner) {
+    if (!owner && speaker.role !== 'member') {
       const status = this.odin.muninn.pairingStatus(m.channel, m.peer);
       if (status !== 'approved') {
         const code = this.odin.muninn.requestPairing(m.channel, m.peer, m.name);
@@ -115,17 +122,18 @@ export class Gateway {
 
     // Une file par conversation : les messages sont traités dans l'ordre, jamais en parallèle.
     const prev = this.queues.get(sessionId) ?? Promise.resolve();
-    const next = prev.then(() => this.runTurn(m, ch, sessionId, owner)).catch((e) => console.error('[bifrost]', (e as Error).message));
+    const next = prev.then(() => this.runTurn(m, ch, sessionId, owner, speaker)).catch((e) => console.error('[bifrost]', (e as Error).message));
     this.queues.set(sessionId, next);
     await next;
   }
 
-  private async runTurn(m: Inbound, ch: Channel, sessionId: string, owner: boolean): Promise<void> {
+  private async runTurn(m: Inbound, ch: Channel, sessionId: string, owner: boolean, speaker?: ReturnType<Gateway['speakerOf']>): Promise<void> {
     const ctrl = new AbortController();
     this.aborts.set(sessionId, ctrl);
     try {
       const r = await this.odin.agent.run(m.text, {
-        sessionId, channel: m.channel, peer: m.peer, trusted: owner, signal: ctrl.signal,
+        // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
+        sessionId, channel: m.channel, peer: m.peer, trusted: owner || speaker?.role === 'member', signal: ctrl.signal, speaker,
         onEvent: (e) => {
           ch.event?.(m.peer, e);
           if (e.type === 'skill_proposed') void ch.send(m.peer, e.active ? `💡 Nouvelle compétence apprise, active tout de suite : ${e.name}` : `💡 Nouvelle compétence proposée : ${e.name} (odin skills approve ${e.name})`);
@@ -134,7 +142,7 @@ export class Gateway {
       await ch.send(m.peer, (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
-        await speak(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
+        await speakAudio(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
       }
     } finally {
       this.aborts.delete(sessionId);
@@ -155,6 +163,9 @@ export class Gateway {
       // Heimdall tranche « non » après approvalTimeoutSec ; on oublie la demande peu après pour ne pas accumuler.
       setTimeout(() => this.pendingApprovals.delete(req.id), (this.odin.cfg.policy.approvalTimeoutSec + 60) * 1000).unref?.();
       await target.ch.send(target.peer, msg);
+      // La demande vient d'un membre : on le prévient que le propriétaire a été sollicité.
+      const [sc, ...sp] = req.sessionId.split(':'); const sch = this.channels.get(sc); const speer = sp.join(':');
+      if (sch?.interactive && (sc !== target.ch.name || speer !== target.peer) && this.odin.muninn.userFor(sc, speer)?.role === 'member') await sch.send(speer, `⏳ Cette action (${req.summary.slice(0, 80)}) demande l'accord du propriétaire : je lui ai transmis.`).catch(() => {});
       return answer;
     },
   };

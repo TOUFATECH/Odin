@@ -19,3 +19,41 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+  # Les installateurs : analyse statique (shellcheck, PSScriptAnalyzer) et installation réelle
+  # de bout en bout dans un conteneur Debian vierge (Node téléchargé par le script, « odin web » répond).
+  installers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck install.sh
+        run: |
+          sudo apt-get install -y -qq shellcheck >/dev/null
+          shellcheck -S warning install.sh
+      - name: Installation de bout en bout (Debian vierge, utilisateur sans droits)
+        run: |
+          docker run --rm -v "$PWD:/src:ro" debian:bookworm-slim bash -euo pipefail -c '
+            apt-get update -qq >/dev/null && apt-get install -y -qq curl git ca-certificates xz-utils procps >/dev/null
+            useradd -m tester
+            su tester -c "set -euo pipefail; cd ~
+              export ODIN_YES=1 ODIN_NO_SERVICE=1 ODIN_NO_SCAN=1 ODIN_WEB_ACCESS=local ODIN_REPO=file:///src
+              bash /src/install.sh
+              export PATH=\$HOME/.local/bin:\$PATH
+              odin help | head -n 3
+              test -f ~/.odin/config.json
+              odin web --no-open >web.log 2>&1 &
+              for i in \$(seq 1 30); do curl -fs http://127.0.0.1:7777/health && break; sleep 1; done
+              curl -fs http://127.0.0.1:7777/health | grep -q ok
+              kill %1 || true
+              cat web.log | head -n 20"'
+  installer-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PSScriptAnalyzer install.ps1
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $r = Invoke-ScriptAnalyzer -Path install.ps1 -Severity Error
+          $r | Format-Table -AutoSize
+          if ($r) { exit 1 }

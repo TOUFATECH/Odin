@@ -4,6 +4,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { cleanupRestore } from './backup.ts';
 import { type OdinConfig, loadConfig, odinPaths, initHome, type OdinPaths, DEFAULT_PERSONA } from './config.ts';
 import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
@@ -52,6 +53,7 @@ export interface CreateOptions {
 export function createOdin(opts: CreateOptions = {}): Odin {
   const paths = odinPaths(opts.home);
   initHome(paths);
+  try { cleanupRestore(paths); } catch { /* copies d'avant restauration : pas bloquant */ }
   loadEnvFile(paths); // clés enregistrées depuis l'interface web ou l'installateur
   let cfg = loadConfig(paths);
   if (opts.configOverride) cfg = opts.configOverride(cfg);

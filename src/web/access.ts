@@ -153,15 +153,21 @@ export function ensureTls(paths: OdinPaths, web: OdinConfig['web']): TlsMaterial
   const dns = ['localhost', ...(/^[a-z0-9-]+$/i.test(name) ? [name, `${name}.local`] : [])];
   if (web.publicUrl) { try { const h = new URL(web.publicUrl).hostname; if (!/^[\d.]+$/.test(h)) dns.push(h); } catch { /* ignorée */ } }
   const ips = ['127.0.0.1', ...lanAddresses()];
-  const wanted = JSON.stringify({ dns, ips });
-  const current = existsSync(namesFile) ? readFileSync(namesFile, 'utf8') : '';
-  if (!existsSync(certFile) || !existsSync(keyFile) || current !== wanted) {
+  // Certificat stable : on ne le régénère que si un nom ou une adresse NÉCESSAIRE manque, jamais parce
+  // qu'une adresse a disparu (Wi-Fi coupé, VPN…). Sinon le navigateur redemanderait de l'accepter sans cesse.
+  // Les noms déjà présents sont conservés, les nouveaux ajoutés.
+  let have: { dns: string[]; ips: string[] } = { dns: [], ips: [] };
+  try { if (existsSync(namesFile)) have = JSON.parse(readFileSync(namesFile, 'utf8')) as typeof have; } catch { /* fichier illisible : régénéré */ }
+  const missing = dns.some((d) => !have.dns?.includes(d)) || ips.some((i) => !have.ips?.includes(i));
+  const expired = existsSync(certFile) && (() => { try { return new Date(new X509Certificate(readFileSync(certFile)).validTo).getTime() - Date.now() < 30 * 86_400_000; } catch { return true; } })();
+  if (!existsSync(certFile) || !existsSync(keyFile) || missing || expired) {
     mkdirSync(dir, { recursive: true });
-    const { cert, key } = selfSignedCertificate('Odin', dns, ips);
+    const allDns = [...new Set([...(have.dns ?? []), ...dns])].slice(0, 32), allIps = [...new Set([...(have.ips ?? []), ...ips])].slice(0, 32);
+    const { cert, key } = selfSignedCertificate('Odin', allDns, allIps);
     writeFileSync(keyFile, key, { mode: 0o600 });
     try { chmodSync(keyFile, 0o600); } catch { /* Windows */ }
     writeFileSync(certFile, cert);
-    writeFileSync(namesFile, wanted);
+    writeFileSync(namesFile, JSON.stringify({ dns: allDns, ips: allIps }));
   }
   const cert = readFileSync(certFile, 'utf8');
   return { cert, key: readFileSync(keyFile, 'utf8'), fingerprint: new X509Certificate(cert).fingerprint256, selfSigned: true };

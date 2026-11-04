@@ -250,6 +250,14 @@ test('vérification croisée : une action risquée consulte plusieurs modèles, 
   assert.equal(crossCalls, 1);
   assert.equal((out.deletes as { noul: number }).noul, 0.9);
   assert.equal((out.requested as { noul: number }).noul, 0.4, '« demandé » : le plus prudent est le plus bas');
+  // Économe : le simple « incertain » du juge local (0,45 sur toute écriture) ne déclenche pas d'appel ;
+  // et la même action redemandée dans les 10 minutes réutilise le verdict croisé.
+  const unsure = async () => ({ deletes: { type: 'noul' as const, noul: 0.45 }, requested: { type: 'noul' as const, noul: 0.95 } });
+  await riskyCrossCheck(unsure, cross)({}, qs);
+  assert.equal(crossCalls, 1, 'incertain ≠ dangereux : pas de second avis');
+  await riskyCrossCheck(worried, cross)({ action: { tool: 'shell', args: { cmd: 'rm -rf ~/photos' } } }, qs);
+  await riskyCrossCheck(worried, cross)({ action: { tool: 'shell', args: { cmd: 'rm -rf ~/photos' } } }, qs);
+  assert.equal(crossCalls, 2, 'même action : verdict croisé réutilisé');
 });
 
 test('tâche planifiée créée sous influence d\'une page : grave, et exécutée sans la confiance du propriétaire', async () => {

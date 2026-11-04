@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { get as httpsGet } from 'node:https';
 import { request } from 'node:http';
 import { Gateway } from '../src/bifrost/gateway.ts';
@@ -108,6 +110,15 @@ test('Internet : HTTPS avec certificat auto-signé, cookie Secure, empreinte aff
   assert.equal(tls.selfSigned, true);
   assert.match(tls.fingerprint, /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/);
   assert.equal(ensureTls(o.paths, o.cfg.web).fingerprint, tls.fingerprint, 'généré une seule fois');
+  // Stable : une adresse qui disparaît (Wi-Fi coupé) ne régénère rien ; un nom qui manque, si, en gardant les anciens.
+  const namesFile = join(o.paths.home, 'tls', 'names.json');
+  const names = JSON.parse(readFileSync(namesFile, 'utf8')) as { dns: string[]; ips: string[] };
+  writeFileSync(namesFile, JSON.stringify({ dns: names.dns, ips: [...names.ips, '10.99.99.99'] }));
+  assert.equal(ensureTls(o.paths, o.cfg.web).fingerprint, tls.fingerprint, 'adresse en trop : conservé');
+  const tls2 = ensureTls(o.paths, { ...o.cfg.web, publicUrl: 'https://odin.exemple.fr' });
+  assert.notEqual(tls2.fingerprint, tls.fingerprint, 'nouveau nom public : régénéré');
+  const after = JSON.parse(readFileSync(namesFile, 'utf8')) as { dns: string[]; ips: string[] };
+  assert.ok(after.dns.includes('odin.exemple.fr') && after.dns.includes('localhost') && after.ips.includes('10.99.99.99'), 'anciens noms gardés, nouveau ajouté');
   const p = port(), token = ensureWebToken(o.paths);
   const gw = new Gateway(o, { owners: { web: ['*'] } });
   const web = new WebChannel(o, { scanNetwork: async () => undefined }, { port: p, host: '127.0.0.1', token, access: 'wan', tls });

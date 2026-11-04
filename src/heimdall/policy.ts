@@ -63,6 +63,8 @@ export interface GateInput {
   suspicious?: boolean;
   /** Clé d'autorisation permanente (ex. « shell:npm test », « fs_write:notes »). */
   grantKey?: string;
+  /** Plafond d'autonomie pour ce tour (membre de la famille) : jamais au-dessus, même en Breaker. */
+  maxAutonomy?: Autonomy;
 }
 
 export type Via = 'policy' | 'human' | 'mimir' | 'grant' | 'breaker';
@@ -137,7 +139,8 @@ export class Heimdall {
 
     let mode: PolicyMode = this.cfg.modes[g.risk];
     const notes: string[] = [];
-    const autonomy = this.effectiveAutonomy();
+    const autonomy = capAutonomy(this.effectiveAutonomy(), g.maxAutonomy);
+    if (g.maxAutonomy && autonomy !== this.effectiveAutonomy()) notes.push(`membre : autonomie plafonnée à ${autonomy}`);
 
     // Liste blanche shell : seulement pour des commandes simples, sans métacaractères.
     if (g.command !== undefined && mode === 'ask' && this.isAllowlisted(g.command)) {
@@ -284,4 +287,11 @@ export function isPrivateHost(host: string): boolean {
     /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) ||
     /^0\./.test(h) || h === '0.0.0.0' || h === '::1' || h === '::' || /^f[cd][0-9a-f]{2}:/.test(h) || /^fe80:/.test(h);
+}
+
+const AUTONOMY_RANK: Record<Autonomy, number> = { prudent: 0, equilibre: 1, autonome: 2, breaker: 3 };
+/** Le plus bas des deux niveaux. */
+export function capAutonomy(a: Autonomy, cap?: Autonomy): Autonomy {
+  if (!cap) return a;
+  return AUTONOMY_RANK[cap] < AUTONOMY_RANK[a] ? cap : a;
 }

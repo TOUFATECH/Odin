@@ -50,6 +50,8 @@ export interface RunOptions {
   unattended?: boolean;
   /** Sous-agent : demande d'origine du propriétaire (le but rédigé par le modèle n'en tient pas lieu). */
   ownerRequest?: string;
+  /** Qui parle : un membre (famille, équipe) est de confiance mais plafonné ; ses validations vont au propriétaire. */
+  speaker?: { name: string; role: 'owner' | 'member' | 'guest'; autonomy?: 'prudent' | 'equilibre' | 'autonome' };
   signal?: AbortSignal;
   onEvent?: (e: AgentEvent) => void;
   maxSteps?: number;
@@ -155,6 +157,7 @@ export class Agent {
       tainted,
       isSubAgent: depth > 0,
       breaker: Boolean(breaker),
+      speaker: o.speaker,
     });
 
     const history: Message[] = repairHistory(muninn.history(o.sessionId).map(({ rowId: _r, ...m }) => m));
@@ -257,7 +260,7 @@ export class Agent {
     //    missions), en arrière-plan, à partir de TES messages seulement (jamais d'une page web).
     const learning: Array<Promise<unknown>> = [];
     if (depth === 0 && cfg.learning.observe && trusted && !tainted && res.stopReason === 'done' && userText.trim().length >= 12) {
-      learning.push(this.observe(userText, res.text, emit, signal).catch(() => undefined));
+      learning.push(this.observe(userText, res.text, emit, signal, o.speaker?.role === 'member' ? o.speaker.name : undefined).catch(() => undefined));
     }
     // 6. Boucle d'apprentissage : après une tâche complexe réussie, apprendre une compétence.
     if (depth === 0 && res.stopReason === 'done' && cfg.learning.proposeSkills && res.toolCalls >= cfg.learning.minToolCallsForReflection) {
@@ -302,6 +305,7 @@ export class Agent {
       command: tool.command?.(call.input),
       userRequest: turn.userRequest,
       suspicious: turn.suspicious,
+      maxAutonomy: o.speaker?.role === 'member' ? (o.speaker.autonomy ?? 'prudent') : undefined,
       grantKey: grantKeyFor(tool.name, call.input, tool.command?.(call.input)),
     });
     const summary = tool.summarize?.(call.input) ?? tool.name;
@@ -407,7 +411,7 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
   }
 
   /** Retient jusqu'à 3 faits durables de l'échange (vérifiés par Mímir : pas de secret, pas d'éphémère). */
-  private async observe(userText: string, answer: string, emit: (e: AgentEvent) => void, signal: AbortSignal): Promise<string[]> {
+  private async observe(userText: string, answer: string, emit: (e: AgentEvent) => void, signal: AbortSignal, speaker?: string): Promise<string[]> {
     const router = this.deps.cheapRouter ?? this.deps.router;
     const known = this.deps.muninn.recall(userText, 6).map((m) => `- ${m.content}`).join('\n') || '(rien)';
     const r = await router.complete({
@@ -416,7 +420,7 @@ préférences (façon de travailler, formats, horaires), environnement (machines
 Ignore le ponctuel, les politesses, et tout secret (mots de passe, clés, codes). N'invente rien. Ne répète pas ce qui est déjà connu :
 ${known}
 Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|mission|person","text":"phrase courte et autonome"}]} (liste vide si rien).`,
-      messages: [{ role: 'user', content: `Propriétaire : ${userText.slice(0, 4000)}\n\nRéponse de l'agent : ${answer.slice(0, 2000)}` }],
+      messages: [{ role: 'user', content: `${speaker ? `${speaker} (membre, pas le propriétaire)` : 'Propriétaire'} : ${userText.slice(0, 4000)}\n\nRéponse de l'agent : ${answer.slice(0, 2000)}` }],
       tools: [], maxTokens: 400, signal,
     }, { minTier: 'local', purpose: 'observation' });
     const json = r.text.match(/\{[\s\S]*\}/)?.[0];
@@ -431,7 +435,7 @@ Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|miss
         if (g.ok && !g.value.save) continue;
       }
       const kind = ['preference', 'environment', 'mission', 'person'].includes(String(f.kind)) ? String(f.kind) : 'fact';
-      const { updated } = this.deps.muninn.remember(text, 'agent', kind);
+      const { updated } = this.deps.muninn.remember(text, 'agent', kind, speaker ? `personne:${speaker}` : '');
       if (!updated) saved.push(text);
     }
     if (saved.length) emit({ type: 'learned', facts: saved });

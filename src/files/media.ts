@@ -36,6 +36,9 @@ export interface ConvertOptions {
   frameAt?: string;
   /** Qualité : 'standard' (rapide) ou 'haute'. */
   quality?: 'standard' | 'haute';
+  /** Codec et débit audio forcés (ex. libopus 48k pour une note vocale). */
+  audioCodec?: string;
+  audioBitrate?: string;
 }
 
 const TIME = /^\d+(?:\.\d+)?$|^\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
@@ -53,6 +56,8 @@ export function ffmpegArgs(input: string, output: string, o: ConvertOptions = {}
   if (o.width) a.push('-vf', `scale=${o.width}:-2`);
   if (o.audioOnly) a.push('-vn');
   if (o.mute) a.push('-an');
+  if (o.audioCodec) { if (!/^[a-z0-9_]+$/i.test(o.audioCodec)) throw new Error('codec audio invalide'); a.push('-c:a', o.audioCodec); }
+  if (o.audioBitrate) { if (!/^\d{1,4}k$/.test(o.audioBitrate)) throw new Error('débit audio invalide (ex. 48k)'); a.push('-b:a', o.audioBitrate); }
   if (/\.(mp4|mov|mkv|webm)$/i.test(output) && !o.audioOnly) a.push('-preset', o.quality === 'haute' ? 'slow' : 'veryfast');
   a.push(output);
   return a;

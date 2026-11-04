@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { TelegramChannel } from '../src/bifrost/channels/telegram.ts';
 import type { OdinConfig } from '../src/config.ts';
-import { cloneVoice, forSpeech, speak, sttReady, transcribe, ttsReady } from '../src/voice/voice.ts';
+import { cloneVoice, forSpeech, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../src/voice/voice.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
 import { makeOdin } from './helpers.ts';
 
@@ -148,4 +148,27 @@ test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichie
     const fileMsg = o.provider.calls[1].messages.at(-1)!.content;
     assert.match(fileMsg, /Range ça[\s\S]*\[Fichier reçu : inbox\/.*facture mars\.pdf \(application\/pdf/);
   } finally { await gw.stop(); o.cleanup(); tg.close(); eleven.close(); delete process.env.ELEVEN_TEST; }
+});
+
+test('voix locale : Piper (WAV, sans clé) et serveur compatible OpenAI, tout reste sur la machine', async () => {
+  const m = await mock((h) => (h.url === '/' && h.method === 'POST' ? { type: 'audio/wav', body: Buffer.from('RIFFfakewav') } : h.url === '/v1/audio/speech' ? { type: 'audio/mpeg', body: Buffer.from('ID3local') } : { status: 404, body: '{}' }));
+  try {
+    const base = voiceCfg(m.url, m.url);
+    const piper = { ...base, tts: { provider: 'piper' as const, voiceId: '', voiceName: '', model: '', baseUrl: m.url, apiKeyEnv: '' } };
+    assert.equal(ttsReady(piper, {}), true, 'Piper : aucune clé, aucune voix à choisir');
+    const a = await speakAudio('Bonjour **toi**', piper, 'mp3_44100_128', undefined, {});
+    assert.equal(a.mime, 'audio/wav');
+    assert.equal(Buffer.from(a.data).toString(), 'RIFFfakewav');
+    assert.deepEqual(JSON.parse(m.hits[0].body.toString()), { text: 'Bonjour toi' });
+    assert.equal(ttsIsLocal(piper), true);
+
+    const oa = { ...base, tts: { provider: 'openai' as const, voiceId: 'nova', voiceName: 'nova', model: 'tts-1', baseUrl: `${m.url}/v1`, apiKeyEnv: 'ABSENTE' } };
+    assert.equal(ttsReady(oa, {}), true, 'serveur local compatible OpenAI : sans clé');
+    assert.equal(ttsReady({ ...oa, tts: { ...oa.tts, baseUrl: 'https://api.openai.com/v1' } }, {}), false, 'OpenAI en ligne : clé requise');
+    const b = await speakAudio('Salut', oa, 'opus_48000_64', undefined, {});
+    assert.equal(b.mime, 'audio/ogg');
+    const sent = JSON.parse(m.hits[1].body.toString());
+    assert.equal(sent.voice, 'nova'); assert.equal(sent.response_format, 'opus'); assert.equal(sent.input, 'Salut');
+    assert.equal(m.hits[1].headers.authorization, undefined, 'pas de clé envoyée quand il n\'y en a pas');
+  } finally { m.close(); }
 });

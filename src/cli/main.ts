@@ -1,5 +1,5 @@
 // Interface en ligne de commande d'Odin.
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface, type Interface } from 'node:readline';
 import { stdin, stdout } from 'node:process';
@@ -24,6 +24,7 @@ import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
 import { allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings } from '../settings.ts';
+import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { sttReady, transcribe } from '../voice/voice.ts';
 import { refreshEnvironment } from '../learn/environment.ts';
 import { spawn, spawnSync } from 'node:child_process';
@@ -50,7 +51,7 @@ Usage : odin <commande>
   skills [list|drafts|show N|diff N|approve N|reject N|rollback N]
   memory [list|search Q|forget ID|pin ID|vouch ID]
   sessions [search Q]
-  pairing [list|approve CANAL CODE]
+  pairing [list|users|approve CANAL CODE [--membre NOM]]
   cron [list|add "EXPR" "DEMANDE"|remove ID]
   audit [N]                    dernières décisions de Heimdall
   net [scan [--full]|list [--all]|show IP|events|label ID NOM|enable|disable]
@@ -61,6 +62,8 @@ Usage : odin <commande>
                                ou Internet (--http : LAN sans chiffrement ; --proxy : proxy HTTPS devant)
   web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
   update                       met Odin à jour
+  backup [fichier]             sauvegarde chiffrée de ~/.odin (config, clés, mémoire, compétences)
+  restore <fichier>            restaure une sauvegarde (Odin arrêté)
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
   grants [list|revoke ID]      autorisations permanentes (« toujours autoriser »)
   breaker [on|nuit|off]        Odin Breaker : Odin ne demande plus rien (toujours, ou la nuit)
@@ -350,7 +353,12 @@ async function admin(): Promise<void> {
       if (sub === 'search') console.log(table(odin.muninn.searchMessages(pos.slice(2).join(' '), 15).map((h) => ({ date: new Date(h.created_at).toISOString().slice(0, 16), session: h.session_id, extrait: h.snippet }))));
       else console.log(table(odin.muninn.listSessions().map((s) => ({ id: s.id, titre: s.title, marquée: s.tainted ? '⚠' : '', maj: new Date(s.updated_at).toISOString().slice(0, 16) }))));
     } else if (cmd === 'pairing') {
-      if (sub === 'approve') { const r = odin.muninn.approvePairing(a, b); console.log(r ? c.green(`✓ ${r.name} (${r.peer}) appairé sur ${a}`) : 'Code inconnu ou expiré.'); }
+      if (sub === 'approve') {
+        const r = odin.muninn.approvePairing(a, b);
+        if (!r) console.log('Code inconnu ou expiré.');
+        else if (flags.has('--membre')) { const u = odin.muninn.saveUser({ name: pos[4] ?? r.name ?? 'membre', role: 'member' }); odin.muninn.linkIdentity(a, r.peer, u.id); console.log(c.green(`✓ ${u.name} (${r.peer}) est membre de la maison : de confiance, autonomie prudente, validations chez toi.`)); }
+        else console.log(c.green(`✓ ${r.name} (${r.peer}) appairé sur ${a} comme invité (contenu non fiable). Pour en faire un membre : odin pairing approve ${a} ${b} --membre [nom]`));
+      } else if (sub === 'users') console.log(table(odin.muninn.listUsers().map((u) => ({ id: u.id, nom: u.name, rôle: u.role, autonomie: u.autonomy, identités: u.identities.map((i) => `${i.channel}:${i.peer}`).join(' ') }))));
       else console.log(table(odin.muninn.listPairings()));
     } else if (cmd === 'cron') {
       if (sub === 'add') { const id = `job_${Date.now().toString(36)}`; const next = nextRun(a, new Date()); odin.muninn.addJob({ id, cron: a, prompt: b, channel: pos[4] ?? 'cli', peer: pos[5] ?? 'owner', next_run: next.getTime() }); console.log(`${id} planifiée, prochaine exécution ${next.toLocaleString('fr-FR')}`); }
@@ -459,8 +467,54 @@ async function admin(): Promise<void> {
   }
 }
 
+/** Mot de passe sans écho (ou ODIN_BACKUP_PASSWORD pour les scripts). */
+async function askPassword(prompt: string): Promise<string> {
+  if (process.env.ODIN_BACKUP_PASSWORD) return process.env.ODIN_BACKUP_PASSWORD;
+  if (!stdin.isTTY) throw new Error('mot de passe requis : définis ODIN_BACKUP_PASSWORD (pas de terminal interactif)');
+  return new Promise((resolve) => {
+    stdout.write(prompt);
+    const was = stdin.isRaw; stdin.setRawMode(true); stdin.resume(); stdin.setEncoding('utf8');
+    let buf = '';
+    const onData = (ch: string) => {
+      for (const c of ch) {
+        if (c === '\r' || c === '\n') { stdin.setRawMode(Boolean(was)); stdin.off('data', onData); stdin.pause(); stdout.write('\n'); resolve(buf); return; }
+        if (c === '\u0003') process.exit(130);
+        if (c === '\u007f' || c === '\b') buf = buf.slice(0, -1); else buf += c;
+      }
+    };
+    stdin.on('data', onData);
+  });
+}
+
+async function backupCmd(): Promise<void> {
+  const paths = odinPaths();
+  const out = pos[1] ?? `odin-sauvegarde-${new Date().toISOString().slice(0, 10)}.odinbk`;
+  const o = { workspace: !flags.has('--sans-workspace') };
+  const files = backupManifest(paths, o);
+  const size = files.reduce((n, f) => n + f.size, 0);
+  console.log(`${files.length} fichiers, ${(size / 1024 / 1024).toFixed(1)} Mo (config, clés, mémoire, compétences${o.workspace ? ', espace de travail' : ''}).`);
+  const pw = await askPassword('Mot de passe de la sauvegarde (8 caractères au moins) : ');
+  if (!process.env.ODIN_BACKUP_PASSWORD && pw !== await askPassword('Confirme le mot de passe : ')) throw new Error('les deux mots de passe diffèrent');
+  writeFileSync(out, createBackup(paths, pw, o), { mode: 0o600 });
+  console.log(c.green(`✓ Sauvegarde chiffrée écrite : ${out}`));
+  console.log(c.dim('Garde-la hors de cette machine. Restaurer : odin restore ' + out));
+}
+
+async function restoreCmd(): Promise<void> {
+  const file = pos[1];
+  if (!file || !existsSync(file)) throw new Error('usage : odin restore <fichier.odinbk>');
+  const paths = odinPaths();
+  console.log(c.yellow('Arrête Odin avant de restaurer (service ou « odin web »), sinon la mémoire peut être écrasée au prochain enregistrement.'));
+  const pw = await askPassword('Mot de passe de la sauvegarde : ');
+  const r = restoreBackup(paths, readFileSync(file), pw);
+  console.log(c.green(`✓ ${r.files} fichiers restaurés dans ${paths.home}${r.replaced.length ? ` (${r.replaced.length} remplacés, anciens gardés en .avant-restauration)` : ''}.`));
+  console.log(c.dim('Relance Odin ; les anciennes copies seront nettoyées au démarrage suivant.'));
+}
+
 async function main(): Promise<void> {
   const cmd = pos[0];
+  if (cmd === 'backup') return backupCmd();
+  if (cmd === 'restore') return restoreCmd();
   if (!cmd || cmd === 'help' || flags.has('--help')) return console.log(HELP);
   if (cmd === 'init') {
     const created = initHome(odinPaths());

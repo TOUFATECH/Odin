@@ -125,12 +125,13 @@ Essaie : *« Quels appareils sont sur mon réseau ? »*, *« Range mon dossier T
 | Onglet | Ce que tu y fais |
 |---|---|
 | **Discussion** | parler à Odin, voir ses outils en direct, répondre aux validations en un clic (Autoriser · Toujours autoriser · Refuser) |
+| **Missions** | tout ce qu'Odin fait ou a fait : origine (toi, tâche planifiée, initiative), étapes, outils, sous-agents, coût ; **Arrêter** une mission en cours, **Reprendre** une mission interrompue |
 | **Réseau** | appareils en ligne, déconnectés, retirés ; ce qu'Odin peut faire avec chacun ; balayage à la demande |
 | **Mémoire** | souvenirs d'Odin ; valider ceux en quarantaine, épingler, oublier |
 | **Compétences** | relire et approuver les compétences qu'Odin propose |
 | **Tâches planifiées** | voir et supprimer les tâches récurrentes |
 | **Décisions** | tout ce qu'Odin a fait, qui l'a décidé et pourquoi ; niveau d'autonomie ; autorisations permanentes |
-| **Réglages** | modèle et clés (avec test), autonomie et juge, Telegram, réseau local, accès |
+| **Réglages** | modèle et clés (avec test), **budget mensuel** et dépense par modèle et par usage, autonomie et juge, **personnes** (propriétaires, membres, invités), Telegram, voix, réseau local, accès, **sauvegarde chiffrée** |
 
 #### Qui peut ouvrir l'interface ?
 
@@ -233,11 +234,29 @@ Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, p
 
 ### Voix
 
-Réglages → Voix. **Whisper** (OpenAI, ou un serveur local sans clé) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. **ElevenLabs** donne une voix à Odin : lecture des réponses, notes vocales en retour, et **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite.
+Réglages → Voix. **Whisper** (OpenAI, ou un serveur local sans clé, ex. [speaches](https://github.com/speaches-ai/speaches)) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. Pour parler, au choix : **ElevenLabs** (voix naturelles, **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite), **Piper** (gratuit, hors ligne, sur ta machine : `pip install piper-tts` puis `python3 -m piper.http_server --model fr_FR-siwis-medium`), ou tout serveur **compatible OpenAI** `/v1/audio/speech` (Kokoro, openedai-speech…). Avec Piper et un Whisper local, ta voix ne quitte jamais la maison ; les notes vocales Telegram sont converties en Opus par ffmpeg s'il est là.
 
 ### Modèles : le bon pour chaque tâche
 
-Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (Ollama…), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, il croise l'avis de plusieurs modèles et retient le plus prudent. **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
+Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (Ollama…), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, il croise l'avis de plusieurs modèles et retient le plus prudent (seulement quand un vrai danger est probable, et un même verdict est réutilisé dix minutes : ça ne coûte pas à chaque fichier écrit). **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
+
+**Budget mensuel** (Réglages → Modèle) : un plafond en dollars ; tous les appels sont comptés (agent, juges, résumés, observation, vision), la dépense s'affiche par modèle et par usage, et une fois le plafond atteint seuls les modèles gratuits servent, Odin te le dit.
+
+### Personnes : famille, équipe
+
+Réglages → Personnes (ou `odin pairing approve telegram CODE --membre Léa`). Trois rôles :
+
+| Rôle | Ce qu'Odin fait avec |
+|---|---|
+| **Propriétaire** | tout : demandes, validations, réglages |
+| **Membre** | de confiance (ses messages ne sont pas traités comme une donnée externe), Odin l'aide volontiers et retient ce qu'il apprend de lui à son nom ; son autonomie est **plafonnée** (prudent par défaut, jamais Breaker), ses demandes importantes **te sont soumises** (il est prévenu), il ne peut ni valider ni changer un réglage |
+| **Invité** | appairé, mais ses messages restent du contenu non fiable : rien d'important sans ta validation |
+
+Quand quelqu'un écrit au bot Telegram, sa demande apparaît dans Réglages → Personnes : **Accepter comme membre**, **Comme invité**, ou **Refuser**.
+
+### Sauvegarde et restauration
+
+Réglages → Sauvegarde, ou `odin backup` : tout `~/.odin` (configuration, clés, mémoire, compétences, espace de travail) dans un seul fichier **chiffré** (AES-256-GCM, clé dérivée du mot de passe par scrypt) ; sans le mot de passe il ne révèle rien, pas même les noms de fichiers. `odin restore fichier.odinbk` (Odin arrêté) ou le bouton Restaurer remet tout en place sur une nouvelle machine ; les fichiers remplacés sont gardés en `.avant-restauration` jusqu'au démarrage suivant.
 
 ### Apprentissage rapide
 
@@ -327,7 +346,8 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 | `odin skills [list\|drafts\|show\|diff\|approve\|reject\|rollback]` | compétences |
 | `odin net [scan\|list\|show\|events\|label\|enable\|disable]` | réseau local |
 | `odin cron [list\|add\|remove]` | tâches planifiées |
-| `odin pairing [list\|approve CANAL CODE]` | inconnus sur Telegram |
+| `odin pairing [list\|users\|approve CANAL CODE [--membre NOM]]` | inconnus sur Telegram ; membres de la maison |
+| `odin backup [fichier]` · `odin restore fichier` | sauvegarde chiffrée · restauration |
 | `odin sessions [search Q]` · `odin audit [N]` | conversations · journal brut |
 | `odin updates` · `odin update` | mises à jour de la machine · d'Odin |
 

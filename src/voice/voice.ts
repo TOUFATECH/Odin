@@ -1,4 +1,5 @@
-// La voix d'Odin : il comprend ce que tu dis (Whisper) et il te répond à voix haute (ElevenLabs).
+// La voix d'Odin : il comprend ce que tu dis (Whisper) et il te répond à voix haute (ElevenLabs,
+// ou un service local et gratuit : Piper, ou tout serveur compatible OpenAI /v1/audio/speech).
 //
 // - Transcription : API compatible OpenAI /audio/transcriptions (OpenAI Whisper, ou un serveur
 //   Whisper local comme faster-whisper-server / speaches : aucune clé, rien ne sort de chez toi).
@@ -6,7 +7,12 @@
 //   d'un enregistrement (clonage instantané), seulement avec l'accord de la personne.
 // Aucune dépendance : fetch + FormData de Node.
 
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { OdinConfig } from '../config.ts';
+import { convertMedia } from '../files/media.ts';
+import { hasCommand } from '../learn/environment.ts';
 
 export type VoiceConfig = OdinConfig['voice'];
 
@@ -17,10 +23,21 @@ const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\
 export function sttReady(v: VoiceConfig, env = process.env): boolean {
   return v.enabled && (Boolean(key(v.stt.apiKeyEnv, env)) || isLocal(v.stt.baseUrl));
 }
-/** La synthèse est-elle utilisable (clé ElevenLabs et voix choisie) ? */
+/** La synthèse est-elle utilisable ? ElevenLabs : clé et voix ; Piper : adresse du serveur ; OpenAI : clé (ou serveur local) et voix. */
 export function ttsReady(v: VoiceConfig, env = process.env): boolean {
-  return v.enabled && Boolean(key(v.tts.apiKeyEnv, env)) && Boolean(v.tts.voiceId);
+  if (!v.enabled) return false;
+  if (v.tts.provider === 'piper') return Boolean(v.tts.baseUrl);
+  if (v.tts.provider === 'openai') return (Boolean(key(v.tts.apiKeyEnv, env)) || isLocal(v.tts.baseUrl)) && Boolean(v.tts.voiceId);
+  return Boolean(key(v.tts.apiKeyEnv, env)) && Boolean(v.tts.voiceId);
 }
+/** Est-ce que la voix reste entièrement sur la machine (rien n'est envoyé à un service en ligne) ? */
+export function ttsIsLocal(v: VoiceConfig): boolean { return v.tts.provider !== 'elevenlabs' && isLocal(v.tts.baseUrl); }
+/** Adresse par défaut de chaque fournisseur de synthèse. */
+export const TTS_DEFAULTS: Record<VoiceConfig['tts']['provider'], { baseUrl: string; model: string; voiceId: string; apiKeyEnv: string }> = {
+  elevenlabs: { baseUrl: 'https://api.elevenlabs.io', model: 'eleven_multilingual_v2', voiceId: '', apiKeyEnv: 'ELEVENLABS_API_KEY' },
+  piper: { baseUrl: 'http://localhost:5000', model: '', voiceId: '', apiKeyEnv: '' },
+  openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini-tts', voiceId: 'alloy', apiKeyEnv: 'OPENAI_API_KEY' },
+};
 
 async function failIfBad(res: Response, what: string): Promise<void> {
   if (res.ok) return;
@@ -50,20 +67,47 @@ export async function transcribe(audio: Uint8Array, mime: string, v: VoiceConfig
 }
 
 export type AudioFormat = 'mp3_44100_128' | 'opus_48000_64';
+export interface SpeechAudio { data: Uint8Array; mime: string }
 
-/** ElevenLabs : texte → audio (mp3 pour le navigateur, opus pour les notes vocales Telegram). */
-export async function speak(text: string, v: VoiceConfig, format: AudioFormat = 'mp3_44100_128', signal?: AbortSignal, env = process.env): Promise<Uint8Array> {
-  if (!v.tts.voiceId) throw new Error('aucune voix choisie (Réglages → Voix)');
+/** Texte → audio (mp3 pour le navigateur, opus pour les notes vocales Telegram), selon le fournisseur choisi. */
+export async function speakAudio(text: string, v: VoiceConfig, format: AudioFormat = 'mp3_44100_128', signal?: AbortSignal, env = process.env): Promise<SpeechAudio> {
   const clean = forSpeech(text);
   if (!clean) throw new Error('rien à dire');
-  const res = await fetch(`${v.tts.baseUrl.replace(/\/$/, '')}/v1/text-to-speech/${encodeURIComponent(v.tts.voiceId)}?output_format=${format}`, {
+  const base = v.tts.baseUrl.replace(/\/$/, '');
+  const sig = signal ?? AbortSignal.timeout(90_000);
+  if (v.tts.provider === 'piper') {
+    // Serveur HTTP de Piper (python3 -m piper.http_server --model fr_FR-siwis-medium) : renvoie du WAV.
+    const body: Record<string, unknown> = { text: clean };
+    if (v.tts.voiceId) body.voice = v.tts.voiceId;
+    let res = await fetch(`${base}/`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'audio/wav' }, body: JSON.stringify(body), signal: sig });
+    if (!res.ok && res.status < 500) res = await fetch(`${base}/?text=${encodeURIComponent(clean.slice(0, 1500))}`, { signal: sig }); // anciennes versions
+    await failIfBad(res, 'Piper : synthèse impossible');
+    return { data: new Uint8Array(await res.arrayBuffer()), mime: 'audio/wav' };
+  }
+  if (v.tts.provider === 'openai') {
+    // OpenAI /v1/audio/speech, ou un serveur local compatible (Kokoro, openedai-speech, speaches…).
+    const k = key(v.tts.apiKeyEnv, env);
+    const fmt = format === 'opus_48000_64' ? 'opus' : 'mp3';
+    const res = await fetch(`${base}/audio/speech`, {
+      method: 'POST', headers: { ...(k ? { authorization: `Bearer ${k}` } : {}), 'content-type': 'application/json' },
+      body: JSON.stringify({ model: v.tts.model || 'tts-1', input: clean, voice: v.tts.voiceId || 'alloy', response_format: fmt }), signal: sig,
+    });
+    await failIfBad(res, 'Synthèse vocale impossible');
+    return { data: new Uint8Array(await res.arrayBuffer()), mime: fmt === 'opus' ? 'audio/ogg' : 'audio/mpeg' };
+  }
+  if (!v.tts.voiceId) throw new Error('aucune voix choisie (Réglages → Voix)');
+  const res = await fetch(`${base}/v1/text-to-speech/${encodeURIComponent(v.tts.voiceId)}?output_format=${format}`, {
     method: 'POST',
     headers: { 'xi-api-key': key(v.tts.apiKeyEnv, env), 'content-type': 'application/json', accept: 'audio/*' },
     body: JSON.stringify({ text: clean, model_id: v.tts.model }),
-    signal: signal ?? AbortSignal.timeout(60_000),
+    signal: sig,
   });
   await failIfBad(res, 'Synthèse vocale impossible');
-  return new Uint8Array(await res.arrayBuffer());
+  return { data: new Uint8Array(await res.arrayBuffer()), mime: format === 'opus_48000_64' ? 'audio/ogg' : 'audio/mpeg' };
+}
+/** Comme speakAudio, données seules (compatibilité). */
+export async function speak(text: string, v: VoiceConfig, format: AudioFormat = 'mp3_44100_128', signal?: AbortSignal, env = process.env): Promise<Uint8Array> {
+  return (await speakAudio(text, v, format, signal, env)).data;
 }
 
 /** Ce qui se lit mal à voix haute (code, liens, émojis de statut) est retiré ; 2 500 caractères au plus. */
@@ -109,4 +153,16 @@ export async function cloneVoice(name: string, samples: Array<{ data: Uint8Array
   const data = await res.json() as { voice_id?: string };
   if (!data.voice_id) throw new Error('ElevenLabs n\'a pas renvoyé d\'identifiant de voix');
   return data.voice_id;
+}
+
+/** Note vocale Telegram : il faut de l'Ogg/Opus. Le WAV de Piper est converti avec ffmpeg s'il est là ; sinon on envoie tel quel. */
+export async function toVoiceNote(a: SpeechAudio): Promise<Uint8Array> {
+  if (a.mime === 'audio/ogg' || !hasCommand('ffmpeg')) return a.data;
+  const dir = mkdtempSync(join(tmpdir(), 'odin-voix-'));
+  try {
+    const src = join(dir, a.mime === 'audio/wav' ? 'in.wav' : 'in.mp3'), out = join(dir, 'out.ogg');
+    writeFileSync(src, a.data);
+    await convertMedia(src, out, { audioCodec: 'libopus', audioBitrate: '48k' }, undefined, 120_000);
+    return new Uint8Array(readFileSync(out));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 }

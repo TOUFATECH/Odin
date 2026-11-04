@@ -92,8 +92,8 @@
 
 <section class="wrap" id="voix">
   <div class="grid two">
-    <div class="stack" style="gap:16px"><p class="eyebrow">Voix</p><h2>Parle-lui. Il te répond, avec la voix que tu veux.</h2><p class="lead">Micro dans l'interface, notes vocales sur Telegram, fichiers audio : Odin comprend ce que tu dis. Il répond à voix haute et en notes vocales.</p><p class="muted">Tu peux lui donner une voix existante, ou copier une voix à partir d'un enregistrement d'une minute. La copie exige ton accord explicite : ta voix, ou celle d'une personne qui a consenti.</p></div>
-    <div class="card accent rv" style="gap:12px"><span class="k">Réglages → Voix</span><p><strong style="color:var(--ink)">Comprendre</strong> : service de transcription en ligne, ou serveur local sans clé pour rester 100 % chez toi.</p><p><strong style="color:var(--ink)">Parler</strong> : synthèse vocale, choix de la voix, essai en un clic, copie de voix avec consentement.</p><p><strong style="color:var(--ink)">Au quotidien</strong> : bouton 🔊 dans la discussion, réponse vocale automatique quand tu parles à Odin sur Telegram.</p></div>
+    <div class="stack" style="gap:16px"><p class="eyebrow">Voix</p><h2>Parle-lui. Il te répond, avec la voix que tu veux.</h2><p class="lead">Micro dans l'interface, notes vocales sur Telegram, fichiers audio : Odin comprend ce que tu dis. Il répond à voix haute et en notes vocales.</p><p class="muted">Tu peux lui donner une voix existante, ou copier une voix à partir d'un enregistrement d'une minute. La copie exige ton accord explicite : ta voix, ou celle d'une personne qui a consenti. Et si tu préfères que rien ne sorte de chez toi : Piper et Whisper tournent sur ta machine, gratuitement.</p></div>
+    <div class="card accent rv" style="gap:12px"><span class="k">Réglages → Voix</span><p><strong style="color:var(--ink)">Comprendre</strong> : service de transcription en ligne, ou serveur Whisper local sans clé pour rester 100 % chez toi (aide d'installation incluse).</p><p><strong style="color:var(--ink)">Parler</strong> : ElevenLabs (copie de voix avec consentement), Piper (hors ligne, gratuit) ou un serveur compatible OpenAI ; essai en un clic.</p><p><strong style="color:var(--ink)">Au quotidien</strong> : bouton 🔊 dans la discussion, réponse vocale automatique quand tu parles à Odin sur Telegram.</p></div>
   </div>
 </section>
 
@@ -109,6 +109,8 @@
     <article class="card rv d1"><span class="k">Fort quand il faut</span><h3>Le plus capable pour le complexe</h3><p>Projet en plusieurs étapes, gros document, débogage : Odin monte d'un palier tout seul.</p></article>
     <article class="card rv d2"><span class="k">Prudent quand c'est risqué</span><h3>Plusieurs avis avant de trancher</h3><p>Pour une décision à risque, il croise les avis de plusieurs modèles et retient le plus prudent.</p></article>
     <article class="card rv d3"><span class="k">Jamais à l'arrêt</span><h3>Bascule automatique</h3><p>Quota ou crédit épuisé : le modèle est mis de côté, le suivant prend le relais, et Odin te le dit dans sa réponse.</p></article>
+    <article class="card rv"><span class="k">Budget mensuel</span><h3>Un plafond, et le détail de la dépense</h3><p>Tous les appels sont comptés, agent et juges compris. Tu vois la dépense du mois par modèle et par usage ; plafond atteint, seuls les modèles gratuits servent.</p></article>
+    <article class="card rv d1"><span class="k">Missions</span><h3>Voir, arrêter, reprendre</h3><p>Chaque mission avec son origine, ses étapes, ses sous-agents et son coût, en direct. Un bouton pour l'arrêter, un autre pour la reprendre.</p></article>
   </div>
 </section>
 
@@ -131,6 +133,16 @@
     <article class="card rv d3"><h3>API HTTP</h3><p>Pour brancher tes propres outils, avec un jeton.</p></article>
   </div>
 </section>
+
+<section class="band" id="maison"><div class="wrap">
+  <div class="sec-head"><p class="eyebrow">Toute la maison, et toi aux commandes</p><h2>Famille, équipe, sauvegarde</h2></div>
+  <div class="grid">
+    <article class="card rv"><span class="k">Propriétaire</span><h3>Toi</h3><p>Tout : demandes, validations, réglages, Breaker.</p></article>
+    <article class="card rv d1"><span class="k">Membres</span><h3>Famille, colocataires, équipe</h3><p>Odin les aide volontiers et retient ce qu'il apprend d'eux à leur nom. Leur autonomie est plafonnée, leurs demandes importantes te sont soumises, ils ne touchent à aucun réglage.</p></article>
+    <article class="card rv d2"><span class="k">Invités</span><h3>Appairés, mais à distance</h3><p>Leurs messages restent un contenu non fiable : rien d'important sans ta validation.</p></article>
+    <article class="card rv d3"><span class="k">Sauvegarde chiffrée</span><h3>Tout Odin dans un fichier</h3><p>Configuration, clés, mémoire, compétences, espace de travail : un fichier chiffré par mot de passe (AES-256). Restauration en un clic sur une nouvelle machine.</p></article>
+  </div>
+</div></section>
 
 <section class="band cta-band" style="padding-inline:var(--gutter)"><p class="eyebrow">Prêt ?</p><h2>Installe Odin en une commande.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="./autonomie.html">Voir les niveaux d'autonomie</a></div></section>
 

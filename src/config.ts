@@ -107,7 +107,8 @@ export interface OdinConfig {
     speakReplies: boolean;
     /** Répondre aussi par une note vocale quand on écrit à Odin en vocal (Telegram). */
     voiceReplies: boolean;
-    tts: { provider: 'elevenlabs'; voiceId: string; voiceName: string; model: string; baseUrl: string; apiKeyEnv: string };
+    /** elevenlabs (en ligne, copie de voix) · piper (serveur local, gratuit) · openai (API /v1/audio/speech : OpenAI ou serveur local compatible). */
+    tts: { provider: 'elevenlabs' | 'piper' | 'openai'; voiceId: string; voiceName: string; model: string; baseUrl: string; apiKeyEnv: string };
     stt: { provider: 'whisper'; model: string; baseUrl: string; apiKeyEnv: string; language: string };
   };
   /** Mímir : jugements typés (juge local sans clé par défaut, Jev ou modèle en option), décisions en code. */
@@ -205,7 +206,8 @@ export function validateConfig(c: OdinConfig): string[] {
   if (!['none', 'docker'].includes(c.policy.sandbox?.kind)) errs.push('policy.sandbox.kind doit valoir none ou docker');
   if (!['auto', 'local', 'llm', 'jev', 'local+llm', 'local+jev'].includes(c.mimir.judge)) errs.push('mimir.judge doit valoir auto, local, llm, jev, local+llm ou local+jev');
   if (!/^https?:\/\//.test(c.voice.stt.baseUrl) || !/^https?:\/\//.test(c.voice.tts.baseUrl)) errs.push('voice.stt.baseUrl / voice.tts.baseUrl : des adresses http(s)');
-  if (c.voice.tts.voiceId && !/^[A-Za-z0-9_-]{4,64}$/.test(c.voice.tts.voiceId)) errs.push('voice.tts.voiceId : identifiant de voix ElevenLabs invalide');
+  if (!['elevenlabs', 'piper', 'openai'].includes(c.voice.tts.provider)) errs.push('voice.tts.provider : elevenlabs, piper ou openai');
+  if (c.voice.tts.voiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(c.voice.tts.voiceId)) errs.push('voice.tts.voiceId : identifiant de voix invalide');
   if (!(c.routing.monthlyBudgetUsd >= 0)) errs.push('routing.monthlyBudgetUsd doit être positif ou nul');
   if (!['never', 'breaker', 'always'].includes(c.learning.autoApproveSkills)) errs.push('learning.autoApproveSkills doit valoir never, breaker ou always');
   if (!AUTONOMY_LEVELS.includes(c.mimir.autonomy)) errs.push('mimir.autonomy doit valoir prudent, equilibre, autonome ou breaker');

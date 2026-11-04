@@ -17,13 +17,14 @@ import { createServer as createHttpsServer } from 'node:https';
 import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
 import { join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
+import { createBackup, restoreBackup } from '../backup.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
 import type { Autonomy } from '../heimdall/policy.ts';
 import { deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
 import { applySettings, providerFor, settingsView, testProvider, type ModelPreset } from '../settings.ts';
-import { cloneVoice, listVoices, speak, sttReady, transcribe, ttsReady } from '../voice/voice.ts';
+import { TTS_DEFAULTS, cloneVoice, listVoices, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../voice/voice.ts';
 
 export function ensureWebToken(paths: OdinPaths, rotate = false): string {
   const f = join(paths.home, 'web-token');
@@ -209,6 +210,24 @@ export class WebChannel implements Channel {
     if (req.method !== 'POST') return json(res, 405, { error: 'méthode refusée' });
     if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
     const v = this.odin.cfg.voice;
+    if (url.pathname === '/api/backup') {
+      // Sauvegarde chiffrée : le mot de passe ne quitte pas la requête, le fichier part tel quel au navigateur.
+      try {
+        const b = await readJson(req);
+        const data = createBackup(this.odin.paths, String(b.password ?? ''), { workspace: b.workspace !== false });
+        res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="odin-sauvegarde-${new Date().toISOString().slice(0, 10)}.odinbk"`, 'cache-control': 'no-store' });
+        return void res.end(data);
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    if (url.pathname === '/api/restore') {
+      // Restauration : fichier brut + mot de passe en en-tête ; les services redémarrent juste après.
+      try {
+        const data = await readRaw(req, 1024 * 1024 * 1024);
+        const r = restoreBackup(this.odin.paths, Buffer.from(data), decodeURIComponent(String(req.headers['x-odin-password'] ?? '')));
+        if (this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch((e) => console.error('[web] redémarrage :', (e as Error).message)), 300);
+        return json(res, 200, { ok: true, files: r.files, replaced: r.replaced.length, reloading: Boolean(this.hooks.reload) });
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
     if (url.pathname === '/api/voice/transcribe') {
       // Micro de l'interface : l'audio arrive brut, Whisper le transforme en texte.
       if (!sttReady(v)) return json(res, 200, { ok: false, error: 'Whisper n\'est pas configuré (Réglages → Voix)' });
@@ -229,11 +248,11 @@ export class WebChannel implements Channel {
     }
     const body = await readJson(req);
     if (url.pathname === '/api/voice/speak') {
-      if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'ElevenLabs n\'est pas configuré (Réglages → Voix)' });
+      if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
       try {
-        const audio = await speak(String(body.text ?? '').slice(0, 5000), v);
-        res.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
-        return void res.end(audio);
+        const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), v);
+        res.writeHead(200, { 'content-type': audio.mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+        return void res.end(audio.data);
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/message') {
@@ -269,9 +288,10 @@ export class WebChannel implements Channel {
       breaker: cfg.mimir.breaker,
       judge: this.odin.mimir?.judgeName ?? null,
       settings: settingsView(cfg, Boolean(this.odin.demo)),
-      voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), speakReplies: cfg.voice.speakReplies },
+      voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), local: ttsIsLocal(cfg.voice), provider: cfg.voice.tts.provider, speakReplies: cfg.voice.speakReplies, ttsDefaults: TTS_DEFAULTS },
       failedChannels: this.hooks.failedChannels?.() ?? {},
       missions: muninn.listMissions(60),
+      people: { users: muninn.listUsers(), pending: muninn.listPairings().filter((p) => p.status === 'pending') },
       budget: { monthlyUsd: cfg.routing.monthlyBudgetUsd, spentUsd: muninn.monthCost(), breakdown: muninn.usageBreakdown(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) },
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
@@ -338,6 +358,17 @@ export class WebChannel implements Channel {
       }
       case 'mission_stop': { const m = muninn.getMission(String(b.id)); if (!m) return { ok: false, error: 'mission inconnue' }; const stopped = this.hooks.abortSession?.(m.session_id) ?? false; if (!stopped) muninn.endMission(m.id, 'arrêtée', 'Arrêtée depuis l\'onglet Missions.'); break; }
       case 'mission_resume': { const m = muninn.getMission(String(b.id)); if (!m) return { ok: false, error: 'mission inconnue' }; if (!this.hooks.resume) return { ok: false, error: 'reprise indisponible' }; void this.hooks.resume(m.session_id).catch((e) => console.error('[missions]', (e as Error).message)); return { ok: true, started: true }; }
+      case 'user_save': { try { const u = muninn.saveUser({ id: b.id ? String(b.id) : undefined, name: String(b.name ?? ''), role: String(b.role ?? 'member') as 'member', autonomy: b.autonomy ? String(b.autonomy) as 'prudent' : undefined }); return { ok: true, id: u.id }; } catch (e) { return { ok: false, error: (e as Error).message }; } }
+      case 'user_delete': muninn.deleteUser(String(b.id)); break;
+      case 'user_link': { try { muninn.linkIdentity(String(b.channel), String(b.peer), String(b.id)); } catch (e) { return { ok: false, error: (e as Error).message }; } break; }
+      case 'user_unlink': muninn.unlinkIdentity(String(b.channel), String(b.peer)); break;
+      case 'pairing_approve': {
+        const r = muninn.approvePairing(String(b.channel), String(b.code));
+        if (!r) return { ok: false, error: 'code inconnu ou expiré' };
+        if (b.role === 'member') { const u = muninn.saveUser({ name: String(b.name || r.name || 'membre'), role: 'member', autonomy: b.autonomy ? String(b.autonomy) as 'prudent' : undefined }); muninn.linkIdentity(String(b.channel), r.peer, u.id); }
+        break;
+      }
+      case 'pairing_reject': muninn.unlinkIdentity(String(b.channel), String(b.peer)); break;
       case 'access_links': return { ok: true, links: this.urls }; // avec le jeton, pour ouvrir sur un autre appareil
       case 'token_rotate': {
         // Nouveau jeton : tous les liens et navigateurs déjà connectés sont déconnectés.

@@ -49,7 +49,7 @@ test('onglet Réglages : état sans secret, enregistrement, redémarrage des ser
   const token = ensureWebToken(o.paths);
   let reloads = 0;
   const gw = new Gateway(o, { owners: { web: ['*'] } });
-  gw.add(new WebChannel(o, { scanNetwork: async () => undefined, reload: async () => { reloads++; } }, { port, host: '127.0.0.1', token }));
+  gw.add(new WebChannel(o, { scanNetwork: async () => undefined, reload: async () => { reloads++; o.cfg = loadConfig(o.paths); } }, { port, host: '127.0.0.1', token }));
   await gw.start();
   const B = `http://127.0.0.1:${port}`;
   const h = { authorization: `Bearer ${token}`, 'x-odin': '1', 'content-type': 'application/json' };
@@ -80,6 +80,24 @@ test('onglet Réglages : état sans secret, enregistrement, redémarrage des ser
     assert.match(String((await act({ kind: 'settings_save', section: 'telegram', enabled: true, token: 'pas-un-jeton' })).error), /jeton Telegram invalide/);
     assert.match(String((await act({ kind: 'settings_save', section: 'secret', name: 'PATH', value: '/x' })).error), /non autorisée/);
     assert.match(String((await act({ kind: 'settings_save', section: 'mimir', judge: 'n-importe-quoi' })).error), /mimir.judge/);
+
+    // Budget mensuel : enregistré, visible dans l'état avec la dépense du mois par modèle et usage.
+    assert.equal((await act({ kind: 'settings_save', section: 'routing', preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15, monthlyBudgetUsd: 12 })).ok, true);
+    assert.equal(loadConfig(o.paths).routing.monthlyBudgetUsd, 12);
+    await new Promise((res) => setTimeout(res, 300));
+    o.muninn.recordUsage('agent', 'openai:gpt', 100, 50, 0.25, 'agent');
+    const st3 = await (await fetch(`${B}/api/state`, { headers: h })).json() as { budget: { monthlyUsd: number; spentUsd: number; breakdown: Array<{ provider: string; purpose: string }> }; missions: unknown[] };
+    assert.equal(st3.budget.monthlyUsd, 12);
+    assert.ok(st3.budget.spentUsd >= 0.25);
+    assert.equal(st3.budget.breakdown[0].provider, 'openai:gpt');
+    assert.ok(Array.isArray(st3.missions));
+
+    // Missions : arrêt d'une mission sans session active → marquée arrêtée ; reprise sans crochet → refusée proprement.
+    const mid = 'm-test'; o.muninn.startMission({ id: mid, sessionId: 'web:principal', goal: 'ranger les factures', origin: 'utilisateur' });
+    assert.equal((await act({ kind: 'mission_stop', id: mid })).ok, true);
+    assert.equal(o.muninn.getMission(mid)?.status, 'arrêtée');
+    assert.equal((await act({ kind: 'mission_resume', id: mid })).ok, false);
+    assert.equal((await act({ kind: 'mission_stop', id: 'x' })).ok, false);
 
     const t = await act({ kind: 'settings_test', preset: 'anthropic', model: 'claude-sonnet-5-5', apiKey: '' });
     if (!process.env.ANTHROPIC_API_KEY) assert.match(String(t.message), /ANTHROPIC_API_KEY absente/);

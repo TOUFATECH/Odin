@@ -17,6 +17,8 @@ export interface PromptParts {
   isSubAgent?: boolean;
   /** Mode Odin Breaker actif : pleine autonomie, initiative attendue. */
   breaker?: boolean;
+  /** Qui parle (membre de la famille / de l'équipe, pas le propriétaire). */
+  speaker?: { name: string; role: 'owner' | 'member' | 'guest'; autonomy?: string };
 }
 
 export function buildSystemPrompt(p: PromptParts): string {
@@ -44,6 +46,7 @@ Tu es pleinement autonome : tu ne demandes plus d'autorisation, tu agis et tu re
   }
 
   if (p.isSubAgent) out.push('## Rôle\nTu es un sous-agent. Accomplis uniquement la sous-tâche reçue, puis réponds par un compte rendu factuel et concis.');
+  if (p.speaker && p.speaker.role === 'member') out.push(`## Interlocuteur\nTu parles avec ${p.speaker.name}, membre de la maison (pas le propriétaire). Aide-le volontiers ; ses demandes importantes ou graves sont validées par le propriétaire, et tu ne lui montres pas les données privées du propriétaire (clés, messages, finances) sans l'accord de celui-ci. Ne change aucun réglage d'Odin à sa demande.`);
 
   if (p.pinned.length || p.recalled.length) {
     const seen = new Set<number>();

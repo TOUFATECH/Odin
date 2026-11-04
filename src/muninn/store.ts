@@ -41,6 +41,10 @@ export interface SessionRow {
   suspicious?: number;
 }
 
+/** Une personne qui parle à Odin : propriétaire (tout), membre (de confiance, autonomie plafonnée, validations chez le propriétaire) ou invité (contenu non fiable). */
+export type UserRole = 'owner' | 'member' | 'guest';
+export interface UserRow { id: string; name: string; role: UserRole; autonomy: 'prudent' | 'equilibre' | 'autonome'; created_at: number }
+
 export interface MissionRow {
   id: string; session_id: string; goal: string; status: string; origin: string;
   steps: number; tool_calls: number; cost_usd: number; subagents: number; last_tool: string; result: string;
@@ -106,6 +110,9 @@ CREATE TABLE IF NOT EXISTS missions(
   steps INTEGER NOT NULL DEFAULT 0, tool_calls INTEGER NOT NULL DEFAULT 0, cost_usd REAL NOT NULL DEFAULT 0, subagents INTEGER NOT NULL DEFAULT 0,
   last_tool TEXT NOT NULL DEFAULT '', result TEXT NOT NULL DEFAULT '', started_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, ended_at INTEGER);
 CREATE TABLE IF NOT EXISTS usage(session_id TEXT, provider TEXT, tokens_in INTEGER, tokens_out INTEGER, cost_usd REAL, created_at INTEGER);
+CREATE TABLE IF NOT EXISTS users(
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL, autonomy TEXT NOT NULL DEFAULT 'prudent', created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS identities(channel TEXT NOT NULL, peer TEXT NOT NULL, user_id TEXT NOT NULL, PRIMARY KEY(channel, peer));
 `;
 
 /** Transforme une phrase libre en requête FTS5 sûre (pas d'erreur de syntaxe possible). */
@@ -261,6 +268,40 @@ export class Muninn {
   /** Validation humaine d'une mémoire en quarantaine : elle devient fiable. */
   vouch(id: number): void {
     this.db.prepare("UPDATE memories SET origin = 'owner', trust = 1 WHERE id = ?").run(id);
+  }
+
+  // ---------- Personnes (famille, équipe) ----------
+
+  userFor(channel: string, peer: string): UserRow | undefined {
+    return this.db.prepare('SELECT u.* FROM identities i JOIN users u ON u.id = i.user_id WHERE i.channel = ? AND i.peer = ?').get(channel, peer) as unknown as UserRow | undefined;
+  }
+  listUsers(): Array<UserRow & { identities: Array<{ channel: string; peer: string }> }> {
+    const users = this.db.prepare('SELECT * FROM users ORDER BY created_at').all() as unknown as UserRow[];
+    const ids = this.db.prepare('SELECT channel, peer, user_id FROM identities').all() as Array<{ channel: string; peer: string; user_id: string }>;
+    return users.map((u) => ({ ...u, identities: ids.filter((i) => i.user_id === u.id).map(({ channel, peer }) => ({ channel, peer })) }));
+  }
+  saveUser(u: { id?: string; name: string; role: UserRole; autonomy?: UserRow['autonomy'] }): UserRow {
+    const name = u.name.trim().slice(0, 60);
+    if (!name) throw new Error('un nom est requis');
+    if (!['owner', 'member', 'guest'].includes(u.role)) throw new Error('rôle : owner, member ou guest');
+    const autonomy = u.autonomy ?? 'prudent';
+    if (!['prudent', 'equilibre', 'autonome'].includes(autonomy)) throw new Error('autonomie d\'un membre : prudent, equilibre ou autonome (jamais breaker)');
+    const id = u.id ?? `u_${randomCode().toLowerCase()}${Date.now().toString(36)}`;
+    this.db.prepare('INSERT INTO users(id, name, role, autonomy, created_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, role = excluded.role, autonomy = excluded.autonomy').run(id, name, u.role, autonomy, Date.now());
+    return this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as unknown as UserRow;
+  }
+  deleteUser(id: string): void {
+    this.db.prepare('DELETE FROM identities WHERE user_id = ?').run(id);
+    this.db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  }
+  linkIdentity(channel: string, peer: string, userId: string): void {
+    if (!this.db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId)) throw new Error('personne inconnue');
+    this.db.prepare('INSERT OR REPLACE INTO identities(channel, peer, user_id) VALUES (?,?,?)').run(channel, peer, userId);
+    this.db.prepare("INSERT OR REPLACE INTO pairings(channel, peer, name, code, status, created_at) VALUES (?,?,?,?, 'approved', ?)").run(channel, peer, '', '', Date.now());
+  }
+  unlinkIdentity(channel: string, peer: string): void {
+    this.db.prepare('DELETE FROM identities WHERE channel = ? AND peer = ?').run(channel, peer);
+    this.db.prepare('DELETE FROM pairings WHERE channel = ? AND peer = ?').run(channel, peer);
   }
 
   // ---------- Appairage des inconnus (canaux de messagerie) ----------
