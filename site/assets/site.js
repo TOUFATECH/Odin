@@ -2,6 +2,20 @@
 (() => {
   const d = document, root = d.documentElement;
   root.classList.add('js');
+
+  // Changement de page : on arrive toujours en haut de la nouvelle page (certains navigateurs et
+  // cadres d'aperçu gardent la position de défilement de la page précédente).
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch { /* rien */ }
+  const toTopNow = () => { if (!location.hash) { root.style.scrollBehavior = 'auto'; scrollTo(0, 0); try { top !== window && top.scrollTo(0, 0); } catch { /* autre origine */ } root.style.scrollBehavior = ''; } };
+  toTopNow();
+  addEventListener('pageshow', toTopNow);
+  d.addEventListener('click', (e) => {
+    const a = e.target.closest?.('a[href]'); if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+    const url = new URL(a.href, location.href);
+    if (url.origin !== location.origin || url.pathname === location.pathname) return; // autre site, ou ancre de la même page
+    e.preventDefault(); root.style.scrollBehavior = 'auto'; scrollTo(0, 0); root.style.scrollBehavior = '';
+    requestAnimationFrame(() => { location.href = url.href; });
+  });
   const $ = (s, el = d) => el.querySelector(s), $$ = (s, el = d) => [...el.querySelectorAll(s)];
 
   // Thème : sombre par défaut ; le choix reste dans le navigateur (localStorage, pas un cookie).
