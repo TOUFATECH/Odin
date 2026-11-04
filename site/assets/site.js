@@ -38,6 +38,37 @@
     }, { passive: true });
   }
 
+  // Mascotte : elle réagit quand on la touche, et ses yeux suivent le doigt ou la souris.
+  const faces = $$('.odin'), moods = ['poke', 'wow', 'spin'];
+  let mood = 0;
+  const clamp = (v, m) => Math.max(-m, Math.min(m, v));
+  const look = (f, x, y) => { const r = f.getBoundingClientRect(); f.style.setProperty('--ex', `${clamp((x - r.left - r.width / 2) / 28, 6)}px`); f.style.setProperty('--ey', `${clamp((y - r.top - r.height / 2) / 28, 5)}px`); f.classList.add('follow'); };
+  faces.forEach((f) => {
+    f.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      const m = moods[mood++ % moods.length];
+      f.classList.remove(...moods); void f.offsetWidth; f.classList.add(m);
+      look(f, e.clientX, e.clientY);
+      setTimeout(() => f.classList.remove(m), 950);
+      setTimeout(() => f.classList.remove('follow'), 1800);
+    });
+  });
+  if (faces.length && matchMedia('(hover:hover) and (pointer:fine)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let raf = 0;
+    d.addEventListener('pointermove', (e) => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        for (const f of faces) {
+          const r = f.getBoundingClientRect(); if (!r.width) continue;
+          const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+          if (Math.hypot(dx, dy) < 340) look(f, e.clientX, e.clientY); else f.classList.remove('follow');
+        }
+      });
+    }, { passive: true });
+  }
+
   // Mascotte du héros : elle « réfléchit » pendant que le terminal travaille, sourit à la fin
   const heroOdin = $('#heroOdin');
 

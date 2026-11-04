@@ -18,8 +18,9 @@ a{color:var(--accent)}
 .app{display:flex;height:100vh;height:100dvh}
 nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px;background:var(--panel2)}
 .brand{display:flex;align-items:center;gap:10px;padding:4px 10px 18px;font-weight:800;letter-spacing:.06em;font-size:19px}
-.brand .odin{width:34px;height:34px;flex:none}
-.login .brand{justify-content:center;font-size:24px}.login .brand .odin{width:56px;height:56px}
+.brand .rune{color:var(--accent);font-size:26px;line-height:1}
+.login .brand{justify-content:center;font-size:24px}
+.typing{display:flex;align-items:center;gap:8px}.typing .odin{width:22px;height:22px;flex:none}.typing:empty .odin{display:none}
 .odin{display:inline-block;position:relative}.odin svg{display:block;width:100%;height:100%;overflow:visible}
 .odin .body{transform-origin:60px 60px;animation:o-breathe 4.4s ease-in-out infinite}
 .odin .eyes{animation:o-glance 11s ease-in-out infinite}
@@ -32,6 +33,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes o-talk{0%,100%{transform:scale(1)}50%{transform:scale(1.04,.97)}}
 @keyframes o-blink{0%,91%,100%{transform:scaleY(1)}93.5%{transform:scaleY(.08)}96%{transform:scaleY(1)}}
 @keyframes o-glance{0%,18%{transform:translateX(0)}24%,36%{transform:translateX(5px)}42%,60%{transform:translateX(0)}66%,76%{transform:translateX(-5px)}82%,100%{transform:translateX(0)}}
+/* Réactions au toucher : il se tasse et sourit, s'étonne, ou fait une pirouette ; ses yeux suivent le doigt ou la souris. */ .odin{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none} .odin.follow .eyes{animation:none;transform:translate(var(--ex,0),var(--ey,0));transition:transform .12s ease-out} .odin.poke .body{animation:o-poke .75s cubic-bezier(.3,1.6,.4,1)} .odin.poke .eye{animation:none;transform:scaleY(.42) translateY(-3px)} .odin.wow .body{animation:o-wow .8s ease} .odin.wow .eye{animation:none;transform:scale(1.35)} .odin.spin .body{animation:o-spin .9s cubic-bezier(.5,0,.2,1)} .odin.spin .eye{animation:none;transform:scaleY(.15)} @keyframes o-poke{0%{transform:scale(1)}25%{transform:scale(1.18,.82) translateY(7px)}55%{transform:scale(.94,1.1) translateY(-9px)}80%{transform:scale(1.03,.98)}100%{transform:scale(1)}} @keyframes o-wow{0%,100%{transform:rotate(0)}20%{transform:rotate(-9deg) scale(1.07)}45%{transform:rotate(8deg) scale(1.07)}70%{transform:rotate(-4deg)}} @keyframes o-spin{0%{transform:scaleX(1)}50%{transform:scaleX(-1) scale(1.08)}100%{transform:scaleX(1)}}
 @media (prefers-reduced-motion:reduce){.odin *{animation:none!important}}
 .tab{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--muted);text-align:left}
 .tab:hover{background:#151A24;color:var(--ink)}
@@ -171,7 +173,8 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 </head>
 <body>
 <div id="login" class="login" hidden>
-  <div class="brand"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>ODIN</div>
+  <span class="odin" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 6px;display:block"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>
+  <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
   <p class="sub">Colle le jeton affiché par « odin web » (ou contenu du fichier ~/.odin/web-token).</p>
   <form id="loginForm" method="get" action="/" style="display:flex;flex-direction:column;gap:10px">
     <label for="tok">Jeton d'accès</label>
@@ -182,12 +185,12 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 
 <div class="app" id="app" hidden>
   <div class="mbar">
-    <div class="brand"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>ODIN</div>
+    <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
     <span class="mcur" id="mcur">Discussion</span>
     <button class="btn small mbtn" id="menuBtn" type="button" aria-expanded="false" aria-controls="sideNav">Menu <span class="badge" id="b-menu" hidden>!</span></button>
   </div>
   <nav class="side" id="sideNav" aria-label="Sections">
-    <div class="brand"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>ODIN</div>
+    <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
     <button class="tab" data-view="chat" aria-current="page">Discussion <span class="badge" id="b-approvals" hidden>0</span></button>
     <button class="tab" data-view="missions">Missions <span class="badge" id="b-missions" hidden>0</span></button>
     <button class="tab" data-view="net">Réseau <span class="badge" id="b-net" hidden>0</span></button>
@@ -564,7 +567,17 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     addMsg('user', t); setBusy(true);
     try { const r = await api('/api/message', { peer, text: t }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
-  function setBusy(b) { busy = b; $('#typing').textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); }
+  // Mascotte : elle réagit quand on la touche (écran de connexion, « Odin réfléchit… »).
+  const MOODS = ['poke', 'wow', 'spin']; let moodI = 0;
+  document.addEventListener('pointerdown', (e) => {
+    const f = e.target.closest?.('.odin'); if (!f) return;
+    e.preventDefault();
+    const m = MOODS[moodI++ % MOODS.length];
+    f.classList.remove(...MOODS); void f.offsetWidth; f.classList.add(m);
+    setTimeout(() => f.classList.remove(m), 950);
+  });
+  const faceTpl = document.querySelector('#login .odin');
+  function setBusy(b) { busy = b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; if (b && faceTpl) { const f = faceTpl.cloneNode(true); f.removeAttribute('style'); t.prepend(f); } $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
   $('#convsBtn').addEventListener('click', () => $('#convs').classList.toggle('open'));
   $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
