@@ -3,30 +3,32 @@
 // API : OdinFace.set(el, humeur) · OdinFace.all(humeur) · OdinFace.MOODS · OdinFace.flash(el, humeur, ms)
 (() => {
   const W = '#fff';
-  // Chaque humeur ne se lit que dans ses yeux : forme, et inclinaison (degrés, œil gauche ; le droit en miroir).
+  // Les yeux gardent toujours leur forme ; c'est sa couleur qui dit son humeur
+  // (4 teintes du centre vers le bord, la dernière colore aussi les halos).
+  const C = (a, b, c, d) => [a, b, c, d];
   const MOODS = {
-    neutre: { eyes: 'pill' },
-    joie: { eyes: 'happy' },
-    rire: { eyes: 'happy', anim: 'laugh' },
-    amour: { eyes: 'heart' },
-    fierte: { eyes: 'half', tilt: -8 },
-    excite: { eyes: 'star', anim: 'hop' },
-    clin: { eyes: 'wink' },
-    malice: { eyes: 'half', tilt: 12 },
-    surprise: { eyes: 'wide' },
-    reflexion: { eyes: 'up' },
-    concentration: { eyes: 'squint' },
-    confus: { eyes: 'uneven' },
-    inquiet: { eyes: 'pill', tilt: -14 },
-    triste: { eyes: 'small', tilt: -18 },
-    colere: { eyes: 'squint', tilt: 24, anim: 'shake' },
-    peur: { eyes: 'wide', tilt: -12, anim: 'tremble' },
-    gene: { eyes: 'small' },
-    fatigue: { eyes: 'closed' },
-    ecoute: { eyes: 'pill', anim: 'tilt' },
-    regarde: { eyes: 'pill', anim: 'look' },
-    parle: { eyes: 'pill', anim: 'talk' },
-    cache: { eyes: 'closed' },
+    neutre: { tint: C('#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0') },
+    joie: { tint: C('#F0A818', '#F7BD32', '#FDD66B', '#FFEDAE') },
+    rire: { tint: C('#F28A12', '#F8A630', '#FCC468', '#FFE1A8'), anim: 'laugh' },
+    amour: { tint: C('#E0457B', '#EE6A97', '#F7A3C0', '#FFD3E2') },
+    fierte: { tint: C('#7A4BD8', '#9166E6', '#B596F2', '#DCCBFF') },
+    excite: { tint: C('#F06A12', '#F7872E', '#FBAE66', '#FFD6AE'), anim: 'hop' },
+    clin: { tint: C('#14A3A0', '#25BAB4', '#6AD6CF', '#B8F1EC') },
+    malice: { tint: C('#8E3FB8', '#A659CC', '#C68DE0', '#EACBF7') },
+    surprise: { tint: C('#16A6D8', '#30BCE8', '#76D6F3', '#BFEEFC') },
+    reflexion: { tint: C('#4256C9', '#5A6FDB', '#8E9DEB', '#C9D1FA') },
+    concentration: { tint: C('#2558B8', '#3570D0', '#6E9CE6', '#B5CDF7') },
+    confus: { tint: C('#7C7FA0', '#9396B4', '#B6B8CF', '#DEDFEB') },
+    inquiet: { tint: C('#C77A1E', '#D6913A', '#E6B575', '#F5DDB8') },
+    triste: { tint: C('#2F6FE0', '#3F82F0', '#7EAEF8', '#C3DBFF') },
+    colere: { tint: C('#C8231C', '#E0352B', '#F06A55', '#FFA593'), anim: 'shake' },
+    peur: { tint: C('#6E5BB8', '#8574CC', '#AB9FE2', '#D9D2F7'), anim: 'tremble' },
+    gene: { tint: C('#E2557A', '#EE7896', '#F6A9BD', '#FFD8E2') },
+    fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4') },
+    ecoute: { tint: C('#2E9E5B', '#43B672', '#7CD29E', '#C2EDD3'), anim: 'tilt' },
+    regarde: { tint: C('#0E8FB8', '#22A7CF', '#64C6E2', '#B2E6F4'), anim: 'look' },
+    parle: { tint: C('#D8A112', '#E8B62C', '#F3CF68', '#FCEAB0'), anim: 'talk' },
+    cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6') },
   };
   const TINTS = {
     gold: ['#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0'],
@@ -108,12 +110,13 @@
     const svg = el.querySelector('svg'), f = svg && face(svg); if (!f) return;
     el.dataset.mood = key;
     // Les yeux restent dans .eyes (ils suivent le doigt et clignent) ; seul leur dessin change.
-    const [le, re] = EYES[m.eyes || 'pill']();
-    const t = m.tilt || 0;
-    f.eyes.innerHTML = `<g class="brow l"><g transform="rotate(${t} ${L} ${Y})">${le}</g></g><g class="brow r"><g transform="rotate(${-t} ${R} ${Y})">${re}</g></g>`;
+    // Yeux : toujours la forme habituelle.
+    if (!f.eyes.querySelector('.eye')) { const [le, re] = EYES.pill(); f.eyes.innerHTML = `<g class="brow l">${le}</g><g class="brow r">${re}</g>`; }
     for (const k of ['brows', 'mouth', 'cheeks', 'extra']) f[k].innerHTML = '';
-    const gold = TINTS.gold;
-    svg.querySelectorAll('[id^="odinBody"] stop').forEach((s, i) => s.setAttribute('stop-color', gold[i] || gold[3]));
+    // Couleur de l'humeur (transition douce), halos compris.
+    const tint = m.tint || MOODS.neutre.tint;
+    svg.querySelectorAll('[id^="odinBody"] stop').forEach((st, i) => { st.style.stopColor = tint[i] || tint[3]; });
+    svg.querySelectorAll('[id^="odinHalo"] stop').forEach((st) => { st.style.stopColor = tint[3]; });
     el.classList.remove('m-laugh', 'm-hop', 'm-shake', 'm-tremble', 'm-tilt', 'm-look', 'm-talk');
     if (m.anim) el.classList.add(`m-${m.anim}`);
     el.querySelector('.mood-emoji')?.remove();

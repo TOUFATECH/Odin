@@ -2,6 +2,7 @@
 .odin{position:relative;container-type:inline-size}
 @container (max-width:46px){}
 .odin .brows path,.odin .mouth>*,.odin .cheeks>*{transition:opacity .2s}
+.odin stop{transition:stop-color .7s ease}
 .odin.m-laugh .body{animation:o-laugh .42s ease-in-out 4}
 .odin.m-hop .body{animation:o-hop .55s cubic-bezier(.3,.9,.4,1) 3}
 .odin.m-shake .body{animation:o-shake .5s ease-in-out 3}

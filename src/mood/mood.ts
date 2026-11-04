@@ -82,4 +82,4 @@ export function guessMood(text: string, c: MoodContext = {}): Mood {
 
 /** Ligne du prompt système qui apprend au modèle à donner son humeur. */
 export const MOOD_PROMPT = `## Ton humeur
-Tu as un visage (une petite boule dorée) dont les yeux montrent ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas.`;
+Tu as un visage (une petite boule dorée) dont la couleur montre ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas.`;
