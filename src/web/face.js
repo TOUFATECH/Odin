@@ -13,7 +13,7 @@
     amour: { tint: C('#E0457B', '#EE6A97', '#F7A3C0', '#FFD3E2'), eyes: { l: [1.12, 1.08], r: [1.12, 1.08], a: 'pulse' } },
     fierte: { tint: C('#7A4BD8', '#9166E6', '#B596F2', '#DCCBFF'), eyes: { l: [1, .62], r: [1, .62], d: [0, -3] } },
     excite: { tint: C('#F06A12', '#F7872E', '#FBAE66', '#FFD6AE'), eyes: { l: [1.1, 1.2], r: [1.1, 1.2], a: 'sparkle' }, anim: 'hop' },
-    clin: { tint: C('#14A3A0', '#25BAB4', '#6AD6CF', '#B8F1EC'), eyes: { r: [1.05, .12], a: 'wink' } },
+    clin: { tint: C('#14A3A0', '#25BAB4', '#6AD6CF', '#B8F1EC'), eyes: { l: [1.1, 1.05], r: [1.7, .3], a: 'wink' } },
     malice: { tint: C('#8E3FB8', '#A659CC', '#C68DE0', '#EACBF7'), eyes: { l: [1, .55], r: [1, .55], a: 'sly' } },
     surprise: { tint: C('#16A6D8', '#30BCE8', '#76D6F3', '#BFEEFC'), eyes: { l: [1.3, 1.25], r: [1.3, 1.25], d: [-1.5, -2], a: 'pop' } },
     reflexion: { tint: C('#4256C9', '#5A6FDB', '#8E9DEB', '#C9D1FA'), eyes: { l: [.95, .9], r: [.95, .9], d: [0, -5], a: 'ponder' } },

@@ -166,7 +166,7 @@ section{padding-block:clamp(56px,9vw,104px)}
 @keyframes e-giggle{0%,100%{transform:translateY(0) scaleY(1)}50%{transform:translateY(-1.5px) scaleY(.75)}}
 @keyframes e-pulse{0%,100%{transform:scale(1)}15%{transform:scale(1.18)}30%{transform:scale(1)}45%{transform:scale(1.12)}}
 @keyframes e-sparkle{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
-@keyframes e-wink{0%,70%,100%{transform:scaleY(1)}80%,90%{transform:scaleY(1.4)}}
+@keyframes e-wink{0%,70%,100%{transform:scaleY(1)}80%,90%{transform:scaleY(1.25)}}
 @keyframes e-sly{0%,100%{transform:translateX(0)}30%,55%{transform:translateX(3px)}}
 @keyframes e-pop{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
 @keyframes e-ponder{0%,100%{transform:translateX(0)}35%,60%{transform:translateX(-3px)}}
