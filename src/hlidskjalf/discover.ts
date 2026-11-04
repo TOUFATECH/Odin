@@ -13,6 +13,7 @@ import { createSocket } from 'node:dgram';
 import { reverse } from 'node:dns/promises';
 import { connect } from 'node:net';
 import { networkInterfaces } from 'node:os';
+import { SCAN_PORTS, WEB_PORTS, netbiosName, probeWeb, upnpDescribe, type WebEndpoint } from './identify.ts';
 
 export interface Subnet { iface: string; address: string; cidr: string; prefix: number; hosts: string[] }
 
@@ -27,6 +28,11 @@ export interface Found {
   server?: string;
   network: string;
   isGateway?: boolean;
+  /** Interfaces web trouvées (balayage complet). */
+  web?: WebEndpoint[];
+  /** Nom NetBIOS (Windows, NAS, Samba). */
+  netbios?: string;
+  manufacturer?: string;
 }
 
 // ---------- Adresses ----------
@@ -126,7 +132,7 @@ export async function defaultGateway(platform = process.platform): Promise<strin
 // ---------- Balayage TCP ----------
 
 /** Ports utiles pour reconnaître un appareil (et ce qu'on peut faire avec). */
-export const PORTS = [22, 80, 139, 443, 445, 548, 554, 631, 1883, 3389, 5000, 8009, 8080, 8123, 9100, 62078];
+export const PORTS = SCAN_PORTS;
 const ALIVE_PORTS = [80, 443, 445, 62078];
 
 type Probe = 'open' | 'closed' | 'silent';
@@ -305,6 +311,23 @@ export async function discover(o: DiscoverOptions): Promise<{ subnets: Subnet[];
       network: subnets.find((s) => inSubnet(ip, s.cidr))!.cidr, isGateway: ip === gw,
     });
   }
-  await pool(found.filter((f) => !f.name), 16, async (f) => { f.hostname = await rdns(f.ip); });
+  // Noms et interfaces : DNS inverse, NetBIOS, description UPnP ; interfaces web (balayage complet).
+  await pool(found, 16, async (f) => {
+    const sh = ssdp.get(f.ip) ?? [];
+    const [host, nb, up] = await Promise.all([
+      f.name ? Promise.resolve(undefined) : rdns(f.ip),
+      f.ports.some((p) => p === 139 || p === 445) || !o.full ? netbiosName(f.ip) : Promise.resolve(undefined),
+      (async () => { const loc = sh.find((h) => h.location)?.location; return loc ? upnpDescribe(loc, f.ip) : undefined; })(),
+    ]);
+    if (host) f.hostname = host;
+    if (nb) f.netbios = sanitize(nb, 40);
+    if (up) { f.name ??= up.friendlyName; f.model ??= up.modelName; f.manufacturer = up.manufacturer; }
+    if (o.full) {
+      const web: WebEndpoint[] = [];
+      for (const p of f.ports.filter((x) => WEB_PORTS.includes(x))) { const w = await probeWeb(f.ip, p); if (w) web.push(w); }
+      f.web = web;
+      if (!f.server) f.server = web.find((w) => w.server)?.server;
+    }
+  });
   return { subnets, found };
 }

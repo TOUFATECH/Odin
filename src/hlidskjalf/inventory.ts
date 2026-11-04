@@ -4,6 +4,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { execFile } from 'node:child_process';
 import { type Found, isRandomMac } from './discover.ts';
+import { serviceName, type WebEndpoint } from './identify.ts';
 
 export type DeviceStatus = 'online' | 'offline' | 'removed';
 
@@ -23,6 +24,8 @@ export interface Device {
   first_seen: number;
   last_seen: number;
   label: string;
+  /** Interfaces web (port, adresse, titre, serveur). */
+  web: WebEndpoint[];
 }
 
 export interface ScanReport {
@@ -41,7 +44,7 @@ CREATE TABLE IF NOT EXISTS devices(
   id TEXT PRIMARY KEY, ip TEXT NOT NULL, mac TEXT NOT NULL DEFAULT '', hostname TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '',
   model TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'inconnu', ports TEXT NOT NULL DEFAULT '[]', services TEXT NOT NULL DEFAULT '[]',
   server TEXT NOT NULL DEFAULT '', network TEXT NOT NULL, status TEXT NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL,
-  label TEXT NOT NULL DEFAULT '');
+  label TEXT NOT NULL DEFAULT '', web TEXT NOT NULL DEFAULT '[]');
 CREATE TABLE IF NOT EXISTS device_events(id INTEGER PRIMARY KEY AUTOINCREMENT, device_id TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS scans(id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, networks TEXT NOT NULL, seen INTEGER NOT NULL, full INTEGER NOT NULL);
 `;
@@ -67,10 +70,13 @@ export function classify(f: Pick<Found, 'ports' | 'services' | 'server' | 'mac' 
 export interface Link { action: string; how: string; risk: 'read' | 'write' | 'exec' | 'external' }
 
 /** Ce qu'Odin peut faire avec un appareil (les « liens »). Chaque action reste soumise à Heimdall. */
-export function linksFor(d: Pick<Device, 'ip' | 'ports' | 'services' | 'kind'>): Link[] {
+export function linksFor(d: Pick<Device, 'ip' | 'ports' | 'services' | 'kind'> & { web?: WebEndpoint[] }): Link[] {
   const L: Link[] = [];
-  const web = d.ports.find((p) => [443, 80, 8080, 5000].includes(p));
-  if (web) L.push({ action: 'Ouvrir son interface d\'administration', how: `${web === 443 ? 'https' : 'http'}://${d.ip}${[80, 443].includes(web) ? '' : `:${web}`}`, risk: 'read' });
+  if (d.web?.length) for (const w of d.web) L.push({ action: `Interface web${w.title ? ` « ${w.title} »` : ''} (${serviceName(w.port)})`, how: w.url, risk: 'read' });
+  else {
+    const web = d.ports.find((p) => [443, 80, 8080, 5000].includes(p));
+    if (web) L.push({ action: 'Ouvrir son interface d\'administration', how: `${web === 443 ? 'https' : 'http'}://${d.ip}${[80, 443].includes(web) ? '' : `:${web}`}`, risk: 'read' });
+  }
   if (has(d, 631, 9100, '_ipp', '_printer')) L.push({ action: 'Imprimer un document', how: `IPP : ipp://${d.ip}/ipp/print`, risk: 'external' });
   if (has(d, 22, '_ssh')) L.push({ action: 'L\'administrer à distance', how: `ssh ${d.ip} (shell, validation requise)`, risk: 'exec' });
   if (has(d, 445, 139, '_smb')) L.push({ action: 'Lire ou déposer des fichiers partagés', how: `smb://${d.ip}`, risk: 'write' });
@@ -87,6 +93,7 @@ const rowToDevice = (r: Record<string, unknown>): Device => ({
   ...(r as unknown as Device),
   ports: JSON.parse(r.ports as string) as number[],
   services: JSON.parse(r.services as string) as string[],
+  web: JSON.parse((r.web as string) || '[]') as WebEndpoint[],
 });
 
 export class Inventory {
@@ -94,6 +101,7 @@ export class Inventory {
   constructor(db: DatabaseSync) {
     this.db = db;
     this.db.exec(SCHEMA);
+    try { this.db.exec("ALTER TABLE devices ADD COLUMN web TEXT NOT NULL DEFAULT '[]'"); } catch { /* colonne déjà présente */ }
   }
 
   list(filter: { status?: DeviceStatus | 'all'; kind?: string } = {}): Device[] {
@@ -150,12 +158,12 @@ export class Inventory {
       const ports = full || !cur ? f.ports : cur.ports;
       const services = [...new Set([...(f.services ?? []), ...(full ? [] : cur?.services ?? [])])];
       const next = {
-        id, ip: f.ip, mac: f.mac ?? cur?.mac ?? '', hostname: f.hostname ?? cur?.hostname ?? '', name: f.name ?? cur?.name ?? '',
-        model: f.model ?? cur?.model ?? '', kind: kind === 'inconnu' && cur ? cur.kind : kind, ports, services, server: f.server ?? cur?.server ?? '', network: f.network,
+        id, ip: f.ip, mac: f.mac ?? cur?.mac ?? '', hostname: f.hostname ?? cur?.hostname ?? '', name: f.name ?? f.netbios ?? cur?.name ?? '',
+        model: [f.manufacturer, f.model].filter(Boolean).join(' ') || cur?.model || '', kind: kind === 'inconnu' && cur ? cur.kind : kind, ports, services, server: f.server ?? cur?.server ?? '', network: f.network,
       };
       if (!cur) {
-        this.db.prepare(`INSERT INTO devices(id, ip, mac, hostname, name, model, kind, ports, services, server, network, status, first_seen, last_seen)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?, 'online', ?, ?)`).run(id, next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, now);
+        this.db.prepare(`INSERT INTO devices(id, ip, mac, hostname, name, model, kind, ports, services, server, network, status, first_seen, last_seen, web)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?, 'online', ?, ?, ?)`).run(id, next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, now, JSON.stringify(f.web ?? []));
         this.event(id, 'nouveau', `${next.kind} ${next.ip}`, now);
         rep.added.push(this.get(id)!);
         continue;
@@ -164,8 +172,9 @@ export class Inventory {
       if (cur.ip !== next.ip) { this.event(id, 'ip changée', `${cur.ip} → ${next.ip}`, now); rep.changed.push({ device: cur, what: `IP ${cur.ip} → ${next.ip}` }); }
       const newPorts = ports.filter((p) => !cur!.ports.includes(p));
       if (full && newPorts.length) { this.event(id, 'nouveaux ports', newPorts.join(','), now); rep.changed.push({ device: cur, what: `ports ouverts : ${newPorts.join(', ')}` }); }
-      this.db.prepare(`UPDATE devices SET ip=?, mac=?, hostname=?, name=?, model=?, kind=?, ports=?, services=?, server=?, network=?, status='online', last_seen=? WHERE id=?`)
-        .run(next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, id);
+      const web = full && f.web ? f.web : cur.web;
+      this.db.prepare(`UPDATE devices SET ip=?, mac=?, hostname=?, name=?, model=?, kind=?, ports=?, services=?, server=?, network=?, status='online', last_seen=?, web=? WHERE id=?`)
+        .run(next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, JSON.stringify(web), id);
       if (cur.status !== 'online') rep.reconnected.push(this.get(id)!);
     }
     for (const d of this.list({ status: 'all' })) {

@@ -1,6 +1,7 @@
 // Outils réseau et maintenance : inventaire, balayage, mises à jour de la machine.
 import { spawn } from 'node:child_process';
 import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } from '../hlidskjalf/inventory.ts';
+import { serviceName } from '../hlidskjalf/identify.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
 import { safeEnv } from './builtin.ts';
 import { bool, num, obj, str, type Tool } from './registry.ts';
@@ -23,13 +24,13 @@ export const netInventory: Tool = {
       if (!d) return `Appareil inconnu : ${s(i.device)}`;
       const links = linksFor(d).map((l) => `- ${l.action} → ${l.how} [${l.risk}]`).join('\n') || '- aucune action connue';
       const ev = inv.events(10, d.id).map((e) => `- ${new Date(e.at).toLocaleString('fr-FR')} : ${e.kind} ${e.detail}`).join('\n');
-      return `${deviceLabel(d)} — ${d.kind} — ${d.status}\nIP ${d.ip} · MAC ${d.mac || '?'} · réseau ${d.network}\nPorts ouverts : ${d.ports.join(', ') || 'aucun connu'}\nServices : ${d.services.join(', ') || 'aucun'}\nModèle / serveur : ${[d.model, d.server].filter(Boolean).join(' · ') || '?'}\nVu la première fois : ${new Date(d.first_seen).toLocaleString('fr-FR')}, dernière fois : ${new Date(d.last_seen).toLocaleString('fr-FR')}\n\nCe qu'Odin peut faire :\n${links}\n\nHistorique :\n${ev}`;
+      return `${deviceLabel(d)} — ${d.kind} — ${d.status}\nIP ${d.ip} · MAC ${d.mac || '?'} · réseau ${d.network}\nPorts ouverts : ${d.ports.map((p) => `${p} (${serviceName(p)})`).join(', ') || 'aucun connu (balayage complet : net_scan full)'}${d.hostname ? `\nNom réseau : ${d.hostname}` : ''}\nServices : ${d.services.join(', ') || 'aucun'}\nModèle / serveur : ${[d.model, d.server].filter(Boolean).join(' · ') || '?'}\nVu la première fois : ${new Date(d.first_seen).toLocaleString('fr-FR')}, dernière fois : ${new Date(d.last_seen).toLocaleString('fr-FR')}\n\nCe qu'Odin peut faire :\n${links}\n\nHistorique :\n${ev}`;
     }
     const list = inv.list({ status: i.include_removed ? 'all' : undefined });
     const last = inv.lastScan();
     if (!list.length) return `Aucun appareil connu${last ? '' : ' : aucun balayage n\'a encore eu lieu (outil net_scan)'}.`;
     const head = last ? `Dernier balayage : ${new Date(last.at).toLocaleString('fr-FR')} (${last.full ? 'complet' : 'rapide'}).\n` : '';
-    return head + list.map((d) => `${d.status === 'online' ? '●' : d.status === 'offline' ? '○' : '×'} ${deviceLabel(d)} · ${d.kind} · ${d.ip}${d.status !== 'online' ? ` · ${d.status === 'offline' ? 'déconnecté' : 'retiré'}` : ''}`).join('\n');
+    return head + list.map((d) => `${d.status === 'online' ? '●' : d.status === 'offline' ? '○' : '×'} ${deviceLabel(d)} · ${d.kind} · ${d.ip}${d.status !== 'online' ? ` · ${d.status === 'offline' ? 'déconnecté' : 'retiré'}` : ''}${d.ports.length ? `\n   ports : ${d.ports.map((p) => `${p} ${serviceName(p)}`).join(', ')}` : ''}${d.web.length ? `\n   liens : ${d.web.map((w) => `${w.url}${w.title ? ` (${w.title})` : ''}`).join(' · ')}` : ''}`).join('\n');
   },
 };
 

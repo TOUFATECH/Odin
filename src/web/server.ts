@@ -15,6 +15,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { isPrivateHost } from '../heimdall/policy.ts';
+import { serviceName } from '../hlidskjalf/identify.ts';
 import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
 import { join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
@@ -331,7 +332,7 @@ export class WebChannel implements Channel {
       conversations: muninn.listSessions(50).filter((s) => s.id.startsWith('web:')).map((s) => ({ peer: s.id.slice(4), title: s.title, updated: s.updated_at, tainted: s.tainted === 1 })),
       usage: day,
       network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, lastScan: inventory.lastScan() ?? null },
-      devices: inventory.list({ status: 'all' }).map((d) => ({ ...d, label: deviceLabel(d), links: linksFor(d) })),
+      devices: inventory.list({ status: 'all' }).map((d) => ({ ...d, label: deviceLabel(d), links: linksFor(d), portNames: d.ports.map((p) => ({ port: p, service: serviceName(p) })) })),
       deviceEvents: inventory.events(40).map((e) => ({ ...e, device: deviceLabel(inventory.get(e.device_id) ?? ({ ip: e.device_id } as never)) })),
       memories: muninn.listMemories(200),
       skills: skills.list().map((s) => ({ name: s.name, description: s.description, version: s.version, uses: muninn.skillStats().find((x) => x.name === s.name)?.uses ?? 0 })),

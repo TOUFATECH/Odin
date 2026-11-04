@@ -270,6 +270,10 @@ Odin cherche sur le web, ou sur un site ou un réseau précis (Reddit, X, YouTub
 
 Odin pilote un vrai navigateur (le Chrome, Chromium ou Edge de la machine, sans rien d'autre à installer ; invisible sur un serveur ou un LXC) : il **ouvre une page**, **regarde** ce qui est visible (liens, boutons, champs numérotés, texte, et au besoin une capture analysée par la vision du modèle), puis **clique, écrit, choisit dans une liste, appuie sur une touche, fait défiler, revient en arrière**, comme une personne. Il garde ses connexions aux sites (profil dans `~/.odin/browser`) et peut aussi ouvrir l'interface de tes appareils (box, NAS, caméras). Pas de navigateur sur la machine : `sudo apt install chromium`. Le contenu des pages reste non fiable (une page ne lui donne jamais d'ordre) ; cliquer ou envoyer un formulaire suit ton niveau d'autonomie.
 
+### Ce que chaque appareil expose
+
+Pour chaque appareil du réseau, Odin récupère son **nom** (Bonjour/mDNS, UPnP avec fabricant et modèle, NetBIOS des ordinateurs Windows et des NAS, DNS inverse), ses **ports ouverts** parmi une soixantaine (SSH, partage de fichiers, impression, bases de données, Proxmox, Plex, Jellyfin, Home Assistant, VNC…), chacun nommé, et les **liens** vers ses interfaces web (http ou https détecté) avec leur titre. Tout est dans l'onglet Réseau et dans `odin net show <appareil>` ; le balayage complet (bouton ou `odin net scan --full`) remplit ports et liens.
+
 ### Droits : sa machine et les machines du réseau
 
 Odin peut **tout faire sur sa machine** et sur **les machines de ton réseau** : il suffit de lui donner les mots de passe (Réglages → **Droits et machines**, ou en ligne de commande).

@@ -843,7 +843,9 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
         el('div', { class: 'kind' }, el('span', { class: 'dot ' + dot, 'aria-hidden': 'true' }), `${x.kind} · ${x.status === 'online' ? 'en ligne' : x.status === 'offline' ? 'déconnecté' : 'retiré'}`),
         el('h3', {}, x.label),
         el('div', { class: 'sub mono' }, `${x.ip}${x.mac ? ' · ' + x.mac : ''}`),
-        x.ports.length ? el('div', { class: 'sub' }, 'Ports : ' + x.ports.join(', ')) : null,
+        x.hostname && x.hostname !== x.label ? el('div', { class: 'sub' }, 'Nom réseau : ' + x.hostname) : null,
+        x.model ? el('div', { class: 'sub' }, x.model) : null,
+        x.portNames?.length ? el('details', { class: 'sub' }, el('summary', { style: 'cursor:pointer' }, `${x.portNames.length} port(s) ouvert(s)`), el('ul', { class: 'links' }, x.portNames.map((p) => el('li', {}, el('span', { class: 'mono' }, String(p.port)), ' — ' + p.service)))) : null,
         links.length ? el('ul', { class: 'links' }, links) : null,
         el('div', { class: 'sub' }, `Vu depuis le ${fmt(x.first_seen)} · dernière fois ${fmt(x.last_seen)}`),
         el('div', {}, el('button', { class: 'btn small', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'))));
