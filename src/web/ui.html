@@ -364,7 +364,8 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
       <div class="body settings">
-        <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.</div>
+        <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
+          <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
         <div class="grid">
           <article class="card"><form class="form" id="f-model">
             <h2>Modèle</h2>
@@ -1088,6 +1089,20 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     st('#a-status', `Enregistré. Odin redémarre ; ouverture de ${next.replace(/token=.*/, 'token=…')}${scheme === 'https' ? ' (accepte le certificat si le navigateur le demande)' : ''}`, true);
     setTimeout(() => { location.href = next; }, 3000);
   });
+  // Première configuration : le lien personnel (avec jeton) est montré tout de suite, à garder
+  // pour ouvrir Odin sur tes autres appareils (téléphone, autre ordinateur).
+  let welcomeLinksShown = false;
+  async function showWelcomeLinks() {
+    if (welcomeLinksShown) return; welcomeLinksShown = true;
+    const r = await api('/api/action', { kind: 'access_links' });
+    const links = r.links || []; if (!links.length) return;
+    const box = $('#welcomeLinks');
+    box.replaceChildren(el('b', {}, 'Ton lien personnel (garde-le : il ouvre Odin sur tes autres appareils, ne le partage pas) :'),
+      ...links.map((u) => el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
+        el('code', { style: 'overflow-wrap:anywhere;flex:1 1 260px;font-size:13px' }, u),
+        el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(u); e.target.textContent = 'Copié ✓'; } catch { e.target.textContent = 'Sélectionne et copie'; } setTimeout(() => { e.target.textContent = 'Copier'; }, 1800); } }, 'Copier'))),
+      el('span', { class: 'hint' }, 'Tu le retrouves plus tard dans Réglages → Accès à l\'interface, ou avec « odin web link » sur la machine.'));
+  }
   $('#a-show').addEventListener('click', async () => {
     const r = await api('/api/action', { kind: 'access_links' });
     const t = $('#a-tok'); t.hidden = false; t.value = (r.links || []).join('\n'); t.select();
@@ -1137,7 +1152,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   $('#cx-logout').addEventListener('click', async () => { await api('/api/action', { kind: 'codex_logout' }); st('#m-status', 'Odin est déconnecté de ChatGPT.', true); refresh(); });
   function renderSettings() {
     const S = state.settings; if (!S) return;
-    $('#welcome').hidden = !S.demo; $('#demoNotice').hidden = !S.demo; $('#b-settings').hidden = !S.demo;
+    $('#welcome').hidden = !S.demo; if (S.demo) showWelcomeLinks(); $('#demoNotice').hidden = !S.demo; $('#b-settings').hidden = !S.demo;
     const fc = Object.entries(state.failedChannels || {});
     $('#t-status').textContent = fc.length ? `⚠ ${fc.map(([k, v]) => `${k} : ${v}`).join(' · ')}` : $('#t-status').textContent; if (fc.length) $('#t-status').className = 'status err';
     const box = $('#presetChoices');
