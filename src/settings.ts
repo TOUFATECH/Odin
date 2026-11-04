@@ -13,7 +13,7 @@ import { CODEX_MODELS, loadCodexAuth } from './providers/codex.ts';
 import { TTS_DEFAULTS } from './voice/voice.ts';
 import { buildProvider, Router, tierOf, type Tier } from './providers/router.ts';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY'] as const;
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -129,6 +129,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     routing: cfg.routing,
     presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '' }])),
     secrets: Object.fromEntries(SECRET_NAMES.map((n) => [n, secretHint(n, env)])),
+    search: { provider: cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
@@ -243,6 +244,16 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
         tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName), model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
         stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
       });
+      return true;
+    }
+    case 'search': {
+      const provider = String(b.provider ?? 'auto');
+      if (!['auto', 'duckduckgo', 'brave', 'tavily', 'searxng'].includes(provider)) throw new Error('moteur inconnu');
+      const url = str('searxngUrl')?.trim() ?? cfg.search.searxngUrl;
+      if (url && !/^https?:\/\//.test(url)) throw new Error('adresse SearXNG invalide (ex. http://192.168.1.20:8080)');
+      if (str('braveKey')) writeSecret(paths, 'BRAVE_API_KEY', str('braveKey')!);
+      if (str('tavilyKey')) writeSecret(paths, 'TAVILY_API_KEY', str('tavilyKey')!);
+      setConfigValue(paths, ['search'], { provider, searxngUrl: url.replace(/\/$/, '') });
       return true;
     }
     case 'secret': {

@@ -191,7 +191,7 @@ export class Agent {
     const turnLog: Message[] = [];
 
     const ctx: ToolContext = {
-      sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, muninn, skills: this.deps.skills, redactor, signal,
+      sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, search: cfg.search, muninn, skills: this.deps.skills, redactor, signal,
       isTainted: () => tainted,
       mimir,
       sandbox: cfg.policy.sandbox,

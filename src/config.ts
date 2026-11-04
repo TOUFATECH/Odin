@@ -63,6 +63,8 @@ export interface OdinConfig {
     /** Isolation du shell : 'docker' = conteneur jetable sans réseau, limité en CPU/mémoire. */
     sandbox: { kind: 'none' | 'docker'; image: string; network: boolean };
   };
+  /** Recherche web : moteur (auto = Brave ou Tavily si clé, SearXNG si adresse, sinon DuckDuckGo). */
+  search: { provider: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng'; searxngUrl: string };
   /** Humeur d'Odin : autocollant de son visage sur Telegram quand elle change. */
   mood: { stickers: boolean };
   learning: {
@@ -138,6 +140,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     sandbox: { kind: 'none', image: 'node:22-bookworm-slim', network: false },
   },
   mood: { stickers: true },
+  search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
