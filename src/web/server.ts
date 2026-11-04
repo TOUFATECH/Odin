@@ -18,6 +18,7 @@ import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMater
 import { join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
+import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
 import type { Autonomy } from '../heimdall/policy.ts';
 import { deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
@@ -56,6 +57,9 @@ export class WebChannel implements Channel {
   readonly defaultPeer = 'principal';
   private server?: Server;
   private clients = new Set<ServerResponse>();
+  /** Connexion ChatGPT (Codex) en cours : secret PKCE gardé en mémoire, jamais envoyé à la page. */
+  private codexLogin?: CodexLogin;
+  private codexServer?: Server;
   private odin: Odin;
   private hooks: WebHooks;
   private port: number;
@@ -148,6 +152,7 @@ export class WebChannel implements Channel {
   }
 
   async stop(): Promise<void> {
+    this.codexServer?.close();
     for (const c of this.clients) c.end();
     await new Promise((r) => this.server?.close(r));
   }
@@ -305,7 +310,7 @@ export class WebChannel implements Channel {
       autonomyNow: this.odin.heimdall.effectiveAutonomy(),
       breaker: cfg.mimir.breaker,
       judge: this.odin.mimir?.judgeName ?? null,
-      settings: settingsView(cfg, Boolean(this.odin.demo)),
+      settings: settingsView(cfg, Boolean(this.odin.demo), process.env, this.odin.paths),
       voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), local: ttsIsLocal(cfg.voice), provider: cfg.voice.tts.provider, speakReplies: cfg.voice.speakReplies, ttsDefaults: TTS_DEFAULTS },
       failedChannels: this.hooks.failedChannels?.() ?? {},
       missions: muninn.listMissions(60),
@@ -354,9 +359,30 @@ export class WebChannel implements Channel {
           // Clé saisie mais pas encore enregistrée : on la teste sans l'écrire.
           const key = typeof b.apiKey === 'string' ? b.apiKey.trim() : '';
           const env = key && p.apiKeyEnv ? { ...process.env, [p.apiKeyEnv]: key } : process.env;
-          return await testProvider(p, 20_000, env);
+          return await testProvider(p, 20_000, env, this.odin.paths);
         } catch (e) { return { ok: false, message: (e as Error).message }; }
       }
+      case 'codex_login_start': {
+        // Connexion ChatGPT : lien à ouvrir ; si le navigateur est sur cette machine, le retour est capté tout seul.
+        this.codexLogin = startCodexLogin();
+        this.codexServer?.close();
+        this.codexServer = listenCodexCallback(this.odin.paths, this.codexLogin, (r) => {
+          this.codexLogin = undefined;
+          this.notify('state');
+          if (r.ok && this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch(() => {}), 300);
+        });
+        return { ok: true, url: this.codexLogin.url };
+      }
+      case 'codex_login_finish': {
+        if (!this.codexLogin) return { ok: false, error: 'aucune connexion en cours : clique d\'abord « Se connecter avec ChatGPT »' };
+        try {
+          const a = await finishCodexLogin(this.odin.paths, this.codexLogin, String(b.callback ?? ''));
+          this.codexLogin = undefined; this.codexServer?.close();
+          if (this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch(() => {}), 300);
+          return { ok: true, email: a.email, plan: a.plan };
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
+      case 'codex_logout': removeCodexAuth(this.odin.paths); if (this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch(() => {}), 300); break;
       case 'breaker_save': {
         // Réglages d'Odin Breaker : appliqués tout de suite, sans redémarrer.
         const cur = this.odin.cfg.mimir.breaker;

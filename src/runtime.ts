@@ -67,12 +67,12 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   const inventory = new Inventory(muninn.db);
 
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];
-  const router = opts.provider ? new Router(fixed) : Router.fromConfig(cfg);
+  const router = opts.provider ? new Router(fixed) : Router.fromConfig(cfg, [], paths);
   router.onPause = (name, reason, until) => console.error(`[modèles] ${name} mis de côté jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')} : ${reason}`);
   router.onUsage = (provider, tin, tout, cost, purpose) => muninn.recordUsage(purpose, provider, tin, tout, cost, purpose);
   // Budget mensuel : au-delà, seuls les modèles gratuits servent (voir Router.complete).
   router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
-  const cheapProvider = !opts.provider && cfg.cheapProvider ? buildProvider(cfg.cheapProvider) : undefined;
+  const cheapProvider = !opts.provider && cfg.cheapProvider ? buildProvider(cfg.cheapProvider, process.env, paths) : undefined;
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
 
   // Mímir : juge local sans clé par défaut ; Jev, modèle ou cascade selon mimir.judge.

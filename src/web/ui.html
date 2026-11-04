@@ -355,6 +355,17 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
             <div class="field"><label>Fournisseur</label><div class="choices" id="presetChoices" role="group" aria-label="Fournisseur"></div></div>
             <div class="field"><label for="m-model">Nom du modèle</label><input id="m-model" autocomplete="off" spellcheck="false"></div>
             <div class="field" id="m-urlField"><label for="m-url">Adresse du service</label><input id="m-url" autocomplete="off" spellcheck="false" placeholder="http://localhost:11434/v1"></div>
+            <div class="field" id="m-codexBox" hidden>
+              <label>Connexion à ton compte ChatGPT</label>
+              <div class="sub" id="cx-state">Non connecté.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small primary" type="button" id="cx-login">Se connecter avec ChatGPT</button><button class="btn small" type="button" id="cx-logout" hidden>Se déconnecter</button></div>
+              <div id="cx-paste" hidden style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
+                <span class="hint">Connecte-toi dans l'onglet qui vient de s'ouvrir. Si Odin est sur une autre machine (serveur, LXC…), le navigateur finit sur une page « introuvable » dont l'adresse commence par <code>http://localhost:1455/auth/callback</code> : copie cette adresse entière et colle-la ici.</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="cx-callback" autocomplete="off" spellcheck="false" placeholder="http://localhost:1455/auth/callback?code=…" style="flex:1 1 260px"><button class="btn small" type="button" id="cx-finish">Terminer la connexion</button></div>
+              </div>
+              <span class="hint">Odin a sa propre connexion (comme Hermes a la sienne) : rien n'est partagé. Abonnement ChatGPT Plus, Pro, Business… requis. Modèles : ceux de ton abonnement (ex. gpt-6-luna).</span>
+              <datalist id="cx-models"></datalist>
+            </div>
             <div class="field" id="m-keyField"><label for="m-key">Clé d'API</label><input id="m-key" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="m-keyHint"></span></div>
             <div class="field"><label>Palier de ce modèle</label><div class="choices" role="group" aria-label="Palier"><button type="button" class="choice" data-tier="local">Installé / gratuit</button><button type="button" class="choice" data-tier="standard">Standard</button><button type="button" class="choice" data-tier="strong">Le plus capable</button></div><span class="hint">Odin choisit le moins cher qui suffit : simple → gratuit, ordinaire → standard, complexe → le plus capable.</span></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="m-test">Tester</button><button class="btn primary" type="submit">Enregistrer comme modèle par défaut</button><button class="btn" type="button" id="m-backup">Ajouter en secours</button></div>
@@ -1073,7 +1084,30 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     const keyEnv = p === 'custom' ? 'OPENAI_API_KEY' : P?.keyEnv;
     $('#m-keyField').hidden = !keyEnv;
     if (keyEnv) $('#m-keyHint').textContent = keyHint(keyEnv) + (p === 'anthropic' ? ' Clé sur console.anthropic.com.' : p === 'openrouter' ? ' Clé sur openrouter.ai/keys.' : '');
+    $('#m-codexBox').hidden = p !== 'openai-codex';
+    if (p === 'openai-codex') { $('#m-model').setAttribute('list', 'cx-models'); if (!keepModel) pickTier('strong'); } else $('#m-model').removeAttribute('list');
+    renderCodex();
   }
+  // Connexion ChatGPT (Codex) : comme « hermes auth add openai-codex », mais depuis le navigateur.
+  function renderCodex() {
+    const C = state.settings?.codex; if (!C) return;
+    $('#cx-state').textContent = C.connected ? `✓ Connecté${C.email ? ' : ' + C.email : ''}${C.plan ? ' (' + C.plan + ')' : ''}. Jetons renouvelés automatiquement.` : 'Non connecté.';
+    $('#cx-logout').hidden = !C.connected; $('#cx-login').textContent = C.connected ? 'Se reconnecter' : 'Se connecter avec ChatGPT';
+    const dl = $('#cx-models'); if (!dl.children.length) for (const m of C.models || []) dl.append(el('option', { value: m }));
+  }
+  $('#cx-login').addEventListener('click', async () => {
+    const r = await api('/api/action', { kind: 'codex_login_start' });
+    if (!r.ok) return st('#m-status', r.error || 'Connexion impossible.', false);
+    window.open(r.url, '_blank', 'noopener'); $('#cx-paste').hidden = false; $('#cx-callback').focus();
+    st('#m-status', 'Connexion ouverte dans un nouvel onglet…');
+  });
+  $('#cx-finish').addEventListener('click', async () => {
+    const r = await api('/api/action', { kind: 'codex_login_finish', callback: $('#cx-callback').value });
+    if (!r.ok) return st('#m-status', r.error, false);
+    $('#cx-callback').value = ''; $('#cx-paste').hidden = true;
+    st('#m-status', `✓ Connecté à ChatGPT${r.email ? ' (' + r.email + ')' : ''}. Choisis le modèle puis Enregistrer.`, true); settingsDirty = false; refresh();
+  });
+  $('#cx-logout').addEventListener('click', async () => { await api('/api/action', { kind: 'codex_logout' }); st('#m-status', 'Odin est déconnecté de ChatGPT.', true); refresh(); });
   function renderSettings() {
     const S = state.settings; if (!S) return;
     $('#welcome').hidden = !S.demo; $('#demoNotice').hidden = !S.demo; $('#b-settings').hidden = !S.demo;
@@ -1091,6 +1125,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       $('#t-enabled').checked = S.telegram.enabled; $('#t-owners').value = S.telegram.owners.join(', ');
       $('#n-enabled').checked = S.network.enabled; $('#n-interval').value = S.network.intervalMin; $('#n-notify').checked = S.network.notify;
     }
+    renderCodex(); if (state.settings.codex?.connected) $('#cx-paste').hidden = true;
     $('#j-keyHint').textContent = keyHint('JEV_API_KEY'); $('#t-tokenHint').textContent = keyHint('TELEGRAM_BOT_TOKEN').replace('Clé', 'Jeton');
     $('#j-keyField').hidden = !/jev|auto/.test($('#j-judge').value);
     $('#autoHint').textContent = AUTO_TXT[state.autonomy] || '';

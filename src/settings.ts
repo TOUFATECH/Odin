@@ -9,6 +9,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { OdinConfig, OdinPaths, ProviderConfig } from './config.ts';
 import { setConfigValue } from './config.ts';
+import { CODEX_MODELS, loadCodexAuth } from './providers/codex.ts';
 import { TTS_DEFAULTS } from './voice/voice.ts';
 import { buildProvider, Router, tierOf, type Tier } from './providers/router.ts';
 
@@ -55,18 +56,20 @@ export function secretHint(name: string, env: NodeJS.ProcessEnv = process.env): 
 
 // ---------------------------------------------------------------- Modèle
 
-export type ModelPreset = 'anthropic' | 'openrouter' | 'openai' | 'ollama' | 'custom';
+export type ModelPreset = 'anthropic' | 'openrouter' | 'openai' | 'openai-codex' | 'ollama' | 'custom';
 
-export const PRESETS: Record<Exclude<ModelPreset, 'custom'>, { label: string; model: string; baseUrl?: string; keyEnv?: SecretName; kind: 'anthropic' | 'openai'; price?: [number, number] }> = {
+export const PRESETS: Record<Exclude<ModelPreset, 'custom'>, { label: string; model: string; baseUrl?: string; keyEnv?: SecretName; kind: 'anthropic' | 'openai' | 'openai-codex'; price?: [number, number] }> = {
   anthropic: { label: 'Anthropic (Claude)', kind: 'anthropic', model: 'claude-sonnet-5-5', keyEnv: 'ANTHROPIC_API_KEY', price: [3, 15] },
   openrouter: { label: 'OpenRouter (tous les modèles)', kind: 'openai', model: 'anthropic/claude-sonnet-5.5', baseUrl: 'https://openrouter.ai/api/v1', keyEnv: 'OPENROUTER_API_KEY' },
   openai: { label: 'OpenAI', kind: 'openai', model: 'gpt-5', baseUrl: 'https://api.openai.com/v1', keyEnv: 'OPENAI_API_KEY' },
+  'openai-codex': { label: 'OpenAI Codex (abonnement ChatGPT)', kind: 'openai-codex', model: 'gpt-6-luna' },
   ollama: { label: 'Ollama (local, sans clé)', kind: 'openai', model: 'qwen3:14b', baseUrl: 'http://localhost:11434/v1' },
 };
 
 export function detectPreset(p: ProviderConfig | undefined): ModelPreset {
   if (!p) return 'anthropic';
   if (p.kind === 'anthropic') return 'anthropic';
+  if (p.kind === 'openai-codex') return 'openai-codex';
   if (p.baseUrl?.includes('openrouter.ai')) return 'openrouter';
   if (p.baseUrl?.includes('api.openai.com')) return 'openai';
   if (p.baseUrl && /localhost|127\.0\.0\.1/.test(p.baseUrl)) return 'ollama';
@@ -100,9 +103,9 @@ function checkUrl(u: string | undefined): string {
 }
 
 /** Essaie le modèle avec une toute petite demande : sert au bouton « Tester ». */
-export async function testProvider(p: ProviderConfig, timeoutMs = 20_000, env: NodeJS.ProcessEnv = process.env): Promise<{ ok: boolean; message: string }> {
-  const provider = buildProvider(p, env);
-  if (!provider) return { ok: false, message: p.apiKeyEnv ? `clé ${p.apiKeyEnv} absente` : 'fournisseur non configuré' };
+export async function testProvider(p: ProviderConfig, timeoutMs = 20_000, env: NodeJS.ProcessEnv = process.env, paths?: OdinPaths): Promise<{ ok: boolean; message: string }> {
+  const provider = buildProvider(p, env, paths);
+  if (!provider) return { ok: false, message: p.kind === 'openai-codex' ? 'Odin n\'est pas encore connecté à ChatGPT : clique « Se connecter avec ChatGPT »' : p.apiKeyEnv ? `clé ${p.apiKeyEnv} absente` : 'fournisseur non configuré' };
   const signal = AbortSignal.timeout(timeoutMs);
   try {
     const r = await new Router([{ provider, cfg: p }], 0).complete({ system: 'Réponds par le seul mot OK.', messages: [{ role: 'user', content: 'Test de connexion.' }], tools: [], maxTokens: 16, signal });
@@ -114,12 +117,15 @@ export async function testProvider(p: ProviderConfig, timeoutMs = 20_000, env: N
 
 // ---------------------------------------------------------------- Vue d'ensemble
 
-export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.ProcessEnv = process.env) {
+export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.ProcessEnv = process.env, paths?: OdinPaths) {
   const main = cfg.providers[0];
+  const cx = paths ? loadCodexAuth(paths) : undefined;
   return {
     demo,
+    // Connexion ChatGPT (Codex) : jamais les jetons, seulement l'état.
+    codex: { connected: Boolean(cx), email: cx?.email ?? '', plan: cx?.plan ?? '', expiresAt: cx?.expires_at ?? 0, models: CODEX_MODELS },
     model: { preset: detectPreset(main), model: main?.model ?? '', baseUrl: main?.baseUrl ?? '', tier: tierOf(main ?? { kind: 'mock', model: '' }) },
-    providers: cfg.providers.map((p, i) => ({ index: i, preset: detectPreset(p), model: p.model, baseUrl: p.baseUrl ?? '', tier: tierOf(p), ready: Boolean(buildProvider(p, env)) })),
+    providers: cfg.providers.map((p, i) => ({ index: i, preset: detectPreset(p), model: p.model, baseUrl: p.baseUrl ?? '', tier: tierOf(p), ready: Boolean(buildProvider(p, env, paths)) })),
     routing: cfg.routing,
     presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '' }])),
     secrets: Object.fromEntries(SECRET_NAMES.map((n) => [n, secretHint(n, env)])),

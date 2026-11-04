@@ -13,7 +13,8 @@ export type PolicyMode = 'allow' | 'ask' | 'deny';
 
 export interface ProviderConfig {
   /** 'anthropic' ou 'openai' (tout service compatible : OpenRouter, Ollama, Nous Portal, vLLM…). */
-  kind: 'anthropic' | 'openai' | 'mock';
+  /** openai-codex : ton abonnement ChatGPT via Codex (connexion « Se connecter avec ChatGPT »). */
+  kind: 'anthropic' | 'openai' | 'openai-codex' | 'mock';
   model: string;
   baseUrl?: string;
   apiKeyEnv?: string;
@@ -197,7 +198,7 @@ export function validateConfig(c: OdinConfig): string[] {
   const errs: string[] = [];
   if (!Array.isArray(c.providers) || c.providers.length === 0) errs.push('providers : au moins un fournisseur est requis');
   c.providers?.forEach((p, i) => {
-    if (!['anthropic', 'openai', 'mock'].includes(p.kind)) errs.push(`providers[${i}].kind invalide : ${p.kind}`);
+    if (!['anthropic', 'openai', 'openai-codex', 'mock'].includes(p.kind)) errs.push(`providers[${i}].kind invalide : ${p.kind}`);
     if (!p.model) errs.push(`providers[${i}].model manquant`);
     if (p.tier && !['local', 'standard', 'strong'].includes(p.tier)) errs.push(`providers[${i}].tier doit valoir local, standard ou strong`);
   });

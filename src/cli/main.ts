@@ -23,7 +23,8 @@ import { TelegramChannel } from '../bifrost/channels/telegram.ts';
 import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
 import { allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
-import { applySettings } from '../settings.ts';
+import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
+import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { sttReady, transcribe } from '../voice/voice.ts';
 import { refreshEnvironment } from '../learn/environment.ts';
@@ -62,6 +63,8 @@ Usage : odin <commande>
                                ou Internet (--http : LAN sans chiffrement ; --proxy : proxy HTTPS devant)
   web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
   update                       met Odin à jour
+  auth add openai-codex        connexion à ton abonnement ChatGPT (Codex) ; auth list · auth remove openai-codex
+  model [codex|PRESET] [MODÈLE] choisit le modèle par défaut (ex. odin model codex gpt-6-luna)
   backup [fichier]             sauvegarde chiffrée de ~/.odin (config, clés, mémoire, compétences)
   restore <fichier>            restaure une sauvegarde (Odin arrêté)
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
@@ -308,8 +311,16 @@ async function doctor(): Promise<void> {
     const d = new DatabaseSync(':memory:'); d.exec('CREATE VIRTUAL TABLE t USING fts5(x)'); d.close();
     ok(true, 'SQLite + FTS5 intégrés');
   } catch (e) { ok(false, 'SQLite + FTS5', (e as Error).message); }
-  const usable = cfg.providers.filter((p) => buildProvider(p));
-  for (const p of cfg.providers) ok(Boolean(buildProvider(p)), `Fournisseur ${p.kind}:${p.model}`, p.apiKeyEnv ? `variable ${p.apiKeyEnv} absente` : 'non configuré');
+  const usable = cfg.providers.filter((p) => buildProvider(p, process.env, paths));
+  for (const p of cfg.providers) ok(Boolean(buildProvider(p, process.env, paths)), `Fournisseur ${p.kind}:${p.model}`, p.kind === 'openai-codex' ? 'pas connecté à ChatGPT : « odin auth add openai-codex »' : p.apiKeyEnv ? `variable ${p.apiKeyEnv} absente` : 'non configuré');
+  {
+    // Connexion ChatGPT (Codex) : présente, et jeton encore renouvelable ?
+    const cx = loadCodexAuth(paths);
+    if (cx) {
+      try { const t = await codexToken(paths); ok(true, `ChatGPT (Codex) connecté${t.email ? ` : ${t.email}` : ''}${t.plan ? ` (${t.plan})` : ''}`); }
+      catch (e) { ok(false, 'ChatGPT (Codex)', (e as Error).message); }
+    } else if (cfg.providers.some((p) => p.kind === 'openai-codex')) ok(false, 'ChatGPT (Codex)', 'pas connecté : « odin auth add openai-codex »');
+  }
   ok(usable.length > 0, 'Au moins un modèle utilisable', 'définis une clé, ou utilise --demo');
   ok(cfg.policy.modes.exec !== 'allow', 'Shell soumis à validation', 'policy.modes.exec = allow est risqué');
   {
@@ -511,8 +522,66 @@ async function restoreCmd(): Promise<void> {
   console.log(c.dim('Relance Odin ; les anciennes copies seront nettoyées au démarrage suivant.'));
 }
 
+/** odin auth add|list|remove openai-codex — connexion ChatGPT (Codex), comme « hermes auth add openai-codex ». */
+async function authCmd(): Promise<void> {
+  const paths = odinPaths(); initHome(paths);
+  const sub = pos[1] ?? 'list', which = pos[2] ?? 'openai-codex';
+  if (sub === 'list') {
+    const a = loadCodexAuth(paths);
+    console.log(a ? `openai-codex  ${c.green('connecté')}  ${a.email || ''}${a.plan ? ` (${a.plan})` : ''}  · jeton renouvelé le ${new Date(a.last_refresh).toLocaleString('fr-FR')}` : `openai-codex  ${c.dim('non connecté')}  → odin auth add openai-codex`);
+    return;
+  }
+  if (which !== 'openai-codex' && which !== 'codex') throw new Error('fournisseur inconnu : openai-codex');
+  if (sub === 'remove') { removeCodexAuth(paths); console.log(c.green('✓ Odin est déconnecté de ChatGPT.')); return; }
+  if (sub !== 'add') throw new Error('usage : odin auth add|list|remove openai-codex');
+  const login = startCodexLogin();
+  console.log(`${c.cyan('ᛟ')} Connexion à ton compte ChatGPT (Codex)\n`);
+  console.log('1. Ouvre ce lien dans un navigateur et connecte-toi :\n');
+  console.log(`   ${login.url}\n`);
+  console.log('2. Si ce navigateur est sur cette machine, c\'est fini tout seul.');
+  console.log('   Sinon (serveur, LXC…), le navigateur arrive sur une page introuvable dont l\'adresse commence par');
+  console.log('   http://localhost:1455/auth/callback : copie cette adresse entière et colle-la ci-dessous.\n');
+  const done = await new Promise<{ ok: boolean; error?: string; email?: string }>((resolve) => {
+    let settled = false;
+    const finish = (r: { ok: boolean; error?: string; email?: string }) => { if (!settled) { settled = true; srv?.close(); rl.close(); resolve(r); } };
+    const srv = listenCodexCallback(paths, login, finish);
+    const rl = createInterface({ input: stdin, output: stdout });
+    const ask = () => rl.question('Adresse de retour (ou Entrée pour attendre) : ', async (line) => {
+      if (settled) return;
+      if (!line.trim()) return ask();
+      try { const a = await finishCodexLogin(paths, login, line); finish({ ok: true, email: a.email }); }
+      catch (e) { console.log(c.red((e as Error).message)); ask(); }
+    });
+    ask();
+  });
+  if (!done.ok) throw new Error(done.error ?? 'connexion échouée');
+  console.log(c.green(`\n✓ Odin est connecté à ChatGPT${done.email ? ` (${done.email})` : ''}.`));
+  console.log(c.dim('Ensuite : odin model codex gpt-6-luna   puis   odin doctor   (et redémarre Odin s\'il tourne déjà).'));
+}
+
+/** odin model [preset] [modèle] — choisit le modèle par défaut, comme « hermes model ». */
+async function modelCmd(): Promise<void> {
+  const paths = odinPaths(); initHome(paths);
+  const cfg = loadConfig(paths);
+  if (!pos[1]) {
+    console.log('Modèles configurés (le premier est utilisé par défaut) :');
+    cfg.providers.forEach((p, i) => console.log(`  ${i === 0 ? c.green('●') : '○'} ${detectPreset(p).padEnd(13)} ${p.model}${buildProvider(p, process.env, paths) ? '' : c.dim('  (non prêt)')}`));
+    console.log(c.dim(`\nChanger : odin model codex gpt-6-luna · odin model anthropic claude-sonnet-5-5 · odin model ollama qwen3:14b\nPréréglages : ${Object.keys(PRESETS).join(', ')}, codex`));
+    return;
+  }
+  const preset = (pos[1] === 'codex' ? 'openai-codex' : pos[1]) as ModelPreset;
+  const model = pos[2] ?? PRESETS[preset as Exclude<ModelPreset, 'custom'>]?.model;
+  if (!model) throw new Error('précise le modèle : odin model <préréglage> <modèle>');
+  applySettings(paths, cfg, 'model', { preset, model, tier: preset === 'openai-codex' ? 'strong' : undefined });
+  console.log(c.green(`✓ Modèle par défaut : ${preset} ${model}`));
+  if (preset === 'openai-codex' && !loadCodexAuth(paths)) console.log(c.yellow('Pas encore connecté à ChatGPT : odin auth add openai-codex'));
+  console.log(c.dim('Redémarre Odin s\'il tourne déjà (service, ou « odin web »).'));
+}
+
 async function main(): Promise<void> {
   const cmd = pos[0];
+  if (cmd === 'auth') return authCmd();
+  if (cmd === 'model') return modelCmd();
   if (cmd === 'backup') return backupCmd();
   if (cmd === 'restore') return restoreCmd();
   if (!cmd || cmd === 'help' || flags.has('--help')) return console.log(HELP);

@@ -14,6 +14,8 @@ import type { CompletionRequest, ModelResponse, Provider } from '../types.ts';
 import { AnthropicProvider } from './anthropic.ts';
 import { HttpError } from './http.ts';
 import { OpenAIProvider } from './openai.ts';
+import { CodexProvider, loadCodexAuth } from './codex.ts';
+import { odinPaths, type OdinPaths } from '../config.ts';
 
 export type Tier = 'local' | 'standard' | 'strong';
 export const TIER_RANK: Record<Tier, number> = { local: 0, standard: 1, strong: 2 };
@@ -46,7 +48,9 @@ export interface CompleteOptions {
   exclude?: string[];
 }
 
-export function buildProvider(p: ProviderConfig, env = process.env): Provider | undefined {
+export function buildProvider(p: ProviderConfig, env = process.env, paths: OdinPaths = odinPaths()): Provider | undefined {
+  // Abonnement ChatGPT : utilisable dès qu'Odin est connecté (connexion rangée dans ~/.odin).
+  if (p.kind === 'openai-codex') return loadCodexAuth(paths) ? new CodexProvider(paths, `openai-codex:${p.model}`, p.baseUrl) : undefined;
   const key = p.apiKeyEnv ? env[p.apiKeyEnv] ?? '' : '';
   if (p.kind === 'anthropic') return key ? new AnthropicProvider(key, p.baseUrl, `anthropic:${p.model}`) : undefined;
   if (p.kind === 'openai') {
@@ -89,10 +93,10 @@ export class Router {
     if (!routes.length) throw new Error('Aucun fournisseur de modèle utilisable : définis une clé (ex. ANTHROPIC_API_KEY) puis lance « odin doctor ».');
   }
 
-  static fromConfig(cfg: OdinConfig, extra: Route[] = []): Router {
+  static fromConfig(cfg: OdinConfig, extra: Route[] = [], paths?: OdinPaths): Router {
     const routes: Route[] = [...extra];
     for (const p of cfg.providers) {
-      const provider = buildProvider(p);
+      const provider = buildProvider(p, process.env, paths);
       if (provider) routes.push({ provider, cfg: p });
     }
     return new Router(routes, 2, undefined, { pauseMs: Math.max(1, cfg.routing?.quotaPauseMin ?? 15) * 60_000 });
