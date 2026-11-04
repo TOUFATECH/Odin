@@ -161,6 +161,31 @@
     else note(740, 760, 0.14, 'sine', 0.08);
     const m = MOODS[name]; if (m && m.anim && SOUNDS[m.anim]) SOUNDS[m.anim]();
   }
+
+  /**
+   * Son du clignement : « tic » qui descend quand les yeux se ferment, qui remonte quand ils s'ouvrent.
+   * Calé sur l'animation CSS o-blink (5,2 s ; fermeture à 93,5 %, réouverture à 96 %).
+   * Seulement pour la mascotte principale, visible à l'écran, page au premier plan.
+   */
+  function blinkSounds(el) {
+    if (!el || el._blink) return; el._blink = true;
+    let visible = true;
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { visible = es[0].isIntersecting; }).observe(el);
+    const schedule = (eye) => {
+      clearTimeout(el._bt1); clearTimeout(el._bt2);
+      const ms = (parseFloat(getComputedStyle(eye).animationDuration) || 5.2) * 1000;
+      const ok = () => visible && !document.hidden && getComputedStyle(eye).animationName === 'o-blink';
+      el._bt1 = setTimeout(() => { if (ok()) note(900, 520, 0.05, 'sine', 0.045); }, ms * 0.935);
+      el._bt2 = setTimeout(() => { if (ok()) note(520, 940, 0.06, 'sine', 0.04); }, ms * 0.96);
+    };
+    const hook = () => {
+      const eye = el.querySelector('.eye'); if (!eye || eye._hooked) return; eye._hooked = true;
+      eye.addEventListener('animationstart', (e) => { if (e.animationName === 'o-blink') schedule(eye); });
+      eye.addEventListener('animationiteration', (e) => { if (e.animationName === 'o-blink') schedule(eye); });
+      schedule(eye);
+    };
+    hook(); new MutationObserver(hook).observe(el, { subtree: true, childList: true });
+  }
   function mute(off) { soundOn = off === undefined ? !soundOn : !off; try { localStorage.setItem('odin-sound', soundOn ? '1' : '0'); } catch { /* rien */ } return soundOn; }
   const all = (mood) => document.querySelectorAll('.odin').forEach((el) => set(el, mood));
   /** Expression passagère, puis retour à l'humeur de fond. */
@@ -174,5 +199,5 @@
   /** Change l'humeur « de fond » (celle à laquelle on revient après une expression passagère). */
   function base(el, mood) { if (!el) return; if (el._flash) el._base = mood; else set(el, mood); }
   document.querySelectorAll('.odin svg').forEach(own);
-  window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, get soundOn() { return soundOn; } };
+  window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, blinkSounds, get soundOn() { return soundOn; } };
 })();

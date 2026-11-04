@@ -536,6 +536,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   const sndUi = () => { const b = document.querySelector('#buddySnd'); if (!b) return; const on = window.OdinFace?.soundOn !== false; b.textContent = on ? 'Sons activés' : 'Sons coupés'; b.setAttribute('aria-pressed', String(on)); };
   document.addEventListener('click', (e) => { if (e.target.closest?.('#buddySnd')) { const on = window.OdinFace?.mute(); sndUi(); if (on) window.OdinFace?.sound('joie'); } });
   setTimeout(sndUi, 0);
+  setTimeout(() => window.OdinFace?.blinkSounds(document.querySelector('#buddy')), 0);
   setTimeout(() => moodBase(baseMood), 0);
   // Tu écris : il écoute. Une clé ou un mot de passe : il ferme les yeux. Les autres réglages : il se concentre.
   let typingT = 0;

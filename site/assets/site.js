@@ -106,6 +106,7 @@
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Humeur autonome : la mascotte du héros change d'expression toute seule, au fil de la démo.
   const hero = $('#heroOdin');
+  window.OdinFace?.blinkSounds(hero);
   if (hero && !reduce) {
     const LIFE = ['neutre', 'joie', 'reflexion', 'clin', 'regarde', 'rire', 'concentration', 'amour', 'surprise', 'fierte', 'malice', 'excite'];
     let li = 0;
