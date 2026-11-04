@@ -64,7 +64,7 @@ Usage : odin <commande>
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
   grants [list|revoke ID]      autorisations permanentes (« toujours autoriser »)
   breaker [on|nuit|off]        Odin Breaker : Odin ne demande plus rien (toujours, ou la nuit)
-  jev [status|autonomy NIVEAU|use JUGE|eval|test|enable|disable]
+  mimir [status|autonomy NIVEAU|use JUGE|eval|test|enable|disable]
                                Mímir : jugements typés (local sans clé, llm, jev), décisions en code
 
 Dossier d'installation : $ODIN_HOME (défaut ~/.odin)`;
@@ -311,7 +311,7 @@ async function doctor(): Promise<void> {
     ok(w.access !== 'wan' || servesTls(w) || w.behindProxy, `Interface web : ${where}${servesTls(w) ? ', HTTPS' : ''}, port ${w.port}`, 'Internet sans HTTPS');
   }
   if (cfg.mimir.enabled) ok(true, `Mímir actif (juge ${cfg.mimir.judge}${cfg.mimir.judge === 'auto' ? (process.env[cfg.mimir.apiKeyEnv] ? ' → Jev' : ' → local, sans clé') : ''})`);
-  else console.log(c.dim('  (Mímir désactivé : « odin jev enable » pour l\'activer)'));
+  else console.log(c.dim('  (Mímir désactivé : « odin mimir enable » pour l\'activer)'));
   if (cfg.policy.sandbox.kind === 'docker') {
     const { spawnSync } = await import('node:child_process');
     ok(spawnSync('docker', ['version'], { stdio: 'ignore' }).status === 0, 'Docker disponible pour le bac à sable', 'installe Docker ou mets policy.sandbox.kind = none');
@@ -378,7 +378,7 @@ async function admin(): Promise<void> {
         console.log(c.dim(last ? `Dernier balayage : ${new Date(last.at).toLocaleString('fr-FR')}` : 'Aucun balayage : lance « odin net scan --full »'));
         console.log(table(inv.list({ status: flags.has('--all') ? 'all' : undefined }).map((d) => ({ état: d.status === 'online' ? '●' : d.status === 'offline' ? '○' : '×', nom: deviceLabel(d), type: d.kind, ip: d.ip, mac: d.mac, id: d.id }))));
       }
-    } else if (cmd === 'jev') {
+    } else if (cmd === 'mimir' || cmd === 'jev') { // « jev » reste accepté (ancien nom)
       const m = odin.cfg.mimir;
       const key = process.env[m.apiKeyEnv];
       const flag = (n: string) => args.find((x) => x.startsWith(`--${n}=`))?.split('=')[1];
@@ -431,7 +431,7 @@ async function admin(): Promise<void> {
         console.log(`Mímir : ${m.enabled ? c.green('activé') : 'désactivé'} · autonomie : ${c.bold(m.autonomy)} · juge configuré : ${m.judge} · juge effectif : ${odin.mimir?.judgeName ?? '—'} · clé ${m.apiKeyEnv} : ${key ? c.green('présente') : 'absente'}`);
         console.log(c.dim(`  Utilisé pour : ${Object.entries(m.uses).filter(([, v]) => v).map(([k]) => k).join(', ')}`));
         console.log(c.dim('  Juges : local (sans clé, hors ligne) · llm (ton modèle, Ollama = sans clé) · jev (TypeSafe) · local+llm · local+jev'));
-        console.log(c.dim('  Changer : odin jev use local+llm · Mesurer : odin jev eval [--judge=…] [--set=cases|holdout|fresh]'));
+        console.log(c.dim('  Changer : odin mimir use local+llm · Mesurer : odin mimir eval [--judge=…] [--set=cases|holdout|fresh]'));
       }
     } else if (cmd === 'decisions') {
       const f = join(odin.paths.logs, 'audit.jsonl');
@@ -484,7 +484,7 @@ async function main(): Promise<void> {
   if (cmd === 'web') return gateway(!flags.has('--no-open'));
   if (cmd === 'breaker') return breakerCmd(pos[1]);
   if (cmd === 'doctor') return doctor();
-  if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'jev', 'decisions', 'grants'].includes(cmd)) return admin();
+  if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'mimir', 'jev', 'decisions', 'grants'].includes(cmd)) return admin();
   console.log(HELP);
   process.exitCode = 1;
 }

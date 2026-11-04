@@ -216,6 +216,33 @@ odin net label 192.168.1.20 "Imprimante du bureau"
 
 Odin découvre les appareils sans droits administrateur (table ARP, balayage TCP léger, Bonjour, UPnP) et **ne balaie que les réseaux privés de sa machine**, jamais Internet. Absent, un appareil passe « déconnecté », puis « retiré » après 7 jours ; tu es prévenu à chaque changement.
 
+### Documents et médias
+
+Odin lit et produit les formats du quotidien, sans rien installer :
+
+| Type | Lire | Créer / transformer |
+|---|---|---|
+| PDF | texte (lecteur intégré, `pdftotext` s'il existe) | PDF A4 paginé à partir de texte simple |
+| Word `.docx` | titres, listes, texte | document avec titres, gras, listes |
+| Excel `.xlsx` | chaque feuille en tableau | classeur multi-feuilles, formules (`=SUM(B2:B9)`) |
+| PowerPoint `.pptx` | texte de chaque diapositive | présentation titre + puces |
+| Images | description, lecture du texte (vision du modèle) | conversion, redimensionnement |
+| Vidéo, audio | informations, **transcription** (Whisper) | format, découpe, extraction du son, miniature (`ffmpeg`) |
+
+Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, puis demande : « résume ce PDF », « fais-en un Excel », « transcris cette réunion ». Un fichier venu de l'extérieur est traité comme un contenu non fiable.
+
+### Voix
+
+Réglages → Voix. **Whisper** (OpenAI, ou un serveur local sans clé) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. **ElevenLabs** donne une voix à Odin : lecture des réponses, notes vocales en retour, et **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite.
+
+### Modèles : le bon pour chaque tâche
+
+Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (Ollama…), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, il croise l'avis de plusieurs modèles et retient le plus prudent. **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
+
+### Apprentissage rapide
+
+Après chaque échange, Odin retient jusqu'à trois faits durables (tes préférences, ton environnement, tes missions), jamais de secret, jamais depuis une page web. Il connaît le profil de sa machine (système, ressources, outils). En Odin Breaker, les compétences qu'il apprend sont actives tout de suite.
+
 ### Mises à jour de la machine
 
 `odin updates` liste les mises à jour disponibles (apt, dnf, pacman, Homebrew, softwareupdate, winget). Odin peut les installer **avec ton accord** ; ce n'est jamais une décision de routine.
@@ -250,20 +277,20 @@ Activer : onglet Décisions ou Réglages (bouton **⚡ Odin Breaker**), ou `odin
 
 - **Transparence** : chaque décision prise seul est annoncée pendant le travail et résumée à la fin de la réponse (« 🛡 Décidé sans te déranger »). Historique complet : onglet **Décisions** ou `odin decisions`.
 - **Autorisation permanente** : pour une action importante, réponds « toujours » ; Odin ne te redemandera plus pour ce type d'action (`shell:make install`, par exemple). Jamais pour le grave. Liste et retrait : `odin grants`.
-- **Niveau** : `odin jev autonomy prudent|equilibre|autonome|breaker`, ou les boutons de l'onglet Décisions.
+- **Niveau** : `odin mimir autonomy prudent|equilibre|autonome|breaker`, ou les boutons de l'onglet Décisions.
 
 ### Qui répond aux questions ?
 
 Par défaut, un **juge local** : hors ligne, sans clé, moins d'une milliseconde, rien ne sort de ta machine. Quand il ne sait pas (programme inconnu, tournure inédite), il répond « incertain », et Odin te demande. Tu peux lui adjoindre un juge plus fin, consulté **seulement quand le juge local hésite** :
 
-| `odin jev use …` | Clé | Réseau |
+| `odin mimir use …` | Clé | Réseau |
 |---|---|---|
 | `local` (défaut) | aucune | aucun |
 | `local+llm` | aucune avec Ollama | seulement si le juge local hésite |
 | `local+jev` | `TYPESAFE_API_KEY` ([Jev de TypeSafe](https://docs.typesafe.ai)) | seulement si le juge local hésite |
 | `llm` · `jev` | idem | à chaque question |
 
-`odin jev test` montre les jugements sur 5 exemples ; `odin jev eval` mesure le juge sur 140 cas étiquetés (ajoute les tiens dans `src/mimir/cases.ts`). Sur des cas écrits après le gel de ses règles, le juge local voit juste 78 % du temps ; ses erreurs ajoutent moins de protection, jamais moins de sécurité, car les règles de base de Heimdall restent en place. Une panne du juge n'est jamais lue comme un « non ».
+`odin mimir test` montre les jugements sur 5 exemples ; `odin mimir eval` mesure le juge sur 140 cas étiquetés (ajoute les tiens dans `src/mimir/cases.ts`). Sur des cas écrits après le gel de ses règles, le juge local voit juste 78 % du temps ; ses erreurs ajoutent moins de protection, jamais moins de sécurité, car les règles de base de Heimdall restent en place. Une panne du juge n'est jamais lue comme un « non ».
 
 ---
 
@@ -295,7 +322,7 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 | `odin chat` · `odin run "…"` | terminal · une seule demande |
 | `odin decisions [N]` | ce qu'Odin a décidé et pourquoi |
 | `odin grants [list\|revoke ID]` | autorisations permanentes |
-| `odin jev [autonomy N\|use JUGE\|test\|eval]` | autonomie et juge des décisions |
+| `odin mimir [autonomy N\|use JUGE\|test\|eval]` | autonomie et juge des décisions |
 | `odin memory [list\|search\|forget\|pin\|vouch]` | mémoire |
 | `odin skills [list\|drafts\|show\|diff\|approve\|reject\|rollback]` | compétences |
 | `odin net [scan\|list\|show\|events\|label\|enable\|disable]` | réseau local |
@@ -340,7 +367,7 @@ La personnalité d'Odin est dans `~/.odin/ODIN.md` : modifie-la librement.
 | `odin : commande introuvable` | ouvre un nouveau terminal (le PATH a été mis à jour) |
 | Odin répond « mode démo » | Réglages → Modèle : colle ta clé (ou choisis Ollama), « Tester », « Enregistrer » |
 | Telegram ne répond pas | Réglages → Telegram : jeton enregistré, « Activer » coché, ton identifiant ajouté ; puis `odin doctor` |
-| Odin me demande trop souvent | réponds « toujours » aux demandes importantes récurrentes, ou `odin jev autonomy autonome` |
+| Odin me demande trop souvent | réponds « toujours » aux demandes importantes récurrentes, ou `odin mimir autonomy autonome` |
 | Aucun appareil trouvé | la machine doit être sur un réseau privé (Wi-Fi, Ethernet) ; lance `odin net scan --full` |
 
 **Désinstaller** : macOS `launchctl unload ~/Library/LaunchAgents/ai.odin.gateway.plist` · Linux `systemctl --user disable --now odin` · Windows `Unregister-ScheduledTask Odin` ; puis supprime `~/.odin` (et `~/.local/bin/odin` ou `%LOCALAPPDATA%\Odin`).
