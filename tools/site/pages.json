@@ -1,11 +1,11 @@
 {
   "index": {
     "nav": "Accueil", "priority": "1.0",
-    "title": "Odin Agent Majordome — l'agent IA qui travaille chez toi",
+    "title": "Odin Agent IA — l'agent IA qui travaille chez toi",
     "description": "Odin est un agent IA personnel open source : il agit sur ta machine et ton réseau, parle, lit tes documents, apprend vite et ne fait rien de risqué sans ton accord. Installation en une commande sur macOS, Linux et Windows.",
     "jsonld": [
-      {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Odin Agent Majordome", "alternateName": "Odin", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS, Linux, Windows", "softwareVersion": "0.9", "license": "https://opensource.org/license/mit", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "url": "https://toufatech.github.io/Odin/", "downloadUrl": "https://github.com/TOUFATECH/Odin", "author": {"@type": "Organization", "name": "TOUFATECH", "url": "https://github.com/TOUFATECH"}, "inLanguage": "fr", "description": "Agent IA personnel open source qui agit sur ta machine et ton réseau local, avec des décisions transparentes et une sécurité écrite dans le code."},
-      {"@context": "https://schema.org", "@type": "WebSite", "name": "Odin Agent Majordome", "url": "https://toufatech.github.io/Odin/", "inLanguage": "fr"}
+      {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Odin Agent IA", "alternateName": "Odin", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS, Linux, Windows", "softwareVersion": "0.9", "license": "https://opensource.org/license/mit", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "url": "https://toufatech.github.io/Odin/", "downloadUrl": "https://github.com/TOUFATECH/Odin", "author": {"@type": "Organization", "name": "TOUFATECH", "url": "https://github.com/TOUFATECH"}, "inLanguage": "fr", "description": "Agent IA personnel open source qui agit sur ta machine et ton réseau local, avec des décisions transparentes et une sécurité écrite dans le code."},
+      {"@context": "https://schema.org", "@type": "WebSite", "name": "Odin Agent IA", "url": "https://toufatech.github.io/Odin/", "inLanguage": "fr"}
     ]
   },
   "fonctionnalites": {
@@ -28,7 +28,7 @@
     "title": "Installer Odin sur macOS, Linux ou Windows",
     "description": "Une commande installe Odin, Node.js compris, puis l'interface web s'ouvre pour choisir ton modèle. Instructions pas à pas pour macOS, Linux, Windows et depuis les sources.",
     "jsonld": [
-      {"@context": "https://schema.org", "@type": "HowTo", "name": "Installer Odin Agent Majordome", "inLanguage": "fr", "totalTime": "PT5M", "step": [
+      {"@context": "https://schema.org", "@type": "HowTo", "name": "Installer Odin Agent IA", "inLanguage": "fr", "totalTime": "PT5M", "step": [
         {"@type": "HowToStep", "name": "Ouvrir un terminal", "text": "Terminal sur macOS ou Linux, PowerShell sur Windows (sans droits administrateur)."},
         {"@type": "HowToStep", "name": "Lancer la commande d'installation", "text": "curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash sur macOS et Linux ; irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex sur Windows."},
         {"@type": "HowToStep", "name": "Répondre aux trois questions", "text": "Accès à l'interface (réseau local en HTTPS par défaut), inventaire du réseau, démarrage automatique."},
@@ -58,17 +58,17 @@
   },
   "confidentialite": {
     "nav": "Confidentialité", "priority": "0.4",
-    "title": "Confidentialité et RGPD — Odin Agent Majordome",
+    "title": "Confidentialité et RGPD — Odin Agent IA",
     "description": "Ce site ne dépose aucun cookie, n'utilise aucun traceur et ne demande aucune inscription. Ce que fait le logiciel Odin de tes données, et tes droits."
   },
   "mentions-legales": {
     "nav": "Mentions légales", "priority": "0.3",
-    "title": "Mentions légales — Odin Agent Majordome",
+    "title": "Mentions légales — Odin Agent IA",
     "description": "Éditeur, hébergement, propriété intellectuelle et licence du site et du logiciel Odin."
   },
   "404": {
     "nav": "Page introuvable", "noindex": true,
-    "title": "Page introuvable — Odin Agent Majordome",
+    "title": "Page introuvable — Odin Agent IA",
     "description": "Cette page n'existe pas ou plus."
   }
 }

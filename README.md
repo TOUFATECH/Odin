@@ -1,6 +1,6 @@
 <div align="center">
 
-# ᛟ Odin Agent Majordome
+# ᛟ Odin Agent IA
 
 **Ton agent IA personnel : il réfléchit avant d'agir, apprend de chaque tâche, et ne te dérange que quand ça compte.**
 

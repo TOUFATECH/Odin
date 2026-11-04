@@ -50,7 +50,7 @@ export function llmJudge(router: Router, maxTokens = 400): Judge {
       system: SYSTEM,
       messages: [{ role: 'user', content: JSON.stringify({ state, questions }) }],
       tools: [], maxTokens, signal,
-    });
+    }, { minTier: 'local', purpose: 'juge' });
     return parseLlmAnswers(r.text, questions);
   };
 }
@@ -84,7 +84,7 @@ export function crossCheckJudge(router: Router, minVoices = 2, maxVoices = 3): J
     for (const route of router.order({ minTier: 'standard' })) {
       if (voices.length >= maxVoices) break;
       try {
-        const r = await router.complete({ system: SYSTEM, messages: [{ role: 'user', content: JSON.stringify({ state, questions }) }], tools: [], maxTokens: 400, signal }, { exclude: router.routes.filter((x) => x !== route).map((x) => x.provider.name) });
+        const r = await router.complete({ system: SYSTEM, messages: [{ role: 'user', content: JSON.stringify({ state, questions }) }], tools: [], maxTokens: 400, signal }, { exclude: router.routes.filter((x) => x !== route).map((x) => x.provider.name), purpose: 'avis croisé' });
         voices.push(parseLlmAnswers(r.text, questions)); used.push(r.providerName);
       } catch { /* ce modèle n'est pas disponible : on demande au suivant */ }
     }

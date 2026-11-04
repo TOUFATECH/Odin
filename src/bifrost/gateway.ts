@@ -87,7 +87,9 @@ export class Gateway {
       const resolve = this.pendingApprovals.get(cmd[2]);
       if (!resolve) return ch.send(m.peer, 'Demande inconnue ou expirée.');
       this.pendingApprovals.delete(cmd[2]);
-      resolve(/^(always|toujours)$/i.test(cmd[1]) ? 'always' : /^(yes|oui)$/i.test(cmd[1]));
+      const ans = /^(always|toujours)$/i.test(cmd[1]) ? 'always' : /^(yes|oui)$/i.test(cmd[1]) ? 'yes' : 'no';
+      resolve(ans === 'always' ? 'always' : ans === 'yes');
+      for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
     }
     const sessionId = `${m.channel}:${m.peer}`;
@@ -148,6 +150,8 @@ export class Gateway {
       const options = req.grantable ? `Réponds /yes ${req.id} · /always ${req.id} (toujours autoriser ce type d'action) · /no ${req.id}` : `Réponds /yes ${req.id} ou /no ${req.id}`;
       const msg = `${head}\nAction : ${req.summary}\nPourquoi : ${req.reason}\n${options}`;
       const answer = new Promise<ApprovalAnswer>((r) => this.pendingApprovals.set(req.id, r));
+      // Canaux qui savent afficher une carte (interface web) : évènement typé, pas de détection par le texte.
+      target.ch.event?.(target.peer, { type: 'approval', id: req.id, summary: req.summary, reason: req.reason, severity: req.severity, grantable: req.grantable });
       // Heimdall tranche « non » après approvalTimeoutSec ; on oublie la demande peu après pour ne pas accumuler.
       setTimeout(() => this.pendingApprovals.delete(req.id), (this.odin.cfg.policy.approvalTimeoutSec + 60) * 1000).unref?.();
       await target.ch.send(target.peer, msg);
@@ -161,6 +165,16 @@ export class Gateway {
     const ch = this.channels.get(channel);
     if (ch?.interactive && this.isOwner(channel, peer)) return { ch, peer };
     return this.ownerTarget();
+  }
+
+  /** Arrête le tour en cours d'une session (bouton Arrêter de l'onglet Missions). */
+  abortSession(sessionId: string): boolean { const a = this.aborts.get(sessionId); a?.abort(); return Boolean(a); }
+  /** Relance une mission (« continue ») dans sa session, au nom du propriétaire. */
+  async resume(sessionId: string, text = 'Continue la mission là où tu t\'étais arrêté.'): Promise<void> {
+    const [channel, ...rest] = sessionId.split(':');
+    const ch = this.channels.get(channel) ?? this.ownerTarget()?.ch;
+    if (!ch) throw new Error('aucun canal pour reprendre cette mission');
+    await this.handle({ channel: ch.name, peer: channel === ch.name ? rest.join(':') : (this.ownerTarget()?.peer ?? 'principal'), name: 'propriétaire', text });
   }
 
   /** Premier propriétaire joignable sur un canal interactif (Telegram, interface web…). */

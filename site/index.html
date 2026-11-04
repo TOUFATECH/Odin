@@ -3,22 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Odin Agent Majordome — l'agent IA qui travaille chez toi</title>
+<title>Odin Agent IA — l'agent IA qui travaille chez toi</title>
 <meta name="description" content="Odin est un agent IA personnel open source : il agit sur ta machine et ton réseau, parle, lit tes documents, apprend vite et ne fait rien de risqué sans ton accord. Installation en une commande sur macOS, Linux et Windows.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://toufatech.github.io/Odin/">
 <meta name="theme-color" content="#0B0E14">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Odin Agent Majordome">
+<meta property="og:site_name" content="Odin Agent IA">
 <meta property="og:locale" content="fr_FR">
-<meta property="og:title" content="Odin Agent Majordome — l'agent IA qui travaille chez toi">
+<meta property="og:title" content="Odin Agent IA — l'agent IA qui travaille chez toi">
 <meta property="og:description" content="Odin est un agent IA personnel open source : il agit sur ta machine et ton réseau, parle, lit tes documents, apprend vite et ne fait rien de risqué sans ton accord. Installation en une commande sur macOS, Linux et Windows.">
 <meta property="og:url" content="https://toufatech.github.io/Odin/">
 <meta property="og:image" content="https://toufatech.github.io/Odin/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Odin Agent Majordome — l'agent IA qui travaille chez toi">
+<meta name="twitter:title" content="Odin Agent IA — l'agent IA qui travaille chez toi">
 <meta name="twitter:description" content="Odin est un agent IA personnel open source : il agit sur ta machine et ton réseau, parle, lit tes documents, apprend vite et ne fait rien de risqué sans ton accord. Installation en une commande sur macOS, Linux et Windows.">
 <meta name="twitter:image" content="https://toufatech.github.io/Odin/assets/og.png">
 <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
@@ -26,13 +26,14 @@
 <link rel="preload" href="./assets/fonts/bricolage-grotesque-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="./assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="./assets/site.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Odin Agent Majordome", "alternateName": "Odin", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS, Linux, Windows", "softwareVersion": "0.9", "license": "https://opensource.org/license/mit", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "url": "https://toufatech.github.io/Odin/", "downloadUrl": "https://github.com/TOUFATECH/Odin", "author": {"@type": "Organization", "name": "TOUFATECH", "url": "https://github.com/TOUFATECH"}, "inLanguage": "fr", "description": "Agent IA personnel open source qui agit sur ta machine et ton réseau local, avec des décisions transparentes et une sécurité écrite dans le code."}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "Odin Agent Majordome", "url": "https://toufatech.github.io/Odin/", "inLanguage": "fr"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Odin Agent IA", "alternateName": "Odin", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS, Linux, Windows", "softwareVersion": "0.9", "license": "https://opensource.org/license/mit", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "EUR"}, "url": "https://toufatech.github.io/Odin/", "downloadUrl": "https://github.com/TOUFATECH/Odin", "author": {"@type": "Organization", "name": "TOUFATECH", "url": "https://github.com/TOUFATECH"}, "inLanguage": "fr", "description": "Agent IA personnel open source qui agit sur ta machine et ton réseau local, avec des décisions transparentes et une sécurité écrite dans le code."}</script><script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebSite", "name": "Odin Agent IA", "url": "https://toufatech.github.io/Odin/", "inLanguage": "fr"}</script>
 </head>
 <body data-page="index">
 <a class="skip" href="#contenu">Aller au contenu</a>
+<div class="progress" id="progress" aria-hidden="true"></div>
 <header class="site-header" id="haut">
   <div class="wrap bar">
-    <a class="brand" href="./" aria-label="Odin Agent Majordome, accueil"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></a>
+    <a class="brand" href="./" aria-label="Odin Agent IA, accueil"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span><span class="brand-text">ODIN<small>Agent IA</small></span></a>
     <nav class="nav" aria-label="Navigation principale"><ul><li><a href="./" aria-current="page">Accueil</a></li>
 <li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
 <li><a href="./autonomie.html">Autonomie</a></li>
@@ -58,41 +59,50 @@
 
 <main id="contenu">
 <div class="wrap hero">
-  <div class="stack" style="gap:22px">
-    <p class="eyebrow">Agent IA personnel · open source · chez toi</p>
-    <h1>Le majordome qui agit, parle, apprend, et ne trahit jamais ta confiance.</h1>
-    <p class="lead">Odin travaille sur ta machine et ton réseau : documents, commandes, appareils, rappels, voix. Il décide seul la routine, te demande ce qui compte, et rend compte de tout. Sa sécurité est écrite dans le code, pas dans un prompt.</p>
-    <div class="cmds">
-      <div class="cmd"><div class="row"><span class="k">macOS · LINUX</span><button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></div><code><b>$ </b>curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash</code></div>
-      <div class="cmd"><div class="row"><span class="k">WINDOWS · POWERSHELL</span><button class="copy" type="button" data-copy="irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex">Copier</button></div><code><b>&gt; </b>irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex</code></div>
+  <div class="hero-text">
+    <p class="eyebrow up">Agent IA personnel · open source</p>
+    <h1 class="up">L'agent IA qui agit, parle, apprend, et ne trahit jamais ta confiance.</h1>
+    <p class="lead up">Odin travaille sur ta machine et ton réseau : documents, commandes, appareils, rappels, voix. Il décide seul la routine, te demande ce qui compte, et rend compte de tout. Sa sécurité est écrite dans le code, pas dans un prompt.</p>
+    <div class="cmds up">
+      <div class="cmd"><div class="row"><span class="k">macOS · LINUX</span><button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></div><code><b>$ </b>curl -fsSL https://raw.githubusercontent.com/<wbr>TOUFATECH/Odin/main/<wbr>install.sh | bash</code></div>
+      <div class="cmd"><div class="row"><span class="k">WINDOWS · POWERSHELL</span><button class="copy" type="button" data-copy="irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex">Copier</button></div><code><b>&gt; </b>irm https://raw.githubusercontent.com/<wbr>TOUFATECH/Odin/main/<wbr>install.ps1 | iex</code></div>
     </div>
-    <div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="./fonctionnalites.html">Voir ce qu'il sait faire</a></div>
+    <div class="cta up"><a class="btn primary" href="./installation.html">Installer Odin <span class="arr">→</span></a><a class="btn ghost" href="./fonctionnalites.html">Voir ce qu'il sait faire</a></div>
   </div>
-  <div class="term" role="img" aria-label="Démonstration : Odin lit une facture reçue sur Telegram, la range, crée une ligne dans un tableur et programme un rappel, en signalant ce qu'il a décidé seul.">
-    <div class="term-bar"><i></i><i></i><i></i><span>odin · discussion</span></div>
-    <div class="term-body" id="term">
-      <div class="tl u">▸ Voici la facture du plombier. Range-la, ajoute-la au budget et rappelle-moi de la payer vendredi.</div>
-      <div class="tl d">⚙ doc_read inbox/facture-plombier.pdf</div>
-      <div class="tl d">✓ Facture n° 2026-118 · 348,00 € · échéance 14 nov.</div>
-      <div class="tl d">⚙ fs_write Factures/2026/11-plombier.pdf</div>
-      <div class="tl d">⚙ doc_create budget-2026.xlsx · ligne ajoutée</div>
-      <div class="tl d">⚙ reminder_set 2026-11-13 18:00 « payer le plombier »</div>
-      <div class="tl g">Facture rangée, budget à jour (total novembre : 1 212,40 €), rappel programmé jeudi 18 h, la veille de l'échéance.</div>
-      <div class="tl b">🛡 Décidé sans te déranger (3) : lire la facture · écrire dans Factures/ · rappel. Rien d'envoyé à l'extérieur.</div>
-      <div class="tl cursor"></div>
+  <div class="scene">
+    <div class="scene-bg"></div>
+    <span class="odin float" id="heroOdin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>
+    <div class="term" role="img" aria-label="Démonstration : Odin lit une facture reçue sur Telegram, la range, crée une ligne dans un tableur et programme un rappel, en signalant ce qu'il a décidé seul.">
+      <div class="term-bar"><i></i><i></i><i></i><span>odin · discussion</span></div>
+      <div class="term-body" id="term">
+        <div class="tl u">▸ Voici la facture du plombier. Range-la, ajoute-la au budget et rappelle-moi de la payer vendredi.</div>
+        <div class="tl d">⚙ doc_read inbox/facture-plombier.pdf</div>
+        <div class="tl d">✓ Facture n° 2026-118 · 348,00 € · échéance 14 nov.</div>
+        <div class="tl d">⚙ fs_write Factures/2026/11-plombier.pdf</div>
+        <div class="tl d">⚙ doc_create budget-2026.xlsx · ligne ajoutée</div>
+        <div class="tl d">⚙ reminder_set 2026-11-13 18:00 « payer le plombier »</div>
+        <div class="tl g">Facture rangée, budget à jour (total novembre : 1 212,40 €), rappel programmé jeudi 18 h, la veille de l'échéance.</div>
+        <div class="tl b">🛡 Décidé sans te déranger (3) : lire la facture · écrire dans Factures/ · rappel. Rien d'envoyé à l'extérieur.</div>
+        <div class="tl cursor"></div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="band"><div class="wrap stats">
-  <div class="stat rv"><b data-count="1" data-suffix=" commande">1</b><span>pour installer, Node.js compris</span></div>
+<div class="ticker" aria-hidden="true"><ul>
+  <li>PDF · Word · Excel · PowerPoint</li><li>Images, vidéo, audio</li><li>Voix : parle et comprend</li><li>Telegram</li><li>Réseau local</li><li>Rappels et routines</li><li>Sous-agents en parallèle</li><li>Modèle gratuit ou fort, selon la tâche</li><li>Odin Breaker</li><li>Sécurité écrite dans le code</li>
+  <li>PDF · Word · Excel · PowerPoint</li><li>Images, vidéo, audio</li><li>Voix : parle et comprend</li><li>Telegram</li><li>Réseau local</li><li>Rappels et routines</li><li>Sous-agents en parallèle</li><li>Modèle gratuit ou fort, selon la tâche</li><li>Odin Breaker</li><li>Sécurité écrite dans le code</li>
+</ul></div>
+
+<div class="wrap stats">
+  <div class="stat rv"><b data-count="1">1</b><span>commande pour installer, Node.js compris</span></div>
   <div class="stat rv d1"><b data-count="0">0</b><span>dépendance à l'exécution, 0 cookie sur ce site</span></div>
-  <div class="stat rv d2"><b data-count="118">118</b><span>tests automatiques, sur macOS, Linux et Windows</span></div>
+  <div class="stat rv d2"><b data-count="122">122</b><span>tests automatiques, sur macOS, Linux et Windows</span></div>
   <div class="stat rv d3"><b data-count="4">4</b><span>niveaux d'autonomie, jusqu'à Odin Breaker</span></div>
-</div></div>
+</div>
 
 <section class="wrap" id="piliers">
-  <div class="stack" style="max-width:780px;margin-bottom:44px">
+  <div class="sec-head">
     <p class="eyebrow">Ce qu'il fait</p>
     <h2>Un seul agent, toute la maison.</h2>
     <p class="lead">Odin n'est pas un chatbot de plus. Il a des mains (fichiers, commandes, appareils), une voix, une mémoire, et un gardien.</p>
@@ -105,11 +115,11 @@
     <article class="card rv"><span class="k">Il connaît ton réseau</span><h3>Inventaire vivant</h3><p>Dès l'installation : qui est connecté, ce qu'il peut faire avec chaque appareil, et une alerte quand l'un apparaît, se déconnecte ou disparaît.</p></article>
     <article class="card rv d1"><span class="k">Il choisit le bon modèle</span><h3>Gratuit quand ça suffit, fort quand il faut</h3><p>Modèle installé pour le simple, le plus capable pour le complexe, plusieurs avis croisés pour le risqué. Quota épuisé ? Il bascule et te prévient.</p></article>
   </div>
-  <p style="margin-top:28px"><a class="btn ghost" href="./fonctionnalites.html">Toutes les fonctionnalités →</a></p>
+  <p class="more"><a class="btn ghost" href="./fonctionnalites.html">Toutes les fonctionnalités <span class="arr">→</span></a></p>
 </section>
 
 <section class="band" id="autonomie-apercu"><div class="wrap">
-  <div class="stack" style="max-width:780px;margin-bottom:40px">
+  <div class="sec-head">
     <p class="eyebrow">Autonomie transparente</p>
     <h2>Il décide la routine. Il te demande ce qui compte. Ou plus rien du tout.</h2>
     <p class="lead">Chaque action reçoit une gravité. Tu choisis le niveau de confiance ; la règle, elle, est écrite dans le code et chaque décision est journalisée.</p>
@@ -120,19 +130,19 @@
     <div class="level l3 rv d2"><span class="k">Autonome</span><b>L'important aussi. Seul le grave remonte jusqu'à toi.</b><div class="gauge" style="--w:75%"><i></i></div></div>
     <div class="level l4 rv d3"><span class="k">⚡ Odin Breaker</span><b>Plus aucune question. Il mène ses missions, crée ses routines, et te fait un rapport le soir.</b><div class="gauge" style="--w:100%"><i></i></div></div>
   </div>
-  <p style="margin-top:28px"><a class="btn ghost" href="./autonomie.html">Comprendre les niveaux et Odin Breaker →</a></p>
+  <p class="more"><a class="btn ghost" href="./autonomie.html">Comprendre les niveaux et Odin Breaker <span class="arr">→</span></a></p>
 </div></section>
 
 <section class="wrap" id="interface">
-  <div class="grid two" style="align-items:center;gap:48px">
+  <div class="grid two">
     <div class="stack" style="gap:18px">
       <p class="eyebrow">Interface web</p>
       <h2>Tout Odin dans ton navigateur, sur l'ordinateur comme sur le téléphone.</h2>
-      <p class="lead">Discussion, réseau, mémoire, compétences, tâches, décisions, réglages. Par défaut, joignable sur ton réseau local en HTTPS, par exemple <span class="ic">https://192.168.1.20:7777</span>. Un jeton personnel est toujours exigé.</p>
-      <ul class="prose" style="padding-left:20px;margin:0;display:flex;flex-direction:column;gap:6px"><li>Validations en un clic : Autoriser, Toujours autoriser, Refuser.</li><li>Activité en direct : chaque outil pendant qu'il travaille.</li><li>Réglages sans fichier : modèle, clés, voix, Telegram, réseau, accès.</li></ul>
+      <p class="lead">Discussion, missions, réseau, mémoire, compétences, tâches, décisions, réglages. Par défaut, joignable sur ton réseau local en HTTPS, par exemple <span class="ic">https://192.168.1.20:7777</span>. Un jeton personnel est toujours exigé.</p>
+      <ul class="checks"><li>Validations en un clic : Autoriser, Toujours autoriser, Refuser.</li><li>Activité en direct : chaque outil pendant qu'il travaille, chaque mission et son coût.</li><li>Réglages sans fichier : modèle, budget, clés, voix, Telegram, réseau, accès.</li></ul>
     </div>
     <div class="mock rv" role="img" aria-label="Aperçu de l'interface web : une demande de validation avec les boutons Autoriser, Toujours autoriser et Refuser">
-      <div class="side"><div class="on">Discussion<span>1</span></div><div>Réseau</div><div>Mémoire</div><div>Compétences</div><div>Tâches planifiées</div><div>Décisions</div><div>Réglages</div></div>
+      <div class="side"><div class="on">Discussion<span>1</span></div><div>Missions</div><div>Réseau</div><div>Mémoire</div><div>Compétences</div><div>Tâches planifiées</div><div>Décisions</div><div>Réglages</div></div>
       <div class="main">
         <div class="me">Installe les mises à jour de la machine</div>
         <div class="ask"><b>Validation demandée</b><span>Installer les mises à jour (apt) : sudo apt update &amp;&amp; sudo apt upgrade -y</span><span class="act">Important · besoin de droits administrateur</span><div class="row"><span class="pill p">Autoriser</span><span class="pill">Toujours autoriser</span><span class="pill">Refuser</span></div></div>
@@ -142,8 +152,8 @@
   </div>
 </section>
 
-<section class="band" id="reseau-apercu"><div class="wrap grid two" style="align-items:center;gap:48px">
-  <div class="card" style="gap:14px">
+<section class="band" id="reseau-apercu"><div class="wrap grid two">
+  <div class="card rv" style="gap:14px">
     <span class="k">Hliðskjálf · réseau local</span>
     <div class="dev"><div><span class="dot on"></span><b>Imprimante du bureau</b> <span class="dim mono">192.168.1.20</span></div><p>→ Imprimer un document · ouvrir son interface</p></div>
     <div class="dev"><div><span class="dot on"></span><b>NAS de la maison</b> <span class="dim mono">192.168.1.30</span></div><p>→ Partages de fichiers · SSH · micrologiciel à jour</p></div>
@@ -157,10 +167,11 @@
 </div></section>
 
 <section class="wrap cta-band" id="demarrer">
+  <span class="odin float rv" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>
   <p class="eyebrow">Démarrer</p>
   <h2>Cinq minutes. Une commande, trois questions, et Odin est à toi.</h2>
-  <p class="lead" style="text-align:center">Gratuit, open source, sans inscription. Fonctionne 100 % hors ligne avec un modèle installé sur ta machine.</p>
-  <div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="https://github.com/TOUFATECH/Odin" rel="noopener">Voir le code sur GitHub</a></div>
+  <p class="lead">Gratuit, open source, sans inscription. Fonctionne 100 % hors ligne avec un modèle installé sur ta machine.</p>
+  <div class="cta"><a class="btn primary" href="./installation.html">Installer Odin <span class="arr">→</span></a><a class="btn ghost" href="https://github.com/TOUFATECH/Odin" rel="noopener">Voir le code sur GitHub</a></div>
 </section>
 
 </main>
@@ -168,7 +179,7 @@
 <footer class="site-footer">
   <div class="wrap foot">
     <div class="foot-brand">
-      <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></div>
+      <div class="brand"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span><span class="brand-text">ODIN<small>Agent IA</small></span></div>
       <p>Agent IA personnel, open source, qui travaille chez toi et pour toi. Licence MIT · © 2026 TOUFATECH.</p>
     </div>
     <nav aria-label="Produit"><h2>Produit</h2><ul><li><a href="./fonctionnalites.html">Fonctionnalités</a></li><li><a href="./autonomie.html">Autonomie et Odin Breaker</a></li><li><a href="./securite.html">Sécurité</a></li><li><a href="./faq.html">Questions fréquentes</a></li></ul></nav>

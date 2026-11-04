@@ -67,6 +67,9 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];
   const router = opts.provider ? new Router(fixed) : Router.fromConfig(cfg);
   router.onPause = (name, reason, until) => console.error(`[modèles] ${name} mis de côté jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')} : ${reason}`);
+  router.onUsage = (provider, tin, tout, cost, purpose) => muninn.recordUsage(purpose, provider, tin, tout, cost, purpose);
+  // Budget mensuel : au-delà, seuls les modèles gratuits servent (voir Router.complete).
+  router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
   const cheapProvider = !opts.provider && cfg.cheapProvider ? buildProvider(cfg.cheapProvider) : undefined;
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
 
@@ -76,7 +79,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   else if (cfg.mimir.enabled) {
     const built = buildJudge(cfg.mimir, {
       router, cheapRouter, redactor, logFile: join(paths.logs, 'mimir.jsonl'), crossCheck: cfg.routing.crossCheckRisky,
-      onUsage: (tin, tout, cost) => muninn.recordUsage('mimir', 'jev', tin, tout, cost),
+      onUsage: (tin, tout, cost) => muninn.recordUsage('juge', 'jev', tin, tout, cost, 'juge'),
     });
     if (built.warning) console.error(`[mímir] ${built.warning}`);
     mimir = new Mimir(built.judge, cfg.mimir, built.name);

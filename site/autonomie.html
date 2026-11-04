@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://toufatech.github.io/Odin/autonomie.html">
 <meta name="theme-color" content="#0B0E14">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Odin Agent Majordome">
+<meta property="og:site_name" content="Odin Agent IA">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:title" content="Autonomie et Odin Breaker — quatre niveaux de confiance">
 <meta property="og:description" content="Prudent, équilibré, autonome ou Odin Breaker : choisis à quel point Odin décide seul. Chaque action reçoit une gravité, la règle est écrite dans le code, et tout est journalisé.">
@@ -30,9 +30,10 @@
 </head>
 <body data-page="autonomie">
 <a class="skip" href="#contenu">Aller au contenu</a>
+<div class="progress" id="progress" aria-hidden="true"></div>
 <header class="site-header" id="haut">
   <div class="wrap bar">
-    <a class="brand" href="./" aria-label="Odin Agent Majordome, accueil"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></a>
+    <a class="brand" href="./" aria-label="Odin Agent IA, accueil"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span><span class="brand-text">ODIN<small>Agent IA</small></span></a>
     <nav class="nav" aria-label="Navigation principale"><ul><li><a href="./">Accueil</a></li>
 <li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
 <li><a href="./autonomie.html" aria-current="page">Autonomie</a></li>
@@ -58,27 +59,26 @@
 
 <main id="contenu">
 <div class="wrap page-head">
+  <span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>
   <p class="eyebrow">Autonomie</p>
-  <h1 style="font-size:clamp(36px,5vw,60px)">Quatre niveaux de confiance, une règle écrite dans le code.</h1>
+  <h1>Quatre niveaux de confiance, une règle écrite dans le code.</h1>
   <p class="lead">Avant chaque action qui écrit, exécute ou envoie, Mímir, le module de décision d'Odin, répond à sept questions simples. Une table de vérité en déduit une gravité. Ensuite, c'est ton niveau d'autonomie qui décide si Odin agit, te demande, ou refuse.</p>
 </div>
 
-<section class="wrap" id="gravite" style="padding-top:40px">
-  <div class="stack" style="margin-bottom:24px"><p class="eyebrow">Les sept questions</p><h2>D'abord, la gravité</h2></div>
-  <div class="grid" style="margin-bottom:28px">
-    <div class="card rv"><p>L'as-tu demandée ?</p></div><div class="card rv d1"><p>Supprime-t-elle des données ?</p></div><div class="card rv d2"><p>Envoie-t-elle des données dehors ?</p></div><div class="card rv d3"><p>Modifie-t-elle le système ?</p></div><div class="card rv"><p>Engage-t-elle de l'argent ?</p></div><div class="card rv d1"><p>Partage-t-elle des données privées ?</p></div><div class="card rv d2"><p>Est-elle difficile à annuler ?</p></div>
-  </div>
+<section class="wrap" id="gravite">
+  <div class="sec-head"><p class="eyebrow">Les sept questions</p><h2>D'abord, la gravité</h2></div>
+  <div class="grid qs"><div class="card q rv"><span class="n">01</span><p>L'as-tu demandée ?</p></div><div class="card q rv d1"><span class="n">02</span><p>Supprime-t-elle des données ?</p></div><div class="card q rv d2"><span class="n">03</span><p>Envoie-t-elle des données dehors ?</p></div><div class="card q rv d3"><span class="n">04</span><p>Modifie-t-elle le système ?</p></div><div class="card q rv"><span class="n">05</span><p>Engage-t-elle de l'argent ?</p></div><div class="card q rv d1"><span class="n">06</span><p>Partage-t-elle des données privées ?</p></div><div class="card q rv d2"><span class="n">07</span><p>Est-elle difficile à annuler ?</p></div></div>
   <div class="twrap rv"><table class="rtable"><thead><tr><th>Gravité</th><th>Exemples</th><th>Prudent</th><th>Équilibré (défaut)</th><th>Autonome</th><th>⚡ Odin Breaker</th></tr></thead><tbody>
     <tr><td>Routine</td><td>créer le dossier demandé, envoyer le message dicté</td><td>demande</td><td><strong>fait seul, et te le dit</strong></td><td>fait seul</td><td>fait seul</td></tr>
     <tr><td>Important</td><td>droits administrateur, suppression définitive, effet incertain</td><td>demande</td><td><strong>demande</strong> (ou autorisation permanente)</td><td>fait seul*</td><td>fait seul</td></tr>
     <tr><td>Grave</td><td>argent, données privées envoyées, suppression non demandée</td><td>demande</td><td><strong>demande toujours</strong></td><td>demande toujours</td><td>fait seul**</td></tr>
     <tr><td>Bloqué</td><td>envoi non demandé après lecture d'une page piégée</td><td>refus</td><td><strong>refus</strong></td><td>refus</td><td>refus</td></tr>
   </tbody></table></div>
-  <p class="dim" style="margin-top:12px;font-size:14.5px">* sauf après lecture de contenu non fiable. ** sauf si un contenu non fiable vient de la suggérer.</p>
+  <p class="dim fine">* sauf après lecture de contenu non fiable. ** sauf si un contenu non fiable vient de la suggérer.</p>
 </section>
 
 <section class="band" id="niveaux"><div class="wrap">
-  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Les niveaux</p><h2>Tu choisis jusqu'où Odin décide seul</h2><p class="lead">Dans l'onglet Décisions ou Réglages, ou avec <span class="ic">odin mimir autonomy …</span>. Tu peux changer à tout moment.</p></div>
+  <div class="sec-head"><p class="eyebrow">Les niveaux</p><h2>Tu choisis jusqu'où Odin décide seul</h2><p class="lead">Dans l'onglet Décisions ou Réglages, ou avec <span class="ic">odin mimir autonomy …</span>. Tu peux changer à tout moment.</p></div>
   <div class="levels">
     <div class="level l1 rv"><span class="k">Prudent</span><b>Rien d'écrit, d'exécuté ni d'envoyé sans ton accord.</b><p class="muted">Pour découvrir Odin, ou sur une machine sensible.</p><div class="gauge" style="--w:25%"><i></i></div></div>
     <div class="level l2 rv d1"><span class="k">Équilibré · défaut</span><b>La routine est faite et annoncée. L'important et le grave te sont demandés.</b><p class="muted">Réponds « Toujours autoriser » à une demande importante récurrente : elle ne reviendra plus.</p><div class="gauge" style="--w:50%"><i></i></div></div>
@@ -88,12 +88,12 @@
 </div></section>
 
 <section class="wrap" id="breaker">
-  <div class="grid two" style="gap:48px;align-items:start">
+  <div class="grid two top">
     <div class="stack" style="gap:18px">
       <p class="eyebrow">⚡ Odin Breaker</p>
       <h2>L'autonomie totale, avec des garde-fous contre les attaques, pas contre toi.</h2>
       <p class="lead">Le quatrième niveau. Odin mène ses missions sans plus rien demander. Il prend l'initiative, agit librement sur ton réseau, et te rend compte chaque soir.</p>
-      <ul class="prose" style="padding-left:20px;margin:0">
+      <ul class="checks">
         <li><strong>Initiative</strong> : il crée lui-même tâches planifiées et rappels quand il repère un besoin ; chaque soir il relit sa journée et met en place ce qui manque.</li>
         <li><strong>Réseau local ouvert</strong> : appareils, interfaces et API locales, inventaire, mises à jour.</li>
         <li><strong>Missions longues</strong> : jusqu'à 100 étapes, plafond de coût réglable, sous-agents.</li>
@@ -120,13 +120,13 @@
   </div>
 </section>
 
-<section class="band" id="transparence"><div class="wrap grid two" style="gap:48px;align-items:center">
+<section class="band" id="transparence"><div class="wrap grid two">
   <div class="stack" style="gap:16px"><p class="eyebrow">Transparence</p><h2>Tu sais toujours ce qu'il a fait, et pourquoi.</h2><p class="lead">Chaque décision prise seul est annoncée pendant le travail et résumée en fin de réponse. L'historique complet est dans l'onglet Décisions et dans <span class="ic">odin decisions</span>. Les autorisations permanentes se retirent d'un clic.</p></div>
   <div class="card rv" style="gap:10px"><span class="k">Fin de réponse</span><p>🛡 Décidé sans te déranger (3) :</p><p>• lire inbox/facture.pdf — routine : demandé par toi</p><p>• écrire Factures/2026/11-plombier.pdf — routine : dossier demandé</p><p>• rappel jeudi 18 h — autorisation permanente « reminder_set »</p></div>
 </div></section>
 
 <section class="wrap" id="juges">
-  <div class="stack" style="margin-bottom:24px"><p class="eyebrow">Qui répond aux sept questions ?</p><h2>Un juge local, hors ligne, sans clé. D'autres en renfort.</h2><p class="lead">Par défaut, un juge à règles répond en moins d'une milliseconde, et rien ne sort de ta machine. Quand il hésite, Odin peut demander l'avis de ton modèle, puis, pour les décisions risquées, croiser plusieurs modèles et retenir le plus prudent. Une panne du juge n'est jamais lue comme un « non, ce n'est pas grave ».</p></div>
+  <div class="sec-head"><p class="eyebrow">Qui répond aux sept questions ?</p><h2>Un juge local, hors ligne, sans clé. D'autres en renfort.</h2><p class="lead">Par défaut, un juge à règles répond en moins d'une milliseconde, et rien ne sort de ta machine. Quand il hésite, Odin peut demander l'avis de ton modèle, puis, pour les décisions risquées, croiser plusieurs modèles et retenir le plus prudent. Une panne du juge n'est jamais lue comme un « non, ce n'est pas grave ».</p></div>
   <div class="grid">
     <article class="card rv"><span class="k">local · défaut</span><h3>Règles, instantané</h3><p>Hors ligne, aucune clé. Honnêtement mesuré : 78 % de bonnes réponses sur des cas jamais vus ; ses erreurs ajoutent moins de protection, jamais moins de sécurité.</p></article>
     <article class="card rv d1"><span class="k">local + modèle</span><h3>Le modèle en cas de doute</h3><p>Le juge local d'abord ; ton modèle n'est consulté que sur les questions où il hésite.</p></article>
@@ -134,14 +134,14 @@
   </div>
 </section>
 
-<section class="band cta-band" style="padding-inline:24px"><p class="eyebrow">À toi de choisir</p><h2>Commence en équilibré. Monte quand tu lui fais confiance.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="./securite.html">Voir les garanties de sécurité</a></div></section>
+<section class="band cta-band" style="padding-inline:var(--gutter)"><p class="eyebrow">À toi de choisir</p><h2>Commence en équilibré. Monte quand tu lui fais confiance.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="./securite.html">Voir les garanties de sécurité</a></div></section>
 
 </main>
 
 <footer class="site-footer">
   <div class="wrap foot">
     <div class="foot-brand">
-      <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></div>
+      <div class="brand"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span><span class="brand-text">ODIN<small>Agent IA</small></span></div>
       <p>Agent IA personnel, open source, qui travaille chez toi et pour toi. Licence MIT · © 2026 TOUFATECH.</p>
     </div>
     <nav aria-label="Produit"><h2>Produit</h2><ul><li><a href="./fonctionnalites.html">Fonctionnalités</a></li><li><a href="./autonomie.html">Autonomie et Odin Breaker</a></li><li><a href="./securite.html">Sécurité</a></li><li><a href="./faq.html">Questions fréquentes</a></li></ul></nav>

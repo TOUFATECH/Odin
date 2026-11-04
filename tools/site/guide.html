@@ -1,11 +1,12 @@
 <div class="wrap page-head">
+  <span class="odin" aria-hidden="true">{{MASCOT}}</span>
   <p class="eyebrow">Guide d'utilisation</p>
-  <h1 style="font-size:clamp(36px,5vw,60px)">Tout ce qu'il faut savoir pour se servir d'Odin.</h1>
+  <h1>Tout ce qu'il faut savoir pour se servir d'Odin.</h1>
   <nav class="toc" aria-label="Sommaire"><a href="#reglages">Réglages</a><a href="#quotidien">Au quotidien</a><a href="#telegram">Telegram</a><a href="#voix">Voix</a><a href="#documents">Documents</a><a href="#taches">Tâches et rappels</a><a href="#memoire">Mémoire et compétences</a><a href="#reseau">Réseau</a><a href="#commandes">Commandes</a><a href="#depannage">Dépannage</a></nav>
 </div>
 
-<section class="wrap sub" id="reglages" style="padding-top:32px">
-  <div class="stack" style="margin-bottom:24px"><h2>Configurer Odin : l'onglet Réglages</h2><p class="lead">Tout se règle depuis l'interface web (<span class="ic">odin web</span>). Rien à éditer à la main ; les clés restent sur ta machine, dans un fichier lisible par toi seul, et ne sont jamais renvoyées à la page.</p></div>
+<section class="wrap sub" id="reglages">
+  <div class="sec-head"><h2>Configurer Odin : l'onglet Réglages</h2><p class="lead">Tout se règle depuis l'interface web (<span class="ic">odin web</span>). Rien à éditer à la main ; les clés restent sur ta machine, dans un fichier lisible par toi seul, et ne sont jamais renvoyées à la page.</p></div>
   <div class="grid">
     <article class="card rv"><h3>Modèle</h3><p>Le modèle par défaut, des modèles de secours, leur palier (gratuit, standard, le plus capable) et les règles de choix. « Tester » puis « Enregistrer » : Odin redémarre ses services tout seul.</p></article>
     <article class="card rv d1"><h3>Décisions</h3><p>Niveau d'autonomie, Odin Breaker (tout le temps ou la nuit, rapport du soir, plafonds), juge des décisions.</p></article>
@@ -17,7 +18,7 @@
 </section>
 
 <section class="band sub" id="quotidien"><div class="wrap">
-  <div class="stack" style="margin-bottom:24px"><h2>Au quotidien</h2><p class="lead">Parle à Odin comme à un assistant : il agit, te montre ce qu'il fait, et te demande quand c'est important.</p></div>
+  <div class="sec-head"><h2>Au quotidien</h2><p class="lead">Parle à Odin comme à un assistant : il agit, te montre ce qu'il fait, et te demande quand c'est important.</p></div>
   <div class="grid">
     <article class="card rv"><h3>Discussion</h3><p>Écris ou parle (micro). Les outils utilisés s'affichent en direct ; une demande d'accord apparaît avec Autoriser, Toujours autoriser, Refuser. « Arrêter » interrompt. </p></article>
     <article class="card rv d1"><h3>Terminal</h3><p><span class="ic">odin chat</span> pour discuter, <span class="ic">odin run "résume ce dossier"</span> pour une demande ponctuelle, idéale dans un script.</p></article>
@@ -27,7 +28,7 @@
 </div></section>
 
 <section class="wrap sub" id="telegram">
-  <div class="grid two" style="gap:40px;align-items:start">
+  <div class="grid two top">
     <div class="stack" style="gap:14px"><h2>Telegram</h2><p class="lead">Odin dans ta poche, de n'importe où : texte, notes vocales, fichiers, photos.</p></div>
     <ol class="steps">
       <li><div><b>Crée un bot</b><span class="muted">Dans Telegram, écris à @BotFather, envoie <span class="ic">/newbot</span> et copie le jeton.</span></div></li>
@@ -38,7 +39,7 @@
   </div>
 </section>
 
-<section class="band sub" id="voix"><div class="wrap grid two" style="gap:40px;align-items:start">
+<section class="band sub" id="voix"><div class="wrap grid two top">
   <div class="stack" style="gap:14px"><h2>Voix</h2><p class="lead">Odin comprend ce que tu dis et te répond à voix haute.</p></div>
   <div class="stack">
     <div class="card"><h3>Comprendre</h3><p>Réglages → Voix → Service de transcription : en ligne (clé OpenAI) ou serveur local sur ta machine, sans clé. Puis le bouton micro dans la discussion, les notes vocales Telegram et les fichiers audio sont compris.</p></div>
@@ -48,7 +49,7 @@
 </div></section>
 
 <section class="wrap sub" id="documents">
-  <div class="stack" style="margin-bottom:24px"><h2>Documents et médias</h2><p class="lead">Dépose un fichier dans <span class="ic">~/.odin/workspace</span> ou envoie-le sur Telegram (il arrive dans <span class="ic">inbox/</span>), puis demande.</p></div>
+  <div class="sec-head"><h2>Documents et médias</h2><p class="lead">Dépose un fichier dans <span class="ic">~/.odin/workspace</span> ou envoie-le sur Telegram (il arrive dans <span class="ic">inbox/</span>), puis demande.</p></div>
   <div class="grid">
     <article class="card rv"><h3>« Résume ce PDF »</h3><p>PDF, Word, PowerPoint, Excel : Odin lit le texte, les tableaux, les diapositives.</p></article>
     <article class="card rv d1"><h3>« Fais-en un Excel avec le total »</h3><p>Classeur créé avec formules, plusieurs feuilles si besoin. Même chose pour Word, PDF, PowerPoint, CSV.</p></article>
@@ -57,7 +58,7 @@
   </div>
 </section>
 
-<section class="band sub" id="taches"><div class="wrap grid two" style="gap:40px;align-items:start">
+<section class="band sub" id="taches"><div class="wrap grid two top">
   <div class="stack" style="gap:14px"><h2>Tâches planifiées et rappels</h2><p class="lead">Demande simplement : « chaque lundi à 9 h, fais le point sur mes sauvegardes », « rappelle-moi jeudi 18 h de payer le plombier ».</p></div>
   <div class="stack">
     <div class="card"><h3>Elles tournent tant qu'Odin tourne</h3><p>Avec <span class="ic">odin gateway</span> ou le démarrage automatique. L'onglet Tâches planifiées les liste ; <span class="ic">odin cron</span> aussi.</p></div>
@@ -67,7 +68,7 @@
 </div></section>
 
 <section class="wrap sub" id="memoire">
-  <div class="stack" style="margin-bottom:24px"><h2>Mémoire et compétences</h2></div>
+  <div class="sec-head"><h2>Mémoire et compétences</h2></div>
   <div class="grid">
     <article class="card rv"><h3>Ce qu'il retient</h3><p>Tes préférences, ton environnement, tes missions, les faits utiles que tu lui donnes. Jamais de secret. Onglet Mémoire pour corriger, épingler, oublier.</p></article>
     <article class="card rv d1"><h3>Quarantaine</h3><p>Ce qui vient du web ou d'un inconnu reste en quarantaine jusqu'à ce que tu le valides.</p></article>
@@ -76,7 +77,7 @@
   </div>
 </section>
 
-<section class="band sub" id="reseau"><div class="wrap grid two" style="gap:40px;align-items:start">
+<section class="band sub" id="reseau"><div class="wrap grid two top">
   <div class="stack" style="gap:14px"><h2>Réseau local</h2><p class="lead">L'onglet Réseau liste tes appareils, leur état et ce qu'Odin peut faire avec chacun.</p></div>
   <div class="stack">
     <div class="card"><h3>Balayer</h3><p>Réglages → Réseau local → « Balayer maintenant », ou <span class="ic">odin net scan --full</span>. Certains appareils n'apparaissent qu'au bout de quelques minutes.</p></div>
@@ -86,7 +87,7 @@
 </div></section>
 
 <section class="wrap sub" id="commandes">
-  <div class="stack" style="margin-bottom:24px"><h2>Commandes utiles</h2></div>
+  <div class="sec-head"><h2>Commandes utiles</h2></div>
   <div class="twrap rv"><table class="rtable"><thead><tr><th>Commande</th><th>Rôle</th></tr></thead><tbody>
     <tr><td><span class="ic">odin web</span></td><td>ouvre l'interface web (tout y est)</td></tr>
     <tr><td><span class="ic">odin gateway</span></td><td>fait tout tourner en arrière-plan : web, Telegram, tâches, réseau</td></tr>
@@ -102,8 +103,8 @@
   </tbody></table></div>
 </section>
 
-<section class="band sub" id="depannage"><div class="wrap narrow" style="max-width:860px">
-  <div class="stack" style="margin-bottom:16px"><h2>Dépannage</h2></div>
+<section class="band sub" id="depannage"><div class="wrap narrow">
+  <div class="sec-head"><h2>Dépannage</h2></div>
   <details id="d-commande"><summary>« odin : commande introuvable »<span class="plus" aria-hidden="true">+</span></summary><p>Ouvre un nouveau terminal : le PATH vient d'être modifié par l'installateur.</p></details>
   <details id="d-demo"><summary>Odin répond en mode démo<span class="plus" aria-hidden="true">+</span></summary><p>Aucun modèle n'est configuré. Réglages → Modèle : colle ta clé (ou choisis Ollama et vérifie qu'il tourne), « Tester », « Enregistrer ».</p></details>
   <details id="d-telephone"><summary>Le téléphone n'arrive pas à ouvrir Odin<span class="plus" aria-hidden="true">+</span></summary><p>Même Wi-Fi que l'ordinateur ; utilise l'adresse en <span class="ic">https://</span> affichée au démarrage ; vérifie que son réseau figure dans Réglages → Accès ; autorise le port 7777 dans le pare-feu.</p></details>

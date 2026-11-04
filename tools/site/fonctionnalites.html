@@ -1,11 +1,12 @@
 <div class="wrap page-head">
+  <span class="odin" aria-hidden="true">{{MASCOT}}</span>
   <p class="eyebrow">Fonctionnalités</p>
-  <h1 style="font-size:clamp(36px,5vw,60px)">Tout ce qu'Odin sait faire.</h1>
+  <h1>Tout ce qu'Odin sait faire.</h1>
   <p class="lead">Des mains, des yeux, une voix, une mémoire, et un gardien. Chaque capacité ci-dessous est livrée, testée, et se règle depuis l'interface web.</p>
 </div>
 
-<section class="wrap" id="agir" style="padding-top:40px">
-  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Agir</p><h2>Des mains sur ta machine et ton réseau</h2></div>
+<section class="wrap" id="agir">
+  <div class="sec-head"><p class="eyebrow">Agir</p><h2>Des mains sur ta machine et ton réseau</h2></div>
   <div class="grid">
     <article class="card rv"><h3>Fichiers et dossiers</h3><p>Lire, écrire, modifier, ranger, dans un espace de travail cantonné. Jamais hors de ce dossier sans ton accord.</p></article>
     <article class="card rv d1"><h3>Commandes</h3><p>Shell avec liste blanche pour l'anodin, validation pour le reste, commandes destructrices interdites, option bac à sable Docker.</p></article>
@@ -17,7 +18,7 @@
 </section>
 
 <section class="band" id="documents"><div class="wrap">
-  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Documents et médias</p><h2>Il lit et produit les formats du quotidien, sans rien installer</h2><p class="lead">Envoie un fichier sur Telegram ou dépose-le dans l'espace de travail, puis demande.</p></div>
+  <div class="sec-head"><p class="eyebrow">Documents et médias</p><h2>Il lit et produit les formats du quotidien, sans rien installer</h2><p class="lead">Envoie un fichier sur Telegram ou dépose-le dans l'espace de travail, puis demande.</p></div>
   <div class="twrap rv"><table class="rtable"><thead><tr><th>Type</th><th>Lire</th><th>Créer, transformer</th></tr></thead><tbody>
     <tr><td>PDF</td><td>Texte, lecteur intégré (pdftotext s'il existe)</td><td>PDF A4 paginé à partir de texte simple</td></tr>
     <tr><td>Word (.docx)</td><td>Titres, listes, texte</td><td>Document avec titres, gras, listes</td></tr>
@@ -26,23 +27,23 @@
     <tr><td>Images</td><td>Description, lecture du texte (vision)</td><td>Conversion, redimensionnement</td></tr>
     <tr><td>Vidéo et audio</td><td>Informations, transcription</td><td>Format, découpe, son seul, miniature</td></tr>
   </tbody></table></div>
-  <p class="dim" style="margin-top:14px;font-size:14.5px">Un fichier venu de l'extérieur est traité comme un contenu non fiable : ses consignes ne sont jamais suivies.</p>
+  <p class="dim fine">Un fichier venu de l'extérieur est traité comme un contenu non fiable : ses consignes ne sont jamais suivies.</p>
 </div></section>
 
 <section class="wrap" id="voix">
-  <div class="grid two" style="align-items:center;gap:48px">
+  <div class="grid two">
     <div class="stack" style="gap:16px"><p class="eyebrow">Voix</p><h2>Parle-lui. Il te répond, avec la voix que tu veux.</h2><p class="lead">Micro dans l'interface, notes vocales sur Telegram, fichiers audio : Odin comprend ce que tu dis. Il répond à voix haute et en notes vocales.</p><p class="muted">Tu peux lui donner une voix existante, ou copier une voix à partir d'un enregistrement d'une minute. La copie exige ton accord explicite : ta voix, ou celle d'une personne qui a consenti.</p></div>
     <div class="card accent rv" style="gap:12px"><span class="k">Réglages → Voix</span><p><strong style="color:var(--ink)">Comprendre</strong> : service de transcription en ligne, ou serveur local sans clé pour rester 100 % chez toi.</p><p><strong style="color:var(--ink)">Parler</strong> : synthèse vocale, choix de la voix, essai en un clic, copie de voix avec consentement.</p><p><strong style="color:var(--ink)">Au quotidien</strong> : bouton 🔊 dans la discussion, réponse vocale automatique quand tu parles à Odin sur Telegram.</p></div>
   </div>
 </section>
 
-<section class="band" id="apprentissage"><div class="wrap grid two" style="align-items:center;gap:48px">
+<section class="band" id="apprentissage"><div class="wrap grid two">
   <div class="card rv" style="gap:10px"><span class="k">Ce qu'il a retenu aujourd'hui</span><p>🧠 Tu veux tes rapports en PDF, le lundi matin.</p><p>🧠 Le NAS de la maison est en 192.168.1.30 ; sauvegarde nocturne à 2 h.</p><p>💡 Compétence apprise et active : <span class="ic">rapport-sauvegardes-nas</span></p><p>🖥 Machine : macOS 15, 8 cœurs, 16 Go, ffmpeg et docker présents.</p></div>
   <div class="stack" style="gap:16px"><p class="eyebrow">Apprentissage rapide</p><h2>Il s'adapte à toi, à ta machine et à tes missions.</h2><p class="lead">Après chaque échange, Odin retient jusqu'à trois faits durables : préférences, environnement, missions, personnes. Jamais de secret, jamais depuis une page web. Les tâches réussies deviennent des compétences, actives tout de suite en mode Breaker.</p></div>
 </div></section>
 
 <section class="wrap" id="modeles">
-  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Modèles</p><h2>Le bon modèle pour chaque tâche, et jamais bloqué par un quota</h2></div>
+  <div class="sec-head"><p class="eyebrow">Modèles</p><h2>Le bon modèle pour chaque tâche, et jamais bloqué par un quota</h2></div>
   <div class="grid">
     <article class="card rv"><span class="k">Gratuit quand ça suffit</span><h3>Modèle installé pour le simple</h3><p>Question rapide, résumé, réflexion de fond : un modèle local (Ollama, LM Studio…) fait l'affaire, sans rien payer ni rien envoyer.</p></article>
     <article class="card rv d1"><span class="k">Fort quand il faut</span><h3>Le plus capable pour le complexe</h3><p>Projet en plusieurs étapes, gros document, débogage : Odin monte d'un palier tout seul.</p></article>
@@ -52,7 +53,7 @@
 </section>
 
 <section class="band" id="reseau"><div class="wrap">
-  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Réseau local</p><h2>Un inventaire vivant de tes appareils</h2></div>
+  <div class="sec-head"><p class="eyebrow">Réseau local</p><h2>Un inventaire vivant de tes appareils</h2></div>
   <div class="grid">
     <article class="card rv"><h3>Découvrir</h3><p>Table ARP, balayage TCP léger, Bonjour (mDNS) et UPnP. Sans droits administrateur. Réseau local privé seulement.</p></article>
     <article class="card rv d1"><h3>Enregistrer et suivre</h3><p>Chaque appareil garde son historique : première vue, dernière vue, ports, nom que tu lui donnes. Statuts : en ligne, déconnecté, retiré.</p></article>
@@ -62,7 +63,7 @@
 </div></section>
 
 <section class="wrap" id="canaux">
-  <div class="stack" style="margin-bottom:28px"><p class="eyebrow">Où lui parler</p><h2>Il vit où tu es</h2></div>
+  <div class="sec-head"><p class="eyebrow">Où lui parler</p><h2>Il vit où tu es</h2></div>
   <div class="grid">
     <article class="card rv"><h3>Interface web</h3><p>Sur l'ordinateur et le téléphone, en HTTPS sur ton réseau local. Tout se règle là.</p></article>
     <article class="card rv d1"><h3>Telegram</h3><p>Texte, vocaux, fichiers, photos. Les inconnus sont appairés par code.</p></article>
@@ -71,4 +72,4 @@
   </div>
 </section>
 
-<section class="band cta-band" style="padding-inline:24px"><p class="eyebrow">Prêt ?</p><h2>Installe Odin en une commande.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="./autonomie.html">Voir les niveaux d'autonomie</a></div></section>
+<section class="band cta-band" style="padding-inline:var(--gutter)"><p class="eyebrow">Prêt ?</p><h2>Installe Odin en une commande.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="./autonomie.html">Voir les niveaux d'autonomie</a></div></section>

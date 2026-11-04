@@ -9,7 +9,7 @@
 <link rel="canonical" href="https://toufatech.github.io/Odin/faq.html">
 <meta name="theme-color" content="#0B0E14">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Odin Agent Majordome">
+<meta property="og:site_name" content="Odin Agent IA">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:title" content="Questions fréquentes sur Odin">
 <meta property="og:description" content="Odin est-il gratuit ? Où vont mes données ? Peut-il tourner sans Internet ? Comment change-t-on de modèle ? Les réponses aux questions les plus posées.">
@@ -30,9 +30,10 @@
 </head>
 <body data-page="faq">
 <a class="skip" href="#contenu">Aller au contenu</a>
+<div class="progress" id="progress" aria-hidden="true"></div>
 <header class="site-header" id="haut">
   <div class="wrap bar">
-    <a class="brand" href="./" aria-label="Odin Agent Majordome, accueil"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></a>
+    <a class="brand" href="./" aria-label="Odin Agent IA, accueil"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span><span class="brand-text">ODIN<small>Agent IA</small></span></a>
     <nav class="nav" aria-label="Navigation principale"><ul><li><a href="./">Accueil</a></li>
 <li><a href="./fonctionnalites.html">Fonctionnalités</a></li>
 <li><a href="./autonomie.html">Autonomie</a></li>
@@ -57,11 +58,12 @@
 </header>
 
 <main id="contenu">
-<div class="wrap page-head narrow" style="max-width:860px">
+<div class="wrap page-head narrow">
+  <span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span>
   <p class="eyebrow">FAQ</p>
-  <h1 style="font-size:clamp(36px,5vw,56px)">Questions fréquentes</h1>
+  <h1>Questions fréquentes</h1>
 </div>
-<section class="wrap narrow" style="max-width:860px;padding-top:16px">
+<section class="wrap narrow">
   <details id="gratuit" open><summary>Odin est-il gratuit ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui. Odin est open source sous licence MIT. Tu paies seulement le fournisseur de modèle que tu choisis, ou rien du tout avec un modèle installé sur ta machine (Ollama, LM Studio…). Il n'y a ni compte, ni abonnement, ni inscription nulle part.</p></details>
   <details id="donnees"><summary>Où vont mes données ?<span class="plus" aria-hidden="true">+</span></summary><p>Mémoire, conversations, compétences et inventaire restent dans un fichier SQLite sur ta machine (<span class="ic">~/.odin</span>). Seuls tes messages partent vers le fournisseur de modèle que tu as configuré, et, si tu les actives, l'audio vers ton service de transcription et le texte à lire vers ton service de synthèse vocale. Ce site, lui, ne collecte rien.</p></details>
   <details id="hors-ligne"><summary>Odin peut-il fonctionner sans Internet ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui : un modèle local pour réfléchir, un serveur de transcription local pour la voix, et le juge des décisions, qui fonctionne hors ligne par défaut. Seule la synthèse vocale demande un service en ligne.</p></details>
@@ -75,14 +77,14 @@
   <details id="competences"><summary>Puis-je écrire mes propres compétences ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui. Une compétence est un simple fichier <span class="ic">SKILL.md</span> dans <span class="ic">~/.odin/skills/&lt;nom&gt;/</span>. Odin charge son contenu seulement quand il en a besoin, et peut en proposer de nouvelles après une tâche réussie.</p></details>
   <details id="code"><summary>Sur quoi tourne Odin ?<span class="plus" aria-hidden="true">+</span></summary><p>Node.js 22 (installé automatiquement), TypeScript exécuté nativement, SQLite intégré, aucune dépendance à l'exécution. Environ 6 000 lignes commentées en français, 118 tests sur macOS, Linux et Windows. Le code est sur <a href="https://github.com/TOUFATECH/Odin" rel="noopener">GitHub</a>.</p></details>
 </section>
-<section class="band cta-band" style="padding-inline:24px"><p class="eyebrow">Une autre question ?</p><h2>Ouvre un ticket sur GitHub, ou installe Odin et demande-lui.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Poser une question</a></div></section>
+<section class="band cta-band" style="padding-inline:var(--gutter)"><p class="eyebrow">Une autre question ?</p><h2>Ouvre un ticket sur GitHub, ou installe Odin et demande-lui.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Poser une question</a></div></section>
 
 </main>
 
 <footer class="site-footer">
   <div class="wrap foot">
     <div class="foot-brand">
-      <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span><span class="brand-text">ODIN<small>Agent Majordome</small></span></div>
+      <div class="brand"><span class="odin" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".55" stop-color="#F2B544" stop-opacity=".28"/><stop offset="1" stop-color="#F2B544" stop-opacity="0"/></radialGradient></defs><circle class="halo" cx="60" cy="60" r="60" fill="url(#odinHalo)"/><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)"/><ellipse cx="45" cy="34" rx="15" ry="8" fill="#fff" opacity=".32"/><g class="eyes"><g class="brow l"><rect class="eye l" x="42" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="67.5" y="47" width="10.5" height="21" rx="5.25" fill="#fff"/></g></g></g></svg></span><span class="brand-text">ODIN<small>Agent IA</small></span></div>
       <p>Agent IA personnel, open source, qui travaille chez toi et pour toi. Licence MIT · © 2026 TOUFATECH.</p>
     </div>
     <nav aria-label="Produit"><h2>Produit</h2><ul><li><a href="./fonctionnalites.html">Fonctionnalités</a></li><li><a href="./autonomie.html">Autonomie et Odin Breaker</a></li><li><a href="./securite.html">Sécurité</a></li><li><a href="./faq.html">Questions fréquentes</a></li></ul></nav>

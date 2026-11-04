@@ -1,8 +1,9 @@
-<div class="wrap page-head narrow" style="max-width:860px">
+<div class="wrap page-head narrow">
+  <span class="odin" aria-hidden="true">{{MASCOT}}</span>
   <p class="eyebrow">FAQ</p>
-  <h1 style="font-size:clamp(36px,5vw,56px)">Questions fréquentes</h1>
+  <h1>Questions fréquentes</h1>
 </div>
-<section class="wrap narrow" style="max-width:860px;padding-top:16px">
+<section class="wrap narrow">
   <details id="gratuit" open><summary>Odin est-il gratuit ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui. Odin est open source sous licence MIT. Tu paies seulement le fournisseur de modèle que tu choisis, ou rien du tout avec un modèle installé sur ta machine (Ollama, LM Studio…). Il n'y a ni compte, ni abonnement, ni inscription nulle part.</p></details>
   <details id="donnees"><summary>Où vont mes données ?<span class="plus" aria-hidden="true">+</span></summary><p>Mémoire, conversations, compétences et inventaire restent dans un fichier SQLite sur ta machine (<span class="ic">~/.odin</span>). Seuls tes messages partent vers le fournisseur de modèle que tu as configuré, et, si tu les actives, l'audio vers ton service de transcription et le texte à lire vers ton service de synthèse vocale. Ce site, lui, ne collecte rien.</p></details>
   <details id="hors-ligne"><summary>Odin peut-il fonctionner sans Internet ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui : un modèle local pour réfléchir, un serveur de transcription local pour la voix, et le juge des décisions, qui fonctionne hors ligne par défaut. Seule la synthèse vocale demande un service en ligne.</p></details>
@@ -16,4 +17,4 @@
   <details id="competences"><summary>Puis-je écrire mes propres compétences ?<span class="plus" aria-hidden="true">+</span></summary><p>Oui. Une compétence est un simple fichier <span class="ic">SKILL.md</span> dans <span class="ic">~/.odin/skills/&lt;nom&gt;/</span>. Odin charge son contenu seulement quand il en a besoin, et peut en proposer de nouvelles après une tâche réussie.</p></details>
   <details id="code"><summary>Sur quoi tourne Odin ?<span class="plus" aria-hidden="true">+</span></summary><p>Node.js 22 (installé automatiquement), TypeScript exécuté nativement, SQLite intégré, aucune dépendance à l'exécution. Environ 6 000 lignes commentées en français, 118 tests sur macOS, Linux et Windows. Le code est sur <a href="https://github.com/TOUFATECH/Odin" rel="noopener">GitHub</a>.</p></details>
 </section>
-<section class="band cta-band" style="padding-inline:24px"><p class="eyebrow">Une autre question ?</p><h2>Ouvre un ticket sur GitHub, ou installe Odin et demande-lui.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Poser une question</a></div></section>
+<section class="band cta-band" style="padding-inline:var(--gutter)"><p class="eyebrow">Une autre question ?</p><h2>Ouvre un ticket sur GitHub, ou installe Odin et demande-lui.</h2><div class="cta"><a class="btn primary" href="./installation.html">Installer Odin</a><a class="btn ghost" href="https://github.com/TOUFATECH/Odin/issues" rel="noopener">Poser une question</a></div></section>

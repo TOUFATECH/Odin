@@ -1,4 +1,4 @@
-// Odin Agent Majordome — comportements du site. Aucun cookie, aucun traceur, aucune requête externe.
+// Odin Agent IA — comportements du site. Aucun cookie, aucun traceur, aucune requête externe.
 (() => {
   const d = document, root = d.documentElement;
   root.classList.add('js');
@@ -19,10 +19,27 @@
   menuBtn?.addEventListener('click', () => { const open = mobile.hidden; mobile.hidden = !open; menuBtn.setAttribute('aria-expanded', String(open)); menuBtn.setAttribute('aria-label', open ? 'Fermer le menu' : 'Ouvrir le menu'); });
   $$('#mobileNav a').forEach((a) => a.addEventListener('click', () => { mobile.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); }));
 
-  // Bouton « haut de page »
-  const toTop = $('#toTop');
-  const onScroll = () => toTop?.classList.toggle('on', scrollY > 600);
-  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  // Bouton « haut de page », barre de progression, ombre de l'en-tête
+  const toTop = $('#toTop'), progress = $('#progress'), header = $('.site-header');
+  const onScroll = () => {
+    const y = scrollY, max = d.documentElement.scrollHeight - innerHeight;
+    toTop?.classList.toggle('on', y > 600);
+    header?.classList.toggle('scrolled', y > 8);
+    if (progress) progress.style.transform = `scaleX(${max > 0 ? Math.min(1, y / max) : 0})`;
+  };
+  addEventListener('scroll', onScroll, { passive: true }); addEventListener('resize', onScroll); onScroll();
+
+  // Cartes : halo qui suit le pointeur (souris seulement)
+  if (matchMedia('(hover:hover) and (pointer:fine)').matches) {
+    d.addEventListener('pointermove', (e) => {
+      const c = e.target.closest?.('.card'); if (!c) return;
+      const r = c.getBoundingClientRect();
+      c.style.setProperty('--mx', `${e.clientX - r.left}px`); c.style.setProperty('--my', `${e.clientY - r.top}px`);
+    }, { passive: true });
+  }
+
+  // Mascotte du héros : elle « réfléchit » pendant que le terminal travaille, sourit à la fin
+  const heroOdin = $('#heroOdin');
 
   // Révélation au défilement
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -52,6 +69,11 @@
     const lines = [...term.children];
     const play = () => {
       lines.forEach((l, i) => { l.style.animation = 'none'; l.offsetHeight; l.style.animation = ''; l.style.animationDelay = `${reduce ? 0 : 0.35 + i * 0.55}s`; });
+      if (heroOdin && !reduce) {
+        heroOdin.classList.remove('happy'); heroOdin.classList.add('thinking');
+        setTimeout(() => { heroOdin.classList.remove('thinking'); heroOdin.classList.add('happy'); }, 350 + (lines.length - 2) * 550);
+        setTimeout(() => heroOdin.classList.remove('happy'), 350 + lines.length * 550 + 2500);
+      }
     };
     play();
     if (!reduce) setInterval(play, 0.35 * 1000 + lines.length * 550 + 6000);

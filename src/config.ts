@@ -38,6 +38,8 @@ export interface OdinConfig {
     crossCheckRisky: boolean;
     /** Minutes de mise à l'écart d'un fournisseur à bout de quota. */
     quotaPauseMin: number;
+    /** Plafond de dépense par mois civil, en dollars (0 = pas de plafond). Au-delà : modèles gratuits seulement. */
+    monthlyBudgetUsd: number;
   };
   /** Fournisseur (moins cher) pour la compaction, la réflexion et les sous-agents. */
   cheapProvider?: ProviderConfig;
@@ -122,7 +124,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     { kind: 'anthropic', model: 'claude-sonnet-5-5', apiKeyEnv: 'ANTHROPIC_API_KEY', priceInPerM: 3, priceOutPerM: 15 },
     { kind: 'openai', model: 'anthropic/claude-sonnet-5.5', baseUrl: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
   ],
-  routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15 },
+  routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15, monthlyBudgetUsd: 0 },
   agent: { maxSteps: 25, maxTokens: 4096, contextBudget: 60000, maxCostPerTurnUsd: 1 },
   policy: {
     modes: { read: 'allow', write: 'allow', network: 'allow', exec: 'ask', external: 'ask' },
@@ -204,6 +206,7 @@ export function validateConfig(c: OdinConfig): string[] {
   if (!['auto', 'local', 'llm', 'jev', 'local+llm', 'local+jev'].includes(c.mimir.judge)) errs.push('mimir.judge doit valoir auto, local, llm, jev, local+llm ou local+jev');
   if (!/^https?:\/\//.test(c.voice.stt.baseUrl) || !/^https?:\/\//.test(c.voice.tts.baseUrl)) errs.push('voice.stt.baseUrl / voice.tts.baseUrl : des adresses http(s)');
   if (c.voice.tts.voiceId && !/^[A-Za-z0-9_-]{4,64}$/.test(c.voice.tts.voiceId)) errs.push('voice.tts.voiceId : identifiant de voix ElevenLabs invalide');
+  if (!(c.routing.monthlyBudgetUsd >= 0)) errs.push('routing.monthlyBudgetUsd doit être positif ou nul');
   if (!['never', 'breaker', 'always'].includes(c.learning.autoApproveSkills)) errs.push('learning.autoApproveSkills doit valoir never, breaker ou always');
   if (!AUTONOMY_LEVELS.includes(c.mimir.autonomy)) errs.push('mimir.autonomy doit valoir prudent, equilibre, autonome ou breaker');
   {

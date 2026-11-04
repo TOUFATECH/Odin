@@ -38,6 +38,13 @@ export interface SessionRow {
   tainted: number;
   created_at: number;
   updated_at: number;
+  suspicious?: number;
+}
+
+export interface MissionRow {
+  id: string; session_id: string; goal: string; status: string; origin: string;
+  steps: number; tool_calls: number; cost_usd: number; subagents: number; last_tool: string; result: string;
+  started_at: number; updated_at: number; ended_at: number | null;
 }
 
 export interface JobRow {
@@ -94,6 +101,10 @@ CREATE TABLE IF NOT EXISTS grants(
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, tool TEXT NOT NULL, example TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL, uses INTEGER NOT NULL DEFAULT 0, last_used INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS skill_stats(name TEXT PRIMARY KEY, uses INTEGER NOT NULL DEFAULT 0, last_used INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS missions(
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL, goal TEXT NOT NULL, status TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'user',
+  steps INTEGER NOT NULL DEFAULT 0, tool_calls INTEGER NOT NULL DEFAULT 0, cost_usd REAL NOT NULL DEFAULT 0, subagents INTEGER NOT NULL DEFAULT 0,
+  last_tool TEXT NOT NULL DEFAULT '', result TEXT NOT NULL DEFAULT '', started_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, ended_at INTEGER);
 CREATE TABLE IF NOT EXISTS usage(session_id TEXT, provider TEXT, tokens_in INTEGER, tokens_out INTEGER, cost_usd REAL, created_at INTEGER);
 `;
 
@@ -110,6 +121,8 @@ export class Muninn {
     this.db = new DatabaseSync(file);
     this.db.exec(SCHEMA);
     try { this.db.exec('ALTER TABLE jobs ADD COLUMN tainted INTEGER NOT NULL DEFAULT 0'); } catch { /* colonne déjà présente */ }
+    try { this.db.exec("ALTER TABLE usage ADD COLUMN purpose TEXT NOT NULL DEFAULT 'agent'"); } catch { /* colonne déjà présente */ }
+    try { this.db.exec('ALTER TABLE sessions ADD COLUMN suspicious INTEGER NOT NULL DEFAULT 0'); } catch { /* colonne déjà présente */ }
   }
 
   close(): void { this.db.close(); }
@@ -137,11 +150,15 @@ export class Muninn {
   markTainted(id: string): void {
     this.db.prepare('UPDATE sessions SET tainted = 1 WHERE id = ?').run(id);
   }
+  /** Un contenu manipulateur a été vu : la session reste sous surveillance jusqu'à une nouvelle conversation. */
+  markSuspicious(id: string): void {
+    this.db.prepare('UPDATE sessions SET suspicious = 1 WHERE id = ?').run(id);
+  }
 
   /** Une nouvelle conversation remet le marquage à zéro (l'historique reste consultable). */
   resetSession(id: string): void {
     const max = this.db.prepare('SELECT COALESCE(MAX(id),0) AS m FROM messages WHERE session_id = ?').get(id) as { m: number };
-    this.db.prepare("UPDATE sessions SET compact_upto = ?, summary = '', tainted = 0 WHERE id = ?").run(max.m, id);
+    this.db.prepare("UPDATE sessions SET compact_upto = ?, summary = '', tainted = 0, suspicious = 0 WHERE id = ?").run(max.m, id);
   }
 
   addMessage(sessionId: string, m: Message): number {
@@ -315,8 +332,36 @@ export class Muninn {
 
   // ---------- Statistiques ----------
 
-  recordUsage(sessionId: string, provider: string, tin: number, tout: number, cost: number): void {
-    this.db.prepare('INSERT INTO usage VALUES (?,?,?,?,?,?)').run(sessionId, provider, tin, tout, cost, Date.now());
+  recordUsage(sessionId: string, provider: string, tin: number, tout: number, cost: number, purpose = 'agent'): void {
+    this.db.prepare('INSERT INTO usage(session_id, provider, tokens_in, tokens_out, cost_usd, created_at, purpose) VALUES (?,?,?,?,?,?,?)').run(sessionId, provider, tin, tout, cost, Date.now(), purpose);
+  }
+
+  // ---------- Missions (chaque tour de l'agent, pour l'onglet Missions) ----------
+
+  startMission(m: { id: string; sessionId: string; goal: string; origin: string }): void {
+    const now = Date.now();
+    this.db.prepare('INSERT INTO missions(id, session_id, goal, status, origin, started_at, updated_at) VALUES (?,?,?,?,?,?,?)').run(m.id, m.sessionId, m.goal.slice(0, 300), 'en cours', m.origin, now, now);
+  }
+  progressMission(id: string, p: { steps?: number; toolCalls?: number; costUsd?: number; subagents?: number; lastTool?: string }): void {
+    this.db.prepare('UPDATE missions SET steps = COALESCE(?, steps), tool_calls = COALESCE(?, tool_calls), cost_usd = COALESCE(?, cost_usd), subagents = subagents + COALESCE(?, 0), last_tool = COALESCE(?, last_tool), updated_at = ? WHERE id = ?')
+      .run(p.steps ?? null, p.toolCalls ?? null, p.costUsd ?? null, p.subagents ?? null, p.lastTool ?? null, Date.now(), id);
+  }
+  endMission(id: string, status: 'terminée' | 'arrêtée' | 'échouée' | 'en attente', result: string, costUsd?: number): void {
+    this.db.prepare('UPDATE missions SET status = ?, result = ?, cost_usd = COALESCE(?, cost_usd), ended_at = ?, updated_at = ? WHERE id = ?').run(status, result.slice(0, 2000), costUsd ?? null, Date.now(), Date.now(), id);
+  }
+  listMissions(limit = 50): MissionRow[] {
+    return this.db.prepare('SELECT * FROM missions ORDER BY (status = \'en cours\') DESC, updated_at DESC LIMIT ?').all(limit) as unknown as MissionRow[];
+  }
+  getMission(id: string): MissionRow | undefined { return this.db.prepare('SELECT * FROM missions WHERE id = ?').get(id) as MissionRow | undefined; }
+
+  /** Coût par fournisseur et par finalité depuis une date (Réglages → Modèle). */
+  usageBreakdown(ts: number): Array<{ provider: string; purpose: string; calls: number; tokens: number; cost_usd: number }> {
+    return this.db.prepare('SELECT provider, purpose, COUNT(*) AS calls, SUM(tokens_in + tokens_out) AS tokens, SUM(cost_usd) AS cost_usd FROM usage WHERE created_at >= ? GROUP BY provider, purpose ORDER BY cost_usd DESC').all(ts) as never;
+  }
+  /** Dépense depuis le 1er du mois (heure locale). */
+  monthCost(now = new Date()): number {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return Number((this.db.prepare('SELECT COALESCE(SUM(cost_usd),0) AS c FROM usage WHERE created_at >= ?').get(start) as { c: number }).c);
   }
 
   usageSince(ts: number): { tokens_in: number; tokens_out: number; cost_usd: number } {

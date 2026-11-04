@@ -18,17 +18,28 @@ export interface JudgeDeps {
   crossCheck?: boolean;
 }
 
-const RISK_KEYS = ['deletes', 'sends_out', 'system_change', 'money', 'private_data', 'irreversible'];
-/** Après le premier juge : si une question de risque penche vers oui ou reste incertaine, second avis multi-modèles. */
+// Signaux qui justifient de payer 2-3 avis de plus : ce qui peut coûter cher ou ne pas se rattraper.
+const RISK_KEYS = ['deletes', 'sends_out', 'money', 'private_data', 'system_change'];
+const CACHE_TTL = 10 * 60_000;
+const crossCache = new Map<string, { at: number; answers: Awaited<ReturnType<Judge>> }>();
+/** Après le premier juge : si une question de risque penche vers « oui », second avis multi-modèles. */
 export function riskyCrossCheck(first: Judge, cross: Judge): Judge {
   return async (state, questions, signal) => {
     const a = await first(state, questions, signal);
     const riskQs = Object.keys(questions).filter((n) => RISK_KEYS.includes(n));
     if (!riskQs.length) return a;
-    const worrying = riskQs.some((n) => { const x = a[n]; return x?.type === 'noul' && x.noul > 0.3; });
+    // On croise quand un vrai danger est probable (≥ 0,5), pas sur le simple « incertain » (0,4-0,45) que le juge
+    // local met sur toute écriture ou tout programme inconnu : ça coûterait 2-3 appels à chaque fichier écrit.
+    const worrying = riskQs.some((n) => { const x = a[n]; return x?.type === 'noul' && x.noul >= 0.5; });
     if (!worrying) return a;
+    // Même action redemandée dans les 10 minutes (boucle, réessai) : on réutilise le verdict croisé.
+    const key = JSON.stringify((state as { action?: unknown }).action ?? state).slice(0, 2000);
+    const hit = crossCache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_TTL) return { ...a, ...hit.answers };
     try {
       const b = await cross(state, questions, signal);
+      crossCache.set(key, { at: Date.now(), answers: b });
+      if (crossCache.size > 500) for (const [k, v] of crossCache) if (Date.now() - v.at > CACHE_TTL) crossCache.delete(k);
       // On garde, question par question, l'avis le plus prudent.
       const out: typeof a = { ...a };
       for (const n of Object.keys(questions)) {

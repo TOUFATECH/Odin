@@ -40,6 +40,8 @@ export interface RoutedResponse extends ModelResponse {
 export interface CompleteOptions {
   /** Palier minimal souhaité (défaut : standard). */
   minTier?: Tier;
+  /** À quoi sert l'appel (agent, juge, résumé, réflexion, observation, vision…), pour la comptabilité. */
+  purpose?: string;
   /** Fournisseurs à éviter (vérification croisée : un autre avis). */
   exclude?: string[];
 }
@@ -73,6 +75,13 @@ export class Router {
   readonly pauseMs: number;
   /** Appelé quand un fournisseur est mis de côté ou revient (journal, notification). */
   onPause?: (name: string, reason: string, untilMs: number) => void;
+  /** Comptabilité : chaque appel réussi (quel que soit l'appelant : agent, juges, résumé…). */
+  onUsage?: (provider: string, tokensIn: number, tokensOut: number, costUsd: number, purpose: string) => void;
+  /** Budget : renvoie vrai quand les modèles payants doivent être évités (plafond mensuel atteint). */
+  overBudget?: () => boolean;
+  private trackers = new Set<(costUsd: number) => void>();
+  /** Suit la dépense pendant une période (un tour) ; renvoie la fonction qui arrête le suivi. */
+  track(fn: (costUsd: number) => void): () => void { this.trackers.add(fn); return () => this.trackers.delete(fn); }
 
   constructor(routes: Route[], maxRetries = 2, sleep = (ms: number) => new Promise((r) => setTimeout(r, ms)), opts: { pauseMs?: number; now?: () => number } = {}) {
     this.routes = routes; this.maxRetries = maxRetries; this.sleep = sleep;
@@ -115,8 +124,14 @@ export class Router {
   async complete(req: Omit<CompletionRequest, 'model'>, o: CompleteOptions = {}): Promise<RoutedResponse> {
     const errors: string[] = [];
     const notices: string[] = [];
-    const candidates = this.order(o);
+    let candidates = this.order(o);
     if (!candidates.length) throw new Error('Aucun fournisseur disponible pour cette demande.');
+    // Budget mensuel atteint : seuls les modèles gratuits (locaux) servent, s'il y en a.
+    if (this.overBudget?.()) {
+      const free = candidates.filter((r) => tierOf(r.cfg) === 'local');
+      if (free.length) { notices.push('Budget mensuel atteint : modèle gratuit utilisé.'); candidates = free; }
+      else throw new Error('Budget mensuel atteint et aucun modèle gratuit configuré (Réglages → Modèle).');
+    }
     const wasPaused = new Set(candidates.filter((r) => this.paused.has(r.provider.name)).map((r) => r.provider.name));
     // Fournisseurs en pause : essayés en dernier, au cas où le quota serait revenu.
     const active = candidates.filter((r) => !this.isPaused(r.provider.name));
@@ -128,6 +143,8 @@ export class Router {
           const r = await route.provider.complete({ ...req, model: route.cfg.model });
           if (wasPaused.has(route.provider.name)) { this.paused.delete(route.provider.name); notices.push(`${route.provider.name} est de nouveau disponible.`); }
           const cost = (r.usage.inputTokens * (route.cfg.priceInPerM ?? 0) + r.usage.outputTokens * (route.cfg.priceOutPerM ?? 0)) / 1e6;
+          this.onUsage?.(route.provider.name, r.usage.inputTokens, r.usage.outputTokens, cost, o.purpose ?? 'agent');
+          for (const t of this.trackers) t(cost);
           if (route !== first && errors.length) notices.unshift(`${first.provider.name} indisponible, réponse de ${route.provider.name}.`);
           return { ...r, providerName: route.provider.name, costUsd: cost, ...(notices.length ? { notice: notices.join(' ') } : {}) };
         } catch (e) {

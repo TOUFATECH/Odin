@@ -8,6 +8,7 @@ OUT = ROOT / 'site'
 BASE = 'https://toufatech.github.io/Odin'
 PAGES = json.loads((SRC / 'pages.json').read_text(encoding='utf-8'))
 TPL = (SRC / '_layout.html').read_text(encoding='utf-8')
+MASCOT = (SRC / 'parts' / 'mascot.svg').read_text(encoding='utf-8').strip()
 NAV = [('index', 'Accueil'), ('fonctionnalites', 'Fonctionnalités'), ('autonomie', 'Autonomie'), ('securite', 'Sécurité'), ('installation', 'Installation'), ('guide', 'Guide'), ('faq', 'FAQ')]
 today = datetime.date.today().isoformat()
 
@@ -29,9 +30,10 @@ for slug, meta in PAGES.items():
     if bc: ld_blocks += f'<script type="application/ld+json">{bc}</script>'
     url = BASE + ('/' if slug == 'index' else f'/{slug}.html')
     html = TPL
+    body = body.replace('{{MASCOT}}', MASCOT)
     for k, v in {
         'TITLE': meta['title'], 'DESC': meta['description'], 'URL': url, 'SLUG': slug, 'NAV': nav(slug), 'BODY': body, 'JSONLD': ld_blocks,
-        'ROBOTS': 'noindex, follow' if meta.get('noindex') else 'index, follow', 'YEAR': str(datetime.date.today().year), 'BASE': BASE,
+        'ROBOTS': 'noindex, follow' if meta.get('noindex') else 'index, follow', 'YEAR': str(datetime.date.today().year), 'BASE': BASE, 'MASCOT': MASCOT,
     }.items(): html = html.replace('{{' + k + '}}', v)
     (OUT / f'{slug}.html').write_text(html, encoding='utf-8')
 

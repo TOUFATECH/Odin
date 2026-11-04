@@ -38,6 +38,9 @@ export interface WebHooks {
   scanNetwork(full: boolean): Promise<unknown>;
   /** Canaux qui n'ont pas pu démarrer (nom → raison). */
   failedChannels?(): Record<string, string>;
+  /** Missions : arrêter le tour d'une session, reprendre une mission. */
+  abortSession?(sessionId: string): boolean;
+  resume?(sessionId: string): Promise<void>;
   /** Relance les services avec la nouvelle configuration (fourni par la passerelle). */
   reload?(): Promise<void>;
 }
@@ -177,7 +180,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=86400' });
-      return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
+      return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><radialGradient id="b" cx="38%" cy="30%" r="78%"><stop offset="0" stop-color="#FFEC9E"/><stop offset=".42" stop-color="#F7C04A"/><stop offset="1" stop-color="#C47F14"/></radialGradient></defs><circle cx="32" cy="32" r="29" fill="url(#b)"/><ellipse cx="23" cy="18" rx="9" ry="5" fill="#fff" opacity=".32"/><rect x="21.5" y="25" width="7" height="14" rx="3.5" fill="#fff"/><rect x="35.5" y="25" width="7" height="14" rx="3.5" fill="#fff"/></svg>');
     }
     if (!url.pathname.startsWith('/api/')) return json(res, 404, { error: 'introuvable' });
     if (!this.authed(req)) {
@@ -268,6 +271,8 @@ export class WebChannel implements Channel {
       settings: settingsView(cfg, Boolean(this.odin.demo)),
       voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), speakReplies: cfg.voice.speakReplies },
       failedChannels: this.hooks.failedChannels?.() ?? {},
+      missions: muninn.listMissions(60),
+      budget: { monthlyUsd: cfg.routing.monthlyBudgetUsd, spentUsd: muninn.monthCost(), breakdown: muninn.usageBreakdown(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) },
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
     };
@@ -331,6 +336,8 @@ export class WebChannel implements Channel {
         this.odin.heimdall.setBreaker(next);
         break;
       }
+      case 'mission_stop': { const m = muninn.getMission(String(b.id)); if (!m) return { ok: false, error: 'mission inconnue' }; const stopped = this.hooks.abortSession?.(m.session_id) ?? false; if (!stopped) muninn.endMission(m.id, 'arrêtée', 'Arrêtée depuis l\'onglet Missions.'); break; }
+      case 'mission_resume': { const m = muninn.getMission(String(b.id)); if (!m) return { ok: false, error: 'mission inconnue' }; if (!this.hooks.resume) return { ok: false, error: 'reprise indisponible' }; void this.hooks.resume(m.session_id).catch((e) => console.error('[missions]', (e as Error).message)); return { ok: true, started: true }; }
       case 'access_links': return { ok: true, links: this.urls }; // avec le jeton, pour ouvrir sur un autre appareil
       case 'token_rotate': {
         // Nouveau jeton : tous les liens et navigateurs déjà connectés sont déconnectés.
