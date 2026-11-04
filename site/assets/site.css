@@ -118,6 +118,7 @@ section{padding-block:clamp(56px,9vw,104px)}
 .mobile-nav a:not(.btn){display:block;padding:14px 4px;color:var(--ink);text-decoration:none;font-size:17px;border-bottom:1px solid var(--line)}
 .mobile-nav a[aria-current=page]{color:var(--accent)}
 .mobile-nav .btn{margin-top:12px}
+.snd-off{display:none}#soundBtn.off .snd-off{display:block}#soundBtn.off .snd-on{display:none}#soundBtn.off{color:var(--dim)}
 .ico-moon{display:none}:root[data-theme="light"] .ico-moon{display:block}:root[data-theme="light"] .ico-sun{display:none}
 @media (max-width:1080px){.nav{display:none}.menu-btn{display:inline-flex}.gh span{display:none}.gh{padding:0 12px}}
 @media (max-width:600px){.bar .btn.primary{display:none}.brand-text small{display:none}.bar{min-height:60px}}

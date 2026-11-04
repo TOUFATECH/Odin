@@ -18,6 +18,12 @@
   });
   const $ = (s, el = d) => el.querySelector(s), $$ = (s, el = d) => [...el.querySelectorAll(s)];
 
+  // Sons d'Odin : bouton pour les couper ou les remettre (choix gardé dans le navigateur).
+  const sndBtn = $('#soundBtn');
+  const sndUi = () => { const on = window.OdinFace?.soundOn !== false; sndBtn?.setAttribute('aria-pressed', String(on)); sndBtn?.setAttribute('aria-label', on ? 'Couper les sons d\'Odin' : 'Activer les sons d\'Odin'); sndBtn?.classList.toggle('off', !on); };
+  sndBtn?.addEventListener('click', () => { const on = window.OdinFace?.mute(); sndUi(); if (on) window.OdinFace?.sound('joie'); });
+  addEventListener('DOMContentLoaded', sndUi); setTimeout(sndUi, 0);
+
   // Thème : sombre par défaut ; le choix reste dans le navigateur (localStorage, pas un cookie).
   let theme = null;
   try { theme = localStorage.getItem('odin-site-theme'); } catch { /* stockage indisponible */ }
@@ -55,6 +61,7 @@
   // Mascotte : elle réagit quand on la touche, et ses yeux suivent le doigt ou la souris.
   const faces = $$('.odin');
   const clamp = (v, m) => Math.max(-m, Math.min(m, v));
+  const look = (f, x, y) => { const r = f.getBoundingClientRect(); f.style.setProperty('--ex', `${clamp((x - r.left - r.width / 2) / 28, 6)}px`); f.style.setProperty('--ey', `${clamp((y - r.top - r.height / 2) / 28, 5)}px`); f.classList.add('follow'); };
   // Un toucher : il saute et change d'expression. Trop de touchers d'affilée (4 en 2 s) : il se fâche,
   // rougit, bleuit, puis redevient jaune.
   const F = () => window.OdinFace;
@@ -63,8 +70,9 @@
     if (f.classList.contains('angry')) return;
     const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
     f._touched = now;
-    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); F()?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
+    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); F()?.sound('angry'); F()?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
     f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
+    F()?.sound('bounce');
     F()?.flash(f, HAPPY[Math.floor(Math.random() * HAPPY.length)], 2200);
   };
   faces.forEach((f) => {
@@ -107,7 +115,7 @@
   $$('[data-show-mood]').forEach((el) => {
     const m = el.dataset.showMood, face = el.querySelector('.odin');
     F()?.set(face, m);
-    el.addEventListener('click', () => { if (hero) { hero._touched = Date.now(); F()?.flash(hero, m, 3000); } F()?.flash(face, m, 1200); });
+    el.addEventListener('click', () => { F()?.sound(m); if (hero) { hero._touched = Date.now(); F()?.flash(hero, m, 3000); } F()?.flash(face, m, 1200); });
   });
 
   const rv = $$('.rv');

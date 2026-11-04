@@ -122,6 +122,46 @@
     el.querySelector('.mood-emoji')?.remove();
     el.setAttribute('title', `Odin : ${key}`);
   }
+
+  // ---------- Sons (synthétisés, aucun fichier) ----------
+  // Le navigateur n'autorise le son qu'après un premier toucher ou clic. Coupé/rétabli avec OdinFace.mute().
+  let ac = null, unlocked = false, soundOn = true;
+  try { soundOn = localStorage.getItem('odin-sound') !== '0'; } catch { /* stockage indisponible */ }
+  const audio = () => {
+    if (!unlocked || !soundOn) return null;
+    if (!ac) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; ac = new A(); }
+    if (ac.state === 'suspended') ac.resume();
+    return ac;
+  };
+  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { unlocked = true; audio(); }, { capture: true, passive: true });
+  /** Une note : fréquence de départ → d'arrivée, durée (s), forme d'onde, volume, décalage (s). */
+  function note(f0, f1, dur, type = 'sine', vol = 0.16, delay = 0) {
+    const a = audio(); if (!a) return;
+    const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const UP = ['joie', 'rire', 'amour', 'excite', 'fierte', 'clin', 'malice', 'surprise'];
+  const DOWN = ['triste', 'inquiet', 'peur', 'confus', 'fatigue', 'gene', 'cache'];
+  const SOUNDS = {
+    bounce: () => { note(260, 640, 0.12, 'sine', 0.2); note(640, 380, 0.18, 'sine', 0.14, 0.12); },
+    angry: () => { for (let i = 0; i < 3; i++) note(150 - i * 18, 95 - i * 10, 0.16, 'sawtooth', 0.07, i * 0.17); },
+    laugh: () => { for (let i = 0; i < 4; i++) note(700 + i * 60, 900 + i * 60, 0.07, 'triangle', 0.1, i * 0.09); },
+    hop: () => { note(420, 820, 0.1, 'sine', 0.13); },
+    shake: () => { for (let i = 0; i < 5; i++) note(220, 180, 0.05, 'square', 0.04, i * 0.06); },
+    tremble: () => { note(520, 480, 0.35, 'triangle', 0.06); },
+  };
+  /** Son d'un mouvement (bounce, angry, laugh, hop, shake, tremble) ou d'un changement d'humeur. */
+  function sound(name) {
+    if (SOUNDS[name]) return SOUNDS[name]();
+    if (name === 'colere') return SOUNDS.angry();
+    if (UP.includes(name)) { note(660, 660, 0.12, 'sine', 0.11); note(990, 990, 0.18, 'sine', 0.1, 0.1); }
+    else if (DOWN.includes(name)) { note(520, 520, 0.14, 'sine', 0.1); note(390, 370, 0.22, 'sine', 0.09, 0.12); }
+    else note(740, 760, 0.14, 'sine', 0.08);
+    const m = MOODS[name]; if (m && m.anim && SOUNDS[m.anim]) SOUNDS[m.anim]();
+  }
+  function mute(off) { soundOn = off === undefined ? !soundOn : !off; try { localStorage.setItem('odin-sound', soundOn ? '1' : '0'); } catch { /* rien */ } return soundOn; }
   const all = (mood) => document.querySelectorAll('.odin').forEach((el) => set(el, mood));
   /** Expression passagère, puis retour à l'humeur de fond. */
   function flash(el, mood, ms = 2200) {
@@ -134,5 +174,5 @@
   /** Change l'humeur « de fond » (celle à laquelle on revient après une expression passagère). */
   function base(el, mood) { if (!el) return; if (el._flash) el._base = mood; else set(el, mood); }
   document.querySelectorAll('.odin svg').forEach(own);
-  window.OdinFace = { MOODS, set, all, flash, base, own };
+  window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, get soundOn() { return soundOn; } };
 })();

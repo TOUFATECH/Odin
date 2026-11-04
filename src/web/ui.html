@@ -175,6 +175,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 .mbar{display:none}
 .buddy{display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px 0 16px}.buddy .odin{width:84px;height:84px}.buddy-txt{font-size:12.5px;color:var(--dim)}
 .buddy-m{width:34px;height:34px;flex:none}
+.buddy-snd{border:0;background:none;color:var(--dim);font:inherit;font-size:11.5px;padding:4px 8px;border-radius:8px;cursor:pointer}.buddy-snd:hover{color:var(--ink);background:#151A24}
 @media (max-width:860px){
   .app{flex-direction:column}
   .mbar{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 16px;border-bottom:1px solid var(--line);background:var(--panel2);flex:none}
@@ -231,7 +232,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   </div>
   <nav class="side" id="sideNav" aria-label="Sections">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
-    <div class="buddy" title="L'humeur d'Odin : il la choisit lui-même"><span class="odin" id="buddy" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span><span class="buddy-txt" id="buddyTxt">tranquille</span></div>
+    <div class="buddy" title="L'humeur d'Odin : il la choisit lui-même"><span class="odin" id="buddy" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span><span class="buddy-txt" id="buddyTxt">tranquille</span><button class="buddy-snd" id="buddySnd" type="button" aria-pressed="true">Sons activés</button></div>
     <button class="tab" data-view="chat" aria-current="page">Discussion <span class="badge" id="b-approvals" hidden>0</span></button>
     <button class="tab" data-view="missions">Missions <span class="badge" id="b-missions" hidden>0</span></button>
     <button class="tab" data-view="net">Réseau <span class="badge" id="b-net" hidden>0</span></button>
@@ -520,7 +521,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
   const buddies = () => ['#buddy', '#buddyM'].map((q) => document.querySelector(q)).filter(Boolean);
   let baseMood = 'neutre', held = 0, lastAct = Date.now();
   const label = (m) => { const t = document.querySelector('#buddyTxt'); if (t) t.textContent = MOOD_LABEL[m] || m; };
-  function moodBase(m) { baseMood = m; if (!held) { buddies().forEach((b) => window.OdinFace?.base(b, m)); label(m); } }
+  function moodBase(m, withSound) { if (withSound && m !== baseMood) window.OdinFace?.sound(m); baseMood = m; if (!held) { buddies().forEach((b) => window.OdinFace?.base(b, m)); label(m); } }
   function moodFlash(m, ms = 2000) { if (held) return; buddies().forEach((b) => window.OdinFace?.flash(b, m, ms)); label(m); clearTimeout(moodFlash._t); moodFlash._t = setTimeout(() => { if (!held) label(baseMood); }, ms); }
   function moodHold(m) { held++; buddies().forEach((b) => { clearTimeout(b._flash); b._flash = null; b._base = null; window.OdinFace?.set(b, m); }); label(m); }
   function moodRelease() { held = Math.max(0, held - 1); if (!held) { buddies().forEach((b) => window.OdinFace?.set(b, baseMood)); label(baseMood); } }
@@ -531,6 +532,10 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     else if (e.type === 'learned' || e.type === 'skill_proposed') moodFlash('fierte', 2600);
   }
   document.addEventListener('DOMContentLoaded', () => moodBase('neutre'));
+  // Sons de ses mouvements et de ses changements d'humeur : coupables d'un clic.
+  const sndUi = () => { const b = document.querySelector('#buddySnd'); if (!b) return; const on = window.OdinFace?.soundOn !== false; b.textContent = on ? 'Sons activés' : 'Sons coupés'; b.setAttribute('aria-pressed', String(on)); };
+  document.addEventListener('click', (e) => { if (e.target.closest?.('#buddySnd')) { const on = window.OdinFace?.mute(); sndUi(); if (on) window.OdinFace?.sound('joie'); } });
+  setTimeout(sndUi, 0);
   setTimeout(() => moodBase(baseMood), 0);
   // Tu écris : il écoute. Une clé ou un mot de passe : il ferme les yeux. Les autres réglages : il se concentre.
   let typingT = 0;
@@ -655,8 +660,9 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
     const f = e.target.closest?.('.odin'); if (!f || f.classList.contains('angry')) return;
     e.preventDefault();
     const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
-    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
+    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.sound('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
     f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
+    window.OdinFace?.sound('bounce');
     window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
   });
   const faceTpl = document.querySelector('#login .odin');
@@ -1133,7 +1139,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
       else if (d.type === 'message') refresh();
       else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) { approvalCard(d.event); moodFlash('inquiet', 4000); }
       else if (d.type === 'event' && d.event.type === 'approval_done') approvalDone(d.event);
-      else if (d.type === 'event' && d.event.type === 'mood') { if (d.peer === peer) moodBase(d.event.mood); }
+      else if (d.type === 'event' && d.event.type === 'mood') { if (d.peer === peer) moodBase(d.event.mood, true); }
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') { addActivity(d.event); moodFromEvent(d.event); }
       else if (d.type === 'refresh') refresh();
     };
