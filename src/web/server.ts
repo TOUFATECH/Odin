@@ -104,6 +104,7 @@ self.addEventListener('notificationclick', (e) => {
   }));
 });`;
 const MAX_BODY = 200_000;
+const RUNNING = (() => { try { return (JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }).version; } catch { return ''; } })();
 
 export class WebChannel implements Channel {
   readonly name = 'web';
@@ -114,6 +115,14 @@ export class WebChannel implements Channel {
   /** Raccourcis (Siri, Android) : réponse attendue par conversation. */
   private waiters = new Map<string, (text: string) => void>();
   private vaultFails = 0;
+  private verCache?: { at: number; v: { running: string; disk: string } };
+  /** Version chargée et version installée (relue au plus toutes les 30 s). */
+  private versions(): { running: string; disk: string } {
+    if (!this.verCache || Date.now() - this.verCache.at > 30_000) {
+      try { const r = new URL('../../package.json', import.meta.url); const disk = (JSON.parse(readFileSync(r, 'utf8')) as { version: string }).version; this.verCache = { at: Date.now(), v: { running: this.verCache?.v.running ?? RUNNING, disk } }; } catch { this.verCache = { at: Date.now(), v: { running: RUNNING, disk: RUNNING } }; }
+    }
+    return this.verCache.v;
+  }
   private vaultWait = 0;
   /** Connexion ChatGPT (Codex) en cours : secret PKCE gardé en mémoire, jamais envoyé à la page. */
   private codexLogin?: CodexLogin;
@@ -463,6 +472,8 @@ export class WebChannel implements Channel {
       habits: muninn.habits(),
       tunnel: { ...tunnel.state, available: tunnelAvailable(), install: INSTALL },
       vault: vaultState(this.odin.paths.home),
+      dryRun: this.odin.agent.dryRun(),
+      version: this.versions(),
       quiet: cfg.quiet,
       features: (() => { const shown = muninn.kvPrefix('feature-show:'); return features({ cfg, devices: inventory.list({ status: 'all' }), recentUserText: muninn.recentUserTexts(), dismissed: new Set(Object.keys(muninn.kvPrefix('feature-dismiss:'))), machines: listMachines(this.odin.paths.home).length }).map((f) => ({ ...f, show: f.on || Boolean(f.why) || Boolean(shown[f.id]) })); })(),
       more: {
@@ -479,6 +490,8 @@ export class WebChannel implements Channel {
     switch (b.kind) {
       case 'skill_approve': skills.approve(name); break;
       case 'skill_reject': skills.reject(name); break;
+      case 'dry_run': this.odin.agent.setDryRun(Boolean(b.on)); this.notify('state'); return { ok: true, on: this.odin.agent.dryRun() };
+      case 'app_restart': { const { restartSelf, checkApp } = await import('../tools/self.ts'); const c = checkApp(undefined, false); if (!c.ok) return { ok: false, error: `le nouveau code ne se charge pas : ${c.output.slice(0, 300)}` }; if (process.env.ODIN_NO_RESTART || this.odin.demo) return { ok: true, simulated: true }; return { ok: true, text: restartSelf(800) }; }
       case 'skill_approve_all': { const done: string[] = []; for (const d of skills.drafts()) { try { skills.approve(d.name); done.push(d.name); } catch { /* suivant */ } } this.notify('skills'); return { ok: true, count: done.length }; }
       case 'skill_body': { const s = skills.get(name); if (!s) return { ok: false, error: 'compétence inconnue' }; return { ok: true, body: s.body, description: s.description, version: s.version, params: s.meta.params ?? '', files: skills.files(name).map((f) => f.name) }; }
       case 'skill_edit': try { const s = skills.edit(name, { body: String(b.body ?? ''), description: typeof b.description === 'string' ? b.description : undefined }); this.notify('skills'); return { ok: true, version: s.version }; } catch (e) { return { ok: false, error: (e as Error).message }; }

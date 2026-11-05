@@ -178,6 +178,7 @@ export class Agent {
       skillsHint: depth > 0 ? undefined : relevantSkills(userText, this.deps.skills.list()),
       scriptsIndex: depth > 0 ? undefined : scriptsIndex(listScripts(this.deps.workspace)),
       identity: identityLine(),
+      dryRun: this.dryRun(),
       tainted,
       isSubAgent: depth > 0,
       breaker: Boolean(breaker),
@@ -405,6 +406,18 @@ export class Agent {
     const errs = validateInput(tool.schema, call.input);
     if (errs.length) return { ...base, content: `Entrée invalide : ${errs.join(' ; ')}` };
 
+    // Mode essai (réglable d'un clic) : rien n'est modifié. Les scripts tournent « à blanc », les
+    // lectures et recherches continuent, toute autre action est décrite au lieu d'être faite.
+    if (this.dryRun()) {
+      if (tool.name === 'script_run') call.input.dry_run = true;
+      else if (tool.risk === 'write' || tool.risk === 'exec' || tool.risk === 'external') {
+        if (!['memory_save', 'skill_propose', 'script_save'].includes(tool.name)) {
+          emit({ type: 'decision', tool: tool.name, summary: tool.summarize?.(call.input) ?? tool.name, allowed: false, why: 'mode essai' });
+          return { ...base, content: `[Mode essai] Action NON exécutée : ${tool.summarize?.(call.input) ?? tool.name}. Continue la mission « à blanc » : décris précisément ce que tu aurais fait (commande exacte, fichier, effet attendu, risques), sans prétendre que c'est fait.` };
+        }
+      }
+    }
+
     const decision = await this.deps.heimdall.gate({
       tool: tool.name, risk: tool.risk, sessionId: o.sessionId, tainted: isTainted(), unattended: o.unattended,
       summary: tool.summarize?.(call.input) ?? `${tool.name} ${JSON.stringify(call.input).slice(0, 200)}`,
@@ -537,6 +550,10 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
     emit({ type: 'skill_proposed', name, active });
     return name;
   }
+
+  /** Mode essai : Odin prépare et explique tout, mais ne change rien (réglage gardé en mémoire). */
+  dryRun(): boolean { try { return this.deps.muninn.getKv('dry-run') === '1'; } catch { return false; } }
+  setDryRun(on: boolean): void { this.deps.muninn.setKv('dry-run', on ? '1' : '0'); }
 
   /** Retient jusqu'à 3 faits durables de l'échange (vérifiés par Mímir : pas de secret, pas d'éphémère). */
   /**

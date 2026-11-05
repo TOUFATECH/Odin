@@ -111,6 +111,14 @@ export function updateApp(root = APP_ROOT): { ok: boolean; message: string } {
 }
 
 /** Sous un service (systemd, launchd), on quitte avec un code d'erreur : le service relance Odin. Sinon on se relance soi-même. */
+/** Version en mémoire (chargée au démarrage) et version installée sur le disque. */
+const RUNNING_VERSION = (() => { try { return (JSON.parse(readFileSync(join(APP_ROOT, 'package.json'), 'utf8')) as { version: string }).version; } catch { return ''; } })();
+export function appVersions(): { running: string; disk: string } {
+  let disk = '';
+  try { disk = (JSON.parse(readFileSync(join(APP_ROOT, 'package.json'), 'utf8')) as { version: string }).version; } catch { /* illisible */ }
+  return { running: RUNNING_VERSION, disk };
+}
+
 export function restartSelf(delayMs = 1500, exit: (code: number) => void = (c) => process.exit(c)): string {
   const service = process.platform !== 'win32' && Boolean(process.env.INVOCATION_ID || process.env.XPC_SERVICE_NAME?.includes('odin') || process.env.ODIN_SERVICE);
   setTimeout(() => {

@@ -137,6 +137,12 @@ export class Gateway {
       const r = this.odin.muninn.approvePairing(m.channel, text.split(/\s+/)[1]);
       return ch.send(m.peer, r ? `✅ ${r.name} est appairé.` : 'Code inconnu ou expiré.');
     }
+    if (owner && /^\/essai\b/i.test(text)) {
+      const on = /\b(off|non|stop|0)\b/i.test(text) ? false : /\b(on|oui|1)\b/i.test(text) ? true : !this.odin.agent.dryRun();
+      this.odin.agent.setDryRun(on);
+      for (const c of this.channels.values()) c.notify?.('state');
+      return ch.send(m.peer, on ? '🧪 Mode essai activé : je prépare et j\'explique tout, sans rien changer. (/essai off pour revenir)' : '✅ Mode essai coupé : j\'agis pour de vrai.');
+    }
     if (/^\/new\b/i.test(text)) { this.odin.muninn.resetSession(sessionId); return ch.send(m.peer, '🆕 Nouvelle conversation.'); }
     if (/^\/status\b/i.test(text)) {
       const u = this.odin.muninn.usageSince(Date.now() - 86_400_000);
@@ -398,6 +404,24 @@ export class Gateway {
     return text;
   }
 
+  /**
+   * Nouvelle version installée (git pull, mise à jour par Hermes…) mais pas encore chargée : quand
+   * Odin ne travaille pas, il vérifie que le nouveau code se charge, puis redémarre tout seul.
+   */
+  async applyUpdate(): Promise<boolean> {
+    if (this.odin.demo || process.env.ODIN_NO_RESTART || this.aborts.size) return false;
+    const { appVersions, checkApp, restartSelf } = await import('../tools/self.ts');
+    const v = appVersions();
+    if (!v.disk || v.disk === v.running) return false;
+    if (this.odin.muninn.getKv('update-tried') === v.disk) return false;
+    this.odin.muninn.setKv('update-tried', v.disk);
+    const c = checkApp(undefined, false);
+    if (!c.ok) { await this.tellOwner(`⚠️ La version ${v.disk} d'Odin est installée mais ne se charge pas : je reste en ${v.running}.\n${c.output.slice(0, 600)}`, 'home', true); return false; }
+    this.odin.muninn.setKv('updated-to', `${v.running}→${v.disk}`);
+    restartSelf(1500);
+    return true;
+  }
+
   /** Rapport du matin : la nuit d'Odin, ce qui attend ta validation, ses conseils (une fois par jour). */
   async morning(now = Date.now(), force = false): Promise<string | undefined> {
     const at = this.odin.cfg.journal.morning;
@@ -462,6 +486,7 @@ export class Gateway {
     await this.breakerReport(now).catch((e) => console.error('[breaker]', (e as Error).message));
     await this.watch(now).catch((e) => console.error('[vörðr]', (e as Error).message));
     await this.care(now).catch((e) => console.error('[soins]', (e as Error).message));
+    await this.applyUpdate().catch((e) => console.error('[mise à jour]', (e as Error).message));
     const net = this.odin.cfg.network;
     const last = this.odin.inventory.lastScan();
     if (net.enabled && (!last || now - last.at >= net.intervalMin * 60_000)) {

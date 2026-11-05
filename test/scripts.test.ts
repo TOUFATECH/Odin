@@ -78,3 +78,19 @@ test('scripts : mode essai, test qui protège, module commun, plusieurs cibles, 
     assert.deepEqual(parseScriptJob(job.prompt), { name: 'mots', args: 'a b', where: 'local', report: false });
   } finally { o.cleanup(); }
 });
+
+test('mode essai : rien n\'est modifié, les scripts tournent à blanc, les lectures continuent ; /essai sur Telegram', async () => {
+  const { call } = await import('./helpers.ts');
+  const { existsSync: ex } = await import('node:fs');
+  const o = makeOdin([call('fs_write', { path: 'x.txt', content: 'a' }), call('fs_list', { path: '.' }), { text: 'Voici ce que je ferais : écrire x.txt.' }], { approve: true });
+  try {
+    o.agent.setDryRun(true);
+    const r = await o.agent.run('écris a dans x.txt', { sessionId: 's' });
+    assert.ok(!ex(join(o.paths.workspace, 'x.txt')), 'fichier non écrit');
+    assert.match(o.provider.calls[1].messages.at(-1)!.content, /\[Mode essai\] Action NON exécutée/);
+    assert.match(o.provider.calls[0].system, /Mode essai ACTIF/);
+    assert.match(r.text, /Voici ce que je ferais/);
+    o.agent.setDryRun(false);
+    assert.equal(o.agent.dryRun(), false);
+  } finally { o.cleanup(); }
+});
