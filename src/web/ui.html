@@ -390,11 +390,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 /* Bulle d'Odin et déplacements */
 .chat-buddy{translate:calc(var(--dx,0px) + var(--rx,0px)) var(--dy,0px);transition:transform .35s cubic-bezier(.3,1.5,.5,1),opacity .25s,width .35s,height .35s,translate 1.6s cubic-bezier(.45,.05,.3,1);touch-action:none;cursor:grab}
 .chat-buddy.dragging{transition:none;cursor:grabbing;filter:drop-shadow(0 12px 22px rgba(0,0,0,.45))}
-.tip{position:absolute;z-index:4;--cloud:#232B3B;--cloud-l:#344056;isolation:isolate;max-width:280px;color:var(--ink);padding:4px 6px;font-size:13px;line-height:1.45;white-space:pre-wrap;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35));transform-origin:100% 80%}
-:root[data-theme=light] .tip{--cloud:#FFFFFF;--cloud-l:#E6E1D8}
-@media (prefers-color-scheme:light){:root:not([data-theme=dark]) .tip{--cloud:#FFFFFF;--cloud-l:#E6E1D8;filter:drop-shadow(0 6px 14px rgba(60,40,0,.14))}}
-.tip .cloud{position:absolute;z-index:-1;overflow:visible;pointer-events:none}
-.tip .cloud-p,.tip .cloud-c{fill:var(--cloud);stroke:var(--cloud-l);stroke-width:1.2}
+.tip{position:absolute;z-index:4;max-width:280px;color:var(--ink);background:var(--panel);border:1px solid var(--field);border-radius:16px;padding:10px 12px;font-size:13px;line-height:1.45;white-space:pre-wrap;box-shadow:var(--shadow);transform-origin:100% 80%}
+.tip.on-left{border-bottom-right-radius:4px}.tip.on-right{border-bottom-left-radius:4px}.tip.on-above{border-bottom-right-radius:4px}
 .tip-t{position:relative}
 .tip.on-right{transform-origin:0 80%}
 .tip.on-above{transform-origin:85% 100%}
@@ -472,7 +469,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       <div class="chat">
         <div class="convs" id="convs" aria-label="Conversations"></div>
         <div class="thread">
-          <div class="tip" id="buddyTip" role="status" aria-live="polite" hidden><svg class="cloud" aria-hidden="true"><path class="cloud-p"/><circle class="cloud-c c1"/><circle class="cloud-c c2"/><circle class="cloud-c c3"/></svg><div class="tip-t" id="tipText"></div><div class="tip-acts" id="tipActs"></div></div>
+          <div class="tip" id="buddyTip" role="status" aria-live="polite" hidden><div class="tip-t" id="tipText"></div><div class="tip-acts" id="tipActs"></div></div>
           <span class="odin chat-buddy" id="buddyChat" aria-hidden="true" title="Odin"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
             <div class="hacts"><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
@@ -1200,36 +1197,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     'Pour une machine du réseau, donne-moi son mot de passe dans Réglages → Droits et machines : je m\'en occupe.',
   ];
   let tipTimer = 0, tipFor = '';
-  // Un vrai nuage de pensée : contour en festons tout autour du texte, et trois petites bulles vers Odin.
-  function drawCloud() {
-    const svg = tip.querySelector('.cloud'); if (!svg) return;
-    const pad = 18, w = tip.offsetWidth + pad * 2, h = tip.offsetHeight + pad * 2, m = 16;
-    // Peu de grosses bosses, de tailles un peu différentes : un nuage, pas un timbre.
-    const pts = [], seg = (x1, y1, x2, y2, len) => { const n = Math.max(1, Math.round(Math.hypot(x2 - x1, y2 - y1) / len)); for (let k = 0; k < n; k++) pts.push([x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n]); };
-    seg(m + 14, m, w - m - 14, m, 64); seg(w - m, m + 14, w - m, h - m - 14, 52); seg(w - m - 14, h - m, m + 14, h - m, 64); seg(m, h - m - 14, m, m + 14, 52);
-    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
-    for (let k = 1; k <= pts.length; k++) { const [x0, y0] = pts[k - 1], [x, y] = pts[k % pts.length]; const r = Math.hypot(x - x0, y - y0) / 2 * (k % 2 ? 1.02 : 1.18); d += ` A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}`; }
-    svg.querySelector('.cloud-p').setAttribute('d', d + 'Z');
-    const circles = [1, 2, 3].map((k) => svg.querySelector('.c' + k)), sizes = [7, 4.6, 3];
-    if (tip.classList.contains('on-above')) {
-      // Au-dessus d'Odin : les petites bulles descendent vers lui.
-      const tr = tip.getBoundingClientRect(), br = bud.getBoundingClientRect();
-      const bx = Math.max(m + 20, Math.min(w - m - 10, br.left + br.width / 2 - tr.left + pad));
-      svg.setAttribute('width', w); svg.setAttribute('height', h + 44); svg.setAttribute('viewBox', `0 0 ${w} ${h + 44}`);
-      svg.style.left = -pad + 'px'; svg.style.top = -pad + 'px';
-      circles.forEach((c, k) => { c.setAttribute('cx', bx + k * 3); c.setAttribute('cy', h - m + 6 + k * 13); c.setAttribute('r', sizes[k]); });
-      return;
-    }
-    const toRight = tip.classList.contains('on-left'); // le nuage est à gauche d'Odin : les bulles partent vers la droite
-    svg.setAttribute('width', w + 60); svg.setAttribute('height', h + 10); svg.setAttribute('viewBox', `${toRight ? 0 : -60} 0 ${w + 60} ${h + 10}`);
-    svg.style.left = (toRight ? -pad : -pad - 60) + 'px'; svg.style.top = -pad + 'px';
-    const bx = toRight ? w - m + 4 : m - 4, by = h - m - 6;
-    circles.forEach((c, k) => { const dx = [6, 20, 31][k]; c.setAttribute('cx', toRight ? bx + dx : bx - dx); c.setAttribute('cy', by + k * 5); c.setAttribute('r', sizes[k]); });
-  }
+  function drawCloud() { /* plus de nuage : simple bulle */ }
   // Le nuage se place à côté d'Odin : à sa gauche s'il y a la place, sinon à sa droite ; il le suit quand il bouge.
   function placeTip() {
     if (tip.hidden || !thread) return;
-    const tr = thread.getBoundingClientRect(), br = bud.getBoundingClientRect(), gap = 54, edge = 40;
+    const tr = thread.getBoundingClientRect(), br = bud.getBoundingClientRect(), gap = 14, edge = 12;
     const leftSpace = br.left - tr.left - gap - edge, rightSpace = tr.right - br.right - gap - edge;
     // À côté d'Odin s'il y a la place ; sinon au-dessus de lui (téléphone, Odin collé au bord).
     const side = leftSpace >= 240 ? 'left' : rightSpace >= 240 ? 'right' : 'above';
@@ -1239,12 +1211,12 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       const w = tip.offsetWidth, center = br.left + br.width / 2 - tr.left;
       const left = Math.max(edge - 6, Math.min(center - w + 60, tr.width - w - edge));
       tip.style.left = left + 'px'; tip.style.right = 'auto';
-      tip.style.bottom = Math.min(tr.bottom - br.top + 44, tr.height - tip.offsetHeight - 30) + 'px';
+      tip.style.bottom = Math.min(tr.bottom - br.top + 10, tr.height - tip.offsetHeight - 10) + 'px';
     } else {
       tip.style.maxWidth = Math.min(320, side === 'left' ? leftSpace : rightSpace) + 'px';
       if (side === 'left') { tip.style.right = (tr.right - br.left + gap) + 'px'; tip.style.left = 'auto'; }
       else { tip.style.left = (br.right - tr.left + gap) + 'px'; tip.style.right = 'auto'; }
-      tip.style.bottom = Math.max(22, Math.min(tr.bottom - br.bottom + br.height * 0.45, tr.height - tip.offsetHeight - 30)) + 'px';
+      tip.style.bottom = Math.max(8, Math.min(tr.bottom - br.bottom + br.height * 0.3, tr.height - tip.offsetHeight - 10)) + 'px';
     }
     drawCloud();
   }
