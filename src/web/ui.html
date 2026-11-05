@@ -413,6 +413,41 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .tbtn:hover{border-color:var(--field-h)}
 .tbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
 @media (prefers-reduced-motion:reduce){.tip,.tip.pop,.tip.out,.tip-acts.in .tbtn{animation:none}.chat-buddy{transition:none}}
+
+/* Réseau : classé par catégorie, fiches claires */
+.ntools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.ntools input{flex:1 1 240px;min-height:42px;padding:0 14px;border-radius:12px;border:1px solid var(--field);background:var(--panel);color:var(--ink);outline:none}
+.ntools input:focus{border-color:var(--accent)}
+.dgroup{margin-bottom:18px}
+.dgroup>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font-weight:700;font-size:16px;padding:6px 2px 10px}
+.dgroup>summary::-webkit-details-marker{display:none}
+.dgroup>summary::after{content:"▾";margin-left:auto;color:var(--dim);transition:transform .2s}.dgroup:not([open])>summary::after{transform:rotate(-90deg)}
+.dcount{font-size:12px;font-weight:600;color:var(--dim);background:var(--hover);border-radius:10px;padding:1px 8px}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.dcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow);min-width:0}
+.dcard.off{opacity:.62}
+.dtop{display:flex;gap:10px;align-items:flex-start}
+.dico{flex:none;width:38px;height:38px;border-radius:10px;background:var(--hover);display:grid;place-items:center;font-size:19px}
+.dname{flex:1;min-width:0}.dname h3{margin:0;font-size:15.5px;line-height:1.3;overflow-wrap:anywhere}
+.dmeta{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.dst{flex:none;font-size:11px;padding:2px 8px;border-radius:10px;border:1px solid var(--line);color:var(--dim)}
+.dst.online{color:var(--good);border-color:var(--good-l)}.dst.removed{color:var(--bad);border-color:var(--bad-l2)}
+.dline{font-size:12.5px;color:var(--muted)}.dline.dim{color:var(--dim)}
+.dlinks{display:flex;flex-wrap:wrap;gap:6px}
+.dlink{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:5px 10px;border-radius:9px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dlink:hover{background:color-mix(in srgb,var(--accent) 24%,transparent)}
+.dports{display:flex;flex-wrap:wrap;gap:5px}
+.port{font-size:12px;padding:2px 8px;border-radius:8px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}.port b{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink);font-weight:600}
+.dacts{font-size:13px;color:var(--muted)}.dacts summary{cursor:pointer}.dacts ul{margin:6px 0 0;padding-left:18px}
+.dfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--dim);border-top:1px solid var(--line);padding-top:9px}
+@media (max-width:860px){.dgrid{grid-template-columns:1fr}}
+.ntbl td{vertical-align:middle}.ntbl tr.off{opacity:.6}.ntbl .dports{max-width:360px}.ntbl .dlink{max-width:240px}
+.tname{display:flex;align-items:center;gap:10px}.dico.sm{width:30px;height:30px;font-size:16px;border-radius:8px}
+.dim{color:var(--dim);font-size:12px}
+.ntbl td.mono .dim{white-space:nowrap;font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.ntbl{table-layout:fixed}.ntbl td{overflow-wrap:anywhere}.ntbl .dst{white-space:nowrap}
+.ntbl .grow td{background:var(--hover);font-weight:700;cursor:pointer;padding:9px 12px}.ntbl .grow:hover td{color:var(--accent)}.gchev{float:right;color:var(--dim)}
+.ntbl .ibtn{width:34px;padding:0}
 </style>
 </head>
 <body>
@@ -506,7 +541,10 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="scanQuick">Balayage rapide</button><button class="btn small primary" id="scanFull">Balayage complet</button></div></div>
       <div class="body">
         <div class="stats" id="netStats"></div>
-        <div class="grid" id="devices"></div>
+        <div class="ntools"><input type="search" id="netSearch" placeholder="Chercher un appareil, une IP, un port…" aria-label="Chercher un appareil">
+          <div class="seg" role="group" aria-label="Filtre"><button type="button" data-nf="all" aria-pressed="true">Tous</button><button type="button" data-nf="online" aria-pressed="false">En ligne</button><button type="button" data-nf="offline" aria-pressed="false">Hors ligne</button></div>
+          <div class="seg nview" role="group" aria-label="Affichage"><button type="button" data-nv="table" aria-pressed="true">Tableau</button><button type="button" data-nv="cards" aria-pressed="false">Fiches</button></div></div>
+        <div id="devices"></div>
         <h2 style="font-size:18px;margin:32px 0 12px">Derniers évènements</h2>
         <div class="wrap"><table class="tbl"><thead><tr><th>Quand</th><th>Appareil</th><th>Évènement</th><th>Détail</th></tr></thead><tbody id="devEvents"></tbody></table></div>
       </div>
@@ -1078,25 +1116,90 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       el('div', { class: 'stat' }, el('b', {}, on), el('span', {}, 'en ligne')),
       el('div', { class: 'stat' }, el('b', {}, off), el('span', {}, 'déconnectés')),
       el('div', { class: 'stat' }, el('b', {}, rm), el('span', {}, 'retirés')));
-    const grid = $('#devices'); grid.textContent = '';
-    if (!d.length) grid.append(el('div', { class: 'empty' }, 'Aucun appareil connu. Lance un balayage complet.'));
-    for (const x of d) {
-      const dot = x.status === 'online' ? 'on-dot' : x.status === 'offline' ? 'off-dot' : 'rm-dot';
-      const links = x.links.map((l) => el('li', {}, l.action + ' — ', /^https?:\/\//.test(l.how) ? el('a', { href: l.how, target: '_blank', rel: 'noopener noreferrer' }, l.how) : l.how));
-      grid.append(el('article', { class: 'card' },
-        el('div', { class: 'kind' }, el('span', { class: 'dot ' + dot, 'aria-hidden': 'true' }), `${x.kind} · ${x.status === 'online' ? 'en ligne' : x.status === 'offline' ? 'déconnecté' : 'retiré'}`),
-        el('h3', {}, x.label),
-        el('div', { class: 'sub mono' }, `${x.ip}${x.mac ? ' · ' + x.mac : ''}`),
-        x.hostname && x.hostname !== x.label ? el('div', { class: 'sub' }, 'Nom réseau : ' + x.hostname) : null,
-        x.model ? el('div', { class: 'sub' }, x.model) : null,
-        x.portNames?.length ? el('details', { class: 'sub' }, el('summary', { style: 'cursor:pointer' }, `${x.portNames.length} port(s) ouvert(s)`), el('ul', { class: 'links' }, x.portNames.map((p) => el('li', {}, el('span', { class: 'mono' }, String(p.port)), ' — ' + p.service)))) : null,
-        links.length ? el('ul', { class: 'links' }, links) : null,
-        el('div', { class: 'sub' }, `Vu depuis le ${fmt(x.first_seen)} · dernière fois ${fmt(x.last_seen)}`),
-        el('div', {}, el('button', { class: 'btn small', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'))));
-    }
+    renderDevices();
     $('#devEvents').replaceChildren(...state.deviceEvents.map((e) => el('tr', {}, el('td', {}, fmt(e.at)), el('td', {}, e.device), el('td', {}, el('span', { class: 'pill ' + (e.kind === 'nouveau' ? 'good' : e.kind === 'retiré' || e.kind === 'déconnecté' ? 'bad' : '') }, e.kind)), el('td', { class: 'sub' }, e.detail))));
     const recent = state.deviceEvents.filter((e) => Date.now() - e.at < 86400000 && e.kind !== 'reconnecté').length;
     $('#b-net').hidden = !recent; $('#b-net').textContent = recent;
+  }
+  // Appareils classés par catégorie, puis par IP ; chaque fiche : nom, IP, fabricant, liens, ports nommés.
+  const NET_CATS = [['routeur', '📡', 'Box et routeurs'], ['serveur', '🗄️', 'Serveurs'], ['machine virtuelle', '🧊', 'Machines virtuelles'], ['stockage (NAS)', '💾', 'Stockage (NAS)'],
+    ['ordinateur / serveur', '💻', 'Ordinateurs'], ['ordinateur', '💻', 'Ordinateurs'], ['téléphone / tablette', '📱', 'Téléphones et tablettes'], ['multimédia', '📺', 'Multimédia'],
+    ['domotique', '🏠', 'Maison connectée'], ['caméra', '📹', 'Caméras'], ['imprimante', '🖨️', 'Imprimantes'], ['inconnu', '❔', 'À identifier']];
+  let netFilter = 'all', netView = matchMedia('(max-width:860px)').matches ? 'cards' : 'table';
+  try { netView = localStorage.getItem('odin.netview') || netView; } catch {}
+  const syncNv = () => { for (const x of document.querySelectorAll('[data-nv]')) x.setAttribute('aria-pressed', String(x.dataset.nv === netView)); };
+  syncNv();
+  for (const b of document.querySelectorAll('[data-nv]')) b.addEventListener('click', () => { netView = b.dataset.nv; try { localStorage.setItem('odin.netview', netView); } catch {} syncNv(); renderDevices(); });
+  // Vue tableau : une ligne par appareil, groupée par catégorie.
+  function deviceRow(x) {
+    const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', x.kind];
+    const st = x.status === 'online' ? 'en ligne' : x.status === 'offline' ? 'hors ligne' : 'retiré';
+    return el('tr', { class: x.status !== 'online' ? 'off' : '' },
+      el('td', { 'data-label': 'Appareil' }, el('div', { class: 'tname' }, el('span', { class: 'dico sm', 'aria-hidden': 'true' }, cat[1]), el('div', {}, el('b', {}, x.label), x.hostname && x.hostname !== x.label ? el('div', { class: 'dim mono' }, x.hostname) : null))),
+      el('td', { 'data-label': 'Adresse', class: 'mono' }, x.ip, x.mac ? el('div', { class: 'dim' }, x.mac) : null),
+      el('td', { 'data-label': 'Fabricant / modèle' }, [x.vendor, x.model !== x.label ? x.model : ''].filter(Boolean).join(' · ') || el('span', { class: 'dim' }, '—')),
+      el('td', { 'data-label': 'Liens' }, (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer', title: w.url }, '↗ ', linkName(w, x.web)))) : el('span', { class: 'dim' }, '—')),
+      el('td', { 'data-label': 'Ports' }, x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('span', { class: 'dim' }, '—')),
+      el('td', { 'data-label': 'État' }, el('span', { class: 'dst ' + x.status }, st)),
+      el('td', {}, el('button', { class: 'btn small ibtn', type: 'button', title: 'Renommer', 'aria-label': 'Renommer ' + x.label, onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, '✎')));
+  }
+  for (const b of document.querySelectorAll('[data-nf]')) b.addEventListener('click', () => { netFilter = b.dataset.nf; for (const x of document.querySelectorAll('[data-nf]')) x.setAttribute('aria-pressed', String(x === b)); renderDevices(); });
+  $('#netSearch').addEventListener('input', () => renderDevices());
+  // Nom d'un lien web : son titre ; le port en plus quand deux liens ont le même titre.
+  const linkName = (w, all) => { const tt = w.title && !w.title.startsWith('→') ? w.title : ''; if (!tt) return w.url.replace(/^https?:\/\//, '').replace(/\/$/, ''); return all.filter((o) => o.title === w.title).length > 1 ? `${tt} (${w.url.startsWith('https') ? 'https' : 'http'} :${w.port})` : tt; };
+  const ipNum = (ip) => ip.split('.').reduce((a, n) => a * 256 + (Number(n) || 0), 0);
+  function deviceCard(x) {
+    const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', x.kind];
+    const st = x.status === 'online' ? 'en ligne' : x.status === 'offline' ? 'hors ligne' : 'retiré';
+    const webLinks = (x.web || []).map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer', title: w.url }, '↗ ', linkName(w, x.web)));
+    const actions = x.links.filter((l) => !/^https?:\/\//.test(l.how) || !(x.web || []).some((w) => w.url === l.how));
+    return el('article', { class: 'dcard' + (x.status !== 'online' ? ' off' : '') },
+      el('div', { class: 'dtop' },
+        el('span', { class: 'dico', 'aria-hidden': 'true' }, cat[1]),
+        el('div', { class: 'dname' }, el('h3', {}, x.label), el('div', { class: 'dmeta' }, el('span', { class: 'mono' }, x.ip), x.vendor ? ` · ${x.vendor}` : '', x.model && x.model !== x.label ? ` · ${x.model}` : '')),
+        el('span', { class: 'dst ' + x.status, title: st }, st)),
+      x.hostname && x.hostname !== x.label ? el('div', { class: 'dline' }, 'Nom réseau : ', el('span', { class: 'mono' }, x.hostname)) : null,
+      webLinks.length ? el('div', { class: 'dlinks' }, webLinks) : null,
+      x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('div', { class: 'dline dim' }, 'Ports : lance un balayage complet pour les voir.'),
+      actions.length ? el('details', { class: 'dacts' }, el('summary', {}, `Ce qu'Odin peut faire (${actions.length})`), el('ul', {}, actions.map((l) => el('li', {}, l.action, ' — ', el('span', { class: 'mono' }, l.how))))) : null,
+      el('div', { class: 'dfoot' }, el('span', {}, x.mac ? el('span', { class: 'mono' }, x.mac) : '', ` · vu ${fmt(x.last_seen)}`),
+        el('button', { class: 'btn small', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer')));
+  }
+  const closedGroups = new Set();
+  function renderDevices() {
+    const box = $('#devices'); if (!state) return;
+    const q = $('#netSearch').value.trim().toLowerCase();
+    const list = state.devices.filter((x) => (netFilter === 'all' ? true : netFilter === 'online' ? x.status === 'online' : x.status !== 'online'))
+      .filter((x) => !q || [x.label, x.ip, x.mac, x.vendor, x.model, x.hostname, x.kind, ...(x.portNames || []).map((p) => p.port + ' ' + p.service), ...(x.web || []).map((w) => w.title + ' ' + w.url)].join(' ').toLowerCase().includes(q));
+    box.textContent = '';
+    if (!state.devices.length) { box.append(el('div', { class: 'empty' }, 'Aucun appareil connu. Lance un balayage complet.')); return; }
+    if (!list.length) { box.append(el('div', { class: 'empty' }, 'Aucun appareil ne correspond.')); return; }
+    const seen = new Set(), groups = [];
+    for (const [kind, icon, title] of NET_CATS) {
+      if (seen.has(title)) continue;
+      const kinds = NET_CATS.filter((c) => c[2] === title).map((c) => c[0]); seen.add(title);
+      const items = list.filter((x) => kinds.includes(x.kind)).sort((a, b) => (a.status === 'online' ? 0 : 1) - (b.status === 'online' ? 0 : 1) || ipNum(a.ip) - ipNum(b.ip));
+      if (items.length) groups.push({ icon, title, items });
+    }
+    const rest = list.filter((x) => !NET_CATS.some((c) => c[0] === x.kind));
+    if (rest.length) groups.push({ icon: '•', title: 'Autres', items: rest });
+    if (netView === 'cards') {
+      for (const g of groups) box.append(el('details', { class: 'dgroup', open: !closedGroups.has(g.title), ontoggle: (ev) => { ev.target.open ? closedGroups.delete(g.title) : closedGroups.add(g.title); } },
+        el('summary', {}, el('span', { 'aria-hidden': 'true' }, g.icon), ` ${g.title} `, el('span', { class: 'dcount' }, g.items.length)), el('div', { class: 'dgrid' }, g.items.map(deviceCard))));
+      return;
+    }
+    // Un seul tableau : colonnes alignées, une ligne d'en-tête par catégorie (touche-la pour replier).
+    const tb = [];
+    for (const g of groups) {
+      const closed = closedGroups.has(g.title);
+      tb.push(el('tbody', { class: 'grp' + (closed ? ' closed' : '') },
+        el('tr', { class: 'grow', onclick: () => { closed ? closedGroups.delete(g.title) : closedGroups.add(g.title); renderDevices(); } },
+          el('td', { colspan: 7 }, el('span', { 'aria-hidden': 'true' }, g.icon), ` ${g.title} `, el('span', { class: 'dcount' }, g.items.length), el('span', { class: 'gchev', 'aria-hidden': 'true' }, closed ? '▸' : '▾'))),
+        closed ? null : g.items.map(deviceRow)));
+    }
+    box.append(el('div', { class: 'wrap' }, el('table', { class: 'tbl ntbl' },
+      el('colgroup', {}, ['20%', '13%', '12%', '20%', '21%', '9%', '5%'].map((w) => el('col', { style: 'width:' + w }))),
+      el('thead', {}, el('tr', {}, ['Appareil', 'Adresse', 'Fabricant / modèle', 'Liens', 'Ports', 'État', ''].map((h) => el('th', {}, h)))), ...tb)));
   }
   $('#scanQuick').addEventListener('click', () => { $('#netSub').textContent = 'Balayage rapide en cours…'; api('/api/action', { kind: 'net_scan', full: false }); });
   $('#scanFull').addEventListener('click', () => { $('#netSub').textContent = 'Balayage complet en cours (environ 30 secondes)…'; api('/api/action', { kind: 'net_scan', full: true }); });

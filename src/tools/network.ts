@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } from '../hlidskjalf/inventory.ts';
 import { serviceName } from '../hlidskjalf/identify.ts';
+import { CATEGORIES, vendorOf } from '../hlidskjalf/vendors.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
 import { safeEnv } from './builtin.ts';
 import { bool, num, obj, str, type Tool } from './registry.ts';
@@ -30,7 +31,13 @@ export const netInventory: Tool = {
     const last = inv.lastScan();
     if (!list.length) return `Aucun appareil connu${last ? '' : ' : aucun balayage n\'a encore eu lieu (outil net_scan)'}.`;
     const head = last ? `Dernier balayage : ${new Date(last.at).toLocaleString('fr-FR')} (${last.full ? 'complet' : 'rapide'}).\n` : '';
-    return head + list.map((d) => `${d.status === 'online' ? '●' : d.status === 'offline' ? '○' : '×'} ${deviceLabel(d)} · ${d.kind} · ${d.ip}${d.status !== 'online' ? ` · ${d.status === 'offline' ? 'déconnecté' : 'retiré'}` : ''}${d.ports.length ? `\n   ports : ${d.ports.map((p) => `${p} ${serviceName(p)}`).join(', ')}` : ''}${d.web.length ? `\n   liens : ${d.web.map((w) => `${w.url}${w.title ? ` (${w.title})` : ''}`).join(' · ')}` : ''}`).join('\n');
+    // Classé par catégorie, puis par adresse IP : nom, IP, fabricant, ports nommés, liens.
+    const line = (d: typeof list[number]) => `${d.status === 'online' ? '●' : d.status === 'offline' ? '○' : '×'} ${deviceLabel(d)} · ${d.ip}${vendorOf(d.mac) ? ` · ${vendorOf(d.mac)}` : ''}${d.status !== 'online' ? ` · ${d.status === 'offline' ? 'déconnecté' : 'retiré'}` : ''}${d.ports.length ? `\n   ports : ${d.ports.map((p) => `${p} ${serviceName(p)}`).join(', ')}` : ''}${d.web.length ? `\n   liens : ${d.web.map((w) => `${w.url}${w.title ? ` (${w.title})` : ''}`).join(' · ')}` : ''}`;
+    const ipNum = (ip: string) => ip.split('.').reduce((a, n) => a * 256 + Number(n), 0);
+    const groups = CATEGORIES.map((c) => ({ ...c, items: list.filter((d) => d.kind === c.kind).sort((a, b) => ipNum(a.ip) - ipNum(b.ip)) }));
+    const other = list.filter((d) => !CATEGORIES.some((c) => c.kind === d.kind));
+    if (other.length) groups.push({ kind: 'autres', icon: '•', items: other });
+    return head + groups.filter((g) => g.items.length).map((g) => `\n${g.icon} ${g.kind.toUpperCase()} (${g.items.length})\n${g.items.map(line).join('\n')}`).join('\n');
   },
 };
 

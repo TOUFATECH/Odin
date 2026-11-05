@@ -4,6 +4,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { execFile } from 'node:child_process';
 import { type Found, isRandomMac } from './discover.ts';
+import { vendorOf, WEB_HINTS } from './vendors.ts';
 import { serviceName, type WebEndpoint } from './identify.ts';
 
 export type DeviceStatus = 'online' | 'offline' | 'removed';
@@ -52,18 +53,25 @@ CREATE TABLE IF NOT EXISTS scans(id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGE
 const has = (f: { ports: number[]; services: string[] }, ...needles: Array<number | string>) =>
   needles.some((n) => (typeof n === 'number' ? f.ports.includes(n) : f.services.some((s) => s.includes(n))));
 
-/** Devine le type d'appareil à partir des ports et services annoncés. */
-export function classify(f: Pick<Found, 'ports' | 'services' | 'server' | 'mac' | 'isGateway' | 'model'>): string {
-  const srv = `${f.server ?? ''} ${f.model ?? ''}`.toLowerCase();
+/** Devine le type d'appareil : fabricant (MAC), titres de ses pages web, ports et services annoncés. */
+export function classify(f: Pick<Found, 'ports' | 'services' | 'server' | 'mac' | 'isGateway' | 'model'> & { web?: WebEndpoint[]; name?: string }): string {
+  const vendor = vendorOf(f.mac);
+  const srv = `${f.server ?? ''} ${f.model ?? ''} ${f.name ?? ''} ${vendor}`.toLowerCase();
+  const titles = (f.web ?? []).map((w) => `${w.title} ${w.server}`).join(' ');
   if (f.isGateway || has(f, 'internetgatewaydevice', 'wanipconnection')) return 'routeur';
-  if (has(f, 631, 9100, '_ipp', '_printer') || /printer|laserjet|epson|brother|canon/.test(srv)) return 'imprimante';
-  if (has(f, 554, '_rtsp') || /camera|ipcam|hikvision|dahua/.test(srv)) return 'caméra';
-  if (has(f, 8123, 1883, '_hap', '_homeassistant') || /hue|homey|zigbee/.test(srv)) return 'domotique';
-  if (has(f, 8009, '_googlecast', '_airplay', '_raop', 'mediarenderer') || /tv|chromecast|roku|sonos|appletv/.test(srv)) return 'multimédia';
-  if ((has(f, 445, '_smb') && has(f, 5000, 548)) || /synology|qnap|nas/.test(srv)) return 'stockage (NAS)';
+  for (const [re, kind] of WEB_HINTS) if (re.test(titles)) return kind;
+  if (/proxmox|qemu|vmware|hyper-v|virtualbox|docker/.test(vendor.toLowerCase())) return has(f, 8006) ? 'serveur' : 'machine virtuelle';
+  if (has(f, 631, 9100, '_ipp', '_printer') || /printer|laserjet|epson|brother|canon|kyocera/.test(srv)) return 'imprimante';
+  if (has(f, 554, '_rtsp') || /camera|ipcam|hikvision|dahua|reolink/.test(srv)) return 'caméra';
+  if (has(f, 8123, 1883, '_hap', '_homeassistant') || /hue|homey|zigbee|espressif|tuya|shelly|objet connecté/.test(srv)) return 'domotique';
+  if (has(f, 8009, '_googlecast', '_airplay', '_raop', 'mediarenderer') || /\btv\b|chromecast|roku|sonos|appletv|shield/.test(srv)) return 'multimédia';
+  if ((has(f, 445, '_smb') && has(f, 5000, 548)) || /synology|qnap|\bnas\b|western digital/.test(srv)) return 'stockage (NAS)';
+  if (has(f, 8006)) return 'serveur';
   if (has(f, 62078)) return 'téléphone / tablette';
-  if (has(f, 22, 3389, 139, 445)) return 'ordinateur / serveur';
+  if (has(f, 22, 3389, 139, 445, 5900)) return 'ordinateur / serveur';
+  if (/raspberry/.test(srv)) return 'ordinateur / serveur';
   if (f.mac && isRandomMac(f.mac) && !f.ports.length) return 'téléphone / tablette';
+  if (/apple|samsung|xiaomi|huawei|google|oneplus|oppo/.test(srv) && !f.ports.length) return 'téléphone / tablette';
   return 'inconnu';
 }
 
@@ -194,7 +202,15 @@ export class Inventory {
   }
 }
 
-export const deviceLabel = (d: Device) => d.label || d.name || d.hostname || d.model || d.ip;
+/** Nom lisible : celui que tu as donné, puis celui annoncé, puis le modèle, puis « fabricant + type ». */
+export const deviceLabel = (d: Device) => {
+  const named = d.label || d.name || d.hostname || d.model || (d.web ?? []).find((w) => w.title && !w.title.startsWith('→'))?.title;
+  if (named) return named;
+  const v = vendorOf(d.mac).replace(/ \(objet connecté\)$/, '');
+  if (v) return `${v}${d.kind && d.kind !== 'inconnu' ? ` (${d.kind})` : ''}`;
+  if (d.mac && isRandomMac(d.mac)) return 'Appareil mobile (adresse privée)';
+  return d.ip;
+};
 
 /** Résumé lisible d'un balayage, pour le terminal ou un message Telegram. */
 export function formatReport(r: ScanReport): string {

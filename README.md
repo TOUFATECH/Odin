@@ -276,6 +276,9 @@ Odin pilote un vrai navigateur (le Chrome, Chromium ou Edge de la machine, sans 
 
 ### Ce que chaque appareil expose
 
+Les appareils trouvés sont **classés par catégorie** (box et routeurs, serveurs, machines virtuelles, stockage, ordinateurs, téléphones, multimédia, maison connectée, caméras, imprimantes, à identifier) et **identifiés** : nom (annoncé, ou déduit du fabricant et du type), adresse IP et MAC, fabricant (préfixe MAC ; base officielle IEEE si le paquet `ieee-data` est installé), liens vers leurs interfaces web et ports nommés. Dans l'interface : un tableau aligné (ou des fiches sur téléphone), une recherche (nom, IP, port, service) et un filtre en ligne / hors ligne.
+
+
 Pour chaque appareil du réseau, Odin récupère son **nom** (Bonjour/mDNS, UPnP avec fabricant et modèle, NetBIOS des ordinateurs Windows et des NAS, DNS inverse), ses **ports ouverts** parmi une soixantaine (SSH, partage de fichiers, impression, bases de données, Proxmox, Plex, Jellyfin, Home Assistant, VNC…), chacun nommé, et les **liens** vers ses interfaces web (http ou https détecté) avec leur titre. Tout est dans l'onglet Réseau et dans `odin net show <appareil>` ; le balayage complet (bouton ou `odin net scan --full`) remplit ports et liens.
 
 ### Accès complet à sa machine

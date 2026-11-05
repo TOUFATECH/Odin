@@ -25,7 +25,8 @@ import { userInfo } from 'node:os';
 import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
 import type { Autonomy } from '../heimdall/policy.ts';
-import { deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
+import { classify, deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
+import { vendorOf } from '../hlidskjalf/vendors.ts';
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
 import { applySettings, providerFor, settingsView, testProvider, type ModelPreset } from '../settings.ts';
@@ -332,7 +333,12 @@ export class WebChannel implements Channel {
       conversations: muninn.listSessions(50).filter((s) => s.id.startsWith('web:')).map((s) => ({ peer: s.id.slice(4), title: s.title, updated: s.updated_at, tainted: s.tainted === 1 })),
       usage: day,
       network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, lastScan: inventory.lastScan() ?? null },
-      devices: inventory.list({ status: 'all' }).map((d) => ({ ...d, label: deviceLabel(d), links: linksFor(d), portNames: d.ports.map((p) => ({ port: p, service: serviceName(p) })) })),
+      devices: inventory.list({ status: 'all' }).map((d) => {
+        // Les règles s'améliorent : un appareil resté « inconnu » est reclassé à l'affichage.
+        const kind = d.kind === 'inconnu' ? classify({ ...d, isGateway: false }) : d.kind;
+        const x = { ...d, kind };
+        return { ...x, label: deviceLabel(x), vendor: vendorOf(d.mac), links: linksFor(x), portNames: d.ports.map((p) => ({ port: p, service: serviceName(p) })) };
+      }),
       deviceEvents: inventory.events(40).map((e) => ({ ...e, device: deviceLabel(inventory.get(e.device_id) ?? ({ ip: e.device_id } as never)) })),
       memories: muninn.listMemories(200),
       skills: skills.list().map((s) => ({ name: s.name, description: s.description, version: s.version, uses: muninn.skillStats().find((x) => x.name === s.name)?.uses ?? 0 })),

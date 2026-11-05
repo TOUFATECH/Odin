@@ -1,3 +1,4 @@
+import { vendorOf } from '../src/hlidskjalf/vendors.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
@@ -89,6 +90,14 @@ test('classement et liens possibles', () => {
   assert.equal(classify(f({ ports: [554] })), 'caméra');
   assert.equal(classify(f({ ports: [], mac: '8e:12:34:56:78:9a' })), 'téléphone / tablette');
   assert.equal(classify(f({ ports: [22] })), 'ordinateur / serveur');
+  // Fabricant (MAC) et titres des pages web
+  assert.equal(classify(f({ ports: [22], mac: 'bc:24:11:aa:bb:cc' })), 'machine virtuelle');
+  assert.equal(classify(f({ ports: [22, 8006], mac: 'bc:24:11:aa:bb:cc' })), 'serveur');
+  assert.equal(classify(f({ ports: [80], mac: '24:0a:c4:11:22:33' })), 'domotique');
+  assert.equal(classify(f({ ports: [443], web: [{ port: 443, url: 'https://x/', title: 'Synology DiskStation', server: 'nginx', status: 200 }] })), 'stockage (NAS)');
+  assert.equal(classify(f({ ports: [8006], web: [{ port: 8006, url: 'https://x:8006/', title: 'pve - Proxmox Virtual Environment', server: '', status: 200 }] })), 'serveur');
+  assert.equal(vendorOf('B8:27:EB:00:11:22'), 'Raspberry Pi');
+  assert.equal(vendorOf('8e:12:34:56:78:9a'), '', 'MAC aléatoire : pas de fabricant');
   const links = linksFor({ ip: '192.168.1.20', ports: [80, 631], services: [], kind: 'imprimante' });
   assert.ok(links.some((l) => l.action === 'Imprimer un document' && l.risk === 'external'));
   assert.ok(links.some((l) => l.how === 'http://192.168.1.20'));
