@@ -215,6 +215,14 @@ open_url() {
 echo
 gold "ᛟ  Odin est installé"
 echo "  Dernière étape : choisis ton modèle dans l'interface web, onglet Réglages."
+MISSING=""
+for t in ffmpeg yt-dlp pdftotext smbclient tesseract; do command -v "$t" >/dev/null || MISSING="$MISSING $t"; done
+if [ -n "$MISSING" ]; then
+  echo "  Facultatif (vidéos, PDF, partages réseau, lecture d'images) : il manque$MISSING."
+  if command -v apt-get >/dev/null; then echo "    sudo apt install ffmpeg yt-dlp poppler-utils smbclient nfs-common tesseract-ocr tesseract-ocr-fra"
+  elif [ "$OS" = darwin ]; then echo "    brew install ffmpeg yt-dlp poppler samba tesseract tesseract-lang"; fi
+  echo "    (Odin peut aussi les installer lui-même si tu lui donnes les droits administrateur.)"
+fi
 lan_ip() {
   if [ "$OS" = darwin ]; then ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null
   else hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^(10|172\.(1[6-9]|2[0-9]|3[01])|192\.168)\.' | head -n1; fi
