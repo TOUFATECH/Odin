@@ -191,6 +191,10 @@ export class Muninn {
   }
 
   /** Historique actif (après la dernière compaction), avec les identifiants de ligne. */
+  /** Tous les messages d'une session entre deux dates (ligne de temps d'une mission). */
+  messagesBetween(sessionId: string, from: number, to: number): Array<{ role: string; content: string; tool_calls: string | null; tool_name: string | null; created_at: number }> {
+    return this.db.prepare('SELECT role, content, tool_calls, tool_name, created_at FROM messages WHERE session_id = ? AND created_at >= ? AND created_at <= ? ORDER BY id LIMIT 400').all(sessionId, from, to) as never;
+  }
   history(sessionId: string): Array<Message & { rowId: number }> {
     const s = this.getSession(sessionId);
     const rows = this.db.prepare('SELECT * FROM messages WHERE session_id = ? AND id > ? ORDER BY id').all(sessionId, s?.compact_upto ?? 0) as Array<Record<string, unknown>>;
@@ -254,6 +258,14 @@ export class Muninn {
     const r4 = this.db.prepare("DELETE FROM memories WHERE pinned = 0 AND origin = 'agent' AND uses = 0 AND last_used_at < ?").run(now - 365 * day);
     this.db.exec('DELETE FROM memory_vec WHERE id NOT IN (SELECT id FROM memories)');
     return Number(r1.changes) + Number(r2.changes) + Number(r3.changes) + Number(r4.changes);
+  }
+
+  /** Leçons apprises (corrections, erreurs vérifiées) : les plus récentes et les plus pertinentes. */
+  lessons(query = '', limit = 6): MemoryRow[] {
+    const rel = query ? this.recall(query, 20).filter((m) => m.kind === 'lesson') : [];
+    const recent = this.db.prepare("SELECT * FROM memories WHERE kind = 'lesson' AND superseded_by IS NULL ORDER BY id DESC LIMIT ?").all(limit) as unknown as MemoryRow[];
+    const seen = new Set<number>();
+    return [...rel, ...recent].filter((m) => !seen.has(m.id) && seen.add(m.id)).slice(0, limit);
   }
 
   /** Fiche d'un sujet : tout ce qu'Odin sait d'un appareil, d'une personne, de toi (faits actuels + anciens). */

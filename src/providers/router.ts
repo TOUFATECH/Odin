@@ -44,6 +44,8 @@ export interface CompleteOptions {
   minTier?: Tier;
   /** À quoi sert l'appel (agent, juge, résumé, réflexion, observation, vision…), pour la comptabilité. */
   purpose?: string;
+  /** Fournisseurs à préférer, à palier égal (ceux qui réussissent le mieux ce type de tâche chez toi). */
+  prefer?: string[];
   /** Fournisseurs à éviter (vérification croisée : un autre avis). */
   exclude?: string[];
 }
@@ -118,10 +120,11 @@ export class Router {
   order(o: CompleteOptions = {}): Route[] {
     const min = TIER_RANK[o.minTier ?? 'standard'];
     const rank = (r: Route) => { const t = TIER_RANK[tierOf(r.cfg)]; return t >= min ? t - min : 10 + (min - t); };
+    const pref = (r: Route) => { const i = o.prefer?.indexOf(r.provider.name) ?? -1; return i < 0 ? 99 : i; };
     return this.routes
       .filter((r) => !o.exclude?.includes(r.provider.name))
       .map((r, i) => ({ r, i }))
-      .sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i)
+      .sort((a, b) => rank(a.r) - rank(b.r) || pref(a.r) - pref(b.r) || a.i - b.i)
       .map((x) => x.r);
   }
 

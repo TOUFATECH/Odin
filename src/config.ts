@@ -89,6 +89,8 @@ export interface OdinConfig {
   updates: { enabled: boolean; weekday: number; hour: number; targets: Array<{ where: string; vmid?: number }>; rollbackOnFailure: boolean };
   /** Journal de bord du soir : ce qu'Odin a fait, remarqué, et ses conseils. */
   journal: { enabled: boolean; at: string; morning?: string };
+  /** Ne pas déranger : la nuit (et pendant tes rendez-vous si l'agenda est relié), seules les alertes urgentes arrivent ; le reste attend le rapport du matin. */
+  quiet: { enabled: boolean; from: string; to: string; agenda: boolean };
   /** Travail continu : Odin cherche lui-même ce qui est utile, jour et nuit, sans pause, dans ces limites. */
   continuous: { enabled: boolean; intervalMin: number; dailyBudgetUsd: number; autoResume: boolean; maxRetries: number };
   /** Home Assistant (jeton dans HA_TOKEN). */
@@ -185,6 +187,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   services: [],
   updates: { enabled: false, weekday: 0, hour: 4, targets: [], rollbackOnFailure: true },
   journal: { enabled: true, at: '21:30', morning: '07:00' },
+  quiet: { enabled: true, from: '22:30', to: '07:00', agenda: true },
   continuous: { enabled: true, intervalMin: 30, dailyBudgetUsd: 0.5, autoResume: true, maxRetries: 3 },
   homeAssistant: { url: '' },
   mail: { imapHost: '', imapPort: 993, smtpHost: '', smtpPort: 465, user: '', from: '' },

@@ -343,6 +343,24 @@ Réglages → Personnalité : un ton (et une voix) par contexte — « Maison »
 
 Recherche dans toutes tes conversations, épingles, renommage, export en PDF (menu ⋯ de chaque conversation).
 
+### Tout tester, pour de vrai
+Bouton **Tout tester** sur l'Accueil (ou `odin test`) : Odin essaie réellement chaque fonction reliée — modèle, Telegram, mail, agenda, Proxmox, Home Assistant, recherche web, mémoire par le sens, sauvegardes, accès extérieur, notifications — et dit pour chacune ✅ / ❌ / ⚪ (non reliée) avec quoi faire si ça ne marche pas.
+
+### Il apprend de ses erreurs et choisit le bon modèle
+Quand tu le corriges (« non, c'est… »), Odin en tire une leçon qu'il relit avant les tâches semblables. Il mesure aussi quel modèle réussit le mieux chaque type de tâche (réseau, web, code…) et le choisit en priorité.
+
+### Annuler, et comprendre pourquoi
+Chaque fichier qu'Odin modifie est gardé dans sa version d'avant (30 jours) : **Missions → Détails** montre la ligne de temps de la mission et un bouton **Annuler** par fichier. Sous sa dernière réponse, **Pourquoi ?** explique ce qu'il a fait et pour quelle raison. Avant un changement risqué sur une machine, il prépare un plan (ce qui en dépend, comment revenir en arrière, quoi vérifier).
+
+### Heures calmes, anomalies, bilan de la semaine
+La nuit (22 h 30 – 7 h par défaut) et pendant tes rendez-vous, Odin travaille mais garde ses messages pour plus tard, sauf urgence. Il repère ce qui sort de l'ordinaire (appareil inconnu connecté la nuit, machine surchargée, disque qui se remplit vite). Chaque dimanche : bilan de la semaine, test de restauration de la dernière sauvegarde et mise à jour du **plan de reprise** (`plan-de-reprise.md`).
+
+### Conversation vocale et raccourcis Siri / Android
+En **Mains libres** avec **Voix** activée, après sa réponse Odin t'écoute de nouveau sans qu'il faille redire « Odin » ; dis « stop » pour lui couper la parole. Depuis ton téléphone sans ouvrir l'appli : un raccourci Siri ou Android envoie ta phrase à `/api/ask` (jeton Bearer) et lit sa réponse (instructions : Réglages → Accès). Avec Home Assistant, il peut parler sur tes enceintes.
+
+### Coffre (facultatif)
+Réglages → Droits et machines → **Coffre** : un mot de passe maître chiffre sur le disque les clés, jetons et mots de passe d'Odin. Après chaque redémarrage, il faut le déverrouiller depuis l'Accueil (Odin t'envoie une notification).
+
 ### Son visage et ses humeurs
 
 Odin a un visage, une petite boule aux deux yeux qui **change de couleur selon son humeur** ; ses yeux, toujours droits, changent de taille, de place et de mouvement selon l'émotion (tout petits quand il est gêné, plissés quand il est fâché, mi-clos quand il est fatigué, grands quand il est surpris, un clin d'œil…). Une vingtaine d'humeurs en tout : content, rieur, attendri, fier, enthousiaste, complice, malicieux, surpris, pensif, concentré, perplexe, inquiet, triste, fâché, effrayé, gêné, fatigué, à l'écoute, attentif… **Il choisit lui-même son humeur** à chaque réponse, selon ce qu'il vit avec toi. Entre deux réponses, son visage réagit tout seul : il t'écoute quand tu écris ou parles, se concentre quand il travaille, regarde quand tu lui montres une photo (bouton 📷), parle quand il lit sa réponse à voix haute, **ferme les yeux quand tu tapes une clé** dans les réglages, sourit quand un réglage est enregistré, s'endort si on l'oublie. Touche-le : il saute ; touche-le trop, il se fâche, devient rouge, puis bleu, puis redevient jaune. Chaque mouvement a son petit **son**, synthétisé dans le navigateur : « boing » quand il saute, grognement quand il se fâche, petit « tic » quand il ferme puis rouvre les yeux, carillon montant quand il est content, descendant quand il est triste (bouton pour couper les sons, sur le site comme dans l'interface). Sur **Telegram**, sa réaction est un émoji à la fin de son message, de la même taille que le texte (`mood.emoji` ; l'autocollant de son visage en plus avec `mood.stickers`).

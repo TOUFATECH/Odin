@@ -56,4 +56,30 @@ export const haCall: Tool = {
   },
 };
 
-export const HA_TOOLS: Tool[] = [haStates, haCall];
+/** Service de synthèse vocale à utiliser (pur, testable) : tts.speak (récent) s'il y a une entité tts, sinon tts.<moteur>_say. */
+export function speakPlan(states: HaState[], player: string, message: string): { path: string; data: Record<string, unknown> } {
+  const tts = states.find((x) => x.entity_id.startsWith('tts.'));
+  if (tts) return { path: '/services/tts/speak', data: { entity_id: tts.entity_id, media_player_entity_id: player, message, language: 'fr' } };
+  return { path: '/services/tts/google_translate_say', data: { entity_id: player, message, language: 'fr' } };
+}
+
+export const haSpeak: Tool = {
+  name: 'ha_speak',
+  description: 'Home Assistant : Odin parle à voix haute sur une enceinte de la maison (Google Home, Sonos, Alexa reliée…). Sans enceinte précisée : la première trouvée. Pour une annonce, un rappel, réveiller, prévenir quelqu\'un dans une autre pièce.',
+  risk: 'external',
+  schema: obj({ message: str('ce qu\'Odin doit dire'), speaker: str('enceinte (entité media_player.… ou mot de son nom, facultatif)') }, ['message']),
+  summarize: (i) => `Maison : dire « ${s(i.message).slice(0, 80)} » sur ${s(i.speaker) || 'l\'enceinte'}`,
+  async run(i, ctx) {
+    const { url, token } = conf(ctx);
+    const states = await haApi(url, token, 'GET', '/states') as HaState[];
+    const q = s(i.speaker).toLowerCase();
+    const players = states.filter((x) => x.entity_id.startsWith('media_player.'));
+    const p = players.find((x) => x.entity_id === q) ?? players.find((x) => q && `${x.entity_id} ${x.attributes.friendly_name ?? ''}`.toLowerCase().includes(q)) ?? (q ? undefined : players[0]);
+    if (!p) return players.length ? `Enceinte introuvable. Disponibles : ${players.map((x) => `${x.entity_id} (${x.attributes.friendly_name ?? ''})`).join(', ')}` : 'Aucune enceinte (media_player) dans Home Assistant.';
+    const plan = speakPlan(states, p.entity_id, s(i.message).slice(0, 1000));
+    await haApi(url, token, 'POST', plan.path, plan.data);
+    return `Annoncé sur ${p.attributes.friendly_name ?? p.entity_id}.`;
+  },
+};
+
+export const HA_TOOLS: Tool[] = [haStates, haCall, haSpeak];

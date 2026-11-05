@@ -51,6 +51,7 @@ Usage : odin <commande>
   run "<demande>" [--demo]     une seule demande, puis quitte
   gateway                      démarre Telegram / API HTTP + tâches planifiées
   doctor                       diagnostic complet de l'installation
+  test                         teste pour de vrai chaque fonction reliée (modèle, mail, Proxmox…)
 
   skills [list|drafts|show N|diff N|approve N|reject N|rollback N]
   memory [list|search Q|forget ID|pin ID|vouch ID]
@@ -684,6 +685,17 @@ async function main(): Promise<void> {
   if (cmd === 'web') return gateway(!flags.has('--no-open'));
   if (cmd === 'breaker') return breakerCmd(pos[1]);
   if (cmd === 'doctor') return doctor();
+  if (cmd === 'test') {
+    // Mise à l'épreuve réelle : chaque fonction reliée est testée pour de vrai.
+    const odin = createOdin();
+    console.log(`${c.cyan('ᛟ')} Odin teste tout ce qui est relié…\n`);
+    const { selfTest, formatChecks } = await import('../selftest.ts');
+    const r = await selfTest({ cfg: odin.cfg, paths: odin.paths, router: odin.agent.deps.router, demo: odin.demo });
+    console.log(formatChecks(r));
+    odin.close();
+    process.exitCode = r.some((x) => x.ok === false) ? 1 : 0;
+    return;
+  }
   if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'mimir', 'jev', 'decisions', 'grants'].includes(cmd)) return admin();
   console.log(HELP);
   process.exitCode = 1;

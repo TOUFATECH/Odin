@@ -29,6 +29,7 @@ import type { Tier } from '../providers/router.ts';
 
 export interface AgentDeps {
   cfg: OdinConfig;
+  paths?: import('../config.ts').OdinPaths;
   /** Recherche par le sens dans la mémoire (modèle local), facultative. */
   embedder?: Embedder;
   router: Router;
@@ -157,6 +158,9 @@ export class Agent {
 
     // 3. Prompt système (stable pendant tout le tour).
     let tainted = muninn.getSession(o.sessionId)!.tainted === 1;
+    const recalledNow = (await this.recallSmart(userText, cfg.learning.recallLimit, signal)).filter((m) => m.kind !== 'lesson');
+    const lessonsNow = depth > 0 ? [] : muninn.lessons(userText, 6);
+    const memUsed = recalledNow.map((m) => m.content), lessonsUsed = lessonsNow.map((m) => m.content);
     const system = buildSystemPrompt({
       persona: this.deps.persona,
       name: cfg.name,
@@ -165,7 +169,8 @@ export class Agent {
       workspace: this.deps.workspace,
       summary: muninn.getSession(o.sessionId)!.summary,
       pinned: muninn.pinned(),
-      recalled: await this.recallSmart(userText, cfg.learning.recallLimit, signal),
+      recalled: recalledNow,
+      lessons: lessonsNow,
       skillsIndex: this.deps.skills.index(),
       tainted,
       isSubAgent: depth > 0,
@@ -194,16 +199,19 @@ export class Agent {
       minTier = tier === 'local' && !cfg.routing.preferLocal ? 'standard' : tier === 'strong' && !cfg.routing.strongForComplex ? 'standard' : tier;
     }
     res.routed = minTier;
-    const routeOpts = { minTier };
+    // Choix du modèle selon les résultats : à palier égal, celui qui réussit le mieux ce type de tâche chez toi.
+    const category = taskCategory(userText);
+    const routeOpts = { minTier, prefer: depth === 0 ? preferredProviders(muninn, category) : undefined };
     const cheapOpts = { minTier: 'local' as Tier };
     const seen = new Map<string, number>();
     const turnLog: Message[] = [];
     let verifyAsked = false;
+    let lastProvider = '';
 
     const ctx: ToolContext = {
       sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, search: cfg.search, muninn, skills: this.deps.skills, redactor, signal,
       isTainted: () => tainted,
-      proxmox: cfg.proxmox, homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
+      proxmox: cfg.proxmox, careCfg: cfg, paths: this.deps.paths, homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
       fullAccess: cfg.agent.fullAccess !== false && (!o.speaker || o.speaker.role === 'owner'),
       mimir,
       sandbox: cfg.policy.sandbox,
@@ -240,6 +248,7 @@ export class Agent {
         reply = await router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal, onDelta }, routeOpts);
         if (flushT) { clearTimeout(flushT); flush(); }
         if (reply.notice && !res.notices.includes(reply.notice)) res.notices.push(reply.notice);
+        lastProvider = reply.providerName;
       } catch (e) {
         if (signal.aborted) { res.stopReason = 'aborted'; res.text = 'Interrompu.'; break; }
         res.stopReason = 'error';
@@ -299,7 +308,20 @@ export class Agent {
     // Relecture par un second modèle quand l'enjeu le justifie (actions sur la machine, faits du web).
     if (depth === 0 && res.stopReason === 'done' && res.text && cfg.agent.review !== false) {
       const note = await this.review(userText, res.text, turnLog, signal).catch(() => '');
-      if (note) { res.text = `${res.text}\n\n⚠ À vérifier (relecture) : ${note}`; }
+      if (note) { res.text = `${res.text}\n\n⚠ À vérifier (relecture) : ${note}`; void this.learnLesson(res.text, `Relecture : ${note}`, 'agent', emit, signal).catch(() => undefined); }
+    }
+    // Trace du tour (pour « Pourquoi ? ») : outils utilisés, résultats, souvenirs et leçons pris en compte, décisions.
+    if (depth === 0) {
+      try {
+        const tools = turnLog.flatMap((m) => (m.toolCalls ?? []).map((c) => ({ name: c.name, input: JSON.stringify(c.input).slice(0, 200), result: turnLog.find((r) => r.role === 'tool' && r.toolCallId === c.id)?.content.slice(0, 300) ?? '' })));
+        muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: res.text.slice(0, 1500), provider: lastProvider, cost: res.costUsd, tools, memories: memUsed.slice(0, 10), lessons: lessonsUsed.slice(0, 6), decisions: res.decisions.slice(0, 10) }));
+      } catch { /* trace facultative */ }
+    }
+    // Résultat de ce tour pour le fournisseur : réussi, échoué, ou corrigé par toi (le tour d'avant).
+    if (depth === 0 && lastProvider) {
+      recordOutcome(muninn, category, lastProvider, res.stopReason === 'done' && !/⚠ À vérifier \(relecture\)/.test(res.text));
+      if (CORRECTION.test(userText.trim())) { const prev = muninn.getKv(`last-provider:${o.sessionId}`); if (prev) recordOutcome(muninn, prev.split('|')[0], prev.split('|')[1], false); }
+      muninn.setKv(`last-provider:${o.sessionId}`, `${category}|${lastProvider}`);
     }
     res.tainted = tainted;
     res.suspicious = turn.suspicious;
@@ -313,6 +335,11 @@ export class Agent {
     const learning: Array<Promise<unknown>> = [];
     if (depth === 0 && cfg.learning.observe && trusted && !tainted && res.stopReason === 'done' && userText.trim().length >= 12) {
       learning.push(this.observe(userText, res.text, emit, signal, o.speaker?.role === 'member' ? o.speaker.name : undefined).catch(() => undefined));
+    }
+    // Leçons : quand tu le corriges, Odin en tire une règle durable (que tu peux relire et effacer).
+    if (depth === 0 && trusted && !tainted && o.speaker?.role !== 'member' && CORRECTION.test(userText.trim())) {
+      const before = history.slice(0, -turnLog.length - 1).reverse().find((m) => m.role === 'assistant' && m.content)?.content ?? '';
+      if (before) learning.push(this.learnLesson(before, userText, 'owner', emit, signal).catch(() => undefined));
     }
     // 6. Boucle d'apprentissage : après une tâche complexe réussie, apprendre une compétence.
     if (depth === 0 && res.stopReason === 'done' && cfg.learning.proposeSkills && res.toolCalls >= cfg.learning.minToolCallsForReflection) {
@@ -605,6 +632,23 @@ Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|miss
     try { const d = JSON.parse(j) as { ok?: boolean; problemes?: string[] }; return d.ok === false && d.problemes?.length ? d.problemes.slice(0, 2).map((x) => String(x).slice(0, 200)).join(' ; ') : ''; } catch { return ''; }
   }
 
+  /** Tire une leçon courte et réutilisable d'une correction (ou d'une erreur relevée par la relecture). */
+  async learnLesson(previous: string, correction: string, origin: 'owner' | 'agent', emit: (e: AgentEvent) => void, signal?: AbortSignal): Promise<string | undefined> {
+    const router = this.deps.cheapRouter ?? this.deps.router;
+    const r = await router.complete({
+      system: 'Un assistant a fait une erreur et a été corrigé. Écris UNE leçon courte, générale et réutilisable (une phrase à l\'impératif, ex. « Sur le NAS, utilise sudo pour redémarrer les services. »), et son sujet (appareil, personne, « proprietaire » ou « general »). Si ce n\'est pas une vraie correction, réponds {"lecon": ""}. JSON seul : {"lecon": "…", "sujet": "…"}',
+      messages: [{ role: 'user', content: `Réponse de l'assistant :\n${previous.slice(0, 2000)}\n\nCorrection :\n${correction.slice(0, 1500)}` }],
+      tools: [], maxTokens: 200, signal,
+    }, { minTier: 'local', purpose: 'leçon' });
+    const j = r.text.match(/\{[\s\S]*\}/)?.[0]; if (!j) return undefined;
+    const d = JSON.parse(j) as { lecon?: string; sujet?: string };
+    const lesson = this.deps.redactor.redact(String(d.lecon ?? '').trim()).slice(0, 300);
+    if (lesson.length < 10) return undefined;
+    this.deps.muninn.remember(lesson, origin, 'lesson', '', { subject: String(d.sujet ?? 'general'), source: `${origin === 'owner' ? 'ta correction' : 'relecture'} du ${new Date().toLocaleDateString('fr-FR')}` });
+    emit({ type: 'learned', facts: [`Leçon : ${lesson}`] });
+    return lesson;
+  }
+
   /** État du moment, prêt à l'avance : Odin répond aux questions simples sans lancer d'outil. */
   statusSnapshot(): string | undefined {
     const inv = this.deps.inventory; if (!inv) return undefined;
@@ -613,7 +657,10 @@ Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|miss
       if (!all.length) return undefined;
       const watched = new Set(this.deps.cfg.watch?.devices ?? []);
       const down = all.filter((d) => watched.has(d.id) && d.status !== 'online').map((d) => d.label || d.name || d.ip);
-      return `## État du moment (préparé à l'avance)\nRéseau : ${on} appareil(s) en ligne sur ${all.length} connus${last ? `, dernier balayage ${new Date(last.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}${down.length ? ` ; appareils importants hors ligne : ${down.join(', ')}` : ''}. Pour une réponse précise ou récente, vérifie avec tes outils.`;
+      const now = Date.now();
+      let agenda = '';
+      try { const ev = (JSON.parse(this.deps.muninn.getKv('agenda-today') ?? '[]') as Array<{ start: number; end: number; title: string }>).filter((e) => e.end > now && e.start < now + 6 * 3600_000); if (ev.length) agenda = `\nAgenda des 6 prochaines heures : ${ev.map((e) => `${new Date(e.start).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} ${e.title}`).join(' ; ')}.`; } catch { /* pas d'agenda */ }
+      return `## État du moment (préparé à l'avance)${agenda}\nRéseau : ${on} appareil(s) en ligne sur ${all.length} connus${last ? `, dernier balayage ${new Date(last.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : ''}${down.length ? ` ; appareils importants hors ligne : ${down.join(', ')}` : ''}. Pour une réponse précise ou récente, vérifie avec tes outils.`;
     } catch { return undefined; }
   }
 
@@ -685,4 +732,28 @@ export function withSources(text: string, log: Message[]): string {
   const urls = new Set<string>();
   for (const m of log) for (const c of m.toolCalls ?? []) if (['web_fetch', 'browser_open'].includes(c.name) && typeof c.input.url === 'string' && /^https?:\/\//.test(c.input.url)) urls.add(c.input.url);
   return urls.size ? `${text}\n\nSources : ${[...urls].slice(0, 6).join(' · ')}` : text;
+}
+
+/** Un message qui corrige Odin (« non », « c'est faux », « tu t'es trompé »…). */
+export const CORRECTION = /^(non\b|faux\b|c'?est faux|tu t'?es tromp|tu te trompes|erreur\b|pas (ça|du tout)|incorrect|ce n'?est pas (ça|vrai|bon)|ça (ne )?marche pas|ça n'?a pas marché|mauvais|t'as tort|tu as tort)/i;
+
+/** Type de tâche (pour mesurer quel modèle réussit le mieux quoi). */
+export function taskCategory(text: string): string {
+  const t = text.toLowerCase();
+  if (/(r[ée]seau|appareil|ip\b|scan|proxmox|nas|serveur|ssh|port)/.test(t)) return 'reseau';
+  if (/(cherche|recherche|web|site|actualit|prix|m[ée]t[ée]o|internet)/.test(t)) return 'web';
+  if (/(code|script|python|bug|programme|fonction|erreur de compil)/.test(t)) return 'code';
+  if (/(fichier|dossier|document|pdf|excel|word|range)/.test(t)) return 'fichiers';
+  if (/(mail|e-mail|agenda|rendez-vous|r[ée]union)/.test(t)) return 'organisation';
+  if (/(lumi[eè]re|prise|chauffage|volet|maison)/.test(t)) return 'maison';
+  return 'discussion';
+}
+export function recordOutcome(m: Muninn, category: string, provider: string, ok: boolean): void {
+  const k = `model-stats:${category}:${provider}`, [a, b] = (m.getKv(k) ?? '0,0').split(',').map(Number);
+  m.setKv(k, `${a + (ok ? 1 : 0)},${b + (ok ? 0 : 1)}`);
+}
+/** Fournisseurs classés par taux de réussite (au moins 5 essais) pour ce type de tâche. */
+export function preferredProviders(m: Muninn, category: string): string[] | undefined {
+  const stats = Object.entries(m.kvPrefix(`model-stats:${category}:`)).map(([p, v]) => { const [a, b] = v.split(',').map(Number); return { p, n: a + b, rate: (a + 1) / (a + b + 2) }; }).filter((x) => x.n >= 5);
+  return stats.length ? stats.sort((x, y) => y.rate - x.rate).map((x) => x.p) : undefined;
 }

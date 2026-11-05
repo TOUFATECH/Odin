@@ -14,6 +14,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readSecretFile, writeSecretFile } from '../vault.ts';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 
@@ -38,12 +39,10 @@ const adminFile = (home: string) => join(home, 'admin.json');
 /** Mot de passe administrateur donné à Odin (fichier 600 ; ou variable ODIN_SUDO_PASSWORD). */
 export function adminPassword(home: string, env = process.env): string | undefined {
   if (env.ODIN_SUDO_PASSWORD) return env.ODIN_SUDO_PASSWORD;
-  try { return (JSON.parse(readFileSync(adminFile(home), 'utf8')) as { password?: string }).password || undefined; } catch { return undefined; }
+  try { return (JSON.parse(readSecretFile(adminFile(home)) ?? '{}') as { password?: string }).password || undefined; } catch { return undefined; }
 }
 export function setAdminPassword(home: string, password: string | undefined): void {
-  const f = adminFile(home);
-  writeFileSync(f, JSON.stringify(password ? { password } : {}), { mode: 0o600 });
-  try { chmodSync(f, 0o600); } catch { /* Windows */ }
+  writeSecretFile(adminFile(home), JSON.stringify(password ? { password } : {}));
   rightsCache = undefined;
 }
 
@@ -93,6 +92,7 @@ export function rightsSummary(home: string, env = process.env): string {
   const local = { root: 'tu es administrateur (root) sur cette machine', nopasswd: 'tu as les droits administrateur sur cette machine (sudo sans mot de passe)', password: 'tu as les droits administrateur sur cette machine : « sudo » reçoit le mot de passe tout seul', none: 'sudo demande un mot de passe que tu n\'as pas encore : le propriétaire peut te le donner dans Réglages → Droits et machines', absent: process.platform === 'win32' ? 'Windows : pas de sudo' : 'sudo est absent de cette machine' }[mode];
   const ms = listMachines(home);
   const text = `## Droits\n- Machine locale : ${local}.\n- Machines du réseau accessibles (outil machine_exec, machine_copy) : ${ms.length ? ms.map((m) => `${m.label} (${m.user}@${m.host})`).join(', ') : 'aucune pour l\'instant (le propriétaire les ajoute avec leurs mots de passe dans Réglages → Droits et machines)'}.\n- Fichiers : tout le disque (chemin absolu ou ~/… dans fs_read, fs_list, fs_write, fs_edit ; « cwd » pour shell et python). Python 3 est disponible (outil python).
+- Avant un changement risqué sur une machine : change_plan (impact, retour arrière, vérifications), puis suis-le.
 - Ton propre code : tu peux te mettre à jour (self_update) et t'améliorer toi-même (self_info, self_read, self_edit, self_check, self_restart, self_rollback). Toujours : lire le code, modifier, self_check, puis prévenir l'utilisateur et self_restart.
 - N'affiche jamais un mot de passe ; tu n'en as pas besoin, ils sont fournis tout seuls.`;
   rightsCache = { at: Date.now(), home, text };
@@ -121,12 +121,10 @@ export type MachineView = Omit<Machine, 'password' | 'sudoPassword'> & { hasPass
 
 const vaultFile = (home: string) => join(home, 'machines.json');
 export function listMachines(home: string): Machine[] {
-  try { return JSON.parse(readFileSync(vaultFile(home), 'utf8')) as Machine[]; } catch { return []; }
+  try { return JSON.parse(readSecretFile(vaultFile(home)) ?? '[]') as Machine[]; } catch { return []; }
 }
 function saveMachines(home: string, list: Machine[]): void {
-  const f = vaultFile(home);
-  writeFileSync(f, JSON.stringify(list, null, 2), { mode: 0o600 });
-  try { chmodSync(f, 0o600); } catch { /* Windows */ }
+  writeSecretFile(vaultFile(home), JSON.stringify(list, null, 2));
 }
 export const viewMachine = (m: Machine): MachineView => { const { password: _p, sudoPassword: _s, ...rest } = m; return { ...rest, hasPassword: Boolean(m.password) }; };
 

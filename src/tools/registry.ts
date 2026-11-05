@@ -42,6 +42,9 @@ export interface ToolContext {
   /** Proxmox VE (adresse de l'API). */
   proxmox?: { url: string };
   homeAssistant?: { url: string };
+  /** Configuration complète (analyse d'impact, plan de reprise). */
+  careCfg?: OdinConfig;
+  paths?: import('../config.ts').OdinPaths;
   mail?: OdinConfig['mail'];
   calendar?: OdinConfig['calendar'];
   docs?: OdinConfig['docs'];

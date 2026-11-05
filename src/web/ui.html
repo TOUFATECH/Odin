@@ -511,6 +511,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 
 .msg.live .lt::after{content:"▍";color:var(--accent);animation:blinkc 1s steps(1) infinite;margin-left:1px}
 @keyframes blinkc{50%{opacity:0}}
+
+.stdlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);padding:18px;max-width:560px;width:calc(100% - 32px)}
+.stdlg::backdrop{background:rgba(0,0,0,.5)}.stdlg h2{margin:0 0 10px;font-size:18px}
+.stest{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:60vh;overflow:auto}
+.strow{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:10px;background:var(--panel2);border-left:3px solid var(--line);font-size:14px}
+.strow.ok{border-left-color:var(--good)}.strow.ko{border-left-color:var(--bad)}.strow.na{opacity:.6}
+
+.why{display:block;margin-top:8px;border:0;background:none;color:var(--dim);font-size:12.5px;padding:0;cursor:pointer;text-decoration:underline dotted}.why:hover{color:var(--accent)}
+.whyt{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:13px;color:var(--muted);white-space:pre-wrap}
+.tl{display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow:auto;margin:10px 0;font-size:13px}
+.tli{display:flex;gap:8px;padding:5px 8px;border-radius:8px;background:var(--panel2);overflow-wrap:anywhere}.tli.résultat{margin-left:18px;color:var(--muted)}
+.tlt{flex:none;color:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
 </style>
 </head>
 <body>
@@ -569,7 +581,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     <section class="view on" id="v-home" aria-label="Accueil">
       <div class="head"><div><h1>Accueil</h1><div class="sub" id="homeSub">Tout ce qui compte, d'un coup d'œil.</div></div>
         <div class="hacts"><button class="hbtn" type="button" id="homeCheck" title="Vérifier maintenant les appareils importants, les disques et les certificats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="hl">Vérifier</span></button></div></div>
-      <div class="body"><div class="hgrid" id="homeGrid"></div></div>
+      <div class="body"><div id="vaultBanner"></div><div class="hgrid" id="homeGrid"></div></div>
     </section>
 
     <section class="view" id="v-chat" aria-label="Discussion">
@@ -803,7 +815,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
             <div class="status" id="s-status" role="status"></div>
           </form></article>
 
-          <article class="card" data-sec="droits"><div class="form">
+          <article class="card" data-sec="droits"><div class="form" id="vaultBox" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form">
             <h2>Droits et machines</h2>
             <p class="sub" style="margin:0">Odin peut tout faire sur sa machine et sur les machines de ton réseau : donne-lui simplement les mots de passe. Ils restent sur cette machine (fichiers lisibles par toi seul), ne sont jamais réaffichés ni montrés au modèle, et sont masqués partout. Les règles de sécurité restent : commandes destructrices interdites, validation selon ton niveau d'autonomie.</p>
             <div class="field"><label>Cette machine</label><div class="sub" id="r-local">—</div></div>
@@ -911,7 +923,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
           <article class="card" data-sec="documents"><div class="form" id="more-documents"></div></article>
           <article class="card" data-sec="personnalite"><div class="form" id="more-personnalite"></div></article>
           <article class="card" data-sec="plus"><div class="form" id="more-plus"></div></article>
-          <article class="card" data-sec="acces"><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
+          <article class="card" data-sec="acces"><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-raccourci" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
               <button type="button" class="choice" data-access="lan">Réseau local (recommandé)</button>
@@ -1078,6 +1090,10 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     // Ancien chemin (historique rechargé) : le message texte sert de secours quand aucune carte n'existe déjà.
     if (role === 'assistant' && m && /validation|GRAVE/i.test(text)) { if (cards.has(m[1])) return; return addApproval(text, m[1]); }
     const node = role === 'assistant' ? el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'ODIN'), text) : el('div', { class: 'msg user' }, text);
+    if (role === 'assistant') {
+      msgs.querySelectorAll('.why').forEach((b) => b.remove());
+      node.append(el('button', { class: 'why', type: 'button', title: 'Pourquoi Odin a répondu ou agi ainsi', onclick: async (e) => { e.target.disabled = true; e.target.textContent = 'Je t\'explique…'; const r = await api('/api/action', { kind: 'explain', peer }); e.target.replaceWith(el('div', { class: 'whyt' }, r.ok ? r.text : r.error)); } }, 'Pourquoi ?'));
+    }
     msgs.append(node); msgs.scrollTop = msgs.scrollHeight;
   }
   function addApproval(text, id) {
@@ -1240,8 +1256,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     $('#missionsTable').replaceChildren(...ms.filter((m) => m.status !== 'en cours').map((m) => el('tr', {},
       el('td', { class: 'sub' }, fmt(m.started_at)), el('td', {}, el('div', {}, m.goal), m.result ? el('div', { class: 'sub' }, m.result.slice(0, 160)) : null), el('td', {}, m.origin),
       el('td', {}, el('span', { class: 'pill ' + (STATUS_PILL[m.status] || '') }, m.status)), el('td', {}, m.steps), el('td', {}, m.cost_usd.toFixed(3) + ' $'),
-      el('td', {}, m.status === 'en attente' || m.status === 'arrêtée' || m.status === 'échouée' ? el('button', { class: 'btn small', onclick: () => api('/api/action', { kind: 'mission_resume', id: m.id }) }, 'Reprendre') : null))));
+      el('td', { style: 'white-space:nowrap' }, el('button', { class: 'btn small', type: 'button', onclick: () => missionTimeline(m.id) }, 'Détails'), ' ', m.status === 'en attente' || m.status === 'arrêtée' || m.status === 'échouée' ? el('button', { class: 'btn small', onclick: () => api('/api/action', { kind: 'mission_resume', id: m.id }) }, 'Reprendre') : null))));
     if (!ms.length) $('#missionsTable').append(el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'Aucune mission pour l\'instant.')));
+  }
+
+  // Ligne de temps d'une mission : chaque étape, chaque outil, son résultat ; annuler une modification de fichier.
+  async function missionTimeline(id) {
+    const r = await api('/api/action', { kind: 'mission_trace', id }); if (!r.ok) { say(r.error, [], 4000); return; }
+    const icon = { demande: '💬', outil: '⚙', résultat: '↳', réponse: '🤖' };
+    const list = el('div', { class: 'tl' }, ...r.items.map((x) => el('div', { class: 'tli ' + x.kind }, el('span', { class: 'tlt' }, new Date(x.at).toLocaleTimeString('fr-FR')), el('span', {}, `${icon[x.kind] || '•'} ${x.text}`))));
+    const und = r.undos.length ? el('div', { class: 'svcs' }, el('h3', { style: 'margin:10px 0 0' }, 'Fichiers modifiés'), ...r.undos.map((u) => el('div', { class: 'svc2' }, el('span', { class: 'mono', style: 'flex:1;overflow-wrap:anywhere' }, u.path), u.undone ? el('span', { class: 'dim' }, 'annulé') : el('button', { class: 'btn small', type: 'button', onclick: async (e) => { if (!confirm(`Remettre ${u.path} dans son état d'avant ?`)) return; const x = await api('/api/action', { kind: 'undo', id: u.id }); e.target.replaceWith(el('span', { class: 'dim' }, x.ok ? '✓ annulé' : x.error)); } }, 'Annuler')))) : null;
+    const dlg = el('dialog', { class: 'stdlg' }, el('h2', {}, r.mission.goal.slice(0, 120)), el('div', { class: 'sub' }, `${r.mission.status} · ${r.mission.steps} étape(s) · ${r.mission.cost_usd.toFixed(3)} $`), list, und, el('form', { method: 'dialog' }, el('button', { class: 'btn primary' }, 'Fermer')));
+    document.body.append(dlg); dlg.showModal(); dlg.addEventListener('close', () => dlg.remove());
   }
 
   // ---------- Réseau ----------
@@ -1439,6 +1465,16 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
           el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'feature_dismiss', id: f.id }) }, 'Plus tard')))));
   }
 
+  // ---------- Tout tester (pour de vrai) ----------
+  async function runSelfTest() {
+    say('Je teste tout ce qui est relié, pour de vrai… (jusqu\'à une minute)'); moodHold('concentration');
+    const r = await api('/api/action', { kind: 'selftest' }); moodRelease(); hideTip();
+    const box = el('div', { class: 'stest' }, ...(r.checks || []).map((c) => el('div', { class: 'strow ' + (c.ok === null ? 'na' : c.ok ? 'ok' : 'ko') }, el('b', {}, `${c.ok === null ? '⚪' : c.ok ? '✅' : '❌'} ${c.name}`), el('span', {}, c.detail), c.fix && c.ok === false ? el('span', { class: 'dim' }, '→ ' + c.fix) : null)));
+    const dlg = el('dialog', { class: 'stdlg' }, el('h2', {}, 'Résultat des tests'), box, el('form', { method: 'dialog' }, el('button', { class: 'btn primary' }, 'Fermer')));
+    document.body.append(dlg); dlg.showModal(); dlg.addEventListener('close', () => dlg.remove());
+    const bad = (r.checks || []).filter((c) => c.ok === false).length; moodFlash(bad ? 'inquiet' : 'fierte', 2500);
+  }
+
   // ---------- Accueil ----------
   const card = (title, icon, ...kids) => el('article', { class: 'hcard' }, el('div', { class: 'hct' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, icon), title), ...kids);
   const go = (v, sec) => () => { show(v); if (sec) openSettings(sec); };
@@ -1466,7 +1502,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         el('div', { class: 'hrow' }, el('span', {}, 'Autonomie'), el('b', {}, { prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome', breaker: '⚡ Breaker' }[state.autonomy] || state.autonomy || '?')),
         el('div', { class: 'hrow' }, el('span', {}, 'Dépensé ce mois'), el('b', {}, `${B.spentUsd.toFixed(2)} $${B.monthlyUsd ? ` / ${B.monthlyUsd} $` : ''}`)),
         B.monthlyUsd ? bar(B.spentUsd / B.monthlyUsd * 100) : null,
-        el('button', { class: 'btn small', type: 'button', onclick: go('chat') }, 'Parler à Odin')),
+        el('div', { class: 'hbtns' }, el('button', { class: 'btn small', type: 'button', onclick: go('chat') }, 'Parler à Odin'), el('button', { class: 'btn small', type: 'button', onclick: runSelfTest }, 'Tout tester'))),
       card('À faire', '✅', todo.length ? el('ul', { class: 'hlist' }, todo) : el('div', { class: 'sub' }, 'Rien en attente. 👌')),
       card('Missions', '🚩', el('div', { class: 'hbig' }, live.length, el('span', {}, ' en cours')),
         live.slice(0, 3).map((m) => el('div', { class: 'hline' }, '• ', m.goal.slice(0, 80))),
@@ -1600,6 +1636,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         if (!ev.results[k].isFinal) continue;
         const said = ev.results[k][0].transcript.trim();
         const m = said.match(/\b(?:odin|o d i n|audin|odine)\b[\s,.:!]*(.*)$/i);
+        // Odin parle : on ne réagit qu'à « Odin… » ou « stop » (le reste est sans doute sa propre voix) — et on lui coupe la parole.
+        if (player && !player.paused && !player.ended) {
+          if (!m && !/\b(stop|arr[êe]te|tais[- ]toi|silence|attends)\b/i.test(said)) continue;
+          player.pause(); if (!m) { say('D\'accord, je me tais.', [], 2500); continue; }
+        }
         if (m) {
           if (m[1].trim()) { handsSend(m[1].trim()); continue; }
           awake = Date.now(); window.OdinFace?.sound('excite'); moodHold('ecoute'); setTimeout(() => { if (awake && Date.now() - awake >= 7900) { awake = 0; moodRelease(); } }, 8000);
@@ -1610,7 +1651,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     };
     hands.onend = () => { if (handsOn) { try { hands.start(); } catch {} } };
     hands.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { handsOn = false; handsUi(); say('Le micro est refusé : autorise-le pour ce site dans le navigateur.', [], 6000); } };
-    try { hands.start(); handsOn = true; handsUi(); say('Mains libres : dis « Odin » puis ta demande.', [], 4000); } catch { handsOn = false; handsUi(); }
+    try { hands.start(); handsOn = true; handsUi(); say('Mains libres : dis « Odin » puis ta demande. Avec « Voix » activée, on enchaîne comme une vraie conversation (dis « stop » pour me couper).', [], 5000); } catch { handsOn = false; handsUi(); }
   }
   function handsSend(text) { show('chat'); $('#input').value = text; window.OdinFace?.sound('joie'); send(); }
   $('#handsBtn').addEventListener('click', () => { if (handsOn) { handsOn = false; try { hands?.stop(); } catch {} handsUi(); } else handsStart(); });
@@ -1717,13 +1758,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       F.check('mj-on', 'Chaque soir, Odin me raconte sa journée ; chaque matin, sa nuit', M.journal.enabled),
       F.input('mj-at', 'Journal du soir à', M.journal.at, { type: 'time' }), F.input('mj-mo', 'Rapport du matin à', M.journal.morning || '07:00', { type: 'time' }),
       F.row(F.btn('Enregistrer', () => saveCfg('journal', { enabled: on('mj-on'), at: val('mj-at'), morning: val('mj-mo') }, 'ms-st3'), true), F.btn('L\'envoyer maintenant', async () => { $('#ms-st3').textContent = 'Odin écrit son journal…'; const r = await api('/api/action', { kind: 'journal_now' }); stx('#ms-st3', r, '✓ Envoyé (Telegram et notifications).'); if (r.text) say(r.text.slice(0, 400), [], 12000); })), F.status('ms-st3'));
-    const C = M.continuous;
+    const C = M.continuous, Q = state.quiet || { enabled: true, from: '22:30', to: '07:00', agenda: true };
     $('#more-continu').replaceChildren(
       el('h2', {}, 'Travail continu'),
       el('p', { class: 'sub', style: 'margin:0' }, 'Odin travaille sans pause, jour et nuit : il reprend les missions coupées ou échouées, puis cherche lui-même ce qui t\'est utile et le fait. Ce qui demande ta validation attend ton accord. Pour une heure précise, programme une tâche (« chaque jour à 3 h, … »).'),
       F.check('ct-on', 'Odin travaille en continu', C.enabled), F.check('ct-res', 'Reprendre les missions coupées par un redémarrage', C.autoResume),
       el('div', { class: 'svc2' }, el('span', { class: 'sub' }, 'Regarder toutes les'), el('input', { id: 'ct-int', type: 'number', min: 5, max: 720, value: C.intervalMin, style: 'width:80px;flex:none;min-width:0', 'aria-label': 'Intervalle en minutes' }), el('span', { class: 'sub' }, 'min · budget du jour'), el('input', { id: 'ct-bud', type: 'number', min: 0, step: 0.1, value: C.dailyBudgetUsd, style: 'width:80px;flex:none;min-width:0', 'aria-label': 'Budget du jour en dollars' }), el('span', { class: 'sub' }, '$ · relances'), el('input', { id: 'ct-ret', type: 'number', min: 0, max: 10, value: C.maxRetries, style: 'width:64px;flex:none;min-width:0', 'aria-label': 'Nombre de relances' })),
-      F.row(F.btn('Enregistrer', () => saveCfg('continuous', { enabled: on('ct-on'), autoResume: on('ct-res'), intervalMin: val('ct-int'), dailyBudgetUsd: val('ct-bud'), maxRetries: val('ct-ret') }, 'ct-st'), true)), F.status('ct-st'));
+      F.row(F.btn('Enregistrer', () => saveCfg('continuous', { enabled: on('ct-on'), autoResume: on('ct-res'), intervalMin: val('ct-int'), dailyBudgetUsd: val('ct-bud'), maxRetries: val('ct-ret') }, 'ct-st'), true)), F.status('ct-st'),
+      el('h3', { style: 'margin:14px 0 0' }, 'Heures calmes'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Pendant ces heures, Odin continue de travailler mais garde ses messages pour ton réveil — sauf urgence (appareil important en panne, problème grave). Avec l\'agenda relié, il évite aussi de te déranger pendant tes rendez-vous.'),
+      F.check('qt-on', 'Ne pas me déranger la nuit', Q.enabled), F.check('qt-ag', 'Ni pendant mes rendez-vous (agenda)', Q.agenda),
+      el('div', { class: 'svc2' }, el('span', { class: 'sub' }, 'De'), el('input', { id: 'qt-from', type: 'time', value: Q.from, style: 'width:120px;flex:none', 'aria-label': 'Début des heures calmes' }), el('span', { class: 'sub' }, 'à'), el('input', { id: 'qt-to', type: 'time', value: Q.to, style: 'width:120px;flex:none', 'aria-label': 'Fin des heures calmes' })),
+      F.row(F.btn('Enregistrer', () => saveCfg('quiet', { enabled: on('qt-on'), agenda: on('qt-ag'), from: val('qt-from'), to: val('qt-to') }, 'qt-st'), true)), F.status('qt-st'));
     // Maison
     $('#more-maison').replaceChildren(el('h2', {}, 'Maison (Home Assistant)'),
       el('p', { class: 'sub', style: 'margin:0' }, 'Pour piloter lumières, prises, volets, chauffage et scénarios en parlant à Odin. Jeton : Home Assistant → ton profil → Sécurité → Jetons d\'accès longue durée.'),
@@ -1766,6 +1812,32 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     drawPf();
     renderTunnel();
   }
+  // ---------- Coffre (mot de passe maître) et raccourcis vocaux ----------
+  let vaultSeen = null;
+  function renderVault() {
+    const V = state?.vault || 'off'; if (V === vaultSeen) return; vaultSeen = V;
+    const pw = (id, ph) => el('input', { id, type: 'password', autocomplete: id === 'vb-new' ? 'new-password' : 'current-password', placeholder: ph, style: 'max-width:280px' });
+    const go = async (kind, id, st, ok) => { const r = await api('/api/action', { kind, password: id ? val(id) : '' }); if (id && $('#' + id)) $('#' + id).value = ''; stx('#' + st, r, ok); };
+    $('#vaultBanner').replaceChildren(...(V === 'locked' ? [el('div', { class: 'card', style: 'margin-bottom:12px;border-color:var(--warn,#d9a400)' }, el('div', { class: 'form' },
+      el('h2', {}, '🔒 Coffre verrouillé'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Odin a redémarré : ses clés, jetons et mots de passe sont chiffrés et il ne peut pas s\'en servir (modèle, Telegram, machines…) tant que tu n\'as pas déverrouillé.'),
+      el('form', { class: 'svc2', onsubmit: (e) => { e.preventDefault(); go('vault_unlock', 'vb-pw', 'vb-st', '✓ Déverrouillé : Odin redémarre ses fonctions.'); } }, pw('vb-pw', 'Mot de passe du coffre'), el('button', { class: 'btn primary', type: 'submit' }, 'Déverrouiller')), F.status('vb-st')))] : []));
+    $('#vaultBox').replaceChildren(el('h2', {}, 'Coffre (mot de passe maître)'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Facultatif. Chiffre sur le disque les clés, jetons et mots de passe d\'Odin : même quelqu\'un qui copie le disque ne peut pas les lire. Contrepartie : après chaque redémarrage, tu dois déverrouiller depuis l\'Accueil (Odin te le demande), sinon il ne peut rien utiliser. Ne perds pas ce mot de passe : sans lui, il faudra tout ressaisir.'),
+      V === 'off' ? el('div', { class: 'svc2' }, pw('vc-new', 'Nouveau mot de passe (10 caractères mini)'), F.btn('Activer le coffre', () => { if (val('vc-new').length < 10) return stx('#vc-st', { ok: false, error: '10 caractères au moins' }); if (confirm('Activer le coffre ? Après chaque redémarrage, il faudra le déverrouiller.')) go('vault_enable', 'vc-new', 'vc-st', '✓ Coffre activé : les secrets sont chiffrés.'); }, true))
+        : V === 'locked' ? el('p', { class: 'sub' }, '🔒 Verrouillé — déverrouille-le depuis l\'Accueil.')
+        : el('div', { class: 'svc2' }, el('span', { class: 'sub' }, '🔓 Ouvert.'), F.btn('Verrouiller maintenant', () => go('vault_lock', '', 'vc-st', '✓ Verrouillé.')), pw('vc-old', 'Mot de passe'), F.btn('Désactiver', () => confirm('Remettre les secrets en clair (fichiers lisibles par toi seul) ?') && go('vault_disable', 'vc-old', 'vc-st', '✓ Coffre désactivé.'))),
+      F.status('vc-st'));
+    const origin = location.origin;
+    $('#more-raccourci').replaceChildren(el('h2', {}, 'Parler à Odin depuis Siri, Android ou Home Assistant'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Un raccourci envoie ta phrase à Odin et lit sa réponse à voix haute — sans ouvrir l\'application.'),
+      el('ol', { class: 'sub', style: 'margin:4px 0 0;padding-left:20px;line-height:1.55' },
+        el('li', {}, 'iPhone : app Raccourcis → nouveau raccourci « Odin » → « Dicter le texte », puis « Obtenir le contenu de l\'URL » : ', el('code', {}, origin + '/api/ask'), ', méthode POST, en-tête ', el('code', {}, 'Authorization: Bearer <jeton>'), ', corps JSON ', el('code', {}, 'text = Texte dicté'), ' ; puis « Énoncer le texte ». Dis « Dis Siri, Odin ».'),
+        el('li', {}, 'Android : app HTTP Shortcuts (ou Tasker), même adresse, même en-tête ; relie-la à l\'Assistant avec « Ok Google, lance Odin ».'),
+        el('li', {}, 'Home Assistant : rest_command vers la même adresse. Et Odin peut parler sur tes enceintes (outil « ha_speak ») une fois la Maison reliée.')),
+      el('p', { class: 'sub' }, 'Il faut que le téléphone puisse joindre Odin (même Wi-Fi, ou accès extérieur ci-dessus). Le jeton est celui de ton lien de connexion.'),
+      F.row(F.btn('Copier le jeton', async () => { const tk = await currentToken(); try { await navigator.clipboard.writeText(tk); say('Jeton copié. Garde-le secret : il donne accès à Odin.', [], 4000); } catch { prompt('Jeton (garde-le secret)', tk); } })));
+  }
   function renderTunnel() {
     const T = state?.tunnel, box = $('#more-tunnel'); if (!T || !box) return;
     const kinds = [['tailscale', 'Tailscale', 'conseillé : Odin visible seulement de tes appareils Tailscale, vrai certificat'], ['cloudflare', 'Cloudflare', 'adresse publique sur Internet, protégée par ton jeton']];
@@ -1793,7 +1865,9 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return;
       if (player) { player.pause(); URL.revokeObjectURL(player.src); }
       player = new Audio(URL.createObjectURL(await r.blob()));
-      const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking')); chatBuddy(); moodHold('parle'); player.onended = player.onpause = () => { faces.forEach((o) => o.classList.remove('talking')); chatBuddy(); moodRelease(); };
+      const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking')); chatBuddy(); moodHold('parle'); player.onended = player.onpause = (ev) => { faces.forEach((o) => o.classList.remove('talking')); chatBuddy(); moodRelease();
+        // Conversation continue : en mains libres, après sa réponse Odin t'écoute 8 s sans qu'il faille redire « Odin ».
+        if (ev.type === 'ended' && handsOn) { awake = Date.now(); moodHold('ecoute'); say('Je t\'écoute…', [], 2500); setTimeout(() => { if (awake && Date.now() - awake >= 7900) { awake = 0; moodRelease(); } }, 8000); } };
       await player.play();
     } catch { /* lecture bloquée par le navigateur */ }
   }
@@ -2354,7 +2428,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderVault(); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Réponse en direct (mot à mot) ----------

@@ -6,6 +6,7 @@
 // - Le fichier env est lu par Node au démarrage, sur macOS, Linux ET Windows.
 
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readSecretFile, writeSecretFile } from './vault.ts';
 import { join } from 'node:path';
 import type { OdinConfig, OdinPaths, ProviderConfig } from './config.ts';
 import { setConfigValue } from './config.ts';
@@ -20,9 +21,9 @@ export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
 
 /** Lit ~/.odin/env (KEY=valeur, « export » et guillemets tolérés) sans écraser l'environnement existant. */
 export function loadEnvFile(paths: OdinPaths, env: NodeJS.ProcessEnv = process.env): void {
-  const f = envFile(paths);
-  if (!existsSync(f)) return;
-  for (const [k, v] of parseEnv(readFileSync(f, 'utf8').replace(/^\uFEFF/, ''))) if (env[k] === undefined) env[k] = v;
+  const text = readSecretFile(envFile(paths));
+  if (text === undefined) return;
+  for (const [k, v] of parseEnv(text.replace(/^\uFEFF/, ''))) if (env[k] === undefined) env[k] = v;
 }
 
 function parseEnv(text: string): Array<[string, string]> {
@@ -41,10 +42,9 @@ export function writeSecret(paths: OdinPaths, name: string, value: string, env: 
   const v = value.trim();
   if (v.length > 400 || /[\s"'`$\\]/.test(v)) throw new Error('valeur invalide (espaces, guillemets ou caractères spéciaux refusés)');
   const f = envFile(paths);
-  const lines = existsSync(f) ? readFileSync(f, 'utf8').split(/\r?\n/).filter((l) => l.trim() && !new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=`).test(l)) : [];
+  const lines = (readSecretFile(f) ?? '').split(/\r?\n/).filter((l) => l.trim() && !new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=`).test(l));
   if (v) lines.push(`${name}=${v}`);
-  writeFileSync(f, lines.length ? `${lines.join('\n')}\n` : '', { mode: 0o600 });
-  try { chmodSync(f, 0o600); } catch { /* Windows : le profil utilisateur protège le fichier */ }
+  writeSecretFile(f, lines.length ? `${lines.join('\n')}\n` : '');
   if (v) env[name] = v; else delete env[name];
 }
 

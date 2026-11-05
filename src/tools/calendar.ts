@@ -51,6 +51,16 @@ export function parseIcs(ics: string, from: Date, to: Date): CalEvent[] {
 
 export const formatEvents = (evs: CalEvent[]) => evs.map((e) => `${e.start.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}${e.allDay ? ' (journée)' : ` ${e.start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}${e.end ? `–${e.end.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}`} · ${e.title}${e.location ? ` · ${e.location}` : ''}`).join('\n') || 'Aucun rendez-vous sur cette période.';
 
+/** Évènements de l'agenda relié entre deux dates (lève une erreur si l'agenda ne répond pas). */
+export async function fetchEvents(from: Date, to: Date): Promise<CalEvent[]> {
+  const url = process.env.CALENDAR_ICS_URL ?? '';
+  if (!url) return [];
+  const u = url.replace(/^webcal:/, 'https:');
+  const r = isPrivateHost(new URL(u).hostname) ? await lanRequest(u) : await fetch(u, { signal: AbortSignal.timeout(20_000) }).then(async (x) => ({ status: x.status, text: await x.text() }));
+  if (r.status >= 400) throw new Error(`Agenda : HTTP ${r.status}`);
+  return parseIcs(r.text, from, to);
+}
+
 export const calendarList: Tool = {
   name: 'calendar_list',
   description: 'Tes rendez-vous à venir (agenda relié dans Réglages → Agenda). Par défaut les 7 prochains jours.',

@@ -14,9 +14,13 @@ import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/invento
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
 import { autoBackup, healthCheck, newAlerts } from '../guard/watch.ts';
 import { pushAll } from '../push/webpush.ts';
+import { vaultState } from '../vault.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
 import { indexDocs } from '../tools/docindex.ts';
 import { voiceFor } from '../profiles.ts';
+import { fetchEvents } from '../tools/calendar.ts';
+import { anomalies, recoveryPlan, restoreTest, weeklyReport } from '../guard/insight.ts';
+import { listMachines } from '../machines/access.ts';
 import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 
@@ -64,8 +68,10 @@ export class Gateway {
     if (!this.channels.size) throw new Error(`aucun canal n'a pu démarrer : ${[...this.failed.values()].join(' ; ')}`);
     this.timer = setInterval(() => { if (this.ticking) return; this.ticking = true; this.tick().catch((e) => console.error('[bifrost] tick :', (e as Error).message)).finally(() => { this.ticking = false; }); }, this.opts.tickMs ?? 30_000);
     console.log(`[bifrost] passerelle prête (${[...this.channels.keys()].join(', ') || 'aucun canal'})`);
+    // Coffre verrouillé : Odin ne peut rien faire d'utile ; il te le dit (notification push, hors coffre).
+    if (vaultState(this.odin.paths.home) === 'locked') void pushAll(this.odin.paths.home, { title: 'Odin — coffre verrouillé', body: 'Odin a redémarré : ouvre l\'application et déverrouille le coffre pour qu\'il reprenne le travail.', view: 'home', tag: 'odin-coffre' }).catch(() => 0);
     // Missions coupées par un redémarrage : Odin les reprend là où il en était.
-    if (this.odin.cfg.continuous?.autoResume && !this.odin.demo) {
+    else if (this.odin.cfg.continuous?.autoResume && !this.odin.demo) {
       for (const m of this.odin.muninn.interruptedMissions(Date.now() - 86_400_000)) {
         this.odin.muninn.endMission(m.id, 'en attente', 'interrompue par un redémarrage');
         setTimeout(() => void this.resume(m.session_id, 'Odin a redémarré pendant ta mission : reprends-la là où tu t\'étais arrêté (vérifie d\'abord ce qui est déjà fait).').catch((e) => console.error('[reprise]', (e as Error).message)), 5000);
@@ -268,10 +274,29 @@ export class Gateway {
   private lastWatch = 0;
   private lastCare = 0;
   private lastEmbed = 0;
+  private lastAgenda = 0;
   private updating = false;
   private careCtx() { return { home: this.odin.paths.home, logs: this.odin.paths.logs, proxmox: { url: this.odin.cfg.proxmox.url, token: process.env.PROXMOX_TOKEN ?? '' } }; }
   /** Prévient le propriétaire (Telegram ou autre canal) et ses appareils (push). */
-  private async tellOwner(text: string, view = 'home'): Promise<void> {
+  /** En ce moment, faut-il éviter de déranger (nuit, ou rendez-vous en cours) ? */
+  quietNow(now = Date.now()): string | undefined {
+    const q = this.odin.cfg.quiet; if (!q?.enabled) return undefined;
+    const d = new Date(now), m = d.getHours() * 60 + d.getMinutes(), toMin = (s: string) => { const [h, mi] = s.split(':').map(Number); return h * 60 + mi; };
+    const a = toMin(q.from), b = toMin(q.to);
+    if (a > b ? m >= a || m < b : m >= a && m < b) return 'nuit';
+    if (q.agenda) { try { const ev = JSON.parse(this.odin.muninn.getKv('agenda-today') ?? '[]') as Array<{ start: number; end: number; title: string }>; const busy = ev.find((e) => e.start <= now && now < e.end); if (busy) return `rendez-vous « ${busy.title} »`; } catch { /* agenda indisponible */ } }
+    return undefined;
+  }
+
+  private async tellOwner(text: string, view = 'home', urgent = false): Promise<void> {
+    // Ne pas déranger : hors urgence, le message attend le rapport du matin (ou la fin du rendez-vous).
+    if (!urgent && this.quietNow()) {
+      const l = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[]; l.push(text.slice(0, 1500)); this.odin.muninn.setKv('deferred', JSON.stringify(l.slice(-30)));
+      for (const ch of this.channels.values()) ch.notify?.('watch');
+      return;
+    }
+    const pending = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[];
+    if (pending.length) { this.odin.muninn.setKv('deferred', ''); text = `${text}\n\n— Pendant que tu étais occupé :\n${pending.join('\n\n').slice(0, 3000)}`; }
     const t = this.ownerTarget();
     if (t) await t.ch.send(t.peer, text).catch(() => {});
     void pushAll(this.odin.paths.home, { title: 'Odin', body: text, view, tag: 'odin-' + view }).catch(() => 0);
@@ -284,7 +309,7 @@ export class Gateway {
     if (cfg.services.length && now - this.lastCare >= 5 * 60_000) {
       this.lastCare = now;
       const msgs = await careServices(this.careCtx(), cfg.services, { stateFile: join(this.odin.paths.logs, 'services.json'), now });
-      if (msgs.length) await this.tellOwner(`🛡 Vörðr — services\n${msgs.join('\n')}`);
+      if (msgs.length) await this.tellOwner(`🛡 Vörðr — services\n${msgs.join('\n')}`, 'home', msgs.some((m) => m.startsWith('🔴')));
     }
     const stamp = join(this.odin.paths.logs, 'updates.txt');
     if (!this.updating && updateDue(cfg.updates, stamp, new Date(now))) {
@@ -294,6 +319,13 @@ export class Gateway {
     await this.journal(now).catch((e) => console.error('[journal]', (e as Error).message));
     await this.morning(now).catch((e) => console.error('[matin]', (e as Error).message));
     await this.continuous(now).catch((e) => console.error('[travail continu]', (e as Error).message));
+    await this.weekly(now).catch((e) => console.error('[semaine]', (e as Error).message));
+    // Agenda du jour en cache (contexte de ta journée, « ne pas déranger » pendant un rendez-vous).
+    if (process.env.CALENDAR_ICS_URL && now - this.lastAgenda >= 30 * 60_000) {
+      this.lastAgenda = now;
+      const from = new Date(now); from.setHours(0, 0, 0, 0);
+      try { const ev = await fetchEvents(from, new Date(from.getTime() + 2 * 86_400_000)); this.odin.muninn.setKv('agenda-today', JSON.stringify(ev.filter((e) => !e.allDay).map((e) => ({ start: e.start.getTime(), end: (e.end ?? new Date(e.start.getTime() + 3600_000)).getTime(), title: e.title.slice(0, 80) })))); } catch { /* agenda injoignable : on garde l'ancien */ }
+    }
     // Mémoire : vecteurs des nouveaux souvenirs (recherche par le sens) ; oubli des souvenirs périmés, une fois par jour.
     const emb = this.odin.agent.deps.embedder;
     if (emb && now - this.lastEmbed >= 5 * 60_000) {
@@ -318,7 +350,7 @@ export class Gateway {
    */
   async continuous(now = Date.now(), force = false): Promise<string | undefined> {
     const c = this.odin.cfg.continuous;
-    if (!c?.enabled || this.odin.demo || this.aborts.size) return undefined;
+    if (!c?.enabled || this.odin.demo || this.aborts.size || vaultState(this.odin.paths.home) === 'locked') return undefined;
     if (!force && now - this.lastContinuous < c.intervalMin * 60_000) return undefined;
     this.lastContinuous = now;
     // 1. Relancer les missions échouées (modèle indisponible) ou arrêtées faute d'étapes.
@@ -344,6 +376,20 @@ export class Gateway {
     return text;
   }
 
+  /** Chaque dimanche : test de restauration de la dernière sauvegarde, plan de reprise à jour, bilan de la semaine. */
+  async weekly(now = Date.now(), force = false): Promise<string | undefined> {
+    const d = new Date(now), stamp = join(this.odin.paths.logs, 'weekly.txt');
+    const [h] = (this.odin.cfg.journal.at ?? '21:30').split(':').map(Number);
+    if (!force && (d.getDay() !== 0 || d.getHours() < h || (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === d.toDateString()))) return undefined;
+    writeFileSync(stamp, d.toDateString());
+    const parts = [weeklyReport(this.odin.muninn.listMissions(1000), this.odin.muninn.lessons('', 500), now)];
+    if (this.odin.cfg.autoBackup.enabled) { const r = restoreTest(this.odin.paths, this.odin.cfg.autoBackup); parts.push(`${r.ok ? '✅' : '🔴'} Test de restauration : ${r.text}.`); }
+    try { recoveryPlan({ cfg: this.odin.cfg, paths: this.odin.paths, devices: this.odin.inventory.list({ status: 'all' }), machines: listMachines(this.odin.paths.home) }); parts.push('📄 Plan de reprise mis à jour (plan-de-reprise.md dans l\'espace de travail).'); } catch { /* facultatif */ }
+    const text = parts.join('\n');
+    await this.tellOwner(text, 'home', parts.some((p) => p.startsWith('🔴')));
+    return text;
+  }
+
   /** Rapport du matin : la nuit d'Odin, ce qui attend ta validation, ses conseils (une fois par jour). */
   async morning(now = Date.now(), force = false): Promise<string | undefined> {
     const at = this.odin.cfg.journal.morning;
@@ -353,11 +399,12 @@ export class Gateway {
     writeFileSync(stamp, d.toDateString());
     const facts = dayFacts(this.odin, now, now - 12 * 3600_000);
     let text = `☀️ Bonjour ! Cette nuit :\n${facts}`;
+    const waiting = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[];
     if (!this.odin.demo) {
-      const r = await this.odin.agent.run(`${MORNING_PROMPT}\n\n<faits>\n${facts}\n</faits>`, { sessionId: 'journal:matin', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+      const r = await this.odin.agent.run(`${MORNING_PROMPT}\n\n<faits>\n${facts}${waiting.length ? `\nMessages gardés pendant la nuit :\n${waiting.join('\n').slice(0, 4000)}` : ''}\n</faits>`, { sessionId: 'journal:matin', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
       if (r?.text.trim()) text = `☀️ ${r.text.trim().slice(0, 2500)}`;
     }
-    await this.tellOwner(text, 'home');
+    await this.tellOwner(text, 'home', true);
     return text;
   }
 
@@ -388,6 +435,11 @@ export class Gateway {
       this.lastWatch = now;
       const alerts = await healthCheck({ devices: this.odin.inventory.list({ status: 'all' }), cfg: w, paths: this.odin.paths });
       msgs.push(...newAlerts(alerts, join(this.odin.paths.logs, 'watch.json'), now));
+      // Ce qui sort de l'ordinaire (appareil inconnu la nuit, surcharge, disque qui se remplit vite).
+      for (const a of anomalies({ kv: this.odin.muninn, events: this.odin.inventory.events(100), devices: this.odin.inventory.list({ status: 'all' }), paths: this.odin.paths, now })) {
+        const k = `anom:${a.key}`, last = Number(this.odin.muninn.getKv(k) ?? 0);
+        if (now - last > 86_400_000) { this.odin.muninn.setKv(k, String(now)); msgs.push(a.text); }
+      }
     }
     if (msgs.length) {
       const t = this.ownerTarget();

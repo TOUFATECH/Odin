@@ -2,6 +2,7 @@
 // le shell tourne SANS les secrets dans son environnement, et le web est marqué non fiable.
 
 import { withAdmin } from '../machines/access.ts';
+import { rememberBefore } from '../undo.ts';
 import { spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
@@ -69,6 +70,7 @@ export const fsWrite: Tool = {
   async run(i, ctx) {
     const p = toolPath(ctx, s(i.path));
     mkdirSync(dirname(p), { recursive: true });
+    rememberBefore(ctx.home, ctx.sessionId, p, 'fs_write');
     writeFileSync(p, s(i.content));
     return `Écrit : ${shown(ctx.workspace, p)}`;
   },
@@ -85,6 +87,7 @@ export const fsEdit: Tool = {
     const text = readFileSync(p, 'utf8');
     const count = text.split(s(i.old)).length - 1;
     if (count !== 1) return `Échec : le passage apparaît ${count} fois (il doit être unique).`;
+    rememberBefore(ctx.home, ctx.sessionId, p, 'fs_edit');
     writeFileSync(p, text.replace(s(i.old), () => s(i.new)));
     return `Modifié : ${shown(ctx.workspace, p)}`;
   },
