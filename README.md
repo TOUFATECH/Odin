@@ -188,6 +188,8 @@ Les tâches s'exécutent quand `odin web` ou `odin gateway` tourne. Sans personn
 
 Odin retient seul ce qui est durable (préférences, faits, projets) et le retrouve quand c'est utile. Il refuse les secrets et l'éphémère. Ce qu'il apprend d'une source non fiable reste en **quarantaine** tant que tu ne l'as pas validé.
 
+Chaque nuit, il **range lui-même sa mémoire** : il améliore ce qui est flou, fusionne les doublons, met à jour ce que la réalité a changé et oublie le périmé. Dans l'interface (Mémoire), les souvenirs sont rangés par thème ; **épingle** ce qui compte (il n'y touchera plus), **modifie** ou **fais-lui oublier** d'un clic. Un rangement s'annule pendant 7 jours.
+
 ```bash
 odin memory              # liste
 odin memory search café  # recherche
@@ -218,6 +220,12 @@ odin net label 192.168.1.20 "Imprimante du bureau"
 ```
 
 Odin découvre les appareils sans droits administrateur (table ARP, balayage TCP léger, Bonjour, UPnP) et **ne balaie que les réseaux privés de sa machine**, jamais Internet. Absent, un appareil passe « déconnecté », puis « retiré » après 7 jours ; tu es prévenu à chaque changement.
+
+**Adresses MAC** : à chaque balayage, Odin vérifie qu'une même adresse MAC ne répond pas sur deux IP (usurpation possible) et que la box garde la même MAC (interception possible) ; il te prévient aussitôt.
+
+**Bloquer un appareil** : ajoute ta box dans Réglages → Droits et machines (son IP et un compte SSH administrateur). Odin reconnaît OpenWrt, MikroTik et les routeurs Linux, et bloque l'appareil par son adresse MAC (bouton « Bloquer sur la box » sur la fiche de l'appareil, ou « bloque l'iPhone inconnu »). Réversible d'un clic. Les box d'opérateur sans SSH (Livebox, SFR, Bbox, Freebox) se règlent par leur page d'administration, avec le navigateur.
+
+Sur la carte, chaque appareil s'ouvre en page complète : informations, liens, ports ouverts, ce qu'Odin peut faire avec, sécurité et historique.
 
 ### Documents et médias
 

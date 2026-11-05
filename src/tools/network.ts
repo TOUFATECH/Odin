@@ -4,6 +4,9 @@ import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } fr
 import { serviceName } from '../hlidskjalf/identify.ts';
 import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
+import { normMac, routerAction, routerMachine, validMac } from '../hlidskjalf/router.ts';
+import { networkInterfaces } from 'node:os';
+const localIps = () => Object.values(networkInterfaces()).flat().filter(Boolean).map((x) => x!.address);
 import { auditNetwork } from '../guard/watch.ts';
 import { CATEGORIES, vendorOf } from '../hlidskjalf/vendors.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
@@ -197,7 +200,66 @@ const machineCopy: Tool = {
   },
 };
 
-export const NETWORK_TOOLS: Tool[] = [netInventory, netIdentify, netRename, netShareFiles, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
+const gatewayOf = (inv: NonNullable<Parameters<Tool['run']>[1]['inventory']>) => inv.list({ status: 'online' }).find((d) => d.kind === 'routeur') ?? inv.list({ status: 'all' }).find((d) => d.kind === 'routeur');
+const NO_ROUTER = (gw?: string) => `Je n'ai pas d'accès à la box${gw ? ` (${gw})` : ''}. Pour que je puisse bloquer un appareil : ajoute la box dans Réglages → Droits et machines (son IP, un compte SSH administrateur). Je reconnais OpenWrt, MikroTik et les routeurs Linux. Les box d'opérateur (Livebox, SFR, Bbox, Freebox) n'ont pas d'accès SSH : je peux alors le faire par leur page d'administration avec le navigateur, si tu me donnes le mot de passe de la box.`;
+
+export const netBlock: Tool = {
+  name: 'net_block',
+  description: 'Bloque un appareil du réseau sur la box/routeur, par son adresse MAC (il ne passe plus par le routeur : plus d\'Internet). Réversible avec net_unblock. À n\'utiliser que si le propriétaire le demande, ou en mode Breaker pour un appareil manifestement hostile. Jamais la box elle-même ni la machine d\'Odin.',
+  risk: 'external',
+  schema: obj({ device: str('IP, adresse MAC ou nom de l\'appareil'), reason: str('pourquoi (noté dans l\'historique)') }, ['device']),
+  summarize: (i) => `bloquer l'appareil ${s(i.device)} sur la box${i.reason ? ` (${s(i.reason)})` : ''}`,
+  async run(i, ctx) {
+    const inv = ctx.inventory; if (!inv || !ctx.home) return 'Inventaire du réseau indisponible.';
+    const q = s(i.device).trim(), d = inv.find(q);
+    const mac = d?.mac || (validMac(q) ? normMac(q) : '');
+    if (!mac) return d ? `Je ne connais pas l'adresse MAC de ${deviceLabel(d)} (${d.ip}) : relance un balayage du réseau depuis la même box.` : `Appareil introuvable : ${q}`;
+    const gw = gatewayOf(inv);
+    if (d && (d.kind === 'routeur' || d.id === gw?.id)) return 'Je ne bloque pas la box elle-même.';
+    if (d && localIps().includes(d.ip)) return 'Je ne bloque pas la machine sur laquelle je tourne.';
+    const m = routerMachine(ctx.home, gw?.ip); if (!m) return NO_ROUTER(gw?.ip);
+    const r = await routerAction(ctx.home, m, 'block', mac);
+    if (!r.ok) return `Échec du blocage sur la box (${r.kind}) : ${r.out || 'pas de réponse'}`;
+    if (d) inv.setBlocked(d.id, true, s(i.reason) || 'demandé par le propriétaire');
+    return `Appareil ${d ? `${deviceLabel(d)} (${d.ip}, ${mac})` : mac} bloqué sur la box (${r.kind}). Pour le réautoriser : net_unblock.`;
+  },
+};
+
+export const netUnblock: Tool = {
+  name: 'net_unblock',
+  description: 'Réautorise sur la box un appareil bloqué par net_block.',
+  risk: 'external',
+  schema: obj({ device: str('IP, adresse MAC ou nom de l\'appareil') }, ['device']),
+  summarize: (i) => `débloquer l'appareil ${s(i.device)} sur la box`,
+  async run(i, ctx) {
+    const inv = ctx.inventory; if (!inv || !ctx.home) return 'Inventaire du réseau indisponible.';
+    const q = s(i.device).trim(), d = inv.find(q), mac = d?.mac || (validMac(q) ? normMac(q) : '');
+    if (!mac) return `Appareil introuvable ou sans adresse MAC : ${q}`;
+    const gw = gatewayOf(inv), m = routerMachine(ctx.home, gw?.ip); if (!m) return NO_ROUTER(gw?.ip);
+    const r = await routerAction(ctx.home, m, 'unblock', mac);
+    if (!r.ok) return `Échec du déblocage (${r.kind}) : ${r.out || 'pas de réponse'}`;
+    if (d) inv.setBlocked(d.id, false, 'réautorisé');
+    return `Appareil ${d ? deviceLabel(d) : mac} réautorisé sur la box.`;
+  },
+};
+
+export const netBlocked: Tool = {
+  name: 'net_blocked',
+  description: 'Liste les appareils bloqués par Odin sur la box (inventaire + règles réellement présentes sur le routeur).',
+  risk: 'network', lookup: () => true,
+  schema: obj({}, []),
+  async run(_i, ctx) {
+    const inv = ctx.inventory; if (!inv || !ctx.home) return 'Inventaire du réseau indisponible.';
+    const known = inv.list({ status: 'all' }).filter((d) => d.blocked);
+    const lines = known.map((d) => `- ${deviceLabel(d)} (${d.ip}, ${d.mac}) bloqué le ${new Date(d.blocked!).toLocaleString('fr-FR')}`);
+    const gw = gatewayOf(inv), m = routerMachine(ctx.home, gw?.ip);
+    if (m) { const r = await routerAction(ctx.home, m, 'list').catch((e) => ({ ok: false, kind: '?', out: (e as Error).message })); lines.push(`Règles sur la box (${r.kind}) : ${r.out || 'aucune'}`); }
+    else lines.push('Pas d\'accès à la box enregistré : liste tirée de l\'inventaire seulement.');
+    return known.length || m ? lines.join('\n') : 'Aucun appareil bloqué.';
+  },
+};
+
+export const NETWORK_TOOLS: Tool[] = [netBlock, netUnblock, netBlocked, netInventory, netIdentify, netRename, netShareFiles, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
 
 export const netSecurity: Tool = {
   name: 'net_security',

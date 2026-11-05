@@ -124,11 +124,23 @@ export async function research(question: string, o: ResearchOptions): Promise<Re
       else main.errors.push(`${siteOf(r.url)} : ${(e as Error).message.slice(0, 80)}`);
     }
   }));
+  // 3 bis. Rien de lisible : on ne s'arrête pas. Extraits des moteurs, sinon page d'actualités ouverte au navigateur.
+  if (!pages.length && main.results.length) {
+    step('Les pages ne s\'ouvrent pas : je m\'appuie sur les extraits des moteurs');
+    for (const r of main.results.slice(0, maxSources)) if ((r.snippet ?? '').length > 40) pages.push({ url: r.url, finalUrl: r.url, status: 200, kind: 'html', title: r.title, text: `${r.title}. ${r.snippet}`, links: [], accessed: new Date(now).toISOString(), via: 'extrait du moteur' } as Page);
+  }
+  if (!pages.length && o.browserText) {
+    step('Aucun moteur ne répond : j\'ouvre une page d\'actualités dans le navigateur');
+    for (const u of [`https://www.bing.com/news/search?q=${encodeURIComponent(question)}&setlang=fr`, `https://news.google.com/search?q=${encodeURIComponent(question)}&hl=fr&gl=FR&ceid=FR:fr`]) {
+      const b = await o.browserText(u).catch(() => undefined);
+      if (b && b.text.length > 300) { pages.push({ url: u, finalUrl: u, status: 200, kind: 'html', title: b.title || 'Actualités', text: b.text, links: [], accessed: new Date(now).toISOString(), via: 'navigateur' } as Page); break; }
+    }
+  }
   // 4. Analyse des sources (fiabilité, indépendance)
   step('J\'évalue les sources et leur indépendance');
   const sources = clusterSources(pages.map((p, k) => assess(p, k + 1, now))).sort((a, b) => b.score - a.score);
   if (!sources.length) {
-    const report = `Je n'ai pu lire aucune source fiable sur cette question (${[...main.errors, ...contra.errors].slice(0, 3).join(' ; ') || 'aucun résultat'}). Je préfère ne pas conclure.`;
+    const report = `Je n'ai pu lire aucune source sur cette question (${[...main.errors, ...contra.errors].slice(0, 3).join(' ; ') || 'aucun résultat'}). NE T'ARRÊTE PAS : reformule (mots-clés plus courts, en anglais), relance web_search, ou ouvre toi-même news.google.com / bing.com/news avec le navigateur (browser_open puis browser_look), puis réponds avec ce que tu as trouvé et ses liens.`;
     return { question, plan, sources, claims: [], report, engines: main.engines, errors: main.errors };
   }
   // 5–6. Vérification (avec les sources contradictoires incluses)

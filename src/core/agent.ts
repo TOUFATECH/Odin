@@ -120,7 +120,7 @@ export class Agent {
     const untrack = this.deps.router.track((c) => { spent.usd += c; });
     // Mission : un tour de premier niveau, suivi dans l'onglet Missions (état, étapes, coût), arrêtable.
     const missionId = depth === 0 ? `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}` : undefined;
-    if (missionId) this.deps.muninn.startMission({ id: missionId, sessionId: o.sessionId, goal: userText.replace(/\s+/g, ' '), origin: o.sessionId.startsWith('cron:') ? 'tâche planifiée' : o.sessionId.startsWith('breaker:') ? 'initiative' : 'utilisateur' });
+    if (missionId) this.deps.muninn.startMission({ id: missionId, sessionId: o.sessionId, goal: userText.replace(/\s+/g, ' '), origin: o.sessionId.startsWith('cron:') ? 'tâche planifiée' : o.sessionId.startsWith('breaker:') || o.sessionId.startsWith('auto:') ? 'initiative' : 'utilisateur' });
     const wrapped: typeof emit = missionId ? (e) => { emit(e); if (e.type === 'tool_start') this.deps.muninn.progressMission(missionId, { lastTool: e.name, costUsd: spent.usd }); } : emit;
     try {
       const r = await this.turn(userText, o, { emit: wrapped, channel, peer, depth, breaker, maxSteps, costCap, signal, trusted, spent, missionId });
@@ -553,6 +553,11 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
     if (active) this.deps.skills.approve(name);
     emit({ type: 'skill_proposed', name, active });
     return name;
+  }
+
+  /** Appel direct au modèle (rangement de la mémoire, rapports…). */
+  async ask(system: string, user: string, maxTokens = 2000, signal?: AbortSignal): Promise<string> {
+    return (await this.deps.router.complete({ system, messages: [{ role: 'user', content: user }], tools: [], maxTokens, signal }, { purpose: 'mémoire' })).text;
   }
 
   /** Mode essai : Odin prépare et explique tout, mais ne change rien (réglage gardé en mémoire). */

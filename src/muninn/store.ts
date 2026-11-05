@@ -329,6 +329,17 @@ export class Muninn {
     return this.db.prepare('SELECT * FROM memories ORDER BY last_used_at DESC LIMIT ?').all(limit) as unknown as MemoryRow[];
   }
 
+  /** Modifie le texte d'un souvenir (par toi, ou par Odin quand il range sa mémoire). */
+  editMemory(id: number, content: string, owner = false): boolean {
+    return Number(this.db.prepare(`UPDATE memories SET content = ?${owner ? ", origin = 'owner', trust = 1" : ''} WHERE id = ?`).run(content.slice(0, 1000), id).changes) > 0;
+  }
+  getMemory(id: number): MemoryRow | undefined { return this.db.prepare('SELECT * FROM memories WHERE id = ?').get(id) as unknown as MemoryRow | undefined; }
+  /** Remet un souvenir effacé (annulation du rangement). */
+  restoreMemory(m: MemoryRow): void {
+    if (this.getMemory(m.id)) this.db.prepare('UPDATE memories SET content = ?, origin = ?, trust = ?, pinned = ? WHERE id = ?').run(m.content, m.origin, m.trust, m.pinned, m.id);
+    else this.db.prepare('INSERT INTO memories(id, kind, content, origin, trust, tags, created_at, last_used_at, uses, pinned) VALUES (?,?,?,?,?,?,?,?,?,?)').run(m.id, m.kind, m.content, m.origin, m.trust, m.tags, m.created_at, m.last_used_at, m.uses, m.pinned);
+  }
+
   forget(id: number): boolean {
     return Number(this.db.prepare('DELETE FROM memories WHERE id = ?').run(id).changes) > 0;
   }
@@ -409,7 +420,7 @@ export class Muninn {
    * Odin propose d'en faire une tâche automatique. Les demandes ignorées ne reviennent pas.
    */
   habits(days = 14, min = 3, now = Date.now()): Array<{ text: string; count: number; key: string }> {
-    const rows = this.db.prepare("SELECT m.content FROM messages m JOIN sessions s ON s.id = m.session_id WHERE m.role = 'user' AND m.tainted = 0 AND m.created_at >= ? AND s.id NOT LIKE 'cron:%' AND s.id NOT LIKE 'breaker:%'").all(now - days * 86_400_000) as Array<{ content: string }>;
+    const rows = this.db.prepare("SELECT m.content FROM messages m JOIN sessions s ON s.id = m.session_id WHERE m.role = 'user' AND m.tainted = 0 AND m.created_at >= ? AND s.id NOT LIKE 'cron:%' AND s.id NOT LIKE 'breaker:%' AND s.id NOT LIKE 'auto:%' AND m.content NOT LIKE 'Travail continu%' AND m.content NOT LIKE 'Reprends la mission%'").all(now - days * 86_400_000) as Array<{ content: string }>;
     const norm = (x: string) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z ]+/g, ' ').replace(/\b(stp|svp|s il te plait|merci|odin|peux tu|tu peux|est ce que)\b/g, ' ').replace(/\s+/g, ' ').trim();
     const groups = new Map<string, { text: string; count: number }>();
     for (const r of rows) {

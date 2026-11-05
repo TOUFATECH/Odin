@@ -29,6 +29,8 @@ export interface Device {
   web: WebEndpoint[];
   /** Système et version (identification approfondie). */
   os?: string;
+  /** Bloqué sur la box par Odin (horodatage), 0 sinon. */
+  blocked?: number;
 }
 
 export interface ScanReport {
@@ -36,6 +38,8 @@ export interface ScanReport {
   networks: string[];
   seen: number;
   added: Device[];
+  /** Alertes sur les adresses MAC (doublons, box changée…). */
+  macAlerts?: string[];
   reconnected: Device[];
   disconnected: Device[];
   removed: Device[];
@@ -113,6 +117,7 @@ export class Inventory {
     this.db.exec(SCHEMA);
     try { this.db.exec("ALTER TABLE devices ADD COLUMN web TEXT NOT NULL DEFAULT '[]'"); } catch { /* colonne déjà présente */ }
     try { this.db.exec("ALTER TABLE devices ADD COLUMN os TEXT NOT NULL DEFAULT ''"); } catch { /* colonne déjà présente */ }
+    try { this.db.exec('ALTER TABLE devices ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0'); } catch { /* colonne déjà présente */ }
   }
 
   list(filter: { status?: DeviceStatus | 'all'; kind?: string } = {}): Device[] {
@@ -145,6 +150,17 @@ export class Inventory {
     if (f.os) this.db.prepare('UPDATE devices SET os = ? WHERE id = ?').run(cut(f.os), id);
   }
 
+  setBlocked(id: string, on: boolean, why = '', now = Date.now()): void {
+    this.db.prepare('UPDATE devices SET blocked = ? WHERE id = ?').run(on ? now : 0, id);
+    this.event(id, on ? 'bloqué' : 'débloqué', why.slice(0, 200), now);
+  }
+  /** Retrouve un appareil par IP, MAC, identifiant ou nom (insensible à la casse). */
+  find(q: string): Device | undefined {
+    const s = q.trim().toLowerCase(); if (!s) return undefined;
+    return this.get(q.trim()) ?? this.list({ status: 'all' }).find((d) => d.mac.toLowerCase() === s || [d.label, d.name, d.hostname].some((x) => x && x.toLowerCase() === s))
+      ?? this.list({ status: 'all' }).find((d) => [d.label, d.name, d.hostname].some((x) => x && x.toLowerCase().includes(s)));
+  }
+
   setLabel(id: string, label: string): boolean {
     return Number(this.db.prepare('UPDATE devices SET label = ? WHERE id = ?').run(label.slice(0, 80), id).changes) > 0;
   }
@@ -152,6 +168,37 @@ export class Inventory {
   private event(id: string, kind: string, detail: string, at: number): void {
     this.db.prepare('INSERT INTO device_events(device_id, kind, detail, at) VALUES (?,?,?,?)').run(id, kind, detail, at);
   }
+
+  /**
+   * Vérification des adresses MAC d'un balayage :
+   * - même MAC sur deux IP à la fois → usurpation possible (empoisonnement ARP) ;
+   * - la box (passerelle) répond avec une autre MAC qu'avant → interception possible ;
+   * - une IP connue répond avec une autre MAC → autre appareil (ou adresse privée tournante).
+   */
+  macCheck(found: Found[], now = Date.now()): string[] {
+    const out: string[] = [];
+    const byMac = new Map<string, string[]>();
+    for (const f of found) if (f.mac) byMac.set(f.mac.toLowerCase(), [...(byMac.get(f.mac.toLowerCase()) ?? []), f.ip]);
+    for (const [mac, ips] of byMac) if (ips.length > 1) {
+      out.push(`grave : la même adresse MAC ${mac} répond sur ${ips.join(' et ')} — possible usurpation (empoisonnement ARP)`);
+      for (const ip of ips) { const d = this.byIp(ip); if (d) this.event(d.id, 'MAC en double', `${mac} aussi sur ${ips.filter((x) => x !== ip).join(', ')}`, now); }
+    }
+    for (const f of found) {
+      if (!f.mac) continue;
+      const prev = this.db.prepare("SELECT * FROM devices WHERE ip = ? AND mac != '' AND lower(mac) != ? AND status = 'online'").get(f.ip, f.mac.toLowerCase()) as Record<string, unknown> | undefined;
+      if (!prev) continue;
+      const d = rowToDevice(prev);
+      if (f.isGateway || d.kind === 'routeur') {
+        out.push(`grave : la box ${f.ip} répond avec une nouvelle adresse MAC (${d.mac} → ${f.mac}) — si tu n'as pas changé de box, quelqu'un peut intercepter le trafic`);
+        this.event(d.id, 'MAC de la box changée', `${d.mac} → ${f.mac}`, now);
+      } else if (!isRandomMac(f.mac) && !isRandomMac(d.mac)) {
+        out.push(`${f.ip} était ${deviceLabel(d)} (${d.mac}) ; c'est maintenant un autre appareil (${f.mac})`);
+        this.event(d.id, 'IP reprise', `par ${f.mac}`, now);
+      }
+    }
+    return out;
+  }
+  private byIp(ip: string): Device | undefined { const r = this.db.prepare('SELECT * FROM devices WHERE ip = ? ORDER BY last_seen DESC LIMIT 1').get(ip) as Record<string, unknown> | undefined; return r ? rowToDevice(r) : undefined; }
 
   /**
    * Fusionne un balayage avec l'inventaire.
@@ -163,6 +210,7 @@ export class Inventory {
   applyScan(found: Found[], networks: string[], now = Date.now(), removeAfterDays = 7, full = false): ScanReport {
     const rep: ScanReport = { at: now, networks, seen: found.length, added: [], reconnected: [], disconnected: [], removed: [], changed: [] };
     const seenIds = new Set<string>();
+    rep.macAlerts = this.macCheck(found, now);
     for (const f of found) {
       const kind = classify(f);
       let cur = f.mac ? this.get(f.mac) : undefined;
@@ -236,10 +284,11 @@ export function formatReport(r: ScanReport): string {
   if (r.disconnected.length) parts.push(`Déconnectés : ${r.disconnected.map(line).join(' · ')}`);
   if (r.removed.length) parts.push(`Retirés de l'inventaire : ${r.removed.map(line).join(' · ')}`);
   if (r.changed.length) parts.push(`Changements : ${r.changed.map((c) => `${deviceLabel(c.device)} ${c.what}`).join(' · ')}`);
+  for (const a of r.macAlerts ?? []) parts.push(`${a.startsWith('grave') ? '🛑' : '⚠️'} Adresse MAC : ${a.replace(/^grave : /, '')}`);
   return parts.join('\n');
 }
 
-export const hasChanges = (r: ScanReport) => r.added.length + r.disconnected.length + r.removed.length + r.reconnected.length + r.changed.length > 0;
+export const hasChanges = (r: ScanReport) => r.added.length + r.disconnected.length + r.removed.length + r.reconnected.length + r.changed.length + (r.macAlerts?.length ?? 0) > 0;
 
 // ---------- Mises à jour de la machine d'Odin ----------
 

@@ -134,7 +134,7 @@ test('rappel ponctuel : programmé par Odin, envoyé à l\'heure puis effacé', 
   assert.equal(sent.some((t) => t.includes('appeler le plombier')), false, 'pas avant l\'heure');
   await gw.tick(at.getTime() + 61_000);
   assert.ok(sent.includes('🔔 Rappel : appeler le plombier'));
-  assert.equal(o.muninn.listJobs().length, 0);
+  assert.equal(o.muninn.listJobs().filter((j) => !j.prompt.startsWith('[routine:')).length, 0);
   o.cleanup();
 });
 
@@ -145,7 +145,7 @@ test('initiative du soir : Odin crée lui-même une routine utile et le dit dans
   const gw = new Gateway(o, { owners: { web: ['*'] } });
   gw.add(ch);
   await gw.tick(Date.now());
-  assert.equal(o.muninn.listJobs()[0].prompt, 'point hebdomadaire sur les sauvegardes du NAS');
+  assert.equal(o.muninn.listJobs().filter((j) => !j.prompt.startsWith('[routine:'))[0].prompt, 'point hebdomadaire sur les sauvegardes du NAS');
   assert.match(sent.join('\n'), /🧭 Initiative : Mis en place : point sauvegardes/);
   o.cleanup();
 });

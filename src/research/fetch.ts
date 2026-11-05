@@ -52,7 +52,7 @@ function keepCookies(host: string, res: Response): void {
 export interface Page {
   url: string; finalUrl: string; status: number; kind: 'html' | 'pdf' | 'texte';
   title: string; text: string; author?: string; published?: string; siteName?: string;
-  links: string[]; accessed: string; via: 'http' | 'navigateur';
+  links: string[]; accessed: string; via: 'http' | 'navigateur' | 'extrait du moteur';
 }
 
 /** Récupère une page publique, poliment. Lève une erreur si le site refuse. */

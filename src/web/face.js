@@ -125,6 +125,8 @@
     const tint = m.tint || MOODS.neutre.tint;
     svg.querySelectorAll('[id^="odinBody"] stop').forEach((st, i) => { st.style.stopColor = tint[i] || tint[3]; });
     svg.querySelectorAll('[id^="odinHalo"] stop').forEach((st) => { st.style.stopColor = tint[3]; });
+    // La barre de saisie de la discussion prend la couleur d'Odin.
+    if (el.id === 'buddyChat') document.documentElement.style.setProperty('--odin-tint', tint[1]);
     el.classList.remove('m-laugh', 'm-hop', 'm-shake', 'm-tremble', 'm-tilt', 'm-look', 'm-talk');
     if (m.anim) el.classList.add(`m-${m.anim}`);
     el.querySelector('.mood-emoji')?.remove();

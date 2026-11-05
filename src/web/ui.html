@@ -7,22 +7,27 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="theme-color" content="#0A0D13">
+<meta name="theme-color" content="#101A24">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Odin">
 <style>
-:root{color-scheme:dark;--bg:#0A0D13;--panel:#121722;--panel2:#0D1119;--line:#1E2532;--ink:#ECEAE4;--muted:#A6AEBB;--dim:#8B94A4;--accent:#E7AE3E;--accent-2:#F6C766;--good:#7FC8A9;--warn:#F0B860;--bad:#E88E7A;
-  --field:#2A3243;--field-h:#3A4458;--hover:#151B27;--sel:#1A2131;--user:#1B2333;--user-l:#283247;--warn-l:#5A4520;--warn-bg:#1C1710;--bad-l:#6B2A22;--bad-bg:#201211;--bad-l2:#4A2B27;--good-l:#29453A;--on-accent:#17110A;--off:#5B6475;
+:root{color-scheme:dark;--bg:#101A24;--panel:#172533;--panel2:#13202C;--line:#263849;--ink:#E6ECEF;--muted:#A9B8C4;--dim:#8FA0AE;--accent:#E3AC3F;--accent-2:#F2C366;--good:#6CCFB8;--warn:#F0B860;--bad:#EE8A70;
+  --field:#2E4356;--field-h:#3E566C;--hover:#1C2D3D;--sel:#203447;--user:#1F3346;--user-l:#2C4660;--warn-l:#5A4520;--warn-bg:#1F1D16;--bad-l:#6B2E26;--bad-bg:#25191A;--bad-l2:#4A2E2B;--good-l:#245247;--on-accent:#14100A;--off:#5E7284;--display:"Bricolage Grotesque",system-ui,sans-serif;--body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.25);--r:14px}
-@media (prefers-color-scheme:light){:root:not([data-theme=dark]){color-scheme:light;--bg:#F6F4EF;--panel:#FFFFFF;--panel2:#FBFAF7;--line:#E6E1D8;--ink:#1D1B17;--muted:#5E5A52;--dim:#77726A;--accent:#C98A14;--accent-2:#E0A532;--good:#2E8A63;--warn:#A86A00;--bad:#B9472F;
-  --field:#D9D3C8;--field-h:#BDB5A7;--hover:#F0ECE4;--sel:#EDE6D8;--user:#FFF4DC;--user-l:#F0D9A6;--warn-l:#E9C98A;--warn-bg:#FFF7E6;--bad-l:#E7B3A7;--bad-bg:#FDF0EC;--bad-l2:#E7B3A7;--good-l:#A9D8C2;--on-accent:#1A1408;--off:#B4AEA3;--shadow:0 1px 2px rgba(60,40,0,.06),0 8px 24px rgba(60,40,0,.06)}}
-:root[data-theme=light]{color-scheme:light;--bg:#F6F4EF;--panel:#FFFFFF;--panel2:#FBFAF7;--line:#E6E1D8;--ink:#1D1B17;--muted:#5E5A52;--dim:#77726A;--accent:#C98A14;--accent-2:#E0A532;--good:#2E8A63;--warn:#A86A00;--bad:#B9472F;
-  --field:#D9D3C8;--field-h:#BDB5A7;--hover:#F0ECE4;--sel:#EDE6D8;--user:#FFF4DC;--user-l:#F0D9A6;--warn-l:#E9C98A;--warn-bg:#FFF7E6;--bad-l:#E7B3A7;--bad-bg:#FDF0EC;--bad-l2:#E7B3A7;--good-l:#A9D8C2;--on-accent:#1A1408;--off:#B4AEA3;--shadow:0 1px 2px rgba(60,40,0,.06),0 8px 24px rgba(60,40,0,.06)}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]){color-scheme:light;--bg:#EEF2F1;--panel:#FFFFFF;--panel2:#F6F8F7;--line:#D7E0DF;--ink:#15212B;--muted:#4C5B67;--dim:#5F6E7A;--accent:#A9700F;--accent-2:#C98A14;--good:#1D7F68;--warn:#8F6200;--bad:#B23F2A;
+  --field:#C6D2D1;--field-h:#A9B8B7;--hover:#E5ECEB;--sel:#DDE7E6;--user:#FFF3D6;--user-l:#EBD29C;--warn-l:#E9C98A;--warn-bg:#FFF7E6;--bad-l:#E7B3A7;--bad-bg:#FDF0EC;--bad-l2:#E7B3A7;--good-l:#A6D6C8;--on-accent:#FFFFFF;--off:#A7B3B6;--shadow:0 1px 2px rgba(15,33,43,.06),0 8px 24px rgba(15,33,43,.07)}}
+:root[data-theme=light]{color-scheme:light;--bg:#EEF2F1;--panel:#FFFFFF;--panel2:#F6F8F7;--line:#D7E0DF;--ink:#15212B;--muted:#4C5B67;--dim:#5F6E7A;--accent:#A9700F;--accent-2:#C98A14;--good:#1D7F68;--warn:#8F6200;--bad:#B23F2A;
+  --field:#C6D2D1;--field-h:#A9B8B7;--hover:#E5ECEB;--sel:#DDE7E6;--user:#FFF3D6;--user-l:#EBD29C;--warn-l:#E9C98A;--warn-bg:#FFF7E6;--bad-l:#E7B3A7;--bad-bg:#FDF0EC;--bad-l2:#E7B3A7;--good-l:#A6D6C8;--on-accent:#FFFFFF;--off:#A7B3B6;--shadow:0 1px 2px rgba(15,33,43,.06),0 8px 24px rgba(15,33,43,.07)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+@font-face{font-family:"Bricolage Grotesque";font-weight:700;font-display:swap;src:url(/fonts/bricolage-grotesque-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:"Bricolage Grotesque";font-weight:800;font-display:swap;src:url(/fonts/bricolage-grotesque-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-display:swap;src:url(/fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:500;font-display:swap;src:url(/fonts/ibm-plex-sans-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:600 800;font-display:swap;src:url(/fonts/ibm-plex-sans-latin-600-normal.woff2) format("woff2")}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body,system-ui,sans-serif)}
 button,input,textarea,select{font:inherit;color:inherit}
 select option{background:var(--panel);color:var(--ink)}
 button{cursor:pointer}
@@ -261,7 +266,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
-.abar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.asum{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-bottom:14px}.asum .bad{color:var(--bad,#d04b4b)}.aday{margin-bottom:18px}.aday h3{font-size:14px;margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}.arow{display:flex;gap:12px;align-items:flex-start;padding:8px 6px;border-radius:10px}.arow:hover{background:var(--hover)}.atime{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;min-width:44px;padding-top:2px}.aic{width:24px;height:24px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;background:color-mix(in srgb,#2ea86b 18%,transparent);color:#2ea86b}.arow.bad .aic{background:color-mix(in srgb,#d04b4b 18%,transparent);color:#d04b4b}.arow.brk .aic{background:color-mix(in srgb,#e8a33a 22%,transparent);color:#e8a33a}.arow.you .aic{background:color-mix(in srgb,#5b8def 18%,transparent)}.atxt{min-width:0;flex:1}.atxt b{font-weight:650}.adet{color:var(--muted);overflow-wrap:anywhere}.atxt .pill{margin-left:6px}.nav-more{display:flex;align-items:center;gap:8px;width:100%;margin:6px 0 2px;padding:9px 12px;border:0;background:none;color:var(--dim);font:inherit;font-size:13px;letter-spacing:.04em;cursor:pointer;border-radius:10px}.nav-more:hover{color:var(--ink);background:var(--hover)}.nav-more svg{width:16px;height:16px;margin-left:auto;stroke:currentColor;fill:none;stroke-width:2;transition:transform .2s}.nav-more[aria-expanded=true] svg{transform:rotate(180deg)}.navmore{display:flex;flex-direction:column}.navmore[hidden]{display:none}.sall{margin:0 28px 4px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}.sall[hidden]{display:none}.sall h4{margin:0 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}.sall button{display:block;width:100%;text-align:left;padding:7px 10px;border:0;border-radius:8px;background:none;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}.sall button:hover,.sall button.on{background:var(--hover)}.sall .sq{grid-column:1/-1}.schip.rank-hide{display:none}.schip.sall-btn{color:var(--ink)}.nav-h{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:14px 12px 6px}
+.devpage{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;align-items:start}.dcardx h2{font-size:16px;margin:0 0 12px}.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}.kv:last-child{border-bottom:0}.kv span{color:var(--muted)}.kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}.canlist{margin:0;padding-left:18px;line-height:1.6}.devhist{margin:0;padding-left:18px;font-size:13.5px;line-height:1.7}.dlinks .dlink{display:block;margin-bottom:6px}@keyframes mpop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}@keyframes mdash{to{stroke-dashoffset:-20}}@keyframes mpulse{0%,100%{r:5;opacity:1}50%{r:7;opacity:.55}}.mnode>circle:first-child,.mnode .mi{transform-box:fill-box;transform-origin:center;animation:mpop .45s cubic-bezier(.2,.9,.3,1.3) both}.mnode:hover>circle:first-child{transform:scale(1.12)}.mnode>circle:first-child{transition:transform .18s}.mlink{stroke-dasharray:6 4;animation:mdash 1.6s linear infinite}.mnode:not(.off) .mst{animation:mpulse 2.4s ease-in-out infinite}@media (prefers-reduced-motion:reduce){.mlink,.mnode .mst,.mnode>circle:first-child,.mnode .mi{animation:none}}.abar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.asum{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-bottom:14px}.asum .bad{color:var(--bad,#d04b4b)}.aday{margin-bottom:18px}.aday h3{font-size:14px;margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}.arow{display:flex;gap:12px;align-items:flex-start;padding:8px 6px;border-radius:10px}.arow:hover{background:var(--hover)}.atime{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;min-width:44px;padding-top:2px}.aic{width:24px;height:24px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;background:color-mix(in srgb,#2ea86b 18%,transparent);color:#2ea86b}.arow.bad .aic{background:color-mix(in srgb,#d04b4b 18%,transparent);color:#d04b4b}.arow.brk .aic{background:color-mix(in srgb,#e8a33a 22%,transparent);color:#e8a33a}.arow.you .aic{background:color-mix(in srgb,#5b8def 18%,transparent)}.atxt{min-width:0;flex:1}.atxt b{font-weight:650}.adet{color:var(--muted);overflow-wrap:anywhere}.atxt .pill{margin-left:6px}.nav-more{display:flex;align-items:center;gap:8px;width:100%;margin:6px 0 2px;padding:9px 12px;border:0;background:none;color:var(--dim);font:inherit;font-size:13px;letter-spacing:.04em;cursor:pointer;border-radius:10px}.nav-more:hover{color:var(--ink);background:var(--hover)}.nav-more svg{width:16px;height:16px;margin-left:auto;stroke:currentColor;fill:none;stroke-width:2;transition:transform .2s}.nav-more[aria-expanded=true] svg{transform:rotate(180deg)}.navmore{display:flex;flex-direction:column}.navmore[hidden]{display:none}.sall{margin:0 28px 4px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}.sall[hidden]{display:none}.sall h4{margin:0 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}.sall button{display:block;width:100%;text-align:left;padding:7px 10px;border:0;border-radius:8px;background:none;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}.sall button:hover,.sall button.on{background:var(--hover)}.sall .sq{grid-column:1/-1}.schip.rank-hide{display:none}.schip.sall-btn{color:var(--ink)}.nav-h{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:14px 12px 6px}
 .tab{justify-content:flex-start;gap:12px;font-size:15px;transition:background .15s,color .15s}
 .tab .lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
@@ -396,7 +401,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 @media (prefers-reduced-motion:reduce){.chat-buddy{transition:none}}
 
 /* Bulle d'Odin et déplacements */
-.chat-buddy{translate:calc(var(--dx,0px) + var(--rx,0px)) var(--dy,0px);transition:transform .35s cubic-bezier(.3,1.5,.5,1),opacity .25s,width .35s,height .35s,translate 1.6s cubic-bezier(.45,.05,.3,1);touch-action:none;cursor:grab}
+.chat-buddy{translate:calc(var(--dx,0px) + var(--rx,0px)) calc(var(--dy,0px) + var(--ry,0px));transition:transform .35s cubic-bezier(.3,1.5,.5,1),opacity .25s,width .35s,height .35s,translate 1.6s cubic-bezier(.45,.05,.3,1);touch-action:none;cursor:grab}
 .chat-buddy.dragging{transition:none;cursor:grabbing;filter:drop-shadow(0 12px 22px rgba(0,0,0,.45))}
 .tip{position:absolute;z-index:4;max-width:260px;color:var(--ink);background:var(--panel);border:1px solid var(--field);border-radius:12px;padding:6px 9px;font-size:12px;line-height:1.35;white-space:pre-wrap;box-shadow:var(--shadow);transform-origin:100% 80%}
 .tip.on-left{border-bottom-right-radius:4px}.tip.on-right{border-bottom-left-radius:4px}.tip.on-above{border-bottom-right-radius:4px}
@@ -479,7 +484,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .mapsvg{width:100%;height:auto;display:block}
 .mlink{stroke:var(--field);stroke-width:1.6;fill:none}.mlink.off{stroke-dasharray:4 4;opacity:.5}
 .mnode{cursor:pointer}.mnode circle{fill:var(--panel2);stroke:var(--accent);stroke-width:1.6}.mnode.off circle{stroke:var(--off);opacity:.7}.mnode:hover circle,.mnode:focus circle{fill:var(--hover);stroke-width:2.4}
-.mnode text{text-anchor:middle;fill:var(--ink)}.mworld{transition:transform .08s}.mapsvg.grab{cursor:grabbing}.mapsvg{touch-action:none;cursor:grab}.mgroup{fill:var(--panel2);stroke:var(--line);opacity:.85}.mgt{font-size:14px;font-weight:750;fill:var(--ink)}.mnode .mst{fill:#2ea86b;stroke:var(--panel);stroke-width:2}.mnode.off .mst{fill:var(--off,#888)}.mnode.dim{opacity:.18}.mnode.hit circle:first-child,.mnode.sel circle:first-child{stroke-width:3.2;stroke:var(--accent);fill:color-mix(in srgb,var(--accent) 22%,var(--panel2))}.mbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.mnets{display:flex;gap:6px;flex-wrap:wrap}.mnets .chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);font:inherit;font-size:13px;cursor:pointer}.mnets .chip.on{background:var(--accent);color:#1b1408;border-color:transparent;font-weight:700}.msearch{flex:1 1 200px;max-width:320px}.mzoom{display:flex;gap:4px;margin-left:auto}.mwrap{position:relative}.mcard{position:absolute;top:8px;right:8px;width:min(320px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:6px;max-height:calc(100% - 16px);overflow:auto}.mct{display:flex;justify-content:space-between;align-items:center;gap:8px}.mnode .mi{font-size:17px}.mnode .ml{font-size:13px;font-weight:650}.mnode .mip{font-size:11px;fill:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace}
+.mnode text{text-anchor:middle;fill:var(--ink)}.mworld{transition:transform .08s}.mapsvg.grab{cursor:grabbing}.mapsvg{touch-action:none;cursor:grab}.mgroup{fill:var(--panel2);stroke:var(--line);opacity:.85}.mgt{font-size:14px;font-weight:750;fill:var(--ink)}.mnode .mst{fill:#2ea86b;stroke:var(--panel);stroke-width:2}.mnode.off .mst{fill:var(--off,#888)}.mnode.dim{opacity:.18}.mnode.hit circle:first-child,.mnode.sel circle:first-child{stroke-width:3.2;stroke:var(--accent);fill:color-mix(in srgb,var(--accent) 22%,var(--panel2))}.mapbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.mnets{display:flex;gap:6px;flex-wrap:wrap}.mnets .chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);font:inherit;font-size:13px;cursor:pointer}.mnets .chip.on{background:var(--accent);color:#1b1408;border-color:transparent;font-weight:700}.msearch{flex:1 1 200px;max-width:320px}.mzoom{display:flex;gap:4px;margin-left:auto}.mwrap{position:relative}.mcard{position:absolute;top:8px;right:8px;width:min(320px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:6px;max-height:calc(100% - 16px);overflow:auto}.mct{display:flex;justify-content:space-between;align-items:center;gap:8px}.mnode .mi{font-size:17px}.mnode .ml{font-size:13px;font-weight:650}.mnode .mip{font-size:11px;fill:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace}
 .mlegend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted);padding:8px 6px 2px}
 .sfind{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--dim);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:5px}
 .sfind.grave{border-left-color:var(--bad)}.sfind.attention{border-left-color:var(--warn)}.sfind.info{border-left-color:#5B8DEF}
@@ -509,7 +514,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .hcard.sugg{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .fitem .hico{width:28px;height:28px;font-size:15px}
 
-.msg.live .lt::after{content:"▍";color:var(--accent);animation:blinkc 1s steps(1) infinite;margin-left:1px}
+.msg.live .lt .md > :last-child::after{content:"▍";color:var(--accent);animation:blinkc 1s steps(1) infinite;margin-left:1px}
 @keyframes blinkc{50%{opacity:0}}
 
 .stdlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);padding:18px;max-width:560px;width:calc(100% - 32px)}
@@ -523,6 +528,159 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .tl{display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow:auto;margin:10px 0;font-size:13px}
 .tli{display:flex;gap:8px;padding:5px 8px;border-radius:8px;background:var(--panel2);overflow-wrap:anywhere}.tli.résultat{margin-left:18px;color:var(--muted)}
 .tlt{flex:none;color:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px}
+/* Réponses mises en forme */
+.msg.assistant{white-space:normal}
+.md{display:flex;flex-direction:column;gap:8px}
+.md p{margin:0;white-space:pre-wrap}
+.md h3{margin:6px 0 0;font-size:16px;color:var(--text)}
+.md h4{margin:4px 0 0;font-size:14px;color:var(--muted);text-transform:none}
+.md ul,.md ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:3px}
+.md li::marker{color:var(--accent)}
+.md strong{color:var(--text);font-weight:650}
+.md code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;background:rgba(127,127,127,.14);border:1px solid var(--line);border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+.md pre.code{position:relative;margin:0;background:color-mix(in srgb,var(--ink,#000) 7%,transparent);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow:auto;font-size:13px;line-height:1.5}
+.md pre.code code{background:none;border:0;padding:0;white-space:pre}
+.md pre.code[data-lang]{padding-top:28px}
+.md pre.code[data-lang]::before{content:attr(data-lang);position:absolute;top:7px;left:14px;font-size:11px;color:var(--dim);font-family:inherit}
+.md pre .copy{position:absolute;top:4px;right:6px;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;opacity:.6}
+.md pre:hover .copy{opacity:1}
+.md blockquote{margin:0;border-left:3px solid var(--accent);padding:2px 12px;color:var(--muted)}
+.md hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+.md a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.md .tblw{overflow:auto;max-width:100%}
+.md table{border-collapse:collapse;font-size:13.5px}
+.md th,.md td{border:1px solid var(--line);padding:5px 10px;text-align:left;vertical-align:top}
+.md th{background:rgba(127,127,127,.1)}
+details.dec{margin-top:10px;border-top:1px solid var(--line);padding-top:8px;font-size:13px;color:var(--muted)}
+details.dec summary{cursor:pointer;list-style:none;color:var(--dim)}
+details.dec summary::-webkit-details-marker{display:none}
+details.dec summary::after{content:" ▸";font-size:11px}
+details.dec[open] summary::after{content:" ▾"}
+details.dec ul{margin:6px 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+details.dec code{font-size:12px;background:rgba(127,127,127,.12);border-radius:4px;padding:1px 4px;overflow-wrap:anywhere}
+details.activity{align-self:flex-start;display:block;font-family:inherit;font-size:13px;color:var(--dim);background:rgba(127,127,127,.06);border:1px solid var(--line);border-radius:10px;padding:6px 12px;max-width:760px}
+details.activity summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+details.activity summary::-webkit-details-marker{display:none}
+details.activity summary::after{content:"▸";margin-left:4px;font-size:11px}
+details.activity[open] summary::after{content:"▾"}
+details.activity .spin{width:10px;height:10px;border-radius:50%;border:2px solid var(--accent);border-right-color:transparent;animation:aspin .8s linear infinite}
+details.activity.done .spin{animation:none;border-color:var(--good,#5fb878);background:var(--good,#5fb878)}
+@keyframes aspin{to{transform:rotate(360deg)}}
+details.activity .al{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+details.activity .ai{display:flex;gap:6px;align-items:baseline}
+details.activity .ai .ic{width:16px;flex:none;text-align:center}
+details.activity .ai code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;overflow-wrap:anywhere;color:var(--muted)}
+details.activity .ai.ko{color:var(--warn)}
+details.activity .ai.info{color:#8FC1E3}
+@media (prefers-reduced-motion:reduce){details.activity .spin{animation:none}}
+/* Plus de mascotte : le logo et le nom ODIN suffisent (demande du propriétaire). */
+.buddy,#buddyM,.login .odin{display:none!important}
+.side .brand{margin-bottom:18px}
+.hbtn.danger .hl{color:var(--bad,#e5484d)}
+.memtools{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.memtools input{flex:1 1 240px;min-width:0;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+.memgroups{display:flex;flex-direction:column;gap:22px}
+.memgroup h2{font-size:16px;margin:0 0 8px}
+.memrow{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin-bottom:6px}
+.memrow.pinned{border-color:var(--accent)}
+.memrow.untrusted{border-style:dashed}
+.memmain{flex:1;min-width:0}
+.memtxt{overflow-wrap:anywhere}
+.memmeta{font-size:12px;color:var(--dim);margin-top:3px}
+.memacts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.memedit{width:100%;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--accent);background:var(--bg);color:var(--text)}
+.membanner{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;background:var(--panel)}
+.membanner ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
+@media (max-width:640px){.memrow{flex-direction:column}.memacts{justify-content:flex-start}}
+.brklog{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
+.brklog .brkh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.brklog ul{margin:4px 0 0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:3px}
+.attbar{display:flex;flex-wrap:wrap;gap:6px;padding:0 4px 8px}
+.att{display:inline-flex;align-items:center;gap:6px;max-width:280px;padding:4px 6px 4px 8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-size:13px}
+.att img{width:28px;height:28px;object-fit:cover;border-radius:6px}
+.att .an{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px}
+.att.up{opacity:.75}.att.err{border-color:var(--warn);color:var(--warn)}
+.att .ax{border:0;background:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px}
+.uatts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.uatt{font-size:12.5px;padding:3px 8px;border-radius:8px;background:rgba(0,0,0,.18);overflow-wrap:anywhere}
+#v-chat.dropping .msgs,#v-chat.dropping #msgs{outline:2px dashed var(--accent);outline-offset:-8px}
+.devhist li.warn{color:var(--warn)}
+/* La barre de saisie prend la couleur de l'humeur d'Odin */
+.cbox{border-color:color-mix(in srgb,var(--odin-tint,var(--field)) 55%,var(--field));transition:border-color .6s,box-shadow .6s}
+.cbox:focus-within{border-color:var(--odin-tint,var(--accent));box-shadow:0 0 0 3px color-mix(in srgb,var(--odin-tint,var(--accent)) 22%,transparent),var(--shadow)}
+/* Mouvements d'Odin dans la discussion (le corps bouge, le déplacement reste sur translate) */
+.chat-buddy.walk{transition:transform .35s,opacity .25s,width .35s,height .35s,translate 1.1s cubic-bezier(.5,0,.3,1)}
+.chat-buddy.hopto{transition:transform .35s,opacity .25s,width .35s,height .35s,translate .75s cubic-bezier(.3,1.35,.5,1)}
+.chat-buddy.walk .body{animation:a-walk .35s ease-in-out infinite}
+.chat-buddy.act-spin svg{animation:a-spin .9s cubic-bezier(.4,0,.2,1)}
+.chat-buddy.act-sad .body{animation:a-sad 1.4s ease}
+.chat-buddy.act-joy .body{animation:a-joy 1s cubic-bezier(.3,1.4,.5,1)}
+.chat-buddy.act-advance svg{animation:a-advance 1.1s ease}
+.chat-buddy.act-sit .body{animation:a-sit .7s ease forwards}
+.chat-buddy.act-tilt svg{animation:a-tilt 1.6s ease}
+.chat-buddy.act-wobble svg{animation:a-wobble 1s ease}
+@keyframes a-walk{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px) scaleY(1.03)}}
+@keyframes a-spin{to{transform:rotate(360deg)}}
+@keyframes a-sad{0%{transform:none}20%{transform:translateY(-10px)}45%{transform:translateY(4px) scale(1.06,.9)}70%{transform:translateY(2px) scale(1.03,.95)}100%{transform:none}}
+@keyframes a-joy{0%{transform:none}30%{transform:translateY(-26px) scale(.95,1.08)}55%{transform:translateY(0) scale(1.08,.92)}75%{transform:translateY(-8px)}100%{transform:none}}
+@keyframes a-advance{0%{transform:none}35%{transform:translateX(-18px) rotate(-12deg)}65%{transform:translateX(-24px) rotate(4deg)}100%{transform:none}}
+@keyframes a-sit{to{transform:translateY(4px) scale(1.08,.9)}}
+@keyframes a-tilt{0%,100%{transform:none}30%,70%{transform:rotate(-14deg)}}
+@keyframes a-wobble{0%,100%{transform:none}20%{transform:rotate(9deg)}40%{transform:rotate(-8deg)}60%{transform:rotate(5deg)}80%{transform:rotate(-3deg)}}
+@media (prefers-reduced-motion:reduce){.chat-buddy.walk .body,.chat-buddy[class*="act-"] svg,.chat-buddy[class*="act-"] .body{animation:none}}
+.convs-btn{display:inline-flex!important}
+.chat.convs-hidden .convs{display:none}
+.convs{width:250px;gap:1px;padding:12px 10px}
+.convs .csearch{margin-bottom:6px}
+.cnew{border:1px dashed var(--line);background:none;color:var(--muted);border-radius:10px;padding:8px 10px;text-align:left;cursor:pointer;margin-bottom:4px;font:inherit;font-size:13.5px}
+.cnew:hover{background:var(--hover);color:var(--ink)}
+.cgroup{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);padding:12px 8px 4px}
+.convs .conv{display:flex;align-items:center;gap:8px;min-height:36px;padding:7px 8px}
+.convs .conv .ct{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-size:14px}
+.convs .conv .cd{flex:none;font-size:11.5px;color:var(--dim)}
+.convrow.cur .conv{background:var(--hover)}
+.convrow.cur .conv .ct{font-weight:650}
+.convs .cmenu summary{padding:7px 6px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);cursor:pointer;font:inherit;color:var(--ink);text-align:left;transition:border-color .15s,transform .15s}
+.kpi:hover{border-color:var(--accent);transform:translateY(-1px)}
+.kpi b{font-size:22px;line-height:1.1}.kpi span{font-size:12.5px;color:var(--muted)}
+.kpi.on b{color:var(--accent)}.kpi.bad b{color:var(--bad,#e5484d)}.kpi.warn b{color:var(--warn)}.kpi.good b{color:#2ea86b}
+.hcols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px;margin-bottom:16px;align-items:start}
+@media (max-width:980px){.hcols{grid-template-columns:1fr}}
+.hpanel{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.hpanel h2{font-size:16px;margin:0 0 2px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tlist,.dlist{display:flex;flex-direction:column}
+.titem{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.titem:first-child{border-top:0}
+.titem > div:first-child{flex:1 1 220px;min-width:0}
+.hok{color:#2ea86b;padding:6px 0}
+.ditem{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
+.ditem:first-child{border-top:0}
+.ditem .dic{width:18px;flex:none;text-align:center;color:var(--accent)}
+.ditem.live .spin{width:12px;height:12px;margin-top:4px;flex:none;border-radius:50%;border:2px solid var(--accent);border-right-color:transparent;animation:aspin .8s linear infinite}
+.hgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;align-items:start}
+.hgrid2 .hcard{min-height:0}
+.tour-bud{position:fixed;z-index:1001;width:76px;height:76px;transition:left .9s cubic-bezier(.4,1.35,.5,1),top .9s cubic-bezier(.4,1.35,.5,1);filter:drop-shadow(0 8px 18px rgba(0,0,0,.4));pointer-events:none}
+.tour-bud.hop svg{animation:a-joy .9s cubic-bezier(.3,1.4,.5,1) .55s}
+.tour-ring{position:fixed;z-index:1000;border:3px solid var(--accent);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.42);transition:all .6s cubic-bezier(.4,0,.2,1);pointer-events:none}
+.tour-box{position:fixed;z-index:1002;background:var(--panel);color:var(--ink);border:1px solid var(--accent);border-radius:16px;padding:14px 16px;box-shadow:0 18px 50px rgba(0,0,0,.4);transition:left .6s,top .6s;display:flex;flex-direction:column;gap:12px}
+.tourt{line-height:1.55;font-size:15px}
+.tourb{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tourb .dim{margin-right:auto;font-size:12px}
+@media (prefers-reduced-motion:reduce){.tour-bud,.tour-ring,.tour-box{transition:none}.tour-bud.hop svg{animation:none}}
+#homeGrid{display:block}
+/* Identité : titres en Bricolage, texte en Plex ; focus clavier toujours visible ; tout ce qui se clique a la main */
+:root{--display:"Bricolage Grotesque",system-ui,sans-serif;--body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+h1,h2,h3,.hct,.brand,.kpi b,.hello-t{font-family:var(--display);letter-spacing:-.012em}
+.view .head h1{font-size:clamp(24px,2.4vw,30px);font-weight:800;line-height:1.1}
+.brand .rune{font-family:system-ui,sans-serif}
+.kpi b{font-weight:800}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
+.cgroup{text-transform:none;letter-spacing:0;font-size:12.5px;font-weight:600}
+.hct .hico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--accent);vertical-align:-3px}
+.msg.assistant .who{letter-spacing:0;font-family:var(--display);font-size:14px}
+@media (max-width:600px){.kpis{grid-template-columns:1fr 1fr}.kpis .kpi:last-child:nth-child(odd){grid-column:1/-1}}
 </style>
 </head>
 <body>
@@ -600,7 +758,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
           <form class="composer" id="composer">
             <label for="input" class="sr">Message pour Odin</label>
             <div class="cbox">
-              <label class="cbtn" id="camBtn" title="Montrer quelque chose à Odin (caméra ou image)" aria-label="Montrer quelque chose à Odin"><input type="file" id="camFile" accept="image/*" capture="environment" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></label>
+              <label class="cbtn" id="camBtn" title="Joindre des fichiers : photo, vidéo, son, PDF, Word, Excel… (ou glisse-les ici)" aria-label="Joindre des fichiers"><input type="file" id="camFile" multiple hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"></path></svg></label>
               <textarea id="input" rows="1" placeholder="Écris à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne" enterkeyhint="send"></textarea>
               <button class="cbtn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Parler à Odin (micro)" title="Parler à Odin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
               <button class="cbtn send" type="submit" aria-label="Envoyer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
@@ -620,6 +778,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       </div>
     </section>
 
+    <section class="view" id="v-device" aria-label="Appareil"><div class="head"><div><button class="btn small" type="button" id="devBack">← Réseau</button><h1 id="devTitle" style="margin-top:10px">Appareil</h1><div class="sub" id="devSub"></div></div><div class="hacts" id="devActs"></div></div><div class="body"><div class="devpage" id="devBody"></div></div></section>
     <section class="view" id="v-net" aria-label="Réseau">
       <div class="head"><div><h1>Réseau local</h1><div class="sub" id="netSub">—</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="scanQuick">Balayage rapide</button><button class="btn small primary" id="scanFull">Balayage complet</button></div></div>
@@ -641,8 +800,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     </section>
 
     <section class="view" id="v-memory" aria-label="Mémoire">
-      <div class="head"><div><h1>Mémoire</h1><div class="sub">Les souvenirs en quarantaine viennent d'un contenu non fiable : valide-les ou oublie-les.</div></div></div>
-      <div class="body"><div class="wrap"><table class="tbl"><thead><tr><th>#</th><th>Souvenir</th><th>Origine</th><th>Actions</th></tr></thead><tbody id="mems"></tbody></table></div></div>
+      <div class="head"><div><h1>Mémoire</h1><div class="sub">Odin range lui-même ses souvenirs chaque nuit : il améliore, fusionne et oublie. Épingle ce qui compte pour toi : il n'y touchera plus.</div></div><div class="hacts"><button class="hbtn" type="button" id="memGarden"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M7 16l3-9 4 6 2-3 3 6"/></svg><span class="hl">Ranger maintenant</span></button></div></div>
+      <div class="body"><div id="memBanner"></div><div class="memtools"><input id="memQ" type="search" placeholder="Chercher dans la mémoire…" aria-label="Chercher dans la mémoire"><div class="choices" id="memF" role="group" aria-label="Filtre"></div></div><div id="memGroups" class="memgroups"></div><table hidden><tbody id="mems"></tbody></table></div>
     </section>
 
     <section class="view" id="v-skills" aria-label="Compétences">
@@ -762,6 +921,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
             <h2>Décisions</h2>
             <div class="field"><label>Autonomie</label><div class="seg" role="group" aria-label="Niveau d'autonomie"><button type="button" data-auto="prudent">Prudent</button><button type="button" data-auto="equilibre">Équilibré</button><button type="button" data-auto="autonome">Autonome</button><button type="button" data-auto="breaker" class="brk">⚡ Odin Breaker</button></div><span class="hint" id="autoHint"></span></div>
             <div class="form" id="brkBox" style="gap:12px">
+              <div class="brklog" id="brkLog"></div>
               <div class="warn-box">⚡ <b>Odin Breaker</b> : Odin mène ses missions sans plus rien te demander, actions graves et tâches planifiées comprises. Il discute avec toi quand tu lui parles. Il crée lui-même routines et rappels, et agit librement sur ton réseau local. Restent refusées : les commandes destructrices connues et les actions dictées par un contenu piégé. Tout est noté dans Décisions et résumé dans le rapport du soir.</div>
               <div class="field"><label>Quand ?</label><div class="choices" role="group" aria-label="Plage d'Odin Breaker"><button type="button" class="choice" data-brk="always">Tout le temps</button><button type="button" class="choice" data-brk="night">Seulement la nuit</button></div></div>
               <div id="brkNight" style="display:flex;gap:12px;flex-wrap:wrap">
@@ -1062,7 +1222,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   function show(v) {
     toggleNav(false);
     if (SECONDARY.includes(v)) navMore(true);
-    for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === v) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
+    const nv = v === 'device' ? 'net' : v;
+    for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === nv) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
     $('#moreBtn').classList.toggle('cur', !['home', 'chat', 'net', 'settings'].includes(v));
     for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
     try { localStorage.setItem('odin.view', v); } catch {}
@@ -1120,17 +1281,88 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   const msgs = $('#msgs');
   let activity = null;
   const cards = new Map(); // id → carte de validation affichée
+  // ---------- Mise en forme des réponses (Markdown sûr : on construit le DOM, jamais d'innerHTML) ----------
+  function mdInline(s) {
+    const out = [], re = /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*)|(__[^_\n]+?__)|(\[[^\]\n]+\]\(https?:\/\/[^\s)]+\))|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?])|((?:^|(?<=[\s(]))\*[^*\s][^*\n]*?\*(?=[\s.,;:!?)]|$))/g;
+    let i = 0, m;
+    while ((m = re.exec(s))) {
+      if (m.index > i) out.push(s.slice(i, m.index));
+      const x = m[0];
+      if (m[1]) out.push(el('code', {}, x.slice(1, -1)));
+      else if (m[2] || m[3]) out.push(el('strong', {}, ...mdInline(x.slice(2, -2))));
+      else if (m[4]) { const k = x.match(/^\[([^\]]+)\]\((.+)\)$/); out.push(el('a', { href: k[2], target: '_blank', rel: 'noopener noreferrer' }, k[1])); }
+      else if (m[5]) out.push(el('a', { href: x, target: '_blank', rel: 'noopener noreferrer' }, x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)));
+      else out.push(el('em', {}, x.slice(1, -1)));
+      i = m.index + x.length;
+    }
+    if (i < s.length) out.push(s.slice(i));
+    return out;
+  }
+  function md(text) {
+    const root = el('div', { class: 'md' }), lines = String(text).replace(/\r/g, '').split('\n');
+    let list = null, para = [];
+    const flush = () => { if (para.length) { root.append(el('p', {}, ...mdInline(para.join('\n')))); para = []; } };
+    const endList = () => { list = null; };
+    for (let k = 0; k < lines.length; k++) {
+      const l = lines[k];
+      const fence = l.match(/^\s*```(\w[\w+-]*)?\s*$/);
+      if (fence) { flush(); endList(); const code = []; k++; while (k < lines.length && !/^\s*```\s*$/.test(lines[k])) code.push(lines[k++]);
+        const pre = el('pre', { class: 'code' }, el('code', {}, code.join('\n')));
+        pre.append(el('button', { class: 'copy', type: 'button', title: 'Copier', onclick: (e) => { navigator.clipboard?.writeText(code.join('\n')); e.target.textContent = 'Copié'; setTimeout(() => e.target.textContent = 'Copier', 1200); } }, 'Copier'));
+        if (fence[1]) pre.dataset.lang = fence[1]; root.append(pre); continue; }
+      if (/^\s*\|.*\|\s*$/.test(l) && /^\s*\|[\s:|-]+\|\s*$/.test(lines[k + 1] || '')) { flush(); endList();
+        const cells = (r) => r.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
+        const head = cells(l); k += 2; const body = []; while (k < lines.length && /^\s*\|.*\|\s*$/.test(lines[k])) body.push(cells(lines[k++])); k--;
+        root.append(el('div', { class: 'tblw' }, el('table', {}, el('thead', {}, el('tr', {}, ...head.map((h) => el('th', {}, ...mdInline(h))))), el('tbody', {}, ...body.map((r) => el('tr', {}, ...r.map((c) => el('td', {}, ...mdInline(c))))))))); continue; }
+      const h = l.match(/^\s*(#{1,4})\s+(.+?)\s*#*\s*$/);
+      if (h) { flush(); endList(); root.append(el(h[1].length <= 2 ? 'h3' : 'h4', {}, ...mdInline(h[2]))); continue; }
+      if (/^\s*([-*_])\s*\1\s*\1[\s\1]*$/.test(l)) { flush(); endList(); root.append(el('hr')); continue; }
+      const q = l.match(/^\s*>\s?(.*)$/);
+      if (q) { flush(); endList(); const last = root.lastElementChild; if (last?.tagName === 'BLOCKQUOTE') last.append(el('br'), ...mdInline(q[1])); else root.append(el('blockquote', {}, ...mdInline(q[1]))); continue; }
+      const li = l.match(/^(\s*)([-*•]|\d+[.)])\s+(.+)$/);
+      if (li) { flush(); const tag = /\d/.test(li[2]) ? 'ol' : 'ul', sub = li[1].length >= 2;
+        let host = root; if (sub && list?.lastElementChild) { const p = list.lastElementChild; host = p.querySelector(':scope > ul, :scope > ol') || p.appendChild(el(tag)); host.append(el('li', {}, ...mdInline(li[3]))); continue; }
+        if (!list || list.tagName.toLowerCase() !== tag) { list = el(tag); if (tag === 'ol' && /^\d+/.test(li[2]) && li[2] !== '1.' && li[2] !== '1)') list.start = parseInt(li[2]); root.append(list); }
+        list.append(el('li', {}, ...mdInline(li[3]))); continue; }
+      if (!l.trim()) { flush(); endList(); continue; }
+      if (list && /^\s{2,}\S/.test(l)) { list.lastElementChild?.append(' ', ...mdInline(l.trim())); continue; }
+      endList(); para.push(l);
+    }
+    flush();
+    return root;
+  }
+  // Fin de réponse « décidé sans te déranger » / « Odin Breaker » : encart repliable, pas un pavé dans la réponse.
+  function splitFooter(text) {
+    const i = text.search(/\n\n(🛡 Décidé sans te déranger|⚡ Odin Breaker :)/);
+    return i < 0 ? [text, ''] : [text.slice(0, i), text.slice(i).trim()];
+  }
+  function footerBox(foot) {
+    if (!foot) return null;
+    const n = (foot.match(/^•/gm) || []).length, br = foot.match(/⚡ Odin Breaker : (\d+)/);
+    const label = [n ? `${n} décision${n > 1 ? 's' : ''} prise${n > 1 ? 's' : ''} seul` : '', br ? `${br[1]} action${br[1] > 1 ? 's' : ''} en mode Breaker` : ''].filter(Boolean).join(' · ');
+    const items = foot.split('\n').filter((l) => /^•/.test(l)).map((l) => { const [what, why] = l.replace(/^•\s*/, '').split(/ — /); return el('li', {}, el('code', {}, what.replace(/^\$\s*/, '').slice(0, 140)), why ? el('span', { class: 'dim' }, ' ' + why.replace(/action que tu n'as pas clairement demandée/, 'non demandé explicitement')) : null); });
+    return el('details', { class: 'dec' }, el('summary', {}, '🛡 ' + (label || 'Décisions')), items.length ? el('ul', {}, ...items) : null, el('a', { href: '#', class: 'dim', onclick: (e) => { e.preventDefault(); show('audit'); } }, 'Voir le journal des décisions'));
+  }
   function addMsg(role, text) {
-    activity = null;
+    activity?.classList.add('done'); activity = null;
     const m = text.match(/\/yes ([A-Za-z0-9]+)/);
     // Ancien chemin (historique rechargé) : le message texte sert de secours quand aucune carte n'existe déjà.
     if (role === 'assistant' && m && /validation|GRAVE/i.test(text)) { if (cards.has(m[1])) return; return addApproval(text, m[1]); }
-    const node = role === 'assistant' ? el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'ODIN'), text) : el('div', { class: 'msg user' }, text);
+    let node;
+    if (role === 'assistant') { const [body, foot] = splitFooter(text.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '')); node = el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'Odin'), md(body), footerBox(foot)); }
+    else {
+      // Fichiers joints : petites étiquettes au lieu du texte technique
+      const re = /^\[(?:Image|Vidéo|Audio|Document|Archive|Fichier|Photo prise par la caméra)[^:]*: (inbox\/[^\s]+) \(([^,]*), ([^)]*)\)[^\]]*\]$/;
+      const lines = text.split('\n'), files = lines.map((l) => l.trim().match(re)).filter(Boolean);
+      const body = lines.filter((l) => !re.test(l.trim())).join('\n').trim();
+      node = el('div', { class: 'msg user' }, body || null, files.length ? el('div', { class: 'uatts' }, ...files.map((m) => el('span', { class: 'uatt' }, /^image/.test(m[2]) ? '🖼 ' : /^video/.test(m[2]) ? '🎬 ' : /^audio/.test(m[2]) ? '🎵 ' : '📄 ', m[1].replace(/^inbox\/(\d{4}-\d\d-\d\d-\d\d-\d\d-\d\d-)?/, '')))) : null);
+    }
     if (role === 'assistant') {
       msgs.querySelectorAll('.why').forEach((b) => b.remove());
       node.append(el('button', { class: 'why', type: 'button', title: 'Pourquoi Odin a répondu ou agi ainsi', onclick: async (e) => { e.target.disabled = true; e.target.textContent = 'Je t\'explique…'; const r = await api('/api/action', { kind: 'explain', peer }); e.target.replaceWith(el('div', { class: 'whyt' }, r.ok ? r.text : r.error)); } }, 'Pourquoi ?'));
     }
     msgs.append(node); msgs.scrollTop = msgs.scrollHeight;
+    if (role === 'assistant' && !loadingHistory) setTimeout(() => window.OdinBuddy?.onReply(node, text), 120);
   }
   function addApproval(text, id) {
     const grave = /GRAVE/.test(text), always = /\/always [A-Za-z0-9]+/.test(text);
@@ -1161,22 +1393,35 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     box.append(el('div', { class: 'sub' }, ok === 'always' ? 'Autorisé, et autorisé pour la suite.' : ok ? 'Autorisé.' : 'Refusé.'));
     await api('/api/message', { peer, text: `/${ok === 'always' ? 'always' : ok ? 'yes' : 'no'} ${id}` }); badges();
   }
+  // Étapes d'Odin pendant qu'il travaille : une ligne résumée, le détail se déplie.
   function addActivity(e) {
-    if (!activity) { activity = el('div', { class: 'activity' }); msgs.append(activity); }
-    if (e.type === 'tool_start') activity.append(el('span', {}, `⚙ ${e.name}`));
-    else if (e.type === 'tool_end') activity.append(el('span', {}, `${e.ok ? '✓' : '✗'} ${e.preview.replace(/\s+/g, ' ').slice(0, 110)}`));
-    else if (e.type === 'blocked') activity.append(el('span', { class: 'blocked' }, `⛔ ${e.name} : ${e.reason}`));
-    else if (e.type === 'compacted') activity.append(el('span', {}, `♻ contexte résumé`));
-    else if (e.type === 'learned') activity.append(el('span', { class: 'decided' }, `🧠 appris : ${e.facts.join(' · ')}`));
-    else if (e.type === 'skill_proposed') activity.append(el('span', { class: 'decided' }, e.active ? `💡 compétence apprise et active : ${e.name}` : `💡 compétence proposée : ${e.name} (onglet Compétences)`));
-    else if (e.type === 'decision' && e.allowed && e.via === 'breaker') activity.append(el('span', { class: 'decided' }, `⚡ Breaker${e.severity ? ' (' + e.severity + ')' : ''} : ${e.summary}`));
-    else if (e.type === 'decision' && e.allowed && (e.via === 'mimir' || e.via === 'grant')) activity.append(el('span', { class: 'decided' }, `🛡 décidé seul (${e.via === 'grant' ? 'autorisation permanente' : e.severity}) : ${e.summary} — ${e.why}`));
+    if (!activity) {
+      const sum = el('summary', {}, el('span', { class: 'spin' }), el('span', { class: 'at' }, 'Odin travaille…'));
+      activity = el('details', { class: 'activity' }, sum, el('div', { class: 'al' }));
+      activity._n = 0; activity._tools = []; msgs.append(activity);
+    }
+    const list = activity.querySelector('.al'), row = (cls, ...c) => list.append(el('div', { class: 'ai ' + cls }, ...c));
+    const nice = (n) => (typeof TOOL_FR !== 'undefined' && TOOL_FR[n]) || n;
+    if (e.type === 'tool_start') { activity._n++; if (!activity._tools.includes(e.name)) activity._tools.push(e.name); row('run', el('span', { class: 'ic' }, '⚙'), el('b', {}, nice(e.name))); }
+    else if (e.type === 'tool_end') row(e.ok ? 'ok' : 'ko', el('span', { class: 'ic' }, e.ok ? '✓' : '✗'), el('code', {}, e.preview.replace(/\s+/g, ' ').slice(0, 160)));
+    else if (e.type === 'blocked') row('ko', el('span', { class: 'ic' }, '⛔'), `${nice(e.name)} : ${e.reason}`);
+    else if (e.type === 'compacted') row('', el('span', { class: 'ic' }, '♻'), 'contexte résumé');
+    else if (e.type === 'learned') row('info', el('span', { class: 'ic' }, '🧠'), 'appris : ' + e.facts.join(' · '));
+    else if (e.type === 'skill_proposed') row('info', el('span', { class: 'ic' }, '💡'), e.active ? `compétence apprise et active : ${e.name}` : `compétence proposée : ${e.name}`);
+    else if (e.type === 'decision' && e.allowed && e.via === 'breaker') row('info', el('span', { class: 'ic' }, '⚡'), 'Breaker : ', el('code', {}, e.summary.slice(0, 120)));
+    else if (e.type === 'decision' && e.allowed && (e.via === 'mimir' || e.via === 'grant')) row('info', el('span', { class: 'ic' }, '🛡'), 'décidé seul : ', el('code', {}, e.summary.replace(/^\$\s*/, '').slice(0, 120)));
+    else return;
+    const t = activity._tools.slice(0, 3).map(nice).join(', ') + (activity._tools.length > 3 ? '…' : '');
+    activity.querySelector('.at').textContent = `${activity._n} étape${activity._n > 1 ? 's' : ''}${t ? ' · ' + t : ''}`;
     msgs.scrollTop = msgs.scrollHeight;
   }
+  window.OdinChat = { addMsg, addActivity }; // aperçu et tests de l'affichage
+  let loadingHistory = false;
   async function loadHistory() {
-    msgs.textContent = ''; activity = null;
+    msgs.textContent = ''; activity = null; loadingHistory = true;
     const h = await api('/api/history?peer=' + encodeURIComponent(peer));
     for (const m of h.messages) { const yes = m.text.match(/\/yes ([A-Za-z0-9]+)/); if (yes) answered.add(yes[1]); addMsg(m.role, m.text); }
+    loadingHistory = false;
     if (!h.messages.length) {
       const ideas = ['Quels appareils sont sur mon réseau ?', 'Mets à jour cette machine', 'Cherche sur le web les nouveautés de Proxmox', 'Ouvre le site de la météo et dis-moi le temps demain', 'Range mon dossier Téléchargements', 'Améliore-toi : propose une nouvelle compétence utile'];
       msgs.append(el('div', { class: 'hello' }, el('div', { class: 'hello-t' }, 'Que fait-on ?'), el('div', { class: 'sub' }, 'Écris, parle (micro) ou montre une image. Odin agit sur ta machine, ton réseau et le web.'),
@@ -1207,10 +1452,13 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   $('#input').addEventListener('focus', () => { if (narrow.matches) document.body.classList.add('kb'); setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 250); });
   $('#input').addEventListener('blur', () => setTimeout(() => document.body.classList.remove('kb'), 120));
   async function send() {
-    const t = $('#input').value.trim(); if (!t) return;
+    const t = $('#input').value.trim(); if (!t && !attached.length) return;
     $('#input').value = ''; grow(); msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
-    addMsg('user', t); setBusy(true);
-    try { const r = await api('/api/message', { peer, text: t }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
+    setBusy(true);
+    const files = await takeAttachments();
+    if (!t && !files?.length) { setBusy(false); $('#typing').textContent = 'Les fichiers n\'ont pas pu être envoyés.'; return; }
+    addMsg('user', t + (files?.length ? '\n' + files.map((f) => `[Fichier joint : ${f.file} (${f.type || '?'}, ${f.size} o)]`).join('\n') : ''));
+    try { const r = await api('/api/message', { peer, text: t, files }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
   // Mascotte : elle réagit quand on la touche (écran de connexion, « Odin réfléchit… »).
   // Un toucher : il saute. Trop de touchers d'affilée (4 en 2 s) : il se fâche, rougit, bleuit, puis redevient jaune.
@@ -1226,7 +1474,14 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   const faceTpl = document.querySelector('#login .odin');
   function setBusy(b) { busy = b; if (b) liveEnd(); $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
-  $('#convsBtn').addEventListener('click', () => $('#convs').classList.toggle('open'));
+  // Historique : volet repliable sur ordinateur (mémorisé), plein écran sur téléphone.
+  const chatBox = document.querySelector('#v-chat .chat');
+  try { if (localStorage.getItem('odin.convs') === '0') chatBox.classList.add('convs-hidden'); } catch {}
+  $('#convsBtn').addEventListener('click', () => {
+    if (matchMedia('(max-width:860px)').matches) { $('#convs').classList.toggle('open'); return; }
+    const hid = chatBox.classList.toggle('convs-hidden'); try { localStorage.setItem('odin.convs', hid ? '0' : '1'); } catch {}
+    $('#convsBtn').setAttribute('aria-pressed', String(!hid));
+  });
   $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
 
   // Conversations : recherche dans tout l'historique, épingles, renommer, exporter en PDF.
@@ -1251,14 +1506,25 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     }
     const list = [...(state?.conversations || [])];
     if (!list.some((c) => c.peer === peer)) list.unshift({ peer, title: 'Nouvelle conversation', updated: Date.now() });
-    for (const c of list) box.append(el('div', { class: 'convrow' + (c.peer === peer ? ' cur' : '') },
-      el('button', { class: 'conv', 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; try { localStorage.setItem('odin.peer', peer); } catch { /* rien */ } $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
-        (c.pinned ? '📌 ' : '') + (c.tainted ? '⚠ ' : '') + (c.title || c.peer), el('small', {}, fmt(c.updated))),
-      el('details', { class: 'cmenu' }, el('summary', { 'aria-label': 'Options de la conversation', title: 'Options' }, '⋯'),
-        el('div', { class: 'cpop' },
-          el('button', { type: 'button', onclick: () => api('/api/action', { kind: 'conv_pin', peer: c.peer, on: !c.pinned }) }, c.pinned ? 'Désépingler' : 'Épingler'),
-          el('button', { type: 'button', onclick: () => { const n = prompt('Nom de la conversation', c.title || ''); if (n != null) api('/api/action', { kind: 'conv_rename', peer: c.peer, title: n }); } }, 'Renommer'),
-          el('button', { type: 'button', onclick: () => exportConv(c.peer, c.title || 'Conversation avec Odin') }, 'Exporter en PDF')))));
+    // Rangées par date (épinglées en haut), titre sur une ligne, heure ou jour à droite.
+    const day0 = new Date(); day0.setHours(0, 0, 0, 0); const D = day0.getTime(), DAY = 86400000;
+    const when = (u) => u >= D ? 'Aujourd\'hui' : u >= D - DAY ? 'Hier' : u >= D - 7 * DAY ? '7 derniers jours' : u >= D - 30 * DAY ? 'Ce mois-ci' : 'Plus ancien';
+    const short = (u) => u >= D ? new Date(u).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : u >= D - 7 * DAY ? new Date(u).toLocaleDateString('fr-FR', { weekday: 'short' }) : new Date(u).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const clean = (s) => String(s || '').replace(/^\[[^\]]*\]\s*/, '').replace(/\s+/g, ' ').trim();
+    box.append(el('button', { type: 'button', class: 'cnew', onclick: () => $('#newConv').click() }, '＋ Nouvelle conversation'));
+    let last = '';
+    for (const c of list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || b.updated - a.updated)) {
+      const g = c.pinned ? 'Épinglées' : when(c.updated);
+      if (g !== last) { box.append(el('div', { class: 'cgroup' }, g)); last = g; }
+      box.append(el('div', { class: 'convrow' + (c.peer === peer ? ' cur' : '') },
+        el('button', { class: 'conv', title: clean(c.title || c.peer), 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; try { localStorage.setItem('odin.peer', peer); } catch { /* rien */ } $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
+          el('span', { class: 'ct' }, (c.tainted ? '⚠ ' : '') + clean(c.title || c.peer)), el('span', { class: 'cd' }, short(c.updated))),
+        el('details', { class: 'cmenu' }, el('summary', { 'aria-label': 'Options de la conversation', title: 'Options' }, '⋯'),
+          el('div', { class: 'cpop' },
+            el('button', { type: 'button', onclick: () => api('/api/action', { kind: 'conv_pin', peer: c.peer, on: !c.pinned }) }, c.pinned ? 'Désépingler' : 'Épingler'),
+            el('button', { type: 'button', onclick: () => { const n = prompt('Nom de la conversation', c.title || ''); if (n != null) api('/api/action', { kind: 'conv_rename', peer: c.peer, title: n }); } }, 'Renommer'),
+            el('button', { type: 'button', onclick: () => exportConv(c.peer, c.title || 'Conversation avec Odin') }, 'Exporter en PDF')))));
+    }
   }
 
   // ---------- Budget du mois ----------
@@ -1289,8 +1555,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       el('div', { class: 'kind' }, `${m.origin} · depuis ${fmt(m.started_at)}`), el('h3', {}, m.goal),
       el('div', { class: 'sub' }, `${m.steps} étape(s) · ${m.tool_calls} outil(s) · ${m.subagents ? m.subagents + ' sous-agent(s) · ' : ''}${m.cost_usd.toFixed(3)} $${m.last_tool ? ' · ⚙ ' + m.last_tool : ''}`),
       el('div', {}, el('button', { class: 'btn small danger', onclick: () => api('/api/action', { kind: 'mission_stop', id: m.id }) }, 'Arrêter'))));
-    $('#missionsTable').replaceChildren(...ms.filter((m) => m.status !== 'en cours').map((m) => el('tr', {},
-      el('td', { class: 'sub' }, fmt(m.started_at)), el('td', {}, el('div', {}, m.goal), m.result ? el('div', { class: 'sub' }, m.result.slice(0, 160)) : null), el('td', {}, m.origin),
+    // Le travail de fond sans résultat (« RIEN ») n'encombre pas l'historique ; son intitulé est court.
+    const idle = (m) => /^Travail continu/.test(m.goal) && /^\s*(\[[^\]]*\]\s*)?rien\b/i.test(m.result || '');
+    const goalOf = (m) => /^Travail continu/.test(m.goal) ? (/Breaker/.test(m.goal) ? '⚡ Travail de fond (Breaker)' : 'Travail de fond') : m.goal;
+    $('#missionsTable').replaceChildren(...ms.filter((m) => m.status !== 'en cours' && !idle(m)).map((m) => el('tr', {},
+      el('td', { class: 'sub' }, fmt(m.started_at)), el('td', {}, el('div', {}, goalOf(m)), m.result ? el('div', { class: 'sub' }, m.result.replace(/^\s*\[[^\]]*\]\s*/, '').slice(0, 160)) : null), el('td', {}, /^Travail continu/.test(m.goal) ? 'initiative' : m.origin),
       el('td', {}, el('span', { class: 'pill ' + (STATUS_PILL[m.status] || '') }, m.status)), el('td', {}, m.steps), el('td', {}, m.cost_usd.toFixed(3) + ' $'),
       el('td', { style: 'white-space:nowrap' }, el('button', { class: 'btn small', type: 'button', onclick: () => missionTimeline(m.id) }, 'Détails'), ' ', m.status === 'en attente' || m.status === 'arrêtée' || m.status === 'échouée' ? el('button', { class: 'btn small', onclick: () => api('/api/action', { kind: 'mission_resume', id: m.id }) }, 'Reprendre') : null))));
     if (!ms.length) $('#missionsTable').append(el('tr', {}, el('td', { colspan: 7, class: 'empty' }, 'Aucune mission pour l\'instant.')));
@@ -1417,14 +1686,57 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   $('#scanFull').addEventListener('click', () => { $('#netSub').textContent = 'Balayage complet en cours (environ 30 secondes)…'; api('/api/action', { kind: 'net_scan', full: true }); });
 
   // ---------- Mémoire, compétences, tâches, journal ----------
+  // Mémoire rangée par thème ; chaque souvenir : épingler, modifier, oublier.
+  const MEM_GROUPS = [
+    ['pin', '📌 Important pour toi', (m) => m.pinned],
+    ['check', '⚠️ À vérifier', (m) => m.origin === 'untrusted'],
+    ['lesson', '🎓 Leçons apprises', (m) => m.kind === 'lesson'],
+    ['pref', '💛 Tes préférences', (m) => /pr[ée]f[èe]r|aime|n'aime|veut|souhaite|toujours|jamais|habitude|style|ton |tutoie|vouvoie/i.test(m.content) || /^pref/.test(m.topic || '')],
+    ['net', '📡 Réseau et machines', (m) => /\b\d{1,3}(\.\d{1,3}){3}\b|([0-9a-f]{2}:){5}|nas|serveur|proxmox|routeur|box|vm\b|conteneur|lxc|machine|ssh|port |wifi|réseau/i.test(m.content)],
+    ['people', '👥 Personnes', (m) => /^personne:/.test(m.subject || '') || /\b(femme|mari|fils|fille|ami|collègue|mère|père|frère|sœur)\b/i.test(m.content)],
+    ['mission', '🗂 Missions passées', (m) => m.kind === 'mission'],
+    ['other', '📝 Autres faits', () => true],
+  ];
+  let memFilter = 'tout', memQ = '', memEditing = null;
+  $('#memQ')?.addEventListener('input', (e) => { memQ = e.target.value.trim().toLowerCase(); renderMemory(); });
+  $('#memGarden')?.addEventListener('click', async (e) => {
+    const b = e.currentTarget; b.disabled = true; b.querySelector('.hl').textContent = 'Rangement…';
+    const r = await api('/api/action', { kind: 'memory_garden_now' });
+    b.disabled = false; b.querySelector('.hl').textContent = 'Ranger maintenant';
+    say(r.ok ? (r.report ? `Mémoire rangée : ${r.report.updated} améliorés, ${r.report.merged} fusionnés, ${r.report.forgotten} oubliés.` : 'Rien à ranger pour l\'instant.') : r.error, [], 5000);
+  });
   function renderMemory() {
-    $('#mems').replaceChildren(...state.memories.map((m) => el('tr', {},
-      el('td', { class: 'sub' }, m.id), el('td', {}, (m.pinned ? '📌 ' : '') + m.content),
-      el('td', {}, el('span', { class: 'pill ' + (m.origin === 'untrusted' ? 'warn' : m.origin === 'owner' ? 'good' : '') }, m.origin === 'untrusted' ? 'quarantaine' : m.origin === 'owner' ? 'validé' : 'Odin')),
-      el('td', { style: 'white-space:nowrap' },
-        m.origin === 'untrusted' ? el('button', { class: 'btn small', onclick: () => api('/api/action', { kind: 'memory_vouch', id: m.id }) }, 'Valider') : el('button', { class: 'btn small', onclick: () => api('/api/action', { kind: 'memory_pin', id: m.id, on: !m.pinned }) }, m.pinned ? 'Désépingler' : 'Épingler'), ' ',
-        el('button', { class: 'btn small danger', onclick: () => confirm('Oublier ce souvenir ?') && api('/api/action', { kind: 'memory_forget', id: m.id }) }, 'Oublier')))));
-    if (!state.memories.length) $('#mems').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucun souvenir pour l\'instant.')));
+    const all = state.memories || [];
+    // Bandeau : dernier rangement fait par Odin, avec « Annuler »
+    const G = state.memoryGarden?.last, ban = $('#memBanner');
+    if (ban) ban.replaceChildren(...(G && (G.updated + G.merged + G.forgotten) ? [el('div', { class: 'membanner' },
+      el('div', {}, el('b', {}, 'Odin a rangé sa mémoire'), ` ${fmt(G.at)} : ${G.updated} amélioré${G.updated > 1 ? 's' : ''}, ${G.merged} fusionné${G.merged > 1 ? 's' : ''}, ${G.forgotten} oublié${G.forgotten > 1 ? 's' : ''}.`),
+      G.lines?.length ? el('details', {}, el('summary', {}, 'Voir le détail'), el('ul', {}, ...G.lines.slice(0, 30).map((l) => el('li', {}, l)))) : null,
+      Date.now() - G.at < 7 * 86400000 ? el('button', { class: 'btn small', type: 'button', onclick: async () => { const r = await api('/api/action', { kind: 'memory_undo', at: G.at }); say(r.ok ? `Rangement annulé : ${r.restored} souvenir(s) remis.` : r.error, [], 4000); } }, 'Annuler ce rangement') : null)] : []));
+    // Répartition par thème (chaque souvenir dans le premier thème qui lui va)
+    const groups = MEM_GROUPS.map(([k, t]) => ({ k, t, items: [] }));
+    for (const m of all) { const i = MEM_GROUPS.findIndex(([, , f]) => f(m)); groups[i].items.push(m); }
+    const fbox = $('#memF');
+    if (fbox) fbox.replaceChildren(...[['tout', `Tout (${all.length})`], ...groups.filter((g) => g.items.length).map((g) => [g.k, `${g.t.split(' ').slice(1).join(' ')} (${g.items.length})`])].map(([k, l]) => el('button', { type: 'button', class: 'choice' + (memFilter === k ? ' on' : ''), 'aria-pressed': String(memFilter === k), onclick: () => { memFilter = k; renderMemory(); } }, l)));
+    const row = (m) => {
+      const editing = memEditing === m.id;
+      const body = editing ? el('textarea', { class: 'memedit', rows: 3 }, m.content) : el('div', { class: 'memtxt' }, m.content);
+      const save = async (node) => { const r = await api('/api/action', { kind: 'memory_edit', id: m.id, content: node.value }); if (r.ok) { memEditing = null; say('Souvenir corrigé : Odin le gardera tel quel.', [], 2500); } else say(r.error, [], 4000); };
+      return el('div', { class: 'memrow' + (m.pinned ? ' pinned' : '') + (m.origin === 'untrusted' ? ' untrusted' : '') },
+        el('div', { class: 'memmain' }, body, el('div', { class: 'memmeta' }, m.origin === 'owner' ? 'validé par toi' : m.origin === 'untrusted' ? 'vient d\'un contenu non fiable' : 'appris par Odin', m.uses ? ` · utilisé ${m.uses} fois` : '', ` · ${fmt(m.created_at)}`)),
+        el('div', { class: 'memacts' },
+          editing ? el('button', { class: 'btn small primary', type: 'button', onclick: (e) => save(e.target.closest('.memrow').querySelector('.memedit')) }, 'Enregistrer') : null,
+          editing ? el('button', { class: 'btn small', type: 'button', onclick: () => { memEditing = null; renderMemory(); } }, 'Annuler') : null,
+          !editing && m.origin === 'untrusted' ? el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'memory_vouch', id: m.id }) }, 'C\'est vrai') : null,
+          !editing ? el('button', { class: 'btn small', type: 'button', title: m.pinned ? 'Odin pourra de nouveau le ranger' : 'Important : Odin ne le modifiera ni ne l\'oubliera', onclick: () => api('/api/action', { kind: 'memory_pin', id: m.id, on: !m.pinned }) }, m.pinned ? 'Désépingler' : '📌 Épingler') : null,
+          !editing ? el('button', { class: 'btn small', type: 'button', onclick: () => { memEditing = m.id; renderMemory(); setTimeout(() => $('.memedit')?.focus(), 0); } }, 'Modifier') : null,
+          !editing ? el('button', { class: 'btn small danger', type: 'button', onclick: () => confirm('Faire oublier ce souvenir à Odin ?') && api('/api/action', { kind: 'memory_forget', id: m.id }) }, 'Oublier') : null));
+    };
+    const box = $('#memGroups'); if (!box) return;
+    if (memEditing && document.activeElement?.classList.contains('memedit')) return; // ne pas effacer une modification en cours
+    const shown = groups.filter((g) => (memFilter === 'tout' || g.k === memFilter)).map((g) => ({ ...g, items: g.items.filter((m) => !memQ || m.content.toLowerCase().includes(memQ)) })).filter((g) => g.items.length);
+    box.replaceChildren(...(shown.length ? shown.map((g) => el('section', { class: 'memgroup' }, el('h2', {}, g.t, el('span', { class: 'dim' }, ` ${g.items.length}`)), ...g.items.map(row)))
+      : [el('div', { class: 'empty' }, all.length ? 'Aucun souvenir ne correspond.' : 'Aucun souvenir pour l\'instant. Odin retient ce que tu lui apprends au fil des discussions.')]));
   }
   function renderScripts() {
     const tb = $('#scripts'); if (!tb) return;
@@ -1541,6 +1853,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const on = state.autonomyNow === 'breaker';
     $('#convSub').textContent = on ? '⚡ Odin Breaker actif : Odin agit sans te demander, et te rend compte le soir.' : state.autonomy === 'breaker' ? `Odin Breaker reprend à ${B.from} ; en attendant : ${B.fallback}.` : 'Odin répond ici ; les validations apparaissent dans le fil.';
     $('#convSub').classList.toggle('breaker-on', on);
+    // Ce qu'Odin a fait de lui-même : visible, daté, avec « Faire une ronde maintenant ».
+    const L = state.breakerLog || [], R = state.breakerRound;
+    $('#brkLog')?.replaceChildren(el('div', { class: 'brkh' }, el('b', {}, 'Ce qu\'Odin a fait de lui-même'), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; e.target.textContent = 'Ronde en cours…'; const r = await api('/api/action', { kind: 'breaker_now' }); say(r.ok ? 'Odin fait sa ronde : balayage, sécurité, puis il agit sur ce qu\'il trouve.' : r.error, [], 4000); setTimeout(() => { e.target.disabled = false; e.target.textContent = 'Faire une ronde maintenant'; }, 8000); } }, 'Faire une ronde maintenant')),
+      R ? el('div', { class: 'sub' }, `Dernière ronde ${fmt(R.at)} — ${R.text.replace(/^Ronde : /, '')}`) : el('div', { class: 'sub' }, on ? 'Première ronde dans quelques minutes.' : 'Odin Breaker n\'est pas actif en ce moment.'),
+      L.length ? el('ul', {}, ...L.slice(0, 12).map((x) => el('li', {}, el('span', { class: 'dim' }, fmt(x.at) + ' '), x.text))) : null);
   }
   $('#b-save').addEventListener('click', async () => {
     const r = await api('/api/action', { kind: 'breaker_save', schedule: brkSchedule, from: $('#b-from').value, to: $('#b-to').value, fallback: $('#b-fallback').value, reportAt: $('#b-report').value, maxSteps: Number($('#b-steps').value), maxCostPerTurnUsd: Number($('#b-cost').value), proactive: $('#b-proactive').checked });
@@ -1604,7 +1921,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     }
     const pv = document.querySelector('[data-nt=pve]'); if (pv) pv.hidden = !featShown('proxmox');
     const hidden = F.filter((f) => !f.show);
-    $('#more-plus').replaceChildren(el('h2', {}, 'Plus de fonctions'),
+    $('#more-plus').replaceChildren(el('div', { class: 'svc2' }, el('span', { style: 'flex:1' }, el('b', {}, 'Présentation d\'Odin'), el('div', { class: 'sub' }, 'Odin te fait visiter l\'application, en texte et à voix haute.')), el('button', { class: 'btn small primary', type: 'button', onclick: () => window.OdinTour?.start(true) }, 'Revoir la présentation')),
+      el('h2', {}, 'Plus de fonctions'),
       el('p', { class: 'sub', style: 'margin:0' }, 'Odin te propose ces fonctions quand ton usage s\'y prête (il voit un serveur Proxmox sur ton réseau, tu lui parles de tes rendez-vous…). Tu peux aussi les ajouter maintenant.'),
       hidden.length ? el('div', { class: 'svcs' }, hidden.map((f) => el('div', { class: 'svc2 fitem' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, FEAT_ICON[f.id]), el('b', { style: 'flex:1' }, f.label),
         el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/action', { kind: 'feature_show', id: f.id }); setTimeout(() => openSettings(FEAT_SEC[f.id]), 300); } }, 'Ajouter')))) : el('div', { class: 'sub' }, 'Toutes les fonctions sont déjà là.'));
@@ -1632,7 +1950,10 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   }
 
   // ---------- Accueil ----------
-  const card = (title, icon, ...kids) => el('article', { class: 'hcard' }, el('div', { class: 'hct' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, icon), title), ...kids);
+  // Icônes en trait (SVG) plutôt qu'émojis : nettes, à la couleur du thème.
+  const SVG_ICONS = { '🛡': '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/>', '💾': '<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>', '⏰': '<circle cx="12" cy="13" r="7"/><path d="M12 9v4l2.5 2M5 4 3 6M19 4l2 2"/>', '📲': '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>', '💡': '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3z"/>' };
+  const iconEl = (icon) => { const s = SVG_ICONS[icon]; if (!s) return el('span', { class: 'hico', 'aria-hidden': 'true' }, icon); const sp = el('span', { class: 'hico', 'aria-hidden': 'true' }); sp.innerHTML = `<svg viewBox="0 0 24 24">${s}</svg>`; return sp; };
+  const card = (title, icon, ...kids) => el('article', { class: 'hcard' }, el('div', { class: 'hct' }, iconEl(icon), title), ...kids);
   const go = (v, sec) => () => { show(v); if (sec) openSettings(sec); };
   const bar = (pct) => el('div', { class: 'hbar' + (pct >= 90 ? ' bad' : pct >= 75 ? ' warn' : '') }, el('span', { style: `width:${Math.min(100, pct)}%` }));
   function renderHome() {
@@ -1651,45 +1972,49 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     if (!state.autoBackup?.enabled) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('settings'); openSettings('sauvegarde'); } }, 'Activer la sauvegarde automatique')));
     const H = state.habits || [];
     const grid = $('#homeGrid');
-    grid.replaceChildren(...[
-      suggestionsCard(),
-      card('Odin', '🤖',
-        el('div', { class: 'hrow' }, el('span', {}, 'Modèle'), el('b', {}, S.demo ? 'aucun (démo)' : `${S.model?.model || '?'}`)),
-        el('div', { class: 'hrow' }, el('span', {}, 'Autonomie'), el('b', {}, { prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome', breaker: '⚡ Breaker' }[state.autonomy] || state.autonomy || '?')),
-        el('div', { class: 'hrow' }, el('span', {}, 'Dépensé ce mois'), el('b', {}, `${B.spentUsd.toFixed(2)} $${B.monthlyUsd ? ` / ${B.monthlyUsd} $` : ''}`)),
-        B.monthlyUsd ? bar(B.spentUsd / B.monthlyUsd * 100) : null,
-        el('div', { class: 'hbtns' }, el('button', { class: 'btn small', type: 'button', onclick: go('chat') }, 'Parler à Odin'), el('button', { class: 'btn small', type: 'button', onclick: runSelfTest }, 'Tout tester'))),
-      card('À faire', '✅', todo.length ? el('ul', { class: 'hlist' }, todo) : el('div', { class: 'sub' }, 'Rien en attente. 👌')),
-      card('Missions', '🚩', el('div', { class: 'hbig' }, live.length, el('span', {}, ' en cours')),
-        live.slice(0, 3).map((m) => el('div', { class: 'hline' }, '• ', m.goal.slice(0, 80))),
-        el('button', { class: 'btn small', type: 'button', onclick: go('missions') }, 'Voir les missions')),
-      card('Réseau', '🛰', el('div', { class: 'hbig' }, online, el('span', {}, ` en ligne / ${d.length}`)),
-        recent.length ? el('div', { class: 'hline' }, `${recent.length} changement(s) en 24 h`) : null,
-        el('div', { class: 'hline' }, grave || warn ? `🔴 ${grave} grave · 🟠 ${warn} à surveiller` : '🛡 Aucun risque repéré'),
-        el('div', { class: 'hbtns' }, el('button', { class: 'btn small', type: 'button', onclick: go('net') }, 'Appareils'), el('button', { class: 'btn small', type: 'button', onclick: () => { show('net'); netTab('sec'); } }, 'Sécurité'))),
+    // 1. Chiffres clés, cliquables
+    const kpi = (n, label, cls, onclick) => el('button', { type: 'button', class: 'kpi ' + (cls || ''), onclick }, el('b', {}, n), el('span', {}, label));
+    const kpis = el('div', { class: 'kpis' },
+      kpi(`${online}/${d.length}`, 'appareils en ligne', '', go('net')),
+      kpi(live.length, live.length > 1 ? 'missions en cours' : 'mission en cours', live.length ? 'on' : '', go('missions')),
+      kpi(grave + warn, grave ? 'risques dont graves' : 'risque(s) repéré(s)', grave ? 'bad' : warn ? 'warn' : 'good', () => { show('net'); netTab('sec'); }),
+      kpi(`${B.spentUsd.toFixed(2)} $`, B.monthlyUsd ? `ce mois sur ${B.monthlyUsd} $` : 'dépensés ce mois', '', go('settings', 'modele')),
+      kpi({ prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome', breaker: '⚡ Breaker' }[state.autonomy] || '?', 'mode d\'Odin', state.autonomy === 'breaker' ? 'on' : '', go('settings', 'autonomie')));
+    // 2. À faire maintenant : validations, alertes, propositions, demandes fréquentes — une seule liste
+    const sugg = (state?.features || []).filter((f) => !f.on && f.why).slice(0, 3);
+    const items = [...todo.map((li) => el('div', { class: 'titem' }, ...li.childNodes)),
+      ...sugg.map((f) => el('div', { class: 'titem' }, el('div', {}, el('b', {}, `${FEAT_ICON[f.id] || '💡'} ${f.label}`), el('div', { class: 'sub' }, `Parce que ${f.why}.`)), el('div', { class: 'hbtns' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => { show('settings'); openSettings(FEAT_SEC[f.id]); } }, 'Configurer'), el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'feature_dismiss', id: f.id }) }, 'Plus tard')))),
+      ...H.slice(0, 2).map((h) => el('div', { class: 'titem' }, el('div', {}, `Tu demandes souvent « ${h.text.slice(0, 70)} »`, el('span', { class: 'dim' }, ` · ${h.count} fois`)), el('div', { class: 'hbtns' },
+        el('button', { class: 'btn small primary', type: 'button', onclick: () => api('/api/action', { kind: 'habit_schedule', key: h.key, cron: '0 8 * * *', prompt: h.text, peer }) }, 'Chaque jour à 8 h'),
+        el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'habit_ignore', key: h.key }) }, 'Ignorer'))))];
+    const todoBox = el('section', { class: 'hpanel' }, el('h2', {}, 'À faire maintenant'), items.length ? el('div', { class: 'tlist' }, ...items) : el('div', { class: 'hok' }, '✓ Rien ne t\'attend. Odin s\'occupe du reste.'));
+    // 3. Ce qu'Odin a fait (de lui-même et à ta demande)
+    const L = (state.breakerLog || []).slice(0, 4).map((x) => ({ at: x.at, text: x.text, auto: true }));
+    const M = (state.missions || []).filter((m) => m.status !== 'en cours' && !/^Travail continu/.test(m.goal)).slice(0, 5).map((m) => ({ at: m.ended_at || m.updated_at, text: m.goal, status: m.status }));
+    const done = [...L, ...M].sort((a, b) => b.at - a.at).slice(0, 7);
+    const doneBox = el('section', { class: 'hpanel' }, el('h2', {}, 'Ce qu\'Odin a fait', el('button', { class: 'btn small', type: 'button', onclick: go('missions') }, 'Tout voir')),
+      ...live.slice(0, 2).map((m) => el('div', { class: 'ditem live' }, el('span', { class: 'spin' }), el('div', {}, m.goal.slice(0, 110), el('div', { class: 'sub' }, `en cours · ${m.steps} étape(s)`)))),
+      done.length ? el('div', { class: 'dlist' }, ...done.map((x) => el('div', { class: 'ditem' }, el('span', { class: 'dic' }, x.auto ? '⚡' : x.status === 'terminée' ? '✓' : x.status === 'échouée' ? '✗' : '•'), el('div', {}, x.text.replace(/\s+/g, ' ').slice(0, 120), el('div', { class: 'sub' }, `${fmt(x.at)}${x.auto ? ' · de lui-même' : ''}`))))) : el('div', { class: 'sub' }, 'Rien pour l\'instant.'));
+    // 4. Petites tuiles d'état, à hauteur de leur contenu
+    const tiles = el('div', { class: 'hgrid2' },
       card('Surveillance', '🛡',
-        ...(state.watch?.disks || []).map((u) => el('div', {}, el('div', { class: 'hrow' }, el('span', { class: 'mono' }, u.path), el('b', {}, `${u.usedPct} %`)), bar(u.usedPct))),
-        watched.length ? el('div', { class: 'hline' }, watched.map((x) => `${x.status === 'online' ? '🟢' : '🔴'} ${x.label}`).join('  ')) : el('div', { class: 'sub' }, 'Marque tes appareils importants avec ★ dans Réseau.'),
-        state.watch?.cfg?.enabled ? null : el('div', { class: 'sub' }, 'Surveillance désactivée (Réglages → Surveillance).')),
+        ...(state.watch?.disks || []).slice(0, 2).map((u) => el('div', {}, el('div', { class: 'hrow' }, el('span', { class: 'mono' }, u.path), el('b', {}, `${u.usedPct} %`)), bar(u.usedPct))),
+        watched.length ? el('div', { class: 'hline' }, watched.map((x) => `${x.status === 'online' ? '🟢' : '🔴'} ${x.label}`).join('  ')) : el('div', { class: 'sub' }, 'Marque tes appareils importants avec ★ dans Réseau.')),
       card('Sauvegarde', '💾',
         el('div', { class: 'hline' }, state.autoBackup?.enabled ? `Chaque nuit à ${state.autoBackup.hour} h` : 'Automatique : désactivée'),
-        el('div', { class: 'hline' }, state.autoBackup?.files?.[0] ? `Dernière : ${state.autoBackup.files[0].name.replace(/^odin-sauvegarde-|\.odinbk$/g, '')}` : 'Aucune sauvegarde automatique pour l\'instant'),
-        el('button', { class: 'btn small', type: 'button', onclick: go('settings', 'sauvegarde') }, 'Réglages')),
-      card('Routines', '⏰',
-        el('div', { class: 'sub' }, 'Un résumé chaque matin : météo, état du réseau, rappels du jour, nouveautés.'),
+        state.autoBackup?.files?.[0] ? el('div', { class: 'sub' }, `Dernière : ${state.autoBackup.files[0].name.replace(/^odin-sauvegarde-|\.odinbk$/g, '')}`) : null,
+        el('button', { class: 'btn small', type: 'button', onclick: go('settings', 'sauvegarde') }, state.autoBackup?.enabled ? 'Réglages' : 'Activer')),
+      card('Résumé du matin', '⏰',
+        el('div', { class: 'sub' }, 'Météo, réseau, rappels du jour.'),
         el('div', { class: 'hbtns' }, el('select', { id: 'rt-hour', 'aria-label': 'Heure du résumé' }, [6, 7, 8, 9].map((h) => el('option', { value: h, selected: h === 7 }, `${h} h`))),
           el('button', { class: 'btn small primary', type: 'button', onclick: async () => {
             const h = $('#rt-hour').value;
             const r = await api('/api/action', { kind: 'routine_add', cron: `0 ${h} * * *`, peer, prompt: 'Résumé du matin : la météo du jour là où j\'habite (vérifiée sur le web, avec la source), l\'état de mon réseau (appareils importants, nouveautés, problèmes), mes rappels et tâches du jour, et ce qui mérite mon attention. Court et clair.' });
             say(r.ok ? `C'est noté : ton résumé arrivera chaque matin à ${h} h.` : (r.error || 'Erreur'), [], 4000);
-          } }, 'Créer le résumé du matin')),
-        (state.jobs || []).length ? el('div', { class: 'hline' }, `${state.jobs.length} tâche(s) planifiée(s)`) : null),
-      el('article', { class: 'hcard', id: 'appCard' }),
-      H.length ? card('Tu demandes souvent', '🔁', H.map((h) => el('div', { class: 'habit' }, el('div', {}, `« ${h.text.slice(0, 90)} »`, el('span', { class: 'dim' }, ` · ${h.count} fois`)),
-        el('div', { class: 'hbtns' },
-          el('button', { class: 'btn small primary', type: 'button', onclick: () => api('/api/action', { kind: 'habit_schedule', key: h.key, cron: '0 8 * * *', prompt: h.text, peer }) }, 'Chaque jour à 8 h'),
-          el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'habit_schedule', key: h.key, cron: '0 8 * * 1', prompt: h.text, peer }) }, 'Chaque lundi'),
-          el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'habit_ignore', key: h.key }) }, 'Ignorer'))))) : null].filter(Boolean));
+          } }, 'Créer')),
+        (state.jobs || []).length ? el('div', { class: 'sub' }, `${state.jobs.length} tâche(s) planifiée(s)`) : null),
+      el('article', { class: 'hcard', id: 'appCard' }));
+    grid.replaceChildren(kpis, el('div', { class: 'hcols' }, todoBox, doneBox), tiles);
     renderAppCard();
     $('#homeSub').textContent = `${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · ${online} appareil(s) en ligne · ${live.length} mission(s) en cours`;
     $('#b-home').hidden = !(grave || pending.size); $('#b-home').textContent = '!';
@@ -1751,7 +2076,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       g.append(mk('circle', { r: big ? 30 : 21 }), mk('text', { class: 'mi', y: big ? 8 : 6 }, cat[1]), mk('circle', { class: 'mst', cx: big ? 22 : 15, cy: big ? -22 : -15, r: 5 }),
         mk('text', { class: 'ml', y: big ? 48 : 36 }, big ? (x.label.length > 22 ? x.label.slice(0, 21) + '…' : x.label) : mapName(x)), mk('text', { class: 'mip', y: big ? 62 : 49 }, x.ip));
       g.append(mk('title', {}, `${x.label} · ${x.ip}${x.hostname ? ' · ' + x.hostname : ''}${x.os ? ' · ' + x.os : ''}`));
-      const open = () => { mapSel = x.id; renderMap(); };
+      const open = () => openDevice(x.id);
       g.addEventListener('click', open); g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
       return g;
     };
@@ -1782,7 +2107,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     svg.addEventListener('pointerup', () => { drag = null; svg.classList.remove('grab'); });
     const zoom = (f) => { const k2 = Math.min(4, Math.max(0.5, mapView.k * f)); mapView = { k: k2, x: W / 2 - ((W / 2 - mapView.x) * k2) / mapView.k, y: H / 3 - ((H / 3 - mapView.y) * k2) / mapView.k }; apply(); };
     // Barre : sous-réseaux, recherche, zoom
-    const bar = el('div', { class: 'mbar' },
+    const bar = el('div', { class: 'mapbar' },
       nets.length > 1 ? el('div', { class: 'mnets', role: 'tablist', 'aria-label': 'Sous-réseaux' }, nets.map((n) => el('button', { class: 'chip' + (n === mapNet ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': String(n === mapNet), onclick: () => { mapNet = n; mapSel = null; mapView = { x: 0, y: 0, k: 1 }; try { localStorage.setItem('odin.mapnet', n); } catch {} renderMap(); } }, `${n} · ${all.filter((x) => (x.network || 'réseau') === n).length}`))) : el('span', { class: 'sub' }, `${mapNet} · ${d.length} appareil(s)`),
       el('input', { class: 'msearch', type: 'search', placeholder: 'Chercher (nom, IP, système)…', value: mapQuery, 'aria-label': 'Chercher sur la carte', oninput: (e) => { mapQuery = e.target.value; clearTimeout(renderMap._t); renderMap._t = setTimeout(() => { renderMap(); const i = $('#netMap .msearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250); } }),
       el('div', { class: 'mzoom' }, el('button', { class: 'btn small', type: 'button', 'aria-label': 'Zoomer', onclick: () => zoom(1.25) }, '+'), el('button', { class: 'btn small', type: 'button', 'aria-label': 'Dézoomer', onclick: () => zoom(0.8) }, '−'), el('button', { class: 'btn small', type: 'button', onclick: () => { mapView = { x: 0, y: 0, k: 1 }; apply(); } }, 'Recentrer')));
@@ -1798,6 +2123,46 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer' }, '↗ ', linkName(w, x.web)))) : null,
       el('div', { class: 'hbtns' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => identify(x) }, '🔍 Identifier'), el('button', { class: 'btn small', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'), starBtn(x))) : null;
     box.append(bar, el('div', { class: 'mwrap' }, svg, card), el('div', { class: 'mlegend' }, 'Molette ou +/− pour zoomer, glisser pour se déplacer, toucher un appareil pour sa fiche.'));
+  }
+  // ---------- Fiche d'un appareil (page entière) ----------
+  let devId = null;
+  $('#devBack').addEventListener('click', () => { show('net'); netTab('map'); });
+  async function openDevice(id) { devId = id; show('device'); await renderDevicePage(true); }
+  async function renderDevicePage(fetchMore) {
+    const x = (state.devices || []).find((v) => v.id === devId); if (!x) return;
+    const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', x.kind];
+    $('#devTitle').textContent = `${cat[1]} ${mapName(x, true)}`;
+    $('#devSub').replaceChildren(el('span', { class: 'dst ' + x.status }, x.status === 'online' ? 'en ligne' : 'hors ligne'), ` ${cat[2] || x.kind} · `, el('span', { class: 'mono' }, x.ip), x.mac ? el('span', { class: 'mono dim' }, ` · ${x.mac}`) : '');
+    $('#devActs').replaceChildren(el('button', { class: 'hbtn', type: 'button', onclick: () => identify(x) }, el('span', { class: 'hl' }, '🔍 Identifier à fond')), el('button', { class: 'hbtn', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) { await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } } }, el('span', { class: 'hl' }, 'Renommer')), starBtn(x),
+      el('button', { class: 'hbtn', type: 'button', onclick: () => { show('chat'); $('#input').value = `À propos de l'appareil ${mapName(x, true)} (${x.ip}) : `; grow(); $('#input').focus(); } }, el('span', { class: 'hl' }, 'Demander à Odin')));
+    const more = fetchMore || !renderDevicePage.cache || renderDevicePage.cache.id !== x.id ? await api('/api/action', { kind: 'device_page', id: x.id }) : renderDevicePage.cache.r;
+    renderDevicePage.cache = { id: x.id, r: more };
+    if (more.blocked) $('#devSub').append(' ', el('span', { class: 'pill bad' }, `bloqué depuis ${fmt(more.blocked)}`));
+    if (!more.isRouter && x.mac) $('#devActs').append(el('button', { class: 'hbtn' + (more.blocked ? '' : ' danger'), type: 'button', title: more.router ? 'Sur la box, par son adresse MAC' : 'Il faut d\'abord enregistrer l\'accès à la box', onclick: async (e) => {
+      const on = !more.blocked;
+      if (!confirm(on ? `Bloquer ${mapName(x, true)} (${x.mac}) sur la box ? Il n'aura plus accès à Internet ni au reste du réseau. Tu pourras le réautoriser ici.` : `Réautoriser ${mapName(x, true)} sur la box ?`)) return;
+      e.currentTarget.disabled = true; const r = await api('/api/action', { kind: 'device_block', id: x.id, on });
+      say(r.ok ? (on ? 'Appareil bloqué sur la box.' : 'Appareil réautorisé.') : r.error, [], r.ok ? 3000 : 8000); await renderDevicePage(true);
+    } }, el('span', { class: 'hl' }, more.blocked ? 'Débloquer' : '⛔ Bloquer sur la box')));
+    const card = (title, ...kids) => el('article', { class: 'card dcardx' }, el('h2', {}, title), ...kids.filter(Boolean));
+    const kv = (k, v) => v ? el('div', { class: 'kv' }, el('span', {}, k), el('b', {}, v)) : null;
+    const ports = x.portNames || [];
+    // Ce qu'Odin peut faire avec cet appareil : selon les ports ouverts et les accès enregistrés
+    const can = [];
+    if (ports.some((p) => p.port === 22)) can.push(more.machine ? `Se connecter en SSH (compte ${more.machine.user}) : commandes, scripts, mises à jour` : 'SSH ouvert : enregistre ses accès (Réglages → Droits et machines) pour qu\'Odin puisse agir dessus');
+    if (ports.some((p) => p.port === 445 || p.port === 139)) can.push('Lister les dossiers partagés et leurs fichiers (Identifier à fond)');
+    if (ports.some((p) => p.port === 8006)) can.push('Piloter Proxmox : machines, conteneurs, instantanés (Réglages → Proxmox)');
+    if (ports.some((p) => p.port === 8123)) can.push('Piloter la maison via Home Assistant (Réglages → Maison)');
+    if ((x.web || []).length) can.push('Ouvrir ses pages d\'administration dans son navigateur et y faire des réglages');
+    can.push(...(x.links || []).filter((l) => !/^https?:/.test(l.how)).map((l) => `${l.action} — ${l.how}`));
+    if (x.mac && !more.isRouter) can.push(more.router ? 'Le bloquer sur la box (par son adresse MAC), puis le réautoriser' : 'Le bloquer sur la box : enregistre d\'abord l\'accès à la box (Réglages → Droits et machines)');
+    $('#devBody').replaceChildren(...[
+      card('Informations', kv('Nom', x.label), kv('Nom réseau', x.hostname), kv('Fabricant', x.vendor), kv('Modèle', x.model), kv('Système', x.os), kv('Adresse IP', x.ip), kv('Adresse MAC', x.mac), kv('Sous-réseau', x.network), kv('Vu pour la première fois', x.first_seen ? fmt(x.first_seen) : ''), kv('Vu pour la dernière fois', x.last_seen ? fmt(x.last_seen) : '')),
+      card('Liens', (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer' }, '↗ ', linkName(w, x.web), el('span', { class: 'dim mono' }, ` ${w.url}`)))) : el('div', { class: 'sub' }, 'Aucune page web trouvée. Lance un balayage complet pour chercher.')),
+      card(`Ports ouverts (${ports.length})`, ports.length ? el('div', { class: 'dports' }, ports.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('div', { class: 'sub' }, 'Pas encore vus : balayage complet ou « Identifier à fond ».')),
+      card('Ce qu\'Odin peut faire avec', el('ul', { class: 'canlist' }, can.map((c) => el('li', {}, c))), more.machine ? el('div', { class: 'sub' }, `✓ Accès enregistrés : ${more.machine.label} (${more.machine.user})`) : null),
+      more.findings?.length ? card('Sécurité', ...more.findings.map((f) => el('div', { class: 'sfind ' + f.level }, el('b', {}, f.title), el('div', { class: 'sfa' }, '→ ', f.advice)))) : null,
+      card('Historique', (more.events || []).length ? el('ol', { class: 'devhist' }, more.events.map((e) => el('li', { class: /MAC|bloqué/.test(e.kind) ? 'warn' : '' }, el('span', { class: 'dim' }, fmt(e.at)), ' ', e.kind, e.detail ? el('span', { class: 'dim' }, ` · ${e.detail}`) : ''))) : el('div', { class: 'sub' }, 'Rien de particulier.'))].filter(Boolean));
   }
   function renderSec() {
     const F = state.watch?.findings || [], box = $('#secList'); box.textContent = '';
@@ -1908,8 +2273,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const box = $('#appCard'); if (!box) return;
     const perm = 'Notification' in window ? Notification.permission : 'unsupported';
     const ios = /iphone|ipad/i.test(navigator.userAgent);
-    box.replaceChildren(
-      el('div', { class: 'hct' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, '📲'), 'Application'),
+    box.replaceChildren(...[
+      el('div', { class: 'hct' }, iconEl('📲'), 'Application'),
       standalone() ? el('div', { class: 'hline' }, '✓ Odin est installé sur cet appareil.')
         : installEvt ? el('button', { class: 'btn small primary', type: 'button', onclick: async () => { installEvt.prompt(); await installEvt.userChoice; installEvt = null; renderAppCard(); } }, 'Installer Odin sur cet appareil')
         : el('div', { class: 'hline' }, ios ? 'Sur iPhone : bouton Partager → « Sur l\'écran d\'accueil ».' : 'Menu du navigateur → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »).'),
@@ -1924,7 +2289,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         : perm === 'unsupported' ? el('div', { class: 'hline' }, 'Notifications : non disponibles ici' + (ios ? ' (installe d\'abord Odin sur l\'écran d\'accueil)' : '') + '.')
         : el('button', { class: 'btn small', type: 'button', onclick: async () => { await Notification.requestPermission(); if (Notification.permission === 'granted') await pushSubscribe(); renderAppCard(); } }, perm === 'denied' ? 'Notifications refusées (réglages du navigateur)' : 'Activer les notifications'),
       perm === 'granted' ? el('div', { class: 'hbtns' }, el('button', { class: 'btn small', type: 'button', onclick: async () => { const ok = await pushSubscribe(); const r = ok ? await api('/api/action', { kind: 'push_test' }) : null; say(ok ? (r?.sent ? 'Notification envoyée : ferme Odin pour la voir arriver.' : 'Abonné, mais l\'envoi a échoué (Odin a-t-il accès à Internet ?).') : 'Cet appareil ne permet pas les notifications push (installe Odin sur l\'écran d\'accueil, et fais confiance à son autorité).', [], 6000); } }, 'Tester une notification push')) : null,
-      el('div', { class: 'dim' }, 'Les notifications arrivent quand Odin te répond (appli fermée), te demande une validation ou te prévient d\'un problème — même quand l\'appli est fermée.'));
+      el('div', { class: 'dim' }, 'Les notifications arrivent quand Odin te répond (appli fermée), te demande une validation ou te prévient d\'un problème — même quand l\'appli est fermée.')].filter(Boolean));
   }
   // Ouvrir directement une section : /#chat, /#net…
   const hashView = () => { const v = location.hash.slice(1); if (v && document.getElementById('v-' + v)) show(v); };
@@ -2092,6 +2457,104 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       await player.play();
     } catch { /* lecture bloquée par le navigateur */ }
   }
+
+  // ---------- Présentation guidée (première connexion) ----------
+  // Odin se déplace dans l'application et présente chaque partie, en texte et à voix haute.
+  // On peut la refuser, l'arrêter à tout moment, et la revoir dans Réglages → Plus.
+  const TOUR = [
+    { v: 'home', q: '#homeGrid .kpis', t: 'Bienvenue ! Je suis Odin. Ici, l\'Accueil : en un coup d\'œil, tes appareils, mes missions en cours, les risques repérés et ce que j\'ai dépensé. Touche un chiffre pour aller au détail.' },
+    { v: 'home', q: '#homeGrid .hcols .hpanel', t: '« À faire maintenant » : ce qui t\'attend vraiment — validations, alertes, réglages que je te propose. Si c\'est vide, tout va bien.' },
+    { v: 'home', q: '#homeGrid .hcols .hpanel:last-child', t: '« Ce que j\'ai fait » : tout ce que j\'ai fait, à ta demande ou de moi-même, avec l\'heure.' },
+    { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion. Écris-moi, parle-moi au micro, ou joins des fichiers : photos, vidéos, sons, PDF, Word, Excel. Tu peux aussi les glisser ici.' },
+    { v: 'chat', q: '#dryBtn', t: 'Le mode Essai : je prépare et j\'explique tout, sans rien changer. Parfait pour voir avant d\'agir.' },
+    { v: 'chat', q: '#convsBtn', t: 'Ton historique de conversations, rangé par jour. Tu peux épingler, renommer ou exporter une conversation.' },
+    { v: 'missions', q: '#v-missions .head', t: 'Les Missions : ce que je fais en ce moment, étape par étape, combien ça coûte, et l\'historique.' },
+    { v: 'net', q: '#v-net .ntabs', t: 'Le Réseau : tous tes appareils, une carte par sous-réseau, la sécurité. Touche un appareil pour sa fiche : ports ouverts, liens, ce que je peux faire avec, et le bloquer sur ta box si besoin.' },
+    { v: 'memory', q: '#v-memory .head', t: 'Ma mémoire. Je la range moi-même chaque nuit : j\'améliore, je fusionne, j\'oublie le périmé. Épingle ce qui compte, corrige-moi ou fais-moi oublier.' },
+    { v: 'skills', q: '#v-skills .head', t: 'Mes compétences et mes scripts : j\'apprends de chaque mission et je m\'améliore.' },
+    { v: 'settings', q: '#snav', t: 'Les Réglages. Les rubriques que tu utilises le plus se placent en premier. Commence par le Modèle, puis Telegram pour me parler depuis ton téléphone.' },
+    { v: 'settings', sec: 'autonomie', q: '#snav .schip[data-sec="autonomie"]', t: 'Mon autonomie : de Prudent, où je te demande tout, jusqu\'à Odin Breaker, où j\'agis seul et je te rends compte le soir.' },
+    { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Tu peux revoir cette présentation dans Réglages → Plus. Dis-moi ce que tu veux faire.' },
+  ];
+  let tourI = -1, tourVoice = true, tourAudio = null, tourBud = null, tourBox = null, tourRing = null;
+  function tourSpeak(text) {
+    if (!tourVoice) return;
+    try { tourAudio?.pause(); } catch {}
+    try { speechSynthesis?.cancel(); } catch {}
+    // Voix d'Odin (ElevenLabs, Piper…) si elle est réglée, sinon la voix du navigateur.
+    if (state?.voice?.tts) fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text }) }).then(async (r) => {
+      if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) throw new Error('voix');
+      tourAudio = new Audio(URL.createObjectURL(await r.blob())); tourBud?.classList.add('talking'); tourAudio.onended = () => tourBud?.classList.remove('talking'); await tourAudio.play();
+    }).catch(() => browserSpeak(text));
+    else browserSpeak(text);
+  }
+  function browserSpeak(text) { try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = speechSynthesis.getVoices().find((x) => /^fr/i.test(x.lang)); if (v) u.voice = v; u.rate = 1.03; tourBud?.classList.add('talking'); u.onend = () => tourBud?.classList.remove('talking'); speechSynthesis.speak(u); } catch { /* pas de voix */ } }
+  function tourEnd(done = true) {
+    tourI = -1; try { tourAudio?.pause(); speechSynthesis?.cancel(); } catch {}
+    tourBud?.remove(); tourBox?.remove(); tourRing?.remove(); tourBud = tourBox = tourRing = null;
+    document.body.classList.remove('touring');
+    if (done) { try { localStorage.setItem('odin.tour', 'done'); } catch {} api('/api/action', { kind: 'tour_done' }).catch(() => {}); }
+  }
+  async function tourGo(i) {
+    if (i < 0 || i >= TOUR.length) return tourEnd(true);
+    tourI = i; const s = TOUR[i];
+    show(s.v); if (s.sec) openSettings(s.sec);
+    await new Promise((r) => setTimeout(r, 450));
+    const target = document.querySelector(s.q) || document.querySelector(`#v-${s.v} .head`);
+    target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    await new Promise((r) => setTimeout(r, 350));
+    const r = target ? target.getBoundingClientRect() : { left: innerWidth / 2 - 100, top: innerHeight / 2 - 50, width: 200, height: 100, right: innerWidth / 2 + 100, bottom: innerHeight / 2 + 50 };
+    // Anneau autour de ce qu'il présente
+    Object.assign(tourRing.style, { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
+    // Odin saute à côté (à droite s'il y a la place, sinon en dessous / au-dessus)
+    const bw = 76, gap = 14, narrow = innerWidth < 700;
+    let bx = r.right + gap, by = r.top + Math.min(r.height / 2, 60) - bw / 2;
+    if (bx + bw + 300 > innerWidth || narrow) { bx = Math.max(10, Math.min(innerWidth - bw - 10, r.left + r.width / 2 - bw / 2)); by = r.bottom + gap; if (by + bw + 170 > innerHeight) by = Math.max(10, r.top - bw - gap - 150); }
+    by = Math.max(10, Math.min(innerHeight - bw - 10, by));
+    tourBud.style.left = bx + 'px'; tourBud.style.top = by + 'px';
+    tourBud.classList.remove('hop'); void tourBud.offsetWidth; tourBud.classList.add('hop');
+    window.OdinFace?.flash(tourBud, i === 0 ? 'joie' : i === TOUR.length - 1 ? 'fierte' : ['regarde', 'clin', 'excite', 'joie'][i % 4], 2600);
+    // Bulle de texte
+    const last = i === TOUR.length - 1;
+    tourBox.replaceChildren(
+      el('div', { class: 'tourt' }, s.t),
+      el('div', { class: 'tourb' },
+        el('span', { class: 'dim' }, `${i + 1} / ${TOUR.length}`),
+        el('button', { type: 'button', class: 'btn small', 'aria-pressed': String(tourVoice), title: 'Voix', onclick: () => { tourVoice = !tourVoice; if (!tourVoice) { try { tourAudio?.pause(); speechSynthesis.cancel(); } catch {} } tourGo(tourI); } }, tourVoice ? '🔊 Voix' : '🔇 Muet'),
+        i ? el('button', { type: 'button', class: 'btn small', onclick: () => tourGo(i - 1) }, 'Précédent') : null,
+        last ? null : el('button', { type: 'button', class: 'btn small', onclick: () => tourEnd(true) }, 'Arrêter'),
+        el('button', { type: 'button', class: 'btn small primary', onclick: () => tourGo(i + 1) }, last ? 'Terminer' : 'Suivant')));
+    const tw = Math.min(340, innerWidth - 20);
+    let tx = bx + bw + 10, ty = by;
+    if (tx + tw > innerWidth - 10) { tx = Math.max(10, bx - tw - 10); }
+    if (tx < 10 || narrow) { tx = Math.max(10, Math.min(innerWidth - tw - 10, bx + bw / 2 - tw / 2)); ty = by + bw + 8; if (ty + 170 > innerHeight) ty = Math.max(10, by - 180); }
+    Object.assign(tourBox.style, { left: tx + 'px', top: ty + 'px', width: tw + 'px' });
+    tourSpeak(s.t);
+  }
+  function tourStart(voice = true) {
+    tourEnd(false); tourVoice = voice;
+    const src = $('#buddyChat svg');
+    tourBud = el('span', { class: 'odin tour-bud', 'aria-hidden': 'true' }); if (src) tourBud.append(src.cloneNode(true));
+    tourRing = el('div', { class: 'tour-ring' });
+    tourBox = el('div', { class: 'tour-box', role: 'dialog', 'aria-label': 'Présentation d\'Odin' });
+    tourBud.style.left = innerWidth - 120 + 'px'; tourBud.style.top = innerHeight - 160 + 'px';
+    document.body.append(tourRing, tourBud, tourBox); document.body.classList.add('touring');
+    tourGo(0);
+  }
+  addEventListener('keydown', (e) => { if (tourI < 0) return; if (e.key === 'Escape') tourEnd(true); else if (e.key === 'ArrowRight') tourGo(tourI + 1); else if (e.key === 'ArrowLeft' && tourI > 0) tourGo(tourI - 1); });
+  addEventListener('resize', () => { if (tourI >= 0) tourGo(tourI); });
+  // Première connexion : Odin propose la visite (on peut refuser).
+  function tourOffer() {
+    let seen = ''; try { seen = localStorage.getItem('odin.tour') || ''; } catch {}
+    if (seen || state?.tourDone || tourOffer.done) return; tourOffer.done = true;
+    show('chat');
+    setTimeout(() => say('Bonjour ! Je suis Odin. Je te fais visiter l\'application ? Deux minutes, en texte et à voix haute.', [
+      { label: '▶ Oui, avec la voix', primary: true, run: () => tourStart(true) },
+      { label: 'Oui, sans la voix', run: () => tourStart(false) },
+      { label: 'Non merci', run: () => { tourEnd(true); say('D\'accord. Tu pourras la revoir dans Réglages → Plus.', [], 4000); } },
+    ]), 900);
+  }
+  window.OdinTour = { start: tourStart, end: tourEnd, offer: tourOffer };
   // ---------- Odin t'aide à écrire, te conseille et se déplace ----------
   const ASSIST = () => ({ spelling: 'auto', tips: true, roam: true, ...(state?.settings?.assist || {}) });
   const bud = $('#buddyChat'), tip = $('#buddyTip'), thread = document.querySelector('.thread');
@@ -2222,7 +2685,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     if (!drag) return;
     const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
     if (!drag.moved && Math.hypot(dx, dy) < 6) return;
-    if (!drag.moved) { drag.moved = true; bud.classList.add('dragging'); hideTip(); moodFlash('excite', 1500); window.OdinFace?.sound('hop'); }
+    if (!drag.moved) { drag.moved = true; away = false; bud.style.setProperty('--rx', '0px'); bud.style.setProperty('--ry', '0px'); bud.classList.add('dragging'); hideTip(); moodFlash('excite', 1500); window.OdinFace?.sound('hop'); }
     pos = { x: drag.x + dx, y: drag.y + dy }; clampPos(); applyPos();
   });
   bud.addEventListener('pointerup', () => {
@@ -2244,19 +2707,79 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     ]);
     else { moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000); say(TIPS[Math.floor(Math.random() * TIPS.length)], [{ label: 'Un autre', run: () => tapMenu() }], 14000); }
   }
-  // Il se promène quand il s'ennuie (et revient), et donne parfois un conseil spontané.
+  // ---------- Odin se déplace dans toute la discussion ----------
+  // Il va où il veut dans la zone (x et y), regarde ce que tu écris, va se poser sur sa réponse,
+  // saute de joie ou de déception selon ce qu'il dit, avance, penche la tête, tourne sur lui-même.
+  const reduceMove = matchMedia('(prefers-reduced-motion:reduce)');
+  let away = false, moveT = 0;
+  function homeRect() { const r = bud.getBoundingClientRect(); const rx = parseFloat(bud.style.getPropertyValue('--rx')) || 0, ry = parseFloat(bud.style.getPropertyValue('--ry')) || 0; return { x: r.left - rx, y: r.top - ry, w: r.width, h: r.height }; }
+  // Aller vers un point de l'écran (centre d'Odin), en restant dans la discussion.
+  function goTo(cx, cy, how = 'walk') {
+    if (!thread || drag) return;
+    const tr = thread.getBoundingClientRect(), h = homeRect();
+    const tx = Math.max(tr.left + 8, Math.min(tr.right - h.w - 8, cx - h.w / 2)), ty = Math.max(tr.top + 70, Math.min(tr.bottom - h.h - 8, cy - h.h / 2));
+    bud.classList.remove('walk', 'hopto'); if (!reduceMove.matches) bud.classList.add(how);
+    bud.style.setProperty('--rx', Math.round(tx - h.x) + 'px'); bud.style.setProperty('--ry', Math.round(ty - h.y) + 'px');
+    away = true; clearTimeout(moveT); moveT = setTimeout(() => bud.classList.remove('walk', 'hopto'), how === 'walk' ? 1150 : 800);
+  }
+  function goHome() { if (!away) return; away = false; bud.classList.remove('hopto', 'act-sit'); bud.classList.add('walk'); bud.style.setProperty('--rx', '0px'); bud.style.setProperty('--ry', '0px'); clearTimeout(moveT); moveT = setTimeout(() => bud.classList.remove('walk'), 1150); }
+  function act(name, ms = 1400) { if (reduceMove.matches) return; bud.classList.remove(name); void bud.offsetWidth; bud.classList.add(name); setTimeout(() => bud.classList.remove(name), ms); }
+  // Ses yeux regardent un point de l'écran.
+  function lookAt(x, y) { const r = bud.getBoundingClientRect(), dx = x - (r.left + r.width / 2), dy = y - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1; bud.classList.add('follow'); bud.style.setProperty('--ex', (dx / d * 5).toFixed(1) + 'px'); bud.style.setProperty('--ey', (dy / d * 4).toFixed(1) + 'px'); }
+  function lookFree() { bud.classList.remove('follow'); }
+  // Quand tu écris : il s'approche de la barre et suit le texte des yeux.
+  let gazeT = 0;
+  $('#input').addEventListener('input', () => {
+    if (!ASSIST().roam || drag || busy) return;
+    const c = $('.cbox').getBoundingClientRect(), i = $('#input'), len = i.value.length;
+    const caretX = c.left + 50 + Math.min(c.width - 140, len * 8.2 % (c.width - 140));
+    if (!away || Math.abs((bud.getBoundingClientRect().left + 30) - caretX) > 260) goTo(Math.min(caretX + 120, c.right - 40), c.top - 46, 'walk');
+    lookAt(caretX, c.top + c.height / 2);
+    clearTimeout(gazeT); gazeT = setTimeout(() => { lookFree(); }, 2500);
+  });
+  $('#input').addEventListener('blur', () => setTimeout(() => { if (!busy) { lookFree(); goHome(); } }, 400));
+  // Quand il envoie, il revient se mettre au travail.
+  $('#composer').addEventListener('submit', () => { lookFree(); goHome(); }, true);
+  // Sa réponse arrive : il saute dessus, s'y pose, la regarde, et réagit selon ce qu'elle dit.
+  function onReply(node, text) {
+    if (!ASSIST().roam || drag || !node || !$('#v-chat').classList.contains('on')) return;
+    const r = node.getBoundingClientRect(), tr = thread.getBoundingClientRect();
+    if (r.bottom < tr.top + 80 || r.top > tr.bottom) return;
+    const sitX = Math.min(r.right - 30, tr.right - 50), sitY = Math.max(r.top - 22, tr.top + 90);
+    goTo(sitX, sitY, 'hopto');
+    setTimeout(() => {
+      act('act-sit', 2600); lookAt(r.left + r.width * 0.3, r.top + 40);
+      const s = text.toLowerCase();
+      const sad = /impossible|je ne peux pas|échec|erreur|refus|introuvable|n'ai pas pu|désolé|hors ligne|injoignable/.test(s);
+      const happy = /\b(terminé|c'est fait|réussi|fonctionne|parfait|✓|bloqué sur la box|corrigé|installé|ajouté|créé)\b/.test(s);
+      const question = /\?\s*$/.test(text.trim().split('\n').filter(Boolean).at(-1) || '');
+      setTimeout(() => {
+        if (sad) { window.OdinFace?.flash(bud, 'triste', 2200); act('act-sad', 1500); }
+        else if (happy) { window.OdinFace?.flash(bud, 'joie', 2200); act(Math.random() < .5 ? 'act-joy' : 'act-spin', 1100); }
+        else if (question) { window.OdinFace?.flash(bud, 'reflexion', 2000); act('act-tilt', 1700); }
+        else if (text.length > 700) { act('act-advance', 1200); goTo(r.left + 60, sitY, 'walk'); }
+        else act(Math.random() < .3 ? 'act-wobble' : 'act-tilt', 1600);
+      }, 900);
+      setTimeout(() => { lookFree(); if (document.activeElement !== $('#input')) goHome(); }, 7000);
+    }, 800);
+  }
+  window.OdinBuddy = { goTo, goHome, act, lookAt, onReply };
+  // Il se promène quand il s'ennuie (partout dans la discussion, puis revient), et donne parfois un conseil spontané.
   let idleSince = Date.now();
-  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { idleSince = Date.now(); bud.style.setProperty('--rx', '0px'); }, { passive: true });
+  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { idleSince = Date.now(); }, { passive: true });
   setInterval(() => {
     const A = ASSIST(); if (!$('#v-chat').classList.contains('on') || busy || !tip.hidden || drag) return;
     const idle = Date.now() - idleSince;
-    if (A.roam && idle > 25_000 && Math.random() < .35 && thread) {
-      const w = thread.getBoundingClientRect().width;
-      bud.classList.add('roam'); bud.style.setProperty('--rx', -Math.round(Math.random() * Math.min(w - 120, 520)) + 'px');
-      window.OdinFace?.flash(bud, ['regarde', 'malice', 'joie'][Math.floor(Math.random() * 3)], 2400);
-      setTimeout(() => { bud.style.setProperty('--rx', '0px'); }, 3200 + Math.random() * 2000);
+    if (A.roam && idle > 20_000 && Math.random() < .4 && thread) {
+      const tr = thread.getBoundingClientRect(), roll = Math.random();
+      if (roll < .45) { goTo(tr.left + 60 + Math.random() * (tr.width - 120), tr.top + 110 + Math.random() * (tr.height - 260), 'walk'); window.OdinFace?.flash(bud, ['regarde', 'malice', 'joie'][Math.floor(Math.random() * 3)], 2400); }
+      else if (roll < .6) act('act-spin', 950);
+      else if (roll < .75) { const last = [...msgs.querySelectorAll('.msg.assistant')].at(-1); if (last) { const r = last.getBoundingClientRect(); goTo(Math.min(r.right - 30, tr.right - 50), Math.max(r.top - 22, tr.top + 90), 'hopto'); setTimeout(() => act('act-sit', 3000), 800); } }
+      else if (roll < .85) act('act-advance', 1200);
+      else goHome();
+      setTimeout(() => { if (Date.now() - idleSince > 20_000 && Math.random() < .5) goHome(); }, 6000 + Math.random() * 3000);
     }
-    if (A.tips && idle > 90_000 && Math.random() < .15) { idleSince = Date.now(); say(TIPS[Math.floor(Math.random() * TIPS.length)], [], 12000); }
+    if (A.tips && idle > 90_000 && Math.random() < .15) { idleSince = Date.now(); goHome(); say(TIPS[Math.floor(Math.random() * TIPS.length)], [], 12000); }
   }, 5000);
   // Réglages « Écriture »
   let assistLoaded = false;
@@ -2282,15 +2805,48 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   // Les yeux d'Odin : une photo de la caméra (sur téléphone) ou une image de l'ordinateur.
   $('#camBtn').addEventListener('click', () => moodHold('regarde'));
   $('#camFile').addEventListener('cancel', () => moodRelease());
-  $('#camFile').addEventListener('change', async (e) => {
-    const f = e.target.files[0]; e.target.value = ''; moodRelease();
-    if (!f) return;
-    const said = $('#input').value.trim(); $('#input').value = '';
-    addMsg('user', `${said ? said + '\n' : ''}📷 ${f.name || 'photo'}`); setBusy(true); moodFlash('regarde', 3000);
-    const q = new URLSearchParams({ peer, text: said });
-    const r = await (await fetch('/api/photo?' + q, { method: 'POST', headers: { 'content-type': f.type || 'image/jpeg', 'x-odin': '1' }, body: f })).json().catch(() => ({ ok: false, error: 'Envoi impossible.' }));
-    if (!r.ok) { setBusy(false); $('#typing').textContent = r.error; }
-  });
+  // Pièces jointes : tout type (photo, vidéo, son, PDF, Word, Excel…), plusieurs à la fois, par bouton, glisser-déposer ou collage.
+  let attached = [];
+  const fsize = (n) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`;
+  const ficon = (f) => /^image\//.test(f.type) ? '🖼' : /^video\//.test(f.type) ? '🎬' : /^audio\//.test(f.type) ? '🎵' : /pdf/.test(f.type) || /\.pdf$/i.test(f.name) ? '📕' : /\.(docx?|odt|rtf)$/i.test(f.name) ? '📘' : /\.(xlsx?|xlsm|ods|csv)$/i.test(f.name) ? '📗' : /\.(pptx?|odp)$/i.test(f.name) ? '📙' : '📄';
+  function renderAttached() {
+    let bar = $('#attBar');
+    if (!attached.length) { bar?.remove(); return; }
+    if (!bar) { bar = el('div', { id: 'attBar', class: 'attbar' }); $('#composer').before(bar); }
+    bar.replaceChildren(...attached.map((a, i) => el('span', { class: 'att' + (a.err ? ' err' : a.done ? '' : ' up') },
+      a.thumb ? el('img', { src: a.thumb, alt: '' }) : el('span', { class: 'ai' }, ficon(a.f)),
+      el('span', { class: 'an' }, a.f.name), el('span', { class: 'dim' }, a.err ? ' ' + a.err : a.done ? ' ' + fsize(a.f.size) : ` ${a.pct || 0} %`),
+      el('button', { type: 'button', class: 'ax', 'aria-label': 'Retirer ' + a.f.name, onclick: () => { a.xhr?.abort(); attached.splice(i, 1); renderAttached(); } }, '×'))));
+    $('#composer').classList.add('has-text');
+  }
+  function upload(f) {
+    const a = { f, pct: 0 };
+    if (/^image\//.test(f.type) && f.size < 15e6) a.thumb = URL.createObjectURL(f);
+    attached.push(a); renderAttached();
+    a.p = new Promise((ok) => {
+      const x = new XMLHttpRequest(); a.xhr = x;
+      x.open('POST', '/api/upload'); x.setRequestHeader('content-type', f.type || 'application/octet-stream'); x.setRequestHeader('x-odin', '1'); x.setRequestHeader('x-filename', encodeURIComponent(f.name || 'fichier'));
+      x.upload.onprogress = (e) => { if (e.lengthComputable) { a.pct = Math.round(e.loaded / e.total * 100); renderAttached(); } };
+      x.onload = () => { let r = {}; try { r = JSON.parse(x.responseText); } catch {} if (r.ok) { a.done = true; a.file = r.file; a.type = r.type; a.size = r.size; } else a.err = r.error || 'échec'; renderAttached(); ok(); };
+      x.onerror = () => { a.err = 'envoi impossible'; renderAttached(); ok(); };
+      x.send(f);
+    });
+  }
+  const addFiles = (list) => { for (const f of list) if (f && f.size) upload(f); moodFlash('regarde', 2000); };
+  $('#camFile').addEventListener('change', (e) => { addFiles([...e.target.files]); e.target.value = ''; moodRelease(); });
+  const dropZone = document.querySelector('#v-chat') || document.body;
+  dropZone.addEventListener('dragover', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); dropZone.classList.add('dropping'); } });
+  dropZone.addEventListener('dragleave', (e) => { if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('dropping'); });
+  dropZone.addEventListener('drop', (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); dropZone.classList.remove('dropping'); addFiles([...e.dataTransfer.files]); });
+  $('#input').addEventListener('paste', (e) => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) { e.preventDefault(); addFiles(fs); } });
+  // Appelée par send() : attend la fin des envois, puis joint les fichiers au message.
+  async function takeAttachments() {
+    if (!attached.length) return null;
+    await Promise.all(attached.map((a) => a.p));
+    const ok = attached.filter((a) => a.done);
+    attached.forEach((a) => a.thumb && URL.revokeObjectURL(a.thumb)); attached = []; renderAttached();
+    return ok.map((a) => ({ file: a.file, type: a.type, size: a.size, name: a.f.name, icon: ficon(a.f) }));
+  }
   $('#micBtn').addEventListener('click', () => {
     if (!state?.voice?.stt && !$('#micBtn')._rec) { $('#typing').textContent = 'Pour parler à Odin, active Whisper dans Réglages → Voix.'; return; }
     record($('#micBtn'), async (blob) => {
@@ -2666,7 +3222,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderVault(); renderApp(); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderVault(); renderApp(); if ($('#v-device').classList.contains('on')) renderDevicePage(false); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Réponse en direct (mot à mot) ----------
@@ -2677,8 +3233,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     let shown = liveText.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '');
     if (/^\s*\[[^\]]*$/.test(shown) && shown.length < 40) shown = '';
     if (!shown.trim()) return;
-    if (!live || !live.isConnected) { live = el('div', { class: 'msg assistant live' }, el('div', { class: 'who' }, 'ODIN'), el('span', { class: 'lt' })); msgs.querySelector('.hello')?.remove(); msgs.append(live); }
-    live.querySelector('.lt').textContent = shown;
+    if (!live || !live.isConnected) { live = el('div', { class: 'msg assistant live' }, el('div', { class: 'who' }, 'Odin'), el('div', { class: 'lt' })); msgs.querySelector('.hello')?.remove(); msgs.append(live); }
+    live.querySelector('.lt').replaceChildren(md(splitFooter(shown)[0]));
     const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 160; if (nearBottom) msgs.scrollTop = msgs.scrollHeight;
     $('#typing').textContent = '';
   }
@@ -2707,7 +3263,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       setTimeout(connect, 3000);
     };
   }
-  refresh().then(() => { loadHistory(); hashView(); }); connect();
+  refresh().then(() => { loadHistory(); hashView(); setTimeout(() => window.OdinTour?.offer(), 1500); }); connect();
 })();
 </script>
 </body>

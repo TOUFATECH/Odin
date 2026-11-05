@@ -12,10 +12,13 @@ import { nextRun } from '../cron/cron.ts';
 import type { Channel, Inbound } from './channel.ts';
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
-import { autoBackup, healthCheck, newAlerts } from '../guard/watch.ts';
+import { auditNetwork, autoBackup, diskUsage, healthCheck, newAlerts } from '../guard/watch.ts';
 import { pushAll } from '../push/webpush.ts';
 import { vaultState } from '../vault.ts';
 import { listScripts, parseScriptJob, type ScriptMeta } from '../tools/scripts.ts';
+import { DEFAULT_CONFIG } from '../config.ts';
+const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
+import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
 import { indexDocs } from '../tools/docindex.ts';
 import { voiceFor } from '../profiles.ts';
@@ -110,7 +113,11 @@ export class Gateway {
     const text = m.text.trim();
 
     // Commandes prioritaires, traitées même pendant qu'un tour est en cours.
-    const cmd = text.match(/^\/(yes|no|oui|non|always|toujours)\s+(\S+)/i);
+    let cmd = text.match(/^\/(yes|no|oui|non|always|toujours)\s+(\S+)/i);
+    // « /yes » ou « oui » tout court : la dernière demande en attente (s'il y en a une).
+    const bare = text.match(/^\/?(yes|no|oui|non|always|toujours)[\s.!]*$/i);
+    if (!cmd && bare && owner && this.pendingApprovals.size) cmd = Object.assign([text, bare[1], [...this.pendingApprovals.keys()].at(-1)!], { index: 0, input: text }) as RegExpMatchArray;
+    else if (!cmd && bare && text.startsWith('/') && owner) return ch.send(m.peer, 'Aucune demande en attente : elle a peut-être expiré. Redemande-moi l\'action, je la referai.');
     if (cmd) {
       if (!owner) return ch.send(m.peer, 'Seul le propriétaire peut valider une action.');
       const resolve = this.pendingApprovals.get(cmd[2]);
@@ -332,6 +339,7 @@ export class Gateway {
     await this.journal(now).catch((e) => console.error('[journal]', (e as Error).message));
     await this.morning(now).catch((e) => console.error('[matin]', (e as Error).message));
     await this.breakerRoutines(now).catch((e) => console.error('[routines]', (e as Error).message));
+    await this.garden(now).catch((e) => console.error('[mémoire]', (e as Error).message));
     await this.continuous(now).catch((e) => console.error('[travail continu]', (e as Error).message));
     await this.weekly(now).catch((e) => console.error('[semaine]', (e as Error).message));
     // Agenda du jour en cache (contexte de ta journée, « ne pas déranger » pendant un rendez-vous).
@@ -357,16 +365,22 @@ export class Gateway {
   }
 
   private lastContinuous = 0;
+  private wasBreaker = false;
   /**
    * Travail continu, sans pause : toutes les N minutes (si Odin ne travaille pas déjà), il relance
    * les missions coupées ou échouées, puis cherche lui-même ce qui est utile (alertes, sécurité,
    * habitudes…) et le fait — dans ton budget du jour. Ce qui demande ta validation attend ton accord.
    */
   async continuous(now = Date.now(), force = false): Promise<string | undefined> {
-    const c = this.odin.cfg.continuous;
-    if (!c?.enabled || this.odin.demo || this.aborts.size || vaultState(this.odin.paths.home) === 'locked') return undefined;
-    if (!force && now - this.lastContinuous < c.intervalMin * 60_000 * (this.odin.heimdall.breakerActive() ? 0.5 : 1)) return undefined;
+    const c = { ...DEFAULT_CONTINUOUS, ...this.odin.cfg.continuous };
+    const breakerOn = this.odin.heimdall.breakerActive(new Date(now));
+    // Odin Breaker = carte blanche : il travaille de lui-même même si le « travail continu » est coupé.
+    if (!(c.enabled || breakerOn) || this.odin.demo || this.aborts.size || vaultState(this.odin.paths.home) === 'locked') return undefined;
+    if (breakerOn && !this.wasBreaker) this.lastContinuous = 0; // Breaker vient de s'allumer : il s'y met tout de suite
+    this.wasBreaker = breakerOn;
+    if (!force && now - this.lastContinuous < (breakerOn ? Math.min(c.intervalMin * 0.5, 15) : c.intervalMin) * 60_000) return undefined;
     this.lastContinuous = now;
+    if (breakerOn) await this.breakerRound(now).catch((e) => console.error('[ronde]', (e as Error).message));
     // 1. Relancer les missions échouées (modèle indisponible) ou arrêtées faute d'étapes.
     for (const m of this.odin.muninn.stalledMissions(now - 2 * 86_400_000)) {
       const why = this.odin.muninn.getKv(`mission-stop:${m.id}`) ?? '';
@@ -390,7 +404,7 @@ export class Gateway {
     if (!r) return undefined;
     this.odin.muninn.setKv(spentKey, String(spent + r.costUsd));
     const text = r.text.trim();
-    if (text && !/^(rien|RIEN)\b/.test(text) && r.toolCalls > 0) await this.tellOwner(`🔄 Odin a travaillé de lui-même\n${text.slice(0, 1200)}`, 'home');
+    if (text && !/^(rien|RIEN)\b/.test(text) && r.toolCalls > 0) { this.breakerLog(`${text.split('\n')[0].slice(0, 200)}`, now); await this.tellOwner(`🔄 Odin a travaillé de lui-même\n${text.slice(0, 1200)}`, 'home'); }
     return text;
   }
 
@@ -398,8 +412,38 @@ export class Gateway {
    * Odin Breaker : il met lui-même en place les tâches planifiées logiques d'un homelab (une fois ;
    * il ne recrée pas celles que tu as supprimées) et te le dit.
    */
+  /** Journal visible de ce qu'Odin a fait de lui-même (onglet Breaker / Accueil). */
+  breakerLog(text: string, now = Date.now()): void {
+    let log: Array<{ at: number; text: string }> = [];
+    try { log = JSON.parse(this.odin.muninn.getKv('breaker-log') ?? '[]'); } catch { /* vide */ }
+    log.unshift({ at: now, text: text.slice(0, 240) });
+    this.odin.muninn.setKv('breaker-log', JSON.stringify(log.slice(0, 40)));
+    for (const ch of this.channels.values()) ch.notify?.('state');
+  }
+
+  /**
+   * Ronde du Breaker, sans modèle : balayage du réseau s'il date (même si le balayage auto est coupé),
+   * contrôle de sécurité, disques. Ce qu'elle trouve alimente la liste « À FAIRE » du travail continu.
+   */
+  async breakerRound(now = Date.now()): Promise<string> {
+    const last = this.odin.inventory.lastScan(), parts: string[] = [];
+    if (!last || now - last.at >= 45 * 60_000) {
+      const full = !last || shouldRunFull(this.odin.inventory, this.odin.cfg.network.fullEvery || 6);
+      const r = await this.scanNetwork(full).catch(() => undefined);
+      if (r) parts.push(`réseau balayé${full ? ' (complet)' : ''} : ${r.seen} appareil(s)${r.added.length ? `, ${r.added.length} nouveau(x)` : ''}${r.macAlerts?.length ? `, ${r.macAlerts.length} alerte(s) MAC` : ''}`);
+    }
+    const f = auditNetwork(this.odin.inventory.list({ status: 'online' }), now).filter((x) => x.level !== 'info');
+    if (f.length) parts.push(`${f.length} risque(s) de sécurité repéré(s)`);
+    const full = diskUsage([this.odin.paths.home, '/']).filter((d) => d.usedPct >= 90);
+    if (full.length) parts.push(`disque presque plein : ${full.map((d) => `${d.path} ${d.usedPct} %`).join(', ')}`);
+    const text = parts.length ? `Ronde : ${parts.join(' · ')}` : '';
+    if (text) this.breakerLog(text, now);
+    this.odin.muninn.setKv('breaker-round', JSON.stringify({ at: now, text: text || 'Ronde : rien d\'anormal' }));
+    return text;
+  }
+
   async breakerRoutines(now = Date.now()): Promise<number> {
-    if (this.odin.demo || !this.odin.cfg.continuous?.enabled || !this.odin.heimdall.breakerActive()) return 0;
+    if (this.odin.demo || !this.odin.heimdall.breakerActive(new Date(now))) return 0;
     const done = new Set((this.odin.muninn.getKv('breaker-routines') ?? '').split(',').filter(Boolean));
     const target = this.ownerTarget(); if (!target) return 0;
     const jobs = this.odin.muninn.listJobs();
@@ -411,6 +455,20 @@ export class Gateway {
     this.odin.muninn.setKv('breaker-routines', [...done].join(','));
     if (add.length) await this.tellOwner(`⚡ Odin Breaker : j'ai planifié ${add.length} tâche(s) de fond :\n${add.map(([, c, p]) => `- ${cronFr(c)} : ${p.split(' : ')[0]}`).join('\n')}\nTu les vois (et peux les retirer) dans Tâches planifiées.`, 'jobs');
     return add.length;
+  }
+
+  /** Rangement de la mémoire : une fois par jour (la nuit de préférence), quand Odin ne travaille pas. */
+  async garden(now = Date.now(), force = false): Promise<GardenReport | undefined> {
+    if (this.odin.demo || this.aborts.size) return undefined;
+    const d = new Date(now), stamp = this.odin.muninn.getKv('memory-garden-day');
+    if (!force && (stamp === d.toDateString() || (d.getHours() >= 7 && d.getHours() < 23))) return undefined;
+    this.odin.muninn.setKv('memory-garden-day', d.toDateString());
+    const devs = this.odin.inventory.list({ status: 'all' }).filter((x) => x.label || x.name || x.hostname).slice(0, 60).map((x) => `${x.ip} = ${x.label || x.name || x.hostname} (${x.kind}${x.status !== 'online' ? ', hors ligne' : ''})`);
+    const { identityLine } = await import('../tools/scripts.ts');
+    const facts = [identityLine(), `Appareils connus : ${devs.join(' ; ') || 'aucun'}`, `Date : ${d.toLocaleDateString('fr-FR', { dateStyle: 'full' })}`].join('\n');
+    const rep = await gardenMemory(this.odin.muninn, (s, u, m) => this.odin.agent.ask(s, u, m), facts, now).catch(() => undefined);
+    if (rep && rep.updated + rep.merged + rep.forgotten) this.odin.muninn.setKv('memory-garden-note', `🧹 Mémoire rangée : ${rep.updated} amélioré(s), ${rep.merged} fusionné(s), ${rep.forgotten} oublié(s).`);
+    return rep;
   }
 
   /** Chaque dimanche : test de restauration de la dernière sauvegarde, plan de reprise à jour, bilan de la semaine. */
@@ -663,6 +721,12 @@ export function continuousTodo(odin: Odin): string[] {
     const skills = odin.skills.list().map((s) => `${s.name} ${s.description}`.toLowerCase());
     for (const h of odin.muninn.habits(30, 2).slice(0, 3)) if (!skills.some((s) => h.text.toLowerCase().split(/\W+/).filter((w) => w.length > 4).some((w) => s.includes(w)))) out.push(`Demande fréquente sans compétence : « ${h.text.slice(0, 90)} » (${h.count} fois) → fais-en une compétence (skill_propose), avec un script si c'est une action`);
   } catch { /* pas d'habitudes */ }
+  // Sécurité : risques graves ou à surveiller sur les appareils (ports dangereux…)
+  for (const f of auditNetwork(devs).filter((x) => x.level === 'grave' || x.level === 'attention').slice(0, 3)) out.push(`Sécurité : ${f.title}${f.device ? ` sur ${f.device} (${f.ip})` : ''} → vérifie (net_identify) puis corrige si tu as l'accès, sinon explique précisément ce qu'il faut`);
+  // Adresses MAC suspectes (24 dernières heures)
+  for (const e of odin.inventory.events(80).filter((x) => /MAC|IP reprise/.test(x.kind) && Date.now() - x.at < 86_400_000).slice(0, 3)) { const d = odin.inventory.get(e.device_id); out.push(`Adresse MAC : ${e.kind} sur ${d ? `${d.label || d.name || d.ip} (${d.ip})` : e.device_id} — ${e.detail} → identifie l'appareil (net_identify) ; s'il est hostile, préviens (net_block seulement si la menace est claire)`); }
+  // Appareils mal connus : système inconnu → identification approfondie (de quoi toujours avoir du travail utile)
+  if (out.length < 3) for (const d of devs.filter((x) => !x.os && x.kind !== 'téléphone / tablette' && !unknown.includes(x)).slice(0, 3 - out.length)) out.push(`Fiche incomplète : ${d.label || d.name || d.ip} (${d.ip}) sans système connu → net_identify pour compléter`);
   try { for (const m of listScripts(odin.paths.workspace).filter((x) => x.lastError).slice(0, 3)) out.push(`Script en échec : ${m.name} (${m.lastError!.split('\n').filter(Boolean).at(-1)?.slice(0, 100)}) → corriger (script_save) et relancer`); } catch { /* pas de scripts */ }
   return out;
 }
