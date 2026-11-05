@@ -503,6 +503,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .cpop button{border:0;background:none;text-align:left;padding:9px 10px;border-radius:7px;color:var(--ink);font-size:14px}.cpop button:hover{background:var(--hover)}
 .chit{display:block;font-size:13.5px;color:var(--ink);white-space:normal}
 @media (max-width:860px){.cmenu summary{opacity:1}}
+
+.schip.sugg::after{content:" ✨"}
+.schip.more{border-style:dashed}
+.hcard.sugg{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.fitem .hico{width:28px;height:28px;font-size:15px}
 </style>
 </head>
 <body>
@@ -645,7 +650,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Autres fonctions">＋ Plus</button></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -902,6 +907,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
           <article class="card" data-sec="agenda"><div class="form" id="more-agenda"></div></article>
           <article class="card" data-sec="documents"><div class="form" id="more-documents"></div></article>
           <article class="card" data-sec="personnalite"><div class="form" id="more-personnalite"></div></article>
+          <article class="card" data-sec="plus"><div class="form" id="more-plus"></div></article>
           <article class="card" data-sec="acces"><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
@@ -1401,6 +1407,35 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 
 
 
+
+  // ---------- Fonctions proposées selon ton usage ----------
+  const FEAT_SEC = { proxmox: 'proxmox', maison: 'maison', mail: 'mail', agenda: 'agenda', documents: 'documents', entretien: 'entretien', personnalite: 'personnalite', exterieur: 'acces' };
+  const FEAT_ICON = { proxmox: '🗄️', maison: '🏠', mail: '✉️', agenda: '📅', documents: '📄', entretien: '🛠', personnalite: '🎭', exterieur: '🌍' };
+  const featShown = (id) => (state?.features || []).find((f) => f.id === id)?.show !== false;
+  function applyFeatures() {
+    const F = state?.features; if (!F) return;
+    for (const f of F) {
+      if (f.id === 'exterieur') { const b = $('#more-tunnel'); if (b) b.hidden = !f.show; continue; }
+      const chip = document.querySelector(`.schip[data-sec="${FEAT_SEC[f.id]}"]`); if (chip) { chip.hidden = !f.show; chip.classList.toggle('sugg', !f.on && Boolean(f.why)); }
+    }
+    const pv = document.querySelector('[data-nt=pve]'); if (pv) pv.hidden = !featShown('proxmox');
+    const hidden = F.filter((f) => !f.show);
+    $('#more-plus').replaceChildren(el('h2', {}, 'Plus de fonctions'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Odin te propose ces fonctions quand ton usage s\'y prête (il voit un serveur Proxmox sur ton réseau, tu lui parles de tes rendez-vous…). Tu peux aussi les ajouter maintenant.'),
+      hidden.length ? el('div', { class: 'svcs' }, hidden.map((f) => el('div', { class: 'svc2 fitem' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, FEAT_ICON[f.id]), el('b', { style: 'flex:1' }, f.label),
+        el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/action', { kind: 'feature_show', id: f.id }); setTimeout(() => openSettings(FEAT_SEC[f.id]), 300); } }, 'Ajouter')))) : el('div', { class: 'sub' }, 'Toutes les fonctions sont déjà là.'));
+    const cur = localStorage.getItem('odin.sec');
+    if (cur && document.querySelector(`.schip[data-sec="${cur}"]`)?.hidden) openSettings('modele');
+  }
+  function suggestionsCard() {
+    const S = (state?.features || []).filter((f) => !f.on && f.why);
+    if (!S.length) return null;
+    return el('article', { class: 'hcard sugg' }, el('div', { class: 'hct' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, '💡'), 'Odin te propose'),
+      ...S.slice(0, 4).map((f) => el('div', { class: 'habit' }, el('div', {}, el('b', {}, `${FEAT_ICON[f.id]} ${f.label}`), el('div', { class: 'hline' }, `Parce que ${f.why}.`)),
+        el('div', { class: 'hbtns' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => { show('settings'); openSettings(FEAT_SEC[f.id]); } }, 'Configurer'),
+          el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'feature_dismiss', id: f.id }) }, 'Plus tard')))));
+  }
+
   // ---------- Accueil ----------
   const card = (title, icon, ...kids) => el('article', { class: 'hcard' }, el('div', { class: 'hct' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, icon), title), ...kids);
   const go = (v, sec) => () => { show(v); if (sec) openSettings(sec); };
@@ -1422,6 +1457,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const H = state.habits || [];
     const grid = $('#homeGrid');
     grid.replaceChildren(...[
+      suggestionsCard(),
       card('Odin', '🤖',
         el('div', { class: 'hrow' }, el('span', {}, 'Modèle'), el('b', {}, S.demo ? 'aucun (démo)' : `${S.model?.model || '?'}`)),
         el('div', { class: 'hrow' }, el('span', {}, 'Autonomie'), el('b', {}, { prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome', breaker: '⚡ Breaker' }[state.autonomy] || state.autonomy || '?')),
@@ -2308,7 +2344,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------

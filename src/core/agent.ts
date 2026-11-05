@@ -23,6 +23,7 @@ import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import { listMachines, rightsSummary } from '../machines/access.ts';
 import { activeProfile } from '../profiles.ts';
+import { features, featuresPrompt } from '../features.ts';
 import type { Tier } from '../providers/router.ts';
 
 export interface AgentDeps {
@@ -168,6 +169,7 @@ export class Agent {
       speaker: o.speaker,
       rights: this.deps.home ? rightsSummary(this.deps.home) : undefined,
       tone: activeProfile(cfg),
+      features: depth > 0 ? undefined : (() => { try { return featuresPrompt(features({ cfg, devices: this.deps.inventory?.list({ status: 'all' }) ?? [], recentUserText: [], dismissed: new Set(), machines: this.deps.home ? listMachines(this.deps.home).length : 0 })); } catch { return undefined; } })(),
     });
 
     const history: Message[] = repairHistory(muninn.history(o.sessionId).map(({ rowId: _r, ...m }) => m));

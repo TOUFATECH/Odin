@@ -352,6 +352,10 @@ export class Muninn {
     return [...groups].filter(([k, g]) => g.count >= min && !ignored.has(k) && !jobs.some((j) => j.includes(k) || k.includes(j)))
       .map(([key, g]) => ({ key, ...g })).sort((a, b) => b.count - a.count).slice(0, 5);
   }
+  /** Tes derniers messages (pour repérer tes besoins : mail, agenda…). */
+  recentUserTexts(limit = 300, days = 30, now = Date.now()): string[] {
+    return (this.db.prepare("SELECT content FROM messages WHERE role = 'user' AND tainted = 0 AND created_at >= ? ORDER BY id DESC LIMIT ?").all(now - days * 86_400_000, limit) as Array<{ content: string }>).map((r) => r.content);
+  }
   getKv(key: string): string | undefined { return (this.db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined)?.value; }
   setKv(key: string, value: string): void { if (value) this.db.prepare('INSERT OR REPLACE INTO kv(key, value) VALUES (?, ?)').run(key, value); else this.db.prepare('DELETE FROM kv WHERE key = ?').run(key); }
   kvPrefix(prefix: string): Record<string, string> { return Object.fromEntries((this.db.prepare('SELECT key, value FROM kv WHERE key LIKE ?').all(`${prefix}%`) as Array<{ key: string; value: string }>).map((r) => [r.key.slice(prefix.length), r.value])); }

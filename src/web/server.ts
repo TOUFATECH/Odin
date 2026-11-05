@@ -31,6 +31,7 @@ import { auditNetwork, autoBackup, backupDir, diskUsage, hasBackupPassword, list
 import { pveApi } from '../tools/proxmox.ts';
 import { activeProfile, voiceFor } from '../profiles.ts';
 import { INSTALL, tunnel, tunnelAvailable } from './tunnel.ts';
+import { features } from '../features.ts';
 import { haApi } from '../tools/homeassistant.ts';
 import { indexDocs } from '../tools/docindex.ts';
 import { spawnSync } from 'node:child_process';
@@ -424,6 +425,7 @@ export class WebChannel implements Channel {
       proxmox: { url: cfg.proxmox.url, token: Boolean(process.env.PROXMOX_TOKEN) },
       habits: muninn.habits(),
       tunnel: { ...tunnel.state, available: tunnelAvailable(), install: INSTALL },
+      features: (() => { const shown = muninn.kvPrefix('feature-show:'); return features({ cfg, devices: inventory.list({ status: 'all' }), recentUserText: muninn.recentUserTexts(), dismissed: new Set(Object.keys(muninn.kvPrefix('feature-dismiss:'))), machines: listMachines(this.odin.paths.home).length }).map((f) => ({ ...f, show: f.on || Boolean(f.why) || Boolean(shown[f.id]) })); })(),
       more: {
         services: cfg.services, updates: cfg.updates, journal: cfg.journal, homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
         profiles: cfg.profiles, activeProfile: activeProfile(cfg)?.id ?? '', machines: listMachines(this.odin.paths.home).map((m) => ({ id: m.id, label: m.label })),
@@ -677,6 +679,8 @@ export class WebChannel implements Channel {
         if (!q) return { ok: true, items: [] };
         return { ok: true, items: muninn.searchMessages(q, 30).filter((m) => m.session_id.startsWith('web:')).map((m) => ({ peer: m.session_id.slice(4), snippet: m.snippet, at: m.created_at, role: m.role })) };
       }
+      case 'feature_dismiss': muninn.setKv(`feature-dismiss:${String(b.id)}`, '1'); break;
+      case 'feature_show': muninn.setKv(`feature-show:${String(b.id)}`, '1'); muninn.setKv(`feature-dismiss:${String(b.id)}`, ''); break;
       case 'conv_pin': muninn.setKv(`pin:${String(b.peer)}`, b.on ? '1' : ''); break;
       case 'conv_rename': muninn.setKv(`title:${String(b.peer)}`, String(b.title ?? '').slice(0, 80)); break;
       case 'habit_ignore': muninn.ignoreHabit(String(b.key ?? '')); break;

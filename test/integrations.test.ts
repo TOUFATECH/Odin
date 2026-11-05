@@ -73,3 +73,19 @@ test('accès extérieur et personnalités', () => {
   assert.equal(voiceFor({ tts: { voiceId: 'défaut' } }, cfg, new Date('2026-11-05T10:00:00')).tts.voiceId, 'voix-pro');
   assert.equal(activeProfile({ profiles: { ...cfg.profiles, auto: false } })?.id, 'maison');
 });
+
+test('fonctions facultatives : cachées au départ, proposées selon l\'usage (réseau, messages), puis visibles une fois reliées', async () => {
+  const { features } = await import('../src/features.ts');
+  const { DEFAULT_CONFIG } = await import('../src/config.ts');
+  const cfg = structuredClone(DEFAULT_CONFIG);
+  const dev = (ip: string, ports: number[], title = '', kind = 'serveur') => ({ id: ip, ip, mac: '', hostname: '', name: '', model: '', kind, ports, services: [], server: '', network: '', status: 'online', first_seen: 0, last_seen: 0, label: '', web: title ? [{ port: ports[0], url: `https://${ip}/`, title, server: '', status: 200 }] : [] }) as never;
+  const base = { cfg, env: {}, devices: [], recentUserText: [], dismissed: new Set<string>(), machines: 0 };
+  assert.ok(features(base).every((f) => !f.on && !f.why), 'rien d\'affiché au départ');
+  const f = features({ ...base, devices: [dev('192.168.1.10', [22, 8006], 'pve - Proxmox Virtual Environment')], recentUserText: ['J\'ai un rendez-vous chez le dentiste mardi ?'] });
+  assert.match(f.find((x) => x.id === 'proxmox')!.why!, /Proxmox sur ton réseau : .*192\.168\.1\.10/);
+  assert.match(f.find((x) => x.id === 'agenda')!.why!, /dentiste/);
+  assert.equal(f.find((x) => x.id === 'mail')!.why, undefined);
+  assert.equal(features({ ...base, recentUserText: ['lis mes mails'], dismissed: new Set(['mail']) }).find((x) => x.id === 'mail')!.why, undefined, '« plus tard » respecté');
+  cfg.proxmox.url = 'https://192.168.1.10:8006';
+  assert.ok(features({ ...base, cfg, env: { PROXMOX_TOKEN: 'x' } }).find((x) => x.id === 'proxmox')!.on);
+});
