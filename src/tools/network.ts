@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } from '../hlidskjalf/inventory.ts';
 import { serviceName } from '../hlidskjalf/identify.ts';
+import { auditNetwork } from '../guard/watch.ts';
 import { CATEGORIES, vendorOf } from '../hlidskjalf/vendors.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
 import { safeEnv } from './builtin.ts';
@@ -151,3 +152,17 @@ const machineCopy: Tool = {
 };
 
 export const NETWORK_TOOLS: Tool[] = [netInventory, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
+
+export const netSecurity: Tool = {
+  name: 'net_security',
+  description: 'Audit de sécurité du réseau local d\'après l\'inventaire : ports à risque, administrations non chiffrées, appareils inconnus récents, avec un conseil pour chaque point. N\'attaque rien.',
+  risk: 'read',
+  schema: obj({}),
+  async run(_i, ctx) {
+    if (!ctx.inventory) return 'Inventaire indisponible.';
+    const f = auditNetwork(ctx.inventory.list({ status: 'all' }));
+    if (!f.length) return 'Aucun problème repéré sur les appareils connus (lance un balayage complet pour voir les ports).';
+    const icon = { grave: '🔴', attention: '🟠', info: '🔵' } as const;
+    return f.map((x) => `${icon[x.level]} ${x.title}${x.device ? ` — ${x.device} (${x.ip})` : ''}\n   → ${x.advice}`).join('\n');
+  },
+};

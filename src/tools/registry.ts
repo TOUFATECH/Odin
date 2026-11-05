@@ -39,6 +39,8 @@ export interface ToolContext {
   breaker?: boolean;
   /** Vision du modèle : répond à une question sur des images. */
   vision?(question: string, images: Array<{ mime: string; data: string }>): Promise<string>;
+  /** Proxmox VE (adresse de l'API). */
+  proxmox?: { url: string };
   /** Recherche web (moteur, instance SearXNG). */
   search?: { provider?: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng'; searxngUrl?: string };
   /** Réglages de la voix (transcription de fichiers audio). */

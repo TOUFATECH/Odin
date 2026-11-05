@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS jobs(
 CREATE TABLE IF NOT EXISTS grants(
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, tool TEXT NOT NULL, example TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL, uses INTEGER NOT NULL DEFAULT 0, last_used INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS skill_stats(name TEXT PRIMARY KEY, uses INTEGER NOT NULL DEFAULT 0, last_used INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS missions(
   id TEXT PRIMARY KEY, session_id TEXT NOT NULL, goal TEXT NOT NULL, status TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'user',
@@ -329,6 +330,29 @@ export class Muninn {
   listPairings(): Array<{ channel: string; peer: string; name: string; code: string; status: string }> {
     return this.db.prepare('SELECT channel, peer, name, code, status FROM pairings ORDER BY created_at DESC').all() as Array<{ channel: string; peer: string; name: string; code: string; status: string }>;
   }
+
+  // ---------- Habitudes ----------
+
+  /**
+   * Demandes que tu fais souvent (au moins « min » fois en « days » jours, hors tâches planifiées) :
+   * Odin propose d'en faire une tâche automatique. Les demandes ignorées ne reviennent pas.
+   */
+  habits(days = 14, min = 3, now = Date.now()): Array<{ text: string; count: number; key: string }> {
+    const rows = this.db.prepare("SELECT m.content FROM messages m JOIN sessions s ON s.id = m.session_id WHERE m.role = 'user' AND m.tainted = 0 AND m.created_at >= ? AND s.id NOT LIKE 'cron:%' AND s.id NOT LIKE 'breaker:%'").all(now - days * 86_400_000) as Array<{ content: string }>;
+    const norm = (x: string) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z ]+/g, ' ').replace(/\b(stp|svp|s il te plait|merci|odin|peux tu|tu peux|est ce que)\b/g, ' ').replace(/\s+/g, ' ').trim();
+    const groups = new Map<string, { text: string; count: number }>();
+    for (const r of rows) {
+      const k = norm(r.content).slice(0, 80);
+      if (k.length < 8 || k.split(' ').length < 2) continue;
+      const g = groups.get(k);
+      if (g) g.count++; else groups.set(k, { text: r.content.trim().slice(0, 200), count: 1 });
+    }
+    const ignored = new Set((this.db.prepare("SELECT value FROM kv WHERE key LIKE 'habit-ignored:%'").all() as Array<{ value: string }>).map((r) => r.value));
+    const jobs = this.listJobs().map((j) => norm(j.prompt));
+    return [...groups].filter(([k, g]) => g.count >= min && !ignored.has(k) && !jobs.some((j) => j.includes(k) || k.includes(j)))
+      .map(([key, g]) => ({ key, ...g })).sort((a, b) => b.count - a.count).slice(0, 5);
+  }
+  ignoreHabit(key: string): void { this.db.prepare('INSERT OR REPLACE INTO kv(key, value) VALUES (?, ?)').run(`habit-ignored:${key}`, key); }
 
   // ---------- Tâches planifiées ----------
 

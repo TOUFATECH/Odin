@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Odin</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#0A0D13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Odin">
 <style>
 :root{color-scheme:dark;--bg:#0A0D13;--panel:#121722;--panel2:#0D1119;--line:#1E2532;--ink:#ECEAE4;--muted:#A6AEBB;--dim:#8B94A4;--accent:#E7AE3E;--accent-2:#F6C766;--good:#7FC8A9;--warn:#F0B860;--bad:#E88E7A;
   --field:#2A3243;--field-h:#3A4458;--hover:#151B27;--sel:#1A2131;--user:#1B2333;--user-l:#283247;--warn-l:#5A4520;--warn-bg:#1C1710;--bad-l:#6B2A22;--bad-bg:#201211;--bad-l2:#4A2B27;--good-l:#29453A;--on-accent:#17110A;--off:#5B6475;
@@ -373,6 +380,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .hbtn .wave{opacity:.35;transition:opacity .15s}
 .hbtn.on{color:var(--accent);border-color:var(--accent)}.hbtn.on .wave{opacity:1}
 .hbtn.stop{color:var(--bad);border-color:var(--bad-l)}
+#handsBtn.on{color:var(--good);border-color:var(--good)}#handsBtn.on .wave{opacity:1;animation:pulse 1.4s ease-in-out infinite}
 @media (max-width:860px){
   #v-chat .head{padding:8px 10px;border-bottom:1px solid var(--line)}
   .hacts{width:100%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
@@ -440,7 +448,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .port{font-size:12px;padding:2px 8px;border-radius:8px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}.port b{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--ink);font-weight:600}
 .dacts{font-size:13px;color:var(--muted)}.dacts summary{cursor:pointer}.dacts ul{margin:6px 0 0;padding-left:18px}
 .dfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--dim);border-top:1px solid var(--line);padding-top:9px}
-@media (max-width:860px){.dgrid{grid-template-columns:1fr}}
+@media (max-width:860px){.dgrid{grid-template-columns:1fr}.mapsvg{min-width:0!important}.nmap{padding:4px}}
 .ntbl td{vertical-align:middle}.ntbl tr.off{opacity:.6}.ntbl .dports{max-width:360px}.ntbl .dlink{max-width:240px}
 .tname{display:flex;align-items:center;gap:10px}.dico.sm{width:30px;height:30px;font-size:16px;border-radius:8px}
 .dim{color:var(--dim);font-size:12px}
@@ -448,6 +456,34 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .ntbl{table-layout:fixed}.ntbl td{overflow-wrap:anywhere}.ntbl .dst{white-space:nowrap}
 .ntbl .grow td{background:var(--hover);font-weight:700;cursor:pointer;padding:9px 12px}.ntbl .grow:hover td{color:var(--accent)}.gchev{float:right;color:var(--dim)}
 .ntbl .ibtn{width:34px;padding:0}
+
+/* Accueil */
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.hcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow);min-width:0}
+.hct{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15.5px}
+.hico{width:32px;height:32px;border-radius:9px;background:var(--hover);display:grid;place-items:center;font-size:17px}
+.hrow{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--muted)}.hrow b{color:var(--ink);font-weight:600;text-align:right;overflow-wrap:anywhere}
+.hbig{font-size:28px;font-weight:800;line-height:1.1}.hbig span{font-size:14px;font-weight:500;color:var(--muted)}
+.hline{font-size:13.5px;color:var(--muted)}
+.hlist{margin:0;padding-left:18px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.hbtns{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.hbtns select{min-height:34px;border-radius:9px;border:1px solid var(--field);background:var(--panel2);color:var(--ink);padding:0 8px}
+.hcard>.btn{align-self:flex-start}
+.hbar{height:7px;border-radius:4px;background:var(--hover);overflow:hidden}.hbar span{display:block;height:100%;background:var(--good)}.hbar.warn span{background:var(--warn)}.hbar.bad span{background:var(--bad)}
+.habit{display:flex;flex-direction:column;gap:6px;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+/* Réseau : onglets, carte, sécurité, étoile */
+.ntabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.ntabs .schip .badge{min-width:18px;height:18px;font-size:11px;margin-left:4px}
+.star{border:0;background:none;color:var(--dim);font-size:17px;cursor:pointer;padding:0 2px;line-height:1}.star.on{color:var(--accent)}.star:hover{color:var(--accent)}
+.nmap{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;overflow:auto}
+.mapsvg{width:100%;min-width:640px;height:auto;display:block}
+.mlink{stroke:var(--field);stroke-width:1.4}.mlink.off{stroke-dasharray:4 4;opacity:.5}
+.mnode{cursor:pointer}.mnode circle{fill:var(--panel2);stroke:var(--accent);stroke-width:1.6}.mnode.off circle{stroke:var(--off);opacity:.7}.mnode:hover circle,.mnode:focus circle{fill:var(--hover);stroke-width:2.4}
+.mnode text{text-anchor:middle;fill:var(--ink)}.mnode .mi{font-size:17px}.mnode .ml{font-size:12px;font-weight:600}.mnode .mip{font-size:10.5px;fill:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace}
+.mlegend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted);padding:8px 6px 2px}
+.sfind{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--dim);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:5px}
+.sfind.grave{border-left-color:var(--bad)}.sfind.attention{border-left-color:var(--warn)}.sfind.info{border-left-color:#5B8DEF}
+.sfind .btn{align-self:flex-start;margin-top:4px}.sfa{font-size:13.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -482,14 +518,15 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   <div class="mbar">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
     <span class="odin buddy-m" id="buddyM" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
-    <span class="mcur" id="mcur">Discussion</span>
+    <span class="mcur" id="mcur">Accueil</span>
     <button class="btn small mbtn" id="menuBtn" type="button" aria-expanded="false" aria-controls="sideNav">Menu <span class="badge" id="b-menu" hidden>!</span></button>
   </div>
   <nav class="side" id="sideNav" aria-label="Sections">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
     <div class="buddy" title="L'humeur d'Odin : il la choisit lui-même"><span class="odin" id="buddy" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span><span class="buddy-txt" id="buddyTxt">tranquille</span><button class="buddy-snd" id="buddySnd" type="button" aria-pressed="true">Sons activés</button></div>
     <div class="nav-h">Odin</div>
-    <button class="tab" data-view="chat" aria-current="page"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span> <span class="badge" id="b-approvals" hidden>0</span></button>
+    <button class="tab" data-view="home" aria-current="page"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19h4.5v-5h3v5H18V9.8"/></svg><span class="lbl">Accueil</span><span class="badge" id="b-home" hidden>!</span></button>
+    <button class="tab" data-view="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span> <span class="badge" id="b-approvals" hidden>0</span></button>
     <button class="tab" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Missions</span> <span class="badge" id="b-missions" hidden>0</span></button>
     <button class="tab" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Réseau</span> <span class="badge" id="b-net" hidden>0</span></button>
     <div class="nav-h">Gérer</div>
@@ -502,14 +539,20 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   </nav>
 
   <main>
-    <section class="view on" id="v-chat" aria-label="Discussion">
+    <section class="view on" id="v-home" aria-label="Accueil">
+      <div class="head"><div><h1>Accueil</h1><div class="sub" id="homeSub">Tout ce qui compte, d'un coup d'œil.</div></div>
+        <div class="hacts"><button class="hbtn" type="button" id="homeCheck" title="Vérifier maintenant les appareils importants, les disques et les certificats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="hl">Vérifier</span></button></div></div>
+      <div class="body"><div class="hgrid" id="homeGrid"></div></div>
+    </section>
+
+    <section class="view" id="v-chat" aria-label="Discussion">
       <div class="chat">
         <div class="convs" id="convs" aria-label="Conversations"></div>
         <div class="thread">
           <div class="tip" id="buddyTip" role="status" aria-live="polite" hidden><div class="tip-t" id="tipText"></div><div class="tip-acts" id="tipActs"></div></div>
           <span class="odin chat-buddy" id="buddyChat" aria-hidden="true" title="Odin"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
-            <div class="hacts"><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
+            <div class="hacts"><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn" id="handsBtn" type="button" aria-pressed="false" title="Mains libres : dis « Odin, … » et il t'écoute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path class="wave" d="M2 9v4M22 9v4"/></svg><span class="hl">Mains libres</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
           <div class="notice" id="demoNotice" hidden>Odin n'a pas encore de modèle (mode démo). <a href="#" id="goSettings">Ouvre les Réglages</a> pour en choisir un : c'est l'affaire d'une minute.</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="typing" id="typing"></div>
@@ -541,12 +584,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="scanQuick">Balayage rapide</button><button class="btn small primary" id="scanFull">Balayage complet</button></div></div>
       <div class="body">
         <div class="stats" id="netStats"></div>
+        <div class="ntabs" role="tablist"><button type="button" class="schip" data-nt="list" aria-selected="true">Appareils</button><button type="button" class="schip" data-nt="map" aria-selected="false">Carte</button><button type="button" class="schip" data-nt="sec" aria-selected="false">Sécurité <span class="badge" id="b-sec" hidden></span></button><button type="button" class="schip" data-nt="pve" aria-selected="false">Proxmox</button></div>
+        <div id="nt-map" hidden><div class="nmap" id="netMap"></div></div>
+        <div id="nt-sec" hidden><div id="secList"></div></div>
+        <div id="nt-pve" hidden><div id="pveBox"></div></div>
+        <div id="nt-list">
         <div class="ntools"><input type="search" id="netSearch" placeholder="Chercher un appareil, une IP, un port…" aria-label="Chercher un appareil">
           <div class="seg" role="group" aria-label="Filtre"><button type="button" data-nf="all" aria-pressed="true">Tous</button><button type="button" data-nf="online" aria-pressed="false">En ligne</button><button type="button" data-nf="offline" aria-pressed="false">Hors ligne</button></div>
           <div class="seg nview" role="group" aria-label="Affichage"><button type="button" data-nv="table" aria-pressed="true">Tableau</button><button type="button" data-nv="cards" aria-pressed="false">Fiches</button></div></div>
         <div id="devices"></div>
         <h2 style="font-size:18px;margin:32px 0 12px">Derniers évènements</h2>
         <div class="wrap"><table class="tbl"><thead><tr><th>Quand</th><th>Appareil</th><th>Évènement</th><th>Détail</th></tr></thead><tbody id="devEvents"></tbody></table></div>
+        </div>
       </div>
     </section>
 
@@ -577,7 +626,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -614,8 +663,36 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
             <div class="status" id="m-status" role="status"></div>
           </form></article>
 
+          <article class="card" data-sec="surveillance"><form class="form" id="f-watch">
+            <h2>Surveillance</h2>
+            <p class="sub" style="margin:0">Odin veille : il te prévient (Telegram ou ici) quand un appareil important tombe puis revient, quand un disque est presque plein, ou quand un certificat HTTPS va expirer. Marque tes appareils importants avec ★ dans Réseau.</p>
+            <label class="check"><input type="checkbox" id="wt-on"> Surveillance activée</label>
+            <div class="field"><label for="wt-int">Vérifier toutes les (minutes)</label><input id="wt-int" type="number" min="5" max="1440"></div>
+            <div class="field"><label for="wt-disk">Alerte disque à partir de (% utilisé)</label><input id="wt-disk" type="number" min="50" max="99"></div>
+            <div class="field"><label for="wt-cert">Alerte certificat (jours avant expiration)</label><input id="wt-cert" type="number" min="1" max="90"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" id="wt-now">Vérifier maintenant</button></div>
+            <div class="status" id="wt-status" role="status"></div>
+          </form></article>
+          <article class="card" data-sec="proxmox"><form class="form" id="f-pve">
+            <h2>Proxmox</h2>
+            <p class="sub" style="margin:0">Pour voir et piloter tes machines virtuelles et conteneurs (démarrer, arrêter, instantané). Dans Proxmox : Datacenter → Permissions → API Tokens → Ajouter (décoche « Privilege Separation » ou donne-lui le rôle PVEVMAdmin).</p>
+            <div class="field"><label for="pv-url">Adresse</label><input id="pv-url" autocomplete="off" spellcheck="false" placeholder="https://192.168.1.10:8006"></div>
+            <div class="field"><label for="pv-token">Jeton d'API</label><input id="pv-token" type="password" autocomplete="off" spellcheck="false" placeholder="root@pam!odin=xxxxxxxx-xxxx-…"><span class="hint" id="pv-hint"></span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" id="pv-test">Tester</button></div>
+            <div class="status" id="pv-status" role="status"></div>
+          </form></article>
           <article class="card" data-sec="sauvegarde"><div class="form">
             <h2>Sauvegarde</h2>
+            <form id="f-autobk" class="form" style="gap:10px;padding-bottom:14px;border-bottom:1px solid var(--line)">
+              <label class="check"><input type="checkbox" id="ab-on"> Sauvegarde chiffrée automatique chaque nuit</label>
+              <div class="field"><label for="ab-hour">À partir de (heure)</label><input id="ab-hour" type="number" min="0" max="23"></div>
+              <div class="field"><label for="ab-dir">Dossier (ton NAS monté, par exemple)</label><input id="ab-dir" autocomplete="off" spellcheck="false" placeholder="/mnt/nas/sauvegardes (vide : ~/.odin/sauvegardes)"></div>
+              <div class="field"><label for="ab-keep">Garder les … dernières</label><input id="ab-keep" type="number" min="1" max="60"></div>
+              <div class="field"><label for="ab-pass">Mot de passe des sauvegardes</label><input id="ab-pass" type="password" autocomplete="new-password"><span class="hint" id="ab-hint"></span></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Enregistrer</button><button class="btn" type="button" id="ab-now">Sauvegarder maintenant</button></div>
+              <div class="status" id="ab-status" role="status"></div>
+              <ul class="links" id="ab-files"></ul>
+            </form>
             <p class="sub" style="margin:0">Tout Odin (configuration, clés, mémoire, compétences, espace de travail) dans un seul fichier chiffré (AES-256, mot de passe). Garde-le ailleurs que sur cette machine ; la restauration remet tout en place sur une nouvelle installation.</p>
             <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
               <div class="field" style="flex:1 1 220px"><label for="bk-pw">Mot de passe (8 caractères au moins)</label><input id="bk-pw" type="password" autocomplete="new-password"></div>
@@ -831,7 +908,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       </div>
     </section>
   </main>
-  <nav class="bnav" aria-label="Sections principales"><button class="tab bt" data-view="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span><span class="badge" data-mirror="b-approvals" hidden></span></button><button class="tab bt" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Missions</span><span class="badge" data-mirror="b-missions" hidden></span></button><button class="tab bt" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Réseau</span><span class="badge" data-mirror="b-net" hidden></span></button><button class="tab bt" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span><span class="badge" data-mirror="b-settings" hidden></span></button><button class="tab bt more" type="button" id="moreBtn" aria-controls="sideNav"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg><span class="lbl">Plus</span><span class="badge" data-mirror="b-drafts" hidden></span></button></nav>
+  <nav class="bnav" aria-label="Sections principales"><button class="tab bt" data-view="home"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19h4.5v-5h3v5H18V9.8"/></svg><span class="lbl">Accueil</span><span class="badge" data-mirror="b-home" hidden></span></button><button class="tab bt" data-view="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span><span class="badge" data-mirror="b-approvals" hidden></span></button><button class="tab bt" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Réseau</span><span class="badge" data-mirror="b-net" hidden></span></button><button class="tab bt" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span><span class="badge" data-mirror="b-settings" hidden></span></button><button class="tab bt more" type="button" id="moreBtn" aria-controls="sideNav"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/></svg><span class="lbl">Plus</span><span class="badge" data-mirror="b-drafts" hidden></span></button></nav>
   <div class="scrim" id="scrim" hidden></div>
 </div>
 
@@ -928,10 +1005,12 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   function show(v) {
     toggleNav(false);
     for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === v) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
-    $('#moreBtn').classList.toggle('cur', !['chat', 'missions', 'net', 'settings'].includes(v));
+    $('#moreBtn').classList.toggle('cur', !['home', 'chat', 'net', 'settings'].includes(v));
     for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
     try { localStorage.setItem('odin.view', v); } catch {}
     const main = document.querySelector('#v-' + v + ' .body'); if (main) main.scrollTop = 0;
+    // La barre de saisie n'a pas de hauteur tant que la discussion est cachée : Odin se replace au-dessus d'elle.
+    if (v === 'chat') setTimeout(() => { try { grow(); placeTip(); } catch {} }, 0);
   }
   // Pastilles de la barre du bas : copies de celles du menu.
   const mirror = () => { for (const m of document.querySelectorAll('[data-mirror]')) { const src = document.getElementById(m.dataset.mirror); if (src) { m.hidden = src.hidden; m.textContent = src.textContent; } } };
@@ -1135,7 +1214,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', x.kind];
     const st = x.status === 'online' ? 'en ligne' : x.status === 'offline' ? 'hors ligne' : 'retiré';
     return el('tr', { class: x.status !== 'online' ? 'off' : '' },
-      el('td', { 'data-label': 'Appareil' }, el('div', { class: 'tname' }, el('span', { class: 'dico sm', 'aria-hidden': 'true' }, cat[1]), el('div', {}, el('b', {}, x.label), x.hostname && x.hostname !== x.label ? el('div', { class: 'dim mono' }, x.hostname) : null))),
+      el('td', { 'data-label': 'Appareil' }, el('div', { class: 'tname' }, starBtn(x), el('span', { class: 'dico sm', 'aria-hidden': 'true' }, cat[1]), el('div', {}, el('b', {}, x.label), x.hostname && x.hostname !== x.label ? el('div', { class: 'dim mono' }, x.hostname) : null))),
       el('td', { 'data-label': 'Adresse', class: 'mono' }, x.ip, x.mac ? el('div', { class: 'dim' }, x.mac) : null),
       el('td', { 'data-label': 'Fabricant / modèle' }, [x.vendor, x.model !== x.label ? x.model : ''].filter(Boolean).join(' · ') || el('span', { class: 'dim' }, '—')),
       el('td', { 'data-label': 'Liens' }, (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer', title: w.url }, '↗ ', linkName(w, x.web)))) : el('span', { class: 'dim' }, '—')),
@@ -1148,6 +1227,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   // Nom d'un lien web : son titre ; le port en plus quand deux liens ont le même titre.
   const linkName = (w, all) => { const tt = w.title && !w.title.startsWith('→') ? w.title : ''; if (!tt) return w.url.replace(/^https?:\/\//, '').replace(/\/$/, ''); return all.filter((o) => o.title === w.title).length > 1 ? `${tt} (${w.url.startsWith('https') ? 'https' : 'http'} :${w.port})` : tt; };
   const ipNum = (ip) => ip.split('.').reduce((a, n) => a * 256 + (Number(n) || 0), 0);
+  const isWatched = (x) => (state.watch?.cfg?.devices || []).includes(x.id);
+  const starBtn = (x) => el('button', { class: 'star' + (isWatched(x) ? ' on' : ''), type: 'button', title: isWatched(x) ? 'Appareil important : Odin te prévient s\'il tombe (toucher pour retirer)' : 'Marquer comme important : Odin te préviendra s\'il tombe', 'aria-pressed': String(isWatched(x)), onclick: () => api('/api/action', { kind: 'device_watch', id: x.id, on: !isWatched(x) }) }, isWatched(x) ? '★' : '☆');
   function deviceCard(x) {
     const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', x.kind];
     const st = x.status === 'online' ? 'en ligne' : x.status === 'offline' ? 'hors ligne' : 'retiré';
@@ -1157,7 +1238,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       el('div', { class: 'dtop' },
         el('span', { class: 'dico', 'aria-hidden': 'true' }, cat[1]),
         el('div', { class: 'dname' }, el('h3', {}, x.label), el('div', { class: 'dmeta' }, el('span', { class: 'mono' }, x.ip), x.vendor ? ` · ${x.vendor}` : '', x.model && x.model !== x.label ? ` · ${x.model}` : '')),
-        el('span', { class: 'dst ' + x.status, title: st }, st)),
+        starBtn(x), el('span', { class: 'dst ' + x.status, title: st }, st)),
       x.hostname && x.hostname !== x.label ? el('div', { class: 'dline' }, 'Nom réseau : ', el('span', { class: 'mono' }, x.hostname)) : null,
       webLinks.length ? el('div', { class: 'dlinks' }, webLinks) : null,
       x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('div', { class: 'dline dim' }, 'Ports : lance un balayage complet pour les voir.'),
@@ -1269,6 +1350,215 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   }
 
 
+
+
+  // ---------- Accueil ----------
+  const card = (title, icon, ...kids) => el('article', { class: 'hcard' }, el('div', { class: 'hct' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, icon), title), ...kids);
+  const go = (v, sec) => () => { show(v); if (sec) openSettings(sec); };
+  const bar = (pct) => el('div', { class: 'hbar' + (pct >= 90 ? ' bad' : pct >= 75 ? ' warn' : '') }, el('span', { style: `width:${Math.min(100, pct)}%` }));
+  function renderHome() {
+    if (!state) return;
+    const S = state.settings || {}, B = state.budget || { spentUsd: 0, monthlyUsd: 0 }, d = state.devices || [];
+    const live = (state.missions || []).filter((m) => m.status === 'en cours');
+    const online = d.filter((x) => x.status === 'online').length;
+    const recent = (state.deviceEvents || []).filter((e) => Date.now() - e.at < 86400000 && e.kind !== 'reconnecté');
+    const F = state.watch?.findings || [], grave = F.filter((f) => f.level === 'grave').length, warn = F.filter((f) => f.level === 'attention').length;
+    const watched = (state.watch?.cfg?.devices || []).map((id) => d.find((x) => x.id === id)).filter(Boolean);
+    const todo = [];
+    if (pending.size) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('chat'); } }, `${pending.size} validation(s) t'attendent`)));
+    if (state.drafts?.length) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('skills'); } }, `${state.drafts.length} compétence(s) à relire`)));
+    if (S.demo) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('settings'); openSettings('modele'); } }, 'Choisir le modèle d\'Odin')));
+    if (grave) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('net'); netTab('sec'); } }, `${grave} problème(s) de sécurité grave(s)`)));
+    if (!state.autoBackup?.enabled) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('settings'); openSettings('sauvegarde'); } }, 'Activer la sauvegarde automatique')));
+    const H = state.habits || [];
+    const grid = $('#homeGrid');
+    grid.replaceChildren(...[
+      card('Odin', '🤖',
+        el('div', { class: 'hrow' }, el('span', {}, 'Modèle'), el('b', {}, S.demo ? 'aucun (démo)' : `${S.model?.model || '?'}`)),
+        el('div', { class: 'hrow' }, el('span', {}, 'Autonomie'), el('b', {}, { prudent: 'Prudent', equilibre: 'Équilibré', autonome: 'Autonome', breaker: '⚡ Breaker' }[state.autonomy] || state.autonomy || '?')),
+        el('div', { class: 'hrow' }, el('span', {}, 'Dépensé ce mois'), el('b', {}, `${B.spentUsd.toFixed(2)} $${B.monthlyUsd ? ` / ${B.monthlyUsd} $` : ''}`)),
+        B.monthlyUsd ? bar(B.spentUsd / B.monthlyUsd * 100) : null,
+        el('button', { class: 'btn small', type: 'button', onclick: go('chat') }, 'Parler à Odin')),
+      card('À faire', '✅', todo.length ? el('ul', { class: 'hlist' }, todo) : el('div', { class: 'sub' }, 'Rien en attente. 👌')),
+      card('Missions', '🚩', el('div', { class: 'hbig' }, live.length, el('span', {}, ' en cours')),
+        live.slice(0, 3).map((m) => el('div', { class: 'hline' }, '• ', m.goal.slice(0, 80))),
+        el('button', { class: 'btn small', type: 'button', onclick: go('missions') }, 'Voir les missions')),
+      card('Réseau', '🛰', el('div', { class: 'hbig' }, online, el('span', {}, ` en ligne / ${d.length}`)),
+        recent.length ? el('div', { class: 'hline' }, `${recent.length} changement(s) en 24 h`) : null,
+        el('div', { class: 'hline' }, grave || warn ? `🔴 ${grave} grave · 🟠 ${warn} à surveiller` : '🛡 Aucun risque repéré'),
+        el('div', { class: 'hbtns' }, el('button', { class: 'btn small', type: 'button', onclick: go('net') }, 'Appareils'), el('button', { class: 'btn small', type: 'button', onclick: () => { show('net'); netTab('sec'); } }, 'Sécurité'))),
+      card('Surveillance', '🛡',
+        ...(state.watch?.disks || []).map((u) => el('div', {}, el('div', { class: 'hrow' }, el('span', { class: 'mono' }, u.path), el('b', {}, `${u.usedPct} %`)), bar(u.usedPct))),
+        watched.length ? el('div', { class: 'hline' }, watched.map((x) => `${x.status === 'online' ? '🟢' : '🔴'} ${x.label}`).join('  ')) : el('div', { class: 'sub' }, 'Marque tes appareils importants avec ★ dans Réseau.'),
+        state.watch?.cfg?.enabled ? null : el('div', { class: 'sub' }, 'Surveillance désactivée (Réglages → Surveillance).')),
+      card('Sauvegarde', '💾',
+        el('div', { class: 'hline' }, state.autoBackup?.enabled ? `Chaque nuit à ${state.autoBackup.hour} h` : 'Automatique : désactivée'),
+        el('div', { class: 'hline' }, state.autoBackup?.files?.[0] ? `Dernière : ${state.autoBackup.files[0].name.replace(/^odin-sauvegarde-|\.odinbk$/g, '')}` : 'Aucune sauvegarde automatique pour l\'instant'),
+        el('button', { class: 'btn small', type: 'button', onclick: go('settings', 'sauvegarde') }, 'Réglages')),
+      card('Routines', '⏰',
+        el('div', { class: 'sub' }, 'Un résumé chaque matin : météo, état du réseau, rappels du jour, nouveautés.'),
+        el('div', { class: 'hbtns' }, el('select', { id: 'rt-hour', 'aria-label': 'Heure du résumé' }, [6, 7, 8, 9].map((h) => el('option', { value: h, selected: h === 7 }, `${h} h`))),
+          el('button', { class: 'btn small primary', type: 'button', onclick: async () => {
+            const h = $('#rt-hour').value;
+            const r = await api('/api/action', { kind: 'routine_add', cron: `0 ${h} * * *`, peer, prompt: 'Résumé du matin : la météo du jour là où j\'habite (vérifiée sur le web, avec la source), l\'état de mon réseau (appareils importants, nouveautés, problèmes), mes rappels et tâches du jour, et ce qui mérite mon attention. Court et clair.' });
+            say(r.ok ? `C'est noté : ton résumé arrivera chaque matin à ${h} h.` : (r.error || 'Erreur'), [], 4000);
+          } }, 'Créer le résumé du matin')),
+        (state.jobs || []).length ? el('div', { class: 'hline' }, `${state.jobs.length} tâche(s) planifiée(s)`) : null),
+      el('article', { class: 'hcard', id: 'appCard' }),
+      H.length ? card('Tu demandes souvent', '🔁', H.map((h) => el('div', { class: 'habit' }, el('div', {}, `« ${h.text.slice(0, 90)} »`, el('span', { class: 'dim' }, ` · ${h.count} fois`)),
+        el('div', { class: 'hbtns' },
+          el('button', { class: 'btn small primary', type: 'button', onclick: () => api('/api/action', { kind: 'habit_schedule', key: h.key, cron: '0 8 * * *', prompt: h.text, peer }) }, 'Chaque jour à 8 h'),
+          el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'habit_schedule', key: h.key, cron: '0 8 * * 1', prompt: h.text, peer }) }, 'Chaque lundi'),
+          el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'habit_ignore', key: h.key }) }, 'Ignorer'))))) : null].filter(Boolean));
+    renderAppCard();
+    $('#homeSub').textContent = `${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · ${online} appareil(s) en ligne · ${live.length} mission(s) en cours`;
+    $('#b-home').hidden = !(grave || pending.size); $('#b-home').textContent = '!';
+  }
+  $('#homeCheck').addEventListener('click', async () => { moodHold('concentration'); const r = await api('/api/action', { kind: 'watch_now' }); moodRelease(); say(r.alerts?.length ? r.alerts.join('\n') : 'Tout va bien : appareils importants, disques et certificats OK.', [], 8000); });
+
+  // ---------- Réseau : sous-onglets, carte, sécurité, Proxmox ----------
+  function netTab(n) {
+    for (const b of document.querySelectorAll('[data-nt]')) b.setAttribute('aria-selected', String(b.dataset.nt === n));
+    for (const k of ['list', 'map', 'sec', 'pve']) $('#nt-' + k).hidden = k !== n;
+    if (n === 'pve') loadPve();
+    try { localStorage.setItem('odin.nt', n); } catch {}
+  }
+  for (const b of document.querySelectorAll('[data-nt]')) b.addEventListener('click', () => netTab(b.dataset.nt));
+  { let n = 'list'; try { n = localStorage.getItem('odin.nt') || 'list'; } catch {} if (n !== 'pve') netTab(n); }
+  function renderMap() {
+    const d = (state.devices || []).filter((x) => x.status !== 'removed'), box = $('#netMap'); box.textContent = '';
+    if (!d.length) { box.append(el('div', { class: 'empty' }, 'Aucun appareil : lance un balayage.')); return; }
+    const gw = d.find((x) => x.kind === 'routeur') || null, others = d.filter((x) => x !== gw);
+    const groups = NET_CATS.filter((c, i, a) => a.findIndex((o) => o[2] === c[2]) === i).map((c) => ({ c, items: others.filter((x) => NET_CATS.filter((o) => o[2] === c[2]).some((o) => o[0] === x.kind)) })).filter((g) => g.items.length);
+    const narrow = matchMedia('(max-width:860px)').matches, W = narrow ? 420 : 900, H = narrow ? 560 : Math.max(520, 160 + groups.length * 40), cx = W / 2, cy = H / 2, R = narrow ? Math.min(W / 2 - 55, H / 2 - 70) : Math.min(W, H) / 2 - 90;
+    const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('class', 'mapsvg'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Carte du réseau');
+    const mk = (tag, attrs, text) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
+    const node = (x, px, py, big) => {
+      const g = mk('g', { class: 'mnode' + (x.status !== 'online' ? ' off' : ''), transform: `translate(${px},${py})`, tabindex: '0' });
+      g.append(mk('circle', { r: big ? 30 : 20 }), mk('text', { class: 'mi', y: big ? 8 : 6 }, (NET_CATS.find((c) => c[0] === x.kind) || ['', '•'])[1]), mk('text', { class: 'ml', y: big ? 48 : 36 }, x.label.length > 18 ? x.label.slice(0, 17) + '…' : x.label), mk('text', { class: 'mip', y: big ? 62 : 49 }, x.ip));
+      g.append(mk('title', {}, `${x.label} · ${x.ip}${x.vendor ? ' · ' + x.vendor : ''}`));
+      g.addEventListener('click', () => { netTab('list'); $('#netSearch').value = x.ip; renderDevices(); });
+      return g;
+    };
+    const center = gw ? node(gw, cx, cy, true) : (() => { const g = mk('g', { class: 'mnode', transform: `translate(${cx},${cy})` }); g.append(mk('circle', { r: 30 }), mk('text', { class: 'mi', y: 8 }, '🌐'), mk('text', { class: 'ml', y: 48 }, 'Réseau')); return g; })();
+    let k = 0; const total = others.length || 1;
+    for (const g of groups) {
+      for (const x of g.items) {
+        const a = (k++ / total) * Math.PI * 2 - Math.PI / 2, r = R * (k % 2 ? 1 : 0.78);
+        const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r * (narrow ? 1.15 : 0.82);
+        svg.append(mk('line', { x1: cx, y1: cy, x2: px, y2: py, class: 'mlink' + (x.status !== 'online' ? ' off' : '') }));
+        svg.append(node(x, px, py, false));
+      }
+    }
+    svg.append(center);
+    box.append(svg, el('div', { class: 'mlegend' }, groups.map((g) => el('span', {}, `${g.c[1]} ${g.c[2]} (${g.items.length})`))));
+  }
+  function renderSec() {
+    const F = state.watch?.findings || [], box = $('#secList'); box.textContent = '';
+    const g = F.filter((f) => f.level === 'grave').length;
+    $('#b-sec').hidden = !g; $('#b-sec').textContent = g;
+    if (!F.length) { box.append(el('div', { class: 'empty' }, '🛡 Aucun risque repéré sur les appareils connus. Un balayage complet regarde les ports de chaque appareil.')); return; }
+    const icon = { grave: '🔴', attention: '🟠', info: '🔵' };
+    box.append(el('div', { class: 'sub', style: 'margin-bottom:10px' }, 'Odin observe sans rien attaquer. Pour corriger, demande-lui : « corrige le problème de Telnet sur … » (il te demandera ta validation).'),
+      ...F.map((f) => el('article', { class: 'sfind ' + f.level }, el('div', { class: 'sft' }, icon[f.level], ' ', el('b', {}, f.title)), f.device ? el('div', { class: 'dmeta' }, `${f.device} · `, el('span', { class: 'mono' }, f.ip)) : null, el('div', { class: 'sfa' }, '→ ', f.advice),
+        el('button', { class: 'btn small', type: 'button', onclick: () => { show('chat'); $('#input').value = `Aide-moi à corriger ce problème de sécurité : ${f.title}${f.device ? ` sur ${f.device} (${f.ip})` : ''}. Explique d'abord ce que tu vas faire.`; $('#input').dispatchEvent(new Event('input', { bubbles: true })); $('#input').focus(); } }, 'Demander à Odin de corriger'))));
+  }
+  async function loadPve() {
+    const box = $('#pveBox'); box.textContent = '';
+    if (!state.proxmox?.url || !state.proxmox?.token) { box.append(el('div', { class: 'empty' }, 'Proxmox n\'est pas encore relié. ', el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('settings'); openSettings('proxmox'); } }, 'Le configurer'))); return; }
+    box.append(el('div', { class: 'sub' }, 'Chargement…'));
+    const r = await api('/api/action', { kind: 'proxmox_list' });
+    box.textContent = '';
+    if (!r.ok) { box.append(el('div', { class: 'warn-box bad' }, r.error)); return; }
+    const items = r.items || [], nodes = items.filter((x) => x.type === 'node'), guests = items.filter((x) => x.type === 'qemu' || x.type === 'lxc').sort((a, b) => a.vmid - b.vmid);
+    const gb = (n) => n ? (n / 1024 ** 3).toFixed(1) + ' Go' : '?';
+    box.append(...nodes.map((n) => el('div', { class: 'hline' }, `🗄️ Nœud ${n.node} · ${n.status} · CPU ${Math.round((n.cpu || 0) * 100)} % · mémoire ${gb(n.mem)} / ${gb(n.maxmem)}`)),
+      el('div', { class: 'wrap', style: 'margin-top:10px' }, el('table', { class: 'tbl' }, el('thead', {}, el('tr', {}, ['', 'N°', 'Nom', 'Type', 'État', 'Mémoire', 'Actions'].map((h) => el('th', {}, h)))),
+        el('tbody', {}, guests.map((g) => el('tr', {}, el('td', {}, g.status === 'running' ? '🟢' : '⚪'), el('td', { 'data-label': 'N°', class: 'mono' }, g.vmid), el('td', { 'data-label': 'Nom' }, el('b', {}, g.name || '')), el('td', { 'data-label': 'Type' }, g.type === 'lxc' ? 'Conteneur LXC' : 'Machine virtuelle'),
+          el('td', { 'data-label': 'État' }, g.status === 'running' ? 'en marche' : 'arrêtée'), el('td', { 'data-label': 'Mémoire' }, g.status === 'running' ? `${gb(g.mem)} / ${gb(g.maxmem)}` : gb(g.maxmem)),
+          el('td', { 'data-label': 'Actions' }, el('div', { class: 'hbtns' }, (g.status === 'running' ? [['shutdown', 'Arrêter'], ['reboot', 'Redémarrer']] : [['start', 'Démarrer']]).concat([['snapshot', 'Instantané']]).map(([a, l]) =>
+            el('button', { class: 'btn small', type: 'button', onclick: () => { show('chat'); $('#input').value = `Proxmox : ${l.toLowerCase()} ${g.type === 'lxc' ? 'le conteneur' : 'la VM'} ${g.vmid} (${g.name}).`; send(); } }, l))))))))));
+  }
+
+  // ---------- Réglages : surveillance, Proxmox, sauvegarde automatique ----------
+  let watchLoaded = false;
+  function renderWatchSettings() {
+    if (!state?.watch) return;
+    if (!watchLoaded) { watchLoaded = true; const w = state.watch.cfg; $('#wt-on').checked = w.enabled; $('#wt-int').value = w.intervalMin; $('#wt-disk').value = w.diskPct; $('#wt-cert').value = w.certDays;
+      const a = state.autoBackup; $('#ab-on').checked = a.enabled; $('#ab-hour').value = a.hour; $('#ab-dir').value = a.dir; $('#ab-keep').value = a.keep; $('#pv-url').value = state.proxmox.url; }
+    $('#ab-hint').textContent = state.autoBackup.hasPassword ? 'Mot de passe enregistré (laisse vide pour le garder). Il te faudra pour restaurer : note-le.' : '8 caractères au moins. Il te faudra pour restaurer : note-le.';
+    $('#ab-files').replaceChildren(...(state.autoBackup.files || []).map((f) => el('li', {}, `${f.name} · ${(f.size / 1024 / 1024).toFixed(1)} Mo`)), el('li', { class: 'dim' }, `Dossier : ${state.autoBackup.dirShown}`));
+    $('#pv-hint').textContent = state.proxmox.token ? 'Jeton enregistré (laisse vide pour le garder).' : 'Aucun jeton enregistré.';
+  }
+  const stx = (id, r, ok) => { const s = $(id); s.textContent = r.ok ? ok : (r.error || 'Erreur'); s.className = 'status ' + (r.ok ? 'ok' : 'err'); if (r.ok) moodFlash('joie', 1500); };
+  $('#f-watch').addEventListener('submit', async (e) => { e.preventDefault(); stx('#wt-status', await api('/api/action', { kind: 'watch_save', enabled: $('#wt-on').checked, intervalMin: $('#wt-int').value, diskPct: $('#wt-disk').value, certDays: $('#wt-cert').value }), '✓ Enregistré.'); });
+  $('#wt-now').addEventListener('click', async () => { const r = await api('/api/action', { kind: 'watch_now' }); stx('#wt-status', r, r.alerts?.length ? r.alerts.join(' · ') : '✓ Tout va bien.'); });
+  $('#f-autobk').addEventListener('submit', async (e) => { e.preventDefault(); const r = await api('/api/action', { kind: 'backup_save', enabled: $('#ab-on').checked, hour: $('#ab-hour').value, dir: $('#ab-dir').value, keep: $('#ab-keep').value, password: $('#ab-pass').value }); $('#ab-pass').value = ''; stx('#ab-status', r, '✓ Enregistré.'); });
+  $('#ab-now').addEventListener('click', async () => { $('#ab-status').textContent = 'Sauvegarde en cours…'; const r = await api('/api/action', { kind: 'backup_now' }); stx('#ab-status', r, `✓ ${r.file}`); });
+  $('#f-pve').addEventListener('submit', async (e) => { e.preventDefault(); const r = await api('/api/action', { kind: 'proxmox_save', url: $('#pv-url').value, token: $('#pv-token').value }); $('#pv-token').value = ''; stx('#pv-status', r, '✓ Enregistré.'); });
+  $('#pv-test').addEventListener('click', async () => { const r = await api('/api/action', { kind: 'proxmox_list' }); stx('#pv-status', r, `✓ Proxmox répond : ${(r.items || []).filter((x) => x.type === 'qemu' || x.type === 'lxc').length} VM et conteneur(s).`); });
+
+
+  // ---------- Mains libres : « Odin, … » (reconnaissance vocale du navigateur) ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let hands = null, handsOn = false, awake = 0;
+  function handsUi() { const b = $('#handsBtn'); b.setAttribute('aria-pressed', String(handsOn)); b.classList.toggle('on', handsOn); b.querySelector('.hl').textContent = handsOn ? 'J\'écoute « Odin »' : 'Mains libres'; }
+  function handsStart() {
+    if (!SR) { say('Ce navigateur ne sait pas écouter en continu. Essaie Chrome, Edge ou Safari, ou utilise le bouton micro.', [], 7000); return; }
+    hands = new SR(); hands.lang = 'fr-FR'; hands.continuous = true; hands.interimResults = false;
+    hands.onresult = (ev) => {
+      for (let k = ev.resultIndex; k < ev.results.length; k++) {
+        if (!ev.results[k].isFinal) continue;
+        const said = ev.results[k][0].transcript.trim();
+        const m = said.match(/\b(?:odin|o d i n|audin|odine)\b[\s,.:!]*(.*)$/i);
+        if (m) {
+          if (m[1].trim()) { handsSend(m[1].trim()); continue; }
+          awake = Date.now(); window.OdinFace?.sound('excite'); moodHold('ecoute'); setTimeout(() => { if (awake && Date.now() - awake >= 7900) { awake = 0; moodRelease(); } }, 8000);
+          say('Oui ? Je t\'écoute.', [], 3000); continue;
+        }
+        if (awake && Date.now() - awake < 8000 && said) { awake = 0; moodRelease(); handsSend(said); }
+      }
+    };
+    hands.onend = () => { if (handsOn) { try { hands.start(); } catch {} } };
+    hands.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { handsOn = false; handsUi(); say('Le micro est refusé : autorise-le pour ce site dans le navigateur.', [], 6000); } };
+    try { hands.start(); handsOn = true; handsUi(); say('Mains libres : dis « Odin » puis ta demande.', [], 4000); } catch { handsOn = false; handsUi(); }
+  }
+  function handsSend(text) { show('chat'); $('#input').value = text; window.OdinFace?.sound('joie'); send(); }
+  $('#handsBtn').addEventListener('click', () => { if (handsOn) { handsOn = false; try { hands?.stop(); } catch {} handsUi(); } else handsStart(); });
+
+  // ---------- Application installable et notifications ----------
+  let installEvt = null;
+  let swFailed = false;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { swFailed = true; renderAppCard(); });
+  navigator.serviceWorker?.addEventListener?.('message', (e) => { if (e.data?.odinView) show(e.data.odinView); });
+  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; renderAppCard(); });
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  function notifyOwner(title, body, view = 'chat') {
+    try {
+      if (!('Notification' in window) || Notification.permission !== 'granted' || (!document.hidden && document.hasFocus())) return;
+      const n = { body: body.slice(0, 180), icon: '/icon-192.png', badge: '/icon-192.png', tag: 'odin-' + view, data: { view } };
+      navigator.serviceWorker?.ready.then((r) => r.showNotification(title, n)).catch(() => new Notification(title, n));
+    } catch { /* notifications indisponibles */ }
+  }
+  function renderAppCard() {
+    const box = $('#appCard'); if (!box) return;
+    const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+    const ios = /iphone|ipad/i.test(navigator.userAgent);
+    box.replaceChildren(
+      el('div', { class: 'hct' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, '📲'), 'Application'),
+      standalone() ? el('div', { class: 'hline' }, '✓ Odin est installé sur cet appareil.')
+        : installEvt ? el('button', { class: 'btn small primary', type: 'button', onclick: async () => { installEvt.prompt(); await installEvt.userChoice; installEvt = null; renderAppCard(); } }, 'Installer Odin sur cet appareil')
+        : el('div', { class: 'hline' }, ios ? 'Sur iPhone : bouton Partager → « Sur l\'écran d\'accueil ».' : 'Menu du navigateur → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »).'),
+      swFailed && state?.access?.selfSigned ? el('div', { class: 'hline' }, 'Ton appareil ne fait pas encore confiance au certificat d\'Odin, ce qui bloque l\'installation complète et les notifications. ', el('a', { href: '/odin-cert.crt' }, 'Télécharger le certificat d\'Odin'), ' puis installe-le comme certificat de confiance (ou utilise une adresse avec un vrai certificat : Réglages → Accès).') : null,
+      perm === 'granted' ? el('div', { class: 'hline' }, '🔔 Notifications activées sur cet appareil.')
+        : perm === 'unsupported' ? el('div', { class: 'hline' }, 'Notifications : non disponibles ici' + (ios ? ' (installe d\'abord Odin sur l\'écran d\'accueil)' : '') + '.')
+        : el('button', { class: 'btn small', type: 'button', onclick: async () => { await Notification.requestPermission(); renderAppCard(); if (Notification.permission === 'granted') notifyOwner('Odin', 'Les notifications sont activées.'); } }, perm === 'denied' ? 'Notifications refusées (réglages du navigateur)' : 'Activer les notifications'),
+      el('div', { class: 'dim' }, 'Les notifications arrivent quand Odin te répond, te demande une validation ou te prévient d\'un problème, tant que l\'appli est ouverte ou en arrière-plan.'));
+  }
+  // Ouvrir directement une section : /#chat, /#net…
+  const hashView = () => { const v = location.hash.slice(1); if (v && document.getElementById('v-' + v)) show(v); };
+  addEventListener('hashchange', hashView);
 
   // ---------- Voix : micro (Whisper) et lecture (ElevenLabs) ----------
   let speakOn = false, speakPref = null;
@@ -1846,7 +2136,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------
@@ -1855,9 +2145,9 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const es = new EventSource('/api/stream');
     es.onmessage = (ev) => {
       const d = JSON.parse(ev.data);
-      if (d.type === 'message' && d.peer === peer) { addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
+      if (d.type === 'message' && d.peer === peer) { notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
-      else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) { approvalCard(d.event); moodFlash('inquiet', 4000); }
+      else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) { notifyOwner('Odin a besoin de toi', d.event.summary || 'Une validation est demandée.'); approvalCard(d.event); moodFlash('inquiet', 4000); }
       else if (d.type === 'event' && d.event.type === 'approval_done') approvalDone(d.event);
       else if (d.type === 'event' && d.event.type === 'mood') { if (d.peer === peer) moodBase(d.event.mood, true); }
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') { addActivity(d.event); moodFromEvent(d.event); }
@@ -1871,7 +2161,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       setTimeout(connect, 3000);
     };
   }
-  refresh().then(loadHistory); connect();
+  refresh().then(() => { loadHistory(); hashView(); }); connect();
 })();
 </script>
 </body>

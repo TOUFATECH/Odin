@@ -17,7 +17,7 @@ import { createServer as createHttpsServer } from 'node:https';
 import { isPrivateHost } from '../heimdall/policy.ts';
 import { serviceName } from '../hlidskjalf/identify.ts';
 import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
 import { adminMode, checkSudoPassword, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine } from '../machines/access.ts';
@@ -27,9 +27,13 @@ import { setConfigValue, type OdinPaths } from '../config.ts';
 import type { Autonomy } from '../heimdall/policy.ts';
 import { classify, deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
 import { vendorOf } from '../hlidskjalf/vendors.ts';
+import { auditNetwork, autoBackup, backupDir, diskUsage, hasBackupPassword, listBackups, setBackupPassword } from '../guard/watch.ts';
+import { pveApi } from '../tools/proxmox.ts';
+import { nextRun } from '../cron/cron.ts';
+
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
-import { applySettings, providerFor, settingsView, testProvider, type ModelPreset } from '../settings.ts';
+import { applySettings, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { TTS_DEFAULTS, cloneVoice, listVoices, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../voice/voice.ts';
 
 export function ensureWebToken(paths: OdinPaths, rotate = false): string {
@@ -50,10 +54,33 @@ export interface WebHooks {
   resume?(sessionId: string): Promise<void>;
   /** Relance les services avec la nouvelle configuration (fourni par la passerelle). */
   reload?(): Promise<void>;
+  /** Vörðr : contrôle de santé immédiat (renvoie les alertes envoyées). */
+  watchNow?(): Promise<string[]>;
 }
 
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
 const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
+// Application installable (PWA) : icônes, manifeste, service worker (aucun secret dedans).
+const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
+const MANIFEST = JSON.stringify({
+  name: 'Odin Agent IA', short_name: 'Odin', description: 'Ton agent IA personnel', lang: 'fr', start_url: '/', scope: '/', display: 'standalone',
+  background_color: '#0A0D13', theme_color: '#0A0D13',
+  icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }, { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }],
+  shortcuts: [{ name: 'Discussion', url: '/#chat' }, { name: 'Réseau', url: '/#net' }],
+});
+// Service worker minimal : rend l'appli installable et affiche les notifications ; ne met RIEN en cache
+// (les réponses d'Odin contiennent des données privées).
+const SW = `self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', () => {});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const view = (e.notification.data && e.notification.data.view) || 'chat';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    for (const c of cs) { c.postMessage({ odinView: view }); return c.focus(); }
+    return self.clients.openWindow('/#' + view);
+  }));
+});`;
 const MAX_BODY = 200_000;
 
 export class WebChannel implements Channel {
@@ -203,7 +230,7 @@ export class WebChannel implements Channel {
       const nonce = randomBytes(16).toString('base64');
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
-        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         ...(this.tls && !this.tls.selfSigned ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
@@ -212,6 +239,11 @@ export class WebChannel implements Channel {
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }
+    if (url.pathname === '/manifest.webmanifest') { res.writeHead(200, { 'content-type': 'application/manifest+json', 'cache-control': 'max-age=3600' }); return void res.end(MANIFEST); }
+    // Certificat public d'Odin (jamais la clé) : à installer sur un appareil pour qu'il fasse confiance à Odin.
+    if (url.pathname === '/odin-cert.crt' && this.tls?.selfSigned) { res.writeHead(200, { 'content-type': 'application/x-x509-ca-cert', 'content-disposition': 'attachment; filename="odin.crt"' }); return void res.end(this.tls.cert); }
+    if (url.pathname === '/sw.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'service-worker-allowed': '/', 'x-content-type-options': 'nosniff' }); return void res.end(SW); }
+    if (ICONS[url.pathname.slice(1)]) { res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=86400' }); return void res.end(ICONS[url.pathname.slice(1)]); }
     if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=86400' });
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
@@ -363,6 +395,12 @@ export class WebChannel implements Channel {
       budget: { monthlyUsd: cfg.routing.monthlyBudgetUsd, spentUsd: muninn.monthCost(), breakdown: muninn.usageBreakdown(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) },
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
+      watch: {
+        cfg: cfg.watch, findings: auditNetwork(inventory.list({ status: 'all' })), disks: diskUsage(['/', this.odin.paths.home]),
+      },
+      autoBackup: { ...cfg.autoBackup, dirShown: backupDir(this.odin.paths, cfg.autoBackup), hasPassword: hasBackupPassword(this.odin.paths), files: listBackups(this.odin.paths, cfg.autoBackup).slice(0, 10) },
+      proxmox: { url: cfg.proxmox.url, token: Boolean(process.env.PROXMOX_TOKEN) },
+      habits: muninn.habits(),
     };
   }
 
@@ -499,6 +537,60 @@ export class WebChannel implements Channel {
       }
       case 'conversation_reset': muninn.resetSession(`web:${safePeer(b.peer as string)}`); break;
       case 'net_scan': void this.hooks.scanNetwork(Boolean(b.full)); return { ok: true, started: true };
+      case 'device_watch': {
+        const ids = new Set(this.odin.cfg.watch.devices);
+        if (b.on) ids.add(String(b.id)); else ids.delete(String(b.id));
+        this.odin.cfg.watch.devices = [...ids];
+        setConfigValue(this.odin.paths, ['watch', 'devices'], [...ids]);
+        break;
+      }
+      case 'watch_save': {
+        const n = (v: unknown, lo: number, hi: number, d: number) => { const x = Number(v); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x))) : d; };
+        const w = this.odin.cfg.watch;
+        Object.assign(w, { enabled: Boolean(b.enabled), intervalMin: n(b.intervalMin, 5, 1440, w.intervalMin), diskPct: n(b.diskPct, 50, 99, w.diskPct), certDays: n(b.certDays, 1, 90, w.certDays) });
+        setConfigValue(this.odin.paths, ['watch'], w);
+        break;
+      }
+      case 'watch_now': return { ok: true, alerts: await this.hooks.watchNow?.() ?? [] };
+      case 'backup_save': {
+        const a = this.odin.cfg.autoBackup;
+        const dir = String(b.dir ?? '').trim();
+        if (dir && !isAbsolute(dir)) return { ok: false, error: 'dossier : un chemin absolu (ex. /mnt/nas/sauvegardes), ou vide pour ~/.odin/sauvegardes' };
+        if (typeof b.password === 'string' && b.password) { try { setBackupPassword(this.odin.paths, b.password); } catch (e) { return { ok: false, error: (e as Error).message }; } }
+        Object.assign(a, { enabled: Boolean(b.enabled), hour: Math.min(23, Math.max(0, Math.round(Number(b.hour ?? a.hour)))), dir, keep: Math.min(60, Math.max(1, Math.round(Number(b.keep ?? a.keep)))) });
+        if (a.enabled && !hasBackupPassword(this.odin.paths)) return { ok: false, error: 'choisis un mot de passe pour les sauvegardes (8 caractères au moins)' };
+        setConfigValue(this.odin.paths, ['autoBackup'], a);
+        break;
+      }
+      case 'backup_now': {
+        const r = autoBackup(this.odin.paths, { ...this.odin.cfg.autoBackup, enabled: true, hour: 0 }, new Date());
+        if (r?.error) return { ok: false, error: r.error };
+        this.notify('state');
+        return { ok: true, file: r?.file ?? 'déjà faite aujourd\'hui' };
+      }
+      case 'proxmox_save': {
+        const url = String(b.url ?? '').trim().replace(/\/$/, '');
+        if (url && !/^https?:\/\/[^\s/]+(:\d+)?$/.test(url)) return { ok: false, error: 'adresse : https://IP:8006' };
+        this.odin.cfg.proxmox.url = url;
+        setConfigValue(this.odin.paths, ['proxmox'], { url });
+        if (typeof b.token === 'string' && b.token.trim()) {
+          if (!/^[\w.-]+@[\w.-]+![\w.-]+=[\w-]+$/.test(b.token.trim())) return { ok: false, error: 'jeton : utilisateur@pam!nom=secret' };
+          writeSecret(this.odin.paths, 'PROXMOX_TOKEN', b.token.trim()); this.odin.redactor.add(b.token.trim());
+        }
+        break;
+      }
+      case 'proxmox_list': {
+        try { return { ok: true, items: await pveApi(this.odin.cfg.proxmox.url, process.env.PROXMOX_TOKEN ?? '', 'GET', '/cluster/resources') }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
+      case 'habit_ignore': muninn.ignoreHabit(String(b.key ?? '')); break;
+      case 'habit_schedule': case 'routine_add': {
+        const cron = String(b.cron ?? ''), prompt = String(b.prompt ?? '').trim().slice(0, 2000);
+        try { nextRun(cron, new Date()); } catch { return { ok: false, error: 'horaire invalide' }; }
+        if (!prompt) return { ok: false, error: 'demande vide' };
+        muninn.addJob({ id: `r-${Date.now().toString(36)}`, cron, prompt, channel: String(b.channel ?? 'web'), peer: String(b.peer ?? 'principal'), next_run: nextRun(cron, new Date()).getTime(), created_at: Date.now(), tainted: 0 } as never);
+        if (b.key) muninn.ignoreHabit(String(b.key));
+        break;
+      }
       default: return { ok: false, error: 'action inconnue' };
     }
     this.notify('state');

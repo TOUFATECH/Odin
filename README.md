@@ -254,6 +254,42 @@ Odin a **sa propre connexion**, rangée dans `~/.odin/codex-auth.json` (lisible 
 
 **Budget mensuel** (Réglages → Modèle) : un plafond en dollars ; tous les appels sont comptés (agent, juges, résumés, observation, vision), la dépense s'affiche par modèle et par usage, et une fois le plafond atteint seuls les modèles gratuits servent, Odin te le dit.
 
+### Accueil : tout d'un coup d'œil
+
+La page d'accueil résume l'essentiel : modèle et dépenses du mois, ce qui t'attend (validations, compétences à relire, problèmes de sécurité), missions en cours, état du réseau, surveillance (disques, appareils importants), sauvegarde, routines, et les demandes que tu fais souvent (Odin propose d'en faire une tâche automatique, chaque jour ou chaque lundi).
+
+### Surveillance (Vörðr)
+
+Marque tes appareils importants avec ★ dans Réseau : Odin te prévient (Telegram ou interface) quand l'un tombe, puis quand il revient. Il surveille aussi les disques de sa machine (alerte à 90 % par défaut) et les certificats HTTPS des appareils (14 jours avant expiration). Une alerte n'est envoyée qu'une fois (rappel après 24 h si elle dure). Réglages → Surveillance.
+
+### Sécurité du réseau
+
+Onglet Réseau → Sécurité : Telnet ou Docker ouverts sans protection, bureau à distance, VNC, FTP, MQTT, Redis exposés, interfaces d'administration non chiffrées, appareils inconnus récents — chacun avec un conseil, et un bouton pour demander à Odin de corriger (avec ta validation). Odin observe, il n'attaque rien. Outil `net_security`.
+
+### Carte du réseau
+
+Onglet Réseau → Carte : la box au centre, les appareils autour, par catégorie ; touche un appareil pour voir sa fiche.
+
+### Proxmox
+
+Réglages → Proxmox : adresse (https://IP:8006) et jeton d'API (Datacenter → Permissions → API Tokens). Odin liste les nœuds, machines virtuelles et conteneurs LXC, et peut les démarrer, les arrêter proprement, les redémarrer ou en faire un instantané (outils `proxmox_list`, `proxmox_action` ; chaque action est validée selon ton autonomie). Onglet Réseau → Proxmox.
+
+### Sauvegarde automatique
+
+Réglages → Sauvegarde : une sauvegarde chiffrée chaque nuit, dans le dossier de ton choix (ton NAS monté, par exemple), en gardant les N dernières. Le mot de passe reste sur la machine (~/.odin/backup-pass) : note-le, il sert à restaurer (`odin restore`).
+
+### Routines
+
+Accueil → Routines : « Créer le résumé du matin » programme chaque jour, à l'heure choisie, un résumé (météo vérifiée, état du réseau, rappels du jour, ce qui mérite ton attention).
+
+### Mains libres
+
+Bouton « Mains libres » dans la discussion : dis « Odin, … » et ta demande part toute seule (ou « Odin », puis ta demande). Utilise la reconnaissance vocale du navigateur (Chrome, Edge, Safari) ; sur Chrome, la voix passe par le service de reconnaissance de Google. Coupe-le d'un toucher.
+
+### Application sur le téléphone
+
+Odin s'installe comme une application (icône sur l'écran d'accueil, plein écran) : menu du navigateur → « Installer l'application », ou sur iPhone Partager → « Sur l'écran d'accueil ». Active les notifications depuis l'accueil pour être prévenu des réponses, validations et alertes. Avec le certificat auto-signé d'Odin, le téléphone doit d'abord lui faire confiance (lien « Télécharger le certificat d'Odin » sur l'accueil) ; avec une adresse ayant un vrai certificat, rien à faire.
+
 ### Son visage et ses humeurs
 
 Odin a un visage, une petite boule aux deux yeux qui **change de couleur selon son humeur** ; ses yeux, toujours droits, changent de taille, de place et de mouvement selon l'émotion (tout petits quand il est gêné, plissés quand il est fâché, mi-clos quand il est fatigué, grands quand il est surpris, un clin d'œil…). Une vingtaine d'humeurs en tout : content, rieur, attendri, fier, enthousiaste, complice, malicieux, surpris, pensif, concentré, perplexe, inquiet, triste, fâché, effrayé, gêné, fatigué, à l'écoute, attentif… **Il choisit lui-même son humeur** à chaque réponse, selon ce qu'il vit avec toi. Entre deux réponses, son visage réagit tout seul : il t'écoute quand tu écris ou parles, se concentre quand il travaille, regarde quand tu lui montres une photo (bouton 📷), parle quand il lit sa réponse à voix haute, **ferme les yeux quand tu tapes une clé** dans les réglages, sourit quand un réglage est enregistré, s'endort si on l'oublie. Touche-le : il saute ; touche-le trop, il se fâche, devient rouge, puis bleu, puis redevient jaune. Chaque mouvement a son petit **son**, synthétisé dans le navigateur : « boing » quand il saute, grognement quand il se fâche, petit « tic » quand il ferme puis rouvre les yeux, carillon montant quand il est content, descendant quand il est triste (bouton pour couper les sons, sur le site comme dans l'interface). Sur **Telegram**, sa réaction est un émoji à la fin de son message, de la même taille que le texte (`mood.emoji` ; l'autocollant de son visage en plus avec `mood.stickers`).

@@ -71,6 +71,12 @@ export interface OdinConfig {
   mood: { emoji: boolean; stickers: boolean };
   /** Aide à l'écriture dans l'interface : correction d'orthographe (auto = proposée en écrivant, ask = sur demande), conseils, déplacements d'Odin. */
   assist: { spelling: 'auto' | 'ask' | 'off'; tips: boolean; roam: boolean };
+  /** Vörðr : surveillance (appareils importants, disques, certificats) et alertes au propriétaire. */
+  watch: { enabled: boolean; intervalMin: number; devices: string[]; diskPct: number; certDays: number };
+  /** Sauvegarde chiffrée automatique (mot de passe dans ~/.odin/backup-pass). */
+  autoBackup: { enabled: boolean; hour: number; dir: string; keep: number };
+  /** Proxmox VE : adresse de l'API (jeton dans PROXMOX_TOKEN). */
+  proxmox: { url: string };
   learning: {
     /** Proposer des compétences après une tâche complexe. */
     proposeSkills: boolean;
@@ -145,6 +151,9 @@ export const DEFAULT_CONFIG: OdinConfig = {
   },
   mood: { emoji: true, stickers: false },
   assist: { spelling: 'auto', tips: true, roam: true },
+  watch: { enabled: true, intervalMin: 60, devices: [], diskPct: 90, certDays: 14 },
+  autoBackup: { enabled: false, hour: 3, dir: '', keep: 7 },
+  proxmox: { url: '' },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },

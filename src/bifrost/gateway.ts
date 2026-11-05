@@ -12,6 +12,7 @@ import { nextRun } from '../cron/cron.ts';
 import type { Channel, Inbound } from './channel.ts';
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
+import { autoBackup, healthCheck, newAlerts } from '../guard/watch.ts';
 import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 
@@ -253,8 +254,29 @@ export class Gateway {
   }
 
   /** Tâches planifiées : exécution sans surveillance (validations refusées, sauf en Odin Breaker). */
+  private lastWatch = 0;
+  /** Vörðr : santé (appareils importants, disques, certificats) et sauvegarde de la nuit ; alertes au propriétaire. */
+  async watch(now = Date.now(), force = false): Promise<string[]> {
+    const w = this.odin.cfg.watch, msgs: string[] = [];
+    const b = autoBackup(this.odin.paths, this.odin.cfg.autoBackup, new Date(now));
+    if (b?.file) console.error(`[vörðr] sauvegarde : ${b.file}`);
+    if (b?.error) msgs.push(`💾 ${b.error}`);
+    if (w.enabled && (force || now - this.lastWatch >= w.intervalMin * 60_000)) {
+      this.lastWatch = now;
+      const alerts = await healthCheck({ devices: this.odin.inventory.list({ status: 'all' }), cfg: w, paths: this.odin.paths });
+      msgs.push(...newAlerts(alerts, join(this.odin.paths.logs, 'watch.json'), now));
+    }
+    if (msgs.length) {
+      const t = this.ownerTarget();
+      if (t) await t.ch.send(t.peer, `🛡 Vörðr — surveillance\n${msgs.join('\n')}`).catch(() => {});
+      for (const ch of this.channels.values()) ch.notify?.('watch');
+    }
+    return msgs;
+  }
+
   async tick(now = Date.now()): Promise<void> {
     await this.breakerReport(now).catch((e) => console.error('[breaker]', (e as Error).message));
+    await this.watch(now).catch((e) => console.error('[vörðr]', (e as Error).message));
     const net = this.odin.cfg.network;
     const last = this.odin.inventory.lastScan();
     if (net.enabled && (!last || now - last.at >= net.intervalMin * 60_000)) {
