@@ -1272,7 +1272,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     moodFlash(list.some((p) => p.kind === 'fautes') ? 'clin' : 'malice', 2500);
     window.OdinFace?.sound('joie');
     say(list.length === 1 ? 'J\'ai une idée :' : `J'ai ${list.length} idées :`, list.map((p, k) => ({
-      label: `${KIND_ICON[p.kind] || '•'} ${p.title}`, hint: p.text, primary: k === 0,
+      label: `${KIND_ICON[p.kind] || p.icon || '•'} ${p.title}`, hint: p.text, primary: k === 0,
       run: () => { i.value = p.text; i.dispatchEvent(new Event('input', { bubbles: true })); lastChecked = p.text; i.focus(); moodFlash('joie', 1500); },
     })), 0, { forText: text, list: true });
   }

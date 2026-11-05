@@ -33,7 +33,7 @@ test('propositions spontanées : 4 au plus, jamais le texte identique, types con
   try {
     const p = await o.agent.suggestDraft('met a jour la machine');
     assert.equal(p.length, 4);
-    assert.deepEqual(p.map((x) => x.kind), ['fautes', 'suite', 'clarte', 'precision']);
+    assert.deepEqual(p.map((x) => x.kind), ['fautes', 'suite', 'bizarre', 'precision'], 'types libres acceptés');
     assert.ok(!p.some((x) => x.text === 'met a jour la machine'), 'le texte identique n\'est pas proposé');
     assert.deepEqual(await o.agent.suggestDraft('Merci !'), []);
   } finally { o.cleanup(); }
@@ -51,5 +51,14 @@ test('propositions selon le contexte : conversation, mémoire et appareils donn�
     assert.match(sent, /Telegram/, 'les souvenirs sont fournis');
     assert.match(sent, /<brouillon>\nmets a jour le nas/);
     assert.deepEqual(p.map((x) => x.kind), ['securite', 'planifier']);
+    assert.match(o.provider.calls.at(-1)!.system, /EXEMPLES, pas une liste fermée/);
+  } finally { o.cleanup(); }
+});
+
+test('propositions : Odin invente ses propres types, avec une icône', async () => {
+  const o = makeOdin([{ text: '{"propositions": [{"type": "Traduire", "icone": "🌍", "titre": "En anglais aussi", "texte": "Rédige la réponse en français et en anglais."}, {"type": "<script>", "icone": "<b>", "titre": "x", "texte": "y"}]}' }]);
+  try {
+    const p = await o.agent.suggestDraft('rédige la réponse');
+    assert.deepEqual(p.map((x) => [x.kind, x.icon]), [['traduire', '🌍'], ['script', 'b']], 'type nettoyé, rien d\'injectable');
   } finally { o.cleanup(); }
 });
