@@ -1,7 +1,9 @@
 // Outils réseau et maintenance : inventaire, balayage, mises à jour de la machine.
 import { spawn } from 'node:child_process';
 import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } from '../hlidskjalf/inventory.ts';
-import { serviceName } from '../hlidskjalf/identify.ts';
+import { nameFromTitle, netbiosName, probeWeb, serviceName, WEB_PORTS, type WebEndpoint } from '../hlidskjalf/identify.ts';
+import { connect } from 'node:net';
+import { reverse as dnsReverse } from 'node:dns/promises';
 import { auditNetwork } from '../guard/watch.ts';
 import { CATEGORIES, vendorOf } from '../hlidskjalf/vendors.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
@@ -39,6 +41,46 @@ export const netInventory: Tool = {
     const other = list.filter((d) => !CATEGORIES.some((c) => c.kind === d.kind));
     if (other.length) groups.push({ kind: 'autres', icon: '•', items: other });
     return head + groups.filter((g) => g.items.length).map((g) => `\n${g.icon} ${g.kind.toUpperCase()} (${g.items.length})\n${g.items.map(line).join('\n')}`).join('\n');
+  },
+};
+
+/** Bannière SSH (« SSH-2.0-OpenSSH_9.2p1 Debian-2 ») : dit souvent le système. */
+export function sshBanner(ip: string, timeoutMs = 2500): Promise<string | undefined> {
+  return new Promise((res) => {
+    const sock = connect({ host: ip, port: 22, timeout: timeoutMs }, () => undefined);
+    let buf = '';
+    const done = (v?: string) => { sock.destroy(); res(v); };
+    sock.on('data', (d) => { buf += d.toString('latin1'); if (buf.includes('\n')) done(buf.split(/\r?\n/)[0].slice(0, 120)); });
+    sock.on('timeout', () => done()); sock.on('error', () => done());
+  });
+}
+export const netIdentify: Tool = {
+  name: 'net_identify',
+  description: 'Identifie UN appareil du réseau à fond : son NOM (nom d\'hôte DNS, nom Windows/NetBIOS, nom dans son interface web, nœud Proxmox…), son système (bannière SSH), son fabricant, ses pages web. À utiliser dès qu\'on te demande « c\'est quoi cet appareil ? » ou « son nom ? » avant de répondre.',
+  risk: 'network',
+  schema: obj({ ip: str('adresse IP privée de l\'appareil') }, ['ip']),
+  async run(i, ctx) {
+    const ip = s(i.ip).trim();
+    if (!/^(10|127|192\.168|172\.(1[6-9]|2\d|3[01]))\.\d+\.\d+(\.\d+)?$/.test(ip)) return 'Adresse privée attendue (192.168…, 10…, 172.16–31…).';
+    const d = ctx.inventory?.get(ip);
+    const ports = d?.ports?.length ? d.ports : [22, 80, 443, 8006, 5000, 5001, 8123, 8080];
+    const [rdns, nb, ssh, ...web] = await Promise.all([
+      dnsReverse(ip).catch(() => [] as string[]), netbiosName(ip), sshBanner(ip),
+      ...ports.filter((p) => WEB_PORTS.includes(p)).slice(0, 6).map((p) => probeWeb(ip, p).catch(() => undefined)),
+    ]);
+    const pages = web.filter(Boolean) as WebEndpoint[];
+    const names = [...new Set([d?.label, d?.name, d?.hostname, ...rdns.map((x) => x.replace(/\.$/, '')), nb, ...pages.map((w) => nameFromTitle(w.title))].filter(Boolean) as string[])];
+    const machine = ctx.home ? listMachines(ctx.home).find((m) => m.host === ip) : undefined;
+    let host = '';
+    if (machine) { try { host = (await runOnMachine(ctx.home!, machine, 'hostname; (. /etc/os-release 2>/dev/null; echo "$PRETTY_NAME")', { timeoutMs: 15_000 })).out.trim(); } catch { /* inaccessible */ } }
+    return [`Appareil ${ip}${d ? ` — classé « ${d.kind} »` : ''}`,
+      `Nom(s) trouvé(s) : ${names.length ? names.join(' · ') : 'aucun nom annoncé par l\'appareil'}`,
+      host ? `Sur la machine elle-même (SSH) : ${host.replace(/\n/g, ' · ')}` : '',
+      d?.mac ? `MAC ${d.mac}${vendorOf(d.mac) ? ` · fabricant ${vendorOf(d.mac)}` : ''}` : '',
+      ssh ? `SSH : ${ssh}` : '',
+      ...pages.map((w) => `Web : ${w.url} — « ${w.title || 'sans titre'} »${w.server ? ` (${w.server})` : ''}`),
+      !names.length ? 'Pour lui donner un nom : net_inventory ne suffit pas ; propose au propriétaire de le renommer (Réseau → ✎), ou connecte-toi dessus (machine_exec) pour lire son nom d\'hôte.' : '',
+    ].filter(Boolean).join('\n');
   },
 };
 
@@ -151,7 +193,7 @@ const machineCopy: Tool = {
   },
 };
 
-export const NETWORK_TOOLS: Tool[] = [netInventory, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
+export const NETWORK_TOOLS: Tool[] = [netInventory, netIdentify, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
 
 export const netSecurity: Tool = {
   name: 'net_security',

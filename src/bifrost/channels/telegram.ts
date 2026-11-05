@@ -1,14 +1,45 @@
 // Canal Telegram en API HTTP brute (long polling) : aucune dépendance.
 // Texte, notes vocales (transcrites par Whisper) et fichiers (déposés dans l'espace de travail).
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { type Channel, chunk, type Inbound } from '../channel.ts';
+import { isMood, MOOD_EMOJI, MOOD_IDS, type Mood } from '../../mood/mood.ts';
 
 export interface TelegramOptions {
   /** Transcrit une note vocale (Whisper) ; absent = les vocaux sont refusés poliment. */
   transcribe?(audio: Uint8Array, mime: string): Promise<string>;
   /** Dossier où déposer les fichiers reçus (PDF, Word, Excel, photos, vidéos…). */
   inbox?: string;
+  /** Dossier d'Odin : on y retient les émojis de son visage (pack créé une fois). */
+  home?: string;
+  /** Propriétaire (identifiant Telegram) : le pack d'émojis est créé à son nom. */
+  owner?: string;
+}
+
+/** Image 100×100 du visage d'Odin pour une humeur (émoji personnalisé). */
+export function moodEmojiImage(mood: Mood): Uint8Array | undefined {
+  const f = new URL(`../../mood/emoji/${mood}.webp`, import.meta.url);
+  return existsSync(f) ? new Uint8Array(readFileSync(f)) : undefined;
+}
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/**
+ * Markdown du modèle → HTML Telegram (gras, italique, code, blocs de code, liens, titres), pour ne
+ * plus voir de « **…** » bruts. Pur, testable.
+ */
+export function tgHtml(md: string): string {
+  const blocks: string[] = [];
+  let s = md.replace(/```[\w+-]*\n?([\s\S]*?)```/g, (_m, code: string) => { blocks.push(`<pre>${esc(code.replace(/\n$/, ''))}</pre>`); return `\u0000${blocks.length - 1}\u0000`; });
+  s = s.replace(/`([^`\n]+)`/g, (_m, code: string) => { blocks.push(`<code>${esc(code)}</code>`); return `\u0000${blocks.length - 1}\u0000`; });
+  s = esc(s)
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_m, l: string, u: string) => `<a href="${u.replace(/"/g, '&quot;')}">${l}</a>`)
+    .replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>')
+    .replace(/\*\*([^*\n]+?)\*\*/g, '<b>$1</b>')
+    .replace(/__([^_\n]+?)__/g, '<b>$1</b>')
+    .replace(/(^|[\s(])\*([^*\s][^*\n]*?)\*(?=[\s.,;:!?)]|$)/gm, '$1<i>$2</i>')
+    .replace(/~~([^~\n]+?)~~/g, '<s>$1</s>')
+    .replace(/^(\s*)[*-]\s+/gm, '$1• ');
+  return s.replace(/\u0000(\d+)\u0000/g, (_m, k: string) => blocks[Number(k)]);
 }
 
 type TgFile = { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
@@ -29,6 +60,11 @@ export class TelegramChannel implements Channel {
   private token: string;
   private api: string;
   private opts: TelegramOptions;
+  private username = '';
+  /** Émoji personnalisé (visage d'Odin) par humeur, une fois le pack créé. */
+  private faces: Partial<Record<Mood, string>> = {};
+  private facesOff = 0;
+  private facesPending?: Promise<void>;
   constructor(token: string, api = 'https://api.telegram.org', opts: TelegramOptions = {}) {
     this.token = token; this.api = api; this.opts = opts;
   }
@@ -73,6 +109,8 @@ export class TelegramChannel implements Channel {
     const me = await (await fetch(this.url('getMe'))).json() as { ok: boolean; result?: { username: string } };
     if (!me.ok) throw new Error('Jeton Telegram invalide (getMe a échoué)');
     console.log(`[bifrost] Telegram connecté : @${me.result?.username}`);
+    this.username = me.result?.username ?? '';
+    try { if (this.opts.home) this.faces = JSON.parse(readFileSync(join(this.opts.home, 'telegram-faces.json'), 'utf8')) as Partial<Record<Mood, string>>; } catch { /* pas encore créé */ }
     this.running = true;
     void this.loop(onMessage);
   }
@@ -102,13 +140,56 @@ export class TelegramChannel implements Channel {
     }
   }
 
-  async send(peer: string, text: string): Promise<void> {
-    for (const part of chunk(text)) {
-      await fetch(this.url('sendMessage'), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ chat_id: peer, text: part }),
-      });
+  private async call(method: string, body: unknown): Promise<{ ok: boolean; result?: unknown; description?: string }> {
+    const r = await fetch(this.url(method), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    return await r.json() as { ok: boolean; result?: unknown; description?: string };
+  }
+
+  /** « Odin écrit… » en haut de la conversation (dure 5 s ; la passerelle le renouvelle). */
+  async typing(peer: string): Promise<void> { await this.call('sendChatAction', { chat_id: peer, action: 'typing' }).catch(() => undefined); }
+
+  /**
+   * Pack d'émojis personnalisés « visage d'Odin » (une image 100×100 par humeur), créé une seule fois
+   * au nom du propriétaire. Telegram n'affiche ces émojis dans les messages d'un bot que si son
+   * propriétaire a Telegram Premium ; sinon on garde l'émoji classique.
+   */
+  private async ensureFaces(owner: string): Promise<void> {
+    if (Object.keys(this.faces).length || !this.username || !/^\d+$/.test(owner)) return;
+    const name = `odin_visage_by_${this.username}`.slice(0, 64);
+    let set = await this.call('getStickerSet', { name });
+    if (!set.ok) {
+      const form = new FormData(), stickers: unknown[] = [];
+      form.append('user_id', owner); form.append('name', name); form.append('title', 'Odin — humeurs'); form.append('sticker_type', 'custom_emoji');
+      MOOD_IDS.forEach((m, k) => { const img = moodEmojiImage(m); if (img) { form.append(`f${k}`, new Blob([img], { type: 'image/webp' }), `${m}.webp`); stickers.push({ sticker: `attach://f${k}`, format: 'static', emoji_list: [MOOD_EMOJI[m]], keywords: [m] }); } });
+      form.append('stickers', JSON.stringify(stickers));
+      const r = await (await fetch(this.url('createNewStickerSet'), { method: 'POST', body: form })).json() as { ok: boolean; description?: string };
+      if (!r.ok) throw new Error(`pack d'émojis : ${r.description}`);
+      set = await this.call('getStickerSet', { name });
+    }
+    const list = (set.result as { stickers?: Array<{ custom_emoji_id?: string }> } | undefined)?.stickers ?? [];
+    const withImg = MOOD_IDS.filter((m) => moodEmojiImage(m));
+    withImg.forEach((m, k) => { const id = list[k]?.custom_emoji_id; if (id) this.faces[m] = id; });
+    if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
+  }
+
+  async send(peer: string, text: string, opts: { mood?: string } = {}): Promise<void> {
+    const mood = isMood(opts.mood) ? opts.mood : undefined;
+    // Son visage à la fin du texte, à la taille d'un émoji.
+    if (mood && !Object.keys(this.faces).length && Date.now() > this.facesOff) {
+      this.facesPending ??= this.ensureFaces(this.opts.owner ?? peer).catch((e) => { console.error('[telegram]', (e as Error).message); this.facesOff = Date.now() + 6 * 3600_000; }).finally(() => { this.facesPending = undefined; });
+      await this.facesPending;
+    }
+    const parts = chunk(text);
+    for (const [k, part] of parts.entries()) {
+      const last = k === parts.length - 1;
+      const face = last && mood ? (this.faces[mood] && Date.now() > this.facesOff ? ` <tg-emoji emoji-id="${this.faces[mood]}">${MOOD_EMOJI[mood]}</tg-emoji>` : ` ${MOOD_EMOJI[mood]}`) : '';
+      let r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(part) + face, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }).catch(() => ({ ok: false, description: 'réseau' }));
+      if (!r.ok && face.includes('tg-emoji')) {
+        // Émoji personnalisé refusé (propriétaire sans Telegram Premium) : émoji classique, nouvel essai plus tard.
+        this.facesOff = Date.now() + 6 * 3600_000;
+        r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(part) + ` ${MOOD_EMOJI[mood!]}`, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }).catch(() => ({ ok: false }));
+      }
+      if (!r.ok) await this.call('sendMessage', { chat_id: peer, text: part + (last && mood ? ` ${MOOD_EMOJI[mood]}` : '') }).catch(() => undefined); // HTML refusé : texte brut
     }
   }
 

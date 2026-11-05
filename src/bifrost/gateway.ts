@@ -152,6 +152,9 @@ export class Gateway {
   private async runTurn(m: Inbound, ch: Channel, sessionId: string, owner: boolean, speaker?: ReturnType<Gateway['speakerOf']>): Promise<void> {
     const ctrl = new AbortController();
     this.aborts.set(sessionId, ctrl);
+    // « Odin écrit… » tant qu'il travaille (Telegram l'efface au bout de 5 s : on le renouvelle).
+    const typing = ch.typing ? setInterval(() => void ch.typing!(m.peer), 4500) : undefined;
+    void ch.typing?.(m.peer);
     try {
       const r = await this.odin.agent.run(m.text, {
         // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
@@ -169,13 +172,16 @@ export class Gateway {
       }
       if (mood) this.lastMood.set(sessionId, mood);
       // Sa réaction : un émoji à la fin du texte (même taille que le texte), sur Telegram.
-      const face = mood && ch.sendSticker && this.odin.cfg.mood.emoji ? ` ${MOOD_EMOJI[mood as Mood]}` : '';
-      await ch.send(m.peer, (r.text || '(pas de réponse)') + face + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
+      // Sur Telegram, le canal ajoute son visage (émoji personnalisé, ou l'émoji classique) à la fin.
+      const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '');
+      if (mood && ch.typing && this.odin.cfg.mood.emoji) await ch.send(m.peer, body, { mood });
+      else await ch.send(m.peer, body + (mood && ch.sendSticker && this.odin.cfg.mood.emoji ? ` ${MOOD_EMOJI[mood as Mood]}` : ''));
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
       }
     } finally {
+      clearInterval(typing);
       this.aborts.delete(sessionId);
     }
   }

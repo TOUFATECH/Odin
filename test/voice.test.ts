@@ -172,3 +172,40 @@ test('voix locale : Piper (WAV, sans clé) et serveur compatible OpenAI, tout re
     assert.equal(m.hits[1].headers.authorization, undefined, 'pas de clé envoyée quand il n\'y en a pas');
   } finally { m.close(); }
 });
+
+test('Telegram : « écrit… » pendant le travail, mise en forme propre, visage d\'Odin en émoji à la fin', async () => {
+  const { tgHtml } = await import('../src/bifrost/channels/telegram.ts');
+  assert.equal(tgHtml('Un appareil : **192.168.1.130** et `ssh` <ok>'), 'Un appareil : <b>192.168.1.130</b> et <code>ssh</code> &lt;ok&gt;');
+  assert.equal(tgHtml('## Titre\n- un\n- deux\n[site](https://x.fr)'), '<b>Titre</b>\n• un\n• deux\n<a href="https://x.fr">site</a>');
+  assert.equal(tgHtml('```bash\nls *.txt\n```'), '<pre>ls *.txt</pre>');
+  let made = false, premium = true, served = false;
+  const tg = await mock((h) => {
+    if (h.url.endsWith('/getMe')) return { body: JSON.stringify({ ok: true, result: { username: 'odin_bot' } }) };
+    if (h.url.includes('/getUpdates')) {
+      if (served) return { body: JSON.stringify({ ok: true, result: [] }) };
+      served = true;
+      return { body: JSON.stringify({ ok: true, result: [{ update_id: 1, message: { chat: { id: 42 }, from: { id: 42 }, text: 'salut' } }] }) };
+    }
+    if (h.url.endsWith('/getStickerSet')) return { body: JSON.stringify(made ? { ok: true, result: { stickers: Array.from({ length: 30 }, (_, k) => ({ custom_emoji_id: `E${k}` })) } } : { ok: false, description: 'STICKERSET_INVALID' }) };
+    if (h.url.endsWith('/createNewStickerSet')) { made = true; return { body: JSON.stringify({ ok: true, result: true }) }; }
+    if (h.url.endsWith('/sendMessage')) { const b = JSON.parse(h.body.toString()); return { body: JSON.stringify(b.text.includes('tg-emoji') && !premium ? { ok: false, description: 'Bad Request' } : { ok: true }) }; }
+    return { body: JSON.stringify({ ok: true }) };
+  });
+  const o = makeOdin([{ text: '[humeur:joie] C\'est **fait**.' }]);
+  const gw = new Gateway(o, { owners: { telegram: ['42'] } });
+  gw.add(new TelegramChannel('T', tg.url, { home: o.paths.home, owner: '42' }));
+  await gw.start();
+  try {
+    const until = Date.now() + 5000;
+    while (Date.now() < until && !tg.hits.some((x) => x.url.endsWith('/sendMessage'))) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(tg.hits.some((x) => x.url.endsWith('/sendChatAction') && JSON.parse(x.body.toString()).action === 'typing'), '« écrit… »');
+    const sent = JSON.parse(tg.hits.find((x) => x.url.endsWith('/sendMessage'))!.body.toString());
+    assert.equal(sent.parse_mode, 'HTML');
+    assert.match(sent.text, /^C'est <b>fait<\/b>\. <tg-emoji emoji-id="E1">😊<\/tg-emoji>$/, 'visage « joie » (2e humeur du pack)');
+    const ch = new TelegramChannel('T', tg.url, { home: o.paths.home });
+    premium = false;
+    await ch.send('42', 'Ok', { mood: 'joie' });
+    // pas de pack chargé pour ce canal neuf (pas démarré) : émoji classique ; et un refus Premium retombe aussi sur l'émoji classique
+    assert.equal(JSON.parse(tg.hits.filter((x) => x.url.endsWith('/sendMessage')).at(-1)!.body.toString()).text, 'Ok 😊');
+  } finally { await gw.stop(); o.cleanup(); tg.close(); }
+});

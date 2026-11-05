@@ -115,3 +115,12 @@ test('raccourci Siri / Android : /api/ask répond en texte simple, jeton Bearer 
     assert.equal(await r.text(), 'Il fait 28 °C à Mamoudzou.');
   } finally { await gw.stop(); o.cleanup(); }
 });
+
+test('nom d\'un appareil tiré de son interface web (nœud Proxmox, NAS)', async () => {
+  const { nameFromTitle } = await import('../src/hlidskjalf/identify.ts');
+  const { deviceLabel } = await import('../src/hlidskjalf/inventory.ts');
+  assert.equal(nameFromTitle('pve - Proxmox Virtual Environment'), 'pve');
+  assert.equal(nameFromTitle('nas-maison - Synology DiskStation'), 'nas-maison');
+  assert.equal(nameFromTitle('Welcome to nginx!'), undefined);
+  assert.equal(deviceLabel({ ip: '192.168.1.130', mac: '', label: '', name: '', hostname: '', model: '', kind: 'serveur', web: [{ port: 8006, url: '', title: 'odin-pve - Proxmox Virtual Environment', server: '', status: 200 }] } as never), 'odin-pve (Proxmox)');
+});

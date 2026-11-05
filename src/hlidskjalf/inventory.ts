@@ -5,7 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { execFile } from 'node:child_process';
 import { type Found, isRandomMac } from './discover.ts';
 import { vendorOf, WEB_HINTS } from './vendors.ts';
-import { serviceName, type WebEndpoint } from './identify.ts';
+import { nameFromTitle, serviceName, type WebEndpoint } from './identify.ts';
 
 export type DeviceStatus = 'online' | 'offline' | 'removed';
 
@@ -204,7 +204,9 @@ export class Inventory {
 
 /** Nom lisible : celui que tu as donné, puis celui annoncé, puis le modèle, puis « fabricant + type ». */
 export const deviceLabel = (d: Device) => {
-  const named = d.label || d.name || d.hostname || d.model || (d.web ?? []).find((w) => w.title && !w.title.startsWith('→'))?.title;
+  const titled = (d.web ?? []).find((w) => w.title && !w.title.startsWith('→'))?.title;
+  const node = titled ? nameFromTitle(titled) : undefined;
+  const named = d.label || d.name || d.hostname || d.model || (node ? `${node} (${/proxmox/i.test(titled!) ? 'Proxmox' : titled!.split(/\s+[-|–]\s+/).at(-1)})` : titled);
   if (named) return named;
   const v = vendorOf(d.mac).replace(/ \(objet connecté\)$/, '');
   if (v) return `${v}${d.kind && d.kind !== 'inconnu' ? ` (${d.kind})` : ''}`;

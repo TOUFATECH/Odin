@@ -131,3 +131,9 @@ export async function upnpDescribe(location: string, ip: string): Promise<UpnpIn
     return r?.status === 200 ? parseUpnp(r.body) : undefined;
   } catch { return undefined; }
 }
+
+/** Nom lisible tiré d'un titre de page (« pve - Proxmox Virtual Environment » → pve). Pur, testable. */
+export function nameFromTitle(title: string): string | undefined {
+  const m = /^(.+?)\s+-\s+Proxmox (?:Virtual Environment|Backup Server)/i.exec(title) ?? /^(.+?)\s+[-|–]\s+(?:Synology|DSM|TrueNAS|OpenMediaVault|Home Assistant|Unraid)/i.exec(title);
+  return m?.[1]?.trim() || undefined;
+}

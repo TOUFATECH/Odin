@@ -196,6 +196,8 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       gw.add(new TelegramChannel(token, undefined, {
         transcribe: sttReady(vc) ? (audio, mime) => transcribe(audio, mime, vc) : undefined,
         inbox: join(odin.paths.workspace, 'inbox'),
+        home: odin.paths.home,
+        owner: tg.owners.map(String)[0],
       }));
     }
   }

@@ -15,7 +15,10 @@ export interface Channel {
   /** Le canal permet-il de répondre « /yes id » pour valider une action ? */
   readonly interactive: boolean;
   start(onMessage: (m: Inbound) => Promise<void>): Promise<void>;
-  send(peer: string, text: string): Promise<void>;
+  /** mood : l'humeur d'Odin, montrée à la fin du texte quand le canal sait le faire (son visage en émoji sur Telegram). */
+  send(peer: string, text: string, opts?: { mood?: string }): Promise<void>;
+  /** « Odin écrit… » pendant qu'il travaille. */
+  typing?(peer: string): Promise<void>;
   stop(): Promise<void>;
   /** Destinataire par défaut quand tout détenteur du jeton est propriétaire (interface web). */
   readonly defaultPeer?: string;
