@@ -12,6 +12,7 @@ import { SELF_TOOLS } from './tools/self.ts';
 import { makeEmbedder } from './muninn/embed.ts';
 import { memoryProfile } from './tools/profile.ts';
 import { changePlan, recoveryPlanTool } from './tools/careplan.ts';
+import { evidenceSearch, webResearch } from './tools/research.ts';
 import { PROXMOX_TOOLS } from './tools/proxmox.ts';
 import { HA_TOOLS } from './tools/homeassistant.ts';
 import { MAIL_TOOLS } from './tools/mail.ts';
@@ -78,7 +79,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
-  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool);
+  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch);
   const inventory = new Inventory(muninn.db);
 
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];

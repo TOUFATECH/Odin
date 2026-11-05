@@ -49,11 +49,13 @@ export interface ToolContext {
   calendar?: OdinConfig['calendar'];
   docs?: OdinConfig['docs'];
   /** Recherche web (moteur, instance SearXNG). */
-  search?: { provider?: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng'; searxngUrl?: string };
+  search?: { provider?: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng' | 'exa' | 'google'; searxngUrl?: string };
   /** Réglages de la voix (transcription de fichiers audio). */
   voice?: OdinConfig['voice'];
   /** Isolation du shell (conteneur Docker) si configurée. */
   sandbox?: { kind: 'none' | 'docker'; image: string; network: boolean };
+  /** Fourni par l'agent : un appel direct au modèle (rôles spécialisés : recherche, vérification…). */
+  llm?(system: string, user: string, maxTokens?: number): Promise<string>;
   /** Fourni par l'agent : lance des sous-agents en parallèle (Sleipnir). */
   delegate?(tasks: Array<{ goal: string; context?: string }>): Promise<ToolResult>;
   /** Fourni par la passerelle : envoie un message sur un canal. */

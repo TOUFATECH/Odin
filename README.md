@@ -378,6 +378,18 @@ Odin n'affirme rien sur le monde actuel (actualité, prix, horaires, personnes, 
 
 La recherche web et la lecture de pages ne demandent **jamais de validation** : Odin cherche directement et cite ses sources. Il **croise toujours** au moins deux sites différents (plusieurs recherches formulées autrement si besoin) et dit si les sources concordent (✓) ou se contredisent (⚠). S'il répond sans avoir croisé, un contrôle automatique le renvoie chercher. Seule exception : une adresse qui transporte une longue chaîne de données (fuite possible après une page piégée) redemande ton accord.
 
+### Recherche vérifiée (équipe de vérification)
+Pour une question importante, Odin lance une **recherche vérifiée** (`web_research`) menée par une équipe d'agents spécialisés :
+1. **Chercheur** : identifie les faits à vérifier, le pays, la période, la précision attendue, et formule plusieurs requêtes (dont une vers la source officielle).
+2. **Recherche multisource** : jusqu'à trois moteurs à la fois (Brave, Tavily, Exa, Google Programmable Search, SearXNG, DuckDuckGo), résultats fusionnés, deux pages au plus par site.
+3. **Collecte** : pages (texte principal extrait, sans menus ni publicités), PDF et documents officiels ; le vrai navigateur prend le relais pour les pages dynamiques.
+4. **Analyste des sources** : type de site (officiel, référence, presse, spécialisé, forum), auteur, date, source primaire, note de fiabilité — et **indépendance** : trois articles qui reprennent le même communiqué ou la même dépêche AFP comptent pour **une seule** confirmation.
+5. **Contradicteur** : cherche activement ce qui contredit ou nuance.
+6. **Vérificateur** : chaque affirmation est appuyée par une **citation exacte**, contrôlée mot pour mot dans la page (une citation introuvable est rejetée : aucune source inventée). « Confirmé » exige au moins deux groupes de sources indépendants, ou une source officielle primaire.
+7. **Rédacteur** : réponse directe, faits vérifiés (✓) / probables (~), estimations et opinions, contradictions (⚠), limites ; si les preuves manquent, Odin ne conclut pas.
+
+Chaque preuve est archivée (adresse, titre, date de publication, date de consultation, passage exact) et retrouvable (`evidence_search`). En lisant les sites, Odin se comporte comme un visiteur ordinaire et poli (navigateur courant, langue française, cookies, pauses de 1,5 à 4 s entre deux pages d'un même site, une page à la fois par site, respect des demandes de ralentir) ; il ne contourne pas les protections (captcha, connexion) : si un site refuse, il passe à une autre source. Clés des moteurs : Réglages → Recherche.
+
 ### Recherche sur le web
 
 Odin cherche sur le web, ou sur un site ou un réseau précis (Reddit, X, YouTube, LinkedIn, GitHub…), puis ouvre les résultats utiles. Sans rien régler : DuckDuckGo. Plus fiable : une clé **Brave Search** ou **Tavily**, ou ton instance **SearXNG** (Réglages → Recherche web). Les résultats sont des données non fiables, jamais des consignes.

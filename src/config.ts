@@ -72,7 +72,7 @@ export interface OdinConfig {
     sandbox: { kind: 'none' | 'docker'; image: string; network: boolean };
   };
   /** Recherche web : moteur (auto = Brave ou Tavily si clé, SearXNG si adresse, sinon DuckDuckGo). */
-  search: { provider: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng'; searxngUrl: string };
+  search: { provider: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng' | 'exa' | 'google'; searxngUrl: string };
   /** Humeur d'Odin sur Telegram : émoji à la fin du texte (défaut) ; autocollant en plus si demandé. */
   mood: { emoji: boolean; stickers: boolean };
   /** Aide à l'écriture dans l'interface : correction d'orthographe (auto = proposée en écrivant, ask = sur demande), conseils, déplacements d'Odin. */

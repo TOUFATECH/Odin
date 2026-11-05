@@ -813,9 +813,9 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
           <article class="card" data-sec="recherche"><form class="form" id="f-search">
             <h2>Recherche web</h2>
             <p class="sub" style="margin:0">Odin cherche sur le web, ou sur un site ou réseau précis (Reddit, X, YouTube, GitHub…). Sans rien régler, il utilise DuckDuckGo ; une clé Brave Search (gratuite jusqu'à un certain volume) ou Tavily donne des résultats plus fiables, et SearXNG reste chez toi.</p>
-            <div class="field"><label for="s-provider">Moteur</label><select id="s-provider"><option value="auto">Automatique (le meilleur disponible)</option><option value="duckduckgo">DuckDuckGo (sans clé)</option><option value="brave">Brave Search (clé)</option><option value="tavily">Tavily (clé)</option><option value="searxng">SearXNG (ton instance)</option></select></div>
+            <div class="field"><label for="s-provider">Moteur</label><select id="s-provider"><option value="auto">Automatique (le meilleur disponible)</option><option value="duckduckgo">DuckDuckGo (sans clé)</option><option value="brave">Brave Search (clé)</option><option value="tavily">Tavily (clé)</option><option value="exa">Exa — recherche par le sens (clé)</option><option value="google">Google Programmable Search (clé)</option><option value="searxng">SearXNG (ton instance)</option></select></div>
             <div class="field"><label for="s-brave">Clé Brave Search</label><input id="s-brave" type="password" autocomplete="off"><span class="hint" id="s-braveHint"></span></div>
-            <div class="field"><label for="s-tavily">Clé Tavily</label><input id="s-tavily" type="password" autocomplete="off"><span class="hint" id="s-tavilyHint"></span></div>
+            <div class="field"><label for="s-tavily">Clé Tavily</label><input id="s-tavily" type="password" autocomplete="off"><span class="hint" id="s-tavilyHint"></span></div><div class="field"><label for="s-exa">Clé Exa</label><input id="s-exa" type="password" autocomplete="off"><span class="hint" id="s-exaHint"></span></div><div class="field"><label for="s-gkey">Google Programmable Search : clé API et identifiant du moteur (cx)</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="s-gkey" type="password" autocomplete="off" placeholder="Clé API" style="flex:1 1 200px"><input id="s-gcx" autocomplete="off" placeholder="cx" style="flex:1 1 140px"></div><span class="hint" id="s-gHint"></span></div><span class="hint">La recherche vérifiée interroge jusqu'à trois moteurs à la fois : plus tu en relies, moins Odin dépend d'un seul (mais plusieurs moteurs peuvent renvoyer les mêmes sources : Odin vérifie aussi leur indépendance).</span>
             <div class="field"><label for="s-searx">Adresse SearXNG</label><input id="s-searx" autocomplete="off" spellcheck="false" placeholder="http://192.168.1.20:8080"></div>
             <div><button class="btn primary" type="submit">Enregistrer</button></div>
             <div class="status" id="s-status" role="status"></div>
@@ -2161,12 +2161,14 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const S = state.settings; if (!S?.search) return;
     $('#s-braveHint').textContent = keyHint('BRAVE_API_KEY') + ' Clé sur brave.com/search/api.';
     $('#s-tavilyHint').textContent = keyHint('TAVILY_API_KEY') + ' Clé sur tavily.com.';
+    $('#s-exaHint').textContent = keyHint('EXA_API_KEY') + ' Clé sur exa.ai.';
+    $('#s-gHint').textContent = keyHint('GOOGLE_CSE_KEY') + ' Console Google Cloud (Custom Search API) et programmablesearchengine.google.com.';
     if (!settingsDirty) { $('#s-provider').value = S.search.provider; $('#s-searx').value = S.search.searxngUrl; }
   }
   $('#f-search').addEventListener('submit', async (e) => {
     e.preventDefault();
-    await save('search', { provider: $('#s-provider').value, braveKey: $('#s-brave').value.trim(), tavilyKey: $('#s-tavily').value.trim(), searxngUrl: $('#s-searx').value.trim() }, '#s-status', '✓ Recherche web enregistrée.');
-    $('#s-brave').value = ''; $('#s-tavily').value = '';
+    await save('search', { provider: $('#s-provider').value, braveKey: $('#s-brave').value.trim(), tavilyKey: $('#s-tavily').value.trim(), exaKey: $('#s-exa').value.trim(), googleKey: $('#s-gkey').value.trim(), googleCx: $('#s-gcx').value.trim(), searxngUrl: $('#s-searx').value.trim() }, '#s-status', '✓ Recherche web enregistrée.');
+    $('#s-brave').value = ''; $('#s-tavily').value = ''; $('#s-exa').value = ''; $('#s-gkey').value = ''; $('#s-gcx').value = '';
   });
 
   // ---------- Droits et machines ----------

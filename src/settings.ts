@@ -14,7 +14,7 @@ import { CODEX_MODELS, loadCodexAuth } from './providers/codex.ts';
 import { TTS_DEFAULTS } from './voice/voice.ts';
 import { buildProvider, Router, tierOf, type Tier } from './providers/router.ts';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL'] as const;
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -249,11 +249,14 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
     }
     case 'search': {
       const provider = String(b.provider ?? 'auto');
-      if (!['auto', 'duckduckgo', 'brave', 'tavily', 'searxng'].includes(provider)) throw new Error('moteur inconnu');
+      if (!['auto', 'duckduckgo', 'brave', 'tavily', 'searxng', 'exa', 'google'].includes(provider)) throw new Error('moteur inconnu');
       const url = str('searxngUrl')?.trim() ?? cfg.search.searxngUrl;
       if (url && !/^https?:\/\//.test(url)) throw new Error('adresse SearXNG invalide (ex. http://192.168.1.20:8080)');
       if (str('braveKey')) writeSecret(paths, 'BRAVE_API_KEY', str('braveKey')!);
       if (str('tavilyKey')) writeSecret(paths, 'TAVILY_API_KEY', str('tavilyKey')!);
+      if (str('exaKey')) writeSecret(paths, 'EXA_API_KEY', str('exaKey')!);
+      if (str('googleKey')) writeSecret(paths, 'GOOGLE_CSE_KEY', str('googleKey')!);
+      if (str('googleCx')) writeSecret(paths, 'GOOGLE_CSE_CX', str('googleCx')!);
       setConfigValue(paths, ['search'], { provider, searxngUrl: url.replace(/\/$/, '') });
       return true;
     }

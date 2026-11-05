@@ -174,23 +174,13 @@ export const webFetch: Tool = {
   async run(i, ctx) {
     // Odin Breaker : le réseau local est ouvert (appareils, interfaces locales) ; sinon, Internet public seulement.
     const check = (u: string) => (ctx.breaker ? assertReachableUrl(u) : assertPublicUrl(u));
-    let url = check(s(i.url));
-    // Suit les redirections à la main pour revérifier chaque destination (anti-SSRF).
-    for (let hop = 0; hop < 5; hop++) {
-      const addrs = await lookup(url.hostname, { all: true });
-      if (!ctx.breaker && addrs.some((a) => isPrivateHost(a.address))) throw new Error(`L'adresse ${url.hostname} pointe vers un réseau interne`);
-      if (addrs.some((a) => isMetadataHost(a.address))) throw new Error('Adresse de métadonnées cloud refusée');
-      const res = await fetch(url, { redirect: 'manual', signal: AbortSignal.any([ctx.signal, AbortSignal.timeout(20_000)]), headers: { 'user-agent': 'OdinAgent/0.1 (+https://github.com)' } });
-      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
-        url = check(new URL(res.headers.get('location')!, url).toString());
-        continue;
-      }
-      const type = res.headers.get('content-type') ?? '';
-      const raw = (await res.text()).slice(0, 2_000_000);
-      const text = /html/i.test(type) ? htmlToText(raw) : raw;
-      return { output: wrapUntrusted(url.toString(), clip(`HTTP ${res.status}\n${text}`, 20_000)), tainted: true };
-    }
-    throw new Error('Trop de redirections');
+    const url = check(s(i.url));
+    // Comme un navigateur ordinaire (en-têtes, cookies, rythme humain) ; PDF lus ; redirections revérifiées.
+    const { politeFetch } = await import('../research/fetch.ts');
+    const p = await politeFetch(url.toString(), { signal: ctx.signal, allowPrivate: ctx.breaker });
+    const head = [`HTTP ${p.status} — ${p.title}`, p.siteName && `Site : ${p.siteName}`, p.author && `Auteur : ${p.author}`, p.published && `Publiée le : ${p.published}`, `Consultée le : ${p.accessed.slice(0, 10)}`, p.kind === 'pdf' && 'Document PDF'].filter(Boolean).join('\n');
+    const short = p.kind === 'html' && p.text.length < 400 ? '\n(Page presque vide en lecture simple : c\'est sans doute une application JavaScript — ouvre-la avec browser_open.)' : '';
+    return { output: wrapUntrusted(p.finalUrl, clip(`${head}\n\n${p.text}${short}`, 20_000)), tainted: true };
   },
 };
 

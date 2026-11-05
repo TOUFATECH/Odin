@@ -112,6 +112,10 @@ CREATE TABLE IF NOT EXISTS grants(
   id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT NOT NULL UNIQUE, tool TEXT NOT NULL, example TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL, uses INTEGER NOT NULL DEFAULT 0, last_used INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS kv(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS evidence(id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, question TEXT NOT NULL, claim TEXT NOT NULL, verdict TEXT NOT NULL,
+  url TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', site TEXT NOT NULL DEFAULT '', published TEXT NOT NULL DEFAULT '', accessed TEXT NOT NULL, quote TEXT NOT NULL,
+  stance TEXT NOT NULL, tier TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS evidence_claim ON evidence(at);
 CREATE TABLE IF NOT EXISTS skill_stats(name TEXT PRIMARY KEY, uses INTEGER NOT NULL DEFAULT 0, last_used INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS missions(
   id TEXT PRIMARY KEY, session_id TEXT NOT NULL, goal TEXT NOT NULL, status TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'user',
@@ -423,6 +427,17 @@ export class Muninn {
   recentUserTexts(limit = 300, days = 30, now = Date.now()): string[] {
     return (this.db.prepare("SELECT content FROM messages WHERE role = 'user' AND tainted = 0 AND created_at >= ? ORDER BY id DESC LIMIT ?").all(now - days * 86_400_000, limit) as Array<{ content: string }>).map((r) => r.content);
   }
+  /** Archive une preuve (adresse, titre, dates, passage exact qui justifie l'affirmation). */
+  addEvidence(e: { session: string; question: string; claim: string; verdict: string; url: string; title: string; site: string; published?: string; accessed: string; quote: string; stance: string; tier: string }): void {
+    this.db.prepare('INSERT INTO evidence(session_id, question, claim, verdict, url, title, site, published, accessed, quote, stance, tier, at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(e.session, e.question.slice(0, 500), e.claim.slice(0, 500), e.verdict, e.url.slice(0, 1000), e.title.slice(0, 300), e.site, e.published ?? '', e.accessed, e.quote.slice(0, 600), e.stance, e.tier, Date.now());
+  }
+  /** Preuves déjà archivées sur un sujet (recherche simple). */
+  findEvidence(q: string, limit = 20): Array<{ claim: string; verdict: string; url: string; title: string; published: string; accessed: string; quote: string; stance: string; at: number }> {
+    const like = `%${q.replace(/[%_]/g, '').slice(0, 100)}%`;
+    return this.db.prepare('SELECT claim, verdict, url, title, published, accessed, quote, stance, at FROM evidence WHERE claim LIKE ? OR question LIKE ? OR quote LIKE ? ORDER BY at DESC LIMIT ?').all(like, like, like, limit) as never;
+  }
+
   getKv(key: string): string | undefined { return (this.db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined)?.value; }
   setKv(key: string, value: string): void { if (value) this.db.prepare('INSERT OR REPLACE INTO kv(key, value) VALUES (?, ?)').run(key, value); else this.db.prepare('DELETE FROM kv WHERE key = ?').run(key); }
   kvPrefix(prefix: string): Record<string, string> { return Object.fromEntries((this.db.prepare('SELECT key, value FROM kv WHERE key LIKE ?').all(`${prefix}%`) as Array<{ key: string; value: string }>).map((r) => [r.key.slice(prefix.length), r.value])); }
