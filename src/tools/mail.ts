@@ -15,7 +15,7 @@ export interface MailConfig { imapHost: string; imapPort: number; smtpHost: stri
 
 /** « =?UTF-8?B?...?= » et « =?UTF-8?Q?...?= » → texte. */
 export function decodeWords(v: string): string {
-  return v.replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=\s*/g, (_, cs: string, enc: string, txt: string) => {
+  return v.replace(/(=\?[^?]+\?[BbQq]\?[^?]*\?=)\s+(?==\?)/g, '$1').replace(/=\?([^?]+)\?([BbQq])\?([^?]*)\?=/g, (_, cs: string, enc: string, txt: string) => {
     const buf = enc.toUpperCase() === 'B' ? Buffer.from(txt, 'base64') : Buffer.from(txt.replace(/_/g, ' ').replace(/=([0-9A-Fa-f]{2})/g, (_m, h: string) => String.fromCharCode(parseInt(h, 16))), 'latin1');
     try { return new TextDecoder(cs.toLowerCase()).decode(buf); } catch { return buf.toString('utf8'); }
   });

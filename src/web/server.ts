@@ -659,7 +659,7 @@ export class WebChannel implements Channel {
       case 'docs_index': try { const r = indexDocs(muninn.db, this.odin.cfg.docs.dirs); return { ok: true, info: `${r.files} fichier(s), ${r.updated} relu(s)` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
       case 'journal_now': return { ok: true, text: await this.hooks.journalNow?.() ?? '' };
       case 'tunnel_start': {
-        const kind: 'cloudflare' | 'tailscale' = String(b.kind) === 'cloudflare' ? 'cloudflare' : 'tailscale';
+        const kind: 'cloudflare' | 'tailscale' = String(b.tkind) === 'cloudflare' ? 'cloudflare' : 'tailscale';
         const st = await tunnel.start(kind, this.port, Boolean(this.tls), this.odin.paths.home);
         if (st.running) { this.odin.cfg.tunnel = { kind }; setConfigValue(this.odin.paths, ['tunnel'], { kind }); }
         this.notify('state');
@@ -667,7 +667,7 @@ export class WebChannel implements Channel {
       }
       case 'tunnel_stop': tunnel.stop(this.odin.paths.home); this.odin.cfg.tunnel = { kind: 'none' }; setConfigValue(this.odin.paths, ['tunnel'], { kind: 'none' }); break;
       case 'tunnel_install': {
-        const kind: 'cloudflare' | 'tailscale' = String(b.kind) === 'cloudflare' ? 'cloudflare' : 'tailscale';
+        const kind: 'cloudflare' | 'tailscale' = String(b.tkind) === 'cloudflare' ? 'cloudflare' : 'tailscale';
         const a = withAdmin(INSTALL[kind], this.odin.paths.home);
         const r = spawnSync('/bin/sh', ['-c', a.command], { env: { ...process.env, ...a.env }, encoding: 'utf8', timeout: 600_000 });
         return r.status === 0 ? { ok: true } : { ok: false, error: `installation : ${(r.stderr || r.stdout || '').trim().slice(-300)}` };

@@ -290,6 +290,40 @@ Bouton « Mains libres » dans la discussion : dis « Odin, … » et ta demande
 
 Odin s'installe comme une application (icône sur l'écran d'accueil, plein écran) : menu du navigateur → « Installer l'application », ou sur iPhone Partager → « Sur l'écran d'accueil ». Active les notifications depuis l'accueil pour être prévenu des réponses, validations et alertes. Avec le certificat auto-signé d'Odin, le téléphone doit d'abord lui faire confiance (lien « Télécharger le certificat d'Odin » sur l'accueil) ; avec une adresse ayant un vrai certificat, rien à faire.
 
+### Ton téléphone fait confiance à Odin
+
+Odin crée sa propre **autorité de certification**, limitée à tes adresses privées et à tes noms locaux (`.local`, `.lan`, `.home`, `ts.net`…) : elle ne peut pas servir à se faire passer pour un site d'Internet. Installe-la une fois (Accueil → Application → « Télécharger l'autorité d'Odin ») : plus d'alerte de sécurité, l'appli s'installe et les notifications marchent.
+
+### Notifications même appli fermée
+
+Vraies notifications push (Web Push, chiffrées pour ton appareil seul) : réponses d'Odin quand l'appli est fermée, validations demandées, alertes de surveillance. Accueil → Application → « Activer les notifications ».
+
+### Accès depuis l'extérieur
+
+Réglages → Accès : **Tailscale** (conseillé : Odin n'est visible que de tes appareils, avec un vrai certificat) ou **Cloudflare** (adresse publique, protégée par ton jeton). Odin peut installer l'outil et relance l'accès à chaque démarrage. Aucun port à ouvrir sur ta box.
+
+### Entretien : réparation, mises à jour, journal
+
+Réglages → Entretien :
+- **Services surveillés** (http(s):// ou tcp://hôte:port), toutes les 5 minutes : s'ils tombent, Odin les répare (ta commande, sur sa machine ou une machine enregistrée, ou un redémarrage Proxmox), vérifie, puis te prévient. Une tentative par 30 minutes.
+- **Mises à jour de la nuit** (apt, dnf, pacman, apk) sur les machines choisies, avec instantané Proxmox avant, et retour à l'instantané si ça échoue.
+- **Journal de bord** chaque soir : ce qu'il a fait, remarqué, et ses conseils pour demain.
+
+### Maison, mail, agenda, documents
+
+- **Maison (Home Assistant)** : « éteins tout », « quelle température au salon ? », scénarios (`ha_states`, `ha_call`).
+- **Mail** (IMAP/SMTP, mot de passe d'application) : lire, chercher, trier dans des dossiers, préparer et envoyer des réponses (envoi toujours validé). Préréglages Gmail, Outlook, iCloud, Orange, Free.
+- **Agenda** : lecture par l'adresse iCal (Google Agenda…), ajout de rendez-vous par CalDAV (Nextcloud, iCloud, Fastmail…).
+- **Documents** : index des dossiers choisis (PDF, Word, Excel, PowerPoint, textes) chaque nuit ; « retrouve la facture EDF de mars ». Odin peut aussi les ranger et les renommer.
+
+### Personnalités
+
+Réglages → Personnalité : un ton (et une voix) par contexte — « Maison » détendu, « Travail » concis… En automatique : Travail en semaine de 8 h à 18 h.
+
+### Historique des conversations
+
+Recherche dans toutes tes conversations, épingles, renommage, export en PDF (menu ⋯ de chaque conversation).
+
 ### Son visage et ses humeurs
 
 Odin a un visage, une petite boule aux deux yeux qui **change de couleur selon son humeur** ; ses yeux, toujours droits, changent de taille, de place et de mouvement selon l'émotion (tout petits quand il est gêné, plissés quand il est fâché, mi-clos quand il est fatigué, grands quand il est surpris, un clin d'œil…). Une vingtaine d'humeurs en tout : content, rieur, attendri, fier, enthousiaste, complice, malicieux, surpris, pensif, concentré, perplexe, inquiet, triste, fâché, effrayé, gêné, fatigué, à l'écoute, attentif… **Il choisit lui-même son humeur** à chaque réponse, selon ce qu'il vit avec toi. Entre deux réponses, son visage réagit tout seul : il t'écoute quand tu écris ou parles, se concentre quand il travaille, regarde quand tu lui montres une photo (bouton 📷), parle quand il lit sa réponse à voix haute, **ferme les yeux quand tu tapes une clé** dans les réglages, sourit quand un réglage est enregistré, s'endort si on l'oublie. Touche-le : il saute ; touche-le trop, il se fâche, devient rouge, puis bleu, puis redevient jaune. Chaque mouvement a son petit **son**, synthétisé dans le navigateur : « boing » quand il saute, grognement quand il se fâche, petit « tic » quand il ferme puis rouvre les yeux, carillon montant quand il est content, descendant quand il est triste (bouton pour couper les sons, sur le site comme dans l'interface). Sur **Telegram**, sa réaction est un émoji à la fin de son message, de la même taille que le texte (`mood.emoji` ; l'autocollant de son visage en plus avec `mood.stickers`).

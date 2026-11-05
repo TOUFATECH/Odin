@@ -484,6 +484,25 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .sfind{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--dim);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:5px}
 .sfind.grave{border-left-color:var(--bad)}.sfind.attention{border-left-color:var(--warn)}.sfind.info{border-left-color:#5B8DEF}
 .sfind .btn{align-self:flex-start;margin-top:4px}.sfa{font-size:13.5px;color:var(--muted)}
+
+/* Réglages : listes éditables */
+.svcs{display:flex;flex-direction:column;gap:10px}
+.svc{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.svc input,.svc select,.svc textarea,.svc2 input,.svc2 select,#more-documents textarea{min-height:40px;padding:0 10px;border-radius:9px;border:1px solid var(--field);background:var(--panel);color:var(--ink);outline:none;font:inherit;font-size:14px}
+.svc textarea,#more-documents textarea{padding:8px 10px;resize:vertical}
+.svc input:focus,.svc select:focus,.svc textarea:focus,.svc2 input:focus{border-color:var(--accent)}
+.svc2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.svc2>input{flex:1;min-width:160px}
+.form h3{font-size:16px}
+
+.csearch{min-height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--field);background:var(--panel);color:var(--ink);outline:none;margin-bottom:6px;width:100%}
+.csearch:focus{border-color:var(--accent)}
+.convrow{position:relative;display:flex;align-items:stretch}.convrow .conv{flex:1;min-width:0}
+.cmenu{position:relative}.cmenu summary{list-style:none;cursor:pointer;padding:10px 8px;color:var(--dim);border-radius:8px;opacity:0;transition:opacity .15s}.cmenu summary::-webkit-details-marker{display:none}
+.convrow:hover .cmenu summary,.convrow.cur .cmenu summary,.cmenu[open] summary{opacity:1}.cmenu summary:hover{color:var(--ink);background:var(--hover)}
+.cpop{position:absolute;right:0;top:100%;z-index:6;display:flex;flex-direction:column;min-width:170px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:4px}
+.cpop button{border:0;background:none;text-align:left;padding:9px 10px;border-radius:7px;color:var(--ink);font-size:14px}.cpop button:hover{background:var(--hover)}
+.chit{display:block;font-size:13.5px;color:var(--ink);white-space:normal}
+@media (max-width:860px){.cmenu summary{opacity:1}}
 </style>
 </head>
 <body>
@@ -626,7 +645,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -877,7 +896,13 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
             <div class="status" id="n-status" role="status"></div>
           </form></article>
 
-          <article class="card" data-sec="acces"><form class="form" id="f-access">
+          <article class="card" data-sec="entretien"><div class="form" id="more-entretien"></div></article>
+          <article class="card" data-sec="maison"><div class="form" id="more-maison"></div></article>
+          <article class="card" data-sec="mail"><div class="form" id="more-mail"></div></article>
+          <article class="card" data-sec="agenda"><div class="form" id="more-agenda"></div></article>
+          <article class="card" data-sec="documents"><div class="form" id="more-documents"></div></article>
+          <article class="card" data-sec="personnalite"><div class="form" id="more-personnalite"></div></article>
+          <article class="card" data-sec="acces"><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
               <button type="button" class="choice" data-access="lan">Réseau local (recommandé)</button>
@@ -1143,12 +1168,36 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   $('#convsBtn').addEventListener('click', () => $('#convs').classList.toggle('open'));
   $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
 
+  // Conversations : recherche dans tout l'historique, épingles, renommer, exporter en PDF.
+  let convQuery = '', convHits = null;
+  async function exportConv(p, title) {
+    const h = await api('/api/history?peer=' + encodeURIComponent(p));
+    const w = window.open('', '_blank'); if (!w) { say('Autorise les fenêtres pour exporter.', [], 4000); return; }
+    const esc = (x) => String(x).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font:14px/1.55 system-ui,sans-serif;max-width:760px;margin:30px auto;color:#111;padding:0 16px}h1{font-size:20px}.m{margin:12px 0;padding:10px 14px;border-radius:10px;white-space:pre-wrap}.user{background:#f3eee2;margin-left:60px}.assistant{background:#f5f5f5;margin-right:60px}.w{font-size:11px;color:#777;font-weight:700;letter-spacing:.05em}</style></head><body><h1>${esc(title)}</h1><div style="color:#777;font-size:12px">Exporté d'Odin le ${new Date().toLocaleString('fr-FR')}</div>${h.messages.map((m) => `<div class="m ${m.role}"><div class="w">${m.role === 'user' ? 'TOI' : 'ODIN'}</div>${esc(m.text)}</div>`).join('')}<script>setTimeout(()=>print(),300)<\/script></body></html>`);
+    w.document.close();
+  }
   function renderConvs() {
     const box = $('#convs'); box.textContent = '';
+    const search = el('input', { type: 'search', class: 'csearch', placeholder: 'Chercher dans l\'historique…', 'aria-label': 'Chercher dans les conversations', value: convQuery,
+      oninput: (e) => { convQuery = e.target.value; clearTimeout(renderConvs._t); renderConvs._t = setTimeout(async () => { convHits = convQuery.trim() ? (await api('/api/action', { kind: 'conv_search', q: convQuery })).items || [] : null; renderConvs(); const i = $('#convs .csearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 300); } });
+    box.append(search);
+    if (convHits) {
+      if (!convHits.length) box.append(el('div', { class: 'empty', style: 'padding:10px 4px' }, 'Rien trouvé.'));
+      for (const h of convHits) box.append(el('button', { class: 'conv', onclick: () => { peer = h.peer; try { localStorage.setItem('odin.peer', peer); } catch {} convQuery = ''; convHits = null; $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
+        el('span', { class: 'chit' }, h.snippet.replace(/\s+/g, ' ').slice(0, 140)), el('small', {}, `${h.role === 'user' ? 'toi' : 'Odin'} · ${fmt(h.at)}`)));
+      return;
+    }
     const list = [...(state?.conversations || [])];
     if (!list.some((c) => c.peer === peer)) list.unshift({ peer, title: 'Nouvelle conversation', updated: Date.now() });
-    for (const c of list) box.append(el('button', { class: 'conv', 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; try { localStorage.setItem('odin.peer', peer); } catch { /* rien */ } $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
-      (c.tainted ? '⚠ ' : '') + (c.title || c.peer), el('small', {}, fmt(c.updated))));
+    for (const c of list) box.append(el('div', { class: 'convrow' + (c.peer === peer ? ' cur' : '') },
+      el('button', { class: 'conv', 'aria-current': c.peer === peer ? 'true' : 'false', onclick: () => { peer = c.peer; try { localStorage.setItem('odin.peer', peer); } catch { /* rien */ } $('#convs').classList.remove('open'); loadHistory(); renderConvs(); } },
+        (c.pinned ? '📌 ' : '') + (c.tainted ? '⚠ ' : '') + (c.title || c.peer), el('small', {}, fmt(c.updated))),
+      el('details', { class: 'cmenu' }, el('summary', { 'aria-label': 'Options de la conversation', title: 'Options' }, '⋯'),
+        el('div', { class: 'cpop' },
+          el('button', { type: 'button', onclick: () => api('/api/action', { kind: 'conv_pin', peer: c.peer, on: !c.pinned }) }, c.pinned ? 'Désépingler' : 'Épingler'),
+          el('button', { type: 'button', onclick: () => { const n = prompt('Nom de la conversation', c.title || ''); if (n != null) api('/api/action', { kind: 'conv_rename', peer: c.peer, title: n }); } }, 'Renommer'),
+          el('button', { type: 'button', onclick: () => exportConv(c.peer, c.title || 'Conversation avec Odin') }, 'Exporter en PDF')))));
   }
 
   // ---------- Budget du mois ----------
@@ -1579,6 +1628,109 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   // Ouvrir directement une section : /#chat, /#net…
   const hashView = () => { const v = location.hash.slice(1); if (v && document.getElementById('v-' + v)) show(v); };
   addEventListener('hashchange', hashView);
+
+
+  // ---------- Réglages : entretien, maison, mail, agenda, documents, personnalité, accès extérieur ----------
+  const F = {
+    input: (id, label, value = '', o = {}) => el('div', { class: 'field' }, el('label', { for: id }, label), el('input', { id, value: value ?? '', type: o.type || 'text', placeholder: o.ph || '', autocomplete: 'off', spellcheck: 'false', ...(o.min != null ? { min: o.min, max: o.max } : {}) }), o.hint ? el('span', { class: 'hint' }, o.hint) : null),
+    check: (id, label, on) => el('label', { class: 'check' }, el('input', { type: 'checkbox', id, checked: on ? true : false }), ' ', label),
+    status: (id) => el('div', { class: 'status', id, role: 'status' }),
+    row: (...b) => el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, ...b),
+    btn: (label, fn, primary) => el('button', { class: 'btn' + (primary ? ' primary' : ''), type: 'button', onclick: fn }, label),
+  };
+  const val = (id) => document.getElementById(id)?.value ?? '';
+  const on = (id) => Boolean(document.getElementById(id)?.checked);
+  const saveCfg = async (section, value, statusId, ok = '✓ Enregistré.') => { const r = await api('/api/action', { kind: 'cfg_save', section, value }); stx('#' + statusId, r, ok); return r; };
+  const whereOptions = (sel) => [['local', 'Machine d\'Odin'], ...(state.more.machines || []).map((m) => [m.id, m.label])].map(([v, l]) => el('option', { value: v, selected: v === sel }, l));
+  let moreLoaded = false;
+  function renderMore() {
+    const M = state?.more; if (!M || moreLoaded) { if (M) renderTunnel(); return; } moreLoaded = true;
+    // Entretien
+    let svcs = M.services.map((x) => ({ ...x }));
+    const svcBox = el('div', { class: 'svcs' });
+    const drawSvcs = () => svcBox.replaceChildren(...svcs.map((x, k) => el('div', { class: 'svc' },
+      el('input', { value: x.name, placeholder: 'Nom (ex. Home Assistant)', 'aria-label': 'Nom', oninput: (e) => { x.name = e.target.value; } }),
+      el('input', { value: x.check, placeholder: 'http://192.168.1.40:8123 ou tcp://192.168.1.30:445', 'aria-label': 'Vérification', class: 'mono', oninput: (e) => { x.check = e.target.value; } }),
+      el('div', { class: 'svc2' }, el('select', { 'aria-label': 'Où réparer', onchange: (e) => { x.where = e.target.value; drawSvcs(); } }, ...whereOptions(x.where), el('option', { value: 'proxmox:', selected: /^proxmox:/.test(x.where) }, 'VM / conteneur Proxmox')),
+        /^proxmox:/.test(x.where) ? el('input', { value: x.where.slice(8), placeholder: 'n° (ex. 105)', 'aria-label': 'Numéro Proxmox', style: 'width:110px', oninput: (e) => { x.where = 'proxmox:' + e.target.value.replace(/\D/g, ''); } })
+          : el('input', { value: x.repair, placeholder: 'sudo systemctl restart home-assistant', 'aria-label': 'Commande de réparation', class: 'mono', oninput: (e) => { x.repair = e.target.value; } })),
+      el('div', { class: 'svc2' }, el('label', { class: 'check' }, el('input', { type: 'checkbox', checked: x.auto ? true : false, onchange: (e) => { x.auto = e.target.checked; } }), ' Réparer tout seul'), el('button', { class: 'btn small danger', type: 'button', onclick: () => { svcs.splice(k, 1); drawSvcs(); } }, 'Retirer')))));
+    drawSvcs();
+    let targets = M.updates.targets.map((x) => ({ ...x }));
+    const tgBox = el('div', { class: 'svcs' });
+    const drawTg = () => tgBox.replaceChildren(...targets.map((x, k) => el('div', { class: 'svc2' }, el('select', { 'aria-label': 'Machine', onchange: (e) => { x.where = e.target.value; } }, ...whereOptions(x.where)),
+      el('input', { value: x.vmid || '', placeholder: 'n° Proxmox (instantané avant)', 'aria-label': 'Numéro Proxmox pour l\'instantané', style: 'width:220px', oninput: (e) => { x.vmid = Number(e.target.value.replace(/\D/g, '')) || undefined; } }),
+      el('button', { class: 'btn small danger', type: 'button', onclick: () => { targets.splice(k, 1); drawTg(); } }, 'Retirer'))));
+    drawTg();
+    const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    $('#more-entretien').replaceChildren(
+      el('h2', {}, 'Entretien'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Services surveillés toutes les 5 minutes : s\'il ne répond plus, Odin le répare (commande ou redémarrage Proxmox), vérifie, puis te prévient.'),
+      svcBox, F.row(F.btn('Ajouter un service', () => { svcs.push({ name: '', check: '', where: 'local', repair: '', auto: true }); drawSvcs(); }), F.btn('Enregistrer les services', () => saveCfg('services', { list: svcs }, 'ms-st1'), true)), F.status('ms-st1'),
+      el('h3', { style: 'margin:14px 0 0' }, 'Mises à jour de la nuit'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Odin met à jour tes machines (apt, dnf, pacman, apk). Avec un n° Proxmox, il fait un instantané avant ; si la mise à jour échoue, il peut revenir en arrière tout seul.'),
+      F.check('mu-on', 'Mises à jour automatiques', M.updates.enabled),
+      el('div', { class: 'svc2' }, el('select', { id: 'mu-day', 'aria-label': 'Jour' }, el('option', { value: -1, selected: M.updates.weekday === -1 }, 'Tous les jours'), ...days.map((d, k) => el('option', { value: k, selected: M.updates.weekday === k }, d))),
+        el('input', { id: 'mu-hour', type: 'number', min: 0, max: 23, value: M.updates.hour, 'aria-label': 'Heure', style: 'width:90px' }), el('span', { class: 'sub' }, 'h')),
+      tgBox, F.check('mu-rb', 'Revenir à l\'instantané si la mise à jour échoue', M.updates.rollbackOnFailure),
+      F.row(F.btn('Ajouter une machine', () => { targets.push({ where: 'local' }); drawTg(); }), F.btn('Enregistrer', () => saveCfg('updates', { enabled: on('mu-on'), weekday: Number(val('mu-day')), hour: Number(val('mu-hour')), targets, rollbackOnFailure: on('mu-rb') }, 'ms-st2'), true)), F.status('ms-st2'),
+      el('h3', { style: 'margin:14px 0 0' }, 'Journal de bord du soir'),
+      F.check('mj-on', 'Chaque soir, Odin me raconte sa journée et me conseille', M.journal.enabled),
+      F.input('mj-at', 'À', M.journal.at, { type: 'time' }),
+      F.row(F.btn('Enregistrer', () => saveCfg('journal', { enabled: on('mj-on'), at: val('mj-at') }, 'ms-st3'), true), F.btn('L\'envoyer maintenant', async () => { $('#ms-st3').textContent = 'Odin écrit son journal…'; const r = await api('/api/action', { kind: 'journal_now' }); stx('#ms-st3', r, '✓ Envoyé (Telegram et notifications).'); if (r.text) say(r.text.slice(0, 400), [], 12000); })), F.status('ms-st3'));
+    // Maison
+    $('#more-maison').replaceChildren(el('h2', {}, 'Maison (Home Assistant)'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Pour piloter lumières, prises, volets, chauffage et scénarios en parlant à Odin. Jeton : Home Assistant → ton profil → Sécurité → Jetons d\'accès longue durée.'),
+      F.input('ha-url', 'Adresse', M.homeAssistant.url, { ph: 'http://192.168.1.40:8123' }),
+      F.input('ha-tok', 'Jeton longue durée', '', { type: 'password', hint: M.secrets.HA_TOKEN ? 'Jeton enregistré (laisse vide pour le garder).' : 'Aucun jeton enregistré.' }),
+      F.row(F.btn('Enregistrer', () => saveCfg('homeAssistant', { url: val('ha-url'), haToken: val('ha-tok') }, 'ha-st'), true), F.btn('Tester', async () => { const r = await api('/api/action', { kind: 'ha_test' }); stx('#ha-st', r, `✓ Home Assistant répond : ${r.info}.`); })), F.status('ha-st'));
+    // Mail
+    const preset = (imap, smtp, port) => () => { $('#ml-imap').value = imap; $('#ml-smtp').value = smtp; $('#ml-sport').value = port; };
+    $('#more-mail').replaceChildren(el('h2', {}, 'Mail'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Odin lit, trie et prépare tes réponses ; il n\'envoie qu\'avec ta validation. Utilise un mot de passe d\'application (Gmail : Compte Google → Sécurité → Mots de passe des applications).'),
+      F.row(F.btn('Gmail', preset('imap.gmail.com', 'smtp.gmail.com', 465)), F.btn('Outlook', preset('outlook.office365.com', 'smtp.office365.com', 587)), F.btn('iCloud', preset('imap.mail.me.com', 'smtp.mail.me.com', 587)), F.btn('Orange', preset('imap.orange.fr', 'smtp.orange.fr', 465)), F.btn('Free', preset('imap.free.fr', 'smtp.free.fr', 465))),
+      F.input('ml-user', 'Adresse e-mail (identifiant)', M.mail.user, { ph: 'toi@gmail.com' }),
+      F.input('ml-imap', 'Serveur de réception (IMAP)', M.mail.imapHost), F.input('ml-smtp', 'Serveur d\'envoi (SMTP)', M.mail.smtpHost), F.input('ml-sport', 'Port d\'envoi', M.mail.smtpPort, { type: 'number', min: 1, max: 65535 }),
+      F.input('ml-from', 'Nom affiché', M.mail.from, { ph: 'Ton Nom <toi@gmail.com>' }),
+      F.input('ml-pw', 'Mot de passe d\'application', '', { type: 'password', hint: M.secrets.MAIL_PASSWORD ? 'Mot de passe enregistré (laisse vide pour le garder).' : 'Aucun mot de passe enregistré.' }),
+      F.row(F.btn('Enregistrer', () => saveCfg('mail', { user: val('ml-user'), imapHost: val('ml-imap'), imapPort: 993, smtpHost: val('ml-smtp'), smtpPort: Number(val('ml-sport')), from: val('ml-from'), mailPassword: val('ml-pw') }, 'ml-st'), true), F.btn('Tester', () => { show('chat'); $('#input').value = 'Liste mes 5 derniers e-mails non lus.'; send(); })), F.status('ml-st'));
+    // Agenda
+    $('#more-agenda').replaceChildren(el('h2', {}, 'Agenda'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Lecture : l\'adresse iCal de ton agenda (Google Agenda → Paramètres de l\'agenda → « Adresse secrète au format iCal »). Ajout : l\'adresse CalDAV du calendrier (Nextcloud, iCloud, Fastmail…).'),
+      F.input('ag-ics', 'Adresse iCal (lecture)', '', { type: 'password', ph: 'https://calendar.google.com/calendar/ical/…/basic.ics', hint: M.secrets.CALENDAR_ICS_URL ? 'Adresse enregistrée (laisse vide pour la garder).' : 'Aucune adresse enregistrée.' }),
+      F.input('ag-dav', 'Adresse CalDAV du calendrier (ajout)', M.calendar.caldavUrl, { ph: 'https://cloud.exemple.fr/remote.php/dav/calendars/toi/personnel/' }),
+      F.input('ag-user', 'Identifiant CalDAV', M.calendar.caldavUser), F.input('ag-pw', 'Mot de passe d\'application CalDAV', '', { type: 'password', hint: M.secrets.CALDAV_PASSWORD ? 'Enregistré (laisse vide pour le garder).' : '' }),
+      F.row(F.btn('Enregistrer', () => saveCfg('calendar', { caldavUrl: val('ag-dav'), caldavUser: val('ag-user'), icsUrl: val('ag-ics'), caldavPassword: val('ag-pw') }, 'ag-st'), true), F.btn('Tester', () => { show('chat'); $('#input').value = 'Quels sont mes rendez-vous des 7 prochains jours ?'; send(); })), F.status('ag-st'));
+    // Documents
+    $('#more-documents').replaceChildren(el('h2', {}, 'Documents'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Odin indexe les dossiers choisis (PDF, Word, Excel, PowerPoint, textes) chaque nuit, et retrouve n\'importe quel document par son nom ou son contenu : « la facture EDF de mars ». Il peut aussi les ranger et les renommer pour toi.'),
+      el('div', { class: 'field' }, el('label', { for: 'dc-dirs' }, 'Dossiers (un par ligne)'), el('textarea', { id: 'dc-dirs', rows: 4, class: 'mono', placeholder: '/mnt/nas/Documents\n/home/toi/Documents' }, M.docs.dirs.join('\n'))),
+      F.row(F.btn('Enregistrer', () => saveCfg('docs', { dirs: val('dc-dirs') }, 'dc-st'), true), F.btn('Indexer maintenant', async () => { $('#dc-st').textContent = 'Indexation…'; const r = await api('/api/action', { kind: 'docs_index' }); stx('#dc-st', r, `✓ ${r.info}`); })), F.status('dc-st'));
+    // Personnalité
+    let profs = M.profiles.list.map((x) => ({ ...x }));
+    const pfBox = el('div', { class: 'svcs' });
+    const drawPf = () => { pfBox.replaceChildren(...profs.map((x, k) => el('div', { class: 'svc' },
+      el('div', { class: 'svc2' }, el('input', { value: x.name, 'aria-label': 'Nom du profil', placeholder: 'Nom', oninput: (e) => { x.name = e.target.value; } }), el('input', { value: x.voiceId, 'aria-label': 'Voix', placeholder: 'Voix (facultatif, identifiant)', oninput: (e) => { x.voiceId = e.target.value; } }), el('button', { class: 'btn small danger', type: 'button', onclick: () => { profs.splice(k, 1); drawPf(); } }, 'Retirer')),
+      el('textarea', { rows: 2, 'aria-label': 'Ton', placeholder: 'Ton : chaleureux, concis, humour…', oninput: (e) => { x.tone = e.target.value; } }, x.tone)))); $('#pf-active').replaceChildren(...profs.map((x) => el('option', { value: x.id, selected: x.id === M.profiles.active }, x.name || x.id))); };
+    $('#more-personnalite').replaceChildren(el('h2', {}, 'Personnalité'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Le ton (et la voix) d\'Odin selon le moment. En automatique : « Travail » en semaine de 8 h à 18 h, « Maison » le reste du temps.'),
+      el('div', { class: 'field' }, el('label', { for: 'pf-active' }, 'Profil actif'), el('select', { id: 'pf-active' })),
+      F.check('pf-auto', 'Changer automatiquement selon l\'heure', M.profiles.auto), pfBox,
+      F.row(F.btn('Ajouter un profil', () => { profs.push({ id: 'p' + Date.now().toString(36), name: '', tone: '', voiceId: '' }); drawPf(); }), F.btn('Enregistrer', () => saveCfg('profiles', { active: val('pf-active'), auto: on('pf-auto'), list: profs }, 'pf-st'), true)), F.status('pf-st'));
+    drawPf();
+    renderTunnel();
+  }
+  function renderTunnel() {
+    const T = state?.tunnel, box = $('#more-tunnel'); if (!T || !box) return;
+    const kinds = [['tailscale', 'Tailscale', 'conseillé : Odin visible seulement de tes appareils Tailscale, vrai certificat'], ['cloudflare', 'Cloudflare', 'adresse publique sur Internet, protégée par ton jeton']];
+    box.replaceChildren(...[el('h2', {}, 'Accès depuis l\'extérieur'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Retrouve Odin hors de la maison, sans ouvrir de port sur ta box.'),
+      T.running ? el('div', { class: 'warn-box' }, `✓ Actif (${T.kind}) : `, T.url ? el('a', { href: T.url, target: '_blank', rel: 'noopener' }, T.url) : 'adresse en attente', ' — ajoute ton jeton (lien personnel) la première fois.') : T.error ? el('div', { class: 'warn-box bad' }, T.error) : null,
+      ...kinds.map(([k, name, desc]) => el('div', { class: 'svc2' }, el('b', { style: 'min-width:100px' }, name), el('span', { class: 'sub', style: 'flex:1' }, desc),
+        T.available[k] ? (T.running && T.kind === k ? F.btn('Arrêter', async () => { await api('/api/action', { kind: 'tunnel_stop' }); }) : F.btn('Activer', async () => { $('#tn-st').textContent = 'Activation…'; const r = await api('/api/action', { kind: 'tunnel_start', tkind: k }); stx('#tn-st', r, `✓ ${r.url || 'actif'}`); }, true))
+          : F.btn('Installer', async () => { if (!confirm(`Installer ${name} sur la machine d'Odin ?`)) return; $('#tn-st').textContent = 'Installation (quelques minutes)…'; const r = await api('/api/action', { kind: 'tunnel_install', tkind: k }); stx('#tn-st', r, `✓ ${name} installé. ${k === 'tailscale' ? 'Connecte-le à ton compte (lien affiché par « sudo tailscale up » sur la machine), puis Activer.' : 'Clique sur Activer.'}`); }))),
+      F.status('tn-st')].filter(Boolean));
+  }
 
   // ---------- Voix : micro (Whisper) et lecture (ElevenLabs) ----------
   let speakOn = false, speakPref = null;
@@ -2156,7 +2308,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------
