@@ -130,6 +130,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '' }])),
     secrets: Object.fromEntries(SECRET_NAMES.map((n) => [n, secretHint(n, env)])),
     search: { provider: cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
+    assist: { ...{ spelling: 'auto', tips: true, roam: true }, ...(cfg.assist ?? {}) },
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
@@ -254,6 +255,12 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       if (str('braveKey')) writeSecret(paths, 'BRAVE_API_KEY', str('braveKey')!);
       if (str('tavilyKey')) writeSecret(paths, 'TAVILY_API_KEY', str('tavilyKey')!);
       setConfigValue(paths, ['search'], { provider, searxngUrl: url.replace(/\/$/, '') });
+      return true;
+    }
+    case 'assist': {
+      const spelling = String(b.spelling ?? 'auto');
+      if (!['auto', 'ask', 'off'].includes(spelling)) throw new Error('correction : auto, ask ou off');
+      setConfigValue(paths, ['assist'], { spelling, tips: b.tips !== false, roam: b.roam !== false });
       return true;
     }
     case 'secret': {

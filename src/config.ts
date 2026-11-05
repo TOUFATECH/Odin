@@ -69,6 +69,8 @@ export interface OdinConfig {
   search: { provider: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng'; searxngUrl: string };
   /** Humeur d'Odin sur Telegram : émoji à la fin du texte (défaut) ; autocollant en plus si demandé. */
   mood: { emoji: boolean; stickers: boolean };
+  /** Aide à l'écriture dans l'interface : correction d'orthographe (auto = proposée en écrivant, ask = sur demande), conseils, déplacements d'Odin. */
+  assist: { spelling: 'auto' | 'ask' | 'off'; tips: boolean; roam: boolean };
   learning: {
     /** Proposer des compétences après une tâche complexe. */
     proposeSkills: boolean;
@@ -142,6 +144,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     sandbox: { kind: 'none', image: 'node:22-bookworm-slim', network: false },
   },
   mood: { emoji: true, stickers: false },
+  assist: { spelling: 'auto', tips: true, roam: true },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },

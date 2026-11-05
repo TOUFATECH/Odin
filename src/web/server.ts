@@ -380,6 +380,10 @@ export class WebChannel implements Channel {
         this.odin.heimdall.setAutonomy(a);
         break;
       }
+      case 'draft_assist': {
+        const mode = b.mode === 'rewrite' || b.mode === 'advice' ? b.mode : 'spelling';
+        try { return { ok: true, ...(await this.odin.agent.assistDraft(String(b.text ?? ''), mode, AbortSignal.timeout(30_000))) }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
       case 'settings_save': {
         let restart: boolean;
         try { restart = applySettings(this.odin.paths, this.odin.cfg, String(b.section), b); } catch (e) { return { ok: false, error: (e as Error).message }; }

@@ -386,6 +386,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .msgs{padding-bottom:96px}
 @media (max-width:860px){.chat-buddy{right:14px;width:48px;height:48px}.chat-buddy.active{width:68px;height:68px}}
 @media (prefers-reduced-motion:reduce){.chat-buddy{transition:none}}
+
+/* Bulle d'Odin et déplacements */
+.chat-buddy{translate:calc(var(--dx,0px) + var(--rx,0px)) var(--dy,0px);transition:transform .35s cubic-bezier(.3,1.5,.5,1),opacity .25s,width .35s,height .35s,translate 1.6s cubic-bezier(.45,.05,.3,1);touch-action:none;cursor:grab}
+.chat-buddy.dragging{transition:none;cursor:grabbing;filter:drop-shadow(0 12px 22px rgba(0,0,0,.45))}
+.tip{position:absolute;z-index:4;max-width:min(360px,calc(100% - 20px));background:var(--panel);color:var(--ink);border:1px solid var(--field);border-radius:16px 16px 4px 16px;padding:12px 14px;box-shadow:var(--shadow);font-size:14.5px;line-height:1.5;white-space:pre-wrap;transform-origin:100% 100%}
+.tip.pop{animation:tip-pop .28s cubic-bezier(.3,1.5,.5,1)}
+@keyframes tip-pop{from{opacity:0;transform:scale(.85) translateY(6px)}to{opacity:1;transform:none}}
+.tip-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.tbtn{min-height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--field);background:none;color:var(--ink);font-size:13.5px}
+.tbtn:hover{border-color:var(--field-h)}
+.tbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
+@media (prefers-reduced-motion:reduce){.tip.pop{animation:none}.chat-buddy{transition:none}}
 </style>
 </head>
 <body>
@@ -444,6 +456,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       <div class="chat">
         <div class="convs" id="convs" aria-label="Conversations"></div>
         <div class="thread">
+          <div class="tip" id="buddyTip" role="status" aria-live="polite" hidden><div class="tip-t" id="tipText"></div><div class="tip-acts" id="tipActs"></div></div>
           <span class="odin chat-buddy" id="buddyChat" aria-hidden="true" title="Odin"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
             <div class="hacts"><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
@@ -511,7 +524,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -600,6 +613,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
             <div class="status" id="j-status" role="status"></div>
           </form></article>
 
+          <article class="card" data-sec="ecriture"><form class="form" id="f-assist">
+            <h2>Écriture</h2>
+            <p class="sub" style="margin:0">Odin t'aide à écrire : il repère tes fautes pendant que tu tapes, peut reformuler ton message ou te donner un conseil. Touche Odin (en bas à droite de la discussion) pour lui demander.</p>
+            <div class="field"><label for="w-spelling">Correction de l'orthographe</label>
+              <select id="w-spelling"><option value="auto">Proposée pendant que j'écris</option><option value="ask">Seulement quand je la demande</option><option value="off">Désactivée</option></select>
+              <span class="hint">Rien ne change sans ton accord : Odin propose, tu acceptes ou tu laisses.</span></div>
+            <label class="check"><input type="checkbox" id="w-tips"> Conseils spontanés d'Odin</label>
+            <label class="check"><input type="checkbox" id="w-roam"> Odin se promène dans la discussion quand il s'ennuie</label>
+            <span class="hint">Tu peux aussi le déplacer avec le doigt ; touche-le deux fois pour qu'il revienne à sa place.</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Enregistrer</button></div>
+            <div class="status" id="w-status" role="status"></div>
+          </form></article>
           <article class="card" data-sec="telegram"><form class="form" id="f-telegram">
             <h2>Telegram</h2>
             <ol class="steps"><li>Dans Telegram, écris à <b>@BotFather</b>, envoie <code>/newbot</code> et copie le jeton.</li><li>Colle-le ci-dessous, coche « Activer » et enregistre.</li><li>Écris à ton bot : il répond avec un code ; ajoute ton identifiant ci-dessous (ou accepte le code avec <code>odin pairing approve telegram &lt;code&gt;</code>).</li></ol>
@@ -972,7 +997,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   // Mascotte : elle réagit quand on la touche (écran de connexion, « Odin réfléchit… »).
   // Un toucher : il saute. Trop de touchers d'affilée (4 en 2 s) : il se fâche, rougit, bleuit, puis redevient jaune.
   document.addEventListener('pointerdown', (e) => {
-    const f = e.target.closest?.('.odin'); if (!f || f.classList.contains('angry')) return;
+    const f = e.target.closest?.('.odin'); if (!f || f.id === 'buddyChat' || f.classList.contains('angry')) return;
     e.preventDefault();
     const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
     if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.sound('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
@@ -1146,6 +1171,121 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       await player.play();
     } catch { /* lecture bloquée par le navigateur */ }
   }
+  // ---------- Odin t'aide à écrire, te conseille et se déplace ----------
+  const ASSIST = () => ({ spelling: 'auto', tips: true, roam: true, ...(state?.settings?.assist || {}) });
+  const bud = $('#buddyChat'), tip = $('#buddyTip'), thread = document.querySelector('.thread');
+  const TIPS = [
+    'Donne-moi le résultat attendu (un fichier, un résumé, une action) : je vise juste du premier coup.',
+    'Pour une tâche qui revient, dis « chaque jour à 18 h… » : je la planifie.',
+    'Je peux regarder une image : touche l\'appareil photo.',
+    'Dis « corrige mes fautes » et je relèverai tes fautes à la fin de mes réponses.',
+    'Tu peux me parler au micro, et activer « Voix » pour que je te réponde à voix haute.',
+    'Si je me trompe, dis-le : je retiens ce que tu préfères.',
+    'Pour une machine du réseau, donne-moi son mot de passe dans Réglages → Droits et machines : je m\'en occupe.',
+  ];
+  let tipTimer = 0, tipFor = '';
+  function placeTip() {
+    if (tip.hidden || !thread) return;
+    const tr = thread.getBoundingClientRect(), br = bud.getBoundingClientRect();
+    tip.style.bottom = Math.max(8, tr.bottom - br.top + 8) + 'px';
+    const right = Math.max(10, Math.min(tr.right - br.right, tr.width - tip.offsetWidth - 10));
+    tip.style.right = right + 'px';
+  }
+  function say(text, actions = [], ms = 0, opts = {}) {
+    $('#tipText').textContent = text;
+    const box = $('#tipActs'); box.replaceChildren(...actions.map((a) => el('button', { type: 'button', class: 'tbtn' + (a.primary ? ' primary' : ''), onclick: () => { hideTip(); a.run(); } }, a.label)));
+    box.hidden = !actions.length;
+    tip.hidden = false; tip.classList.remove('pop'); void tip.offsetWidth; tip.classList.add('pop'); placeTip();
+    clearTimeout(tipTimer); if (ms) tipTimer = setTimeout(hideTip, ms);
+    tipFor = opts.forText || '';
+    if (opts.speak) sayAloud(text);
+  }
+  function hideTip() { tip.hidden = true; clearTimeout(tipTimer); tipFor = ''; }
+  async function assist(mode, silent = false) {
+    const i = $('#input'), text = i.value;
+    if (!text.trim()) return;
+    if (!silent) { say(mode === 'advice' ? 'Je réfléchis à un conseil…' : 'Je relis…'); moodHold('concentration'); }
+    let r;
+    try { r = await api('/api/action', { kind: 'draft_assist', mode, text }); } catch { r = { ok: false, error: 'pas de réponse' }; }
+    if (!silent) moodRelease();
+    if (i.value !== text) return; // tu as continué d'écrire : l'avis n'est plus à jour
+    if (!r.ok) { if (!silent) say('Je n\'y arrive pas pour l\'instant : ' + (r.error || 'erreur') + '.', [], 5000); return; }
+    if (mode === 'advice') { moodFlash('reflexion', 2500); say(r.note || 'Ton message est clair, vas-y !', [], 12000, { speak: true }); return; }
+    if (!r.changed) { if (!silent) { moodFlash('joie', 2000); say(mode === 'spelling' ? 'Aucune faute, bravo !' : 'Ton message est déjà très clair.', [], 3500); } return; }
+    moodFlash(mode === 'spelling' ? 'clin' : 'fierte', 2500);
+    say((r.note ? r.note + '\n' : '') + '« ' + r.text + ' »', [
+      { label: mode === 'spelling' ? 'Corriger' : 'Remplacer', primary: true, run: () => { i.value = r.text; i.dispatchEvent(new Event('input', { bubbles: true })); i.focus(); moodFlash('joie', 1500); } },
+      { label: 'Laisser', run: () => i.focus() },
+    ], 0, { forText: text });
+  }
+  // Pendant que tu écris : une pause, et il relit (si la correction automatique est activée).
+  let checkT = 0, lastChecked = '';
+  $('#input').addEventListener('input', () => {
+    clearTimeout(checkT);
+    const v = $('#input').value;
+    if (tipFor && v !== tipFor) hideTip();
+    if (ASSIST().spelling !== 'auto' || state?.settings?.demo || busy) return;
+    if (v.trim().length < 12 || v.trim().split(/\s+/).length < 3 || v === lastChecked) return;
+    checkT = setTimeout(() => { lastChecked = v; assist('spelling', true); }, 1600);
+  });
+  $('#composer').addEventListener('submit', () => { clearTimeout(checkT); hideTip(); }, true);
+  // Le toucher : un menu ; le glisser : il se déplace ; deux touchers rapprochés : il revient à sa place.
+  let pos = { x: 0, y: 0 }; try { pos = JSON.parse(localStorage.getItem('odin.budpos')) || pos; } catch {}
+  const applyPos = () => { bud.style.setProperty('--dx', pos.x + 'px'); bud.style.setProperty('--dy', pos.y + 'px'); placeTip(); };
+  const clampPos = () => { if (!thread) return; const tr = thread.getBoundingClientRect(); pos.x = Math.min(0, Math.max(-(tr.width - 90), pos.x)); pos.y = Math.min(0, Math.max(-(tr.height - 190), pos.y)); };
+  clampPos(); applyPos(); addEventListener('resize', () => { clampPos(); applyPos(); });
+  let drag = null, lastTap = 0;
+  bud.addEventListener('pointerdown', (e) => { e.preventDefault(); drag = { sx: e.clientX, sy: e.clientY, x: pos.x, y: pos.y, moved: false }; bud.setPointerCapture(e.pointerId); });
+  bud.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+    if (!drag.moved) { drag.moved = true; bud.classList.add('dragging'); hideTip(); moodFlash('excite', 1500); window.OdinFace?.sound('hop'); }
+    pos = { x: drag.x + dx, y: drag.y + dy }; clampPos(); applyPos();
+  });
+  bud.addEventListener('pointerup', () => {
+    if (!drag) return; const moved = drag.moved; drag = null; bud.classList.remove('dragging');
+    if (moved) { try { localStorage.setItem('odin.budpos', JSON.stringify(pos)); } catch {} window.OdinFace?.sound('bounce'); return; }
+    const now = Date.now();
+    if (now - lastTap < 350) { pos = { x: 0, y: 0 }; applyPos(); try { localStorage.removeItem('odin.budpos'); } catch {} hideTip(); lastTap = 0; return; }
+    lastTap = now;
+    bud.classList.remove('bounce'); void bud.offsetWidth; bud.classList.add('bounce'); setTimeout(() => bud.classList.remove('bounce'), 950); window.OdinFace?.sound('bounce');
+    if (!tip.hidden) { hideTip(); return; }
+    tapMenu();
+  });
+  function tapMenu() {
+    const has = $('#input').value.trim() !== '';
+    if (has) say('Je t\'aide avec ce message ?', [
+      { label: 'Corriger les fautes', primary: true, run: () => assist('spelling') },
+      { label: 'Améliorer le texte', run: () => assist('rewrite') },
+      { label: 'Un conseil', run: () => assist('advice') },
+    ]);
+    else { moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000); say(TIPS[Math.floor(Math.random() * TIPS.length)], [{ label: 'Un autre conseil', run: () => tapMenu() }], 14000); }
+  }
+  // Il se promène quand il s'ennuie (et revient), et donne parfois un conseil spontané.
+  let idleSince = Date.now();
+  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { idleSince = Date.now(); bud.style.setProperty('--rx', '0px'); }, { passive: true });
+  setInterval(() => {
+    const A = ASSIST(); if (!$('#v-chat').classList.contains('on') || busy || !tip.hidden || drag) return;
+    const idle = Date.now() - idleSince;
+    if (A.roam && idle > 25_000 && Math.random() < .35 && thread) {
+      const w = thread.getBoundingClientRect().width;
+      bud.classList.add('roam'); bud.style.setProperty('--rx', -Math.round(Math.random() * Math.min(w - 120, 520)) + 'px');
+      window.OdinFace?.flash(bud, ['regarde', 'malice', 'joie'][Math.floor(Math.random() * 3)], 2400);
+      setTimeout(() => { bud.style.setProperty('--rx', '0px'); }, 3200 + Math.random() * 2000);
+    }
+    if (A.tips && idle > 90_000 && Math.random() < .15) { idleSince = Date.now(); say(TIPS[Math.floor(Math.random() * TIPS.length)], [], 12000); }
+  }, 5000);
+  // Réglages « Écriture »
+  let assistLoaded = false;
+  function renderAssist() { if (assistLoaded || !state?.settings?.assist) return; assistLoaded = true; const A = ASSIST(); $('#w-spelling').value = A.spelling; $('#w-tips').checked = A.tips; $('#w-roam').checked = A.roam; }
+  $('#f-assist').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const r = await api('/api/action', { kind: 'settings_save', section: 'assist', spelling: $('#w-spelling').value, tips: $('#w-tips').checked, roam: $('#w-roam').checked });
+    const s = $('#w-status'); s.textContent = r.ok ? '✓ Enregistré.' : r.error || 'Erreur'; s.className = 'status ' + (r.ok ? 'ok' : 'err');
+    if (r.ok) { state.settings.assist = { spelling: $('#w-spelling').value, tips: $('#w-tips').checked, roam: $('#w-roam').checked }; moodFlash('joie', 1500); }
+  });
+
   async function record(btn, onDone, hintEl) {
     if (btn._rec) { btn._rec.stop(); return; }
     if (!navigator.mediaDevices?.getUserMedia) { hintEl.textContent = 'Micro indisponible : ouvre Odin en HTTPS (ou sur cette machine).'; return; }
@@ -1527,7 +1667,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   async function refresh() {
     state = await api('/api/state');
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
-    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
+    renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
   // ---------- Flux temps réel ----------
