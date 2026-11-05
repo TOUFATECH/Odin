@@ -378,6 +378,14 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   .hacts{width:100%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
   .hbtn{justify-content:center;padding:0 8px;font-size:13px;height:36px}
 }
+
+/* Odin dans la discussion : en bas à droite, au-dessus de la barre de saisie ; il grandit quand tu lui parles. */
+.thread{position:relative}
+.chat-buddy{position:absolute;right:28px;bottom:calc(var(--composer-h,84px) + 10px);width:52px;height:52px;z-index:3;opacity:.85;transform:scale(.9);transform-origin:100% 100%;transition:transform .35s cubic-bezier(.3,1.5,.5,1),opacity .25s,width .35s,height .35s;filter:drop-shadow(0 6px 14px rgba(0,0,0,.35))}
+.chat-buddy.active{opacity:1;transform:scale(1);width:72px;height:72px}
+.msgs{padding-bottom:96px}
+@media (max-width:860px){.chat-buddy{right:14px;width:48px;height:48px}.chat-buddy.active{width:68px;height:68px}}
+@media (prefers-reduced-motion:reduce){.chat-buddy{transition:none}}
 </style>
 </head>
 <body>
@@ -436,6 +444,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       <div class="chat">
         <div class="convs" id="convs" aria-label="Conversations"></div>
         <div class="thread">
+          <span class="odin chat-buddy" id="buddyChat" aria-hidden="true" title="Odin"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
             <div class="hacts"><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
           <div class="notice" id="demoNotice" hidden>Odin n'a pas encore de modèle (mode démo). <a href="#" id="goSettings">Ouvre les Réglages</a> pour en choisir un : c'est l'affaire d'une minute.</div>
@@ -759,7 +768,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   // seul à ce qui se passe : il écoute quand tu écris ou parles, se concentre quand il travaille, ferme
   // les yeux quand tu tapes une clé, sourit quand un réglage est enregistré, s'endort si on l'oublie.
   const MOOD_LABEL = { neutre: 'tranquille', joie: 'content', rire: 'rieur', amour: 'attendri', fierte: 'fier', excite: 'enthousiaste', clin: 'complice', malice: 'malicieux', surprise: 'surpris', reflexion: 'pensif', concentration: 'concentré', confus: 'perplexe', inquiet: 'inquiet', triste: 'triste', colere: 'fâché', peur: 'effrayé', gene: 'gêné', fatigue: 'fatigué', ecoute: 'à l\'écoute', regarde: 'attentif', parle: 'parle', cache: 'ne regarde pas' };
-  const buddies = () => ['#buddy', '#buddyM'].map((q) => document.querySelector(q)).filter(Boolean);
+  const buddies = () => ['#buddy', '#buddyM', '#buddyChat'].map((q) => document.querySelector(q)).filter(Boolean);
   let baseMood = 'neutre', held = 0, lastAct = Date.now();
   const label = (m) => { const t = document.querySelector('#buddyTxt'); if (t) t.textContent = MOOD_LABEL[m] || m; };
   function moodBase(m, withSound) { if (withSound && m !== baseMood) window.OdinFace?.sound(m); baseMood = m; if (!held) { buddies().forEach((b) => window.OdinFace?.base(b, m)); label(m); } }
@@ -934,8 +943,23 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   }
   $('#composer').addEventListener('submit', (ev) => { ev.preventDefault(); send(); });
   $('#input').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); send(); } });
-  const grow = () => { const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 168) + 'px'; $('#composer').classList.toggle('has-text', i.value.trim() !== ''); };
+  const grow = () => { const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 168) + 'px'; $('#composer').classList.toggle('has-text', i.value.trim() !== ''); document.querySelector('.thread')?.style.setProperty('--composer-h', $('#composer').offsetHeight + 'px'); };
   $('#input').addEventListener('input', grow);
+  let inputHeld = false;
+  function chatBuddy() {
+    const b = $('#buddyChat'); if (!b) return;
+    const i = $('#input'), writing = document.activeElement === i;
+    const talking = $$('.odin.talking').length > 0, rec = Boolean($('#micBtn')._rec);
+    b.classList.toggle('active', writing || busy || talking || rec);
+    const listening = writing && !busy && i.value.trim() !== '';
+    if (listening && !inputHeld) { inputHeld = true; moodHold('ecoute'); }
+    if (!listening && inputHeld) { inputHeld = false; moodRelease(); }
+  }
+  $('#input').addEventListener('focus', chatBuddy);
+  $('#input').addEventListener('input', chatBuddy);
+  $('#input').addEventListener('blur', () => setTimeout(chatBuddy, 0));
+  new MutationObserver(chatBuddy).observe($('#micBtn'), { attributes: true, attributeFilter: ['aria-pressed'] });
+  setTimeout(grow, 0);
   const narrow = matchMedia('(max-width:860px)');
   $('#input').addEventListener('focus', () => { if (narrow.matches) document.body.classList.add('kb'); setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 250); });
   $('#input').addEventListener('blur', () => setTimeout(() => document.body.classList.remove('kb'), 120));
@@ -957,7 +981,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
   });
   const faceTpl = document.querySelector('#login .odin');
-  function setBusy(b) { busy = b; $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; if (b && faceTpl) { const f = faceTpl.cloneNode(true); f.removeAttribute('style'); t.prepend(f); } $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); }
+  function setBusy(b) { busy = b; $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
   $('#convsBtn').addEventListener('click', () => $('#convs').classList.toggle('open'));
   $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
@@ -1118,7 +1142,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return;
       if (player) { player.pause(); URL.revokeObjectURL(player.src); }
       player = new Audio(URL.createObjectURL(await r.blob()));
-      const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking')); moodHold('parle'); player.onended = player.onpause = () => { faces.forEach((o) => o.classList.remove('talking')); moodRelease(); };
+      const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking')); chatBuddy(); moodHold('parle'); player.onended = player.onpause = () => { faces.forEach((o) => o.classList.remove('talking')); chatBuddy(); moodRelease(); };
       await player.play();
     } catch { /* lecture bloquée par le navigateur */ }
   }
