@@ -61,6 +61,8 @@ export interface GateInput {
   userRequest?: string;
   /** Un contenu manipulateur a été détecté dans ce tour (Mímir ou règles). */
   suspicious?: boolean;
+  /** Simple consultation du web (recherche, lecture de page) : pas de validation. */
+  lookup?: boolean;
   /** Clé d'autorisation permanente (ex. « shell:npm test », « fs_write:notes »). */
   grantKey?: string;
   /** Plafond d'autonomie pour ce tour (membre de la famille) : jamais au-dessus, même en Breaker. */
@@ -139,6 +141,9 @@ export class Heimdall {
 
     let mode: PolicyMode = this.cfg.modes[g.risk];
     const notes: string[] = [];
+    // Recherche web et lecture de pages : jamais de validation (Odin cite ses sources), même après
+    // avoir lu du contenu non fiable — sauf si le réseau est interdit ou une manipulation détectée.
+    if (g.lookup && mode !== 'deny' && !g.suspicious) return this.log(g, { allowed: true, via: 'policy', why: 'consultation du web (sources citées)' });
     const autonomy = capAutonomy(this.effectiveAutonomy(), g.maxAutonomy);
     if (g.maxAutonomy && autonomy !== this.effectiveAutonomy()) notes.push(`membre : autonomie plafonnée à ${autonomy}`);
 

@@ -205,7 +205,7 @@ export class Agent {
     const cheapOpts = { minTier: 'local' as Tier };
     const seen = new Map<string, number>();
     const turnLog: Message[] = [];
-    let verifyAsked = false;
+    let verifyAsked = false, crossAsked = false;
     let lastProvider = '';
 
     const ctx: ToolContext = {
@@ -275,6 +275,14 @@ export class Agent {
         if (depth === 0 && cfg.agent.verify !== false && !verifyAsked && acted >= 0 && !checkedAfter(turnLog, acted, tools) && step < maxSteps) {
           verifyAsked = true;
           const nudge: Message = { role: 'user', content: '[Contrôle automatique d\'Odin] Avant de conclure, vérifie RÉELLEMENT le résultat de ta dernière action avec un outil en lecture (relis le fichier, teste le service, relis l\'état), puis donne ta réponse finale en disant comment tu as vérifié.' };
+          history.push(nudge); turnLog.push(nudge);
+          continue;
+        }
+        // Recherches croisées (imposées par le code) : une information prise sur le web doit venir
+        // d'au moins deux sites différents réellement lus, comparés entre eux.
+        if (depth === 0 && cfg.agent.verify !== false && !crossAsked && crossCheckNeeded(turnLog) && step < maxSteps) {
+          crossAsked = true;
+          const nudge: Message = { role: 'user', content: '[Contrôle automatique d\'Odin] Ta réponse s\'appuie sur le web : croise-la. Lis au moins deux sources de sites DIFFÉRENTS (refais une recherche formulée autrement si besoin, et ouvre les pages avec web_fetch), compare-les, puis réponds en disant si elles concordent (✓ confirmé par plusieurs sources, ou ⚠ contradiction, avec laquelle est la plus fiable) et cite les liens lus.' };
           history.push(nudge); turnLog.push(nudge);
           continue;
         }
@@ -384,6 +392,7 @@ export class Agent {
       command: tool.command?.(call.input),
       userRequest: turn.userRequest,
       suspicious: turn.suspicious,
+      lookup: tool.lookup?.(call.input) ?? false,
       maxAutonomy: o.speaker?.role === 'member' ? (o.speaker.autonomy ?? 'prudent') : undefined,
       grantKey: grantKeyFor(tool.name, call.input, tool.command?.(call.input)),
     });
@@ -727,10 +736,24 @@ export function checkedAfter(log: Message[], idx: number, tools: { get(n: string
     || log.slice(idx + 1).some((m) => m.role === 'tool' && /(self_check|status|--version|systemctl is-active|curl|test -|ls )/.test(`${m.toolName} ${m.content.slice(0, 80)}`));
 }
 /** Ajoute « Sources : » avec les pages réellement lues si la réponse n'en cite aucune. */
+/** Le web a servi mais moins de deux sites différents ont été lus (pur, testable). */
+export function crossCheckNeeded(log: Message[]): boolean {
+  const calls = log.flatMap((m) => m.toolCalls ?? []);
+  if (!calls.some((c) => c.name === 'web_search' || c.name === 'web_fetch' || c.name === 'browser_open')) return false;
+  const hosts = new Set(calls.filter((c) => (c.name === 'web_fetch' || c.name === 'browser_open') && typeof c.input.url === 'string').map((c) => { try { return new URL(String(c.input.url)).hostname.replace(/^www\./, ''); } catch { return ''; } }).filter((h) => h && !/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(h)));
+  const local = calls.some((c) => c.name === 'browser_open' && /^https?:\/\/(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(String(c.input.url)));
+  return !local && hosts.size < 2;
+}
+
 export function withSources(text: string, log: Message[]): string {
   if (/https?:\/\//.test(text)) return text;
   const urls = new Set<string>();
   for (const m of log) for (const c of m.toolCalls ?? []) if (['web_fetch', 'browser_open'].includes(c.name) && typeof c.input.url === 'string' && /^https?:\/\//.test(c.input.url)) urls.add(c.input.url);
+  // Seulement des recherches (aucune page ouverte) : les premiers résultats trouvés.
+  if (!urls.size) {
+    const ids = new Set(log.flatMap((m) => (m.toolCalls ?? []).filter((c) => c.name === 'web_search').map((c) => c.id)));
+    for (const m of log) if (m.role === 'tool' && m.toolCallId && ids.has(m.toolCallId)) for (const u of (m.content.match(/^\s+(https?:\/\/\S+)$/gm) ?? []).slice(0, 3)) urls.add(u.trim());
+  }
   return urls.size ? `${text}\n\nSources : ${[...urls].slice(0, 6).join(' · ')}` : text;
 }
 

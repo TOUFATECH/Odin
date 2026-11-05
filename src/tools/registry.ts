@@ -67,6 +67,8 @@ export interface Tool {
   schema: JsonSchema;
   /** Toute sortie de cet outil est non fiable (web, fichiers téléchargés…). */
   taints?: boolean;
+  /** Simple consultation du web (recherche, lecture d'une page) : jamais de validation à demander, Odin cite ses sources. Renvoie false si l'appel ressemble à une fuite de données. */
+  lookup?(input: Record<string, unknown>): boolean;
   /** Résumé lisible pour la demande de validation. */
   summarize?(input: Record<string, unknown>): string;
   /** Pour le shell : la commande à contrôler par les règles dédiées. */

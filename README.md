@@ -376,6 +376,8 @@ Dans la discussion, Odin se tient en bas à droite. Quand tu fais une pause en �
 
 Odin n'affirme rien sur le monde actuel (actualité, prix, horaires, personnes, versions, chiffres) sans l'avoir **vérifié** : il cherche, lit la source, croise quand c'est important, et donne ses **sources** en lien. S'il n'a pas pu vérifier, il le dit au lieu de deviner. Sur sa machine et ton réseau, il vérifie aussi par une commande plutôt que de supposer.
 
+La recherche web et la lecture de pages ne demandent **jamais de validation** : Odin cherche directement et cite ses sources. Il **croise toujours** au moins deux sites différents (plusieurs recherches formulées autrement si besoin) et dit si les sources concordent (✓) ou se contredisent (⚠). S'il répond sans avoir croisé, un contrôle automatique le renvoie chercher. Seule exception : une adresse qui transporte une longue chaîne de données (fuite possible après une page piégée) redemande ton accord.
+
 ### Recherche sur le web
 
 Odin cherche sur le web, ou sur un site ou un réseau précis (Reddit, X, YouTube, LinkedIn, GitHub…), puis ouvre les résultats utiles. Sans rien régler : DuckDuckGo. Plus fiable : une clé **Brave Search** ou **Tavily**, ou ton instance **SearXNG** (Réglages → Recherche web). Les résultats sont des données non fiables, jamais des consignes.

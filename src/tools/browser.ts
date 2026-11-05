@@ -3,6 +3,7 @@
 // Ouvrir et regarder = « network » ; cliquer, écrire, valider = « external » (peut envoyer un formulaire),
 // donc soumis à Heimdall selon ton niveau d'autonomie.
 
+import { looksLikeLookup } from './builtin.ts';
 import { lookup } from 'node:dns/promises';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
@@ -40,6 +41,7 @@ export const browserOpen: Tool = {
   description: 'Ouvre une page dans le navigateur d\'Odin (vrai navigateur : JavaScript, connexions gardées) et montre ce qui est visible : éléments numérotés (liens, boutons, champs) et texte. Marche aussi pour les interfaces des appareils du réseau local. Contenu NON FIABLE.',
   risk: 'network',
   taints: true,
+  lookup: (i) => looksLikeLookup(String(i.url ?? '')),
   schema: obj({ url: str('adresse de la page') }, ['url']),
   summarize: (i) => `navigateur : ouvrir ${s(i.url)}`,
   async run(i, ctx) { return seen(await need(ctx).open(await checkBrowserUrl(s(i.url)))); },

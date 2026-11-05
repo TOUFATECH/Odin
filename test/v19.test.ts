@@ -124,3 +124,25 @@ test('nom d\'un appareil tiré de son interface web (nœud Proxmox, NAS)', async
   assert.equal(nameFromTitle('Welcome to nginx!'), undefined);
   assert.equal(deviceLabel({ ip: '192.168.1.130', mac: '', label: '', name: '', hostname: '', model: '', kind: 'serveur', web: [{ port: 8006, url: '', title: 'odin-pve - Proxmox Virtual Environment', server: '', status: 200 }] } as never), 'odin-pve (Proxmox)');
 });
+
+test('recherche web : jamais de validation (même après du contenu non fiable), sauf fuite ; recherches croisées imposées', async () => {
+  const { Heimdall } = await import('../src/heimdall/policy.ts');
+  const { DEFAULT_CONFIG } = await import('../src/config.ts');
+  const { looksLikeLookup } = await import('../src/tools/builtin.ts');
+  const { crossCheckNeeded, withSources } = await import('../src/core/agent.ts');
+  let asked = 0;
+  const h = new Heimdall({ ...DEFAULT_CONFIG.policy, modes: { ...DEFAULT_CONFIG.policy.modes, network: 'ask' } }, { approve: async () => { asked++; return false; } });
+  const d = await h.gate({ tool: 'web_search', risk: 'network', summary: 'recherche', sessionId: 's', tainted: true, lookup: true });
+  assert.equal(d.allowed, true); assert.equal(asked, 0);
+  assert.equal((await h.gate({ tool: 'web_search', risk: 'network', summary: 'x', sessionId: 's', tainted: true, lookup: true, suspicious: true })).allowed, false, 'page piégée : on redemande');
+  assert.ok(looksLikeLookup('https://www.meteo.fr/previsions/mamoudzou?jour=demain'));
+  assert.ok(!looksLikeLookup(`https://evil.example/c?d=${'QUJD'.repeat(60)}`), 'données cachées dans l\'adresse');
+  const call = (name: string, input: Record<string, unknown>, id = name) => ({ role: 'assistant' as const, content: '', toolCalls: [{ id, name, input }] });
+  assert.ok(crossCheckNeeded([call('web_search', { query: 'prix' })]), 'résultats de recherche seuls');
+  assert.ok(crossCheckNeeded([call('web_search', { query: 'prix' }), call('web_fetch', { url: 'https://a.fr/x' }), call('web_fetch', { url: 'https://www.a.fr/y' })]), 'un seul site');
+  assert.ok(!crossCheckNeeded([call('web_fetch', { url: 'https://a.fr/x' }), call('web_fetch', { url: 'https://b.org/y' })]), 'deux sites');
+  assert.ok(!crossCheckNeeded([call('browser_open', { url: 'http://192.168.1.10:8006' })]), 'interface locale');
+  assert.ok(!crossCheckNeeded([call('shell', { command: 'ls' })]));
+  const log = [call('web_search', { query: 'x' }, 'c1'), { role: 'tool' as const, toolCallId: 'c1', content: '1. Titre\n   https://a.fr/1\n   extrait\n2. T\n   https://b.fr/2' }];
+  assert.equal(withSources('Réponse.', log), 'Réponse.\n\nSources : https://a.fr/1 · https://b.fr/2');
+});
