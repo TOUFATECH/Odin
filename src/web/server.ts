@@ -29,6 +29,7 @@ import { classify, deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
 import { vendorOf } from '../hlidskjalf/vendors.ts';
 import { auditNetwork, autoBackup, backupDir, diskUsage, hasBackupPassword, listBackups, setBackupPassword } from '../guard/watch.ts';
 import { pveApi } from '../tools/proxmox.ts';
+import { addSubscription, listSubscriptions, pushAll, removeSubscription, vapidKeys } from '../push/webpush.ts';
 import { nextRun } from '../cron/cron.ts';
 
 import type { Odin } from '../runtime.ts';
@@ -73,6 +74,13 @@ const MANIFEST = JSON.stringify({
 const SW = `self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', () => {});
+self.addEventListener('push', (e) => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch (_) { d = { title: 'Odin', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    if (cs.some((c) => c.focused)) return; // Odin est déjà sous tes yeux
+    return self.registration.showNotification(d.title || 'Odin', { body: d.body || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: d.tag || 'odin', data: { view: d.view || 'chat' } });
+  }));
+});
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const view = (e.notification.data && e.notification.data.view) || 'chat';
@@ -184,8 +192,15 @@ export class WebChannel implements Channel {
     for (const c of this.clients) c.write(line);
   }
 
-  async send(peer: string, text: string): Promise<void> { this.push({ type: 'message', peer, role: 'assistant', text }); }
-  event(peer: string, e: AgentEvent): void { this.push({ type: 'event', peer, event: e }); }
+  async send(peer: string, text: string): Promise<void> {
+    this.push({ type: 'message', peer, role: 'assistant', text });
+    // Appli fermée : la réponse arrive quand même en notification sur tes appareils abonnés.
+    if (!this.clients.size) void pushAll(this.odin.paths.home, { title: 'Odin', body: text.replace(/\[humeur:[^\]]*\]/g, '').trim(), view: 'chat', tag: 'odin-reponse' }).catch(() => 0);
+  }
+  event(peer: string, e: AgentEvent): void {
+    this.push({ type: 'event', peer, event: e });
+    if (e.type === 'approval') void pushAll(this.odin.paths.home, { title: 'Odin a besoin de toi', body: (e as { summary?: string }).summary ?? 'Une validation est demandée.', view: 'chat', tag: 'odin-validation' }).catch(() => 0);
+  }
   notify(topic: string): void { this.push({ type: 'refresh', topic }); }
 
   async start(onMessage: (m: Inbound) => Promise<void>): Promise<void> {
@@ -241,7 +256,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }
     if (url.pathname === '/manifest.webmanifest') { res.writeHead(200, { 'content-type': 'application/manifest+json', 'cache-control': 'max-age=3600' }); return void res.end(MANIFEST); }
     // Certificat public d'Odin (jamais la clé) : à installer sur un appareil pour qu'il fasse confiance à Odin.
-    if (url.pathname === '/odin-cert.crt' && this.tls?.selfSigned) { res.writeHead(200, { 'content-type': 'application/x-x509-ca-cert', 'content-disposition': 'attachment; filename="odin.crt"' }); return void res.end(this.tls.cert); }
+    if (url.pathname === '/odin-cert.crt' && this.tls?.selfSigned) { res.writeHead(200, { 'content-type': 'application/x-x509-ca-cert', 'content-disposition': 'attachment; filename="odin-autorite.crt"' }); return void res.end(this.tls.ca ?? this.tls.cert); }
     if (url.pathname === '/sw.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'service-worker-allowed': '/', 'x-content-type-options': 'nosniff' }); return void res.end(SW); }
     if (ICONS[url.pathname.slice(1)]) { res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=86400' }); return void res.end(ICONS[url.pathname.slice(1)]); }
     if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
@@ -393,7 +408,7 @@ export class WebChannel implements Channel {
       },
       people: { users: muninn.listUsers(), pending: muninn.listPairings().filter((p) => p.status === 'pending') },
       budget: { monthlyUsd: cfg.routing.monthlyBudgetUsd, spentUsd: muninn.monthCost(), breakdown: muninn.usageBreakdown(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) },
-      access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
+      access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, caFingerprint: this.tls?.caFingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
       watch: {
         cfg: cfg.watch, findings: auditNetwork(inventory.list({ status: 'all' })), disks: diskUsage(['/', this.odin.paths.home]),
@@ -551,6 +566,10 @@ export class WebChannel implements Channel {
         setConfigValue(this.odin.paths, ['watch'], w);
         break;
       }
+      case 'push_key': return { ok: true, key: vapidKeys(this.odin.paths.home).publicKey, count: listSubscriptions(this.odin.paths.home).length };
+      case 'push_subscribe': try { addSubscription(this.odin.paths.home, b.sub as never); return { ok: true }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      case 'push_unsubscribe': removeSubscription(this.odin.paths.home, String(b.endpoint ?? '')); return { ok: true };
+      case 'push_test': return { ok: true, sent: await pushAll(this.odin.paths.home, { title: 'Odin', body: 'Les notifications marchent, même appli fermée. 👋', view: 'home' }) };
       case 'watch_now': return { ok: true, alerts: await this.hooks.watchNow?.() ?? [] };
       case 'backup_save': {
         const a = this.odin.cfg.autoBackup;

@@ -11,7 +11,7 @@
 // Dans tous les cas le jeton reste exigé pour chaque appel /api, et les essais de jeton
 // ratés sont limités par adresse.
 
-import { generateKeyPairSync, randomBytes, sign, X509Certificate } from 'node:crypto';
+import { createHash, createPrivateKey, generateKeyPairSync, randomBytes, sign, X509Certificate, type KeyObject } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { hostname, networkInterfaces } from 'node:os';
 import { join } from 'node:path';
@@ -133,7 +133,8 @@ export function accessUrls(web: OdinConfig['web'], token: string, actual?: { acc
   return urls;
 }
 
-export interface TlsMaterial { key: string; cert: string; fingerprint: string; selfSigned: boolean }
+export interface TlsMaterial { key: string; cert: string; fingerprint: string; selfSigned: boolean; /** Autorité locale d'Odin (à installer sur tes appareils). */ ca?: string; caFingerprint?: string }
+const isPrivateIp = (ip: string) => /^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip);
 
 /**
  * Certificat HTTPS : celui configuré (web.tls.cert/key), sinon un certificat auto-signé
@@ -158,19 +159,22 @@ export function ensureTls(paths: OdinPaths, web: OdinConfig['web']): TlsMaterial
   // Les noms déjà présents sont conservés, les nouveaux ajoutés.
   let have: { dns: string[]; ips: string[] } = { dns: [], ips: [] };
   try { if (existsSync(namesFile)) have = JSON.parse(readFileSync(namesFile, 'utf8')) as typeof have; } catch { /* fichier illisible : régénéré */ }
-  const missing = dns.some((d) => !have.dns?.includes(d)) || ips.some((i) => !have.ips?.includes(i));
+  const missing = dns.some((d) => !have.dns?.includes(d)) || ips.some((i) => !have.ips?.includes(i)) || !existsSync(join(dir, 'ca.pem'));
   const expired = existsSync(certFile) && (() => { try { return new Date(new X509Certificate(readFileSync(certFile)).validTo).getTime() - Date.now() < 30 * 86_400_000; } catch { return true; } })();
   if (!existsSync(certFile) || !existsSync(keyFile) || missing || expired) {
     mkdirSync(dir, { recursive: true });
     const allDns = [...new Set([...(have.dns ?? []), ...dns])].slice(0, 32), allIps = [...new Set([...(have.ips ?? []), ...ips])].slice(0, 32);
-    const { cert, key } = selfSignedCertificate('Odin', allDns, allIps);
+    const ca = ensureCa(dir, name);
+    const { cert: leaf, key } = issueCertificate('Odin', allDns.filter((d) => isLocalName(d, name)), allIps.filter((i) => isPrivateIp(i)), { signer: ca });
+    const cert = leaf + ca.cert; // chaîne complète : certificat d'Odin puis autorité
     writeFileSync(keyFile, key, { mode: 0o600 });
     try { chmodSync(keyFile, 0o600); } catch { /* Windows */ }
     writeFileSync(certFile, cert);
     writeFileSync(namesFile, JSON.stringify({ dns: allDns, ips: allIps }));
   }
   const cert = readFileSync(certFile, 'utf8');
-  return { cert, key: readFileSync(keyFile, 'utf8'), fingerprint: new X509Certificate(cert).fingerprint256, selfSigned: true };
+  const caPem = existsSync(join(dir, 'ca.pem')) ? readFileSync(join(dir, 'ca.pem'), 'utf8') : undefined;
+  return { cert, key: readFileSync(keyFile, 'utf8'), fingerprint: new X509Certificate(cert).fingerprint256, selfSigned: true, ca: caPem, caFingerprint: caPem ? new X509Certificate(caPem).fingerprint256 : undefined };
 }
 
 // ---- Certificat X.509 auto-signé (ECDSA P-256), encodé à la main en DER ----
@@ -190,28 +194,82 @@ const oid = (dotted: string): Buffer => {
 const utcTime = (d: Date) => der(0x17, Buffer.from(d.toISOString().replace(/[-:T]/g, '').slice(2, 14) + 'Z'));
 const cn = (v: string) => seq(der(0x31, seq(oid('2.5.4.3'), der(0x0c, Buffer.from(v, 'utf8')))));
 
-export function selfSignedCertificate(commonName: string, dns: string[], ips: string[], days = 825): { cert: string; key: string } {
+export interface Signer { cn: string; key: KeyObject; ski: Buffer }
+const skiOf = (spki: Buffer) => createHash('sha1').update(spki).digest();
+
+/**
+ * Certificat X.509 (ECDSA P-256) : auto-signé, ou signé par l'autorité locale d'Odin (signer).
+ * isCA : autorité de certification limitée aux adresses privées et aux noms locaux (name constraints).
+ */
+export function issueCertificate(commonName: string, dns: string[], ips: string[], o: { signer?: Signer; isCA?: boolean; days?: number; permittedDns?: string[] } = {}): { cert: string; key: string; keyObj: KeyObject; ski: Buffer } {
   const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
   const serial = randomBytes(16); serial[0] &= 0x7f; serial[0] |= 0x01; // positif, non nul
   const ecdsaSha256 = seq(oid('1.2.840.10045.4.3.2'));
+  const days = o.days ?? 825;
   const now = new Date(Date.now() - 3600_000), end = new Date(now.getTime() + days * 86_400_000);
-  const san = seq(...dns.map((d) => der(0x82, Buffer.from(d, 'ascii'))), ...ips.map((ip) => der(0x87, Buffer.from(ip.split('.').map(Number)))));
+  const spki = publicKey.export({ type: 'spki', format: 'der' });
+  const ski = skiOf(spki);
   const ext = (id: string, value: Buffer, critical = false) => seq(oid(id), ...(critical ? [der(0x01, Buffer.from([0xff]))] : []), der(0x04, value));
-  const extensions = der(0xa3, seq(
-    ext('2.5.29.17', san),                                           // subjectAltName
-    ext('2.5.29.19', seq(), true),                                   // basicConstraints : pas une autorité
-    ext('2.5.29.15', der(0x03, Buffer.from([0x07, 0x80])), true),    // keyUsage : digitalSignature
-    ext('2.5.29.37', seq(oid('1.3.6.1.5.5.7.3.1'))),                 // extKeyUsage : serverAuth
-  ));
+  const exts: Buffer[] = [];
+  if (o.isCA) {
+    exts.push(ext('2.5.29.19', seq(der(0x01, Buffer.from([0xff])), der(0x02, Buffer.from([0]))), true)); // CA, longueur de chaîne 0
+    exts.push(ext('2.5.29.15', der(0x03, Buffer.from([0x01, 0x06])), true));                             // keyCertSign, cRLSign
+    // Limites de l'autorité : elle ne peut signer QUE pour des adresses privées et des noms locaux.
+    const ipNet = (a: number[], m: number[]) => seq(der(0x87, Buffer.from([...a, ...m])));
+    const subtrees = [
+      ipNet([10, 0, 0, 0], [255, 0, 0, 0]), ipNet([172, 16, 0, 0], [255, 240, 0, 0]), ipNet([192, 168, 0, 0], [255, 255, 0, 0]),
+      ipNet([127, 0, 0, 0], [255, 0, 0, 0]), ipNet([100, 64, 0, 0], [255, 192, 0, 0]),
+      ...(o.permittedDns ?? []).map((d) => seq(der(0x82, Buffer.from(d, 'ascii')))),
+    ];
+    exts.push(ext('2.5.29.30', seq(der(0xa0, Buffer.concat(subtrees))), true));
+  } else {
+    const san = seq(...dns.map((d) => der(0x82, Buffer.from(d, 'ascii'))), ...ips.map((ip) => der(0x87, Buffer.from(ip.split('.').map(Number)))));
+    exts.push(ext('2.5.29.17', san));
+    exts.push(ext('2.5.29.19', seq(), true));                                    // pas une autorité
+    exts.push(ext('2.5.29.15', der(0x03, Buffer.from([0x07, 0x80])), true));     // digitalSignature
+    exts.push(ext('2.5.29.37', seq(oid('1.3.6.1.5.5.7.3.1'))));                  // serverAuth
+  }
+  exts.push(ext('2.5.29.14', der(0x04, ski)));                                   // subjectKeyIdentifier
+  if (o.signer) exts.push(ext('2.5.29.35', seq(der(0x80, o.signer.ski))));       // authorityKeyIdentifier
   const tbs = seq(
-    der(0xa0, der(0x02, Buffer.from([2]))),                          // version 3
-    der(0x02, serial), ecdsaSha256, cn(commonName), seq(utcTime(now), utcTime(end)), cn(commonName),
-    publicKey.export({ type: 'spki', format: 'der' }), extensions,
+    der(0xa0, der(0x02, Buffer.from([2]))),                                      // version 3
+    der(0x02, serial), ecdsaSha256, cn(o.signer?.cn ?? commonName), seq(utcTime(now), utcTime(end)), cn(commonName),
+    spki, der(0xa3, seq(...exts)),
   );
-  const signature = sign('sha256', tbs, privateKey);
+  const signature = sign('sha256', tbs, o.signer?.key ?? privateKey);
   const certDer = seq(tbs, ecdsaSha256, der(0x03, Buffer.concat([Buffer.from([0]), signature])));
   const b64 = certDer.toString('base64').replace(/(.{64})/g, '$1\n').replace(/\n$/, '');
-  return { cert: `-----BEGIN CERTIFICATE-----\n${b64}\n-----END CERTIFICATE-----\n`, key: privateKey.export({ type: 'pkcs8', format: 'pem' }) as string };
+  return { cert: `-----BEGIN CERTIFICATE-----\n${b64}\n-----END CERTIFICATE-----\n`, key: privateKey.export({ type: 'pkcs8', format: 'pem' }) as string, keyObj: privateKey, ski };
+}
+
+export function selfSignedCertificate(commonName: string, dns: string[], ips: string[], days = 825): { cert: string; key: string } {
+  const { cert, key } = issueCertificate(commonName, dns, ips, { days });
+  return { cert, key };
+}
+
+/** Noms locaux que l'autorité d'Odin peut couvrir. */
+export const LOCAL_SUFFIXES = ['localhost', 'local', 'lan', 'home', 'home.arpa', 'internal', 'ts.net'];
+export const isLocalName = (d: string, host: string) => d === host || LOCAL_SUFFIXES.some((s) => d === s || d.endsWith(`.${s}`));
+
+/**
+ * Autorité de certification locale d'Odin (~/.odin/tls/ca.pem, clé 600) : une fois installée sur tes
+ * appareils, ils font confiance à Odin (appli installable, notifications, plus d'alerte). Elle est
+ * limitée aux adresses privées et aux noms locaux : elle ne peut pas servir à se faire passer pour un site d'Internet.
+ */
+export function ensureCa(dir: string, host: string): Signer & { cert: string } {
+  const caFile = join(dir, 'ca.pem'), caKey = join(dir, 'ca-key.pem');
+  if (!existsSync(caFile) || !existsSync(caKey)) {
+    mkdirSync(dir, { recursive: true });
+    const permitted = [...new Set([...LOCAL_SUFFIXES, ...(/^[a-z0-9-]+$/i.test(host) ? [host] : [])])];
+    const r = issueCertificate(`Odin — autorité locale (${host})`.slice(0, 60), [], [], { isCA: true, days: 3650, permittedDns: permitted });
+    writeFileSync(caKey, r.key, { mode: 0o600 });
+    try { chmodSync(caKey, 0o600); } catch { /* Windows */ }
+    writeFileSync(caFile, r.cert);
+  }
+  const cert = readFileSync(caFile, 'utf8'), x = new X509Certificate(cert);
+  const key = createPrivateKey(readFileSync(caKey, 'utf8'));
+  const cnName = /CN=([^\n]+)/.exec(x.subject)?.[1] ?? 'Odin';
+  return { cert, cn: cnName, key, ski: skiOf(x.publicKey.export({ type: 'spki', format: 'der' }) as Buffer) };
 }
 
 /** Limite les essais de jeton ratés : 10 en 10 minutes, puis 15 minutes de blocage. */

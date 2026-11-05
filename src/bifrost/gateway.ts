@@ -13,6 +13,7 @@ import type { Channel, Inbound } from './channel.ts';
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
 import { autoBackup, healthCheck, newAlerts } from '../guard/watch.ts';
+import { pushAll } from '../push/webpush.ts';
 import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 
@@ -269,6 +270,7 @@ export class Gateway {
     if (msgs.length) {
       const t = this.ownerTarget();
       if (t) await t.ch.send(t.peer, `🛡 Vörðr — surveillance\n${msgs.join('\n')}`).catch(() => {});
+      void pushAll(this.odin.paths.home, { title: 'Odin — surveillance', body: msgs.join('\n'), view: 'home', tag: 'odin-veille' }).catch(() => 0);
       for (const ch of this.channels.values()) ch.notify?.('watch');
     }
     return msgs;

@@ -1541,6 +1541,19 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       navigator.serviceWorker?.ready.then((r) => r.showNotification(title, n)).catch(() => new Notification(title, n));
     } catch { /* notifications indisponibles */ }
   }
+  // Abonnement push : clé publique d'Odin, abonnement du navigateur, envoyé à Odin.
+  async function pushSubscribe() {
+    try {
+      const reg = await navigator.serviceWorker?.ready; if (!reg?.pushManager) return false;
+      const k = await api('/api/action', { kind: 'push_key' });
+      const raw = atob(k.key.replace(/-/g, '+').replace(/_/g, '/')); const key = new Uint8Array([...raw].map((c) => c.charCodeAt(0)));
+      const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      const j = sub.toJSON();
+      const r = await api('/api/action', { kind: 'push_subscribe', sub: { endpoint: j.endpoint, keys: j.keys, label: navigator.userAgent.match(/\(([^;)]+)/)?.[1] || 'appareil' } });
+      return Boolean(r.ok);
+    } catch { return false; }
+  }
+  if ('Notification' in window && Notification.permission === 'granted') setTimeout(() => { pushSubscribe(); }, 3000);
   function renderAppCard() {
     const box = $('#appCard'); if (!box) return;
     const perm = 'Notification' in window ? Notification.permission : 'unsupported';
@@ -1550,11 +1563,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       standalone() ? el('div', { class: 'hline' }, '✓ Odin est installé sur cet appareil.')
         : installEvt ? el('button', { class: 'btn small primary', type: 'button', onclick: async () => { installEvt.prompt(); await installEvt.userChoice; installEvt = null; renderAppCard(); } }, 'Installer Odin sur cet appareil')
         : el('div', { class: 'hline' }, ios ? 'Sur iPhone : bouton Partager → « Sur l\'écran d\'accueil ».' : 'Menu du navigateur → « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »).'),
-      swFailed && state?.access?.selfSigned ? el('div', { class: 'hline' }, 'Ton appareil ne fait pas encore confiance au certificat d\'Odin, ce qui bloque l\'installation complète et les notifications. ', el('a', { href: '/odin-cert.crt' }, 'Télécharger le certificat d\'Odin'), ' puis installe-le comme certificat de confiance (ou utilise une adresse avec un vrai certificat : Réglages → Accès).') : null,
+      state?.access?.selfSigned && (swFailed || !standalone()) ? el('details', { class: 'hline' }, el('summary', {}, swFailed ? '⚠ Cet appareil ne fait pas encore confiance à Odin' : 'Faire confiance à Odin sur cet appareil'),
+        el('div', {}, 'Installe une fois l\'autorité d\'Odin : plus d\'alerte de sécurité, appli installable et notifications. Elle ne vaut que pour tes adresses locales. ', el('a', { href: '/odin-cert.crt' }, 'Télécharger l\'autorité d\'Odin'), '.'),
+        el('ul', { class: 'hlist' },
+          el('li', {}, 'iPhone : ouvre le fichier → Réglages → Profil téléchargé → Installer, puis Réglages → Général → Informations → Réglages des certificats → active « Odin ».'),
+          el('li', {}, 'Android : Paramètres → Sécurité → Chiffrement et identifiants → Installer un certificat → Certificat CA.'),
+          el('li', {}, 'Windows : ouvre le fichier → Installer → « Autorités de certification racines de confiance ». Mac : double-clic → Trousseau → « Toujours approuver ».')),
+        state.access.caFingerprint ? el('div', { class: 'dim mono' }, 'Empreinte : ' + state.access.caFingerprint.slice(0, 47) + '…') : null) : null,
       perm === 'granted' ? el('div', { class: 'hline' }, '🔔 Notifications activées sur cet appareil.')
         : perm === 'unsupported' ? el('div', { class: 'hline' }, 'Notifications : non disponibles ici' + (ios ? ' (installe d\'abord Odin sur l\'écran d\'accueil)' : '') + '.')
-        : el('button', { class: 'btn small', type: 'button', onclick: async () => { await Notification.requestPermission(); renderAppCard(); if (Notification.permission === 'granted') notifyOwner('Odin', 'Les notifications sont activées.'); } }, perm === 'denied' ? 'Notifications refusées (réglages du navigateur)' : 'Activer les notifications'),
-      el('div', { class: 'dim' }, 'Les notifications arrivent quand Odin te répond, te demande une validation ou te prévient d\'un problème, tant que l\'appli est ouverte ou en arrière-plan.'));
+        : el('button', { class: 'btn small', type: 'button', onclick: async () => { await Notification.requestPermission(); if (Notification.permission === 'granted') await pushSubscribe(); renderAppCard(); } }, perm === 'denied' ? 'Notifications refusées (réglages du navigateur)' : 'Activer les notifications'),
+      perm === 'granted' ? el('div', { class: 'hbtns' }, el('button', { class: 'btn small', type: 'button', onclick: async () => { const ok = await pushSubscribe(); const r = ok ? await api('/api/action', { kind: 'push_test' }) : null; say(ok ? (r?.sent ? 'Notification envoyée : ferme Odin pour la voir arriver.' : 'Abonné, mais l\'envoi a échoué (Odin a-t-il accès à Internet ?).') : 'Cet appareil ne permet pas les notifications push (installe Odin sur l\'écran d\'accueil, et fais confiance à son autorité).', [], 6000); } }, 'Tester une notification push')) : null,
+      el('div', { class: 'dim' }, 'Les notifications arrivent quand Odin te répond (appli fermée), te demande une validation ou te prévient d\'un problème — même quand l\'appli est fermée.'));
   }
   // Ouvrir directement une section : /#chat, /#net…
   const hashView = () => { const v = location.hash.slice(1); if (v && document.getElementById('v-' + v)) show(v); };
