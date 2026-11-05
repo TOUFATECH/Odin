@@ -38,3 +38,18 @@ test('propositions spontanées : 4 au plus, jamais le texte identique, types con
     assert.deepEqual(await o.agent.suggestDraft('Merci !'), []);
   } finally { o.cleanup(); }
 });
+
+test('propositions selon le contexte : conversation, mémoire et appareils donnés au modèle, nouveaux types', async () => {
+  const o = makeOdin([{ text: 'ok' }, { text: '{"propositions": [{"type": "securite", "titre": "Sauvegarder avant", "texte": "Sauvegarde le NAS puis mets-le à jour."}, {"type": "planifier", "titre": "Chaque dimanche", "texte": "Chaque dimanche à 3 h, mets à jour le NAS."}]}' }]);
+  try {
+    await o.agent.run('Mon NAS Synology s\'appelle Coffre.', { sessionId: 'web:principal' });
+    o.muninn.remember('L\'utilisateur préfère être prévenu sur Telegram.', 'owner', 'preference', '');
+    const p = await o.agent.suggestDraft('mets a jour le nas', undefined, 'web:principal');
+    const sent = o.provider.calls.at(-1)!.messages[0].content;
+    assert.match(sent, /<contexte>/);
+    assert.match(sent, /Coffre/, 'la conversation en cours est fournie');
+    assert.match(sent, /Telegram/, 'les souvenirs sont fournis');
+    assert.match(sent, /<brouillon>\nmets a jour le nas/);
+    assert.deepEqual(p.map((x) => x.kind), ['securite', 'planifier']);
+  } finally { o.cleanup(); }
+});

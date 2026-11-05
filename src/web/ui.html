@@ -1257,13 +1257,13 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
   tip.addEventListener('pointerenter', () => clearTimeout(tipTimer));
   // Odin regarde de lui-même ce qu'il peut améliorer : fautes, clarté, précision, action en plus (4 au plus).
-  const KIND_ICON = { fautes: '✓', clarte: '✎', precision: '＋', suite: '➜' };
+  const KIND_ICON = { fautes: '✓', clarte: '✎', precision: '＋', suite: '➜', securite: '🛡', planifier: '⏰', alternative: '⇄', continuer: '↪' };
   async function suggest(silent) {
     const i = $('#input'), text = i.value;
     if (!text.trim()) return;
     if (!silent) { say('Je regarde ce que je peux améliorer…'); moodHold('concentration'); }
     let r;
-    try { r = await api('/api/action', { kind: 'draft_suggest', text }); } catch { r = { ok: false, error: 'pas de réponse' }; }
+    try { r = await api('/api/action', { kind: 'draft_suggest', text, peer }); } catch { r = { ok: false, error: 'pas de réponse' }; }
     if (!silent) moodRelease();
     if (i.value !== text) return; // tu as continué d'écrire
     if (!r.ok) { if (!silent) say('Je n\'y arrive pas pour l\'instant : ' + (r.error || 'erreur') + '.', [], 5000); return; }

@@ -381,7 +381,7 @@ export class WebChannel implements Channel {
         break;
       }
       case 'draft_suggest': {
-        try { return { ok: true, proposals: await this.odin.agent.suggestDraft(String(b.text ?? ''), AbortSignal.timeout(40_000)) }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+        try { return { ok: true, proposals: await this.odin.agent.suggestDraft(String(b.text ?? ''), AbortSignal.timeout(40_000), `web:${safePeer(typeof b.peer === 'string' ? b.peer : undefined)}`) }; } catch (e) { return { ok: false, error: (e as Error).message }; }
       }
       case 'draft_assist': {
         const mode = b.mode === 'rewrite' || b.mode === 'advice' ? b.mode : 'spelling';
