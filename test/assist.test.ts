@@ -24,3 +24,17 @@ test('aide à l\'écriture : correction proposée, conseil, brouillon jamais enr
     assert.equal(o.muninn.history('web:principal').length, 0);
   } finally { o.cleanup(); }
 });
+
+test('propositions spontanées : 4 au plus, jamais le texte identique, types connus', async () => {
+  const o = makeOdin([
+    { text: '{"propositions": [{"type": "fautes", "titre": "Corriger les fautes", "texte": "Mets à jour la machine."}, {"type": "suite", "titre": "Sauvegarder avant", "texte": "Sauvegarde puis mets à jour la machine."}, {"type": "clarte", "titre": "Identique", "texte": "met a jour la machine"}, {"type": "bizarre", "titre": "A", "texte": "a"}, {"type": "precision", "titre": "B", "texte": "b"}, {"type": "precision", "titre": "C", "texte": "c"}]}' },
+    { text: '{"propositions": []}' },
+  ]);
+  try {
+    const p = await o.agent.suggestDraft('met a jour la machine');
+    assert.equal(p.length, 4);
+    assert.deepEqual(p.map((x) => x.kind), ['fautes', 'suite', 'clarte', 'precision']);
+    assert.ok(!p.some((x) => x.text === 'met a jour la machine'), 'le texte identique n\'est pas proposé');
+    assert.deepEqual(await o.agent.suggestDraft('Merci !'), []);
+  } finally { o.cleanup(); }
+});

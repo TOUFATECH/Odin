@@ -401,6 +401,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 @keyframes tip-float{0%,100%{translate:0 0}50%{translate:0 -3px}}
 @keyframes tip-out{to{opacity:0;transform:scale(.7)}}
 .tip .tip-acts{flex-wrap:nowrap}
+.tip .tip-acts.list{flex-direction:column;align-items:stretch}
+.tip .tip-acts.list .tbtn{text-align:left;white-space:normal;padding:4px 9px;line-height:1.3}
 .tip-acts.in .tbtn{animation:tbtn-in .25s ease backwards}.tip-acts.in .tbtn:nth-child(2){animation-delay:.05s}.tip-acts.in .tbtn:nth-child(3){animation-delay:.1s}
 @keyframes tbtn-in{from{opacity:0;transform:translateY(4px)}}
 .tbtn{white-space:nowrap}
@@ -628,9 +630,9 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 
           <article class="card" data-sec="ecriture"><form class="form" id="f-assist">
             <h2>Écriture</h2>
-            <p class="sub" style="margin:0">Odin t'aide à écrire : il repère tes fautes pendant que tu tapes, peut reformuler ton message ou te donner un conseil. Touche Odin (en bas à droite de la discussion) pour lui demander.</p>
-            <div class="field"><label for="w-spelling">Correction de l'orthographe</label>
-              <select id="w-spelling"><option value="auto">Proposée pendant que j'écris</option><option value="ask">Seulement quand je la demande</option><option value="off">Désactivée</option></select>
+            <p class="sub" style="margin:0">Odin t'aide à écrire : quand tu fais une pause, il regarde de lui-même tes fautes et ce qu'il pourrait améliorer ou ajouter, et te propose jusqu'à 4 idées. Touche Odin (en bas à droite de la discussion) pour lui demander.</p>
+            <div class="field"><label for="w-spelling">Propositions d'Odin (fautes, améliorations, idées en plus)</label>
+              <select id="w-spelling"><option value="auto">Pendant que j'écris (4 au plus)</option><option value="ask">Seulement quand je la demande</option><option value="off">Désactivée</option></select>
               <span class="hint">Rien ne change sans ton accord : Odin propose, tu acceptes ou tu laisses.</span></div>
             <label class="check"><input type="checkbox" id="w-tips"> Conseils spontanés d'Odin</label>
             <label class="check"><input type="checkbox" id="w-roam"> Odin se promène dans la discussion quand il s'ennuie</label>
@@ -1226,7 +1228,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   function say(text, actions = [], ms = 0, opts = {}) {
     clearInterval(typeT); clearTimeout(tipTimer); clearTimeout(hideT);
     const tt = $('#tipText'), box = $('#tipActs');
-    box.replaceChildren(...actions.map((a) => el('button', { type: 'button', class: 'tbtn' + (a.primary ? ' primary' : ''), onclick: () => { hideTip(); a.run(); } }, a.label)));
+    box.replaceChildren(...actions.map((a) => el('button', { type: 'button', class: 'tbtn' + (a.primary ? ' primary' : ''), title: a.hint || false, onclick: () => { hideTip(); a.run(); } }, a.label)));
+    box.classList.toggle('list', Boolean(opts.list));
     box.hidden = true;
     const wasOpen = !tip.hidden && !tip.classList.contains('out');
     tip.hidden = false; tip.classList.remove('out');
@@ -1253,6 +1256,26 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   document.addEventListener('pointerdown', (e) => { if (!tip.hidden && !e.target.closest?.('#buddyTip, #buddyChat, #input, #composer')) hideTip(); }, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
   tip.addEventListener('pointerenter', () => clearTimeout(tipTimer));
+  // Odin regarde de lui-même ce qu'il peut améliorer : fautes, clarté, précision, action en plus (4 au plus).
+  const KIND_ICON = { fautes: '✓', clarte: '✎', precision: '＋', suite: '➜' };
+  async function suggest(silent) {
+    const i = $('#input'), text = i.value;
+    if (!text.trim()) return;
+    if (!silent) { say('Je regarde ce que je peux améliorer…'); moodHold('concentration'); }
+    let r;
+    try { r = await api('/api/action', { kind: 'draft_suggest', text }); } catch { r = { ok: false, error: 'pas de réponse' }; }
+    if (!silent) moodRelease();
+    if (i.value !== text) return; // tu as continué d'écrire
+    if (!r.ok) { if (!silent) say('Je n\'y arrive pas pour l\'instant : ' + (r.error || 'erreur') + '.', [], 5000); return; }
+    const list = (r.proposals || []).slice(0, 4);
+    if (!list.length) { if (!silent) { moodFlash('joie', 2000); say('Rien à redire, ton message est clair !', [], 3500); } return; }
+    moodFlash(list.some((p) => p.kind === 'fautes') ? 'clin' : 'malice', 2500);
+    window.OdinFace?.sound('joie');
+    say(list.length === 1 ? 'J\'ai une idée :' : `J'ai ${list.length} idées :`, list.map((p, k) => ({
+      label: `${KIND_ICON[p.kind] || '•'} ${p.title}`, hint: p.text, primary: k === 0,
+      run: () => { i.value = p.text; i.dispatchEvent(new Event('input', { bubbles: true })); lastChecked = p.text; i.focus(); moodFlash('joie', 1500); },
+    })), 0, { forText: text, list: true });
+  }
   async function assist(mode, silent = false) {
     const i = $('#input'), text = i.value;
     if (!text.trim()) return;
@@ -1278,7 +1301,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     if (tipFor && v !== tipFor) hideTip();
     if (ASSIST().spelling !== 'auto' || state?.settings?.demo || busy) return;
     if (v.trim().length < 12 || v.trim().split(/\s+/).length < 3 || v === lastChecked) return;
-    checkT = setTimeout(() => { lastChecked = v; assist('spelling', true); }, 1600);
+    checkT = setTimeout(() => { lastChecked = v; suggest(true); }, 1800);
   });
   $('#composer').addEventListener('submit', () => { clearTimeout(checkT); hideTip(); }, true);
   // Le toucher : un menu ; le glisser : il se déplace ; deux touchers rapprochés : il revient à sa place.
@@ -1310,7 +1333,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const has = $('#input').value.trim() !== '';
     if (has) say('Je t\'aide ?', [
       { label: '✓ Corriger', primary: true, run: () => assist('spelling') },
-      { label: '✎ Améliorer', run: () => assist('rewrite') },
+      { label: '✨ Idées', run: () => suggest(false) },
       { label: '💡 Conseil', run: () => assist('advice') },
     ]);
     else { moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000); say(TIPS[Math.floor(Math.random() * TIPS.length)], [{ label: 'Un autre', run: () => tapMenu() }], 14000); }
