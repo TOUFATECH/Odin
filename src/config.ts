@@ -179,7 +179,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     approvalTimeoutSec: 300,
     sandbox: { kind: 'none', image: 'node:22-bookworm-slim', network: false },
   },
-  mood: { emoji: true, stickers: false },
+  mood: { emoji: false, stickers: false },
   assist: { spelling: 'auto', tips: true, roam: true },
   watch: { enabled: true, intervalMin: 60, devices: [], diskPct: 90, certDays: 14 },
   autoBackup: { enabled: false, hour: 3, dir: '', keep: 7 },

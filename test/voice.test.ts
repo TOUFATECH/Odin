@@ -142,7 +142,7 @@ test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichie
     while (Date.now() < until && tg.hits.filter((x) => x.url.endsWith('/sendMessage')).length < 2) await new Promise((r) => setTimeout(r, 50));
     await new Promise((r) => setTimeout(r, 200));
     const msgs = tg.hits.filter((x) => x.url.endsWith('/sendMessage')).map((x) => JSON.parse(x.body.toString()).text as string);
-    assert.ok(msgs.some((t) => /^La lumière est allumée\. \S+$/u.test(t)), 'réaction à la fin, même taille que le texte');
+    assert.ok(msgs.some((t) => t === 'La lumière est allumée.'), 'texte seul, sans émoji');
     assert.match(o.provider.calls[0].messages.at(-1)!.content, /allume la lumière/);
     assert.ok(tg.hits.some((x) => x.url.endsWith('/sendVoice')), 'réponse vocale envoyée');
     const fileMsg = o.provider.calls[1].messages.at(-1)!.content;
@@ -201,7 +201,7 @@ test('Telegram : « écrit… » pendant le travail, mise en forme propre, visag
     assert.ok(tg.hits.some((x) => x.url.endsWith('/sendChatAction') && JSON.parse(x.body.toString()).action === 'typing'), '« écrit… »');
     const sent = JSON.parse(tg.hits.find((x) => x.url.endsWith('/sendMessage'))!.body.toString());
     assert.equal(sent.parse_mode, 'HTML');
-    assert.match(sent.text, /^C'est <b>fait<\/b>\. <tg-emoji emoji-id="E1">😊<\/tg-emoji>$/, 'visage « joie » (2e humeur du pack)');
+    assert.equal(sent.text, 'C\'est <b>fait</b>.', 'texte mis en forme, sans émoji');
     const ch = new TelegramChannel('T', tg.url, { home: o.paths.home });
     premium = false;
     await ch.send('42', 'Ok', { mood: 'joie' });

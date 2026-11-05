@@ -62,6 +62,19 @@ export const netIdentify: Tool = {
   },
 };
 
+export const netRename: Tool = {
+  name: 'net_rename',
+  description: 'Donne un nom clair à un appareil du réseau (après l\'avoir identifié avec net_identify), ex. « NAS salon », « iPhone de Djin », « CT 7800 Odin ».',
+  risk: 'write',
+  schema: obj({ ip: str('adresse IP de l\'appareil'), name: str('nouveau nom (court et clair)') }, ['ip', 'name']),
+  summarize: (i) => `renommer l'appareil ${s(i.ip)} en « ${s(i.name)} »`,
+  async run(i, ctx) {
+    const d = ctx.inventory?.get(s(i.ip)); if (!d) return `Appareil inconnu : ${s(i.ip)}`;
+    ctx.inventory!.setLabel(d.id, s(i.name).slice(0, 60));
+    return `Appareil ${d.ip} renommé « ${s(i.name).slice(0, 60)} ».`;
+  },
+};
+
 export const netShareFiles: Tool = {
   name: 'net_share_files',
   description: 'Liste les fichiers d\'un dossier partagé (SMB : Windows, Mac, NAS, Samba) sur le réseau local, en lecture seule. Utilise le compte de la machine si elle est dans Réglages → Droits et machines, sinon l\'accès invité.',
@@ -184,7 +197,7 @@ const machineCopy: Tool = {
   },
 };
 
-export const NETWORK_TOOLS: Tool[] = [netInventory, netIdentify, netShareFiles, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
+export const NETWORK_TOOLS: Tool[] = [netInventory, netIdentify, netRename, netShareFiles, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
 
 export const netSecurity: Tool = {
   name: 'net_security',

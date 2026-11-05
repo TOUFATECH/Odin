@@ -46,12 +46,15 @@ const ALIAS: Record<string, Mood> = {
 };
 
 /** Retire le marqueur [humeur:xxx] du début de la réponse ; renvoie l'humeur reconnue. */
+const SHORT = /^\s*\[\s*([a-zàâçéèêëîïôûùüÿñæœ_-]+)\s*\]\s*/i;
+/** Retire le marqueur d'humeur ([humeur:joie], ou la forme courte [joie]) au début, et tout marqueur oublié ailleurs. */
 export function extractMood(text: string): { text: string; mood?: Mood } {
-  const m = text.match(TAG);
-  if (!m) return { text };
-  const raw = m[1].toLowerCase();
-  const mood = isMood(raw) ? raw : ALIAS[raw];
-  return { text: text.slice(m[0].length), mood };
+  let m = text.match(TAG), mood: Mood | undefined;
+  if (!m) { const s = text.match(SHORT); if (s && (isMood(s[1].toLowerCase()) || ALIAS[s[1].toLowerCase()])) m = s; }
+  if (m) { const raw = m[1].toLowerCase(); mood = isMood(raw) ? raw : ALIAS[raw]; text = text.slice(m[0].length); }
+  // Marqueurs restés au milieu (plusieurs messages, réponse reprise…)
+  text = text.replace(/\[\s*humeur\s*:\s*[a-zàâçéèêëîïôûùüÿñæœ_-]+\s*\]\s*/gi, '').replace(/(^|\n)\s*\[(?:neutre|joie|rire|amour|fierte|excite|clin|malice|surprise|reflexion|concentration|confus|inquiet|triste|colere|peur|gene|fatigue|ecoute|regarde)\]\s*/gi, '$1');
+  return { text, mood };
 }
 
 export interface MoodContext {
@@ -87,4 +90,4 @@ export function guessMood(text: string, c: MoodContext = {}): Mood {
 
 /** Ligne du prompt système qui apprend au modèle à donner son humeur. */
 export const MOOD_PROMPT = `## Ton humeur
-Tu as un visage (une petite boule dorée) dont la couleur montre ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas.`;
+Tu as un visage (une petite boule dorée) dont la couleur montre ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas. N'écris pas d'émojis dans tes réponses (pas de 👋 🙂 😊…) : un texte simple et clair.`;

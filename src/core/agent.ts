@@ -374,9 +374,10 @@ export class Agent {
       res.reflection = (async () => {
         // Filtre Jev : la réflexion (appel coûteux à un grand modèle) n'a lieu que si la tâche
         // a réussi ET montre une procédure réutilisable. En cas d'échec de Jev, on réfléchit quand même.
-        if (mimir?.cfg.uses.reflection) {
+        // (En mode Breaker ou sur une longue mission, pas de filtre : Odin doit apprendre.)
+        if (mimir?.cfg.uses.reflection && !this.deps.heimdall.breakerActive() && res.toolCalls < 6) {
           const g = await mimir.reflectionGate(userText, transcriptForSummary(turnLog, 15_000), signal);
-          if (g.ok && !g.value) return undefined;
+          if (g.ok && !g.value) { muninn.setKv('reflection-last', `${new Date().toISOString()} · filtrée par le juge : « ${userText.slice(0, 80)} »`); return undefined; }
         }
         return this.reflect(userText, turnLog, tainted, emit);
       })().catch(() => undefined);
@@ -507,8 +508,8 @@ export class Agent {
   }
 
   /** Réflexion après une tâche : faut-il en tirer une compétence réutilisable ? */
-  private async reflect(goal: string, turn: Message[], tainted: boolean, emit: (e: AgentEvent) => void): Promise<string | undefined> {
-    const router = this.deps.cheapRouter ?? this.deps.router;
+  private async reflect(goal: string, turn: Message[], tainted: boolean, emit: (e: AgentEvent) => void, retry = false): Promise<string | undefined> {
+    const router = retry ? this.deps.router : this.deps.cheapRouter ?? this.deps.router;
     const existing = this.deps.skills.list().map((s) => s.name).join(', ') || 'aucune';
     const r = await router.complete({
       system: `Tu analyses une tâche que l'agent vient de réussir. Si elle révèle une procédure réutilisable (plusieurs étapes, pièges évités), réponds UNIQUEMENT par un JSON :
@@ -518,8 +519,11 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
       tools: [], maxTokens: 1500,
     }, { minTier: 'local', purpose: 'réflexion' });
     const json = r.text.match(/\{[\s\S]*\}/)?.[0];
-    if (!json) return undefined;
-    const p = JSON.parse(json) as { propose?: boolean; name?: string; description?: string; body?: string; reason?: string };
+    // Petit modèle qui ne répond pas en JSON : on redemande au modèle principal
+    if (!json) return !retry && this.deps.cheapRouter ? this.reflect(goal, turn, tainted, emit, true) : undefined;
+    let p: { propose?: boolean; name?: string; description?: string; body?: string; reason?: string };
+    try { p = JSON.parse(json); } catch { return !retry && this.deps.cheapRouter ? this.reflect(goal, turn, tainted, emit, true) : undefined; }
+    this.deps.muninn.setKv('reflection-last', `${new Date().toISOString()} · ${p.propose ? `compétence « ${p.name} »` : 'rien de réutilisable'} : « ${goal.slice(0, 80)} »`);
     if (!p.propose || !p.name || !p.body) return undefined;
     const prop = this.deps.skills.propose({ name: p.name, description: p.description ?? '', body: this.deps.redactor.redact(p.body), reason: p.reason ?? 'réflexion automatique', tainted });
     // Apprentissage immédiat : en Odin Breaker (ou si tu l'as choisi), la compétence sert dès la tâche suivante.

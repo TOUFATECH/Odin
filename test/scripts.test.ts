@@ -94,3 +94,23 @@ test('mode essai : rien n\'est modifié, les scripts tournent à blanc, les lect
     assert.equal(o.agent.dryRun(), false);
   } finally { o.cleanup(); }
 });
+
+test('Odin Breaker : planifie lui-même les tâches de fond logiques (une fois), et sait quoi faire', async () => {
+  const { Gateway, BREAKER_ROUTINES, continuousTodo, cronFr } = await import('../src/bifrost/gateway.ts');
+  const o = makeOdin([], { config: (c) => ({ ...c, continuous: { ...c.continuous, enabled: true } }) });
+  try {
+    const sent: string[] = [];
+    const ch = { name: 'fake', interactive: true, start: async () => {}, send: async (_p: string, t: string) => { sent.push(t); }, stop: async () => {} };
+    const gw = new Gateway(o, { owners: { fake: ['boss'] } }).add(ch as never);
+    assert.equal(await gw.breakerRoutines(), 0, 'hors Breaker : rien');
+    o.heimdall.setAutonomy('breaker');
+    assert.equal(await gw.breakerRoutines(), BREAKER_ROUTINES.length);
+    assert.equal(o.muninn.listJobs().filter((j) => j.prompt.startsWith('[routine:')).length, BREAKER_ROUTINES.length);
+    assert.match(sent.join('\n'), /j'ai planifié 5 tâche\(s\)[\s\S]*chaque jour à 03 h 17/);
+    const id = o.muninn.listJobs()[0].id; o.muninn.removeJob(id);
+    assert.equal(await gw.breakerRoutines(), 0, 'une tâche retirée par toi n\'est pas recréée');
+    assert.equal(cronFr('33 5 1 * *'), 'le 1 de chaque mois à 05 h 33');
+    o.inventory.applyScan([{ ip: '192.168.1.89', mac: 'aa:bb:cc:dd:ee:ff', ports: [], services: [], network: '192.168.1.0/24' }] as never, ['192.168.1.0/24'], Date.now(), 7, false);
+    assert.match(continuousTodo(o).join('\n'), /Appareil sans nom : 192\.168\.1\.89[\s\S]*net_identify puis net_rename/);
+  } finally { o.cleanup(); }
+});

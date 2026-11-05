@@ -261,7 +261,7 @@ ol.steps{margin:0;padding-left:20px;color:var(--muted);font-size:14px}
 body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
-.nav-h{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:14px 12px 6px}
+.abar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.asum{display:flex;gap:16px;flex-wrap:wrap;font-size:14px;color:var(--muted);margin-bottom:14px}.asum .bad{color:var(--bad,#d04b4b)}.aday{margin-bottom:18px}.aday h3{font-size:14px;margin:0 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}.arow{display:flex;gap:12px;align-items:flex-start;padding:8px 6px;border-radius:10px}.arow:hover{background:var(--hover)}.atime{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;min-width:44px;padding-top:2px}.aic{width:24px;height:24px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;background:color-mix(in srgb,#2ea86b 18%,transparent);color:#2ea86b}.arow.bad .aic{background:color-mix(in srgb,#d04b4b 18%,transparent);color:#d04b4b}.arow.brk .aic{background:color-mix(in srgb,#e8a33a 22%,transparent);color:#e8a33a}.arow.you .aic{background:color-mix(in srgb,#5b8def 18%,transparent)}.atxt{min-width:0;flex:1}.atxt b{font-weight:650}.adet{color:var(--muted);overflow-wrap:anywhere}.atxt .pill{margin-left:6px}.nav-more{display:flex;align-items:center;gap:8px;width:100%;margin:6px 0 2px;padding:9px 12px;border:0;background:none;color:var(--dim);font:inherit;font-size:13px;letter-spacing:.04em;cursor:pointer;border-radius:10px}.nav-more:hover{color:var(--ink);background:var(--hover)}.nav-more svg{width:16px;height:16px;margin-left:auto;stroke:currentColor;fill:none;stroke-width:2;transition:transform .2s}.nav-more[aria-expanded=true] svg{transform:rotate(180deg)}.navmore{display:flex;flex-direction:column}.navmore[hidden]{display:none}.sall{margin:0 28px 4px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}.sall[hidden]{display:none}.sall h4{margin:0 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)}.sall button{display:block;width:100%;text-align:left;padding:7px 10px;border:0;border-radius:8px;background:none;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}.sall button:hover,.sall button.on{background:var(--hover)}.sall .sq{grid-column:1/-1}.schip.rank-hide{display:none}.schip.sall-btn{color:var(--ink)}.nav-h{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:14px 12px 6px}
 .tab{justify-content:flex-start;gap:12px;font-size:15px;transition:background .15s,color .15s}
 .tab .lbl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
@@ -476,10 +476,10 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .ntabs .schip .badge{min-width:18px;height:18px;font-size:11px;margin-left:4px}
 .star{border:0;background:none;color:var(--dim);font-size:17px;cursor:pointer;padding:0 2px;line-height:1}.star.on{color:var(--accent)}.star:hover{color:var(--accent)}
 .nmap{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;overflow:auto}
-.mapsvg{width:100%;min-width:640px;height:auto;display:block}
-.mlink{stroke:var(--field);stroke-width:1.4}.mlink.off{stroke-dasharray:4 4;opacity:.5}
+.mapsvg{width:100%;height:auto;display:block}
+.mlink{stroke:var(--field);stroke-width:1.6;fill:none}.mlink.off{stroke-dasharray:4 4;opacity:.5}
 .mnode{cursor:pointer}.mnode circle{fill:var(--panel2);stroke:var(--accent);stroke-width:1.6}.mnode.off circle{stroke:var(--off);opacity:.7}.mnode:hover circle,.mnode:focus circle{fill:var(--hover);stroke-width:2.4}
-.mnode text{text-anchor:middle;fill:var(--ink)}.mnode .mi{font-size:17px}.mnode .ml{font-size:12px;font-weight:600}.mnode .mip{font-size:10.5px;fill:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace}
+.mnode text{text-anchor:middle;fill:var(--ink)}.mworld{transition:transform .08s}.mapsvg.grab{cursor:grabbing}.mapsvg{touch-action:none;cursor:grab}.mgroup{fill:var(--panel2);stroke:var(--line);opacity:.85}.mgt{font-size:14px;font-weight:750;fill:var(--ink)}.mnode .mst{fill:#2ea86b;stroke:var(--panel);stroke-width:2}.mnode.off .mst{fill:var(--off,#888)}.mnode.dim{opacity:.18}.mnode.hit circle:first-child,.mnode.sel circle:first-child{stroke-width:3.2;stroke:var(--accent);fill:color-mix(in srgb,var(--accent) 22%,var(--panel2))}.mbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.mnets{display:flex;gap:6px;flex-wrap:wrap}.mnets .chip{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);font:inherit;font-size:13px;cursor:pointer}.mnets .chip.on{background:var(--accent);color:#1b1408;border-color:transparent;font-weight:700}.msearch{flex:1 1 200px;max-width:320px}.mzoom{display:flex;gap:4px;margin-left:auto}.mwrap{position:relative}.mcard{position:absolute;top:8px;right:8px;width:min(320px,calc(100% - 16px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:6px;max-height:calc(100% - 16px);overflow:auto}.mct{display:flex;justify-content:space-between;align-items:center;gap:8px}.mnode .mi{font-size:17px}.mnode .ml{font-size:13px;font-weight:650}.mnode .mip{font-size:11px;fill:var(--dim);font-family:ui-monospace,Menlo,Consolas,monospace}
 .mlegend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted);padding:8px 6px 2px}
 .sfind{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--dim);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;flex-direction:column;gap:5px}
 .sfind.grave{border-left-color:var(--bad)}.sfind.attention{border-left-color:var(--warn)}.sfind.info{border-left-color:#5B8DEF}
@@ -563,16 +563,17 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   <nav class="side" id="sideNav" aria-label="Sections">
     <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
     <div class="buddy" title="L'humeur d'Odin : il la choisit lui-même"><span class="odin" id="buddy" aria-hidden="true"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span><span class="buddy-txt" id="buddyTxt">tranquille</span><button class="buddy-snd" id="buddySnd" type="button" aria-pressed="true">Sons activés</button></div>
-    <div class="nav-h">Odin</div>
     <button class="tab" data-view="home" aria-current="page"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6 9.8V19h4.5v-5h3v5H18V9.8"/></svg><span class="lbl">Accueil</span><span class="badge" id="b-home" hidden>!</span></button>
     <button class="tab" data-view="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z"/></svg><span class="lbl">Discussion</span> <span class="badge" id="b-approvals" hidden>0</span></button>
     <button class="tab" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Missions</span> <span class="badge" id="b-missions" hidden>0</span></button>
     <button class="tab" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Réseau</span> <span class="badge" id="b-net" hidden>0</span></button>
-    <div class="nav-h">Gérer</div>
+    <button class="nav-more" id="navMoreBtn" type="button" aria-expanded="false" aria-controls="navMore"><span>Plus</span><span class="badge" id="navMoreBadge" hidden></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div class="navmore" id="navMore" hidden>
     <button class="tab" data-view="memory"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5v-15z"/><path d="M19 18v3H6.5A1.5 1.5 0 0 1 5 19.5"/><path d="M9 7h6"/></svg><span class="lbl">Mémoire</span></button>
     <button class="tab" data-view="skills"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5.2 5.2 2.3-5.2 2.3L12 18.5l-2.3-5.2L4.5 11l5.2-2.3z"/><path d="M19 17v4M17 19h4"/></svg><span class="lbl">Compétences</span> <span class="badge" id="b-drafts" hidden>0</span></button>
     <button class="tab" data-view="jobs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span class="lbl">Tâches planifiées</span></button>
     <button class="tab" data-view="audit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="lbl">Décisions</span></button>
+    </div>
     <button class="tab" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span> <span class="badge" id="b-settings" hidden>!</span></button>
     <div class="foot"><div id="usage">—</div><div id="appVer" class="dim" style="font-size:11px"></div><button class="theme-btn" id="themeBtn" type="button" title="Thème de l'interface">Thème : auto</button></div>
   </nav>
@@ -660,14 +661,14 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       <div class="head"><div><h1>Décisions</h1><div class="sub" id="autoSub">Chaque action d'Odin, qui l'a décidée, et pourquoi.</div></div>
         <div class="seg" role="group" aria-label="Niveau d'autonomie"><button data-auto="prudent">Prudent</button><button data-auto="equilibre">Équilibré</button><button data-auto="autonome">Autonome</button><button data-auto="breaker" class="brk">⚡ Odin Breaker</button></div></div>
       <div class="body">
-        <div class="wrap"><table class="tbl"><thead><tr><th>Heure</th><th>Gravité</th><th>Décision</th><th>Action et raison</th></tr></thead><tbody id="audit"></tbody></table></div>
+        <div class="abar"><div class="seg" role="group" aria-label="Période" id="aPeriod"><button data-p="jour" aria-pressed="true">Jour</button><button data-p="semaine">Semaine</button><button data-p="mois">Mois</button><button data-p="annee">Année</button></div><div class="seg" role="group" aria-label="Filtre" id="aFilter"><button data-f="important" aria-pressed="true">Actions</button><button data-f="refuse">Refusées</button><button data-f="tout">Tout</button></div></div><div class="asum" id="aSum"></div><div class="afeed" id="audit"></div>
         <h2 style="font-size:18px;margin:32px 0 12px">Autorisations permanentes</h2>
         <div class="wrap"><table class="tbl"><thead><tr><th>Type d'action</th><th>Exemple</th><th>Utilisations</th><th></th></tr></thead><tbody id="grants"></tbody></table></div>
       </div>
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Autres fonctions">＋ Plus</button></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -1056,8 +1057,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   $('#moreBtn').addEventListener('click', () => toggleNav(!sideNav.classList.contains('open')));
   scrim.addEventListener('click', () => toggleNav(false));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sideNav.classList.contains('open')) toggleNav(false); });
+  const SECONDARY = ['memory', 'skills', 'jobs', 'audit'];
+  function navMore(open) { const b = $('#navMoreBtn'), m = $('#navMore'); if (!b) return; m.hidden = !open; b.setAttribute('aria-expanded', String(open)); try { localStorage.setItem('odin.navmore', open ? '1' : '0'); } catch {} }
   function show(v) {
     toggleNav(false);
+    if (SECONDARY.includes(v)) navMore(true);
     for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === v) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
     $('#moreBtn').classList.toggle('cur', !['home', 'chat', 'net', 'settings'].includes(v));
     for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
@@ -1081,10 +1085,34 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     for (const c of document.querySelectorAll('.sgrid > .card')) c.hidden = c.dataset.sec !== sec;
     for (const b of document.querySelectorAll('.schip')) b.setAttribute('aria-selected', String(b.dataset.sec === sec));
     const chip = document.querySelector('.schip[data-sec="' + sec + '"]'); if (chip) chip.scrollIntoView({ block: 'nearest', inline: 'center' });
-    try { localStorage.setItem('odin.sec', sec); } catch {}
+    try { localStorage.setItem('odin.sec', sec); const u = JSON.parse(localStorage.getItem('odin.secUse') || '{}'); u[sec] = { n: (u[sec]?.n || 0) + 1, t: Date.now() }; localStorage.setItem('odin.secUse', JSON.stringify(u)); } catch {}
+    if (typeof rankChips === 'function') rankChips(sec);
     const body = document.querySelector('#v-settings .body'); if (body) body.scrollTop = 0;
   }
-  for (const b of document.querySelectorAll('.schip')) b.addEventListener('click', () => openSettings(b.dataset.sec));
+  for (const b of document.querySelectorAll('.schip[data-sec]')) b.addEventListener('click', () => openSettings(b.dataset.sec));
+  // Rubriques en haut selon ton usage : les plus utilisées (et celle ouverte), 5 au plus ; le reste dans « Tous les réglages ».
+  const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
+  const secUse = () => { try { return JSON.parse(localStorage.getItem('odin.secUse') || '{}'); } catch { return {}; } };
+  const DEFAULT_TOP = ['modele', 'autonomie', 'telegram', 'reseau', 'droits'];
+  function rankChips(cur) {
+    const use = secUse(), chips = [...document.querySelectorAll('.schip[data-sec]')].filter((c) => c.dataset.sec !== 'plus');
+    const usable = chips.filter((c) => !c.hidden);
+    const score = (s) => (use[s]?.n || 0) * 2 + (use[s]?.t ? Math.max(0, 7 - (Date.now() - use[s].t) / 86400000) : 0) + (DEFAULT_TOP.includes(s) ? 1.5 - DEFAULT_TOP.indexOf(s) * 0.2 : 0) + (document.querySelector(`.schip[data-sec="${s}"]`)?.classList.contains('sugg') ? 3 : 0);
+    const top = usable.map((c) => c.dataset.sec).sort((a, b) => score(b) - score(a)).slice(0, 5);
+    if (cur && cur !== 'plus' && !top.includes(cur)) top[4] = cur;
+    for (const c of chips) c.classList.toggle('rank-hide', !top.includes(c.dataset.sec));
+    // ordre affiché = ordre d'usage
+    const nav = $('#snav'); top.forEach((s) => { const c = nav.querySelector(`.schip[data-sec="${s}"]`); if (c) nav.insertBefore(c, nav.querySelector('.schip.more')); });
+  }
+  function paintAll() {
+    const box = $('#sAll'), cur = (() => { try { return localStorage.getItem('odin.sec'); } catch { return ''; } })();
+    const name = (s) => document.querySelector(`.schip[data-sec="${s}"]`)?.textContent.trim() || s;
+    const visible = (s) => { const c = document.querySelector(`.schip[data-sec="${s}"]`); return c && !c.hidden; };
+    const q = el('input', { type: 'search', class: 'sq', placeholder: 'Chercher un réglage…', 'aria-label': 'Chercher un réglage', oninput: (e) => { const v = e.target.value.toLowerCase(); for (const b of box.querySelectorAll('button[data-s]')) b.hidden = v && !b.textContent.toLowerCase().includes(v); } });
+    box.replaceChildren(q, ...SEC_GROUPS.map(([g, list]) => { const items = list.filter(visible); return items.length ? el('div', {}, el('h4', {}, g), ...items.map((s) => el('button', { type: 'button', 'data-s': s, class: s === cur ? 'on' : '', onclick: () => { box.hidden = true; $('#sAllBtn').setAttribute('aria-expanded', 'false'); openSettings(s); } }, name(s)))) : null; }).filter(Boolean),
+      el('div', {}, el('h4', {}, 'À ajouter'), el('button', { type: 'button', onclick: () => { box.hidden = true; openSettings('plus'); } }, '＋ Fonctions disponibles')));
+  }
+  $('#sAllBtn').addEventListener('click', () => { const b = $('#sAll'); b.hidden = !b.hidden; $('#sAllBtn').setAttribute('aria-expanded', String(!b.hidden)); if (!b.hidden) { paintAll(); b.querySelector('input')?.focus(); } });
   { let s = 'modele'; try { s = localStorage.getItem('odin.sec') || 'modele'; } catch {} openSettings(document.querySelector('.schip[data-sec="' + s + '"]') ? s : 'modele'); }
   window.openSettings = (sec) => { show('settings'); openSettings(sec); };
 
@@ -1408,7 +1436,12 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   // Différences d'une amélioration (lignes ajoutées / retirées).
   const diffView = (d) => el('pre', { class: 'body-skill diff' }, ...d.split('\n').map((l) => el('span', { class: l.startsWith('+ ') ? 'dadd' : l.startsWith('- ') ? 'ddel' : '' }, l + '\n')));
   // Version, mise à jour en attente, mode essai.
+  $('#navMoreBtn').addEventListener('click', () => navMore($('#navMore').hidden));
+  try { if (localStorage.getItem('odin.navmore') === '1') navMore(true); } catch {}
   function renderApp() {
+    // Badge sur « Plus » quand une rubrique rangée attend quelque chose (brouillons de compétences…)
+    { const n = (state.drafts || []).length, nb = $('#navMoreBadge'); nb.hidden = !n || !$('#navMore').hidden; nb.textContent = n; }
+    try { const cur = localStorage.getItem('odin.sec'); rankChips(cur); } catch { rankChips(); }
     const V = state.version || {};
     $('#appVer').textContent = V.running ? `Odin v${V.running}` : '';
     const b = $('#updBanner');
@@ -1513,15 +1546,43 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const r = await api('/api/action', { kind: 'breaker_save', schedule: brkSchedule, from: $('#b-from').value, to: $('#b-to').value, fallback: $('#b-fallback').value, reportAt: $('#b-report').value, maxSteps: Number($('#b-steps').value), maxCostPerTurnUsd: Number($('#b-cost').value), proactive: $('#b-proactive').checked });
     st('#b-status', r.ok ? '✓ Odin Breaker enregistré (appliqué tout de suite).' : r.error || 'Erreur', Boolean(r.ok));
   });
+  // ---------- Décisions : lisibles, par jour / semaine / mois / année ----------
+  let aPeriod = 'jour', aFilter = 'important', aSig = '';
+  // Outils de simple consultation : masqués dans « Actions » (ils restent dans « Tout »)
+  const LOOKS = new Set(['net_inventory', 'net_security', 'memory_search', 'memory_profile', 'schedule_list', 'skill_read', 'fs_read', 'fs_list', 'script_list', 'web_search', 'web_fetch', 'browser_open', 'browser_look', 'net_identify', 'evidence_search', 'self_info', 'calendar_list', 'mail_list', 'mail_read', 'ha_states', 'proxmox_list', 'docs_search', 'web_research', 'system_updates', 'lesson_list']);
+  const TOOL_FR = { shell: '💻 Commande', machine_exec: '💻 Commande sur une machine', script_run: '🐍 Script', script_save: '📝 Script enregistré', net_scan: '📡 Balayage du réseau', net_identify: '🔍 Identification d\'un appareil', net_rename: '✏️ Appareil renommé', net_inventory: '📡 Lecture de l\'inventaire', net_security: '🛡 Contrôle de sécurité', memory_search: '🧠 Recherche dans la mémoire', memory_save: '🧠 Souvenir enregistré', schedule_list: '⏰ Lecture des tâches', schedule_task: '⏰ Tâche planifiée', web_search: '🔎 Recherche web', web_fetch: '🌐 Lecture d\'une page', web_research: '🧪 Recherche vérifiée', fs_write: '✏️ Fichier écrit', fs_edit: '✏️ Fichier modifié', fs_read: '📄 Fichier lu', skill_read: '📚 Compétence lue', skill_propose: '📚 Compétence proposée', proxmox_action: '🖥 Proxmox', ha_call: '🏠 Maison', mail_send: '✉️ Mail envoyé', calendar_add: '📅 Rendez-vous ajouté', self_update: '⬆️ Mise à jour d\'Odin', self_restart: '🔄 Redémarrage d\'Odin', delegate: '👥 Sous-agents', video_analyze: '🎬 Analyse vidéo', system_update_apply: '⬆️ Mises à jour installées' };
+  // Phrase lisible : « net_inventory {"device":"192.168.1.89"} » → « 📡 Lecture de l'inventaire · 192.168.1.89 »
+  const actionText = (a) => {
+    const raw = String(a.summary || ''), m = /^([a-z_]+) (\{.*\})$/.exec(raw);
+    let detail = raw;
+    if (m) { try { detail = Object.values(JSON.parse(m[2])).filter((v) => v !== '' && v != null && typeof v !== 'object').map(String).join(' · '); } catch { detail = ''; } }
+    else if (TOOL_FR[a.tool]) detail = raw.replace(/^(recherche web|GET|navigateur : ouvrir|balayer)\s*:?\s*/i, '');
+    return { title: TOOL_FR[a.tool] || (m ? `⚙️ ${a.tool}` : raw), detail: TOOL_FR[a.tool] || m ? detail : '' };
+  };
+  async function loadAudit() {
+    const r = await api('/api/action', { kind: 'audit_list', period: aPeriod });
+    if (!r.ok) return;
+    const sig = JSON.stringify([aPeriod, aFilter, r.total, r.rows[0]?.t]); if (sig === aSig) return; aSig = sig;
+    const rows = r.rows.filter((a) => aFilter === 'tout' ? true : aFilter === 'refuse' ? !a.allowed : !a.allowed || a.severity || !LOOKS.has(a.tool));
+    $('#aSum').replaceChildren(el('span', {}, el('b', {}, String(r.total)), ` action(s) ${({ jour: 'depuis 24 h', semaine: 'cette semaine', mois: 'ce mois-ci', annee: 'cette année' })[aPeriod]}`), el('span', { class: r.refused ? 'bad' : '' }, el('b', {}, String(r.refused)), ' refusée(s)'), el('span', { class: r.grave ? 'bad' : '' }, el('b', {}, String(r.grave)), ' grave(s)'), aFilter === 'important' ? el('span', { class: 'dim' }, `${r.total - rows.length} simple(s) consultation(s) masquée(s)`) : null);
+    // Regroupement : par jour (jour, semaine, mois), par mois (année) ; répétitions fusionnées (×n)
+    const key = (a) => { const d = new Date(a.t); return aPeriod === 'annee' ? d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); };
+    const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), yest = new Date(Date.now() - 86400000).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const groups = []; for (const a of rows) { const k = key(a); let g = groups.at(-1); if (!g || g.k !== k) { g = { k, items: [] }; groups.push(g); } const last = g.items.at(-1); const s = `${a.tool}|${a.summary}|${a.allowed}`; if (last && last.s === s) last.n++; else g.items.push({ a, s, n: 1 }); }
+    const icon = (a) => !a.allowed ? ['✕', 'bad'] : a.via === 'human' ? ['👤', 'you'] : a.via === 'breaker' ? ['⚡', 'brk'] : a.via === 'mimir' || a.via === 'grant' ? ['✓', 'auto'] : ['✓', 'ok'];
+    $('#audit').replaceChildren(...(groups.length ? groups.map((g) => el('section', { class: 'aday' }, el('h3', {}, g.k === today ? 'Aujourd\'hui' : g.k === yest ? 'Hier' : g.k.charAt(0).toUpperCase() + g.k.slice(1), el('span', { class: 'dim' }, ` · ${g.items.reduce((s, x) => s + x.n, 0)}`)),
+      ...g.items.slice(0, 300).map(({ a, n }) => { const [ic, cls] = icon(a), tx = actionText(a); return el('div', { class: 'arow ' + cls }, el('span', { class: 'atime' }, new Date(a.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })), el('span', { class: 'aic', title: !a.allowed ? 'refusé' : a.via === 'human' ? 'autorisé par toi' : a.via === 'breaker' ? 'Odin Breaker' : 'autorisé' }, ic),
+        el('div', { class: 'atxt' }, el('div', {}, el('b', {}, tx.title), tx.detail ? el('span', { class: 'adet' }, ' · ' + tx.detail) : null, n > 1 ? el('span', { class: 'pill' }, `×${n}`) : null, a.severity && a.severity !== 'routine' ? el('span', { class: 'pill ' + (a.severity === 'grave' || a.severity === 'blocked' ? 'bad' : 'warn') }, a.severity) : null),
+          !a.allowed && a.reason ? el('div', { class: 'sub' }, a.reason) : a.why && a.via !== 'policy' ? el('div', { class: 'sub' }, a.why) : null)); }))) : [el('div', { class: 'empty' }, aFilter === 'refuse' ? 'Aucun refus sur cette période.' : 'Rien sur cette période.')]));
+  }
+  for (const b of document.querySelectorAll('#aPeriod button')) b.addEventListener('click', () => { aPeriod = b.dataset.p; for (const x of document.querySelectorAll('#aPeriod button')) x.setAttribute('aria-pressed', String(x === b)); loadAudit(); });
+  for (const b of document.querySelectorAll('#aFilter button')) b.addEventListener('click', () => { aFilter = b.dataset.f; for (const x of document.querySelectorAll('#aFilter button')) x.setAttribute('aria-pressed', String(x === b)); aSig = ''; loadAudit(); });
   function renderAudit() {
     for (const b of document.querySelectorAll('[data-auto]')) b.setAttribute('aria-pressed', String(b.dataset.auto === state.autonomy));
     $('#autoSub').textContent = (AUTO_TXT[state.autonomy] || '') + (state.judge ? ` Juge : ${state.judge}.` : '');
     const label = (a) => !a.allowed ? 'refusé' : a.via === 'breaker' ? 'Odin Breaker' : a.via === 'mimir' ? 'décidé seul' : a.via === 'grant' ? 'autorisation permanente' : a.via === 'human' ? 'autorisé par toi' : 'autorisé';
     const pill = (a) => !a.allowed ? 'bad' : a.via === 'mimir' || a.via === 'grant' ? 'good' : '';
-    $('#audit').replaceChildren(...state.audit.map((a) => el('tr', {}, el('td', { class: 'sub' }, fmt(a.t)),
-      el('td', {}, a.severity ? el('span', { class: 'pill ' + (a.severity === 'grave' || a.severity === 'blocked' ? 'bad' : a.severity === 'important' ? 'warn' : '') }, a.severity) : '—'),
-      el('td', {}, el('span', { class: 'pill ' + pill(a) }, label(a))),
-      el('td', {}, el('div', {}, a.summary), el('div', { class: 'sub' }, a.allowed ? (a.why || '') : a.reason)))));
+    loadAudit();
     $('#grants').replaceChildren(...(state.grants || []).map((g) => el('tr', {}, el('td', { class: 'mono' }, g.key), el('td', { class: 'sub' }, g.example), el('td', {}, g.uses),
       el('td', {}, el('button', { class: 'btn small danger', onclick: () => api('/api/action', { kind: 'grant_revoke', id: g.id }) }, 'Retirer')))));
     if (!(state.grants || []).length) $('#grants').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune. Réponds « Toujours autoriser » à une demande importante pour en créer une.')));
@@ -1549,6 +1610,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/action', { kind: 'feature_show', id: f.id }); setTimeout(() => openSettings(FEAT_SEC[f.id]), 300); } }, 'Ajouter')))) : el('div', { class: 'sub' }, 'Toutes les fonctions sont déjà là.'));
     const cur = localStorage.getItem('odin.sec');
     if (cur && document.querySelector(`.schip[data-sec="${cur}"]`)?.hidden) openSettings('modele');
+    try { rankChips(localStorage.getItem('odin.sec')); } catch { /* */ }
   }
   function suggestionsCard() {
     const S = (state?.features || []).filter((f) => !f.on && f.why);
@@ -1643,34 +1705,99 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   }
   for (const b of document.querySelectorAll('[data-nt]')) b.addEventListener('click', () => netTab(b.dataset.nt));
   { let n = 'list'; try { n = localStorage.getItem('odin.nt') || 'list'; } catch {} if (n !== 'pve') netTab(n); }
+  // ---------- Carte du réseau : une carte par sous-réseau, appareils rangés par catégorie ----------
+  let mapNet = null, mapQuery = '', mapSel = null, mapView = { x: 0, y: 0, k: 1 };
+  try { mapNet = localStorage.getItem('odin.mapnet'); } catch {}
+  const octets = (ip) => ip.split('.').map(Number);
+  const ipSort = (a, b) => { const A = octets(a.ip), B = octets(b.ip); for (let i = 0; i < 4; i++) if (A[i] !== B[i]) return (A[i] || 0) - (B[i] || 0); return 0; };
+  // Nom court et utile sur la carte : le nom donné, sinon le nom d'hôte, sinon « type .88 »
+  const mapName = (x, full = false) => {
+    const generic = /\((machine virtuelle|serveur|inconnu|ordinateur[^)]*|téléphone[^)]*)\)$/.test(x.label) || /^\d+\.\d+\.\d+\.\d+$/.test(x.label);
+    const n = !generic ? x.label : x.hostname ? x.hostname.replace(/\.(local|lan|home|box)$/i, '') : `${({ 'machine virtuelle': 'VM', serveur: 'Serveur', inconnu: 'Appareil' })[x.kind] || 'Appareil'} .${octets(x.ip)[3]}`;
+    return full ? n : n.length > 16 ? n.slice(0, 15) + '…' : n;
+  };
   function renderMap() {
-    const d = (state.devices || []).filter((x) => x.status !== 'removed'), box = $('#netMap'); box.textContent = '';
-    if (!d.length) { box.append(el('div', { class: 'empty' }, 'Aucun appareil : lance un balayage.')); return; }
-    const gw = d.find((x) => x.kind === 'routeur') || null, others = d.filter((x) => x !== gw);
-    const groups = NET_CATS.filter((c, i, a) => a.findIndex((o) => o[2] === c[2]) === i).map((c) => ({ c, items: others.filter((x) => NET_CATS.filter((o) => o[2] === c[2]).some((o) => o[0] === x.kind)) })).filter((g) => g.items.length);
-    const narrow = matchMedia('(max-width:860px)').matches, W = narrow ? 420 : 900, H = narrow ? 560 : Math.max(520, 160 + groups.length * 40), cx = W / 2, cy = H / 2, R = narrow ? Math.min(W / 2 - 55, H / 2 - 70) : Math.min(W, H) / 2 - 90;
+    const all = (state.devices || []).filter((x) => x.status !== 'removed'), box = $('#netMap'); box.textContent = '';
+    if (!all.length) { box.append(el('div', { class: 'empty' }, 'Aucun appareil : lance un balayage.')); return; }
+    // Sous-réseaux : une carte chacun
+    const nets = [...new Set(all.map((x) => x.network || 'réseau'))].sort((a, b) => all.filter((x) => (x.network || 'réseau') === b).length - all.filter((x) => (x.network || 'réseau') === a).length);
+    if (!nets.includes(mapNet)) mapNet = nets[0];
+    const d = all.filter((x) => (x.network || 'réseau') === mapNet);
+    const gw = d.find((x) => x.kind === 'routeur') || null, others = d.filter((x) => x !== gw).sort(ipSort);
+    const uniq = NET_CATS.filter((c, i, a) => a.findIndex((o) => o[2] === c[2]) === i);
+    const groups = uniq.map((c) => ({ c, items: others.filter((x) => NET_CATS.filter((o) => o[2] === c[2]).some((o) => o[0] === x.kind)) })).filter((g) => g.items.length);
+    const rest = others.filter((x) => !groups.some((g) => g.items.includes(x)));
+    if (rest.length) groups.push({ c: ['', '•', 'Autres'], items: rest });
+    // Mise en page : le routeur en haut, puis un cadre par catégorie (grille de pastilles), rangés en lignes
+    const narrow = matchMedia('(max-width:860px)').matches, W = narrow ? 420 : 980, CW = narrow ? 96 : 116, CH = 96, PAD = 16, GAP = 20, TOP = 150;
+    const maxCols = Math.max(2, Math.floor((W - 2 * PAD) / CW) - 0);
+    const boxes = groups.map((g) => { const cols = Math.min(g.items.length, narrow ? 4 : Math.max(3, Math.min(maxCols, Math.ceil(Math.sqrt(g.items.length * 2.2))))); return { g, cols, w: Math.max(cols * CW + 2 * PAD, `${g.c[2]} · ${g.items.length}`.length * 8.4 + 44), h: Math.ceil(g.items.length / cols) * CH + 44 }; });
+    const rows = []; let row = [], rw = 0;
+    for (const b of boxes.sort((a, b2) => b2.g.items.length - a.g.items.length)) { if (row.length && rw + GAP + b.w > W - 20) { rows.push(row); row = []; rw = 0; } row.push(b); rw += (row.length > 1 ? GAP : 0) + b.w; }
+    if (row.length) rows.push(row);
+    let y = TOP;
+    const buses = [];
+    for (const r of rows) { const tw = r.reduce((a, b) => a + b.w, 0) + GAP * (r.length - 1); let x = (W - tw) / 2; for (const b of r) { b.x = x; b.y = y; x += b.w + GAP; } buses.push({ y: y - 16, x1: r[0].x + r[0].w / 2, x2: r.at(-1).x + r.at(-1).w / 2 }); y += Math.max(...r.map((b) => b.h)) + GAP + 22; }
+    const H = y + 10, cx = W / 2;
     const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('class', 'mapsvg'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Carte du réseau');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('class', 'mapsvg'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', `Carte du réseau ${mapNet}`);
     const mk = (tag, attrs, text) => { const n = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); if (text != null) n.textContent = text; return n; };
+    const world = mk('g', { class: 'mworld' }); svg.append(world);
+    const q = mapQuery.trim().toLowerCase();
+    const hit = (x) => !q || [x.label, x.ip, x.hostname, x.vendor, x.model, x.os, x.kind].filter(Boolean).join(' ').toLowerCase().includes(q);
     const node = (x, px, py, big) => {
-      const g = mk('g', { class: 'mnode' + (x.status !== 'online' ? ' off' : ''), transform: `translate(${px},${py})`, tabindex: '0' });
-      g.append(mk('circle', { r: big ? 30 : 20 }), mk('text', { class: 'mi', y: big ? 8 : 6 }, (NET_CATS.find((c) => c[0] === x.kind) || ['', '•'])[1]), mk('text', { class: 'ml', y: big ? 48 : 36 }, x.label.length > 18 ? x.label.slice(0, 17) + '…' : x.label), mk('text', { class: 'mip', y: big ? 62 : 49 }, x.ip));
-      g.append(mk('title', {}, `${x.label} · ${x.ip}${x.vendor ? ' · ' + x.vendor : ''}`));
-      g.addEventListener('click', () => { netTab('list'); $('#netSearch').value = x.ip; renderDevices(); });
+      const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•'];
+      const g = mk('g', { class: 'mnode' + (x.status !== 'online' ? ' off' : '') + (q && !hit(x) ? ' dim' : '') + (q && hit(x) ? ' hit' : '') + (mapSel === x.id ? ' sel' : ''), transform: `translate(${px},${py})`, tabindex: '0', role: 'button', 'aria-label': `${x.label}, ${x.ip}` });
+      g.append(mk('circle', { r: big ? 30 : 21 }), mk('text', { class: 'mi', y: big ? 8 : 6 }, cat[1]), mk('circle', { class: 'mst', cx: big ? 22 : 15, cy: big ? -22 : -15, r: 5 }),
+        mk('text', { class: 'ml', y: big ? 48 : 36 }, big ? (x.label.length > 22 ? x.label.slice(0, 21) + '…' : x.label) : mapName(x)), mk('text', { class: 'mip', y: big ? 62 : 49 }, x.ip));
+      g.append(mk('title', {}, `${x.label} · ${x.ip}${x.hostname ? ' · ' + x.hostname : ''}${x.os ? ' · ' + x.os : ''}`));
+      const open = () => { mapSel = x.id; renderMap(); };
+      g.addEventListener('click', open); g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
       return g;
     };
-    const center = gw ? node(gw, cx, cy, true) : (() => { const g = mk('g', { class: 'mnode', transform: `translate(${cx},${cy})` }); g.append(mk('circle', { r: 30 }), mk('text', { class: 'mi', y: 8 }, '🌐'), mk('text', { class: 'ml', y: 48 }, 'Réseau')); return g; })();
-    let k = 0; const total = others.length || 1;
-    for (const g of groups) {
-      for (const x of g.items) {
-        const a = (k++ / total) * Math.PI * 2 - Math.PI / 2, r = R * (k % 2 ? 1 : 0.78);
-        const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r * (narrow ? 1.15 : 0.82);
-        svg.append(mk('line', { x1: cx, y1: cy, x2: px, y2: py, class: 'mlink' + (x.status !== 'online' ? ' off' : '') }));
-        svg.append(node(x, px, py, false));
-      }
+    const center = gw ? node(gw, cx, 60, true) : (() => { const g = mk('g', { class: 'mnode', transform: `translate(${cx},60)` }); g.append(mk('circle', { r: 30 }), mk('text', { class: 'mi', y: 8 }, '🌐'), mk('text', { class: 'ml', y: 48 }, mapNet)); return g; })();
+    // Liaisons sans croisement : une ligne « bus » au-dessus de chaque rangée, reliées par la marge gauche
+    const TX = 8;
+    world.append(mk('path', { d: `M${cx},92 V${buses[0].y}`, class: 'mlink' }));
+    buses.forEach((bu, i) => {
+      world.append(mk('path', { d: `M${Math.min(bu.x1, cx, i ? TX : cx)},${bu.y} H${Math.max(bu.x2, cx)}`, class: 'mlink' }));
+      if (i) world.append(mk('path', { d: `M${TX},${buses[i - 1].y} V${bu.y} H${bu.x1}`, class: 'mlink' }));
+    });
+    if (buses.length > 1) world.append(mk('path', { d: `M${Math.min(buses[0].x1, cx)},${buses[0].y} H${TX}`, class: 'mlink' }));
+    for (const b of boxes) {
+      const bx = b.x + b.w / 2, bu = buses.find((u) => Math.abs(u.y - (b.y - 16)) < 1);
+      world.append(mk('path', { d: `M${bx},${bu.y} V${b.y}`, class: 'mlink' }));
+      world.append(mk('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 14, class: 'mgroup' }));
+      world.append(mk('text', { x: b.x + PAD, y: b.y + 24, class: 'mgt' }, `${b.g.c[1]} ${b.g.c[2]} · ${b.g.items.length}`));
+      b.g.items.forEach((x, i) => world.append(node(x, b.x + (b.w - b.cols * CW) / 2 + (i % b.cols) * CW + CW / 2, b.y + 44 + Math.floor(i / b.cols) * CH + 26, false)));
     }
-    svg.append(center);
-    box.append(svg, el('div', { class: 'mlegend' }, groups.map((g) => el('span', {}, `${g.c[1]} ${g.c[2]} (${g.items.length})`))));
+    world.append(center);
+    // Zoom (molette, pincement via +/−) et déplacement (glisser)
+    const apply = () => world.setAttribute('transform', `translate(${mapView.x},${mapView.y}) scale(${mapView.k})`);
+    apply();
+    svg.addEventListener('wheel', (e) => { e.preventDefault(); const r = svg.getBoundingClientRect(), sx = ((e.clientX - r.left) / r.width) * W, sy = ((e.clientY - r.top) / r.height) * H, k2 = Math.min(4, Math.max(0.5, mapView.k * (e.deltaY < 0 ? 1.15 : 1 / 1.15))); mapView = { k: k2, x: sx - ((sx - mapView.x) * k2) / mapView.k, y: sy - ((sy - mapView.y) * k2) / mapView.k }; apply(); }, { passive: false });
+    let drag = null;
+    svg.addEventListener('pointerdown', (e) => { if (e.target.closest('.mnode')) return; drag = { x: e.clientX, y: e.clientY, vx: mapView.x, vy: mapView.y }; svg.setPointerCapture(e.pointerId); svg.classList.add('grab'); });
+    svg.addEventListener('pointermove', (e) => { if (!drag) return; const r = svg.getBoundingClientRect(), f = W / r.width; mapView.x = drag.vx + (e.clientX - drag.x) * f; mapView.y = drag.vy + (e.clientY - drag.y) * f; apply(); });
+    svg.addEventListener('pointerup', () => { drag = null; svg.classList.remove('grab'); });
+    const zoom = (f) => { const k2 = Math.min(4, Math.max(0.5, mapView.k * f)); mapView = { k: k2, x: W / 2 - ((W / 2 - mapView.x) * k2) / mapView.k, y: H / 3 - ((H / 3 - mapView.y) * k2) / mapView.k }; apply(); };
+    // Barre : sous-réseaux, recherche, zoom
+    const bar = el('div', { class: 'mbar' },
+      nets.length > 1 ? el('div', { class: 'mnets', role: 'tablist', 'aria-label': 'Sous-réseaux' }, nets.map((n) => el('button', { class: 'chip' + (n === mapNet ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': String(n === mapNet), onclick: () => { mapNet = n; mapSel = null; mapView = { x: 0, y: 0, k: 1 }; try { localStorage.setItem('odin.mapnet', n); } catch {} renderMap(); } }, `${n} · ${all.filter((x) => (x.network || 'réseau') === n).length}`))) : el('span', { class: 'sub' }, `${mapNet} · ${d.length} appareil(s)`),
+      el('input', { class: 'msearch', type: 'search', placeholder: 'Chercher (nom, IP, système)…', value: mapQuery, 'aria-label': 'Chercher sur la carte', oninput: (e) => { mapQuery = e.target.value; clearTimeout(renderMap._t); renderMap._t = setTimeout(() => { renderMap(); const i = $('#netMap .msearch'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 250); } }),
+      el('div', { class: 'mzoom' }, el('button', { class: 'btn small', type: 'button', 'aria-label': 'Zoomer', onclick: () => zoom(1.25) }, '+'), el('button', { class: 'btn small', type: 'button', 'aria-label': 'Dézoomer', onclick: () => zoom(0.8) }, '−'), el('button', { class: 'btn small', type: 'button', onclick: () => { mapView = { x: 0, y: 0, k: 1 }; apply(); } }, 'Recentrer')));
+    // Fiche de l'appareil choisi
+    const x = d.find((v) => v.id === mapSel);
+    const card = x ? el('aside', { class: 'mcard' },
+      el('div', { class: 'mct' }, el('b', {}, mapName(x, true)), el('button', { class: 'btn small', type: 'button', 'aria-label': 'Fermer', onclick: () => { mapSel = null; renderMap(); } }, '✕')),
+      el('div', { class: 'dmeta' }, el('span', { class: 'mono' }, x.ip), x.mac ? ` · ${x.mac}` : '', ` · ${x.status === 'online' ? 'en ligne' : 'hors ligne'}`),
+      x.hostname ? el('div', { class: 'dline' }, 'Nom réseau : ', el('span', { class: 'mono' }, x.hostname)) : null,
+      [x.vendor, x.model].filter(Boolean).length ? el('div', { class: 'dline' }, [x.vendor, x.model].filter(Boolean).join(' · ')) : null,
+      x.os ? el('div', { class: 'dline' }, 'Système : ', x.os) : null,
+      x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.slice(0, 10).map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : null,
+      (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer' }, '↗ ', linkName(w, x.web)))) : null,
+      el('div', { class: 'hbtns' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => identify(x) }, '🔍 Identifier'), el('button', { class: 'btn small', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'), starBtn(x))) : null;
+    box.append(bar, el('div', { class: 'mwrap' }, svg, card), el('div', { class: 'mlegend' }, 'Molette ou +/− pour zoomer, glisser pour se déplacer, toucher un appareil pour sa fiche.'));
   }
   function renderSec() {
     const F = state.watch?.findings || [], box = $('#secList'); box.textContent = '';

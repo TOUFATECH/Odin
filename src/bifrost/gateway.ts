@@ -181,8 +181,8 @@ export class Gateway {
       // Sa réaction : un émoji à la fin du texte (même taille que le texte), sur Telegram.
       // Sur Telegram, le canal ajoute son visage (émoji personnalisé, ou l'émoji classique) à la fin.
       const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '');
-      if (mood && ch.typing && this.odin.cfg.mood.emoji) await ch.send(m.peer, body, { mood, final: true });
-      else await ch.send(m.peer, body + (mood && ch.sendSticker && this.odin.cfg.mood.emoji ? ` ${MOOD_EMOJI[mood as Mood]}` : ''), { final: true });
+      // Texte seul : plus d'émoji ajouté à la fin (demande du propriétaire)
+      await ch.send(m.peer, body, { final: true });
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
@@ -331,6 +331,7 @@ export class Gateway {
     }
     await this.journal(now).catch((e) => console.error('[journal]', (e as Error).message));
     await this.morning(now).catch((e) => console.error('[matin]', (e as Error).message));
+    await this.breakerRoutines(now).catch((e) => console.error('[routines]', (e as Error).message));
     await this.continuous(now).catch((e) => console.error('[travail continu]', (e as Error).message));
     await this.weekly(now).catch((e) => console.error('[semaine]', (e as Error).message));
     // Agenda du jour en cache (contexte de ta journée, « ne pas déranger » pendant un rendez-vous).
@@ -364,7 +365,7 @@ export class Gateway {
   async continuous(now = Date.now(), force = false): Promise<string | undefined> {
     const c = this.odin.cfg.continuous;
     if (!c?.enabled || this.odin.demo || this.aborts.size || vaultState(this.odin.paths.home) === 'locked') return undefined;
-    if (!force && now - this.lastContinuous < c.intervalMin * 60_000) return undefined;
+    if (!force && now - this.lastContinuous < c.intervalMin * 60_000 * (this.odin.heimdall.breakerActive() ? 0.5 : 1)) return undefined;
     this.lastContinuous = now;
     // 1. Relancer les missions échouées (modèle indisponible) ou arrêtées faute d'étapes.
     for (const m of this.odin.muninn.stalledMissions(now - 2 * 86_400_000)) {
@@ -379,14 +380,37 @@ export class Gateway {
     // 2. Initiative : budget du jour respecté.
     const day = new Date(now).toDateString(), spentKey = `continuous-spent:${day}`;
     const spent = Number(this.odin.muninn.getKv(spentKey) ?? 0);
-    if (c.dailyBudgetUsd > 0 && spent >= c.dailyBudgetUsd) return undefined;
-    const facts = [dayFacts(this.odin, now), ...(this.odin.inventory.list({ status: 'all' }).filter((d) => d.status === 'offline').slice(0, 5).map((d) => `Hors ligne : ${d.label || d.name || d.ip}`)), ...this.odin.muninn.habits().slice(0, 3).map((h) => `Demande fréquente : « ${h.text.slice(0, 80)} » (${h.count} fois)`)].join('\n');
-    const r = await this.odin.agent.run(`${CONTINUOUS_PROMPT}\n\n<situation>\n${facts}\n</situation>`, { sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+    // Odin Breaker : plus de moyens (budget ×3) et une vraie liste de choses à faire, sans attendre d'accord.
+    const breaker = this.odin.heimdall.breakerActive();
+    if (c.dailyBudgetUsd > 0 && spent >= c.dailyBudgetUsd * (breaker ? 3 : 1)) { this.odin.muninn.setKv('continuous-why', `budget du jour atteint (${spent.toFixed(2)} $)`); return undefined; }
+    const todo = continuousTodo(this.odin);
+    const facts = [...(todo.length ? ['À FAIRE (repéré par Odin) :', ...todo.map((x) => `- ${x}`)] : []), dayFacts(this.odin, now), ...(this.odin.inventory.list({ status: 'all' }).filter((d) => d.status === 'offline').slice(0, 5).map((d) => `Hors ligne : ${d.label || d.name || d.ip}`)), ...this.odin.muninn.habits().slice(0, 3).map((h) => `Demande fréquente : « ${h.text.slice(0, 80)} » (${h.count} fois)`)].join('\n');
+    this.odin.muninn.setKv('continuous-why', `${todo.length} chose(s) à faire repérée(s)`);
+    const r = await this.odin.agent.run(`${breaker ? CONTINUOUS_BREAKER : CONTINUOUS_PROMPT}\n\n<situation>\n${facts}\n</situation>`, { sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
     if (!r) return undefined;
     this.odin.muninn.setKv(spentKey, String(spent + r.costUsd));
     const text = r.text.trim();
     if (text && !/^(rien|RIEN)\b/.test(text) && r.toolCalls > 0) await this.tellOwner(`🔄 Odin a travaillé de lui-même\n${text.slice(0, 1200)}`, 'home');
     return text;
+  }
+
+  /**
+   * Odin Breaker : il met lui-même en place les tâches planifiées logiques d'un homelab (une fois ;
+   * il ne recrée pas celles que tu as supprimées) et te le dit.
+   */
+  async breakerRoutines(now = Date.now()): Promise<number> {
+    if (this.odin.demo || !this.odin.cfg.continuous?.enabled || !this.odin.heimdall.breakerActive()) return 0;
+    const done = new Set((this.odin.muninn.getKv('breaker-routines') ?? '').split(',').filter(Boolean));
+    const target = this.ownerTarget(); if (!target) return 0;
+    const jobs = this.odin.muninn.listJobs();
+    const add: Array<[string, string, string]> = BREAKER_ROUTINES.filter(([id]) => !done.has(id) && !jobs.some((j) => j.prompt.includes(`[routine:${id}]`)));
+    for (const [id, cron, prompt] of add) {
+      this.odin.muninn.addJob({ id: `job_${id}_${now.toString(36)}`, cron, prompt: `[routine:${id}] ${prompt}`, channel: target.ch.name, peer: target.peer, next_run: nextRun(cron, new Date(now)).getTime(), tainted: 0 });
+      done.add(id);
+    }
+    this.odin.muninn.setKv('breaker-routines', [...done].join(','));
+    if (add.length) await this.tellOwner(`⚡ Odin Breaker : j'ai planifié ${add.length} tâche(s) de fond :\n${add.map(([, c, p]) => `- ${cronFr(c)} : ${p.split(' : ')[0]}`).join('\n')}\nTu les vois (et peux les retirer) dans Tâches planifiées.`, 'jobs');
+    return add.length;
   }
 
   /** Chaque dimanche : test de restauration de la dernière sauvegarde, plan de reprise à jour, bilan de la semaine. */
@@ -603,5 +627,44 @@ export function dayFacts(odin: { muninn: { listMissions(n: number): Array<{ goal
 const CONTINUOUS_PROMPT = `Travail continu (personne ne te parle en ce moment). Regarde la situation ci-dessous et ce que tu sais (memory_search, schedule_list, net_inventory, net_security) : y a-t-il quelque chose d'UTILE à faire maintenant pour le propriétaire — corriger un problème repéré, vérifier un appareil hors ligne, préparer ce qu'il demande souvent, mettre en place une tâche planifiée qui manque, ranger, mettre à jour une fiche ?
 Règles : ne refais pas ce qui a déjà été fait (vérifie), une ou deux actions utiles au plus, rien d'irréversible ni de coûteux ; ce qui demande validation attendra son accord. Vérifie le résultat de chaque action.
 Réponds « RIEN » si rien d'utile, sinon trois lignes au plus : ce que tu as fait, vérifié, et ce qui attend son accord.`;
+
+/** Tâches de fond qu'Odin Breaker met en place tout seul (id, cron, consigne). */
+export const BREAKER_ROUTINES: Array<[string, string, string]> = [
+  ['reseau-nuit', '17 3 * * *', 'Ronde du réseau : appareils importants, nouveaux appareils (identifie-les avec net_identify et nomme-les avec net_rename), contrôle de sécurité (net_security) ; corrige ce qui est simple et sûr, note le reste'],
+  ['maj-semaine', '43 4 * * 0', 'Mises à jour de la semaine : vérifie les mises à jour de la machine d\'Odin et des machines enregistrées ; applique-les (instantané Proxmox avant quand c\'est possible), vérifie que tout redémarre, et fais un compte rendu'],
+  ['disques-jour', '27 6 * * *', 'Espace disque : machine d\'Odin, machines et conteneurs enregistrés ; au-dessus de 85 %, trouve ce qui grossit et libère ce qui est sans risque (journaux, caches, paquets), jamais de données personnelles'],
+  ['sauvegardes-semaine', '12 7 * * 1', 'Sauvegardes : vérifie que les sauvegardes (Odin, Proxmox, NAS) ont bien tourné cette semaine et qu\'elles sont lisibles ; relance celles qui ont échoué'],
+  ['scripts-mois', '33 5 1 * *', 'Révision mensuelle : scripts en échec ou lents, compétences qui échouent souvent ; corrige-les et teste-les en mode essai'],
+];
+/** Cron → français simple (pur). */
+export function cronFr(c: string): string {
+  const [mi, h, dom, , dow] = c.split(' ');
+  const at = `${h.padStart(2, '0')} h ${mi.padStart(2, '0')}`;
+  if (dom !== '*') return `le ${dom} de chaque mois à ${at}`;
+  if (dow !== '*') return `chaque ${['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][Number(dow)] ?? dow} à ${at}`;
+  return `chaque jour à ${at}`;
+}
+
+const CONTINUOUS_BREAKER = `Travail continu en mode ⚡ Odin Breaker (personne ne te parle). Le propriétaire t'a donné carte blanche : tu n'as PAS besoin de son accord. AGIS sur la liste « À FAIRE » ci-dessous, dans l'ordre : identifie les appareils inconnus (net_identify) puis donne-leur un nom clair (net_rename) ; corrige les problèmes de sécurité et les scripts en échec ; relance ce qui est tombé ; complète ce qui manque. Jusqu'à 5 actions, chacune vérifiée.
+Si une vérification ou une action utile revient souvent et n'est pas encore planifiée, planifie-la toi-même (schedule_task, ou script_schedule pour un script) à une heure creuse.
+Limites : rien d'irréversible sur les données (pas de suppression), pas d'envoi de message à des tiers.
+Termine par 3 à 6 lignes : ce que tu as FAIT (concret), vérifié, et ce qui reste. « RIEN » seulement si la liste est vide et qu'il n'y a vraiment rien d'utile.`;
+
+/** Choses concrètes à faire, repérées sans le modèle (pur sauf lecture). */
+export function continuousTodo(odin: Odin): string[] {
+  const out: string[] = [];
+  const devs = odin.inventory.list({ status: 'online' });
+  const unknown = devs.filter((d) => d.kind === 'inconnu' || (!d.label && !d.name && !d.hostname)).slice(0, 5);
+  for (const d of unknown) out.push(`Appareil sans nom : ${d.ip}${d.mac ? ` (${d.mac})` : ''} → net_identify puis net_rename`);
+  const watched = new Set(odin.cfg.watch?.devices ?? []);
+  for (const d of odin.inventory.list({ status: 'all' }).filter((x) => watched.has(x.id) && x.status !== 'online').slice(0, 3)) out.push(`Appareil important hors ligne : ${d.label || d.name || d.ip} (${d.ip}) → vérifier et relancer si possible`);
+  // Demandes qui reviennent sans compétence : en faire une (procédure + script si utile)
+  try {
+    const skills = odin.skills.list().map((s) => `${s.name} ${s.description}`.toLowerCase());
+    for (const h of odin.muninn.habits(30, 2).slice(0, 3)) if (!skills.some((s) => h.text.toLowerCase().split(/\W+/).filter((w) => w.length > 4).some((w) => s.includes(w)))) out.push(`Demande fréquente sans compétence : « ${h.text.slice(0, 90)} » (${h.count} fois) → fais-en une compétence (skill_propose), avec un script si c'est une action`);
+  } catch { /* pas d'habitudes */ }
+  try { for (const m of listScripts(odin.paths.workspace).filter((x) => x.lastError).slice(0, 3)) out.push(`Script en échec : ${m.name} (${m.lastError!.split('\n').filter(Boolean).at(-1)?.slice(0, 100)}) → corriger (script_save) et relancer`); } catch { /* pas de scripts */ }
+  return out;
+}
 
 const MORNING_PROMPT = `Écris le rapport du matin pour le propriétaire, en français, court (8 lignes au plus) : ce que tu as fait cette nuit, ce qui attend sa validation ou son attention, puis 1 ou 2 conseils pour la journée. Appuie-toi UNIQUEMENT sur les faits ci-dessous ; n'invente rien. N'agis pas : n'utilise aucun outil.`;

@@ -39,7 +39,7 @@ test('Odin choisit son humeur : marqueur invisible, évènement émis, autocolla
   ch.event = (_p: string, e: { type: string; mood?: string }) => { if (e.type === 'mood') events.push(e.mood!); };
   const msg = (text: string): Inbound => ({ channel: 'fake', peer: 'boss', name: 'boss', text });
   await gw.handle(msg('salut'));
-  assert.equal(ch.sent[0], 'Bonjour ! Prêt à t\'aider. 😊', 'marqueur retiré, réaction à la fin du texte');
+  assert.equal(ch.sent[0], 'Bonjour ! Prêt à t\'aider.', 'marqueur retiré, pas d\'émoji ajouté');
   assert.match(o.provider.calls[0].system, /\[humeur:X\]/, 'le modèle sait qu\'il a un visage');
   assert.equal(ch.stickers, 1);
   await gw.handle(msg('encore'));
@@ -49,4 +49,11 @@ test('Odin choisit son humeur : marqueur invisible, évènement émis, autocolla
   assert.deepEqual(events, ['joie', 'joie', 'reflexion']);
   assert.doesNotMatch(JSON.stringify(o.muninn.history('fake:boss')), /\[humeur:/, 'le marqueur n\'est pas gardé dans l\'historique');
   o.cleanup();
+});
+
+test('marqueur court [joie] ou oublié au milieu : retiré', async () => {
+  const { extractMood } = await import('../src/mood/mood.ts');
+  assert.deepEqual(extractMood('[joie] Yo !'), { text: 'Yo !', mood: 'joie' });
+  assert.deepEqual(extractMood('[ecoute] Compris.\n[humeur:joie] Fait.'), { text: 'Compris.\nFait.', mood: 'ecoute' });
+  assert.deepEqual(extractMood('[note] garde-moi ça'), { text: '[note] garde-moi ça', mood: undefined });
 });

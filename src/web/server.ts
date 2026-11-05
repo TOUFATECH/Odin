@@ -490,6 +490,14 @@ export class WebChannel implements Channel {
     switch (b.kind) {
       case 'skill_approve': skills.approve(name); break;
       case 'skill_reject': skills.reject(name); break;
+      case 'audit_list': {
+        // Journal des décisions sur une période (jour, semaine, mois, année)
+        const f = join(this.odin.paths.logs, 'audit.jsonl');
+        const span = ({ jour: 1, semaine: 7, mois: 31, annee: 366 } as Record<string, number>)[String(b.period)] ?? 1;
+        const since = Date.now() - span * 86_400_000;
+        const rows = existsSync(f) ? readFileSync(f, 'utf8').trim().split('\n').slice(-50_000).map((l) => { try { return JSON.parse(l) as Record<string, unknown>; } catch { return null; } }).filter((r): r is Record<string, unknown> => Boolean(r) && Date.parse(String(r!.t)) >= since).reverse() : [];
+        return { ok: true, total: rows.length, refused: rows.filter((r) => r.allowed === false).length, grave: rows.filter((r) => r.severity === 'grave').length, rows: rows.slice(0, 1500).map((r) => ({ t: r.t, tool: r.tool, risk: r.risk, summary: r.summary, allowed: r.allowed, via: r.via, severity: r.severity, why: r.why, reason: r.reason })) };
+      }
       case 'dry_run': this.odin.agent.setDryRun(Boolean(b.on)); this.notify('state'); return { ok: true, on: this.odin.agent.dryRun() };
       case 'app_restart': { const { restartSelf, checkApp } = await import('../tools/self.ts'); const c = checkApp(undefined, false); if (!c.ok) return { ok: false, error: `le nouveau code ne se charge pas : ${c.output.slice(0, 300)}` }; if (process.env.ODIN_NO_RESTART || this.odin.demo) return { ok: true, simulated: true }; return { ok: true, text: restartSelf(800) }; }
       case 'skill_approve_all': { const done: string[] = []; for (const d of skills.drafts()) { try { skills.approve(d.name); done.push(d.name); } catch { /* suivant */ } } this.notify('skills'); return { ok: true, count: done.length }; }
