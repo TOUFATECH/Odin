@@ -80,3 +80,42 @@ test('habitudes : demandes répétées repérées, ignorées sur demande', async
     assert.deepEqual(o.muninn.habits(), []);
   } finally { o.cleanup(); }
 });
+
+test('soins : service tombé réparé tout seul puis vérifié ; sans réparation auto, simple alerte ; une tentative par 30 min', async () => {
+  const { careServices, updateDue } = await import('../src/guard/care.ts');
+  const dir = mkdtempSync(join(tmpdir(), 'odin-care-'));
+  try {
+    let up = false;
+    const ctx = { home: dir, logs: dir, proxmox: { url: '', token: '' } };
+    const svc = { id: 'ha', name: 'Home Assistant', check: 'http://192.168.1.40:8123', where: 'local', repair: 'echo relance', auto: true };
+    const probeFn = async () => up;
+    const stateFile = join(dir, 'services.json');
+    // la « réparation » (echo) réussit, et le service revient
+    const p = careServices(ctx, [svc], { stateFile, waitMs: 1, probeFn: async (c) => { const r = await probeFn(); up = true; return r && c.length > 0; } });
+    const m1 = await p;
+    assert.match(m1[0], /je l'ai réparé .*« echo relance » → code 0.* Il refonctionne/);
+    up = false;
+    const m2 = await careServices(ctx, [{ ...svc, auto: false }], { stateFile, waitMs: 1, probeFn });
+    assert.match(m2[0], /ne répond plus/);
+    assert.deepEqual(await careServices(ctx, [{ ...svc, auto: false }], { stateFile, waitMs: 1, probeFn }), [], 'pas de répétition');
+    up = true;
+    assert.match((await careServices(ctx, [svc], { stateFile, waitMs: 1, probeFn }))[0], /répond de nouveau/);
+    const plan = { enabled: true, weekday: -1, hour: 4, targets: [{ where: 'local' }], rollbackOnFailure: true };
+    const stamp = join(dir, 'updates.txt');
+    assert.equal(updateDue(plan, stamp, new Date('2026-11-05T03:00:00')), false);
+    assert.equal(updateDue(plan, stamp, new Date('2026-11-05T04:10:00')), true);
+    writeFileSync(stamp, new Date('2026-11-05T04:10:00').toDateString());
+    assert.equal(updateDue(plan, stamp, new Date('2026-11-05T05:00:00')), false, 'une fois par jour');
+    assert.equal(updateDue({ ...plan, weekday: 0 }, stamp, new Date('2026-11-06T04:10:00')), false, 'seulement le dimanche');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('journal du soir : faits du jour (missions, réseau, réparations)', async () => {
+  const { dayFacts } = await import('../src/bifrost/gateway.ts');
+  const o = makeOdin([{ text: 'fait' }]);
+  try {
+    await o.agent.run('vérifie le NAS', { sessionId: 'web:principal' });
+    const f = dayFacts(o, Date.now());
+    assert.match(f, /^Missions : \d/);
+  } finally { o.cleanup(); }
+});

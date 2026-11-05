@@ -22,6 +22,7 @@ import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForS
 import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import { listMachines, rightsSummary } from '../machines/access.ts';
+import { activeProfile } from '../profiles.ts';
 import type { Tier } from '../providers/router.ts';
 
 export interface AgentDeps {
@@ -166,6 +167,7 @@ export class Agent {
       breaker: Boolean(breaker),
       speaker: o.speaker,
       rights: this.deps.home ? rightsSummary(this.deps.home) : undefined,
+      tone: activeProfile(cfg),
     });
 
     const history: Message[] = repairHistory(muninn.history(o.sessionId).map(({ rowId: _r, ...m }) => m));
@@ -193,7 +195,7 @@ export class Agent {
     const ctx: ToolContext = {
       sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, search: cfg.search, muninn, skills: this.deps.skills, redactor, signal,
       isTainted: () => tainted,
-      proxmox: cfg.proxmox,
+      proxmox: cfg.proxmox, homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
       fullAccess: cfg.agent.fullAccess !== false && (!o.speaker || o.speaker.role === 'owner'),
       mimir,
       sandbox: cfg.policy.sandbox,

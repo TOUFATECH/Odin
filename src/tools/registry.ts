@@ -41,6 +41,10 @@ export interface ToolContext {
   vision?(question: string, images: Array<{ mime: string; data: string }>): Promise<string>;
   /** Proxmox VE (adresse de l'API). */
   proxmox?: { url: string };
+  homeAssistant?: { url: string };
+  mail?: OdinConfig['mail'];
+  calendar?: OdinConfig['calendar'];
+  docs?: OdinConfig['docs'];
   /** Recherche web (moteur, instance SearXNG). */
   search?: { provider?: 'auto' | 'duckduckgo' | 'brave' | 'tavily' | 'searxng'; searxngUrl?: string };
   /** Réglages de la voix (transcription de fichiers audio). */

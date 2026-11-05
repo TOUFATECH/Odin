@@ -77,6 +77,24 @@ export interface OdinConfig {
   autoBackup: { enabled: boolean; hour: number; dir: string; keep: number };
   /** Proxmox VE : adresse de l'API (jeton dans PROXMOX_TOKEN). */
   proxmox: { url: string };
+  /** Services surveillés et réparés automatiquement (voir guard/care.ts). */
+  services: Array<{ id: string; name: string; check: string; where: string; repair: string; auto: boolean }>;
+  /** Mises à jour planifiées (weekday -1 = tous les jours, 0 = dimanche…). */
+  updates: { enabled: boolean; weekday: number; hour: number; targets: Array<{ where: string; vmid?: number }>; rollbackOnFailure: boolean };
+  /** Journal de bord du soir : ce qu'Odin a fait, remarqué, et ses conseils. */
+  journal: { enabled: boolean; at: string };
+  /** Home Assistant (jeton dans HA_TOKEN). */
+  homeAssistant: { url: string };
+  /** Messagerie (mot de passe d'application dans MAIL_PASSWORD). */
+  mail: { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number; user: string; from: string };
+  /** Agenda : lecture par l'adresse iCal (CALENDAR_ICS_URL), ajout par CalDAV (CALDAV_PASSWORD). */
+  calendar: { caldavUrl: string; caldavUser: string };
+  /** Dossiers de documents indexés (recherche par nom et contenu). */
+  docs: { dirs: string[] };
+  /** Personnalités : ton et voix ; « auto » suit l'horaire (travail en semaine de 8 h à 18 h). */
+  profiles: { active: string; auto: boolean; list: Array<{ id: string; name: string; tone: string; voiceId: string }> };
+  /** Accès depuis l'extérieur : tunnel Tailscale ou Cloudflare (lancé avec Odin). */
+  tunnel: { kind: 'none' | 'tailscale' | 'cloudflare' };
   learning: {
     /** Proposer des compétences après une tâche complexe. */
     proposeSkills: boolean;
@@ -154,6 +172,18 @@ export const DEFAULT_CONFIG: OdinConfig = {
   watch: { enabled: true, intervalMin: 60, devices: [], diskPct: 90, certDays: 14 },
   autoBackup: { enabled: false, hour: 3, dir: '', keep: 7 },
   proxmox: { url: '' },
+  services: [],
+  updates: { enabled: false, weekday: 0, hour: 4, targets: [], rollbackOnFailure: true },
+  journal: { enabled: true, at: '21:30' },
+  homeAssistant: { url: '' },
+  mail: { imapHost: '', imapPort: 993, smtpHost: '', smtpPort: 465, user: '', from: '' },
+  calendar: { caldavUrl: '', caldavUser: '' },
+  docs: { dirs: [] },
+  profiles: { active: 'maison', auto: false, list: [
+    { id: 'maison', name: 'Maison', tone: 'Chaleureux, détendu et complice, avec une pointe d\'humour ; tutoiement.', voiceId: '' },
+    { id: 'travail', name: 'Travail', tone: 'Professionnel, précis et concis ; va droit au but, structure tes réponses ; tutoiement.', voiceId: '' },
+  ] },
+  tunnel: { kind: 'none' },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },

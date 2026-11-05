@@ -60,10 +60,10 @@ export const proxmoxList: Tool = {
   },
 };
 
-const ACTIONS = ['start', 'shutdown', 'stop', 'reboot', 'snapshot'] as const;
+const ACTIONS = ['start', 'shutdown', 'stop', 'reboot', 'snapshot', 'rollback'] as const;
 export const proxmoxAction: Tool = {
   name: 'proxmox_action',
-  description: 'Agit sur une machine virtuelle ou un conteneur Proxmox (par numéro vmid) : start, shutdown (arrêt propre), stop (arrêt forcé), reboot, snapshot (instantané nommé).',
+  description: 'Agit sur une machine virtuelle ou un conteneur Proxmox (par numéro vmid) : start, shutdown (arrêt propre), stop (arrêt forcé), reboot, snapshot (instantané nommé), rollback (revenir à l\'instantané « name »).',
   risk: 'exec',
   schema: obj({ vmid: str('numéro de la VM ou du conteneur (ex. 101)'), action: str(`une de : ${ACTIONS.join(', ')}`), name: str('nom de l\'instantané (snapshot)') }, ['vmid', 'action']),
   summarize: (i) => `Proxmox : ${s(i.action)} sur ${s(i.vmid)}${i.name ? ` (${s(i.name)})` : ''}`,
@@ -76,6 +76,10 @@ export const proxmoxAction: Tool = {
     const g = rs.find((r) => r.vmid === vmid);
     if (!g) return `Aucune VM ni conteneur n° ${vmid}.`;
     const base = `/nodes/${encodeURIComponent(g.node)}/${g.type}/${vmid}`;
+    if (action === 'rollback') {
+      if (!s(i.name)) return 'Donne le nom de l\'instantané (name).';
+      return `Retour à l'instantané « ${s(i.name)} » demandé pour ${g.name ?? vmid} (tâche ${s(await pveApi(url, token, 'POST', `${base}/snapshot/${encodeURIComponent(s(i.name))}/rollback`))}).`;
+    }
     if (action === 'snapshot') {
       const name = (s(i.name) || `odin-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}`).replace(/[^A-Za-z0-9_-]/g, '_').replace(/^[^A-Za-z]/, 's$&').slice(0, 40);
       const task = await pveApi(url, token, 'POST', `${base}/snapshot`, { snapname: name, description: 'Instantané créé par Odin' });

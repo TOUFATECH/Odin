@@ -26,6 +26,7 @@ import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMa
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
+import { tunnel } from '../web/tunnel.ts';
 import { adminMode, checkSudoPassword, findMachine, listMachines, removeMachine, saveMachine, setAdminPassword, sudoersLine, testMachine } from '../machines/access.ts';
 import { userInfo } from 'node:os';
 import { sttReady, transcribe } from '../voice/voice.ts';
@@ -230,7 +231,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid) }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid) }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {
@@ -244,6 +245,9 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       if (odin.demo) console.log(c.yellow('  → Termine la configuration dans l\'onglet Réglages.\n'));
     } else console.log(c.dim('[odin] services relancés'));
     if (openBrowser) openUrl(web.url);
+    // Accès depuis l'extérieur (Tailscale / Cloudflare), relancé avec Odin s'il était activé.
+    const tk = odin.cfg.tunnel?.kind;
+    if (!reloaded && tk && tk !== 'none') void tunnel.start(tk, w.port, Boolean(tls), odin.paths.home).then((s) => console.log(s.running ? `${c.cyan('ᛟ')} Accès extérieur (${tk}) : ${s.url ?? 'actif'}` : c.yellow(`[tunnel] ${s.error}`)));
   } else await gw.start();
   // Apprentissage de l'environnement : profil de la machine (système, ressources, outils), épinglé.
   try { refreshEnvironment(odin.muninn); } catch { /* jamais bloquant */ }

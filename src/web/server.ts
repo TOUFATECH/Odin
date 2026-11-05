@@ -20,7 +20,7 @@ import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMater
 import { isAbsolute, join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
-import { adminMode, checkSudoPassword, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine } from '../machines/access.ts';
+import { adminMode, checkSudoPassword, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine, withAdmin } from '../machines/access.ts';
 import { userInfo } from 'node:os';
 import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
@@ -29,6 +29,11 @@ import { classify, deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
 import { vendorOf } from '../hlidskjalf/vendors.ts';
 import { auditNetwork, autoBackup, backupDir, diskUsage, hasBackupPassword, listBackups, setBackupPassword } from '../guard/watch.ts';
 import { pveApi } from '../tools/proxmox.ts';
+import { activeProfile, voiceFor } from '../profiles.ts';
+import { INSTALL, tunnel, tunnelAvailable } from './tunnel.ts';
+import { haApi } from '../tools/homeassistant.ts';
+import { indexDocs } from '../tools/docindex.ts';
+import { spawnSync } from 'node:child_process';
 import { addSubscription, listSubscriptions, pushAll, removeSubscription, vapidKeys } from '../push/webpush.ts';
 import { nextRun } from '../cron/cron.ts';
 
@@ -57,6 +62,8 @@ export interface WebHooks {
   reload?(): Promise<void>;
   /** Vörðr : contrôle de santé immédiat (renvoie les alertes envoyées). */
   watchNow?(): Promise<string[]>;
+  /** Journal de bord maintenant. */
+  journalNow?(): Promise<string | undefined>;
 }
 
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
@@ -338,7 +345,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/api/voice/speak') {
       if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
       try {
-        const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), v);
+        const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), voiceFor(v, this.odin.cfg));
         res.writeHead(200, { 'content-type': audio.mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
         return void res.end(audio.data);
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
@@ -377,7 +384,7 @@ export class WebChannel implements Channel {
     const day = muninn.usageSince(Date.now() - 86_400_000);
     return {
       name: cfg.name,
-      conversations: muninn.listSessions(50).filter((s) => s.id.startsWith('web:')).map((s) => ({ peer: s.id.slice(4), title: s.title, updated: s.updated_at, tainted: s.tainted === 1 })),
+      conversations: (() => { const pins = muninn.kvPrefix('pin:'), titles = muninn.kvPrefix('title:'); return muninn.listSessions(200).filter((s) => s.id.startsWith('web:')).map((s) => ({ peer: s.id.slice(4), title: titles[s.id.slice(4)] || s.title, updated: s.updated_at, tainted: s.tainted === 1, pinned: Boolean(pins[s.id.slice(4)]) })).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updated - a.updated).slice(0, 80); })(),
       usage: day,
       network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, lastScan: inventory.lastScan() ?? null },
       devices: inventory.list({ status: 'all' }).map((d) => {
@@ -416,6 +423,12 @@ export class WebChannel implements Channel {
       autoBackup: { ...cfg.autoBackup, dirShown: backupDir(this.odin.paths, cfg.autoBackup), hasPassword: hasBackupPassword(this.odin.paths), files: listBackups(this.odin.paths, cfg.autoBackup).slice(0, 10) },
       proxmox: { url: cfg.proxmox.url, token: Boolean(process.env.PROXMOX_TOKEN) },
       habits: muninn.habits(),
+      tunnel: { ...tunnel.state, available: tunnelAvailable(), install: INSTALL },
+      more: {
+        services: cfg.services, updates: cfg.updates, journal: cfg.journal, homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
+        profiles: cfg.profiles, activeProfile: activeProfile(cfg)?.id ?? '', machines: listMachines(this.odin.paths.home).map((m) => ({ id: m.id, label: m.label })),
+        secrets: Object.fromEntries(['HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL'].map((n) => [n, Boolean(process.env[n])])),
+      },
     };
   }
 
@@ -601,6 +614,71 @@ export class WebChannel implements Channel {
       case 'proxmox_list': {
         try { return { ok: true, items: await pveApi(this.odin.cfg.proxmox.url, process.env.PROXMOX_TOKEN ?? '', 'GET', '/cluster/resources') }; } catch (e) { return { ok: false, error: (e as Error).message }; }
       }
+      case 'cfg_save': {
+        // Réglages des nouvelles fonctions : chaque rubrique est vérifiée avant d'être enregistrée.
+        const sec = String(b.section), v = (b.value ?? {}) as Record<string, unknown>, cfg = this.odin.cfg;
+        const str = (x: unknown, max = 300) => String(x ?? '').trim().slice(0, max);
+        const url = (x: unknown) => { const u = str(x, 500).replace(/\/$/, ''); if (u && !/^https?:\/\/[^\s]+$/.test(u)) throw new Error(`adresse invalide : ${u}`); return u; };
+        try {
+          let val: unknown;
+          if (sec === 'services') {
+            val = (Array.isArray(v.list) ? v.list : []).slice(0, 30).map((x: Record<string, unknown>, k: number) => {
+              const check = str(x.check, 300); if (!/^(https?|tcp):\/\/[^\s]+$/.test(check)) throw new Error(`vérification invalide (http(s)://… ou tcp://hôte:port) : ${check}`);
+              const where = str(x.where, 80) || 'local';
+              if (where !== 'local' && !/^proxmox:\d+$/.test(where) && !listMachines(this.odin.paths.home).some((m) => m.id === where)) throw new Error(`machine inconnue : ${where}`);
+              return { id: str(x.id, 40) || `s${Date.now().toString(36)}${k}`, name: str(x.name, 60) || check, check, where, repair: str(x.repair, 500), auto: Boolean(x.auto) };
+            });
+          } else if (sec === 'updates') {
+            const targets = (Array.isArray(v.targets) ? v.targets : []).slice(0, 20).map((x: Record<string, unknown>) => ({ where: str(x.where, 80) || 'local', ...(Number(x.vmid) > 0 ? { vmid: Math.round(Number(x.vmid)) } : {}) }));
+            val = { enabled: Boolean(v.enabled), weekday: Math.min(6, Math.max(-1, Math.round(Number(v.weekday ?? 0)))), hour: Math.min(23, Math.max(0, Math.round(Number(v.hour ?? 4)))), targets, rollbackOnFailure: v.rollbackOnFailure !== false };
+          } else if (sec === 'journal') {
+            const at = str(v.at, 5); if (!/^\d{2}:\d{2}$/.test(at)) throw new Error('heure du journal : HH:MM');
+            val = { enabled: Boolean(v.enabled), at };
+          } else if (sec === 'homeAssistant') val = { url: url(v.url) };
+          else if (sec === 'mail') val = { imapHost: str(v.imapHost, 120), imapPort: Number(v.imapPort) || 993, smtpHost: str(v.smtpHost, 120), smtpPort: Number(v.smtpPort) || 465, user: str(v.user, 120), from: str(v.from, 160) };
+          else if (sec === 'calendar') val = { caldavUrl: url(v.caldavUrl), caldavUser: str(v.caldavUser, 120) };
+          else if (sec === 'docs') {
+            const dirs = (Array.isArray(v.dirs) ? v.dirs : String(v.dirs ?? '').split('\n')).map((d) => str(d, 400)).filter(Boolean).slice(0, 20);
+            for (const d of dirs) if (!isAbsolute(d)) throw new Error(`dossier : chemin absolu attendu (${d})`);
+            val = { dirs };
+          } else if (sec === 'profiles') {
+            const list = (Array.isArray(v.list) ? v.list : []).slice(0, 10).map((x: Record<string, unknown>) => ({ id: str(x.id, 30).toLowerCase().replace(/[^a-z0-9-]/g, '') || `p${Date.now().toString(36)}`, name: str(x.name, 40) || 'Profil', tone: str(x.tone, 600), voiceId: str(x.voiceId, 80) }));
+            if (!list.length) throw new Error('au moins un profil');
+            val = { active: list.some((x) => x.id === v.active) ? String(v.active) : list[0].id, auto: Boolean(v.auto), list };
+          } else return { ok: false, error: 'rubrique inconnue' };
+          (cfg as unknown as Record<string, unknown>)[sec] = val;
+          setConfigValue(this.odin.paths, [sec], val);
+          for (const [k, name] of [['haToken', 'HA_TOKEN'], ['mailPassword', 'MAIL_PASSWORD'], ['caldavPassword', 'CALDAV_PASSWORD'], ['icsUrl', 'CALENDAR_ICS_URL']] as const) {
+            const sv = typeof v[k] === 'string' ? String(v[k]).replace(name === 'MAIL_PASSWORD' ? /\s+/g : /^\s+|\s+$/g, '') : '';
+            if (sv) { writeSecret(this.odin.paths, name, sv); this.odin.redactor.add(sv); }
+          }
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
+        break;
+      }
+      case 'ha_test': try { const n = (await haApi(this.odin.cfg.homeAssistant.url, process.env.HA_TOKEN ?? '', 'GET', '/states') as unknown[]).length; return { ok: true, info: `${n} entités` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      case 'docs_index': try { const r = indexDocs(muninn.db, this.odin.cfg.docs.dirs); return { ok: true, info: `${r.files} fichier(s), ${r.updated} relu(s)` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      case 'journal_now': return { ok: true, text: await this.hooks.journalNow?.() ?? '' };
+      case 'tunnel_start': {
+        const kind: 'cloudflare' | 'tailscale' = String(b.kind) === 'cloudflare' ? 'cloudflare' : 'tailscale';
+        const st = await tunnel.start(kind, this.port, Boolean(this.tls), this.odin.paths.home);
+        if (st.running) { this.odin.cfg.tunnel = { kind }; setConfigValue(this.odin.paths, ['tunnel'], { kind }); }
+        this.notify('state');
+        return st.running ? { ok: true, url: st.url } : { ok: false, error: st.error };
+      }
+      case 'tunnel_stop': tunnel.stop(this.odin.paths.home); this.odin.cfg.tunnel = { kind: 'none' }; setConfigValue(this.odin.paths, ['tunnel'], { kind: 'none' }); break;
+      case 'tunnel_install': {
+        const kind: 'cloudflare' | 'tailscale' = String(b.kind) === 'cloudflare' ? 'cloudflare' : 'tailscale';
+        const a = withAdmin(INSTALL[kind], this.odin.paths.home);
+        const r = spawnSync('/bin/sh', ['-c', a.command], { env: { ...process.env, ...a.env }, encoding: 'utf8', timeout: 600_000 });
+        return r.status === 0 ? { ok: true } : { ok: false, error: `installation : ${(r.stderr || r.stdout || '').trim().slice(-300)}` };
+      }
+      case 'conv_search': {
+        const q = String(b.q ?? '').trim();
+        if (!q) return { ok: true, items: [] };
+        return { ok: true, items: muninn.searchMessages(q, 30).filter((m) => m.session_id.startsWith('web:')).map((m) => ({ peer: m.session_id.slice(4), snippet: m.snippet, at: m.created_at, role: m.role })) };
+      }
+      case 'conv_pin': muninn.setKv(`pin:${String(b.peer)}`, b.on ? '1' : ''); break;
+      case 'conv_rename': muninn.setKv(`title:${String(b.peer)}`, String(b.title ?? '').slice(0, 80)); break;
       case 'habit_ignore': muninn.ignoreHabit(String(b.key ?? '')); break;
       case 'habit_schedule': case 'routine_add': {
         const cron = String(b.cron ?? ''), prompt = String(b.prompt ?? '').trim().slice(0, 2000);

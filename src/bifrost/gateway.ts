@@ -14,6 +14,9 @@ import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/invento
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
 import { autoBackup, healthCheck, newAlerts } from '../guard/watch.ts';
 import { pushAll } from '../push/webpush.ts';
+import { careServices, runUpdates, updateDue } from '../guard/care.ts';
+import { indexDocs } from '../tools/docindex.ts';
+import { voiceFor } from '../profiles.ts';
 import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 
@@ -157,7 +160,7 @@ export class Gateway {
       await ch.send(m.peer, (r.text || '(pas de réponse)') + face + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : ''));
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
-        await speakAudio(r.text, this.odin.cfg.voice, 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
+        await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
       }
     } finally {
       this.aborts.delete(sessionId);
@@ -256,6 +259,56 @@ export class Gateway {
 
   /** Tâches planifiées : exécution sans surveillance (validations refusées, sauf en Odin Breaker). */
   private lastWatch = 0;
+  private lastCare = 0;
+  private updating = false;
+  private careCtx() { return { home: this.odin.paths.home, logs: this.odin.paths.logs, proxmox: { url: this.odin.cfg.proxmox.url, token: process.env.PROXMOX_TOKEN ?? '' } }; }
+  /** Prévient le propriétaire (Telegram ou autre canal) et ses appareils (push). */
+  private async tellOwner(text: string, view = 'home'): Promise<void> {
+    const t = this.ownerTarget();
+    if (t) await t.ch.send(t.peer, text).catch(() => {});
+    void pushAll(this.odin.paths.home, { title: 'Odin', body: text, view, tag: 'odin-' + view }).catch(() => 0);
+    for (const ch of this.channels.values()) ch.notify?.('watch');
+  }
+
+  /** Services surveillés (toutes les 5 min), mises à jour planifiées, journal du soir. */
+  async care(now = Date.now()): Promise<void> {
+    const cfg = this.odin.cfg;
+    if (cfg.services.length && now - this.lastCare >= 5 * 60_000) {
+      this.lastCare = now;
+      const msgs = await careServices(this.careCtx(), cfg.services, { stateFile: join(this.odin.paths.logs, 'services.json'), now });
+      if (msgs.length) await this.tellOwner(`🛡 Vörðr — services\n${msgs.join('\n')}`);
+    }
+    const stamp = join(this.odin.paths.logs, 'updates.txt');
+    if (!this.updating && updateDue(cfg.updates, stamp, new Date(now))) {
+      this.updating = true;
+      void runUpdates(this.careCtx(), cfg.updates, stamp, cfg.services, new Date(now)).then((r) => this.tellOwner(r)).catch((e) => console.error('[mises à jour]', (e as Error).message)).finally(() => { this.updating = false; });
+    }
+    await this.journal(now).catch((e) => console.error('[journal]', (e as Error).message));
+    // Index des documents : chaque nuit vers 3 h (seuls les fichiers modifiés sont relus).
+    const dstamp = join(this.odin.paths.logs, 'docs-index.txt'), d = new Date(now);
+    if (cfg.docs.dirs.length && d.getHours() >= 3 && !(existsSync(dstamp) && readFileSync(dstamp, 'utf8').trim() === d.toDateString())) {
+      writeFileSync(dstamp, d.toDateString());
+      try { const r = indexDocs(this.odin.muninn.db, cfg.docs.dirs); console.error(`[documents] ${r.files} fichiers, ${r.updated} relus`); } catch (e) { console.error('[documents]', (e as Error).message); }
+    }
+  }
+
+  /** Journal de bord du soir (une fois par jour à journal.at). */
+  async journal(now = Date.now(), force = false): Promise<string | undefined> {
+    const j = this.odin.cfg.journal;
+    if (!force && (!j.enabled || !validHhmm(j.at))) return undefined;
+    const d = new Date(now), [h, mi] = j.at.split(':').map(Number), stamp = join(this.odin.paths.logs, 'journal.txt');
+    if (!force && (d.getHours() * 60 + d.getMinutes() < h * 60 + mi || (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === d.toDateString()))) return undefined;
+    writeFileSync(stamp, d.toDateString());
+    const facts = dayFacts(this.odin, now);
+    let text = `📓 Journal de bord — ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}\n${facts}`;
+    if (!this.odin.demo) {
+      const r = await this.odin.agent.run(`${JOURNAL_PROMPT}\n\n<faits>\n${facts}\n</faits>`, { sessionId: 'journal:soir', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+      if (r?.text.trim()) text = `📓 Journal de bord — ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}\n${r.text.trim().slice(0, 2500)}`;
+    }
+    await this.tellOwner(text, 'home');
+    return text;
+  }
+
   /** Vörðr : santé (appareils importants, disques, certificats) et sauvegarde de la nuit ; alertes au propriétaire. */
   async watch(now = Date.now(), force = false): Promise<string[]> {
     const w = this.odin.cfg.watch, msgs: string[] = [];
@@ -279,6 +332,7 @@ export class Gateway {
   async tick(now = Date.now()): Promise<void> {
     await this.breakerReport(now).catch((e) => console.error('[breaker]', (e as Error).message));
     await this.watch(now).catch((e) => console.error('[vörðr]', (e as Error).message));
+    await this.care(now).catch((e) => console.error('[soins]', (e as Error).message));
     const net = this.odin.cfg.network;
     const last = this.odin.inventory.lastScan();
     if (net.enabled && (!last || now - last.at >= net.intervalMin * 60_000)) {
@@ -346,4 +400,24 @@ export function decisionsFooter(d: Array<{ summary: string; via: 'mimir' | 'gran
     out += `\n\n⚡ Odin Breaker : ${breaker.length} action(s) faite(s) sans te demander${grave ? `, dont ${grave} grave(s)` : ''} — détail dans Décisions et dans le rapport du soir.`;
   }
   return out;
+}
+
+const JOURNAL_PROMPT = `Écris ton journal de bord du soir pour le propriétaire, en français, court (10 lignes au plus) : ce que tu as fait aujourd'hui, ce que tu as remarqué (réseau, services, sécurité, sauvegardes), puis 1 à 3 conseils concrets pour demain. Appuie-toi UNIQUEMENT sur les faits ci-dessous ; n'invente rien, et dis-le s'il n'y a presque rien à signaler. N'agis pas : n'utilise aucun outil.`;
+
+/** Les faits de la journée, pour le journal du soir (pur côté données). */
+export function dayFacts(odin: { muninn: { listMissions(n: number): Array<{ goal: string; status: string; started_at: number; cost_usd: number }> }; inventory: { events(n: number): Array<{ kind: string; detail: string; at: number }> }; paths: { logs: string } }, now = Date.now()): string {
+  const start = new Date(now); start.setHours(0, 0, 0, 0);
+  const since = start.getTime(), lines: string[] = [];
+  const ms = odin.muninn.listMissions(200).filter((m) => m.started_at >= since);
+  lines.push(`Missions : ${ms.length}${ms.length ? ` (${ms.filter((m) => m.status === 'terminée').length} terminée(s), ${ms.reduce((n, m) => n + m.cost_usd, 0).toFixed(2)} $)` : ''}`);
+  for (const m of ms.slice(0, 8)) lines.push(`- ${m.goal.slice(0, 100)} → ${m.status}`);
+  const ev = odin.inventory.events(300).filter((e) => e.at >= since);
+  if (ev.length) lines.push(`Réseau : ${ev.length} évènement(s) — ${[...new Set(ev.map((e) => e.kind))].join(', ')}`);
+  const auditFile = join(odin.paths.logs, 'audit.jsonl');
+  if (existsSync(auditFile)) {
+    const rows = readFileSync(auditFile, 'utf8').trim().split('\n').slice(-3000).map((l) => { try { return JSON.parse(l) as { t: string; allowed: boolean; summary?: string; tool?: string }; } catch { return null; } }).filter((r): r is NonNullable<typeof r> => Boolean(r) && Date.parse(r!.t) >= since);
+    if (rows.length) lines.push(`Actions : ${rows.filter((r) => r.allowed).length} faite(s), ${rows.filter((r) => !r.allowed).length} refusée(s)`);
+    for (const r of rows.filter((x) => x.tool === 'vordr').slice(-5)) lines.push(`- ${String(r.summary).slice(0, 120)}`);
+  }
+  return lines.join('\n');
 }
