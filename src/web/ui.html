@@ -397,13 +397,23 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .tip .cloud-p,.tip .cloud-c{fill:var(--cloud);stroke:var(--cloud-l);stroke-width:1.2}
 .tip-t{position:relative}
 .tip.on-right{transform-origin:0 80%}
+.tip.on-above{transform-origin:85% 100%}
+.tip{width:max-content;animation:tip-float 4s ease-in-out infinite;transition:left .25s ease,right .25s ease,bottom .25s ease}
+.tip.pop{animation:tip-pop .35s cubic-bezier(.3,1.5,.5,1),tip-float 4s ease-in-out .35s infinite}
+.tip.out{animation:tip-out .18s ease forwards}
+@keyframes tip-float{0%,100%{translate:0 0}50%{translate:0 -3px}}
+@keyframes tip-out{to{opacity:0;transform:scale(.7)}}
+.tip-acts{flex-wrap:nowrap}
+.tip-acts.in .tbtn{animation:tbtn-in .25s ease backwards}.tip-acts.in .tbtn:nth-child(2){animation-delay:.05s}.tip-acts.in .tbtn:nth-child(3){animation-delay:.1s}
+@keyframes tbtn-in{from{opacity:0;transform:translateY(4px)}}
+.tbtn{white-space:nowrap}
 .tip.pop{animation:tip-pop .35s cubic-bezier(.3,1.5,.5,1)}
 @keyframes tip-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
 .tip-acts{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;position:relative}
 .tbtn{min-height:30px;padding:0 11px;border-radius:15px;border:1px solid var(--field);background:var(--bg);color:var(--ink);font-size:12.5px}
 .tbtn:hover{border-color:var(--field-h)}
 .tbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
-@media (prefers-reduced-motion:reduce){.tip.pop{animation:none}.chat-buddy{transition:none}}
+@media (prefers-reduced-motion:reduce){.tip,.tip.pop,.tip.out,.tip-acts.in .tbtn{animation:none}.chat-buddy{transition:none}}
 </style>
 </head>
 <body>
@@ -1199,39 +1209,78 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     seg(m + 14, m, w - m - 14, m, 64); seg(w - m, m + 14, w - m, h - m - 14, 52); seg(w - m - 14, h - m, m + 14, h - m, 64); seg(m, h - m - 14, m, m + 14, 52);
     let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
     for (let k = 1; k <= pts.length; k++) { const [x0, y0] = pts[k - 1], [x, y] = pts[k % pts.length]; const r = Math.hypot(x - x0, y - y0) / 2 * (k % 2 ? 1.02 : 1.18); d += ` A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${x.toFixed(1)} ${y.toFixed(1)}`; }
+    svg.querySelector('.cloud-p').setAttribute('d', d + 'Z');
+    const circles = [1, 2, 3].map((k) => svg.querySelector('.c' + k)), sizes = [7, 4.6, 3];
+    if (tip.classList.contains('on-above')) {
+      // Au-dessus d'Odin : les petites bulles descendent vers lui.
+      const tr = tip.getBoundingClientRect(), br = bud.getBoundingClientRect();
+      const bx = Math.max(m + 20, Math.min(w - m - 10, br.left + br.width / 2 - tr.left + pad));
+      svg.setAttribute('width', w); svg.setAttribute('height', h + 44); svg.setAttribute('viewBox', `0 0 ${w} ${h + 44}`);
+      svg.style.left = -pad + 'px'; svg.style.top = -pad + 'px';
+      circles.forEach((c, k) => { c.setAttribute('cx', bx + k * 3); c.setAttribute('cy', h - m + 6 + k * 13); c.setAttribute('r', sizes[k]); });
+      return;
+    }
     const toRight = tip.classList.contains('on-left'); // le nuage est à gauche d'Odin : les bulles partent vers la droite
     svg.setAttribute('width', w + 60); svg.setAttribute('height', h + 10); svg.setAttribute('viewBox', `${toRight ? 0 : -60} 0 ${w + 60} ${h + 10}`);
     svg.style.left = (toRight ? -pad : -pad - 60) + 'px'; svg.style.top = -pad + 'px';
-    svg.querySelector('.cloud-p').setAttribute('d', d + 'Z');
     const bx = toRight ? w - m + 4 : m - 4, by = h - m - 6;
-    [[6, 7], [20, 4.6], [31, 3]].forEach(([dx, r], k) => { const c = svg.querySelector('.c' + (k + 1)); c.setAttribute('cx', toRight ? bx + dx : bx - dx); c.setAttribute('cy', by + k * 5); c.setAttribute('r', r); });
+    circles.forEach((c, k) => { const dx = [6, 20, 31][k]; c.setAttribute('cx', toRight ? bx + dx : bx - dx); c.setAttribute('cy', by + k * 5); c.setAttribute('r', sizes[k]); });
   }
   // Le nuage se place à côté d'Odin : à sa gauche s'il y a la place, sinon à sa droite ; il le suit quand il bouge.
   function placeTip() {
     if (tip.hidden || !thread) return;
-    const tr = thread.getBoundingClientRect(), br = bud.getBoundingClientRect(), gap = 54;
-    const leftSpace = br.left - tr.left - gap - 40, rightSpace = tr.right - br.right - gap - 40;
-    const side = leftSpace >= Math.min(260, rightSpace) ? 'left' : 'right';
-    const room = Math.max(160, side === 'left' ? leftSpace : rightSpace);
-    tip.style.maxWidth = Math.min(340, room) + 'px';
-    tip.classList.toggle('on-left', side === 'left'); tip.classList.toggle('on-right', side === 'right');
-    if (side === 'left') { tip.style.right = (tr.right - br.left + gap) + 'px'; tip.style.left = 'auto'; }
-    else { tip.style.left = (br.right - tr.left + gap) + 'px'; tip.style.right = 'auto'; }
-    const bottom = tr.bottom - br.bottom + br.height * 0.45;
-    const maxBottom = tr.height - tip.offsetHeight - 30;
-    tip.style.bottom = Math.max(22, Math.min(bottom, maxBottom)) + 'px';
+    const tr = thread.getBoundingClientRect(), br = bud.getBoundingClientRect(), gap = 54, edge = 40;
+    const leftSpace = br.left - tr.left - gap - edge, rightSpace = tr.right - br.right - gap - edge;
+    // À côté d'Odin s'il y a la place ; sinon au-dessus de lui (téléphone, Odin collé au bord).
+    const side = leftSpace >= 240 ? 'left' : rightSpace >= 240 ? 'right' : 'above';
+    tip.classList.toggle('on-left', side === 'left'); tip.classList.toggle('on-right', side === 'right'); tip.classList.toggle('on-above', side === 'above');
+    if (side === 'above') {
+      tip.style.maxWidth = Math.min(320, tr.width - 2 * edge) + 'px';
+      const w = tip.offsetWidth, center = br.left + br.width / 2 - tr.left;
+      const left = Math.max(edge - 6, Math.min(center - w + 60, tr.width - w - edge));
+      tip.style.left = left + 'px'; tip.style.right = 'auto';
+      tip.style.bottom = Math.min(tr.bottom - br.top + 44, tr.height - tip.offsetHeight - 30) + 'px';
+    } else {
+      tip.style.maxWidth = Math.min(320, side === 'left' ? leftSpace : rightSpace) + 'px';
+      if (side === 'left') { tip.style.right = (tr.right - br.left + gap) + 'px'; tip.style.left = 'auto'; }
+      else { tip.style.left = (br.right - tr.left + gap) + 'px'; tip.style.right = 'auto'; }
+      tip.style.bottom = Math.max(22, Math.min(tr.bottom - br.bottom + br.height * 0.45, tr.height - tip.offsetHeight - 30)) + 'px';
+    }
     drawCloud();
   }
+  // Le nuage suit sa taille (texte qui s'écrit, boutons) et Odin quand il bouge.
+  new ResizeObserver(() => placeTip()).observe(tip);
+  let typeT = 0;
   function say(text, actions = [], ms = 0, opts = {}) {
-    $('#tipText').textContent = text;
-    const box = $('#tipActs'); box.replaceChildren(...actions.map((a) => el('button', { type: 'button', class: 'tbtn' + (a.primary ? ' primary' : ''), onclick: () => { hideTip(); a.run(); } }, a.label)));
-    box.hidden = !actions.length;
-    tip.hidden = false; tip.classList.remove('pop'); void tip.offsetWidth; tip.classList.add('pop'); placeTip();
-    clearTimeout(tipTimer); if (ms) tipTimer = setTimeout(hideTip, ms);
+    clearInterval(typeT); clearTimeout(tipTimer); clearTimeout(hideT);
+    const tt = $('#tipText'), box = $('#tipActs');
+    box.replaceChildren(...actions.map((a) => el('button', { type: 'button', class: 'tbtn' + (a.primary ? ' primary' : ''), onclick: () => { hideTip(); a.run(); } }, a.label)));
+    box.hidden = true;
+    const wasOpen = !tip.hidden && !tip.classList.contains('out');
+    tip.hidden = false; tip.classList.remove('out');
+    if (!wasOpen) { tip.classList.remove('pop'); void tip.offsetWidth; tip.classList.add('pop'); }
+    // Il « écrit » sa pensée : le nuage grandit avec le texte, puis les boutons apparaissent.
+    const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+    let n = reduce ? text.length : 0; tt.textContent = text.slice(0, n);
+    const done = () => { tt.textContent = text; box.hidden = !actions.length; if (actions.length) box.classList.add('in'); placeTip(); };
+    if (reduce) done(); else typeT = setInterval(() => { n = Math.min(text.length, n + Math.max(1, Math.round(text.length / 45))); tt.textContent = text.slice(0, n); if (n >= text.length) { clearInterval(typeT); done(); } }, 16);
+    placeTip();
+    // Sans bouton, il s'efface tout seul après le temps de lecture.
+    const life = ms || (actions.length ? 0 : Math.min(15000, 3500 + text.length * 55));
+    if (life) tipTimer = setTimeout(hideTip, life);
     tipFor = opts.forText || '';
     if (opts.speak) sayAloud(text);
   }
-  function hideTip() { tip.hidden = true; clearTimeout(tipTimer); tipFor = ''; }
+  let hideT = 0;
+  function hideTip() {
+    clearTimeout(tipTimer); clearInterval(typeT); tipFor = '';
+    if (tip.hidden) return;
+    tip.classList.add('out'); clearTimeout(hideT); hideT = setTimeout(() => { tip.hidden = true; tip.classList.remove('out'); }, 180);
+  }
+  // Toucher ailleurs ou Échap : le nuage s'en va. Le survoler le garde ouvert.
+  document.addEventListener('pointerdown', (e) => { if (!tip.hidden && !e.target.closest?.('#buddyTip, #buddyChat, #input, #composer')) hideTip(); }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
+  tip.addEventListener('pointerenter', () => clearTimeout(tipTimer));
   async function assist(mode, silent = false) {
     const i = $('#input'), text = i.value;
     if (!text.trim()) return;
@@ -1287,12 +1336,12 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   });
   function tapMenu() {
     const has = $('#input').value.trim() !== '';
-    if (has) say('Je t\'aide avec ce message ?', [
-      { label: 'Corriger les fautes', primary: true, run: () => assist('spelling') },
-      { label: 'Améliorer le texte', run: () => assist('rewrite') },
-      { label: 'Un conseil', run: () => assist('advice') },
+    if (has) say('Je t\'aide ?', [
+      { label: '✓ Corriger', primary: true, run: () => assist('spelling') },
+      { label: '✎ Améliorer', run: () => assist('rewrite') },
+      { label: '💡 Conseil', run: () => assist('advice') },
     ]);
-    else { moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000); say(TIPS[Math.floor(Math.random() * TIPS.length)], [{ label: 'Un autre conseil', run: () => tapMenu() }], 14000); }
+    else { moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000); say(TIPS[Math.floor(Math.random() * TIPS.length)], [{ label: 'Un autre', run: () => tapMenu() }], 14000); }
   }
   // Il se promène quand il s'ennuie (et revient), et donne parfois un conseil spontané.
   let idleSince = Date.now();
