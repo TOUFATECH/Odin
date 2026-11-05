@@ -22,7 +22,7 @@ import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
 import { adminMode, checkSudoPassword, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine, withAdmin } from '../machines/access.ts';
 import { userInfo } from 'node:os';
-import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, type CodexLogin } from '../providers/codex.ts';
+import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
 import type { Autonomy } from '../heimdall/policy.ts';
 import { classify, deviceLabel, linksFor } from '../hlidskjalf/inventory.ts';
@@ -114,6 +114,8 @@ export class WebChannel implements Channel {
   /** Connexion ChatGPT (Codex) en cours : secret PKCE gardé en mémoire, jamais envoyé à la page. */
   private codexLogin?: CodexLogin;
   private codexServer?: Server;
+  private codexDevice?: AbortController;
+  private codexDeviceState?: { code: string; url: string; status: 'attente' | 'ok' | 'erreur'; email?: string; error?: string };
   private odin: Odin;
   private hooks: WebHooks;
   private port: number;
@@ -236,6 +238,7 @@ export class WebChannel implements Channel {
 
   async stop(): Promise<void> {
     this.codexServer?.close();
+    this.codexDevice?.abort();
     for (const c of this.clients) c.end();
     await new Promise((r) => this.server?.close(r));
   }
@@ -548,6 +551,23 @@ export class WebChannel implements Channel {
         });
         return { ok: true, url: this.codexLogin.url };
       }
+      case 'codex_device_start': {
+        // Connexion par code : rien à recopier, marche depuis le téléphone ou un autre ordinateur.
+        this.codexDevice?.abort();
+        try {
+          const d = await startDeviceLogin();
+          const ctrl = new AbortController(); this.codexDevice = ctrl;
+          this.codexDeviceState = { code: d.userCode, url: d.url, status: 'attente' };
+          void waitDeviceLogin(this.odin.paths, d, ctrl.signal).then((a) => {
+            this.codexDeviceState = { code: d.userCode, url: d.url, status: 'ok', email: a.email };
+            if (this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch(() => {}), 300);
+          }).catch((e) => { this.codexDeviceState = { code: d.userCode, url: d.url, status: 'erreur', error: (e as Error).message }; })
+            .finally(() => { if (this.codexDevice === ctrl) this.codexDevice = undefined; this.notify('state'); });
+          return { ok: true, code: d.userCode, url: d.url };
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
+      case 'codex_device_status': return { ok: true, ...(this.codexDeviceState ?? { status: 'aucune' }) };
+      case 'codex_device_cancel': this.codexDevice?.abort(); this.codexDeviceState = undefined; break;
       case 'codex_login_finish': {
         if (!this.codexLogin) return { ok: false, error: 'aucune connexion en cours : clique d\'abord « Se connecter avec ChatGPT »' };
         try {

@@ -242,7 +242,7 @@ Réglages → Voix. **Whisper** (OpenAI, ou un serveur local sans clé, ex. [spe
 
 Configure plusieurs modèles (Réglages → Modèle) : un par défaut, des secours, et leur palier : **installé/gratuit** (Ollama…), **standard**, **le plus capable**. Odin choisit le moins cher qui suffit : question simple → modèle local, tâche ordinaire → standard, tâche complexe → le plus capable. Quand un modèle arrive **à bout de quota**, il passe au suivant tout seul et te le dit. Pour une **décision risquée**, il croise l'avis de plusieurs modèles et retient le plus prudent (seulement quand un vrai danger est probable, et un même verdict est réutilisé dix minutes : ça ne coûte pas à chaque fichier écrit). **Codex** (OpenAI) peut recevoir les tâches de code : `npm install -g @openai/codex`.
 
-**Ton abonnement ChatGPT via Codex** (comme `hermes auth add openai-codex`) : Réglages → Modèle → *OpenAI Codex (abonnement ChatGPT)* → **Se connecter avec ChatGPT**, ou en ligne de commande :
+**Ton abonnement ChatGPT via Codex** (comme `hermes auth add openai-codex`) : Réglages → Modèle → *OpenAI Codex (abonnement ChatGPT)* → **Se connecter avec un code** : Odin affiche un code, tu le saisis sur la page OpenAI depuis n'importe quel appareil (téléphone compris) et il termine tout seul — plus d'adresse `localhost` à recopier. Il faut activer une fois dans ChatGPT : Réglages → Sécurité → « Device code authorization ». En ligne de commande :
 
 ```bash
 odin auth add openai-codex   # connexion (lien à ouvrir ; sur un serveur/LXC, recolle l'adresse de retour)

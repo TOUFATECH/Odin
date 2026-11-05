@@ -145,6 +145,58 @@ export function listenCodexCallback(paths: OdinPaths, login: CodexLogin, done: (
   return srv;
 }
 
+// ---------------- Connexion par code (depuis n'importe quel appareil) ----------------
+// Pas de retour vers « localhost » : Odin affiche un code, tu le saisis sur auth.openai.com/codex/device
+// depuis ton téléphone ou ton ordinateur, et Odin termine tout seul. (Dans ChatGPT : Réglages →
+// Sécurité → « Device code authorization » doit être activé.)
+
+export const DEVICE = {
+  start: 'https://auth.openai.com/api/accounts/deviceauth/usercode',
+  poll: 'https://auth.openai.com/api/accounts/deviceauth/token',
+  page: 'https://auth.openai.com/codex/device',
+  redirectUri: 'https://auth.openai.com/deviceauth/callback',
+};
+export interface DeviceLogin { deviceAuthId: string; userCode: string; url: string; interval: number; createdAt: number }
+
+export async function startDeviceLogin(fetcher: typeof fetch = fetch): Promise<DeviceLogin> {
+  const r = await fetcher(DEVICE.start, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ client_id: CODEX.clientId }) });
+  if (r.status === 404) throw new Error('la connexion par code n\'est pas disponible pour ce compte : utilise la connexion par lien');
+  if (!r.ok) throw new Error(`OpenAI refuse (HTTP ${r.status}) : ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json() as { device_auth_id: string; user_code?: string; usercode?: string; verification_uri?: string; verification_url?: string; interval?: number | string };
+  const userCode = j.user_code ?? j.usercode ?? '';
+  if (!j.device_auth_id || !userCode) throw new Error('réponse inattendue d\'OpenAI (pas de code)');
+  return { deviceAuthId: j.device_auth_id, userCode, url: j.verification_uri ?? j.verification_url ?? DEVICE.page, interval: Math.max(2, Number(j.interval) || 5), createdAt: Date.now() };
+}
+
+/** Un essai : renvoie la connexion si tu as validé le code, undefined si pas encore. */
+export async function pollDeviceLogin(paths: OdinPaths, d: DeviceLogin, fetcher: typeof fetch = fetch): Promise<CodexAuth | undefined> {
+  if (Date.now() - d.createdAt > 15 * 60_000) throw new Error('code expiré (15 min) : recommence');
+  const r = await fetcher(DEVICE.poll, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ device_auth_id: d.deviceAuthId, user_code: d.userCode }) });
+  if (r.status === 403 || r.status === 404) return undefined;
+  if (!r.ok) throw new Error(`connexion refusée (HTTP ${r.status}) : ${(await r.text()).slice(0, 200)}`);
+  const j = await r.json() as { authorization_code: string; code_verifier: string };
+  const res = await fetcher(CODEX.tokenUrl, {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'authorization_code', code: j.authorization_code, redirect_uri: DEVICE.redirectUri, client_id: CODEX.clientId, code_verifier: j.code_verifier }),
+  });
+  if (!res.ok) throw new Error(`connexion refusée par OpenAI (HTTP ${res.status}) : ${(await res.text()).slice(0, 200)}`);
+  const auth = fromTokens(await res.json() as { access_token: string; refresh_token: string; id_token: string; expires_in?: number });
+  if (!auth.refresh_token) throw new Error('OpenAI n\'a pas renvoyé de jeton de rafraîchissement');
+  if (!auth.account_id) throw new Error('compte ChatGPT introuvable dans la réponse (abonnement Plus, Pro, Business… requis)');
+  saveCodexAuth(paths, auth);
+  return auth;
+}
+
+/** Attend que tu valides le code (essais réguliers, 15 min au plus). */
+export async function waitDeviceLogin(paths: OdinPaths, d: DeviceLogin, signal?: AbortSignal, fetcher: typeof fetch = fetch): Promise<CodexAuth> {
+  for (;;) {
+    if (signal?.aborted) throw new Error('connexion annulée');
+    await new Promise((r) => setTimeout(r, d.interval * 1000));
+    const a = await pollDeviceLogin(paths, d, fetcher);
+    if (a) return a;
+  }
+}
+
 // ---------------- Jetons : rafraîchissement ----------------
 
 const refreshing = new Map<string, Promise<CodexAuth>>();

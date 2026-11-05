@@ -115,3 +115,28 @@ test('réglages : préréglage « OpenAI Codex (abonnement ChatGPT) », sans cl�
     assert.equal(cfg.providers[0].apiKeyEnv, undefined, 'aucune clé : la connexion ChatGPT suffit');
   } finally { o.cleanup(); }
 });
+
+test('connexion ChatGPT par code : rien à recopier, Odin attend la validation puis range les jetons', async () => {
+  const { DEVICE, startDeviceLogin, pollDeviceLogin } = await import('../src/providers/codex.ts');
+  const o = makeOdin([]);
+  try {
+    let validated = false;
+    const { f, calls } = fakeFetch((c) => {
+      if (c.url === DEVICE.start) return Response.json({ device_auth_id: 'dev_1', user_code: 'ABCD-1234', interval: '5' });
+      if (c.url === DEVICE.poll) return validated ? Response.json({ authorization_code: 'ac_9', code_verifier: 'cv_9' }) : new Response('pending', { status: 403 });
+      return Response.json({ access_token: access(3600), refresh_token: 'rt_d', id_token: idToken, expires_in: 3600 });
+    });
+    const d = await startDeviceLogin(f);
+    assert.equal(d.userCode, 'ABCD-1234');
+    assert.equal(d.url, DEVICE.page);
+    assert.equal(JSON.parse(String(calls[0].init.body)).client_id, CODEX.clientId);
+    assert.equal(await pollDeviceLogin(o.paths, d, f), undefined, 'pas encore validé');
+    validated = true;
+    const a = await pollDeviceLogin(o.paths, d, f);
+    assert.equal(a?.account_id, 'acc_123');
+    const body = new URLSearchParams(String(calls.at(-1)!.init.body));
+    assert.equal(body.get('redirect_uri'), DEVICE.redirectUri);
+    assert.equal(body.get('code_verifier'), 'cv_9');
+    assert.equal(loadCodexAuth(o.paths)?.refresh_token, 'rt_d');
+  } finally { o.cleanup(); }
+});

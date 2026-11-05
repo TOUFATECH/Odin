@@ -678,9 +678,15 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
             <div class="field" id="m-codexBox" hidden>
               <label>Connexion à ton compte ChatGPT</label>
               <div class="sub" id="cx-state">Non connecté.</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small primary" type="button" id="cx-login">Se connecter avec ChatGPT</button><button class="btn small" type="button" id="cx-logout" hidden>Se déconnecter</button></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small primary" type="button" id="cx-device">Se connecter avec un code</button><button class="btn small" type="button" id="cx-login">Par lien (navigateur sur la machine d'Odin)</button><button class="btn small" type="button" id="cx-logout" hidden>Se déconnecter</button></div>
+              <div id="cx-dev" hidden style="display:flex;flex-direction:column;gap:8px;margin-top:6px;padding:12px;border:1px solid var(--line);border-radius:12px">
+                <span class="hint">1. Ouvre la page OpenAI (sur ce téléphone ou n'importe quel appareil) et connecte-toi à ChatGPT. 2. Saisis ce code. 3. Odin termine tout seul — rien à recopier.</span>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><code id="cx-code" style="font-size:24px;letter-spacing:3px;padding:6px 12px;border-radius:8px;background:var(--bg2,rgba(127,127,127,.12))">—</code><button class="btn small" type="button" id="cx-copy">Copier le code</button><a class="btn small primary" id="cx-open" style="text-decoration:none" href="https://auth.openai.com/codex/device" target="_blank" rel="noopener">Ouvrir la page OpenAI</a></div>
+                <span class="sub" id="cx-wait" role="status">En attente de ta validation…</span>
+                <span class="hint">Code refusé ? Dans ChatGPT : Réglages → Sécurité → active « Device code authorization » (compte d'équipe : à demander à l'administrateur), puis recommence.</span>
+              </div>
               <div id="cx-paste" hidden style="display:flex;flex-direction:column;gap:6px;margin-top:6px">
-                <span class="hint">Connecte-toi dans l'onglet qui vient de s'ouvrir. Si Odin est sur une autre machine (serveur, LXC…), le navigateur finit sur une page « introuvable » dont l'adresse commence par <code>http://localhost:1455/auth/callback</code> : copie cette adresse entière et colle-la ici.</span>
+                <span class="hint">Connecte-toi dans l'onglet qui vient de s'ouvrir. OpenAI renvoie toujours vers <code>http://localhost:1455</code> : si Odin n'est pas sur l'appareil où tu navigues (téléphone, serveur, LXC…), cette page affiche une erreur — c'est normal. Copie son adresse entière (barre d'adresse) et colle-la ici. Plus simple : « Se connecter avec un code ».</span>
                 <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="cx-callback" autocomplete="off" spellcheck="false" placeholder="http://localhost:1455/auth/callback?code=…" style="flex:1 1 260px"><button class="btn small" type="button" id="cx-finish">Terminer la connexion</button></div>
               </div>
               <span class="hint">Odin a sa propre connexion (comme Hermes a la sienne) : rien n'est partagé. Abonnement ChatGPT Plus, Pro, Business… requis. Modèles : ceux de ton abonnement (ex. gpt-6-luna).</span>
@@ -2324,10 +2330,25 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   function renderCodex() {
     const C = state.settings?.codex; if (!C) return;
     $('#cx-state').textContent = C.connected ? `✓ Connecté${C.email ? ' : ' + C.email : ''}${C.plan ? ' (' + C.plan + ')' : ''}. Jetons renouvelés automatiquement.` : 'Non connecté.';
-    $('#cx-logout').hidden = !C.connected; $('#cx-login').textContent = C.connected ? 'Se reconnecter' : 'Se connecter avec ChatGPT';
+    $('#cx-logout').hidden = !C.connected; $('#cx-device').textContent = C.connected ? 'Se reconnecter (code)' : 'Se connecter avec un code';
     const dl = $('#cx-models'); if (!dl.children.length) for (const m of C.models || []) dl.append(el('option', { value: m }));
   }
+  let cxTimer = 0;
+  $('#cx-device').addEventListener('click', async () => {
+    clearInterval(cxTimer); $('#cx-paste').hidden = true;
+    st('#m-status', 'Demande d\'un code à OpenAI…');
+    const r = await api('/api/action', { kind: 'codex_device_start' });
+    if (!r.ok) return st('#m-status', r.error || 'Connexion impossible.', false);
+    $('#cx-dev').hidden = false; $('#cx-code').textContent = r.code; $('#cx-open').href = r.url; $('#cx-wait').textContent = 'En attente de ta validation…'; st('#m-status', '');
+    cxTimer = setInterval(async () => {
+      const s = await api('/api/action', { kind: 'codex_device_status' });
+      if (s.status === 'ok') { clearInterval(cxTimer); $('#cx-dev').hidden = true; st('#m-status', `✓ Connecté à ChatGPT${s.email ? ' (' + s.email + ')' : ''}. Choisis le modèle puis Enregistrer.`, true); settingsDirty = false; refresh(); }
+      else if (s.status === 'erreur') { clearInterval(cxTimer); $('#cx-wait').textContent = '✗ ' + s.error; }
+    }, 3000);
+  });
+  $('#cx-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#cx-code').textContent); $('#cx-copy').textContent = '✓ Copié'; } catch { /* sélection manuelle */ } });
   $('#cx-login').addEventListener('click', async () => {
+    clearInterval(cxTimer); $('#cx-dev').hidden = true; api('/api/action', { kind: 'codex_device_cancel' });
     const r = await api('/api/action', { kind: 'codex_login_start' });
     if (!r.ok) return st('#m-status', r.error || 'Connexion impossible.', false);
     window.open(r.url, '_blank', 'noopener'); $('#cx-paste').hidden = false; $('#cx-callback').focus();

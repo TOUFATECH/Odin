@@ -24,7 +24,7 @@ import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
 import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
-import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin } from '../providers/codex.ts';
+import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { tunnel } from '../web/tunnel.ts';
 import { adminMode, checkSudoPassword, findMachine, listMachines, removeMachine, saveMachine, setAdminPassword, sudoersLine, testMachine } from '../machines/access.ts';
@@ -597,7 +597,22 @@ async function authCmd(): Promise<void> {
   }
   if (which !== 'openai-codex' && which !== 'codex') throw new Error('fournisseur inconnu : openai-codex');
   if (sub === 'remove') { removeCodexAuth(paths); console.log(c.green('✓ Odin est déconnecté de ChatGPT.')); return; }
-  if (sub !== 'add') throw new Error('usage : odin auth add|list|remove openai-codex');
+  if (sub !== 'add') throw new Error('usage : odin auth add|list|remove openai-codex [--link]');
+  if (!flags.has('--link')) {
+    // Par défaut : connexion par code, depuis n'importe quel appareil, sans adresse à recopier.
+    try {
+      const d = await startDeviceLogin();
+      console.log(`${c.cyan('ᛟ')} Connexion à ton compte ChatGPT (Codex)\n`);
+      console.log(`1. Sur ton téléphone ou ton ordinateur, ouvre : ${c.cyan(d.url)}`);
+      console.log(`2. Connecte-toi à ChatGPT et saisis ce code :  ${c.green(d.userCode)}\n`);
+      console.log(c.dim('   (Code refusé ? ChatGPT → Réglages → Sécurité → active « Device code authorization ».)'));
+      console.log(c.dim('   En attente… (15 min max, Ctrl+C pour annuler ; « odin auth add openai-codex --link » pour la connexion par lien)'));
+      const a = await waitDeviceLogin(paths, d);
+      console.log(c.green(`\n✓ Odin est connecté à ChatGPT${a.email ? ` (${a.email})` : ''}.`));
+      console.log(c.dim('Ensuite : odin model codex gpt-6-luna   puis   odin doctor   (et redémarre Odin s\'il tourne déjà).'));
+      return;
+    } catch (e) { console.log(c.yellow(`Connexion par code impossible (${(e as Error).message}) : on passe à la connexion par lien.\n`)); }
+  }
   const login = startCodexLogin();
   console.log(`${c.cyan('ᛟ')} Connexion à ton compte ChatGPT (Codex)\n`);
   console.log('1. Ouvre ce lien dans un navigateur et connecte-toi :\n');
