@@ -390,7 +390,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 /* Bulle d'Odin et déplacements */
 .chat-buddy{translate:calc(var(--dx,0px) + var(--rx,0px)) var(--dy,0px);transition:transform .35s cubic-bezier(.3,1.5,.5,1),opacity .25s,width .35s,height .35s,translate 1.6s cubic-bezier(.45,.05,.3,1);touch-action:none;cursor:grab}
 .chat-buddy.dragging{transition:none;cursor:grabbing;filter:drop-shadow(0 12px 22px rgba(0,0,0,.45))}
-.tip{position:absolute;z-index:4;max-width:280px;color:var(--ink);background:var(--panel);border:1px solid var(--field);border-radius:16px;padding:10px 12px;font-size:13px;line-height:1.45;white-space:pre-wrap;box-shadow:var(--shadow);transform-origin:100% 80%}
+.tip{position:absolute;z-index:4;max-width:260px;color:var(--ink);background:var(--panel);border:1px solid var(--field);border-radius:12px;padding:6px 9px;font-size:12px;line-height:1.35;white-space:pre-wrap;box-shadow:var(--shadow);transform-origin:100% 80%}
 .tip.on-left{border-bottom-right-radius:4px}.tip.on-right{border-bottom-left-radius:4px}.tip.on-above{border-bottom-right-radius:4px}
 .tip-t{position:relative}
 .tip.on-right{transform-origin:0 80%}
@@ -400,14 +400,14 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .tip.out{animation:tip-out .18s ease forwards}
 @keyframes tip-float{0%,100%{translate:0 0}50%{translate:0 -3px}}
 @keyframes tip-out{to{opacity:0;transform:scale(.7)}}
-.tip-acts{flex-wrap:nowrap}
+.tip .tip-acts{flex-wrap:nowrap}
 .tip-acts.in .tbtn{animation:tbtn-in .25s ease backwards}.tip-acts.in .tbtn:nth-child(2){animation-delay:.05s}.tip-acts.in .tbtn:nth-child(3){animation-delay:.1s}
 @keyframes tbtn-in{from{opacity:0;transform:translateY(4px)}}
 .tbtn{white-space:nowrap}
 .tip.pop{animation:tip-pop .35s cubic-bezier(.3,1.5,.5,1)}
 @keyframes tip-pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
-.tip-acts{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;position:relative}
-.tbtn{min-height:30px;padding:0 11px;border-radius:15px;border:1px solid var(--field);background:var(--bg);color:var(--ink);font-size:12.5px}
+.tip-acts{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;position:relative}
+.tbtn{min-height:24px;padding:0 8px;border-radius:12px;border:1px solid var(--field);background:var(--bg);color:var(--ink);font-size:11.5px}
 .tbtn:hover{border-color:var(--field-h)}
 .tbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
 @media (prefers-reduced-motion:reduce){.tip,.tip.pop,.tip.out,.tip-acts.in .tbtn{animation:none}.chat-buddy{transition:none}}
@@ -1207,13 +1207,13 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     const side = leftSpace >= 240 ? 'left' : rightSpace >= 240 ? 'right' : 'above';
     tip.classList.toggle('on-left', side === 'left'); tip.classList.toggle('on-right', side === 'right'); tip.classList.toggle('on-above', side === 'above');
     if (side === 'above') {
-      tip.style.maxWidth = Math.min(320, tr.width - 2 * edge) + 'px';
+      tip.style.maxWidth = Math.min(260, tr.width - 2 * edge) + 'px';
       const w = tip.offsetWidth, center = br.left + br.width / 2 - tr.left;
       const left = Math.max(edge - 6, Math.min(center - w + 60, tr.width - w - edge));
       tip.style.left = left + 'px'; tip.style.right = 'auto';
       tip.style.bottom = Math.min(tr.bottom - br.top + 10, tr.height - tip.offsetHeight - 10) + 'px';
     } else {
-      tip.style.maxWidth = Math.min(320, side === 'left' ? leftSpace : rightSpace) + 'px';
+      tip.style.maxWidth = Math.min(260, side === 'left' ? leftSpace : rightSpace) + 'px';
       if (side === 'left') { tip.style.right = (tr.right - br.left + gap) + 'px'; tip.style.left = 'auto'; }
       else { tip.style.left = (br.right - tr.left + gap) + 'px'; tip.style.right = 'auto'; }
       tip.style.bottom = Math.max(8, Math.min(tr.bottom - br.bottom + br.height * 0.3, tr.height - tip.offsetHeight - 10)) + 'px';
