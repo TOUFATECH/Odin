@@ -10,6 +10,7 @@
 // - Les appels passent par l'API Responses de Codex (https://chatgpt.com/backend-api/codex), en flux.
 // Aucune dépendance : fetch + node:crypto + node:http.
 
+import { readSse } from './sse.ts';
 import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
@@ -253,7 +254,14 @@ export class CodexProvider implements Provider {
     let res = await call(auth);
     if (res.status === 401) { auth = await codexToken(this.paths, true, this.fetcher); res = await call(auth); }
     if (!res.ok) throw new HttpError(res.status, await res.text(), res.headers.get('retry-after'));
-    return parseResponsesStream(await res.text());
+    if (!req.onDelta || !res.body) return parseResponsesStream(await res.text());
+    // En direct : chaque morceau de texte est transmis, puis la réponse complète est reconstruite.
+    let raw = '';
+    for await (const ev of readSse(res.body)) {
+      raw += `data: ${ev.data}\n\n`;
+      if (ev.data.includes('"response.output_text.delta"')) { try { req.onDelta(String((JSON.parse(ev.data) as { delta?: string }).delta ?? '')); } catch { /* morceau illisible */ } }
+    }
+    return parseResponsesStream(raw);
   }
 }
 

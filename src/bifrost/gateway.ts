@@ -260,6 +260,7 @@ export class Gateway {
   /** Tâches planifiées : exécution sans surveillance (validations refusées, sauf en Odin Breaker). */
   private lastWatch = 0;
   private lastCare = 0;
+  private lastEmbed = 0;
   private updating = false;
   private careCtx() { return { home: this.odin.paths.home, logs: this.odin.paths.logs, proxmox: { url: this.odin.cfg.proxmox.url, token: process.env.PROXMOX_TOKEN ?? '' } }; }
   /** Prévient le propriétaire (Telegram ou autre canal) et ses appareils (push). */
@@ -284,6 +285,14 @@ export class Gateway {
       void runUpdates(this.careCtx(), cfg.updates, stamp, cfg.services, new Date(now)).then((r) => this.tellOwner(r)).catch((e) => console.error('[mises à jour]', (e as Error).message)).finally(() => { this.updating = false; });
     }
     await this.journal(now).catch((e) => console.error('[journal]', (e as Error).message));
+    // Mémoire : vecteurs des nouveaux souvenirs (recherche par le sens) ; oubli des souvenirs périmés, une fois par jour.
+    const emb = this.odin.agent.deps.embedder;
+    if (emb && now - this.lastEmbed >= 5 * 60_000) {
+      this.lastEmbed = now;
+      for (const m of this.odin.muninn.missingVectors(emb.model, 40)) { try { this.odin.muninn.setVector(m.id, emb.model, await emb.embed(m.content)); } catch { break; } }
+    }
+    const mstamp = join(this.odin.paths.logs, 'memory-decay.txt');
+    if (!(existsSync(mstamp) && readFileSync(mstamp, 'utf8').trim() === new Date(now).toDateString())) { writeFileSync(mstamp, new Date(now).toDateString()); const n = this.odin.muninn.decay(now); if (n) console.error(`[mémoire] ${n} souvenir(s) périmé(s) oublié(s)`); }
     // Index des documents : chaque nuit vers 3 h (seuls les fichiers modifiés sont relus).
     const dstamp = join(this.odin.paths.logs, 'docs-index.txt'), d = new Date(now);
     if (cfg.docs.dirs.length && d.getHours() >= 3 && !(existsSync(dstamp) && readFileSync(dstamp, 'utf8').trim() === d.toDateString())) {

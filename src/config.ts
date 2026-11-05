@@ -53,6 +53,8 @@ export interface OdinConfig {
     maxCostPerTurnUsd: number;
     /** Accès complet à la machine (tout le disque, n'importe quel dossier) pour le propriétaire ; sinon l'espace de travail seul. */
     fullAccess: boolean;
+    /** Réponses en direct (mot à mot) quand le fournisseur le permet. */
+    stream?: boolean;
   };
   policy: {
     /** Décision par niveau de risque quand la conversation est « propre ». */
@@ -93,6 +95,8 @@ export interface OdinConfig {
   docs: { dirs: string[] };
   /** Personnalités : ton et voix ; « auto » suit l'horaire (travail en semaine de 8 h à 18 h). */
   profiles: { active: string; auto: boolean; list: Array<{ id: string; name: string; tone: string; voiceId: string }> };
+  /** Mémoire : recherche par le sens (modèle local d'embeddings via Ollama). */
+  memory?: { semantic: boolean; embedUrl: string; embedModel: string };
   /** Accès depuis l'extérieur : tunnel Tailscale ou Cloudflare (lancé avec Odin). */
   tunnel: { kind: 'none' | 'tailscale' | 'cloudflare' };
   learning: {
@@ -184,6 +188,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     { id: 'travail', name: 'Travail', tone: 'Professionnel, précis et concis ; va droit au but, structure tes réponses ; tutoiement.', voiceId: '' },
   ] },
   tunnel: { kind: 'none' },
+  memory: { semantic: true, embedUrl: '', embedModel: 'nomic-embed-text' },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },

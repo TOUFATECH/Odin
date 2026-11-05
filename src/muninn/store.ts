@@ -26,6 +26,13 @@ export interface MemoryRow {
   last_used_at: number;
   uses: number;
   pinned: number;
+  /** De quoi ou de qui parle ce souvenir (« proprietaire », « nas », « personne:Mariam »…). */
+  subject?: string;
+  /** Ce qu'il dit du sujet (« adresse_ip », « heure_reveil »…) : un nouveau fait de même clé remplace l'ancien. */
+  topic?: string;
+  /** D'où il vient (conversation, outil, document…) et quand. */
+  source?: string;
+  superseded_by?: number | null;
 }
 
 export interface SessionRow {
@@ -131,6 +138,10 @@ export class Muninn {
     try { this.db.exec('ALTER TABLE jobs ADD COLUMN tainted INTEGER NOT NULL DEFAULT 0'); } catch { /* colonne déjà présente */ }
     try { this.db.exec("ALTER TABLE usage ADD COLUMN purpose TEXT NOT NULL DEFAULT 'agent'"); } catch { /* colonne déjà présente */ }
     try { this.db.exec('ALTER TABLE sessions ADD COLUMN suspicious INTEGER NOT NULL DEFAULT 0'); } catch { /* colonne déjà présente */ }
+    for (const col of ["subject TEXT NOT NULL DEFAULT ''", "topic TEXT NOT NULL DEFAULT ''", "source TEXT NOT NULL DEFAULT ''", 'superseded_by INTEGER']) {
+      try { this.db.exec(`ALTER TABLE memories ADD COLUMN ${col}`); } catch { /* colonne déjà présente */ }
+    }
+    this.db.exec('CREATE TABLE IF NOT EXISTS memory_vec(id INTEGER PRIMARY KEY, model TEXT NOT NULL, vec BLOB NOT NULL)');
   }
 
   close(): void { this.db.close(); }
@@ -212,20 +223,64 @@ export class Muninn {
 
   // ---------- Mémoire durable ----------
 
-  remember(content: string, origin: Origin, kind = 'fact', tags = ''): { id: number; updated: boolean } {
+  remember(content: string, origin: Origin, kind = 'fact', tags = '', meta: { subject?: string; topic?: string; source?: string } = {}): { id: number; updated: boolean; replaced?: string } {
     const norm = content.trim();
     const now = Date.now();
-    const dup = this.db.prepare('SELECT id, trust FROM memories WHERE lower(content) = lower(?)').get(norm) as { id: number; trust: number } | undefined;
+    const dup = this.db.prepare('SELECT id, trust FROM memories WHERE lower(content) = lower(?) AND superseded_by IS NULL').get(norm) as { id: number; trust: number } | undefined;
     if (dup) {
       // Une confirmation par une source plus fiable fait monter la confiance, jamais l'inverse.
       this.db.prepare('UPDATE memories SET trust = MAX(trust, ?), origin = CASE WHEN ? > trust THEN ? ELSE origin END, last_used_at = ? WHERE id = ?')
         .run(TRUST[origin], TRUST[origin], origin, now, dup.id);
       return { id: dup.id, updated: true };
     }
-    const r = this.db.prepare('INSERT INTO memories(kind, content, origin, trust, tags, created_at, last_used_at) VALUES (?,?,?,?,?,?,?)')
-      .run(kind, norm, origin, TRUST[origin], tags, now, now);
-    return { id: Number(r.lastInsertRowid), updated: false };
+    const subject = (meta.subject ?? '').trim().toLowerCase().slice(0, 60), topic = (meta.topic ?? '').trim().toLowerCase().slice(0, 60);
+    // Un fait plus récent sur le même sujet et la même clé remplace l'ancien (gardé dans l'historique),
+    // sauf si l'ancien vient d'une source plus fiable (ex. ce que TU as dit, face à une page web).
+    const old = subject && topic ? this.db.prepare('SELECT id, content, trust FROM memories WHERE subject = ? AND topic = ? AND superseded_by IS NULL ORDER BY id DESC LIMIT 1').get(subject, topic) as { id: number; content: string; trust: number } | undefined : undefined;
+    if (old && old.trust > TRUST[origin]) return { id: old.id, updated: true };
+    const r = this.db.prepare('INSERT INTO memories(kind, content, origin, trust, tags, created_at, last_used_at, subject, topic, source) VALUES (?,?,?,?,?,?,?,?,?,?)')
+      .run(kind, norm, origin, TRUST[origin], tags, now, now, subject, topic, (meta.source ?? '').slice(0, 120));
+    const id = Number(r.lastInsertRowid);
+    if (old) this.db.prepare('UPDATE memories SET superseded_by = ? WHERE id = ?').run(id, old.id);
+    return { id, updated: false, replaced: old?.content };
   }
+
+  /** Oubli : les souvenirs périmés ou jamais utilisés s'effacent (jamais ceux que tu as épinglés ou validés). */
+  decay(now = Date.now()): number {
+    const day = 86_400_000;
+    const r1 = this.db.prepare("DELETE FROM memories WHERE pinned = 0 AND superseded_by IS NOT NULL AND created_at < ?").run(now - 180 * day);
+    const r2 = this.db.prepare("DELETE FROM memories WHERE pinned = 0 AND origin != 'owner' AND kind = 'mission' AND last_used_at < ?").run(now - 90 * day);
+    const r3 = this.db.prepare("DELETE FROM memories WHERE pinned = 0 AND origin = 'untrusted' AND last_used_at < ?").run(now - 30 * day);
+    const r4 = this.db.prepare("DELETE FROM memories WHERE pinned = 0 AND origin = 'agent' AND uses = 0 AND last_used_at < ?").run(now - 365 * day);
+    this.db.exec('DELETE FROM memory_vec WHERE id NOT IN (SELECT id FROM memories)');
+    return Number(r1.changes) + Number(r2.changes) + Number(r3.changes) + Number(r4.changes);
+  }
+
+  /** Fiche d'un sujet : tout ce qu'Odin sait d'un appareil, d'une personne, de toi (faits actuels + anciens). */
+  profile(subject: string): { current: MemoryRow[]; history: MemoryRow[] } {
+    const s = `%${subject.trim().toLowerCase()}%`;
+    const rows = this.db.prepare("SELECT * FROM memories WHERE origin != 'untrusted' AND (subject LIKE ? OR lower(content) LIKE ? OR lower(tags) LIKE ?) ORDER BY created_at DESC LIMIT 200").all(s, s, s) as unknown as MemoryRow[];
+    return { current: rows.filter((r) => !r.superseded_by), history: rows.filter((r) => r.superseded_by) };
+  }
+
+  /** Les sujets connus, avec leur nombre de faits (fiches). */
+  subjects(): Array<{ subject: string; n: number }> {
+    return this.db.prepare("SELECT subject, COUNT(*) AS n FROM memories WHERE subject != '' AND superseded_by IS NULL AND origin != 'untrusted' GROUP BY subject ORDER BY n DESC LIMIT 100").all() as Array<{ subject: string; n: number }>;
+  }
+
+  // ---------- Recherche par le sens (vecteurs facultatifs) ----------
+  setVector(id: number, model: string, vec: Float32Array): void { this.db.prepare('INSERT OR REPLACE INTO memory_vec(id, model, vec) VALUES (?,?,?)').run(id, model, Buffer.from(vec.buffer, vec.byteOffset, vec.byteLength)); }
+  missingVectors(model: string, limit = 50): Array<{ id: number; content: string }> {
+    return this.db.prepare("SELECT m.id, m.content FROM memories m LEFT JOIN memory_vec v ON v.id = m.id AND v.model = ? WHERE v.id IS NULL AND m.superseded_by IS NULL AND m.origin != 'untrusted' LIMIT ?").all(model, limit) as Array<{ id: number; content: string }>;
+  }
+  /** Les souvenirs les plus proches d'un vecteur (cosinus). */
+  nearest(model: string, q: Float32Array, limit = 6): MemoryRow[] {
+    const rows = this.db.prepare("SELECT m.*, v.vec FROM memory_vec v JOIN memories m ON m.id = v.id WHERE v.model = ? AND m.superseded_by IS NULL AND m.origin != 'untrusted'").all(model) as unknown as Array<MemoryRow & { vec: Uint8Array }>;
+    const norm = (a: Float32Array) => Math.sqrt(a.reduce((s, x) => s + x * x, 0)) || 1, qn = norm(q);
+    return rows.map((r) => { const v = new Float32Array(r.vec.buffer.slice(r.vec.byteOffset, r.vec.byteOffset + r.vec.byteLength)); let d = 0; for (let i = 0; i < Math.min(v.length, q.length); i++) d += v[i] * q[i]; return { r, s: d / (norm(v) * qn) }; })
+      .filter((x) => x.s > 0.45).sort((a, b) => b.s - a.s).slice(0, limit).map(({ r: { vec: _v, ...m } }) => m as MemoryRow);
+  }
+
 
   /**
    * Rappel classé : pertinence BM25 × confiance × fraîcheur (demi-vie ~30 jours) × épinglage.
@@ -236,7 +291,7 @@ export class Muninn {
     if (!q) return [];
     const rows = this.db.prepare(`
       SELECT m.*, bm25(memories_fts) AS rank FROM memories_fts JOIN memories m ON m.id = memories_fts.rowid
-      WHERE memories_fts MATCH ? ${includeQuarantined ? '' : "AND m.origin != 'untrusted'"}
+      WHERE memories_fts MATCH ? AND m.superseded_by IS NULL ${includeQuarantined ? '' : "AND m.origin != 'untrusted'"}
       ORDER BY rank LIMIT 40`).all(q) as unknown as Array<MemoryRow & { rank: number }>;
     const now = Date.now();
     const scored = rows.map((r) => {
@@ -251,7 +306,7 @@ export class Muninn {
 
   /** Mémoires épinglées : toujours présentes dans le prompt (préférences clés). */
   pinned(): MemoryRow[] {
-    return this.db.prepare("SELECT * FROM memories WHERE pinned = 1 AND origin != 'untrusted' ORDER BY id LIMIT 20").all() as unknown as MemoryRow[];
+    return this.db.prepare("SELECT * FROM memories WHERE pinned = 1 AND origin != 'untrusted' AND superseded_by IS NULL ORDER BY id LIMIT 20").all() as unknown as MemoryRow[];
   }
 
   listMemories(limit = 50): MemoryRow[] {

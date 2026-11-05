@@ -56,6 +56,8 @@ export interface CompletionRequest {
   model: string;
   maxTokens: number;
   signal?: AbortSignal;
+  /** Texte reçu au fil de l'eau (réponse en direct), si le fournisseur sait le faire. */
+  onDelta?: (text: string) => void;
 }
 
 /** Un fournisseur de modèle (Anthropic, compatible OpenAI, local, simulé…). */
@@ -71,6 +73,8 @@ export type Risk = 'read' | 'write' | 'network' | 'exec' | 'external';
 export type AgentEvent =
   | { type: 'thinking'; step: number }
   | { type: 'text'; text: string }
+  /** Morceau de réponse en cours d'écriture (affichage en direct). */
+  | { type: 'delta'; text: string }
   | { type: 'tool_start'; name: string; input: Record<string, unknown> }
   | { type: 'tool_end'; name: string; ok: boolean; preview: string }
   | { type: 'blocked'; name: string; reason: string }

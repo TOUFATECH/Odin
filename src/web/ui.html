@@ -508,6 +508,9 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .schip.more{border-style:dashed}
 .hcard.sugg{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
 .fitem .hico{width:28px;height:28px;font-size:15px}
+
+.msg.live .lt::after{content:"▍";color:var(--accent);animation:blinkc 1s steps(1) infinite;margin-left:1px}
+@keyframes blinkc{50%{opacity:0}}
 </style>
 </head>
 <body>
@@ -1169,7 +1172,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
   });
   const faceTpl = document.querySelector('#login .odin');
-  function setBusy(b) { busy = b; $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
+  function setBusy(b) { busy = b; if (b) liveEnd(); $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
   $('#convsBtn').addEventListener('click', () => $('#convs').classList.toggle('open'));
   $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
@@ -2347,14 +2350,30 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
+  // ---------- Réponse en direct (mot à mot) ----------
+  let live = null, liveText = '';
+  function liveAdd(chunk) {
+    liveText += chunk;
+    // Le marqueur d'humeur du début n'est jamais affiché, même à moitié écrit.
+    let shown = liveText.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '');
+    if (/^\s*\[[^\]]*$/.test(shown) && shown.length < 40) shown = '';
+    if (!shown.trim()) return;
+    if (!live || !live.isConnected) { live = el('div', { class: 'msg assistant live' }, el('div', { class: 'who' }, 'ODIN'), el('span', { class: 'lt' })); msgs.querySelector('.hello')?.remove(); msgs.append(live); }
+    live.querySelector('.lt').textContent = shown;
+    const nearBottom = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 160; if (nearBottom) msgs.scrollTop = msgs.scrollHeight;
+    $('#typing').textContent = '';
+  }
+  function liveEnd() { live?.remove(); live = null; liveText = ''; }
+
   // ---------- Flux temps réel ----------
   let everOpened = false;
   function connect() {
     const es = new EventSource('/api/stream');
     es.onmessage = (ev) => {
       const d = JSON.parse(ev.data);
-      if (d.type === 'message' && d.peer === peer) { notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
+      if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
+      else if (d.type === 'event' && d.event.type === 'delta' && d.peer === peer) liveAdd(d.event.text);
       else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) { notifyOwner('Odin a besoin de toi', d.event.summary || 'Une validation est demandée.'); approvalCard(d.event); moodFlash('inquiet', 4000); }
       else if (d.type === 'event' && d.event.type === 'approval_done') approvalDone(d.event);
       else if (d.type === 'event' && d.event.type === 'mood') { if (d.peer === peer) moodBase(d.event.mood, true); }

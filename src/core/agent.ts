@@ -14,6 +14,7 @@ import type { Mimir } from '../mimir/decisions.ts';
 import type { Heimdall } from '../heimdall/policy.ts';
 import type { Redactor } from '../heimdall/redact.ts';
 import type { Muninn } from '../muninn/store.ts';
+import type { Embedder } from '../muninn/embed.ts';
 import type { Router } from '../providers/router.ts';
 import { type ToolContext, type ToolRegistry, type ToolResult, validateInput } from '../tools/registry.ts';
 import type { AgentEvent, Message, ToolCall } from '../types.ts';
@@ -28,6 +29,8 @@ import type { Tier } from '../providers/router.ts';
 
 export interface AgentDeps {
   cfg: OdinConfig;
+  /** Recherche par le sens dans la mémoire (modèle local), facultative. */
+  embedder?: Embedder;
   router: Router;
   /** Modèle moins cher pour compaction, réflexion et sous-agents (sinon `router`). */
   cheapRouter?: Router;
@@ -161,7 +164,7 @@ export class Agent {
       workspace: this.deps.workspace,
       summary: muninn.getSession(o.sessionId)!.summary,
       pinned: muninn.pinned(),
-      recalled: muninn.recall(userText, cfg.learning.recallLimit),
+      recalled: await this.recallSmart(userText, cfg.learning.recallLimit, signal),
       skillsIndex: this.deps.skills.index(),
       tainted,
       isSubAgent: depth > 0,
@@ -227,7 +230,12 @@ export class Agent {
 
       let reply;
       try {
-        reply = await router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal }, routeOpts);
+        // Réponse en direct : le texte s'affiche pendant que le modèle l'écrit (par paquets de ~80 ms).
+        let pend = '', flushT: ReturnType<typeof setTimeout> | undefined;
+        const flush = () => { flushT = undefined; if (pend) { emit({ type: 'delta', text: pend }); pend = ''; } };
+        const onDelta = depth === 0 && cfg.agent.stream !== false ? (d: string) => { pend += d; flushT ??= setTimeout(flush, 80); } : undefined;
+        reply = await router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal, onDelta }, routeOpts);
+        if (flushT) { clearTimeout(flushT); flush(); }
         if (reply.notice && !res.notices.includes(reply.notice)) res.notices.push(reply.notice);
       } catch (e) {
         if (signal.aborted) { res.stopReason = 'aborted'; res.text = 'Interrompu.'; break; }
@@ -531,13 +539,14 @@ Réponds en JSON seul : {"propositions": [{"type": "<type, un mot>", "icone": "<
 préférences (façon de travailler, formats, horaires), environnement (machines, appareils, dossiers, logiciels, comptes), missions et projets en cours, personnes importantes.
 Ignore le ponctuel, les politesses, et tout secret (mots de passe, clés, codes). N'invente rien. Ne répète pas ce qui est déjà connu :
 ${known}
-Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|mission|person","text":"phrase courte et autonome"}]} (liste vide si rien).`,
+Pour chaque fait, donne aussi son SUJET (proprietaire, ou l'appareil / la personne / le projet concerné, ex. « nas », « proxmox », « personne:mariam ») et sa CLÉ (ce qu'il dit du sujet, ex. « adresse_ip », « heure_reveil », « role ») : un nouveau fait de même sujet et même clé remplacera l'ancien (ex. le NAS a changé d'adresse).
+Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|mission|person","text":"phrase courte et autonome","sujet":"…","cle":"…"}]} (liste vide si rien).`,
       messages: [{ role: 'user', content: `${speaker ? `${speaker} (membre, pas le propriétaire)` : 'Propriétaire'} : ${userText.slice(0, 4000)}\n\nRéponse de l'agent : ${answer.slice(0, 2000)}` }],
       tools: [], maxTokens: 400, signal,
     }, { minTier: 'local', purpose: 'observation' });
     const json = r.text.match(/\{[\s\S]*\}/)?.[0];
     if (!json) return [];
-    const facts = ((JSON.parse(json) as { facts?: Array<{ kind?: string; text?: string }> }).facts ?? []).slice(0, 3);
+    const facts = ((JSON.parse(json) as { facts?: Array<{ kind?: string; text?: string; sujet?: string; cle?: string }> }).facts ?? []).slice(0, 3);
     const saved: string[] = [];
     for (const f of facts) {
       const text = this.deps.redactor.redact(String(f.text ?? '').trim()).slice(0, 300);
@@ -547,11 +556,29 @@ Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|miss
         if (g.ok && !g.value.save) continue;
       }
       const kind = ['preference', 'environment', 'mission', 'person'].includes(String(f.kind)) ? String(f.kind) : 'fact';
-      const { updated } = this.deps.muninn.remember(text, 'agent', kind, speaker ? `personne:${speaker}` : '');
-      if (!updated) saved.push(text);
+      const { updated, replaced, id } = this.deps.muninn.remember(text, 'agent', kind, speaker ? `personne:${speaker}` : '', { subject: String(f.sujet ?? (speaker ? `personne:${speaker}` : '')), topic: String(f.cle ?? ''), source: `conversation du ${new Date().toLocaleDateString('fr-FR')}` });
+      if (!updated) { saved.push(replaced ? `${text} (remplace : ${replaced})` : text); void this.embedMemory(id, text); }
     }
     if (saved.length) emit({ type: 'learned', facts: saved });
     return saved;
+  }
+
+  /** Vecteur d'un souvenir (recherche par le sens), si un modèle local est disponible. */
+  async embedMemory(id: number, text: string): Promise<void> {
+    const e = this.deps.embedder; if (!e) return;
+    try { this.deps.muninn.setVector(id, e.model, await e.embed(text)); } catch { /* modèle indisponible : la recherche par mots suffit */ }
+  }
+
+  /** Rappel : par mots (toujours), complété par le sens (si un modèle local est disponible). */
+  async recallSmart(query: string, limit: number, signal?: AbortSignal): Promise<ReturnType<Muninn['recall']>> {
+    const byWords = this.deps.muninn.recall(query, limit);
+    const e = this.deps.embedder;
+    if (!e || !query.trim()) return byWords;
+    try {
+      const near = this.deps.muninn.nearest(e.model, await e.embed(query, signal ?? AbortSignal.timeout(4000)), limit);
+      const seen = new Set(byWords.map((m) => m.id));
+      return [...byWords, ...near.filter((m) => !seen.has(m.id))].slice(0, limit + 3);
+    } catch { return byWords; }
   }
 
   /** Estimation de la taille actuelle du contexte d'une session (pour /status). */

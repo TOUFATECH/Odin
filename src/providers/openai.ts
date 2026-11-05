@@ -1,5 +1,6 @@
 // Fournisseur « compatible OpenAI » (chat/completions). Un seul adaptateur couvre
 // OpenAI, OpenRouter, Nous Portal, Ollama (http://localhost:11434/v1), LM Studio, vLLM…
+import { readSse } from './sse.ts';
 import type { CompletionRequest, Message, ModelResponse, Provider, ToolCall } from '../types.ts';
 import { HttpError } from './http.ts';
 
@@ -46,10 +47,12 @@ export class OpenAIProvider implements Provider {
         ...(/api\.openai\.com/.test(this.baseUrl ?? '') ? { max_completion_tokens: req.maxTokens } : { max_tokens: req.maxTokens }),
         messages: toOpenAIMessages(req.system, req.messages),
         ...(req.tools.length ? { tools: req.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } })) } : {}),
+        ...(req.onDelta ? { stream: true, stream_options: { include_usage: true } } : {}),
       }),
       signal: req.signal,
     });
     if (!res.ok) throw new HttpError(res.status, await res.text(), res.headers.get('retry-after'));
+    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return openaiStream(res.body, req.onDelta);
     const data = (await res.json()) as {
       choices: Array<{ message: { content: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> }; finish_reason: string }>;
       usage?: { prompt_tokens: number; completion_tokens: number };
@@ -66,4 +69,27 @@ export class OpenAIProvider implements Provider {
       stopReason: toolCalls.length ? 'tool_use' : choice.finish_reason === 'length' ? 'max_tokens' : 'end',
     };
   }
+}
+
+/** Réponse compatible OpenAI en flux : texte au fil de l'eau, appels d'outils reconstitués par index. */
+export async function openaiStream(body: ReadableStream<Uint8Array>, onDelta: (t: string) => void): Promise<ModelResponse> {
+  let text = '', finish = '', inTok = 0, outTok = 0;
+  const calls = new Map<number, { id: string; name: string; args: string }>();
+  for await (const ev of readSse(body)) {
+    if (ev.data.trim() === '[DONE]') break;
+    let d: Record<string, any>;
+    try { d = JSON.parse(ev.data); } catch { continue; }
+    if (d.usage) { inTok = d.usage.prompt_tokens ?? inTok; outTok = d.usage.completion_tokens ?? outTok; }
+    const ch = d.choices?.[0];
+    if (!ch) continue;
+    if (ch.delta?.content) { text += ch.delta.content; onDelta(ch.delta.content); }
+    for (const tc of ch.delta?.tool_calls ?? []) {
+      const c = calls.get(tc.index ?? 0) ?? { id: '', name: '', args: '' };
+      if (tc.id) c.id = tc.id; if (tc.function?.name) c.name += tc.function.name; if (tc.function?.arguments) c.args += tc.function.arguments;
+      calls.set(tc.index ?? 0, c);
+    }
+    if (ch.finish_reason) finish = ch.finish_reason;
+  }
+  const toolCalls: ToolCall[] = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([i, c]) => ({ id: c.id || `call_${i}`, name: c.name, input: parseArgs(c.args) }));
+  return { text, toolCalls, usage: { inputTokens: inTok, outputTokens: outTok }, stopReason: toolCalls.length ? 'tool_use' : finish === 'length' ? 'max_tokens' : 'end' };
 }

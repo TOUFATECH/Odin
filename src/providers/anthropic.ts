@@ -1,4 +1,5 @@
 // Fournisseur Anthropic (API Messages), en fetch natif : aucune dépendance.
+import { readSse } from './sse.ts';
 import type { CompletionRequest, Message, ModelResponse, Provider, ToolCall } from '../types.ts';
 import { HttpError } from './http.ts';
 
@@ -50,10 +51,11 @@ export class AnthropicProvider implements Provider {
     const res = await fetch(`${this.baseUrl}/v1/messages`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': this.apiKey, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(req.onDelta ? { ...body, stream: true } : body),
       signal: req.signal,
     });
     if (!res.ok) throw new HttpError(res.status, await res.text(), res.headers.get('retry-after'));
+    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return anthropicStream(res.body, req.onDelta);
     const data = (await res.json()) as {
       content: Array<{ type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }>;
       stop_reason: string;
@@ -70,4 +72,22 @@ export class AnthropicProvider implements Provider {
       stopReason: data.stop_reason === 'tool_use' ? 'tool_use' : data.stop_reason === 'max_tokens' ? 'max_tokens' : data.stop_reason === 'end_turn' ? 'end' : 'other',
     };
   }
+}
+
+/** Réponse Anthropic en flux : texte transmis au fil de l'eau, appels d'outils reconstitués. */
+export async function anthropicStream(body: ReadableStream<Uint8Array>, onDelta: (t: string) => void): Promise<ModelResponse> {
+  let text = '', stop = 'other', inTok = 0, outTok = 0;
+  const blocks = new Map<number, { id: string; name: string; json: string }>();
+  for await (const ev of readSse(body)) {
+    let d: Record<string, any>;
+    try { d = JSON.parse(ev.data); } catch { continue; }
+    if (d.type === 'message_start') { const u = d.message?.usage ?? {}; inTok = (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0); }
+    else if (d.type === 'content_block_start' && d.content_block?.type === 'tool_use') blocks.set(d.index, { id: d.content_block.id, name: d.content_block.name, json: '' });
+    else if (d.type === 'content_block_delta' && d.delta?.type === 'text_delta') { text += d.delta.text; onDelta(d.delta.text); }
+    else if (d.type === 'content_block_delta' && d.delta?.type === 'input_json_delta') { const b = blocks.get(d.index); if (b) b.json += d.delta.partial_json; }
+    else if (d.type === 'message_delta') { stop = d.delta?.stop_reason ?? stop; outTok = d.usage?.output_tokens ?? outTok; }
+    else if (d.type === 'error') throw new Error(`Anthropic : ${d.error?.message ?? 'erreur du flux'}`);
+  }
+  const toolCalls: ToolCall[] = [...blocks.values()].map((b) => { let input: Record<string, unknown> = {}; try { input = b.json ? JSON.parse(b.json) : {}; } catch { /* arguments tronqués */ } return { id: b.id, name: b.name, input }; });
+  return { text, toolCalls, usage: { inputTokens: inTok, outputTokens: outTok }, stopReason: stop === 'tool_use' ? 'tool_use' : stop === 'max_tokens' ? 'max_tokens' : stop === 'end_turn' ? 'end' : toolCalls.length ? 'tool_use' : 'end' };
 }
