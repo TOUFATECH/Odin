@@ -1,9 +1,9 @@
 // Outils réseau et maintenance : inventaire, balayage, mises à jour de la machine.
 import { spawn } from 'node:child_process';
 import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } from '../hlidskjalf/inventory.ts';
-import { nameFromTitle, netbiosName, probeWeb, serviceName, WEB_PORTS, type WebEndpoint } from '../hlidskjalf/identify.ts';
-import { connect } from 'node:net';
-import { reverse as dnsReverse } from 'node:dns/promises';
+import { serviceName } from '../hlidskjalf/identify.ts';
+import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
+import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { auditNetwork } from '../guard/watch.ts';
 import { CATEGORIES, vendorOf } from '../hlidskjalf/vendors.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
@@ -44,43 +44,34 @@ export const netInventory: Tool = {
   },
 };
 
-/** Bannière SSH (« SSH-2.0-OpenSSH_9.2p1 Debian-2 ») : dit souvent le système. */
-export function sshBanner(ip: string, timeoutMs = 2500): Promise<string | undefined> {
-  return new Promise((res) => {
-    const sock = connect({ host: ip, port: 22, timeout: timeoutMs }, () => undefined);
-    let buf = '';
-    const done = (v?: string) => { sock.destroy(); res(v); };
-    sock.on('data', (d) => { buf += d.toString('latin1'); if (buf.includes('\n')) done(buf.split(/\r?\n/)[0].slice(0, 120)); });
-    sock.on('timeout', () => done()); sock.on('error', () => done());
-  });
-}
 export const netIdentify: Tool = {
   name: 'net_identify',
-  description: 'Identifie UN appareil du réseau à fond : son NOM (nom d\'hôte DNS, nom Windows/NetBIOS, nom dans son interface web, nœud Proxmox…), son système (bannière SSH), son fabricant, ses pages web. À utiliser dès qu\'on te demande « c\'est quoi cet appareil ? » ou « son nom ? » avant de répondre.',
+  description: 'Identifie UN appareil du réseau à fond : nom d\'hôte, système et version (Windows avec n° de build, Linux et distribution, macOS, iOS), modèle (iPhone 15 Pro…), ports ouverts, partages réseau (SMB, NFS, AFP) et dossiers partagés. À utiliser dès qu\'on te demande ce qu\'est un appareil, son nom, son système ou ce qu\'il partage. Prend 5 à 20 s.',
   risk: 'network',
   schema: obj({ ip: str('adresse IP privée de l\'appareil') }, ['ip']),
   async run(i, ctx) {
     const ip = s(i.ip).trim();
-    if (!/^(10|127|192\.168|172\.(1[6-9]|2\d|3[01]))\.\d+\.\d+(\.\d+)?$/.test(ip)) return 'Adresse privée attendue (192.168…, 10…, 172.16–31…).';
+    if (!isPrivateV4(ip)) return 'Adresse privée attendue (192.168…, 10…, 172.16–31…).';
     const d = ctx.inventory?.get(ip);
-    const ports = d?.ports?.length ? d.ports : [22, 80, 443, 8006, 5000, 5001, 8123, 8080];
-    const [rdns, nb, ssh, ...web] = await Promise.all([
-      dnsReverse(ip).catch(() => [] as string[]), netbiosName(ip), sshBanner(ip),
-      ...ports.filter((p) => WEB_PORTS.includes(p)).slice(0, 6).map((p) => probeWeb(ip, p).catch(() => undefined)),
-    ]);
-    const pages = web.filter(Boolean) as WebEndpoint[];
-    const names = [...new Set([d?.label, d?.name, d?.hostname, ...rdns.map((x) => x.replace(/\.$/, '')), nb, ...pages.map((w) => nameFromTitle(w.title))].filter(Boolean) as string[])];
-    const machine = ctx.home ? listMachines(ctx.home).find((m) => m.host === ip) : undefined;
+    const m = ctx.home ? listMachines(ctx.home).find((x) => x.host === ip) : undefined;
+    const r = await deepIdentify(ip, { user: m?.user, password: m?.password });
     let host = '';
-    if (machine) { try { host = (await runOnMachine(ctx.home!, machine, 'hostname; (. /etc/os-release 2>/dev/null; echo "$PRETTY_NAME")', { timeoutMs: 15_000 })).out.trim(); } catch { /* inaccessible */ } }
-    return [`Appareil ${ip}${d ? ` — classé « ${d.kind} »` : ''}`,
-      `Nom(s) trouvé(s) : ${names.length ? names.join(' · ') : 'aucun nom annoncé par l\'appareil'}`,
-      host ? `Sur la machine elle-même (SSH) : ${host.replace(/\n/g, ' · ')}` : '',
-      d?.mac ? `MAC ${d.mac}${vendorOf(d.mac) ? ` · fabricant ${vendorOf(d.mac)}` : ''}` : '',
-      ssh ? `SSH : ${ssh}` : '',
-      ...pages.map((w) => `Web : ${w.url} — « ${w.title || 'sans titre'} »${w.server ? ` (${w.server})` : ''}`),
-      !names.length ? 'Pour lui donner un nom : net_inventory ne suffit pas ; propose au propriétaire de le renommer (Réseau → ✎), ou connecte-toi dessus (machine_exec) pour lire son nom d\'hôte.' : '',
-    ].filter(Boolean).join('\n');
+    if (m && ctx.home) { try { host = (await runOnMachine(ctx.home, m, 'hostname; (. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME") || sw_vers -productVersion 2>/dev/null || ver', { timeoutMs: 15_000 })).out.trim(); } catch { /* inaccessible */ } }
+    if (d && ctx.inventory) ctx.inventory.enrich(d.id, { hostname: r.hostnames[0], model: r.model, os: host.split('\n')[1] || r.os });
+    return formatDeep(r, d?.kind) + (host ? `\nSur la machine elle-même (SSH) : ${host.replace(/\n/g, ' · ')}` : '') + (r.shares?.some((x) => x.type === 'dossier') ? '\nPour voir les fichiers d\'un dossier partagé : net_share_files.' : '');
+  },
+};
+
+export const netShareFiles: Tool = {
+  name: 'net_share_files',
+  description: 'Liste les fichiers d\'un dossier partagé (SMB : Windows, Mac, NAS, Samba) sur le réseau local, en lecture seule. Utilise le compte de la machine si elle est dans Réglages → Droits et machines, sinon l\'accès invité.',
+  risk: 'network',
+  schema: obj({ ip: str('adresse IP'), share: str('nom du partage (voir net_identify)'), path: str('sous-dossier (facultatif)') }, ['ip', 'share']),
+  async run(i, ctx) {
+    const ip = s(i.ip).trim();
+    if (!isPrivateV4(ip)) return 'Adresse privée attendue.';
+    const m = ctx.home ? listMachines(ctx.home).find((x) => x.host === ip) : undefined;
+    return smbList(ip, s(i.share), s(i.path), m?.user, m?.password);
   },
 };
 
@@ -193,7 +184,7 @@ const machineCopy: Tool = {
   },
 };
 
-export const NETWORK_TOOLS: Tool[] = [netInventory, netIdentify, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
+export const NETWORK_TOOLS: Tool[] = [netInventory, netIdentify, netShareFiles, netScan, systemUpdates, systemUpdateApply, machineList, machineExec, machineCopy];
 
 export const netSecurity: Tool = {
   name: 'net_security',

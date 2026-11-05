@@ -1306,11 +1306,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     return el('tr', { class: x.status !== 'online' ? 'off' : '' },
       el('td', { 'data-label': 'Appareil' }, el('div', { class: 'tname' }, starBtn(x), el('span', { class: 'dico sm', 'aria-hidden': 'true' }, cat[1]), el('div', {}, el('b', {}, x.label), x.hostname && x.hostname !== x.label ? el('div', { class: 'dim mono' }, x.hostname) : null))),
       el('td', { 'data-label': 'Adresse', class: 'mono' }, x.ip, x.mac ? el('div', { class: 'dim' }, x.mac) : null),
-      el('td', { 'data-label': 'Fabricant / modèle' }, [x.vendor, x.model !== x.label ? x.model : ''].filter(Boolean).join(' · ') || el('span', { class: 'dim' }, '—')),
+      el('td', { 'data-label': 'Fabricant / modèle' }, [x.vendor, x.model !== x.label ? x.model : ''].filter(Boolean).join(' · ') || el('span', { class: 'dim' }, '—'), x.os ? el('div', { class: 'dim' }, x.os) : null),
       el('td', { 'data-label': 'Liens' }, (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer', title: w.url }, '↗ ', linkName(w, x.web)))) : el('span', { class: 'dim' }, '—')),
       el('td', { 'data-label': 'Ports' }, x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('span', { class: 'dim' }, '—')),
       el('td', { 'data-label': 'État' }, el('span', { class: 'dst ' + x.status }, st)),
-      el('td', {}, el('button', { class: 'btn small ibtn', type: 'button', title: 'Renommer', 'aria-label': 'Renommer ' + x.label, onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, '✎')));
+      el('td', { style: 'white-space:nowrap' }, el('button', { class: 'btn small ibtn', type: 'button', title: 'Identifier à fond (nom, système, version, partages)', 'aria-label': 'Identifier ' + x.label, onclick: () => identify(x) }, '🔍'), ' ', el('button', { class: 'btn small ibtn', type: 'button', title: 'Renommer', 'aria-label': 'Renommer ' + x.label, onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, '✎')));
   }
   for (const b of document.querySelectorAll('[data-nf]')) b.addEventListener('click', () => { netFilter = b.dataset.nf; for (const x of document.querySelectorAll('[data-nf]')) x.setAttribute('aria-pressed', String(x === b)); renderDevices(); });
   $('#netSearch').addEventListener('input', () => renderDevices());
@@ -1330,11 +1330,22 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         el('div', { class: 'dname' }, el('h3', {}, x.label), el('div', { class: 'dmeta' }, el('span', { class: 'mono' }, x.ip), x.vendor ? ` · ${x.vendor}` : '', x.model && x.model !== x.label ? ` · ${x.model}` : '')),
         starBtn(x), el('span', { class: 'dst ' + x.status, title: st }, st)),
       x.hostname && x.hostname !== x.label ? el('div', { class: 'dline' }, 'Nom réseau : ', el('span', { class: 'mono' }, x.hostname)) : null,
+      x.os ? el('div', { class: 'dline' }, 'Système : ', x.os) : null,
       webLinks.length ? el('div', { class: 'dlinks' }, webLinks) : null,
       x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('div', { class: 'dline dim' }, 'Ports : lance un balayage complet pour les voir.'),
       actions.length ? el('details', { class: 'dacts' }, el('summary', {}, `Ce qu'Odin peut faire (${actions.length})`), el('ul', {}, actions.map((l) => el('li', {}, l.action, ' — ', el('span', { class: 'mono' }, l.how))))) : null,
       el('div', { class: 'dfoot' }, el('span', {}, x.mac ? el('span', { class: 'mono' }, x.mac) : '', ` · vu ${fmt(x.last_seen)}`),
-        el('button', { class: 'btn small', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer')));
+        el('span', { style: 'display:flex;gap:6px' }, el('button', { class: 'btn small', type: 'button', onclick: () => identify(x) }, 'Identifier'), el('button', { class: 'btn small', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'))));
+  }
+  // Identification approfondie : nom d'hôte, système et version, modèle, ports, partages et fichiers.
+  async function identify(x) {
+    const box = el('div', { class: 'whyt', style: 'white-space:pre-wrap;max-height:60vh;overflow:auto' }, 'Odin interroge l\'appareil (5 à 20 secondes)…');
+    const dlg = el('dialog', { class: 'stdlg' }, el('h2', { style: 'margin-top:0' }, `${x.label} — ${x.ip}`), box, el('div', { id: 'idShares' }), el('form', { method: 'dialog', style: 'margin-top:12px' }, el('button', { class: 'btn' }, 'Fermer')));
+    document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal(); moodHold('concentration');
+    const r = await api('/api/action', { kind: 'device_identify', ip: x.ip }); moodRelease();
+    box.textContent = r.ok ? r.text : r.error;
+    const shares = (r.shares || []).filter((s) => s.type === 'dossier');
+    if (shares.length) dlg.querySelector('#idShares').replaceChildren(el('h3', {}, 'Dossiers partagés'), ...shares.map((s) => el('details', { ontoggle: async (e) => { const d = e.target; if (!d.open || d.dataset.done) return; d.dataset.done = '1'; const out = d.querySelector('pre'); out.textContent = 'Lecture…'; const f = await api('/api/action', { kind: 'share_files', ip: x.ip, share: s.name }); out.textContent = f.ok ? f.text : f.error; } }, el('summary', {}, `📁 ${s.name}${s.comment ? ' — ' + s.comment : ''}`), el('pre', { class: 'mono', style: 'white-space:pre-wrap;font-size:12px' }))));
   }
   const closedGroups = new Set();
   function renderDevices() {

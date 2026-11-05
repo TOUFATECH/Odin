@@ -27,6 +27,8 @@ export interface Device {
   label: string;
   /** Interfaces web (port, adresse, titre, serveur). */
   web: WebEndpoint[];
+  /** Système et version (identification approfondie). */
+  os?: string;
 }
 
 export interface ScanReport {
@@ -110,6 +112,7 @@ export class Inventory {
     this.db = db;
     this.db.exec(SCHEMA);
     try { this.db.exec("ALTER TABLE devices ADD COLUMN web TEXT NOT NULL DEFAULT '[]'"); } catch { /* colonne déjà présente */ }
+    try { this.db.exec("ALTER TABLE devices ADD COLUMN os TEXT NOT NULL DEFAULT ''"); } catch { /* colonne déjà présente */ }
   }
 
   list(filter: { status?: DeviceStatus | 'all'; kind?: string } = {}): Device[] {
@@ -132,6 +135,14 @@ export class Inventory {
 
   lastScan(): { at: number; seen: number; full: number } | undefined {
     return this.db.prepare('SELECT at, seen, full FROM scans ORDER BY id DESC LIMIT 1').get() as { at: number; seen: number; full: number } | undefined;
+  }
+
+  /** Complète un appareil après identification approfondie (sans écraser un nom donné par toi). */
+  enrich(id: string, f: { hostname?: string; model?: string; os?: string }): void {
+    const cut = (v?: string) => (v ?? '').replace(/[\u0000-\u001f]/g, '').slice(0, 80);
+    if (f.hostname) this.db.prepare("UPDATE devices SET hostname = ? WHERE id = ? AND hostname = ''").run(cut(f.hostname), id);
+    if (f.model) this.db.prepare('UPDATE devices SET model = ? WHERE id = ?').run(cut(f.model), id);
+    if (f.os) this.db.prepare('UPDATE devices SET os = ? WHERE id = ?').run(cut(f.os), id);
   }
 
   setLabel(id: string, label: string): boolean {
@@ -172,6 +183,7 @@ export class Inventory {
       if (!cur) {
         this.db.prepare(`INSERT INTO devices(id, ip, mac, hostname, name, model, kind, ports, services, server, network, status, first_seen, last_seen, web)
           VALUES (?,?,?,?,?,?,?,?,?,?,?, 'online', ?, ?, ?)`).run(id, next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, now, JSON.stringify(f.web ?? []));
+        if (f.os) this.db.prepare('UPDATE devices SET os = ? WHERE id = ?').run(f.os.slice(0, 80), id);
         this.event(id, 'nouveau', `${next.kind} ${next.ip}`, now);
         rep.added.push(this.get(id)!);
         continue;
@@ -183,6 +195,7 @@ export class Inventory {
       const web = full && f.web ? f.web : cur.web;
       this.db.prepare(`UPDATE devices SET ip=?, mac=?, hostname=?, name=?, model=?, kind=?, ports=?, services=?, server=?, network=?, status='online', last_seen=?, web=? WHERE id=?`)
         .run(next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, JSON.stringify(web), id);
+      if (f.os) this.db.prepare('UPDATE devices SET os = ? WHERE id = ?').run(f.os.slice(0, 80), id);
       if (cur.status !== 'online') rep.reconnected.push(this.get(id)!);
     }
     for (const d of this.list({ status: 'all' })) {

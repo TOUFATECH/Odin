@@ -41,6 +41,8 @@ import { nextRun } from '../cron/cron.ts';
 
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
+import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
+import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { TTS_DEFAULTS, cloneVoice, listVoices, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../voice/voice.ts';
@@ -564,6 +566,19 @@ export class WebChannel implements Channel {
           }).catch((e) => { this.codexDeviceState = { code: d.userCode, url: d.url, status: 'erreur', error: (e as Error).message }; })
             .finally(() => { if (this.codexDevice === ctrl) this.codexDevice = undefined; this.notify('state'); });
           return { ok: true, code: d.userCode, url: d.url };
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
+      case 'device_identify': case 'share_files': {
+        const ip = String(b.ip ?? '');
+        if (!isPrivateV4(ip)) return { ok: false, error: 'adresse privée attendue' };
+        const m = listMachines(this.odin.paths.home).find((x) => x.host === ip);
+        try {
+          if (b.kind === 'share_files') return { ok: true, text: await smbList(ip, String(b.share ?? ''), String(b.path ?? ''), m?.user, m?.password) };
+          const d = inventory.get(ip);
+          const r = await deepIdentify(ip, { user: m?.user, password: m?.password });
+          if (d) inventory.enrich(d.id, { hostname: r.hostnames[0], model: r.model, os: r.os });
+          this.notify('devices');
+          return { ok: true, text: this.odin.redactor.redact(formatDeep(r, d?.kind)), shares: r.shares ?? [] };
         } catch (e) { return { ok: false, error: (e as Error).message }; }
       }
       case 'codex_device_status': return { ok: true, ...(this.codexDeviceState ?? { status: 'aucune' }) };

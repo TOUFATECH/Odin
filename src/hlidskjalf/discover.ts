@@ -33,6 +33,8 @@ export interface Found {
   /** Nom NetBIOS (Windows, NAS, Samba). */
   netbios?: string;
   manufacturer?: string;
+  /** Système et version (SMB/NTLM, bannière SSH, Apple). */
+  os?: string;
 }
 
 // ---------- Adresses ----------
@@ -240,7 +242,7 @@ export function summarizeMdns(records: DnsRecord[]): { name?: string; model?: st
     const svc = (r.type === 12 ? r.data : r.name).match(/(_[a-z0-9-]+\._(?:tcp|udp))\.local$/i)?.[1];
     if (svc && !svc.startsWith('_services')) services.add(svc.toLowerCase());
     if (r.type === 12 && !r.name.startsWith('_services')) name ??= r.data.split('._')[0];
-    if (r.txt) { model ??= r.txt.md ?? r.txt.ty ?? r.txt.model ?? r.txt.usb_mdl; name = r.txt.fn ?? name; }
+    if (r.txt) { model ??= r.txt.md ?? r.txt.ty ?? r.txt.model ?? r.txt.rpmd ?? r.txt.usb_mdl; name = r.txt.fn ?? name; }
   }
   return { name: sanitize(name), model: sanitize(model), services: [...services] };
 }
@@ -327,7 +329,15 @@ export async function discover(o: DiscoverOptions): Promise<{ subnets: Subnet[];
       for (const p of f.ports.filter((x) => WEB_PORTS.includes(x))) { const w = await probeWeb(f.ip, p); if (w) web.push(w); }
       f.web = web;
       if (!f.server) f.server = web.find((w) => w.server)?.server;
+      // Système et nom exact : Windows / Samba (SMB sans mot de passe), Linux (SSH), Apple.
+      const deep = await import('./deep.ts');
+      const [smb, ssh] = await Promise.all([f.ports.includes(445) ? deep.smbInfo(f.ip) : undefined, f.ports.includes(22) ? deep.sshBanner(f.ip) : undefined]);
+      if (smb?.computer) f.netbios ??= sanitize(smb.computer, 40);
+      if (smb?.dnsName && !f.hostname) f.hostname = sanitize(smb.dnsName);
+      f.os = smb?.os ?? (ssh ? deep.osFromSsh(ssh) : undefined);
     }
+    if (f.model && /^(iPhone|iPad|Mac|iMac|AppleTV|AudioAccessory)\w*\d+,\d+$/.test(f.model)) { const deep = await import('./deep.ts'); f.model = deep.appleModelName(f.model); f.os ??= /^iPhone/.test(f.model) ? 'iOS' : /^iPad/.test(f.model) ? 'iPadOS' : /^(Mac|iMac)/.test(f.model) ? 'macOS' : undefined; }
+    if (!f.os && f.ports.includes(62078)) f.os = 'iOS / iPadOS';
   });
   return { subnets, found };
 }
