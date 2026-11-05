@@ -64,6 +64,13 @@ export class Gateway {
     if (!this.channels.size) throw new Error(`aucun canal n'a pu démarrer : ${[...this.failed.values()].join(' ; ')}`);
     this.timer = setInterval(() => { if (this.ticking) return; this.ticking = true; this.tick().catch((e) => console.error('[bifrost] tick :', (e as Error).message)).finally(() => { this.ticking = false; }); }, this.opts.tickMs ?? 30_000);
     console.log(`[bifrost] passerelle prête (${[...this.channels.keys()].join(', ') || 'aucun canal'})`);
+    // Missions coupées par un redémarrage : Odin les reprend là où il en était.
+    if (this.odin.cfg.continuous?.autoResume && !this.odin.demo) {
+      for (const m of this.odin.muninn.interruptedMissions(Date.now() - 86_400_000)) {
+        this.odin.muninn.endMission(m.id, 'en attente', 'interrompue par un redémarrage');
+        setTimeout(() => void this.resume(m.session_id, 'Odin a redémarré pendant ta mission : reprends-la là où tu t\'étais arrêté (vérifie d\'abord ce qui est déjà fait).').catch((e) => console.error('[reprise]', (e as Error).message)), 5000);
+      }
+    }
   }
 
   async stop(): Promise<void> {
@@ -285,6 +292,8 @@ export class Gateway {
       void runUpdates(this.careCtx(), cfg.updates, stamp, cfg.services, new Date(now)).then((r) => this.tellOwner(r)).catch((e) => console.error('[mises à jour]', (e as Error).message)).finally(() => { this.updating = false; });
     }
     await this.journal(now).catch((e) => console.error('[journal]', (e as Error).message));
+    await this.morning(now).catch((e) => console.error('[matin]', (e as Error).message));
+    await this.continuous(now).catch((e) => console.error('[travail continu]', (e as Error).message));
     // Mémoire : vecteurs des nouveaux souvenirs (recherche par le sens) ; oubli des souvenirs périmés, une fois par jour.
     const emb = this.odin.agent.deps.embedder;
     if (emb && now - this.lastEmbed >= 5 * 60_000) {
@@ -299,6 +308,57 @@ export class Gateway {
       writeFileSync(dstamp, d.toDateString());
       try { const r = indexDocs(this.odin.muninn.db, cfg.docs.dirs); console.error(`[documents] ${r.files} fichiers, ${r.updated} relus`); } catch (e) { console.error('[documents]', (e as Error).message); }
     }
+  }
+
+  private lastContinuous = 0;
+  /**
+   * Travail continu, sans pause : toutes les N minutes (si Odin ne travaille pas déjà), il relance
+   * les missions coupées ou échouées, puis cherche lui-même ce qui est utile (alertes, sécurité,
+   * habitudes…) et le fait — dans ton budget du jour. Ce qui demande ta validation attend ton accord.
+   */
+  async continuous(now = Date.now(), force = false): Promise<string | undefined> {
+    const c = this.odin.cfg.continuous;
+    if (!c?.enabled || this.odin.demo || this.aborts.size) return undefined;
+    if (!force && now - this.lastContinuous < c.intervalMin * 60_000) return undefined;
+    this.lastContinuous = now;
+    // 1. Relancer les missions échouées (modèle indisponible) ou arrêtées faute d'étapes.
+    for (const m of this.odin.muninn.stalledMissions(now - 2 * 86_400_000)) {
+      const why = this.odin.muninn.getKv(`mission-stop:${m.id}`) ?? '';
+      if (!['error', 'max_steps', 'loop'].includes(why) && m.status !== 'échouée') continue;
+      const n = Number(this.odin.muninn.getKv(`mission-retry:${m.id}`) ?? 0);
+      if (n >= c.maxRetries || m.session_id.startsWith('auto:')) continue;
+      this.odin.muninn.setKv(`mission-retry:${m.id}`, String(n + 1));
+      await this.resume(m.session_id, `Reprends la mission « ${m.goal.slice(0, 120)} » (essai ${n + 2}) : vérifie ce qui est déjà fait, puis termine-la.`).catch(() => undefined);
+      return 'reprise';
+    }
+    // 2. Initiative : budget du jour respecté.
+    const day = new Date(now).toDateString(), spentKey = `continuous-spent:${day}`;
+    const spent = Number(this.odin.muninn.getKv(spentKey) ?? 0);
+    if (c.dailyBudgetUsd > 0 && spent >= c.dailyBudgetUsd) return undefined;
+    const facts = [dayFacts(this.odin, now), ...(this.odin.inventory.list({ status: 'all' }).filter((d) => d.status === 'offline').slice(0, 5).map((d) => `Hors ligne : ${d.label || d.name || d.ip}`)), ...this.odin.muninn.habits().slice(0, 3).map((h) => `Demande fréquente : « ${h.text.slice(0, 80)} » (${h.count} fois)`)].join('\n');
+    const r = await this.odin.agent.run(`${CONTINUOUS_PROMPT}\n\n<situation>\n${facts}\n</situation>`, { sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+    if (!r) return undefined;
+    this.odin.muninn.setKv(spentKey, String(spent + r.costUsd));
+    const text = r.text.trim();
+    if (text && !/^(rien|RIEN)\b/.test(text) && r.toolCalls > 0) await this.tellOwner(`🔄 Odin a travaillé de lui-même\n${text.slice(0, 1200)}`, 'home');
+    return text;
+  }
+
+  /** Rapport du matin : la nuit d'Odin, ce qui attend ta validation, ses conseils (une fois par jour). */
+  async morning(now = Date.now(), force = false): Promise<string | undefined> {
+    const at = this.odin.cfg.journal.morning;
+    if (!force && (!this.odin.cfg.journal.enabled || !at || !validHhmm(at))) return undefined;
+    const d = new Date(now), [h, mi] = (at ?? '07:00').split(':').map(Number), stamp = join(this.odin.paths.logs, 'morning.txt');
+    if (!force && (d.getHours() * 60 + d.getMinutes() < h * 60 + mi || d.getHours() >= 12 || (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === d.toDateString()))) return undefined;
+    writeFileSync(stamp, d.toDateString());
+    const facts = dayFacts(this.odin, now, now - 12 * 3600_000);
+    let text = `☀️ Bonjour ! Cette nuit :\n${facts}`;
+    if (!this.odin.demo) {
+      const r = await this.odin.agent.run(`${MORNING_PROMPT}\n\n<faits>\n${facts}\n</faits>`, { sessionId: 'journal:matin', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+      if (r?.text.trim()) text = `☀️ ${r.text.trim().slice(0, 2500)}`;
+    }
+    await this.tellOwner(text, 'home');
+    return text;
   }
 
   /** Journal de bord du soir (une fois par jour à journal.at). */
@@ -414,9 +474,9 @@ export function decisionsFooter(d: Array<{ summary: string; via: 'mimir' | 'gran
 const JOURNAL_PROMPT = `Écris ton journal de bord du soir pour le propriétaire, en français, court (10 lignes au plus) : ce que tu as fait aujourd'hui, ce que tu as remarqué (réseau, services, sécurité, sauvegardes), puis 1 à 3 conseils concrets pour demain. Appuie-toi UNIQUEMENT sur les faits ci-dessous ; n'invente rien, et dis-le s'il n'y a presque rien à signaler. N'agis pas : n'utilise aucun outil.`;
 
 /** Les faits de la journée, pour le journal du soir (pur côté données). */
-export function dayFacts(odin: { muninn: { listMissions(n: number): Array<{ goal: string; status: string; started_at: number; cost_usd: number }> }; inventory: { events(n: number): Array<{ kind: string; detail: string; at: number }> }; paths: { logs: string } }, now = Date.now()): string {
+export function dayFacts(odin: { muninn: { listMissions(n: number): Array<{ goal: string; status: string; started_at: number; cost_usd: number }> }; inventory: { events(n: number): Array<{ kind: string; detail: string; at: number }> }; paths: { logs: string } }, now = Date.now(), from?: number): string {
   const start = new Date(now); start.setHours(0, 0, 0, 0);
-  const since = start.getTime(), lines: string[] = [];
+  const since = from ?? start.getTime(), lines: string[] = [];
   const ms = odin.muninn.listMissions(200).filter((m) => m.started_at >= since);
   lines.push(`Missions : ${ms.length}${ms.length ? ` (${ms.filter((m) => m.status === 'terminée').length} terminée(s), ${ms.reduce((n, m) => n + m.cost_usd, 0).toFixed(2)} $)` : ''}`);
   for (const m of ms.slice(0, 8)) lines.push(`- ${m.goal.slice(0, 100)} → ${m.status}`);
@@ -430,3 +490,9 @@ export function dayFacts(odin: { muninn: { listMissions(n: number): Array<{ goal
   }
   return lines.join('\n');
 }
+
+const CONTINUOUS_PROMPT = `Travail continu (personne ne te parle en ce moment). Regarde la situation ci-dessous et ce que tu sais (memory_search, schedule_list, net_inventory, net_security) : y a-t-il quelque chose d'UTILE à faire maintenant pour le propriétaire — corriger un problème repéré, vérifier un appareil hors ligne, préparer ce qu'il demande souvent, mettre en place une tâche planifiée qui manque, ranger, mettre à jour une fiche ?
+Règles : ne refais pas ce qui a déjà été fait (vérifie), une ou deux actions utiles au plus, rien d'irréversible ni de coûteux ; ce qui demande validation attendra son accord. Vérifie le résultat de chaque action.
+Réponds « RIEN » si rien d'utile, sinon trois lignes au plus : ce que tu as fait, vérifié, et ce qui attend son accord.`;
+
+const MORNING_PROMPT = `Écris le rapport du matin pour le propriétaire, en français, court (8 lignes au plus) : ce que tu as fait cette nuit, ce qui attend sa validation ou son attention, puis 1 ou 2 conseils pour la journée. Appuie-toi UNIQUEMENT sur les faits ci-dessous ; n'invente rien. N'agis pas : n'utilise aucun outil.`;

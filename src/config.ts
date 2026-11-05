@@ -55,6 +55,10 @@ export interface OdinConfig {
     fullAccess: boolean;
     /** Réponses en direct (mot à mot) quand le fournisseur le permet. */
     stream?: boolean;
+    /** Relecture des réponses à enjeu par un second modèle. */
+    review?: boolean;
+    /** Vérification imposée après une action (relire le résultat avant de conclure). */
+    verify?: boolean;
   };
   policy: {
     /** Décision par niveau de risque quand la conversation est « propre ». */
@@ -84,7 +88,9 @@ export interface OdinConfig {
   /** Mises à jour planifiées (weekday -1 = tous les jours, 0 = dimanche…). */
   updates: { enabled: boolean; weekday: number; hour: number; targets: Array<{ where: string; vmid?: number }>; rollbackOnFailure: boolean };
   /** Journal de bord du soir : ce qu'Odin a fait, remarqué, et ses conseils. */
-  journal: { enabled: boolean; at: string };
+  journal: { enabled: boolean; at: string; morning?: string };
+  /** Travail continu : Odin cherche lui-même ce qui est utile, jour et nuit, sans pause, dans ces limites. */
+  continuous: { enabled: boolean; intervalMin: number; dailyBudgetUsd: number; autoResume: boolean; maxRetries: number };
   /** Home Assistant (jeton dans HA_TOKEN). */
   homeAssistant: { url: string };
   /** Messagerie (mot de passe d'application dans MAIL_PASSWORD). */
@@ -178,7 +184,8 @@ export const DEFAULT_CONFIG: OdinConfig = {
   proxmox: { url: '' },
   services: [],
   updates: { enabled: false, weekday: 0, hour: 4, targets: [], rollbackOnFailure: true },
-  journal: { enabled: true, at: '21:30' },
+  journal: { enabled: true, at: '21:30', morning: '07:00' },
+  continuous: { enabled: true, intervalMin: 30, dailyBudgetUsd: 0.5, autoResume: true, maxRetries: 3 },
   homeAssistant: { url: '' },
   mail: { imapHost: '', imapPort: 993, smtpHost: '', smtpPort: 465, user: '', from: '' },
   calendar: { caldavUrl: '', caldavUser: '' },

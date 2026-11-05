@@ -427,7 +427,7 @@ export class WebChannel implements Channel {
       tunnel: { ...tunnel.state, available: tunnelAvailable(), install: INSTALL },
       features: (() => { const shown = muninn.kvPrefix('feature-show:'); return features({ cfg, devices: inventory.list({ status: 'all' }), recentUserText: muninn.recentUserTexts(), dismissed: new Set(Object.keys(muninn.kvPrefix('feature-dismiss:'))), machines: listMachines(this.odin.paths.home).length }).map((f) => ({ ...f, show: f.on || Boolean(f.why) || Boolean(shown[f.id]) })); })(),
       more: {
-        services: cfg.services, updates: cfg.updates, journal: cfg.journal, homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
+        services: cfg.services, updates: cfg.updates, journal: cfg.journal, continuous: cfg.continuous, subjects: muninn.subjects(), homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
         profiles: cfg.profiles, activeProfile: activeProfile(cfg)?.id ?? '', machines: listMachines(this.odin.paths.home).map((m) => ({ id: m.id, label: m.label })),
         secrets: Object.fromEntries(['HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL'].map((n) => [n, Boolean(process.env[n])])),
       },
@@ -634,8 +634,10 @@ export class WebChannel implements Channel {
             const targets = (Array.isArray(v.targets) ? v.targets : []).slice(0, 20).map((x: Record<string, unknown>) => ({ where: str(x.where, 80) || 'local', ...(Number(x.vmid) > 0 ? { vmid: Math.round(Number(x.vmid)) } : {}) }));
             val = { enabled: Boolean(v.enabled), weekday: Math.min(6, Math.max(-1, Math.round(Number(v.weekday ?? 0)))), hour: Math.min(23, Math.max(0, Math.round(Number(v.hour ?? 4)))), targets, rollbackOnFailure: v.rollbackOnFailure !== false };
           } else if (sec === 'journal') {
-            const at = str(v.at, 5); if (!/^\d{2}:\d{2}$/.test(at)) throw new Error('heure du journal : HH:MM');
-            val = { enabled: Boolean(v.enabled), at };
+            const at = str(v.at, 5), morning = str(v.morning, 5) || '07:00'; if (!/^\d{2}:\d{2}$/.test(at) || !/^\d{2}:\d{2}$/.test(morning)) throw new Error('heures du journal : HH:MM');
+            val = { enabled: Boolean(v.enabled), at, morning };
+          } else if (sec === 'continuous') {
+            val = { enabled: Boolean(v.enabled), intervalMin: Math.min(720, Math.max(5, Math.round(Number(v.intervalMin) || 30))), dailyBudgetUsd: Math.min(100, Math.max(0, Number(v.dailyBudgetUsd) || 0)), autoResume: v.autoResume !== false, maxRetries: Math.min(10, Math.max(0, Math.round(Number(v.maxRetries ?? 3)))) };
           } else if (sec === 'homeAssistant') val = { url: url(v.url) };
           else if (sec === 'mail') val = { imapHost: str(v.imapHost, 120), imapPort: Number(v.imapPort) || 993, smtpHost: str(v.smtpHost, 120), smtpPort: Number(v.smtpPort) || 465, user: str(v.user, 120), from: str(v.from, 160) };
           else if (sec === 'calendar') val = { caldavUrl: url(v.caldavUrl), caldavUser: str(v.caldavUser, 120) };

@@ -737,7 +737,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
             <div class="status" id="bk-status" role="status"></div>
           </div></article>
 
-          <article class="card" data-sec="autonomie"><form class="form" id="f-mimir">
+          <article class="card" data-sec="autonomie"><div class="form" id="more-continu" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-mimir">
             <h2>Décisions</h2>
             <div class="field"><label>Autonomie</label><div class="seg" role="group" aria-label="Niveau d'autonomie"><button type="button" data-auto="prudent">Prudent</button><button type="button" data-auto="equilibre">Équilibré</button><button type="button" data-auto="autonome">Autonome</button><button type="button" data-auto="breaker" class="brk">⚡ Odin Breaker</button></div><span class="hint" id="autoHint"></span></div>
             <div class="form" id="brkBox" style="gap:12px">
@@ -1714,9 +1714,16 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
       tgBox, F.check('mu-rb', 'Revenir à l\'instantané si la mise à jour échoue', M.updates.rollbackOnFailure),
       F.row(F.btn('Ajouter une machine', () => { targets.push({ where: 'local' }); drawTg(); }), F.btn('Enregistrer', () => saveCfg('updates', { enabled: on('mu-on'), weekday: Number(val('mu-day')), hour: Number(val('mu-hour')), targets, rollbackOnFailure: on('mu-rb') }, 'ms-st2'), true)), F.status('ms-st2'),
       el('h3', { style: 'margin:14px 0 0' }, 'Journal de bord du soir'),
-      F.check('mj-on', 'Chaque soir, Odin me raconte sa journée et me conseille', M.journal.enabled),
-      F.input('mj-at', 'À', M.journal.at, { type: 'time' }),
-      F.row(F.btn('Enregistrer', () => saveCfg('journal', { enabled: on('mj-on'), at: val('mj-at') }, 'ms-st3'), true), F.btn('L\'envoyer maintenant', async () => { $('#ms-st3').textContent = 'Odin écrit son journal…'; const r = await api('/api/action', { kind: 'journal_now' }); stx('#ms-st3', r, '✓ Envoyé (Telegram et notifications).'); if (r.text) say(r.text.slice(0, 400), [], 12000); })), F.status('ms-st3'));
+      F.check('mj-on', 'Chaque soir, Odin me raconte sa journée ; chaque matin, sa nuit', M.journal.enabled),
+      F.input('mj-at', 'Journal du soir à', M.journal.at, { type: 'time' }), F.input('mj-mo', 'Rapport du matin à', M.journal.morning || '07:00', { type: 'time' }),
+      F.row(F.btn('Enregistrer', () => saveCfg('journal', { enabled: on('mj-on'), at: val('mj-at'), morning: val('mj-mo') }, 'ms-st3'), true), F.btn('L\'envoyer maintenant', async () => { $('#ms-st3').textContent = 'Odin écrit son journal…'; const r = await api('/api/action', { kind: 'journal_now' }); stx('#ms-st3', r, '✓ Envoyé (Telegram et notifications).'); if (r.text) say(r.text.slice(0, 400), [], 12000); })), F.status('ms-st3'));
+    const C = M.continuous;
+    $('#more-continu').replaceChildren(
+      el('h2', {}, 'Travail continu'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Odin travaille sans pause, jour et nuit : il reprend les missions coupées ou échouées, puis cherche lui-même ce qui t\'est utile et le fait. Ce qui demande ta validation attend ton accord. Pour une heure précise, programme une tâche (« chaque jour à 3 h, … »).'),
+      F.check('ct-on', 'Odin travaille en continu', C.enabled), F.check('ct-res', 'Reprendre les missions coupées par un redémarrage', C.autoResume),
+      el('div', { class: 'svc2' }, el('span', { class: 'sub' }, 'Regarder toutes les'), el('input', { id: 'ct-int', type: 'number', min: 5, max: 720, value: C.intervalMin, style: 'width:80px;flex:none;min-width:0', 'aria-label': 'Intervalle en minutes' }), el('span', { class: 'sub' }, 'min · budget du jour'), el('input', { id: 'ct-bud', type: 'number', min: 0, step: 0.1, value: C.dailyBudgetUsd, style: 'width:80px;flex:none;min-width:0', 'aria-label': 'Budget du jour en dollars' }), el('span', { class: 'sub' }, '$ · relances'), el('input', { id: 'ct-ret', type: 'number', min: 0, max: 10, value: C.maxRetries, style: 'width:64px;flex:none;min-width:0', 'aria-label': 'Nombre de relances' })),
+      F.row(F.btn('Enregistrer', () => saveCfg('continuous', { enabled: on('ct-on'), autoResume: on('ct-res'), intervalMin: val('ct-int'), dailyBudgetUsd: val('ct-bud'), maxRetries: val('ct-ret') }, 'ct-st'), true)), F.status('ct-st'));
     // Maison
     $('#more-maison').replaceChildren(el('h2', {}, 'Maison (Home Assistant)'),
       el('p', { class: 'sub', style: 'margin:0' }, 'Pour piloter lumières, prises, volets, chauffage et scénarios en parlant à Odin. Jeton : Home Assistant → ton profil → Sécurité → Jetons d\'accès longue durée.'),

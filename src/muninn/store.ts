@@ -479,6 +479,10 @@ export class Muninn {
   listMissions(limit = 50): MissionRow[] {
     return this.db.prepare('SELECT * FROM missions ORDER BY (status = \'en cours\') DESC, updated_at DESC LIMIT ?').all(limit) as unknown as MissionRow[];
   }
+  /** Missions coupées net (Odin redémarré pendant le travail) : à reprendre. */
+  interruptedMissions(since: number): MissionRow[] { return this.db.prepare("SELECT * FROM missions WHERE status = 'en cours' AND updated_at >= ?").all(since) as unknown as MissionRow[]; }
+  /** Missions à relancer : échouées (modèle indisponible…) ou arrêtées faute d'étapes. */
+  stalledMissions(since: number): MissionRow[] { return this.db.prepare("SELECT * FROM missions WHERE status IN ('échouée', 'en attente') AND updated_at >= ? ORDER BY updated_at DESC LIMIT 10").all(since) as unknown as MissionRow[]; }
   getMission(id: string): MissionRow | undefined { return this.db.prepare('SELECT * FROM missions WHERE id = ?').get(id) as MissionRow | undefined; }
 
   /** Coût par fournisseur et par finalité depuis une date (Réglages → Modèle). */

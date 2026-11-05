@@ -254,6 +254,25 @@ Odin a **sa propre connexion**, rangée dans `~/.odin/codex-auth.json` (lisible 
 
 **Budget mensuel** (Réglages → Modèle) : un plafond en dollars ; tous les appels sont comptés (agent, juges, résumés, observation, vision), la dépense s'affiche par modèle et par usage, et une fois le plafond atteint seuls les modèles gratuits servent, Odin te le dit.
 
+### Il travaille sans pause
+
+Réglages → Autonomie → **Travail continu** : toutes les 30 minutes (réglable), quand personne ne lui parle, Odin reprend les missions coupées par un redémarrage ou échouées (modèle indisponible, étapes épuisées — jusqu'à 3 relances), puis cherche lui-même ce qui t'est utile (problème repéré, appareil hors ligne, demande fréquente, tâche planifiée qui manque) et le fait, en vérifiant chaque résultat. Il respecte un budget par jour (0,50 $ par défaut) ; ce qui demande ta validation attend ton accord. Pour une heure précise, programme une tâche (« chaque jour à 3 h, … »). Chaque matin (7 h), le **rapport du matin** résume sa nuit ; chaque soir, son journal.
+
+### Mémoire qui se tient à jour
+
+Chaque souvenir a un **sujet** (toi, le NAS, une personne…), une **clé** (adresse IP, heure de réveil…), sa source et sa date : un fait plus récent **remplace** l'ancien (gardé dans l'historique), sans jamais écraser ce que TU as dit par une source moins fiable. Les souvenirs périmés s'effacent tout seuls. **Fiches** : tout ce qu'Odin sait d'un sujet (`memory_profile`). **Recherche par le sens** avec un petit modèle local gratuit si Ollama est là (`ollama pull nomic-embed-text`) : il retrouve « le serveur de fichiers » même si le souvenir parle du « NAS ».
+
+### Rapide
+
+Réponses **en direct**, mot à mot (Anthropic, compatibles OpenAI, Codex). Les outils de lecture et de consultation (web, mail…) partent **en parallèle**. L'état du réseau est **préparé à l'avance** dans son contexte : les questions simples n'ont pas besoin d'outil.
+
+### Tout est vérifié
+
+- Après une modification (fichier, commande, envoi), Odin **doit** vérifier le résultat réel avec un outil avant de dire « c'est fait » — c'est imposé par le code, pas seulement demandé.
+- Chaque fait important porte son niveau de certitude : ✓ vérifié, ~ non vérifié, ? incertain.
+- Les **sources** réellement lues sont ajoutées si la réponse les oublie.
+- Les réponses à enjeu (actions sur tes machines, faits du web) sont **relues par un second modèle** qui compare la réponse aux résultats réels des outils ; tout écart est signalé « ⚠ À vérifier ».
+
 ### Accueil : tout d'un coup d'œil
 
 La page d'accueil résume l'essentiel : modèle et dépenses du mois, ce qui t'attend (validations, compétences à relire, problèmes de sécurité), missions en cours, état du réseau, surveillance (disques, appareils importants), sauvegarde, routines, et les demandes que tu fais souvent (Odin propose d'en faire une tâche automatique, chaque jour ou chaque lundi).
