@@ -526,12 +526,22 @@ export class Muninn {
     return this.db.prepare('SELECT COALESCE(SUM(tokens_in),0) AS tokens_in, COALESCE(SUM(tokens_out),0) AS tokens_out, COALESCE(SUM(cost_usd),0) AS cost_usd FROM usage WHERE created_at >= ?').get(ts) as { tokens_in: number; tokens_out: number; cost_usd: number };
   }
 
+  /** Résultat d'une mission où la compétence a servi (réussite, durée, coût). */
+  skillOutcome(name: string, ok: boolean, ms = 0, cost = 0): void {
+    try { this.db.exec('ALTER TABLE skill_stats ADD COLUMN ok INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+    try { this.db.exec('ALTER TABLE skill_stats ADD COLUMN fails INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+    try { this.db.exec('ALTER TABLE skill_stats ADD COLUMN total_ms INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+    try { this.db.exec('ALTER TABLE skill_stats ADD COLUMN cost_usd REAL NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+    this.db.prepare('INSERT INTO skill_stats(name, uses, last_used) VALUES (?, 0, ?) ON CONFLICT(name) DO NOTHING').run(name, Date.now());
+    this.db.prepare(`UPDATE skill_stats SET ${ok ? 'ok = ok + 1' : 'fails = fails + 1'}, total_ms = total_ms + ?, cost_usd = cost_usd + ? WHERE name = ?`).run(Math.round(ms), cost, name);
+  }
+
   touchSkill(name: string): void {
     this.db.prepare('INSERT INTO skill_stats(name, uses, last_used) VALUES (?, 1, ?) ON CONFLICT(name) DO UPDATE SET uses = uses + 1, last_used = excluded.last_used').run(name, Date.now());
   }
 
-  skillStats(): Array<{ name: string; uses: number; last_used: number }> {
-    return this.db.prepare('SELECT * FROM skill_stats ORDER BY uses DESC').all() as Array<{ name: string; uses: number; last_used: number }>;
+  skillStats(): Array<{ name: string; uses: number; last_used: number; ok: number; fails: number; total_ms: number; cost_usd: number }> {
+    return (this.db.prepare('SELECT * FROM skill_stats ORDER BY uses DESC').all() as Array<Record<string, number | string>>).map((r) => ({ name: String(r.name), uses: Number(r.uses), last_used: Number(r.last_used), ok: Number(r.ok ?? 0), fails: Number(r.fails ?? 0), total_ms: Number(r.total_ms ?? 0), cost_usd: Number(r.cost_usd ?? 0) }));
   }
 }
 

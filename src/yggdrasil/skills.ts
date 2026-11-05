@@ -10,7 +10,7 @@
 //   lue sur le web ne peut pas devenir une compétence permanente.
 // - Versionnage avec historique et retour arrière (`odin skills rollback`).
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { scanForInjection } from '../heimdall/injection.ts';
 
@@ -56,6 +56,8 @@ export function renderSkill(s: Skill): string {
 export class Yggdrasil {
   readonly dir: string;
   readonly draftsDir: string;
+  /** Signature des compétences validées (un fichier modifié en dehors d'Odin est détecté). */
+  signer?: { sign(content: string): string; verify(content: string, sig?: string): boolean };
   constructor(dir: string, draftsDir: string) {
     this.dir = dir; this.draftsDir = draftsDir;
     mkdirSync(dir, { recursive: true });
@@ -70,7 +72,7 @@ export class Yggdrasil {
   private scan(dir: string, status: 'active' | 'draft'): Skill[] {
     if (!existsSync(dir)) return [];
     return readdirSync(dir, { withFileTypes: true })
-      .filter((d) => d.isDirectory() && NAME_RE.test(d.name))
+      .filter((d) => d.isDirectory() && NAME_RE.test(d.name) && !d.name.startsWith('_'))
       .map((d) => join(dir, d.name, 'SKILL.md'))
       .filter((f) => existsSync(f))
       .map((f) => ({ ...parseSkill(readFileSync(f, 'utf8')), status }));
@@ -91,13 +93,13 @@ export class Yggdrasil {
 
   /** Index compact injecté dans le prompt système. */
   index(): string {
-    const skills = this.list();
+    const skills = this.list().filter((s) => this.intact(s.name));
     if (!skills.length) return '';
     return skills.map((s) => `- ${s.name} : ${s.description}`).join('\n');
   }
 
   /** Odin propose une compétence (nouvelle ou amélioration) : toujours un brouillon. */
-  propose(p: { name: string; description: string; body: string; reason: string; tainted?: boolean }): { path: string; improves: boolean; warnings: string[] } {
+  propose(p: { name: string; description: string; body: string; reason: string; tainted?: boolean; files?: Array<{ name: string; content: string }>; origin?: string; params?: string }): { path: string; improves: boolean; warnings: string[] } {
     const path = this.file(p.name, true);
     const current = this.get(p.name);
     const warnings = scanForInjection(p.body + '\n' + p.description).matches;
@@ -106,13 +108,19 @@ export class Yggdrasil {
       name: p.name,
       description: p.description.slice(0, 200),
       version: (current?.version ?? 0) + 1,
-      origin: 'odin',
+      origin: p.origin ?? 'odin',
       status: 'draft',
       body: p.body,
-      meta: { reason: p.reason.slice(0, 300), proposed_at: new Date().toISOString(), ...(warnings.length ? { warnings: warnings.join(' | ') } : {}) },
+      meta: { reason: p.reason.slice(0, 300), proposed_at: new Date().toISOString(), ...(p.params ? { params: p.params.slice(0, 200) } : current?.meta.params ? { params: current.meta.params } : {}), ...(warnings.length ? { warnings: warnings.join(' | ') } : {}) },
     };
     mkdirSync(join(this.draftsDir, p.name), { recursive: true });
     writeFileSync(path, renderSkill(skill));
+    // Scripts fournis avec la compétence (dossier scripts/).
+    for (const f of p.files ?? []) {
+      if (!/^[\w.-]{1,80}$/.test(f.name)) continue;
+      mkdirSync(join(this.draftsDir, p.name, 'scripts'), { recursive: true });
+      writeFileSync(join(this.draftsDir, p.name, 'scripts', f.name), f.content);
+    }
     return { path, improves: Boolean(current), warnings };
   }
 
@@ -125,10 +133,41 @@ export class Yggdrasil {
     mkdirSync(join(this.dir, name, 'history'), { recursive: true });
     if (current) renameSync(target, join(this.dir, name, 'history', `v${current.version}.md`));
     const { reason: _r, proposed_at: _p, warnings: _w, ...meta } = draft.meta;
-    const active: Skill = { ...draft, status: 'active', meta: { ...meta, approved_at: new Date().toISOString() } };
+    const { sig: _s, ...rest } = meta;
+    const active: Skill = { ...draft, status: 'active', meta: { ...rest, approved_at: new Date().toISOString(), ...(this.signer ? { sig: this.signer.sign(draft.body) } : {}) } };
     writeFileSync(target, renderSkill(active));
+    if (existsSync(join(this.draftsDir, name, 'scripts'))) cpSync(join(this.draftsDir, name, 'scripts'), join(this.dir, name, 'scripts'), { recursive: true });
     rmSync(join(this.draftsDir, name), { recursive: true, force: true });
     return active;
+  }
+
+  /** Modifiée à la main par le propriétaire : nouvelle version active tout de suite (l'ancienne est archivée). */
+  edit(name: string, o: { body: string; description?: string }): Skill {
+    const cur = this.get(name); if (!cur) throw new Error(`Compétence inconnue : ${name}`);
+    mkdirSync(join(this.dir, name, 'history'), { recursive: true });
+    renameSync(this.file(name), join(this.dir, name, 'history', `v${cur.version}.md`));
+    const next: Skill = { ...cur, version: cur.version + 1, description: (o.description ?? cur.description).slice(0, 200), body: o.body, origin: 'human', meta: { ...cur.meta, edited_at: new Date().toISOString(), ...(this.signer ? { sig: this.signer.sign(o.body) } : {}) } };
+    writeFileSync(this.file(name), renderSkill(next));
+    return next;
+  }
+  /** Compétence intacte ? (signée par Odin et pas modifiée depuis). Sans signature (ancienne) : signée maintenant. */
+  intact(name: string): boolean {
+    const s = this.get(name); if (!s || !this.signer) return true;
+    if (!s.meta.sig) { writeFileSync(this.file(name), renderSkill({ ...s, meta: { ...s.meta, sig: this.signer.sign(s.body) } })); return true; }
+    return this.signer.verify(s.body, s.meta.sig);
+  }
+  /** Fichiers fournis avec la compétence (scripts/). */
+  files(name: string): Array<{ name: string; path: string }> {
+    const d = join(this.dir, name, 'scripts');
+    return existsSync(d) ? readdirSync(d).filter((f) => !f.startsWith('.')).map((f) => ({ name: f, path: join(d, f) })) : [];
+  }
+  /** Range une compétence qui ne sert plus (dossier _archive, récupérable). */
+  archive(name: string): void {
+    this.file(name);
+    const src = join(this.dir, name); if (!existsSync(src)) throw new Error(`Compétence inconnue : ${name}`);
+    mkdirSync(join(this.dir, '_archive'), { recursive: true });
+    rmSync(join(this.dir, '_archive', name), { recursive: true, force: true });
+    renameSync(src, join(this.dir, '_archive', name));
   }
 
   reject(name: string): void {
@@ -146,6 +185,20 @@ export class Yggdrasil {
     renameSync(prev, this.file(name));
     return this.get(name)!;
   }
+}
+
+/** Remplace {{param}} par sa valeur (compétences avec réglages). Pur, testable. */
+export function fillParams(body: string, params: Record<string, string>): string {
+  return body.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (m, k: string) => (params[k] !== undefined ? params[k] : m));
+}
+
+/** Compétences qui semblent s'appliquer à une demande (mots en commun, sans accents). Pur, testable. */
+export function relevantSkills(text: string, skills: Array<{ name: string; description: string }>, max = 3): string[] {
+  const words = (x: string) => new Set(x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter((w) => w.length > 3).map((w) => w.slice(0, 6)));
+  const q = words(text);
+  if (!q.size) return [];
+  return skills.map((s) => { const w = words(`${s.name.replace(/-/g, ' ')} ${s.description}`); let n = 0; for (const x of q) if (w.has(x)) n++; return { name: s.name, score: n / Math.sqrt(w.size + 1) }; })
+    .filter((x) => x.score >= 0.25).sort((a, b) => b.score - a.score).filter((x, _k, all) => x.score >= all[0].score * 0.65).slice(0, max).map((x) => x.name);
 }
 
 /** Petit diff ligne à ligne (LCS) pour relire un brouillon avant approbation. */

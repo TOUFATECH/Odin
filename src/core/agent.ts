@@ -25,6 +25,7 @@ import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import { listMachines, rightsSummary } from '../machines/access.ts';
 import { activeProfile } from '../profiles.ts';
 import { identityLine, listScripts, scriptsIndex } from '../tools/scripts.ts';
+import { relevantSkills } from '../yggdrasil/skills.ts';
 import { features, featuresPrompt } from '../features.ts';
 import type { Tier } from '../providers/router.ts';
 
@@ -162,6 +163,7 @@ export class Agent {
     const recalledNow = (await this.recallSmart(userText, cfg.learning.recallLimit, signal)).filter((m) => m.kind !== 'lesson');
     const lessonsNow = depth > 0 ? [] : muninn.lessons(userText, 6);
     const memUsed = recalledNow.map((m) => m.content), lessonsUsed = lessonsNow.map((m) => m.content);
+    const turnStart = Date.now();
     const system = buildSystemPrompt({
       persona: this.deps.persona,
       name: cfg.name,
@@ -173,6 +175,7 @@ export class Agent {
       recalled: recalledNow,
       lessons: lessonsNow,
       skillsIndex: this.deps.skills.index(),
+      skillsHint: depth > 0 ? undefined : relevantSkills(userText, this.deps.skills.list()),
       scriptsIndex: depth > 0 ? undefined : scriptsIndex(listScripts(this.deps.workspace)),
       identity: identityLine(),
       tainted,
@@ -334,6 +337,18 @@ export class Agent {
       recordOutcome(muninn, category, lastProvider, res.stopReason === 'done' && !/⚠ À vérifier \(relecture\)/.test(res.text));
       if (CORRECTION.test(userText.trim())) { const prev = muninn.getKv(`last-provider:${o.sessionId}`); if (prev) recordOutcome(muninn, prev.split('|')[0], prev.split('|')[1], false); }
       muninn.setKv(`last-provider:${o.sessionId}`, `${category}|${lastProvider}`);
+    }
+    // Compétences utilisées : réussite, durée, coût ; corrigées ou en échec → amélioration proposée.
+    if (depth === 0) {
+      try {
+        const used = [...new Set(turnLog.flatMap((m) => (m.toolCalls ?? []).filter((c) => c.name === 'skill_read').map((c) => String(c.input.name))))].filter((n) => this.deps.skills.get(n));
+        const failures = turnLog.filter((m) => m.role === 'tool' && /^(Erreur|Refusé)|ÉCHEC|code de sortie\s*:?\s*[1-9]/.test(m.content)).length;
+        const ok = res.stopReason === 'done' && !/⚠ À vérifier \(relecture\)/.test(res.text);
+        for (const n of used) muninn.skillOutcome(n, ok && failures === 0, Date.now() - turnStart, res.costUsd);
+        if (CORRECTION.test(userText.trim())) for (const n of (muninn.getKv(`last-skills:${o.sessionId}`) ?? '').split(',').filter(Boolean)) { muninn.skillOutcome(n, false); if (cfg.learning.proposeSkills && !tainted) void this.improveSkill(n, `L'utilisateur a corrigé le résultat : « ${userText.slice(0, 400)} »`, turnLog, emit, signal).catch(() => undefined); }
+        muninn.setKv(`last-skills:${o.sessionId}`, used.join(','));
+        if (used.length && (failures > 0 || !ok) && cfg.learning.proposeSkills && !tainted) for (const n of used) void this.improveSkill(n, `${failures} étape(s) en échec pendant la mission`, turnLog, emit, signal).catch(() => undefined);
+      } catch { /* statistiques facultatives */ }
     }
     res.tainted = tainted;
     res.suspicious = turn.suspicious;
@@ -500,6 +515,27 @@ Sinon réponds {"propose":false}. Compétences existantes : ${existing}. Pour am
     if (active) this.deps.skills.approve(p.name);
     emit({ type: 'skill_proposed', name: p.name, active });
     return p.name;
+  }
+
+  /**
+   * Amélioration d'une compétence après usage : ce qui s'est réellement passé (déviations, erreurs,
+   * corrections) est comparé à la procédure ; une nouvelle version est proposée si elle aide.
+   */
+  async improveSkill(name: string, why: string, log: Message[], emit: (e: AgentEvent) => void, signal?: AbortSignal): Promise<string | undefined> {
+    const sk = this.deps.skills.get(name); if (!sk || this.deps.skills.getDraft(name)) return undefined;
+    const r = await (this.deps.cheapRouter ?? this.deps.router).complete({
+      system: 'Tu améliores une compétence (procédure) d\'un agent à partir de ce qui s\'est RÉELLEMENT passé quand il l\'a suivie. Corrige les étapes fausses ou manquantes, les commandes qui ont changé, ajoute les pièges rencontrés et la vérification. Garde le reste. Réponds en JSON strict {"improve":true,"body":"corps COMPLET de la nouvelle version (markdown)","reason":"ce qui change, en une phrase"} ou {"improve":false}. Aucun secret.',
+      messages: [{ role: 'user', content: `Compétence « ${sk.name} » (v${sk.version}) :\n${sk.body}\n\nProblème : ${why}\n\nDéroulé réel :\n${transcriptForSummary(log, 12_000)}` }],
+      tools: [], maxTokens: 2500, signal,
+    }, { minTier: 'local', purpose: 'amélioration' });
+    const p = JSON.parse(r.text.match(/\{[\s\S]*\}/)?.[0] ?? '{}') as { improve?: boolean; body?: string; reason?: string };
+    if (!p.improve || !p.body || p.body.trim() === sk.body.trim()) return undefined;
+    const prop = this.deps.skills.propose({ name, description: sk.description, body: this.deps.redactor.redact(p.body), reason: `amélioration après usage : ${p.reason ?? why}` });
+    const auto = this.deps.cfg.learning.autoApproveSkills;
+    const active = prop.warnings.length === 0 && (auto === 'always' || (auto === 'breaker' && this.deps.heimdall.breakerActive()));
+    if (active) this.deps.skills.approve(name);
+    emit({ type: 'skill_proposed', name, active });
+    return name;
   }
 
   /** Retient jusqu'à 3 faits durables de l'échange (vérifiés par Mímir : pas de secret, pas d'éphémère). */

@@ -16,6 +16,8 @@ export interface PromptParts {
   skillsIndex: string;
   /** Bibliothèque de scripts d'Odin. */
   scriptsIndex?: string;
+  /** Compétences qui semblent s'appliquer à la demande. */
+  skillsHint?: string[];
   /** Nom d'hôte et adresses de la machine d'Odin. */
   identity?: string;
   tainted: boolean;
@@ -87,10 +89,11 @@ Tu es pleinement autonome : tu ne demandes plus d'autorisation, tu agis et tu re
     out.push(`## Ce que tu sais déjà (mémoire)\n${lines.join('\n')}`);
   }
 
-  if (p.skillsIndex) out.push(`## Compétences disponibles (charge le détail avec skill_read)\n${p.skillsIndex}`);
+  if (p.skillsIndex) out.push(`## Compétences disponibles (charge le détail avec skill_read)\n${p.skillsIndex}${p.skillsHint?.length ? `\n\n→ Pour CETTE demande, ces compétences semblent s'appliquer : ${p.skillsHint.join(', ')}. Lis-les d'abord (skill_read).` : ''}`);
   if (!p.isSubAgent) out.push(`## Compétences et scripts : va vite, améliore-toi
 - Avant une mission, regarde si une compétence s'applique (skill_read) et suis-la.
-- Pour agir, préfère un SCRIPT (Python, Bash, Node) à une suite de commandes à la main : regarde ta bibliothèque (script_list), réutilise ou améliore un script existant, sinon écris-en un (script_save) puis lance-le (script_run, sur ta machine, une machine du réseau ou un conteneur Proxmox « pct:<n°> »).
+- Pour agir, préfère un SCRIPT (Python, Bash, Node) à une suite de commandes à la main : regarde ta bibliothèque (script_list), réutilise ou améliore un script existant, sinon écris-en un (script_save, avec un test et le respect du mode essai ODIN_DRY_RUN ; utilise le module commun odin_lib) puis lance-le (script_run, sur ta machine, une machine du réseau, un conteneur Proxmox « pct:<n°> », plusieurs à la fois « pct:all », ou « sandbox » pour essayer un nouveau script).
+- Action qui modifie des machines : d'abord script_run en mode essai (dry_run), puis pour de vrai. Tâche répétitive à heure fixe : script_schedule (sans le modèle, rapide et gratuit).
 - Si un script échoue : lis l'erreur, corrige-le (script_save, même nom = nouvelle version) et relance jusqu'à ce qu'il marche ; il sera meilleur la prochaine fois.
 - Après une mission réussie qui pourrait revenir, propose une compétence (skill_propose) qui décrit la procédure et cite le script à lancer ; si une compétence existante t'a fait perdre du temps, propose son amélioration.${p.scriptsIndex ? `\n\nTes scripts :\n${p.scriptsIndex}` : ''}`);
   if (p.summary) out.push(`## Résumé de la conversation jusqu'ici\n${p.summary}`);

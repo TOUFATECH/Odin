@@ -15,6 +15,8 @@ import { changePlan, recoveryPlanTool } from './tools/careplan.ts';
 import { evidenceSearch, webResearch } from './tools/research.ts';
 import { VIDEO_TOOLS } from './tools/video.ts';
 import { SCRIPT_TOOLS } from './tools/scripts.ts';
+import { skillImport } from './tools/skillimport.ts';
+import { sign as signContent, verify as verifyContent } from './scripts/guard.ts';
 import { PROXMOX_TOOLS } from './tools/proxmox.ts';
 import { HA_TOOLS } from './tools/homeassistant.ts';
 import { MAIL_TOOLS } from './tools/mail.ts';
@@ -77,11 +79,12 @@ export function createOdin(opts: CreateOptions = {}): Odin {
 
   const muninn = new Muninn(paths.db);
   const skills = new Yggdrasil(paths.skills, paths.drafts);
+  skills.signer = { sign: (c) => signContent(paths.home, c), verify: (c, s) => verifyContent(paths.home, c, s) };
   const redactor = Redactor.fromEnv();
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
-  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS);
+  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS, skillImport);
   const inventory = new Inventory(muninn.db);
 
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];

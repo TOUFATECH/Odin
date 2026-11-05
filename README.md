@@ -362,7 +362,25 @@ En **Mains libres** avec **Voix** activée, après sa réponse Odin t'écoute de
 Réglages → Droits et machines → **Coffre** : un mot de passe maître chiffre sur le disque les clés, jetons et mots de passe d'Odin. Après chaque redémarrage, il faut le déverrouiller depuis l'Accueil (Odin t'envoie une notification).
 
 ### Scripts réutilisables et compétences qui s'améliorent
-Comme Hermes, Odin va vite grâce à ses **compétences** (procédures qu'il lit avant une mission) et à sa **bibliothèque de scripts** (Python, Bash, Node) : pour une mission, il regarde d'abord s'il a déjà un script, sinon il l'écrit, le lance — sur sa machine, sur une machine du réseau (SSH) ou dans un conteneur Proxmox (`pct:7800`) — et s'il échoue, il lit l'erreur, le corrige (nouvelle version, l'ancienne est gardée) et relance. Chaque script garde ses réussites, ses échecs et l'historique de ses changements (Compétences → Scripts). Après une mission réussie qui reviendra, il propose une compétence qui cite le script à lancer (activée tout de suite en mode Breaker, sinon à valider : `learning.autoApproveSkills`). Les commandes destructrices restent interdites, même dans un script.
+Comme Hermes, Odin va vite grâce à ses **compétences** (procédures) et à sa **bibliothèque de scripts** (Python, Bash, Node). Tout se fait tout seul :
+
+**Scripts**
+- Il réutilise ou améliore un script existant avant d'en écrire un ; chaque version est gardée, avec ses réussites, ses échecs, sa durée moyenne et l'historique des changements (Compétences → Scripts → cliquer pour voir le code ou revenir à une version).
+- **Mode essai** : `ODIN_DRY_RUN=1` → le script montre ce qu'il ferait sans rien changer ; Odin le lance d'abord ainsi pour toute action qui modifie des machines.
+- **Test automatique** : un script peut avoir son test ; une nouvelle version qui casse le test n'est pas gardée.
+- **Module commun** (`odin_lib` en Python, Bash, Node) : lancer une commande (en respectant le mode essai), `pct exec`, liste des conteneurs, journal… partagé par tous les scripts.
+- **Où** : sa machine, une machine du réseau, un conteneur Proxmox (`pct:7800`), **plusieurs à la fois** (`pct:7800,pct:7700,venus` ou `pct:all`, résumé ✓/✗ à la fin), ou un **bac à sable** jetable (Docker, sans réseau) pour essayer un nouveau script.
+- **Programmé directement** (`script_schedule`) : tourne à l'heure dite sans passer par le modèle (rapide, gratuit) ; tu n'es prévenu que s'il échoue.
+
+**Compétences**
+- Avant chaque demande, Odin repère les compétences qui s'appliquent et les lit d'abord.
+- Une compétence peut **embarquer ses scripts** et avoir des **réglages** (`{{ct}}`, `{{machine}}`).
+- **Statistiques** par compétence (utilisations, réussite, durée, coût) ; après un échec ou une correction de ta part, Odin **propose tout seul une amélioration**, montrée ligne par ligne (ajouts en vert, retraits barrés). Le bilan du dimanche signale celles qui échouent souvent et celles qui ne servent plus (à ranger).
+- **Importer celles d'Hermes** : Compétences → *Importer d'Hermes* (`pct:7700`, `pct:7700@pve`, une machine, ou un dossier) ; catégories et scripts compris ; *Tout approuver* en un clic.
+- **Fiche** de chaque compétence : lire, modifier, tester en mode essai, revenir à la version précédente, ranger.
+- Activation : tout de suite en mode Breaker (ou toujours, selon `learning.autoApproveSkills`), sinon brouillon à valider.
+
+**Sécurité, automatique** : chaque script ou compétence est analysé avant d'être enregistré (secret en clair ou commande destructrice → refusé ; envoi de données vers l'extérieur → signalé), puis **signé** : un fichier modifié en dehors d'Odin est refusé.
 
 Odin connaît le **nom d'hôte et l'adresse IP de sa machine** (et s'il tourne dans un conteneur LXC ou Docker) : « toi », « Odin » ou « ta machine », c'est elle.
 

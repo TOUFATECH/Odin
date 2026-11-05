@@ -42,7 +42,8 @@ import { nextRun } from '../cron/cron.ts';
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
 import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
-import { listScripts } from '../tools/scripts.ts';
+import { listScripts, readScript, revertScript } from '../tools/scripts.ts';
+import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
@@ -431,9 +432,9 @@ export class WebChannel implements Channel {
       }),
       deviceEvents: inventory.events(40).map((e) => ({ ...e, device: deviceLabel(inventory.get(e.device_id) ?? ({ ip: e.device_id } as never)) })),
       memories: muninn.listMemories(200),
-      skills: skills.list().map((s) => ({ name: s.name, description: s.description, version: s.version, uses: muninn.skillStats().find((x) => x.name === s.name)?.uses ?? 0 })),
+      skills: (() => { const st = muninn.skillStats(); return skills.list().map((s) => { const x = st.find((y) => y.name === s.name); const n = (x?.ok ?? 0) + (x?.fails ?? 0); return { name: s.name, description: s.description, version: s.version, origin: s.origin, params: s.meta.params ?? '', uses: x?.uses ?? 0, ok: x?.ok ?? 0, fails: x?.fails ?? 0, avgS: n ? Math.round((x!.total_ms / n) / 100) / 10 : 0, cost: x?.cost_usd ?? 0, lastUsed: x?.last_used ?? 0, files: skills.files(s.name).map((f) => f.name), intact: skills.intact(s.name) }; }); })(),
       scripts: listScripts(this.odin.paths.workspace).slice(0, 100),
-      drafts: skills.drafts().map((s) => ({ name: s.name, description: s.description, version: s.version, reason: s.meta.reason ?? '', warnings: s.meta.warnings ?? '', body: s.body })),
+      drafts: skills.drafts().map((s) => { const cur = skills.get(s.name); return { name: s.name, description: s.description, version: s.version, origin: s.origin, reason: s.meta.reason ?? '', warnings: s.meta.warnings ?? '', body: s.body, diff: cur ? lineDiff(cur.body, s.body) : '' }; }),
       jobs: muninn.listJobs(),
       grants: muninn.listGrants(),
       autonomy: cfg.mimir.autonomy,
@@ -478,6 +479,17 @@ export class WebChannel implements Channel {
     switch (b.kind) {
       case 'skill_approve': skills.approve(name); break;
       case 'skill_reject': skills.reject(name); break;
+      case 'skill_approve_all': { const done: string[] = []; for (const d of skills.drafts()) { try { skills.approve(d.name); done.push(d.name); } catch { /* suivant */ } } this.notify('skills'); return { ok: true, count: done.length }; }
+      case 'skill_body': { const s = skills.get(name); if (!s) return { ok: false, error: 'compétence inconnue' }; return { ok: true, body: s.body, description: s.description, version: s.version, params: s.meta.params ?? '', files: skills.files(name).map((f) => f.name) }; }
+      case 'skill_edit': try { const s = skills.edit(name, { body: String(b.body ?? ''), description: typeof b.description === 'string' ? b.description : undefined }); this.notify('skills'); return { ok: true, version: s.version }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      case 'skill_rollback': try { skills.rollback(name); this.notify('skills'); return { ok: true }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      case 'skill_archive': try { skills.archive(name); this.notify('skills'); return { ok: true }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      case 'skill_import': {
+        const { skillImport } = await import('../tools/skillimport.ts');
+        try { const out = await skillImport.run({ source: String(b.source ?? '') }, { workspace: this.odin.paths.workspace, home: this.odin.paths.home, skills, redactor: this.odin.redactor, careCfg: this.odin.cfg, signal: AbortSignal.timeout(180_000) } as never); this.notify('skills'); return { ok: true, text: typeof out === 'string' ? out : out.output }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
+      case 'script_body': { const r = readScript(this.odin.paths.workspace, name); return r ? { ok: true, code: r.code, test: r.test ?? '', meta: r.meta } : { ok: false, error: 'script inconnu' }; }
+      case 'script_revert': try { revertScript(this.odin.paths.workspace, name, Number(b.version), this.odin.paths.home); this.notify('skills'); return { ok: true }; } catch (e) { return { ok: false, error: (e as Error).message }; }
       case 'memory_forget': muninn.forget(id); break;
       case 'memory_vouch': muninn.vouch(id); break;
       case 'memory_pin': muninn.pin(id, Boolean(b.on)); break;

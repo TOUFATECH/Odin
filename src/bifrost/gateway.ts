@@ -15,6 +15,7 @@ import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.
 import { autoBackup, healthCheck, newAlerts } from '../guard/watch.ts';
 import { pushAll } from '../push/webpush.ts';
 import { vaultState } from '../vault.ts';
+import { listScripts, parseScriptJob, type ScriptMeta } from '../tools/scripts.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
 import { indexDocs } from '../tools/docindex.ts';
 import { voiceFor } from '../profiles.ts';
@@ -390,6 +391,7 @@ export class Gateway {
     writeFileSync(stamp, d.toDateString());
     const parts = [weeklyReport(this.odin.muninn.listMissions(1000), this.odin.muninn.lessons('', 500), now)];
     if (this.odin.cfg.autoBackup.enabled) { const r = restoreTest(this.odin.paths, this.odin.cfg.autoBackup); parts.push(`${r.ok ? '✅' : '🔴'} Test de restauration : ${r.text}.`); }
+    { const sh = skillsHealth(this.odin.skills.list(), this.odin.muninn.skillStats(), listScripts(this.odin.paths.workspace), now); if (sh) parts.push(sh); }
     try { recoveryPlan({ cfg: this.odin.cfg, paths: this.odin.paths, devices: this.odin.inventory.list({ status: 'all' }), machines: listMachines(this.odin.paths.home) }); parts.push('📄 Plan de reprise mis à jour (plan-de-reprise.md dans l\'espace de travail).'); } catch { /* facultatif */ }
     const text = parts.join('\n');
     await this.tellOwner(text, 'home', parts.some((p) => p.startsWith('🔴')));
@@ -476,6 +478,16 @@ export class Gateway {
         continue;
       }
       this.odin.muninn.advanceJob(job.id, now, nextRun(job.cron, new Date(now)).getTime());
+      // Script programmé : il tourne directement, sans le modèle (rapide, gratuit) ; on ne te dérange que s'il échoue.
+      const sj = parseScriptJob(job.prompt);
+      if (sj) {
+        const { scriptRun } = await import('../tools/scripts.ts');
+        const out = job.tainted ? 'Refusé : tâche créée après lecture d\'un contenu non fiable.' : await scriptRun.run({ name: sj.name, args: sj.args, where: sj.where }, { workspace: this.odin.paths.workspace, home: this.odin.paths.home, redactor: this.odin.redactor, muninn: this.odin.muninn, signal: AbortSignal.timeout(3600_000), sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, isTainted: () => false } as never).then((x) => (typeof x === 'string' ? x : x.output)).catch((e) => `ÉCHEC : ${(e as Error).message}`);
+        const failed = /ÉCHEC|Refusé|✗|code de sortie [1-9]/.test(out);
+        appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · script ${sj.name}\n${out.slice(-3000)}\n`);
+        if (failed || sj.report) await this.tellOwner(`${failed ? '⚠️' : '✅'} Script programmé « ${sj.name} »${sj.where !== 'local' ? ` (${sj.where})` : ''}\n${out.slice(-1500)}`, 'skills', failed).catch(() => {});
+        continue;
+      }
       const r = await this.odin.agent.run(job.prompt, {
         // Une tâche née sous l'influence d'un contenu non fiable n'a pas la confiance du propriétaire.
         sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: !job.tainted, unattended: true,
@@ -486,6 +498,20 @@ export class Gateway {
       else appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · ${job.id}\n${text}\n`);
     }
   }
+}
+
+/** Santé des compétences et des scripts : à améliorer (échecs fréquents), à ranger (inutilisés). Pur, testable. */
+export function skillsHealth(skills: Array<{ name: string }>, stats: Array<{ name: string; uses: number; last_used: number; ok: number; fails: number }>, scripts: ScriptMeta[], now = Date.now()): string {
+  const weak = stats.filter((s) => s.ok + s.fails >= 3 && s.ok / (s.ok + s.fails) < 0.6 && skills.some((k) => k.name === s.name)).map((s) => `${s.name} (${s.ok}/${s.ok + s.fails})`);
+  const idle = skills.filter((k) => { const s = stats.find((x) => x.name === k.name); return !s || now - s.last_used > 90 * 86_400_000; }).map((k) => k.name);
+  const badScripts = scripts.filter((m) => m.runs >= 3 && m.ok / m.runs < 0.6).map((m) => `${m.name} (${m.ok}/${m.runs})`);
+  const used = stats.filter((s) => now - s.last_used < 7 * 86_400_000).length;
+  const L: string[] = [];
+  if (used || scripts.length) L.push(`🧩 Compétences utilisées cette semaine : ${used} · scripts : ${scripts.length} (${scripts.reduce((a, m) => a + m.runs, 0)} lancements au total)`);
+  if (weak.length) L.push(`🔧 Compétences qui échouent souvent (je propose des améliorations après chaque échec) : ${weak.join(', ')}`);
+  if (badScripts.length) L.push(`🔧 Scripts peu fiables : ${badScripts.join(', ')}`);
+  if (idle.length > 2) L.push(`🗄 Compétences inutilisées depuis 3 mois (à ranger ? Compétences → Ranger) : ${idle.slice(0, 8).join(', ')}`);
+  return L.join('\n');
 }
 
 /**

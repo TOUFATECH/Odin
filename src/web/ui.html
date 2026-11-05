@@ -190,7 +190,7 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;border:1px solid var(--field);color:var(--muted)}
 .pill.warn{border-color:var(--warn-l);color:var(--warn)}.pill.good{border-color:var(--good-l);color:var(--good)}.pill.bad{border-color:var(--bad-l2);color:var(--bad)}
 .empty{color:var(--dim);padding:28px 0}
-pre.body-skill{white-space:pre-wrap;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px;max-height:260px;overflow:auto;margin:0}
+tr.clickable{cursor:pointer}tr.clickable:hover td{background:var(--panel2)}pre.diff .dadd{color:var(--ok,#2e9d5b);background:color-mix(in srgb,var(--ok,#2e9d5b) 10%,transparent)}pre.diff .ddel{color:var(--err,#d04b4b);text-decoration:line-through;opacity:.8}pre.body-skill{white-space:pre-wrap;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px;max-height:260px;overflow:auto;margin:0}
 .stats{display:flex;flex-wrap:wrap;gap:24px;margin-bottom:22px}
 .stat b{display:block;font-size:26px}
 .stat span{color:var(--muted);font-size:13px}
@@ -644,7 +644,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     </section>
 
     <section class="view" id="v-skills" aria-label="Compétences">
-      <div class="head"><div><h1>Compétences</h1><div class="sub">Odin propose, tu relis et tu approuves.</div></div></div>
+      <div class="head"><div><h1>Compétences</h1><div class="sub">Ses procédures et ses scripts : il les réutilise et les améliore à chaque mission.</div></div><div class="hacts"><button class="hbtn" type="button" id="sk-import" title="Importer les compétences d'Hermes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="hl">Importer d'Hermes</span></button><button class="hbtn" type="button" id="sk-all" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span class="hl">Tout approuver</span></button></div></div>
       <div class="body"><h2 style="font-size:18px;margin:0 0 12px">Brouillons à relire</h2><div class="grid" id="drafts"></div>
         <h2 style="font-size:18px;margin:32px 0 12px">Actives</h2><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Version</th><th>Utilisations</th><th>Description</th></tr></thead><tbody id="skills"></tbody></table></div>
         <h2 style="font-size:18px;margin:32px 0 4px">Scripts</h2><div class="sub" style="margin-bottom:12px">Les scripts qu'Odin écrit pour ses missions, réutilisés et améliorés à chaque fois.</div><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Langage</th><th>Version</th><th>Réussites</th><th>Description</th></tr></thead><tbody id="scripts"></tbody></table></div></div>
@@ -1400,24 +1400,76 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   function renderScripts() {
     const tb = $('#scripts'); if (!tb) return;
     const L = state.scripts || [];
-    tb.replaceChildren(...(L.length ? L.map((x) => el('tr', {}, el('td', { 'data-label': 'Nom', class: 'mono' }, x.name), el('td', { 'data-label': 'Langage' }, x.lang), el('td', { 'data-label': 'Version' }, 'v' + x.version), el('td', { 'data-label': 'Réussites' }, `${x.ok}/${x.runs}`, x.lastError ? el('div', { class: 'dim', title: x.lastError }, '⚠ dernier échec') : null), el('td', { 'data-label': 'Description' }, x.description, x.changes?.length > 1 ? el('div', { class: 'dim' }, x.changes.at(-1)) : null)))
+    tb.replaceChildren(...(L.length ? L.map((x) => el('tr', { class: 'clickable', onclick: () => scriptDialog(x) }, el('td', { 'data-label': 'Nom', class: 'mono' }, x.name, x.hasTest ? el('span', { class: 'dim' }, ' ✓ testé') : null), el('td', { 'data-label': 'Langage' }, x.lang), el('td', { 'data-label': 'Version' }, 'v' + x.version), el('td', { 'data-label': 'Réussites' }, `${x.ok}/${x.runs}`, x.lastError ? el('div', { class: 'dim', title: x.lastError }, '⚠ dernier échec') : null), el('td', { 'data-label': 'Description' }, x.description, x.changes?.length > 1 ? el('div', { class: 'dim' }, x.changes.at(-1)) : null)))
       : [el('tr', {}, el('td', { colspan: 5, class: 'dim' }, 'Aucun script pour l\'instant : Odin en écrira pour ses missions.'))]));
   }
+  const setSt = (node, r, ok) => { node.textContent = r.ok ? ok : (r.error || 'Erreur'); node.className = 'status ' + (r.ok ? 'ok' : 'err'); };
+  // Différences d'une amélioration (lignes ajoutées / retirées).
+  const diffView = (d) => el('pre', { class: 'body-skill diff' }, ...d.split('\n').map((l) => el('span', { class: l.startsWith('+ ') ? 'dadd' : l.startsWith('- ') ? 'ddel' : '' }, l + '\n')));
   function renderSkills() {
     renderScripts();
     const dr = $('#drafts'); dr.textContent = '';
-    if (!state.drafts.length) dr.append(el('div', { class: 'empty' }, 'Aucun brouillon. Odin en proposera après des tâches en plusieurs étapes.'));
+    $('#sk-all').hidden = state.drafts.length < 2;
+    if (!state.drafts.length) dr.append(el('div', { class: 'empty' }, 'Aucun brouillon. Odin en propose après ses missions, et améliore celles qui ont posé problème.'));
     for (const s of state.drafts) dr.append(el('article', { class: 'card' },
-      el('div', { class: 'kind' }, `brouillon · v${s.version}`), el('h3', {}, s.name), el('div', { class: 'sub' }, s.description),
+      el('div', { class: 'kind' }, `${s.diff ? 'amélioration' : 'nouvelle'} · v${s.version}${s.origin === 'hermes' ? ' · importée d\'Hermes' : ''}`), el('h3', {}, s.name), el('div', { class: 'sub' }, s.description),
       s.reason ? el('div', { class: 'sub' }, 'Pourquoi : ' + s.reason) : null,
       s.warnings ? el('div', {}, el('span', { class: 'pill warn' }, 'Alerte : ' + s.warnings)) : null,
-      el('pre', { class: 'body-skill' }, s.body),
+      s.diff ? diffView(s.diff) : el('pre', { class: 'body-skill' }, s.body),
       el('div', { style: 'display:flex;gap:8px' }, el('button', { class: 'btn small primary', onclick: () => api('/api/action', { kind: 'skill_approve', name: s.name }) }, 'Approuver'),
         el('button', { class: 'btn small danger', onclick: () => api('/api/action', { kind: 'skill_reject', name: s.name }) }, 'Rejeter'))));
-    $('#skills').replaceChildren(...state.skills.map((s) => el('tr', {}, el('td', {}, s.name), el('td', {}, 'v' + s.version), el('td', {}, s.uses), el('td', { class: 'sub' }, s.description))));
-    if (!state.skills.length) $('#skills').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune compétence active.')));
+    const rate = (s) => (s.ok + s.fails ? `${Math.round((100 * s.ok) / (s.ok + s.fails))} %` : '—');
+    $('#skills').replaceChildren(...state.skills.map((s) => el('tr', { class: 'clickable', onclick: () => skillDialog(s) },
+      el('td', { 'data-label': 'Nom' }, el('b', {}, s.name), !s.intact ? el('div', {}, el('span', { class: 'pill warn' }, 'modifiée hors d\'Odin')) : null, s.files?.length ? el('div', { class: 'dim' }, `🐍 ${s.files.join(', ')}`) : null),
+      el('td', { 'data-label': 'Version' }, 'v' + s.version),
+      el('td', { 'data-label': 'Utilisations' }, String(s.uses), el('div', { class: 'dim' }, `réussite ${rate(s)}${s.avgS ? ` · ${s.avgS} s` : ''}`)),
+      el('td', { class: 'sub', 'data-label': 'Description' }, s.description, s.params ? el('div', { class: 'dim' }, 'Réglages : ' + s.params) : null))));
+    if (!state.skills.length) $('#skills').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune compétence active. Importe celles d\'Hermes ci-dessus, ou laisse Odin en apprendre.')));
     $('#b-drafts').hidden = !state.drafts.length; $('#b-drafts').textContent = state.drafts.length;
   }
+  // Fiche d'une compétence : lire, modifier, tester, revenir en arrière, ranger.
+  async function skillDialog(s) {
+    const r = await api('/api/action', { kind: 'skill_body', name: s.name }); if (!r.ok) return say(r.error, [], 4000);
+    const ta = el('textarea', { class: 'mono', style: 'width:100%;min-height:320px;font-size:12.5px', 'aria-label': 'Procédure' }); ta.value = r.body;
+    const desc = el('input', { value: r.description, 'aria-label': 'Description', style: 'width:100%' });
+    const stt = el('div', { class: 'status', role: 'status' });
+    const close = () => dlg.close();
+    const dlg = el('dialog', { class: 'stdlg' }, el('h2', {}, `${s.name} · v${r.version}`),
+      el('div', { class: 'sub' }, `${s.uses} utilisation(s) · réussite ${s.ok + s.fails ? Math.round((100 * s.ok) / (s.ok + s.fails)) + ' %' : '—'}${s.avgS ? ` · ${s.avgS} s en moyenne` : ''}${s.cost ? ` · ${s.cost.toFixed(3)} $` : ''}${r.files.length ? ` · scripts : ${r.files.join(', ')}` : ''}`),
+      el('label', { class: 'sub' }, 'Quand l\'utiliser'), desc, el('label', { class: 'sub' }, 'Procédure (les réglages s\'écrivent {{ct}}, {{machine}}…)'), ta, stt,
+      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px' },
+        F.btn('Enregistrer', async () => { setSt(stt, await api('/api/action', { kind: 'skill_edit', name: s.name, body: ta.value, description: desc.value }), '✓ Nouvelle version active.'); }, true),
+        F.btn('Tester (essai)', () => { close(); show('chat'); $('#input').value = `Teste la compétence ${s.name} en mode essai (dry_run) et dis-moi ce qu'elle ferait.`; grow(); $('#input').focus(); }),
+        F.btn('Version précédente', async () => { if (confirm('Revenir à la version précédente ?')) { setSt(stt, await api('/api/action', { kind: 'skill_rollback', name: s.name }), '✓ Version précédente remise.'); } }),
+        F.btn('Ranger', async () => { if (confirm(`Ranger « ${s.name} » ? (récupérable dans le dossier _archive)`)) { await api('/api/action', { kind: 'skill_archive', name: s.name }); close(); } }),
+        el('form', { method: 'dialog' }, el('button', { class: 'btn' }, 'Fermer'))));
+    document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal();
+  }
+  async function scriptDialog(x) {
+    const r = await api('/api/action', { kind: 'script_body', name: x.name }); if (!r.ok) return say(r.error, [], 4000);
+    const perf = Object.entries(r.meta.perf || {}).map(([v, p]) => `${v} : ${p.ok}/${p.runs}, ${(p.avgMs / 1000).toFixed(1)} s`).join(' · ');
+    const stt = el('div', { class: 'status', role: 'status' });
+    const versions = Array.from({ length: r.meta.version - 1 }, (_, k) => r.meta.version - 1 - k);
+    const sel = el('select', { 'aria-label': 'Version' }, ...versions.map((v) => el('option', { value: v }, 'v' + v)));
+    const dlg = el('dialog', { class: 'stdlg' }, el('h2', {}, `${x.name} · ${x.lang} · v${r.meta.version}`),
+      el('div', { class: 'sub' }, r.meta.description), perf ? el('div', { class: 'dim' }, 'Par version : ' + perf) : null,
+      r.meta.lastError ? el('div', {}, el('span', { class: 'pill warn' }, 'Dernière erreur'), el('pre', { class: 'mono', style: 'white-space:pre-wrap;font-size:12px' }, r.meta.lastError)) : null,
+      r.meta.warnings?.length ? el('div', {}, el('span', { class: 'pill warn' }, '⚠ ' + r.meta.warnings.join(' ; '))) : null,
+      el('pre', { class: 'body-skill' }, r.code), r.test ? el('details', {}, el('summary', {}, 'Test'), el('pre', { class: 'body-skill' }, r.test)) : null,
+      el('div', { class: 'dim' }, r.meta.changes.join(' · ')), stt,
+      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center' },
+        versions.length ? el('span', { style: 'display:flex;gap:6px;align-items:center' }, sel, F.btn('Revenir à cette version', async () => { setSt(stt, await api('/api/action', { kind: 'script_revert', name: x.name, version: Number(sel.value) }), '✓ Version remise.'); })) : null,
+        el('form', { method: 'dialog' }, el('button', { class: 'btn' }, 'Fermer'))));
+    document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal();
+  }
+  $('#sk-all').addEventListener('click', async () => { if (!confirm(`Approuver les ${state.drafts.length} brouillons ?`)) return; const r = await api('/api/action', { kind: 'skill_approve_all' }); say(`✓ ${r.count} compétence(s) activée(s).`, [], 3000); });
+  $('#sk-import').addEventListener('click', async () => {
+    const src = prompt('Où sont les compétences d\'Hermes ?\n• pct:7700 — conteneur Proxmox (sur la machine d\'Odin)\n• pct:7700@nom-du-proxmox — via l\'hôte Proxmox enregistré dans Droits et machines\n• machine:nom — une machine du réseau\n• /chemin/vers/skills — un dossier de cette machine', 'pct:7700@pve');
+    if (!src) return;
+    moodHold('concentration'); say('Import des compétences…', [], 20000);
+    const r = await api('/api/action', { kind: 'skill_import', source: src }); moodRelease();
+    say(r.ok ? r.text : r.error, [], 12000);
+  });
   function renderJobs() {
     $('#jobs').replaceChildren(...state.jobs.map((j) => el('tr', {}, el('td', { class: 'mono' }, j.cron === '@reminder' ? '🔔 rappel' : j.cron), el('td', {}, j.prompt), el('td', {}, fmt(j.next_run)),
       el('td', {}, el('button', { class: 'btn small danger', onclick: () => confirm('Supprimer cette tâche ?') && api('/api/action', { kind: 'cron_remove', id: j.id }) }, 'Supprimer')))));
