@@ -320,7 +320,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   .head>div:first-child{display:none}
   .head .seg{display:grid;grid-template-columns:1fr 1fr;width:100%}
   .head .seg button{min-height:42px}
-  .head:not(:has(.btn,.seg)){display:none}
+  .head:not(:has(.btn,.seg,.hbtn)){display:none}
   .head{padding-top:10px;padding-bottom:10px}
   .head>div:last-child:has(.btn){flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;max-width:100%}
   .head .btn{flex:none}
@@ -331,6 +331,53 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   .msg.assistant{padding:10px 14px}
 }
 @media (prefers-reduced-motion:reduce){nav.side,.sgrid>.card,.idea{transition:none;animation:none}}
+
+/* ===== Barre de saisie : un seul bloc, tout aligné ===== */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.composer{display:block;padding:12px 28px 16px;border-top:0}
+.cbox{display:flex;align-items:flex-end;gap:6px;max-width:900px;margin:0 auto;padding:6px;border:1px solid var(--field);border-radius:26px;background:var(--panel);box-shadow:var(--shadow);transition:border-color .15s,box-shadow .15s}
+.cbox:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent),var(--shadow)}
+.composer .cbox textarea{flex:1;min-width:0;min-height:44px;max-height:168px;height:44px;resize:none;border:0;outline:none;background:none;box-shadow:none;padding:11px 6px;margin:0;font-size:16px;line-height:22px;border-radius:0}
+.cbtn{flex:none;width:44px;height:44px;border-radius:50%;border:0;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer;transition:background .15s,color .15s,transform .1s}
+.cbtn:hover{background:var(--hover);color:var(--ink)}
+.cbtn:active{transform:scale(.92)}
+.cbtn svg{width:22px;height:22px}
+.cbtn.mic[aria-pressed=true]{background:var(--bad-bg);color:var(--bad);animation:pulse 1.2s ease-in-out infinite}
+.cbtn.send{background:var(--field);color:var(--dim)}
+.composer.has-text .cbtn.send{background:var(--accent);color:var(--on-accent)}
+.composer.has-text .cbtn.send:hover{background:var(--accent-2)}
+.view.on{animation:fadein .18s ease}
+.tab{-webkit-tap-highlight-color:transparent}
+.tab:active,.schip:active,.idea:active{transform:scale(.97)}
+.msgs{scroll-behavior:smooth;overscroll-behavior:contain}
+.body{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+@media (max-width:860px){
+  .composer{padding:8px 10px 10px}
+  .cbox{gap:2px;padding:4px;border-radius:24px}
+  .cbtn{width:42px;height:42px}
+  .composer .cbox textarea{min-height:42px;height:42px;padding:10px 4px}
+  body.kb .bnav{display:none}
+  body.kb .mbar{display:none}
+  .hello{padding:12px 0}
+  .ideas{gap:8px}
+  .idea{width:100%;max-width:340px}
+}
+@media (prefers-reduced-motion:reduce){.view.on{animation:none}.msgs{scroll-behavior:auto}}
+
+/* Boutons d'en-tête de la discussion : même taille, icône + libellé */
+.hacts{display:flex;gap:6px;align-items:center}
+.hbtn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 13px;border-radius:19px;border:1px solid var(--line);background:var(--panel);color:var(--muted);font-size:14px;white-space:nowrap;transition:background .15s,color .15s,border-color .15s,transform .1s}
+.hbtn svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.hbtn:hover{color:var(--ink);border-color:var(--field-h)}
+.hbtn:active{transform:scale(.96)}
+.hbtn .wave{opacity:.35;transition:opacity .15s}
+.hbtn.on{color:var(--accent);border-color:var(--accent)}.hbtn.on .wave{opacity:1}
+.hbtn.stop{color:var(--bad);border-color:var(--bad-l)}
+@media (max-width:860px){
+  #v-chat .head{padding:8px 10px;border-bottom:1px solid var(--line)}
+  .hacts{width:100%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+  .hbtn{justify-content:center;padding:0 8px;font-size:13px;height:36px}
+}
 </style>
 </head>
 <body>
@@ -390,16 +437,18 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         <div class="convs" id="convs" aria-label="Conversations"></div>
         <div class="thread">
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute">🔈 Voix</button><button class="btn small convs-btn" id="convsBtn" type="button">Conversations</button><button class="btn small" id="newConv">Nouvelle conversation</button><button class="btn small" id="stopBtn">Arrêter</button></div></div>
+            <div class="hacts"><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
           <div class="notice" id="demoNotice" hidden>Odin n'a pas encore de modèle (mode démo). <a href="#" id="goSettings">Ouvre les Réglages</a> pour en choisir un : c'est l'affaire d'une minute.</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="typing" id="typing"></div>
           <form class="composer" id="composer">
-            <label for="input" style="position:absolute;left:-9999px">Message pour Odin</label>
-            <textarea id="input" placeholder="Demande quelque chose à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne"></textarea>
-            <label class="btn mic" id="camBtn" title="Montrer quelque chose à Odin (caméra ou image)" aria-label="Montrer quelque chose à Odin"><input type="file" id="camFile" accept="image/*" capture="environment" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></label>
-            <button class="btn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Parler à Odin (micro)" title="Parler à Odin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
-            <button class="btn primary send" type="submit" aria-label="Envoyer"><span class="send-t">Envoyer</span><svg class="send-i" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+            <label for="input" class="sr">Message pour Odin</label>
+            <div class="cbox">
+              <label class="cbtn" id="camBtn" title="Montrer quelque chose à Odin (caméra ou image)" aria-label="Montrer quelque chose à Odin"><input type="file" id="camFile" accept="image/*" capture="environment" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></label>
+              <textarea id="input" rows="1" placeholder="Écris à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne" enterkeyhint="send"></textarea>
+              <button class="cbtn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Parler à Odin (micro)" title="Parler à Odin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+              <button class="cbtn send" type="submit" aria-label="Envoyer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+            </div>
           </form>
         </div>
       </div>
@@ -879,15 +928,20 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     if (!h.messages.length) {
       const ideas = ['Quels appareils sont sur mon réseau ?', 'Mets à jour cette machine', 'Cherche sur le web les nouveautés de Proxmox', 'Ouvre le site de la météo et dis-moi le temps demain', 'Range mon dossier Téléchargements', 'Améliore-toi : propose une nouvelle compétence utile'];
       msgs.append(el('div', { class: 'hello' }, el('div', { class: 'hello-t' }, 'Que fait-on ?'), el('div', { class: 'sub' }, 'Écris, parle (micro) ou montre une image. Odin agit sur ta machine, ton réseau et le web.'),
-        el('div', { class: 'ideas' }, ...ideas.map((q) => el('button', { type: 'button', class: 'idea', onclick: () => { const i = $('#input'); i.value = q; i.focus(); } }, q)))));
+        el('div', { class: 'ideas' }, ...ideas.map((q) => el('button', { type: 'button', class: 'idea', onclick: () => { $('#input').value = q; send(); } }, q)))));
     };
     $('#convTitle').textContent = peer === 'principal' ? 'Discussion' : (state?.conversations.find((c) => c.peer === peer)?.title || 'Conversation');
   }
   $('#composer').addEventListener('submit', (ev) => { ev.preventDefault(); send(); });
-  $('#input').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); send(); } });
+  $('#input').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); send(); } });
+  const grow = () => { const i = $('#input'); i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 168) + 'px'; $('#composer').classList.toggle('has-text', i.value.trim() !== ''); };
+  $('#input').addEventListener('input', grow);
+  const narrow = matchMedia('(max-width:860px)');
+  $('#input').addEventListener('focus', () => { if (narrow.matches) document.body.classList.add('kb'); setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 250); });
+  $('#input').addEventListener('blur', () => setTimeout(() => document.body.classList.remove('kb'), 120));
   async function send() {
     const t = $('#input').value.trim(); if (!t) return;
-    $('#input').value = ''; msgs.querySelector('.empty')?.remove();
+    $('#input').value = ''; grow(); msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
     addMsg('user', t); setBusy(true);
     try { const r = await api('/api/message', { peer, text: t }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
@@ -903,7 +957,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
   });
   const faceTpl = document.querySelector('#login .odin');
-  function setBusy(b) { busy = b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; if (b && faceTpl) { const f = faceTpl.cloneNode(true); f.removeAttribute('style'); t.prepend(f); } $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); }
+  function setBusy(b) { busy = b; $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; if (b && faceTpl) { const f = faceTpl.cloneNode(true); f.removeAttribute('style'); t.prepend(f); } $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
   $('#convsBtn').addEventListener('click', () => $('#convs').classList.toggle('open'));
   $('#newConv').addEventListener('click', () => { peer = 'c-' + Date.now().toString(36); localStorage.setItem('odin.peer', peer); loadHistory(); renderConvs(); });
@@ -1053,7 +1107,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
   let speakOn = false, speakPref = null;
   try { speakPref = localStorage.getItem('odin.speak'); speakOn = speakPref === '1'; } catch { /* stockage indisponible */ }
   const speakBtn = $('#speakBtn');
-  function renderSpeak() { speakBtn.setAttribute('aria-pressed', String(speakOn)); speakBtn.textContent = speakOn ? '🔊 Voix' : '🔈 Voix'; }
+  function renderSpeak() { speakBtn.setAttribute('aria-pressed', String(speakOn)); speakBtn.classList.toggle('on', speakOn); }
   renderSpeak();
   speakBtn.addEventListener('click', () => { speakOn = !speakOn; speakPref = speakOn ? '1' : '0'; try { localStorage.setItem('odin.speak', speakOn ? '1' : '0'); } catch { /* rien */ } renderSpeak(); if (speakOn && !state?.voice?.tts) $('#typing').textContent = 'La voix n\'est pas encore réglée : Réglages → Voix.'; });
   let player = null;
