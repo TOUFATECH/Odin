@@ -7,7 +7,7 @@ import { TelegramChannel } from '../src/bifrost/channels/telegram.ts';
 import type { OdinConfig } from '../src/config.ts';
 import { cloneVoice, forSpeech, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../src/voice/voice.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
-import { makeOdin } from './helpers.ts';
+import { call, makeOdin } from './helpers.ts';
 
 type Hit = { method: string; url: string; headers: IncomingMessage['headers']; body: Buffer };
 async function mock(handler: (h: Hit) => { status?: number; type?: string; body: string | Buffer }): Promise<{ url: string; hits: Hit[]; close: () => void }> {
@@ -207,5 +207,33 @@ test('Telegram : « écrit… » pendant le travail, mise en forme propre, visag
     await ch.send('42', 'Ok', { mood: 'joie' });
     // pas de pack chargé pour ce canal neuf (pas démarré) : émoji classique ; et un refus Premium retombe aussi sur l'émoji classique
     assert.equal(JSON.parse(tg.hits.filter((x) => x.url.endsWith('/sendMessage')).at(-1)!.body.toString()).text, 'Ok 😊');
+  } finally { await gw.stop(); o.cleanup(); tg.close(); }
+});
+
+test('Telegram : message de progression comme Hermes (compétence, terminal, script, ×n), mis à jour puis clos', async () => {
+  const { progressLine } = await import('../src/bifrost/channels/telegram.ts');
+  assert.equal(progressLine('skill_read', { name: 'proxmox-maj' }).html, '📚 Compétence <b>proxmox-maj</b>');
+  assert.equal(progressLine('shell', { command: 'pct exec 7800 -- bash -lc "apt update"' }).html, '💻 terminal\n<pre>pct exec 7800 -- bash -lc "apt update"</pre>');
+  assert.equal(progressLine('script_run', { name: 'maj-ct', args: '7800', where: 'pct:7800' }).html, '🐍 script <b>maj-ct</b> 7800 · pct:7800');
+  let served = false;
+  const tg = await mock((h) => {
+    if (h.url.endsWith('/getMe')) return { body: JSON.stringify({ ok: true, result: { username: 'odin_bot' } }) };
+    if (h.url.includes('/getUpdates')) { if (served) return { body: JSON.stringify({ ok: true, result: [] }) }; served = true; return { body: JSON.stringify({ ok: true, result: [{ update_id: 1, message: { chat: { id: 42 }, from: { id: 42 }, text: 'liste les fichiers' } }] }) }; }
+    if (h.url.endsWith('/sendMessage')) return { body: JSON.stringify({ ok: true, result: { message_id: 77 } }) };
+    return { body: JSON.stringify({ ok: true, result: { stickers: [] } }) };
+  });
+  const o = makeOdin([call('skill_read', { name: 'inexistante' }), call('fs_list', { path: '.' }), call('fs_list', { path: '.' }), { text: 'Voilà.' }], { approve: true });
+  const gw = new Gateway(o, { owners: { telegram: ['42'] } });
+  gw.add(new TelegramChannel('T', tg.url, { home: o.paths.home }));
+  await gw.start();
+  try {
+    const until = Date.now() + 6000;
+    while (Date.now() < until && !tg.hits.some((x) => x.url.endsWith('/sendMessage') && /Voilà/.test(x.body.toString()))) await new Promise((r) => setTimeout(r, 50));
+    const sends = tg.hits.filter((x) => x.url.endsWith('/sendMessage') || x.url.endsWith('/editMessageText')).map((x) => ({ m: x.url.split('/').at(-1), b: JSON.parse(x.body.toString()) }));
+    const prog = sends.filter((x) => /Compétence/.test(x.b.text));
+    assert.ok(prog.length >= 1, 'message de progression envoyé');
+    assert.equal(prog[0].b.disable_notification ?? prog.at(-1)!.b.disable_notification ?? true, true);
+    assert.match(prog.at(-1)!.b.text, /📚 Compétence <b>inexistante<\/b>\n📄 \. \(×2\)/);
+    assert.ok(sends.findIndex((x) => /Voilà/.test(x.b.text)) > sends.indexOf(prog.at(-1)!), 'la réponse arrive après la progression');
   } finally { await gw.stop(); o.cleanup(); tg.close(); }
 });

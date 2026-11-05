@@ -174,8 +174,8 @@ export class Gateway {
       // Sa réaction : un émoji à la fin du texte (même taille que le texte), sur Telegram.
       // Sur Telegram, le canal ajoute son visage (émoji personnalisé, ou l'émoji classique) à la fin.
       const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '');
-      if (mood && ch.typing && this.odin.cfg.mood.emoji) await ch.send(m.peer, body, { mood });
-      else await ch.send(m.peer, body + (mood && ch.sendSticker && this.odin.cfg.mood.emoji ? ` ${MOOD_EMOJI[mood as Mood]}` : ''));
+      if (mood && ch.typing && this.odin.cfg.mood.emoji) await ch.send(m.peer, body, { mood, final: true });
+      else await ch.send(m.peer, body + (mood && ch.sendSticker && this.odin.cfg.mood.emoji ? ` ${MOOD_EMOJI[mood as Mood]}` : ''), { final: true });
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));

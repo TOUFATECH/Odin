@@ -14,6 +14,10 @@ export interface PromptParts {
   pinned: MemoryRow[];
   recalled: MemoryRow[];
   skillsIndex: string;
+  /** Bibliothèque de scripts d'Odin. */
+  scriptsIndex?: string;
+  /** Nom d'hôte et adresses de la machine d'Odin. */
+  identity?: string;
   tainted: boolean;
   isSubAgent?: boolean;
   /** Mode Odin Breaker actif : pleine autonomie, initiative attendue. */
@@ -37,7 +41,7 @@ export function buildSystemPrompt(p: PromptParts): string {
   out.push(`## Contexte
 - Date : ${p.now.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })} (${p.now.toISOString()})
 - Canal : ${p.channel}
-- Espace de travail (tous les chemins de fichiers y sont relatifs) : ${p.workspace}`);
+- Espace de travail (tous les chemins de fichiers y sont relatifs) : ${p.workspace}${p.identity ? `\n- ${p.identity}` : ''}`);
 
   out.push(`## Informations vérifiées (règle stricte)
 - Tout fait sur le monde actuel (actualité, prix, horaires, personnes, entreprises, lois, versions de logiciels, météo, résultats, chiffres) doit être VÉRIFIÉ avant d'être affirmé : cherche (web_search), puis lis la source (web_fetch ou browser_open). Croise TOUJOURS au moins deux sources de sites différents (fais plusieurs recherches formulées autrement si besoin) et compare-les avant de répondre. La recherche web ne demande aucune validation : vas-y directement.
@@ -84,6 +88,11 @@ Tu es pleinement autonome : tu ne demandes plus d'autorisation, tu agis et tu re
   }
 
   if (p.skillsIndex) out.push(`## Compétences disponibles (charge le détail avec skill_read)\n${p.skillsIndex}`);
+  if (!p.isSubAgent) out.push(`## Compétences et scripts : va vite, améliore-toi
+- Avant une mission, regarde si une compétence s'applique (skill_read) et suis-la.
+- Pour agir, préfère un SCRIPT (Python, Bash, Node) à une suite de commandes à la main : regarde ta bibliothèque (script_list), réutilise ou améliore un script existant, sinon écris-en un (script_save) puis lance-le (script_run, sur ta machine, une machine du réseau ou un conteneur Proxmox « pct:<n°> »).
+- Si un script échoue : lis l'erreur, corrige-le (script_save, même nom = nouvelle version) et relance jusqu'à ce qu'il marche ; il sera meilleur la prochaine fois.
+- Après une mission réussie qui pourrait revenir, propose une compétence (skill_propose) qui décrit la procédure et cite le script à lancer ; si une compétence existante t'a fait perdre du temps, propose son amélioration.${p.scriptsIndex ? `\n\nTes scripts :\n${p.scriptsIndex}` : ''}`);
   if (p.summary) out.push(`## Résumé de la conversation jusqu'ici\n${p.summary}`);
 
   if (p.tainted) {

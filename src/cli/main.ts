@@ -198,6 +198,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
         inbox: join(odin.paths.workspace, 'inbox'),
         home: odin.paths.home,
         owner: tg.owners.map(String)[0],
+        progress: tg.progress !== false,
       }));
     }
   }

@@ -102,6 +102,9 @@ const HARD_DENY: RegExp[] = [
   /\bbcdedit\b|\bdiskpart\b/i,
 ];
 
+/** Une commande (ou un script) contient-elle une action destructrice interdite ? */
+export const hardDenied = (text: string): string | undefined => HARD_DENY.find((re) => re.test(text))?.source;
+
 // Constructions qui rendent une liste blanche inefficace : toujours validation humaine.
 const SHELL_META = /[;&|`$<>]|\$\(|\n/;
 

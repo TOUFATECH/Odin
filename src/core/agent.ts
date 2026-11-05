@@ -24,6 +24,7 @@ import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import { listMachines, rightsSummary } from '../machines/access.ts';
 import { activeProfile } from '../profiles.ts';
+import { identityLine, listScripts, scriptsIndex } from '../tools/scripts.ts';
 import { features, featuresPrompt } from '../features.ts';
 import type { Tier } from '../providers/router.ts';
 
@@ -172,6 +173,8 @@ export class Agent {
       recalled: recalledNow,
       lessons: lessonsNow,
       skillsIndex: this.deps.skills.index(),
+      scriptsIndex: depth > 0 ? undefined : scriptsIndex(listScripts(this.deps.workspace)),
+      identity: identityLine(),
       tainted,
       isSubAgent: depth > 0,
       breaker: Boolean(breaker),

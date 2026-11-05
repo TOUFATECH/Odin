@@ -135,7 +135,8 @@ export const selfInfo: Tool = {
   async run(i, ctx) {
     const root = APP_ROOT;
     const version = (() => { try { return (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string }).version; } catch { return '?'; } })();
-    const lines = [`Code d'Odin : ${root}`, `Version : ${version}`];
+    const { identityLine } = await import('./scripts.ts');
+    const lines = [identityLine(), `Code d'Odin : ${root}`, `Version : ${version}`];
     if (hasGit(root)) {
       lines.push(`Commit : ${git(root, ['log', '-1', '--format=%h %s (%cr)']).stdout.trim()}`);
       const st = git(root, ['status', '--short']).stdout.trim();

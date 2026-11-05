@@ -646,7 +646,8 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
     <section class="view" id="v-skills" aria-label="Compétences">
       <div class="head"><div><h1>Compétences</h1><div class="sub">Odin propose, tu relis et tu approuves.</div></div></div>
       <div class="body"><h2 style="font-size:18px;margin:0 0 12px">Brouillons à relire</h2><div class="grid" id="drafts"></div>
-        <h2 style="font-size:18px;margin:32px 0 12px">Actives</h2><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Version</th><th>Utilisations</th><th>Description</th></tr></thead><tbody id="skills"></tbody></table></div></div>
+        <h2 style="font-size:18px;margin:32px 0 12px">Actives</h2><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Version</th><th>Utilisations</th><th>Description</th></tr></thead><tbody id="skills"></tbody></table></div>
+        <h2 style="font-size:18px;margin:32px 0 4px">Scripts</h2><div class="sub" style="margin-bottom:12px">Les scripts qu'Odin écrit pour ses missions, réutilisés et améliorés à chaque fois.</div><div class="wrap"><table class="tbl"><thead><tr><th>Nom</th><th>Langage</th><th>Version</th><th>Réussites</th><th>Description</th></tr></thead><tbody id="scripts"></tbody></table></div></div>
     </section>
 
     <section class="view" id="v-jobs" aria-label="Tâches planifiées">
@@ -1396,7 +1397,14 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
         el('button', { class: 'btn small danger', onclick: () => confirm('Oublier ce souvenir ?') && api('/api/action', { kind: 'memory_forget', id: m.id }) }, 'Oublier')))));
     if (!state.memories.length) $('#mems').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucun souvenir pour l\'instant.')));
   }
+  function renderScripts() {
+    const tb = $('#scripts'); if (!tb) return;
+    const L = state.scripts || [];
+    tb.replaceChildren(...(L.length ? L.map((x) => el('tr', {}, el('td', { 'data-label': 'Nom', class: 'mono' }, x.name), el('td', { 'data-label': 'Langage' }, x.lang), el('td', { 'data-label': 'Version' }, 'v' + x.version), el('td', { 'data-label': 'Réussites' }, `${x.ok}/${x.runs}`, x.lastError ? el('div', { class: 'dim', title: x.lastError }, '⚠ dernier échec') : null), el('td', { 'data-label': 'Description' }, x.description, x.changes?.length > 1 ? el('div', { class: 'dim' }, x.changes.at(-1)) : null)))
+      : [el('tr', {}, el('td', { colspan: 5, class: 'dim' }, 'Aucun script pour l\'instant : Odin en écrira pour ses missions.'))]));
+  }
   function renderSkills() {
+    renderScripts();
     const dr = $('#drafts'); dr.textContent = '';
     if (!state.drafts.length) dr.append(el('div', { class: 'empty' }, 'Aucun brouillon. Odin en proposera après des tâches en plusieurs étapes.'));
     for (const s of state.drafts) dr.append(el('article', { class: 'card' },

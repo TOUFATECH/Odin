@@ -42,6 +42,7 @@ import { nextRun } from '../cron/cron.ts';
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
 import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
+import { listScripts } from '../tools/scripts.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
@@ -431,6 +432,7 @@ export class WebChannel implements Channel {
       deviceEvents: inventory.events(40).map((e) => ({ ...e, device: deviceLabel(inventory.get(e.device_id) ?? ({ ip: e.device_id } as never)) })),
       memories: muninn.listMemories(200),
       skills: skills.list().map((s) => ({ name: s.name, description: s.description, version: s.version, uses: muninn.skillStats().find((x) => x.name === s.name)?.uses ?? 0 })),
+      scripts: listScripts(this.odin.paths.workspace).slice(0, 100),
       drafts: skills.drafts().map((s) => ({ name: s.name, description: s.description, version: s.version, reason: s.meta.reason ?? '', warnings: s.meta.warnings ?? '', body: s.body })),
       jobs: muninn.listJobs(),
       grants: muninn.listGrants(),

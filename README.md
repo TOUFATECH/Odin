@@ -361,6 +361,13 @@ En **Mains libres** avec **Voix** activée, après sa réponse Odin t'écoute de
 ### Coffre (facultatif)
 Réglages → Droits et machines → **Coffre** : un mot de passe maître chiffre sur le disque les clés, jetons et mots de passe d'Odin. Après chaque redémarrage, il faut le déverrouiller depuis l'Accueil (Odin t'envoie une notification).
 
+### Scripts réutilisables et compétences qui s'améliorent
+Comme Hermes, Odin va vite grâce à ses **compétences** (procédures qu'il lit avant une mission) et à sa **bibliothèque de scripts** (Python, Bash, Node) : pour une mission, il regarde d'abord s'il a déjà un script, sinon il l'écrit, le lance — sur sa machine, sur une machine du réseau (SSH) ou dans un conteneur Proxmox (`pct:7800`) — et s'il échoue, il lit l'erreur, le corrige (nouvelle version, l'ancienne est gardée) et relance. Chaque script garde ses réussites, ses échecs et l'historique de ses changements (Compétences → Scripts). Après une mission réussie qui reviendra, il propose une compétence qui cite le script à lancer (activée tout de suite en mode Breaker, sinon à valider : `learning.autoApproveSkills`). Les commandes destructrices restent interdites, même dans un script.
+
+Odin connaît le **nom d'hôte et l'adresse IP de sa machine** (et s'il tourne dans un conteneur LXC ou Docker) : « toi », « Odin » ou « ta machine », c'est elle.
+
+Sur Telegram, pendant qu'il travaille, un message se met à jour pour montrer **ce qu'il fait** : 📚 compétence lue, 💻 commande, 🐍 script, 🔎 recherche, 🌐 page lue, 🧠 mémoire… (désactivable : `channels.telegram.progress: false`).
+
 ### Sur Telegram
 Pendant qu'Odin travaille, Telegram affiche « écrit… » en haut de la conversation. Ses réponses sont mises en forme (gras, code, listes, liens) et se terminent par **son visage selon son humeur**, à la taille d'un émoji : Odin crée lui-même un pack d'émojis personnalisés à ton nom. Telegram n'affiche ces émojis dans les messages d'un bot que si son propriétaire a **Telegram Premium** ; sinon Odin met l'émoji classique de son humeur.
 

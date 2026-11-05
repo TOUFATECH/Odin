@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { type Channel, chunk, type Inbound } from '../channel.ts';
+import type { AgentEvent } from '../../types.ts';
 import { isMood, MOOD_EMOJI, MOOD_IDS, type Mood } from '../../mood/mood.ts';
 
 export interface TelegramOptions {
@@ -14,6 +15,34 @@ export interface TelegramOptions {
   home?: string;
   /** Propriétaire (identifiant Telegram) : le pack d'émojis est créé à son nom. */
   owner?: string;
+  /** Montrer le travail en cours (compétences lues, commandes, scripts, recherches) dans un message qui se met à jour. Oui par défaut. */
+  progress?: boolean;
+}
+
+/** Une ligne de progression lisible pour un outil (HTML Telegram). Pur, testable. */
+export function progressLine(name: string, input: Record<string, unknown>): { key: string; html: string } {
+  const v = (k: string) => String(input[k] ?? '');
+  const short = (x: string, n = 70) => esc(x.replace(/\s+/g, ' ').trim().slice(0, n)) + (x.length > n ? '…' : '');
+  const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u.slice(0, 40); } };
+  switch (name) {
+    case 'skill_read': return { key: `skill:${v('name')}`, html: `📚 Compétence <b>${esc(v('name'))}</b>` };
+    case 'shell': case 'machine_exec': { const cmd = v('command'), where = v('machine') || v('name'); return { key: `term:${cmd.slice(0, 40)}`, html: `💻 terminal${where ? ` · ${esc(where)}` : ''}\n<pre>${esc(cmd.split('\n').slice(0, 2).join('\n').slice(0, 140))}${cmd.length > 140 || cmd.split('\n').length > 2 ? ' …' : ''}</pre>` }; }
+    case 'script_run': return { key: `script:${v('name')}`, html: `🐍 script <b>${esc(v('name'))}</b>${v('args') ? ` ${short(v('args'), 50)}` : ''}${v('where') && v('where') !== 'local' ? ` · ${esc(v('where'))}` : ''}` };
+    case 'script_save': return { key: `save:${v('name')}`, html: `📝 script <b>${esc(v('name'))}</b> ${v('change') ? `amélioré : ${short(v('change'), 50)}` : 'écrit'}` };
+    case 'web_search': return { key: `q:${v('query')}`, html: `🔎 ${short(v('query'))}` };
+    case 'web_research': return { key: 'research', html: `🧪 recherche vérifiée : ${short(v('question'))}` };
+    case 'web_fetch': case 'browser_open': return { key: `w:${host(v('url'))}`, html: `🌐 ${esc(host(v('url')))}` };
+    case 'memory_search': case 'memory_profile': return { key: 'mem', html: `🧠 mémoire : ${short(v('query') || v('subject'), 50)}` };
+    case 'memory_save': return { key: 'memsave', html: '🧠 je retiens' };
+    case 'fs_write': case 'fs_edit': return { key: `fw:${v('path')}`, html: `✏️ ${esc(v('path').slice(-60))}` };
+    case 'fs_read': case 'fs_list': return { key: `fr:${v('path')}`, html: `📄 ${esc(v('path').slice(-60) || '.')}` };
+    case 'delegate': return { key: 'delegate', html: `👥 ${Array.isArray(input.tasks) ? input.tasks.length : ''} sous-agent(s) en parallèle` };
+    case 'video_analyze': return { key: 'video', html: `🎬 vidéo : ${short(v('source'), 50)}` };
+    case 'net_identify': case 'net_scan': case 'net_inventory': case 'net_security': return { key: `net:${name}:${v('ip')}`, html: `📡 ${esc(name.replace('net_', 'réseau '))}${v('ip') ? ` ${esc(v('ip'))}` : ''}` };
+    case 'proxmox_list': case 'proxmox_action': return { key: `pve:${v('action')}:${v('vmid')}`, html: `🖥️ Proxmox ${esc(v('action'))} ${esc(v('vmid'))}` };
+    case 'schedule_task': return { key: 'cron', html: `⏰ tâche planifiée : ${short(v('cron'), 30)}` };
+    default: return { key: name, html: `⚙️ ${esc(name)}` };
+  }
 }
 
 /** Image 100×100 du visage d'Odin pour une humeur (émoji personnalisé). */
@@ -65,6 +94,8 @@ export class TelegramChannel implements Channel {
   private faces: Partial<Record<Mood, string>> = {};
   private facesOff = 0;
   private facesPending?: Promise<void>;
+  /** Message de progression par conversation (comme Hermes : ce qu'Odin est en train de faire). */
+  private prog = new Map<string, { id?: number; lines: Array<{ key: string; html: string; n: number }>; timer?: ReturnType<typeof setTimeout>; sending?: Promise<void> }>();
   constructor(token: string, api = 'https://api.telegram.org', opts: TelegramOptions = {}) {
     this.token = token; this.api = api; this.opts = opts;
   }
@@ -145,6 +176,33 @@ export class TelegramChannel implements Channel {
     return await r.json() as { ok: boolean; result?: unknown; description?: string };
   }
 
+  event(peer: string, e: AgentEvent): void {
+    if (this.opts.progress === false || e.type !== 'tool_start') return;
+    const p = this.prog.get(peer) ?? { lines: [] };
+    this.prog.set(peer, p);
+    const l = progressLine(e.name, e.input), last = p.lines.at(-1);
+    if (last && last.key === l.key) last.n++; else p.lines.push({ ...l, n: 1 });
+    if (p.lines.length > 25) p.lines.splice(0, p.lines.length - 25);
+    if (!p.timer) p.timer = setTimeout(() => { p.timer = undefined; void this.flushProgress(peer); }, p.id ? 1200 : 400);
+  }
+  private async flushProgress(peer: string): Promise<void> {
+    const p = this.prog.get(peer); if (!p || !p.lines.length) return;
+    await p.sending;
+    const text = p.lines.map((l) => `${l.html}${l.n > 1 ? ` (×${l.n})` : ''}`).join('\n');
+    p.sending = (async () => {
+      if (!p.id) { const r = await this.call('sendMessage', { chat_id: peer, text, parse_mode: 'HTML', disable_notification: true, link_preview_options: { is_disabled: true } }).catch(() => undefined); p.id = (r?.result as { message_id?: number } | undefined)?.message_id; }
+      else await this.call('editMessageText', { chat_id: peer, message_id: p.id, text, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }).catch(() => undefined);
+    })();
+    await p.sending;
+  }
+  /** Fin du travail : dernière mise à jour du message de progression, puis on repart à zéro. */
+  private async endProgress(peer: string): Promise<void> {
+    const p = this.prog.get(peer); if (!p) return;
+    if (p.timer) { clearTimeout(p.timer); p.timer = undefined; await this.flushProgress(peer); }
+    await p.sending;
+    this.prog.delete(peer);
+  }
+
   /** « Odin écrit… » en haut de la conversation (dure 5 s ; la passerelle le renouvelle). */
   async typing(peer: string): Promise<void> { await this.call('sendChatAction', { chat_id: peer, action: 'typing' }).catch(() => undefined); }
 
@@ -172,8 +230,9 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { mood?: string; final?: boolean } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
+    if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
     if (mood && !Object.keys(this.faces).length && Date.now() > this.facesOff) {
       this.facesPending ??= this.ensureFaces(this.opts.owner ?? peer).catch((e) => { console.error('[telegram]', (e as Error).message); this.facesOff = Date.now() + 6 * 3600_000; }).finally(() => { this.facesPending = undefined; });

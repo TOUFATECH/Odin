@@ -159,7 +159,7 @@ export interface OdinConfig {
   /** Mímir : jugements typés (juge local sans clé par défaut, Jev ou modèle en option), décisions en code. */
   mimir: MimirConfig;
   channels: {
-    telegram?: { enabled: boolean; tokenEnv: string; owners: string[] };
+    telegram?: { enabled: boolean; tokenEnv: string; owners: string[]; /** Message de progression (compétences, commandes, scripts) pendant le travail. */ progress?: boolean };
     http?: { enabled: boolean; port: number; tokenEnv: string; host?: string };
   };
 }
