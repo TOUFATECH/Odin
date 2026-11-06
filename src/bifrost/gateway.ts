@@ -32,6 +32,7 @@ import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
 import { morningBriefing } from './briefing.ts';
 import { syncMemoryFiles } from '../muninn/files.ts';
+import { episodeText, saveThread, toArchive } from '../muninn/threads.ts';
 import { learnEnvironment } from '../learn/environment-map.ts';
 import { habitCron, habitEvents, habitPrompt, habitWhen, knownHabits, newHabits, pendingProposal, recordAsk, revokeTrust, setKnown, type Known, type Trust } from '../learn/habits.ts';
 
@@ -692,6 +693,11 @@ export class Gateway {
     if (now - Number(this.odin.muninn.getKv('memfiles-tick') ?? 0) >= 10 * 60_000) {
       this.odin.muninn.setKv('memfiles-tick', String(now));
       try { const r = syncMemoryFiles(this.odin.paths.home, this.odin.muninn); if (r.edited + r.added + r.forgotten) console.error(`[mémoire] fichiers : ${r.edited} corrigé(s), ${r.added} ajouté(s), ${r.forgotten} oublié(s)`); } catch (e) { console.error('[mémoire]', (e as Error).message); }
+    }
+    // Conversations au repos depuis 2 h : leur fil devient un souvenir, retrouvé quand on en reparle.
+    for (const th of toArchive(this.odin.muninn, now).slice(0, 5)) {
+      try { this.odin.muninn.remember(episodeText(th), 'agent', 'episode', '', { subject: `conversation:${th.sessionId}`, topic: 'resume', source: `conversation du ${new Date(th.updated).toLocaleDateString('fr-FR')}` }); } catch { /* facultatif */ }
+      saveThread(this.odin.muninn, { ...th, archived: now });
     }
     // Apprentissage de l'environnement (présence des appareils, rôles, ENVIRONMENT.md) : chaque heure.
     if (now - Number(this.odin.muninn.getKv('envlearn-tick') ?? 0) >= 3600_000) {

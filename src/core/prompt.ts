@@ -6,6 +6,12 @@ import type { MemoryRow } from '../muninn/store.ts';
 
 export interface PromptParts {
   persona: string;
+  /** Le fil compressé de cette conversation (but, état, décisions, faits, reste à faire). */
+  thread?: string;
+  /** Fils en suspens dans d'autres conversations. */
+  elsewhere?: string;
+  /** Tâches interrompues ou en attente. */
+  tasksInProgress?: string;
   /** USER.md en bref : ce qu'Odin sait du propriétaire, toujours présent. */
   userBrief?: string;
   name: string;
@@ -129,6 +135,9 @@ Termine en proposant la visite guidée de l'application (« dis "visite guidée"
 - Si un script échoue : lis l'erreur, corrige-le (script_save, même nom = nouvelle version) et relance jusqu'à ce qu'il marche ; il sera meilleur la prochaine fois.
 - Après une mission réussie qui pourrait revenir, propose une compétence (skill_propose) qui décrit la procédure et cite le script à lancer ; si une compétence existante t'a fait perdre du temps, propose son amélioration.${p.scriptsIndex ? `\n\nTes scripts :\n${p.scriptsIndex}` : ''}`);
   if (p.summary) out.push(`## Résumé de la conversation jusqu'ici\n${p.summary}`);
+  if (p.thread) out.push(`## Le fil de cette conversation (ne le perds pas)\n${p.thread}`);
+  if (p.tasksInProgress) out.push(`## Tâches en cours ou en attente\n${p.tasksInProgress}\nSi on en parle, reprends-les là où elles en étaient.`);
+  if (p.elsewhere) out.push(`## En suspens dans d'autres conversations\n${p.elsewhere}\nSi c'est lié à la demande, fais le lien ; sinon n'en parle pas.`);
 
   if (p.dryRun && !p.isSubAgent) out.push(`## 🧪 Mode essai ACTIF
 L'utilisateur veut voir ce que tu ferais, sans rien changer. Lis, cherche, analyse librement ; les scripts tournent à blanc (ODIN_DRY_RUN=1) ; toute autre modification est bloquée. Termine par un plan clair : « Voici ce que je ferais » (étapes, commandes exactes, effets, risques) et propose de l'exécuter quand le mode essai sera coupé.`);

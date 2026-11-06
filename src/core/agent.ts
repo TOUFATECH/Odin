@@ -7,7 +7,8 @@
 // garde-fous codés : nombre d'étapes, budget en dollars, détection de boucles,
 // annulation (AbortSignal), compaction du contexte, réflexion d'apprentissage.
 
-import { userBrief } from '../muninn/files.ts';
+import { syncMemoryFiles, userBrief, recordTask } from '../muninn/files.ts';
+import { getThread, mergeThread, openElsewhere, saveThread, threadBlock, THREAD_PROMPT, type ThreadUpdate } from '../muninn/threads.ts';
 import { dirname } from 'node:path';
 import type { OdinConfig } from '../config.ts';
 import { scanForInjection, wrapUntrusted } from '../heimdall/injection.ts';
@@ -174,6 +175,9 @@ export class Agent {
       channel,
       workspace: this.deps.workspace,
       summary: muninn.getSession(o.sessionId)!.summary,
+      thread: depth > 0 ? undefined : (() => { const th = getThread(muninn, o.sessionId); return th ? threadBlock(th) : undefined; })(),
+      elsewhere: depth > 0 || o.speaker?.role === 'member' ? undefined : openElsewhere(muninn, o.sessionId) || undefined,
+      tasksInProgress: depth > 0 ? undefined : (() => { const ms = [...muninn.interruptedMissions(Date.now() - 7 * 86_400_000), ...muninn.stalledMissions(Date.now() - 3 * 86_400_000)].filter((m) => m.session_id !== o.sessionId).slice(0, 5); return ms.length ? ms.map((m) => `- ${m.goal.slice(0, 140)} → ${m.status}${m.last_tool ? ` (dernière étape : ${m.last_tool})` : ''}${m.result ? ` — ${m.result.replace(/\s+/g, ' ').slice(0, 160)}` : ''}`).join('\n') : undefined; })(),
       pinned: muninn.pinned(),
       recalled: recalledNow,
       lessons: lessonsNow,
@@ -366,7 +370,15 @@ export class Agent {
     //    missions), en arrière-plan, à partir de TES messages seulement (jamais d'une page web).
     const learning: Array<Promise<unknown>> = [];
     if (depth === 0 && cfg.learning.observe && trusted && !tainted && res.stopReason === 'done' && userText.trim().length >= 12) {
-      learning.push(this.observe(userText, res.text, emit, signal, o.speaker?.role === 'member' ? o.speaker.name : undefined).catch(() => undefined));
+      learning.push(this.observe(userText, res.text, emit, signal, o.speaker?.role === 'member' ? o.speaker.name : undefined, turnLog).catch(() => undefined));
+    }
+    // Le fil de la conversation : compressé après chaque échange, pour ne jamais le perdre (même compacté, même des jours plus tard).
+    if (depth === 0 && cfg.learning.observe && trusted) {
+      learning.push(this.updateThread(o.sessionId, userText, res.text, turnLog, tainted, signal).catch(() => undefined));
+    }
+    // Journal des tâches (sans modèle) : ce qui a été fait, avec quel résultat → MEMORY.md, à chaque tâche.
+    if (depth === 0 && res.toolCalls > 0 && !tainted && trusted) {
+      try { recordTask(muninn, { at: Date.now(), goal: userText.replace(/\s+/g, ' ').slice(0, 140), ok: res.stopReason === 'done' && !/⚠ À vérifier/.test(res.text), tools: [...new Set(turnLog.flatMap((m) => (m.toolCalls ?? []).map((c) => c.name)))].slice(0, 6), result: res.text.replace(/\s+/g, ' ').slice(0, 160) }); } catch { /* facultatif */ }
     }
     // Leçons : quand tu le corriges, Odin en tire une règle durable (que tu peux relire et effacer).
     if (depth === 0 && trusted && !tainted && o.speaker?.role !== 'member' && CORRECTION.test(userText.trim())) {
@@ -386,9 +398,10 @@ export class Agent {
         return this.reflect(userText, turnLog, tainted, emit);
       })().catch(() => undefined);
     }
-    if (learning.length) {
+    if (learning.length || (depth === 0 && res.toolCalls > 0)) {
       const before = res.reflection;
-      res.reflection = Promise.all([before, ...learning]).then(([r]) => r as string | undefined);
+      // Les fichiers mémoire (USER.md, MEMORY.md) changent à chaque tâche, dès que l'apprentissage est fini.
+      res.reflection = Promise.all([before, ...learning]).then(([r]) => { if (depth === 0 && this.deps.home) { try { syncMemoryFiles(this.deps.home, muninn); } catch { /* facultatif */ } } return r as string | undefined; });
     }
     return res;
   }
@@ -499,8 +512,8 @@ export class Agent {
     try {
       const r = await router.complete({
         system: SUMMARY_PROMPT,
-        messages: [{ role: 'user', content: `${prev ? `Résumé précédent :\n${prev}\n\n` : ''}Conversation :\n${transcriptForSummary(old)}` }],
-        tools: [], maxTokens: 800, signal,
+        messages: [{ role: 'user', content: `${prev ? `Résumé précédent :\n${prev}\n\n` : ''}${(() => { const th = getThread(muninn, sessionId); return th ? `Fil de la conversation (à garder) :\n${threadBlock(th)}\n\n` : ''; })()}Conversation :\n${transcriptForSummary(old)}` }],
+        tools: [], maxTokens: 1200, signal,
       }, { minTier: 'local', purpose: 'résumé' });
       summary = r.text.trim();
     } catch {
@@ -659,18 +672,35 @@ Réponds en JSON seul : {"propositions": [{"type": "<type, un mot>", "icone": "<
       }));
   }
 
-  private async observe(userText: string, answer: string, emit: (e: AgentEvent) => void, signal: AbortSignal, speaker?: string): Promise<string[]> {
+  /** Met à jour le fil de la conversation (compressé) après un échange. */
+  private async updateThread(sid: string, userText: string, answer: string, log: Message[], tainted: boolean, signal: AbortSignal): Promise<void> {
+    const prev = getThread(this.deps.muninn, sid);
+    const steps = log.filter((m) => m.role === 'assistant' && m.toolCalls?.length).flatMap((m) => m.toolCalls!.map((c) => `${c.name}(${JSON.stringify(c.input).slice(0, 120)})`)).slice(0, 12).join(', ');
+    const r = await (this.deps.cheapRouter ?? this.deps.router).complete({
+      system: THREAD_PROMPT,
+      messages: [{ role: 'user', content: `Fil actuel :\n${JSON.stringify(prev ? { title: prev.title, goal: prev.goal, state: prev.state, decisions: prev.decisions, facts: prev.facts, open: prev.open } : {})}\n\nDernier échange :\nPropriétaire : ${userText.slice(0, 3000)}${steps ? `\nActions d'Odin : ${steps}` : ''}\nRéponse d'Odin : ${answer.slice(0, 2500)}` }],
+      tools: [], maxTokens: 700, signal,
+    }, { minTier: 'local', purpose: 'fil' });
+    const j = r.text.match(/\{[\s\S]*\}/)?.[0]; if (!j) return;
+    const u = JSON.parse(j) as ThreadUpdate;
+    const red = (x: unknown) => (typeof x === 'string' ? this.deps.redactor.redact(x) : Array.isArray(x) ? x.map((y) => this.deps.redactor.redact(String(y))).filter((y) => !y.includes('[SECRET]')) : x);
+    saveThread(this.deps.muninn, mergeThread(prev, sid, { title: red(u.title) as string, goal: red(u.goal) as string, state: red(u.state) as string, decisions: red(u.decisions) as string[], facts: red(u.facts) as string[], open: red(u.open) as string[], done: red(u.done) as string[] }, Date.now(), tainted));
+  }
+
+  private async observe(userText: string, answer: string, emit: (e: AgentEvent) => void, signal: AbortSignal, speaker?: string, log: Message[] = []): Promise<string[]> {
     const router = this.deps.cheapRouter ?? this.deps.router;
     const known = this.deps.muninn.recall(userText, 6).map((m) => `- ${m.content}`).join('\n') || '(rien)';
+    // Ce que la tâche a appris de l'environnement : résultats des outils locaux (jamais le web ni les mails).
+    const evidence = log.filter((m) => m.role === 'tool' && /^(shell|python|machine_exec|net_|proxmox_|fs_list|fs_read|ha_|script_run|py_)/.test(m.toolName ?? '') && !/^(Erreur|Refusé)/.test(m.content)).map((m) => `[${m.toolName}] ${m.content.replace(/\s+/g, ' ').slice(0, 400)}`).join('\n').slice(0, 3000);
     const r = await router.complete({
-      system: `Tu aides un agent à apprendre vite sur son propriétaire. À partir de l'échange, extrais au plus 3 faits DURABLES et utiles plus tard :
+      system: `Tu aides un agent à apprendre vite sur son propriétaire. À partir de l'échange, extrais au plus 4 faits DURABLES et utiles plus tard (y compris ce que ses outils ont découvert sur les machines : versions, adresses, services, chemins, ce qui a marché) :
 préférences (façon de travailler, formats, horaires), environnement (machines, appareils, dossiers, logiciels, comptes), missions et projets en cours, personnes importantes.
 Ignore le ponctuel, les politesses, et tout secret (mots de passe, clés, codes). N'invente rien. Ne répète pas ce qui est déjà connu :
 ${known}
 Pour chaque fait, donne aussi son SUJET (proprietaire, ou l'appareil / la personne / le projet concerné, ex. « nas », « proxmox », « personne:mariam ») et sa CLÉ (ce qu'il dit du sujet, ex. « adresse_ip », « heure_reveil », « role ») : un nouveau fait de même sujet et même clé remplacera l'ancien (ex. le NAS a changé d'adresse).
 Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|mission|person","text":"phrase courte et autonome","sujet":"…","cle":"…"}]} (liste vide si rien).`,
-      messages: [{ role: 'user', content: `${speaker ? `${speaker} (membre, pas le propriétaire)` : 'Propriétaire'} : ${userText.slice(0, 4000)}\n\nRéponse de l'agent : ${answer.slice(0, 2000)}` }],
-      tools: [], maxTokens: 400, signal,
+      messages: [{ role: 'user', content: `${speaker ? `${speaker} (membre, pas le propriétaire)` : 'Propriétaire'} : ${userText.slice(0, 4000)}${evidence ? `\n\nCe que l'agent a constaté avec ses outils (sur ses machines) :\n${evidence}` : ''}\n\nRéponse de l'agent : ${answer.slice(0, 2000)}` }],
+      tools: [], maxTokens: 500, signal,
     }, { minTier: 'local', purpose: 'observation' });
     const json = r.text.match(/\{[\s\S]*\}/)?.[0];
     if (!json) return [];

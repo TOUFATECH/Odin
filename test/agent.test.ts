@@ -99,7 +99,7 @@ test('interruption via AbortSignal', async () => {
 });
 
 test('compaction : résumé créé, historique raccourci, coupe sur un message utilisateur', async () => {
-  const o = makeOdin((req) => (req.system.startsWith('Résume') ? { text: 'RÉSUMÉ-TEST' } : { text: 'ok' }), {
+  const o = makeOdin((req) => (req.system.startsWith('Compresse') ? { text: 'RÉSUMÉ-TEST' } : { text: 'ok' }), {
     config: (c) => ({ ...c, agent: { ...c.agent, contextBudget: 300 } }),
   });
   o.muninn.ensureSession('s');
