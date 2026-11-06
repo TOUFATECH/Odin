@@ -16,7 +16,7 @@ export interface Channel {
   readonly interactive: boolean;
   start(onMessage: (m: Inbound) => Promise<void>): Promise<void>;
   /** mood : l'humeur d'Odin, montrée à la fin du texte quand le canal sait le faire (son visage en émoji sur Telegram). */
-  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean } }): Promise<void>;
+  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean }): Promise<void>;
   /** « Odin écrit… » pendant qu'il travaille. */
   typing?(peer: string): Promise<void>;
   stop(): Promise<void>;

@@ -175,7 +175,7 @@ let stopping: (() => Promise<void>) | undefined;
 
 async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   let gw: Gateway | undefined;
-  const send = (ch: string, peer: string, text: string) => gw!.send(ch, peer, text);
+  const send = (ch: string, peer: string, text: string, opts?: { secret?: boolean }) => gw!.send(ch, peer, text, opts);
   let odin: Odin;
   try { odin = createOdin({ provider: demo ? demoProvider() : undefined, send }); if (demo) odin.demo = true; } catch (e) {
     if (!/Aucun fournisseur/.test((e as Error).message)) throw e;

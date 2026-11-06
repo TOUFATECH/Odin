@@ -228,7 +228,13 @@ export class WebChannel implements Channel {
     for (const c of this.clients) c.write(line);
   }
 
-  async send(peer: string, text: string): Promise<void> {
+  async send(peer: string, text: string, opts: { secret?: boolean } = {}): Promise<void> {
+    // Secret (nouveau mot de passe) : carte éphémère dans la page, jamais dans l'historique ni en notification.
+    if (opts.secret) {
+      this.push({ type: 'secret', peer, text });
+      if (!this.clients.size) void pushAll(this.odin.paths.home, { title: 'Odin', body: 'Un nouveau mot de passe t\'attend : ouvre Odin (il s\'efface dans 10 minutes).', view: 'chat', tag: 'odin-secret' }).catch(() => 0);
+      return;
+    }
     const w = this.waiters.get(peer);
     if (w) { this.waiters.delete(peer); w(text); }
     this.push({ type: 'message', peer, role: 'assistant', text });

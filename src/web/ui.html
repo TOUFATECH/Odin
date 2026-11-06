@@ -685,6 +685,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
 .msgs{padding-bottom:calc(96px + var(--tip-h,0px))}
 .tip{background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.35);border-color:color-mix(in srgb,var(--odin-tint,var(--accent)) 45%,var(--field))}
 .touring .chat-buddy{visibility:hidden}
+.msg.secret{border-color:var(--accent)}.secrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}.secv{font-size:16px;padding:4px 10px;border-radius:8px;background:color-mix(in srgb,var(--ink) 8%,transparent);letter-spacing:.04em}
 </style>
 </head>
 <body>
@@ -1430,7 +1431,19 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     activity.querySelector('.at').textContent = `${activity._n} étape${activity._n > 1 ? 's' : ''}${t ? ' · ' + t : ''}`;
     msgs.scrollTop = msgs.scrollHeight;
   }
-  window.OdinChat = { addMsg, addActivity }; // aperçu et tests de l'affichage
+  // Nouveau mot de passe envoyé par Odin : masqué, à afficher ou copier, effacé de la page au bout de 10 minutes.
+  function addSecret(text) {
+    const [head, value, ...rest] = text.split('\n');
+    const v = el('code', { class: 'secv' }, '•'.repeat(Math.min(24, (value || '').length)));
+    const card = el('div', { class: 'msg assistant secret' }, el('div', { class: 'who' }, 'Odin'), el('div', {}, head),
+      el('div', { class: 'secrow' }, v,
+        el('button', { class: 'btn small', type: 'button', onclick: (e) => { const shown = v.textContent === value; v.textContent = shown ? '•'.repeat(Math.min(24, value.length)) : value; e.target.textContent = shown ? 'Afficher' : 'Masquer'; } }, 'Afficher'),
+        el('button', { class: 'btn small primary', type: 'button', onclick: (e) => { navigator.clipboard?.writeText(value); e.target.textContent = 'Copié'; } }, 'Copier')),
+      el('div', { class: 'sub' }, rest.join(' ').trim()));
+    msgs.append(card); msgs.scrollTop = msgs.scrollHeight;
+    setTimeout(() => card.replaceChildren(el('div', { class: 'who' }, 'Odin'), el('div', { class: 'sub' }, 'Mot de passe effacé de l\'écran. Il reste chiffré dans le coffre (Réglages → Droits et machines).')), 600_000);
+  }
+  window.OdinChat = { addMsg, addActivity, addSecret }; // aperçu et tests de l'affichage
   let loadingHistory = false;
   async function loadHistory() {
     msgs.textContent = ''; activity = null; loadingHistory = true;
@@ -2761,7 +2774,49 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
       { label: '✨ Idées', run: () => suggest(false) },
       { label: '💡 Conseil', run: () => assist('advice') },
     ]);
-    else { moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000); say(TIPS[Math.floor(Math.random() * TIPS.length)], [{ label: 'Un autre', run: () => tapMenu() }], 14000); }
+    else contextMenu();
+  }
+  // Touché sans rien d'écrit : il propose quelque chose selon la conversation en cours.
+  const askOdin = (q) => { $('#input').value = q; grow(); send(); };
+  function contextMenu() {
+    const all = [...msgs.querySelectorAll('.msg')], lastA = [...all].reverse().find((n) => n.classList.contains('assistant') && !n.classList.contains('secret'));
+    const lastU = [...all].reverse().find((n) => n.classList.contains('user'));
+    const a = (lastA?.querySelector('.md')?.textContent || '').trim(), u = (lastU?.textContent || '').trim(), s = a.toLowerCase();
+    const ip = (a.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/) || u.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/) || [])[0];
+    const acts = [], line = [];
+    if (/impossible|je n'ai pas pu|échec|erreur|bloqu|refus|introuvable|aucun résultat|aucune source/.test(s)) {
+      line.push('Ça n\'a pas marché. Je réessaie autrement ?');
+      acts.push({ label: 'Réessaie autrement', primary: true, run: () => askOdin('Ça n\'a pas marché : trouve une autre façon de faire et vas-y.') });
+      acts.push({ label: 'Explique le problème', run: () => askOdin('Explique-moi simplement ce qui a bloqué et ce qu\'il faudrait pour y arriver.') });
+    }
+    if (/\?\s*$/.test(a.split('\n').filter(Boolean).at(-1) || '')) {
+      line.push(line.length ? '' : 'Je t\'ai posé une question.');
+      acts.push({ label: 'Oui', primary: !acts.length, run: () => askOdin('Oui.') }, { label: 'Non', run: () => askOdin('Non.') });
+    }
+    if (ip) {
+      const d = (state?.devices || []).find((x) => x.ip === ip);
+      if (d) acts.push({ label: `Fiche de ${mapName(d)}`, run: () => openDevice(d.id) });
+      acts.push({ label: `Analyse ${ip}`, run: () => askOdin(`Identifie et analyse l'appareil ${ip} en détail (système, ports, services, risques), puis donne-lui un nom clair.`) });
+    }
+    if (/sources?\s*:|https?:\/\//.test(s)) acts.push({ label: 'Approfondis', run: () => askOdin('Approfondis ce sujet avec d\'autres sources, et dis ce qui reste incertain.') });
+    if (a.length > 700) acts.push({ label: 'Résume en 3 points', run: () => askOdin('Résume ta dernière réponse en 3 points.') });
+    if (u && a && !acts.length) {
+      line.push('On continue sur ce sujet ?');
+      acts.push({ label: 'Va plus loin', primary: true, run: () => askOdin('Va plus loin sur ce sujet : quelle est la prochaine étape utile ? Fais-la.') });
+      acts.push({ label: 'Planifie-le', run: () => askOdin('Fais-en une tâche planifiée qui revient au bon rythme.') });
+    }
+    if (!acts.length) {
+      // Pas de conversation : ce qui compte chez toi en ce moment.
+      const off = (state?.devices || []).filter((d) => d.status !== 'online' && (state.watch?.cfg?.devices || []).includes(d.id));
+      const unknown = (state?.devices || []).filter((d) => d.status === 'online' && !d.label && !d.name && !d.hostname).length;
+      line.push('Qu\'est-ce qu\'on fait ?');
+      if (off.length) acts.push({ label: `${mapName(off[0])} est hors ligne`, primary: true, run: () => askOdin(`${mapName(off[0], true)} (${off[0].ip}) est hors ligne : regarde pourquoi et relance-le si tu peux.`) });
+      if (unknown) acts.push({ label: `Identifier ${unknown} appareil${unknown > 1 ? 's' : ''}`, run: () => askOdin('Identifie les appareils sans nom de mon réseau et donne-leur un nom clair.') });
+      acts.push({ label: 'Point du jour', primary: !acts.length, run: () => askOdin('Fais-moi le point du jour : réseau, machines, ce qui mérite mon attention.') });
+      acts.push({ label: 'Visite guidée', run: () => window.OdinTour?.start(true) });
+    }
+    moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000);
+    say(line.filter(Boolean).join(' ') || 'Une idée :', acts.slice(0, 4), 20000);
   }
   // ---------- Odin se déplace dans toute la discussion ----------
   // Il va où il veut dans la zone (x et y), regarde ce que tu écris, va se poser sur sa réponse,
@@ -3313,6 +3368,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
       const d = JSON.parse(ev.data);
       if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
+      else if (d.type === 'secret' && d.peer === peer) addSecret(d.text);
       else if (d.type === 'event' && d.event.type === 'delta' && d.peer === peer) liveAdd(d.event.text);
       else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) { notifyOwner('Odin a besoin de toi', d.event.summary || 'Une validation est demandée.'); approvalCard(d.event); moodFlash('inquiet', 4000); }
       else if (d.type === 'event' && d.event.type === 'approval_done') approvalDone(d.event);

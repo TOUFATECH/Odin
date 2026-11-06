@@ -1,5 +1,6 @@
 // Canal Telegram en API HTTP brute (long polling) : aucune dépendance.
 // Texte, notes vocales (transcrites par Whisper) et fichiers (déposés dans l'espace de travail).
+import { extractSecret } from '../../machines/onboard.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { type Channel, chunk, type Inbound } from '../channel.ts';
@@ -113,7 +114,11 @@ export class TelegramChannel implements Channel {
   /** Transforme un message Telegram en texte pour Odin (transcription, fichier déposé…). */
   private async toInbound(m: TgMessage): Promise<Inbound | undefined> {
     const base = { channel: this.name, peer: String(m.chat.id), name: m.from?.username ?? m.from?.first_name ?? '?' };
-    if (m.text) return { ...base, text: m.text };
+    if (m.text) {
+      // Un mot de passe tapé dans Telegram : on efface aussi ton message de la conversation.
+      if (extractSecret(m.text).secret && (m as { message_id?: number }).message_id) void this.call('deleteMessage', { chat_id: m.chat.id, message_id: (m as { message_id?: number }).message_id }).catch(() => undefined);
+      return { ...base, text: m.text };
+    }
     const vocal = m.voice ?? m.video_note;
     if (vocal) {
       if (!this.opts.transcribe) { await this.send(base.peer, '🎙 Les messages vocaux ne sont pas encore activés (Réglages → Voix).'); return undefined; }
@@ -242,13 +247,21 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean } } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
     if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
     if (mood && !Object.keys(this.faces).length && Date.now() > this.facesOff) {
       this.facesPending ??= this.ensureFaces(this.opts.owner ?? peer).catch((e) => { console.error('[telegram]', (e as Error).message); this.facesOff = Date.now() + 6 * 3600_000; }).finally(() => { this.facesPending = undefined; });
       await this.facesPending;
+    }
+    // Message secret (nouveau mot de passe) : masqué sous un voile, non transférable, effacé au bout de 10 minutes.
+    if (opts.secret) {
+      const esc = (x: string) => x.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const lines = text.split('\n'), html = lines.map((l, k) => k === 1 ? `<tg-spoiler><code>${esc(l)}</code></tg-spoiler>` : esc(l)).join('\n');
+      const r = await this.call('sendMessage', { chat_id: peer, text: html, parse_mode: 'HTML', protect_content: true }) as { ok: boolean; result?: { message_id: number } };
+      if (r.ok && r.result) { const id = r.result.message_id; setTimeout(() => { void this.call('deleteMessage', { chat_id: peer, message_id: id }).catch(() => undefined); }, 600_000).unref?.(); }
+      return;
     }
     // Demande de validation : boutons Oui / Non (et « Toujours ») sous le message, sans rien taper.
     if (opts.approval) {

@@ -2,6 +2,7 @@
 // inconnus, sérialise les tours par conversation, relaie les demandes de validation au
 // propriétaire, et exécute les tâches planifiées.
 
+import { vendorOf } from '../hlidskjalf/vendors.ts';
 import { MOODS, moodSticker } from '../mood/stickers.ts';
 import { MOOD_EMOJI, type Mood } from '../mood/mood.ts';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -19,6 +20,7 @@ import { listScripts, parseScriptJob, type ScriptMeta } from '../tools/scripts.t
 import { DEFAULT_CONFIG } from '../config.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
+import { extractSecret, keepSecret } from '../machines/onboard.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
 import { indexDocs } from '../tools/docindex.ts';
 import { voiceFor } from '../profiles.ts';
@@ -100,16 +102,18 @@ export class Gateway {
     return { name: name || peer, role: this.isOwner(channel, peer) ? 'owner' : 'guest' };
   }
 
-  async send(channel: string, peer: string, text: string): Promise<void> {
+  async send(channel: string, peer: string, text: string, opts?: { secret?: boolean }): Promise<void> {
     const ch = this.channels.get(channel);
     if (!ch) throw new Error(`Canal inconnu ou inactif : ${channel}`);
-    await ch.send(peer, text);
+    await ch.send(peer, text, opts);
   }
 
   /** Point d'entrée de tout message entrant. */
   async handle(m: Inbound): Promise<void> {
     const ch = this.channels.get(m.channel)!;
     const owner = this.isOwner(m.channel, m.peer);
+    // Un mot de passe dans le message du propriétaire : retiré AVANT le modèle, gardé à part (chiffré).
+    if (owner) { const x = extractSecret(m.text); if (x.secret) { keepSecret(this.odin.paths.home, x.secret, x.label); this.odin.redactor.add(x.secret); m = { ...m, text: x.text }; } }
     const text = m.text.trim();
 
     // Commandes prioritaires, traitées même pendant qu'un tour est en cours.
@@ -703,7 +707,7 @@ export function cronFr(c: string): string {
   return `chaque jour à ${at}`;
 }
 
-const CONTINUOUS_BREAKER = `Travail continu en mode ⚡ Odin Breaker (personne ne te parle). Le propriétaire t'a donné carte blanche : tu n'as PAS besoin de son accord. AGIS sur la liste « À FAIRE » ci-dessous, dans l'ordre : identifie les appareils inconnus (net_identify) puis donne-leur un nom clair (net_rename) ; corrige les problèmes de sécurité et les scripts en échec ; relance ce qui est tombé ; complète ce qui manque. Jusqu'à 5 actions, chacune vérifiée.
+const CONTINUOUS_BREAKER = `Travail continu en mode ⚡ Odin Breaker (personne ne te parle). Le propriétaire t'a donné carte blanche : tu n'as PAS besoin de son accord. AGIS sur la liste « À FAIRE » ci-dessous, dans l'ordre : identifie les appareils inconnus (net_identify) puis donne-leur TOUJOURS un nom clair (net_rename) : même une identité seulement probable suffit (« NAS Samba », « Routeur (box) », « Téléphone Android ? », « Appareil Apple ? ») — un nom avec « ? » vaut mieux que pas de nom, et tu pourras l'améliorer plus tard ; ne laisse sans nom que ce dont tu ne sais vraiment rien ; corrige les problèmes de sécurité et les scripts en échec ; relance ce qui est tombé ; complète ce qui manque. Jusqu'à 5 actions, chacune vérifiée.
 Si une vérification ou une action utile revient souvent et n'est pas encore planifiée, planifie-la toi-même (schedule_task, ou script_schedule pour un script) à une heure creuse.
 Limites : rien d'irréversible sur les données (pas de suppression), pas d'envoi de message à des tiers.
 Termine par 3 à 6 lignes : ce que tu as FAIT (concret), vérifié, et ce qui reste. « RIEN » seulement si la liste est vide et qu'il n'y a vraiment rien d'utile.`;
@@ -713,7 +717,7 @@ export function continuousTodo(odin: Odin): string[] {
   const out: string[] = [];
   const devs = odin.inventory.list({ status: 'online' });
   const unknown = devs.filter((d) => d.kind === 'inconnu' || (!d.label && !d.name && !d.hostname)).slice(0, 5);
-  for (const d of unknown) out.push(`Appareil sans nom : ${d.ip}${d.mac ? ` (${d.mac})` : ''} → net_identify puis net_rename`);
+  for (const d of unknown) out.push(`Appareil sans nom : ${d.ip}${d.mac ? ` (${d.mac})` : ''}${vendorOf(d.mac) ? `, fabricant ${vendorOf(d.mac)}` : ''} → net_identify puis net_rename (nom probable avec « ? » si besoin)`);
   const watched = new Set(odin.cfg.watch?.devices ?? []);
   for (const d of odin.inventory.list({ status: 'all' }).filter((x) => watched.has(x.id) && x.status !== 'online').slice(0, 3)) out.push(`Appareil important hors ligne : ${d.label || d.name || d.ip} (${d.ip}) → vérifier et relancer si possible`);
   // Demandes qui reviennent sans compétence : en faire une (procédure + script si utile)

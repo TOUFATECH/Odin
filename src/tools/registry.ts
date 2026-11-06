@@ -59,7 +59,7 @@ export interface ToolContext {
   /** Fourni par l'agent : lance des sous-agents en parallèle (Sleipnir). */
   delegate?(tasks: Array<{ goal: string; context?: string }>): Promise<ToolResult>;
   /** Fourni par la passerelle : envoie un message sur un canal. */
-  send?(channel: string, peer: string, text: string): Promise<void>;
+  send?(channel: string, peer: string, text: string, opts?: { secret?: boolean }): Promise<void>;
 }
 
 export interface Tool {

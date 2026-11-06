@@ -24,6 +24,7 @@ import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import { listMachines, rightsSummary } from '../machines/access.ts';
 import { activeProfile } from '../profiles.ts';
+import { pendingSecretHint } from '../tools/onboard.ts';
 import { identityLine, listScripts, scriptsIndex } from '../tools/scripts.ts';
 import { relevantSkills } from '../yggdrasil/skills.ts';
 import { features, featuresPrompt } from '../features.ts';
@@ -178,6 +179,7 @@ export class Agent {
       skillsHint: depth > 0 ? undefined : relevantSkills(userText, this.deps.skills.list()),
       scriptsIndex: depth > 0 ? undefined : scriptsIndex(listScripts(this.deps.workspace)),
       identity: identityLine(),
+      secretHint: depth > 0 || !this.deps.home ? undefined : pendingSecretHint(this.deps.home),
       dryRun: this.dryRun(),
       tainted,
       isSubAgent: depth > 0,

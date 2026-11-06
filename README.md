@@ -223,6 +223,8 @@ Odin découvre les appareils sans droits administrateur (table ARP, balayage TCP
 
 **Adresses MAC** : à chaque balayage, Odin vérifie qu'une même adresse MAC ne répond pas sur deux IP (usurpation possible) et que la box garde la même MAC (interception possible) ; il te prévient aussitôt.
 
+**Donner un mot de passe à Odin** : écris-le simplement dans la discussion (« le mot de passe root du 192.168.1.102 est … »). Il est retiré du message avant le modèle (qui ne le voit jamais) et effacé de Telegram. Odin se connecte, installe sa clé SSH et vérifie qu'elle marche, crée un jeton d'API s'il s'agit d'un Proxmox (réglé tout seul), puis change le mot de passe : le nouveau t'arrive en message privé masqué, effacé au bout de 10 minutes, et reste chiffré dans le coffre.
+
 **Bloquer un appareil** : ajoute ta box dans Réglages → Droits et machines (son IP et un compte SSH administrateur). Odin reconnaît OpenWrt, MikroTik et les routeurs Linux, et bloque l'appareil par son adresse MAC (bouton « Bloquer sur la box » sur la fiche de l'appareil, ou « bloque l'iPhone inconnu »). Réversible d'un clic. Les box d'opérateur sans SSH (Livebox, SFR, Bbox, Freebox) se règlent par leur page d'administration, avec le navigateur.
 
 Sur la carte, chaque appareil s'ouvre en page complète : informations, liens, ports ouverts, ce qu'Odin peut faire avec, sécurité et historique.
