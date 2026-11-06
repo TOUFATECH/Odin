@@ -114,8 +114,8 @@ export class Gateway {
 
     // Commandes prioritaires, traitées même pendant qu'un tour est en cours.
     let cmd = text.match(/^\/(yes|no|oui|non|always|toujours)\s+(\S+)/i);
-    // « /yes » ou « oui » tout court : la dernière demande en attente (s'il y en a une).
-    const bare = text.match(/^\/?(yes|no|oui|non|always|toujours)[\s.!]*$/i);
+    // « oui », « non », « ok », « vas-y », « toujours »… tout court : la dernière demande en attente.
+    const bare = text.match(/^\/?(yes|no|oui|non|nan|ok|okay|ouais|vas[- ]y|d'accord|daccord|go|always|toujours)[\s.!]*$/i);
     if (!cmd && bare && owner && this.pendingApprovals.size) cmd = Object.assign([text, bare[1], [...this.pendingApprovals.keys()].at(-1)!], { index: 0, input: text }) as RegExpMatchArray;
     else if (!cmd && bare && text.startsWith('/') && owner) return ch.send(m.peer, 'Aucune demande en attente : elle a peut-être expiré. Redemande-moi l\'action, je la referai.');
     if (cmd) {
@@ -123,7 +123,7 @@ export class Gateway {
       const resolve = this.pendingApprovals.get(cmd[2]);
       if (!resolve) return ch.send(m.peer, 'Demande inconnue ou expirée.');
       this.pendingApprovals.delete(cmd[2]);
-      const ans = /^(always|toujours)$/i.test(cmd[1]) ? 'always' : /^(yes|oui)$/i.test(cmd[1]) ? 'yes' : 'no';
+      const ans = /^(always|toujours)$/i.test(cmd[1]) ? 'always' : /^(no|non|nan)$/i.test(cmd[1]) ? 'no' : 'yes';
       resolve(ans === 'always' ? 'always' : ans === 'yes');
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
@@ -206,14 +206,14 @@ export class Gateway {
       const target = this.approvalTarget(req.sessionId);
       if (!target) return false;
       const head = req.severity === 'grave' ? '🛑 Décision GRAVE : Odin a besoin de toi' : '⚠️ Odin demande une validation';
-      const options = req.grantable ? `Réponds /yes ${req.id} · /always ${req.id} (toujours autoriser ce type d'action) · /no ${req.id}` : `Réponds /yes ${req.id} ou /no ${req.id}`;
+      const options = `Réponds oui ou non${req.grantable ? ' (ou « toujours » pour ne plus te le demander)' : ''}. Réf. /yes ${req.id}`;
       const msg = `${head}\nAction : ${req.summary}\nPourquoi : ${req.reason}\n${options}`;
       const answer = new Promise<ApprovalAnswer>((r) => this.pendingApprovals.set(req.id, r));
       // Canaux qui savent afficher une carte (interface web) : évènement typé, pas de détection par le texte.
       target.ch.event?.(target.peer, { type: 'approval', id: req.id, summary: req.summary, reason: req.reason, severity: req.severity, grantable: req.grantable });
       // Heimdall tranche « non » après approvalTimeoutSec ; on oublie la demande peu après pour ne pas accumuler.
       setTimeout(() => this.pendingApprovals.delete(req.id), (this.odin.cfg.policy.approvalTimeoutSec + 60) * 1000).unref?.();
-      await target.ch.send(target.peer, msg);
+      await target.ch.send(target.peer, msg, { approval: { id: req.id, grantable: req.grantable } });
       // La demande vient d'un membre : on le prévient que le propriétaire a été sollicité.
       const [sc, ...sp] = req.sessionId.split(':'); const sch = this.channels.get(sc); const speer = sp.join(':');
       if (sch?.interactive && (sc !== target.ch.name || speer !== target.peer) && this.odin.muninn.userFor(sc, speer)?.role === 'member') await sch.send(speer, `⏳ Cette action (${req.summary.slice(0, 80)}) demande l'accord du propriétaire : je lui ai transmis.`).catch(() => {});

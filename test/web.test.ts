@@ -36,7 +36,7 @@ test('interface web : jeton, hôte, en-tête anti-CSRF, discussion et validation
 
   const post = (text: string) => fetch(`${B}/api/message`, { method: 'POST', headers: { ...auth, 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ peer: 'principal', text }) });
   assert.equal((await post('lance true')).status, 202);
-  const id = (await waitFor(/\/yes (\S+?) /))![1];
+  const id = (await waitFor(/\/yes ([a-z0-9]+)/))![1];
   await post(`/yes ${id}`);
   await waitFor(/C'est fait\./);
   assert.match(buf, /"tool_start","name":"shell"/);

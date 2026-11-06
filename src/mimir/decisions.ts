@@ -161,6 +161,47 @@ export function decideAction(l: ActionLevels, i: Pick<ActionInput, 'risk' | 'tai
   return v('routine', l.sends_out === 'yes' ? 'message demandé par toi, sans donnée privée' : 'demandé par toi, sans effet risqué');
 }
 
+// ---------- 1 bis. Commandes de simple lecture (sans modèle) ----------
+// Le juge peut se tromper (« 2>/dev/null » pris pour un effacement). Une commande faite uniquement de
+// lectures connues, sans écriture dans un fichier, est une simple consultation : jamais « grave ».
+const READ_CMDS = new Set(['uname', 'whoami', 'id', 'date', 'uptime', 'cat', 'head', 'tail', 'grep', 'egrep', 'fgrep', 'rg', 'ls', 'stat', 'file', 'wc', 'df', 'du', 'free', 'ps', 'ss', 'netstat', 'lsblk', 'blkid', 'findmnt', 'which', 'type', 'echo', 'printf', 'true', 'false', 'test', '[', 'lscpu', 'lsusb', 'lspci', 'lsmod', 'journalctl', 'pveversion', 'nslookup', 'dig', 'host', 'getent', 'cut', 'sort', 'uniq', 'tr', 'column', 'jq', 'nproc', 'arch', 'hostnamectl', 'timedatectl', 'lsb_release', 'sw_vers', 'ifconfig', 'iwconfig', 'arp', 'route', 'last', 'w', 'who', 'groups', 'env', 'printenv', 'pwd', 'basename', 'dirname', 'readlink', 'realpath', 'sensors', 'smartctl', 'zpool', 'zfs', 'lvs', 'vgs', 'pvs', 'sha256sum', 'md5sum']);
+const READ_SUB: Record<string, RegExp> = {
+  hostname: /^(-[a-zA-Z]+\s*)*$/, ip: /^(-\S+\s+)*(a|addr|address|l|link|r|route|n|neigh|neighbour)\b(?!.*\b(add|del|delete|change|replace|flush|set|append|up|down)\b)/, systemctl: /^(status|is-active|is-enabled|is-failed|list-units|list-unit-files|list-timers|show|cat)\b/,
+  docker: /^(ps|images|inspect|logs|stats\s+--no-stream|version|info|network\s+ls|volume\s+ls)\b/, pct: /^(list|config|status)\b/, qm: /^(list|config|status)\b/, pvesh: /^get\b/,
+  realm: /^(list|discover)\b/, adcli: /^info\b/, nmcli: /^(-\S+\s+)*(dev(ice)?\s+(show|status)|con(nection)?\s+show|general|g)\b/, ping: /^(.*\s)?-c\s*\d+/, mount: /^$/, sed: /^(?!.*(-i|\bw\s)).*$/, awk: /^(?!.*(system\s*\(|>|\|)).*$/, find: /^(?!.*-(delete|exec|execdir|ok|fprint)).*$/, smbclient: /^-L\b/, apt: /^(list|show|policy|search)\b/, dpkg: /^(-l|-s|-L|--list|--status)\b/,
+};
+export function readOnlyCommand(cmd: string): boolean {
+  const c = cmd.trim(); if (!c || c.length > 2000) return false;
+  if (/`|\$\(|<\(|>\(/.test(c)) return false; // sous-commandes : on ne devine pas
+  // Écriture dans un fichier : tout « > » sauf vers /dev/null ou une copie de flux (2>&1).
+  if (/(^|[^0-9&])>{1,2}\s*(?!\/dev\/null\b|&\d)/.test(c.replace(/\d?>{1,2}\s*\/dev\/null/g, '').replace(/\d>&\d/g, ''))) return false;
+  const parts = c.replace(/\d?>{1,2}\s*\/dev\/null/g, ' ').replace(/\d>&\d/g, ' ').split(/;|&&|\|\||\||\n/);
+  for (let p of parts) {
+    p = p.trim().replace(/^[({\s]+|[)}\s]+$/g, '').replace(/^sudo\s+(-n\s+)?/, '').trim();
+    if (!p) continue;
+    if (/^command\s+-v\s+\S+$/.test(p)) continue;
+    const [head, ...rest] = p.split(/\s+/), args = rest.join(' ');
+    if (READ_CMDS.has(head)) { if (head === 'env' && args) return false; continue; }
+    const sub = READ_SUB[head]; if (sub && sub.test(args)) continue;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * L'action vise-t-elle ce que le propriétaire a écrit lui-même (une adresse IP, un site, une URL) ?
+ * Alors c'est sa demande, quoi qu'en pense le juge : on ne bloque pas ce qu'il demande explicitement.
+ */
+export function targetInRequest(action: string, request: string): boolean {
+  if (!request) return false;
+  const req = request.toLowerCase();
+  const targets = new Set<string>();
+  for (const m of action.matchAll(/\b(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?\b/g)) targets.add(m[0]);
+  for (const m of action.matchAll(/https?:\/\/([^\s/'"<>]+)/gi)) targets.add(m[1].toLowerCase());
+  for (const m of action.matchAll(/\b([a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:fr|com|net|org|io|dev|local|lan|home|arpa|eu|be|ch|re|yt|app|ai))\b/gi)) targets.add(m[1].toLowerCase());
+  return [...targets].map((x) => x.toLowerCase().replace(/^www\./, '')).some((x) => req.includes(x) || req.includes(x.replace(/:\d+$/, '')));
+}
+
 // ---------- 2. Contenu externe ----------
 
 export interface InjectionVerdict { suspicious: boolean; caution: boolean; reasons: string[] }
@@ -223,10 +264,13 @@ export class Mimir {
   }
 
   reviewAction(i: ActionInput, signal?: AbortSignal): Promise<Outcome<ActionVerdict>> {
+    // Simple lecture (nom de la machine, adresses, état d'un service…) : routine, sans demander au juge.
+    if (i.command && !i.tainted && readOnlyCommand(i.command)) return Promise.resolve({ ok: true, value: { severity: 'routine', reason: 'simple lecture, rien n\'est modifié', flags: ['lecture seule'] }, answers: {} as Answers });
     const action: Record<string, unknown> = { tool: i.tool, description: i.summary };
     if (i.command) action.command = i.command;
+    const asked = targetInRequest(`${i.summary} ${i.command ?? ''}`, i.userRequest);
     return this.ask({ action, user_request: clip(i.userRequest || '(aucune demande)', 4000) }, ACTION_QUESTIONS, (a) => decideAction({
-      requested: level(yes(a, 'requested')), deletes: level(yes(a, 'deletes')), sends_out: level(yes(a, 'sends_out')), system_change: level(yes(a, 'system_change')),
+      requested: asked ? 'yes' : level(yes(a, 'requested')), deletes: level(yes(a, 'deletes')), sends_out: level(yes(a, 'sends_out')), system_change: level(yes(a, 'system_change')),
       money: level(yes(a, 'money')), private_data: level(yes(a, 'private_data')), irreversible: level(yes(a, 'irreversible')),
     }, i), signal);
   }

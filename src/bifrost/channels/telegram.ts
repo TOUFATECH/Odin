@@ -71,6 +71,7 @@ export function tgHtml(md: string): string {
   return s.replace(/\u0000(\d+)\u0000/g, (_m, k: string) => blocks[Number(k)]);
 }
 
+type TgCallback = { id: string; data?: string; from?: { id: number; first_name?: string }; message?: { message_id: number; chat: { id: number } } };
 type TgFile = { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
 type TgMessage = {
   chat: { id: number }; from?: { id: number; username?: string; first_name?: string };
@@ -150,12 +151,13 @@ export class TelegramChannel implements Channel {
     let backoff = 1000;
     while (this.running) {
       try {
-        const res = await fetch(`${this.url('getUpdates')}?timeout=30&offset=${this.offset}&allowed_updates=["message"]`, { signal: this.ctrl.signal });
-        const data = await res.json() as { ok: boolean; result: Array<{ update_id: number; message?: unknown }>; description?: string };
+        const res = await fetch(`${this.url('getUpdates')}?timeout=30&offset=${this.offset}&allowed_updates=["message","callback_query"]`, { signal: this.ctrl.signal });
+        const data = await res.json() as { ok: boolean; result: Array<{ update_id: number; message?: unknown; callback_query?: TgCallback }>; description?: string };
         if (!data.ok) throw new Error(`getUpdates : ${data.description ?? `HTTP ${res.status}`}`); // 401, 409… : on attend avant de réessayer
         backoff = 1000;
         for (const u of data.result ?? []) {
           this.offset = u.update_id + 1;
+          if (u.callback_query) { void this.onButton(u.callback_query, onMessage).catch((e) => console.error('[telegram] bouton :', (e as Error).message)); continue; }
           const m = u.message as TgMessage | undefined;
           if (!m) continue;
           // Pas d'await : chaque conversation a sa propre file dans la passerelle.
@@ -169,6 +171,16 @@ export class TelegramChannel implements Channel {
         backoff = Math.min(backoff * 2, 60_000);
       }
     }
+  }
+
+  /** Bouton Oui / Non / Toujours touché : on répond à la demande comme « /yes id ». */
+  private async onButton(q: TgCallback, onMessage: (m: Inbound) => Promise<void>): Promise<void> {
+    const m = /^ok:(yes|no|always):(\S+)$/.exec(q.data ?? '');
+    await this.call('answerCallbackQuery', { callback_query_id: q.id, text: m ? (m[1] === 'no' ? 'Refusé' : 'Autorisé') : '' }).catch(() => undefined);
+    if (!m || !q.message) return;
+    const label = m[1] === 'no' ? '❌ Refusé' : m[1] === 'always' ? '✅ Autorisé (et pour la suite)' : '✅ Autorisé';
+    await this.call('editMessageReplyMarkup', { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: label, callback_data: 'ok:done' }]] } }).catch(() => undefined);
+    await onMessage({ channel: this.name, peer: String(q.from?.id ?? q.message.chat.id), name: q.from?.first_name ?? 'propriétaire', text: `/${m[1]} ${m[2]}` });
   }
 
   private async call(method: string, body: unknown): Promise<{ ok: boolean; result?: unknown; description?: string }> {
@@ -230,13 +242,20 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string; final?: boolean } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean } } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
     if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
     if (mood && !Object.keys(this.faces).length && Date.now() > this.facesOff) {
       this.facesPending ??= this.ensureFaces(this.opts.owner ?? peer).catch((e) => { console.error('[telegram]', (e as Error).message); this.facesOff = Date.now() + 6 * 3600_000; }).finally(() => { this.facesPending = undefined; });
       await this.facesPending;
+    }
+    // Demande de validation : boutons Oui / Non (et « Toujours ») sous le message, sans rien taper.
+    if (opts.approval) {
+      const id = opts.approval.id, body = text.replace(/\s*Réf\. \/yes \S+/, '').replace(/^Réponds oui ou non/m, 'Touche un bouton, ou réponds oui ou non');
+      const kb = [[{ text: '✅ Oui', callback_data: `ok:yes:${id}` }, { text: '❌ Non', callback_data: `ok:no:${id}` }], ...(opts.approval.grantable ? [[{ text: 'Toujours autoriser', callback_data: `ok:always:${id}` }]] : [])];
+      const r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(body), parse_mode: 'HTML', reply_markup: { inline_keyboard: kb } }).catch(() => ({ ok: false }));
+      if (r.ok) return;
     }
     const parts = chunk(text);
     for (const [k, part] of parts.entries()) {

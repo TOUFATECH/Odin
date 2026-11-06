@@ -681,6 +681,10 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
 .hct .hico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;color:var(--accent);vertical-align:-3px}
 .msg.assistant .who{letter-spacing:0;font-family:var(--display);font-size:14px}
 @media (max-width:600px){.kpis{grid-template-columns:1fr 1fr}.kpis .kpi:last-child:nth-child(odd){grid-column:1/-1}}
+.tip-acts{flex-wrap:wrap!important;max-width:100%}.tip .tbtn{white-space:normal;max-width:100%;text-align:center;line-height:1.25;padding:3px 9px}
+.msgs{padding-bottom:calc(96px + var(--tip-h,0px))}
+.tip{background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.35);border-color:color-mix(in srgb,var(--odin-tint,var(--accent)) 45%,var(--field))}
+.touring .chat-buddy{visibility:hidden}
 </style>
 </head>
 <body>
@@ -1039,12 +1043,12 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
             <details class="field" id="v-piperHelp"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Installer Piper sur cette machine (2 minutes)</summary>
               <div class="sub" style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
                 <span>1. <code>pip install piper-tts</code> (ou <code>pipx install piper-tts</code>).</span>
-                <span>2. Lance le serveur avec une voix française : <code>python3 -m piper.http_server --model fr_FR-siwis-medium --port 5000</code> — la voix se télécharge toute seule la première fois. Autres voix : <code>fr_FR-upmc-medium</code>, <code>fr_FR-tom-medium</code>, <code>en_US-lessac-medium</code>.</span>
+                <span>2. Lance le serveur avec une voix française : <code>python3 -m piper.http_server --model fr_FR-tom-medium --port 5000</code> — la voix se télécharge toute seule la première fois. Autres voix : <code>fr_FR-upmc-medium</code>, <code>fr_FR-tom-medium</code>, <code>en_US-lessac-medium</code>.</span>
                 <span>3. Laisse l'adresse <code>http://localhost:5000</code>, clique « Écouter un essai ». Pour qu'il démarre avec la machine, demande à Odin : « installe Piper comme service au démarrage ».</span>
               </div>
             </details>
             <div class="field" id="v-elevenBox"><label for="v-eleven">Clé ElevenLabs</label><input id="v-eleven" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="v-elevenHint"></span></div>
-            <div class="field" id="v-nameBox"><label for="v-voiceName">Voix (nom)</label><input id="v-voiceName" autocomplete="off" spellcheck="false" placeholder="alloy"><span class="hint">OpenAI : alloy, nova, onyx, shimmer… Piper : vide (voix du serveur) ou le nom du modèle si le serveur en sert plusieurs.</span></div>
+            <div class="field" id="v-nameBox"><label for="v-voiceName">Voix (nom)</label><input id="v-voiceName" autocomplete="off" spellcheck="false" placeholder="onyx"><span class="hint">OpenAI : onyx (homme, grave), ash, echo, alloy… Piper : vide (voix du serveur) ou le nom du modèle si le serveur en sert plusieurs.</span></div>
             <div class="field" id="v-voiceBox"><label for="v-voice">Voix d'Odin</label>
               <div style="display:flex;gap:8px;flex-wrap:wrap"><select id="v-voice" style="flex:1 1 220px"><option value="">— choisis une voix —</option></select><button class="btn small" type="button" id="v-load">Charger mes voix</button><button class="btn small" type="button" id="v-try">Écouter un essai</button></div>
               <span class="hint" id="v-voiceHint"></span></div>
@@ -1277,6 +1281,17 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   { let s = 'modele'; try { s = localStorage.getItem('odin.sec') || 'modele'; } catch {} openSettings(document.querySelector('.schip[data-sec="' + s + '"]') ? s : 'modele'); }
   window.openSettings = (sec) => { show('settings'); openSettings(sec); };
 
+
+  // Chaque mascotte a ses propres dégradés : sinon le navigateur prend ceux d'une mascotte cachée
+  // et le corps disparaît (on ne voit plus que les yeux).
+  let svgSeq = 0;
+  function uniqueSvgIds(svg) {
+    const k = `-${++svgSeq}`, map = {};
+    svg.querySelectorAll('[id]').forEach((n) => { if (/-\d+$/.test(n.id) && n.dataset.u) return; map[n.id] = n.id + k; n.id = n.id + k; n.dataset.u = '1'; });
+    svg.querySelectorAll('*').forEach((n) => { for (const a of ['fill', 'filter', 'stroke', 'clip-path', 'mask']) { const v = n.getAttribute(a); const m = v && /^url\(#([^)]+)\)$/.exec(v); if (m && map[m[1]]) n.setAttribute(a, `url(#${map[m[1]]})`); } });
+    return svg;
+  }
+  document.querySelectorAll('.odin svg').forEach(uniqueSvgIds);
   // ---------- Discussion ----------
   const msgs = $('#msgs');
   let activity = null;
@@ -1366,7 +1381,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   }
   function addApproval(text, id) {
     const grave = /GRAVE/.test(text), always = /\/always [A-Za-z0-9]+/.test(text);
-    const body = text.split('\n').filter((l) => !/^Réponds \//.test(l) && !/^(⚠️|🛑)/.test(l)).join('\n').trim();
+    const body = text.split('\n').filter((l) => !/^Réponds /.test(l) && !/^(⚠️|🛑)/.test(l)).join('\n').trim();
     const box = el('div', { class: 'approval' + (grave ? ' grave' : '') + (answered.has(id) ? ' done' : '') },
       el('div', { class: 't' }, grave ? 'Décision grave : Odin a besoin de toi' : 'Validation demandée'), el('div', { style: 'white-space:pre-wrap' }, body));
     const row = el('div', { class: 'row' },
@@ -2461,20 +2476,43 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   // ---------- Présentation guidée (première connexion) ----------
   // Odin se déplace dans l'application et présente chaque partie, en texte et à voix haute.
   // On peut la refuser, l'arrêter à tout moment, et la revoir dans Réglages → Plus.
+  const S = (sec) => `#v-settings article[data-sec="${sec}"]`;
   const TOUR = [
-    { v: 'home', q: '#homeGrid .kpis', t: 'Bienvenue ! Je suis Odin. Ici, l\'Accueil : en un coup d\'œil, tes appareils, mes missions en cours, les risques repérés et ce que j\'ai dépensé. Touche un chiffre pour aller au détail.' },
-    { v: 'home', q: '#homeGrid .hcols .hpanel', t: '« À faire maintenant » : ce qui t\'attend vraiment — validations, alertes, réglages que je te propose. Si c\'est vide, tout va bien.' },
+    // — Utilisation —
+    { v: 'home', q: '#homeGrid .kpis', t: 'Bienvenue ! Je suis Odin, ton assistant pour ta maison, ton réseau et tes machines. Je vais te montrer toute l\'application : d\'abord comment t\'en servir, puis comment me configurer. Ici, l\'Accueil : tes appareils, mes missions, les risques et ce que j\'ai dépensé. Touche un chiffre pour voir le détail.' },
+    { v: 'home', q: '#homeGrid .hcols .hpanel', t: '« À faire maintenant » : ce qui t\'attend vraiment — validations, alertes, réglages que je te propose selon ce que je vois chez toi.' },
     { v: 'home', q: '#homeGrid .hcols .hpanel:last-child', t: '« Ce que j\'ai fait » : tout ce que j\'ai fait, à ta demande ou de moi-même, avec l\'heure.' },
-    { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion. Écris-moi, parle-moi au micro, ou joins des fichiers : photos, vidéos, sons, PDF, Word, Excel. Tu peux aussi les glisser ici.' },
+    { v: 'home', q: '#homeGrid .hgrid2', t: 'En bas, l\'état de tes disques, de la sauvegarde, ton résumé du matin et l\'installation de l\'application sur ton téléphone.' },
+    { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion : c\'est ici que tu me parles. Écris ce que tu veux, comme à une personne : « mets à jour mes serveurs », « qui est connecté au wifi ? », « résume ce PDF ».' },
+    { v: 'chat', q: '#camBtn', t: 'Le trombone : joins-moi des photos, vidéos, sons, PDF, Word, Excel. Tu peux aussi les glisser dans la discussion ou les coller.' },
+    { v: 'chat', q: '#micBtn', t: 'Le micro : parle-moi au lieu d\'écrire. Il faut d\'abord régler la voix dans les Réglages.' },
+    { v: 'chat', q: '#speakBtn', t: '« Voix » : je te lis mes réponses à voix haute. « Mains libres » : dis « Odin… » et je t\'écoute, sans toucher l\'écran.' },
     { v: 'chat', q: '#dryBtn', t: 'Le mode Essai : je prépare et j\'explique tout, sans rien changer. Parfait pour voir avant d\'agir.' },
-    { v: 'chat', q: '#convsBtn', t: 'Ton historique de conversations, rangé par jour. Tu peux épingler, renommer ou exporter une conversation.' },
-    { v: 'missions', q: '#v-missions .head', t: 'Les Missions : ce que je fais en ce moment, étape par étape, combien ça coûte, et l\'historique.' },
-    { v: 'net', q: '#v-net .ntabs', t: 'Le Réseau : tous tes appareils, une carte par sous-réseau, la sécurité. Touche un appareil pour sa fiche : ports ouverts, liens, ce que je peux faire avec, et le bloquer sur ta box si besoin.' },
-    { v: 'memory', q: '#v-memory .head', t: 'Ma mémoire. Je la range moi-même chaque nuit : j\'améliore, je fusionne, j\'oublie le périmé. Épingle ce qui compte, corrige-moi ou fais-moi oublier.' },
-    { v: 'skills', q: '#v-skills .head', t: 'Mes compétences et mes scripts : j\'apprends de chaque mission et je m\'améliore.' },
-    { v: 'settings', q: '#snav', t: 'Les Réglages. Les rubriques que tu utilises le plus se placent en premier. Commence par le Modèle, puis Telegram pour me parler depuis ton téléphone.' },
-    { v: 'settings', sec: 'autonomie', q: '#snav .schip[data-sec="autonomie"]', t: 'Mon autonomie : de Prudent, où je te demande tout, jusqu\'à Odin Breaker, où j\'agis seul et je te rends compte le soir.' },
-    { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Tu peux revoir cette présentation dans Réglages → Plus. Dis-moi ce que tu veux faire.' },
+    { v: 'chat', q: '#convsBtn', t: 'L\'historique de tes conversations, rangé par jour. « Nouvelle » ouvre une conversation propre.' },
+    { v: 'chat', q: '#msgs', t: 'Quand une action le demande, je te pose la question ici : réponds simplement oui ou non. Sur Telegram, des boutons Oui et Non apparaissent sous ma demande.' },
+    { v: 'missions', q: '#v-missions .head', t: 'Les Missions : ce que je fais en ce moment, étape par étape, combien ça coûte. Tu peux arrêter ou reprendre une mission.' },
+    { v: 'net', nt: 'list', q: '#v-net .ntabs', t: 'Le Réseau : tous les appareils de chez toi, trouvés tout seuls. Je te préviens quand un nouvel appareil arrive ou qu\'une adresse MAC est suspecte.' },
+    { v: 'net', nt: 'map', q: '#v-net .ntabs [data-nt="map"]', t: 'La carte : une par sous-réseau. Touche un appareil pour sa fiche : ports ouverts, liens, ce que je peux faire avec, et le bouton pour le bloquer sur ta box.' },
+    { v: 'net', nt: 'sec', q: '#v-net .ntabs [data-nt="sec"]', t: 'Sécurité : les risques que je repère sur tes appareils, avec le conseil pour les corriger.' },
+    { v: 'memory', q: '#v-memory .head', t: 'Ma mémoire : ce que je sais de toi et de chez toi. Je la range chaque nuit. Épingle ce qui compte, corrige-moi ou fais-moi oublier.' },
+    { v: 'skills', q: '#v-skills .head', t: 'Mes compétences et mes scripts : j\'apprends de chaque mission et je m\'améliore. Tu relis et approuves ce que je propose.' },
+    { v: 'jobs', q: '#v-jobs .head', t: 'Les Tâches planifiées : ce que je fais tout seul à heure fixe, comme un résumé chaque matin ou une ronde du réseau la nuit. Demande-moi simplement « chaque lundi à 8 h… ».' },
+    { v: 'audit', q: '#v-audit .head', t: 'Les Décisions : tout ce que j\'ai fait ou refusé, jour par jour. Rien n\'est caché.' },
+    // — Configuration —
+    { v: 'settings', q: '#snav', t: 'Passons à la configuration. Les Réglages sont rangés par rubrique ; celles que tu utilises le plus passent en premier. « Tous les réglages » les montre toutes.' },
+    { v: 'settings', sec: 'modele', q: S('modele'), t: 'Le Modèle : c\'est mon cerveau. Choisis-le en premier (OpenAI, Anthropic, un modèle local…), avec son budget. Sans lui, je ne peux rien faire.' },
+    { v: 'settings', sec: 'telegram', q: S('telegram'), t: 'Telegram : pour me parler depuis ton téléphone, partout. Crée un bot avec BotFather, colle son jeton ici, puis envoie-moi un message.' },
+    { v: 'settings', sec: 'voix', q: S('voix'), t: 'La Voix : pour me parler et m\'entendre. Whisper comprend ce que tu dis ; pour ma voix, ElevenLabs, OpenAI ou Piper, sur ta machine et gratuit.' },
+    { v: 'settings', sec: 'autonomie', q: S('autonomie'), t: 'Mon autonomie : de Prudent, où je te demande tout, jusqu\'à Odin Breaker, où j\'agis seul et je te rends compte le soir. Tu peux le limiter à la nuit.' },
+    { v: 'settings', sec: 'droits', q: S('droits'), t: 'Droits et machines : donne-moi les accès à tes machines (et à ta box) pour que je puisse les mettre à jour, les réparer ou bloquer un appareil.' },
+    { v: 'settings', sec: 'reseau', q: S('reseau'), t: 'Réseau local : active le balayage automatique pour que je surveille tes appareils en continu.' },
+    { v: 'settings', sec: 'surveillance', q: S('surveillance'), t: 'Surveillance : les appareils et services importants que je vérifie toutes les cinq minutes, et l\'espace des disques.' },
+    { v: 'settings', sec: 'recherche', q: S('recherche'), t: 'Recherche : je cherche déjà sur le web sans clé ; une clé Brave ou Tavily rend mes recherches plus fiables.' },
+    { v: 'settings', sec: 'sauvegarde', q: S('sauvegarde'), t: 'Sauvegarde : une copie chiffrée de ma mémoire et de mes réglages chaque nuit. Active-la, c\'est rassurant.' },
+    { v: 'settings', sec: 'ecriture', q: S('ecriture'), t: 'Écriture : je corrige tes fautes, je te donne des conseils, et je me promène dans la discussion. Tout se règle ici.' },
+    { v: 'settings', sec: 'personnes', q: S('personnes'), t: 'Personnes : ajoute ta famille ou tes collègues, avec ce qu\'ils ont le droit de me demander.' },
+    { v: 'settings', sec: 'plus', q: S('plus'), t: 'Plus : les autres fonctions (Proxmox, maison connectée, mail, agenda, documents, accès depuis l\'extérieur) apparaissent quand ton usage s\'y prête. Tu peux les ajouter ici, et revoir cette présentation.' },
+    { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Commence par choisir mon modèle, puis dis-moi ce que tu veux faire. Je suis là.' },
   ];
   let tourI = -1, tourVoice = true, tourAudio = null, tourBud = null, tourBox = null, tourRing = null;
   function tourSpeak(text) {
@@ -2488,17 +2526,28 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     }).catch(() => browserSpeak(text));
     else browserSpeak(text);
   }
-  function browserSpeak(text) { try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = speechSynthesis.getVoices().find((x) => /^fr/i.test(x.lang)); if (v) u.voice = v; u.rate = 1.03; tourBud?.classList.add('talking'); u.onend = () => tourBud?.classList.remove('talking'); speechSynthesis.speak(u); } catch { /* pas de voix */ } }
+  // Voix du navigateur : une voix d'homme naturelle en français (les voix « Natural / Online » d'Edge sont
+  // les plus humaines), jamais la voix robotique par défaut si on a mieux.
+  const MALE_FR = /henri|paul|thomas|claude|antoine|r[ée]my|j[ée]r[ôo]me|denis|mathieu|nicolas|guillaume|yves|alain|fabrice|gilles|olivier|jean|daniel|male|homme/i;
+  function frenchVoice() {
+    const vs = speechSynthesis.getVoices().filter((x) => /^fr/i.test(x.lang));
+    const score = (v) => (MALE_FR.test(v.name) ? 4 : 0) + (/natural|online|neural|premium|enhanced/i.test(v.name) ? 3 : 0) + (/fr-FR/i.test(v.lang) ? 1 : 0) - (/female|femme|amelie|am[ée]lie|audrey|aur[ée]lie|julie|marie|virginie|hortense|denise|eloise|celine|c[ée]line|chantal|google/i.test(v.name) ? 3 : 0);
+    return vs.sort((a, b) => score(b) - score(a))[0];
+  }
+  try { speechSynthesis.getVoices(); speechSynthesis.addEventListener?.('voiceschanged', () => {}); } catch {}
+  function browserSpeak(text) { try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; u.rate = 0.98; u.pitch = v && MALE_FR.test(v.name) ? 1 : 0.85; tourBud?.classList.add('talking'); u.onend = () => tourBud?.classList.remove('talking'); speechSynthesis.speak(u); } catch { /* pas de voix */ } }
   function tourEnd(done = true) {
     tourI = -1; try { tourAudio?.pause(); speechSynthesis?.cancel(); } catch {}
     tourBud?.remove(); tourBox?.remove(); tourRing?.remove(); tourBud = tourBox = tourRing = null;
     document.body.classList.remove('touring');
+    // La visite ne compte pas comme une utilisation des réglages (ordre des rubriques inchangé).
+    if (tourSecUse) { try { tourSecUse[0] == null ? localStorage.removeItem('odin.secUse') : localStorage.setItem('odin.secUse', tourSecUse[0]); if (tourSecUse[1] != null) localStorage.setItem('odin.sec', tourSecUse[1]); } catch {} tourSecUse = null; }
     if (done) { try { localStorage.setItem('odin.tour', 'done'); } catch {} api('/api/action', { kind: 'tour_done' }).catch(() => {}); }
   }
   async function tourGo(i) {
     if (i < 0 || i >= TOUR.length) return tourEnd(true);
     tourI = i; const s = TOUR[i];
-    show(s.v); if (s.sec) openSettings(s.sec);
+    show(s.v); if (s.sec) openSettings(s.sec); if (s.nt && typeof netTab === 'function') netTab(s.nt);
     await new Promise((r) => setTimeout(r, 450));
     const target = document.querySelector(s.q) || document.querySelector(`#v-${s.v} .head`);
     target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -2510,6 +2559,8 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     const bw = 76, gap = 14, narrow = innerWidth < 700;
     let bx = r.right + gap, by = r.top + Math.min(r.height / 2, 60) - bw / 2;
     if (bx + bw + 300 > innerWidth || narrow) { bx = Math.max(10, Math.min(innerWidth - bw - 10, r.left + r.width / 2 - bw / 2)); by = r.bottom + gap; if (by + bw + 170 > innerHeight) by = Math.max(10, r.top - bw - gap - 150); }
+    // Grande zone (une rubrique entière) : il se pose dans son coin haut droit, la bulle à sa gauche.
+    if (r.height > innerHeight * 0.45 && !narrow) { bx = Math.min(r.right, innerWidth) - bw - 16; by = Math.max(r.top, 10) + 12; }
     by = Math.max(10, Math.min(innerHeight - bw - 10, by));
     tourBud.style.left = bx + 'px'; tourBud.style.top = by + 'px';
     tourBud.classList.remove('hop'); void tourBud.offsetWidth; tourBud.classList.add('hop');
@@ -2531,10 +2582,12 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     Object.assign(tourBox.style, { left: tx + 'px', top: ty + 'px', width: tw + 'px' });
     tourSpeak(s.t);
   }
+  let tourSecUse = null;
   function tourStart(voice = true) {
     tourEnd(false); tourVoice = voice;
+    try { tourSecUse = [localStorage.getItem('odin.secUse'), localStorage.getItem('odin.sec')]; } catch {}
     const src = $('#buddyChat svg');
-    tourBud = el('span', { class: 'odin tour-bud', 'aria-hidden': 'true' }); if (src) tourBud.append(src.cloneNode(true));
+    tourBud = el('span', { class: 'odin tour-bud', 'aria-hidden': 'true' }); if (src) { const c = src.cloneNode(true); c.querySelectorAll('[data-u]').forEach((n) => { n.id = n.id.replace(/-\d+$/, ''); delete n.dataset.u; }); c.querySelectorAll('*').forEach((n) => { for (const a of ['fill', 'filter']) { const v = n.getAttribute(a); if (v) n.setAttribute(a, v.replace(/-\d+\)$/, ')')); } }); tourBud.append(uniqueSvgIds(c)); }
     tourRing = el('div', { class: 'tour-ring' });
     tourBox = el('div', { class: 'tour-box', role: 'dialog', 'aria-label': 'Présentation d\'Odin' });
     tourBud.style.left = innerWidth - 120 + 'px'; tourBud.style.top = innerHeight - 160 + 'px';
@@ -2548,7 +2601,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     let seen = ''; try { seen = localStorage.getItem('odin.tour') || ''; } catch {}
     if (seen || state?.tourDone || tourOffer.done) return; tourOffer.done = true;
     show('chat');
-    setTimeout(() => say('Bonjour ! Je suis Odin. Je te fais visiter l\'application ? Deux minutes, en texte et à voix haute.', [
+    setTimeout(() => say('Bonjour ! Je suis Odin. Je te présente l\'application : comment t\'en servir et comment me configurer ? Environ cinq minutes, en texte et à voix haute.', [
       { label: '▶ Oui, avec la voix', primary: true, run: () => tourStart(true) },
       { label: 'Oui, sans la voix', run: () => tourStart(false) },
       { label: 'Non merci', run: () => { tourEnd(true); say('D\'accord. Tu pourras la revoir dans Réglages → Plus.', [], 4000); } },
@@ -2591,11 +2644,14 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     }
     drawCloud();
   }
-  // Le nuage suit sa taille (texte qui s'écrit, boutons) et Odin quand il bouge.
-  new ResizeObserver(() => placeTip()).observe(tip);
+  // Le nuage suit sa taille (texte qui s'écrit, boutons) et Odin quand il bouge ; la discussion lui laisse la place en bas.
+  const reserveTip = () => { const h = tip.hidden ? 0 : tip.offsetHeight + 16; thread?.style.setProperty('--tip-h', h + 'px'); if (h) { const near = msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 200; if (near) msgs.scrollTop = msgs.scrollHeight; } };
+  new ResizeObserver(() => { placeTip(); reserveTip(); }).observe(tip);
+  new MutationObserver(reserveTip).observe(tip, { attributes: true, attributeFilter: ['hidden'] });
   let typeT = 0;
   function say(text, actions = [], ms = 0, opts = {}) {
     clearInterval(typeT); clearTimeout(tipTimer); clearTimeout(hideT);
+    window.OdinBuddy?.goHome(); // il parle depuis sa place, pas au milieu des messages
     const tt = $('#tipText'), box = $('#tipActs');
     box.replaceChildren(...actions.map((a) => el('button', { type: 'button', class: 'tbtn' + (a.primary ? ' primary' : ''), title: a.hint || false, onclick: () => { hideTip(); a.run(); } }, a.label)));
     box.classList.toggle('list', Boolean(opts.list));
@@ -2717,7 +2773,8 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   function goTo(cx, cy, how = 'walk') {
     if (!thread || drag) return;
     const tr = thread.getBoundingClientRect(), h = homeRect();
-    const tx = Math.max(tr.left + 8, Math.min(tr.right - h.w - 8, cx - h.w / 2)), ty = Math.max(tr.top + 70, Math.min(tr.bottom - h.h - 8, cy - h.h / 2));
+    const L = Math.max(tr.left, 0) + 8, R = Math.min(tr.right, innerWidth) - h.w - 8, T = Math.max(tr.top, 0) + 70, Bm = Math.min(tr.bottom, innerHeight) - h.h - 8;
+    const tx = Math.max(L, Math.min(R, cx - h.w / 2)), ty = Math.max(T, Math.min(Bm, cy - h.h / 2));
     bud.classList.remove('walk', 'hopto'); if (!reduceMove.matches) bud.classList.add(how);
     bud.style.setProperty('--rx', Math.round(tx - h.x) + 'px'); bud.style.setProperty('--ry', Math.round(ty - h.y) + 'px');
     away = true; clearTimeout(moveT); moveT = setTimeout(() => bud.classList.remove('walk', 'hopto'), how === 'walk' ? 1150 : 800);
@@ -2730,6 +2787,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   // Quand tu écris : il s'approche de la barre et suit le texte des yeux.
   let gazeT = 0;
   $('#input').addEventListener('input', () => {
+    if (!tip.hidden && !tipFor) hideTip(); // tu écris : il range sa bulle
     if (!ASSIST().roam || drag || busy) return;
     const c = $('.cbox').getBoundingClientRect(), i = $('#input'), len = i.value.length;
     const caretX = c.left + 50 + Math.min(c.width - 140, len * 8.2 % (c.width - 140));
@@ -2764,6 +2822,13 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     }, 800);
   }
   window.OdinBuddy = { goTo, goHome, act, lookAt, onReply };
+  // Il reste toujours visible : s'il sort de l'écran (fenêtre réduite, clavier du téléphone…), il revient.
+  setInterval(() => {
+    if (!$('#v-chat').classList.contains('on') || drag) return;
+    const r = bud.getBoundingClientRect(), tr = thread.getBoundingClientRect();
+    const out = r.width && (r.right < Math.max(tr.left, 0) + 20 || r.left > Math.min(tr.right, innerWidth) - 20 || r.bottom < Math.max(tr.top, 0) + 20 || r.top > Math.min(tr.bottom, innerHeight) - 20);
+    if (out) { away = true; goHome(); if (bud.getBoundingClientRect().top > innerHeight - 20) { pos = { x: 0, y: 0 }; applyPos(); try { localStorage.removeItem('odin.budpos'); } catch {} } }
+  }, 1500);
   // Il se promène quand il s'ennuie (partout dans la discussion, puis revient), et donne parfois un conseil spontané.
   let idleSince = Date.now();
   for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { idleSince = Date.now(); }, { passive: true });

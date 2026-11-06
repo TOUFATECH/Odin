@@ -36,7 +36,7 @@ export function ttsIsLocal(v: VoiceConfig): boolean { return v.tts.provider !== 
 export const TTS_DEFAULTS: Record<VoiceConfig['tts']['provider'], { baseUrl: string; model: string; voiceId: string; apiKeyEnv: string }> = {
   elevenlabs: { baseUrl: 'https://api.elevenlabs.io', model: 'eleven_multilingual_v2', voiceId: '', apiKeyEnv: 'ELEVENLABS_API_KEY' },
   piper: { baseUrl: 'http://localhost:5000', model: '', voiceId: '', apiKeyEnv: '' },
-  openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini-tts', voiceId: 'alloy', apiKeyEnv: 'OPENAI_API_KEY' },
+  openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini-tts', voiceId: 'onyx', apiKeyEnv: 'OPENAI_API_KEY' },
 };
 
 async function failIfBad(res: Response, what: string): Promise<void> {
@@ -76,7 +76,7 @@ export async function speakAudio(text: string, v: VoiceConfig, format: AudioForm
   const base = v.tts.baseUrl.replace(/\/$/, '');
   const sig = signal ?? AbortSignal.timeout(90_000);
   if (v.tts.provider === 'piper') {
-    // Serveur HTTP de Piper (python3 -m piper.http_server --model fr_FR-siwis-medium) : renvoie du WAV.
+    // Serveur HTTP de Piper (python3 -m piper.http_server --model fr_FR-tom-medium) : renvoie du WAV.
     const body: Record<string, unknown> = { text: clean };
     if (v.tts.voiceId) body.voice = v.tts.voiceId;
     let res = await fetch(`${base}/`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'audio/wav' }, body: JSON.stringify(body), signal: sig });
@@ -90,7 +90,7 @@ export async function speakAudio(text: string, v: VoiceConfig, format: AudioForm
     const fmt = format === 'opus_48000_64' ? 'opus' : 'mp3';
     const res = await fetch(`${base}/audio/speech`, {
       method: 'POST', headers: { ...(k ? { authorization: `Bearer ${k}` } : {}), 'content-type': 'application/json' },
-      body: JSON.stringify({ model: v.tts.model || 'tts-1', input: clean, voice: v.tts.voiceId || 'alloy', response_format: fmt }), signal: sig,
+      body: JSON.stringify({ model: v.tts.model || 'tts-1', input: clean, voice: v.tts.voiceId || 'onyx', response_format: fmt }), signal: sig,
     });
     await failIfBad(res, 'Synthèse vocale impossible');
     return { data: new Uint8Array(await res.arrayBuffer()), mime: fmt === 'opus' ? 'audio/ogg' : 'audio/mpeg' };
