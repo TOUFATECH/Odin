@@ -164,3 +164,16 @@ test('mot de passe dans la discussion : retiré avant le modèle, gardé une heu
   assert.equal(takeSecret(o.paths.home), 'S3cret-Pve!');
   o.cleanup();
 });
+
+import { deniedOutput } from '../src/machines/access.ts';
+import { isLocalAdminLabel, adminEnable } from '../src/tools/onboard.ts';
+test('droits administrateur sur son propre poste', async () => {
+  assert.ok(deniedOutput('E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)'));
+  assert.ok(deniedOutput('touch: impossible de faire un touch \'/etc/x\': Permission non accordée'));
+  assert.ok(!deniedOutput('ok, tout va bien'));
+  assert.ok(isLocalAdminLabel('mot de passe admin de ce poste'));
+  assert.ok(isLocalAdminLabel('mdp de ma session'));
+  assert.ok(!isLocalAdminLabel('mot de passe root du 192.168.1.102'));
+  assert.ok(!isLocalAdminLabel('mot de passe du proxmox'));
+  if (process.getuid?.() === 0) assert.match(String(await adminEnable.run({}, { home: '/tmp', redactor: { redact: (x: string) => x, add() {} } } as never)), /déjà administrateur/);
+});

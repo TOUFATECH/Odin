@@ -17,6 +17,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { readSecretFile, writeSecretFile } from '../vault.ts';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { userInfo } from 'node:os';
 
 // ---------------- Mot de passe transmis sans terminal (askpass) ----------------
 
@@ -85,13 +86,34 @@ export function withAdmin(command: string, home: string, env = process.env): { c
 /** Ligne sudoers qui dispense Odin de mot de passe (à installer avec les droits administrateur). */
 export const sudoersLine = (user: string) => `${user} ALL=(ALL:ALL) NOPASSWD: ALL\n`;
 
+/**
+ * Rend Odin administrateur durablement : règle sudoers « sans mot de passe » vérifiée par visudo
+ * (une erreur ne casse jamais sudo). Avec le mot de passe donné (sudo -A), ou sudo -n s'il est déjà permis.
+ */
+export function installNopasswd(home: string, password?: string, user = userInfo().username): { ok: boolean; message: string } {
+  if (process.platform === 'win32') return { ok: false, message: 'Windows : lance Odin dans une session administrateur.' };
+  if (isRoot()) return { ok: true, message: 'Odin tourne déjà en administrateur (root).' };
+  if (!hasSudo()) return { ok: false, message: 'sudo est introuvable sur cette machine.' };
+  if (!/^[a-z_][a-z0-9_.-]*\$?$/i.test(user)) return { ok: false, message: `nom d'utilisateur inattendu : ${user}` };
+  const line = sudoersLine(user).trim();
+  const script = `t=$(mktemp) && printf '%s\\n' '${line}' > "$t" && visudo -cf "$t" >/dev/null && install -m 0440 "$t" /etc/sudoers.d/odin; s=$?; rm -f "$t"; exit $s`;
+  const r = password
+    ? spawnSync('sudo', ['-A', 'sh', '-c', script], { env: { ...process.env, SUDO_ASKPASS: askpassScript(home), ODIN_ASKPASS_SECRET: password }, encoding: 'utf8', timeout: 30_000 })
+    : spawnSync('sudo', ['-n', 'sh', '-c', script], { encoding: 'utf8', timeout: 30_000 });
+  rightsCache = undefined;
+  return r.status === 0 ? { ok: true, message: 'Odin est administrateur de cette machine (sudo sans mot de passe, règle /etc/sudoers.d/odin).' } : { ok: false, message: (r.stderr || 'règle non installée').trim().split('\n').at(-1) ?? 'échec' };
+}
+
+/** La commande a-t-elle échoué faute de droits ? (on la relance alors avec sudo) */
+export const deniedOutput = (out: string) => /permission denied|permission non accordée|operation not permitted|opération non permise|must be root|must be run as root|are you root|êtes-vous root|requires root|need to be root|superuser|EACCES|could not open lock file|unable to lock|access denied|accès refusé/i.test(out);
+
 /** Résumé des droits pour le prompt (gardé une minute). */
 export function rightsSummary(home: string, env = process.env): string {
   if (rightsCache && rightsCache.home === home && Date.now() - rightsCache.at < 60_000) return rightsCache.text;
   const mode = adminMode(home, env);
-  const local = { root: 'tu es administrateur (root) sur cette machine', nopasswd: 'tu as les droits administrateur sur cette machine (sudo sans mot de passe)', password: 'tu as les droits administrateur sur cette machine : « sudo » reçoit le mot de passe tout seul', none: 'sudo demande un mot de passe que tu n\'as pas encore : le propriétaire peut te le donner dans Réglages → Droits et machines', absent: process.platform === 'win32' ? 'Windows : pas de sudo' : 'sudo est absent de cette machine' }[mode];
+  const local = { root: 'tu es administrateur (root) sur cette machine', nopasswd: 'tu as les droits administrateur sur cette machine (sudo sans mot de passe)', password: 'tu as les droits administrateur sur cette machine : « sudo » reçoit le mot de passe tout seul', none: 'tu n\'es PAS encore administrateur ici, mais le propriétaire veut que tu le sois. Ne réponds jamais seulement « je n\'ai pas les droits » : demande-lui UNE fois le mot de passe de sa session (« le mot de passe admin de ce poste est … »), puis appelle admin_enable — tu deviens administrateur pour de bon', absent: process.platform === 'win32' ? 'Windows : pas de sudo' : 'sudo est absent de cette machine' }[mode];
   const ms = listMachines(home);
-  const text = `## Droits\n- Machine locale : ${local}.\n- Machines du réseau accessibles (outil machine_exec, machine_copy) : ${ms.length ? ms.map((m) => `${m.label} (${m.user}@${m.host})`).join(', ') : 'aucune pour l\'instant (le propriétaire les ajoute avec leurs mots de passe dans Réglages → Droits et machines)'}.\n- Fichiers : tout le disque (chemin absolu ou ~/… dans fs_read, fs_list, fs_write, fs_edit ; « cwd » pour shell et python). Python 3 est disponible (outil python).
+  const text = `## Droits\n- Machine locale : ${local}.${mode === 'root' || mode === 'nopasswd' || mode === 'password' ? ' Sers-toi de sudo sans demander la permission au propriétaire (Heimdall reste juge) ; si une commande est refusée faute de droits, elle est relancée avec sudo toute seule.' : ''}\n- Machines du réseau accessibles (outil machine_exec, machine_copy) : ${ms.length ? ms.map((m) => `${m.label} (${m.user}@${m.host})`).join(', ') : 'aucune pour l\'instant (le propriétaire les ajoute avec leurs mots de passe dans Réglages → Droits et machines)'}.\n- Fichiers : tout le disque (chemin absolu ou ~/… dans fs_read, fs_list, fs_write, fs_edit ; « cwd » pour shell et python). Python 3 est disponible (outil python).
 - Quand on te demande ce qu'est un appareil ou son nom : net_identify d'abord, puis réponds précisément (nom, type, IP, à quoi il sert). Jamais de réponse vague : si aucun nom n'est trouvé, dis-le et propose de le renommer.
 - Avant un changement risqué sur une machine : change_plan (impact, retour arrière, vérifications), puis suis-le.
 - Ton propre code : tu peux te mettre à jour (self_update) et t'améliorer toi-même (self_info, self_read, self_edit, self_check, self_restart, self_rollback). Toujours : lire le code, modifier, self_check, puis prévenir l'utilisateur et self_restart.

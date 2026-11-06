@@ -200,11 +200,22 @@ EOF
 fi
 
 # ---------- Droits administrateur ----------
-# Odin peut tout faire sur sa machine s'il a les droits administrateur. En root (conteneur LXC…), rien à faire.
-if [ "$(id -u)" != "0" ] && command -v sudo >/dev/null && [ -r /dev/tty ] && [ "${ODIN_YES:-}" != "1" ]; then
-  if ask "Donner à Odin les droits administrateur sur cette machine (sudo sans mot de passe) ?" o; then
-    "$BIN_DIR/odin" admin nopasswd < /dev/tty || echo "  (plus tard : odin admin nopasswd, ou odin admin password)"
+# Odin est administrateur de la machine où il est installé : il peut tout y faire (Heimdall reste juge).
+# En root (conteneur LXC…), rien à faire. Sinon : règle sudo sans mot de passe, vérifiée par visudo.
+# Pour refuser : ODIN_NO_ADMIN=1 (ou répondre « n »).
+if [ "$(id -u)" != "0" ] && command -v sudo >/dev/null && [ "${ODIN_NO_ADMIN:-}" != "1" ]; then
+  if sudo -n true 2>/dev/null; then
+    "$BIN_DIR/odin" admin nopasswd </dev/null >/dev/null 2>&1 && ok "Odin est administrateur de cette machine" || true
+  elif [ -r /dev/tty ] && [ "${ODIN_YES:-}" != "1" ]; then
+    if ask "Odin doit être administrateur de cette machine pour tout pouvoir y faire. Donner les droits (sudo te demande ton mot de passe une fois) ?" o; then
+      "$BIN_DIR/odin" admin nopasswd < /dev/tty && ok "Odin est administrateur de cette machine" || echo "  (plus tard : dis à Odin « le mot de passe admin de ce poste est … », ou : odin admin nopasswd)"
+    fi
+  else
+    info "Droits administrateur : dis à Odin « le mot de passe admin de ce poste est … » (ou lance : odin admin nopasswd)."
   fi
+elif command -v sudo >/dev/null 2>&1 || [ "$(id -u)" = "0" ]; then :
+else
+  info "sudo est absent : Odin ne pourra agir en administrateur que s'il tourne en root."
 fi
 
 # ---------- Fin : configuration dans le navigateur ----------

@@ -4,6 +4,7 @@
 import { setConfigValue } from '../config.ts';
 import { writeSecret } from '../settings.ts';
 import { forgetSecret, onboardMachine, pendingSecretLabel, takeSecret } from '../machines/onboard.ts';
+import { adminMode, adminPassword, checkSudoPassword, installNopasswd, setAdminPassword } from '../machines/access.ts';
 import type { Tool } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -41,8 +42,36 @@ export const machineOnboard: Tool = {
   },
 };
 
+export const adminEnable: Tool = {
+  name: 'admin_enable',
+  description: 'Rend Odin administrateur de SA machine (celle où il est installé), pour de bon : vérifie le mot de passe de session que le propriétaire vient de donner (secret:dernier), puis installe une règle sudo sans mot de passe (vérifiée par visudo). Sans mot de passe en attente, essaie avec les droits déjà disponibles. À utiliser dès que le propriétaire veut que tu agisses en administrateur ici.',
+  risk: 'exec',
+  schema: { type: 'object', properties: {}, required: [] },
+  summarize: () => 'devenir administrateur de cette machine (règle sudo sans mot de passe, vérifiée par visudo)',
+  async run(_i, ctx) {
+    if (!ctx.home) return 'Coffre indisponible.';
+    const mode = adminMode(ctx.home);
+    if (mode === 'root' || mode === 'nopasswd') return 'Je suis déjà administrateur de cette machine : rien à faire.';
+    if (mode === 'absent') return process.platform === 'win32' ? 'Windows : il faut lancer Odin depuis une session administrateur (clic droit → Exécuter en tant qu\'administrateur, ou service installé en administrateur).' : 'sudo est absent : installe-le (en root : apt install sudo), ou lance Odin en root.';
+    const pw = takeSecret(ctx.home) ?? adminPassword(ctx.home);
+    if (!pw) return 'Il me faut une seule fois le mot de passe de ta session sur cette machine : écris « le mot de passe admin de ce poste est … » (il ne sera ni affiché ni lu par l\'IA), et je m\'occupe du reste.';
+    const c = checkSudoPassword(pw, ctx.home);
+    if (!c.ok) return `Ce mot de passe ne marche pas pour sudo : ${c.message}.`;
+    forgetSecret(ctx.home);
+    setAdminPassword(ctx.home, pw); // repli si la règle ne peut pas être posée
+    const r = installNopasswd(ctx.home, pw);
+    return r.ok ? `${r.message} Je peux désormais tout faire sur ce poste (installer, configurer, redémarrer des services). Pour revenir en arrière : sudo rm /etc/sudoers.d/odin.` : `Mot de passe vérifié et gardé chiffré : sudo marchera avec. (La règle permanente n'a pas pu être posée : ${r.message}.)`;
+  },
+};
+
+/** Le mot de passe donné vise-t-il CE poste (session, sudo, admin…) plutôt qu'une autre machine ? */
+export const isLocalAdminLabel = (label: string) => /admin|sudo|session|poste|pc|ordi|ordinateur|ce serveur|cette machine|local|compte|linux|mac/i.test(label) && !/\b(?:\d{1,3}\.){3}\d{1,3}\b|proxmox|nas|box|routeur/i.test(label);
+
 /** Ligne pour le prompt : un mot de passe attend d'être utilisé. */
 export function pendingSecretHint(home: string): string | undefined {
   const l = pendingSecretLabel(home);
-  return l ? `Le propriétaire t'a donné un mot de passe (${l}), gardé à part : référence secret:dernier. Utilise machine_onboard pour prendre la main sur la machine concernée. Ne lui demande pas de le changer ni de ne pas le partager : c'est toi qui le changes.` : undefined;
+  if (!l) return undefined;
+  return isLocalAdminLabel(l)
+    ? `Le propriétaire t'a donné le mot de passe de SA machine (${l}), gardé à part : référence secret:dernier. Appelle admin_enable tout de suite pour devenir administrateur de ce poste (sauf s'il parle clairement d'une autre machine : alors machine_onboard).`
+    : `Le propriétaire t'a donné un mot de passe (${l}), gardé à part : référence secret:dernier. Utilise machine_onboard pour prendre la main sur la machine concernée (ou admin_enable si c'est le mot de passe de ce poste). Ne lui demande pas de le changer ni de ne pas le partager : c'est toi qui t'en occupes.`;
 }

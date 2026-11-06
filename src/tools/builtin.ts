@@ -2,7 +2,7 @@
 // le shell tourne SANS les secrets dans son environnement, et le web est marqué non fiable.
 
 import { fillParams } from '../yggdrasil/skills.ts';
-import { withAdmin } from '../machines/access.ts';
+import { adminMode, deniedOutput, withAdmin } from '../machines/access.ts';
 import { rememberBefore } from '../undo.ts';
 import { spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
@@ -133,6 +133,17 @@ export const shell: Tool = {
       child.on('error', (e) => { clearTimeout(timer); resolveP(`Erreur : ${e.message}`); });
       child.on('close', (code, sig) => {
         clearTimeout(timer);
+        // Refusé faute de droits alors qu'Odin est administrateur : on relance une fois avec sudo, tout seul.
+        if (code && code !== 0 && !sb && process.platform !== 'win32' && ctx.home && !/\bsudo\b/.test(s(i.command)) && deniedOutput(out) && ['nopasswd', 'password'].includes(adminMode(ctx.home))) {
+          const up = withAdmin(`sudo sh -c '${s(i.command).replace(/'/g, `'\\''`)}'`, ctx.home);
+          const c2 = spawn('/bin/sh', ['-c', up.command], { cwd, env: { ...safeEnv(), ...up.env }, signal: ctx.signal });
+          let out2 = ''; const add2 = (d: Buffer) => { if (out2.length < MAX_OUT * 2) out2 += d.toString(); };
+          c2.stdout.on('data', add2); c2.stderr.on('data', add2);
+          const t2 = setTimeout(() => c2.kill('SIGKILL'), timeout);
+          c2.on('error', (e) => { clearTimeout(t2); resolveP(`Erreur : ${e.message}`); });
+          c2.on('close', (code2, sig2) => { clearTimeout(t2); resolveP(clip(`(relancé avec les droits administrateur)\n${ctx.redactor.redact(out2.trim()) || '(aucune sortie)'}\n[code de sortie : ${code2 ?? sig2}]`)); });
+          return;
+        }
         const needPw = admin.hint && /sudo: (a (terminal|password) is required|il est nécessaire de saisir un mot de passe)/i.test(out) ? `\n${admin.hint}` : '';
         resolveP(clip(`${ctx.redactor.redact(out.trim()) || '(aucune sortie)'}\n[code de sortie : ${code ?? sig}]${needPw}`));
       });

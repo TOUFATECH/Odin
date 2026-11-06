@@ -20,7 +20,7 @@ import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMater
 import { isAbsolute, join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
-import { adminMode, checkSudoPassword, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine, withAdmin } from '../machines/access.ts';
+import { adminMode, checkSudoPassword, installNopasswd, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine, withAdmin } from '../machines/access.ts';
 import { userInfo } from 'node:os';
 import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
@@ -620,7 +620,8 @@ export class WebChannel implements Channel {
         const r = checkSudoPassword(pw, this.odin.paths.home);
         if (!r.ok) return { ok: false, error: r.message };
         setAdminPassword(this.odin.paths.home, pw); this.odin.redactor.add(pw); forgetRights();
-        return { ok: true, message: 'Odin a maintenant les droits administrateur sur cette machine.' };
+        const nop = installNopasswd(this.odin.paths.home, pw); forgetRights();
+        return { ok: true, message: nop.ok ? 'Odin est administrateur de cette machine, pour de bon (sudo sans mot de passe) : il peut tout y faire.' : 'Odin a maintenant les droits administrateur sur cette machine (avec le mot de passe gardé chiffré).' };
       }
       case 'machine_save': {
         try {
