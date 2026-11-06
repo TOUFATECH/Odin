@@ -89,6 +89,8 @@ export class ToolRegistry {
     return this;
   }
 
+  /** Ajoute ou remplace un outil (extensions Python ajoutées pendant que tourne Odin). */
+  upsert(t: Tool): void { this.tools.set(t.name, t); }
   get(name: string): Tool | undefined { return this.tools.get(name); }
   all(): Tool[] { return [...this.tools.values()]; }
 

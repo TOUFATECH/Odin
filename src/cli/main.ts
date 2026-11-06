@@ -22,6 +22,11 @@ import { Gateway } from '../bifrost/gateway.ts';
 import { TelegramChannel } from '../bifrost/channels/telegram.ts';
 import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
+import { DiscordChannel } from '../bifrost/channels/discord.ts';
+import { SlackChannel } from '../bifrost/channels/slack.ts';
+import { SignalChannel } from '../bifrost/channels/signal.ts';
+import { WhatsAppChannel } from '../bifrost/channels/whatsapp.ts';
+import { MailChannel } from '../bifrost/channels/mail.ts';
 import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
@@ -46,7 +51,7 @@ const HELP = `${BANNER}
 
 Usage : odin <commande>
 
-  init                         crée ~/.odin (config, persona ODIN.md, dossiers)
+  init                         crée ~/.odin (config, SOUL.md, USER.md, MEMORY.md, dossiers)
   chat [--demo]                conversation interactive dans le terminal
   run "<demande>" [--demo]     une seule demande, puis quitte
   gateway                      démarre Telegram / API HTTP + tâches planifiées
@@ -203,6 +208,23 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }));
     }
   }
+  // Autres messageries : Discord, Slack, Signal, WhatsApp, Mail (même cerveau, même mémoire, mêmes garde-fous).
+  const vc2 = odin.cfg.voice, chOpts = { transcribe: (a: Uint8Array, mime: string) => transcribe(a, mime, vc2), inbox: join(odin.paths.workspace, 'inbox') };
+  const cc = odin.cfg.channels;
+  let whatsapp: WhatsAppChannel | undefined;
+  const tryAdd = (name: string, need: string[], make: () => import('../bifrost/channel.ts').Channel) => {
+    const miss = need.filter((n) => !process.env[n]);
+    if (miss.length) { console.log(c.yellow(`[bifrost] ${name} activé mais ${miss.join(', ')} absent(s) : ignoré (Réglages → Messageries)`)); return; }
+    gw!.add(make());
+  };
+  if (cc.discord?.enabled) { owners.discord = cc.discord.owners.map(String); tryAdd('Discord', [cc.discord.tokenEnv], () => new DiscordChannel(process.env[cc.discord!.tokenEnv]!, chOpts)); }
+  if (cc.slack?.enabled) { owners.slack = cc.slack.owners.map(String); tryAdd('Slack', [cc.slack.botTokenEnv, cc.slack.appTokenEnv], () => new SlackChannel(process.env[cc.slack!.botTokenEnv]!, process.env[cc.slack!.appTokenEnv]!, chOpts)); }
+  if (cc.signal?.enabled && cc.signal.number) { owners.signal = cc.signal.owners.map(String); gw.add(new SignalChannel(cc.signal.url, cc.signal.number, chOpts)); }
+  if (cc.whatsapp?.enabled && cc.whatsapp.phoneId) {
+    owners.whatsapp = cc.whatsapp.owners.map((o) => String(o).replace(/^\+/, ''));
+    tryAdd('WhatsApp', ['WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN'], () => (whatsapp = new WhatsAppChannel({ token: process.env.WHATSAPP_TOKEN!, phoneId: cc.whatsapp!.phoneId, verifyToken: process.env.WHATSAPP_VERIFY_TOKEN!, appSecret: process.env.WHATSAPP_APP_SECRET! }, chOpts)));
+  }
+  if (cc.mail?.enabled && odin.cfg.mail.imapHost) { owners.mail = cc.mail.owners.map((o) => String(o).toLowerCase()); gw.add(new MailChannel(odin.cfg.mail, owners.mail, cc.mail.tag ?? 'odin', cc.mail.everySec ?? 60)); }
   const http = odin.cfg.channels.http;
   if (http?.enabled) {
     const token = process.env[http.tokenEnv];
@@ -236,7 +258,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true) }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {

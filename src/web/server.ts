@@ -74,6 +74,8 @@ export interface WebHooks {
   /** Journal de bord maintenant. */
   journalNow?(): Promise<string | undefined>;
   morningNow?(): Promise<string | undefined>;
+  /** Canal WhatsApp (messages reçus de Meta sur /hook/whatsapp). */
+  whatsapp?(): { webhook(method: string, query: URLSearchParams, raw: Uint8Array, signature: string | undefined): Promise<{ status: number; body: string }> } | undefined;
   /** Odin Breaker : ronde + travail de fond tout de suite. */
   breakerNow?(): Promise<string | undefined>;
   /** Mémoire : rangement tout de suite. */
@@ -299,6 +301,14 @@ export class WebChannel implements Channel {
       return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIMABLE__', !authed && this.claimable(req) ? 'true' : 'false'));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
+    // WhatsApp (Meta) : pas de jeton Odin ici, chaque envoi est signé par Meta et vérifié par le canal.
+    if (url.pathname === '/hook/whatsapp') {
+      const wa = this.hooks.whatsapp?.();
+      if (!wa) return json(res, 404, { error: 'WhatsApp non activé' });
+      const raw = req.method === 'POST' ? await readRaw(req, 2 * 1024 * 1024) : new Uint8Array();
+      const r = await wa.webhook(req.method ?? 'GET', url.searchParams, raw, req.headers['x-hub-signature-256'] as string | undefined).catch(() => ({ status: 500, body: 'erreur' }));
+      res.writeHead(r.status, { 'content-type': 'text/plain; charset=utf-8' }); return void res.end(r.body);
+    }
     if (url.pathname.startsWith('/fonts/') && FONTS[url.pathname.slice(7)]) { res.writeHead(200, { 'content-type': 'font/woff2', 'cache-control': 'max-age=31536000, immutable', 'x-content-type-options': 'nosniff' }); return void res.end(FONTS[url.pathname.slice(7)]); }
     if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }
     if (url.pathname === '/manifest.webmanifest') { res.writeHead(200, { 'content-type': 'application/manifest+json', 'cache-control': 'max-age=3600' }); return void res.end(MANIFEST); }

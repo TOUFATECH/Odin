@@ -161,6 +161,16 @@ export interface OdinConfig {
   channels: {
     telegram?: { enabled: boolean; tokenEnv: string; owners: string[]; /** Message de progression (compétences, commandes, scripts) pendant le travail. */ progress?: boolean };
     http?: { enabled: boolean; port: number; tokenEnv: string; host?: string };
+    /** Bot Discord (jeton dans DISCORD_BOT_TOKEN) ; propriétaires = identifiants Discord. */
+    discord?: { enabled: boolean; tokenEnv: string; owners: string[] };
+    /** Application Slack en Socket Mode (SLACK_BOT_TOKEN, SLACK_APP_TOKEN) ; propriétaires = identifiants Slack (U…). */
+    slack?: { enabled: boolean; botTokenEnv: string; appTokenEnv: string; owners: string[] };
+    /** Signal via signal-cli-rest-api (adresse locale) ; propriétaires = numéros (+33…). */
+    signal?: { enabled: boolean; url: string; number: string; owners: string[] };
+    /** WhatsApp Cloud API (WHATSAPP_TOKEN, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN) ; propriétaires = numéros sans « + ». */
+    whatsapp?: { enabled: boolean; phoneId: string; owners: string[] };
+    /** Écrire à Odin par mail (boîte de Réglages → Mail) ; propriétaires = adresses ; tag = mot obligatoire dans le sujet ('' = boîte dédiée). */
+    mail?: { enabled: boolean; owners: string[]; tag: string; everySec: number };
   };
 }
 
@@ -232,7 +242,8 @@ export function odinPaths(home = process.env.ODIN_HOME ?? join(homedir(), '.odin
   return {
     home: h,
     config: join(h, 'config.json'),
-    persona: join(h, 'ODIN.md'),
+    // SOUL.md : la personnalité d'Odin (anciennement ODIN.md, repris automatiquement).
+    persona: join(h, 'SOUL.md'),
     db: join(h, 'odin.db'),
     skills: join(h, 'skills'),
     drafts: join(h, 'skills', '_drafts'),
@@ -326,7 +337,11 @@ export function initHome(paths: OdinPaths): string[] {
     if (!existsSync(d)) { mkdirSync(d, { recursive: true }); created.push(d); }
   }
   if (!existsSync(paths.config)) { writeFileSync(paths.config, JSON.stringify(DEFAULT_CONFIG, null, 2)); created.push(paths.config); }
-  if (!existsSync(paths.persona)) { writeFileSync(paths.persona, DEFAULT_PERSONA); created.push(paths.persona); }
+  if (!existsSync(paths.persona)) {
+    const old = join(paths.home, 'ODIN.md');
+    writeFileSync(paths.persona, existsSync(old) ? readFileSync(old, 'utf8') : DEFAULT_PERSONA);
+    created.push(paths.persona);
+  }
   return created;
 }
 

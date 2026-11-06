@@ -696,6 +696,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
 .tip{background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.35);border-color:color-mix(in srgb,var(--odin-tint,var(--accent)) 45%,var(--field))}
 .touring:not(.tour-real-bud) .chat-buddy{visibility:hidden}
 .msg.secret{border-color:var(--accent)}.secrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}.secv{font-size:16px;padding:4px 10px;border-radius:8px;background:color-mix(in srgb,var(--ink) 8%,transparent);letter-spacing:.04em}
+details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600}details.mx summary::before{content:'▸';color:var(--muted,#888)}details.mx[open] summary::before{content:'▾'}
 </style>
 </head>
 <body>
@@ -842,7 +843,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -987,6 +988,47 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
             <div><button class="btn primary" type="submit">Enregistrer</button></div>
             <div class="status" id="t-status" role="status"></div>
           </form></article>
+
+          <article class="card" data-sec="messageries"><div class="form">
+            <h2>Autres messageries</h2>
+            <p class="sub" style="margin:0">Parle à Odin où tu veux : même mémoire, mêmes habitudes, mêmes garde-fous. Les inconnus doivent toujours être appairés ; les jetons restent dans le coffre d'Odin.</p>
+            <details class="field mx" data-kind="whatsapp"><summary>WhatsApp</summary><form class="form" style="margin-top:8px">
+              <ol class="steps"><li>Sur developers.facebook.com, crée une application « Business » et ajoute WhatsApp.</li><li>Copie l'identifiant du numéro, un jeton d'accès permanent et la clé secrète de l'application.</li><li>Dans « Webhooks », mets l'adresse ci-dessous et la phrase de vérification que tu choisis ; abonne-toi à « messages ».</li></ol>
+              <span class="hint" data-f="webhook"></span>
+              <label class="check"><input type="checkbox" data-f="enabled"> Activer WhatsApp</label>
+              <div class="field"><label>Identifiant du numéro (Phone number ID)</label><input data-f="phoneId" autocomplete="off"></div>
+              <div class="field"><label>Jeton d'accès</label><input data-f="token" type="password" autocomplete="off"></div>
+              <div class="field"><label>Clé secrète de l'application</label><input data-f="appSecret" type="password" autocomplete="off"></div>
+              <div class="field"><label>Phrase de vérification (au choix)</label><input data-f="verifyToken" type="password" autocomplete="off"></div>
+              <div class="field"><label>Ton numéro (propriétaire)</label><input data-f="owners" autocomplete="off" placeholder="262639123456"></div>
+              <div><button class="btn primary" type="submit">Enregistrer</button></div><div class="status" role="status"></div></form></details>
+            <details class="field mx" data-kind="signal"><summary>Signal</summary><form class="form" style="margin-top:8px">
+              <ol class="steps"><li>Lance signal-cli-rest-api : <code>docker run -d -p 8080:8080 -e MODE=normal bbernhard/signal-cli-rest-api</code> (ou demande à Odin de le faire).</li><li>Relie un numéro pour Odin (QR code sur http://localhost:8080/v1/qrcodelink?device_name=odin).</li></ol>
+              <label class="check"><input type="checkbox" data-f="enabled"> Activer Signal</label>
+              <div class="field"><label>Adresse du service</label><input data-f="url" autocomplete="off" placeholder="http://localhost:8080"></div>
+              <div class="field"><label>Numéro d'Odin</label><input data-f="number" autocomplete="off" placeholder="+262639…"></div>
+              <div class="field"><label>Ton numéro (propriétaire)</label><input data-f="owners" autocomplete="off" placeholder="+262639…"></div>
+              <div><button class="btn primary" type="submit">Enregistrer</button></div><div class="status" role="status"></div></form></details>
+            <details class="field mx" data-kind="discord"><summary>Discord</summary><form class="form" style="margin-top:8px">
+              <ol class="steps"><li>Sur discord.com/developers, crée une application, puis un bot ; active « Message Content Intent ».</li><li>Copie le jeton du bot ; invite-le sur ton serveur ou écris-lui en privé.</li></ol>
+              <label class="check"><input type="checkbox" data-f="enabled"> Activer Discord</label>
+              <div class="field"><label>Jeton du bot</label><input data-f="token" type="password" autocomplete="off"></div>
+              <div class="field"><label>Ton identifiant Discord (propriétaire)</label><input data-f="owners" autocomplete="off" placeholder="ex. 312345678901234567"></div>
+              <div><button class="btn primary" type="submit">Enregistrer</button></div><div class="status" role="status"></div></form></details>
+            <details class="field mx" data-kind="slack"><summary>Slack</summary><form class="form" style="margin-top:8px">
+              <ol class="steps"><li>Sur api.slack.com/apps, crée une application, active « Socket Mode » (jeton xapp-…, droit connections:write).</li><li>Droits du bot : chat:write, im:history, app_mentions:read, files:read ; évènements message.im et app_mention ; installe-la et copie le jeton xoxb-….</li></ol>
+              <label class="check"><input type="checkbox" data-f="enabled"> Activer Slack</label>
+              <div class="field"><label>Jeton du bot (xoxb-…)</label><input data-f="botToken" type="password" autocomplete="off"></div>
+              <div class="field"><label>Jeton d'application (xapp-…)</label><input data-f="appToken" type="password" autocomplete="off"></div>
+              <div class="field"><label>Ton identifiant Slack (propriétaire)</label><input data-f="owners" autocomplete="off" placeholder="U0123ABCD"></div>
+              <div><button class="btn primary" type="submit">Enregistrer</button></div><div class="status" role="status"></div></form></details>
+            <details class="field mx" data-kind="mail"><summary>Mail</summary><form class="form" style="margin-top:8px">
+              <p class="sub" style="margin:0">Écris à Odin depuis ta boîte, il répond par mail. Il utilise la boîte de Réglages → Mail et ne lit que tes mails authentifiés (un faux expéditeur est ignoré).</p>
+              <label class="check"><input type="checkbox" data-f="enabled"> Activer le mail</label>
+              <div class="field"><label>Ton adresse (propriétaire)</label><input data-f="owners" autocomplete="off" placeholder="toi@exemple.fr"></div>
+              <div class="field"><label>Mot obligatoire dans le sujet</label><input data-f="tag" autocomplete="off" placeholder="odin"><span class="hint">Vide si la boîte est réservée à Odin.</span></div>
+              <div><button class="btn primary" type="submit">Enregistrer</button></div><div class="status" role="status"></div></form></details>
+          </div></article>
 
           <article class="card" data-sec="recherche"><form class="form" id="f-search">
             <h2>Recherche web</h2>
@@ -3366,6 +3408,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
       $('#m-model').value = S.model.model; $('#m-url').value = S.model.baseUrl || (S.presets[S.model.preset]?.baseUrl ?? '');
       $('#j-judge').value = S.mimir.judge;
       $('#t-enabled').checked = S.telegram.enabled; $('#t-owners').value = S.telegram.owners.join(', ');
+      for (const d of document.querySelectorAll('details.mx')) { const v = (S.messaging || {})[d.dataset.kind] || {}; for (const i of d.querySelectorAll('[data-f]')) { const k = i.dataset.f; if (i.type === 'checkbox') i.checked = !!v[k]; else if (i.tagName === 'SPAN') i.textContent = v.webhook ? `Adresse du webhook : ${v.webhook}` : 'Il faut d\'abord une adresse publique pour Odin (Réglages → Accès).'; else if (i.type !== 'password') i.value = v[k] ?? ''; } d.querySelector('summary').textContent = `${{ whatsapp: 'WhatsApp', signal: 'Signal', discord: 'Discord', slack: 'Slack', mail: 'Mail' }[d.dataset.kind]}${v.enabled ? ' · activé' : ''}`; }
       $('#n-enabled').checked = S.network.enabled; $('#n-interval').value = S.network.intervalMin; $('#n-notify').checked = S.network.notify;
     }
     renderCodex(); if (state.settings.codex?.connected) $('#cx-paste').hidden = true;
@@ -3424,6 +3467,14 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   });
   $('#f-model').addEventListener('submit', async (e) => { e.preventDefault(); await save('model', modelBody(), '#m-status', '✓ Modèle enregistré. Odin est prêt : passe à la Discussion.'); $('#m-key').value = ''; });
   $('#f-mimir').addEventListener('submit', async (e) => { e.preventDefault(); await save('mimir', { judge: $('#j-judge').value, apiKey: $('#j-key').value.trim() }, '#j-status', '✓ Juge enregistré.'); $('#j-key').value = ''; });
+  for (const d of document.querySelectorAll('details.mx')) d.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault(); const body = { mkind: d.dataset.kind };
+    for (const i of d.querySelectorAll('input[data-f]')) body[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.value.trim();
+    const stEl = d.querySelector('.status'); stEl.textContent = 'Enregistrement…';
+    const r = await api('/api/action', { kind: 'settings_save', section: 'messaging', ...body });
+    stEl.textContent = r.ok ? '✓ Enregistré : Odin redémarre ses messageries.' : (r.error || 'Erreur'); stEl.classList.toggle('bad', !r.ok);
+    if (r.ok) for (const i of d.querySelectorAll('input[type=password]')) i.value = '';
+  });
   $('#f-telegram').addEventListener('submit', async (e) => { e.preventDefault(); await save('telegram', { enabled: $('#t-enabled').checked, token: $('#t-token').value.trim(), owners: $('#t-owners').value }, '#t-status', '✓ Telegram enregistré.'); $('#t-token').value = ''; });
   $('#f-network').addEventListener('submit', async (e) => { e.preventDefault(); await save('network', { enabled: $('#n-enabled').checked, intervalMin: Number($('#n-interval').value), notify: $('#n-notify').checked }, '#n-status', '✓ Réseau enregistré.'); });
   $('#n-scan').addEventListener('click', () => { st('#n-status', 'Balayage complet lancé (environ 30 secondes) : résultats dans l\'onglet Réseau.'); api('/api/action', { kind: 'net_scan', full: true }); });

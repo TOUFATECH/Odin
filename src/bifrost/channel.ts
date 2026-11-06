@@ -45,3 +45,37 @@ export function chunk(text: string, size = 3900): string[] {
   if (rest) out.push(rest);
   return out;
 }
+
+/** Bouton touché (Discord, Slack, WhatsApp) → commande texte comprise par la passerelle. Pur. */
+export function buttonText(data: string): string | undefined {
+  const ok = /^ok:(yes|no|always):(\S+)$/.exec(data); if (ok) return `/${ok[1]} ${ok[2]}`;
+  const rm = /^rm:(done|10|60|tmw):(\S+)$/.exec(data); if (rm) return rm[1] === 'done' ? `/rappel done ${rm[2]}` : `/rappel later ${rm[2]} ${rm[1] === 'tmw' ? 0 : rm[1]}`;
+  const hb = /^hb:(oui|non)$/.exec(data); if (hb) return `/habitude ${hb[1]}`;
+  return undefined;
+}
+
+/** Boutons à montrer sous un message, selon ses options (validation, rappel, habitude). Pur. */
+export function buttonsFor(opts: { approval?: { id: string; grantable?: boolean }; reminder?: { id: string }; habit?: { key: string } } = {}): Array<{ id: string; label: string }> {
+  if (opts.approval) return [{ id: `ok:yes:${opts.approval.id}`, label: '✅ Oui' }, { id: `ok:no:${opts.approval.id}`, label: '❌ Non' }, ...(opts.approval.grantable ? [{ id: `ok:always:${opts.approval.id}`, label: 'Toujours' }] : [])];
+  if (opts.reminder) { const id = opts.reminder.id.slice(0, 50); return [{ id: `rm:done:${id}`, label: '✅ C\'est fait' }, { id: `rm:60:${id}`, label: '⏰ Dans 1 h' }, { id: `rm:tmw:${id}`, label: '🌅 Demain' }]; }
+  if (opts.habit) return [{ id: 'hb:oui', label: '✅ Oui' }, { id: 'hb:non', label: '❌ Non merci' }];
+  return [];
+}
+
+/** Options communes aux canaux de messagerie (vocaux transcrits, fichiers déposés). */
+export interface MessagingOptions {
+  transcribe?(audio: Uint8Array, mime: string): Promise<string>;
+  inbox?: string;
+}
+
+/** Dépose un fichier reçu dans la boîte d'Odin et renvoie la ligne à lui transmettre. */
+export async function dropFile(inbox: string | undefined, name: string, mime: string, data: Uint8Array): Promise<string> {
+  if (!inbox) return `[Fichier reçu mais non enregistré : ${name}]`;
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  const { join, basename } = await import('node:path');
+  mkdirSync(inbox, { recursive: true });
+  const safe = basename(name).replace(/[^\w.\-À-ÿ ]+/g, '_').replace(/^\.+/, '').slice(0, 120) || 'fichier';
+  const dest = join(inbox, `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}-${safe}`);
+  writeFileSync(dest, data);
+  return `[Fichier reçu : inbox/${basename(dest)} (${mime || 'type inconnu'}, ${Math.round(data.byteLength / 1024)} Ko)]`;
+}

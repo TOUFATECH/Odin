@@ -31,6 +31,8 @@ import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
 import { morningBriefing } from './briefing.ts';
+import { syncMemoryFiles } from '../muninn/files.ts';
+import { learnEnvironment } from '../learn/environment-map.ts';
 import { habitCron, habitEvents, habitPrompt, habitWhen, knownHabits, newHabits, pendingProposal, recordAsk, revokeTrust, setKnown, type Known, type Trust } from '../learn/habits.ts';
 
 export interface GatewayOptions {
@@ -686,6 +688,16 @@ export class Gateway {
       void this.scanNetwork(shouldRunFull(this.odin.inventory, net.fullEvery)).catch((e) => console.error('[hlidskjalf]', (e as Error).message));
     }
     await this.habits(now).catch((e) => console.error('[habitudes]', (e as Error).message));
+    // Mémoire en fichiers (USER.md, MEMORY.md) : tes corrections à la main sont prises, puis les fichiers sont réécrits (10 min).
+    if (now - Number(this.odin.muninn.getKv('memfiles-tick') ?? 0) >= 10 * 60_000) {
+      this.odin.muninn.setKv('memfiles-tick', String(now));
+      try { const r = syncMemoryFiles(this.odin.paths.home, this.odin.muninn); if (r.edited + r.added + r.forgotten) console.error(`[mémoire] fichiers : ${r.edited} corrigé(s), ${r.added} ajouté(s), ${r.forgotten} oublié(s)`); } catch (e) { console.error('[mémoire]', (e as Error).message); }
+    }
+    // Apprentissage de l'environnement (présence des appareils, rôles, ENVIRONMENT.md) : chaque heure.
+    if (now - Number(this.odin.muninn.getKv('envlearn-tick') ?? 0) >= 3600_000) {
+      this.odin.muninn.setKv('envlearn-tick', String(now));
+      try { const alerts = learnEnvironment(this.odin, now, listMachines(this.odin.paths.home).map((m) => ({ label: m.label, host: m.host, user: m.user }))); if (alerts.length) await this.tellOwner(`🏠 Ce qui change dans ton environnement :\n${alerts.join('\n')}`, 'home'); } catch (e) { console.error('[environnement]', (e as Error).message); }
+    }
     // Relances des rappels pas encore réglés (30 min, 1 h, 2 h).
     for (const n of dueNags(this.odin.muninn, now)) await this.sendReminder(n.id, n.text, n.channel, n.peer, n.n).catch(() => {});
     for (const job of this.odin.muninn.dueJobs(now)) {

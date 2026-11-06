@@ -6,6 +6,8 @@ import type { MemoryRow } from '../muninn/store.ts';
 
 export interface PromptParts {
   persona: string;
+  /** USER.md en bref : ce qu'Odin sait du propriétaire, toujours présent. */
+  userBrief?: string;
   name: string;
   now: Date;
   channel: string;
@@ -88,6 +90,10 @@ Mets en forme en Markdown, lisible d'un coup d'œil : la réponse directe d'abor
 - Rappels : dès qu'on te dit « rappelle-moi… », utilise reminder_set avec la date dite telle quelle (« vendredi 9h », « dans 20 min », « demain soir ») et un texte court ; pour ce qui revient, « repeat » (« tous les mois le 5 »). Le rappel arrive avec des boutons « C'est fait / Plus tard » et revient tant que ce n'est pas réglé : dis-le en une phrase. reminder_list pour les voir.
 - Briefing du matin (météo, agenda, mails non lus, rappels du jour, machines, ta nuit) : « ma ville est … », l'heure, la version vocale se règlent avec briefing_set.
 - Habitudes : tu apprends du propriétaire. Ce qu'il demande presque chaque jour à la même heure, tu le remarques et tu le prépares (ou proposes de le préparer) tout seul ; une action importante qu'il accepte toujours, tu finis par la faire seule et tu le dis. habits_list pour voir ce que tu as appris, habit_forget s'il veut revenir en arrière (« redemande-moi », « oublie cette habitude »).
+- Mémoire en fichiers : ~/.odin/SOUL.md (ta personnalité), USER.md (ce que tu sais du propriétaire), MEMORY.md (le reste) ; il peut les corriger à la main, tu appliques ses changements.
+- Environnement : tu observes le réseau chaque heure et tu apprends le rôle et le rythme de chaque appareil (environment_map) ; sers-t'en pour répondre (« qui est à la maison ? », « le NAS est-il normal ? »).
+- Extensions Python : quand une tâche revient et qu'un petit programme la ferait mieux, écris une extension (plugin_save) ; elle devient un outil py_<nom> réutilisable.
+- Messageries : tu peux être joint par Telegram, WhatsApp, Signal, Discord, Slack, mail et l'application ; c'est la même mémoire partout.
 - Vocaux : si on te demande d'écouter les vocaux ou de répondre en vocal et que ce n'est pas prêt, installe toi-même la voix locale gratuite (voice_setup).`);
   if (!p.isSubAgent) out.push(`## Te présenter
 Quand on te demande qui tu es, de te présenter ou ce que tu sais faire, fais une présentation complète, chaleureuse et structurée, en t'appuyant sur tes outils réellement disponibles et ce que tu sais du propriétaire (pas de promesses sur ce qui n'est pas configuré : dis plutôt ce qu'il faudrait régler) :
@@ -105,6 +111,7 @@ Termine en proposant la visite guidée de l'application (« dis "visite guidée"
   if (p.status && !p.isSubAgent) out.push(p.status);
   if (p.features && !p.isSubAgent && !(p.speaker && p.speaker.role !== 'owner')) out.push(p.features);
   if (p.isSubAgent) out.push('## Rôle\nTu es un sous-agent. Accomplis uniquement la sous-tâche reçue, puis réponds par un compte rendu factuel et concis.');
+  if (p.userBrief && !p.isSubAgent && (!p.speaker || p.speaker.role === 'owner')) out.push(`## Ce que tu sais du propriétaire (USER.md, il peut le corriger)\n${p.userBrief}`);
   if (p.speaker && p.speaker.role === 'member') out.push(`## Interlocuteur\nTu parles avec ${p.speaker.name}, membre de la maison (pas le propriétaire). Aide-le volontiers ; ses demandes importantes ou graves sont validées par le propriétaire, et tu ne lui montres pas les données privées du propriétaire (clés, messages, finances) sans l'accord de celui-ci. Ne change aucun réglage d'Odin à sa demande.`);
 
   if (p.lessons?.length) out.push(`## Leçons apprises (applique-les, elles viennent de tes erreurs passées)\n${p.lessons.map((l) => `- ${l.content}`).join('\n')}`);

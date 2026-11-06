@@ -14,7 +14,7 @@ import { CODEX_MODELS, loadCodexAuth } from './providers/codex.ts';
 import { TTS_DEFAULTS } from './voice/voice.ts';
 import { buildProvider, Router, tierOf, type Tier } from './providers/router.ts';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL'] as const;
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -132,6 +132,13 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     search: { provider: cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
     assist: { ...{ spelling: 'auto', tips: true, roam: true }, ...(cfg.assist ?? {}) },
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
+    messaging: {
+      discord: { enabled: Boolean(cfg.channels.discord?.enabled), owners: (cfg.channels.discord?.owners ?? []).join(', ') },
+      slack: { enabled: Boolean(cfg.channels.slack?.enabled), owners: (cfg.channels.slack?.owners ?? []).join(', ') },
+      signal: { enabled: Boolean(cfg.channels.signal?.enabled), url: cfg.channels.signal?.url ?? 'http://localhost:8080', number: cfg.channels.signal?.number ?? '', owners: (cfg.channels.signal?.owners ?? []).join(', ') },
+      whatsapp: { enabled: Boolean(cfg.channels.whatsapp?.enabled), phoneId: cfg.channels.whatsapp?.phoneId ?? '', owners: (cfg.channels.whatsapp?.owners ?? []).join(', '), webhook: cfg.web.publicUrl ? `${cfg.web.publicUrl.replace(/\/$/, '')}/hook/whatsapp` : '' },
+      mail: { enabled: Boolean(cfg.channels.mail?.enabled), owners: (cfg.channels.mail?.owners ?? []).join(', '), tag: cfg.channels.mail?.tag ?? 'odin' },
+    },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
     voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, ttsProvider: cfg.voice.tts.provider, ttsUrl: cfg.voice.tts.baseUrl, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language },
@@ -191,6 +198,38 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       const enabled = Boolean(b.enabled);
       if (enabled && !process.env.TELEGRAM_BOT_TOKEN) throw new Error('ajoute d\'abord le jeton du bot');
       setConfigValue(paths, ['channels', 'telegram'], { enabled, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners });
+      return true;
+    }
+    case 'messaging': {
+      // Discord, Slack, Signal, WhatsApp, Mail : un bloc par messagerie ; les jetons vont dans le coffre (env).
+      const list = (v: unknown) => String(v ?? '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+      const sec = (k: string, name: SecretName) => { const v = typeof b[k] === 'string' ? (b[k] as string).trim() : ''; if (v) writeSecret(paths, name, v); };
+      const kind = String(b.mkind);
+      if (kind === 'discord') {
+        sec('token', 'DISCORD_BOT_TOKEN');
+        const owners = list(b.owners); if (owners.some((o) => !/^\d{15,21}$/.test(o))) throw new Error('identifiants Discord : des nombres (Paramètres → Avancés → Mode développeur → Copier l\'identifiant)');
+        if (b.enabled && !process.env.DISCORD_BOT_TOKEN) throw new Error('ajoute d\'abord le jeton du bot Discord');
+        setConfigValue(paths, ['channels', 'discord'], { enabled: Boolean(b.enabled), tokenEnv: 'DISCORD_BOT_TOKEN', owners });
+      } else if (kind === 'slack') {
+        sec('botToken', 'SLACK_BOT_TOKEN'); sec('appToken', 'SLACK_APP_TOKEN');
+        const owners = list(b.owners); if (owners.some((o) => !/^[UW][A-Z0-9]{6,}$/.test(o))) throw new Error('identifiants Slack : U… (profil → ⋮ → Copier l\'ID de membre)');
+        if (b.enabled && (!process.env.SLACK_BOT_TOKEN || !process.env.SLACK_APP_TOKEN)) throw new Error('il faut les deux jetons Slack (xoxb-… et xapp-…)');
+        setConfigValue(paths, ['channels', 'slack'], { enabled: Boolean(b.enabled), botTokenEnv: 'SLACK_BOT_TOKEN', appTokenEnv: 'SLACK_APP_TOKEN', owners });
+      } else if (kind === 'signal') {
+        const owners = list(b.owners), number = String(b.number ?? '').replace(/\s/g, '');
+        if ([number, ...owners].some((o) => o && !/^\+\d{6,15}$/.test(o))) throw new Error('numéros Signal au format international : +262639…');
+        setConfigValue(paths, ['channels', 'signal'], { enabled: Boolean(b.enabled), url: String(b.url || 'http://localhost:8080').trim(), number, owners });
+      } else if (kind === 'whatsapp') {
+        sec('token', 'WHATSAPP_TOKEN'); sec('appSecret', 'WHATSAPP_APP_SECRET'); sec('verifyToken', 'WHATSAPP_VERIFY_TOKEN');
+        const owners = list(b.owners).map((o) => o.replace(/^\+/, '')); if (owners.some((o) => !/^\d{6,15}$/.test(o))) throw new Error('numéros WhatsApp : chiffres avec l\'indicatif (262639…)');
+        if (b.enabled && (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_APP_SECRET)) throw new Error('il faut le jeton d\'accès et la clé secrète de l\'application Meta');
+        if (b.enabled && !cfg.web.publicUrl) throw new Error('WhatsApp a besoin d\'une adresse publique pour Odin : Réglages → Accès (tunnel)');
+        setConfigValue(paths, ['channels', 'whatsapp'], { enabled: Boolean(b.enabled), phoneId: String(b.phoneId ?? '').trim(), owners });
+      } else if (kind === 'mail') {
+        const owners = list(b.owners).map((o) => o.toLowerCase()); if (owners.some((o) => !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(o))) throw new Error('adresses mail invalides');
+        if (b.enabled && !cfg.mail.imapHost) throw new Error('relie d\'abord la boîte mail (Réglages → Mail)');
+        setConfigValue(paths, ['channels', 'mail'], { enabled: Boolean(b.enabled), owners, tag: String(b.tag ?? 'odin').trim().slice(0, 40), everySec: 60 });
+      } else throw new Error('messagerie inconnue');
       return true;
     }
     case 'network': {

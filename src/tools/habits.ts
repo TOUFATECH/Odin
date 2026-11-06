@@ -1,6 +1,8 @@
 // Ce qu'Odin a appris de tes habitudes : le voir, l'oublier, lui redemander de te demander.
 
 import { forgetHabit, habitWhen, knownHabits, revokeTrust, trusts } from '../learn/habits.ts';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { obj, str, type Tool } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -34,4 +36,17 @@ export const habitForget: Tool = {
   },
 };
 
-export const HABIT_TOOLS: Tool[] = [habitsList, habitForget];
+export const environmentMap: Tool = {
+  name: 'environment_map',
+  description: 'La carte de la maison telle qu\'Odin l\'a apprise en observant le réseau chaque heure : rôle de chaque appareil, rythme (toujours allumé, en semaine 8 h – 18 h…), qui est à la maison (téléphones), machines où il peut agir. Filtre facultatif (nom, adresse, rôle).',
+  risk: 'read',
+  schema: obj({ filter: str('nom, adresse ou rôle (facultatif)') }),
+  async run(i, ctx) {
+    const p = join(ctx.home ?? '', 'ENVIRONMENT.md');
+    if (!ctx.home || !existsSync(p)) return 'Je n\'ai pas encore observé le réseau : il faut que l\'inventaire réseau soit actif (Réglages → Réseau), puis une heure.';
+    const text = readFileSync(p, 'utf8'), f = s(i.filter).toLowerCase();
+    return f ? text.split('\n').filter((l) => !l.startsWith('|') || l.toLowerCase().includes(f) || /^\| (Appareil|---)/.test(l)).join('\n') : text;
+  },
+};
+
+export const HABIT_TOOLS: Tool[] = [habitsList, habitForget, environmentMap];

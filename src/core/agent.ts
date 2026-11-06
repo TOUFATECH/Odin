@@ -7,6 +7,7 @@
 // garde-fous codés : nombre d'étapes, budget en dollars, détection de boucles,
 // annulation (AbortSignal), compaction du contexte, réflexion d'apprentissage.
 
+import { userBrief } from '../muninn/files.ts';
 import { dirname } from 'node:path';
 import type { OdinConfig } from '../config.ts';
 import { scanForInjection, wrapUntrusted } from '../heimdall/injection.ts';
@@ -167,6 +168,7 @@ export class Agent {
     const turnStart = Date.now();
     const system = buildSystemPrompt({
       persona: this.deps.persona,
+      userBrief: this.deps.home ? userBrief(this.deps.home) : '',
       name: cfg.name,
       now: new Date(),
       channel,

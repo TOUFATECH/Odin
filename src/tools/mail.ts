@@ -115,6 +115,56 @@ export async function unreadSummary(c: MailConfig, n = 5): Promise<{ count: numb
   });
 }
 
+/** Adresse seule d'un en-tête From (« Nom <a@b.fr> » → a@b.fr). Pur. */
+export const addrOf = (from: string) => (/<([^>]+)>/.exec(from)?.[1] ?? from).trim().toLowerCase();
+
+/**
+ * L'expéditeur est-il authentifié par le serveur qui a reçu le message ? (DMARC, ou DKIM du même
+ * domaine que l'adresse affichée.) Sans ça, n'importe qui peut écrire « From: toi ». Pur.
+ */
+export function mailAuthOk(rawHead: string, from: string): boolean {
+  const ar = /^Authentication-Results:\s*((?:.*)(?:\r?\n[ \t].*)*)/im.exec(rawHead)?.[1]?.replace(/\r?\n[ \t]+/g, ' ') ?? '';
+  if (!ar) return false;
+  const dom = addrOf(from).split('@')[1] ?? '';
+  if (/\bdmarc=pass\b/i.test(ar) && (!/header\.from=/i.test(ar) || new RegExp(`header\\.from=${dom.replace(/\./g, '\\.')}\\b`, 'i').test(ar))) return true;
+  const dk = /\bdkim=pass\b[^;]*?header\.(?:d|i)=@?([\w.-]+)/i.exec(ar);
+  return Boolean(dk && dom && (dk[1].toLowerCase() === dom || dk[1].toLowerCase().endsWith(`.${dom}`)));
+}
+
+/** Retire la citation du message précédent et la signature d'une réponse. Pur. */
+export function stripQuoted(text: string): string {
+  const out: string[] = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (/^>/.test(line) || /^(Le .+a écrit|On .+wrote)\s*:?\s*$/i.test(line.trim()) || /^-- ?$/.test(line) || /^-{2,}\s*(Original|Message d'origine)/i.test(line)) break;
+    out.push(line);
+  }
+  return out.join('\n').trim();
+}
+
+/** Mails non lus du propriétaire (authentifiés), marqués lus une fois pris. Les autres mails ne sont pas touchés. */
+export async function takeOwnerMails(c: MailConfig, owners: string[], tag = ''): Promise<Array<{ from: string; subject: string; text: string; trusted: boolean }>> {
+  if (!owners.length) return [];
+  return withImap(c, async (im) => {
+    await im.cmd('SELECT "INBOX"');
+    const out: Array<{ from: string; subject: string; text: string; trusted: boolean }> = [];
+    for (const o of owners) {
+      const uids = (/\* SEARCH([\d ]*)/.exec(await im.cmd(`UID SEARCH UNSEEN FROM ${q(o)}`))?.[1] ?? '').trim().split(/\s+/).filter(Boolean).slice(-10);
+      for (const uid of uids) {
+        const resp = await im.cmd(`UID FETCH ${uid} (RFC822.SIZE BODY.PEEK[])`);
+        if (Number(/RFC822\.SIZE (\d+)/.exec(resp)?.[1] ?? 0) > 2_000_000) continue;
+        const lit = /BODY\[\] \{(\d+)\}\r\n/.exec(resp);
+        const raw = lit ? resp.slice(lit.index + lit[0].length, lit.index + lit[0].length + Number(lit[1])) : '';
+        const m = mailText(raw), head = raw.split(/\r?\n\r?\n/)[0];
+        if (addrOf(m.from) !== o.toLowerCase()) continue;
+        if (tag && !new RegExp(tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(`${m.subject} ${m.to}`)) continue;
+        await im.cmd(`UID STORE ${uid} +FLAGS (\\Seen)`);
+        out.push({ from: addrOf(m.from), subject: m.subject, text: stripQuoted(m.text), trusted: mailAuthOk(head, m.from) });
+      }
+    }
+    return out;
+  });
+}
+
 const mconf = (ctx: ToolContext): MailConfig => ctx.mail ?? { imapHost: '', imapPort: 993, smtpHost: '', smtpPort: 465, user: '', from: '' };
 
 export const mailList: Tool = {
@@ -185,7 +235,7 @@ export function buildMail(from: string, to: string[], subject: string, text: str
   return [`From: ${from}`, `To: ${to.join(', ')}`, `Subject: ${enc(subject)}`, `Date: ${date.toUTCString().replace('GMT', '+0000')}`, `Message-ID: <${Date.now().toString(36)}.${Math.random().toString(36).slice(2)}@odin>`, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8', 'Content-Transfer-Encoding: base64', '', body].join('\r\n');
 }
 
-async function smtpSend(c: MailConfig, to: string[], data: string): Promise<void> {
+export async function smtpSend(c: MailConfig, to: string[], data: string): Promise<void> {
   const pw = (process.env.MAIL_PASSWORD ?? '').replace(/\s+/g, '');
   if (!c.smtpHost || !c.user || !pw) throw new Error('L\'envoi n\'est pas configuré : Réglages → Mail.');
   const port = c.smtpPort || 465;
