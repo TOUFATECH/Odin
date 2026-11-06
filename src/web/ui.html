@@ -661,12 +661,22 @@ details.activity .ai.info{color:#8FC1E3}
 .ditem.live .spin{width:12px;height:12px;margin-top:4px;flex:none;border-radius:50%;border:2px solid var(--accent);border-right-color:transparent;animation:aspin .8s linear infinite}
 .hgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;align-items:start}
 .hgrid2 .hcard{min-height:0}
-.tour-bud{position:fixed;z-index:1001;width:76px;height:76px;transition:left .9s cubic-bezier(.4,1.35,.5,1),top .9s cubic-bezier(.4,1.35,.5,1);filter:drop-shadow(0 8px 18px rgba(0,0,0,.4));pointer-events:none}
-.tour-bud.hop svg{animation:a-joy .9s cubic-bezier(.3,1.4,.5,1) .55s}
-.tour-ring{position:fixed;z-index:1000;border:3px solid var(--accent);border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.42);transition:all .6s cubic-bezier(.4,0,.2,1);pointer-events:none}
-.tour-box{position:fixed;z-index:1002;background:var(--panel);color:var(--ink);border:1px solid var(--accent);border-radius:16px;padding:14px 16px;box-shadow:0 18px 50px rgba(0,0,0,.4);transition:left .6s,top .6s;display:flex;flex-direction:column;gap:12px}
-.tourt{line-height:1.55;font-size:15px}
-.tourb{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tourb .dim{margin-right:auto;font-size:12px}
+.tour-bud{position:fixed;z-index:1003;width:64px;height:64px;transition:left .7s cubic-bezier(.4,1.35,.5,1),top .7s cubic-bezier(.4,1.35,.5,1);filter:drop-shadow(0 8px 16px rgba(0,0,0,.45));pointer-events:none}
+.tour-bud.hop svg{animation:a-joy .9s cubic-bezier(.3,1.4,.5,1) .45s}
+.tour-ring.none{border-color:transparent}
+.tour-ring{position:fixed;z-index:1000;border:3px solid var(--accent);border-radius:14px;box-shadow:0 0 0 9999px rgba(6,12,18,.55);transition:all .5s cubic-bezier(.4,0,.2,1);pointer-events:none}
+.tour-box{position:fixed;z-index:1002;background:var(--panel);color:var(--ink);border:1px solid var(--accent);border-radius:16px;padding:14px 16px 12px 18px;box-shadow:0 18px 50px rgba(0,0,0,.45);transition:left .5s cubic-bezier(.4,0,.2,1),top .5s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;gap:10px;overflow:auto}
+.tourh{display:flex;align-items:center;gap:10px;padding-left:34px}
+.tourh b{font-family:var(--display);font-size:15px}.tourh .dim{font-size:12.5px;margin-right:auto}
+.tourx{border:0;background:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px;border-radius:6px}
+.tourbar{height:4px;border-radius:4px;background:var(--line);overflow:hidden}.tourbar i{display:block;height:100%;background:var(--accent);transition:width .4s}
+.tourt{line-height:1.6;font-size:15.5px}
+.tour-toc{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.tour-toc button{font:inherit;font-size:13px;text-align:left;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
+.tour-toc button.on{border-color:var(--accent);color:var(--accent)}
+.tour-toc button:hover{background:var(--hover)}
+.tourb{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tourb .sp{flex:1}
+@media (max-width:700px){.tour-toc{grid-template-columns:1fr}.tourt{font-size:15px}}
 @media (prefers-reduced-motion:reduce){.tour-bud,.tour-ring,.tour-box{transition:none}.tour-bud.hop svg{animation:none}}
 #homeGrid{display:block}
 /* Identité : titres en Bricolage, texte en Plex ; focus clavier toujours visible ; tout ce qui se clique a la main */
@@ -684,7 +694,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
 .tip-acts{flex-wrap:wrap!important;max-width:100%}.tip .tbtn{white-space:normal;max-width:100%;text-align:center;line-height:1.25;padding:3px 9px}
 .msgs{padding-bottom:calc(96px + var(--tip-h,0px))}
 .tip{background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.35);border-color:color-mix(in srgb,var(--odin-tint,var(--accent)) 45%,var(--field))}
-.touring .chat-buddy{visibility:hidden}
+.touring:not(.tour-real-bud) .chat-buddy{visibility:hidden}
 .msg.secret{border-color:var(--accent)}.secrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}.secv{font-size:16px;padding:4px 10px;border-radius:8px;background:color-mix(in srgb,var(--ink) 8%,transparent);letter-spacing:.04em}
 </style>
 </head>
@@ -1481,6 +1491,8 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   $('#input').addEventListener('blur', () => setTimeout(() => document.body.classList.remove('kb'), 120));
   async function send() {
     const t = $('#input').value.trim(); if (!t && !attached.length) return;
+    // « visite guidée », « fais-moi la présentation de l'application » : la visite se lance directement.
+    if (/^(?:(?:fais|lance|montre|refais|démarre)(?:-moi)?\s+)?(?:la\s+|une\s+)?(?:visite guidée|présentation (?:de l'app(?:lication)?|guidée|de l'interface))\s*[.!]?$/i.test(t)) { $('#input').value = ''; grow(); window.OdinTour?.start(true); return; }
     $('#input').value = ''; grow(); msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
     setBusy(true);
     const files = await takeAttachments();
@@ -2490,121 +2502,202 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
   // Odin se déplace dans l'application et présente chaque partie, en texte et à voix haute.
   // On peut la refuser, l'arrêter à tout moment, et la revoir dans Réglages → Plus.
   const S = (sec) => `#v-settings article[data-sec="${sec}"]`;
-  const TOUR = [
-    // — Utilisation —
-    { v: 'home', q: '#homeGrid .kpis', t: 'Bienvenue ! Je suis Odin, ton assistant pour ta maison, ton réseau et tes machines. Je vais te montrer toute l\'application : d\'abord comment t\'en servir, puis comment me configurer. Ici, l\'Accueil : tes appareils, mes missions, les risques et ce que j\'ai dépensé. Touche un chiffre pour voir le détail.' },
-    { v: 'home', q: '#homeGrid .hcols .hpanel', t: '« À faire maintenant » : ce qui t\'attend vraiment — validations, alertes, réglages que je te propose selon ce que je vois chez toi.' },
-    { v: 'home', q: '#homeGrid .hcols .hpanel:last-child', t: '« Ce que j\'ai fait » : tout ce que j\'ai fait, à ta demande ou de moi-même, avec l\'heure.' },
-    { v: 'home', q: '#homeGrid .hgrid2', t: 'En bas, l\'état de tes disques, de la sauvegarde, ton résumé du matin et l\'installation de l\'application sur ton téléphone.' },
-    { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion : c\'est ici que tu me parles. Écris ce que tu veux, comme à une personne : « mets à jour mes serveurs », « qui est connecté au wifi ? », « résume ce PDF ».' },
-    { v: 'chat', q: '#camBtn', t: 'Le trombone : joins-moi des photos, vidéos, sons, PDF, Word, Excel. Tu peux aussi les glisser dans la discussion ou les coller.' },
-    { v: 'chat', q: '#micBtn', t: 'Le micro : parle-moi au lieu d\'écrire. Il faut d\'abord régler la voix dans les Réglages.' },
-    { v: 'chat', q: '#speakBtn', t: '« Voix » : je te lis mes réponses à voix haute. « Mains libres » : dis « Odin… » et je t\'écoute, sans toucher l\'écran.' },
-    { v: 'chat', q: '#dryBtn', t: 'Le mode Essai : je prépare et j\'explique tout, sans rien changer. Parfait pour voir avant d\'agir.' },
-    { v: 'chat', q: '#convsBtn', t: 'L\'historique de tes conversations, rangé par jour. « Nouvelle » ouvre une conversation propre.' },
-    { v: 'chat', q: '#msgs', t: 'Quand une action le demande, je te pose la question ici : réponds simplement oui ou non. Sur Telegram, des boutons Oui et Non apparaissent sous ma demande.' },
-    { v: 'missions', q: '#v-missions .head', t: 'Les Missions : ce que je fais en ce moment, étape par étape, combien ça coûte. Tu peux arrêter ou reprendre une mission.' },
-    { v: 'net', nt: 'list', q: '#v-net .ntabs', t: 'Le Réseau : tous les appareils de chez toi, trouvés tout seuls. Je te préviens quand un nouvel appareil arrive ou qu\'une adresse MAC est suspecte.' },
-    { v: 'net', nt: 'map', q: '#v-net .ntabs [data-nt="map"]', t: 'La carte : une par sous-réseau. Touche un appareil pour sa fiche : ports ouverts, liens, ce que je peux faire avec, et le bouton pour le bloquer sur ta box.' },
-    { v: 'net', nt: 'sec', q: '#v-net .ntabs [data-nt="sec"]', t: 'Sécurité : les risques que je repère sur tes appareils, avec le conseil pour les corriger.' },
-    { v: 'memory', q: '#v-memory .head', t: 'Ma mémoire : ce que je sais de toi et de chez toi. Je la range chaque nuit. Épingle ce qui compte, corrige-moi ou fais-moi oublier.' },
-    { v: 'skills', q: '#v-skills .head', t: 'Mes compétences et mes scripts : j\'apprends de chaque mission et je m\'améliore. Tu relis et approuves ce que je propose.' },
-    { v: 'jobs', q: '#v-jobs .head', t: 'Les Tâches planifiées : ce que je fais tout seul à heure fixe, comme un résumé chaque matin ou une ronde du réseau la nuit. Demande-moi simplement « chaque lundi à 8 h… ».' },
-    { v: 'audit', q: '#v-audit .head', t: 'Les Décisions : tout ce que j\'ai fait ou refusé, jour par jour. Rien n\'est caché.' },
-    // — Configuration —
-    { v: 'settings', q: '#snav', t: 'Passons à la configuration. Les Réglages sont rangés par rubrique ; celles que tu utilises le plus passent en premier. « Tous les réglages » les montre toutes.' },
-    { v: 'settings', sec: 'modele', q: S('modele'), t: 'Le Modèle : c\'est mon cerveau. Choisis-le en premier (OpenAI, Anthropic, un modèle local…), avec son budget. Sans lui, je ne peux rien faire.' },
-    { v: 'settings', sec: 'telegram', q: S('telegram'), t: 'Telegram : pour me parler depuis ton téléphone, partout. Crée un bot avec BotFather, colle son jeton ici, puis envoie-moi un message.' },
-    { v: 'settings', sec: 'voix', q: S('voix'), t: 'La Voix : pour me parler et m\'entendre. Whisper comprend ce que tu dis ; pour ma voix, ElevenLabs, OpenAI ou Piper, sur ta machine et gratuit.' },
-    { v: 'settings', sec: 'autonomie', q: S('autonomie'), t: 'Mon autonomie : de Prudent, où je te demande tout, jusqu\'à Odin Breaker, où j\'agis seul et je te rends compte le soir. Tu peux le limiter à la nuit.' },
-    { v: 'settings', sec: 'droits', q: S('droits'), t: 'Droits et machines : donne-moi les accès à tes machines (et à ta box) pour que je puisse les mettre à jour, les réparer ou bloquer un appareil.' },
-    { v: 'settings', sec: 'reseau', q: S('reseau'), t: 'Réseau local : active le balayage automatique pour que je surveille tes appareils en continu.' },
-    { v: 'settings', sec: 'surveillance', q: S('surveillance'), t: 'Surveillance : les appareils et services importants que je vérifie toutes les cinq minutes, et l\'espace des disques.' },
-    { v: 'settings', sec: 'recherche', q: S('recherche'), t: 'Recherche : je cherche déjà sur le web sans clé ; une clé Brave ou Tavily rend mes recherches plus fiables.' },
-    { v: 'settings', sec: 'sauvegarde', q: S('sauvegarde'), t: 'Sauvegarde : une copie chiffrée de ma mémoire et de mes réglages chaque nuit. Active-la, c\'est rassurant.' },
-    { v: 'settings', sec: 'ecriture', q: S('ecriture'), t: 'Écriture : je corrige tes fautes, je te donne des conseils, et je me promène dans la discussion. Tout se règle ici.' },
-    { v: 'settings', sec: 'personnes', q: S('personnes'), t: 'Personnes : ajoute ta famille ou tes collègues, avec ce qu\'ils ont le droit de me demander.' },
-    { v: 'settings', sec: 'plus', q: S('plus'), t: 'Plus : les autres fonctions (Proxmox, maison connectée, mail, agenda, documents, accès depuis l\'extérieur) apparaissent quand ton usage s\'y prête. Tu peux les ajouter ici, et revoir cette présentation.' },
-    { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Commence par choisir mon modèle, puis dis-moi ce que tu veux faire. Je suis là.' },
+  const firstDevice = () => (state?.devices || []).find((d) => d.status === 'online' && (d.label || d.name || d.hostname)) || (state?.devices || [])[0];
+  // Chapitres de la visite : ce qu'est Odin, comment s'en servir, puis comment le configurer.
+  const CHAPTERS = [
+    { name: 'Qui je suis', steps: [
+      { v: 'home', t: 'Bonjour ! Je suis Odin, ton assistant personnel. Je vis sur ta machine, je surveille ton réseau, j\'entretiens tes serveurs, je cherche sur le web, je lis tes documents et je fais ce que tu me demandes. Cette visite dure une dizaine de minutes. Tu peux l\'arrêter quand tu veux, revenir en arrière, ou passer d\'un chapitre à l\'autre avec le sommaire.' },
+      { v: 'home', t: 'Comment je fonctionne : mon cerveau est un modèle d\'intelligence artificielle que tu choisis. Mes mains, ce sont des outils : commandes, réseau, fichiers, web, Proxmox, maison connectée. Mes souvenirs restent chez toi. Et mon gardien, Heimdall, juge chacune de mes actions avant que je la fasse.' },
+      { v: 'home', t: 'Ta sécurité : tes mots de passe ne passent jamais par l\'intelligence artificielle. Ce que je lis sur le web ou dans un mail ne peut pas me donner d\'ordres. Les commandes destructrices me sont interdites, et tout ce que je fais est noté, jour par jour.' },
+    ] },
+    { name: 'L\'accueil', steps: [
+      { v: 'home', q: ['#sideNav', '.bnav'], t: 'Le menu : Accueil, Discussion, Missions et Réseau. « Plus » ouvre le reste : mémoire, compétences, tâches planifiées, décisions. Sur téléphone, le menu est en bas de l\'écran.' },
+      { v: 'home', q: '#homeGrid .kpis', t: 'L\'Accueil en un coup d\'œil : tes appareils en ligne, mes missions en cours, les risques repérés, ce que j\'ai dépensé et mon mode d\'autonomie. Touche un chiffre pour voir le détail.' },
+      { v: 'home', q: ['#homeGrid .hcols .hpanel'], t: '« À faire maintenant » : ce qui t\'attend vraiment. Validations, alertes, et réglages que je te propose selon ce que je vois chez toi. Si c\'est vide, tout va bien.' },
+      { v: 'home', q: '#homeGrid .hcols .hpanel:last-child', t: '« Ce que j\'ai fait » : tout ce que j\'ai fait, à ta demande ou de moi-même, avec l\'heure.' },
+      { v: 'home', q: '#homeGrid .hgrid2', t: 'En bas : l\'espace de tes disques et tes appareils surveillés, la sauvegarde, ton résumé du matin, et l\'installation de l\'application sur ton téléphone.' },
+    ] },
+    { name: 'Me parler', steps: [
+      { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion, c\'est ici que tu me parles, comme à une personne : « mets à jour mes serveurs », « qui est connecté au wifi ? », « résume ce PDF », « bloque le téléphone inconnu ». Entrée pour envoyer, Maj et Entrée pour aller à la ligne.' },
+      { v: 'chat', q: '#camBtn', t: 'Le trombone : joins-moi des photos, des vidéos, des sons, des PDF, des fichiers Word ou Excel. Tu peux aussi les glisser dans la discussion, ou les coller.' },
+      { v: 'chat', q: '#micBtn', t: 'Le micro : parle-moi au lieu d\'écrire. Je transcris et je réponds.' },
+      { v: 'chat', q: '#speakBtn', t: '« Voix » : je te lis mes réponses à voix haute.' },
+      { v: 'chat', q: '#handsBtn', t: '« Mains libres » : dis « Odin » et je t\'écoute, sans toucher l\'écran. Dis « stop » pour me couper la parole.' },
+      { v: 'chat', q: '#dryBtn', t: 'Le mode Essai : je prépare et j\'explique tout, sans rien changer. Parfait pour voir ce que je ferais avant de me laisser agir.' },
+      { v: 'chat', q: '#convsBtn', t: 'L\'historique de tes conversations, rangé par jour. Tu peux en épingler, les renommer ou les exporter en PDF. « Nouvelle » ouvre une conversation vierge.' },
+      { v: 'chat', q: '#msgs', t: 'Quand une action importante le demande, je te pose la question ici. Réponds simplement oui ou non. Sur Telegram, des boutons Oui et Non apparaissent sous ma demande.' },
+      { v: 'chat', q: '#buddyChat', t: 'Mon petit double, dans la discussion : il suit ce que tu écris, se pose sur mes réponses et réagit. Touche-le : il te propose la suite selon la conversation. Tu peux aussi le déplacer.' },
+      { v: 'chat', q: '#v-chat .cbox', t: 'Les mots de passe : donne-les-moi simplement ici, par exemple « le mot de passe root du 192.168.1.10 est … ». Ils sont retirés avant l\'intelligence artificielle. Je me connecte, j\'installe ma propre clé, et je change le mot de passe : le nouveau t\'arrive en privé.' },
+    ] },
+    { name: 'Mon travail', steps: [
+      { v: 'missions', q: ['#v-missions .head', '#v-missions .body'], t: 'Les Missions : ce que je fais en ce moment, étape par étape, et combien ça coûte. Tu peux arrêter ou reprendre une mission.' },
+      { v: 'jobs', q: ['#v-jobs .head', '#v-jobs .body'], t: 'Les Tâches planifiées : ce que je fais seul à heure fixe, comme un résumé chaque matin ou une ronde du réseau la nuit. Demande-moi simplement « chaque lundi à 8 heures, fais… ».' },
+      { v: 'audit', q: ['#v-audit .head', '#v-audit .body'], t: 'Les Décisions : tout ce que j\'ai fait, décidé seul ou refusé, classé par jour, semaine, mois ou année. Rien n\'est caché.' },
+      { v: 'chat', q: ['#convSub', '#v-chat .cbox'], t: 'En mode Odin Breaker, j\'agis seul : je fais des rondes sur ton réseau, j\'identifie et je renomme les appareils, je corrige les problèmes, et je te rends compte le soir. Tu le règles dans la configuration.' },
+    ] },
+    { name: 'Ton réseau', steps: [
+      { v: 'net', nt: 'list', q: '#v-net .ntabs', t: 'Le Réseau : tous les appareils de chez toi, trouvés tout seuls, avec leur nom, leur système et leurs ports. Je te préviens quand un nouvel appareil arrive, ou quand une adresse MAC est suspecte.' },
+      { v: 'net', nt: 'map', q: '#v-net .ntabs [data-nt="map"]', t: 'La carte : une par sous-réseau, rangée par type d\'appareil. Tu peux zoomer, chercher un appareil, et le toucher pour ouvrir sa fiche.' },
+      { v: 'device', optional: true, skip: () => !firstDevice(), pre: () => { const d = firstDevice(); if (d) return openDevice(d.id); }, q: '#devBody', t: 'La fiche d\'un appareil : ses informations, ses liens, ses ports ouverts, ce que je peux faire avec, sa sécurité et son historique. Le bouton « Bloquer sur la box » lui coupe l\'accès, et tu peux le réautoriser d\'un clic.' },
+      { v: 'net', nt: 'sec', q: '#v-net .ntabs [data-nt="sec"]', t: 'Sécurité : les risques que je repère sur tes appareils, avec le conseil pour les corriger.' },
+      { v: 'net', nt: 'pve', optional: true, q: '#v-net .ntabs [data-nt="pve"]', t: 'Proxmox : tes machines virtuelles et conteneurs. Je peux les démarrer, les arrêter, les sauvegarder et les mettre à jour.' },
+    ] },
+    { name: 'Ce que j\'apprends', steps: [
+      { v: 'memory', q: ['#v-memory .head', '#v-memory .body'], t: 'Ma mémoire : ce que je sais de toi et de chez toi, rangé par thème. Je la range moi-même chaque nuit. Épingle ce qui compte, corrige-moi, ou fais-moi oublier.' },
+      { v: 'skills', q: ['#v-skills .head', '#v-skills .body'], t: 'Mes compétences et mes scripts : j\'apprends de chaque mission et je m\'améliore. Tu relis et tu approuves ce que je propose.' },
+    ] },
+    { name: 'Me configurer', steps: [
+      { v: 'settings', q: '#snav', t: 'Passons aux réglages. Ils sont rangés par rubrique, et celles que tu utilises le plus passent en premier. « Tous les réglages » les montre toutes. Je te les présente dans l\'ordre où je te conseille de les faire.' },
+      { v: 'settings', sec: 'modele', q: S('modele'), t: 'Un : le Modèle, c\'est mon cerveau. Choisis-le en premier : OpenAI, Anthropic, Mistral, ou un modèle local. Tu peux fixer un budget par mois. Sans lui, je ne peux rien faire.' },
+      { v: 'settings', sec: 'telegram', q: S('telegram'), t: 'Deux : Telegram, pour me parler depuis ton téléphone, partout. Crée un bot avec BotFather, colle son jeton ici, puis envoie-moi un message.' },
+      { v: 'settings', sec: 'voix', q: S('voix'), t: 'Trois : la Voix, pour me parler et m\'entendre. Whisper comprend ce que tu dis. Pour ma voix : ElevenLabs, OpenAI, ou Piper, gratuit et sur ta machine.' },
+      { v: 'settings', sec: 'autonomie', q: S('autonomie'), t: 'Quatre : mon autonomie. Prudent : je te demande tout. Équilibré : je te demande seulement l\'important. Autonome : presque rien. Odin Breaker : j\'agis seul et je te rends compte. Tu peux limiter le Breaker à la nuit.' },
+      { v: 'settings', sec: 'droits', q: S('droits'), t: 'Cinq : Droits et machines. Ici, je deviens administrateur de ce poste, et tu ajoutes les accès à tes autres machines et à ta box, pour que je puisse les mettre à jour, les réparer, ou bloquer un appareil.' },
+      { v: 'settings', sec: 'reseau', q: S('reseau'), t: 'Six : le Réseau local. Active le balayage automatique pour que je surveille tes appareils en continu.' },
+      { v: 'settings', sec: 'surveillance', q: S('surveillance'), t: 'Surveillance : les appareils et services importants que je vérifie toutes les cinq minutes, et l\'espace de tes disques.' },
+      { v: 'settings', sec: 'proxmox', q: S('proxmox'), t: 'Proxmox : l\'adresse de ton serveur. Le plus simple : donne-moi son mot de passe dans la discussion, je crée mon jeton d\'accès tout seul.' },
+      { v: 'settings', sec: 'entretien', q: S('entretien'), t: 'Entretien : je répare et je mets à jour tes machines la nuit, avec un plan de retour en arrière si quelque chose se passe mal.' },
+      { v: 'settings', sec: 'sauvegarde', q: S('sauvegarde'), t: 'Sauvegarde : une copie chiffrée de ma mémoire et de mes réglages, chaque nuit. Active-la, c\'est rassurant.' },
+      { v: 'settings', sec: 'personnalite', q: S('personnalite'), t: 'Personnalité : mon ton, ma façon de te parler, mes humeurs.' },
+      { v: 'settings', sec: 'personnes', q: S('personnes'), t: 'Personnes : ta famille ou tes collègues, avec ce qu\'ils ont le droit de me demander.' },
+      { v: 'settings', sec: 'recherche', q: S('recherche'), t: 'Recherche : je cherche déjà sur le web sans clé, en croisant plusieurs moteurs. Une clé Brave ou Tavily rend mes recherches plus sûres.' },
+      { v: 'settings', sec: 'maison', q: S('maison'), t: 'Maison connectée : relie Home Assistant, et je peux allumer, éteindre, régler et parler sur tes enceintes.' },
+      { v: 'settings', sec: 'mail', q: S('mail'), t: 'Mail : je lis, je trie et je prépare tes réponses. Je n\'envoie jamais rien sans ton accord.' },
+      { v: 'settings', sec: 'agenda', q: S('agenda'), t: 'Agenda : je connais tes rendez-vous, je te les rappelle et j\'en ajoute quand tu me le demandes.' },
+      { v: 'settings', sec: 'documents', q: S('documents'), t: 'Documents : j\'indexe tes dossiers, ou ceux de ton NAS, pour retrouver n\'importe quel document en un mot.' },
+      { v: 'settings', sec: 'ecriture', q: S('ecriture'), t: 'Écriture : je corrige tes fautes, je te donne des conseils et je me promène dans la discussion. Tout se règle ici.' },
+      { v: 'settings', sec: 'acces', q: S('acces'), t: 'Accès : pour m\'utiliser depuis l\'extérieur de chez toi, en toute sécurité, et gérer les appareils de confiance.' },
+      { v: 'settings', sec: 'plus', q: S('plus'), t: 'Plus : les fonctions que tu n\'utilises pas encore apparaissent ici. C\'est aussi ici que tu peux revoir cette présentation.' },
+    ] },
+    { name: 'Au quotidien', steps: [
+      { v: 'home', q: '#appCard', t: 'Installe-moi sur ton téléphone ou ton ordinateur, comme une vraie application, et active les notifications : je te préviens même quand l\'application est fermée.' },
+      { v: 'home', q: ['#themeBtn', '#menuBtn', '.bnav [data-view="settings"]', '.bnav'], t: 'Le thème : clair, sombre, ou automatique selon l\'heure.' },
+      { v: 'home', q: ['#appVer', '#homeGrid .kpis'], t: 'Je me mets à jour tout seul, quand je ne travaille pas, et je redémarre sans te déranger.' },
+      { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Pour commencer : choisis mon modèle dans les Réglages, puis dis-moi ce que tu veux faire. Tu peux revoir cette présentation à tout moment, dans Réglages, rubrique Plus. Je suis là.' },
+    ] },
   ];
-  let tourI = -1, tourVoice = true, tourAudio = null, tourBud = null, tourBox = null, tourRing = null;
-  function tourSpeak(text) {
+  const TOUR = CHAPTERS.flatMap((c, ci) => c.steps.map((s) => ({ ...s, ch: ci })));
+  let tourI = -1, tourVoice = true, tourAuto = true, tourAudio = null, tourBud = null, tourBox = null, tourRing = null, tourSeq = 0, tourSecUse = null, autoT = 0;
+  const stopVoice = () => { clearTimeout(autoT); try { tourAudio?.pause(); } catch {} try { speechSynthesis?.cancel(); } catch {} tourBud?.classList.remove('talking'); };
+  // Fin de lecture : en lecture automatique, on passe à l'étape suivante.
+  const spoken = (seq) => { tourBud?.classList.remove('talking'); if (tourAuto && seq === tourSeq && tourI >= 0) autoT = setTimeout(() => { if (seq === tourSeq) tourGo(tourI + 1); }, 1100); };
+  function tourSpeak(text, seq) {
+    stopVoice();
     if (!tourVoice) return;
-    try { tourAudio?.pause(); } catch {}
-    try { speechSynthesis?.cancel(); } catch {}
-    // Voix d'Odin (ElevenLabs, Piper…) si elle est réglée, sinon la voix du navigateur.
+    tourBud?.classList.add('talking');
+    // Voix d'Odin (ElevenLabs, OpenAI, Piper) si elle est réglée, sinon la plus naturelle du navigateur.
     if (state?.voice?.tts) fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text }) }).then(async (r) => {
       if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) throw new Error('voix');
-      tourAudio = new Audio(URL.createObjectURL(await r.blob())); tourBud?.classList.add('talking'); tourAudio.onended = () => tourBud?.classList.remove('talking'); await tourAudio.play();
-    }).catch(() => browserSpeak(text));
-    else browserSpeak(text);
+      if (seq !== tourSeq) return;
+      tourAudio = new Audio(URL.createObjectURL(await r.blob())); tourAudio.onended = () => spoken(seq); await tourAudio.play();
+    }).catch(() => { if (seq === tourSeq) browserSpeak(text, seq); });
+    else browserSpeak(text, seq);
   }
-  // Voix du navigateur : une voix d'homme naturelle en français (les voix « Natural / Online » d'Edge sont
-  // les plus humaines), jamais la voix robotique par défaut si on a mieux.
+  function browserSpeak(text, seq) {
+    try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; u.rate = 1; u.pitch = v && MALE_FR.test(v.name) ? 1 : 0.85; u.onend = () => spoken(seq); u.onerror = () => spoken(seq); speechSynthesis.speak(u); }
+    catch { spoken(seq); }
+  }
+  // Voix du navigateur : une voix d'homme naturelle en français (les voix « Natural / Online » d'Edge sont les plus humaines).
   const MALE_FR = /henri|paul|thomas|claude|antoine|r[ée]my|j[ée]r[ôo]me|denis|mathieu|nicolas|guillaume|yves|alain|fabrice|gilles|olivier|jean|daniel|male|homme/i;
   function frenchVoice() {
     const vs = speechSynthesis.getVoices().filter((x) => /^fr/i.test(x.lang));
-    const score = (v) => (MALE_FR.test(v.name) ? 4 : 0) + (/natural|online|neural|premium|enhanced/i.test(v.name) ? 3 : 0) + (/fr-FR/i.test(v.lang) ? 1 : 0) - (/female|femme|amelie|am[ée]lie|audrey|aur[ée]lie|julie|marie|virginie|hortense|denise|eloise|celine|c[ée]line|chantal|google/i.test(v.name) ? 3 : 0);
+    const score = (v) => (MALE_FR.test(v.name) ? 4 : 0) + (/natural|online|neural|premium|enhanced/i.test(v.name) ? 3 : 0) + (/fr-FR/i.test(v.lang) ? 1 : 0) - (/female|femme|am[ée]lie|audrey|aur[ée]lie|julie|marie|virginie|hortense|denise|eloise|c[ée]line|chantal|google/i.test(v.name) ? 3 : 0);
     return vs.sort((a, b) => score(b) - score(a))[0];
   }
-  try { speechSynthesis.getVoices(); speechSynthesis.addEventListener?.('voiceschanged', () => {}); } catch {}
-  function browserSpeak(text) { try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; u.rate = 0.98; u.pitch = v && MALE_FR.test(v.name) ? 1 : 0.85; tourBud?.classList.add('talking'); u.onend = () => tourBud?.classList.remove('talking'); speechSynthesis.speak(u); } catch { /* pas de voix */ } }
+  try { speechSynthesis.getVoices(); } catch {}
   function tourEnd(done = true) {
-    tourI = -1; try { tourAudio?.pause(); speechSynthesis?.cancel(); } catch {}
+    tourI = -1; tourSeq++; stopVoice();
     tourBud?.remove(); tourBox?.remove(); tourRing?.remove(); tourBud = tourBox = tourRing = null;
     document.body.classList.remove('touring');
     // La visite ne compte pas comme une utilisation des réglages (ordre des rubriques inchangé).
-    if (tourSecUse) { try { tourSecUse[0] == null ? localStorage.removeItem('odin.secUse') : localStorage.setItem('odin.secUse', tourSecUse[0]); if (tourSecUse[1] != null) localStorage.setItem('odin.sec', tourSecUse[1]); } catch {} tourSecUse = null; }
+    if (tourSecUse) { try { tourSecUse[0] == null ? localStorage.removeItem('odin.secUse') : localStorage.setItem('odin.secUse', tourSecUse[0]); if (tourSecUse[1] != null) localStorage.setItem('odin.sec', tourSecUse[1]); } catch {} tourSecUse = null; if (typeof rankChips === 'function') rankChips(); }
     if (done) { try { localStorage.setItem('odin.tour', 'done'); } catch {} api('/api/action', { kind: 'tour_done' }).catch(() => {}); }
   }
-  async function tourGo(i) {
-    if (i < 0 || i >= TOUR.length) return tourEnd(true);
-    tourI = i; const s = TOUR[i];
-    show(s.v); if (s.sec) openSettings(s.sec); if (s.nt && typeof netTab === 'function') netTab(s.nt);
-    await new Promise((r) => setTimeout(r, 450));
-    const target = document.querySelector(s.q) || document.querySelector(`#v-${s.v} .head`);
-    target?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    await new Promise((r) => setTimeout(r, 350));
-    const r = target ? target.getBoundingClientRect() : { left: innerWidth / 2 - 100, top: innerHeight / 2 - 50, width: 200, height: 100, right: innerWidth / 2 + 100, bottom: innerHeight / 2 + 50 };
-    // Anneau autour de ce qu'il présente
-    Object.assign(tourRing.style, { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
-    // Odin saute à côté (à droite s'il y a la place, sinon en dessous / au-dessus)
-    const bw = 76, gap = 14, narrow = innerWidth < 700;
-    let bx = r.right + gap, by = r.top + Math.min(r.height / 2, 60) - bw / 2;
-    if (bx + bw + 300 > innerWidth || narrow) { bx = Math.max(10, Math.min(innerWidth - bw - 10, r.left + r.width / 2 - bw / 2)); by = r.bottom + gap; if (by + bw + 170 > innerHeight) by = Math.max(10, r.top - bw - gap - 150); }
-    // Grande zone (une rubrique entière) : il se pose dans son coin haut droit, la bulle à sa gauche.
-    if (r.height > innerHeight * 0.45 && !narrow) { bx = Math.min(r.right, innerWidth) - bw - 16; by = Math.max(r.top, 10) + 12; }
-    by = Math.max(10, Math.min(innerHeight - bw - 10, by));
-    tourBud.style.left = bx + 'px'; tourBud.style.top = by + 'px';
-    tourBud.classList.remove('hop'); void tourBud.offsetWidth; tourBud.classList.add('hop');
-    window.OdinFace?.flash(tourBud, i === 0 ? 'joie' : i === TOUR.length - 1 ? 'fierte' : ['regarde', 'clin', 'excite', 'joie'][i % 4], 2600);
-    // Bulle de texte
-    const last = i === TOUR.length - 1;
-    tourBox.replaceChildren(
-      el('div', { class: 'tourt' }, s.t),
-      el('div', { class: 'tourb' },
-        el('span', { class: 'dim' }, `${i + 1} / ${TOUR.length}`),
-        el('button', { type: 'button', class: 'btn small', 'aria-pressed': String(tourVoice), title: 'Voix', onclick: () => { tourVoice = !tourVoice; if (!tourVoice) { try { tourAudio?.pause(); speechSynthesis.cancel(); } catch {} } tourGo(tourI); } }, tourVoice ? '🔊 Voix' : '🔇 Muet'),
-        i ? el('button', { type: 'button', class: 'btn small', onclick: () => tourGo(i - 1) }, 'Précédent') : null,
-        last ? null : el('button', { type: 'button', class: 'btn small', onclick: () => tourEnd(true) }, 'Arrêter'),
-        el('button', { type: 'button', class: 'btn small primary', onclick: () => tourGo(i + 1) }, last ? 'Terminer' : 'Suivant')));
-    const tw = Math.min(340, innerWidth - 20);
-    let tx = bx + bw + 10, ty = by;
-    if (tx + tw > innerWidth - 10) { tx = Math.max(10, bx - tw - 10); }
-    if (tx < 10 || narrow) { tx = Math.max(10, Math.min(innerWidth - tw - 10, bx + bw / 2 - tw / 2)); ty = by + bw + 8; if (ty + 170 > innerHeight) ty = Math.max(10, by - 180); }
-    Object.assign(tourBox.style, { left: tx + 'px', top: ty + 'px', width: tw + 'px' });
-    tourSpeak(s.t);
+  // Rectangle visible d'un élément (coupé par l'écran) ; rien si l'élément est caché.
+  function visRect(n) {
+    if (!n) return null; const r = n.getBoundingClientRect(); if (!r.width || !r.height) return null;
+    const L = Math.max(r.left, 0), T = Math.max(r.top, 0), R = Math.min(r.right, innerWidth), B = Math.min(r.bottom, innerHeight);
+    return R - L > 4 && B - T > 4 ? { left: L, top: T, right: R, bottom: B, width: R - L, height: B - T } : null;
   }
-  let tourSecUse = null;
+  let tourDir = 1;
+  const shown = (n) => n && n.getClientRects().length > 0 && getComputedStyle(n).visibility !== 'hidden';
+  async function tourGo(i) {
+    if (i < 0) return;
+    if (i >= TOUR.length) return tourEnd(true);
+    tourDir = i >= tourI ? 1 : -1;
+    // Étape sans objet ici (aucun appareil connu…) : on passe.
+    if (TOUR[i].skip?.()) return tourGo(i + tourDir);
+    const seq = ++tourSeq; stopVoice();
+    tourI = i; const s = TOUR[i];
+    if (s.v !== 'device') show(s.v);
+    if (s.sec) openSettings(s.sec);
+    if (s.nt && typeof netTab === 'function') netTab(s.nt);
+    if (s.pre) { try { await s.pre(); } catch {} }
+    await new Promise((r) => setTimeout(r, 380)); if (seq !== tourSeq) return;
+    document.body.classList.toggle('tour-real-bud', [].concat(s.q || []).includes('#buddyChat'));
+    // Première zone visible parmi les choix (la version téléphone cache certaines zones).
+    const target = [].concat(s.q || []).map((q) => document.querySelector(q)).find(shown) || null;
+    if (!target && s.optional) return tourGo(i + tourDir);
+    if (target) { target.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); await new Promise((r) => setTimeout(r, 380)); if (seq !== tourSeq) return; }
+    const r = visRect(target);
+    // Anneau autour de ce qu'il présente (rien à entourer : tout l'écran est légèrement voilé)
+    tourRing.classList.toggle('none', !r);
+    if (r) Object.assign(tourRing.style, { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
+    else Object.assign(tourRing.style, { left: innerWidth / 2 + 'px', top: innerHeight / 2 + 'px', width: '0px', height: '0px' });
+    // Contenu de la bulle
+    const ch = CHAPTERS[s.ch], inCh = TOUR.filter((x) => x.ch === s.ch), k = inCh.indexOf(s) + 1, last = i === TOUR.length - 1;
+    const toc = el('div', { class: 'tour-toc', hidden: true }, ...CHAPTERS.map((c, ci) => el('button', { type: 'button', class: ci === s.ch ? 'on' : '', onclick: () => tourGo(TOUR.findIndex((x) => x.ch === ci)) }, `${ci + 1}. ${c.name}`)));
+    tourBox.replaceChildren(
+      el('div', { class: 'tourh' }, el('b', {}, `${s.ch + 1}. ${ch.name}`), el('span', { class: 'dim' }, `${k} / ${inCh.length}`),
+        el('button', { type: 'button', class: 'tourx', 'aria-label': 'Arrêter la présentation', title: 'Arrêter (Échap)', onclick: () => tourEnd(true) }, '×')),
+      el('div', { class: 'tourbar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': TOUR.length, 'aria-valuenow': i + 1 }, el('i', { style: `width:${Math.round((i + 1) / TOUR.length * 100)}%` })),
+      el('div', { class: 'tourt', 'aria-live': 'polite' }, s.t),
+      toc,
+      el('div', { class: 'tourb' },
+        el('button', { type: 'button', class: 'btn small', onclick: (e) => { toc.hidden = !toc.hidden; e.currentTarget.setAttribute('aria-expanded', String(!toc.hidden)); place(); }, 'aria-expanded': 'false' }, 'Sommaire'),
+        el('button', { type: 'button', class: 'btn small', 'aria-pressed': String(tourVoice), title: 'Lire à voix haute', onclick: () => { tourVoice = !tourVoice; if (!tourVoice) stopVoice(); else tourSpeak(s.t, tourSeq); renderBtns(); } }, tourVoice ? '🔊 Voix' : '🔇 Muet'),
+        el('button', { type: 'button', class: 'btn small', 'aria-pressed': String(tourAuto), title: 'Passer seul à l\'étape suivante à la fin de la lecture', onclick: () => { tourAuto = !tourAuto; if (!tourAuto) clearTimeout(autoT); renderBtns(); } }, tourAuto ? '⏵ Auto' : '⏸ Pas à pas'),
+        el('span', { class: 'sp' }),
+        i ? el('button', { type: 'button', class: 'btn small', onclick: () => tourGo(i - 1) }, 'Précédent') : null,
+        el('button', { type: 'button', class: 'btn small primary', onclick: () => tourGo(i + 1) }, last ? 'Terminer' : 'Suivant')));
+    function renderBtns() { const b = tourBox.querySelectorAll('.tourb .btn'); b[1].textContent = tourVoice ? '🔊 Voix' : '🔇 Muet'; b[1].setAttribute('aria-pressed', String(tourVoice)); b[2].textContent = tourAuto ? '⏵ Auto' : '⏸ Pas à pas'; b[2].setAttribute('aria-pressed', String(tourAuto)); }
+    // Placement : la bulle entière toujours à l'écran, à côté de la zone présentée, sans la couvrir si possible.
+    function place() {
+      const W = innerWidth, H = innerHeight, m = 12, narrow = W < 700;
+      const bw = Math.min(narrow ? W - 2 * m : 380, W - 2 * m);
+      tourBox.style.width = bw + 'px'; tourBox.style.maxHeight = (H - 2 * m - 48) + 'px';
+      const bh = tourBox.offsetHeight;
+      const topM = m + 48; // place pour la mascotte au-dessus de la bulle (et son saut)
+      const fits = (x, y) => x >= m && y >= topM && x + bw <= W - m && y + bh <= H - m;
+      const over = (x, y) => !r ? 0 : Math.max(0, Math.min(x + bw, r.right) - Math.max(x, r.left)) * Math.max(0, Math.min(y + bh, r.bottom) - Math.max(y, r.top));
+      const clampX = (x) => Math.max(m, Math.min(W - bw - m, x)), clampY = (y) => Math.max(topM, Math.min(H - bh - m, y));
+      let c = [];
+      if (narrow) c = r && r.top > H / 2 ? [[m, topM]] : [[m, H - bh - m]];
+      else if (r) c = [[r.right + 22, clampY(r.top)], [r.left - bw - 22, clampY(r.top)], [clampX(r.left), r.bottom + 22], [clampX(r.left), r.top - bh - 22], [W - bw - m, H - bh - m], [m, H - bh - m], [W - bw - m, topM]];
+      else c = [[(W - bw) / 2, (H - bh) / 2]];
+      const ok = c.filter(([x, y]) => fits(x, y)).sort((a, b) => over(...a) - over(...b));
+      const [x, y] = ok[0] || [clampX(c[0][0]), clampY(c[0][1])];
+      Object.assign(tourBox.style, { left: Math.round(x) + 'px', top: Math.round(y) + 'px' });
+      // La mascotte est accrochée au coin de la bulle et regarde la zone présentée.
+      tourBud.style.left = Math.round(Math.max(4, x - 26)) + 'px'; tourBud.style.top = Math.round(Math.max(4, y - 46)) + 'px';
+      if (r) { const dx = (r.left + r.width / 2) - (x + 12), dy = (r.top + r.height / 2) - (y - 10), d = Math.hypot(dx, dy) || 1; tourBud.classList.add('follow'); tourBud.style.setProperty('--ex', (dx / d * 5).toFixed(1) + 'px'); tourBud.style.setProperty('--ey', (dy / d * 4).toFixed(1) + 'px'); }
+      else tourBud.classList.remove('follow');
+    }
+    place();
+    tourBud.classList.remove('hop'); void tourBud.offsetWidth; tourBud.classList.add('hop');
+    window.OdinFace?.flash(tourBud, i === 0 ? 'joie' : last ? 'fierte' : ['regarde', 'clin', 'excite', 'joie'][i % 4], 2600);
+    tourBox.querySelector('.btn.primary')?.focus({ preventScroll: true });
+    tourSpeak(s.t, seq);
+  }
   function tourStart(voice = true) {
-    tourEnd(false); tourVoice = voice;
+    tourEnd(false); tourVoice = voice; tourAuto = voice;
     try { tourSecUse = [localStorage.getItem('odin.secUse'), localStorage.getItem('odin.sec')]; } catch {}
     const src = $('#buddyChat svg');
-    tourBud = el('span', { class: 'odin tour-bud', 'aria-hidden': 'true' }); if (src) { const c = src.cloneNode(true); c.querySelectorAll('[data-u]').forEach((n) => { n.id = n.id.replace(/-\d+$/, ''); delete n.dataset.u; }); c.querySelectorAll('*').forEach((n) => { for (const a of ['fill', 'filter']) { const v = n.getAttribute(a); if (v) n.setAttribute(a, v.replace(/-\d+\)$/, ')')); } }); tourBud.append(uniqueSvgIds(c)); }
+    tourBud = el('span', { class: 'odin tour-bud', 'aria-hidden': 'true' });
+    if (src) { const c = src.cloneNode(true); c.querySelectorAll('[data-u]').forEach((n) => { n.id = n.id.replace(/-\d+$/, ''); delete n.dataset.u; }); c.querySelectorAll('*').forEach((n) => { for (const a of ['fill', 'filter']) { const v = n.getAttribute(a); if (v) n.setAttribute(a, v.replace(/-\d+\)$/, ')')); } }); tourBud.append(uniqueSvgIds(c)); }
     tourRing = el('div', { class: 'tour-ring' });
     tourBox = el('div', { class: 'tour-box', role: 'dialog', 'aria-label': 'Présentation d\'Odin' });
-    tourBud.style.left = innerWidth - 120 + 'px'; tourBud.style.top = innerHeight - 160 + 'px';
-    document.body.append(tourRing, tourBud, tourBox); document.body.classList.add('touring');
+    document.body.append(tourRing, tourBox, tourBud); document.body.classList.add('touring');
     tourGo(0);
   }
   addEventListener('keydown', (e) => { if (tourI < 0) return; if (e.key === 'Escape') tourEnd(true); else if (e.key === 'ArrowRight') tourGo(tourI + 1); else if (e.key === 'ArrowLeft' && tourI > 0) tourGo(tourI - 1); });
@@ -2614,10 +2707,10 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     let seen = ''; try { seen = localStorage.getItem('odin.tour') || ''; } catch {}
     if (seen || state?.tourDone || tourOffer.done) return; tourOffer.done = true;
     show('chat');
-    setTimeout(() => say('Bonjour ! Je suis Odin. Je te présente l\'application : comment t\'en servir et comment me configurer ? Environ cinq minutes, en texte et à voix haute.', [
+    setTimeout(() => say('Bonjour ! Je suis Odin. Je te présente qui je suis, comment te servir de moi et comment me configurer ? Une dizaine de minutes, en texte et à voix haute, avec un sommaire.', [
       { label: '▶ Oui, avec la voix', primary: true, run: () => tourStart(true) },
       { label: 'Oui, sans la voix', run: () => tourStart(false) },
-      { label: 'Non merci', run: () => { tourEnd(true); say('D\'accord. Tu pourras la revoir dans Réglages → Plus.', [], 4000); } },
+      { label: 'Non merci', run: () => { tourEnd(true); say('D\'accord. Tu pourras la revoir dans Réglages, rubrique Plus.', [], 4000); } },
     ]), 900);
   }
   window.OdinTour = { start: tourStart, end: tourEnd, offer: tourOffer };
