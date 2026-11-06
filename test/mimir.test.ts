@@ -280,3 +280,16 @@ test('tâche planifiée créée sous influence d\'une page : grave, et exécuté
   const b = await j({ action: { tool: 'http_request', description: 'POST http://192.168.1.50/api/lampe' }, user_request: 'Allume la lampe du salon' }, ACTION_QUESTIONS);
   assert.ok((b.requested as { noul: number }).noul >= 0.6, 'demandé explicitement');
 });
+
+test('habitude apprise : accepté 3 fois de suite → Odin le fait seul la 4ᵉ fois ; jamais pour le grave', async () => {
+  const important = fakeJudge({ requested: 0.95, system_change: 0.9 });
+  const steps = [0, 1, 2, 3].flatMap((k) => [call('shell', { command: `make install --jobs=${k + 1}` }), { text: 'ok' }]);
+  const o = makeOdin(steps, { judge: important, approve: true });
+  for (let k = 0; k < 3; k++) await o.agent.run('installe le projet', { sessionId: 's' });
+  assert.equal(o.approvals.length, 3);
+  const r = await o.agent.run('réinstalle', { sessionId: 's' });
+  assert.equal(o.approvals.length, 3, 'la 4ᵉ fois : plus de question');
+  assert.equal(r.decisions[0].via, 'grant');
+  assert.match(r.decisions[0].why, /habitude apprise/);
+  o.cleanup();
+});

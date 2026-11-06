@@ -114,3 +114,64 @@ test('voix locale : le script installe Whisper et Piper (voix tom), sans rien d\
   assert.doesNotMatch(installScript({ stt: false, tts: true, model: 'small' }), /whisper\.cpp/);
   assert.doesNotMatch(s, /rm -rf/);
 });
+
+import { detectHabits, habitCron, keywords, recordAnswer, revokeTrust, trusted, type Ask } from '../src/learn/habits.ts';
+
+const at = (daysAgo: number, h: number, m = 0) => { const d = new Date(2026, 10, 6, h, m); d.setDate(d.getDate() - daysAgo); return d.getTime(); };
+const NOWH = new Date(2026, 10, 6, 12, 0).getTime();
+
+test('habitudes : même demande chaque matin → routine à anticiper', () => {
+  const asks: Ask[] = [
+    { t: at(1, 7, 55), text: 'Quel temps fait-il à Mamoudzou aujourd\'hui ?', tools: ['web_search'] },
+    { t: at(2, 8, 10), text: 'quel temps à Mamoudzou ?', tools: ['web_search'] },
+    { t: at(3, 8, 5), text: 'Donne-moi la météo de Mamoudzou', tools: ['web_search'] },
+    { t: at(4, 8, 0), text: 'temps Mamoudzou aujourd\'hui', tools: ['web_search'] },
+    { t: at(2, 15, 0), text: 'Combien coûte une carte graphique RTX ?', tools: ['web_search'] },
+  ];
+  const hs = detectHabits(asks, NOWH);
+  assert.equal(hs.length, 1);
+  assert.match(hs[0].key, /mamoudz/);
+  assert.ok(Math.abs(hs[0].minute - 8 * 60) <= 10);
+  assert.equal(hs[0].dow, undefined);
+  assert.match(habitCron(hs[0]), /^5[0-9] 7 \* \* \*$|^[0-9]+ 7 \* \* \*$/);
+});
+
+test('habitudes : le même jour chaque semaine ; rien pour des demandes éparses', () => {
+  const weekly: Ask[] = [0, 7, 14].map((d) => ({ t: at(d, 20, 30), text: 'vérifie les sauvegardes du NAS', tools: ['machine_exec'] }));
+  const h = detectHabits(weekly, NOWH + 9 * 3600_000);
+  assert.equal(h.length, 1); assert.equal(h[0].dow, new Date(at(0, 20, 30)).getDay());
+  const scattered: Ask[] = [{ t: at(1, 9), text: 'vérifie les sauvegardes du NAS', tools: [] }, { t: at(2, 22), text: 'vérifie les sauvegardes du NAS', tools: [] }, { t: at(5, 14), text: 'vérifie les sauvegardes du NAS', tools: [] }];
+  assert.equal(detectHabits(scattered, NOWH).length, 0, 'heures trop différentes');
+  assert.deepEqual(keywords('Peux-tu vérifier le NAS stp ?'), ['verifie']);
+});
+
+test('confiance apprise : 3 oui de suite → Odin le fait seul ; un non ou « redemande-moi » → retour à la question', () => {
+  const kv = new Map<string, string>(), store = { getKv: (k: string) => kv.get(k), setKv: (k: string, v: string) => { kv.set(k, v); } };
+  assert.equal(recordAnswer(store, 'shell:systemctl restart', 'shell', 'systemctl restart venus', true), undefined);
+  recordAnswer(store, 'shell:systemctl restart', 'shell', 'systemctl restart venus', true);
+  assert.equal(trusted(store, 'shell:systemctl restart'), undefined);
+  const got = recordAnswer(store, 'shell:systemctl restart', 'shell', 'systemctl restart venus', true);
+  assert.ok(got && trusted(store, 'shell:systemctl restart'));
+  assert.ok(revokeTrust(store));
+  assert.equal(trusted(store, 'shell:systemctl restart'), undefined);
+  for (let i = 0; i < 5; i++) recordAnswer(store, 'shell:systemctl restart', 'shell', 'systemctl restart venus', true);
+  assert.equal(trusted(store, 'shell:systemctl restart'), undefined, 'déjà refusé une fois : reste sous ton contrôle');
+});
+
+test('habitude : proposée au propriétaire (mode équilibré), « oui » la met en place', async () => {
+  const o = makeOdin([]);
+  const now = NOWH;
+  o.muninn.setKv('habit-asks', JSON.stringify([1, 2, 3].map((d) => ({ t: at(d, 18, 0), text: 'Fais le point sur l\'état de Venus et des chaînes', tools: ['http_request'] }))));
+  const sent: Array<{ t: string; o?: unknown }> = [];
+  const gw = new Gateway(o, { owners: { web: ['*'] } }).add(web(sent));
+  const k = await gw.habits(now, true);
+  assert.equal(k?.state, 'proposed');
+  assert.match(sent[0].t, /tu me demandes souvent « Fais le point sur l'état de Venus/);
+  assert.deepEqual(sent[0].o, { habit: { key: k!.key } });
+  await gw.handle({ channel: 'web', peer: 'principal', name: 'moi', text: 'oui' });
+  assert.match(sent.at(-1)!.t, /je le prépare tout seul/);
+  const job = o.muninn.listJobs().find((j) => j.prompt.startsWith('[habitude]'))!;
+  assert.equal(job.cron, '50 17 * * *');
+  assert.equal(await gw.habits(now + 86_400_000, true), undefined, 'pas reproposée');
+  await gw.stop(); o.cleanup();
+});

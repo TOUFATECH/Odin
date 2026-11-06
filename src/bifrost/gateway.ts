@@ -31,6 +31,7 @@ import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
 import { morningBriefing } from './briefing.ts';
+import { habitCron, habitEvents, habitPrompt, habitWhen, knownHabits, newHabits, pendingProposal, recordAsk, revokeTrust, setKnown, type Known, type Trust } from '../learn/habits.ts';
 
 export interface GatewayOptions {
   /** Identifiants des propriétaires par canal (ex. { telegram: ['123456'] }). */
@@ -57,7 +58,12 @@ export class Gateway {
     this.odin = odin;
     this.opts = opts;
     odin.heimdall.setApprover(this.approver);
+    // Confiance apprise : Odin te dit ce qu'il fera seul désormais, et comment revenir en arrière.
+    const onLearned = (kv: unknown, tr: Trust) => { if (kv === odin.muninn) void this.tellOwner(`🧠 J'ai remarqué que tu acceptes toujours : « ${tr.example.slice(0, 120)} ». Désormais je le fais seul et je te le signale. Dis « redemande-moi » pour revenir comme avant.`, 'home', true).catch(() => {}); };
+    habitEvents.on('learned', onLearned);
+    this.offLearned = () => habitEvents.off('learned', onLearned);
   }
+  private offLearned?: () => void;
 
   add(ch: Channel): this { this.channels.set(ch.name, ch); return this; }
 
@@ -89,6 +95,7 @@ export class Gateway {
 
   async stop(): Promise<void> {
     clearInterval(this.timer);
+    this.offLearned?.();
     for (const a of this.aborts.values()) a.abort();
     for (const ch of this.channels.values()) await ch.stop();
   }
@@ -133,6 +140,19 @@ export class Gateway {
       resolve(ans === 'always' ? 'always' : ans === 'yes');
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
+    }
+    // Habitudes : réponse à une proposition (boutons /habitude oui|non, ou « oui » / « non » tout court), « redemande-moi ».
+    const hb = /^\/habitude (oui|non)(?: (.+))?$/.exec(text);
+    const prop = owner ? pendingProposal(this.odin.muninn) : undefined;
+    if (owner && (hb || (prop && bare && !this.pendingApprovals.size))) {
+      const yes = hb ? hb[1] === 'oui' : /^(yes|oui|ouais|ok|okay|vas[- ]y|d'accord|daccord|go|always|toujours)$/i.test(bare![1]);
+      const k = hb?.[2] ? knownHabits(this.odin.muninn).find((x) => x.key === hb[2]) : prop;
+      if (!k) return ch.send(m.peer, 'Proposition expirée.');
+      return ch.send(m.peer, yes ? this.activateHabit(k, m.channel, m.peer) : (setKnown(this.odin.muninn, { ...k, state: 'refused', at: Date.now() }), '👌 Compris, je ne te le proposerai plus.'));
+    }
+    if (owner && /^(re)?demande[- ]moi( avant| d'abord| la permission)?\b/i.test(text) && text.length < 80) {
+      const tr = revokeTrust(this.odin.muninn);
+      if (tr) return ch.send(m.peer, `👌 D'accord, je te redemanderai avant de faire « ${tr.example.slice(0, 100)} ».`);
     }
     // Rappels : boutons « C'est fait / Plus tard » (/rappel …) ou réponse en texte juste après un rappel.
     const rc = /^\/rappel (done|later) (\S+)(?: (\d+))?$/.exec(text);
@@ -193,15 +213,19 @@ export class Gateway {
     // « Odin écrit… » tant qu'il travaille (Telegram l'efface au bout de 5 s : on le renouvelle).
     const typing = ch.typing ? setInterval(() => void ch.typing!(m.peer), 4500) : undefined;
     void ch.typing?.(m.peer);
+    const used: string[] = [];
     try {
       const r = await this.odin.agent.run(m.text, {
         // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
         sessionId, channel: m.channel, peer: m.peer, trusted: owner || speaker?.role === 'member', signal: ctrl.signal, speaker,
         onEvent: (e) => {
+          if (e.type === 'tool_start') used.push(e.name);
           ch.event?.(m.peer, e);
           if (e.type === 'skill_proposed') void ch.send(m.peer, e.active ? `💡 Nouvelle compétence apprise, active tout de suite : ${e.name}` : `💡 Nouvelle compétence proposée : ${e.name} (odin skills approve ${e.name})`);
         },
       });
+      // Habitudes : on retient ce que le propriétaire demande, et quand (jamais le contenu des réponses).
+      if (owner && r.stopReason === 'done') { try { recordAsk(this.odin.muninn, m.text, used); } catch { /* pas bloquant */ } }
       // Son visage : l'autocollant de son humeur (ses yeux) quand elle change.
       const mood = r.mood && MOODS[r.mood] ? r.mood : undefined;
       if (mood && ch.sendSticker && this.odin.cfg.mood.stickers && this.lastMood.get(sessionId) !== mood) {
@@ -530,6 +554,38 @@ export class Gateway {
     return true;
   }
 
+  /**
+   * Habitudes (une fois par jour, en fin de matinée) : une demande que tu fais presque chaque jour à la
+   * même heure (ou chaque semaine le même jour). Autonome ou Breaker : Odin la prépare tout seul dès
+   * maintenant et te prévient ; sinon il te le propose (oui / non). Une proposition à la fois.
+   */
+  async habits(now = Date.now(), force = false): Promise<Known | undefined> {
+    const d = new Date(now), stamp = this.odin.muninn.getKv('habits-day');
+    if (!force && (stamp === d.toDateString() || d.getHours() < 10)) return undefined;
+    this.odin.muninn.setKv('habits-day', d.toDateString());
+    if (pendingProposal(this.odin.muninn, now)) return undefined;
+    const h = newHabits(this.odin.muninn, now)[0];
+    const t = this.ownerTarget();
+    if (!h || !t) return undefined;
+    const k: Known = { key: h.key, state: 'proposed', at: now, habit: h };
+    const auto = this.odin.cfg.mimir.autonomy === 'breaker' || this.odin.cfg.mimir.autonomy === 'autonome';
+    if (auto) { await t.ch.send(t.peer, this.activateHabit(k, t.ch.name, t.peer, true)).catch(() => {}); return k; }
+    setKnown(this.odin.muninn, k);
+    await t.ch.send(t.peer, `🧠 J'ai remarqué que tu me demandes souvent « ${h.sample.slice(0, 120)} » ${habitWhen(h)}.\nVeux-tu que je le prépare tout seul, juste avant, et que je te l'envoie ?`, { habit: { key: h.key } }).catch(() => {});
+    return k;
+  }
+  /** Met l'habitude en place (tâche planifiée 10 min avant l'heure habituelle) ; renvoie le message pour le propriétaire. */
+  private activateHabit(k: Known, channel: string, peer: string, self = false): string {
+    const id = `hab_${Date.now().toString(36)}`, cron = habitCron(k.habit);
+    this.odin.muninn.addJob({ id, cron, prompt: habitPrompt(k.habit), channel, peer, next_run: nextRun(cron, new Date()).getTime(), tainted: 0 });
+    setKnown(this.odin.muninn, { ...k, state: 'active', at: Date.now(), jobId: id });
+    for (const c of this.channels.values()) c.notify?.('jobs');
+    const when = cronFr(cron);
+    return self
+      ? `🧠 J'ai remarqué que tu me demandes souvent « ${k.habit.sample.slice(0, 120)} » ${habitWhen(k.habit)}. Désormais je le prépare tout seul (${when}) et je te l'envoie. Dis « oublie cette habitude » pour arrêter.`
+      : `✅ C'est noté : je le prépare tout seul (${when}) et je te l'envoie. Dis « oublie cette habitude » pour arrêter.`;
+  }
+
   /** Envoie un rappel (avec les boutons « C'est fait » / « Plus tard » sur Telegram) ; jamais retenu par « Ne pas déranger ». */
   private async sendReminder(id: string, text: string, channel: string, peer: string, relance: number): Promise<{ ch: string; peer: string } | false> {
     const ch = this.channels.get(channel) ?? this.ownerTarget()?.ch;
@@ -629,6 +685,7 @@ export class Gateway {
     if (net.enabled && (!last || now - last.at >= net.intervalMin * 60_000)) {
       void this.scanNetwork(shouldRunFull(this.odin.inventory, net.fullEvery)).catch((e) => console.error('[hlidskjalf]', (e as Error).message));
     }
+    await this.habits(now).catch((e) => console.error('[habitudes]', (e as Error).message));
     // Relances des rappels pas encore réglés (30 min, 1 h, 2 h).
     for (const n of dueNags(this.odin.muninn, now)) await this.sendReminder(n.id, n.text, n.channel, n.peer, n.n).catch(() => {});
     for (const job of this.odin.muninn.dueJobs(now)) {
@@ -657,7 +714,7 @@ export class Gateway {
         // Une tâche née sous l'influence d'un contenu non fiable n'a pas la confiance du propriétaire.
         sessionId: `cron:${job.id}`, channel: job.channel, peer: job.peer, trusted: !job.tainted, unattended: true,
       }).catch((e) => ({ text: `Échec : ${(e as Error).message}` }));
-      const text = `⏰ ${job.prompt.slice(0, 60)}\n\n${r.text}`;
+      const text = job.prompt.startsWith('[habitude]') ? `🧠 Comme d'habitude :\n\n${r.text}` : `⏰ ${job.prompt.slice(0, 60)}\n\n${r.text}`;
       const ch = this.channels.get(job.channel);
       if (ch) await ch.send(job.peer, text).catch(() => {});
       else appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · ${job.id}\n${text}\n`);

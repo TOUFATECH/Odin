@@ -182,6 +182,13 @@ export class TelegramChannel implements Channel {
 
   /** Bouton Oui / Non / Toujours touché : on répond à la demande comme « /yes id ». */
   private async onButton(q: TgCallback, onMessage: (m: Inbound) => Promise<void>): Promise<void> {
+    const hb = /^hb:(oui|non)$/.exec(q.data ?? '');
+    if (hb && q.message) {
+      await this.call('answerCallbackQuery', { callback_query_id: q.id, text: hb[1] === 'oui' ? 'C\'est noté' : 'Compris' }).catch(() => undefined);
+      await this.call('editMessageReplyMarkup', { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: hb[1] === 'oui' ? '✅ Je m\'en occupe' : '❌ Pas de routine', callback_data: 'ok:done' }]] } }).catch(() => undefined);
+      await onMessage({ channel: this.name, peer: String(q.from?.id ?? q.message.chat.id), name: q.from?.first_name ?? 'propriétaire', text: `/habitude ${hb[1]}` });
+      return;
+    }
     // Rappel : « C'est fait » ou « Plus tard » (10 min, 1 h, demain matin)
     const r = /^rm:(done|10|60|tmw):(\S+)$/.exec(q.data ?? '');
     if (r && q.message) {
@@ -258,7 +265,7 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string } } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string }; habit?: { key: string } } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
     if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
@@ -273,6 +280,12 @@ export class TelegramChannel implements Channel {
       const r = await this.call('sendMessage', { chat_id: peer, text: html, parse_mode: 'HTML', protect_content: true }) as { ok: boolean; result?: { message_id: number } };
       if (r.ok && r.result) { const id = r.result.message_id; setTimeout(() => { void this.call('deleteMessage', { chat_id: peer, message_id: id }).catch(() => undefined); }, 600_000).unref?.(); }
       return;
+    }
+    // Habitude repérée : Oui / Non sous la proposition.
+    if (opts.habit) {
+      const kb = [[{ text: '✅ Oui, fais-le tout seul', callback_data: 'hb:oui' }, { text: '❌ Non merci', callback_data: 'hb:non' }]];
+      const r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(text), parse_mode: 'HTML', reply_markup: { inline_keyboard: kb } }).catch(() => ({ ok: false }));
+      if (r.ok) return;
     }
     // Rappel : boutons sous le message, pour le régler ou le repousser d'un geste.
     if (opts.reminder) {

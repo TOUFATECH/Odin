@@ -45,6 +45,13 @@ export interface GrantStore {
   touch(id: number): void;
 }
 
+/** Confiance apprise de tes habitudes (voir learn/habits.ts). */
+export interface HabitTrustStore {
+  trusted(key: string): { yes: number } | undefined;
+  touch(key: string): void;
+  record(key: string, tool: string, example: string, yes: boolean): void;
+}
+
 export const denyAll: Approver = { approve: async () => false };
 export const allowAll: Approver = { approve: async () => true };
 
@@ -126,6 +133,8 @@ export class Heimdall {
   /** Branche Mímir et fixe le niveau d'autonomie (prudent, equilibre, autonome). */
   setReviewer(r: Reviewer | undefined, autonomy: Autonomy = 'equilibre'): void { this.reviewer = r; this.autonomy = autonomy; }
   setGrantStore(g: GrantStore | undefined): void { this.grants = g; }
+  private habits: HabitTrustStore | undefined;
+  setHabitStore(h: HabitTrustStore | undefined): void { this.habits = h; }
   setAutonomy(a: Autonomy): void { this.autonomy = a; }
   getAutonomy(): Autonomy { return this.autonomy; }
   private breaker: BreakerConfig = DEFAULT_BREAKER;
@@ -188,6 +197,9 @@ export class Heimdall {
         if (sev === 'important' && clean) {
           const grant = g.grantKey ? this.grants?.find(g.grantKey) : undefined;
           if (grant) { this.grants!.touch(grant.id); return this.log(g, { allowed: true, via: 'grant', severity: sev, why: `autorisation permanente « ${g.grantKey} »`, notes }); }
+          // Appris de tes habitudes : tu l'as accepté plusieurs fois de suite, jamais refusé.
+          const habit = g.grantKey ? this.habits?.trusted(g.grantKey) : undefined;
+          if (habit) { this.habits!.touch(g.grantKey!); return this.log(g, { allowed: true, via: 'grant', severity: sev, why: `habitude apprise : tu l'as accepté ${habit.yes} fois sans jamais refuser`, notes }); }
           if (autonomy === 'autonome' || autonomy === 'breaker') return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: `${review.reason} (mode autonome)`, notes });
         }
       }
@@ -224,7 +236,10 @@ export class Heimdall {
       severity: review?.severity,
       grantable,
     };
-    const answer = await withTimeout<ApprovalAnswer>(this.approver.approve(req), this.cfg.approvalTimeoutSec * 1000, false);
+    let replied = false;
+    const answer = await withTimeout<ApprovalAnswer>(this.approver.approve(req).then((a) => { replied = true; return a; }), this.cfg.approvalTimeoutSec * 1000, false);
+    // Ta réponse (pas un délai dépassé) nourrit la confiance apprise, pour les actions « importantes » propres.
+    if (replied && g.grantKey && review?.severity === 'important' && !g.tainted && !g.suspicious) { try { this.habits?.record(g.grantKey, g.tool, g.summary, Boolean(answer)); } catch { /* jamais bloquant */ } }
     if (answer === 'always' && grantable) {
       this.grants!.add(g.grantKey!, g.tool, g.summary.slice(0, 200));
       notes.push(`autorisation permanente ajoutée : « ${g.grantKey} »`);
