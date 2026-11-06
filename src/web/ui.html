@@ -1074,6 +1074,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
               </div>
             </details>
             <div class="field"><label for="v-sttUrl">Service Whisper (comprendre)</label><input id="v-sttUrl" autocomplete="off" spellcheck="false" placeholder="https://api.openai.com/v1"><span class="hint">OpenAI par défaut (clé OpenAI). Pour rester 100 % local, un serveur Whisper sur ta machine : http://localhost:8000/v1 (sans clé).</span></div>
+            <div class="field"><button class="btn primary" type="button" id="v-local">🎙 Installer la voix locale (Odin s'en occupe)</button><span class="hint">Odin installe lui-même Whisper (il comprend tes vocaux) et Piper (il te répond avec une voix d'homme), gratuitement et sans rien envoyer sur Internet. Quelques minutes.</span></div>
             <details class="field"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Installer Whisper en local (gratuit, hors ligne)</summary>
               <div class="sub" style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
                 <span>1. <code>pip install speaches</code> puis <code>speaches</code> (ou avec Docker : <code>docker run -p 8000:8000 ghcr.io/speaches-ai/speaches:latest-cpu</code>).</span>
@@ -2380,10 +2381,12 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
         el('input', { id: 'mu-hour', type: 'number', min: 0, max: 23, value: M.updates.hour, 'aria-label': 'Heure', style: 'width:90px' }), el('span', { class: 'sub' }, 'h')),
       tgBox, F.check('mu-rb', 'Revenir à l\'instantané si la mise à jour échoue', M.updates.rollbackOnFailure),
       F.row(F.btn('Ajouter une machine', () => { targets.push({ where: 'local' }); drawTg(); }), F.btn('Enregistrer', () => saveCfg('updates', { enabled: on('mu-on'), weekday: Number(val('mu-day')), hour: Number(val('mu-hour')), targets, rollbackOnFailure: on('mu-rb') }, 'ms-st2'), true)), F.status('ms-st2'),
-      el('h3', { style: 'margin:14px 0 0' }, 'Journal de bord du soir'),
-      F.check('mj-on', 'Chaque soir, Odin me raconte sa journée ; chaque matin, sa nuit', M.journal.enabled),
-      F.input('mj-at', 'Journal du soir à', M.journal.at, { type: 'time' }), F.input('mj-mo', 'Rapport du matin à', M.journal.morning || '07:00', { type: 'time' }),
-      F.row(F.btn('Enregistrer', () => saveCfg('journal', { enabled: on('mj-on'), at: val('mj-at'), morning: val('mj-mo') }, 'ms-st3'), true), F.btn('L\'envoyer maintenant', async () => { $('#ms-st3').textContent = 'Odin écrit son journal…'; const r = await api('/api/action', { kind: 'journal_now' }); stx('#ms-st3', r, '✓ Envoyé (Telegram et notifications).'); if (r.text) say(r.text.slice(0, 400), [], 12000); })), F.status('ms-st3'));
+      el('h3', { style: 'margin:14px 0 0' }, 'Briefing du matin et journal du soir'),
+      F.check('mj-on', 'Chaque matin, un briefing (météo, agenda, mails, rappels, machines, ma nuit) ; chaque soir, le journal de ma journée', M.journal.enabled),
+      F.input('mj-mo', 'Briefing du matin à', M.journal.morning || '07:00', { type: 'time' }), F.input('mj-city', 'Ville pour la météo', M.journal.city || '', { ph: 'ex. Mamoudzou' }),
+      F.check('mj-voice', 'M\'envoyer aussi le briefing en note vocale', !!M.journal.morningVoice),
+      F.input('mj-at', 'Journal du soir à', M.journal.at, { type: 'time' }),
+      F.row(F.btn('Enregistrer', () => saveCfg('journal', { enabled: on('mj-on'), at: val('mj-at'), morning: val('mj-mo'), city: val('mj-city').trim(), morningVoice: on('mj-voice') }, 'ms-st3'), true), F.btn('Briefing maintenant', async () => { $('#ms-st3').textContent = 'Odin prépare ton briefing…'; const r = await api('/api/action', { kind: 'morning_now' }); stx('#ms-st3', r, '✓ Envoyé (Telegram et notifications).'); }), F.btn('Journal maintenant', async () => { $('#ms-st3').textContent = 'Odin écrit son journal…'; const r = await api('/api/action', { kind: 'journal_now' }); stx('#ms-st3', r, '✓ Envoyé (Telegram et notifications).'); if (r.text) say(r.text.slice(0, 400), [], 12000); })), F.status('ms-st3'));
     const C = M.continuous, Q = state.quiet || { enabled: true, from: '22:30', to: '07:00', agenda: true };
     $('#more-continu').replaceChildren(
       el('h2', {}, 'Travail continu'),
@@ -3104,6 +3107,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
     for (const v of r.voices) sel.append(el('option', { value: v.id }, `${v.name}${v.category === 'cloned' ? ' (copiée)' : ''}`));
     sel.value = cur; voicesLoaded = true; st('#v-status', `✓ ${r.voices.length} voix disponibles.`, true);
   });
+  $('#v-local')?.addEventListener('click', () => { show('chat'); $('#input').value = 'Installe la voix locale (Whisper et Piper) pour comprendre mes vocaux et me répondre en vocal.'; send(); });
   $('#v-try').addEventListener('click', async () => {
     if (!state.voice.tts) return st('#v-status', 'Enregistre d\'abord le réglage de la voix (et active-la).', false);
     const was = speakOn; speakOn = true; await sayAloud('Bonjour, je suis Odin, ton agent IA personnel. Que puis-je faire pour toi ?'); speakOn = was;

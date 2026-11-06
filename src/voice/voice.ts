@@ -13,25 +13,29 @@ import { join } from 'node:path';
 import type { OdinConfig } from '../config.ts';
 import { convertMedia } from '../files/media.ts';
 import { hasCommand } from '../learn/environment.ts';
+import { localPiper, localWhisper, speakLocal, transcribeLocal } from './local.ts';
 
 export type VoiceConfig = OdinConfig['voice'];
 
 const key = (env: string, e: NodeJS.ProcessEnv = process.env) => e[env] ?? '';
 const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(u);
 
-/** La transcription est-elle utilisable (clé présente, ou serveur local) ? */
+/** La transcription est-elle utilisable (clé présente, serveur local, ou Whisper installé sur la machine) ? */
 export function sttReady(v: VoiceConfig, env = process.env): boolean {
-  return v.enabled && (Boolean(key(v.stt.apiKeyEnv, env)) || isLocal(v.stt.baseUrl));
+  return (v.enabled && (Boolean(key(v.stt.apiKeyEnv, env)) || isLocal(v.stt.baseUrl))) || Boolean(localWhisper());
 }
-/** La synthèse est-elle utilisable ? ElevenLabs : clé et voix ; Piper : adresse du serveur ; OpenAI : clé (ou serveur local) et voix. */
-export function ttsReady(v: VoiceConfig, env = process.env): boolean {
-  if (!v.enabled) return false;
-  if (v.tts.provider === 'piper') return Boolean(v.tts.baseUrl);
+/** Le fournisseur de synthèse choisi est-il prêt (sans compter Piper installé sur la machine) ? */
+function providerReady(v: VoiceConfig, env = process.env): boolean {
+  if (v.tts.provider === 'piper') return Boolean(v.tts.baseUrl) && v.tts.baseUrl !== 'local';
   if (v.tts.provider === 'openai') return (Boolean(key(v.tts.apiKeyEnv, env)) || isLocal(v.tts.baseUrl)) && Boolean(v.tts.voiceId);
   return Boolean(key(v.tts.apiKeyEnv, env)) && Boolean(v.tts.voiceId);
 }
+/** La synthèse est-elle utilisable ? Le fournisseur choisi, ou à défaut Piper installé sur la machine. */
+export function ttsReady(v: VoiceConfig, env = process.env): boolean {
+  return v.enabled && (providerReady(v, env) || Boolean(localPiper()));
+}
 /** Est-ce que la voix reste entièrement sur la machine (rien n'est envoyé à un service en ligne) ? */
-export function ttsIsLocal(v: VoiceConfig): boolean { return v.tts.provider !== 'elevenlabs' && isLocal(v.tts.baseUrl); }
+export function ttsIsLocal(v: VoiceConfig): boolean { return (v.tts.provider === 'piper' && v.tts.baseUrl === 'local') || (v.tts.provider !== 'elevenlabs' && isLocal(v.tts.baseUrl)); }
 /** Adresse par défaut de chaque fournisseur de synthèse. */
 export const TTS_DEFAULTS: Record<VoiceConfig['tts']['provider'], { baseUrl: string; model: string; voiceId: string; apiKeyEnv: string }> = {
   elevenlabs: { baseUrl: 'https://api.elevenlabs.io', model: 'eleven_multilingual_v2', voiceId: '', apiKeyEnv: 'ELEVENLABS_API_KEY' },
@@ -51,6 +55,19 @@ const extFor = (mime: string) => /ogg|opus/.test(mime) ? 'ogg' : /webm/.test(mim
 export async function transcribe(audio: Uint8Array, mime: string, v: VoiceConfig, signal?: AbortSignal, env = process.env): Promise<string> {
   if (audio.byteLength === 0) throw new Error('enregistrement vide');
   if (audio.byteLength > 25 * 1024 * 1024) throw new Error('enregistrement trop long (25 Mo au plus)');
+  // Sans service configuré : Whisper sur la machine (gratuit, rien ne sort).
+  const remote = v.enabled && (Boolean(key(v.stt.apiKeyEnv, env)) || isLocal(v.stt.baseUrl));
+  if (!remote) {
+    if (localWhisper()) return transcribeLocal(audio, v.stt.language || 'fr');
+    throw new Error('Je ne sais pas encore écouter les vocaux. Dis-moi « installe la voix locale » (gratuit, rien ne sort de chez toi), ou mets une clé OpenAI dans Réglages → Voix.');
+  }
+  try { return await transcribeRemote(audio, mime, v, signal, env); } catch (e) {
+    if (localWhisper()) return transcribeLocal(audio, v.stt.language || 'fr'); // service en panne : on se débrouille seul
+    throw e;
+  }
+}
+
+async function transcribeRemote(audio: Uint8Array, mime: string, v: VoiceConfig, signal?: AbortSignal, env = process.env): Promise<string> {
   const form = new FormData();
   form.append('file', new Blob([audio], { type: mime || 'audio/webm' }), `parole.${extFor(mime)}`);
   form.append('model', v.stt.model);
@@ -73,6 +90,10 @@ export interface SpeechAudio { data: Uint8Array; mime: string }
 export async function speakAudio(text: string, v: VoiceConfig, format: AudioFormat = 'mp3_44100_128', signal?: AbortSignal, env = process.env): Promise<SpeechAudio> {
   const clean = forSpeech(text);
   if (!clean) throw new Error('rien à dire');
+  // Piper sur la machine : choisi (« local »), ou à défaut d'un autre fournisseur prêt.
+  if (localPiper() && ((v.tts.provider === 'piper' && (!v.tts.baseUrl || v.tts.baseUrl === 'local')) || !providerReady(v, env))) {
+    return { data: await speakLocal(clean), mime: 'audio/wav' };
+  }
   const base = v.tts.baseUrl.replace(/\/$/, '');
   const sig = signal ?? AbortSignal.timeout(90_000);
   if (v.tts.provider === 'piper') {

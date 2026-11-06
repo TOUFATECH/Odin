@@ -88,7 +88,7 @@ export interface OdinConfig {
   /** Mises à jour planifiées (weekday -1 = tous les jours, 0 = dimanche…). */
   updates: { enabled: boolean; weekday: number; hour: number; targets: Array<{ where: string; vmid?: number }>; rollbackOnFailure: boolean };
   /** Journal de bord du soir : ce qu'Odin a fait, remarqué, et ses conseils. */
-  journal: { enabled: boolean; at: string; morning?: string };
+  journal: { enabled: boolean; at: string; morning?: string; /** Ville pour la météo du briefing du matin. */ city?: string; /** Envoyer aussi le briefing en note vocale. */ morningVoice?: boolean };
   /** Ne pas déranger : la nuit (et pendant tes rendez-vous si l'agenda est relié), seules les alertes urgentes arrivent ; le reste attend le rapport du matin. */
   quiet: { enabled: boolean; from: string; to: string; agenda: boolean };
   /** Travail continu : Odin cherche lui-même ce qui est utile, jour et nuit, sans pause, dans ces limites. */

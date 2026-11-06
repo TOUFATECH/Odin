@@ -29,6 +29,8 @@ import { anomalies, recoveryPlan, restoreTest, weeklyReport } from '../guard/ins
 import { listMachines } from '../machines/access.ts';
 import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
+import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
+import { morningBriefing } from './briefing.ts';
 
 export interface GatewayOptions {
   /** Identifiants des propriétaires par canal (ex. { telegram: ['123456'] }). */
@@ -132,6 +134,24 @@ export class Gateway {
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
     }
+    // Rappels : boutons « C'est fait / Plus tard » (/rappel …) ou réponse en texte juste après un rappel.
+    const rc = /^\/rappel (done|later) (\S+)(?: (\d+))?$/.exec(text);
+    if (rc && owner) {
+      const n = clearNag(this.odin.muninn, rc[2]);
+      if (rc[1] === 'done') return ch.send(m.peer, n ? `👍 Noté : « ${n.text.slice(0, 80)} » est réglé.` : '👍 Noté.');
+      const min = Number(rc[3] ?? 60), when = rc[3] === '0' ? tomorrowAt9() : new Date(Date.now() + min * 60_000);
+      if (n) this.addReminder(n.text, n.channel, n.peer, when);
+      return ch.send(m.peer, `⏰ D'accord, je te le rappelle ${whenFr(when)}.`);
+    }
+    if (owner && nags(this.odin.muninn).some((x) => x.peer === m.peer && Date.now() - x.at < 12 * 3600_000)) {
+      const rep = reminderReply(text);
+      if (rep) {
+        const n = clearNag(this.odin.muninn, undefined, m.peer)!;
+        if ('done' in rep) return ch.send(m.peer, `👍 Parfait, « ${n.text.slice(0, 80)} » est réglé. Je n'insiste plus.`);
+        this.addReminder(n.text, n.channel, n.peer, rep.snooze);
+        return ch.send(m.peer, `⏰ D'accord, je te le rappelle ${whenFr(rep.snooze)}.`);
+      }
+    }
     const sessionId = `${m.channel}:${m.peer}`;
     if (/^\/stop\b/i.test(text)) { this.aborts.get(sessionId)?.abort(); return ch.send(m.peer, '⏹ Arrêté.'); }
 
@@ -195,7 +215,9 @@ export class Gateway {
       // Texte seul : plus d'émoji ajouté à la fin (demande du propriétaire)
       await ch.send(m.peer, body, { final: true });
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
-      if (m.voice && ch.sendVoice && this.odin.cfg.voice.voiceReplies && ttsReady(this.odin.cfg.voice) && r.text) {
+      // … ou quand tu le demandes (« réponds-moi en vocal », « dis-le à voix haute »).
+      const askVoice = /\b(en vocal|vocalement|a voix haute|à voix haute|message vocal|note vocale|dis[- ]le moi)\b/i.test(m.text);
+      if ((m.voice && this.odin.cfg.voice.voiceReplies || askVoice) && ch.sendVoice && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
       }
     } finally {
@@ -508,6 +530,25 @@ export class Gateway {
     return true;
   }
 
+  /** Envoie un rappel (avec les boutons « C'est fait » / « Plus tard » sur Telegram) ; jamais retenu par « Ne pas déranger ». */
+  private async sendReminder(id: string, text: string, channel: string, peer: string, relance: number): Promise<{ ch: string; peer: string } | false> {
+    const ch = this.channels.get(channel) ?? this.ownerTarget()?.ch;
+    const to = this.channels.has(channel) ? peer : this.ownerTarget()?.peer;
+    if (!ch || !to) return false;
+    const head = relance ? `🔔 Rappel (je reviens vers toi${relance > 1 ? `, ${relance}ᵉ fois` : ''}) : ${text}` : `🔔 Rappel : ${text}`;
+    const hint = ch.name === 'telegram' ? '' : '\nRéponds « fait » quand c\'est réglé, ou « plus tard » (« dans 20 min », « demain »…).';
+    await ch.send(to, head + hint, { reminder: { id } });
+    void pushAll(this.odin.paths.home, { title: 'Odin — rappel', body: text, view: 'home', tag: `odin-rappel-${id}` }).catch(() => 0);
+    return { ch: ch.name, peer: to };
+  }
+  /** Programme un rappel ponctuel (« plus tard »). */
+  addReminder(text: string, channel: string, peer: string, when: Date): string {
+    const id = `rem_${Date.now().toString(36)}`;
+    this.odin.muninn.addJob({ id, cron: '@reminder', prompt: text.slice(0, 1000), channel, peer, next_run: when.getTime(), tainted: 0 });
+    for (const c of this.channels.values()) c.notify?.('jobs');
+    return id;
+  }
+
   /** Rapport du matin : la nuit d'Odin, ce qui attend ta validation, ses conseils (une fois par jour). */
   async morning(now = Date.now(), force = false): Promise<string | undefined> {
     const at = this.odin.cfg.journal.morning;
@@ -516,14 +557,24 @@ export class Gateway {
     if (!force && (d.getHours() * 60 + d.getMinutes() < h * 60 + mi || d.getHours() >= 12 || (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === d.toDateString()))) return undefined;
     writeFileSync(stamp, d.toDateString());
     const facts = dayFacts(this.odin, now, now - 12 * 3600_000);
-    let text = `☀️ Bonjour ! Cette nuit :\n${facts}`;
+    let night = facts;
     const waiting = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[];
     if (!this.odin.demo) {
       const r = await this.odin.agent.run(`${MORNING_PROMPT}\n\n<faits>\n${facts}${waiting.length ? `\nMessages gardés pendant la nuit :\n${waiting.join('\n').slice(0, 4000)}` : ''}\n</faits>`, { sessionId: 'journal:matin', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
-      if (r?.text.trim()) text = `☀️ ${r.text.trim().slice(0, 2500)}`;
+      if (r?.text.trim()) night = r.text.trim().slice(0, 1500);
     }
-    await this.tellOwner(text, 'home', true);
-    return text;
+    // Briefing : météo, agenda, mails, rappels du jour, machines (assemblé par le code : le contenu des mails ne passe jamais par le modèle).
+    const b = await morningBriefing(this.odin, night, now).catch((e) => ({ text: `☀️ Bonjour !\n\n🌙 ${night}\n(briefing incomplet : ${(e as Error).message})`, speech: '' }));
+    if (waiting.length) this.odin.muninn.setKv('deferred', '');
+    const t = this.ownerTarget();
+    if (t) await t.ch.send(t.peer, b.text + (waiting.length ? `\n\n— Gardé pendant la nuit :\n${waiting.join('\n\n').slice(0, 2500)}` : '')).catch(() => {});
+    void pushAll(this.odin.paths.home, { title: 'Odin — briefing du matin', body: b.text.slice(0, 400), view: 'home', tag: 'odin-matin' }).catch(() => 0);
+    for (const ch of this.channels.values()) ch.notify?.('watch');
+    // Version à écouter (note vocale), si tu l'as demandée et que la voix est prête.
+    if (this.odin.cfg.journal.morningVoice && b.speech && t?.ch.sendVoice && ttsReady(this.odin.cfg.voice)) {
+      await speakAudio(b.speech, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => t.ch.sendVoice!(t.peer, a)).catch((e) => console.error('[matin voix]', (e as Error).message));
+    }
+    return b.text;
   }
 
   /** Journal de bord du soir (une fois par jour à journal.at). */
@@ -578,14 +629,17 @@ export class Gateway {
     if (net.enabled && (!last || now - last.at >= net.intervalMin * 60_000)) {
       void this.scanNetwork(shouldRunFull(this.odin.inventory, net.fullEvery)).catch((e) => console.error('[hlidskjalf]', (e as Error).message));
     }
+    // Relances des rappels pas encore réglés (30 min, 1 h, 2 h).
+    for (const n of dueNags(this.odin.muninn, now)) await this.sendReminder(n.id, n.text, n.channel, n.peer, n.n).catch(() => {});
     for (const job of this.odin.muninn.dueJobs(now)) {
-      if (job.cron === '@reminder') {
-        // Rappel ponctuel : envoyé tel quel, puis supprimé.
-        this.odin.muninn.removeJob(job.id);
-        const ch = this.channels.get(job.channel) ?? this.ownerTarget()?.ch;
-        const peer = this.channels.has(job.channel) ? job.peer : this.ownerTarget()?.peer;
-        if (ch && peer) await ch.send(peer, `🔔 Rappel : ${job.prompt}`).catch(() => {});
-        else appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · rappel\n${job.prompt}\n`);
+      if (isReminderJob(job)) {
+        // Rappel : envoyé avec ses boutons, puis relancé tant que ce n'est pas fait. Ponctuel : supprimé ; récurrent : prochaine date.
+        if (job.cron === '@reminder') this.odin.muninn.removeJob(job.id);
+        else this.odin.muninn.advanceJob(job.id, now, nextRun(job.cron, new Date(now)).getTime());
+        const text = reminderText(job), id = job.cron === '@reminder' ? job.id : `${job.id}_${now.toString(36)}`;
+        const sent = await this.sendReminder(id, text, job.channel, job.peer, 0).catch(() => false as const);
+        if (sent) armNag(this.odin.muninn, { id, text, channel: sent.ch, peer: sent.peer }, now);
+        else appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · rappel\n${text}\n`);
         continue;
       }
       this.odin.muninn.advanceJob(job.id, now, nextRun(job.cron, new Date(now)).getTime());
@@ -735,4 +789,6 @@ export function continuousTodo(odin: Odin): string[] {
   return out;
 }
 
-const MORNING_PROMPT = `Écris le rapport du matin pour le propriétaire, en français, court (8 lignes au plus) : ce que tu as fait cette nuit, ce qui attend sa validation ou son attention, puis 1 ou 2 conseils pour la journée. Appuie-toi UNIQUEMENT sur les faits ci-dessous ; n'invente rien. N'agis pas : n'utilise aucun outil.`;
+const MORNING_PROMPT = `Écris la partie « cette nuit » du briefing du matin, en français, très court (4 lignes au plus, sans titre ni salutation) : ce que tu as fait cette nuit, ce qui attend sa validation ou son attention, puis un conseil pour la journée. Appuie-toi UNIQUEMENT sur les faits ci-dessous ; n'invente rien. N'agis pas : n'utilise aucun outil.`;
+
+function tomorrowAt9(): Date { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d; }

@@ -24,6 +24,7 @@ function assertReachableUrl(raw: string): URL {
 }
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { nextRun } from '../cron/cron.ts';
+import { isReminderJob, nags, parseRepeat, parseWhen, reminderText, REMINDER_PREFIX, whenFr } from '../cron/reminders.ts';
 import { bool, num, obj, str, type Tool } from './registry.ts';
 
 const MAX_OUT = 30_000;
@@ -348,18 +349,41 @@ export const scheduleCancel: Tool = {
 
 export const reminderSet: Tool = {
   name: 'reminder_set',
-  description: 'Programme un rappel ponctuel envoyé à l\'utilisateur à une date et heure (« 2026-11-05 18:30 », heure locale). Pour une action récurrente, utilise schedule_task.',
+  description: 'Programme un rappel pour l\'utilisateur. « at » se dit en français courant : « vendredi 9h », « demain soir », « dans 20 min », « le 5 décembre », « 2026-11-05 18:30 ». Pour un rappel qui revient, mets « repeat » : « tous les jours à 8h », « chaque lundi », « tous les mois le 5 », « en semaine à 7h30 » (ou une expression cron). Le rappel arrive avec des boutons « C\'est fait / Plus tard » et revient (30 min, 1 h, 2 h) tant que ce n\'est pas réglé.',
   risk: 'write',
-  schema: obj({ at: str('date et heure, format AAAA-MM-JJ HH:MM (heure locale)'), text: str('texte du rappel') }, ['at', 'text']),
-  summarize: (i) => `rappel le ${s(i.at)} : « ${s(i.text).slice(0, 80)} »`,
+  schema: obj({ at: str('quand (français courant ou AAAA-MM-JJ HH:MM) ; facultatif si repeat'), text: str('texte du rappel, court et clair (« Payer la facture EDM »)'), repeat: str('répétition (facultatif)') }, ['text']),
+  summarize: (i) => `rappel ${s(i.repeat) ? `« ${s(i.repeat)} »` : `le ${s(i.at)}`} : « ${s(i.text).slice(0, 80)} »`,
   async run(i, ctx) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})$/.exec(s(i.at).trim());
-    const when = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5])) : new Date(s(i.at));
-    if (Number.isNaN(when.getTime())) throw new Error('date invalide : utilise AAAA-MM-JJ HH:MM');
+    const text = s(i.text).trim().slice(0, 1000);
+    if (!text) throw new Error('texte du rappel vide');
+    if (s(i.repeat).trim()) {
+      const cron = parseRepeat(s(i.repeat));
+      if (!cron) throw new Error(`répétition non comprise : « ${s(i.repeat)} » (ex. « tous les jours à 8h », « chaque lundi 9h », « tous les mois le 5 »)`);
+      const first = nextRun(cron, new Date());
+      const id = `rap_${Date.now().toString(36)}`;
+      ctx.muninn.addJob({ id, cron, prompt: `${REMINDER_PREFIX}${text}`, channel: ctx.channel, peer: ctx.peer, next_run: first.getTime(), tainted: ctx.isTainted() ? 1 : 0 });
+      return `Rappel récurrent ${id} (${s(i.repeat)}) : premier le ${whenFr(first)}.`;
+    }
+    const when = parseWhen(s(i.at)) ?? (Number.isNaN(new Date(s(i.at)).getTime()) ? undefined : new Date(s(i.at)));
+    if (!when) throw new Error(`date non comprise : « ${s(i.at)} » (ex. « vendredi 9h », « dans 2 heures », « 2026-11-05 18:30 »)`);
     if (when.getTime() < Date.now() - 60_000) throw new Error('cette date est déjà passée');
     const id = `rem_${Date.now().toString(36)}`;
-    ctx.muninn.addJob({ id, cron: '@reminder', prompt: s(i.text).slice(0, 1000), channel: ctx.channel, peer: ctx.peer, next_run: when.getTime(), tainted: ctx.isTainted() ? 1 : 0 });
-    return `Rappel ${id} programmé pour le ${when.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}.`;
+    ctx.muninn.addJob({ id, cron: '@reminder', prompt: text, channel: ctx.channel, peer: ctx.peer, next_run: when.getTime(), tainted: ctx.isTainted() ? 1 : 0 });
+    return `Rappel ${id} programmé pour ${whenFr(when)}.`;
+  },
+};
+
+export const reminderList: Tool = {
+  name: 'reminder_list',
+  description: 'Liste les rappels à venir (ponctuels et récurrents) et ceux envoyés qui attendent encore « c\'est fait ».',
+  risk: 'read',
+  schema: obj({}),
+  async run(_i, ctx) {
+    const jobs = ctx.muninn.listJobs().filter(isReminderJob);
+    const wait = nags(ctx.muninn);
+    const lines = jobs.map((j) => `${j.id} · ${whenFr(new Date(j.next_run))}${j.cron !== '@reminder' ? ` · revient (${j.cron})` : ''} · ${reminderText(j).slice(0, 100)}`);
+    if (wait.length) lines.push('', 'En attente de « c\'est fait » :', ...wait.map((n) => `${n.id} · ${n.text.slice(0, 100)} (relance ${n.n}/3)`));
+    return lines.length ? lines.join('\n') : 'Aucun rappel.';
   },
 };
 
@@ -400,7 +424,7 @@ export const sendMessage: Tool = {
 export const BUILTIN_TOOLS: Tool[] = [
   fsRead, fsList, fsWrite, fsEdit, shell, webFetch,
   memorySave, memorySearch, sessionSearch, skillRead, skillPropose,
-  delegate, scheduleTask, scheduleList, scheduleCancel, reminderSet, sendMessage, httpRequest,
+  delegate, scheduleTask, scheduleList, scheduleCancel, reminderSet, reminderList, sendMessage, httpRequest,
 ];
 
 export function ensureWorkspace(dir: string): void {

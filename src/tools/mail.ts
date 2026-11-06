@@ -103,6 +103,18 @@ export function parseFetchHeaders(resp: string): Array<{ uid: number; seen: bool
   return out;
 }
 
+/** Non lus de la boîte de réception : nombre et les derniers (expéditeur, sujet), pour le briefing du matin. */
+export async function unreadSummary(c: MailConfig, n = 5): Promise<{ count: number; latest: Array<{ from: string; subject: string }> }> {
+  return withImap(c, async (im) => {
+    await im.cmd('SELECT "INBOX"');
+    const uids = (/\* SEARCH([\d ]*)/.exec(await im.cmd('UID SEARCH UNSEEN'))?.[1] ?? '').trim().split(/\s+/).filter(Boolean);
+    if (!uids.length) return { count: 0, latest: [] };
+    const last = uids.slice(-n);
+    const list = parseFetchHeaders(await im.cmd(`UID FETCH ${last.join(',')} (UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE)])`)).reverse();
+    return { count: uids.length, latest: list.map((m) => ({ from: m.from, subject: m.subject })) };
+  });
+}
+
 const mconf = (ctx: ToolContext): MailConfig => ctx.mail ?? { imapHost: '', imapPort: 993, smtpHost: '', smtpPort: 465, user: '', from: '' };
 
 export const mailList: Tool = {

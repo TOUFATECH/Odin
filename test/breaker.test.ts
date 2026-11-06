@@ -133,7 +133,7 @@ test('rappel ponctuel : programmé par Odin, envoyé à l\'heure puis effacé', 
   await gw.tick(Date.now());
   assert.equal(sent.some((t) => t.includes('appeler le plombier')), false, 'pas avant l\'heure');
   await gw.tick(at.getTime() + 61_000);
-  assert.ok(sent.includes('🔔 Rappel : appeler le plombier'));
+  assert.ok(sent.some((t) => t.startsWith('🔔 Rappel : appeler le plombier')));
   assert.equal(o.muninn.listJobs().filter((j) => !j.prompt.startsWith('[routine:')).length, 0);
   o.cleanup();
 });

@@ -125,6 +125,8 @@ export class TelegramChannel implements Channel {
       const { data } = await this.download(vocal);
       const text = await this.opts.transcribe(data, vocal.mime_type ?? 'audio/ogg');
       if (!text) { await this.send(base.peer, '🎙 Je n\'ai rien compris dans ce message vocal.'); return undefined; }
+      // Ce qu'Odin a compris, en petit : tu vois tout de suite s'il t'a mal entendu.
+      void this.call('sendMessage', { chat_id: m.chat.id, text: `🎙 <i>${esc(text.slice(0, 600))}</i>`, parse_mode: 'HTML', disable_notification: true, reply_to_message_id: (m as { message_id?: number }).message_id }).catch(() => undefined);
       return { ...base, text, voice: true };
     }
     const file = m.document ?? m.audio ?? m.video ?? (m.photo?.length ? m.photo[m.photo.length - 1] : undefined);
@@ -180,6 +182,15 @@ export class TelegramChannel implements Channel {
 
   /** Bouton Oui / Non / Toujours touché : on répond à la demande comme « /yes id ». */
   private async onButton(q: TgCallback, onMessage: (m: Inbound) => Promise<void>): Promise<void> {
+    // Rappel : « C'est fait » ou « Plus tard » (10 min, 1 h, demain matin)
+    const r = /^rm:(done|10|60|tmw):(\S+)$/.exec(q.data ?? '');
+    if (r && q.message) {
+      const label = r[1] === 'done' ? '✅ Fait' : r[1] === 'tmw' ? '⏰ Demain matin' : `⏰ Dans ${r[1] === '10' ? '10 min' : '1 h'}`;
+      await this.call('answerCallbackQuery', { callback_query_id: q.id, text: label }).catch(() => undefined);
+      await this.call('editMessageReplyMarkup', { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: label, callback_data: 'ok:done' }]] } }).catch(() => undefined);
+      await onMessage({ channel: this.name, peer: String(q.from?.id ?? q.message.chat.id), name: q.from?.first_name ?? 'propriétaire', text: r[1] === 'done' ? `/rappel done ${r[2]}` : `/rappel later ${r[2]} ${r[1] === 'tmw' ? 0 : r[1]}` });
+      return;
+    }
     const m = /^ok:(yes|no|always):(\S+)$/.exec(q.data ?? '');
     await this.call('answerCallbackQuery', { callback_query_id: q.id, text: m ? (m[1] === 'no' ? 'Refusé' : 'Autorisé') : '' }).catch(() => undefined);
     if (!m || !q.message) return;
@@ -247,7 +258,7 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string } } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
     if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
@@ -262,6 +273,13 @@ export class TelegramChannel implements Channel {
       const r = await this.call('sendMessage', { chat_id: peer, text: html, parse_mode: 'HTML', protect_content: true }) as { ok: boolean; result?: { message_id: number } };
       if (r.ok && r.result) { const id = r.result.message_id; setTimeout(() => { void this.call('deleteMessage', { chat_id: peer, message_id: id }).catch(() => undefined); }, 600_000).unref?.(); }
       return;
+    }
+    // Rappel : boutons sous le message, pour le régler ou le repousser d'un geste.
+    if (opts.reminder) {
+      const id = opts.reminder.id.slice(0, 50);
+      const kb = [[{ text: '✅ C\'est fait', callback_data: `rm:done:${id}` }], [{ text: '⏰ 10 min', callback_data: `rm:10:${id}` }, { text: '⏰ 1 h', callback_data: `rm:60:${id}` }, { text: '🌅 Demain', callback_data: `rm:tmw:${id}` }]];
+      const r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(text), parse_mode: 'HTML', reply_markup: { inline_keyboard: kb } }).catch(() => ({ ok: false }));
+      if (r.ok) return;
     }
     // Demande de validation : boutons Oui / Non (et « Toujours ») sous le message, sans rien taper.
     if (opts.approval) {

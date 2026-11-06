@@ -194,7 +194,8 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       owners.telegram = tg.owners.map(String);
       const vc = odin.cfg.voice;
       gw.add(new TelegramChannel(token, undefined, {
-        transcribe: sttReady(vc) ? (audio, mime) => transcribe(audio, mime, vc) : undefined,
+        // Toujours branché : la transcription dit elle-même ce qui manque (clé, ou « installe la voix locale »).
+        transcribe: (audio, mime) => transcribe(audio, mime, vc),
         inbox: join(odin.paths.workspace, 'inbox'),
         home: odin.paths.home,
         owner: tg.owners.map(String)[0],
@@ -235,7 +236,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true) }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true) }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {

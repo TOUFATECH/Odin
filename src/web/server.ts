@@ -73,6 +73,7 @@ export interface WebHooks {
   watchNow?(): Promise<string[]>;
   /** Journal de bord maintenant. */
   journalNow?(): Promise<string | undefined>;
+  morningNow?(): Promise<string | undefined>;
   /** Odin Breaker : ronde + travail de fond tout de suite. */
   breakerNow?(): Promise<string | undefined>;
   /** Mémoire : rangement tout de suite. */
@@ -803,7 +804,7 @@ export class WebChannel implements Channel {
             val = { enabled: Boolean(v.enabled), weekday: Math.min(6, Math.max(-1, Math.round(Number(v.weekday ?? 0)))), hour: Math.min(23, Math.max(0, Math.round(Number(v.hour ?? 4)))), targets, rollbackOnFailure: v.rollbackOnFailure !== false };
           } else if (sec === 'journal') {
             const at = str(v.at, 5), morning = str(v.morning, 5) || '07:00'; if (!/^\d{2}:\d{2}$/.test(at) || !/^\d{2}:\d{2}$/.test(morning)) throw new Error('heures du journal : HH:MM');
-            val = { enabled: Boolean(v.enabled), at, morning };
+            val = { enabled: Boolean(v.enabled), at, morning, city: str(v.city, 80), morningVoice: Boolean(v.morningVoice) };
           } else if (sec === 'continuous') {
             val = { enabled: Boolean(v.enabled), intervalMin: Math.min(720, Math.max(5, Math.round(Number(v.intervalMin) || 30))), dailyBudgetUsd: Math.min(100, Math.max(0, Number(v.dailyBudgetUsd) || 0)), autoResume: v.autoResume !== false, maxRetries: Math.min(10, Math.max(0, Math.round(Number(v.maxRetries ?? 3)))) };
           } else if (sec === 'quiet') {
@@ -833,6 +834,7 @@ export class WebChannel implements Channel {
       case 'ha_test': try { const n = (await haApi(this.odin.cfg.homeAssistant.url, process.env.HA_TOKEN ?? '', 'GET', '/states') as unknown[]).length; return { ok: true, info: `${n} entités` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
       case 'docs_index': try { const r = indexDocs(muninn.db, this.odin.cfg.docs.dirs); return { ok: true, info: `${r.files} fichier(s), ${r.updated} relu(s)` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
       case 'journal_now': return { ok: true, text: await this.hooks.journalNow?.() ?? '' };
+      case 'morning_now': return { ok: true, text: await this.hooks.morningNow?.() ?? '' };
       case 'tunnel_start': {
         const kind: 'cloudflare' | 'tailscale' = String(b.tkind) === 'cloudflare' ? 'cloudflare' : 'tailscale';
         const st = await tunnel.start(kind, this.port, Boolean(this.tls), this.odin.paths.home);

@@ -36,6 +36,7 @@ import { Yggdrasil } from './yggdrasil/skills.ts';
 import { Inventory } from './hlidskjalf/inventory.ts';
 import { NETWORK_TOOLS } from './tools/network.ts';
 import { adminEnable, machineOnboard } from './tools/onboard.ts';
+import { ASSISTANT_TOOLS } from './tools/assistant.ts';
 import { FILE_TOOLS } from './tools/files.ts';
 import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
@@ -85,7 +86,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
-  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable);
+  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS);
   const inventory = new Inventory(muninn.db);
 
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];
