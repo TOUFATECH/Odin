@@ -182,6 +182,13 @@ export class TelegramChannel implements Channel {
 
   /** Bouton Oui / Non / Toujours touché : on répond à la demande comme « /yes id ». */
   private async onButton(q: TgCallback, onMessage: (m: Inbound) => Promise<void>): Promise<void> {
+    if (/^up:(go|later)$/.test(q.data ?? '') && q.message) {
+      const go = q.data === 'up:go';
+      await this.call('answerCallbackQuery', { callback_query_id: q.id, text: go ? 'Mise à jour lancée' : 'D\'accord' }).catch(() => undefined);
+      await this.call('editMessageReplyMarkup', { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: go ? '⬆️ Mise à jour en cours…' : '⏸ Plus tard', callback_data: 'ok:done' }]] } }).catch(() => undefined);
+      await onMessage({ channel: this.name, peer: String(q.from?.id ?? q.message.chat.id), name: q.from?.first_name ?? 'propriétaire', text: go ? '/update' : '/update plus tard' });
+      return;
+    }
     const hb = /^hb:(oui|non)$/.exec(q.data ?? '');
     if (hb && q.message) {
       await this.call('answerCallbackQuery', { callback_query_id: q.id, text: hb[1] === 'oui' ? 'C\'est noté' : 'Compris' }).catch(() => undefined);
@@ -265,7 +272,7 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string }; habit?: { key: string } } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string }; habit?: { key: string }; update?: { version: string } } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
     if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
@@ -280,6 +287,11 @@ export class TelegramChannel implements Channel {
       const r = await this.call('sendMessage', { chat_id: peer, text: html, parse_mode: 'HTML', protect_content: true }) as { ok: boolean; result?: { message_id: number } };
       if (r.ok && r.result) { const id = r.result.message_id; setTimeout(() => { void this.call('deleteMessage', { chat_id: peer, message_id: id }).catch(() => undefined); }, 600_000).unref?.(); }
       return;
+    }
+    // Nouvelle version : bouton « Mettre à jour ».
+    if (opts.update) {
+      const r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(text), parse_mode: 'HTML', reply_markup: { inline_keyboard: [[{ text: '⬆️ Mettre à jour', callback_data: 'up:go' }, { text: 'Plus tard', callback_data: 'up:later' }]] } }).catch(() => ({ ok: false }));
+      if (r.ok) return;
     }
     // Habitude repérée : Oui / Non sous la proposition.
     if (opts.habit) {

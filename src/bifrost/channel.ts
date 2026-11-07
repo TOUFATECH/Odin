@@ -16,7 +16,7 @@ export interface Channel {
   readonly interactive: boolean;
   start(onMessage: (m: Inbound) => Promise<void>): Promise<void>;
   /** mood : l'humeur d'Odin, montrée à la fin du texte quand le canal sait le faire (son visage en émoji sur Telegram). */
-  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string } }): Promise<void>;
+  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string }; /** Nouvelle version : bouton « Mettre à jour ». */ update?: { version: string } }): Promise<void>;
   /** « Odin écrit… » pendant qu'il travaille. */
   typing?(peer: string): Promise<void>;
   stop(): Promise<void>;
@@ -51,11 +51,13 @@ export function buttonText(data: string): string | undefined {
   const ok = /^ok:(yes|no|always):(\S+)$/.exec(data); if (ok) return `/${ok[1]} ${ok[2]}`;
   const rm = /^rm:(done|10|60|tmw):(\S+)$/.exec(data); if (rm) return rm[1] === 'done' ? `/rappel done ${rm[2]}` : `/rappel later ${rm[2]} ${rm[1] === 'tmw' ? 0 : rm[1]}`;
   const hb = /^hb:(oui|non)$/.exec(data); if (hb) return `/habitude ${hb[1]}`;
+  if (data === 'up:go') return '/update'; if (data === 'up:later') return '/update plus tard';
   return undefined;
 }
 
 /** Boutons à montrer sous un message, selon ses options (validation, rappel, habitude). Pur. */
-export function buttonsFor(opts: { approval?: { id: string; grantable?: boolean }; reminder?: { id: string }; habit?: { key: string } } = {}): Array<{ id: string; label: string }> {
+export function buttonsFor(opts: { approval?: { id: string; grantable?: boolean }; reminder?: { id: string }; habit?: { key: string }; update?: { version: string } } = {}): Array<{ id: string; label: string }> {
+  if (opts.update) return [{ id: 'up:go', label: '⬆️ Mettre à jour' }, { id: 'up:later', label: 'Plus tard' }];
   if (opts.approval) return [{ id: `ok:yes:${opts.approval.id}`, label: '✅ Oui' }, { id: `ok:no:${opts.approval.id}`, label: '❌ Non' }, ...(opts.approval.grantable ? [{ id: `ok:always:${opts.approval.id}`, label: 'Toujours' }] : [])];
   if (opts.reminder) { const id = opts.reminder.id.slice(0, 50); return [{ id: `rm:done:${id}`, label: '✅ C\'est fait' }, { id: `rm:60:${id}`, label: '⏰ Dans 1 h' }, { id: `rm:tmw:${id}`, label: '🌅 Demain' }]; }
   if (opts.habit) return [{ id: 'hb:oui', label: '✅ Oui' }, { id: 'hb:non', label: '❌ Non merci' }];

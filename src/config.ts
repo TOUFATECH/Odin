@@ -88,6 +88,8 @@ export interface OdinConfig {
   /** Mises à jour planifiées (weekday -1 = tous les jours, 0 = dimanche…). */
   updates: { enabled: boolean; weekday: number; hour: number; targets: Array<{ where: string; vmid?: number }>; rollbackOnFailure: boolean };
   /** Journal de bord du soir : ce qu'Odin a fait, remarqué, et ses conseils. */
+  /** Mises à jour d'Odin : off (jamais vérifier), notify (te prévenir, défaut), auto (se mettre à jour seul quand il ne travaille pas). */
+  update?: { auto: 'off' | 'notify' | 'auto'; everyHours: number };
   journal: { enabled: boolean; at: string; morning?: string; /** Ville pour la météo du briefing du matin. */ city?: string; /** Envoyer aussi le briefing en note vocale. */ morningVoice?: boolean };
   /** Ne pas déranger : la nuit (et pendant tes rendez-vous si l'agenda est relié), seules les alertes urgentes arrivent ; le reste attend le rapport du matin. */
   quiet: { enabled: boolean; from: string; to: string; agenda: boolean };
@@ -196,6 +198,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   proxmox: { url: '' },
   services: [],
   updates: { enabled: false, weekday: 0, hour: 4, targets: [], rollbackOnFailure: true },
+  update: { auto: 'notify', everyHours: 6 },
   journal: { enabled: true, at: '21:30', morning: '07:00' },
   quiet: { enabled: true, from: '22:30', to: '07:00', agenda: true },
   continuous: { enabled: true, intervalMin: 30, dailyBudgetUsd: 0.5, autoResume: true, maxRetries: 3 },

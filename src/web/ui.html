@@ -697,6 +697,7 @@ button,[role=button],summary,label.cbtn,.conv,.kpi,a{cursor:pointer}
 .touring:not(.tour-real-bud) .chat-buddy{visibility:hidden}
 .msg.secret{border-color:var(--accent)}.secrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}.secv{font-size:16px;padding:4px 10px;border-radius:8px;background:color-mix(in srgb,var(--ink) 8%,transparent);letter-spacing:.04em}
 details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600}details.mx summary::before{content:'▸';color:var(--muted,#888)}details.mx[open] summary::before{content:'▾'}
+.upd-btn{border:1px solid var(--line,#ccd);background:transparent;color:inherit;border-radius:999px;font-size:11px;padding:3px 9px;min-height:24px;cursor:pointer}.upd-btn.on{background:var(--accent,#b07a0f);color:#fff;border-color:transparent;font-weight:600}.maj-changes{margin:4px 0 0;padding-left:20px;display:grid;gap:4px}
 </style>
 </head>
 <body>
@@ -749,7 +750,7 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
     <button class="tab" data-view="audit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="lbl">Décisions</span></button>
     </div>
     <button class="tab" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span> <span class="badge" id="b-settings" hidden>!</span></button>
-    <div class="foot"><div id="usage">—</div><div id="appVer" class="dim" style="font-size:11px"></div><button class="theme-btn" id="themeBtn" type="button" title="Thème de l'interface">Thème : auto</button></div>
+    <div class="foot"><div id="usage">—</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span id="appVer" class="dim" style="font-size:11px"></span><button type="button" id="updBtn" class="upd-btn" title="Mises à jour d'Odin">Mises à jour</button></div><button class="theme-btn" id="themeBtn" type="button" title="Thème de l'interface">Thème : auto</button></div>
   </nav>
 
   <main>
@@ -843,7 +844,7 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="maj" role="tab">Mises à jour</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -988,6 +989,20 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
             <div><button class="btn primary" type="submit">Enregistrer</button></div>
             <div class="status" id="t-status" role="status"></div>
           </form></article>
+
+          <article class="card" data-sec="maj"><div class="form">
+            <h2>Mises à jour d'Odin</h2>
+            <div id="majState" class="maj-state"></div>
+            <ul id="majChanges" class="maj-changes"></ul>
+            <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" id="majApply">⬆️ Mettre à jour maintenant</button><button class="btn" type="button" id="majCheck">Vérifier maintenant</button></div>
+            <div class="status" id="majSt" role="status"></div>
+            <fieldset class="field" style="border:0;padding:0;margin:8px 0 0"><legend style="font-weight:600;margin-bottom:6px">Quand une nouvelle version sort</legend>
+              <label class="check"><input type="radio" name="majAuto" value="auto"> Odin se met à jour tout seul quand il ne travaille pas, puis me dit ce qui a changé</label>
+              <label class="check"><input type="radio" name="majAuto" value="notify"> Odin me prévient, je choisis quand (bouton « Mettre à jour »)</label>
+              <label class="check"><input type="radio" name="majAuto" value="off"> Ne pas vérifier</label>
+            </fieldset>
+            <span class="hint">À chaque mise à jour, Odin garde ses propres améliorations, vérifie que la nouvelle version démarre, et revient tout seul à l'ancienne sinon. Il redémarre en quelques secondes.</span>
+          </div></article>
 
           <article class="card" data-sec="messageries"><div class="form">
             <h2>Autres messageries</h2>
@@ -1833,14 +1848,58 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
   // Version, mise à jour en attente, mode essai.
   $('#navMoreBtn').addEventListener('click', () => navMore($('#navMore').hidden));
   try { if (localStorage.getItem('odin.navmore') === '1') navMore(true); } catch {}
+  // Mises à jour : état, nouveautés, bouton, mode automatique.
+  async function runUpdate(btn) {
+    const lab = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Mise à jour…'; }
+    $('#majSt').textContent = '⬆️ Odin se met à jour : récupération, vérification…'; $('#majSt').className = 'status';
+    const r = await api('/api/action', { kind: 'update_apply' });
+    setSt($('#majSt'), r, r.text || '✓');
+    if (r.ok && r.restarting) { say('⬆️ Mise à jour faite : Odin redémarre, la page se recharge dans quelques secondes.', [], 8000); waitBack(); return; }
+    if (!r.ok) say(r.error || 'Mise à jour impossible', [], 8000);
+    if (btn) { btn.disabled = false; btn.textContent = lab; }
+    state.version = (await api('/api/state')).version || state.version; renderApp();
+  }
+  // Attend qu'Odin revienne après son redémarrage, puis recharge la page.
+  function waitBack(n = 0) { setTimeout(async () => { try { const r = await fetch('/health', { cache: 'no-store' }); if (r.ok && n > 2) return location.reload(); } catch {} if (n < 40) waitBack(n + 1); }, 1500); }
+  function renderMaj(V) {
+    const U = V.update || null, st = $('#majState'); if (!st) return;
+    const when = U && U.checkedAt ? new Date(U.checkedAt).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    st.replaceChildren(
+      el('p', { style: 'margin:0;font-size:15px' }, el('b', {}, `Version installée : v${V.running || '?'}`)),
+      el('p', { class: 'dim', style: 'margin:4px 0 0' }, !U ? 'Pas encore vérifié.' : U.error ? `⚠️ ${U.error}` : U.available ? `⬆️ v${U.latest} disponible (${U.behind} changement${U.behind > 1 ? 's' : ''}) · vérifié le ${when}` : `✅ Odin est à jour · vérifié le ${when}`));
+    $('#majChanges').replaceChildren(...((U && U.available ? U.changes : []) || []).map((c) => el('li', {}, c.replace(/^v[\d.]+\s*:\s*/, ''))));
+    $('#majApply').hidden = !(U && U.available && U.canApply);
+    for (const r of document.querySelectorAll('input[name="majAuto"]')) r.checked = r.value === (V.auto || 'notify');
+  }
+  $('#updBtn').addEventListener('click', () => { show('settings'); openSettings('maj'); });
+  $('#majApply').addEventListener('click', (e) => runUpdate(e.target));
+  $('#majCheck').addEventListener('click', async (e) => {
+    e.target.disabled = true; $('#majSt').textContent = 'Je regarde sur GitHub…'; $('#majSt').className = 'status';
+    const r = await api('/api/action', { kind: 'update_check' });
+    e.target.disabled = false;
+    if (r.info) { state.version = { ...(state.version || {}), update: r.info }; renderApp(); }
+    setSt($('#majSt'), r, r.info && r.info.available ? `Nouvelle version v${r.info.latest} disponible.` : 'Odin est à jour.');
+  });
+  for (const r of document.querySelectorAll('input[name="majAuto"]')) r.addEventListener('change', async () => {
+    const x = await api('/api/action', { kind: 'settings_save', section: 'update', auto: r.value });
+    setSt($('#majSt'), x, r.value === 'auto' ? '✓ Odin se mettra à jour tout seul.' : r.value === 'notify' ? '✓ Odin te préviendra.' : '✓ Vérification coupée.');
+    if (x.ok) state.version = { ...(state.version || {}), auto: r.value };
+  });
   function renderApp() {
     // Badge sur « Plus » quand une rubrique rangée attend quelque chose (brouillons de compétences…)
     { const n = (state.drafts || []).length, nb = $('#navMoreBadge'); nb.hidden = !n || !$('#navMore').hidden; nb.textContent = n; }
     try { const cur = localStorage.getItem('odin.sec'); rankChips(cur); } catch { rankChips(); }
     const V = state.version || {};
     $('#appVer').textContent = V.running ? `Odin v${V.running}` : '';
+    const U = V.update || null, avail = U && U.available && U.canApply;
+    const ub = $('#updBtn'); ub.textContent = avail ? `⬆️ v${U.latest} disponible` : 'Mises à jour'; ub.classList.toggle('on', !!avail);
+    renderMaj(V);
     const b = $('#updBanner');
-    if (V.disk && V.running && V.disk !== V.running) {
+    if (avail && !(V.disk && V.running && V.disk !== V.running)) {
+      b.hidden = false;
+      b.replaceChildren(el('span', {}, `⬆️ Nouvelle version d'Odin : v${U.latest} (tu as la v${U.current}).`), F.btn('Voir les nouveautés', () => { show('settings'); openSettings('maj'); }), F.btn('Mettre à jour', (e) => runUpdate(e.target), true));
+    } else if (V.disk && V.running && V.disk !== V.running) {
       b.hidden = false;
       b.replaceChildren(el('span', {}, `⬆️ Odin v${V.disk} est installé (tu utilises encore la v${V.running}). Il redémarre tout seul dès qu'il ne travaille plus.`), F.btn('Redémarrer maintenant', async (e) => { e.target.disabled = true; e.target.textContent = 'Redémarrage…'; const r = await api('/api/action', { kind: 'app_restart' }); if (!r.ok) { say(r.error, [], 8000); e.target.disabled = false; e.target.textContent = 'Redémarrer maintenant'; return; } setTimeout(() => location.reload(), 6000); }, true));
     } else b.hidden = true;

@@ -200,6 +200,13 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       setConfigValue(paths, ['channels', 'telegram'], { enabled, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners });
       return true;
     }
+    case 'update': {
+      const auto = String(b.auto);
+      if (!['off', 'notify', 'auto'].includes(auto)) throw new Error('choix invalide');
+      setConfigValue(paths, ['update'], { auto, everyHours: 6 });
+      cfg.update = { auto: auto as 'off' | 'notify' | 'auto', everyHours: 6 }; // pris en compte tout de suite
+      return false;
+    }
     case 'messaging': {
       // Discord, Slack, Signal, WhatsApp, Mail : un bloc par messagerie ; les jetons vont dans le coffre (env).
       const list = (v: unknown) => String(v ?? '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);

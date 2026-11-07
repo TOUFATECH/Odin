@@ -74,6 +74,8 @@ export interface WebHooks {
   /** Journal de bord maintenant. */
   journalNow?(): Promise<string | undefined>;
   morningNow?(): Promise<string | undefined>;
+  /** Met Odin à jour maintenant (puis redémarre). */
+  updateNow?(): Promise<string>;
   /** Canal WhatsApp (messages reçus de Meta sur /hook/whatsapp). */
   whatsapp?(): { webhook(method: string, query: URLSearchParams, raw: Uint8Array, signature: string | undefined): Promise<{ status: number; body: string }> } | undefined;
   /** Odin Breaker : ronde + travail de fond tout de suite. */
@@ -521,7 +523,7 @@ export class WebChannel implements Channel {
       tunnel: { ...tunnel.state, available: tunnelAvailable(), install: INSTALL },
       vault: vaultState(this.odin.paths.home),
       dryRun: this.odin.agent.dryRun(),
-      version: this.versions(),
+      version: { ...this.versions(), update: (() => { try { return JSON.parse(this.odin.muninn.getKv('update-info') ?? 'null'); } catch { return null; } })(), auto: this.odin.cfg.update?.auto ?? 'notify' },
       quiet: cfg.quiet,
       features: (() => { const shown = muninn.kvPrefix('feature-show:'); return features({ cfg, devices: inventory.list({ status: 'all' }), recentUserText: muninn.recentUserTexts(), dismissed: new Set(Object.keys(muninn.kvPrefix('feature-dismiss:'))), machines: listMachines(this.odin.paths.home).length }).map((f) => ({ ...f, show: f.on || Boolean(f.why) || Boolean(shown[f.id]) })); })(),
       more: {
@@ -571,6 +573,12 @@ export class WebChannel implements Channel {
         return { ok: true, total: rows.length, refused: rows.filter((r) => r.allowed === false).length, grave: rows.filter((r) => r.severity === 'grave').length, rows: rows.slice(0, 1500).map((r) => ({ t: r.t, tool: r.tool, risk: r.risk, summary: r.summary, allowed: r.allowed, via: r.via, severity: r.severity, why: r.why, reason: r.reason })) };
       }
       case 'dry_run': this.odin.agent.setDryRun(Boolean(b.on)); this.notify('state'); return { ok: true, on: this.odin.agent.dryRun() };
+      case 'update_check': { const { checkForUpdate } = await import('../tools/update.ts'); const r = await checkForUpdate(); this.odin.muninn.setKv('update-info', JSON.stringify(r)); this.odin.muninn.setKv('update-checked', String(Date.now())); return { ok: !r.error, error: r.error, info: r }; }
+      case 'update_apply': {
+        if (!this.hooks.updateNow) return { ok: false, error: 'mise à jour indisponible ici' };
+        const text = await this.hooks.updateNow();
+        return { ok: !/^⚠️/.test(text), text, error: /^⚠️/.test(text) ? text.replace(/^⚠️\s*/, '') : undefined, restarting: /redémarre/.test(text) };
+      }
       case 'app_restart': { const { restartSelf, checkApp } = await import('../tools/self.ts'); const c = checkApp(undefined, false); if (!c.ok) return { ok: false, error: `le nouveau code ne se charge pas : ${c.output.slice(0, 300)}` }; if (process.env.ODIN_NO_RESTART || this.odin.demo) return { ok: true, simulated: true }; return { ok: true, text: restartSelf(800) }; }
       case 'skill_approve_all': { const done: string[] = []; for (const d of skills.drafts()) { try { skills.approve(d.name); done.push(d.name); } catch { /* suivant */ } } this.notify('skills'); return { ok: true, count: done.length }; }
       case 'skill_body': { const s = skills.get(name); if (!s) return { ok: false, error: 'compétence inconnue' }; return { ok: true, body: s.body, description: s.description, version: s.version, params: s.meta.params ?? '', files: skills.files(name).map((f) => f.name) }; }

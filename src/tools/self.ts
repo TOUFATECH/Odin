@@ -94,7 +94,9 @@ export function updateApp(root = APP_ROOT): { ok: boolean; message: string } {
   const before = git(root, ['rev-parse', '--short', 'HEAD']).stdout.trim();
   const dirty = git(root, ['status', '--porcelain', '--untracked-files=no']).stdout.trim() !== '';
   if (dirty && git(root, ['stash', 'push', '-m', `odin-auto-${Date.now()}`]).status !== 0) return { ok: false, message: 'Impossible de mettre de côté mes modifications locales.' };
-  const pull = git(root, ['pull', '--ff-only']);
+  // Sans branche suivie, on récupère origin/<branche actuelle>.
+  const tracked = git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']).status === 0;
+  const pull = git(root, tracked ? ['pull', '--ff-only'] : ['pull', '--ff-only', 'origin', git(root, ['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim() || 'main']);
   let msg = '';
   if (pull.status !== 0) msg = `Mise à jour impossible : ${(pull.stderr || pull.stdout).trim().slice(0, 400)}`;
   if (dirty) {

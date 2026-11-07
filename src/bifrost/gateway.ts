@@ -33,6 +33,7 @@ import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminder
 import { morningBriefing } from './briefing.ts';
 import { syncMemoryFiles } from '../muninn/files.ts';
 import { episodeText, saveThread, toArchive } from '../muninn/threads.ts';
+import { applyUpdate as applyAppUpdate, checkForUpdate, lastUpdateInfo } from '../tools/update.ts';
 import { learnEnvironment } from '../learn/environment-map.ts';
 import { habitCron, habitEvents, habitPrompt, habitWhen, knownHabits, newHabits, pendingProposal, recordAsk, revokeTrust, setKnown, type Known, type Trust } from '../learn/habits.ts';
 
@@ -144,6 +145,12 @@ export class Gateway {
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
     }
+    // Mise à jour d'Odin : bouton « Mettre à jour » ou /update (propriétaire seulement).
+    if (owner && /^\/(update|maj)\b/i.test(text)) {
+      if (/plus tard/i.test(text)) return ch.send(m.peer, '👌 D\'accord, je te le redemanderai à la prochaine version.');
+      await ch.send(m.peer, '⬆️ Je me mets à jour…');
+      return ch.send(m.peer, await this.updateNow());
+    }
     // Habitudes : réponse à une proposition (boutons /habitude oui|non, ou « oui » / « non » tout court), « redemande-moi ».
     const hb = /^\/habitude (oui|non)(?: (.+))?$/.exec(text);
     const prop = owner ? pendingProposal(this.odin.muninn) : undefined;
@@ -176,6 +183,7 @@ export class Gateway {
       }
     }
     const sessionId = `${m.channel}:${m.peer}`;
+    this.odin.muninn.setKv('last-inbound', String(Date.now()));
     if (/^\/stop\b/i.test(text)) { this.aborts.get(sessionId)?.abort(); return ch.send(m.peer, '⏹ Arrêté.'); }
 
     const speaker = this.speakerOf(m.channel, m.peer, m.name);
@@ -540,6 +548,58 @@ export class Gateway {
   }
 
   /**
+   * Mises à jour publiées : vérifiées toutes les 6 h. Mode « notify » (défaut) : Odin te prévient une
+   * fois par version, avec un bouton « Mettre à jour ». Mode « auto » (ou Breaker) : il se met à jour
+   * seul quand il ne travaille pas et que personne ne lui a écrit depuis 15 min, puis te dit ce qui change.
+   * Après un redémarrage dû à une mise à jour, il annonce la nouvelle version.
+   */
+  async updateLoop(now = Date.now(), force = false): Promise<void> {
+    const kv = this.odin.muninn;
+    // Annonce après redémarrage
+    const done = kv.getKv('updated-to');
+    if (done) {
+      const { appVersions } = await import('../tools/self.ts');
+      const [, to] = done.split('→');
+      if (appVersions().running === to) { kv.setKv('updated-to', ''); const ch = (kv.getKv('update-changes') ?? '').split('\n').filter(Boolean).slice(0, 6); kv.setKv('update-changes', ''); await this.tellOwner(`✅ Odin est à jour : v${done.replace('→', ' → v')}.${ch.length ? `\nNouveautés :\n${ch.map((c) => `• ${c.replace(/^v[\d.]+\s*:\s*/, '')}`).join('\n')}` : ''}`, 'home').catch(() => {}); }
+    }
+    const cfg = this.odin.cfg.update ?? { auto: 'notify', everyHours: 6 };
+    if (this.odin.demo || cfg.auto === 'off') return;
+    const last = Number(kv.getKv('update-checked') ?? 0);
+    if (!force && now - last < Math.max(1, cfg.everyHours) * 3600_000) return;
+    kv.setKv('update-checked', String(now));
+    const info = await checkForUpdate(undefined, now);
+    kv.setKv('update-info', JSON.stringify(info));
+    for (const c of this.channels.values()) c.notify?.('version');
+    if (!info.available || !info.canApply) return;
+    const auto = cfg.auto === 'auto' || this.odin.heimdall.breakerActive();
+    const idle = !this.aborts.size && now - Number(kv.getKv('last-inbound') ?? 0) > 15 * 60_000;
+    if (auto && idle) { const msg = await this.updateNow(); if (!/redémarre/.test(msg)) await this.tellOwner(msg, 'home').catch(() => {}); return; }
+    if (kv.getKv('update-told') === info.latest) return;
+    kv.setKv('update-told', info.latest);
+    const t = this.ownerTarget();
+    const text = `⬆️ Nouvelle version d'Odin : v${info.latest} (tu as la v${info.current}).\n${info.changes.slice(0, 6).map((c) => `• ${c.replace(/^v[\d.]+\s*:\s*/, '')}`).join('\n')}${auto ? '\nJe la mettrai en place dès que je ne travaille plus.' : '\nTouche « Mettre à jour » (ou dis « mets-toi à jour ») : je reviens en quelques secondes.'}`;
+    if (t) await t.ch.send(t.peer, text, auto ? undefined : { update: { version: info.latest } }).catch(() => {});
+    void pushAll(this.odin.paths.home, { title: 'Odin — nouvelle version', body: `v${info.latest} est disponible`, view: 'settings', tag: 'odin-maj' }).catch(() => 0);
+  }
+
+  /** Met Odin à jour maintenant (vérifie le nouveau code, revient en arrière s'il ne se charge pas), puis redémarre. */
+  async updateNow(): Promise<string> {
+    if (this.odin.demo) return 'Mode démo : pas de mise à jour.';
+    const before = lastUpdateInfo(this.odin.muninn);
+    if (before?.changes.length) this.odin.muninn.setKv('update-changes', before.changes.join('\n'));
+    const r = applyAppUpdate();
+    this.odin.muninn.setKv('update-info', JSON.stringify(await checkForUpdate().catch(() => lastUpdateInfo(this.odin.muninn))));
+    for (const c of this.channels.values()) c.notify?.('version');
+    if (!r.ok) return `⚠️ ${r.message}`;
+    if (!r.restart) return `✅ ${r.message}`;
+    this.odin.muninn.setKv('updated-to', `${r.from}→${r.to}`);
+    if (process.env.ODIN_NO_RESTART) return `✅ ${r.message}\n(redémarrage simulé)`;
+    const { restartSelf } = await import('../tools/self.ts');
+    restartSelf(3000);
+    return `✅ ${r.message}\nJe redémarre : je reviens dans quelques secondes.`;
+  }
+
+  /**
    * Nouvelle version installée (git pull, mise à jour par Hermes…) mais pas encore chargée : quand
    * Odin ne travaille pas, il vérifie que le nouveau code se charge, puis redémarre tout seul.
    */
@@ -683,6 +743,7 @@ export class Gateway {
     await this.watch(now).catch((e) => console.error('[vörðr]', (e as Error).message));
     await this.care(now).catch((e) => console.error('[soins]', (e as Error).message));
     await this.applyUpdate().catch((e) => console.error('[mise à jour]', (e as Error).message));
+    await this.updateLoop(now).catch((e) => console.error('[mise à jour]', (e as Error).message));
     const net = this.odin.cfg.network;
     const last = this.odin.inventory.lastScan();
     if (net.enabled && (!last || now - last.at >= net.intervalMin * 60_000)) {

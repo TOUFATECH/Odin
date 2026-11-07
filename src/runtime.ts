@@ -40,6 +40,7 @@ import { ASSISTANT_TOOLS } from './tools/assistant.ts';
 import { recordAnswer, touchTrust, trusted } from './learn/habits.ts';
 import { HABIT_TOOLS } from './tools/habits.ts';
 import { loadPlugins, pluginSaveTool } from './tools/plugins.ts';
+import { updateApplyTool, updateCheckTool } from './tools/update.ts';
 import { FILE_TOOLS } from './tools/files.ts';
 import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
@@ -89,7 +90,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
-  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS, ...HABIT_TOOLS, pluginSaveTool(() => tools));
+  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS, ...HABIT_TOOLS, updateCheckTool, updateApplyTool, pluginSaveTool(() => tools));
   // Extensions Python de ~/.odin/plugins : chacune devient un outil py_<nom>.
   try { const n = loadPlugins(paths.home, paths.workspace, tools); if (n.length) console.error(`[extensions] ${n.length} extension(s) Python : ${n.join(', ')}`); } catch (e) { console.error('[extensions]', (e as Error).message); }
   const inventory = new Inventory(muninn.db);
