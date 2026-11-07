@@ -388,7 +388,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 #handsBtn.on{color:var(--good);border-color:var(--good)}#handsBtn.on .wave{opacity:1;animation:pulse 1.4s ease-in-out infinite}
 @media (max-width:860px){
   #v-chat .head{padding:8px 10px;border-bottom:1px solid var(--line)}
-  .hacts{width:100%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+  .hacts{width:100%;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;min-width:0}
   .hbtn{justify-content:center;padding:0 8px;font-size:13px;height:36px}
 }
 
@@ -653,7 +653,11 @@ details.activity .ai.info{color:#8FC1E3}
 .tlist,.dlist{display:flex;flex-direction:column}
 .titem{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap}
 .titem:first-child{border-top:0}
-.titem > div:first-child{flex:1 1 220px;min-width:0}
+.titem > div:first-child{flex:1 1 220px;min-width:0;overflow-wrap:anywhere}
+.hpanel,.hcard,.hcols > *{min-width:0}
+@media (max-width:480px){.hacts .hbtn .hl{display:none}.hacts .hbtn{justify-content:center;padding:0 6px;min-width:0}}
+.hpanel h2{flex-wrap:wrap}
+.msg .bubble,.bubble,.tlist,.dlist{overflow-wrap:anywhere}
 .hok{color:#2ea86b;padding:6px 0}
 .ditem{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
 .ditem:first-child{border-top:0}

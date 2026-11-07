@@ -178,7 +178,16 @@ async function runOnce(prompt: string): Promise<void> {
 
 let stopping: (() => Promise<void>) | undefined;
 
+/** Filet de sécurité : une erreur imprévue (réseau, client qui coupe) est notée, Odin continue de tourner. */
+let guarded = false;
+function guardProcess(): void {
+  if (guarded) return; guarded = true;
+  process.on('uncaughtException', (e) => { console.error('[odin] erreur imprévue (Odin continue) :', e?.stack ?? e); });
+  process.on('unhandledRejection', (e) => { console.error('[odin] promesse rejetée (Odin continue) :', (e as Error)?.stack ?? e); });
+}
+
 async function gateway(openBrowser = false, reloaded = false): Promise<void> {
+  guardProcess();
   let gw: Gateway | undefined;
   const send = (ch: string, peer: string, text: string, opts?: { secret?: boolean }) => gw!.send(ch, peer, text, opts);
   let odin: Odin;

@@ -2,7 +2,7 @@
 // Les clés d'API ne sont JAMAIS écrites dans ce fichier : on y met seulement le
 // nom de la variable d'environnement qui les contient (apiKeyEnv).
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Risk } from './types.ts';
@@ -340,6 +340,11 @@ export function initHome(paths: OdinPaths): string[] {
     if (!existsSync(d)) { mkdirSync(d, { recursive: true }); created.push(d); }
   }
   if (!existsSync(paths.config)) { writeFileSync(paths.config, JSON.stringify(DEFAULT_CONFIG, null, 2)); created.push(paths.config); }
+  // Dossier d'Odin réservé à son compte : conversations, mémoire et réglages ne sont pas lisibles par les autres utilisateurs de la machine.
+  if (process.platform !== 'win32') {
+    try { chmodSync(paths.home, 0o700); } catch { /* dossier partagé : sans effet */ }
+    for (const f of [paths.config, join(paths.home, 'odin.db'), join(paths.home, 'odin.db-wal'), join(paths.home, 'odin.db-shm')]) { try { if (existsSync(f)) chmodSync(f, 0o600); } catch { /* sans effet */ } }
+  }
   if (!existsSync(paths.persona)) {
     const old = join(paths.home, 'ODIN.md');
     writeFileSync(paths.persona, existsSync(old) ? readFileSync(old, 'utf8') : DEFAULT_PERSONA);

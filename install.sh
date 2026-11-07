@@ -184,8 +184,10 @@ After=network-online.target
 [Service]
 ExecStart="$BIN_DIR/odin" gateway
 Environment=ODIN_SERVICE=1
-Restart=on-failure
+Restart=always
 RestartSec=5
+# Fichiers créés par Odin lisibles par lui seul
+UMask=0077
 
 [Install]
 WantedBy=default.target

@@ -91,3 +91,30 @@ test('première configuration : sans jeton même après l\'heure, tant qu\'Odin 
     assert.equal((await fetch(`http://127.0.0.1:${port}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } })).status, 200);
   } finally { await gw.stop(); o.cleanup(); }
 });
+
+test('audit sécurité : envoi trop gros sans plantage, fichiers non JSON acceptés, état à jour après une action', async () => {
+  const o = makeOdin([]);
+  const port = 21000 + Math.floor(Math.random() * 20000);
+  const token = ensureWebToken(o.paths);
+  const gw = new Gateway(o, { owners: { web: ['*'] } });
+  gw.add(new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token }));
+  await gw.start();
+  const B = `http://127.0.0.1:${port}`, H = { authorization: `Bearer ${token}`, 'x-odin': '1' };
+  try {
+    // 10 Mo de JSON : refusé proprement, et Odin répond toujours ensuite (avant : il s'arrêtait).
+    const big = await fetch(`${B}/api/action`, { method: 'POST', headers: H, body: `{"kind":"${'a'.repeat(10_000_000)}"}` }).catch(() => undefined);
+    assert.ok(!big || big.status === 413);
+    assert.equal((await fetch(`${B}/api/state`, { headers: H })).status, 200, 'toujours en vie');
+    // Un fichier binaire (pas du JSON) s'envoie (avant : « JSON invalide »)
+    const up = await (await fetch(`${B}/api/upload`, { method: 'POST', headers: { ...H, 'x-filename': encodeURIComponent('../../photo vacances.jpg'), 'content-type': 'image/jpeg' }, body: new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x01]) })).json() as { ok: boolean; file: string };
+    assert.equal(up.ok, true); assert.match(up.file, /^inbox\/[^/]+photo vacances\.jpg$/);
+    const ph = await (await fetch(`${B}/api/photo`, { method: 'POST', headers: { ...H, 'content-type': 'image/png' }, body: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) })).json() as { ok: boolean };
+    assert.equal(ph.ok, true, 'photo de la caméra acceptée');
+    // État en cache (2 s) mais vidé après une action
+    const a = await (await fetch(`${B}/api/state`, { headers: H })).json() as { version: { auto: string } };
+    assert.equal(a.version.auto, 'notify');
+    await fetch(`${B}/api/action`, { method: 'POST', headers: H, body: JSON.stringify({ kind: 'settings_save', section: 'update', auto: 'auto' }) });
+    const b = await (await fetch(`${B}/api/state`, { headers: H })).json() as { version: { auto: string } };
+    assert.equal(b.version.auto, 'auto', 'le changement se voit tout de suite');
+  } finally { await gw.stop(); o.cleanup(); }
+});

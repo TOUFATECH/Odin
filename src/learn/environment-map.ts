@@ -111,7 +111,7 @@ export function learnEnvironment(odin: { muninn: Kv; inventory: { list(f: { stat
   if (!devs.length) return [];
   const pres = observe(JSON.parse(odin.muninn.getKv(PRESENCE_KEY) ?? '{}') as Record<string, Presence>, devs, now);
   odin.muninn.setKv(PRESENCE_KEY, JSON.stringify(pres));
-  writeFileSync(join(odin.paths.home, 'ENVIRONMENT.md'), renderEnvironment(devs, pres, machines, now));
+  writeFileSync(join(odin.paths.home, 'ENVIRONMENT.md'), renderEnvironment(devs, pres, machines, now), { mode: 0o600 });
   const told = JSON.parse(odin.muninn.getKv('env-told') ?? '{}') as Record<string, number>, out: string[] = [];
   for (const s of surprises(devs, pres, now, odin.cfg.watch.devices.map(String))) {
     const k = s.key.replace(/:\d+$/, '');

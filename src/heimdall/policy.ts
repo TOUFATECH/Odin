@@ -100,6 +100,20 @@ const HARD_DENY: RegExp[] = [
   />\s*\/dev\/sd[a-z]/,
   /\b(curl|wget)\b[^\n]*\|\s*(sudo\s+)?(ba|z)?sh\b/,
   /\bhistory\s+-c\b/,
+  // Effacements massifs déguisés ou indirects
+  /\bfind\s+(?:\/|~|\$HOME)(?:\s|$)[^\n]*(?:-delete\b|-exec\s+(?:sudo\s+)?rm\b)/,
+  /\bbase64\s+(?:-d|--decode)\b[^\n]*\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b/,
+  /\b(?:ba|z)?sh\s+<\(\s*(?:curl|wget)\b/,
+  /\b(?:shred|wipefs|blkdiscard|sgdisk\s+(?:-Z|--zap-all)|sfdisk\s+--delete)\b[^\n]*\/dev\//,
+  />\s*\/dev\/(?:sd[a-z]|nvme\d|vd[a-z]|xvd[a-z]|hd[a-z]|mmcblk\d|disk\d)/,
+  /\b(?:chmod|chown|chgrp)\s+(?:-[a-zA-Z]*R[a-zA-Z]*|--recursive)\s+(?:\S+\s+)?(?:\/|\/(?:etc|usr|bin|boot|var|home|root|lib)\/?)(?:\s|$)/,
+  /\bkill(?:all)?\s+(?:-\w+\s+)*(?:1|-1)(?:\s|$)/,
+  /\brmtree\(\s*['"](?:\/|~|\/home|\/etc|\/root)['"]/,
+  /\bmv\s+(?:-\w+\s+)*\/(?:\s|$)/,
+  /\brm\s+(?:-[a-z]*\s+)*-[a-z]*r[a-z]*\b[^\n]*\.odin(?:\/|\s|$)/i,     // le cerveau d'Odin
+  /\bpasswd\s+(?:-d|--delete)\s+root\b|\buserdel\s+(?:-\w+\s+)*root\b/,
+  />\s*\/etc\/(?:passwd|shadow|sudoers|group)\b|\btruncate\s+[^\n]*\/etc\/(?:passwd|shadow|sudoers)\b/,
+  /\bzpool\s+destroy\b|\b(?:vgremove|pvremove)\b|\blvremove\s+(?:-\w+\s+)*pve\/(?:data|root)\b/,
   // Windows
   /\bformat(\.com)?\s+[a-z]:/i,
   /\b(rd|rmdir)\s+\/s\s+(\/q\s+)?[a-z]:\\?(\s|$)/i,
@@ -109,8 +123,25 @@ const HARD_DENY: RegExp[] = [
   /\bbcdedit\b|\bdiskpart\b/i,
 ];
 
+// Actions qui peuvent couper l'accès à la machine ou détruire une VM : toujours validées par toi.
+const LOCKOUT: Array<[RegExp, string]> = [
+  [/\bsystemctl\s+(?:stop|disable|mask|kill)\b[^\n]*\b(?:ssh|sshd|odin|tailscaled?|cloudflared|networking|NetworkManager|systemd-networkd|pveproxy|pvedaemon)\b/, 'cela peut couper l\'accès à la machine'],
+  [/\b(?:iptables|ip6tables)\s+(?:-\w+\s+)*(?:-P\s+(?:INPUT|OUTPUT)\s+DROP|-F\b|--flush\b)|\bnft\s+flush\s+ruleset\b|\bufw\s+(?:default\s+deny|enable)\b/, 'cela change le pare-feu et peut te couper l\'accès'],
+  [/\b(?:ip\s+link\s+set\s+\S+\s+down|ifdown|nmcli\s+(?:networking\s+off|con(?:nection)?\s+down))\b/, 'cela coupe le réseau de la machine'],
+  [/\bqm\s+destroy\b|\bpct\s+destroy\b|\bpvesh\s+delete\s+\/nodes\/[^\s]+\/(?:qemu|lxc)\/\d+|\bvirsh\s+undefine\b/, 'cela supprime une machine virtuelle entière'],
+  [/\b(?:userdel|deluser)\b|\bpasswd\b|\bchpasswd\b|\busermod\s+[^\n]*-(?:L|-lock|s\s*\/(?:usr\/)?s?bin\/(?:nologin|false))\b/, 'cela touche un compte ou un mot de passe'],
+  [/\bcrontab\s+-r\b/, 'cela efface toutes les tâches planifiées du système'],
+];
+export const lockoutRisk = (cmd: string): string | undefined => { const plain = cmd.replace(/["'\\]/g, ''); return LOCKOUT.find(([re]) => re.test(cmd) || re.test(plain))?.[1]; };
+
 /** Une commande (ou un script) contient-elle une action destructrice interdite ? */
-export const hardDenied = (text: string): string | undefined => HARD_DENY.find((re) => re.test(text))?.source;
+export const hardDenied = (text: string): string | undefined => {
+  // On teste aussi la commande « dé-déguisée » : guillemets et antislashs retirés (r''m, r\m, "rm"),
+  // $(echo x) et `echo x` remplacés par x — pour qu'un découpage ne contourne pas la liste.
+  const plain = text.replace(/\$\(\s*(?:echo|printf)\s+['"]?([\w./-]+)['"]?\s*\)|`\s*(?:echo|printf)\s+['"]?([\w./-]+)['"]?\s*`/g, (_m, a, b) => a ?? b).replace(/["'\\]/g, '');
+  for (const v of [text, plain, plain.replace(/[()]/g, ' ')]) { const hit = HARD_DENY.find((re) => re.test(v)); if (hit) return hit.source; }
+  return undefined;
+};
 
 // Constructions qui rendent une liste blanche inefficace : toujours validation humaine.
 const SHELL_META = /[;&|`$<>]|\$\(|\n/;
@@ -147,12 +178,21 @@ export class Heimdall {
   /** Décide si un appel d'outil peut s'exécuter. */
   async gate(g: GateInput): Promise<GateDecision> {
     if (g.command !== undefined) {
-      const hard = HARD_DENY.find((re) => re.test(g.command!));
+      const hardSrc = hardDenied(g.command!); const hard = hardSrc ? { source: hardSrc } : undefined;
       if (hard) return this.log(g, { allowed: false, reason: `commande interdite (règle ${hard.source})` });
     }
 
     let mode: PolicyMode = this.cfg.modes[g.risk];
     const notes: string[] = [];
+    // Actions qui peuvent te couper l'accès ou détruire une machine virtuelle entière : jamais seul, même
+    // en Breaker, même avec une autorisation permanente — toujours ta validation explicite.
+    const lock = g.command !== undefined ? lockoutRisk(g.command) : undefined;
+    if (lock) {
+      if (mode === 'deny') return this.log(g, { allowed: false, reason: `niveau « ${g.risk} » interdit par la configuration` });
+      const req: ApprovalRequest = { id: `a${Date.now().toString(36)}${(this.seq++).toString(36)}`, tool: g.tool, risk: g.risk, summary: g.summary, reason: `GRAVE : ${lock}, je ne le fais jamais sans ton accord`, sessionId: g.sessionId, severity: 'grave', grantable: false };
+      const ok = await withTimeout<ApprovalAnswer>(this.approver.approve(req), this.cfg.approvalTimeoutSec * 1000, false);
+      return this.log(g, ok ? { allowed: true, via: 'human', severity: 'grave', why: lock } : { allowed: false, severity: 'grave', reason: `${lock} : refusé ou sans réponse` });
+    }
     // Recherche web et lecture de pages : jamais de validation (Odin cite ses sources), même après
     // avoir lu du contenu non fiable — sauf si le réseau est interdit ou une manipulation détectée.
     if (g.lookup && mode !== 'deny' && !g.suspicious) return this.log(g, { allowed: true, via: 'policy', why: 'consultation du web (sources citées)' });
@@ -325,7 +365,7 @@ export function assertPublicUrl(raw: string): URL {
 }
 
 export function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/^::ffff:/, '');
+  const h = host.toLowerCase().replace(/^::ffff:/, '').replace(/\.+$/, ''); // « localhost. » = localhost
   return h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.internal') || h.endsWith('.local') ||
     /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) ||

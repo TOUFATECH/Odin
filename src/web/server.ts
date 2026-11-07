@@ -11,6 +11,7 @@
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { isIP } from 'node:net';
 import { chmodSync, createWriteStream, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
@@ -187,7 +188,12 @@ export class WebChannel implements Channel {
     // Pas encore configuré (aucun modèle) : pas de limite de temps ; sinon, la première heure après le démarrage.
     if (!this.odin.demo && Date.now() - this.startedAt > 60 * 60_000) return false;
     if (this.odin.muninn.listSessions(500).some((s) => s.id.startsWith('web:'))) { this.markClaimed('déjà utilisé'); return false; }
-    const ip = this.clientIp(req).replace(/^fwd:/, '');
+    const ip = this.clientIp(req);
+    if (ip.startsWith('fwd:')) return false; // jamais à travers un tunnel ou un proxy
+    // Contre le « DNS rebinding » : une page piégée qui se fait passer pour Odin sous un autre nom de
+    // domaine ne peut pas réclamer l'accès. Seulement une adresse IP ou un nom local.
+    const host = (req.headers.host ?? '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
+    if (!(isIP(host) || host === 'localhost' || !host.includes('.') || /\.(local|lan|home|internal|home\.arpa)$/.test(host))) return false;
     return isPrivateHost(ip); // jamais depuis Internet
   }
 
@@ -209,6 +215,14 @@ export class WebChannel implements Channel {
 
   private clientIp(req: IncomingMessage): string {
     const sock = remoteOf(req);
+    // Tunnel (Cloudflare, Tailscale, proxy sur la même machine) : la requête arrive de 127.0.0.1 mais vient
+    // d'ailleurs. Elle n'est alors jamais traitée comme « la machine elle-même » (ni exemptée du blocage des
+    // essais, ni autorisée à la première connexion sans jeton). Un client ne peut pas retirer ces en-têtes.
+    if (/^(::ffff:)?127\.|^::1$/.test(sock)) {
+      const h = req.headers;
+      const via = String(h['cf-connecting-ip'] ?? '') || String(h['x-forwarded-for'] ?? '').split(',').map((x) => x.trim()).filter(Boolean).at(-1) || (h['tailscale-user-login'] || h['x-forwarded-host'] || h['cf-ray'] || h['x-real-ip'] ? 'tunnel' : '');
+      if (via) return `fwd:${via}`;
+    }
     if (this.access === 'wan' && this.odin.cfg.web.behindProxy) {
       // Le proxy AJOUTE l'adresse réelle en fin de liste ; le début peut être forgé par le client.
       const fwd = String(req.headers['x-forwarded-for'] ?? '').split(',').map((x) => x.trim()).filter(Boolean).at(-1) ?? '';
@@ -250,11 +264,20 @@ export class WebChannel implements Channel {
     this.push({ type: 'event', peer, event: e });
     if (e.type === 'approval') void pushAll(this.odin.paths.home, { title: 'Odin a besoin de toi', body: (e as { summary?: string }).summary ?? 'Une validation est demandée.', view: 'chat', tag: 'odin-validation' }).catch(() => 0);
   }
-  notify(topic: string): void { this.push({ type: 'refresh', topic }); }
+  private stateCache?: { at: number; body: string };
+  notify(topic: string): void { this.stateCache = undefined; this.push({ type: 'refresh', topic }); }
 
   async start(onMessage: (m: Inbound) => Promise<void>): Promise<void> {
     const handler = (req: IncomingMessage, res: ServerResponse) => {
-      void this.route(req, res, onMessage).catch((e) => json(res, 500, { error: (e as Error).message }));
+      void this.route(req, res, onMessage).catch((e) => {
+        const msg = (e as Error).message;
+        // Erreurs du client : bon code HTTP, et on coupe un envoi trop gros au lieu de le lire jusqu'au bout.
+        const code = /trop gros|trop grosse|trop lourd/.test(msg) ? 413 : /JSON|invalide|manquant|malformed/i.test(msg) ? 400 : 500;
+        if (code === 500) console.error('[web]', msg);
+        // La connexion a pu être déjà coupée (envoi trop gros interrompu) : rien ne doit faire tomber Odin.
+        try { if (!res.headersSent && !res.writableEnded) json(res, code, { error: code === 500 ? 'erreur interne' : msg }); } catch { /* client parti */ }
+        if (code === 413) req.socket?.destroySoon?.();
+      });
     };
     this.server = this.tls ? createHttpsServer({ key: this.tls.key, cert: this.tls.cert }, handler) : createServer(handler);
     const listen = (host: string) => new Promise<void>((r, j) => { this.server!.once('error', j); this.server!.listen(this.port, host, () => { this.server!.removeListener('error', j); r(); }); });
@@ -297,7 +320,8 @@ export class WebChannel implements Channel {
         'content-type': 'text/html; charset=utf-8',
         'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
-        ...(this.tls && !this.tls.selfSigned ? { 'strict-transport-security': 'max-age=31536000' } : {}),
+        // HSTS seulement avec un vrai certificat (le tien, ou celui du tunnel / proxy HTTPS) : jamais avec le certificat auto-signé du réseau local.
+        ...((this.tls && !this.tls.selfSigned) || (ip.startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? ''))) ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
       const authed = this.authed(req);
       return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIMABLE__', !authed && this.claimable(req) ? 'true' : 'false'));
@@ -344,7 +368,12 @@ export class WebChannel implements Channel {
       req.on('close', () => this.clients.delete(res));
       return;
     }
-    if (req.method === 'GET' && url.pathname === '/api/state') return json(res, 200, this.state());
+    if (req.method === 'GET' && url.pathname === '/api/state') {
+      // L'état complet coûte cher à calculer : gardé 2 s (vidé dès qu'Odin signale un changement).
+      if (!this.stateCache || Date.now() - this.stateCache.at > 2000) this.stateCache = { at: Date.now(), body: JSON.stringify(this.state()) };
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      return void res.end(this.stateCache.body);
+    }
     if (req.method === 'GET' && url.pathname === '/api/voice/voices') {
       try { return json(res, 200, { ok: true, voices: await listVoices(this.odin.cfg.voice) }); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
@@ -376,6 +405,7 @@ export class WebChannel implements Channel {
 
     if (req.method !== 'POST') return json(res, 405, { error: 'méthode refusée' });
     if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+    res.on('finish', () => { this.stateCache = undefined; }); // une action a pu tout changer
     const v = this.odin.cfg.voice;
     if (url.pathname === '/api/backup') {
       // Sauvegarde chiffrée : le mot de passe ne quitte pas la requête, le fichier part tel quel au navigateur.
@@ -414,15 +444,7 @@ export class WebChannel implements Channel {
         return json(res, 200, { ok: true, voiceId: id });
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
-    const body = await readJson(req);
-    if (url.pathname === '/api/voice/speak') {
-      if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
-      try {
-        const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), voiceFor(v, this.odin.cfg));
-        res.writeHead(200, { 'content-type': audio.mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
-        return void res.end(audio.data);
-      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
-    }
+    // Envoi de fichier : lu en flux AVANT toute lecture JSON (sinon un fichier non JSON était refusé).
     if (url.pathname === '/api/upload' && req.method === 'POST') {
       // N'importe quel fichier (vidéo, son, image, PDF, Word, Excel…) : écrit en flux dans inbox/, sans tout garder en mémoire.
       try {
@@ -453,6 +475,15 @@ export class WebChannel implements Channel {
         const said = (url.searchParams.get('text') ?? '').slice(0, 4000).trim();
         void onMessage({ channel: 'web', peer, name: 'navigateur', text: `${said || 'Regarde ce que je te montre et dis-moi ce que tu vois.'}\n\n[Photo prise par la caméra : inbox/${name} (${type}, ${Math.round(data.byteLength / 1024)} Ko)]` });
         return json(res, 202, { ok: true, file: `inbox/${name}` });
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    const body = await readJson(req);
+    if (url.pathname === '/api/voice/speak') {
+      if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
+      try {
+        const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), voiceFor(v, this.odin.cfg));
+        res.writeHead(200, { 'content-type': audio.mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+        return void res.end(audio.data);
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/message') {

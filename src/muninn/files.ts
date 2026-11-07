@@ -7,7 +7,7 @@
 // (comme venant de toi). Chaque ligne garde son numéro en commentaire invisible : <!-- #12 -->.
 // Rien de ce qui vient d'un contenu non fiable (web, mails) n'est écrit dans ces fichiers.
 
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { MemoryRow, Muninn } from './store.ts';
 
@@ -90,9 +90,10 @@ export function syncMemoryFiles(home: string, muninn: Muninn): SyncReport {
   const all = muninn.listMemories(2000).filter((m) => m.origin !== 'untrusted' && !m.superseded_by).sort((a, b) => a.id - b.id);
   const user = all.filter(isAboutUser), rest = all.filter((m) => !isAboutUser(m));
   const now = Date.now();
-  writeFileSync(join(home, 'USER.md'), renderMemoryFile('Ce qu\'Odin sait de toi', '> Tu peux corriger, supprimer ou ajouter des lignes (« - … ») : Odin applique tes changements à sa prochaine mise à jour (toutes les 10 minutes). Ne mets jamais de mot de passe ici.', user));
+  writeFileSync(join(home, 'USER.md'), renderMemoryFile('Ce qu\'Odin sait de toi', '> Tu peux corriger, supprimer ou ajouter des lignes (« - … ») : Odin applique tes changements à sa prochaine mise à jour (toutes les 10 minutes). Ne mets jamais de mot de passe ici.', user), { mode: 0o600 });
   let journal: TaskEntry[] = []; try { journal = JSON.parse(muninn.getKv('task-journal') ?? '[]') as TaskEntry[]; } catch { /* vide */ }
-  writeFileSync(join(home, 'MEMORY.md'), renderMemoryFile('Mémoire d\'Odin', '> Ce qu\'Odin sait de ta maison, tes machines, tes projets et ce qu\'il a appris, mis à jour après chaque tâche. Modifiable comme USER.md (sauf le journal des tâches).', rest, journal));
+  writeFileSync(join(home, 'MEMORY.md'), renderMemoryFile('Mémoire d\'Odin', '> Ce qu\'Odin sait de ta maison, tes machines, tes projets et ce qu\'il a appris, mis à jour après chaque tâche. Modifiable comme USER.md (sauf le journal des tâches).', rest, journal), { mode: 0o600 });
+  for (const f of ['USER.md', 'MEMORY.md']) { try { chmodSync(join(home, f), 0o600); } catch { /* Windows */ } }
   muninn.setKv('memfiles', JSON.stringify({ 'USER.md': { at: now, ids: user.map((m) => m.id) }, 'MEMORY.md': { at: now, ids: rest.map((m) => m.id) } }));
   return rep;
 }
