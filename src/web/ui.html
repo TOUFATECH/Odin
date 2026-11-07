@@ -848,7 +848,7 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="maj" role="tab">Mises à jour</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="venus" role="tab">Venus</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
+      <div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="maj" role="tab">Mises à jour</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="venus" role="tab">Venus</button><button type="button" class="schip" data-sec="reveil" role="tab">Réveil</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -1169,6 +1169,32 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
 
           <article class="card" data-sec="entretien"><div class="form" id="more-entretien"></div></article>
           <article class="card" data-sec="maison"><div class="form" id="more-maison"></div></article>
+          <article class="card" data-sec="reveil"><form class="form" id="f-alarm">
+            <h2>⏰ Réveil</h2>
+            <p class="sub" style="margin:0">Odin te réveille et insiste toutes les 5 minutes jusqu'à ce que tu répondes « je suis réveillé » : appel téléphonique, alarme sur ton téléphone (même en silencieux), enceintes, message et note vocale. Il passe toujours, même en « Ne pas déranger ».</p>
+            <label class="check"><input type="checkbox" id="al2-on"> Activer le réveil</label>
+            <div class="row" style="display:flex;gap:12px;flex-wrap:wrap">
+              <div class="field" style="flex:1 1 160px"><label for="al2-work">Jours de travail</label><input id="al2-work" type="time"></div>
+              <div class="field" style="flex:1 1 160px"><label for="al2-off">Repos et vacances</label><input id="al2-off" type="time"><span class="hint">Vide : pas de réveil ces jours-là.</span></div>
+            </div>
+            <div class="field"><label for="al2-days">Jours de travail</label><input id="al2-days" placeholder="semaine, ou lun,mar,mer,jeu,ven"></div>
+            <div class="row" style="display:flex;gap:12px;flex-wrap:wrap">
+              <div class="field" style="flex:1 1 160px"><label for="al2-vf">Vacances du</label><input id="al2-vf" type="date"></div>
+              <div class="field" style="flex:1 1 160px"><label for="al2-vt">au</label><input id="al2-vt" type="date"></div>
+            </div>
+            <span class="hint" id="al2-vac"></span>
+            <h3 style="margin:10px 0 0">Comment Odin t'appelle</h3>
+            <div class="field"><label for="al2-phone">Ton numéro (appel téléphonique)</label><input id="al2-phone" autocomplete="off" placeholder="+262639…"></div>
+            <details class="field"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Vrai appel téléphonique (Twilio)</summary>
+              <span class="hint">Crée un compte sur twilio.com, achète un numéro (quelques euros par mois ; chaque appel coûte quelques centimes), puis colle ici l'identifiant du compte, le jeton et ce numéro.</span>
+              <div class="field"><label for="al2-sid">Account SID</label><input id="al2-sid" type="password" autocomplete="off"></div>
+              <div class="field"><label for="al2-tok">Auth Token</label><input id="al2-tok" type="password" autocomplete="off"></div>
+              <div class="field"><label for="al2-from">Numéro Twilio qui appelle</label><input id="al2-from" autocomplete="off" placeholder="+33…"></div>
+            </details>
+            <div class="field"><label for="al2-ha">Alarme sur ton téléphone (app Home Assistant)</label><input id="al2-ha" autocomplete="off" placeholder="mobile_app_ton_telephone"><span class="hint">Gratuit : l'application Home Assistant fait sonner une vraie alarme, même en silencieux. Nom du service : Home Assistant → Outils de développement → Actions → notify.mobile_app_…</span></div>
+            <div class="field"><label for="al2-spk">Enceinte (facultatif)</label><input id="al2-spk" autocomplete="off" placeholder="media_player.chambre"></div>
+            <div><button class="btn primary" type="submit">Enregistrer</button></div><div class="status" id="al2-st" role="status"></div>
+          </form></article>
           <article class="card" data-sec="venus"><form class="form" id="f-venus">
             <h2>Venus (serveur multimédia)</h2>
             <p class="sub" style="margin:0">Odin lance un film ou une chaîne sur ta télé, te dit ce qui passe et programme tes enregistrements. Crée une clé dans Venus → Serveur → Clés API.</p>
@@ -1348,7 +1374,7 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
   }
   for (const b of document.querySelectorAll('.schip[data-sec]')) b.addEventListener('click', () => openSettings(b.dataset.sec));
   // Rubriques en haut selon ton usage : les plus utilisées (et celle ouverte), 5 au plus ; le reste dans « Tous les réglages ».
-  const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
+  const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
   const secUse = () => { try { return JSON.parse(localStorage.getItem('odin.secUse') || '{}'); } catch { return {}; } };
   const DEFAULT_TOP = ['modele', 'autonomie', 'telegram', 'reseau', 'droits'];
   function rankChips(cur) {
@@ -3505,6 +3531,7 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
       pickPreset(S.model.preset, true);
       $('#m-model').value = S.model.model; $('#m-url').value = S.model.baseUrl || (S.presets[S.model.preset]?.baseUrl ?? '');
       $('#j-judge').value = S.mimir.judge;
+      if (state.alarm) { const A = state.alarm; $('#al2-on').checked = A.enabled; $('#al2-work').value = A.work || ''; $('#al2-off').value = A.off || ''; $('#al2-days').value = (A.workDays || []).map((d) => ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d]).join(','); $('#al2-phone').value = A.phone || ''; $('#al2-from').value = A.twilioFrom || ''; $('#al2-ha').value = A.haPhone || ''; $('#al2-spk').value = A.speaker || ''; $('#al2-vac').textContent = (A.vacations || []).length ? `Vacances prévues : ${A.vacations.map((v) => `${v.from} → ${v.to}`).join(', ')}` : ''; $('#al2-sid').placeholder = A.twilio ? 'enregistré (laisser vide pour garder)' : ''; }
       if (S.venus) { $('#vn-url').value = S.venus.url || ''; $('#vn-key').placeholder = S.venus.key ? 'clé enregistrée (laisser vide pour la garder)' : 'clé API de Venus'; }
       if (S.alerts) { $('#al-on').checked = S.alerts.enabled; $('#al-region').value = S.alerts.region || ''; }
       $('#t-enabled').checked = S.telegram.enabled; $('#t-owners').value = S.telegram.owners.join(', ');
@@ -3574,6 +3601,12 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
     const r = await api('/api/action', { kind: 'settings_save', section: 'messaging', ...body });
     stEl.textContent = r.ok ? '✓ Enregistré : Odin redémarre ses messageries.' : (r.error || 'Erreur'); stEl.classList.toggle('bad', !r.ok);
     if (r.ok) for (const i of d.querySelectorAll('input[type=password]')) i.value = '';
+  });
+  $('#f-alarm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const r = await api('/api/action', { kind: 'alarm_save', enabled: $('#al2-on').checked, work: $('#al2-work').value, off: $('#al2-off').value, days: $('#al2-days').value.trim(), vacFrom: $('#al2-vf').value, vacTo: $('#al2-vt').value, phone: $('#al2-phone').value.trim(), from: $('#al2-from').value.trim(), haPhone: $('#al2-ha').value.trim(), speaker: $('#al2-spk').value.trim(), sid: $('#al2-sid').value.trim(), token: $('#al2-tok').value.trim() });
+    setSt($('#al2-st'), r, r.text || '✓ Réveil enregistré.');
+    if (r.ok) { $('#al2-sid').value = ''; $('#al2-tok').value = ''; $('#al2-vf').value = ''; $('#al2-vt').value = ''; }
   });
   $('#f-venus').addEventListener('submit', async (e) => { e.preventDefault(); const r = await api('/api/action', { kind: 'settings_save', section: 'venus', url: $('#vn-url').value.trim(), key: $('#vn-key').value.trim() }); setSt($('#vn-st'), r, '✓ Venus relié.'); if (r.ok) $('#vn-key').value = ''; });
   $('#f-alerts').addEventListener('submit', async (e) => { e.preventDefault(); const r = await api('/api/action', { kind: 'settings_save', section: 'alerts', enabled: $('#al-on').checked, region: $('#al-region').value.trim() }); setSt($('#al-st'), r, '✓ Enregistré.'); });

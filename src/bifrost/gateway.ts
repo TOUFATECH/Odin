@@ -35,6 +35,8 @@ import { resolveShortcut } from '../learn/shortcuts.ts';
 import { QUEUE_KEY, type QueuedAsk } from '../core/offline.ts';
 import { applyParental, extend as extendParental } from '../home/parental.ts';
 import { checkLocalAlerts } from '../guard/alerts.ts';
+import { alarmTime, getAlarm, haPhoneAlarm, twilioCall, wakeText } from '../home/alarm.ts';
+import { haApi, speakPlan, type HaState } from '../tools/homeassistant.ts';
 import { diagnose, errorsSince, measure, trimLogs } from '../guard/selfcheck.ts';
 import { budgetReport, checkPrices, getMode, modeFromText, setMode, upcomingCharges } from '../tools/everyday.ts';
 import { syncMemoryFiles } from '../muninn/files.ts';
@@ -150,6 +152,23 @@ export class Gateway {
       resolve(ans === 'always' ? 'always' : ans === 'yes');
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
+    }
+    // Réveil : « je suis réveillé » (ou n'importe quel message pendant que le réveil sonne), « encore 5 min ».
+    const run = this.alarmRun();
+    if (owner && run && !run.acked) {
+      const sn = /^\/reveil (\d+)$/.exec(text) ?? (/^(encore|laisse[- ]moi|snooze)\b.*?(\d+)?\s*(min)?/i.exec(text) as RegExpExecArray | null);
+      if (sn && !/^\/reveil ok/.test(text)) {
+        const min = Number(sn[1] ?? sn[2]) || 5;
+        this.odin.muninn.setKv('alarm-run', JSON.stringify({ ...run, next: Date.now() + min * 60_000 }));
+        return ch.send(m.peer, `😴 D'accord, je te rappelle dans ${min} min.`);
+      }
+      this.odin.muninn.setKv('alarm-run', JSON.stringify({ ...run, acked: Date.now() }));
+      setMode(this.odin.muninn, 'disponible', 0);
+      if (/^\/reveil ok$|^(je suis |c'est bon,? je suis )?(r[ée]veill[ée]e?|debout|lev[ée]e?)(?![a-zà-ÿ])|^ok\b|^merci\b/i.test(text)) {
+        await ch.send(m.peer, '☀️ Parfait, bonne journée ! Voici ton point du matin.');
+        void this.morning(Date.now(), true).catch(() => undefined);
+        return;
+      }
     }
     // Contrôle parental : bouton « +30 min » sous l'avertissement.
     const pcx = /^\/parental (\S+) (\d+)$/.exec(text);
@@ -441,7 +460,7 @@ export class Gateway {
     if (process.env.CALENDAR_ICS_URL && now - this.lastAgenda >= 30 * 60_000) {
       this.lastAgenda = now;
       const from = new Date(now); from.setHours(0, 0, 0, 0);
-      try { const ev = await fetchEvents(from, new Date(from.getTime() + 2 * 86_400_000)); this.odin.muninn.setKv('agenda-today', JSON.stringify(ev.filter((e) => !e.allDay).map((e) => ({ start: e.start.getTime(), end: (e.end ?? new Date(e.start.getTime() + 3600_000)).getTime(), title: e.title.slice(0, 80) })))); } catch { /* agenda injoignable : on garde l'ancien */ }
+      try { const ev = await fetchEvents(from, new Date(from.getTime() + 2 * 86_400_000)); this.odin.muninn.setKv('agenda-days', JSON.stringify(ev.filter((e) => e.allDay).map((e) => ({ start: e.start.getTime(), end: (e.end ?? new Date(e.start.getTime() + 86_400_000)).getTime(), title: e.title.slice(0, 80), allDay: true })))); this.odin.muninn.setKv('agenda-today', JSON.stringify(ev.filter((e) => !e.allDay).map((e) => ({ start: e.start.getTime(), end: (e.end ?? new Date(e.start.getTime() + 3600_000)).getTime(), title: e.title.slice(0, 80) })))); } catch { /* agenda injoignable : on garde l'ancien */ }
     }
     // Mémoire : vecteurs des nouveaux souvenirs (recherche par le sens) ; oubli des souvenirs périmés, une fois par jour.
     const emb = this.odin.agent.deps.embedder;
@@ -709,6 +728,46 @@ export class Gateway {
     return text;
   }
 
+  /** Réveil en cours (aujourd'hui) : tentatives, prochaine sonnerie, réveillé ou non. */
+  private alarmRun(): { date: string; kind: string; attempt: number; next: number; acked?: number } | undefined {
+    try { const r = JSON.parse(this.odin.muninn.getKv('alarm-run') ?? 'null'); return r && r.date === new Date().toDateString() ? r : undefined; } catch { return undefined; }
+  }
+
+  async alarmTick(now = Date.now()): Promise<boolean> {
+    const kv = this.odin.muninn, a = getAlarm(kv);
+    if (!a.enabled) return false;
+    const d = new Date(now);
+    let agenda: Array<{ start: number; end: number; title: string }> = [];
+    try { agenda = [...JSON.parse(kv.getKv('agenda-days') ?? '[]'), ...JSON.parse(kv.getKv('agenda-today') ?? '[]')]; } catch { /* sans agenda */ }
+    const due = alarmTime(a, d, agenda);
+    let run = this.alarmRun();
+    if (!run) {
+      // On ne sonne pas pour un réveil passé depuis plus d'une heure (Odin redémarré dans la matinée).
+      if (!due || now < due.at.getTime() || now - due.at.getTime() > 3600_000) return false;
+      run = { date: d.toDateString(), kind: due.kind, attempt: 0, next: now };
+    }
+    if (run.acked || now < run.next || run.attempt >= 7) return false;
+    await this.wakeUp(run.kind, run.attempt, now);
+    kv.setKv('alarm-run', JSON.stringify({ ...run, attempt: run.attempt + 1, next: now + 5 * 60_000 }));
+    return true;
+  }
+
+  /** Une sonnerie : appel, alarme sur le téléphone, enceintes, message avec boutons, note vocale, notification. Passe toujours (même « Ne pas déranger »). */
+  private async wakeUp(kind: string, attempt: number, now: number): Promise<void> {
+    const a = getAlarm(this.odin.muninn), text = wakeText(kind, new Date(now), attempt), jobs: Array<Promise<unknown>> = [];
+    if (a.phone && a.twilioFrom && process.env.TWILIO_ACCOUNT_SID) jobs.push(twilioCall(a.phone, a.twilioFrom, `${text} Réponds-moi « je suis réveillé » sur ton téléphone.`));
+    const ha = this.odin.cfg.homeAssistant?.url, haTok = process.env.HA_TOKEN;
+    if (ha && haTok && a.haPhone) jobs.push(haPhoneAlarm(ha, haTok, a.haPhone, text));
+    if (ha && haTok && a.speaker) jobs.push((async () => { const states = await haApi(ha, haTok, 'GET', '/states') as HaState[]; const plan = speakPlan(states, a.speaker!, text); await haApi(ha, haTok, 'POST', plan.path, plan.data); })());
+    const t = this.ownerTarget();
+    if (t) {
+      jobs.push(t.ch.send(t.peer, `⏰ ${text}`, { alarm: { attempt } }));
+      if (t.ch.sendVoice && ttsReady(this.odin.cfg.voice)) jobs.push(speakAudio(text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((x) => toVoiceNote(x)).then((x) => t.ch.sendVoice!(t.peer, x)));
+    }
+    jobs.push(pushAll(this.odin.paths.home, { title: '⏰ Réveil', body: text, view: 'home', tag: 'odin-reveil' }));
+    for (const r of await Promise.allSettled(jobs)) if (r.status === 'rejected') console.error('[réveil]', (r.reason as Error)?.message);
+  }
+
   /** Réessaie la plus ancienne question gardée ; si un modèle répond, envoie la vraie réponse. */
   async retryOffline(now = Date.now()): Promise<boolean> {
     const kv = this.odin.muninn;
@@ -860,6 +919,8 @@ export class Gateway {
       this.odin.muninn.setKv('offline-tick', String(now));
       await this.retryOffline(now).catch((e) => console.error('[hors ligne]', (e as Error).message));
     }
+    // Réveil : à l'heure du jour (travail / repos / vacances), puis toutes les 5 min tant que tu n'es pas réveillé.
+    await this.alarmTick(now).catch((e) => console.error('[réveil]', (e as Error).message));
     // Contrôle parental : horaires appliqués chaque minute, avertissement 10 min avant avec « prolonger ».
     for (const msg of await applyParental({ kv: this.odin.muninn, home: this.odin.paths.home, inventory: this.odin.inventory as never }, new Date(now)).catch(() => [])) {
       const t2 = this.ownerTarget();

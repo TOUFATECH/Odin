@@ -49,6 +49,7 @@ import { listScripts, readScript, revertScript } from '../tools/scripts.ts';
 import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
+import { getAlarm } from '../home/alarm.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { TTS_DEFAULTS, cloneVoice, listVoices, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../voice/voice.ts';
 
@@ -556,6 +557,7 @@ export class WebChannel implements Channel {
       tunnel: { ...tunnel.state, available: tunnelAvailable(), install: INSTALL },
       vault: vaultState(this.odin.paths.home),
       dryRun: this.odin.agent.dryRun(),
+      alarm: { ...getAlarm(this.odin.muninn), twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) },
       version: { ...this.versions(), update: (() => { try { return JSON.parse(this.odin.muninn.getKv('update-info') ?? 'null'); } catch { return null; } })(), auto: this.odin.cfg.update?.auto ?? 'notify' },
       quiet: cfg.quiet,
       features: (() => { const shown = muninn.kvPrefix('feature-show:'); return features({ cfg, devices: inventory.list({ status: 'all' }), recentUserText: muninn.recentUserTexts(), dismissed: new Set(Object.keys(muninn.kvPrefix('feature-dismiss:'))), machines: listMachines(this.odin.paths.home).length }).map((f) => ({ ...f, show: f.on || Boolean(f.why) || Boolean(shown[f.id]) })); })(),
@@ -606,6 +608,19 @@ export class WebChannel implements Channel {
         return { ok: true, total: rows.length, refused: rows.filter((r) => r.allowed === false).length, grave: rows.filter((r) => r.severity === 'grave').length, rows: rows.slice(0, 1500).map((r) => ({ t: r.t, tool: r.tool, risk: r.risk, summary: r.summary, allowed: r.allowed, via: r.via, severity: r.severity, why: r.why, reason: r.reason })) };
       }
       case 'dry_run': this.odin.agent.setDryRun(Boolean(b.on)); this.notify('state'); return { ok: true, on: this.odin.agent.dryRun() };
+      case 'alarm_save': {
+        // Le réveil passe par l'outil (mêmes vérifications que quand tu le demandes à Odin).
+        const { alarmTool } = await import('../home/alarm.ts');
+        if (typeof b.sid === 'string' && b.sid.trim()) writeSecret(this.odin.paths, 'TWILIO_ACCOUNT_SID', b.sid.trim());
+        if (typeof b.token === 'string' && b.token.trim()) writeSecret(this.odin.paths, 'TWILIO_AUTH_TOKEN', b.token.trim());
+        const ctx = { muninn: this.odin.muninn } as never;
+        try {
+          if (b.vacFrom) await alarmTool.run({ action: 'vacances', du: String(b.vacFrom), au: String(b.vacTo || b.vacFrom) }, ctx);
+          await alarmTool.run({ action: 'appel', telephone: String(b.phone ?? ''), twilio_from: String(b.from ?? ''), ha_phone: String(b.haPhone ?? ''), enceinte: String(b.speaker ?? '') }, ctx);
+          const text = await alarmTool.run(b.enabled ? { action: 'regler', travail: String(b.work ?? ''), repos: String(b.off ?? ''), jours: String(b.days ?? '') } : { action: 'couper' }, ctx);
+          return { ok: true, text };
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
       case 'update_check': { const { checkForUpdate } = await import('../tools/update.ts'); const r = await checkForUpdate(); this.odin.muninn.setKv('update-info', JSON.stringify(r)); this.odin.muninn.setKv('update-checked', String(Date.now())); return { ok: !r.error, error: r.error, info: r }; }
       case 'update_apply': {
         if (!this.hooks.updateNow) return { ok: false, error: 'mise à jour indisponible ici' };

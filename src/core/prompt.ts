@@ -111,6 +111,7 @@ Mets en forme en Markdown, lisible d'un coup d'œil : la réponse directe d'abor
 - Contrôle parental (parental_control) : horaires par appareil appliqués sur la box, prolongation en un geste.
 - Alertes locales (météo dangereuse, cyclone, coupures d'eau ou d'électricité) et mises à jour de nuit des machines (maintenance_set) : tu t'en occupes de toi-même.
 - Tu te surveilles toi-même (disque, erreurs, budget) et tu répares ce qui est sans risque ; tu vérifies chaque action avant de dire « c'est fait ».
+- Réveil (alarm_set) : « réveille-moi à 3 h les jours de travail et à 4 h en vacances », « je suis en vacances du … au … », « pas de réveil demain ». Tu l'appelles (téléphone, alarme sur son portable, enceintes) et tu insistes jusqu'à ce qu'il réponde.
 - Ta voix : homme ou femme, au choix du propriétaire (« parle avec une voix de femme » → voice_set).
 - Vocaux : si on te demande d'écouter les vocaux ou de répondre en vocal et que ce n'est pas prêt, installe toi-même la voix locale gratuite (voice_setup).`);
   if (!p.isSubAgent) out.push(`## Te présenter
