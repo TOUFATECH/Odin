@@ -239,7 +239,7 @@ export class Agent {
     const ctx: ToolContext = {
       sessionId: o.sessionId, channel, peer, workspace: this.deps.workspace, home: this.deps.home, search: cfg.search, muninn, skills: this.deps.skills, redactor, signal,
       isTainted: () => tainted,
-      proxmox: cfg.proxmox, careCfg: cfg, paths: this.deps.paths, homeAssistant: cfg.homeAssistant, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
+      proxmox: cfg.proxmox, careCfg: cfg, paths: this.deps.paths, homeAssistant: cfg.homeAssistant, venus: cfg.venus, mail: cfg.mail, calendar: cfg.calendar, docs: cfg.docs,
       fullAccess: cfg.agent.fullAccess !== false && (!o.speaker || o.speaker.role === 'owner'),
       mimir,
       sandbox: cfg.policy.sandbox,

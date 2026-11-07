@@ -6,7 +6,7 @@ import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { normMac, routerAction, routerMachine, validMac } from '../hlidskjalf/router.ts';
 import { networkInterfaces } from 'node:os';
-const localIps = () => Object.values(networkInterfaces()).flat().filter(Boolean).map((x) => x!.address);
+export const localIps = () => Object.values(networkInterfaces()).flat().filter(Boolean).map((x) => x!.address);
 import { auditNetwork } from '../guard/watch.ts';
 import { CATEGORIES, vendorOf } from '../hlidskjalf/vendors.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
@@ -200,7 +200,7 @@ const machineCopy: Tool = {
   },
 };
 
-const gatewayOf = (inv: NonNullable<Parameters<Tool['run']>[1]['inventory']>) => inv.list({ status: 'online' }).find((d) => d.kind === 'routeur') ?? inv.list({ status: 'all' }).find((d) => d.kind === 'routeur');
+export const gatewayOf = (inv: NonNullable<Parameters<Tool['run']>[1]['inventory']>) => inv.list({ status: 'online' }).find((d) => d.kind === 'routeur') ?? inv.list({ status: 'all' }).find((d) => d.kind === 'routeur');
 const NO_ROUTER = (gw?: string) => `Je n'ai pas d'accès à la box${gw ? ` (${gw})` : ''}. Pour que je puisse bloquer un appareil : ajoute la box dans Réglages → Droits et machines (son IP, un compte SSH administrateur). Je reconnais OpenWrt, MikroTik et les routeurs Linux. Les box d'opérateur (Livebox, SFR, Bbox, Freebox) n'ont pas d'accès SSH : je peux alors le faire par leur page d'administration avec le navigateur, si tu me donnes le mot de passe de la box.`;
 
 export const netBlock: Tool = {

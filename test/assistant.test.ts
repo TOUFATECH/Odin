@@ -98,7 +98,8 @@ test('briefing du matin : météo (Open-Meteo), rappels du jour, nuit', async ()
   assert.equal(weatherLine('Mamoudzou', { daily: { weather_code: [80], temperature_2m_max: [31.4], temperature_2m_min: [24.6], precipitation_probability_max: [60], wind_speed_10m_max: [20] } }), '🌦 Météo à Mamoudzou : averses, 25° → 31°, pluie 60 %.');
   const o = makeOdin([]);
   const now = Date.now();
-  o.muninn.addJob({ id: 'rem_x', cron: '@reminder', prompt: 'appeler la mairie', channel: 'web', peer: 'principal', next_run: now + 3600_000, tainted: 0 });
+  // Juste après « maintenant » : reste dans la journée quelle que soit l'heure du test.
+  o.muninn.addJob({ id: 'rem_x', cron: '@reminder', prompt: 'appeler la mairie', channel: 'web', peer: 'principal', next_run: now + 30_000, tainted: 0 });
   const b = await morningBriefing(o, '- sauvegarde faite', now);
   assert.match(b.text, /☀️ Bonjour/);
   assert.match(b.text, /🔔 Rappels d'aujourd'hui :\n• \d\d:\d\d — appeler la mairie/);

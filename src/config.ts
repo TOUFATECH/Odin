@@ -100,6 +100,10 @@ export interface OdinConfig {
   continuous: { enabled: boolean; intervalMin: number; dailyBudgetUsd: number; autoResume: boolean; maxRetries: number };
   /** Home Assistant (jeton dans HA_TOKEN). */
   homeAssistant: { url: string };
+  /** Venus, le serveur multimédia (clé API dans VENUS_API_KEY). */
+  venus?: { url: string };
+  /** Alertes locales : météo dangereuse et actualités (cyclone, coupures…) ; région = territoire ou département (« Mayotte »). */
+  alerts?: { enabled: boolean; region: string };
   /** Messagerie (mot de passe d'application dans MAIL_PASSWORD). */
   mail: { imapHost: string; imapPort: number; smtpHost: string; smtpPort: number; user: string; from: string };
   /** Agenda : lecture par l'adresse iCal (CALENDAR_ICS_URL), ajout par CalDAV (CALDAV_PASSWORD). */
@@ -207,6 +211,8 @@ export const DEFAULT_CONFIG: OdinConfig = {
   quiet: { enabled: true, from: '22:30', to: '07:00', agenda: true },
   continuous: { enabled: true, intervalMin: 30, dailyBudgetUsd: 0.5, autoResume: true, maxRetries: 3 },
   homeAssistant: { url: '' },
+  venus: { url: '' },
+  alerts: { enabled: true, region: '' },
   mail: { imapHost: '', imapPort: 993, smtpHost: '', smtpPort: 465, user: '', from: '' },
   calendar: { caldavUrl: '', caldavUser: '' },
   docs: { dirs: [] },

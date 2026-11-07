@@ -14,7 +14,7 @@ import { CODEX_MODELS, loadCodexAuth } from './providers/codex.ts';
 import { TTS_DEFAULTS } from './voice/voice.ts';
 import { buildProvider, Router, tierOf, type Tier } from './providers/router.ts';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN'] as const;
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -132,6 +132,8 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     search: { provider: cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
     assist: { ...{ spelling: 'auto', tips: true, roam: true }, ...(cfg.assist ?? {}) },
     telegram: { enabled: Boolean(cfg.channels.telegram?.enabled), owners: (cfg.channels.telegram?.owners ?? []).map(String) },
+    venus: { url: cfg.venus?.url ?? '', key: Boolean(process.env.VENUS_API_KEY) },
+    alerts: { enabled: cfg.alerts?.enabled !== false, region: cfg.alerts?.region ?? '' },
     messaging: {
       discord: { enabled: Boolean(cfg.channels.discord?.enabled), owners: (cfg.channels.discord?.owners ?? []).join(', ') },
       slack: { enabled: Boolean(cfg.channels.slack?.enabled), owners: (cfg.channels.slack?.owners ?? []).join(', ') },
@@ -199,6 +201,18 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       if (enabled && !process.env.TELEGRAM_BOT_TOKEN) throw new Error('ajoute d\'abord le jeton du bot');
       setConfigValue(paths, ['channels', 'telegram'], { enabled, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners });
       return true;
+    }
+    case 'venus': {
+      const url = String(b.url ?? '').trim().replace(/\/$/, '');
+      if (url && !/^https?:\/\/[\w.-]+(:\d+)?$/.test(url)) throw new Error('adresse de Venus : http(s)://adresse:port');
+      if (typeof b.key === 'string' && b.key.trim()) writeSecret(paths, 'VENUS_API_KEY', b.key.trim());
+      setConfigValue(paths, ['venus'], { url }); cfg.venus = { url };
+      return false;
+    }
+    case 'alerts': {
+      const v = { enabled: Boolean(b.enabled), region: String(b.region ?? '').trim().slice(0, 80) };
+      setConfigValue(paths, ['alerts'], v); cfg.alerts = v;
+      return false;
     }
     case 'update': {
       const auto = String(b.auto);

@@ -9,7 +9,7 @@ import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { connect } from 'node:net';
 import { join } from 'node:path';
-import { findMachine, runOnMachine, withAdmin } from '../machines/access.ts';
+import { findMachine, listMachines, runOnMachine, withAdmin } from '../machines/access.ts';
 import { pveApi, type PveResource } from '../tools/proxmox.ts';
 
 export interface Service {
@@ -111,9 +111,21 @@ export async function careServices(ctx: CareCtx, services: Service[], o: { state
 export interface UpdatePlan { enabled: boolean; weekday: number; hour: number; targets: Array<{ where: string; vmid?: number }>; rollbackOnFailure: boolean }
 export const UPDATE_SCRIPT = 'export DEBIAN_FRONTEND=noninteractive; if command -v apt-get >/dev/null 2>&1; then sudo -E apt-get update -q && sudo -E apt-get -y -q -o Dpkg::Options::=--force-confold upgrade; elif command -v dnf >/dev/null 2>&1; then sudo dnf -y upgrade; elif command -v pacman >/dev/null 2>&1; then sudo pacman -Syu --noconfirm; elif command -v apk >/dev/null 2>&1; then sudo apk upgrade; else echo "gestionnaire de paquets inconnu"; exit 3; fi';
 
+/** Machines à mettre à jour : celles choisies, sinon la machine d'Odin et toutes les machines où il a accès (pur). */
+export function planTargets(plan: UpdatePlan, machines: Array<{ id: string }>): UpdatePlan['targets'] {
+  return plan.targets.length ? plan.targets : [{ where: 'local' }, ...machines.map((m) => ({ where: m.id }))];
+}
+/** Services qui tournent (pour vérifier qu'ils tournent toujours après la mise à jour). */
+export const RUNNING_SERVICES = "systemctl list-units --type=service --state=running --no-legend --plain 2>/dev/null | awk '{print $1}' | sort";
+/** Services qui tournaient avant et plus après (pur). */
+export function stoppedServices(before: string, after: string): string[] {
+  const now = new Set(after.split('\n').map((x) => x.trim()).filter(Boolean));
+  return before.split('\n').map((x) => x.trim()).filter((x) => /\.service$/.test(x) && !now.has(x) && !/^(apt|unattended|packagekit|fwupd|snapd\.|man-db|systemd-(tmpfiles|update)|user@|getty@)/.test(x));
+}
+
 /** Est-ce le moment de la mise à jour (une fois par jour prévu) ? */
 export function updateDue(plan: UpdatePlan, stampFile: string, now = new Date()): boolean {
-  if (!plan.enabled || !plan.targets.length || now.getHours() < plan.hour) return false;
+  if (!plan.enabled || now.getHours() < plan.hour) return false;
   if (plan.weekday >= 0 && now.getDay() !== plan.weekday) return false;
   return !(existsSync(stampFile) && readFileSync(stampFile, 'utf8').trim() === now.toDateString());
 }
@@ -122,16 +134,33 @@ export function updateDue(plan: UpdatePlan, stampFile: string, now = new Date())
 export async function runUpdates(ctx: CareCtx, plan: UpdatePlan, stampFile: string, services: Service[] = [], now = new Date()): Promise<string> {
   writeFileSync(stampFile, now.toDateString());
   const lines: string[] = [], snap = `odin-maj-${now.toISOString().slice(0, 10).replace(/-/g, '')}`;
-  for (const t of plan.targets) {
-    const label = t.where === 'local' ? 'machine d\'Odin' : t.where;
+  for (const t of planTargets(plan, listMachines(ctx.home))) {
+    const label = t.where === 'local' ? 'machine d\'Odin' : findMachine(ctx.home, t.where)?.label ?? t.where;
     let snapOk = false;
     if (t.vmid && ctx.proxmox.url && ctx.proxmox.token) {
       try { await pveDo(ctx, t.vmid, 'snapshot', snap); snapOk = true; await sleep(15_000); } catch (e) { lines.push(`⚠ ${label} : instantané impossible (${(e as Error).message}) — mise à jour annulée par prudence.`); continue; }
     }
+    const before = (await runWhere(ctx, t.where, RUNNING_SERVICES, 60_000)).out;
     const r = await runWhere(ctx, t.where, UPDATE_SCRIPT, 1_800_000);
     const ok = r.code === 0;
     audit(ctx, `mise à jour planifiée de ${label}`, ok);
-    if (ok) { lines.push(`✅ ${label} : à jour${snapOk ? ` (instantané « ${snap} » gardé)` : ''}.`); continue; }
+    if (ok) {
+      // Redémarrage demandé par le système (noyau…) : seulement pour les autres machines, et on attend qu'elle revienne.
+      let rebooted = '';
+      if (t.where !== 'local' && (await runWhere(ctx, t.where, 'test -f /var/run/reboot-required && echo oui || true', 30_000)).out.includes('oui')) {
+        await runWhere(ctx, t.where, 'sudo systemctl reboot || sudo reboot', 30_000);
+        let back = false;
+        for (let k = 0; k < 20 && !back; k++) { await sleep(15_000); back = (await runWhere(ctx, t.where, 'echo ok', 15_000)).out.includes('ok'); }
+        rebooted = back ? ', redémarrée' : ', redémarrage en cours (ne répond pas encore)';
+      } else if (t.where === 'local' && (await runWhere(ctx, 'local', 'test -f /var/run/reboot-required && echo oui || true', 30_000)).out.includes('oui')) rebooted = ', redémarrage conseillé quand tu veux';
+      // Services arrêtés par la mise à jour : on les relance.
+      const stopped = before.trim() ? stoppedServices(before, (await runWhere(ctx, t.where, RUNNING_SERVICES, 60_000)).out) : [];
+      const fixed: string[] = [], still: string[] = [];
+      for (const s of stopped) { const x = await runWhere(ctx, t.where, `sudo systemctl restart ${s.replace(/[^\w@.:-]/g, '')} && systemctl is-active ${s.replace(/[^\w@.:-]/g, '')}`, 60_000); (x.out.includes('active') && x.code === 0 ? fixed : still).push(s.replace(/\.service$/, '')); }
+      lines.push(`✅ ${label} : à jour${snapOk ? ` (instantané « ${snap} » gardé)` : ''}${rebooted}.${fixed.length ? ` Relancé : ${fixed.join(', ')}.` : ''}${still.length ? ` ⚠ Ne redémarrent pas : ${still.join(', ')}.` : ''}`);
+      if (still.length && snapOk && plan.rollbackOnFailure && t.vmid) { try { await pveDo(ctx, t.vmid, 'rollback', snap); lines.push(`↩ ${label} : services en panne après la mise à jour, je suis revenu à l'instantané « ${snap} ».`); } catch { /* signalé ci-dessus */ } }
+      continue;
+    }
     const tail = r.out.trim().split('\n').slice(-3).join(' · ').slice(0, 300);
     if (snapOk && plan.rollbackOnFailure && t.vmid) {
       try { await pveDo(ctx, t.vmid, 'rollback', snap); lines.push(`↩ ${label} : la mise à jour a échoué (${tail}) ; je suis revenu à l'instantané « ${snap} ».`); } catch (e) { lines.push(`🔴 ${label} : mise à jour échouée et retour arrière impossible (${(e as Error).message}).`); }

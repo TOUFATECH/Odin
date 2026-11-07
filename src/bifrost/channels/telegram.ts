@@ -3,7 +3,7 @@
 import { extractSecret } from '../../machines/onboard.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import { type Channel, chunk, type Inbound } from '../channel.ts';
+import { buttonText, buttonsFor, type Channel, chunk, type Inbound } from '../channel.ts';
 import type { AgentEvent } from '../../types.ts';
 import { isMood, MOOD_EMOJI, MOOD_IDS, type Mood } from '../../mood/mood.ts';
 
@@ -182,6 +182,13 @@ export class TelegramChannel implements Channel {
 
   /** Bouton Oui / Non / Toujours touché : on répond à la demande comme « /yes id ». */
   private async onButton(q: TgCallback, onMessage: (m: Inbound) => Promise<void>): Promise<void> {
+    if (/^pc:\d+:/.test(q.data ?? '') && q.message) {
+      const txt = buttonText(q.data!)!;
+      await this.call('answerCallbackQuery', { callback_query_id: q.id, text: 'Prolongé' }).catch(() => undefined);
+      await this.call('editMessageReplyMarkup', { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: `✅ ${q.data!.split(':')[1]} min de plus`, callback_data: 'ok:done' }]] } }).catch(() => undefined);
+      await onMessage({ channel: this.name, peer: String(q.from?.id ?? q.message.chat.id), name: q.from?.first_name ?? 'propriétaire', text: txt });
+      return;
+    }
     if (/^up:(go|later)$/.test(q.data ?? '') && q.message) {
       const go = q.data === 'up:go';
       await this.call('answerCallbackQuery', { callback_query_id: q.id, text: go ? 'Mise à jour lancée' : 'D\'accord' }).catch(() => undefined);
@@ -272,7 +279,7 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string }; habit?: { key: string }; update?: { version: string } } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string }; habit?: { key: string }; update?: { version: string }; parental?: { id: string } } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
     if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
@@ -287,6 +294,12 @@ export class TelegramChannel implements Channel {
       const r = await this.call('sendMessage', { chat_id: peer, text: html, parse_mode: 'HTML', protect_content: true }) as { ok: boolean; result?: { message_id: number } };
       if (r.ok && r.result) { const id = r.result.message_id; setTimeout(() => { void this.call('deleteMessage', { chat_id: peer, message_id: id }).catch(() => undefined); }, 600_000).unref?.(); }
       return;
+    }
+    // Coupure parentale imminente : prolonger d'un geste.
+    if (opts.parental) {
+      const kb = [buttonsFor({ parental: opts.parental }).map((b) => ({ text: b.label, callback_data: b.id }))];
+      const r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(text), parse_mode: 'HTML', reply_markup: { inline_keyboard: kb } }).catch(() => ({ ok: false }));
+      if (r.ok) return;
     }
     // Nouvelle version : bouton « Mettre à jour ».
     if (opts.update) {

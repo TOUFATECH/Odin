@@ -18,11 +18,12 @@ export const briefingSet: Tool = {
   name: 'briefing_set',
   description: 'Règle le briefing du matin (météo, agenda, mails non lus, rappels du jour, machines, ta nuit) : ville pour la météo, heure d\'envoi, version vocale, ou le couper. À utiliser quand le propriétaire dit « ma ville est … », « envoie le briefing à 6h30 », « lis-le moi en vocal ».',
   risk: 'write',
-  schema: obj({ city: str('ville pour la météo (« Mamoudzou »)'), at: str('heure d\'envoi HH:MM'), voice: bool('envoyer aussi une note vocale'), enabled: bool('briefing actif') }),
+  schema: obj({ region: str('région ou territoire pour les alertes (« Mayotte »)'), city: str('ville pour la météo (« Mamoudzou »)'), at: str('heure d\'envoi HH:MM'), voice: bool('envoyer aussi une note vocale'), enabled: bool('briefing actif') }),
   summarize: (i) => `briefing du matin : ${[s(i.city) && `ville ${s(i.city)}`, s(i.at) && `à ${s(i.at)}`, i.voice != null && `vocal ${i.voice ? 'oui' : 'non'}`, i.enabled != null && (i.enabled ? 'activé' : 'coupé')].filter(Boolean).join(', ')}`,
   async run(i, ctx) {
     const done: string[] = [];
     if (s(i.city)) { setCfg(ctx, ['journal', 'city'], s(i.city).slice(0, 80)); done.push(`météo pour ${s(i.city)}`); }
+    if (s(i.region)) { setCfg(ctx, ['alerts'], { enabled: true, region: s(i.region).slice(0, 80) }); done.push(`alertes pour ${s(i.region)}`); }
     if (s(i.at)) {
       const m = hhmm(s(i.at)); if (!m) throw new Error('heure invalide : HH:MM');
       const v = `${m[1].padStart(2, '0')}:${m[2]}`; setCfg(ctx, ['journal', 'morning'], v); done.push(`envoi à ${v}`);
@@ -55,4 +56,19 @@ export const voiceSetup: Tool = {
   },
 };
 
-export const ASSISTANT_TOOLS: Tool[] = [briefingSet, voiceSetup];
+export const maintenanceSet: Tool = {
+  name: 'maintenance_set',
+  description: 'Mises à jour de nuit des machines (celle d\'Odin et toutes celles où il a accès, ou une liste) : instantané Proxmox avant quand c\'est possible, mise à jour des paquets, redémarrage si le système le demande, services relancés, retour à l\'instantané si quelque chose casse. frequence : chaque nuit | chaque semaine (dimanche) ; heure 0-23.',
+  risk: 'write',
+  schema: obj({ enabled: bool('activer'), frequence: str('chaque nuit | chaque semaine'), heure: str('heure de début (0-23, 4 par défaut)') }, ['enabled']),
+  summarize: (i) => `mises à jour de nuit : ${i.enabled ? `oui, ${s(i.frequence) || 'chaque semaine'} à ${s(i.heure) || '4'} h` : 'non'}`,
+  async run(i, ctx) {
+    const cur = ctx.careCfg?.updates ?? { enabled: false, weekday: 0, hour: 4, targets: [], rollbackOnFailure: true };
+    const hour = Math.max(0, Math.min(23, Number.parseInt(s(i.heure), 10) || cur.hour || 4));
+    const weekday = /nuit|jour/i.test(s(i.frequence)) ? -1 : /semaine/i.test(s(i.frequence)) ? 0 : cur.weekday;
+    setCfg(ctx, ['updates'], { ...cur, enabled: Boolean(i.enabled), hour, weekday, rollbackOnFailure: true });
+    return i.enabled ? `Mises à jour de nuit activées : ${weekday < 0 ? 'chaque nuit' : 'chaque dimanche'} à ${hour} h, ${cur.targets.length ? `${cur.targets.length} machine(s) choisie(s)` : 'ma machine et toutes celles où j\'ai accès'}. Je te fais le compte rendu le matin.` : 'Mises à jour de nuit coupées.';
+  },
+};
+
+export const ASSISTANT_TOOLS: Tool[] = [briefingSet, voiceSetup, maintenanceSet];

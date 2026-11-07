@@ -33,6 +33,8 @@ import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminder
 import { morningBriefing } from './briefing.ts';
 import { resolveShortcut } from '../learn/shortcuts.ts';
 import { QUEUE_KEY, type QueuedAsk } from '../core/offline.ts';
+import { applyParental, extend as extendParental } from '../home/parental.ts';
+import { checkLocalAlerts } from '../guard/alerts.ts';
 import { diagnose, errorsSince, measure, trimLogs } from '../guard/selfcheck.ts';
 import { budgetReport, checkPrices, getMode, modeFromText, setMode, upcomingCharges } from '../tools/everyday.ts';
 import { syncMemoryFiles } from '../muninn/files.ts';
@@ -148,6 +150,13 @@ export class Gateway {
       resolve(ans === 'always' ? 'always' : ans === 'yes');
       for (const c of this.channels.values()) c.event?.(m.peer, { type: 'approval_done', id: cmd[2], answer: ans });
       return;
+    }
+    // Contrôle parental : bouton « +30 min » sous l'avertissement.
+    const pcx = /^\/parental (\S+) (\d+)$/.exec(text);
+    if (owner && pcx) {
+      const r = extendParental(this.odin.muninn, pcx[1], Number(pcx[2]));
+      if (r && r.state === 'blocked') await applyParental({ kv: this.odin.muninn, home: this.odin.paths.home, inventory: this.odin.inventory as never }).catch(() => []);
+      return ch.send(m.peer, r ? `✅ ${r.label} : Internet jusqu'à ${new Date(r.until!).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.` : 'Règle introuvable.');
     }
     // Mise à jour d'Odin : bouton « Mettre à jour » ou /update (propriétaire seulement).
     if (owner && /^\/(update|maj)\b/i.test(text)) {
@@ -850,6 +859,28 @@ export class Gateway {
     if (!this.odin.demo && now - Number(this.odin.muninn.getKv('offline-tick') ?? 0) >= 10 * 60_000) {
       this.odin.muninn.setKv('offline-tick', String(now));
       await this.retryOffline(now).catch((e) => console.error('[hors ligne]', (e as Error).message));
+    }
+    // Contrôle parental : horaires appliqués chaque minute, avertissement 10 min avant avec « prolonger ».
+    for (const msg of await applyParental({ kv: this.odin.muninn, home: this.odin.paths.home, inventory: this.odin.inventory as never }, new Date(now)).catch(() => [])) {
+      const t2 = this.ownerTarget();
+      if (msg.warnId && t2) await t2.ch.send(t2.peer, msg.text, { parental: { id: msg.warnId } }).catch(() => {});
+      else await this.tellOwner(msg.text, 'net').catch(() => {});
+    }
+    // Alertes locales (météo dangereuse, cyclone, coupures…) : toutes les 2 h ; l'urgent passe même la nuit.
+    const al = this.odin.cfg.alerts ?? { enabled: true, region: '' };
+    if (!this.odin.demo && al.enabled && now - Number(this.odin.muninn.getKv('alerts-tick') ?? 0) >= 2 * 3600_000) {
+      this.odin.muninn.setKv('alerts-tick', String(now));
+      for (const a of await checkLocalAlerts(this.odin.muninn, this.odin.cfg.journal.city ?? '', al.region, new Date(now)).catch(() => [])) await this.tellOwner(a.text, 'home', a.urgent).catch(() => {});
+    }
+    // Mises à jour de nuit pas encore activées alors qu'Odin gère des machines : il le propose une fois (ou l'active en autonome).
+    if (!this.odin.demo && !this.odin.cfg.updates.enabled && !this.odin.muninn.getKv('maint-proposed') && new Date(now).getHours() >= 19 && listMachines(this.odin.paths.home).length) {
+      this.odin.muninn.setKv('maint-proposed', String(now));
+      const auto = this.odin.cfg.mimir.autonomy === 'breaker' || this.odin.cfg.mimir.autonomy === 'autonome';
+      if (auto) {
+        const { setConfigValue } = await import('../config.ts');
+        const plan = { ...this.odin.cfg.updates, enabled: true, weekday: 0, hour: 4, rollbackOnFailure: true };
+        try { setConfigValue(this.odin.paths, ['updates'], plan); this.odin.cfg.updates = plan; await this.tellOwner('🔧 J\'ai activé les mises à jour de tes machines chaque dimanche à 4 h (instantané avant, services vérifiés, retour arrière si ça casse). Dis « pas de mises à jour de nuit » pour arrêter.', 'home'); } catch { /* config invalide : on laisse */ }
+      } else await this.tellOwner('🔧 Je peux mettre à jour tes machines la nuit (dimanche 4 h) : instantané avant quand c\'est possible, services vérifiés et relancés, retour arrière si ça casse, compte rendu le matin. Dis « oui, mets à jour mes machines la nuit » pour l\'activer.', 'home');
     }
     // Veille du jour : ce qui peut t'intéresser, trouvé sans que tu demandes.
     await this.veille(now).catch((e) => console.error('[veille]', (e as Error).message));
