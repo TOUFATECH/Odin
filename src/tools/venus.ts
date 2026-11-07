@@ -1,6 +1,6 @@
 // Venus (ton serveur multimédia) piloté par Odin : « mets One Piece sur la télé du salon »,
 // « qu'est-ce qui passe ce soir ? », « enregistre le match », « quels écrans sont allumés ? ».
-// Odin parle à Venus avec une clé API (Venus → Administration → Clés API), gardée dans son coffre.
+// Odin parle à Venus avec une clé API (Venus → Serveur → Clés API), gardée dans son coffre.
 
 import { request as httpReq } from 'node:http';
 import { request as httpsReq } from 'node:https';
@@ -10,7 +10,7 @@ import { obj, str, type Tool, type ToolContext } from './registry.ts';
 export interface VenusConf { url: string; key: string }
 export function venusConf(ctx: Pick<ToolContext, 'venus'>, env = process.env): VenusConf {
   const url = (ctx.venus?.url ?? '').replace(/\/$/, ''), key = env.VENUS_API_KEY ?? '';
-  if (!url || !key) throw new Error('Venus n\'est pas relié : Réglages → Maison → Venus (adresse et clé API créée dans Venus → Administration → Clés API).');
+  if (!url || !key) throw new Error('Venus n\'est pas relié : Réglages → Maison → Venus (adresse et clé API créée dans Venus → Serveur → Clés API).');
   return { url, key };
 }
 
