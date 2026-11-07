@@ -1,5 +1,5 @@
 // Voix 100 % locale et gratuite : Whisper (whisper.cpp) pour comprendre tes vocaux, Piper pour
-// répondre à voix haute (voix d'homme française « tom »). Rien ne sort de la machine, aucune clé.
+// répondre à voix haute (voix française d'homme « tom » ou de femme « siwis »). Rien ne sort de la machine, aucune clé.
 // Odin installe tout lui-même dans ~/.odin/voice (compilation de whisper.cpp, quelques minutes).
 
 import { spawn } from 'node:child_process';
@@ -12,6 +12,9 @@ import { withAdmin } from '../machines/access.ts';
 export const voiceHome = (home = process.env.ODIN_HOME ?? join(homedir(), '.odin')) => join(home, 'voice');
 const WHISPER_MODELS = ['small', 'base', 'medium', 'large-v3-turbo', 'tiny'];
 export const PIPER_VOICE = 'fr_FR-tom-medium';
+/** Voix de femme française de Piper. */
+export const PIPER_VOICE_F = 'fr_FR-siwis-medium';
+const PIPER_PATH: Record<string, string> = { [PIPER_VOICE]: 'fr/fr_FR/tom/medium', [PIPER_VOICE_F]: 'fr/fr_FR/siwis/medium' };
 
 /** Programme et modèle Whisper locaux, s'ils sont installés. */
 export function localWhisper(home?: string): { bin: string; model: string } | undefined {
@@ -21,11 +24,13 @@ export function localWhisper(home?: string): { bin: string; model: string } | un
   return bin && model && hasCommand('ffmpeg') ? { bin, model } : undefined;
 }
 /** Programme et voix Piper locaux, s'ils sont installés. */
-export function localPiper(home?: string): { bin: string; model: string } | undefined {
+export function localPiper(home?: string, voice = ''): { bin: string; model: string } | undefined {
   const d = voiceHome(home);
   const bin = [join(d, 'piper/piper')].find((p) => existsSync(p)) ?? (hasCommand('piper') ? 'piper' : undefined);
-  const model = join(d, 'piper-voices', `${PIPER_VOICE}.onnx`);
-  return bin && existsSync(model) ? { bin, model } : undefined;
+  // La voix demandée (homme « tom » ou femme « siwis ») si elle est installée, sinon celle qui l'est.
+  const want = /siwis|femme|female/i.test(voice) ? [PIPER_VOICE_F, PIPER_VOICE] : [PIPER_VOICE, PIPER_VOICE_F];
+  const model = want.map((v) => join(d, 'piper-voices', `${v}.onnx`)).find((p) => existsSync(p));
+  return bin && model ? { bin, model } : undefined;
 }
 
 function run(cmd: string, args: string[], opts: { input?: string; env?: NodeJS.ProcessEnv; timeout?: number; cwd?: string } = {}): Promise<{ code: number; out: string; err: string }> {
@@ -57,8 +62,8 @@ export async function transcribeLocal(audio: Uint8Array, language = 'fr', home?:
 }
 
 /** Texte → WAV, avec Piper sur la machine (voix d'homme française). */
-export async function speakLocal(text: string, home?: string): Promise<Uint8Array> {
-  const p = localPiper(home);
+export async function speakLocal(text: string, home?: string, voice = ''): Promise<Uint8Array> {
+  const p = localPiper(home, voice);
   if (!p) throw new Error('Piper local non installé');
   const dir = mkdtempSync(join(tmpdir(), 'odin-voix-'));
   try {
@@ -99,8 +104,11 @@ if [ ! -x piper/piper ]; then
   tar xzf piper.tgz && rm -f piper.tgz
 fi
 mkdir -p piper-voices
-for e in onnx onnx.json; do
-  [ -s piper-voices/${PIPER_VOICE}.$e ] || curl -fsSL -o piper-voices/${PIPER_VOICE}.$e "https://huggingface.co/rhasspy/piper-voices/resolve/main/fr/fr_FR/tom/medium/${PIPER_VOICE}.$e"
+for v in ${PIPER_VOICE} ${PIPER_VOICE_F}; do
+  case $v in ${PIPER_VOICE}) P=${PIPER_PATH[PIPER_VOICE]};; *) P=${PIPER_PATH[PIPER_VOICE_F]};; esac
+  for e in onnx onnx.json; do
+    [ -s piper-voices/$v.$e ] || curl -fsSL -o piper-voices/$v.$e "https://huggingface.co/rhasspy/piper-voices/resolve/main/$P/$v.$e"
+  done
 done
 ` : ''}echo "Terminé."
 `;

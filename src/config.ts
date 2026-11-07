@@ -163,6 +163,9 @@ export interface OdinConfig {
     voiceReplies: boolean;
     /** elevenlabs (en ligne, copie de voix) · piper (serveur local, gratuit) · openai (API /v1/audio/speech : OpenAI ou serveur local compatible). */
     tts: { provider: 'elevenlabs' | 'piper' | 'openai'; voiceId: string; voiceName: string; model: string; baseUrl: string; apiKeyEnv: string };
+    /** Voix d'Odin : homme (tts.voiceId) ou femme (femaleVoiceId, ou la voix de femme par défaut du fournisseur). */
+    gender?: 'homme' | 'femme';
+    femaleVoiceId?: string;
     stt: { provider: 'whisper'; model: string; baseUrl: string; apiKeyEnv: string; language: string };
   };
   /** Mímir : jugements typés (juge local sans clé par défaut, Jev ou modèle en option), décisions en code. */
@@ -227,7 +230,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
   voice: {
-    enabled: false, speakReplies: false, voiceReplies: true,
+    enabled: false, speakReplies: false, voiceReplies: true, gender: 'homme', femaleVoiceId: '',
     tts: { provider: 'elevenlabs', voiceId: '', voiceName: '', model: 'eleven_multilingual_v2', baseUrl: 'https://api.elevenlabs.io', apiKeyEnv: 'ELEVENLABS_API_KEY' },
     stt: { provider: 'whisper', model: 'whisper-1', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', language: 'fr' },
   },

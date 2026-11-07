@@ -71,4 +71,20 @@ export const maintenanceSet: Tool = {
   },
 };
 
-export const ASSISTANT_TOOLS: Tool[] = [briefingSet, voiceSetup, maintenanceSet];
+export const voiceSet: Tool = {
+  name: 'voice_set',
+  description: 'Change la voix d\'Odin : homme ou femme (« parle avec une voix de femme », « reprends ta voix d\'homme »). voix : nom ou identifiant d\'une voix précise (facultatif ; OpenAI : nova, shimmer, coral pour une femme, onyx, echo, ash pour un homme).',
+  risk: 'write',
+  schema: obj({ genre: str('homme | femme'), voix: str('voix précise (facultatif)') }, ['genre']),
+  summarize: (i) => `voix d'Odin : ${s(i.genre)}${s(i.voix) ? ` (${s(i.voix)})` : ''}`,
+  async run(i, ctx) {
+    const g = /^f/i.test(s(i.genre)) ? 'femme' : 'homme';
+    const v = s(i.voix);
+    if (v && !/^[A-Za-z0-9_.-]{1,80}$/.test(v)) throw new Error('nom de voix invalide');
+    setCfg(ctx, ['voice', 'gender'], g);
+    if (v) setCfg(ctx, g === 'femme' ? ['voice', 'femaleVoiceId'] : ['voice', 'tts', 'voiceId'], v);
+    return `Voix d'Odin : ${g === 'femme' ? 'une voix de femme' : 'une voix d\'homme'}${v ? ` (${v})` : ''}. C'est pris en compte dès la prochaine réponse vocale.`;
+  },
+};
+
+export const ASSISTANT_TOOLS: Tool[] = [briefingSet, voiceSetup, maintenanceSet, voiceSet];

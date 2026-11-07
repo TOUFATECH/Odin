@@ -481,7 +481,9 @@ export class WebChannel implements Channel {
     if (url.pathname === '/api/voice/speak') {
       if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
       try {
-        const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), voiceFor(v, this.odin.cfg));
+        // Essai d'une voix (homme / femme) depuis les réglages, sans changer le réglage.
+        const vv = body.gender === 'femme' || body.gender === 'homme' ? { ...v, gender: body.gender as 'homme' | 'femme' } : v;
+        const audio = await speakAudio(String(body.text ?? '').slice(0, 5000), voiceFor(vv, this.odin.cfg));
         res.writeHead(200, { 'content-type': audio.mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
         return void res.end(audio.data);
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }

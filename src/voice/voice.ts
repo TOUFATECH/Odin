@@ -92,7 +92,9 @@ export async function speakAudio(text: string, v: VoiceConfig, format: AudioForm
   if (!clean) throw new Error('rien à dire');
   // Piper sur la machine : choisi (« local »), ou à défaut d'un autre fournisseur prêt.
   if (localPiper() && ((v.tts.provider === 'piper' && (!v.tts.baseUrl || v.tts.baseUrl === 'local')) || !providerReady(v, env))) {
-    return { data: await speakLocal(clean), mime: 'audio/wav' };
+    // Voix de secours locale : on garde le genre choisi (homme « tom », femme « siwis »).
+    const g = (v as VoiceConfig & { gender?: string }).gender === 'femme' || /siwis/.test(v.tts.voiceId) ? 'femme' : 'homme';
+    return { data: await speakLocal(clean, undefined, g), mime: 'audio/wav' };
   }
   const base = v.tts.baseUrl.replace(/\/$/, '');
   const sig = signal ?? AbortSignal.timeout(90_000);

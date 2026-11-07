@@ -16,8 +16,18 @@ export function activeProfile(cfg: Pick<OdinConfig, 'profiles'>, now = new Date(
   return p.list.find((x) => x.id === id);
 }
 
-/** Voix de synthèse : celle du profil actif si elle est choisie, sinon celle des réglages. */
-export function voiceFor<V extends { tts: { voiceId: string } }>(voice: V, cfg: Pick<OdinConfig, 'profiles'>, now = new Date()): V {
+/** Voix d'homme et de femme par défaut de chaque fournisseur (françaises ou multilingues). */
+export const GENDER_VOICES: Record<string, { homme: string; femme: string }> = {
+  openai: { homme: 'onyx', femme: 'nova' },
+  elevenlabs: { homme: 'onwK4e9ZLuTAKqWW03F9', femme: 'XB0fDUnXU5powFXDhCwa' }, // Daniel, Charlotte (voix prêtes à l'emploi)
+  piper: { homme: '', femme: 'fr_FR-siwis-medium' }, // homme : la voix du serveur Piper (ou « tom » en local)
+};
+
+/** La voix à utiliser : celle du profil actif s'il en a une, sinon homme ou femme selon le réglage. */
+export function voiceFor<V extends { tts: { voiceId: string; provider?: string }; gender?: 'homme' | 'femme'; femaleVoiceId?: string }>(voice: V, cfg: Pick<OdinConfig, 'profiles'>, now = new Date()): V {
   const p = activeProfile(cfg, now);
-  return p?.voiceId ? { ...voice, tts: { ...voice.tts, voiceId: p.voiceId } } : voice;
+  if (p?.voiceId) return { ...voice, tts: { ...voice.tts, voiceId: p.voiceId } };
+  const d = GENDER_VOICES[voice.tts.provider ?? ''] ?? { homme: '', femme: '' };
+  const id = voice.gender === 'femme' ? (voice.femaleVoiceId || d.femme) : (voice.tts.voiceId || d.homme);
+  return { ...voice, tts: { ...voice.tts, voiceId: id } };
 }

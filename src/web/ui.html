@@ -1120,6 +1120,11 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
               </div>
             </details>
             <div class="field" id="v-elevenBox"><label for="v-eleven">Clé ElevenLabs</label><input id="v-eleven" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="v-elevenHint"></span></div>
+            <fieldset class="field" style="border:0;padding:0;margin:0"><legend style="font-weight:600;margin-bottom:6px">Voix d'homme ou de femme</legend>
+              <div class="seg" role="radiogroup" style="display:flex;gap:8px;flex-wrap:wrap"><label class="check"><input type="radio" name="v-gender" value="homme"> 👨 Voix d'homme</label><label class="check"><input type="radio" name="v-gender" value="femme"> 👩 Voix de femme</label><button class="btn small" type="button" id="v-try2">Écouter</button></div>
+              <span class="hint">Aussi à la demande : « parle avec une voix de femme ». OpenAI : nova, shimmer, coral (femme) · onyx, echo, ash (homme). Piper local : siwis (femme), tom (homme).</span>
+            </fieldset>
+            <div class="field"><label for="v-female">Voix de femme précise (facultatif)</label><input id="v-female" autocomplete="off" spellcheck="false" placeholder="voix de femme par défaut du fournisseur"></div>
             <div class="field" id="v-nameBox"><label for="v-voiceName">Voix (nom)</label><input id="v-voiceName" autocomplete="off" spellcheck="false" placeholder="onyx"><span class="hint">OpenAI : onyx (homme, grave), ash, echo, alloy… Piper : vide (voix du serveur) ou le nom du modèle si le serveur en sert plusieurs.</span></div>
             <div class="field" id="v-voiceBox"><label for="v-voice">Voix d'Odin</label>
               <div style="display:flex;gap:8px;flex-wrap:wrap"><select id="v-voice" style="flex:1 1 220px"><option value="">— choisis une voix —</option></select><button class="btn small" type="button" id="v-load">Charger mes voix</button><button class="btn small" type="button" id="v-try">Écouter un essai</button></div>
@@ -2716,13 +2721,16 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
     else browserSpeak(text, seq);
   }
   function browserSpeak(text, seq) {
-    try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; u.rate = 1; u.pitch = v && MALE_FR.test(v.name) ? 1 : 0.85; u.onend = () => spoken(seq); u.onerror = () => spoken(seq); speechSynthesis.speak(u); }
+    try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; u.rate = 1; u.pitch = state?.settings?.voice?.gender === 'femme' ? 1 : v && MALE_FR.test(v.name) ? 1 : 0.85; u.onend = () => spoken(seq); u.onerror = () => spoken(seq); speechSynthesis.speak(u); }
     catch { spoken(seq); }
   }
   // Voix du navigateur : une voix d'homme naturelle en français (les voix « Natural / Online » d'Edge sont les plus humaines).
   const MALE_FR = /henri|paul|thomas|claude|antoine|r[ée]my|j[ée]r[ôo]me|denis|mathieu|nicolas|guillaume|yves|alain|fabrice|gilles|olivier|jean|daniel|male|homme/i;
+  const FEMALE_FR = /female|femme|am[ée]lie|audrey|aur[ée]lie|julie|marie|virginie|hortense|denise|eloise|c[ée]line|chantal|vivienne|brigitte|sylvie|coralie|charline|jos[ée]phine|yvette|lea|léa/i;
   function frenchVoice() {
     const vs = speechSynthesis.getVoices().filter((x) => /^fr/i.test(x.lang));
+    // Voix de femme choisie : on inverse la préférence.
+    if (state?.settings?.voice?.gender === 'femme') { const sf = (v) => (FEMALE_FR.test(v.name) ? 4 : 0) + (/natural|online|neural|premium|enhanced/i.test(v.name) ? 3 : 0) + (/fr-FR/i.test(v.lang) ? 1 : 0) - (MALE_FR.test(v.name) ? 3 : 0); return vs.sort((a, b) => sf(b) - sf(a))[0]; }
     const score = (v) => (MALE_FR.test(v.name) ? 4 : 0) + (/natural|online|neural|premium|enhanced/i.test(v.name) ? 3 : 0) + (/fr-FR/i.test(v.lang) ? 1 : 0) - (/female|femme|am[ée]lie|audrey|aur[ée]lie|julie|marie|virginie|hortense|denise|eloise|c[ée]line|chantal|google/i.test(v.name) ? 3 : 0);
     return vs.sort((a, b) => score(b) - score(a))[0];
   }
@@ -3207,6 +3215,8 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
       $('#v-ttsProvider').value = V.ttsProvider || 'elevenlabs'; $('#v-ttsUrl').value = V.ttsUrl || ''; $('#v-voiceName').value = V.voiceId || '';
       $('#v-enabled').checked = V.enabled; $('#v-voice').value = V.voiceId; $('#v-sttUrl').value = V.sttUrl; $('#v-lang').value = V.language;
       $('#v-speak').checked = V.speakReplies; $('#v-replies').checked = V.voiceReplies;
+      for (const r of document.querySelectorAll('input[name="v-gender"]')) r.checked = r.value === (V.gender || 'homme');
+      $('#v-female').value = V.femaleVoiceId || '';
     }
     ttsProviderUi();
   }
@@ -3231,6 +3241,16 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
     if (!state.voice.tts) return st('#v-status', 'Enregistre d\'abord le réglage de la voix (et active-la).', false);
     const was = speakOn; speakOn = true; await sayAloud('Bonjour, je suis Odin, ton agent IA personnel. Que puis-je faire pour toi ?'); speakOn = was;
   });
+  // Écouter la voix d'homme ou de femme choisie (serveur de voix, sinon voix du navigateur).
+  $('#v-try2').addEventListener('click', async () => {
+    const g = document.querySelector('input[name="v-gender"]:checked')?.value || 'homme';
+    const text = g === 'femme' ? 'Bonjour, je suis Odin, avec ma voix de femme. Que puis-je faire pour toi ?' : 'Bonjour, je suis Odin, avec ma voix d\'homme. Que puis-je faire pour toi ?';
+    try {
+      const r = await fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text, gender: g }) });
+      if (r.ok && /^audio\//.test(r.headers.get('content-type') || '')) { const a = new Audio(URL.createObjectURL(await r.blob())); await a.play(); return; }
+    } catch {}
+    try { const keep = state.settings.voice.gender; state.settings.voice.gender = g; const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; state.settings.voice.gender = keep; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch { st('#v-status', 'Aucune voix disponible sur cet appareil.', false); }
+  });
   let cloneBlob = null;
   $('#v-cloneRec').addEventListener('click', () => record($('#v-cloneRec'), (b) => { cloneBlob = b; $('#v-recHint').textContent = `Enregistrement prêt (${Math.round(b.size / 1024)} Ko).`; }, $('#v-recHint')));
   $('#v-clone').addEventListener('click', async () => {
@@ -3248,7 +3268,8 @@ details.mx summary{cursor:pointer;min-height:44px;display:flex;align-items:cente
     const opt = $('#v-voice').selectedOptions[0], p = $('#v-ttsProvider').value;
     const voiceId = p === 'elevenlabs' ? $('#v-voice').value : $('#v-voiceName').value.trim();
     const voiceName = p === 'elevenlabs' ? (opt && opt.value ? opt.textContent.replace(/ \(copiée\)$/, '') : '') : voiceId;
-    await save('voice', { enabled: $('#v-enabled').checked, ttsProvider: p, ttsUrl: $('#v-ttsUrl').value.trim(), elevenKey: $('#v-eleven').value.trim(), voiceId, voiceName, sttUrl: $('#v-sttUrl').value.trim(), sttKey: $('#v-sttKey').value.trim(), language: $('#v-lang').value.trim(), speakReplies: $('#v-speak').checked, voiceReplies: $('#v-replies').checked }, '#v-status', '✓ Voix enregistrée.');
+    const gender = document.querySelector('input[name="v-gender"]:checked')?.value || 'homme';
+    await save('voice', { gender, femaleVoiceId: $('#v-female').value.trim(), enabled: $('#v-enabled').checked, ttsProvider: p, ttsUrl: $('#v-ttsUrl').value.trim(), elevenKey: $('#v-eleven').value.trim(), voiceId, voiceName, sttUrl: $('#v-sttUrl').value.trim(), sttKey: $('#v-sttKey').value.trim(), language: $('#v-lang').value.trim(), speakReplies: $('#v-speak').checked, voiceReplies: $('#v-replies').checked }, '#v-status', '✓ Voix enregistrée.');
     $('#v-eleven').value = ''; $('#v-sttKey').value = '';
   });
 

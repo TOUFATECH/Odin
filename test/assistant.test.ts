@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import type { Channel } from '../src/bifrost/channel.ts';
 import { nags, parseRepeat, parseTime, parseWhen, reminderReply } from '../src/cron/reminders.ts';
@@ -111,7 +112,7 @@ test('briefing du matin : météo (Open-Meteo), rappels du jour, nuit', async ()
 
 test('voix locale : le script installe Whisper et Piper (voix tom), sans rien d\'autre', () => {
   const s = installScript({ stt: true, tts: true, model: 'small' });
-  assert.match(s, /whisper\.cpp/); assert.match(s, /ggml-small\.bin/); assert.match(s, /fr_FR\/tom\/medium\/fr_FR-tom-medium/);
+  assert.match(s, /whisper\.cpp/); assert.match(s, /ggml-small\.bin/); assert.match(s, /fr_FR-tom-medium/); assert.match(s, /fr_FR-siwis-medium/); assert.match(s, /fr\/fr_FR\/siwis\/medium/);
   assert.doesNotMatch(installScript({ stt: false, tts: true, model: 'small' }), /whisper\.cpp/);
   assert.doesNotMatch(s, /rm -rf/);
 });
@@ -177,4 +178,17 @@ test('habitude : proposée au propriétaire (mode équilibré), « oui » la met
   assert.equal(job.cron, '50 17 * * *');
   assert.equal(await gw.habits(now + 86_400_000, true), undefined, 'pas reproposée');
   await gw.stop(); o.cleanup();
+});
+
+test('voix : homme ou femme, selon le réglage ou à la demande', async () => {
+  const { voiceFor } = await import('../src/profiles.ts');
+  const base = { enabled: true, tts: { provider: 'openai' as const, voiceId: '', voiceName: '', model: '', baseUrl: '', apiKeyEnv: '' } };
+  assert.equal(voiceFor({ ...base, gender: 'homme' }, { profiles: undefined } as never).tts.voiceId, 'onyx');
+  assert.equal(voiceFor({ ...base, gender: 'femme' }, { profiles: undefined } as never).tts.voiceId, 'nova');
+  assert.equal(voiceFor({ ...base, gender: 'femme', femaleVoiceId: 'shimmer' }, { profiles: undefined } as never).tts.voiceId, 'shimmer');
+  assert.equal(voiceFor({ ...base, tts: { ...base.tts, provider: 'elevenlabs' as never }, gender: 'femme' }, { profiles: undefined } as never).tts.voiceId, 'XB0fDUnXU5powFXDhCwa');
+  const o = makeOdin([call('voice_set', { genre: 'femme' }), { text: 'Voilà.' }]);
+  await o.agent.run('parle avec une voix de femme', { sessionId: 'web:principal', channel: 'web', peer: 'principal' });
+  assert.equal(JSON.parse(readFileSync(o.paths.config, 'utf8')).voice.gender, 'femme');
+  o.cleanup();
 });

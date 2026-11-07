@@ -143,7 +143,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
-    voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, ttsProvider: cfg.voice.tts.provider, ttsUrl: cfg.voice.tts.baseUrl, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language },
+    voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, ttsProvider: cfg.voice.tts.provider, ttsUrl: cfg.voice.tts.baseUrl, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, gender: cfg.voice.gender ?? 'homme', femaleVoiceId: cfg.voice.femaleVoiceId ?? '', ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language },
     web: { port: cfg.web.port, access: cfg.web.access, https: cfg.web.tls.enabled, cert: cfg.web.tls.cert, key: cfg.web.tls.key, behindProxy: cfg.web.behindProxy, publicUrl: cfg.web.publicUrl, networks: cfg.web.allowedNetworks.join(', ') },
   };
 }
@@ -299,8 +299,12 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       if (!/^https?:\/\//.test(ttsUrl)) throw new Error('adresse du service de synthèse invalide (ex. http://localhost:5000)');
       const voiceId = str('voiceId')?.trim() ?? (switched ? defaults.voiceId : v.tts.voiceId);
       if (voiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(voiceId)) throw new Error('nom de voix invalide');
+      const gender = (str('gender') ?? v.gender ?? 'homme') === 'femme' ? 'femme' : 'homme';
+      const femaleVoiceId = (str('femaleVoiceId') ?? v.femaleVoiceId ?? '').trim();
+      if (femaleVoiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(femaleVoiceId)) throw new Error('nom de voix de femme invalide');
       setConfigValue(paths, ['voice'], {
         ...v,
+        gender, femaleVoiceId,
         enabled: Boolean(b.enabled), speakReplies: Boolean(b.speakReplies), voiceReplies: b.voiceReplies === undefined ? v.voiceReplies : Boolean(b.voiceReplies),
         tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName), model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
         stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
