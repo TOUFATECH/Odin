@@ -23,6 +23,7 @@ import { TelegramChannel } from '../bifrost/channels/telegram.ts';
 import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
 import { DiscordChannel } from '../bifrost/channels/discord.ts';
+import { noteError } from '../guard/selfcheck.ts';
 import { SlackChannel } from '../bifrost/channels/slack.ts';
 import { SignalChannel } from '../bifrost/channels/signal.ts';
 import { WhatsAppChannel } from '../bifrost/channels/whatsapp.ts';
@@ -182,8 +183,8 @@ let stopping: (() => Promise<void>) | undefined;
 let guarded = false;
 function guardProcess(): void {
   if (guarded) return; guarded = true;
-  process.on('uncaughtException', (e) => { console.error('[odin] erreur imprévue (Odin continue) :', e?.stack ?? e); });
-  process.on('unhandledRejection', (e) => { console.error('[odin] promesse rejetée (Odin continue) :', (e as Error)?.stack ?? e); });
+  process.on('uncaughtException', (e) => { noteError(); console.error('[odin] erreur imprévue (Odin continue) :', e?.stack ?? e); });
+  process.on('unhandledRejection', (e) => { noteError(); console.error('[odin] promesse rejetée (Odin continue) :', (e as Error)?.stack ?? e); });
 }
 
 async function gateway(openBrowser = false, reloaded = false): Promise<void> {
@@ -197,6 +198,8 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     odin = createOdin({ provider: demoProvider(), send });
     odin.demo = true;
   }
+  // Sans modèle : le cerveau de secours répond (mémoire, rappels, réseau…), pas un simple écho.
+  if (odin.demo) odin.agent.deps.offlineOnly = true;
   const owners: Record<string, string[]> = {};
   gw = new Gateway(odin, { owners });
   const tg = odin.cfg.channels.telegram;

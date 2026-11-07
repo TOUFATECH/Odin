@@ -2,7 +2,8 @@
 // les dossiers que tu choisis (ton NAS monté, par exemple), puis retrouve « la facture EDF de mars ».
 // Pour ranger ou renommer, il utilise ensuite ses outils de fichiers (avec ta validation).
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { basename, extname, join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { readDocx, readPptx, readXlsx } from '../files/office.ts';
@@ -69,6 +70,13 @@ export function indexDocs(db: DatabaseSync, dirs: string[], o: { maxFiles?: numb
   return { files: seen.size, updated, removed };
 }
 
+/** Dossiers à indexer : ceux choisis, sinon les dossiers habituels (Documents, Téléchargements, Bureau, fichiers reçus). */
+export function docDirs(chosen: string[] | undefined, workspace?: string): string[] {
+  if (chosen?.length) return chosen;
+  const h = homedir();
+  return [...['Documents', 'Téléchargements', 'Downloads', 'Bureau', 'Desktop', 'Images', 'Pictures'].map((d) => join(h, d)), ...(workspace ? [join(workspace, 'inbox')] : [])].filter((d) => { try { return existsSync(d) && statSync(d).isDirectory(); } catch { return false; } });
+}
+
 /** Recherche plein texte (nom et contenu), les plus pertinents d'abord. */
 export function findDocs(db: DatabaseSync, query: string, limit = 15): Array<{ path: string; name: string; size: number; mtime: number; snippet: string }> {
   ensureDocsTable(db);
@@ -80,12 +88,16 @@ export function findDocs(db: DatabaseSync, query: string, limit = 15): Array<{ p
 
 export const docFind: Tool = {
   name: 'doc_find',
-  description: 'Retrouve tes documents (dossiers indexés dans Réglages → Documents) par leur nom ou leur contenu : « facture EDF mars », « contrat assurance voiture »… Renvoie les chemins, à ouvrir avec doc_read ou fs_read.',
+  description: 'Retrouve tes documents et fichiers (Documents, Téléchargements, Bureau, fichiers reçus, ou les dossiers de Réglages → Documents) par leur nom ou leur contenu, PDF, Word, Excel compris : « facture EDF mars », « contrat assurance voiture »… Renvoie les chemins, à ouvrir avec doc_read ou fs_read.',
   risk: 'read',
   taints: true,
   schema: obj({ query: str('ce que tu cherches'), count: num('nombre de résultats (15 par défaut)') }, ['query']),
   async run(i, ctx: ToolContext) {
-    if (!ctx.docs?.dirs.length) return 'Aucun dossier de documents choisi : Réglages → Documents.';
+    const dirs = docDirs(ctx.docs?.dirs, ctx.workspace);
+    if (!dirs.length) return 'Aucun dossier de documents trouvé : choisis-en dans Réglages → Documents.';
+    // Premier usage : index fait tout de suite (ensuite chaque nuit).
+    ensureDocsTable(ctx.muninn.db);
+    if (!(ctx.muninn.db.prepare('SELECT 1 FROM docs LIMIT 1').get())) { try { indexDocs(ctx.muninn.db, dirs); } catch { /* on cherche avec ce qu'on a */ } }
     const r = findDocs(ctx.muninn.db, s(i.query), Math.min(50, Number(i.count ?? 15)));
     if (!r.length) return 'Aucun document trouvé (l\'index est mis à jour chaque nuit ; doc_index pour le refaire maintenant).';
     const text = r.map((d, k) => `${k + 1}. ${d.path}\n   ${new Date(d.mtime).toLocaleDateString('fr-FR')} · ${(d.size / 1024).toFixed(0)} Ko${d.snippet && d.snippet !== d.name ? `\n   ${d.snippet.replace(/\s+/g, ' ').slice(0, 200)}` : ''}`).join('\n');
@@ -99,9 +111,10 @@ export const docIndex: Tool = {
   risk: 'read',
   schema: obj({}),
   async run(_i, ctx) {
-    if (!ctx.docs?.dirs.length) return 'Aucun dossier de documents choisi : Réglages → Documents.';
-    const r = indexDocs(ctx.muninn.db, ctx.docs.dirs);
-    return `Index à jour : ${r.files} fichier(s), ${r.updated} relu(s), ${r.removed} retiré(s) — dossiers : ${ctx.docs.dirs.map((d) => basename(d) || d).join(', ')}.`;
+    const dirs = docDirs(ctx.docs?.dirs, ctx.workspace);
+    if (!dirs.length) return 'Aucun dossier de documents trouvé : choisis-en dans Réglages → Documents.';
+    const r = indexDocs(ctx.muninn.db, dirs);
+    return `Index à jour : ${r.files} fichier(s), ${r.updated} relu(s), ${r.removed} retiré(s) — dossiers : ${dirs.map((d) => basename(d) || d).join(', ')}.`;
   },
 };
 

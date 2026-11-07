@@ -2,6 +2,7 @@
 // Les clés d'API ne sont JAMAIS écrites dans ce fichier : on y met seulement le
 // nom de la variable d'environnement qui les contient (apiKeyEnv).
 
+import { rememberBefore } from './undo.ts';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -88,6 +89,8 @@ export interface OdinConfig {
   /** Mises à jour planifiées (weekday -1 = tous les jours, 0 = dimanche…). */
   updates: { enabled: boolean; weekday: number; hour: number; targets: Array<{ where: string; vmid?: number }>; rollbackOnFailure: boolean };
   /** Journal de bord du soir : ce qu'Odin a fait, remarqué, et ses conseils. */
+  /** Veille : chaque jour, Odin cherche sur Internet ce qui peut t'intéresser (selon ce qu'il sait de toi) et t'envoie 3 à 5 trouvailles. */
+  veille?: { enabled: boolean; at: string };
   /** Mises à jour d'Odin : off (jamais vérifier), notify (te prévenir, défaut), auto (se mettre à jour seul quand il ne travaille pas). */
   update?: { auto: 'off' | 'notify' | 'auto'; everyHours: number };
   journal: { enabled: boolean; at: string; morning?: string; /** Ville pour la météo du briefing du matin. */ city?: string; /** Envoyer aussi le briefing en note vocale. */ morningVoice?: boolean };
@@ -198,6 +201,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   proxmox: { url: '' },
   services: [],
   updates: { enabled: false, weekday: 0, hour: 4, targets: [], rollbackOnFailure: true },
+  veille: { enabled: true, at: '12:30' },
   update: { auto: 'notify', everyHours: 6 },
   journal: { enabled: true, at: '21:30', morning: '07:00' },
   quiet: { enabled: true, from: '22:30', to: '07:00', agenda: true },
@@ -362,5 +366,7 @@ export function setConfigValue(paths: OdinPaths, keyPath: string[], value: unkno
   const merged = merge(DEFAULT_CONFIG, raw);
   const errs = validateConfig(merged);
   if (errs.length) throw new Error(errs.join('\n'));
-  writeFileSync(paths.config, JSON.stringify(raw, null, 2));
+  // Annulable : l'ancienne configuration est gardée (undo_recent / undo_apply).
+  rememberBefore(paths.home, 'réglages', paths.config, `réglage ${keyPath.join('.')}`);
+  writeFileSync(paths.config, JSON.stringify(raw, null, 2), { mode: 0o600 });
 }

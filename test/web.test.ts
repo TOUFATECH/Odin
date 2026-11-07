@@ -112,7 +112,7 @@ test('audit sécurité : envoi trop gros sans plantage, fichiers non JSON accept
     assert.equal(ph.ok, true, 'photo de la caméra acceptée');
     // État en cache (2 s) mais vidé après une action
     const a = await (await fetch(`${B}/api/state`, { headers: H })).json() as { version: { auto: string } };
-    assert.equal(a.version.auto, 'notify');
+    assert.equal(a.version.auto, 'off');
     await fetch(`${B}/api/action`, { method: 'POST', headers: H, body: JSON.stringify({ kind: 'settings_save', section: 'update', auto: 'auto' }) });
     const b = await (await fetch(`${B}/api/state`, { headers: H })).json() as { version: { auto: string } };
     assert.equal(b.version.auto, 'auto', 'le changement se voit tout de suite');

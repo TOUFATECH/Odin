@@ -10,6 +10,10 @@ export interface PromptParts {
   thread?: string;
   /** Fils en suspens dans d'autres conversations. */
   elsewhere?: string;
+  /** La conversation de tout à l'heure sur une autre messagerie. */
+  continued?: string;
+  /** Le mode du moment du propriétaire (conduite, réunion, sommeil, occupé). */
+  lifeMode?: string;
   /** Tâches interrompues ou en attente. */
   tasksInProgress?: string;
   /** USER.md en bref : ce qu'Odin sait du propriétaire, toujours présent. */
@@ -100,6 +104,10 @@ Mets en forme en Markdown, lisible d'un coup d'œil : la réponse directe d'abor
 - Environnement : tu observes le réseau chaque heure et tu apprends le rôle et le rythme de chaque appareil (environment_map) ; sers-t'en pour répondre (« qui est à la maison ? », « le NAS est-il normal ? »).
 - Extensions Python : quand une tâche revient et qu'un petit programme la ferait mieux, écris une extension (plugin_save) ; elle devient un outil py_<nom> réutilisable.
 - Messageries : tu peux être joint par Telegram, WhatsApp, Signal, Discord, Slack, mail et l'application ; c'est la même mémoire partout.
+- Au quotidien, de toi-même selon ce qu'il te dit : retrouver un fichier (doc_find, ses dossiers habituels sont indexés), garder une fiche utile (note_save, note_find), annuler ce que tu as fait (undo_recent, undo_apply), budget et abonnements (budget, une facture vue = un abonnement noté, une hausse signalée), surveiller un prix (price_watch), consommation de la maison (energy_report), démarches administratives (demarche_guide puis rappels), son mode du moment (mode_set ; « je conduis », « bonne nuit » sont compris tout seuls).
+- Veille : chaque jour tu cherches de toi-même sur le web ce qui peut l'intéresser ; « plus de ça » / « moins de ça » sont des préférences à retenir.
+- Sans modèle joignable, ton cerveau de secours répond avec ta mémoire et garde la question : quand tu y reviens, réponds pour de vrai.
+- Tu te surveilles toi-même (disque, erreurs, budget) et tu répares ce qui est sans risque ; tu vérifies chaque action avant de dire « c'est fait ».
 - Vocaux : si on te demande d'écouter les vocaux ou de répondre en vocal et que ce n'est pas prêt, installe toi-même la voix locale gratuite (voice_setup).`);
   if (!p.isSubAgent) out.push(`## Te présenter
 Quand on te demande qui tu es, de te présenter ou ce que tu sais faire, fais une présentation complète, chaleureuse et structurée, en t'appuyant sur tes outils réellement disponibles et ce que tu sais du propriétaire (pas de promesses sur ce qui n'est pas configuré : dis plutôt ce qu'il faudrait régler) :
@@ -136,6 +144,8 @@ Termine en proposant la visite guidée de l'application (« dis "visite guidée"
 - Après une mission réussie qui pourrait revenir, propose une compétence (skill_propose) qui décrit la procédure et cite le script à lancer ; si une compétence existante t'a fait perdre du temps, propose son amélioration.${p.scriptsIndex ? `\n\nTes scripts :\n${p.scriptsIndex}` : ''}`);
   if (p.summary) out.push(`## Résumé de la conversation jusqu'ici\n${p.summary}`);
   if (p.thread) out.push(`## Le fil de cette conversation (ne le perds pas)\n${p.thread}`);
+  if (p.continued) out.push(`## Suite d'une conversation sur une autre messagerie\n${p.continued}\nSi la demande en est la suite, continue sans lui faire répéter.`);
+  if (p.lifeMode) out.push(`## Son mode du moment : ${p.lifeMode}\n${p.lifeMode === 'conduite' ? 'Il conduit : réponses très courtes, faciles à écouter (elles lui sont lues), aucune liste, rien qui demande de regarder l\'écran.' : p.lifeMode === 'sommeil' ? 'Il va dormir : réponds brièvement, rien d\'autre que l\'urgent.' : 'Il est occupé : va à l\'essentiel.'}`);
   if (p.tasksInProgress) out.push(`## Tâches en cours ou en attente\n${p.tasksInProgress}\nSi on en parle, reprends-les là où elles en étaient.`);
   if (p.elsewhere) out.push(`## En suspens dans d'autres conversations\n${p.elsewhere}\nSi c'est lié à la demande, fais le lien ; sinon n'en parle pas.`);
 

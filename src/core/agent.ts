@@ -8,7 +8,9 @@
 // annulation (AbortSignal), compaction du contexte, réflexion d'apprentissage.
 
 import { syncMemoryFiles, userBrief, recordTask } from '../muninn/files.ts';
-import { getThread, mergeThread, openElsewhere, saveThread, threadBlock, THREAD_PROMPT, type ThreadUpdate } from '../muninn/threads.ts';
+import { allThreads, getThread, mergeThread, openElsewhere, saveThread, threadBlock, THREAD_PROMPT, type ThreadUpdate } from '../muninn/threads.ts';
+import { getMode } from '../tools/everyday.ts';
+import { offlineAnswer, queueAsk } from './offline.ts';
 import { dirname } from 'node:path';
 import type { OdinConfig } from '../config.ts';
 import { scanForInjection, wrapUntrusted } from '../heimdall/injection.ts';
@@ -51,6 +53,8 @@ export interface AgentDeps {
   persona: string;
   send?: ToolContext['send'];
   inventory?: ToolContext['inventory'];
+  /** Aucun modèle configuré : Odin répond avec son cerveau de secours (mémoire, commandes simples). */
+  offlineOnly?: boolean;
   /** Mímir : jugements typés par Jev (TypeSafe), décisions en code. */
   mimir?: Mimir;
 }
@@ -85,6 +89,8 @@ export interface RunResult {
   costUsd: number;
   tainted: boolean;
   stopReason: 'done' | 'max_steps' | 'budget' | 'aborted' | 'loop' | 'error';
+  /** Réponse du cerveau de secours (aucun modèle joignable). */
+  offline?: boolean;
   /** Modèle choisi pour ce tour par le routage Mímir (si activé). */
   /** Palier de modèle choisi pour ce tour (local = gratuit, standard, strong = le plus capable). */
   routed?: 'local' | 'standard' | 'strong';
@@ -177,6 +183,13 @@ export class Agent {
       summary: muninn.getSession(o.sessionId)!.summary,
       thread: depth > 0 ? undefined : (() => { const th = getThread(muninn, o.sessionId); return th ? threadBlock(th) : undefined; })(),
       elsewhere: depth > 0 || o.speaker?.role === 'member' ? undefined : openElsewhere(muninn, o.sessionId) || undefined,
+      // Continuité entre messageries : la conversation de tout à l'heure sur un autre canal (3 h).
+      continued: depth > 0 || o.speaker?.role === 'member' || !/^(web|telegram|whatsapp|signal|discord|slack|mail|http):/.test(o.sessionId) ? undefined : (() => {
+        const here = o.sessionId.split(':')[0];
+        const th = allThreads(muninn).filter((x) => x.sessionId !== o.sessionId && !x.tainted && Date.now() - x.updated < 3 * 3600_000 && /^(web|telegram|whatsapp|signal|discord|slack|mail):/.test(x.sessionId) && x.sessionId.split(':')[0] !== here).sort((a, b) => b.updated - a.updated)[0];
+        return th ? `Il y a ${Math.max(1, Math.round((Date.now() - th.updated) / 60_000))} min, sur ${th.sessionId.split(':')[0]} :\n${threadBlock(th)}` : undefined;
+      })(),
+      lifeMode: depth > 0 ? undefined : (() => { const lm = getMode(muninn); return lm.mode === 'disponible' ? undefined : lm.mode; })(),
       tasksInProgress: depth > 0 ? undefined : (() => { const ms = [...muninn.interruptedMissions(Date.now() - 7 * 86_400_000), ...muninn.stalledMissions(Date.now() - 3 * 86_400_000)].filter((m) => m.session_id !== o.sessionId).slice(0, 5); return ms.length ? ms.map((m) => `- ${m.goal.slice(0, 140)} → ${m.status}${m.last_tool ? ` (dernière étape : ${m.last_tool})` : ''}${m.result ? ` — ${m.result.replace(/\s+/g, ' ').slice(0, 160)}` : ''}`).join('\n') : undefined; })(),
       pinned: muninn.pinned(),
       recalled: recalledNow,
@@ -261,6 +274,7 @@ export class Agent {
         let pend = '', flushT: ReturnType<typeof setTimeout> | undefined;
         const flush = () => { flushT = undefined; if (pend) { emit({ type: 'delta', text: pend }); pend = ''; } };
         const onDelta = depth === 0 && cfg.agent.stream !== false ? (d: string) => { pend += d; flushT ??= setTimeout(flush, 80); } : undefined;
+        if (this.deps.offlineOnly && depth === 0) throw new Error('aucun modèle configuré');
         reply = await router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal, onDelta }, routeOpts);
         if (flushT) { clearTimeout(flushT); flush(); }
         if (reply.notice && !res.notices.includes(reply.notice)) res.notices.push(reply.notice);
@@ -269,6 +283,15 @@ export class Agent {
         if (signal.aborted) { res.stopReason = 'aborted'; res.text = 'Interrompu.'; break; }
         res.stopReason = 'error';
         res.text = `Je n'arrive pas à joindre le modèle : ${(e as Error).message}`;
+        // Cerveau de secours : aucun modèle joignable → réponse tirée de la mémoire, question gardée pour plus tard.
+        if (depth === 0 && step === 1 && trusted) {
+          try {
+            const off = offlineAnswer({ muninn, home: this.deps.home, inventory: this.deps.inventory as never }, userText, { channel, peer });
+            res.text = off.text; res.offline = true;
+            if (!off.handled) queueAsk(muninn, { text: userText, sessionId: o.sessionId, channel, peer, at: Date.now() });
+            emit({ type: 'text', text: off.text });
+          } catch { /* on garde le message d'erreur */ }
+        }
         break;
       }
       res.tokensIn += reply.usage.inputTokens;
@@ -693,7 +716,7 @@ Réponds en JSON seul : {"propositions": [{"type": "<type, un mot>", "icone": "<
     // Ce que la tâche a appris de l'environnement : résultats des outils locaux (jamais le web ni les mails).
     const evidence = log.filter((m) => m.role === 'tool' && /^(shell|python|machine_exec|net_|proxmox_|fs_list|fs_read|ha_|script_run|py_)/.test(m.toolName ?? '') && !/^(Erreur|Refusé)/.test(m.content)).map((m) => `[${m.toolName}] ${m.content.replace(/\s+/g, ' ').slice(0, 400)}`).join('\n').slice(0, 3000);
     const r = await router.complete({
-      system: `Tu aides un agent à apprendre vite sur son propriétaire. À partir de l'échange, extrais au plus 4 faits DURABLES et utiles plus tard (y compris ce que ses outils ont découvert sur les machines : versions, adresses, services, chemins, ce qui a marché) :
+      system: `Tu aides un agent à apprendre vite sur son propriétaire. À partir de l'échange, si le propriétaire corrige ou reprend la réponse précédente (« trop long », « non, plutôt… », « je préfère… »), retiens la préférence que ça révèle ; extrais au plus 4 faits DURABLES et utiles plus tard (y compris ce que ses outils ont découvert sur les machines : versions, adresses, services, chemins, ce qui a marché) :
 préférences (façon de travailler, formats, horaires), environnement (machines, appareils, dossiers, logiciels, comptes), missions et projets en cours, personnes importantes.
 Ignore le ponctuel, les politesses, et tout secret (mots de passe, clés, codes). N'invente rien. Ne répète pas ce qui est déjà connu :
 ${known}

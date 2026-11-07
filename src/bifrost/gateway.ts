@@ -22,7 +22,7 @@ const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
 import { careServices, runUpdates, updateDue } from '../guard/care.ts';
-import { indexDocs } from '../tools/docindex.ts';
+import { docDirs, indexDocs } from '../tools/docindex.ts';
 import { voiceFor } from '../profiles.ts';
 import { fetchEvents } from '../tools/calendar.ts';
 import { anomalies, recoveryPlan, restoreTest, weeklyReport } from '../guard/insight.ts';
@@ -31,6 +31,10 @@ import { validHhmm } from '../mimir/decisions.ts';
 import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
 import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
 import { morningBriefing } from './briefing.ts';
+import { resolveShortcut } from '../learn/shortcuts.ts';
+import { QUEUE_KEY, type QueuedAsk } from '../core/offline.ts';
+import { diagnose, errorsSince, measure, trimLogs } from '../guard/selfcheck.ts';
+import { budgetReport, checkPrices, getMode, modeFromText, setMode, upcomingCharges } from '../tools/everyday.ts';
 import { syncMemoryFiles } from '../muninn/files.ts';
 import { episodeText, saveThread, toArchive } from '../muninn/threads.ts';
 import { applyUpdate as applyAppUpdate, checkForUpdate, lastUpdateInfo } from '../tools/update.ts';
@@ -182,6 +186,22 @@ export class Gateway {
         return ch.send(m.peer, `⏰ D'accord, je te le rappelle ${whenFr(rep.snooze)}.`);
       }
     }
+    // Ton mode du moment, dit en passant : « je conduis », « je suis en réunion », « bonne nuit », « je suis de retour ».
+    if (owner) {
+      const md = modeFromText(text);
+      if (md) {
+        const was = getMode(this.odin.muninn).mode;
+        setMode(this.odin.muninn, md.mode, md.minutes);
+        // De retour : ce qui a été gardé pendant la réunion ou la nuit arrive maintenant.
+        if (md.mode === 'disponible' && was !== 'disponible') { const kept = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[]; if (kept.length) { this.odin.muninn.setKv('deferred', ''); await ch.send(m.peer, `— Pendant que tu étais occupé :\n${kept.join('\n\n').slice(0, 3000)}`).catch(() => {}); } }
+      }
+      // « Comme d'hab », « refais pareil » : Odin précise pour lui-même de quoi il s'agit.
+      try {
+        const journal = JSON.parse(this.odin.muninn.getKv('task-journal') ?? '[]');
+        const hint = resolveShortcut(text, journal, knownHabits(this.odin.muninn));
+        if (hint) m = { ...m, text: `${m.text}\n\n[Précision d'Odin pour lui-même : ${hint}]` };
+      } catch { /* facultatif */ }
+    }
     const sessionId = `${m.channel}:${m.peer}`;
     this.odin.muninn.setKv('last-inbound', String(Date.now()));
     if (/^\/stop\b/i.test(text)) { this.aborts.get(sessionId)?.abort(); return ch.send(m.peer, '⏹ Arrêté.'); }
@@ -252,7 +272,8 @@ export class Gateway {
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       // … ou quand tu le demandes (« réponds-moi en vocal », « dis-le à voix haute »).
       const askVoice = /\b(en vocal|vocalement|a voix haute|à voix haute|message vocal|note vocale|dis[- ]le moi)\b/i.test(m.text);
-      if ((m.voice && this.odin.cfg.voice.voiceReplies || askVoice) && ch.sendVoice && ttsReady(this.odin.cfg.voice) && r.text) {
+      const driving = owner && getMode(this.odin.muninn).mode === 'conduite';
+      if ((m.voice && this.odin.cfg.voice.voiceReplies || askVoice || driving) && ch.sendVoice && ttsReady(this.odin.cfg.voice) && r.text) {
         await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
       }
     } finally {
@@ -361,6 +382,10 @@ export class Gateway {
   /** Prévient le propriétaire (Telegram ou autre canal) et ses appareils (push). */
   /** En ce moment, faut-il éviter de déranger (nuit, ou rendez-vous en cours) ? */
   quietNow(now = Date.now()): string | undefined {
+    // Ton mode du moment (« bonne nuit », « je suis en réunion ») passe avant les horaires.
+    const lm = getMode(this.odin.muninn, now);
+    if (lm.mode === 'sommeil') return 'tu dors';
+    if (lm.mode === 'reunion' || lm.mode === 'occupe') return lm.mode === 'reunion' ? 'tu es en réunion' : 'tu es occupé';
     const q = this.odin.cfg.quiet; if (!q?.enabled) return undefined;
     const d = new Date(now), m = d.getHours() * 60 + d.getMinutes(), toMin = (s: string) => { const [h, mi] = s.split(':').map(Number); return h * 60 + mi; };
     const a = toMin(q.from), b = toMin(q.to);
@@ -419,9 +444,10 @@ export class Gateway {
     if (!(existsSync(mstamp) && readFileSync(mstamp, 'utf8').trim() === new Date(now).toDateString())) { writeFileSync(mstamp, new Date(now).toDateString()); const n = this.odin.muninn.decay(now); if (n) console.error(`[mémoire] ${n} souvenir(s) périmé(s) oublié(s)`); }
     // Index des documents : chaque nuit vers 3 h (seuls les fichiers modifiés sont relus).
     const dstamp = join(this.odin.paths.logs, 'docs-index.txt'), d = new Date(now);
-    if (cfg.docs.dirs.length && d.getHours() >= 3 && !(existsSync(dstamp) && readFileSync(dstamp, 'utf8').trim() === d.toDateString())) {
+    const ddirs = docDirs(cfg.docs.dirs, this.odin.paths.workspace);
+    if (ddirs.length && d.getHours() >= 3 && !(existsSync(dstamp) && readFileSync(dstamp, 'utf8').trim() === d.toDateString())) {
       writeFileSync(dstamp, d.toDateString());
-      try { const r = indexDocs(this.odin.muninn.db, cfg.docs.dirs); console.error(`[documents] ${r.files} fichiers, ${r.updated} relus`); } catch (e) { console.error('[documents]', (e as Error).message); }
+      try { const r = indexDocs(this.odin.muninn.db, ddirs); console.error(`[documents] ${r.files} fichiers, ${r.updated} relus`); } catch (e) { console.error('[documents]', (e as Error).message); }
     }
   }
 
@@ -649,6 +675,66 @@ export class Gateway {
       : `✅ C'est noté : je le prépare tout seul (${when}) et je te l'envoie. Dis « oublie cette habitude » pour arrêter.`;
   }
 
+  /**
+   * Veille (une fois par jour, à l'heure choisie) : Odin déduit tes centres d'intérêt de ce qu'il sait de
+   * toi (préférences, projets, conversations récentes), cherche sur Internet ce qui est NOUVEAU, et
+   * t'envoie 3 à 5 trouvailles avec leurs liens. Tu dis « plus de ça » ou « moins de ça » : il apprend.
+   */
+  async veille(now = Date.now(), force = false): Promise<string | undefined> {
+    const v = this.odin.cfg.veille ?? { enabled: true, at: '12:30' };
+    if (this.odin.demo || !v.enabled) return undefined;
+    const d = new Date(now), [h, mi] = v.at.split(':').map(Number), kv = this.odin.muninn;
+    if (!force && (kv.getKv('veille-day') === d.toDateString() || d.getHours() * 60 + d.getMinutes() < h * 60 + mi)) return undefined;
+    kv.setKv('veille-day', d.toDateString());
+    const about = kv.listMemories(400).filter((m) => m.origin !== 'untrusted' && /preference|person|project|mission/.test(m.kind)).slice(0, 40).map((m) => `- ${m.content.slice(0, 160)}`).join('\n');
+    const recent = (await import('../muninn/threads.ts')).allThreads(kv).filter((t) => !t.tainted && now - t.updated < 14 * 86_400_000).slice(0, 10).map((t) => `- ${t.title || t.goal}`).join('\n');
+    if (!about && !recent) return undefined;
+    const sent = (kv.getKv('veille-sent') ?? '').split('\n').filter(Boolean).slice(-80);
+    const prompt = `Veille pour le propriétaire (sans qu'il l'ait demandé). D'après ce que tu sais de lui :\n${about || '(peu de chose)'}\nSes sujets récents :\n${recent || '(aucun)'}\n\nDéduis 3 ou 4 centres d'intérêt, cherche sur le web ce qui est NOUVEAU (moins de 7 jours) et vraiment utile ou intéressant pour lui (actualité de ses sujets, nouvelles versions de ses logiciels, bons plans, évènements près de chez lui). Ne reprends pas ces liens déjà envoyés :\n${sent.join('\n') || '(aucun)'}\n\nRéponds avec 3 à 5 trouvailles, chacune : un titre court, une phrase sur pourquoi ça le concerne, le lien. Si rien de valable, réponds seulement « RIEN ».`;
+    const r = await this.odin.agent.run(prompt, { sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+    if (!r || r.offline || r.stopReason !== 'done' || /^\s*RIEN\b/.test(r.text)) return undefined;
+    const links = r.text.match(/https?:\/\/[^\s)\]]+/g) ?? [];
+    kv.setKv('veille-sent', [...sent, ...links].slice(-120).join('\n'));
+    const text = `🔭 Ce que j'ai trouvé pour toi aujourd'hui :\n\n${r.text.trim()}\n\nDis-moi « plus de ça » ou « moins de ça » : j'ajuste ma veille.`;
+    await this.tellOwner(text, 'home').catch(() => {});
+    return text;
+  }
+
+  /** Réessaie la plus ancienne question gardée ; si un modèle répond, envoie la vraie réponse. */
+  async retryOffline(now = Date.now()): Promise<boolean> {
+    const kv = this.odin.muninn;
+    let l: QueuedAsk[] = []; try { l = JSON.parse(kv.getKv(QUEUE_KEY) ?? '[]') as QueuedAsk[]; } catch { /* vide */ }
+    l = l.filter((q) => now - q.at < 2 * 86_400_000 && q.tries < 30);
+    const q = l[0];
+    if (!q) { kv.setKv(QUEUE_KEY, '[]'); return false; }
+    const r = await this.odin.agent.run(q.text, { sessionId: q.sessionId, channel: q.channel, peer: q.peer, unattended: true }).catch(() => undefined);
+    if (!r || r.offline || r.stopReason === 'error') { q.tries++; kv.setKv(QUEUE_KEY, JSON.stringify(l)); return false; }
+    kv.setKv(QUEUE_KEY, JSON.stringify(l.slice(1)));
+    const ch = this.channels.get(q.channel);
+    const text = `🔌 Le modèle est revenu. Je reviens sur ta question de ${new Date(q.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} (« ${q.text.slice(0, 80)} ») :\n\n${r.text}`;
+    if (ch) await ch.send(q.peer, text).catch(() => {}); else await this.tellOwner(text).catch(() => {});
+    return true;
+  }
+
+  /** Auto-surveillance, réparations sans risque, prix suivis, prélèvements à venir (chaque heure). */
+  async selfCheck(now = Date.now()): Promise<string[]> {
+    const kv = this.odin.muninn, told = JSON.parse(kv.getKv('selfcheck-told') ?? '{}') as Record<string, number>, sent: string[] = [];
+    const say = async (key: string, text: string, urgent = false) => { if (now - (told[key] ?? 0) < 86_400_000) return; told[key] = now; sent.push(text); await this.tellOwner(text, 'home', urgent).catch(() => {}); };
+    trimLogs(this.odin.paths.logs);
+    const failed = kv.listMissions(200).filter((x) => x.status === 'échouée' && now - (x.ended_at ?? x.started_at) < 86_400_000).length;
+    const m = measure(this.odin.paths.home, this.odin.paths.db);
+    for (const d of diagnose({ ...m, errorsLastHour: errorsSince(now - 3600_000), failedMissions: failed, monthCost: kv.monthCost(), budget: this.odin.cfg.routing.monthlyBudgetUsd })) {
+      if (d.fix === 'vacuum' && new Date(now).getHours() >= 2 && new Date(now).getHours() < 5) { try { kv.db.exec('VACUUM'); } catch { /* plus tard */ } continue; }
+      await say(d.key, d.text, d.key === 'disk');
+    }
+    if (!this.odin.demo) {
+      for (const msg of await checkPrices(kv, now).catch(() => [])) await say(`prix:${msg.slice(0, 40)}`, msg);
+      if (new Date(now).getHours() >= 9) for (const s of upcomingCharges(kv, now, 2)) await say(`prelev:${s.name}:${new Date(now).toDateString()}`, `💳 Prélèvement dans 2 jours : ${s.name}, ${s.amount.toFixed(2).replace('.', ',')} €.`);
+    }
+    kv.setKv('selfcheck-told', JSON.stringify(told));
+    return sent;
+  }
+
   /** Envoie un rappel (avec les boutons « C'est fait » / « Plus tard » sur Telegram) ; jamais retenu par « Ne pas déranger ». */
   private async sendReminder(id: string, text: string, channel: string, peer: string, relance: number): Promise<{ ch: string; peer: string } | false> {
     const ch = this.channels.get(channel) ?? this.ownerTarget()?.ch;
@@ -759,6 +845,18 @@ export class Gateway {
     for (const th of toArchive(this.odin.muninn, now).slice(0, 5)) {
       try { this.odin.muninn.remember(episodeText(th), 'agent', 'episode', '', { subject: `conversation:${th.sessionId}`, topic: 'resume', source: `conversation du ${new Date(th.updated).toLocaleDateString('fr-FR')}` }); } catch { /* facultatif */ }
       saveThread(this.odin.muninn, { ...th, archived: now });
+    }
+    // Questions gardées pendant une panne de modèle : on réessaie toutes les 10 min, et on répond pour de vrai.
+    if (!this.odin.demo && now - Number(this.odin.muninn.getKv('offline-tick') ?? 0) >= 10 * 60_000) {
+      this.odin.muninn.setKv('offline-tick', String(now));
+      await this.retryOffline(now).catch((e) => console.error('[hors ligne]', (e as Error).message));
+    }
+    // Veille du jour : ce qui peut t'intéresser, trouvé sans que tu demandes.
+    await this.veille(now).catch((e) => console.error('[veille]', (e as Error).message));
+    // Chaque heure : Odin se surveille lui-même, vérifie les prix suivis et les prélèvements qui arrivent.
+    if (now - Number(this.odin.muninn.getKv('selfcheck-tick') ?? 0) >= 3600_000) {
+      this.odin.muninn.setKv('selfcheck-tick', String(now));
+      await this.selfCheck(now).catch((e) => console.error('[auto-surveillance]', (e as Error).message));
     }
     // Apprentissage de l'environnement (présence des appareils, rôles, ENVIRONMENT.md) : chaque heure.
     if (now - Number(this.odin.muninn.getKv('envlearn-tick') ?? 0) >= 3600_000) {

@@ -22,7 +22,7 @@ export function makeOdin(script: Script, opts: { approve?: boolean | 'always'; c
   // Par défaut, les tests isolent la boucle de l'agent : Mímir n'est actif que si un juge est fourni.
   // L'observation (un appel de modèle en plus après chaque tour) est coupée sauf demande explicite.
   const configOverride = (c: OdinConfig) => {
-    const quiet = { ...c, agent: { ...c.agent, review: false, verify: false }, learning: { ...c.learning, observe: false }, journal: { ...c.journal, enabled: false }, watch: { ...c.watch, enabled: false }, continuous: { ...c.continuous, enabled: false, autoResume: false }, quiet: { ...c.quiet, enabled: false } };
+    const quiet = { ...c, agent: { ...c.agent, review: false, verify: false }, learning: { ...c.learning, observe: false }, journal: { ...c.journal, enabled: false }, watch: { ...c.watch, enabled: false }, continuous: { ...c.continuous, enabled: false, autoResume: false }, quiet: { ...c.quiet, enabled: false }, veille: { enabled: false, at: '12:30' }, update: { auto: 'off' as const, everyHours: 6 } };
     const base = opts.judge ? quiet : { ...quiet, mimir: { ...quiet.mimir, enabled: false } };
     return opts.config ? opts.config(base) : base;
   };
