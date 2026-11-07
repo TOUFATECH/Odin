@@ -160,8 +160,10 @@ test('confiance apprise : 3 oui de suite → Odin le fait seul ; un non ou « re
 
 test('habitude : proposée au propriétaire (mode équilibré), « oui » la met en place', async () => {
   const o = makeOdin([]);
-  const now = NOWH;
-  o.muninn.setKv('habit-asks', JSON.stringify([1, 2, 3].map((d) => ({ t: at(d, 18, 0), text: 'Fais le point sur l\'état de Venus et des chaînes', tools: ['http_request'] }))));
+  // Dates réelles : la proposition expire au bout de 24 h, le test ne doit pas dépendre du jour où il tourne.
+  const now = Date.now();
+  const atNow = (daysAgo: number, h: number) => { const d = new Date(now); d.setHours(h, 0, 0, 0); d.setDate(d.getDate() - daysAgo); return d.getTime(); };
+  o.muninn.setKv('habit-asks', JSON.stringify([1, 2, 3].map((d) => ({ t: atNow(d, 18), text: 'Fais le point sur l\'état de Venus et des chaînes', tools: ['http_request'] }))));
   const sent: Array<{ t: string; o?: unknown }> = [];
   const gw = new Gateway(o, { owners: { web: ['*'] } }).add(web(sent));
   const k = await gw.habits(now, true);
