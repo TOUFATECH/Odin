@@ -199,18 +199,28 @@ export class WebChannel implements Channel {
     try { writeFileSync(this.claimedFile(), `${new Date().toISOString()} ${by}\n`, { mode: 0o600 }); } catch { /* lecture seule : sans effet */ }
   }
   /** La première connexion sans jeton est-elle encore possible pour cette requête ? */
-  private claimable(req: IncomingMessage): boolean {
-    if (existsSync(this.claimedFile())) return false;
-    // Pas encore configuré (aucun modèle) : pas de limite de temps ; sinon, la première heure après le démarrage.
-    if (!this.odin.demo && Date.now() - this.startedAt > 60 * 60_000) return false;
-    if (this.odin.muninn.listSessions(500).some((s) => s.id.startsWith('web:'))) { this.markClaimed('déjà utilisé'); return false; }
+  private claimable(req: IncomingMessage): boolean { return !this.claimRefusal(req); }
+  /** Pourquoi la première connexion sans jeton est refusée (undefined = elle est possible). Affiché sur la page d'accès. */
+  private claimRefusal(req: IncomingMessage): string | undefined {
     const ip = this.clientIp(req);
-    if (ip.startsWith('fwd:')) return false; // jamais à travers un tunnel ou un proxy
+    if (ip.startsWith('fwd:')) return 'tu passes par un tunnel ou un proxy : la première connexion sans jeton se fait seulement depuis le réseau local';
     // Contre le « DNS rebinding » : une page piégée qui se fait passer pour Odin sous un autre nom de
     // domaine ne peut pas réclamer l'accès. Seulement une adresse IP ou un nom local.
     const host = (req.headers.host ?? '').replace(/:\d+$/, '').replace(/^\[|\]$/g, '').toLowerCase();
-    if (!(isIP(host) || host === 'localhost' || !host.includes('.') || /\.(local|lan|home|internal|home\.arpa)$/.test(host))) return false;
-    return isPrivateHost(ip); // jamais depuis Internet
+    if (!(isIP(host) || host === 'localhost' || !host.includes('.') || /\.(local|lan|home|internal|home\.arpa)$/.test(host))) return `ouvre Odin par son adresse IP (https://IP:${this.port}) plutôt que par « ${host} »`;
+    if (!isPrivateHost(ip)) return `ton appareil (${ip}) n'est pas sur le réseau local d'Odin`;
+    // Odin pas encore configuré (aucun modèle) et personne pour valider une demande (aucune messagerie) :
+    // c'est une installation neuve ou réinstallée. L'accès reste ouvert depuis le réseau local tant
+    // qu'aucune conversation n'a eu lieu, même si un ancien dossier ~/.odin garde une trace de connexion.
+    const used = this.odin.muninn.listSessions(500).some((s) => s.id.startsWith('web:'));
+    const ch = this.odin.cfg.channels as Record<string, { enabled?: boolean } | undefined>;
+    const canApprove = Object.entries(ch).some(([k, v]) => k !== 'http' && v?.enabled);
+    if (this.odin.demo && !canApprove && !used) return undefined;
+    if (existsSync(this.claimedFile())) return 'un appareil s\'est déjà connecté : demande l\'accès ou utilise ton lien';
+    if (used) { this.markClaimed('déjà utilisé'); return 'Odin est déjà utilisé : demande l\'accès ou utilise ton lien'; }
+    // Configuré : la première heure après le démarrage (redémarre Odin pour rouvrir cette fenêtre).
+    if (!this.odin.demo && Date.now() - this.startedAt > 60 * 60_000) return 'Odin tourne depuis plus d\'une heure : redémarre-le (systemctl --user restart odin) puis recharge cette page, ou demande l\'accès';
+    return undefined;
   }
 
   private authed(req: IncomingMessage): boolean {
@@ -361,7 +371,7 @@ export class WebChannel implements Channel {
         ...((this.tls && !this.tls.selfSigned) || (ip.startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? ''))) ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
       const authed = this.authed(req);
-      return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIMABLE__', !authed && this.claimable(req) ? 'true' : 'false'));
+      return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIMABLE__', !authed && this.claimable(req) ? 'true' : 'false').replace('__CLAIM_WHY__', JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     // WhatsApp (Meta) : pas de jeton Odin ici, chaque envoi est signé par Meta et vérifié par le canal.
@@ -403,7 +413,8 @@ export class WebChannel implements Channel {
     }
     if (req.method === 'POST' && url.pathname === '/api/claim') {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
-      if (!this.claimable(req)) return json(res, 403, { error: 'la première connexion est déjà faite : utilise le lien avec jeton (odin web link)' });
+      const why = this.claimRefusal(req);
+      if (why) return json(res, 403, { error: `Première connexion impossible : ${why}.` });
       this.markClaimed(this.clientIp(req));
       console.log(`[web] première connexion : accès donné au navigateur ${this.clientIp(req)}`);
       res.setHeader('set-cookie', this.cookie(this.token));

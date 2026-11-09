@@ -73,3 +73,23 @@ test('demande d\'accès de bout en bout : Telegram « Autoriser » → le naviga
     assert.equal(no.headers.get('set-cookie'), null);
   } finally { await gw.stop(); o.cleanup(); }
 });
+
+test('réinstallation sans modèle ni messagerie : la première connexion reste possible malgré l\'ancienne trace', async () => {
+  const { writeFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const o = makeOdin([]);
+  (o as unknown as { demo: boolean }).demo = true;
+  writeFileSync(join(o.paths.home, 'web-claimed'), 'ancienne installation\n');
+  const p = port(), token = ensureWebToken(o.paths);
+  const gw = new Gateway(o, { owners: { web: ['*'] } });
+  gw.add(new WebChannel(o, { scanNetwork: async () => undefined }, { port: p, host: '127.0.0.1', token }));
+  await gw.start();
+  try {
+    const page = await (await fetch(`http://127.0.0.1:${p}/`)).text();
+    assert.match(page, /if \(true\) \{/, 'accueil « Commencer » proposé');
+    const c = await fetch(`http://127.0.0.1:${p}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } });
+    assert.equal(c.status, 200);
+    const proxied = await (await fetch(`http://127.0.0.1:${p}/`, { headers: { 'x-forwarded-for': '8.8.8.8' } })).text();
+    assert.match(proxied, /const CLAIM_WHY = "tu passes par un tunnel/, 'la raison du refus est expliquée');
+  } finally { await gw.stop(); o.cleanup(); }
+});

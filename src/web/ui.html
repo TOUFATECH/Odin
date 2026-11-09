@@ -800,6 +800,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
     <p style="margin:0;font-size:18px;font-weight:600">Cet appareil n'a pas encore accès</p>
     <p class="sub" style="margin:0" id="pairMsg">Demande l'accès : Odin te l'envoie sur Telegram (ou sur un écran déjà connecté). Tu touches « Autoriser », et c'est tout.</p>
     <button class="btn primary" type="button" id="pairBtn">Demander l'accès</button>
+    <span class="hint" id="pairWhy"></span>
     <div id="pairWait" hidden style="display:flex;flex-direction:column;gap:8px;align-items:center">
       <span class="sub">Code à vérifier sur la demande :</span>
       <b id="pairCode" style="font-size:34px;letter-spacing:.18em;font-variant-numeric:tabular-nums"></b>
@@ -1425,11 +1426,13 @@ h2{font-weight:600}.kpi b{font-weight:600}
   if (!AUTHED) {
     $('#login').hidden = false;
     // Première connexion : pas de jeton à chercher, ce navigateur devient celui du propriétaire.
+    const CLAIM_WHY = __CLAIM_WHY__;
+    if (CLAIM_WHY) $('#pairWhy').textContent = `Pourquoi pas d'accès direct : ${CLAIM_WHY}.`;
     if (__CLAIMABLE__) {
       $('#claimBox').hidden = false; $('#tokenBox').hidden = true;
       $('#claimBtn').addEventListener('click', async () => {
         const r = await fetch('/api/claim', { method: 'POST', headers: { 'x-odin': '1' } }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
-        if (r.ok) location.replace('/'); else { $('#claimBox').hidden = true; $('#tokenBox').hidden = false; }
+        if (r.ok) location.replace('/'); else { $('#claimBox').hidden = true; $('#tokenBox').hidden = false; $('#pairWhy').textContent = r.error || ''; }
       });
     }
     // Demander l'accès : le propriétaire valide d'un geste, l'appareil entre sans jeton.
@@ -1438,7 +1441,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
       const r = await fetch('/api/pair', { method: 'POST', headers: { 'x-odin': '1' } }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
       if (!r.ok) { $('#pairMsg').textContent = r.error || 'Demande impossible.'; $('#pairBtn').disabled = false; return; }
       $('#pairBtn').hidden = true; $('#pairWait').hidden = false; $('#pairCode').textContent = r.code;
-      $('#pairMsg').textContent = `Demande envoyée pour « ${r.device} ». Vérifie que le code est le même, puis touche « Autoriser ».`;
+      $('#pairMsg').textContent = `Demande envoyée pour « ${r.device} ». Touche « Autoriser » sur Telegram ou sur un écran déjà connecté (le code doit être le même). Sans messagerie : sur la machine d'Odin, tape « odin acces ${r.code} ».`;
       const t0 = Date.now();
       const poll = async () => {
         const s = await fetch('/api/pair/status', { method: 'POST', headers: { 'x-odin': '1', 'x-pair': r.secret } }).then((x) => x.json()).catch(() => ({ state: 'attente' }));

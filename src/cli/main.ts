@@ -72,6 +72,7 @@ Usage : odin <commande>
   web access [lan|local|wan]   qui peut l'ouvrir : ton réseau local en HTTPS (défaut), cette machine,
                                ou Internet (--http : LAN sans chiffrement ; --proxy : proxy HTTPS devant)
   link  (ou web link)          affiche les liens personnels (avec jeton) pour ouvrir l'interface
+  acces [code]                 autorise un appareil qui a touché « Demander l'accès » (non <code> : refuser)
   web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
   update                       met Odin à jour
   auth add openai-codex        connexion à ton abonnement ChatGPT (Codex) ; auth list · auth remove openai-codex
@@ -732,6 +733,29 @@ async function main(): Promise<void> {
     console.log(`${c.cyan('ᛟ')} Liens personnels d'Odin (ils contiennent ton jeton : ne les partage pas) :`);
     for (const u of accessUrls(cfg.web, token)) console.log(`  ${u}`);
     if (!cfg.web.tls.enabled && cfg.web.access !== 'local') console.log(c.dim('  (HTTPS : le navigateur demandera d\'accepter le certificat d\'Odin une fois)'));
+    return;
+  }
+  if (cmd === 'acces' || cmd === 'accès') {
+    // Autoriser depuis la machine un appareil qui a touché « Demander l'accès » (quand il n'y a pas de Telegram).
+    const paths = odinPaths(); initHome(paths);
+    const cfg = loadConfig(paths), token = ensureWebToken(paths);
+    const { request } = await import(servesTls(cfg.web) ? 'node:https' : 'node:http');
+    const call = (path: string, body?: unknown) => new Promise<Record<string, unknown>>((res, rej) => {
+      const r = request({ host: '127.0.0.1', port: cfg.web.port, path, method: body ? 'POST' : 'GET', rejectUnauthorized: false, headers: { authorization: `Bearer ${token}`, 'x-odin': '1', 'content-type': 'application/json' } }, (x: import('node:http').IncomingMessage) => { let d = ''; x.on('data', (c: Buffer) => { d += c; }); x.on('end', () => { try { res(JSON.parse(d)); } catch { rej(new Error(`réponse inattendue (${x.statusCode})`)); } }); });
+      r.on('error', rej); r.end(body ? JSON.stringify(body) : undefined);
+    });
+    let st: Record<string, unknown>;
+    try { st = await call('/api/state'); } catch (e) { console.log(c.red(`Odin ne répond pas sur le port ${cfg.web.port} : ${(e as Error).message}. Lance-le (odin gateway ou systemctl --user start odin).`)); return; }
+    const reqs = (st.pairRequests ?? []) as Array<{ id: string; code: string; device: string; ip: string }>;
+    if (!reqs.length) { console.log('Aucune demande d\'accès en attente. Sur l\'appareil, touche « Demander l\'accès », puis relance « odin acces ».'); return; }
+    const refuse = /^(non|refuse[r]?|no)$/i.test(pos[1] ?? ''), code = (refuse ? pos[2] : pos[1]) ?? '';
+    const pick = code ? reqs.find((r) => r.code === code.replace(/\s/g, '')) : reqs.length === 1 ? reqs[0] : undefined;
+    if (!pick) {
+      console.log('Demandes en attente :'); for (const r of reqs) console.log(`  ${c.bold(r.code)}  ${r.device}, depuis ${r.ip}`);
+      console.log(code ? c.yellow(`Aucune demande avec le code ${code}.`) : 'Autorise avec : odin acces <code>   (refuser : odin acces non <code>)'); return;
+    }
+    const r = await call('/api/action', { kind: 'pair_decide', id: pick.id, ok: !refuse });
+    console.log(r.ok ? (refuse ? c.yellow(`✗ Accès refusé à ${pick.device} (code ${pick.code}).`) : c.green(`✓ ${pick.device} (code ${pick.code}) a maintenant accès à Odin.`)) : c.red(String(r.error ?? 'échec')));
     return;
   }
   if (cmd === 'web' && pos[1] === 'rotate') { ensureWebToken(odinPaths(), true); console.log(c.green('✓ Nouveau jeton : les anciens liens ne marchent plus. Relance « odin web » pour voir les nouveaux.')); return; }
