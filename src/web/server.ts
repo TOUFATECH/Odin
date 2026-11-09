@@ -286,6 +286,27 @@ export class WebChannel implements Channel {
       });
     };
     this.server = this.tls ? createHttpsServer({ key: this.tls.key, cert: this.tls.cert }, handler) : createServer(handler);
+    // Même port, deux portes : si quelqu'un tape « IP:7777 » sans « https:// », le navigateur essaie en http
+    // et affichait « page inaccessible ». On regarde le premier octet : 0x16 = début d'une connexion
+    // chiffrée (TLS) ; sinon c'est du http en clair, et on renvoie vers la même adresse en https.
+    if (this.tls) {
+      const srv = this.server, tlsListeners = srv.listeners('connection') as Array<(s: unknown) => void>;
+      srv.removeAllListeners('connection');
+      const plain = createServer((req, res) => {
+        const host = /^[\w.\-]+(:\d+)?$|^\[[0-9a-fA-F:]+\](:\d+)?$/.test(req.headers.host ?? '') ? req.headers.host! : `${req.socket.localAddress?.replace(/^::ffff:/, '')}:${this.port}`;
+        const path = (req.url ?? '/').startsWith('/') ? req.url! : '/';
+        res.writeHead(308, { location: `https://${host}${path}`, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+        res.end(`Odin est en HTTPS : https://${host}${path}`);
+      });
+      srv.on('connection', (sock: import('node:net').Socket) => {
+        sock.on('error', () => { /* client parti */ });
+        sock.once('data', (buf: Buffer) => {
+          sock.pause(); sock.unshift(buf);
+          if (buf[0] === 0x16) for (const l of tlsListeners) l.call(srv, sock); else plain.emit('connection', sock);
+          process.nextTick(() => sock.resume());
+        });
+      });
+    }
     const listen = (host: string) => new Promise<void>((r, j) => { this.server!.once('error', j); this.server!.listen(this.port, host, () => { this.server!.removeListener('error', j); r(); }); });
     try { await listen(this.host); } catch (e) {
       // Machine sans IPv6 : « :: » est refusé, on écoute alors sur toutes les adresses IPv4.

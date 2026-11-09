@@ -134,6 +134,13 @@ test('Internet : HTTPS avec certificat auto-signé, cookie Secure, empreinte aff
     assert.match(login.cookie, /HttpOnly; SameSite=Strict; .*Secure/);
     const st = JSON.parse((await get('/api/state', { authorization: `Bearer ${token}` })).body) as { access: { mode: string; https: boolean; fingerprint: string } };
     assert.deepEqual([st.access.mode, st.access.https, st.access.fingerprint], ['wan', true, tls.fingerprint]);
+    // « IP:port » tapé sans https:// : le même port renvoie vers https au lieu d'une page inaccessible.
+    const plain = await fetch(`http://127.0.0.1:${p}/?token=${token}`, { redirect: 'manual' });
+    assert.equal(plain.status, 308);
+    assert.equal(plain.headers.get('location'), `https://127.0.0.1:${p}/?token=${token}`);
+    const evil = await fetch(`http://127.0.0.1:${p}/`, { redirect: 'manual', headers: { host: 'evil.com/x' } });
+    assert.equal(evil.headers.get('location'), `https://127.0.0.1:${p}/`, 'hôte piégé : ignoré');
+    assert.equal((await get('/api/state', { authorization: `Bearer ${token}` })).code, 200, 'le https marche toujours après');
   } finally { await gw.stop(); o.cleanup(); }
 });
 
