@@ -50,6 +50,7 @@ import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { getAlarm } from '../home/alarm.ts';
+import { Pairing, type PairRequest } from './pairing.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
 import { allThreads } from '../muninn/threads.ts';
 import { ASK_KEY, type Ask } from '../learn/habits.ts';
@@ -76,6 +77,8 @@ export interface WebHooks {
   resume?(sessionId: string): Promise<void>;
   /** Relance les services avec la nouvelle configuration (fourni par la passerelle). */
   reload?(): Promise<void>;
+  /** Un appareil demande l'accès : prévenir le propriétaire (Telegram…) avec les boutons Autoriser / Refuser. */
+  pairAsk?(r: PairRequest): Promise<void> | void;
   /** Vörðr : contrôle de santé immédiat (renvoie les alertes envoyées). */
   watchNow?(): Promise<string[]>;
   /** Journal de bord maintenant. */
@@ -156,6 +159,7 @@ export class WebChannel implements Channel {
   private access: WebAccess;
   private tls?: TlsMaterial;
   private throttle = new AuthThrottle();
+  private pairing = new Pairing();
   /** Jeton précédent après rotation : refusé, mais pas compté comme une attaque. */
   private lastToken = '';
 
@@ -183,6 +187,12 @@ export class WebChannel implements Channel {
   // Odin reçoit l'accès, sans jeton : tant qu'Odin n'est pas configuré, ou dans l'heure qui suit son démarrage. Ensuite, le jeton
   // redevient obligatoire. Utile quand Odin tourne en service (LXC, serveur) et que personne n'a vu le lien.
   private readonly startedAt = Date.now();
+  /** Le propriétaire autorise ou refuse un appareil (bouton Telegram, écran connecté). */
+  pairDecide(id: string, ok: boolean): PairRequest | undefined {
+    const r = this.pairing.decide(id, ok);
+    if (r) { console.log(`[web] demande d'accès ${r.code} (${r.device}) : ${r.state}`); this.notify('state'); }
+    return r;
+  }
   private claimedFile(): string { return join(this.odin.paths.home, 'web-claimed'); }
   private markClaimed(by: string): void {
     if (existsSync(this.claimedFile())) return;
@@ -374,6 +384,23 @@ export class WebChannel implements Channel {
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
     }
     if (!url.pathname.startsWith('/api/')) return json(res, 404, { error: 'introuvable' });
+    // Demander l'accès sans jeton : le propriétaire valide d'un geste (Telegram ou écran déjà connecté).
+    if (req.method === 'POST' && url.pathname === '/api/pair') {
+      if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+      if (this.throttle.blocked(this.clientIp(req))) return json(res, 429, { error: 'trop d\'essais, réessaie plus tard' });
+      const r = this.pairing.request(String(req.headers['user-agent'] ?? ''), this.clientIp(req).replace(/^fwd:/, ''));
+      if (!r) return json(res, 429, { error: 'trop de demandes : attends quelques minutes' });
+      console.log(`[web] demande d'accès : ${r.device} depuis ${r.ip} (code ${r.code})`);
+      try { await this.hooks.pairAsk?.({ id: r.id, code: r.code, device: r.device, ip: r.ip, at: r.at, state: r.state }); } catch { /* le propriétaire verra la demande sur ses écrans */ }
+      this.notify('state');
+      return json(res, 200, { ok: true, secret: r.secret, code: r.code, device: r.device });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/pair/status') {
+      if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+      const st = this.pairing.collect(String(req.headers['x-pair'] ?? ''));
+      if (st === 'ok') { this.markClaimed('appareil autorisé'); res.setHeader('set-cookie', this.cookie(this.token)); }
+      return json(res, 200, { state: st });
+    }
     if (req.method === 'POST' && url.pathname === '/api/claim') {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
       if (!this.claimable(req)) return json(res, 403, { error: 'la première connexion est déjà faite : utilise le lien avec jeton (odin web link)' });
@@ -604,6 +631,7 @@ export class WebChannel implements Channel {
       vault: vaultState(this.odin.paths.home),
       dryRun: this.odin.agent.dryRun(),
       today: this.today(),
+      pairRequests: this.pairing.pending(),
       alarm: { ...getAlarm(this.odin.muninn), twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) },
       version: { ...this.versions(), update: (() => { try { return JSON.parse(this.odin.muninn.getKv('update-info') ?? 'null'); } catch { return null; } })(), auto: this.odin.cfg.update?.auto ?? 'notify' },
       quiet: cfg.quiet,
@@ -692,6 +720,10 @@ export class WebChannel implements Channel {
       case 'device_label': inventory.setLabel(String(b.id), String(b.label ?? '')); break;
       case 'cron_remove': muninn.removeJob(String(b.id)); break;
       case 'grant_revoke': muninn.revokeGrant(Number(b.id)); break;
+      case 'pair_decide': {
+        const r = this.pairDecide(String(b.id ?? ''), b.ok === true);
+        return r ? { ok: true, state: r.state } : { ok: false, error: 'demande expirée' };
+      }
       case 'set_control': {
         // Les trois réglages du moment (écran Aujourd'hui) : autonomie, disponibilité, discrétion.
         const v = String(b.value ?? '');

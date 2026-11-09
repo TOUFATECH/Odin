@@ -16,7 +16,7 @@ export interface Channel {
   readonly interactive: boolean;
   start(onMessage: (m: Inbound) => Promise<void>): Promise<void>;
   /** mood : l'humeur d'Odin, montrée à la fin du texte quand le canal sait le faire (son visage en émoji sur Telegram). */
-  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string }; /** Nouvelle version : bouton « Mettre à jour ». */ update?: { version: string }; /** Coupure parentale imminente : boutons pour prolonger. */ parental?: { id: string }; /** Réveil : « Je suis réveillé » / « +5 min ». */ alarm?: { attempt: number } }): Promise<void>;
+  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string }; /** Nouvelle version : bouton « Mettre à jour ». */ update?: { version: string }; /** Coupure parentale imminente : boutons pour prolonger. */ parental?: { id: string }; /** Réveil : « Je suis réveillé » / « +5 min ». */ alarm?: { attempt: number }; /** Appareil qui demande l'accès : Autoriser / Refuser. */ pair?: { id: string } }): Promise<void>;
   /** « Odin écrit… » pendant qu'il travaille. */
   typing?(peer: string): Promise<void>;
   stop(): Promise<void>;
@@ -53,12 +53,14 @@ export function buttonText(data: string): string | undefined {
   const hb = /^hb:(oui|non)$/.exec(data); if (hb) return `/habitude ${hb[1]}`;
   if (data === 'al:ok') return '/reveil ok'; const al = /^al:(\d+)$/.exec(data); if (al) return `/reveil ${al[1]}`;
   const pc = /^pc:(\d+):(\S+)$/.exec(data); if (pc) return `/parental ${pc[2]} ${pc[1]}`;
+  const pa = /^pa:(ok|no):([a-f0-9]{12})$/.exec(data); if (pa) return `/acces ${pa[1] === 'ok' ? 'ok' : 'non'} ${pa[2]}`;
   if (data === 'up:go') return '/update'; if (data === 'up:later') return '/update plus tard';
   return undefined;
 }
 
 /** Boutons à montrer sous un message, selon ses options (validation, rappel, habitude). Pur. */
-export function buttonsFor(opts: { approval?: { id: string; grantable?: boolean }; reminder?: { id: string }; habit?: { key: string }; update?: { version: string }; parental?: { id: string }; alarm?: { attempt: number } } = {}): Array<{ id: string; label: string }> {
+export function buttonsFor(opts: { approval?: { id: string; grantable?: boolean }; reminder?: { id: string }; habit?: { key: string }; update?: { version: string }; parental?: { id: string }; alarm?: { attempt: number }; pair?: { id: string } } = {}): Array<{ id: string; label: string }> {
+  if (opts.pair) return [{ id: `pa:ok:${opts.pair.id}`, label: '✅ Autoriser' }, { id: `pa:no:${opts.pair.id}`, label: '❌ Refuser' }];
   if (opts.alarm) return [{ id: 'al:ok', label: '☀️ Je suis réveillé' }, { id: 'al:5', label: '😴 +5 min' }, { id: 'al:10', label: '😴 +10 min' }];
   if (opts.parental) return [15, 30, 60].map((m) => ({ id: `pc:${m}:${opts.parental!.id}`, label: `+${m < 60 ? `${m} min` : '1 h'}` }));
   if (opts.update) return [{ id: 'up:go', label: '⬆️ Mettre à jour' }, { id: 'up:later', label: 'Plus tard' }];

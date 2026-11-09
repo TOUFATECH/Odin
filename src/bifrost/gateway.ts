@@ -177,6 +177,15 @@ export class Gateway {
       if (r && r.state === 'blocked') await applyParental({ kv: this.odin.muninn, home: this.odin.paths.home, inventory: this.odin.inventory as never }).catch(() => []);
       return ch.send(m.peer, r ? `✅ ${r.label} : Internet jusqu'à ${new Date(r.until!).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.` : 'Règle introuvable.');
     }
+    // Appareil qui demande l'accès à l'interface : /acces ok|non <id> (boutons), propriétaire seulement.
+    const ac = /^\/acc[eè]s (ok|non) ([a-f0-9]{12})$/i.exec(text);
+    if (ac) {
+      if (!owner) return ch.send(m.peer, 'Seul le propriétaire peut autoriser un appareil.');
+      const web = this.channels.get('web') as unknown as { pairDecide?(id: string, ok: boolean): { state: string; device: string; code: string } | undefined } | undefined;
+      const r = web?.pairDecide?.(ac[2], ac[1].toLowerCase() === 'ok');
+      if (!r) return ch.send(m.peer, 'Cette demande a expiré (10 min) : redemande l\'accès depuis l\'appareil.');
+      return ch.send(m.peer, r.state === 'ok' ? `✅ ${r.device} (code ${r.code}) a maintenant accès à Odin.` : `❌ Accès refusé à ${r.device} (code ${r.code}).`);
+    }
     // Mise à jour d'Odin : bouton « Mettre à jour » ou /update (propriétaire seulement).
     if (owner && /^\/(update|maj)\b/i.test(text)) {
       if (/plus tard/i.test(text)) return ch.send(m.peer, '👌 D\'accord, je te le redemanderai à la prochaine version.');
@@ -436,6 +445,14 @@ export class Gateway {
     if (t) await t.ch.send(t.peer, text).catch(() => {});
     void pushAll(this.odin.paths.home, { title: 'Odin', body: text, view, tag: 'odin-' + view }).catch(() => 0);
     for (const ch of this.channels.values()) ch.notify?.('watch');
+  }
+
+  /** Un appareil demande l'accès à l'interface : le propriétaire reçoit Autoriser / Refuser (Telegram…). */
+  async pairAsk(r: { id: string; code: string; device: string; ip: string }): Promise<void> {
+    const text = `🔐 Un appareil demande l'accès à Odin : ${r.device}, depuis ${r.ip}.\nCode affiché sur son écran : ${r.code}\nAutorise seulement si c'est toi (le code doit être le même).`;
+    const t = this.ownerTarget();
+    if (t && t.ch.name !== 'web') await t.ch.send(t.peer, text, { pair: { id: r.id } }).catch(() => {});
+    void pushAll(this.odin.paths.home, { title: 'Odin : demande d\'accès', body: `${r.device} · code ${r.code}`, view: 'home', tag: 'odin-acces' }).catch(() => 0);
   }
 
   /** Services surveillés (toutes les 5 min), mises à jour planifiées, journal du soir. */

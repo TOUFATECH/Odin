@@ -796,12 +796,23 @@ h2{font-weight:600}.kpi b{font-weight:600}
     <span class="hint">Possible une seule fois, depuis ton réseau local, pour la première configuration.</span>
   </div>
   <div id="tokenBox">
-  <p class="sub">Ouvre le lien personnel d'Odin (il contient ton jeton), ou colle le jeton ici.</p>
-  <form id="loginForm" method="get" action="/" style="display:flex;flex-direction:column;gap:10px">
+  <div id="pairBox" style="display:flex;flex-direction:column;gap:12px;text-align:center">
+    <p style="margin:0;font-size:18px;font-weight:600">Cet appareil n'a pas encore accès</p>
+    <p class="sub" style="margin:0" id="pairMsg">Demande l'accès : Odin te l'envoie sur Telegram (ou sur un écran déjà connecté). Tu touches « Autoriser », et c'est tout.</p>
+    <button class="btn primary" type="button" id="pairBtn">Demander l'accès</button>
+    <div id="pairWait" hidden style="display:flex;flex-direction:column;gap:8px;align-items:center">
+      <span class="sub">Code à vérifier sur la demande :</span>
+      <b id="pairCode" style="font-size:34px;letter-spacing:.18em;font-variant-numeric:tabular-nums"></b>
+      <span class="sub" role="status" id="pairState">En attente de ta validation…</span>
+    </div>
+  </div>
+  <details style="margin-top:14px" id="tokDetails"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">J'ai un jeton d'accès</summary>
+  <form id="loginForm" method="get" action="/" style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
     <label for="tok">Jeton d'accès</label>
     <input id="tok" name="token" autocomplete="off" required>
-    <button class="btn primary" type="submit">Entrer</button>
+    <button class="btn" type="submit">Entrer</button>
   </form>
+  </details>
   <details style="margin-top:12px"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Où trouver mon lien ?</summary>
     <div class="sub" style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
       <span>Sur la machine d'Odin, tape : <code>odin link</code> (affiche les liens avec jeton).</span>
@@ -1380,6 +1391,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
   // Humeur de fond choisie par la mascotte elle-même selon la situation (sauf si Odin vient d'en choisir une).
   let modelMoodAt = 0;
   function contextMood() {
+    if (!AUTHED) return null; // page d'accès : pas encore de données
     if (!state || Date.now() - modelMoodAt < 5 * 60_000) return null;
     const h = new Date().getHours(), F = state.watch?.findings || [];
     if (F.some((f) => f.level === 'grave')) return 'inquiet';
@@ -1417,9 +1429,26 @@ h2{font-weight:600}.kpi b{font-weight:600}
       $('#claimBox').hidden = false; $('#tokenBox').hidden = true;
       $('#claimBtn').addEventListener('click', async () => {
         const r = await fetch('/api/claim', { method: 'POST', headers: { 'x-odin': '1' } }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
-        if (r.ok) location.replace('/'); else { $('#claimBox').hidden = true; $('#tokenBox').hidden = false; $('#tokenBox .sub').textContent = r.error; }
+        if (r.ok) location.replace('/'); else { $('#claimBox').hidden = true; $('#tokenBox').hidden = false; }
       });
     }
+    // Demander l'accès : le propriétaire valide d'un geste, l'appareil entre sans jeton.
+    $('#pairBtn').addEventListener('click', async () => {
+      $('#pairBtn').disabled = true;
+      const r = await fetch('/api/pair', { method: 'POST', headers: { 'x-odin': '1' } }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
+      if (!r.ok) { $('#pairMsg').textContent = r.error || 'Demande impossible.'; $('#pairBtn').disabled = false; return; }
+      $('#pairBtn').hidden = true; $('#pairWait').hidden = false; $('#pairCode').textContent = r.code;
+      $('#pairMsg').textContent = `Demande envoyée pour « ${r.device} ». Vérifie que le code est le même, puis touche « Autoriser ».`;
+      const t0 = Date.now();
+      const poll = async () => {
+        const s = await fetch('/api/pair/status', { method: 'POST', headers: { 'x-odin': '1', 'x-pair': r.secret } }).then((x) => x.json()).catch(() => ({ state: 'attente' }));
+        if (s.state === 'ok') { $('#pairState').textContent = 'Accès donné. Bienvenue !'; return setTimeout(() => location.replace('/'), 600); }
+        if (s.state === 'refus') { $('#pairState').textContent = 'Accès refusé.'; $('#pairBtn').hidden = false; $('#pairBtn').disabled = false; return; }
+        if (s.state === 'inconnue' || Date.now() - t0 > 10 * 60_000) { $('#pairState').textContent = 'La demande a expiré. Tu peux la refaire.'; $('#pairBtn').hidden = false; $('#pairBtn').disabled = false; $('#pairWait').hidden = true; return; }
+        setTimeout(poll, 2000);
+      };
+      setTimeout(poll, 1500);
+    });
     return;
   }
   $('#app').hidden = false;
@@ -2261,6 +2290,8 @@ h2{font-weight:600}.kpi b{font-weight:600}
     const F = state.watch?.findings || [], grave = F.filter((f) => f.level === 'grave').length, warn = F.filter((f) => f.level === 'attention').length;
     const watched = (state.watch?.cfg?.devices || []).map((id) => d.find((x) => x.id === id)).filter(Boolean);
     const todo = [];
+    for (const pr of state.pairRequests || []) todo.push(el('li', {}, el('div', {}, el('b', {}, `🔐 ${pr.device} demande l'accès`), el('div', { class: 'sub' }, `Depuis ${pr.ip} · code ${pr.code} (il doit être le même sur l'appareil)`)),
+      el('div', { class: 'hbtns' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => api('/api/action', { kind: 'pair_decide', id: pr.id, ok: true }) }, 'Autoriser'), el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'pair_decide', id: pr.id, ok: false }) }, 'Refuser'))));
     if (pending.size) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('chat'); } }, `${pending.size} validation(s) t'attendent`)));
     if (state.drafts?.length) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('skills'); } }, `${state.drafts.length} compétence(s) à relire`)));
     if (S.demo) todo.push(el('li', {}, el('a', { href: '#', onclick: (e) => { e.preventDefault(); show('settings'); openSettings('modele'); } }, 'Choisir le modèle d\'Odin')));

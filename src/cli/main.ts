@@ -270,7 +270,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), updateNow: () => gw!.updateNow(), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), updateNow: () => gw!.updateNow(), pairAsk: (r) => gw!.pairAsk(r), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {
