@@ -22,3 +22,12 @@ test('charte : contrôle qualité et place dans le prompt', () => {
   assert.ok(sys.indexOf('## Charte de réponse') < sys.indexOf('## Contexte'), 'la charte vient juste après la personnalité');
   assert.doesNotMatch(sys, /niveau de certitude sur chaque fait/);
 });
+
+test('thème « Clair épuré » : choix dans Réglages → Apparence, appliqué avant l\'affichage', async () => {
+  const { readFileSync } = await import('node:fs');
+  const ui = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8');
+  assert.match(ui, /data-sec="apparence"/);
+  assert.match(ui, /class="skin" data-skin="epure"/);
+  assert.match(ui, /:root\[data-skin=epure\]\{color-scheme:light;--bg:#FFFFFF;/);
+  assert.ok(ui.indexOf('localStorage.getItem("odin.skin")') < ui.indexOf('<body'), 'appliqué dans <head> : pas d\'éclair de l\'ancien thème');
+});

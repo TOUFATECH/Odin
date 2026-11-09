@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Odin</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script nonce="__NONCE__">try{if(localStorage.getItem("odin.skin")==="epure"){document.documentElement.dataset.skin="epure";document.documentElement.dataset.theme="light";}}catch(e){}</script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="theme-color" content="#0F1115">
@@ -783,6 +784,49 @@ h2{font-weight:600}.kpi b{font-weight:600}
 .pal .ph{font-size:12px;color:var(--dim);padding:8px 12px 2px;text-transform:uppercase;letter-spacing:.06em}
 .palbtn{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--muted);font-size:14px;width:100%;margin:0 0 10px}
 .palbtn kbd{margin-left:auto;font:12px var(--body);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+/* ================= Thème « Clair épuré » (Réglages → Apparence) =================
+   Blanc, une seule couleur d'action (bleu profond), gris pour le reste ; orange et rouge seulement pour
+   alerter. Toujours clair. Mêmes écrans et mêmes fonctions que le thème Odin : seul l'habillage change. */
+:root[data-skin=epure]{color-scheme:light;--bg:#FFFFFF;--panel:#FFFFFF;--panel2:#FBFBFC;--line:#E6E7EA;--ink:#0F1114;--muted:#4A505A;--dim:#5F6570;--accent:#1F4FD1;--accent-2:#163A9C;--good:#12784A;--warn:#9A5800;--bad:#B3261E;
+  --field:#D5D8DE;--field-h:#B9BEC7;--hover:#F2F3F5;--sel:#EEF2FD;--user:#F2F3F5;--user-l:#F2F3F5;--warn-l:#F3D9AD;--warn-bg:#FFF9EF;--bad-l:#F2C4C0;--bad-bg:#FDEEEC;--bad-l2:#F2C4C0;--good-l:#B9DFCB;--on-accent:#FFFFFF;--off:#A9AFB9;--shadow:none;--r:12px;--odin-tint:#0F1114}
+:root[data-skin=epure] body{background:#FFFFFF}
+:root[data-skin=epure] nav.side{background:#FBFBFC;border-right-color:#E6E7EA}
+:root[data-skin=epure] .tab{border-radius:8px;color:#4A505A}
+:root[data-skin=epure] .tab:hover{background:#F2F3F5;color:#0F1114}
+:root[data-skin=epure] .tab[aria-current=page]{background:#EEF2FD;color:#0F1114;font-weight:500}
+:root[data-skin=epure] .view .head h1{font-size:32px;letter-spacing:-.02em}
+:root[data-skin=epure] .card,:root[data-skin=epure] .hpanel,:root[data-skin=epure] .hcard,:root[data-skin=epure] .ctrl{border-color:#E6E7EA;box-shadow:none;background:#FFFFFF}
+:root[data-skin=epure] .btn{border-radius:8px;background:#FFFFFF;border-color:#E6E7EA}
+:root[data-skin=epure] .btn:hover{background:#F2F3F5}
+:root[data-skin=epure] .btn.primary{background:#1F4FD1;border-color:#1F4FD1;color:#FFFFFF}
+:root[data-skin=epure] .btn.primary:hover{background:#163A9C;border-color:#163A9C}
+:root[data-skin=epure] .msg.user{background:#F2F3F5;border-color:#F2F3F5}
+:root[data-skin=epure] .cbox{border-color:#D5D8DE;border-radius:14px}
+:root[data-skin=epure] .cbox:focus-within{border-color:#1F4FD1;box-shadow:0 0 0 3px rgba(31,79,209,.14)}
+/* Sélecteurs : une piste grise, l'option choisie en blanc */
+:root[data-skin=epure] .seg{border:0;background:#F2F3F5;border-radius:9px;padding:3px;gap:2px}
+:root[data-skin=epure] .seg button{border-radius:7px;color:#4A505A;min-height:34px}
+:root[data-skin=epure] .seg button[aria-pressed=true]{background:#FFFFFF;color:#0F1114;box-shadow:0 1px 2px rgba(15,17,20,.12)}
+:root[data-skin=epure] .seg button.brk[aria-pressed=true]{background:#FFFFFF;color:#B3261E}
+:root[data-skin=epure] .guess{border-color:#E6E7EA;background:#FFFFFF}
+:root[data-skin=epure] .guess.top{background:#F5F8FF;border-color:#BBCBF5}
+:root[data-skin=epure] .guess:hover{border-color:#1F4FD1;background:#FFFFFF}
+:root[data-skin=epure] .sect-t{color:#6B717C;font-size:13px}
+:root[data-skin=epure] .schip[aria-selected=true]{background:#EEF2FD;color:#0F1114;border-color:#BBCBF5}
+:root[data-skin=epure] .bnav{background:#FFFFFF;border-top-color:#E6E7EA}
+:root[data-skin=epure] .bnav .tab[aria-current=page]{background:none;color:#1F4FD1}
+:root[data-skin=epure] .pal{border-color:#E6E7EA;box-shadow:0 24px 64px rgba(15,17,20,.25)}
+:root[data-skin=epure] .palette{background:rgba(15,17,20,.32)}
+:root[data-skin=epure] .hstate{background:#FFFFFF}
+:root[data-skin=epure] .hstate.warn{background:#FFF9EF;border-color:#F3D9AD}
+:root[data-skin=epure] .hstate.bad{background:#FDEEEC;border-color:#F2C4C0}
+:root[data-skin=epure] .person i{background:#EEF2FD;color:#1F4FD1}
+/* Choix du thème (Réglages → Apparence) */
+.skins{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.skin{display:flex;flex-direction:column;gap:10px;text-align:left;padding:12px;border:2px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink)}
+.skin[aria-pressed=true]{border-color:var(--accent)}
+.skin .pv{height:92px;border-radius:8px;display:flex;overflow:hidden;border:1px solid var(--line)}
+.skin .pv i{display:block}
 </style>
 </head>
 <body>
@@ -943,7 +987,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
-      <div class="snavrow"><div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="maj" role="tab">Mises à jour</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="venus" role="tab">Venus</button><button type="button" class="schip" data-sec="reveil" role="tab">Réveil</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button></div><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
+      <div class="snavrow"><div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="maj" role="tab">Mises à jour</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="venus" role="tab">Venus</button><button type="button" class="schip" data-sec="reveil" role="tab">Réveil</button><button type="button" class="schip" data-sec="apparence" role="tab">Apparence</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button></div><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
@@ -1264,6 +1308,23 @@ h2{font-weight:600}.kpi b{font-weight:600}
 
           <article class="card" data-sec="entretien"><div class="form" id="more-entretien"></div></article>
           <article class="card" data-sec="maison"><div class="form" id="more-maison"></div></article>
+          <article class="card" data-sec="apparence">
+            <h2>🎨 Apparence</h2>
+            <p class="sub" style="margin:0">Deux thèmes, les mêmes écrans. Le choix est gardé sur cet appareil.</p>
+            <div class="skins" role="group" aria-label="Thème">
+              <button type="button" class="skin" data-skin="odin" aria-pressed="false">
+                <span class="pv" aria-hidden="true"><i style="width:28%;background:#13161B"></i><i style="flex:1;background:#0F1115;position:relative"><i style="position:absolute;left:12%;top:22%;width:46%;height:12%;background:#7AA2FF;border-radius:4px"></i><i style="position:absolute;left:12%;top:48%;width:70%;height:30%;background:#171A20;border:1px solid #262A33;border-radius:6px"></i></i></span>
+                <b>Odin</b><span class="sub" style="margin:0">Le thème d'origine, clair ou sombre.</span>
+              </button>
+              <button type="button" class="skin" data-skin="epure" aria-pressed="false">
+                <span class="pv" aria-hidden="true"><i style="width:28%;background:#FBFBFC;border-right:1px solid #E6E7EA"></i><i style="flex:1;background:#FFFFFF;position:relative"><i style="position:absolute;left:12%;top:22%;width:46%;height:12%;background:#1F4FD1;border-radius:4px"></i><i style="position:absolute;left:12%;top:48%;width:70%;height:30%;background:#FFFFFF;border:1px solid #E6E7EA;border-radius:6px"></i></i></span>
+                <b>Clair épuré</b><span class="sub" style="margin:0">Blanc, une seule couleur d'action, très lisible.</span>
+              </button>
+            </div>
+            <div class="field"><span id="modeLbl" style="font-weight:600;font-size:14px">Clair ou sombre (thème Odin)</span>
+              <div class="seg" id="modeSeg" role="group" aria-labelledby="modeLbl"><button type="button" data-mode="auto">Auto</button><button type="button" data-mode="clair">Clair</button><button type="button" data-mode="sombre">Sombre</button></div>
+              <span class="hint" id="modeHint"></span></div>
+          </article>
           <article class="card" data-sec="reveil"><form class="form" id="f-alarm">
             <h2>⏰ Réveil</h2>
             <p class="sub" style="margin:0">Odin te réveille et insiste toutes les 5 minutes jusqu'à ce que tu répondes « je suis réveillé » : appel téléphonique, alarme sur ton téléphone (même en silencieux), enceintes, message et note vocale. Il passe toujours, même en « Ne pas déranger ».</p>
@@ -1494,8 +1555,24 @@ h2{font-weight:600}.kpi b{font-weight:600}
   // Thème : auto (suit l'appareil), clair, sombre.
   const THEMES = ['auto', 'clair', 'sombre'];
   let theme = 'auto'; try { theme = localStorage.getItem('odin.theme') || 'auto'; } catch {}
-  function applyTheme() { document.documentElement.dataset.theme = theme === 'clair' ? 'light' : theme === 'sombre' ? 'dark' : ''; if (!document.documentElement.dataset.theme) delete document.documentElement.dataset.theme; $('#themeBtn').textContent = 'Thème : ' + theme; }
-  $('#themeBtn').addEventListener('click', () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; try { localStorage.setItem('odin.theme', theme); } catch {} applyTheme(); });
+  // Habillage : « odin » (le thème d'origine, clair ou sombre) ou « epure » (Clair épuré, toujours clair).
+  let skin = 'odin'; try { skin = localStorage.getItem('odin.skin') === 'epure' ? 'epure' : 'odin'; } catch {}
+  function applyTheme() {
+    const root = document.documentElement;
+    if (skin === 'epure') { root.dataset.skin = 'epure'; root.dataset.theme = 'light'; }
+    else { delete root.dataset.skin; root.dataset.theme = theme === 'clair' ? 'light' : theme === 'sombre' ? 'dark' : ''; if (!root.dataset.theme) delete root.dataset.theme; }
+    $('#themeBtn').textContent = skin === 'epure' ? 'Thème : Clair épuré' : 'Thème : ' + theme;
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content', skin === 'epure' ? '#FFFFFF' : '#0F1115');
+    for (const b of document.querySelectorAll('.skin[data-skin]')) b.setAttribute('aria-pressed', String(b.dataset.skin === skin));
+    for (const b of document.querySelectorAll('#modeSeg button')) { b.setAttribute('aria-pressed', String(b.dataset.mode === theme)); b.disabled = skin === 'epure'; }
+    const h = $('#modeHint'); if (h) h.textContent = skin === 'epure' ? 'Clair épuré est toujours clair.' : 'Auto suit le réglage de ton appareil.';
+  }
+  function setSkin(s) { skin = s === 'epure' ? 'epure' : 'odin'; try { localStorage.setItem('odin.skin', skin); } catch {} applyTheme(); }
+  function setMode(m) { theme = THEMES.includes(m) ? m : 'auto'; try { localStorage.setItem('odin.theme', theme); } catch {} applyTheme(); }
+  // Le petit bouton du menu fait le tour : auto → clair → sombre → Clair épuré.
+  $('#themeBtn').addEventListener('click', () => { if (skin === 'epure') { setSkin('odin'); setMode('auto'); } else if (theme === 'sombre') setSkin('epure'); else setMode(THEMES[(THEMES.indexOf(theme) + 1) % 3]); });
+  for (const b of document.querySelectorAll('.skin[data-skin]')) b.addEventListener('click', () => setSkin(b.dataset.skin));
+  for (const b of document.querySelectorAll('#modeSeg button')) b.addEventListener('click', () => setMode(b.dataset.mode));
   applyTheme();
 
   // ---------- Réglages : une rubrique à la fois ----------
@@ -1509,7 +1586,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
   }
   for (const b of document.querySelectorAll('.schip[data-sec]')) b.addEventListener('click', () => openSettings(b.dataset.sec));
   // Rubriques en haut selon ton usage : les plus utilisées (et celle ouverte), 5 au plus ; le reste dans « Tous les réglages ».
-  const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
+  const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'apparence', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
   const secUse = () => { try { return JSON.parse(localStorage.getItem('odin.secUse') || '{}'); } catch { return {}; } };
   const DEFAULT_TOP = ['modele', 'autonomie', 'telegram', 'reseau', 'droits'];
   function rankChips(cur) {
@@ -2437,7 +2514,9 @@ h2{font-weight:600}.kpi b{font-weight:600}
     out.push({ g: 'Actions', label: 'Vérifier la maison maintenant', run: () => { show('home'); $('#homeCheck').click(); } });
     out.push({ g: 'Actions', label: 'Balayage du réseau', run: () => { show('net'); $('#scanQuick').click(); } });
     out.push({ g: 'Actions', label: 'Nouvelle conversation', run: () => { show('chat'); $('#newConv')?.click(); } });
-    out.push({ g: 'Actions', label: 'Changer le thème (clair / sombre)', run: () => $('#themeBtn').click() });
+    out.push({ g: 'Apparence', label: 'Thème : Clair épuré', run: () => setSkin('epure') });
+    out.push({ g: 'Apparence', label: 'Thème : Odin (clair / sombre)', run: () => setSkin('odin') });
+    out.push({ g: 'Apparence', label: 'Réglages d\'apparence', run: () => { show('settings'); openSettings('apparence'); } });
     out.push({ g: 'Actions', label: 'Mises à jour d\'Odin', run: () => { show('settings'); openSettings('maj'); } });
     for (const [k, c] of Object.entries(CTRL)) for (const [v, l] of c.opts) out.push({ g: c.t, label: `${c.t} : ${l}`, run: () => api('/api/action', k === 'autonomy' ? { kind: 'set_autonomy', autonomy: v } : { kind: 'set_control', control: k, value: v }) });
     return out;
