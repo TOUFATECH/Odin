@@ -424,7 +424,8 @@ export class Gateway {
 
   private async tellOwner(text: string, view = 'home', urgent = false): Promise<void> {
     // Ne pas déranger : hors urgence, le message attend le rapport du matin (ou la fin du rendez-vous).
-    if (!urgent && this.quietNow()) {
+    // Discrétion « seulement l'urgent » : le reste attend le bilan, comme pendant « Ne pas déranger ».
+    if (!urgent && (this.quietNow() || this.odin.muninn.getKv('discretion') === 'urgent')) {
       const l = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[]; l.push(text.slice(0, 1500)); this.odin.muninn.setKv('deferred', JSON.stringify(l.slice(-30)));
       for (const ch of this.channels.values()) ch.notify?.('watch');
       return;

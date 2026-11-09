@@ -26,6 +26,7 @@ import type { Yggdrasil } from '../yggdrasil/skills.ts';
 import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForSummary } from './compaction.ts';
 import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
+import { polishReply } from './style.ts';
 import { listMachines, rightsSummary } from '../machines/access.ts';
 import { activeProfile } from '../profiles.ts';
 import { pendingSecretHint } from '../tools/onboard.ts';
@@ -301,7 +302,8 @@ export class Agent {
 
       const tagged = extractMood(reply.text);
       if (tagged.mood) modelMood = tagged.mood;
-      const assistant: Message = { role: 'assistant', content: redactor.redact(tagged.text), toolCalls: reply.toolCalls.length ? reply.toolCalls : undefined };
+      const shown = !reply.toolCalls.length && depth === 0 ? polishReply(tagged.text, tools.all().map((x) => x.name)) : tagged.text;
+      const assistant: Message = { role: 'assistant', content: redactor.redact(shown), toolCalls: reply.toolCalls.length ? reply.toolCalls : undefined };
       history.push(assistant);
       turnLog.push(assistant);
       muninn.addMessage(o.sessionId, assistant);

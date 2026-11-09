@@ -17,6 +17,8 @@
 
 ## Ce que fait Odin
 
+**Odin 1.0** : quatre espaces (Aujourd'hui, Discussion, Maison, Réglages), une barre de commande (`Ctrl K` ou `/`), et un écran Aujourd'hui qui devine ce que tu veux faire selon tes habitudes, tes conversations en suspens, tes rappels et l'état de la maison. Trois réglages suffisent : autonomie, disponibilité, discrétion. Chaque réponse suit une charte (la réponse d'abord, court, sans jargon), appliquée aussi par le code.
+
 - **Il travaille pour toi** : fichiers, commandes, recherche web, messages, tâches planifiées, sous-agents en parallèle.
 - **Il vit où tu es** : interface web locale, terminal, Telegram, API HTTP.
 - **Il décide seul la routine, de façon transparente** : chaque action reçoit une gravité. La routine est faite et annoncée ; l'important et le grave te sont demandés.
@@ -356,7 +358,7 @@ Réglages → Personnalité : un ton (et une voix) par contexte — « Maison »
 Recherche dans toutes tes conversations, épingles, renommage, export en PDF (menu ⋯ de chaque conversation).
 
 ### Tout tester, pour de vrai
-Bouton **Tout tester** sur l'Accueil (ou `odin test`) : Odin essaie réellement chaque fonction reliée — modèle, Telegram, mail, agenda, Proxmox, Home Assistant, recherche web, mémoire par le sens, sauvegardes, accès extérieur, notifications — et dit pour chacune ✅ / ❌ / ⚪ (non reliée) avec quoi faire si ça ne marche pas.
+Bouton **Tout tester** sur l'écran Aujourd'hui (ou `odin test`) : Odin essaie réellement chaque fonction reliée — modèle, Telegram, mail, agenda, Proxmox, Home Assistant, recherche web, mémoire par le sens, sauvegardes, accès extérieur, notifications — et dit pour chacune ✅ / ❌ / ⚪ (non reliée) avec quoi faire si ça ne marche pas.
 
 ### Il apprend de ses erreurs et choisit le bon modèle
 Quand tu le corriges (« non, c'est… »), Odin en tire une leçon qu'il relit avant les tâches semblables. Il mesure aussi quel modèle réussit le mieux chaque type de tâche (réseau, web, code…) et le choisit en priorité.

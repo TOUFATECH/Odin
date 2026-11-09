@@ -50,6 +50,11 @@ import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { getAlarm } from '../home/alarm.ts';
+import { activityFeed, guessIntents } from '../core/today.ts';
+import { allThreads } from '../muninn/threads.ts';
+import { ASK_KEY, type Ask } from '../learn/habits.ts';
+import { getMode, setMode, type LifeMode } from '../tools/everyday.ts';
+import { isReminderJob, reminderText } from '../cron/reminders.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { TTS_DEFAULTS, cloneVoice, listVoices, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../voice/voice.ts';
 
@@ -89,7 +94,7 @@ export interface WebHooks {
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
 const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
 // Application installable (PWA) : icônes, manifeste, service worker (aucun secret dedans).
-const FONTS: Record<string, Buffer> = Object.fromEntries(['bricolage-grotesque-latin-700-normal', 'bricolage-grotesque-latin-800-normal', 'ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
+const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
 const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
 const MANIFEST = JSON.stringify({
   name: 'Odin Agent IA', short_name: 'Odin', description: 'Ton agent IA personnel', lang: 'fr', start_url: '/', scope: '/', display: 'standalone',
@@ -319,7 +324,7 @@ export class WebChannel implements Channel {
       const nonce = randomBytes(16).toString('base64');
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
-        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         // HSTS seulement avec un vrai certificat (le tien, ou celui du tunnel / proxy HTTPS) : jamais avec le certificat auto-signé du réseau local.
         ...((this.tls && !this.tls.selfSigned) || (ip.startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? ''))) ? { 'strict-transport-security': 'max-age=31536000' } : {}),
@@ -503,6 +508,26 @@ export class WebChannel implements Channel {
     return json(res, 404, { error: 'introuvable' });
   }
 
+  /** Écran Aujourd'hui : ce qu'Odin devine, les trois réglages du moment, le fil d'activité. */
+  private today(): unknown {
+    const { muninn, inventory } = this.odin, now = Date.now();
+    const j = <T>(k: string, d: T): T => { try { const v = muninn.getKv(k); return v ? JSON.parse(v) as T : d; } catch { return d; } };
+    const devices = inventory.list({ status: 'all' });
+    const agenda = j<Array<{ start: number; title: string }>>('agenda-today', []).filter((e) => e.start > now).sort((a, b) => a.start - b.start);
+    const guesses = guessIntents({
+      now: new Date(now), asks: j<Ask[]>(ASK_KEY, []), threads: allThreads(muninn),
+      reminders: muninn.listJobs().filter(isReminderJob).map((x) => ({ at: x.next_run, text: reminderText(x) })).sort((a, b) => a.at - b.at),
+      findings: auditNetwork(devices), newUnknown: devices.filter((d) => d.kind === 'inconnu' && now - d.first_seen < 48 * 3600_000).length,
+      nextEvent: agenda[0], dismissed: j<Record<string, number>>('guess-dismissed', {}),
+    });
+    const mode = getMode(muninn);
+    return {
+      guesses,
+      controls: { autonomy: this.odin.cfg.mimir.autonomy, mode: mode.mode, modeUntil: mode.until, discretion: muninn.getKv('discretion') || 'essentiel' },
+      feed: activityFeed(join(this.odin.paths.logs, 'audit.jsonl'), undoList(this.odin.paths.home), now),
+    };
+  }
+
   private state(): unknown {
     const { muninn, skills, inventory, cfg } = this.odin;
     const auditFile = join(this.odin.paths.logs, 'audit.jsonl');
@@ -557,6 +582,7 @@ export class WebChannel implements Channel {
       tunnel: { ...tunnel.state, available: tunnelAvailable(), install: INSTALL },
       vault: vaultState(this.odin.paths.home),
       dryRun: this.odin.agent.dryRun(),
+      today: this.today(),
       alarm: { ...getAlarm(this.odin.muninn), twilio: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) },
       version: { ...this.versions(), update: (() => { try { return JSON.parse(this.odin.muninn.getKv('update-info') ?? 'null'); } catch { return null; } })(), auto: this.odin.cfg.update?.auto ?? 'notify' },
       quiet: cfg.quiet,
@@ -645,6 +671,24 @@ export class WebChannel implements Channel {
       case 'device_label': inventory.setLabel(String(b.id), String(b.label ?? '')); break;
       case 'cron_remove': muninn.removeJob(String(b.id)); break;
       case 'grant_revoke': muninn.revokeGrant(Number(b.id)); break;
+      case 'set_control': {
+        // Les trois réglages du moment (écran Aujourd'hui) : autonomie, disponibilité, discrétion.
+        const v = String(b.value ?? '');
+        if (b.control === 'mode') {
+          if (!['disponible', 'occupe', 'conduite', 'reunion', 'sommeil'].includes(v)) return { ok: false, error: 'mode inconnu' };
+          setMode(muninn, v as LifeMode, Number(b.minutes) || (v === 'sommeil' ? 600 : 120));
+        } else if (b.control === 'discretion') {
+          if (!['tout', 'essentiel', 'urgent'].includes(v)) return { ok: false, error: 'valeur inconnue' };
+          muninn.setKv('discretion', v);
+        } else return { ok: false, error: 'réglage inconnu' };
+        this.notify('state'); return { ok: true };
+      }
+      case 'guess_dismiss': {
+        let d: Record<string, number> = {}; try { d = JSON.parse(muninn.getKv('guess-dismissed') ?? '{}'); } catch { /* vide */ }
+        d[String(b.id).slice(0, 200)] = Date.now();
+        muninn.setKv('guess-dismissed', JSON.stringify(Object.fromEntries(Object.entries(d).filter(([, at]) => Date.now() - at < 86_400_000).slice(-100))));
+        this.notify('state'); return { ok: true };
+      }
       case 'set_autonomy': {
         const a = String(b.autonomy) as Autonomy;
         if (!['prudent', 'equilibre', 'autonome', 'breaker'].includes(a)) return { ok: false, error: 'niveau inconnu' };
