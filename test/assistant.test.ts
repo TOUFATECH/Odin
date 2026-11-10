@@ -147,10 +147,9 @@ test('habitudes : le même jour chaque semaine ; rien pour des demandes éparses
   assert.deepEqual(keywords('Peux-tu vérifier le NAS stp ?'), ['verifie']);
 });
 
-test('confiance apprise : 3 oui de suite → Odin le fait seul ; un non ou « redemande-moi » → retour à la question', () => {
+test('confiance apprise : 2 oui de suite → Odin le fait seul ; un non ou « redemande-moi » → retour à la question', () => {
   const kv = new Map<string, string>(), store = { getKv: (k: string) => kv.get(k), setKv: (k: string, v: string) => { kv.set(k, v); } };
   assert.equal(recordAnswer(store, 'shell:systemctl restart', 'shell', 'systemctl restart venus', true), undefined);
-  recordAnswer(store, 'shell:systemctl restart', 'shell', 'systemctl restart venus', true);
   assert.equal(trusted(store, 'shell:systemctl restart'), undefined);
   const got = recordAnswer(store, 'shell:systemctl restart', 'shell', 'systemctl restart venus', true);
   assert.ok(got && trusted(store, 'shell:systemctl restart'));

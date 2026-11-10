@@ -130,7 +130,7 @@ export function pendingProposal(kv: Kv, now = Date.now()): Known | undefined {
 export interface Trust { key: string; tool: string; example: string; yes: number; no: number; streak: number; last: number; learned?: number }
 export const TRUST_KEY = 'habit-trust';
 /** Nombre d'accords de suite pour qu'Odin le fasse seul. */
-export const TRUST_AFTER = 3;
+export const TRUST_AFTER = 2;
 export const trusts = (kv: Kv) => read<Trust[]>(kv, TRUST_KEY, []);
 
 /** Ta réponse à une demande de validation. Renvoie la confiance si elle vient d'être acquise. */

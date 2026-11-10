@@ -192,8 +192,10 @@ export class Router {
     o = { ...o, vision, need: o.need ?? (vision ? 'vision' : ctx?.need) };
     const t0 = this.now(), attempts: RouteAttempt[] = [];
     // Modèles normalement prioritaires mais mis de côté (quota) ou injoignables : dits dans la raison du choix.
-    const skipped = this.order(o).filter((r) => this.isPaused(r.provider.name) || (this.down.get(r.provider.name) ?? 0) > this.now())
-      .map((r) => `${providerLabel(r.provider.name)} ${this.isPaused(r.provider.name) ? 'en pause (quota épuisé)' : 'injoignable'}`);
+    // (lecture seule : ne pas effacer les pauses finies ici, completeInner en a besoin pour dire « de nouveau disponible »)
+    const pausedNow = (n: string) => (this.paused.get(n)?.until ?? 0) > this.now();
+    const skipped = this.order(o).filter((r) => pausedNow(r.provider.name) || (this.down.get(r.provider.name) ?? 0) > this.now())
+      .map((r) => `${providerLabel(r.provider.name)} ${pausedNow(r.provider.name) ? 'en pause (quota épuisé)' : 'injoignable'}`);
     const log = (route: Route | undefined, position: number, r?: ModelResponse, cost = 0) => {
       const purpose = (o.purpose ?? 'agent') === 'agent' && ctx?.role ? ctx.role : (o.purpose ?? 'agent');
       const e: RouteEntry = {

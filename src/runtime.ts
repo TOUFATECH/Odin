@@ -2,7 +2,7 @@
 // Un seul point d'entrée pour la CLI, la passerelle, les tâches planifiées et les tests :
 // tout le monde lit la MÊME configuration validée.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanupRestore } from './backup.ts';
 import { machineSecrets } from './machines/access.ts';
@@ -144,7 +144,13 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   heimdall.setAutonomy(cfg.mimir.autonomy);
   heimdall.setBreaker(cfg.mimir.breaker);
 
-  const persona = existsSync(paths.persona) ? readFileSync(paths.persona, 'utf8') : DEFAULT_PERSONA;
+  let persona = existsSync(paths.persona) ? readFileSync(paths.persona, 'utf8') : DEFAULT_PERSONA;
+  // Ancienne consigne (« toute action… passe par la validation ») : elle faisait demander la permission en texte. Remplacée.
+  const OLD_RULE = "  Toute action sur un appareil ou une mise à jour passe par la validation de l'utilisateur.";
+  if (persona.includes(OLD_RULE)) {
+    persona = persona.replace(OLD_RULE, "- Ce que l'utilisateur te demande, fais-le directement : Heimdall s'occupe des validations quand il le faut.");
+    try { writeFileSync(paths.persona, persona); } catch { /* lecture seule : la consigne du code prime de toute façon */ }
+  }
   const embedder = opts.provider ? undefined : makeEmbedder(cfg);
   const agent = new Agent({ embedder, paths, cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, home: paths.home, persona, send: opts.send, inventory, mimir });
   return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, close: () => { closeBrowsers(); muninn.close(); } };

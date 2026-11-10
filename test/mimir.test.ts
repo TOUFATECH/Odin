@@ -134,7 +134,7 @@ test('autonomie « équilibré » : la routine est décidée seule et annoncée,
 });
 
 test('autorisation permanente : « toujours » une fois, plus de question ensuite pour ce type d\'action', async () => {
-  const important = fakeJudge({ requested: 0.95, system_change: 0.9 }); // droits supplémentaires → important
+  const important = fakeJudge({ requested: 0.5 }); // demande ambiguë → important (pas grave)
   const o = makeOdin([call('shell', { command: 'make install' }), { text: 'ok' }, call('shell', { command: 'make install --prefix=/opt' }), { text: 'ok' }], { judge: important, approve: 'always' });
   await o.agent.run('installe le projet', { sessionId: 's' });
   assert.equal(o.approvals.length, 1);
@@ -281,15 +281,29 @@ test('tâche planifiée créée sous influence d\'une page : grave, et exécuté
   assert.ok((b.requested as { noul: number }).noul >= 0.6, 'demandé explicitement');
 });
 
-test('habitude apprise : accepté 3 fois de suite → Odin le fait seul la 4ᵉ fois ; jamais pour le grave', async () => {
-  const important = fakeJudge({ requested: 0.95, system_change: 0.9 });
-  const steps = [0, 1, 2, 3].flatMap((k) => [call('shell', { command: `make install --jobs=${k + 1}` }), { text: 'ok' }]);
+test('habitude apprise : accepté 2 fois de suite → Odin le fait seul la 3ᵉ fois ; jamais pour le grave', async () => {
+  const important = fakeJudge({ requested: 0.5 });
+  const steps = [0, 1, 2].flatMap((k) => [call('shell', { command: `make install --jobs=${k + 1}` }), { text: 'ok' }]);
   const o = makeOdin(steps, { judge: important, approve: true });
-  for (let k = 0; k < 3; k++) await o.agent.run('installe le projet', { sessionId: 's' });
-  assert.equal(o.approvals.length, 3);
+  for (let k = 0; k < 2; k++) await o.agent.run('installe le projet', { sessionId: 's' });
+  assert.equal(o.approvals.length, 2);
   const r = await o.agent.run('réinstalle', { sessionId: 's' });
-  assert.equal(o.approvals.length, 3, 'la 4ᵉ fois : plus de question');
+  assert.equal(o.approvals.length, 2, 'la 3ᵉ fois : plus de question');
   assert.equal(r.decisions[0].via, 'grant');
   assert.match(r.decisions[0].why, /habitude apprise/);
   o.cleanup();
+});
+
+test('ce que tu demandes clairement, Odin le fait sans te reposer la question (sauf suppression et grave)', async () => {
+  const asked = fakeJudge({ requested: 0.95, system_change: 0.9 }); // « installe nginx » : demandé, droits admin → important
+  const o = makeOdin([call('shell', { command: 'sudo apt install -y nginx' }), { text: 'Installé.' }], { judge: asked, approve: false });
+  const r = await o.agent.run('Installe nginx', { sessionId: 's' });
+  assert.equal(o.approvals.length, 0, 'pas de question');
+  assert.match(r.decisions[0].why, /tu l'as demandé/);
+  o.cleanup();
+  const del = fakeJudge({ requested: 0.95, deletes: 0.9, irreversible: 0.9 }); // suppression définitive, même demandée → on te demande
+  const o2 = makeOdin([call('shell', { command: 'rm -r vieux/' }), { text: 'ok' }, { text: 'ok' }], { judge: del, approve: false });
+  await o2.agent.run('Supprime le dossier vieux', { sessionId: 's' });
+  assert.equal(o2.approvals.length, 1, 'suppression : ton accord reste demandé');
+  o2.cleanup();
 });

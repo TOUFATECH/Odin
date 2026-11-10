@@ -168,3 +168,15 @@ test('une page web propre ne déclenche pas l\'alerte « contenu manipulateur »
   assert.doesNotMatch(o.provider.calls[2].messages.at(-1)!.content, /manipulateur/);
   o.cleanup();
 });
+
+test('pas de « je ne peux pas » sans essayer, ni de permission redemandée pour ce que tu as demandé', async () => {
+  const { refusalNudge } = await import('../src/core/agent.ts');
+  assert.match(refusalNudge('Installe ffmpeg', 'Je ne peux pas installer de logiciel.', false)!, /ESSAIE réellement/);
+  assert.equal(refusalNudge('Installe ffmpeg', 'Je ne peux pas : apt est verrouillé (essayé).', true), undefined, 'déjà essayé : on le croit');
+  assert.match(refusalNudge('Redémarre Venus', 'Veux-tu que je redémarre Venus maintenant ?', false)!, /ne repose pas la question/);
+  assert.equal(refusalNudge('Comment va le NAS ?', 'Le NAS va bien. Veux-tu que je lance un test ?', false), undefined, 'question ouverte : proposer est normal');
+  const o = makeOdin([{ text: 'Je ne peux pas accéder à ta machine.' }, call('fs_write', { path: 'a.txt', content: 'x' }), { text: 'Fait : a.txt créé.' }]);
+  const r = await o.agent.run('Crée a.txt avec x dedans', { sessionId: 's' });
+  assert.equal(r.text, 'Fait : a.txt créé.');
+  o.cleanup();
+});

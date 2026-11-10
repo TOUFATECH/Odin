@@ -249,7 +249,7 @@ export class Agent {
     const cheapOpts = { minTier: 'local' as Tier };
     const seen = new Map<string, number>();
     const turnLog: Message[] = [];
-    let verifyAsked = false, crossAsked = false;
+    let verifyAsked = false, crossAsked = false, triedAsked = false;
     let lastProvider = '';
 
     const ctx: ToolContext = {
@@ -360,6 +360,12 @@ export class Agent {
           const nudge: Message = { role: 'user', content: '[Contrôle automatique d\'Odin] Ta réponse s\'appuie sur le web : croise-la. Lis au moins deux sources de sites DIFFÉRENTS (refais une recherche formulée autrement si besoin, et ouvre les pages avec web_fetch), compare-les, puis réponds en disant si elles concordent (✓ confirmé par plusieurs sources, ou ⚠ contradiction, avec laquelle est la plus fiable) et cite les liens lus.' };
           history.push(nudge); turnLog.push(nudge);
           continue;
+        }
+        // Pas de « je ne peux pas » sans avoir essayé, ni de permission demandée en texte pour ce
+        // qu'il vient de te demander : Odin essaie et agit (Heimdall valide quand il le faut).
+        if (depth === 0 && trusted && !triedAsked && step < maxSteps) {
+          const nudge = refusalNudge(userText, assistant.content, turnLog.some((m) => m.toolCalls?.length));
+          if (nudge) { triedAsked = true; const n: Message = { role: 'user', content: nudge }; history.push(n); turnLog.push(n); continue; }
         }
         res.text = assistant.content; break;
       }
@@ -914,6 +920,17 @@ export function withSources(text: string, log: Message[]): string {
     for (const m of log) if (m.role === 'tool' && m.toolCallId && ids.has(m.toolCallId)) for (const u of (m.content.match(/^\s+(https?:\/\/\S+)$/gm) ?? []).slice(0, 3)) urls.add(u.trim());
   }
   return urls.size ? `${text}\n\nSources : ${[...urls].slice(0, 6).join(' · ')}` : text;
+}
+
+/** Odin dit « je ne peux pas » sans avoir rien essayé, ou te redemande la permission pour ce que tu viens de demander. Pur. */
+export function refusalNudge(userText: string, answer: string, triedTools: boolean): string | undefined {
+  const a = answer.toLowerCase();
+  const cant = /\b(je ne (peux|pourrai|suis pas en mesure|dispose pas|sais pas comment)|je n'ai pas (acc[eè]s|la possibilit[ée]|les moyens|la capacit[ée])|impossible pour moi|hors de (ma|mes) (port[ée]e|capacit[ée]s)|pas en mesure de|en tant qu'(ia|assistant))/.test(a);
+  if (cant && !triedTools) return '[Contrôle automatique d\'Odin] Tu dis ne pas pouvoir sans avoir rien essayé. Tu as un accès complet (shell, python_run, navigateur, machine_exec, fichiers, paquets à installer, plugin_save pour créer un outil). ESSAIE réellement maintenant ; si ça bloque vraiment après essai, dis précisément ce qui manque et ce qu\'il faudrait.';
+  const asks = /(veux[- ]tu|souhaites[- ]tu|tu veux|voulez[- ]vous|dois[- ]je|je peux le faire si|confirme[- ]moi|tu confirmes|on y va)\s*(que je|qu'on|le faire|\?|la|l'|les)?[^.?!]{0,80}\?\s*$/.test(a.trim());
+  const imperative = /^(\s*(odin[, ]+)?)(peux[- ]tu |tu peux |pourrais[- ]tu )?(fais|lance|installe|mets|met|redémarre|redemarre|relance|crée|cree|supprime|efface|envoie|configure|répare|repare|corrige|ajoute|arrête|arrete|coupe|allume|éteins|eteins|télécharge|telecharge|mets à jour|met à jour|nettoie|range|déplace|deplace|copie|renomme|ouvre|ferme|active|désactive|desactive|programme|planifie|change|modifie|règle|regle|bloque|débloque|sauvegarde|restaure|scanne|déploie|deploie|écris|ecris|réponds|reponds)\b/i.test(userText.trim());
+  if (asks && imperative) return '[Contrôle automatique d\'Odin] Il te l\'a demandé : ne repose pas la question, fais-le maintenant avec tes outils. Si l\'action demande une validation, Heimdall s\'en charge tout seul (un bouton). Ne demande que si la demande est vraiment ambiguë.';
+  return undefined;
 }
 
 /** Un message qui corrige Odin (« non », « c'est faux », « tu t'es trompé »…). */

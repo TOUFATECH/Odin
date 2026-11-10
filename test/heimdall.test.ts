@@ -25,7 +25,9 @@ test('liste blanche shell : commandes simples seulement, pas de métacaractères
   assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'git status' })).allowed, true);
   assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'ls; rm fichier' })).allowed, false);
   assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'echo $(cat ~/.ssh/id_rsa)' })).allowed, false);
-  assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'lsblk' })).allowed, false, 'préfixe ls ≠ lsblk');
+  assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'lsof' })).allowed, false, 'préfixe ls ≠ lsof');
+  assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'df -h' })).allowed, true, 'consultation : pas de question');
+  assert.equal((await h.gate({ ...base, tool: 'shell', risk: 'exec', command: 'find . -delete' })).allowed, false, 'find peut effacer : pas en liste blanche');
 });
 
 test('marquage : après du contenu non fiable, l\'écriture exige une validation', async () => {

@@ -235,6 +235,10 @@ export class Heimdall {
         const clean = !g.tainted && !g.suspicious;
         if (sev === 'routine' && clean) return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: review.reason, notes });
         if (sev === 'important' && clean) {
+          // Tu l'as demandé toi-même, clairement : Odin le fait, sans te reposer la question.
+          // (Le grave reste toujours soumis à ton accord ; une page ou un mail ne compte jamais comme ta demande.)
+          // Sauf une suppression ou une action difficile à annuler : là, ton accord reste demandé.
+          if (review.requested === 'yes' && !review.flags.some((f) => /supprime|difficile à annuler|incertain/.test(f))) return this.log(g, { allowed: true, via: 'mimir', severity: sev, why: `tu l'as demandé : ${review.reason}`, notes });
           const grant = g.grantKey ? this.grants?.find(g.grantKey) : undefined;
           if (grant) { this.grants!.touch(grant.id); return this.log(g, { allowed: true, via: 'grant', severity: sev, why: `autorisation permanente « ${g.grantKey} »`, notes }); }
           // Appris de tes habitudes : tu l'as accepté plusieurs fois de suite, jamais refusé.
