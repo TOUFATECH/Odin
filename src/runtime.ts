@@ -28,7 +28,9 @@ import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
 import { Redactor } from './heimdall/redact.ts';
 import { Muninn } from './muninn/store.ts';
-import { buildProvider, type Route, Router } from './providers/router.ts';
+import { buildProvider, detectLocalBrain, type Route, Router } from './providers/router.ts';
+import { routeContext } from './providers/journal.ts';
+import { routingHistory } from './tools/routing.ts';
 import { BUILTIN_TOOLS, ensureWorkspace } from './tools/builtin.ts';
 import { ToolRegistry, type ToolContext } from './tools/registry.ts';
 import type { Provider } from './types.ts';
@@ -94,7 +96,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
-  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS, ...HABIT_TOOLS, updateCheckTool, updateApplyTool, ...EVERYDAY_TOOLS, venusTool, parentalTool, alarmTool, pluginSaveTool(() => tools));
+  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS, ...HABIT_TOOLS, updateCheckTool, updateApplyTool, ...EVERYDAY_TOOLS, venusTool, parentalTool, alarmTool, routingHistory, pluginSaveTool(() => tools));
   // Extensions Python de ~/.odin/plugins : chacune devient un outil py_<nom>.
   try { const n = loadPlugins(paths.home, paths.workspace, tools); if (n.length) console.error(`[extensions] ${n.length} extension(s) Python : ${n.join(', ')}`); } catch (e) { console.error('[extensions]', (e as Error).message); }
   const inventory = new Inventory(muninn.db);
@@ -102,11 +104,16 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];
   const router = opts.provider ? new Router(fixed) : Router.fromConfig(cfg, [], paths);
   router.onPause = (name, reason, until) => console.error(`[modèles] ${name} mis de côté jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')} : ${reason}`);
-  router.onUsage = (provider, tin, tout, cost, purpose) => muninn.recordUsage(purpose, provider, tin, tout, cost, purpose);
+  // Coûts rattachés à la vraie conversation (et plus à la finalité), journal de chaque appel.
+  router.onUsage = (provider, tin, tout, cost, purpose) => muninn.recordUsage(routeContext()?.sessionId || purpose, provider, tin, tout, cost, purpose);
+  router.onRoute = (e) => { try { muninn.recordRoute({ ...e, request: redactor.redact(e.request) }); } catch (x) { console.error('[routage]', (x as Error).message); } };
   // Budget mensuel : au-delà, seuls les modèles gratuits servent (voir Router.complete).
   router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
+  // Sans Internet : modèle local (Ollama) trouvé tout seul, ajouté en dernier recours.
+  if (!opts.provider && process.env.ODIN_NO_LOCAL_BRAIN !== '1') void detectLocalBrain(router).then((m) => { if (m) console.error(`[modèles] cerveau local de secours trouvé : ${m} (Ollama)`); }).catch(() => undefined);
   const cheapProvider = !opts.provider && cfg.cheapProvider ? buildProvider(cfg.cheapProvider, process.env, paths) : undefined;
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
+  if (cheapRouter) { cheapRouter.onUsage = router.onUsage; cheapRouter.onRoute = router.onRoute; cheapRouter.overBudget = router.overBudget; }
 
   // Mímir : juge local sans clé par défaut ; Jev, modèle ou cascade selon mimir.judge.
   let mimir: Mimir | undefined;
@@ -114,7 +121,11 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   else if (cfg.mimir.enabled) {
     const built = buildJudge(cfg.mimir, {
       router, cheapRouter, redactor, logFile: join(paths.logs, 'mimir.jsonl'), crossCheck: cfg.routing.crossCheckRisky,
-      onUsage: (tin, tout, cost) => muninn.recordUsage('juge', 'jev', tin, tout, cost, 'juge'),
+      onUsage: (tin, tout, cost) => {
+        muninn.recordUsage(routeContext()?.sessionId || 'juge', 'jev', tin, tout, cost, 'juge');
+        const c = routeContext(), e = { at: Date.now(), turnId: c?.turnId ?? '', sessionId: c?.sessionId ?? '', channel: c?.channel ?? 'système', request: c?.request ?? '', purpose: 'juge', provider: 'jev', label: 'Jev (juge Mímir)', tier: 'standard', minTier: 'local', need: '', reason: 'juge configuré pour Mímir', attempts: [{ provider: 'jev', ok: true, ms: 0 }], ok: true, ms: 0, tokensIn: tin, tokensOut: tout, costUsd: cost };
+        c?.entries.push(e); router.onRoute?.(e);
+      },
     });
     if (built.warning) console.error(`[mímir] ${built.warning}`);
     mimir = new Mimir(built.judge, cfg.mimir, built.name);

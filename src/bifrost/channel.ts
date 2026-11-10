@@ -16,7 +16,7 @@ export interface Channel {
   readonly interactive: boolean;
   start(onMessage: (m: Inbound) => Promise<void>): Promise<void>;
   /** mood : l'humeur d'Odin, montrée à la fin du texte quand le canal sait le faire (son visage en émoji sur Telegram). */
-  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string }; /** Nouvelle version : bouton « Mettre à jour ». */ update?: { version: string }; /** Coupure parentale imminente : boutons pour prolonger. */ parental?: { id: string }; /** Réveil : « Je suis réveillé » / « +5 min ». */ alarm?: { attempt: number }; /** Appareil qui demande l'accès : Autoriser / Refuser. */ pair?: { id: string } }): Promise<void>;
+  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; /** IA qui ont traité ce tour (affichées discrètement). */ model?: string; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string }; /** Nouvelle version : bouton « Mettre à jour ». */ update?: { version: string }; /** Coupure parentale imminente : boutons pour prolonger. */ parental?: { id: string }; /** Réveil : « Je suis réveillé » / « +5 min ». */ alarm?: { attempt: number }; /** Appareil qui demande l'accès : Autoriser / Refuser. */ pair?: { id: string } }): Promise<void>;
   /** « Odin écrit… » pendant qu'il travaille. */
   typing?(peer: string): Promise<void>;
   stop(): Promise<void>;

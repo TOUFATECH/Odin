@@ -18,6 +18,8 @@ import { pushAll } from '../push/webpush.ts';
 import { vaultState } from '../vault.ts';
 import { listScripts, parseScriptJob, type ScriptMeta } from '../tools/scripts.ts';
 import { DEFAULT_CONFIG } from '../config.ts';
+import { routingReport } from '../providers/journal.ts';
+import { stripMood } from '../mood/mood.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
@@ -77,7 +79,11 @@ export class Gateway {
   }
   private offLearned?: () => void;
 
-  add(ch: Channel): this { this.channels.set(ch.name, ch); return this; }
+  add(ch: Channel): this {
+    // Hors de l'application : jamais de marqueur d'humeur dans le texte (Telegram, Signal, WhatsApp…).
+    if (ch.name !== 'web') { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, stripMood(text), opts); }
+    this.channels.set(ch.name, ch); return this;
+  }
 
   /** Canaux qui n'ont pas pu démarrer (jeton Telegram invalide…) : affiché dans l'interface. */
   readonly failed = new Map<string, string>();
@@ -263,6 +269,13 @@ export class Gateway {
       return ch.send(m.peer, on ? '🧪 Mode essai activé : je prépare et j\'explique tout, sans rien changer. (/essai off pour revenir)' : '✅ Mode essai coupé : j\'agis pour de vrai.');
     }
     if (/^\/new\b/i.test(text)) { this.odin.muninn.resetSession(sessionId); return ch.send(m.peer, '🆕 Nouvelle conversation.'); }
+    // Quelle IA a traité quoi (journal réel) : /ia, /ia 5, /ia tout, /ia bilan.
+    const ia = /^\/ia\b\s*(tout|bilan|\d+)?/i.exec(text);
+    if (owner && ia) {
+      const arg = (ia[1] ?? '').toLowerCase();
+      const scope = arg === 'tout' ? 'tout' : arg === 'bilan' ? 'bilan' : arg ? 'conversation' : 'dernier';
+      return ch.send(m.peer, routingReport(this.odin.muninn, { scope, sessionId, limit: Number(arg) || 10 }));
+    }
     if (/^\/status\b/i.test(text)) {
       const u = this.odin.muninn.usageSince(Date.now() - 86_400_000);
       return ch.send(m.peer, `Odin en ligne. 24 h : ${u.tokens_in + u.tokens_out} jetons, ${u.cost_usd.toFixed(3)} $.`);
@@ -303,9 +316,12 @@ export class Gateway {
       if (mood) this.lastMood.set(sessionId, mood);
       // Sa réaction : un émoji à la fin du texte (même taille que le texte), sur Telegram.
       // Sur Telegram, le canal ajoute son visage (émoji personnalisé, ou l'émoji classique) à la fin.
-      const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '');
+      // Quelle IA a traité la demande : discret dans l'application, sur demande ailleurs (/ia).
+      const show = this.odin.cfg.routing.showModel ?? 'web';
+      const byLine = owner && r.answeredBy && show === 'partout' && m.channel !== 'web' ? `\n\n— ${r.answeredBy}` : '';
+      const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '') + byLine;
       // Texte seul : plus d'émoji ajouté à la fin (demande du propriétaire)
-      await ch.send(m.peer, body, { final: true });
+      await ch.send(m.peer, body, { final: true, ...(owner && r.answeredBy && show !== 'jamais' ? { model: r.answeredBy } : {}) });
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       // … ou quand tu le demandes (« réponds-moi en vocal », « dis-le à voix haute »).
       const askVoice = /\b(en vocal|vocalement|a voix haute|à voix haute|message vocal|note vocale|dis[- ]le moi)\b/i.test(m.text);
@@ -346,6 +362,23 @@ export class Gateway {
     const ch = this.channels.get(channel);
     if (ch?.interactive && this.isOwner(channel, peer)) return { ch, peer };
     return this.ownerTarget();
+  }
+
+  /** Bouton « Envoyer un test » d'une messagerie : un message au propriétaire, ou la raison de l'échec en clair. */
+  async testChannel(name: string): Promise<{ ok: boolean; message: string }> {
+    const ch = this.channels.get(name);
+    if (!ch) return { ok: false, message: this.failed.get(name) ? `${name} n'a pas démarré : ${this.failed.get(name)}` : `${name} n'est pas activé (coche « Activer » puis Enregistrer)` };
+    const peer = (this.opts.owners[name] ?? []).find((o) => o !== '*');
+    if (!peer) return { ok: false, message: 'ajoute ton numéro ou identifiant (propriétaire) d\'abord' };
+    try {
+      await ch.send(peer, '✅ Test Odin : je te reçois bien ici. Tu peux me parler sur cette messagerie comme dans l\'application (même mémoire). Tape /ia pour savoir quelle IA t\'a répondu.');
+      return { ok: true, message: `message envoyé à ${peer}` };
+    } catch (e) {
+      const m = (e as Error).message;
+      // WhatsApp : Meta n'autorise un message libre que dans les 24 h qui suivent ton dernier message.
+      if (name === 'whatsapp' && /131047|re-?engagement|24 ?h/i.test(m)) return { ok: false, message: 'WhatsApp n\'accepte un message d\'Odin que dans les 24 h qui suivent ton dernier message : écris-lui d\'abord « bonjour » sur WhatsApp, puis refais le test.' };
+      return { ok: false, message: m.slice(0, 300) };
+    }
   }
 
   /** Arrête le tour en cours d'une session (bouton Arrêter de l'onglet Missions). */
@@ -530,14 +563,29 @@ export class Gateway {
     // Odin Breaker : plus de moyens (budget ×3) et une vraie liste de choses à faire, sans attendre d'accord.
     const breaker = this.odin.heimdall.breakerActive();
     if (c.dailyBudgetUsd > 0 && spent >= c.dailyBudgetUsd * (breaker ? 3 : 1)) { this.odin.muninn.setKv('continuous-why', `budget du jour atteint (${spent.toFixed(2)} $)`); return undefined; }
-    const todo = continuousTodo(this.odin);
+    const done = autoDone(this.odin.muninn, now);
+    const todo = continuousTodo(this.odin, new Set(done.flatMap((d) => d.targets)));
     const facts = [...(todo.length ? ['À FAIRE (repéré par Odin) :', ...todo.map((x) => `- ${x}`)] : []), dayFacts(this.odin, now), ...(this.odin.inventory.list({ status: 'all' }).filter((d) => d.status === 'offline').slice(0, 5).map((d) => `Hors ligne : ${d.label || d.name || d.ip}`)), ...this.odin.muninn.habits().slice(0, 3).map((h) => `Demande fréquente : « ${h.text.slice(0, 80)} » (${h.count} fois)`)].join('\n');
     this.odin.muninn.setKv('continuous-why', `${todo.length} chose(s) à faire repérée(s)`);
-    const r = await this.odin.agent.run(`${breaker ? CONTINUOUS_BREAKER : CONTINUOUS_PROMPT}\n\n<situation>\n${facts}\n</situation>`, { sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true }).catch(() => undefined);
+    const already = done.length ? `\nDÉJÀ FAIT ces 14 derniers jours (NE LE REFAIS PAS, ne le revérifie pas) :\n${done.slice(0, 25).map((d) => `- ${d.text}`).join('\n')}` : '';
+    // Ce qu'Odin a réellement fait (outils qui changent quelque chose), relevé par le code, pas raconté par le modèle.
+    const started: Array<{ name: string; input: Record<string, unknown> }> = [], acts: Array<{ name: string; input: Record<string, unknown>; ok: boolean }> = [];
+    const r = await this.odin.agent.run(`${breaker ? CONTINUOUS_BREAKER : CONTINUOUS_PROMPT}\n\n<situation>\n${facts}${already}\n</situation>`, {
+      sessionId: 'auto:veille', channel: 'web', peer: 'principal', trusted: true, unattended: true,
+      onEvent: (e) => {
+        if (e.type === 'tool_start') started.push({ name: e.name, input: e.input });
+        else if (e.type === 'tool_end') { const i = started.findIndex((x) => x.name === e.name); if (i >= 0) { const [st] = started.splice(i, 1); acts.push({ ...st, ok: e.ok }); } }
+      },
+    }).catch(() => undefined);
     if (!r) return undefined;
     this.odin.muninn.setKv(spentKey, String(spent + r.costUsd));
-    const text = r.text.trim();
-    if (text && !/^(rien|RIEN)\b/.test(text) && r.toolCalls > 0) { this.breakerLog(`${text.split('\n')[0].slice(0, 200)}`, now); await this.tellOwner(`🔄 Odin a travaillé de lui-même\n${text.slice(0, 1200)}`, 'home'); }
+    const text = stripMood(r.text).trim();
+    const report = autoReport(this.odin, acts, done, now);
+    // Rien de neuf réellement fait (seulement regardé, ou déjà fait avant) : on ne te dérange pas.
+    if (!report.lines.length) return text;
+    const note = /^\s*rien\b/i.test(text) ? '' : text.split('\n').filter((l) => l.trim()).slice(0, 3).join('\n');
+    this.breakerLog(report.lines.join(' · ').slice(0, 220), now);
+    await this.tellOwner(`🔄 Odin a travaillé de lui-même :\n${report.lines.map((l) => `• ${l}`).join('\n')}${note ? `\n\n${note.slice(0, 600)}` : ''}${report.failed ? `\n\n⚠ ${report.failed} action(s) en échec, rien de cassé : je réessaierai autrement.` : ''}`, 'home');
     return text;
   }
 
@@ -1086,7 +1134,7 @@ export function dayFacts(odin: { muninn: { listMissions(n: number): Array<{ goal
 
 const CONTINUOUS_PROMPT = `Travail continu (personne ne te parle en ce moment). Regarde la situation ci-dessous et ce que tu sais (memory_search, schedule_list, net_inventory, net_security) : y a-t-il quelque chose d'UTILE à faire maintenant pour le propriétaire — corriger un problème repéré, vérifier un appareil hors ligne, préparer ce qu'il demande souvent, mettre en place une tâche planifiée qui manque, ranger, mettre à jour une fiche ?
 Règles : ne refais pas ce qui a déjà été fait (vérifie), une ou deux actions utiles au plus, rien d'irréversible ni de coûteux ; ce qui demande validation attendra son accord. Vérifie le résultat de chaque action.
-Réponds « RIEN » si rien d'utile, sinon trois lignes au plus : ce que tu as fait, vérifié, et ce qui attend son accord.`;
+Réponds « RIEN » si rien d'utile (ou si c'est déjà fait), sinon trois lignes au plus, précises : CHAQUE action faite (quoi, sur quel appareil ou fichier, résultat vérifié), et ce qui attend son accord. Jamais de « j'ai travaillé » vague.`;
 
 /** Tâches de fond qu'Odin Breaker met en place tout seul (id, cron, consigne). */
 export const BREAKER_ROUTINES: Array<[string, string, string]> = [
@@ -1111,7 +1159,40 @@ Limites : rien d'irréversible sur les données (pas de suppression), pas d'envo
 Termine par 3 à 6 lignes : ce que tu as FAIT (concret), vérifié, et ce qui reste. « RIEN » seulement si la liste est vide et qu'il n'y a vraiment rien d'utile.`;
 
 /** Choses concrètes à faire, repérées sans le modèle (pur sauf lecture). */
-export function continuousTodo(odin: Odin): string[] {
+/** Ce qu'Odin a fait de lui-même ces 14 derniers jours (pour ne jamais le refaire). */
+export interface AutoDone { sig: string; text: string; at: number; targets: string[] }
+export function autoDone(kv: { getKv(k: string): string | undefined }, now = Date.now()): AutoDone[] {
+  try { return (JSON.parse(kv.getKv('auto-done') ?? '[]') as AutoDone[]).filter((d) => now - d.at < 14 * 86_400_000); } catch { return []; }
+}
+const READ_ONLY_RISKS = new Set(['read', 'network']);
+/**
+ * Bilan exact d'un tour autonome : chaque action qui change quelque chose (renommer, corriger,
+ * planifier…), décrite par l'outil lui-même, réussie, et pas déjà faite. Les lectures et
+ * vérifications ne comptent pas. Retient ces actions pour ne pas les refaire.
+ */
+export function autoReport(odin: Pick<Odin, 'tools' | 'muninn'>, acts: Array<{ name: string; input: Record<string, unknown>; ok: boolean }>, done: AutoDone[], now = Date.now()): { lines: string[]; failed: number } {
+  const known = new Set(done.map((d) => d.sig)), fresh: AutoDone[] = [], lines: string[] = [];
+  let failed = 0;
+  for (const a of acts) {
+    const tool = odin.tools.get(a.name);
+    if (!tool || READ_ONLY_RISKS.has(tool.risk)) continue;
+    if (!a.ok) { failed++; continue; }
+    const sig = `${a.name}:${JSON.stringify(a.input)}`;
+    if (known.has(sig)) continue;
+    known.add(sig);
+    let what = '';
+    try { what = tool.summarize?.(a.input) ?? ''; } catch { /* résumé facultatif */ }
+    if (!what) what = `${a.name} (${Object.entries(a.input).map(([k, v]) => `${k} : ${String(v).slice(0, 40)}`).join(', ').slice(0, 120)})`;
+    what = what[0].toUpperCase() + what.slice(1);
+    const targets = Object.values(a.input).map(String).filter((v) => /^\d{1,3}(\.\d{1,3}){3}$|^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/i.test(v));
+    fresh.push({ sig, text: what, at: now, targets });
+    lines.push(`${what} ✓`);
+  }
+  if (fresh.length) odin.muninn.setKv('auto-done', JSON.stringify([...fresh, ...done].slice(0, 200)));
+  return { lines, failed };
+}
+
+export function continuousTodo(odin: Odin, recentTargets: Set<string> = new Set()): string[] {
   const out: string[] = [];
   const devs = odin.inventory.list({ status: 'online' });
   const unknown = devs.filter((d) => d.kind === 'inconnu' || (!d.label && !d.name && !d.hostname)).slice(0, 5);
@@ -1128,7 +1209,8 @@ export function continuousTodo(odin: Odin): string[] {
   // Adresses MAC suspectes (24 dernières heures)
   for (const e of odin.inventory.events(80).filter((x) => /MAC|IP reprise/.test(x.kind) && Date.now() - x.at < 86_400_000).slice(0, 3)) { const d = odin.inventory.get(e.device_id); out.push(`Adresse MAC : ${e.kind} sur ${d ? `${d.label || d.name || d.ip} (${d.ip})` : e.device_id} — ${e.detail} → identifie l'appareil (net_identify) ; s'il est hostile, préviens (net_block seulement si la menace est claire)`); }
   // Appareils mal connus : système inconnu → identification approfondie (de quoi toujours avoir du travail utile)
-  if (out.length < 3) for (const d of devs.filter((x) => !x.os && x.kind !== 'téléphone / tablette' && !unknown.includes(x)).slice(0, 3 - out.length)) out.push(`Fiche incomplète : ${d.label || d.name || d.ip} (${d.ip}) sans système connu → net_identify pour compléter`);
+  // (pas ceux qu'Odin a déjà travaillés ces 14 derniers jours : on ne refait pas ce qui est fait)
+  if (out.length < 3) for (const d of devs.filter((x) => !x.os && x.kind !== 'téléphone / tablette' && !unknown.includes(x) && !recentTargets.has(x.ip) && !(x.mac && recentTargets.has(x.mac))).slice(0, 3 - out.length)) out.push(`Fiche incomplète : ${d.label || d.name || d.ip} (${d.ip}) sans système connu → net_identify pour compléter`);
   try { for (const m of listScripts(odin.paths.workspace).filter((x) => x.lastError).slice(0, 3)) out.push(`Script en échec : ${m.name} (${m.lastError!.split('\n').filter(Boolean).at(-1)?.slice(0, 100)}) → corriger (script_save) et relancer`); } catch { /* pas de scripts */ }
   return out;
 }

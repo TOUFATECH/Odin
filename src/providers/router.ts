@@ -16,6 +16,7 @@ import { HttpError } from './http.ts';
 import { OpenAIProvider } from './openai.ts';
 import { CodexProvider, loadCodexAuth } from './codex.ts';
 import { odinPaths, type OdinPaths } from '../config.ts';
+import { providerLabel, routeContext, serviceOf, type RouteAttempt, type RouteEntry } from './journal.ts';
 
 export type Tier = 'local' | 'standard' | 'strong';
 export const TIER_RANK: Record<Tier, number> = { local: 0, standard: 1, strong: 2 };
@@ -26,6 +27,29 @@ export function tierOf(p: ProviderConfig): Tier {
   if (/opus|o1|o3|gpt-5(?!-mini|-nano)|pro|ultra|405b|large/i.test(p.model) && !/mini|nano|flash|haiku|small/i.test(p.model)) return 'strong';
   return 'standard';
 }
+
+/** Spécialités d'un modèle : déclarées, sinon devinées d'après son nom (modifiables dans config.json). */
+export function strengthsOf(p: ProviderConfig): string[] {
+  if (p.strengths?.length) return p.strengths;
+  const m = p.model.toLowerCase();
+  if (/claude|opus|sonnet|haiku/.test(m)) return ['code', 'écriture', 'outils', 'raisonnement'];
+  if (/kimi|moonshot/.test(m)) return ['code', 'long', 'outils', 'recherche'];
+  if (/deepseek/.test(m)) return ['code', 'raisonnement', 'économique'];
+  if (/gemini/.test(m)) return ['long', 'recherche', 'vision'];
+  if (/gpt|^o\d|codex/.test(m)) return ['code', 'raisonnement', 'outils'];
+  if (/qwen|llama|mistral|gemma|phi/.test(m)) return ['rapide', 'écriture'];
+  return [];
+}
+/** Le modèle accepte-t-il des images ? Déclaré (vision), sinon deviné. */
+export function visionOf(p: ProviderConfig): boolean {
+  if (typeof p.vision === 'boolean') return p.vision;
+  return !/deepseek-(v4-pro|chat|reasoner|coder)|qwq|reasoner/i.test(p.model);
+}
+/** Besoin d'une tâche → spécialité recherchée chez le modèle. */
+export const NEED_STRENGTH: Record<string, string> = { code: 'code', web: 'recherche', fichiers: 'long', discussion: 'écriture', organisation: 'écriture', maison: 'outils', reseau: 'outils', long: 'long', vision: 'vision' };
+/** Tâches qui touchent à ta vie privée (maison, mails, réseau, fichiers, mémoire) : jamais envoyées à un modèle marqué « pas de données personnelles ». */
+export const PRIVATE_NEEDS = new Set(['maison', 'organisation', 'reseau', 'fichiers']);
+export const PRIVATE_PURPOSES = new Set(['mémoire', 'observation', 'réflexion', 'fil', 'leçon', 'amélioration', 'aide à l\'écriture', 'juge', 'avis croisé']);
 
 export interface Route {
   provider: Provider;
@@ -48,6 +72,10 @@ export interface CompleteOptions {
   prefer?: string[];
   /** Fournisseurs à éviter (vérification croisée : un autre avis). */
   exclude?: string[];
+  /** Besoin de la tâche (code, web, maison…) : à palier égal, le modèle dont c'est la spécialité passe devant. */
+  need?: string;
+  /** La demande contient des images : seuls les modèles qui voient sont essayés. */
+  vision?: boolean;
 }
 
 export function buildProvider(p: ProviderConfig, env = process.env, paths: OdinPaths = odinPaths()): Provider | undefined {
@@ -57,7 +85,8 @@ export function buildProvider(p: ProviderConfig, env = process.env, paths: OdinP
   if (p.kind === 'anthropic') return key ? new AnthropicProvider(key, p.baseUrl, `anthropic:${p.model}`) : undefined;
   if (p.kind === 'openai') {
     const local = p.baseUrl && /localhost|127\.0\.0\.1|\[::1\]/.test(p.baseUrl);
-    return key || local ? new OpenAIProvider(key, p.baseUrl, `openai:${p.model}`) : undefined;
+    // Nom = service + modèle (« deepseek:deepseek-flash », « openrouter:… ») : l'historique dit qui a vraiment répondu.
+    return key || local ? new OpenAIProvider(key, p.baseUrl, `${serviceOf(p.baseUrl)}:${p.model}`) : undefined;
   }
   return undefined;
 }
@@ -78,9 +107,15 @@ export class Router {
   private now: () => number;
   /** Fournisseurs mis de côté (quota épuisé) : nom → fin de la pause. */
   private paused = new Map<string, { until: number; reason: string }>();
+  /** Services injoignables (plus d'Internet…) : essayés en dernier pendant 1 min, sans attendre leurs réessais. */
+  private down = new Map<string, number>();
+  /** Vrai si tous les services en ligne viennent d'être injoignables (Odin est probablement sans Internet). */
+  offline(): boolean { const n = this.now(); const remote = this.routes.filter((r) => tierOf(r.cfg) !== 'local'); return remote.length > 0 && remote.every((r) => (this.down.get(r.provider.name) ?? 0) > n); }
   readonly pauseMs: number;
   /** Appelé quand un fournisseur est mis de côté ou revient (journal, notification). */
   onPause?: (name: string, reason: string, untilMs: number) => void;
+  /** Journal : chaque appel (réussi ou non), avec les essais, la raison du choix et le coût. */
+  onRoute?: (e: RouteEntry) => void;
   /** Comptabilité : chaque appel réussi (quel que soit l'appelant : agent, juges, résumé…). */
   onUsage?: (provider: string, tokensIn: number, tokensOut: number, costUsd: number, purpose: string) => void;
   /** Budget : renvoie vrai quand les modèles payants doivent être évités (plafond mensuel atteint). */
@@ -121,14 +156,64 @@ export class Router {
     const min = TIER_RANK[o.minTier ?? 'standard'];
     const rank = (r: Route) => { const t = TIER_RANK[tierOf(r.cfg)]; return t >= min ? t - min : 10 + (min - t); };
     const pref = (r: Route) => { const i = o.prefer?.indexOf(r.provider.name) ?? -1; return i < 0 ? 99 : i; };
+    const want = o.need ? NEED_STRENGTH[o.need] : undefined;
+    const fit = (r: Route) => (want && strengthsOf(r.cfg).includes(want) ? 0 : 1);
+    const isPrivate = (o.need && PRIVATE_NEEDS.has(o.need)) || PRIVATE_PURPOSES.has(o.purpose ?? '');
     return this.routes
       .filter((r) => !o.exclude?.includes(r.provider.name))
+      .filter((r) => !o.vision || visionOf(r.cfg))
+      .filter((r) => !(isPrivate && r.cfg.personal === false))
       .map((r, i) => ({ r, i }))
-      .sort((a, b) => rank(a.r) - rank(b.r) || pref(a.r) - pref(b.r) || a.i - b.i)
+      .sort((a, b) => Number(Boolean(a.r.cfg.fallbackOnly)) - Number(Boolean(b.r.cfg.fallbackOnly)) || rank(a.r) - rank(b.r) || pref(a.r) - pref(b.r) || fit(a.r) - fit(b.r) || a.i - b.i)
       .map((x) => x.r);
   }
 
+  /** Pourquoi ce modèle passe en premier pour cette demande (en clair, pour le journal). */
+  why(route: Route, o: CompleteOptions, position: number, skipped: string[] = []): string {
+    const parts: string[] = [];
+    const tier = tierOf(route.cfg), min = o.minTier ?? 'standard';
+    const TXT: Record<Tier, string> = { local: 'simple', standard: 'ordinaire', strong: 'complexe' };
+    parts.push(tier === min ? `tâche ${TXT[min]} → modèle ${tier === 'local' ? 'local' : tier === 'strong' ? 'le plus capable' : 'standard'}` : `palier ${tier} (demandé : ${min})`);
+    if (o.prefer?.[0] === route.provider.name) parts.push('meilleur taux de réussite chez toi pour ce type de tâche');
+    const want = o.need ? NEED_STRENGTH[o.need] : undefined;
+    if (want && strengthsOf(route.cfg).includes(want)) parts.push(`spécialité ${want}`);
+    if (o.vision) parts.push('voit les images');
+    if (this.overBudget?.()) parts.push('budget atteint : gratuit seulement');
+    const ahead = skipped.filter((x) => !x.startsWith(providerLabel(route.provider.name)));
+    if (position > 0) parts.push(`secours n° ${position}`);
+    if (ahead.length) parts.push(`à la place de ${ahead.join(', ')}`);
+    else if (position === 0 && parts.length === 1) parts.push('premier de ta liste');
+    return parts.join(', ');
+  }
+
   async complete(req: Omit<CompletionRequest, 'model'>, o: CompleteOptions = {}): Promise<RoutedResponse> {
+    const ctx = routeContext();
+    const vision = o.vision ?? req.messages.some((m) => m.images?.length);
+    o = { ...o, vision, need: o.need ?? (vision ? 'vision' : ctx?.need) };
+    const t0 = this.now(), attempts: RouteAttempt[] = [];
+    // Modèles normalement prioritaires mais mis de côté (quota) ou injoignables : dits dans la raison du choix.
+    const skipped = this.order(o).filter((r) => this.isPaused(r.provider.name) || (this.down.get(r.provider.name) ?? 0) > this.now())
+      .map((r) => `${providerLabel(r.provider.name)} ${this.isPaused(r.provider.name) ? 'en pause (quota épuisé)' : 'injoignable'}`);
+    const log = (route: Route | undefined, position: number, r?: ModelResponse, cost = 0) => {
+      const purpose = (o.purpose ?? 'agent') === 'agent' && ctx?.role ? ctx.role : (o.purpose ?? 'agent');
+      const e: RouteEntry = {
+        at: t0, turnId: ctx?.turnId ?? '', sessionId: ctx?.sessionId ?? '', channel: ctx?.channel ?? 'système', request: ctx?.request ?? '',
+        purpose, provider: route?.provider.name ?? '', label: route ? providerLabel(route.provider.name) : '', tier: route ? tierOf(route.cfg) : '',
+        minTier: o.minTier ?? 'standard', need: o.need ?? '', reason: route ? this.why(route, o, position, skipped) : req.signal?.aborted ? 'interrompu' : attempts.length ? 'tous les fournisseurs ont échoué' : 'aucun modèle autorisé pour cette tâche (vie privée, images…) ou tous hors service',
+        attempts, ok: Boolean(r), ms: this.now() - t0, tokensIn: r?.usage.inputTokens ?? 0, tokensOut: r?.usage.outputTokens ?? 0, costUsd: cost,
+      };
+      ctx?.entries.push(e);
+      try { this.onRoute?.(e); } catch { /* journal facultatif */ }
+    };
+    try {
+      return await this.completeInner(req, o, attempts, log);
+    } catch (e) {
+      if (!attempts.some((a) => a.ok)) log(undefined, -1);
+      throw e;
+    }
+  }
+
+  private async completeInner(req: Omit<CompletionRequest, 'model'>, o: CompleteOptions, attempts: RouteAttempt[], log: (route: Route | undefined, position: number, r?: ModelResponse, cost?: number) => void): Promise<RoutedResponse> {
     const errors: string[] = [];
     const notices: string[] = [];
     let candidates = this.order(o);
@@ -141,21 +226,29 @@ export class Router {
     }
     const wasPaused = new Set(candidates.filter((r) => this.paused.has(r.provider.name)).map((r) => r.provider.name));
     // Fournisseurs en pause : essayés en dernier, au cas où le quota serait revenu.
-    const active = candidates.filter((r) => !this.isPaused(r.provider.name));
-    const ordered = [...active, ...candidates.filter((r) => this.isPaused(r.provider.name))];
+    const isDown = (r: Route) => (this.down.get(r.provider.name) ?? 0) > this.now();
+    // Tout est injoignable depuis moins d'une minute : on ne fait pas attendre, le secours répond tout de suite.
+    if (candidates.every(isDown)) throw new Error('aucun service d\'IA joignable pour l\'instant (pas d\'Internet ?)');
+    const active = candidates.filter((r) => !this.isPaused(r.provider.name) && !isDown(r));
+    const ordered = [...active, ...candidates.filter((r) => !this.isPaused(r.provider.name) && isDown(r)), ...candidates.filter((r) => this.isPaused(r.provider.name))];
     const first = ordered[0];
-    for (const route of ordered) {
+    for (const [position, route] of ordered.entries()) {
       for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+        const ta = this.now();
         try {
           const r = await route.provider.complete({ ...req, model: route.cfg.model });
+          attempts.push({ provider: route.provider.name, ok: true, ms: this.now() - ta });
+          this.down.delete(route.provider.name);
           if (wasPaused.has(route.provider.name)) { this.paused.delete(route.provider.name); notices.push(`${route.provider.name} est de nouveau disponible.`); }
           const cost = (r.usage.inputTokens * (route.cfg.priceInPerM ?? 0) + r.usage.outputTokens * (route.cfg.priceOutPerM ?? 0)) / 1e6;
           this.onUsage?.(route.provider.name, r.usage.inputTokens, r.usage.outputTokens, cost, o.purpose ?? 'agent');
           for (const t of this.trackers) t(cost);
+          log(route, position, r, cost);
           if (route !== first && errors.length) notices.unshift(`${first.provider.name} indisponible, réponse de ${route.provider.name}.`);
           return { ...r, providerName: route.provider.name, costUsd: cost, ...(notices.length ? { notice: notices.join(' ') } : {}) };
         } catch (e) {
           if (req.signal?.aborted) throw e;
+          attempts.push({ provider: route.provider.name, ok: false, ms: this.now() - ta, error: shortError(e) });
           errors.push(`${route.provider.name} (essai ${attempt + 1}) : ${(e as Error).message.slice(0, 200)}`);
           if (isQuotaError(e)) {
             // Quota ou crédit épuisé : inutile d'insister, on passe au suivant pour un moment.
@@ -166,6 +259,13 @@ export class Router {
             notices.push(`Quota épuisé chez ${route.provider.name} : mis de côté ${Math.round(this.pauseMs / 60_000)} min.`);
             break;
           }
+          // Injoignable (pas de réseau, DNS, connexion refusée) : marqué « hors service » 1 min, sans réessais
+          // qui feraient attendre la réponse de secours.
+          if (!(e instanceof HttpError) && /fetch failed|ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|ETIMEDOUT|network|socket/i.test(`${(e as Error).message} ${String((e as { cause?: { code?: string } }).cause?.code ?? '')}`)) {
+            this.down.set(route.provider.name, this.now() + 60_000);
+            break;
+          }
+          if (attempt === 0) this.down.delete(route.provider.name);
           const retryable = e instanceof HttpError ? e.retryable : true; // erreurs réseau : on réessaie
           if (!retryable) break; // erreur définitive (clé invalide…) → fournisseur suivant
           if (attempt < this.maxRetries) {
@@ -184,4 +284,38 @@ export class Router {
     if (p.until <= this.now()) { this.paused.delete(name); return false; }
     return true;
   }
+}
+
+/** Raison d'échec courte et lisible (quota, clé refusée, délai…). */
+export function shortError(e: unknown): string {
+  const m = (e as Error)?.message ?? String(e);
+  if (e instanceof HttpError) {
+    if (isQuotaError(e)) return `quota épuisé (HTTP ${e.status})`;
+    if (e.status === 401 || e.status === 403) return `clé refusée (HTTP ${e.status})`;
+    if (e.status === 404) return 'modèle introuvable (HTTP 404)';
+    if (e.status === 429) return 'trop de demandes (HTTP 429)';
+    if (e.status >= 500) return `service en panne (HTTP ${e.status})`;
+    return `HTTP ${e.status}`;
+  }
+  if (/abort|timeout/i.test(m)) return 'délai dépassé';
+  if (/fetch failed|ECONN|ENOTFOUND|network/i.test(m)) return 'injoignable';
+  return m.slice(0, 80);
+}
+
+/**
+ * Cerveau local trouvé tout seul : si Ollama tourne sur cette machine avec un modèle de discussion
+ * et qu'aucun modèle local n'est configuré, il est ajouté en DERNIER RECOURS. Odin continue alors de
+ * réfléchir sans Internet (lent sur un petit processeur, mais il répond et agit).
+ */
+export async function detectLocalBrain(router: Router, base = 'http://127.0.0.1:11434', fetchFn: typeof fetch = fetch): Promise<string | undefined> {
+  if (router.routes.some((r) => tierOf(r.cfg) === 'local')) return undefined;
+  const r = await fetchFn(`${base}/api/tags`, { signal: AbortSignal.timeout(2500) }).catch(() => undefined);
+  if (!r?.ok) return undefined;
+  const names = ((await r.json().catch(() => ({}))) as { models?: Array<{ name: string }> }).models?.map((m) => m.name) ?? [];
+  const chat = names.filter((n) => !/embed|nomic|bge|minilm|whisper|vision-only/i.test(n));
+  const pick = ['qwen3', 'qwen2.5', 'llama3', 'mistral', 'gemma', 'phi'].map((p) => chat.find((n) => n.startsWith(p))).find(Boolean) ?? chat[0];
+  if (!pick) return undefined;
+  const cfg: ProviderConfig = { kind: 'openai', model: pick, baseUrl: `${base}/v1`, tier: 'local', fallbackOnly: true };
+  router.routes.push({ provider: new OpenAIProvider('', cfg.baseUrl, `ollama:${pick}`), cfg });
+  return pick;
 }

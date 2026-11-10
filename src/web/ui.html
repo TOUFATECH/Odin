@@ -523,6 +523,9 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .strow.ok{border-left-color:var(--good)}.strow.ko{border-left-color:var(--bad)}.strow.na{opacity:.6}
 
 .why{display:block;margin-top:8px;border:0;background:none;color:var(--dim);font-size:12.5px;padding:0;cursor:pointer;text-decoration:underline dotted}.why:hover{color:var(--accent)}
+.byia{margin-top:8px;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}.byia svg{flex:none}
+.rtbl td{vertical-align:top}.rtbl .why2{color:var(--muted);font-size:12.5px}
+.mrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.mrow:last-child{border-bottom:0}.mrow .mt{flex:1 1 240px;min-width:0}.mrow .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.mrow .tg{font-size:11.5px;padding:1px 8px;border-radius:999px;background:var(--panel2);color:var(--muted)}
 .whyt{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:13px;color:var(--muted);white-space:pre-wrap}
 .tl{display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow:auto;margin:10px 0;font-size:13px}
 .tli{display:flex;gap:8px;padding:5px 8px;border-radius:8px;background:var(--panel2);overflow-wrap:anywhere}.tli.résultat{margin-left:18px;color:var(--muted)}
@@ -995,7 +998,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
           <article class="card" data-sec="modele"><form class="form" id="f-model">
             <h2>Modèle</h2>
             <div class="field"><label>Fournisseur</label><div class="choices" id="presetChoices" role="group" aria-label="Fournisseur"></div></div>
-            <div class="field"><label for="m-model">Nom du modèle</label><input id="m-model" autocomplete="off" spellcheck="false"></div>
+            <div class="field"><label for="m-model">Nom du modèle</label><input id="m-model" autocomplete="off" spellcheck="false"><datalist id="pm-models"></datalist><span class="hint" id="m-note" hidden></span></div>
             <div class="field" id="m-urlField"><label for="m-url">Adresse du service</label><input id="m-url" autocomplete="off" spellcheck="false" placeholder="http://localhost:11434/v1"></div>
             <div class="field" id="m-codexBox" hidden>
               <label>Connexion à ton compte ChatGPT</label>
@@ -1017,18 +1020,27 @@ h2{font-weight:600}.kpi b{font-weight:600}
             <div class="field" id="m-keyField"><label for="m-key">Clé d'API</label><input id="m-key" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="m-keyHint"></span></div>
             <div class="field"><label>Palier de ce modèle</label><div class="choices" role="group" aria-label="Palier"><button type="button" class="choice" data-tier="local">Installé / gratuit</button><button type="button" class="choice" data-tier="standard">Standard</button><button type="button" class="choice" data-tier="strong">Le plus capable</button></div><span class="hint">Odin choisit le moins cher qui suffit : simple → gratuit, ordinaire → standard, complexe → le plus capable.</span></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="m-test">Tester</button><button class="btn primary" type="submit">Enregistrer comme modèle par défaut</button><button class="btn" type="button" id="m-backup">Ajouter en secours</button></div>
-            <div class="field"><label>Modèles configurés (essayés dans cet ordre quand l'un tombe en panne ou à bout de quota)</label><ul class="links" id="m-list"></ul></div>
+            <div class="field"><label>Modèles configurés</label><span class="hint">Pour chaque demande, Odin prend le palier qu'il faut, puis celui qui réussit le mieux ce type de tâche chez toi, puis celui dont c'est la spécialité, puis l'ordre ci-dessous. En panne ou à bout de quota : le suivant prend le relais.</span><div id="m-list" role="list"></div></div>
             <div class="form" style="gap:8px">
               <label class="check"><input type="checkbox" id="r-local"> Préférer un modèle installé/gratuit quand la tâche ne demande pas plus</label>
               <label class="check"><input type="checkbox" id="r-strong"> Envoyer les tâches complexes au modèle le plus capable</label>
               <label class="check"><input type="checkbox" id="r-cross"> Décision risquée : croiser l'avis de plusieurs modèles avant de trancher</label>
               <div class="field" style="max-width:260px"><label for="r-pause">Minutes de mise à l'écart d'un modèle à bout de quota</label><input id="r-pause" type="number" min="1" max="240"></div>
+              <div class="field" style="max-width:320px"><label for="r-show">Afficher quelle IA a répondu</label><select id="r-show"><option value="web">Dans l'application</option><option value="partout">Partout (aussi Telegram, Signal, WhatsApp…)</option><option value="jamais">Jamais</option></select><span class="hint">Ailleurs, tape /ia pour le savoir.</span></div>
               <div class="field" style="max-width:260px"><label for="r-budget">Budget mensuel (en dollars, 0 = sans plafond)</label><input id="r-budget" type="number" min="0" step="1"><div class="sub">Plafond atteint : seuls les modèles gratuits (installés) servent, et Odin te prévient.</div></div>
               <div><button class="btn small" type="button" id="r-save">Enregistrer ces règles</button></div>
               <div id="budgetBox" class="sub"></div>
             </div>
             <div class="status" id="m-status" role="status"></div>
           </form></article>
+
+          <article class="card" data-sec="modele" id="routingCard">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="flex:1">Qui a répondu</h2><button class="btn small" type="button" id="rt-refresh">Actualiser</button></div>
+            <p class="sub" style="margin:0">Le journal réel : chaque appel à une IA, pourquoi elle a été choisie, et qui a été essayé avant. Dans une discussion, tape /ia.</p>
+            <div class="wrap"><table class="tbl rtbl"><thead><tr><th>IA (30 jours)</th><th>Appels</th><th>Échecs</th><th>Temps moyen</th><th>Coût</th></tr></thead><tbody id="rt-stats"></tbody></table></div>
+            <h3 style="margin:14px 0 6px;font-size:15px">Derniers appels</h3>
+            <div class="wrap"><table class="tbl rtbl"><thead><tr><th>Quand</th><th>Rôle</th><th>IA</th><th>Pourquoi</th><th>Demande</th></tr></thead><tbody id="rt-recent"></tbody></table></div>
+          </article>
 
           <article class="card" data-sec="surveillance"><form class="form" id="f-watch">
             <h2>Surveillance</h2>
@@ -1151,7 +1163,8 @@ h2{font-weight:600}.kpi b{font-weight:600}
             <h2>Autres messageries</h2>
             <p class="sub" style="margin:0">Parle à Odin où tu veux : même mémoire, mêmes habitudes, mêmes garde-fous. Les inconnus doivent toujours être appairés ; les jetons restent dans le coffre d'Odin.</p>
             <details class="field mx" data-kind="whatsapp"><summary>WhatsApp</summary><form class="form" style="margin-top:8px">
-              <ol class="steps"><li>Sur developers.facebook.com, crée une application « Business » et ajoute WhatsApp.</li><li>Copie l'identifiant du numéro, un jeton d'accès permanent et la clé secrète de l'application.</li><li>Dans « Webhooks », mets l'adresse ci-dessous et la phrase de vérification que tu choisis ; abonne-toi à « messages ».</li></ol>
+              <ol class="steps"><li>Sur developers.facebook.com, crée une application « Business » et ajoute WhatsApp.</li><li>Copie l'identifiant du numéro, un jeton d'accès permanent et la clé secrète de l'application.</li><li>Dans « Webhooks », mets l'adresse ci-dessous et la phrase de vérification que tu choisis ; abonne-toi à « messages ».</li><li>Écris « bonjour » au numéro d'Odin sur WhatsApp, puis « Envoyer un test ».</li></ol>
+              <span class="hint">C'est l'API officielle de Meta (aucune appli bricolée, ton compte ne risque rien). Règle de WhatsApp : Odin peut te répondre à tout moment, mais ne peut t'écrire de lui-même (alertes, réveil) que dans les 24 h qui suivent ton dernier message ; sinon il passe par Telegram, Signal ou une notification.</span>
               <span class="hint" data-f="webhook"></span>
               <label class="check"><input type="checkbox" data-f="enabled"> Activer WhatsApp</label>
               <div class="field"><label>Identifiant du numéro (Phone number ID)</label><input data-f="phoneId" autocomplete="off"></div>
@@ -1161,7 +1174,10 @@ h2{font-weight:600}.kpi b{font-weight:600}
               <div class="field"><label>Ton numéro (propriétaire)</label><input data-f="owners" autocomplete="off" placeholder="262639123456"></div>
               <div><button class="btn primary" type="submit">Enregistrer</button></div><div class="status" role="status"></div></form></details>
             <details class="field mx" data-kind="signal"><summary>Signal</summary><form class="form" style="margin-top:8px">
-              <ol class="steps"><li>Lance signal-cli-rest-api : <code>docker run -d -p 8080:8080 -e MODE=normal bbernhard/signal-cli-rest-api</code> (ou demande à Odin de le faire).</li><li>Relie un numéro pour Odin (QR code sur http://localhost:8080/v1/qrcodelink?device_name=odin).</li></ol>
+              <ol class="steps"><li>Sur la machine d'Odin, lance le pont Signal : <code>docker run -d --name signal-api --restart unless-stopped -p 127.0.0.1:8080:8080 -v signal-cli:/home/.local/share/signal-cli -e MODE=json-rpc bbernhard/signal-cli-rest-api</code> (ou demande à Odin de le faire).</li><li>Touche « Relier Signal » : scanne le QR code avec ton téléphone (Signal → Réglages → Appareils reliés → ＋). Le numéro d'Odin se remplit tout seul.</li><li>Mets ton numéro, coche « Activer », Enregistrer, puis « Envoyer un test ».</li></ol>
+              <span class="hint">Astuce : un second numéro (puce prépayée) pour Odin, c'est plus clair ; relier ton propre numéro marche aussi, mais Odin lira alors tes messages Signal.</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="sg-link">Relier Signal (QR code)</button></div>
+              <div id="sg-box" hidden style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><img id="sg-qr" alt="QR code à scanner avec Signal pour relier Odin" width="220" height="220" style="background:#fff;border-radius:12px;padding:8px" hidden><span class="sub" id="sg-state" role="status"></span></div>
               <label class="check"><input type="checkbox" data-f="enabled"> Activer Signal</label>
               <div class="field"><label>Adresse du service</label><input data-f="url" autocomplete="off" placeholder="http://localhost:8080"></div>
               <div class="field"><label>Numéro d'Odin</label><input data-f="number" autocomplete="off" placeholder="+262639…"></div>
@@ -1583,8 +1599,23 @@ h2{font-weight:600}.kpi b{font-weight:600}
     try { localStorage.setItem('odin.sec', sec); const u = JSON.parse(localStorage.getItem('odin.secUse') || '{}'); u[sec] = { n: (u[sec]?.n || 0) + 1, t: Date.now() }; localStorage.setItem('odin.secUse', JSON.stringify(u)); } catch {}
     if (typeof rankChips === 'function') rankChips(sec);
     const body = document.querySelector('#v-settings .body'); if (body) body.scrollTop = 0;
+    if (sec === 'modele' && AUTHED) setTimeout(() => loadRouting(), 0);
   }
   for (const b of document.querySelectorAll('.schip[data-sec]')) b.addEventListener('click', () => openSettings(b.dataset.sec));
+  // Journal des routages (Réglages → Modèle → Qui a répondu).
+  const ROLE_TXT = { agent: 'réponse', 'sous-agent': 'sous-agent', relecture: 'relecture', juge: 'jugement', résumé: 'résumé', vision: 'images', recherche: 'recherche', explication: 'explication', observation: 'apprentissage', réflexion: 'réflexion', fil: 'fil', mémoire: 'mémoire', test: 'test' };
+  async function loadRouting() {
+    let r; try { r = await (await fetch('/api/routing?limit=60', { headers: { 'x-odin': '1' } })).json(); } catch { return; }
+    if (!r?.ok) return;
+    $('#rt-stats').replaceChildren(...(r.stats.length ? r.stats.map((x) => el('tr', {}, el('td', {}, x.label || x.provider), el('td', {}, String(x.calls)), el('td', {}, String(x.failed || 0)), el('td', {}, `${(x.avg_ms / 1000).toFixed(1)} s`), el('td', {}, `${(x.cost_usd || 0).toFixed(3)} $`))) : [el('tr', {}, el('td', { colspan: '5', class: 'sub' }, 'Aucun appel enregistré pour l\'instant.'))]));
+    $('#rt-recent').replaceChildren(...r.recent.map((e) => el('tr', {},
+      el('td', {}, new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })),
+      el('td', {}, ROLE_TXT[e.purpose] || e.purpose),
+      el('td', {}, e.ok ? e.label : '✗ aucune', ...e.attempts.filter((a) => !a.ok).slice(0, 3).map((a) => el('div', { class: 'why2' }, `avant : ${a.label || a.provider} (${a.error || 'échec'})`))),
+      el('td', { class: 'why2' }, e.reason),
+      el('td', { class: 'why2' }, e.request || '—'))));
+  }
+  $('#rt-refresh').addEventListener('click', loadRouting);
   // Rubriques en haut selon ton usage : les plus utilisées (et celle ouverte), 5 au plus ; le reste dans « Tous les réglages ».
   const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'apparence', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
   const secUse = () => { try { return JSON.parse(localStorage.getItem('odin.secUse') || '{}'); } catch { return {}; } };
@@ -1688,13 +1719,13 @@ h2{font-weight:600}.kpi b{font-weight:600}
     const items = foot.split('\n').filter((l) => /^•/.test(l)).map((l) => { const [what, why] = l.replace(/^•\s*/, '').split(/ — /); return el('li', {}, el('code', {}, what.replace(/^\$\s*/, '').slice(0, 140)), why ? el('span', { class: 'dim' }, ' ' + why.replace(/action que tu n'as pas clairement demandée/, 'non demandé explicitement')) : null); });
     return el('details', { class: 'dec' }, el('summary', {}, '🛡 ' + (label || 'Décisions')), items.length ? el('ul', {}, ...items) : null, el('a', { href: '#', class: 'dim', onclick: (e) => { e.preventDefault(); show('audit'); } }, 'Voir le journal des décisions'));
   }
-  function addMsg(role, text) {
+  function addMsg(role, text, model) {
     activity?.classList.add('done'); activity = null;
     const m = text.match(/\/yes ([A-Za-z0-9]+)/);
     // Ancien chemin (historique rechargé) : le message texte sert de secours quand aucune carte n'existe déjà.
     if (role === 'assistant' && m && /validation|GRAVE/i.test(text)) { if (cards.has(m[1])) return; return addApproval(text, m[1]); }
     let node;
-    if (role === 'assistant') { const [body, foot] = splitFooter(text.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '')); node = el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'Odin'), md(body), footerBox(foot)); }
+    if (role === 'assistant') { const [body, foot] = splitFooter(text.replace(/^\s*\[\s*humeur\s*:[^\]]*\]\s*/i, '')); node = el('div', { class: 'msg assistant' }, el('div', { class: 'who' }, 'Odin'), md(body), footerBox(foot), model ? byIa(model) : null); }
     else {
       // Fichiers joints : petites étiquettes au lieu du texte technique
       const re = /^\[(?:Image|Vidéo|Audio|Document|Archive|Fichier|Photo prise par la caméra)[^:]*: (inbox\/[^\s]+) \(([^,]*), ([^)]*)\)[^\]]*\]$/;
@@ -1708,6 +1739,12 @@ h2{font-weight:600}.kpi b{font-weight:600}
     }
     msgs.append(node); msgs.scrollTop = msgs.scrollHeight;
     if (role === 'assistant' && !loadingHistory) setTimeout(() => window.OdinBuddy?.onReply(node, text), 120);
+  }
+  // Quelle IA a traité la réponse (journal des routages), en petit sous le message.
+  function byIa(model) {
+    const ic = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); ic.setAttribute('width', '13'); ic.setAttribute('height', '13'); ic.setAttribute('viewBox', '0 0 24 24'); ic.setAttribute('aria-hidden', 'true');
+    ic.innerHTML = '<path d="M12 3l2.2 5.3L20 9l-4.4 3.8L17 18.5 12 15.6 7 18.5l1.4-5.7L4 9l5.8-.7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>';
+    return el('div', { class: 'byia', title: 'IA qui ont traité cette demande (journal des routages)' }, ic, model);
   }
   function addApproval(text, id) {
     const grave = /GRAVE/.test(text), always = /\/always [A-Za-z0-9]+/.test(text);
@@ -3818,9 +3855,11 @@ h2{font-weight:600}.kpi b{font-weight:600}
     if (!keepModel) pickTier(p === 'ollama' ? 'local' : 'standard');
     const keyEnv = p === 'custom' ? 'OPENAI_API_KEY' : P?.keyEnv;
     $('#m-keyField').hidden = !keyEnv;
-    if (keyEnv) $('#m-keyHint').textContent = keyHint(keyEnv) + (p === 'anthropic' ? ' Clé sur console.anthropic.com.' : p === 'openrouter' ? ' Clé sur openrouter.ai/keys.' : '');
+    if (keyEnv) $('#m-keyHint').textContent = keyHint(keyEnv) + (p === 'anthropic' ? ' Clé sur console.anthropic.com.' : p === 'openrouter' ? ' Clé sur openrouter.ai/keys (Kimi : moonshotai/kimi-k2.6 · DeepSeek : deepseek/deepseek-v4-pro).' : '');
+    $('#m-note').textContent = P?.note || ''; $('#m-note').hidden = !P?.note;
+    $('#pm-models').replaceChildren(...(P?.models || []).map((m) => el('option', { value: m })));
     $('#m-codexBox').hidden = p !== 'openai-codex';
-    if (p === 'openai-codex') { $('#m-model').setAttribute('list', 'cx-models'); if (!keepModel) pickTier('strong'); } else $('#m-model').removeAttribute('list');
+    if (p === 'openai-codex') { $('#m-model').setAttribute('list', 'cx-models'); if (!keepModel) pickTier('strong'); } else if (P?.models?.length) $('#m-model').setAttribute('list', 'pm-models'); else $('#m-model').removeAttribute('list');
     renderCodex();
   }
   // Connexion ChatGPT (Codex) : comme « hermes auth add openai-codex », mais depuis le navigateur.
@@ -3920,12 +3959,19 @@ h2{font-weight:600}.kpi b{font-weight:600}
   const TIER_TXT = { local: 'installé / gratuit', standard: 'standard', strong: 'le plus capable' };
   function renderModels() {
     const S = state.settings; if (!S?.providers) return;
-    $('#m-list').replaceChildren(...S.providers.map((p) => el('li', {}, `${p.index === 0 ? '★ ' : ''}${S.presets[p.preset]?.label || p.preset} · ${p.model} · ${TIER_TXT[p.tier]}${p.ready ? '' : ' · ⚠ clé absente'} `,
-      S.providers.length > 1 ? el('button', { class: 'btn small danger', type: 'button', onclick: () => save('model_remove', { index: p.index }, '#m-status', '✓ Modèle retiré.') }, 'Retirer') : null)));
-    if (!settingsDirty) { pickTier(S.model.tier || 'standard'); $('#r-local').checked = S.routing.preferLocal; $('#r-strong').checked = S.routing.strongForComplex; $('#r-cross').checked = S.routing.crossCheckRisky; $('#r-pause').value = S.routing.quotaPauseMin; $('#r-budget').value = S.routing.monthlyBudgetUsd || 0; }
+    $('#m-list').replaceChildren(...S.providers.map((p) => {
+      const perso = el('input', { type: 'checkbox', checked: !p.personal, onchange: (e) => save('model_personal', { index: p.index, personal: !e.target.checked }, '#m-status', e.target.checked ? '✓ Ce modèle ne recevra plus rien de privé.' : '✓ Ce modèle peut de nouveau tout traiter.') });
+      return el('div', { class: 'mrow', role: 'listitem' },
+        el('div', { class: 'mt' }, el('b', {}, `${p.index === 0 ? '★ ' : ''}${p.label || p.model}`), el('div', { class: 'sub' }, `${S.presets[p.preset]?.label || p.preset} · ${TIER_TXT[p.tier]}${p.ready ? '' : ' · ⚠ clé absente'}`),
+          el('div', { class: 'tags' }, ...(p.strengths || []).map((x) => el('span', { class: 'tg' }, x)), p.vision ? null : el('span', { class: 'tg' }, 'sans images'))),
+        el('label', { class: 'check', style: 'font-size:13px' }, perso, ' Pas de données personnelles'),
+        p.index > 0 ? el('button', { class: 'btn small', type: 'button', 'aria-label': `Monter ${p.label || p.model}`, onclick: () => save('model_move', { index: p.index }, '#m-status', '✓ Ordre changé.') }, '↑ Monter') : null,
+        S.providers.length > 1 ? el('button', { class: 'btn small danger', type: 'button', onclick: () => save('model_remove', { index: p.index }, '#m-status', '✓ Modèle retiré.') }, 'Retirer') : null);
+    }));
+    if (!settingsDirty) { pickTier(S.model.tier || 'standard'); $('#r-local').checked = S.routing.preferLocal; $('#r-strong').checked = S.routing.strongForComplex; $('#r-cross').checked = S.routing.crossCheckRisky; $('#r-pause').value = S.routing.quotaPauseMin; $('#r-budget').value = S.routing.monthlyBudgetUsd || 0; $('#r-show').value = S.routing.showModel || 'web'; }
     renderBudget();
   }
-  $('#r-save').addEventListener('click', () => save('routing', { preferLocal: $('#r-local').checked, strongForComplex: $('#r-strong').checked, crossCheckRisky: $('#r-cross').checked, quotaPauseMin: Number($('#r-pause').value), monthlyBudgetUsd: Number($('#r-budget').value) }, '#m-status', '✓ Règles de choix du modèle enregistrées.'));
+  $('#r-save').addEventListener('click', () => save('routing', { preferLocal: $('#r-local').checked, strongForComplex: $('#r-strong').checked, crossCheckRisky: $('#r-cross').checked, quotaPauseMin: Number($('#r-pause').value), monthlyBudgetUsd: Number($('#r-budget').value), showModel: $('#r-show').value }, '#m-status', '✓ Règles de choix du modèle enregistrées.'));
   $('#m-backup').addEventListener('click', async () => { await save('model', { ...modelBody(), asBackup: true }, '#m-status', '✓ Modèle de secours ajouté.'); $('#m-key').value = ''; });
   const modelBody = () => ({ preset, model: $('#m-model').value.trim(), baseUrl: $('#m-url').value.trim(), apiKey: $('#m-key').value.trim(), tier: tierPick });
   $('#m-test').addEventListener('click', async () => {
@@ -3935,6 +3981,31 @@ h2{font-weight:600}.kpi b{font-weight:600}
   });
   $('#f-model').addEventListener('submit', async (e) => { e.preventDefault(); await save('model', modelBody(), '#m-status', '✓ Modèle enregistré. Odin est prêt : passe à la Discussion.'); $('#m-key').value = ''; });
   $('#f-mimir').addEventListener('submit', async (e) => { e.preventDefault(); await save('mimir', { judge: $('#j-judge').value, apiKey: $('#j-key').value.trim() }, '#j-status', '✓ Juge enregistré.'); $('#j-key').value = ''; });
+  // « Envoyer un test » sur chaque messagerie : un vrai message vers ton numéro, ou la raison de l'échec.
+  for (const d of document.querySelectorAll('details.mx')) {
+    const row = d.querySelector('button[type=submit]')?.parentElement; if (!row) continue;
+    row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+    row.append(el('button', { class: 'btn', type: 'button', onclick: async (e) => {
+      const stEl = d.querySelector('.status'); e.target.disabled = true; stEl.textContent = 'Envoi du test…'; stEl.classList.remove('bad');
+      const r = await api('/api/action', { kind: 'channel_test', mkind: d.dataset.kind }); e.target.disabled = false;
+      stEl.textContent = r.ok ? `✓ Test envoyé : ${r.text}. Regarde ta messagerie.` : `✗ ${r.error}`; stEl.classList.toggle('bad', !r.ok);
+    } }, 'Envoyer un test'));
+  }
+  // Signal : QR code à scanner, puis le numéro d'Odin se remplit tout seul.
+  let sgTimer = 0;
+  $('#sg-link').addEventListener('click', async () => {
+    const d = document.querySelector('details.mx[data-kind="signal"]'), url = d.querySelector('[data-f="url"]').value.trim();
+    $('#sg-box').hidden = false; $('#sg-state').textContent = 'Connexion au pont Signal…'; clearTimeout(sgTimer);
+    const step = async (n) => {
+      const r = await api('/api/action', { kind: 'signal_link', url, qr: n % 15 === 0 });
+      if (!r.ok) { $('#sg-qr').hidden = true; $('#sg-state').textContent = '✗ ' + r.error; return; }
+      if (r.accounts?.length) { $('#sg-qr').hidden = true; d.querySelector('[data-f="number"]').value = r.accounts[0]; $('#sg-state').textContent = `✓ Signal relié : ${r.accounts.join(', ')}. Ajoute ton numéro, coche « Activer » et enregistre.`; return; }
+      if (r.qr) { $('#sg-qr').src = r.qr; $('#sg-qr').hidden = false; $('#sg-state').textContent = 'Scanne ce QR code avec Signal (Réglages → Appareils reliés → ＋). J\'attends…'; }
+      else if (r.error) $('#sg-state').textContent = r.error;
+      if (n < 75) sgTimer = setTimeout(() => step(n + 1), 4000); else $('#sg-state').textContent = 'Temps écoulé : touche de nouveau « Relier Signal ».';
+    };
+    step(0);
+  });
   for (const d of document.querySelectorAll('details.mx')) d.querySelector('form').addEventListener('submit', async (e) => {
     e.preventDefault(); const body = { mkind: d.dataset.kind };
     for (const i of d.querySelectorAll('input[data-f]')) body[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.value.trim();
@@ -3990,7 +4061,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
     const es = new EventSource('/api/stream');
     es.onmessage = (ev) => {
       const d = JSON.parse(ev.data);
-      if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
+      if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text, d.model); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
       else if (d.type === 'secret' && d.peer === peer) addSecret(d.text);
       else if (d.type === 'event' && d.event.type === 'delta' && d.peer === peer) liveAdd(d.event.text);

@@ -18,6 +18,8 @@ export interface Message {
   tainted?: boolean;
   /** Images jointes à un message utilisateur (vision du modèle), en base64. */
   images?: Array<{ mime: string; data: string }>;
+  /** Réflexion du modèle (DeepSeek, Kimi) : renvoyée pendant le tour, jamais enregistrée ni montrée. */
+  reasoning?: string;
 }
 
 export interface Usage {
@@ -30,6 +32,8 @@ export interface ModelResponse {
   toolCalls: ToolCall[];
   usage: Usage;
   stopReason: 'end' | 'tool_use' | 'max_tokens' | 'other';
+  /** Réflexion du modèle (DeepSeek, Kimi…) : jamais montrée, renvoyée au modèle pendant le tour. */
+  reasoning?: string;
 }
 
 /** Description d'un outil envoyée au modèle (schéma JSON). */

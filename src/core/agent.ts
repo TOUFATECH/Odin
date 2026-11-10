@@ -27,6 +27,8 @@ import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForS
 import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import { polishReply } from './style.ts';
+import { offlineAct } from './offline-act.ts';
+import { routeContext, turnSummary, withRouteContext, type RouteContext } from '../providers/journal.ts';
 import { listMachines, rightsSummary } from '../machines/access.ts';
 import { activeProfile } from '../profiles.ts';
 import { pendingSecretHint } from '../tools/onboard.ts';
@@ -105,6 +107,12 @@ export interface RunResult {
   reflection?: Promise<string | undefined>;
   /** Humeur d'Odin à la fin du tour (choisie par le modèle, sinon estimée). */
   mood?: Mood;
+  /** Identifiant du tour dans le journal des routages. */
+  turnId?: string;
+  /** Qui a traité ce tour, en clair : « Claude Sonnet 5.5 (Anthropic) a répondu · relecture : … ». */
+  answeredBy?: string;
+  /** IA utilisées pendant ce tour (réponse, sous-agents, relecture, juge…). */
+  models?: Array<{ label: string; purpose: string; calls: number; costUsd: number }>;
 }
 
 const SUBAGENT_FORBIDDEN = new Set(['delegate', 'send_message', 'schedule_task', 'schedule_cancel', 'reminder_set', 'skill_propose', 'memory_save', 'codex_run']);
@@ -132,8 +140,15 @@ export class Agent {
     const missionId = depth === 0 ? `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}` : undefined;
     if (missionId) this.deps.muninn.startMission({ id: missionId, sessionId: o.sessionId, goal: userText.replace(/\s+/g, ' '), origin: o.sessionId.startsWith('cron:') ? 'tâche planifiée' : o.sessionId.startsWith('breaker:') || o.sessionId.startsWith('auto:') ? 'initiative' : 'utilisateur' });
     const wrapped: typeof emit = missionId ? (e) => { emit(e); if (e.type === 'tool_start') this.deps.muninn.progressMission(missionId, { lastTool: e.name, costUsd: spent.usd }); } : emit;
+    // Journal des routages : chaque appel à une IA pendant ce tour (sous-agents, relecture et juge
+    // compris) est rattaché à cette demande, pour savoir ensuite exactement qui a fait quoi.
+    const parent = routeContext();
+    const rctx: RouteContext = depth > 0 && parent
+      ? { ...parent, role: 'sous-agent', need: taskCategory(userText) }
+      : { turnId: missionId ?? `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, sessionId: o.sessionId, channel, request: this.deps.redactor.redact(userText.replace(/\s+/g, ' ').trim().slice(0, 120)), need: taskCategory(userText), entries: [] };
     try {
-      const r = await this.turn(userText, o, { emit: wrapped, channel, peer, depth, breaker, maxSteps, costCap, signal, trusted, spent, missionId });
+      const r = await withRouteContext(rctx, () => this.turn(userText, o, { emit: wrapped, channel, peer, depth, breaker, maxSteps, costCap, signal, trusted, spent, missionId }));
+      if (depth === 0) { const sum = turnSummary(rctx.entries); r.turnId = rctx.turnId; r.answeredBy = sum.line || undefined; r.models = sum.models; }
       if (missionId) this.deps.muninn.endMission(missionId, r.stopReason === 'aborted' ? 'arrêtée' : r.stopReason === 'done' ? 'terminée' : 'en attente', r.text, r.costUsd);
       if (missionId) this.deps.muninn.setKv(`mission-stop:${missionId}`, r.stopReason);
       return r;
@@ -230,7 +245,7 @@ export class Agent {
     res.routed = minTier;
     // Choix du modèle selon les résultats : à palier égal, celui qui réussit le mieux ce type de tâche chez toi.
     const category = taskCategory(userText);
-    const routeOpts = { minTier, prefer: depth === 0 ? preferredProviders(muninn, category) : undefined };
+    const routeOpts = { minTier, prefer: depth === 0 ? preferredProviders(muninn, category) : undefined, need: category };
     const cheapOpts = { minTier: 'local' as Tier };
     const seen = new Map<string, number>();
     const turnLog: Message[] = [];
@@ -284,11 +299,29 @@ export class Agent {
         if (signal.aborted) { res.stopReason = 'aborted'; res.text = 'Interrompu.'; break; }
         res.stopReason = 'error';
         res.text = `Je n'arrive pas à joindre le modèle : ${(e as Error).message}`;
-        // Cerveau de secours : aucun modèle joignable → réponse tirée de la mémoire, question gardée pour plus tard.
+        // Cerveau de secours : aucun modèle joignable → Odin agit sur les demandes courantes (maison,
+        // mode, fiches, Venus, réseau) avec ses outils locaux, sous le contrôle de Heimdall ; sinon il
+        // répond avec sa mémoire et garde la question pour plus tard.
         if (depth === 0 && step === 1 && trusted) {
+          const act = await offlineAct(userText.split('\n\n[Précision d')[0], async (name, input) => {
+            const m = await this.execTool({ id: `hors_ligne_${Date.now().toString(36)}`, name, input }, ctx, o, () => tainted, emit, turn, res.decisions);
+            return { ok: !/^(Erreur|Action refusée|Refusé|\[Mode essai\])/.test(m.content), content: m.content };
+          }, (n) => Boolean(tools.get(n))).catch(() => undefined);
+          if (act) {
+            res.text = `${act}\n\n🔌 Fait sans IA : aucun modèle n'est joignable pour l'instant.`; res.offline = true; res.stopReason = 'done';
+            muninn.addMessage(o.sessionId, { role: 'assistant', content: res.text });
+            emit({ type: 'text', text: res.text });
+            break;
+          }
           try {
             const off = offlineAnswer({ muninn, home: this.deps.home, inventory: this.deps.inventory as never }, userText, { channel, peer });
             res.text = off.text; res.offline = true;
+            // Sans modèle local, Odin ne peut plus réfléchir sans Internet : il le dit (une fois par jour).
+            const tipKey = `tip-local-brain:${new Date().toDateString()}`;
+            if (!this.deps.router.routes.some((r) => r.cfg.tier === 'local' || /localhost|127\.0\.0\.1/.test(r.cfg.baseUrl ?? '')) && !muninn.getKv(tipKey)) {
+              muninn.setKv(tipKey, '1');
+              res.text += '\n\n💡 Pour que je réfléchisse aussi sans Internet, installe un modèle local sur ma machine : curl -fsSL https://ollama.com/install.sh | sh puis ollama pull qwen3:4b. Je le trouve tout seul au prochain démarrage.';
+            }
             if (!off.handled) queueAsk(muninn, { text: userText, sessionId: o.sessionId, channel, peer, at: Date.now() });
             emit({ type: 'text', text: off.text });
           } catch { /* on garde le message d'erreur */ }
@@ -304,7 +337,8 @@ export class Agent {
       if (tagged.mood) modelMood = tagged.mood;
       const shown = !reply.toolCalls.length && depth === 0 ? polishReply(tagged.text, tools.all().map((x) => x.name)) : tagged.text;
       const assistant: Message = { role: 'assistant', content: redactor.redact(shown), toolCalls: reply.toolCalls.length ? reply.toolCalls : undefined };
-      history.push(assistant);
+      // La réflexion (DeepSeek, Kimi) suit le tour pour le modèle, mais n'est ni montrée ni enregistrée.
+      history.push(reply.reasoning ? { ...assistant, reasoning: redactor.redact(reply.reasoning) } : assistant);
       turnLog.push(assistant);
       muninn.addMessage(o.sessionId, assistant);
       if (assistant.content) emit({ type: 'text', text: assistant.content });
@@ -363,7 +397,7 @@ export class Agent {
     if (depth === 0) {
       try {
         const tools = turnLog.flatMap((m) => (m.toolCalls ?? []).map((c) => ({ name: c.name, input: JSON.stringify(c.input).slice(0, 200), result: turnLog.find((r) => r.role === 'tool' && r.toolCallId === c.id)?.content.slice(0, 300) ?? '' })));
-        muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: res.text.slice(0, 1500), provider: lastProvider, cost: res.costUsd, tools, memories: memUsed.slice(0, 10), lessons: lessonsUsed.slice(0, 6), decisions: res.decisions.slice(0, 10) }));
+        muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: res.text.slice(0, 1500), provider: lastProvider, models: turnSummary(routeContext()?.entries ?? []).line, turnId: routeContext()?.turnId, cost: res.costUsd, tools, memories: memUsed.slice(0, 10), lessons: lessonsUsed.slice(0, 6), decisions: res.decisions.slice(0, 10) }));
       } catch { /* trace facultative */ }
     }
     // Résultat de ce tour pour le fournisseur : réussi, échoué, ou corrigé par toi (le tour d'avant).

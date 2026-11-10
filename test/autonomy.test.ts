@@ -78,22 +78,47 @@ test('mémoire : un fait plus récent remplace l\'ancien (historique gardé), fi
   } finally { o.cleanup(); }
 });
 
-test('travail continu : Odin agit de lui-même et le dit ; « RIEN » ne dérange pas ; budget du jour respecté ; missions échouées relancées', async () => {
+test('travail continu : Odin dit EXACTEMENT ce qu\'il a fait, ni humeur ni « RIEN », jamais deux fois la même chose ; budget du jour respecté', async () => {
   const { Gateway } = await import('../src/bifrost/gateway.ts');
   const sent: string[] = [];
   const ch = { name: 'fake', interactive: true, start: async () => {}, send: async (_p: string, t: string) => { sent.push(t); }, stop: async () => {} };
-  const o = makeOdin([{ text: 'RIEN' }, call('memory_search', { query: 'nas' }), { text: 'J\'ai vérifié le NAS : il répond de nouveau.' }],
-    { config: (c) => ({ ...c, continuous: { enabled: true, intervalMin: 30, dailyBudgetUsd: 0.5, autoResume: false, maxRetries: 3 } }) });
+  const save = call('note_save', { title: 'NAS', content: 'Le NAS redémarre seul le dimanche.' });
+  const o = makeOdin([
+    { text: '[humeur=neutre]RIEN' },
+    call('memory_search', { query: 'nas' }), { text: '[humeur:joie] J\'ai seulement regardé.' },
+    save, { text: '[humeur=fierte] J\'ai gardé une fiche sur le NAS.' },
+    { ...save, toolCalls: save.toolCalls.map((c) => ({ ...c, id: 'again' })) }, { text: 'Fiche refaite.' },
+  ], { config: (c) => ({ ...c, continuous: { enabled: true, intervalMin: 30, dailyBudgetUsd: 0.5, autoResume: false, maxRetries: 3 } }) });
   try {
     const gw = new Gateway(o, { owners: { fake: ['boss'] } }).add(ch as never);
     const t0 = Date.now();
-    assert.equal(await gw.continuous(t0), 'RIEN');
-    assert.equal(sent.length, 0, '« RIEN » : pas de message');
+    await gw.continuous(t0);
+    assert.equal(sent.length, 0, '« [humeur=neutre]RIEN » : pas de message');
     assert.equal(await gw.continuous(t0 + 60_000), undefined, 'pas avant l\'intervalle');
     await gw.continuous(t0 + 31 * 60_000);
-    assert.match(sent[0], /Odin a travaillé de lui-même[\s\S]*NAS/);
+    assert.equal(sent.length, 0, 'seulement regardé : rien à dire');
+    await gw.continuous(t0 + 62 * 60_000);
+    assert.equal(sent.length, 1);
+    assert.match(sent[0], /Odin a travaillé de lui-même :\n• Fiche « NAS » ✓/);
+    assert.doesNotMatch(sent[0], /humeur/);
     assert.match(o.provider.calls[0].messages[0].content, /Travail continu/);
-    o.muninn.setKv(`continuous-spent:${new Date(t0 + 62 * 60_000).toDateString()}`, '9');
-    assert.equal(await gw.continuous(t0 + 62 * 60_000), undefined, 'budget du jour atteint');
+    // La même action une deuxième fois : déjà faite, pas de message ; et elle est listée « déjà fait » au modèle.
+    await gw.continuous(t0 + 93 * 60_000);
+    assert.equal(sent.length, 1, 'déjà fait : pas de nouveau message');
+    assert.ok(o.provider.calls.some((c) => c.messages.some((m) => m.role === 'user' && /DÉJÀ FAIT[\s\S]*Fiche « NAS »/.test(m.content))), 'déjà fait transmis au modèle');
+    o.muninn.setKv(`continuous-spent:${new Date(t0 + 124 * 60_000).toDateString()}`, '9');
+    assert.equal(await gw.continuous(t0 + 124 * 60_000), undefined, 'budget du jour atteint');
+  } finally { o.cleanup(); }
+});
+
+test('Telegram & co : jamais de marqueur d\'humeur dans les messages', async () => {
+  const { Gateway } = await import('../src/bifrost/gateway.ts');
+  const sent: string[] = [];
+  const ch = { name: 'telegram', interactive: true, start: async () => {}, send: async (_p: string, t: string) => { sent.push(t); }, stop: async () => {} };
+  const o = makeOdin([]);
+  try {
+    new Gateway(o, { owners: { telegram: ['1'] } }).add(ch as never);
+    await ch.send('1', '[humeur=neutre] Salut [humeur:joie]');
+    assert.equal(sent[0], 'Salut ');
   } finally { o.cleanup(); }
 });

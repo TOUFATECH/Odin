@@ -65,3 +65,26 @@ export class SignalChannel implements Channel {
 
   async stop(): Promise<void> { this.running = false; clearTimeout(this.timer); }
 }
+
+/**
+ * Relier Signal depuis l'interface : état du service signal-cli-rest-api, numéros déjà reliés, et
+ * QR code à scanner (Signal → Réglages → Appareils reliés → ＋) tant qu'aucun numéro n'est relié.
+ * Seule l'adresse http(s) donnée par le propriétaire est contactée.
+ */
+export async function signalLinkState(url: string, fetchFn: typeof fetch = fetch, wantQr = true): Promise<{ ok: boolean; error?: string; mode?: string; accounts: string[]; qr?: string }> {
+  let base: string;
+  try { const u = new URL(url); if (!/^https?:$/.test(u.protocol)) throw new Error(); base = u.toString().replace(/\/$/, ''); } catch { return { ok: false, error: 'adresse invalide (ex. http://localhost:8080)', accounts: [] }; }
+  const t = AbortSignal.timeout(8000);
+  const about = await fetchFn(`${base}/v1/about`, { signal: t }).catch(() => undefined);
+  if (!about?.ok) return { ok: false, error: `service Signal injoignable à ${base} : lance d'abord signal-cli-rest-api (commande ci-dessus)`, accounts: [] };
+  const info = await about.json().catch(() => ({})) as { mode?: string };
+  const accounts = await fetchFn(`${base}/v1/accounts`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : [])).catch(() => []) as string[];
+  if (Array.isArray(accounts) && accounts.length) return { ok: true, mode: info.mode, accounts: accounts.map(String) };
+  // Chaque QR code ouvre une nouvelle liaison : on n'en redemande pas pendant que tu scannes.
+  if (!wantQr) return { ok: true, mode: info.mode, accounts: [] };
+  const qr = await fetchFn(`${base}/v1/qrcodelink?device_name=odin`, { signal: AbortSignal.timeout(15_000) }).catch(() => undefined);
+  if (!qr?.ok || !/image\//.test(qr.headers.get('content-type') ?? '')) return { ok: true, mode: info.mode, accounts: [], error: 'QR code indisponible : réessaie dans quelques secondes' };
+  const png = Buffer.from(await qr.arrayBuffer());
+  if (png.length > 200_000) return { ok: false, error: 'réponse inattendue du service Signal', accounts: [] };
+  return { ok: true, mode: info.mode, accounts: [], qr: `data:image/png;base64,${png.toString('base64')}` };
+}

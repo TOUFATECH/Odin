@@ -12,9 +12,10 @@ import type { OdinConfig, OdinPaths, ProviderConfig } from './config.ts';
 import { setConfigValue } from './config.ts';
 import { CODEX_MODELS, loadCodexAuth } from './providers/codex.ts';
 import { TTS_DEFAULTS } from './voice/voice.ts';
-import { buildProvider, Router, tierOf, type Tier } from './providers/router.ts';
+import { buildProvider, Router, strengthsOf, tierOf, visionOf, type Tier } from './providers/router.ts';
+import { providerLabel, serviceOf } from './providers/journal.ts';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'] as const;
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'DEEPSEEK_API_KEY', 'MOONSHOT_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -56,13 +57,18 @@ export function secretHint(name: string, env: NodeJS.ProcessEnv = process.env): 
 
 // ---------------------------------------------------------------- Modèle
 
-export type ModelPreset = 'anthropic' | 'openrouter' | 'openai' | 'openai-codex' | 'ollama' | 'custom';
+export type ModelPreset = 'anthropic' | 'openrouter' | 'openai' | 'openai-codex' | 'deepseek' | 'kimi' | 'ollama' | 'custom';
 
-export const PRESETS: Record<Exclude<ModelPreset, 'custom'>, { label: string; model: string; baseUrl?: string; keyEnv?: SecretName; kind: 'anthropic' | 'openai' | 'openai-codex'; price?: [number, number] }> = {
+export const PRESETS: Record<Exclude<ModelPreset, 'custom'>, { label: string; model: string; baseUrl?: string; keyEnv?: SecretName; kind: 'anthropic' | 'openai' | 'openai-codex'; price?: [number, number]; models?: string[]; note?: string }> = {
   anthropic: { label: 'Anthropic (Claude)', kind: 'anthropic', model: 'claude-sonnet-5-5', keyEnv: 'ANTHROPIC_API_KEY', price: [3, 15] },
   openrouter: { label: 'OpenRouter (tous les modèles)', kind: 'openai', model: 'anthropic/claude-sonnet-5.5', baseUrl: 'https://openrouter.ai/api/v1', keyEnv: 'OPENROUTER_API_KEY' },
   openai: { label: 'OpenAI', kind: 'openai', model: 'gpt-5', baseUrl: 'https://api.openai.com/v1', keyEnv: 'OPENAI_API_KEY' },
   'openai-codex': { label: 'OpenAI Codex (abonnement ChatGPT)', kind: 'openai-codex', model: 'gpt-6-luna' },
+  // IA chinoises, par leurs API officielles (compatibles OpenAI). Prix indicatifs en $ par million de jetons.
+  deepseek: { label: 'DeepSeek', kind: 'openai', model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com/v1', keyEnv: 'DEEPSEEK_API_KEY', price: [0.15, 0.6], models: ['deepseek-flash', 'deepseek-v4-pro'],
+    note: 'Clé sur platform.deepseek.com. Très économique, bon en code et en raisonnement. Données traitées en Chine : coche « pas de données personnelles » si tu préfères.' },
+  kimi: { label: 'Kimi (Moonshot)', kind: 'openai', model: 'kimi-k2.6', baseUrl: 'https://api.moonshot.ai/v1', keyEnv: 'MOONSHOT_API_KEY', price: [0.95, 4], models: ['kimi-k2.6'],
+    note: 'Clé sur platform.kimi.ai. Très long contexte (256 k), bon en code et en tâches à outils. Données traitées en Chine : coche « pas de données personnelles » si tu préfères.' },
   ollama: { label: 'Ollama (local, sans clé)', kind: 'openai', model: 'qwen3:14b', baseUrl: 'http://localhost:11434/v1' },
 };
 
@@ -71,6 +77,8 @@ export function detectPreset(p: ProviderConfig | undefined): ModelPreset {
   if (p.kind === 'anthropic') return 'anthropic';
   if (p.kind === 'openai-codex') return 'openai-codex';
   if (p.baseUrl?.includes('openrouter.ai')) return 'openrouter';
+  if (p.baseUrl?.includes('deepseek.com')) return 'deepseek';
+  if (p.baseUrl && /moonshot\.(ai|cn)|kimi\.ai/.test(p.baseUrl)) return 'kimi';
   if (p.baseUrl?.includes('api.openai.com')) return 'openai';
   if (p.baseUrl && /localhost|127\.0\.0\.1/.test(p.baseUrl)) return 'ollama';
   return 'custom';
@@ -91,6 +99,7 @@ export function providerFor(c: ModelChoice): ProviderConfig {
   const baseUrl = c.preset === 'ollama' ? checkUrl(c.baseUrl || p.baseUrl) : p.baseUrl;
   const out: ProviderConfig = { kind: p.kind, model, ...(baseUrl ? { baseUrl } : {}), ...(p.keyEnv ? { apiKeyEnv: p.keyEnv } : {}) };
   if (p.price && model === p.model) { out.priceInPerM = p.price[0]; out.priceOutPerM = p.price[1]; }
+  if (c.preset === 'deepseek' && model === 'deepseek-v4-pro') { out.priceInPerM = 0.66; out.priceOutPerM = 1.98; }
   return out;
 }
 
@@ -125,9 +134,9 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     // Connexion ChatGPT (Codex) : jamais les jetons, seulement l'état.
     codex: { connected: Boolean(cx), email: cx?.email ?? '', plan: cx?.plan ?? '', expiresAt: cx?.expires_at ?? 0, models: CODEX_MODELS },
     model: { preset: detectPreset(main), model: main?.model ?? '', baseUrl: main?.baseUrl ?? '', tier: tierOf(main ?? { kind: 'mock', model: '' }) },
-    providers: cfg.providers.map((p, i) => ({ index: i, preset: detectPreset(p), model: p.model, baseUrl: p.baseUrl ?? '', tier: tierOf(p), ready: Boolean(buildProvider(p, env, paths)) })),
-    routing: cfg.routing,
-    presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '' }])),
+    providers: cfg.providers.map((p, i) => ({ index: i, preset: detectPreset(p), model: p.model, baseUrl: p.baseUrl ?? '', tier: tierOf(p), ready: Boolean(buildProvider(p, env, paths)), label: providerLabel(`${p.kind === 'openai' ? serviceOf(p.baseUrl) : p.kind}:${p.model}`), strengths: strengthsOf(p), vision: visionOf(p), personal: p.personal !== false })),
+    routing: { ...cfg.routing, showModel: cfg.routing.showModel ?? 'web' },
+    presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '', models: p.models ?? [], note: p.note ?? '' }])),
     secrets: Object.fromEntries(SECRET_NAMES.map((n) => [n, secretHint(n, env)])),
     search: { provider: cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
     assist: { ...{ spelling: 'auto', tips: true, roam: true }, ...(cfg.assist ?? {}) },
@@ -181,8 +190,24 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       setConfigValue(paths, ['providers'], cfg.providers.filter((_, i) => i !== idx));
       return true;
     }
+    case 'model_personal': {
+      // Modèle à qui ne rien confier de privé (maison, mails, réseau, fichiers, mémoire).
+      const idx = Number(b.index);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= cfg.providers.length) throw new Error('modèle inconnu');
+      setConfigValue(paths, ['providers'], cfg.providers.map((p, i) => { if (i !== idx) return p; const { personal: _, ...rest } = p; return b.personal === false ? { ...rest, personal: false } : rest; }));
+      return true;
+    }
+    case 'model_move': {
+      // Remonter un modèle dans la liste (le premier est celui par défaut, à palier égal).
+      const idx = Number(b.index), list = [...cfg.providers];
+      if (!Number.isInteger(idx) || idx <= 0 || idx >= list.length) throw new Error('modèle inconnu');
+      [list[idx - 1], list[idx]] = [list[idx], list[idx - 1]];
+      setConfigValue(paths, ['providers'], list);
+      return true;
+    }
     case 'routing': {
       setConfigValue(paths, ['routing'], {
+        showModel: ['web', 'partout', 'jamais'].includes(String(b.showModel)) ? String(b.showModel) : (cfg.routing.showModel ?? 'web'),
         preferLocal: Boolean(b.preferLocal), strongForComplex: Boolean(b.strongForComplex), crossCheckRisky: Boolean(b.crossCheckRisky),
         quotaPauseMin: Math.min(240, Math.max(1, Math.round(Number(b.quotaPauseMin ?? cfg.routing.quotaPauseMin)) || 15)),
         monthlyBudgetUsd: Math.max(0, Number(b.monthlyBudgetUsd ?? cfg.routing.monthlyBudgetUsd ?? 0) || 0),

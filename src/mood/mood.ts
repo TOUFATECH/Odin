@@ -37,7 +37,7 @@ export const MOOD_EMOJI: Record<Mood, string> = {
 export const MOOD_IDS = Object.keys(MOODS) as Mood[];
 export const isMood = (m: unknown): m is Mood => typeof m === 'string' && m in MOODS;
 
-const TAG = /^\s*\[\s*humeur\s*:\s*([a-zàâçéèêëîïôûùüÿñæœ_-]+)\s*\]\s*/i;
+const TAG = /^\s*\[\s*humeur\s*[:=]\s*([a-zàâçéèêëîïôûùüÿñæœ_-]+)\s*\]\s*/i;
 const ALIAS: Record<string, Mood> = {
   content: 'joie', heureux: 'joie', joyeux: 'joie', rieur: 'rire', drole: 'rire', drôle: 'rire', fier: 'fierte', fierté: 'fierte',
   enthousiaste: 'excite', excité: 'excite', complice: 'clin', malicieux: 'malice', surpris: 'surprise', pensif: 'reflexion', réflexion: 'reflexion',
@@ -53,7 +53,7 @@ export function extractMood(text: string): { text: string; mood?: Mood } {
   if (!m) { const s = text.match(SHORT); if (s && (isMood(s[1].toLowerCase()) || ALIAS[s[1].toLowerCase()])) m = s; }
   if (m) { const raw = m[1].toLowerCase(); mood = isMood(raw) ? raw : ALIAS[raw]; text = text.slice(m[0].length); }
   // Marqueurs restés au milieu (plusieurs messages, réponse reprise…)
-  text = text.replace(/\[\s*humeur\s*:\s*[a-zàâçéèêëîïôûùüÿñæœ_-]+\s*\]\s*/gi, '').replace(/(^|\n)\s*\[(?:neutre|joie|rire|amour|fierte|excite|clin|malice|surprise|reflexion|concentration|confus|inquiet|triste|colere|peur|gene|fatigue|ecoute|regarde)\]\s*/gi, '$1');
+  text = text.replace(/\[\s*humeur\s*[:=]\s*[a-zàâçéèêëîïôûùüÿñæœ_-]+\s*\]\s*/gi, '').replace(/(^|\n)\s*\[(?:neutre|joie|rire|amour|fierte|excite|clin|malice|surprise|reflexion|concentration|confus|inquiet|triste|colere|peur|gene|fatigue|ecoute|regarde)\]\s*/gi, '$1');
   return { text, mood };
 }
 
@@ -91,3 +91,6 @@ export function guessMood(text: string, c: MoodContext = {}): Mood {
 /** Ligne du prompt système qui apprend au modèle à donner son humeur. */
 export const MOOD_PROMPT = `## Ton humeur
 Tu as un visage (une petite boule dorée) dont la couleur montre ton humeur. Commence CHAQUE réponse finale par le marqueur [humeur:X], où X est l'un de : ${MOOD_IDS.join(', ')}. Choisis-le toi-même, sincèrement, selon ce que tu ressens vraiment dans l'échange (content d'avoir réussi, fâché contre une page piégée, pensif devant une question, attendri par un merci…). Le marqueur est retiré avant l'affichage : n'en parle pas. N'écris pas d'émojis dans tes réponses (pas de 👋 🙂 😊…) : un texte simple et clair.`;
+
+/** Texte sans aucun marqueur d'humeur (« [humeur:joie] », « [humeur=neutre] », « [joie] » en tête) : pour Telegram, Signal, WhatsApp… */
+export function stripMood(text: string): string { return extractMood(text).text; }

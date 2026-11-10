@@ -11,6 +11,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import type { Message, ToolCall } from '../types.ts';
+import type { RouteEntry } from '../providers/journal.ts';
 
 export type Origin = 'owner' | 'agent' | 'untrusted';
 export const TRUST: Record<Origin, number> = { owner: 1, agent: 0.7, untrusted: 0.2 };
@@ -146,6 +147,11 @@ export class Muninn {
       try { this.db.exec(`ALTER TABLE memories ADD COLUMN ${col}`); } catch { /* colonne déjà présente */ }
     }
     this.db.exec('CREATE TABLE IF NOT EXISTS memory_vec(id INTEGER PRIMARY KEY, model TEXT NOT NULL, vec BLOB NOT NULL)');
+    // Journal des routages : quelle IA a traité quoi, pourquoi, et qui a été essayé avant.
+    this.db.exec(`CREATE TABLE IF NOT EXISTS routing(id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, turn_id TEXT NOT NULL, session_id TEXT NOT NULL,
+      channel TEXT NOT NULL, request TEXT NOT NULL, purpose TEXT NOT NULL, provider TEXT NOT NULL, label TEXT NOT NULL, tier TEXT NOT NULL, min_tier TEXT NOT NULL,
+      need TEXT NOT NULL, reason TEXT NOT NULL, attempts TEXT NOT NULL, ok INTEGER NOT NULL, ms INTEGER NOT NULL, tokens_in INTEGER NOT NULL, tokens_out INTEGER NOT NULL, cost_usd REAL NOT NULL);
+      CREATE INDEX IF NOT EXISTS routing_turn ON routing(turn_id); CREATE INDEX IF NOT EXISTS routing_session ON routing(session_id, at); CREATE INDEX IF NOT EXISTS routing_at ON routing(at);`);
   }
 
   close(): void { this.db.close(); }
@@ -499,6 +505,38 @@ export class Muninn {
 
   recordUsage(sessionId: string, provider: string, tin: number, tout: number, cost: number, purpose = 'agent'): void {
     this.db.prepare('INSERT INTO usage(session_id, provider, tokens_in, tokens_out, cost_usd, created_at, purpose) VALUES (?,?,?,?,?,?,?)').run(sessionId, provider, tin, tout, cost, Date.now(), purpose);
+  }
+
+  // ---------- Journal des routages ----------
+
+  recordRoute(e: RouteEntry): void {
+    this.db.prepare('INSERT INTO routing(at, turn_id, session_id, channel, request, purpose, provider, label, tier, min_tier, need, reason, attempts, ok, ms, tokens_in, tokens_out, cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(e.at, e.turnId, e.sessionId, e.channel, e.request.slice(0, 160), e.purpose, e.provider, e.label, e.tier, e.minTier, e.need, e.reason.slice(0, 300), JSON.stringify(e.attempts.slice(0, 20)), e.ok ? 1 : 0, Math.round(e.ms), e.tokensIn, e.tokensOut, e.costUsd);
+    // On garde 6 mois, 50 000 appels au plus.
+    if (Math.random() < 0.01) this.db.prepare('DELETE FROM routing WHERE at < ? OR id <= (SELECT MAX(id) - 50000 FROM routing)').run(Date.now() - 183 * 86_400_000);
+  }
+  /** Appels journalisés, du plus récent au plus ancien. */
+  routes(q: { limit?: number; sessionId?: string; turnId?: string; since?: number; provider?: string } = {}): RouteEntry[] {
+    const where: string[] = [], args: Array<string | number> = [];
+    if (q.sessionId) { where.push('session_id = ?'); args.push(q.sessionId); }
+    if (q.turnId) { where.push('turn_id = ?'); args.push(q.turnId); }
+    if (q.since) { where.push('at >= ?'); args.push(q.since); }
+    if (q.provider) { where.push('provider = ?'); args.push(q.provider); }
+    const rows = this.db.prepare(`SELECT * FROM routing ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY at DESC, id DESC LIMIT ?`).all(...args, Math.min(500, q.limit ?? 50)) as Array<Record<string, string | number>>;
+    return rows.map((r) => ({
+      at: Number(r.at), turnId: String(r.turn_id), sessionId: String(r.session_id), channel: String(r.channel), request: String(r.request), purpose: String(r.purpose),
+      provider: String(r.provider), label: String(r.label), tier: String(r.tier), minTier: String(r.min_tier), need: String(r.need), reason: String(r.reason),
+      attempts: (() => { try { return JSON.parse(String(r.attempts)); } catch { return []; } })(), ok: Number(r.ok) === 1, ms: Number(r.ms),
+      tokensIn: Number(r.tokens_in), tokensOut: Number(r.tokens_out), costUsd: Number(r.cost_usd),
+    }));
+  }
+  /** Derniers tours d'une conversation (le plus récent d'abord). */
+  recentTurns(sessionId: string, limit = 5): string[] {
+    return (this.db.prepare("SELECT turn_id, MAX(at) AS t FROM routing WHERE session_id = ? AND turn_id != '' GROUP BY turn_id ORDER BY t DESC LIMIT ?").all(sessionId, limit) as Array<{ turn_id: string }>).map((r) => r.turn_id);
+  }
+  /** Bilan par IA depuis une date : appels, réussites, échecs, temps moyen, jetons, coût. */
+  routeStats(since: number): Array<{ provider: string; label: string; calls: number; ok: number; failed: number; avg_ms: number; tokens: number; cost_usd: number }> {
+    return this.db.prepare("SELECT provider, MAX(label) AS label, COUNT(*) AS calls, SUM(ok) AS ok, SUM(1 - ok) AS failed, CAST(AVG(ms) AS INTEGER) AS avg_ms, SUM(tokens_in + tokens_out) AS tokens, SUM(cost_usd) AS cost_usd FROM routing WHERE at >= ? AND provider != '' GROUP BY provider ORDER BY calls DESC").all(since) as never;
   }
 
   // ---------- Missions (chaque tour de l'agent, pour l'onglet Missions) ----------

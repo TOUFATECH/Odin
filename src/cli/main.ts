@@ -30,6 +30,7 @@ import { WhatsAppChannel } from '../bifrost/channels/whatsapp.ts';
 import { MailChannel } from '../bifrost/channels/mail.ts';
 import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
+import { routingReport } from '../providers/journal.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { tunnel } from '../web/tunnel.ts';
@@ -82,6 +83,7 @@ Usage : odin <commande>
   backup [fichier]             sauvegarde chiffrée de ~/.odin (config, clés, mémoire, compétences)
   restore <fichier>            restaure une sauvegarde (Odin arrêté)
   decisions [N]                ce qu'Odin a décidé (seul ou avec toi), et pourquoi
+  ia [N|bilan|SESSION]         quelle IA a traité chaque demande (journal réel des routages)
   grants [list|revoke ID]      autorisations permanentes (« toujours autoriser »)
   breaker [on|nuit|off]        Odin Breaker : Odin ne demande plus rien (toujours, ou la nuit)
   mimir [status|autonomy NIVEAU|use JUGE|eval|test|enable|disable]
@@ -271,7 +273,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), updateNow: () => gw!.updateNow(), pairAsk: (r) => gw!.pairAsk(r), reload, failedChannels: () => Object.fromEntries(gw!.failed), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), updateNow: () => gw!.updateNow(), pairAsk: (r) => gw!.pairAsk(r), reload, failedChannels: () => Object.fromEntries(gw!.failed), testChannel: (n) => gw!.testChannel(n), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {
@@ -509,6 +511,10 @@ async function admin(): Promise<void> {
       const all = existsSync(f) ? readFileSync(f, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : [];
       const rows = all.filter((x) => x.severity || x.via === 'mimir' || x.via === 'grant').slice(-Number(sub ?? 30)).reverse();
       console.log(table(rows.map((x) => ({ heure: x.t.slice(5, 16).replace('T', ' '), gravité: x.severity ?? '—', décision: x.allowed ? (x.via === 'mimir' ? 'décidé seul' : x.via === 'grant' ? 'autorisation permanente' : x.via === 'human' ? 'autorisé par toi' : 'autorisé') : 'refusé', action: x.summary, pourquoi: x.allowed ? x.why ?? '' : x.reason }))));
+    } else if (cmd === 'ia') {
+      // Journal des routages : quelle IA a traité quoi (réel, pas la configuration).
+      if (sub === 'bilan') console.log(routingReport(odin.muninn, { scope: 'bilan' }));
+      else console.log(table(odin.muninn.routes({ limit: Number(sub) || 30, ...(sub && !Number(sub) ? { sessionId: sub } : {}) }).map((e) => ({ heure: new Date(e.at).toLocaleString('fr-FR').slice(0, 19), rôle: e.purpose, ia: e.ok ? e.label : '✗ aucune', pourquoi: e.reason, essais: e.attempts.filter((x) => !x.ok).map((x) => `${x.provider} : ${x.error}`).join(' ; '), demande: e.request.slice(0, 50) }))));
     } else if (cmd === 'grants') {
       if (sub === 'revoke') console.log(odin.muninn.revokeGrant(a) ? 'Autorisation retirée.' : 'Introuvable.');
       else console.log(table(odin.muninn.listGrants().map((g) => ({ id: g.id, autorisation: g.key, exemple: g.example, utilisations: g.uses, depuis: new Date(g.created_at).toLocaleDateString('fr-FR') }))));
@@ -773,7 +779,7 @@ async function main(): Promise<void> {
     process.exitCode = r.some((x) => x.ok === false) ? 1 : 0;
     return;
   }
-  if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'mimir', 'jev', 'decisions', 'grants'].includes(cmd)) return admin();
+  if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'mimir', 'jev', 'decisions', 'ia', 'grants'].includes(cmd)) return admin();
   console.log(HELP);
   process.exitCode = 1;
 }

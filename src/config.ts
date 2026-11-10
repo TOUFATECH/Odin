@@ -24,6 +24,14 @@ export interface ProviderConfig {
   priceOutPerM?: number;
   /** Palier : 'local' (installé, gratuit), 'standard', 'strong' (le plus capable). Deviné si absent. */
   tier?: 'local' | 'standard' | 'strong';
+  /** Spécialités (code, recherche, long, écriture, outils, raisonnement, vision…). Devinées d'après le nom si absent. */
+  strengths?: string[];
+  /** Le modèle voit-il les images ? Deviné si absent. */
+  vision?: boolean;
+  /** false : ne lui confier aucune tâche touchant à ta vie privée (maison, mails, réseau, fichiers, mémoire). */
+  personal?: boolean;
+  /** Seulement en dernier recours (ex. modèle local trouvé tout seul : sert quand Internet ou les autres tombent). */
+  fallbackOnly?: boolean;
 }
 
 export interface OdinConfig {
@@ -42,6 +50,8 @@ export interface OdinConfig {
     quotaPauseMin: number;
     /** Plafond de dépense par mois civil, en dollars (0 = pas de plafond). Au-delà : modèles gratuits seulement. */
     monthlyBudgetUsd: number;
+    /** Afficher sous chaque réponse quelle IA l'a traitée : dans l'application (défaut), partout, ou jamais. */
+    showModel?: 'web' | 'partout' | 'jamais';
   };
   /** Fournisseur (moins cher) pour la compaction, la réflexion et les sous-agents. */
   cheapProvider?: ProviderConfig;
@@ -192,7 +202,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     { kind: 'anthropic', model: 'claude-sonnet-5-5', apiKeyEnv: 'ANTHROPIC_API_KEY', priceInPerM: 3, priceOutPerM: 15 },
     { kind: 'openai', model: 'anthropic/claude-sonnet-5.5', baseUrl: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
   ],
-  routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15, monthlyBudgetUsd: 0 },
+  routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15, monthlyBudgetUsd: 0, showModel: 'web' },
   agent: { maxSteps: 100, maxTokens: 4096, contextBudget: 60000, maxCostPerTurnUsd: 1, fullAccess: true },
   policy: {
     modes: { read: 'allow', write: 'allow', network: 'allow', exec: 'ask', external: 'ask' },
