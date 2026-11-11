@@ -146,7 +146,7 @@ export class Vault {
   read(path: string): Note | undefined { return this.find(path); }
 
   /** Crée ou remplace une note (écriture atomique). Renvoie son chemin. */
-  write(path: string, meta: NoteMeta, body: string): string {
+  write(path: string, meta: NoteMeta, body: string, o: { quiet?: boolean } = {}): string {
     const full = this.abs(path);
     mkdirSync(dirname(full), { recursive: true });
     const tmp = `${full}.odin-tmp`;
@@ -155,7 +155,8 @@ export class Vault {
     renameSync(tmp, full);
     this.invalidate();
     const rel = relative(this.root, full).split(sep).join('/');
-    vaultEvents.emit('change', { kind: existed ? 'modifiée' : 'créée', path: rel, title: String(meta.titre ?? meta.title ?? basename(rel, '.md')), type: String(meta.type ?? 'note') });
+    // `quiet` : écriture d'entretien (fiches tenues par Odin) qui ne doit pas déclencher les automatisations « note créée ».
+    if (!o.quiet) vaultEvents.emit('change', { kind: existed ? 'modifiée' : 'créée', path: rel, title: String(meta.titre ?? meta.title ?? basename(rel, '.md')), type: String(meta.type ?? 'note') });
     return rel;
   }
 

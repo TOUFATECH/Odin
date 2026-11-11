@@ -33,6 +33,7 @@ import { naglfar } from './modules/naglfar.ts';
 import { sindri } from './modules/sindri.ts';
 import { skogul } from './modules/skogul.ts';
 import { ullr, ullrKeys } from './modules/ullr.ts';
+import { syncSheets } from './fiches.ts';
 import { ymir } from './modules/ymir.ts';
 import { Valhalla } from './service.ts';
 import type { Module, NotifyOpts } from './types.ts';
@@ -49,11 +50,12 @@ export function coreModules(odin: Pick<Odin, 'paths' | 'cfg'>): Module[] {
     id: 'saga', name: 'Saga', family: 'Données', what: 'Le Cerveau : tes notes reliées entre elles, avec le graphe des Nornes.',
     does: ['notes en Markdown reliées par [[liens]]', 'graphe des Nornes (comme Obsidian)', 'recherche dans tout le Cerveau', 'journal du jour, projets, captures', 'ce qui demande ton attention (retards, échéances)'],
     from: ['Obsidian', 'Logseq', 'AppFlowy', 'AFFiNE', 'Docmost'], upstream: ['logseq/logseq', 'AppFlowy-IO/AppFlowy', 'toeverything/AFFiNE', 'docmost/docmost'],
-    modes: ['Nornes · graphe'], words: ['note', 'notes', 'cerveau', 'deuxieme cerveau', 'deuxième cerveau', 'graphe', 'idee', 'idée', 'journal', 'retrouve'],
+    modes: ['Nornes · graphe'], words: ['note', 'notes', 'cerveau', 'deuxieme cerveau', 'deuxième cerveau', 'graphe', 'idee', 'idée', 'journal', 'retrouve', 'fiches des applis', 'fiches d\'odin'],
     actions: [
       { id: 'chercher', label: 'Chercher', what: 'Dans tout le Cerveau', read: true, params: [{ key: 'q', label: 'Recherche', kind: 'text', required: true }], words: ['cherche', 'retrouve'], run: (_c, i) => ({ text: brainOf(ctx).search(s(i.q), 10).map((r) => `- ${r.note.title} (${r.note.path}) — ${r.snippet}`).join('\n') || 'Rien trouvé.' }) },
       { id: 'noter', label: 'Noter', what: 'Nouvelle note', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'texte', label: 'Texte', kind: 'textarea', default: '' }], words: ['note', 'retiens'], run: (_c, i) => { const chemin = brainOf(ctx).create(s(i.titre), 'note', s(i.texte)); return { text: `📝 ${chemin}`, data: { chemin } }; } },
       { id: 'completer', label: 'Compléter une note', what: 'Ajoute du texte à la fin d\'une note existante', params: [{ key: 'note', label: 'Note (titre ou chemin)', kind: 'text', required: true }, { key: 'texte', label: 'Texte à ajouter', kind: 'textarea', required: true }], words: ['complete', 'complète', 'ajoute a la note'], run: (_c, i) => { const b = brainOf(ctx), n = b.find(s(i.note)); if (!n) throw new Error(`note introuvable : ${s(i.note)}`); return { text: `📝 ${b.append(n.path, s(i.texte))} complétée`, data: { chemin: n.path } }; } },
+      { id: 'fiches', label: 'Fiches des applis', what: 'Remet à jour les fiches d\'Odin dans le Cerveau (une par appli, leurs liens, le mode de fonctionnement) ; tes notes y sont gardées', words: ['fiches', 'fiches des applis', 'mets a jour les fiches'], quiet: true, run: (c) => { const r = syncSheets(brainOf(ctx), c.modules()); return { text: `📚 ${r.total} fiches dans le Cerveau (dossier « Odin »), ${r.written} mise(s) à jour. Elles décrivent les applis et leurs liens, jamais tes réglages.` }; } },
       { id: 'attention', label: 'À surveiller', what: 'Retards, échéances, projets à l\'arrêt', read: true, run: () => ({ text: brainOf(ctx).attention().map((a) => `- ${a.kind} : ${a.title}${a.when ? ` (${a.when})` : ''}`).join('\n') || 'Rien d\'urgent.' }) },
     ],
     view: () => ({ subtitle: 'Ouvre l\'onglet Cerveau pour le graphe et les notes.', sections: [{ kind: 'text', title: 'Saga', text: 'Saga a sa propre page (Cerveau). Ici : ses actions, utilisables par les autres applis et par Draupnir.' }] }),
@@ -130,6 +132,8 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   if (pve && !((v.ctx('ymir').settings.servers as unknown[] | undefined)?.length)) v.ctx('ymir').saveSettings({ servers: [{ name: 'principal', url: pve }] });
   if (!existsSync(odin.paths.home)) return () => {};
   setValhalla(v);
+  // Les fiches des applis dans le Cerveau : ce qu'elles font et comment elles se relient, jamais leurs réglages.
+  try { const r = syncSheets(brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }), v.modules()); if (r.written) console.log(`[cerveau] ${r.written} fiche(s) d'applis mises à jour sur ${r.total}`); } catch (e) { console.error(`[cerveau] fiches des applis : ${(e as Error).message}`); }
   const unwire = wireReflexes(v);
   // Événements et alertes → Draupnir (« Quand une appli signale »).
   const toFlows = (e: { module: string; type: string; data: Record<string, unknown> }) => { const m = v.module(e.module); void draupnirOf()?.onModule({ module: e.module, name: m?.name ?? e.module, type: e.type, data: e.data }).catch(() => {}); };
