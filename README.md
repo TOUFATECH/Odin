@@ -436,7 +436,7 @@ Sur Telegram, pendant qu'il travaille, un message se met à jour pour montrer **
 ### Mode essai et mises à jour sans y penser
 Bouton **Essai** en haut de la discussion (ou `/essai` sur Telegram) : Odin lit, cherche et prépare tout, mais ne change rien — les scripts tournent « à blanc », toute autre modification est décrite au lieu d'être faite, et il termine par « Voici ce que je ferais ». Un clic pour revenir.
 
-Quand une nouvelle version est installée (par `odin update`, Hermes ou un `git pull`), Odin vérifie que le nouveau code se charge, puis **redémarre tout seul dès qu'il ne travaille plus**. En attendant, un bandeau l'indique avec **Redémarrer maintenant** ; la version utilisée est affichée en bas du menu.
+Quand une nouvelle version est installée (par `odin update`, Hermes ou un `git pull`), Odin vérifie que le nouveau code se charge, puis **redémarre tout seul dès qu'il ne travaille plus**. Si le code installé ne se charge pas, il **se répare** : ses retouches locales qui gênent sont mises de côté (copie dans `~/.odin/self-backups/`, et `git stash list`), et si c'est la version publiée qui est en cause, il remet le code de celle qui tourne. Même au démarrage : un code resté en conflit après une mise à jour interrompue est remis tel que publié avant de démarrer. En attendant, un bandeau l'indique avec **Redémarrer maintenant** ; la version utilisée est affichée en bas du menu.
 
 ### Sur Telegram
 Pendant qu'Odin travaille, Telegram affiche « écrit… » en haut de la conversation. Ses réponses sont mises en forme (gras, code, listes, liens) et se terminent par **son visage selon son humeur**, à la taille d'un émoji : Odin crée lui-même un pack d'émojis personnalisés à ton nom. Telegram n'affiche ces émojis dans les messages d'un bot que si son propriétaire a **Telegram Premium** ; sinon Odin met l'émoji classique de son humeur.
@@ -502,7 +502,7 @@ Pour toi (le propriétaire), Odin n'est pas limité à son espace de travail : s
 
 ### Il se met à jour et s'améliore lui-même
 
-Odin lit son propre code, le modifie pour s'améliorer, vérifie qu'il se charge (et lance les tests si besoin), puis redémarre pour appliquer — en te prévenant. Chaque fichier modifié est sauvegardé avant (`~/.odin/self-backups/`) : un retour arrière est toujours possible. Il se met aussi à jour avec la dernière version publiée en **gardant ses propres améliorations**. Le code de sécurité ne se modifie jamais depuis une conversation qui a lu du contenu extérieur, et un redémarrage est refusé si le code ne se charge plus. Toi aussi : `odin update`.
+Odin lit son propre code, le modifie pour s'améliorer, vérifie qu'il se charge (et lance les tests si besoin), puis redémarre pour appliquer — en te prévenant. Chaque fichier modifié est sauvegardé avant (`~/.odin/self-backups/`) : un retour arrière est toujours possible. Il se met aussi à jour avec la dernière version publiée en **gardant ses propres améliorations** quand elles s'accordent avec elle ; sinon la version publiée passe devant et ses retouches sont mises de côté, jamais mélangées au code. Le code de sécurité ne se modifie jamais depuis une conversation qui a lu du contenu extérieur, et un redémarrage est refusé si le code ne se charge plus. Toi aussi : `odin update`.
 
 ### Droits : sa machine et les machines du réseau
 

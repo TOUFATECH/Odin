@@ -29,6 +29,7 @@
   };
   // Les dernières améliorations (les plus récentes en premier).
   const NEWS = [
+    ['Mise à jour', 'Une mise à jour ne peut plus me laisser par terre : si mes propres retouches ne s\'accordent pas avec la nouvelle version, je garde la version publiée et je mets mes retouches de côté (rien n\'est perdu). Et si mon code est abîmé au démarrage, je le répare tout seul.'],
     ['Droits', 'Je suis administrateur de ma machine partout (Linux, conteneur, Mac, Windows). S\'il me manque des droits, je te dis la vraie cause et la commande à lancer une fois, au lieu de réclamer un mot de passe. Réglages → Droits et machines.'],
     ['Antivirus', 'Ullr, mon antivirus fait maison : fichiers, archives, liens et messages. Il se met à jour seul, met en quarantaine ce qui est sûr (annulable) et relie les signaux de toutes les applis en incidents.'],
     ['Sites web', 'Idunn surveille tes sites, les essaie, les relance et applique leurs mises à jour, sans IA. Tu me demandes les événements que tu veux : « les erreurs du site … depuis 2 jours ». Ce qui touche la production attend ton accord.'],
