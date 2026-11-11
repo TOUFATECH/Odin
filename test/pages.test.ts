@@ -65,7 +65,7 @@ test('Sindri : le dimanche à 4 h 30, c\'est bien la vérification des sauvegard
 
 test('Guide de la mascotte : chaque page de l\'interface a son explication, et le script est servi avec les autres', () => {
   const guide = readFileSync(new URL('../src/web/guide.js', import.meta.url), 'utf8'), ui = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8'), server = readFileSync(new URL('../src/web/server.ts', import.meta.url), 'utf8');
-  const explained = new Set([...guide.slice(guide.indexOf('const VIEWS = {'), guide.indexOf('const NEWS = [')).matchAll(/^\s{4}(\w+): \['/gm)].map((m) => m[1]));
+  const explained = new Set([...guide.slice(guide.indexOf('const VIEWS = {'), guide.indexOf('let box = null')).matchAll(/^\s{4}(\w+): \['/gm)].map((m) => m[1]));
   const views = [...new Set([...ui.matchAll(/data-view="(\w+)"/g)].map((m) => m[1]))];
   assert.ok(views.length >= 12, `${views.length} pages dans le menu`);
   assert.deepEqual(views.filter((v) => !explained.has(v)), [], 'chaque page du menu a son explication dans le guide');
@@ -73,7 +73,9 @@ test('Guide de la mascotte : chaque page de l\'interface a son explication, et l
   assert.match(server, /url\.pathname === '\/guide\.js'/, 'et servi par Odin');
   // Jamais de HTML brut : le texte d'Odin passe par des nœuds de texte (pas d'injection possible depuis une réponse).
   assert.ok(!/innerHTML|insertAdjacentHTML|document\.write|eval\(/.test(guide), 'aucune écriture de HTML brut dans le guide');
-  assert.match(guide, /Une action grave attend ta confirmation/);
+  // Une action qui demande ton accord n'est jamais validée depuis la bulle : elle renvoie à la Discussion
+  assert.match(guide, /J'ai besoin de ton accord/);
+  assert.match(guide, /Voir et valider/);
 });
 
 test('Page de connexion : aucun script ne la recharge quand le serveur répond « pas connecté » (elle se rechargeait en boucle)', async () => {

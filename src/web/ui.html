@@ -909,7 +909,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
 .br-conn{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
 .br-cn{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
 .br-cn span:not(.br-dot){grid-column:2;font-size:12.5px;color:var(--muted)}
-.br-dot{width:9px;height:9px;border-radius:50%;background:var(--line);grid-row:1}.br-cn.on .br-dot{background:var(--good)}.br-cn.ready .br-dot{background:transparent;border:2px solid var(--dim)}.br-cn:not(.on) .br-cc{font-weight:500;color:var(--muted)!important}
+.br-dot{width:9px;height:9px;border-radius:50%;background:var(--line);grid-row:1}.br-cn.on .br-dot{background:var(--good)}.br-cn.ready .br-dot{background:transparent;box-shadow:inset 0 0 0 2px var(--good)}.br-cn.on{border-color:var(--good-l)}
 .br-cc{font-weight:600;color:var(--ink)!important}
 .br-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
 .br-card{display:flex;flex-direction:column;gap:6px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);font:inherit;cursor:pointer;transition:border-color .15s,transform .15s}
@@ -2066,6 +2066,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   function addMsg(role, text, model) {
     activity?.classList.add('done'); activity = null;
+    if (role === 'user') text = String(text).replace(/\n*\[page : [^\]\n]*\]\s*$/, '');
     const m = text.match(/\/yes ([A-Za-z0-9]+)/);
     // Ancien chemin (historique rechargé) : le message texte sert de secours quand aucune carte n'existe déjà.
     if (role === 'assistant' && m && /validation|GRAVE/i.test(text)) { if (cards.has(m[1])) return; return addApproval(text, m[1]); }
@@ -2203,6 +2204,15 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     addMsg('user', t + (files?.length ? '\n' + files.map((f) => `[Fichier joint : ${f.file} (${f.type || '?'}, ${f.size} o)]`).join('\n') : ''));
     try { const r = await api('/api/message', { peer, text: t, files }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
+  // La bulle d'Odin, sur n'importe quelle page, écrit dans cette même conversation (avec la page où tu es).
+  window.OdinChat = {
+    send: async (t, where) => {
+      t = String(t || '').trim(); if (!t) return false;
+      msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
+      setBusy(true); addMsg('user', t);
+      try { const r = await api('/api/message', { peer, text: t, where }); if (r && r.error) { setBusy(false); return false; } return true; } catch { setBusy(false); return false; }
+    },
+  };
   const faceTpl = document.querySelector('#login .odin');
   function setBusy(b) { busy = b; if (b) liveEnd(); $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));
@@ -2699,7 +2709,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     }
     const pv = document.querySelector('[data-nt=pve]'); if (pv) pv.hidden = !featShown('proxmox');
     const hidden = F.filter((f) => !f.show);
-    $('#more-plus').replaceChildren(el('div', { class: 'svc2' }, el('span', { style: 'flex:1' }, el('b', {}, 'Présentation d\'Odin'), el('div', { class: 'sub' }, 'Odin te fait visiter l\'application, en texte et à voix haute.')), el('button', { class: 'btn small primary', type: 'button', onclick: () => window.OdinTour?.start(true) }, 'Revoir la présentation')),
+    $('#more-plus').replaceChildren(el('div', { class: 'svc2' }, el('span', { style: 'flex:1' }, el('b', {}, 'Présentation d\'Odin'), el('div', { class: 'sub' }, 'Odin te fait visiter l\'application de A à Z : chaque page et chaque appli, comment t\'en servir et comment la régler, en texte et à voix haute.')), el('button', { class: 'btn small primary', type: 'button', onclick: () => window.OdinTour?.start(true) }, 'Lancer la visite guidée')),
+      el('div', { class: 'svc2' }, el('span', { style: 'flex:1' }, el('b', {}, 'Arbre d\'évolution'), el('div', { class: 'sub' }, 'Toutes les mises à jour d\'Odin, datées, appli par appli : le soleil, c\'est Odin ; chaque planète, une appli et ses évolutions.')), el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinEvolution?.open() }, 'Ouvrir l\'arbre')),
+      el('div', { class: 'svc2' }, el('span', { style: 'flex:1' }, el('b', {}, 'Quoi de neuf'), el('div', { class: 'sub' }, 'Odin t\'explique les nouveautés de la dernière mise à jour.')), el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinGuide?.news() }, 'Voir les nouveautés')),
       el('h2', {}, 'Plus de fonctions'),
       el('p', { class: 'sub', style: 'margin:0' }, 'Odin te propose ces fonctions quand ton usage s\'y prête (il voit un serveur Proxmox sur ton réseau, tu lui parles de tes rendez-vous…). Tu peux aussi les ajouter maintenant.'),
       hidden.length ? el('div', { class: 'svcs' }, hidden.map((f) => el('div', { class: 'svc2 fitem' }, el('span', { class: 'hico', 'aria-hidden': 'true' }, FEAT_ICON[f.id]), el('b', { style: 'flex:1' }, f.label),
@@ -3375,15 +3387,25 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
 
   // ---------- Voix : micro (Whisper) et lecture (ElevenLabs) ----------
-  let speakOn = false, speakPref = null;
-  try { speakPref = localStorage.getItem('odin.speak'); speakOn = speakPref === '1'; } catch { /* stockage indisponible */ }
+  // Odin répond à voix haute tant que tu ne l'as pas coupé : un seul réglage (Réglages → Voix), que le bouton de la
+  // discussion et celui de la bulle d'Odin changent aussi. Sans voix réglée, c'est celle du navigateur qui lit.
+  let speakOn = true;
+  try { localStorage.removeItem('odin.speak'); } catch { /* ancien réglage par appareil */ }
   const speakBtn = $('#speakBtn');
-  function renderSpeak() { speakBtn.setAttribute('aria-pressed', String(speakOn)); speakBtn.classList.toggle('on', speakOn); }
+  function renderSpeak() { speakBtn.setAttribute('aria-pressed', String(speakOn)); speakBtn.classList.toggle('on', speakOn); dispatchEvent(new Event('odin:voice')); }
   renderSpeak();
-  speakBtn.addEventListener('click', () => { speakOn = !speakOn; speakPref = speakOn ? '1' : '0'; try { localStorage.setItem('odin.speak', speakOn ? '1' : '0'); } catch { /* rien */ } renderSpeak(); if (speakOn && !state?.voice?.tts) $('#typing').textContent = 'La voix n\'est pas encore réglée : Réglages → Voix.'; });
+  async function setSpeak(on) {
+    speakOn = Boolean(on); renderSpeak();
+    if (!on) { try { player?.pause(); speechSynthesis?.cancel(); } catch { /* rien */ } }
+    try { await api('/api/action', { kind: 'settings_save', section: 'speak', on: speakOn }); } catch { /* gardé pour cette page */ }
+    const c = $('#v-speak'); if (c) c.checked = speakOn;
+  }
+  window.OdinVoice = { on: () => speakOn, set: setSpeak };
+  speakBtn.addEventListener('click', () => setSpeak(!speakOn));
   let player = null;
   async function sayAloud(text) {
-    if (!speakOn || !state?.voice?.tts || !text.trim()) return;
+    if (!speakOn || !text.trim()) return;
+    if (!state?.voice?.tts) return readWithBrowser(text);
     try {
       const r = await fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text }) });
       if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return;
@@ -3396,7 +3418,19 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     } catch { /* lecture bloquée par le navigateur */ }
   }
 
-  // ---------- Présentation guidée (première connexion) ----------
+  // Pas de voix réglée (ou voix en panne) : la voix française du navigateur lit la réponse.
+  function readWithBrowser(text) {
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text.replace(/[*_`#>]+/g, '').replace(/https?:\/\/\S+/g, 'lien').slice(0, 1500)); u.lang = 'fr-FR';
+      const v = frenchVoice(); if (v) u.voice = v;
+      const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking'));
+      u.onend = u.onerror = () => faces.forEach((o) => o.classList.remove('talking'));
+      speechSynthesis.speak(u);
+    } catch { /* navigateur sans synthèse vocale */ }
+  }
+
+  // ---------- Présentation guidée (sur demande seulement) ----------
   // Odin se déplace dans l'application et présente chaque partie, en texte et à voix haute.
   // On peut la refuser, l'arrêter à tout moment, et la revoir dans Réglages → Plus.
   const S = (sec) => `#v-settings article[data-sec="${sec}"]`;
@@ -3474,7 +3508,26 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Pour commencer : choisis mon modèle dans les Réglages, puis dis-moi ce que tu veux faire. Tu peux revoir cette présentation à tout moment, dans Réglages, rubrique Plus. Je suis là.' },
     ] },
   ];
-  const TOUR = CHAPTERS.flatMap((c, ci) => c.steps.map((s) => ({ ...s, ch: ci })));
+  let TOUR = CHAPTERS.flatMap((c, ci) => c.steps.map((s) => ({ ...s, ch: ci })));
+  // « Les applis de A à Z » : chaque appli, à quoi elle sert, comment l'utiliser, comment la régler. Construit à
+  // partir du catalogue des applis (le même mode d'emploi que la bulle d'Odin), donc toujours à jour.
+  const BASE_CHAPTERS = CHAPTERS.length;
+  async function tourApps() {
+    CHAPTERS.length = BASE_CHAPTERS;
+    try {
+      const cat = await window.OdinGuide?.catalog?.();
+      const mods = (cat?.modules || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+      if (mods.length) {
+        const plain = (x) => String(x).replace(/\*\*/g, '');
+        CHAPTERS.push({ name: 'Les applis de A à Z', steps: [
+          { v: 'apps', q: ['#v-apps .body', '#v-apps'], t: `J'ai ${mods.length} applis. Je te les présente une par une, dans l'ordre alphabétique : à quoi chacune sert, comment l'utiliser et comment la régler. Le sommaire te permet de sauter ce chapitre.` },
+          ...mods.map((m) => { const g = window.OdinGuide.manual(m); return { v: 'app', pre: () => window.OdinApps?.app(m.id), q: ['#v-app .va-page', '#v-app .body'],
+            t: `${m.name} — ${m.what} Pour l'utiliser : ${g.use.slice(0, 3).map(plain).join(' ')} Pour la régler : ${g.config.slice(0, 2).map(plain).join(' ')}` }; }),
+        ] });
+      }
+    } catch { /* applis indisponibles : la visite se fait sans ce chapitre */ }
+    TOUR = CHAPTERS.flatMap((c, ci) => c.steps.map((s) => ({ ...s, ch: ci })));
+  }
   let tourI = -1, tourVoice = true, tourAuto = true, tourAudio = null, tourBud = null, tourBox = null, tourRing = null, tourSeq = 0, tourSecUse = null, autoT = 0;
   const stopVoice = () => { clearTimeout(autoT); try { tourAudio?.pause(); } catch {} try { speechSynthesis?.cancel(); } catch {} tourBud?.classList.remove('talking'); };
   // Fin de lecture : en lecture automatique, on passe à l'étape suivante.
@@ -3590,8 +3643,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     tourBox.querySelector('.btn.primary')?.focus({ preventScroll: true });
     tourSpeak(s.t, seq);
   }
-  function tourStart(voice = true) {
+  async function tourStart(voice = true) {
     tourEnd(false); tourVoice = voice; tourAuto = voice;
+    await tourApps();
     try { tourSecUse = [localStorage.getItem('odin.secUse'), localStorage.getItem('odin.sec')]; } catch {}
     const src = $('#buddyChat svg');
     tourBud = el('span', { class: 'odin tour-bud', 'aria-hidden': 'true' });
@@ -3982,7 +4036,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   let voicesLoaded = false;
   function renderVoice() {
     const V = state.settings?.voice; if (!V) return;
-    if (speakPref === null) { speakOn = Boolean(state.voice?.speakReplies); renderSpeak(); }
+    if (speakOn !== (state.voice?.speakReplies !== false)) { speakOn = state.voice?.speakReplies !== false; renderSpeak(); }
     const sec = state.settings.secrets;
     $('#v-elevenHint').textContent = sec.ELEVENLABS_API_KEY?.set ? `Clé enregistrée (${sec.ELEVENLABS_API_KEY.hint}). Laisse vide pour la garder.` : 'Clé sur elevenlabs.io → Profil → API Keys.';
     $('#v-sttHint').textContent = sec.OPENAI_API_KEY?.set ? `Clé enregistrée (${sec.OPENAI_API_KEY.hint}).` : 'Inutile avec un serveur Whisper local.';
@@ -4438,6 +4492,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const es = new EventSource('/api/stream');
     es.onmessage = (ev) => {
       const d = JSON.parse(ev.data);
+      if (d.type === 'message' && d.peer === peer) dispatchEvent(new CustomEvent('odin:reply', { detail: { text: d.text } }));
+      else if (d.type === 'event' && d.peer === peer && d.event.type === 'delta') dispatchEvent(new CustomEvent('odin:delta', { detail: { text: d.event.text } }));
+      else if (d.type === 'event' && d.peer === peer && d.event.type === 'approval') dispatchEvent(new CustomEvent('odin:approval', { detail: d.event }));
       if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text, d.model); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
       else if (d.type === 'secret' && d.peer === peer) addSecret(d.text);
@@ -4456,8 +4513,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       setTimeout(connect, 3000);
     };
   }
-  // La visite guidée ne se propose plus toute seule (elle ramenait à la Discussion à chaque nouvel appareil) : elle vient quand tu la demandes
-  // (« visite guidée » dans la discussion, un clic sur Odin, ou Réglages → Plus).
+  // La visite guidée ne se lance que si tu la demandes (« visite guidée », Réglages → Plus, ou la bulle d'Odin).
   refresh().then(() => { loadHistory(); hashView(); }); connect();
 })();
 </script>
@@ -4466,6 +4522,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/valhalla.js"></script>
 <script nonce="__NONCE__" src="/companion.js"></script>
 <script nonce="__NONCE__" src="/guide.js"></script>
+<script nonce="__NONCE__" src="/evolution.js"></script>
 <script nonce="__NONCE__" src="/brain.js"></script>
 </body>
 </html>

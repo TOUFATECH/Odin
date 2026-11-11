@@ -137,6 +137,18 @@ Essaie : *« Quels appareils sont sur mon réseau ? »*, *« Range mon dossier T
 | **Décisions** | tout ce qu'Odin a fait, qui l'a décidé et pourquoi ; niveau d'autonomie ; autorisations permanentes |
 | **Réglages** | modèle et clés (avec test), **budget mensuel** et dépense par modèle et par usage, autonomie et juge, **personnes** (propriétaires, membres, invités), Telegram, voix, réseau local, accès, **sauvegarde chiffrée** |
 
+#### Odin, sur toutes les pages
+
+La mascotte d'Odin te suit sur chaque page. Touche-la (ou Entrée) :
+- **tu lui parles directement**, où que tu sois : c'est la même conversation que la Discussion, il sait sur quelle page ou quelle appli tu es, et il répond dans sa bulle ;
+- il répond **à voix haute** tant que tu ne l'as pas coupé (bouton 🔊 de la bulle ou de la Discussion, ou Réglages → Voix ; sans voix réglée, c'est celle du navigateur) ;
+- il explique la page ou l'appli ouverte, **comment s'en servir et comment la régler, de A à Z** ;
+- son infobulle et son champ de saisie changent selon la page ou l'appli ;
+- **Quoi de neuf** détaille la dernière mise à jour ; après une mise à jour, il te présente lui-même ce qui vient d'arriver ;
+- **Arbre d'évolution** (aussi dans Réglages → Plus) : un système solaire, avec Odin au centre et une planète par appli ou partie d'Odin ; chaque planète montre ses évolutions datées (nouveautés, améliorations, corrections) et une ligne suit les versions. Il se lit dans l'historique des mises à jour, donc toujours à jour.
+
+La **visite guidée** ne se lance que si tu la demandes (« visite guidée », Réglages → Plus, ou la bulle). Elle se termine par **les applis de A à Z** : à quoi sert chacune, comment l'utiliser, comment la régler.
+
 #### Qui peut ouvrir l'interface ?
 
 Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou avec `odin web access` :
