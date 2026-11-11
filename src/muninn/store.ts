@@ -513,6 +513,16 @@ export class Muninn {
     this.db.prepare('INSERT INTO routing(at, turn_id, session_id, channel, request, purpose, provider, label, tier, min_tier, need, reason, attempts, ok, ms, tokens_in, tokens_out, cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(e.at, e.turnId, e.sessionId, e.channel, e.request.slice(0, 160), e.purpose, e.provider, e.label, e.tier, e.minTier, e.need, e.reason.slice(0, 300), JSON.stringify(e.attempts.slice(0, 20)), e.ok ? 1 : 0, Math.round(e.ms), e.tokensIn, e.tokensOut, e.costUsd);
   }
+  /** Les chiffres des économies depuis une date : tâches faites sans IA, demandes confiées à une IA, par fournisseur. */
+  savingsData(since: number): { direct: number; learned: number; aiTurns: number; aiCalls: number; spentUsd: number; tokens: number; byProvider: Array<{ provider: string; label: string; calls: number; tokensIn: number; tokensOut: number; costUsd: number }>; reasons: Array<{ reason: string; n: number }> } {
+    const one = (sql: string, ...a: Array<string | number>) => this.db.prepare(sql).get(...a) as Record<string, number | null>;
+    const d = one("SELECT COUNT(*) AS n, SUM(CASE WHEN reason LIKE 'appris le %' THEN 1 ELSE 0 END) AS learned FROM routing WHERE purpose = 'sans-ia' AND at >= ?", since);
+    const ai = one("SELECT COUNT(DISTINCT turn_id) AS turns, COUNT(*) AS calls, SUM(cost_usd) AS cost, SUM(tokens_in + tokens_out) AS tokens FROM routing WHERE provider != '' AND ok = 1 AND at >= ?", since);
+    const byProvider = (this.db.prepare("SELECT provider, MAX(label) AS label, COUNT(*) AS calls, SUM(tokens_in) AS tin, SUM(tokens_out) AS tout, SUM(cost_usd) AS cost FROM routing WHERE provider != '' AND ok = 1 AND at >= ? GROUP BY provider ORDER BY calls DESC").all(since) as Array<Record<string, string | number>>)
+      .map((r) => ({ provider: String(r.provider), label: String(r.label ?? ''), calls: Number(r.calls), tokensIn: Number(r.tin ?? 0), tokensOut: Number(r.tout ?? 0), costUsd: Number(r.cost ?? 0) }));
+    const reasons = (this.db.prepare("SELECT reason, COUNT(*) AS n FROM routing WHERE purpose = 'sans-ia' AND at >= ? GROUP BY reason ORDER BY n DESC LIMIT 8").all(since) as Array<{ reason: string; n: number }>).map((r) => ({ reason: String(r.reason), n: Number(r.n) }));
+    return { direct: Number(d.n ?? 0), learned: Number(d.learned ?? 0), aiTurns: Number(ai.turns ?? 0), aiCalls: Number(ai.calls ?? 0), spentUsd: Number(ai.cost ?? 0), tokens: Number(ai.tokens ?? 0), byProvider, reasons };
+  }
   /** Ménage du journal, une fois par jour : on garde 6 mois, 50 000 appels au plus. */
   pruneRoutes(now = Date.now()): number {
     return Number(this.db.prepare('DELETE FROM routing WHERE at < ? OR id <= (SELECT MAX(id) - 50000 FROM routing)').run(now - 183 * 86_400_000).changes);

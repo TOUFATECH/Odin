@@ -136,7 +136,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     codex: { connected: Boolean(cx), email: cx?.email ?? '', plan: cx?.plan ?? '', expiresAt: cx?.expires_at ?? 0, models: CODEX_MODELS },
     model: { preset: detectPreset(main), model: main?.model ?? '', baseUrl: main?.baseUrl ?? '', tier: tierOf(main ?? { kind: 'mock', model: '' }) },
     providers: cfg.providers.map((p, i) => ({ index: i, preset: detectPreset(p), model: p.model, baseUrl: p.baseUrl ?? '', tier: tierOf(p), ready: Boolean(buildProvider(p, env, paths)), label: providerLabel(`${p.kind === 'openai' ? serviceOf(p.baseUrl) : p.kind}:${p.model}`), strengths: strengthsOf(p), vision: visionOf(p), personal: p.personal !== false })),
-    routing: { ...cfg.routing, showModel: cfg.routing.showModel ?? 'web' },
+    routing: { ...cfg.routing, showModel: cfg.routing.showModel ?? 'web', directFirst: cfg.routing.directFirst !== false, cheapestFirst: cfg.routing.cheapestFirst !== false, learnDirect: cfg.learning.direct !== false },
     presets: Object.fromEntries(Object.entries(PRESETS).map(([k, p]) => [k, { label: p.label, model: p.model, baseUrl: p.baseUrl ?? '', keyEnv: p.keyEnv ?? '', models: p.models ?? [], note: p.note ?? '' }])),
     secrets: Object.fromEntries(SECRET_NAMES.map((n) => [n, secretHint(n, env)])),
     search: { provider: cfg.search.provider, searxngUrl: cfg.search.searxngUrl },
@@ -212,7 +212,11 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
         preferLocal: Boolean(b.preferLocal), strongForComplex: Boolean(b.strongForComplex), crossCheckRisky: Boolean(b.crossCheckRisky),
         quotaPauseMin: Math.min(240, Math.max(1, Math.round(Number(b.quotaPauseMin ?? cfg.routing.quotaPauseMin)) || 15)),
         monthlyBudgetUsd: Math.max(0, Number(b.monthlyBudgetUsd ?? cfg.routing.monthlyBudgetUsd ?? 0) || 0),
+        // Une page d'avant cette version n'envoie pas ces cases : on garde alors le réglage en place.
+        directFirst: b.directFirst === undefined ? cfg.routing.directFirst !== false : Boolean(b.directFirst),
+        cheapestFirst: b.cheapestFirst === undefined ? cfg.routing.cheapestFirst !== false : Boolean(b.cheapestFirst),
       });
+      if (b.learnDirect !== undefined) setConfigValue(paths, ['learning', 'direct'], Boolean(b.learnDirect));
       return true;
     }
     case 'telegram': {

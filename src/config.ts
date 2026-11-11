@@ -54,6 +54,10 @@ export interface OdinConfig {
     monthlyBudgetUsd: number;
     /** Afficher sous chaque réponse quelle IA l'a traitée : dans l'application (défaut), partout, ou jamais. */
     showModel?: 'web' | 'partout' | 'jamais';
+    /** Sans IA d'abord : ce qu'Odin sait faire seul n'est pas confié à une IA (défaut : oui). */
+    directFirst?: boolean;
+    /** À palier et spécialité égaux, le modèle le moins cher passe devant (défaut : oui). */
+    cheapestFirst?: boolean;
   };
   /** Fournisseur (moins cher) pour la compaction, la réflexion et les sous-agents. */
   cheapProvider?: ProviderConfig;
@@ -137,6 +141,8 @@ export interface OdinConfig {
     observe: boolean;
     minToolCallsForReflection: number;
     recallLimit: number;
+    /** Apprendre des demandes qu'une IA règle par une seule action, pour s'en passer ensuite (défaut : oui). */
+    direct?: boolean;
   };
   /** Hliðskjálf : inventaire du réseau local. */
   network: {
@@ -204,7 +210,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
     { kind: 'anthropic', model: 'claude-sonnet-5-5', apiKeyEnv: 'ANTHROPIC_API_KEY', priceInPerM: 3, priceOutPerM: 15 },
     { kind: 'openai', model: 'anthropic/claude-sonnet-5.5', baseUrl: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
   ],
-  routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15, monthlyBudgetUsd: 0, showModel: 'web' },
+  routing: { preferLocal: true, strongForComplex: true, crossCheckRisky: true, quotaPauseMin: 15, monthlyBudgetUsd: 0, showModel: 'web', directFirst: true, cheapestFirst: true },
   agent: { maxSteps: 100, maxTokens: 4096, contextBudget: 60000, maxCostPerTurnUsd: 1, fullAccess: true },
   policy: {
     modes: { read: 'allow', write: 'allow', network: 'allow', exec: 'ask', external: 'ask' },
@@ -241,7 +247,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   tunnel: { kind: 'none' },
   memory: { semantic: true, embedUrl: '', embedModel: 'nomic-embed-text' },
   search: { provider: 'auto', searxngUrl: '' },
-  learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8 },
+  learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8, direct: true },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
   voice: {

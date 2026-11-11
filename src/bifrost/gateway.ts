@@ -30,6 +30,7 @@ import { voiceFor } from '../profiles.ts';
 import { fetchEvents } from '../tools/calendar.ts';
 import { anomalies, recoveryPlan, restoreTest, weeklyReport } from '../guard/insight.ts';
 import { adminDiagnosis, listMachines } from '../machines/access.ts';
+import { savingsText } from '../providers/savings.ts';
 import { resumeVoiceInstall, voiceWaitsAdmin } from '../voice/local.ts';
 import { validHhmm } from '../mimir/decisions.ts';
 import { LANG_NAME, setVoiceNotifier, speakAudio, spokenLanguage, toVoiceNote, ttsReady } from '../voice/voice.ts';
@@ -55,6 +56,13 @@ export interface GatewayOptions {
   tickMs?: number;
   /** Remplace la découverte réseau (tests). */
   discover?: DiscoverFn;
+}
+
+/** La ligne discrète sous une réponse : qui a répondu, et si une IA était nécessaire (pourquoi), ou « Sans IA ». Pur. */
+export function iaLine(r: { answeredBy?: string; ai?: { needed: boolean; why: string }; offline?: boolean }): string {
+  if (r.ai && !r.ai.needed) return `Sans IA : ${r.ai.why}`;
+  if (r.offline) return r.answeredBy ?? '';
+  return [r.answeredBy, r.ai?.needed && r.ai.why ? `IA nécessaire : ${r.ai.why}` : ''].filter(Boolean).join(' · ');
 }
 
 export class Gateway {
@@ -273,10 +281,11 @@ export class Gateway {
       return ch.send(m.peer, on ? '🧪 Mode essai activé : je prépare et j\'explique tout, sans rien changer. (/essai off pour revenir)' : '✅ Mode essai coupé : j\'agis pour de vrai.');
     }
     if (/^\/new\b/i.test(text)) { this.odin.muninn.resetSession(sessionId); return ch.send(m.peer, '🆕 Nouvelle conversation.'); }
-    // Quelle IA a traité quoi (journal réel) : /ia, /ia 5, /ia tout, /ia bilan.
-    const ia = /^\/ia\b\s*(tout|bilan|\d+)?/i.exec(text);
+    // Quelle IA a traité quoi (journal réel) : /ia, /ia 5, /ia tout, /ia bilan, /ia eco (les économies).
+    const ia = /^\/ia\b\s*(tout|bilan|eco|[ée]conomies|\d+)?/i.exec(text);
     if (owner && ia) {
       const arg = (ia[1] ?? '').toLowerCase();
+      if (/^(eco|[ée]conomies)$/.test(arg)) return ch.send(m.peer, savingsText(this.odin.muninn, this.odin.agent.deps.router.routes.map((r) => ({ name: r.provider.name, priceIn: r.cfg.priceInPerM, priceOut: r.cfg.priceOutPerM }))));
       const scope = arg === 'tout' ? 'tout' : arg === 'bilan' ? 'bilan' : arg ? 'conversation' : 'dernier';
       return ch.send(m.peer, routingReport(this.odin.muninn, { scope, sessionId, limit: Number(arg) || 10 }));
     }
@@ -324,11 +333,14 @@ export class Gateway {
       // Sa réaction : un émoji à la fin du texte (même taille que le texte), sur Telegram.
       // Sur Telegram, le canal ajoute son visage (émoji personnalisé, ou l'émoji classique) à la fin.
       // Quelle IA a traité la demande : discret dans l'application, sur demande ailleurs (/ia).
+      // Odin dit aussi si la demande avait besoin d'une IA : « Sans IA : … », ou « … a répondu · IA nécessaire : … ».
       const show = this.odin.cfg.routing.showModel ?? 'web';
-      const byLine = owner && r.answeredBy && show === 'partout' && m.channel !== 'web' ? `\n\n— ${r.answeredBy}` : '';
+      const ia = iaLine(r);
+      // Hors de l'application : la ligne complète si tu l'as demandée « partout » ; sinon un simple « fait sans IA ».
+      const byLine = !owner || !ia || m.channel === 'web' || show === 'jamais' ? '' : show === 'partout' ? `\n\n— ${ia}` : r.ai && !r.ai.needed ? '\n\n🔌 Fait sans IA.' : '';
       const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '') + byLine;
       // Texte seul : plus d'émoji ajouté à la fin (demande du propriétaire)
-      await ch.send(m.peer, body, { final: true, ...(owner && r.answeredBy && show !== 'jamais' ? { model: r.answeredBy } : {}) });
+      await ch.send(m.peer, body, { final: true, ...(owner && ia && show !== 'jamais' ? { model: ia } : {}) });
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       // … ou quand tu le demandes (« réponds-moi en vocal », « dis-le à voix haute »).
       const askVoice = /\b(en vocal|vocalement|a voix haute|à voix haute|message vocal|note vocale|dis[- ]le moi)\b/i.test(m.text);

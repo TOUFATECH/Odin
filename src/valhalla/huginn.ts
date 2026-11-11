@@ -13,10 +13,10 @@ import type { Valhalla } from './service.ts';
 import type { Action, Module, Param, View } from './types.ts';
 
 export type Understood =
-  | { kind: 'action'; module: string; action: string; input: Record<string, unknown>; label: string; read: boolean }
+  | { kind: 'action'; module: string; action: string; input: Record<string, unknown>; label: string; read: boolean; /** Une partie de la phrase n'est pas expliquée par cette appli et cette action : Odin devine. Avec une IA sous la main, c'est à elle de comprendre. */ doubt?: string; /** Le doute porte sur un détail d'une demande qui était bien pour cette appli (utile à dire) ; sinon la demande n'avait sans doute rien à voir. */ near?: boolean }
   | { kind: 'ask'; module: string; action: string; input: Record<string, unknown>; missing: string; text: string }
   | { kind: 'manip'; id: string; keep: boolean }
-  | { kind: 'say'; text: string };
+  | { kind: 'say'; text: string; /** Odin hésite (deux applis possibles, action floue) : avec une IA sous la main, c'est à elle de trancher. */ unsure?: boolean };
 
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'").replace(/\s+/g, ' ').trim();
 const STOP = new Set('le la les l un une des du de d au aux a et ou en dans sur pour par avec sans ce cet cette ces mon ma mes ton ta tes son sa ses moi me m toi te t il elle on nous vous je j tu est es suis sont que qu qui quoi stp svp merci odin peux pourrais veux voudrais faut fais faire est-ce s il plait bonjour salut donc alors bien tres tout tous toute toutes y ne pas plus maintenant vite'.split(' '));
@@ -24,7 +24,11 @@ const STOP = new Set('le la les l un une des du de d au aux a et ou en dans sur 
 export function stem(w: string): string {
   const x = norm(w).replace(/[^a-z0-9]/g, '');
   if (x.length <= 3) return x;
-  const r = x.replace(/(issements?|ements?|ations?|ages?|eurs?|euses?|erai[st]?|eront|erez|erons|aient|ait|ais|ant|ees?|ies?|ez|ons|ent|er|ir|is|it|es|e|s|x)$/, '');
+  // Noms en « -ier » : gardés entiers (« fichier » n'est pas « fiche », « dossier » n'est pas « dos »).
+  if (/^(?:fichier|dossier|calendrier|courrier|clavier|papier|atelier|premier|dernier|entier|janvier|fevrier|particulier|quartier|chantier|panier|cahier|metier)s?$/.test(x)) return x.replace(/s$/, '');
+  let r = x.replace(/(issements?|ements?|ations?|ages?|eurs?|euses?|erai[st]?|eront|erez|erons|aient|ait|ais|ant|ees?|ies?|ez|ons|ent|er|ir|is|it|es|e|s|x)$/, '');
+  // Verbes en « -ier » : « vérifier », « vérifiez », « vérifiait » rejoignent « vérifie » (« étudier » / « étudie », « copier » / « copie »).
+  if (r.length >= 4 && /[^aeiouy]i$/.test(r) && /^(?:er|ez|ons|ent|ait|ais|aient|ant|erai[st]?|eront|erez|erons)$/.test(x.slice(r.length))) r = r.slice(0, -1);
   return r.length >= 3 ? r : x;
 }
 const tokens = (t: string) => norm(t).split(/[^a-z0-9.:/@_-]+/).map((w) => w.replace(/^(?:[ldjmtsnc]|qu)'/, '')).filter((w) => w && !STOP.has(w));
@@ -185,10 +189,120 @@ function describe(v: Valhalla, m: Module): string {
     usages.length ? `Utile pour : ${usages.map((u) => `${u.need} (${u.chain.map(name).join(' → ')})`).join(' ; ')}.` : '',
     `Exemples : ${examples(m).slice(0, 4).map((e) => `« ${e} »`).join(', ')}.`].filter(Boolean).join('\n');
 }
-/** Phrases d'exemple tirées des actions de l'appli (pour l'aide et la mascotte). */
+/** Les mots qui prouvent qu'on demande CETTE action : ses mots, son nom, ses verbes synonymes (pas son intitulé, souvent un simple nom). */
+const verbsOf = (a: Action) => new Set([...(a.words ?? []), a.id.replace(/_/g, ' '), ...SYN.filter(([re]) => re.test(a.id)).flatMap(([, syn]) => syn)].flatMap((x) => tokens(x)).map(stem));
+/** Les mots des actions qui ne font que montrer (« processus », « alertes », « appareils ») : ils nomment des choses, pas des ordres. */
+const verbsOfShows = (m: Module) => new Set(m.actions.filter((x) => x.read && !(x.params ?? []).some((p) => p.required)).flatMap((x) => [...(x.words ?? []), x.id.replace(/_/g, ' ')]).flatMap((x) => tokens(x)).map(stem));
+/** Une expression est-elle dans ce texte (au pluriel près, apostrophes et traits d'union comme des espaces) ? */
+function within(text: string, expr: string): boolean {
+  const flat = (x: string) => norm(x).replace(/['-]/g, ' ').replace(/\s+/g, ' ').trim(), n = flat(expr);
+  return n.length > 0 && new RegExp(`(?:^|\\s)${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:s|x|es)?(?=[\\s,.;:!?]|$)`).test(flat(text));
+}
+
+/**
+ * Phrases d'exemple tirées des actions de l'appli (pour l'aide et la mascotte). Chacune doit marcher
+ * telle quelle, sans IA, y compris quand une IA est disponible : un test les passe toutes à Huginn.
+ * Dans l'ordre : l'intitulé de l'action quand il nomme l'appli (« lister les conteneurs »), sinon une
+ * expression que l'action déclare (« vérifie les sauvegardes »), sinon son verbe suivi de la chose
+ * (« démarre conteneur <conteneur> »). Une action qu'on ne sait pas dire sûrement n'a pas d'exemple.
+ */
 export function examples(m: Module): string[] {
   const thing = m.words[0] ?? norm(m.name);
-  return m.actions.slice(0, 8).map((a) => { const w = a.words?.[0] ?? norm(a.label); const need = (a.params ?? []).filter((p) => p.required); return `${w}${norm(w).includes(norm(thing).slice(0, 5)) || norm(a.label).includes(norm(thing).slice(0, 5)) ? '' : ` ${thing}`}${need.length ? ` ${need.map((p) => `<${norm(p.label).split(' (')[0]}>`).join(' ')}` : ''}`.replace(/\s+/g, ' ').trim(); });
+  const mine = (t: string) => [...m.words, m.name].some((w) => within(t, w));
+  const out: string[] = [];
+  for (const a of m.actions.slice(0, 8)) {
+    // La forme accentuée quand l'appli la donne (« etat » → « état »).
+    const pretty = (w: string) => (a.words ?? []).find((x) => x !== w && norm(x) === norm(w) && x !== norm(x)) ?? w;
+    const need = (a.params ?? []).filter((p) => p.required);
+    const label = a.label.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
+    const multi = (a.words ?? []).find((w) => w.trim().includes(' ')), first = a.words?.[0];
+    const base = tokens(label).length >= 2 && mine(label) ? label
+      : multi ? pretty(multi)
+      : first ? `${pretty(first)}${norm(first).includes(norm(thing).slice(0, 5)) ? '' : ` ${thing}`}`
+      : mine(label) ? label : `${label} ${thing}`;
+    // Une action qui change quelque chose se demande avec son verbe : un simple intitulé (« alertes à voix haute ») ne suffit pas.
+    if (!a.read) { const verbs = verbsOf(a); if (!tokens(base).some((w) => verbs.has(stem(w)))) continue; }
+    out.push(`${base}${need.length ? ` ${need.map((p) => `<${norm(p.label).split(' (')[0]}>`).join(' ')}` : ''}`.replace(/\s+/g, ' ').trim());
+  }
+  return out.length ? out : [thing];
+}
+
+/** Mots passe-partout : ils n'engagent à rien de précis, quelle que soit l'action. */
+const LIGHT = new Set('lance lancer montre montrer affiche afficher donne donner voir dis dire vas va mets mettre liste lister etat actuel actuelle actuels actuelles moment encore deja ici quel quelle quels quelles combien'.split(' '));
+/** Début d'une phrase à comprendre (« si le colis est arrivé », « que j'aime bien »), pas d'un nom ni d'un texte à transmettre. */
+const CLAUSE = /^(?:si|s'|que|qu'|qui|quand|comme|ou|ce qu|ce que|ce qui|pour que|afin|car|parce|comment|pourquoi|combien|lequel|laquelle|je|j'|tu|il|elle|on|nous|vous|ils|elles|c'est|ca)(?:\s|'|$)/;
+/** Réglages qui portent un message à transmettre tel quel (une phrase y est à sa place). */
+const MESSAGE = /^(texte|message|note|contenu|annonce|article|articles|sujet)$/;
+/** Les mots d'une demande, pour mesurer ce qui est expliqué (« montre-moi » → « montre », « fera-t-il » → « fera »). */
+const words = (t: string) => norm(t.replace(/,\s*odin\s*[.!?]*\s*$/i, '').replace(/-t-(?:il|elle|on|ils|elles)\b/gi, ' ').replace(/-(?:moi|toi|nous|le|la|les|lui|leur|en|y|tu|je|il|elle|on|ils|elles|ce)\b/gi, ' '))
+  .split(/[^a-z0-9.:/@_-]+/).map((w) => w.replace(/^(?:[ldjmtsnc]|qu)'/, '').replace(/^[.:/@_-]+|[.:/@_-]+$/g, '')).filter((w) => w && (w === 'odin' || !STOP.has(w)));
+const stemsOf = (list: string[]) => new Set(list.flatMap((x) => tokens(x)).map(stem));
+/** Vocabulaire d'une appli (ses mots, son nom, d'où elle vient). */
+const vocab = (m: Module) => stemsOf([...m.words, m.name, m.id, ...m.from, ...(m.modes ?? []).map((x) => x.split(' ')[0])]);
+
+interface Evidence {
+  body: string; m: Module; a: Action; input: Record<string, unknown>; names: Names;
+  /** Texte pris dans le reste de la phrase ; `thing` : il doit nommer une chose que l'appli connaît (appareil, conteneur…). */
+  captured?: { key: string; required: boolean; text: string; thing: boolean };
+  /** L'appli est nommée par une chose (un de ses noms, son nom, une chose qu'elle connaît), pas seulement par un verbe en tête. */
+  designated: boolean;
+  /** L'action a été prise faute de mieux (« l'état de l'appli »), sans mot qui la demande. */
+  fallback: boolean;
+}
+/**
+ * Ce qui, dans la phrase, n'est PAS expliqué par l'appli et l'action choisies. Rend la raison du doute,
+ * ou undefined quand tout est expliqué : le verbe de tête, chaque mot, et le texte libre s'il y en a un.
+ */
+function doubtOf(e: Evidence): { text: string; near: boolean } | undefined {
+  const { m, a, input } = e, toks = words(e.body); if (!toks.length) return undefined;
+  const far = (text: string) => ({ text, near: false }), near = (text: string) => ({ text, near: e.designated });
+  const mod = vocab(m);
+  const act = stemsOf([...(a.words ?? []), a.id.replace(/_/g, ' '), a.label, ...SYN.filter(([re]) => re.test(a.id)).flatMap(([, syn]) => syn)]);
+  const par = stemsOf((a.params ?? []).flatMap((p) => [p.key.replace(/_/g, ' '), p.label.replace(/\(.*$/, '')]));
+  // Le texte libre pris dans le reste de la phrase : seulement s'il est indispensable à l'action, que l'appli
+  // est nommée par une chose (pas seulement par un verbe), et que ce n'est pas une phrase à comprendre.
+  const cap = e.captured;
+  if (cap) {
+    // Ce qui précède le texte pris (« … que j'aime bien », « … si le colis est arrivé ») dit si c'est une phrase à comprendre.
+    const nb = norm(e.body), at = nb.lastIndexOf(norm(cap.text)), before = at > 0 ? nb.slice(0, at).trim() : '';
+    const clause = CLAUSE.test(norm(cap.text)) || /(?:^|\s)(?:que|qu'|si|qui|quand|comme|dont)$/.test(before);
+    if (clause && !MESSAGE.test(norm(cap.key))) return far('c\'est une phrase à comprendre, pas un nom à chercher');
+    if (!cap.required || !e.designated) return far(`je devinais ce qu'il fallait donner à ${m.name}`);
+    // Une chose à commander (appareil, conteneur, machine…) doit être une chose que je connais par son nom.
+    if (cap.thing) return near(`je ne connais pas « ${cap.text.slice(0, 40)} » dans ${m.name}`);
+  }
+  // Ce que la phrase désigne : valeurs prises dans la phrase (hors texte libre) et noms connus de l'appli (conteneur, caméra, plan…).
+  const named = new Set<string>(), free = new Set<string>(cap ? words(cap.text).map(stem) : []);
+  for (const [k, val] of Object.entries(input)) if (k !== cap?.key && (typeof val === 'string' || typeof val === 'number')) for (const w of words(String(val))) named.add(stem(w));
+  for (const list of e.names.values()) for (const n of list) if (norm(n).length >= 2 && pickName(e.body, [n])) for (const w of words(n)) named.add(stem(w));
+  const has = (k: string) => input[k] !== undefined && input[k] !== '';
+  const duration = has('minutes') || has('duree'), day = has('jour') || has('date'), hour = has('heure') || has('debut') || has('fin');
+  const number = (a.params ?? []).some((p) => (p.kind === 'number' || /^(vmid|pid|port|id|valeur|etat)$/.test(norm(p.key))) && has(p.key));
+  const typed = (w: string) => (/^\d+(?:[.,]\d+)?$/.test(w) && (duration || day || hour || number))
+    || (/^(?:minutes?|min|mn|heures?|h|jours?|j|semaines?|pendant|durant)$/.test(w) && duration)
+    || (/^(?:\d{1,2}h(?:\d{2})?|\d{1,2}:\d{2}|h|heures?)$/.test(w) && (hour || day))
+    || (/^(?:demain|apres-demain|aujourd'hui|lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|prochain|prochaine|soir|matin|midi|apres-midi|janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)$/.test(w) && (day || hour))
+    || (/^(?:degres?|pourcent|cent)$/.test(w) && has('valeur'));
+  const known = (w: string) => { const s = stem(w); return mod.has(s) || act.has(s) || LIGHT.has(w); };
+  // Une action qui change quelque chose se demande avec son verbe (ou un de ses mots) : son intitulé seul, souvent un
+  // simple nom (« alertes à voix haute »), ne dit pas s'il faut l'activer, la couper ou juste la montrer.
+  if (!a.read) {
+    const verbs = verbsOf(a); if (!toks.some((w) => verbs.has(stem(w)))) return near(`je ne sais pas ce que tu veux faire avec ${m.name} (${a.label})`);
+    // … et en disant sur quoi : une chose de l'appli, une valeur (adresse, nom, dossier…), ou une phrase que l'action
+    // déclare mot pour mot (« lance la sauvegarde »). « Mets à jour » tout court ne dit pas quoi mettre à jour.
+    const valued = Object.entries(input).some(([k, val]) => k !== cap?.key && val !== undefined && val !== '');
+    const whole = (a.words ?? []).some((w) => { if (!w.trim().includes(' ')) return false; const x = new Set(words(w).map(stem)); return toks.every((t) => x.has(stem(t)) || LIGHT.has(t)); });
+    if (!e.designated && !valued && !whole && !cap) return far(`je ne vois pas sur quoi porte « ${a.label} » (${m.name})`);
+  }
+  // Action prise faute de mieux (« l'état de l'appli ») alors que la phrase demande autre chose (« quel film regarder ») : pas sûr.
+  if (e.fallback) { const other = new Set(m.actions.filter((x) => x.id !== a.id).flatMap((x) => [...verbsOf(x)])); const verb = toks.find((w) => !LIGHT.has(w) && other.has(stem(w)) && !act.has(stem(w)) && !verbsOfShows(m).has(stem(w))); if (verb) return far(`tu parles de « ${verb} », mais je ne vois pas quelle action de ${m.name} tu demandes`); }
+  // Le mot de tête (le verbe, le plus souvent) doit être celui de l'appli ou de l'action, ou désigner une de ses choses :
+  // jamais un autre ordre (« installe … », « bloque … ») rangé d'office dans un texte libre.
+  const lead = toks[0];
+  if (!known(lead) && !par.has(stem(lead)) && !named.has(stem(lead))) return far(`« ${lead} » n'est pas une action que je connais pour ${m.name}`);
+  const left = toks.filter((w) => !known(w) && !par.has(stem(w)) && !named.has(stem(w)) && !free.has(stem(w)) && !typed(w));
+  if (left.length) { const u = [...new Set(left)]; return { text: `je ne suis pas sûr d'avoir tout compris (${u.slice(0, 3).map((w) => `« ${w} »`).join(', ')})`, near: e.designated && u.length === 1 }; }
+  return undefined;
 }
 
 /**
@@ -226,7 +340,13 @@ export async function understand(v: Valhalla, text: string, session = 'principal
 
   // 3. Explications.
   const explain = /^(?:c'est quoi|qu'est-ce que(?: c'est)?|a quoi sert|a quoi ca sert|explique(?:-moi)?|presente(?:-moi)?|comment (?:marche|fonctionne)|parle-moi de|decris|que fait|que sait faire)\s+(.+?)\??$/.exec(s);
-  if (explain) { const m = v.module(explain[1].replace(/^(l'appli|l'application|le module|la page|l')\s*/, '').trim()) ?? v.find(explain[1])[0]?.m; if (m) return { kind: 'say', text: describe(v, m) }; }
+  if (explain) {
+    const asked = /^(l'appli|l'application|le module|la page)\b/.test(explain[1]), subject = explain[1].replace(/^(l'appli|l'application|le module|la page|l')\s*/, '').replace(/^(?:des |de |du |d')/, '').trim();
+    const exact = v.module(subject), m = exact ?? v.find(explain[1])[0]?.m;
+    // Sûr seulement si c'est bien l'appli qu'on demande : par son nom (« explique Garmr »), ou « l'appli … » avec ses mots à elle.
+    // « Explique-moi Docker », « c'est quoi un VPN » : c'est la notion qu'on veut, pas la fiche de mon appli.
+    if (m) { const own = vocab(m), byName = norm(subject) === norm(m.name) || norm(subject) === norm(m.id); return { kind: 'say', text: describe(v, m), ...(byName || (asked && words(subject).every((w) => own.has(stem(w)))) ? {} : { unsure: true }) }; }
+  }
   if (/\b(qui fait quoi|liens? entre (les |tes |mes )?applis?)\b/.test(s)) return { kind: 'say', text: ['Les liens entre mes applis (tous automatiques) :', ...LINKS.map((l) => `- ${v.module(l.from)?.name ?? l.from} → ${v.module(l.to)?.name ?? l.to} : quand ${l.when}, ${l.does}`)].join('\n') };
 
   // 4. Choisir l'appli (d'après ce dont on parle), puis l'action (d'après le verbe et ce que la phrase fournit).
@@ -296,36 +416,63 @@ export async function understand(v: Valhalla, text: string, session = 'principal
   const narrative = /^(?:j'ai|j'avais|je |on a |on avait |nous |il |elle |ils |elles |hier|ce matin|tout a l'heure|l'autre jour)/.test(sb) || /\b(?:etait|etaient|c'etait|a ete|ont ete|avait|avaient)\b/.test(sb);
   const sure = top.ms >= 2 ? (top.bs >= 2 || (commandLike && !narrative)) : (top.bs >= 4 && Boolean(top.best) && strong.has(`${top.m.id}.${top.best!.id}`));
   if (!sure || (narrative && top.bs < 4)) return undefined;
-  if (second && top.ms === second.ms && Math.abs(top.bs - second.bs) < 0.5 && top.bs < 3) return { kind: 'say', text: `Tu parles de ${top.m.name} (${top.m.what.split(':')[0].toLowerCase()}) ou de ${second.m.name} (${second.m.what.split(':')[0].toLowerCase()}) ? Redis-le avec le nom de l'appli.` };
+  if (second && top.ms === second.ms && Math.abs(top.bs - second.bs) < 0.5 && top.bs < 3) return { kind: 'say', text: `Tu parles de ${top.m.name} (${top.m.what.split(':')[0].toLowerCase()}) ou de ${second.m.name} (${second.m.what.split(':')[0].toLowerCase()}) ? Redis-le avec le nom de l'appli.`, unsure: true };
 
   if (/\b(j'ai besoin|besoin d|quelle appli|quel outil|comment je fais pour|comment faire pour)\b/.test(s)) return undefined; // conseil : traité par l'outil (chaîne d'applis)
-  const m = top.m, names = await namesOf(v, m);
-  let a = top.bs >= 2 ? top.best : undefined;
-  // Pas de verbe clair : l'état de l'appli (sa première lecture sans réglage).
-  a ??= m.actions.find((x) => x.read && !(x.params ?? []).some((p) => p.required));
-  if (!a) return { kind: 'say', text: describe(v, m) };
-  const input = fill(a, body, names, now);
-  // Le reste de la phrase sert au réglage libre encore vide (« cherche dans mes notes facture orange »).
-  // (Une liste d'exclusions, ou un dossier facultatif, ne se devinent pas dans le reste d'une phrase.)
-  const free = (a.params ?? []).filter((p) => (p.kind === 'text' || p.kind === 'textarea') && input[p.key] === undefined && !TYPED.test(norm(p.key)) && !/^exclusions$/.test(p.key) && !(/^(dossier|chemin|fichier)$/.test(p.key) && !p.required));
-  const target = free.find((p) => p.required) ?? (free.length === 1 && !a.read ? free[0] : free.find((p) => /^(q|quoi|texte|message)$/.test(p.key)));
-  // Un identifiant ne se devine pas dans une phrase : s'il manque, Odin le demande (en montrant ceux qu'il connaît).
-  if (target && (a.params ?? []).filter((p) => p.required && input[p.key] === undefined).length <= 1) {
-    const verbs = [...(a.words ?? []), a.label, a.id.replace(/_/g, ' '), ...SYN.filter(([re]) => re.test(a!.id)).flatMap(([, syn]) => syn), 'prends', 'fais', 'donne'];
-    // Texte libre : on retire aussi le nom de l'appli (« cherche dans mes notes … »). Nom d'une chose
-    // (appareil, machine, conteneur) : on ne retire que le mot qui dit son genre (« le conteneur web » → « web »).
-    const naming = /^(nom|titre)$/.test(target.key) && /^(ajouter|creer|nouveau|prestation|radio|liste|regle|suivre|deployer|preparer|creer_scene|noter|serveur)/.test(a.id); // un nom à créer, pas une chose existante
-    const thing = !FREE.test(norm(target.key)) && !naming;
-    let rest = strip(tail(body, verbs, thing ? [target.key, target.label.replace(/\(.*$/, '')] : [...m.words, m.name, ...m.from, 'appli', 'application']), input);
-    if (thing) rest = rest.replace(/^(?:de |du |des |d')/i, '');
-    // « … sur la télé », « … dans le salon » : le lieu va dans son réglage.
-    const where = (a.params ?? []).find((p) => p.key === 'ou' && (input.ou === undefined || input.ou === '' || input.ou === p.default));
-    const place = where ? /^(.+?)\s+(?:sur|dans|au|aux|à|a)\s+(?:la |le |l'|les )?([\p{L}0-9' -]{2,40})$/u.exec(rest) : null;
-    if (place && where) { rest = place[1].trim(); input[where.key] = place[2].trim(); }
-    if (rest && rest.length <= 2000 && !/^(stp|svp|merci)$/i.test(rest)) input[target.key] = rest;
+  type Cand = (typeof scored)[number];
+  /** Ce qu'on tirerait de la phrase pour cette appli : l'action, ses réglages, et le doute qui reste. */
+  const build = async (c: Cand): Promise<{ m: Module; a: Action; input: Record<string, unknown>; names: Names; doubt?: { text: string; near: boolean } } | undefined> => {
+    const m = c.m, names = await namesOf(v, m);
+    let a = c.bs >= 2 ? c.best : undefined;
+    // Pas de verbe clair : l'état de l'appli (sa première lecture sans réglage).
+    a ??= m.actions.find((x) => x.read && !(x.params ?? []).some((p) => p.required));
+    if (!a) return undefined;
+    const input = fill(a, body, names, now);
+    let captured: Evidence['captured'];
+    // Le reste de la phrase sert au réglage libre encore vide (« cherche dans mes notes facture orange »).
+    // (Une liste d'exclusions, ou un dossier facultatif, ne se devinent pas dans le reste d'une phrase.)
+    const free = (a.params ?? []).filter((p) => (p.kind === 'text' || p.kind === 'textarea') && input[p.key] === undefined && !TYPED.test(norm(p.key)) && !/^exclusions$/.test(p.key) && !(/^(dossier|chemin|fichier)$/.test(p.key) && !p.required));
+    const target = free.find((p) => p.required) ?? (free.length === 1 && !a.read ? free[0] : free.find((p) => /^(q|quoi|texte|message)$/.test(p.key)));
+    // Un identifiant ne se devine pas dans une phrase : s'il manque, Odin le demande (en montrant ceux qu'il connaît).
+    if (target && (a.params ?? []).filter((p) => p.required && input[p.key] === undefined).length <= 1) {
+      const verbs = [...(a.words ?? []), a.label, a.id.replace(/_/g, ' '), ...SYN.filter(([re]) => re.test(a!.id)).flatMap(([, syn]) => syn), 'prends', 'fais', 'donne'];
+      // Texte libre : on retire aussi le nom de l'appli (« cherche dans mes notes … »). Nom d'une chose
+      // (appareil, machine, conteneur) : on ne retire que le mot qui dit son genre (« le conteneur web » → « web »).
+      const naming = /^(nom|titre)$/.test(target.key) && /^(ajouter|creer|nouveau|prestation|radio|liste|regle|suivre|deployer|preparer|creer_scene|noter|serveur)/.test(a.id); // un nom à créer, pas une chose existante
+      const thing = !FREE.test(norm(target.key)) && !naming;
+      let rest = strip(tail(body, verbs, thing ? [target.key, target.label.replace(/\(.*$/, '')] : [...m.words, m.name, ...m.from, 'appli', 'application']), input);
+      if (thing) rest = rest.replace(/^(?:de |du |des |d')/i, '');
+      // « … sur la télé », « … dans le salon » : le lieu va dans son réglage.
+      const where = (a.params ?? []).find((p) => p.key === 'ou' && (input.ou === undefined || input.ou === '' || input.ou === p.default));
+      const place = where ? /^(.+?)\s+(?:sur|dans|au|aux|à|a)\s+(?:la |le |l'|les )?([\p{L}0-9' -]{2,40})$/u.exec(rest) : null;
+      if (place && where) { rest = place[1].trim(); input[where.key] = place[2].trim(); }
+      if (rest && rest.length <= 2000 && !/^(stp|svp|merci)$/i.test(rest)) { input[target.key] = rest; captured = { key: target.key, required: Boolean(target.required), text: rest, thing }; }
+    }
+    // Ce que la phrase ne dit pas n'est pas « expliqué » : le doute se mesure avant de compléter d'office.
+    // L'appli est « désignée » par une chose : un de ses mots qui n'est pas un verbe d'action (à la racine près), son nom, ou une chose qu'elle connaît.
+    // Un mot de l'appli la désigne quand il est employé comme un NOM : ailleurs qu'en tête de phrase (« lance la sauvegarde »),
+    // après un déterminant (« mes enregistrements »), ou sous une forme qui n'est pas un ordre (« sauvegardes »).
+    // En tête et à l'impératif (« sauvegarde cette idée », « enregistre ce contact », « note pour plus tard »), c'est un verbe : il ne désigne rien.
+    const orders = new Set([...SYN.flatMap(([, syn]) => syn), ...m.actions.filter((x) => !(x.read && !(x.params ?? []).some((p) => p.required))).flatMap((x) => x.words ?? [])].filter((w) => !w.includes(' ')).map(norm));
+    const ws = words(body), first = ws[0] ?? '', determined = /^(?:le|la|les|l'|mes|mon|ma|un|une|des|du|ce|cet|cette|ces|quels?|quelles?)(?:\s|')/.test(norm(body));
+    const asNoun = (w: string) => w.trim().includes(' ') || ws.slice(1).some((x) => stem(x) === stem(w)) || (stem(first) === stem(w) && (determined || !orders.has(first)));
+    const byThing = m.words.some((w) => has(w) && asNoun(w)) || has(m.name) || has(m.id) || m.from.some(has)
+      || [...names.values()].flat().some((n) => norm(n).length >= 3 && !COMMON.test(norm(n)) && Boolean(pickName(body, [n])));
+    return { m, a, input, names, doubt: doubtOf({ body, m, a, input, names, captured, designated: byThing, fallback: !(c.bs >= 2 && c.best) }) };
+  };
+  let pick = await build(top);
+  if (!pick) return { kind: 'say', text: describe(v, top.m), unsure: true };
+  // L'appli la mieux notée laisse des mots de côté alors qu'une autre explique toute la phrase : c'est l'autre qu'on voulait
+  // (« processus gourmands » : Eir, pas Skögul ; « appareils vpn » : Gjöll, pas Appareils ; « fiches des applis » : Saga, pas Runes).
+  if (pick.doubt) for (const c of scored.slice(1, 4)) {
+    if (!(c.ms >= 2 && c.bs >= 2) && !(c.bs >= 4 && c.best && strong.has(`${c.m.id}.${c.best.id}`))) continue;
+    const alt = await build(c);
+    if (alt && !alt.doubt) { pick = alt; break; }
   }
+  const { m, a, input, names } = pick;
   for (const p of a.params ?? []) { const only = names.get(p.key); if (p.required && input[p.key] === undefined && only?.length === 1 && !a.grave) input[p.key] = only[0]; }
-  return finish(v, m, a, input, session, now);
+  const done = finish(v, m, a, input, session, now);
+  return done.kind === 'action' && pick.doubt ? { ...done, doubt: pick.doubt.text, near: pick.doubt.near } : done;
 }
 
 function finish(v: Valhalla, m: Module, a: Action, input: Record<string, unknown>, session: string, now: Date): Understood {

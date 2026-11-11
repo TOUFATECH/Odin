@@ -134,14 +134,14 @@ test('DeepSeek / Kimi : la réflexion est renvoyée avec les appels d\'outils, j
 
 test('agent : la réponse dit quelle IA l\'a traitée, le journal garde le tour, ia_historique le relit', async () => {
   const o = makeOdin([{ text: 'Il est midi.' }, call('ia_historique', { portee: 'dernier' }), { text: 'C\'est le modèle mock qui a répondu.' }]);
-  const r1 = await o.agent.run('Quelle heure est-il ?', { sessionId: 'web:principal', channel: 'web' });
+  const r1 = await o.agent.run('Quelle est la capitale du Japon ?', { sessionId: 'web:principal', channel: 'web' });
   assert.equal(r1.answeredBy, 'Modèle de test a répondu');
   assert.ok(r1.turnId);
   const rows = o.muninn.routes({ turnId: r1.turnId });
-  assert.equal(rows.length, 1); assert.equal(rows[0].sessionId, 'web:principal'); assert.equal(rows[0].request, 'Quelle heure est-il ?');
+  assert.equal(rows.length, 1); assert.equal(rows[0].sessionId, 'web:principal'); assert.equal(rows[0].request, 'Quelle est la capitale du Japon ?');
   const r2 = await o.agent.run('Quelle IA a répondu à ma question ?', { sessionId: 'web:principal', channel: 'web' });
   const toolOut = o.provider.calls[2].messages.find((m) => m.role === 'tool')?.content ?? '';
-  assert.match(toolOut, /Demande « Quelle heure est-il \? »/);
+  assert.match(toolOut, /Demande « Quelle est la capitale du Japon \? »/);
   assert.match(toolOut, /a répondu/);
   assert.notEqual(r2.turnId, r1.turnId);
   // Les coûts sont rattachés à la vraie conversation.

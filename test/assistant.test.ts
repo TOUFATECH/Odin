@@ -55,8 +55,11 @@ function web(sent: Array<{ t: string; o?: unknown }>): Channel {
 }
 
 test('rappel : envoyé avec boutons, relancé tant que pas fait, « c\'est fait » arrête', async () => {
-  const o = makeOdin([call('reminder_set', { at: 'dans 2 heures', text: 'payer la facture EDM' }), { text: 'Noté.' }]);
-  await o.agent.run('rappelle-moi de payer EDM dans 2 heures', { sessionId: 'web:principal', channel: 'web', peer: 'principal' });
+  // Un rappel se programme sans IA : le modèle n'est même pas appelé.
+  const o = makeOdin([{ text: 'inutile' }]);
+  const first = await o.agent.run('rappelle-moi de payer la facture EDM dans 2 heures', { sessionId: 'web:principal', channel: 'web', peer: 'principal' });
+  assert.equal(o.provider.calls.length, 0, 'aucun appel à une IA pour un rappel');
+  assert.deepEqual(first.ai?.needed, false);
   const job = o.muninn.listJobs().find((j) => j.cron === '@reminder')!;
   assert.ok(job && Math.abs(job.next_run - (Date.now() + 2 * 3600_000)) < 120_000);
   const sent: Array<{ t: string; o?: unknown }> = [];

@@ -51,11 +51,18 @@ test('agent sans Internet : il allume quand même, via Heimdall, et répond tout
   const o = makeOdin(() => { throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND' } }); }, { approve: true });
   o.tools.upsert(haStates); o.tools.upsert(haCall);
   try {
+    // Une action nette se fait sans IA, qu'un modèle soit joignable ou non : il n'est même pas essayé.
     const r = await o.agent.run('Allume la lumière du salon', { sessionId: 'web:principal', channel: 'web' });
-    assert.equal(r.offline, true);
-    assert.match(r.text, /Plafonnier salon : allumé[\s\S]*sans IA/);
+    assert.deepEqual(r.ai?.needed, false);
+    assert.match(r.ai?.why ?? '', /action reconnue : Maison/);
+    assert.match(r.text, /Plafonnier salon : allumé/);
     assert.equal(haCalls, 1);
     assert.equal(o.approvals.length, 1, 'action « external » : Heimdall a demandé, comme avec un modèle');
+    // Un appareil qu'Odin ne retrouve pas tel quel : c'est pour l'IA. Elle est injoignable → le cerveau de secours répond.
+    const r2 = await o.agent.run('Allume la lumière du grenier', { sessionId: 'web:principal', channel: 'web' });
+    assert.equal(r2.offline, true);
+    assert.match(r2.text, /Je ne trouve pas « grenier »[\s\S]*sans IA/);
+    assert.equal(haCalls, 1, 'rien d\'autre n\'a été allumé');
   } finally { o.cleanup(); }
 });
 

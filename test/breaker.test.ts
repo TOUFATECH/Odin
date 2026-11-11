@@ -124,8 +124,12 @@ test('rappel ponctuel : programmé par Odin, envoyé à l\'heure puis effacé', 
   const at = new Date(Date.now() + 3600_000);
   const p2 = (n: number) => String(n).padStart(2, '0');
   const when = `${at.getFullYear()}-${p2(at.getMonth() + 1)}-${p2(at.getDate())} ${p2(at.getHours())}:${p2(at.getMinutes())}`;
-  const o = makeOdin([call('reminder_set', { at: when, text: 'appeler le plombier' }), { text: 'Rappel noté.' }], { config: breaker() });
-  await o.agent.run('rappelle-moi d\'appeler le plombier dans une heure', { sessionId: 's', channel: 'web', peer: 'principal' });
+  // Un rappel simple se programme sans IA : le modèle n'est pas sollicité (son scénario reste vide, pour qu'un travail de fond ne le rejoue pas).
+  const o = makeOdin([], { config: breaker() });
+  const run = await o.agent.run('rappelle-moi d\'appeler le plombier dans une heure', { sessionId: 's', channel: 'web', peer: 'principal' });
+  assert.equal(run.ai?.needed, false, 'fait sans IA'); assert.equal(o.provider.calls.length, 0);
+  assert.equal(o.muninn.listJobs().filter((j) => j.cron === '@reminder').length, 1, 'un seul rappel');
+  void when;
   assert.equal(o.approvals.length, 0);
   assert.equal(o.muninn.listJobs()[0].cron, '@reminder');
   const sent: string[] = [];

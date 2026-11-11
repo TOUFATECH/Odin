@@ -76,6 +76,21 @@ export interface CompleteOptions {
   need?: string;
   /** La demande contient des images : seuls les modèles qui voient sont essayés. */
   vision?: boolean;
+  /** Fournisseurs qui échouent trop souvent sur ce type de tâche chez toi : ils ne passent pas devant parce qu'ils coûtent moins. */
+  avoid?: string[];
+  /** À palier et spécialité égaux, le moins cher d'abord. */
+  cheapest?: boolean;
+}
+
+/**
+ * Prix d'un appel type chez ce fournisseur, pour comparer (dollars par million de jetons ; une réponse
+ * pèse environ un quart de la demande). Modèle local ou abonnement déjà payé : 0. Prix inconnu : rangé
+ * après ceux qu'on connaît (on ne suppose pas qu'il est gratuit).
+ */
+export function priceOf(p: ProviderConfig): number {
+  if (tierOf(p) === 'local' || p.kind === 'openai-codex') return 0;
+  if (p.priceInPerM === undefined && p.priceOutPerM === undefined) return Number.POSITIVE_INFINITY;
+  return (p.priceInPerM ?? 0) + (p.priceOutPerM ?? 0) / 4;
 }
 
 export function buildProvider(p: ProviderConfig, env = process.env, paths: OdinPaths = odinPaths()): Provider | undefined {
@@ -158,13 +173,17 @@ export class Router {
     const pref = (r: Route) => { const i = o.prefer?.indexOf(r.provider.name) ?? -1; return i < 0 ? 99 : i; };
     const want = o.need ? NEED_STRENGTH[o.need] : undefined;
     const fit = (r: Route) => (want && strengthsOf(r.cfg).includes(want) ? 0 : 1);
+    // « Le moins cher qui convient » : à palier égal, d'abord ceux qui réussissent ce type de tâche chez toi
+    // (les autres ne passent pas devant parce qu'ils coûtent moins), puis la spécialité, puis le prix.
+    const weak = (r: Route) => (o.avoid?.includes(r.provider.name) ? 1 : 0);
+    const price = (a: Route, b: Route) => { if (!o.cheapest) return 0; const x = priceOf(a.cfg), y = priceOf(b.cfg); return x === y ? 0 : x < y ? -1 : 1; };
     const isPrivate = (o.need && PRIVATE_NEEDS.has(o.need)) || PRIVATE_PURPOSES.has(o.purpose ?? '');
     return this.routes
       .filter((r) => !o.exclude?.includes(r.provider.name))
       .filter((r) => !o.vision || visionOf(r.cfg))
       .filter((r) => !(isPrivate && r.cfg.personal === false))
       .map((r, i) => ({ r, i }))
-      .sort((a, b) => Number(Boolean(a.r.cfg.fallbackOnly)) - Number(Boolean(b.r.cfg.fallbackOnly)) || rank(a.r) - rank(b.r) || pref(a.r) - pref(b.r) || fit(a.r) - fit(b.r) || a.i - b.i)
+      .sort((a, b) => Number(Boolean(a.r.cfg.fallbackOnly)) - Number(Boolean(b.r.cfg.fallbackOnly)) || rank(a.r) - rank(b.r) || weak(a.r) - weak(b.r) || (o.cheapest ? fit(a.r) - fit(b.r) || price(a.r, b.r) || pref(a.r) - pref(b.r) : pref(a.r) - pref(b.r) || fit(a.r) - fit(b.r)) || a.i - b.i)
       .map((x) => x.r);
   }
 
@@ -177,6 +196,8 @@ export class Router {
     if (o.prefer?.[0] === route.provider.name) parts.push('meilleur taux de réussite chez toi pour ce type de tâche');
     const want = o.need ? NEED_STRENGTH[o.need] : undefined;
     if (want && strengthsOf(route.cfg).includes(want)) parts.push(`spécialité ${want}`);
+    // Dit quand c'est le prix qui a décidé : un autre modèle du même palier, tout aussi adapté, coûtait plus.
+    if (o.cheapest && this.routes.some((r) => r !== route && !r.cfg.fallbackOnly && tierOf(r.cfg) === tier && priceOf(r.cfg) > priceOf(route.cfg) && Number.isFinite(priceOf(r.cfg)) && (!want || strengthsOf(r.cfg).includes(want) === strengthsOf(route.cfg).includes(want)))) parts.push('le moins cher qui convient');
     if (o.vision) parts.push('voit les images');
     if (this.overBudget?.()) parts.push('budget atteint : gratuit seulement');
     const ahead = skipped.filter((x) => !x.startsWith(providerLabel(route.provider.name)));

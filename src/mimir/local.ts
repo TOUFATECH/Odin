@@ -133,6 +133,8 @@ const INTENT: Record<string, RegExp> = {
   run: /\b(allum\w*|etein\w*|eteign\w*|baisse\w*|monte[rz]?|verrouill\w*|deverrouill\w*|regl\w*|turn (on|off)|switch (on|off)|lock|unlock|dim|lanc\w*|execut\w*|demarr\w*|compil\w*|test\w*|construi\w*|analys\w*|convert\w*|install\w*|verifi\w*|fais|faire|ouvr\w*|ferm\w*|activ\w*|desactiv\w*|configur\w*|autoris\w*|bloqu\w*|redemarr\w*|run|start|build|check|exec\w*|convert|open|close|enable|disable|configure|allow|block|restart)\b/,
   schedule: /\b(planifi\w*|programm\w*|rappel\w*|chaque|tous les|toutes les|schedule|every|daily|weekly|remind)\b/,
   update: /\b(mets? a jour|met a jour|mettre a jour|fai(s|re) (les |la )?mises? a jour|applique\w*|installe\w*|update|upgrade|install)\b/,
+  // Odin se règle lui-même : « passe en prudent », « règle le budget sur 10 », « coupe les mises à jour toutes seules ».
+  configure: /\b(regl\w*|parametr\w*|configur\w*|chang\w*|passe[rz]?|repasse[rz]?|mets|mettre|reste|sois|activ\w*|desactiv\w*|coupe[rz]?|limit\w*|autonomie|budget)\b/,
 };
 const READ_ONLY = /\b(liste\w*|montr\w*|affich\w*|lis|lire|resum\w*|expliqu\w*|cherch\w*|trouv\w*|combien|quel\w*|quoi|ou (est|en est)|regarde\w*|consult\w*|etat|show|list|read|summar\w*|explain|find|search|what|which|how many|status)\b/;
 const NEGATED = /\b(ne\s+\w+\s+(pas|rien|jamais)|ne touche|sans\s+(rien\s+)?(supprim|modifi|touch|envoy|chang)|n'\w+\s+(pas|rien)|don't|do not|never|without)\b/;
@@ -141,6 +143,7 @@ function actionIntents(a: ActionState, d: number, s: number, c: number): string[
   const out = new Set<string>();
   if (d >= 0.7) out.add('delete');
   if (s >= 0.7) out.add('send');
+  if (a.tool === 'settings_set') out.add('configure');
   if (a.tool === 'system_update_apply') out.add('update');
   else if (c >= 0.7) out.add('run');
   if (a.tool === 'fs_write' || a.tool === 'fs_edit' || a.tool === 'doc_create' || a.tool === 'media_convert') out.add('write');

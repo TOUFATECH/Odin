@@ -112,6 +112,8 @@ export function turnSummary(entries: RouteEntry[]): { line: string; models: Arra
     const v = by.get(k) ?? { label: e.label, purpose: e.purpose, calls: 0, costUsd: 0 };
     v.calls++; v.costUsd += e.costUsd; by.set(k, v);
   }
+  const direct = entries.find((e) => e.ok && e.purpose === 'sans-ia');
+  if (direct) return { line: `fait sans IA (${direct.reason})`, models: [] };
   const models = [...by.values()];
   const main = models.filter((m) => m.purpose === 'agent');
   const others = models.filter((m) => m.purpose !== 'agent');
@@ -131,6 +133,7 @@ export function describeEntry(e: RouteEntry): string {
   const tried = e.attempts.filter((a) => !a.ok);
   const fall = tried.length ? ` ; avant : ${[...new Set(tried.map((a) => `${providerLabel(a.provider)} (${a.error ?? 'échec'})`))].join(', ')}` : '';
   const cost = e.costUsd > 0 ? `, ${e.costUsd.toFixed(4)} $` : '';
+  if (e.purpose === 'sans-ia') return `${when} · fait sans IA · ${e.reason}${e.request ? ` · demande « ${e.request} »` : ''} [${e.channel}, tour ${e.turnId}]`;
   const who = e.ok ? providerLabel(e.provider) : 'aucune IA (toutes ont échoué)';
   return `${when} · ${PURPOSE_TXT[e.purpose] ?? e.purpose} · ${who} · ${(e.ms / 1000).toFixed(1)} s, ${e.tokensIn + e.tokensOut} jetons${cost} · ${e.reason}${fall}${e.request ? ` · demande « ${e.request} »` : ''} [${e.channel}, tour ${e.turnId}]`;
 }

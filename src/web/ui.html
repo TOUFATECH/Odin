@@ -533,7 +533,11 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .strow.ok{border-left-color:var(--good)}.strow.ko{border-left-color:var(--bad)}.strow.na{opacity:.6}
 
 .why{display:block;margin-top:8px;border:0;background:none;color:var(--dim);font-size:12.5px;padding:0;cursor:pointer;text-decoration:underline dotted}.why:hover{color:var(--accent)}
-.byia{margin-top:8px;font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}.byia svg{flex:none}
+.byia{margin-top:8px;font-size:12px;color:var(--dim);display:flex;align-items:flex-start;gap:6px}.byia svg{flex:none;margin-top:2px}.byia.noai{color:var(--good)}
+.eco-bar{display:flex;height:10px;border-radius:999px;overflow:hidden;background:var(--panel2);border:1px solid var(--line);margin:4px 0 6px}.eco-bar i{display:block;height:100%;background:var(--good);transition:width .5s ease}.eco-bar i + i{background:var(--accent);opacity:.75}
+.eco-leg{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted)}.eco-leg span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;background:var(--good)}.eco-leg span + span::before{background:var(--accent);opacity:.75}
+.eco-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}.eco-list li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:13.5px}.eco-list li > span{flex:1 1 220px;min-width:0;overflow-wrap:anywhere}.eco-list .dim{color:var(--dim);font-size:12.5px}
+@media (prefers-reduced-motion:reduce){.eco-bar i{transition:none}}
 .rtbl td{vertical-align:top}.rtbl .why2{color:var(--muted);font-size:12.5px}
 .mrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.mrow:last-child{border-bottom:0}.mrow .mt{flex:1 1 240px;min-width:0}.mrow .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.mrow .tg{font-size:11.5px;padding:1px 8px;border-radius:999px;background:var(--panel2);color:var(--muted)}
 .whyt{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--panel2);font-size:13px;color:var(--muted);white-space:pre-wrap}
@@ -1271,8 +1275,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             <div class="field" id="m-keyField"><label for="m-key">Clé d'API</label><input id="m-key" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="m-keyHint"></span></div>
             <div class="field"><label>Palier de ce modèle</label><div class="choices" role="group" aria-label="Palier"><button type="button" class="choice" data-tier="local">Installé / gratuit</button><button type="button" class="choice" data-tier="standard">Standard</button><button type="button" class="choice" data-tier="strong">Le plus capable</button></div><span class="hint">Odin choisit le moins cher qui suffit : simple → gratuit, ordinaire → standard, complexe → le plus capable.</span></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="m-test">Tester</button><button class="btn primary" type="submit">Enregistrer comme modèle par défaut</button><button class="btn" type="button" id="m-backup">Ajouter en secours</button></div>
-            <div class="field"><label>Modèles configurés</label><span class="hint">Pour chaque demande, Odin prend le palier qu'il faut, puis celui qui réussit le mieux ce type de tâche chez toi, puis celui dont c'est la spécialité, puis l'ordre ci-dessous. En panne ou à bout de quota : le suivant prend le relais.</span><div id="m-list" role="list"></div></div>
+            <div class="field"><label>Modèles configurés</label><span class="hint">Pour chaque demande qui a besoin d'une IA, Odin prend le palier qu'il faut, puis le modèle dont c'est la spécialité, puis le moins cher (règle ci-dessous), puis celui qui réussit le mieux ce type de tâche chez toi, puis l'ordre de cette liste. Un modèle qui échoue souvent sur un type de tâche ne passe pas devant parce qu'il coûte moins. En panne ou à bout de quota : le suivant prend le relais.</span><div id="m-list" role="list"></div></div>
             <div class="form" style="gap:8px">
+              <label class="check"><input type="checkbox" id="r-direct"> Faire sans IA ce que je sais faire seul (je te dis à chaque fois si une IA a servi, et pourquoi)</label>
+              <label class="check"><input type="checkbox" id="r-learn"> Apprendre : une demande qu'une IA règle par une seule action, je la refais ensuite sans elle</label>
+              <label class="check"><input type="checkbox" id="r-cheap"> À palier et spécialité égaux, le modèle le moins cher d'abord</label>
               <label class="check"><input type="checkbox" id="r-local"> Préférer un modèle installé/gratuit quand la tâche ne demande pas plus</label>
               <label class="check"><input type="checkbox" id="r-strong"> Envoyer les tâches complexes au modèle le plus capable</label>
               <label class="check"><input type="checkbox" id="r-cross"> Décision risquée : croiser l'avis de plusieurs modèles avant de trancher</label>
@@ -1284,6 +1291,16 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             </div>
             <div class="status" id="m-status" role="status"></div>
           </form></article>
+
+          <article class="card" data-sec="modele" id="ecoCard">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="flex:1">Économies</h2><span class="sub" id="eco-days">30 jours</span></div>
+            <p class="sub" style="margin:0">Ce que j'ai fait sans IA, ce que ça t'a évité, et ce que j'ai appris à faire seul. Tout vient de mon journal réel. Dans une discussion : « mes économies ».</p>
+            <div class="kpis" id="eco-kpis" style="margin-top:12px"></div>
+            <div id="eco-share"></div>
+            <p class="sub" id="eco-note" style="margin:8px 0 0"></p>
+            <h3 style="margin:16px 0 6px;font-size:15px">Ce que j'ai appris à faire sans IA</h3>
+            <ul class="eco-list" id="eco-acquis"></ul>
+          </article>
 
           <article class="card" data-sec="modele" id="routingCard">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="flex:1">Qui a répondu</h2><button class="btn small" type="button" id="rt-refresh">Actualiser</button></div>
@@ -1904,10 +1921,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   for (const b of document.querySelectorAll('.schip[data-sec]')) b.addEventListener('click', () => openSettings(b.dataset.sec));
   // Journal des routages (Réglages → Modèle → Qui a répondu).
-  const ROLE_TXT = { agent: 'réponse', 'sous-agent': 'sous-agent', relecture: 'relecture', juge: 'jugement', résumé: 'résumé', vision: 'images', recherche: 'recherche', explication: 'explication', observation: 'apprentissage', réflexion: 'réflexion', fil: 'fil', mémoire: 'mémoire', test: 'test' };
+  const ROLE_TXT = { 'sans-ia': 'sans IA', agent: 'réponse', 'sous-agent': 'sous-agent', relecture: 'relecture', juge: 'jugement', résumé: 'résumé', vision: 'images', recherche: 'recherche', explication: 'explication', observation: 'apprentissage', réflexion: 'réflexion', fil: 'fil', mémoire: 'mémoire', test: 'test' };
   async function loadRouting() {
     let r; try { r = await (await fetch('/api/routing?limit=60', { headers: { 'x-odin': '1' } })).json(); } catch { return; }
     if (!r?.ok) return;
+    renderEco(r.savings, r.acquis || []);
     $('#rt-stats').replaceChildren(...(r.stats.length ? r.stats.map((x) => el('tr', {}, el('td', {}, x.label || x.provider), el('td', {}, String(x.calls)), el('td', {}, String(x.failed || 0)), el('td', {}, `${(x.avg_ms / 1000).toFixed(1)} s`), el('td', {}, `${(x.cost_usd || 0).toFixed(3)} $`))) : [el('tr', {}, el('td', { colspan: '5', class: 'sub' }, 'Aucun appel enregistré pour l\'instant.'))]));
     $('#rt-recent').replaceChildren(...r.recent.map((e) => el('tr', {},
       el('td', {}, new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })),
@@ -1917,6 +1935,32 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('td', { class: 'why2' }, e.request || '—'))));
   }
   $('#rt-refresh').addEventListener('click', loadRouting);
+  // Économies : ce qui a été fait sans IA, ce que ça évite (chiffré seulement quand il y a de quoi comparer), et les acquis.
+  function renderEco(s, acquis) {
+    if (!s) return;
+    const money = (n) => n >= 1 ? `${n.toFixed(2).replace('.', ',')} $` : n >= 0.01 ? `${n.toFixed(3).replace('.', ',')} $` : n > 0 ? `${(n * 100).toFixed(2).replace('.', ',')} ct` : '0 $';
+    const kpi = (v, label, cls) => el('div', { class: 'kpi ' + (cls || ''), style: 'cursor:default' }, el('b', {}, v), el('span', {}, label));
+    const total = s.direct + s.aiTurns, pct = Math.round((s.share || 0) * 100);
+    $('#eco-days').textContent = `${s.days} jours`;
+    $('#eco-kpis').replaceChildren(
+      kpi(String(s.direct), s.direct > 1 ? 'tâches faites sans IA' : 'tâche faite sans IA', s.direct ? 'good' : ''),
+      kpi(s.avoidedUsd !== undefined ? `≈ ${money(s.avoidedUsd)}` : '—', s.avoidedUsd !== undefined ? 'évités grâce au « sans IA »' : 'évité (pas encore chiffrable)', s.avoidedUsd ? 'good' : ''),
+      kpi(money(s.spentUsd || 0), `dépensés en IA (${s.aiTurns} demande${s.aiTurns > 1 ? 's' : ''})`),
+      kpi(String(acquis.length), acquis.length > 1 ? 'demandes apprises' : 'demande apprise', acquis.length ? 'on' : ''));
+    $('#eco-share').replaceChildren(...(total ? [
+      el('div', { class: 'eco-bar', role: 'img', 'aria-label': `${pct} % de tes demandes faites sans IA, ${100 - pct} % avec une IA` }, el('i', { style: `width:${pct}%` }), el('i', { style: `width:${100 - pct}%` })),
+      el('div', { class: 'eco-leg' }, el('span', {}, `Sans IA : ${s.direct} (${pct} %)`), el('span', {}, `Avec une IA : ${s.aiTurns} (${100 - pct} %)`))] : [el('p', { class: 'sub', style: 'margin:0' }, 'Aucune demande sur la période pour l\'instant.')]));
+    const notes = [];
+    if (s.avoidedUsd !== undefined) notes.push(`Une demande confiée à une IA te coûte en moyenne ${money(s.avgTurnUsd || 0)} (mesuré sur ${s.aiTurns} demandes) : c'est ce que chaque tâche faite sans IA évite, soit environ ${(s.avoidedTokens || 0).toLocaleString('fr-FR')} jetons en tout.`);
+    else if (s.direct) notes.push('Je chiffrerai ce que ça évite dès que trois demandes seront passées par une IA : il me faut une moyenne réelle pour comparer.');
+    if (s.cheaperUsd > 0 && s.reference) notes.push(`En envoyant chaque demande au modèle le moins cher qui convient, plutôt que tout à ${s.reference} : environ ${money(s.cheaperUsd)} gagnés.`);
+    if ((s.reasons || []).length) notes.push(`Fait sans IA, le plus souvent : ${s.reasons.slice(0, 4).map((x) => `${x.reason.replace(/^action reconnue : /, '')} (${x.n})`).join(' ; ')}.`);
+    $('#eco-note').textContent = notes.join(' ');
+    $('#eco-acquis').replaceChildren(...(acquis.length ? acquis.map((a) => el('li', {},
+      el('span', {}, `« ${a.phrase} » → ${a.label}`, a.slots ? el('span', { class: 'dim' }, ' · la valeur peut changer') : null, el('span', { class: 'dim' }, ` · utilisé ${a.uses} fois`)),
+      el('button', { class: 'btn small', type: 'button', 'aria-label': `Oublier « ${a.phrase} »`, onclick: async (e) => { e.target.disabled = true; await api('/api/action', { kind: 'acquis_forget', id: a.id }); loadRouting(); } }, 'Oublier')))
+      : [el('li', {}, el('span', { class: 'dim' }, 'Rien pour l\'instant. Ça vient tout seul : quand une IA règle une demande par une seule action, je la retiens et je la refais ensuite sans elle.'))]));
+  }
   // Rubriques en haut selon ton usage : les plus utilisées (et celle ouverte), 5 au plus ; le reste dans « Tous les réglages ».
   const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'apparence', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
   const secUse = () => { try { return JSON.parse(localStorage.getItem('odin.secUse') || '{}'); } catch { return {}; } };
@@ -2044,8 +2088,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // Quelle IA a traité la réponse (journal des routages), en petit sous le message.
   function byIa(model) {
     const ic = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); ic.setAttribute('width', '13'); ic.setAttribute('height', '13'); ic.setAttribute('viewBox', '0 0 24 24'); ic.setAttribute('aria-hidden', 'true');
-    ic.innerHTML = '<path d="M12 3l2.2 5.3L20 9l-4.4 3.8L17 18.5 12 15.6 7 18.5l1.4-5.7L4 9l5.8-.7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>';
-    return el('div', { class: 'byia', title: 'IA qui ont traité cette demande (journal des routages)' }, ic, model);
+    const noai = /^Sans IA\b/.test(model);
+    // Sans IA : une prise (fait sur place, aucun jeton). Avec IA : l'étoile, qui a répondu, et pourquoi il en fallait une.
+    ic.innerHTML = noai ? '<path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M12 3l2.2 5.3L20 9l-4.4 3.8L17 18.5 12 15.6 7 18.5l1.4-5.7L4 9l5.8-.7z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>';
+    return el('div', { class: 'byia' + (noai ? ' noai' : ''), title: noai ? 'Fait sans IA : aucun jeton dépensé' : 'IA qui ont traité cette demande, et pourquoi il en fallait une (journal des routages)' }, ic, el('span', {}, model));
   }
   function addApproval(text, id) {
     const grave = /GRAVE/.test(text), always = /\/always [A-Za-z0-9]+/.test(text);
@@ -4299,10 +4345,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         p.index > 0 ? el('button', { class: 'btn small', type: 'button', 'aria-label': `Monter ${p.label || p.model}`, onclick: () => save('model_move', { index: p.index }, '#m-status', '✓ Ordre changé.') }, '↑ Monter') : null,
         S.providers.length > 1 ? el('button', { class: 'btn small danger', type: 'button', onclick: () => save('model_remove', { index: p.index }, '#m-status', '✓ Modèle retiré.') }, 'Retirer') : null);
     }));
-    if (!settingsDirty) { pickTier(S.model.tier || 'standard'); $('#r-local').checked = S.routing.preferLocal; $('#r-strong').checked = S.routing.strongForComplex; $('#r-cross').checked = S.routing.crossCheckRisky; $('#r-pause').value = S.routing.quotaPauseMin; $('#r-budget').value = S.routing.monthlyBudgetUsd || 0; $('#r-show').value = S.routing.showModel || 'web'; }
+    if (!settingsDirty) { pickTier(S.model.tier || 'standard'); $('#r-direct').checked = S.routing.directFirst !== false; $('#r-learn').checked = S.routing.learnDirect !== false; $('#r-cheap').checked = S.routing.cheapestFirst !== false; $('#r-local').checked = S.routing.preferLocal; $('#r-strong').checked = S.routing.strongForComplex; $('#r-cross').checked = S.routing.crossCheckRisky; $('#r-pause').value = S.routing.quotaPauseMin; $('#r-budget').value = S.routing.monthlyBudgetUsd || 0; $('#r-show').value = S.routing.showModel || 'web'; }
     renderBudget();
   }
-  $('#r-save').addEventListener('click', () => save('routing', { preferLocal: $('#r-local').checked, strongForComplex: $('#r-strong').checked, crossCheckRisky: $('#r-cross').checked, quotaPauseMin: Number($('#r-pause').value), monthlyBudgetUsd: Number($('#r-budget').value), showModel: $('#r-show').value }, '#m-status', '✓ Règles de choix du modèle enregistrées.'));
+  $('#r-save').addEventListener('click', () => save('routing', { directFirst: $('#r-direct').checked, learnDirect: $('#r-learn').checked, cheapestFirst: $('#r-cheap').checked, preferLocal: $('#r-local').checked, strongForComplex: $('#r-strong').checked, crossCheckRisky: $('#r-cross').checked, quotaPauseMin: Number($('#r-pause').value), monthlyBudgetUsd: Number($('#r-budget').value), showModel: $('#r-show').value }, '#m-status', '✓ Règles de choix du modèle enregistrées.'));
   $('#m-backup').addEventListener('click', async () => { await save('model', { ...modelBody(), asBackup: true }, '#m-status', '✓ Modèle de secours ajouté.'); $('#m-key').value = ''; });
   const modelBody = () => ({ preset, model: $('#m-model').value.trim(), baseUrl: $('#m-url').value.trim(), apiKey: $('#m-key').value.trim(), tier: tierPick });
   $('#m-test').addEventListener('click', async () => {

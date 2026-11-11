@@ -89,7 +89,7 @@ test('exfiltration bloquée par Mímir avant même de te déranger', async () =>
 
 test('suppression non demandée : validation exigée même quand la politique l\'autorisait', async () => {
   const o = makeOdin([call('fs_write', { path: 'notes.md', content: '' }), { text: 'ok' }], { judge: fakeJudge({ deletes: 0.9, requested: 0.1 }) });
-  await o.agent.run('Quelle heure est-il ?', { sessionId: 's' });
+  await o.agent.run('Où en est le projet du jardin ?', { sessionId: 's' });
   assert.equal(o.approvals.length, 1);
   assert.match(o.approvals[0].reason, /GRAVE : suppression de données que tu n'as pas demandée/);
   assert.equal(o.approvals[0].grantable, false, 'le grave ne peut jamais devenir une autorisation permanente');

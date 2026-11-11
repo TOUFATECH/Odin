@@ -29,6 +29,7 @@
   };
   // Les dernières améliorations (les plus récentes en premier).
   const NEWS = [
+    ['Sans IA d\'abord', 'Ce que je sais faire seul, je ne le confie plus à une IA : c\'est plus rapide et ça ne coûte rien. Sous chaque réponse, je dis si une IA a servi et pourquoi. Quand une IA règle une demande par une seule action, je l\'apprends et je la refais ensuite sans elle. Réglages → Modèle → Économies.'],
     ['Droits', 'Je suis administrateur de ma machine partout (Linux, conteneur, Mac, Windows). S\'il me manque des droits, je te dis la vraie cause et la commande à lancer une fois, au lieu de réclamer un mot de passe. Réglages → Droits et machines.'],
     ['Antivirus', 'Ullr, mon antivirus fait maison : fichiers, archives, liens et messages. Il se met à jour seul, met en quarantaine ce qui est sûr (annulable) et relie les signaux de toutes les applis en incidents.'],
     ['Sites web', 'Idunn surveille tes sites, les essaie, les relance et applique leurs mises à jour, sans IA. Tu me demandes les événements que tu veux : « les erreurs du site … depuis 2 jours ». Ce qui touche la production attend ton accord.'],
