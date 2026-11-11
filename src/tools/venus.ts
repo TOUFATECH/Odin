@@ -15,7 +15,7 @@ export function venusConf(ctx: Pick<ToolContext, 'venus'>, env = process.env): V
 }
 
 /** Appel à l'API de Venus. Certificat auto-signé accepté seulement sur le réseau local. */
-export function venusApi<T = unknown>(c: VenusConf, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+export function venusApi<T = unknown>(c: VenusConf, method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const u = new URL(c.url + path);
   const local = isPrivateV4(u.hostname) || /\.local$|^localhost$/.test(u.hostname);
   return new Promise((resolve, reject) => {

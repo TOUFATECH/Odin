@@ -15,14 +15,33 @@ async function speakers(ctx: ModCtx): Promise<{ url: string; token: string; stat
   const url = s(ctx.settings.haUrl).replace(/\/$/, ''), token = process.env.HA_TOKEN; if (!url || !token) return undefined;
   return { url, token, states: await haApi(url, token, 'GET', '/states') as HaState[] };
 }
+/**
+ * Fait parler la box sur une enceinte : entité de synthèse récente (tts.speak) si elle existe, sinon
+ * les services classiques « …_say » essayés l'un après l'autre (celui qui marche est retenu).
+ */
+async function say(ctx: ModCtx, ha: { url: string; token: string; states: HaState[] }, player: string, message: string): Promise<void> {
+  if (ha.states.some((x) => x.entity_id.startsWith('tts.'))) { const plan = speakPlan(ha.states, player, message); await haApi(ha.url, ha.token, 'POST', plan.path, plan.data); return; }
+  const known = s(ctx.settings.ttsService).replace(/[^a-z0-9_]/g, '');
+  let last = '';
+  for (const svc of [...new Set([known, 'google_translate_say', 'cloud_say', 'piper_say', 'demo_say'].filter(Boolean))]) {
+    try {
+      await haApi(ha.url, ha.token, 'POST', `/services/tts/${svc}`, { entity_id: player, message, ...(svc === 'demo_say' ? {} : { language: 'fr' }) });
+      if (svc !== known) ctx.saveSettings({ ttsService: svc });
+      return;
+    } catch (e) { last = (e as Error).message; }
+  }
+  throw new Error(`la box n'a pas de synthèse vocale utilisable : ajoute « Google Translate » ou « Piper » dans Home Assistant (${last.slice(0, 120)})`);
+}
 async function announce(ctx: ModCtx, message: string, where?: string): Promise<string> {
   const ha = await speakers(ctx); if (!ha) throw new Error('aucune box reliée (Midgard → Relier une box) : les enceintes viennent de là');
-  const players = ha.states.filter((x) => x.entity_id.startsWith('media_player.'));
+  const players = ha.states.filter((x) => x.entity_id.startsWith('media_player.') && x.state !== 'unavailable');
   const q = (where ?? '').toLowerCase();
   const list = q === 'partout' ? players : players.filter((p) => !q || `${p.entity_id} ${p.attributes.friendly_name ?? ''}`.toLowerCase().includes(q)).slice(0, q ? 10 : 1);
   if (!list.length) throw new Error(`aucune enceinte ${q ? `« ${q} »` : ''}`);
-  for (const p of list) { const plan = speakPlan(ha.states, p.entity_id, message.slice(0, 1000)); await haApi(ha.url, ha.token, 'POST', plan.path, plan.data); }
-  return `🔊 Annoncé sur ${list.map((p) => p.attributes.friendly_name ?? p.entity_id).join(', ')}.`;
+  const done: string[] = [], failed: string[] = [];
+  for (const p of list) { try { await say(ctx, ha, p.entity_id, message.slice(0, 1000)); done.push(p.attributes.friendly_name ?? p.entity_id); } catch (e) { failed.push(`${p.attributes.friendly_name ?? p.entity_id} : ${(e as Error).message}`); } }
+  if (!done.length) throw new Error(failed[0] ?? 'annonce impossible');
+  return `🔊 Annoncé sur ${done.join(', ')}.${failed.length ? ` (${failed.length} enceinte(s) n'ont pas répondu)` : ''}`;
 }
 
 export function bragi(voice: () => VoiceConfig): Module {

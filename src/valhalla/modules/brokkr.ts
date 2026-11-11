@@ -2,7 +2,7 @@
 // sur le réseau, les branche sur le relais d'Odin en un clic, leur envoie des commandes, prépare la
 // configuration d'un nouveau module ESP (capteurs, relais) et lance leurs mises à jour.
 
-import { localSubnets } from '../../hlidskjalf/discover.ts';
+import { localSubnets, probe } from '../../hlidskjalf/discover.ts';
 import type { ModCtx, Module } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -44,13 +44,22 @@ export const brokkr: Module = {
   actions: [
     { id: 'chercher', label: 'Chercher les modules', what: 'Balaye le réseau local', read: true, words: ['cherche', 'trouve', 'detecte', 'détecte'], run: async (ctx) => {
       const found: Mod[] = [];
-      for (const sn of localSubnets()) { const hosts = sn.hosts.slice(0, 254); for (let i = 0; i < hosts.length; i += 32) { const r = await Promise.all(hosts.slice(i, i + 32).map((h) => identify(ctx, h))); found.push(...r.filter((x): x is Mod => Boolean(x))); } }
+      for (const sn of localSubnets()) {
+        // D'abord qui répond sur le port web (rapide), puis seulement ceux-là sont interrogés.
+        const hosts = sn.hosts.slice(0, 254).filter((h) => h !== sn.address), open: string[] = [];
+        for (let i = 0; i < hosts.length; i += 64) open.push(...(await Promise.all(hosts.slice(i, i + 64).map(async (h) => ((await probe(h, 80, 700)) === 'open' ? h : '')))).filter(Boolean));
+        for (let i = 0; i < open.length; i += 8) { const r = await Promise.all(open.slice(i, i + 8).map((h) => identify(ctx, h))); found.push(...r.filter((x): x is Mod => Boolean(x))); }
+      }
       ctx.saveSettings({ modules: [...found, ...mods(ctx).filter((m) => !found.some((f) => f.ip === m.ip))] });
       return { text: found.map((m) => `- ${m.name} (${m.kind} ${m.version ?? ''}) ${m.ip}${m.mqtt ? ` · relais : ${m.mqtt}` : ' · pas branché'}`).join('\n') || 'Aucun module trouvé.' };
     } },
-    { id: 'brancher', label: 'Brancher sur Odin', what: 'Configure le module pour qu\'il parle au relais d\'Odin', params: [{ key: 'ip', label: 'Adresse du module', kind: 'text', required: true }, { key: 'odin', label: 'Adresse d\'Odin sur le réseau', kind: 'text', required: true }], run: async (ctx, i) => {
-      const pass = process.env.MQTT_PASSWORD ?? s(ctx.settings.mqttPass); if (!pass) throw new Error('mot de passe du relais inconnu (page Appareils)');
-      await tasmota(ctx, s(i.ip), `Backlog MqttHost ${s(i.odin)}; MqttPort 1883; MqttUser odin; MqttPassword ${pass}; SetOption19 1`);
+    { id: 'brancher', label: 'Brancher sur Odin', what: 'Configure le module pour qu\'il parle au relais d\'Odin', params: [{ key: 'ip', label: 'Adresse du module', kind: 'text', required: true }, { key: 'odin', label: 'Adresse d\'Odin sur le réseau', kind: 'text', required: true }, { key: 'port', label: 'Port du relais', kind: 'number', default: 1883 }], run: async (ctx, i) => {
+      const pass = process.env.MQTT_PASSWORD; if (!pass) throw new Error('mot de passe du relais absent du coffre (MQTT_PASSWORD) : ouvre la page Appareils une fois');
+      if (!/^\d+\.\d+\.\d+\.\d+$/.test(s(i.odin))) throw new Error('adresse d\'Odin : une adresse IP du réseau local (ex. 192.168.1.20)');
+      const port = Number(i.port) || 1883;
+      // SetOption19 0 : le module s'annonce au format Tasmota d'aujourd'hui (tasmota/discovery/…), compris par Appareils.
+      await tasmota(ctx, s(i.ip), `Backlog MqttHost ${s(i.odin)}; MqttPort ${port}; MqttUser odin; MqttPassword ${pass}; SetOption19 0`);
+      ctx.saveSettings({ modules: mods(ctx).map((m) => (m.ip === s(i.ip) ? { ...m, mqtt: s(i.odin) } : m)) });
       return { text: `🔌 ${s(i.ip)} branché sur Odin : il redémarre puis apparaît dans Appareils.` };
     } },
     { id: 'commande', label: 'Commande', what: 'Commande directe à un module Tasmota', params: [{ key: 'ip', label: 'Adresse', kind: 'text', required: true }, { key: 'commande', label: 'Commande (Power on, Status 8…)', kind: 'text', required: true }], run: async (ctx, i) => { if (/^(reset|upgrade|otaurl|password|webpassword)/i.test(s(i.commande))) throw new Error('commande sensible : utilise l\'action dédiée'); return { text: JSON.stringify(await tasmota(ctx, s(i.ip), s(i.commande))) }; } },

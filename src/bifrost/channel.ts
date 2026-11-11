@@ -26,6 +26,8 @@ export interface Channel {
   event?(peer: string, e: AgentEvent): void;
   /** Envoie une note vocale (Telegram). */
   sendVoice?(peer: string, audio: Uint8Array): Promise<void>;
+  /** Envoie une image avec une légende (alerte d'une caméra…). */
+  sendPhoto?(peer: string, image: Uint8Array, caption?: string): Promise<void>;
   /** Autocollant (WEBP 512×512) : le visage d'Odin selon son humeur. */
   sendSticker?(peer: string, webp: Uint8Array): Promise<void>;
   /** Signale qu'une donnée a changé (inventaire, compétences…), pour rafraîchir l'affichage. */

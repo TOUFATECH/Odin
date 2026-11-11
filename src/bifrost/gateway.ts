@@ -472,9 +472,13 @@ export class Gateway {
   }
 
   /** Message au propriétaire depuis l'extérieur (automatisations). */
-  notifyOwner(text: string): Promise<void> { return this.tellOwner(text, 'home'); }
+  /**
+   * `urgent` : passe même en « Ne pas déranger » (alerte critique d'une appli). `photo` : chemin d'une
+   * image jointe au message quand la messagerie sait le faire (Telegram) ; sinon le texte seul.
+   */
+  notifyOwner(text: string, o: { urgent?: boolean; photo?: string } = {}): Promise<void> { return this.tellOwner(text, 'home', Boolean(o.urgent), o.photo); }
 
-  private async tellOwner(text: string, view = 'home', urgent = false): Promise<void> {
+  private async tellOwner(text: string, view = 'home', urgent = false, photo?: string): Promise<void> {
     // Ne pas déranger : hors urgence, le message attend le rapport du matin (ou la fin du rendez-vous).
     // Discrétion « seulement l'urgent » : le reste attend le bilan, comme pendant « Ne pas déranger ».
     if (!urgent && (this.quietNow() || this.odin.muninn.getKv('discretion') === 'urgent')) {
@@ -485,7 +489,12 @@ export class Gateway {
     const pending = JSON.parse(this.odin.muninn.getKv('deferred') ?? '[]') as string[];
     if (pending.length) { this.odin.muninn.setKv('deferred', ''); text = `${text}\n\n— Pendant que tu étais occupé :\n${pending.join('\n\n').slice(0, 3000)}`; }
     const t = this.ownerTarget();
-    if (t) await t.ch.send(t.peer, text).catch(() => {});
+    let sent = false;
+    if (t && photo && t.ch.sendPhoto) {
+      // Image jointe (10 Mo au plus) ; si elle est illisible, le texte part quand même.
+      try { const img = readFileSync(photo); if (img.byteLength > 0 && img.byteLength <= 10 * 1024 * 1024) { await t.ch.sendPhoto(t.peer, img, stripMood(text)); sent = true; } } catch { /* texte seul */ }
+    }
+    if (t && !sent) await t.ch.send(t.peer, text).catch(() => {});
     void pushAll(this.odin.paths.home, { title: 'Odin', body: text, view, tag: 'odin-' + view }).catch(() => 0);
     for (const ch of this.channels.values()) ch.notify?.('watch');
   }

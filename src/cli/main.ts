@@ -252,7 +252,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   // Draupnir (automatisations d'Odin) : démarré avec Odin, arrêté avec lui.
   const stopDraupnir = startDraupnir(odin, (t) => gw!.notifyOwner(t));
   // Valhalla (toutes les applis d'Odin) : alertes sur ta messagerie, liens entre applis, veille.
-  const stopValhalla = startValhalla(odin, (t) => gw!.notifyOwner(t));
+  const stopValhalla = startValhalla(odin, (t, o) => gw!.notifyOwner(t, o));
   const shutdown = async () => { stopValhalla(); stopDraupnir(); await gw!.stop(); odin.close(); };
   // Rechargement demandé par l'onglet Réglages : on arrête tout puis on relance avec la nouvelle config.
   let reloading = false;

@@ -41,7 +41,7 @@ export const valhallaTool: Tool = {
     if (a === 'auto') return true;
     const f = valhallaOf()?.action(s(i.appli), s(i.quoi)); return Boolean(f?.a.read);
   },
-  grave: (i) => { if (s(i.action) !== 'action') return undefined; const f = valhallaOf()?.action(s(i.appli), s(i.quoi)); try { return f?.a.grave?.(parse(i.entree)); } catch { return undefined; } },
+  grave: (i) => { if (s(i.action) !== 'action') return undefined; const v = valhallaOf(), f = v?.action(s(i.appli), s(i.quoi)); try { return f?.a.grave?.(parse(i.entree), v!.ctx(f.m.id)); } catch { return undefined; } },
   async run(i) {
     const v = valhallaOf(); if (!v) return 'Les applis d\'Odin ne sont pas démarrées (lance Odin en service).';
     const a = s(i.action);

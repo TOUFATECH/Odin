@@ -17,6 +17,12 @@ function withCreds(c: Cam): string {
   return cred && !/\/\/[^/]*@/.test(c.url) ? c.url.replace('//', `//${cred.split(':').map(encodeURIComponent).join(':')}@`) : c.url;
 }
 const slug = (n: string) => n.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'camera';
+/** Raison lisible d'un échec de ffmpeg, sans jamais laisser passer l'adresse avec ses identifiants. */
+export function why(err: string): string {
+  const l = err.split('\n').map((x) => x.trim()).filter(Boolean).pop() ?? '';
+  const m = /401|Unauthorized/i.test(err) ? 'identifiants refusés par la caméra' : /Connection refused|No route to host|timed out|Network is unreachable/i.test(err) ? 'caméra injoignable' : /404|Not Found/i.test(err) ? 'flux introuvable à cette adresse' : l.replace(/\b\w+:\/\/\S+/g, '(adresse)').slice(0, 120);
+  return m ? ` (${m})` : '';
+}
 const input = (u: string) => (u.startsWith('rtsp') ? ['-rtsp_transport', 'tcp', '-i', u] : ['-i', u]);
 
 /** Différence moyenne entre deux images en niveaux de gris (0 à 255). */
@@ -30,23 +36,30 @@ export function inHours(spec: string | undefined, d: Date): boolean {
   return a <= b ? h >= a && h < b : h >= a || h < b;
 }
 
+/** Lecture rapide : sans ces réglages, ffmpeg analyse le flux 5 secondes avant de rendre la première image. */
+const FAST = ['-analyzeduration', '500000', '-probesize', '100000'];
 async function frame(ctx: ModCtx, c: Cam): Promise<Buffer> {
-  const r = await ctx.run('sh', ['-c', 'ffmpeg -nostdin -loglevel error "$@" -frames:v 1 -vf scale=64:36,format=gray -f rawvideo - | base64 -w0', 'ffmpeg', ...input(withCreds(c))], { timeoutMs: 15_000 });
-  if (r.code !== 0 || !r.out) throw new Error(`${c.name} : flux illisible`);
+  const grab = (fast: boolean) => ctx.run('sh', ['-c', 'ffmpeg -nostdin -loglevel error "$@" -frames:v 1 -vf scale=64:36,format=gray -f rawvideo - | base64 -w0', 'ffmpeg', ...(fast ? FAST : []), ...input(withCreds(c))], { timeoutMs: 15_000 });
+  let r = await grab(true);
+  // Certaines caméras ne donnent pas assez d'informations en lecture rapide : on réessaie normalement.
+  if (r.code !== 0 || r.out.trim().length < 100) r = await grab(false);
+  if (r.code !== 0 || !r.out.trim()) throw new Error(`${c.name} : flux illisible${why(r.err)}`);
   return Buffer.from(r.out.trim(), 'base64');
 }
 async function snapshot(ctx: ModCtx, c: Cam): Promise<string> {
   const dir = join(ctx.dir, 'photos'); mkdirSync(dir, { recursive: true });
   const f = join(dir, `${slug(c.name)}-${ctx.now().toISOString().replace(/[:.]/g, '-')}.jpg`);
-  const r = await ctx.run('ffmpeg', ['-nostdin', '-loglevel', 'error', ...input(withCreds(c)), '-frames:v', '1', '-q:v', '3', '-y', f], { timeoutMs: 20_000 });
-  if (r.code !== 0) throw new Error(`${c.name} : photo impossible (${r.err.split('\n')[0]})`);
+  const shot = (fast: boolean) => ctx.run('ffmpeg', ['-nostdin', '-loglevel', 'error', ...(fast ? FAST : []), ...input(withCreds(c)), '-frames:v', '1', '-q:v', '3', '-y', f], { timeoutMs: 20_000 });
+  let r = await shot(true);
+  if (r.code !== 0 || !existsSync(f)) r = await shot(false);
+  if (r.code !== 0) throw new Error(`${c.name} : photo impossible${why(r.err)}`);
   return f;
 }
 async function clip(ctx: ModCtx, c: Cam, sec: number): Promise<string> {
   const dir = join(ctx.dir, 'clips', slug(c.name)); mkdirSync(dir, { recursive: true });
   const f = join(dir, `${ctx.now().toISOString().replace(/[:.]/g, '-')}.mp4`);
   const r = await ctx.run('ffmpeg', ['-nostdin', '-loglevel', 'error', ...input(withCreds(c)), '-t', String(Math.min(Math.max(sec, 5), 300)), '-c', 'copy', '-movflags', '+faststart', '-y', f], { timeoutMs: (sec + 30) * 1000 });
-  if (r.code !== 0) throw new Error(`${c.name} : enregistrement impossible`);
+  if (r.code !== 0) throw new Error(`${c.name} : enregistrement impossible${why(r.err)}`);
   return f;
 }
 function clips(ctx: ModCtx): Array<{ cam: string; file: string; at: string; size: number }> {
@@ -74,7 +87,7 @@ export const himinbjorg: Module = {
     { id: 'photo', label: 'Photo', what: 'Prend une photo maintenant', read: true, params: [{ key: 'camera', label: 'Caméra', kind: 'text', required: true }], words: ['photo', 'montre'], run: async (ctx, i) => { const c = cams(ctx).find((x) => x.name.toLowerCase() === s(i.camera).toLowerCase()); if (!c) throw new Error('caméra inconnue'); const f = await snapshot(ctx, c); return { text: `📸 ${c.name}`, data: { file: f } }; } },
     { id: 'enregistrer', label: 'Enregistrer', what: 'Clip de N secondes', params: [{ key: 'camera', label: 'Caméra', kind: 'text', required: true }, { key: 'secondes', label: 'Secondes', kind: 'number', default: 30 }], run: async (ctx, i) => { const c = cams(ctx).find((x) => x.name.toLowerCase() === s(i.camera).toLowerCase()); if (!c) throw new Error('caméra inconnue'); return { text: `🎞 Clip enregistré.`, data: { file: await clip(ctx, c, Number(i.secondes) || 30) } }; } },
     { id: 'retirer', label: 'Retirer une caméra', what: 'La caméra est oubliée (les clips restent)', params: [{ key: 'camera', label: 'Caméra', kind: 'text', required: true }], run: (ctx, i) => { ctx.saveSettings({ cams: cams(ctx).filter((x) => x.name !== s(i.camera)) }); return { text: 'Caméra retirée.' }; } },
-    { id: 'reglages', label: 'Réglages', what: 'Sensibilité et rétention', params: [{ key: 'camera', label: 'Caméra', kind: 'text', required: true }, { key: 'sensibilite', label: 'Sensibilité (1 forte à 5 faible)', kind: 'number', default: 2 }, { key: 'jours', label: 'Garder les clips (jours, toutes caméras)', kind: 'number', default: 7 }], run: (ctx, i) => { ctx.saveSettings({ cams: cams(ctx).map((x) => (x.name === s(i.camera) ? { ...x, sensitivity: Math.min(5, Math.max(1, Number(i.sensibilite) || 2)) } : x)), keepDays: Number(i.jours) || 7 }); return { text: 'Réglages enregistrés.' }; } },
+    { id: 'reglages', label: 'Réglages', what: 'Sensibilité et rétention', params: [{ key: 'camera', label: 'Caméra', kind: 'text', required: true }, { key: 'sensibilite', label: 'Sensibilité (1 forte à 5 faible)', kind: 'number', default: 2 }, { key: 'jours', label: 'Garder les clips (jours, toutes caméras)', kind: 'number', default: 7 }, { key: 'secondes', label: 'Durée d\'un clip de mouvement (secondes)', kind: 'number', default: 20 }], run: (ctx, i) => { ctx.saveSettings({ cams: cams(ctx).map((x) => (x.name === s(i.camera) ? { ...x, sensitivity: Math.min(5, Math.max(1, Number(i.sensibilite) || 2)) } : x)), keepDays: Number(i.jours) || 7, clipSeconds: Math.min(300, Math.max(5, Number(i.secondes) || 20)) }); return { text: 'Réglages enregistrés.' }; } },
   ],
   view(ctx) {
     const c = cams(ctx), cl = clips(ctx), day = cl.filter((x) => Date.parse(x.at) > ctx.now().getTime() - 86_400_000);
@@ -98,15 +111,20 @@ export const himinbjorg: Module = {
         if (!prev) continue;
         const part = changed(prev, f), seuil = [0, 0.02, 0.04, 0.07, 0.11, 0.16][c.sensitivity] ?? 0.04;
         if (part < seuil) continue;
-        ctx.emit('mouvement', { caméra: c.name, part: Math.round(part * 100) });
-        if (!inHours(c.hours, ctx.now())) continue;
-        ctx.alert({ level: 'haute', title: `Mouvement : ${c.name}`, detail: `${Math.round(part * 100)} % de l'image a changé`, key: `mvt:${c.name}` });
-        if (c.record) void clip(ctx, c, 20).catch(() => undefined);
+        const watched = inHours(c.hours, ctx.now());
+        // Aux heures surveillées : une photo part avec l'alerte, puis un clip est gardé.
+        const photo = watched ? await snapshot(ctx, c).catch(() => undefined) : undefined;
+        ctx.emit('mouvement', { caméra: c.name, part: Math.round(part * 100), surveillé: watched, ...(photo ? { photo } : {}) });
+        if (!watched) continue;
+        ctx.alert({ level: 'haute', title: `Mouvement : ${c.name}`, detail: `${Math.round(part * 100)} % de l'image a changé`, key: `mvt:${c.name}`, ...(photo ? { photo, data: { photo } } : {}) });
+        if (c.record) void clip(ctx, c, Number(ctx.settings.clipSeconds ?? 20)).then((file) => ctx.emit('clip', { caméra: c.name, fichier: file })).catch(() => undefined);
       } catch (e) { ctx.alert({ level: 'moyenne', title: `Caméra ${c.name} injoignable`, detail: (e as Error).message, key: `cam:${c.name}` }); }
       finally { busy.delete(c.name); }
     }
     // Rétention des clips
     const keep = Number(ctx.settings.keepDays ?? 7) * 86_400_000;
     for (const x of clips(ctx)) if (ctx.now().getTime() - Date.parse(x.at) > keep) rmSync(x.file, { force: true });
+    const shots = join(ctx.dir, 'photos');
+    if (existsSync(shots)) for (const f of readdirSync(shots)) { const p = join(shots, f); if (ctx.now().getTime() - statSync(p).mtimeMs > keep) rmSync(p, { force: true }); }
   } },
 };

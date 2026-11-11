@@ -4,16 +4,16 @@
 
 import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Action, ActionResult, Alert, AlertIn, Level, ModCtx, Module } from './types.ts';
+import type { Action, ActionResult, Alert, AlertIn, Level, ModCtx, Module, NotifyOpts } from './types.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 export interface ValhallaDeps {
-  notify?(text: string): Promise<void>;
+  notify?(text: string, o?: NotifyOpts): Promise<void>;
   ask?(text: string): Promise<string>;
   fetch?: typeof fetch;
   now?(): Date;
@@ -53,13 +53,14 @@ export class Valhalla {
     const settings: Record<string, unknown> = existsSync(sf) ? JSON.parse(readFileSync(sf, 'utf8')) : {};
     const c: ModCtx = {
       home: join(this.dir, '..'), dir, settings,
-      saveSettings: (patch) => { Object.assign(settings, patch); writeFileSync(sf, JSON.stringify(settings, null, 2)); },
+      // Écriture sûre : le dossier est recréé s'il a disparu, et le fichier est remplacé d'un coup (jamais à moitié écrit).
+      saveSettings: (patch) => { Object.assign(settings, patch); mkdirSync(dir, { recursive: true }); const tmp = `${sf}.tmp`; writeFileSync(tmp, JSON.stringify(settings, null, 2), { mode: 0o600 }); renameSync(tmp, sf); },
       alert: (a) => this.alert(id, a),
       emit: (type, data = {}) => { this.events.emit('event', { module: id, type, data, at: (this.deps.now?.() ?? new Date()).toISOString() }); },
       run: this.deps.run ?? run,
       has: async (cmd) => (await (this.deps.run ?? run)('sh', ['-c', `command -v ${cmd.replace(/[^\w.-]/g, '')}`])).code === 0,
       fetch: this.deps.fetch ?? fetch,
-      notify: async (t) => { await this.deps.notify?.(t); },
+      notify: async (t, o) => { await this.deps.notify?.(t, o); },
       ask: this.deps.ask,
       call: (m, a, input = {}) => this.act(m, a, input),
       now: () => this.deps.now?.() ?? new Date(),
@@ -92,7 +93,7 @@ export class Valhalla {
   async act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean } = {}): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
-    const why = f.a.grave?.(input);
+    const why = f.a.grave?.(input, this.ctx(f.m.id));
     if (o.auto && why) return { ok: false, text: `${f.m.name} · ${f.a.label} : action grave (${why}), elle demande ton accord et ne part pas d'une automatisation.` };
     for (const p of f.a.params ?? []) if (p.required && (input[p.key] === undefined || input[p.key] === '')) return { ok: false, text: `Il manque « ${p.label} ».` };
     try { const r = await f.a.run(this.ctx(f.m.id), input); this.events.emit('action', { module: f.m.id, action: f.a.id, ok: r.ok !== false }); return { ok: true, ...r }; }
@@ -113,7 +114,8 @@ export class Valhalla {
     const min = (this.settings().alertLevel as Level) ?? 'haute';
     if (RANK[a.level] >= RANK[min]) {
       const m = this.mods.get(module);
-      void this.deps.notify?.(`${ICON[a.level]} ${m?.name ?? module} — ${a.title}${a.detail ? `\n${a.detail}` : ''}`).catch(() => {});
+      // Une alerte critique passe même en « Ne pas déranger » ; une photo (caméra) part avec le message.
+      void this.deps.notify?.(`${ICON[a.level]} ${m?.name ?? module} — ${a.title}${a.detail ? `\n${a.detail}` : ''}`, { urgent: a.level === 'critique', ...(a.photo ? { photo: a.photo } : {}) }).catch(() => {});
     }
     return al;
   }

@@ -15,6 +15,8 @@ async function containers(ctx: ModCtx): Promise<Ct[]> { return parseLines<Ct>(aw
 async function stats(ctx: ModCtx): Promise<Map<string, { cpu: string; mem: string }>> {
   try { return new Map(parseLines<{ Name: string; CPUPerc: string; MemUsage: string }>(await dk(ctx, ['stats', '--no-stream', '--format', '{{json .}}'], 20_000)).map((x) => [x.Name, { cpu: x.CPUPerc, mem: x.MemUsage.split('/')[0].trim() }])); } catch { return new Map(); }
 }
+/** Arrêt demandé par le propriétaire : la surveillance ne doit pas le prendre pour une panne. */
+function forget(ctx: ModCtx, name: string): void { const was = (ctx.settings.running as string[] | undefined) ?? []; if (was.includes(name)) ctx.saveSettings({ running: was.filter((n) => n !== name) }); }
 const pile = (c: Ct) => /com\.docker\.compose\.project=([^,]+)/.exec(c.Labels ?? '')?.[1] ?? '—';
 
 export const naglfar: Module = {
@@ -27,7 +29,7 @@ export const naglfar: Module = {
     { id: 'lister', label: 'Lister les conteneurs', what: 'Tous les conteneurs et leur état', read: true, words: ['liste', 'lister', 'quels conteneurs'], run: async (ctx) => { const c = await containers(ctx); return { text: c.map((x) => `- ${x.Names} · ${x.Image} · ${x.Status}`).join('\n') || 'Aucun conteneur.', data: c }; } },
     { id: 'journaux', label: 'Journaux', what: 'Les 80 dernières lignes', read: true, params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['journaux', 'logs'], run: async (ctx, i) => { const e = await engine(ctx); const r = await ctx.run(e, ['logs', '--tail', '80', safe(i.conteneur)], { timeoutMs: 20_000 }); return { text: `${r.out}${r.err}`.trim().slice(-6000) || '(vide)' }; } },
     { id: 'demarrer', label: 'Démarrer', what: 'Démarre un conteneur', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['demarre', 'démarre', 'lance'], run: async (ctx, i) => { await dk(ctx, ['start', safe(i.conteneur)]); return { text: `▶ ${s(i.conteneur)} démarré.` }; } },
-    { id: 'arreter', label: 'Arrêter', what: 'Arrête un conteneur', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['arrete', 'arrête', 'stop'], run: async (ctx, i) => { await dk(ctx, ['stop', safe(i.conteneur)]); return { text: `■ ${s(i.conteneur)} arrêté.` }; } },
+    { id: 'arreter', label: 'Arrêter', what: 'Arrête un conteneur', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['arrete', 'arrête', 'stop'], run: async (ctx, i) => { const n = safe(i.conteneur); await dk(ctx, ['stop', n]); forget(ctx, n); return { text: `■ ${n} arrêté.` }; } },
     { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['redemarre', 'redémarre', 'relance'], run: async (ctx, i) => { await dk(ctx, ['restart', safe(i.conteneur)]); return { text: `↻ ${s(i.conteneur)} redémarré.` }; } },
     { id: 'mettre_a_jour', label: 'Mettre à jour l\'image', what: 'Télécharge la dernière image puis recrée la pile', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], grave: (i) => `recréer ${s(i.conteneur)} avec une nouvelle image`, run: async (ctx, i) => {
       const c = (await containers(ctx)).find((x) => x.Names === s(i.conteneur)); if (!c) throw new Error('conteneur introuvable');
@@ -42,7 +44,7 @@ export const naglfar: Module = {
       await dk(ctx, ['compose', '-p', name, '-f', join(dir, 'compose.yaml'), 'up', '-d'], 900_000);
       return { text: `🚢 Pile ${name} déployée.` };
     } },
-    { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur arrêté (ses volumes sont gardés)', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { await dk(ctx, ['rm', safe(i.conteneur)]); return { text: `🗑 ${s(i.conteneur)} supprimé (volumes conservés).` }; } },
+    { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur arrêté (ses volumes sont gardés)', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); await dk(ctx, ['rm', safe(i.conteneur)]); return { text: `🗑 ${s(i.conteneur)} supprimé (volumes conservés).` }; } },
     { id: 'nettoyer', label: 'Nettoyer', what: 'Images et réseaux inutilisés', grave: () => 'supprimer les images et réseaux inutilisés', words: ['nettoie', 'place'], run: async (ctx) => { const o = await dk(ctx, ['system', 'prune', '-f'], 600_000); return { text: `🧹 ${o.trim().split('\n').pop()}` }; } },
   ],
   async view(ctx) {

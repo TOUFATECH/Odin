@@ -4,7 +4,7 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, basename } from 'node:path';
-import { haApi } from '../../tools/homeassistant.ts';
+import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import type { ModCtx, Module } from '../types.ts';
 
 export interface Track { file: string; title: string; artist: string; album: string; sec: number }
@@ -46,9 +46,12 @@ async function play(ctx: ModCtx, url: string, where: string): Promise<string> {
   if (where && where !== 'ici') {
     const ha = s(ctx.settings.haUrl).replace(/\/$/, ''), token = process.env.HA_TOKEN; if (!ha || !token) throw new Error('relie ta box dans Ægir (même adresse que Midgard) pour jouer sur une enceinte');
     if (!/^https?:\/\//.test(url)) throw new Error('une enceinte ne peut lire qu\'une adresse web (radio) : les fichiers locaux se jouent « ici »');
-    const player = where.startsWith('media_player.') ? where : `media_player.${where.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
-    await haApi(ha, token, 'POST', '/services/media_player/play_media', { entity_id: player, media_content_id: url, media_content_type: 'music' });
-    return `▶ Sur ${player}.`;
+    // L'enceinte est cherchée dans la box par son nom (ou son identifiant), comme pour les annonces.
+    const players = (await haApi(ha, token, 'GET', '/states') as HaState[]).filter((x) => x.entity_id.startsWith('media_player.') && x.state !== 'unavailable');
+    const q = norm(where), p = players.find((x) => x.entity_id === where) ?? players.find((x) => norm(`${x.entity_id} ${x.attributes.friendly_name ?? ''}`).includes(q));
+    if (!p) throw new Error(`enceinte « ${where} » introuvable. Disponibles : ${players.map((x) => x.attributes.friendly_name ?? x.entity_id).slice(0, 12).join(', ') || 'aucune'}`);
+    await haApi(ha, token, 'POST', '/services/media_player/play_media', { entity_id: p.entity_id, media_content_id: url, media_content_type: 'music' });
+    return `▶ Sur ${p.attributes.friendly_name ?? p.entity_id}.`;
   }
   const bin = (await ctx.has('mpv')) ? ['mpv', ['--no-video', '--really-quiet', url]] as const : (await ctx.has('ffplay')) ? ['ffplay', ['-nodisp', '-autoexit', '-loglevel', 'quiet', url]] as const : undefined;
   if (!bin) throw new Error('ni mpv ni ffplay sur cette machine');

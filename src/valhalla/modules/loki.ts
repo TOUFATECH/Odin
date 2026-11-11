@@ -55,6 +55,7 @@ export class LokiEngine {
   private servers = new Map<string, Server | UdpSocket>();
   private ctx: ModCtx;
   constructor(ctx: ModCtx) { this.ctx = ctx; }
+  get home() { return this.ctx.dir; }
   get file() { return join(this.ctx.dir, 'attaques.jsonl'); }
   record(h: Omit<Hit, 'at'>): void {
     const hit: Hit = { ...h, at: this.ctx.now().toISOString() };
@@ -74,8 +75,9 @@ export class LokiEngine {
       const sha = createHash('sha256').update(buf).digest('hex'), f = join(dir, `${sha}.bin`);
       writeFileSync(f, buf, { mode: 0o600 });
       this.record({ trap, ip, port: 0, kind: 'capture', detail: `${url} → ${sha.slice(0, 16)}… (${buf.length} o)` });
-      this.ctx.alert({ level: 'haute', title: `Loki a capturé un logiciel malveillant`, detail: `${url} envoyé par ${ip} — ${buf.length} octets, analysé par Ullr.`, key: `cap:${sha}` });
-      void this.ctx.call('ullr', 'fichier', { chemin: f }).catch(() => undefined);
+      // Le fichier reste à l'écart (jamais exécuté) ; le verdict d'Ullr part avec l'alerte.
+      const verdict = await this.ctx.call('ullr', 'fichier', { chemin: f }).then((r) => (r.ok === false ? '' : r.text.split('\n')[0]), () => '');
+      this.ctx.alert({ level: 'haute', title: 'Loki a capturé un fichier déposé par un pirate', detail: `${url} envoyé par ${ip} — ${buf.length} octets, gardé à l'écart (jamais exécuté). Ullr : ${verdict || 'analyse indisponible'}`, key: `cap:${sha}`, data: { fichier: f, verdict } });
     } catch { /* téléchargement impossible */ }
   }
   private tcp(t: Trap, onConn: (s: Socket, ip: string) => void): Server {
@@ -181,7 +183,8 @@ export class LokiEngine {
 }
 
 let engine: LokiEngine | undefined;
-const eng = (ctx: ModCtx) => (engine ??= new LokiEngine(ctx));
+/** Un moteur par installation : si le contexte change (autre dossier d'Odin), l'ancien est arrêté. */
+const eng = (ctx: ModCtx) => { if (engine && engine.home !== ctx.dir) { engine.stop(); engine = undefined; } return (engine ??= new LokiEngine(ctx)); };
 const on = (ctx: ModCtx): Record<string, number> => (ctx.settings.on as Record<string, number> | undefined) ?? {};
 
 export const loki: Module = {

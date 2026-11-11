@@ -39,7 +39,7 @@ export async function valhallaPost(path: string, b: Record<string, unknown>): Pr
     case '/api/valhalla/act': {
       const f = v.action(s(b.module), s(b.action)); if (!f) return { ok: false, error: 'action inconnue' };
       const input = (b.input && typeof b.input === 'object' ? b.input : {}) as Record<string, unknown>;
-      const why = f.a.grave?.(input);
+      const why = f.a.grave?.(input, v.ctx(f.m.id));
       if (why && b.confirm !== true) return { ok: false, confirm: `Confirmer : ${why} ?` };
       const r = await v.act(f.m.id, f.a.id, input);
       return { ok: r.ok !== false, text: r.text, data: r.data && typeof r.data === 'object' && 'file' in (r.data as object) ? { file: true } : r.data };

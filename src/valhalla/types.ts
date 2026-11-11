@@ -3,7 +3,9 @@
 // des alertes, des événements, et des mots-clés pour qu'Odin choisisse le bon module tout seul.
 
 export type Level = 'critique' | 'haute' | 'moyenne' | 'info';
-export interface AlertIn { level: Level; title: string; detail?: string; key?: string; data?: Record<string, unknown> }
+export interface AlertIn { level: Level; title: string; detail?: string; key?: string; data?: Record<string, unknown>; /** image jointe au message (chemin d'un fichier JPEG ou PNG) */ photo?: string }
+/** Options d'un message au propriétaire : urgent (passe « Ne pas déranger »), photo jointe. */
+export interface NotifyOpts { urgent?: boolean; photo?: string }
 export interface Alert extends AlertIn { id: string; at: string; module: string; ack?: boolean; count: number }
 
 export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'password'; options?: string[]; default?: unknown; required?: boolean; help?: string }
@@ -14,7 +16,7 @@ export interface Action {
   /** lecture seule (sûr, disponible sans IA et sans accord) */
   read?: boolean;
   /** action grave → accord du propriétaire (Heimdall) ; renvoie la raison */
-  grave?: (input: Record<string, unknown>) => string | undefined;
+  grave?: (input: Record<string, unknown>, ctx?: ModCtx) => string | undefined;
   /** mots qui déclenchent cette action quand Odin n'a pas d'IA */
   words?: string[];
   run(ctx: ModCtx, input: Record<string, unknown>): Promise<ActionResult> | ActionResult;
@@ -42,7 +44,7 @@ export interface ModCtx {
   run(cmd: string, args: string[], o?: { timeoutMs?: number; input?: string; sudo?: boolean }): Promise<{ code: number; out: string; err: string }>;
   has(cmd: string): Promise<boolean>;
   fetch: typeof fetch;
-  notify(text: string): Promise<void>;
+  notify(text: string, o?: NotifyOpts): Promise<void>;
   /** IA d'Odin si disponible (sinon undefined) */
   ask?: (text: string) => Promise<string>;
   /** action d'un autre module (liens entre modules) */

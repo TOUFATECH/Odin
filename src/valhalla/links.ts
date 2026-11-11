@@ -9,7 +9,7 @@ export interface Link { from: string; to: string; when: string; does: string; au
 /** Réflexes intégrés (auto) et liens d'usage (manuels, proposés). */
 export const LINKS: Link[] = [
   { from: 'loki', to: 'garmr', when: 'un pirate tape un mot de passe ou une commande dans un piège', does: 'son adresse est bannie de tes vrais services', auto: true },
-  { from: 'loki', to: 'ullr', when: 'un pirate dépose un fichier dans un piège', does: 'le fichier est analysé et mis en quarantaine', auto: true },
+  { from: 'loki', to: 'ullr', when: 'un pirate fait télécharger un fichier à un piège', does: 'le fichier est gardé à l\'écart (jamais exécuté) et analysé ; le verdict part avec l\'alerte', auto: true },
   { from: 'geri', to: 'garmr', when: 'une connexion part vers une adresse malveillante connue', does: 'l\'adresse est bannie 24 h', auto: true },
   { from: 'skogul', to: 'ullr', when: 'un processus suspect tourne', does: 'son programme est analysé', auto: true },
   { from: 'ullr', to: 'forseti', when: 'une menace est trouvée', does: 'l\'alerte rejoint le fil commun et part sur ta messagerie', auto: true },

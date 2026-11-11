@@ -73,9 +73,16 @@ export const garmr: Module = {
     { id: 'bannis', label: 'Bannis en ce moment', what: 'Adresses bannies et pour combien de temps', read: true, words: ['bannis', 'liste'], run: (ctx) => { const b = bans(ctx); return { text: b.map((x) => `- ${x.ip} · ${x.reason} · jusqu'à ${new Date(x.until).toLocaleString('fr-FR')}`).join('\n') || 'Personne n\'est banni.', data: b }; } },
     { id: 'bannir', label: 'Bannir une adresse', what: 'Bloque une adresse au pare-feu', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }, { key: 'raison', label: 'Raison', kind: 'text', default: 'à la demande' }, { key: 'minutes', label: 'Durée (minutes)', kind: 'number', default: 60 }], words: ['bannis', 'bloque'], run: (ctx, i) => ban(ctx, s(i.ip).trim(), s(i.raison) || 'à la demande', s(i.source) || 'toi', Number(i.minutes) || undefined) },
     { id: 'debannir', label: 'Débannir', what: 'Retire une adresse du pare-feu', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], words: ['debannis', 'débannis', 'autorise'], run: async (ctx, i) => { const ip = s(i.ip).trim(); await fw(ctx, 'unban', ip).catch(() => ''); ctx.saveSettings({ bans: bans(ctx).filter((b) => b.ip !== ip) }); return { text: `✅ ${ip} n'est plus banni.` }; } },
+    { id: 'journal', label: 'Surveiller un journal', what: 'Ajoute un fichier journal à lire (application, site…)', params: [{ key: 'fichier', label: 'Chemin du fichier', kind: 'text', required: true }], run: (ctx, i) => { const f = s(i.fichier).trim(); if (!f.startsWith('/') || !existsSync(f)) return { ok: false, text: 'fichier introuvable (chemin complet attendu)' }; ctx.saveSettings({ logs: [...new Set([...((ctx.settings.logs as string[]) ?? []), f])] }); return { text: `👁 ${f} est maintenant surveillé.` }; } },
     { id: 'proteger', label: 'Protéger une adresse', what: 'Ajoute à la liste blanche (jamais bannie)', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], run: (ctx, i) => { const ip = s(i.ip).trim(); if (!isIP(ip)) return { ok: false, text: 'adresse invalide' }; ctx.saveSettings({ allow: [...new Set([...((ctx.settings.allow as string[]) ?? []), ip])] }); return { text: `🛡 ${ip} ne sera jamais bannie.` }; } },
   ],
-  async start(ctx) { try { await fw(ctx, 'init'); } catch { /* pare-feu absent : signalé dans la vue */ } },
+  async start(ctx) {
+    try {
+      await fw(ctx, 'init');
+      // Le pare-feu oublie tout au redémarrage de la machine : les bannissements encore valables sont remis.
+      for (const b of bans(ctx)) await fw(ctx, 'ban', b.ip, Math.max(60, Math.round((b.until - ctx.now().getTime()) / 1000))).catch(() => '');
+    } catch { /* pare-feu absent : signalé dans la vue */ }
+  },
   view(ctx) {
     const b = bans(ctx), hist = (ctx.settings.history as Record<string, number> | undefined) ?? {};
     const top = Object.entries(hist).sort((a, x) => x[1] - a[1]).slice(0, 8);
@@ -87,12 +94,14 @@ export const garmr: Module = {
     };
   },
   watch: { every: 30, async run(ctx) {
+    const all = (ctx.settings.bans as Ban[] | undefined) ?? [], over = all.filter((b) => b.until <= ctx.now().getTime());
+    if (over.length) { for (const b of over) await fw(ctx, 'unban', b.ip).catch(() => ''); ctx.saveSettings({ bans: all.filter((b) => b.until > ctx.now().getTime()) }); }
     // Nouvelles lignes depuis la dernière lecture (journal système, puis fichiers classiques).
     let text = '';
     const since = (ctx.settings.since as string) || new Date(ctx.now().getTime() - 10 * 60_000).toISOString();
-    if (await ctx.has('journalctl')) { const r = await ctx.run('journalctl', ['--since', since.replace('T', ' ').slice(0, 19), '-o', 'cat', '--no-pager', '-q'], { sudo: true, timeoutMs: 20_000 }); if (!r.code) text += r.out; }
+    if (ctx.settings.useJournal !== false && await ctx.has('journalctl')) { const r = await ctx.run('journalctl', ['--since', since.replace('T', ' ').slice(0, 19), '-o', 'cat', '--no-pager', '-q'], { sudo: true, timeoutMs: 20_000 }); if (!r.code) text += r.out; }
     const pos = (ctx.settings.pos as Record<string, number> | undefined) ?? {};
-    for (const f of LOGS) { if (!existsSync(f)) continue; try { const size = statSync(f).size, from = pos[f] ?? Math.max(0, size - 200_000); if (size < from) pos[f] = 0; const buf = readFileSync(f, 'utf8').slice(from <= size ? from : 0); text += `\n${buf}`; pos[f] = size; } catch { /* illisible sans droits */ } }
+    for (const f of [...(ctx.settings.useSystemLogs === false ? [] : LOGS), ...((ctx.settings.logs as string[] | undefined) ?? [])]) { if (!existsSync(f)) continue; try { const size = statSync(f).size, from = pos[f] ?? Math.max(0, size - 200_000); if (size < from) pos[f] = 0; const buf = readFileSync(f, 'utf8').slice(from <= size ? from : 0); text += `\n${buf}`; pos[f] = size; } catch { /* illisible sans droits */ } }
     ctx.saveSettings({ since: ctx.now().toISOString(), pos });
     const fails = failures(text), window = Number(ctx.settings.findtime ?? 10) * 60_000, max = Number(ctx.settings.maxretry ?? 5);
     const seen = (ctx.settings.fails as Record<string, number[]> | undefined) ?? {}, now = ctx.now().getTime();

@@ -9,6 +9,7 @@ import type { ModCtx, Module } from '../types.ts';
 const s = (v: unknown) => String(v ?? '');
 const confs = (ctx: ModCtx): McpServerConf[] => (ctx.settings.servers as McpServerConf[] | undefined) ?? [];
 const slug = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30) || 'mcp';
+const clean = (x: string, max: number) => x.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 const clients = new Map<string, McpClient>();
 const status = new Map<string, string>();
 /** Jeton d'un serveur HTTP : MCP_<NOM> dans le coffre. */
@@ -20,7 +21,8 @@ export const toolName = (server: string, tool: string) => `mcp_${slug(server)}_$
 function asTools(c: McpClient): Tool[] {
   return c.tools.map((t) => ({
     name: toolName(c.conf.name, t.name),
-    description: `[MCP ${c.conf.name}] ${t.annotations?.title ?? t.name} : ${(t.description ?? '').slice(0, 600)}`,
+    // Description fournie par le serveur (non vérifiée) : une seule ligne, courte, sans caractères de contrôle.
+    description: `[MCP ${c.conf.name}, description du serveur non vérifiée] ${clean(t.annotations?.title ?? t.name, 80)} : ${clean(t.description ?? '', 400)}`,
     risk: 'external' as const, taints: true,
     schema: (t.inputSchema && typeof t.inputSchema === 'object' ? { type: 'object', properties: {}, ...t.inputSchema } : { type: 'object', properties: {} }) as never,
     summarize: (i) => `MCP ${c.conf.name} → ${t.name} ${JSON.stringify(i).slice(0, 160)}`,
@@ -49,7 +51,8 @@ export function ratatoskr(registry: () => ToolRegistry | undefined): Module {
     actions: [
       { id: 'serveurs', label: 'Serveurs MCP', what: 'Serveurs branchés et leurs outils', read: true, words: ['liste'], run: (ctx) => ({ text: confs(ctx).map((c) => `- ${c.name} (${c.kind === 'stdio' ? `${c.command} ${(c.args ?? []).join(' ')}` : c.url}) · ${c.enabled ? 'actif' : 'arrêté'} · ${status.get(c.name) ?? '—'}`).join('\n') || 'Aucun serveur MCP branché.' }) },
       { id: 'ajouter', label: 'Brancher un serveur', what: 'Programme local (commande) ou adresse HTTP. Jeton éventuel dans le coffre : MCP_<NOM>.', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'source', label: 'Commande (ex. npx -y @modelcontextprotocol/server-filesystem /data) ou adresse https://…', kind: 'text', required: true }, { key: 'variables', label: 'Variables du coffre à lui passer (MCP_…, séparées par des virgules)', kind: 'text', default: '' }],
-        grave: (i) => (/^https?:\/\//.test(s(i.source).trim()) ? undefined : `lancer le programme « ${s(i.source).slice(0, 120)} » sur cette machine`),
+        // Toujours avec ton accord : un programme lancé sur la machine, ou des outils d'un serveur distant ajoutés à ceux d'Odin.
+        grave: (i) => (/^https?:\/\//.test(s(i.source).trim()) ? `brancher le serveur MCP distant ${s(i.source).trim().slice(0, 120)} (ses outils s'ajoutent à ceux d'Odin)` : `lancer le programme « ${s(i.source).slice(0, 120)} » sur cette machine`),
         run: async (ctx, i) => {
           const src = s(i.source).trim(), name = s(i.nom).trim(); if (!name || !src) throw new Error('nom et source obligatoires');
           const env = s(i.variables).split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);

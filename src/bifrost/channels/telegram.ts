@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { buttonText, buttonsFor, type Channel, chunk, type Inbound } from '../channel.ts';
 import type { AgentEvent } from '../../types.ts';
-import { isMood, MOOD_EMOJI, MOOD_IDS, type Mood } from '../../mood/mood.ts';
+import { isMood, MOOD_EMOJI, MOOD_IDS, stripMood, type Mood } from '../../mood/mood.ts';
 
 export interface TelegramOptions {
   /** Transcrit une note vocale (Whisper) ; absent = les vocaux sont refusés poliment. */
@@ -381,6 +381,19 @@ export class TelegramChannel implements Channel {
     form.append('chat_id', peer);
     form.append('voice', new Blob([audio], { type: 'audio/ogg' }), 'odin.ogg');
     await fetch(this.url('sendVoice'), { method: 'POST', body: form });
+  }
+
+  /** Image avec légende (1024 caractères au plus pour Telegram ; au-delà, le texte part d'abord). */
+  async sendPhoto(peer: string, image: Uint8Array, caption = ''): Promise<void> {
+    const text = stripMood(caption);
+    if (text.length > 1000) { await this.send(peer, text); caption = ''; } else caption = text;
+    const form = new FormData();
+    form.append('chat_id', peer);
+    if (caption) form.append('caption', caption);
+    form.append('photo', new Blob([image], { type: image[0] === 0x89 ? 'image/png' : 'image/jpeg' }), image[0] === 0x89 ? 'odin.png' : 'odin.jpg');
+    const r = await (await fetch(this.url('sendPhoto'), { method: 'POST', body: form })).json().catch(() => ({ ok: false })) as { ok: boolean; description?: string };
+    // Photo refusée (trop grande, format) : le texte au moins doit arriver.
+    if (!r.ok && caption) await this.send(peer, caption);
   }
 
   /** Autocollant : le visage d'Odin selon son humeur. */

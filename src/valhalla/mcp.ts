@@ -9,6 +9,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import type { Valhalla } from './service.ts';
 
 export const PROTOCOL = '2025-06-18';
+/** Versions du protocole qu'Odin sait parler (la négociation renvoie celle du client si elle est ici, sinon la plus récente d'Odin). */
+export const SUPPORTED = ['2025-06-18', '2025-03-26', '2024-11-05'];
 export interface McpTool { name: string; description?: string; inputSchema?: Record<string, unknown>; annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; title?: string } }
 export interface McpServerConf { name: string; kind: 'stdio' | 'http'; command?: string; args?: string[]; url?: string; enabled: boolean; env?: string[] }
 type Pending = { res: (v: unknown) => void; rej: (e: Error) => void; t: ReturnType<typeof setTimeout> };
@@ -113,7 +115,7 @@ export async function serverHandle(v: Valhalla, msg: Rpc, advise: (need: string)
   const err = (code: number, message: string) => ({ jsonrpc: '2.0', id: msg.id ?? null, error: { code, message } });
   if (msg.id === undefined) return undefined; // notification
   switch (msg.method) {
-    case 'initialize': return ok({ protocolVersion: typeof msg.params?.protocolVersion === 'string' ? msg.params.protocolVersion : PROTOCOL, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'odin', title: 'Odin', version: '1' }, instructions: 'Applis d\'Odin (sécurité, machines, sauvegardes, maison, caméras, rendez-vous…). Les actions graves ne sont pas disponibles ici : elles se valident dans Odin.' });
+    case 'initialize': return ok({ protocolVersion: SUPPORTED.includes(String(msg.params?.protocolVersion)) ? String(msg.params?.protocolVersion) : PROTOCOL, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'odin', title: 'Odin', version: '1' }, instructions: 'Applis d\'Odin (sécurité, machines, sauvegardes, maison, caméras, rendez-vous…). Les actions graves ne sont pas disponibles ici : elles se valident dans Odin.' });
     case 'ping': return ok({});
     case 'tools/list': return ok({ tools: serverTools(v) });
     case 'tools/call': {
