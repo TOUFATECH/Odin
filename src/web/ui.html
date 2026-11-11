@@ -1075,9 +1075,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <button class="tab" data-view="brain"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 4.5a3 3 0 0 0-5 2.5 3 3 0 0 0-1 5.2A3.2 3.2 0 0 0 7 17a2.8 2.8 0 0 0 5 1.5V6a2.5 2.5 0 0 0-2.5-1.5zM14.5 4.5a3 3 0 0 1 5 2.5 3 3 0 0 1 1 5.2A3.2 3.2 0 0 1 17 17a2.8 2.8 0 0 1-5 1.5"/><path d="M12 9h2.5M12 13h-2.5"/></svg><span class="lbl">Cerveau</span></button>
     
     <button class="tab" data-view="net"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><path d="M12 7.4v4.1M12 11.5l-5.3 5.7M12 11.5l5.3 5.7"/></svg><span class="lbl">Maison</span> <span class="badge" id="b-net" hidden>0</span></button>
+    <button class="tab" data-view="apps"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg><span class="lbl">Applis</span> <span class="badge" id="b-apps" hidden>0</span></button>
     <button class="nav-more" id="navMoreBtn" type="button" aria-expanded="false" aria-controls="navMore"><span>Plus</span><span class="badge" id="navMoreBadge" hidden></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
     <div class="navmore" id="navMore" hidden>
     <button class="tab" data-view="flows"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="6" height="5" rx="1.5"/><rect x="15" y="15" width="6" height="5" rx="1.5"/><rect x="15" y="4" width="6" height="5" rx="1.5"/><path d="M9 6.5h6M18 9v6M9 6.5c3 0 3 11 6 11"/></svg><span class="lbl">Automatisations</span></button>
+    <button class="tab" data-view="runes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9.5 9.5v10"/></svg><span class="lbl">Runes (bases)</span></button>
     <button class="tab" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Activité</span> <span class="badge" id="b-missions" hidden>0</span></button>
     <button class="tab" data-view="memory"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5v-15z"/><path d="M19 18v3H6.5A1.5 1.5 0 0 1 5 19.5"/><path d="M9 7h6"/></svg><span class="lbl">Mémoire</span></button>
     <button class="tab" data-view="skills"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5.2 5.2 2.3-5.2 2.3L12 18.5l-2.3-5.2L4.5 11l5.2-2.3z"/><path d="M19 17v4M17 19h4"/></svg><span class="lbl">Compétences</span> <span class="badge" id="b-drafts" hidden>0</span></button>
@@ -1157,8 +1159,23 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     </section>
 
     <section class="view" id="v-flows" aria-label="Automatisations">
-      <div class="head"><div><h1>Automatisations</h1><div class="sub">n8n sur la machine d'Odin, relié au Cerveau : décris ce que tu veux automatiser, Odin le construit.</div></div></div>
+      <div class="head"><div><h1>Automatisations</h1><div class="sub">Draupnir, le moteur d'Odin : décris ce que tu veux automatiser, Odin le construit.</div></div></div>
       <div class="body"><p class="sub">Chargement…</p></div>
+    </section>
+
+    <section class="view" id="v-runes" aria-label="Runes">
+      <div class="head"><div><h1>Runes</h1><div class="sub">Tes bases : tables, tableaux, calendriers. Chaque fiche est une page du Cerveau.</div></div></div>
+      <div class="body"><p class="sub">Chargement…</p></div>
+    </section>
+
+    <section class="view" id="v-apps" aria-label="Applis">
+      <div class="head"><div><h1>Applis</h1><div class="sub">Toutes les applis d'Odin, reliées entre elles. Dis ce dont tu as besoin : Odin choisit la bonne et t'explique.</div></div></div>
+      <div class="body"><p class="sub">Chargement…</p></div>
+    </section>
+
+    <section class="view" id="v-app" aria-label="Appli">
+      <div class="head"><div><button class="btn small" type="button" id="vaBack">← Applis</button><h1 id="vaTitle" style="margin-top:10px">Appli</h1><div class="sub" id="vaSub"></div></div></div>
+      <div class="body"></div>
     </section>
 
     <section class="view" id="v-memory" aria-label="Mémoire">
@@ -1750,23 +1767,26 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   $('#moreBtn').addEventListener('click', () => toggleNav(!sideNav.classList.contains('open')));
   scrim.addEventListener('click', () => toggleNav(false));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sideNav.classList.contains('open')) toggleNav(false); });
-  const SECONDARY = ['flows', 'missions', 'memory', 'skills', 'jobs', 'audit'];
+  const SECONDARY = ['flows', 'runes', 'missions', 'memory', 'skills', 'jobs', 'audit'];
   function navMore(open) { const b = $('#navMoreBtn'), m = $('#navMore'); if (!b) return; m.hidden = !open; b.setAttribute('aria-expanded', String(open)); try { localStorage.setItem('odin.navmore', open ? '1' : '0'); } catch {} }
   function show(v) {
     toggleNav(false);
     if (SECONDARY.includes(v)) navMore(true);
-    const nv = v === 'device' ? 'net' : v;
+    const nv = v === 'device' ? 'net' : v === 'app' ? 'apps' : v;
     for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === nv) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
     $('#moreBtn').classList.toggle('cur', !['home', 'chat', 'brain', 'net'].includes(v));
     // Cerveau : chargé à l'ouverture ; en le quittant, ce qui est en cours d'écriture est enregistré.
     if (v === 'brain') window.OdinBrain?.open(); else window.OdinBrain?.leave?.();
     if (v === 'flows') window.OdinFlows?.open();
+    if (v === 'apps') window.OdinApps?.open();
+    if (v === 'runes') window.OdinRunes?.open();
     for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
     try { localStorage.setItem('odin.view', v); } catch {}
     const main = document.querySelector('#v-' + v + ' .body'); if (main) main.scrollTop = 0;
     // La barre de saisie n'a pas de hauteur tant que la discussion est cachée : Odin se replace au-dessus d'elle.
     if (v === 'chat') setTimeout(() => { try { grow(); placeTip(); } catch {} }, 0);
   }
+  window.OdinShow = show;
   // Pastilles de la barre du bas : copies de celles du menu.
   const mirror = () => { for (const m of document.querySelectorAll('[data-mirror]')) { const src = document.getElementById(m.dataset.mirror); if (src) { m.hidden = src.hidden; m.textContent = src.textContent; } } };
   new MutationObserver(mirror).observe(sideNav, { subtree: true, attributes: true, childList: true, characterData: true });
@@ -4287,6 +4307,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 })();
 </script>
 <script nonce="__NONCE__" src="/flows.js"></script>
+<script nonce="__NONCE__" src="/runes.js"></script>
+<script nonce="__NONCE__" src="/valhalla.js"></script>
 <script nonce="__NONCE__" src="/companion.js"></script>
 <script nonce="__NONCE__" src="/brain.js"></script>
 </body>

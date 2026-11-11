@@ -15,7 +15,7 @@ import { TTS_DEFAULTS } from './voice/voice.ts';
 import { buildProvider, Router, strengthsOf, tierOf, visionOf, type Tier } from './providers/router.ts';
 import { providerLabel, serviceOf } from './providers/journal.ts';
 
-export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'DEEPSEEK_API_KEY', 'MOONSHOT_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'NOTION_TOKEN', 'GITHUB_TOKEN'] as const;
+export const SECRET_NAMES = ['ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'DEEPSEEK_API_KEY', 'MOONSHOT_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'NOTION_TOKEN', 'GITHUB_TOKEN', 'MQTT_PASSWORD', 'BRISINGAMEN_KEY', 'SINDRI_PASSWORD', 'TASMOTA_PASSWORD'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -40,7 +40,7 @@ function parseEnv(text: string): Array<[string, string]> {
 /** Enregistre (ou efface si vide) une clé dans ~/.odin/env et dans l'environnement du processus. */
 export function writeSecret(paths: OdinPaths, name: string, value: string, env: NodeJS.ProcessEnv = process.env): void {
   // Identifiants des automatisations (Draupnir) : DRAUPNIR_NOM, choisis par le propriétaire.
-  if (!(SECRET_NAMES as readonly string[]).includes(name) && !/^DRAUPNIR_[A-Z0-9_]{2,40}$/.test(name)) throw new Error(`variable non autorisée : ${name}`);
+  if (!(SECRET_NAMES as readonly string[]).includes(name) && !/^(DRAUPNIR|PROXMOX_TOKEN|CAMERA|MCP)_[A-Z0-9_]{2,40}$/.test(name)) throw new Error(`variable non autorisée : ${name}`);
   const v = value.trim();
   if (v.length > 400 || /[\s"'`$\\]/.test(v)) throw new Error('valeur invalide (espaces, guillemets ou caractères spéciaux refusés)');
   const f = envFile(paths);

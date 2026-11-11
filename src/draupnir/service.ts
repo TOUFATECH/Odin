@@ -202,6 +202,19 @@ export class Draupnir {
       await this.fire(wf.id, n.name, [{ json: { événement: e.kind, chemin: e.path, titre: e.title ?? '', type: e.type ?? '' } }]);
     }
   }
+  /** Événement ou alerte d'une appli d'Odin → automatisations « Quand une appli signale ». */
+  async onModule(e: { module: string; name: string; type: string; level?: string; data: Record<string, unknown> }): Promise<void> {
+    const RANK: Record<string, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
+    const norm = (x: string) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    for (const wf of this.list().filter((w) => w.active)) for (const n of wf.nodes.filter((x) => x.type === 'déclencheur.module' && !x.disabled)) {
+      const p = n.params ?? {}, want = norm(String(p.module ?? ''));
+      if (!want || (want !== norm(e.module) && want !== norm(e.name))) continue;
+      const ev = norm(String(p.événement ?? ''));
+      if (ev && ev !== norm(e.type)) continue;
+      if (e.type === 'alerte' && (RANK[e.level ?? 'info'] ?? 0) < (RANK[String(p.niveau ?? 'haute')] ?? 2)) continue;
+      await this.fire(wf.id, n.name, [{ json: { appli: e.name, événement: e.type, ...(e.level ? { niveau: e.level } : {}), ...e.data } }]);
+    }
+  }
   /** Appel d'un webhook : chemin secret, 60 appels par minute au plus. */
   async webhook(path: string, body: unknown, query: Record<string, string>, method: string): Promise<{ status: number; body: unknown }> {
     for (const wf of this.list().filter((w) => w.active)) for (const n of wf.nodes.filter((x) => x.type === 'déclencheur.webhook' && !x.disabled)) {

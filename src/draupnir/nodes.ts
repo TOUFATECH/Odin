@@ -440,4 +440,31 @@ export const MORE_NODES: NodeDef[] = [
 ];
 
 NODES.push(...MORE_NODES);
+// ---------------------------------------------------------------- Applis d'Odin (Valhalla)
+NODES.push(
+  { type: 'déclencheur.module', label: 'Quand une appli signale', group: 'Déclencheurs', trigger: true, what: 'Un événement ou une alerte d\'une appli d\'Odin (mouvement caméra, pirate piégé, sauvegarde échouée, réservation…).', params: [
+    { key: 'module', label: 'Appli (Loki, Himinbjörg, Sindri…)', kind: 'text', required: true },
+    { key: 'événement', label: 'Événement (vide = tous ; « alerte » = ses alertes)', kind: 'text', default: '' },
+    { key: 'niveau', label: 'Pour les alertes : niveau minimum', kind: 'select', options: ['info', 'moyenne', 'haute', 'critique'], default: 'haute' },
+  ], run: pass },
+  { type: 'module.action', label: 'Action d\'une appli', group: 'Applis', what: 'Lance une action d\'une appli d\'Odin (photo d\'une caméra, scène Midgard, bannir une adresse, sauvegarde…). Les actions graves demandent ton accord et ne partent pas d\'une automatisation.', params: [
+    { key: 'module', label: 'Appli', kind: 'text', required: true },
+    { key: 'action', label: 'Action', kind: 'text', required: true },
+    { key: 'entrée', label: 'Réglages de l\'action (JSON)', kind: 'json', default: '{}' },
+  ], run: async (c, items) => {
+    if (!c.deps.module) throw new Error('applis d\'Odin indisponibles');
+    const out: Item[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const raw = c.p('entrée', items[i], i);
+      let input: Record<string, unknown> = {};
+      if (raw && typeof raw === 'object') input = raw as Record<string, unknown>;
+      else if (String(raw ?? '').trim()) { try { input = JSON.parse(String(raw)) as Record<string, unknown>; } catch { throw new Error('réglages de l\'action : JSON invalide'); } }
+      const r = await c.deps.module(c.s('module', items[i], i), c.s('action', items[i], i), input);
+      if (r.ok === false) throw new Error(r.text);
+      out.push({ json: { texte: r.text, données: (r.data ?? null) as unknown } as Record<string, unknown> });
+    }
+    return [out];
+  } },
+);
+
 export const CATALOG = new Map(NODES.map((n) => [n.type, n]));

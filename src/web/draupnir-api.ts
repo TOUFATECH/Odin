@@ -8,6 +8,9 @@ import type { Odin } from '../runtime.ts';
 import { secretHint, writeSecret } from '../settings.ts';
 import { draupnirOf } from '../tools/draupnir.ts';
 import { runesOf } from '../tools/runes.ts';
+import { linkTemplates } from '../valhalla/links.ts';
+
+const allTemplates = () => [...templates(), ...linkTemplates()] as Array<{ id: string; name: string; what: string; flow: Record<string, unknown> }>;
 import type { NoteMeta } from '../brain/vault.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -23,7 +26,7 @@ export async function draupnirGet(odin: Odin, path: string, q: URLSearchParams, 
   switch (path) {
     case '/api/draupnir/state': {
       const creds = Object.keys(process.env).filter((k) => /^DRAUPNIR_[A-Z0-9_]+$/.test(k)).map((k) => ({ name: k.slice(9), ...secretHint(k) }));
-      return { ok: true, base, flows: d.list().map((w) => { const r = d.runs(w.id, 5); return { id: w.id, name: w.name, active: w.active, nodes: w.nodes.map((n) => ({ name: n.name, type: n.type, label: CATALOG.get(n.type)?.label ?? n.type })), updatedAt: w.updatedAt, last: r[0] ? { status: r[0].status, at: r[0].startedAt, error: r[0].error } : null, failed: r.filter((x) => x.status === 'erreur').length }; }), catalog: catalogForUi(), templates: templates().map((t) => ({ id: t.id, name: t.name, what: t.what })), creds };
+      return { ok: true, base, flows: d.list().map((w) => { const r = d.runs(w.id, 5); return { id: w.id, name: w.name, active: w.active, nodes: w.nodes.map((n) => ({ name: n.name, type: n.type, label: CATALOG.get(n.type)?.label ?? n.type })), updatedAt: w.updatedAt, last: r[0] ? { status: r[0].status, at: r[0].startedAt, error: r[0].error } : null, failed: r.filter((x) => x.status === 'erreur').length }; }), catalog: catalogForUi(), templates: allTemplates().map((t) => ({ id: t.id, name: t.name, what: t.what })), creds };
     }
     case '/api/draupnir/flow': {
       const w = d.get(s(q.get('id'))); if (!w) return { ok: false, error: 'automatisation introuvable' };
@@ -42,7 +45,7 @@ export async function draupnirPost(odin: Odin, path: string, b: Record<string, u
       case '/api/draupnir/trash': d.trash(s(b.id)); return { ok: true };
       case '/api/draupnir/run': return { ok: true, run: await d.run(s(b.id), Array.isArray(b.items) ? b.items as never : undefined, 'test', s(b.start) || undefined, { stopAfter: s(b.stopAfter) || undefined, pinned: (b.pinned ?? undefined) as never }) };
       case '/api/draupnir/restore': return { ok: true, flow: d.restore(s(b.id), Number(b.at)) };
-      case '/api/draupnir/template': { const t = templates().find((x) => x.id === s(b.id)); if (!t) return { ok: false, error: 'modèle inconnu' }; return { ok: true, flow: d.save({ ...t.flow, active: false }) }; }
+      case '/api/draupnir/template': { const t = allTemplates().find((x) => x.id === s(b.id)); if (!t) return { ok: false, error: 'modèle inconnu' }; return { ok: true, flow: d.save({ ...t.flow, active: false } as never) }; }
       case '/api/draupnir/import': { const src = typeof b.json === 'string' ? JSON.parse(b.json) : b.json; const r = importN8n(src as never); return { ok: true, flow: d.save({ ...r.flow, active: false }), todo: r.todo }; }
       case '/api/draupnir/create': {
         const llm = (sys: string, user: string) => odin.agent.deps.router.complete({ system: sys, messages: [{ role: 'user', content: user }], tools: [], maxTokens: 6000 }, { minTier: 'standard', purpose: 'automatisation', need: 'code' }).then((r) => r.text);
@@ -106,13 +109,13 @@ export async function runesPost(odin: Odin, path: string, b: Record<string, unkn
 
 // ---------------------------------------------------------------- Adresses publiques
 
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-async function body(req: IncomingMessage, max = 256 * 1024): Promise<string> {
+export const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+export async function body(req: IncomingMessage, max = 256 * 1024): Promise<string> {
   const parts: Buffer[] = []; let n = 0;
   for await (const c of req) { n += (c as Buffer).length; if (n > max) throw new Error('trop gros'); parts.push(c as Buffer); }
   return Buffer.concat(parts).toString('utf8');
 }
-function page(res: ServerResponse, code: number, title: string, inner: string): void {
+export function page(res: ServerResponse, code: number, title: string, inner: string): void {
   res.writeHead(code, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'", 'referrer-policy': 'no-referrer' });
   res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>
 :root{color-scheme:light dark;--bg:#F4F5F7;--card:#fff;--ink:#14171C;--muted:#555B66;--line:#D3D7DE;--accent:#2F5BD3;--bad:#B42318}

@@ -46,6 +46,10 @@ import { signalLinkState } from '../bifrost/channels/signal.ts';
 import { attachmentHint } from '../files/attach.ts';
 import { brainGet, brainPost } from './brain-api.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
+import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
+import { serverHandle } from '../valhalla/mcp.ts';
+import { valhallaOf } from '../valhalla/odin.ts';
+import { advise } from '../tools/valhalla.ts';
 
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
@@ -109,6 +113,8 @@ const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
 // Application installable (PWA) : icônes, manifeste, service worker (aucun secret dedans).
 /** Espace Cerveau de l'interface (fichier à part, chargé avec le même nonce). */
 const FLOWS_JS = (() => { try { return readFileSync(new URL('./flows.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const RUNES_JS = (() => { try { return readFileSync(new URL('./runes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
@@ -398,6 +404,10 @@ export class WebChannel implements Channel {
     }
     // Draupnir : webhooks (/h/…) et formulaires (/f/…) publics, chemin secret, débit limité.
     if (await publicRoute(req, res, url)) return;
+    // Frigg : page publique de réservation (/r/…), lien secret, sans script.
+    if (await friggPublic(req, res, url)) return;
+    if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
+    if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/brain.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(BRAIN_JS); }
@@ -412,7 +422,7 @@ export class WebChannel implements Channel {
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=86400' });
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
     }
-    if (!url.pathname.startsWith('/api/')) return json(res, 404, { error: 'introuvable' });
+    if (!url.pathname.startsWith('/api/') && url.pathname !== '/mcp') return json(res, 404, { error: 'introuvable' });
     // Demander l'accès sans jeton : le propriétaire valide d'un geste (Telegram ou écran déjà connecté).
     if (req.method === 'POST' && url.pathname === '/api/pair') {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
@@ -467,6 +477,10 @@ export class WebChannel implements Channel {
       const r = await draupnirGet(this.odin, url.pathname, url.searchParams, `${this.odin.cfg.web.tls?.enabled === false ? 'http' : 'https'}://${req.headers.host ?? 'localhost'}`);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
+    if (req.method === 'GET' && url.pathname.startsWith('/api/valhalla/')) {
+      const r = await valhallaGet(url.pathname, url.searchParams);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
     if (req.method === 'GET' && url.pathname === '/api/runes/export') {
       try { const csv = runesCsv(this.odin, url.searchParams.get('base') ?? ''); res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${(url.searchParams.get('base') ?? 'base').replace(/[^\w-]/g, '_')}.csv"`, 'cache-control': 'no-store' }); return void res.end(`\ufeff${csv}`); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
@@ -491,6 +505,17 @@ export class WebChannel implements Channel {
 
     // Raccourci Siri / Android / Home Assistant : jeton dans « Authorization: Bearer … » (jamais par
     // cookie : une page piégée ne peut donc pas s'en servir), réponse en texte simple quand Odin a fini.
+    // Serveur MCP d'Odin (Ratatoskr) : applis exposées aux autres assistants, jeton Bearer obligatoire.
+    if (url.pathname === '/mcp') {
+      if (!/^Bearer\s+/i.test(req.headers.authorization ?? '')) return json(res, 401, { error: 'jeton Bearer requis' });
+      if (req.method !== 'POST') { res.writeHead(405, { allow: 'POST' }); return void res.end(); }
+      const v = valhallaOf(); if (!v) return json(res, 503, { error: 'applis non démarrées' });
+      let msg: unknown; try { msg = JSON.parse(Buffer.from(await readRaw(req, 256 * 1024)).toString("utf8")); } catch { return json(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'JSON invalide' } }); }
+      const one = async (m: unknown) => serverHandle(v, m as never, (need) => advise(v, need));
+      const out = Array.isArray(msg) ? (await Promise.all(msg.map(one))).filter(Boolean) : await one(msg);
+      if (!out || (Array.isArray(out) && !out.length)) { res.writeHead(202); return void res.end(); }
+      return json(res, 200, out);
+    }
     if (req.method === 'POST' && url.pathname === '/api/ask') {
       if (!/^Bearer\s+/i.test(req.headers.authorization ?? '')) return json(res, 401, { error: 'jeton Bearer requis' });
       const parts: Buffer[] = []; let n = 0;
@@ -587,6 +612,10 @@ export class WebChannel implements Channel {
     const body = await readJson(req);
     if (url.pathname.startsWith('/api/draupnir/')) {
       const r = await draupnirPost(this.odin, url.pathname, body);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
+    if (url.pathname.startsWith('/api/valhalla/')) {
+      const r = await valhallaPost(url.pathname, body as Record<string, unknown>);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/runes/')) {
@@ -1089,7 +1118,7 @@ export class WebChannel implements Channel {
           if (b.kind === 'vault_enable') vaultEnable(home, pw);
           else if (b.kind === 'vault_unlock') vaultUnlock(home, pw);
           else if (b.kind === 'vault_disable') vaultDisable(home, pw);
-          else { vaultLock(home); for (const k of SECRET_NAMES) delete process.env[k]; }
+          else { vaultLock(home); for (const k of SECRET_NAMES) delete process.env[k]; for (const k of Object.keys(process.env)) if (/^(DRAUPNIR|PROXMOX_TOKEN|CAMERA|MCP)_/.test(k)) delete process.env[k]; }
         } catch (e) { if (/incorrect/.test((e as Error).message)) { this.vaultFails++; if (this.vaultFails >= 5) { this.vaultWait = Date.now() + 60_000; this.vaultFails = 0; } } return { ok: false, error: (e as Error).message }; }
         this.vaultFails = 0;
         if (b.kind === 'vault_unlock') { loadEnvFile(this.odin.paths); if (this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch(() => {}), 300); }

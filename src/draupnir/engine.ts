@@ -46,11 +46,13 @@ export interface Deps {
   fetch?: typeof fetch;
   sleep?(ms: number): Promise<void>;
   now?(): Date;
+  /** Applis d'Odin (Valhalla) : action d'un module. Les actions graves sont refusées en automatique. */
+  module?(module: string, action: string, input: Record<string, unknown>): Promise<{ ok?: boolean; text: string; data?: unknown }>;
 }
 
 export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'json' | 'cron'; options?: string[]; default?: unknown; help?: string; required?: boolean }
 export interface NodeDef {
-  type: string; label: string; group: 'Déclencheurs' | 'Saga' | 'Runes' | 'Odin' | 'Logique' | 'Données' | 'Web';
+  type: string; label: string; group: 'Déclencheurs' | 'Saga' | 'Runes' | 'Odin' | 'Applis' | 'Logique' | 'Données' | 'Web';
   what: string; trigger?: boolean; params: Param[];
   /** Noms des sorties (une par défaut). Peut dépendre des réglages (aiguillage). */
   outputs?: string[] | ((params: Record<string, unknown>) => string[]);

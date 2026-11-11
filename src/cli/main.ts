@@ -32,6 +32,7 @@ import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMa
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { routingReport } from '../providers/journal.ts';
 import { startDraupnir } from '../draupnir/odin.ts';
+import { startValhalla } from '../valhalla/odin.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { tunnel } from '../web/tunnel.ts';
@@ -250,7 +251,9 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   }
   // Draupnir (automatisations d'Odin) : démarré avec Odin, arrêté avec lui.
   const stopDraupnir = startDraupnir(odin, (t) => gw!.notifyOwner(t));
-  const shutdown = async () => { stopDraupnir(); await gw!.stop(); odin.close(); };
+  // Valhalla (toutes les applis d'Odin) : alertes sur ta messagerie, liens entre applis, veille.
+  const stopValhalla = startValhalla(odin, (t) => gw!.notifyOwner(t));
+  const shutdown = async () => { stopValhalla(); stopDraupnir(); await gw!.stop(); odin.close(); };
   // Rechargement demandé par l'onglet Réglages : on arrête tout puis on relance avec la nouvelle config.
   let reloading = false;
   const reload = async () => {

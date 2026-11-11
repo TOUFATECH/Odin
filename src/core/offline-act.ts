@@ -7,6 +7,8 @@
 // mêmes validations. Ce qui n'est pas compris clairement n'est PAS tenté (le cerveau de secours
 // répond alors avec la mémoire et garde la question pour plus tard).
 
+import { valhallaOf } from '../valhalla/odin.ts';
+
 export type RunTool = (name: string, input: Record<string, unknown>) => Promise<{ ok: boolean; content: string }>;
 
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
@@ -58,6 +60,7 @@ const HELP = `Sans IA, je sais quand même :
 - tes fiches : « note que … », « cherche dans mes notes … » ;
 - Venus : « mets TF1 sur la télé », « qu'est-ce qui passe ce soir » ;
 - le réseau : « scanne le réseau », « qui est à la maison », « le NAS est-il en ligne » ;
+- mes applis : « j'ai besoin de sauvegarder mes photos », « les alertes », « état de la machine », « qui fait quoi » ;
 - l'heure, la date, et ce que je sais déjà (mémoire, fiches, conversations).`;
 
 /**
@@ -120,6 +123,20 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
 
   // Réseau local
   if (/\b(scanne|balaye|scan)\b.*\breseau\b/.test(s) && has('net_scan')) { const r = await run('net_scan', {}); return r.content.slice(0, 1500); }
+
+  // Les applis d'Odin : « quelle appli pour… », « j'ai besoin de… », ou une demande qui vise
+  // clairement une appli (« les alertes », « mes sauvegardes », « les caméras »).
+  const vh = valhallaOf();
+  if (vh && has('valhalla')) {
+    if (/\bqui fait quoi\b|\bliens? entre (les )?applis\b/.test(s)) return (await run('valhalla', { action: 'liens' })).content;
+    if (/^(mes |les )?applis?$|\bliste (des|les) applis\b/.test(s)) return (await run('valhalla', { action: 'lister' })).content;
+    // Seulement si une appli correspond clairement (sinon rien n'est tenté).
+    if ((vh.find(text)[0]?.score ?? 0) >= 4) {
+      const need = /\b(j'ai besoin|besoin d'|quelle appli|quel outil|comment je fais pour)\b/.test(s);
+      const r = await run('valhalla', { action: need ? 'conseiller' : 'auto', besoin: text });
+      if (r.ok && r.content.trim()) return r.content;
+    }
+  }
 
   return undefined;
 }
