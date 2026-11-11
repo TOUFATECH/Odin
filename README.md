@@ -299,6 +299,12 @@ Marque tes appareils importants avec ★ dans Réseau : Odin te prévient (Teleg
 
 Onglet Réseau → Sécurité : Telnet ou Docker ouverts sans protection, bureau à distance, VNC, FTP, MQTT, Redis exposés, interfaces d'administration non chiffrées, appareils inconnus récents — chacun avec un conseil, et un bouton pour demander à Odin de corriger (avec ta validation). Odin observe, il n'attaque rien. Outil `net_security`.
 
+### Antivirus (Ullr)
+
+Odin a son propre antivirus, fait maison : fichiers, archives, téléchargements, clés USB, sites web, liens et messages. Il se met à jour tout seul depuis des sources publiques (paquets signés, testés avant d'être activés, annulables), met en quarantaine ce qui est sûr (réversible : « garde » ou « annule ») et te laisse décider pour le reste. Il relie les signaux de toutes les applis (pièges, processus, connexions, pare-feu, fichiers système, caméras) pour reconnaître une attaque, et note chaque incident dans le Cerveau. Aucun antivirus ne détecte tout, celui-ci non plus. Procédure d'utilisation et mode de fonctionnement : [`docs/antivirus-ullr.md`](docs/antivirus-ullr.md).
+
+Dis par exemple : « analyse mes téléchargements », « vérifie le lien https://… », « y a-t-il un virus sur ma machine ? », « les incidents ». Tout cela marche sans IA connectée.
+
 ### Carte du réseau
 
 Onglet Réseau → Carte : la box au centre, les appareils autour, par catégorie ; touche un appareil pour voir sa fiche.

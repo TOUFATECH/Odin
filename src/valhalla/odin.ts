@@ -32,7 +32,7 @@ import { venus } from './modules/venus.ts';
 import { naglfar } from './modules/naglfar.ts';
 import { sindri } from './modules/sindri.ts';
 import { skogul } from './modules/skogul.ts';
-import { ullr } from './modules/ullr.ts';
+import { ullr, ullrKeys } from './modules/ullr.ts';
 import { ymir } from './modules/ymir.ts';
 import { Valhalla } from './service.ts';
 import type { Module, NotifyOpts } from './types.ts';
@@ -112,7 +112,9 @@ function ensureSecrets(odin: Odin): void {
     try { writeSecret(odin.paths, k, k === 'BRISINGAMEN_KEY' ? randomBytes(32).toString('hex') : randomBytes(24).toString('base64url')); } catch (e) { console.error(`[valhalla] ${k} : ${(e as Error).message}`); }
   }
   for (const [k, v] of Object.entries(process.env)) if (/^(CAMERA|MCP)_/.test(k) && v) odin.redactor.add(v);
-  for (const k of ['MQTT_PASSWORD', 'BRISINGAMEN_KEY']) if (process.env[k]) odin.redactor.add(process.env[k]!);
+  for (const k of ['MQTT_PASSWORD', 'BRISINGAMEN_KEY', 'ABUSE_CH_KEY', 'VT_API_KEY']) if (process.env[k]) odin.redactor.add(process.env[k]!);
+  // Les clés des sources de l'antivirus se rangent avec les autres secrets (jamais dans les réglages de l'appli, jamais affichées).
+  ullrKeys((name, value) => { writeSecret(odin.paths, name, value); if (value.trim()) odin.redactor.add(value.trim()); });
 }
 
 export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts) => Promise<void>, opts: { modules?: Module[] } = {}): () => void {

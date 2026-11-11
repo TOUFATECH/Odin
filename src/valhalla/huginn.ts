@@ -123,8 +123,11 @@ export function fill(a: Action, text: string, names: Names, now = new Date()): R
     const named = pickName(text, known);
     if (p.kind === 'boolean') { if (new RegExp(`\\b(sans|pas de|desactive|non)\\b.{0,20}\\b${stem(lab.split(' ')[0])}`).test(s)) input[p.key] = false; else if (new RegExp(`\\b(avec|active|oui)\\b.{0,20}\\b${stem(lab.split(' ')[0])}`).test(s)) input[p.key] = true; continue; }
     if (p.kind === 'select') { const o = pickName(text, p.options ?? []) ?? (p.options ?? []).find((x) => s.includes(stem(x)) && stem(x).length >= 4) ?? (p.options ?? []).find((x) => s.split(/[^a-z0-9]+/).some((w) => w.length >= 3 && !STOP.has(w) && norm(x).includes(w))); if (o) input[p.key] = o; continue; }
+    // Un chemin écrit dans la phrase désigne plus sûrement qu'un nom connu.
+    if (/^(chemin|fichier|dossier)$/.test(k)) { const path = /(?:^|\s)((?:~|\.{0,2})?\/[^\s"'«»]+|[A-Za-z]:\\[^\s"'«»]+)/.exec(text)?.[1]; if (path) { input[p.key] = path.replace(/[.,;:!?]+$/, ''); continue; }
+      // À défaut, un nom de fichier seul (« rapport.pdf ») : l'appli le cherchera là où les fichiers arrivent.
+      const bare = k === 'dossier' ? undefined : /(?:^|\s)([\w(][\w.()-]*\.[A-Za-z][A-Za-z0-9]{1,4})(?=[\s,;:!?]|$)/.exec(text)?.[1]; if (bare && !/^https?:/i.test(bare)) { input[p.key] = bare; continue; } }
     if (named) { input[p.key] = named; continue; }
-    if (/^(chemin|fichier|dossier)$/.test(k)) { const path = /(?:^|\s)((?:~|\.{0,2})?\/[^\s"'«»]+|[A-Za-z]:\\[^\s"'«»]+)/.exec(text)?.[1]; if (path) { input[p.key] = path; continue; } }
     if (/^(ip|adresse_ip)$/.test(k) || (/adresse/.test(lab) && /\bip\b/.test(lab))) { if (ip) input[p.key] = ip; else if (mac && /mac/.test(lab)) input[p.key] = mac; continue; }
     if (/^(lien|url|adresse|source|site|flux)$/.test(k)) { if (url) input[p.key] = url; else if (/^(lien)$/.test(k) && repo && /github|depot|lien/.test(lab + s)) input[p.key] = repo; else if (ip && /adresse/.test(k)) input[p.key] = ip; if (input[p.key] !== undefined) continue; }
     if (/^(minutes|duree)$/.test(k)) { const mn = minutesIn(text); if (mn !== undefined) input[p.key] = mn; continue; }
@@ -238,7 +241,8 @@ export async function understand(v: Valhalla, text: string, session = 'principal
   const own = new Map<string, number>(); for (const mm of mods) for (const aa of mm.actions) for (const k of new Set((aa.words ?? []).filter((w) => !w.includes(' ')).map(stem))) own.set(k, (own.get(k) ?? 0) + 1);
   const actionScore = (m: Module, a: Action, names: Names): number => {
     let as = 0;
-    for (const w of a.words ?? []) if (has(w)) as += w.includes(' ') ? 4 : 3;
+    // Un mot écrit avec et sans accent (« activite », « activité ») ne compte qu'une fois.
+    for (const w of new Set((a.words ?? []).map(norm))) if (has(w)) as += w.includes(' ') ? 4 : 3;
     for (const part of a.id.split('_')) if (part.length > 2 && stems.has(stem(part))) as += 2;
     for (const w of tokens(a.label)) if (w.length > 3 && stems.has(stem(w))) as += 1.5;
     for (const [re, syn] of SYN) if (re.test(a.id) && syn.some(has)) { as += 2; break; }
@@ -256,7 +260,7 @@ export async function understand(v: Valhalla, text: string, session = 'principal
       as += n * 2 - lacking * (as > 0 ? 1.5 : 0);
       if (n > 0 && as > n * 2) strong.add(`${m.id}.${a.id}`);
       if (listing && !a.read && n === 0) as -= 4;
-    } else if (listing && a.read) as += 1;
+    } else if (listing) as += a.read ? 1 : -4;   // « les analyses », « mes sauvegardes » : on demande à voir, pas à lancer
     return as;
   };
   const verbish = (m: Module, w: string) => m.actions.some((a) => (a.words ?? []).some((x) => norm(x) === norm(w))) || SYN.some(([, syn]) => syn.includes(norm(w)));
@@ -300,7 +304,8 @@ export async function understand(v: Valhalla, text: string, session = 'principal
   if (!a) return { kind: 'say', text: describe(v, m) };
   const input = fill(a, body, names, now);
   // Le reste de la phrase sert au réglage libre encore vide (« cherche dans mes notes facture orange »).
-  const free = (a.params ?? []).filter((p) => (p.kind === 'text' || p.kind === 'textarea') && input[p.key] === undefined && !TYPED.test(norm(p.key)));
+  // (Une liste d'exclusions, ou un dossier facultatif, ne se devinent pas dans le reste d'une phrase.)
+  const free = (a.params ?? []).filter((p) => (p.kind === 'text' || p.kind === 'textarea') && input[p.key] === undefined && !TYPED.test(norm(p.key)) && !/^exclusions$/.test(p.key) && !(/^(dossier|chemin|fichier)$/.test(p.key) && !p.required));
   const target = free.find((p) => p.required) ?? (free.length === 1 && !a.read ? free[0] : free.find((p) => /^(q|quoi|texte|message)$/.test(p.key)));
   // Un identifiant ne se devine pas dans une phrase : s'il manque, Odin le demande (en montrant ceux qu'il connaît).
   if (target && (a.params ?? []).filter((p) => p.required && input[p.key] === undefined).length <= 1) {

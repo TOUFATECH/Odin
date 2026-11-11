@@ -92,25 +92,77 @@ export function untar(b: Buffer, max = 2000): Entry[] {
  * texte d'une attaque, c'est le plus souvent une documentation, un test, un journal ou une règle de détection.
  * Une règle qui y correspond devient un simple indice (jamais de quarantaine automatique).
  */
-const PASSIVE_EXT = /\.(md|markdown|rst|txt|text|log|json|jsonl|ya?ml|toml|ini|cfg|conf|csv|tsv|xml|svg|css|scss|sass|less|ts|tsx|jsx|vue|svelte|go|rs|c|cc|cpp|h|hpp|java|kt|swift|cs|sql|lock|map|yar|yara|rules|sig|ndb|hsb|ldb|po|pot)$/i;
-export const isPassive = (name: string, type: string) => type === 'texte' && PASSIVE_EXT.test(name);
+const DOC_TEXT = /\.(md|markdown|rst|txt|text|log|json|jsonl|ya?ml|toml|ini|cfg|conf|csv|tsv)$/i;
+const CODE_TEXT = /\.(ts|tsx|jsx|vue|svelte|go|rs|c|cc|cpp|h|hpp|java|kt|swift|cs|sql|lock|map|yar|yara|rules|sig|ndb|hsb|ldb|po|pot|css|scss|sass|less|xml|svg)$/i;
+export const isPassive = (name: string, type: string) => type === 'texte' && (DOC_TEXT.test(name) || CODE_TEXT.test(name));
+/** Code source et fichiers de règles : même une demande de rançon ou une configuration de mineur n'y est qu'un exemple. */
+const isCode = (name: string, type: string) => type === 'texte' && CODE_TEXT.test(name);
 
 // ---------------------------------------------------------------- Règles : Galdr (maison) et YARA (sous-ensemble)
-export interface Rule { name: string; level: Level; strings: string[]; need: 'un' | 'tous' | number; files?: string; note?: string; klass?: Klass; source?: string; attack?: string; /** garde tout son poids même dans un fichier de texte (fichier de test, demande de rançon, configuration de mineur) */ anywhere?: boolean }
+export interface Rule { name: string; level: Level; strings: string[]; need: 'un' | 'tous' | number; files?: string; note?: string; klass?: Klass; source?: string; attack?: string; /** garde tout son poids même dans un document de texte (demande de rançon, configuration de mineur) */ anywhere?: boolean; /** ne vaut que pour un fichier d'au plus cette taille (octets) */ maxSize?: number }
 /** `atoms` : un morceau fixe par écriture possible de la chaîne (ASCII, UTF-16) ; absent si la chaîne n'en a pas d'indexable. */
-interface CStr { id: string; test(h: Hay): boolean; atoms?: string[]; nocase?: boolean }
-export interface CRule { name: string; level: Level; klass: Klass; source: string; attack?: string; sure: boolean; anywhere?: boolean; /** la condition peut être vraie sans qu'aucune chaîne soit là (« not $a ») : toujours essayée */ loose?: boolean; strs: CStr[]; cond(h: Hay, has: (id: string) => boolean): boolean; files?: RegExp }
+interface CStr { id: string; test(h: Hay): boolean; atoms?: string[]; nocase?: boolean; /** chaîne fixe : vraie si l'une de ces écritures est dans le fichier (vérifiée à sa position pendant le balayage, sans relire le fichier) */ lits?: Lit[] }
+/** Une écriture d'une chaîne fixe. `fold` : sans casse (le texte est déjà en minuscules) · `full` : mot entier · `wide` : UTF-16. */
+interface Lit { text: string; fold?: boolean; full?: boolean; wide?: boolean }
+const foldAscii = (x: string) => x.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) | 32));
+/** Poids d'un octet : plus il est courant dans les fichiers, plus il pèse. Le morceau d'index choisi est le plus rare. */
+const WEIGHT = (() => { const w = new Uint8Array(256).fill(1); w[0] = 12; w[32] = 10; w[255] = 8; w[10] = 8; w[13] = 8; for (let c = 97; c <= 122; c++) w[c] = 4; for (const c of 'etaoinsrhl') w[c.charCodeAt(0)] = 6; for (let c = 65; c <= 90; c++) w[c] = 3; for (let c = 48; c <= 57; c++) w[c] = 3; for (const c of '_-./') w[c.charCodeAt(0)] = 2; return w; })();
+/** Le meilleur morceau de 4 caractères d'une chaîne fixe (le plus rare), et sa position dans la chaîne. */
+function bestWindow(x: string): { atom: string; off: number } | undefined {
+  if (x.length < 4) return undefined;
+  let best = -1, bestScore = Infinity;
+  for (let i = 0; i + 4 <= x.length; i++) {
+    const a = x.charCodeAt(i), b = x.charCodeAt(i + 1), c = x.charCodeAt(i + 2), d = x.charCodeAt(i + 3); if ((a | b | c | d) > 255) continue;
+    const distinct = new Set([a, b, c, d]).size, score = WEIGHT[a] + WEIGHT[b] + WEIGHT[c] + WEIGHT[d] + (distinct === 1 ? 20 : distinct === 2 ? 6 : 0);
+    if (score < bestScore) { bestScore = score; best = i; }
+  }
+  return best < 0 ? undefined : { atom: x.slice(best, best + 4), off: best };
+}
+export interface CRule { name: string; level: Level; klass: Klass; source: string; attack?: string; sure: boolean; anywhere?: boolean; /** la condition peut être vraie sans qu'aucune chaîne soit là (« not $a ») : toujours essayée */ loose?: boolean; /** Galdr : assez de chaînes ont un morceau fixe pour que l'index suffise */ indexable?: boolean; strs: CStr[]; cond(h: Hay, has: (id: string) => boolean): boolean; files?: RegExp }
 /** Le contenu à analyser, préparé une fois : octets vus comme du texte (1 octet = 1 caractère), et en minuscules. */
-export interface Hay { text: string; low: string; size: number; name: string; head: Buffer }
-export const hay = (b: Buffer, name = ''): Hay => { const text = lat(b); return { text, low: text.toLowerCase(), size: b.length, name, head: b.subarray(0, 8) }; };
+export interface Hay { bytes: Buffer; text: string; /** texte en minuscules (calculé à la demande) */ low: string; /** début du texte (2 Mo) : les expressions régulières ne courent pas sur des dizaines de Mo */ short: string; size: number; name: string; head: Buffer }
+const RE_MAX = 2 * 1024 * 1024;
+export const hay = (b: Buffer, name = ''): Hay => {
+  const text = lat(b); let low: string | undefined, short: string | undefined;
+  return { bytes: b, text, get low() { return (low ??= text.toLowerCase()); }, get short() { return (short ??= text.length > RE_MAX ? text.slice(0, RE_MAX) : text); }, size: b.length, name, head: b.subarray(0, 8) };
+};
 
 const KLASS: Array<[RegExp, Klass]> = [[/ransom|rançon|crypt(o)?lock|wannacry|lockbit/i, 'rançongiciel'], [/webshell|web_shell|c99|r57|b374k|china_?chopper/i, 'webshell'], [/miner|xmrig|coinhive|stratum/i, 'mineur'], [/phish|hameçon/i, 'hameçonnage'], [/keylog|spy|stalker|rat_|_rat\b|espion|stealer|infostealer/i, 'logiciel espion'], [/mimikatz|credential|password_?dump|lsass|hashdump/i, 'vol d\'identifiants'], [/backdoor|reverse_?shell|bind_?shell|porte/i, 'porte dérobée'], [/trojan|dropper|downloader|loader|cheval/i, 'cheval de Troie'], [/exploit|cve[-_]\d{4}|shellcode|metasploit|meterpreter|cobalt/i, 'exploit'], [/hacktool|hktl|scanner|bruteforce|pwdump|nmap/i, 'outil de piratage'], [/adware|pua|pup_|toolbar/i, 'publicitaire'], [/macro|maldoc|ole_|office/i, 'document piégé'], [/powershell|vbs|jscript|script|obfus/i, 'script malveillant'], [/eicar|test/i, 'test']];
 export const klassOf = (name: string, d = ''): Klass => KLASS.find(([re]) => re.test(name) || re.test(d))?.[1] ?? 'malware';
 const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 /** Morceau de 4 caractères d'une chaîne fixe : sert à écarter très vite les règles qui ne peuvent pas correspondre. */
-const atomOf = (lit: string) => (lit.length >= 4 ? [lit.slice(0, 4)] : undefined);
+const atomOf = (lit: string) => { const w = bestWindow(lit); return w ? [w.atom] : undefined; };
 const atomsOf = (forms: string[]) => { const a = forms.map(atomOf); return a.every(Boolean) ? a.flatMap((x) => x!) : undefined; };
-
+/**
+ * Une suite de caractères fixes qu'une expression régulière exige forcément (au premier niveau, hors groupes et
+ * hors alternatives) : « eval » dans /eval\s*\(/. Sert à ne pas essayer l'expression quand ce morceau est absent.
+ */
+export function reAtom(src: string): string | undefined {
+  let depth = 0, run = ''; const runs: string[] = [], flush = () => { if (run.length >= 4) runs.push(run); run = ''; };
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === '\\') {
+      const n = src[i + 1] ?? ''; let lit: string | undefined; let len = 2;
+      if (/[.\/()[\]{}+*?|^$\\\-"':,;=!<>&#%@~` ]/.test(n)) lit = n;
+      else if (n === 'x' && /^[0-9a-fA-F]{2}$/.test(src.slice(i + 2, i + 4))) { lit = String.fromCharCode(parseInt(src.slice(i + 2, i + 4), 16)); len = 4; }
+      if (depth === 0 && lit !== undefined) { if (/[?*{]/.test(src[i + len] ?? '')) flush(); else run += lit; } else if (depth === 0) flush();
+      i += len - 1; continue;
+    }
+    if (c === '[') { if (depth === 0) flush(); let j = i + 1; if (src[j] === '^') j++; if (src[j] === ']') j++; while (j < src.length && src[j] !== ']') { if (src[j] === '\\') j++; j++; } i = j; continue; }
+    if (c === '(') { if (depth === 0) flush(); depth++; continue; }
+    if (c === ')') { depth = Math.max(0, depth - 1); continue; }
+    if (depth > 0) continue;
+    if (c === '|') return undefined;                    // alternative au premier niveau : aucun morceau n'est obligatoire
+    if (/[.^$*+?{}]/.test(c)) { if (c === '{') { const e = src.indexOf('}', i); if (e > 0) i = e; } flush(); continue; }
+    if (/[?*{]/.test(src[i + 1] ?? '')) { flush(); continue; }   // caractère facultatif
+    run += c;
+  }
+  flush();
+  // Le morceau le plus rare parmi toutes les suites obligatoires.
+  let best: string | undefined, bestScore = Infinity;
+  for (const r of runs) { if (/[^\x00-\x7f]/.test(r)) continue; const w = bestWindow(r); if (!w) continue; const s = [...w.atom].reduce((n, ch) => n + WEIGHT[ch.charCodeAt(0)], 0); if (s < bestScore) { bestScore = s; best = w.atom; } }
+  return best;
+}
 /** Le contenu est lu octet par octet : une lettre accentuée d'une règle doit reconnaître ses deux écritures (UTF-8 et Latin-1). */
 const asBytes = (x: string) => Buffer.from(x, 'utf8').toString('latin1');
 const accents = (src: string) => src.replace(/[\u0080-\uffff]/g, (c) => `(?:${esc(asBytes(c))}${c.charCodeAt(0) <= 0xff ? `|\\x${c.charCodeAt(0).toString(16)}` : ''})`);
@@ -118,26 +170,48 @@ const accents = (src: string) => src.replace(/[\u0080-\uffff]/g, (c) => `(?:${es
 export function compileGaldr(r: Rule): CRule {
   const strs: CStr[] = r.strings.map((x, i) => {
     const m = /^\/(.*)\/([gimsuy]*)$/s.exec(x);
-    if (m) { const re = new RegExp(accents(m[1]), m[2].replace(/[gu]/g, '')); return { id: `s${i}`, test: (h) => re.test(h.text) }; }
+    if (m) { const flags = m[2].replace(/[gu]/g, ''), re = new RegExp(accents(m[1]), flags), a = reAtom(m[1]); return { id: `s${i}`, test: (h) => re.test(h.short), atoms: a ? [a] : undefined, nocase: flags.includes('i') }; }
     const alt = asBytes(x);
-    return alt === x ? { id: `s${i}`, test: (h) => h.text.includes(x), atoms: atomOf(x) } : { id: `s${i}`, test: (h) => h.text.includes(alt) || h.text.includes(x) };
+    // Chaîne fixe : ses écritures en octets (UTF-8, et Latin-1 quand elle s'y écrit).
+    const forms = alt === x ? [x] : [alt, ...(/[^\x00-\xff]/.test(x) ? [] : [x])];
+    return { id: `s${i}`, test: (h) => forms.some((f) => h.text.includes(f)), atoms: atomsOf(forms), lits: forms.map((f) => ({ text: f })) };
   });
-  const need = r.need;
-  return { name: r.name, level: r.level, klass: r.klass ?? klassOf(r.name), source: r.source ?? 'Galdr', attack: r.attack, sure: r.level !== 'moyenne', anywhere: r.anywhere, strs, files: r.files ? new RegExp(r.files, 'i') : undefined,
-    cond: (_h, has) => { const n = strs.filter((s) => has(s.id)).length; return need === 'un' ? n >= 1 : need === 'tous' ? n === strs.length : n >= need; } };
+  const need = r.need, needN = need === 'un' ? 1 : need === 'tous' ? strs.length : need, blind = strs.filter((x) => !x.atoms?.length).length;
+  return { name: r.name, level: r.level, klass: r.klass ?? klassOf(r.name), source: r.source ?? 'Galdr', attack: r.attack, sure: r.level !== 'moyenne', anywhere: r.anywhere, indexable: blind < needN, strs, files: r.files ? new RegExp(r.files, 'i') : undefined,
+    cond: (h, has) => { if (r.maxSize && h.size > r.maxSize) return false; const n = strs.filter((s) => has(s.id)).length; return need === 'un' ? n >= 1 : need === 'tous' ? n === strs.length : n >= need; } };
 }
 
 /** Chaîne hexadécimale YARA ({ 4D 5A ?? [2-4] (AA|BB) }) → expression régulière sur les octets. */
 function hexToRe(hex: string): { re: RegExp; atom?: string } | undefined {
-  const body = hex.replace(/\/\/[^\n]*/g, ' ').replace(/[{}]/g, ' ').trim(); let out = '', atom = '', inAtom = true;
+  const body = hex.replace(/\/\/[^\n]*/g, ' ').replace(/[{}]/g, ' ').trim(); let out = '', run = '', depth = 0; const runs: string[] = [], flush = () => { if (run.length >= 4) runs.push(run); run = ''; };
   for (const tok of body.match(/\[\s*\d*\s*-?\s*\d*\s*\]|\(|\)|\||[0-9A-Fa-f?]{2}/g) ?? []) {
-    if (tok === '(' || tok === ')' || tok === '|') { out += tok === '(' ? '(?:' : tok; inAtom = false; continue; }
-    if (tok.startsWith('[')) { const m = /\[\s*(\d*)\s*(-?)\s*(\d*)\s*\]/.exec(tok)!; const a = m[1] || '0', b2 = m[2] ? m[3] : m[1]; if (Number(b2 || 4096) > 4096) return undefined; out += `[\\s\\S]{${a},${b2}}`; inAtom = false; continue; }
-    if (tok.includes('?')) { out += tok === '??' ? '[\\s\\S]' : tok[0] === '?' ? `[${[...Array(16)].map((_x, i) => `\\x${i.toString(16)}${tok[1]}`).join('')}]` : `[\\x${tok[0]}0-\\x${tok[0]}f]`; inAtom = false; continue; }
-    out += `\\x${tok}`; if (inAtom && atom.length < 4) atom += String.fromCharCode(parseInt(tok, 16));
+    if (tok === '(' || tok === ')' || tok === '|') { out += tok === '(' ? '(?:' : tok; flush(); depth += tok === '(' ? 1 : tok === ')' ? -1 : 0; continue; }
+    if (tok.startsWith('[')) { const m = /\[\s*(\d*)\s*(-?)\s*(\d*)\s*\]/.exec(tok)!; const a = m[1] || '0', b2 = m[2] ? m[3] : m[1]; if (Number(b2 || 4096) > 4096) return undefined; out += `[\\s\\S]{${a},${b2}}`; flush(); continue; }
+    if (tok.includes('?')) { out += tok === '??' ? '[\\s\\S]' : tok[0] === '?' ? `[${[...Array(16)].map((_x, i) => `\\x${i.toString(16)}${tok[1]}`).join('')}]` : `[\\x${tok[0]}0-\\x${tok[0]}f]`; flush(); continue; }
+    out += `\\x${tok}`; if (depth === 0) run += String.fromCharCode(parseInt(tok, 16));
   }
+  flush();
   if (!out) return undefined;
-  try { return { re: new RegExp(out), atom: atom.length === 4 ? atom : undefined }; } catch { return undefined; }
+  let atom: string | undefined, bestScore = Infinity;
+  for (const r of runs) { const w = bestWindow(r); if (!w) continue; const s = [...w.atom].reduce((n, ch) => n + WEIGHT[ch.charCodeAt(0)], 0); if (s < bestScore) { bestScore = s; atom = w.atom; } }
+  try { return { re: new RegExp(out), atom }; } catch { return undefined; }
+}
+/** Une chaîne fixe est-elle à cette position ? (octets comparés un à un, sans relire tout le fichier) */
+function litAt(b: Buffer, l: Lit, start: number): boolean {
+  const x = l.text, n = x.length; if (start < 0 || start + n > b.length) return false;
+  if (l.fold) { for (let i = 0; i < n; i++) { let c = b[start + i]; if (c >= 65 && c <= 90) c |= 32; if (c !== x.charCodeAt(i)) return false; } }
+  else for (let i = 0; i < n; i++) if (b[start + i] !== x.charCodeAt(i)) return false;
+  if (l.full) {
+    const word = (c: number | undefined) => c !== undefined && ((c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95);
+    if (l.wide ? (start >= 2 && b[start - 1] === 0 && word(b[start - 2])) || (b[start + n + 1] === 0 && word(b[start + n])) : word(b[start - 1]) || word(b[start + n])) return false;
+  }
+  return true;
+}
+/** Recherche directe d'une chaîne fixe (quand elle est trop courte pour l'index). */
+function findLit(h: Hay, l: Lit): boolean {
+  const t = l.fold ? h.low : h.text;
+  for (let p = t.indexOf(l.text); p >= 0; p = t.indexOf(l.text, p + 1)) if (!l.full || litAt(h.bytes, l, p)) return true;
+  return false;
 }
 type Cond = (h: Hay, has: (id: string) => boolean) => boolean;
 /** Condition YARA (sous-ensemble) : and / or / not, parenthèses, $a, « N of them », « any of ($a*) », filesize, uint16(0)/uint32(0). */
@@ -195,11 +269,11 @@ export function importYara(src: string, source: string): { rules: CRule[]; skipp
         const lit = txt[1].replace(/\\x([0-9A-Fa-f]{2})/g, (_x, h2) => String.fromCharCode(parseInt(h2, 16))).replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\r/g, '\r').replace(/\\(["\\])/g, '$1');
         const mods = txt[2].replace(/\/\/.*$/, ''), nocase = /\bnocase\b/.test(mods), wide = /\bwide\b/.test(mods), ascii = /\bascii\b/.test(mods) || !wide, full = /\bfullword\b/.test(mods);
         if (/\b(xor|base64|base64wide|private)\b/.test(mods) || !lit) { ok = false; break; }
-        const forms = [...(ascii ? [lit] : []), ...(wide ? [[...lit].map((c) => `${c}\0`).join('')] : [])].map((f) => (nocase ? f.toLowerCase() : f));
-        const res = full ? forms.map((f) => new RegExp(`(?:^|[^A-Za-z0-9_])${esc(f)}(?![A-Za-z0-9_])`)) : undefined;
-        strs.push({ id, nocase, atoms: atomsOf(forms), test: (h) => { const t = nocase ? h.low : h.text; return res ? res.some((re) => re.test(t)) : forms.some((f) => t.includes(f)); } });
+        if (/[^\x00-\xff]/.test(lit)) { ok = false; break; }
+        const lits: Lit[] = [...(ascii ? [{ text: lit }] : []), ...(wide ? [{ text: [...lit].map((c) => `${c}\0`).join(''), wide: true }] : [])].map((f) => ({ ...f, text: nocase ? foldAscii(f.text) : f.text, fold: nocase, full }));
+        strs.push({ id, nocase, atoms: atomsOf(lits.map((l) => l.text)), lits, test: (h) => lits.some((l) => findLit(h, l)) });
       } else if (hex) { const r = hexToRe(hex[1]); if (!r) { ok = false; break; } strs.push({ id, atoms: r.atom ? [r.atom] : undefined, test: (h) => r.re.test(h.text) }); }
-      else if (rex) { if (/\b(wide|xor|base64)\b/.test(rex[3]) || /\(\?[<!=P]|\\[pPXRG]|\{\d{4,}/.test(rex[1])) { ok = false; break; } try { const re = new RegExp(rex[1], rex[2].includes('i') || /\bnocase\b/.test(rex[3]) ? 'is' : 's'); strs.push({ id, test: (h) => re.test(h.text) }); } catch { ok = false; break; } }
+      else if (rex) { if (/\b(wide|xor|base64)\b/.test(rex[3]) || /\(\?[<!=P]|\\[pPXRG]|\{\d{4,}/.test(rex[1])) { ok = false; break; } try { const ci = rex[2].includes('i') || /\bnocase\b/.test(rex[3]), re = new RegExp(rex[1], ci ? 'is' : 's'), a = reAtom(rex[1]); strs.push({ id, nocase: ci, atoms: a ? [a] : undefined, test: (h) => re.test(h.short) }); } catch { ok = false; break; } }
       else { ok = false; break; }
     }
     if (!ok || !strs.length || /\b(for|in|at|pe|math|hash|elf|dotnet|cuckoo|magic|time|console|entrypoint|contains|matches)\b|#|@|!/.test(condSrc.replace(/!=/g, ''))) continue;
@@ -211,26 +285,56 @@ export function importYara(src: string, source: string): { rules: CRule[]; skipp
 }
 
 /** Jeu de règles prêt à l'emploi : un index par morceaux de 4 caractères écarte très vite les règles impossibles. */
+interface Slot { rule: number; str: number; lit?: Lit; off: number }
 export class RuleSet {
-  private byAtom = new Map<string, number[]>(); private always: number[] = []; private anyNocase = false;
+  // Deux index (exact, et sans casse) : clé = 4 octets ; un filtre binaire écarte presque toutes les positions sans chercher.
+  // Une chaîne fixe est vérifiée à l'endroit où son morceau apparaît : le fichier n'est lu qu'une fois, quel que soit le nombre de règles.
+  private exact = new Map<number, Slot[]>(); private fold = new Map<number, Slot[]>();
+  private bitsExact = new Uint8Array(1 << 17); private bitsFold = new Uint8Array(1 << 17);
+  private always: number[] = []; private positional: boolean[][] = [];
   readonly rules: CRule[];
   constructor(rules: CRule[]) {
     this.rules = rules;
+    const key = (a: string) => ((a.charCodeAt(0) << 24) | (a.charCodeAt(1) << 16) | (a.charCodeAt(2) << 8) | a.charCodeAt(3)) >>> 0;
+    const add = (fold: boolean, atom: string, e: Slot) => { const k = key(atom), map = fold ? this.fold : this.exact, bits = fold ? this.bitsFold : this.bitsExact, h = Math.imul(k, 0x9e3779b1) >>> 12; bits[h >>> 3] |= 1 << (h & 7); const l = map.get(k); if (l) l.push(e); else map.set(k, [e]); };
     rules.forEach((r, i) => {
-      // Une règle n'est candidate que si au moins une de ses chaînes fixes est là ; sans chaîne fixe indexable, elle est toujours essayée.
-      if (r.loose || r.strs.some((s) => !s.atoms?.length)) { this.always.push(i); return; }
-      if (r.strs.some((s) => s.nocase)) this.anyNocase = true;
-      for (const a of new Set(r.strs.flatMap((s) => s.atoms!.map((x) => (s.nocase ? x.toLowerCase() : x))))) { const l = this.byAtom.get(a); if (l) l.push(i); else this.byAtom.set(a, [i]); }
+      // `positional[j]` : la chaîne j est entièrement connue par le balayage (toutes ses écritures sont indexées).
+      const pos = r.strs.map((s) => Boolean(s.lits?.length) && s.lits!.every((l) => Boolean(bestWindow(l.text))));
+      this.positional.push(pos);
+      const blind = r.strs.some((s, j) => !pos[j] && (!s.atoms?.length || (s.nocase && s.atoms.some((a) => /[^\x00-\x7f]/.test(a)))));
+      // Sans morceau indexable (ou si sa condition peut être vraie sans aucune chaîne), la règle est toujours essayée.
+      if (r.loose || (blind && !r.indexable)) this.always.push(i);
+      r.strs.forEach((s, j) => {
+        if (pos[j]) for (const l of s.lits!) { const w = bestWindow(l.text)!; add(Boolean(l.fold), w.atom, { rule: i, str: j, lit: l, off: w.off }); }
+        else for (const a of s.atoms ?? []) { if (s.nocase && /[^\x00-\x7f]/.test(a)) continue; add(Boolean(s.nocase), s.nocase ? foldAscii(a) : a, { rule: i, str: j, off: 0 }); }
+      });
     });
   }
   match(h: Hay): CRule[] {
-    const cand = new Set<number>(this.always);
-    if (this.byAtom.size) for (const t of this.anyNocase ? [h.text, h.low] : [h.text]) for (let i = 0, n = t.length - 3; i < n; i++) { const l = this.byAtom.get(t.substr(i, 4)); if (l) for (const k of l) cand.add(k); }
+    const cand = new Set<number>(this.always), found = new Map<number, Set<number>>(), b = h.bytes, n = b.length, ex = this.exact, fo = this.fold, be = this.bitsExact, bf = this.bitsFold, useFold = fo.size > 0, useExact = ex.size > 0;
+    const hit = (l: Slot[], at: number) => {
+      for (const e of l) {
+        if (!e.lit) { cand.add(e.rule); continue; }
+        let f = found.get(e.rule); if (f?.has(e.str)) continue;
+        if (!litAt(b, e.lit, at - e.off)) continue;
+        if (!f) { f = new Set(); found.set(e.rule, f); } f.add(e.str); cand.add(e.rule);
+      }
+    };
+    if (n >= 4 && (useFold || useExact)) {
+      let k = 0, kf = 0;
+      for (let i = 0; i < n; i++) {
+        const c = b[i];
+        k = ((k << 8) | c) >>> 0; kf = ((kf << 8) | (c >= 65 && c <= 90 ? c | 32 : c)) >>> 0;
+        if (i < 3) continue;
+        if (useExact) { const x = Math.imul(k, 0x9e3779b1) >>> 12; if (be[x >>> 3] & (1 << (x & 7))) { const l = ex.get(k); if (l) hit(l, i - 3); } }
+        if (useFold) { const x = Math.imul(kf, 0x9e3779b1) >>> 12; if (bf[x >>> 3] & (1 << (x & 7))) { const l = fo.get(kf); if (l) hit(l, i - 3); } }
+      }
+    }
     const out: CRule[] = [];
     for (const k of cand) {
       const r = this.rules[k]; if (r.files && !r.files.test(h.name)) continue;
-      const memo = new Map<string, boolean>(), byId = new Map(r.strs.map((s) => [s.id, s]));
-      const has = (id: string) => { let v = memo.get(id); if (v === undefined) { try { v = byId.get(id)?.test(h) ?? false; } catch { v = false; } memo.set(id, v); } return v; };
+      const memo = new Map<string, boolean>(), pos = this.positional[k], f = found.get(k);
+      const has = (id: string) => { let v = memo.get(id); if (v === undefined) { const j = r.strs.findIndex((s) => s.id === id); try { v = j < 0 ? false : pos[j] ? Boolean(f?.has(j)) : r.strs[j].test(h); } catch { v = false; } memo.set(id, v); } return v; };
       try { if (r.cond(h, has)) out.push(r); } catch { /* règle défaillante : ignorée */ }
     }
     return out;
@@ -239,7 +343,8 @@ export class RuleSet {
 
 /** Règles de base (format Galdr). */
 export const BASE_RULES: Rule[] = [
-  { name: 'Test antivirus EICAR', level: 'moyenne', klass: 'test', anywhere: true, strings: ['X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*'], need: 'un' },
+  // Le fichier de test standard : 68 caractères en tête d'un fichier d'au plus 128 octets (c'est sa définition ; le texte cité dans un document n'en est pas un).
+  { name: 'Test antivirus EICAR', level: 'moyenne', klass: 'test', anywhere: true, maxSize: 128, strings: ['/^X5O!P%@AP\\[4\\\\PZX54\\(P\\^\\)7CC\\)7\\}\\$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\\$H\\+H\\*/'], need: 'un' },
   { name: 'PHP.Webshell (eval encodé)', level: 'critique', klass: 'webshell', attack: 'T1505.003', files: '\\.(php\\d?|phtml|inc)$', strings: ['/eval\\s*\\(\\s*(base64_decode|gzinflate|str_rot13|gzuncompress)\\s*\\(/i', '/assert\\s*\\(\\s*\\$_(POST|GET|REQUEST)/i', '/preg_replace\\s*\\(\\s*["\'].*\\/e["\']/i'], need: 'un' },
   { name: 'PHP.Webshell (commande depuis la requête)', level: 'critique', klass: 'webshell', attack: 'T1505.003', files: '\\.(php\\d?|phtml)$', strings: ['/(system|shell_exec|passthru|exec|popen|proc_open)\\s*\\(\\s*\\$_(GET|POST|REQUEST|COOKIE)/i'], need: 'un' },
   { name: 'Shell inversé', level: 'critique', klass: 'porte dérobée', attack: 'T1059', strings: ['/bash -i >& ?\\/dev\\/tcp\\//', '/nc(at)? -e \\/bin\\/(ba)?sh/', '/socket\\.socket\\(.*subprocess\\.call\\(\\[.\\/bin\\/sh/s', '/php -r [\'"]\\$sock=fsockopen/', '/New-Object System\\.Net\\.Sockets\\.TCPClient\\([^)]*\\);\\s*\\$stream/i'], need: 'un' },
@@ -249,9 +354,9 @@ export const BASE_RULES: Rule[] = [
   { name: 'PowerShell encodé', level: 'haute', klass: 'script malveillant', attack: 'T1027', strings: ['/powershell(\\.exe)?\\s+[^\\n]*-(e|enc|encodedcommand)\\s+[A-Za-z0-9+\\/=]{40,}/i'], need: 'un' },
   { name: 'Vol d\'identifiants (Mimikatz)', level: 'critique', klass: 'vol d\'identifiants', attack: 'T1003', strings: ['sekurlsa::logonpasswords', 'lsadump::sam', '/mimikatz(\\.exe)?\\b/i', 'privilege::debug'], need: 2 },
   { name: 'Effacement des sauvegardes Windows', level: 'critique', klass: 'rançongiciel', attack: 'T1490', strings: ['/vssadmin(\\.exe)?\\s+delete\\s+shadows/i', '/wmic\\s+shadowcopy\\s+delete/i', '/bcdedit[^\\n]*recoveryenabled\\s+no/i', '/wbadmin\\s+delete\\s+catalog/i'], need: 'un' },
-  { name: 'Demande de rançon', level: 'haute', klass: 'rançongiciel', attack: 'T1486', anywhere: true, strings: ['/(your|all) (files|documents|data) (have been|are|were) encrypted/i', '/(vos|tes) (fichiers|documents|donn(é|e)es) (ont (é|e)t(é|e)|sont) (chiffr|crypt)(é|e)s/i', '/\\b[a-z2-7]{16,56}\\.onion\\b/', '/(decrypt(ion)?|d(é|e)chiffr\\w+)[^\\n]{0,80}(bitcoin|btc|monero|xmr)/i'], need: 2 },
+  { name: 'Demande de rançon', level: 'haute', klass: 'rançongiciel', attack: 'T1486', anywhere: true, strings: ['/(your|all) (files|documents|data) (have been|are|were) encrypted/i', '/(vos|tes) (fichiers|documents|donn(é|e)es) (ont (é|e)t(é|e)|sont) chiffr(é|e)s/i', '/(vos|tes) (fichiers|documents|donn(é|e)es) (ont (é|e)t(é|e)|sont) crypt(é|e)s/i', '/\\b[a-z2-7]{16,56}\\.onion\\b/', '/(decrypt(ion)?|d(é|e)chiffr\\w+)[^\\n]{0,80}(bitcoin|btc|monero|xmr)/i'], need: 2 },
   { name: 'Désactivation des protections', level: 'haute', klass: 'cheval de Troie', attack: 'T1562', strings: ['/Set-MpPreference\\s+-Disable(Realtime|IOAV|Behavior)/i', '/netsh\\s+advfirewall\\s+set\\s+\\w+\\s+state\\s+off/i', '/systemctl\\s+(stop|disable)\\s+(clamav|ufw|firewalld|auditd|apparmor)/', '/setenforce\\s+0/'], need: 'un' },
-  { name: 'Enregistreur de frappes', level: 'haute', klass: 'logiciel espion', attack: 'T1056.001', strings: ['/GetAsyncKeyState|SetWindowsHookExA?\\s*\\(\\s*(13|WH_KEYBOARD_LL)/', '/pynput\\.keyboard[\\s\\S]{0,400}(smtplib|requests\\.post|socket\\.)/', '/\\/dev\\/input\\/event\\d[\\s\\S]{0,300}(curl|nc |socket)/'], need: 'un' },
+  { name: 'Enregistreur de frappes', level: 'haute', klass: 'logiciel espion', attack: 'T1056.001', strings: ['/SetWindowsHookExA?\\s*\\(\\s*(13|WH_KEYBOARD_LL)[\\s\\S]{0,600}(WriteFile|fopen|send\\(|InternetOpen|WinHttp)/', '/pynput\\.keyboard[\\s\\S]{0,400}(smtplib|requests\\.post|socket\\.)/', '/\\/dev\\/input\\/event\\d[\\s\\S]{0,300}(curl|nc |socket)/'], need: 'un' }
 ];
 
 // ---------------------------------------------------------------- Heuristiques explicables
@@ -432,12 +537,12 @@ export function scanBuffer(name: string, b: Buffer, k: Knowledge, o: { where?: s
   if (k.allowHash?.(sha)) return { file: name, sha256: sha, size: b.length, type, score: 0, findings: [], note: 'dans tes exceptions' };
   const known = k.hash?.(sha);
   if (known) findings.push({ threat: known.family ? `Malware connu : ${known.family}` : 'Malware connu', by: 'empreinte', level: 'critique', klass: klassOf(known.family ?? ''), score: 100, why: `son empreinte est dans la base de ${known.source}`, source: known.source, family: known.family, sure: true });
-  const h = hay(b.length > 8 * 1024 * 1024 ? b.subarray(0, 8 * 1024 * 1024) : b, name.split(/[!/\\]/).pop() ?? name), passive = isPassive(name, type);
+  const h = hay(b.length > 8 * 1024 * 1024 ? b.subarray(0, 8 * 1024 * 1024) : b, name.split(/[!/\\]/).pop() ?? name), passive = isPassive(name, type), code = isCode(name, type);
   for (const r of k.rules.match(h)) {
     if (k.allowRule?.(r.name)) continue;
     // Dans un fichier de texte ou de code source, le texte d'une attaque est presque toujours une documentation, un test ou une règle : simple indice.
     // Plusieurs règles dans le même fichier passif ne s'additionnent pas (un fichier de règles ou un cours de sécurité les contient toutes).
-    const weak = passive && !r.anywhere, first = weak && !findings.some((f) => f.by === 'règle' && f.score <= 30 && f.klass !== 'test');
+    const weak = passive && (!r.anywhere || (code && r.klass !== 'test')), first = weak && !findings.some((f) => f.by === 'règle' && f.score <= 30 && f.klass !== 'test');
     findings.push({ threat: r.name, by: 'règle', level: weak ? 'moyenne' : r.level, klass: r.klass, score: weak ? (first ? 30 : 0) : r.level === 'critique' ? 95 : r.level === 'haute' ? 80 : r.klass === 'test' ? 40 : 50, why: weak ? `contient le texte de la règle « ${r.name} » (${r.source}), mais c'est un fichier de texte ou de code source : sans doute une documentation, un test ou une règle de détection` : `correspond à la règle « ${r.name} » (${r.source})`, source: r.source, attack: r.attack, sure: r.sure && !passive });
   }
   findings.push(...heuristics(name, b, type, o.where));

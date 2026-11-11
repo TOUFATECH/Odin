@@ -3,6 +3,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { runScenario, type Result, type Scenario } from './lib.ts';
+import { antivirus } from './scenarios/antivirus.ts';
 import { cameras } from './scenarios/cameras.ts';
 import { docker } from './scenarios/docker.ts';
 import { github } from './scenarios/github.ts';
@@ -21,7 +22,7 @@ import { venus } from './scenarios/venus.ts';
 import { vpn } from './scenarios/vpn.ts';
 
 /** Vrais services d'abord, puis ceux dont le protocole est rejoué par un simulateur. */
-export const SCENARIOS: Scenario[] = [securite, docker, parefeu, pieges, vpn, cameras, venus, homeassistant, relais, github, mcp, mcpServeur, proxmox, tasmota, telegram, telegramReel];
+export const SCENARIOS: Scenario[] = [securite, antivirus, docker, parefeu, pieges, vpn, cameras, venus, homeassistant, relais, github, mcp, mcpServeur, proxmox, tasmota, telegram, telegramReel];
 /** Scénarios sans rien d'autre que Node : rejoués aussi par `npm test`. */
 export const SIMULES: Scenario[] = [proxmox, tasmota, telegram];
 

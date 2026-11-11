@@ -21,6 +21,7 @@ aussi dans `npm test` (fichier `test/banc-sim.test.ts`).
 |---|---|---|---|
 | `docker` | Naglfar | un vrai Docker (conteneur lancé, arrêté, relancé, journaux) | réel |
 | `parefeu` | Garmr | le vrai pare-feu nftables, un attaquant dans un réseau isolé | réel |
+| `antivirus` | Ullr | les vraies sources de signatures (OpenPhish, Stalkerware Indicators, signature-base, CISA KEV), de vraies archives (`zip`, `tar`, `gzip`), les programmes de la machine, le fichier de test EICAR | réel |
 | `pieges` | Loki → Ullr → Garmr | un attaquant avec de vrais clients (ssh, curl), virus d'essai EICAR | réel |
 | `vpn` | Gjöll | un vrai tunnel WireGuard (téléphone et NAS dans des réseaux isolés) | réel |
 | `cameras` | Himinbjörg | un vrai flux RTSP avec mot de passe (MediaMTX + ffmpeg) | réel |
@@ -40,6 +41,8 @@ aussi dans `npm test` (fichier `test/banc-sim.test.ts`).
 - Tout : Node 22+.
 - `docker`, `parefeu`, `pieges`, `vpn` : droits administrateur (root), `docker`, `nft`, `ip`,
   `wg`, `wg-quick` (et `wireguard-go` si le noyau n'a pas WireGuard).
+- `antivirus` : `zip`, `tar`, et un accès à GitHub (sources de signatures). Avec `ABUSE_CH_KEY` (clé gratuite
+  d'abuse.ch), MalwareBazaar, ThreatFox et URLhaus sont essayés aussi. Aucun malware n'est téléchargé.
 - `cameras` : `ffmpeg`, et MediaMTX (`npm run banc:outils`, ou `BANC_MEDIAMTX=/chemin/mediamtx`).
 - `venus` : `BANC_VENUS_DIR=/chemin/du/depot/Venus` (après `npm install` dans ce dépôt).
 - `homeassistant` : `BANC_HASS="/chemin/venv/bin/python -m homeassistant"` (paquet `homeassistant`

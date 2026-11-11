@@ -74,6 +74,29 @@ test('Huginn : la bonne appli, la bonne action, les bons réglages (sans IA)', a
     ['quoi de neuf sur github', 'kvasir.verifier {}'],
     ['étudie le dépôt nocodb/nocodb', 'kvasir.etudier {"lien":"nocodb/nocodb"}'],
     ['analyse le fichier /tmp/x.sh', 'ullr.fichier {"chemin":"/tmp/x.sh"}'],
+    // L'antivirus : toute la procédure d'utilisation (docs/antivirus-ullr.md) se dit sans IA.
+    ['analyse le fichier rapport.pdf', 'ullr.fichier {"chemin":"rapport.pdf"}'],
+    ['analyse le dossier /srv/www', 'ullr.analyser {"dossier":"/srv/www","exclusions":""}'],
+    ['analyse mes téléchargements', 'ullr.analyser {"dossier":"téléchargements","exclusions":""}'],
+    ['scanne tout', 'ullr.analyser {"dossier":"tout","exclusions":""}'],
+    ['vérifie le lien https://paypa1.com/x', 'ullr.adresse {"lien":"https://paypa1.com/x"}'],
+    ['vérifie ce message : Votre compte sera suspendu, cliquez ici', 'ullr.message {"texte":"Votre compte sera suspendu, cliquez ici"}'],
+    ['arrête l\'analyse', 'ullr.arreter {}'],
+    ['rapport antivirus', 'ullr.rapport {"id":""}'],
+    ['les analyses', 'ullr.rapports {}'],
+    ['les analyses planifiées', 'ullr.plans {}'],
+    ['mets à jour les signatures', 'ullr.mettre_a_jour {"source":""}'],
+    ['reviens à la version précédente des signatures', 'ullr.revenir {}'],
+    ['la quarantaine', 'ullr.quarantaine {}'],
+    ['les incidents', 'ullr.incidents {}'],
+    ['y a-t-il une activité bizarre ?', 'ullr.incidents {}'],
+    ['y a-t-il un virus sur ma machine ?', 'ullr.etat {}'],
+    ['pose des sentinelles dans /home/awa/Documents', 'ullr.sentinelles {"dossier":"/home/awa/Documents"}'],
+    ['les failles', 'ullr.failles {}'],
+    ['isole /tmp/x.sh', 'ullr.isoler {"fichier":"/tmp/x.sh","menace":"à ta demande"}'],
+    ['ajoute une exception pour /srv/projets', 'ullr.exception {"quoi":"/srv/projets"}'],
+    ['importe /tmp/regles.yar', 'ullr.importer {"chemin":"/tmp/regles.yar"}'],
+    ['vérifie les sauvegardes', 'sindri.verifier {}'],
     ['allume le piège ssh', 'loki.allumer {"piege":"sshid"}'],
     ['connexions en cours', 'geri.connexions {}'],
     ['processus suspects', 'skogul.analyser {}'],
@@ -97,7 +120,7 @@ test('Huginn : la bonne appli, la bonne action, les bons réglages (sans IA)', a
 
 test('Huginn : il ne devine pas — les phrases de tous les jours ne déclenchent aucune appli', async () => {
   const w = world();
-  const chat = ['bonjour comment vas-tu', 'quelle heure est-il', 'raconte-moi une blague', 'merci beaucoup', 'quel temps fait-il demain', 'écris un mail à Paul', 'tu peux m\'expliquer la photosynthèse', 'j\'ai mal à la tête', 'quel est le prix du bitcoin', 'traduis bonjour en anglais', 'écris un poème sur la mer', 'on mange quoi ce soir', 'ma voiture est en panne', 'quelle est la capitale du Japon', 'combien font 12 fois 13', 'mon fils a de la fièvre', 'il fait chaud aujourd\'hui', 'la réunion est à 15h', 'pense à acheter du pain', 'j\'ai acheté une nouvelle lampe hier', 'le film d\'hier était super', 'fais-moi un résumé de la page wikipedia sur Mayotte', 'rappelle-moi d\'appeler le client'];
+  const chat = ['garde ce lien https://exemple.fr/article', 'résume ce site https://exemple.fr', 'envoie un message à Awa : coucou', 'bonjour comment vas-tu', 'quelle heure est-il', 'raconte-moi une blague', 'merci beaucoup', 'quel temps fait-il demain', 'écris un mail à Paul', 'tu peux m\'expliquer la photosynthèse', 'j\'ai mal à la tête', 'quel est le prix du bitcoin', 'traduis bonjour en anglais', 'écris un poème sur la mer', 'on mange quoi ce soir', 'ma voiture est en panne', 'quelle est la capitale du Japon', 'combien font 12 fois 13', 'mon fils a de la fièvre', 'il fait chaud aujourd\'hui', 'la réunion est à 15h', 'pense à acheter du pain', 'j\'ai acheté une nouvelle lampe hier', 'le film d\'hier était super', 'fais-moi un résumé de la page wikipedia sur Mayotte', 'rappelle-moi d\'appeler le client'];
   const caught: string[] = [];
   for (const c of chat) { const u = await understand(w.v, c, `c:${c}`, NOW); if (u) caught.push(`« ${c} » → ${show(u)}`); }
   assert.deepEqual(caught, []);
