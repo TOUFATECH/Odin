@@ -90,12 +90,24 @@ export function fromGit(dir = root, max = 1000): Evolution[] | undefined {
 }
 
 let cache: { at: number; list: Evolution[] } | undefined;
-/** Toutes les évolutions (git d'abord, sinon la liste livrée), gardées 5 minutes. */
-export function evolutions(): Evolution[] {
-  if (cache && Date.now() - cache.at < 300_000) return cache.list;
-  let list = fromGit();
-  if (!list?.length) { try { list = JSON.parse(readFileSync(bundled, 'utf8')) as Evolution[]; } catch { list = []; } }
-  cache = { at: Date.now(), list };
+/**
+ * Réunit l'historique git et la liste livrée. Une installation normale ne connaît qu'une partie de l'historique
+ * (« git clone --depth 1 », puis seulement les mises à jour reçues) : la liste livrée apporte tout ce qui précède,
+ * git apporte ce qui est plus récent qu'elle. Un même changement n'est compté qu'une fois. Du plus récent au plus ancien.
+ */
+export function mergeEvolutions(git: Evolution[], pack: Evolution[]): Evolution[] {
+  const same = (a: string, b: string) => a.startsWith(b) || b.startsWith(a);
+  const extra = pack.filter((e) => e.id && !git.some((g) => same(g.id, e.id)));
+  return [...git, ...extra].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+}
+
+/** Toutes les évolutions (l'historique git complété par la liste livrée), gardées 5 minutes. */
+export function evolutions(dir = root): Evolution[] {
+  if (dir === root && cache && Date.now() - cache.at < 300_000) return cache.list;
+  let pack: Evolution[] = [];
+  try { const j = JSON.parse(readFileSync(bundled, 'utf8')) as Evolution[]; if (Array.isArray(j)) pack = j; } catch { /* pas de liste livrée */ }
+  const list = mergeEvolutions(fromGit(dir) ?? [], pack);
+  if (dir === root) cache = { at: Date.now(), list };
   return list;
 }
 
