@@ -6,7 +6,8 @@ import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Action, ActionResult, Alert, AlertIn, Level, ModCtx, Module, NotifyOpts } from './types.ts';
+import { understand, type Understood } from './huginn.ts';
+import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -19,6 +20,8 @@ export interface ValhallaDeps {
   now?(): Date;
   /** exécution de commande (remplaçable dans les tests) */
   run?: ModCtx['run'];
+  /** niveau d'autonomie d'Odin (Heimdall) : en « breaker », Odin décide seul de garder ses manips */
+  autonomy?(): 'prudent' | 'equilibre' | 'autonome' | 'breaker';
 }
 
 export class Valhalla {
@@ -62,11 +65,12 @@ export class Valhalla {
       fetch: this.deps.fetch ?? fetch,
       notify: async (t, o) => { await this.deps.notify?.(t, o); },
       ask: this.deps.ask,
-      call: (m, a, input = {}) => this.act(m, a, input),
+      call: (m, a, input = {}, why) => this.act(m, a, input, { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}` }),
       now: () => this.deps.now?.() ?? new Date(),
       alerts: (o) => this.alerts(o),
       ack: (ids) => this.ack(ids),
       modules: () => this.modules(),
+      order: (text) => this.order(text, `appli:${id}`),
     };
     this.ctxs.set(id, c);
     return c;
@@ -82,22 +86,115 @@ export class Valhalla {
       }
     }
   }
-  stop(): void { for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } }
+  stop(): void { if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } }
 
   // ---------------- Actions
   action(moduleId: string, actionId: string): { m: Module; a: Action } | undefined {
     const m = this.module(moduleId); const a = m?.actions.find((x) => x.id === actionId || norm(x.label) === norm(actionId));
     return m && a ? { m, a } : undefined;
   }
-  /** `auto` : appel sans personne (automatisation, réflexe) → les actions graves sont refusées. */
-  async act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean } = {}): Promise<ActionResult> {
+  /**
+   * `auto` : appel sans personne (automatisation, autre assistant) → les actions graves sont refusées.
+   * `by` : qui agit. Tout ce qui n'est pas « toi » et qui change quelque chose est noté dans le
+   * journal des manips : tu es prévenu, et tu peux garder ou annuler.
+   */
+  async act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string } = {}): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
     const why = f.a.grave?.(input, this.ctx(f.m.id));
     if (o.auto && why) return { ok: false, text: `${f.m.name} · ${f.a.label} : action grave (${why}), elle demande ton accord et ne part pas d'une automatisation.` };
     for (const p of f.a.params ?? []) if (p.required && (input[p.key] === undefined || input[p.key] === '')) return { ok: false, text: `Il manque « ${p.label} ».` };
-    try { const r = await f.a.run(this.ctx(f.m.id), input); this.events.emit('action', { module: f.m.id, action: f.a.id, ok: r.ok !== false }); return { ok: true, ...r }; }
-    catch (e) { return { ok: false, text: `${f.m.name} · ${f.a.label} : ${(e as Error).message}` }; }
+    const by: By = o.by ?? (o.auto ? 'automatisation' : 'toi');
+    try {
+      const r = await f.a.run(this.ctx(f.m.id), input);
+      this.events.emit('action', { module: f.m.id, action: f.a.id, ok: r.ok !== false, by });
+      if (r.ok !== false && by !== 'toi' && !f.a.read && !f.a.quiet) this.noteManip(f.m, f.a, input, r, by, o.why);
+      return { ok: true, ...r };
+    } catch (e) { this.events.emit('action', { module: f.m.id, action: f.a.id, ok: false, by }); return { ok: false, text: `${f.m.name} · ${f.a.label} : ${(e as Error).message}` }; }
+  }
+
+  /** Niveau d'autonomie d'Odin (prudent, équilibré, autonome, Breaker). */
+  autonomy(): 'prudent' | 'equilibre' | 'autonome' | 'breaker' { return this.deps.autonomy?.() ?? 'equilibre'; }
+
+  /**
+   * Une demande en français, comprise SANS IA (Huginn) puis exécutée. `confirm` : tu as confirmé une
+   * action grave (sinon elle n'est pas lancée : la réponse dit ce qu'il faut confirmer).
+   */
+  async order(text: string, session = 'principal', o: { by?: By; confirm?: boolean } = {}): Promise<ActionResult & { understood?: Understood; confirm?: string }> {
+    const u = await understand(this, text, session);
+    if (!u) return { ok: false, text: 'Je n\'ai pas compris quelle appli utiliser. Dis-le avec le nom de l\'appli ou de la chose (« arrête le conteneur web », « bannis 203.0.113.9 », « les alertes »).' };
+    if (u.kind === 'say' || u.kind === 'ask') return { ok: true, text: u.text, understood: u };
+    if (u.kind === 'manip') { const r = await this.decide(u.id, u.keep); return { ok: r.ok, text: r.text, understood: u }; }
+    const f = this.action(u.module, u.action)!;
+    const why = f.a.grave?.(u.input, this.ctx(f.m.id));
+    if (why && !o.confirm) return { ok: false, text: `${u.label} : ${why}. C'est une action grave : confirme-la.`, confirm: why, understood: u };
+    const r = await this.act(u.module, u.action, u.input, { by: o.by ?? 'toi' });
+    return { ...r, text: `${u.label}\n${r.text}`, understood: u };
+  }
+
+  // ---------------- Manips : ce qu'Odin a fait sans que tu le demandes (garder / annuler)
+  private get manipsFile(): string { return join(this.dir, 'manips.json'); }
+  private readManips(): Manip[] { try { const l = JSON.parse(readFileSync(this.manipsFile, 'utf8')) as Manip[]; return Array.isArray(l) ? l : []; } catch { return []; } }
+  private writeManips(l: Manip[]): void { const tmp = `${this.manipsFile}.tmp`; writeFileSync(tmp, JSON.stringify(l.slice(-500))); renameSync(tmp, this.manipsFile); }
+  private told: number[] = [];
+  private extra = 0;
+  private extraTimer?: ReturnType<typeof setTimeout>;
+  private noteManip(m: Module, a: Action, input: Record<string, unknown>, r: ActionResult, by: By, why?: string): void {
+    const now = this.deps.now?.() ?? new Date(), all = this.readManips();
+    let id = ''; do { id = Math.random().toString(36).slice(2, 6); } while (!/^[a-z]/.test(id) || all.some((x) => x.id === id));
+    let undo: Manip['undo']; try { undo = a.undo?.(input, r, this.ctx(m.id)); } catch { /* pas d'annulation proposée */ }
+    // Les mots de passe et jetons éventuels des réglages ne sont jamais recopiés dans le journal.
+    const safe = Object.fromEntries(Object.entries(input).map(([k, v]) => [k, (a.params ?? []).find((p) => p.key === k)?.kind === 'password' || /mot_?de_?passe|password|secret|jeton|token|cle\b|clé/i.test(k) ? '•••' : typeof v === 'string' ? v.slice(0, 300) : v]));
+    const breaker = this.deps.autonomy?.() === 'breaker';
+    // Simple tenue de registre par réflexe (une fiche créée, une configuration rangée au coffre) : rien à
+    // annuler, rien à décider — c'est noté dans le journal, sans te déranger.
+    const bookkeeping = by === 'réflexe' && !undo;
+    const manip: Manip = { id, at: now.toISOString(), module: m.id, action: a.id, label: `${m.name} · ${a.label}`, input: safe, text: r.text.split('\n')[0].slice(0, 300), by, why, undo, state: breaker || bookkeeping ? 'gardée' : 'à décider', ...(breaker ? { decidedBy: 'Odin (mode Breaker)', decidedAt: now.toISOString() } : bookkeeping ? { decidedBy: 'réflexe (rien à annuler)', decidedAt: now.toISOString() } : {}) };
+    try { this.writeManips([...all, manip]); } catch { /* disque plein ou dossier disparu : la manip reste faite, le journal non */ }
+    this.events.emit('manip', manip);
+    if (bookkeeping) return;
+    // Tu es prévenu : au plus 3 messages par 10 minutes, puis un seul message de rattrapage.
+    const t = now.getTime(); this.told = this.told.filter((x) => t - x < 600_000);
+    if (this.told.length >= 3) {
+      this.extra++;
+      this.extraTimer ??= setTimeout(() => { const n = this.extra; this.extra = 0; this.extraTimer = undefined; if (n) void this.deps.notify?.(`🤖 J'ai fait ${n} autre(s) manip(s) entre-temps. Dis « mes manips » pour les voir, « garde tout » ou « annule <code> ».`).catch(() => {}); }, 600_000);
+      (this.extraTimer as { unref?: () => void }).unref?.();
+      return;
+    }
+    this.told.push(t);
+    void this.deps.notify?.(this.manipText(manip)).catch(() => {});
+  }
+  /** Le message envoyé pour une manip (aussi lu par la mascotte). */
+  manipText(x: Manip): string {
+    const who = { odin: 'de moi-même', 'réflexe': 'par réflexe', automatisation: 'par une automatisation', assistant: 'à la demande d\'un autre assistant', toi: '' }[x.by];
+    const tail = x.state === 'à décider' ? (x.undo ? ` Réponds « garde ${x.id} » ou « annule ${x.id} ».` : ` Je ne sais pas l'annuler tout seul. Réponds « garde ${x.id} » pour la valider.`)
+      : x.state === 'gardée' && x.decidedBy?.startsWith('Odin') ? ` Je la garde (mode Breaker).${x.undo ? ` « annule ${x.id} » pour revenir en arrière.` : ''}` : '';
+    return `🤖 Manip faite ${who} : ${x.label} — ${x.text}${x.why ? ` (${x.why})` : ''}.${tail}`;
+  }
+  manips(o: { state?: Manip['state']; limit?: number; module?: string } = {}): Manip[] {
+    let l = this.readManips().reverse();
+    if (o.state) l = l.filter((x) => x.state === o.state);
+    if (o.module) l = l.filter((x) => x.module === o.module);
+    return l.slice(0, o.limit ?? 100);
+  }
+  /** « garde » ou « annule » une manip (`id`, ou « tout » / « dernière »). Annuler lance l'action inverse. */
+  async decide(id: string, keep: boolean, by = 'toi'): Promise<{ ok: boolean; text: string; manips: Manip[] }> {
+    const all = this.readManips(), now = (this.deps.now?.() ?? new Date()).toISOString();
+    const want = id.trim().toLowerCase();
+    const pick = /^(tout|toutes|tous)$/.test(want) ? all.filter((x) => x.state === 'à décider') : /^(derni[eè]re|dernier|la derni[eè]re)$/.test(want) || !want ? all.filter((x) => x.state !== 'annulée').slice(-1) : all.filter((x) => x.id === want);
+    if (!pick.length) return { ok: false, text: want && !/^(tout|toutes|tous|derni)/.test(want) ? `Je ne trouve pas la manip « ${id} ». Dis « mes manips » pour voir les codes.` : 'Aucune manip en attente.', manips: [] };
+    const out: string[] = []; let ok = true;
+    for (const x of pick) {
+      if (keep) { if (x.state === 'annulée') { out.push(`${x.label} : déjà annulée.`); ok = false; continue; } x.state = 'gardée'; x.decidedBy = by; x.decidedAt = now; out.push(`✓ Gardé : ${x.label} — ${x.text}`); continue; }
+      if (x.state === 'annulée') { out.push(`${x.label} : déjà annulée.`); continue; }
+      if (!x.undo) { out.push(`✗ ${x.label} : je ne sais pas l'annuler tout seul (${x.text}).`); ok = false; continue; }
+      const r = await this.act(x.undo.module ?? x.module, x.undo.action, x.undo.input, { by: 'toi' });
+      if (r.ok === false) { out.push(`✗ ${x.label} : l'annulation a échoué (${r.text.slice(0, 160)}).`); ok = false; continue; }
+      x.state = 'annulée'; x.decidedBy = by; x.decidedAt = now; out.push(`↩ Annulé : ${x.label} (${x.undo.label}).`);
+    }
+    this.writeManips(all);
+    for (const x of pick) this.events.emit('manip', x);
+    return { ok, text: out.join('\n'), manips: pick };
   }
 
   // ---------------- Alertes

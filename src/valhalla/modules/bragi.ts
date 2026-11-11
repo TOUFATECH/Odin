@@ -64,6 +64,14 @@ export function bragi(voice: () => VoiceConfig): Module {
         const f = s(i.fichier), mime = MIME[extname(f).toLowerCase()] ?? 'audio/mpeg';
         const h = await hear(readFileSync(f), mime, voice()); return { text: h.text, data: h };
       } },
+      { id: 'ordre', label: 'Ordre à la voix', what: 'Comprend un ordre dit ou écrit (« mets Inception sur la télé », « allume le salon ») et le fait faire par la bonne appli, sans IA. Une action grave n\'est jamais lancée ainsi.', params: [{ key: 'texte', label: 'Ordre (texte)', kind: 'text', default: '' }, { key: 'fichier', label: 'ou fichier audio', kind: 'text', default: '' }], quiet: true, words: ['ordre', 'ordre vocal', 'commande vocale'], run: async (ctx, i) => {
+        let text = s(i.texte).trim();
+        if (!text && s(i.fichier)) { const f = s(i.fichier); text = (await hear(readFileSync(f), MIME[extname(f).toLowerCase()] ?? 'audio/mpeg', voice())).text.trim(); }
+        if (!text) throw new Error('rien à comprendre : donne un texte ou un fichier audio');
+        const r = await ctx.order(text);
+        ctx.emit('ordre', { texte: text.slice(0, 200), compris: r.ok !== false });
+        return { ok: r.ok, text: `🎙 « ${text} »\n${r.text}` };
+      } },
       { id: 'voix', label: 'Voix disponibles', what: 'Voix du fournisseur', read: true, run: async () => ({ text: (await listVoices(voice())).map((x) => `- ${x.name} (${x.category}) ${x.id}`).join('\n') || 'Aucune.' }) },
       { id: 'gjallarhorn', label: 'Alertes à voix haute', what: 'Dire les alertes critiques sur les enceintes', params: [{ key: 'actif', label: 'Activé', kind: 'boolean', default: false }, { key: 'ou', label: 'Enceinte (ou « partout »)', kind: 'text', default: 'partout' }, { key: 'heures', label: 'Heures autorisées (ex. 7-22)', kind: 'text', default: '7-22' }], run: (ctx, i) => { ctx.saveSettings({ horn: i.actif === true || i.actif === 'true', hornWhere: s(i.ou) || 'partout', hornHours: s(i.heures) || '7-22' }); return { text: `Gjallarhorn ${ctx.settings.horn ? 'activé' : 'désactivé'}.` }; } },
     ],

@@ -8,6 +8,16 @@ export interface AlertIn { level: Level; title: string; detail?: string; key?: s
 export interface NotifyOpts { urgent?: boolean; photo?: string }
 export interface Alert extends AlertIn { id: string; at: string; module: string; ack?: boolean; count: number }
 
+/** Qui a lancé une action : toi (clic, demande explicite), Odin de lui-même, un réflexe entre applis, une automatisation Draupnir, un autre assistant (MCP). */
+export type By = 'toi' | 'odin' | 'réflexe' | 'automatisation' | 'assistant';
+/** Comment défaire une action : l'action inverse (de la même appli, sauf mention). */
+export interface Undo { action: string; input: Record<string, unknown>; label: string; module?: string }
+/**
+ * Une « manip » : une action faite sans que tu l'aies demandée toi-même (Odin seul, réflexe, automatisation).
+ * Odin te prévient ; tu réponds « garde » ou « annule ». En mode Odin Breaker, il décide seul de garder.
+ */
+export interface Manip { id: string; at: string; module: string; action: string; label: string; input: Record<string, unknown>; text: string; by: By; why?: string; undo?: Undo; state: 'à décider' | 'gardée' | 'annulée'; decidedBy?: string; decidedAt?: string }
+
 export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'password'; options?: string[]; default?: unknown; required?: boolean; help?: string }
 export interface ActionResult { text: string; data?: unknown; ok?: boolean }
 export interface Action {
@@ -19,6 +29,10 @@ export interface Action {
   grave?: (input: Record<string, unknown>, ctx?: ModCtx) => string | undefined;
   /** mots qui déclenchent cette action quand Odin n'a pas d'IA */
   words?: string[];
+  /** comment défaire cette action si elle a réussi (action inverse) ; absent = pas d'annulation automatique */
+  undo?: (input: Record<string, unknown>, result: ActionResult, ctx: ModCtx) => Undo | undefined;
+  /** trop banale pour le journal des manips (lecture déguisée, accusé de réception…) */
+  quiet?: boolean;
   run(ctx: ModCtx, input: Record<string, unknown>): Promise<ActionResult> | ActionResult;
 }
 
@@ -47,14 +61,16 @@ export interface ModCtx {
   notify(text: string, o?: NotifyOpts): Promise<void>;
   /** IA d'Odin si disponible (sinon undefined) */
   ask?: (text: string) => Promise<string>;
-  /** action d'un autre module (liens entre modules) */
-  call(module: string, action: string, input?: Record<string, unknown>): Promise<ActionResult>;
+  /** action d'un autre module (liens entre modules) ; `why` explique le réflexe dans le journal des manips */
+  call(module: string, action: string, input?: Record<string, unknown>, why?: string): Promise<ActionResult>;
   now(): Date;
   /** fil d'alertes commun (Forseti) */
   alerts(o?: { module?: string; level?: Level; q?: string; limit?: number }): Alert[];
   ack(ids: string[]): void;
   /** liste des modules (pour Valhalla et les explications) */
   modules(): Module[];
+  /** comprend une demande en français SANS IA (Huginn) et l'exécute ; une action grave n'est jamais lancée ainsi */
+  order(text: string): Promise<ActionResult>;
 }
 
 export interface Module {

@@ -306,7 +306,7 @@ export class Agent {
           const act = await offlineAct(userText.split('\n\n[Précision d')[0], async (name, input) => {
             const m = await this.execTool({ id: `hors_ligne_${Date.now().toString(36)}`, name, input }, ctx, o, () => tainted, emit, turn, res.decisions);
             return { ok: !/^(Erreur|Action refusée|Refusé|\[Mode essai\])/.test(m.content), content: m.content };
-          }, (n) => Boolean(tools.get(n))).catch(() => undefined);
+          }, (n) => Boolean(tools.get(n)), o.sessionId).catch(() => undefined);
           if (act) {
             res.text = `${act}\n\n🔌 Fait sans IA : aucun modèle n'est joignable pour l'instant.`; res.offline = true; res.stopReason = 'done';
             muninn.addMessage(o.sessionId, { role: 'assistant', content: res.text });

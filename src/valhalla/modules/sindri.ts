@@ -13,7 +13,7 @@ import { walk } from './ullr.ts';
 const CHUNK = 1024 * 1024;
 export interface FileEntry { path: string; size: number; mtime: number; mode: number; chunks: string[] }
 export interface Snapshot { id: string; at: string; plan: string; paths: string[]; files: FileEntry[]; bytes: number; added: number }
-export interface Plan { name: string; paths: string[]; repo: string; at: string; keep: { last: number; daily: number; weekly: number; monthly: number }; exclude?: string[] }
+export interface Plan { name: string; paths: string[]; repo: string; at: string; keep: { last: number; daily: number; weekly: number; monthly: number }; /** machines virtuelles à figer (instantané Ymir) avant la sauvegarde */ vms?: number[]; exclude?: string[] }
 
 export class Repo {
   readonly root: string; private key: Buffer; private mac: Buffer;
@@ -84,12 +84,15 @@ const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined
 function repoOf(ctx: ModCtx, path: string): Repo { const pw = process.env.SINDRI_PASSWORD; if (!pw) throw new Error('mot de passe des sauvegardes absent : range-le dans le coffre (SINDRI_PASSWORD)'); return new Repo(path, pw); }
 const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return `${Math.round(b * 10) / 10} ${u[i]}`; };
 async function runPlan(ctx: ModCtx, p: Plan): Promise<string> {
+  // Mode Andvari (lien Sindri → Ymir) : un instantané de chaque machine virtuelle du plan, juste avant la sauvegarde.
+  const vmNotes: string[] = [];
+  for (const vmid of p.vms ?? []) { const r = await ctx.call('ymir', 'instantane', { vmid, nom: `sindri-${ctx.now().toISOString().slice(0, 10).replace(/-/g, '')}` }, `avant la sauvegarde « ${p.name} »`).catch((e) => ({ ok: false, text: (e as Error).message })); vmNotes.push(`${r.ok === false ? '✗' : '✓'} machine ${vmid}`); }
   const repo = repoOf(ctx, p.repo), t0 = Date.now(), snap = backup(repo, p, ctx.now());
   const old = toForget(repo.snapshots().filter((x) => x.plan === p.name), p.keep); for (const o of old) repo.forget(o.id);
   const last = { at: ctx.now().toISOString(), ok: true, files: snap.files.length, bytes: snap.bytes, added: snap.added, ms: Date.now() - t0 };
   ctx.saveSettings({ last: { ...((ctx.settings.last as Record<string, unknown>) ?? {}), [p.name]: last } });
   ctx.emit('sauvegarde_ok', { plan: p.name, fichiers: snap.files.length, octets: snap.bytes });
-  return `💾 ${p.name} : ${snap.files.length} fichiers (${human(snap.bytes)}), ${human(snap.added)} de nouveau, en ${Math.round((Date.now() - t0) / 1000)} s.${old.length ? ` ${old.length} ancien(s) instantané(s) retiré(s).` : ''}`;
+  return `💾 ${p.name} : ${snap.files.length} fichiers (${human(snap.bytes)}), ${human(snap.added)} de nouveau, en ${Math.round((Date.now() - t0) / 1000)} s.${old.length ? ` ${old.length} ancien(s) instantané(s) retiré(s).` : ''}${vmNotes.length ? ` Instantanés des machines virtuelles : ${vmNotes.join(', ')}.` : ''}`;
 }
 
 export const sindri: Module = {
@@ -107,6 +110,12 @@ export const sindri: Module = {
       repoOf(ctx, p.repo);
       ctx.saveSettings({ plans: [...plans(ctx).filter((x) => x.name !== p.name), p] });
       return { text: `🗓 Plan « ${p.name} » : chaque jour à ${p.at}, ${p.paths.length} dossier(s) → ${p.repo}.` };
+    } },
+    { id: 'machines', label: 'Machines virtuelles du plan (Andvari)', what: 'Avant chaque sauvegarde de ce plan, Ymir prend un instantané de ces machines virtuelles', params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'vms', label: 'Numéros des machines (séparés par des virgules ; vide = aucune)', kind: 'text', default: '' }], run: (ctx, i) => {
+      const p = plans(ctx).find((x) => x.name === s(i.plan)); if (!p) throw new Error('plan inconnu');
+      const vms = s(i.vms).split(/[\s,;]+/).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 1e9);
+      ctx.saveSettings({ plans: plans(ctx).map((x) => (x.name === p.name ? { ...x, vms } : x)) });
+      return { text: vms.length ? `🧊 Plan « ${p.name} » : instantané des machines ${vms.join(', ')} avant chaque sauvegarde.` : `Plan « ${p.name} » : plus d'instantané de machine virtuelle.` };
     } },
     { id: 'sauvegarder', label: 'Sauvegarder maintenant', what: 'Lance un plan tout de suite', params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }], words: ['sauvegarde maintenant', 'lance la sauvegarde'], run: async (ctx, i) => { const p = plans(ctx).find((x) => x.name === s(i.plan)) ?? plans(ctx)[0]; if (!p) throw new Error('aucun plan'); return { text: await runPlan(ctx, p) }; } },
     { id: 'instantanes', label: 'Instantanés', what: 'Les versions disponibles d\'un plan', read: true, params: [{ key: 'plan', label: 'Plan', kind: 'text' }], run: (ctx, i) => { const p = plans(ctx).find((x) => x.name === s(i.plan)) ?? plans(ctx)[0]; if (!p) return { text: 'Aucun plan.' }; const l = repoOf(ctx, p.repo).snapshots().filter((x) => x.plan === p.name); return { text: l.map((x) => `- ${x.id} · ${x.at.slice(0, 16).replace('T', ' ')} · ${x.files.length} fichiers · ${human(x.bytes)}`).join('\n') || 'Aucun instantané.', data: l.map((x) => ({ id: x.id, at: x.at, files: x.files.length })) }; } },

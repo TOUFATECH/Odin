@@ -6,6 +6,8 @@ import { haApi, type HaState } from '../../tools/homeassistant.ts';
 import { lanRequest } from '../../tools/lan.ts';
 import type { ModCtx, Module } from '../types.ts';
 import { allDevices, command } from './appareils.ts';
+/** Valeurs à deux états : l'inverse sert à annuler une manip. */
+const INVERSE: Record<string, string> = { on: 'off', off: 'on', allumer: 'eteindre', eteindre: 'allumer', 'éteindre': 'allumer', ouvrir: 'fermer', fermer: 'ouvrir', verrouiller: 'deverrouiller', deverrouiller: 'verrouiller', 'déverrouiller': 'verrouiller', marche: 'arret', arret: 'marche', 'arrêt': 'marche' };
 
 export interface Scene { name: string; steps: Array<{ appareil: string; valeur: string }> }
 interface Dev { id: string; name: string; kind: string; room: string; state?: string; unit?: string; commandTopic?: string }
@@ -75,7 +77,19 @@ export function sceneRisk(sc: Scene | undefined): string | undefined { const r =
 export async function runScene(ctx: ModCtx, name: string): Promise<string> {
   const sc = scenes(ctx).find((x) => x.name.toLowerCase() === name.toLowerCase()); if (!sc) throw new Error(`scène inconnue : ${name}`);
   const out: string[] = [];
-  for (const st of sc.steps) { try { out.push(`✓ ${await set(ctx, st.appareil, st.valeur)}`); } catch (e) { out.push(`✗ ${st.appareil} : ${(e as Error).message}`); } }
+  for (const st of sc.steps) {
+    try {
+      // « appli.action = valeur » : la scène pilote une autre appli (Freyja lance le film, Ægir la musique, Bragi annonce…).
+      const app = /^([\p{L}]+)\.([a-z_]+)$/u.exec(st.appareil.trim()), mod = app ? ctx.modules().find((m) => m.id === app[1].toLowerCase() || m.name.toLowerCase() === app[1].toLowerCase()) : undefined;
+      if (app && mod) {
+        const a = mod.actions.find((x) => x.id === app[2]); if (!a) throw new Error(`action inconnue : ${app[2]}`);
+        const first = (a.params ?? []).find((p) => p.required) ?? (a.params ?? [])[0], input = first ? { [first.key]: st.valeur } : {};
+        if (a.grave?.(input)) throw new Error('action grave : elle ne part pas d\'une scène, lance-la toi-même');
+        const r = await ctx.call(mod.id, a.id, input, `scène « ${sc.name} »`);
+        out.push(`${r.ok === false ? '✗' : '✓'} ${mod.name} · ${a.label} : ${r.text.split('\n')[0].slice(0, 120)}`);
+      } else out.push(`✓ ${await set(ctx, st.appareil, st.valeur)}`);
+    } catch (e) { out.push(`✗ ${st.appareil} : ${(e as Error).message}`); }
+  }
   ctx.emit('scene', { scène: sc.name });
   return `🎬 ${sc.name}\n${out.join('\n')}`;
 }
@@ -90,8 +104,8 @@ export const midgard: Module = {
   actions: [
     { id: 'maison', label: 'État de la maison', what: 'Résumé par pièce', read: true, words: ['etat de la maison', 'état de la maison', 'comment va la maison'], run: async (ctx) => { const d = await devices(ctx); const rooms = [...new Set(d.map((x) => x.room || 'Sans pièce'))]; return { text: rooms.map((r) => `${r} : ${d.filter((x) => (x.room || 'Sans pièce') === r).map((x) => `${x.name} ${x.state ?? '?'}${x.unit ? ` ${x.unit}` : ''}`).join(', ')}`).join('\n') || 'Aucun appareil relié.' }; } },
     { id: 'scene', label: 'Lancer une scène', what: 'Plusieurs appareils d\'un coup', params: [{ key: 'scene', label: 'Scène', kind: 'text', required: true }], grave: (i, ctx) => (ctx ? sceneRisk(scenes(ctx).find((x) => x.name.toLowerCase() === s(i.scene).toLowerCase())) : undefined), words: ['scene', 'scène', 'je pars', 'je rentre', 'bonne nuit', 'film'], run: async (ctx, i) => ({ text: await runScene(ctx, s(i.scene)) }) },
-    { id: 'creer_scene', label: 'Créer une scène', what: 'Nom + une ligne par appareil : « appareil = valeur »', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'etapes', label: 'Appareil = valeur (une par ligne)', kind: 'textarea', required: true }], run: (ctx, i) => { const steps = s(i.etapes).split('\n').map((l) => l.split('=').map((x) => x.trim())).filter((x) => x[0] && x[1]).map(([appareil, valeur]) => ({ appareil, valeur })); ctx.saveSettings({ scenes: [...scenes(ctx).filter((x) => x.name !== s(i.nom)), { name: s(i.nom), steps }] }); return { text: `🎬 Scène « ${s(i.nom)} » : ${steps.length} appareil(s).` }; } },
-    { id: 'commander', label: 'Commander', what: 'Un appareil (de n\'importe quelle box)', params: [{ key: 'appareil', label: 'Appareil', kind: 'text', required: true }, { key: 'valeur', label: 'Valeur', kind: 'text', required: true }], grave: (i) => sensitive(s(i.appareil), s(i.valeur)), run: async (ctx, i) => ({ text: `✓ ${await set(ctx, s(i.appareil), s(i.valeur))}` }) },
+    { id: 'creer_scene', label: 'Créer une scène', what: 'Nom + une ligne par étape : « appareil = valeur », ou « appli.action = valeur » pour piloter une autre appli (ex. freyja.regarder = Inception)', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'etapes', label: 'Appareil = valeur (une par ligne)', kind: 'textarea', required: true }], run: (ctx, i) => { const steps = s(i.etapes).split('\n').map((l) => l.split('=').map((x) => x.trim())).filter((x) => x[0] && x[1]).map(([appareil, valeur]) => ({ appareil, valeur })); ctx.saveSettings({ scenes: [...scenes(ctx).filter((x) => x.name !== s(i.nom)), { name: s(i.nom), steps }] }); return { text: `🎬 Scène « ${s(i.nom)} » : ${steps.length} appareil(s).` }; } },
+    { id: 'commander', undo: (i) => { const inv = INVERSE[String(i.valeur ?? '').trim().toLowerCase()]; return inv ? { action: 'commander', input: { appareil: i.appareil, valeur: inv }, label: `remis sur « ${inv} »` } : undefined; }, label: 'Commander', what: 'Un appareil (de n\'importe quelle box)', params: [{ key: 'appareil', label: 'Appareil', kind: 'text', required: true }, { key: 'valeur', label: 'Valeur', kind: 'text', required: true }], grave: (i) => sensitive(s(i.appareil), s(i.valeur)), run: async (ctx, i) => ({ text: `✓ ${await set(ctx, s(i.appareil), s(i.valeur))}` }) },
     { id: 'pont', label: 'Relier une box', what: 'Ajoute une box domotique (adresse ; jeton dans le coffre : HA_TOKEN)', params: [{ key: 'adresse', label: 'Adresse (http://…:8123)', kind: 'text', required: true }], run: (ctx, i) => { ctx.saveSettings({ haUrl: s(i.adresse).trim() }); return { text: '🔗 Box reliée. Range son jeton longue durée dans le coffre (HA_TOKEN).' }; } },
   ],
   async view(ctx) {

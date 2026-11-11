@@ -5,29 +5,36 @@
 import type { Valhalla } from './service.ts';
 import { horn } from './modules/bragi.ts';
 
-export interface Link { from: string; to: string; when: string; does: string; auto: boolean }
-/** Réflexes intégrés (auto) et liens d'usage (manuels, proposés). */
+/**
+ * Un lien entre deux applis. Tous sont automatiques : rien à activer.
+ * `kind` : « réflexe » (une appli en déclenche une autre), « soin » (Odin répare tout seul ; au niveau
+ * « prudent » il propose seulement), « donnée » (une appli alimente l'autre en continu).
+ */
+export interface Link { from: string; to: string; when: string; does: string; auto: true; kind: 'réflexe' | 'soin' | 'donnée' }
 export const LINKS: Link[] = [
-  { from: 'loki', to: 'garmr', when: 'un pirate tape un mot de passe ou une commande dans un piège', does: 'son adresse est bannie de tes vrais services', auto: true },
-  { from: 'loki', to: 'ullr', when: 'un pirate fait télécharger un fichier à un piège', does: 'le fichier est gardé à l\'écart (jamais exécuté) et analysé ; le verdict part avec l\'alerte', auto: true },
-  { from: 'geri', to: 'garmr', when: 'une connexion part vers une adresse malveillante connue', does: 'l\'adresse est bannie 24 h', auto: true },
-  { from: 'skogul', to: 'ullr', when: 'un processus suspect tourne', does: 'son programme est analysé', auto: true },
-  { from: 'ullr', to: 'forseti', when: 'une menace est trouvée', does: 'l\'alerte rejoint le fil commun et part sur ta messagerie', auto: true },
-  { from: 'sindri', to: 'forseti', when: 'une sauvegarde échoue', does: 'alerte haute sur ta messagerie', auto: true },
-  { from: 'eir', to: 'forseti', when: 'disque, mémoire ou processeur saturés', does: 'alerte avec la cause probable', auto: true },
-  { from: 'naglfar', to: 'forseti', when: 'un conteneur s\'arrête tout seul', does: 'alerte', auto: true },
-  { from: 'ymir', to: 'forseti', when: 'une machine virtuelle s\'arrête ou un nœud sature', does: 'alerte', auto: true },
-  { from: 'hermod', to: 'forseti', when: 'une machine du parc disparaît du réseau', does: 'alerte', auto: true },
-  { from: 'himinbjorg', to: 'midgard', when: 'mouvement détecté aux heures surveillées', does: 'la scène « Alerte intrusion » est lancée si elle existe', auto: true },
-  { from: 'forseti', to: 'bragi', when: 'alerte critique', does: 'Gjallarhorn la dit à voix haute sur les enceintes (si activé)', auto: true },
-  { from: 'appareils', to: 'midgard', when: 'un appareil change d\'état', does: 'le tableau de bord se met à jour ; les scènes peuvent réagir', auto: true },
-  { from: 'brokkr', to: 'appareils', when: 'un module est branché sur Odin', does: 'il apparaît dans Appareils puis Midgard', auto: true },
-  { from: 'frigg', to: 'runes', when: 'une réservation arrive', does: 'fiche client dans la base Clients (modèle d\'automatisation)', auto: false },
-  { from: 'gjoll', to: 'brisingamen', when: 'un nouvel accès VPN est créé', does: 'sa configuration peut être rangée dans le coffre', auto: false },
-  { from: 'freyja', to: 'bragi', when: 'tu demandes un film ou une chaîne à voix haute', does: 'Bragi comprend, Freyja lance sur la télé', auto: false },
-  { from: 'midgard', to: 'freyja', when: 'la scène « Film » est lancée', does: 'lumières tamisées puis Freyja ouvre le titre demandé (modèle d\'automatisation)', auto: false },
-  { from: 'kvasir', to: 'runes', when: 'une appli d\'origine publie une version', does: 'une fiche dans la base « Évolutions »', auto: true },
-  { from: 'sindri', to: 'ymir', when: 'mode Andvari', does: 'sauvegarde des machines virtuelles', auto: false },
+  { from: 'loki', to: 'garmr', when: 'un pirate tape un mot de passe ou une commande dans un piège', does: 'son adresse est bannie de tes vrais services', auto: true, kind: 'réflexe' },
+  { from: 'loki', to: 'ullr', when: 'un pirate fait télécharger un fichier à un piège', does: 'le fichier est gardé à l\'écart (jamais exécuté) et analysé ; le verdict part avec l\'alerte', auto: true, kind: 'réflexe' },
+  { from: 'geri', to: 'garmr', when: 'une connexion part vers une adresse malveillante connue', does: 'l\'adresse est bannie 24 h', auto: true, kind: 'réflexe' },
+  { from: 'skogul', to: 'ullr', when: 'un processus suspect tourne', does: 'son programme est analysé ; alerte critique si Ullr confirme', auto: true, kind: 'réflexe' },
+  { from: 'ullr', to: 'forseti', when: 'une menace est trouvée', does: 'l\'alerte rejoint le fil commun et part sur ta messagerie', auto: true, kind: 'donnée' },
+  { from: 'sindri', to: 'forseti', when: 'une sauvegarde échoue', does: 'alerte haute sur ta messagerie', auto: true, kind: 'donnée' },
+  { from: 'eir', to: 'forseti', when: 'disque, mémoire ou processeur saturés', does: 'alerte avec la cause probable', auto: true, kind: 'donnée' },
+  { from: 'naglfar', to: 'forseti', when: 'un conteneur s\'arrête tout seul', does: 'alerte', auto: true, kind: 'donnée' },
+  { from: 'ymir', to: 'forseti', when: 'une machine virtuelle s\'arrête ou un nœud sature', does: 'alerte', auto: true, kind: 'donnée' },
+  { from: 'hermod', to: 'forseti', when: 'une machine du parc disparaît du réseau', does: 'alerte', auto: true, kind: 'donnée' },
+  { from: 'himinbjorg', to: 'midgard', when: 'mouvement détecté aux heures surveillées', does: 'la scène « Alerte intrusion » est lancée si elle existe', auto: true, kind: 'réflexe' },
+  { from: 'forseti', to: 'bragi', when: 'alerte critique', does: 'Gjallarhorn la dit à voix haute sur les enceintes (si activé)', auto: true, kind: 'réflexe' },
+  { from: 'appareils', to: 'midgard', when: 'un appareil change d\'état', does: 'le tableau de bord de la maison est à jour ; les scènes le commandent', auto: true, kind: 'donnée' },
+  { from: 'brokkr', to: 'appareils', when: 'un module est branché sur Odin', does: 'il apparaît dans Appareils puis Midgard', auto: true, kind: 'donnée' },
+  { from: 'frigg', to: 'runes', when: 'une réservation arrive', does: 'la fiche du client est créée ou mise à jour dans la base « Clients »', auto: true, kind: 'réflexe' },
+  { from: 'gjoll', to: 'brisingamen', when: 'un nouvel accès VPN est créé', does: 'sa configuration est rangée dans le coffre chiffré', auto: true, kind: 'réflexe' },
+  { from: 'bragi', to: 'freyja', when: 'tu dis « mets … sur la télé » (ordre à la voix)', does: 'Bragi transcrit, Huginn comprend sans IA, Freyja lance le titre', auto: true, kind: 'réflexe' },
+  { from: 'midgard', to: 'freyja', when: 'une scène contient l\'étape « freyja.regarder = titre »', does: 'les lumières se règlent puis Freyja ouvre le titre', auto: true, kind: 'réflexe' },
+  { from: 'kvasir', to: 'runes', when: 'une appli d\'origine publie une version', does: 'une fiche dans la base « Évolutions »', auto: true, kind: 'réflexe' },
+  { from: 'sindri', to: 'ymir', when: 'un plan de sauvegarde couvre des machines virtuelles (mode Andvari)', does: 'Ymir prend un instantané de chaque machine juste avant la sauvegarde', auto: true, kind: 'réflexe' },
+  { from: 'naglfar', to: 'naglfar', when: 'un conteneur s\'arrête tout seul', does: 'Odin le relance (une fois par heure au plus) et te prévient : « garde » ou « annule »', auto: true, kind: 'soin' },
+  { from: 'ymir', to: 'ymir', when: 'une machine virtuelle s\'arrête toute seule', does: 'Odin la relance (une fois par heure au plus) et te prévient', auto: true, kind: 'soin' },
+  { from: 'sindri', to: 'sindri', when: 'une sauvegarde échoue', does: 'Odin la relance une fois, dix minutes plus tard', auto: true, kind: 'soin' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
@@ -47,19 +54,41 @@ export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
 ];
 
 /** Branche les réflexes intégrés (ceux qui ne sont pas déjà dans les modules eux-mêmes). */
-export function wireReflexes(v: Valhalla): () => void {
+export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => void {
+  const lastCare = new Map<string, number>(), timers = new Set<ReturnType<typeof setTimeout>>();
+  /**
+   * Un « soin » : Odin répare lui-même (action simple et annulable), au plus une fois par heure pour la même chose.
+   * Niveau « prudent » : il ne touche à rien et te dit seulement ce qu'il ferait.
+   */
+  const care = (key: string, module: string, action: string, input: Record<string, unknown>, why: string, say: string): void => {
+    const now = Date.now(); if (now - (lastCare.get(key) ?? 0) < 3600_000) return;
+    lastCare.set(key, now);
+    if (v.autonomy() === 'prudent') { v.alert(module, { level: 'moyenne', title: `Je peux réparer : ${say}`, detail: `${why}. En niveau « Me demander », je ne fais rien seul : dis-le-moi (« ${say} ») ou passe en « Équilibré ».`, key: `soin:${key}` }); return; }
+    void v.act(module, action, input, { auto: true, by: 'odin', why });
+  };
   const onEvent = (e: { module: string; type: string; data: Record<string, unknown> }) => {
     if (e.module === 'skogul' && e.type === 'suspect' && e.data.pid) {
-      void v.act('ullr', 'fichier', { chemin: `/proc/${Number(e.data.pid)}/exe` }, { auto: true }).then((r) => { if (r.ok && /⚠/.test(r.text)) v.alert('ullr', { level: 'critique', title: 'Processus suspect confirmé par Ullr', detail: r.text.slice(0, 500), key: `proc:${String(e.data.pid)}` }); });
+      void v.act('ullr', 'fichier', { chemin: `/proc/${Number(e.data.pid)}/exe` }, { auto: true, by: 'réflexe' }).then((r) => { if (r.ok && /⚠/.test(r.text)) v.alert('ullr', { level: 'critique', title: 'Processus suspect confirmé par Ullr', detail: r.text.slice(0, 500), key: `proc:${String(e.data.pid)}` }); });
     }
-    if (e.module === 'himinbjorg' && e.type === 'mouvement') {
+    if (e.module === 'himinbjorg' && e.type === 'mouvement' && e.data['surveillé'] !== false) {
       const sc = ((v.ctx('midgard').settings.scenes as Array<{ name: string }> | undefined) ?? []).find((x) => /intrusion/i.test(x.name));
-      if (sc && v.alerts({ module: 'himinbjorg', limit: 1 })[0]?.at.slice(0, 16) === new Date().toISOString().slice(0, 16)) void v.act('midgard', 'scene', { scene: sc.name }, { auto: true });
+      if (sc) void v.act('midgard', 'scene', { scene: sc.name }, { auto: true, by: 'réflexe', why: `mouvement sur la caméra ${String(e.data['caméra'] ?? '')} aux heures surveillées` });
+    }
+    // Frigg → Runes : chaque réservation crée ou met à jour la fiche du client.
+    if (e.module === 'frigg' && e.type === 'reservation' && e.data.name) void v.act('runes', 'client', { nom: String(e.data.name), contact: String(e.data.contact ?? ''), rendez_vous: String(e.data.start ?? ''), prestation: String(e.data.service ?? '') }, { auto: true, by: 'réflexe', why: 'nouvelle réservation' });
+    // Soins : ce qu'Odin répare tout seul.
+    if (e.module === 'naglfar' && e.type === 'conteneur_arrete' && e.data.conteneur) care(`ct:${String(e.data.conteneur)}`, 'naglfar', 'demarrer', { conteneur: String(e.data.conteneur) }, `le conteneur ${String(e.data.conteneur)} s'est arrêté tout seul`, `démarre le conteneur ${String(e.data.conteneur)}`);
+    if (e.module === 'ymir' && e.type === 'vm_arretee' && e.data.vmid) care(`vm:${String(e.data.vmid)}`, 'ymir', 'demarrer', { vmid: Number(e.data.vmid) }, `la machine virtuelle ${String(e.data.nom ?? e.data.vmid)} s'est arrêtée toute seule`, `démarre la machine virtuelle ${String(e.data.vmid)}`);
+    if (e.module === 'sindri' && e.type === 'sauvegarde_echec' && e.data.plan) {
+      const key = `sv:${String(e.data.plan)}`, now = Date.now(); if (now - (lastCare.get(key) ?? 0) < 6 * 3600_000 || v.autonomy() === 'prudent') return;
+      lastCare.set(key, now);
+      const t = setTimeout(() => { timers.delete(t); void v.act('sindri', 'sauvegarder', { plan: String(e.data.plan) }, { auto: true, by: 'odin', why: `la sauvegarde « ${String(e.data.plan)} » avait échoué (${String(e.data.erreur ?? '').slice(0, 80)})` }); }, o.retryMs ?? 600_000);
+      (t as { unref?: () => void }).unref?.(); timers.add(t);
     }
   };
   const onAlert = (a: { level: string; title: string; module: string }) => { if (a.level === 'critique') void horn(v.ctx('bragi'), `Alerte : ${a.title}`); };
   v.events.on('event', onEvent); v.events.on('alert', onAlert);
-  return () => { v.events.off('event', onEvent); v.events.off('alert', onAlert); };
+  return () => { v.events.off('event', onEvent); v.events.off('alert', onAlert); for (const t of timers) clearTimeout(t); timers.clear(); };
 }
 
 /** Modèles d'automatisations entre applis (Draupnir). */

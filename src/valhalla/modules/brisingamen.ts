@@ -31,7 +31,7 @@ export function strength(p: string): { bits: number; label: 'très faible' | 'fa
   const label = bits < 28 ? 'très faible' : bits < 40 ? 'faible' : bits < 60 ? 'moyen' : bits < 90 ? 'fort' : 'très fort';
   return { bits: Math.round(bits), label };
 }
-function key(): Buffer { const k = process.env.BRISINGAMEN_KEY; if (!k || !/^[a-f0-9]{64}$/.test(k)) throw new Error('clé du coffre absente : ouvre Brísingamen une fois depuis l\'interface pour la créer'); return Buffer.from(k, 'hex'); }
+function key(): Buffer { const k = process.env.BRISINGAMEN_KEY; if (!k || !/^[a-f0-9]{64}$/.test(k)) throw new Error('clé du coffre absente : redémarre Odin (il la crée au démarrage et la range dans son fichier de secrets)'); return Buffer.from(k, 'hex'); }
 const file = (ctx: ModCtx) => join(ctx.dir, 'coffre.bin');
 export function load(ctx: ModCtx): Item[] {
   if (!existsSync(file(ctx))) return [];

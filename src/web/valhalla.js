@@ -106,7 +106,7 @@
     box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes récentes'),
       el('div', { class: 'va-acts-bar' }, el('label', { for: 'vaLvl', class: 'sub' }, 'Sur ta messagerie à partir de :'), el('select', { id: 'vaLvl', onchange: async (e) => { await api('/api/valhalla/level', { level: e.target.value }); toast('Enregistré.'); } }, ...['info', 'moyenne', 'haute', 'critique'].map((l) => el('option', { selected: l === st.level ? true : undefined }, l))), el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/valhalla/ack', { ids: (al.alerts ?? []).map((a) => a.id) }); openCatalog(); } }, 'Tout marquer vu')),
       alerts(al.alerts ?? [])));
-    box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Qui fait quoi : les liens entre applis'), el('ul', { class: 'va-list va-links' }, ...st.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}${l.auto ? '' : ' (à activer)'}`)))),
+    box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Qui fait quoi : les liens entre applis'), el('ul', { class: 'va-list va-links' }, ...st.links.map((l) => el('li', {}, el('b', {}, l.from === l.to ? `${name(l.from)} · Odin répare seul` : `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`)))),
       el('h2', { style: 'margin-top:16px' }, 'Usages de prédilection'), el('ul', { class: 'va-list' }, ...st.usages.map((u) => el('li', {}, el('b', {}, u.need), el('small', {}, `${u.chain.map(name).join(' → ')} — ${u.why}`))))));
     badge();
   }

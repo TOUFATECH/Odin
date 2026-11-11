@@ -65,7 +65,7 @@ export const eir: Module = {
   what: 'La santé de la machine en direct : processeur, mémoire, disques, réseau, températures, processus.',
   does: ['mesures en direct (processeur, mémoire, disques, réseau, charge, températures)', 'processus les plus gourmands', 'alertes : disque presque plein, mémoire saturée, surchauffe', 'mesures partagées avec Ymir, Naglfar et Forseti'],
   from: ['Glances'], upstream: ['nicolargo/glances'],
-  words: ['sante', 'santé', 'processeur', 'cpu', 'memoire', 'mémoire', 'ram', 'disque plein', 'espace disque', 'temperature', 'température', 'charge', 'lent', 'rame', 'processus', 'ressources'],
+  words: ['etat de la machine', 'état de la machine', 'etat du serveur', 'état du serveur', 'serveur', 'sante', 'santé', 'processeur', 'cpu', 'memoire', 'mémoire', 'ram', 'disque plein', 'espace disque', 'temperature', 'température', 'charge', 'lent', 'rame', 'processus', 'ressources'],
   actions: [
     { id: 'etat', label: 'État de la machine', what: 'Mesures du moment', read: true, words: ['etat', 'état', 'comment va', 'sante', 'santé'], run: () => {
       const s = snapshot();

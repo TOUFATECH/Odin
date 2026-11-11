@@ -7,6 +7,7 @@
 // mêmes validations. Ce qui n'est pas compris clairement n'est PAS tenté (le cerveau de secours
 // répond alors avec la mémoire et garde la question pour plus tard).
 
+import { helpText, understand } from '../valhalla/huginn.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 
 export type RunTool = (name: string, input: Record<string, unknown>) => Promise<{ ok: boolean; content: string }>;
@@ -67,10 +68,10 @@ const HELP = `Sans IA, je sais quand même :
  * Exécute une demande courante sans modèle. Renvoie le texte de la réponse, ou undefined si la
  * demande n'est pas comprise avec certitude (rien n'est alors tenté).
  */
-export async function offlineAct(text: string, run: RunTool, has: (tool: string) => boolean): Promise<string | undefined> {
+export async function offlineAct(text: string, run: RunTool, has: (tool: string) => boolean, sessionId = 'principal'): Promise<string | undefined> {
   const s = norm(text);
 
-  if (/^(aide|help|\?)$|que (peux|sais)[- ]tu faire|tu sais faire quoi/.test(s)) return HELP;
+  if (/^(aide|help|\?)$|que (peux|sais)[- ]tu faire|tu sais faire quoi/.test(s)) { const v = valhallaOf(); return v && has('valhalla') ? `${HELP}\n\nMes applis, sans IA aussi (dis « explique <appli> » pour le détail) :\n${helpText(v)}` : HELP; }
 
   // Mode du moment
   const mode = /\bbonne nuit\b|\bje (vais )?(me coucher|dormir)\b/.test(s) ? 'sommeil' : /\bje (conduis|suis au volant|prends la route)\b/.test(s) ? 'conduite'
@@ -124,18 +125,16 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   // Réseau local
   if (/\b(scanne|balaye|scan)\b.*\breseau\b/.test(s) && has('net_scan')) { const r = await run('net_scan', {}); return r.content.slice(0, 1500); }
 
-  // Les applis d'Odin : « quelle appli pour… », « j'ai besoin de… », ou une demande qui vise
-  // clairement une appli (« les alertes », « mes sauvegardes », « les caméras »).
+  // Les applis d'Odin, sans IA : Huginn comprend la demande (appli, action, réglages), pose une question
+  // s'il manque quelque chose, et chaque action part par l'outil « valhalla », donc sous Heimdall.
   const vh = valhallaOf();
   if (vh && has('valhalla')) {
-    if (/\bqui fait quoi\b|\bliens? entre (les )?applis\b/.test(s)) return (await run('valhalla', { action: 'liens' })).content;
     if (/^(mes |les )?applis?$|\bliste (des|les) applis\b/.test(s)) return (await run('valhalla', { action: 'lister' })).content;
-    // Seulement si une appli correspond clairement (sinon rien n'est tenté).
-    if ((vh.find(text)[0]?.score ?? 0) >= 4) {
-      const need = /\b(j'ai besoin|besoin d'|quelle appli|quel outil|comment je fais pour)\b/.test(s);
-      const r = await run('valhalla', { action: need ? 'conseiller' : 'auto', besoin: text });
-      if (r.ok && r.content.trim()) return r.content;
-    }
+    if (/\b(j'ai besoin|besoin d'|quelle appli|quel outil|comment je fais pour|comment faire pour)\b/.test(s) && (vh.find(text)[0]?.score ?? 0) >= 2) return (await run('valhalla', { action: 'conseiller', besoin: text })).content;
+    const u = await understand(vh, text, sessionId).catch(() => undefined);
+    if (u?.kind === 'say' || u?.kind === 'ask') return u.text;
+    if (u?.kind === 'manip') return (await run('valhalla', { action: 'manip', appli: u.id, quoi: u.keep ? 'garder' : 'annuler' })).content;
+    if (u?.kind === 'action') { const r = await run('valhalla', { action: 'action', appli: u.module, quoi: u.action, entree: JSON.stringify(u.input) }); return `${u.label}\n${r.content}`; }
   }
 
   return undefined;

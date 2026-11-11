@@ -44,7 +44,7 @@ export const skogul: Module = {
   what: 'Surveille le comportement des programmes et signale ce qui n\'est pas normal.',
   does: ['programme lancé depuis /tmp ou /dev/shm', 'programme effacé après son lancement', 'shell ouvert par un serveur web (site piraté)', 'mineurs de cryptomonnaie', 'nouveau port ouvert sur la machine', 'tâches planifiées modifiées', 'arrêt d\'un processus suspect (avec ton accord)'],
   from: ['Falco'], upstream: ['falcosecurity/falco'],
-  words: ['comportement', 'suspect', 'processus suspect', 'mineur', 'crypto', 'shell', 'piraté', 'pirate', 'port ouvert', 'cron'],
+  words: ['comportement', 'suspect', 'processus', 'processus suspect', 'mineur', 'crypto', 'shell', 'piraté', 'pirate', 'port ouvert', 'cron'],
   actions: [
     { id: 'analyser', label: 'Analyser maintenant', what: 'Passe tous les programmes en revue', read: true, words: ['analyse', 'verifie', 'vérifie'], run: () => { const f = judge(procs()); return { text: f.length ? f.map((x) => `- [${x.level}] ${x.rule} — ${x.detail}`).join('\n') : '✓ Aucun comportement suspect.', data: f }; } },
     { id: 'tuer', label: 'Arrêter un processus', what: 'Arrête un processus suspect', params: [{ key: 'pid', label: 'Numéro (PID)', kind: 'number', required: true }], grave: (i) => `arrêter le processus ${String(i.pid)}`, run: async (ctx, i) => { const pid = Number(i.pid); if (!Number.isInteger(pid) || pid < 2) throw new Error('PID invalide'); const r = await ctx.run('kill', ['-9', String(pid)], { sudo: true }); if (r.code) throw new Error(r.err.trim()); return { text: `✋ Processus ${pid} arrêté.` }; } },

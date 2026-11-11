@@ -24,6 +24,8 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
       catch (e) { return { ok: false, error: (e as Error).message }; }
     }
     case '/api/valhalla/alerts': return { ok: true, alerts: v.alerts({ module: q.get('module') ?? undefined, q: q.get('q') ?? undefined, limit: Number(q.get('n') ?? 200) }) };
+    // Ce qu'Odin a fait de lui-même (réflexes, soins, automatisations) : à garder ou à annuler.
+    case '/api/valhalla/manips': { const all = v.manips({ limit: Math.min(200, Number(q.get('n')) || 60) }); return { ok: true, autonomy: v.autonomy(), pending: v.manips({ state: 'à décider', limit: 500 }).length, manips: all.map((x) => ({ ...x, moduleName: v.module(x.module)?.name ?? x.module, canUndo: Boolean(x.undo), undoLabel: x.undo?.label ?? '' })) }; }
     case '/api/valhalla/advise': return { ok: true, text: advise(v, s(q.get('need'))), found: v.find(s(q.get('need'))).slice(0, 5).map((f) => ({ id: f.m.id, name: f.m.name, score: f.score, action: f.action?.id })) };
     default: return undefined;
   }
@@ -43,6 +45,19 @@ export async function valhallaPost(path: string, b: Record<string, unknown>): Pr
       if (why && b.confirm !== true) return { ok: false, confirm: `Confirmer : ${why} ?` };
       const r = await v.act(f.m.id, f.a.id, input);
       return { ok: r.ok !== false, text: r.text, data: r.data && typeof r.data === 'object' && 'file' in (r.data as object) ? { file: true } : r.data };
+    }
+    // « Garder » ou « annuler » une manip (annuler lance l'action inverse ; si elle est grave, une confirmation est demandée).
+    case '/api/valhalla/manip': {
+      const id = s(b.id), keep = b.keep !== false;
+      if (!keep && b.confirm !== true) { const x = v.manips({ limit: 500 }).find((m) => m.id === id), f = x?.undo ? v.action(x.undo.module ?? x.module, x.undo.action) : undefined; const why = f && x?.undo ? f.a.grave?.(x.undo.input, v.ctx(f.m.id)) : undefined; if (why) return { ok: false, confirm: `Confirmer : ${why} ?` }; }
+      const r = await v.decide(id, keep);
+      return { ok: r.ok, text: r.text };
+    }
+    // Une demande en français, comprise sans IA (Huginn) : « arrête le conteneur web », « les alertes », « explique Garmr ».
+    case '/api/valhalla/order': {
+      const text = s(b.text).slice(0, 2000).trim(); if (!text) return { ok: false, error: 'demande vide' };
+      const r = await v.order(text, `web:${s(b.session).replace(/[^\w-]/g, '').slice(0, 40) || 'principal'}`, { confirm: b.confirm === true });
+      return { ok: r.ok !== false, text: r.text, ...(r.confirm ? { confirm: `Confirmer : ${r.confirm} ?` } : {}), kind: r.understood?.kind ?? 'rien', module: r.understood && 'module' in r.understood ? r.understood.module : undefined };
     }
     case '/api/valhalla/ack': v.ack(Array.isArray(b.ids) ? b.ids.map(String) : []); return { ok: true };
     case '/api/valhalla/level': { const l = s(b.level); if (!['info', 'moyenne', 'haute', 'critique'].includes(l)) return { ok: false, error: 'niveau inconnu' }; v.saveSettings({ alertLevel: l }); return { ok: true }; }

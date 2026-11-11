@@ -105,7 +105,9 @@ export const gjoll: Module = {
       const k = keypair(), p: Peer = { name: s(i.nom), ...k, psk: randomBytes(32).toString('base64'), ip: `${sv.net}.${n}`, created: ctx.now().toISOString(), enabled: true, full: i.tout !== false, mesh: i.maillage === true };
       ctx.saveSettings({ peers: [...ps, p] });
       const msg = await apply(ctx);
-      return { text: `📱 « ${p.name} » ajouté (${p.ip}). Ouvre Gjöll pour scanner son QR code avec l'appli WireGuard.\n${msg}`, data: { name: p.name } };
+      // Lien Gjöll → Brísingamen : la configuration de l'appareil (sa clé privée) est rangée dans le coffre chiffré.
+      const kept = await ctx.call('brisingamen', 'ajouter', { nom: `VPN ${p.name}`, identifiant: p.name, mot_de_passe: clientConf(await ready(ctx), p, [...ps, p]), site: 'Gjöll (VPN de la maison)' }, 'nouvel accès VPN').then((r) => r.ok !== false, () => false);
+      return { text: `📱 « ${p.name} » ajouté (${p.ip}). Ouvre Gjöll pour scanner son QR code avec l'appli WireGuard.${kept ? ' Sa configuration est rangée dans le coffre (Brísingamen).' : ''}\n${msg}`, data: { name: p.name } };
     } },
     { id: 'qr', label: 'QR code', what: 'QR code de configuration (à scanner)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: async (ctx, i) => { const p = peers(ctx).find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable'); const sv = await ready(ctx), conf = clientConf(sv, p, peers(ctx)); return { text: 'QR code prêt (visible dans Gjöll).', data: { svg: svg(conf, { ecc: 'L', scale: 5 }), conf } }; } },
     { id: 'activer', label: 'Activer / désactiver', what: 'Coupe ou rouvre l\'accès d\'un appareil', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: false }], run: async (ctx, i) => { ctx.saveSettings({ peers: peers(ctx).map((p) => (p.name === s(i.nom) ? { ...p, enabled: i.actif === true } : p)) }); return { text: `${i.actif === true ? '✅ Réactivé' : '⏸ Désactivé'} : ${s(i.nom)}\n${await apply(ctx)}` }; } },

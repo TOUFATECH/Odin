@@ -196,7 +196,7 @@ export const loki: Module = {
   modes: TRAPS.map((t) => `${t.name} · ${t.proto}`),
   words: ['piege', 'piège', 'pieges', 'pièges', 'honeypot', 'pirate', 'pirates', 'attaquant', 'attaquants', 'leurre', 'tarpit'],
   actions: [
-    { id: 'allumer', label: 'Allumer un piège', what: 'Démarre un piège sur un port', params: [{ key: 'piege', label: 'Piège', kind: 'select', options: TRAPS.map((t) => t.id), required: true }, { key: 'port', label: 'Port (vide = par défaut)', kind: 'number' }], grave: (i) => `ouvrir le piège ${String(i.piege)} sur le réseau`, words: ['allume', 'active', 'ouvre'], run: async (ctx, i) => {
+    { id: 'allumer', undo: (i) => ({ action: 'eteindre', input: { piege: i.piege }, label: 'piège éteint' }), label: 'Allumer un piège', what: 'Démarre un piège sur un port', params: [{ key: 'piege', label: 'Piège', kind: 'select', options: TRAPS.map((t) => t.id), required: true }, { key: 'port', label: 'Port (vide = par défaut)', kind: 'number' }], grave: (i) => `ouvrir le piège ${String(i.piege)} sur le réseau`, words: ['allume', 'active', 'ouvre'], run: async (ctx, i) => {
       const t = TRAPS.find((x) => x.id === String(i.piege) || x.name.toLowerCase() === String(i.piege).toLowerCase()); if (!t) throw new Error('piège inconnu');
       const port = Number(i.port) || t.port; eng(ctx).stop(t.id); await eng(ctx).start(t, port);
       ctx.saveSettings({ on: { ...on(ctx), [t.id]: port } });

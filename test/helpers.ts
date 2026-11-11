@@ -27,7 +27,7 @@ export function makeOdin(script: Script, opts: { approve?: boolean | 'always'; c
     return opts.config ? opts.config(base) : base;
   };
   const odin = createOdin({ home, provider, approver, configOverride, judge: opts.judge });
-  return { ...odin, provider, approvals, cleanup: () => { odin.close(); rmSync(home, { recursive: true, force: true }); } };
+  return { ...odin, provider, approvals, cleanup: () => { odin.close(); rmSync(home, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 }); } }; // un navigateur de test peut encore écrire dans son profil une fraction de seconde
 }
 
 export const call = (name: string, input: Record<string, unknown>, id = `c_${Math.random().toString(36).slice(2, 8)}`) => ({ toolCalls: [{ id, name, input }] });

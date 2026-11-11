@@ -126,7 +126,7 @@ export async function serverHandle(v: Valhalla, msg: Rpc, advise: (need: string)
       const m = v.module(name.replace(/^odin_/, '')); if (!m) return err(-32602, `outil inconnu : ${name}`);
       const a = m.actions.find((x) => x.id === String(args.action)); if (!a) return text(`Action inconnue. Actions : ${m.actions.filter((x) => !x.grave).map((x) => x.id).join(', ')}`, true);
       const input = (args.entree && typeof args.entree === 'object' ? args.entree : {}) as Record<string, unknown>;
-      const r = await v.act(m.id, a.id, input, { auto: true });
+      const r = await v.act(m.id, a.id, input, { auto: true, by: 'assistant', why: 'demandé par un autre assistant (MCP)' });
       return text(r.text, r.ok === false);
     }
     default: return err(-32601, `méthode inconnue : ${msg.method}`);
