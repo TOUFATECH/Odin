@@ -1,0 +1,416 @@
+<title>Odin, le guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Mise en page : un carnet de bord. Des onglets en haut, une colonne de lecture, et la mascotte d'Odin posée en bas à droite, qui commente la page en cours. Couleurs et lettres reprises de l'interface d'Odin. */
+:root{color-scheme:dark;
+  --bg:#101A24;--panel:#172533;--panel2:#13202C;--line:#263849;--ink:#E6ECEF;--muted:#A9B8C4;--accent:#E3AC3F;--accent-2:#F2C366;--on-accent:#1B1404;--good:#6CCFB8;--warn:#F0B860;--bad:#EE8A70;--glow:rgba(227,172,63,.14);
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;--body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){color-scheme:light;--bg:#EEF2F1;--panel:#FFFFFF;--panel2:#F6F8F7;--line:#D7E0DF;--ink:#15212B;--muted:#4C5B67;--accent:#8F5E0B;--accent-2:#A9700F;--on-accent:#FFFFFF;--good:#1D7F68;--warn:#8F6200;--bad:#B4472C;--glow:rgba(169,112,15,.10)}}
+:root[data-theme="light"]{color-scheme:light;--bg:#EEF2F1;--panel:#FFFFFF;--panel2:#F6F8F7;--line:#D7E0DF;--ink:#15212B;--muted:#4C5B67;--accent:#8F5E0B;--accent-2:#A9700F;--on-accent:#FFFFFF;--good:#1D7F68;--warn:#8F6200;--bad:#B4472C;--glow:rgba(169,112,15,.10)}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--body);-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1080px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);line-height:1.12;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6.2vw,56px);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(24px,3.4vw,32px);font-weight:800;letter-spacing:-.01em}
+h3{font-size:18px;font-weight:600}
+p{margin:0;max-width:68ch}
+.lead{font-size:18px;color:var(--muted)}
+.eyebrow{font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.stack{display:flex;flex-direction:column;gap:14px}
+.stack.wide{gap:30px}
+/* Barre du haut */
+.top{background:var(--bg);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding-block:10px}
+.brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.14em;color:var(--ink);text-decoration:none}
+.brand svg{width:30px;height:30px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0;list-style:none}
+.tabs a{display:block;padding:7px 11px;border-radius:9px;color:var(--muted);text-decoration:none;font-size:14.5px;font-weight:500}
+.tabs a:hover{color:var(--ink);background:var(--panel)}
+.tabs a[aria-current="page"]{background:var(--panel);color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+@media (min-width:860px){.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9}}
+main{padding-block:34px 150px}
+section.view{display:flex;flex-direction:column;gap:30px}
+/* Accueil */
+.hero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:26px;align-items:center}
+.hero .face{justify-self:center;width:min(250px,62vw);aspect-ratio:1;max-width:100%}
+.hero .face svg{width:100%;height:100%;overflow:visible}
+@media (max-width:720px){.hero{grid-template-columns:minmax(0,1fr)}.hero .face{order:-1;width:150px}}
+.figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px 18px;font-variant-numeric:tabular-nums;max-width:600px}
+.figures div{display:flex;flex-direction:column;min-width:0}
+.figures b{font-family:var(--display);font-size:28px;font-weight:800;color:var(--accent-2);line-height:1.1}
+.figures span{color:var(--muted);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card p{color:var(--muted);font-size:15px}
+a.card{text-decoration:none;color:var(--ink)}
+a.card:hover{border-color:var(--accent)}
+a.card .go{color:var(--accent);font-size:14px;font-weight:600;margin-top:auto}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:4px 34px;margin:0;padding:0;list-style:none}
+.why li{padding:12px 0;border-top:1px solid var(--line);min-width:0}
+.why b{display:block;font-family:var(--display);font-size:17px}
+.why span{color:var(--muted);font-size:15px}
+/* Parcours d'une demande */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px}
+.flow > div{flex:1 1 150px;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;position:relative}
+.flow b{display:block;font-size:15px}
+.flow span{font-size:13.5px;color:var(--muted)}
+.flow .key{border-color:var(--accent);background:var(--glow)}
+/* Listes et tableaux */
+ul.plain,ol.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+ul.plain li::marker{color:var(--accent)}
+ol.plain li::marker{color:var(--accent);font-weight:600}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:520px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--panel2)}
+tr:last-child td{border-bottom:0}
+.say{font-family:var(--body);font-style:italic}
+.say::before{content:"«\00a0"}.say::after{content:"\00a0»"}
+/* Commandes */
+.cmd{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:12px;background:var(--panel2);overflow:hidden;max-width:100%}
+.cmd pre{margin:0;padding:12px 14px;overflow-x:auto;font:400 13.5px/1.5 var(--mono);flex:1;min-width:0;white-space:pre}
+.cmd button{border:0;border-left:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 13.5px var(--body);padding:0 14px;cursor:pointer;min-width:74px}
+.cmd button:hover{color:var(--accent)}
+code{font-family:var(--mono);font-size:.9em;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+.note{border-left:3px solid var(--accent);background:var(--glow);padding:11px 14px;border-radius:0 10px 10px 0;max-width:72ch;font-size:15px}
+.note.bad{border-color:var(--bad)}
+/* Applis */
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.tools input{flex:1 1 240px;min-width:0;height:44px;border-radius:11px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 14px;font:16px var(--body)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{height:36px;padding:0 13px;border-radius:18px;border:1px solid var(--line);background:transparent;color:var(--muted);font:500 14px var(--body);cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;align-items:start}
+details.app{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-width:0}
+details.app[open]{grid-column:1/-1;border-color:var(--accent)}
+details.app summary{list-style:none;cursor:pointer;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+details.app summary::-webkit-details-marker{display:none}
+.app .name{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.app .name b{font-family:var(--display);font-size:19px;font-weight:800}
+.fam{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.fam::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--c,var(--accent))}
+.app summary p{color:var(--muted);font-size:14.5px}
+.app .more{font-size:13.5px;color:var(--accent);font-weight:600}
+.app[open] .more{display:none}
+.app .body{padding:2px 16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px 30px}
+.app .body > div{min-width:0;display:flex;flex-direction:column;gap:8px}
+.app h4{margin:0;font:600 12.5px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.app ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14.5px}
+.app .acts li{list-style:none;margin-left:-18px}
+.kind{display:inline-block;font:500 11.5px var(--body);letter-spacing:.04em;border:1px solid var(--line);border-radius:6px;padding:0 6px;margin-left:6px;color:var(--muted);white-space:nowrap}
+.kind.g{border-color:var(--bad);color:var(--bad)}.kind.u{border-color:var(--good);color:var(--good)}
+.app .acts span.w{color:var(--muted)}
+.empty{color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--muted)}
+/* Liens */
+.links{display:flex;flex-direction:column;gap:0;margin:0;padding:0;list-style:none}
+.links li{display:grid;grid-template-columns:minmax(0,210px) minmax(0,1fr);gap:4px 16px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.links b{font-weight:600}
+.links span{color:var(--muted)}
+@media (max-width:620px){.links li{grid-template-columns:minmax(0,1fr)}}
+/* La mascotte qui guide */
+.guide{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
+.guide > *{pointer-events:auto}
+.guide .orb{width:74px;height:74px;border-radius:50%;border:0;background:transparent;padding:0;cursor:pointer}
+.guide .orb svg{width:100%;height:100%;overflow:visible}
+.bubble{width:min(360px,calc(100vw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));max-height:min(70vh,520px);overflow:auto;background:var(--panel);border:1px solid var(--accent);border-radius:16px 16px 4px 16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.28);font-size:15px}
+.bubble h3{font-size:16px}
+.bubble p{color:var(--muted)}
+.bubble form{display:flex;gap:6px}
+.bubble input{flex:1;min-width:0;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:0 11px;font:15px var(--body)}
+.btn{height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:var(--on-accent);font:600 14.5px var(--body);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent)}
+.bubble .res{display:flex;flex-direction:column;gap:8px}
+.bubble .res button{all:unset;cursor:pointer;display:block;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.bubble .res button:focus-visible{outline:2px solid var(--accent)}
+.bubble .res b{display:block}
+.bubble .res span{color:var(--muted);font-size:14px}
+.bubble .row{display:flex;gap:8px;flex-wrap:wrap}
+/* Vie de la mascotte */
+.face .body,.orb .body{transform-origin:60px 60px;animation:bob 5.5s ease-in-out infinite}
+.face .eye,.orb .eye{transform-box:fill-box;transform-origin:center;animation:blink 6s infinite}
+.orb.hop{animation:hop .6s ease}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes blink{0%,46%,50%,100%{transform:scaleY(1)}48%{transform:scaleY(.12)}}
+@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px)}}
+@media (prefers-reduced-motion:reduce){.face .body,.orb .body,.face .eye,.orb .eye,.orb.hop{animation:none}}
+</style>
+
+<header class="top"><div class="wrap">
+  <a class="brand" href="#accueil" aria-label="Odin, accueil du guide"><span aria-hidden="true"><!--MASCOT-A--></span>ODIN</a>
+  <nav aria-label="Rubriques du guide"><ul class="tabs" id="tabs">
+    <li><a href="#accueil">Accueil</a></li><li><a href="#applis">Applis</a></li><li><a href="#liens">Liens</a></li><li><a href="#fonctionnement">Fonctionnement</a></li><li><a href="#installer">Installer</a></li><li><a href="#configurer">Configurer</a></li><li><a href="#utiliser">Utiliser</a></li><li><a href="#securite">Sécurité</a></li><li><a href="#limites">Limites</a></li>
+  </ul></nav>
+</div></header>
+
+<main class="wrap">
+
+<section class="view" id="v-accueil">
+  <div class="hero">
+    <div class="stack">
+      <span class="eyebrow">Le guide d'Odin</span>
+      <h1>Un agent chez toi, qui agit et te rend compte.</h1>
+      <p class="lead">Odin tourne sur ta machine. Il surveille, répare, range et pilote : ta sécurité, tes serveurs, tes sites, ta maison, tes notes. Il te prévient de ce qu'il fait, et tu gardes toujours le dernier mot.</p>
+      <div class="figures"><div><b>{{apps}}</b><span>applis reliées</span></div><div><b>{{links}}</b><span>liens automatiques</span></div><div><b>{{actions}}</b><span>actions</span></div><div><b>{{tests}}</b><span>tests au vert</span></div></div>
+    </div>
+    <div class="face" aria-hidden="true"><!--MASCOT-B--></div>
+  </div>
+
+  <div class="stack">
+    <h2>Pourquoi avoir Odin</h2>
+    <ul class="why">
+      <li><b>Tout au même endroit</b><span>{{apps}} applis faites maison, rangées en cinq familles, qui se parlent entre elles. Une seule interface, un seul fil d'alertes.</span></li>
+      <li><b>Il marche même sans IA</b><span>Les demandes courantes sont comprises par un moteur à règles. « Arrête le conteneur web », « les alertes », « teste le site » : pas besoin de modèle.</span></li>
+      <li><b>Tu gardes la main</b><span>Ce qui est grave attend ton accord. Ce qu'il fait de lui-même, il te le dit : tu gardes ou tu annules.</span></li>
+      <li><b>Tout reste chez toi</b><span>Tes données sont sur ta machine. Les mots de passe et les clés vont dans un coffre, et ne sont jamais affichés.</span></li>
+      <li><b>Il relie les signaux</b><span>Un processus bizarre, une connexion nouvelle, un fichier modifié : seuls, ils ne disent rien. Ensemble, Odin en fait un incident, avec sa chronologie.</span></li>
+      <li><b>Il est léger</b><span>Node.js et un fichier de données. Pas de serveur à louer, pas d'abonnement obligatoire.</span></li>
+    </ul>
+  </div>
+
+  <div class="stack">
+    <h2>Par où commencer</h2>
+    <div class="grid">
+      <a class="card" href="#installer"><h3>Installer</h3><p>Une commande sur macOS, Linux ou Windows. Cinq minutes.</p><span class="go">Voir les commandes</span></a>
+      <a class="card" href="#configurer"><h3>Configurer</h3><p>Ton compte, le modèle d'IA si tu en veux un, les accès de chaque appli.</p><span class="go">Voir les réglages</span></a>
+      <a class="card" href="#utiliser"><h3>Utiliser</h3><p>Lui parler, lire ses alertes, garder ou annuler ce qu'il fait.</p><span class="go">Voir les exemples</span></a>
+      <a class="card" href="#applis"><h3>Les {{apps}} applis</h3><p>Ce que fait chacune, comment lui parler, avec quoi elle est reliée.</p><span class="go">Ouvrir le catalogue</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="view" id="v-applis" hidden>
+  <div class="stack"><span class="eyebrow">Catalogue</span><h2>Les {{apps}} applis d'Odin</h2><p class="lead">Chaque fiche vient du code d'Odin : ce que l'appli fait, les phrases qu'elle comprend sans IA, ses actions et ses liens.</p></div>
+  <div class="tools"><input id="q" type="search" placeholder="Chercher : sauvegarde, caméra, site, mot de passe…" aria-label="Chercher dans les applis"><div class="chips" id="fams" role="group" aria-label="Familles d'applis"></div></div>
+  <div class="legend"><span><span class="kind">lecture</span> ne change rien</span><span><span class="kind">action</span> simple</span><span><span class="kind u">annulable</span> Odin sait la défaire</span><span><span class="kind g">ton accord</span> action grave, toujours confirmée</span></div>
+  <div class="apps" id="apps"></div>
+  <p class="empty" id="none" hidden>Aucune appli ne correspond. Essaie un autre mot, ou demande à la mascotte en bas à droite.</p>
+</section>
+
+<section class="view" id="v-liens" hidden>
+  <div class="stack"><span class="eyebrow">Qui parle à qui</span><h2>{{links}} liens entre les applis</h2><p class="lead">Tous sont automatiques : il n'y a rien à activer. Chacun est vérifié par un test, pour que cette liste ne promette pas plus que le code.</p></div>
+  <div class="stack"><h3>Pour quel besoin, quelles applis</h3><div class="tbl"><table><thead><tr><th>Ton besoin</th><th>La chaîne d'applis</th><th>Pourquoi</th></tr></thead><tbody id="usages"></tbody></table></div></div>
+  <div class="stack"><h3>Réflexes</h3><p>Une appli en déclenche une autre. Ce qu'Odin fait ainsi est noté dans ses manips : tu peux garder ou annuler.</p><ul class="links" id="l-reflexe"></ul></div>
+  <div class="stack"><h3>Soins</h3><p>Odin répare ou vérifie tout seul, au plus une fois par heure pour la même chose. Au niveau « Me demander », il propose seulement.</p><ul class="links" id="l-soin"></ul></div>
+  <div class="stack"><h3>Données</h3><p>Une appli en alimente une autre en continu.</p><ul class="links" id="l-donnee"></ul></div>
+</section>
+
+<section class="view" id="v-fonctionnement" hidden>
+  <div class="stack"><span class="eyebrow">Mode de fonctionnement</span><h2>Comment Odin décide et agit</h2><p class="lead">Une demande suit toujours le même chemin, qu'elle vienne de toi, d'une automatisation ou d'Odin lui-même.</p></div>
+  <div class="flow" aria-label="Le chemin d'une demande">
+    <div><b>1. Tu demandes</b><span>Discussion, page d'une appli, Telegram, voix.</span></div>
+    <div class="key"><b>2. Odin comprend</b><span>Sans IA : Huginn, un moteur à règles. Avec une IA : tu parles librement.</span></div>
+    <div><b>3. L'appli agit</b><span>Les mêmes actions, dans les deux cas.</span></div>
+    <div class="key"><b>4. Heimdall contrôle</b><span>Action grave : ton accord, toujours.</span></div>
+    <div><b>5. Odin te rend compte</b><span>Résultat, alerte, ou manip à garder ou annuler.</span></div>
+  </div>
+  <div class="stack"><h3>Avec ou sans IA</h3>
+    <ul class="plain"><li><b>Sans IA connectée</b>, Odin comprend les demandes qui visent ses applis. Il lit la phrase, choisit l'appli et l'action, remplit les réglages (une adresse, un nom, une durée). Il ne devine pas : s'il n'est pas sûr, il ne fait rien ; s'il manque un réglage, il le demande.</li><li><b>Avec une IA</b>, tu parles librement et Odin enchaîne plusieurs applis pour un même but. L'IA passe par les mêmes actions et les mêmes garde-fous.</li><li>Une question ne lance jamais une action qui change quelque chose : seulement une lecture.</li></ul></div>
+  <div class="stack"><h3>Quatre niveaux d'autonomie</h3>
+    <div class="tbl"><table><thead><tr><th>Niveau</th><th>Ce qu'Odin fait seul</th></tr></thead><tbody>
+      <tr><td><b>Me demander</b></td><td>Rien : il propose, tu décides.</td></tr>
+      <tr><td><b>Équilibré</b></td><td>Ce qui est simple et annulable, en te prévenant.</td></tr>
+      <tr><td><b>Autonome</b></td><td>Il enchaîne davantage, toujours en te prévenant.</td></tr>
+      <tr><td><b>Odin Breaker</b></td><td>Il agit seul et garde ses manips. Les actions graves attendent quand même ton accord.</td></tr>
+    </tbody></table></div></div>
+  <div class="stack"><h3>Les manips : garder ou annuler</h3><p>Chaque chose qu'Odin fait sans que tu l'aies demandée est une manip. Elle est notée, tu es prévenu, et tu réponds <span class="say">garde</span> ou <span class="say">annule</span>. Annuler lance l'action inverse : débannir une adresse, remettre un fichier à sa place, revenir au déploiement d'avant. En mode Odin Breaker, Odin garde seul, et tu peux encore annuler.</p></div>
+  <div class="stack"><h3>Ce qui ne change jamais</h3>
+    <ul class="plain"><li>Les commandes destructrices sont interdites.</li><li>Une action grave (supprimer, ouvrir un accès, éteindre une machine, mettre en production) demande ton accord et ne part jamais d'une automatisation.</li><li>Ce qui vient d'un mail, d'une page web, d'un dépôt de code ou d'un document est une donnée, jamais un ordre.</li><li>Les mots de passe et les clés restent au coffre : ni affichés, ni écrits dans les notes.</li><li>Odin ne contourne ni captcha ni connexion.</li></ul></div>
+  <div class="stack"><h3>Le Cerveau</h3><p>Tes notes, reliées entre elles. Odin y tient une fiche par appli, la carte des liens et son mode de fonctionnement. Aucun de tes réglages n'y est écrit. Ce que tu ajoutes sous « Mes notes » est conservé.</p></div>
+</section>
+
+<section class="view" id="v-installer" hidden>
+  <div class="stack"><span class="eyebrow">Installation</span><h2>Installer Odin</h2><p class="lead">Une commande suffit. L'installateur ne touche pas au système : tout va dans ton dossier personnel.</p></div>
+  <div class="stack"><h3>macOS et Linux</h3><div class="cmd"><pre id="c1">curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash</pre><button type="button" data-copy="c1">Copier</button></div></div>
+  <div class="stack"><h3>Windows (PowerShell, sans droits administrateur)</h3><div class="cmd"><pre id="c2">irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex</pre><button type="button" data-copy="c2">Copier</button></div></div>
+  <div class="stack"><h3>Ce que fait l'installateur</h3>
+    <ol class="plain"><li>Il vérifie Node.js 22.18 ou plus. S'il manque, il télécharge la version officielle (somme vérifiée) dans ton dossier personnel.</li><li>Il installe Odin dans <code>~/.odin/app</code> (ou <code>%LOCALAPPDATA%\Odin\app</code> sur Windows).</li><li>Il crée la commande <code>odin</code>.</li><li>Il prépare <code>~/.odin</code> : configuration, personnalité, mémoire, espace de travail.</li><li>Il te propose ta clé d'API, l'inventaire du réseau local et le démarrage automatique.</li></ol></div>
+  <div class="stack"><h3>Depuis les sources</h3><div class="cmd"><pre id="c3">git clone https://github.com/TOUFATECH/Odin.git
+cd Odin
+npm install
+npm link
+odin init</pre><button type="button" data-copy="c3">Copier</button></div><p>Node.js exécute directement le TypeScript : il n'y a rien à compiler.</p></div>
+  <div class="stack"><h3>Ensuite</h3><div class="tbl"><table><thead><tr><th>Commande</th><th>Ce qu'elle fait</th></tr></thead><tbody>
+    <tr><td><code>odin web</code></td><td>ouvre l'interface dans ton navigateur</td></tr><tr><td><code>odin chat</code></td><td>parle à Odin dans le terminal</td></tr><tr><td><code>odin doctor</code></td><td>vérifie que tout est en place</td></tr><tr><td><code>odin update</code></td><td>met Odin à jour</td></tr>
+  </tbody></table></div></div>
+</section>
+
+<section class="view" id="v-configurer" hidden>
+  <div class="stack"><span class="eyebrow">Configuration</span><h2>Configurer Odin</h2><p class="lead">Tout se règle dans l'interface. Rien n'est obligatoire au-delà du compte : Odin marche tout de suite, et tu ajoutes le reste quand tu en as besoin.</p></div>
+  <div class="stack"><h3>Dans l'ordre</h3>
+    <ol class="plain">
+      <li><b>Ton compte.</b> À la première ouverture, tu donnes ton prénom, ton nom, ton adresse e-mail, et tu crées ton mot de passe. Ces identifiants sont ensuite demandés pour entrer, avec une session par appareil.</li>
+      <li><b>Le modèle d'IA (facultatif).</b> Réglages : choisis un fournisseur (Anthropic, OpenRouter, OpenAI, Ollama en local, ou un service compatible), colle la clé, clique Tester puis Enregistrer. Sans modèle, les applis restent pilotables par les phrases comprises sans IA.</li>
+      <li><b>Le niveau d'autonomie.</b> De « Me demander » à « Odin Breaker ». Commence par « Équilibré ».</li>
+      <li><b>Ta messagerie.</b> Un bot Telegram pour recevoir les alertes et répondre « garde » ou « annule » où que tu sois.</li>
+      <li><b>Les accès de chaque appli.</b> Sur la page de l'appli, dans son encadré. Voir le tableau.</li>
+    </ol></div>
+  <div class="stack"><h3>Les accès, appli par appli</h3><div class="tbl"><table><thead><tr><th>Appli</th><th>Ce qu'elle demande</th><th>À quoi ça sert</th></tr></thead><tbody>
+    <tr><td>Ullr (antivirus)</td><td>clé abuse.ch, gratuite ; clé VirusTotal, facultative</td><td>plus de signatures de malwares connus. Sans clé, les sources libres sans compte suffisent pour démarrer.</td></tr>
+    <tr><td>Idunn (sites web)</td><td>jetons GitHub, Vercel, Cloudflare (ceux que tu utilises)</td><td>suivre le code, les déploiements et le DNS ; relancer, déployer, mettre à jour</td></tr>
+    <tr><td>Ymir (machines virtuelles)</td><td>adresse et jeton Proxmox</td><td>voir et piloter les machines virtuelles</td></tr>
+    <tr><td>Midgard et Appareils (maison)</td><td>jeton Home Assistant, ou relais MQTT d'Odin</td><td>piloter les appareils, lancer des scènes</td></tr>
+    <tr><td>Sindri (sauvegardes)</td><td>un mot de passe de chiffrement</td><td>chiffrer tes sauvegardes</td></tr>
+    <tr><td>Ratatoskr (serveurs MCP)</td><td>le jeton de chaque serveur branché</td><td>donner à Odin les outils d'autres services</td></tr>
+  </tbody></table></div></div>
+  <p class="note">Les clés et les jetons sont écrits dans <code>~/.odin/env</code>, lisible par toi seul. Ils ne sont jamais dans <code>config.json</code>, jamais renvoyés à la page, et masqués partout où Odin écrit. Changer un jeton demande ta confirmation : une automatisation ne peut pas le faire.</p>
+</section>
+
+<section class="view" id="v-utiliser" hidden>
+  <div class="stack"><span class="eyebrow">Au quotidien</span><h2>Utiliser Odin</h2><p class="lead">Tu lui parles, ou tu ouvres la page d'une appli. Les deux mènent aux mêmes actions.</p></div>
+  <div class="stack"><h3>Où est quoi</h3><div class="tbl"><table><thead><tr><th>Espace</th><th>Ce que tu y fais</th></tr></thead><tbody>
+    <tr><td><b>Aujourd'hui</b></td><td>l'essentiel du moment : alertes, rappels, ce qu'Odin a fait</td></tr>
+    <tr><td><b>Discussion</b></td><td>tu parles à Odin, par écrit ou à la voix</td></tr>
+    <tr><td><b>Applis</b></td><td>une page par appli : ses indicateurs, ses tableaux, ses boutons</td></tr>
+    <tr><td><b>Cerveau</b></td><td>tes notes, le graphe, et les fiches qu'Odin tient à jour</td></tr>
+    <tr><td><b>Maison</b></td><td>ton réseau et les appareils de la maison</td></tr>
+    <tr><td><b>Automatisations</b></td><td>« quand ceci arrive, fais cela », entre plusieurs applis</td></tr>
+    <tr><td><b>Réglages</b></td><td>modèle d'IA, accès, compte, niveau d'autonomie</td></tr>
+  </tbody></table></div><p>Partout : <code>Ctrl K</code> ou <code>/</code> ouvre la barre de commande.</p></div>
+  <div class="stack"><h3>Des phrases qui marchent sans IA</h3><div class="tbl"><table><thead><tr><th>Tu dis</th><th>Appli</th><th>Ce qui se passe</th></tr></thead><tbody>
+    <tr><td class="say">les alertes</td><td>Forseti</td><td>le fil commun de toutes les applis</td></tr>
+    <tr><td class="say">analyse mes téléchargements</td><td>Ullr</td><td>analyse antivirus du dossier ; ce qui est sûr va en quarantaine (annulable)</td></tr>
+    <tr><td class="say">arrête le conteneur web</td><td>Naglfar</td><td>le conteneur est arrêté</td></tr>
+    <tr><td class="say">bannis 203.0.113.9</td><td>Garmr</td><td>l'adresse est bloquée au pare-feu</td></tr>
+    <tr><td class="say">surveille le site https://monsite.fr</td><td>Idunn</td><td>le site est vérifié toutes les 5 minutes</td></tr>
+    <tr><td class="say">les erreurs du site monsite depuis 2 jours</td><td>Idunn</td><td>seulement les événements demandés</td></tr>
+    <tr><td class="say">mes sauvegardes</td><td>Sindri</td><td>les plans et les dernières sauvegardes</td></tr>
+    <tr><td class="say">mes manips</td><td>Odin</td><td>ce qu'il a fait de lui-même, à garder ou annuler</td></tr>
+    <tr><td class="say">c'est quoi Ullr</td><td>Odin</td><td>il explique l'appli, ses liens, et donne des exemples</td></tr>
+  </tbody></table></div></div>
+  <div class="stack"><h3>La mascotte</h3><p>Dans Odin, la mascotte se promène sur toutes les pages. Touche-la : elle explique la page où tu es, ce que fait l'appli ouverte et à quoi elle sert. Elle te dit aussi ce qui est nouveau, et tu peux lui poser une question. Ici, celle du coin en bas à droite fait la même chose pour ce guide.</p></div>
+  <div class="stack"><h3>Ce qu'Odin sait faire d'autre</h3>
+    <ul class="plain"><li><b>Travailler sur ta machine</b> : fichiers, commandes, sous-agents en parallèle, toujours sous le contrôle de Heimdall.</li><li><b>Chercher et vérifier</b> : recherche sur le web avec sources, navigateur pour ouvrir des pages et remplir des formulaires.</li><li><b>Se souvenir</b> : une mémoire durable, et des compétences qu'il propose après une tâche réussie. Tu les relis avant de les activer.</li><li><b>Planifier</b> : tâches à heure fixe, routines, bilan de la semaine.</li><li><b>Connaître ton réseau</b> : inventaire des appareils, alerte quand l'un apparaît ou disparaît.</li><li><b>Parler et écouter</b> : conversation à la voix, annonces sur les enceintes.</li><li><b>Être joignable</b> : interface web, terminal, Telegram, API.</li></ul></div>
+</section>
+
+<section class="view" id="v-securite" hidden>
+  <div class="stack"><span class="eyebrow">Sécurité</span><h2>Ce qui protège Odin, et toi</h2><p class="lead">Odin agit sur ta machine : sa sécurité n'est pas une option. Voici les règles, écrites dans le code et couvertes par les tests.</p></div>
+  <div class="grid">
+    <div class="card"><h3>Un compte, des sessions</h3><p>Prénom, nom, adresse et mot de passe à la première connexion. Ensuite, une session par appareil. Les essais ratés sont comptés et signalés à l'antivirus.</p></div>
+    <div class="card"><h3>Heimdall, le garde</h3><p>Chaque action a une gravité. Les commandes destructrices sont interdites. Les actions graves attendent ton accord, même en mode Odin Breaker.</p></div>
+    <div class="card"><h3>Le coffre</h3><p>Clés et mots de passe sont rangés à part, masqués dans tout ce qu'Odin écrit, et les fichiers de secrets sont fermés à ses outils.</p></div>
+    <div class="card"><h3>Rien de l'extérieur n'est un ordre</h3><p>Une page web, un mail, un message de commit, la réponse d'un autre service : Odin les lit comme des données. Une page piégée ne lui fait rien exécuter.</p></div>
+    <div class="card"><h3>Ullr, l'antivirus</h3><p>Fichiers, archives, liens et messages. Il se met à jour seul avec des paquets signés, met en quarantaine ce qui est sûr (annulable), et relie les signaux en incidents.</p></div>
+    <div class="card"><h3>Les autres assistants</h3><p>Odin peut ouvrir ses applis à un autre assistant. Les actions graves et les changements de clés n'y sont pas proposés.</p></div>
+  </div>
+  <p class="note">Aucun antivirus ne détecte tout, et celui-ci n'a pas été validé par un laboratoire indépendant. Ullr est une protection de plus, pas une garantie.</p>
+</section>
+
+<section class="view" id="v-limites" hidden>
+  <div class="stack"><span class="eyebrow">Dit clairement</span><h2>Ce qui n'est pas fait, ou pas encore essayé</h2><p class="lead">Un guide utile dit aussi où sont les bords.</p></div>
+  <div class="stack"><h3>Pas encore fait</h3>
+    <ul class="plain"><li>La double authentification à la connexion.</li><li>Des agents antivirus pour Windows, macOS, Android et iOS : Ullr protège la machine où tourne Odin.</li><li>La connexion aux serveurs MCP qui exigent un navigateur (OAuth), comme celui de Vercel. Odin passe alors par l'API du service.</li><li>Pour le code d'un site, l'IA modifie un fichier à la fois, sur une branche à part. Tu relis toujours avant de fusionner.</li></ul></div>
+  <div class="stack"><h3>Simulé dans les tests, à essayer chez toi</h3>
+    <ul class="plain"><li>Les API de GitHub, Vercel et Cloudflare (Idunn) : le site surveillé est un vrai serveur, les trois services sont simulés.</li><li>Les sources abuse.ch et VirusTotal (Ullr) : leurs formats sont testés, pas leurs serveurs.</li><li>Proxmox, les modules Tasmota et Telegram.</li></ul></div>
+  <div class="stack"><h3>Mesuré, ou non</h3>
+    <ul class="plain"><li>Mesuré : aucune fausse alerte sur 128 141 fichiers sains ; le fichier de test des antivirus est détecté à l'arrivée et dans les archives.</li><li>Non mesuré : le taux de détection sur de vrais malwares. Ils ne se manipulent qu'en laboratoire isolé.</li></ul></div>
+  <p class="note">Les applis les plus récentes (Ullr, Idunn, les fiches du Cerveau, le guide de la mascotte) sont sur la branche de travail du dépôt. Elles arrivent dans l'installation normale quand la branche est fusionnée.</p>
+</section>
+
+</main>
+
+<div class="guide" id="guide">
+  <div class="bubble" id="bubble" role="dialog" aria-label="Odin explique cette page" hidden></div>
+  <button class="orb" id="orb" type="button" aria-expanded="false" aria-controls="bubble" aria-label="Demander à Odin d'expliquer cette page"><!--MASCOT-C--></button>
+</div>
+
+<script>
+const D = /*DATA*/null;
+const $ = (s) => document.querySelector(s);
+const el = (tag, props = {}, ...kids) => { const n = document.createElement(tag); for (const [k, v] of Object.entries(props)) { if (k === 'class') n.className = v; else if (k === 'text') n.textContent = v; else n.setAttribute(k, v); } for (const k of kids) if (k) n.append(k); return n; };
+const norm = (t) => String(t).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const FAM = { 'Données': '#E3AC3F', 'Machines': '#6CCFB8', 'Accès': '#7FB2E5', 'Sécurité': '#EE8A70', 'Maison': '#B79CE8' };
+const KIND = { l: 'lecture', a: 'action', u: 'annulable', g: 'ton accord' };
+const VIEWS = ['accueil', 'applis', 'liens', 'fonctionnement', 'installer', 'configurer', 'utiliser', 'securite', 'limites'];
+const TIPS = {
+  accueil: ['Bienvenue', 'Je suis Odin. Ce guide explique ce que je fais, comment m\'installer et comment me parler. Commence par « Installer », ou ouvre le catalogue des applis.'],
+  applis: ['Le catalogue', 'Une fiche par appli. Tape un mot dans la recherche, ou choisis une famille. Ouvre une fiche pour voir ses actions : « ton accord » veut dire que je demande toujours avant d\'agir.'],
+  liens: ['Les liens', 'Mes applis travaillent ensemble sans que tu aies rien à activer. Le premier tableau part de ton besoin et te donne la chaîne d\'applis à utiliser.'],
+  fonctionnement: ['Mon fonctionnement', 'Une demande passe toujours par les mêmes étapes. Retiens deux choses : je marche sans IA pour mes applis, et ce qui est grave attend ton accord.'],
+  installer: ['L\'installation', 'Une seule commande. Le bouton « Copier » la met dans ton presse-papiers. Rien n\'est installé hors de ton dossier personnel.'],
+  configurer: ['Les réglages', 'Seul le compte est obligatoire. Ajoute une IA si tu veux me parler librement, puis les accès des applis que tu utilises.'],
+  utiliser: ['Au quotidien', 'Parle-moi comme dans le tableau : ces phrases marchent sans IA. Avec une IA, dis-le comme tu veux.'],
+  securite: ['Ma sécurité', 'Ces règles ne se désactivent pas. Même en mode Odin Breaker, une action grave attend ton accord.'],
+  limites: ['Mes limites', 'Je préfère te dire ce qui n\'est pas fait. Ce qui est « simulé dans les tests » est à essayer chez toi, en commençant par les lectures.'],
+};
+let view = 'accueil', fam = '';
+
+// ---- Catalogue des applis
+function card(a) {
+  const d = el('details', { class: 'app', id: `app-${a.id}` });
+  const fm = el('span', { class: 'fam', text: a.f }); fm.style.setProperty('--c', FAM[a.f] || '');
+  d.append(el('summary', {}, el('span', { class: 'name' }, el('b', { text: a.n }), fm), el('p', { text: a.w }), el('span', { class: 'more', text: 'Voir la fiche' })));
+  const list = (items) => { const u = el('ul'); for (const t of items) u.append(el('li', { text: t })); return u; };
+  const body = el('div', { class: 'body' });
+  body.append(el('div', {}, el('h4', { text: 'Ce qu\'elle fait' }), list(a.d)));
+  const say = el('ul'); for (const x of a.x) say.append(el('li', {}, el('span', { class: 'say', text: x })));
+  body.append(el('div', {}, el('h4', { text: 'Lui parler, sans IA' }), say, a.m.length ? el('p', { class: 'empty', text: `Ses modes : ${a.m.join(', ')}.` }) : null));
+  const acts = el('ul', { class: 'acts' }); for (const x of a.a) acts.append(el('li', {}, el('b', { text: x.l }), el('span', { class: `kind ${x.k}`, text: KIND[x.k] }), el('span', { class: 'w', text: ` ${x.w}` })));
+  body.append(el('div', {}, el('h4', { text: `Ses ${a.a.length} actions` }), acts));
+  const links = [...a.li.map((l) => `${l.n} → ${a.n} : ${l.t}`), ...a.lo.map((l) => (l.n ? `${a.n} → ${l.n} : ${l.t}` : `${a.n} se surveille : ${l.t}`))];
+  body.append(el('div', {}, el('h4', { text: 'Ses liens' }), links.length ? list(links) : el('p', { class: 'empty', text: 'Elle travaille seule, et ses alertes rejoignent le fil commun.' }), a.o.length ? el('p', { class: 'empty', text: `Elle reprend les fonctions utiles de : ${a.o.join(', ')}.` }) : null));
+  d.append(body);
+  d.dataset.text = norm([a.n, a.f, a.w, ...a.d, ...a.x, ...a.a.map((x) => `${x.l} ${x.w}`), ...a.o].join(' '));
+  d.dataset.fam = a.f;
+  return d;
+}
+function filterApps() {
+  const words = norm($('#q').value).split(/\s+/).filter(Boolean); let n = 0;
+  for (const d of document.querySelectorAll('details.app')) { const ok = (!fam || d.dataset.fam === fam) && words.every((w) => d.dataset.text.includes(w)); d.hidden = !ok; if (ok) n++; }
+  $('#none').hidden = n > 0;
+}
+function build() {
+  const box = $('#apps'); for (const a of D.apps) box.append(card(a));
+  const fams = ['', ...new Set(D.apps.map((a) => a.f))];
+  for (const f of fams) { const b = el('button', { type: 'button', 'aria-pressed': String(f === ''), text: f ? `${f} (${D.apps.filter((a) => a.f === f).length})` : 'Toutes' }); b.addEventListener('click', () => { fam = f; for (const x of $('#fams').children) x.setAttribute('aria-pressed', String(x === b)); filterApps(); }); $('#fams').append(b); }
+  $('#q').addEventListener('input', filterApps);
+  for (const u of D.usages) $('#usages').append(el('tr', {}, el('td', {}, el('b', { text: u.n })), el('td', { text: u.c.join(' → ') }), el('td', { text: u.w })));
+  for (const l of D.links) { const k = l.k === 'réflexe' ? 'reflexe' : l.k === 'soin' ? 'soin' : 'donnee'; $(`#l-${k}`).append(el('li', {}, el('b', { text: l.a === l.b ? l.a : `${l.a} → ${l.b}` }), el('span', { text: l.t }))); }
+  for (const b of document.querySelectorAll('[data-copy]')) b.addEventListener('click', async () => {
+    const pre = document.getElementById(b.dataset.copy);
+    try { await navigator.clipboard.writeText(pre.textContent); b.textContent = 'Copié'; }
+    catch { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Sélectionné'; }
+    setTimeout(() => { b.textContent = 'Copier'; }, 1800);
+  });
+}
+
+// ---- Rubriques (une par adresse : #applis, #installer…)
+function show(v, quiet) {
+  view = VIEWS.includes(v) ? v : 'accueil';
+  for (const s of document.querySelectorAll('section.view')) s.hidden = s.id !== `v-${view}`;
+  for (const a of document.querySelectorAll('#tabs a')) { if (a.getAttribute('href') === `#${view}`) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
+  if (!quiet) { window.scrollTo(0, 0); const o = $('#orb'); o.classList.remove('hop'); void o.offsetWidth; o.classList.add('hop'); if (!$('#bubble').hidden) explain(); }
+}
+function openApp(id) { if (location.hash !== '#applis') location.hash = '#applis'; show('applis', true); $('#q').value = ''; fam = ''; for (const x of $('#fams').children) x.setAttribute('aria-pressed', String(x === $('#fams').firstChild)); filterApps(); const d = document.getElementById(`app-${id}`); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); } }
+
+// ---- La mascotte : elle explique la rubrique, et trouve l'appli pour un besoin (recherche dans ce guide, sans IA)
+function close() { $('#bubble').hidden = true; $('#orb').setAttribute('aria-expanded', 'false'); }
+function explain() {
+  const [title, text] = TIPS[view], b = $('#bubble'); b.replaceChildren();
+  const form = el('form', {}, el('input', { id: 'ask', type: 'search', placeholder: 'Que veux-tu faire ?', 'aria-label': 'Ton besoin' }), el('button', { class: 'btn', type: 'submit', text: 'Chercher' }));
+  const res = el('div', { class: 'res', 'aria-live': 'polite' });
+  form.addEventListener('submit', (e) => { e.preventDefault(); answer(form.firstChild.value, res); });
+  const shut = el('button', { class: 'btn ghost', type: 'button', text: 'Fermer' }); shut.addEventListener('click', close);
+  b.append(el('h3', { text: title }), el('p', { text }), el('p', { text: 'Dis-moi ton besoin : je te montre l\'appli qui s\'en occupe.' }), form, res, el('div', { class: 'row' }, shut));
+  b.hidden = false; $('#orb').setAttribute('aria-expanded', 'true');
+}
+function answer(q, into) {
+  const words = norm(q).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !['les', 'des', 'une', 'mon', 'mes', 'pour', 'que', 'veux', 'faire', 'avec', 'dans', 'sur', 'est', 'comment', 'odin'].includes(w));
+  into.replaceChildren(); if (!words.length) { into.append(el('p', { text: 'Écris ton besoin en quelques mots : « sauvegarder mes fichiers », « surveiller mon site ».' })); return; }
+  const stem = (w) => (w.length > 5 ? w.slice(0, -2) : w.length > 4 ? w.slice(0, -1) : w);
+  const scored = D.apps.map((a) => { const head = norm(`${a.n} ${a.w}`), rest = norm([...a.d, ...a.x, ...a.a.map((x) => `${x.l} ${x.w}`)].join(' ')); let s = 0; for (const w of words) { const k = stem(w); if (head.includes(k)) s += 3; else if (rest.includes(k)) s += 1; } return { a, s }; }).filter((x) => x.s > 0).sort((x, y) => y.s - x.s).slice(0, 3);
+  const use = D.usages.find((u) => words.some((w) => norm(u.n).includes(stem(w))));
+  if (use) into.append(el('p', {}, el('b', { text: `Pour « ${use.n} » : ` }), document.createTextNode(`${use.c.join(' → ')}.`)));
+  if (!scored.length) { into.append(el('p', { text: 'Je ne trouve pas d\'appli pour ça dans ce guide. Essaie un autre mot.' })); return; }
+  for (const { a } of scored) { const b = el('button', { type: 'button' }, el('b', { text: a.n }), el('span', { text: `${a.w} Dis : « ${a.x[0]} ».` })); b.addEventListener('click', () => { close(); openApp(a.id); }); into.append(b); }
+}
+$('#orb').addEventListener('click', () => { if ($('#bubble').hidden) explain(); else close(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#bubble').hidden) { close(); $('#orb').focus(); } });
+window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if ((VIEWS.includes(v) ? v : 'accueil') !== view) show(v); });
+build(); show(location.hash.slice(1), true);
+</script>

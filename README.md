@@ -58,7 +58,7 @@ Installation sans question : `ODIN_YES=1` (ajoute `ODIN_NO_SERVICE=1` ou `ODIN_N
 
 ```bash
 git clone https://github.com/TOUFATECH/Odin.git
-cd odin
+cd Odin
 npm install          # uniquement les outils de développement
 npm link             # rend la commande « odin » disponible
 odin init

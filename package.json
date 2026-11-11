@@ -20,7 +20,8 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test",
     "banc": "node --disable-warning=ExperimentalWarning test/banc/banc.ts",
-    "banc:outils": "node --disable-warning=ExperimentalWarning test/banc/outils.ts"
+    "banc:outils": "node --disable-warning=ExperimentalWarning test/banc/outils.ts",
+    "guide": "node --disable-warning=ExperimentalWarning tools/guide/build.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
