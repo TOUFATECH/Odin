@@ -331,11 +331,18 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       setConfigValue(paths, ['voice'], {
         ...v,
         gender, femaleVoiceId,
-        enabled: Boolean(b.enabled), speakReplies: Boolean(b.speakReplies), voiceReplies: b.voiceReplies === undefined ? v.voiceReplies : Boolean(b.voiceReplies),
+        enabled: Boolean(b.enabled), speakReplies: Boolean(b.speakReplies), speakRepliesChosen: true, voiceReplies: b.voiceReplies === undefined ? v.voiceReplies : Boolean(b.voiceReplies),
         tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName), model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
         stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
       });
       return true;
+    }
+    // Le bouton « Voix » de la discussion et de la bulle d'Odin : le même réglage que Réglages → Voix
+    case 'speak': {
+      setConfigValue(paths, ['voice', 'speakReplies'], Boolean(b.on));
+      setConfigValue(paths, ['voice', 'speakRepliesChosen'], true);
+      cfg.voice.speakReplies = Boolean(b.on); cfg.voice.speakRepliesChosen = true;
+      return false; // rien à redémarrer
     }
     case 'search': {
       const provider = String(b.provider ?? 'auto');

@@ -169,8 +169,10 @@ export interface OdinConfig {
   /** La voix : Whisper pour comprendre, ElevenLabs pour parler. */
   voice: {
     enabled: boolean;
-    /** Lire à voix haute les réponses dans l'interface web. */
+    /** Lire à voix haute les réponses dans l'interface web (oui tant qu'on ne l'a pas coupé dans Réglages → Voix). */
     speakReplies: boolean;
+    /** Vrai une fois le choix fait dans les réglages : sans choix, Odin parle. */
+    speakRepliesChosen?: boolean;
     /** Répondre aussi par une note vocale quand on écrit à Odin en vocal (Telegram). */
     voiceReplies: boolean;
     /** elevenlabs (en ligne, copie de voix) · piper (serveur local, gratuit) · openai (API /v1/audio/speech : OpenAI ou serveur local compatible). */
@@ -342,6 +344,8 @@ export function validateConfig(c: OdinConfig): string[] {
 export function loadConfig(paths: OdinPaths): OdinConfig {
   const raw = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8').replace(/^\uFEFF/, '')) : {};
   const cfg = merge(DEFAULT_CONFIG, raw);
+  // Odin répond à voix haute tant que tu ne l'as pas coupé toi-même dans Réglages → Voix
+  if (!cfg.voice.speakRepliesChosen) cfg.voice.speakReplies = true;
   const errs = validateConfig(cfg);
   if (errs.length) throw new Error(`Configuration invalide (${paths.config}) :\n- ${errs.join('\n- ')}`);
   return cfg;

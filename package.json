@@ -1,13 +1,23 @@
 {
   "name": "odin-agent",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "Odin — agent IA personnel, auto-apprenant et sûr par défaut : interface web, Telegram, inventaire du réseau, décisions transparentes.",
   "type": "module",
   "license": "MIT",
   "author": "TOUFATECH",
-  "repository": { "type": "git", "url": "https://github.com/TOUFATECH/Odin.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TOUFATECH/Odin.git"
+  },
   "homepage": "https://github.com/TOUFATECH/Odin#readme",
-  "keywords": ["agent", "ia", "assistant", "telegram", "securite", "auto-hebergement"],
+  "keywords": [
+    "agent",
+    "ia",
+    "assistant",
+    "telegram",
+    "securite",
+    "auto-hebergement"
+  ],
   "bin": {
     "odin": "bin/odin.mjs"
   },
@@ -21,7 +31,8 @@
     "check": "npm run typecheck && npm test",
     "banc": "node --disable-warning=ExperimentalWarning test/banc/banc.ts",
     "banc:outils": "node --disable-warning=ExperimentalWarning test/banc/outils.ts",
-    "guide": "node --disable-warning=ExperimentalWarning tools/guide/build.ts"
+    "guide": "node --disable-warning=ExperimentalWarning tools/guide/build.ts",
+    "evolutions": "node --disable-warning=ExperimentalWarning src/web/evolutions.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

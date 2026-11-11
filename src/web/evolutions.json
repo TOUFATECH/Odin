@@ -1,0 +1,2138 @@
+[
+ {
+  "id": "df83917",
+  "at": "2026-11-11T22:55:58+03:00",
+  "date": "2026-11-11",
+  "version": "1.6.1",
+  "title": "Odin administrateur partout, vraie cause quand il manque des droits, Telegram mis en forme",
+  "details": [
+   "Signalé en essai : sous un compte dédié, avec un service verrouillé (NoNewPrivileges), Odin réclamait à chaque vocal, en trois messages, un mot de passe administrateur qui ne pouvait rien y changer.",
+   "Diagnostic (src/machines/admin.ts) : root, sudo sans mot de passe, mot de passe gardé, mot de passe demandé, service verrouillé, conteneur durci, sudo absent, Windows non élevé. Chaque cas a sa cause dite en une phrase et la commande exacte. Aucun mot de passe réclamé quand il ne servirait à rien.",
+   "« odin admin » : l'état, et quoi faire. « odin admin fix » (une fois, en administrateur) : règle sudo vérifiée par visudo, réglages du service qui interdisent de devenir administrateur retirés, service redémarré et vérifié sur le processus ; retour arrière automatique s'il ne repart pas. Windows : la tâche « Odin » passe en privilèges élevés.",
+   "Installations neuves : Linux en root → service du système lancé en root ; image Docker → le compte odin est administrateur du conteneur ; Windows → tâche en privilèges élevés (une confirmation).",
+   "Écoute des vocaux : un seul message, avec la vraie cause ; plus de nouvelle tentative à chaque vocal tant que les droits manquent ; l'installation repart seule dès qu'Odin les a. Homebrew sur macOS.",
+   "Le conseil sur les droits n'apparaît que si sudo a vraiment refusé (voix, Docker, FFmpeg) : sinon, c'est la vraie erreur qui est montrée.",
+   "Réglages → Droits et machines : l'état ne s'affichait jamais (deux éléments portaient le même identifiant). Il s'affiche, avec la commande à copier.",
+   "Telegram : tableaux, citations, cases à cocher, italique ; si Telegram refuse la mise en forme, texte simple sans marques (plus de « **…** » bruts) ; nouvel essai quand Telegram demande d'attendre. Essayé pour de vrai ici : compte ordinaire, sudo qui demande un mot de passe, réparation, puis verrou NoNewPrivileges (sudo refuse, Odin dit pourquoi). Non essayé ici : un vrai service systemd, Docker et Windows. Les tests GitHub les jouent (conteneurs Debian, image Docker, tâche planifiée Windows). 431 tests au vert."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "canaux",
+   "machines",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "b8bb4f3",
+  "at": "2026-11-11T21:28:10+03:00",
+  "date": "2026-11-11",
+  "title": "Tests : envoi trop gros sur sa propre connexion, ménage du navigateur tolérant",
+  "details": [
+   "Audit sécurité (envoi trop gros) : l'envoi refusé part sur une connexion à lui. Sous Windows, le client de test gardait la connexion coupée par Odin et échouait aux demandes suivantes, alors qu'Odin répondait bien.",
+   "Navigateur : le ménage du dossier temporaire ne fait plus échouer un essai réussi quand le navigateur écrit encore dans son profil juste après son arrêt (vu une fois sur macOS)."
+  ],
+  "planets": [
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "925c6c6",
+  "at": "2026-11-11T21:19:23+03:00",
+  "date": "2026-11-11",
+  "title": "Windows : exceptions de dossier, fichiers du système protégés, fins de ligne",
+  "details": [
+   "Trouvé par les tests GitHub sous Windows :",
+   "Ullr : une exception sur un dossier ne s'appliquait pas quand le chemin s'écrit avec des barres inversées. La comparaison vaut maintenant pour Linux, macOS et Windows.",
+   "Ullr : les fichiers dont la machine a besoin pour démarrer ne sont jamais mis en quarantaine, aussi sous Windows (Windows, Program Files) et macOS (/System). Les dossiers temporaires restent traités normalement.",
+   ".gitattributes : mêmes fins de ligne (LF) sur toutes les machines, pour qu'Odin lise ses propres fichiers de la même façon partout.",
+   "Tests : deux attentes écrites pour Linux (séparateur, fin de ligne), et un message d'erreur qui dit pourquoi Odin ne répond plus après un envoi refusé (échec déjà présent sous Windows). 422 tests au vert."
+  ],
+  "planets": [
+   "discussion",
+   "machines",
+   "securite",
+   "applis",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8a431e5",
+  "at": "2026-11-11T21:09:30+03:00",
+  "date": "2026-11-11",
+  "version": "1.6.0",
+  "title": "27 applis reliées (Valhalla), antivirus Ullr, sites web Idunn, compte, Odin sans IA",
+  "details": [
+   "Cette version réunit tout le travail de la branche draupnir-runes, plus les derniers réglages :",
+   "Cerveau prêt dès l'installation : « odin init » écrit les fiches (une par appli, leurs liens, le fonctionnement d'Odin), et chaque lancement les remet à jour.",
+   "Mascotte : sur la page de connexion aussi elle réagit au toucher (saut, son, humeur) et prend les humeurs de l'appli. Une règle CSS mal formée est réparée (mouvements réduits).",
+   "Page de connexion : elle ne se recharge plus toute seule (toutes les 4 secondes, ce qui effaçait la saisie). Test unitaire et vérification dans un vrai navigateur.",
+   "Guide (npm run guide) : sa mascotte est celle de l'appli (mêmes couleurs par humeur, mêmes sons), avec la palette des 22 humeurs.",
+   "macOS et Windows : Skögul lit les programmes sans /proc (commande ps), Ullr compare les chemins quel que soit le séparateur et résout les dossiers liés, Sindri restaure aussi un chemin avec une lettre de lecteur.",
+   "Journal des IA : le ménage (6 mois, 50 000 appels) se fait une fois par jour, et plus au hasard (un test échouait 3 fois sur 100).",
+   "Tests : ceux qui supposaient Linux marchent partout (commande sans effet, fins de ligne, séparateurs) ; ceux qui dépendent de FFmpeg ou d'un navigateur sont ignorés proprement quand l'outil manque ou ne démarre pas.",
+   "README : première connexion et accès décrits avec le compte (adresse et mot de passe). Mise à jour depuis la 1.5.0 essayée pour de vrai (installation 1.5.0 utilisée, puis ce code sur le même dossier) : notes et discussion gardées, 13 pages et 27 applis ouvertes, aucune erreur. À la première ouverture, Odin demande de créer le compte (prénom, nom, adresse, mot de passe). 421 tests au vert, 62 vérifications du banc de sécurité, 70 du guide."
+  ],
+  "planets": [
+   "discussion",
+   "guide",
+   "interface",
+   "cerveau",
+   "machines"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "b98be21",
+  "at": "2026-11-11T20:25:02+03:00",
+  "date": "2026-11-11",
+  "title": "Guide d'Odin : une page qui se construit depuis le code",
+  "details": [
+   "tools/guide : le gabarit de la page et son assembleur (npm run guide). Les fiches des 27 applis, leurs phrases comprises sans IA, leurs actions, leurs liens et les chiffres sont lus dans le code : rien n'est recopié à la main. La mascotte explique chaque rubrique et trouve l'appli pour un besoin.",
+   "README : nom du dossier après « git clone » (Odin, avec sa majuscule)."
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "securite",
+   "applis",
+   "ia"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8f54c23",
+  "at": "2026-11-11T20:07:18+03:00",
+  "date": "2026-11-11",
+  "title": "Idunn : l'appli des sites web (veille, essais, déploiements, mises à jour, code avec l'IA)",
+  "details": [
+   "Sans IA :",
+   "veille de chaque site (disponibilité après deux essais ratés, lenteur, certificat HTTPS par paliers, titre et contenu), et de ce qui l'entoure : GitHub (envois de code, tests, demandes de fusion, versions), Vercel (déploiements), Cloudflare (zone, DNS, niveau de sécurité) ;",
+   "événements filtrables en français (« les erreurs du site … depuis 2 jours ») ;",
+   "essais du site (pages, liens, erreurs affichées, en-têtes), bilan « à garder / à améliorer / à ne pas garder » ;",
+   "relancer (annulable), déployer, revenir en arrière, remettre en ligne, créer un projet, fusionner une mise à jour dont les tests passent : tout ce qui touche la production est une action grave. Avec une IA : un fichier à la fois, sur une branche « odin/… », avec demande de fusion et garde-fous vérifiés par le code (jamais la branche principale, ni les secrets, ni .github ; refus si une clé apparaît ou si un en-tête de sécurité disparaît). Liens : Idunn → Forseti (alertes), Idunn → Ullr (DNS ou certificat et page d'accueil qui changent ensemble : incident « site peut-être détourné »), Idunn se surveille (chaque mise en production est essayée ; un essai raté propose le retour en arrière). Chacun a sa vérification. Sécurité :",
+   "les jetons GitHub, Vercel et Cloudflare vont au coffre, sont masqués, et ne partent que vers les adresses officielles écrites dans le code ; les changer est une action grave (aussi pour les clés des sources d'Ullr) : ni automatisation, ni autre assistant ;",
+   "les réponses d'applis qui contiennent du texte écrit par d'autres (Idunn, Kvasir, Loki, outils MCP) arrivent à l'IA comme des données non fiables ;",
+   "Ratatoskr : appeler soi-même un outil MCP, sans IA ; accord demandé s'il peut modifier quelque chose. Huginn : nom de site sans « https:// », réglages libres des nouvelles actions. Tests : test/idunn.test.ts (15 tests : vrai site local ; GitHub, Vercel et Cloudflare simulés), 3 vérifications de liens. 419 tests au vert."
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "securite",
+   "applis",
+   "automatisations"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "4fc0aab",
+  "at": "2026-11-11T19:21:01+03:00",
+  "date": "2026-11-11",
+  "title": "Guide de la mascotte : texte mis en forme, mascotte posée dans un coin libre, test",
+  "details": [],
+  "planets": [
+   "guide",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "fd38ec9",
+  "at": "2026-11-11T19:16:30+03:00",
+  "date": "2026-11-11",
+  "title": "Interface : guide de la mascotte, manips à décider, pages d'applis corrigées",
+  "details": [
+   "Corrections",
+   "Les formulaires des pages désignaient leur action par son numéro d'ordre : après l'ajout d'actions, la page de Bragi ne s'ouvrait plus, un formulaire de Sindri envoyait le mauvais réglage, et la vérification hebdomadaire des sauvegardes ne se faisait plus. Toutes les références passent par le nom de l'action ; un test l'impose.",
+   "Téléphone : les pages d'applis avec un tableau large débordaient (un texte réservé aux lecteurs d'écran échappait à la zone défilante). Contrôle de 117 pages en trois tailles : plus aucun débordement.",
+   "Tableaux : une valeur courte ne se coupe plus au milieu ; un long chemin se coupe où il faut.",
+   "En-tête Permissions-Policy : directive non reconnue retirée (avertissement dans la console). Nouveau",
+   "Guide : un clic (ou Entrée) sur la mascotte explique la page ou l'appli ouverte, répond à une demande sans IA, et liste les nouveautés. Une action grave attend la confirmation.",
+   "Page Applis : « ce qu'Odin a fait de lui-même » avec Garder / Annuler, et la carte Protection.",
+   "Ullr : boutons rapides choisis, retour arrière des signatures confirmé, prochain passage des analyses planifiées calculé (un plan créé à 16 h pour 2 h 30 attend 2 h 30), identifiants distincts."
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "securite",
+   "applis",
+   "automatisations"
+  ],
+  "kind": "correction"
+ },
+ {
+  "id": "073bf98",
+  "at": "2026-11-11T18:52:28+03:00",
+  "date": "2026-11-11",
+  "title": "Cerveau : une fiche par appli, la carte des liens, le mode de fonctionnement",
+  "details": [
+   "src/valhalla/fiches.ts : 29 fiches écrites à partir de la description des applis, jamais de leurs réglages (aucune adresse, aucun nom d'appareil, aucun secret : vérifié par un test)",
+   "tenues à jour au démarrage, sans déclencher les automatisations « note créée »",
+   "la partie « Mes notes » de chaque fiche est gardée ; une note à toi du même nom n'est jamais écrasée",
+   "les incidents d'Ullr se relient aux fiches dans le graphe",
+   "Saga : « mets à jour les fiches des applis dans le Cerveau », « complète la note … »"
+  ],
+  "planets": [
+   "cerveau",
+   "maison",
+   "securite",
+   "applis",
+   "automatisations"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "33ff464",
+  "at": "2026-11-11T18:47:33+03:00",
+  "date": "2026-11-11",
+  "title": "Ullr : vitesse, fausses alertes, procédure, compréhension sans IA",
+  "details": [
+   "Recherche des règles en un seul passage sur le fichier : clé glissante de 4 octets, filtre binaire, chaînes fixes vérifiées à leur position, morceau d'index le plus rare. Mesuré avec 714 règles réelles : de 8 à 120 Mo/s.",
+   "Fichier de test EICAR selon sa définition (68 caractères en tête d'un fichier d'au plus 128 octets).",
+   "Code source distingué des documents : aucune alerte sur le dépôt d'Odin, tests compris.",
+   "Un fichier que tu fais restaurer n'est plus remis en quarantaine.",
+   "Failles : rapprochement par nom exact et table des logiciels courants (plus de faux rapprochements).",
+   "Pages d'hameçonnage distinguées des adresses de malwares.",
+   "Clés des sources (abuse.ch, VirusTotal) rangées depuis la page, jamais affichées.",
+   "État de la protection, analyses faites, profils d'analyse en un clic.",
+   "Huginn : un mot écrit avec et sans accent ne compte qu'une fois ; une demande « les… » ne lance plus une action ; un chemin écrit passe avant un nom connu ; 22 phrases de l'antivirus au test.",
+   "Banc d'essai « antivirus » : vraies sources, vraies archives, vrai disque (34 vérifications).",
+   "docs/antivirus-ullr.md : procédure d'utilisation, mode de fonctionnement, sources, limites, table de conformité au cahier des charges."
+  ],
+  "planets": [
+   "interface",
+   "securite",
+   "ia",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "fa4bc08",
+  "at": "2026-11-11T18:18:46+03:00",
+  "date": "2026-11-11",
+  "title": "Ullr v2 : antivirus maison relié à toutes les applis",
+  "details": [
+   "Moteur (src/valhalla/ullr/engine.ts)",
+   "vrai type des fichiers par leur contenu, archives ouvertes sans dépendance (zip, gzip, tar, documents Office, APK), bombes de décompression repérées",
+   "règles Galdr (maison) et sous-ensemble de YARA, index par morceaux de 4 caractères",
+   "heuristiques au score explicable : programme déguisé, macros, PDF piégé, raccourci, commandes de téléchargement-exécution enchaînées, code caché, vol d'identifiants, hameçonnage (page, message, adresse)",
+   "fichiers « passifs » (documentation, données, code source) : une règle n'y est qu'un indice ; mesuré sur 128 000 fichiers sains : aucune fausse alerte Base de connaissances (src/valhalla/ullr/intel.ts)",
+   "paquets versionnés, signés (Ed25519), testés avant activation (EICAR toujours détecté, aucun fichier sain signalé), trois versions gardées, retour arrière",
+   "sources : MalwareBazaar, ThreatFox, URLhaus (clé abuse.ch), OpenPhish, Stalkerware Indicators, signature-base, CISA KEV ; VirusTotal, MalwareBazaar et CIRCL à la demande (empreinte seulement) Incidents (src/valhalla/ullr/incidents.ts)",
+   "les signaux de Loki, Skögul, Geri, Garmr, Forseti, Eir, Naglfar, Hermóðr, Himinbjörg et de la porte d'Odin sont reliés ; un incident a un score, une chronologie, une réponse annulable (bannissement) et sa note dans le Cerveau Appli (src/valhalla/modules/ullr.ts)",
+   "analyses à la demande et planifiées, protection à l'arrivée, supports amovibles, fichiers sentinelles",
+   "quarantaine réversible (manip annulable), exceptions, fausses alertes, rapports horodatés",
+   "failles réellement exploitées comparées aux logiciels installés Tests : 21 pour Ullr, 9 liens de plus (33 au total), 392 tests au vert."
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "cerveau",
+   "canaux",
+   "maison"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "9a6dae0",
+  "at": "2026-11-11T17:24:23+03:00",
+  "date": "2026-11-11",
+  "title": "Odin sans IA (Huginn), manips à garder ou annuler, liens tous automatiques",
+  "details": [
+   "Huginn : Odin comprend une demande sans modèle d'IA et utilise toutes ses applis. Il choisit l'appli (ce dont on parle), l'action (le verbe et ce que la phrase fournit), remplit les réglages (adresse IP, nom connu de l'appli, durée, jour, heure, texte), demande ce qui manque, et ne devine pas : une phrase de tous les jours ne déclenche rien. Chaque action part par l'outil, donc sous Heimdall (les actions graves demandent toujours ton accord). Une question ne lance jamais une action qui change quelque chose. Manips : ce qu'Odin fait de lui-même (réflexe, soin, automatisation, tâche sans surveillance, autre assistant) est noté et annoncé. « garde <code> », « annule <code> » (l'action inverse est lancée), « mes manips », « garde tout ». En mode Odin Breaker, il décide seul de garder ; tu peux encore annuler. Jamais de mot de passe dans le journal ; au plus 3 messages par 10 minutes. Liens entre applis : tous automatiques (23), un test par lien.",
+   "nouveaux réflexes : réservation → fiche client (Runes), nouvel accès VPN → coffre (Brísingamen), ordre à la voix → Freyja (Bragi + Huginn), scène → autre appli (« freyja.regarder = titre »), sauvegarde → instantané des machines virtuelles (Sindri → Ymir) ;",
+   "soins : conteneur ou machine virtuelle arrêtés tout seuls → relancés (une fois par heure au plus), sauvegarde échouée → relancée une fois. Au niveau « Me demander », Odin propose seulement. Corrections :",
+   "le coffre de mots de passe (Brísingamen) ne pouvait pas s'ouvrir : sa clé était créée dans un format qu'il refusait ;",
+   "une action grave ne peut pas partir d'une scène ni d'un ordre à la voix ;",
+   "test du navigateur : nettoyage du dossier rendu fiable."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "7b6c998",
+  "at": "2026-11-11T16:57:32+03:00",
+  "date": "2026-11-11",
+  "title": "Compte du propriétaire, sessions, et tests d'intrusion",
+  "details": [
+   "Première connexion : on crée son compte (prénom, nom, adresse e-mail, mot de passe). Ensuite ces identifiants sont obligatoires pour ouvrir Odin dans un navigateur.",
+   "mot de passe jamais gardé : empreinte scrypt (N = 65536) ; refus des mots de passe trop courts, trop courants ou proches du nom ;",
+   "sessions : identifiant aléatoire en cookie HttpOnly + SameSite=Strict, seule son empreinte est sur le disque ; 30 jours sans visite ou 90 jours au plus ;",
+   "5 erreurs de suite : attente imposée (30 s, puis double, jusqu'à 15 min) ;",
+   "changer le mot de passe déconnecte les autres appareils (flux coupé aussitôt) ;",
+   "Réglages → Accès : ton compte, mot de passe, appareils connectés ;",
+   "« odin compte » et « odin compte oublier » (sur la machine seulement) ;",
+   "le jeton ne sert plus qu'aux programmes (clé d'API : raccourcis, MCP) et au lien de première connexion ; il n'ouvre plus l'interface ;",
+   "la demande d'accès par messagerie ne sert plus qu'avant la création du compte. Tests d'intrusion (`npm run banc -- securite`, 60 vérifications sur un vrai Odin, avec un vrai navigateur) : accès sans identifiants sur toutes les routes d'API trouvées dans le code, force brute, CSRF, CORS, « DNS rebinding », en-têtes, requêtes malformées, traversée de chemins, injection de commandes dans toutes les actions de toutes les applis, fuite de secrets, XSS, fin de session. Passé aussi aux scanners Nikto (6 544 essais) et Wapiti : aucune faille. Corrections :",
+   "Garmr : « débannir » acceptait un texte libre transmis au pare-feu (nft lit ses arguments comme un programme) : seule une vraie adresse IP passe ;",
+   "Gjöll : nom d'interface vérifié, plus aucune saisie dans une commande shell ;",
+   "Ægir : le morceau à jouer ne peut plus être lu comme une option du lecteur ;",
+   "API : un corps « null » ou une liste ne fait plus d'erreur interne ;",
+   "un mauvais jeton comptait deux fois comme essai raté ;",
+   "en-têtes : isolation de la fenêtre et des réponses, permissions du navigateur réduites au micro et à la caméra ;",
+   "Runes : deux modifications dans la même milliseconde s'écrasaient dans l'historique (test instable corrigé)."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide",
+   "interface",
+   "maison"
+  ],
+  "kind": "correction"
+ },
+ {
+  "id": "7b5ba58",
+  "at": "2026-11-11T16:33:18+03:00",
+  "date": "2026-11-11",
+  "title": "Banc d'essai virtuel : les applis d'Odin essayées contre de vrais services",
+  "details": [
+   "Nouveau : `npm run banc` (test/banc/). 15 scénarios, 251 vérifications.",
+   "Réel : Docker (Naglfar), nftables (Garmr), chaîne de défense Loki → Ullr → Garmr avec un attaquant en réseau isolé, WireGuard (Gjöll), caméra RTSP (Himinbjörg), serveur Venus (Freyja), Home Assistant (Midgard, Bragi, Ægir), clients Mosquitto sur le relais d'Odin, GitHub en ligne (Kvasir), serveurs MCP officiels et client officiel du SDK (Ratatoskr).",
+   "Simulé (protocole rejoué) : API Proxmox VE (Ymir), module Tasmota (Brokkr, Appareils), API Bot de Telegram (alertes, photo, alerte critique urgente). Ces trois scénarios tournent aussi dans `npm test`.",
+   "Envoi réel sur Telegram : prêt, ignoré sans jeton. Corrections trouvées par le banc :",
+   "alertes : photo jointe (caméras) et alerte critique marquée urgente ;",
+   "Naglfar / Ymir : plus de fausse alerte quand on arrête soi-même ;",
+   "Garmr : journaux supplémentaires, bannissements remis au démarrage ;",
+   "Gjöll : routage vers les réseaux de la maison, DNS, validation d'adresse ;",
+   "Himinbjörg : jamais d'identifiants dans une erreur, lecture 3 fois plus rapide ;",
+   "Freyja : enregistrement d'une plage horaire, annulation, clé refusée détectée ;",
+   "Midgard : pièces de la box, commandes complètes, déverrouiller = ton accord ;",
+   "Appareils / Brokkr : annonce native Tasmota, appareils hors ligne, balayage rapide, minuterie d'écriture arrêtée proprement avec l'appli ;",
+   "Kvasir : veille par les flux publics de GitHub (sans jeton ni quota) ;",
+   "Ratatoskr : brancher un serveur demande toujours ton accord ;",
+   "Loki : le verdict d'Ullr part avec l'alerte de capture ;",
+   "réglages des applis écrits d'un seul coup (jamais à moitié)."
+  ],
+  "planets": [
+   "canaux",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "0d7f7af",
+  "at": "2026-11-11T15:06:13+03:00",
+  "date": "2026-11-11",
+  "title": "Valhalla : toutes les applis d'Odin, reliées entre elles",
+  "details": [
+   "27 applis réécrites (sécurité, machines, accès, maison, données) avec une interface générique",
+   "Freyja : Venus (TOUFATECH/Venus) comme appli d'Odin",
+   "Liens entre applis (réflexes, usages de prédilection, modèles Draupnir)",
+   "Alertes sur la messagerie selon le niveau choisi",
+   "Kvasir : veille des dépôts d'origine et étude des liens GitHub",
+   "Ratatoskr : client et serveur MCP (/mcp)",
+   "Draupnir : éditeur à nœuds, déclencheur et action d'appli",
+   "Runes : interface des bases ; Frigg : page publique de réservation",
+   "Outil valhalla et choix de l'appli sans IA"
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "91ff2b7",
+  "at": "2026-11-11T12:32:52+03:00",
+  "date": "2026-11-11",
+  "title": "Draupnir et Runes : le moteur d'automatisations et les bases d'Odin (sans n8n ni Notion)",
+  "details": [
+   "Draupnir : moteur à nœuds réécrit pour Odin (éléments, branches, fusion, sous-automatisations, automatisation d'erreur, formulaires et webhooks publics à chemin secret, flux RSS, pages surveillées, Saga, Runes, IA d'Odin, agent sous Heimdall, mail, Telegram/Discord/Slack, dates, HTML, XML, code JavaScript isolé par les permissions de Node, identifiants du coffre, versions, données épinglées, « exécuter jusqu'ici », import d'un workflow n8n)",
+   "Runes : bases typées (sélection, statut, date, relation, agrégation, formule sûre, ID…), vues table, tableau, calendrier, galerie, liste, chronologie, filtres, tris, groupes, automatisations de base, sous-pages, commentaires, historique, import/export CSV",
+   "Outils d'Odin : draupnir, runes_base, runes_fiche, runes_page ; API web ; installation n8n retirée"
+  ],
+  "planets": [
+   "interface",
+   "cerveau",
+   "canaux",
+   "securite",
+   "automatisations"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "65003ba",
+  "at": "2026-11-11T10:50:39+03:00",
+  "date": "2026-11-11",
+  "version": "1.5.0",
+  "title": "Automatisations n8n reliées au Cerveau, Notion, graphe façon Obsidian/Olmind, Odin en liberté sur toutes les pages",
+  "details": [
+   "Automatisations : n8n installé (Docker) et piloté par son API, création d'une automatisation à partir d'une description, modèles prêts, pont n8n → Odin (/api/hook, clé dédiée), le Cerveau prévient n8n à chaque changement",
+   "Notion : chercher, lire, importer dans le Cerveau, publier une note",
+   "Cerveau proactif : retards, échéances proches, projets à l'arrêt signalés par le travail continu",
+   "Graphe : rendu Obsidian (fond sombre, centres verts, réglages filtres/groupes/affichage/forces), dossiers reliés à leurs notes, cartes en zoomant et animation d'ouverture façon Olmind, discussion avec le Cerveau à côté sur grand écran",
+   "Mascotte : Odin se promène sur toutes les pages, choisit une place libre (jamais sur du texte ni la navigation), s'adapte à la taille de l'écran, va voir ce qui demande ton attention, se laisse déplacer"
+  ],
+  "planets": [
+   "discussion",
+   "guide",
+   "interface",
+   "cerveau",
+   "canaux"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "40a0af0",
+  "at": "2026-11-11T10:17:05+03:00",
+  "date": "2026-11-11",
+  "version": "1.4.0",
+  "title": "Le Cerveau, deuxième cerveau d'Odin",
+  "details": [
+   "Coffre Markdown (compatible Obsidian : propriétés, [[liens]], #étiquettes, dossiers ; le même dossier s'ouvre dans Obsidian), dans ~/.odin/cerveau ou un coffre existant (réglage brain.vault). Fiches existantes reprises.",
+   "Bases par type (projets, tâches, personnes, idées, réunions, captures, ressources, fiches), journal du jour, mémoire de projet (objectifs, décisions datées, contraintes), renommage qui met à jour les liens, corbeille restaurable.",
+   "Graphe : liens écrits, liens devinés (mentions, étiquettes rares), connecteurs (YouTube, TikTok, web, Telegram, mail…) ; recherche classée avec extraits.",
+   "Outils pour toute IA : cerveau_chercher, cerveau_lire, cerveau_ecrire, cerveau_capturer (lien, vidéo, document, image, texte → résumé, étiquettes, liens, journal), cerveau_projet ; consignes dans le prompt (même fonctionnement quel que soit le modèle).",
+   "Interface « Cerveau » : accueil avec schéma vivant (capturer → relier → retrouver → raisonner → agir), connecteurs, récents ; pages avec propriétés, lecture / écriture (menu /, [[ pour relier), cases à cocher, rétroliens, liens, mentions à relier d'un geste ; graphe interactif filtrable (zoom, glisser, liste accessible) ; bases en table ou tableau par statut (glisser-déposer) ; « Demander au cerveau » avec sources illuminées dans le graphe. Ordinateur et téléphone, axe : 0 violation."
+  ],
+  "planets": [
+   "interface",
+   "cerveau",
+   "canaux",
+   "securite",
+   "automatisations"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "56ea882",
+  "at": "2026-11-11T08:32:27+03:00",
+  "date": "2026-11-11",
+  "version": "1.3.0",
+  "title": "Vocaux sans réglage, vidéos et photos, documents, applis libres depuis GitHub",
+  "details": [
+   "Voix",
+   "Plus de « je ne sais pas encore écouter » : clé OpenAI utilisée sans rien cocher, sinon Whisper local, sinon Odin l'installe lui-même (te prévient, répond au vocal une fois prêt, te dit quand c'est installé). Micro de l'appli : installation en fond.",
+   "Langue détectée toute seule : réponse écrite et vocale dans la langue parlée (voix Piper téléchargées par langue : anglais, espagnol, arabe, swahili…).",
+   "Réponse vocale dès que Piper est là, sans case « voix activée » ; réglages lus à chaque vocal (un changement compte tout de suite). Vidéos et photos",
+   "video_analyze : modes transcription (mot pour mot, horodaté), seconde (déroulé seconde par seconde : ce qu'on voit + ce qui est dit), analyse (complète). Transcription en une passe avec instants exacts et langue ; yt-dlp téléchargé et mis à jour seul, FFmpeg installé si absent.",
+   "image_view : liens d'images, HEIC/BMP/TIFF et grandes photos converties.",
+   "Photo ou vidéo reçue sur Telegram (et autres) : Odin regarde et dit ce qu'il y a ; fichier > 20 Mo : solution expliquée. Documents et code",
+   "python : bibliothèques courantes (Word, Excel, PowerPoint, PDF, pandas…) installées seules, liste sûre seulement. Nouvel outil node_run (exceljs, docx, pdf-lib, pptxgenjs…), paquets installés sans scripts. Applications",
+   "github_app : chercher un équivalent libre d'une appli payante, analyser un dépôt (réputation, code lu : porte dérobée, mineur, vol de clés, code caché, destruction ; compatibilité RAM/disque/Docker/GPU), installer (Docker Compose, Docker, Python, Node), tester l'adresse, proposer une compétence. Code dangereux jamais installé ; alertes → Heimdall te demande toujours (nouveau : un outil peut déclarer une action grave)."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "canaux",
+   "machines",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "5b68296",
+  "at": "2026-11-11T01:21:48+03:00",
+  "date": "2026-11-11",
+  "version": "1.2.1",
+  "title": "Odin agit au lieu de demander, et essaie avant de dire « je ne peux pas »",
+  "details": [
+   "Ce que tu demandes clairement (installer, redémarrer, configurer…) est fait sans question, en mode équilibré ; suppressions, actions difficiles à annuler et tout ce qui est grave restent soumis à ton accord ; une page ou un mail ne compte jamais comme ta demande.",
+   "Habitude apprise après 2 « oui » (au lieu de 3).",
+   "Consultations sans effet (df, free, ps, ip a, systemctl status, journalctl, docker ps, pct/qm list, zpool status…) : plus jamais de question.",
+   "Consigne : agir, ne pas demander la permission en texte ; tout essayer (shell, Python, navigateur, SSH, paquets, nouvel outil) avant de dire « impossible ».",
+   "Contrôle par le code : un « je ne peux pas » sans aucun essai, ou un « veux-tu que je… ? » en réponse à un ordre, est renvoyé au modèle pour qu'il le fasse.",
+   "L'ancienne consigne « toute action passe par la validation » est retirée des installations existantes."
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "95c9c3b",
+  "at": "2026-11-10T23:25:17+03:00",
+  "date": "2026-11-10",
+  "version": "1.2.0",
+  "title": "Qui a répondu, IA chinoises, Signal/WhatsApp, Odin sans IA",
+  "details": [
+   "Journal des routages : chaque appel à une IA (réponse, sous-agent, relecture, juge…) est enregistré avec la demande, le modèle, la raison du choix, les essais ratés avant, le temps, les jetons et le coût. Sous chaque réponse : « X a répondu ». Commande /ia (/ia 5, /ia tout, /ia bilan), outil ia_historique (Odin ne devine plus depuis la configuration), odin ia en terminal, carte « Qui a répondu » dans Réglages → Modèle.",
+   "Répartition intelligente : palier, réussite mesurée, puis spécialité du modèle selon la tâche (code, recherche, long, écriture, outils) ; images seulement aux modèles qui voient ; option « pas de données personnelles » par modèle ; ordre modifiable.",
+   "Kimi (Moonshot, kimi-k2.6) et DeepSeek (deepseek-flash, deepseek-v4-pro) par leurs API officielles ; réflexion (reasoning_content) renvoyée pendant le tour. Les services compatibles OpenAI ont chacun leur nom (deepseek:, kimi:, openrouter:, ollama:).",
+   "Signal : QR code dans l'appli, numéro rempli tout seul ; « Envoyer un test » pour chaque messagerie ; règle des 24 h de WhatsApp expliquée.",
+   "Travail de lui-même : jamais d'humeur hors de l'appli, rien si « RIEN » ou seulement regardé, liste exacte des actions faites, jamais deux fois la même (14 jours).",
+   "Sans IA (aucune configurée ou toutes hors service) : maison, mode, fiches, Venus, réseau compris et exécutés via Heimdall ; coupure réseau détectée tout de suite ; modèle local Ollama trouvé tout seul et utilisé en dernier recours.",
+   "Coûts rattachés à la vraie conversation."
+  ],
+  "planets": [
+   "discussion",
+   "canaux",
+   "maison",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "9c5c5fa",
+  "at": "2026-11-09T17:03:14+03:00",
+  "date": "2026-11-09",
+  "version": "1.1.0",
+  "title": "Deuxième thème « Clair épuré »",
+  "details": [
+   "Réglages → Apparence (ou Ctrl K « Thème ») : Odin (d'origine, clair ou sombre) ou Clair épuré (blanc, une seule couleur d'action #1F4FD1, gris pour le reste, orange et rouge seulement pour alerter, sélecteurs en piste grise). Mêmes écrans et fonctions ; choix gardé sur l'appareil et appliqué dès le <head> (pas d'éclair). Accessibilité vérifiée (axe : 0 erreur sur 9 écrans), pas de débordement sur téléphone."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "8916723",
+  "at": "2026-11-09T13:55:14+03:00",
+  "date": "2026-11-09",
+  "version": "1.0.3",
+  "title": "Nouvelle installation, accès sans jeton qui marche à coup sûr",
+  "details": [
+   "Odin pas encore configuré et sans messagerie (installation neuve ou réinstallée sur un ancien dossier ~/.odin) : « Commencer » reste possible depuis le réseau local tant qu'aucune conversation n'a eu lieu.",
+   "La page d'accès dit pourquoi l'accès direct est refusé (proxy, adresse non locale, plus d'une heure après le démarrage…) et quoi faire.",
+   "Nouvelle commande « odin acces [code] » : autoriser depuis la machine un appareil qui a demandé l'accès, quand il n'y a pas de Telegram."
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "canaux",
+   "maison",
+   "machines"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "95db65e",
+  "at": "2026-11-09T13:44:39+03:00",
+  "date": "2026-11-09",
+  "version": "1.0.2",
+  "title": "« Demander l'accès » au lieu d'un jeton à recopier",
+  "details": [
+   "Un appareil sans jeton (nouveau téléphone, autre navigateur, première connexion après le délai d'une heure) affiche « Demander l'accès » : Odin envoie la demande au propriétaire sur Telegram (Autoriser / Refuser) et sur les écrans déjà connectés, avec un code à 6 chiffres affiché des deux côtés. Autorisé : l'appareil entre sans rien recopier. Seul le propriétaire décide ; demande valable 10 min, 3 par appareil, accès retiré une seule fois. Le jeton reste possible (« J'ai un jeton »). Corrige aussi une erreur de la mascotte sur la page d'accès."
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "canaux",
+   "maison",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "b90077e",
+  "at": "2026-11-09T13:14:44+03:00",
+  "date": "2026-11-09",
+  "version": "1.0.1",
+  "title": "« IP:7777 » sans https:// ouvre quand même Odin",
+  "details": [
+   "Odin n'écoutait qu'en HTTPS : une adresse tapée sans « https:// » donnait « page inaccessible ». Le même port reconnaît maintenant une connexion en clair et renvoie vers la même adresse en https (308, en-tête Host vérifié)."
+  ],
+  "planets": [
+   "interface",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "6d40f87",
+  "at": "2026-11-09T11:41:31+03:00",
+  "date": "2026-11-09",
+  "version": "1.0.0",
+  "title": "Refonte professionnelle (Aujourd'hui, 4 espaces, charte de réponse)",
+  "details": [
+   "Écran Aujourd'hui : Odin devine ce que tu veux (habitudes de l'heure, conversations en suspens, rappels imminents, agenda, alertes, inconnus sur le réseau), trois réglages (autonomie, disponibilité, discrétion), fil d'activité avec Annuler.",
+   "Navigation en 4 espaces (Aujourd'hui, Discussion, Maison, Réglages), barre de commande Ctrl K ou « / ».",
+   "Charte de réponse dans le prompt et appliquée par le code : pas de formule creuse, pas de nom d'outil, deux émojis au plus.",
+   "Système de design : une police, palette neutre, accent bleu distinct de l'avertissement, clair et sombre.",
+   "Maison : état en une ligne, personnes présentes, inconnus en tête.",
+   "Mascotte : humeur choisie selon la situation, regard qui suit le pointeur, ne se pose plus sur le texte.",
+   "Discrétion « l'urgent seulement » : le reste attend le bilan.",
+   "Corrections : polices bloquées par la CSP, onglet Maison désélectionné par les Réglages, accessibilité (axe : 0 erreur sur 9 écrans)."
+  ],
+  "planets": [
+   "discussion",
+   "guide",
+   "interface",
+   "maison",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "f0f6777",
+  "at": "2026-11-08T00:04:09+03:00",
+  "date": "2026-11-08",
+  "version": "0.36.0",
+  "title": "Réveil qui appelle",
+  "details": [
+   "Odin réveille à 3 h les jours de travail et à 4 h les jours de repos et de vacances (périodes déclarées ou « vacances/congés » dans l'agenda). Il appelle : appel téléphonique Twilio (voix française), alarme sur le téléphone via l'application Home Assistant (sonne même en silencieux), annonce sur les enceintes, note vocale et notification. Il insiste toutes les 5 min jusqu'à « je suis réveillé » ; « +5 / +10 min » repousse. Réglages → Réveil, ou en parlant à Odin."
+  ],
+  "planets": [
+   "voix",
+   "interface",
+   "cerveau",
+   "maison",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "3489dc7",
+  "at": "2026-11-07T23:45:29+03:00",
+  "date": "2026-11-07",
+  "version": "0.35.1",
+  "title": "Odin parle avec une voix d'homme ou de femme",
+  "details": [
+   "Réglages → Voix : voix d'homme ou de femme, avec bouton Écouter ; voix de femme précise au choix",
+   "Voix par défaut de chaque fournisseur : OpenAI onyx / nova, ElevenLabs Daniel / Charlotte, Piper tom / siwis",
+   "La voix locale gratuite installe les deux voix françaises (tom et siwis)",
+   "À la demande : « parle avec une voix de femme », « reprends ta voix d'homme » (outil voice_set)",
+   "Voix du navigateur choisie selon le même réglage",
+   "La voix d'un profil (travail, maison…) reste prioritaire"
+  ],
+  "planets": [
+   "voix",
+   "maison",
+   "ia",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "5dd16cc",
+  "at": "2026-11-07T23:30:42+03:00",
+  "date": "2026-11-07",
+  "title": "Venus : chemin exact de la page des clés API",
+  "details": [],
+  "planets": [
+   "interface",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "dc9bbd3",
+  "at": "2026-11-07T23:30:28+03:00",
+  "date": "2026-11-07",
+  "version": "0.35.0",
+  "title": "Pilotage de Venus, contrôle parental, alertes locales, mises à jour de nuit plus sûres",
+  "details": [
+   "Venus : « mets One Piece sur la télé », chaîne par nom ou numéro, « qu'est-ce qui passe ce soir », « enregistre le match » (une fois ou toute la série), écrans ouverts ; clé API Venus dans le coffre (Réglages → Venus)",
+   "Contrôle parental : horaires par appareil sur la box (soirs d'école, week-end…), coupure et retour automatiques, avertissement 10 min avant avec +15 min / +30 min / +1 h, règle retirée = appareil rendu",
+   "Alertes locales toutes les 2 h : pluie forte, vent violent, orages (Open-Meteo, 48 h) et actualités de ta région (cyclone, vigilance, coupure d'eau ou d'électricité, inondation, séisme) ; l'urgent passe même la nuit (Réglages → Surveillance)",
+   "Mises à jour de nuit : toutes les machines par défaut, services arrêtés relancés, redémarrage des machines qui le demandent (attente de leur retour), retour à l'instantané Proxmox si des services ne repartent pas ; chaque nuit ou chaque semaine (maintenance_set) ; proposé une fois, activé d'office en mode autonome",
+   "Tests rendus indépendants de l'heure"
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "db03572",
+  "at": "2026-11-07T22:06:52+03:00",
+  "date": "2026-11-07",
+  "version": "0.34.0",
+  "title": "Odin fait tout ça de lui-même, selon ce que tu lui dis",
+  "details": [
+   "Cerveau de secours : sans modèle joignable (ou sans modèle configuré), Odin répond avec sa mémoire, ses fiches et ses conversations passées, crée les rappels, donne l'heure, l'état du réseau ; la question est gardée et traitée pour de vrai dès qu'un modèle revient",
+   "Veille quotidienne : il cherche sur le web ce qui peut t'intéresser (d'après ce qu'il sait de toi) et t'envoie 3 à 5 trouvailles, sans doublon",
+   "Mode du moment compris tout seul : « je conduis » (réponses courtes en vocal), « je suis en réunion », « bonne nuit » (seul l'urgent passe), « je suis de retour » (ce qui a été gardé arrive)",
+   "« Comme d'hab », « refais pareil », « la même chose qu'hier » retrouvés dans son journal et ses habitudes",
+   "Continuité : la conversation de tout à l'heure sur une autre messagerie reprend sans rien répéter",
+   "Il apprend de tes corrections (« trop long », « non, plutôt… »)",
+   "Fichiers retrouvés sans réglage (Documents, Téléchargements, Bureau, fichiers reçus indexés d'office)",
+   "Annuler : undo_recent / undo_apply (fichiers et réglages, « annule ce que tu as fait hier soir »)",
+   "Fiches à garder (note_save, note_find), budget et abonnements avec hausses repérées et prélèvements annoncés, surveillance de prix, consommation de la maison, aide aux démarches administratives",
+   "Auto-surveillance chaque heure : disque, base, erreurs, tâches échouées, budget ; réparations sans risque (journaux, compactage la nuit)"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "cerveau",
+   "maison",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "bc263dc",
+  "at": "2026-11-07T20:05:31+03:00",
+  "date": "2026-11-07",
+  "title": "Test des habitudes indépendant de la date du jour",
+  "details": [],
+  "planets": [
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "7fbd2d5",
+  "at": "2026-11-07T20:04:26+03:00",
+  "date": "2026-11-07",
+  "version": "0.33.1",
+  "title": "Corrections de l'audit de sécurité et de charge",
+  "details": [
+   "Plantage corrigé : un envoi trop gros (10 Mo) arrêtait tout Odin ; filet de sécurité contre toute erreur imprévue (Odin continue et la note)",
+   "Envoi de fichiers et photos réparé : ils passaient par la lecture JSON et étaient refusés (« JSON invalide »)",
+   "/api/state gardé 2 s et vidé à chaque action : 53 → ~6 000 requêtes/s, 500 lectures simultanées en 0,5 s au lieu de 7,8 s",
+   "Affichage téléphone : panneau « Ce qu'Odin a fait » qui débordait avec un lien long, barre de la discussion compacte (icônes) sous 480 px",
+   "USER.md, MEMORY.md, ENVIRONMENT.md lisibles par Odin seul (600) ; service : Restart=always, UMask=0077",
+   "Tests de non-régression"
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "cerveau",
+   "securite",
+   "installation"
+  ],
+  "kind": "correction"
+ },
+ {
+  "id": "df1c6e7",
+  "at": "2026-11-07T06:54:58+03:00",
+  "date": "2026-11-07",
+  "version": "0.33.0",
+  "title": "Bouton Mettre à jour, et Odin se met à jour lui-même",
+  "details": [
+   "Vérifie toutes les 6 h si une nouvelle version est publiée sur GitHub (sans rien changer)",
+   "Te prévient une fois par version, avec ce qui change et un bouton « Mettre à jour » (Telegram, WhatsApp, Discord, Slack, application) ; « mets-toi à jour » marche aussi",
+   "Mode automatique (ou Breaker) : il se met à jour seul quand il ne travaille pas et que personne ne lui a écrit depuis 15 min, puis annonce les nouveautés",
+   "Chaque mise à jour garde ses améliorations locales, vérifie que la nouvelle version se charge, sinon revient aussitôt à l'ancienne ; puis redémarre",
+   "Interface : bouton « Mises à jour » sous la version, bandeau quand une version sort, page Réglages → Mises à jour (vérifier, mettre à jour, choisir le mode)",
+   "Outils update_check et update_apply"
+  ],
+  "planets": [
+   "interface",
+   "canaux",
+   "applis",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "85740f9",
+  "at": "2026-11-06T22:33:32+03:00",
+  "date": "2026-11-06",
+  "version": "0.32.0",
+  "title": "Mémoire dynamique, Odin ne perd jamais le fil",
+  "details": [
+   "Après chaque échange, le fil de la conversation est compressé (but, où on en est, décisions, faits précis, reste à faire, fait) et revient dans le contexte, même quand l'historique est compacté",
+   "Les tâches interrompues ou en attente, et ce qui reste en suspens dans les autres conversations (14 jours), sont rappelés à Odin ; jamais un fil né d'un contenu non fiable",
+   "Une conversation au repos depuis 2 h devient un souvenir (« Conversation du … ») retrouvé par la mémoire quand on en reparle",
+   "Compaction plus riche (≤ 400 mots, faits précis gardés, fil inclus)",
+   "Chaque tâche apprend : faits découverts par les outils locaux (versions, adresses, services) retenus ; journal des tâches ; USER.md et MEMORY.md réécrits dès la fin de chaque tâche"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "automatisations",
+   "memoire",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "d8501c5",
+  "at": "2026-11-06T22:26:17+03:00",
+  "date": "2026-11-06",
+  "version": "0.31.0",
+  "title": "WhatsApp, Signal, Discord, Slack et mail ; mémoire en fichiers ; Odin apprend son environnement ; extensions Python",
+  "details": [
+   "Messageries : WhatsApp (API officielle Meta, signature vérifiée), Signal (signal-cli-rest-api), Discord (passerelle WebSocket, boutons), Slack (Socket Mode, boutons), Mail (seulement tes mails authentifiés DMARC/DKIM, les autres jamais marqués lus) ; vocaux transcrits et fichiers reçus partout ; réglages dans Messageries",
+   "Mémoire en fichiers : SOUL.md (personnalité, ex-ODIN.md repris), USER.md (ce qu'Odin sait de toi, toujours dans son contexte), MEMORY.md (le reste), synchronisés dans les deux sens toutes les 10 min ; rien de non fiable n'y est écrit",
+   "Environnement : présence de chaque appareil observée chaque heure, rythme appris (toujours allumé, en semaine 8 h – 18 h…), rôle (box, NAS, téléphone = présence…), ENVIRONMENT.md, alertes quand un appareil sort de son habitude ; outil environment_map",
+   "Extensions Python : ~/.odin/plugins/*.py avec en-tête odin-tool → outils py_<nom> ; plugin_save pour qu'Odin écrive les siennes (jugées comme des commandes, sans accès aux secrets)"
+  ],
+  "planets": [
+   "interface",
+   "canaux",
+   "maison",
+   "applis",
+   "memoire"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "9e706e0",
+  "at": "2026-11-06T22:01:08+03:00",
+  "date": "2026-11-06",
+  "version": "0.30.0",
+  "title": "Odin apprend de tes habitudes et devient autonome là où tu le lui as montré",
+  "details": [
+   "Routines : une demande faite presque chaque jour à la même heure (ou chaque semaine le même jour) est repérée ; en mode équilibré Odin propose de la préparer seul (boutons Oui / Non), en autonome ou Breaker il la met en place et prévient ; préparée 10 min avant, envoyée « Comme d'habitude » ; une routine refusée n'est jamais reproposée",
+   "Confiance apprise : une action importante acceptée 3 fois de suite sans aucun refus est ensuite faite seule (Odin le dit) ; un non ou « redemande-moi » la remet sous ton contrôle ; jamais le grave ni après contenu non fiable",
+   "Outils habits_list et habit_forget ; seules tes demandes et leur heure sont retenues (60 jours), rien ne quitte la machine"
+  ],
+  "planets": [
+   "machines",
+   "memoire"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "2e29882",
+  "at": "2026-11-06T21:46:59+03:00",
+  "date": "2026-11-06",
+  "version": "0.29.0",
+  "title": "Briefing du matin, vocaux Telegram (voix locale gratuite), rappels intelligents",
+  "details": [
+   "Briefing du matin : météo (Open-Meteo, ville réglable), agenda du jour, mails non lus (expéditeur et sujet seulement, jamais lus par le modèle), rappels du jour, machines surveillées, la nuit d'Odin ; version vocale en option ; outil briefing_set ; bouton « Briefing maintenant »",
+   "Vocaux : voix locale gratuite installée par Odin (whisper.cpp + Piper, voix tom) via voice_setup ou un bouton ; Whisper local en secours si le service tombe ; Odin montre ce qu'il a compris ; réponse vocale aussi sur demande (« en vocal »)",
+   "Rappels : dates en français courant (« vendredi 9h », « dans 20 min », « demain soir »), récurrents (« tous les mois le 5 »), boutons Telegram C'est fait / 10 min / 1 h / Demain, relances 30 min, 1 h, 2 h tant que ce n'est pas réglé, réponses « fait » / « plus tard » en texte, reminder_list, jamais retenus par Ne pas déranger"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "canaux",
+   "machines",
+   "automatisations"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "124bd28",
+  "at": "2026-11-06T15:57:51+03:00",
+  "date": "2026-11-06",
+  "version": "0.28.2",
+  "title": "Présentation d'Odin complète et soignée",
+  "details": [
+   "Visite guidée refaite : 8 chapitres (qui je suis, l'accueil, me parler, mon travail, ton réseau, ce que j'apprends, me configurer, au quotidien), 54 étapes, sommaire pour sauter d'un chapitre à l'autre, barre de progression, lecture automatique avec la voix (ou pas à pas), Échap / flèches",
+   "Bulle toujours entièrement à l'écran, placée à côté de la zone présentée sans la couvrir ; mascotte accrochée à la bulle et qui regarde la zone ; version téléphone avec zones de repli ; étapes sans objet sautées (aucun appareil, pas de Proxmox) ; vérifiée étape par étape",
+   "« présente-toi » : présentation complète et structurée selon ce qui est configuré ; « visite guidée » lance la visite directement"
+  ],
+  "planets": [
+   "voix",
+   "guide",
+   "interface",
+   "maison",
+   "machines"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "67f9c87",
+  "at": "2026-11-06T10:14:42+03:00",
+  "date": "2026-11-06",
+  "version": "0.28.1",
+  "title": "Odin administrateur de son poste",
+  "details": [
+   "Installation : droits administrateur par défaut (règle sudo sans mot de passe vérifiée par visudo), automatiquement si sudo est déjà permis ; ODIN_NO_ADMIN=1 pour refuser",
+   "« le mot de passe admin de ce poste est … » : retiré avant le modèle, vérifié, puis admin_enable pose la règle sudo pour de bon (mot de passe gardé chiffré en repli) ; même chose depuis Réglages → Droits",
+   "Shell : une commande refusée faute de droits est relancée toute seule avec sudo",
+   "Le prompt interdit de répondre seulement « je n'ai pas les droits » : Odin propose de les prendre"
+  ],
+  "planets": [
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "55b6643",
+  "at": "2026-11-06T06:26:50+03:00",
+  "date": "2026-11-06",
+  "version": "0.28.0",
+  "title": "Odin prend la main avec un mot de passe, renomme seul, mascotte qui propose",
+  "details": [
+   "Mot de passe donné dans la discussion : retiré avant le modèle, effacé de Telegram, gardé chiffré une heure",
+   "machine_onboard : connexion, clé SSH d'Odin installée et vérifiée, jeton d'API Proxmox créé et réglé, nouveau mot de passe (seulement une fois la clé vérifiée) envoyé en message privé éphémère (Telegram : masqué, non transférable, effacé après 10 minutes ; application : carte masquée)",
+   "Breaker : donne toujours un nom aux appareils, même probable (« NAS Samba », « Téléphone Android ? »)",
+   "Mascotte touchée : propositions selon la conversation (réessayer, expliquer, analyser l'appareil cité, approfondir, résumer, oui/non) ou selon la maison (appareil hors ligne, appareils à identifier, point du jour)"
+  ],
+  "planets": [
+   "discussion",
+   "guide",
+   "interface",
+   "canaux",
+   "maison"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "80fc241",
+  "at": "2026-11-06T06:20:34+03:00",
+  "date": "2026-11-06",
+  "version": "0.27.1",
+  "title": "Répondre oui/non, boutons Telegram, lecture jamais « grave », présentation complète",
+  "details": [
+   "Validations : « oui », « non », « ok », « toujours » tout court ; boutons Oui / Non / Toujours sous la demande dans Telegram",
+   "Une commande de simple lecture (hostname, realm list, ip addr…) est une routine : plus de « GRAVE : suppression de données » à tort (le juge confondait 2>/dev/null avec un effacement)",
+   "Ce que le propriétaire demande lui-même (une adresse, un site cité) n'est plus bloqué",
+   "Mascotte : dégradés propres à chaque mascotte (plus de « seulement les yeux »), toujours visible, bulle qui ne cache plus les messages et qui disparaît quand tu écris",
+   "Présentation guidée : toute l'utilisation et toute la configuration ; voix d'homme naturelle",
+   "Voix par défaut masculines (OpenAI onyx, Piper fr_FR-tom)"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide",
+   "canaux",
+   "ia"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "75d76a6",
+  "at": "2026-11-05T22:30:43+03:00",
+  "date": "2026-11-05",
+  "version": "0.27.0",
+  "title": "Breaker qui agit seul, MAC et blocage par la box, mémoire auto-rangée, nouvelle interface",
+  "details": [
+   "Odin Breaker : travaille de lui-même même si le travail continu est coupé, ronde sans modèle (balayage, sécurité, disques), liste « à faire » enrichie, journal visible, « Faire une ronde maintenant »",
+   "Réseau : vérification des adresses MAC (doublons, box qui change de MAC), net_block / net_unblock / net_blocked (OpenWrt, MikroTik, Linux), bouton sur la fiche appareil, page appareil complète, carte animée",
+   "Mémoire : rangement chaque nuit (améliorer, fusionner, oublier), annulable 7 jours ; page par thèmes avec Épingler / Modifier / Oublier",
+   "Recherche : Bing, Mojeek et Bing Actualités sans clé, bascule automatique si un moteur est bloqué, repli sur les extraits ou le navigateur au lieu d'abandonner",
+   "Discussion : réponses en Markdown, étapes repliables, décisions en encart, fichiers joints de tout type (glisser-déposer, collage), « /yes » sans numéro, historique rangé par jour et repliable",
+   "Mascotte de discussion : se déplace partout, regarde ce que tu écris, se pose sur ses réponses, réagit ; barre de saisie à sa couleur ; plus de mascotte dans la barre latérale",
+   "Accueil réorganisé ; présentation guidée à la première connexion (texte et voix, refusable)",
+   "Identité visuelle « nuit de fjord » (Bricolage Grotesque + IBM Plex Sans) pour l'application et le site"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide",
+   "interface",
+   "maison"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "ed5ca22",
+  "at": "2026-11-05T22:03:50+03:00",
+  "date": "2026-11-05",
+  "version": "0.26.0",
+  "title": "Interface réorganisée, carte par sous-réseau, décisions lisibles, Breaker qui agit",
+  "details": [
+   "Menu : 4 rubriques principales (Accueil, Discussion, Missions, Réseau) + « Plus » repliable (Mémoire, Compétences, Tâches, Décisions) avec badge",
+   "Réglages : en haut, les 5 rubriques que tu utilises le plus (et celle ouverte) ; « Tous les réglages » ouvre un panneau classé par thème, avec recherche",
+   "Carte du réseau : une carte par sous-réseau, appareils rangés par catégorie (cadres), liaisons sans croisement, noms utiles (nom d'hôte ou « VM .88 »), zoom, déplacement, recherche, fiche de l'appareil au clic (Identifier, Renommer, important)",
+   "Décisions : par jour / semaine / mois / année, filtres (actions, refusées, tout), phrases lisibles au lieu de noms d'outils et de JSON, regroupées par jour, répétitions fusionnées",
+   "Odin Breaker : met en place tout seul 5 tâches de fond logiques (ronde du réseau, mises à jour, disques, sauvegardes, révision des scripts), travail continu 2× plus fréquent avec une vraie liste de choses à faire (appareils sans nom, appareils importants tombés, scripts en échec, demandes fréquentes sans compétence) et sans attendre d'accord ; net_rename",
+   "Compétences : plus de filtre du juge en mode Breaker ou sur les longues missions ; si le petit modèle ne répond pas, le modèle principal réfléchit",
+   "Telegram : plus d'émoji ajouté, marqueurs « [joie] » retirés, réponses sans émojis"
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "canaux",
+   "maison",
+   "automatisations"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "198f311",
+  "at": "2026-11-05T21:47:51+03:00",
+  "date": "2026-11-05",
+  "version": "0.25.0",
+  "title": "Mode essai d'un clic, mises à jour appliquées toutes seules",
+  "details": [
+   "Mode essai global (bouton Essai, /essai sur Telegram) : scripts à blanc, modifications décrites au lieu d'être faites, plan final « Voici ce que je ferais »",
+   "Nouvelle version installée mais pas chargée (git pull, Hermes…) : vérification du code puis redémarrage automatique quand Odin ne travaille pas ; bandeau + « Redémarrer maintenant »",
+   "Version affichée dans le menu (Cause du « pas de bouton Importer d'Hermes » : l'interface est chargée au démarrage ; une mise à jour sans redémarrage gardait l'ancienne.)"
+  ],
+  "planets": [
+   "interface",
+   "canaux",
+   "applis",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "b612753",
+  "at": "2026-11-05T21:27:50+03:00",
+  "date": "2026-11-05",
+  "version": "0.24.0",
+  "title": "Scripts testés et signés, compétences qui s'améliorent seules, import d'Hermes",
+  "details": [
+   "Scripts : mode essai (ODIN_DRY_RUN), test automatique (une version qui casse le test n'est pas gardée), module commun odin_lib (Python, Bash, Node), plusieurs cibles à la fois (liste, pct:all, résumé), bac à sable Docker sans réseau, programmation directe sans le modèle (script_schedule, alerte seulement en cas d'échec), durée par version et retour arrière (script_revert). Compétences : scripts embarqués, réglages {{param}}, choix automatique selon la demande, statistiques (réussite, durée, coût), amélioration proposée après un échec ou une correction (diff ligne par ligne), bilan hebdomadaire (à améliorer, à ranger), import des compétences d'Hermes (dossier, machine, pct, pct@hôte), fiche dans l'interface (modifier, tester, version précédente, ranger), tout approuver. Sécurité : analyse avant enregistrement (secrets, commandes destructrices, envoi de données), signature HMAC des scripts et compétences (modifiés hors d'Odin = refusés)."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "memoire"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "3feeb4b",
+  "at": "2026-11-05T21:15:17+03:00",
+  "date": "2026-11-05",
+  "version": "0.23.0",
+  "title": "Bibliothèque de scripts, progression sur Telegram, nom d'hôte et IP",
+  "details": [
+   "script_save / script_run / script_list : scripts Python, Bash, Node gardés et versionnés (anciennes versions, réussites, échecs, dernière erreur, historique des changements) ; lancés sur la machine d'Odin, une machine du réseau (SSH, code par l'entrée standard) ou un conteneur Proxmox (pct exec) ; commandes destructrices interdites aussi dans les scripts",
+   "Consigne : compétence d'abord, script plutôt que commandes à la main, corriger et relancer, proposer une compétence qui cite le script ; index des scripts dans le contexte",
+   "Odin connaît son nom d'hôte, ses IP et s'il est dans un conteneur (prompt, self_info)",
+   "Telegram : message de progression mis à jour (compétence, terminal, script, recherche, ×n), sans notification, clos à la réponse finale",
+   "Interface : tableau des scripts dans Compétences"
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "canaux",
+   "maison",
+   "machines"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "52b88c1",
+  "at": "2026-11-05T20:59:19+03:00",
+  "date": "2026-11-05",
+  "version": "0.22.0",
+  "title": "Analyse de vidéos (YouTube, TikTok, Instagram, Facebook, fichiers)",
+  "details": [
+   "Plateformes détectées et liens validés (vidéos, Shorts, liens courts, Reels, fb.watch)",
+   "Accès : yt-dlp (≤ 720p, sous-titres fr/en, informations, chapitres) ; contenu public ou cookies fournis par le propriétaire ; messages clairs sinon ; fichiers envoyés acceptés",
+   "Audio : sous-titres WebVTT dédoublonnés, sinon Whisper par tranches d'une minute (horodaté)",
+   "Images : scènes FFmpeg + couverture régulière, vision (scènes, objets, gestes, texte, code), Tesseract en appoint ; fusion sur une ligne de temps",
+   "Modes : résumé, tutoriel, faits (recherche vérifiée), code, marketing, traduction, question, apprendre (technologies, étapes, docs officielles, plan, compétence proposée à valider)",
+   "« Montré » vs « déduit », mémoire avec la source, fichiers gardés dans videos/",
+   "Installateur : rappel des outils facultatifs (ffmpeg, yt-dlp, pdftotext, smbclient, tesseract)"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "automatisations",
+   "memoire",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "4badd70",
+  "at": "2026-11-05T20:55:43+03:00",
+  "date": "2026-11-05",
+  "version": "0.21.0",
+  "title": "Recherche vérifiée par une équipe d'agents, preuves archivées, navigation polie",
+  "details": [
+   "web_research : chercheur (faits, pays, période, requêtes variées), recherche multisource (Brave, Tavily, Exa, Google Programmable Search, SearXNG, DuckDuckGo ; 3 moteurs à la fois), collecte (texte principal, PDF via pdftotext ou extraction intégrée, navigateur pour les pages dynamiques), analyste des sources (type, auteur, date, primaire, note), indépendance (même site, texte repris, même dépêche/communiqué, liens), contradicteur, vérificateur (citations exactes contrôlées mot pour mot), rédacteur (vérifié / probable / contredit, limites, refus de conclure)",
+   "Preuves archivées (table evidence) + evidence_search",
+   "Lecture des pages comme un visiteur ordinaire et poli : en-têtes de navigateur, français, cookies, pauses humaines par site, une requête à la fois par site, Retry-After respecté ; pas de contournement",
+   "web_fetch : même lecture polie, métadonnées (auteur, dates), PDF",
+   "Réglages → Recherche : clés Exa et Google"
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "cerveau"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "d86a65a",
+  "at": "2026-11-05T20:47:53+03:00",
+  "date": "2026-11-05",
+  "version": "0.20.1",
+  "title": "Recherche web sans validation, sources citées, recherches croisées imposées",
+  "details": [
+   "web_search, web_fetch et browser_open = consultation : jamais de validation, même après du contenu non fiable (sauf réseau interdit, manipulation détectée, ou adresse qui transporte une longue chaîne de données = fuite possible)",
+   "Recherches croisées : si une réponse s'appuie sur le web avec moins de deux sites différents lus, contrôle automatique → nouvelle recherche, comparaison, ✓ concordance / ⚠ contradiction",
+   "Sources ajoutées aussi quand Odin n'a fait que chercher (premiers résultats)"
+  ],
+  "planets": [
+   "discussion",
+   "maison"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "9f8fcaf",
+  "at": "2026-11-05T20:45:07+03:00",
+  "date": "2026-11-05",
+  "version": "0.20.0",
+  "title": "Identification complète des appareils (nom, système, version, modèle, partages)",
+  "details": [
+   "SMB2 + NTLM sans mot de passe : nom de l'ordinateur, domaine, version de Windows (build) ; Samba reconnu",
+   "mDNS posé directement à l'appareil : nom .local, modèle Apple (iPhone16,2 → iPhone 15 Pro Max)",
+   "Bannière SSH : Debian 12, Ubuntu 24.04, Raspberry Pi OS, Linux embarqué…",
+   "Ports ouverts (≈70 ports nommés), partages SMB / NFS / AFP / FTP, dossiers partagés et fichiers (smbclient, showmount ; compte de la machine si elle est dans le coffre)",
+   "net_identify complet + net_share_files ; bouton 🔍 Identifier dans Réseau ; système affiché",
+   "Balayage complet : système et nom exact enregistrés pour chaque appareil",
+   "Testé contre un vrai serveur Samba et un faux Windows"
+  ],
+  "planets": [
+   "maison",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "682927d",
+  "at": "2026-11-05T20:33:06+03:00",
+  "date": "2026-11-05",
+  "version": "0.19.2",
+  "title": "Telegram « écrit… », mise en forme, visage d'Odin en émoji ; net_identify",
+  "details": [
+   "« écrit… » affiché tant qu'Odin travaille (sendChatAction renouvelé)",
+   "Markdown converti en HTML Telegram : plus de « **…** » bruts",
+   "Visage d'Odin selon son humeur à la fin du texte, taille émoji : pack d'émojis personnalisés créé une fois (Bot API 9.4, propriétaire Telegram Premium) ; sinon émoji classique",
+   "net_identify : nom d'un appareil (DNS inverse, NetBIOS, titre web, nœud Proxmox, bannière SSH, hostname via SSH si la machine est connue) ; règle : jamais de réponse vague sur un appareil",
+   "Nom tiré du titre web (« pve - Proxmox Virtual Environment » → « pve (Proxmox) »)"
+  ],
+  "planets": [
+   "discussion",
+   "canaux",
+   "maison",
+   "machines"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "039b6b8",
+  "at": "2026-11-05T20:27:30+03:00",
+  "date": "2026-11-05",
+  "version": "0.19.1",
+  "title": "Connexion ChatGPT (Codex) par code, depuis n'importe quel appareil",
+  "details": [
+   "OpenAI renvoie toujours la connexion par lien vers http://localhost:1455 : quand le navigateur n'est pas sur la machine d'Odin (téléphone, LXC, serveur), la page reste en erreur. Nouvelle connexion par code (device code) : Odin affiche un code, on le saisit sur auth.openai.com/codex/device, Odin attend la validation et range les jetons. Par défaut dans l'interface et `odin auth add` (`--link` pour l'ancienne méthode)."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "ia"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "dbb3068",
+  "at": "2026-11-05T20:21:58+03:00",
+  "date": "2026-11-05",
+  "version": "0.19.0",
+  "title": "Tout tester, leçons, annuler, heures calmes, coffre, raccourcis vocaux",
+  "details": [
+   "« Tout tester » (Accueil) et `odin test` : vérification réelle de chaque fonction reliée",
+   "Leçons tirées des corrections ; choix du modèle selon les réussites par type de tâche",
+   "Annuler une modification de fichier, ligne de temps des missions, « Pourquoi ? »",
+   "change_plan (analyse d'impact) et recovery_plan (plan de reprise)",
+   "Heures calmes (nuit, rendez-vous) avec messages différés ; anomalies ; bilan hebdomadaire et test de restauration",
+   "Conversation vocale continue avec interruption (« stop »)",
+   "/api/ask (raccourcis Siri / Android / Home Assistant, jeton Bearer) ; ha_speak sur les enceintes",
+   "Coffre facultatif : secrets chiffrés (AES-256-GCM, scrypt), déverrouillage dans l'interface",
+   "Restauration : fichiers secrets en 600 ; outils de fichiers bloqués sur vault.json, *.enc, backup-pass, vapid.json"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "interface",
+   "maison",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "18a25c2",
+  "at": "2026-11-05T18:37:47+03:00",
+  "date": "2026-11-05",
+  "version": "0.18.0",
+  "title": "Travail continu (reprise, relances, initiative avec budget), rapport du matin, vérification imposée après action, relecture par un second modèle, sources, niveaux de certitude, réponses en direct, outils en parallèle, état préparé",
+  "details": [],
+  "planets": [
+   "discussion"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "ab7533e",
+  "at": "2026-11-05T18:32:05+03:00",
+  "date": "2026-11-05",
+  "title": "Réponses en direct (mot à mot) ; mémoire : faits remplacés, oubli, fiches, recherche par le sens (Ollama)",
+  "details": [],
+  "planets": [
+   "discussion",
+   "memoire",
+   "ia"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "50505fd",
+  "at": "2026-11-05T18:16:12+03:00",
+  "date": "2026-11-05",
+  "title": "Fonctions facultatives cachées par défaut : Odin les propose selon l'usage (réseau, messages), carte « Odin te propose », « ＋ Plus »",
+  "details": [],
+  "planets": [
+   "discussion",
+   "maison"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "f02bb80",
+  "at": "2026-11-05T18:11:03+03:00",
+  "date": "2026-11-05",
+  "version": "0.17.0",
+  "title": "Réglages Entretien, Maison, Mail, Agenda, Documents, Personnalité, accès extérieur ; historique (recherche, épingles, export PDF)",
+  "details": [],
+  "planets": [
+   "maison"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "623a450",
+  "at": "2026-11-05T18:05:26+03:00",
+  "date": "2026-11-05",
+  "title": "Réparation automatique, mises à jour planifiées avec instantané, journal du soir, Home Assistant, mail, agenda, documents, personnalités, accès extérieur (backend)",
+  "details": [],
+  "planets": [
+   "maison",
+   "automatisations",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "57a6f1d",
+  "at": "2026-11-05T17:57:32+03:00",
+  "date": "2026-11-05",
+  "title": "Autorité de certification locale (limitée au réseau privé) et vraies notifications push chiffrées",
+  "details": [],
+  "planets": [
+   "maison",
+   "securite"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "a382952",
+  "at": "2026-11-05T17:50:15+03:00",
+  "date": "2026-11-05",
+  "version": "0.16.0",
+  "title": "Accueil, surveillance (Vörðr), sécurité et carte du réseau, Proxmox, sauvegarde nocturne, routines et habitudes, mains libres, application installable",
+  "details": [],
+  "planets": [
+   "voix",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "05a9e1e",
+  "at": "2026-11-05T16:49:29+03:00",
+  "date": "2026-11-05",
+  "title": "Réseau : appareils classés par catégorie et identifiés (fabricant, nom), tableau aligné, recherche, filtres, liens et ports nommés",
+  "details": [],
+  "planets": [
+   "maison"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "a22906d",
+  "at": "2026-11-05T14:34:46+03:00",
+  "date": "2026-11-05",
+  "title": "Propositions : types libres, Odin peut en inventer d'autres selon la situation (avec une icône)",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "b36fa2a",
+  "at": "2026-11-05T10:35:27+03:00",
+  "date": "2026-11-05",
+  "title": "Propositions selon le contexte : conversation, mémoire, réseau, machines, compétences ; 8 types d'idées",
+  "details": [],
+  "planets": [
+   "discussion",
+   "maison",
+   "machines",
+   "memoire"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "920b649",
+  "at": "2026-11-05T09:36:19+03:00",
+  "date": "2026-11-05",
+  "title": "Odin propose de lui-même jusqu'à 4 améliorations du message (fautes, clarté, précision, action en plus)",
+  "details": [],
+  "planets": [
+   "discussion"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "6e298c5",
+  "at": "2026-11-05T09:33:13+03:00",
+  "date": "2026-11-05",
+  "title": "Bulle d'Odin plus petite, boutons sur une ligne",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "60c1be2",
+  "at": "2026-11-05T09:30:18+03:00",
+  "date": "2026-11-05",
+  "title": "Nuage supprimé : simple bulle à côté d'Odin",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "db9c0a6",
+  "at": "2026-11-05T09:28:20+03:00",
+  "date": "2026-11-05",
+  "title": "Nuage dynamique : se place à côté ou au-dessus d'Odin, s'écrit, flotte, s'efface tout seul ou d'un toucher",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "86498c9",
+  "at": "2026-11-05T09:25:42+03:00",
+  "date": "2026-11-05",
+  "title": "Nuage de pensée façon 💭 : grosses bosses, petites bulles vers Odin, texte plus petit",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "a39c3db",
+  "at": "2026-11-05T09:21:28+03:00",
+  "date": "2026-11-05",
+  "title": "La bulle d'Odin devient un nuage à côté de lui, qui le suit quand il bouge",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "c2eb8e6",
+  "at": "2026-11-05T09:18:15+03:00",
+  "date": "2026-11-05",
+  "title": "Odin t'aide à écrire (fautes, reformulation, conseils), parle dans une bulle et se déplace dans la discussion",
+  "details": [],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8c0cc36",
+  "at": "2026-11-05T09:12:17+03:00",
+  "date": "2026-11-05",
+  "title": "Odin apparaît dans la discussion, au-dessus de la saisie, et réagit quand on lui parle",
+  "details": [],
+  "planets": [
+   "discussion",
+   "voix"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "ecb4435",
+  "at": "2026-11-05T09:07:28+03:00",
+  "date": "2026-11-05",
+  "title": "Interface : barre de saisie unifiée et alignée, en-tête de discussion à icônes, navigation plus fluide",
+  "details": [],
+  "planets": [
+   "discussion",
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "84bee00",
+  "at": "2026-11-04T21:29:10+03:00",
+  "date": "2026-11-04",
+  "title": "Nouvelle interface locale : icônes, barre du bas sur mobile, réglages par rubrique, thème clair/sombre",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "38a148e",
+  "at": "2026-11-04T21:21:36+03:00",
+  "date": "2026-11-04",
+  "title": "Accès complet à la machine, Python, auto-modification et auto-mise à jour",
+  "details": [],
+  "planets": [
+   "machines",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "6fdb07c",
+  "at": "2026-11-04T21:15:24+03:00",
+  "date": "2026-11-04",
+  "title": "Réseau : noms, ports nommés et liens web de chaque appareil",
+  "details": [
+   "Noms : NetBIOS (Windows, NAS, Samba), description UPnP (nom, fabricant, modèle), en plus de mDNS et du DNS inverse.",
+   "Ports : une soixantaine de ports courants testés, chacun nommé (SSH, SMB, IPP, RTSP, MySQL, PostgreSQL, Proxmox, Plex, Jellyfin, Home Assistant, VNC, RDP…).",
+   "Liens : chaque interface web détectée (http ou https, certificat auto-signé accepté), avec son titre et son serveur ; colonne « web » dans l'inventaire.",
+   "Onglet Réseau et outil net_inventory : nom réseau, modèle, ports nommés, liens cliquables."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "4c5b5df",
+  "at": "2026-11-04T21:12:55+03:00",
+  "date": "2026-11-04",
+  "title": "Telegram : réaction en émoji à la fin du texte ; informations vérifiées avec sources",
+  "details": [
+   "Telegram : l'émoji de son humeur termine le message (même taille que le texte) ; l'autocollant devient optionnel (mood.stickers, désactivé par défaut).",
+   "Règle stricte dans le prompt : tout fait sur le monde actuel est vérifié (recherche puis lecture de la source, sources croisées si important), sources données en liens, « je n'ai pas pu le vérifier » plutôt qu'une supposition ; vérification par commande pour la machine."
+  ],
+  "planets": [
+   "discussion",
+   "canaux",
+   "machines"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "35c33c1",
+  "at": "2026-11-04T21:11:50+03:00",
+  "date": "2026-11-04",
+  "title": "Navigateur : attendre la page suivante après un clic ou une touche ; fermeture propre",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "856d7c6",
+  "at": "2026-11-04T20:58:50+03:00",
+  "date": "2026-11-04",
+  "title": "Recherche web : outil web_search (DuckDuckGo sans clé, Brave, Tavily, SearXNG)",
+  "details": [
+   "Recherche sur le web ou sur un site/réseau précis (option « site » : reddit, x, youtube, linkedin, github… ou un domaine), résultats marqués non fiables.",
+   "Moteur automatique : Brave ou Tavily si une clé est présente, SearXNG si une adresse est réglée, sinon DuckDuckGo (HTML, liens réels, publicités écartées).",
+   "Réglages → Recherche web (moteur, clés, adresse SearXNG)."
+  ],
+  "planets": [
+   "maison"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "192d6b9",
+  "at": "2026-11-04T20:56:47+03:00",
+  "date": "2026-11-04",
+  "title": "Navigateur : Odin ouvre des pages, regarde, clique et remplit des formulaires",
+  "details": [
+   "Pilote le Chrome/Chromium/Edge installé par le protocole DevTools (WebSocket de Node), aucune dépendance ; invisible sans écran (serveur, LXC), profil gardé dans ~/.odin/browser.",
+   "« Regarder » : éléments visibles numérotés (liens, boutons, champs, listes, cases), texte, et capture avec numéros analysée par la vision du modèle ; mots de passe jamais relus en clair.",
+   "Outils : browser_open, browser_look, browser_click (vrai clic souris), browser_type, browser_select, browser_key, browser_scroll, browser_back, browser_screenshot, browser_close.",
+   "Contenu NON FIABLE ; clics et saisies = « external » (Heimdall, autonomie) ; métadonnées cloud refusées, réseau local permis (box, NAS…)."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8ccd1ed",
+  "at": "2026-11-04T20:52:59+03:00",
+  "date": "2026-11-04",
+  "version": "0.13.0",
+  "title": "Droits administrateur et machines du réseau",
+  "details": [
+   "Machine locale : mot de passe sudo donné à Odin (fichier 600, espaces et caractères spéciaux acceptés) et transmis à chaque « sudo » par askpass ; ou sudo sans mot de passe (odin admin nopasswd, règle vérifiée par visudo) ; rien à faire en root (LXC).",
+   "Machines du réseau : coffre (machines.json, 600), connexion SSH avec mot de passe (askpass) ou clé propre à Odin installée automatiquement ; sudo distant ; outils machine_list, machine_exec, machine_copy.",
+   "Mots de passe jamais réaffichés ni montrés au modèle, masqués partout ; Odin connaît ses droits et ses machines (prompt) ; règles de Heimdall inchangées.",
+   "Réglages → Droits et machines (machines du réseau avec SSH proposées en un clic) ; CLI odin admin et odin machines ; l'installateur propose les droits administrateur."
+  ],
+  "planets": [
+   "maison",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "0763916",
+  "at": "2026-11-04T20:24:35+03:00",
+  "date": "2026-11-04",
+  "title": "Ligne de commande : « odin link », et lien avec jeton affiché à la fin de l'installation",
+  "details": [
+   "« odin link » (alias de « odin web link ») affiche les liens personnels avec jeton.",
+   "Les installateurs (macOS/Linux et Windows) affichent toujours ce lien à la fin, avec ou sans service ; la page de connexion et l'accueil renvoient vers « odin link »."
+  ],
+  "planets": [
+   "interface",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8b30819",
+  "at": "2026-11-04T20:23:51+03:00",
+  "date": "2026-11-04",
+  "title": "Première configuration : lien personnel (avec jeton) affiché dans l'accueil",
+  "details": [
+   "Dès la première ouverture, l'encadré de bienvenue des Réglages montre les liens personnels d'Odin avec un bouton Copier, pour les garder et ouvrir Odin sur les autres appareils."
+  ],
+  "planets": [
+   "maison",
+   "securite"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8119138",
+  "at": "2026-11-04T20:20:28+03:00",
+  "date": "2026-11-04",
+  "title": "Première configuration sans jeton, sans limite de temps tant qu'Odin n'est pas configuré",
+  "details": [
+   "Tant qu'aucun modèle n'est choisi et qu'aucun navigateur ne s'est jamais connecté, le premier navigateur du réseau local peut ouvrir Odin sans jeton (bouton « Commencer »), quel que soit le temps écoulé depuis le démarrage. Une fois cet accès donné, le jeton redevient obligatoire."
+  ],
+  "planets": [
+   "maison",
+   "securite"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "baa9b37",
+  "at": "2026-11-04T18:21:00+03:00",
+  "date": "2026-11-04",
+  "title": "Interface web : première connexion sans jeton, et « odin web link »",
+  "details": [
+   "Tant qu'aucun appareil ne s'est jamais connecté, le premier navigateur du réseau local (jamais depuis Internet) qui ouvre Odin dans l'heure qui suit son démarrage reçoit l'accès d'un clic (« Commencer ») ; ensuite le jeton redevient obligatoire. Une installation déjà utilisée depuis un navigateur n'est jamais concernée.",
+   "Page de connexion : « Où trouver mon lien ? » (odin web link, LXC Proxmox, journal du service).",
+   "Nouvelle commande « odin web link » : affiche les liens personnels sans démarrer l'interface."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "a0c9493",
+  "at": "2026-11-04T16:24:24+03:00",
+  "date": "2026-11-04",
+  "version": "0.12.0",
+  "title": "Abonnement ChatGPT via Codex (comme Hermes)",
+  "details": [
+   "Nouveau fournisseur « openai-codex » : l'API Responses de Codex avec la connexion ChatGPT, en flux, outils et images compris ; 401 → renouvellement du jeton puis réessai.",
+   "Connexion OAuth + PKCE propre à Odin (~/.odin/codex-auth.json, 600), jamais partagée avec Codex CLI ni Hermes ; jetons renouvelés avant expiration, jeton qui tourne enregistré.",
+   "Machine sans navigateur (LXC) : on recolle l'adresse de retour ; sinon retour capté sur 1455.",
+   "Réglages → Modèle : préréglage « OpenAI Codex (abonnement ChatGPT) », bouton « Se connecter avec ChatGPT », état de la connexion, déconnexion.",
+   "CLI : odin auth add|list|remove openai-codex, odin model [préréglage] [modèle] ; odin doctor vérifie la connexion."
+  ],
+  "planets": [
+   "machines",
+   "securite",
+   "ia"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "65fa76c",
+  "at": "2026-11-04T15:44:32+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : « complice » reprend les yeux de « perplexe »",
+  "details": [
+   "Un œil normal, l'autre plus petit, qui glissent doucement de côté ; la couleur turquoise de « complice » est conservée."
+  ],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "b9d5291",
+  "at": "2026-11-04T15:20:47+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : œil fermé du clin d'œil nettement plus grand",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "eebb24b",
+  "at": "2026-11-04T15:06:58+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : clin d'œil bien visible (complice)",
+  "details": [
+   "L'œil fermé devient un trait plus large et plus épais, l'œil ouvert un peu plus grand."
+  ],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "eba5b5e",
+  "at": "2026-11-04T15:03:31+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : yeux propres à chaque émotion",
+  "details": [
+   "Les yeux restent des pilules droites, mais leur taille, leur écart, leur hauteur et une petite animation changent selon l'humeur (tout petits gêné ou effrayé, plissés fâché ou concentré, mi-clos fatigué, grands surpris, bas triste, hauts pensif, clin d'œil complice, battement attendri…), avec une transition douce. Autocollants Telegram régénérés."
+  ],
+  "planets": [
+   "guide",
+   "canaux"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "a78c652",
+  "at": "2026-11-04T14:50:08+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : son quand il ferme et rouvre les yeux",
+  "details": [
+   "« Tic » descendant à la fermeture, montant à la réouverture, calé sur l'animation du clignement ; seulement pour la mascotte principale visible (héros du site, compagnon de l'interface), et coupé avec les autres sons."
+  ],
+  "planets": [
+   "guide",
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "ffd8f4b",
+  "at": "2026-11-04T14:48:06+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : sons de ses mouvements et de ses humeurs",
+  "details": [
+   "Sons synthétisés (Web Audio, aucun fichier) : « boing » au saut, grognement à la colère, carillon montant ou descendant selon l'humeur, rires, tremblements.",
+   "Sur le site : quand on le touche ou dans la galerie ; dans l'interface : au toucher et quand il change d'humeur en répondant. Silencieux tant qu'on n'a pas touché la page.",
+   "Bouton pour couper les sons (site : en-tête ; interface : sous le compagnon), choix gardé.",
+   "Correctif : le site perdait la réaction au toucher (fonction du regard supprimée par erreur)."
+  ],
+  "planets": [
+   "voix",
+   "guide",
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "06ef6fd",
+  "at": "2026-11-04T14:34:30+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : yeux toujours droits",
+  "details": [
+   "Retrait des inclinaisons héritées (réflexion, sourire, colère, « focus » périodique, tête penchée à l'écoute) : les yeux gardent leur forme et restent droits ; seuls le clignement et le regard qui suit le doigt les animent."
+  ],
+  "planets": [
+   "guide",
+   "machines"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "4cc4fd7",
+  "at": "2026-11-04T11:51:03+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : yeux toujours identiques, la couleur change selon l'humeur",
+  "details": [
+   "Une couleur par humeur (doré, orange, rose, violet, turquoise, bleu, rouge, gris…), avec une transition douce ; les halos prennent la teinte de l'humeur.",
+   "Autocollants Telegram régénérés aux couleurs des humeurs."
+  ],
+  "planets": [
+   "guide",
+   "canaux"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "3ff6fa4",
+  "at": "2026-11-04T11:46:03+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : expressions uniquement par les yeux, plus aucun émoji",
+  "details": [
+   "Plus de bulle d'émoji, de bouche, de sourcils, de joues, de larmes ni d'accessoires : chaque humeur se lit seulement dans la forme et l'inclinaison des yeux.",
+   "Plus d'émoji en tête des réponses Telegram ; l'autocollant (yeux seuls) est conservé.",
+   "La colère garde son passage rouge → bleu → jaune."
+  ],
+  "planets": [
+   "discussion",
+   "guide",
+   "canaux"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "6e20050",
+  "at": "2026-11-04T11:37:07+03:00",
+  "date": "2026-11-04",
+  "version": "0.11.0",
+  "title": "Odin a un visage et des humeurs",
+  "details": [
+   "Une vingtaine d'expressions (yeux, sourcils, bouche, joues, larmes, couleur) dessinées par un script partagé (site, interface, autocollants).",
+   "Odin choisit lui-même son humeur à chaque réponse ([humeur:X], retiré avant affichage), avec une estimation de secours ; évènement « mood » dans l'interface.",
+   "Interface : compagnon dans la barre latérale et la barre mobile, qui réagit tout seul (écoute, concentration, regard, parole, yeux fermés sur les clés, joie à l'enregistrement, sommeil quand on l'oublie) ; bouton caméra pour lui montrer ce qui l'entoure.",
+   "Telegram : autocollant de son humeur quand elle change, émoji en tête de réponse.",
+   "Mascotte : un seul toucher = rebond ; trop de touchers = colère rouge → bleu → jaune.",
+   "Site : galerie des humeurs, humeur autonome du héros.",
+   "Correctif : nonce CSP appliqué à tous les scripts de l'interface."
+  ],
+  "planets": [
+   "discussion",
+   "guide",
+   "interface",
+   "canaux",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "df1854a",
+  "at": "2026-11-04T11:14:08+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : deux halos qui tournent autour, en sens opposés, comme le modèle",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "3d87c51",
+  "at": "2026-11-04T11:11:43+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : halo doux décalé comme le modèle, à la place des anneaux",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "e82ac00",
+  "at": "2026-11-04T11:10:29+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : cercles de lumière animés, onde lumineuse au toucher, rebond au lieu de la pirouette (plus de forme coupée)",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "c286b2c",
+  "at": "2026-11-04T11:06:32+03:00",
+  "date": "2026-11-04",
+  "title": "Site : toujours arriver en haut de la page après un lien (pied de page compris)",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "b1474a7",
+  "at": "2026-11-04T11:05:04+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : rendu plat et doux comme le modèle (plus de reflet 3D), halo discret, yeux plus fins",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "9f7dbb1",
+  "at": "2026-11-04T11:02:08+03:00",
+  "date": "2026-11-04",
+  "title": "Mascotte : réagit au toucher (se tasse et sourit, s'étonne, pirouette), yeux qui suivent le doigt ; logo rune conservé dans la marque et le favicon",
+  "details": [],
+  "planets": [
+   "guide",
+   "automatisations"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "44c99be",
+  "at": "2026-11-04T10:54:35+03:00",
+  "date": "2026-11-04",
+  "title": "CI : installation de bout en bout sous bash, dépôt source autorisé pour l'utilisateur de test",
+  "details": [],
+  "planets": [
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8128cfd",
+  "at": "2026-11-04T10:52:54+03:00",
+  "date": "2026-11-04",
+  "title": "Pages : activation automatique au premier déploiement",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "36bec0c",
+  "at": "2026-11-04T10:52:19+03:00",
+  "date": "2026-11-04",
+  "version": "0.10.0",
+  "title": "Missions, budget mensuel, voix locale, sauvegarde chiffrée, personnes, certificat stable, CI des installateurs",
+  "details": [
+   "Onglet Missions : en cours et historique, arrêt et reprise, coût et sous-agents.",
+   "Budget mensuel (Réglages → Modèle) : plafond, dépense du mois par modèle et par usage ; vérification croisée économe (seulement sur danger probable, verdict réutilisé 10 min).",
+   "Voix : Piper (local, gratuit) et serveurs compatibles OpenAI en plus d'ElevenLabs ; aide d'installation de Piper et Whisper dans les réglages ; notes vocales converties en Opus.",
+   "Sauvegarde/restauration chiffrées (AES-256-GCM, scrypt) : odin backup / odin restore et Réglages → Sauvegarde ; anciens fichiers gardés jusqu'au démarrage suivant.",
+   "Personnes : propriétaires, membres (de confiance, autonomie plafonnée, validations chez le propriétaire, mémoire à leur nom) et invités ; appairage en un clic ; odin pairing --membre.",
+   "Certificat HTTPS stable : régénéré seulement si un nom manque ou s'il expire, anciens noms gardés.",
+   "CI : shellcheck, PSScriptAnalyzer, installation de bout en bout dans un Debian vierge.",
+   "README et site mis à jour."
+  ],
+  "planets": [
+   "voix",
+   "cerveau",
+   "machines",
+   "securite",
+   "memoire"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "64103ec",
+  "at": "2026-11-04T10:35:27+03:00",
+  "date": "2026-11-04",
+  "title": "Site « Odin Agent IA » : mascotte animée, alignements, responsive, animations ; onglet Missions",
+  "details": [
+   "Nouveau nom partout : Odin Agent IA (site, README, UI, JSON-LD, OG).",
+   "Mascotte Odin (sphère dorée aux deux yeux) : SVG animé (respire, cligne, regarde, se concentre), dans le héros, les en-têtes de page, la marque, le favicon, l'icône tactile, l'image OG, et l'interface web d'Odin (réfléchit pendant le travail, bouge quand il parle).",
+   "Alignements : en-têtes de page alignés avec les sections, titres équilibrés, commandes qui se coupent proprement (<wbr>), listes à coches.",
+   "Responsive : héros en colonne (mascotte, titre, commandes, boutons, démo), boutons pleine largeur, terminal aligné à gauche, tableaux en fiches.",
+   "Animations : entrée du héros, bandeau défilant, barre de progression, halo des cartes au survol, soulignement de navigation, jauges, ombres.",
+   "Interface d'Odin : onglet Missions (en cours, historique, arrêt/reprise), budget du mois dans l'état."
+  ],
+  "planets": [
+   "voix",
+   "guide",
+   "interface"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "ac47c86",
+  "at": "2026-11-04T06:12:03+03:00",
+  "date": "2026-11-04",
+  "title": "Relecture complète : 20 corrections de bugs et de sécurité",
+  "details": [
+   "Sécurité :",
+   "L'enveloppe <untrusted> ne se dénonçait plus elle-même : toute page web déclenchait « contenu manipulateur » et bloquait les envois du tour.",
+   "Tâche/rappel programmés après lecture d'un contenu non fiable : grave, et exécutés sans la confiance du propriétaire (colonne jobs.tainted).",
+   "Juge local : http_request = envoi (POST irréversible), codex_run, doc_create, media_convert, reminder_set connus ; aucun outil ne compte plus « pour rien ».",
+   "Fichiers reçus (inbox/) reconnus par chemin réel (notes/../inbox, macOS) et aussi par fs_read ; pas d'observation mémoire après un tour marqué.",
+   "rm -rf /*, ~/, --recursive --force, \"/\"… refusés ; liste blanche shell refusée hors espace de travail (cat ~/.aws/credentials).",
+   "Codex ne reçoit plus les secrets d'Odin ; sous-agents jugés sur la demande du propriétaire ; journal d'audit masqué ; X-Forwarded-For : dernière adresse. Robustesse :",
+   "Un canal en échec (jeton Telegram invalide) ne tue plus l'interface web ; boucle Telegram ralentie sur erreur ; API HTTP : délai et erreurs rendus.",
+   "Rotation du jeton : l'ancien cookie n'est plus compté comme attaque ; SSE rafraîchit à la reconnexion ; verrou de rechargement ; tick protégé.",
+   "UTF-8 des corps POST, BOM Windows (config, env), SQLite busy_timeout, OpenAI max_completion_tokens, choices vide, 7e modèle refusé, clé Jev unifiée (JEV_API_KEY), nettoyage des fichiers temporaires.",
+   "PDF intégré borné à 20 Mo ; Office : identifiants échappés, colonnes plafonnées ; lanceur Windows sans accents cassés ; launchd PATH ; systemd quoting + conseil linger ; Dockerfile TZ et HEALTHCHECK ; conversations accessibles sur téléphone."
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "cerveau",
+   "canaux",
+   "maison"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "951dbbf",
+  "at": "2026-11-04T05:24:14+03:00",
+  "date": "2026-11-04",
+  "title": "Doc_read : fichier reçu reconnu par son chemin demandé (macOS, liens symboliques)",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "2fbd981",
+  "at": "2026-11-04T05:23:06+03:00",
+  "date": "2026-11-04",
+  "title": "Site « Odin Agent Majordome » : multipage, animé, SEO, sans cookie",
+  "details": [
+   "10 pages statiques générées (tools/build-site.py) : accueil, fonctionnalités, autonomie et Odin Breaker, sécurité, installation (onglets par système), guide, FAQ, confidentialité (RGPD), mentions légales, 404.",
+   "Animations : terminal rejoué, compteurs, révélation au défilement, jauges ; respect de prefers-reduced-motion. Thème sombre/clair sans cookie.",
+   "SEO : titres et descriptions uniques, canonical, Open Graph, JSON-LD (SoftwareApplication, HowTo, FAQPage, BreadcrumbList), sitemap, robots, og.png.",
+   "Polices servies par le site, aucun script ni traceur tiers, aucune inscription.",
+   "Workflow GitHub Pages (à activer : Settings → Pages → GitHub Actions)."
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "securite",
+   "applis",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "6e20102",
+  "at": "2026-11-04T05:11:26+03:00",
+  "date": "2026-11-04",
+  "title": "README : documents, voix, modèles, apprentissage ; commande odin mimir (jev accepté)",
+  "details": [],
+  "planets": [
+   "voix",
+   "memoire"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "c8d89f5",
+  "at": "2026-11-04T05:10:47+03:00",
+  "date": "2026-11-04",
+  "title": "Choix du modèle par palier, bascule automatique à bout de quota, avis croisés",
+  "details": [
+   "Paliers local (installé, gratuit) / standard / strong : Mímir classe la demande (simple, ordinaire, complexe) et le routeur prend le moins cher qui suffit ; les tâches de fond (résumé, réflexion, observation) vont au local.",
+   "Quota ou crédit épuisé (429 quota, 402, 403 facturation) : fournisseur mis de côté N minutes, suivant pris automatiquement, avis dans la réponse, retour signalé quand il répond de nouveau.",
+   "Décision risquée : vérification croisée par plusieurs modèles, avis le plus prudent retenu (jamais vers « sans risque »).",
+   "Réglages → Modèle : modèle par défaut, modèles de secours, palier, règles."
+  ],
+  "planets": [
+   "discussion",
+   "canaux",
+   "automatisations",
+   "ia",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "0fabc1a",
+  "at": "2026-11-04T05:04:02+03:00",
+  "date": "2026-11-04",
+  "title": "Documents et médias : PDF, Word, Excel, PowerPoint, images, vidéo, audio ; Codex",
+  "details": [
+   "doc_read / doc_create : lecture et création de PDF, .docx, .xlsx (formules), .pptx et CSV sans dépendance (ZIP + XML intégrés ; lecteur PDF avec tables ToUnicode, pdftotext si présent). Fichiers reçus (inbox/) = non fiables.",
+   "image_view : vision du modèle (Anthropic et OpenAI) sur une image.",
+   "media_info / media_convert : ffmpeg en arguments sûrs (format, découpe, taille, son seul, muet, miniature) ; audio_transcribe par Whisper.",
+   "codex_run : confie une tâche de code à Codex (OpenAI) dans un dossier.",
+   "Formats vérifiés avec python-docx, openpyxl, python-pptx, pypdf et LibreOffice."
+  ],
+  "planets": [
+   "voix",
+   "maison",
+   "automatisations",
+   "ia"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "7b50a78",
+  "at": "2026-11-04T04:53:23+03:00",
+  "date": "2026-11-04",
+  "title": "Voix (Whisper + ElevenLabs, voix copiée) et apprentissage rapide",
+  "details": [
+   "Voix :",
+   "Whisper (OpenAI ou serveur local, sans clé) transcrit le micro de l'interface web et les notes vocales Telegram.",
+   "ElevenLabs lit les réponses à voix haute et répond en note vocale ; copie d'une voix à partir d'un enregistrement, avec consentement exigé.",
+   "Réglages → Voix : clé, choix de la voix, essai, copie, service Whisper.",
+   "Telegram : fichiers reçus (PDF, Word, photos, vidéos…) déposés dans l'espace de travail (inbox/). Apprentissage rapide :",
+   "Après chaque échange, Odin retient jusqu'à 3 faits durables (préférences, environnement, missions), jamais de secret, jamais depuis une page web.",
+   "Compétences actives tout de suite en Odin Breaker (réglable).",
+   "Profil de la machine (système, ressources, outils) épinglé en mémoire."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "interface",
+   "cerveau",
+   "canaux"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "bbed9c0",
+  "at": "2026-11-04T04:46:08+03:00",
+  "date": "2026-11-04",
+  "title": "Odin Breaker : autonomie totale, routines et rappels créés par Odin",
+  "details": [
+   "4e niveau d'autonomie « breaker » : plus aucune question, grave et tâches planifiées compris ; tout le temps ou seulement la nuit (plage réglable).",
+   "Restent refusés : commandes destructrices connues, exfiltration, actions graves suggérées par un contenu non fiable, métadonnées cloud.",
+   "Initiative : reminder_set (rappels ponctuels), bilan du soir où Odin crée lui-même les routines utiles ; réseau local ouvert (http_request, web_fetch).",
+   "Missions : 100 étapes et plafond de coût propres ; rapport du soir.",
+   "Réglages, onglet Décisions, odin breaker on|nuit|off ; README à jour."
+  ],
+  "planets": [
+   "maison",
+   "automatisations"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "c20938c",
+  "at": "2026-11-04T04:37:13+03:00",
+  "date": "2026-11-04",
+  "title": "Interface web sur le réseau local en HTTPS par défaut, au choix local ou Internet",
+  "details": [
+   "web.access : lan (par défaut, https://192.168.1.x:7777, limité au sous-réseau de la machine ou à web.allowedNetworks), local (127.0.0.1), wan (Internet, HTTPS obligatoire, ou derrière un proxy HTTPS avec behindProxy).",
+   "Certificat auto-signé ECDSA créé par Odin sans outil externe (aussi sous Windows), recréé si les adresses changent ; empreinte affichée ; certificat personnel possible.",
+   "Jeton exigé partout, cookie Secure en HTTPS, essais ratés limités par adresse (adresse réelle via X-Forwarded-For derrière un proxy), nouveau jeton en un clic (odin web rotate).",
+   "Choix à l'installation (ODIN_WEB_ACCESS), dans Réglages et avec odin web access ; règle de pare-feu proposée sous Windows."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "2080529",
+  "at": "2026-11-03T16:28:21+03:00",
+  "date": "2026-11-03",
+  "title": "Interface web adaptée au téléphone",
+  "details": [
+   "Barre mobile : marque, section courante et bouton Menu (grille des onglets), au lieu d'une rangée d'onglets qui débordait et cachait les Réglages.",
+   "Tableaux (mémoire, décisions, réseau, tâches) empilés en fiches avec le titre de chaque colonne ; marges et tailles resserrées.",
+   "Le mode démo renvoie vers l'onglet Réglages."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "automatisations",
+   "memoire"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "4924cb9",
+  "at": "2026-11-03T16:23:07+03:00",
+  "date": "2026-11-03",
+  "title": "CI : Windows devient bloquant (tous les tests y passent)",
+  "details": [],
+  "planets": [
+   "machines",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "19e6fb8",
+  "at": "2026-11-03T16:21:48+03:00",
+  "date": "2026-11-03",
+  "title": "Prison de chemins : refuser les liens symboliques cassés",
+  "details": [
+   "Un lien cassé vers un chemin extérieur passait le contrôle (il « n'existait pas ») et permettait de créer un fichier hors de l'espace de travail en écrivant à travers lui. Repéré par la CI Windows."
+  ],
+  "planets": [
+   "machines"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "c49c009",
+  "at": "2026-11-03T16:20:57+03:00",
+  "date": "2026-11-03",
+  "title": "Réglages dans l'interface web, installation finie dans le navigateur",
+  "details": [
+   "Nouvel onglet Réglages : modèle (Anthropic, OpenRouter, OpenAI, Ollama, service compatible), test de la clé, autonomie et juge, Telegram, réseau.",
+   "Les clés vont dans ~/.odin/env (600), relu par Node sur tous les systèmes ; la page ne reçoit jamais leur valeur, le masqueur les apprend aussitôt.",
+   "Enregistrer relance les services sans arrêter Odin ; en mode démo, l'interface s'ouvre directement sur les Réglages.",
+   "Les installateurs ne demandent plus la clé dans le terminal : ils ouvrent l'interface web à la fin."
+  ],
+  "planets": [
+   "interface",
+   "canaux",
+   "maison",
+   "memoire",
+   "ia"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "e0d675f",
+  "at": "2026-11-03T16:11:56+03:00",
+  "date": "2026-11-03",
+  "version": "0.5",
+  "title": "Agent IA personnel, transparent et sûr",
+  "details": [
+   "Interface web locale, terminal, Telegram et API HTTP ; installation en une commande sur macOS, Linux et Windows ; inventaire du réseau local ; mémoire, compétences et tâches planifiées ; décisions par gravité avec Mímir."
+  ],
+  "planets": [
+   "interface",
+   "canaux",
+   "maison",
+   "machines",
+   "automatisations"
+  ],
+  "kind": "nouveauté"
+ }
+]

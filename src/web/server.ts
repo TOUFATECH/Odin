@@ -45,6 +45,7 @@ import { describeEntry, providerLabel } from '../providers/journal.ts';
 import { signalLinkState } from '../bifrost/channels/signal.ts';
 import { attachmentHint } from '../files/attach.ts';
 import { brainGet, brainPost } from './brain-api.ts';
+import { evolutionTree } from './evolutions.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
@@ -118,6 +119,7 @@ const RUNES_JS = (() => { try { return readFileSync(new URL('./runes.js', import
 const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
 const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
@@ -461,6 +463,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
+    if (url.pathname === '/evolution.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(EVOLUTION_JS); }
     if (url.pathname === '/guide.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GUIDE_JS); }
     if (url.pathname === '/brain.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(BRAIN_JS); }
     if (url.pathname.startsWith('/fonts/') && FONTS[url.pathname.slice(7)]) { res.writeHead(200, { 'content-type': 'font/woff2', 'cache-control': 'max-age=31536000, immutable', 'x-content-type-options': 'nosniff' }); return void res.end(FONTS[url.pathname.slice(7)]); }
@@ -565,6 +568,8 @@ export class WebChannel implements Channel {
       req.on('close', () => { this.clients.delete(res); this.streamSession.delete(res); });
       return;
     }
+    // Arbre d'évolution : chaque mise à jour, datée, rangée par appli autour d'Odin
+    if (req.method === 'GET' && url.pathname === '/api/evolutions') return json(res, 200, evolutionTree(RUNNING));
     if (req.method === 'GET' && url.pathname === '/api/state') {
       // L'état complet coûte cher à calculer : gardé 2 s (vidé dès qu'Odin signale un changement).
       if (!this.stateCache || Date.now() - this.stateCache.at > 2000) this.stateCache = { at: Date.now(), body: JSON.stringify(this.state()) };
@@ -745,6 +750,10 @@ export class WebChannel implements Channel {
       let text = String(body.text ?? '').slice(0, 20_000);
       if (hints.length) text = `${text.trim() || (hints.length > 1 ? 'Regarde ces fichiers et dis-moi ce qu\'ils contiennent.' : 'Regarde ce fichier et dis-moi ce qu\'il contient.')}\n\n${hints.join('\n')}`;
       if (!text.trim()) return json(res, 400, { error: 'message vide' });
+      // Message envoyé depuis la bulle d'Odin sur une autre page : la page (ou l'appli) ouverte l'aide à comprendre
+      // « comment je règle ça ? ». Une ligne à part, que l'interface n'affiche pas dans la conversation.
+      const where = String(body.where ?? '').replace(/[\u0000-\u001f\u007f\[\]]+/g, ' ').trim().slice(0, 120);
+      if (where) text = `${text}\n\n[page : ${where}]`;
       const peer = safePeer(body.peer as string);
       void onMessage({ channel: 'web', peer, name: 'navigateur', text });
       return json(res, 202, { ok: true });
