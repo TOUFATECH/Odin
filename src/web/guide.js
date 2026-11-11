@@ -29,6 +29,7 @@
   };
   // Les dernières améliorations (les plus récentes en premier).
   const NEWS = [
+    ['Mise à jour', 'Une mise à jour ne peut plus me laisser par terre : si mes propres retouches ne s\'accordent pas avec la nouvelle version, je garde la version publiée et je mets mes retouches de côté (rien n\'est perdu). Et si mon code est abîmé au démarrage, je le répare tout seul.'],
     ['Sans IA d\'abord', 'Ce que je sais faire seul, je ne le confie plus à une IA : c\'est plus rapide et ça ne coûte rien. Sous chaque réponse, je dis si une IA a servi et pourquoi. Quand une IA règle une demande par une seule action, je l\'apprends et je la refais ensuite sans elle. Réglages → Modèle → Économies.'],
     ['Droits', 'Je suis administrateur de ma machine partout (Linux, conteneur, Mac, Windows). S\'il me manque des droits, je te dis la vraie cause et la commande à lancer une fois, au lieu de réclamer un mot de passe. Réglages → Droits et machines.'],
     ['Antivirus', 'Ullr, mon antivirus fait maison : fichiers, archives, liens et messages. Il se met à jour seul, met en quarantaine ce qui est sûr (annulable) et relie les signaux de toutes les applis en incidents.'],

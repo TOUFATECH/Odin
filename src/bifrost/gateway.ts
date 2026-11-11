@@ -743,7 +743,7 @@ export class Gateway {
     if (this.odin.demo) return 'Mode démo : pas de mise à jour.';
     const before = lastUpdateInfo(this.odin.muninn);
     if (before?.changes.length) this.odin.muninn.setKv('update-changes', before.changes.join('\n'));
-    const r = applyAppUpdate();
+    const r = applyAppUpdate(undefined, this.odin.paths.home);
     this.odin.muninn.setKv('update-info', JSON.stringify(await checkForUpdate().catch(() => lastUpdateInfo(this.odin.muninn))));
     for (const c of this.channels.values()) c.notify?.('version');
     if (!r.ok) return `⚠️ ${r.message}`;
@@ -761,13 +761,26 @@ export class Gateway {
    */
   async applyUpdate(): Promise<boolean> {
     if (this.odin.demo || process.env.ODIN_NO_RESTART || this.aborts.size) return false;
-    const { appVersions, checkApp, restartSelf } = await import('../tools/self.ts');
+    const { appVersions, restartSelf, treeState } = await import('../tools/self.ts');
+    const { healInstalled } = await import('../tools/update.ts');
     const v = appVersions();
     if (!v.disk || v.disk === v.running) return false;
-    if (this.odin.muninn.getKv('update-tried') === v.disk) return false;
-    this.odin.muninn.setKv('update-tried', v.disk);
-    const c = checkApp(undefined, false);
-    if (!c.ok) { await this.tellOwner(`⚠️ La version ${v.disk} d'Odin est installée mais ne se charge pas : je reste en ${v.running}.\n${c.output.slice(0, 600)}`, 'home', true); return false; }
+    // Une vérification ratée n'est pas refaite à chaque tour… sauf si le code installé a changé depuis (réparé, ou nouvelle récupération).
+    const tried = `${v.disk}@${treeState()}`;
+    if (this.odin.muninn.getKv('update-tried') === tried) return false;
+    this.odin.muninn.setKv('update-tried', tried);
+    // Le code installé ne se charge pas ? Odin le répare lui-même quand il le peut (retouches locales en conflit mises de côté).
+    const c = healInstalled(undefined, this.odin.paths.home, v.running);
+    const aside = c.healed ? ` Mes retouches locales (${c.healed.files.slice(0, 3).join(', ')}) gênaient : je les ai mises de côté${c.healed.aside ? ` dans ${c.healed.aside}` : ''}, rien n'est perdu.` : '';
+    if (!c.ok) {
+      // (L'état noté est celui d'après la réparation : on ne recommence pas tant que rien ne bouge.)
+      this.odin.muninn.setKv('update-tried', `${appVersions().disk}@${treeState()}`);
+      await this.tellOwner(c.back
+        ? `⚠️ La version ${v.disk} d'Odin a été installée mais elle ne se charge pas : j'ai remis le code de la ${c.back}, celle qui tourne. Tu peux redémarrer sans risque.${aside}\n${c.output.slice(0, 500)}`
+        : `⚠️ La version ${v.disk} d'Odin est installée mais ne se charge pas : je reste en ${v.running}.${aside}\n${c.output.slice(0, 600)}`, 'home', true);
+      return false;
+    }
+    if (c.healed) await this.tellOwner(`🔧 La version ${v.disk} ne se chargeait pas : je l'ai réparée tout seul.${aside} Je redémarre dessus.`, 'home', true).catch(() => undefined);
     this.odin.muninn.setKv('updated-to', `${v.running}→${v.disk}`);
     restartSelf(1500);
     return true;

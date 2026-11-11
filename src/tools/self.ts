@@ -12,6 +12,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { bool, obj, str, type Tool, type ToolContext } from './registry.ts';
 
@@ -88,28 +89,97 @@ export function checkApp(root = APP_ROOT, tests = false): { ok: boolean; output:
 }
 const pathToUrl = (p: string) => `file://${p.startsWith('/') ? '' : '/'}${p.replace(/\\/g, '/')}`;
 
-/** Met Odin à jour (git pull) en gardant ses propres modifications locales (stash puis réapplication). */
-export function updateApp(root = APP_ROOT): { ok: boolean; message: string } {
+// ---------- le code installé : conflits, retouches locales mises de côté ----------
+
+/** Dossier d'Odin, pour y ranger une copie lisible des retouches mises de côté. */
+const defaultHome = () => process.env.ODIN_HOME || join(homedir(), '.odin');
+
+/**
+ * Fichiers du code restés en plein conflit : fusion ratée, ou marqueurs de conflit dans un fichier
+ * (lignes qui commencent par sept chevrons). Un code dans cet état ne se charge plus.
+ */
+export function conflicted(root = APP_ROOT): string[] {
+  const list = (r: { stdout: string }) => r.stdout.split('\n').map((x) => x.trim()).filter(Boolean);
+  return [...new Set([
+    ...list(git(root, ['diff', '--name-only', '--diff-filter=U'])),
+    ...list(git(root, ['grep', '-l', '-I', '-E', '^(<{7}|>{7}) ', '--', '*.ts', '*.mjs', '*.js', '*.json', '*.html'])),
+  ])];
+}
+
+/** Copie lisible (fichier .patch dans ~/.odin/self-backups) de retouches qu'on va écarter. */
+function savePatch(root: string, home: string, args: string[]): string | undefined {
+  const d = git(root, args); if (d.status !== 0 || !d.stdout.trim()) return undefined;
+  const file = join(backupsDir(home), `retouches-locales-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.patch`);
+  try { mkdirSync(backupsDir(home), { recursive: true }); writeFileSync(file, d.stdout); return file; } catch { return undefined; }
+}
+const isDirty = (root: string) => git(root, ['status', '--porcelain', '--untracked-files=no']).stdout.trim() !== '';
+/** Empreinte de l'état du code installé (version récupérée + retouches en cours) : si elle change, une vérification ratée mérite d'être refaite. */
+export function treeState(root = APP_ROOT): string {
+  if (!hasGit(root)) return '';
+  return `${git(root, ['rev-parse', '--short', 'HEAD']).stdout.trim()}+${git(root, ['status', '--porcelain', '--untracked-files=no']).stdout.split('\n').filter(Boolean).length}`;
+}
+
+/**
+ * Remet le code exactement tel que publié (la version installée, sans aucune retouche locale).
+ * Rien n'est perdu : les retouches sont gardées à part, en copie lisible (.patch) et dans la réserve
+ * de git (« git stash list »). Sert quand une retouche locale empêche le code de se charger, ou
+ * qu'une fusion ratée a laissé des marqueurs de conflit dans les fichiers.
+ */
+export function restorePublished(root = APP_ROOT, home = defaultHome()): { ok: boolean; aside?: string; files: string[] } {
+  if (!hasGit(root)) return { ok: false, files: [] };
+  const bad = conflicted(root), dirty = isDirty(root);
+  if (!bad.length && !dirty) return { ok: true, files: [] };
+  const files = [...new Set([...bad, ...git(root, ['diff', '--name-only', 'HEAD']).stdout.split('\n').map((x) => x.trim()).filter(Boolean)])];
+  // En plein conflit, la version propre des retouches est déjà dans la réserve (la réapplication a échoué, git l'y a laissée).
+  const stashed = git(root, ['stash', 'list']).stdout.trim() !== '';
+  const aside = bad.length && stashed ? savePatch(root, home, ['stash', 'show', '-p', 'stash@{0}']) : savePatch(root, home, ['diff', 'HEAD']);
+  if (!bad.length) git(root, ['stash', 'push', '-m', `odin-retouches-${Date.now()}`]);
+  // « git checkout -- . » ne sait pas défaire une fusion ratée (« path is unmerged ») : seul ce retour complet retire les marqueurs.
+  const r = git(root, ['reset', '--hard', 'HEAD']);
+  return { ok: r.status === 0 && !conflicted(root).length, aside, files };
+}
+
+/**
+ * Met Odin à jour (git pull) en gardant ses propres retouches locales quand elles s'accordent avec
+ * la nouvelle version. Si elles ne s'accordent pas, la version publiée est gardée telle quelle et les
+ * retouches sont mises de côté (copie .patch + réserve git) : le code n'est jamais laissé en conflit.
+ * `stashed` : les retouches attendent dans la réserve (à réappliquer si on revient à la version d'avant).
+ */
+export function updateApp(root = APP_ROOT, home = defaultHome()): { ok: boolean; message: string; aside?: string; stashed?: boolean } {
   if (!hasGit(root)) return { ok: false, message: 'Odin n\'a pas été installé avec git : relance l\'installateur pour le mettre à jour.' };
+  const notes: string[] = [];
+  let aside: string | undefined, stashed = false;
+  // Une mise à jour précédente a laissé le code en conflit : on le remet d'abord tel que publié.
+  if (conflicted(root).length) {
+    const r = restorePublished(root, home); aside = r.aside; stashed = true;
+    notes.push(`Le code était resté en conflit après une mise à jour (${r.files.slice(0, 3).join(', ')}) : je l'ai remis tel que publié${r.aside ? `, mes retouches sont de côté (${r.aside})` : ''}.`);
+  }
   const before = git(root, ['rev-parse', '--short', 'HEAD']).stdout.trim();
-  const dirty = git(root, ['status', '--porcelain', '--untracked-files=no']).stdout.trim() !== '';
-  if (dirty && git(root, ['stash', 'push', '-m', `odin-auto-${Date.now()}`]).status !== 0) return { ok: false, message: 'Impossible de mettre de côté mes modifications locales.' };
+  const dirty = isDirty(root);
+  if (dirty) {
+    aside = savePatch(root, home, ['diff', 'HEAD']) ?? aside;
+    if (git(root, ['stash', 'push', '-m', `odin-auto-${Date.now()}`]).status !== 0) return { ok: false, message: 'Impossible de mettre de côté mes modifications locales.' };
+  }
   // Sans branche suivie, on récupère origin/<branche actuelle>.
   const tracked = git(root, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']).status === 0;
   const pull = git(root, tracked ? ['pull', '--ff-only'] : ['pull', '--ff-only', 'origin', git(root, ['rev-parse', '--abbrev-ref', 'HEAD']).stdout.trim() || 'main']);
-  let msg = '';
-  if (pull.status !== 0) msg = `Mise à jour impossible : ${(pull.stderr || pull.stdout).trim().slice(0, 400)}`;
+  if (pull.status !== 0) notes.push(`Mise à jour impossible : ${(pull.stderr || pull.stdout).trim().slice(0, 400)}`);
   if (dirty) {
-    const pop = git(root, ['stash', 'pop']);
-    if (pop.status !== 0) {
-      git(root, ['checkout', '--', '.']);
-      msg += `${msg ? '\n' : ''}Mes modifications locales entrent en conflit avec la nouvelle version : la nouvelle version est gardée, mes modifications restent dans « git stash list » (à réappliquer à la main).`;
+    if (git(root, ['stash', 'pop']).status !== 0) {
+      git(root, ['reset', '--hard', 'HEAD']); stashed = true;
+      notes.push(`Mes retouches locales ne s'accordent pas avec la nouvelle version : elle est gardée telle que publiée, et mes retouches sont de côté (${aside ? `${aside}, et ` : ''}« git stash list »).`);
+    } else {
+      // Réappliquées sans accroc : la copie de secours ne sert plus.
+      if (aside) { try { rmSync(aside, { force: true }); } catch { /* tant pis */ } aside = undefined; }
+      notes.push('Mes modifications locales sont réappliquées.');
     }
   }
-  if (pull.status !== 0) return { ok: false, message: msg };
+  // Filet : quoi qu'il arrive, jamais de marqueurs de conflit laissés dans le code.
+  if (conflicted(root).length) { git(root, ['reset', '--hard', 'HEAD']); stashed = true; }
+  if (pull.status !== 0) return { ok: false, message: notes.join('\n'), aside, stashed };
   const after = git(root, ['rev-parse', '--short', 'HEAD']).stdout.trim();
   const log = before === after ? '' : git(root, ['log', '--oneline', `${before}..${after}`]).stdout.trim().split('\n').slice(0, 15).join('\n');
-  return { ok: true, message: `${before === after ? 'Déjà à jour' : `Mis à jour ${before} → ${after}`}${log ? `\n${log}` : ''}${dirty ? `\n${msg || 'Mes modifications locales sont réappliquées.'}` : ''}` };
+  return { ok: true, message: [before === after ? 'Déjà à jour' : `Mis à jour ${before} → ${after}`, log, ...notes].filter(Boolean).join('\n'), aside, stashed };
 }
 
 /** Sous un service (systemd, launchd), on quitte avec un code d'erreur : le service relance Odin. Sinon on se relance soi-même. */
@@ -233,8 +303,8 @@ export const selfUpdate: Tool = {
   risk: 'exec',
   schema: obj({}),
   summarize: () => 'me mettre à jour (dernière version)',
-  async run() {
-    const r = updateApp(APP_ROOT);
+  async run(_i, ctx) {
+    const r = updateApp(APP_ROOT, ctx.home);
     return `${r.ok ? '✓' : '✗'} ${r.message}`;
   },
 };

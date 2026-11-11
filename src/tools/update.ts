@@ -6,7 +6,7 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { APP_ROOT, checkApp, restartSelf, updateApp } from './self.ts';
+import { APP_ROOT, checkApp, restartSelf, restorePublished, updateApp } from './self.ts';
 import { obj, type Tool } from './registry.ts';
 
 const git = (root: string, args: string[]) => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', timeout: 120_000 });
@@ -55,22 +55,57 @@ export async function checkForUpdate(root = APP_ROOT, now = Date.now()): Promise
 /**
  * Applique la mise à jour : récupère, vérifie que le nouveau code se charge, sinon revient à la
  * version d'avant (rien n'est perdu). Ne redémarre pas : c'est à l'appelant de le faire.
+ * Le code installé est toujours laissé dans un état qui se charge :
+ *  - mes retouches locales empêchent la nouvelle version de se charger → elle est gardée telle que
+ *    publiée, mes retouches sont mises de côté ;
+ *  - la nouvelle version elle-même ne se charge pas → retour complet au code d'avant, retouches comprises.
  */
-export function applyUpdate(root = APP_ROOT): { ok: boolean; message: string; from: string; to: string; restart: boolean } {
+export function applyUpdate(root = APP_ROOT, home?: string): { ok: boolean; message: string; from: string; to: string; restart: boolean } {
   const from = versionOf(readFileSync(join(root, 'package.json'), 'utf8'));
   const before = hasGit(root) ? git(root, ['rev-parse', 'HEAD']).stdout.trim() : '';
-  const u = updateApp(root);
+  const u = updateApp(root, home);
   if (!u.ok) return { ok: false, message: u.message, from, to: from, restart: false };
   const after = hasGit(root) ? git(root, ['rev-parse', 'HEAD']).stdout.trim() : '';
   const to = versionOf(readFileSync(join(root, 'package.json'), 'utf8'));
-  if (before === after) return { ok: true, message: 'Odin est déjà à jour.', from, to, restart: false };
-  const c = checkApp(root, false);
-  if (!c.ok) {
-    // Le nouveau code ne se charge pas : retour immédiat à la version qui marchait.
-    git(root, ['reset', '--keep', before]);
-    return { ok: false, message: `La nouvelle version ne se charge pas : je suis resté en v${from}.\n${c.output.slice(0, 500)}`, from, to: from, restart: false };
+  if (before === after) return { ok: true, message: ['Odin est déjà à jour.', ...u.message.split('\n').slice(1)].join('\n').trim(), from, to, restart: false };
+  const notes = u.message.split('\n').slice(1, 9).join('\n');
+  let c = checkApp(root, false), stashed = Boolean(u.stashed);
+  if (c.ok) return { ok: true, message: `Odin passe de la v${from} à la v${to}.\n${notes}`.trim(), from, to, restart: true };
+  // 1. Mes retouches locales (réappliquées sans conflit) empêchent peut-être la nouvelle version de se charger : essai sans elles.
+  if (git(root, ['status', '--porcelain', '--untracked-files=no']).stdout.trim() !== '') {
+    const r = restorePublished(root, home);
+    if (r.ok) {
+      stashed = true; c = checkApp(root, false);
+      if (c.ok) return { ok: true, message: `Odin passe de la v${from} à la v${to}.\nMes retouches locales (${r.files.slice(0, 3).join(', ')}) ne marchent plus avec cette version : je les ai mises de côté${r.aside ? ` (${r.aside})` : ''}.`, from, to, restart: true };
+    }
   }
-  return { ok: true, message: `Odin passe de la v${from} à la v${to}.\n${u.message.split('\n').slice(1, 9).join('\n')}`.trim(), from, to, restart: true };
+  // 2. La nouvelle version elle-même ne se charge pas : retour complet au code d'avant, puis mes retouches par-dessus.
+  git(root, ['reset', '--hard', before]);
+  if (stashed && git(root, ['stash', 'pop']).status !== 0) git(root, ['reset', '--hard', before]);
+  return { ok: false, message: `La nouvelle version ne se charge pas : je suis resté en v${from}.\n${c.output.slice(0, 500)}`, from, to: from, restart: false };
+}
+
+/**
+ * Le code installé n'est pas celui qui tourne (mise à jour faite à la main, par un autre outil, ou
+ * interrompue) : avant de redémarrer dessus, on s'assure qu'il se charge, et on le répare si besoin.
+ *  - retouches locales en conflit ou qui cassent le chargement → mises de côté, la version publiée reste ;
+ *  - version publiée qui ne se charge pas → retour au code de la version qui tourne (si on le retrouve),
+ *    pour qu'un redémarrage de la machine ne laisse pas Odin par terre.
+ */
+export function healInstalled(root = APP_ROOT, home: string | undefined, running: string): { ok: boolean; output: string; healed?: { files: string[]; aside?: string }; back?: string } {
+  let c = checkApp(root, false);
+  if (c.ok || !hasGit(root)) return { ok: c.ok, output: c.output };
+  // Le point d'avant la mise à jour (git le garde sous le nom ORIG_HEAD), lu avant toute réparation.
+  const orig = git(root, ['rev-parse', '--verify', '--quiet', 'ORIG_HEAD']).stdout.trim(), head = git(root, ['rev-parse', 'HEAD']).stdout.trim();
+  const r = restorePublished(root, home);
+  if (r.ok && r.files.length) { c = checkApp(root, false); if (c.ok) return { ok: true, output: c.output, healed: { files: r.files, aside: r.aside } }; }
+  // La version publiée ne se charge pas : on remet le code de celle qui tourne, si c'est bien elle qu'on retrouve.
+  if (orig && orig !== head && git(root, ['merge-base', '--is-ancestor', orig, head]).status === 0 && versionOf(git(root, ['show', `${orig}:package.json`]).stdout) === running) {
+    git(root, ['reset', '--hard', orig]);
+    if (checkApp(root, false).ok) return { ok: false, output: c.output, back: running, ...(r.files.length ? { healed: { files: r.files, aside: r.aside } } : {}) };
+    git(root, ['reset', '--hard', head]);
+  }
+  return { ok: false, output: c.output, ...(r.files.length ? { healed: { files: r.files, aside: r.aside } } : {}) };
 }
 
 /** État gardé pour l'interface et les rappels (clé-valeur de Muninn). */
@@ -97,7 +132,7 @@ export const updateApplyTool: Tool = {
   schema: obj({}),
   summarize: () => 'mettre Odin à jour et redémarrer',
   async run(_i, ctx) {
-    const r = applyUpdate();
+    const r = applyUpdate(undefined, ctx.home);
     ctx.muninn.setKv('update-info', JSON.stringify(await checkForUpdate()));
     if (!r.ok || !r.restart) return `${r.ok ? '✓' : '✗'} ${r.message}`;
     ctx.muninn.setKv('updated-to', `${r.from}→${r.to}`);
