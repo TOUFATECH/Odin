@@ -212,10 +212,10 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     else {
       if (!tg.owners.length) console.log(c.yellow('[bifrost] aucun propriétaire Telegram : écris au bot, puis ajoute ton identifiant dans Réglages → Telegram'));
       owners.telegram = tg.owners.map(String);
-      const vc = odin.cfg.voice;
       gw.add(new TelegramChannel(token, undefined, {
-        // Toujours branché : la transcription dit elle-même ce qui manque (clé, ou « installe la voix locale »).
-        transcribe: (audio, mime) => transcribe(audio, mime, vc),
+        // Toujours branché, réglages lus à chaque vocal (un changement dans Réglages → Voix compte tout de suite).
+        // Rien de prêt : Odin s'installe lui-même et répond au vocal une fois prêt.
+        transcribe: (audio, mime) => transcribe(audio, mime, odin.cfg.voice),
         inbox: join(odin.paths.workspace, 'inbox'),
         home: odin.paths.home,
         owner: tg.owners.map(String)[0],
@@ -224,7 +224,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     }
   }
   // Autres messageries : Discord, Slack, Signal, WhatsApp, Mail (même cerveau, même mémoire, mêmes garde-fous).
-  const vc2 = odin.cfg.voice, chOpts = { transcribe: (a: Uint8Array, mime: string) => transcribe(a, mime, vc2), inbox: join(odin.paths.workspace, 'inbox') };
+  const chOpts = { transcribe: (a: Uint8Array, mime: string) => transcribe(a, mime, odin.cfg.voice), inbox: join(odin.paths.workspace, 'inbox') };
   const cc = odin.cfg.channels;
   let whatsapp: WhatsAppChannel | undefined;
   const tryAdd = (name: string, need: string[], make: () => import('../bifrost/channel.ts').Channel) => {

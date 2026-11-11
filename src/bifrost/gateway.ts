@@ -30,7 +30,7 @@ import { fetchEvents } from '../tools/calendar.ts';
 import { anomalies, recoveryPlan, restoreTest, weeklyReport } from '../guard/insight.ts';
 import { listMachines } from '../machines/access.ts';
 import { validHhmm } from '../mimir/decisions.ts';
-import { speakAudio, toVoiceNote, ttsReady } from '../voice/voice.ts';
+import { LANG_NAME, setVoiceNotifier, speakAudio, spokenLanguage, toVoiceNote, ttsReady } from '../voice/voice.ts';
 import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
 import { morningBriefing } from './briefing.ts';
 import { resolveShortcut } from '../learn/shortcuts.ts';
@@ -72,6 +72,8 @@ export class Gateway {
     this.odin = odin;
     this.opts = opts;
     odin.heimdall.setApprover(this.approver);
+    // Odin s'installe tout seul pour comprendre les vocaux : il te prévient.
+    setVoiceNotifier((msg) => { void this.tellOwner(msg, 'home', true).catch(() => {}); });
     // Confiance apprise : Odin te dit ce qu'il fera seul désormais, et comment revenir en arrière.
     const onLearned = (kv: unknown, tr: Trust) => { if (kv === odin.muninn) void this.tellOwner(`🧠 J'ai remarqué que tu acceptes toujours : « ${tr.example.slice(0, 120)} ». Désormais je le fais seul et je te le signale. Dis « redemande-moi » pour revenir comme avant.`, 'home', true).catch(() => {}); };
     habitEvents.on('learned', onLearned);
@@ -295,8 +297,11 @@ export class Gateway {
     const typing = ch.typing ? setInterval(() => void ch.typing!(m.peer), 4500) : undefined;
     void ch.typing?.(m.peer);
     const used: string[] = [];
+    // Vocal dans une autre langue : Odin répond dans cette langue (texte et voix).
+    const lang = m.voice ? spokenLanguage(m.text) : undefined;
+    const langHint = lang && lang !== 'fr' ? `\n\n[Précision d'Odin pour lui-même : il t'a parlé en ${LANG_NAME[lang] ?? lang} (${lang}) ; réponds en ${LANG_NAME[lang] ?? lang}.]` : '';
     try {
-      const r = await this.odin.agent.run(m.text, {
+      const r = await this.odin.agent.run(m.text + langHint, {
         // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
         sessionId, channel: m.channel, peer: m.peer, trusted: owner || speaker?.role === 'member', signal: ctrl.signal, speaker,
         onEvent: (e) => {
@@ -326,8 +331,9 @@ export class Gateway {
       // … ou quand tu le demandes (« réponds-moi en vocal », « dis-le à voix haute »).
       const askVoice = /\b(en vocal|vocalement|a voix haute|à voix haute|message vocal|note vocale|dis[- ]le moi)\b/i.test(m.text);
       const driving = owner && getMode(this.odin.muninn).mode === 'conduite';
-      if ((m.voice && this.odin.cfg.voice.voiceReplies || askVoice || driving) && ch.sendVoice && ttsReady(this.odin.cfg.voice) && r.text) {
-        await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
+      // (Tu as parlé : réponse vocale par défaut, sauf si tu as coupé « répondre en vocal » dans Réglages → Voix.)
+      if ((m.voice && this.odin.cfg.voice.voiceReplies !== false || askVoice || driving) && ch.sendVoice && ttsReady(this.odin.cfg.voice) && r.text) {
+        await speakAudio(r.text, voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64', undefined, process.env, lang).then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((e) => console.error('[voix]', (e as Error).message));
       }
     } finally {
       clearInterval(typing);

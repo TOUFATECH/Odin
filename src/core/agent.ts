@@ -505,6 +505,7 @@ export class Agent {
       tool: tool.name, risk: tool.risk, sessionId: o.sessionId, tainted: isTainted(), unattended: o.unattended,
       summary: tool.summarize?.(call.input) ?? `${tool.name} ${JSON.stringify(call.input).slice(0, 200)}`,
       command: tool.command?.(call.input),
+      grave: tool.grave?.(call.input),
       userRequest: turn.userRequest,
       suspicious: turn.suspicious,
       lookup: tool.lookup?.(call.input) ?? false,

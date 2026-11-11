@@ -1,6 +1,7 @@
 // Canal Telegram en API HTTP brute (long polling) : aucune dépendance.
 // Texte, notes vocales (transcrites par Whisper) et fichiers (déposés dans l'espace de travail).
 import { extractSecret } from '../../machines/onboard.ts';
+import { attachmentHint } from '../../files/attach.ts';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { buttonText, buttonsFor, type Channel, chunk, type Inbound } from '../channel.ts';
@@ -131,13 +132,21 @@ export class TelegramChannel implements Channel {
     }
     const file = m.document ?? m.audio ?? m.video ?? (m.photo?.length ? m.photo[m.photo.length - 1] : undefined);
     if (file && this.opts.inbox) {
+      // Telegram ne laisse pas un robot télécharger plus de 20 Mo : on le dit, avec la solution.
+      if ((file as { file_size?: number }).file_size && (file as { file_size?: number }).file_size! > 20 * 1024 * 1024) {
+        await this.send(base.peer, '📦 Ce fichier dépasse 20 Mo : Telegram ne me laisse pas le télécharger. Envoie-moi plutôt le lien (TikTok, YouTube, Instagram…), ou dépose-le dans l\'application Odin (Discussion → trombone).');
+        return undefined;
+      }
       const { data, path } = await this.download(file);
       const name = safeName(file.file_name ?? basename(path));
       mkdirSync(this.opts.inbox, { recursive: true });
       const dest = join(this.opts.inbox, `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}-${name}`);
       writeFileSync(dest, data);
       const rel = `inbox/${basename(dest)}`;
-      return { ...base, text: `${m.caption ? m.caption + '\n\n' : ''}[Fichier reçu : ${rel} (${file.mime_type ?? 'type inconnu'}, ${Math.round(data.byteLength / 1024)} Ko)]` };
+      // Photo ou vidéo sans légende : Odin regarde et dit ce qu'il y a (et ce qui est dit, pour une vidéo).
+      const mime = file.mime_type ?? (m.photo?.length && file === m.photo[m.photo.length - 1] ? 'image/jpeg' : m.video ? 'video/mp4' : '');
+      const ask = m.caption ? `${m.caption}\n\n` : /^image\//.test(mime) ? 'Qu\'est-ce qu\'il y a sur cette photo ?\n\n' : /^video\//.test(mime) ? 'Qu\'est-ce qu\'il y a dans cette vidéo, et qu\'est-ce qui est dit ?\n\n' : '';
+      return { ...base, text: `${ask}${attachmentHint(rel, mime, data.byteLength)}` };
     }
     return undefined;
   }

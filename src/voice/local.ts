@@ -3,7 +3,7 @@
 // Odin installe tout lui-même dans ~/.odin/voice (compilation de whisper.cpp, quelques minutes).
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hasCommand } from '../learn/environment.ts';
@@ -15,6 +15,31 @@ export const PIPER_VOICE = 'fr_FR-tom-medium';
 /** Voix de femme française de Piper. */
 export const PIPER_VOICE_F = 'fr_FR-siwis-medium';
 const PIPER_PATH: Record<string, string> = { [PIPER_VOICE]: 'fr/fr_FR/tom/medium', [PIPER_VOICE_F]: 'fr/fr_FR/siwis/medium' };
+
+/** Voix Piper par langue (téléchargées à la première utilisation, ~60 Mo chacune). */
+export const PIPER_LANG: Record<string, string> = {
+  en: 'en/en_US/lessac/medium', es: 'es/es_ES/davefx/medium', de: 'de/de_DE/thorsten/medium', it: 'it/it_IT/riccardo/x_low',
+  pt: 'pt/pt_BR/faber/medium', ar: 'ar/ar_JO/kareem/medium', sw: 'sw/sw_CD/lanfrica/medium', nl: 'nl/nl_BE/nathalie/medium',
+  ru: 'ru/ru_RU/dmitri/medium', tr: 'tr/tr_TR/dfki/medium', zh: 'zh/zh_CN/huayan/medium', pl: 'pl/pl_PL/darkman/medium',
+};
+const piperName = (path: string) => { const [, loc, who, q] = path.split('/'); return `${loc}-${who}-${q}`; };
+
+/** Voix Piper pour une langue (autre que le français) : téléchargée si besoin, depuis le dépôt officiel. */
+export async function ensurePiperVoice(lang: string, home?: string): Promise<string | undefined> {
+  const path = PIPER_LANG[lang];
+  if (!path) return undefined;
+  const d = join(voiceHome(home), 'piper-voices'), name = piperName(path);
+  const model = join(d, `${name}.onnx`);
+  if (existsSync(model) && existsSync(`${model}.json`)) return model;
+  mkdirSync(d, { recursive: true });
+  for (const ext of ['onnx', 'onnx.json']) {
+    const r = await fetch(`https://huggingface.co/rhasspy/piper-voices/resolve/main/${path}/${name}.${ext}`, { signal: AbortSignal.timeout(300_000) });
+    if (!r.ok) return undefined;
+    writeFileSync(join(d, `${name}.${ext}.part`), new Uint8Array(await r.arrayBuffer()));
+    renameSync(join(d, `${name}.${ext}.part`), join(d, `${name}.${ext}`));
+  }
+  return model;
+}
 
 /** Programme et modèle Whisper locaux, s'ils sont installés. */
 export function localWhisper(home?: string): { bin: string; model: string } | undefined {
@@ -45,26 +70,50 @@ function run(cmd: string, args: string[], opts: { input?: string; env?: NodeJS.P
   });
 }
 
-/** Audio (ogg, webm, mp3…) → texte, avec whisper.cpp sur la machine. */
-export async function transcribeLocal(audio: Uint8Array, language = 'fr', home?: string): Promise<string> {
+export interface Segment { start: number; end: number; text: string }
+export interface Heard { text: string; language: string; segments: Segment[] }
+
+/** « [00:01:02.500 --> 00:01:05.000]  texte » (sortie de whisper.cpp) → segments horodatés. Pur. */
+export function parseWhisperOut(out: string): Segment[] {
+  const ts = (x: string) => { const [h, m, s] = x.split(':'); return Number(h) * 3600 + Number(m) * 60 + Number(s); };
+  const segs: Segment[] = [];
+  for (const m of out.matchAll(/\[(\d+:\d+:\d+(?:\.\d+)?)\s*-->\s*(\d+:\d+:\d+(?:\.\d+)?)\]\s*(.*)/g)) {
+    const text = m[3].replace(/\[[^\]]*\]|\([^)]*musique[^)]*\)/gi, ' ').replace(/\s+/g, ' ').trim();
+    if (text) segs.push({ start: ts(m[1]), end: ts(m[2]), text });
+  }
+  return segs;
+}
+
+/** Audio (ogg, webm, mp3, vidéo…) → texte horodaté et langue parlée, avec whisper.cpp sur la machine. */
+export async function hearLocal(audio: Uint8Array | { file: string }, language = 'auto', home?: string, timeoutMs = 300_000): Promise<Heard> {
   const w = localWhisper(home);
   if (!w) throw new Error('Whisper local non installé');
   const dir = mkdtempSync(join(tmpdir(), 'odin-ecoute-'));
   try {
-    const src = join(dir, 'in.audio'), wav = join(dir, 'in.wav');
-    writeFileSync(src, audio);
-    const c = await run('ffmpeg', ['-v', 'error', '-y', '-i', src, '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', wav], { timeout: 60_000 });
+    const src = 'file' in audio ? audio.file : join(dir, 'in.audio'), wav = join(dir, 'in.wav');
+    if (!('file' in audio)) writeFileSync(src, audio);
+    const c = await run('ffmpeg', ['-v', 'error', '-y', '-i', src, '-vn', '-ar', '16000', '-ac', '1', '-c:a', 'pcm_s16le', wav], { timeout: Math.max(60_000, timeoutMs / 3) });
     if (c.code !== 0) throw new Error(`conversion audio impossible : ${c.err.slice(-200)}`);
-    const r = await run(w.bin, ['-m', w.model, '-l', language || 'fr', '-nt', '-np', '-t', String(Math.min(8, Math.max(2, (await import('node:os')).availableParallelism?.() ?? 4))), '-f', wav], { timeout: 300_000 });
+    // Langue détectée toute seule (« auto ») : il te répond dans la langue que tu parles.
+    // (Sans -np : la ligne « auto-detected language » est écrite dans les journaux, les résultats restent seuls sur la sortie.)
+    const lang = !language || language === 'fr' ? 'auto' : language;
+    const r = await run(w.bin, ['-m', w.model, '-l', lang, '-t', String(Math.min(8, Math.max(2, (await import('node:os')).availableParallelism?.() ?? 4))), '-f', wav], { timeout: timeoutMs });
     if (r.code !== 0) throw new Error(`Whisper local : ${r.err.slice(-300)}`);
-    return r.out.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+    const segments = parseWhisperOut(r.out);
+    const detected = /auto-detected language:\s*([a-z]{2,3})/i.exec(r.err)?.[1] ?? (lang === 'auto' ? 'fr' : lang);
+    const text = segments.length ? segments.map((x) => x.text).join(' ') : r.out.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
+    return { text, language: detected, segments };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
+/** Audio → texte (compatibilité). */
+export async function transcribeLocal(audio: Uint8Array, language = 'auto', home?: string): Promise<string> { return (await hearLocal(audio, language, home)).text; }
 
-/** Texte → WAV, avec Piper sur la machine (voix d'homme française). */
-export async function speakLocal(text: string, home?: string, voice = ''): Promise<Uint8Array> {
-  const p = localPiper(home, voice);
-  if (!p) throw new Error('Piper local non installé');
+/** Texte → WAV, avec Piper sur la machine (voix française d'homme ou de femme, ou voix de la langue demandée). */
+export async function speakLocal(text: string, home?: string, voice = '', lang = 'fr'): Promise<Uint8Array> {
+  const base = localPiper(home, voice);
+  if (!base) throw new Error('Piper local non installé');
+  const other = lang && lang !== 'fr' ? await ensurePiperVoice(lang, home).catch(() => undefined) : undefined;
+  const p = { bin: base.bin, model: other ?? base.model };
   const dir = mkdtempSync(join(tmpdir(), 'odin-voix-'));
   try {
     const out = join(dir, 'out.wav');
@@ -112,6 +161,24 @@ for v in ${PIPER_VOICE} ${PIPER_VOICE_F}; do
 done
 ` : ''}echo "Terminé."
 `;
+}
+
+let installing: Promise<boolean> | undefined;
+/**
+ * Voix locale prête, installée toute seule au besoin (une seule installation à la fois).
+ * `onStart` est appelé si l'installation démarre (pour prévenir le propriétaire).
+ */
+export function ensureLocalVoice(onStart?: (msg: string) => void, home?: string): Promise<boolean> {
+  if (localWhisper(home)) return Promise.resolve(true);
+  if (!installing) {
+    onStart?.('🎙 J\'installe de quoi comprendre tes vocaux et te répondre en audio (gratuit, rien ne sort de chez toi). Ça prend 5 à 15 minutes la première fois ; je réponds à ton vocal dès que c\'est prêt.');
+    installing = installLocalVoice({ home }).then((r) => {
+      if (!r.ok) console.error('[voix] installation :', r.log.slice(-400));
+      onStart?.(r.stt ? `✅ C'est installé : je comprends tes vocaux${r.tts ? ' et je te réponds en audio, dans la langue que tu parles' : ''}.` : `⚠ L'installation de l'écoute a échoué : ${r.log.split('\n').filter(Boolean).at(-1)?.slice(0, 200) ?? 'erreur inconnue'}. Dis-moi « installe la voix locale » pour réessayer, ou ajoute une clé OpenAI dans Réglages → Voix.`);
+      return r.stt;
+    }).catch((e) => { console.error('[voix]', (e as Error).message); return false; }).finally(() => { installing = undefined; });
+  }
+  return installing;
 }
 
 /** Installe la voix locale (peut prendre plusieurs minutes : compilation et téléchargement ~500 Mo). */

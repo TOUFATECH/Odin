@@ -45,7 +45,8 @@ test('Whisper : audio envoyé en multipart avec modèle et langue, texte renvoy�
     assert.equal(h.headers.authorization, 'Bearer cle-openai');
     const body = h.body.toString('latin1');
     assert.match(body, /name="model"\r\n\r\nwhisper-1/);
-    assert.match(body, /name="language"\r\n\r\nfr/);
+    assert.doesNotMatch(body, /name="language"/, 'langue détectée toute seule (réponse dans la langue parlée)');
+    assert.match(body, /name="response_format"\r\n\r\nverbose_json/);
     assert.match(body, /filename="parole\.webm"/);
     assert.equal(sttReady(v, env), true);
     assert.equal(sttReady({ ...v, stt: { ...v.stt, baseUrl: 'https://api.openai.com/v1' } }, {}), false, 'service distant sans clé : pas prêt');
@@ -98,8 +99,8 @@ test('interface web : micro → Whisper, lecture → ElevenLabs, copie enregistr
   await gw.start();
   const B = `http://127.0.0.1:${port}`, h = { authorization: `Bearer ${token}`, 'x-odin': '1' };
   try {
-    const t = await (await fetch(`${B}/api/voice/transcribe`, { method: 'POST', headers: { ...h, 'content-type': 'audio/webm' }, body: new Uint8Array([1, 2, 3]) })).json() as { ok: boolean; text: string };
-    assert.deepEqual(t, { ok: true, text: 'bonjour Odin' });
+    const t = await (await fetch(`${B}/api/voice/transcribe`, { method: 'POST', headers: { ...h, 'content-type': 'audio/webm' }, body: new Uint8Array([1, 2, 3]) })).json() as { ok: boolean; text: string; lang: string };
+    assert.equal(t.ok, true); assert.equal(t.text, 'bonjour Odin'); assert.equal(t.lang, 'fr');
     const s = await fetch(`${B}/api/voice/speak`, { method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify({ text: 'Salut' }) });
     assert.equal(s.headers.get('content-type'), 'audio/mpeg');
     assert.equal(Buffer.from(await s.arrayBuffer()).toString(), 'MP3');
@@ -146,7 +147,7 @@ test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichie
     assert.match(o.provider.calls[0].messages.at(-1)!.content, /allume la lumière/);
     assert.ok(tg.hits.some((x) => x.url.endsWith('/sendVoice')), 'réponse vocale envoyée');
     const fileMsg = o.provider.calls[1].messages.at(-1)!.content;
-    assert.match(fileMsg, /Range ça[\s\S]*\[Fichier reçu : inbox\/.*facture mars\.pdf \(application\/pdf/);
+    assert.match(fileMsg, /Range ça[\s\S]*\[Document joint : inbox\/.*facture mars\.pdf \(application\/pdf[\s\S]*doc_read/);
   } finally { await gw.stop(); o.cleanup(); tg.close(); eleven.close(); delete process.env.ELEVEN_TEST; }
 });
 
@@ -236,4 +237,21 @@ test('Telegram : message de progression comme Hermes (compétence, terminal, scr
     assert.match(prog.at(-1)!.b.text, /📚 Compétence <b>inexistante<\/b>\n📄 \. \(×2\)/);
     assert.ok(sends.findIndex((x) => /Voilà/.test(x.b.text)) > sends.indexOf(prog.at(-1)!), 'la réponse arrive après la progression');
   } finally { await gw.stop(); o.cleanup(); tg.close(); }
+});
+
+test('vocal dans une autre langue : langue détectée, réponse dans cette langue ; écoute prête sans rien cocher avec une clé', async () => {
+  const { hear, spokenLanguage, guessLang } = await import('../src/voice/voice.ts');
+  const { parseWhisperOut } = await import('../src/voice/local.ts');
+  const m = await mock(() => ({ body: JSON.stringify({ text: 'Turn on the living room light', language: 'english', segments: [{ start: 0, end: 2.1, text: ' Turn on the living room light' }] }) }));
+  try {
+    const v = { ...voiceCfg(m.url, m.url), enabled: false };
+    const h = await hear(new Uint8Array([1, 2, 3]), 'audio/ogg', v, undefined, env);
+    assert.equal(h.language, 'en');
+    assert.equal(h.segments[0].text, 'Turn on the living room light');
+    assert.equal(spokenLanguage('Turn on the living room light'), 'en');
+  } finally { m.close(); }
+  assert.equal(guessLang('Hello, can you tell me what is the weather like today?'), 'en');
+  assert.equal(guessLang('Bonjour, est-ce que tu peux allumer la lumière ?'), 'fr');
+  assert.equal(guessLang('Habari, wewe ni nani na unaweza kunisaidia sana'), 'sw');
+  assert.deepEqual(parseWhisperOut('[00:00:00.000 --> 00:00:02.500]   Bonjour à tous.\n[00:00:02.500 --> 00:00:05.000]   [Musique]\n[00:01:00.000 --> 00:01:03.200]  Fin.'), [{ start: 0, end: 2.5, text: 'Bonjour à tous.' }, { start: 60, end: 63.2, text: 'Fin.' }]);
 });

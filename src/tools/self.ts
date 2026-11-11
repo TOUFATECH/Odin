@@ -253,9 +253,32 @@ export const selfRestart: Tool = {
   },
 };
 
+/** Modules Python courants installés tout seuls au premier besoin (nom importé → paquet PyPI officiel). */
+export const PY_AUTO: Record<string, string> = {
+  docx: 'python-docx', openpyxl: 'openpyxl', pptx: 'python-pptx', pypdf: 'pypdf', fitz: 'pymupdf', pdfplumber: 'pdfplumber', reportlab: 'reportlab', fpdf: 'fpdf2',
+  pandas: 'pandas', numpy: 'numpy', matplotlib: 'matplotlib', PIL: 'pillow', xlsxwriter: 'xlsxwriter', xlrd: 'xlrd', odf: 'odfpy', docxtpl: 'docxtpl',
+  markdown: 'markdown', bs4: 'beautifulsoup4', lxml: 'lxml', requests: 'requests', yaml: 'pyyaml', tabulate: 'tabulate', qrcode: 'qrcode', cv2: 'opencv-python-headless',
+  scipy: 'scipy', sklearn: 'scikit-learn', nmap: 'python-nmap', scapy: 'scapy', psutil: 'psutil', paramiko: 'paramiko', dateutil: 'python-dateutil', pytz: 'pytz', chardet: 'chardet',
+  pytesseract: 'pytesseract', ebooklib: 'ebooklib', icalendar: 'icalendar', vobject: 'vobject', feedparser: 'feedparser', jinja2: 'jinja2', rich: 'rich', httpx: 'httpx',
+};
+/** Paquets Node courants installés tout seuls (dans ~/.odin/node-tools). */
+export const NODE_AUTO = new Set(['exceljs', 'xlsx', 'docx', 'pdf-lib', 'pdfkit', 'pptxgenjs', 'mammoth', 'csv-parse', 'csv-stringify', 'cheerio', 'marked', 'jszip', 'dayjs', 'qrcode', 'axios', 'yaml', 'archiver', 'node-html-parser', 'pdf-parse']);
+
+/** « No module named 'docx' » → paquet à installer, s'il est dans la liste sûre. Pur. */
+export function missingPyPackage(out: string): string | undefined {
+  const m = /No module named '([\w.]+)'/.exec(out);
+  return m ? PY_AUTO[m[1].split('.')[0]] : undefined;
+}
+/** « Cannot find module 'exceljs' » → paquet Node à installer, s'il est dans la liste sûre. Pur. */
+export function missingNodePackage(out: string): string | undefined {
+  const m = /Cannot find (?:module|package) '([@\w./-]+)'/.exec(out);
+  const name = m?.[1].startsWith('@') ? m[1].split('/').slice(0, 2).join('/') : m?.[1].split('/')[0];
+  return name && NODE_AUTO.has(name) ? name : undefined;
+}
+
 export const pythonRun: Tool = {
   name: 'python',
-  description: 'Exécute un script Python 3 sur la machine (calculs, fichiers, systèmes, réseau…). « admin » l\'exécute avec sudo si tu as les droits administrateur.',
+  description: 'Exécute un script Python 3 sur la machine : documents (Word, Excel, PowerPoint, PDF, CSV…) à lire, créer ou modifier, calculs, données, graphiques, fichiers, système, réseau. Les bibliothèques courantes (python-docx, openpyxl, python-pptx, pypdf, pymupdf, reportlab, pandas, matplotlib, pillow…) s\'installent toutes seules au premier besoin. « admin » l\'exécute avec sudo si tu as les droits administrateur.',
   risk: 'exec',
   schema: obj({ code: str('code Python'), admin: bool('exécuter en administrateur (sudo)'), cwd: str('dossier où l\'exécuter (facultatif)') }, ['code']),
   summarize: (i) => `python${i.admin ? ' (admin)' : ''} : ${s(i.code).split('\n')[0].slice(0, 120)}`,
@@ -267,8 +290,53 @@ export const pythonRun: Tool = {
     writeFileSync(file, s(i.code));
     const py = process.platform === 'win32' ? 'python' : 'python3';
     const { shell } = await import('./builtin.ts');
-    return shell.run({ command: `${i.admin && process.platform !== 'win32' ? 'sudo ' : ''}${py} "${file}"`, cwd: i.cwd, timeout_sec: 600 }, ctx);
+    const exec = () => shell.run({ command: `${i.admin && process.platform !== 'win32' ? 'sudo ' : ''}${py} "${file}"`, cwd: i.cwd, timeout_sec: 600 }, ctx);
+    let out = await exec();
+    // Bibliothèque courante absente : installée (paquet officiel PyPI, liste sûre), puis on relance. Jusqu'à 3 fois.
+    const installed: string[] = [];
+    for (let k = 0; k < 3; k++) {
+      const pkg = missingPyPackage(typeof out === 'string' ? out : out.output);
+      if (!pkg || installed.includes(pkg)) break;
+      const r = await shell.run({ command: `${py} -m pip install --user --quiet --disable-pip-version-check ${pkg} 2>&1 || ${py} -m pip install --user --quiet --break-system-packages --disable-pip-version-check ${pkg} 2>&1`, timeout_sec: 600 }, ctx);
+      installed.push(pkg);
+      if (/error|not found|No module named pip/i.test(typeof r === 'string' ? r : r.output) && !/Successfully|already satisfied/i.test(typeof r === 'string' ? r : r.output)) break;
+      out = await exec();
+    }
+    if (!installed.length) return out;
+    const text = typeof out === 'string' ? out : out.output;
+    return `(installé tout seul : ${installed.join(', ')})\n${text}`;
   },
 };
 
-export const SELF_TOOLS: Tool[] = [selfInfo, selfRead, selfEdit, selfCheck, selfRollback, selfUpdate, selfRestart, pythonRun];
+export const nodeRun: Tool = {
+  name: 'node_run',
+  description: 'Exécute un script JavaScript avec Node.js (souvent le plus rapide pour JSON, web, Excel avec exceljs, Word avec docx, PDF avec pdf-lib, PowerPoint avec pptxgenjs). Utilise require(). Les paquets courants s\'installent tout seuls au premier besoin.',
+  risk: 'exec',
+  schema: obj({ code: str('code JavaScript (CommonJS : require)'), cwd: str('dossier où l\'exécuter (facultatif)') }, ['code']),
+  summarize: (i) => `node : ${s(i.code).split('\n')[0].slice(0, 120)}`,
+  command: (i) => `node -e ${JSON.stringify(s(i.code))}`,
+  async run(i, ctx) {
+    const dir = join(ctx.workspace, '.odin-tmp'); mkdirSync(dir, { recursive: true });
+    const file = join(dir, `script-${Date.now()}.cjs`);
+    writeFileSync(file, s(i.code));
+    const lib = join(ctx.home ?? join(ctx.workspace, '..'), 'node-tools');
+    mkdirSync(lib, { recursive: true });
+    if (!existsSync(join(lib, 'package.json'))) writeFileSync(join(lib, 'package.json'), '{"name":"odin-node-tools","private":true}\n');
+    const { shell } = await import('./builtin.ts');
+    const exec = () => shell.run({ command: `NODE_PATH="${join(lib, 'node_modules')}" node "${file}"`, cwd: i.cwd, timeout_sec: 600 }, ctx);
+    let out = await exec();
+    const installed: string[] = [];
+    for (let k = 0; k < 3; k++) {
+      const pkg = missingNodePackage(typeof out === 'string' ? out : out.output);
+      if (!pkg || installed.includes(pkg)) break;
+      // --ignore-scripts : aucun script d'installation exécuté (protection contre les paquets piégés).
+      await shell.run({ command: `npm install --prefix "${lib}" --no-audit --no-fund --ignore-scripts --silent ${pkg} 2>&1`, timeout_sec: 600 }, ctx);
+      installed.push(pkg);
+      out = await exec();
+    }
+    if (!installed.length) return out;
+    return `(installé tout seul : ${installed.join(', ')})\n${typeof out === 'string' ? out : out.output}`;
+  },
+};
+
+export const SELF_TOOLS: Tool[] = [selfInfo, selfRead, selfEdit, selfCheck, selfRollback, selfUpdate, selfRestart, pythonRun, nodeRun];

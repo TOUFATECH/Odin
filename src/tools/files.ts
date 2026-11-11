@@ -4,7 +4,7 @@
 
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, extname, relative, sep } from 'node:path';
+import { dirname, extname, join, relative, sep } from 'node:path';
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { toolPath } from '../heimdall/policy.ts';
 import { hasCommand } from '../learn/environment.ts';
@@ -93,18 +93,32 @@ export const docCreate: Tool = {
 
 export const imageView: Tool = {
   name: 'image_view',
-  description: 'Regarde une image de l\'espace de travail (photo, capture, scan, schéma) et répond à une question sur son contenu : description, texte lu (factures, panneaux), objets, défauts.',
+  description: 'Regarde une photo ou une image (fichier reçu, capture, scan, schéma, ou lien http(s) vers une image) et répond : ce qu\'on voit (personnes, lieu, objets, actions), textes recopiés (factures, panneaux, écrans), défauts, ou une analyse détaillée si on la demande. Formats courants convertis tout seuls (HEIC, BMP, TIFF, grandes photos).',
   risk: 'read',
   taints: true,
-  schema: obj({ path: str('chemin de l\'image (.png, .jpg, .webp, .gif)'), question: str('ce qu\'il faut regarder (facultatif)') }, ['path']),
+  schema: obj({ path: str('chemin de l\'image, ou lien http(s) vers une image'), question: str('ce qu\'il faut regarder ou analyser (facultatif)') }, ['path']),
   async run(i, ctx) {
-    const p = toolPath(ctx, s(i.path));
-    const ext = extname(p).slice(1).toLowerCase();
-    const mime = IMAGE_MIME[ext];
-    if (!mime) return 'Format d\'image non pris en charge (png, jpg, webp, gif). Convertis-la avec media_convert.';
-    if (statSync(p).size > 8 * 1024 * 1024) return 'Image trop lourde (8 Mo au plus) : réduis-la avec media_convert (largeur 1600 par exemple).';
-    if (!ctx.vision) return 'La vision n\'est pas disponible avec le modèle actuel.';
-    const answer = await ctx.vision(s(i.question) || 'Décris précisément cette image et recopie le texte qu\'elle contient.', [{ mime, data: readFileSync(p).toString('base64') }]);
+    let p = s(i.path).trim();
+    // Lien vers une image : téléchargée dans inbox/ (8 Mo au plus, images seulement).
+    if (/^https?:\/\//i.test(p)) {
+      const r = await fetch(p, { signal: AbortSignal.timeout(30_000), redirect: 'follow' }).catch((e) => { throw new Error(`image injoignable : ${(e as Error).message}`); });
+      const type = r.headers.get('content-type') ?? '';
+      if (!r.ok || !/^image\//.test(type)) return `Ce lien ne donne pas une image (${r.status} ${type || 'type inconnu'}). Pour une vidéo ou une publication, utilise video_analyze.`;
+      const buf = new Uint8Array(await r.arrayBuffer());
+      if (buf.byteLength > 20 * 1024 * 1024) return 'Image trop lourde (20 Mo au plus).';
+      const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic', 'image/bmp': 'bmp', 'image/tiff': 'tiff' } as Record<string, string>)[type.split(';')[0]] ?? 'jpg';
+      const dir = join(ctx.workspace, 'inbox'); mkdirSync(dir, { recursive: true });
+      p = join(dir, `image-${Date.now()}.${ext}`); writeFileSync(p, buf);
+    } else p = toolPath(ctx, p);
+    if (!ctx.vision) return 'Aucun modèle qui voit les images n\'est disponible pour l\'instant (ajoute Claude, GPT ou Kimi dans Réglages → Modèle).';
+    let ext = extname(p).slice(1).toLowerCase(), mime = IMAGE_MIME[ext];
+    // Format exotique ou photo trop lourde : convertie en JPEG 1600 px (FFmpeg).
+    if (!mime || statSync(p).size > 4 * 1024 * 1024) {
+      const out = join(ctx.workspace, '.odin-tmp', `vue-${Date.now()}.jpg`); mkdirSync(dirname(out), { recursive: true });
+      const { convertMedia } = await import('../files/media.ts');
+      try { await convertMedia(p, out, { width: 1600 }, undefined, 120_000); p = out; ext = 'jpg'; mime = 'image/jpeg'; } catch (e) { return `Je n'arrive pas à ouvrir cette image (${(e as Error).message.slice(0, 160)}).`; }
+    }
+    const answer = await ctx.vision(s(i.question) || 'Décris précisément cette image : ce qu\'on voit (personnes, lieu, objets, actions, ambiance), puis recopie exactement tout le texte lisible. N\'invente rien.', [{ mime, data: readFileSync(p).toString('base64') }]);
     return { output: wrapUntrusted(`image ${relative(ctx.workspace, p)}`, answer), tainted: true };
   },
 };

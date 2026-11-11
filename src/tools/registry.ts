@@ -74,6 +74,8 @@ export interface Tool {
   lookup?(input: Record<string, unknown>): boolean;
   /** Résumé lisible pour la demande de validation. */
   summarize?(input: Record<string, unknown>): string;
+  /** Raison si cet appel est grave quoi qu'il arrive (Heimdall demande alors toujours ton accord). */
+  grave?(input: Record<string, unknown>): string | undefined;
   /** Pour le shell : la commande à contrôler par les règles dédiées. */
   command?(input: Record<string, unknown>): string;
   run(input: Record<string, unknown>, ctx: ToolContext): Promise<string | ToolResult>;

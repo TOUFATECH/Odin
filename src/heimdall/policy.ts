@@ -74,6 +74,8 @@ export interface GateInput {
   grantKey?: string;
   /** Plafond d'autonomie pour ce tour (membre de la famille) : jamais au-dessus, même en Breaker. */
   maxAutonomy?: Autonomy;
+  /** L'outil lui-même déclare l'action grave (ex. installer un programme malgré des alertes de sécurité) : toujours ton accord. */
+  grave?: string;
 }
 
 export type Via = 'policy' | 'human' | 'mimir' | 'grant' | 'breaker';
@@ -186,7 +188,7 @@ export class Heimdall {
     const notes: string[] = [];
     // Actions qui peuvent te couper l'accès ou détruire une machine virtuelle entière : jamais seul, même
     // en Breaker, même avec une autorisation permanente — toujours ta validation explicite.
-    const lock = g.command !== undefined ? lockoutRisk(g.command) : undefined;
+    const lock = g.grave ?? (g.command !== undefined ? lockoutRisk(g.command) : undefined);
     if (lock) {
       if (mode === 'deny') return this.log(g, { allowed: false, reason: `niveau « ${g.risk} » interdit par la configuration` });
       const req: ApprovalRequest = { id: `a${Date.now().toString(36)}${(this.seq++).toString(36)}`, tool: g.tool, risk: g.risk, summary: g.summary, reason: `GRAVE : ${lock}, je ne le fais jamais sans ton accord`, sessionId: g.sessionId, severity: 'grave', grantable: false };
