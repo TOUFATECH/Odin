@@ -39,6 +39,18 @@
   ];
 
   let box = null, anchor = null, seq = 0, downAt = null;
+  /** Texte d'Odin → paragraphes, listes et gras (jamais de HTML brut : tout passe par des nœuds de texte). */
+  function rich(text) {
+    const out = []; let ul = null;
+    const inline = (s) => s.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((p) => (/^\*\*[^*]+\*\*$/.test(p) ? el('b', {}, p.slice(2, -2)) : p));
+    for (const line of String(text ?? '').split('\n')) {
+      const li = /^\s*[-•]\s+(.*)$/.exec(line);
+      if (li) { if (!ul) { ul = el('ul', {}); out.push(ul); } ul.append(el('li', {}, ...inline(li[1]))); continue; }
+      ul = null;
+      if (line.trim()) out.push(el('p', {}, ...inline(line)));
+    }
+    return out;
+  }
   const view = () => document.querySelector('.view.on')?.id?.replace(/^v-/, '') || 'home';
   /** La mascotte visible : celle qui se promène, ou celle de la discussion. */
   const mascot = () => { const r = $('#buddyRoam'); return r && !r.hidden ? r : $('#buddyChat') || r; };
@@ -48,7 +60,7 @@
 .guide[hidden]{display:none}
 .guide-h{display:flex;align-items:center;gap:8px;padding:12px 12px 8px 16px}.guide-h b{flex:1;font-size:16px;min-width:0;overflow-wrap:anywhere}
 .guide-x{flex:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer}
-.guide-t{padding:0 16px 10px;overflow:auto;white-space:pre-wrap;line-height:1.55;font-size:14.5px;overflow-wrap:anywhere}
+.guide-t{padding:0 16px 10px;overflow:auto;line-height:1.55;font-size:14.5px;overflow-wrap:anywhere}.guide-t ul{margin:0 0 8px;padding-left:20px}.guide-t li{margin:0 0 3px}
 .guide-t h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}.guide-t p{margin:0 0 8px}
 .guide-b{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 10px}.guide-b .btn{min-height:36px}
 .guide-f{display:flex;gap:6px;padding:10px 12px 12px;border-top:1px solid var(--line)}.guide-f input{flex:1;min-width:0;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--field,var(--line));background:var(--panel2,transparent);color:inherit}
@@ -84,18 +96,20 @@
   function show(title, body, buttons = []) {
     const p = box ? parts() : build();
     p.title.textContent = title;
-    p.text.replaceChildren(...(Array.isArray(body) ? body : [body]));
+    p.text.replaceChildren(...(Array.isArray(body) ? body : rich(body)));
     p.acts.replaceChildren(...buttons.map((b) => el('button', { class: `btn small${b.primary ? ' primary' : ''}`, type: 'button', onclick: b.run }, b.label)));
     p.acts.hidden = !buttons.length;
     box.hidden = false; p.text.scrollTop = 0;
     anchor?.setAttribute('aria-expanded', 'true');
-    window.OdinCompanion?.pin?.(600_000);   // il reste en place tant qu'il parle
+    // Il se pose d'abord dans un coin libre (jamais sur un texte ou un bouton), puis reste en place tant qu'il parle.
+    if (box.dataset.pinned !== '1') { window.OdinCompanion?.pin?.(0); window.OdinCompanion?.sync?.('hopto'); box.dataset.pinned = '1'; }
+    window.OdinCompanion?.pin?.(600_000);
     window.OdinFace?.flash?.(anchor, 'joie', 1400);
     place();
   }
   function close(focusBack) {
     if (!box || box.hidden) return;
-    seq++; box.hidden = true; anchor?.setAttribute('aria-expanded', 'false'); window.OdinCompanion?.pin?.(0);
+    seq++; box.hidden = true; box.dataset.pinned = ''; anchor?.setAttribute('aria-expanded', 'false'); window.OdinCompanion?.pin?.(0);
     if (focusBack) anchor?.focus?.({ preventScroll: true });
   }
 
