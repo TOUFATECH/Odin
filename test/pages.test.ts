@@ -7,6 +7,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { sindri } from '../src/valhalla/modules/sindri.ts';
 import { allModules } from '../src/valhalla/odin.ts';
@@ -73,4 +74,32 @@ test('Guide de la mascotte : chaque page de l\'interface a son explication, et l
   // Jamais de HTML brut : le texte d'Odin passe par des nœuds de texte (pas d'injection possible depuis une réponse).
   assert.ok(!/innerHTML|insertAdjacentHTML|document\.write|eval\(/.test(guide), 'aucune écriture de HTML brut dans le guide');
   assert.match(guide, /Une action grave attend ta confirmation/);
+});
+
+test('Page de connexion : aucun script ne la recharge quand le serveur répond « pas connecté » (elle se rechargeait en boucle)', async () => {
+  // Le script des applis tourne aussi sur la page de connexion. On l'exécute pour de bon dans une page
+  // minimale : appli cachée (pas connecté), puis appli affichée (session expirée en cours d'usage).
+  const run = async (appHidden: boolean) => {
+    const timers: Array<() => unknown> = [], fetched: string[] = []; let reloads = 0;
+    const node = () => ({ append() {}, setAttribute() {}, addEventListener() {}, className: '', hidden: false, textContent: '' });
+    const app = { hidden: appHidden };
+    const document = { readyState: 'complete', head: node(), body: node(), createElement: node, createTextNode: node, addEventListener() {}, querySelector: (s: string) => (s === '#app' ? app : null), querySelectorAll: () => [] };
+    const ctx = { document, window: {} as Record<string, unknown>, location: { reload: () => { reloads++; } }, fetch: async (u: string) => { fetched.push(u); return { status: 401, json: async () => ({}) }; }, setTimeout: (f: () => unknown) => { timers.push(f); return 0; }, setInterval: (f: () => unknown) => { timers.push(f); return 0; }, clearTimeout() {}, console };
+    ctx.window = ctx as never;
+    vm.runInNewContext(readFileSync(new URL('../src/web/valhalla.js', import.meta.url), 'utf8'), ctx);
+    assert.ok(timers.length >= 2, 'le script programme bien son compteur d\'alertes');
+    for (const f of timers) await f();
+    await new Promise((r) => setTimeout(r, 20));
+    return { reloads, fetched };
+  };
+  const login = await run(true);
+  assert.deepEqual(login, { reloads: 0, fetched: [] }, 'pas connecté : le serveur n\'est même pas interrogé, et rien ne recharge la page');
+  const expired = await run(false);
+  assert.ok(expired.fetched.includes('/api/valhalla/catalog') && expired.reloads >= 1, 'session expirée en cours d\'usage : retour à la page de connexion');
+  // Les autres scripts de pages suivent la même règle.
+  for (const f of ['brain', 'flows', 'runes', 'valhalla']) { const js = readFileSync(new URL(`../src/web/${f}.js`, import.meta.url), 'utf8'); assert.ok(!/401\) \{ location\.reload\(\)/.test(js) && /if \(appShown\(\)\) location\.reload\(\)/.test(js), `${f}.js ne recharge la page que si l'appli est affichée`); }
+  // Et la mascotte réagit au toucher dès la page de connexion : son code est placé avant la sortie « pas connecté ».
+  const ui = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8');
+  assert.ok(ui.indexOf('elle réagit quand on la touche') > 0 && ui.indexOf('elle réagit quand on la touche') < ui.indexOf('  if (!AUTHED) {\n    $(\'#login\').hidden = false;'), 'le toucher de la mascotte est branché avant la sortie « pas connecté »');
+  assert.match(ui, /const buddies = \(\) => \[[^\]]*'#login \.odin'\]/, 'et ses humeurs s\'appliquent au visage de la page de connexion');
 });

@@ -249,6 +249,18 @@ export const securite: Scenario = {
     t.eq((await raw('/api/account/password', { method: 'POST', headers: { ...J, authorization: `Bearer ${od.token}` }, body: JSON.stringify({ current: 'pas-le-bon', next: 'encore-un-autre-mot-de-passe' }) })).status, 400, 'la clé d\'API ne permet pas de changer le mot de passe sans connaître l\'actuel');
     const out = await raw('/api/account/logout', { method: 'POST', headers: { ...J, ...S }, body: '{}' });
     t.ok(out.status === 200 && /odin_session=; .*Max-Age=0/.test(out.headers.getSetCookie().join(' | ')) && (await raw('/api/state', { headers: S })).status === 401, 'déconnexion : la session est détruite sur le serveur (le cookie volé avant ne marche plus)');
+
+    // ------------------------------------------------------------------ La page de connexion tient en place
+    // (Un script qui interroge le serveur sans session ne doit pas la recharger : ce qu'on tape serait effacé.)
+    const anon = await browser.newContext({ viewport: { width: 1280, height: 900 } }), lp = await anon.newPage(); let loads = 0;
+    lp.on('response', (r) => { if (new URL(r.url()).pathname === '/') loads++; });
+    await lp.goto(B + '/'); await lp.waitForSelector('#login:not([hidden])');
+    await lp.fill('#siEmail', 'quelquun@exemple.fr'); await lp.waitForTimeout(6500);
+    const still = await lp.evaluate<{ email: string }>(`({ email: document.querySelector('#siEmail').value })`);
+    t.ok(loads === 1 && still.email === 'quelquun@exemple.fr', 'page de connexion : elle ne se recharge pas toute seule, ce que tu tapes reste en place', `${loads} chargement(s), champ : « ${still.email} »`);
+    await lp.click('#login .odin'); await lp.waitForTimeout(150);
+    t.ok(await lp.evaluate<boolean>(`document.querySelector('#login .odin').classList.contains('bounce')`), 'page de connexion : la mascotte réagit quand on la touche');
+    await anon.close();
   },
 };
 

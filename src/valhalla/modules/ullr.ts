@@ -14,6 +14,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { closeSync, createReadStream, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, rmSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs';
 import { cpus, homedir, loadavg } from 'node:os';
 import { basename, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { BASE_RULES, compileGaldr, flat, hay, importYara, phishing, readable, RuleSet, scanBuffer, sureOf, urlRisk, combine, type CRule, type Finding, type Knowledge, type Rule, type Verdict } from '../ullr/engine.ts';
 import { Correlator, SENSORS, story, toSignal, type Incident } from '../ullr/incidents.ts';
 import { Intel, parseClamHsb, parseHashList, reputation, reputationText, SOURCES, type FetchCtx, type Patch, type Reputation } from '../ullr/intel.ts';
@@ -83,7 +84,7 @@ let own: Set<string> | undefined;
 function ownFiles(): Set<string> {
   if (own) return own;
   own = new Set();
-  const here = dirname(new URL(import.meta.url).pathname);
+  const here = dirname(fileURLToPath(import.meta.url));
   for (const d of [here, join(here, '..', 'ullr')]) { try { for (const f of readdirSync(d)) { try { const p = join(d, f); if (statSync(p).isFile()) own.add(createHash('sha256').update(readFileSync(p)).digest('hex')); } catch { /* fichier illisible */ } } } catch { /* dossier absent */ } }
   return own;
 }
@@ -92,7 +93,9 @@ function knowledge(ctx: ModCtx, intel = st(ctx).intel): Knowledge {
   return { hash: (h) => intel.hash(h), rules: ruleSet(ctx, intel), allowHash: (h) => hs.has(h) || mine.has(h), allowRule: (n) => rs.has(n) };
 }
 
-const SYSTEM = /^\/(usr|bin|sbin|lib|lib32|lib64|libx32|opt|snap|boot|etc|var\/lib)\//;
+/** Chemin écrit avec des barres droites, pour que les règles ci-dessous valent aussi sous Windows. */
+const slash = (p: string) => p.replace(/\\/g, '/');
+const SYSTEM = /^\/(usr|bin|sbin|lib|lib32|lib64|libx32|opt|snap|boot|etc|var\/lib|System|Library|Applications|private\/etc)\/|^[A-Za-z]:\/(Windows|Program Files|Program Files \(x86\))\//;
 /** Logiciels courants dont le paquet ne porte pas le même nom que dans le catalogue des failles : [nom dans le catalogue, paquet installé]. */
 const KEV_PKG: Array<[RegExp, RegExp]> = [
   [/^linux kernel/, /^linux-kernel$/], [/apache http server/, /^(apache2|httpd)$/], [/openssh/, /^openssh-(server|client)$/], [/openssl/, /^(openssl|libssl[\d.]*)/], [/\bphp\b/, /^php[\d.]*(-|$)/],
@@ -107,13 +110,15 @@ const SKIP = /^\/(proc|sys|dev|run|snap)(\/|$)|\/node_modules\/|\/\.git\/|\/valh
 /** Parcourt un dossier. Les liens symboliques ne sont pas suivis (pas de boucle, pas de double analyse). */
 export function* walk(root: string, exclude: string[] = [], max = 400_000): Generator<string> {
   let first = root; try { first = realpathSync(root); } catch { return; }
+  // Les exclusions sont comparées aux vrais chemins (un dossier donné par un lien reste exclu).
+  const ex = exclude.filter(Boolean).map((x) => { try { return slash(realpathSync(x)); } catch { return slash(x); } }).map((x) => x.replace(/\/+$/, ''));
   const stack = [first]; let n = 0;
   while (stack.length && n < max) {
     const d = stack.pop()!;
-    if (exclude.some((x) => x && (d === x || d.startsWith(x.endsWith('/') ? x : `${x}/`)))) continue;
+    const p = slash(d); if (ex.some((x) => p === x || p.startsWith(`${x}/`))) continue;
     let stt; try { stt = lstatSync(d); } catch { continue; }
     if (stt.isFile()) { n++; yield d; continue; }
-    if (!stt.isDirectory() || SKIP.test(`${d}/`)) continue;
+    if (!stt.isDirectory() || SKIP.test(`${p}/`)) continue;
     let es: string[] = []; try { es = readdirSync(d); } catch { continue; }
     for (const e of es) stack.push(join(d, e));
   }
@@ -154,7 +159,7 @@ function release(ctx: ModCtx, id: string): Q {
 async function handle(ctx: ModCtx, v: Verdict, o: { auto?: boolean; quiet?: boolean } = {}): Promise<Detection | undefined> {
   const all = flat(v); if (!all.length || !v.level) return undefined;
   // Un simple indice faible sur un programme installé par le système (un outil qui télécharge, par exemple) n'est pas une alerte.
-  if (!sureOf(v) && v.score < 60 && SYSTEM.test(v.file)) return undefined;
+  if (!sureOf(v) && v.score < 60 && SYSTEM.test(slash(v.file))) return undefined;
   const top = [...all].sort((a, b) => b.score - a.score)[0];
   let sure = sureOf(v), action = 'à vérifier', level = v.level, extra = '';
   // Soupçon sans preuve : on demande l'avis des bases de réputation (empreinte seulement), si une clé est là.
@@ -164,7 +169,7 @@ async function handle(ctx: ModCtx, v: Verdict, o: { auto?: boolean; quiet?: bool
   }
   const onlyTest = all.every((f) => f.klass === 'test');
   // Dans un dossier de tests ou d'exemples (un projet de développement), une règle peut reconnaître un échantillon voulu : c'est toi qui décides.
-  const fixture = TESTS.test(v.file) && !all.some((f) => f.by === 'empreinte');
+  const fixture = TESTS.test(slash(v.file)) && !all.some((f) => f.by === 'empreinte');
   if (sure && fixture) extra = extra || 'trouvé dans un dossier de tests ou d\'exemples : je n\'y touche pas sans toi';
   const kept = ((ctx.settings.released as string[] | undefined) ?? []).includes(v.sha256);
   if (kept) { action = 'laissé en place à ta demande (sorti de quarantaine)'; o = { ...o, quiet: true }; }
@@ -234,8 +239,9 @@ function validate(ctx: ModCtx, cand: Intel): string | undefined {
   if (!flat(scanBuffer('eicar.com', Buffer.from(EICAR), k)).some((f) => f.klass === 'test')) return 'le fichier de test EICAR n\'est plus détecté';
   // Corpus sain : les fichiers d'Odin, puis des programmes et réglages du système. Une empreinte qui y correspond = base polluée.
   const corpus: string[] = []; const off = new Set(disabled(ctx)); const fp = new Map<string, number>(), seenFile = new Set<string>();
-  const here = dirname(new URL(import.meta.url).pathname);
-  for (const [d, max] of [[join(here, '..', '..'), 90], ['/usr/bin', 90], [dirname(process.execPath), 30], ['/etc', 50]] as Array<[string, number]>) { let n = 0; try { for (const f of walk(d, [], 600)) { if (n >= max) break; if (seenFile.has(f)) continue; seenFile.add(f); corpus.push(f); n++; } } catch { /* dossier absent */ } }
+  const here = dirname(fileURLToPath(import.meta.url));
+  const sys: Array<[string, number]> = process.platform === 'win32' ? [[join(process.env.SystemRoot ?? 'C:\\Windows', 'System32'), 90]] : [['/usr/bin', 90], ['/etc', 50]];
+  for (const [d, max] of [[join(here, '..', '..'), 90], ...sys, [dirname(process.execPath), 30]] as Array<[string, number]>) { let n = 0; try { for (const f of walk(d, [], 600)) { if (n >= max) break; if (seenFile.has(f)) continue; seenFile.add(f); corpus.push(f); n++; } } catch { /* dossier absent */ } }
   for (const f of corpus) {
     let b: Buffer; try { const z = statSync(f); if (!z.isFile() || z.size > 3 * 1024 * 1024 || z.size === 0) continue; b = readFileSync(f); } catch { continue; }
     const v = scanBuffer(f, b, k);

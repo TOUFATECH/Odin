@@ -56,11 +56,13 @@ export function backup(repo: Repo, plan: Pick<Plan, 'name' | 'paths' | 'exclude'
   repo.saveSnapshot(s);
   return s;
 }
+/** Où va un fichier restauré, sous le dossier cible : « /home/a/x » → cible/home/a/x ; « C:\\Users\\a\\x » → cible\\C\\Users\\a\\x. */
+export const under = (target: string, path: string) => join(target, path.replace(/^([A-Za-z]):/, '$1').replace(/^[\\/]+/, ''));
 export function restore(repo: Repo, snap: Snapshot, target: string, filter = ''): number {
   let n = 0;
   for (const f of snap.files) {
     if (filter && !f.path.includes(filter)) continue;
-    const out = join(target, relative('/', f.path)); mkdirSync(dirname(out), { recursive: true });
+    const out = under(target, f.path); mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, Buffer.concat(f.chunks.map((c) => repo.get(c))));
     try { chmodSync(out, f.mode); utimesSync(out, new Date(f.mtime), new Date(f.mtime)); } catch { /* droits */ }
     n++;

@@ -52,7 +52,7 @@ test('mise à jour : récupère la nouvelle version en gardant les amélioration
   try {
     const up = join(base, 'up'); mkdirSync(up);
     g(up, 'init', '-q', '-b', 'main'); writeFileSync(join(up, 'a.txt'), 'un\n'); writeFileSync(join(up, 'b.txt'), 'b\n'); g(up, 'add', '.'); g(up, 'commit', '-qm', 'v1');
-    g(base, 'clone', '-q', up, 'app');
+    g(base, 'clone', '-q', '-c', 'core.autocrlf=false', up, 'app'); // contenu comparé à l'octet près : pas de conversion des fins de ligne (Windows)
     const app = join(base, 'app');
     writeFileSync(join(app, 'b.txt'), 'b amélioré par Odin\n');
     writeFileSync(join(up, 'a.txt'), 'deux\n'); g(up, 'commit', '-qam', 'v2');

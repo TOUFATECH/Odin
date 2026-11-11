@@ -512,8 +512,10 @@ export class Muninn {
   recordRoute(e: RouteEntry): void {
     this.db.prepare('INSERT INTO routing(at, turn_id, session_id, channel, request, purpose, provider, label, tier, min_tier, need, reason, attempts, ok, ms, tokens_in, tokens_out, cost_usd) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
       .run(e.at, e.turnId, e.sessionId, e.channel, e.request.slice(0, 160), e.purpose, e.provider, e.label, e.tier, e.minTier, e.need, e.reason.slice(0, 300), JSON.stringify(e.attempts.slice(0, 20)), e.ok ? 1 : 0, Math.round(e.ms), e.tokensIn, e.tokensOut, e.costUsd);
-    // On garde 6 mois, 50 000 appels au plus.
-    if (Math.random() < 0.01) this.db.prepare('DELETE FROM routing WHERE at < ? OR id <= (SELECT MAX(id) - 50000 FROM routing)').run(Date.now() - 183 * 86_400_000);
+  }
+  /** Ménage du journal, une fois par jour : on garde 6 mois, 50 000 appels au plus. */
+  pruneRoutes(now = Date.now()): number {
+    return Number(this.db.prepare('DELETE FROM routing WHERE at < ? OR id <= (SELECT MAX(id) - 50000 FROM routing)').run(now - 183 * 86_400_000).changes);
   }
   /** Appels journalisés, du plus récent au plus ancien. */
   routes(q: { limit?: number; sessionId?: string; turnId?: string; since?: number; provider?: string } = {}): RouteEntry[] {

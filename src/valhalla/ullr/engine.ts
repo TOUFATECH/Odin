@@ -381,7 +381,7 @@ function peInfo(b: Buffer): { sections: Array<{ name: string; entropy: number; e
 /** Texte lisible d'un contenu : UTF-8, ou Latin-1 si ce n'en est pas. */
 export const readable = (b: Buffer) => { const u = b.toString('utf8'); return u.includes('\ufffd') ? lat(b) : u; };
 /** Les endroits où les fichiers arrivent de l'extérieur : téléchargements, dossiers temporaires, boîte de réception, supports amovibles, captures des pièges. */
-export const isArrival = (where: string) => /(^|\/)(tmp|temp|downloads?|t[ée]l[ée]chargements|inbox|dev\/shm|var\/tmp|appdata\/local\/temp|captures?)(\/|$)|^\/(media|run\/media|mnt)\//i.test(where);
+export const isArrival = (where: string) => /(^|\/)(tmp|temp|downloads?|t[ée]l[ée]chargements|inbox|dev\/shm|var\/tmp|appdata\/local\/temp|captures?)(\/|$)|^\/(media|run\/media|mnt)\//i.test(where.replace(/\\/g, '/'));
 /** Indices trouvés dans le contenu, chacun avec son poids et sa raison. `where` : dossier d'origine (les téléchargements et dossiers temporaires pèsent plus). */
 export function heuristics(name: string, b: Buffer, type = fileType(b, name), where = ''): Finding[] {
   const out: Finding[] = [], t = lat(b.subarray(0, Math.min(b.length, 2 * 1024 * 1024))), low = t.toLowerCase();

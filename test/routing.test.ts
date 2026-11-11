@@ -115,6 +115,12 @@ test('Muninn : journal enregistré, relu par tour, bilan, rapport', () => {
   const bilan = routingReport(m, { scope: 'bilan', now: 3000 });
   assert.match(bilan, /Claude Sonnet 5\.5 \(Anthropic\) : 1 appel/);
   assert.equal(m.routeStats(0).length, 3);
+  // Ménage du journal : au-delà de 6 mois, l'appel est effacé ; les autres restent.
+  const jour = 86_400_000, now = 400 * jour;
+  m.recordRoute({ ...base, at: now - 10 * jour, turnId: 'recent' });
+  assert.equal(m.pruneRoutes(now), 3, 'les trois appels anciens sont effacés');
+  assert.deepEqual(m.routes({}).map((r) => r.turnId), ['recent']);
+  assert.equal(m.pruneRoutes(now), 0, 'rien de plus à effacer');
   m.close(); rmSync(dir, { recursive: true, force: true });
 });
 

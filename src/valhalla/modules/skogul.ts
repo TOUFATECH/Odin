@@ -3,18 +3,32 @@
 // tâches planifiées modifiées. Une alerte par découverte, envoyée à Forseti.
 
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, readlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
+import { basename } from 'node:path';
 import type { Module } from '../types.ts';
 
 export interface Proc { pid: number; ppid: number; uid: number; name: string; exe: string; cmd: string }
 const rd = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return ''; } };
+/** Les programmes en cours. Linux : /proc. macOS et BSD : la commande « ps ». Windows : pas encore lu (liste vide). */
 export function procs(root = '/proc'): Proc[] {
+  if (!existsSync(root)) return root === '/proc' && process.platform !== 'win32' ? psProcs() : [];
   const out: Proc[] = [];
   for (const d of readdirSync(root)) {
     if (!/^\d+$/.test(d)) continue;
     const st = rd(`${root}/${d}/status`); if (!st) continue;
     let exe = ''; try { exe = readlinkSync(`${root}/${d}/exe`); } catch { /* noyau ou droits */ }
     out.push({ pid: Number(d), ppid: Number(/^PPid:\s+(\d+)/m.exec(st)?.[1] ?? 0), uid: Number(/^Uid:\s+(\d+)/m.exec(st)?.[1] ?? 0), name: /^Name:\s+(.*)$/m.exec(st)?.[1] ?? '', exe, cmd: rd(`${root}/${d}/cmdline`).replace(/\0/g, ' ').trim().slice(0, 300) });
+  }
+  return out;
+}
+/** Sans /proc : deux appels à « ps », l'un pour le programme, l'autre pour sa ligne de commande (les chemins peuvent contenir des espaces). */
+export function psProcs(run: (args: string[]) => string = (args) => spawnSync('ps', args, { encoding: 'utf8', timeout: 8000 }).stdout ?? ''): Proc[] {
+  const cmds = new Map<number, string>(), out: Proc[] = [];
+  for (const l of run(['-axo', 'pid=,args=']).split('\n')) { const m = /^\s*(\d+)\s+(.*)$/.exec(l); if (m) cmds.set(Number(m[1]), m[2].trim().slice(0, 300)); }
+  for (const l of run(['-axo', 'pid=,ppid=,uid=,comm=']).split('\n')) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/.exec(l); if (!m) continue;
+    const exe = m[4].trim(); out.push({ pid: Number(m[1]), ppid: Number(m[2]), uid: Number(m[3]), name: basename(exe), exe: exe.startsWith('/') ? exe : '', cmd: cmds.get(Number(m[1])) ?? exe });
   }
   return out;
 }
@@ -52,7 +66,7 @@ export const skogul: Module = {
   async view(ctx) {
     const f = judge(procs()), ports = (ctx.settings.ports as string[] | undefined) ?? [];
     return {
-      subtitle: 'Analyse toutes les 30 secondes',
+      subtitle: process.platform === 'win32' ? 'Sur Windows, je ne lis pas encore les programmes en cours : cette page reste vide.' : 'Analyse toutes les 30 secondes',
       kpis: [{ label: 'Découvertes en cours', value: String(f.length), tone: f.length ? 'mauvais' : 'bon' }, { label: 'Ports à l\'écoute', value: String(ports.length) }],
       sections: [{ kind: 'table', title: 'Comportements suspects', columns: ['Gravité', 'Règle', 'Détail'], empty: '✓ Rien de suspect en ce moment.', rows: f.map((x) => ({ cells: [x.level, x.rule, x.detail], tone: 'mauvais', actions: [{ action: 'tuer', label: 'Arrêter', input: { pid: x.pid } }] })) }],
       side: [{ kind: 'list', title: 'Ports à l\'écoute', items: ports.map((p) => ({ title: p })), empty: 'Lecture en attente.' }],

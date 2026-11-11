@@ -17,9 +17,12 @@
     return n;
   };
   const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Session expirée pendant l'usage : on revient à la page de connexion. Sur la page de connexion elle-même,
+  // on ne recharge rien (sinon elle se rechargerait en boucle et effacerait ce que tu tapes).
+  const appShown = () => { const a = document.querySelector('#app'); return Boolean(a && !a.hidden); };
   async function api(path, body) {
     const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } });
-    if (r.status === 401) { location.reload(); throw new Error('session expirée'); }
+    if (r.status === 401) { if (appShown()) location.reload(); throw new Error('session expirée'); }
     return r.json();
   }
   const ico = (d, size = 16) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', size); s.setAttribute('height', size); s.setAttribute('aria-hidden', 'true'); s.innerHTML = d; s.classList.add('bi'); return s; };

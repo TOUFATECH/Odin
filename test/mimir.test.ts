@@ -108,9 +108,11 @@ test('Jev indisponible : jamais lu comme un « non », retour à la politique de
 
 const autonomy = (a: 'prudent' | 'equilibre' | 'autonome') => (c: OdinConfig): OdinConfig => ({ ...c, mimir: { ...c.mimir, autonomy: a } });
 
+// « sleep 0 » : une commande sans effet que bash et PowerShell connaissent tous les deux (« : » n'existe pas sous Windows),
+// et qui n'est pas dans la liste des consultations : elle passe donc bien par le juge.
 test('autonomie « équilibré » : la routine est décidée seule et annoncée, le reste t\'est demandé', async () => {
   const routine = fakeJudge({ requested: 0.95 });
-  let o = makeOdin([call('shell', { command: ':' }), { text: 'ok' }], { judge: routine, config: autonomy('equilibre') });
+  let o = makeOdin([call('shell', { command: 'sleep 0' }), { text: 'ok' }], { judge: routine, config: autonomy('equilibre') });
   let r = await o.agent.run('lance true', { sessionId: 's' });
   assert.equal(o.approvals.length, 0, 'routine : aucune question');
   assert.match(o.provider.calls[1].messages.at(-1)!.content, /code de sortie : 0/);
@@ -120,14 +122,14 @@ test('autonomie « équilibré » : la routine est décidée seule et annoncée,
   assert.match(readFileSync(join(o.paths.logs, 'audit.jsonl'), 'utf8'), /"via":"mimir","severity":"routine"/);
   o.cleanup();
   // Même commande après une page web non fiable : important → question.
-  o = makeOdin([call('fake_web', {}), call('shell', { command: ':' }), { text: 'ok' }], { judge: routine, config: autonomy('equilibre') });
+  o = makeOdin([call('fake_web', {}), call('shell', { command: 'sleep 0' }), { text: 'ok' }], { judge: routine, config: autonomy('equilibre') });
   o.tools.register(fakeWeb);
   r = await o.agent.run('lance true', { sessionId: 's' });
   assert.equal(o.approvals.length, 1);
   assert.equal(o.approvals[0].grantable, false, 'pas d\'autorisation permanente sous contenu non fiable');
   o.cleanup();
   // Prudent : il demande comme avant.
-  o = makeOdin([call('shell', { command: ':' }), { text: 'ok' }], { judge: routine, config: autonomy('prudent') });
+  o = makeOdin([call('shell', { command: 'sleep 0' }), { text: 'ok' }], { judge: routine, config: autonomy('prudent') });
   await o.agent.run('lance true', { sessionId: 's' });
   assert.equal(o.approvals.length, 1);
   o.cleanup();
@@ -149,12 +151,12 @@ test('autorisation permanente : « toujours » une fois, plus de question ensuit
 });
 
 test('autonomie « autonome » : l\'important est décidé seul, le grave t\'est toujours demandé', async () => {
-  let o = makeOdin([call('shell', { command: ':' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.5 }), config: autonomy('autonome') });
+  let o = makeOdin([call('shell', { command: 'sleep 0' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.5 }), config: autonomy('autonome') });
   const r = await o.agent.run('vas-y', { sessionId: 's' });
   assert.equal(o.approvals.length, 0);
   assert.match(r.decisions[0].why, /mode autonome/);
   o.cleanup();
-  o = makeOdin([call('shell', { command: ':' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.1, deletes: 0.95 }), config: autonomy('autonome') });
+  o = makeOdin([call('shell', { command: 'sleep 0' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.1, deletes: 0.95 }), config: autonomy('autonome') });
   await o.agent.run('regarde', { sessionId: 's' });
   assert.equal(o.approvals.length, 1);
   assert.equal(o.approvals[0].severity, 'grave');
@@ -162,11 +164,11 @@ test('autonomie « autonome » : l\'important est décidé seul, le grave t\'est
 });
 
 test('sans surveillance (tâche planifiée) : la routine passe, l\'important est refusé', async () => {
-  let o = makeOdin([call('shell', { command: ':' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.95 }) });
+  let o = makeOdin([call('shell', { command: 'sleep 0' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.95 }) });
   await o.agent.run('lance true', { sessionId: 'cron', unattended: true });
   assert.match(o.provider.calls[1].messages.at(-1)!.content, /code de sortie : 0/);
   o.cleanup();
-  o = makeOdin([call('shell', { command: ':' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.5 }) });
+  o = makeOdin([call('shell', { command: 'sleep 0' }), { text: 'ok' }], { judge: fakeJudge({ requested: 0.5 }) });
   await o.agent.run('lance true', { sessionId: 'cron', unattended: true });
   assert.match(o.provider.calls[1].messages.at(-1)!.content, /sans surveillance/);
   o.cleanup();

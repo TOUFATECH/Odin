@@ -147,9 +147,11 @@ Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou ave
 
 Le certificat HTTPS est créé par Odin lui-même (aucun outil à installer) pour `localhost`, l'adresse locale et le nom de la machine. Ton navigateur demandera de l'accepter une fois : compare son empreinte avec celle de Réglages. Tu peux aussi donner ton propre certificat (Let's Encrypt…).
 
-**Première connexion** : tant qu'aucun appareil ne s'est jamais connecté, le premier navigateur de ton réseau local qui ouvre Odin (tant qu'il n'est pas configuré, ou dans l'heure qui suit son démarrage) devient le tien, sans jeton à chercher : bouton **Commencer**. Ensuite, le jeton est obligatoire. Pour retrouver tes liens à tout moment, en ligne de commande : `odin link` (dans un LXC Proxmox, depuis l'hôte : `pct exec <ID> -- odin link`). L'installateur les affiche aussi à la fin.
+**Première connexion** : le premier navigateur de ton réseau local qui ouvre Odin (tant qu'il n'est pas configuré, ou dans l'heure qui suit son démarrage) crée **ton compte** : prénom, nom, adresse e-mail et mot de passe (10 caractères au moins). Ensuite, sur chaque appareil, tu entres avec ton adresse et ton mot de passe ; Réglages → Accès montre les appareils connectés et permet de les déconnecter. Plus tard, ou depuis un autre endroit, le lien de première connexion s'obtient en ligne de commande : `odin link` (dans un LXC Proxmox, depuis l'hôte : `pct exec <ID> -- odin link`). L'installateur l'affiche aussi à la fin. Mot de passe oublié : `odin compte oublier` sur la machine d'Odin (le compte est effacé, jamais tes données).
 
-Dans tous les modes, chaque appel exige le jeton, et une adresse qui se trompe 10 fois en 10 minutes est bloquée 15 minutes. **Nouveau jeton** (Réglages, ou `odin web rotate`) déconnecte tous les appareils.
+**Tu viens de la 1.5 ?** À la première ouverture après la mise à jour, Odin te demande seulement de créer ce compte. Tes notes, tes discussions et tes réglages sont gardés.
+
+Dans tous les modes, chaque appel exige ta session (navigateur) ou la clé d'API (programmes : raccourcis du téléphone, serveur MCP), et une adresse qui se trompe 10 fois en 10 minutes est bloquée 15 minutes. Le mot de passe n'est jamais gardé en clair, et après 5 erreurs chaque nouvel essai doit attendre. **Nouvelle clé d'API** (Réglages, ou `odin web rotate`) : les programmes qui utilisaient l'ancienne doivent être mis à jour.
 
 ### Terminal
 
@@ -591,12 +593,13 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 
 | Commande | Rôle |
 |---|---|
-| `odin init` | crée `~/.odin` |
+| `odin init` | crée `~/.odin` et prépare le Cerveau (une fiche par appli) |
 | `odin doctor` | diagnostic complet |
 | `odin web` | interface web + Telegram + API + tâches planifiées |
 | `odin web access [lan\|local\|wan]` | qui peut ouvrir l'interface (`--http`, `--proxy`) |
-| `odin link` (ou `odin web link`) | affiche les liens personnels (avec jeton) |
-| `odin web rotate` | nouveau jeton : déconnecte tous les appareils |
+| `odin link` (ou `odin web link`) | affiche l'adresse d'Odin (ou le lien de première connexion tant que le compte n'existe pas) |
+| `odin compte` · `odin compte oublier` | ton compte · mot de passe oublié : le compte est effacé (pas tes données) et un lien permet de le recréer |
+| `odin web rotate` | nouvelle clé d'API pour les programmes (raccourcis, MCP) |
 | `odin breaker [on\|nuit\|off]` | ⚡ Odin Breaker : autonomie totale (tout le temps, ou la nuit) |
 | `odin gateway` | pareil, sans ouvrir le navigateur (service) |
 | `odin chat` · `odin run "…"` | terminal · une seule demande |

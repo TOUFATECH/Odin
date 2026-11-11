@@ -1,14 +1,16 @@
 // Les fiches des applis dans le Cerveau : tout ce qu'il faut pour comprendre Odin (applis, liens, modes de
 // fonctionnement), et rien de ce que tu y as réglé (adresses, noms d'appareils, mots de passe).
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { Vault, vaultEvents } from '../src/brain/vault.ts';
 import { appSheet, sheets, syncSheets } from '../src/valhalla/fiches.ts';
 import { LINKS } from '../src/valhalla/links.ts';
-import { allModules } from '../src/valhalla/odin.ts';
+import { DEFAULT_CONFIG, odinPaths } from '../src/config.ts';
+import { allModules, seedBrain } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 
 function world() {
@@ -98,4 +100,26 @@ test('Fiches : Saga peut les remettre à jour à la demande, sans IA', async () 
     assert.ok(w.vault.all(true).some((n) => n.path === "Odin/Les applis d'Odin.md"));
     assert.equal(w.v.manips().length, 0, 'simple tenue de registre : pas de manip');
   } finally { w.end(); }
+});
+
+test('Cerveau actif dès l\'installation : « odin init » y écrit les fiches, avant le premier lancement, sans IA', () => {
+  const root = mkdtempSync(join(tmpdir(), 'odin-neuf-')), home = join(root, '.odin');
+  try {
+    // 1. La vraie commande de l'installateur, sur un dossier vide, sans aucune clé d'IA.
+    const env: NodeJS.ProcessEnv = { ...process.env, ODIN_HOME: home }; for (const k of Object.keys(env)) if (/_API_KEY$|_TOKEN$/.test(k)) delete env[k];
+    const out = execFileSync(process.execPath, ['--disable-warning=ExperimentalWarning', join(import.meta.dirname, '..', 'bin', 'odin.mjs'), 'init'], { env, encoding: 'utf8' });
+    const n = allModules({ paths: odinPaths(home), cfg: DEFAULT_CONFIG } as never).length;
+    assert.match(out, new RegExp(`Cerveau prêt : ${n + 3} fiches`));
+    const dir = join(home, 'cerveau', 'Odin');
+    assert.deepEqual(readdirSync(dir).filter((f) => f.endsWith('.md')).sort(), ['Comment fonctionne Odin.md', 'Les applis d\'Odin.md', 'Liens entre les applis.md']);
+    assert.equal(readdirSync(join(dir, 'Applis')).length, n, 'une fiche par appli');
+    assert.match(readFileSync(join(dir, 'Applis', 'Idunn.md'), 'utf8'), /tenue par: Odin[\s\S]*# Idunn[\s\S]*## Comment lui parler[\s\S]*## Ses liens avec les autres applis/);
+    // 2. Relancer l'installation ne réécrit rien et ne touche pas à ce que tu as noté.
+    const mine = join(dir, 'Applis', 'Ullr.md'); writeFileSync(mine, `${readFileSync(mine, 'utf8').replace(/_Écris ici[^_]*_/, '')}Ma note à moi.\n`);
+    assert.match(execFileSync(process.execPath, ['--disable-warning=ExperimentalWarning', join(import.meta.dirname, '..', 'bin', 'odin.mjs'), 'init'], { env, encoding: 'utf8' }), /Déjà initialisé\.[\s\S]*Cerveau prêt : \d+ fiches[^\n]*déjà à jour/);
+    assert.match(readFileSync(mine, 'utf8'), /## Mes notes[\s\S]*Ma note à moi\./);
+    // 3. La même fonction sert au lancement : rien à refaire si tout est à jour.
+    assert.deepEqual(seedBrain({ paths: odinPaths(home), cfg: DEFAULT_CONFIG } as never), { written: 0, total: n + 3 });
+    assert.ok(!existsSync(join(home, 'cerveau', 'Odin', 'Applis', 'undefined.md')));
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

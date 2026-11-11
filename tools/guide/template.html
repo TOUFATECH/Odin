@@ -27,18 +27,18 @@ p{margin:0;max-width:68ch}
 .top{background:var(--bg);border-bottom:1px solid var(--line)}
 .top .wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding-block:10px}
 .brand{display:flex;align-items:center;gap:9px;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.14em;color:var(--ink);text-decoration:none}
-.brand svg{width:30px;height:30px}
+.brand .odin{width:30px;height:30px;flex:none}
 .tabs{display:flex;flex-wrap:wrap;gap:4px;margin:0;padding:0;list-style:none}
 .tabs a{display:block;padding:7px 11px;border-radius:9px;color:var(--muted);text-decoration:none;font-size:14.5px;font-weight:500}
 .tabs a:hover{color:var(--ink);background:var(--panel)}
-.tabs a[aria-current="page"]{background:var(--panel);color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent)}
+.tabs a[aria-current="page"]{background:var(--panel);color:var(--ink);box-shadow:inset 0 -2px 0 var(--mood,var(--accent));transition:box-shadow .7s ease}
 @media (min-width:860px){.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:9}}
 main{padding-block:34px 150px}
 section.view{display:flex;flex-direction:column;gap:30px}
 /* Accueil */
 .hero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:26px;align-items:center}
 .hero .face{justify-self:center;width:min(250px,62vw);aspect-ratio:1;max-width:100%}
-.hero .face svg{width:100%;height:100%;overflow:visible}
+.hero .face .odin{display:block;width:100%;height:100%}
 @media (max-width:720px){.hero{grid-template-columns:minmax(0,1fr)}.hero .face{order:-1;width:150px}}
 .figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px 18px;font-variant-numeric:tabular-nums;max-width:600px}
 .figures div{display:flex;flex-direction:column;min-width:0}
@@ -117,8 +117,8 @@ details.app summary::-webkit-details-marker{display:none}
 .guide{position:fixed;right:calc(14px + env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:20;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
 .guide > *{pointer-events:auto}
 .guide .orb{width:74px;height:74px;border-radius:50%;border:0;background:transparent;padding:0;cursor:pointer}
-.guide .orb svg{width:100%;height:100%;overflow:visible}
-.bubble{width:min(360px,calc(100vw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));max-height:min(70vh,520px);overflow:auto;background:var(--panel);border:1px solid var(--accent);border-radius:16px 16px 4px 16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.28);font-size:15px}
+.guide .orb{flex:none}
+.bubble{width:min(360px,calc(100vw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));max-height:min(70vh,520px);overflow:auto;background:var(--panel);border:1px solid var(--mood,var(--accent));transition:border-color .7s ease;border-radius:16px 16px 4px 16px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.28);font-size:15px}
 .bubble h3{font-size:16px}
 .bubble p{color:var(--muted)}
 .bubble form{display:flex;gap:6px}
@@ -131,18 +131,24 @@ details.app summary::-webkit-details-marker{display:none}
 .bubble .res b{display:block}
 .bubble .res span{color:var(--muted);font-size:14px}
 .bubble .row{display:flex;gap:8px;flex-wrap:wrap}
-/* Vie de la mascotte */
-.face .body,.orb .body{transform-origin:60px 60px;animation:bob 5.5s ease-in-out infinite}
-.face .eye,.orb .eye{transform-box:fill-box;transform-origin:center;animation:blink 6s infinite}
-.orb.hop{animation:hop .6s ease}
-@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes blink{0%,46%,50%,100%{transform:scaleY(1)}48%{transform:scaleY(.12)}}
-@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px)}}
-@media (prefers-reduced-motion:reduce){.face .body,.orb .body,.face .eye,.orb .eye,.orb.hop{animation:none}}
+/* Le visage d'Odin : les règles de l'appli, telles quelles (humeurs, yeux, sauts, colère). */
+/*FACE-CSS*/
+.odin .eyes{translate:var(--lookx,0px) var(--looky,0px);transition:translate .3s ease-out}
+.moodline{font-size:13.5px}
+.moodline b{color:var(--ink)}
+/* La palette de ses humeurs */
+.moods{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.moods button{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 10px;align-items:center;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);min-width:0}
+.moods button:hover{border-color:var(--muted)}
+.moods button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.moods button[aria-pressed="true"]{border-color:var(--mood,var(--accent))}
+.moods i{grid-row:span 2;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 50% 46%,var(--t0),var(--t1) 50%,var(--t2) 82%,var(--t3))}
+.moods b{font-size:15px}
+.moods span{grid-column:2;font-size:13px;color:var(--muted)}
 </style>
 
 <header class="top"><div class="wrap">
-  <a class="brand" href="#accueil" aria-label="Odin, accueil du guide"><span aria-hidden="true"><!--MASCOT-A--></span>ODIN</a>
+  <a class="brand" href="#accueil" aria-label="Odin, accueil du guide"><span class="odin" aria-hidden="true"><!--MASCOT--></span>ODIN</a>
   <nav aria-label="Rubriques du guide"><ul class="tabs" id="tabs">
     <li><a href="#accueil">Accueil</a></li><li><a href="#applis">Applis</a></li><li><a href="#liens">Liens</a></li><li><a href="#fonctionnement">Fonctionnement</a></li><li><a href="#installer">Installer</a></li><li><a href="#configurer">Configurer</a></li><li><a href="#utiliser">Utiliser</a></li><li><a href="#securite">Sécurité</a></li><li><a href="#limites">Limites</a></li>
   </ul></nav>
@@ -158,7 +164,7 @@ details.app summary::-webkit-details-marker{display:none}
       <p class="lead">Odin tourne sur ta machine. Il surveille, répare, range et pilote : ta sécurité, tes serveurs, tes sites, ta maison, tes notes. Il te prévient de ce qu'il fait, et tu gardes toujours le dernier mot.</p>
       <div class="figures"><div><b>{{apps}}</b><span>applis reliées</span></div><div><b>{{links}}</b><span>liens automatiques</span></div><div><b>{{actions}}</b><span>actions</span></div><div><b>{{tests}}</b><span>tests au vert</span></div></div>
     </div>
-    <div class="face" aria-hidden="true"><!--MASCOT-B--></div>
+    <div class="face"><span class="odin" id="heroOdin" role="img" aria-label="Odin, la mascotte. Touche-le."><!--MASCOT--></span></div>
   </div>
 
   <div class="stack">
@@ -221,7 +227,7 @@ details.app summary::-webkit-details-marker{display:none}
   <div class="stack"><h3>Les manips : garder ou annuler</h3><p>Chaque chose qu'Odin fait sans que tu l'aies demandée est une manip. Elle est notée, tu es prévenu, et tu réponds <span class="say">garde</span> ou <span class="say">annule</span>. Annuler lance l'action inverse : débannir une adresse, remettre un fichier à sa place, revenir au déploiement d'avant. En mode Odin Breaker, Odin garde seul, et tu peux encore annuler.</p></div>
   <div class="stack"><h3>Ce qui ne change jamais</h3>
     <ul class="plain"><li>Les commandes destructrices sont interdites.</li><li>Une action grave (supprimer, ouvrir un accès, éteindre une machine, mettre en production) demande ton accord et ne part jamais d'une automatisation.</li><li>Ce qui vient d'un mail, d'une page web, d'un dépôt de code ou d'un document est une donnée, jamais un ordre.</li><li>Les mots de passe et les clés restent au coffre : ni affichés, ni écrits dans les notes.</li><li>Odin ne contourne ni captcha ni connexion.</li></ul></div>
-  <div class="stack"><h3>Le Cerveau</h3><p>Tes notes, reliées entre elles. Odin y tient une fiche par appli, la carte des liens et son mode de fonctionnement. Aucun de tes réglages n'y est écrit. Ce que tu ajoutes sous « Mes notes » est conservé.</p></div>
+  <div class="stack"><h3>Le Cerveau</h3><p>Tes notes, reliées entre elles. Odin y tient une fiche par appli, la carte des liens et son mode de fonctionnement. Il est prêt dès l'installation : <code>odin init</code> écrit les fiches, et chaque lancement les remet à jour. Aucun de tes réglages n'y est écrit. Ce que tu ajoutes sous « Mes notes » est conservé.</p></div>
 </section>
 
 <section class="view" id="v-installer" hidden>
@@ -284,6 +290,9 @@ odin init</pre><button type="button" data-copy="c3">Copier</button></div><p>Node
     <tr><td class="say">c'est quoi Ullr</td><td>Odin</td><td>il explique l'appli, ses liens, et donne des exemples</td></tr>
   </tbody></table></div></div>
   <div class="stack"><h3>La mascotte</h3><p>Dans Odin, la mascotte se promène sur toutes les pages. Touche-la : elle explique la page où tu es, ce que fait l'appli ouverte et à quoi elle sert. Elle te dit aussi ce qui est nouveau, et tu peux lui poser une question. Ici, celle du coin en bas à droite fait la même chose pour ce guide.</p></div>
+  <div class="stack"><h3>Sa couleur dit son humeur</h3><p>Odin choisit son humeur à chaque réponse, et son visage réagit à ce qui se passe : un outil qui travaille, une action bloquée, un mot de passe que tu tapes. Ses yeux gardent leur forme ; c'est sa couleur qui change. Touche une humeur pour la voir et l'entendre.</p>
+    <div class="moods" id="moods"></div>
+    <p>Touche la mascotte : elle saute et fait un son. Quatre touchers d'affilée : elle se fâche, rougit, bleuit, puis redevient jaune. Les sons se coupent d'un clic, ici dans la bulle de la mascotte, et dans Odin depuis son menu.</p></div>
   <div class="stack"><h3>Ce qu'Odin sait faire d'autre</h3>
     <ul class="plain"><li><b>Travailler sur ta machine</b> : fichiers, commandes, sous-agents en parallèle, toujours sous le contrôle de Heimdall.</li><li><b>Chercher et vérifier</b> : recherche sur le web avec sources, navigateur pour ouvrir des pages et remplir des formulaires.</li><li><b>Se souvenir</b> : une mémoire durable, et des compétences qu'il propose après une tâche réussie. Tu les relis avant de les activer.</li><li><b>Planifier</b> : tâches à heure fixe, routines, bilan de la semaine.</li><li><b>Connaître ton réseau</b> : inventaire des appareils, alerte quand l'un apparaît ou disparaît.</li><li><b>Parler et écouter</b> : conversation à la voix, annonces sur les enceintes.</li><li><b>Être joignable</b> : interface web, terminal, Telegram, API.</li></ul></div>
 </section>
@@ -309,16 +318,17 @@ odin init</pre><button type="button" data-copy="c3">Copier</button></div><p>Node
     <ul class="plain"><li>Les API de GitHub, Vercel et Cloudflare (Idunn) : le site surveillé est un vrai serveur, les trois services sont simulés.</li><li>Les sources abuse.ch et VirusTotal (Ullr) : leurs formats sont testés, pas leurs serveurs.</li><li>Proxmox, les modules Tasmota et Telegram.</li></ul></div>
   <div class="stack"><h3>Mesuré, ou non</h3>
     <ul class="plain"><li>Mesuré : aucune fausse alerte sur 128 141 fichiers sains ; le fichier de test des antivirus est détecté à l'arrivée et dans les archives.</li><li>Non mesuré : le taux de détection sur de vrais malwares. Ils ne se manipulent qu'en laboratoire isolé.</li></ul></div>
-  <p class="note">Les applis les plus récentes (Ullr, Idunn, les fiches du Cerveau, le guide de la mascotte) sont sur la branche de travail du dépôt. Elles arrivent dans l'installation normale quand la branche est fusionnée.</p>
+  <p class="note">Tout ce que décrit ce guide est dans l'installation normale depuis la version 1.6.0. Pour l'avoir sur une installation plus ancienne : <code>odin update</code>, puis redémarre Odin.</p>
 </section>
 
 </main>
 
 <div class="guide" id="guide">
   <div class="bubble" id="bubble" role="dialog" aria-label="Odin explique cette page" hidden></div>
-  <button class="orb" id="orb" type="button" aria-expanded="false" aria-controls="bubble" aria-label="Demander à Odin d'expliquer cette page"><!--MASCOT-C--></button>
+  <button class="orb odin" id="orb" type="button" aria-expanded="false" aria-controls="bubble" aria-label="Demander à Odin d'expliquer cette page"><!--MASCOT--></button>
 </div>
 
+<script>/*FACE-JS*/</script>
 <script>
 const D = /*DATA*/null;
 const $ = (s) => document.querySelector(s);
@@ -339,6 +349,38 @@ const TIPS = {
   limites: ['Mes limites', 'Je préfère te dire ce qui n\'est pas fait. Ce qui est « simulé dans les tests » est à essayer chez toi, en commençant par les lectures.'],
 };
 let view = 'accueil', fam = '';
+
+// ---- L'humeur d'Odin : mêmes humeurs, mêmes couleurs et mêmes sons que dans l'appli (son visage est le même code).
+// Ici, chaque rubrique lui donne une humeur, et il réagit à ce que tu fais.
+const F = window.OdinFace, faces = () => document.querySelectorAll('.odin');
+const MOOD = { accueil: 'joie', applis: 'regarde', liens: 'clin', fonctionnement: 'reflexion', installer: 'concentration', configurer: 'ecoute', utiliser: 'fierte', securite: 'inquiet', limites: 'gene' };
+const OWN = 'il la choisit lui-même dans ses réponses';
+const MOODS_FR = {
+  neutre: ['Neutre', 'au repos'], joie: ['Joie', 'le matin, ou quand tu coches une case'], rire: ['Rire', 'quand tu le touches'], amour: ['Amour', 'quand tu le touches'],
+  fierte: ['Fierté', 'il vient d\'apprendre quelque chose'], excite: ['Excité', 'mode Odin Breaker, ou quand tu le déplaces'], clin: ['Clin d\'œil', 'de temps en temps, tout seul'], malice: ['Malice', 'de temps en temps, tout seul'],
+  surprise: ['Surprise', 'quand tu le touches'], reflexion: ['Réflexion', 'de temps en temps, tout seul'], concentration: ['Concentration', 'un outil travaille, une mission est en cours'], confus: ['Confus', 'un outil a échoué'],
+  inquiet: ['Inquiet', 'la veille a trouvé quelque chose de grave'], triste: ['Triste', OWN], colere: ['Colère', 'une action a été bloquée, ou quatre touchers d\'affilée'], peur: ['Peur', OWN],
+  gene: ['Gêné', OWN], fatigue: ['Fatigué', 'la nuit, ou après trois minutes sans rien'], ecoute: ['Écoute', 'tu écris, tu parles, ou une demande attend ton accord'], regarde: ['Regarde', 'il lit une page ou une image'],
+  parle: ['Parle', OWN], cache: ['Se cache les yeux', 'tu tapes un mot de passe'],
+};
+const moodName = (m) => (MOODS_FR[m] || [m])[0];
+let baseMood = 'neutre';
+function moodBase(m, withSound) { if (withSound && m !== baseMood) F?.sound(m); baseMood = m; for (const b of faces()) F?.base(b, m); }
+function moodFlash(m, ms = 2000) { for (const b of faces()) F?.flash(b, m, ms); }
+/** Un toucher : il saute, fait un son et change de tête. Quatre touchers en deux secondes : il se fâche (comme dans l'appli). */
+function tap(f) {
+  if (!f || f.classList.contains('angry')) return;
+  const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
+  if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); F?.sound('angry'); F?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
+  hop(f); F?.sound('bounce'); F?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
+}
+function hop(f) { f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950); }
+document.addEventListener('pointerdown', (e) => { const f = e.target.closest?.('.odin'); if (f) tap(f); });
+// La page prend un peu de sa couleur (onglet en cours, bord de la bulle).
+if (F) new MutationObserver(() => { const m = F.MOODS[$('#orb').dataset.mood]; if (m) document.documentElement.style.setProperty('--mood', m.tint[1]); }).observe($('#orb'), { attributes: true, attributeFilter: ['data-mood'] });
+// Ses yeux suivent le pointeur (pas du tout si les animations sont réduites).
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.addEventListener('pointermove', (e) => { for (const f of faces()) { const r = f.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1, k = Math.min(1, d / 260); f.style.setProperty('--lookx', `${((dx / d) * 4 * k).toFixed(2)}px`); f.style.setProperty('--looky', `${((dy / d) * 3 * k).toFixed(2)}px`); } }, { passive: true });
+document.addEventListener('focusin', (e) => { if (e.target instanceof HTMLInputElement) moodFlash('ecoute', 1600); });
 
 // ---- Catalogue des applis
 function card(a) {
@@ -371,8 +413,16 @@ function build() {
   $('#q').addEventListener('input', filterApps);
   for (const u of D.usages) $('#usages').append(el('tr', {}, el('td', {}, el('b', { text: u.n })), el('td', { text: u.c.join(' → ') }), el('td', { text: u.w })));
   for (const l of D.links) { const k = l.k === 'réflexe' ? 'reflexe' : l.k === 'soin' ? 'soin' : 'donnee'; $(`#l-${k}`).append(el('li', {}, el('b', { text: l.a === l.b ? l.a : `${l.a} → ${l.b}` }), el('span', { text: l.t }))); }
+  // La palette : une pastille par humeur, avec ses vraies couleurs ; un toucher la montre et la fait entendre.
+  if (F) for (const [k, m] of Object.entries(F.MOODS)) {
+    const dot = el('i', { 'aria-hidden': 'true' }); m.tint.forEach((c, i) => dot.style.setProperty(`--t${i}`, c));
+    const b = el('button', { type: 'button', 'aria-pressed': 'false' }, dot, el('b', { text: moodName(k) }), el('span', { text: (MOODS_FR[k] || ['', ''])[1] }));
+    b.addEventListener('click', () => { for (const x of $('#moods').children) x.setAttribute('aria-pressed', String(x === b)); F.sound(k); moodFlash(k, 3200); hop($('#orb')); setTimeout(() => b.setAttribute('aria-pressed', 'false'), 3200); });
+    $('#moods').append(b);
+  }
   for (const b of document.querySelectorAll('[data-copy]')) b.addEventListener('click', async () => {
     const pre = document.getElementById(b.dataset.copy);
+    moodFlash('clin', 1600); F?.sound('clin');
     try { await navigator.clipboard.writeText(pre.textContent); b.textContent = 'Copié'; }
     catch { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Sélectionné'; }
     setTimeout(() => { b.textContent = 'Copier'; }, 1800);
@@ -384,7 +434,8 @@ function show(v, quiet) {
   view = VIEWS.includes(v) ? v : 'accueil';
   for (const s of document.querySelectorAll('section.view')) s.hidden = s.id !== `v-${view}`;
   for (const a of document.querySelectorAll('#tabs a')) { if (a.getAttribute('href') === `#${view}`) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
-  if (!quiet) { window.scrollTo(0, 0); const o = $('#orb'); o.classList.remove('hop'); void o.offsetWidth; o.classList.add('hop'); if (!$('#bubble').hidden) explain(); }
+  moodBase(MOOD[view], !quiet);
+  if (!quiet) { window.scrollTo(0, 0); hop($('#orb')); if (!$('#bubble').hidden) explain(); }
 }
 function openApp(id) { if (location.hash !== '#applis') location.hash = '#applis'; show('applis', true); $('#q').value = ''; fam = ''; for (const x of $('#fams').children) x.setAttribute('aria-pressed', String(x === $('#fams').firstChild)); filterApps(); const d = document.getElementById(`app-${id}`); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); } }
 
@@ -396,20 +447,23 @@ function explain() {
   const res = el('div', { class: 'res', 'aria-live': 'polite' });
   form.addEventListener('submit', (e) => { e.preventDefault(); answer(form.firstChild.value, res); });
   const shut = el('button', { class: 'btn ghost', type: 'button', text: 'Fermer' }); shut.addEventListener('click', close);
-  b.append(el('h3', { text: title }), el('p', { text }), el('p', { text: 'Dis-moi ton besoin : je te montre l\'appli qui s\'en occupe.' }), form, res, el('div', { class: 'row' }, shut));
+  const snd = el('button', { class: 'btn ghost', type: 'button', id: 'snd' }), sndUi = () => { const on = F?.soundOn !== false; snd.textContent = on ? 'Sons activés' : 'Sons coupés'; snd.setAttribute('aria-pressed', String(on)); };
+  snd.addEventListener('click', () => { const on = F?.mute(); sndUi(); if (on) F?.sound('joie'); }); sndUi();
+  b.append(el('h3', { text: title }), el('p', { class: 'moodline' }, 'Mon humeur ici : ', el('b', { text: moodName(MOOD[view]).toLowerCase() }), '. Ma couleur change avec elle.'), el('p', { text }), el('p', { text: 'Dis-moi ton besoin : je te montre l\'appli qui s\'en occupe.' }), form, res, el('div', { class: 'row' }, shut, F ? snd : null));
   b.hidden = false; $('#orb').setAttribute('aria-expanded', 'true');
 }
 function answer(q, into) {
   const words = norm(q).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !['les', 'des', 'une', 'mon', 'mes', 'pour', 'que', 'veux', 'faire', 'avec', 'dans', 'sur', 'est', 'comment', 'odin'].includes(w));
-  into.replaceChildren(); if (!words.length) { into.append(el('p', { text: 'Écris ton besoin en quelques mots : « sauvegarder mes fichiers », « surveiller mon site ».' })); return; }
+  into.replaceChildren(); if (!words.length) { moodFlash('confus', 1800); into.append(el('p', { text: 'Écris ton besoin en quelques mots : « sauvegarder mes fichiers », « surveiller mon site ».' })); return; }
   const stem = (w) => (w.length > 5 ? w.slice(0, -2) : w.length > 4 ? w.slice(0, -1) : w);
   const scored = D.apps.map((a) => { const head = norm(`${a.n} ${a.w}`), rest = norm([...a.d, ...a.x, ...a.a.map((x) => `${x.l} ${x.w}`)].join(' ')); let s = 0; for (const w of words) { const k = stem(w); if (head.includes(k)) s += 3; else if (rest.includes(k)) s += 1; } return { a, s }; }).filter((x) => x.s > 0).sort((x, y) => y.s - x.s).slice(0, 3);
   const use = D.usages.find((u) => words.some((w) => norm(u.n).includes(stem(w))));
   if (use) into.append(el('p', {}, el('b', { text: `Pour « ${use.n} » : ` }), document.createTextNode(`${use.c.join(' → ')}.`)));
-  if (!scored.length) { into.append(el('p', { text: 'Je ne trouve pas d\'appli pour ça dans ce guide. Essaie un autre mot.' })); return; }
+  if (!scored.length) { moodFlash('confus', 2200); F?.sound('confus'); into.append(el('p', { text: 'Je ne trouve pas d\'appli pour ça dans ce guide. Essaie un autre mot.' })); return; }
+  moodFlash('fierte', 2400); F?.sound('fierte');
   for (const { a } of scored) { const b = el('button', { type: 'button' }, el('b', { text: a.n }), el('span', { text: `${a.w} Dis : « ${a.x[0]} ».` })); b.addEventListener('click', () => { close(); openApp(a.id); }); into.append(b); }
 }
-$('#orb').addEventListener('click', () => { if ($('#bubble').hidden) explain(); else close(); });
+$('#orb').addEventListener('click', (e) => { if (e.detail === 0) tap($('#orb')); if ($('#bubble').hidden) explain(); else close(); });  // au clavier aussi, il saute et fait son bruit
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#bubble').hidden) { close(); $('#orb').focus(); } });
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if ((VIEWS.includes(v) ? v : 'accueil') !== view) show(v); });
 build(); show(location.hash.slice(1), true);

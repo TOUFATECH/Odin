@@ -121,7 +121,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes o-talk-m{from{transform:scaleY(.35)}to{transform:scaleY(1.15)}}
 @keyframes o-tear{0%{transform:translateY(0);opacity:0}15%{opacity:1}100%{transform:translateY(10px);opacity:0}}
 @keyframes o-zzz{0%,100%{transform:translateY(0);opacity:.35}50%{transform:translateY(-4px);opacity:1}}
-@media (prefers-reduced-motion:reduce){.odin .talk,.odin .tear,.odin .sweat,.odin .zzz,}
+@media (prefers-reduced-motion:reduce){.odin .talk,.odin .tear,.odin .sweat,.odin .zzz{animation:none}}
 @media (prefers-reduced-motion:reduce){.odin *{animation:none!important}}
 .tab{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--muted);text-align:left}
 .tab:hover{background:var(--hover);color:var(--ink)}
@@ -1684,7 +1684,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // seul à ce qui se passe : il écoute quand tu écris ou parles, se concentre quand il travaille, ferme
   // les yeux quand tu tapes une clé, sourit quand un réglage est enregistré, s'endort si on l'oublie.
   const MOOD_LABEL = { neutre: 'tranquille', joie: 'content', rire: 'rieur', amour: 'attendri', fierte: 'fier', excite: 'enthousiaste', clin: 'complice', malice: 'malicieux', surprise: 'surpris', reflexion: 'pensif', concentration: 'concentré', confus: 'perplexe', inquiet: 'inquiet', triste: 'triste', colere: 'fâché', peur: 'effrayé', gene: 'gêné', fatigue: 'fatigué', ecoute: 'à l\'écoute', regarde: 'attentif', parle: 'parle', cache: 'ne regarde pas' };
-  const buddies = () => ['#buddy', '#buddyM', '#buddyChat', '#buddyRoam'].map((q) => document.querySelector(q)).filter(Boolean);
+  const buddies = () => ['#buddy', '#buddyM', '#buddyChat', '#buddyRoam', '#login .odin'].map((q) => document.querySelector(q)).filter(Boolean);
   let baseMood = 'neutre', held = 0, lastAct = Date.now();
   const label = (m) => { const t = document.querySelector('#buddyTxt'); if (t) t.textContent = MOOD_LABEL[m] || m; };
   function moodBase(m, withSound) { if (withSound && m !== baseMood) window.OdinFace?.sound(m); baseMood = m; if (!held) { buddies().forEach((b) => window.OdinFace?.base(b, m)); label(m); } }
@@ -1751,6 +1751,17 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     return n;
   };
   const fmt = (t) => t ? new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  // Mascotte : elle réagit quand on la touche (partout : page de connexion comprise, d'où sa place avant la sortie « pas connecté »).
+  // Un toucher : il saute. Trop de touchers d'affilée (4 en 2 s) : il se fâche, rougit, bleuit, puis redevient jaune.
+  document.addEventListener('pointerdown', (e) => {
+    const f = e.target.closest?.('.odin'); if (!f || f.id === 'buddyChat' || f.classList.contains('angry')) return;
+    e.preventDefault();
+    const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
+    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.sound('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
+    f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
+    window.OdinFace?.sound('bounce');
+    window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
+  });
   if (!AUTHED) {
     $('#login').hidden = false;
     // Compte du propriétaire : créé à la première connexion (prénom, nom, e-mail, mot de passe),
@@ -2146,17 +2157,6 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     addMsg('user', t + (files?.length ? '\n' + files.map((f) => `[Fichier joint : ${f.file} (${f.type || '?'}, ${f.size} o)]`).join('\n') : ''));
     try { const r = await api('/api/message', { peer, text: t, files }); if (r && r.error) { setBusy(false); $('#typing').textContent = r.error; } } catch { setBusy(false); $('#typing').textContent = 'Envoi impossible : Odin ne répond pas.'; }
   }
-  // Mascotte : elle réagit quand on la touche (écran de connexion, « Odin réfléchit… »).
-  // Un toucher : il saute. Trop de touchers d'affilée (4 en 2 s) : il se fâche, rougit, bleuit, puis redevient jaune.
-  document.addEventListener('pointerdown', (e) => {
-    const f = e.target.closest?.('.odin'); if (!f || f.id === 'buddyChat' || f.classList.contains('angry')) return;
-    e.preventDefault();
-    const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
-    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.sound('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
-    f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
-    window.OdinFace?.sound('bounce');
-    window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
-  });
   const faceTpl = document.querySelector('#login .odin');
   function setBusy(b) { busy = b; if (b) liveEnd(); $('#stopBtn').hidden = !b; const t = $('#typing'); t.textContent = b ? 'Odin réfléchit…' : ''; $$('.odin').forEach((o) => o.classList.toggle('thinking', b)); chatBuddy(); }
   $('#stopBtn').addEventListener('click', () => api('/api/message', { peer, text: '/stop' }));

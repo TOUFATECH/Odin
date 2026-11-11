@@ -31,7 +31,8 @@ test('sous-titres automatiques « roulants » dédoublonnés, instants choisis, 
   assert.equal(tl, '[0:00] 📑 Chapitre : Intro\n[0:01] 💬 Bonjour à tous aujourd\'hui on installe n8n\n[0:06] 👁 Un terminal. Texte : docker run n8n\n[0:40] 💬 Étape deux');
 });
 
-test('vraie vidéo (fichier) : scènes extraites par FFmpeg, regardées, paroles transcrites, analyse avec instants', async () => {
+const hasFfmpeg = (() => { try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
+test('vraie vidéo (fichier) : scènes extraites par FFmpeg, regardées, paroles transcrites, analyse avec instants', { skip: !hasFfmpeg && 'FFmpeg n\'est pas installé sur cette machine' }, async () => {
   const dir = mkdtempSync(join(tmpdir(), 'odin-vid-'));
   const o = makeOdin([]);
   try {

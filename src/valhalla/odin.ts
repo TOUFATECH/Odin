@@ -122,6 +122,15 @@ function ensureSecrets(odin: Odin): void {
   idunnKeys((name, value) => { writeSecret(odin.paths, name, value); if (value.trim()) odin.redactor.add(value.trim()); });
 }
 
+/**
+ * Le Cerveau est actif dès l'installation : « odin init » y écrit les fiches d'Odin (une par appli, leurs
+ * liens, son mode de fonctionnement), avant même le premier lancement. Chaque lancement les remet à jour.
+ * Jamais de réglages dedans ; ce que tu as écrit sous « Mes notes » est gardé.
+ */
+export function seedBrain(odin: Pick<Odin, 'paths' | 'cfg'>): { written: number; total: number } {
+  return syncSheets(brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }), allModules(odin));
+}
+
 export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts) => Promise<void>, opts: { modules?: Module[] } = {}): () => void {
   ensureSecrets(odin);
   const v = new Valhalla(odin.paths.home, opts.modules ?? allModules(odin), {

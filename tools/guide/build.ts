@@ -19,7 +19,14 @@ const data = { apps, links: LINKS.map((l) => ({ a: name(l.from), b: name(l.to), 
   n: { apps: apps.length, links: LINKS.length, actions: apps.reduce((s, a) => s + a.a.length, 0), tests: Number(process.argv[2] ?? 0), files: readdirSync(join(ROOT, 'test')).filter((f) => f.endsWith('.test.ts')).length } };
 const mascot = readFileSync(join(ROOT, 'tools', 'site', 'parts', 'mascot.svg'), 'utf8').trim();
 let html = readFileSync(`${D}/template.html`, 'utf8');
-html = html.replace('<!--MASCOT-A-->', () => mascot).replace('<!--MASCOT-B-->', () => mascot.replace(/odin(Body|Halo2|Halo|Soft|Blur)/g, 'odinB$1')).replace('<!--MASCOT-C-->', () => mascot.replace(/odin(Body|Halo2|Halo|Soft|Blur)/g, 'odinC$1')).replace('/*DATA*/null', () => JSON.stringify(data).replace(/</g, '\\u003c'));
+// Le visage d'Odin est celui de l'appli : son code (humeurs, couleurs, sons) et ses règles d'affichage sont repris tels quels.
+const ui = readFileSync(join(ROOT, 'src', 'web', 'ui.html'), 'utf8').split('\n');
+const from = ui.findIndex((l) => l.startsWith('.odin{display:inline-block')), to = ui.findIndex((l) => l.startsWith('@media (prefers-reduced-motion:reduce){.odin .talk'));
+if (from < 0 || to < from) throw new Error('règles de la mascotte introuvables dans src/web/ui.html');
+const faceCss = ui.slice(from, to + 1).join('\n'), faceJs = readFileSync(join(ROOT, 'src', 'web', 'face.js'), 'utf8');
+if (/<\/script/i.test(faceJs) || /<\/style/i.test(faceCss)) throw new Error('le code de la mascotte ne peut pas être inséré tel quel');
+for (const mark of ['<!--MASCOT-->', '/*FACE-CSS*/', '/*FACE-JS*/', '/*DATA*/null']) if (!html.includes(mark)) throw new Error(`repère absent du gabarit : ${mark}`);
+html = html.replaceAll('<!--MASCOT-->', () => mascot).replace('/*FACE-CSS*/', () => faceCss).replace('/*FACE-JS*/', () => faceJs).replace('/*DATA*/null', () => JSON.stringify(data).replace(/</g, '\\u003c'));
 for (const [k, v] of Object.entries(data.n)) html = html.replaceAll(`{{${k}}}`, String(v));
 // Pas de retour à la ligne entre un guillemet français et son mot.
 html = html.replace(/« /g, '«\u00a0').replace(/ »/g, '\u00a0»');

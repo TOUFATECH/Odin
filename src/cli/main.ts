@@ -719,8 +719,14 @@ async function main(): Promise<void> {
   if (cmd === 'restore') return restoreCmd();
   if (!cmd || cmd === 'help' || flags.has('--help')) return console.log(HELP);
   if (cmd === 'init') {
-    const created = initHome(odinPaths());
+    const paths = odinPaths(), created = initHome(paths);
     console.log(created.length ? `Créé :\n${created.map((f) => `  ${f}`).join('\n')}` : 'Déjà initialisé.');
+    // Le Cerveau est prêt dès l'installation : une fiche par appli, leurs liens, le mode de fonctionnement d'Odin.
+    try {
+      const { seedBrain } = await import('../valhalla/odin.ts');
+      const r = seedBrain({ paths, cfg: loadConfig(paths) });
+      console.log(`Cerveau prêt : ${r.total} fiches (une par appli, leurs liens, mon fonctionnement)${r.written ? '' : ', déjà à jour'}.`);
+    } catch (e) { console.log(c.dim(`Cerveau : fiches non écrites (${(e as Error).message}). Elles le seront au premier lancement.`)); }
     console.log(c.dim('\nÉtape suivante : export ANTHROPIC_API_KEY=… puis « odin doctor » et « odin chat »'));
     return;
   }

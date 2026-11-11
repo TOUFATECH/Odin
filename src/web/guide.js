@@ -31,7 +31,7 @@
   const NEWS = [
     ['Antivirus', 'Ullr, mon antivirus fait maison : fichiers, archives, liens et messages. Il se met à jour seul, met en quarantaine ce qui est sûr (annulable) et relie les signaux de toutes les applis en incidents.'],
     ['Sites web', 'Idunn surveille tes sites, les essaie, les relance et applique leurs mises à jour, sans IA. Tu me demandes les événements que tu veux : « les erreurs du site … depuis 2 jours ». Ce qui touche la production attend ton accord.'],
-    ['Cerveau', 'Une fiche par appli dans le Cerveau, avec leurs liens. Aucun de tes réglages n\'y est écrit.'],
+    ['Cerveau', 'Une fiche par appli dans le Cerveau, avec leurs liens. Il est prêt dès l\'installation et se remet à jour à chaque lancement. Aucun de tes réglages n\'y est écrit.'],
     ['Sans IA', 'Je comprends les demandes qui visent mes applis même sans IA connectée. Je ne devine pas : si je ne suis pas sûr, je ne fais rien.'],
     ['Manips', 'Quand j\'agis de moi-même, je te préviens : tu gardes ou tu annules. En mode Odin Breaker, je garde seul.'],
     ['Liens', 'Tous les liens entre applis sont automatiques, et chacun est vérifié par un test.'],

@@ -19,7 +19,7 @@ const FORM = `<!doctype html><meta charset="utf-8"><title>Inscription</title>
 </form>
 <div style="height:3000px"></div><a href="/bas">Tout en bas</a>`;
 
-test('navigateur : ouvrir, voir, remplir un formulaire, choisir, cocher, envoyer, défiler', { skip: !findBrowser() && 'aucun navigateur Chrome/Chromium/Edge sur cette machine' }, async () => {
+test('navigateur : ouvrir, voir, remplir un formulaire, choisir, cocher, envoyer, défiler', { skip: !findBrowser() && 'aucun navigateur Chrome/Chromium/Edge sur cette machine' }, async (t) => {
   const srv = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     if (req.url?.startsWith('/merci')) { const q = new URL(req.url, 'http://x').searchParams; return void res.end(`<title>Merci</title><p>Merci ${q.get('nom')} de ${q.get('ville')}, accord=${q.get('ok') ?? 'non'}, mdp=${q.get('mdp') ? 'reçu' : 'vide'}</p>`); }
@@ -30,7 +30,9 @@ test('navigateur : ouvrir, voir, remplir un formulaire, choisir, cocher, envoyer
   const b = new OdinBrowser({ home });
   try {
     const base = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
-    const l = await b.open(await checkBrowserUrl(`${base}/`));
+    // Un navigateur installé peut refuser de démarrer (machine d'intégration sans bac à sable) : ce n'est pas un défaut d'Odin.
+    let l: Awaited<ReturnType<typeof b.open>>;
+    try { l = await b.open(await checkBrowserUrl(`${base}/`)); } catch (e) { if (/le navigateur s'est arrêté|n'a pas démarré/.test((e as Error).message)) return t.skip('le navigateur de cette machine ne démarre pas'); throw e; }
     assert.equal(l.title, 'Inscription');
     const desc = describeLook(l);
     assert.match(desc, /\[\d+\] champ « Nom »/);

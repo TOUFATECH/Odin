@@ -119,7 +119,9 @@ test('audit sécurité : envoi trop gros sans plantage, fichiers non JSON accept
     // 10 Mo de JSON : refusé proprement, et Odin répond toujours ensuite (avant : il s'arrêtait).
     const big = await fetch(`${B}/api/action`, { method: 'POST', headers: H, body: `{"kind":"${'a'.repeat(10_000_000)}"}` }).catch(() => undefined);
     assert.ok(!big || big.status === 413);
-    assert.equal((await fetch(`${B}/api/state`, { headers: H })).status, 200, 'toujours en vie');
+    // La connexion de l'envoi refusé a été coupée : la demande suivante peut encore tomber dessus (vu sous Windows), on réessaie.
+    const alive = async (): Promise<number> => { for (let i = 0; ; i++) { try { return (await fetch(`${B}/api/state`, { headers: H })).status; } catch (e) { if (i >= 4) throw e; await new Promise((r) => setTimeout(r, 250)); } } };
+    assert.equal(await alive(), 200, 'toujours en vie');
     // Un fichier binaire (pas du JSON) s'envoie (avant : « JSON invalide »)
     const up = await (await fetch(`${B}/api/upload`, { method: 'POST', headers: { ...H, 'x-filename': encodeURIComponent('../../photo vacances.jpg'), 'content-type': 'image/jpeg' }, body: new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x01]) })).json() as { ok: boolean; file: string };
     assert.equal(up.ok, true); assert.match(up.file, /^inbox\/[^/]+photo vacances\.jpg$/);

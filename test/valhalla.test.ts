@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { connect } from 'node:net';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { encode, rsEncode } from '../src/valhalla/qr.ts';
@@ -21,14 +21,14 @@ import { fromName, search } from '../src/valhalla/modules/aegir.ts';
 import { failures, protectedIp } from '../src/valhalla/modules/garmr.ts';
 import { parseList, inList } from '../src/valhalla/modules/geri.ts';
 import { BASE_RULES, matchRules } from '../src/valhalla/modules/ullr.ts';
-import { Repo, backup, restore, verify } from '../src/valhalla/modules/sindri.ts';
+import { Repo, backup, restore, under, verify } from '../src/valhalla/modules/sindri.ts';
 import { totp } from '../src/valhalla/modules/brisingamen.ts';
 import { keypair } from '../src/valhalla/modules/gjoll.ts';
 import { magicPacket } from '../src/valhalla/modules/hermod.ts';
 import { memInfo } from '../src/valhalla/modules/eir.ts';
 import { fromDiscovery } from '../src/valhalla/modules/appareils.ts';
 import { sshdRisks } from '../src/valhalla/modules/forseti.ts';
-import { judge } from '../src/valhalla/modules/skogul.ts';
+import { judge, procs, psProcs } from '../src/valhalla/modules/skogul.ts';
 import { execute } from '../src/draupnir/engine.ts';
 import { CATALOG } from '../src/draupnir/nodes.ts';
 import { Draupnir } from '../src/draupnir/service.ts';
@@ -172,10 +172,16 @@ test('Modules : briques pures (ESP, caméra, musique, Garmr, Geri, Ullr, TOTP, W
   assert.equal(d?.kind ? true : false, true);
   assert.ok(sshdRisks('PermitRootLogin yes\nPasswordAuthentication yes').length >= 2);
   assert.ok(judge([{ pid: 9, ppid: 1, uid: 33, name: 'xmrig', exe: '/tmp/.x/xmrig', cmd: '/tmp/.x/xmrig -o pool' }]).length > 0);
+  // Hors de Linux (pas de /proc) : la liste vient de « ps », et un chemin avec des espaces reste entier.
+  const ps = psProcs((args) => (args[1] === 'pid=,args=' ? '  812 /Applications/Mon Appli.app/Contents/MacOS/appli --serveur\n 4242 /private/tmp/.x/xmrig -o pool\n' : '  812     1   501 /Applications/Mon Appli.app/Contents/MacOS/appli\n 4242   812   501 /private/tmp/.x/xmrig\nligne illisible\n'));
+  assert.deepEqual(ps, [{ pid: 812, ppid: 1, uid: 501, name: 'appli', exe: '/Applications/Mon Appli.app/Contents/MacOS/appli', cmd: '/Applications/Mon Appli.app/Contents/MacOS/appli --serveur' }, { pid: 4242, ppid: 812, uid: 501, name: 'xmrig', exe: '/private/tmp/.x/xmrig', cmd: '/private/tmp/.x/xmrig -o pool' }]);
+  assert.ok(judge(ps).some((f) => f.pid === 4242), 'un mineur est reconnu aussi par cette voie');
+  assert.deepEqual(procs('/dossier/qui/n/existe/pas'), [], 'un dossier absent ne fait pas planter la page');
+  assert.ok(Array.isArray(procs()), 'la liste des programmes se lit sur cette machine, quel que soit son système');
 });
 
 test('Sindri : sauvegarde chiffrée dédoublonnée, restauration et vérification', () => {
-  const h = home(), src = join(h, 'src'); mkdirSync(join(src, 'sous'), { recursive: true });
+  const h = realpathSync(home()), src = join(h, 'src'); mkdirSync(join(src, 'sous'), { recursive: true });
   writeFileSync(join(src, 'a.txt'), 'bonjour '.repeat(5000)); writeFileSync(join(src, 'sous', 'b.bin'), Buffer.alloc(3 * 1024 * 1024, 7));
   const repo = new Repo(join(h, 'depot'), 'mot-de-passe-long');
   const s1 = backup(repo, { name: 'test', paths: [src] });
@@ -183,7 +189,8 @@ test('Sindri : sauvegarde chiffrée dédoublonnée, restauration et vérificatio
   assert.equal(s1.files.length, 2); assert.equal(s2.added, 0, 'rien de neuf au 2e passage');
   assert.deepEqual(verify(repo, s1).bad, []);
   const out = join(h, 'restau'); assert.equal(restore(repo, s1, out), 2);
-  const back = readFileSync(join(out, src, 'a.txt'), 'utf8'); assert.equal(back, 'bonjour '.repeat(5000));
+  const back = readFileSync(under(out, join(src, 'a.txt')), 'utf8'); assert.equal(back, 'bonjour '.repeat(5000));
+  assert.equal(under('/cible', '/home/awa/x.txt'), join('/cible', 'home', 'awa', 'x.txt')); assert.equal(under('D:\\cible', 'C:\\Users\\awa\\x.txt'), join('D:\\cible', 'C\\Users\\awa\\x.txt'), 'une lettre de lecteur devient un dossier');
   assert.throws(() => new Repo(join(h, 'depot'), 'mauvais'), /mot/);
 });
 

@@ -14,9 +14,12 @@
     for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) n.append(k.nodeType ? k : document.createTextNode(String(k)));
     return n;
   };
+  // Session expirée pendant l'usage : on revient à la page de connexion. Sur la page de connexion elle-même,
+  // on ne recharge rien (sinon elle se rechargerait en boucle et effacerait ce que tu tapes).
+  const appShown = () => { const a = document.querySelector('#app'); return Boolean(a && !a.hidden); };
   async function api(path, body) {
     const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } });
-    if (r.status === 401) { location.reload(); throw new Error('session expirée'); }
+    if (r.status === 401) { if (appShown()) location.reload(); throw new Error('session expirée'); }
     return r.json();
   }
   const css = `
@@ -183,7 +186,7 @@
     box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), el('div', { class: 'va-page' }, main, side));
     head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
   }
-  async function badge() { try { const a = (st ?? await api('/api/valhalla/catalog')).modules?.reduce((n, m) => n + (m.alerts ?? 0), 0) ?? 0; const b = $('#b-apps'); if (b) { b.hidden = !a; b.textContent = String(a); } } catch { /* rien */ } }
+  async function badge() { if (!appShown()) return; try { const a = (st ?? await api('/api/valhalla/catalog')).modules?.reduce((n, m) => n + (m.alerts ?? 0), 0) ?? 0; const b = $('#b-apps'); if (b) { b.hidden = !a; b.textContent = String(a); } } catch { /* rien */ } }
   function init() {
     const s = el('style', {}, css); document.head.append(s);
     $('#vaBack')?.addEventListener('click', () => { window.OdinShow?.('apps'); });

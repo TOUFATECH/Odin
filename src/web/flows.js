@@ -15,9 +15,12 @@
     return n;
   };
   const sv = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const [k, v] of Object.entries(a)) n.setAttribute(k, v); return n; };
+  // Session expirée pendant l'usage : on revient à la page de connexion. Sur la page de connexion elle-même,
+  // on ne recharge rien (sinon elle se rechargerait en boucle et effacerait ce que tu tapes).
+  const appShown = () => { const a = document.querySelector('#app'); return Boolean(a && !a.hidden); };
   async function api(path, body) {
     const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } });
-    if (r.status === 401) { location.reload(); throw new Error('session expirée'); }
+    if (r.status === 401) { if (appShown()) location.reload(); throw new Error('session expirée'); }
     return r.json();
   }
   const css = `
