@@ -149,6 +149,10 @@ La mascotte d'Odin te suit sur chaque page. Touche-la (ou Entrée) :
 
 La **visite guidée** ne se lance que si tu la demandes (« visite guidée », Réglages → Plus, ou la bulle). Elle se termine par **les applis de A à Z** : à quoi sert chacune, comment l'utiliser, comment la régler.
 
+#### Graphes des applis et du réseau
+
+Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe (bouton Graphe / Cartes ou Plan, le choix est gardé) : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
+
 #### Qui peut ouvrir l'interface ?
 
 Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou avec `odin web access` :

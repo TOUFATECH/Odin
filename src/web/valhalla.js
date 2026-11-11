@@ -25,7 +25,7 @@
   const css = `
 .va-need{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.va-need input{flex:1 1 260px;min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--field);background:var(--panel)}
 .va-ans{white-space:pre-wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 18px;line-height:1.6}
-.va-fam{margin:0 0 22px}.va-fam h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
+.va-view{margin:0 0 12px}.va-graph{margin:0 0 22px}.va-fam{margin:0 0 22px}.va-fam h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
 .va-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .va-card{position:relative;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-height:112px;cursor:pointer;transition:border-color .15s,transform .15s}
 .va-card:hover,.va-card:focus-visible{border-color:var(--accent);transform:translateY(-1px)}.va-card b{font-size:16px}.va-card span{color:var(--muted);font-size:14px;line-height:1.45}
@@ -114,7 +114,16 @@
     const top = el('div', { class: 'va-top' }); box.append(top);
     manips(top); protection(top);
     const fams = [...new Set(st.modules.map((m) => m.family))];
-    for (const f of fams) box.append(el('section', { class: 'va-fam' }, el('h2', {}, `${icon[f] ?? ''} ${f}`), el('div', { class: 'va-grid' }, ...st.modules.filter((m) => m.family === f).map((m) => el('button', { class: 'va-card', type: 'button', onclick: () => openApp(m.id) }, m.alerts ? el('span', { class: 'va-n', 'aria-label': `${m.alerts} alerte(s)` }, String(m.alerts)) : null, el('b', {}, m.name), el('span', {}, m.what))))));
+    // Deux façons de voir les applis : le graphe (comme le Cerveau, avec les alertes et les nouveautés en pastilles)
+    // ou les cartes rangées par famille. Le choix est gardé.
+    let mode = 'graphe'; try { mode = localStorage.getItem('odin.appsView') || 'graphe'; } catch { /* */ }
+    const cards = el('div', { class: 'va-cards' }), graph = el('div', { class: 'va-graph' });
+    const seg = el('div', { class: 'seg va-view', role: 'group', 'aria-label': 'Affichage des applis' });
+    const setMode = (m) => { mode = m; try { localStorage.setItem('odin.appsView', m); } catch { /* */ } cards.hidden = m !== 'cartes'; graph.hidden = m !== 'graphe'; for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.m === m)); if (m === 'graphe') drawGraph(graph); };
+    for (const [m, l] of [['graphe', 'Graphe'], ['cartes', 'Cartes']]) seg.append(el('button', { type: 'button', 'data-m': m, onclick: () => setMode(m) }, l));
+    box.append(seg, graph, cards);
+    for (const f of fams) cards.append(el('section', { class: 'va-fam' }, el('h2', {}, `${icon[f] ?? ''} ${f}`), el('div', { class: 'va-grid' }, ...st.modules.filter((m) => m.family === f).map((m) => el('button', { class: 'va-card', type: 'button', onclick: () => openApp(m.id) }, m.alerts ? el('span', { class: 'va-n', 'aria-label': `${m.alerts} alerte(s)` }, String(m.alerts)) : null, el('b', {}, m.name), el('span', {}, m.what))))));
+    setMode(mode);
     const al = await api('/api/valhalla/alerts?n=30');
     box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes récentes'),
       el('div', { class: 'va-acts-bar' }, el('label', { for: 'vaLvl', class: 'sub' }, 'Sur ta messagerie à partir de :'), el('select', { id: 'vaLvl', onchange: async (e) => { await api('/api/valhalla/level', { level: e.target.value }); toast('Enregistré.'); } }, ...['info', 'moyenne', 'haute', 'critique'].map((l) => el('option', { selected: l === st.level ? true : undefined }, l))), el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/valhalla/ack', { ids: (al.alerts ?? []).map((a) => a.id) }); openCatalog(); } }, 'Tout marquer vu')),
@@ -124,6 +133,21 @@
     badge();
   }
   const name = (id) => st?.modules.find((m) => m.id === id)?.name ?? id;
+  // Graphe des applis : Odin au centre, une famille par point vert, chaque appli reliée à sa famille et aux applis
+  // avec lesquelles elle travaille. Pastille rouge ou orange : alertes ; bleue : nouveautés de son projet d'origine.
+  let graphUi = null;
+  function drawGraph(into) {
+    if (!st?.ok || !window.OdinGraph) return;
+    const fams = [...new Set(st.modules.map((m) => m.family))];
+    const nodes = [{ id: 'odin', label: 'Odin', hub: true, size: 20, color: '#E3AC3F', title: 'Odin : toutes ses applis' },
+      ...fams.map((f) => ({ id: `fam:${f}`, label: `${icon[f] ?? ''} ${f}`.trim(), hub: true, title: `Famille ${f}` })),
+      ...st.modules.map((m) => ({ id: m.id, label: m.name, sub: m.family, search: `${m.what} ${(m.does || []).join(' ')}`,
+        alert: m.alerts ? { n: m.alerts, level: m.grave ? 'grave' : 'attention' } : undefined, update: m.updates || 0,
+        title: `${m.name} — ${m.what}${m.alerts ? ` · ${m.alerts} alerte(s)` : ''}${m.updates ? ` · ${m.updates} nouveauté(s) de son projet d'origine` : ''}` }))];
+    const edges = [...fams.map((f) => ['odin', `fam:${f}`]), ...st.modules.map((m) => [`fam:${m.family}`, m.id]), ...st.links.filter((l) => l.from !== l.to).map((l) => [l.from, l.to])];
+    const data = { nodes, edges, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
+    if (graphUi && into.contains(graphUi.el)) graphUi.update(data); else graphUi = window.OdinGraph.mount(into, data);
+  }
   /** Les manips d'Odin (réflexes, soins, automatisations) qui attendent ta décision. */
   async function manips(into) {
     const box = el('section', { class: 'va-sec va-manips', hidden: true }); into.append(box);

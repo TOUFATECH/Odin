@@ -122,6 +122,7 @@ const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', 
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
 const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
@@ -465,6 +466,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
+    if (url.pathname === '/graph.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GRAPH_JS); }
     if (url.pathname === '/evolution.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(EVOLUTION_JS); }
     if (url.pathname === '/guide.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GUIDE_JS); }
     if (url.pathname === '/brain.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(BRAIN_JS); }

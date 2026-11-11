@@ -489,7 +489,7 @@ nav.side{gap:2px;padding:18px 12px;overflow-y:auto}
 .ntabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .ntabs .schip .badge{min-width:18px;height:18px;font-size:11px;margin-left:4px}
 .star{border:0;background:none;color:var(--dim);font-size:17px;cursor:pointer;padding:0 2px;line-height:1}.star.on{color:var(--accent)}.star:hover{color:var(--accent)}
-.nmap{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;overflow:auto}
+.mapmode{margin:0 0 10px}.nmap{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px;overflow:auto}
 .mapsvg{width:100%;height:auto;display:block}
 .mlink{stroke:var(--field);stroke-width:1.6;fill:none}.mlink.off{stroke-dasharray:4 4;opacity:.5}
 .mnode{cursor:pointer}.mnode circle{fill:var(--panel2);stroke:var(--accent);stroke-width:1.6}.mnode.off circle{stroke:var(--off);opacity:.7}.mnode:hover circle,.mnode:focus circle{fill:var(--hover);stroke-width:2.4}
@@ -1178,7 +1178,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       <div class="body">
         <div id="hState"></div><div class="people" id="hPeople"></div><div class="stats" id="netStats"></div>
         <div class="ntabs" role="tablist" aria-label="Vues de la maison"><button type="button" class="schip" role="tab" data-nt="list" aria-selected="true">Appareils</button><button type="button" class="schip" role="tab" data-nt="map" aria-selected="false">Carte</button><button type="button" class="schip" role="tab" data-nt="sec" aria-selected="false">Sécurité <span class="badge" id="b-sec" hidden></span></button><button type="button" class="schip" role="tab" data-nt="pve" aria-selected="false">Proxmox</button></div>
-        <div id="nt-map" hidden><div class="nmap" id="netMap"></div></div>
+        <div id="nt-map" hidden><div class="seg mapmode" role="group" aria-label="Affichage de la carte"><button type="button" data-mm="graphe">Graphe</button><button type="button" data-mm="plan">Plan</button></div><div id="netGraph"></div><div class="nmap" id="netMap"></div></div>
         <div id="nt-sec" hidden><div id="secList"></div></div>
         <div id="nt-pve" hidden><div id="pveBox"></div></div>
         <div id="nt-list">
@@ -2955,7 +2955,40 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const n = !generic ? x.label : x.hostname ? x.hostname.replace(/\.(local|lan|home|box)$/i, '') : `${({ 'machine virtuelle': 'VM', serveur: 'Serveur', inconnu: 'Appareil' })[x.kind] || 'Appareil'} .${octets(x.ip)[3]}`;
     return full ? n : n.length > 16 ? n.slice(0, 15) + '…' : n;
   };
+  // Carte en graphe (comme le Cerveau) ou en plan : le choix est gardé. Le graphe relie chaque appareil à sa
+  // famille, et chaque famille à la box ; un souci (risque repéré, appareil surveillé tombé) s'y voit en pastille.
+  let mapMode = 'graphe'; try { mapMode = localStorage.getItem('odin.mapMode') || 'graphe'; } catch {}
+  for (const b of document.querySelectorAll('[data-mm]')) b.addEventListener('click', () => { mapMode = b.dataset.mm; try { localStorage.setItem('odin.mapMode', mapMode); } catch {} renderMap(); });
+  let mapGraph = null;
+  function renderMapGraph(all) {
+    const host = $('#netGraph'); if (!window.OdinGraph) return;
+    const nets = [...new Set(all.map((x) => x.network || 'réseau'))];
+    const findings = state.watch?.findings || [];
+    const byIp = new Map(); for (const f of findings) if (f.ip && f.level !== 'info') { const o = byIp.get(f.ip) || { n: 0, grave: false, t: [] }; o.n++; o.grave ||= f.level === 'grave'; o.t.push(f.title); byIp.set(f.ip, o); }
+    const nodes = [], edges = [], cats = new Map();
+    for (const n of nets) nodes.push({ id: `net:${n}`, label: n, hub: true, size: 18, color: '#E3AC3F', title: `Réseau ${n}` });
+    for (const x of all) {
+      const net = `net:${x.network || 'réseau'}`;
+      if (x.kind === 'routeur') { nodes.push({ id: x.id, label: mapName(x), sub: x.ip, hub: true, size: 17, color: '#E3AC3F', off: x.status !== 'online', title: `${x.label} · ${x.ip}` }); edges.push([net, x.id]); continue; }
+      const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', 'Autres'];
+      const cid = `cat:${x.network || 'réseau'}:${cat[2]}`;
+      if (!cats.has(cid)) { cats.set(cid, true); nodes.push({ id: cid, label: `${cat[1]} ${cat[2]}`, hub: true, title: cat[2] }); edges.push([net, cid]); }
+      const risk = byIp.get(x.ip), down = x.status !== 'online', watched = isWatched(x);
+      const alert = risk ? { n: risk.n + (down && watched ? 1 : 0), level: risk.grave || (down && watched) ? 'grave' : 'attention' } : down && watched ? { n: 1, level: 'grave' } : undefined;
+      nodes.push({ id: x.id, label: mapName(x), sub: x.ip, search: [x.label, x.hostname, x.vendor, x.model, x.os, x.kind].filter(Boolean).join(' '), off: down, alert,
+        title: `${x.label} · ${x.ip}${x.os ? ' · ' + x.os : ''}${down ? ' · hors ligne' : ''}${risk ? ' · ' + risk.t.join(' ; ') : ''}${down && watched ? ' · surveillé : tombé' : ''}` });
+      edges.push([cid, x.id]);
+    }
+    // La box relie ses propres familles d'appareils
+    for (const x of all.filter((y) => y.kind === 'routeur')) for (const c of cats.keys()) if (c.startsWith(`cat:${x.network || 'réseau'}:`)) edges.push([x.id, c]);
+    const on = all.filter((x) => x.status === 'online').length, bad = nodes.filter((n) => n.alert).length;
+    const data = { nodes, edges, label: 'Graphe du réseau', search: 'Chercher (nom, IP, système)…', counter: () => `${all.length} appareils · ${on} en ligne${bad ? ` · ${bad} à regarder` : ''}`, onOpen: (id) => { if (!/^(net|cat):/.test(String(id))) openDevice(id); } };
+    if (mapGraph && host.contains(mapGraph.el)) mapGraph.update(data); else mapGraph = window.OdinGraph.mount(host, data);
+  }
   function renderMap() {
+    for (const b of document.querySelectorAll('[data-mm]')) b.setAttribute('aria-pressed', String(b.dataset.mm === mapMode));
+    $('#netGraph').hidden = mapMode !== 'graphe'; $('#netMap').hidden = mapMode === 'graphe';
+    if (mapMode === 'graphe') { const all = (state.devices || []).filter((x) => x.status !== 'removed'); if (!all.length) { $('#netGraph').replaceChildren(el('div', { class: 'empty' }, 'Aucun appareil : lance un balayage.')); mapGraph = null; } else renderMapGraph(all); return; }
     const all = (state.devices || []).filter((x) => x.status !== 'removed'), box = $('#netMap'); box.textContent = '';
     if (!all.length) { box.append(el('div', { class: 'empty' }, 'Aucun appareil : lance un balayage.')); return; }
     // Sous-réseaux : une carte chacun
@@ -4519,6 +4552,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 </script>
 <script nonce="__NONCE__" src="/flows.js"></script>
 <script nonce="__NONCE__" src="/runes.js"></script>
+<script nonce="__NONCE__" src="/graph.js"></script>
 <script nonce="__NONCE__" src="/valhalla.js"></script>
 <script nonce="__NONCE__" src="/companion.js"></script>
 <script nonce="__NONCE__" src="/guide.js"></script>
