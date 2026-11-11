@@ -31,7 +31,7 @@ import { MailChannel } from '../bifrost/channels/mail.ts';
 import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { routingReport } from '../providers/journal.ts';
-import { watchBrain } from '../automation/bridge.ts';
+import { startDraupnir } from '../draupnir/odin.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { tunnel } from '../web/tunnel.ts';
@@ -248,7 +248,9 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     owners.http = ['*']; // quiconque détient le jeton est le propriétaire
     gw.add(new HttpChannel(http.port, token, http.host ?? '127.0.0.1'));
   }
-  const shutdown = async () => { await gw!.stop(); odin.close(); };
+  // Draupnir (automatisations d'Odin) : démarré avec Odin, arrêté avec lui.
+  const stopDraupnir = startDraupnir(odin, (t) => gw!.notifyOwner(t));
+  const shutdown = async () => { stopDraupnir(); await gw!.stop(); odin.close(); };
   // Rechargement demandé par l'onglet Réglages : on arrête tout puis on relance avec la nouvelle config.
   let reloading = false;
   const reload = async () => {
@@ -274,7 +276,6 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    watchBrain(odin); // Cerveau → automatisations n8n (adresses choisies dans Automatisations)
     const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), updateNow: () => gw!.updateNow(), pairAsk: (r) => gw!.pairAsk(r), reload, failedChannels: () => Object.fromEntries(gw!.failed), testChannel: (n) => gw!.testChannel(n), tellOwner: (t) => gw!.notifyOwner(t), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();

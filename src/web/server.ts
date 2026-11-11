@@ -45,8 +45,7 @@ import { describeEntry, providerLabel } from '../providers/journal.ts';
 import { signalLinkState } from '../bifrost/channels/signal.ts';
 import { attachmentHint } from '../files/attach.ts';
 import { brainGet, brainPost } from './brain-api.ts';
-import { flowsPost, flowsState } from './flows-api.ts';
-import { handleHook, hookAllowed } from '../automation/bridge.ts';
+import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
@@ -79,7 +78,7 @@ export interface WebHooks {
   scanNetwork(full: boolean): Promise<unknown>;
   /** Canaux qui n'ont pas pu démarrer (nom → raison). */
   failedChannels?(): Record<string, string>;
-  /** Prévenir le propriétaire (automatisations n8n). */
+  /** Prévenir le propriétaire (automatisations Draupnir, bases Runes). */
   tellOwner?(text: string): Promise<void>;
   /** « Envoyer un test » sur une messagerie. */
   testChannel?(name: string): Promise<{ ok: boolean; message: string }>;
@@ -397,13 +396,8 @@ export class WebChannel implements Channel {
       const r = await wa.webhook(req.method ?? 'GET', url.searchParams, raw, req.headers['x-hub-signature-256'] as string | undefined).catch(() => ({ status: 500, body: 'erreur' }));
       res.writeHead(r.status, { 'content-type': 'text/plain; charset=utf-8' }); return void res.end(r.body);
     }
-    // Automatisations (n8n) → Odin : clé dédiée, actions limitées (jamais l'interface ni les réglages).
-    if (url.pathname === '/api/hook' && req.method === 'POST') {
-      if (!hookAllowed(this.odin.paths.home, req.headers['x-odin-hook'] as string | undefined)) return json(res, 403, { error: 'clé d\'automatisation refusée' });
-      const b = await readJson(req).catch(() => ({}));
-      const r = await handleHook(this.odin, b, async (t) => { await this.hooks.tellOwner?.(t); this.push({ type: 'message', peer: 'principal', role: 'assistant', text: t }); }).catch((e) => ({ ok: false, error: (e as Error).message }));
-      return json(res, 200, r);
-    }
+    // Draupnir : webhooks (/h/…) et formulaires (/f/…) publics, chemin secret, débit limité.
+    if (await publicRoute(req, res, url)) return;
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/brain.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(BRAIN_JS); }
@@ -469,7 +463,17 @@ export class WebChannel implements Channel {
     }
     // Journal des routages : quelle IA a traité quoi (Réglages → Modèle → Qui a répondu).
     // Cerveau (deuxième cerveau) : pages, graphe, bases, recherche.
-    if (req.method === 'GET' && url.pathname === '/api/flows') return json(res, 200, await flowsState(this.odin));
+    if (req.method === 'GET' && url.pathname.startsWith('/api/draupnir/')) {
+      const r = await draupnirGet(this.odin, url.pathname, url.searchParams, `${this.odin.cfg.web.tls?.enabled === false ? 'http' : 'https'}://${req.headers.host ?? 'localhost'}`);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
+    if (req.method === 'GET' && url.pathname === '/api/runes/export') {
+      try { const csv = runesCsv(this.odin, url.searchParams.get('base') ?? ''); res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${(url.searchParams.get('base') ?? 'base').replace(/[^\w-]/g, '_')}.csv"`, 'cache-control': 'no-store' }); return void res.end(`\ufeff${csv}`); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    if (req.method === 'GET' && url.pathname.startsWith('/api/runes/')) {
+      const r = runesGet(this.odin, url.pathname, url.searchParams);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
     if (req.method === 'GET' && url.pathname.startsWith('/api/brain/')) {
       const r = brainGet(this.odin, url.pathname, url.searchParams);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
@@ -581,8 +585,12 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     const body = await readJson(req);
-    if (url.pathname.startsWith('/api/flows/')) {
-      const r = await flowsPost(this.odin, url.pathname, body);
+    if (url.pathname.startsWith('/api/draupnir/')) {
+      const r = await draupnirPost(this.odin, url.pathname, body);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
+    if (url.pathname.startsWith('/api/runes/')) {
+      const r = await runesPost(this.odin, url.pathname, body, async (t) => { await this.hooks.tellOwner?.(t); });
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/brain/')) {
