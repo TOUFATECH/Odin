@@ -1,5 +1,129 @@
 [
  {
+  "id": "cefec31",
+  "at": "2026-11-12T00:51:17+03:00",
+  "date": "2026-11-12",
+  "version": "1.7.1",
+  "title": "La 1.7.0 de main intégrée, arbre d'évolution complet sur une installation normale",
+  "details": [
+   "Fusion de main (v1.7.0 : Odin répond de partout, guide de A à Z, arbre d'évolution, connecteurs) dans la branche de travail, qui apporte en plus : le correctif de mise à jour (1.6.2), le « sans IA d'abord », les économies, et Odin qui se règle lui-même.",
+   "Connecteurs, bulle d'Odin, visite guidée : la version de main est gardée (les deux branches avaient fait la même correction) ; mon test en double est retiré.",
+   "Arbre d'évolution : l'installateur fait « git clone --depth 1 », donc git ne connaît qu'une partie de l'historique. L'arbre ne montrait alors presque rien (et le test de main échouait sur GitHub). L'historique git est maintenant complété par la liste livrée, sans doublon."
+  ],
+  "planets": [
+   "guide",
+   "cerveau",
+   "ia",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "6945892",
+  "at": "2026-11-12T00:41:43+03:00",
+  "date": "2026-11-12",
+  "version": "1.7.0",
+  "title": "Odin te répond de partout, à voix haute, guide de A à Z, arbre d'évolution",
+  "details": [
+   "Bulle d'Odin sur toutes les pages : on lui parle directement, dans la même conversation que la Discussion ; il sait sur quelle page ou quelle appli on est et répond dans la bulle (réponse en direct, demande d'accord renvoyée vers la Discussion)",
+   "Réponses à voix haute par défaut, tant qu'on ne l'a pas coupé (Réglages → Voix, bouton 🔊 de la bulle ou de la Discussion : un seul réglage) ; sans voix réglée, la voix française du navigateur",
+   "Infobulle et champ de saisie de la mascotte selon la page ou l'appli",
+   "Mode d'emploi de chaque page et de chaque appli : comment l'utiliser, comment la régler, de A à Z (généré depuis le catalogue des applis) ; « Guide-moi pas à pas » demande à Odin",
+   "Visite guidée sur demande seulement (plus proposée toute seule) ; nouveau chapitre « Les applis de A à Z »",
+   "Quoi de neuf : lu dans l'historique des mises à jour ; après une mise à jour, Odin présente lui-même les nouveautés et peut les expliquer",
+   "Arbre d'évolution (Réglages → Plus, bulle) : Odin au centre, une planète par appli ou partie d'Odin, évolutions datées (nouveautés, améliorations, corrections), ligne des versions ; lu dans git, evolutions.json pour les installations sans git (npm run evolutions)",
+   "Connecteurs du Cerveau : actifs seulement une fois configurés (Telegram : jeton + propriétaire + activé) ; sinon « à configurer » avec l'endroit où le faire, « coupé » ou « intégré »"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide",
+   "interface",
+   "cerveau"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "c4035be",
+  "at": "2026-11-12T00:18:59+03:00",
+  "date": "2026-11-12",
+  "title": "Connecteurs à l'état vrai, visite guidée sur demande, voix par défaut, ordres simples sur Odin lui-même",
+  "details": [
+   "Cerveau · connecteurs : « actif » seulement quand c'est vraiment relié (Telegram avec son jeton, boîte mail renseignée, agenda par iCal ou CalDAV), « prêt » pour les sources sans réglage (liens, fichiers, vocaux) tant qu'elles n'ont pas servi, « non relié » sinon, avec la rubrique des Réglages où le faire. Mail et Agenda n'étaient jamais « actifs » : ils lisaient de mauvais réglages.",
+   "La visite guidée ne se propose plus toute seule à chaque nouvel appareil (elle ramenait à la Discussion) : elle vient quand on la demande.",
+   "Odin répond à voix haute par défaut dès qu'une voix est disponible, tant que ce n'est pas coupé dans Réglages → Voix.",
+   "« Redémarre-toi », « redémarre Odin » : il faut dire que c'est lui (« redémarre » tout court peut viser autre chose).",
+   "Version de travail 1.7.0 (la 1.6.2 reste le correctif de mise à jour seul)."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide",
+   "cerveau",
+   "canaux"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "ef3a402",
+  "at": "2026-11-12T00:10:19+03:00",
+  "date": "2026-11-12",
+  "title": "Merge branch 'correctif-maj' into draupnir-runes",
+  "details": [
+   "# Conflicts: #\tsrc/web/guide.js"
+  ],
+  "planets": [
+   "guide",
+   "automatisations"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "0fccdb9",
+  "at": "2026-11-12T00:10:14+03:00",
+  "date": "2026-11-12",
+  "title": "Sans IA d'abord : ce qu'Odin sait faire seul n'est plus confié à une IA, il le dit, et il apprend",
+  "details": [
+   "Avant d'appeler un modèle, Odin regarde s'il sait faire seul (src/core/direct.ts) : l'heure, les rappels, ses droits, ses économies, se redémarrer, se mettre à jour, se régler, ses applis (Huginn), et ce qu'il a appris. Sous chaque réponse : « Sans IA : … » ou « … a répondu · IA nécessaire : … ».",
+   "Il apprend (src/learn/acquis.ts) : une demande qu'une IA règle par une seule action est retenue et refaite ensuite sans elle ; listée, oubliable, oubliée après deux échecs.",
+   "La précision d'abord : Huginn mesure ce que la phrase n'explique pas (« doute »). Avec une IA sous la main, au moindre doute c'est elle qui comprend. Banc permanent : 126 demandes à laisser à l'IA, 52 à faire seul, et les 55 phrases d'exemple affichées par les applis, toutes vérifiées.",
+   "Home Assistant injoignable ou appareil inconnu de lui : mes applis ont la parole (« lance une analyse antivirus » ne finit plus sur « je n'arrive pas à joindre Home Assistant »).",
+   "La bonne IA au bon prix : à compétence égale, la moins chère répond ; carte Économies (Réglages → Modèle), « mes économies », /ia eco. Rien n'est chiffré sans trois demandes mesurées.",
+   "Odin se règle lui-même (outil settings_set, liste fermée, jamais de secret) : autonomie, mises à jour, règles sans IA, budget. Ce qui baisse la sécurité ou engage de l'argent attend ton accord.",
+   "Exemples des applis : seulement des phrases qui marchent telles quelles ; racines « vérifie » / « vérifier » ; mots des applis complétés."
+  ],
+  "planets": [
+   "discussion",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "c760e89",
+  "at": "2026-11-11T23:52:51+03:00",
+  "date": "2026-11-11",
+  "version": "1.6.2",
+  "title": "Une mise à jour ne laisse plus jamais le code en conflit, et Odin se répare tout seul",
+  "details": [
+   "Vécu : Odin avait retouché lui-même src/machines/access.ts ; la 1.6.1 changeait les mêmes lignes. La mise à jour réappliquait la retouche (git stash pop), le conflit laissait des marqueurs dans le fichier, « git checkout -- . » ne défaisait rien (« path is unmerged ») et le retour arrière (« reset --keep ») échouait en pleine fusion. Résultat : la 1.6.1 sur le disque, illisible, et l'ancienne version encore en mémoire.",
+   "updateApp : si les retouches locales ne s'accordent pas avec la nouvelle version, la version publiée est gardée telle quelle et les retouches sont mises de côté (copie .patch dans ~/.odin/self-backups + réserve git). Un code resté en conflit est d'abord remis au propre.",
+   "applyUpdate : retouches qui cassent la nouvelle version (sans conflit de texte) → mises de côté ; nouvelle version cassée → retour complet au code d'avant, retouches comprises.",
+   "healInstalled : version installée ≠ version qui tourne et code illisible → réparé tout seul, ou retour au code de la version qui tourne ; le propriétaire est prévenu.",
+   "Lanceur : au démarrage, un code en conflit est remis tel que publié avant de démarrer.",
+   "6 tests qui rejouent la panne (et ses voisines) avec de vrais dépôts git."
+  ],
+  "planets": [
+   "machines",
+   "applis",
+   "memoire",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
   "id": "df83917",
   "at": "2026-11-11T22:55:58+03:00",
   "date": "2026-11-11",
