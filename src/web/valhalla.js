@@ -196,6 +196,8 @@
     side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes'), alerts(r.alerts)));
     if (r.links.length) side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`))))));
     const mc = $('#mcur'); if (mc) mc.textContent = r.name;
+    // Rán : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
+    if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[1] || null);
     box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), el('div', { class: 'va-page' }, main, side));
     head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
   }

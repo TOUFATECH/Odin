@@ -21,6 +21,7 @@ import { forseti } from './modules/forseti.ts';
 import { frigg } from './modules/frigg.ts';
 import { garmr } from './modules/garmr.ts';
 import { geri } from './modules/geri.ts';
+import { ran } from './modules/ran.ts';
 import { gjoll } from './modules/gjoll.ts';
 import { hermod } from './modules/hermod.ts';
 import { himinbjorg } from './modules/himinbjorg.ts';
@@ -101,7 +102,7 @@ export function coreModules(odin: Pick<Odin, 'paths' | 'cfg'>): Module[] {
 }
 
 export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['tools'] }): Module[] {
-  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ullr, loki, naglfar, ymir, idunn, sindri, brisingamen, gjoll, hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
+  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, ymir, idunn, sindri, brisingamen, gjoll, hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */

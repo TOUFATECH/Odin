@@ -153,6 +153,12 @@ La **visite guidée** ne se lance que si tu la demandes (« visite guidée », R
 
 Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
 
+#### Paquets réseau (Rán)
+
+Comme Wireshark, sans rien installer à part `tcpdump` : touche une machine sur la carte (ou ouvre l'appli **Rán** et tape son adresse IP). Sous sa fiche : **En direct** montre les paquets qui passent (heure, sens, protocole, source, destination, taille, service), et l'**historique** en dessous garde 7 jours (20 000 paquets par machine au plus), avec un filtre et ses correspondants les plus fréquents. **Enregistrer en continu** remplit l'historique même page fermée, et reprend au redémarrage d'Odin.
+
+Si Odin a accès à la machine (Réglages → Droits et machines), la capture se fait sur la machine elle-même, par SSH : **tout son trafic** (la connexion de la capture est écartée). Sinon elle se fait depuis la machine d'Odin : sur un réseau avec switch ou box, seuls les échanges avec Odin et ce que la machine diffuse à tout le réseau sont visibles (sauf si Odin est le routeur ou reçoit une copie du trafic). Rán ne lit que les en-têtes, jamais le contenu des paquets.
+
 #### Qui peut ouvrir l'interface ?
 
 Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou avec `odin web access` :

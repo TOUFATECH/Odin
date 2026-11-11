@@ -1165,7 +1165,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       </div>
     </section>
 
-    <section class="view" id="v-device" aria-label="Appareil"><div class="head"><div><button class="btn small" type="button" id="devBack">← Réseau</button><h1 id="devTitle" style="margin-top:10px">Appareil</h1><div class="sub" id="devSub"></div></div><div class="hacts" id="devActs"></div></div><div class="body"><div class="devpage" id="devBody"></div></div></section>
+    <section class="view" id="v-device" aria-label="Appareil"><div class="head"><div><button class="btn small" type="button" id="devBack">← Réseau</button><h1 id="devTitle" style="margin-top:10px">Appareil</h1><div class="sub" id="devSub"></div></div><div class="hacts" id="devActs"></div></div><div class="body"><div class="devpage" id="devBody"></div><div id="devPackets"></div></div></section>
     <section class="view" id="v-net" aria-label="Maison">
       <div class="head"><div><h1>Maison</h1><div class="sub" id="netSub">—</div></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="scanQuick">Balayage rapide</button><button class="btn small primary" id="scanFull">Balayage complet</button></div></div>
@@ -3011,6 +3011,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if ((x.web || []).length) can.push('Ouvrir ses pages d\'administration dans son navigateur et y faire des réglages');
     can.push(...(x.links || []).filter((l) => !/^https?:/.test(l.how)).map((l) => `${l.action} — ${l.how}`));
     if (x.mac && !more.isRouter) can.push(more.router ? 'Le bloquer sur la box (par son adresse MAC), puis le réautoriser' : 'Le bloquer sur la box : enregistre d\'abord l\'accès à la box (Réglages → Droits et machines)');
+    // Paquets réseau de la machine (Rán) : historique en dessous, et « En direct ». Le panneau est gardé quand la
+    // fiche se redessine, pour que le direct ne s'interrompe pas.
+    if (window.OdinPackets && $('#devPackets').dataset.ip !== x.ip) { $('#devPackets').dataset.ip = x.ip; $('#devPackets').replaceChildren(window.OdinPackets.panel(x.ip)); }
     $('#devBody').replaceChildren(...[
       card('Informations', kv('Nom', x.label), kv('Nom réseau', x.hostname), kv('Fabricant', x.vendor), kv('Modèle', x.model), kv('Système', x.os), kv('Adresse IP', x.ip), kv('Adresse MAC', x.mac), kv('Sous-réseau', x.network), kv('Vu pour la première fois', x.first_seen ? fmt(x.first_seen) : ''), kv('Vu pour la dernière fois', x.last_seen ? fmt(x.last_seen) : '')),
       card('Liens', (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer' }, '↗ ', linkName(w, x.web), el('span', { class: 'dim mono' }, ` ${w.url}`)))) : el('div', { class: 'sub' }, 'Aucune page web trouvée. Lance un balayage complet pour chercher.')),
@@ -4461,6 +4464,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/flows.js"></script>
 <script nonce="__NONCE__" src="/runes.js"></script>
 <script nonce="__NONCE__" src="/graph.js"></script>
+<script nonce="__NONCE__" src="/packets.js"></script>
 <script nonce="__NONCE__" src="/valhalla.js"></script>
 <script nonce="__NONCE__" src="/companion.js"></script>
 <script nonce="__NONCE__" src="/guide.js"></script>
