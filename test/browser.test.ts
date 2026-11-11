@@ -57,5 +57,10 @@ test('navigateur : ouvrir, voir, remplir un formulaire, choisir, cocher, envoyer
     assert.equal(png.subarray(1, 4).toString(), 'PNG');
     await assert.rejects(checkBrowserUrl('http://169.254.169.254/latest/meta-data'), /métadonnées/);
     await assert.rejects(checkBrowserUrl('file:///etc/passwd'), /http/);
-  } finally { await b.shutdown(); srv.close(); rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); }
+  } finally {
+    await b.shutdown(); srv.close();
+    // Le navigateur peut encore écrire dans son profil une fraction de seconde après son arrêt (vu sur macOS) :
+    // le ménage du dossier temporaire ne doit pas faire échouer un essai qui a réussi.
+    try { rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 }); } catch { /* dossier temporaire laissé au système */ }
+  }
 });

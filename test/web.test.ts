@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { get } from 'node:http';
+import { get, request } from 'node:http';
 import { connect } from 'node:net';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
@@ -118,9 +118,14 @@ test('audit sécurité : envoi trop gros sans plantage, fichiers non JSON accept
   const B = `http://127.0.0.1:${port}`, H = { authorization: `Bearer ${token}`, 'x-odin': '1' };
   try {
     // 10 Mo de JSON : refusé proprement, et Odin répond toujours ensuite (avant : il s'arrêtait).
-    const big = await fetch(`${B}/api/action`, { method: 'POST', headers: H, body: `{"kind":"${'a'.repeat(10_000_000)}"}` }).catch(() => undefined);
-    assert.ok(!big || big.status === 413);
-    // La connexion de l'envoi refusé a été coupée : la demande suivante peut encore tomber dessus (vu sous Windows), on réessaie.
+    // L'envoi part sur une connexion à lui : Odin la coupe en plein envoi, elle ne doit pas resservir aux demandes suivantes
+    // (sous Windows, le client de test gardait cette connexion morte et échouait ensuite, alors qu'Odin répondait).
+    const big = await new Promise<number | undefined>((done) => {
+      const rq = request(`${B}/api/action`, { method: 'POST', agent: false, headers: { ...H, 'content-type': 'application/json' } }, (res) => { res.resume(); done(res.statusCode); });
+      rq.on('error', () => done(undefined)); rq.on('close', () => done(undefined));
+      rq.end(`{"kind":"${'a'.repeat(10_000_000)}"}`);
+    });
+    assert.ok(big === undefined || big === 413, `envoi trop gros : refusé (413) ou connexion coupée, reçu ${big}`);
     const why = (e: unknown) => { const c = (e as { cause?: { code?: string; message?: string } }).cause; return c?.code ?? c?.message ?? (e as Error).message; };
     const portOpen = () => new Promise<string>((r) => { const s2 = connect(port, '127.0.0.1'); s2.once('connect', () => { s2.destroy(); r('le port accepte encore les connexions'); }); s2.once('error', (e) => r(`port fermé (${(e as NodeJS.ErrnoException).code})`)); });
     const alive = async (): Promise<number> => { for (let i = 0; ; i++) { try { return (await fetch(`${B}/api/state`, { headers: H })).status; } catch (e) { if (i >= 4) throw new Error(`Odin ne répond plus après l'envoi refusé : ${why(e)} ; ${await portOpen()}`, { cause: e }); await new Promise((r) => setTimeout(r, 250)); } } };
