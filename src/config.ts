@@ -35,6 +35,8 @@ export interface ProviderConfig {
 }
 
 export interface OdinConfig {
+  /** Cerveau (deuxième cerveau) : dossier du coffre Markdown ; un coffre Obsidian existant marche aussi. Défaut : ~/.odin/cerveau. */
+  brain?: { vault?: string };
   name: string;
   /** Fournisseurs essayés dans l'ordre : le suivant prend le relais en cas de panne ou de quota épuisé. */
   providers: ProviderConfig[];

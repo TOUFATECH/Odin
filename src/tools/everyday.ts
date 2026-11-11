@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 import { undo, undoList } from '../undo.ts';
 import { haApi, type HaState } from './homeassistant.ts';
+import { brainOf } from './brain.ts';
 import { num, obj, str, type Tool, type ToolContext } from './registry.ts';
 import { parseWhen, whenFr } from '../cron/reminders.ts';
 
@@ -56,7 +57,8 @@ export const undoApply: Tool = {
 
 // ------------------------------------------------------------------ fiches
 
-const notesDir = (ctx: ToolContext) => join(ctx.home ?? ctx.workspace, 'notes');
+// Les fiches vivent dans le Cerveau (dossier « Fiches ») : une seule mémoire, visible dans le graphe.
+const notesDir = (ctx: ToolContext) => join(brainOf(ctx).root, 'Fiches');
 
 export const noteSave: Tool = {
   name: 'note_save',

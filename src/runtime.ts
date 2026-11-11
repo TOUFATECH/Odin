@@ -15,6 +15,8 @@ import { changePlan, recoveryPlanTool } from './tools/careplan.ts';
 import { evidenceSearch, webResearch } from './tools/research.ts';
 import { VIDEO_TOOLS } from './tools/video.ts';
 import { APP_TOOLS } from './tools/apps.ts';
+import { BRAIN_TOOLS, brainOf } from './tools/brain.ts';
+import { seedVault } from './brain/vault.ts';
 import { SCRIPT_TOOLS } from './tools/scripts.ts';
 import { skillImport } from './tools/skillimport.ts';
 import { sign as signContent, verify as verifyContent } from './scripts/guard.ts';
@@ -97,7 +99,9 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).
   for (const secret of machineSecrets(paths.home)) redactor.add(secret);
   const heimdall = new Heimdall(cfg.policy, opts.approver ?? denyAll, join(paths.logs, 'audit.jsonl'));
-  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...APP_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS, ...HABIT_TOOLS, updateCheckTool, updateApplyTool, ...EVERYDAY_TOOLS, venusTool, parentalTool, alarmTool, routingHistory, pluginSaveTool(() => tools));
+  const tools = new ToolRegistry().register(...BUILTIN_TOOLS, ...NETWORK_TOOLS, ...FILE_TOOLS, ...BROWSER_TOOLS, webSearchTool, ...SELF_TOOLS, ...PROXMOX_TOOLS, netSecurity, ...HA_TOOLS, ...MAIL_TOOLS, ...CALENDAR_TOOLS, ...DOC_TOOLS, memoryProfile, changePlan, recoveryPlanTool, webResearch, evidenceSearch, ...VIDEO_TOOLS, ...APP_TOOLS, ...BRAIN_TOOLS, ...SCRIPT_TOOLS, skillImport, machineOnboard, adminEnable, ...ASSISTANT_TOOLS, ...HABIT_TOOLS, updateCheckTool, updateApplyTool, ...EVERYDAY_TOOLS, venusTool, parentalTool, alarmTool, routingHistory, pluginSaveTool(() => tools));
+  // Cerveau : coffre Markdown (compatible Obsidian) prêt dès le démarrage ; anciennes fiches reprises.
+  try { seedVault(brainOf({ home: paths.home, careCfg: cfg, workspace: paths.workspace }), join(paths.home, 'notes')); } catch (e) { console.error('[cerveau]', (e as Error).message); }
   // Extensions Python de ~/.odin/plugins : chacune devient un outil py_<nom>.
   try { const n = loadPlugins(paths.home, paths.workspace, tools); if (n.length) console.error(`[extensions] ${n.length} extension(s) Python : ${n.join(', ')}`); } catch (e) { console.error('[extensions]', (e as Error).message); }
   const inventory = new Inventory(muninn.db);

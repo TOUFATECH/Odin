@@ -58,7 +58,7 @@ test('auto-surveillance : disque plein, erreurs, budget', () => {
 test('fiches, démarches et annulation des fichiers modifiés', async () => {
   const o = makeOdin([]);
   const ctx = { muninn: o.muninn, home: o.paths.home, workspace: o.paths.workspace, isTainted: () => false, sessionId: 's' } as never;
-  assert.match(await noteSave.run({ title: 'Installer le NAS', content: 'DSM 7.2, IP 192.168.1.20' }, ctx) as string, /notes\/installer-le-nas\.md$/);
+  assert.match(await noteSave.run({ title: 'Installer le NAS', content: 'DSM 7.2, IP 192.168.1.20' }, ctx) as string, /cerveau\/Fiches\/installer-le-nas\.md$/);
   assert.match(await noteFind.run({ query: 'nas' }, ctx) as string, /DSM 7\.2/);
   assert.match(await demarche.run({ type: 'carte grise' }, ctx) as string, /ants\.gouv\.fr/);
   // Une modification de fichier par Odin, puis annulée
