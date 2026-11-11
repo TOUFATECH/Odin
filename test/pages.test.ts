@@ -100,6 +100,6 @@ test('Page de connexion : aucun script ne la recharge quand le serveur répond �
   for (const f of ['brain', 'flows', 'runes', 'valhalla']) { const js = readFileSync(new URL(`../src/web/${f}.js`, import.meta.url), 'utf8'); assert.ok(!/401\) \{ location\.reload\(\)/.test(js) && /if \(appShown\(\)\) location\.reload\(\)/.test(js), `${f}.js ne recharge la page que si l'appli est affichée`); }
   // Et la mascotte réagit au toucher dès la page de connexion : son code est placé avant la sortie « pas connecté ».
   const ui = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8');
-  assert.ok(ui.indexOf('elle réagit quand on la touche') > 0 && ui.indexOf('elle réagit quand on la touche') < ui.indexOf('  if (!AUTHED) {\n    $(\'#login\').hidden = false;'), 'le toucher de la mascotte est branché avant la sortie « pas connecté »');
+  assert.ok(ui.indexOf('elle réagit quand on la touche') > 0 && ui.indexOf('elle réagit quand on la touche') < ui.search(/ {2}if \(!AUTHED\) \{\r?\n {4}\$\('#login'\)\.hidden = false;/), 'le toucher de la mascotte est branché avant la sortie « pas connecté »');
   assert.match(ui, /const buddies = \(\) => \[[^\]]*'#login \.odin'\]/, 'et ses humeurs s\'appliquent au visage de la page de connexion');
 });

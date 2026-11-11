@@ -96,6 +96,11 @@ function knowledge(ctx: ModCtx, intel = st(ctx).intel): Knowledge {
 /** Chemin écrit avec des barres droites, pour que les règles ci-dessous valent aussi sous Windows. */
 const slash = (p: string) => p.replace(/\\/g, '/');
 const SYSTEM = /^\/(usr|bin|sbin|lib|lib32|lib64|libx32|opt|snap|boot|etc|var\/lib|System|Library|Applications|private\/etc)\/|^[A-Za-z]:\/(Windows|Program Files|Program Files \(x86\))\//;
+/** Fichiers dont la machine a besoin pour démarrer (Linux, macOS, Windows) : jamais déplacés, ni par réflexe ni à la demande. */
+const VITAL = /^\/(bin|sbin|usr|lib|lib64|boot|etc|System|private\/etc)\/|^[A-Za-z]:\/(Windows|Program Files|Program Files \(x86\))\//i;
+export const vital = (file: string) => { const f = slash(file); return VITAL.test(f) && !/\/(tmp|temp|local)\//i.test(f); };
+/** Ce fichier est-il dans un dossier mis en exception ? Le dossier lui-même et tout ce qu'il contient, pas un dossier au nom voisin. */
+export const excepted = (paths: string[], file: string) => { const F = slash(file); return paths.some((p) => { const P = slash(p).replace(/\/+$/, ''); return F === P || F.startsWith(`${P}/`); }); };
 /** Logiciels courants dont le paquet ne porte pas le même nom que dans le catalogue des failles : [nom dans le catalogue, paquet installé]. */
 const KEV_PKG: Array<[RegExp, RegExp]> = [
   [/^linux kernel/, /^linux-kernel$/], [/apache http server/, /^(apache2|httpd)$/], [/openssh/, /^openssh-(server|client)$/], [/openssl/, /^(openssl|libssl[\d.]*)/], [/\bphp\b/, /^php[\d.]*(-|$)/],
@@ -127,7 +132,7 @@ const hashStream = (f: string) => new Promise<string>((res, rej) => { const h = 
 /** Analyse un fichier du disque. Jusqu'à 48 Mo il est lu en entier ; au-delà, empreinte complète + analyse du début. */
 export async function scanPath(ctx: ModCtx, f: string, k = knowledge(ctx)): Promise<Verdict | undefined> {
   let stt; try { stt = statSync(f); } catch { return undefined; }
-  if (!stt.isFile() || stt.size === 0 || exc(ctx).paths.some((p) => f === p || f.startsWith(p.endsWith('/') ? p : `${p}/`))) return undefined;
+  if (!stt.isFile() || stt.size === 0 || excepted(exc(ctx).paths, f)) return undefined;
   if (stt.size <= 48 * 1024 * 1024) return { ...scanBuffer(f, readFileSync(f), k, { where: dirname(f) }), file: f };
   const fd = openSync(f, 'r'); let head: Buffer; try { const b = Buffer.alloc(8 * 1024 * 1024); head = b.subarray(0, readSync(fd, b, 0, b.length, 0)); } finally { closeSync(fd); }
   const v = scanBuffer(f, head, k, { where: dirname(f), depth: 3 }), full = await hashStream(f), known = k.hash?.(full);
@@ -386,7 +391,7 @@ export const ullr: Module = {
     } },
     { id: 'isoler', undo: (_i, r) => { const id = (r.data as { id?: string } | undefined)?.id; return id ? { action: 'restaurer', input: { id }, label: 'fichier remis à sa place' } : undefined; }, label: 'Mettre en quarantaine', what: 'Met un fichier à l\'écart (réversible)', params: [{ key: 'fichier', label: 'Fichier', kind: 'text', required: true }, { key: 'menace', label: 'Raison', kind: 'text', default: 'à ta demande' }], words: ['isole', 'quarantaine', 'mets a l ecart'], run: async (ctx, i) => {
       const f = s(i.fichier); if (!existsSync(f) || !statSync(f).isFile()) throw new Error('fichier introuvable');
-      if (/^\/(bin|sbin|usr|lib|lib64|boot|etc)\//.test(f) && !/\/(tmp|local)\//.test(f)) throw new Error('fichier du système : je ne le déplace pas tout seul (il pourrait empêcher la machine de démarrer). Regarde-le avec « analyse le fichier … »');
+      if (vital(f)) throw new Error('fichier du système : je ne le déplace pas tout seul (il pourrait empêcher la machine de démarrer). Regarde-le avec « analyse le fichier … »');
       const v = await scanPath(ctx, f), q = isolate(ctx, f, { sha256: v?.sha256 ?? '', threat: s(i.menace) || 'à ta demande', level: v?.level ?? 'moyenne' });
       ctx.saveSettings({ hits: dets(ctx).map((d) => (d.file === f ? { ...d, action: 'en quarantaine' } : d)) });
       return { text: `🧊 ${f} est en quarantaine (${q.id}) : il ne peut plus être lancé, et tu peux le remettre en place.`, data: { id: q.id } };

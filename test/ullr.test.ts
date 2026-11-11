@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { crc32, deflateRawSync, gzipSync } from 'node:zlib';
 import { wireReflexes } from '../src/valhalla/links.ts';
-import { nextRun, ullr, ullrKeys, walk } from '../src/valhalla/modules/ullr.ts';
+import { nextRun, ullr, ullrKeys, walk, excepted, vital } from '../src/valhalla/modules/ullr.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { BASE_RULES, combine, compileGaldr, entropy, fileType, flat, hay, importYara, reAtom, isPassive, phishing, regDomain, RuleSet, scanBuffer, sureOf, unzip, urlRisk, type Knowledge } from '../src/valhalla/ullr/engine.ts';
@@ -413,7 +413,7 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     assert.deepEqual([...walk(lien, [join(lien, 'exclu')])].map((f) => f.slice(realpathSync(d).length + 1).replace(/\\/g, '/')).sort(), ['eicar.com', 'maj.ps1', 'note.txt', 'sous/shell.php', 'vide.txt'], 'exclusion donnée par le chemin du lien');
     const r = await act(w, 'analyser', { dossier: d, exclusions: join(d, 'exclu') });
     assert.equal(r.ok, true); assert.match(r.text, /5 fichiers analysés[\s\S]*3 détection\(s\)/);
-    assert.match(r.text, /\[critique\] PHP\.Webshell \(eval encodé\) — .*sous\/shell\.php \(en quarantaine\)/);
+    assert.match(r.text, /\[critique\] PHP\.Webshell \(eval encodé\) — .*sous[\\/]shell\.php \(en quarantaine\)/);
     assert.match(r.text, /\[moyenne\] Test antivirus EICAR — .*eicar\.com \(fichier de test, laissé en place\)/);
     assert.match(r.text, /\[moyenne\] Télécharge et exécute en une seule commande — .*maj\.ps1 \(à vérifier\)/);
     assert.ok(!existsSync(join(d, 'sous', 'shell.php')), 'le webshell a quitté sa place'); assert.ok(existsSync(join(d, 'eicar.com')) && existsSync(join(d, 'maj.ps1')) && existsSync(join(d, 'exclu', 'autre.php')));
@@ -444,9 +444,22 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     const one = await act(w, 'fichier', { chemin: join(d, 'eicar.com') });
     assert.match(one.text, /^⚠ Test antivirus EICAR \(règle\) — score 40\/100/); assert.match(one.text, new RegExp(`empreinte SHA-256 : ${sha(EICAR)}`));
     // Un fichier du système n'est jamais déplacé tout seul.
-    assert.match((await act(w, 'isoler', { fichier: '/usr/bin/env' })).text, /fichier du système/);
-    assert.ok(existsSync('/usr/bin/env'));
+    const vital = process.platform === 'win32' ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe') : '/usr/bin/env';
+    assert.match((await act(w, 'isoler', { fichier: vital })).text, /fichier du système/);
+    assert.ok(existsSync(vital));
   } finally { w.end(); }
+});
+
+test('Ullr · chemins Linux, macOS et Windows : dossiers en exception et fichiers du système', () => {
+  assert.equal(excepted(['/home/awa/projets'], '/home/awa/projets/a/b.php'), true);
+  assert.equal(excepted(['/home/awa/projets/'], '/home/awa/projets'), true, 'le dossier lui-même');
+  assert.equal(excepted(['/home/awa/projets'], '/home/awa/projets-secrets/b.php'), false, 'un dossier au nom voisin n\'est pas couvert');
+  assert.equal(excepted(['C:\\Users\\awa\\Projets'], 'C:\\Users\\awa\\Projets\\site\\shell.php'), true, 'chemin Windows');
+  assert.equal(excepted(['C:\\Users\\awa\\Projets'], 'C:\\Users\\awa\\ProjetsX\\shell.php'), false);
+  assert.equal(excepted([], '/home/awa/a.php'), false);
+  // Ce dont la machine a besoin pour démarrer n'est jamais déplacé ; les dossiers temporaires et /usr/local, si.
+  for (const f of ['/usr/bin/env', '/etc/passwd', '/System/Library/CoreServices/boot.efi', '/private/etc/hosts', 'C:\\Windows\\System32\\cmd.exe', 'c:\\windows\\system32\\drivers\\etc\\hosts', 'C:\\Program Files\\Appli\\appli.exe']) assert.equal(vital(f), true, f);
+  for (const f of ['/home/awa/a.sh', '/usr/local/bin/outil', '/tmp/x', '/Library/LaunchDaemons/x.plist', 'C:\\Users\\awa\\Downloads\\x.exe', 'C:\\Windows\\Temp\\x.exe']) assert.equal(vital(f), false, f);
 });
 
 test('Ullr · dans un dossier de tests d\'un projet, une règle ne déplace rien : c\'est toi qui décides', async () => {

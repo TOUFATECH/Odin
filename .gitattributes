@@ -1,0 +1,7 @@
+# Mêmes fins de ligne partout (LF), aussi sous Windows : Odin lit ses propres fichiers,
+# et un script d'installation ou un modèle avec des fins de ligne Windows ne marcherait plus.
+* text=auto eol=lf
+*.png binary
+*.webp binary
+*.woff2 binary
+*.ico binary

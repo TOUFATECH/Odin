@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { get } from 'node:http';
+import { connect } from 'node:net';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
 import { Heimdall, denyAll } from '../src/heimdall/policy.ts';
@@ -120,7 +121,9 @@ test('audit sécurité : envoi trop gros sans plantage, fichiers non JSON accept
     const big = await fetch(`${B}/api/action`, { method: 'POST', headers: H, body: `{"kind":"${'a'.repeat(10_000_000)}"}` }).catch(() => undefined);
     assert.ok(!big || big.status === 413);
     // La connexion de l'envoi refusé a été coupée : la demande suivante peut encore tomber dessus (vu sous Windows), on réessaie.
-    const alive = async (): Promise<number> => { for (let i = 0; ; i++) { try { return (await fetch(`${B}/api/state`, { headers: H })).status; } catch (e) { if (i >= 4) throw e; await new Promise((r) => setTimeout(r, 250)); } } };
+    const why = (e: unknown) => { const c = (e as { cause?: { code?: string; message?: string } }).cause; return c?.code ?? c?.message ?? (e as Error).message; };
+    const portOpen = () => new Promise<string>((r) => { const s2 = connect(port, '127.0.0.1'); s2.once('connect', () => { s2.destroy(); r('le port accepte encore les connexions'); }); s2.once('error', (e) => r(`port fermé (${(e as NodeJS.ErrnoException).code})`)); });
+    const alive = async (): Promise<number> => { for (let i = 0; ; i++) { try { return (await fetch(`${B}/api/state`, { headers: H })).status; } catch (e) { if (i >= 4) throw new Error(`Odin ne répond plus après l'envoi refusé : ${why(e)} ; ${await portOpen()}`, { cause: e }); await new Promise((r) => setTimeout(r, 250)); } } };
     assert.equal(await alive(), 200, 'toujours en vie');
     // Un fichier binaire (pas du JSON) s'envoie (avant : « JSON invalide »)
     const up = await (await fetch(`${B}/api/upload`, { method: 'POST', headers: { ...H, 'x-filename': encodeURIComponent('../../photo vacances.jpg'), 'content-type': 'image/jpeg' }, body: new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x01]) })).json() as { ok: boolean; file: string };
