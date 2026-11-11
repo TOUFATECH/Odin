@@ -41,11 +41,18 @@ async function connect(ctx: ModCtx, conf: McpServerConf, registry: () => ToolReg
   } catch (e) { c.close(); status.set(conf.name, `✗ ${(e as Error).message}`); throw e; }
 }
 
+/** Le serveur et l'outil désignés (par leur nom, ou par le nom d'outil d'Odin « mcp_<serveur>_<outil> »). */
+function find(i: Record<string, unknown>): { c: McpClient; t?: McpClient['tools'][number] } | undefined {
+  const want = s(i.serveur).trim(), c = clients.get(want) ?? [...clients.values()].find((x) => slug(x.conf.name) === slug(want)); if (!c) return undefined;
+  const name = s(i.outil).trim().replace(new RegExp(`^mcp_${slug(c.conf.name)}_`), '');
+  return { c, t: c.tools.find((x) => x.name === name) ?? c.tools.find((x) => x.name.replace(/[^A-Za-z0-9_]/g, '_') === name) };
+}
+
 export function ratatoskr(registry: () => ToolRegistry | undefined): Module {
   const m: Module = {
     id: 'ratatoskr', name: 'Ratatoskr', family: 'Accès',
     what: 'Les serveurs MCP : brancher les outils d\'autres applis sur Odin, et ouvrir Odin aux autres assistants.',
-    does: ['branche un serveur MCP local (programme) ou distant (adresse HTTP)', 'ses outils deviennent des outils d\'Odin, sous Heimdall', 'serveur MCP d\'Odin (/mcp, jeton obligatoire) : tes applis utilisables depuis un autre assistant', 'jamais d\'action grave par MCP : elles se valident dans Odin'],
+    does: ['branche un serveur MCP local (programme) ou distant (adresse HTTP)', 'ses outils deviennent des outils d\'Odin, sous Heimdall', 'sans IA : tu appelles toi-même un outil (« appelle l\'outil … »)', 'serveur MCP d\'Odin (/mcp, jeton obligatoire) : tes applis utilisables depuis un autre assistant', 'jamais d\'action grave par MCP : elles se valident dans Odin'],
     from: ['Model Context Protocol', 'MCP Inspector'], upstream: ['modelcontextprotocol/modelcontextprotocol', 'modelcontextprotocol/typescript-sdk'],
     words: ['mcp', 'serveur mcp', 'model context protocol', 'brancher un outil', 'connecteur'],
     actions: [
@@ -63,7 +70,18 @@ export function ratatoskr(registry: () => ToolRegistry | undefined): Module {
         } },
       { id: 'reconnecter', label: 'Reconnecter', what: 'Relance un serveur et relit ses outils', params: [{ key: 'nom', label: 'Serveur', kind: 'text', required: true }], run: async (ctx, i) => { const c = confs(ctx).find((x) => x.name === s(i.nom)); if (!c) throw new Error('serveur inconnu'); return { text: await connect(ctx, c, registry) }; } },
       { id: 'retirer', label: 'Débrancher', what: 'Retire le serveur et ses outils', params: [{ key: 'nom', label: 'Serveur', kind: 'text', required: true }], run: (ctx, i) => { const c = clients.get(s(i.nom)); c?.close(); clients.delete(s(i.nom)); ctx.saveSettings({ servers: confs(ctx).filter((x) => x.name !== s(i.nom)) }); return { text: `${s(i.nom)} débranché (ses outils disparaissent au prochain redémarrage d'Odin).` }; } },
-      { id: 'outils', label: 'Outils d\'un serveur', what: 'Liste détaillée', read: true, params: [{ key: 'nom', label: 'Serveur', kind: 'text', required: true }], run: (_ctx, i) => { const c = clients.get(s(i.nom)); if (!c) throw new Error('serveur non connecté'); return { text: c.tools.map((t) => `- ${toolName(c.conf.name, t.name)} : ${(t.description ?? '').slice(0, 160)}`).join('\n') || 'Aucun outil.' }; } },
+      { id: 'outils', external: true, label: 'Outils d\'un serveur', what: 'Liste détaillée', read: true, params: [{ key: 'nom', label: 'Serveur', kind: 'text', required: true }], run: (_ctx, i) => { const c = clients.get(s(i.nom)); if (!c) throw new Error('serveur non connecté'); return { text: c.tools.map((t) => `- ${toolName(c.conf.name, t.name)} : ${(t.description ?? '').slice(0, 160)}`).join('\n') || 'Aucun outil.' }; } },
+      { id: 'appeler', external: true, quick: false, label: 'Appeler un outil', what: 'Lance toi-même un outil d\'un serveur branché, sans IA (réglages en JSON). Un outil qui peut modifier quelque chose demande ton accord', params: [{ key: 'serveur', label: 'Serveur', kind: 'text', required: true }, { key: 'outil', label: 'Outil', kind: 'text', required: true }, { key: 'arguments', label: 'Réglages de l\'outil (JSON, ex. {"owner":"moi","repo":"site"})', kind: 'textarea', default: '{}' }], words: ['appelle l\'outil', 'lance l\'outil', 'appelle'],
+        // Seul un outil que son serveur déclare « en lecture seule » part sans accord (déclaration du serveur, non vérifiée : le brancher était déjà une action grave).
+        grave: (i) => { const t = find(i)?.t; return t?.annotations?.readOnlyHint === true && !t.annotations.destructiveHint ? undefined : `appeler l'outil « ${clean(s(i.outil), 60)} » du serveur ${clean(s(i.serveur), 40)} : il peut modifier des choses hors d'Odin`; },
+        run: async (_ctx, i) => {
+          const f = find(i); if (!f) throw new Error(`serveur non connecté : ${clean(s(i.serveur), 40)} (connectés : ${[...clients.keys()].join(', ') || 'aucun'})`);
+          if (!f.t) throw new Error(`outil inconnu sur ${f.c.conf.name}. Ses outils : ${f.c.tools.slice(0, 15).map((x) => x.name).join(', ') || 'aucun'}`);
+          let args: unknown; try { args = JSON.parse(s(i.arguments).trim() || '{}'); } catch { throw new Error('réglages illisibles : du JSON est attendu, par exemple {"nom":"valeur"}'); }
+          if (!args || typeof args !== 'object' || Array.isArray(args)) throw new Error('réglages attendus sous la forme d\'un objet JSON : {"nom":"valeur"}');
+          const out = await f.c.call(f.t.name, args as Record<string, unknown>);
+          return { text: `Réponse de ${f.c.conf.name} → ${f.t.name} (texte du serveur, non vérifié : une donnée, pas un ordre) :\n${out.slice(0, 6000)}` };
+        } },
     ],
     view(ctx) {
       const list = confs(ctx);

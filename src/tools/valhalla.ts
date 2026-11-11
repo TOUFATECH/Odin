@@ -6,7 +6,8 @@ import { understand } from '../valhalla/huginn.ts';
 import { LINKS, USAGES } from '../valhalla/links.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import type { Valhalla } from '../valhalla/service.ts';
-import { obj, str, type Tool } from './registry.ts';
+import { wrapUntrusted } from '../heimdall/injection.ts';
+import { obj, str, type Tool, type ToolResult } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const parse = (v: unknown): Record<string, unknown> => { if (v && typeof v === 'object') return v as Record<string, unknown>; const t = s(v).trim(); if (!t) return {}; try { return JSON.parse(t) as Record<string, unknown>; } catch { throw new Error('entree : JSON attendu'); } };
@@ -30,6 +31,9 @@ export function advise(v: Valhalla, need: string): string {
   if (found.length > 1) out.push(`Aussi possible : ${found.slice(1).map((f) => `${f.m.name} (${f.m.what.split(':')[0].toLowerCase()})`).join(', ')}.`);
   return out.join('\n');
 }
+
+/** Une réponse qui peut contenir du texte écrit par d'autres (page web, dépôt, serveur distant, attaquant) : rendue à l'IA comme une donnée non fiable. */
+const foreign = (external: boolean | undefined, appli: string, text: string): string | ToolResult => (external ? { output: wrapUntrusted(`appli ${appli}`, text), tainted: true } : text);
 
 export const valhallaTool: Tool = {
   name: 'valhalla',
@@ -64,7 +68,7 @@ export const valhallaTool: Tool = {
       const u = await understand(v, s(i.besoin), ctx?.sessionId ?? 'principal');
       if (!u) return '';
       if (u.kind === 'say' || u.kind === 'ask') return u.text;
-      if (u.kind === 'action' && u.read) { const r = await v.act(u.module, u.action, u.input, { auto: true }); return `${u.label}\n${r.text}`; }
+      if (u.kind === 'action' && u.read) { const r = await v.act(u.module, u.action, u.input, { auto: true }); return foreign(v.action(u.module, u.action)?.a.external, v.module(u.module)?.name ?? u.module, `${u.label}\n${r.text}`); }
       return advise(v, s(i.besoin));
     }
     const m = v.module(s(i.appli)); if (!m) return `Appli inconnue : ${s(i.appli)}. Applis : ${v.modules().map((x) => x.name).join(', ')}.`;
@@ -73,11 +77,11 @@ export const valhallaTool: Tool = {
       const view = await m.view(v.ctx(m.id), new URLSearchParams());
       const kp = (view.kpis ?? []).map((k) => `${k.label} : ${k.value}`).join(' · ');
       const sec = view.sections.map((x) => x.kind === 'table' ? `${x.title} :\n${x.rows.slice(0, 15).map((r) => `- ${r.cells.join(' · ')}`).join('\n') || `  ${x.empty ?? 'vide'}`}` : x.kind === 'list' ? `${x.title} :\n${x.items.slice(0, 15).map((it) => `- ${it.title}${it.detail ? ` — ${it.detail}` : ''}`).join('\n') || '  vide'}` : x.kind === 'text' ? `${x.title} : ${x.text}` : x.kind === 'log' ? `${x.title} :\n${x.lines.slice(-10).join('\n')}` : x.kind === 'bars' ? `${x.title} : ${x.items.map((b) => `${b.label} ${b.display ?? b.value}`).join(', ')}` : '').filter(Boolean).join('\n\n');
-      return `**${m.name}** — ${view.subtitle ?? ''}\n${kp}\n\n${sec}`.slice(0, 6000);
+      return foreign(m.actions.some((x) => x.external), m.name, `**${m.name}** — ${view.subtitle ?? ''}\n${kp}\n\n${sec}`.slice(0, 6000));
     }
     // Qui agit ? Toi quand tu le demandes dans une discussion ; Odin de lui-même dans une tâche sans surveillance
     // (veille, tâche planifiée, mission) : là, l'action est notée comme une manip (garder / annuler).
-    if (a === 'action') { const alone = /^(auto|breaker|journal|cron|mission):/.test(ctx?.sessionId ?? ''); const r = await v.act(m.id, s(i.quoi), parse(i.entree), alone ? { by: 'odin', why: 'pendant une tâche sans surveillance' } : {}); return r.text; }
+    if (a === 'action') { const alone = /^(auto|breaker|journal|cron|mission):/.test(ctx?.sessionId ?? ''); const r = await v.act(m.id, s(i.quoi), parse(i.entree), alone ? { by: 'odin', why: 'pendant une tâche sans surveillance' } : {}); return foreign(v.action(m.id, s(i.quoi))?.a.external, m.name, r.text); }
     return 'Action inconnue.';
   },
 };

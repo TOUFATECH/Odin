@@ -305,6 +305,18 @@ Odin a son propre antivirus, fait maison : fichiers, archives, téléchargements
 
 Dis par exemple : « analyse mes téléchargements », « vérifie le lien https://… », « y a-t-il un virus sur ma machine ? », « les incidents ». Tout cela marche sans IA connectée.
 
+### Sites web (Idunn)
+
+Odin surveille tes sites et s'en occupe, **sans IA** : il répond ou non, son temps de réponse, son certificat,
+sa page d'accueil ; et, si tu donnes les accès, tout ce qui se passe sur GitHub (envois de code, tests,
+demandes de fusion), Vercel (déploiements) et Cloudflare (DNS, protection). Tu demandes les événements que tu
+veux : « les erreurs du site monsite depuis 2 jours ». Il essaie le site, le relance, le déploie, revient en
+arrière, applique les mises à jour dont les tests passent. Ce qui touche la production attend toujours ton
+accord. Avec une IA, il fait évoluer le code sur une branche `odin/…`, avec une demande de fusion que tu
+relis. Les jetons restent dans le coffre.
+
+Mode d'emploi, garde-fous et limites : [docs/sites-idunn.md](docs/sites-idunn.md).
+
 ### Carte du réseau
 
 Onglet Réseau → Carte : la box au centre, les appareils autour, par catégorie ; touche un appareil pour voir sa fiche.

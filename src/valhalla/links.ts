@@ -39,6 +39,8 @@ export const LINKS: Link[] = [
   { from: 'sindri', to: 'sindri', when: 'une sauvegarde échoue', does: 'Odin la relance une fois, dix minutes plus tard', auto: true, kind: 'soin' },
   // Ullr relie ce que voient toutes les applis : un signal seul ne dit rien, plusieurs qui se recoupent font un incident.
   ...SENSORS.filter((q) => !['loki', 'skogul'].includes(q.app)).map((q): Link => ({ from: q.app, to: 'ullr', when: q.when, does: 'le signal rejoint les incidents d\'Ullr : s\'il recoupe ceux d\'une autre appli, un incident est ouvert avec son score et sa chronologie', auto: true, kind: 'donnée' })),
+  { from: 'idunn', to: 'forseti', when: 'un site tombe, un déploiement ou des tests échouent, un certificat arrive à sa fin', does: 'alerte sur ta messagerie, avec le lien pour aller voir', auto: true, kind: 'donnée' },
+  { from: 'idunn', to: 'idunn', when: 'un déploiement arrive en production', does: 'Odin essaie le site (pages, liens, erreurs affichées) ; si quelque chose casse, tu es prévenu et il te propose de revenir en arrière', auto: true, kind: 'soin' },
   { from: 'ullr', to: 'garmr', when: 'un incident sérieux implique une adresse extérieure', does: 'l\'adresse est bannie 24 h au pare-feu (manip annulable)', auto: true, kind: 'réflexe' },
   { from: 'ullr', to: 'saga', when: 'un incident sérieux est ouvert, s\'aggrave ou est classé', does: 'une note datée dans le Cerveau raconte l\'incident : chronologie, score, ce qui a été fait', auto: true, kind: 'réflexe' },
 ];
@@ -55,6 +57,7 @@ export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
   { need: 'regarder un film ou la télé', chain: ['freyja', 'midgard', 'bragi'], why: 'Freyja lance le titre sur l\'écran, Midgard règle l\'ambiance, Bragi te comprend à la voix.' },
   { need: 'gérer des rendez-vous clients', chain: ['frigg', 'runes', 'draupnir'], why: 'Frigg prend les rendez-vous, Runes garde les fiches clients, Draupnir envoie les rappels.' },
   { need: 'faire tourner des services', chain: ['naglfar', 'ymir', 'sindri'], why: 'conteneurs, machines virtuelles, et leurs sauvegardes.' },
+  { need: 'gérer un site web', chain: ['idunn', 'forseti', 'ullr'], why: 'Idunn surveille, essaie, déploie et met à jour ; Forseti t\'alerte ; Ullr relie un changement de DNS, de certificat ou de page d\'accueil pour reconnaître un détournement.' },
   { need: 'garder ses mots de passe', chain: ['brisingamen'], why: 'coffre chiffré, codes à usage unique, vérification des fuites.' },
   { need: 'organiser ses idées et projets', chain: ['saga', 'runes', 'draupnir'], why: 'Saga relie les notes, Runes en fait des bases, Draupnir automatise.' },
 ];
@@ -85,6 +88,11 @@ export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => v
     }
     // Frigg → Runes : chaque réservation crée ou met à jour la fiche du client.
     if (e.module === 'frigg' && e.type === 'reservation' && e.data.name) void v.act('runes', 'client', { nom: String(e.data.name), contact: String(e.data.contact ?? ''), rendez_vous: String(e.data.start ?? ''), prestation: String(e.data.service ?? '') }, { auto: true, by: 'réflexe', why: 'nouvelle réservation' });
+    // Idunn : chaque mise en production est essayée ; un essai raté propose le retour en arrière (action grave : jamais lancée seule).
+    if (e.module === 'idunn' && e.type === 'deploiement_ok' && e.data.production === true && e.data.site) {
+      const name = String(e.data.site);
+      void v.act('idunn', 'tester', { site: name }, { auto: true, by: 'réflexe', why: 'nouveau déploiement en production' }).then((r) => { if (r.ok && (r.data as { ok?: boolean } | undefined)?.ok === false) v.alert('idunn', { level: 'haute', title: `${name} : le nouveau déploiement casse quelque chose`, detail: `${r.text.slice(0, 600)}\nPour revenir à la version d'avant : « reviens à la version précédente du site ${name} ».`, key: `essai:${name}` }); });
+    }
     // Soins : ce qu'Odin répare tout seul.
     if (e.module === 'naglfar' && e.type === 'conteneur_arrete' && e.data.conteneur) care(`ct:${String(e.data.conteneur)}`, 'naglfar', 'demarrer', { conteneur: String(e.data.conteneur) }, `le conteneur ${String(e.data.conteneur)} s'est arrêté tout seul`, `démarre le conteneur ${String(e.data.conteneur)}`);
     if (e.module === 'ymir' && e.type === 'vm_arretee' && e.data.vmid) care(`vm:${String(e.data.vmid)}`, 'ymir', 'demarrer', { vmid: Number(e.data.vmid) }, `la machine virtuelle ${String(e.data.nom ?? e.data.vmid)} s'est arrêtée toute seule`, `démarre la machine virtuelle ${String(e.data.vmid)}`);

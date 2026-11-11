@@ -197,6 +197,8 @@ const SIGNALS: Record<string, { alone: [string, Record<string, unknown>]; with: 
   naglfar: { alone: ['conteneur_arrete', { conteneur: 'web' }], with: ['skogul', 'suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' }], kind: 'activité anormale' },
   hermod: { alone: ['machine_hors_ligne', { machine: 'NAS' }], with: ['ullr', 'sentinelle', { fichier: '/srv/docs/!000-ne-pas-toucher.docx', action: 'modifié' }], kind: 'rançongiciel' },
   himinbjorg: { alone: ['mouvement', { caméra: 'Bureau', part: 14, surveillé: true }], with: ['ullr', 'support_branche', { dossier: '/media/cle' }], kind: 'intrusion physique' },
+  // Un site web n'a qu'un témoin (Idunn) : son DNS qui change ne dit rien seul ; avec sa page d'accueil qui change aussi, c'est un incident.
+  idunn: { alone: ['dns_change', { site: 'boutique' }], with: ['idunn', 'titre_change', { site: 'boutique' }], kind: 'site détourné' },
 };
 for (const [from, sc] of Object.entries(SIGNALS)) CHECKS[`${from}>ullr`] = async (w) => {
   w.v.ctx(from).emit(sc.alone[0], sc.alone[1]); await wait(40);
@@ -241,6 +243,26 @@ for (const from of ['ullr', 'sindri', 'eir', 'naglfar', 'ymir', 'hermod']) CHECK
   w.v.alert(from, { level: 'haute', title: `Alerte de test ${from}`, detail: 'détail', key: `t:${from}` });
   assert.match((await w.v.act('forseti', 'alertes', { gravite: 'info' })).text, new RegExp(`Alerte de test ${from}`), 'visible dans le fil commun de Forseti');
   assert.ok(await until(() => w.sent.some((s) => s.includes(`Alerte de test ${from}`))), 'envoyée sur ta messagerie');
+};
+
+/** Idunn → Forseti : un site qui ne répond pas deux fois de suite, c'est une alerte critique dans le fil commun et sur ta messagerie. */
+CHECKS['idunn>forseti'] = async (w) => {
+  await w.v.act('idunn', 'ajouter', { adresse: 'http://boutique.exemple', nom: 'boutique' });
+  assert.ok(!w.v.alerts({ module: 'idunn' }).length, 'un seul essai raté : pas encore une panne');
+  await w.v.act('idunn', 'etat', { site: 'boutique' });
+  assert.match((await w.v.act('forseti', 'alertes', { gravite: 'info' })).text, /boutique : le site ne répond plus/, 'visible dans le fil commun de Forseti');
+  assert.ok(await until(() => w.sent.some((s) => s.includes('boutique : le site ne répond plus'))), 'envoyée sur ta messagerie');
+};
+/** Idunn se surveille : chaque mise en production est essayée ; un essai raté propose le retour en arrière, sans jamais le lancer. */
+CHECKS['idunn>idunn'] = async (w) => {
+  await w.v.act('idunn', 'ajouter', { adresse: 'http://boutique.exemple', nom: 'boutique' }); w.acts.length = 0;
+  w.v.ctx('idunn').emit('deploiement_ok', { site: 'boutique', production: false }); await wait(80);
+  assert.ok(!did(w, 'idunn', 'tester'), 'un déploiement d\'aperçu ne déclenche rien');
+  w.v.ctx('idunn').emit('deploiement_ok', { site: 'boutique', production: true });
+  assert.ok(await until(() => did(w, 'idunn', 'tester')), 'une mise en production : le site est essayé');
+  assert.ok(await until(() => w.v.alerts({ module: 'idunn' }).some((a) => /le nouveau déploiement casse quelque chose/.test(a.title) && /reviens à la version précédente du site boutique/.test(a.detail ?? ''))), 'essai raté : tu es prévenu, et le retour en arrière est proposé');
+  assert.ok(!did(w, 'idunn', 'revenir') && !did(w, 'idunn', 'deployer'), 'rien de grave n\'est lancé seul');
+  assert.equal(w.v.manips({ module: 'idunn' }).length, 0, 'un essai n\'est pas une manip : rien à garder ni à annuler');
 };
 
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {

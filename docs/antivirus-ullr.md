@@ -166,14 +166,17 @@ programme, même fichier, ou la même machine dans les mêmes minutes) racontent
 | Naglfar | un conteneur arrêté tout seul |
 | Hermóðr | une machine disparue du réseau |
 | Himinbjörg | un mouvement aux heures surveillées |
+| Idunn | le DNS, le certificat ou la page d'accueil d'un de tes sites qui change |
 | Odin | un mot de passe refusé à la connexion |
 
 Un incident s'ouvre s'il y a un **vrai indice d'attaque** et, soit deux applis qui se recoupent, soit
-un signal qui se suffit (rançongiciel en cours, mot de passe d'Odin essayé cinq fois). Il a un titre, un
+un signal qui se suffit (rançongiciel en cours, mot de passe d'Odin essayé cinq fois), soit, pour un site
+web, deux changements de genres différents sur le même site dont son DNS ou son certificat. Il a un titre, un
 score, une chronologie, et il n'est annoncé qu'une fois (puis seulement s'il s'aggrave).
 
 Exemples : « Cette machine communique avec un attaquant », « Comportement de rançongiciel »,
 « Quelqu'un essaie de deviner ton mot de passe d'Odin », « Installation furtive possible »,
+« Un de tes sites a peut-être été détourné »,
 « Quelqu'un était là : mouvement aux heures surveillées, puis un support branché ».
 
 ### Répondre — toujours annulable

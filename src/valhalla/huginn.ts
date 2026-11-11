@@ -87,7 +87,7 @@ export function minutesIn(text: string): number | undefined {
   return Math.round(n * (/^(h|heure)/.test(u) ? 60 : /^(j|jour)/.test(u) ? 1440 : /^sem/.test(u) ? 10_080 : 1));
 }
 /** Réglages qui reçoivent du texte libre (jamais cherchés parmi les noms connus). */
-const FREE = /^(q|texte|message|note|contenu|resume|commande|raison|etapes|dossiers|horaires|parties|proprietes|chaines|compose|variables|quoi|besoin|fonction|statut|identifiant|mot_de_passe|totp|wifi|odin|depot|source|site|domaines|ids|sujet|entree|valeur|cible)$/;
+const FREE = /^(q|texte|message|note|contenu|resume|commande|raison|etapes|dossiers|horaires|parties|proprietes|chaines|compose|variables|quoi|besoin|fonction|statut|identifiant|mot_de_passe|totp|wifi|odin|depot|source|site|domaines|ids|sujet|entree|valeur|cible|projet|equipe|zone|pages|demande|branche|modele|proprietaire|deploiement|outil|arguments)$/;
 /** Réglages qui ont une forme précise (adresse IP, numéro, date, heure…) : jamais remplis avec « le reste de la phrase ». */
 const TYPED = /^(ip|id|vmid|pid|port|minutes|duree|jour|date|heure|contact|lien|url|adresse)$/;
 /** Mots courants qui peuvent s'afficher dans une page sans désigner une chose de l'appli. */
@@ -101,6 +101,8 @@ export function fill(a: Action, text: string, names: Names, now = new Date()): R
   const ip = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)?.find((x) => isIP(x)) ?? text.match(/\b[0-9a-f:]{3,}:[0-9a-f:]+\b/gi)?.find((x) => isIP(x));
   const url = /\bhttps?:\/\/[^\s"'<>]+|\brtsps?:\/\/[^\s"'<>]+/i.exec(text)?.[0];
   const repo = /\b(?:github\.com\/)?([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\b/.exec(text.replace(/https?:\/\//, ''))?.[0];
+  // Un nom de site écrit sans « https:// » (« surveille le site toufatech.com »).
+  const domain = /(?:^|[\s«"'(])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24})(?:\/[^\s"'«»]*)?(?=[\s,;:!?»"')]|\.?$)/i.exec(text)?.[1];
   const mail = /[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}/i.exec(text)?.[0], phone = /(?:\+\d{1,3}[\s.]?)?(?:\d[\s.]?){9,12}\d/.exec(text)?.[0]?.trim();
   const mac = /\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/i.exec(text)?.[0];
   const when = parseWhen(s, now);
@@ -129,7 +131,7 @@ export function fill(a: Action, text: string, names: Names, now = new Date()): R
       const bare = k === 'dossier' ? undefined : /(?:^|\s)([\w(][\w.()-]*\.[A-Za-z][A-Za-z0-9]{1,4})(?=[\s,;:!?]|$)/.exec(text)?.[1]; if (bare && !/^https?:/i.test(bare)) { input[p.key] = bare; continue; } }
     if (named) { input[p.key] = named; continue; }
     if (/^(ip|adresse_ip)$/.test(k) || (/adresse/.test(lab) && /\bip\b/.test(lab))) { if (ip) input[p.key] = ip; else if (mac && /mac/.test(lab)) input[p.key] = mac; continue; }
-    if (/^(lien|url|adresse|source|site|flux)$/.test(k)) { if (url) input[p.key] = url; else if (/^(lien)$/.test(k) && repo && /github|depot|lien/.test(lab + s)) input[p.key] = repo; else if (ip && /adresse/.test(k)) input[p.key] = ip; if (input[p.key] !== undefined) continue; }
+    if (/^(lien|url|adresse|source|site|flux)$/.test(k)) { if (url) input[p.key] = url; else if (k === 'adresse' && /\bsite\b/.test(lab) && domain) input[p.key] = domain; else if (/^(lien)$/.test(k) && repo && /github|depot|lien/.test(lab + s)) input[p.key] = repo; else if (ip && /adresse/.test(k)) input[p.key] = ip; if (input[p.key] !== undefined) continue; }
     if (/^(minutes|duree)$/.test(k)) { const mn = minutesIn(text); if (mn !== undefined) input[p.key] = mn; continue; }
     if (/^(jour|date)$/.test(k)) { if (dayIso) input[p.key] = dayIso; else if (when) input[p.key] = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, '0')}-${String(when.getDate()).padStart(2, '0')}`; continue; }
     if (/^(heure|debut|fin)$/.test(k)) { if (hour) input[p.key] = `${hour[1].padStart(2, '0')}:${hour[2] ?? '00'}`; continue; }

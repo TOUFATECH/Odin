@@ -28,6 +28,7 @@ export const SENSORS: Array<{ app: string; when: string; what: string }> = [
   { app: 'naglfar', when: 'un conteneur s\'arrête tout seul', what: 'conteneurs arrêtés sans raison' },
   { app: 'hermod', when: 'une machine du parc disparaît', what: 'machines disparues du réseau (pendant une attaque, ou après un passage)' },
   { app: 'himinbjorg', when: 'un mouvement est vu aux heures surveillées', what: 'mouvements aux heures surveillées (avec un support branché : quelqu\'un était là)' },
+  { app: 'idunn', when: 'le DNS, le certificat ou la page d\'accueil d\'un de tes sites change', what: 'changements de DNS, de certificat et de page d\'accueil de tes sites (détournement)' },
 ];
 
 /** Un événement d'une appli → un signal (ou rien s'il n'apprend rien sur la sécurité). */
@@ -51,6 +52,12 @@ export function toSignal(e: { module: string; type: string; data: Record<string,
     case 'odin.connexion_refusee': return ip ? sig(15, `mot de passe d'Odin refusé depuis ${ip}`, [`ip:${ip}`, 'porte'], { attack: 'T1110', anchor: true }) : undefined;
     case 'himinbjorg.mouvement': return d['surveillé'] ? sig(30, `mouvement sur la caméra ${s(d['caméra'])} aux heures surveillées`, ['lieu'], { anchor: true }) : undefined;
     case 'naglfar.conteneur_arrete': return sig(8, `le conteneur ${s(d.conteneur)} s'est arrêté tout seul`, ['machine']);
+    // Tes sites web : un changement seul ne dit rien ; le DNS ou le certificat qui change ET la page aussi, c'est un détournement possible.
+    case 'idunn.dns_change': return sig(35, `le DNS du site ${s(d.site)} a changé`, [`site:${s(d.site)}`], { anchor: true });
+    case 'idunn.certificat_invalide': return sig(40, `le certificat du site ${s(d.site)} n'est plus valable`, [`site:${s(d.site)}`], { anchor: true });
+    case 'idunn.titre_change': return sig(25, `la page d'accueil du site ${s(d.site)} a changé de titre`, [`site:${s(d.site)}`], { attack: 'T1491' });
+    case 'idunn.niveau_securite': return sig(15, `le niveau de sécurité Cloudflare du site ${s(d.site)} a changé`, [`site:${s(d.site)}`]);
+    case 'idunn.hors_ligne': return sig(10, `le site ${s(d.site)} ne répond plus`, [`site:${s(d.site)}`]);
     case 'hermod.machine_hors_ligne': return sig(8, `la machine ${s(d.machine)} a disparu du réseau`, ['machine', 'lieu']);
     default: return undefined;
   }
@@ -79,6 +86,7 @@ function title(sigs: Signal[], apps: (id: string) => string): { title: string; k
   if (has('loki.piege') && has('odin.connexion_refusee')) return { kind: 'attaque ciblée', title: 'Un attaquant tombé dans un piège vise aussi Odin' };
   if (has('forseti.fichier_modifie') && (has('skogul.port_ouvert') || has('skogul.suspect'))) return { kind: 'installation furtive', title: 'Installation furtive possible : fichier système modifié et activité nouvelle' };
   if (has('himinbjorg.mouvement') && has('ullr.support_branche')) return { kind: 'intrusion physique', title: 'Quelqu\'un était là : mouvement aux heures surveillées, puis un support branché sur la machine' };
+  if (has('idunn.dns_change') || has('idunn.certificat_invalide')) return { kind: 'site détourné', title: 'Un de tes sites a peut-être été détourné : son DNS ou son certificat a changé, et le site aussi' };
   if (has('ullr.menace')) return { kind: 'fichier dangereux', title: 'Fichier dangereux, et activité anormale au même moment' };
   if (has('loki.piege')) return { kind: 'attaque', title: 'Un attaquant insiste sur tes pièges' };
   return { kind: 'activité anormale', title: `Activité anormale vue par ${[...new Set(sigs.map((x) => apps(x.app)))].join(', ')}` };
@@ -104,7 +112,9 @@ export class Correlator {
       // (rançongiciel en cours, mot de passe d'Odin essayé cinq fois). Un bannissement est une réponse, pas un témoin.
       const anchors = group.filter((x) => x.anchor), sc = score(group);
       const witnesses = new Set(group.filter((x) => `${x.app}.${x.type}` !== 'garmr.banni').map((x) => x.app));
-      const alone = anchors.some((x) => x.app === 'ullr' && (x.type === 'sentinelle' || x.type === 'rafale')) || anchors.filter((x) => x.app === 'odin' && x.type === 'connexion_refusee').length >= 5;
+      // Un site web n'a qu'un témoin (Idunn) : il faut alors deux changements de genres différents sur le même site, dont son DNS ou son certificat.
+      const site = anchors.some((x) => x.app === 'idunn') && new Set(group.filter((x) => x.app === 'idunn').map((x) => x.type)).size >= 2 && sc >= 45;
+      const alone = site || anchors.some((x) => x.app === 'ullr' && (x.type === 'sentinelle' || x.type === 'rafale')) || anchors.filter((x) => x.app === 'odin' && x.type === 'connexion_refusee').length >= 5;
       if (!anchors.length || !((witnesses.size >= 2 && sc >= 45) || alone)) return { announce: false, responses: [] };
       const id = Math.random().toString(36).slice(2, 8);
       inc = { id, at: new Date(now).toISOString(), updated: new Date(now).toISOString(), title: '', kind: '', score: 0, level: 'moyenne', apps: [], signals: group.slice(-40), state: 'ouvert', done: [], proposed: [], told: 0 };
@@ -121,7 +131,7 @@ export class Correlator {
       inc.done.push(`bannir ${ip}`); responses.push({ kind: 'bannir', ip, why: `incident « ${inc.title} »` });
     }
     const pids = [...new Set(inc.signals.map((x) => x.pid).filter((x): x is number => Boolean(x)))];
-    inc.proposed = [...pids.map((p) => `tue le processus ${p}`), ...(inc.kind === 'intrusion physique' ? ['regarde les enregistrements de la caméra (« les clips »), et ce qui a été branché'] : []), ...(inc.kind === 'rançongiciel' ? ['coupe le réseau de la machine touchée et restaure les fichiers depuis Sindri (« mes sauvegardes »)'] : []), ...(inc.kind === 'force brute' ? ['change ton mot de passe d\'Odin si tu as un doute (Réglages → Accès)'] : [])];
+    inc.proposed = [...pids.map((p) => `tue le processus ${p}`), ...(inc.kind === 'intrusion physique' ? ['regarde les enregistrements de la caméra (« les clips »), et ce qui a été branché'] : []), ...(inc.kind === 'rançongiciel' ? ['coupe le réseau de la machine touchée et restaure les fichiers depuis Sindri (« mes sauvegardes »)'] : []), ...(inc.kind === 'force brute' ? ['change ton mot de passe d\'Odin si tu as un doute (Réglages → Accès)'] : []), ...(inc.kind === 'site détourné' ? ['vérifie les enregistrements DNS du site et les dernières connexions à ton compte Cloudflare', 'si ce n\'est pas toi : change le mot de passe du compte et active la double authentification'] : [])];
     const rank = { moyenne: 0, haute: 1, critique: 2 };
     const announce = inc.told === 0 || rank[inc.level] > rank[before];
     if (announce) inc.told++;

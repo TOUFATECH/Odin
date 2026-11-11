@@ -32,6 +32,7 @@ import { venus } from './modules/venus.ts';
 import { naglfar } from './modules/naglfar.ts';
 import { sindri } from './modules/sindri.ts';
 import { skogul } from './modules/skogul.ts';
+import { idunn, idunnKeys } from './modules/idunn.ts';
 import { ullr, ullrKeys } from './modules/ullr.ts';
 import { syncSheets } from './fiches.ts';
 import { ymir } from './modules/ymir.ts';
@@ -100,7 +101,7 @@ export function coreModules(odin: Pick<Odin, 'paths' | 'cfg'>): Module[] {
 }
 
 export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['tools'] }): Module[] {
-  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ullr, loki, naglfar, ymir, sindri, brisingamen, gjoll, hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
+  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ullr, loki, naglfar, ymir, idunn, sindri, brisingamen, gjoll, hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */
@@ -114,9 +115,11 @@ function ensureSecrets(odin: Odin): void {
     try { writeSecret(odin.paths, k, k === 'BRISINGAMEN_KEY' ? randomBytes(32).toString('hex') : randomBytes(24).toString('base64url')); } catch (e) { console.error(`[valhalla] ${k} : ${(e as Error).message}`); }
   }
   for (const [k, v] of Object.entries(process.env)) if (/^(CAMERA|MCP)_/.test(k) && v) odin.redactor.add(v);
-  for (const k of ['MQTT_PASSWORD', 'BRISINGAMEN_KEY', 'ABUSE_CH_KEY', 'VT_API_KEY']) if (process.env[k]) odin.redactor.add(process.env[k]!);
+  for (const k of ['MQTT_PASSWORD', 'BRISINGAMEN_KEY', 'ABUSE_CH_KEY', 'VT_API_KEY', 'GITHUB_TOKEN', 'VERCEL_TOKEN', 'CLOUDFLARE_API_TOKEN']) if (process.env[k]) odin.redactor.add(process.env[k]!);
   // Les clés des sources de l'antivirus se rangent avec les autres secrets (jamais dans les réglages de l'appli, jamais affichées).
   ullrKeys((name, value) => { writeSecret(odin.paths, name, value); if (value.trim()) odin.redactor.add(value.trim()); });
+  // Les jetons des sites web (GitHub, Vercel, Cloudflare) : même coffre, même masquage.
+  idunnKeys((name, value) => { writeSecret(odin.paths, name, value); if (value.trim()) odin.redactor.add(value.trim()); });
 }
 
 export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts) => Promise<void>, opts: { modules?: Module[] } = {}): () => void {
