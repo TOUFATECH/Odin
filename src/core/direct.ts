@@ -95,7 +95,7 @@ export async function tryDirect(text: string, d: DirectDeps): Promise<Direct> {
   if (d.texts?.rights && /^(?:mes droits|tes droits|es[- ]tu administrateur|tu es administrateur|as[- ]tu les droits(?: administrateur| admin)?|droits (?:admin|administrateur))$/.test(s)) return { done: true, text: d.texts.rights(), why: 'mes droits, je les lis sur la machine', tools };
   if (d.texts?.savings && /^(?:mes economies|economies(?: d'ia| ia)?|combien (?:j'ai|ai[- ]je|on a|tu m'as fait) economise|combien (?:m'a|m'ont) coute (?:l'ia|les ia)|bilan (?:des economies|ia|des ia)|ce que tu fais sans ia)$/.test(s)) return { done: true, text: d.texts.savings(), why: 'calcul fait sur mon journal', tools };
   // Odin lui-même : se redémarrer, se mettre à jour, dire où il en est, se régler. (Chaque action passe par l'outil, donc par Heimdall.)
-  if (d.has('self_restart') && /^(?:redemarre|relance|reboote|restart)(?:[- ]toi)?(?: odin)?(?: maintenant)?$|^(?:tu peux |peux[- ]tu )?(?:te |vous )(?:redemarrer|relancer)$|^redemarrage d'odin$/.test(s)) {
+  if (d.has('self_restart') && /^(?:redemarre|relance|reboote)(?:[- ]toi| odin|[- ]toi odin)(?: maintenant)?$|^(?:tu peux |peux[- ]tu )?(?:te |vous )(?:redemarrer|relancer)(?: maintenant)?$|^redemarrage d'odin$/.test(s)) {
     const r = await run('self_restart', {});
     return { done: true, text: r.content, why: 'me redémarrer, je sais le faire seul', tools };
   }

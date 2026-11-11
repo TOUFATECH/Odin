@@ -909,7 +909,7 @@ h2{font-weight:600}.kpi b{font-weight:600}
 .br-conn{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
 .br-cn{display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
 .br-cn span:not(.br-dot){grid-column:2;font-size:12.5px;color:var(--muted)}
-.br-dot{width:9px;height:9px;border-radius:50%;background:var(--line);grid-row:1}.br-cn.on .br-dot{background:var(--good)}
+.br-dot{width:9px;height:9px;border-radius:50%;background:var(--line);grid-row:1}.br-cn.on .br-dot{background:var(--good)}.br-cn.ready .br-dot{background:transparent;border:2px solid var(--dim)}.br-cn:not(.on) .br-cc{font-weight:500;color:var(--muted)!important}
 .br-cc{font-weight:600;color:var(--ink)!important}
 .br-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
 .br-card{display:flex;flex-direction:column;gap:6px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);font:inherit;cursor:pointer;transition:border-color .15s,transform .15s}
@@ -3603,7 +3603,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   addEventListener('keydown', (e) => { if (tourI < 0) return; if (e.key === 'Escape') tourEnd(true); else if (e.key === 'ArrowRight') tourGo(tourI + 1); else if (e.key === 'ArrowLeft' && tourI > 0) tourGo(tourI - 1); });
   addEventListener('resize', () => { if (tourI >= 0) tourGo(tourI); });
-  // Première connexion : Odin propose la visite (on peut refuser).
+  // Odin propose la visite (on peut refuser). N'est plus appelée d'office : seulement sur demande (window.OdinTour.offer()).
   function tourOffer() {
     let seen = ''; try { seen = localStorage.getItem('odin.tour') || ''; } catch {}
     if (seen || state?.tourDone || tourOffer.done) return; tourOffer.done = true;
@@ -4456,7 +4456,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       setTimeout(connect, 3000);
     };
   }
-  refresh().then(() => { loadHistory(); hashView(); setTimeout(() => window.OdinTour?.offer(), 1500); }); connect();
+  // La visite guidée ne se propose plus toute seule (elle ramenait à la Discussion à chaque nouvel appareil) : elle vient quand tu la demandes
+  // (« visite guidée » dans la discussion, un clic sur Odin, ou Réglages → Plus).
+  refresh().then(() => { loadHistory(); hashView(); }); connect();
 })();
 </script>
 <script nonce="__NONCE__" src="/flows.js"></script>

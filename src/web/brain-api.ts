@@ -8,31 +8,48 @@ import { brainOf } from '../tools/brain.ts';
 
 const vaultOf = (odin: Odin) => brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace });
 
-/** Connecteurs d'Odin qui alimentent le Cerveau, avec leur état et le nombre de notes venues d'eux. */
-function connectors(odin: Odin): Array<{ id: string; label: string; on: boolean; notes: number; what: string }> {
-  const ch = odin.cfg.channels as Record<string, { enabled?: boolean } | undefined>;
+/**
+ * Connecteurs d'Odin qui alimentent le Cerveau, avec leur état VRAI et le nombre de notes venues d'eux :
+ *  - « actif » : un compte à relier, et il est relié (Telegram avec son jeton, la boîte mail renseignée…),
+ *    ou une source sans réglage qui a déjà servi ;
+ *  - « prêt » : rien à régler, mais rien n'en est encore venu (il suffit d'envoyer un lien ou un fichier) ;
+ *  - « non relié » : un compte à relier, pas encore fait.
+ * (`on` = actif, gardé pour le graphe.)
+ */
+export type ConnectorState = 'actif' | 'pret' | 'non-relie';
+export interface Connector { id: string; label: string; on: boolean; state: ConnectorState; notes: number; what: string; how: string }
+export function connectorsOf(cfgIn: unknown, counts: Map<string, number>, env: NodeJS.ProcessEnv = process.env): Connector[] {
+  const cfg = cfgIn as { channels?: Record<string, Record<string, unknown> | undefined>; mail?: Record<string, unknown>; calendar?: Record<string, unknown>; proactive?: { mail?: { enabled?: boolean } } };
+  const ch = cfg.channels ?? {}, c = (k: string) => counts.get(k) ?? 0;
+  const tok = (k: unknown, d: string) => Boolean(env[typeof k === 'string' && k ? k : d]);
+  /** Un compte à relier : actif seulement s'il est vraiment relié. */
+  const account = (id: string, label: string, linked: boolean, what: string, where: string, key = id): Connector => ({ id, label, on: linked, state: linked ? 'actif' : 'non-relie', notes: c(key), what, how: linked ? '' : `à relier dans ${where}` });
+  /** Une source sans réglage : prête d'office, active dès qu'elle a servi. */
+  const open = (id: string, label: string, what: string, how: string, key = id): Connector => ({ id, label, on: c(key) > 0, state: c(key) > 0 ? 'actif' : 'pret', notes: c(key), what, how: c(key) > 0 ? '' : how });
+  return [
+    { id: 'Discussion', label: 'Discussion', on: true, state: 'actif', notes: c('Discussion'), what: 'ce que tu dis à Odin', how: '' },
+    account('Telegram', 'Telegram', Boolean(ch.telegram?.enabled) && tok(ch.telegram?.tokenEnv, 'TELEGRAM_BOT_TOKEN'), 'messages, vocaux, photos, fichiers', 'Réglages → Telegram'),
+    account('WhatsApp', 'WhatsApp', Boolean(ch.whatsapp?.enabled) && Boolean(ch.whatsapp?.phoneId), 'messages et pièces jointes', 'Réglages → Messageries'),
+    account('Signal', 'Signal', Boolean(ch.signal?.enabled) && Boolean(ch.signal?.url) && Boolean(ch.signal?.number), 'messages et pièces jointes', 'Réglages → Messageries'),
+    account('Mail', 'Mail', Boolean(cfg.mail?.imapHost) && Boolean(cfg.mail?.user), 'mails importants, pièces jointes', 'Réglages → Mail'),
+    // L'agenda se lit par son adresse iCal (gardée avec les secrets) et s'écrit par CalDAV : l'un des deux suffit.
+    account('Agenda', 'Agenda', Boolean(env.CALENDAR_ICS_URL) || Boolean(cfg.calendar?.caldavUrl), 'réunions, rendez-vous', 'Réglages → Agenda'),
+    open('YouTube', 'YouTube', 'vidéos résumées et transcrites', 'rien à régler : envoie-moi un lien'),
+    open('TikTok', 'TikTok', 'vidéos résumées et transcrites', 'rien à régler : envoie-moi un lien'),
+    open('Instagram', 'Instagram', 'reels et publications', 'rien à régler : envoie-moi un lien'),
+    open('X', 'X', 'publications', 'rien à régler : envoie-moi un lien'),
+    open('Web', 'Pages web', 'articles et pages, résumés', 'rien à régler : envoie-moi un lien'),
+    open('Fichiers', 'Fichiers', 'PDF, Word, Excel, images', 'rien à régler : envoie-moi un fichier'),
+    open('Vocal', 'Vocaux', 'idées dictées', 'rien à régler : dicte-moi une idée'),
+    open('GitHub', 'GitHub', 'dépôts et outils', 'rien à régler : envoie-moi un lien de dépôt'),
+    open('Draupnir', 'Draupnir', 'automatisations : formulaires, flux, pages surveillées, webhooks', 'rien à régler : crée une automatisation', 'Automatisation'),
+    account('Notion', 'Import Notion', Boolean(env.NOTION_TOKEN), 'pages importées depuis un compte Notion', 'Réglages (clé Notion)'),
+  ];
+}
+function connectors(odin: Odin): Connector[] {
   const counts = new Map<string, number>();
   for (const n of vaultOf(odin).all()) { const s = sourceOf(n); if (s) counts.set(s, (counts.get(s) ?? 0) + 1); }
-  const c = (k: string) => counts.get(k) ?? 0;
-  const cfg = odin.cfg as unknown as Record<string, Record<string, unknown> | undefined>;
-  return [
-    { id: 'Discussion', label: 'Discussion', on: true, notes: c('Discussion'), what: 'ce que tu dis à Odin' },
-    { id: 'Telegram', label: 'Telegram', on: Boolean(ch.telegram?.enabled), notes: c('Telegram'), what: 'messages, vocaux, photos, fichiers' },
-    { id: 'WhatsApp', label: 'WhatsApp', on: Boolean(ch.whatsapp?.enabled), notes: c('WhatsApp'), what: 'messages et pièces jointes' },
-    { id: 'Signal', label: 'Signal', on: Boolean(ch.signal?.enabled), notes: c('Signal'), what: 'messages et pièces jointes' },
-    { id: 'Mail', label: 'Mail', on: Boolean(cfg.mail?.enabled ?? cfg.mail?.imap), notes: c('Mail'), what: 'mails importants, pièces jointes' },
-    { id: 'Agenda', label: 'Agenda', on: Boolean(cfg.calendar?.enabled ?? cfg.calendar?.url), notes: c('Agenda'), what: 'réunions, rendez-vous' },
-    { id: 'YouTube', label: 'YouTube', on: true, notes: c('YouTube'), what: 'vidéos résumées et transcrites' },
-    { id: 'TikTok', label: 'TikTok', on: true, notes: c('TikTok'), what: 'vidéos résumées et transcrites' },
-    { id: 'Instagram', label: 'Instagram', on: true, notes: c('Instagram'), what: 'reels et publications' },
-    { id: 'X', label: 'X', on: true, notes: c('X'), what: 'publications' },
-    { id: 'Web', label: 'Pages web', on: true, notes: c('Web'), what: 'articles et pages, résumés' },
-    { id: 'Fichiers', label: 'Fichiers', on: true, notes: c('Fichiers'), what: 'PDF, Word, Excel, images' },
-    { id: 'Vocal', label: 'Vocaux', on: true, notes: c('Vocal'), what: 'idées dictées' },
-    { id: 'GitHub', label: 'GitHub', on: true, notes: c('GitHub'), what: 'dépôts et outils' },
-    { id: 'Draupnir', label: 'Draupnir', on: true, notes: c('Automatisation'), what: 'automatisations : formulaires, flux, pages surveillées, webhooks' },
-    { id: 'Notion', label: 'Import Notion', on: Boolean(process.env.NOTION_TOKEN), notes: c('Notion'), what: 'pages importées depuis un compte Notion' },
-  ];
+  return connectorsOf(odin.cfg, counts);
 }
 
 export function brainGet(odin: Odin, path: string, q: URLSearchParams): unknown {

@@ -251,7 +251,8 @@ export const DEFAULT_CONFIG: OdinConfig = {
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
   voice: {
-    enabled: false, speakReplies: false, voiceReplies: true, gender: 'homme', femaleVoiceId: '',
+    // Odin répond à voix haute dans l'appli dès qu'une voix est disponible, tant que tu ne l'as pas coupé (Réglages → Voix, ou le bouton 🔊).
+    enabled: false, speakReplies: true, voiceReplies: true, gender: 'homme', femaleVoiceId: '',
     tts: { provider: 'elevenlabs', voiceId: '', voiceName: '', model: 'eleven_multilingual_v2', baseUrl: 'https://api.elevenlabs.io', apiKeyEnv: 'ELEVENLABS_API_KEY' },
     stt: { provider: 'whisper', model: 'whisper-1', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', language: 'fr' },
   },

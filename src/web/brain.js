@@ -206,7 +206,7 @@
           el('figcaption', {}, 'Comment fonctionne ton cerveau : chaque étape tourne en continu, avec les chiffres de ton coffre.')),
         el('h2', { class: 'br-h2' }, 'Connecteurs'),
         el('p', { class: 'br-muted' }, 'Ce qui alimente ton cerveau. Chaque capture reste reliée à sa source dans le graphe.'),
-        el('div', { class: 'br-conn' }, ...t.connectors.map((c) => el('div', { class: `br-cn${c.on ? ' on' : ''}` }, el('span', { class: 'br-dot', 'aria-hidden': 'true' }), el('b', {}, c.label), el('span', {}, c.what), el('span', { class: 'br-cc' }, c.on ? `${c.notes} note${c.notes > 1 ? 's' : ''}` : 'non relié')))),
+        el('div', { class: 'br-conn' }, ...t.connectors.map((c) => el('div', { class: `br-cn${c.state === 'actif' || (!c.state && c.on) ? ' on' : c.state === 'pret' ? ' ready' : ''}` }, el('span', { class: 'br-dot', 'aria-hidden': 'true' }), el('b', {}, c.label), el('span', {}, c.what), el('span', { class: 'br-cc' }, c.state === 'pret' ? `Prêt · ${c.how}` : c.state === 'actif' || (!c.state && c.on) ? `Actif · ${c.notes} note${c.notes > 1 ? 's' : ''}` : `Non relié · ${c.how || 'à régler'}`)))),
         el('h2', { class: 'br-h2' }, 'Récemment'),
         el('div', { class: 'br-cards' }, ...recent.map((n) => el('button', { type: 'button', class: 'br-card', onclick: () => openNote(n.path) }, el('span', { class: 'br-ct' }, ico(IC[n.type] || IC.note, 14), TYPE_LABEL[n.type] || 'Note'), el('b', {}, n.title), el('span', { class: 'br-muted' }, new Date(n.mtime).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))))),
       ),

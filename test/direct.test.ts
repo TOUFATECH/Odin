@@ -250,7 +250,7 @@ test('la ligne sous la réponse dit si une IA a servi, et pourquoi', () => {
 test('sans IA : « redémarre-toi », « mets-toi à jour », « ta version », « tes réglages », « passe en prudent »', async () => {
   const d = deps({ has: (t) => ['self_restart', 'update_apply', 'update_check', 'settings_get', 'settings_set', 'mode_set'].includes(t) });
   for (const [phrase, call] of [
-    ['Redémarre-toi', ['self_restart', {}]], ['redémarre', ['self_restart', {}]], ['Odin, relance-toi stp', ['self_restart', {}]], ['peux-tu te redémarrer ?', ['self_restart', {}]],
+    ['Redémarre-toi', ['self_restart', {}]], ['redémarre Odin', ['self_restart', {}]], ['Odin, relance-toi stp', ['self_restart', {}]], ['peux-tu te redémarrer ?', ['self_restart', {}]],
     ['mets-toi à jour', ['update_apply', {}]], ['Mets à jour Odin', ['update_apply', {}]], ['installe la mise à jour', ['update_apply', {}]],
     ['y a-t-il une mise à jour ?', ['update_check', {}]], ['quelle version as-tu ?', ['update_check', {}]], ['es-tu à jour ?', ['update_check', {}]],
     ['tes réglages', ['settings_get', {}]], ['montre-moi tes réglages', ['settings_get', {}]],
@@ -261,7 +261,7 @@ test('sans IA : « redémarre-toi », « mets-toi à jour », « ta version », 
   }
   // Ce qui n'est pas pour Odin lui-même reste à comprendre : rien n'est lancé.
   const n = d.calls.length;
-  for (const phrase of ['redémarre le serveur de la boutique', 'mets à jour le site', 'redémarre-toi quand tu auras fini la sauvegarde', 'passe en mode avion'])
+  for (const phrase of ['redémarre', 'relance', 'redémarre le serveur de la boutique', 'mets à jour le site', 'redémarre-toi quand tu auras fini la sauvegarde', 'passe en mode avion'])
     assert.equal((await tryDirect(phrase, d)).done, false, phrase);
   assert.equal(d.calls.length, n);
 });

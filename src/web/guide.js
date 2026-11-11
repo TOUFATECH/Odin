@@ -29,6 +29,8 @@
   };
   // Les dernières améliorations (les plus récentes en premier).
   const NEWS = [
+    ['Odin se règle lui-même', 'Dis « redémarre-toi », « mets-toi à jour », « passe en prudent » ou « tes réglages » : je le fais, même sans IA. Ce qui baisse la sécurité ou engage de l\'argent attend ton accord.'],
+    ['Connecteurs', 'Dans le Cerveau, un connecteur est « actif » seulement quand il est vraiment relié, et « prêt » quand il n\'y a rien à régler. La visite guidée ne s\'ouvre plus toute seule : demande-la quand tu veux.'],
     ['Mise à jour', 'Une mise à jour ne peut plus me laisser par terre : si mes propres retouches ne s\'accordent pas avec la nouvelle version, je garde la version publiée et je mets mes retouches de côté (rien n\'est perdu). Et si mon code est abîmé au démarrage, je le répare tout seul.'],
     ['Sans IA d\'abord', 'Ce que je sais faire seul, je ne le confie plus à une IA : c\'est plus rapide et ça ne coûte rien. Sous chaque réponse, je dis si une IA a servi et pourquoi. Quand une IA règle une demande par une seule action, je l\'apprends et je la refais ensuite sans elle. Réglages → Modèle → Économies.'],
     ['Droits', 'Je suis administrateur de ma machine partout (Linux, conteneur, Mac, Windows). S\'il me manque des droits, je te dis la vraie cause et la commande à lancer une fois, au lieu de réclamer un mot de passe. Réglages → Droits et machines.'],

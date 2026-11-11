@@ -111,3 +111,24 @@ test('outils du Cerveau : n\'importe quelle IA capture, retrouve, retient les d�
     assert.match(o.provider.calls[0].system, /TON DEUXIÈME CERVEAU/);
   } finally { o.cleanup(); }
 });
+
+test('Cerveau · connecteurs : actif seulement quand c\'est vraiment relié, « prêt » quand il n\'y a rien à régler', async () => {
+  const { connectorsOf } = await import('../src/web/brain-api.ts');
+  const state = (cfg: unknown, counts: Record<string, number> = {}, env: Record<string, string> = {}) => Object.fromEntries(connectorsOf(cfg, new Map(Object.entries(counts)), env).map((c) => [c.id, c.state]));
+  // Installation neuve : rien de relié. Les sources sans réglage sont « prêtes », pas « actives ».
+  const fresh = state({ channels: { telegram: { enabled: false, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners: [] } }, mail: { imapHost: '', user: '' }, calendar: { caldavUrl: '' } });
+  assert.equal(fresh.Discussion, 'actif');
+  for (const k of ['Telegram', 'WhatsApp', 'Signal', 'Mail', 'Agenda', 'Notion']) assert.equal(fresh[k], 'non-relie', k);
+  for (const k of ['YouTube', 'TikTok', 'Instagram', 'X', 'Web', 'Fichiers', 'Vocal', 'GitHub', 'Draupnir']) assert.equal(fresh[k], 'pret', k);
+  // Telegram coché sans jeton : pas relié. Avec son jeton : actif.
+  const tg = { channels: { telegram: { enabled: true, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners: ['1'] } } };
+  assert.equal(state(tg).Telegram, 'non-relie'); assert.equal(state(tg, {}, { TELEGRAM_BOT_TOKEN: 'x' }).Telegram, 'actif');
+  // La boîte mail et l'agenda renseignés : actifs (ils ne l'étaient jamais avant, faute de lire les bons réglages).
+  const full = state({ channels: {}, mail: { imapHost: 'imap.exemple.fr', user: 'moi@exemple.fr' }, calendar: { caldavUrl: 'https://agenda.exemple.fr/dav' } }, { YouTube: 3, Automatisation: 1 }, { NOTION_TOKEN: 'x' });
+  assert.equal(full.Mail, 'actif'); assert.equal(full.Agenda, 'actif'); assert.equal(full.Notion, 'actif');
+  // Une source sans réglage devient active dès qu'elle a servi.
+  assert.equal(full.YouTube, 'actif'); assert.equal(full.Draupnir, 'actif'); assert.equal(full.TikTok, 'pret');
+  const list = connectorsOf({ channels: {} }, new Map(), {});
+  assert.ok(list.every((c) => c.on === (c.state === 'actif')), '« on » suit l\'état');
+  assert.match(list.find((c) => c.id === 'Telegram')!.how, /Réglages → Telegram/); assert.equal(state({ channels: {} }, {}, { CALENDAR_ICS_URL: 'https://x' }).Agenda, 'actif', 'l\'adresse iCal suffit'); assert.match(list.find((c) => c.id === 'Web')!.how, /rien à régler/);
+});
