@@ -53,7 +53,8 @@ async function play(ctx: ModCtx, url: string, where: string): Promise<string> {
     await haApi(ha, token, 'POST', '/services/media_player/play_media', { entity_id: p.entity_id, media_content_id: url, media_content_type: 'music' });
     return `▶ Sur ${p.attributes.friendly_name ?? p.entity_id}.`;
   }
-  const bin = (await ctx.has('mpv')) ? ['mpv', ['--no-video', '--really-quiet', url]] as const : (await ctx.has('ffplay')) ? ['ffplay', ['-nodisp', '-autoexit', '-loglevel', 'quiet', url]] as const : undefined;
+  // « -- » / « -i » : ce qui suit est toujours lu comme le morceau à jouer, jamais comme une option du lecteur.
+  const bin = (await ctx.has('mpv')) ? ['mpv', ['--no-video', '--really-quiet', '--', url]] as const : (await ctx.has('ffplay')) ? ['ffplay', ['-nodisp', '-autoexit', '-loglevel', 'quiet', '-i', url]] as const : undefined;
   if (!bin) throw new Error('ni mpv ni ffplay sur cette machine');
   void ctx.run(bin[0], [...bin[1]], { timeoutMs: 6 * 3600_000 });
   return '▶ Lecture sur cette machine.';

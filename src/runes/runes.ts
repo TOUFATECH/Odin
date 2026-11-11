@@ -259,7 +259,9 @@ export class Runes {
   private key(path: string) { return createHash('sha1').update(path).digest('hex').slice(0, 16); }
   snapshot(path: string, meta: NoteMeta, body: string): void {
     const d = join(this.dir, 'historique', this.key(path)); mkdirSync(d, { recursive: true });
-    writeFileSync(join(d, `${Date.now()}.json`), JSON.stringify({ path, meta, body }));
+    // Deux modifications dans la même milliseconde ne doivent pas s'écraser : chaque version a son instant à elle.
+    let at = Date.now(); while (existsSync(join(d, `${at}.json`))) at++;
+    writeFileSync(join(d, `${at}.json`), JSON.stringify({ path, meta, body }));
     const all = readdirSync(d).sort(); for (const f of all.slice(0, Math.max(0, all.length - 30))) writeFileSync(join(d, f), ''); // vidé, pas supprimé
   }
   history(path: string): Array<{ at: number; size: number }> {

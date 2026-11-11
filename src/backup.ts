@@ -16,7 +16,7 @@ import { unzip, zip, type ZipEntry } from './files/zip.ts';
 const MAGIC = Buffer.from('ODINBK1');
 const SCRYPT = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 /** Jamais sauvegardé : journaux (volumineux, sans valeur) et certificat (régénéré) ; le jeton web est recréé. */
-const SKIP = new Set(['logs', 'web-cert', 'web-token', 'odin.db-wal', 'odin.db-shm', 'odin.db-journal', 'node_modules', 'inbox']);
+const SKIP = new Set(['logs', 'web-cert', 'web-token', 'sessions.json', 'sessions.json.tmp', 'compte.json.tmp', 'odin.db-wal', 'odin.db-shm', 'odin.db-journal', 'node_modules', 'inbox']);
 const MAX_FILE = 200 * 1024 * 1024;
 
 export interface BackupOptions {
@@ -94,7 +94,7 @@ export function restoreBackup(paths: OdinPaths, data: Buffer, password: string):
     const dest = join(paths.home, ...name.split('/'));
     mkdirSync(dirname(dest), { recursive: true });
     if (existsSync(dest)) { replaced.push(name); rmSync(`${dest}.avant-restauration`, { force: true }); renameSync(dest, `${dest}.avant-restauration`); }
-    writeFileSync(dest, buf, { mode: /^(env|web-token|admin\.json|machines\.json|vault\.json|backup-pass|vapid\.json|codex-auth\.json|push\.json|[^/]*\.enc)$/.test(name) ? 0o600 : 0o644 });
+    writeFileSync(dest, buf, { mode: /^(env|web-token|compte\.json|admin\.json|machines\.json|vault\.json|backup-pass|vapid\.json|codex-auth\.json|push\.json|[^/]*\.enc)$/.test(name) ? 0o600 : 0o644 });
   }
   // Base SQLite : les fichiers WAL de l'ancienne base ne doivent pas se mélanger à la nouvelle.
   for (const suffix of ['-wal', '-shm', '-journal']) rmSync(paths.db + suffix, { force: true });

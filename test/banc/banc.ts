@@ -13,6 +13,7 @@ import { parefeu } from './scenarios/parefeu.ts';
 import { pieges } from './scenarios/pieges.ts';
 import { proxmox } from './scenarios/proxmox.ts';
 import { relais } from './scenarios/relais.ts';
+import { securite } from './scenarios/securite.ts';
 import { tasmota } from './scenarios/tasmota.ts';
 import { telegram } from './scenarios/telegram.ts';
 import { telegramReel } from './scenarios/telegram-reel.ts';
@@ -20,7 +21,7 @@ import { venus } from './scenarios/venus.ts';
 import { vpn } from './scenarios/vpn.ts';
 
 /** Vrais services d'abord, puis ceux dont le protocole est rejoué par un simulateur. */
-export const SCENARIOS: Scenario[] = [docker, parefeu, pieges, vpn, cameras, venus, homeassistant, relais, github, mcp, mcpServeur, proxmox, tasmota, telegram, telegramReel];
+export const SCENARIOS: Scenario[] = [securite, docker, parefeu, pieges, vpn, cameras, venus, homeassistant, relais, github, mcp, mcpServeur, proxmox, tasmota, telegram, telegramReel];
 /** Scénarios sans rien d'autre que Node : rejoués aussi par `npm test`. */
 export const SIMULES: Scenario[] = [proxmox, tasmota, telegram];
 

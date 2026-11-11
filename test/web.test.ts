@@ -13,7 +13,7 @@ test('interface web : jeton, hôte, en-tête anti-CSRF, discussion et validation
   const token = ensureWebToken(o.paths);
   assert.equal(ensureWebToken(o.paths), token, 'jeton stable');
   const gw = new Gateway(o, { owners: { web: ['*'] } });
-  gw.add(new WebChannel(o, { scanNetwork: () => gw.scanNetwork(false) }, { port, host: '127.0.0.1', token }));
+  gw.add(new WebChannel(o, { scanNetwork: () => gw.scanNetwork(false) }, { port, host: '127.0.0.1', token, scryptN: 1024 }));
   await gw.start();
   const B = `http://127.0.0.1:${port}`;
   const auth = { authorization: `Bearer ${token}` };
@@ -23,9 +23,18 @@ test('interface web : jeton, hôte, en-tête anti-CSRF, discussion et validation
   const rebound = await new Promise<number>((res) => get({ host: '127.0.0.1', port, path: '/api/state', headers: { ...auth, host: 'attaquant.example' } }, (r) => { r.resume(); res(r.statusCode!); }));
   assert.equal(rebound, 403);
   assert.equal((await fetch(`${B}/api/message`, { method: 'POST', headers: auth, body: '{"text":"x"}' })).status, 403);
-  const page = await fetch(`${B}/`, { headers: { cookie: `odin_token=${token}` } });
-  assert.match(page.headers.get('content-security-policy')!, /script-src 'nonce-/);
+  // Le lien de première connexion (jeton) ne donne qu'un droit : créer le compte.
+  const setup = await fetch(`${B}/`, { headers: { cookie: `odin_token=${token}` } });
+  assert.match(setup.headers.get('content-security-policy')!, /script-src 'nonce-/);
+  const setupHtml = await setup.text();
+  assert.match(setupHtml, /const AUTHED = false/); assert.match(setupHtml, /const ACCOUNT = false, SETUP = true/);
+  assert.equal((await fetch(`${B}/api/state`, { headers: { cookie: `odin_token=${token}` } })).status, 401, 'le jeton en cookie n\'ouvre pas l\'interface');
+  const made = await fetch(`${B}/api/account/create`, { method: 'POST', headers: { cookie: `odin_token=${token}`, 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' }) });
+  assert.equal(made.status, 200);
+  const session = made.headers.getSetCookie().find((c) => c.startsWith('odin_session='))!.split(';')[0];
+  const page = await fetch(`${B}/`, { headers: { cookie: session } });
   assert.match(await page.text(), /const AUTHED = true/);
+  assert.equal((await fetch(`${B}/api/state`, { headers: { cookie: session } })).status, 200, 'connecté avec le compte');
 
   // Flux temps réel : on lit les évènements pendant que Odin travaille.
   const ctrl = new AbortController();
@@ -61,21 +70,26 @@ test('première connexion sans jeton : une seule fois, depuis le réseau local, 
   const port = 21000 + Math.floor(Math.random() * 20000);
   const token = ensureWebToken(o.paths);
   const gw = new Gateway(o, { owners: { web: ['*'] } });
-  gw.add(new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token }));
+  gw.add(new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token, scryptN: 1024 }));
   await gw.start();
   const B = `http://127.0.0.1:${port}`;
+  const create = (h: Record<string, string> = { 'x-odin': '1' }) => fetch(`${B}/api/account/create`, { method: 'POST', headers: { 'content-type': 'application/json', ...h }, body: JSON.stringify({ prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' }) });
   try {
-    assert.match(await (await fetch(`${B}/`)).text(), /if \(true\) \{\s*\$\('#claimBox'\)/, 'page d\'accueil : bouton « Commencer »');
-    assert.equal((await fetch(`${B}/api/claim`, { method: 'POST' })).status, 403, 'en-tête anti-CSRF exigé');
-    const r = await fetch(`${B}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } });
+    assert.match(await (await fetch(`${B}/`)).text(), /const ACCOUNT = false, SETUP = true/, 'page d\'accueil : création du compte proposée');
+    assert.equal((await create({})).status, 403, 'en-tête anti-CSRF exigé');
+    const r = await create();
     assert.equal(r.status, 200);
-    const cookie = (r.headers.get('set-cookie') ?? '').split(';')[0];
-    assert.equal(cookie, `odin_token=${token}`, 'ce navigateur reçoit l\'accès');
-    assert.equal((await fetch(`${B}/api/state`, { headers: { cookie } })).status, 200);
-    // Déjà fait : plus jamais sans jeton.
-    assert.equal((await fetch(`${B}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } })).status, 403);
-    assert.match(await (await fetch(`${B}/`)).text(), /if \(false\) \{\s*\$\('#claimBox'\)/);
+    const cookies = r.headers.getSetCookie();
+    const cookie = cookies.find((c) => c.startsWith('odin_session='))!;
+    assert.match(cookie, /^odin_session=[A-Za-z0-9_-]{43}; HttpOnly; SameSite=Strict; Path=\//, 'session : cookie invisible pour les scripts, jamais envoyé depuis un autre site');
+    assert.equal(cookie.includes(token), false, 'le cookie ne contient pas la clé d\'API');
+    assert.equal((await fetch(`${B}/api/state`, { headers: { cookie: cookie.split(';')[0] } })).status, 200);
+    // Déjà fait : un seul compte, et il faut se connecter.
+    assert.equal((await create()).status, 409);
+    assert.match(await (await fetch(`${B}/`)).text(), /const ACCOUNT = true, SETUP = false/);
     assert.equal((await fetch(`${B}/api/state`)).status, 401);
+    assert.equal((await fetch(`${B}/api/state`, { headers: { cookie: `odin_token=${token}` } })).status, 401, 'compte créé : le jeton en cookie ne vaut plus rien');
+    assert.equal((await fetch(`${B}/?token=${token}`, { redirect: 'manual' })).headers.get('set-cookie'), null, 'le lien avec jeton ne donne plus de cookie');
   } finally { await gw.stop(); o.cleanup(); }
 });
 
@@ -84,11 +98,12 @@ test('première configuration : sans jeton même après l\'heure, tant qu\'Odin 
   o.demo = true;
   const port = 21000 + Math.floor(Math.random() * 20000);
   const token = ensureWebToken(o.paths);
-  const web = new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token });
+  const web = new WebChannel(o, { scanNetwork: async () => undefined }, { port, host: '127.0.0.1', token, scryptN: 1024 });
   (web as unknown as { startedAt: number }).startedAt = Date.now() - 5 * 3600_000; // démarré il y a 5 h
   const gw = new Gateway(o, { owners: { web: ['*'] } }); gw.add(web); await gw.start();
   try {
-    assert.equal((await fetch(`http://127.0.0.1:${port}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } })).status, 200);
+    const made = await fetch(`http://127.0.0.1:${port}/api/account/create`, { method: 'POST', headers: { 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' }) });
+    assert.equal(made.status, 200, 'le compte se crée depuis le réseau local, sans lien');
   } finally { await gw.stop(); o.cleanup(); }
 });
 

@@ -122,7 +122,8 @@ export function lanAddresses(): string[] {
 export function accessUrls(web: OdinConfig['web'], token: string, actual?: { access: WebAccess; https: boolean }): string[] {
   if (actual) web = { ...web, access: actual.access };
   const scheme = (actual ? actual.https : servesTls(web)) ? 'https' : 'http';
-  const q = `/?token=${token}`;
+  // Sans jeton (compte déjà créé) : le lien mène à l'écran de connexion.
+  const q = token ? `/?token=${token}` : '/';
   const urls = [`${scheme}://${web.access === 'local' && web.host === '::1' ? '[::1]' : '127.0.0.1'}:${web.port}${q}`];
   if (web.access !== 'local') {
     for (const ip of lanAddresses()) urls.push(`${scheme}://${ip}:${web.port}${q}`);

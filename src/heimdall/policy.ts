@@ -342,7 +342,7 @@ export function jailPath(root: string, p: string): string {
 }
 
 /** Fichiers d'Odin qui contiennent tes secrets : jamais lus ni écrits par les outils de fichiers. */
-const SECRET_FILES = /(^|[\\/])\.odin[\\/](\.env|env|admin\.json|machines\.json|codex-auth\.json|web-token|askpass[^\\/]*|id_ed25519[^\\/]*|secrets?[^\\/]*|vault\.json|backup-pass|vapid\.json|[^\\/]*\.enc)$/i;
+const SECRET_FILES = /(^|[\\/])\.odin[\\/](\.env|env|admin\.json|machines\.json|codex-auth\.json|web-token|compte\.json|sessions\.json|askpass[^\\/]*|id_ed25519[^\\/]*|secrets?[^\\/]*|vault\.json|backup-pass|vapid\.json|[^\\/]*\.enc)$/i;
 
 /**
  * Chemin pour les outils de fichiers. Avec l'accès complet (propriétaire), un chemin absolu

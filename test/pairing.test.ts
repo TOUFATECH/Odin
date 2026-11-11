@@ -37,7 +37,7 @@ test('demande d\'accès de bout en bout : Telegram « Autoriser » → le naviga
   const sent: Array<{ text: string; opts?: unknown }> = [];
   const tg: Channel = { name: 'telegram', interactive: true, defaultPeer: '42', start: async () => {}, stop: async () => {}, send: async (_p, text, opts) => { sent.push({ text, opts }); } };
   const gw = new Gateway(o, { owners: { telegram: ['42'], web: ['*'] } });
-  const web = new WebChannel(o, { scanNetwork: async () => undefined, pairAsk: (r) => gw.pairAsk(r) }, { port: p, host: '127.0.0.1', token });
+  const web = new WebChannel(o, { scanNetwork: async () => undefined, pairAsk: (r) => gw.pairAsk(r) }, { port: p, host: '127.0.0.1', token, scryptN: 1024 });
   gw.add(tg).add(web);
   await gw.start();
   const B = `http://127.0.0.1:${p}`, post = (path: string, h: Record<string, string> = {}) => fetch(B + path, { method: 'POST', headers: { 'x-odin': '1', ...h } });
@@ -62,7 +62,7 @@ test('demande d\'accès de bout en bout : Telegram « Autoriser » → le naviga
     assert.equal((await done.json() as { state: string }).state, 'ok');
     const cookie = done.headers.get('set-cookie')!;
     assert.match(cookie, /odin_token=[a-f0-9]+; HttpOnly; SameSite=Strict/);
-    assert.equal((await fetch(B + '/api/state', { headers: { cookie: cookie.split(';')[0] } })).status, 200, 'le navigateur est connecté');
+    assert.equal((await fetch(B + '/api/state', { headers: { cookie: cookie.split(';')[0] } })).status, 401, 'autorisé à créer le compte, pas encore connecté');
     // Refus depuis un écran déjà connecté.
     const r2 = await (await post('/api/pair')).json() as { secret: string };
     const st = await (await fetch(B + '/api/state', { headers: { authorization: `Bearer ${token}` } })).json() as { pairRequests: Array<{ id: string }> };
@@ -71,6 +71,12 @@ test('demande d\'accès de bout en bout : Telegram « Autoriser » → le naviga
     const no = await post('/api/pair/status', { 'x-pair': r2.secret });
     assert.equal((await no.json() as { state: string }).state, 'refus');
     assert.equal(no.headers.get('set-cookie'), null);
+    // L'appareil autorisé crée le compte : il est alors connecté, et la demande d'accès ne sert plus.
+    const made = await fetch(B + '/api/account/create', { method: 'POST', headers: { cookie: cookie.split(';')[0], 'x-odin': '1', 'content-type': 'application/json' }, body: JSON.stringify({ prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' }) });
+    assert.equal(made.status, 200);
+    const session = made.headers.getSetCookie().find((c) => c.startsWith('odin_session='))!.split(';')[0];
+    assert.equal((await fetch(B + '/api/state', { headers: { cookie: session } })).status, 200, 'le navigateur est connecté');
+    assert.equal((await post('/api/pair')).status, 403, 'compte créé : on se connecte avec ses identifiants');
   } finally { await gw.stop(); o.cleanup(); }
 });
 
@@ -82,14 +88,17 @@ test('réinstallation sans modèle ni messagerie : la première connexion reste 
   writeFileSync(join(o.paths.home, 'web-claimed'), 'ancienne installation\n');
   const p = port(), token = ensureWebToken(o.paths);
   const gw = new Gateway(o, { owners: { web: ['*'] } });
-  gw.add(new WebChannel(o, { scanNetwork: async () => undefined }, { port: p, host: '127.0.0.1', token }));
+  gw.add(new WebChannel(o, { scanNetwork: async () => undefined }, { port: p, host: '127.0.0.1', token, scryptN: 1024 }));
   await gw.start();
   try {
     const page = await (await fetch(`http://127.0.0.1:${p}/`)).text();
-    assert.match(page, /if \(true\) \{/, 'accueil « Commencer » proposé');
-    const c = await fetch(`http://127.0.0.1:${p}/api/claim`, { method: 'POST', headers: { 'x-odin': '1' } });
-    assert.equal(c.status, 200);
+    assert.match(page, /const ACCOUNT = false, SETUP = true/, 'création du compte proposée');
     const proxied = await (await fetch(`http://127.0.0.1:${p}/`, { headers: { 'x-forwarded-for': '8.8.8.8' } })).text();
+    assert.match(proxied, /const ACCOUNT = false, SETUP = false/, 'par un tunnel : pas de création sans le lien');
     assert.match(proxied, /const CLAIM_WHY = "tu passes par un tunnel/, 'la raison du refus est expliquée');
+    const body = JSON.stringify({ prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' }), H = { 'x-odin': '1', 'content-type': 'application/json' };
+    assert.equal((await fetch(`http://127.0.0.1:${p}/api/account/create`, { method: 'POST', headers: { ...H, 'x-forwarded-for': '8.8.8.8' }, body })).status, 403, 'par un tunnel : refusé');
+    const c = await fetch(`http://127.0.0.1:${p}/api/account/create`, { method: 'POST', headers: H, body });
+    assert.equal(c.status, 200);
   } finally { await gw.stop(); o.cleanup(); }
 });

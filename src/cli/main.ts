@@ -22,6 +22,7 @@ import { Gateway } from '../bifrost/gateway.ts';
 import { TelegramChannel } from '../bifrost/channels/telegram.ts';
 import { HttpChannel } from '../bifrost/channels/http.ts';
 import { ensureWebToken, WebChannel } from '../web/server.ts';
+import { Accounts } from '../web/account.ts';
 import { DiscordChannel } from '../bifrost/channels/discord.ts';
 import { noteError } from '../guard/selfcheck.ts';
 import { SlackChannel } from '../bifrost/channels/slack.ts';
@@ -289,7 +290,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       if (access === 'lan') console.log(c.dim(`  Réseaux autorisés : ${allowedNetworks(w).join(', ') || 'aucun détecté (cette machine seulement)'}`));
       if (tls?.selfSigned) console.log(c.dim(`  Certificat auto-signé : accepte-le dans le navigateur après avoir vérifié l'empreinte\n  ${tls.fingerprint}`));
       if (access === 'wan' && w.behindProxy) console.log(c.dim('  Internet via ton proxy HTTPS (web.behindProxy).'));
-      console.log(c.dim('  (liens personnels : ils contiennent ton jeton d\'accès, ne les partage pas)\n'));
+      console.log(c.dim(web.accounts.exists() ? '  (connecte-toi avec ton adresse e-mail et ton mot de passe ; mot de passe oublié : « odin compte oublier »)\n' : '  (lien de première connexion : il sert à créer ton compte, ne le partage pas)\n'));
       if (odin.demo) console.log(c.yellow('  → Termine la configuration dans l\'onglet Réglages.\n'));
     } else console.log(c.dim('[odin] services relancés'));
     if (openBrowser) openUrl(web.url);
@@ -742,8 +743,10 @@ async function main(): Promise<void> {
     // Les liens personnels (avec jeton), sans démarrer l'interface : utile quand Odin tourne en service.
     const paths = odinPaths(); initHome(paths);
     const cfg = loadConfig(paths), token = ensureWebToken(paths);
-    console.log(`${c.cyan('ᛟ')} Liens personnels d'Odin (ils contiennent ton jeton : ne les partage pas) :`);
-    for (const u of accessUrls(cfg.web, token)) console.log(`  ${u}`);
+    // Compte créé : simples adresses (on s'y connecte avec e-mail + mot de passe). Sinon : liens de première connexion.
+    const has = new Accounts(paths.home).exists();
+    console.log(has ? `${c.cyan('ᛟ')} Adresses d'Odin (connexion avec ton adresse e-mail et ton mot de passe) :` : `${c.cyan('ᛟ')} Liens de première connexion (ils servent à créer ton compte : ne les partage pas) :`);
+    for (const u of accessUrls(cfg.web, has ? '' : token)) console.log(`  ${u}`);
     if (!cfg.web.tls.enabled && cfg.web.access !== 'local') console.log(c.dim('  (HTTPS : le navigateur demandera d\'accepter le certificat d\'Odin une fois)'));
     return;
   }
@@ -770,7 +773,29 @@ async function main(): Promise<void> {
     console.log(r.ok ? (refuse ? c.yellow(`✗ Accès refusé à ${pick.device} (code ${pick.code}).`) : c.green(`✓ ${pick.device} (code ${pick.code}) a maintenant accès à Odin.`)) : c.red(String(r.error ?? 'échec')));
     return;
   }
-  if (cmd === 'web' && pos[1] === 'rotate') { ensureWebToken(odinPaths(), true); console.log(c.green('✓ Nouveau jeton : les anciens liens ne marchent plus. Relance « odin web » pour voir les nouveaux.')); return; }
+  if (cmd === 'compte') {
+    // Le compte du propriétaire (prénom, nom, e-mail). « oublier » : mot de passe perdu — le compte est
+    // effacé (jamais les données d'Odin) et le lien de première connexion permet d'en recréer un.
+    // Possible seulement ici, sur la machine d'Odin : personne ne peut le faire par le réseau.
+    const paths = odinPaths(); initHome(paths);
+    const acc = new Accounts(paths.home), p = acc.profile();
+    if (pos[1] === 'oublier' || pos[1] === 'reset') {
+      if (!p) { console.log('Aucun compte pour l\'instant : ouvre Odin dans un navigateur pour le créer (« odin link » donne le lien).'); return; }
+      acc.reset();
+      const cfg = loadConfig(paths), token = ensureWebToken(paths, true);
+      console.log(c.green(`✓ Compte de ${p.prenom} effacé, tous les appareils sont déconnectés. Tes données sont intactes.`));
+      console.log('Recrée ton compte avec ce lien de première connexion (ne le partage pas) :');
+      for (const u of accessUrls(cfg.web, token)) console.log(`  ${u}`);
+      console.log(c.dim('Si Odin tourne en service, redémarre-le pour qu\'il prenne le nouveau lien : systemctl --user restart odin'));
+      return;
+    }
+    if (!p) { console.log('Aucun compte pour l\'instant. Il se crée à la première connexion dans le navigateur (prénom, nom, adresse e-mail, mot de passe).'); return; }
+    console.log(`${c.cyan('ᛟ')} Compte d'Odin : ${p.prenom} ${p.nom} · ${p.email}`);
+    console.log(c.dim(`  créé le ${new Date(p.created).toLocaleDateString('fr-FR')} · ${acc.sessions().length} appareil(s) connecté(s)`));
+    console.log(c.dim('  Mot de passe oublié : odin compte oublier'));
+    return;
+  }
+  if (cmd === 'web' && pos[1] === 'rotate') { ensureWebToken(odinPaths(), true); console.log(c.green('✓ Nouvelle clé d\'API : les programmes qui utilisaient l\'ancienne (raccourcis, MCP) doivent être mis à jour.')); return; }
   if (cmd === 'web') return gateway(!flags.has('--no-open'));
   if (cmd === 'breaker') return breakerCmd(pos[1]);
   if (cmd === 'doctor') return doctor();

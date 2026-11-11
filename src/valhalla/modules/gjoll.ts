@@ -29,6 +29,8 @@ export function homeLans(subnets = localSubnets()): string[] {
 function server(ctx: ModCtx): Server {
   let sv = ctx.settings.server as Server | undefined;
   if (!sv) { const k = keypair(); sv = { ...k, net: '10.8.0', port: 51820, endpoint: s(ctx.settings.endpoint) || '[ADRESSE PUBLIQUE OU DOMAINE]', dns: '', iface: 'wg0' }; ctx.saveSettings({ server: sv }); }
+  // Le nom de l'interface part dans des commandes lancées en administrateur : lettres, chiffres, tiret, rien d'autre.
+  if (!/^[A-Za-z][A-Za-z0-9_-]{0,14}$/.test(String(sv.iface))) sv = { ...sv, iface: 'wg0' };
   return sv;
 }
 /** Complète ce qui dépend de la machine (une fois) : réseaux de la maison, DNS, façon de faire suivre le trafic. */
@@ -83,7 +85,7 @@ async function apply(ctx: ModCtx): Promise<string> {
   if (cp.code) return `Configuration prête (${f}) mais je n'ai pas les droits pour l'installer : ${cp.err.trim()}`;
   const up = await ctx.run('wg', ['show', sv.iface], { sudo: true });
   // Interface éteinte : on l'allume ; allumée : on recharge sans couper les connexions en cours.
-  const r = up.code ? await ctx.run('wg-quick', ['up', sv.iface], { sudo: true }) : await ctx.run('bash', ['-c', `wg syncconf ${sv.iface} <(wg-quick strip ${sv.iface})`], { sudo: true });
+  const r = up.code ? await ctx.run('wg-quick', ['up', sv.iface], { sudo: true }) : await ctx.run('bash', ['-c', 'wg syncconf "$1" <(wg-quick strip "$1")', 'gjoll', sv.iface], { sudo: true });
   if (r.code) return `Configuration installée mais le tunnel n'a pas pu démarrer : ${r.err.trim().split('\n').pop()}`;
   return `✅ Tunnel ${sv.iface} à jour (${peers(ctx).filter((p) => p.enabled).length} appareil(s)).`;
 }

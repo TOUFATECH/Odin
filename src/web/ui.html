@@ -200,6 +200,16 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .stat span{color:var(--muted);font-size:13px}
 .login{margin:auto;max-width:420px;padding:32px;display:flex;flex-direction:column;gap:14px}
 .login input{min-height:48px;padding:0 14px;border-radius:10px;border:1px solid var(--field);background:var(--panel)}
+.login form{display:flex;flex-direction:column;gap:10px}.login form[hidden]{display:none}
+.login label{font-size:14px;color:var(--muted)}
+.lg-title{margin:0;font-size:18px;font-weight:600;text-align:center}.lg-c{margin:0;text-align:center}
+.lg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.lg-row>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.lg-row input,.login form>input{width:100%;min-width:0}
+.lg-pass{display:flex;gap:8px}.lg-pass input{flex:1;min-width:0}.lg-pass .btn{min-height:48px;flex:none}
+.lg-meter{height:6px;border-radius:3px;background:var(--field);overflow:hidden}.lg-meter i{display:block;height:100%;width:0;border-radius:3px;transition:width .2s,background-color .2s}
+.login .lg-err{color:var(--bad);font-size:14px}.login .lg-err:empty{display:none}
+.lg-more{margin-top:4px}.lg-more summary{cursor:pointer;min-height:40px;display:flex;align-items:center}
+@media (max-width:380px){.lg-row{grid-template-columns:1fr}.login{padding:24px 16px}}
 label{font-size:14px;color:var(--muted)}
 /* Réglages */
 .form{display:flex;flex-direction:column;gap:14px;max-width:760px}
@@ -1023,12 +1033,37 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <div id="login" class="login" hidden>
   <span class="odin" aria-hidden="true" style="width:72px;height:72px;margin:0 auto 6px;display:block"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
   <div class="brand"><span class="rune" aria-hidden="true">ᛟ</span>ODIN</div>
-  <div id="claimBox" hidden style="display:flex;flex-direction:column;gap:12px;text-align:center">
-    <p style="margin:0;font-size:18px;font-weight:600">Bienvenue !</p>
-    <p class="sub" style="margin:0">Personne ne s'est encore connecté à Odin. Ce navigateur va devenir le tien : il gardera l'accès, sans jeton à recopier.</p>
-    <button class="btn primary" type="button" id="claimBtn">Commencer</button>
-    <span class="hint">Possible une seule fois, depuis ton réseau local, pour la première configuration.</span>
-  </div>
+  <form id="accountBox" hidden novalidate>
+    <p class="lg-title">Crée ton compte</p>
+    <p class="sub lg-c">Première connexion : ces identifiants seront demandés ensuite pour entrer dans Odin.</p>
+    <div class="lg-row">
+      <div><label for="acPrenom">Prénom</label><input id="acPrenom" name="given-name" autocomplete="given-name" required maxlength="60"></div>
+      <div><label for="acNom">Nom</label><input id="acNom" name="family-name" autocomplete="family-name" required maxlength="60"></div>
+    </div>
+    <label for="acEmail">Adresse e-mail</label>
+    <input id="acEmail" name="email" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="254">
+    <label for="acPass">Mot de passe</label>
+    <div class="lg-pass"><input id="acPass" name="new-password" type="password" autocomplete="new-password" required minlength="10" maxlength="200" aria-describedby="acPassHint"><button class="btn" type="button" id="acShow" aria-pressed="false" aria-controls="acPass acPass2">Voir</button></div>
+    <div class="lg-meter" aria-hidden="true"><i id="acMeter"></i></div>
+    <span class="hint" id="acPassHint">10 caractères au moins. Une phrase courte est plus sûre et plus facile à retenir.</span>
+    <label for="acPass2">Confirme le mot de passe</label>
+    <input id="acPass2" name="new-password-confirm" type="password" autocomplete="new-password" required maxlength="200">
+    <span class="hint lg-err" role="alert" id="acErr"></span>
+    <button class="btn primary" type="submit" id="acBtn">Créer mon compte</button>
+    <span class="hint lg-c">Tes identifiants restent sur la machine d'Odin. Le mot de passe n'y est jamais gardé en clair.</span>
+  </form>
+  <form id="signinBox" hidden novalidate>
+    <p class="lg-title">Connexion</p>
+    <label for="siEmail">Adresse e-mail</label>
+    <input id="siEmail" name="email" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="254">
+    <label for="siPass">Mot de passe</label>
+    <div class="lg-pass"><input id="siPass" name="password" type="password" autocomplete="current-password" required maxlength="200"><button class="btn" type="button" id="siShow" aria-pressed="false" aria-controls="siPass">Voir</button></div>
+    <span class="hint lg-err" role="alert" id="siErr"></span>
+    <button class="btn primary" type="submit" id="siBtn">Se connecter</button>
+    <details class="lg-more"><summary>Mot de passe oublié ?</summary>
+      <div class="sub">Sur la machine d'Odin, tape : <code>odin compte oublier</code>. Le compte est effacé (pas tes données) et un nouveau lien de première connexion s'affiche.</div>
+    </details>
+  </form>
   <div id="tokenBox">
   <div id="pairBox" style="display:flex;flex-direction:column;gap:12px;text-align:center">
     <p style="margin:0;font-size:18px;font-weight:600">Cet appareil n'a pas encore accès</p>
@@ -1602,7 +1637,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           <article class="card" data-sec="documents"><div class="form" id="more-documents"></div></article>
           <article class="card" data-sec="personnalite"><div class="form" id="more-personnalite"></div></article>
           <article class="card" data-sec="plus"><div class="form" id="more-plus"></div></article>
-          <article class="card" data-sec="acces"><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-raccourci" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
+          <article class="card" data-sec="acces"><div class="form" id="more-compte" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-raccourci" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
               <button type="button" class="choice" data-access="lan">Réseau local (recommandé)</button>
@@ -1621,10 +1656,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             </div>
             <div class="field"><label for="a-port">Port</label><input id="a-port" type="number" min="1024" max="65535"></div>
             <div class="warn-box" id="a-warn" hidden></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Enregistrer</button><button class="btn danger" type="button" id="a-rotate">Nouveau jeton</button></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">Enregistrer</button><button class="btn danger" type="button" id="a-rotate">Nouvelle clé d'API</button></div>
             <div class="status" id="a-status" role="status"></div>
             <div class="field"><label>Actuellement</label><div class="sub" id="accessInfo"></div><ul class="links" id="a-links"></ul>
-              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="a-show">Afficher les liens avec le jeton</button></div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="a-show">Afficher les liens</button></div>
               <textarea id="a-tok" readonly hidden rows="3" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2);font-family:ui-monospace,monospace;font-size:13px"></textarea>
               <span class="hint">Ces liens ouvrent Odin sans mot de passe : ne les partage avec personne.</span></div>
             <ul class="links"><li>Tout faire tourner en arrière-plan : <code>odin gateway</code> · Diagnostic : <code>odin doctor</code> · Mise à jour : <code>odin update</code></li></ul>
@@ -1718,15 +1753,48 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   const fmt = (t) => t ? new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
   if (!AUTHED) {
     $('#login').hidden = false;
-    // Première connexion : pas de jeton à chercher, ce navigateur devient celui du propriétaire.
-    const CLAIM_WHY = __CLAIM_WHY__;
-    if (CLAIM_WHY) $('#pairWhy').textContent = `Pourquoi pas d'accès direct : ${CLAIM_WHY}.`;
-    if (__CLAIMABLE__) {
-      $('#claimBox').hidden = false; $('#tokenBox').hidden = true;
-      $('#claimBtn').addEventListener('click', async () => {
-        const r = await fetch('/api/claim', { method: 'POST', headers: { 'x-odin': '1' } }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
-        if (r.ok) location.replace('/'); else { $('#claimBox').hidden = true; $('#tokenBox').hidden = false; $('#pairWhy').textContent = r.error || ''; }
+    // Compte du propriétaire : créé à la première connexion (prénom, nom, e-mail, mot de passe),
+    // exigé ensuite. Le serveur revérifie tout : ici, seulement de l'aide à la saisie.
+    const ACCOUNT = __ACCOUNT__, SETUP = __SETUP__;
+    const post = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) }).then(async (x) => ({ ...(await x.json().catch(() => ({}))), status: x.status })).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
+    const showPass = (btn, ...inputs) => btn.addEventListener('click', () => { const on = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', String(on)); btn.textContent = on ? 'Cacher' : 'Voir'; for (const i of inputs) i.type = on ? 'text' : 'password'; });
+    if (ACCOUNT) {
+      $('#signinBox').hidden = false; $('#tokenBox').hidden = true;
+      showPass($('#siShow'), $('#siPass'));
+      $('#signinBox').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = $('#siEmail').value.trim(), password = $('#siPass').value;
+        if (!email || !password) { $('#siErr').textContent = 'Indique ton adresse e-mail et ton mot de passe.'; return; }
+        $('#siBtn').disabled = true; $('#siErr').textContent = '';
+        const r = await post('/api/account/login', { email, password });
+        if (r.ok) return location.replace('/');
+        $('#siErr').textContent = r.error || 'Connexion impossible.'; $('#siBtn').disabled = false; $('#siPass').value = ''; $('#siPass').focus();
       });
+      for (const i of $$('#signinBox input')) i.addEventListener('input', () => { $('#siErr').textContent = ''; });
+      setTimeout(() => $('#siEmail').focus(), 60);
+      return;
+    }
+    const CLAIM_WHY = __CLAIM_WHY__;
+    if (CLAIM_WHY) $('#pairWhy').textContent = `Pourquoi le compte ne peut pas être créé d'ici : ${CLAIM_WHY}.`;
+    if (SETUP) {
+      $('#accountBox').hidden = false; $('#tokenBox').hidden = true;
+      showPass($('#acShow'), $('#acPass'), $('#acPass2'));
+      const strength = (p) => { if (!p) return 0; const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((re) => re.test(p)).length; const bits = p.length * Math.log2(kinds === 1 ? 26 : kinds === 2 ? 36 : kinds === 3 ? 62 : 90) * (new Set(p).size / p.length > 0.6 ? 1 : 0.6); return p.length < 10 ? 1 : bits < 60 ? 2 : bits < 80 ? 3 : 4; };
+      $('#acPass').addEventListener('input', () => { const s = strength($('#acPass').value), m = $('#acMeter'); m.style.width = `${s * 25}%`; m.style.backgroundColor = ['transparent', 'var(--bad)', 'var(--warn)', 'var(--accent)', 'var(--good)'][s]; });
+      $('#accountBox').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const v = { prenom: $('#acPrenom').value.trim(), nom: $('#acNom').value.trim(), email: $('#acEmail').value.trim(), password: $('#acPass').value };
+        const err = !v.prenom ? 'Indique ton prénom.' : !v.nom ? 'Indique ton nom.' : !/^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/.test(v.email) ? 'Cette adresse e-mail n\'a pas la bonne forme.' : v.password.length < 10 ? 'Le mot de passe doit faire au moins 10 caractères.' : v.password !== $('#acPass2').value ? 'Les deux mots de passe ne sont pas identiques.' : '';
+        if (err) { $('#acErr').textContent = err; return; }
+        $('#acBtn').disabled = true; $('#acErr').textContent = '';
+        const r = await post('/api/account/create', v);
+        if (r.ok) return location.replace('/');
+        $('#acErr').textContent = r.error || 'Création impossible.'; $('#acBtn').disabled = false;
+      });
+      // Une erreur affichée disparaît dès que tu corriges.
+      for (const i of $$('#accountBox input')) i.addEventListener('input', () => { $('#acErr').textContent = ''; });
+      setTimeout(() => $('#acPrenom').focus(), 60);
+      return;
     }
     // Demander l'accès : le propriétaire valide d'un geste, l'appareil entre sans jeton.
     $('#pairBtn').addEventListener('click', async () => {
@@ -3099,6 +3167,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   let moreLoaded = false;
   function renderMore() {
     const M = state?.more; if (!M || moreLoaded) { if (M) renderTunnel(); return; } moreLoaded = true;
+    void renderAccount();
     // Entretien
     let svcs = M.services.map((x) => ({ ...x }));
     const svcBox = el('div', { class: 'svcs' });
@@ -3208,11 +3277,44 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     $('#more-raccourci').replaceChildren(el('h2', {}, 'Parler à Odin depuis Siri, Android ou Home Assistant'),
       el('p', { class: 'sub', style: 'margin:0' }, 'Un raccourci envoie ta phrase à Odin et lit sa réponse à voix haute — sans ouvrir l\'application.'),
       el('ol', { class: 'sub', style: 'margin:4px 0 0;padding-left:20px;line-height:1.55' },
-        el('li', {}, 'iPhone : app Raccourcis → nouveau raccourci « Odin » → « Dicter le texte », puis « Obtenir le contenu de l\'URL » : ', el('code', {}, origin + '/api/ask'), ', méthode POST, en-tête ', el('code', {}, 'Authorization: Bearer <jeton>'), ', corps JSON ', el('code', {}, 'text = Texte dicté'), ' ; puis « Énoncer le texte ». Dis « Dis Siri, Odin ».'),
+        el('li', {}, 'iPhone : app Raccourcis → nouveau raccourci « Odin » → « Dicter le texte », puis « Obtenir le contenu de l\'URL » : ', el('code', {}, origin + '/api/ask'), ', méthode POST, en-tête ', el('code', {}, 'Authorization: Bearer <clé d\'API>'), ', corps JSON ', el('code', {}, 'text = Texte dicté'), ' ; puis « Énoncer le texte ». Dis « Dis Siri, Odin ».'),
         el('li', {}, 'Android : app HTTP Shortcuts (ou Tasker), même adresse, même en-tête ; relie-la à l\'Assistant avec « Ok Google, lance Odin ».'),
         el('li', {}, 'Home Assistant : rest_command vers la même adresse. Et Odin peut parler sur tes enceintes (outil « ha_speak ») une fois la Maison reliée.')),
-      el('p', { class: 'sub' }, 'Il faut que le téléphone puisse joindre Odin (même Wi-Fi, ou accès extérieur ci-dessus). Le jeton est celui de ton lien de connexion.'),
-      F.row(F.btn('Copier le jeton', async () => { const tk = await currentToken(); try { await navigator.clipboard.writeText(tk); say('Jeton copié. Garde-le secret : il donne accès à Odin.', [], 4000); } catch { prompt('Jeton (garde-le secret)', tk); } })));
+      el('p', { class: 'sub' }, 'Il faut que le téléphone puisse joindre Odin (même Wi-Fi, ou accès extérieur ci-dessus). La clé d\'API sert seulement aux programmes : elle ne remplace pas ton mot de passe dans un navigateur.'),
+      F.row(F.btn('Copier la clé', async () => { const tk = await currentToken(); try { await navigator.clipboard.writeText(tk); say('Clé d\'API copiée. Garde-la secrète : elle donne accès à Odin.', [], 4000); } catch { prompt('Clé d\'API (garde-la secrète)', tk); } })));
+  }
+  // ---------- Ton compte : identité, mot de passe, appareils connectés ----------
+  async function renderAccount() {
+    const box = $('#more-compte'); if (!box) return;
+    const r = await api('/api/account/me').catch(() => null), P = r?.profile;
+    if (!P) { box.hidden = true; return; }
+    box.hidden = false;
+    const sess = r.sessions || [];
+    const send = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) }).then((x) => x.json()).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
+    const pw = (id, label, ac) => { const f = F.input(id, label, '', { type: 'password' }); f.querySelector('input').setAttribute('autocomplete', ac); return f; };
+    box.replaceChildren(
+      el('h2', {}, 'Ton compte'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Ces identifiants ouvrent Odin dans un navigateur. Ils restent sur la machine d\'Odin ; le mot de passe n\'y est jamais gardé en clair.'),
+      F.input('ac-prenom', 'Prénom', P.prenom), F.input('ac-nom', 'Nom', P.nom),
+      F.input('ac-email', 'Adresse e-mail', P.email, { type: 'email' }),
+      pw('ac-pw', 'Mot de passe actuel (demandé seulement pour changer l\'adresse e-mail)', 'current-password'),
+      F.row(F.btn('Enregistrer', async () => { const x = await send('/api/account/update', { prenom: val('ac-prenom'), nom: val('ac-nom'), email: val('ac-email'), password: val('ac-pw') }); stx('#ac-st', x, '✓ Compte mis à jour.'); if (x.ok) $('#ac-pw').value = ''; }, true)),
+      F.status('ac-st'),
+      el('h2', {}, 'Mot de passe'),
+      pw('ac-cur', 'Mot de passe actuel', 'current-password'), pw('ac-new', 'Nouveau mot de passe (10 caractères au moins)', 'new-password'), pw('ac-new2', 'Confirme le nouveau mot de passe', 'new-password'),
+      F.row(F.btn('Changer le mot de passe', async () => {
+        if (val('ac-new') !== val('ac-new2')) return stx('#ac-pst', { ok: false, error: 'Les deux nouveaux mots de passe ne sont pas identiques.' });
+        const x = await send('/api/account/password', { current: val('ac-cur'), next: val('ac-new') });
+        if (x.ok) { await renderAccount(); stx('#ac-pst', x, '✓ Mot de passe changé. Les autres appareils sont déconnectés.'); } else stx('#ac-pst', x);
+      }, true)),
+      F.status('ac-pst'),
+      el('h2', {}, 'Appareils connectés'),
+      el('ul', { class: 'links', style: 'list-style:none;padding-left:0;display:flex;flex-direction:column;gap:8px' }, ...sess.map((s) => el('li', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
+        el('span', { style: 'flex:1 1 200px;min-width:0;overflow-wrap:anywhere' }, `${s.device}${s.current ? ' (cet appareil)' : ''} · ${s.ip} · vu le ${fmt(s.seen)}`),
+        s.current ? null : el('button', { class: 'btn small', type: 'button', onclick: async () => { await send('/api/account/revoke', { id: s.id }); renderAccount(); } }, 'Déconnecter')))),
+      F.row(sess.length > 1 ? F.btn('Déconnecter les autres appareils', async () => { await send('/api/account/revoke', { id: 'autres' }); renderAccount(); }) : null,
+        F.btn('Se déconnecter', async () => { await send('/api/account/logout', {}); location.replace('/'); })),
+    );
   }
   function renderTunnel() {
     const T = state?.tunnel, box = $('#more-tunnel'); if (!T || !box) return;
@@ -4022,7 +4124,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (accessMode === 'local' && !local) msg = 'Tu es connecté depuis un autre appareil : en passant à « Cette machine », tu perdras l\'accès depuis celui-ci.';
     w.hidden = !msg; w.textContent = msg; w.classList.toggle('bad', accessMode === 'wan' || (accessMode === 'local' && !local));
   }
-  async function currentToken() { const r = await api('/api/action', { kind: 'access_links' }); return (r.links?.[0] || '').split('token=')[1] || ''; }
+  async function currentToken() { const r = await api('/api/action', { kind: 'access_links' }); return r.key || ''; }
   $('#f-access').addEventListener('submit', async (e) => {
     e.preventDefault();
     const https = accessMode === 'wan' ? !$('#a-proxy').checked : accessMode === 'lan' && $('#a-https').checked;
@@ -4030,7 +4132,6 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const local = /^(127\.|localhost$|\[?::1\]?$)/.test(location.hostname);
     if (accessMode === 'local' && !local && !confirm('Tu vas perdre l\'accès depuis cet appareil. Continuer ?')) return;
     if (accessMode === 'wan' && !confirm('Ouvrir Odin à Internet ? Toute personne qui obtient ton lien avec jeton pourra le piloter.')) return;
-    const tok = await currentToken();
     st('#a-status', 'Enregistrement…');
     const r = await api('/api/action', { kind: 'settings_save', section: 'access', access: accessMode, https, networks: $('#a-nets').value.trim(), behindProxy: $('#a-proxy').checked, publicUrl: $('#a-public').value.trim(), cert: $('#a-cert').value.trim(), key: $('#a-key').value.trim(), port });
     if (!r.ok) return st('#a-status', r.error || 'Erreur', false);
@@ -4039,32 +4140,32 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const sameOrigin = scheme + ':' === location.protocol && String(port) === (location.port || (location.protocol === 'https:' ? '443' : '80'));
     if (sameOrigin) { st('#a-status', 'Enregistré. Odin redémarre ses services…'); const back = await waitBack(); return st('#a-status', back ? '✓ Accès mis à jour.' : 'Enregistré. Relance Odin pour appliquer.', back); }
     const host = accessMode === 'local' ? '127.0.0.1' : location.hostname.includes(':') ? `[${location.hostname}]` : location.hostname;
-    const next = `${scheme}://${host}:${port}/?token=${tok}`;
-    st('#a-status', `Enregistré. Odin redémarre ; ouverture de ${next.replace(/token=.*/, 'token=…')}${scheme === 'https' ? ' (accepte le certificat si le navigateur le demande)' : ''}`, true);
+    const next = `${scheme}://${host}:${port}/`;
+    st('#a-status', `Enregistré. Odin redémarre ; ouverture de ${next}${scheme === 'https' ? ' (accepte le certificat si le navigateur le demande)' : ''}`, true);
     setTimeout(() => { location.href = next; }, 3000);
   });
-  // Première configuration : le lien personnel (avec jeton) est montré tout de suite, à garder
-  // pour ouvrir Odin sur tes autres appareils (téléphone, autre ordinateur).
+  // Première configuration : l'adresse d'Odin est montrée tout de suite, pour l'ouvrir sur tes
+  // autres appareils (téléphone, autre ordinateur) et t'y connecter avec ton compte.
   let welcomeLinksShown = false;
   async function showWelcomeLinks() {
     if (welcomeLinksShown) return; welcomeLinksShown = true;
     const r = await api('/api/action', { kind: 'access_links' });
     const links = r.links || []; if (!links.length) return;
     const box = $('#welcomeLinks');
-    box.replaceChildren(el('b', {}, 'Ton lien personnel (garde-le : il ouvre Odin sur tes autres appareils, ne le partage pas) :'),
+    box.replaceChildren(el('b', {}, 'L\'adresse d\'Odin, pour tes autres appareils (tu t\'y connectes avec ton adresse e-mail et ton mot de passe) :'),
       ...links.map((u) => el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' },
         el('code', { style: 'overflow-wrap:anywhere;flex:1 1 260px;font-size:13px' }, u),
         el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(u); e.target.textContent = 'Copié ✓'; } catch { e.target.textContent = 'Sélectionne et copie'; } setTimeout(() => { e.target.textContent = 'Copier'; }, 1800); } }, 'Copier'))),
-      el('span', { class: 'hint' }, 'Tu le retrouves plus tard dans Réglages → Accès à l\'interface, ou avec « odin link » en ligne de commande sur la machine.'));
+      el('span', { class: 'hint' }, 'Tu la retrouves plus tard dans Réglages → Accès à l\'interface, ou avec « odin link » en ligne de commande sur la machine.'));
   }
   $('#a-show').addEventListener('click', async () => {
     const r = await api('/api/action', { kind: 'access_links' });
     const t = $('#a-tok'); t.hidden = false; t.value = (r.links || []).join('\n'); t.select();
   });
   $('#a-rotate').addEventListener('click', async () => {
-    if (!confirm('Créer un nouveau jeton ? Tous les appareils et liens déjà connectés seront déconnectés.')) return;
+    if (!confirm('Créer une nouvelle clé d\'API ? Les raccourcis et les programmes qui utilisent l\'ancienne ne marcheront plus. (Ta connexion par mot de passe ne change pas.)')) return;
     const r = await api('/api/action', { kind: 'token_rotate' });
-    if (r.ok) location.href = '/?token=' + r.token;
+    st('#a-status', r.ok ? '✓ Nouvelle clé d\'API créée. Recopie-la dans tes raccourcis (bouton « Copier la clé »).' : (r.error || 'Erreur'), Boolean(r.ok));
   });
 
   // ---------- Réglages ----------

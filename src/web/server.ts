@@ -59,7 +59,8 @@ import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { getAlarm } from '../home/alarm.ts';
-import { Pairing, type PairRequest } from './pairing.ts';
+import { Pairing, deviceName, type PairRequest } from './pairing.ts';
+import { Accounts, SESSION_RE, clearSessionCookie, sessionCookie, type Via } from './account.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
 import { allThreads } from '../muninn/threads.ts';
 import { ASK_KEY, type Ask } from '../learn/habits.ts';
@@ -180,11 +181,17 @@ export class WebChannel implements Channel {
   private tls?: TlsMaterial;
   private throttle = new AuthThrottle();
   private pairing = new Pairing();
+  /** Flux ouverts par un navigateur connecté : coupés dès que sa session est fermée (déconnexion, mot de passe changé). */
+  private streamSession = new Map<ServerResponse, string>();
+  private dropDeadStreams(): void { for (const [res, sess] of this.streamSession) if (!this.accounts.valid(sess)) { this.streamSession.delete(res); this.clients.delete(res); try { res.end(); } catch { /* déjà fermé */ } } }
+  /** Compte du propriétaire (prénom, nom, e-mail, mot de passe) et sessions des navigateurs. */
+  readonly accounts: Accounts;
   /** Jeton précédent après rotation : refusé, mais pas compté comme une attaque. */
   private lastToken = '';
 
-  constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string; access?: WebAccess; tls?: TlsMaterial }) {
+  constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string; access?: WebAccess; tls?: TlsMaterial; /** coût du hachage (tests seulement) */ scryptN?: number }) {
     this.odin = odin; this.hooks = hooks;
+    this.accounts = new Accounts(odin.paths.home, opts.scryptN ? { scryptN: opts.scryptN } : {});
     this.port = opts.port; this.host = opts.host; this.token = opts.token;
     this.access = opts.access ?? 'local'; this.tls = opts.tls;
   }
@@ -192,10 +199,11 @@ export class WebChannel implements Channel {
   /** Lien à ouvrir sur cette machine. */
   get url(): string {
     const h = this.host === '::1' ? '[::1]' : this.host === '::' || this.host === '0.0.0.0' ? '127.0.0.1' : this.host;
-    return `${this.tls ? 'https' : 'http'}://${h}:${this.port}/?token=${this.token}`;
+    // Compte créé : le lien mène à l'écran de connexion (plus de jeton dedans). Avant : c'est le lien de première connexion.
+    return `${this.tls ? 'https' : 'http'}://${h}:${this.port}/${this.accounts.exists() ? '' : `?token=${this.token}`}`;
   }
   /** Tous les liens utiles (cette machine, réseau local, adresse publique). */
-  get urls(): string[] { return accessUrls(this.odin.cfg.web, this.token, { access: this.access, https: Boolean(this.tls) }); }
+  get urls(): string[] { return accessUrls(this.odin.cfg.web, this.accounts.exists() ? '' : this.token, { access: this.access, https: Boolean(this.tls) }); }
 
   private tokenOk(given: string | undefined): boolean {
     const a = Buffer.from(given ?? ''), b = Buffer.from(this.token);
@@ -222,6 +230,7 @@ export class WebChannel implements Channel {
   private claimable(req: IncomingMessage): boolean { return !this.claimRefusal(req); }
   /** Pourquoi la première connexion sans jeton est refusée (undefined = elle est possible). Affiché sur la page d'accès. */
   private claimRefusal(req: IncomingMessage): string | undefined {
+    if (this.accounts.exists()) return 'un compte existe déjà : connecte-toi avec ton adresse e-mail et ton mot de passe';
     const ip = this.clientIp(req);
     if (ip.startsWith('fwd:')) return 'tu passes par un tunnel ou un proxy : la première connexion sans jeton se fait seulement depuis le réseau local';
     // Contre le « DNS rebinding » : une page piégée qui se fait passer pour Odin sous un autre nom de
@@ -243,14 +252,47 @@ export class WebChannel implements Channel {
     return undefined;
   }
 
-  private authed(req: IncomingMessage): boolean {
-    const cookie = /(?:^|;\s*)odin_token=([a-f0-9]+)/.exec(req.headers.cookie ?? '')?.[1];
-    const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
-    const ok = this.tokenOk(cookie) || this.tokenOk(bearer);
-    if (ok) { this.throttle.success(this.clientIp(req)); if (cookie) this.markClaimed('jeton'); }
-    else if (bearer || (cookie && cookie !== this.lastToken)) this.throttle.fail(this.clientIp(req)); // un jeton faux = un essai raté (sauf l'ancien jeton juste remplacé)
-    return ok;
+  /**
+   * Qui frappe à la porte ?
+   *   « session »      : un navigateur connecté avec le compte (e-mail + mot de passe) ;
+   *   « cle »          : un programme qui présente la clé d'API (Authorization: Bearer …) ;
+   *   « installation » : le lien de première connexion, tant que le compte n'existe pas — il ne
+   *                      donne qu'un droit : créer le compte.
+   * Une fois le compte créé, le jeton en cookie ne vaut plus rien : il faut se connecter.
+   */
+  private who(req: IncomingMessage): 'session' | 'cle' | 'installation' | undefined {
+    // Une seule décision par requête (un mauvais jeton ne compte qu'une fois comme essai raté).
+    if (!this.whoMemo.has(req)) this.whoMemo.set(req, { w: this.whoNow(req) });
+    return this.whoMemo.get(req)!.w;
   }
+  private whoMemo = new WeakMap<IncomingMessage, { w: 'session' | 'cle' | 'installation' | undefined }>();
+  private whoNow(req: IncomingMessage): 'session' | 'cle' | 'installation' | undefined {
+    const ip = this.clientIp(req);
+    const bearer = (req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+    if (bearer) {
+      if (this.tokenOk(bearer)) { this.throttle.success(ip); return 'cle'; }
+      this.throttle.fail(ip); // une clé fausse = un essai raté
+      return undefined;
+    }
+    const raw = req.headers.cookie ?? '';
+    const sess = SESSION_RE.exec(raw)?.[1];
+    if (sess) { if (this.accounts.valid(sess)) return 'session'; }
+    const cookie = /(?:^|;\s*)odin_token=([a-f0-9]+)/.exec(raw)?.[1];
+    if (cookie && this.tokenOk(cookie)) { this.markClaimed('jeton'); return this.accounts.exists() ? undefined : 'installation'; }
+    if (cookie && cookie !== this.lastToken) this.throttle.fail(ip); // un jeton faux = un essai raté (sauf l'ancien jeton juste remplacé)
+    return undefined;
+  }
+  private authed(req: IncomingMessage): boolean { const w = this.who(req); return w === 'session' || w === 'cle'; }
+  /** Identifiant de session du navigateur (pour « cette session », la déconnexion, le changement de mot de passe). */
+  private sessionOf(req: IncomingMessage): string | undefined { return SESSION_RE.exec(req.headers.cookie ?? '')?.[1]; }
+  private get secure(): boolean { return Boolean(this.tls); }
+  /** Ouvre une session pour ce navigateur et pose son cookie (l'ancien cookie de jeton est effacé). */
+  private openSession(req: IncomingMessage, res: ServerResponse, via: Via): void {
+    const token = this.accounts.open({ device: deviceName(String(req.headers['user-agent'] ?? '')), ip: this.clientIp(req).replace(/^fwd:/, ''), via });
+    res.setHeader('set-cookie', [sessionCookie(token, this.secure || this.viaHttps(req)), 'odin_token=; Max-Age=0; Path=/']);
+  }
+  /** Derrière un tunnel ou un proxy HTTPS, le cookie doit aussi être marqué « Secure ». */
+  private viaHttps(req: IncomingMessage): boolean { return this.clientIp(req).startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? '')); }
 
   // Réseaux autorisés (recalculés toutes les minutes : le Wi-Fi peut changer).
   private nets?: { at: number; list: string[] };
@@ -353,7 +395,7 @@ export class WebChannel implements Channel {
       if (this.host !== '::' || !['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes((e as NodeJS.ErrnoException).code ?? '')) throw e;
       this.host = '0.0.0.0'; await listen(this.host);
     }
-    const ping = setInterval(() => { for (const c of this.clients) c.write(': ping\n\n'); }, 25_000);
+    const ping = setInterval(() => { this.dropDeadStreams(); for (const c of this.clients) c.write(': ping\n\n'); }, 25_000);
     this.server.on('close', () => clearInterval(ping));
   }
 
@@ -366,6 +408,8 @@ export class WebChannel implements Channel {
 
   private async route(req: IncomingMessage, res: ServerResponse, onMessage: (m: Inbound) => Promise<void>): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
+    // Aucune réponse d'Odin (données, scripts, images) ne peut être chargée par la page d'un autre site.
+    res.setHeader('cross-origin-resource-policy', 'same-origin');
     // Derrière un proxy HTTPS, seul le proxy (sur la machine ou le réseau local) peut se connecter ;
     // l'adresse réelle du visiteur vient alors de X-Forwarded-For (pour la limite d'essais).
     const proxied = this.access === 'wan' && this.odin.cfg.web.behindProxy;
@@ -378,7 +422,8 @@ export class WebChannel implements Channel {
       const t = url.searchParams.get('token');
       if (t && this.tokenOk(t)) {
         this.throttle.success(ip);
-        res.writeHead(302, { location: '/', 'set-cookie': this.cookie(this.token) });
+        // Compte déjà créé : le lien ne donne plus l'accès, il mène à l'écran de connexion.
+        res.writeHead(302, { location: '/', ...(this.accounts.exists() ? {} : { 'set-cookie': this.cookie(this.token) }) });
         return void res.end();
       }
       if (t) this.throttle.fail(ip);
@@ -387,11 +432,16 @@ export class WebChannel implements Channel {
         'content-type': 'text/html; charset=utf-8',
         'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
+        // Fenêtre isolée des autres sites ; seuls le micro et la caméra servent (voix, photo) ; l'ancien filtre XSS des navigateurs est coupé (la politique de contenu fait mieux).
+        'cross-origin-opener-policy': 'same-origin', 'x-xss-protection': '0',
+        'permissions-policy': 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), bluetooth=(), serial=(), hid=(), midi=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()',
         // HSTS seulement avec un vrai certificat (le tien, ou celui du tunnel / proxy HTTPS) : jamais avec le certificat auto-signé du réseau local.
         ...((this.tls && !this.tls.selfSigned) || (ip.startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? ''))) ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
-      const authed = this.authed(req);
-      return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIMABLE__', !authed && this.claimable(req) ? 'true' : 'false').replace('__CLAIM_WHY__', JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
+      const w = this.who(req), authed = w === 'session' || w === 'cle', hasAccount = this.accounts.exists();
+      // Peut-il créer le compte ? Oui avec le lien de première connexion, ou depuis le réseau local d'une installation neuve.
+      const setup = !authed && !hasAccount && (w === 'installation' || this.claimable(req));
+      return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     // WhatsApp (Meta) : pas de jeton Odin ici, chaque envoi est signé par Meta et vérifié par le canal.
@@ -427,6 +477,7 @@ export class WebChannel implements Channel {
     if (req.method === 'POST' && url.pathname === '/api/pair') {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
       if (this.throttle.blocked(this.clientIp(req))) return json(res, 429, { error: 'trop d\'essais, réessaie plus tard' });
+      if (this.accounts.exists()) return json(res, 403, { error: 'Un compte existe : connecte-toi avec ton adresse e-mail et ton mot de passe.' });
       const r = this.pairing.request(String(req.headers['user-agent'] ?? ''), this.clientIp(req).replace(/^fwd:/, ''));
       if (!r) return json(res, 429, { error: 'trop de demandes : attends quelques minutes' });
       console.log(`[web] demande d'accès : ${r.device} depuis ${r.ip} (code ${r.code})`);
@@ -437,29 +488,77 @@ export class WebChannel implements Channel {
     if (req.method === 'POST' && url.pathname === '/api/pair/status') {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
       const st = this.pairing.collect(String(req.headers['x-pair'] ?? ''));
-      if (st === 'ok') { this.markClaimed('appareil autorisé'); res.setHeader('set-cookie', this.cookie(this.token)); }
+      if (st === 'ok') { this.markClaimed('appareil autorisé'); if (this.accounts.exists()) this.openSession(req, res, 'appareil autorisé'); else res.setHeader('set-cookie', this.cookie(this.token)); }
       return json(res, 200, { state: st });
     }
-    if (req.method === 'POST' && url.pathname === '/api/claim') {
+    // ---- Compte du propriétaire : création (première connexion), connexion, déconnexion ----
+    if (req.method === 'POST' && (url.pathname === '/api/account/create' || url.pathname === '/api/account/login' || url.pathname === '/api/account/logout')) {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
-      const why = this.claimRefusal(req);
-      if (why) return json(res, 403, { error: `Première connexion impossible : ${why}.` });
-      this.markClaimed(this.clientIp(req));
-      console.log(`[web] première connexion : accès donné au navigateur ${this.clientIp(req)}`);
-      res.setHeader('set-cookie', this.cookie(this.token));
+      if (url.pathname === '/api/account/logout') {
+        this.accounts.close(this.sessionOf(req));
+        res.setHeader('set-cookie', [clearSessionCookie(this.secure || this.viaHttps(req)), 'odin_token=; Max-Age=0; Path=/']);
+        return json(res, 200, { ok: true });
+      }
+      const b = await readJson(req, 16 * 1024);
+      if (url.pathname === '/api/account/create') {
+        if (this.accounts.exists()) return json(res, 409, { ok: false, error: 'Le compte existe déjà : connecte-toi.' });
+        // Le droit de créer le compte : le lien de première connexion (jeton), la clé d'API, ou le
+        // premier navigateur du réseau local sur une installation neuve. Jamais par Internet sans le lien.
+        const w = this.who(req), why = w === 'installation' || w === 'cle' ? undefined : this.claimRefusal(req);
+        if (why) return json(res, 403, { ok: false, error: `Création du compte impossible d'ici : ${why}.` });
+        try {
+          const p = await this.accounts.create({ prenom: b.prenom, nom: b.nom, email: b.email, password: b.password });
+          this.markClaimed('compte créé');
+          console.log(`[web] compte créé pour ${p.prenom} (depuis ${this.clientIp(req)})`);
+          this.openSession(req, res, 'création du compte');
+          this.stateCache = undefined;
+          return json(res, 200, { ok: true, prenom: p.prenom });
+        } catch (e) { return json(res, 400, { ok: false, error: (e as Error).message }); }
+      }
+      const r = await this.accounts.login(b.email, b.password);
+      if (!r.ok) {
+        this.throttle.fail(ip);
+        console.log(`[web] connexion refusée depuis ${ip}`);
+        if (r.retryAfter) res.setHeader('retry-after', String(r.retryAfter));
+        return json(res, r.retryAfter && /Trop d'essais/.test(r.error) ? 429 : 401, { ok: false, error: r.error, retryAfter: r.retryAfter ?? 0 });
+      }
+      this.throttle.success(ip);
+      this.accounts.close(this.sessionOf(req)); // jamais de session réutilisée : une nouvelle à chaque connexion
+      this.openSession(req, res, 'mot de passe');
+      console.log(`[web] connexion de ${this.accounts.profile()?.prenom ?? '?'} depuis ${ip} (${deviceName(String(req.headers['user-agent'] ?? ''))})`);
       return json(res, 200, { ok: true });
     }
     if (!this.authed(req)) {
       // Cookie périmé (nouveau jeton) : on le fait oublier au navigateur, pour qu'il n'insiste pas en boucle.
-      if (/odin_token=/.test(req.headers.cookie ?? '')) res.setHeader('set-cookie', 'odin_token=; Max-Age=0; Path=/');
-      return json(res, 401, { error: 'jeton requis' });
+      const w = this.who(req), hasAccount = this.accounts.exists();
+      const drop: string[] = [];
+      if (/odin_session=/.test(req.headers.cookie ?? '')) drop.push(clearSessionCookie(this.secure || this.viaHttps(req)));
+      if (w !== 'installation' && /odin_token=/.test(req.headers.cookie ?? '')) drop.push('odin_token=; Max-Age=0; Path=/');
+      if (drop.length) res.setHeader('set-cookie', drop);
+      return json(res, 401, { error: hasAccount ? 'connexion requise' : w === 'installation' ? 'compte à créer' : 'jeton requis', account: hasAccount, setup: w === 'installation' });
+    }
+
+    // ---- Compte : profil, mot de passe, appareils connectés ----
+    if (req.method === 'GET' && url.pathname === '/api/account/me') {
+      return json(res, 200, { ok: true, profile: this.accounts.profile() ?? null, sessions: this.accounts.sessions(this.sessionOf(req)) });
+    }
+    if (req.method === 'POST' && url.pathname.startsWith('/api/account/')) {
+      if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+      const b = await readJson(req, 16 * 1024), cur = this.sessionOf(req);
+      try {
+        if (url.pathname === '/api/account/update') { const profile = await this.accounts.update({ prenom: b.prenom, nom: b.nom, email: b.email }, b.password); this.stateCache = undefined; return json(res, 200, { ok: true, profile }); }
+        if (url.pathname === '/api/account/password') { await this.accounts.changePassword(b.current, b.next, cur); console.log(`[web] mot de passe changé (depuis ${ip}) : les autres appareils sont déconnectés`); this.dropDeadStreams(); return json(res, 200, { ok: true }); }
+        if (url.pathname === '/api/account/revoke') { const closed = b.id === 'autres' ? this.accounts.revokeOthers(cur) : Number(this.accounts.revoke(String(b.id ?? ''))); this.dropDeadStreams(); return json(res, 200, { ok: true, closed }); }
+      } catch (e) { return json(res, 400, { ok: false, error: (e as Error).message }); }
+      return json(res, 404, { error: 'introuvable' });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/stream') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
       res.write(': ok\n\n');
       this.clients.add(res);
-      req.on('close', () => this.clients.delete(res));
+      const sess = this.sessionOf(req); if (sess && !/^Bearer\s+/i.test(req.headers.authorization ?? '')) this.streamSession.set(res, sess);
+      req.on('close', () => { this.clients.delete(res); this.streamSession.delete(res); });
       return;
     }
     if (req.method === 'GET' && url.pathname === '/api/state') {
@@ -713,6 +812,7 @@ export class WebChannel implements Channel {
       },
       people: { users: muninn.listUsers(), pending: muninn.listPairings().filter((p) => p.status === 'pending') },
       budget: { monthlyUsd: cfg.routing.monthlyBudgetUsd, spentUsd: muninn.monthCost(), breakdown: muninn.usageBreakdown(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) },
+      account: this.accounts.profile() ?? null,
       access: { mode: this.access, networks: this.access === 'lan' ? this.networks() : [], https: Boolean(this.tls), selfSigned: Boolean(this.tls?.selfSigned), fingerprint: this.tls?.fingerprint ?? null, caFingerprint: this.tls?.caFingerprint ?? null, links: this.urls.map((u) => u.replace(/\/\?token=.*$/, '/')) },
       audit,
       watch: {
@@ -983,9 +1083,10 @@ export class WebChannel implements Channel {
         break;
       }
       case 'pairing_reject': muninn.unlinkIdentity(String(b.channel), String(b.peer)); break;
-      case 'access_links': return { ok: true, links: this.urls }; // avec le jeton, pour ouvrir sur un autre appareil
+      case 'access_links': return { ok: true, links: this.urls, key: this.token }; // liens à ouvrir sur un autre appareil ; clé d'API pour les programmes (raccourcis, MCP)
       case 'token_rotate': {
-        // Nouveau jeton : tous les liens et navigateurs déjà connectés sont déconnectés.
+        // Nouvelle clé d'API : les programmes qui utilisaient l'ancienne sont coupés (les navigateurs
+        // connectés avec le compte se reconnectent tout seuls : leur session ne dépend pas de la clé).
         this.lastToken = this.token;
         this.token = ensureWebToken(this.odin.paths, true);
         setTimeout(() => { for (const c of this.clients) c.end(); this.clients.clear(); }, 100);
@@ -1200,11 +1301,15 @@ async function readRaw(req: IncomingMessage, max: number): Promise<Uint8Array> {
   return new Uint8Array(Buffer.concat(parts));
 }
 
-async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+async function readJson(req: IncomingMessage, max = MAX_BODY): Promise<Record<string, unknown>> {
   const parts: Buffer[] = []; let n = 0;
-  for await (const c of req) { n += (c as Buffer).length; if (n > MAX_BODY) throw new Error('requête trop grosse'); parts.push(c as Buffer); }
+  for await (const c of req) { n += (c as Buffer).length; if (n > max) throw new Error('requête trop grosse'); parts.push(c as Buffer); }
   const raw = Buffer.concat(parts).toString('utf8');
-  try { return raw ? JSON.parse(raw) as Record<string, unknown> : {}; } catch { throw new Error('JSON invalide'); }
+  let v: unknown;
+  try { v = raw ? JSON.parse(raw) : {}; } catch { throw new Error('JSON invalide'); }
+  // Toujours un objet : « null », un nombre ou une liste à la place ne doivent pas faire planter une route.
+  if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('JSON invalide : un objet est attendu');
+  return v as Record<string, unknown>;
 }
 
 /** Nom de fichier déposé : sans chemin ni caractère spécial, extension gardée. */
