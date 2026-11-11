@@ -151,7 +151,7 @@ La **visite guidée** ne se lance que si tu la demandes (« visite guidée », R
 
 #### Graphes des applis et du réseau
 
-Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe (bouton Graphe / Cartes ou Plan, le choix est gardé) : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
+Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
 
 #### Qui peut ouvrir l'interface ?
 
