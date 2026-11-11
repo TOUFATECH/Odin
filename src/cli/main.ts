@@ -31,6 +31,7 @@ import { MailChannel } from '../bifrost/channels/mail.ts';
 import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { routingReport } from '../providers/journal.ts';
+import { watchBrain } from '../automation/bridge.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { tunnel } from '../web/tunnel.ts';
@@ -273,7 +274,8 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       }
     }
     const host = access === 'local' ? w.host : bindHost(w);
-    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), updateNow: () => gw!.updateNow(), pairAsk: (r) => gw!.pairAsk(r), reload, failedChannels: () => Object.fromEntries(gw!.failed), testChannel: (n) => gw!.testChannel(n), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
+    watchBrain(odin); // Cerveau → automatisations n8n (adresses choisies dans Automatisations)
+    const web = new WebChannel(odin, { scanNetwork: (full) => gw!.scanNetwork(full), watchNow: () => gw!.watch(Date.now(), true), journalNow: () => gw!.journal(Date.now(), true), morningNow: () => gw!.morning(Date.now(), true), updateNow: () => gw!.updateNow(), pairAsk: (r) => gw!.pairAsk(r), reload, failedChannels: () => Object.fromEntries(gw!.failed), testChannel: (n) => gw!.testChannel(n), tellOwner: (t) => gw!.notifyOwner(t), abortSession: (sid) => gw!.abortSession(sid), resume: (sid) => gw!.resume(sid), breakerNow: () => gw!.continuous(Date.now(), true), gardenNow: () => gw!.garden(Date.now(), true), whatsapp: () => whatsapp }, { port: w.port, host, token: ensureWebToken(odin.paths), access, tls });
     gw.add(web);
     await gw.start();
     if (!reloaded) {

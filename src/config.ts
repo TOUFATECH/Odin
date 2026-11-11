@@ -37,6 +37,8 @@ export interface ProviderConfig {
 export interface OdinConfig {
   /** Cerveau (deuxième cerveau) : dossier du coffre Markdown ; un coffre Obsidian existant marche aussi. Défaut : ~/.odin/cerveau. */
   brain?: { vault?: string };
+  /** Automatisations (n8n) : adresse de n8n (défaut http://127.0.0.1:5678 ; clé API dans le coffre : N8N_API_KEY), adresses n8n à prévenir quand le Cerveau change. */
+  automation?: { n8nUrl?: string; brainWebhooks?: string[] };
   name: string;
   /** Fournisseurs essayés dans l'ordre : le suivant prend le relais en cas de panne ou de quota épuisé. */
   providers: ProviderConfig[];

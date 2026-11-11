@@ -8,13 +8,20 @@
 // et les étiquettes partagées), recherche classée, journal du jour, projets (objectifs, décisions,
 // contraintes), bases (toutes les notes d'un type, avec leurs propriétés).
 
+import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, relative, sep } from 'node:path';
 
 export interface NoteMeta { [k: string]: string | number | boolean | string[] | undefined }
 export interface Note { path: string; title: string; meta: NoteMeta; body: string; links: string[]; tags: string[]; mtime: number; size: number }
-export interface GraphNode { id: string; title: string; type: string; tags: string[]; degree: number; folder: string; source?: string }
+export interface GraphNode { id: string; title: string; type: string; tags: string[]; degree: number; folder: string; source?: string; excerpt?: string; mtime?: number }
 export interface GraphEdge { from: string; to: string; kind: 'lien' | 'mention' | 'étiquette' | 'source' }
+
+/** Début du texte d'une note, sans Markdown : affiché sur les cartes du graphe quand on zoome. */
+export function excerptOf(body: string, max = 140): string {
+  const t = body.replace(/```[\s\S]*?```/g, ' ').replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, a, b) => b || a).replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/^#+\s*|^[-*>]\s+|^\d+\.\s+|[*_`~]/gm, '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
 
 /** Types de notes (bases) proposés par défaut, avec leurs propriétés et leurs statuts. */
 export const TYPES: Record<string, { folder: string; label: string; props: string[]; statuses?: string[] }> = {
@@ -31,6 +38,9 @@ export const TYPES: Record<string, { folder: string; label: string; props: strin
 };
 
 const TRASH = '.corbeille';
+/** Changements du Cerveau (créée, modifiée, renommée, corbeille) : pour les automatisations. */
+export const vaultEvents = new EventEmitter();
+vaultEvents.setMaxListeners(20);
 const SKIP = new Set(['.obsidian', '.git', TRASH, '.trash', 'node_modules']);
 
 // ---------------- Format (pur) ----------------
@@ -141,9 +151,12 @@ export class Vault {
     mkdirSync(dirname(full), { recursive: true });
     const tmp = `${full}.odin-tmp`;
     writeFileSync(tmp, formatNote(meta, body));
+    const existed = existsSync(full);
     renameSync(tmp, full);
     this.invalidate();
-    return relative(this.root, full).split(sep).join('/');
+    const rel = relative(this.root, full).split(sep).join('/');
+    vaultEvents.emit('change', { kind: existed ? 'modifiée' : 'créée', path: rel, title: String(meta.titre ?? meta.title ?? basename(rel, '.md')), type: String(meta.type ?? 'note') });
+    return rel;
   }
 
   /** Nouvelle note d'un type (dans son dossier), titre unique. */
@@ -204,6 +217,7 @@ export class Vault {
     mkdirSync(dirname(dest), { recursive: true });
     renameSync(join(this.root, n.path), dest);
     this.invalidate();
+    vaultEvents.emit('change', { kind: 'corbeille', path: n.path, title: n.title, type: String(n.meta.type ?? 'note') });
     return relative(this.root, dest);
   }
   trashed(): string[] { const d = join(this.root, TRASH); return existsSync(d) ? readdirSync(d).filter((f) => f.endsWith('.md')).sort().reverse() : []; }
@@ -257,7 +271,7 @@ export class Vault {
     // Connecteurs : chaque capture est reliée à sa source (YouTube, Telegram, Gmail, web…).
     const sources = new Map<string, number>();
     for (const n of notes) { const src = sourceOf(n); if (src) { sources.set(src, (sources.get(src) ?? 0) + 1); add(n.path, `source:${src}`, 'source'); } }
-    let nodes: GraphNode[] = notes.map((n) => ({ id: n.path, title: n.title, type: String(n.meta.type ?? (n.path.startsWith('Journal/') ? 'journal' : 'note')), tags: n.tags.slice(0, 8), degree: 0, folder: dirname(n.path) === '.' ? '' : dirname(n.path), source: sourceOf(n) }));
+    let nodes: GraphNode[] = notes.map((n) => ({ id: n.path, title: n.title, type: String(n.meta.type ?? (n.path.startsWith('Journal/') ? 'journal' : 'note')), tags: n.tags.slice(0, 8), degree: 0, folder: dirname(n.path) === '.' ? '' : dirname(n.path), source: sourceOf(n), excerpt: excerptOf(n.body), mtime: n.mtime }));
     for (const [s] of sources) nodes.push({ id: `source:${s}`, title: s, type: 'connecteur', tags: [], degree: 0, folder: '' });
     const deg = new Map<string, number>();
     for (const e of edges) { deg.set(e.from, (deg.get(e.from) ?? 0) + 1); deg.set(e.to, (deg.get(e.to) ?? 0) + 1); }
@@ -317,6 +331,23 @@ export class Vault {
     return this.append(n.path, `- ${kind === 'décision' ? `${isoDay(new Date())} · ` : ''}${text}`, section);
   }
 
+  /** Ce qui mérite ton attention (pour la proactivité) : tâches en retard ou proches, projets à l'arrêt. */
+  attention(now = Date.now()): Array<{ kind: 'retard' | 'bientôt' | 'à l\'arrêt'; title: string; path: string; when?: string }> {
+    const out: Array<{ kind: 'retard' | 'bientôt' | 'à l\'arrêt'; title: string; path: string; when?: string }> = [];
+    const done = /^(fait|terminé|terminée|annulé|abandonné)$/i;
+    for (const n of this.all()) {
+      const st = String(n.meta.statut ?? '');
+      const due = Date.parse(String(n.meta.échéance ?? n.meta.echeance ?? n.meta.due ?? ''));
+      if (!Number.isNaN(due) && !done.test(st)) {
+        if (due < now - 86_400_000 / 2) out.push({ kind: 'retard', title: n.title, path: n.path, when: String(n.meta.échéance ?? n.meta.echeance) });
+        else if (due < now + 2 * 86_400_000) out.push({ kind: 'bientôt', title: n.title, path: n.path, when: String(n.meta.échéance ?? n.meta.echeance) });
+      }
+      if (n.meta.type === 'projet' && /en cours/i.test(st) && now - n.mtime > 14 * 86_400_000) out.push({ kind: 'à l\'arrêt', title: n.title, path: n.path, when: new Date(n.mtime).toISOString().slice(0, 10) });
+    }
+    const rank = { retard: 0, bientôt: 1, "à l'arrêt": 2 } as Record<string, number>;
+    return out.sort((a, b) => rank[a.kind] - rank[b.kind]).slice(0, 20);
+  }
+
   /** Statistiques pour le schéma de fonctionnement (capturer → relier → retrouver → agir). */
   stats(): { notes: number; links: number; guessed: number; tags: number; captures: number; projects: number; sources: string[]; updatedToday: number } {
     const g = this.graph();
@@ -344,6 +375,8 @@ export function sourceOf(n: { meta: NoteMeta }): string | undefined {
   if (/(^|\.)x\.com|twitter/.test(s)) return 'X';
   if (/facebook|fb\.watch/.test(s)) return 'Facebook';
   if (/github/.test(s)) return 'GitHub';
+  if (/notion\.so|notion\.site/.test(s)) return 'Notion';
+  if (/automatisation|n8n/.test(s)) return 'Automatisation';
   if (/telegram/.test(s)) return 'Telegram';
   if (/whatsapp/.test(s)) return 'WhatsApp';
   if (/signal/.test(s)) return 'Signal';

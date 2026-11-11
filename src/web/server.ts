@@ -45,6 +45,8 @@ import { describeEntry, providerLabel } from '../providers/journal.ts';
 import { signalLinkState } from '../bifrost/channels/signal.ts';
 import { attachmentHint } from '../files/attach.ts';
 import { brainGet, brainPost } from './brain-api.ts';
+import { flowsPost, flowsState } from './flows-api.ts';
+import { handleHook, hookAllowed } from '../automation/bridge.ts';
 
 import type { Odin } from '../runtime.ts';
 import type { AgentEvent } from '../types.ts';
@@ -77,6 +79,8 @@ export interface WebHooks {
   scanNetwork(full: boolean): Promise<unknown>;
   /** Canaux qui n'ont pas pu démarrer (nom → raison). */
   failedChannels?(): Record<string, string>;
+  /** Prévenir le propriétaire (automatisations n8n). */
+  tellOwner?(text: string): Promise<void>;
   /** « Envoyer un test » sur une messagerie. */
   testChannel?(name: string): Promise<{ ok: boolean; message: string }>;
   /** Missions : arrêter le tour d'une session, reprendre une mission. */
@@ -105,6 +109,8 @@ const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
 const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
 // Application installable (PWA) : icônes, manifeste, service worker (aucun secret dedans).
 /** Espace Cerveau de l'interface (fichier à part, chargé avec le même nonce). */
+const FLOWS_JS = (() => { try { return readFileSync(new URL('./flows.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
 const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
@@ -391,6 +397,15 @@ export class WebChannel implements Channel {
       const r = await wa.webhook(req.method ?? 'GET', url.searchParams, raw, req.headers['x-hub-signature-256'] as string | undefined).catch(() => ({ status: 500, body: 'erreur' }));
       res.writeHead(r.status, { 'content-type': 'text/plain; charset=utf-8' }); return void res.end(r.body);
     }
+    // Automatisations (n8n) → Odin : clé dédiée, actions limitées (jamais l'interface ni les réglages).
+    if (url.pathname === '/api/hook' && req.method === 'POST') {
+      if (!hookAllowed(this.odin.paths.home, req.headers['x-odin-hook'] as string | undefined)) return json(res, 403, { error: 'clé d\'automatisation refusée' });
+      const b = await readJson(req).catch(() => ({}));
+      const r = await handleHook(this.odin, b, async (t) => { await this.hooks.tellOwner?.(t); this.push({ type: 'message', peer: 'principal', role: 'assistant', text: t }); }).catch((e) => ({ ok: false, error: (e as Error).message }));
+      return json(res, 200, r);
+    }
+    if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
+    if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/brain.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(BRAIN_JS); }
     if (url.pathname.startsWith('/fonts/') && FONTS[url.pathname.slice(7)]) { res.writeHead(200, { 'content-type': 'font/woff2', 'cache-control': 'max-age=31536000, immutable', 'x-content-type-options': 'nosniff' }); return void res.end(FONTS[url.pathname.slice(7)]); }
     if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }
@@ -454,6 +469,7 @@ export class WebChannel implements Channel {
     }
     // Journal des routages : quelle IA a traité quoi (Réglages → Modèle → Qui a répondu).
     // Cerveau (deuxième cerveau) : pages, graphe, bases, recherche.
+    if (req.method === 'GET' && url.pathname === '/api/flows') return json(res, 200, await flowsState(this.odin));
     if (req.method === 'GET' && url.pathname.startsWith('/api/brain/')) {
       const r = brainGet(this.odin, url.pathname, url.searchParams);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
@@ -565,6 +581,10 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     const body = await readJson(req);
+    if (url.pathname.startsWith('/api/flows/')) {
+      const r = await flowsPost(this.odin, url.pathname, body);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
     if (url.pathname.startsWith('/api/brain/')) {
       const r = await brainPost(this.odin, url.pathname, body, async (text) => { const a = await this.odin.agent.run(text, { sessionId: 'web:cerveau', channel: 'web', peer: 'principal', trusted: true }); return { text: a.text, answeredBy: a.answeredBy }; });
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });

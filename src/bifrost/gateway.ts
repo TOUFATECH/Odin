@@ -20,6 +20,7 @@ import { listScripts, parseScriptJob, type ScriptMeta } from '../tools/scripts.t
 import { DEFAULT_CONFIG } from '../config.ts';
 import { routingReport } from '../providers/journal.ts';
 import { stripMood } from '../mood/mood.ts';
+import { brainOf } from '../tools/brain.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
@@ -469,6 +470,9 @@ export class Gateway {
     if (q.agenda) { try { const ev = JSON.parse(this.odin.muninn.getKv('agenda-today') ?? '[]') as Array<{ start: number; end: number; title: string }>; const busy = ev.find((e) => e.start <= now && now < e.end); if (busy) return `rendez-vous « ${busy.title} »`; } catch { /* agenda indisponible */ } }
     return undefined;
   }
+
+  /** Message au propriétaire depuis l'extérieur (automatisations). */
+  notifyOwner(text: string): Promise<void> { return this.tellOwner(text, 'home'); }
 
   private async tellOwner(text: string, view = 'home', urgent = false): Promise<void> {
     // Ne pas déranger : hors urgence, le message attend le rapport du matin (ou la fin du rendez-vous).
@@ -1203,6 +1207,20 @@ export function continuousTodo(odin: Odin, recentTargets: Set<string> = new Set(
   const devs = odin.inventory.list({ status: 'online' });
   const unknown = devs.filter((d) => d.kind === 'inconnu' || (!d.label && !d.name && !d.hostname)).slice(0, 5);
   for (const d of unknown) out.push(`Appareil sans nom : ${d.ip}${d.mac ? ` (${d.mac})` : ''}${vendorOf(d.mac) ? `, fabricant ${vendorOf(d.mac)}` : ''} → net_identify puis net_rename (nom probable avec « ? » si besoin)`);
+  // Cerveau proactif : ce qui mérite ton attention dans tes notes (sans attendre que tu demandes).
+  try {
+    const v = brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace });
+    // Une même alerte au plus une fois par jour (pas de rappel en boucle toutes les 30 min).
+    const seen = (() => { try { return JSON.parse(odin.muninn.getKv('cerveau-alertes') ?? '{}') as Record<string, number>; } catch { return {}; } })();
+    const fresh = v.attention().filter((x) => !recentTargets.has(`cerveau:${x.kind}:${x.path}`) && Date.now() - (seen[`${x.kind}:${x.path}`] ?? 0) > 86_400_000).slice(0, 3);
+    for (const a of fresh) seen[`${a.kind}:${a.path}`] = Date.now();
+    if (fresh.length) odin.muninn.setKv('cerveau-alertes', JSON.stringify(Object.fromEntries(Object.entries(seen).filter(([, t]) => Date.now() - t < 7 * 86_400_000))));
+    for (const a of fresh) {
+      out.push(a.kind === 'retard' ? `Cerveau : la tâche « ${a.title} » (${a.path}) a dépassé son échéance (${a.when}) → préviens-le avec une proposition concrète (reporter, faire, déléguer), sans rien changer toi-même`
+        : a.kind === 'bientôt' ? `Cerveau : « ${a.title} » (${a.path}) arrive à échéance (${a.when}) → rappelle-le, avec ce qu'il reste à faire d'après la note`
+        : `Cerveau : le projet « ${a.title} » (${a.path}) n'a pas bougé depuis ${a.when} → propose la prochaine étape (d'après ses objectifs et décisions) ou de le mettre en pause`);
+    }
+  } catch { /* Cerveau facultatif */ }
   const watched = new Set(odin.cfg.watch?.devices ?? []);
   for (const d of odin.inventory.list({ status: 'all' }).filter((x) => watched.has(x.id) && x.status !== 'online').slice(0, 3)) out.push(`Appareil important hors ligne : ${d.label || d.name || d.ip} (${d.ip}) → vérifier et relancer si possible`);
   // Demandes qui reviennent sans compétence : en faire une (procédure + script si utile)

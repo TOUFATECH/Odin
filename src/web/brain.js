@@ -165,10 +165,11 @@
   function setMode(m) {
     if (S.dirty) saveNow();
     S.mode = m;
+    document.querySelector('.br')?.classList.toggle('br-wide', m === 'graphe');
     if (m !== 'page') S.path = null;
     stopGraph();
     if (m === 'accueil') renderHome();
-    if (m === 'graphe') renderGraph();
+    if (m === 'graphe') renderGraph(true);
     if (m === 'base') renderBase();
     if (S.tree) renderSide();
     closeSide();
@@ -224,6 +225,7 @@
     const r = await api(`/api/brain/note?path=${encodeURIComponent(path)}`);
     if (!r.ok) return;
     S.mode = 'page'; S.path = r.note.path; S.note = r.note; S.edit = false;
+    document.querySelector('.br')?.classList.remove('br-wide');
     stopGraph();
     renderPage(r); renderLinks(r); renderSide(); closeSide();
   }
@@ -412,108 +414,286 @@
   }
 
   // ---------------- Graphe des connaissances ----------------
+  // Vue « constellation » : fond sombre, points discrets, les notes les plus reliées grossissent et
+  // prennent la couleur de leur groupe, les noms apparaissent en zoomant ou au survol. Simulation de
+  // forces (Barnes-Hut) : des milliers de notes restent fluides. Réglages à droite, retenus.
   let raf = 0;
   function stopGraph() { cancelAnimationFrame(raf); raf = 0; }
-  async function renderGraph() {
+  const GDEF = { color: 'centres', folders: true, cards: true, intro: true, tags: false, connectors: true, orphans: true, guessed: true, nodeSize: 1, linkWidth: 1, labelAt: 1.1, arrows: false, center: 0.5, repel: 1, link: 1, distance: 1, light: false, q: '' };
+  const GS = (() => { try { return { ...GDEF, ...JSON.parse(localStorage.getItem('odin.graphe') || '{}') }; } catch { return { ...GDEF }; } })();
+  const saveGS = () => { try { localStorage.setItem('odin.graphe', JSON.stringify(GS)); } catch {} };
+  let G = null; // { data, reheat, draw }
+
+  async function renderGraph(intro = false) {
     stopGraph();
     const r = await api('/api/brain/graph');
-    const types = [...new Set(r.nodes.map((n) => n.type))];
     const main = $('#brMain');
-    const cv = el('canvas', { id: 'brCv', class: 'br-cv', role: 'img', 'aria-label': `Graphe : ${r.nodes.length} éléments, ${r.edges.length} liens. La liste ci-dessous donne le même contenu.` });
-    const legend = el('div', { class: 'br-legend', role: 'group', 'aria-label': 'Filtrer par type' }, ...types.map((t) => el('button', { type: 'button', class: 'br-chip', 'aria-pressed': String(!S.typesOff.has(t)), onclick: () => { S.typesOff.has(t) ? S.typesOff.delete(t) : S.typesOff.add(t); renderGraph(); } }, el('span', { class: 'br-sw', style: `background:${TYPE_COLOR[t] || '#888'}` }), TYPE_LABEL[t] || t)),
-      el('label', { class: 'br-chk' }, el('input', { type: 'checkbox', checked: S.guessed ? true : undefined, onchange: (e) => { S.guessed = e.target.checked; renderGraph(); } }), ' Liens devinés'));
-    const listAlt = el('details', { class: 'br-alt' }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}, ...r.nodes.filter((n) => n.type !== 'connecteur').sort((a, b) => b.degree - a.degree).slice(0, 200).map((n) => el('li', {}, el('button', { type: 'button', class: 'br-ln', onclick: () => openNote(n.id) }, n.title), el('span', { class: 'br-muted' }, ` · ${TYPE_LABEL[n.type] || n.type} · ${n.degree} lien${n.degree > 1 ? 's' : ''}`)))));
-    main.replaceChildren(el('div', { class: 'br-gw' }, el('div', { class: 'br-bar' }, el('h1', { class: 'br-title', style: 'margin:0;flex:1' }, 'Graphe'), el('span', { class: 'br-muted' }, `${r.nodes.length} éléments · ${r.edges.length} liens`)), legend, el('div', { class: 'br-cvw' }, cv, el('div', { id: 'brTip', class: 'br-tip', hidden: true })), listAlt));
-    drawGraph(cv, r);
+    const cv = el('canvas', { id: 'brCv', class: 'br-cv', role: 'img', 'aria-label': `Graphe : ${r.nodes.length} éléments, ${r.edges.length} liens. La liste sous le graphe donne le même contenu.` });
+    const wrap = el('div', { class: `br-cvw g-dark${GS.light ? ' g-light' : ''}` }, cv, el('div', { id: 'brTip', class: 'br-tip', hidden: true }), graphSettings(), el('div', { class: 'g-count' }, `${r.nodes.length} notes · ${r.edges.length} liens`));
+    const listAlt = el('details', { class: 'br-alt' }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}, ...r.nodes.filter((n) => n.type !== 'connecteur').sort((a, b) => b.degree - a.degree).slice(0, 300).map((n) => el('li', {}, el('button', { type: 'button', class: 'br-ln', onclick: () => openNote(n.id) }, n.title), el('span', { class: 'br-muted' }, ` · ${TYPE_LABEL[n.type] || n.type} · ${n.degree} lien${n.degree > 1 ? 's' : ''}`)))));
+    main.replaceChildren(el('div', { class: 'br-gw' }, wrap, listAlt));
+    G = drawGraph(cv, r, intro && GS.intro);
   }
 
-  function drawGraph(cv, data) {
-    const css = getComputedStyle(document.documentElement);
-    const ink = css.getPropertyValue('--ink').trim() || '#ddd', line = css.getPropertyValue('--line').trim() || '#444', accent = css.getPropertyValue('--accent').trim() || '#fa0';
+  function graphSettings() {
+    const row = (label, input) => el('label', { class: 'g-row' }, el('span', {}, label), input);
+    const tog = (k, label) => row(label, el('input', { type: 'checkbox', class: 'g-sw', checked: GS[k] ? true : undefined, onchange: (e) => { GS[k] = e.target.checked; saveGS(); renderGraph(); } }));
+    const rng = (k, label, min, max, step, live) => row(label, el('input', { type: 'range', min, max, step, value: String(GS[k]), oninput: (e) => { GS[k] = Number(e.target.value); saveGS(); if (live) G?.reheat(); else G?.draw(); } }));
+    const sec = (title, open, ...kids) => el('details', { class: 'g-sec', open: open ? true : undefined }, el('summary', {}, title), ...kids);
+    const panel = el('div', { class: 'g-panel', id: 'gPanel', hidden: true },
+      sec('Filtres', true,
+        el('input', { type: 'search', class: 'g-q', placeholder: 'Chercher une note…', value: GS.q, 'aria-label': 'Mettre en évidence', oninput: (e) => { GS.q = e.target.value; G?.draw(); } }),
+        tog('folders', 'Dossiers (liens vers leurs notes)'), tog('tags', 'Étiquettes'), tog('connectors', 'Connecteurs'), tog('orphans', 'Notes isolées'), tog('guessed', 'Liens devinés')),
+      sec('Groupes', true, row('Couleurs', el('select', { onchange: (e) => { GS.color = e.target.value; saveGS(); G?.draw(); } }, ...[['centres', 'Centres en couleur'], ['type', 'Par type de note'], ['aucune', 'Sans couleur']].map(([v, l]) => el('option', { value: v, selected: GS.color === v ? true : undefined }, l)))),
+        el('div', { class: 'g-legend' }, ...Object.entries(TYPE_LABEL).filter(([k]) => k !== 'connecteur').map(([k, l]) => el('span', {}, el('i', { style: `background:${TYPE_COLOR[k]}` }), l)))),
+      sec('Affichage', false, rng('nodeSize', 'Taille des points', 0.4, 2.5, 0.1), rng('linkWidth', 'Épaisseur des liens', 0.3, 3, 0.1), rng('labelAt', 'Noms visibles dès le zoom', 0.3, 3, 0.1), tog('cards', 'Cartes en zoomant'), tog('intro', 'Animation d\'ouverture'), tog('arrows', 'Flèches'), tog('light', 'Fond clair')),
+      sec('Forces', false, rng('center', 'Attraction du centre', 0, 1.5, 0.05, true), rng('repel', 'Répulsion', 0.2, 3, 0.1, true), rng('link', 'Force des liens', 0.1, 2.5, 0.1, true), rng('distance', 'Longueur des liens', 0.3, 3, 0.1, true)),
+      el('div', { class: 'g-acts' }, el('button', { type: 'button', class: 'br-mini', onclick: () => renderGraph(true) }, 'Rejouer'), el('button', { type: 'button', class: 'br-mini', onclick: () => G?.reheat(1) }, 'Animer'), el('button', { type: 'button', class: 'br-mini', onclick: () => G?.fit() }, 'Recadrer'), el('button', { type: 'button', class: 'br-mini', onclick: () => { Object.assign(GS, GDEF); saveGS(); renderGraph(); } }, 'Par défaut')),
+    );
+    const btn = el('button', { type: 'button', class: 'g-gear', 'aria-label': 'Réglages du graphe', 'aria-expanded': 'false', 'aria-controls': 'gPanel', onclick: (e) => { panel.hidden = !panel.hidden; e.currentTarget.setAttribute('aria-expanded', String(!panel.hidden)); } }, ico('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', 18));
+    return el('div', { class: 'g-tools' }, btn, panel);
+  }
+
+  /** Quadtree de Barnes-Hut : répulsion en O(n log n). */
+  function quad(nodes) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const n of nodes) { if (n.x < x0) x0 = n.x; if (n.y < y0) y0 = n.y; if (n.x > x1) x1 = n.x; if (n.y > y1) y1 = n.y; }
+    const size = Math.max(x1 - x0, y1 - y0) + 1;
+    const rootQ = { x: x0, y: y0, s: size, m: 0, cx: 0, cy: 0, n: null, k: null };
+    const insert = (q, n, depth) => {
+      q.cx = (q.cx * q.m + n.x) / (q.m + 1); q.cy = (q.cy * q.m + n.y) / (q.m + 1); q.m++;
+      if (!q.k && !q.n) { q.n = n; return; }
+      if (depth > 30) return;
+      if (!q.k) { q.k = [null, null, null, null]; const old = q.n; q.n = null; place(q, old, depth); }
+      place(q, n, depth);
+    };
+    const place = (q, n, depth) => { const h = q.s / 2, i = (n.x >= q.x + h ? 1 : 0) + (n.y >= q.y + h ? 2 : 0); if (!q.k[i]) q.k[i] = { x: q.x + (i & 1 ? h : 0), y: q.y + (i & 2 ? h : 0), s: h, m: 0, cx: 0, cy: 0, n: null, k: null }; insert(q.k[i], n, depth + 1); };
+    for (const n of nodes) insert(rootQ, n, 0);
+    return rootQ;
+  }
+  function repulse(q, n, strength) {
+    if (!q || !q.m || q.n === n) return;
+    const dx = n.x - q.cx, dy = n.y - q.cy, d2 = dx * dx + dy * dy + 0.01;
+    if (q.n || (q.s * q.s) / d2 < 0.81) { const f = (strength * q.m) / d2; n.vx += dx * f; n.vy += dy * f; return; }
+    for (const c of q.k) repulse(c, n, strength);
+  }
+
+  function drawGraph(cv, data, intro = false) {
     const dpr = window.devicePixelRatio || 1;
-    const W = cv.clientWidth || 800, H = cv.clientHeight || 520;
+    const W = cv.clientWidth || 800, H = cv.clientHeight || 560;
     cv.width = W * dpr; cv.height = H * dpr;
     const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
-    let nodes = data.nodes.filter((n) => !S.typesOff.has(n.type));
-    // Très grands coffres : on garde les 600 plus reliés (le reste est dans la liste).
-    if (nodes.length > 600) nodes = nodes.sort((a, b) => b.degree - a.degree).slice(0, 600);
-    const keep = new Set(nodes.map((n) => n.id));
-    const edges = data.edges.filter((e) => keep.has(e.from) && keep.has(e.to) && (S.guessed || e.kind === 'lien' || e.kind === 'source'));
-    const byId = new Map();
-    nodes.forEach((n, k) => { const a = (k / nodes.length) * Math.PI * 2, rr = 80 + Math.random() * Math.min(W, H) * 0.35; byId.set(n.id, Object.assign(n, { x: Math.cos(a) * rr, y: Math.sin(a) * rr, vx: 0, vy: 0, r: n.type === 'connecteur' ? 9 : 4 + Math.min(10, Math.sqrt(n.degree) * 2.2) })); });
+    const css = getComputedStyle(document.documentElement);
+    const accent = '#4CC38A', hubColor = '#4CC38A';
+    const PAL = GS.light ? { bg: '#F7F7F8', node: '#8B9099', link: 'rgba(60,64,72,.22)', linkHi: accent, text: '#2A2D33', dim: 0.12 } : { bg: '#1E1F22', node: '#A6A9AF', link: 'rgba(170,174,182,.22)', linkHi: accent, text: '#DADCE0', dim: 0.1 };
+    // Données : notes (+ étiquettes en nœuds si demandé), filtres.
+    let nodes = data.nodes.filter((n) => GS.connectors || n.type !== 'connecteur').map((n) => ({ ...n }));
+    let edges = data.edges.filter((e) => GS.guessed || e.kind === 'lien' || e.kind === 'source');
+    if (GS.tags) {
+      const tags = new Map();
+      for (const n of nodes) for (const t of n.tags || []) { if (!tags.has(t)) tags.set(t, { id: `#${t}`, title: `#${t}`, type: 'étiquette', tags: [], degree: 0 }); edges.push({ from: n.id, to: `#${t}`, kind: 'tag' }); }
+      nodes = nodes.concat([...tags.values()]);
+    }
+    // Dossiers (comme Olmind) : chaque dossier devient un nœud relié à ses notes, et à son dossier parent.
+    if (GS.folders) {
+      const dirs = new Map(), count = new Map();
+      for (const n of nodes) if (n.folder && n.type !== 'connecteur' && n.type !== 'étiquette') count.set(n.folder, (count.get(n.folder) || 0) + 1);
+      const ensure = (f) => { if (dirs.has(f)) return; dirs.set(f, { id: `dossier:${f}`, title: f.split('/').pop(), type: 'dossier', tags: [], degree: 0, folder: f }); const up = f.includes('/') ? f.slice(0, f.lastIndexOf('/')) : ''; if (up) { ensure(up); edges.push({ from: `dossier:${f}`, to: `dossier:${up}`, kind: 'dossier' }); } };
+      for (const [f, c] of count) if (c >= 2) ensure(f);
+      for (const n of nodes) if (dirs.has(n.folder) && n.type !== 'connecteur' && n.type !== 'étiquette') edges.push({ from: n.id, to: `dossier:${n.folder}`, kind: 'dossier' });
+      nodes = nodes.concat([...dirs.values()]);
+    }
+    const ids = new Set(nodes.map((n) => n.id));
+    edges = edges.filter((e) => ids.has(e.from) && ids.has(e.to));
+    const deg = new Map(); for (const e of edges) { deg.set(e.from, (deg.get(e.from) || 0) + 1); deg.set(e.to, (deg.get(e.to) || 0) + 1); }
+    for (const n of nodes) n.degree = deg.get(n.id) || 0;
+    if (!GS.orphans) nodes = nodes.filter((n) => n.degree > 0);
+    if (nodes.length > 4000) nodes = nodes.sort((a, b) => b.degree - a.degree).slice(0, 4000);
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    edges = edges.filter((e) => byId.has(e.from) && byId.has(e.to));
+    const sorted = [...nodes].map((n) => n.degree).sort((a, b) => b - a);
+    const hubMin = Math.max(4, sorted[Math.floor(sorted.length * 0.04)] || 4);
+    // Positions de départ : en spirale (les plus reliés au centre).
+    [...nodes].sort((a, b) => b.degree - a.degree).forEach((n, k) => { const a = k * 2.4, r = 12 * Math.sqrt(k + 1); n.x = Math.cos(a) * r; n.y = Math.sin(a) * r; n.vx = 0; n.vy = 0; });
     const nb = new Map(); for (const e of edges) { (nb.get(e.from) || nb.set(e.from, new Set()).get(e.from)).add(e.to); (nb.get(e.to) || nb.set(e.to, new Set()).get(e.to)).add(e.from); }
+    for (const e of edges) { e.a = byId.get(e.from); e.b = byId.get(e.to); }
     const view = { x: W / 2, y: H / 2, k: 1 };
-    const few = byId.size <= 80; // petit coffre : tous les noms affichés
-    let fitted = false;
-    // Cadrage : tout le graphe tient dans la fenêtre une fois posé.
-    function fit() {
-      const arr = [...byId.values()]; if (!arr.length) return;
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const n of arr) { x0 = Math.min(x0, n.x - n.r); y0 = Math.min(y0, n.y - n.r); x1 = Math.max(x1, n.x + n.r); y1 = Math.max(y1, n.y + n.r + 16); }
-      const k = Math.min(2.2, Math.max(0.25, Math.min((W - 80) / Math.max(1, x1 - x0), (H - 80) / Math.max(1, y1 - y0))));
-      view.k = k; view.x = W / 2 - ((x0 + x1) / 2) * k; view.y = H / 2 - ((y0 + y1) / 2) * k;
-    }
-    let hover = null, drag = null, pan = null, alpha = 1;
-    const focus = S.focus; S.focus = null;
+    let hover = null, drag = null, pan = null, alpha = 1, moved = false;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    function tick() {
-      const arr = [...byId.values()];
-      for (let i = 0; i < arr.length; i++) for (let j = i + 1; j < arr.length; j++) {
-        const a = arr[i], b = arr[j]; let dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy || 0.01;
-        if (d2 > 90000) continue;
-        const f = (900 / d2) * alpha; dx *= f; dy *= f; a.vx += dx; a.vy += dy; b.vx -= dx; b.vy -= dy;
-      }
-      for (const e of edges) { const a = byId.get(e.from), b = byId.get(e.to); const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy) || 1; const want = e.kind === 'lien' ? 70 : 110, f = ((d - want) / d) * 0.04 * alpha; a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f; }
-      for (const n of arr) { if (n === drag) continue; n.vx -= n.x * 0.012 * alpha; n.vy -= n.y * 0.012 * alpha; n.x += n.vx; n.y += n.vy; n.vx *= 0.82; n.vy *= 0.82; }
-      alpha *= 0.985;
-    }
-    function draw() {
-      ctx.clearRect(0, 0, W, H);
-      ctx.save(); ctx.translate(view.x, view.y); ctx.scale(view.k, view.k);
-      const hi = hover ? nb.get(hover.id) || new Set() : null;
-      for (const e of edges) {
-        const a = byId.get(e.from), b = byId.get(e.to);
-        const lit = (hover && (e.from === hover.id || e.to === hover.id)) || (S.sources.has(e.from) && S.sources.has(e.to));
-        ctx.strokeStyle = lit ? accent : e.kind === 'lien' ? ink : line; ctx.globalAlpha = hover && !lit ? 0.12 : lit ? 0.95 : e.kind === 'lien' ? 0.45 : 0.75;
-        ctx.lineWidth = (lit ? 2.2 : e.kind === 'lien' ? 1.4 : 1.1) / view.k;
-        ctx.setLineDash(e.kind === 'lien' ? [] : e.kind === 'source' ? [2 / view.k, 3 / view.k] : [5 / view.k, 4 / view.k]);
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      }
-      ctx.setLineDash([]);
-      for (const n of byId.values()) {
-        const dim = hover && n !== hover && !hi.has(n.id);
-        const src = S.sources.has(n.id) || n.id === focus;
-        ctx.globalAlpha = dim ? 0.2 : 1;
-        if (src) { ctx.beginPath(); ctx.arc(n.x, n.y, n.r + 7, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.globalAlpha = dim ? 0.1 : 0.28; ctx.fill(); ctx.globalAlpha = dim ? 0.2 : 1; }
-        ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fillStyle = TYPE_COLOR[n.type] || '#888'; ctx.fill();
-        if (n.type === 'connecteur') { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = accent; ctx.stroke(); }
-        if (n === hover || src || few || n.degree >= 3 || view.k > 1.6 || n.type === 'connecteur') {
-          ctx.fillStyle = ink; ctx.font = `${(n.type === 'connecteur' ? 12 : 11) / view.k}px IBM Plex Sans, system-ui, sans-serif`; ctx.textAlign = 'center';
-          ctx.fillText(n.title.length > 28 ? `${n.title.slice(0, 27)}…` : n.title, n.x, n.y + n.r + 12 / view.k);
-        }
-      }
-      ctx.restore(); ctx.globalAlpha = 1;
-    }
-    function loop() {
-      if (alpha > 0.02 && !reduce) tick();
-      if (!fitted && (alpha < 0.3 || reduce)) { fit(); fitted = true; }
-      draw(); if (alpha > 0.02 || drag) raf = requestAnimationFrame(loop); else raf = 0;
-    }
-    // Pose rapide hors écran, puis animation douce du reste.
-    for (let k = 0; k < (reduce ? 300 : 120); k++) tick();
-    fit();
-    loop();
-    const at = (e) => { const b = cv.getBoundingClientRect(); const x = (e.clientX - b.left - view.x) / view.k, y = (e.clientY - b.top - view.y) / view.k; let best = null, bd = 1e9; for (const n of byId.values()) { const d = (n.x - x) ** 2 + (n.y - y) ** 2; if (d < (n.r + 6) ** 2 && d < bd) { best = n; bd = d; } } return { node: best, x, y }; };
-    const kick = () => { if (!raf) raf = requestAnimationFrame(loop); };
-    cv.onpointermove = (e) => {
-      if (drag) { const p = at(e); drag.x = p.x; drag.y = p.y; alpha = Math.max(alpha, 0.3); kick(); return; }
-      if (pan) { view.x = pan.vx + e.clientX - pan.x; view.y = pan.vy + e.clientY - pan.y; draw(); return; }
-      const h = at(e).node; if (h !== hover) { hover = h; cv.style.cursor = h ? 'pointer' : 'grab'; const tip = $('#brTip'); if (h) { tip.hidden = false; tip.textContent = `${h.title} · ${TYPE_LABEL[h.type] || h.type} · ${h.degree} lien${h.degree > 1 ? 's' : ''}`; } else tip.hidden = true; draw(); }
+    const radius = (n) => (n.type === 'connecteur' ? 6 : n.type === 'dossier' ? 5 + Math.sqrt(n.degree) * 0.9 : n.type === 'étiquette' ? 3 : 2.4 + Math.sqrt(n.degree) * 1.8) * GS.nodeSize;
+    const FOLDER = '#3B8EEA';
+    const colorOf = (n) => {
+      if (n.type === 'connecteur') return '#E3AC3F';
+      if (n.type === 'étiquette') return '#7F8AA3';
+      if (n.type === 'dossier') return FOLDER;
+      if (GS.color === 'type') return TYPE_COLOR[n.type] || PAL.node;
+      if (GS.color === 'centres') return n.degree >= hubMin ? hubColor : PAL.node;
+      return PAL.node;
     };
-    cv.onpointerdown = (e) => { cv.setPointerCapture(e.pointerId); const h = at(e).node; if (h) { drag = h; drag.moved = false; } else pan = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; };
-    cv.onpointerup = (e) => { if (drag) { const n = drag; drag = null; if (!n.moved && n.type !== 'connecteur') openNote(n.id); } pan = null; };
-    cv.addEventListener('pointermove', () => { if (drag) drag.moved = true; });
-    cv.onwheel = (e) => { e.preventDefault(); const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top, f = e.deltaY < 0 ? 1.12 : 1 / 1.12; view.x = mx - (mx - view.x) * f; view.y = my - (my - view.y) * f; view.k = Math.max(0.2, Math.min(4, view.k * f)); draw(); };
+    const CW = 44, CH = 30;
+    const wrapLines = (txt, maxW, max) => { const out = []; let line = ''; for (const w of String(txt).split(/\s+/)) { const t = line ? `${line} ${w}` : w; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; if (out.length === max) break; } else line = t; } if (out.length < max && line) out.push(line); if (out.length === max && ctx.measureText(out[max - 1]).width > maxW * 0.92) out[max - 1] = `${out[max - 1].slice(0, -2)}…`; return out; };
+    const rrect = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+    function card(n, hot) {
+      const x = n.x - CW / 2, y = n.y - CH / 2, col = TYPE_COLOR[n.type] || '#7AA2C8';
+      rrect(x, y, CW, CH, 2.4);
+      ctx.fillStyle = GS.light ? '#FFFFFF' : '#2A2C31'; ctx.fill();
+      ctx.lineWidth = hot ? 0.7 : 0.35; ctx.strokeStyle = hot ? accent : GS.light ? 'rgba(60,64,72,.25)' : 'rgba(200,204,212,.18)'; ctx.stroke();
+      ctx.textAlign = 'left';
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + 3.2, y + 3.6, 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '600 2.3px IBM Plex Sans, system-ui, sans-serif'; ctx.fillText((TYPE_LABEL[n.type] || n.type).toUpperCase(), x + 5, y + 4.4);
+      ctx.fillStyle = PAL.text; ctx.font = '600 3.3px IBM Plex Sans, system-ui, sans-serif';
+      n._t ||= wrapLines(n.title, CW - 5, 2);
+      n._t.forEach((l, i) => ctx.fillText(l, x + 2.5, y + 9 + i * 3.9));
+      if (n.excerpt) { ctx.font = '2.5px IBM Plex Sans, system-ui, sans-serif'; ctx.globalAlpha *= 0.7; n._e ||= wrapLines(n.excerpt, CW - 5, 4); n._e.forEach((l, i) => ctx.fillText(l, x + 2.5, y + 9 + n._t.length * 3.9 + 1 + i * 3.1)); ctx.globalAlpha /= 0.7; }
+      ctx.textAlign = 'center';
+    }
+    function folderIcon(cx, cy, s) {
+      const w = s * 2, h = s * 1.5, x = cx - w / 2, y = cy - h / 2;
+      ctx.fillStyle = '#2F78D0'; rrect(x, y - h * 0.12, w * 0.45, h * 0.3, s * 0.12); ctx.fill();
+      ctx.fillStyle = FOLDER; rrect(x, y, w, h, s * 0.18); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x + s * 0.15, y + h * 0.28, w - s * 0.3, s * 0.08);
+    }
+    function tick() {
+      const arr = nodes;
+      const q = quad(arr), rep = 180 * GS.repel * alpha;
+      for (const n of arr) repulse(q, n, rep);
+      const dist = 34 * GS.distance, ks = 0.06 * GS.link * alpha;
+      // Ressorts « à la d3 » : force 1/min(degrés), le petit nœud bouge plus que le centre (pas d'explosion).
+      for (const e of edges) {
+        const a = e.a, b = e.b, da = a.degree || 1, db = b.degree || 1;
+        const dx = b.x - a.x, dy = b.y - a.y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const want = dist * (e.kind === 'lien' || e.kind === 'tag' ? 1 : e.kind === 'dossier' ? 2.2 : 1.6);
+        const f = ((d - want) / d) * ks * (e.kind === 'dossier' ? 1.2 : 4) / Math.min(da, db), bias = da / (da + db);
+        b.vx -= dx * f * bias; b.vy -= dy * f * bias; a.vx += dx * f * (1 - bias); a.vy += dy * f * (1 - bias);
+      }
+      const c = 0.012 * GS.center * alpha;
+      for (const n of arr) {
+        if (n === drag) continue;
+        n.vx -= n.x * c; n.vy -= n.y * c; n.vx *= 0.6; n.vy *= 0.6;
+        const v = Math.hypot(n.vx, n.vy); if (v > 40) { n.vx *= 40 / v; n.vy *= 40 / v; } // vitesse bornée
+        n.x += n.vx; n.y += n.vy;
+      }
+      alpha *= 0.992;
+    }
+    function fitTarget() {
+      const xs = nodes.map((n) => n.x).sort((a, b) => a - b), ys = nodes.map((n) => n.y).sort((a, b) => a - b), cut = Math.floor(nodes.length * 0.01);
+      const x0 = xs[cut], x1 = xs[xs.length - 1 - cut], y0 = ys[cut], y1 = ys[ys.length - 1 - cut];
+      const k = Math.min(3, Math.max(0.05, Math.min((W - 60) / Math.max(1, x1 - x0), (H - 60) / Math.max(1, y1 - y0))));
+      return { k, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+    }
+    function fit() {
+      if (!nodes.length) return;
+      // Cadre sur 98 % des points (un point isolé très loin ne rapetisse pas tout).
+      const xs = nodes.map((n) => n.x).sort((a, b) => a - b), ys = nodes.map((n) => n.y).sort((a, b) => a - b), cut = Math.floor(nodes.length * 0.01);
+      const x0 = xs[cut], x1 = xs[xs.length - 1 - cut], y0 = ys[cut], y1 = ys[ys.length - 1 - cut];
+      const k = Math.min(3, Math.max(0.05, Math.min((W - 60) / Math.max(1, x1 - x0), (H - 60) / Math.max(1, y1 - y0))));
+      view.k = k; view.x = W / 2 - ((x0 + x1) / 2) * k; view.y = H / 2 - ((y0 + y1) / 2) * k; draw();
+    }
+    const q = () => GS.q.trim().toLowerCase();
+    function draw() {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = PAL.bg; ctx.fillRect(0, 0, W, H);
+      ctx.translate(view.x, view.y); ctx.scale(view.k, view.k);
+      const hi = hover ? nb.get(hover.id) || new Set() : null, search = q();
+      const match = (n) => search && n.title.toLowerCase().includes(search);
+      const lw = (0.7 * GS.linkWidth) / view.k;
+      // Liens
+      ctx.lineWidth = lw; ctx.strokeStyle = PAL.link; ctx.globalAlpha = hover || search ? 0.35 : 1;
+      ctx.beginPath();
+      for (const e of edges) { if (hover && (e.a === hover || e.b === hover)) continue; ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); }
+      ctx.stroke();
+      if (hover) { ctx.globalAlpha = 1; ctx.strokeStyle = PAL.linkHi; ctx.lineWidth = lw * 2; ctx.beginPath(); for (const e of edges) if (e.a === hover || e.b === hover) { ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); } ctx.stroke(); }
+      if (GS.arrows) { ctx.fillStyle = PAL.link; for (const e of edges) { const r = radius(e.b) + 2, dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, x = e.b.x - ux * r, y = e.b.y - uy * r, s = 4 / view.k; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - ux * s - uy * s * 0.6, y - uy * s + ux * s * 0.6); ctx.lineTo(x - ux * s + uy * s * 0.6, y - uy * s - ux * s * 0.6); ctx.fill(); } }
+      // Points
+      for (const n of nodes) {
+        const lit = !hover || n === hover || hi.has(n.id), src = S.sources.has(n.id) || match(n);
+        ctx.globalAlpha = (hover && !lit) || (search && !match(n)) ? PAL.dim + 0.1 : 1;
+        const r = Math.max(radius(n), 1.5 / view.k); // toujours visible, même de loin
+        if (src) { ctx.beginPath(); ctx.arc(n.x, n.y, r + 5 / view.k + 2, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.globalAlpha = 0.3; ctx.fill(); ctx.globalAlpha = 1; }
+        ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = n === hover ? accent : colorOf(n); ctx.fill();
+      }
+      // Cartes (comme Olmind) : en zoomant, chaque note devient une petite carte avec son type, son titre et son début.
+      const cardA = GS.cards ? Math.max(0, Math.min(1, (view.k - 1.25) / 0.5)) : 0;
+      if (cardA > 0.02) {
+        const vx0 = -view.x / view.k - CW, vy0 = -view.y / view.k - CH, vx1 = (W - view.x) / view.k + CW, vy1 = (H - view.y) / view.k + CH;
+        for (const n of nodes) {
+          if (n.type === 'connecteur' || n.type === 'étiquette' || n.type === 'dossier' || n.x < vx0 || n.x > vx1 || n.y < vy0 || n.y > vy1) continue;
+          const lit = !hover || n === hover || hi.has(n.id);
+          ctx.globalAlpha = cardA * ((hover && !lit) || (search && !match(n)) ? 0.25 : 1);
+          card(n, n === hover || S.sources.has(n.id) || match(n));
+        }
+        ctx.globalAlpha = 1;
+      }
+      // Dossiers : une icône de dossier bleue au centre de leur grappe.
+      for (const n of nodes) if (n.type === 'dossier') { const r = Math.max(radius(n), 4 / view.k); folderIcon(n.x, n.y, r * 1.5); }
+      // Noms : apparaissent en zoomant (seuil réglable), toujours pour le survol, ses voisins et les centres.
+      const fade = Math.max(0, Math.min(1, (view.k - GS.labelAt * 0.6) / (GS.labelAt * 0.6)));
+      ctx.textAlign = 'center'; ctx.font = `${11 / view.k}px IBM Plex Sans, system-ui, sans-serif`; ctx.fillStyle = PAL.text;
+      for (const n of nodes) {
+        const near = hover && (n === hover || hi.has(n.id)), show = near || S.sources.has(n.id) || match(n) || (n.degree >= hubMin && view.k > 0.35);
+        if (cardA > 0.6 && n.type !== 'dossier' && n.type !== 'connecteur' && n.type !== 'étiquette' && !near) continue; // la carte porte déjà le nom
+        const a = show ? 1 : hover ? 0 : fade;
+        if (a < 0.05) continue;
+        ctx.globalAlpha = a;
+        ctx.fillText(n.title.length > 32 ? `${n.title.slice(0, 31)}…` : n.title, n.x, n.y + radius(n) + 11 / view.k);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // Animation d'ouverture (comme Olmind) : on part tout près d'une note récente, en cartes, pendant que
+    // le graphe se met en place, puis la caméra recule doucement jusqu'à la vue d'ensemble.
+    let cam = null;
+    function camStep(now) {
+      const t = Math.min(1, (now - cam.t0) / cam.ms), e = t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+      const to = fitTarget(), from = cam.from;
+      const k = Math.exp(Math.log(from.k) + (Math.log(to.k) - Math.log(from.k)) * e);
+      const cx = from.n.x + (to.cx - from.n.x) * e, cy = from.n.y + (to.cy - from.n.y) * e;
+      view.k = k; view.x = W / 2 - cx * k; view.y = H / 2 - cy * k;
+      if (t >= 1) { cam = null; follow = true; }
+    }
+    // Après l'animation, la caméra suit encore le graphe qui se pose, jusqu'à ce que tu le touches.
+    let follow = false;
+    function followStep() { const to = fitTarget(), cx = (W / 2 - view.x) / view.k, cy = (H / 2 - view.y) / view.k, k = Math.exp(Math.log(view.k) + (Math.log(to.k) - Math.log(view.k)) * 0.08), nx = cx + (to.cx - cx) * 0.08, ny = cy + (to.cy - cy) * 0.08; view.k = k; view.x = W / 2 - nx * k; view.y = H / 2 - ny * k; }
+    function loop(now = performance.now()) {
+      if (cam) { tick(); camStep(now); draw(); raf = requestAnimationFrame(loop); return; }
+      if (!reduce && alpha > 0.005) { tick(); if (follow) followStep(); draw(); raf = requestAnimationFrame(loop); } else { if (follow) { follow = false; fit(); } draw(); raf = 0; }
+    }
+    const notes = nodes.filter((n) => n.type !== 'connecteur' && n.type !== 'étiquette' && n.type !== 'dossier');
+    if (intro && !reduce && notes.length > 2) {
+      for (let k = 0; k < 25; k++) tick();
+      const focus = [...notes].sort((a, b) => Number(b.degree > 0) - Number(a.degree > 0) || (b.mtime || 0) - (a.mtime || 0) || b.degree - a.degree)[0];
+      cam = { t0: performance.now(), ms: 4200, from: { k: Math.min(4, Math.max(2.4, W / 160)), n: focus } };
+      alpha = 1; hover = null;
+      camStep(cam.t0);
+      loop();
+    } else {
+      for (let k = 0; k < (nodes.length > 1500 ? 80 : 300); k++) tick();
+      fit();
+      loop();
+    }
+    const reheat = (a = 0.5) => { alpha = Math.max(alpha, a); if (!raf) raf = requestAnimationFrame(loop); };
+    const at = (e) => {
+      const b = cv.getBoundingClientRect(); const x = (e.clientX - b.left - view.x) / view.k, y = (e.clientY - b.top - view.y) / view.k;
+      const cards = GS.cards && view.k > 1.5; let best = null, bd = Infinity;
+      for (const n of nodes) {
+        const d = (n.x - x) ** 2 + (n.y - y) ** 2;
+        const inCard = cards && n.type !== 'connecteur' && n.type !== 'étiquette' && n.type !== 'dossier' && Math.abs(n.x - x) < CW / 2 && Math.abs(n.y - y) < CH / 2;
+        const r = radius(n) * (n.type === 'dossier' ? 1.6 : 1) + 4 / view.k;
+        if ((inCard || d < r * r) && d < bd) { best = n; bd = d; }
+      }
+      return { node: best, x, y };
+    };
+    cv.onpointermove = (e) => {
+      if (drag) { const p = at(e); drag.x = p.x; drag.y = p.y; drag.vx = 0; drag.vy = 0; moved = true; reheat(0.3); return; }
+      if (pan) { view.x = pan.vx + e.clientX - pan.x; view.y = pan.vy + e.clientY - pan.y; moved = true; draw(); return; }
+      const h = at(e).node;
+      if (h !== hover) { hover = h; cv.style.cursor = h ? 'pointer' : 'grab'; const tip = $('#brTip'); if (h) { tip.hidden = false; tip.textContent = `${h.title} · ${TYPE_LABEL[h.type] || h.type} · ${h.degree} lien${h.degree > 1 ? 's' : ''}`; } else tip.hidden = true; if (!raf) draw(); }
+    };
+    cv.onpointerleave = () => { if (hover) { hover = null; $('#brTip').hidden = true; if (!raf) draw(); } };
+    cv.onpointerdown = (e) => { cam = null; follow = false; cv.setPointerCapture(e.pointerId); moved = false; const h = at(e).node; if (h) drag = h; else pan = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; };
+    cv.onpointerup = () => { const n = drag; drag = null; pan = null; if (n && !moved && n.type !== 'connecteur' && n.type !== 'étiquette') openNote(n.id); else if (n && !moved && n.type === 'dossier') { $('#brQ').value = n.folder; onSearch(); openSide(); } else if (n && !moved && n.type === 'étiquette') { $('#brQ').value = n.title.slice(1); onSearch(); openSide(); } };
+    cv.onwheel = (e) => { e.preventDefault(); cam = null; follow = false; const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top, f = Math.exp(-e.deltaY * 0.0015); const k = Math.max(0.05, Math.min(6, view.k * f)); view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; if (!raf) draw(); };
+    return { reheat, draw: () => { if (!raf) draw(); }, fit, data };
   }
 
   // ---------------- Petits éléments ----------------
@@ -527,7 +707,7 @@
       if (!$('#v-brain .body')) return;
       if (!S.open) { build(); S.open = true; $('#brPages')?.addEventListener('click', () => (S.sideOpen ? closeSide() : openSide())); $('#brNew')?.addEventListener('click', () => newPage('note')); $('#brGraphBtn')?.addEventListener('click', () => setMode('graphe')); }
       await refresh();
-      if (S.mode === 'page' && S.path) openNote(S.path); else if (S.mode === 'graphe') renderGraph(); else if (S.mode === 'base') renderBase(); else renderHome();
+      if (S.mode === 'page' && S.path) openNote(S.path); else if (S.mode === 'graphe') renderGraph(true); else if (S.mode === 'base') renderBase(); else renderHome();
     },
     md,
   };

@@ -30,6 +30,8 @@ function connectors(odin: Odin): Array<{ id: string; label: string; on: boolean;
     { id: 'Fichiers', label: 'Fichiers', on: true, notes: c('Fichiers'), what: 'PDF, Word, Excel, images' },
     { id: 'Vocal', label: 'Vocaux', on: true, notes: c('Vocal'), what: 'idées dictées' },
     { id: 'GitHub', label: 'GitHub', on: true, notes: c('GitHub'), what: 'dépôts et outils' },
+    { id: 'Notion', label: 'Notion', on: Boolean(process.env.NOTION_TOKEN), notes: c('Notion'), what: 'pages et bases importées ou publiées' },
+    { id: 'n8n', label: 'Automatisations', on: Boolean(process.env.N8N_API_KEY), notes: c('Automatisation'), what: 'n8n : déclencheurs et enchaînements' },
   ];
 }
 

@@ -80,11 +80,16 @@ function report(v: Vetting, home: string): string {
 }
 
 /** Docker absent : installé par le gestionnaire de paquets (Ubuntu/Debian : docker.io + compose). */
-async function ensureDocker(home: string, signal?: AbortSignal): Promise<string | undefined> {
+export async function ensureDocker(home: string, signal?: AbortSignal): Promise<string | undefined> {
   if (hasCommand('docker') && (await run('docker', ['compose', 'version'])).ok) return undefined;
   const r = await sh('if command -v apt-get >/dev/null; then sudo apt-get update -qq && (sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-compose-v2 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-compose-plugin); elif command -v dnf >/dev/null; then sudo dnf install -y -q docker docker-compose-plugin; else exit 3; fi; sudo systemctl enable --now docker 2>/dev/null || true; sudo usermod -aG docker "$USER" 2>/dev/null || true', { home, timeout: 1_200_000, signal });
   if (!r.ok) return `Docker manque et je n'ai pas pu l'installer${r.hint ? ` (${r.hint})` : ''} : ${r.err.split('\n').filter(Boolean).at(-1)?.slice(0, 160) ?? ''}`;
   return undefined;
+}
+
+/** docker … dans un dossier, avec sudo si l'utilisateur n'est pas (encore) dans le groupe docker. */
+export function dockerIn(dir: string, home: string, signal?: AbortSignal) {
+  return (args: string[], timeout = 1_800_000) => run('docker', args, { cwd: dir, timeout, signal }).then(async (r) => (r.ok || !/permission denied/i.test(r.err) ? r : sh(`sudo docker ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, { cwd: dir, home, timeout, signal })));
 }
 
 async function install(v: Vetting, ctx: ToolContext): Promise<string> {
