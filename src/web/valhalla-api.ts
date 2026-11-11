@@ -16,11 +16,11 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
   switch (path) {
     case '/api/valhalla/catalog': {
       const alerts = v.alerts({ limit: 500 }).filter((a) => !a.ack);
-      return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave) })), alerts: alerts.filter((a) => a.module === m.id).length })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
+      return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
     }
     case '/api/valhalla/view': {
       const m = v.module(s(q.get('id'))); if (!m) return { ok: false, error: 'appli inconnue' };
-      try { return { ok: true, id: m.id, name: m.name, family: m.family, what: m.what, view: await m.view(v.ctx(m.id), q), actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave) })), alerts: v.alerts({ module: m.id, limit: 30 }), links: LINKS.filter((l) => l.from === m.id || l.to === m.id) }; }
+      try { return { ok: true, id: m.id, name: m.name, family: m.family, what: m.what, view: await m.view(v.ctx(m.id), q), actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: v.alerts({ module: m.id, limit: 30 }), links: LINKS.filter((l) => l.from === m.id || l.to === m.id) }; }
       catch (e) { return { ok: false, error: (e as Error).message }; }
     }
     case '/api/valhalla/alerts': return { ok: true, alerts: v.alerts({ module: q.get('module') ?? undefined, q: q.get('q') ?? undefined, limit: Number(q.get('n') ?? 200) }) };

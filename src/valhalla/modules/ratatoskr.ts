@@ -75,7 +75,7 @@ export function ratatoskr(registry: () => ToolRegistry | undefined): Module {
           { kind: 'table', title: 'Serveurs branchés', columns: ['Serveur', 'Source', 'État'], empty: 'Branche un serveur MCP à droite.', rows: list.map((c) => ({ cells: [c.name, c.kind === 'stdio' ? `${c.command} ${(c.args ?? []).join(' ')}` : c.url ?? '', status.get(c.name) ?? '—'], tone: (status.get(c.name) ?? '').startsWith('✓') ? 'bon' as const : 'attention' as const, actions: [{ action: 'reconnecter', label: 'Reconnecter', input: { nom: c.name } }, { action: 'outils', label: 'Outils', input: { nom: c.name } }, { action: 'retirer', label: 'Débrancher', input: { nom: c.name } }] })) },
           { kind: 'text', title: 'Serveur MCP d\'Odin', text: 'Adresse : /mcp sur l\'interface d\'Odin, en-tête « Authorization: Bearer <jeton> » (le jeton d\'accès de l\'interface web). Tes applis y sont proposées comme outils (lectures et actions simples) ; les actions graves restent dans Odin.' },
         ],
-        side: [{ kind: 'form', title: 'Brancher un serveur', action: 'ajouter', submit: 'Brancher', params: m.actions[1].params! }],
+        side: [{ kind: 'form', title: 'Brancher un serveur', action: 'ajouter', submit: 'Brancher', params: m.actions.find((a) => a.id === 'ajouter')?.params ?? [] }],
       };
     },
     async start(ctx) { for (const c of confs(ctx).filter((x) => x.enabled)) await connect(ctx, c, registry).catch((e) => ctx.alert({ level: 'moyenne', title: `Serveur MCP ${c.name} injoignable`, detail: (e as Error).message, key: `mcp:${c.name}` })); },

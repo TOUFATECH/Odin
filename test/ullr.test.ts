@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { crc32, deflateRawSync, gzipSync } from 'node:zlib';
 import { wireReflexes } from '../src/valhalla/links.ts';
-import { ullr, ullrKeys, walk } from '../src/valhalla/modules/ullr.ts';
+import { nextRun, ullr, ullrKeys, walk } from '../src/valhalla/modules/ullr.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { BASE_RULES, combine, compileGaldr, entropy, fileType, flat, hay, importYara, reAtom, isPassive, phishing, regDomain, RuleSet, scanBuffer, sureOf, unzip, urlRisk, type Knowledge } from '../src/valhalla/ullr/engine.ts';
@@ -433,7 +433,7 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     await act(w, 'exception', { quoi: join(d, 'sous') });
     assert.match((await act(w, 'fichier', { chemin: join(d, 'sous', 'shell.php') })).text, /introuvable, vide, ou dans tes exceptions : /);
     const det = (w.v.ctx('ullr').settings.hits as Array<{ id: string; file: string }>).find((x) => x.file.endsWith('maj.ps1'))!;
-    assert.match((await act(w, 'faux_positif', { id: det.id })).text, /déclaré sain/);
+    assert.match((await act(w, 'faux_positif', { detection: det.id })).text, /déclaré sain/);
     assert.match((await act(w, 'fichier', { chemin: join(d, 'maj.ps1') })).text, /^✓ Rien de dangereux/);
     assert.match((await act(w, 'exceptions')).text, /dossier .*sous[\s\S]*empreinte [a-f0-9]{64}/);
     await assert.rejects(async () => { const x = await act(w, 'exception', { quoi: '/' }); if (x.ok === false) throw new Error(x.text); }, /trop large/);
@@ -478,7 +478,7 @@ test('Ullr · protection en continu : un fichier qui arrive est analysé tout se
     const note = join(w.home, 'cerveau', readdirSync(join(w.home, 'cerveau')).find((f) => /^Incident /.test(f))!);
     assert.match(readFileSync(note, 'utf8'), /#sécurité #incident[\s\S]*fichier sentinelle[\s\S]*\[\[Ullr\]\]/);
     const id = (w.v.ctx('ullr').settings.incidents as Array<{ id: string }>)[0].id;
-    assert.match((await act(w, 'incident', { id, etat: 'traité' })).text, /traité/);
+    assert.match((await act(w, 'incident', { incident: id, etat: 'traité' })).text, /traité/);
     assert.ok(await until(() => /Incident classé : traité/.test(readFileSync(note, 'utf8'))));
     // Protection coupée : plus rien n'est surveillé.
     assert.match((await act(w, 'protection', { actif: false })).text, /coupée[\s\S]*0 dossier\(s\) surveillé\(s\)/);
@@ -615,11 +615,23 @@ test('Ullr · plans d\'analyse, règle Galdr ajoutée, arrêt d\'une analyse, pa
     await act(w, 'retirer_exception', { quoi: 'Mot interdit' });
     assert.match((await act(w, 'fichier', { chemin: join(d, 'a.sh') })).text, /⚠ Mot interdit/);
     assert.match((await act(w, 'arreter')).text, /Aucune analyse en cours/);
+    // Prochain passage : un plan créé à 15 h 57 pour 2 h 30 attend 2 h 30 (il ne part pas tout de suite).
+    const at = (h: number, m: number, day = 11) => new Date(2026, 10, day, h, m, 0);
+    assert.equal(nextRun({ every: 'jour', at: '02:30' }, at(15, 57)).getTime(), at(2, 30, 12).getTime());
+    assert.equal(nextRun({ every: 'jour', at: '02:30' }, at(1, 0)).getTime(), at(2, 30).getTime());
+    assert.equal(nextRun({ every: 'jour', at: '02:30' }, at(2, 31), at(2, 31)).getTime(), at(2, 30, 12).getTime(), 'après un passage : le lendemain à la même heure');
+    assert.equal(nextRun({ every: 'semaine', at: '02:30' }, at(2, 31), at(2, 31)).getTime(), at(2, 30, 18).getTime(), 'chaque semaine : sept jours plus tard');
+    assert.equal(nextRun({ every: 'heure', at: '00:00' }, at(10, 0)).getTime(), at(11, 0).getTime());
+    assert.ok(nextRun({ every: 'jour', at: '02:30' }, at(9, 0, 20), at(2, 30, 11)) > at(9, 0, 20), 'un passage manqué pendant un arrêt ne se rattrape qu\'une fois');
+    assert.match((await act(w, 'plans')).text, /prochaine : \d\d\/\d\d/);
+    await ullr.watch!.run(w.v.ctx('ullr'));
+    assert.equal((w.v.ctx('ullr').settings.reports as unknown[] | undefined)?.length ?? 0, 0, 'le plan tout juste créé attend son heure');
     // Le plan dû est lancé par la veille (toutes les minutes), une seule analyse à la fois.
-    w.v.ctx('ullr').saveSettings({ plans: [{ name: 'Documents', target: d, every: 'heure', at: '00:00', exclude: [] }], checkedAt: new Date().toISOString(), auto: false });
+    w.v.ctx('ullr').saveSettings({ plans: [{ name: 'Documents', target: d, every: 'heure', at: '00:00', exclude: [], next: new Date(Date.now() - 1000).toISOString() }], checkedAt: new Date().toISOString(), auto: false });
     await ullr.watch!.run(w.v.ctx('ullr'));
     assert.ok(await until(() => (w.v.ctx('ullr').settings.reports as unknown[] | undefined)?.length === 1), 'analyse planifiée faite');
     assert.equal((w.v.ctx('ullr').settings.reports as Array<{ plan: string; hits: number }>)[0].plan, 'Documents');
+    assert.ok(Date.parse((w.v.ctx('ullr').settings.plans as Array<{ next: string }>)[0].next) > Date.now() + 3000_000, 'le passage suivant est prévu dans une heure');
     assert.ok(existsSync(join(d, 'a.sh')), 'quarantaine automatique coupée : rien n\'est déplacé');
     assert.match((await act(w, 'retirer_plan', { nom: 'Documents' })).text, /retiré/);
     // La page : indicateurs, incidents, détections, quarantaine, plans, rapports, sources, capteurs.

@@ -44,7 +44,7 @@ export const hermod: Module = {
       tabs: ['Hermod · parc', 'Skírnir · prise en main'],
       kpis: [{ label: 'En ligne', value: `${on} / ${ms.length}`, tone: on === ms.length ? 'bon' : 'attention' }, { label: 'Mises à jour en attente', value: String(ms.reduce((a, m) => a + (Number(i[m.id]?.updates) || 0), 0)) }],
       sections: [{ kind: 'table', title: 'Machines', columns: ['Machine', 'Adresse', 'Système', 'Disque', 'Mémoire (Mo)', 'Mises à jour', 'État'], empty: 'Aucune machine : Réglages → Machines pour en ajouter.', rows: ms.map((m) => { const x = i[m.id]; return { cells: [m.label, m.host, x?.os ?? '—', x?.disk ?? '—', x?.mem ?? '—', x?.updates ?? '—', x?.online ?? 'inconnu'], tone: x?.online === 'en ligne' ? 'bon' : x ? 'mauvais' : undefined, actions: [{ action: 'bureau', label: 'Prendre la main', input: { machine: m.label } }, { action: 'reveiller', label: 'Réveiller', input: { machine: m.label } }, { action: 'redemarrer', label: 'Redémarrer', input: { machine: m.label } }] }; }) }],
-      side: [{ kind: 'form', title: 'Commande à distance', action: 'commande', submit: 'Exécuter', params: hermod.actions[2].params! }],
+      side: [{ kind: 'form', title: 'Commande à distance', action: 'commande', submit: 'Exécuter', params: hermod.actions.find((a) => a.id === 'commande')?.params ?? [] }],
     };
   },
   watch: { every: 300, async run(ctx) {

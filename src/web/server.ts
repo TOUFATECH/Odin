@@ -117,6 +117,7 @@ const FLOWS_JS = (() => { try { return readFileSync(new URL('./flows.js', import
 const RUNES_JS = (() => { try { return readFileSync(new URL('./runes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
 const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
@@ -434,7 +435,7 @@ export class WebChannel implements Channel {
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         // Fenêtre isolée des autres sites ; seuls le micro et la caméra servent (voix, photo) ; l'ancien filtre XSS des navigateurs est coupé (la politique de contenu fait mieux).
         'cross-origin-opener-policy': 'same-origin', 'x-xss-protection': '0',
-        'permissions-policy': 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), bluetooth=(), serial=(), hid=(), midi=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()',
+        'permissions-policy': 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()',
         // HSTS seulement avec un vrai certificat (le tien, ou celui du tunnel / proxy HTTPS) : jamais avec le certificat auto-signé du réseau local.
         ...((this.tls && !this.tls.selfSigned) || (ip.startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? ''))) ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
@@ -460,6 +461,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
+    if (url.pathname === '/guide.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GUIDE_JS); }
     if (url.pathname === '/brain.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(BRAIN_JS); }
     if (url.pathname.startsWith('/fonts/') && FONTS[url.pathname.slice(7)]) { res.writeHead(200, { 'content-type': 'font/woff2', 'cache-control': 'max-age=31536000, immutable', 'x-content-type-options': 'nosniff' }); return void res.end(FONTS[url.pathname.slice(7)]); }
     if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }

@@ -99,7 +99,7 @@ export const himinbjorg: Module = {
         { kind: 'table', title: 'Caméras', columns: ['Caméra', 'Flux', 'Mouvement', 'Heures', 'Sensibilité'], empty: 'Ajoute une caméra à droite.', rows: c.map((x) => ({ cells: [x.name, masked(x.url), x.motion ? 'oui' : 'non', x.hours ?? 'toujours', String(x.sensitivity)], actions: [{ action: 'photo', label: 'Photo', input: { camera: x.name } }, { action: 'enregistrer', label: 'Clip 30 s', input: { camera: x.name, secondes: 30 } }] })) },
         { kind: 'table', title: 'Derniers clips', columns: ['Quand', 'Caméra', 'Taille'], empty: 'Aucun clip.', rows: cl.slice(0, 30).map((x) => ({ cells: [x.at.slice(0, 16).replace('T', ' '), x.cam, `${(x.size / 1048576).toFixed(1).replace('.', ',')} Mo`] })) },
       ],
-      side: [{ kind: 'form', title: 'Ajouter une caméra', action: 'ajouter', submit: 'Ajouter', params: himinbjorg.actions[1].params! }],
+      side: [{ kind: 'form', title: 'Ajouter une caméra', action: 'ajouter', submit: 'Ajouter', params: himinbjorg.actions.find((a) => a.id === 'ajouter')?.params ?? [] }],
     };
   },
   watch: { every: 10, async run(ctx) {

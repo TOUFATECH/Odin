@@ -233,6 +233,7 @@
     setInterval(() => sync('walk'), 1500);
     setInterval(tick, 3000);
   }
-  window.OdinCompanion = { go: (x, y) => go({ x, y, force: true }, 'hopto'), act, lookAt, sync };
+  // `pin` : il reste où il est pendant ce temps (quand il parle) ; `pin(0)` lui rend sa liberté.
+  window.OdinCompanion = { go: (x, y) => go({ x, y, force: true }, 'hopto'), act, lookAt, sync, pin: (ms) => { pinnedUntil = ms > 0 ? Date.now() + ms : 0; } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 300)); else setTimeout(start, 300);
 })();

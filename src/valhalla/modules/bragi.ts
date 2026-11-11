@@ -82,7 +82,7 @@ export function bragi(voice: () => VoiceConfig): Module {
         tabs: ['Bragi · voix', 'Vör · annonces', 'Gjallarhorn · alertes'],
         kpis: [{ label: 'Comprendre', value: sttReady(v) ? 'prêt' : 'non', tone: sttReady(v) ? 'bon' : 'attention' }, { label: 'Parler', value: ttsReady(v) ? v.tts.provider : 'non', tone: ttsReady(v) ? 'bon' : 'attention' }, { label: 'Gjallarhorn', value: ctx.settings.horn ? 'actif' : 'éteint' }],
         sections: [{ kind: 'text', title: 'Comment ça marche', text: 'Envoie un vocal à Odin sur ta messagerie ou parle-lui dans l\'interface : Bragi comprend, Odin répond, et Bragi peut répondre à voix haute. Pour les enceintes de la maison, relie ta box dans Midgard.' }],
-        side: [{ kind: 'form', title: 'Annoncer', action: 'annoncer', submit: 'Annoncer', params: m.actions[2].params! }, { kind: 'form', title: 'Gjallarhorn', action: 'gjallarhorn', submit: 'Enregistrer', params: m.actions[5].params! }],
+        side: [{ kind: 'form', title: 'Annoncer', action: 'annoncer', submit: 'Annoncer', params: m.actions.find((a) => a.id === 'annoncer')?.params ?? [] }, { kind: 'form', title: 'Gjallarhorn', action: 'gjallarhorn', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'gjallarhorn')?.params ?? [] }],
       };
     },
   };

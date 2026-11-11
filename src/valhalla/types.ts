@@ -33,6 +33,8 @@ export interface Action {
   undo?: (input: Record<string, unknown>, result: ActionResult, ctx: ModCtx) => Undo | undefined;
   /** trop banale pour le journal des manips (lecture déguisée, accusé de réception…) */
   quiet?: boolean;
+  /** `false` : pas de bouton rapide sur la page (l'action reste dans « Autres actions », avec son formulaire) */
+  quick?: boolean;
   run(ctx: ModCtx, input: Record<string, unknown>): Promise<ActionResult> | ActionResult;
 }
 

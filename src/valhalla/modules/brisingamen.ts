@@ -80,8 +80,8 @@ export const brisingamen: Module = {
       tabs: ['Tous', ...folders],
       kpis: [{ label: 'Dans des fuites', value: String(a.breached.length), tone: a.breached.length ? 'mauvais' : 'bon' }, { label: 'Réutilisés', value: String(a.reused.length), tone: a.reused.length ? 'attention' : 'bon' }, { label: 'Trop faibles', value: String(a.weak.length), tone: a.weak.length ? 'attention' : 'bon' }, { label: 'Avec 2FA', value: String(a.totp) }],
       sections: [{ kind: 'table', title: 'Éléments', columns: ['Nom', 'Identifiant', 'Site', 'Coffre', 'Force', '2FA'], empty: err || 'Coffre vide : ajoute un premier élément à droite.', rows: items.map((i) => ({ cells: [i.name, i.user ?? '', i.url ?? '', i.folder ?? 'Personnel', i.breached ? 'FUITE' : i.password ? strength(i.password).label : '', i.totp ? 'oui' : ''], tone: i.breached ? 'mauvais' : i.password && strength(i.password).bits < 40 ? 'attention' : undefined })) }],
-      side: [{ kind: 'form', title: 'Ajouter', action: 'ajouter', submit: 'Ajouter', params: brisingamen.actions[2].params! }, { kind: 'text', title: 'Confidentialité', text: 'Les mots de passe restent chiffrés sur la machine. Odin ne les écrit jamais dans une conversation : tu les copies depuis cette page.' }],
+      side: [{ kind: 'form', title: 'Ajouter', action: 'ajouter', submit: 'Ajouter', params: brisingamen.actions.find((a) => a.id === 'ajouter')?.params ?? [] }, { kind: 'text', title: 'Confidentialité', text: 'Les mots de passe restent chiffrés sur la machine. Odin ne les écrit jamais dans une conversation : tu les copies depuis cette page.' }],
     };
   },
-  watch: { every: 7 * 86400, async run(ctx) { if (process.env.BRISINGAMEN_KEY && existsSync(file(ctx))) await Promise.resolve(brisingamen.actions[4].run(ctx, {})).catch(() => undefined); } },
+  watch: { every: 7 * 86400, async run(ctx) { if (process.env.BRISINGAMEN_KEY && existsSync(file(ctx))) await Promise.resolve(brisingamen.actions.find((x) => x.id === 'fuites')!.run(ctx, {})).catch(() => undefined); } },
 };

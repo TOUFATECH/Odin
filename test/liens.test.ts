@@ -232,7 +232,7 @@ CHECKS['ullr>saga'] = async (w) => {
   const note = join(dir, readdirSync(dir).find((f) => /^Incident /.test(f))!);
   assert.match(readFileSync(note, 'utf8'), /#sécurité #incident[\s\S]*Score de risque : \d+\/100 \(critique\)[\s\S]*\[\[Ullr\]\]/);
   const id = (w.v.ctx('ullr').settings.incidents as Array<{ id: string }>)[0].id;
-  await w.v.act('ullr', 'incident', { id, etat: 'traité' });
+  await w.v.act('ullr', 'incident', { incident: id, etat: 'traité' });
   assert.ok(await until(() => /Incident classé : traité/.test(readFileSync(note, 'utf8'))), 'la note est complétée quand l\'incident est classé');
 };
 

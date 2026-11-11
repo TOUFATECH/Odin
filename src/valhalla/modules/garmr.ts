@@ -93,7 +93,7 @@ export const garmr: Module = {
       subtitle: `Bannit après ${ctx.settings.maxretry ?? 5} échecs en ${ctx.settings.findtime ?? 10} min · ${ctx.settings.minutes ?? 60} min la première fois, ×4 à chaque récidive`,
       kpis: [{ label: 'Bannis en ce moment', value: String(b.length), tone: b.length ? 'attention' : 'bon' }, { label: 'Adresses déjà vues', value: String(Object.keys(hist).length) }, { label: 'Liste blanche', value: String(((ctx.settings.allow as string[]) ?? []).length) }],
       sections: [{ kind: 'table', title: 'Bannis', columns: ['Adresse', 'Raison', 'Par', 'Jusqu\'à', 'Récidive'], empty: 'Personne n\'est banni.', rows: b.map((x) => ({ cells: [x.ip, x.reason, x.source, new Date(x.until).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }), String(x.count)], actions: [{ action: 'debannir', label: 'Débannir', input: { ip: x.ip } }] })) }],
-      side: [{ kind: 'form', title: 'Bannir une adresse', action: 'bannir', submit: 'Bannir', params: garmr.actions[1].params! }, { kind: 'list', title: 'Les plus insistants', items: top.map(([ip, n]) => ({ title: ip, meta: `${n} fois` })), empty: 'Rien pour l\'instant.' }],
+      side: [{ kind: 'form', title: 'Bannir une adresse', action: 'bannir', submit: 'Bannir', params: garmr.actions.find((a) => a.id === 'bannir')?.params ?? [] }, { kind: 'list', title: 'Les plus insistants', items: top.map(([ip, n]) => ({ title: ip, meta: `${n} fois` })), empty: 'Rien pour l\'instant.' }],
     };
   },
   watch: { every: 30, async run(ctx) {

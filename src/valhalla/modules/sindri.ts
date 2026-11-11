@@ -134,7 +134,7 @@ export const sindri: Module = {
       tabs: ['Sindri · dossiers', 'Hvergelmir · PC du foyer', 'Andvari · machines virtuelles'],
       kpis: [{ label: 'Plans', value: String(ps.length) }, { label: 'En retard', value: String(late.length), tone: late.length ? 'attention' : 'bon' }, { label: 'Dernière réussie', value: Object.values(l).filter((x) => x.ok).sort((a, b) => b.at.localeCompare(a.at))[0]?.at.slice(0, 16).replace('T', ' ') ?? '—' }],
       sections: [{ kind: 'table', title: 'Plans', columns: ['Plan', 'Dossiers', 'Dépôt', 'Quand', 'Dernière'], empty: 'Aucun plan : crée-en un à droite.', rows: ps.map((p) => ({ cells: [p.name, p.paths.join(', '), p.repo, `chaque jour ${p.at}`, l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(5, 16).replace('T', ' ')} · ${human(l[p.name].bytes ?? 0)}` : 'jamais'], tone: !l[p.name] ? 'attention' : l[p.name].ok ? 'bon' : 'mauvais', actions: [{ action: 'sauvegarder', label: 'Maintenant', input: { plan: p.name } }, { action: 'instantanes', label: 'Versions', input: { plan: p.name } }] })) }],
-      side: [{ kind: 'form', title: 'Nouveau plan', action: 'creer', submit: 'Créer', params: sindri.actions[1].params! }, { kind: 'form', title: 'Retrouver un fichier', action: 'chercher', submit: 'Chercher', params: sindri.actions[4].params! }],
+      side: [{ kind: 'form', title: 'Nouveau plan', action: 'creer', submit: 'Créer', params: sindri.actions.find((a) => a.id === 'creer')?.params ?? [] }, { kind: 'form', title: 'Retrouver un fichier', action: 'chercher', submit: 'Chercher', params: sindri.actions.find((a) => a.id === 'chercher')?.params ?? [] }],
     };
   },
   watch: { every: 60, async run(ctx) {
@@ -145,6 +145,6 @@ export const sindri: Module = {
         try { await runPlan(ctx, p); } catch (e) { ctx.saveSettings({ last: { ...l, [p.name]: { at: now.toISOString(), ok: false, error: (e as Error).message } } }); ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » échouée`, detail: (e as Error).message, key: `fail:${p.name}` }); ctx.emit('sauvegarde_echec', { plan: p.name, erreur: (e as Error).message }); }
       } else if (l[p.name] && now.getTime() - Date.parse(l[p.name].at) > 50 * 3600_000) ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » en retard`, detail: `Dernière : ${l[p.name].at.slice(0, 16).replace('T', ' ')}`, key: `late:${p.name}` });
     }
-    if (now.getDay() === 0 && hm === '04:30') await Promise.resolve(sindri.actions[6].run(ctx, {})).catch(() => undefined);
+    if (now.getDay() === 0 && hm === '04:30') await Promise.resolve(sindri.actions.find((x) => x.id === 'verifier')!.run(ctx, {})).catch(() => undefined);
   } },
 };

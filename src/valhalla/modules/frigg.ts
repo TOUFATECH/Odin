@@ -86,7 +86,7 @@ export const frigg: Module = {
         { kind: 'table', title: 'Prestations', columns: ['Prestation', 'Durée', 'Prix'], empty: 'Ajoute une prestation à droite.', rows: services(ctx).map((x) => ({ cells: [x.name, `${x.minutes} min`, x.price !== undefined ? `${x.price} €` : '—'] })) },
         { kind: 'text', title: 'Page publique', text: `Tes clients réservent sur /r/${publicKey(ctx)} — sans compte. ${ctx.settings.confirm === false ? 'Réservations confirmées automatiquement.' : 'Chaque demande attend ta confirmation.'}` },
       ],
-      side: [{ kind: 'form', title: 'Ajouter une prestation', action: 'prestation', submit: 'Ajouter', params: frigg.actions[5].params! }, { kind: 'form', title: 'Horaires', action: 'horaires', submit: 'Enregistrer', params: frigg.actions[6].params! }],
+      side: [{ kind: 'form', title: 'Ajouter une prestation', action: 'prestation', submit: 'Ajouter', params: frigg.actions.find((a) => a.id === 'prestation')?.params ?? [] }, { kind: 'form', title: 'Horaires', action: 'horaires', submit: 'Enregistrer', params: frigg.actions.find((a) => a.id === 'horaires')?.params ?? [] }],
     };
   },
   watch: { every: 900, run(ctx) {

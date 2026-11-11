@@ -78,7 +78,7 @@ export const forseti: Module = {
         { kind: 'table', title: search ? `Résultats pour « ${search} »` : 'Alertes récentes', columns: ['Gravité', 'Quand', 'Module', 'Alerte', 'Détail'], empty: '✓ Aucune alerte.', rows: shown.map((a) => ({ cells: [a.level, a.at.slice(5, 16).replace('T', ' '), ctx.modules().find((m) => m.id === a.module)?.name ?? a.module, `${a.title}${a.count > 1 ? ` (×${a.count})` : ''}`, a.detail ?? ''], tone: a.ack ? 'neutre' : t(a.level), actions: a.ack ? [] : [{ action: 'vu', label: 'Vu', input: { ids: a.id } }] })) },
       ],
       side: [
-        { kind: 'form', title: 'Vígríðr · chasser', action: 'chercher', submit: 'Chercher', params: forseti.actions[1].params! },
+        { kind: 'form', title: 'Vígríðr · chasser', action: 'chercher', submit: 'Chercher', params: forseti.actions.find((a) => a.id === 'chercher')?.params ?? [] },
         { kind: 'list', title: 'Conformité', items: c.map((x) => ({ title: x.name, detail: x.detail, tone: x.ok ? 'bon' : 'mauvais', meta: x.ok ? '✓' : '✗' })) },
       ],
     };

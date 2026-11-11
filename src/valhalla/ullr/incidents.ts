@@ -69,7 +69,11 @@ function title(sigs: Signal[], apps: (id: string) => string): { title: string; k
   if (has('ullr.sentinelle') || has('ullr.rafale')) return { kind: 'rançongiciel', title: 'Comportement de rançongiciel : des fichiers sont réécrits en masse' };
   if (has('geri.malveillant') && (has('loki.piege') || has('skogul.suspect'))) return { kind: 'compromission', title: 'Cette machine communique avec un attaquant' };
   if (has('geri.malveillant')) return { kind: 'communication malveillante', title: 'Un programme parle à une adresse malveillante' };
-  if (has('skogul.suspect') && has('ullr.menace')) return { kind: 'malware actif', title: 'Un fichier dangereux est en cours d\'exécution' };
+  if (has('skogul.suspect') && has('ullr.menace')) {
+    // « En cours d'exécution » seulement si le programme suspect EST le fichier signalé ; sinon ce sont deux faits proches dans le temps.
+    const files = sigs.filter((x) => x.app === 'ullr' && x.type === 'menace').map((x) => (x.file ?? '').split('/').pop()), progs = sigs.filter((x) => x.app === 'skogul').flatMap((x) => x.keys.filter((k) => k.startsWith('prog:')).map((k) => k.slice(5)));
+    return files.some((f) => f && progs.includes(f)) ? { kind: 'malware actif', title: 'Un fichier dangereux est en cours d\'exécution' } : { kind: 'fichier dangereux', title: 'Fichier dangereux et processus suspect dans les mêmes minutes' };
+  }
   if (has('skogul.suspect') && (has('geri.nouvelle_destination') || has('eir.mesure'))) return { kind: 'programme suspect', title: 'Un programme suspect est actif (réseau ou processeur anormal)' };
   if (n('odin.connexion_refusee') >= 3) return { kind: 'force brute', title: 'Quelqu\'un essaie de deviner ton mot de passe d\'Odin' };
   if (has('loki.piege') && has('odin.connexion_refusee')) return { kind: 'attaque ciblée', title: 'Un attaquant tombé dans un piège vise aussi Odin' };

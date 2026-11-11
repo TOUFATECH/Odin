@@ -3763,6 +3763,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       if (off.length) acts.push({ label: `${mapName(off[0])} est hors ligne`, primary: true, run: () => askOdin(`${mapName(off[0], true)} (${off[0].ip}) est hors ligne : regarde pourquoi et relance-le si tu peux.`) });
       if (unknown) acts.push({ label: `Identifier ${unknown} appareil${unknown > 1 ? 's' : ''}`, run: () => askOdin('Identifie les appareils sans nom de mon réseau et donne-leur un nom clair.') });
       acts.push({ label: 'Point du jour', primary: !acts.length, run: () => askOdin('Fais-moi le point du jour : réseau, machines, ce qui mérite mon attention.') });
+      acts.push({ label: 'Quoi de neuf', run: () => window.OdinGuide?.news() });
       acts.push({ label: 'Visite guidée', run: () => window.OdinTour?.start(true) });
     }
     moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000);
@@ -4411,6 +4412,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/runes.js"></script>
 <script nonce="__NONCE__" src="/valhalla.js"></script>
 <script nonce="__NONCE__" src="/companion.js"></script>
+<script nonce="__NONCE__" src="/guide.js"></script>
 <script nonce="__NONCE__" src="/brain.js"></script>
 </body>
 </html>

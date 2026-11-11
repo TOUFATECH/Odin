@@ -195,7 +195,7 @@ export const kvasir: Module = {
         { kind: 'table', title: 'Carnet de travail', columns: ['Appli', 'Fonction', 'Vient de', 'Statut'], empty: 'Envoie un lien GitHub à Odin : les fonctions nouvelles arrivent ici.', rows: ideas(ctx).slice(0, 80).map((x) => ({ cells: [name(x.module), x.feature, x.repo, x.status], tone: x.status === 'fait' ? 'bon' : x.status === 'écarté' ? 'neutre' : 'attention', actions: [{ action: 'idee', label: 'Prévu', input: { fonction: x.feature, statut: 'prévu' } }, { action: 'idee', label: 'Écarter', input: { fonction: x.feature, statut: 'écarté' } }] })) },
         { kind: 'list', title: 'Dépôts suivis', items: w.map((x) => ({ title: x.repo, detail: name(x.module), meta: ((ctx.settings.missing as string[] | undefined) ?? []).includes(x.repo) ? 'introuvable sur GitHub (renommé ?)' : seen(ctx)[x.repo] ?? '', tone: ((ctx.settings.missing as string[] | undefined) ?? []).includes(x.repo) ? 'attention' as const : undefined })) },
       ],
-      side: [{ kind: 'form', title: 'Étudier un lien GitHub', action: 'etudier', submit: 'Étudier', params: kvasir.actions[1].params! }],
+      side: [{ kind: 'form', title: 'Étudier un lien GitHub', action: 'etudier', submit: 'Étudier', params: kvasir.actions.find((a) => a.id === 'etudier')?.params ?? [] }],
     };
   },
   watch: { every: 6 * 3600, async run(ctx) {

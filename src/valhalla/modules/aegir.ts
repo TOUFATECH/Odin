@@ -101,7 +101,7 @@ export const aegir: Module = {
         { kind: 'table', title: 'Radios', columns: ['Radio', 'Adresse'], empty: 'Aucune radio.', rows: radios(ctx).map((r) => ({ cells: [r.name, r.url], actions: [{ action: 'jouer', label: 'Écouter ici', input: { quoi: r.name, ou: 'ici' } }] })) },
         { kind: 'list', title: 'Listes de lecture', empty: 'Aucune liste.', items: Object.entries(lists(ctx)).map(([n, f]) => ({ title: n, detail: `${f.length} morceau(x)` })) },
       ],
-      side: [{ kind: 'form', title: 'Ajouter un dossier', action: 'dossier', submit: 'Ajouter', params: aegir.actions[1].params! }, { kind: 'form', title: 'Ajouter une radio', action: 'radio', submit: 'Ajouter', params: aegir.actions[6].params! }],
+      side: [{ kind: 'form', title: 'Ajouter un dossier', action: 'dossier', submit: 'Ajouter', params: aegir.actions.find((a) => a.id === 'dossier')?.params ?? [] }, { kind: 'form', title: 'Ajouter une radio', action: 'radio', submit: 'Ajouter', params: aegir.actions.find((a) => a.id === 'radio')?.params ?? [] }],
     };
   },
 };

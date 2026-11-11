@@ -82,7 +82,7 @@ test('Huginn : la bonne appli, la bonne action, les bons réglages (sans IA)', a
     ['vérifie le lien https://paypa1.com/x', 'ullr.adresse {"lien":"https://paypa1.com/x"}'],
     ['vérifie ce message : Votre compte sera suspendu, cliquez ici', 'ullr.message {"texte":"Votre compte sera suspendu, cliquez ici"}'],
     ['arrête l\'analyse', 'ullr.arreter {}'],
-    ['rapport antivirus', 'ullr.rapport {"id":""}'],
+    ['rapport antivirus', 'ullr.rapport {"rapport":""}'],
     ['les analyses', 'ullr.rapports {}'],
     ['les analyses planifiées', 'ullr.plans {}'],
     ['mets à jour les signatures', 'ullr.mettre_a_jour {"source":""}'],
