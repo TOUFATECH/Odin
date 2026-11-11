@@ -21,7 +21,7 @@ import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMater
 import { isAbsolute, join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
-import { adminMode, checkSudoPassword, installNopasswd, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine, withAdmin } from '../machines/access.ts';
+import { adminDiagnosis, checkSudoPassword, installNopasswd, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine, withAdmin } from '../machines/access.ts';
 import { userInfo } from 'node:os';
 import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
@@ -68,7 +68,7 @@ import { getMode, setMode, type LifeMode } from '../tools/everyday.ts';
 import { isReminderJob, reminderText } from '../cron/reminders.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { TTS_DEFAULTS, cloneVoice, hear, listVoices, speak, speakAudio, sttReady, ttsIsLocal, ttsReady } from '../voice/voice.ts';
-import { ensureLocalVoice } from '../voice/local.ts';
+import { ensureLocalVoice, resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
 
 export function ensureWebToken(paths: OdinPaths, rotate = false): string {
   const f = join(paths.home, 'web-token');
@@ -663,7 +663,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/api/voice/transcribe') {
       // Micro de l'interface : l'audio arrive brut, Whisper le transforme en texte.
       // Rien de prêt : Odin s'installe lui-même en arrière-plan (sans faire attendre la page).
-      if (!sttReady(v)) { void ensureLocalVoice((msg) => this.push({ type: 'message', peer: 'principal', role: 'assistant', text: msg })); return json(res, 200, { ok: false, error: 'J\'installe de quoi comprendre ta voix (gratuit, tout reste chez toi) : 5 à 15 minutes. Je te préviens quand c\'est prêt ; en attendant, écris-moi.' }); }
+      if (!sttReady(v)) { const blocked = voiceBlocked(this.odin.paths.home); if (blocked) return json(res, 200, { ok: false, error: blocked }); void ensureLocalVoice((msg) => this.push({ type: 'message', peer: 'principal', role: 'assistant', text: msg })); return json(res, 200, { ok: false, error: 'J\'installe de quoi comprendre ta voix (gratuit, tout reste chez toi) : 5 à 15 minutes. Je te préviens quand c\'est prêt ; en attendant, écris-moi.' }); }
       try { const audio = await readRaw(req, 25 * 1024 * 1024); const h = await hear(audio, String(req.headers['content-type'] ?? 'audio/webm'), v); return json(res, 200, { ok: true, text: h.text, lang: h.language }); }
       catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
@@ -809,7 +809,7 @@ export class WebChannel implements Channel {
       failedChannels: this.hooks.failedChannels?.() ?? {},
       missions: muninn.listMissions(60),
       rights: {
-        mode: adminMode(this.odin.paths.home), user: userInfo().username, platform: process.platform,
+        ...(() => { const d = adminDiagnosis(this.odin.paths.home); return { mode: d.mode, ok: d.ok, state: d.state, fix: d.fix }; })(), user: userInfo().username, platform: process.platform,
         machines: listMachines(this.odin.paths.home).map(viewMachine),
         // Appareils du réseau où SSH répond : proposés en un clic.
         suggestions: inventory.list().filter((d) => (d.ports ?? []).includes(22)).map((d) => ({ host: d.ip, label: d.label || d.hostname || d.ip })).slice(0, 20),
@@ -983,7 +983,9 @@ export class WebChannel implements Channel {
         if (!r.ok) return { ok: false, error: r.message };
         setAdminPassword(this.odin.paths.home, pw); this.odin.redactor.add(pw); forgetRights();
         const nop = installNopasswd(this.odin.paths.home, pw); forgetRights();
-        return { ok: true, message: nop.ok ? 'Odin est administrateur de cette machine, pour de bon (sudo sans mot de passe) : il peut tout y faire.' : 'Odin a maintenant les droits administrateur sur cette machine (avec le mot de passe gardé chiffré).' };
+        // Une installation de l'écoute attendait ces droits : elle repart toute seule.
+        const resumed = resumeVoiceInstall((msg) => this.push({ type: 'message', peer: 'principal', role: 'assistant', text: msg }), this.odin.paths.home);
+        return { ok: true, message: (nop.ok ? 'Odin est administrateur de cette machine, pour de bon (sudo sans mot de passe) : il peut tout y faire.' : 'Odin a maintenant les droits administrateur sur cette machine (avec le mot de passe gardé chiffré).') + (resumed ? ' L\'installation de l\'écoute repart.' : '') };
       }
       case 'machine_save': {
         try {

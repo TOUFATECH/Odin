@@ -29,7 +29,8 @@ import { docDirs, indexDocs } from '../tools/docindex.ts';
 import { voiceFor } from '../profiles.ts';
 import { fetchEvents } from '../tools/calendar.ts';
 import { anomalies, recoveryPlan, restoreTest, weeklyReport } from '../guard/insight.ts';
-import { listMachines } from '../machines/access.ts';
+import { adminDiagnosis, listMachines } from '../machines/access.ts';
+import { resumeVoiceInstall, voiceWaitsAdmin } from '../voice/local.ts';
 import { validHhmm } from '../mimir/decisions.ts';
 import { LANG_NAME, setVoiceNotifier, speakAudio, spokenLanguage, toVoiceNote, ttsReady } from '../voice/voice.ts';
 import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminderText, whenFr } from '../cron/reminders.ts';
@@ -510,6 +511,10 @@ export class Gateway {
   /** Services surveillés (toutes les 5 min), mises à jour planifiées, journal du soir. */
   async care(now = Date.now()): Promise<void> {
     const cfg = this.odin.cfg;
+    // Une installation attendait les droits administrateur : dès qu'Odin les a (« odin admin fix », mot de passe donné…), elle repart.
+    if (voiceWaitsAdmin(this.odin.paths.home) && adminDiagnosis(this.odin.paths.home).ok) {
+      if (resumeVoiceInstall((msg) => { void this.tellOwner(msg, 'home', true).catch(() => {}); }, this.odin.paths.home)) void this.tellOwner('🎙 J\'ai maintenant les droits administrateur : je relance l\'installation de l\'écoute.', 'home', false).catch(() => {});
+    }
     if (cfg.services.length && now - this.lastCare >= 5 * 60_000) {
       this.lastCare = now;
       const msgs = await careServices(this.careCtx(), cfg.services, { stateFile: join(this.odin.paths.logs, 'services.json'), now });

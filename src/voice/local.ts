@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hasCommand } from '../learn/environment.ts';
-import { withAdmin } from '../machines/access.ts';
+import { ADMIN_HINT, adminDiagnosis, sudoRefused, withAdmin } from '../machines/access.ts';
 
 export const voiceHome = (home = process.env.ODIN_HOME ?? join(homedir(), '.odin')) => join(home, 'voice');
 const WHISPER_MODELS = ['small', 'base', 'medium', 'large-v3-turbo', 'tiny'];
@@ -135,6 +135,7 @@ if [ -n "$MISSING" ]; then
   elif need dnf; then sudo dnf install -y -q $(echo $MISSING | sed 's/g++/gcc-c++/')
   elif need pacman; then sudo pacman -S --noconfirm --needed $(echo $MISSING | sed 's/g++/gcc/')
   elif need apk; then sudo apk add $MISSING build-base
+  elif need brew; then brew install $(echo $MISSING | sed 's/g++//; s/make//') || true; need g++ || { echo "Il manque les outils de développement d'Apple : lance « xcode-select --install », puis redis-moi « installe la voix locale »."; exit 1; }
   else echo "Installe d'abord :$MISSING"; exit 1; fi
 fi
 ${opts.stt ? `echo "→ Whisper (compréhension des vocaux)"
@@ -168,13 +169,20 @@ let installing: Promise<boolean> | undefined;
  * Voix locale prête, installée toute seule au besoin (une seule installation à la fois).
  * `onStart` est appelé si l'installation démarre (pour prévenir le propriétaire).
  */
-export function ensureLocalVoice(onStart?: (msg: string) => void, home?: string): Promise<boolean> {
+export function ensureLocalVoice(onStart?: (msg: string) => void, home?: string, o: { quiet?: boolean } = {}): Promise<boolean> {
   if (localWhisper(home)) return Promise.resolve(true);
+  // Il manque des outils et Odin n'est pas administrateur : inutile d'annoncer une installation qui échouerait
+  // aussitôt, et de recommencer à chaque vocal. On le dit une fois par demande, avec la marche à suivre.
+  const blocked = voiceBlocked(home);
+  if (blocked) { waitAdmin(home, true); lastFailure = blocked; if (!o.quiet) onStart?.(`⚠ ${blocked}`); return Promise.resolve(false); }
   if (!installing) {
     onStart?.('🎙 J\'installe de quoi comprendre tes vocaux et te répondre en audio (gratuit, rien ne sort de chez toi). Ça prend 5 à 15 minutes la première fois ; je réponds à ton vocal dès que c\'est prêt.');
     installing = installLocalVoice({ home }).then((r) => {
       if (!r.ok) console.error('[voix] installation :', r.log.slice(-400));
-      onStart?.(r.stt ? `✅ C'est installé : je comprends tes vocaux${r.tts ? ' et je te réponds en audio, dans la langue que tu parles' : ''}.` : `⚠ L'installation de l'écoute a échoué : ${r.log.split('\n').filter(Boolean).at(-1)?.slice(0, 200) ?? 'erreur inconnue'}. Dis-moi « installe la voix locale » pour réessayer, ou ajoute une clé OpenAI dans Réglages → Voix.`);
+      if (!r.stt && r.needsAdmin) waitAdmin(home, true); // l'installation repartira seule quand Odin aura les droits
+      if (r.stt) { lastFailure = undefined; onStart?.(`✅ C'est installé : je comprends tes vocaux${r.tts ? ' et je te réponds en audio, dans la langue que tu parles' : ''}.`); }
+      // L'échec est dit une seule fois : par celui qui attend la réponse (o.quiet), sinon ici.
+      else { lastFailure = voiceFailure(r.log, r.needsAdmin, r.advice); if (!o.quiet) onStart?.(lastFailure); }
       return r.stt;
     }).catch((e) => { console.error('[voix]', (e as Error).message); return false; }).finally(() => { installing = undefined; });
   }
@@ -182,12 +190,53 @@ export function ensureLocalVoice(onStart?: (msg: string) => void, home?: string)
 }
 
 /** Installe la voix locale (peut prendre plusieurs minutes : compilation et téléchargement ~500 Mo). */
-export async function installLocalVoice(opts: { stt?: boolean; tts?: boolean; model?: string; home?: string } = {}): Promise<{ ok: boolean; log: string; stt: boolean; tts: boolean }> {
+export async function installLocalVoice(opts: { stt?: boolean; tts?: boolean; model?: string; home?: string } = {}): Promise<{ ok: boolean; log: string; stt: boolean; tts: boolean; needsAdmin: boolean; advice?: string }> {
   const home = opts.home ?? process.env.ODIN_HOME ?? join(homedir(), '.odin');
   const d = voiceHome(home); mkdirSync(d, { recursive: true });
   const model = WHISPER_MODELS.includes(opts.model ?? '') ? opts.model! : 'small';
   const a = withAdmin(installScript({ stt: opts.stt !== false, tts: opts.tts !== false, model }), home);
   const r = await run('bash', ['-c', a.command], { env: a.env, timeout: 45 * 60_000, cwd: d });
   const log = `${r.out}\n${r.err}`.trim().split('\n').slice(-25).join('\n');
-  return { ok: r.code === 0, log: r.code === 0 ? log : `${log}${a.hint ? `\n${a.hint}` : ''}`, stt: Boolean(localWhisper(home)), tts: Boolean(localPiper(home)) };
+  // Le conseil sur les droits n'est ajouté que si sudo a vraiment refusé ; sinon l'erreur affichée est la vraie.
+  const needsAdmin = r.code !== 0 && Boolean(a.hint) && sudoRefused(`${r.out}\n${r.err}`);
+  return { ok: r.code === 0, log: needsAdmin ? `${log}\n${a.hint}` : log, stt: Boolean(localWhisper(home)), tts: Boolean(localPiper(home)), needsAdmin, advice: needsAdmin ? a.hint : undefined };
+}
+
+/** Ce qu'Odin dit quand l'installation de l'écoute échoue : le vrai motif, et quoi faire en une étape. */
+export function voiceFailure(log: string, needsAdmin: boolean, advice = ''): string {
+  const lines = log.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (needsAdmin) {
+    // La vraie cause (mot de passe demandé, service verrouillé, sudo absent…) et la marche à suivre viennent du diagnostic.
+    const missing = /Paquets à installer\s*:\s*(.+)/.exec(log)?.[1]?.trim().split(/\s+/).join(', ');
+    return `⚠ Pour installer l'écoute${missing ? `, il manque ${missing} sur ce poste, et` : ','} il me faut les droits administrateur.\n${advice || ADMIN_HINT}\nDès que je les ai, je relance l'installation tout seul. (Autre voie : une clé OpenAI dans Réglages → Voix.)`;
+  }
+  const real = lines.filter((l) => !/^sudo: /.test(l) && l !== 'Terminé.').at(-1)?.slice(0, 220) ?? 'erreur inconnue';
+  return `⚠ L'installation de l'écoute a échoué : ${real}. Dis-moi « installe la voix locale » pour réessayer, ou ajoute une clé OpenAI dans Réglages → Voix.`;
+}
+
+let lastFailure: string | undefined;
+/** Pourquoi la dernière installation de l'écoute n'a pas abouti (pour le dire à celui qui attend). */
+export const lastVoiceFailure = () => lastFailure;
+const TOOLS = ['git', 'cmake', 'make', 'g++', 'ffmpeg', 'curl'];
+/**
+ * L'écoute ne peut pas s'installer maintenant : il manque des outils du système et Odin n'est pas
+ * administrateur pour les ajouter. Rend la phrase à dire (cause réelle + marche à suivre), sinon undefined.
+ */
+export function voiceBlocked(home?: string, has: (c: string) => boolean = hasCommand, diag = adminDiagnosis): string | undefined {
+  if (process.platform !== 'linux' || localWhisper(home)) return undefined;
+  const missing = TOOLS.filter((c) => !has(c)); if (!missing.length) return undefined;
+  const d = diag(home ?? process.env.ODIN_HOME ?? join(homedir(), '.odin')); if (d.ok) return undefined;
+  return `Je ne peux pas encore écouter tes vocaux : il manque ${missing.join(', ')} sur ce poste pour installer l'écoute, et je ne suis ${d.state}.\n${d.fix}\nDès que j'ai les droits, je l'installe tout seul. (Autre voie : une clé OpenAI dans Réglages → Voix.)`;
+}
+
+/** Une installation attend les droits administrateur : elle repart toute seule dès qu'Odin les a. */
+const waitFile = (home?: string) => join(voiceHome(home), 'attend-les-droits');
+function waitAdmin(home: string | undefined, on: boolean): void { try { if (on) { mkdirSync(voiceHome(home), { recursive: true }); writeFileSync(waitFile(home), new Date().toISOString()); } else if (existsSync(waitFile(home))) rmSync(waitFile(home)); } catch { /* facultatif */ } }
+export const voiceWaitsAdmin = (home?: string) => existsSync(waitFile(home));
+/** À appeler quand Odin vient de recevoir les droits administrateur. Rend true si une installation repart. */
+export function resumeVoiceInstall(notify?: (msg: string) => void, home?: string): boolean {
+  if (!voiceWaitsAdmin(home) || localWhisper(home)) { waitAdmin(home, false); return false; }
+  waitAdmin(home, false);
+  void ensureLocalVoice(notify, home);
+  return true;
 }

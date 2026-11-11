@@ -13,7 +13,8 @@ test('administrateur local : « sudo » reçoit le mot de passe donné, jamais a
     if (process.platform !== 'win32' && !(process.getuid?.() === 0)) {
       const none = withAdmin('sudo apt update && sudo apt upgrade -y', home, {});
       assert.equal(none.command, 'sudo -n apt update && sudo -n apt upgrade -y', 'sans mot de passe : échoue vite');
-      assert.match(none.hint ?? '', /Droits et machines/);
+      // Le conseil dit la vraie situation : mot de passe à donner une fois, ou (service verrouillé, sudo absent) la commande à lancer.
+      assert.match(none.hint ?? '', /Droits et machines|admin fix|--user root/);
     }
     setAdminPassword(home, 'mon mot de passe $ "spécial"');
     assert.equal(adminPassword(home, {}), 'mon mot de passe $ "spécial"', 'espaces et caractères spéciaux acceptés');

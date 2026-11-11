@@ -60,17 +60,42 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
  */
 export function tgHtml(md: string): string {
   const blocks: string[] = [];
-  let s = md.replace(/```[\w+-]*\n?([\s\S]*?)```/g, (_m, code: string) => { blocks.push(`<pre>${esc(code.replace(/\n$/, ''))}</pre>`); return `\u0000${blocks.length - 1}\u0000`; });
-  s = s.replace(/`([^`\n]+)`/g, (_m, code: string) => { blocks.push(`<code>${esc(code)}</code>`); return `\u0000${blocks.length - 1}\u0000`; });
+  const keep = (html: string) => { blocks.push(html); return `\u0000${blocks.length - 1}\u0000`; };
+  let s = md.replace(/```[\w+-]*\n?([\s\S]*?)```/g, (_m, code: string) => keep(`<pre>${esc(code.replace(/\n$/, ''))}</pre>`));
+  // Tableau : Telegram n'en a pas. Colonnes alignées, en caractères à largeur fixe.
+  s = s.replace(/(?:^[ \t]*\|.*\|[ \t]*(?:\n|$)){2,}/gm, (tab) => {
+    const rows = tab.trim().split('\n').map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim().replace(/\*\*|`/g, '')));
+    if (rows.length < 2 || !rows[1].every((c) => /^:?-{2,}:?$/.test(c))) return tab;
+    const body = [rows[0], ...rows.slice(2)], w = rows[0].map((_c, i) => Math.max(...body.map((r) => (r[i] ?? '').length)));
+    const line = (r: string[]) => r.map((c, i) => (c ?? '').padEnd(w[i] ?? 0)).join('  ').trimEnd();
+    return `${keep(`<pre>${esc([line(body[0]), w.map((n) => '─'.repeat(n)).join('  '), ...body.slice(1).map(line)].join('\n'))}</pre>`)}\n`;
+  });
+  s = s.replace(/`([^`\n]+)`/g, (_m, code: string) => keep(`<code>${esc(code)}</code>`));
   s = esc(s)
     .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (_m, l: string, u: string) => `<a href="${u.replace(/"/g, '&quot;')}">${l}</a>`)
     .replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>')
+    .replace(/\*\*\*([^*\n]+?)\*\*\*/g, '<b><i>$1</i></b>')
     .replace(/\*\*([^*\n]+?)\*\*/g, '<b>$1</b>')
     .replace(/__([^_\n]+?)__/g, '<b>$1</b>')
     .replace(/(^|[\s(])\*([^*\s][^*\n]*?)\*(?=[\s.,;:!?)]|$)/gm, '$1<i>$2</i>')
+    .replace(/(^|[\s(«])_([^_\s][^_\n]*?)_(?=[\s.,;:!?)»]|$)/gm, '$1<i>$2</i>')
     .replace(/~~([^~\n]+?)~~/g, '<s>$1</s>')
-    .replace(/^(\s*)[*-]\s+/gm, '$1• ');
-  return s.replace(/\u0000(\d+)\u0000/g, (_m, k: string) => blocks[Number(k)]);
+    // Cases à cocher, puces, citations (plusieurs lignes « > » de suite = une seule citation).
+    .replace(/^(\s*)[*-]\s+\[[xX]\]\s+/gm, '$1☑ ').replace(/^(\s*)[*-]\s+\[ \]\s+/gm, '$1☐ ')
+    .replace(/^(\s*)[*-]\s+/gm, '$1• ')
+    .replace(/(?:^&gt; ?.*(?:\n|$))+/gm, (q) => `<blockquote>${q.trimEnd().split('\n').map((l) => l.replace(/^&gt; ?/, '')).join('\n')}</blockquote>\n`)
+    .replace(/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/gm, '────────');
+  return s.replace(/\u0000(\d+)\u0000/g, (_m, k: string) => blocks[Number(k)]).replace(/\n{3,}/g, '\n\n').trimEnd();
+}
+/**
+ * Texte sans aucune marque de mise en forme, pour le cas où Telegram refuse la version mise en forme :
+ * on n'envoie jamais de « **…** » ni d'accents graves bruts. Pur, testable.
+ */
+export function tgPlain(md: string): string {
+  return md.replace(/```[\w+-]*\n?([\s\S]*?)```/g, '$1').replace(/`([^`\n]+)`/g, '$1')
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1 ($2)').replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*{2,3}([^*\n]+?)\*{2,3}/g, '$1').replace(/__([^_\n]+?)__/g, '$1').replace(/~~([^~\n]+?)~~/g, '$1')
+    .replace(/^(\s*)[*-]\s+\[[xX]\]\s+/gm, '$1☑ ').replace(/^(\s*)[*-]\s+\[ \]\s+/gm, '$1☐ ').replace(/^(\s*)[*-]\s+/gm, '$1• ').replace(/^> ?/gm, '');
 }
 
 type TgCallback = { id: string; data?: string; from?: { id: number; first_name?: string }; message?: { message_id: number; chat: { id: number } } };
@@ -365,13 +390,16 @@ export class TelegramChannel implements Channel {
     for (const [k, part] of parts.entries()) {
       const last = k === parts.length - 1;
       const face = last && mood ? (this.faces[mood] && Date.now() > this.facesOff ? ` <tg-emoji emoji-id="${this.faces[mood]}">${MOOD_EMOJI[mood]}</tg-emoji>` : ` ${MOOD_EMOJI[mood]}`) : '';
-      let r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(part) + face, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }).catch(() => ({ ok: false, description: 'réseau' }));
+      const html = (f: string) => this.call('sendMessage', { chat_id: peer, text: tgHtml(part) + f, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }).catch(() => ({ ok: false, description: 'réseau' })) as Promise<{ ok: boolean; description?: string; parameters?: { retry_after?: number } }>;
+      let r = await html(face);
+      // Telegram demande d'attendre (trop de messages d'un coup), ou le réseau a hoqueté : on réessaie la version mise en forme.
+      if (!r.ok && (r.parameters?.retry_after || /Too Many Requests|réseau/i.test(r.description ?? ''))) { await new Promise((res) => setTimeout(res, Math.min(15, r.parameters?.retry_after ?? 1) * 1000 + 250)); r = await html(face); }
       if (!r.ok && face.includes('tg-emoji')) {
         // Émoji personnalisé refusé (propriétaire sans Telegram Premium) : émoji classique, nouvel essai plus tard.
         this.facesOff = Date.now() + 6 * 3600_000;
         r = await this.call('sendMessage', { chat_id: peer, text: tgHtml(part) + ` ${MOOD_EMOJI[mood!]}`, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }).catch(() => ({ ok: false }));
       }
-      if (!r.ok) await this.call('sendMessage', { chat_id: peer, text: part + (last && mood ? ` ${MOOD_EMOJI[mood]}` : '') }).catch(() => undefined); // HTML refusé : texte brut
+      if (!r.ok) await this.call('sendMessage', { chat_id: peer, text: tgPlain(part) + (last && mood ? ` ${MOOD_EMOJI[mood]}` : '') }).catch(() => undefined); // mise en forme refusée : texte simple, sans marques
     }
   }
 

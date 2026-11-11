@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { installPlan, parseRepo, reputation, scanCode, type Finding, type RepoInfo } from '../apps/vet.ts';
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { hasCommand } from '../learn/environment.ts';
-import { withAdmin } from '../machines/access.ts';
+import { sudoRefused, withAdmin } from '../machines/access.ts';
 import { bool, obj, str, type Tool, type ToolContext } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -83,7 +83,7 @@ function report(v: Vetting, home: string): string {
 export async function ensureDocker(home: string, signal?: AbortSignal): Promise<string | undefined> {
   if (hasCommand('docker') && (await run('docker', ['compose', 'version'])).ok) return undefined;
   const r = await sh('if command -v apt-get >/dev/null; then sudo apt-get update -qq && (sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-compose-v2 || sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker.io docker-compose-plugin); elif command -v dnf >/dev/null; then sudo dnf install -y -q docker docker-compose-plugin; else exit 3; fi; sudo systemctl enable --now docker 2>/dev/null || true; sudo usermod -aG docker "$USER" 2>/dev/null || true', { home, timeout: 1_200_000, signal });
-  if (!r.ok) return `Docker manque et je n'ai pas pu l'installer${r.hint ? ` (${r.hint})` : ''} : ${r.err.split('\n').filter(Boolean).at(-1)?.slice(0, 160) ?? ''}`;
+  if (!r.ok) return `Docker manque et je n'ai pas pu l'installer${r.hint && sudoRefused(r.err) ? ` (${r.hint})` : ''} : ${r.err.split('\n').filter(Boolean).at(-1)?.slice(0, 160) ?? ''}`;
   return undefined;
 }
 

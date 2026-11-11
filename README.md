@@ -76,6 +76,8 @@ docker run -d --name odin -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
 docker exec -it odin node bin/odin.mjs chat
 ```
 
+Dans le conteneur, Odin est administrateur (sudo sans mot de passe pour son compte) : il peut y installer ce dont il a besoin. Ne le lance pas avec `--security-opt no-new-privileges`, qui l'en empêcherait (il te le dirait).
+
 Dans un conteneur, l'interface web est en mode réseau local par défaut : publie le port (`-p 7777:7777`) et ouvre `https://<ip-de-la-machine>:7777`. L'API HTTP reste disponible (`"http": { "host": "0.0.0.0" }` dans `/data/config.json`, port 7778).
 </details>
 
@@ -227,7 +229,18 @@ Odin découvre les appareils sans droits administrateur (table ARP, balayage TCP
 
 **Adresses MAC** : à chaque balayage, Odin vérifie qu'une même adresse MAC ne répond pas sur deux IP (usurpation possible) et que la box garde la même MAC (interception possible) ; il te prévient aussitôt.
 
-**Odin est administrateur de son poste** : à l'installation, il reçoit les droits administrateur (règle sudo sans mot de passe, vérifiée par visudo ; `ODIN_NO_ADMIN=1` pour refuser). Sinon, dis-lui simplement « le mot de passe admin de ce poste est … » : il le vérifie et devient administrateur pour de bon. Une commande refusée faute de droits est relancée toute seule avec sudo. Heimdall reste juge : les commandes destructrices restent interdites. Pour revenir en arrière : `sudo rm /etc/sudoers.d/odin`.
+**Odin est administrateur de son poste, partout** : à l'installation, il reçoit les droits administrateur (`ODIN_NO_ADMIN=1` pour refuser).
+
+| Où | Comment il les a |
+|---|---|
+| Linux, macOS (ton compte) | règle sudo sans mot de passe, vérifiée par visudo (sudo te demande ton mot de passe une fois, à l'installation) |
+| Linux installé en root (conteneur LXC, serveur) | service du système lancé en root : rien à régler |
+| Docker | le compte `odin` de l'image est administrateur du conteneur (sudo sans mot de passe) |
+| Windows | la tâche « Odin » démarre avec les privilèges élevés (une confirmation Windows, une fois) |
+
+`odin admin` dit où en sont les droits, **avec la vraie cause** quand il en manque, et la commande exacte à lancer. `odin admin fix`, lancée une fois par un administrateur, répare une installation existante : elle pose la règle sudo, retire d'un service systemd les réglages qui interdisent de devenir administrateur (`NoNewPrivileges` et ceux qui l'imposent), redémarre le service, et remet tout comme avant s'il ne repart pas. Un service verrouillé ne peut pas se déverrouiller lui-même : c'est pour cela qu'il faut cette commande une fois, depuis un compte administrateur. Dans ce cas, Odin ne réclame pas de mot de passe (il ne servirait à rien) : il donne la commande.
+
+Si sudo demande seulement un mot de passe, dis-lui « le mot de passe admin de ce poste est … » : il le vérifie et devient administrateur pour de bon. Une commande refusée faute de droits est relancée toute seule avec sudo. Heimdall reste juge : les commandes destructrices restent interdites. Pour revenir en arrière : `sudo rm /etc/sudoers.d/odin` (et, pour un service, le fichier `90-odin-administrateur.conf` de son dossier `.service.d`).
 
 **Donner un mot de passe à Odin** : écris-le simplement dans la discussion (« le mot de passe root du 192.168.1.102 est … »). Il est retiré du message avant le modèle (qui ne le voit jamais) et effacé de Telegram. Odin se connecte, installe sa clé SSH et vérifie qu'elle marche, crée un jeton d'API s'il s'agit d'un Proxmox (réglé tout seul), puis change le mot de passe : le nouveau t'arrive en message privé masqué, effacé au bout de 10 minutes, et reste chiffré dans le coffre.
 
@@ -497,7 +510,9 @@ Odin peut **tout faire sur sa machine** et sur **les machines de ton réseau** :
 
 ```bash
 odin admin password                       # mot de passe sudo : chaque « sudo » d'Odin le reçoit tout seul
+odin admin                                # où en sont ses droits, pourquoi, et quoi faire s'il en manque
 odin admin nopasswd                       # ou : sudo sans mot de passe pour Odin (règle vérifiée par visudo)
+sudo odin admin fix                       # une fois : répare les droits d'une installation existante (service verrouillé, sudo absent…)
 odin machines add 192.168.1.30 admin --nom NAS   # une machine du réseau (SSH) : mot de passe demandé
 odin machines list · odin machines test NAS · odin machines remove NAS
 ```
@@ -612,7 +627,7 @@ Odin applique sa sécurité **dans le code**, pas dans le prompt :
 | `odin cron [list\|add\|remove]` | tâches planifiées |
 | `odin pairing [list\|users\|approve CANAL CODE [--membre NOM]]` | inconnus sur Telegram ; membres de la maison |
 | `odin backup [fichier]` · `odin restore fichier` | sauvegarde chiffrée · restauration |
-| `odin admin [status\|password\|nopasswd\|forget]` | droits administrateur sur sa machine |
+| `odin admin [status\|fix\|password\|nopasswd\|forget]` | droits administrateur sur sa machine : état et cause, réparation (`fix`, à lancer en administrateur) |
 | `odin machines [list\|add ADRESSE UTILISATEUR\|test\|remove]` | machines du réseau (SSH, mot de passe) |
 | `odin auth add openai-codex` · `odin auth list` · `odin auth remove openai-codex` | connexion à ton abonnement ChatGPT (Codex) |
 | `odin model [codex\|PRÉRÉGLAGE] [MODÈLE]` | modèle par défaut (ex. `odin model codex gpt-6-luna`) |

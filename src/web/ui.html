@@ -1469,7 +1469,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           <article class="card" data-sec="droits"><div class="form" id="vaultBox" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form">
             <h2>Droits et machines</h2>
             <p class="sub" style="margin:0">Odin peut tout faire sur sa machine et sur les machines de ton réseau : donne-lui simplement les mots de passe. Ils restent sur cette machine (fichiers lisibles par toi seul), ne sont jamais réaffichés ni montrés au modèle, et sont masqués partout. Les règles de sécurité restent : commandes destructrices interdites, validation selon ton niveau d'autonomie.</p>
-            <div class="field"><label>Cette machine</label><div class="sub" id="r-local">—</div></div>
+            <div class="field"><label>Cette machine</label><div class="sub" id="r-admin" role="status">—</div><div id="r-adminFix" hidden style="margin-top:8px"><pre id="r-adminCmd" style="margin:0 0 8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2,transparent);white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace"></pre><button class="btn small" type="button" id="r-adminCopy">Copier la commande</button></div></div>
             <div id="r-adminBox" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
               <div class="field" style="flex:1 1 220px"><label for="r-adminPw">Mot de passe administrateur (sudo) de <span id="r-user">ce compte</span></label><input id="r-adminPw" type="password" autocomplete="new-password"></div>
               <button class="btn small primary" type="button" id="r-adminSave">Vérifier et donner les droits</button>
@@ -4020,11 +4020,16 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   });
 
   // ---------- Droits et machines ----------
-  const MODE_TXT = { root: '✓ Administrateur (root) : Odin peut tout faire ici.', nopasswd: '✓ Administrateur : sudo sans mot de passe.', password: '✓ Administrateur : Odin utilise le mot de passe que tu lui as donné.', none: 'Pas encore administrateur : donne-lui le mot de passe sudo ci-dessous.', absent: 'sudo est absent de cette machine.' };
+  // L'état vient du serveur, avec sa cause et la commande exacte quand il manque quelque chose (service verrouillé, sudo absent, Windows non élevé…).
+  $('#r-adminCopy').addEventListener('click', (e) => { const cmd = ($('#r-adminCmd').textContent.split('\n').find((l) => /^\s{2}\S/.test(l)) || $('#r-adminCmd').textContent).trim(); navigator.clipboard?.writeText(cmd); e.target.textContent = 'Copié'; setTimeout(() => { e.target.textContent = 'Copier la commande'; }, 1800); });
   function renderRights() {
     const R = state.rights; if (!R) return;
-    $('#r-local').textContent = MODE_TXT[R.mode] || R.mode; $('#r-user').textContent = R.user;
-    $('#r-adminBox').hidden = R.mode === 'root' || R.mode === 'nopasswd' || R.mode === 'absent';
+    const txt = String(R.state || R.mode || '');
+    $('#r-admin').textContent = `${R.ok ? '✓' : '⚠'} ${txt.charAt(0).toUpperCase()}${txt.slice(1)}.`; $('#r-user').textContent = R.user;
+    // Le mot de passe n'est demandé que là où il sert (sudo qui en demande un). Ailleurs : la commande à lancer une fois.
+    const needPw = R.mode === 'none' || R.mode === 'password';
+    $('#r-adminFix').hidden = R.ok || needPw || !R.fix; $('#r-adminCmd').textContent = R.fix || '';
+    $('#r-adminBox').hidden = !needPw;
     $('#r-adminSave').textContent = R.mode === 'password' ? 'Changer le mot de passe' : 'Vérifier et donner les droits';
     const act = async (body, ok) => { st('#r-status', 'Connexion…'); const r = await api('/api/action', body); st('#r-status', r.ok ? (r.message || ok) : (r.error || r.message), Boolean(r.ok)); refresh(); };
     $('#r-machines').replaceChildren(...R.machines.map((m) => el('tr', {},

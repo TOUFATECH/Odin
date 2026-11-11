@@ -12,7 +12,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { hasCommand } from '../learn/environment.ts';
-import { withAdmin } from '../machines/access.ts';
+import { sudoRefused, withAdmin } from '../machines/access.ts';
 
 export type Platform = 'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'fichier' | 'autre';
 
@@ -66,7 +66,7 @@ export async function ensureFfmpeg(signal?: AbortSignal): Promise<void> {
   const cmd = 'if command -v apt-get >/dev/null; then sudo apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg; elif command -v dnf >/dev/null; then sudo dnf install -y -q ffmpeg; elif command -v pacman >/dev/null; then sudo pacman -S --noconfirm --needed ffmpeg; elif command -v apk >/dev/null; then sudo apk add ffmpeg; elif command -v brew >/dev/null; then brew install ffmpeg; else exit 3; fi';
   const a = withAdmin(cmd, odinHome());
   const r = await new Promise<{ ok: boolean; err: string }>((res) => execFile('bash', ['-c', a.command], { timeout: 900_000, env: { ...process.env, ...a.env }, signal }, (e, _o, err) => res({ ok: !e, err: String(err) })));
-  if (!r.ok || !hasCommand('ffmpeg')) throw new Error(`FFmpeg manque et je n'ai pas pu l'installer${a.hint ? ` (${a.hint})` : ''} : ${r.err.split('\n').filter(Boolean).at(-1)?.slice(0, 160) ?? ''}`);
+  if (!r.ok || !hasCommand('ffmpeg')) throw new Error(`FFmpeg manque et je n'ai pas pu l'installer${a.hint && sudoRefused(r.err) ? ` (${a.hint})` : ''} : ${r.err.split('\n').filter(Boolean).at(-1)?.slice(0, 160) ?? ''}`);
 }
 
 // ---------------- Accès ----------------

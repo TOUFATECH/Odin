@@ -151,10 +151,26 @@ if ($env:ODIN_NO_SERVICE -ne '1' -and (Ask 'Lancer Odin automatiquement à l''ou
   $action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -Command `"& '$Odin' gateway *>> '$OdinHome\logs\gateway.log'`""
   $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
   $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
-  Register-ScheduledTask -TaskName 'Odin' -Action $action -Trigger $trigger -Settings $settings -Description 'Odin, agent IA personnel' -Force | Out-Null
+  # Odin est administrateur de la machine où il est installé (Heimdall reste juge). Pour refuser : $env:ODIN_NO_ADMIN = "1".
+  $elevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  $asAdmin = $false
+  if ($elevated -and $env:ODIN_NO_ADMIN -ne '1') {
+    $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+    Register-ScheduledTask -TaskName 'Odin' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Odin, agent IA personnel' -Force | Out-Null
+    $asAdmin = $true
+  } else {
+    Register-ScheduledTask -TaskName 'Odin' -Action $action -Trigger $trigger -Settings $settings -Description 'Odin, agent IA personnel' -Force | Out-Null
+    if ($env:ODIN_NO_ADMIN -ne '1' -and (Ask 'Odin doit être administrateur de cette machine pour tout pouvoir y faire. Donner les droits (une fenêtre administrateur va s''ouvrir, une fois) ?')) {
+      try {
+        Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "-NoProfile -Command & '$Odin' admin fix"
+        $asAdmin = ((Get-ScheduledTask -TaskName 'Odin').Principal.RunLevel -eq 'Highest')
+      } catch { Info 'Droits non donnés. Plus tard : ouvre PowerShell en administrateur et lance « odin admin fix ».' }
+    }
+  }
   Start-ScheduledTask -TaskName 'Odin'
   $service = $true
-  Ok 'Démarrage automatique installé (Planificateur de tâches, sans droits administrateur)'
+  if ($asAdmin) { Ok 'Démarrage automatique installé : Odin est administrateur de cette machine' }
+  else { Ok 'Démarrage automatique installé (sans droits administrateur : « odin admin » dit comment les donner)' }
 }
 
 # ---------- Fin : configuration dans le navigateur ----------

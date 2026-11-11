@@ -179,6 +179,16 @@ test('Telegram : « écrit… » pendant le travail, mise en forme propre, visag
   assert.equal(tgHtml('Un appareil : **192.168.1.130** et `ssh` <ok>'), 'Un appareil : <b>192.168.1.130</b> et <code>ssh</code> &lt;ok&gt;');
   assert.equal(tgHtml('## Titre\n- un\n- deux\n[site](https://x.fr)'), '<b>Titre</b>\n• un\n• deux\n<a href="https://x.fr">site</a>');
   assert.equal(tgHtml('```bash\nls *.txt\n```'), '<pre>ls *.txt</pre>');
+  // Le message vu en vrai dans Telegram : accents graves et gras ne doivent plus jamais apparaître bruts.
+  assert.equal(tgHtml('Odin tourne sous le compte `odin`, `NoNewPrivs` est activé. **Je n’ai pas les droits.**'), 'Odin tourne sous le compte <code>odin</code>, <code>NoNewPrivs</code> est activé. <b>Je n’ai pas les droits.</b>');
+  // Tableau → colonnes alignées ; citation ; cases à cocher ; italique souligné ; gras italique.
+  assert.equal(tgHtml('| Appli | État |\n|---|---|\n| Ullr | **ok** |\n| Idunn | à voir |'), '<pre>Appli  État\n─────  ──────\nUllr   ok\nIdunn  à voir</pre>');
+  assert.equal(tgHtml('> ligne une\n> ligne deux\n\nsuite'), '<blockquote>ligne une\nligne deux</blockquote>\n\nsuite');
+  assert.equal(tgHtml('- [x] fait\n- [ ] à faire\n- puce'), '☑ fait\n☐ à faire\n• puce');
+  assert.equal(tgHtml('un _mot_ et ***fort***, pas dans nom_de_fichier_x'), 'un <i>mot</i> et <b><i>fort</i></b>, pas dans nom_de_fichier_x');
+  // Si Telegram refuse la mise en forme : texte simple, sans aucune marque.
+  const { tgPlain } = await import('../src/bifrost/channels/telegram.ts');
+  assert.equal(tgPlain('## Titre\n**gras** et `code`, [site](https://x.fr)\n- [ ] à faire\n> cité'), 'Titre\ngras et code, site (https://x.fr)\n☐ à faire\ncité');
   let made = false, premium = true, served = false;
   const tg = await mock((h) => {
     if (h.url.endsWith('/getMe')) return { body: JSON.stringify({ ok: true, result: { username: 'odin_bot' } }) };

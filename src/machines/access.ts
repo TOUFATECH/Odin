@@ -18,6 +18,8 @@ import { readSecretFile, writeSecretFile } from '../vault.ts';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { userInfo } from 'node:os';
+import { diagnose, facts, isElevatedWindows, type AdminMode, type Diagnosis } from './admin.ts';
+export type { AdminMode } from './admin.ts';
 
 // ---------------- Mot de passe transmis sans terminal (askpass) ----------------
 
@@ -36,6 +38,7 @@ export function askpassScript(home: string): string {
 // ---------------- Administrateur sur la machine locale ----------------
 
 let rightsCache: { at: number; home: string; text: string } | undefined;
+let diagCache: { at: number; home: string; d: Diagnosis } | undefined;
 const adminFile = (home: string) => join(home, 'admin.json');
 /** Mot de passe administrateur donné à Odin (fichier 600 ; ou variable ODIN_SUDO_PASSWORD). */
 export function adminPassword(home: string, env = process.env): string | undefined {
@@ -44,21 +47,25 @@ export function adminPassword(home: string, env = process.env): string | undefin
 }
 export function setAdminPassword(home: string, password: string | undefined): void {
   writeSecretFile(adminFile(home), JSON.stringify(password ? { password } : {}));
-  rightsCache = undefined;
+  rightsCache = undefined; diagCache = undefined;
 }
 
-export type AdminMode = 'root' | 'nopasswd' | 'password' | 'none' | 'absent';
-export const isRoot = () => typeof process.getuid === 'function' && process.getuid() === 0;
+/** Odin a déjà tous les droits : root sous Linux et macOS, session élevée sous Windows. */
+export const isRoot = () => (typeof process.getuid === 'function' && process.getuid() === 0) || isElevatedWindows();
 export const hasSudo = () => process.platform !== 'win32' && spawnSync('sh', ['-c', 'command -v sudo'], { encoding: 'utf8' }).status === 0;
 
-/** Comment Odin obtient les droits administrateur ici. */
-export function adminMode(home: string, env = process.env): AdminMode {
-  if (process.platform === 'win32') return 'absent';
-  if (isRoot()) return 'root';
-  if (!hasSudo()) return 'absent';
-  if (spawnSync('sudo', ['-n', 'true'], { stdio: 'ignore', timeout: 5000 }).status === 0) return 'nopasswd';
-  return adminPassword(home, env) ? 'password' : 'none';
+/**
+ * Où en sont les droits d'Odin sur cette machine, pourquoi, et quoi faire (gardé une minute : la lecture
+ * lance « sudo -n true »). Voir ./admin.ts pour le détail des cas.
+ */
+export function adminDiagnosis(home: string, env = process.env): Diagnosis {
+  if (diagCache && diagCache.home === home && Date.now() - diagCache.at < 60_000) return diagCache.d;
+  const d = diagnose(facts(Boolean(adminPassword(home, env))));
+  diagCache = { at: Date.now(), home, d };
+  return d;
 }
+/** Comment Odin obtient les droits administrateur ici. */
+export function adminMode(home: string, env = process.env): AdminMode { diagCache = undefined; return adminDiagnosis(home, env).mode; }
 
 /** Vérifie un mot de passe administrateur (sudo -k : on oublie l'éventuel accès en cache). */
 export function checkSudoPassword(password: string, home: string): { ok: boolean; message: string } {
@@ -75,13 +82,25 @@ export function checkSudoPassword(password: string, home: string): { ok: boolean
  */
 export function withAdmin(command: string, home: string, env = process.env): { command: string; env: NodeJS.ProcessEnv; hint?: string } {
   if (!/\bsudo\b/.test(command) || process.platform === 'win32') return { command, env: {} };
-  if (isRoot() && !hasSudo()) return { command: command.replace(/\bsudo\s+(-\S+\s+)*/g, ''), env: {} };
+  const quiet = (c: string) => c.replace(/\bsudo\b(?!\s+-[a-zA-Z]*n)/g, 'sudo -n');
+  // Déjà administrateur (root) : rien à demander, jamais.
+  if (isRoot()) return { command: hasSudo() ? quiet(command) : command.replace(/\bsudo\s+(-\S+\s+)*/g, ''), env: {} };
   const pw = adminPassword(home, env);
   if (pw) {
     return { command: command.replace(/\bsudo\b(?!\s+-[a-zA-Z]*A)/g, 'sudo -A'), env: { SUDO_ASKPASS: askpassScript(home), ODIN_ASKPASS_SECRET: pw } };
   }
-  return { command: command.replace(/\bsudo\b(?!\s+-[a-zA-Z]*n)/g, 'sudo -n'), env: {}, hint: 'Il faut le mot de passe administrateur : donne-le à Odin dans Réglages → Droits et machines (ou « odin admin password »).' };
+  // Sans mot de passe gardé : « sudo -n » passe tout seul si Odin a déjà les droits (règle posée à l'installation),
+  // et échoue tout de suite sinon. Le conseil ne se montre que dans ce second cas (voir sudoRefused).
+  const d = adminDiagnosis(home, env);
+  return { command: quiet(command), env: {}, hint: d.ok ? ADMIN_HINT : `${d.state[0].toUpperCase()}${d.state.slice(1)}. ${d.fix}` };
 }
+/** Ce qu'Odin dit quand il lui manque vraiment les droits administrateur : une phrase à écrire, une seule fois. */
+export const ADMIN_HINT = 'Il me manque les droits administrateur sur ce poste. Dis-moi une fois, dans la discussion : « le mot de passe admin de ce poste est … ». Il n\'est montré à aucune IA, je deviens administrateur pour de bon et je ne te le redemande plus. (Ou : Réglages → Droits et machines.)';
+/**
+ * La sortie d'une commande montre-t-elle qu'Odin n'a pas pu devenir administrateur ? (mot de passe demandé,
+ * service verrouillé, sudo absent). Sinon l'échec vient d'ailleurs : on ne parle pas de droits.
+ */
+export const sudoRefused = (out: string) => /sudo: (?:a password is required|a terminal is required|no tty present|no askpass program|sorry, you must have a tty|il est nécessaire de saisir un mot de passe|un mot de passe est (?:requis|nécessaire)|un terminal est (?:requis|nécessaire)|effective uid is not 0)|no new privileges|sudo: (?:command )?not found|sudo : commande introuvable|sudo: introuvable/i.test(out);
 
 /** Ligne sudoers qui dispense Odin de mot de passe (à installer avec les droits administrateur). */
 export const sudoersLine = (user: string) => `${user} ALL=(ALL:ALL) NOPASSWD: ALL\n`;
@@ -100,7 +119,7 @@ export function installNopasswd(home: string, password?: string, user = userInfo
   const r = password
     ? spawnSync('sudo', ['-A', 'sh', '-c', script], { env: { ...process.env, SUDO_ASKPASS: askpassScript(home), ODIN_ASKPASS_SECRET: password }, encoding: 'utf8', timeout: 30_000 })
     : spawnSync('sudo', ['-n', 'sh', '-c', script], { encoding: 'utf8', timeout: 30_000 });
-  rightsCache = undefined;
+  rightsCache = undefined; diagCache = undefined;
   return r.status === 0 ? { ok: true, message: 'Odin est administrateur de cette machine (sudo sans mot de passe, règle /etc/sudoers.d/odin).' } : { ok: false, message: (r.stderr || 'règle non installée').trim().split('\n').at(-1) ?? 'échec' };
 }
 
@@ -110,8 +129,13 @@ export const deniedOutput = (out: string) => /permission denied|permission non a
 /** Résumé des droits pour le prompt (gardé une minute). */
 export function rightsSummary(home: string, env = process.env): string {
   if (rightsCache && rightsCache.home === home && Date.now() - rightsCache.at < 60_000) return rightsCache.text;
-  const mode = adminMode(home, env);
-  const local = { root: 'tu es administrateur (root) sur cette machine', nopasswd: 'tu as les droits administrateur sur cette machine (sudo sans mot de passe)', password: 'tu as les droits administrateur sur cette machine : « sudo » reçoit le mot de passe tout seul', none: 'tu n\'es PAS encore administrateur ici, mais le propriétaire veut que tu le sois. Ne réponds jamais seulement « je n\'ai pas les droits » : demande-lui UNE fois le mot de passe de sa session (« le mot de passe admin de ce poste est … »), puis appelle admin_enable — tu deviens administrateur pour de bon', absent: process.platform === 'win32' ? 'Windows : pas de sudo' : 'sudo est absent de cette machine' }[mode];
+  const d = adminDiagnosis(home, env), mode = d.mode;
+  const local = mode === 'root' ? 'tu es administrateur (root) sur cette machine'
+    : mode === 'nopasswd' ? 'tu as les droits administrateur sur cette machine (sudo sans mot de passe)'
+    : mode === 'password' ? 'tu as les droits administrateur sur cette machine : « sudo » reçoit le mot de passe tout seul'
+    : mode === 'none' ? 'tu n\'es PAS encore administrateur ici, mais le propriétaire veut que tu le sois. Ne réponds jamais seulement « je n\'ai pas les droits » : demande-lui UNE fois le mot de passe de sa session (« le mot de passe admin de ce poste est … »), puis appelle admin_enable — tu deviens administrateur pour de bon'
+    // Service verrouillé, sudo absent, Windows non élevé : un mot de passe n'y changerait rien. On donne la vraie cause et la commande exacte.
+    : `tu n'es PAS administrateur ici, et tu ne peux pas le devenir toi-même : ${d.state}. Ne demande PAS de mot de passe (il ne servirait à rien). Dis au propriétaire la cause en une phrase et donne-lui exactement ceci : ${d.fix.replace(/\n\s*/g, ' ⏎ ')}`;
   const ms = listMachines(home);
   const text = `## Droits\n- Machine locale : ${local}.${mode === 'root' || mode === 'nopasswd' || mode === 'password' ? ' Sers-toi de sudo sans demander la permission au propriétaire (Heimdall reste juge) ; si une commande est refusée faute de droits, elle est relancée avec sudo toute seule.' : ''}\n- Machines du réseau accessibles (outil machine_exec, machine_copy) : ${ms.length ? ms.map((m) => `${m.label} (${m.user}@${m.host})`).join(', ') : 'aucune pour l\'instant (le propriétaire les ajoute avec leurs mots de passe dans Réglages → Droits et machines)'}.\n- Fichiers : tout le disque (chemin absolu ou ~/… dans fs_read, fs_list, fs_write, fs_edit ; « cwd » pour shell et python). Python 3 est disponible (outil python).
 - Quand on te demande ce qu'est un appareil ou son nom : net_identify d'abord, puis réponds précisément (nom, type, IP, à quoi il sert). Jamais de réponse vague : si aucun nom n'est trouvé, dis-le et propose de le renommer.
@@ -121,7 +145,7 @@ export function rightsSummary(home: string, env = process.env): string {
   rightsCache = { at: Date.now(), home, text };
   return text;
 }
-export function forgetRights(): void { rightsCache = undefined; }
+export function forgetRights(): void { rightsCache = undefined; diagCache = undefined; }
 
 // ---------------- Coffre des machines du réseau ----------------
 

@@ -47,6 +47,45 @@ jobs:
               curl -fs http://127.0.0.1:7777/health | grep -q ok
               kill %1 || true
               cat web.log | head -n 20"'
+      # Odin administrateur partout : chaque situation est jouée pour de vrai dans un conteneur.
+      - name: Droits administrateur (root, compte ordinaire, sudo sans mot de passe, service verrouillé)
+        run: |
+          cat > /tmp/droits.sh <<'SCRIPT'
+          set -euo pipefail
+          apt-get update -qq >/dev/null && apt-get install -y -qq curl git ca-certificates xz-utils procps sudo util-linux >/dev/null
+          git config --system --add safe.directory "*"
+          export ODIN_YES=1 ODIN_NO_SERVICE=1 ODIN_NO_SCAN=1 ODIN_WEB_ACCESS=local ODIN_REPO=file:///src
+          # 1. Installé en root (conteneur LXC, serveur) : administrateur d'office.
+          bash /src/install.sh >/tmp/install-root.log 2>&1 || { cat /tmp/install-root.log; exit 1; }
+          grep -q "Odin est administrateur de cette machine (installé en root)" /tmp/install-root.log
+          /root/.local/bin/odin admin | tee /tmp/a.txt; grep -q "administrateur (root)" /tmp/a.txt
+          # 2. Compte ordinaire : sudo demande un mot de passe → la phrase à dire une fois, et la commande.
+          useradd -m odin
+          su odin -s /bin/bash -c "export ODIN_YES=1 ODIN_NO_SERVICE=1 ODIN_NO_SCAN=1 ODIN_WEB_ACCESS=local ODIN_REPO=file:///src; bash /src/install.sh >/tmp/install-odin.log 2>&1 || { cat /tmp/install-odin.log; exit 1; }"
+          O=/home/odin/.local/bin/odin
+          su odin -s /bin/bash -c "$O admin" | tee /tmp/b.txt
+          grep -q "pas encore administrateur : sudo me demande un mot de passe" /tmp/b.txt
+          grep -q "admin fix --user odin" /tmp/b.txt
+          # 3. La réparation, lancée une fois en root : le compte devient administrateur.
+          FIX="$(grep -o 'sudo .* admin fix --user odin' /tmp/b.txt | head -n1 | sed 's/^sudo //')"
+          $FIX | tee /tmp/c.txt; grep -q "peut utiliser sudo sans mot de passe" /tmp/c.txt
+          su odin -s /bin/bash -c "$O admin" | tee /tmp/d.txt; grep -q "administrateur : sudo sans mot de passe" /tmp/d.txt
+          su odin -s /bin/bash -c "sudo -n id -u" | grep -qx 0
+          # 4. Service verrouillé (NoNewPrivileges) : même avec la règle sudo, rien ne passe. Odin le dit, sans réclamer de mot de passe.
+          setpriv --reuid=odin --regid=odin --init-groups --no-new-privs env HOME=/home/odin $O admin | tee /tmp/e.txt
+          grep -Eq "no-new-privileges|NoNewPrivileges" /tmp/e.txt; grep -q "Aucun mot de passe" /tmp/e.txt
+          ! grep -q "mot de passe admin de ce poste" /tmp/e.txt
+          echo "Droits administrateur : les quatre situations sont justes."
+          SCRIPT
+          docker run --rm -v "$PWD:/src:ro" -v /tmp/droits.sh:/droits.sh:ro debian:bookworm-slim bash /droits.sh
+      - name: Image Docker (Odin administrateur de son conteneur)
+        run: |
+          docker build -q -t odin-ci . >/dev/null
+          docker run --rm odin-ci sh -c 'sudo -n id -u | grep -qx 0 && node --disable-warning=ExperimentalWarning bin/odin.mjs admin' | tee /tmp/img.txt
+          grep -q "administrateur : sudo sans mot de passe" /tmp/img.txt
+          # Conteneur durci : Odin dit la vraie cause et quoi changer.
+          docker run --rm --security-opt no-new-privileges odin-ci node --disable-warning=ExperimentalWarning bin/odin.mjs admin | tee /tmp/img2.txt
+          grep -q "no-new-privileges" /tmp/img2.txt; grep -q "docker run --user root" /tmp/img2.txt
   installer-windows:
     runs-on: windows-latest
     steps:
@@ -58,3 +97,22 @@ jobs:
           $r = Invoke-ScriptAnalyzer -Path install.ps1 -Severity Error
           $r | Format-Table -AutoSize
           if ($r) { exit 1 }
+      # Windows : dans une session administrateur, Odin se sait administrateur, et sa tâche démarre en privilèges élevés.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Droits administrateur (Windows)
+        shell: pwsh
+        run: |
+          $out = node --disable-warning=ExperimentalWarning bin/odin.mjs admin
+          $out
+          if ("$out" -notmatch 'administrateur \(session Windows') { Write-Error 'Odin ne se voit pas administrateur dans une session élevée'; exit 1 }
+          # La tâche « Odin » comme la crée l'installateur sans droits, puis « odin admin fix ».
+          $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument '/c exit 0'
+          $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+          Register-ScheduledTask -TaskName 'Odin' -Action $action -Trigger $trigger -Force | Out-Null
+          if ((Get-ScheduledTask -TaskName 'Odin').Principal.RunLevel -ne 'Limited') { Write-Error 'la tâche de départ devrait être sans privilèges'; exit 1 }
+          node --disable-warning=ExperimentalWarning bin/odin.mjs admin fix
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ((Get-ScheduledTask -TaskName 'Odin').Principal.RunLevel -ne 'Highest') { Write-Error 'la tâche devrait démarrer en privilèges élevés'; exit 1 }
+          Unregister-ScheduledTask -TaskName 'Odin' -Confirm:$false

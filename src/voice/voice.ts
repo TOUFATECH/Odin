@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import type { OdinConfig } from '../config.ts';
 import { convertMedia } from '../files/media.ts';
 import { hasCommand } from '../learn/environment.ts';
-import { ensureLocalVoice, hearLocal, localPiper, localWhisper, speakLocal, type Heard } from './local.ts';
+import { ensureLocalVoice, hearLocal, localPiper, localWhisper, speakLocal, type Heard, lastVoiceFailure, voiceBlocked } from './local.ts';
 
 export type VoiceConfig = OdinConfig['voice'];
 
@@ -106,9 +106,10 @@ export async function hear(audio: Uint8Array | { file: string }, mime: string, v
   }
   if (localWhisper()) return local(audio);
   // Rien de prêt : Odin s'installe lui-même (une fois), puis écoute.
-  const ok = await ensureLocalVoice(notifyVoice);
+  // L'échec est dit une seule fois, ici (la vraie cause, et quoi faire) : pas un message de l'installation plus un second.
+  const ok = await ensureLocalVoice(notifyVoice, undefined, { quiet: true });
   if (ok && localWhisper()) return local(audio);
-  throw new Error('Je n\'ai pas réussi à installer l\'écoute des vocaux sur ma machine (il faut git, cmake, un compilateur et ffmpeg). Ajoute une clé OpenAI dans Réglages → Voix, ou dis-moi « installe la voix locale » pour voir l\'erreur.');
+  throw new Error((voiceBlocked() ?? lastVoiceFailure() ?? 'Je n\'ai pas réussi à installer l\'écoute des vocaux sur ma machine (il faut git, cmake, un compilateur et ffmpeg). Ajoute une clé OpenAI dans Réglages → Voix, ou dis-moi « installe la voix locale » pour voir l\'erreur.').replace(/^⚠\s*/, ''));
 }
 
 async function hearRemote(audio: Uint8Array, mime: string, v: VoiceConfig, signal?: AbortSignal, env = process.env): Promise<Heard> {

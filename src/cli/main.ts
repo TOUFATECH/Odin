@@ -37,7 +37,7 @@ import { startValhalla } from '../valhalla/odin.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
 import { backupManifest, createBackup, restoreBackup } from '../backup.ts';
 import { tunnel } from '../web/tunnel.ts';
-import { adminMode, checkSudoPassword, findMachine, listMachines, removeMachine, saveMachine, setAdminPassword, sudoersLine, testMachine } from '../machines/access.ts';
+import { adminDiagnosis, adminMode, checkSudoPassword, findMachine, listMachines, removeMachine, saveMachine, setAdminPassword, sudoersLine, testMachine } from '../machines/access.ts';
 import { userInfo } from 'node:os';
 import { sttReady, transcribe } from '../voice/voice.ts';
 import { refreshEnvironment } from '../learn/environment.ts';
@@ -586,10 +586,24 @@ async function restoreCmd(): Promise<void> {
 
 /** odin admin — droits administrateur d'Odin sur cette machine. */
 async function adminCmd(): Promise<void> {
-  const paths = odinPaths(); initHome(paths);
   const sub = pos[1] ?? 'status';
-  const say = { root: 'administrateur (root) : Odin peut tout faire ici', nopasswd: 'administrateur : sudo sans mot de passe', password: 'administrateur : sudo avec le mot de passe donné à Odin', none: 'pas administrateur : « odin admin password » (ou « odin admin nopasswd »)', absent: 'sudo absent sur cette machine' };
-  if (sub === 'status') { console.log(`Cette machine : ${say[adminMode(paths.home)]}.`); return; }
+  // « fix » se lance en administrateur (sudo, ou PowerShell élevé) : il ne touche pas au dossier d'Odin.
+  if (sub === 'fix' || sub === 'repare' || sub === 'répare') {
+    const { fixAdmin, fixAdminWindows } = await import('../machines/admin.ts');
+    const opt = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
+    const r = process.platform === 'win32' ? fixAdminWindows() : fixAdmin({ unit: opt('--unit'), user: opt('--user') });
+    for (const l of r.lines) console.log(l.startsWith('✓') ? c.green(l) : l.startsWith('✗') ? c.red(l) : l);
+    if (r.ok) console.log(c.green('Odin est administrateur de cette machine.')); else process.exitCode = 1;
+    return;
+  }
+  const paths = odinPaths(); initHome(paths);
+  if (sub === 'status') {
+    // L'état, sa cause, et la commande exacte quand il manque quelque chose.
+    const d = adminDiagnosis(paths.home);
+    console.log(`Cette machine : ${d.state}.`);
+    if (!d.ok && d.fix) console.log(d.fix);
+    return;
+  }
   if (sub === 'forget') { setAdminPassword(paths.home, undefined); console.log(c.green('✓ Mot de passe administrateur oublié.')); return; }
   if (sub === 'password') {
     const pw = await askPassword(`Mot de passe sudo de ${userInfo().username} : `, 'ODIN_PASSWORD');
@@ -609,7 +623,7 @@ async function adminCmd(): Promise<void> {
     console.log(c.green('✓ Odin peut utiliser sudo sans mot de passe. Pour revenir en arrière : sudo rm /etc/sudoers.d/odin'));
     return;
   }
-  throw new Error('usage : odin admin [status|password|nopasswd|forget]');
+  throw new Error('usage : odin admin [status|fix|password|nopasswd|forget]');
 }
 
 /** odin machines — machines du réseau accessibles à Odin (SSH). */

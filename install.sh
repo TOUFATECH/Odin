@@ -173,6 +173,30 @@ if [ "${ODIN_NO_SERVICE:-}" != "1" ] && ask "Lancer Odin automatiquement au dém
 EOF
     launchctl unload "$PLIST" 2>/dev/null || true
     launchctl load "$PLIST" && SERVICE=1 && ok "Service macOS installé (launchd)"
+  elif command -v systemctl >/dev/null && [ "$(id -u)" = "0" ]; then
+    # Installé en root (conteneur LXC, serveur) : service du système. Odin y tourne en root, donc
+    # administrateur, et aucun réglage du service ne l'empêche d'agir (pas de NoNewPrivileges).
+    UNIT=/etc/systemd/system/odin.service
+    cat > "$UNIT" <<EOF
+[Unit]
+Description=Odin, agent IA personnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart="$BIN_DIR/odin" gateway
+Environment=ODIN_SERVICE=1
+Environment=HOME=$HOME
+Restart=always
+RestartSec=5
+# Fichiers créés par Odin lisibles par lui seul
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload && systemctl enable --now odin.service >/dev/null 2>&1 && SERVICE=1 && ok "Service Linux installé (systemd) : Odin est administrateur de cette machine"
+    [ -n "$SERVICE" ] || info "Le service n'a pas démarré : lance « odin gateway » toi-même, ou regarde « systemctl status odin »."
   elif command -v systemctl >/dev/null; then
     UNIT="$HOME/.config/systemd/user/odin.service"
     mkdir -p "$(dirname "$UNIT")"
@@ -215,10 +239,12 @@ if [ "$(id -u)" != "0" ] && command -v sudo >/dev/null && [ "${ODIN_NO_ADMIN:-}"
   else
     info "Droits administrateur : dis à Odin « le mot de passe admin de ce poste est … » (ou lance : odin admin nopasswd)."
   fi
-elif command -v sudo >/dev/null 2>&1 || [ "$(id -u)" = "0" ]; then :
+elif [ "$(id -u)" = "0" ]; then ok "Odin est administrateur de cette machine (installé en root)"
+elif command -v sudo >/dev/null 2>&1; then :
 else
-  info "sudo est absent : Odin ne pourra agir en administrateur que s'il tourne en root."
+  info "sudo est absent : pour qu'Odin soit administrateur, lance une fois en root : $BIN_DIR/odin admin fix --user $(id -un)"
 fi
+# À tout moment : « odin admin » dit où en sont les droits, et quoi faire s'il en manque.
 
 # ---------- Fin : configuration dans le navigateur ----------
 open_url() {

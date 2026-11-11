@@ -29,6 +29,7 @@
   };
   // Les dernières améliorations (les plus récentes en premier).
   const NEWS = [
+    ['Droits', 'Je suis administrateur de ma machine partout (Linux, conteneur, Mac, Windows). S\'il me manque des droits, je te dis la vraie cause et la commande à lancer une fois, au lieu de réclamer un mot de passe. Réglages → Droits et machines.'],
     ['Antivirus', 'Ullr, mon antivirus fait maison : fichiers, archives, liens et messages. Il se met à jour seul, met en quarantaine ce qui est sûr (annulable) et relie les signaux de toutes les applis en incidents.'],
     ['Sites web', 'Idunn surveille tes sites, les essaie, les relance et applique leurs mises à jour, sans IA. Tu me demandes les événements que tu veux : « les erreurs du site … depuis 2 jours ». Ce qui touche la production attend ton accord.'],
     ['Cerveau', 'Une fiche par appli dans le Cerveau, avec leurs liens. Il est prêt dès l\'installation et se remet à jour à chaque lancement. Aucun de tes réglages n\'y est écrit.'],
