@@ -2,7 +2,7 @@
 // la première appli, on regarde ce que fait la seconde). Un lien ajouté à la liste sans sa vérification
 // fait échouer le test : la liste ne peut pas promettre plus que le code.
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -67,6 +67,8 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   'skogul>ullr': async (w) => {
     w.v.ctx('skogul').emit('suspect', { règle: 'mineur', pid: process.pid, détail: 'test' });
     assert.ok(await until(() => did(w, 'ullr', 'fichier')), 'le programme du processus suspect est analysé par Ullr');
+    w.v.ctx('eir').emit('mesure', { cpu: 99, mem: 40, disque: 30 });
+    assert.ok(await until(() => ((w.v.ctx('ullr').settings.incidents as Array<{ kind: string }> | undefined) ?? [])[0]?.kind === 'programme suspect'), 'et le signal rejoint les incidents');
   },
   'himinbjorg>midgard': async (w) => {
     w.v.ctx('midgard').saveSettings({ scenes: [{ name: 'Alerte intrusion', steps: [] }] });
@@ -182,6 +184,58 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.equal(w.acts.filter((a) => a.module === 'sindri' && a.action === 'sauvegarder').length, n, 'une seule relance : pas de boucle');
   },
 };
+/**
+ * Liens vers Ullr : le signal de chaque appli rejoint les incidents. Seul, il ne dit rien ; recoupé avec
+ * celui d'une autre appli, il ouvre un incident où l'appli est citée.
+ */
+const incidents = (w: World) => (w.v.ctx('ullr').settings.incidents as Array<{ title: string; kind: string; apps: string[]; score: number; level: string; done: string[] }> | undefined) ?? [];
+const nameOf = (w: World, id: string) => w.v.modules().find((m) => m.id === id)!.name;
+const SIGNALS: Record<string, { alone: [string, Record<string, unknown>]; with: [string, string, Record<string, unknown>]; kind: string }> = {
+  geri: { alone: ['malveillant', { ip: '203.0.113.66', programme: 'mineur' }], with: ['skogul', 'suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' }], kind: 'compromission' },
+  forseti: { alone: ['fichier_modifie', { fichier: '/etc/passwd' }], with: ['skogul', 'port_ouvert', { port: 4444 }], kind: 'installation furtive' },
+  eir: { alone: ['mesure', { cpu: 99, mem: 40, disque: 30 }], with: ['skogul', 'suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' }], kind: 'programme suspect' },
+  naglfar: { alone: ['conteneur_arrete', { conteneur: 'web' }], with: ['skogul', 'suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' }], kind: 'activité anormale' },
+  hermod: { alone: ['machine_hors_ligne', { machine: 'NAS' }], with: ['ullr', 'sentinelle', { fichier: '/srv/docs/!000-ne-pas-toucher.docx', action: 'modifié' }], kind: 'rançongiciel' },
+  himinbjorg: { alone: ['mouvement', { caméra: 'Bureau', part: 14, surveillé: true }], with: ['ullr', 'support_branche', { dossier: '/media/cle' }], kind: 'intrusion physique' },
+};
+for (const [from, sc] of Object.entries(SIGNALS)) CHECKS[`${from}>ullr`] = async (w) => {
+  w.v.ctx(from).emit(sc.alone[0], sc.alone[1]); await wait(40);
+  assert.equal(incidents(w).length, 0, 'un signal seul n\'ouvre pas d\'incident');
+  w.v.ctx(sc.with[0]).emit(sc.with[1], sc.with[2]);
+  assert.ok(await until(() => incidents(w).length === 1), 'recoupé avec une autre appli : un incident est ouvert');
+  const i = incidents(w)[0];
+  assert.equal(i.kind, sc.kind); assert.ok(i.apps.includes(nameOf(w, from)), `l'incident cite ${nameOf(w, from)} (${i.apps.join(', ')})`);
+  assert.ok(w.v.alerts({ module: 'ullr' }).some((a) => a.title.startsWith('Incident : ')), 'annoncé une fois, avec sa chronologie');
+};
+CHECKS['garmr>ullr'] = async (w) => {
+  // Un bannissement est une réponse, pas un témoin : il ne crée pas d'incident à lui seul, mais Ullr le sait (pas de double bannissement).
+  w.v.ctx('garmr').emit('banni', { ip: '203.0.113.66', raison: 'essai', minutes: 60, source: 'toi' });
+  w.v.ctx('skogul').emit('suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' });
+  w.v.ctx('geri').emit('malveillant', { ip: '203.0.113.66', programme: 'mineur' });
+  assert.ok(await until(() => incidents(w).length === 1));
+  await wait(80);
+  assert.ok(incidents(w)[0].apps.includes('Garmr')); assert.deepEqual(incidents(w)[0].done, [], 'adresse déjà bannie : Ullr ne la bannit pas une seconde fois');
+  assert.ok(!w.ran.some((c) => /nft add element/.test(c)));
+};
+CHECKS['ullr>garmr'] = async (w) => {
+  w.v.ctx('skogul').emit('suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' });
+  w.v.ctx('geri').emit('malveillant', { ip: '203.0.113.66', programme: 'mineur' });
+  assert.ok(await until(() => w.ran.some((c) => /^nft add element inet odin garmr4 \{ 203\.0\.113\.66 timeout 86400s \}/.test(c))), 'l\'adresse extérieure de l\'incident est bannie 24 h');
+  const m = w.v.manips({ module: 'garmr' })[0];
+  assert.equal(m.by, 'réflexe'); assert.equal(m.undo?.action, 'debannir', 'manip annulable'); assert.match(m.why ?? '', /incident « Cette machine communique avec un attaquant »/);
+  assert.deepEqual(incidents(w)[0].done, ['bannir 203.0.113.66']);
+};
+CHECKS['ullr>saga'] = async (w) => {
+  w.v.ctx('ullr').emit('sentinelle', { fichier: '/srv/docs/!000-ne-pas-toucher.docx', action: 'modifié' });
+  const dir = join(w.home, 'cerveau');
+  assert.ok(await until(() => existsSync(dir) && readdirSync(dir).some((f) => /^Incident .*rançongiciel/.test(f))), 'une note datée raconte l\'incident dans le Cerveau');
+  const note = join(dir, readdirSync(dir).find((f) => /^Incident /.test(f))!);
+  assert.match(readFileSync(note, 'utf8'), /#sécurité #incident[\s\S]*Score de risque : \d+\/100 \(critique\)[\s\S]*\[\[Ullr\]\]/);
+  const id = (w.v.ctx('ullr').settings.incidents as Array<{ id: string }>)[0].id;
+  await w.v.act('ullr', 'incident', { id, etat: 'traité' });
+  assert.ok(await until(() => /Incident classé : traité/.test(readFileSync(note, 'utf8'))), 'la note est complétée quand l\'incident est classé');
+};
+
 /** Liens « donnée » vers Forseti : l'alerte d'une appli rejoint le fil commun et part sur ta messagerie. */
 for (const from of ['ullr', 'sindri', 'eir', 'naglfar', 'ymir', 'hermod']) CHECKS[`${from}>forseti`] = async (w) => {
   w.v.alert(from, { level: 'haute', title: `Alerte de test ${from}`, detail: 'détail', key: `t:${from}` });
@@ -190,7 +244,7 @@ for (const from of ['ullr', 'sindri', 'eir', 'naglfar', 'ymir', 'hermod']) CHECK
 };
 
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
-  assert.ok(LINKS.length >= 23);
+  assert.ok(LINKS.length >= 32);
   assert.deepEqual(LINKS.filter((l) => l.auto !== true).map((l) => `${l.from}>${l.to}`), [], 'aucun lien « à activer »');
   assert.deepEqual(LINKS.map((l) => `${l.from}>${l.to}`).filter((k) => !CHECKS[k]), [], 'chaque lien annoncé est vérifié');
   assert.deepEqual(Object.keys(CHECKS).filter((k) => !LINKS.some((l) => `${l.from}>${l.to}` === k)), [], 'pas de vérification orpheline');

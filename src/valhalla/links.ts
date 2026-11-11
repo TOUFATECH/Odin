@@ -4,6 +4,8 @@
 
 import type { Valhalla } from './service.ts';
 import { horn } from './modules/bragi.ts';
+import { observe } from './modules/ullr.ts';
+import { SENSORS } from './ullr/incidents.ts';
 
 /**
  * Un lien entre deux applis. Tous sont automatiques : rien à activer.
@@ -13,9 +15,9 @@ import { horn } from './modules/bragi.ts';
 export interface Link { from: string; to: string; when: string; does: string; auto: true; kind: 'réflexe' | 'soin' | 'donnée' }
 export const LINKS: Link[] = [
   { from: 'loki', to: 'garmr', when: 'un pirate tape un mot de passe ou une commande dans un piège', does: 'son adresse est bannie de tes vrais services', auto: true, kind: 'réflexe' },
-  { from: 'loki', to: 'ullr', when: 'un pirate fait télécharger un fichier à un piège', does: 'le fichier est gardé à l\'écart (jamais exécuté) et analysé ; le verdict part avec l\'alerte', auto: true, kind: 'réflexe' },
+  { from: 'loki', to: 'ullr', when: 'un pirate fait télécharger un fichier à un piège', does: 'le fichier est gardé à l\'écart (jamais exécuté) et analysé ; le verdict part avec l\'alerte, et l\'attaque rejoint les incidents', auto: true, kind: 'réflexe' },
   { from: 'geri', to: 'garmr', when: 'une connexion part vers une adresse malveillante connue', does: 'l\'adresse est bannie 24 h', auto: true, kind: 'réflexe' },
-  { from: 'skogul', to: 'ullr', when: 'un processus suspect tourne', does: 'son programme est analysé ; alerte critique si Ullr confirme', auto: true, kind: 'réflexe' },
+  { from: 'skogul', to: 'ullr', when: 'un processus suspect tourne', does: 'son programme est analysé ; alerte critique si Ullr confirme, et le signal rejoint les incidents', auto: true, kind: 'réflexe' },
   { from: 'ullr', to: 'forseti', when: 'une menace est trouvée', does: 'l\'alerte rejoint le fil commun et part sur ta messagerie', auto: true, kind: 'donnée' },
   { from: 'sindri', to: 'forseti', when: 'une sauvegarde échoue', does: 'alerte haute sur ta messagerie', auto: true, kind: 'donnée' },
   { from: 'eir', to: 'forseti', when: 'disque, mémoire ou processeur saturés', does: 'alerte avec la cause probable', auto: true, kind: 'donnée' },
@@ -35,6 +37,10 @@ export const LINKS: Link[] = [
   { from: 'naglfar', to: 'naglfar', when: 'un conteneur s\'arrête tout seul', does: 'Odin le relance (une fois par heure au plus) et te prévient : « garde » ou « annule »', auto: true, kind: 'soin' },
   { from: 'ymir', to: 'ymir', when: 'une machine virtuelle s\'arrête toute seule', does: 'Odin la relance (une fois par heure au plus) et te prévient', auto: true, kind: 'soin' },
   { from: 'sindri', to: 'sindri', when: 'une sauvegarde échoue', does: 'Odin la relance une fois, dix minutes plus tard', auto: true, kind: 'soin' },
+  // Ullr relie ce que voient toutes les applis : un signal seul ne dit rien, plusieurs qui se recoupent font un incident.
+  ...SENSORS.filter((q) => !['loki', 'skogul'].includes(q.app)).map((q): Link => ({ from: q.app, to: 'ullr', when: q.when, does: 'le signal rejoint les incidents d\'Ullr : s\'il recoupe ceux d\'une autre appli, un incident est ouvert avec son score et sa chronologie', auto: true, kind: 'donnée' })),
+  { from: 'ullr', to: 'garmr', when: 'un incident sérieux implique une adresse extérieure', does: 'l\'adresse est bannie 24 h au pare-feu (manip annulable)', auto: true, kind: 'réflexe' },
+  { from: 'ullr', to: 'saga', when: 'un incident sérieux est ouvert, s\'aggrave ou est classé', does: 'une note datée dans le Cerveau raconte l\'incident : chronologie, score, ce qui a été fait', auto: true, kind: 'réflexe' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
@@ -66,7 +72,10 @@ export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => v
     if (v.autonomy() === 'prudent') { v.alert(module, { level: 'moyenne', title: `Je peux réparer : ${say}`, detail: `${why}. En niveau « Me demander », je ne fais rien seul : dis-le-moi (« ${say} ») ou passe en « Équilibré ».`, key: `soin:${key}` }); return; }
     void v.act(module, action, input, { auto: true, by: 'odin', why });
   };
+  const hasUllr = v.modules().some((m) => m.id === 'ullr');
   const onEvent = (e: { module: string; type: string; data: Record<string, unknown> }) => {
+    // Ullr relie les signaux de toutes les applis en incidents (jamais bloquant pour le reste).
+    if (hasUllr) try { observe(v.ctx('ullr'), e); } catch (err) { console.error(`[ullr] incident : ${(err as Error).message}`); }
     if (e.module === 'skogul' && e.type === 'suspect' && e.data.pid) {
       void v.act('ullr', 'fichier', { chemin: `/proc/${Number(e.data.pid)}/exe` }, { auto: true, by: 'réflexe' }).then((r) => { if (r.ok && /⚠/.test(r.text)) v.alert('ullr', { level: 'critique', title: 'Processus suspect confirmé par Ullr', detail: r.text.slice(0, 500), key: `proc:${String(e.data.pid)}` }); });
     }

@@ -519,6 +519,8 @@ export class WebChannel implements Channel {
       if (!r.ok) {
         this.throttle.fail(ip);
         console.log(`[web] connexion refusée depuis ${ip}`);
+        // Ullr compte les mots de passe refusés : plusieurs essais de suite deviennent un incident.
+        valhallaOf()?.events.emit('event', { module: 'odin', type: 'connexion_refusee', data: { ip }, at: new Date().toISOString() });
         if (r.retryAfter) res.setHeader('retry-after', String(r.retryAfter));
         return json(res, r.retryAfter && /Trop d'essais/.test(r.error) ? 429 : 401, { ok: false, error: r.error, retryAfter: r.retryAfter ?? 0 });
       }
