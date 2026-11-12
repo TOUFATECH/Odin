@@ -22,7 +22,7 @@ import { isAbsolute, join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
 import { adminDiagnosis, checkSudoPassword, installNopasswd, forgetRights, listMachines, removeMachine, saveMachine, setAdminPassword, testMachine, viewMachine, withAdmin } from '../machines/access.ts';
-import { userInfo } from 'node:os';
+import { networkInterfaces, userInfo } from 'node:os';
 import { finishCodexLogin, listenCodexCallback, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin, type CodexLogin } from '../providers/codex.ts';
 import { setConfigValue, type OdinPaths } from '../config.ts';
 import type { Autonomy } from '../heimdall/policy.ts';
@@ -64,6 +64,8 @@ import { push as vordrPush, statusPage } from '../valhalla/modules/vordr.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
+import { activationPage } from './activate.ts';
+import { svg as qrSvg } from '../valhalla/qr.ts';
 import { Accounts, SESSION_RE, clearSessionCookie, sessionCookie, type Via } from './account.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
 import { allThreads } from '../muninn/threads.ts';
@@ -116,6 +118,8 @@ export interface WebHooks {
 }
 
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
+/** La mascotte d'Odin (celle de l'écran de connexion), reprise sur la page d'activation du téléphone. */
+const MASCOT = /<div id="login"[\s\S]*?(<svg viewBox="0 0 120 120"[\s\S]*?<\/svg>)/.exec(UI)?.[1] ?? '';
 const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
 // Application installable (PWA) : icônes, manifeste, service worker (aucun secret dedans).
 /** Espace Cerveau de l'interface (fichier à part, chargé avec le même nonce). */
@@ -191,6 +195,11 @@ export class WebChannel implements Channel {
   private tls?: TlsMaterial;
   private throttle = new AuthThrottle();
   private pairing = new Pairing();
+  /**
+   * Première connexion par le téléphone (comme une télé) : l'écran qui a le droit de créer le compte montre
+   * un code et un QR code ; le téléphone crée le compte avec ce code ; l'écran entre tout seul.
+   */
+  private activations = new Map<string, { secret: string; exp: number; done?: boolean }>();
   /** Flux ouverts par un navigateur connecté : coupés dès que sa session est fermée (déconnexion, mot de passe changé). */
   private streamSession = new Map<ServerResponse, string>();
   private dropDeadStreams(): void { for (const [res, sess] of this.streamSession) if (!this.accounts.valid(sess)) { this.streamSession.delete(res); this.clients.delete(res); try { res.end(); } catch { /* déjà fermé */ } } }
@@ -302,6 +311,14 @@ export class WebChannel implements Channel {
   private openSession(req: IncomingMessage, res: ServerResponse, via: Via): void {
     const token = this.accounts.open({ device: deviceName(String(req.headers['user-agent'] ?? '')), ip: this.clientIp(req).replace(/^fwd:/, ''), via });
     res.setHeader('set-cookie', [sessionCookie(token, this.secure || this.viaHttps(req)), 'odin_token=; Max-Age=0; Path=/']);
+  }
+  /** L'adresse d'Odin vue d'un autre appareil (un téléphone) : « localhost » devient l'adresse de la machine sur le réseau. */
+  private publicOrigin(req: IncomingMessage): string {
+    const scheme = this.secure || this.viaHttps(req) ? 'https' : 'http', raw = String(req.headers.host ?? `localhost:${this.port}`);
+    const host = raw.replace(/:\d+$/, '').replace(/^\[|\]$/g, ''), port = /:(\d+)$/.exec(raw)?.[1];
+    if (!/^(localhost|127\.|::1$)/.test(host)) return `${scheme}://${raw}`;
+    const lan = Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal && isPrivateHost(i.address))?.address;
+    return `${scheme}://${lan ?? host}${port ? `:${port}` : ''}`;
   }
   /** Derrière un tunnel ou un proxy HTTPS, le cookie doit aussi être marqué « Secure ». */
   private viaHttps(req: IncomingMessage): boolean { return this.clientIp(req).startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? '')); }
@@ -456,6 +473,13 @@ export class WebChannel implements Channel {
       return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
+    // La page du téléphone pour la première connexion (code tapé ou QR code scanné).
+    if (req.method === 'GET' && url.pathname === '/activer') {
+      if (this.accounts.exists()) { res.writeHead(302, { location: '/' }); return void res.end(); }
+      const nonce = randomBytes(16).toString('base64');
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY' });
+      return void res.end(activationPage(nonce, MASCOT));
+    }
     // DNS chiffré (DoH) de Víðarr pour les appareils de la maison et du VPN : pas de compte, mais seulement depuis
     // une adresse privée (jamais un résolveur ouvert à tout Internet).
     // Vörðr : un programme envoie son signe de vie (/v/<jeton secret>) ; la page publique d'état (/etat/<adresse secrète>).
@@ -530,6 +554,27 @@ export class WebChannel implements Channel {
       return json(res, 200, { state: st });
     }
     // ---- Compte du propriétaire : création (première connexion), connexion, déconnexion ----
+    // Première connexion par le téléphone : le code et le QR code (seulement pour qui a le droit de créer le compte).
+    if (req.method === 'POST' && url.pathname === '/api/setup/start') {
+      if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+      if (this.accounts.exists()) return json(res, 409, { ok: false, error: 'Le compte existe déjà : connecte-toi.' });
+      const w = this.who(req), why = w === 'installation' || w === 'cle' ? undefined : this.claimRefusal(req);
+      if (why) return json(res, 403, { ok: false, error: why });
+      const now = Date.now(); for (const [k, x] of this.activations) if (x.exp < now) this.activations.delete(k);
+      if (this.activations.size >= 20) this.activations.delete(this.activations.keys().next().value!);
+      const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let code = ''; for (const b of randomBytes(6)) code += A[b % A.length];
+      const secret = randomBytes(24).toString('hex'); this.activations.set(code, { secret, exp: now + 10 * 60_000 });
+      const link = `${this.publicOrigin(req)}/activer?c=${code}`;
+      return json(res, 200, { ok: true, code, secret, url: link, short: link.replace(/^https?:\/\//, '').replace(/\?c=.*$/, ''), svg: qrSvg(link, { scale: 4, margin: 2 }), expires: now + 10 * 60_000 });
+    }
+    if (req.method === 'POST' && url.pathname === '/api/setup/status') {
+      if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+      const s = String(req.headers['x-setup'] ?? ''), e = [...this.activations.entries()].find(([, x]) => x.secret === s);
+      if (!e) return json(res, 200, { state: 'inconnu' });
+      if (e[1].done) { this.activations.delete(e[0]); this.openSession(req, res, 'activation par téléphone'); this.stateCache = undefined; return json(res, 200, { state: 'fait' }); }
+      if (e[1].exp < Date.now()) { this.activations.delete(e[0]); return json(res, 200, { state: 'expiré' }); }
+      return json(res, 200, { state: 'attente' });
+    }
     if (req.method === 'POST' && (url.pathname === '/api/account/create' || url.pathname === '/api/account/login' || url.pathname === '/api/account/logout')) {
       if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
       if (url.pathname === '/api/account/logout') {
@@ -542,11 +587,15 @@ export class WebChannel implements Channel {
         if (this.accounts.exists()) return json(res, 409, { ok: false, error: 'Le compte existe déjà : connecte-toi.' });
         // Le droit de créer le compte : le lien de première connexion (jeton), la clé d'API, ou le
         // premier navigateur du réseau local sur une installation neuve. Jamais par Internet sans le lien.
-        const w = this.who(req), why = w === 'installation' || w === 'cle' ? undefined : this.claimRefusal(req);
+        // Ou le code montré par cet écran (première connexion par le téléphone) : il prête son droit, pendant 10 minutes.
+        const code = typeof b.code === 'string' ? b.code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : '', act = code ? this.activations.get(code) : undefined;
+        if (code && (!act || act.exp < Date.now() || act.done)) { this.throttle.fail(ip); return json(res, 403, { ok: false, error: 'Code inconnu ou expiré : regarde le code affiché sur l\'écran d\'Odin.' }); }
+        const w = this.who(req), why = act || w === 'installation' || w === 'cle' ? undefined : this.claimRefusal(req);
         if (why) return json(res, 403, { ok: false, error: `Création du compte impossible d'ici : ${why}.` });
         try {
           const p = await this.accounts.create({ prenom: b.prenom, nom: b.nom, email: b.email, password: b.password });
           this.markClaimed('compte créé');
+          if (act) act.done = true;
           console.log(`[web] compte créé pour ${p.prenom} (depuis ${this.clientIp(req)})`);
           this.openSession(req, res, 'création du compte');
           this.stateCache = undefined;

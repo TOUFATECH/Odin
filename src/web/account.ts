@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 export interface PassHash { algo: 'scrypt'; N: number; r: number; p: number; salt: string; hash: string }
 export interface Account { prenom: string; nom: string; email: string; created: string; changed: string; pass: PassHash }
-export type Via = 'création du compte' | 'mot de passe' | 'appareil autorisé';
+export type Via = 'création du compte' | 'mot de passe' | 'appareil autorisé' | 'activation par téléphone';
 interface StoredSession { h: string; created: number; seen: number; device: string; ip: string; via: Via }
 export interface SessionInfo { id: string; created: number; seen: number; expires: number; device: string; ip: string; via: Via; current: boolean }
 export interface Profile { prenom: string; nom: string; email: string; created: string; changed: string }
