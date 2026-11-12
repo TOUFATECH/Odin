@@ -5,7 +5,7 @@
 
 import { isIP } from 'node:net';
 import type { ModCtx, Module } from '../types.ts';
-import { NETWORK, capture, clear, flows, history, isPaused, packet, setPaused, startPump, state, stopRecording, type Packet } from '../ran.ts';
+import { NETWORK, capture, clear, flows, history, isPaused, packet, setPaused, shutdown, startPump, state, stopRecording, type Packet } from '../ran.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 const recorded = (ctx: ModCtx): string[] => ((ctx.settings.record as string[] | undefined) ?? []).filter((x) => isIP(x) || x === NETWORK);
@@ -78,6 +78,7 @@ export const ran: Module = {
       ],
     };
   },
+  stop() { shutdown(); },
   start(ctx) {
     startPump(ctx.home);
     if (ctx.settings.paused) setPaused(ctx.home, true);

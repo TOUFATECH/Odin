@@ -249,3 +249,5 @@ export function startPump(home: string): void {
   timer.unref?.();
 }
 export function stopAll(): void { for (const s of [...sessions.values()]) end(s); if (timer) clearInterval(timer); timer = undefined; }
+/** Arrêt d'Odin (ou de l'appli) : plus de lecture, et la base des paquets est fermée (Windows ne supprime pas un fichier ouvert). */
+export function shutdown(): void { stopAll(); try { db?.close(); } catch { /* déjà fermée */ } db = undefined; dbHome = ''; }
