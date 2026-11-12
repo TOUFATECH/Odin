@@ -50,6 +50,7 @@ import { evolutionTree } from './evolutions.ts';
 import { NETWORK as RAN_NETWORK, capture as ranCapture, flows as ranFlows, history as ranHistory, isPaused as ranIsPaused, packet as ranPacket, setOwnPort as ranOwnPort, sourcesFor as ranSources, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 import { maisonRoute } from './maison-api.ts';
+import { rechercheRoute } from './recherche-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
@@ -552,6 +553,10 @@ export class WebChannel implements Channel {
     if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=86400' });
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
+    }
+    // Mímir, la recherche façon Perplexity : sa page, son script et son API (ta session seulement).
+    if (url.pathname === '/recherche' || url.pathname === '/recherche.js' || url.pathname.startsWith('/api/recherche/')) {
+      if (await rechercheRoute(req, res, url, { authed: this.authed(req), mascot: MASCOT })) return;
     }
     // L'écran de la maison (Glaðsheimr) : sa page, son script et son API (session, ou clé de tablette).
     if (url.pathname === '/maison' || url.pathname === '/maison.js' || url.pathname.startsWith('/api/maison/') || url.pathname === '/api/owntracks') {
