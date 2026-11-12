@@ -33,6 +33,8 @@ export const TYPES: Record<string, { folder: string; label: string; props: strin
   ressource: { folder: 'Ressources', label: 'Ressources', props: ['source', 'auteur'] },
   capture: { folder: 'Captures', label: 'Captures', props: ['source', 'lien'] },
   journal: { folder: 'Journal', label: 'Journal', props: ['date'] },
+  // Le quotidien : ce qu'Odin a appris à refaire sans IA (une note par mission, tenue par lui : voir learn/quotidien.ts).
+  quotidien: { folder: 'Quotidien', label: 'Quotidien', props: ['appli', 'étapes', 'utilisé', 'dernière fois'] },
   fiche: { folder: 'Fiches', label: 'Fiches', props: [] },
   note: { folder: '', label: 'Notes', props: [] },
 };
@@ -210,15 +212,15 @@ export class Vault {
     return `${relative(this.root, to).split(sep).join('/')}${changed ? ` (liens mis à jour dans ${changed} note${changed > 1 ? 's' : ''})` : ''}`;
   }
 
-  /** Corbeille : la note est déplacée dans .corbeille/ (restaurable), jamais effacée. */
-  trash(path: string): string {
+  /** Corbeille : la note est déplacée dans .corbeille/ (restaurable), jamais effacée. `quiet` : rangement fait par Odin lui-même, sans réveiller les automatisations. */
+  trash(path: string, o: { quiet?: boolean } = {}): string {
     const n = this.find(path);
     if (!n) throw new Error(`note introuvable : ${path}`);
     const dest = join(this.root, TRASH, `${Date.now()}-${basename(n.path)}`);
     mkdirSync(dirname(dest), { recursive: true });
     renameSync(join(this.root, n.path), dest);
     this.invalidate();
-    vaultEvents.emit('change', { kind: 'corbeille', path: n.path, title: n.title, type: String(n.meta.type ?? 'note') });
+    if (!o.quiet) vaultEvents.emit('change', { kind: 'corbeille', path: n.path, title: n.title, type: String(n.meta.type ?? 'note') });
     return relative(this.root, dest);
   }
   trashed(): string[] { const d = join(this.root, TRASH); return existsSync(d) ? readdirSync(d).filter((f) => f.endsWith('.md')).sort().reverse() : []; }

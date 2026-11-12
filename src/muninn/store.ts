@@ -516,7 +516,7 @@ export class Muninn {
   /** Les chiffres des économies depuis une date : tâches faites sans IA, demandes confiées à une IA, par fournisseur. */
   savingsData(since: number): { direct: number; learned: number; aiTurns: number; aiCalls: number; spentUsd: number; tokens: number; byProvider: Array<{ provider: string; label: string; calls: number; tokensIn: number; tokensOut: number; costUsd: number }>; reasons: Array<{ reason: string; n: number }> } {
     const one = (sql: string, ...a: Array<string | number>) => this.db.prepare(sql).get(...a) as Record<string, number | null>;
-    const d = one("SELECT COUNT(*) AS n, SUM(CASE WHEN reason LIKE 'appris le %' THEN 1 ELSE 0 END) AS learned FROM routing WHERE purpose = 'sans-ia' AND at >= ?", since);
+    const d = one("SELECT COUNT(*) AS n, SUM(CASE WHEN reason LIKE 'appris le %' OR reason LIKE 'lien fait avec %' THEN 1 ELSE 0 END) AS learned FROM routing WHERE purpose = 'sans-ia' AND at >= ?", since);
     const ai = one("SELECT COUNT(DISTINCT turn_id) AS turns, COUNT(*) AS calls, SUM(cost_usd) AS cost, SUM(tokens_in + tokens_out) AS tokens FROM routing WHERE provider != '' AND ok = 1 AND at >= ?", since);
     const byProvider = (this.db.prepare("SELECT provider, MAX(label) AS label, COUNT(*) AS calls, SUM(tokens_in) AS tin, SUM(tokens_out) AS tout, SUM(cost_usd) AS cost FROM routing WHERE provider != '' AND ok = 1 AND at >= ? GROUP BY provider ORDER BY calls DESC").all(since) as Array<Record<string, string | number>>)
       .map((r) => ({ provider: String(r.provider), label: String(r.label ?? ''), calls: Number(r.calls), tokensIn: Number(r.tin ?? 0), tokensOut: Number(r.tout ?? 0), costUsd: Number(r.cost ?? 0) }));

@@ -141,7 +141,7 @@ export interface OdinConfig {
     observe: boolean;
     minToolCallsForReflection: number;
     recallLimit: number;
-    /** Apprendre des demandes qu'une IA règle par une seule action, pour s'en passer ensuite (défaut : oui). */
+    /** Apprendre des demandes qu'une IA règle par une action, ou par quelques actions à la suite, pour s'en passer ensuite (défaut : oui). */
     direct?: boolean;
   };
   /** Hliðskjálf : inventaire du réseau local. */

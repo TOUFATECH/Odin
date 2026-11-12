@@ -35,6 +35,7 @@
     ressource: '<path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4"/>',
     capture: '<path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3"/><circle cx="12" cy="12" r="3"/>',
     journal: '<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M9 7h6M9 11h6"/>',
+    quotidien: '<path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v5h-5"/><path d="M12 8v4l2.5 2"/>',
     fiche: '<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>',
     note: '<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/>',
     connecteur: '<circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/>',
@@ -44,9 +45,9 @@
     home: '<path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/>', send: '<path d="M4 12h14M13 6l6 6-6 6"/>', link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>', star: '<path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.3L12 16l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6z"/>',
   };
-  const TYPE_LABEL = { projet: 'Projet', tâche: 'Tâche', personne: 'Personne', idée: 'Idée', réunion: 'Réunion', ressource: 'Ressource', capture: 'Capture', journal: 'Journal', fiche: 'Fiche', note: 'Note', connecteur: 'Connecteur' };
+  const TYPE_LABEL = { projet: 'Projet', tâche: 'Tâche', personne: 'Personne', idée: 'Idée', réunion: 'Réunion', ressource: 'Ressource', capture: 'Capture', journal: 'Journal', quotidien: 'Quotidien', fiche: 'Fiche', note: 'Note', connecteur: 'Connecteur' };
   // Couleurs des types (lisibles en clair et en sombre).
-  const TYPE_COLOR = { projet: '#E3833F', tâche: '#4CB782', personne: '#C46BD6', idée: '#E6C04A', réunion: '#4F9DDE', ressource: '#8E9BAA', capture: '#E0607E', journal: '#5BB8B0', fiche: '#9C8CE0', note: '#7AA2C8', connecteur: '#F2F2F2' };
+  const TYPE_COLOR = { projet: '#E3833F', tâche: '#4CB782', personne: '#C46BD6', idée: '#E6C04A', réunion: '#4F9DDE', ressource: '#8E9BAA', capture: '#E0607E', journal: '#5BB8B0', quotidien: '#B5D45A', fiche: '#9C8CE0', note: '#7AA2C8', connecteur: '#F2F2F2' };
 
   const S = { tree: null, path: null, note: null, mode: 'accueil', edit: false, dirty: false, saveT: 0, dbType: 'projet', dbView: 'table', sources: new Set(), guessed: true, typesOff: new Set(), graph: null, open: false, sideOpen: false };
 
@@ -142,7 +143,7 @@
   function renderSide() {
     const t = S.tree;
     const count = {}; for (const n of t.notes) count[n.type] = (count[n.type] || 0) + 1;
-    $('#brBases').replaceChildren(...['projet', 'tâche', 'personne', 'idée', 'réunion', 'capture', 'ressource', 'fiche'].map((ty) => el('button', { type: 'button', class: `br-item${S.mode === 'base' && S.dbType === ty ? ' on' : ''}`, onclick: () => { S.dbType = ty; setMode('base'); } }, ico(IC[ty]), el('span', {}, t.types[ty]?.label || ty), el('span', { class: 'br-n' }, String(count[ty] || 0)))));
+    $('#brBases').replaceChildren(...['quotidien', 'projet', 'tâche', 'personne', 'idée', 'réunion', 'capture', 'ressource', 'fiche'].map((ty) => el('button', { type: 'button', class: `br-item${S.mode === 'base' && S.dbType === ty ? ' on' : ''}`, onclick: () => { S.dbType = ty; setMode('base'); } }, ico(IC[ty]), el('span', {}, t.types[ty]?.label || ty), el('span', { class: 'br-n' }, String(count[ty] || 0)))));
     // Arbre des dossiers (repliables), comme un coffre de notes.
     const folders = {};
     for (const n of t.notes) { const f = n.path.includes('/') ? n.path.slice(0, n.path.lastIndexOf('/')) : ''; (folders[f] = folders[f] || []).push(n); }
@@ -357,12 +358,12 @@
   function renderLinks(r) {
     const box = $('#brLinks'); if (!box) return;
     if (!r) { box.replaceChildren(); return; }
-    const list = (items, empty, act) => (items.length ? el('ul', { class: 'br-ll' }, ...items.map((x) => el('li', {}, el('button', { type: 'button', class: 'br-ln', onclick: () => x.path && openNote(x.path) }, ico(IC.link, 13), x.title || x.target, x.path ? null : el('span', { class: 'br-muted' }, ' (à créer)')), act ? act(x) : null))) : el('p', { class: 'br-muted' }, empty));
-    box.replaceChildren(
+    const list = (items, empty, act) => (items.length ? el('ul', { class: 'br-ll' }, ...items.map((x) => el('li', {}, el('button', { type: 'button', class: 'br-ln', onclick: () => x.path && openNote(x.path) }, ico(IC.link, 13), x.title || String(x.target || '').split('/').pop(), x.path ? null : el('span', { class: 'br-muted' }, ' (à créer)')), act ? act(x) : null))) : el('p', { class: 'br-muted' }, empty));
+    box.replaceChildren(...[
       el('section', {}, el('h2', {}, `Rétroliens · ${r.backlinks.length}`), list(r.backlinks, 'Aucune page ne renvoie ici.')),
       el('section', {}, el('h2', {}, `Liens · ${r.links.length}`), list(r.links, 'Aucun lien. Écris [[ pour en ajouter.')),
       r.mentions.length ? el('section', {}, el('h2', {}, `En parlent sans lien · ${r.mentions.length}`), list(r.mentions, '', (x) => el('button', { type: 'button', class: 'br-mini', onclick: () => linkMention(x.path) }, 'Relier'))) : null,
-    );
+    ].filter(Boolean));
   }
   async function linkMention(path) {
     const r = await api(`/api/brain/note?path=${encodeURIComponent(path)}`);
@@ -394,11 +395,14 @@
   async function renderBase() {
     const r = await api(`/api/brain/db?type=${encodeURIComponent(S.dbType)}`);
     const def = r.def || { props: [], label: S.dbType };
-    const cols = [...new Set([...(def.props || []), ...r.rows.flatMap((x) => Object.keys(x.meta))])].filter((k) => !['type', 'titre', 'title', 'créé', 'tags'].includes(k)).slice(0, 6);
+    // Le Quotidien est tenu par Odin : ce qu'il a appris à refaire sans IA. Rien à créer à la main ; ses colonnes sont fixes.
+    const daily = S.dbType === 'quotidien';
+    const cols = daily ? (def.props || []) : [...new Set([...(def.props || []), ...r.rows.flatMap((x) => Object.keys(x.meta))])].filter((k) => !['type', 'titre', 'title', 'créé', 'tags'].includes(k)).slice(0, 6);
     const head = el('div', { class: 'br-bar' },
       el('h1', { class: 'br-title', style: 'margin:0;flex:1' }, def.label),
       def.statuses ? el('div', { class: 'seg', role: 'group', 'aria-label': 'Vue' }, ...[['table', 'Table'], ['tableau', 'Tableau']].map(([v, l]) => el('button', { type: 'button', 'aria-pressed': String(S.dbView === v), onclick: () => { S.dbView = v; renderBase(); } }, l))) : null,
-      el('button', { type: 'button', class: 'btn', onclick: () => newPage(S.dbType) }, ico(IC.plus, 15), ' Nouveau'));
+      daily ? el('button', { type: 'button', class: 'btn', onclick: () => openNote('Quotidien/Cerveau direct') }, ico(IC.quotidien, 15), ' Comment ça marche') : el('button', { type: 'button', class: 'btn', onclick: () => newPage(S.dbType) }, ico(IC.plus, 15), ' Nouveau'));
+    const lead = daily ? el('p', { class: 'br-lead' }, 'Ce qu\'Odin sait refaire sans IA, parce qu\'il l\'a appris en te parlant. Ouvre une mission pour voir ce qu\'il fait et à quoi elle est reliée ; mets-la à la corbeille pour qu\'il l\'oublie.') : null;
     let view;
     if (S.dbView === 'tableau' && def.statuses) {
       view = el('div', { class: 'br-board' }, ...def.statuses.map((st) => {
@@ -409,10 +413,12 @@
         return col;
       }));
     } else {
-      view = r.rows.length ? el('div', { class: 'wrap' }, el('table', { class: 'tbl' }, el('thead', {}, el('tr', {}, el('th', {}, 'Nom'), ...cols.map((c) => el('th', {}, c)), el('th', {}, 'Modifié'))),
-        el('tbody', {}, ...r.rows.map((x) => el('tr', {}, el('td', {}, el('button', { type: 'button', class: 'br-ln', onclick: () => openNote(x.path) }, x.title)), ...cols.map((c) => el('td', {}, Array.isArray(x.meta[c]) ? x.meta[c].join(', ') : String(x.meta[c] ?? ''))), el('td', { class: 'br-muted' }, new Date(x.mtime).toLocaleDateString('fr-FR'))))))) : el('p', { class: 'br-muted' }, `Aucune entrée. « Nouveau » en crée une, ou dis à Odin : « ajoute ${TYPE_LABEL[S.dbType]?.toLowerCase() || ''} … ».`);
+      // Dans le Quotidien, les dates se lisent en clair (12/11/2026) et « Modifié » ferait doublon avec « dernière fois ».
+      const cell = (v) => (Array.isArray(v) ? v.join(', ') : daily && /^\d{4}-\d{2}-\d{2}$/.test(String(v ?? '')) ? new Date(`${v}T12:00:00`).toLocaleDateString('fr-FR') : String(v ?? ''));
+      view = r.rows.length ? el('div', { class: 'wrap' }, el('table', { class: 'tbl' }, el('thead', {}, el('tr', {}, el('th', {}, 'Nom'), ...cols.map((c) => el('th', {}, c)), daily ? null : el('th', {}, 'Modifié'))),
+        el('tbody', {}, ...r.rows.map((x) => el('tr', {}, el('td', {}, el('button', { type: 'button', class: 'br-ln', onclick: () => openNote(x.path) }, x.title)), ...cols.map((c) => el('td', {}, cell(x.meta[c]))), daily ? null : el('td', { class: 'br-muted' }, new Date(x.mtime).toLocaleDateString('fr-FR'))))))) : el('p', { class: 'br-muted' }, daily ? 'Rien encore. Ça vient tout seul : quand une IA règle une de tes demandes par une action (ou quelques-unes à la suite), Odin la retient ici, et la refait ensuite sans elle.' : `Aucune entrée. « Nouveau » en crée une, ou dis à Odin : « ajoute ${TYPE_LABEL[S.dbType]?.toLowerCase() || ''} … ».`);
     }
-    $('#brMain').replaceChildren(el('div', { class: 'br-page-in wide' }, head, view));
+    $('#brMain').replaceChildren(el('div', { class: 'br-page-in wide' }, head, lead, view));
     renderSide();
   }
 

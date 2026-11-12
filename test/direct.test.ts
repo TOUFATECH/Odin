@@ -1,5 +1,6 @@
 // Sans IA d'abord : ce qu'Odin sait faire seul n'est pas confié à une IA ; il dit si une IA a servi et
 // pourquoi ; il apprend des demandes réglées en une action ; il compte ce que ça évite.
+// (Les missions de plusieurs actions, les liens et le Quotidien : test/cerveau-direct.test.ts.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { call, makeOdin } from './helpers.ts';
@@ -169,13 +170,13 @@ test('agent : une demande réglée par l\'IA en une seule action est apprise, pu
     const r1 = await o.agent.run('je file au lit', S);
     assert.equal(o.provider.calls.length, 2, 'la première fois : l\'IA (appel de l\'outil, puis réponse)');
     assert.deepEqual(r1.ai?.needed, true);
-    assert.match(r1.notices.join(' '), /J'ai appris : la prochaine fois, « je file au lit » se fera sans IA \(Mode du moment\)/);
+    assert.match(r1.notices.join(' '), /J'ai appris : la prochaine fois, « je file au lit » se fera sans IA \(Mode du moment · sommeil\)/);
     assert.equal(loadAcquis(o.muninn).length, 1);
     // La même demande : sans IA, même résultat.
     const r2 = await o.agent.run('Je file au lit !', S);
     assert.equal(o.provider.calls.length, 2, 'la deuxième fois : aucun appel de plus');
-    assert.deepEqual(r2.ai?.needed, false); assert.match(r2.ai?.why ?? '', /^appris le .* : « je file au lit » → Mode du moment$/);
-    assert.match(r2.text, /^Mode du moment\n/);
+    assert.deepEqual(r2.ai?.needed, false); assert.match(r2.ai?.why ?? '', /^appris le .* : « je file au lit » → Mode du moment · sommeil$/);
+    assert.match(r2.text, /^Mode du moment · sommeil\n/);
     assert.equal(o.muninn.savingsData(0).learned, 1);
     // « Non, pas ça » juste après : l'acquis est oublié, et la demande repasse par l'IA.
     await o.agent.run('non, pas ça', S);
@@ -185,13 +186,13 @@ test('agent : une demande réglée par l\'IA en une seule action est apprise, pu
   } finally { o.cleanup(); }
 });
 
-test('agent : rien n\'est appris d\'une tâche planifiée, d\'un contenu extérieur, ni de plusieurs actions', async () => {
+test('agent : rien n\'est appris d\'une tâche planifiée, d\'un contenu extérieur, ni d\'une action que l\'IA a corrigée en route', async () => {
   let o = makeOdin([call('mode_set', { mode: 'sommeil' }), { text: 'ok' }]);
   try { await o.agent.run('je file au lit', { sessionId: 'cron:1', unattended: true }); assert.equal(loadAcquis(o.muninn).length, 0, 'tâche planifiée'); } finally { o.cleanup(); }
   o = makeOdin([call('mode_set', { mode: 'sommeil' }), { text: 'ok' }]);
   try { await o.agent.run('je file au lit', { sessionId: 's', trusted: false }); assert.equal(loadAcquis(o.muninn).length, 0, 'message d\'un tiers'); } finally { o.cleanup(); }
   o = makeOdin([call('mode_set', { mode: 'sommeil' }), call('mode_set', { mode: 'disponible' }), { text: 'ok' }]);
-  try { await o.agent.run('je file au lit', { sessionId: 's' }); assert.equal(loadAcquis(o.muninn).length, 0, 'deux actions'); } finally { o.cleanup(); }
+  try { await o.agent.run('je file au lit', { sessionId: 's' }); assert.equal(loadAcquis(o.muninn).length, 0, 'deux réglages du même état : l\'IA s\'est reprise, ce n\'est pas une mission'); } finally { o.cleanup(); }
   o = makeOdin([call('mode_set', { mode: 'sommeil' }), { text: 'ok' }], { config: (c) => ({ ...c, learning: { ...c.learning, direct: false } }) });
   try { await o.agent.run('je file au lit', { sessionId: 's' }); assert.equal(loadAcquis(o.muninn).length, 0, 'réglage coupé'); } finally { o.cleanup(); }
 });

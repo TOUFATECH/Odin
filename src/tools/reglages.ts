@@ -49,7 +49,7 @@ export const SETTINGS: Record<string, Rule> = {
     grave: (v, cur) => (v === 'auto' && cur !== 'auto' ? 'me mettre à jour tout seul, sans te demander' : undefined),
   },
   sans_ia_d_abord: bool('Sans IA d\'abord', 'Ce que je sais faire seul n\'est pas confié à une IA (plus rapide, gratuit).', ['routing', 'directFirst']),
-  apprendre_sans_ia: bool('Apprendre à faire sans IA', 'Quand une IA règle une demande par une seule action, je la retiens pour la refaire seul.', ['learning', 'direct']),
+  apprendre_sans_ia: bool('Apprendre à faire sans IA', 'Quand une IA règle une demande par une action (ou quelques-unes à la suite), je la retiens pour la refaire seul : c\'est le Cerveau direct, rangé dans le Cerveau, rubrique Quotidien.', ['learning', 'direct']),
   moins_cher_d_abord: bool('L\'IA la moins chère qui convient', 'À compétence égale, la demande part vers l\'IA la moins chère.', ['routing', 'cheapestFirst']),
   ia_locale_d_abord: bool('IA installée chez toi d\'abord', 'Les demandes simples partent d\'abord vers l\'IA installée sur ta machine, quand il y en a une.', ['routing', 'preferLocal']),
   ia_forte_si_complexe: bool('IA la plus capable pour le complexe', 'Les demandes difficiles partent vers l\'IA la plus capable.', ['routing', 'strongForComplex']),

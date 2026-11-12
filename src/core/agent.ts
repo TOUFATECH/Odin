@@ -28,8 +28,10 @@ import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
 import { polishReply } from './style.ts';
 import { offlineAct } from './offline-act.ts';
-import { tryDirect } from './direct.ts';
-import { forget as forgetAcquis, keep as keepAcquis, learn as learnAcquis, LEARNABLE } from '../learn/acquis.ts';
+import { MANY, needsThinking, pendingProposal, proposeNear, tryDirect } from './direct.ts';
+import { forget as forgetAcquis, keep as keepAcquis, learn as learnAcquis, LEARNABLE, linkWords, loadAcquis, MAX_STEPS, missionOf } from '../learn/acquis.ts';
+import { syncQuotidien } from '../learn/quotidien.ts';
+import { brainOf } from '../tools/brain.ts';
 import { isReminderJob, reminderText, whenFr } from '../cron/reminders.ts';
 import { savingsText } from '../providers/savings.ts';
 import { adminDiagnosis } from '../machines/access.ts';
@@ -217,8 +219,15 @@ export class Agent {
     // laisse faire l'IA et retient pourquoi, pour te le dire.
     let aiWhy = '';
     const owner = !o.speaker || o.speaker.role === 'owner';
+    // Le Quotidien du Cerveau suit ce qu'Odin sait refaire seul : ses notes sont remises à jour quand ça change.
+    const learnedBefore = depth === 0 ? `${muninn.getKv('acquis') ?? ''}|${muninn.getKv('acquis-liens') ?? ''}` : '';
+    const syncDaily = (): void => {
+      if (depth !== 0 || `${muninn.getKv('acquis') ?? ''}|${muninn.getKv('acquis-liens') ?? ''}` === learnedBefore) return;
+      try { syncQuotidien({ vault: brainOf(ctx), kv: muninn, app: (ref) => valhallaOf()?.module(ref)?.name, redact: (x) => redactor.redact(x) }); } catch { /* le Cerveau est facultatif */ }
+    };
     // « Non, pas ça » juste après une demande faite grâce à un acquis : l'acquis est oublié.
-    if (depth === 0 && trusted && owner && CORRECTION.test(userText.trim())) {
+    // (Sauf si ce « non » répond à une proposition du Cerveau direct : là, il veut juste dire « ne le fais pas ».)
+    if (depth === 0 && trusted && owner && CORRECTION.test(userText.trim()) && !pendingProposal(muninn, o.sessionId)) {
       const last = muninn.getKv(`acquis-dernier:${o.sessionId}`);
       if (last) { forgetAcquis(muninn, last); muninn.setKv(`acquis-dernier:${o.sessionId}`, ''); }
     }
@@ -234,6 +243,7 @@ export class Agent {
         },
         has: (n) => Boolean(tools.get(n)), sessionId: o.sessionId, kv: muninn,
         acquis: cfg.learning.direct !== false && owner,
+        redact: (x) => redactor.redact(x),
         adminSecret: Boolean(home && owner && isLocalAdminLabel(pendingSecretLabel(home) ?? '')),
         texts: {
           reminders: () => { const l = muninn.listJobs().filter(isReminderJob).sort((x, y) => x.next_run - y.next_run).slice(0, 10); return l.length ? `Tes rappels :\n${l.map((j) => `- ${whenFr(new Date(j.next_run))} : ${reminderText(j)}`).join('\n')}` : 'Aucun rappel programmé.'; },
@@ -253,6 +263,7 @@ export class Agent {
         if (d.tools > 0 && trusted) { try { recordTask(muninn, { at: Date.now(), goal: userText.replace(/\s+/g, ' ').slice(0, 140), ok: true, tools: ['sans IA'], result: text.replace(/\s+/g, ' ').slice(0, 160) }); } catch { /* facultatif */ } }
         res.mood = guessMood(text, { blocked: 0, errors: 0, approvals: 0, stopReason: 'done', toolCalls: d.tools, userText });
         if (res.mood) emit({ type: 'mood', mood: res.mood });
+        syncDaily();
         return res;
       }
       aiWhy = d?.why ?? '';
@@ -371,6 +382,16 @@ export class Agent {
             emit({ type: 'text', text: res.text });
             break;
           }
+          // Cerveau direct : rien de reconnu mot pour mot. Odin fait le lien avec ce qu'il a déjà appris, dit comment,
+          // et PROPOSE (rien ne part sans ton oui). Seulement pour toi, et jamais dans une discussion qui a lu du contenu extérieur.
+          const near = owner && !tainted && !turn.suspicious && !o.unattended && cfg.routing.directFirst !== false && cfg.learning.direct !== false
+            ? proposeNear(userText.split('\n\n[Précision d')[0], { kv: muninn, sessionId: o.sessionId, has: (n) => Boolean(tools.get(n)) }) : undefined;
+          if (near) {
+            res.text = redactor.redact(near); res.offline = true; res.stopReason = 'done';
+            muninn.addMessage(o.sessionId, { role: 'assistant', content: res.text });
+            emit({ type: 'text', text: res.text });
+            break;
+          }
           try {
             const off = offlineAnswer({ muninn, home: this.deps.home, inventory: this.deps.inventory as never }, userText, { channel, peer });
             res.text = off.text; res.offline = true;
@@ -482,24 +503,55 @@ export class Agent {
         if (used.length && (failures > 0 || !ok) && cfg.learning.proposeSkills && !tainted) for (const n of used) void this.improveSkill(n, `${failures} étape(s) en échec pendant la mission`, turnLog, emit, signal).catch(() => undefined);
       } catch { /* statistiques facultatives */ }
     }
-    // Acquis : quand l'IA a réglé la demande par UNE seule action rejouable (une appli, la maison, Venus…),
-    // Odin retient « cette phrase → cette action » pour s'en passer la prochaine fois. Seulement à partir
-    // de TES demandes (jamais d'un contenu extérieur, d'une tâche planifiée, ni d'une phrase qui dépend du moment).
-    if (depth === 0 && trusted && !tainted && !turn.suspicious && !o.unattended && (!o.speaker || o.speaker.role === 'owner') && cfg.learning.direct !== false && res.stopReason === 'done' && res.toolCalls === 1 && !CORRECTION.test(userText.trim())) {
+    // Acquis (Cerveau direct) : quand l'IA a réglé la demande par une action rejouable, ou par une mission de
+    // quelques actions à la suite (une appli, la maison, Venus…), Odin retient « cette phrase → ces actions » pour
+    // s'en passer la prochaine fois. Seulement à partir de TES demandes (jamais d'un contenu extérieur, d'une tâche
+    // planifiée, ni d'une phrase qui dépend du moment). Ce qu'il a relu pour vérifier n'en fait pas partie.
+    if (depth === 0 && trusted && !tainted && !turn.suspicious && !o.unattended && (!o.speaker || o.speaker.role === 'owner') && cfg.learning.direct !== false && res.stopReason === 'done' && res.toolCalls >= 1 && !CORRECTION.test(userText.trim())) {
       try {
-        const calls = turnLog.flatMap((m) => m.toolCalls ?? []), call = calls[0];
-        const out = call ? turnLog.find((m) => m.role === 'tool' && m.toolCallId === call.id)?.content ?? '' : '';
-        if (calls.length === 1 && call && LEARNABLE[call.name] && !/^(Erreur|Action refusée|Refusé|\[Mode essai\])/.test(out) && (call.name !== 'valhalla' || call.input.action === 'action')) {
-          const v = call.name === 'valhalla' ? valhallaOf() : undefined, f = v?.action(String(call.input.appli ?? ''), String(call.input.quoi ?? ''));
+        const phrase = userText.split('\n\n[Précision d')[0], think = needsThinking(phrase);
+        const outOf = (id: string) => turnLog.find((m) => m.role === 'tool' && m.toolCallId === id)?.content ?? '';
+        // Le contrôle après action est imposé par le code : la relecture qui le suit sert à vérifier, pas à faire.
+        const check = turnLog.findIndex((m) => m.role === 'user' && m.content.startsWith('[Contrôle automatique d\'Odin] Avant de conclure'));
+        const reads = (c: ToolCall) => { const tool = tools.get(c.name); return Boolean(tool && (tool.risk === 'read' || tool.risk === 'network' || tool.lookup?.(c.input))); };
+        const calls = turnLog.flatMap((m, k) => (m.toolCalls ?? []).filter((c) => !(check >= 0 && k > check && reads(c))));
+        // Une demande à rédiger ou à raisonner ne se rejoue pas (la réponse de l'IA compte) ; plusieurs demandes en une, si.
+        if (calls.length >= 1 && calls.length <= MAX_STEPS && (!think || think === MANY) && calls.every((c) => LEARNABLE[c.name] && !/^(Erreur|Action refusée|Refusé|\[Mode essai\])/.test(outOf(c.id)) && (c.name !== 'valhalla' || c.input.action === 'action'))) {
+          const v = valhallaOf(), found = calls.map((c) => (c.name === 'valhalla' ? v?.action(String(c.input.appli ?? ''), String(c.input.quoi ?? '')) : undefined));
           // Une action grave (qui demande ton accord à chaque fois) ne s'apprend pas : elle garde toute ton attention.
-          if (!(f?.a.grave)) {
-            const label = f ? `${f.m.name} · ${f.a.label}` : call.name === 'ha_call' ? 'Maison' : call.name === 'venus' ? 'Venus' : call.name === 'mode_set' ? 'Mode du moment' : 'Réseau';
-            const a = learnAcquis({ phrase: userText.split('\n\n[Précision d')[0], tool: call.name, input: call.input, label, redact: (x) => redactor.redact(x) });
-            if (!('skip' in a)) { const kept = keepAcquis(muninn, a); muninn.setKv(`acquis-dernier:${o.sessionId}`, kept.id); res.notices.push(`J'ai appris : la prochaine fois, « ${kept.phrase} » se fera sans IA (${kept.label}).`); }
+          // « Grave » se juge sur ce qui a été demandé (ouvrir la porte l'est, allumer une lampe non) ; et au rejeu, l'outil
+          // repose la question à chaque fois : avec une autre valeur devenue grave, Heimdall redemande ton accord.
+          // Une action d'appli qu'on ne retrouve pas (applis non démarrées) ne s'apprend pas non plus : impossible de dire ce qu'elle fait.
+          const grave = (c: ToolCall, f: (typeof found)[number]): boolean => {
+            if (!f?.a.grave) return false;
+            try { const e = c.input.entree; return Boolean(f.a.grave(typeof e === 'string' ? (e.trim() ? JSON.parse(e) as Record<string, unknown> : {}) : (e ?? {}) as Record<string, unknown>, v!.ctx(f.m.id))); } catch { return true; }
+          };
+          if (!calls.some((c, k) => grave(c, found[k])) && calls.every((c, k) => c.name !== 'valhalla' || found[k])) {
+            const text = (x: unknown) => String(x ?? '').replace(/\s+/g, ' ').trim().slice(0, 60);
+            const labelOf = (c: ToolCall, f: (typeof found)[number]) => (f ? `${f.m.name} · ${f.a.label}`
+              : c.name === 'ha_call' ? `Maison · ${text(c.input.domain)}.${text(c.input.service)}${c.input.entity_id ? ` → ${text(c.input.entity_id)}` : ''}`
+              : c.name === 'venus' ? `Venus · ${text(c.input.action)}`
+              : c.name === 'mode_set' ? `Mode du moment · ${text(c.input.mode)}`
+              : `Réseau · balayage${c.input.full ? ' complet' : ''}`);
+            const steps = calls.map((c, k) => ({ tool: c.name, input: c.input, label: labelOf(c, found[k]), out: outOf(c.id) }));
+            // Ce qui s'est dit juste avant (tes messages et mes réponses) : une valeur qui en vient dépend de la discussion.
+            const context = history.slice(0, -turnLog.length - 1).filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content).slice(-6).map((m) => m.content).join('\n').slice(-4000);
+            const a = learnAcquis({ phrase, label: steps[0].label, steps, context, redact: (x) => redactor.redact(x) });
+            if (!('skip' in a)) {
+              // La même mission dite autrement ? Odin fait le lien entre les deux phrases (et entre les deux mots, s'il n'y en a qu'un qui change).
+              const twin = loadAcquis(muninn).find((x) => x.id !== a.id && missionOf(x) === missionOf(a));
+              const kept = keepAcquis(muninn, a); muninn.setKv(`acquis-dernier:${o.sessionId}`, kept.id);
+              const link = twin ? linkWords(muninn, twin, kept) : undefined;
+              res.notices.push(twin
+                ? `J'ai fait le lien : « ${kept.phrase} » veut dire la même chose que « ${twin.phrase} »${link ? ` (« ${link.said[0]} » = « ${link.said[1]} »)` : ''}. Les deux se feront sans IA (${kept.label}).`
+                : steps.length > 1 ? `J'ai appris cette mission (${steps.length} actions) : la prochaine fois, « ${kept.phrase} » se fera sans IA (${kept.label}).`
+                : `J'ai appris : la prochaine fois, « ${kept.phrase} » se fera sans IA (${kept.label}).`);
+            }
           }
         }
       } catch { /* apprentissage facultatif */ }
     }
+    syncDaily();
     res.tainted = tainted;
     res.suspicious = turn.suspicious;
     res.mood = depth > 0 ? undefined : (res.stopReason === 'done' && modelMood) || guessMood(res.text, { ...moodCtx, stopReason: res.stopReason, toolCalls: res.toolCalls, userText });

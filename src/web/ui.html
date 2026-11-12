@@ -1278,7 +1278,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             <div class="field"><label>Modèles configurés</label><span class="hint">Pour chaque demande qui a besoin d'une IA, Odin prend le palier qu'il faut, puis le modèle dont c'est la spécialité, puis le moins cher (règle ci-dessous), puis celui qui réussit le mieux ce type de tâche chez toi, puis l'ordre de cette liste. Un modèle qui échoue souvent sur un type de tâche ne passe pas devant parce qu'il coûte moins. En panne ou à bout de quota : le suivant prend le relais.</span><div id="m-list" role="list"></div></div>
             <div class="form" style="gap:8px">
               <label class="check"><input type="checkbox" id="r-direct"> Faire sans IA ce que je sais faire seul (je te dis à chaque fois si une IA a servi, et pourquoi)</label>
-              <label class="check"><input type="checkbox" id="r-learn"> Apprendre : une demande qu'une IA règle par une seule action, je la refais ensuite sans elle</label>
+              <label class="check"><input type="checkbox" id="r-learn"> Apprendre : une demande qu'une IA règle par une action (ou quelques-unes à la suite), je la refais ensuite sans elle</label>
               <label class="check"><input type="checkbox" id="r-cheap"> À palier et spécialité égaux, le modèle le moins cher d'abord</label>
               <label class="check"><input type="checkbox" id="r-local"> Préférer un modèle installé/gratuit quand la tâche ne demande pas plus</label>
               <label class="check"><input type="checkbox" id="r-strong"> Envoyer les tâches complexes au modèle le plus capable</label>
@@ -1959,7 +1959,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     $('#eco-acquis').replaceChildren(...(acquis.length ? acquis.map((a) => el('li', {},
       el('span', {}, `« ${a.phrase} » → ${a.label}`, a.slots ? el('span', { class: 'dim' }, ' · la valeur peut changer') : null, el('span', { class: 'dim' }, ` · utilisé ${a.uses} fois`)),
       el('button', { class: 'btn small', type: 'button', 'aria-label': `Oublier « ${a.phrase} »`, onclick: async (e) => { e.target.disabled = true; await api('/api/action', { kind: 'acquis_forget', id: a.id }); loadRouting(); } }, 'Oublier')))
-      : [el('li', {}, el('span', { class: 'dim' }, 'Rien pour l\'instant. Ça vient tout seul : quand une IA règle une demande par une seule action, je la retiens et je la refais ensuite sans elle.'))]));
+      : [el('li', {}, el('span', { class: 'dim' }, 'Rien pour l\'instant. Ça vient tout seul : quand une IA règle une demande par une action (ou quelques-unes à la suite), je la retiens et je la refais ensuite sans elle. Tout est rangé dans le Cerveau, rubrique Quotidien.'))]));
   }
   // Rubriques en haut selon ton usage : les plus utilisées (et celle ouverte), 5 au plus ; le reste dans « Tous les réglages ».
   const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'apparence', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];

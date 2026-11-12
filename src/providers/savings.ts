@@ -76,7 +76,7 @@ export function savingsReport(s: Savings): string {
   if (s.aiTurns) L.push(`- ${s.aiTurns} demande${s.aiTurns > 1 ? 's' : ''} confiée${s.aiTurns > 1 ? 's' : ''} à une IA (${s.aiCalls} appel${s.aiCalls > 1 ? 's' : ''}) : ${money(s.spentUsd)} dépensé${s.spentUsd >= 2 ? 's' : ''}.`);
   if (s.cheaperUsd > 0 && s.reference) L.push(`- En envoyant chaque demande au modèle le moins cher qui convient, plutôt que tout à ${s.reference} : environ ${money(s.cheaperUsd)} gagnés.`);
   if (s.reasons.length) L.push(`- Fait sans IA, le plus souvent : ${s.reasons.slice(0, 4).map((r) => `${r.reason.replace(/^action reconnue : /, '').slice(0, 60)} (${r.n})`).join(' ; ')}.`);
-  L.push(s.acquis ? `- ${s.acquis} demande${s.acquis > 1 ? 's' : ''} apprise${s.acquis > 1 ? 's' : ''} : je les fais maintenant sans IA (dis « ce que tu as appris »).` : '- Je n\'ai encore rien appris à faire sans IA : ça vient tout seul, à chaque demande qu\'une IA règle par une seule action.');
+  L.push(s.acquis ? `- ${s.acquis} demande${s.acquis > 1 ? 's' : ''} apprise${s.acquis > 1 ? 's' : ''} : je les fais maintenant sans IA (dis « ce que tu as appris »).` : '- Je n\'ai encore rien appris à faire sans IA : ça vient tout seul, à chaque demande qu\'une IA règle par une action ou quelques-unes à la suite.');
   return L.join('\n');
 }
 
