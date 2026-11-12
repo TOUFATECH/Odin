@@ -164,6 +164,12 @@ Comme Wireshark : Rán **lit les paquets en entier et les décode couche par cou
 
 Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accès** (Réglages → Droits et machines) — tout son trafic, par SSH. Un hôte Proxmox voit ainsi tout ce qu'échangent ses machines virtuelles, un routeur Linux tout ce qui entre et sort du réseau. Sur un réseau avec switch ou box, une machine sans point de capture n'est vue que dans ses échanges avec un point de capture et dans ce qu'elle diffuse. Le contenu chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark sans les clés ; ce qui passe en clair (HTTP, DNS…) se lit en entier, mots de passe compris : l'historique reste sur ta machine et s'efface depuis Rán.
 
+#### Venus (Freyja) : épisodes et VF
+
+- « Mets le dernier épisode de One Piece sur la télé du salon » : l'épisode lui-même démarre. Aussi « l'épisode suivant de Frieren », « One Piece saison 2 épisode 5 », « S02E05 », « l'épisode 1071 de One Piece » ; une série nommée seule reprend à l'épisode suivant de ton profil.
+- **Arrivées** : Odin te prévient quand un épisode ou un film arrive sur Venus (« 📺 Épisode arrivé sur Venus en VF : One Piece S01E1071 »), et quand la VF d'un titre arrive. « Préviens-moi seulement pour la VF » ou « ne me préviens plus » ; « les nouveaux épisodes » pour la liste des derniers jours.
+- **Chercher en VF** : « cherche Frieren en VF » demande la version française à Radarr / Sonarr par Venus (Venus 1.x avec Radarr 3+ / Sonarr 4+).
+
 #### Cerveau direct et Quotidien
 
 Quand une IA règle une de tes demandes en une action ou quelques-unes à la suite (une « mission »), Odin la retient et la refait ensuite **sans IA** : la même phrase, ou la même avec une autre valeur. Deux façons de dire la même mission ? Il relie les phrases et le mot qui change. Quand aucune IA ne répond, il cherche ce qui ressemble à ta demande, explique comment il a fait le lien et te demande avant d'agir ; après ton oui, ta phrase est retenue. Une action grave s'apprend aussi, mais ton accord est redemandé à chaque fois. Tout est rangé dans **Cerveau → Quotidien** : une note par mission, reliée aux applis (mets-la à la corbeille pour qu'Odin l'oublie).

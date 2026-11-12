@@ -56,6 +56,31 @@ export function playPathOf(c: VCard): string {
   return c.path; // une série : sa page (Venus propose l'épisode suivant)
 }
 
+/** Épisode demandé dans la phrase (pur) : « le dernier épisode de One Piece », « l'épisode suivant de X »,
+ *  « One Piece saison 2 épisode 5 », « One Piece S02E05 », « l'épisode 1071 de One Piece ». */
+export interface EpAsk { show: string; which: 'last' | 'next' | 'first' | 'exact'; s?: number; e?: number }
+export function parseEpisode(q: string): EpAsk | null {
+  const t = norm(q).replace(/^(mets|lance|regarder|regarde|joue)( moi)? /, '').replace(/^(le |la |l )/, '');
+  const of = '(?:de |d |du |des )?(?:la serie |l anime |la saison |le film )?(.+)';
+  let m = new RegExp(`^(?:dernier|nouvel|nouveau|tout dernier)(?: (?:episode|ep)s?)? ${of}$`).exec(t) ?? new RegExp(`^(?:episode|ep) le plus recent ${of}$`).exec(t);
+  if (m) return { show: m[1], which: 'last' };
+  m = /^(.+?) (?:dernier|nouvel|nouveau) (?:episode|ep)$/.exec(t);
+  if (m) return { show: m[1], which: 'last' };
+  m = new RegExp(`^(?:episode suivant|prochain episode|suite|suivant|prochain) ${of}$`).exec(t);
+  if (m) return { show: m[1], which: 'next' };
+  m = new RegExp(`^premier episode ${of}$`).exec(t);
+  if (m) return { show: m[1], which: 'first' };
+  m = /^(.+?) s ?(\d{1,3}) ?e ?(\d{1,4})$/.exec(t) ?? /^(.+?) saison (\d{1,3}) (?:episode|ep) (\d{1,4})$/.exec(t);
+  if (m) return { show: m[1], which: 'exact', s: Number(m[2]), e: Number(m[3]) };
+  m = new RegExp(`^(?:saison (\\d{1,3}) )?(?:episode|ep) (\\d{1,4}) ${of}$`).exec(t);
+  if (m) return { show: m[3], which: 'exact', ...(m[1] ? { s: Number(m[1]) } : {}), e: Number(m[2]) };
+  m = /^(.+?) (?:episode|ep) (\d{1,4})$/.exec(t);
+  if (m) return { show: m[1], which: 'exact', e: Number(m[2]) };
+  return null;
+}
+interface EpPick { id?: number; season?: number; episode?: number; title?: string; play?: string; show?: { title: string } }
+const sxe = (e: EpPick) => `S${String(e.season ?? 0).padStart(2, '0')}E${String(e.episode ?? 0).padStart(2, '0')}`;
+
 async function catalog(c: VenusConf): Promise<VCard[]> {
   const [ch, all] = await Promise.all([venusApi<VCard[]>(c, 'GET', '/api/library?type=channel'), venusApi<VCard[]>(c, 'GET', '/api/library')]);
   return [...ch, ...all];
@@ -98,13 +123,22 @@ export const venusTool: Tool = {
       const ch = g.channels.find((x) => x.id === prog.channel);
       return `Enregistrement programmé : « ${prog.title} » sur ${ch?.title ?? 'la chaîne'}, ${new Date(prog.start).toLocaleDateString('fr-FR', { weekday: 'long' })} ${hm(prog.start)}–${hm(prog.stop)}${series ? ' (et toutes les diffusions suivantes)' : ''}.`;
     }
-    // regarder
-    const cards = await catalog(c), it = bestMatch(cards, q);
-    if (!it) return `Je ne trouve pas « ${q} » dans Venus.`;
+    // regarder (un épisode précis d'une série : le dernier, le suivant, S2E5…)
+    const cards = await catalog(c), ask = parseEpisode(q);
+    const shows = cards.filter((x) => x.type === 'show');
+    const it = (ask ? bestMatch(shows, ask.show) : undefined) ?? bestMatch(cards, q);
+    if (!it) return `Je ne trouve pas « ${ask?.show ?? q} » dans Venus.`;
+    let path = playPathOf(it), label = `« ${it.title} »`;
+    if (it.type === 'show') {
+      const w = ask && bestMatch(shows, ask.show)?.id === it.id ? ask : { show: it.title, which: 'next' as const };
+      const qs = w.which === 'exact' ? `${w.s != null ? `s=${w.s}&` : ''}e=${w.e}` : `which=${w.which}`;
+      const ep = await venusApi<EpPick>(c, 'GET', `/api/shows/${it.id}/episode?${qs}`).catch((e: Error) => { if (ask && /HTTP 404/.test(e.message)) throw new Error(`${it.title} : ${e.message.replace(/^Venus : | \(HTTP 404\)$/g, '')}`); return null; });
+      if (ep?.play) { path = ep.play; label = `« ${it.title} » ${sxe(ep)}${ep.title && !/^(É|E)pisode \d+$/i.test(ep.title) ? ` (${ep.title})` : ''}`; }
+    }
     const devs = await venusApi<Array<{ id: string; name: string; tv: boolean }>>(c, 'GET', '/api/devices/open');
     const dev = (where ? devs.find((d) => norm(d.name).includes(where)) : undefined) ?? devs.find((d) => d.tv) ?? (devs.length === 1 ? devs[0] : undefined);
-    if (!dev) return devs.length ? `Sur quel écran ? Ouverts : ${devs.map((d) => d.name).join(', ')}.` : `J'ai trouvé « ${it.title} », mais aucun écran n'a Venus ouvert : allume la télé et ouvre Venus, puis redis-le-moi.`;
-    await venusApi(c, 'POST', `/api/devices/${encodeURIComponent(dev.id)}/open`, { path: playPathOf(it) });
-    return `▶️ « ${it.title} »${it.type === 'channel' ? ` (chaîne ${it.number})` : ''} lancé sur ${dev.name}.`;
+    if (!dev) return devs.length ? `Sur quel écran ? Ouverts : ${devs.map((d) => d.name).join(', ')}.` : `J'ai trouvé ${label}, mais aucun écran n'a Venus ouvert : allume la télé et ouvre Venus, puis redis-le-moi.`;
+    await venusApi(c, 'POST', `/api/devices/${encodeURIComponent(dev.id)}/open`, { path });
+    return `▶️ ${label}${it.type === 'channel' ? ` (chaîne ${it.number})` : ''} lancé sur ${dev.name}.`;
   },
 };
