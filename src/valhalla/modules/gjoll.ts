@@ -1,10 +1,11 @@
 // Gjöll — le VPN d'Odin : un seul moteur WireGuard pour les tunnels, les clients avec QR code
 // (mode « Gjallarbrú ») et le réseau maillé entre tes appareils (mode « Gleipnir »).
-// Clés générées par Odin, configuration écrite et appliquée avec ton accord, QR code à scanner.
+// Le protocole WireGuard est ÉCRIT DANS ODIN (../wireguard/) : rien à installer. Les téléphones et les
+// ordinateurs se connectent avec l'appli WireGuard habituelle, que le moteur d'Odin comprend.
 
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { WgDevice, systemTun, type PeerConfig, type TunPort } from '../wireguard/engine.ts';
 import { isPrivateV4, localSubnets } from '../../hlidskjalf/discover.ts';
 import { svg } from '../qr.ts';
 import type { ModCtx, Module } from '../types.ts';
@@ -74,62 +75,80 @@ export function clientConf(sv: Server, p: Peer, all: Peer[] = []): string {
   const mesh = p.mesh ? all.filter((x) => x.mesh && x.enabled && x.name !== p.name && x.endpoint).map((x) => `\n[Peer]\n# ${x.name} (maillage)\nPublicKey = ${x.pub}\nEndpoint = ${x.endpoint}\nAllowedIPs = ${x.ip}/32\nPersistentKeepalive = 25\n`).join('') : '';
   return `[Interface]\nPrivateKey = ${p.priv}\nAddress = ${p.ip}/32\n${sv.dns ? `DNS = ${sv.dns}\n` : ''}${sv.mtu ? `MTU = ${sv.mtu}\n` : ''}\n[Peer]\n# Maison (Odin)\nPublicKey = ${sv.pub}\nPresharedKey = ${p.psk}\nEndpoint = ${sv.endpoint}:${sv.port}\nAllowedIPs = ${allowed}\nPersistentKeepalive = ${sv.keepalive ?? 25}\n${mesh}`;
 }
-/** `wg show <iface> dump` → dernière poignée de main et trafic par clé publique. */
-export function parseDump(out: string): Map<string, { handshake: number; rx: number; tx: number; endpoint: string }> {
-  const m = new Map<string, { handshake: number; rx: number; tx: number; endpoint: string }>();
-  for (const l of out.trim().split('\n').slice(1)) { const c = l.split('\t'); if (c.length >= 7) m.set(c[0], { endpoint: c[2], handshake: Number(c[4]) * 1000, rx: Number(c[5]), tx: Number(c[6]) }); }
-  return m;
-}
 /** Nom de fichier de la configuration d'un appareil (l'appli WireGuard prend le nom du fichier comme nom du tunnel). */
 export const confName = (p: Peer) => `maison-${p.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'appareil'}.conf`;
 /** Appareils dont l'accès est arrivé à son terme (jour passé). Pur. */
 export const expired = (ps: Peer[], now: Date) => ps.filter((p) => p.enabled && p.expires && p.expires < now.toISOString().slice(0, 10));
 /** Où en est la mise en route du VPN : chaque étape, faite ou à faire. */
 export async function setup(ctx: ModCtx): Promise<Array<{ title: string; detail?: string; done: boolean; action?: string; input?: Record<string, unknown>; button?: string }>> {
-  const sv = server(ctx), wg = await ctx.has('wg'), up = wg ? (await ctx.run('wg', ['show', sv.iface], { sudo: true })).code === 0 : false;
+  const sv = server(ctx), why = await engineReady(ctx), up = Boolean(dev);
   const known = !/^\[/.test(sv.endpoint), opened = ctx.settings.portOpened === true, ps = peers(ctx);
   return [
-    { title: 'Installer WireGuard sur cette machine', detail: 'Le moteur du VPN (libre et gratuit). Odin l\'installe avec ton accord.', done: wg, action: 'installer', button: 'Installer' },
+    { title: 'Moteur VPN d\'Odin', detail: why ? `Pas prêt : ${why}.` : 'Le moteur VPN de Gjöll est intégré à Odin : rien à installer.', done: !why },
     { title: 'Adresse de la maison sur Internet', detail: known ? `${sv.endpoint}` : 'Odin trouve ton adresse publique. Si elle change souvent, mets plutôt un nom de domaine (formulaire « Adresse de la maison »).', done: known, action: 'detecter', button: 'Trouver mon adresse' },
     { title: `Ouvrir le port ${sv.port} (UDP) sur ta box`, detail: `Dans l'interface de ta box (souvent http://192.168.1.1) : « Redirection de ports » ou « NAT/PAT ». Protocole UDP, port externe ${sv.port}, vers cette machine, port interne ${sv.port}. Puis clique « C'est fait ».`, done: opened, action: 'port', input: { ouvert: true }, button: 'C\'est fait' },
-    { title: 'Allumer le tunnel', detail: 'Le VPN démarre et redémarre tout seul avec la machine.', done: up, action: 'allumer', button: 'Allumer' },
+    { title: 'Allumer le tunnel', detail: 'Le VPN démarre, et redémarre tout seul avec Odin.', done: up, action: 'allumer', button: 'Allumer' },
     { title: 'Ajouter ton premier appareil', detail: 'Formulaire « Ajouter un appareil » à droite, puis scanne le QR code avec l\'appli WireGuard (iPhone, Android, Windows, Mac).', done: ps.length > 0 },
     { title: 'Essayer depuis dehors', detail: 'Coupe le Wi-Fi du téléphone (4G), active le tunnel dans l\'appli WireGuard : dans le tableau, l\'appareil passe à « connecté ». S\'il reste « jamais », le port n\'est pas ouvert sur la box.', done: ps.some((p) => ((ctx.settings.seen as string[] | undefined) ?? []).includes(p.name)) },
   ];
 }
 const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return `${Math.round(b * 10) / 10} ${u[i]}`; };
+// ---------------- Le moteur VPN d'Odin ----------------
+let dev: WgDevice | undefined, devPort = 0, devIface = '';
+/** Carte réseau du système (remplaçable pour les essais). */
+let openTun: (name: string) => Promise<TunPort> = (name) => systemTun(name, { sudo: typeof process.getuid === 'function' && process.getuid() !== 0 });
+export function setTunFactory(f: (name: string) => Promise<TunPort>): void { openTun = f; }
+export const engine = () => dev;
+/** Ce que le moteur d'Odin demande à la machine : Linux, la carte réseau virtuelle, Python (fourni par le système). */
+export async function engineReady(ctx: ModCtx): Promise<string | undefined> {
+  if (process.platform !== 'linux') return `le moteur VPN d'Odin tourne pour l'instant sur Linux (cette machine : ${process.platform})`;
+  if (!existsSync('/dev/net/tun')) return 'la carte réseau virtuelle (/dev/net/tun) n\'existe pas sur cette machine';
+  if (!(await ctx.has('python3'))) return 'Python 3 manque sur cette machine (il est présent sur presque tous les Linux)';
+  return undefined;
+}
+const peerConfigs = (ps: Peer[]): PeerConfig[] => ps.filter((p) => p.enabled).map((p) => ({ name: p.name, publicKey: p.pub, presharedKey: p.psk, allowedIps: [`${p.ip}/32`], ...(p.mesh && p.endpoint ? { endpoint: p.endpoint } : {}) }));
+/** Allume (ou met à jour) le tunnel avec le moteur d'Odin : carte réseau, adresse, appareils, partage de connexion. */
+async function bringUp(ctx: ModCtx): Promise<string> {
+  const sv = await ready(ctx), ps = peers(ctx);
+  if (dev && devPort === sv.port && devIface === sv.iface) { dev.setPeers(peerConfigs(ps)); return `✅ Tunnel ${sv.iface} à jour (${ps.filter((p) => p.enabled).length} appareil(s)).`; }
+  if (dev) await bringDown(ctx);
+  const why = await engineReady(ctx); if (why) throw new Error(why);
+  const tun = await openTun(sv.iface);
+  const ip = async (args: string[]) => { const r = await ctx.run('ip', args, { sudo: true }); if (r.code) throw new Error(`ip ${args.join(' ')} : ${r.err.trim()}`); };
+  try {
+    await ip(['address', 'flush', 'dev', sv.iface]);
+    await ip(['address', 'add', `${sv.net}.1/24`, 'dev', sv.iface]);
+    await ip(['link', 'set', sv.iface, 'mtu', String(sv.mtu ?? 1420), 'up']);
+    const d = new WgDevice({ privateKey: sv.priv, listenPort: sv.port, tun, mtu: sv.mtu ?? 1420, peers: peerConfigs(ps), log: (l) => ctx.emit('vpn_journal', { ligne: l }) });
+    await d.start(); dev = d; devPort = sv.port; devIface = sv.iface;
+  } catch (e) { tun.close(); throw e; }
+  const f = forwarding(sv);
+  if (f) await ctx.run('sh', ['-c', f.up.replaceAll('%i', sv.iface)], { sudo: true });
+  return `✅ Tunnel ${sv.iface} allumé par Odin (port ${sv.port} UDP, ${ps.filter((p) => p.enabled).length} appareil(s)).`;
+}
+async function bringDown(ctx: ModCtx): Promise<void> {
+  const sv = server(ctx), f = forwarding(sv);
+  dev?.stop(); dev = undefined; devPort = 0;
+  if (f) await ctx.run('sh', ['-c', f.down.replaceAll('%i', sv.iface)], { sudo: true });
+}
+/** Après un changement : le tunnel allumé se met à jour ; éteint, la configuration est simplement gardée. */
 async function apply(ctx: ModCtx): Promise<string> {
-  const sv = await ready(ctx), conf = serverConf(sv, peers(ctx)), f = join(ctx.dir, `${sv.iface}.conf`);
-  writeFileSync(f, conf, { mode: 0o600 });
-  if (!(await ctx.has('wg'))) return `Configuration prête (${f}). WireGuard n'est pas installé sur cette machine : demande « installe WireGuard ».`;
-  const cp = await ctx.run('install', ['-D', '-m', '600', f, `/etc/wireguard/${sv.iface}.conf`], { sudo: true });
-  if (cp.code) return `Configuration prête (${f}) mais je n'ai pas les droits pour l'installer : ${cp.err.trim()}`;
-  const up = await ctx.run('wg', ['show', sv.iface], { sudo: true });
-  // Interface éteinte : on l'allume ; allumée : on recharge sans couper les connexions en cours.
-  const r = up.code ? await ctx.run('wg-quick', ['up', sv.iface], { sudo: true }) : await ctx.run('bash', ['-c', 'wg syncconf "$1" <(wg-quick strip "$1")', 'gjoll', sv.iface], { sudo: true });
-  if (r.code) return `Configuration installée mais le tunnel n'a pas pu démarrer : ${r.err.trim().split('\n').pop()}`;
-  return `✅ Tunnel ${sv.iface} à jour (${peers(ctx).filter((p) => p.enabled).length} appareil(s)).`;
+  if (ctx.settings.on !== true) return 'Configuration enregistrée (le tunnel est éteint : « Allumer le tunnel »).';
+  try { return await bringUp(ctx); } catch (e) { return `⚠ Le tunnel n'a pas pu se mettre à jour : ${(e as Error).message}`; }
+}
+/** État des appareils vu par le moteur : dernière poignée de main, trafic, adresse d'où ils viennent. */
+function live(): Map<string, { handshake: number; rx: number; tx: number; endpoint: string }> {
+  return new Map((dev?.stats() ?? []).map((x) => [x.publicKey, { handshake: x.lastHandshake ?? 0, rx: x.rx, tx: x.tx, endpoint: x.endpoint ?? '' }]));
 }
 
 export const gjoll: Module = {
   id: 'gjoll', name: 'Gjöll', family: 'Accès',
   what: 'Le VPN de la maison : tes appareils se connectent chez toi de n\'importe où, chiffré, avec un QR code.',
-  does: ['clés générées par Odin (jamais réutilisées)', 'un appareil = une config + un QR code à scanner', 'tout le trafic par la maison, ou seulement le réseau de la maison', 'mode Gleipnir : réseau maillé, les appareils se parlent directement', 'activer, désactiver, révoquer, renommer un appareil', 'date de fin d\'accès : coupé tout seul le jour venu', 'qui est connecté, trafic reçu et envoyé, dernière connexion', 'fichier .conf à télécharger pour un ordinateur', 'assistant de mise en route : installation, adresse, port de la box, essai depuis dehors', 'réglages du tunnel : port, MTU, maintien de connexion', 'alerte quand un appareil se connecte'],
-  from: ['WireGuard', 'wg-easy', 'Headscale'], upstream: ['WireGuard/wireguard-tools', 'wg-easy/wg-easy', 'juanfont/headscale'],
+  does: ['clés générées par Odin (jamais réutilisées)', 'un appareil = une config + un QR code à scanner', 'tout le trafic par la maison, ou seulement le réseau de la maison', 'mode Gleipnir : réseau maillé, les appareils se parlent directement', 'activer, désactiver, révoquer, renommer un appareil', 'date de fin d\'accès : coupé tout seul le jour venu', 'qui est connecté, trafic reçu et envoyé, dernière connexion', 'fichier .conf à télécharger pour un ordinateur', 'moteur VPN écrit dans Odin (Gjallarbrú) : rien à installer ; les téléphones et ordinateurs se connectent avec l\'appli VPN gratuite « WireGuard »', 'assistant de mise en route : adresse, port de la box, essai depuis dehors', 'réglages du tunnel : port, MTU, maintien de connexion', 'alerte quand un appareil se connecte'],
+  from: ['WireGuard', 'wg-easy', 'Headscale', 'NetBird'], upstream: ['WireGuard/wireguard-go', 'WireGuard/wireguard-tools', 'wg-easy/wg-easy', 'juanfont/headscale', 'netbirdio/netbird'],
   modes: ['Gjallarbrú · clients', 'Gleipnir · réseau maillé'],
   words: ['vpn', 'wireguard', 'tunnel', 'acces a distance', 'accès à distance', 'depuis l exterieur', 'qr code vpn', 'connexion maison', 'mesh', 'maillage'],
   actions: [
-    { id: 'installer', label: 'Installer WireGuard', what: 'Installe le moteur du VPN sur cette machine', quick: false, grave: () => 'installer WireGuard sur cette machine', run: async (ctx) => {
-      if (await ctx.has('wg')) return { text: 'WireGuard est déjà installé.' };
-      const pm = [['apt-get', ['install', '-y', 'wireguard-tools']], ['dnf', ['install', '-y', 'wireguard-tools']], ['pacman', ['-S', '--noconfirm', 'wireguard-tools']], ['apk', ['add', 'wireguard-tools']], ['brew', ['install', 'wireguard-tools']]] as const;
-      for (const [cmd, args] of pm) {
-        if (!(await ctx.has(cmd))) continue;
-        if (cmd === 'apt-get') await ctx.run('apt-get', ['update'], { sudo: true, timeoutMs: 180_000 });
-        const r = await ctx.run(cmd, [...args], { sudo: cmd !== 'brew', timeoutMs: 300_000 });
-        return r.code ? { ok: false, text: `L'installation a échoué : ${r.err.trim().split('\n').pop()}` } : { text: '✅ WireGuard installé.' };
-      }
-      return { ok: false, text: 'Je ne trouve pas d\'installeur de paquets sur cette machine. Sous Windows : installe WireGuard depuis wireguard.com/install.' };
-    } },
     { id: 'detecter', label: 'Trouver mon adresse publique', what: 'Demande ton adresse Internet (service ipify) et la garde comme adresse de la maison', quick: false, run: async (ctx) => {
       const r = await ctx.fetch('https://api.ipify.org', { signal: AbortSignal.timeout(8000) }), ip = (await r.text()).trim();
       if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) throw new Error('adresse publique introuvable');
@@ -138,16 +157,14 @@ export const gjoll: Module = {
     } },
     { id: 'port', label: 'Port ouvert sur la box', what: 'Note que la redirection du port est faite sur la box', quick: false, params: [{ key: 'ouvert', label: 'Port ouvert', kind: 'boolean', default: true }], run: (ctx, i) => { ctx.saveSettings({ portOpened: i.ouvert !== false }); return { text: i.ouvert !== false ? '👍 Noté. Prochaine étape : allumer le tunnel.' : 'Noté : port pas encore ouvert.' }; } },
     { id: 'allumer', label: 'Allumer le tunnel', what: 'Démarre le VPN (et au démarrage de la machine)', grave: () => 'allumer le VPN de la maison', run: async (ctx) => {
-      const msg = await apply(ctx), sv = server(ctx);
-      if (await ctx.has('systemctl')) await ctx.run('systemctl', ['enable', `wg-quick@${sv.iface}`], { sudo: true });
+      const msg = await bringUp(ctx); ctx.saveSettings({ on: true });
       return { text: msg };
     } },
     { id: 'eteindre', label: 'Éteindre le tunnel', what: 'Coupe le VPN pour tous les appareils', quick: false, grave: () => 'couper le VPN pour tous les appareils', undo: () => ({ action: 'allumer', input: {}, label: 'Rallumer le tunnel' }), run: async (ctx) => {
-      const sv = server(ctx), r = await ctx.run('wg-quick', ['down', sv.iface], { sudo: true });
-      if (await ctx.has('systemctl')) await ctx.run('systemctl', ['disable', `wg-quick@${sv.iface}`], { sudo: true });
-      return r.code ? { ok: false, text: `Le tunnel n'a pas pu être coupé : ${r.err.trim().split('\n').pop()}` } : { text: '⏹ Tunnel coupé.' };
+      await bringDown(ctx); ctx.saveSettings({ on: false });
+      return { text: '⏹ Tunnel coupé.' };
     } },
-    { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'qui est connecte', 'connectés'], run: async (ctx) => { const d = await ctx.has('wg') ? parseDump((await ctx.run('wg', ['show', server(ctx).iface, 'dump'], { sudo: true })).out) : new Map(); return { text: peers(ctx).map((p) => { const x = d.get(p.pub); return `- ${p.name} (${p.ip}) · ${p.enabled ? (x?.handshake && Date.now() - x.handshake < 180_000 ? 'connecté' : 'hors ligne') : 'désactivé'}`; }).join('\n') || 'Aucun appareil.' }; } },
+    { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'qui est connecte', 'connectés'], run: async (ctx) => { const d = live(); return { text: peers(ctx).map((p) => { const x = d.get(p.pub); return `- ${p.name} (${p.ip}) · ${p.enabled ? (x?.handshake && Date.now() - x.handshake < 180_000 ? 'connecté' : 'hors ligne') : 'désactivé'}`; }).join('\n') || 'Aucun appareil.' }; } },
     { id: 'ajouter', label: 'Ajouter un appareil', what: 'Nouvelle config + QR code', params: [{ key: 'nom', label: 'Nom de l\'appareil', kind: 'text', required: true }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'boolean', default: true }, { key: 'maillage', label: 'Réseau maillé (Gleipnir)', kind: 'boolean', default: false }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, vide = sans fin)', kind: 'text', default: '' }], grave: (i) => `ouvrir l'accès VPN à « ${s(i.nom)} »`, words: ['ajoute', 'nouvel appareil'], run: async (ctx, i) => {
       const ps = peers(ctx), sv = server(ctx), used = new Set(ps.map((p) => p.ip)), fin = s(i.fin).trim();
       if (!/^[\p{L}\p{N} _.'-]{1,40}$/u.test(s(i.nom).trim())) throw new Error('nom : lettres, chiffres, espaces, 40 au plus');
@@ -200,16 +217,19 @@ export const gjoll: Module = {
     } },
   ],
   async view(ctx) {
-    const sv = server(ctx), d = await ctx.has('wg') ? parseDump((await ctx.run('wg', ['show', sv.iface, 'dump'], { sudo: true })).out) : new Map();
+    const sv = server(ctx), d = live();
     const steps = await setup(ctx), ps = peers(ctx), online = ps.filter((p) => { const x = d.get(p.pub); return x?.handshake && Date.now() - x.handshake < 180_000; });
     return {
-      subtitle: `Joignable sur ${sv.endpoint}:${sv.port} (UDP) · réseau ${sv.net}.0/24${sv.lan?.length ? ` · maison : ${sv.lan.join(', ')}` : ''}${(await ctx.has('wg')) ? '' : ' · WireGuard pas encore installé'}`,
+      subtitle: `Joignable sur ${sv.endpoint}:${sv.port} (UDP) · réseau ${sv.net}.0/24${sv.lan?.length ? ` · maison : ${sv.lan.join(', ')}` : ''}${dev ? ' · tunnel allumé' : ' · tunnel éteint'}`,
       tabs: ['Gjallarbrú · clients', 'Gjöll · tunnel', 'Gleipnir · maillage'],
       kpis: [{ label: 'Appareils', value: String(ps.length) }, { label: 'Connectés', value: String(online.length), tone: online.length ? 'bon' : 'neutre' }, { label: 'Maillage', value: String(ps.filter((p) => p.mesh).length) }],
       sections: [...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route le VPN', items: steps }]), { kind: 'table', title: 'Appareils', columns: ['Appareil', 'Adresse', 'État', 'Reçu', 'Envoyé', 'Trafic', 'Fin d\'accès'], empty: 'Aucun appareil : ajoute ton téléphone à droite.', rows: ps.map((p) => { const x = d.get(p.pub), on = x?.handshake && Date.now() - x.handshake < 180_000; return { cells: [p.name, p.ip, !p.enabled ? 'désactivé' : on ? 'connecté' : x?.handshake ? `vu ${new Date(x.handshake).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'jamais', human(x?.rx ?? 0), human(x?.tx ?? 0), p.full ? 'tout' : 'maison seulement', p.expires ?? '—'], tone: !p.enabled ? 'neutre' : on ? 'bon' : undefined, actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'telecharger', label: 'Fichier .conf', input: { nom: p.name } }, { action: 'activer', label: p.enabled ? 'Désactiver' : 'Réactiver', input: { nom: p.name, actif: !p.enabled } }, { action: 'revoquer', label: 'Révoquer', input: { nom: p.name } }] }; }) }],
       side: [{ kind: 'form', title: 'Ajouter un appareil', action: 'ajouter', submit: 'Ajouter', params: gjoll.actions.find((a) => a.id === 'ajouter')?.params ?? [] }, { kind: 'form', title: 'Adresse de la maison', action: 'adresse', submit: 'Enregistrer', params: gjoll.actions.find((a) => a.id === 'adresse')?.params ?? [] }, { kind: 'form', title: 'Modifier un appareil', action: 'modifier', submit: 'Modifier', params: gjoll.actions.find((a) => a.id === 'modifier')?.params ?? [] }],
     };
   },
+  // Odin redémarre : le tunnel qui était allumé se rallume tout seul.
+  async start(ctx) { if (ctx.settings.on === true) { try { await bringUp(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le VPN n\'a pas pu redémarrer', detail: (e as Error).message, key: 'vpn-demarrage' }); } } },
+  stop() { dev?.stop(); dev = undefined; devPort = 0; },
   watch: { every: 120, async run(ctx) {
     // Accès arrivés à leur fin : coupés tout seuls (et dit).
     const late = expired(peers(ctx), ctx.now());
@@ -218,8 +238,8 @@ export const gjoll: Module = {
       await apply(ctx);
       for (const p of late) ctx.alert({ level: 'info', title: `Accès VPN de « ${p.name} » terminé`, detail: `Fin prévue le ${p.expires}. Pour le rouvrir : Modifier → nouvelle date de fin.`, key: `vpn-fin-${p.name}` });
     }
-    if (!(await ctx.has('wg'))) return;
-    const d = parseDump((await ctx.run('wg', ['show', server(ctx).iface, 'dump'], { sudo: true })).out), was = (ctx.settings.online as string[] | undefined) ?? [], now: string[] = [];
+    if (!dev) return;
+    const d = live(), was = (ctx.settings.online as string[] | undefined) ?? [], now: string[] = [];
     for (const p of peers(ctx)) { const x = d.get(p.pub); if (x?.handshake && Date.now() - x.handshake < 180_000) { now.push(p.name); if (!was.includes(p.name)) ctx.emit('vpn_connecte', { appareil: p.name, depuis: x.endpoint }); } }
     const seen = new Set([...((ctx.settings.seen as string[] | undefined) ?? []), ...now]);
     ctx.saveSettings({ online: now, seen: [...seen] });
