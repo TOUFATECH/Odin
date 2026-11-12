@@ -3418,6 +3418,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   window.OdinVoice = { on: () => speakOn, set: setSpeak };
   speakBtn.addEventListener('click', () => setSpeak(!speakOn));
   let player = null;
+  // Pour les bulles de la mascotte : `force` (bouton « Écouter ») parle même si la voix des réponses est coupée.
+  window.OdinSay = (text, force) => { if (!force) return sayAloud(text); const was = speakOn; speakOn = true; return sayAloud(text).finally(() => { speakOn = was; }); };
   async function sayAloud(text) {
     if (!speakOn || !text.trim()) return;
     if (!state?.voice?.tts) return readWithBrowser(text);
@@ -4519,8 +4521,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       else if (d.type === 'event' && d.event.type === 'mood') { if (d.peer === peer) { modelMoodAt = Date.now(); moodBase(d.event.mood, true); } }
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') { addActivity(d.event); moodFromEvent(d.event); }
       else if (d.type === 'refresh') refresh();
+      if (d.type === 'notice') window.OdinNotices?.push(d.notice);
+      if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) window.OdinNotices?.local({ kind: 'Odin a besoin de toi', title: d.event.summary || 'Une validation est demandée.', steps: ['Ouvre la Discussion : Odin t\'explique ce qu\'il veut faire.', 'Accepte ou refuse : rien ne part sans toi.'], page: { view: 'chat' } });
     };
-    es.onopen = () => { if (everOpened) refresh(); everOpened = true; };
+    es.onopen = () => { if (everOpened) refresh(); everOpened = true; window.OdinNotices?.boot?.(); };
     es.onerror = async () => {
       es.close();
       // Jeton remplacé ou serveur redémarré ? On vérifie avant de réessayer, au lieu d'insister en boucle.
@@ -4538,6 +4542,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/packets.js"></script>
 <script nonce="__NONCE__" src="/valhalla.js"></script>
 <script nonce="__NONCE__" src="/companion.js"></script>
+<script nonce="__NONCE__" src="/notices.js"></script>
 <script nonce="__NONCE__" src="/guide.js"></script>
 <script nonce="__NONCE__" src="/evolution.js"></script>
 <script nonce="__NONCE__" src="/brain.js"></script>

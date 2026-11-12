@@ -10,6 +10,7 @@
 // - en-tête x-odin obligatoire sur chaque POST (contre les requêtes intersites) ;
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
+import { noticeBus } from '../valhalla/notices.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { chmodSync, createWriteStream, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -129,6 +130,7 @@ const FLOWS_JS = (() => { try { return readFileSync(new URL('./flows.js', import
 const RUNES_JS = (() => { try { return readFileSync(new URL('./runes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const NOTICES_JS = (() => { try { return readFileSync(new URL('./notices.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import.meta.url)); } catch { return Buffer.from(''); } })();
@@ -217,7 +219,10 @@ export class WebChannel implements Channel {
     this.access = opts.access ?? 'local'; this.tls = opts.tls;
     // Le certificat de l'interface sert aussi au DNS chiffré (DoT) de Víðarr.
     if (opts.tls) setDotMaterial({ key: opts.tls.key, cert: opts.tls.cert });
+    // Les bulles de la mascotte partent en direct vers toutes les pages ouvertes (téléphone compris).
+    noticeBus.on('notice', this.onNotice);
   }
+  private onNotice = (n: unknown): void => { this.push({ type: 'notice', notice: n }); };
 
   /** Lien à ouvrir sur cette machine. */
   get url(): string {
@@ -431,6 +436,7 @@ export class WebChannel implements Channel {
   }
 
   async stop(): Promise<void> {
+    noticeBus.off('notice', this.onNotice);
     this.codexServer?.close();
     this.codexDevice?.abort();
     for (const c of this.clients) c.end();
@@ -519,6 +525,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
+    if (url.pathname === '/notices.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(NOTICES_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/packets.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PACKETS_JS); }
     if (url.pathname === '/graph.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GRAPH_JS); }

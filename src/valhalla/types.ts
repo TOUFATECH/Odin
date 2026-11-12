@@ -3,7 +3,7 @@
 // des alertes, des événements, et des mots-clés pour qu'Odin choisisse le bon module tout seul.
 
 export type Level = 'critique' | 'haute' | 'moyenne' | 'info';
-export interface AlertIn { level: Level; title: string; detail?: string; key?: string; data?: Record<string, unknown>; /** image jointe au message (chemin d'un fichier JPEG ou PNG) */ photo?: string }
+export interface AlertIn { level: Level; title: string; detail?: string; key?: string; data?: Record<string, unknown>; /** image jointe au message (chemin d'un fichier JPEG ou PNG) */ photo?: string; /** ce qu'il faut faire, pas à pas (montré dans la bulle de la mascotte) */ steps?: string[]; /** la manip qui règle le problème (bouton de la bulle) */ fix?: { action: string; label: string; input?: Record<string, unknown>; module?: string } }
 /** Options d'un message au propriétaire : urgent (passe « Ne pas déranger »), photo jointe. */
 export interface NotifyOpts { urgent?: boolean; photo?: string }
 export interface Alert extends AlertIn { id: string; at: string; module: string; ack?: boolean; count: number }

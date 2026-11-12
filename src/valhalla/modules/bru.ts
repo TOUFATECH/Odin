@@ -11,6 +11,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path';
 import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Tone } from '../types.ts';
 import { proxyServer } from './valgrind.ts';
+import { postNotice } from '../notices.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 const CF = 'https://api.cloudflare.com/client/v4';
@@ -177,12 +178,14 @@ export const bru: Module = {
       const target = `${t.id}.cfargotunnel.com`;
       const recs = await cf<Array<{ id: string; type: string; content: string }>>(ctx, `/zones/${z.id}/dns_records?name=${encodeURIComponent(host)}`);
       const mine = recs.find((r) => r.type === 'CNAME' && r.content === target), other = recs.filter((r) => r !== mine);
+      if (other.length && i.remplacer !== true) postNotice({ level: 'souci', module: 'bru', title: `${host} a déjà un enregistrement DNS chez Cloudflare`, detail: `${other.map((r) => `${r.type} → ${r.content}`).join(', ')}. Odin ne l'a pas écrasé : ce nom n'est pas publié.`, steps: ['Si l\'ancien enregistrement ne sert plus, publie avec « Remplacer ».', 'Sinon, choisis un autre nom.'], actions: [{ module: 'bru', action: 'publier', input: { domaine: host, remplacer: true }, label: 'Remplacer et publier', primary: true }], page: { app: 'bru' }, source: 'info' });
       if (other.length && i.remplacer !== true) return { ok: false, text: `${host} a déjà ${other.map((r) => `un enregistrement ${r.type} → ${r.content}`).join(', ')} chez Cloudflare. Je ne l'écrase pas : coche « Remplacer » si c'est voulu.` };
       for (const r of other) await cf(ctx, `/zones/${z.id}/dns_records/${r.id}`, { method: 'DELETE' });
       const rec = mine ?? await cf<{ id: string }>(ctx, `/zones/${z.id}/dns_records`, { method: 'POST', body: { type: 'CNAME', name: host, content: target, proxied: true, ttl: 1, comment: 'Odin · tunnel Brú' } });
       await setIngress(ctx, t, withRule(await ingress(ctx, t), host, service, s(i.hote) || host));
       ctx.saveSettings({ published: [...published(ctx).filter((p) => p.hostname !== host), { hostname: host, service, zone: z.name, zoneId: z.id, recordId: rec.id, at: Date.now() }] });
       ctx.emit('publie', { nom: host, cible: service });
+      postNotice({ level: 'ok', module: 'bru', title: `${host} est publié sur Internet par le tunnel Cloudflare`, detail: `DNS ajouté chez Cloudflare (CNAME vers le tunnel), vers ${service}.`, steps: [`Ouvre https://${host} (quelques minutes pour les DNS).`], page: { app: 'bru' }, source: 'info' });
       return { text: `🌍 https://${host} est publié sur Internet par le tunnel (→ ${service}).${other.length ? ` Ancien enregistrement remplacé.` : ''}${child ? '' : ' Démarre le tunnel pour qu\'il réponde.'}` };
     }, undo: (i) => ({ action: 'depublier', input: { domaine: i.domaine }, label: 'Retirer d\'Internet' }) },
     { id: 'depublier', label: 'Retirer un nom d\'Internet', what: 'Règle du tunnel et DNS enlevés (seulement ce qu\'Odin a ajouté)', quick: false, params: [{ key: 'domaine', label: 'Nom', kind: 'text', required: true }], run: async (ctx, i) => {
@@ -226,7 +229,7 @@ export const bru: Module = {
     const t = tunnelOf(ctx); if (!t || ctx.settings.on !== true) return;
     if (!child) { try { launch(ctx, await ensureBinary(ctx)); ctx.emit('tunnel_relance', {}); } catch { /* alerte au tour suivant */ } }
     if (lastStatus && Date.now() - lastStatus.at < 290_000) return;
-    try { const st = await status(ctx, t); if (st.status === 'down' || st.status === 'inactive') ctx.alert({ level: 'haute', title: 'Le tunnel Cloudflare est coupé', detail: `Cloudflare le voit « ${ST[st.status]} » : tes noms publiés ne répondent plus depuis Internet. Odin relance le programme ; vérifie la connexion de la box.`, key: 'bru-coupe' }); }
+    try { const st = await status(ctx, t); if (st.status === 'down' || st.status === 'inactive') ctx.alert({ level: 'haute', title: 'Le tunnel Cloudflare est coupé', detail: `Cloudflare le voit « ${ST[st.status]} » : tes noms publiés ne répondent plus depuis Internet. Odin relance le programme ; vérifie la connexion de la box.`, key: 'bru-coupe', steps: ['Vérifie la box : voyants, Internet de la maison.', 'Si la clé Cloudflare a été supprimée ou a expiré, colle-en une nouvelle dans Réglages → Accès.', 'Relance le tunnel (bouton) ; en attendant, le VPN reste possible si son port est ouvert.'], fix: { action: 'demarrer', label: 'Relancer le tunnel' } }); }
     catch { /* API injoignable : on réessaiera */ }
   } },
 };

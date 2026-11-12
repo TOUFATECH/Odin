@@ -29,6 +29,7 @@ import { askr } from './modules/askr.ts';
 import { valgrind } from './modules/valgrind.ts';
 import { varModule } from './modules/var.ts';
 import { bru, setOdinWeb } from './modules/bru.ts';
+import { Notices } from './notices.ts';
 import { deviceLabel } from '../hlidskjalf/inventory.ts';
 import { hermod } from './modules/hermod.ts';
 import { himinbjorg } from './modules/himinbjorg.ts';
@@ -171,8 +172,10 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
     void draupnirOf()?.onModule({ module: 'forseti', name: 'Forseti', type: 'alerte', level: a.level, data }).catch(() => {});
   };
   v.events.on('event', toFlows); v.events.on('alert', alertToFlows);
+  // Les bulles de la mascotte (alertes, décisions d'Odin) : relayées en direct aux pages ouvertes.
+  const notices = new Notices(v);
   void v.start();
-  return () => { unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
+  return () => { notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
 }
 
 /** Pour Draupnir : action d'une appli, sans personne → actions graves refusées. */

@@ -2,6 +2,7 @@
 // inconnus, sérialise les tours par conversation, relaie les demandes de validation au
 // propriétaire, et exécute les tâches planifiées.
 
+import { postNotice } from '../valhalla/notices.ts';
 import { vendorOf } from '../hlidskjalf/vendors.ts';
 import { MOODS, moodSticker } from '../mood/stickers.ts';
 import { MOOD_EMOJI, type Mood } from '../mood/mood.ts';
@@ -716,7 +717,7 @@ export class Gateway {
     if (done) {
       const { appVersions } = await import('../tools/self.ts');
       const [, to] = done.split('→');
-      if (appVersions().running === to) { kv.setKv('updated-to', ''); const ch = (kv.getKv('update-changes') ?? '').split('\n').filter(Boolean).slice(0, 6); kv.setKv('update-changes', ''); await this.tellOwner(`✅ Odin est à jour : v${done.replace('→', ' → v')}.${ch.length ? `\nNouveautés :\n${ch.map((c) => `• ${c.replace(/^v[\d.]+\s*:\s*/, '')}`).join('\n')}` : ''}`, 'home').catch(() => {}); }
+      if (appVersions().running === to) { kv.setKv('updated-to', ''); const ch = (kv.getKv('update-changes') ?? '').split('\n').filter(Boolean).slice(0, 6); kv.setKv('update-changes', ''); postNotice({ level: 'ok', module: 'odin', app: 'Mises à jour', title: `Odin est à jour : v${done.replace('→', ' → v')}`, detail: ch.length ? ch.map((c) => c.replace(/^v[\d.]+\s*:\s*/, '')).join(' · ') : 'Installée et redémarrée sans souci.', steps: ['Rien à faire.', 'Les nouveautés sont dans Réglages → Mises à jour.'], page: { view: 'settings' }, source: 'maj' }); await this.tellOwner(`✅ Odin est à jour : v${done.replace('→', ' → v')}.${ch.length ? `\nNouveautés :\n${ch.map((c) => `• ${c.replace(/^v[\d.]+\s*:\s*/, '')}`).join('\n')}` : ''}`, 'home').catch(() => {}); }
     }
     const cfg = this.odin.cfg.update ?? { auto: 'notify', everyHours: 6 };
     if (this.odin.demo || cfg.auto === 'off') return;
