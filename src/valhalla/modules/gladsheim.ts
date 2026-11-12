@@ -24,6 +24,10 @@ export const THEMES: Record<string, { label: string; dark: boolean }> = {
   aurore: { label: 'Aurore (violet et soleil)', dark: true },
   lagon: { label: 'Lagon (bleu-vert)', dark: true },
   clair: { label: 'Clair', dark: false },
+  ocean: { label: 'Bleu océan', dark: true }, blanc: { label: 'Blanc pur', dark: false }, rubis: { label: 'Rouge rubis', dark: true }, foret: { label: 'Vert forêt', dark: true }, soleil: { label: 'Jaune soleil', dark: false },
+  plage: { label: 'Plage (palmier)', dark: false }, etoiles: { label: 'Ciel étoilé', dark: true }, boreale: { label: 'Aurore boréale', dark: true }, mayotte: { label: 'Lagon de Mayotte', dark: false }, coucher: { label: 'Coucher de soleil', dark: true },
+  montagne: { label: 'Montagne et brume', dark: false }, tropical: { label: 'Forêt tropicale', dark: true }, desert: { label: 'Désert', dark: false }, neige: { label: 'Neige', dark: false }, abysses: { label: 'Océan profond', dark: true },
+  neon: { label: 'Néon', dark: true }, bois: { label: 'Bois et lin', dark: false }, graphite: { label: 'Graphite', dark: true }, pastel: { label: 'Pastel', dark: false }, espace: { label: 'Espace', dark: true },
 };
 export interface Tile { id: string; label: string; module: string; action: string; input: Record<string, unknown>; icon: string; color?: string }
 export interface Key { id: string; name: string; hash: string; rights: 'maison' | 'complet'; at: number; used?: number }

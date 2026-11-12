@@ -78,7 +78,7 @@ test('page et API /maison : session, clé de tablette, droits, confirmation, mas
     // Tablette « maison ».
     const key = ((await w.act('cle_tablette', { nom: 'Entrée' })).data as { key: string }).key, K = { 'x-odin-maison': key };
     const st = await (await get('/api/maison/etat', K)).json() as { rights: string; weather: { temp: number; word: string }; tiles: Array<{ id: string; label: string; grave: boolean }>; apps: unknown[]; notices: unknown[]; themes: Record<string, string> };
-    assert.equal(st.rights, 'maison'); assert.equal(st.weather.temp, 29); assert.equal(st.weather.word, 'Partiellement nuageux'); assert.deepEqual(st.apps, []); assert.deepEqual(st.notices, []); assert.equal(Object.keys(st.themes).length, 11);
+    assert.equal(st.rights, 'maison'); assert.equal(st.weather.temp, 29); assert.equal(st.weather.word, 'Partiellement nuageux'); assert.deepEqual(st.apps, []); assert.deepEqual(st.notices, []); assert.equal(Object.keys(st.themes).length, 31);
     const vpn = st.tiles.find((t) => t.label === 'VPN : allumer')!; assert.ok(vpn.grave);
     assert.equal((await post('/api/maison/bouton', { id: vpn.id }, { 'x-odin-maison': key, 'x-odin': '' })).status, 403, 'en-tête anti-falsification exigé');
     assert.match(String((await post('/api/maison/bouton', { id: vpn.id }, K)).text), /action grave, à lancer depuis Odin/);
