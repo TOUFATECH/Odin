@@ -1,5 +1,148 @@
 [
  {
+  "id": "13d2c04",
+  "at": "2026-11-12T06:52:55+03:00",
+  "date": "2026-11-12",
+  "version": "1.10.0",
+  "title": "Cerveau direct (missions apprises, liens, réflexion sans IA) et rubrique Quotidien du Cerveau",
+  "details": [
+   "Odin retient les missions qu'une IA règle en 1 à 4 actions et les refait sans IA, dans l'ordre",
+   "Il relie les façons de dire une même mission ; sans IA, il propose ce qui ressemble et attend ton oui",
+   "Les actions graves s'apprennent aussi : ton accord est redemandé à chaque fois, avec ou sans IA",
+   "Cerveau → Quotidien : une note par mission reliée aux applis, et la note « Cerveau direct »"
+  ],
+  "planets": [
+   "cerveau",
+   "applis",
+   "ia"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "bfe5ec5",
+  "at": "2026-11-12T06:47:03+03:00",
+  "date": "2026-11-12",
+  "title": "Merge branch 'main' of https://github.com/TOUFATECH/odin into draupnir-runes",
+  "details": [],
+  "planets": [
+   "automatisations"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "fd2a3bd",
+  "at": "2026-11-12T06:47:00+03:00",
+  "date": "2026-11-12",
+  "title": "Cerveau direct : missions apprises en plusieurs actions, liens entre les façons de le dire, rubrique Quotidien",
+  "details": [
+   "Une demande réglée par l'IA en 1 à 4 actions rejouables devient une mission : refaite ensuite sans IA, dans l'ordre, arrêt au premier souci (compte rendu « 1/2 · … »). La même valeur dite change partout.",
+   "Pas appris : action grave (jugée sur ce qui est demandé), action corrigée en route, valeur venue d'un résultat précédent ou de la discussion, pronoms (« rallume-la », « la première »), relecture de contrôle.",
+   "Deux façons de dire la même mission : Odin relie les phrases et le mot qui change (« ronde » = « tournée »).",
+   "Sans IA joignable : Odin cherche la mission la plus proche (chaque mot expliqué, sinon rien), dit comment il a fait le lien et propose ; rien ne part sans « oui » ; après le oui, la phrase est retenue.",
+   "Cerveau : base « Quotidien » (une note par mission reliée aux applis, façons de le dire, comment c'est appris, mots reliés, missions proches) + note « Cerveau direct ». Notes = miroir, jamais source d'action ; « Mes notes » gardées ; corbeille d'une note = la mission est oubliée.",
+   "Tests : test/cerveau-direct.test.ts (13) ; vrai programme dans le navigateur : 27 vérifications."
+  ],
+  "planets": [
+   "discussion",
+   "cerveau",
+   "securite",
+   "applis",
+   "ia"
+  ],
+  "kind": "correction"
+ },
+ {
+  "id": "b6f8d15",
+  "at": "2026-11-12T01:55:59+03:00",
+  "date": "2026-11-12",
+  "version": "1.9.0",
+  "title": "Rán, les paquets réseau d'une machine comme Wireshark (en direct et en historique)",
+  "details": [
+   "Nouvelle appli Rán (Sécurité) : adresse IP tapée, ou machine touchée sur la carte ; sous sa fiche, « En direct » montre les paquets qui passent (heure, sens, protocole, source, destination, taille, service), et l'historique en dessous (7 jours, 20 000 paquets par machine) se filtre et montre correspondants et services",
+   "Enregistrement continu au choix, repris au démarrage ; effacement de l'historique sur accord",
+   "Capture sur la machine elle-même par SSH quand Odin y a accès (tout son trafic) ; sinon depuis la machine d'Odin, avec l'explication de ce qui est visible. Seuls les en-têtes sont lus ; 300 paquets/s au plus",
+   "Sans IA aussi : « capture les paquets de 192.168.1.20 »",
+   "tcpdump dans l'image Docker et dans les outils conseillés par l'installateur"
+  ],
+  "planets": [
+   "maison",
+   "machines",
+   "securite",
+   "applis",
+   "ia"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "3d2fdcd",
+  "at": "2026-11-12T01:48:25+03:00",
+  "date": "2026-11-12",
+  "title": "Applis et carte de la Maison : le graphe seul (plus de cartes ni de plan)",
+  "details": [],
+  "planets": [
+   "cerveau",
+   "maison",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "214341c",
+  "at": "2026-11-12T01:33:01+03:00",
+  "date": "2026-11-12",
+  "version": "1.8.0",
+  "title": "Graphe des applis et de la carte, avec les alertes et les nouveautés en pastilles",
+  "details": [
+   "Applis : vue Graphe (par défaut) ou Cartes. Odin au centre, une famille par point vert, chaque appli reliée à sa famille et aux applis avec lesquelles elle travaille ; pastille rouge ou orange = alertes ouvertes, bleue = nouveautés du projet d'origine (veille de Kvasir, 30 jours). Recherche, zoom, glisser, un point touché ouvre l'appli ; liste accessible sous le graphe",
+   "Maison → Carte : vue Graphe (par défaut) ou Plan. Chaque appareil relié à sa famille et à la box ; pastille rouge = risque repéré (Sécurité) ou appareil surveillé tombé, orange = à surveiller, point gris = hors ligne. Les points gardent leur place quand la carte se rafraîchit",
+   "Un seul composant (graph.js) pour les deux, au style du graphe du Cerveau ; guide et README à jour"
+  ],
+  "planets": [
+   "guide",
+   "cerveau",
+   "maison",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "61d39a8",
+  "at": "2026-11-12T01:23:22+03:00",
+  "date": "2026-11-12",
+  "title": "Fusion de main (arbre d'évolution complet sur une installation normale : même correction des deux côtés)",
+  "details": [],
+  "planets": [
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "563e786",
+  "at": "2026-11-12T01:09:46+03:00",
+  "date": "2026-11-12",
+  "title": "Arbre d'évolution complet aussi sur une installation « git clone --depth 1 »",
+  "details": [
+   "L'historique git partiel est complété par la liste livrée (evolutions.json), chaque changement compté une fois (même correctif que la branche draupnir-runes)."
+  ],
+  "planets": [
+   "automatisations",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "f574a1f",
+  "at": "2026-11-12T00:51:26+03:00",
+  "date": "2026-11-12",
+  "title": "Liste des évolutions livrée : régénérée (126 évolutions)",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
   "id": "cefec31",
   "at": "2026-11-12T00:51:17+03:00",
   "date": "2026-11-12",
