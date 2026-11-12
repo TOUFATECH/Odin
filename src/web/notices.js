@@ -152,11 +152,11 @@
     const mic = el('button', { type: 'button', class: 'ot-mic', 'aria-label': 'Parler au micro', 'aria-pressed': 'false' }, svg('M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3', 15));
     mic.onclick = () => { if (!SR) { out.hidden = false; out.textContent = 'Ce navigateur ne sait pas écrire ce que tu dis (Chrome, Edge ou Safari).'; return; } if (mic._r) { mic._r.stop(); return; } const r = new SR(), base = input.value.trim() ? `${input.value.trim()} ` : ''; let done = ''; r.lang = 'fr-FR'; r.continuous = true; r.interimResults = true; mic._r = r; mic.setAttribute('aria-pressed', 'true'); r.onresult = (ev) => { let live = ''; for (let k = ev.resultIndex; k < ev.results.length; k++) { if (ev.results[k].isFinal) done += ev.results[k][0].transcript; else live += ev.results[k][0].transcript; } input.value = `${base}${done}${live}`.replace(/\s+/g, ' ').trimStart(); }; r.onend = () => { mic._r = null; mic.setAttribute('aria-pressed', 'false'); input.focus(); }; try { r.start(); } catch { mic._r = null; } };
     const form = el('form', { on: { submit: async (e) => { e.preventDefault(); const q = input.value.trim(); if (!q) return; input.value = ''; out.hidden = false; out.textContent = 'Odin réfléchit…'; waiting = true; const where = [document.title, location.hash.slice(1)].filter(Boolean).join(' · '); const ok = await window.OdinChat?.send?.(n ? `${q}\n\n[à propos de : ${n.app} · ${n.title}]` : q, where); if (!ok) { waiting = false; out.textContent = 'Je n\'ai pas pu envoyer : réessaie.'; } } } }, input, mic, el('button', { type: 'submit', class: 'ot-go', 'aria-label': 'Envoyer' }, svg('M5 12h14M13 6l6 6-6 6', 15)));
-    talk.replaceChildren(
+    talk.replaceChildren(...[
       el('div', { class: 'ot-h' }, el('span', { class: 'ot-dot', style: `background:${dot}`, 'aria-hidden': 'true' }), el('b', {}, n ? n.title : 'Que veux-tu ?'), el('button', { type: 'button', class: 'ot-x', 'aria-label': 'Fermer', on: { click: () => closeTalk() } }, '×')),
       out,
       n ? el('div', { class: 'ot-acts' }, ...n.actions.slice(0, 2).map((a, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', style: i === 0 ? `background:${dot}` : undefined, on: { click: () => runAction(a, out) } }, a.label)), el('button', { type: 'button', on: { click: () => { closeTalk(); open(n); } } }, 'Que faire ?')) : null,
-      form, ttail);
+      form, ttail].filter(Boolean));
     talk.hidden = false; follow(); setTimeout(() => input.focus({ preventScroll: true }), 30);
     window.OdinCompanion?.pin?.(60_000);
   }

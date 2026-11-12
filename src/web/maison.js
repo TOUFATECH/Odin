@@ -304,6 +304,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       let th = d.theme; if (d.rights !== 'complet') try { th = localStorage.getItem('odin.maison.theme') || th; } catch { /* */ }
       if (!D || D.theme !== th) applyTheme(th);
       D = { ...d, theme: th }; draw();
+      // Odin d'aujourd'hui (le même que partout) : caché ou non, fête du jour, pouvoirs.
+      if (d.mascotte) { window.OdinMascotte?.onState?.(d.mascotte); const c = d.mascotte.event?.color || d.mascotte.odin?.color; if (c) window.OdinFace?.tintBase?.(c); }
       // Nouvelles bulles : la mascotte les annonce (rouge et à voix haute si c'est grave).
       for (const n of (d.notices || []).slice().reverse()) { if (seen.has(n.id)) continue; seen.add(n.id); if (!first) pet.say(`${n.title}${n.detail ? `\n${n.detail.slice(0, 200)}` : ''}`, n.level, n.level === 'grave' ? 'inquiet' : n.level === 'souci' ? 'reflexion' : 'joie', n.level === 'grave'); }
       if (first) { first = false; setTimeout(() => pet.say(`${hello()} ! ${d.weather ? `Il fait ${d.weather.temp}° à ${d.weather.place}, ${d.weather.word.toLowerCase()}.` : ''} Touche-moi pour me parler.`, 'ok', 'joie'), 900); }
@@ -387,6 +389,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     w.addEventListener('pointerup', () => {
       const d = dragging; dragging = null; w.classList.remove('drag'); if (!d || d.moved) return;
       taps = taps.filter((t) => Date.now() - t < 900); taps.push(Date.now());
+      // Les clics rapides réglés dans Odin (1 = parler, 10 = se cacher…) ; sans eux, trois touches = elle rit.
+      if (window.OdinMascotte) { window.OdinMascotte.tap(body, () => { if (bubble?.dataset.chat) closeBubble(); else chat(); }); return; }
       if (taps.length >= 3) { taps = []; mood('rire'); anim('spin'); say('Hihi, ça chatouille !', 'ok', 'rire'); return; }
       if (bubble?.dataset.chat) closeBubble(); else chat();
     });
@@ -469,6 +473,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     }
     return { say, news, chat, visit };
   })();
+  if (window.OdinMascotte) window.OdinMascotte.sayHook = (t, lvl) => pet.say(t, lvl === 'souci' ? 'souci' : 'ok', lvl === 'souci' ? 'inquiet' : 'joie');
 
   load();
   setInterval(load, 15_000);

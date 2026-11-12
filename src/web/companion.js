@@ -15,6 +15,7 @@
 
   // ---------- Fabrication : une copie de la mascotte de la discussion, avec ses propres dégradés ----------
   function make() {
+    const had = document.getElementById('buddyRoam'); if (had) return had; // une seule mascotte en liberté
     const src = document.getElementById('buddyChat') || document.querySelector('.odin');
     if (!src) return null;
     const b = src.cloneNode(true);
@@ -122,6 +123,8 @@
   function shouldShow() {
     const v = currentView();
     if (!v || v === 'chat') return false;
+    // Caché par tes 10 clics (sur tous tes écrans) : il revient par Réglages → Apparence.
+    if (window.OdinMascotte?.hidden?.()) return false;
     // Écran d'accès : sa grande mascotte est déjà là.
     const lg = document.getElementById('login'); if (lg && !lg.hidden && lg.getClientRects().length && getComputedStyle(lg).display !== 'none') return false;
     if (S().roam && !S().roam()) return true; // promenade coupée : il reste visible, posé, sans se promener
@@ -194,6 +197,8 @@
     if (!drag || e.pointerId !== drag.id) return;
     if (drag.moved) { bud.classList.remove('dragging'); pinnedUntil = Date.now() + 120_000; window.OdinFace?.flash(bud, 'joie', 1500); }
     // Un simple toucher : la petite fenêtre pour lui parler, sur n'importe quel onglet.
+    // Les clics rapides (1 à 20) : 1 = lui parler, les autres font ce qui est réglé (Réglages → Apparence).
+    else if (window.OdinMascotte?.tap) { window.OdinFace?.flash(bud, 'ecoute', 1500); window.OdinMascotte.tap(bud); }
     else if (window.OdinNotices?.talk) { window.OdinFace?.flash(bud, 'ecoute', 1500); window.OdinNotices.talk(); }
     drag = null;
   }
