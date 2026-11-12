@@ -23,6 +23,8 @@ import { garmr } from './modules/garmr.ts';
 import { geri } from './modules/geri.ts';
 import { ran } from './modules/ran.ts';
 import { gjoll } from './modules/gjoll.ts';
+import { vidarr } from './modules/vidarr.ts';
+import { deviceLabel } from '../hlidskjalf/inventory.ts';
 import { hermod } from './modules/hermod.ts';
 import { himinbjorg } from './modules/himinbjorg.ts';
 import { kvasir } from './modules/kvasir.ts';
@@ -101,8 +103,10 @@ export function coreModules(odin: Pick<Odin, 'paths' | 'cfg'>): Module[] {
   return [saga, runes, draupnir];
 }
 
-export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['tools'] }): Module[] {
-  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, ymir, idunn, sindri, brisingamen, gjoll, hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
+export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['tools']; inventory?: Odin['inventory'] }): Module[] {
+  // Víðarr nomme les appareils qui l'interrogent d'après le registre réseau d'Odin.
+  const names = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? deviceLabel(d) : undefined; } : undefined);
+  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names }), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */

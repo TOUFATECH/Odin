@@ -57,7 +57,7 @@ test('Huginn : la bonne appli, la bonne action, les bons réglages (sans IA)', a
     ['mes sauvegardes', 'sindri.plans {}'],
     ['génère un mot de passe', 'brisingamen.generer {"longueur":20,"phrase":false}'],
     ['cherche le mot de passe de netflix', 'brisingamen.chercher {"q":"netflix"}'],
-    ['ajoute un accès vpn pour le téléphone de Sara', 'gjoll.ajouter {"nom":"téléphone de Sara","tout":true,"maillage":false,"fin":""}'],
+    ['ajoute un accès vpn pour le téléphone de Sara', 'gjoll.ajouter {"nom":"téléphone de Sara","tout":true,"maillage":false,"fin":"","dns_odin":true}'],
     ['état du vpn', 'gjoll.appareils {}'],
     ['prends une photo de la caméra entrée', 'himinbjorg.photo {"camera":"Entrée"}'],
     ['les caméras', 'himinbjorg.cameras {}'],

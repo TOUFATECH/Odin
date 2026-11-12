@@ -189,6 +189,32 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
  * Liens vers Ullr : le signal de chaque appli rejoint les incidents. Seul, il ne dit rien ; recoupé avec
  * celui d'une autre appli, il ouvre un incident où l'appli est citée.
  */
+/** Víðarr démarré pour l'essai : une liste « menaces » écrite à la main (pas de réseau), sur un port libre. */
+async function dnsUp(w: World): Promise<number> {
+  const dir = join(w.v.ctx('vidarr').dir, 'listes'); mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, 'menaces.txt'), '0.0.0.0 c2.virus.example\n');
+  w.v.ctx('vidarr').saveSettings({ lists: [{ id: 'menaces', name: 'Sites dangereux', url: 'https://exemple.invalid/l.txt', kind: 'menace', enabled: true }], dns: { upstreams: ['udp://127.0.0.1:9'], fallback: [], rateLimit: 5 } });
+  const r = await w.v.act('vidarr', 'demarrer', { port: 0 }); assert.match(r.text, /répond sur le port/, r.text);
+  return Number(/port (\d+)/.exec(r.text)![1]);
+}
+async function dnsAsk(port: number, name: string): Promise<void> {
+  const { query } = await import('../src/valhalla/vidarr/wire.ts'); const dgram = await import('node:dgram');
+  await new Promise<void>((ok) => { const c = dgram.createSocket('udp4'); const t = setTimeout(() => { c.close(); ok(); }, 300); c.on('message', () => { clearTimeout(t); c.close(); ok(); }); c.send(query(name, 1), port, '127.0.0.1'); });
+}
+CHECKS['gjoll>vidarr'] = async (w) => {
+  const r = await w.v.act('gjoll', 'ajouter', { nom: 'Téléphone de Sara', dns_odin: true });
+  assert.match(r.text, /Il passe par le DNS d'Odin \(Víðarr\)/, r.text);
+  const clients = (w.v.ctx('vidarr').settings.dns as { clients: Array<{ name: string; ids: string[] }> }).clients;
+  assert.deepEqual(clients.map((c) => [c.name, c.ids]), [['VPN · Téléphone de Sara', ['10.8.0.2']]]);
+};
+CHECKS['vidarr>forseti'] = async (w) => {
+  const port = await dnsUp(w);
+  try {
+    await dnsAsk(port, 'c2.virus.example');
+    assert.ok(await until(() => w.v.alerts({ module: 'vidarr' }).some((a) => /a voulu joindre un site dangereux/.test(a.title) && a.level === 'haute')), 'alerte haute dans le fil commun');
+    await Promise.all(Array.from({ length: 12 }, (_x, i) => dnsAsk(port, `n${i}.exemple.fr`)));
+    assert.ok(await until(() => w.v.alerts({ module: 'vidarr' }).some((a) => /inonde le DNS/.test(a.title))), 'machine qui inonde : signalée');
+  } finally { await w.v.act('vidarr', 'arreter'); }
+};
 const incidents = (w: World) => (w.v.ctx('ullr').settings.incidents as Array<{ title: string; kind: string; apps: string[]; score: number; level: string; done: string[] }> | undefined) ?? [];
 const nameOf = (w: World, id: string) => w.v.modules().find((m) => m.id === id)!.name;
 const SIGNALS: Record<string, { alone: [string, Record<string, unknown>]; with: [string, string, Record<string, unknown>]; kind: string }> = {
@@ -200,6 +226,8 @@ const SIGNALS: Record<string, { alone: [string, Record<string, unknown>]; with: 
   himinbjorg: { alone: ['mouvement', { caméra: 'Bureau', part: 14, surveillé: true }], with: ['ullr', 'support_branche', { dossier: '/media/cle' }], kind: 'intrusion physique' },
   // Un site web n'a qu'un témoin (Idunn) : son DNS qui change ne dit rien seul ; avec sa page d'accueil qui change aussi, c'est un incident.
   idunn: { alone: ['dns_change', { site: 'boutique' }], with: ['idunn', 'titre_change', { site: 'boutique' }], kind: 'site détourné' },
+  // Une machine de la maison qui demande un site dangereux ET tombe dans un piège : elle est sans doute infectée.
+  vidarr: { alone: ['dns_menace', { ip: '192.168.1.40', domaine: 'c2.virus.example', liste: 'Sites dangereux' }], with: ['loki', 'piege', { ip: '192.168.1.40', type: 'identifiants', 'piège': 'ssh', 'détail': 'root/123456' }], kind: 'attaque' },
 };
 for (const [from, sc] of Object.entries(SIGNALS)) CHECKS[`${from}>ullr`] = async (w) => {
   w.v.ctx(from).emit(sc.alone[0], sc.alone[1]); await wait(40);

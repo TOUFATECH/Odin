@@ -1,0 +1,314 @@
+// Víðarr — le serveur DNS d'Odin, écrit dans Odin (rien à installer). Il répond aux appareils de la maison
+// (et à ceux du VPN Gjöll) : il bloque pubs, pisteurs et sites dangereux, coupe des services à la demande,
+// impose la recherche sécurisée, donne des noms aux machines de la maison, garde le journal de qui demande
+// quoi, et va chercher le reste chiffré (HTTPS, TLS) ou tout seul depuis la racine d'Internet.
+//
+// Liens : Gjöll (les appareils du VPN passent par Víðarr), Forseti (un appareil qui demande un site
+// dangereux = alerte), Garmr (une machine qui inonde le DNS), le registre réseau (noms des appareils).
+
+import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { networkInterfaces } from 'node:os';
+import type { ModCtx, Module, Param } from '../types.ts';
+import { DnsServer, DEFAULTS, type ClientRule, type DnsSettings, type Lists, type LogEntry } from '../vidarr/server.ts';
+import { SERVICES, cleanDomain, compile, isDomain, emptyList, type Compiled } from '../vidarr/rules.ts';
+import { parseUpstream, upstreamTimes } from '../vidarr/resolve.ts';
+import { parse, query, TYPE, dataText } from '../vidarr/wire.ts';
+
+export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
+export const DEFAULT_LISTS: ListMeta[] = [
+  { id: 'pubs', name: 'Pubs et pisteurs', url: 'https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt', kind: 'blocage', enabled: true },
+  { id: 'menaces', name: 'Sites dangereux (virus, hameçonnage)', url: 'https://urlhaus.abuse.ch/downloads/hostfile/', kind: 'menace', enabled: true },
+  { id: 'parental', name: 'Contrôle parental (sites pour adultes)', url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts', kind: 'parental', enabled: true },
+];
+
+let srv: DnsServer | undefined, appCtx: ModCtx | undefined, compiled = new Map<string, Compiled>();
+const ring: LogEntry[] = []; const RING = 50_000;
+let inventoryName: ((ip: string) => string | undefined) | undefined;
+export const dnsServer = () => srv;
+/** Pour les essais et le démarrage : d'où viennent les noms des appareils. */
+export function setNamer(f: ((ip: string) => string | undefined) | undefined): void { inventoryName = f; }
+
+const s = (v: unknown) => String(v ?? '');
+const settingsOf = (ctx: ModCtx): DnsSettings => ({ ...DEFAULTS, ...(ctx.settings.dns as Partial<DnsSettings> | undefined ?? {}), cache: { ...DEFAULTS.cache, ...((ctx.settings.dns as Partial<DnsSettings> | undefined)?.cache ?? {}) } });
+const saveDns = (ctx: ModCtx, patch: Partial<DnsSettings>) => { ctx.saveSettings({ dns: { ...settingsOf(ctx), ...patch } }); };
+const listsMeta = (ctx: ModCtx): ListMeta[] => (ctx.settings.lists as ListMeta[] | undefined) ?? DEFAULT_LISTS.map((l) => ({ ...l }));
+const listFile = (ctx: ModCtx, id: string) => join(ctx.dir, 'listes', `${id.replace(/[^\w-]/g, '_')}.txt`);
+/** Charge les listes téléchargées (au démarrage, après une mise à jour). */
+function loadLists(ctx: ModCtx): void {
+  compiled = new Map();
+  for (const l of listsMeta(ctx)) { const f = listFile(ctx, l.id); if (l.enabled && existsSync(f)) compiled.set(l.id, compile(readFileSync(f, 'utf8'))); }
+}
+const activeLists = (ctx: ModCtx): Lists[] => listsMeta(ctx).filter((l) => l.enabled && compiled.has(l.id)).map((l) => ({ name: l.name, kind: l.kind, c: compiled.get(l.id) ?? emptyList() }));
+
+/** Télécharge une liste (avec le fetch d'Odin), la vérifie et la garde. */
+async function fetchList(ctx: ModCtx, l: ListMeta): Promise<ListMeta> {
+  try {
+    const r = await ctx.fetch(l.url, { signal: AbortSignal.timeout(60_000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const text = await r.text(); if (text.length > 60_000_000) throw new Error('liste trop grosse');
+    const c = compile(text); if (!c.count) throw new Error('aucune règle comprise dans ce fichier');
+    mkdirSync(join(ctx.dir, 'listes'), { recursive: true }); writeFileSync(listFile(ctx, l.id), text);
+    compiled.set(l.id, c);
+    return { ...l, count: c.count, updated: ctx.now().toISOString(), error: undefined };
+  } catch (e) { return { ...l, error: (e as Error).message }; }
+}
+
+// ---------------- Journal ----------------
+const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+function record(ctx: ModCtx, e: LogEntry): void {
+  ring.push(e); if (ring.length > RING) ring.splice(0, ring.length - RING);
+  if (ctx.settings.journal === false) return;
+  try { const dir = join(ctx.dir, 'journal'); mkdirSync(dir, { recursive: true }); appendFileSync(join(dir, `${day(e.t)}.jsonl`), `${JSON.stringify(e)}\n`); } catch { /* disque plein : le journal en mémoire reste */ }
+}
+function prune(ctx: ModCtx): void {
+  const keep = Number(ctx.settings.retention ?? 7), dir = join(ctx.dir, 'journal'); if (!existsSync(dir)) return;
+  const limit = day(ctx.now().getTime() - keep * 86400_000);
+  for (const f of readdirSync(dir)) if (f.endsWith('.jsonl') && f.slice(0, 10) < limit) unlinkSync(join(dir, f));
+}
+/** Statistiques sur les dernières `hours` heures (journal en mémoire). Pure. */
+export function stats(entries: LogEntry[], now: number, hours = 24) {
+  const recent = entries.filter((e) => now - e.t < hours * 3600_000);
+  const top = (f: (e: LogEntry) => string | undefined, filter: (e: LogEntry) => boolean = () => true) => {
+    const m = new Map<string, number>(); for (const e of recent) if (filter(e)) { const k = f(e); if (k) m.set(k, (m.get(k) ?? 0) + 1); }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+  };
+  const blocked = recent.filter((e) => e.status === 'bloqué').length, cached = recent.filter((e) => e.status === 'cache').length;
+  const answered = recent.filter((e) => e.status === 'ok');
+  const perHour = Array.from({ length: hours }, (_x, i) => recent.filter((e) => Math.floor((now - e.t) / 3600_000) === hours - 1 - i).length);
+  return {
+    total: recent.length, blocked, cached, errors: recent.filter((e) => e.status === 'erreur').length,
+    blockedPct: recent.length ? Math.round((blocked / recent.length) * 1000) / 10 : 0,
+    avgMs: answered.length ? Math.round(answered.reduce((n, e) => n + e.ms, 0) / answered.length) : 0,
+    topDomains: top((e) => e.name, (e) => e.status !== 'bloqué'), topBlocked: top((e) => e.name, (e) => e.status === 'bloqué'),
+    topClients: top((e) => e.clientName ? `${e.clientName} (${e.client})` : e.client), topUpstreams: top((e) => e.upstream), perHour,
+  };
+}
+
+// ---------------- Le serveur ----------------
+function lanAddress(): string | undefined {
+  return Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(i.address))?.address;
+}
+async function startServer(ctx: ModCtx): Promise<string> {
+  if (srv) srv.stop();
+  loadLists(ctx);
+  const port = Number(ctx.settings.port ?? 53);
+  const d = new DnsServer({
+    settings: () => settingsOf(ctx), lists: () => activeLists(ctx), fetch: ctx.fetch,
+    nameOf: (ip) => inventoryName?.(ip),
+    log: (e) => record(ctx, e),
+    // Lien Víðarr → Forseti : un appareil demande un site dangereux (il est bloqué, et tu es prévenu).
+    onThreat: (e) => { ctx.alert({ level: 'haute', title: `${e.clientName ?? e.client} a voulu joindre un site dangereux`, detail: `${e.name} (${e.list}) : bloqué par Víðarr. Un logiciel de cet appareil est peut-être infecté : lance une analyse (Ullr).`, key: `dns-menace-${e.client}-${e.name}`, data: { ip: e.client, domaine: e.name } }); ctx.emit('dns_menace', { ip: e.client, domaine: e.name, liste: e.list ?? '' }); },
+    // Lien Víðarr → Garmr : une machine qui inonde le DNS (boucle, virus, attaque).
+    onFlood: (ip, n) => { ctx.alert({ level: 'moyenne', title: `${inventoryName?.(ip) ?? ip} inonde le DNS`, detail: `${n} requêtes par seconde : les suivantes sont ignorées pendant un moment. Si ce n'est pas une machine à toi, bannis-la (Garmr).`, key: `dns-flood-${ip}`, data: { ip } }); ctx.emit('dns_inondation', { ip, par_seconde: n }); },
+  });
+  const where = await d.start(port, Array.isArray(ctx.settings.listen) && (ctx.settings.listen as string[]).length ? ctx.settings.listen as string[] : undefined);
+  srv = d;
+  return `✅ Víðarr répond sur le port ${d.port} (${where.join(', ')}). ${compiled.size} liste(s) chargée(s).`;
+}
+
+const LIST_KINDS = ['blocage', 'menace', 'parental', 'autorisation'];
+const CLIENT_PARAMS: Param[] = [
+  { key: 'nom', label: 'Nom de l\'appareil', kind: 'text', required: true },
+  { key: 'adresses', label: 'Adresses IP ou réseaux (séparés par des virgules)', kind: 'text', required: true, help: 'ex. 192.168.1.20, 10.8.0.0/24' },
+  { key: 'filtrage', label: 'Filtrage', kind: 'select', options: ['global', 'oui', 'non'], default: 'global' },
+  { key: 'parental', label: 'Contrôle parental', kind: 'boolean', default: false },
+  { key: 'recherche_sure', label: 'Recherche sécurisée', kind: 'boolean', default: false },
+  { key: 'services', label: 'Services coupés (séparés par des virgules)', kind: 'text', default: '', help: `parmi : ${Object.keys(SERVICES).join(', ')}` },
+  { key: 'amont', label: 'Serveurs amont propres (vide = ceux de tout le monde)', kind: 'text', default: '' },
+];
+const parseIds = (v: unknown) => s(v).split(',').map((x) => x.trim()).filter(Boolean);
+function checkIds(ids: string[]): void { for (const x of ids) if (!/^\d{1,3}(\.\d{1,3}){3}(\/\d{1,2})?$/.test(x)) throw new Error(`adresse invalide : ${x}`); }
+function checkServices(ids: string[]): void { for (const x of ids) if (!SERVICES[x]) throw new Error(`service inconnu : ${x} (possibles : ${Object.keys(SERVICES).join(', ')})`); }
+/** Ajoute ou remplace un appareil (par son nom). Exporté pour le lien avec Gjöll. */
+export function upsertClient(ctx: ModCtx, c: ClientRule): void {
+  const d = settingsOf(ctx), list = d.clients.filter((x) => x.id !== c.id && x.name !== c.name);
+  saveDns(ctx, { clients: [...list, c] });
+}
+
+export function vidarr(o: { names?: () => ((ip: string) => string | undefined) | undefined } = {}): Module {
+  const m: Module = {
+    id: 'vidarr', name: 'Víðarr', family: 'Accès',
+    what: 'Le serveur DNS d\'Odin : bloque pubs, pisteurs et sites dangereux pour toute la maison, coupe des services, donne des noms à tes machines, et garde le journal de qui demande quoi.',
+    does: [
+      'serveur DNS écrit dans Odin (UDP et TCP), rien à installer',
+      'listes de blocage (pubs, pisteurs, sites dangereux, contrôle parental), mises à jour chaque jour',
+      'règles perso : bloquer, autoriser, expressions, jokers, réécritures',
+      'alias vérifiés : un pisteur caché derrière un nom propre est bloqué quand même',
+      'services coupés d\'un clic (TikTok, YouTube, jeux…), pour tous ou par appareil',
+      'recherche sécurisée (Google, YouTube, Bing, DuckDuckGo, Qwant, Ecosia)',
+      'réglages par appareil : filtrage, contrôle parental, services, serveurs amont, liste autorisée',
+      'noms de la maison (nas.maison → 192.168.1.10), noms privés jamais envoyés sur Internet',
+      'réponses chiffrées (HTTPS, TLS), ou résolution autonome depuis la racine d\'Internet',
+      'cache avec réponses servies même expirées pendant le rafraîchissement',
+      'journal des requêtes (qui, quoi, résultat, temps), statistiques, pause du blocage',
+      'limite de requêtes par machine, requêtes ANY refusées',
+      'alerte quand un appareil demande un site dangereux ; lien avec le VPN Gjöll',
+    ],
+    from: ['AdGuard Home', 'Pi-hole', 'Technitium DNS Server'], upstream: ['AdguardTeam/AdGuardHome', 'pi-hole/pi-hole', 'TechnitiumSoftware/DnsServer'],
+    words: ['dns', 'bloquer les pubs', 'bloque les pubs', 'publicite', 'publicités', 'pisteurs', 'traqueurs', 'bloquer un site', 'bloque le site', 'controle parental', 'contrôle parental', 'recherche securisee', 'nom de domaine', 'resolution', 'resolveur', 'filtrage', 'couper tiktok', 'couper youtube'],
+    modes: ['Víðarr · DNS'],
+    actions: [
+      { id: 'demarrer', label: 'Démarrer le DNS', what: 'Víðarr répond aux appareils (port 53)', params: [{ key: 'port', label: 'Port', kind: 'number', default: 53 }], grave: () => 'démarrer le serveur DNS de la maison', run: async (ctx, i) => {
+        const port = Number(i.port ?? 53); if (!(port >= 0 && port <= 65535)) throw new Error('port entre 1 et 65535');
+        ctx.saveSettings({ port, on: true });
+        return { text: await startServer(ctx) };
+      } },
+      { id: 'arreter', label: 'Arrêter le DNS', what: 'Les appareils ne peuvent plus résoudre par Víðarr', quick: false, grave: () => 'arrêter le DNS de la maison (les appareils qui l\'utilisent n\'auront plus Internet)', undo: () => ({ action: 'demarrer', input: {}, label: 'Redémarrer le DNS' }), run: (ctx) => { srv?.stop(); srv = undefined; ctx.saveSettings({ on: false }); return { text: '⏹ Víðarr arrêté.' }; } },
+      { id: 'etat', label: 'État', what: 'En marche, chiffres du jour', read: true, words: ['etat du dns', 'statistiques dns'], run: (ctx) => {
+        const st = stats(ring, ctx.now().getTime()), d = settingsOf(ctx);
+        return { text: [`${srv ? `🟢 En marche (port ${srv.port}, ${srv.addresses.join(', ')})` : '⚪ Arrêté'}${d.pausedUntil && d.pausedUntil > ctx.now().getTime() ? ` · blocage en pause jusqu'à ${new Date(d.pausedUntil).toLocaleTimeString('fr-FR')}` : ''}`,
+          `24 h : ${st.total} requêtes, ${st.blocked} bloquées (${st.blockedPct} %), ${st.cached} depuis le cache, temps moyen ${st.avgMs} ms`,
+          `Serveurs amont : ${d.upstreams.join(', ')} (${d.strategy})`, `Listes : ${listsMeta(ctx).filter((l) => l.enabled).map((l) => `${l.name} (${l.count ?? '—'})`).join(', ')}`].join('\n') };
+      } },
+      { id: 'tester', label: 'Tester un domaine', what: 'Dit si un domaine est bloqué, pourquoi, et ce qu\'il répond', read: true, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'appareil', label: 'Adresse de l\'appareil (facultatif)', kind: 'text', default: '' }], words: ['pourquoi est bloque', 'est-ce que est bloque'], run: async (ctx, i) => {
+        const n = cleanDomain(s(i.domaine)); if (!isDomain(n)) throw new Error('domaine invalide');
+        const tmp = srv ?? new DnsServer({ settings: () => settingsOf(ctx), lists: () => activeLists(ctx), fetch: ctx.fetch });
+        if (!srv) loadLists(ctx);
+        const v = tmp.verdict(n, s(i.appareil));
+        const out = await tmp.handle(query(n, TYPE.A), s(i.appareil) || '127.0.0.1').catch(() => undefined);
+        const ans = out ? (() => { const m = parse(out); return m.an.map((r) => dataText(out, r)).join(', ') || `aucune réponse (code ${m.rcode})`; })() : 'pas de réponse';
+        return { text: `${n} : ${v?.action === 'block' ? `🚫 bloqué par « ${v.rule} » (${v.list})` : v?.action === 'allow' ? `✅ autorisé par « ${v.rule} » (${v.list})` : v?.action === 'rewrite' ? `↪ réécrit (${v.rule})` : '✅ pas de règle, laissé passer'}\nRéponse : ${ans}` };
+      } },
+      { id: 'bloquer', label: 'Bloquer un domaine', what: 'Bloque le domaine et ses sous-domaines', params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], words: ['bloque le domaine', 'bloquer le site'], undo: (i) => ({ action: 'retirer_regle', input: { regle: `||${cleanDomain(s(i.domaine))}^` }, label: 'Débloquer' }), run: (ctx, i) => {
+        const n = cleanDomain(s(i.domaine)); if (!isDomain(n)) throw new Error('domaine invalide');
+        const d = settingsOf(ctx), r = `||${n}^`; if (!d.custom.includes(r)) saveDns(ctx, { custom: [...d.custom.filter((x) => x !== `@@||${n}^`), r] });
+        srv?.cache.clear(); return { text: `🚫 ${n} et ses sous-domaines sont bloqués pour toute la maison.` };
+      } },
+      { id: 'autoriser', label: 'Autoriser un domaine', what: 'Laisse passer un domaine bloqué par une liste', params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], words: ['debloque', 'autorise le domaine'], undo: (i) => ({ action: 'retirer_regle', input: { regle: `@@||${cleanDomain(s(i.domaine))}^` }, label: 'Retirer l\'exception' }), run: (ctx, i) => {
+        const n = cleanDomain(s(i.domaine)); if (!isDomain(n)) throw new Error('domaine invalide');
+        const d = settingsOf(ctx), r = `@@||${n}^`; if (!d.custom.includes(r)) saveDns(ctx, { custom: [...d.custom.filter((x) => x !== `||${n}^`), r] });
+        srv?.cache.clear(); return { text: `✅ ${n} passe désormais (exception, plus forte que les listes ; les sites dangereux restent bloqués).` };
+      } },
+      { id: 'regle', label: 'Ajouter une règle', what: 'Règle perso (« ||pub.fr^ », « @@||ok.fr^ », « /^ads[0-9]+\\./ », « *.exemple.fr »)', quick: false, params: [{ key: 'regle', label: 'Règle', kind: 'text', required: true }], run: (ctx, i) => {
+        const r = s(i.regle).trim(), c = emptyList(); if (!compile(r, c).count) throw new Error('règle non comprise');
+        const d = settingsOf(ctx); if (!d.custom.includes(r)) saveDns(ctx, { custom: [...d.custom, r] }); srv?.cache.clear();
+        return { text: `➕ Règle ajoutée : ${r}` };
+      } },
+      { id: 'retirer_regle', label: 'Retirer une règle', what: 'Retire une règle perso', quick: false, params: [{ key: 'regle', label: 'Règle', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx), r = s(i.regle).trim(); if (!d.custom.includes(r)) throw new Error('règle introuvable'); saveDns(ctx, { custom: d.custom.filter((x) => x !== r) }); srv?.cache.clear(); return { text: `➖ Règle retirée : ${r}` }; } },
+      { id: 'listes', label: 'Listes', what: 'Listes de blocage et leur état', read: true, run: (ctx) => ({ text: listsMeta(ctx).map((l) => `- ${l.enabled ? '🟢' : '⚪'} ${l.name} [${l.id}] (${l.kind}) : ${l.count ?? 'pas encore téléchargée'}${l.error ? ` ⚠ ${l.error}` : ''}`).join('\n') }) },
+      { id: 'ajouter_liste', label: 'Ajouter une liste', what: 'Une liste de blocage par son adresse web', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'url', label: 'Adresse (https://…)', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: LIST_KINDS, default: 'blocage' }], run: async (ctx, i) => {
+        const url = s(i.url).trim(); if (!/^https:\/\/\S+$/.test(url)) throw new Error('adresse https:// attendue');
+        if (!LIST_KINDS.includes(s(i.type))) throw new Error('type inconnu');
+        const ls = listsMeta(ctx), id = `l${Date.now().toString(36)}`;
+        const l = await fetchList(ctx, { id, name: s(i.nom).trim().slice(0, 80), url, kind: s(i.type) as ListMeta['kind'], enabled: true });
+        if (l.error) throw new Error(`liste non ajoutée : ${l.error}`);
+        ctx.saveSettings({ lists: [...ls, l] }); srv?.cache.clear();
+        return { text: `📋 « ${l.name} » ajoutée : ${l.count} règles.` };
+      } },
+      { id: 'activer_liste', label: 'Activer / couper une liste', what: 'Sans la supprimer', quick: false, params: [{ key: 'id', label: 'Liste (identifiant)', kind: 'text', required: true }, { key: 'active', label: 'Active', kind: 'boolean', default: true }], run: async (ctx, i) => {
+        const ls = listsMeta(ctx), l = ls.find((x) => x.id === s(i.id)); if (!l) throw new Error('liste introuvable');
+        l.enabled = i.active !== false; ctx.saveSettings({ lists: ls }); loadLists(ctx); srv?.cache.clear();
+        return { text: `${l.enabled ? '🟢 Activée' : '⚪ Coupée'} : ${l.name}${l.enabled && !l.count ? ' (télécharge-la : « Mettre à jour les listes »)' : ''}` };
+      } },
+      { id: 'retirer_liste', label: 'Retirer une liste', what: 'Supprime une liste', quick: false, params: [{ key: 'id', label: 'Liste (identifiant)', kind: 'text', required: true }], run: (ctx, i) => { const ls = listsMeta(ctx); if (!ls.some((x) => x.id === s(i.id))) throw new Error('liste introuvable'); ctx.saveSettings({ lists: ls.filter((x) => x.id !== s(i.id)) }); compiled.delete(s(i.id)); srv?.cache.clear(); return { text: '🗑 Liste retirée.' }; } },
+      { id: 'mettre_a_jour', label: 'Mettre à jour les listes', what: 'Télécharge la dernière version de chaque liste active', run: async (ctx) => {
+        const out: ListMeta[] = []; for (const l of listsMeta(ctx)) out.push(l.enabled ? await fetchList(ctx, l) : l);
+        ctx.saveSettings({ lists: out }); srv?.cache.clear();
+        return { text: out.filter((l) => l.enabled).map((l) => `${l.error ? '⚠' : '✅'} ${l.name} : ${l.error ?? `${l.count} règles`}`).join('\n') };
+      } },
+      { id: 'services', label: 'Couper un service', what: 'TikTok, YouTube, jeux… pour toute la maison', params: [{ key: 'service', label: 'Service', kind: 'select', options: Object.keys(SERVICES), required: true }, { key: 'coupe', label: 'Coupé', kind: 'boolean', default: true }], words: ['coupe tiktok', 'bloque youtube', 'coupe le service'], run: (ctx, i) => {
+        checkServices([s(i.service)]); const d = settingsOf(ctx), on = i.coupe !== false;
+        saveDns(ctx, { services: on ? [...new Set([...d.services, s(i.service)])] : d.services.filter((x) => x !== s(i.service)) }); srv?.cache.clear();
+        return { text: `${on ? '⛔ Coupé' : '✅ Rouvert'} pour toute la maison : ${SERVICES[s(i.service)].label}` };
+      } },
+      { id: 'appareil', label: 'Réglages d\'un appareil', what: 'Filtrage, contrôle parental, services, serveurs amont pour un appareil', params: CLIENT_PARAMS, run: (ctx, i) => {
+        const ids = parseIds(i.adresses); checkIds(ids); const services = parseIds(i.services); checkServices(services);
+        const amont = parseIds(i.amont); for (const u of amont) parseUpstream(u);
+        const c: ClientRule = { id: cleanDomain(s(i.nom)).replace(/[^\w-]/g, '_').slice(0, 40) || `c${Date.now()}`, name: s(i.nom).trim().slice(0, 60), ids, filtering: (['global', 'oui', 'non'].includes(s(i.filtrage)) ? s(i.filtrage) : 'global') as ClientRule['filtering'], parental: i.parental === true, safeSearch: i.recherche_sure === true, services, upstreams: amont };
+        upsertClient(ctx, c); srv?.cache.clear();
+        return { text: `📱 ${c.name} (${ids.join(', ')}) : filtrage ${c.filtering}${c.parental ? ', contrôle parental' : ''}${c.safeSearch ? ', recherche sécurisée' : ''}${services.length ? `, services coupés : ${services.map((x) => SERVICES[x].label).join(', ')}` : ''}.` };
+      } },
+      { id: 'retirer_appareil', label: 'Retirer un appareil', what: 'Ses réglages propres sont oubliés', quick: false, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx); if (!d.clients.some((c) => c.name === s(i.nom))) throw new Error('appareil introuvable'); saveDns(ctx, { clients: d.clients.filter((c) => c.name !== s(i.nom)) }); return { text: `🗑 Réglages de ${s(i.nom)} retirés (il suit les réglages de tout le monde).` }; } },
+      { id: 'nom_local', label: 'Nom de la maison', what: 'Un nom pour une machine (nas.maison → 192.168.1.10), ou un alias', params: [{ key: 'nom', label: 'Nom (ex. nas.maison, *.labo.maison)', kind: 'text', required: true }, { key: 'valeur', label: 'Adresse(s) IP ou nom cible', kind: 'text', required: true }], run: (ctx, i) => {
+        const n = cleanDomain(s(i.nom)), base = n.replace(/^\*\./, ''); if (!isDomain(base)) throw new Error('nom invalide');
+        const to = parseIds(i.valeur); if (!to.length) throw new Error('valeur vide');
+        for (const x of to) if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(x) && !x.includes(':') && !isDomain(x)) throw new Error(`valeur invalide : ${x}`);
+        const d = settingsOf(ctx); saveDns(ctx, { rewrites: { ...d.rewrites, [n]: to } }); srv?.cache.clear();
+        return { text: `🏷 ${n} → ${to.join(', ')}` };
+      } },
+      { id: 'retirer_nom', label: 'Retirer un nom', what: 'Retire un nom de la maison', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx), n = cleanDomain(s(i.nom)); if (!d.rewrites[n]) throw new Error('nom introuvable'); const r = { ...d.rewrites }; delete r[n]; saveDns(ctx, { rewrites: r }); srv?.cache.clear(); return { text: `🗑 ${n} retiré.` }; } },
+      { id: 'pause', label: 'Pause du blocage', what: 'Laisse tout passer quelques minutes (les sites dangereux restent bloqués)', params: [{ key: 'minutes', label: 'Minutes', kind: 'number', default: 5 }], words: ['pause du blocage', 'desactive le blocage'], run: (ctx, i) => { const m = Math.max(1, Math.min(1440, Number(i.minutes) || 5)), until = ctx.now().getTime() + m * 60_000; saveDns(ctx, { pausedUntil: until }); srv?.cache.clear(); return { text: `⏸ Blocage en pause ${m} min (jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')}). Les sites dangereux restent bloqués.` }; } },
+      { id: 'reprendre', label: 'Reprendre le blocage', what: 'Fin de la pause', quick: false, run: (ctx) => { saveDns(ctx, { pausedUntil: undefined }); srv?.cache.clear(); return { text: '▶ Blocage repris.' }; } },
+      { id: 'reglages', label: 'Réglages DNS', what: 'Serveurs amont, stratégie, façon de bloquer, recherche sécurisée, contrôle parental', quick: false, params: [
+        { key: 'amont', label: 'Serveurs amont (« récursif » pour se passer de tout fournisseur)', kind: 'text', default: DEFAULTS.upstreams.join(', ') },
+        { key: 'strategie', label: 'Stratégie', kind: 'select', options: ['rapide', 'parallele', 'ordre'], default: 'rapide' },
+        { key: 'mode', label: 'Réponse quand c\'est bloqué', kind: 'select', options: ['ip_nulle', 'nxdomain', 'refuse'], default: 'ip_nulle' },
+        { key: 'recherche_sure', label: 'Recherche sécurisée pour tous', kind: 'boolean', default: false },
+        { key: 'parental', label: 'Contrôle parental pour tous', kind: 'boolean', default: false },
+        { key: 'limite', label: 'Requêtes par seconde par machine (0 = sans limite)', kind: 'number', default: 50 },
+      ], run: (ctx, i) => {
+        const ups = parseIds(i.amont); if (!ups.length) throw new Error('au moins un serveur amont'); for (const u of ups) parseUpstream(u);
+        if (!['rapide', 'parallele', 'ordre'].includes(s(i.strategie))) throw new Error('stratégie inconnue');
+        if (!['ip_nulle', 'nxdomain', 'refuse'].includes(s(i.mode))) throw new Error('mode inconnu');
+        saveDns(ctx, { upstreams: ups, strategy: s(i.strategie) as DnsSettings['strategy'], mode: s(i.mode) as DnsSettings['mode'], safeSearch: i.recherche_sure === true, parental: i.parental === true, rateLimit: Math.max(0, Math.min(10_000, Number(i.limite) || 0)) });
+        srv?.cache.clear();
+        return { text: `⚙️ Amont : ${ups.join(', ')} (${s(i.strategie)}) · blocage : ${s(i.mode)}${i.recherche_sure === true ? ' · recherche sécurisée' : ''}${i.parental === true ? ' · contrôle parental' : ''}` };
+      } },
+      { id: 'vider_cache', label: 'Vider le cache', what: 'Oublie les réponses gardées', quick: false, run: () => { const n = srv?.cache.size ?? 0; srv?.cache.clear(); return { text: `🧹 Cache vidé (${n} réponses).` }; } },
+      { id: 'journal', label: 'Journal des requêtes', what: 'Les dernières requêtes, filtrées', read: true, params: [{ key: 'filtre', label: 'Domaine ou appareil (facultatif)', kind: 'text', default: '' }, { key: 'statut', label: 'Statut', kind: 'select', options: ['tous', 'bloqué', 'ok', 'cache', 'réécrit', 'erreur'], default: 'tous' }], run: (_ctx, i) => {
+        const f = s(i.filtre).toLowerCase(), st = s(i.statut) || 'tous';
+        const rows = ring.filter((e) => (st === 'tous' || e.status === st) && (!f || e.name.includes(f) || e.client.includes(f) || (e.clientName ?? '').toLowerCase().includes(f))).slice(-40).reverse();
+        return { text: rows.map((e) => `${new Date(e.t).toLocaleTimeString('fr-FR')} ${e.clientName ?? e.client} ${e.type} ${e.name} → ${e.status}${e.rule ? ` (${e.rule})` : ''} ${e.ms} ms`).join('\n') || 'Rien.' };
+      } },
+    ],
+    async view(ctx) {
+      const d = settingsOf(ctx), st = stats(ring, ctx.now().getTime()), ls = listsMeta(ctx), lan = lanAddress();
+      const paused = d.pausedUntil && d.pausedUntil > ctx.now().getTime();
+      const steps = [
+        { title: 'Démarrer le serveur DNS', detail: 'Odin répond aux appareils sur le port 53. Rien à installer.', done: Boolean(srv), action: 'demarrer', input: { port: Number(ctx.settings.port ?? 53) }, button: 'Démarrer' },
+        { title: 'Télécharger les listes', detail: 'Pubs et pisteurs, sites dangereux, contrôle parental.', done: ls.some((l) => l.enabled && l.count), action: 'mettre_a_jour', button: 'Télécharger' },
+        { title: 'Faire passer les appareils par Odin', detail: `Dans ta box (souvent http://192.168.1.1) : « DHCP » → « Serveur DNS » = ${lan ?? 'l\'adresse de cette machine'}. Ou appareil par appareil : réglages Wi-Fi → DNS manuel → ${lan ?? 'cette machine'}. Pour le VPN : coche « DNS d'Odin » dans Gjöll.`, done: ring.some((e) => e.client !== '127.0.0.1' && e.client !== '::1') },
+      ];
+      return {
+        subtitle: `${srv ? `En marche sur le port ${srv.port}` : 'Arrêté'}${paused ? ' · blocage en pause' : ''} · ${d.upstreams.length} serveur(s) amont (${d.strategy})`,
+        tabs: ['Tableau de bord', 'Journal', 'Listes', 'Appareils', 'Noms de la maison', 'Réglages'],
+        kpis: [
+          { label: 'Requêtes (24 h)', value: String(st.total) }, { label: 'Bloquées', value: `${st.blocked} (${st.blockedPct} %)`, tone: st.blocked ? 'bon' : 'neutre' },
+          { label: 'Temps de réponse', value: `${st.avgMs} ms`, tone: st.avgMs > 300 ? 'attention' : 'bon' }, { label: 'Règles chargées', value: String([...compiled.values()].reduce((n, c) => n + c.count, 0)) },
+        ],
+        sections: [
+          ...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route', items: steps }]),
+          ...(st.total ? [{ kind: 'bars' as const, title: 'Requêtes par heure (12 dernières heures)', items: st.perHour.slice(-12).map((v, k) => ({ label: `${String(new Date(ctx.now().getTime() - (11 - k) * 3600_000).getHours()).padStart(2, '0')} h`, value: v })) }] : []),
+          { kind: 'bars', title: 'Domaines les plus bloqués', items: st.topBlocked.map(([l, v]) => ({ label: l, value: v })) },
+          { kind: 'bars', title: 'Domaines les plus demandés', items: st.topDomains.map(([l, v]) => ({ label: l, value: v })) },
+          { kind: 'bars', title: 'Appareils les plus actifs', items: st.topClients.map(([l, v]) => ({ label: l, value: v })) },
+          { kind: 'table', title: 'Journal (dernières requêtes)', columns: ['Heure', 'Appareil', 'Type', 'Domaine', 'Résultat', 'Pourquoi', 'Temps'], empty: 'Aucune requête pour l\'instant.', rows: ring.slice(-60).reverse().map((e) => ({ cells: [new Date(e.t).toLocaleTimeString('fr-FR'), e.clientName ?? e.client, e.type, e.name, e.status, e.rule ?? e.upstream ?? '', `${e.ms} ms`], tone: e.status === 'bloqué' ? 'attention' as const : e.status === 'erreur' ? 'mauvais' as const : undefined, actions: e.status === 'bloqué' ? [{ action: 'autoriser', label: 'Autoriser', input: { domaine: e.name } }] : [{ action: 'bloquer', label: 'Bloquer', input: { domaine: e.name } }] })) },
+          { kind: 'table', title: 'Listes', columns: ['Liste', 'Type', 'Règles', 'Mise à jour', 'État'], rows: ls.map((l) => ({ cells: [l.name, l.kind, String(l.count ?? '—'), l.updated ? new Date(l.updated).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais', l.error ? `⚠ ${l.error}` : l.enabled ? 'active' : 'coupée'], tone: l.error ? 'attention' as const : undefined, actions: [{ action: 'activer_liste', label: l.enabled ? 'Couper' : 'Activer', input: { id: l.id, active: !l.enabled } }, { action: 'retirer_liste', label: 'Retirer', input: { id: l.id } }] })) },
+          { kind: 'table', title: 'Appareils avec réglages propres', columns: ['Appareil', 'Adresses', 'Filtrage', 'Parental', 'Recherche sûre', 'Services coupés'], empty: 'Tous les appareils suivent les réglages de la maison.', rows: d.clients.map((c) => ({ cells: [c.name, c.ids.join(', '), c.filtering ?? 'global', c.parental ? 'oui' : 'non', c.safeSearch ? 'oui' : 'non', (c.services ?? []).map((x) => SERVICES[x]?.label ?? x).join(', ') || '—'], actions: [{ action: 'retirer_appareil', label: 'Retirer', input: { nom: c.name } }] })) },
+          { kind: 'table', title: 'Noms de la maison', columns: ['Nom', 'Répond'], empty: 'Aucun nom : ajoute « nas.maison → 192.168.1.10 » à droite.', rows: Object.entries(d.rewrites).map(([k, v]) => ({ cells: [k, v.join(', ')], actions: [{ action: 'retirer_nom', label: 'Retirer', input: { nom: k } }] })) },
+          { kind: 'table', title: 'Règles perso', columns: ['Règle'], empty: 'Aucune règle perso.', rows: d.custom.map((r) => ({ cells: [r], actions: [{ action: 'retirer_regle', label: 'Retirer', input: { regle: r } }] })) },
+          { kind: 'list', title: 'Services coupés pour toute la maison', empty: 'Aucun.', items: d.services.map((x) => ({ title: SERVICES[x]?.label ?? x })) },
+          { kind: 'list', title: 'Serveurs amont (temps moyen)', items: d.upstreams.map((u) => ({ title: u, meta: upstreamTimes()[u] ? `${Math.round(upstreamTimes()[u])} ms` : 'pas encore utilisé' })) },
+        ],
+        side: [
+          { kind: 'form', title: 'Tester un domaine', action: 'tester', submit: 'Tester', params: m.actions.find((a) => a.id === 'tester')!.params! },
+          { kind: 'form', title: 'Bloquer un domaine', action: 'bloquer', submit: 'Bloquer', params: m.actions.find((a) => a.id === 'bloquer')!.params! },
+          { kind: 'form', title: 'Couper un service', action: 'services', submit: 'Appliquer', params: m.actions.find((a) => a.id === 'services')!.params! },
+          { kind: 'form', title: 'Réglages d\'un appareil', action: 'appareil', submit: 'Enregistrer', params: CLIENT_PARAMS },
+          { kind: 'form', title: 'Nom de la maison', action: 'nom_local', submit: 'Ajouter', params: m.actions.find((a) => a.id === 'nom_local')!.params! },
+          { kind: 'form', title: paused ? 'Blocage en pause' : 'Pause du blocage', action: paused ? 'reprendre' : 'pause', submit: paused ? 'Reprendre' : 'Mettre en pause', params: paused ? [] : m.actions.find((a) => a.id === 'pause')!.params! },
+        ],
+      };
+    },
+    async start(ctx) {
+      appCtx = ctx;
+      const f = o.names?.(); if (f) inventoryName = f;
+      loadLists(ctx);
+      if (ctx.settings.on === true) { try { await startServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le DNS d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Les appareils qui passent par Odin n'ont plus de résolution de noms.`, key: 'dns-demarrage' }); } }
+    },
+    stop() { srv?.stop(); srv = undefined; },
+    // Chaque jour : listes à jour, vieux journaux effacés. Chaque 5 min : le serveur répond-il encore ?
+    watch: { every: 300, async run(ctx) {
+      prune(ctx);
+      const last = Date.parse(s(ctx.settings.listsAt) || '1970-01-01');
+      if (ctx.now().getTime() - last > 86400_000 && listsMeta(ctx).some((l) => l.enabled)) {
+        const out: ListMeta[] = []; for (const l of listsMeta(ctx)) out.push(l.enabled ? await fetchList(ctx, l) : l);
+        ctx.saveSettings({ lists: out, listsAt: ctx.now().toISOString() });
+      }
+      if (ctx.settings.on === true && !srv) { try { await startServer(ctx); } catch { /* alerte déjà donnée au démarrage */ } }
+    } },
+  };
+  return m;
+}
+export const appContext = () => appCtx;

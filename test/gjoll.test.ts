@@ -61,7 +61,7 @@ test('Gjöll : un appareil ajouté donne tout de suite son QR code et son fichie
   const w = world();
   try {
     await act(w.v, 'detecter'); await act(w.v, 'allumer');
-    const r = await act(w.v, 'ajouter', { nom: 'PC bureau', tout: false, fin: '2026-12-31' });
+    const r = await act(w.v, 'ajouter', { nom: 'PC bureau', tout: false, fin: '2026-12-31', dns_odin: false });
     const d = r.data as { svg: string; conf: string; filename: string };
     assert.match(d.svg, /^<svg/); assert.equal(d.filename, 'maison-PC-bureau.conf');
     assert.match(d.conf, /\[Interface\]\nPrivateKey = .+\nAddress = 10\.8\.0\.2\/32\nDNS = 192\.168\.1\.1\n/);

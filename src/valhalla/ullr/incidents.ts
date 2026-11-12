@@ -28,6 +28,7 @@ export const SENSORS: Array<{ app: string; when: string; what: string }> = [
   { app: 'naglfar', when: 'un conteneur s\'arrête tout seul', what: 'conteneurs arrêtés sans raison' },
   { app: 'hermod', when: 'une machine du parc disparaît', what: 'machines disparues du réseau (pendant une attaque, ou après un passage)' },
   { app: 'himinbjorg', when: 'un mouvement est vu aux heures surveillées', what: 'mouvements aux heures surveillées (avec un support branché : quelqu\'un était là)' },
+  { app: 'vidarr', when: 'un appareil demande un site dangereux ou inonde le DNS', what: 'demandes de sites dangereux (virus, hameçonnage) et inondations du DNS, par appareil' },
   { app: 'idunn', when: 'le DNS, le certificat ou la page d\'accueil d\'un de tes sites change', what: 'changements de DNS, de certificat et de page d\'accueil de tes sites (détournement)' },
 ];
 
@@ -38,6 +39,9 @@ export function toSignal(e: { module: string; type: string; data: Record<string,
   const sig = (weight: number, text: string, keys: string[], more: Partial<Signal> = {}): Signal => ({ at: now, app: e.module, type: e.type, keys, weight, text, ...(ip ? { ip } : {}), ...more });
   switch (k) {
     case 'loki.piege': return ip ? sig(d.type === 'capture' ? 45 : d.type === 'identifiants' || d.type === 'commande' ? 35 : 15, `un attaquant (${ip}) est tombé dans le piège ${s(d['piège'])} : ${s(d['détail']).slice(0, 80)}`, [`ip:${ip}`], { attack: 'T1110', anchor: d.type === 'capture' || d.type === 'identifiants' || d.type === 'commande' }) : undefined;
+    // Víðarr : un appareil de la maison a demandé un site dangereux (souvent un logiciel infecté qui appelle son serveur).
+    case 'vidarr.dns_menace': return ip ? sig(40, `${ip} a demandé ${s(d.domaine)} (${s(d.liste)}) : bloqué par Víðarr`, [`ip:${ip}`, `dom:${s(d.domaine)}`], { attack: 'T1071.004' }) : undefined;
+    case 'vidarr.dns_inondation': return ip ? sig(15, `${ip} inonde le DNS (${s(d.par_seconde)} requêtes par seconde)`, [`ip:${ip}`]) : undefined;
     case 'garmr.banni': return ip ? sig(10, `${ip} banni au pare-feu (${s(d.raison)})`, [`ip:${ip}`]) : undefined;
     case 'geri.malveillant': return sig(60, `le programme ${s(d.programme)} parle à ${ip}, adresse connue comme malveillante`, [`ip:${ip}`, `prog:${s(d.programme)}`, 'machine'], { prog: s(d.programme), attack: 'T1071', anchor: true });
     case 'geri.nouvelle_destination': return sig(5, `${s(d.programme)} contacte ${ip}:${s(d.port)} pour la première fois`, [`ip:${ip}`, `prog:${s(d.programme)}`], { prog: s(d.programme) });
