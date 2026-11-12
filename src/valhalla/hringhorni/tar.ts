@@ -66,9 +66,10 @@ function pax(buf: Buffer): Record<string, string> {
 }
 
 /** Ouvre une couche selon son type (gzip, zstd ou tar brut, deviné aussi par les premiers octets). */
-export async function layerStream(file: string, mediaType = ''): Promise<Readable> {
+export async function layerStream(file: string, mediaType = '', onRead?: (n: number) => void): Promise<Readable> {
   const fh = await open(file, 'r'); const head = Buffer.alloc(4); await fh.read(head, 0, 4, 0); await fh.close();
   const src = createReadStream(file);
+  if (onRead) src.on('data', (c: Buffer | string) => onRead(c.length));
   if ((head[0] === 0x1f && head[1] === 0x8b) || /gzip/.test(mediaType)) return src.pipe(zlib.createGunzip());
   if ((head[0] === 0x28 && head[1] === 0xb5 && head[2] === 0x2f && head[3] === 0xfd) || /zstd/.test(mediaType)) {
     const z = (zlib as unknown as { createZstdDecompress?: () => NodeJS.ReadWriteStream }).createZstdDecompress;

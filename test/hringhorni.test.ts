@@ -100,7 +100,11 @@ test('registre : jeton, bonne architecture, morceaux vérifiés ; un morceau ab�
   const ok = await fakeRegistry([layer]), bad = await fakeRegistry([layer], { corrupt: true });
   try {
     const e = new Engine(dir, { rootless: true }), steps: string[] = [];
-    const img = await e.pull(`127.0.0.1:${ok.port}/odin/boite:1`, (t) => steps.push(t));
+    const phases: string[] = []; let maxPct = 0;
+    const { pctOf } = await import('../src/valhalla/hringhorni/engine.ts');
+    const img = await e.pull(`127.0.0.1:${ok.port}/odin/boite:1`, (t) => steps.push(t), (p) => { if (phases.at(-1) !== p.phase) phases.push(p.phase); const k = pctOf(p, false); assert.ok(k >= maxPct - 0.0001 || p.phase !== phases.at(-1), 'la barre ne recule pas'); maxPct = Math.max(maxPct, k); });
+    assert.deepEqual(phases, ['télécharger', 'monter', 'fini'], 'téléchargement, montage, terminé');
+    assert.equal(maxPct, 100);
     assert.ok(steps.includes('Image prête'));
     assert.ok(existsSync(join(e.store.rootfs(img.id), 'bin/busybox')));
     assert.equal(lstatSync(join(e.store.rootfs(img.id), 'bin/sh')).isSymbolicLink(), true);
@@ -118,6 +122,17 @@ test('registre : jeton, bonne architecture, morceaux vérifiés ; un morceau ab�
     await assert.rejects(e.create({ image: img.names[0], name: 'essai' }), /déjà pris/);
     await assert.rejects(e.create({ image: img.names[0], mounts: '/etc:/x' }), /refusé/);
     assert.equal((await e.rm('essai')).name, 'essai');
+    // une installation suivie : la barre va jusqu'au bout, l'interface la relit
+    const { cli } = await import('../src/valhalla/hringhorni/cli.ts');
+    const lines: string[] = []; assert.equal(await cli(['pull', `127.0.0.1:${ok.port}/odin/boite:1`], { out: (t) => lines.push(t), err: (t) => lines.push(t), interactive: false, tty: false }, e), 0);
+    assert.ok(lines.some((l) => /\[█+░*\] +\d+ % Téléchargement|Montage|Terminé/.test(l)), lines.join('\n'));
+    const j = e.pullJob(`127.0.0.1:${ok.port}/odin/boite:1`);
+    for (let k = 0; k < 50 && !e.jobs().find((x) => x.id === j.id)?.ended; k++) await new Promise((r) => setTimeout(r, 50));
+    const done = e.jobs().find((x) => x.id === j.id)!;
+    assert.equal(done.phase, 'fini'); assert.equal(done.pct, 100);
+    const bad2 = e.startJob('installer', 'x', async () => { throw new Error('plus de place'); });
+    for (let k = 0; k < 20 && !e.jobs().find((x) => x.id === bad2.id)?.ended; k++) await new Promise((r) => setTimeout(r, 25));
+    assert.match(e.jobs().find((x) => x.id === bad2.id)!.note, /Échec : plus de place/);
   } finally { ok.srv.close(); bad.srv.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 

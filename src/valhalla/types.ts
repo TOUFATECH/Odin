@@ -60,7 +60,7 @@ export interface GraphNode { id: string; label: string; sub?: string; color?: st
 export interface GraphEdge { a: string; b: string; color?: string; dash?: boolean; w?: number; title?: string; arrow?: 'to' | 'both' }
 /** La fiche d'un point : titres, pastilles, lignes « clé · valeur · d'où vient l'info », liste, boutons. */
 export interface GraphDetail { kind: string; title: string; subtitle?: string; chips?: Array<{ label: string; tone?: Tone }>; rows?: Array<{ k: string; v: string; src?: string }>; list?: { title: string; items: Array<{ text: string; meta?: string; tone?: Tone }> }; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; module?: string; primary?: boolean }> }
-export interface View { subtitle?: string; kpis?: Kpi[]; sections: Section[]; side?: Section[]; tabs?: string[] }
+export interface View { subtitle?: string; kpis?: Kpi[]; sections: Section[]; side?: Section[]; tabs?: string[]; /** la page se met à jour toute seule (ex. une barre de progression) */ refreshMs?: number }
 
 export interface ModCtx {
   home: string;

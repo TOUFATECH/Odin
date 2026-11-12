@@ -3,7 +3,7 @@
 // comme dans la discussion avec Odin (« run nginx », « ps », « logs jf »).
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { Engine, restartOf, type Ctr } from './engine.ts';
+import { Engine, mo, pctOf, restartOf, type Ctr, type Progress } from './engine.ts';
 
 const ALIAS: Record<string, string> = { publish: 'p', volume: 'v', env: 'e', detach: 'd', all: 'a', quiet: 'q', follow: 'f', force: 'f', interactive: 'i', tty: 't', user: 'u', workdir: 'w', memory: 'm', net: 'network', time: 'timeout' };
 const VALUES = new Set(['name', 'p', 'v', 'e', 'env-file', 'restart', 'm', 'cpus', 'u', 'w', 'entrypoint', 'hostname', 'network', 'timeout', 'tail', 'label']);
@@ -48,13 +48,28 @@ export function psTable(l: Ctr[]): string {
   return pad([['ID', 'NOM', 'IMAGE', 'ÉTAT', 'PORTS', 'COMMANDE'], ...l.map((c) => [c.id.slice(0, 12), c.spec.name, c.spec.image, `${c.state.status}${c.state.status === 'en marche' ? ` (${ago(c.state.startedAt)})` : c.state.exitCode !== undefined ? ` (code ${c.state.exitCode})` : ''}`, c.spec.ports.map((p) => `${p.host}→${p.inner}${p.proto === 'udp' ? '/udp' : ''}`).join(', '), c.spec.cmd.join(' ').slice(0, 40)])]);
 }
 
-export interface CliIO { out(s: string): void; err(s: string): void; interactive?: boolean }
+export interface CliIO { out(s: string): void; err(s: string): void; interactive?: boolean; tty?: boolean }
+/** La barre de progression du terminal : téléchargement, montage, démarrage. */
+export function bar(p: Progress, withStart = true, width = 28): string {
+  const pct = pctOf(p, withStart), full = Math.round((pct / 100) * width);
+  const what = p.phase === 'télécharger' ? `Téléchargement ${mo(p.done)} / ${mo(p.total)}` : p.phase === 'monter' ? `Montage${p.layers ? ` (couche ${p.layer || 1}/${p.layers})` : ''}` : p.phase === 'démarrer' ? 'Démarrage' : 'Terminé';
+  return `[${'█'.repeat(full)}${'░'.repeat(width - full)}] ${String(pct).padStart(3)} % ${what}`;
+}
+function barWriter(io: CliIO, withStart = true) {
+  let last = '', lastAt = 0, lastPhase = '';
+  return (p: Progress) => {
+    const line = bar(p, withStart), now = Date.now();
+    if (io.tty) { if (line !== last && (now - lastAt > 80 || p.phase !== lastPhase)) { process.stderr.write(`\r${line}\x1b[K`); last = line; lastAt = now; } if (p.phase === 'fini') process.stderr.write('\n'); }
+    else if (p.phase !== lastPhase || now - lastAt > 3000) { io.err(line); lastAt = now; }
+    lastPhase = p.phase;
+  };
+}
 /** Toutes les commandes. Rend le code de sortie. */
-export async function cli(argv: string[], io: CliIO = { out: (s) => console.log(s), err: (s) => console.error(s), interactive: true }, eng = new Engine()): Promise<number> {
+export async function cli(argv: string[], io: CliIO = { out: (s) => console.log(s), err: (s) => console.error(s), interactive: true, tty: Boolean(process.stderr.isTTY) }, eng = new Engine()): Promise<number> {
   const [verb0, ...args] = argv, verb = verb0 === 'log' ? 'logs' : verb0 === 'image' ? 'images' : verb0;
   try {
     switch (verb) {
-      case 'pull': { const [name] = parseArgs(args).rest; if (!name) throw new Error('pull <image>'); const img = await eng.pull(name, (t, n) => io.out(`· ${t}${n ? ` — ${n}` : ''}`)); io.out(img.id.slice(0, 12)); return 0; }
+      case 'pull': { const [name] = parseArgs(args).rest; if (!name) throw new Error('pull <image>'); const img = await eng.pull(name, () => {}, barWriter(io, false)); io.out(`${img.names.at(-1)} prête · ${img.id.slice(0, 12)} · ${mo(img.size)}`); return 0; }
       case 'images': { const l = eng.images(); io.out(l.length ? pad([['IMAGE', 'ID', 'TAILLE', 'RÉCUPÉRÉE'], ...l.flatMap((i) => i.names.map((n) => [n, i.id.slice(0, 12), `${(i.size / 1e6).toFixed(1)} Mo`, `il y a ${ago(i.pulled)}`]))]) : 'Aucune image.'); return 0; }
       case 'rmi': { const a = parseArgs(args); for (const n of a.rest) io.out(`supprimée : ${(await eng.rmi(n, !!a.flags.f)).names.join(', ')}`); return 0; }
       case 'ps': { const a = parseArgs(args); const l = eng.ps(!!a.flags.a); io.out(a.flags.q ? l.map((c) => c.id.slice(0, 12)).join('\n') : psTable(l)); return 0; }
@@ -66,6 +81,7 @@ export async function cli(argv: string[], io: CliIO = { out: (s) => console.log(
         for (const e of a.multi.e ?? []) { const i = e.indexOf('='); if (i > 0) env[e.slice(0, i)] = e.slice(i + 1); else if (process.env[e] !== undefined) env[e] = process.env[e]!; }
         const labels = Object.fromEntries((a.multi.label ?? []).map((l) => [l.split('=')[0], l.split('=').slice(1).join('=')]));
         const net = a.opts.network === 'host' || a.opts.network === 'hote' ? 'hote' : a.opts.network ? 'pont' : undefined;
+        if (!eng.findImage(image)) await eng.pull(image, () => {}, barWriter(io));
         const c = await eng.run({ image, name: a.opts.name, cmd, entrypoint: a.opts.entrypoint ? splitLine(a.opts.entrypoint) : undefined, env, ports: (a.multi.p ?? []).join(','), mounts: (a.multi.v ?? []).join(','), restart: a.opts.restart ? restartOf(a.opts.restart) : undefined, memory: a.opts.m, cpus: a.opts.cpus, user: a.opts.u, workdir: a.opts.w, hostname: a.opts.hostname, network: net, rm: !!a.flags.rm, labels });
         if (a.flags.d || !io.interactive) { io.out(a.flags.d ? c.id.slice(0, 12) : `${c.spec.name} démarré (${c.id.slice(0, 12)})`); return 0; }
         return follow(eng, c.id, io, true);

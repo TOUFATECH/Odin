@@ -271,7 +271,13 @@
     // Rán : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
     if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[0] || null);
     box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), top, wide, el('div', { class: 'va-page' }, main, side));
-    head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
+    if (!quiet) head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
+    // Une page qui bouge (barre de progression) se met à jour toute seule, sauf pendant que tu remplis un champ.
+    if (v.refreshMs) setTimeout(() => {
+      if (cur !== id || !$('#v-app.on')) return;
+      const a = document.activeElement; if (a && box.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { setTimeout(() => openApp(id, true), v.refreshMs); return; }
+      openApp(id, true);
+    }, Math.max(800, v.refreshMs));
   }
   async function badge() { if (!appShown()) return; try { const a = (st ?? await api('/api/valhalla/catalog')).modules?.reduce((n, m) => n + (m.alerts ?? 0), 0) ?? 0; const b = $('#b-apps'); if (b) { b.hidden = !a; b.textContent = String(a); } } catch { /* rien */ } }
   function init() {

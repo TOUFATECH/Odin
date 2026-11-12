@@ -21,6 +21,19 @@ export interface RunOpts {
 }
 export interface Ctr { id: string; spec: Spec; state: State }
 export type Step = (t: string, note?: string) => void;
+/** Où en est une installation : téléchargement (octets), montage (couches dépaquetées), démarrage. */
+export interface Progress { phase: 'télécharger' | 'monter' | 'démarrer' | 'fini'; done: number; total: number; layer?: number; layers?: number }
+/** Une installation suivie (image récupérée, conteneur monté puis démarré), visible dans l'interface. */
+export interface Job { id: string; kind: 'installer' | 'récupérer' | 'mettre à jour'; image: string; name?: string; phase: 'attente' | Progress['phase'] | 'échec'; pct: number; done: number; total: number; note: string; error?: string; started: string; ended?: string; container?: string }
+/** La part de la barre : télécharger 0 → 75 %, monter 75 → 95 %, démarrer 95 → 100 %. */
+export function pctOf(p: Progress, withStart = true): number {
+  const k = p.total > 0 ? Math.min(1, p.done / p.total) : 1, end = withStart ? 95 : 100;
+  if (p.phase === 'télécharger') return Math.round(k * 75 * (end / 95));
+  if (p.phase === 'monter') return Math.round((75 + k * 20) * (end / 95));
+  if (p.phase === 'démarrer') return 97;
+  return 100;
+}
+export const mo = (n: number) => `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} Mo`;
 const RESTART: Record<string, Restart> = { no: 'non', non: 'non', always: 'toujours', toujours: 'toujours', 'on-failure': 'si-erreur', 'si-erreur': 'si-erreur', 'unless-stopped': 'sauf-arret', 'sauf-arret': 'sauf-arret' };
 export const restartOf = (s?: string): Restart => { const r = RESTART[String(s ?? 'non').replace(/:\d+$/, '')]; if (!r) throw new Error(`redémarrage inconnu : ${s} (no, always, on-failure, unless-stopped)`); return r; };
 const alive = (pid?: number) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
@@ -49,7 +62,7 @@ export class Engine {
     return l.find((i) => i.names.includes(n) || (full && i.names.includes(full))) ?? (/^[a-f0-9]{4,64}$/.test(n) ? l.find((i) => i.id.startsWith(n)) : undefined);
   }
   /** Récupère une image et la dépaquette (rien n'est gardé si un morceau est faux). */
-  async pull(name: string, step: Step = () => {}): Promise<Image> {
+  async pull(name: string, step: Step = () => {}, progress: (p: Progress) => void = () => {}): Promise<Image> {
     const ref = parseRef(name), reg = new Registry(ref, this.o.fetch ?? fetch);
     this.store.ensure();
     step('Lire le manifeste', ref.name);
@@ -60,12 +73,20 @@ export class Engine {
     const id = manifest.config.digest.slice(7), total = manifest.layers.reduce((a, l) => a + l.size, 0);
     const existing = this.images().find((i) => i.id === id);
     if (!existing || !existsSync(join(this.store.rootfs(id), '..', '.complet'))) {
-      let done = 0;
-      for (const [i, l] of manifest.layers.entries()) { step(`Télécharger la couche ${i + 1}/${manifest.layers.length}`, `${(l.size / 1e6).toFixed(1)} Mo`); await reg.blob(l, this.store.blob(l.digest), (n) => { done += n; }); }
-      step('Dépaqueter l\'image', `${(total / 1e6).toFixed(1)} Mo`);
+      let done = 0; const n = manifest.layers.length;
+      // déjà téléchargé (reprise) : compté tout de suite
+      for (const l of manifest.layers) if (existsSync(this.store.blob(l.digest)) && statSync(this.store.blob(l.digest)).size === l.size) done += l.size;
+      progress({ phase: 'télécharger', done, total, layers: n });
+      for (const [i, l] of manifest.layers.entries()) {
+        step(`Télécharger la couche ${i + 1}/${n}`, mo(l.size));
+        const had = existsSync(this.store.blob(l.digest)) && statSync(this.store.blob(l.digest)).size === l.size;
+        if (!had) await reg.blob(l, this.store.blob(l.digest), (k) => { done += k; progress({ phase: 'télécharger', done, total, layer: i + 1, layers: n }); });
+      }
+      step('Dépaqueter l\'image', mo(total));
+      let read = 0; progress({ phase: 'monter', done: 0, total, layer: 0, layers: n });
       const base = join(this.store.dir, 'images', id), tmp = `${base}.tmp-${process.pid}`;
       await rm(tmp, { recursive: true, force: true }); await mkdir(join(tmp, 'rootfs'), { recursive: true, mode: 0o700 });
-      for (const l of manifest.layers) await extractLayer(await layerStream(this.store.blob(l.digest), l.mediaType), join(tmp, 'rootfs'), { chown: !this.rootless });
+      for (const [i, l] of manifest.layers.entries()) await extractLayer(await layerStream(this.store.blob(l.digest), l.mediaType, (k) => { read += k; progress({ phase: 'monter', done: read, total, layer: i + 1, layers: n }); }), join(tmp, 'rootfs'), { chown: !this.rootless });
       writeFileSync(join(tmp, '.complet'), new Date().toISOString());
       await rm(base, { recursive: true, force: true }); await rename(tmp, base);
     }
@@ -73,8 +94,57 @@ export class Engine {
     const img: Image = { id, names: [...new Set([...(list.find((i) => i.id === id)?.names ?? []), ref.name])], digest, config, configDigest: manifest.config.digest, layers: manifest.layers, size: total, pulled: new Date().toISOString() };
     this.store.saveImages([...list.filter((i) => i.id !== id), img]);
     step('Image prête', `${ref.name} (${id.slice(0, 12)})`);
+    progress({ phase: 'fini', done: total, total });
     return img;
   }
+  // ------------------------------------------------------------------ installations suivies (barre de progression)
+  private jobFile(id: string) { return join(this.store.dir, 'taches', `${id}.json`); }
+  /** Les installations des dernières 24 h (en cours d'abord). */
+  jobs(): Job[] {
+    let files: string[] = []; try { files = readdirSync(join(this.store.dir, 'taches')); } catch { return []; }
+    const out: Job[] = [];
+    for (const f of files) {
+      try {
+        const j = JSON.parse(readFileSync(join(this.store.dir, 'taches', f), 'utf8')) as Job;
+        // une installation dont le processus a disparu (Odin redémarré) n'est plus « en cours »
+        const old = Date.now() - Date.parse(j.ended ?? j.started) > 86_400_000;
+        if (old) { rmSync(join(this.store.dir, 'taches', f), { force: true }); continue; }
+        out.push(j);
+      } catch { /* fichier en cours d'écriture */ }
+    }
+    return out.sort((a, b) => Number(!!a.ended) - Number(!!b.ended) || b.started.localeCompare(a.started));
+  }
+  /** Lance une installation en arrière-plan et la suit pas à pas (fichier relu par l'interface). */
+  startJob(kind: Job['kind'], image: string, work: (report: (p: Progress, note?: string) => void, set: (patch: Partial<Job>) => void) => Promise<Partial<Job> | void>, name?: string): Job {
+    this.store.ensure(); mkdirSync(join(this.store.dir, 'taches'), { recursive: true, mode: 0o700 });
+    const j: Job = { id: randomBytes(6).toString('hex'), kind, image, name, phase: 'attente', pct: 0, done: 0, total: 0, note: 'en attente', started: new Date().toISOString() };
+    let last = 0;
+    const save = (force = false) => { const now = Date.now(); if (!force && now - last < 250) return; last = now; try { writeFileSync(this.jobFile(j.id), JSON.stringify(j), { mode: 0o600 }); } catch { /* disque plein */ } };
+    const set = (patch: Partial<Job>) => { Object.assign(j, patch); save(true); };
+    const report = (p: Progress, note?: string) => {
+      Object.assign(j, { phase: p.phase, done: p.done, total: p.total, pct: Math.max(j.pct, pctOf(p, kind !== 'récupérer')),
+        note: note ?? (p.phase === 'télécharger' ? `Téléchargement ${mo(p.done)} / ${mo(p.total)}${p.layers ? ` · couche ${p.layer ?? 1}/${p.layers}` : ''}` : p.phase === 'monter' ? `Montage de l'image${p.layers ? ` · couche ${p.layer || 1}/${p.layers}` : ''}` : p.phase === 'démarrer' ? 'Démarrage du conteneur' : 'Terminé') });
+      save(p.phase !== 'télécharger' && p.phase !== 'monter');
+    };
+    save(true);
+    void (async () => {
+      try { const extra = await work(report, set); Object.assign(j, { phase: 'fini', pct: 100, note: 'Terminé', ended: new Date().toISOString() }, extra ?? {}); }
+      catch (e) { Object.assign(j, { phase: 'échec', error: (e as Error).message, note: `Échec : ${(e as Error).message}`, ended: new Date().toISOString() }); }
+      save(true);
+    })();
+    return j;
+  }
+  /** Installer (récupérer l'image si besoin, monter, démarrer) en arrière-plan, avec la barre de progression. */
+  runJob(o: RunOpts): Job {
+    return this.startJob('installer', o.image, async (report, set) => {
+      if (!this.findImage(o.image)) await this.pull(o.image, () => {}, (p) => report(p));
+      report({ phase: 'démarrer', done: 1, total: 1 });
+      const c = await this.run(o); set({ name: c.spec.name });
+      return { container: c.spec.name, name: c.spec.name, note: `${c.spec.name} en marche` };
+    }, o.name);
+  }
+  pullJob(name: string): Job { return this.startJob('récupérer', name, async (report) => { const i = await this.pull(name, () => {}, (p) => report(p)); return { note: `Image prête (${mo(i.size)})` }; }); }
+
   async rmi(name: string, force = false): Promise<Image> {
     const img = this.findImage(name); if (!img) throw new Error(`image inconnue : ${name}`);
     const users = this.ps(true).filter((c) => c.spec.imageId === img.id);

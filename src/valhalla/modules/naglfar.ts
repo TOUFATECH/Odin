@@ -9,7 +9,7 @@ import type { ModCtx, Module, Param } from '../types.ts';
 const s = (v: unknown) => String(v ?? '');
 const safe = (v: unknown) => { const x = s(v).trim(); if (!/^[\w.:/@-]{1,200}$/.test(x)) throw new Error(`nom invalide : ${x}`); return x; };
 /** Le moteur (remplaçable dans les essais). */
-export type EngineLike = Pick<Engine, 'ps' | 'find' | 'start' | 'stop' | 'restart' | 'rm' | 'run' | 'logs' | 'images' | 'pull' | 'rmi' | 'execArgs' | 'inspect' | 'findImage'>;
+export type EngineLike = Pick<Engine, 'ps' | 'find' | 'start' | 'stop' | 'restart' | 'rm' | 'run' | 'logs' | 'images' | 'pull' | 'rmi' | 'execArgs' | 'inspect' | 'findImage' | 'jobs' | 'runJob' | 'pullJob' | 'startJob'>;
 let make: () => EngineLike = () => new Engine();
 let cached: EngineLike | null = null;
 export function useEngine(f: () => EngineLike): void { make = f; cached = null; }
@@ -53,25 +53,30 @@ export const naglfar: Module = {
     { id: 'arreter', undo: (i) => ({ action: 'demarrer', input: { conteneur: i.conteneur }, label: 'conteneur relancé' }), label: 'Arrêter', what: 'Arrête un conteneur', params: [CT], words: ['arrete', 'arrête', 'stoppe'], run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const c = await engine().stop(safe(i.conteneur)); return { text: `⏹ ${c.spec.name} arrêté.` }; } },
     { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
     { id: 'lancer', label: 'Lancer une appli', what: 'Récupère l\'image si besoin, crée le conteneur et le démarre', params: LANCER, grave: (i) => `lancer un conteneur à partir de ${s(i.image)}`, words: ['lance l\'image', 'installe le conteneur'], run: async (ctx, i) => {
-      const c = await engine().run({ image: safe(i.image), name: s(i.nom).trim() || undefined, ports: s(i.ports), mounts: s(i.dossiers), env: env(s(i.env)), restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: s(i.memoire).trim() || undefined, cpus: s(i.coeurs).trim() || undefined });
-      ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] });
-      return { text: `🚢 ${c.spec.name} lancé (${c.spec.image})${c.spec.ports.length ? ` · ports ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}.`, data: { name: c.spec.name, id: c.id } };
+      const image = safe(i.image), name = s(i.nom).trim() || undefined;
+      const j = engine().runJob({ image, name, ports: s(i.ports), mounts: s(i.dossiers), env: env(s(i.env)), restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: s(i.memoire).trim() || undefined, cpus: s(i.coeurs).trim() || undefined });
+      if (name) ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), name])] });
+      return { text: `🚢 Installation de ${image} lancée : la barre de progression est dans Naglfar (téléchargement, montage, démarrage).`, data: { job: j.id } };
     } },
     { id: 'executer', label: 'Commande dans un conteneur', what: 'Lance une commande dans un conteneur en marche et montre sa réponse', params: [CT, { key: 'commande', label: 'Commande', kind: 'text', required: true }], grave: (i) => `lancer « ${s(i.commande)} » dans ${s(i.conteneur)}`, external: true, run: async (_ctx, i) => {
       const out: string[] = []; const code = await cli(['exec', safe(i.conteneur), ...splitLine(s(i.commande))], { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
       return { text: `${out.join('\n').slice(-6000) || '(rien)'}${code ? `\n(code ${code})` : ''}`, ok: code === 0 };
     } },
     { id: 'mettre_a_jour', label: 'Mettre à jour l\'image', what: 'Récupère la dernière image puis recrée le conteneur avec les mêmes réglages', params: [CT], grave: (i) => `recréer ${s(i.conteneur)} avec la nouvelle image`, words: ['mets a jour le conteneur'], run: async (_ctx, i) => {
-      const e = engine(), c = e.find(safe(i.conteneur)), old = e.findImage(c.spec.image)?.id;
-      const img = await e.pull(c.spec.image);
-      if (img.id === old) return { text: `✓ ${c.spec.name} : l'image ${c.spec.image} est déjà la plus récente.` };
-      const sp = c.spec; await e.rm(sp.id, true);
-      const n = await e.run({ image: sp.image, name: sp.name, cmd: sp.cmd, env: sp.env, ports: sp.ports, mounts: sp.mounts, restart: sp.restart, memory: sp.memory, cpus: sp.cpus, user: sp.user, workdir: sp.workdir, hostname: sp.hostname, network: sp.network, labels: sp.labels });
-      return { text: `⬆ ${n.spec.name} relancé avec la nouvelle image (${img.id.slice(0, 12)}).` };
+      const e = engine(), c = e.find(safe(i.conteneur)), old = e.findImage(c.spec.image)?.id, sp = c.spec;
+      e.startJob('mettre à jour', sp.image, async (report, set) => {
+        const img = await e.pull(sp.image, () => {}, (p) => report(p));
+        if (img.id === old) return { note: `${sp.name} : déjà la dernière version` };
+        report({ phase: 'démarrer', done: 1, total: 1 }, `Relance de ${sp.name} avec la nouvelle image`);
+        await e.rm(sp.id, true);
+        const n = await e.run({ image: sp.image, name: sp.name, cmd: sp.cmd, env: sp.env, ports: sp.ports, mounts: sp.mounts, restart: sp.restart, memory: sp.memory, cpus: sp.cpus, user: sp.user, workdir: sp.workdir, hostname: sp.hostname, network: sp.network, labels: sp.labels });
+        set({ container: n.spec.name }); return { note: `${n.spec.name} relancé avec la nouvelle image (${img.id.slice(0, 12)})` };
+      }, sp.name);
+      return { text: `⬆ Mise à jour de ${sp.name} lancée : suis-la dans Naglfar.` };
     } },
     { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur (ses dossiers partagés sont gardés)', params: [CT], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const sp = await engine().rm(safe(i.conteneur), true); return { text: `🗑 ${sp.name} supprimé (dossiers partagés conservés).` }; } },
     { id: 'images', label: 'Images', what: 'Les images présentes', read: true, words: ['quelles images'], run: () => { const l = engine().images(); return { text: l.map((x) => `- ${x.names.join(', ')} · ${(x.size / 1e6).toFixed(0)} Mo`).join('\n') || 'Aucune image.', data: l.map((x) => ({ names: x.names, id: x.id.slice(0, 12), size: x.size })) }; } },
-    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image'], run: async (_ctx, i) => { const img = await engine().pull(safe(i.image)); return { text: `⬇ ${img.names.at(-1)} prête (${(img.size / 1e6).toFixed(0)} Mo).` }; } },
+    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans Naglfar.` }; } },
     { id: 'supprimer_image', label: 'Supprimer une image', what: 'Supprime une image qui ne sert plus', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], grave: (i) => `supprimer l'image ${s(i.image)}`, run: async (_ctx, i) => { const img = await engine().rmi(safe(i.image)); return { text: `🗑 Image ${img.names.join(', ')} supprimée.` }; } },
     { id: 'nettoyer', label: 'Nettoyer', what: 'Supprime les images qu\'aucun conteneur n\'utilise', grave: () => 'supprimer les images inutilisées', words: ['nettoie', 'place'], run: async () => {
       const e = engine(), used = new Set(e.ps(true).map((c) => c.spec.imageId)), out: string[] = [];
@@ -90,11 +95,20 @@ export const naglfar: Module = {
     const e = engine(); let cts: Ctr[] = [], err = '';
     try { cts = e.ps(true); } catch (x) { err = (x as Error).message; }
     const imgs = err ? [] : e.images(), up = cts.filter((c) => c.state.status === 'en marche').length;
+    const jobs = err ? [] : e.jobs(), live = jobs.filter((j) => !j.ended);
     return {
       subtitle: err || `${up} en marche sur ${cts.length} · moteur d'Odin, sans démon`,
       tabs: ['Conteneurs', 'Images'],
-      kpis: [{ label: 'En marche', value: `${up} / ${cts.length}`, tone: up === cts.length ? 'bon' : 'attention' }, { label: 'Images', value: String(imgs.length) }, { label: 'Place des images', value: `${(imgs.reduce((a, i) => a + i.size, 0) / 1e9).toFixed(1)} Go` }],
+      kpis: [...(live.length ? [{ label: 'Installations en cours', value: String(live.length), tone: 'attention' as const }] : []), { label: 'En marche', value: `${up} / ${cts.length}`, tone: up === cts.length ? 'bon' : 'attention' }, { label: 'Images', value: String(imgs.length) }, { label: 'Place des images', value: `${(imgs.reduce((a, i) => a + i.size, 0) / 1e9).toFixed(1)} Go` }],
+      refreshMs: live.length ? 1200 : undefined,
       sections: [
+        ...(jobs.length ? [{ kind: 'cards' as const, title: 'Installations', items: jobs.slice(0, 8).map((j) => ({
+          title: j.name ?? j.image, sub: `${j.kind === 'récupérer' ? 'Récupérer' : j.kind === 'mettre à jour' ? 'Mettre à jour' : 'Installer'} · ${j.image}`, progress: j.pct / 100,
+          badge: j.phase === 'télécharger' ? 'téléchargement' : j.phase === 'monter' ? 'montage' : j.phase === 'démarrer' ? 'démarrage' : j.phase === 'fini' ? 'terminé' : j.phase === 'échec' ? 'échec' : 'en attente',
+          tone: j.phase === 'échec' ? 'mauvais' as const : j.phase === 'fini' ? 'bon' as const : 'attention' as const,
+          meta: `${j.note} · ${j.pct} %${j.ended ? ` · ${new Date(j.ended).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}`,
+          actions: j.container && j.phase === 'fini' ? [{ action: 'journaux', label: 'Journal', input: { conteneur: j.container } }] : [],
+        })) }] : []),
         { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 nginx ».', items: cts.map((c) => ({
           title: c.spec.name, sub: `${c.spec.image}${c.state.ip ? ` · ${c.state.ip}` : ''}${c.spec.ports.length ? ` · ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}`,
           badge: c.state.status, tone: c.state.status === 'en marche' ? 'bon' as const : c.state.status === 'redémarre' ? 'attention' as const : 'neutre' as const,

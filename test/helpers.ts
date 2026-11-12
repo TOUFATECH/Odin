@@ -48,5 +48,9 @@ export function fakeEngine(list: Array<{ Names: string; Image: string; State: st
     rmi: async (n: string) => { log(`odin rmi ${n}`); return { id: 'b'.repeat(64), names: [n], digest: '', config: {}, configDigest: '', layers: [], size: 0, pulled: '' }; },
     execArgs: async (n: string, argv: string[]) => { log(`odin exec ${n} ${argv.join(' ')}`); return { cmd: 'echo', args: argv, env: {} }; },
     inspect: (n: string) => ({ name: n }),
+    jobs: () => [],
+    runJob: (o: { image: string; name?: string }) => { log(`odin run ${o.name ?? ''} ${o.image}`.replace(/\s+/g, ' ')); return { id: 'j1', kind: 'installer', image: o.image, phase: 'attente', pct: 0, done: 0, total: 0, note: '', started: '' }; },
+    pullJob: (n: string) => { log(`odin pull ${n}`); return { id: 'j2', kind: 'récupérer', image: n, phase: 'attente', pct: 0, done: 0, total: 0, note: '', started: '' }; },
+    startJob: () => ({ id: 'j3', kind: 'mettre à jour', image: '', phase: 'attente', pct: 0, done: 0, total: 0, note: '', started: '' }),
   } as unknown as import('../src/valhalla/modules/naglfar.ts').EngineLike;
 }
