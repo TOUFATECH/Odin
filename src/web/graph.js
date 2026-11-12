@@ -3,7 +3,8 @@
 // rouge (alerte, problème, avec le nombre), orange (à surveiller), bleue (mise à jour / nouveauté) ;
 // un point gris est hors ligne. Les points gardent leur place quand les données se rafraîchissent.
 //   const g = OdinGraph.mount(boîte, { nodes, edges, onOpen, label })   puis   g.update({ nodes, edges })
-//   node : { id, label, sub?, color?, hub?, size?, off?, alert?: { n, level: 'grave'|'attention' }, update?: n, title? }
+//   node : { id, label, sub?, color?, hub?, size?, off?, alert?: { n, level: 'grave'|'attention' }, update?: n, title?, selected? }
+//   edge : [a, b]  ou  { a, b, w?: épaisseur 0-6, arrow?: 'to'|'both', title?, color? } ; opts.onEdge(a, b) au clic sur un lien
 (() => {
   'use strict';
   if (window.OdinGraph) return;
@@ -28,20 +29,22 @@
     const cv = el('canvas', { role: 'img', 'aria-label': opts.label || 'Graphe' });
     const q = el('input', { type: 'search', placeholder: opts.search || 'Chercher…', 'aria-label': opts.search || 'Chercher dans le graphe' });
     const count = el('span', { class: 'sub' });
-    const leg = el('div', { class: 'og-leg', 'aria-hidden': 'true' }, el('span', {}, el('i', { style: `background:${RED}` }), 'alerte / problème'), el('span', {}, el('i', { style: `background:${ORANGE}` }), 'à surveiller'), el('span', {}, el('i', { style: `background:${BLUE}` }), 'mise à jour'), el('span', {}, el('i', { style: 'background:#7d8791' }), 'hors ligne'));
+    const legend = opts.legend || [[RED, 'alerte / problème'], [ORANGE, 'à surveiller'], [BLUE, 'mise à jour'], ['#7d8791', 'hors ligne']];
+    const leg = el('div', { class: 'og-leg', 'aria-hidden': 'true' }, ...legend.map(([c, l]) => el('span', {}, el('i', { style: `background:${c}` }), l)));
     const zb = (t, l, f) => el('button', { type: 'button', 'aria-label': l, onclick: f }, t);
     const box = el('div', { class: 'og' }, cv, el('div', { class: 'og-bar' }, q, count), leg, el('div', { class: 'og-z' }, zb('+', 'Zoomer', () => zoom(1.25)), zb('−', 'Dézoomer', () => zoom(0.8)), zb('⤢', 'Tout voir', () => fit())));
     const alt = el('details', { class: 'og-alt' }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}));
     host.replaceChildren(box, alt);
     const ctx = cv.getContext('2d');
-    let nodes = [], edges = [], byId = new Map(), view = { x: 0, y: 0, k: 1 }, hover = null, drag = null, pan = null, heat = 1, raf = 0, fitted = false, query = '';
+    let hoverEdge = null; let nodes = [], edges = [], byId = new Map(), view = { x: 0, y: 0, k: 1 }, hover = null, drag = null, pan = null, heat = 1, raf = 0, fitted = false, query = '';
     const pos = new Map(); // id → {x, y} gardé entre deux mises à jour
 
     function setData(d) {
       const old = byId;
       nodes = d.nodes.map((n) => { const o = old.get(n.id) || pos.get(n.id); const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 200; return { ...n, x: o ? o.x : Math.cos(a) * r, y: o ? o.y : Math.sin(a) * r, vx: 0, vy: 0, fixed: o?.fixed || false }; });
       byId = new Map(nodes.map((n) => [n.id, n]));
-      edges = d.edges.filter(([a, b]) => byId.has(a) && byId.has(b) && a !== b).map(([a, b]) => [byId.get(a), byId.get(b)]);
+      edges = d.edges.map((e) => (Array.isArray(e) ? { a: e[0], b: e[1] } : e)).filter((e) => byId.has(e.a) && byId.has(e.b) && e.a !== e.b).map((e) => Object.assign([byId.get(e.a), byId.get(e.b)], { w: e.w || 0, arrow: e.arrow || '', title: e.title || '', color: e.color || '' }));
+      opts.onEdge = d.onEdge ?? opts.onEdge; opts.onOpen = d.onOpen ?? opts.onOpen; opts.counter = d.counter ?? opts.counter;
       for (const n of nodes) n.deg = 0;
       for (const [a, b] of edges) { a.deg++; b.deg++; }
       const fresh = nodes.some((n) => !old.has(n.id) && !pos.has(n.id));
@@ -90,6 +93,12 @@
     // ---------- Dessin ----------
     function size() { const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1); if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); } return { w: r.width, h: r.height, dpr }; }
     const neighbours = (n) => { const s = new Set([n]); for (const [a, b] of edges) { if (a === n) s.add(b); if (b === n) s.add(a); } return s; };
+    /** Pointe de flèche au bord du point d'arrivée (le sens de la communication). */
+    function arrowHead(a, b, color, w = 0) {
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, r = radius(b) + 3, L = (9 + w * 1.5) / Math.sqrt(view.k), W = L * 0.55;
+      const tx = b.x - ux * r, ty = b.y - uy * r;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx - ux * L - uy * W, ty - uy * L + ux * W); ctx.lineTo(tx - ux * L + uy * W, ty - uy * L - ux * W); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+    }
     function dot(x, y, r, c, ring) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill(); if (ring) { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = ring; ctx.stroke(); } }
     function draw() {
       const { w, h, dpr } = size(); if (!w) return;
@@ -99,16 +108,20 @@
       const focus = hover ? neighbours(hover) : null;
       const match = (n) => !query || `${n.label} ${n.sub || ''} ${n.search || ''}`.toLowerCase().includes(query);
       ctx.lineWidth = 1 / view.k;
-      for (const [a, b] of edges) {
-        const on = focus ? focus.has(a) && focus.has(b) : true;
-        ctx.globalAlpha = on ? (focus ? 0.8 : 0.28) : 0.05; ctx.strokeStyle = focus && on ? ink : line;
+      for (const e of edges) {
+        const [a, b] = e, on = focus ? focus.has(a) && focus.has(b) : true, lit = e === hoverEdge;
+        ctx.globalAlpha = lit ? 1 : on ? (focus ? 0.85 : e.arrow ? 0.55 : 0.28) : 0.05; ctx.strokeStyle = lit ? ink : e.color || (focus && on ? ink : line);
+        ctx.lineWidth = (1 + (e.w || 0) + (lit ? 1.5 : 0)) / view.k;
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        if (e.arrow) { arrowHead(a, b, ctx.strokeStyle, e.w); if (e.arrow === 'both') arrowHead(b, a, ctx.strokeStyle, e.w); }
       }
+      ctx.lineWidth = 1 / view.k;
       ctx.globalAlpha = 1;
       for (const n of nodes) {
         const r = radius(n), dim = (focus && !focus.has(n)) || !match(n);
         ctx.globalAlpha = dim ? 0.18 : 1;
         if (query && match(n)) dot(n.x, n.y, r + 6, 'transparent', GREEN);
+        if (n.selected) { dot(n.x, n.y, r + 8, 'transparent', BLUE); dot(n.x, n.y, r + 11, 'transparent', BLUE); }
         dot(n.x, n.y, r, n.off ? '#7d8791' : n.color || (n.hub ? GREEN : '#E8EAEC'), n === hover ? ink : null);
         // Pastilles : alerte (rouge / orange, avec le nombre), mise à jour (bleue), hors ligne (point gris)
         let bx = n.x + r * 0.72, by = n.y - r * 0.72;
@@ -127,6 +140,7 @@
 
     // ---------- Gestes ----------
     const at = (e) => { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left - r.width / 2 - view.x) / view.k, y: (e.clientY - r.top - r.height / 2 - view.y) / view.k }; };
+    const pickEdge = (p) => { let best = null, bd = Infinity; for (const e of edges) { const [a, b] = e, dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L)), d = Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)); if (d < (5 + (e.w || 0)) / view.k && d < bd) { bd = d; best = e; } } return best; };
     const pick = (p) => { let best = null, bd = Infinity; for (const n of nodes) { const d = Math.hypot(n.x - p.x, n.y - p.y); if (d < radius(n) + 6 / view.k && d < bd) { bd = d; best = n; } } return best; };
     const touches = new Map(); let pinch = null;
     cv.addEventListener('pointerdown', (e) => {
@@ -141,12 +155,13 @@
       if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; view.k = Math.min(4, Math.max(0.2, pinch.k * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d)); draw(); return; }
       if (drag) { const p = at(e); if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 4) drag.moved = true; drag.n.x = p.x; drag.n.y = p.y; drag.n.fixed = true; pos.set(drag.n.id, { x: p.x, y: p.y, fixed: true }); heat = Math.max(heat, 0.25); kick(); return; }
       if (pan) { if (Math.hypot(e.clientX - pan.sx, e.clientY - pan.sy) > 4) pan.moved = true; view.x = pan.vx + e.clientX - pan.sx; view.y = pan.vy + e.clientY - pan.sy; draw(); return; }
-      const n = pick(at(e)); if (n !== hover) { hover = n; cv.classList.toggle('on', !!n); cv.title = n ? (n.title || n.label) : ''; draw(); }
+      const p = at(e), n = pick(p), ed = n || !opts.onEdge ? null : pickEdge(p);
+      if (n !== hover || ed !== hoverEdge) { hover = n; hoverEdge = ed; cv.classList.toggle('on', !!(n || ed)); cv.title = n ? (n.title || n.label) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; draw(); }
     });
     const up = (e) => {
       touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
       if (drag && !drag.moved) { drag.n.fixed = false; opts.onOpen?.(drag.n.id); }
-      if (pan && !pan.moved) { hover = null; draw(); }
+      if (pan && !pan.moved) { const ed = opts.onEdge && pickEdge(at(e)); if (ed) opts.onEdge(ed[0].id, ed[1].id); else { hover = null; draw(); } }
       drag = pan = null; cv.classList.remove('drag');
     };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);

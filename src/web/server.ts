@@ -46,7 +46,7 @@ import { signalLinkState } from '../bifrost/channels/signal.ts';
 import { attachmentHint } from '../files/attach.ts';
 import { brainGet, brainPost } from './brain-api.ts';
 import { evolutionTree } from './evolutions.ts';
-import { capture as ranCapture, history as ranHistory, machineFor as ranMachine, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
+import { NETWORK as RAN_NETWORK, capture as ranCapture, flows as ranFlows, history as ranHistory, isPaused as ranIsPaused, packet as ranPacket, setOwnPort as ranOwnPort, sourcesFor as ranSources, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
@@ -575,24 +575,24 @@ export class WebChannel implements Channel {
       req.on('close', () => { this.clients.delete(res); this.streamSession.delete(res); });
       return;
     }
-    // Rán : paquets réseau d'une machine. Historique (JSON) et direct (flux d'évènements tant que la page écoute).
+    // Rán : paquets réseau (une machine ou tout le réseau) — historique, qui parle à qui, détail d'un paquet, direct.
     if (req.method === 'GET' && url.pathname.startsWith('/api/ran/')) {
-      const ip = String(url.searchParams.get('ip') ?? '').trim();
-      if (!isIP(ip)) return json(res, 400, { error: 'adresse IP invalide' });
-      const home = this.odin.paths.home; ranPump(home);
-      const dev = this.odin.inventory.list({ status: 'all' }).find((d) => d.ip === ip);
-      if (url.pathname === '/api/ran/history') {
-        const h = ranHistory(home, ip, { limit: Number(url.searchParams.get('n')) || 300, q: url.searchParams.get('q') ?? '' });
-        const m = ranMachine(home, ip, dev?.hostname);
-        return json(res, 200, { ok: true, ...h, state: ranState(ip), access: m ? { machine: m.label } : null, recording: ((valhallaOf()?.ctx('ran').settings.record as string[] | undefined) ?? []).includes(ip) });
-      }
+      const raw = String(url.searchParams.get('ip') ?? '').trim(), scope = raw ? raw : RAN_NETWORK;
+      if (raw && !isIP(raw)) return json(res, 400, { error: 'adresse IP invalide' });
+      const home = this.odin.paths.home; ranPump(home); ranOwnPort(this.port);
+      const ip = raw || undefined, q = url.searchParams.get('q') ?? '', since = Number(url.searchParams.get('since')) || undefined;
+      const peer = String(url.searchParams.get('peer') ?? '').trim(); if (peer && !isIP(peer)) return json(res, 400, { error: 'adresse invalide' });
+      const recorded = ((valhallaOf()?.ctx('ran').settings.record as string[] | undefined) ?? []);
+      if (url.pathname === '/api/ran/history') return json(res, 200, { ok: true, ...ranHistory(home, ip, { limit: Number(url.searchParams.get('n')) || 400, q, since, peer: peer || undefined }), state: ranState(scope), recording: recorded.includes(scope), sources: ranSources(home, scope, this.odin.inventory.list({ status: 'all' }).find((d) => d.ip === raw)?.hostname).map((x) => ({ label: x.label, machine: Boolean(x.machine) })) });
+      if (url.pathname === '/api/ran/flows') return json(res, 200, { ok: true, ...ranFlows(home, ip, { since: since ?? Date.now() - 24 * 3600e3, q }), paused: ranIsPaused() });
+      if (url.pathname === '/api/ran/packet') { const p = ranPacket(home, Number(url.searchParams.get('id'))); return p ? json(res, 200, { ok: true, packet: p }) : json(res, 404, { error: 'paquet introuvable' }); }
       if (url.pathname === '/api/ran/live') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-content-type-options': 'nosniff' });
         const send = (type: string, data: unknown) => { if (!res.writableEnded) res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); };
-        let c: { stop: () => void; where: string; machine?: string; error?: string };
-        try { c = ranCapture(home, ip, { hostname: dev?.hostname, onPackets: (p) => send('packets', p.slice(-300)), onStatus: (t) => send('status', { text: t }) }); }
+        let c: ReturnType<typeof ranCapture>;
+        try { c = ranCapture(home, scope, { hostname: this.odin.inventory.list({ status: 'all' }).find((d) => d.ip === raw)?.hostname, onPackets: (p) => send('packets', p.slice(-400)), onStatus: (t) => send('status', { text: t }) }); }
         catch (e) { send('status', { text: (e as Error).message, end: true }); return void res.end(); }
-        send('start', { where: c.where, machine: c.machine ?? null, error: c.error ?? null });
+        send('start', { sources: c.sources, paused: c.paused, error: c.error ?? null });
         if (c.error) { c.stop(); return void res.end(); }
         const ping = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, 20_000);
         req.on('close', () => { clearInterval(ping); c.stop(); });

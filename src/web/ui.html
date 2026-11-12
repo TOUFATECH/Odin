@@ -2151,6 +2151,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     msgs.append(card); msgs.scrollTop = msgs.scrollHeight;
     setTimeout(() => card.replaceChildren(el('div', { class: 'who' }, 'Odin'), el('div', { class: 'sub' }, 'Mot de passe effacé de l\'écran. Il reste chiffré dans le coffre (Réglages → Droits et machines).')), 600_000);
   }
+  // Les appareils connus (noms des machines sur la carte des paquets de Rán)
+  window.OdinDevices = () => state?.devices || [];
   window.OdinChat = { addMsg, addActivity, addSecret }; // aperçu et tests de l'affichage
   let loadingHistory = false;
   async function loadHistory() {

@@ -96,7 +96,8 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     } finally { ha.close(); }
   },
   'appareils>midgard': async (w) => {
-    w.v.ctx('appareils').saveSettings({ devices: { l1: { id: 'l1', name: 'Lampe salon', kind: 'light', room: 'Salon', network: 'MQTT', state: 'ON', stateTopic: 'a/b', commandTopic: 'a/c' } } });
+    // Port libre pris au hasard : un autre fichier de tests peut avoir son relais en marche au même moment
+    w.v.ctx('appareils').saveSettings({ port: 0, devices: { l1: { id: 'l1', name: 'Lampe salon', kind: 'light', room: 'Salon', network: 'MQTT', state: 'ON', stateTopic: 'a/b', commandTopic: 'a/c' } } });
     await w.v.module('appareils')!.start?.(w.v.ctx('appareils'));
     try { assert.match((await w.v.act('midgard', 'maison')).text, /Salon : .*Lampe salon ON/, 'l\'appareil et son état sont dans le tableau de bord de la maison'); }
     finally { w.v.module('appareils')!.stop?.(); }

@@ -155,3 +155,13 @@ test('Huginn : « vérifie » et « vérifier » ont la même racine, « fichier
   for (const [a, b] of [['vérifie', 'vérifier'], ['vérifiez', 'vérifier'], ['étudie', 'étudier'], ['copie', 'copier'], ['modifie', 'modifier'], ['redémarre', 'redémarrer'], ['bannies', 'bannir'], ['sauvegardes', 'sauvegarder']]) assert.equal(stem(a), stem(b), `${a} / ${b}`);
   assert.notEqual(stem('fichier'), stem('fiche')); assert.notEqual(stem('dossier'), stem('dos')); assert.equal(stem('fichiers'), stem('fichier'));
 });
+
+test('Rán sans IA : lire les paquets, pause, reprise', async () => {
+  const w = world();
+  try {
+    for (const [t, want] of [['lis les paquets', 'ran.lire'], ['vas-y lis les paquets', 'ran.lire'], ['mets les paquets en pause', 'ran.pause'], ['arrête la capture des paquets', 'ran.pause'], ['reprends la lecture des paquets', 'ran.'], ['qui parle à qui sur le réseau', 'ran.expliquer']] as const) {
+      const r = await w.ask(t);
+      assert.ok(r.done, `${t} : ${r.why}`); assert.ok((r.calls.at(-1) ?? '').startsWith(want) && (want !== 'ran.' || /^ran\.(lire|reprendre)/.test(r.calls.at(-1) ?? '')), `${t} → ${r.calls.at(-1)}`);
+    }
+  } finally { w.end(); }
+});

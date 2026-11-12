@@ -155,9 +155,14 @@ Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe : on 
 
 #### Paquets réseau (Rán)
 
-Comme Wireshark, sans rien installer à part `tcpdump` : touche une machine sur la carte (ou ouvre l'appli **Rán** et tape son adresse IP). Sous sa fiche : **En direct** montre les paquets qui passent (heure, sens, protocole, source, destination, taille, service), et l'**historique** en dessous garde 7 jours (20 000 paquets par machine au plus), avec un filtre et ses correspondants les plus fréquents. **Enregistrer en continu** remplit l'historique même page fermée, et reprend au redémarrage d'Odin.
+Comme Wireshark : Rán **lit les paquets en entier et les décode couche par couche** (modèle OSI : trame, liaison Ethernet, réseau IPv4/IPv6, transport TCP/UDP, chiffrement TLS, application), avec tous les champs et le contenu brut en hexadécimal. Il reconnaît DNS (questions et réponses), HTTP (requêtes, en-têtes, début du contenu), HTTPS (nom du site demandé), QUIC, DHCP, ARP, ICMP, SSH, mDNS, UPnP, NTP, WireGuard…, et apprend le nom des sites d'Internet (réponses DNS, noms TLS) pour les afficher à la place des adresses.
 
-Si Odin a accès à la machine (Réglages → Droits et machines), la capture se fait sur la machine elle-même, par SSH : **tout son trafic** (la connexion de la capture est écartée). Sinon elle se fait depuis la machine d'Odin : sur un réseau avec switch ou box, seuls les échanges avec Odin et ce que la machine diffuse à tout le réseau sont visibles (sauf si Odin est le routeur ou reçoit une copie du trafic). Rán ne lit que les en-têtes, jamais le contenu des paquets.
+- **Lire les paquets** : tout le réseau (page de l'appli Rán) ou une machine (sous sa fiche, sur la carte de la Maison). **Pause** : plus aucun paquet n'est lu. Aussi en le disant : « lis les paquets », « pause ».
+- **Qui parle à qui** : une carte interactive (machines du réseau, sites d'Internet en bleu, diffusions en vert) reliée par des flèches dans le sens de la communication, épaisses selon le volume. Touche une machine : ses communications (avec qui, dans quel sens, quelles applis, quels sites) ; touche une flèche : les paquets de ce lien.
+- **Chaque paquet** : ce qui se passe en une phrase, chaque couche avec ses champs, le contenu brut. **🦉 Odin, explique** : Odin explique le paquet ou toute la scène dans sa bulle.
+- Historique 7 jours (250 000 paquets au plus, 4 ko de contenu par paquet), sur la machine d'Odin seulement ; filtre par appli, site, protocole, port ou adresse.
+
+Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accès** (Réglages → Droits et machines) — tout son trafic, par SSH. Un hôte Proxmox voit ainsi tout ce qu'échangent ses machines virtuelles, un routeur Linux tout ce qui entre et sort du réseau. Sur un réseau avec switch ou box, une machine sans point de capture n'est vue que dans ses échanges avec un point de capture et dans ce qu'elle diffuse. Le contenu chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark sans les clés ; ce qui passe en clair (HTTP, DNS…) se lit en entier, mots de passe compris : l'historique reste sur ta machine et s'efface depuis Rán.
 
 #### Cerveau direct et Quotidien
 
