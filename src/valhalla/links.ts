@@ -39,6 +39,7 @@ export const LINKS: Link[] = [
   { from: 'vidarr', to: 'ran', when: 'tu cliques un poste dans le graphe du réseau', does: '« Voir ses paquets » lit ses paquets dans Rán ; son débit s\'affiche dans sa fiche', auto: true, kind: 'donnée' },
   { from: 'vidarr', to: 'vordr', when: 'Vörðr démarre ou tu demandes les sondes automatiques', does: 'le DNS d\'Odin est surveillé : panne signalée tout de suite', auto: true, kind: 'donnée' },
   { from: 'gjoll', to: 'vordr', when: 'Vörðr démarre ou tu demandes les sondes automatiques', does: 'le tunnel VPN est surveillé : s\'il s\'éteint, tu es prévenu', auto: true, kind: 'donnée' },
+  { from: 'freyja', to: 'vordr', when: 'Venus est relié et Vörðr démarre (ou tu demandes les sondes automatiques)', does: 'Venus est surveillé (/api/health) : panne signalée, temps de réponse et disponibilité sur un an', auto: true, kind: 'donnée' },
   { from: 'idunn', to: 'vordr', when: 'un site est suivi par Iðunn', does: 'il devient une sonde de Vörðr (graphe, disponibilité sur un an, page publique d\'état)', auto: true, kind: 'donnée' },
   { from: 'vordr', to: 'forseti', when: 'une sonde passe en panne ou revient', does: 'alerte avec la cause probable (box, Internet, autres pannes) expliquée par Odin ; certificat qui expire bientôt', auto: true, kind: 'donnée' },
   { from: 'vidarr', to: 'askr', when: 'un appareil reçoit une adresse du DHCP d\'Odin', does: 'il a sa fiche dans l\'inventaire (MAC, fabricant, adresse) ; son adresse y est tenue à jour', auto: true, kind: 'donnée' },

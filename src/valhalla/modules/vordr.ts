@@ -317,6 +317,8 @@ async function autoMonitors(ctx: ModCtx): Promise<Array<Partial<Monitor> & { nam
   out.push({ name: 'Internet', kind: 'http', target: 'https://www.google.com/generate_204', status: '204', group: 'Internet', source: 'Odin' });
   if (ctx.modules().some((m) => m.id === 'vidarr')) out.push({ name: 'DNS d\'Odin', kind: 'odin', target: 'vidarr', group: 'Odin', source: 'Víðarr' });
   if (ctx.modules().some((m) => m.id === 'gjoll')) out.push({ name: 'VPN d\'Odin', kind: 'odin', target: 'gjoll', group: 'Odin', source: 'Gjöll' });
+  const fv = await ctx.call('freyja', 'adresse', {}, 'surveiller Venus').catch(() => undefined), vurl = (fv?.data as { url?: string } | undefined)?.url;
+  if (vurl) out.push({ name: 'Venus', kind: 'http', target: `${vurl.replace(/\/+$/, '')}/api/health`, group: 'Maison', source: 'Freyja' });
   const r = await ctx.call('idunn', 'sites', {}, 'surveiller les sites suivis').catch(() => undefined);
   for (const x of ((r?.data as Array<{ name: string; url: string }> | undefined) ?? [])) out.push({ name: `Site ${x.name}`, kind: 'http', target: x.url, group: 'Sites', source: 'Iðunn', public: true });
   return out;
@@ -395,7 +397,7 @@ export const vordr: Module = {
       const m = byName(ctx, i.nom), u = [1, 30, 365].map((d) => uptime(ctx.dir, m.id, d));
       return { text: `${m.name} : ${u.map((x, k) => `${['24 h', '30 j', '1 an'][k]} ${x.pct ?? '—'} %`).join(' · ')}${u[0].avgMs !== undefined ? ` · ${u[0].avgMs} ms` : ''}\n${u[2].events.slice(0, 15).map((e) => `- ${new Date(e.t).toLocaleString('fr-FR')} ${e.status} : ${e.msg}`).join('\n') || 'Aucune panne.'}` };
     } },
-    { id: 'liens', label: 'Sondes automatiques', what: 'Ajoute ce que les autres applis apportent : box, Internet, DNS et VPN d\'Odin, sites d\'Iðunn', run: async (ctx) => {
+    { id: 'liens', label: 'Sondes automatiques', what: 'Ajoute ce que les autres applis apportent : box, Internet, DNS et VPN d\'Odin, sites d\'Iðunn, Venus', run: async (ctx) => {
       const have = list(ctx), add = (await autoMonitors(ctx)).filter((a) => !have.some((m) => m.name === a.name || (m.kind === a.kind && m.target === a.target)));
       const made = add.map((a) => newMonitor(a)); save(ctx, [...have, ...made]);
       await Promise.all(made.map((m) => runOne(ctx, m)));

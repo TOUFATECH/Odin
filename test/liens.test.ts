@@ -10,6 +10,7 @@ import test from 'node:test';
 import { LINKS, USAGES, wireReflexes } from '../src/valhalla/links.ts';
 import { parseTasmota, tasmotaDevices } from '../src/valhalla/modules/appareils.ts';
 import { LokiEngine } from '../src/valhalla/modules/loki.ts';
+import { santeText } from '../src/valhalla/modules/venus.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { gunzipSync } from 'node:zlib';
@@ -263,6 +264,11 @@ CHECKS['gjoll>vordr'] = async (w) => {
   await w.v.act('vordr', 'liens');
   assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'gjoll' && m.source === 'Gjöll'));
   assert.match((await w.v.act('vordr', 'verifier', { nom: 'VPN d\'Odin' })).text, /❌ VPN d'Odin : le tunnel VPN est éteint/);
+};
+CHECKS['freyja>vordr'] = async (w) => {
+  await w.v.act('vordr', 'liens');
+  assert.ok(sondes(w).some((m) => m.name === 'Venus' && m.kind === 'http' && m.target === 'http://venus.test:8096/api/health' && m.source === 'Freyja'), JSON.stringify(sondes(w)));
+  assert.match((await w.v.act('vordr', 'liens')).text, /Rien de nouveau/, 'pas de doublon');
 };
 CHECKS['idunn>vordr'] = async (w) => {
   w.v.ctx('idunn').saveSettings({ sites: [{ name: 'boutique', url: 'https://boutique.exemple', pages: ['/'] }] });
@@ -685,3 +691,9 @@ for (const l of LINKS) {
     try { await CHECKS[`${l.from}>${l.to}`](w); } finally { w.end(); }
   });
 }
+
+test('Freyja : santé de Venus (en marche, lectures, disque presque plein)', () => {
+  const t = santeText({ ok: true, name: 'Venus', version: '3.2', uptime: 3 * 86400, scanning: true, playing: 2, disk: { free: 40e9, total: 1e12 } });
+  assert.match(t, /Venus 3\.2 en marche depuis 3 j/); assert.match(t, /2 lecture/); assert.match(t, /analyse/); assert.match(t, /40\.0 Go libres sur 1000 Go ⚠️ presque plein/);
+  assert.doesNotMatch(santeText({ ok: true, uptime: 7200, disk: { free: 5e11, total: 1e12 } }), /presque plein/);
+});

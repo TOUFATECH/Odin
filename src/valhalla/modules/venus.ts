@@ -18,6 +18,13 @@ export function startAt(hhmm: string, now = new Date()): number {
   if (d.getTime() < now.getTime() - 60_000) d.setDate(d.getDate() + 1);
   return d.getTime();
 }
+export interface VHealth { ok?: boolean; name?: string; version?: string; uptime?: number; scanning?: boolean; playing?: number; disk?: { free: number; total: number } | null }
+/** /api/health de Venus → une phrase : en marche depuis, lectures, analyse, disque (alerte sous 10 % libres). */
+export function santeText(h: VHealth): string {
+  const go = (b: number) => `${(b / 1e9).toFixed(b > 1e11 ? 0 : 1)} Go`, j = h.uptime ? Math.floor(h.uptime / 86400) : 0;
+  const disk = h.disk ? ` · disque : ${go(h.disk.free)} libres sur ${go(h.disk.total)}${h.disk.free / h.disk.total < 0.1 ? ' ⚠️ presque plein' : ''}` : '';
+  return `✅ ${h.name ?? 'Venus'}${h.version ? ` ${h.version}` : ''} en marche${h.uptime ? ` depuis ${j ? `${j} j` : `${Math.round(h.uptime / 3600)} h`}` : ''} · ${h.playing ?? 0} lecture(s)${h.scanning ? ' · analyse de la bibliothèque en cours' : ''}${disk}`;
+}
 const s = (v: unknown) => String(v ?? '');
 const hm = (t: number) => new Date(t).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -34,6 +41,12 @@ export function venus(url: () => string): Module {
     words: ['venus', 'vénus', 'freyja', 'film', 'films', 'serie', 'série', 'series', 'chaine', 'chaîne', 'tele', 'télé', 'television', 'programme tv', 'ce soir a la tele', 'enregistre', 'enregistrement', 'anime', 'regarder'],
     actions: [
       { id: 'etat', label: 'État', what: 'Serveur joignable, lecture en cours', read: true, run: async () => { const st = await venusApi<{ name?: string; version?: string; authenticated?: boolean; profile?: { name?: string }; elsewhere?: { title: string; device: string } | null }>(conf(), 'GET', '/api/status'); if (st.authenticated === false) throw new Error('Venus refuse la clé API : crées-en une dans Venus → Serveur → Clés API, puis range-la dans le coffre (VENUS_API_KEY)'); return { text: `${st.name ?? 'Venus'} ${st.version ?? ''} · profil ${st.profile?.name ?? '—'}${st.elsewhere ? ` · en lecture : ${st.elsewhere.title} sur ${st.elsewhere.device}` : ''}` }; } },
+      { id: 'adresse', label: 'Adresse de Venus', what: 'L\'adresse du serveur Venus relié (pour la surveillance de Vörðr)', read: true, quiet: true, run: async () => ({ text: url() ? `Venus : ${url()}` : 'Venus n\'est pas relié.', data: { url: url() } }) },
+      { id: 'sante', label: 'Santé de Venus', what: 'En marche depuis, lectures en cours, analyse de la bibliothèque, place libre', read: true, words: ['sante de venus', 'santé de venus', 'venus va bien'], run: async () => {
+        const h = await venusApi<VHealth>(conf(), 'GET', '/api/health');
+        if (!h.ok) throw new Error('Venus ne répond pas correctement');
+        return { text: santeText(h), data: h };
+      } },
       { id: 'regarder', label: 'Regarder', what: 'Film, série ou chaîne (nom ou numéro) sur un écran', params: [{ key: 'quoi', label: 'Quoi', kind: 'text', required: true }, { key: 'ou', label: 'Écran (facultatif)', kind: 'text', default: '' }], words: ['mets', 'regarder', 'lance'], run: async (_c, i) => ({ text: await tool({ action: 'regarder', quoi: s(i.quoi), ou: s(i.ou) }) }) },
       { id: 'programme', label: 'Programme', what: 'Ce qui passe maintenant (filtre facultatif)', read: true, params: [{ key: 'quoi', label: 'Chaîne ou émission', kind: 'text', default: '' }], words: ['programme', 'qu est ce qui passe', 'ce soir a la tele', 'programme tv'], run: async (_c, i) => ({ text: await tool({ action: 'programme', quoi: s(i.quoi) }) }) },
       { id: 'enregistrer', undo: (i) => ({ action: 'annuler_enregistrement', input: { titre: i.quoi }, label: 'enregistrement annulé' }), label: 'Enregistrer', what: 'Une émission du guide (24 h)', params: [{ key: 'quoi', label: 'Émission', kind: 'text', required: true }, { key: 'serie', label: 'Toutes les diffusions', kind: 'boolean', default: false }], words: ['enregistre'], run: async (_c, i) => ({ text: await tool({ action: 'enregistrer', quoi: s(i.quoi), serie: i.serie === true ? 'oui' : 'non' }) }) },
