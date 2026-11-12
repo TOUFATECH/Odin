@@ -55,14 +55,15 @@ export interface MenuIn {
   auto?: { id: string; token: string; host: string };
   netboot?: (codename: string) => { kernel: string; initrd: string } | undefined;
 }
-const q = (s: string) => s.replace(/[^\p{L}\p{N} ._()+-]/gu, ' ').trim();
+/** Texte du menu : les écrans de démarrage n'affichent que l'ASCII (accents retirés). Pur. */
+const q = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ._()+'-]/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** Le script iPXE d'une machine : menu, entrée par défaut, démarrage de chaque ISO. Pur. */
 export function menu(m: MenuIn): string {
   const L = ['#!ipxe', `# Odin · Þjálfi — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ''];
   L.push(`menu Odin - Deploiement reseau (${m.mac})`, 'item local Demarrer sur le disque de cette machine');
   if (m.entries.length) L.push('item --gap -- ISO d\'Odin (Eitri) :');
-  for (const e of m.entries) L.push(`item e-${e.id} ${q(e.name)} - ${q(e.recipe.label)}${m.auto?.id === e.id ? ' [installation automatique]' : ''}`);
+  for (const e of m.entries) L.push(`item e-${e.id} ${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}${m.auto?.id === e.id ? ' [cette machine]' : ''}`);
   L.push('item --gap --', 'item shell Ligne de commande iPXE');
   L.push(`choose --default ${m.def === 'local' ? 'local' : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
   L.push(':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1', '');
