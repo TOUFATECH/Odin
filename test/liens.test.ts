@@ -220,6 +220,54 @@ CHECKS['vidarr>forseti'] = async (w) => {
     assert.ok(w.v.alerts({ module: 'vidarr' }).some((a) => /n'arrive plus à joindre Internet/.test(a.title) && a.level === 'haute'), 'panne d\'Internet signalée');
   } finally { await w.v.act('vidarr', 'arreter'); }
 };
+CHECKS['vidarr>saga'] = async (w) => {
+  // Le journal d'hier (écrit à la main) : au passage de la surveillance, son résumé part dans le Cerveau.
+  const d = new Date(Date.now() - 86400_000), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const dir = join(w.v.ctx('vidarr').dir, 'journal'); mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${day}.jsonl`), [{ t: d.getTime(), client: '192.168.1.30', clientName: 'Tablette', name: 'pub.exemple', type: 'A', status: 'bloqué', list: 'Pubs', ms: 1, rcode: 'NOERROR' }, { t: d.getTime() + 1, client: '192.168.1.30', name: 'exemple.fr', type: 'A', status: 'ok', ms: 3, rcode: 'NOERROR' }].map((x) => JSON.stringify(x)).join('\n') + '\n');
+  await w.v.module('vidarr')!.watch!.run(w.v.ctx('vidarr'));
+  assert.ok(await until(() => did(w, 'saga', 'noter')), 'note du jour dans Saga');
+  assert.ok(existsSync(join(w.v.ctx('vidarr').dir, 'historique', day.slice(0, 4), day.slice(5, 7), `${day.slice(8)}.json`)), 'résumé du jour gardé dans l\'historique');
+  const h = await w.v.act('vidarr', 'historique', { periode: 'jour', date: day });
+  assert.match(h.text, /2 requêtes, 1 bloquées[\s\S]*Tablette \(192\.168\.1\.30\)/);
+};
+CHECKS['vidarr>ran'] = async (w) => {
+  w.v.ctx('vidarr').saveSettings({ leases: [{ mac: '02:aa:bb:cc:dd:01', ip: '192.168.1.40', name: 'PC', expires: Date.now() + 3600_000 }] });
+  const view = await w.v.module('vidarr')!.view(w.v.ctx('vidarr'), new URLSearchParams());
+  const g = view.sections.find((x) => x.kind === 'graph') as { details: Record<string, { actions?: Array<{ module?: string; action: string; input: Record<string, unknown> }> }> };
+  const a = g.details['p:192.168.1.40'].actions!.find((x) => x.module === 'ran');
+  assert.deepEqual([a?.action, a?.input], ['lire', { ip: '192.168.1.40' }], 'la fiche du poste ouvre ses paquets dans Rán');
+};
+const sondes = (w: World) => (w.v.ctx('vordr').settings.monitors as Array<{ name: string; kind: string; target: string; source?: string }> | undefined) ?? [];
+CHECKS['vidarr>vordr'] = async (w) => {
+  await w.v.act('vordr', 'liens');
+  assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'vidarr' && m.source === 'Víðarr'));
+  assert.match((await w.v.act('vordr', 'verifier', { nom: 'DNS d\'Odin' })).text, /❌ DNS d'Odin : le DNS d'Odin est arrêté/);
+  await dnsUp(w);
+  try { assert.match((await w.v.act('vordr', 'verifier', { nom: 'DNS d\'Odin' })).text, /✅ DNS d'Odin : DNS d'Odin en marche/); } finally { await w.v.act('vidarr', 'arreter'); }
+};
+CHECKS['gjoll>vordr'] = async (w) => {
+  await w.v.act('vordr', 'liens');
+  assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'gjoll' && m.source === 'Gjöll'));
+  assert.match((await w.v.act('vordr', 'verifier', { nom: 'VPN d\'Odin' })).text, /❌ VPN d'Odin : le tunnel VPN est éteint/);
+};
+CHECKS['idunn>vordr'] = async (w) => {
+  w.v.ctx('idunn').saveSettings({ sites: [{ name: 'boutique', url: 'https://boutique.exemple', pages: ['/'] }] });
+  await w.v.act('vordr', 'liens');
+  assert.ok(sondes(w).some((m) => m.name === 'Site boutique' && m.target === 'https://boutique.exemple' && m.source === 'Iðunn'), JSON.stringify(sondes(w)));
+  assert.match((await w.v.act('vordr', 'liens')).text, /Rien de nouveau/, 'pas de doublon');
+};
+CHECKS['vordr>forseti'] = async (w) => {
+  const net = await import('node:net');
+  const probe = net.createServer(); await new Promise<void>((ok) => probe.listen(0, '127.0.0.1', () => ok())); const port = (probe.address() as { port: number }).port; probe.close(); await wait(30);
+  await w.v.act('vordr', 'ajouter', { nom: 'NAS', genre: 'tcp', cible: `127.0.0.1:${port}`, essais: 1, secondes: 60 });
+  assert.ok(w.v.alerts({ module: 'vordr' }).some((a) => /❌ NAS est en panne/.test(a.title) && a.level === 'haute'), 'panne signalée');
+  const srv = net.createServer((c) => c.end()); await new Promise<void>((ok) => srv.listen(port, '127.0.0.1', () => ok()));
+  try {
+    await w.v.act('vordr', 'verifier', { nom: 'NAS' });
+    assert.ok(w.v.alerts({ module: 'vordr' }).some((a) => /✅ NAS répond de nouveau/.test(a.title)), 'retour signalé');
+  } finally { srv.close(); }
+};
 CHECKS['gjoll>forseti'] = async (w) => {
   await w.v.act('gjoll', 'ajouter', { nom: 'Invité', fin: '2020-01-01' }).catch(() => undefined);
   const peers = (w.v.ctx('gjoll').settings.peers as Array<{ name: string; expires?: string }> | undefined) ?? [];

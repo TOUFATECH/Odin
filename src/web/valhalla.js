@@ -53,10 +53,18 @@
 .va-steps{list-style:none;margin:0;padding:0;counter-reset:st}.va-steps li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}.va-steps li:last-child{border-bottom:0}
 .va-steps li::before{counter-increment:st;content:counter(st);display:grid;place-items:center;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);font-size:13px;font-weight:600}
 .va-steps li.ok::before{content:'✓';background:var(--good);border-color:var(--good);color:#fff}.va-steps small{display:block;color:var(--muted);white-space:pre-wrap}
+.va-gr{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}@media (max-width:1180px){.va-gr{grid-template-columns:minmax(0,1fr)}}.va-gr>div{min-width:0}
+.va-per{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.va-per .btn[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.va-fiche{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--panel2)}.va-fiche h3{margin:2px 0 4px;font-size:18px}.va-fiche .k{color:var(--muted);font-size:12.5px}
+.va-chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.va-chips span{font-size:12.5px;padding:3px 10px;border-radius:999px;background:var(--field)}.va-chips .bon{background:color-mix(in srgb,var(--good) 22%,transparent)}.va-chips .attention{background:color-mix(in srgb,var(--warn) 25%,transparent)}.va-chips .mauvais{background:color-mix(in srgb,var(--bad) 25%,transparent)}
+.va-kv{display:grid;grid-template-columns:118px minmax(0,1fr);gap:4px 10px;font-size:13.5px;margin:6px 0}.va-kv dt{color:var(--muted)}.va-kv dd{margin:0;overflow-wrap:anywhere}.va-kv dd small{display:block;color:var(--muted);font-size:12px}
+.va-fl{list-style:none;margin:6px 0 0;padding:0;font-size:13px}.va-fl li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}.va-fl li small{color:var(--muted);white-space:nowrap}
 .va-dlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:inherit;padding:18px;max-width:min(560px,calc(100vw - 32px));width:100%}.va-dlg::backdrop{background:rgba(0,0,0,.45)}
 .va-dlg img{display:block;width:min(320px,100%);margin:0 auto 12px;background:#fff;border-radius:10px;padding:10px}.va-dlg pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:10px;max-height:240px;overflow:auto}
 `;
   let st = null, cur = null, busy = false;
+  /** Paramètres de la vue de chaque appli (période du graphe…), gardés quand la page se redessine. */
+  const viewQ = {};
   const LV = { critique: 'bad', haute: 'warn', moyenne: 'warn', info: '' };
   const icon = { Sécurité: '🛡', Machines: '🖥', Données: '🗂', Accès: '🔑', Maison: '🏠' };
 
@@ -118,7 +126,34 @@
     else if (s.kind === 'form') box.append(form(mod, s.action, s.params, s.submit));
     // Assistant de configuration : étapes numérotées, faites ou à faire, chacune avec son bouton.
     else if (s.kind === 'steps') box.append(el('ol', { class: 'va-steps' }, ...s.items.map((i) => el('li', { class: i.done ? 'ok' : '' }, el('div', {}, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null), i.action && !i.done ? el('button', { class: 'btn small primary', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = await run(mod, i.action, i.input ?? {}); e.target.disabled = false; toast(t); } }, i.button ?? 'Faire') : el('span', { class: 'sub' }, i.done ? 'Fait' : '')))));
+    else if (s.kind === 'graph') graphSection(mod, s, box);
     return box;
+  }
+  /** Graphe d'une appli (même dessin que le Cerveau) : un clic sur un point ouvre sa fiche à droite. */
+  function graphSection(mod, s, box) {
+    const fiche = el('div', { class: 'va-fiche', 'aria-live': 'polite' });
+    const host = el('div', {});
+    const showDetail = (id) => {
+      const d = s.details[id]; if (!d) return;
+      fiche.replaceChildren(...[el('div', { class: 'k' }, d.kind), el('h3', {}, d.title), d.subtitle ? el('div', { class: 'sub' }, d.subtitle) : null,
+        d.chips?.length ? el('div', { class: 'va-chips' }, ...d.chips.map((c) => el('span', { class: c.tone ?? '' }, c.label))) : null,
+        d.rows?.length ? el('dl', { class: 'va-kv' }, ...d.rows.flatMap((r) => [el('dt', {}, r.k), el('dd', {}, r.v, r.src ? el('small', {}, r.src) : null)])) : null,
+        d.list ? [el('b', { style: 'display:block;margin-top:10px;font-size:14px' }, d.list.title), d.list.items.length ? el('ul', { class: 'va-fl' }, ...d.list.items.map((i) => el('li', { class: i.tone ? `va-tone-${i.tone}` : '' }, el('span', { style: 'overflow-wrap:anywhere' }, i.text), i.meta ? el('small', {}, i.meta) : null))) : el('p', { class: 'sub' }, 'Rien.')] : null,
+        d.actions?.length ? el('div', { class: 'va-acts-bar', style: 'margin:12px 0 0' }, ...d.actions.map((a) => el('button', { class: `btn small${a.primary ? ' primary' : ''}`, type: 'button', onclick: async (e) => { e.target.disabled = true; const t = a.module && a.module !== mod ? await runOther(a.module, a.action, a.input) : await run(mod, a.action, a.input); e.target.disabled = false; toast(t); } }, a.label))) : null].flat().filter(Boolean));
+      fiche.querySelector('h3')?.focus?.({ preventScroll: true });
+    };
+    if (s.periods) box.append(el('div', { class: 'va-per', role: 'group', 'aria-label': 'Période' }, ...s.periods.options.map((o) => el('button', { class: 'btn small', type: 'button', 'aria-pressed': String(o.id === s.periods.current), onclick: () => { viewQ[mod] = { ...(viewQ[mod] ?? {}), periode: o.id }; openApp(mod, true); } }, o.label)), s.periods.when ? el('span', { class: 'sub' }, s.periods.when) : null));
+    if (!s.nodes.length) { box.append(el('p', { class: 'sub' }, s.empty ?? 'Rien à montrer pour l\'instant.')); return; }
+    box.append(el('div', { class: 'va-gr' }, host, el('div', {}, fiche)));
+    const first = Object.keys(s.details)[0];
+    if (first) showDetail(first); else fiche.append(el('p', { class: 'sub' }, 'Clique sur un point pour voir sa fiche.'));
+    if (window.OdinGraph) window.OdinGraph.mount(host, { dark: true, nodes: s.nodes, edges: s.edges, legend: s.legend, label: s.title, search: 'Chercher (nom, adresse, domaine)…', counter: (n, e) => `${n.length} points · ${e.length} liens`, onOpen: (id) => showDetail(id) });
+  }
+  async function runOther(m, action, input) {
+    const r = await api('/api/valhalla/act', { module: m, action, input });
+    if (r.confirm) { if (!window.confirm(r.confirm)) return 'Annulé.'; const x = await api('/api/valhalla/act', { module: m, action, input, confirm: true }); return x.ok ? x.text : `✗ ${x.text ?? x.error}`; }
+    setTimeout(() => cur && openApp(cur, true), 600);
+    return r.ok ? r.text : `✗ ${r.text ?? r.error}`;
   }
   function toast(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:60;max-width:min(560px,calc(100% - 32px));box-shadow:var(--shadow);background:var(--panel)' }, t); document.body.append(n); setTimeout(() => n.remove(), 4500); }
 
@@ -202,17 +237,20 @@
     if (!quiet) window.OdinShow?.('app');
     const box = $('#v-app .body'), head = $('#v-app .head'); if (!box) return;
     if (!quiet) box.replaceChildren(el('p', { class: 'sub' }, 'Chargement…'));
-    const r = await api(`/api/valhalla/view?id=${encodeURIComponent(id)}`);
+    const r = await api(`/api/valhalla/view?${new URLSearchParams({ ...(viewQ[id] ?? {}), id })}`);
     if (cur !== id) return;
     if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
     $('#vaTitle').textContent = r.name; $('#vaSub').textContent = r.view.subtitle ?? r.what;
     const v = r.view, main = el('div', {}), side = el('div', {});
-    main.append(el('p', { class: 'va-what' }, r.what));
-    if (v.tabs?.length) main.append(el('div', { class: 'va-tabs', 'aria-label': 'Modes de l\'appli' }, ...v.tabs.map((t) => el('span', {}, t))));
-    if (v.kpis?.length) main.append(el('div', { class: 'va-kpis' }, ...v.kpis.map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), k.pct !== undefined ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuenow': String(k.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': k.label }, el('i', { style: `width:${Math.min(100, Math.max(0, k.pct))}%` })) : null))));
+    const top = el('div', {});
+    top.append(el('p', { class: 'va-what' }, r.what));
+    if (v.tabs?.length) top.append(el('div', { class: 'va-tabs', 'aria-label': 'Modes de l\'appli' }, ...v.tabs.map((t) => el('span', {}, t))));
+    if (v.kpis?.length) top.append(el('div', { class: 'va-kpis' }, ...v.kpis.map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), k.pct !== undefined ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuenow': String(k.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': k.label }, el('i', { style: `width:${Math.min(100, Math.max(0, k.pct))}%` })) : null))));
     const quick = r.actions.filter((a) => a.quick !== false && !a.params.some((p) => p.required));
-    if (quick.length) main.append(el('div', { class: 'va-acts-bar' }, ...quick.map((a) => el('button', { class: `btn small${a.read ? '' : ''}`, type: 'button', title: a.what, onclick: async (e) => { e.target.disabled = true; const t = await run(id, a.id, {}); e.target.disabled = false; toast(t); } }, a.label, a.grave ? ' ⚠' : ''))));
-    for (const s of v.sections) main.append(section(id, s));
+    if (quick.length) top.append(el('div', { class: 'va-acts-bar' }, ...quick.map((a) => el('button', { class: `btn small${a.read ? '' : ''}`, type: 'button', title: a.what, onclick: async (e) => { e.target.disabled = true; const t = await run(id, a.id, {}); e.target.disabled = false; toast(t); } }, a.label, a.grave ? ' ⚠' : ''))));
+    // Les graphes prennent toute la largeur (le graphe à gauche, la fiche du point choisi à droite).
+    const wide = el('div', {});
+    for (const s of v.sections) (s.kind === 'graph' ? wide : main).append(section(id, s));
     for (const s of v.side ?? []) side.append(section(id, s));
     const used = new Set((v.side ?? []).filter((s) => s.kind === 'form').map((s) => s.action));
     const others = r.actions.filter((a) => (a.quick === false || a.params.some((p) => p.required)) && !used.has(a.id));
@@ -221,8 +259,8 @@
     if (r.links.length) side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`))))));
     const mc = $('#mcur'); if (mc) mc.textContent = r.name;
     // Rán : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
-    if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[1] || null);
-    box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), el('div', { class: 'va-page' }, main, side));
+    if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[0] || null);
+    box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), top, wide, el('div', { class: 'va-page' }, main, side));
     head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
   }
   async function badge() { if (!appShown()) return; try { const a = (st ?? await api('/api/valhalla/catalog')).modules?.reduce((n, m) => n + (m.alerts ?? 0), 0) ?? 0; const b = $('#b-apps'); if (b) { b.hidden = !a; b.textContent = String(a); } } catch { /* rien */ } }

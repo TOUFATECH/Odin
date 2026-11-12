@@ -50,7 +50,14 @@ export type Section =
   | { kind: 'bars'; title: string; items: Array<{ label: string; value: number; display?: string }> }
   | { kind: 'form'; title: string; action: string; params: Param[]; submit: string }
   /** assistant de configuration : étapes dans l'ordre, faites ou non, chacune avec l'action qui la fait */
-  | { kind: 'steps'; title: string; items: Array<{ title: string; detail?: string; done: boolean; action?: string; input?: Record<string, unknown>; button?: string }> };
+  | { kind: 'steps'; title: string; items: Array<{ title: string; detail?: string; done: boolean; action?: string; input?: Record<string, unknown>; button?: string }> }
+  /** graphe (même dessin que le Cerveau) : un clic sur un point ouvre sa fiche ; périodes pour revoir le passé */
+  | { kind: 'graph'; title: string; nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail>; legend?: Array<[string, string]>; periods?: { current: string; options: Array<{ id: string; label: string }>; when?: string }; empty?: string };
+/** Un point du graphe : couleur, taille, anneau (nouveau, dangereux), carré (Odin, box, Internet), éteint. */
+export interface GraphNode { id: string; label: string; sub?: string; color?: string; size?: number; ring?: string; square?: boolean; off?: boolean; hub?: boolean; alert?: { n: number; level: 'grave' | 'attention' }; search?: string }
+export interface GraphEdge { a: string; b: string; color?: string; dash?: boolean; w?: number; title?: string; arrow?: 'to' | 'both' }
+/** La fiche d'un point : titres, pastilles, lignes « clé · valeur · d'où vient l'info », liste, boutons. */
+export interface GraphDetail { kind: string; title: string; subtitle?: string; chips?: Array<{ label: string; tone?: Tone }>; rows?: Array<{ k: string; v: string; src?: string }>; list?: { title: string; items: Array<{ text: string; meta?: string; tone?: Tone }> }; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; module?: string; primary?: boolean }> }
 export interface View { subtitle?: string; kpis?: Kpi[]; sections: Section[]; side?: Section[]; tabs?: string[] }
 
 export interface ModCtx {

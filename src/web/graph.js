@@ -4,11 +4,13 @@
 // un point gris est hors ligne. Les points gardent leur place quand les données se rafraîchissent.
 //   const g = OdinGraph.mount(boîte, { nodes, edges, onOpen, label })   puis   g.update({ nodes, edges })
 //   node : { id, label, sub?, color?, hub?, size?, off?, alert?: { n, level: 'grave'|'attention' }, update?: n, title?, selected? }
-//   edge : [a, b]  ou  { a, b, w?: épaisseur 0-6, arrow?: 'to'|'both', title?, color? } ; opts.onEdge(a, b) au clic sur un lien
+//   edge : [a, b]  ou  { a, b, w?: épaisseur 0-6, arrow?: 'to'|'both', title?, color?, dash? } ; opts.onEdge(a, b) au clic sur un lien
+//   node.ring : couleur d'un anneau (nouvel appareil, site dangereux…) ; node.square : carré (Odin, box, Internet)
 (() => {
   'use strict';
   if (window.OdinGraph) return;
   const css = `
+.og.og-dark{--ink:#E4E6EA;--panel:#1E1F22;--muted:#9AA0A8;--line:#33363b;--field:#3a3d43;background:#1E1F22;color:#E4E6EA}
 .og{position:relative;height:min(68vh,640px);min-height:360px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--panel) 70%,var(--bg));overflow:hidden;touch-action:none}
 .og canvas{display:block;width:100%;height:100%;cursor:grab}.og canvas.drag{cursor:grabbing}.og canvas.on{cursor:pointer}
 .og-bar{position:absolute;left:10px;top:10px;right:10px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;pointer-events:none}
@@ -22,7 +24,7 @@
 @media (max-width:860px){.og{height:62vh}.og-leg{display:none}}`;
   const RED = '#EE6A55', ORANGE = '#F0A040', BLUE = '#4F9DDE', GREEN = '#57C98A';
   const el = (t, a = {}, ...kids) => { const n = document.createElement(t); for (const [k, v] of Object.entries(a)) { if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'class') n.className = v; else n.setAttribute(k, v === true ? '' : v); } for (const k of kids.flat()) if (k != null && k !== false) n.append(k.nodeType ? k : document.createTextNode(String(k))); return n; };
-  const cssVar = (n, d) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d;
+  const cssVar = (n, d, at = document.documentElement) => getComputedStyle(at).getPropertyValue(n).trim() || d;
 
   function mount(host, opts) {
     if (!document.getElementById('ogCss')) document.head.append(el('style', { id: 'ogCss' }, css));
@@ -32,7 +34,7 @@
     const legend = opts.legend || [[RED, 'alerte / problème'], [ORANGE, 'à surveiller'], [BLUE, 'mise à jour'], ['#7d8791', 'hors ligne']];
     const leg = el('div', { class: 'og-leg', 'aria-hidden': 'true' }, ...legend.map(([c, l]) => el('span', {}, el('i', { style: `background:${c}` }), l)));
     const zb = (t, l, f) => el('button', { type: 'button', 'aria-label': l, onclick: f }, t);
-    const box = el('div', { class: 'og' }, cv, el('div', { class: 'og-bar' }, q, count), leg, el('div', { class: 'og-z' }, zb('+', 'Zoomer', () => zoom(1.25)), zb('−', 'Dézoomer', () => zoom(0.8)), zb('⤢', 'Tout voir', () => fit())));
+    const box = el('div', { class: `og${opts.dark ? ' og-dark' : ''}` }, cv, el('div', { class: 'og-bar' }, q, count), leg, el('div', { class: 'og-z' }, zb('+', 'Zoomer', () => zoom(1.25)), zb('−', 'Dézoomer', () => zoom(0.8)), zb('⤢', 'Tout voir', () => fit())));
     const alt = el('details', { class: 'og-alt' }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}));
     host.replaceChildren(box, alt);
     const ctx = cv.getContext('2d');
@@ -43,7 +45,7 @@
       const old = byId;
       nodes = d.nodes.map((n) => { const o = old.get(n.id) || pos.get(n.id); const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 200; return { ...n, x: o ? o.x : Math.cos(a) * r, y: o ? o.y : Math.sin(a) * r, vx: 0, vy: 0, fixed: o?.fixed || false }; });
       byId = new Map(nodes.map((n) => [n.id, n]));
-      edges = d.edges.map((e) => (Array.isArray(e) ? { a: e[0], b: e[1] } : e)).filter((e) => byId.has(e.a) && byId.has(e.b) && e.a !== e.b).map((e) => Object.assign([byId.get(e.a), byId.get(e.b)], { w: e.w || 0, arrow: e.arrow || '', title: e.title || '', color: e.color || '' }));
+      edges = d.edges.map((e) => (Array.isArray(e) ? { a: e[0], b: e[1] } : e)).filter((e) => byId.has(e.a) && byId.has(e.b) && e.a !== e.b).map((e) => Object.assign([byId.get(e.a), byId.get(e.b)], { w: e.w || 0, arrow: e.arrow || '', title: e.title || '', color: e.color || '', dash: Boolean(e.dash) }));
       opts.onEdge = d.onEdge ?? opts.onEdge; opts.onOpen = d.onOpen ?? opts.onOpen; opts.counter = d.counter ?? opts.counter;
       for (const n of nodes) n.deg = 0;
       for (const [a, b] of edges) { a.deg++; b.deg++; }
@@ -102,7 +104,8 @@
     function dot(x, y, r, c, ring) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill(); if (ring) { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = ring; ctx.stroke(); } }
     function draw() {
       const { w, h, dpr } = size(); if (!w) return;
-      const ink = cssVar('--ink', '#E6ECEF'), bg = cssVar('--panel', '#172533'), line = cssVar('--muted', '#A9B8C4');
+      // Couleurs lues sur la boîte du graphe : un graphe « sombre » (comme le Cerveau) garde son fond sombre dans le thème clair.
+      const ink = cssVar('--ink', '#E6ECEF', box), bg = cssVar('--panel', '#172533', box), line = cssVar('--muted', '#A9B8C4', box);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
       ctx.translate(w / 2 + view.x, h / 2 + view.y); ctx.scale(view.k, view.k);
       const focus = hover ? neighbours(hover) : null;
@@ -112,7 +115,9 @@
         const [a, b] = e, on = focus ? focus.has(a) && focus.has(b) : true, lit = e === hoverEdge;
         ctx.globalAlpha = lit ? 1 : on ? (focus ? 0.85 : e.arrow ? 0.55 : 0.28) : 0.05; ctx.strokeStyle = lit ? ink : e.color || (focus && on ? ink : line);
         ctx.lineWidth = (1 + (e.w || 0) + (lit ? 1.5 : 0)) / view.k;
+        if (e.dash) ctx.setLineDash([6 / view.k, 5 / view.k]);
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        if (e.dash) ctx.setLineDash([]);
         if (e.arrow) { arrowHead(a, b, ctx.strokeStyle, e.w); if (e.arrow === 'both') arrowHead(b, a, ctx.strokeStyle, e.w); }
       }
       ctx.lineWidth = 1 / view.k;
@@ -122,7 +127,9 @@
         ctx.globalAlpha = dim ? 0.18 : 1;
         if (query && match(n)) dot(n.x, n.y, r + 6, 'transparent', GREEN);
         if (n.selected) { dot(n.x, n.y, r + 8, 'transparent', BLUE); dot(n.x, n.y, r + 11, 'transparent', BLUE); }
-        dot(n.x, n.y, r, n.off ? '#7d8791' : n.color || (n.hub ? GREEN : '#E8EAEC'), n === hover ? ink : null);
+        if (n.ring) { dot(n.x, n.y, r + 5, 'transparent', n.ring); dot(n.x, n.y, r + 6.5, 'transparent', n.ring); }
+        if (n.square) { const c = n.off ? '#7d8791' : n.color || BLUE; ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n.x - r, n.y - r, r * 2, r * 2, r * 0.3) : ctx.rect(n.x - r, n.y - r, r * 2, r * 2); ctx.fill(); if (n === hover) { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = ink; ctx.stroke(); } }
+        else dot(n.x, n.y, r, n.off ? '#7d8791' : n.color || (n.hub ? GREEN : '#E8EAEC'), n === hover ? ink : null);
         // Pastilles : alerte (rouge / orange, avec le nombre), mise à jour (bleue), hors ligne (point gris)
         let bx = n.x + r * 0.72, by = n.y - r * 0.72;
         if (n.alert?.n) { const c = n.alert.level === 'grave' ? RED : ORANGE, br = 7.5; dot(bx, by, br, c, bg); ctx.fillStyle = '#fff'; ctx.font = `700 ${9.5}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(n.alert.n > 99 ? '99+' : String(n.alert.n), bx, by + 0.5); bx -= 15; }

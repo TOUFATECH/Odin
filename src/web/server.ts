@@ -60,6 +60,7 @@ import { listScripts, readScript, revertScript } from '../tools/scripts.ts';
 import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { dnsServer, setDotMaterial } from '../valhalla/modules/vidarr.ts';
+import { push as vordrPush, statusPage } from '../valhalla/modules/vordr.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
@@ -457,6 +458,9 @@ export class WebChannel implements Channel {
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     // DNS chiffré (DoH) de Víðarr pour les appareils de la maison et du VPN : pas de compte, mais seulement depuis
     // une adresse privée (jamais un résolveur ouvert à tout Internet).
+    // Vörðr : un programme envoie son signe de vie (/v/<jeton secret>) ; la page publique d'état (/etat/<adresse secrète>).
+    if (url.pathname.startsWith('/v/')) { const n = vordrPush(url.pathname.slice(3)); return n ? json(res, 200, { ok: true }) : json(res, 404, { ok: false }); }
+    if (url.pathname.startsWith('/etat/')) { const h = statusPage(url.pathname.slice(6)); if (!h) return json(res, 404, { ok: false, error: 'page inconnue' }); res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'", 'referrer-policy': 'no-referrer' }); return void res.end(h); }
     if (url.pathname === '/dns-query') {
       const ip = remoteOf(req), dns = dnsServer();
       if (!dns) return json(res, 503, { ok: false, error: 'le DNS d\'Odin est arrêté' });

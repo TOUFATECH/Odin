@@ -40,7 +40,16 @@ export function buildPacket(p: Partial<Omit<Packet, 'options'>> & { op: number; 
 }
 const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n >>> 0); return b; };
 
-export interface Lease { mac: string; ip: string; name?: string; expires: number; fixed?: boolean }
+export interface Lease { mac: string; ip: string; name?: string; expires: number; fixed?: boolean; /** première fois vu (ms) */ first?: number; /** ce que l'appareil dit de lui au DHCP (« android-dhcp-14 », « MSFT 5.0 »…) */ vendorClass?: string }
+/** Le système d'après ce que l'appareil dit au DHCP (deviné : à confirmer). Pur. */
+export function osFromVendorClass(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  const a = /android-dhcp-(\d+)/i.exec(v); if (a) return `Android ${a[1]}`;
+  if (/^MSFT/i.test(v)) return 'Windows'; if (/dhcpcd/i.test(v)) return 'Linux ou Android'; if (/udhcp/i.test(v)) return 'Linux embarqué (box, caméra, objet)'; if (/^ubnt|ubiquiti/i.test(v)) return 'Ubiquiti';
+  return v.slice(0, 40);
+}
+/** Une MAC « privée » (bit local) : téléphone ou tablette récents en Wi-Fi, qui changent d'adresse par réseau. */
+export const randomMac = (mac: string) => /^.[26ae]/i.test(mac);
 export interface DhcpConfig {
   /** adresse d'Odin sur le réseau (identifiant du serveur) */
   server: string;
@@ -95,7 +104,8 @@ export class DhcpServer {
     this.sock?.send(out, p.giaddr !== '0.0.0.0' ? this.port : this.clientPort, to);
   }
   private keep(l: Lease): void {
-    const all = this.d.leases(), isNew = !all.some((x) => x.mac === l.mac);
+    const all = this.d.leases(), old = all.find((x) => x.mac === l.mac), isNew = !old;
+    l = { ...l, first: old?.first ?? this.now(), ...(l.vendorClass ?? old?.vendorClass ? { vendorClass: l.vendorClass ?? old?.vendorClass } : {}) };
     this.d.save([...all.filter((x) => x.mac !== l.mac && x.ip !== l.ip), l]);
     this.d.onLease?.(l, isNew);
   }
@@ -115,7 +125,7 @@ export class DhcpServer {
       const ip = this.pick(p.mac, want);
       if (!want || ip !== want) { this.reply(p, MSG.NAK, '0.0.0.0'); return; }
       const fixed = c.fixed.find((f) => f.mac.toLowerCase() === p.mac);
-      this.keep({ mac: p.mac, ip, name: fixed?.name ?? name ?? this.d.leases().find((l) => l.mac === p.mac)?.name, expires: now + c.leaseSeconds * 1000, ...(fixed ? { fixed: true } : {}) });
+      this.keep({ mac: p.mac, ip, name: fixed?.name ?? name ?? this.d.leases().find((l) => l.mac === p.mac)?.name, expires: now + c.leaseSeconds * 1000, ...(fixed ? { fixed: true } : {}), ...(p.options.get(60)?.length ? { vendorClass: p.options.get(60)!.toString('latin1').replace(/[^\x20-\x7e]/g, '').slice(0, 60) } : {}) });
       this.offered.delete(p.mac); this.reply(p, MSG.ACK, ip); return;
     }
     if (type === MSG.RELEASE) { this.d.save(this.d.leases().map((l) => (l.mac === p.mac && !l.fixed ? { ...l, expires: now } : l))); return; }

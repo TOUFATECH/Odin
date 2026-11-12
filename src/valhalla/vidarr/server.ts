@@ -23,7 +23,15 @@ export interface ClientRule {
   onlyThese?: string[];
   /** quand ses services sont coupés (sinon : tout le temps) */
   schedule?: Schedule;
+  /** machine coupée d'Internet (plus aucun nom ne lui répond, sauf ceux de la maison) */
+  cut?: boolean;
+  /** quand elle est coupée (sinon : tout le temps) */
+  cutSchedule?: Schedule;
 }
+/** Un blocage à horaires : un domaine (ou une règle) bloqué seulement pendant la plage, pour tous ou certains appareils. */
+export interface TimedRule { rule: string; schedule: Schedule; clients?: string[] }
+/** La machine est-elle coupée en ce moment ? Pur. */
+export const isCut = (r: ClientRule | undefined, at: Date): boolean => Boolean(r?.cut && inSchedule(r.cutSchedule, at));
 /** Une plage horaire : jours (0 = dimanche … 6 = samedi) et heures ; « 21:00 → 07:00 » passe minuit. */
 export interface Schedule { days: number[]; from: string; to: string }
 /** Vrai si `at` (heure locale) tombe dans la plage. Pur. */
@@ -54,6 +62,8 @@ export interface DnsSettings {
   privateReverse: boolean;
   /** pubs et pistage des réseaux et plateformes (vidéos et comptes jamais touchés) ; plateformes laissées de côté */
   socialAds: boolean; socialAdsOff?: string[];
+  /** blocages à horaires (ex. jeux.fr bloqué de 21:00 à 07:00) */
+  timed?: TimedRule[];
   /** quand les services coupés pour toute la maison le sont (sinon : tout le temps) */
   servicesSchedule?: Schedule;
 }
@@ -164,6 +174,8 @@ export class DnsServer {
     // Les noms de la maison passent toujours, même filtrage coupé.
     const local = s.rewrites[n] ?? this.d.local?.()[n] ?? Object.entries(s.rewrites).find(([k]) => k.startsWith('*.') && n.endsWith(k.slice(1)))?.[1];
     if (local) return { action: 'rewrite', rule: `${n} → ${local.join(', ')}`, list: 'Noms de la maison', to: local };
+    const at = new Date(this.now());
+    if (isCut(rule, at)) return { action: 'block', rule: rule!.cutSchedule ? `machine coupée (${rule!.cutSchedule.from} → ${rule!.cutSchedule.to})` : 'machine coupée', list: rule!.name };
     if (rule?.onlyThese?.length && !rule.onlyThese.some((d) => n === cleanDomain(d) || n.endsWith(`.${cleanDomain(d)}`))) return { action: 'block', rule: 'pas dans la liste autorisée de cet appareil', list: rule.name };
     const lists = this.d.lists();
     // Les menaces sont bloquées même filtrage coupé (sauf exception explicite).
@@ -172,7 +184,9 @@ export class DnsServer {
     for (const l of lists.filter((x) => x.kind === 'autorisation')) { const v = judge(l.c, n, l.name); if (v?.action === 'allow') return v; }
     for (const l of lists.filter((x) => x.kind === 'menace')) { const v = judge(l.c, n, l.name); if (v?.action === 'block') return { ...v, why: 'menace' }; }
     if (!filtering) return undefined;
-    const at = new Date(this.now());
+    for (const tr of s.timed ?? []) if (inSchedule(tr.schedule, at) && (!tr.clients?.length || (rule && tr.clients.includes(rule.name)))) {
+      const c = emptyList(); addRule(c, tr.rule); const v = judge(c, n, `Bloqué ${tr.schedule.from} → ${tr.schedule.to}`); if (v?.action === 'block') return v;
+    }
     const services = [...new Set([...(inSchedule(rule?.schedule, at) ? rule?.services ?? [] : []), ...(inSchedule(s.servicesSchedule, at) ? s.services : [])])];
     if (services.length) { const v = judge(servicesList(services), n, 'Services coupés'); if (v?.action === 'block') return v; }
     // Pubs et pistage des plateformes (YouTube, TikTok, Instagram…) : les vidéos et les comptes passent.

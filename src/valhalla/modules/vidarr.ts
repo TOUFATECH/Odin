@@ -16,6 +16,10 @@ import type { Schedule } from '../vidarr/server.ts';
 import { parseUpstream, upstreamTimes } from '../vidarr/resolve.ts';
 import { parse, query, TYPE, dataText } from '../vidarr/wire.ts';
 import { DhcpServer, detectDhcp, hostLabel, ipNum, type DhcpConfig, type Lease } from '../vidarr/dhcp.ts';
+import { catchUp, localDay, period, readDay, type Period } from '../vidarr/history.ts';
+import { networkGraph, type DeviceInfo } from '../vidarr/graph.ts';
+import { vendorOf } from '../../hlidskjalf/vendors.ts';
+import * as ranDb from '../ran.ts';
 
 export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
 export const DEFAULT_LISTS: ListMeta[] = [
@@ -42,6 +46,22 @@ function dhcpConfig(ctx: ModCtx): DhcpConfig {
 }
 const ring: LogEntry[] = []; const RING = 50_000; const upstreamErrors: number[] = [];
 let inventoryName: ((ip: string) => string | undefined) | undefined;
+let deviceOf: ((ip: string) => DeviceInfo | undefined) | undefined;
+/** Une plage horaire tapée (jours « lun,mar » ou « tous », heures « 21:00 ») → vérifiée. */
+const JOURS = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+function scheduleOf(i: Record<string, unknown>): Schedule {
+  const days = s(i.jours).trim().toLowerCase() === 'tous' || !s(i.jours).trim() ? [0, 1, 2, 3, 4, 5, 6] : parseIds(i.jours).map((x) => JOURS.indexOf(x.slice(0, 3).toLowerCase()));
+  if (days.some((x) => x < 0)) throw new Error('jours : lun, mar, mer, jeu, ven, sam, dim');
+  const hm = (x: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(x.trim()); if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new Error('heures sous la forme 21:00 (de 00:00 à 23:59)'); return `${m[1].padStart(2, '0')}:${m[2]}`; };
+  return { days: [...new Set(days)].sort(), from: hm(s(i.de)), to: hm(s(i.a)) };
+}
+const scheduleText = (sc: Schedule) => `${sc.days.length === 7 ? 'tous les jours' : sc.days.map((x) => JOURS[x]).join(', ')}, de ${sc.from} à ${sc.to}`;
+/** Les listes de sites dangereux : leurs blocages comptent comme « dangereux » dans l'historique. */
+const threatOf = (ctx: ModCtx) => { const names = new Set(listsMeta(ctx).filter((l) => l.kind === 'menace').map((l) => l.name)); return (e: LogEntry) => Boolean(e.list && names.has(e.list)); };
+/** Débit d'une machine sur la dernière minute (Rán), si la lecture des paquets tourne. */
+function rateOf(home: string, ip: string, now: number): number | undefined {
+  try { const h = ranDb.history(home, ip, { since: now - 60_000, limit: 1 }); return h.total ? h.bytes / 60 : undefined; } catch { return undefined; }
+}
 export const dnsServer = () => srv;
 /** Pour les essais et le démarrage : d'où viennent les noms des appareils. */
 export function setNamer(f: ((ip: string) => string | undefined) | undefined): void { inventoryName = f; }
@@ -72,7 +92,7 @@ async function fetchList(ctx: ModCtx, l: ListMeta): Promise<ListMeta> {
 }
 
 // ---------------- Journal ----------------
-const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+const day = (t: number) => localDay(t);
 function record(ctx: ModCtx, e: LogEntry): void {
   ring.push(e);
   // Surveillance : si Internet ou les serveurs amont ne répondent plus, Odin le voit dans ses propres réponses.
@@ -141,6 +161,35 @@ async function startDhcp(ctx: ModCtx): Promise<string> {
   const c = dhcpConfig(ctx);
   return `✅ DHCP d'Odin en marche : adresses ${c.start} → ${c.end}, passerelle ${c.router}, DNS ${c.dns.join(', ')}, baux de ${Math.round(c.leaseSeconds / 3600)} h.`;
 }
+/**
+ * Odin surveille le réseau : toutes les 5 minutes il cherche ce qui sort de l'ordinaire (site dangereux, appareil
+ * jamais vu très bavard, machine qui demande beaucoup plus que d'habitude) ; s'il trouve, l'IA l'explique en
+ * quelques phrases (sinon un texte simple) et tu es prévenu. Rien n'est coupé tout seul : c'est toi qui décides.
+ */
+async function review(ctx: ModCtx): Promise<void> {
+  const now = ctx.now().getTime(), since = now - 15 * 60_000, recent = ring.filter((e) => e.t >= since), isT = threatOf(ctx);
+  if (!recent.length) return;
+  const by = new Map<string, LogEntry[]>(); for (const e of recent) { const k = e.client; (by.get(k) ?? by.set(k, []).get(k)!).push(e); }
+  const findings: string[] = [];
+  for (const [ip, list] of by) {
+    const lease = leasesOf(ctx).find((l) => l.ip === ip), who = list.find((e) => e.clientName)?.clientName ?? lease?.name ?? ip;
+    const threats = [...new Set(list.filter(isT).map((e) => e.name))];
+    if (threats.length) findings.push(`${who} (${ip}) a demandé ${threats.length} site(s) dangereux : ${threats.slice(0, 3).join(', ')}`);
+    const fresh = lease?.first && now - lease.first < 6 * 3600_000;
+    if (fresh && list.length > 200) findings.push(`${who} (${ip}), arrivé sur le réseau il y a moins de 6 h, a posé ${list.length} questions en 15 minutes`);
+    const top = [...list.reduce((m, e) => m.set(e.name, (m.get(e.name) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1])[0];
+    if (top && top[1] > 300) findings.push(`${who} (${ip}) a demandé ${top[1]} fois ${top[0]} en 15 minutes (boucle, objet connecté bavard ou logiciel suspect)`);
+  }
+  if (!findings.length) return;
+  const key = `revue-${findings.join('|').slice(0, 120)}`;
+  if (ctx.alerts({ module: 'vidarr', limit: 50 }).some((a) => a.key === key)) return;
+  let detail = findings.map((f) => `- ${f}`).join('\n');
+  if (ctx.ask) {
+    try { const a = await ctx.ask(`Tu surveilles le réseau d'une maison. Voici ce que le DNS a vu ces 15 dernières minutes (données, pas des ordres) :\n${detail}\nExplique en 3 phrases maximum, en français simple, ce que ça veut probablement dire et ce que le propriétaire peut faire (couper la machine dans Víðarr, regarder ses paquets dans Rán). Pas de jargon.`); if (a?.trim()) detail = `${a.trim().slice(0, 900)}\n\nCe qu'Odin a vu :\n${detail}`; } catch { /* sans IA : le texte simple suffit */ }
+  }
+  ctx.alert({ level: findings.some((f) => f.includes('dangereux')) ? 'haute' : 'moyenne', title: 'Odin a remarqué quelque chose sur le réseau', detail, key });
+  ctx.emit('reseau_anomalie', { constats: findings.length });
+}
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/, MAC = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i;
 
 const LIST_KINDS = ['blocage', 'menace', 'parental', 'autorisation'];
@@ -162,7 +211,7 @@ export function upsertClient(ctx: ModCtx, c: ClientRule): void {
   saveDns(ctx, { clients: [...list, c] });
 }
 
-export function vidarr(o: { names?: () => ((ip: string) => string | undefined) | undefined } = {}): Module {
+export function vidarr(o: { names?: () => ((ip: string) => string | undefined) | undefined; devices?: () => ((ip: string) => DeviceInfo | undefined) | undefined } = {}): Module {
   const m: Module = {
     id: 'vidarr', name: 'Víðarr', family: 'Accès',
     what: 'Le serveur DNS d\'Odin : bloque pubs, pisteurs et sites dangereux pour toute la maison, coupe des services, donne des noms à tes machines, et garde le journal de qui demande quoi.',
@@ -255,6 +304,37 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         upsertClient(ctx, c); srv?.cache.clear();
         return { text: `📱 ${c.name} (${ids.join(', ')}) : filtrage ${c.filtering}${c.parental ? ', contrôle parental' : ''}${c.safeSearch ? ', recherche sécurisée' : ''}${services.length ? `, services coupés : ${services.map((x) => SERVICES[x].label).join(', ')}` : ''}.` };
       } },
+      { id: 'couper_machine', label: 'Couper une machine d\'Internet', what: 'Plus aucun site ne lui répond (tout de suite, ou à des horaires) ; le réseau de la maison reste joignable', params: [{ key: 'ip', label: 'Adresse IP de la machine', kind: 'text', required: true }, { key: 'nom', label: 'Nom (facultatif)', kind: 'text', default: '' }, { key: 'jours', label: 'Jours (vide : tout de suite, sans fin)', kind: 'text', default: '' }, { key: 'de', label: 'De (HH:MM)', kind: 'text', default: '' }, { key: 'a', label: 'À (HH:MM)', kind: 'text', default: '' }], words: ['coupe la machine', 'bloque la machine', 'coupe internet a', 'coupe internet à'], run: (ctx, i) => {
+        const ip = s(i.ip).trim(); if (!IPV4.test(ip) && !/^[0-9a-f:]+$/i.test(ip)) throw new Error('adresse IP attendue');
+        const sc = s(i.de).trim() || s(i.a).trim() ? scheduleOf(i) : undefined;
+        const d = settingsOf(ctx), old = d.clients.find((c) => c.ids.includes(ip));
+        const name = old?.name ?? (s(i.nom).trim() || leasesOf(ctx).find((l) => l.ip === ip)?.name || inventoryName?.(ip) || ip);
+        upsertClient(ctx, { ...(old ?? { id: `m-${ip}`, name, ids: [ip] }), cut: true, cutSchedule: sc }); srv?.cache.clear();
+        ctx.emit('machine_coupee', { ip, nom: name, horaires: sc ? scheduleText(sc) : 'tout le temps' });
+        return { text: `⛔ ${name} (${ip}) coupé d'Internet ${sc ? scheduleText(sc) : 'jusqu\'à ce que tu le rétablisses'}. Les sites ne lui répondent plus ; les noms de la maison restent joignables.\nLimite : une machine réglée sur un autre DNS à la main y échappe ; pour la couper vraiment, Odin doit être sa passerelle ou la box doit la bloquer.` };
+      }, undo: (i) => ({ action: 'retablir_machine', input: { ip: i.ip }, label: 'Rétablir Internet' }) },
+      { id: 'retablir_machine', label: 'Rétablir une machine', what: 'Elle retrouve Internet', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], run: (ctx, i) => {
+        const d = settingsOf(ctx), c = d.clients.find((x) => x.ids.includes(s(i.ip).trim())); if (!c?.cut) throw new Error('cette machine n\'est pas coupée');
+        const rest = { ...c, cut: undefined, cutSchedule: undefined };
+        const keep = rest.filtering || rest.parental || rest.safeSearch || rest.services?.length || rest.onlyThese?.length || rest.upstreams?.length || rest.schedule;
+        saveDns(ctx, { clients: keep || !c.id.startsWith('m-') ? d.clients.map((x) => (x === c ? rest : x)) : d.clients.filter((x) => x !== c) }); srv?.cache.clear();
+        return { text: `✅ ${c.name} retrouve Internet.` };
+      } },
+      { id: 'bloquer_horaires', label: 'Bloquer un site à des horaires', what: 'Ex. jeux.fr bloqué de 21:00 à 07:00, pour tous ou un appareil', params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'jours', label: 'Jours (lun, mar… ou « tous »)', kind: 'text', default: 'tous' }, { key: 'de', label: 'De (HH:MM)', kind: 'text', default: '21:00' }, { key: 'a', label: 'À (HH:MM)', kind: 'text', default: '07:00' }, { key: 'appareil', label: 'Seulement pour (nom d\'appareil, vide : tous)', kind: 'text', default: '' }], run: (ctx, i) => {
+        const dom = cleanDomain(s(i.domaine)); if (!isDomain(dom)) throw new Error('domaine invalide');
+        const sc = scheduleOf(i), who = s(i.appareil).trim(), d = settingsOf(ctx);
+        if (who && !d.clients.some((c) => c.name === who)) throw new Error('appareil introuvable (donne-lui d\'abord des réglages)');
+        saveDns(ctx, { timed: [...(d.timed ?? []).filter((x) => !(x.rule === `||${dom}^` && (x.clients ?? []).join() === (who ? who : ''))), { rule: `||${dom}^`, schedule: sc, ...(who ? { clients: [who] } : {}) }] }); srv?.cache.clear();
+        return { text: `🕘 ${dom} bloqué ${scheduleText(sc)}${who ? ` pour ${who}` : ' pour toute la maison'}.` };
+      } },
+      { id: 'retirer_horaire', label: 'Retirer un blocage à horaires', what: 'Le site redevient libre', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }], run: (ctx, i) => { const dom = cleanDomain(s(i.domaine)), d = settingsOf(ctx), left = (d.timed ?? []).filter((x) => x.rule !== `||${dom}^`); if (left.length === (d.timed ?? []).length) throw new Error('pas de blocage à horaires pour ce domaine'); saveDns(ctx, { timed: left }); srv?.cache.clear(); return { text: `🗑 ${dom} n'est plus bloqué à horaires.` }; } },
+      { id: 'historique', label: 'Historique du réseau', what: 'Ce qui s\'est passé un jour, un mois ou une année', read: true, params: [{ key: 'periode', label: 'Période', kind: 'select', options: ['jour', 'mois', 'annee'], default: 'jour' }, { key: 'date', label: 'Date (AAAA-MM-JJ, vide : aujourd\'hui)', kind: 'text', default: '' }], run: (ctx, i) => {
+        const p = (['jour', 'mois', 'annee'].includes(s(i.periode)) ? s(i.periode) : 'jour') as Period, at = s(i.date) ? new Date(`${s(i.date)}T12:00:00`) : ctx.now();
+        if (Number.isNaN(at.getTime())) throw new Error('date sous la forme 2026-11-12');
+        const sum = period(ctx.dir, p, at, ring, threatOf(ctx), ctx.now().getTime());
+        const top = Object.entries(sum.clients).sort((a, b) => b[1].n - a[1].n).slice(0, 10);
+        return { text: `${p === 'jour' ? localDay(at) : p === 'mois' ? localDay(at).slice(0, 7) : localDay(at).slice(0, 4)} : ${sum.total} requêtes, ${sum.blocked} bloquées, ${sum.threats} dangereuses, ${Object.keys(sum.clients).length} appareils.\n${top.map(([ip, c]) => `- ${c.name ?? ip} (${ip}) : ${c.n} requêtes, ${c.b} bloquées${c.threats ? `, ${c.threats} dangereuses` : ''}`).join('\n')}`, data: sum };
+      } },
       { id: 'retirer_appareil', label: 'Retirer un appareil', what: 'Ses réglages propres sont oubliés', quick: false, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx); if (!d.clients.some((c) => c.name === s(i.nom))) throw new Error('appareil introuvable'); saveDns(ctx, { clients: d.clients.filter((c) => c.name !== s(i.nom)) }); return { text: `🗑 Réglages de ${s(i.nom)} retirés (il suit les réglages de tout le monde).` }; } },
       { id: 'nom_local', label: 'Nom de la maison', what: 'Un nom pour une machine (nas.maison → 192.168.1.10), ou un alias', params: [{ key: 'nom', label: 'Nom (ex. nas.maison, *.labo.maison)', kind: 'text', required: true }, { key: 'valeur', label: 'Adresse(s) IP, nom cible, ou enregistrement (MX 10 mail.maison ; TXT …)', kind: 'text', required: true }], run: (ctx, i) => {
         const n = cleanDomain(s(i.nom)), base = n.replace(/^\*\./, ''); if (!isDomain(base)) throw new Error('nom invalide');
@@ -277,14 +357,8 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         return { text: i.actif === false ? '⚪ Pubs des réseaux : plus bloquées.' : `🚫 Pubs et pistage bloqués (les vidéos et les comptes passent) : ${on.map(([, v]) => v.label).join(', ')}.\nLimite : ${on.map(([, v]) => v.limit).filter(Boolean).join(' ; ')}.` };
       } },
       { id: 'horaires', label: 'Horaires des services coupés', what: 'Couper les services seulement à certaines heures (ex. TikTok après 21 h)', params: [{ key: 'pour', label: 'Pour (« maison » ou le nom d\'un appareil)', kind: 'text', default: 'maison' }, { key: 'jours', label: 'Jours (lun, mar, mer, jeu, ven, sam, dim, ou « tous »)', kind: 'text', default: 'tous' }, { key: 'de', label: 'De (HH:MM)', kind: 'text', default: '21:00' }, { key: 'a', label: 'À (HH:MM)', kind: 'text', default: '07:00' }, { key: 'toujours', label: 'Tout le temps (retire l\'horaire)', kind: 'boolean', default: false }], run: (ctx, i) => {
-        const J = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
-        let sc: Schedule | undefined;
-        if (i.toujours !== true) {
-          const days = s(i.jours).trim().toLowerCase() === 'tous' || !s(i.jours).trim() ? [0, 1, 2, 3, 4, 5, 6] : parseIds(i.jours).map((x) => J.indexOf(x.slice(0, 3).toLowerCase()));
-          if (days.some((x) => x < 0)) throw new Error('jours : lun, mar, mer, jeu, ven, sam, dim');
-          const hm = (x: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(x.trim()); if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new Error('heures sous la forme 21:00 (de 00:00 à 23:59)'); return `${m[1].padStart(2, '0')}:${m[2]}`; };
-          sc = { days: [...new Set(days)].sort(), from: hm(s(i.de)), to: hm(s(i.a)) };
-        }
+        const J = JOURS;
+        const sc: Schedule | undefined = i.toujours !== true ? scheduleOf(i) : undefined;
         const d = settingsOf(ctx), who = s(i.pour).trim() || 'maison', whoText = who === 'maison' ? 'toute la maison' : who;
         if (who === 'maison') saveDns(ctx, { servicesSchedule: sc });
         else { const c = d.clients.find((x) => x.name === who); if (!c) throw new Error('appareil introuvable (réglages d\'un appareil d\'abord)'); saveDns(ctx, { clients: d.clients.map((x) => (x === c ? { ...x, schedule: sc } : x)) }); }
@@ -364,8 +438,21 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         return { text: rows.map((e) => `${new Date(e.t).toLocaleTimeString('fr-FR')} ${e.clientName ?? e.client} ${e.type} ${e.name} → ${e.status}${e.rule ? ` (${e.rule})` : ''} ${e.ms} ms`).join('\n') || 'Rien.' };
       } },
     ],
-    async view(ctx) {
+    async view(ctx, q) {
       const d = settingsOf(ctx), st = stats(ring, ctx.now().getTime()), ls = listsMeta(ctx), lan = lanAddress();
+      // Le graphe du réseau, pour la période choisie (direct, jour, mois, année ; une date pour revoir le passé).
+      const now = ctx.now().getTime(), per = (['direct', 'jour', 'mois', 'annee'].includes(q?.get('periode') ?? '') ? q!.get('periode') : 'jour') as Period;
+      const at = /^\d{4}-\d{2}-\d{2}$/.test(q?.get('date') ?? '') ? new Date(`${q!.get('date')}T12:00:00`) : ctx.now();
+      const sum = period(ctx.dir, per, at, ring, threatOf(ctx), now), dc = dhcpConfig(ctx);
+      const perLabel = { direct: '15 dernières minutes', jour: localDay(at) === localDay(now) ? 'aujourd\'hui' : at.toLocaleDateString('fr-FR', { dateStyle: 'full' }), mois: at.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }), annee: String(at.getFullYear()) }[per];
+      const g = networkGraph(sum, {
+        odinIp: lan ?? dc.server, router: dc.router, upstreams: d.upstreams, dhcpOn: Boolean(dhcp), dnsOn: Boolean(srv), port: srv?.port ?? 53,
+        leases: leasesOf(ctx), clients: d.clients, device: (ip) => deviceOf?.(ip), vendorOf, rate: (ip) => rateOf(ctx.home, ip, now),
+        vpnName: (ip) => d.clients.find((c) => c.ids.includes(ip) && c.name.startsWith('VPN · '))?.name, now, periodLabel: perLabel.charAt(0).toUpperCase() + perLabel.slice(1),
+      });
+      const graph = { kind: 'graph' as const, title: 'Graphe du réseau', ...g, empty: 'Aucun appareil pour cette période : démarre le DNS, puis fais passer les appareils par Odin.',
+        legend: [['#4F9DDE', 'Odin, box, Internet'], ['#E8EAEC', 'poste'], ['#57C98A', 'VPN'], ['#8E959D', 'domaine demandé'], ['#F0A040', 'bloqué / nouveau'], ['#EE6A55', 'dangereux / coupé']] as Array<[string, string]>,
+        periods: { current: per, options: [{ id: 'direct', label: 'Direct' }, { id: 'jour', label: 'Jour' }, { id: 'mois', label: 'Mois' }, { id: 'annee', label: 'Année' }], when: `${perLabel} · ${sum.total} requêtes · ${Object.keys(sum.clients).length} postes · historique gardé jour par jour` } };
       const paused = d.pausedUntil && d.pausedUntil > ctx.now().getTime();
       const steps = [
         { title: 'Démarrer le serveur DNS', detail: 'Odin répond aux appareils sur le port 53. Rien à installer.', done: Boolean(srv), action: 'demarrer', input: { port: Number(ctx.settings.port ?? 53) }, button: 'Démarrer' },
@@ -381,6 +468,7 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         ],
         sections: [
           ...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route', items: steps }]),
+          graph,
           ...(st.total ? [{ kind: 'bars' as const, title: 'Requêtes par heure (12 dernières heures)', items: st.perHour.slice(-12).map((v, k) => ({ label: `${String(new Date(ctx.now().getTime() - (11 - k) * 3600_000).getHours()).padStart(2, '0')} h`, value: v })) }] : []),
           { kind: 'bars', title: 'Domaines les plus bloqués', items: st.topBlocked.map(([l, v]) => ({ label: l, value: v })) },
           { kind: 'bars', title: 'Domaines les plus demandés', items: st.topDomains.map(([l, v]) => ({ label: l, value: v })) },
@@ -391,6 +479,7 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           { kind: 'table', title: 'Noms de la maison', columns: ['Nom', 'Répond'], empty: 'Aucun nom : ajoute « nas.maison → 192.168.1.10 » à droite.', rows: Object.entries(d.rewrites).map(([k, v]) => ({ cells: [k, v.join(', ')], actions: [{ action: 'retirer_nom', label: 'Retirer', input: { nom: k } }] })) },
           { kind: 'table', title: dhcp ? 'Appareils du réseau (DHCP d\'Odin en marche)' : 'Appareils du réseau (DHCP d\'Odin arrêté)', columns: ['Adresse', 'Nom', 'MAC', 'Bail'], empty: dhcp ? 'Aucun appareil n\'a encore demandé d\'adresse.' : 'Le DHCP de la box donne les adresses. Pour qu\'Odin le fasse (noms des appareils, adresses fixes) : « Chercher un autre DHCP », coupe celui de la box, puis « Allumer le DHCP ».', rows: [...leasesOf(ctx), ...dhcpConfig(ctx).fixed.filter((f) => !leasesOf(ctx).some((l) => l.mac === f.mac)).map((f) => ({ mac: f.mac, ip: f.ip, name: f.name, expires: 0, fixed: true }) as Lease)].sort((a, b) => ipNum(a.ip) - ipNum(b.ip)).map((l) => ({ cells: [l.ip, l.name ?? '—', l.mac, l.fixed ? 'fixe' : l.expires > ctx.now().getTime() ? `jusqu'à ${new Date(l.expires).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'expiré'], tone: !l.fixed && l.expires <= ctx.now().getTime() ? 'attention' as const : undefined, actions: l.fixed ? [{ action: 'dhcp_retirer_fixe', label: 'Retirer l\'adresse fixe', input: { mac: l.mac } }] : [{ action: 'dhcp_fixe', label: 'Garder cette adresse', input: { mac: l.mac, ip: l.ip, nom: l.name ?? '' } }] })) },
           { kind: 'list', title: 'Pubs des réseaux bloquées (les vidéos passent)', empty: 'Coupé.', items: d.socialAds === false ? [] : Object.entries(SOCIAL_ADS).filter(([k]) => !(d.socialAdsOff ?? []).includes(k)).map(([, v]) => ({ title: v.label, meta: v.limit ? `limite : ${v.limit}` : undefined })) },
+          { kind: 'table', title: 'Blocages à horaires', columns: ['Site ou machine', 'Quand', 'Pour'], empty: 'Aucun : « Bloquer un site à des horaires » ou « Couper une machine » à droite.', rows: [...(d.timed ?? []).map((x) => ({ cells: [x.rule.replace(/^\|\||\^$/g, ''), scheduleText(x.schedule), x.clients?.join(', ') || 'toute la maison'], actions: [{ action: 'retirer_horaire', label: 'Retirer', input: { domaine: x.rule.replace(/^\|\||\^$/g, '') } }] })), ...d.clients.filter((c) => c.cut).map((c) => ({ cells: [`⛔ ${c.name} (${c.ids.join(', ')})`, c.cutSchedule ? scheduleText(c.cutSchedule) : 'tout le temps', 'cette machine'], tone: 'attention' as const, actions: [{ action: 'retablir_machine', label: 'Rétablir', input: { ip: c.ids[0] } }] }))] },
           { kind: 'table', title: 'Règles perso', columns: ['Règle'], empty: 'Aucune règle perso.', rows: d.custom.map((r) => ({ cells: [r], actions: [{ action: 'retirer_regle', label: 'Retirer', input: { regle: r } }] })) },
           { kind: 'list', title: 'Services coupés pour toute la maison', empty: 'Aucun.', items: d.services.map((x) => ({ title: SERVICES[x]?.label ?? x })) },
           { kind: 'list', title: 'Serveurs amont (temps moyen)', items: d.upstreams.map((u) => ({ title: u, meta: upstreamTimes()[u] ? `${Math.round(upstreamTimes()[u])} ms` : 'pas encore utilisé' })) },
@@ -402,6 +491,8 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           { kind: 'form', title: 'Réglages d\'un appareil', action: 'appareil', submit: 'Enregistrer', params: CLIENT_PARAMS },
           { kind: 'form', title: 'Pubs des réseaux', action: 'pubs_reseaux', submit: 'Appliquer', params: m.actions.find((a) => a.id === 'pubs_reseaux')!.params! },
           { kind: 'form', title: 'Horaires des services coupés', action: 'horaires', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'horaires')!.params! },
+          { kind: 'form', title: 'Couper une machine d\'Internet', action: 'couper_machine', submit: 'Couper', params: m.actions.find((a) => a.id === 'couper_machine')!.params! },
+          { kind: 'form', title: 'Bloquer un site à des horaires', action: 'bloquer_horaires', submit: 'Bloquer', params: m.actions.find((a) => a.id === 'bloquer_horaires')!.params! },
           { kind: 'form', title: 'Adresse fixe (DHCP)', action: 'dhcp_fixe', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'dhcp_fixe')!.params! },
           { kind: 'form', title: 'Nom de la maison', action: 'nom_local', submit: 'Ajouter', params: m.actions.find((a) => a.id === 'nom_local')!.params! },
           { kind: 'form', title: paused ? 'Blocage en pause' : 'Pause du blocage', action: paused ? 'reprendre' : 'pause', submit: paused ? 'Reprendre' : 'Mettre en pause', params: paused ? [] : m.actions.find((a) => a.id === 'pause')!.params! },
@@ -411,6 +502,7 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
     async start(ctx) {
       appCtx = ctx;
       const f = o.names?.(); if (f) inventoryName = f;
+      const g = o.devices?.(); if (g) deviceOf = g;
       loadLists(ctx);
       if (ctx.settings.dhcpOn === true) { try { await startDhcp(ctx); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }
       if (ctx.settings.on === true) { try { await startServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le DNS d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Les appareils qui passent par Odin n'ont plus de résolution de noms.`, key: 'dns-demarrage' }); } }
@@ -418,6 +510,21 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
     stop() { srv?.stop(); srv = undefined; dhcp?.stop(); dhcp = undefined; },
     // Chaque jour : listes à jour, vieux journaux effacés. Chaque 5 min : le serveur répond-il encore ?
     watch: { every: 300, async run(ctx) {
+      // Historique : chaque jour passé est résumé (gardé pour toujours, par année et par mois) et noté dans Saga.
+      try {
+        const today = localDay(ctx.now()), before = new Set(Object.keys(ctx.settings.histDays as Record<string, boolean> ?? {}));
+        if (catchUp(ctx.dir, today, threatOf(ctx))) {
+          const done: Record<string, boolean> = { ...(ctx.settings.histDays as Record<string, boolean> ?? {}) };
+          for (const f of readdirSync(join(ctx.dir, 'journal'))) {
+            const dd = f.slice(0, 10); if (!f.endsWith('.jsonl') || dd >= today || before.has(dd)) continue;
+            const sm = readDay(ctx.dir, dd); if (!sm) continue; done[dd] = true;
+            const top = Object.entries(sm.clients).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+            await ctx.call('saga', 'noter', { titre: `Réseau · ${dd}`, texte: `${sm.total} requêtes DNS, ${sm.blocked} bloquées, ${sm.threats} vers des sites dangereux, ${Object.keys(sm.clients).length} appareils.\n\n${top.map(([ip, c]) => `- ${c.name ?? ip} (${ip}) : ${c.n} requêtes, ${c.b} bloquées${c.threats ? `, ⚠ ${c.threats} dangereuses` : ''}`).join('\n')}\n\n#réseau #víðarr` }, 'résumé du réseau de la veille').catch(() => undefined);
+          }
+          ctx.saveSettings({ histDays: done });
+        }
+      } catch { /* historique : on réessaiera au prochain passage */ }
+      await review(ctx);
       prune(ctx);
       const last = Date.parse(s(ctx.settings.listsAt) || '1970-01-01');
       if (ctx.now().getTime() - last > 86400_000 && listsMeta(ctx).some((l) => l.enabled)) {
@@ -434,3 +541,9 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
   return m;
 }
 export const appContext = () => appCtx;
+/** Les domaines demandés par une adresse depuis `since` (pour les graphes des autres applis : VPN, surveillance). */
+export function recentDomains(ip: string, since: number): Array<{ name: string; n: number; blocked: boolean; list?: string }> {
+  const m = new Map<string, { name: string; n: number; blocked: boolean; list?: string }>();
+  for (const e of ring) if (e.t >= since && e.client.replace(/^::ffff:/, '') === ip) { const x = m.get(e.name) ?? { name: e.name, n: 0, blocked: false }; x.n++; if (e.status === 'bloqué') { x.blocked = true; x.list = e.list; } m.set(e.name, x); }
+  return [...m.values()].sort((a, b) => b.n - a.n);
+}

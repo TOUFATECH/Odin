@@ -8,7 +8,8 @@ import { existsSync } from 'node:fs';
 import { WgDevice, systemTun, type PeerConfig, type TunPort } from '../wireguard/engine.ts';
 import { isPrivateV4, localSubnets } from '../../hlidskjalf/discover.ts';
 import { svg } from '../qr.ts';
-import type { ModCtx, Module } from '../types.ts';
+import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module } from '../types.ts';
+import { recentDomains } from './vidarr.ts';
 
 export interface Peer { name: string; pub: string; priv?: string; psk: string; ip: string; created: string; enabled: boolean; full: boolean; mesh?: boolean; endpoint?: string; /** fin de l'accès (AAAA-MM-JJ) : passé ce jour, l'appareil est coupé tout seul */ expires?: string; /** passe par le DNS d'Odin (Víðarr) : pubs et sites dangereux bloqués aussi en dehors de la maison */ odinDns?: boolean }
 export function keypair(): { priv: string; pub: string } {
@@ -146,6 +147,54 @@ async function apply(ctx: ModCtx): Promise<string> {
   if (ctx.settings.on !== true) return 'Configuration enregistrée (le tunnel est éteint : « Allumer le tunnel »).';
   try { return await bringUp(ctx); } catch (e) { return `⚠ Le tunnel n'a pas pu se mettre à jour : ${(e as Error).message}`; }
 }
+/** Débit de chaque appareil : la différence de trafic entre deux regards (octets par seconde). */
+const lastSeen = new Map<string, { rx: number; tx: number; t: number; rate?: { rx: number; tx: number } }>();
+function rates(d: Map<string, { rx: number; tx: number }>, now: number): Map<string, { rx: number; tx: number }> {
+  const out = new Map<string, { rx: number; tx: number }>();
+  for (const [k, x] of d) {
+    const o = lastSeen.get(k), dt = o ? (now - o.t) / 1000 : 0;
+    const r = o && dt >= 1 ? { rx: Math.max(0, (x.rx - o.rx) / dt), tx: Math.max(0, (x.tx - o.tx) / dt) } : o?.rate;
+    if (!o || dt >= 1) lastSeen.set(k, { rx: x.rx, tx: x.tx, t: now, rate: r });
+    if (r) out.set(k, r);
+  }
+  return out;
+}
+const mbps = (bps: number) => `${(bps * 8 / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} Mb/s`;
+/** Le graphe du VPN : Odin au centre, chaque appareil relié par son tunnel (vert s'il est connecté), ce qu'il joint (maison, Internet) et ses domaines. */
+export function vpnGraph(sv: Server, ps: Peer[], d: Map<string, { handshake: number; rx: number; tx: number; endpoint: string }>, r: Map<string, { rx: number; tx: number }>, now: number, domains: (ip: string) => Array<{ name: string; n: number; blocked: boolean; list?: string }> = () => []): { nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail> } {
+  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Gjöll', sub: `${sv.iface} · ${sv.net}.1 · port ${sv.port}`, square: true, size: 18, color: '#4F9DDE', hub: true }];
+  const edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
+  details.odin = { kind: 'Tunnel', title: `Tunnel ${sv.iface}`, subtitle: `${sv.endpoint}:${sv.port} (UDP) · réseau ${sv.net}.0/24`, chips: [{ label: dev ? 'Allumé' : 'Éteint', tone: dev ? 'bon' : 'mauvais' }], rows: [{ k: 'Appareils', v: `${ps.length}, dont ${ps.filter((p) => { const x = d.get(p.pub); return x?.handshake && now - x.handshake < 180_000; }).length} connectés`, src: '' }, { k: 'Maison joignable', v: sv.lan?.join(', ') || '—', src: '' }], actions: [{ action: dev ? 'eteindre' : 'allumer', label: dev ? 'Éteindre le tunnel' : 'Allumer le tunnel', input: {}, primary: !dev }] };
+  if (sv.lan?.length) { nodes.push({ id: 'maison', label: 'Maison', sub: sv.lan.join(', '), square: true, size: 13, color: '#7FB3E6' }); edges.push({ a: 'odin', b: 'maison', w: 2, color: '#7FB3E6' }); details.maison = { kind: 'Réseau', title: 'Réseau de la maison', subtitle: sv.lan.join(', '), rows: [{ k: 'Joint par', v: ps.filter((p) => p.enabled).map((p) => p.name).join(', ') || 'personne', src: '' }] }; }
+  if (ps.some((p) => p.full)) { nodes.push({ id: 'internet', label: 'Internet', sub: 'par la box de la maison', square: true, size: 13, color: '#7FB3E6' }); edges.push({ a: 'odin', b: 'internet', w: 2, color: '#7FB3E6' }); details.internet = { kind: 'Internet', title: 'Internet', subtitle: 'les appareils en « tout le trafic » sortent par la maison', rows: [{ k: 'Appareils', v: ps.filter((p) => p.full).map((p) => p.name).join(', '), src: '' }] }; }
+  const maxT = Math.max(1, ...ps.map((p) => { const x = d.get(p.pub); return (x?.rx ?? 0) + (x?.tx ?? 0); }));
+  const dt = (t: number) => new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' });
+  for (const p of ps) {
+    const x = d.get(p.pub), on = Boolean(p.enabled && x?.handshake && now - x.handshake < 180_000), id = `v:${p.name}`, rt = r.get(p.pub), ip = p.ip.split('/')[0];
+    const ended = Boolean(p.expires && p.expires < new Date(now).toISOString().slice(0, 10));
+    nodes.push({ id, label: p.name, sub: `${ip}${on ? ' · connecté' : ended ? ' · accès terminé' : !p.enabled ? ' · désactivé' : ' · hors ligne'}`, size: 8 + Math.round(8 * Math.sqrt(((x?.rx ?? 0) + (x?.tx ?? 0)) / maxT)), color: on ? '#57C98A' : '#E8EAEC', off: !on, ring: ended ? '#EE6A55' : undefined });
+    edges.push({ a: id, b: 'odin', w: on ? 3 : 0, color: on ? '#57C98A' : undefined, dash: !on });
+    const doms = p.odinDns ? domains(ip).slice(0, 8) : [];
+    for (const dm of doms) { const did = `d:${dm.name}`; if (!nodes.some((n) => n.id === did)) nodes.push({ id: did, label: dm.name, sub: dm.blocked ? 'bloqué' : 'demandé', size: 4, color: dm.blocked ? '#F0A040' : '#8E959D' }); edges.push({ a: id, b: did, dash: dm.blocked, color: dm.blocked ? '#F0A040' : undefined }); details[did] ??= { kind: dm.blocked ? 'Domaine bloqué' : 'Domaine demandé', title: dm.name, rows: [{ k: 'Par', v: p.name, src: 'DNS d\'Odin (Víðarr)' }], actions: [dm.blocked ? { action: 'autoriser', label: 'Autoriser', input: { domaine: dm.name }, module: 'vidarr' } : { action: 'bloquer', label: 'Bloquer', input: { domaine: dm.name }, module: 'vidarr' }] }; }
+    details[id] = {
+      kind: 'Appareil du VPN', title: p.name, subtitle: `${ip} · ${on ? 'connecté' : x?.handshake ? `vu le ${dt(x.handshake)}` : 'jamais connecté'}`,
+      chips: [{ label: on ? 'Connecté' : ended ? 'Accès terminé' : !p.enabled ? 'Désactivé' : 'Hors ligne', tone: on ? 'bon' : ended ? 'mauvais' : 'neutre' }, { label: p.full ? 'Tout le trafic' : 'Maison seulement' }, ...(p.odinDns ? [{ label: 'DNS d\'Odin', tone: 'bon' as const }] : []), ...(p.mesh ? [{ label: 'Maillage' }] : [])],
+      rows: [
+        { k: 'Adresse VPN', v: ip, src: 'Gjöll' },
+        { k: 'Vient de', v: x?.endpoint || '—', src: x?.endpoint ? (isPrivateV4(x.endpoint.split(':')[0]) ? 'réseau privé (même maison ou même box)' : 'adresse publique : 4G, autre Wi-Fi…') : '' },
+        ...(rt ? [{ k: 'Débit', v: `↓ ${mbps(rt.tx)} · ↑ ${mbps(rt.rx)}`, src: 'mesuré dans le tunnel' }] : []),
+        { k: 'Échangé', v: `reçu ${human(x?.rx ?? 0)} · envoyé ${human(x?.tx ?? 0)}`, src: 'depuis l\'allumage du tunnel' },
+        { k: 'Dernier contact', v: x?.handshake ? dt(x.handshake) : 'jamais', src: 'poignée de main du tunnel' },
+        { k: 'Accès', v: p.expires ? `jusqu'au ${p.expires}` : 'sans date de fin', src: '' },
+      ],
+      ...(doms.length ? { list: { title: 'Domaines demandés (15 dernières minutes)', items: doms.map((dm) => ({ text: dm.name, meta: `${dm.n}${dm.blocked ? ' · bloqué' : ''}`, tone: dm.blocked ? 'attention' as const : undefined })) } } : {}),
+      actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'lire', label: 'Voir ses paquets (Rán)', input: { ip }, module: 'ran' }, { action: 'activer', label: p.enabled ? 'Couper l\'accès' : 'Rouvrir l\'accès', input: { nom: p.name, actif: !p.enabled }, primary: !p.enabled }],
+    };
+  }
+  // Maillage : les appareils maillés se joignent directement.
+  const mesh = ps.filter((p) => p.mesh); for (let i = 0; i < mesh.length; i++) for (let j = i + 1; j < mesh.length; j++) edges.push({ a: `v:${mesh[i].name}`, b: `v:${mesh[j].name}`, dash: true, color: '#7FB3E6' });
+  return { nodes, edges, details };
+}
 /** État des appareils vu par le moteur : dernière poignée de main, trafic, adresse d'où ils viennent. */
 function live(): Map<string, { handshake: number; rx: number; tx: number; endpoint: string }> {
   return new Map((dev?.stats() ?? []).map((x) => [x.publicKey, { handshake: x.lastHandshake ?? 0, rx: x.rx, tx: x.tx, endpoint: x.endpoint ?? '' }]));
@@ -228,13 +277,14 @@ export const gjoll: Module = {
     } },
   ],
   async view(ctx) {
-    const sv = server(ctx), d = live();
+    const sv = server(ctx), d = live(), now = Date.now();
+    const graph = { kind: 'graph' as const, title: 'Graphe du VPN', ...vpnGraph(sv, peers(ctx), d, rates(d, now), now, (ip) => recentDomains(ip, now - 15 * 60_000)), legend: [['#4F9DDE', 'Odin, maison, Internet'], ['#57C98A', 'connecté (tunnel)'], ['#7d8791', 'hors ligne'], ['#F0A040', 'bloqué par le DNS'], ['#EE6A55', 'accès terminé']] as Array<[string, string]>, empty: 'Aucun appareil : ajoute ton téléphone à droite.' };
     const steps = await setup(ctx), ps = peers(ctx), online = ps.filter((p) => { const x = d.get(p.pub); return x?.handshake && Date.now() - x.handshake < 180_000; });
     return {
       subtitle: `Joignable sur ${sv.endpoint}:${sv.port} (UDP) · réseau ${sv.net}.0/24${sv.lan?.length ? ` · maison : ${sv.lan.join(', ')}` : ''}${dev ? ' · tunnel allumé' : ' · tunnel éteint'}`,
       tabs: ['Gjallarbrú · clients', 'Gjöll · tunnel', 'Gleipnir · maillage'],
       kpis: [{ label: 'Appareils', value: String(ps.length) }, { label: 'Connectés', value: String(online.length), tone: online.length ? 'bon' : 'neutre' }, { label: 'Maillage', value: String(ps.filter((p) => p.mesh).length) }],
-      sections: [...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route le VPN', items: steps }]), { kind: 'table', title: 'Appareils', columns: ['Appareil', 'Adresse', 'État', 'Reçu', 'Envoyé', 'Trafic', 'Fin d\'accès'], empty: 'Aucun appareil : ajoute ton téléphone à droite.', rows: ps.map((p) => { const x = d.get(p.pub), on = x?.handshake && Date.now() - x.handshake < 180_000; return { cells: [p.name, p.ip, !p.enabled ? 'désactivé' : on ? 'connecté' : x?.handshake ? `vu ${new Date(x.handshake).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'jamais', human(x?.rx ?? 0), human(x?.tx ?? 0), `${p.full ? 'tout' : 'maison seulement'}${p.odinDns ? ' · DNS d\'Odin' : ''}`, p.expires ?? '—'], tone: !p.enabled ? 'neutre' : on ? 'bon' : undefined, actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'telecharger', label: 'Fichier .conf', input: { nom: p.name } }, { action: 'activer', label: p.enabled ? 'Désactiver' : 'Réactiver', input: { nom: p.name, actif: !p.enabled } }, { action: 'revoquer', label: 'Révoquer', input: { nom: p.name } }] }; }) }],
+      sections: [...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route le VPN', items: steps }]), graph, { kind: 'table', title: 'Appareils', columns: ['Appareil', 'Adresse', 'État', 'Reçu', 'Envoyé', 'Trafic', 'Fin d\'accès'], empty: 'Aucun appareil : ajoute ton téléphone à droite.', rows: ps.map((p) => { const x = d.get(p.pub), on = x?.handshake && Date.now() - x.handshake < 180_000; return { cells: [p.name, p.ip, !p.enabled ? 'désactivé' : on ? 'connecté' : x?.handshake ? `vu ${new Date(x.handshake).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'jamais', human(x?.rx ?? 0), human(x?.tx ?? 0), `${p.full ? 'tout' : 'maison seulement'}${p.odinDns ? ' · DNS d\'Odin' : ''}`, p.expires ?? '—'], tone: !p.enabled ? 'neutre' : on ? 'bon' : undefined, actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'telecharger', label: 'Fichier .conf', input: { nom: p.name } }, { action: 'activer', label: p.enabled ? 'Désactiver' : 'Réactiver', input: { nom: p.name, actif: !p.enabled } }, { action: 'revoquer', label: 'Révoquer', input: { nom: p.name } }] }; }) }],
       side: [{ kind: 'form', title: 'Ajouter un appareil', action: 'ajouter', submit: 'Ajouter', params: gjoll.actions.find((a) => a.id === 'ajouter')?.params ?? [] }, { kind: 'form', title: 'Adresse de la maison', action: 'adresse', submit: 'Enregistrer', params: gjoll.actions.find((a) => a.id === 'adresse')?.params ?? [] }, { kind: 'form', title: 'Modifier un appareil', action: 'modifier', submit: 'Modifier', params: gjoll.actions.find((a) => a.id === 'modifier')?.params ?? [] }],
     };
   },
