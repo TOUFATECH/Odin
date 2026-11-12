@@ -105,7 +105,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
 .bubble form{display:flex;gap:6px}.bubble input{flex:1;min-width:0;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:12px;padding:9px 11px;font:inherit}.bubble .x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--muted);font-size:18px}
 .ball{position:fixed;left:0;top:0;width:34px;height:34px;border-radius:50%;z-index:49;touch-action:none;cursor:grab;background:radial-gradient(circle at 35% 30%,#fff 0 12%,#ffd23f 13% 45%,#f08c00 46%);box-shadow:0 6px 12px rgba(0,0,0,.35)}
 @media (max-width:820px){.app{grid-template-columns:1fr}.side{display:none}main{padding:16px 14px 110px}.search{display:none}.card.w2{grid-column:span 1}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}.wx,.clock{grid-column:1/-1!important}.wx .now{flex-wrap:wrap}.wx .kv{margin-left:0;text-align:left;grid-template-columns:repeat(4,auto);width:100%}.card .big{font-size:34px}.clock .big{font-size:44px}
-.bnav{display:flex;position:fixed;left:10px;right:10px;bottom:10px;z-index:40;justify-content:space-around;background:color-mix(in srgb,var(--card2) 92%,transparent);border:1px solid var(--line);border-radius:22px;padding:6px;backdrop-filter:blur(14px)}.bnav .nav{width:52px}}
+.bnav{display:flex;position:fixed;left:10px;right:10px;bottom:10px;z-index:40;justify-content:space-around;padding-right:84px!important;background:color-mix(in srgb,var(--card2) 92%,transparent);border:1px solid var(--line);border-radius:22px;padding:6px;backdrop-filter:blur(14px)}.bnav .nav{width:52px}}
 @media (prefers-reduced-motion:reduce){.pet,.pet .bodyw{transition:none!important;animation:none!important}}`;
 
   // ---------- État ----------
@@ -131,7 +131,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
   const stateFr = (x) => FR[String(x).toLowerCase()] ?? x;
   const isOn = (d) => /^(on|ouvert|open|heat|cool|playing|unlocked|cleaning|auto|heat_cool|dry|fan_only)$/i.test(d.state || '');
   function devCard(d) {
-    const on = isOn(d), toggle = (v) => act('/api/maison/appareil', { appareil: d.id, valeur: v });
+    const on = isOn(d), toggle = (v, e) => { pet.visit(document.querySelector(`[data-dev="${CSS.escape(d.id)}"]`)); return act('/api/maison/appareil', { appareil: d.id, valeur: v }); };
     const head = el('div', { class: 'row' }, el('span', { class: 'em', 'aria-hidden': 'true' }, KIND[d.kind] || '◻️'), el('div', { style: { minWidth: 0 } }, el('b', {}, d.name), el('span', { class: 'muted' }, `${d.kind}${d.state ? ` · ${stateFr(d.state)}${d.unit ? ` ${d.unit}` : ''}` : ''}`)));
     const ctl = el('div', { class: 'ctl' });
     if (['lumière', 'prise', 'ventilateur'].includes(d.kind)) {
@@ -148,7 +148,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       r.addEventListener('change', () => { if (Number(r.value) > 90) toggle('deverrouille'); r.value = '0'; knob.style.left = '4px'; });
       ctl.append(on ? el('button', { class: 'btn', onclick: () => toggle('verrouille') }, icon('lock'), ' Verrouiller') : w);
     }
-    return el('div', { class: `card dev${on ? ' on' : ''}${d.kind === 'serrure' || d.kind === 'lecteur' ? ' w2' : ''}` }, head, ctl);
+    return el('div', { class: `card dev${on ? ' on' : ''}${d.kind === 'serrure' || d.kind === 'lecteur' ? ' w2' : ''}`, 'data-dev': d.id }, head, ctl);
   }
   function weatherCard(w) {
     if (!w) return el('div', { class: 'card wx w2' }, el('h3', {}, 'Météo'), el('p', { class: 'muted' }, 'Météo indisponible : choisis la ville dans Odin (Glaðsheimr).'));
@@ -292,7 +292,45 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     place(x, y);
     mood('neutre');
     // Promenade : de temps en temps vers un coin libre de l'écran (jamais pendant une conversation).
-    setInterval(() => { if (bubble || dragging || play || reduce) return; if (Date.now() - lastMove < 9000) return; const s = size(); place(20 + Math.random() * (innerWidth - s - 40), innerHeight * (0.35 + Math.random() * 0.55) - s); }, 4000);
+    // Odin ne se pose jamais sur un widget : il vit dans les zones vides (en bas d'abord), s'y promène,
+    // et ne monte au-dessus d'un widget que quand tu lui demandes quelque chose qui le concerne.
+    const WIDGET = '.card,.tile,.chip,.nav,.logo,.top,.sec,.th,.toast,dialog,a,button,input,.hello,.tools';
+    const isFree = (px, py, s) => [[px + 4, py + 4], [px + s - 4, py + 4], [px + 4, py + s - 4], [px + s - 4, py + s - 4], [px + s / 2, py + s / 2]].every(([cx, cy]) => {
+      if (cx < 0 || cy < 0 || cx > innerWidth || cy > innerHeight) return false;
+      const hit = document.elementsFromPoint(cx, cy).find((n) => !w.contains(n) && n !== w && !bubble?.contains(n) && !n.classList?.contains('ball'));
+      return !hit?.closest(WIDGET);
+    });
+    /** Les places libres, des plus basses aux plus hautes. */
+    function freeSpots() {
+      const s = size(), out = [];
+      for (let py = innerHeight - s - 14; py >= 60; py -= 28) for (let px = 16; px <= innerWidth - s - 16; px += 36) if (isFree(px, py, s)) out.push([px, py]);
+      return out;
+    }
+    let home = null, visiting = 0;
+    /** Retour à sa place de repos : la place libre la plus basse (au plus près d'où il est). */
+    function rest(fast) {
+      const spots = freeSpots(); if (!spots.length) { home = null; return; }
+      const low = spots[0][1], row = spots.filter((p) => p[1] >= low - 28);
+      const best = row.sort((a, b) => Math.abs(a[0] - x) - Math.abs(b[0] - x))[0]; home = best; place(best[0], best[1], fast);
+    }
+    /** Va au-dessus d'un widget (une demande qui le concerne), puis revient dans sa zone. */
+    function visit(elem) {
+      if (!elem || reduce) return; const r = elem.getBoundingClientRect(), s = size();
+      visiting = Date.now(); place(r.left + r.width / 2 - s / 2, Math.max(8, r.top - s * 0.6), true);
+      setTimeout(() => { if (Date.now() - visiting >= 5500 && !bubble?.dataset.chat) { visiting = 0; rest(); } }, 6000);
+    }
+    setTimeout(() => rest(), 600);
+    setInterval(() => {
+      if (bubble || dragging || play || reduce || visiting) return;
+      const s = size();
+      // Le contenu a bougé sous lui (défilement, nouvelle carte) : il se pousse vers une place libre.
+      if (!isFree(x, y, s)) { rest(true); return; }
+      if (Date.now() - lastMove < 12000) return;
+      const spots = freeSpots(); if (!spots.length) return;
+      const low = spots.filter((p) => p[1] >= spots[0][1] - 120), pick = (Math.random() < 0.7 ? low : spots)[Math.floor(Math.random() * (Math.random() < 0.7 ? low : spots).length)] ?? spots[0];
+      place(pick[0], pick[1]);
+    }, 4000);
+    addEventListener('scroll', () => { clearTimeout(w._sc); w._sc = setTimeout(() => { if (!dragging && !play && !visiting && !isFree(x, y, size())) rest(true); }, 250); }, { passive: true });
     addEventListener('resize', () => place(x, y));
     // Elle ne gêne jamais : si ta souris arrive sur elle alors qu'un bouton ou un réglage est caché dessous, elle s'écarte.
     let lastFlee = 0;
@@ -320,7 +358,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       let left = x + s / 2 - bw / 2, top = y - bh - 12; if (top < 8) top = y + s + 12;
       bubble.style.left = `${Math.max(12, Math.min(innerWidth - bw - 12, left))}px`; bubble.style.top = `${Math.max(8, Math.min(innerHeight - bh - 8, top))}px`;
     }
-    function closeBubble() { bubble?.remove(); bubble = null; clearTimeout(bubbleTimer); mood('neutre'); }
+    function closeBubble() { const was = Boolean(bubble); bubble?.remove(); bubble = null; clearTimeout(bubbleTimer); mood('neutre'); if (was && !play && !dragging) setTimeout(() => { if (!bubble) { visiting = 0; if (!isFree(x, y, size())) rest(); } }, 400); }
     function speak(t) { if (!voice || !('speechSynthesis' in window)) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t.replace(/[\u{1F300}-\u{1FAFF}☀-➿]/gu, '').slice(0, 400)); u.lang = 'fr-FR'; mood('parle'); u.onend = () => mood('neutre'); speechSynthesis.speak(u); } catch { /* */ } }
     function show(kids, level, ms, isChat) {
       closeBubble();
@@ -390,7 +428,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       // Fin du jeu après une minute sans lancer.
       const end = setInterval(() => { if (Date.now() - play > 60_000) { clearInterval(end); cancelAnimationFrame(raf); ball?.remove(); ball = null; play = 0; say('On rejoue quand tu veux !', 'ok', 'joie'); } }, 5000);
     }
-    return { say, news, chat };
+    return { say, news, chat, visit };
   })();
 
   load();
