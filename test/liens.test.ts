@@ -294,6 +294,76 @@ CHECKS['askr>forseti'] = async (w) => {
   await w.v.module('askr')!.watch!.run(w.v.ctx('askr'));
   assert.ok(w.v.alerts({ module: 'askr' }).some((a) => /Garantie de PC portable : plus que [45] jour/.test(a.title) && a.level === 'haute'));
 };
+/** Le proxy Valgrind démarré pour l'essai (ports au hasard) et un service de la maison factice. */
+async function proxyUp(w: World): Promise<{ port: number; svc: import('node:http').Server; svcUrl: string; end: () => void }> {
+  const http = await import('node:http');
+  const svc = http.createServer((_q, r) => { r.writeHead(200); r.end('ok'); }); await new Promise<void>((ok) => svc.listen(0, '127.0.0.1', () => ok()));
+  w.v.ctx('valgrind').saveSettings({ lanIp: '192.168.1.2' });
+  const r = await w.v.act('valgrind', 'demarrer', { http: 0, https: 0 }); assert.match(r.text, /Proxy en marche/, r.text);
+  const port = Number(/HTTP sur le port (\d+)/.exec(r.text)![1]);
+  return { port, svc, svcUrl: `http://127.0.0.1:${(svc.address() as { port: number }).port}`, end: () => { svc.close(); svc.closeAllConnections(); void w.v.act('valgrind', 'arreter'); } };
+}
+const httpGet = async (port: number, host: string, headers: Record<string, string> = {}) => { const http = await import('node:http'); return new Promise<number>((ok, ko) => { const q = http.request({ host: '127.0.0.1', port, path: '/', headers: { host, ...headers, connection: 'close' } }, (r) => { r.resume(); r.on('end', () => ok(r.statusCode!)); }); q.on('error', ko); q.end(); }); };
+CHECKS['valgrind>vidarr'] = async (w) => {
+  const p = await proxyUp(w);
+  try {
+    const r = await w.v.act('valgrind', 'ajouter', { domaines: 'photos.maison', cible: p.svcUrl, https: 'aucun', surveiller: false });
+    assert.match(r.text, /À la maison, photos\.maison mène directement à Odin \(192\.168\.1\.2\)/, r.text);
+    assert.deepEqual((w.v.ctx('vidarr').settings.dns as { rewrites: Record<string, string[]> }).rewrites['photos.maison'], ['192.168.1.2']);
+  } finally { p.end(); }
+};
+CHECKS['valgrind>vordr'] = async (w) => {
+  const p = await proxyUp(w);
+  try { await w.v.act('valgrind', 'ajouter', { domaines: 'nas.maison', cible: p.svcUrl, https: 'aucun', dns_maison: false }); assert.ok(sondes(w).some((m) => m.name === 'Service nas.maison' && m.target === p.svcUrl)); }
+  finally { p.end(); }
+};
+CHECKS['valgrind>brisingamen'] = async (w) => {
+  const p = await proxyUp(w);
+  try {
+    await w.v.act('valgrind', 'ajouter', { domaines: 'nas.maison', cible: p.svcUrl, https: 'aucun', dns_maison: false, surveiller: false });
+    const r = await w.v.act('valgrind', 'proteger', { domaine: 'nas.maison', utilisateur: 'awa', mot_de_passe: 'une phrase assez longue' });
+    assert.match(r.text, /Le mot de passe est dans le coffre/, r.text); assert.ok(did(w, 'brisingamen', 'ajouter'));
+    assert.equal(await httpGet(p.port, 'nas.maison'), 401);
+    assert.equal(await httpGet(p.port, 'nas.maison', { authorization: `Basic ${Buffer.from('awa:une phrase assez longue').toString('base64')}` }), 200);
+  } finally { p.end(); }
+};
+CHECKS['valgrind>garmr'] = async (w) => {
+  const p = await proxyUp(w);
+  try {
+    await w.v.act('valgrind', 'ajouter', { domaines: 'nas.maison', cible: p.svcUrl, https: 'aucun', dns_maison: false, surveiller: false });
+    await w.v.act('valgrind', 'proteger', { domaine: 'nas.maison', utilisateur: 'awa', mot_de_passe: 'une phrase assez longue' });
+    for (let k = 0; k < 5; k++) assert.equal(await httpGet(p.port, 'nas.maison', { authorization: `Basic ${Buffer.from('awa:faux').toString('base64')}` }), 401);
+    assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Garmr est appelé au 5e essai');
+    assert.ok(!w.ran.some((c) => /nft add element .*127\.0\.0\.1/.test(c)), 'une adresse de la maison n\'est jamais bannie');
+  } finally { p.end(); }
+};
+CHECKS['garmr>valgrind'] = async (w) => {
+  const p = await proxyUp(w);
+  try {
+    await w.v.act('valgrind', 'ajouter', { domaines: 'nas.maison', cible: p.svcUrl, https: 'aucun', dns_maison: false, surveiller: false });
+    assert.equal(await httpGet(p.port, 'nas.maison'), 200);
+    w.v.ctx('garmr').saveSettings({ bans: [{ ip: '127.0.0.1', until: Date.now() + 3600_000, reason: 'essai', count: 1, source: 'essai' }] });
+    await w.v.module('valgrind')!.watch!.run(w.v.ctx('valgrind'));
+    assert.equal(await httpGet(p.port, 'nas.maison'), 403, 'adresse bannie refusée par le proxy');
+    w.v.ctx('garmr').saveSettings({ bans: [] }); await w.v.module('valgrind')!.watch!.run(w.v.ctx('valgrind'));
+    assert.equal(await httpGet(p.port, 'nas.maison'), 200);
+  } finally { p.end(); }
+};
+CHECKS['valgrind>forseti'] = async (w) => {
+  const p = await proxyUp(w);
+  try {
+    await w.v.act('valgrind', 'ajouter', { domaines: 'panne.maison', cible: 'http://127.0.0.1:9', https: 'aucun', dns_maison: false, surveiller: false });
+    for (let k = 0; k < 10; k++) assert.equal(await httpGet(p.port, 'panne.maison'), 502);
+    await w.v.module('valgrind')!.watch!.run(w.v.ctx('valgrind'));
+    assert.ok(w.v.alerts({ module: 'valgrind' }).some((a) => /Le service derrière panne\.maison ne répond plus/.test(a.title) && a.level === 'haute'));
+  } finally { p.end(); }
+};
+CHECKS['valgrind>ran'] = async (w) => {
+  w.v.ctx('valgrind').saveSettings({ hosts: [{ id: 'x', domains: ['nas.maison'], target: 'http://192.168.1.10:5000', enabled: true, tls: 'aucun' }] });
+  const view = await w.v.module('valgrind')!.view(w.v.ctx('valgrind'), new URLSearchParams());
+  const g = view.sections.find((x) => x.kind === 'graph') as { details: Record<string, { actions?: Array<{ module?: string; action: string; input: Record<string, unknown> }> }> };
+  assert.deepEqual(g.details['m:192.168.1.10:5000'].actions?.find((a) => a.module === 'ran')?.input, { ip: '192.168.1.10' });
+};
 CHECKS['gjoll>forseti'] = async (w) => {
   await w.v.act('gjoll', 'ajouter', { nom: 'Invité', fin: '2020-01-01' }).catch(() => undefined);
   const peers = (w.v.ctx('gjoll').settings.peers as Array<{ name: string; expires?: string }> | undefined) ?? [];
@@ -314,6 +384,7 @@ const SIGNALS: Record<string, { alone: [string, Record<string, unknown>]; with: 
   // Un site web n'a qu'un témoin (Idunn) : son DNS qui change ne dit rien seul ; avec sa page d'accueil qui change aussi, c'est un incident.
   idunn: { alone: ['dns_change', { site: 'boutique' }], with: ['idunn', 'titre_change', { site: 'boutique' }], kind: 'site détourné' },
   // Une machine de la maison qui demande un site dangereux ET tombe dans un piège : elle est sans doute infectée.
+  valgrind: { alone: ['scan', { ip: '203.0.113.88', chemin: '/.env', site: 'nas.exemple.fr' }], with: ['loki', 'piege', { ip: '203.0.113.88', type: 'identifiants', 'piège': 'ssh', 'détail': 'root/123456' }], kind: 'attaque' },
   vidarr: { alone: ['dns_menace', { ip: '192.168.1.40', domaine: 'c2.virus.example', liste: 'Sites dangereux' }], with: ['loki', 'piege', { ip: '192.168.1.40', type: 'identifiants', 'piège': 'ssh', 'détail': 'root/123456' }], kind: 'attaque' },
 };
 for (const [from, sc] of Object.entries(SIGNALS)) CHECKS[`${from}>ullr`] = async (w) => {

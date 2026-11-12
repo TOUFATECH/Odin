@@ -29,6 +29,7 @@ export const SENSORS: Array<{ app: string; when: string; what: string }> = [
   { app: 'hermod', when: 'une machine du parc disparaît', what: 'machines disparues du réseau (pendant une attaque, ou après un passage)' },
   { app: 'himinbjorg', when: 'un mouvement est vu aux heures surveillées', what: 'mouvements aux heures surveillées (avec un support branché : quelqu\'un était là)' },
   { app: 'vidarr', when: 'un appareil demande un site dangereux ou inonde le DNS', what: 'demandes de sites dangereux (virus, hameçonnage), inondations du DNS et appareils jamais vus sur le réseau, par appareil' },
+  { app: 'valgrind', when: 'un robot cherche des failles à travers le proxy', what: 'adresses qui cherchent des failles connues (/.env, /wp-login.php…) et mots de passe refusés sur les sites du proxy' },
   { app: 'idunn', when: 'le DNS, le certificat ou la page d\'accueil d\'un de tes sites change', what: 'changements de DNS, de certificat et de page d\'accueil de tes sites (détournement)' },
 ];
 
@@ -42,6 +43,9 @@ export function toSignal(e: { module: string; type: string; data: Record<string,
     // Víðarr : un appareil de la maison a demandé un site dangereux (souvent un logiciel infecté qui appelle son serveur).
     case 'vidarr.dns_menace': return ip ? sig(40, `${ip} a demandé ${s(d.domaine)} (${s(d.liste)}) : bloqué par Víðarr`, [`ip:${ip}`, `dom:${s(d.domaine)}`], { attack: 'T1071.004' }) : undefined;
     // Un appareil jamais vu : rien seul ; avec une attaque venue de la même adresse, c'est l'intrus.
+    // Valgrind : une adresse d'Internet cherche des failles sur tes sites (/.env, /wp-login.php…).
+    case 'valgrind.scan': return ip ? sig(15, `${ip} cherche des failles sur ${s(d.site)} (${s(d.chemin)})`, [`ip:${ip}`], { attack: 'T1595' }) : undefined;
+    case 'valgrind.mot_de_passe_refuse': return ip && Number(d.essais) >= 3 ? sig(10, `${ip} : ${s(d.essais)} mauvais mots de passe sur ${s(d.site)}`, [`ip:${ip}`], { attack: 'T1110' }) : undefined;
     case 'vidarr.dhcp_nouveau': return ip ? sig(5, `appareil jamais vu sur le réseau : ${s(d.nom) || s(d.mac)} (${ip})`, [`ip:${ip}`]) : undefined;
     case 'vidarr.dns_inondation': return ip ? sig(15, `${ip} inonde le DNS (${s(d.par_seconde)} requêtes par seconde)`, [`ip:${ip}`]) : undefined;
     case 'garmr.banni': return ip ? sig(10, `${ip} banni au pare-feu (${s(d.raison)})`, [`ip:${ip}`]) : undefined;
