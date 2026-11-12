@@ -49,6 +49,7 @@ import { skogul } from './modules/skogul.ts';
 import { idunn, idunnKeys } from './modules/idunn.ts';
 import { ullr, ullrKeys } from './modules/ullr.ts';
 import { syncSheets } from './fiches.ts';
+import { AppJournal } from './journal.ts';
 import { ymir } from './modules/ymir.ts';
 import { Valhalla } from './service.ts';
 import type { Module, NotifyOpts } from './types.ts';
@@ -179,8 +180,10 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   v.events.on('event', toFlows); v.events.on('alert', alertToFlows);
   // Les bulles de la mascotte (alertes, décisions d'Odin) : relayées en direct aux pages ouvertes.
   const notices = new Notices(v);
+  // Le lien de toutes les applis avec la mémoire d'Odin : une note par jour dans le Cerveau (sans secret).
+  let journal: AppJournal | undefined; try { journal = new AppJournal(v, brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }), (t) => odin.redactor.redact(t)); } catch { /* Cerveau indisponible */ }
   void v.start();
-  return () => { notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
+  return () => { void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
 }
 
 /** Pour Draupnir : action d'une appli, sans personne → actions graves refusées. */
