@@ -19,8 +19,8 @@
   // ---------------------------------------------------------------- les 36 pouvoirs
   // kit : façon de détruire ; shot : ce qu'Odin lance ; c : couleur ; extra : décor du pouvoir autour de l'élément
   const P = {
-    feu: { name: 'Boule de feu', c: '#ff7a1a', kit: 'burn', shot: 'fire', appear: 'fire' },
-    jet: { name: 'Lance-flammes', c: '#ff8a1a', kit: 'burn', shot: 'jet', appear: 'fire' },
+    feu: { name: 'Boule de feu', c: '#ff7a1a', kit: 'engulf', shot: 'none', appear: 'fire' },
+    jet: { name: 'Rayon de feu', c: '#ff8a1a', kit: 'beam', shot: 'none', appear: 'fire' },
     lave: { name: 'Lave', c: '#ff5a00', kit: 'melt', shot: 'lava', drip: '#ff8a1a', fx: 'sepia(1) saturate(6) hue-rotate(-30deg) brightness(1.2)', appear: 'fire' },
     meteores: { name: 'Météores', c: '#ff6a1a', kit: 'meteor', many: true, shot: 'none', appear: 'fire' },
     comete: { name: 'Comète', c: '#ff9a2a', kit: 'meteor', shot: 'none', appear: 'light', pc: ['#fff3c0', '#ffd36a', '#ff7a1a'] },
@@ -240,7 +240,110 @@
   function zigzag(x0, y0, x1, y1, n = 7, amp = 12) { const pts = []; for (let i = 0; i <= n; i++) { const t = i / n; pts.push(`${(x0 + (x1 - x0) * t + (i && i < n ? R(-amp / 3, amp / 3) : 0)).toFixed(1)},${(y0 + (y1 - y0) * t + (i && i < n ? R(-amp, amp) : 0)).toFixed(1)}`); } return pts.join(' '); }
 
   // ---------------------------------------------------------------- les façons de détruire
+  /** Un trou qui brûle depuis le point d'impact jusqu'à ce que l'élément ait disparu, avec un bord incandescent et des braises. */
+  function burnHole(S, ax, ay, t0, dur, o = {}) {
+    const { box, g, w, h } = S, r0 = Math.max(Math.hypot(ax, ay), Math.hypot(w - ax, ay), Math.hypot(ax, h - ay), Math.hypot(w - ax, h - ay)) + 16;
+    const rad = getComputedStyle(g).borderRadius, ring = el(box, `left:0;top:0;width:${w}px;height:${h}px;overflow:hidden;border-radius:${rad};z-index:4`), q = Q(), rect = box.getBoundingClientRect();
+    const hot = o.hot ?? ['#fff7c2', '#ffd23a', '#ff7a1a'];
+    const born = performance.now();
+    const tick = (now) => {
+      if (!box.isConnected) return;
+      const t = (now - born - t0) / dur;
+      if (t >= 0) {
+        const k = Math.min(1, t), e = 1 - (1 - k) ** 1.6, r = r0 * e, m = `radial-gradient(circle at ${ax}px ${ay}px,transparent ${r}px,#000 ${r + 2}px)`;
+        g.style.webkitMaskImage = m; g.style.maskImage = m;
+        ring.style.background = `radial-gradient(circle at ${ax}px ${ay}px,transparent ${Math.max(0, r - 7)}px,${hot[0]} ${r - 2}px,${hot[2]} ${r + 2}px,rgba(110,30,0,.85) ${r + 7}px,rgba(30,10,4,.55) ${r + 16}px,transparent ${r + 30}px)`;
+        if (k < 1 && r > 2) { const ps = []; for (let i = 0; i < 6 * q; i++) { const a = Math.random() * 6.283, x = ax + Math.cos(a) * r, y = ay + Math.sin(a) * r; if (x < 0 || y < 0 || x > w || y > h) continue; ps.push({ x: rect.left + x, y: rect.top + y, vx: Math.cos(a) * R(20, 90), vy: R(-160, -50), g: -30, drag: 0.97, wob: R(3, 8), life: R(0.4, 1), s: R(1, 2.6), c: pick(hot), add: true }); } if (ps.length) PX.add(ps); }
+        if (k >= 1) { ring.remove(); g.style.opacity = '0'; return; }
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
   const KITS = {
+    engulf(S, p, from, snap) { // une grosse boule de feu arrive, s'écrase sur la fiche, qui prend feu et disparaît dans les flammes
+      const { box, g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), k = F(), D = DUR() * 1.6;
+      const tx = r.x + (snap.hit?.x !== undefined ? snap.hit.x - r.x : r.w / 2), ty = r.y + Math.min(r.h * 0.45, 60);
+      const src = from ?? { x: tx - Math.min(260, innerWidth * 0.3), y: -90 }, dx = tx - src.x, dy = ty - src.y, dist = Math.hypot(dx, dy), T = Math.min(620, Math.max(360, dist * 0.7));
+      const arc = from ? -Math.min(140, dist * 0.25) : 0, ang = Math.atan2(dy, dx) * 180 / Math.PI, s0 = Math.round(Math.max(54, Math.min(96, Math.sqrt(r.w * r.h) * 0.35)) * Math.min(1.25, k));
+      // La boule : un cœur blanc-jaune, des flammes qui traînent derrière, une lueur autour.
+      const ball = el(L, `left:${src.x - s0 / 2}px;top:${src.y - s0 / 2}px;width:${s0}px;height:${s0}px;z-index:21`);
+      const tail = el(ball, `left:${s0 / 2}px;top:${s0 / 2}px;width:0;height:0;transform:rotate(${ang + 90}deg)`);
+      for (let i = 0; i < 5; i++) { const fw = s0 * R(0.7, 1.05), fh = s0 * R(1.5, 2.3), f = el(tail, `left:${-fw / 2 + R(-s0 * 0.15, s0 * 0.15)}px;top:${-s0 * 0.2}px;width:${fw}px;height:${fh}px;transform-origin:50% 0;transform:rotate(180deg);opacity:.92;filter:drop-shadow(0 0 8px #ff6a1a)`, FLAME(Math.min(2, i % 3))); f.firstElementChild && (f.firstElementChild.style.animation = `opFlick ${R(0.12, 0.2).toFixed(2)}s ease-in-out infinite alternate`); }
+      el(ball, `left:${-s0 * 0.35}px;top:${-s0 * 0.35}px;width:${s0 * 1.7}px;height:${s0 * 1.7}px;border-radius:50%;background:radial-gradient(circle,rgba(255,170,40,.55),rgba(255,90,20,.18) 50%,transparent 70%)`);
+      const core = el(ball, `left:0;top:0;width:${s0}px;height:${s0}px;border-radius:50%;background:radial-gradient(circle at 42% 40%,#fffbe8 0,#fff1a0 18%,#ffc43a 38%,#ff6a1a 64%,#c9260a 86%);box-shadow:0 0 22px #ff7a1a,0 0 46px #ff4a00aa`);
+      anim(core, [{ transform: 'rotate(0) scale(1)' }, { transform: 'rotate(180deg) scale(1.08)' }, { transform: 'rotate(360deg) scale(1)' }], { duration: 260, iterations: Math.ceil(T / 260) + 1, easing: 'linear' });
+      const mid = (t) => ({ x: dx * t, y: dy * t + arc * 4 * t * (1 - t) });
+      const kf = []; for (let i = 0; i <= 10; i++) { const t = i / 10, pt = mid(t); kf.push({ transform: `translate(${pt.x}px,${pt.y}px) scale(${0.5 + 0.5 * Math.min(1, t * 3)})`, offset: t }); }
+      anim(ball, kf, { duration: T, easing: 'cubic-bezier(.35,0,.9,.6)' }); setTimeout(() => ball.remove(), T + 20);
+      const trail = []; for (let i = 0; i < 90 * q; i++) { const t = i / (90 * q), pt = mid(t); trail.push({ x: src.x + pt.x + R(-s0 * 0.2, s0 * 0.2), y: src.y + pt.y + R(-s0 * 0.2, s0 * 0.2), vx: R(-30, 30), vy: R(-60, -10), g: -40, life: R(0.3, 0.7), s: R(3, 7) * Math.min(1.4, s0 / 60), c: pick(['#ffd36a', '#ff9a2a', '#ff6a1a', '#fff3c0']), add: true, delay: (T * t) / 1000 }, { x: src.x + pt.x, y: src.y + pt.y, vx: R(-15, 15), vy: R(-40, -15), g: 0, life: R(0.7, 1.2), s: R(6, 12), c: 'rgba(90,80,75,.35)', shape: 'smoke', delay: (T * t + 60) / 1000 }); }
+      PX.add(trail);
+      // L'impact : éclair de chaleur, onde, la fiche s'embrase de partout en un instant, puis brûle jusqu'à disparaître.
+      const ax = tx - r.x, ay = ty - r.y;
+      setTimeout(() => {
+        shake(6 * k, 360);
+        const fl = el(box, `left:${ax - s0 * 1.6}px;top:${ay - s0 * 1.6}px;width:${s0 * 3.2}px;height:${s0 * 3.2}px;border-radius:50%;background:radial-gradient(circle,#fffbe8 0,#ffd23a 25%,#ff6a1a 50%,transparent 70%);z-index:7`);
+        anim(fl, [{ opacity: 1, transform: 'scale(.3)' }, { opacity: 0.9, transform: 'scale(1)', offset: 0.35 }, { opacity: 0, transform: 'scale(1.6)' }], { duration: 420 });
+        shatter({ x: tx - 4, y: ty - 4, w: 8, h: 8 }, Math.round(120 * q), ['#fff3c0', '#ffd36a', '#ff7a1a'], { at: { x: tx, y: ty + 6 }, speed: [200, 700], g: 500, life: [0.25, 0.7], size: [1, 2.6], shape: 'spark', add: true });
+        const glow = el(box, `left:${-w * 0.3}px;top:${-h * 0.7}px;width:${w * 1.6}px;height:${h * 2.1}px;border-radius:50%;background:radial-gradient(ellipse at 50% 65%,rgba(255,140,30,.6),rgba(255,80,20,.2) 45%,transparent 70%);z-index:0`);
+        anim(glow, [{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.7 }, { opacity: 0 }], { duration: D });
+        anim(g, [{ filter: 'brightness(1.8) sepia(.6) saturate(3) hue-rotate(-20deg)' }, { filter: 'sepia(1) saturate(2.4) hue-rotate(-25deg) brightness(.7)', offset: 0.4 }, { filter: 'brightness(.25) saturate(0)' }], { duration: D * 0.8 });
+        const flames = el(box, 'left:0;top:0;width:100%;height:100%;z-index:5;overflow:visible;mix-blend-mode:screen'), sp = Math.max(18, Math.min(34, w / 6)), rows = Math.max(1, Math.min(4, Math.round(h / 40))), dmax = Math.hypot(Math.max(ax, w - ax), Math.max(ay, h - ay)) || 1;
+        let n = 0;
+        for (let rI = 0; rI <= rows; rI++) for (let x = -sp / 3 + R(0, sp / 2); x < w + sp / 2 && n < 70; x += sp * R(0.75, 1.3)) {
+          n++; const y = h - (rI * h) / rows + R(-8, 8), fh = Math.max(30, Math.min(110, h * 0.95)) * R(0.5, 1.3) * (1 - rI * 0.12) * k, d = Math.hypot(x - ax, y - ay) / dmax;
+          const f = el(flames, `left:${x - fh * 0.32}px;top:${y - fh}px;width:${fh * 0.64}px;height:${fh}px;transform-origin:50% 100%;filter:drop-shadow(0 0 8px #ff5a10);opacity:0`, FLAME(Ri(0, 2)));
+          f.style.animation = `opFlick ${R(0.14, 0.26).toFixed(2)}s ease-in-out ${-R(0, 0.3).toFixed(2)}s infinite alternate`;
+          const on = d * 0.16, off = Math.min(0.92, 0.3 + d * 0.55 + R(0, 0.08));
+          anim(f, [{ opacity: 0, scale: '0.1' }, { opacity: 0, scale: '0.1', offset: on }, { opacity: 1, scale: '1.15', offset: on + 0.07 }, { opacity: 1, scale: '1', offset: off }, { opacity: 0, scale: '0.3' }], { duration: D, easing: 'linear' });
+        }
+        burnHole(S, ax, ay, D * 0.12, D * 0.62);
+        const em = [], ash = [];
+        for (let i = 0; i < Math.round(120 * q); i++) em.push({ x: r.x + Math.random() * r.w, y: r.y + r.h * R(0, 1), vx: R(-35, 35), vy: R(-220, -70), g: -20, drag: 0.98, wob: R(4, 9), life: R(0.6, 1.4), s: R(1, 2.6), c: pick(['#ffd36a', '#ffb020', '#ff7a1a', '#fff3c0']), add: true, delay: (R(0.05, 0.8) * D) / 1000 });
+        for (let i = 0; i < Math.round(200 * q); i++) ash.push({ x: r.x + Math.random() * r.w, y: r.y + Math.random() * r.h, vx: R(-40, 40), vy: R(-120, -30), g: 50, drag: 0.97, wob: R(3, 7), life: R(0.9, 1.8), s: R(1.5, 4), c: pick(['#2a2a2e', '#3b3b40', '#55555c', '#ff7a1a']), shape: 'flake', vr: R(-8, 8), delay: (R(0.3, 0.85) * D) / 1000 });
+        PX.add(em); PX.add(ash); smokeAt(r, Math.round(22 * q), 'rgba(100,100,108,.5)', { delay: (0.3 * D) / 1000, spread: (0.6 * D) / 1000 });
+      }, T);
+      return T + D * 1.1;
+    },
+    beam(S, p, from, snap) { // un gros rayon jaillit d'Odin ; dès qu'il touche la fenêtre, elle fond et se perce jusqu'à disparaître
+      const { box, g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), k = F(), D = DUR() * 1.25;
+      const src = from ?? { x: -30, y: Math.max(40, r.y - 120) };
+      const inside = src.x > r.x && src.x < r.x + r.w && src.y > r.y && src.y < r.y + r.h;
+      const cx = inside ? r.x + r.w / 2 : Math.min(r.x + r.w - 2, Math.max(r.x + 2, src.x)), cy = inside ? r.y + r.h / 2 : Math.min(r.y + r.h - 2, Math.max(r.y + 2, src.y));
+      // On vise un peu dans la fenêtre pour que le rayon y entre franchement.
+      const tx = cx + (r.x + r.w / 2 - cx) * 0.12, ty = cy + (r.y + r.h / 2 - cy) * 0.12, dx = tx - src.x, dy = ty - src.y, dist = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
+      const th = Math.round(Math.max(26, Math.min(54, Math.min(r.w, r.h) * 0.4)) * Math.min(1.3, k)), EXT = 130, HOLD = D;
+      const beam = el(L, `left:${src.x}px;top:${src.y - th / 2}px;width:${dist}px;height:${th}px;transform-origin:0 50%;transform:rotate(${ang}deg);z-index:20`);
+      const glow = el(beam, `left:0;top:${-th * 0.6}px;width:100%;height:${th * 2.2}px;border-radius:${th}px;background:linear-gradient(180deg,transparent,rgba(255,110,20,.45) 30%,rgba(255,150,40,.6) 50%,rgba(255,110,20,.45) 70%,transparent);filter:blur(6px)`);
+      const body = el(beam, `left:0;top:0;width:100%;height:100%;border-radius:${th}px;background:linear-gradient(180deg,rgba(255,80,10,.0),#ff5a10 18%,#ffb020 38%,#fff3b0 50%,#ffb020 62%,#ff5a10 82%,rgba(255,80,10,0))`);
+      el(beam, `left:0;top:${th / 2 - Math.max(3, th * 0.12)}px;width:100%;height:${Math.max(6, th * 0.24)}px;border-radius:9px;background:#fffef5;box-shadow:0 0 10px #fff,0 0 22px #ffe08a`);
+      const ripple = el(body, `left:0;top:0;width:100%;height:100%;background:repeating-linear-gradient(90deg,rgba(255,255,255,0) 0 18px,rgba(255,255,255,.35) 22px,rgba(255,255,255,0) 30px);mix-blend-mode:screen`);
+      anim(ripple, [{ backgroundPosition: '0 0' }, { backgroundPosition: '300px 0' }], { duration: 260, iterations: Math.ceil((EXT + HOLD) / 260) + 2, easing: 'linear' });
+      anim(beam, [{ transform: `rotate(${ang}deg) scale(0,.4)` }, { transform: `rotate(${ang}deg) scale(1,1)`, offset: EXT / (EXT + HOLD + 220) }, { transform: `rotate(${ang}deg) scale(1,1.12)`, offset: (EXT + HOLD * 0.5) / (EXT + HOLD + 220) }, { transform: `rotate(${ang}deg) scale(1,1)`, offset: (EXT + HOLD) / (EXT + HOLD + 220) }, { transform: `rotate(${ang}deg) scale(1,0)` }], { duration: EXT + HOLD + 220, easing: 'linear' });
+      anim(glow, [{ opacity: 0.7 }, { opacity: 1 }], { duration: 90, iterations: Math.ceil((EXT + HOLD) / 90), direction: 'alternate' });
+      setTimeout(() => beam.remove(), EXT + HOLD + 260);
+      // Bouche du rayon chez Odin
+      const mz = el(L, `left:${src.x - th}px;top:${src.y - th}px;width:${th * 2}px;height:${th * 2}px;border-radius:50%;background:radial-gradient(circle,#fffef5 0,#ffe08a 30%,#ff7a1a 55%,transparent 72%);z-index:21`);
+      anim(mz, [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.1 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.85 }, { transform: 'scale(.2)', opacity: 0 }], { duration: EXT + HOLD + 200 }); setTimeout(() => mz.remove(), EXT + HOLD + 240);
+      // Au contact : point d'impact aveuglant, gerbes d'étincelles, fumée, la fenêtre chauffe, se perce et part en fusion.
+      const ax = tx - r.x, ay = ty - r.y;
+      setTimeout(() => {
+        const imp = el(box, `left:${ax - th * 1.6}px;top:${ay - th * 1.6}px;width:${th * 3.2}px;height:${th * 3.2}px;border-radius:50%;background:radial-gradient(circle,#ffffff 0,#fff3b0 20%,#ffb020 42%,rgba(255,90,20,.5) 58%,transparent 72%);z-index:8`);
+        anim(imp, [{ transform: 'scale(.6)' }, { transform: 'scale(1.1)' }], { duration: 70, iterations: Math.ceil(HOLD / 70), direction: 'alternate' }); setTimeout(() => imp.remove(), HOLD);
+        anim(g, [{ filter: 'brightness(1.6) sepia(.5) saturate(3) hue-rotate(-20deg)' }, { filter: 'sepia(1) saturate(2.5) hue-rotate(-25deg) brightness(.9)', offset: 0.5 }, { filter: 'brightness(.5) sepia(1) saturate(3) hue-rotate(-35deg)' }], { duration: HOLD });
+        burnHole(S, ax, ay, 0, HOLD * 0.9, { hot: ['#ffffff', '#fff3b0', '#ff8a1a'] });
+        const back = ang * Math.PI / 180 + Math.PI, iv = setInterval(() => {
+          if (!box.isConnected) { clearInterval(iv); return; }
+          const ps = []; for (let i = 0; i < 14 * q; i++) { const a = back + R(-1.1, 1.1), v = R(220, 620); ps.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v - R(0, 120), g: 900, drag: 0.985, life: R(0.25, 0.7), s: R(1, 2.4), c: pick(['#ffffff', '#fff3b0', '#ffd36a', '#ff8a1a']), shape: 'spark', add: true }); }
+          ps.push({ x: tx, y: ty, vx: R(-20, 20), vy: R(-70, -30), g: 0, life: R(0.8, 1.4), s: R(8, 14), c: 'rgba(110,110,118,.45)', shape: 'smoke' });
+          PX.add(ps);
+        }, 40);
+        setTimeout(() => clearInterval(iv), HOLD);
+        shake(3 * k, HOLD * 0.9);
+        setTimeout(() => { const cols = colorsOf(snap.src ?? g); shatter(r, Math.round(Math.min(500, 80 + (r.w * r.h) / 90) * q), [...cols, '#ff8a1a', '#ffd36a'], { at: { x: tx, y: ty }, speed: [80, 360], g: 700, size: [1.2, 3.6], life: [0.6, 1.2], edge: '#ffb020', lift: 80 }); }, HOLD * 0.25);
+      }, EXT);
+      return EXT + HOLD + 300;
+    },
     burn(S, p, from, snap) { // le feu démarre en bas, s'étend sur tout l'élément, le carbonise, il part en cendres
       const { box, g, w, h } = S, D = DUR() * 1.7, r = snap.rect, x0 = snap.hit?.x !== undefined ? snap.hit.x - r.x : w / 2;
       const glow = el(box, `left:${-w * 0.25}px;top:${-h * 0.6}px;width:${w * 1.5}px;height:${h * 1.9}px;border-radius:50%;background:radial-gradient(ellipse at 50% 70%,rgba(255,140,30,.55),rgba(255,80,20,.18) 45%,transparent 70%);z-index:0`);

@@ -41,7 +41,7 @@ export function odinColor(hour: number, w?: Wx & { wind?: number }, highTide = f
 }
 /** Les 38 pouvoirs (maquettes validées, + Éclair et Téléportation) et leur famille. */
 export const POWERS: Record<string, { name: string; fam: string }> = {
-  feu: { name: 'Boule de feu', fam: 'Feu' }, jet: { name: 'Lance-flammes', fam: 'Feu' }, lave: { name: 'Lave', fam: 'Feu' }, meteores: { name: 'Météores', fam: 'Feu' }, comete: { name: 'Comète', fam: 'Feu' },
+  feu: { name: 'Boule de feu', fam: 'Feu' }, jet: { name: 'Rayon de feu', fam: 'Feu' }, lave: { name: 'Lave', fam: 'Feu' }, meteores: { name: 'Météores', fam: 'Feu' }, comete: { name: 'Comète', fam: 'Feu' },
   vague: { name: 'Vague', fam: 'Eau' }, bulles: { name: 'Bulles', fam: 'Eau' }, glace: { name: 'Glace', fam: 'Eau' }, blizzard: { name: 'Blizzard', fam: 'Eau' },
   rochers: { name: 'Rochers', fam: 'Terre' }, seisme: { name: 'Séisme', fam: 'Terre' }, sable: { name: 'Tempête de sable', fam: 'Terre' }, cristaux: { name: 'Cristaux', fam: 'Terre' },
   tornade: { name: 'Tornade', fam: 'Air' }, rafale: { name: 'Rafale', fam: 'Air' },
