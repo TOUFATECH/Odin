@@ -70,3 +70,20 @@ test('réglages nettoyés : clics, pouvoirs, événements', () => {
   const e = cleanEvents({ choix: { noel: false, faux: true }, pauses: ['2026-12-24', 'x'], anniversaire: '13-40', decalageHijri: 9 });
   assert.deepEqual(e.choix, { noel: false }); assert.deepEqual(e.pauses, ['2026-12-24']); assert.equal(e.anniversaire, undefined); assert.equal(e.decalageHijri, 2);
 });
+
+test('la fenêtre d\'Odin : pages rangées, nettoyées, jamais d\'appli inventée', async () => {
+  const { cleanLayout, defaultLayout } = await import('../src/valhalla/modules/gladsheim.ts');
+  const ids = ['vidarr', 'ran', 'vordr', 'ullr', 'ymir', 'naglfar', 'midgard'];
+  const d = defaultLayout(ids);
+  assert.deepEqual(d.pages.map((p) => p.name), ['Maison', 'Réseau', 'Sécurité', 'Machines']);
+  assert.ok(d.pages[0].maison && d.pages[0].widgets[0].kind === 'meteo');
+  const l = cleanLayout({ pages: [{ id: 'zz', name: 'Ma\u0000 page très très longue qui déborde', maison: 1, widgets: [
+    { kind: 'chiffres', module: 'vidarr', w: 9 }, { kind: 'chiffres', module: 'inventee' }, { kind: 'section', module: 'ran' }, { kind: 'section', module: 'ran', section: 'Flux en direct' },
+    { kind: 'bouton', module: 'vidarr', action: 'bloquer', input: { quoi: 'youtube', 'mauvaise clé!': 'x' }, label: 'Bloquer YouTube' }, { kind: 'script', module: 'vidarr' }, { kind: 'meteo' }] }] }, ids);
+  const p = l.pages[0];
+  assert.equal(p.name.length <= 24 && !/\u0000/.test(p.name), true); assert.equal(p.maison, true);
+  assert.deepEqual(p.widgets.map((w) => `${w.kind}:${w.module ?? ''}:${w.w}`), ['chiffres:vidarr:1', 'section:ran:1', 'bouton:vidarr:1', 'meteo::1']);
+  assert.deepEqual(p.widgets[2].input, { quoi: 'youtube' });
+  assert.throws(() => cleanLayout({ pages: [] }, ids), /au moins une page/);
+  assert.equal(cleanLayout({ pages: Array.from({ length: 20 }, () => ({ name: 'x', widgets: [] })) }, ids).pages.length, 8);
+});

@@ -136,6 +136,48 @@ const TILE: Param[] = [
   { key: 'couleur', label: 'Couleur (#RRGGBB, facultatif)', kind: 'text', default: '' },
 ];
 
+// ---------------- La fenêtre d'Odin : pages de modules d'applis, modifiables (maquettes validées) ----------------
+export type WidgetKind = 'chiffres' | 'section' | 'meteo' | 'bouton';
+export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string> }
+export interface FPage { id: string; name: string; maison?: boolean; widgets: Widget[] }
+export interface Layout { pages: FPage[] }
+const wid = () => randomBytes(4).toString('hex');
+/** La fenêtre de départ : ce qui compte le plus, avec les applis présentes. */
+export function defaultLayout(ids: string[]): Layout {
+  const has = (m: string) => ids.includes(m), w = (kind: WidgetKind, module?: string, size: 1 | 2 | 3 = 1): Widget => ({ id: wid(), kind, w: size, ...(module ? { module } : {}) });
+  const maison: Widget[] = [w('meteo'), ...['midgard', 'himinbjorg'].filter(has).map((m) => w('chiffres', m))];
+  const reseau: Widget[] = ['vidarr', 'ran', 'vordr'].filter(has).map((m) => w('chiffres', m, m === 'ran' ? 2 : 1));
+  const secu: Widget[] = ['ullr', 'garmr', 'eir'].filter(has).map((m) => w('chiffres', m));
+  const mach: Widget[] = ['ymir', 'naglfar'].filter(has).map((m) => w('chiffres', m));
+  return { pages: [{ id: wid(), name: 'Maison', maison: true, widgets: maison }, { id: wid(), name: 'Réseau', widgets: reseau }, { id: wid(), name: 'Sécurité', widgets: secu }, { id: wid(), name: 'Machines', widgets: mach }].filter((p) => p.widgets.length) };
+}
+/** Une fenêtre envoyée par l'interface, nettoyée : rien d'inconnu, rien de trop long, pas d'appli inventée. Pur. */
+export function cleanLayout(raw: unknown, ids: string[]): Layout {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as { pages?: unknown };
+  const str = (v: unknown, n: number) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, n);
+  const pages: FPage[] = [];
+  for (const p of (Array.isArray(r.pages) ? r.pages : []).slice(0, 8)) {
+    const pp = (p ?? {}) as Record<string, unknown>, name = str(pp.name, 24) || `Page ${pages.length + 1}`, widgets: Widget[] = [];
+    for (const x of (Array.isArray(pp.widgets) ? pp.widgets : []).slice(0, 24)) {
+      const o = (x ?? {}) as Record<string, unknown>, kind = String(o.kind) as WidgetKind;
+      if (!['chiffres', 'section', 'meteo', 'bouton'].includes(kind)) continue;
+      const w = ([1, 2, 3].includes(Number(o.w)) ? Number(o.w) : 1) as 1 | 2 | 3, module = str(o.module, 40);
+      if (kind !== 'meteo' && !ids.includes(module)) continue;
+      const out: Widget = { id: /^[0-9a-f]{8}$/.test(String(o.id)) ? String(o.id) : wid(), kind, w, ...(kind !== 'meteo' ? { module } : {}) };
+      if (kind === 'section') { out.section = str(o.section, 80); if (!out.section) continue; }
+      if (kind === 'bouton') {
+        out.action = str(o.action, 40); out.label = str(o.label, 40) || out.action; if (!out.action) continue;
+        const inp = (o.input && typeof o.input === 'object' ? o.input : {}) as Record<string, unknown>;
+        out.input = Object.fromEntries(Object.entries(inp).slice(0, 12).filter(([k]) => /^[a-z_][a-z0-9_]{0,30}$/i.test(k)).map(([k, v]) => [k, str(v, 300)]));
+      } else if (o.label) out.label = str(o.label, 40);
+      widgets.push(out);
+    }
+    pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(pp.maison ? { maison: true } : {}), widgets });
+  }
+  if (!pages.length) throw new Error('la fenêtre doit garder au moins une page');
+  return { pages };
+}
+
 export const gladsheim: Module = {
   id: 'gladsheim', name: 'Glaðsheimr', family: 'Maison',
   what: 'La maison en un écran, pour tablette murale, téléphone, ordinateur et Home Assistant : appareils, scènes, météo, état de toutes tes applis, tes boutons, onze thèmes, et la mascotte qui joue et obéit.',
@@ -145,6 +187,15 @@ export const gladsheim: Module = {
   actions: [
     { id: 'ouvrir', label: 'Ouvrir l\'écran de la maison', what: 'L\'adresse de l\'écran plein format', read: true, words: ['écran de la maison', 'ouvre l\'écran de la maison'], run: () => ({ text: '🏠 L\'écran de la maison : /maison sur l\'adresse d\'Odin (garde-le en favori, ou « Ajouter à l\'écran d\'accueil » sur la tablette).', data: { url: '/maison' } }) },
     { id: 'theme', label: 'Thème', what: 'Le thème de l\'écran de la maison', params: [{ key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES), required: true }], words: ['change le thème de l\'écran', 'change le thème'], run: (ctx, i) => { const t = s(i.theme); if (!THEMES[t]) throw new Error(`thèmes : ${Object.keys(THEMES).join(', ')}`); ctx.saveSettings({ theme: t }); return { text: `🎨 Thème « ${THEMES[t].label} ».` }; } },
+    { id: 'fenetre', label: 'Ma fenêtre', what: 'Les pages de modules de la fenêtre d\'Odin (ordinateur, téléphone, écran de la maison)', read: true, quiet: true, words: ['ma fenêtre', 'tableau de bord'], run: (ctx) => {
+      const ids = ctx.modules().map((m) => m.id), l = ctx.settings.fenetre ? cleanLayout(ctx.settings.fenetre, ids) : defaultLayout(ids);
+      return { text: l.pages.map((p) => `- ${p.name}${p.maison ? ' (écran de la maison)' : ''} : ${p.widgets.length} module(s)`).join('\n'), data: l };
+    } },
+    { id: 'regler_fenetre', label: 'Ranger ma fenêtre', what: 'Enregistre les pages et les modules (mode « Modifier »)', quick: false, params: [{ key: 'fenetre', label: 'Fenêtre (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
+      let raw: unknown; try { raw = typeof i.fenetre === 'string' ? JSON.parse(i.fenetre) : i.fenetre; } catch { throw new Error('fenêtre illisible'); }
+      const l = cleanLayout(raw, ctx.modules().map((m) => m.id)); ctx.saveSettings({ fenetre: l });
+      return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: l };
+    } },
     { id: 'meteo', label: 'Météo', what: 'Le temps qu\'il fait (et le lieu choisi)', read: true, params: [{ key: 'ville', label: 'Ville (vide : celle déjà choisie)', kind: 'text', default: '' }], words: ['météo de la maison', 'la météo', 'quel temps fait-il', 'météo', 'meteo', 'température dehors'], run: async (ctx, i) => {
       const v = s(i.ville).trim(); if (v && v !== s(ctx.settings.ville)) { ctx.saveSettings({ ville: v.slice(0, 80), lat: '', lon: '' }); wx = undefined; }
       const w = await weather(ctx, Boolean(v)); return { text: `${weatherText(w)}${w?.days[1] ? ` Demain : ${wword(w.days[1].code).toLowerCase()}, ${w.days[1].lo}° à ${w.days[1].hi}°.` : ''}`, data: w };

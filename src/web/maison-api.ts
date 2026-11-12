@@ -8,6 +8,8 @@
 import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { understand } from '../valhalla/huginn.ts';
+import { cleanLayout, defaultLayout, type Layout } from '../valhalla/modules/gladsheim.ts';
+import type { Module } from '../valhalla/types.ts';
 import { THEMES, appStates, familyNow, keyRights, memberOf, recordFix, tilesOf, weather, weatherText, wword } from '../valhalla/modules/gladsheim.ts';
 import { cameraNames, preview } from '../valhalla/modules/himinbjorg.ts';
 import { homeDevices, homePeople, homeScenes } from '../valhalla/modules/midgard.ts';
@@ -32,6 +34,32 @@ function whoOf(req: IncomingMessage, d: MaisonDeps): Who | undefined {
   if (!v || !key) return undefined;
   const k = keyRights(v.ctx('gladsheim'), key); if (!k) { d.fail(); return undefined; }
   return { rights: k.rights, by: `tablette « ${k.name} »` };
+}
+/** La fenêtre rangée (ou celle de départ). */
+function layoutOf(v: NonNullable<ReturnType<typeof valhallaOf>>): Layout {
+  const g = v.ctx('gladsheim'), ids = v.modules().map((m) => m.id);
+  try { return g.settings.fenetre ? cleanLayout(g.settings.fenetre, ids) : defaultLayout(ids); } catch { return defaultLayout(ids); }
+}
+/** Les pages « écran de la maison », avec ce qu'il faut pour les dessiner. */
+async function maisonPages(v: NonNullable<ReturnType<typeof valhallaOf>>, full: boolean) {
+  const pages = layoutOf(v).pages.filter((p) => p.maison), cache = new Map<string, Awaited<ReturnType<Module['view']>> | null>();
+  const view = async (id: string) => { if (!cache.has(id)) { const m = v.module(id); cache.set(id, m ? await Promise.resolve(m.view(v.ctx(id), new URLSearchParams())).catch(() => null) : null); } return cache.get(id) ?? null; };
+  const out = [];
+  for (const p of pages) {
+    const ws = [];
+    for (const w of p.widgets) {
+      const m = w.module ? v.module(w.module) : undefined;
+      if (w.kind === 'meteo') { ws.push({ id: w.id, kind: 'meteo', w: w.w, title: w.label || 'Météo' }); continue; }
+      if (!m) continue;
+      if (!full && m.family !== 'Maison' && w.kind !== 'bouton') continue;
+      if (w.kind === 'bouton') { const f = v.action(m.id, w.action ?? ''); if (!f) continue; const grave = Boolean(f.a.grave?.(w.input ?? {}, v.ctx(m.id))); if (grave && !full) continue; ws.push({ id: w.id, kind: 'bouton', w: w.w, title: w.label || f.a.label, app: m.name, grave }); continue; }
+      const vw = await view(m.id); if (!vw) continue;
+      if (w.kind === 'chiffres') ws.push({ id: w.id, kind: 'chiffres', w: w.w, title: w.label || m.name, app: m.name, kpis: (vw.kpis ?? []).slice(0, 6) });
+      else { const sec = [...vw.sections, ...(vw.side ?? [])].find((x) => x.title === w.section && x.kind !== 'form' && x.kind !== 'graph'); if (sec) ws.push({ id: w.id, kind: 'section', w: w.w, title: w.label || sec.title, app: m.name, section: sec }); }
+    }
+    out.push({ id: p.id, name: p.name, widgets: ws });
+  }
+  return out;
 }
 /** Lance une action pour l'écran de la maison, avec la confirmation des actions graves. */
 async function run(who: Who, module: string, action: string, input: Record<string, unknown>, confirm: boolean): Promise<Record<string, unknown>> {
@@ -92,7 +120,10 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     // Odin d'aujourd'hui : le même sur tous les écrans (caché ou non, fête, couleur, pouvoirs).
     const mascotte = await v.act('apparence', 'mascotte', {}, { by: 'toi', why: 'écran de la maison' }).then((r) => r.data).catch(() => undefined);
     const tiles = tilesOf(g).map((t) => ({ id: t.id, label: t.label, icon: t.icon, color: t.color, module: t.module, grave: Boolean(v.action(t.module, t.action)?.a.grave?.(t.input, v.ctx(t.module))) }));
-    json(res, 200, { ok: true, rights: who.rights, name: d.name, theme: s(g.settings.theme) || 'verre', themes: Object.fromEntries(Object.entries(THEMES).map(([k, x]) => [k, x.label])), weather: w ? { ...w, word: wword(w.code) } : undefined, rooms, scenes: homeScenes(mid).map((x) => x.name), tiles, apps, network, cameras: full ? cameraNames(v.ctx('himinbjorg')) : [], people, mascotte, notices: who.rights === 'complet' ? noticesOf()?.recent(8) ?? [] : [], at: Date.now() });
+    // La fenêtre d'Odin : ses pages marquées « écran de la maison ». Une tablette « maison » ne voit que la météo, les
+    // chiffres des applis de la famille Maison et les boutons sans action grave ; ta session (ou une clé « complet ») voit tout.
+    const fenetre = await maisonPages(v, full);
+    json(res, 200, { ok: true, fenetre, rights: who.rights, name: d.name, theme: s(g.settings.theme) || 'verre', themes: Object.fromEntries(Object.entries(THEMES).map(([k, x]) => [k, x.label])), weather: w ? { ...w, word: wword(w.code) } : undefined, rooms, scenes: homeScenes(mid).map((x) => x.name), tiles, apps, network, cameras: full ? cameraNames(v.ctx('himinbjorg')) : [], people, mascotte, notices: who.rights === 'complet' ? noticesOf()?.recent(8) ?? [] : [], at: Date.now() });
     return true;
   }
   // Aperçu d'une caméra (Himinbjörg) : une image JPEG, rafraîchie par la page.
@@ -109,6 +140,11 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
   switch (p) {
     case '/api/maison/appareil': json(res, 200, await run(who, 'midgard', 'commander', { appareil: s(b.appareil).slice(0, 200), valeur: s(b.valeur).slice(0, 40) }, confirm)); return true;
     case '/api/maison/scene': json(res, 200, await run(who, 'midgard', 'scene', { scene: s(b.scene).slice(0, 80) }, confirm)); return true;
+    case '/api/maison/fenetre': {
+      const l = layoutOf(v), w = l.pages.filter((x) => x.maison).flatMap((x) => x.widgets).find((x) => x.id === s(b.id) && x.kind === 'bouton');
+      if (!w?.module || !w.action) { json(res, 404, { ok: false, text: 'bouton introuvable' }); return true; }
+      json(res, 200, await run(who, w.module, w.action, w.input ?? {}, confirm)); return true;
+    }
     case '/api/maison/bouton': {
       const t = tilesOf(g).find((x) => x.id === s(b.id)); if (!t) { json(res, 404, { ok: false, text: 'bouton introuvable' }); return true; }
       json(res, 200, await run(who, t.module, t.action, t.input, confirm)); return true;

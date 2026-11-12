@@ -112,6 +112,8 @@ main{padding:22px 26px 120px;min-width:0}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;margin-top:14px;grid-auto-flow:dense}
 .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;position:relative;overflow:hidden;min-width:0;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}.card.w2{grid-column:span 2}.card.h2{grid-row:span 2}
 .card h3{margin:0;font-size:12.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.card .big{font-size:40px;font-weight:600;line-height:1.05;margin:8px 0 2px}
+.fk{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px}.fki{border:1px solid var(--line);border-radius:14px;padding:8px 10px}.fki small{display:block;color:var(--muted);font-size:12px}.fki b{font-size:22px}.fki.mauvais b{color:#e0453a}.fki.attention b{color:#d98a12}
+.fl{list-style:none;margin:10px 0 0;padding:0}.fl li{display:flex;flex-direction:column;padding:7px 0;border-bottom:1px solid var(--line)}.fl li:last-child{border-bottom:0}.fl li.mauvais b{color:#e0453a}
 .sec{margin:26px 0 0;font-size:15px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:8px}
 .dev{display:flex;flex-direction:column;gap:10px;min-height:132px;transition:transform .15s}.dev.on{background:var(--on);border-color:transparent;color:#fff}.dev.on .muted{color:rgba(255,255,255,.82)}
 .dev .row{display:flex;align-items:center;gap:10px}.dev .em{width:40px;height:40px;border-radius:12px;background:var(--card2);display:grid;place-items:center;font-size:20px;flex:none}.dev.on .em{background:rgba(255,255,255,.22)}
@@ -228,6 +230,25 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     root.replaceChildren(el('nav', { class: 'side', 'aria-label': 'Sections' }, el('div', { class: 'logo', 'aria-hidden': 'true' }, 'ᛟ'), ...navs.map((n) => nav(...n))), main, el('nav', { class: 'bnav', 'aria-label': 'Sections' }, ...navs.map((n) => nav(...n))));
   }
   let soon = 0; const drawSoon = () => { clearTimeout(soon); soon = setTimeout(() => { const f = document.activeElement?.type === 'search'; draw(); if (f) { const i = document.querySelector('.search input'); i?.focus(); i?.setSelectionRange(999, 999); } }, 150); };
+  /** La fenêtre d'Odin : ses pages « écran de la maison » (modules d'applis, météo, boutons). */
+  function fenetrePages() {
+    return (D.fenetre || []).filter((p) => p.widgets.length).flatMap((p) => [el('h2', { class: 'sec' }, p.name), el('div', { class: 'grid' }, ...p.widgets.map(fWidget))]);
+  }
+  function fWidget(w) {
+    if (w.kind === 'meteo') return weatherCard(D.weather);
+    const card = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, el('h3', {}, w.app && w.app !== w.title ? `${w.app} · ${w.title}` : w.title));
+    if (w.kind === 'bouton') { card.append(el('button', { class: 'scene', style: { marginTop: '10px' }, onclick: () => act('/api/maison/fenetre', { id: w.id }) }, `${w.grave ? '⚠ ' : '⚡ '}${w.title}`)); return card; }
+    if (w.kind === 'chiffres') { card.append(el('div', { class: 'fk' }, ...(w.kpis || []).map((k) => el('div', { class: `fki ${k.tone || ''}` }, el('small', {}, k.label), el('b', {}, k.value))))); if (!w.kpis?.length) card.append(el('p', { class: 'muted' }, 'Pas de chiffres pour cette appli.')); return card; }
+    const sc = w.section || {};
+    if (sc.kind === 'table') card.append(el('ul', { class: 'fl' }, ...(sc.rows || []).slice(0, 6).map((r) => el('li', { class: r.tone || '' }, el('b', {}, r.cells[0]), el('span', { class: 'muted' }, r.cells.slice(1, 3).join(' · '))))));
+    else if (sc.kind === 'list') card.append(el('ul', { class: 'fl' }, ...(sc.items || []).slice(0, 6).map((i) => el('li', { class: i.tone || '' }, el('b', {}, i.title), i.detail ? el('span', { class: 'muted' }, i.detail) : null))));
+    else if (sc.kind === 'cards') card.append(el('ul', { class: 'fl' }, ...(sc.items || []).slice(0, 6).map((i) => el('li', { class: i.tone || '' }, el('b', {}, i.title), el('span', { class: 'muted' }, [i.sub, i.badge].filter(Boolean).join(' · '))))));
+    else if (sc.kind === 'bars') card.append(el('ul', { class: 'fl' }, ...(sc.items || []).slice(0, 6).map((i) => el('li', {}, el('b', {}, i.label), el('span', { class: 'muted' }, String(i.value))))));
+    else if (sc.kind === 'text') card.append(el('p', {}, sc.text));
+    else if (sc.kind === 'log') card.append(el('pre', { class: 'muted', style: { whiteSpace: 'pre-wrap', fontSize: '12px', margin: '8px 0 0' } }, (sc.lines || []).slice(-8).join('\n')));
+    if (((sc.rows || sc.items || []).length === 0) && ['table', 'list', 'cards', 'bars'].includes(sc.kind)) card.append(el('p', { class: 'muted' }, sc.empty || 'Rien pour l\'instant.'));
+    return card;
+  }
   function home() {
     const rooms = D.rooms || [], names = ['Tout', ...rooms.map((r) => r.name)];
     const devs = rooms.filter((r) => room === 'Tout' || r.name === room).flatMap((r) => r.devices).filter((d) => match(`${d.name} ${d.kind}`));
@@ -241,6 +262,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
         ...devs.map(devCard),
         ...(!rooms.length ? [el('div', { class: 'card w2' }, el('h3', {}, 'Appareils'), el('p', { class: 'muted' }, 'Aucun appareil : relie ta box (Home Assistant…) ou tes prises dans Midgard, ils apparaîtront ici.'))] : []),
         ...(notes.length ? [el('div', { class: 'card w2 notes' }, el('h3', {}, 'Dernières nouvelles'), el('ul', {}, ...notes.map((n) => el('li', { class: n.level }, el('b', {}, n.title), n.detail ? el('div', { class: 'muted' }, n.detail.slice(0, 140)) : null))))] : [])),
+      ...fenetrePages(),
       ...(D.people?.length ? [el('h2', { class: 'sec' }, 'Famille'), peopleGrid()] : []),
       ...(D.cameras?.length ? [el('h2', { class: 'sec' }, 'Caméras'), camGrid(false)] : []),
       el('h2', { class: 'sec' }, 'Mes boutons'), ...tilesView(false),

@@ -280,5 +280,5 @@
     setTimeout(badge, 4000); setInterval(() => { st = null; badge(); }, 120_000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  window.OdinApps = { open: () => { if (!busy) { busy = true; openCatalog().finally(() => { busy = false; }); } }, app: openApp };
+  window.OdinApps = { open: () => { if (!busy) { busy = true; openCatalog().finally(() => { busy = false; }); } }, app: openApp, section, kpis: (v) => v };
 })();

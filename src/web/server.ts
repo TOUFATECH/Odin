@@ -137,6 +137,7 @@ const THEMES_JS = (() => { try { return readFileSync(new URL('./themes.js', impo
 const NOTICES_JS = (() => { try { return readFileSync(new URL('./notices.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const POWERS_JS = (() => { try { return readFileSync(new URL('./powers.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const MASCOTTE_JS = (() => { try { return readFileSync(new URL('./mascotte.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const FENETRE_JS = (() => { try { return readFileSync(new URL('./fenetre.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import.meta.url)); } catch { return Buffer.from(''); } })();
@@ -542,6 +543,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/themes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(THEMES_JS); }
     if (url.pathname === '/powers.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'access-control-allow-origin': '*' }); return void res.end(POWERS_JS); }
+    if (url.pathname === '/fenetre.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FENETRE_JS); }
     if (url.pathname === '/mascotte.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(MASCOTTE_JS); }
     if (url.pathname === '/notices.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(NOTICES_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
