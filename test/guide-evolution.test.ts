@@ -1,5 +1,5 @@
 // Guide d'Odin : arbre d'évolution (historique daté, rangé par planète), connecteurs actifs seulement une fois
-// configurés, Odin qui parle tant qu'on ne l'a pas coupé, visite guidée sur demande seulement.
+// configurés, Odin qui parle tant qu'on ne l'a pas coupé, visite proposée au démarrage (avec ou sans configuration).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -58,10 +58,14 @@ test('connecteurs : actifs seulement une fois configurés (et activés)', () => 
   assert.equal(by(connectors({ cfg }, new Map(), { GITHUB_TOKEN: 'x' })).GitHub.on, true);
 });
 
-test('interface : Odin parle par défaut, visite guidée sur demande, bulle reliée à la discussion', () => {
+test('interface : Odin parle par défaut, visite proposée au démarrage (jamais lancée seule), bulle reliée à la discussion', () => {
   const ui = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8');
   const guide = readFileSync(new URL('../src/web/guide.js', import.meta.url), 'utf8');
-  assert.ok(!/OdinTour\?\.offer\(\)/.test(ui), 'plus de visite proposée toute seule');
+  // Proposée au premier démarrage, avec ou sans configuration ; elle ne démarre que si tu choisis.
+  assert.match(ui, /OdinTour\?\.offer\(\)/);
+  assert.match(ui, /Visite \+ configuration/);
+  assert.match(ui, /Configurer maintenant/);
+  assert.ok(!/refresh\(\)\.then\([^\n]*tourStart/.test(ui), 'la visite ne se lance jamais toute seule');
   assert.match(ui, /window\.OdinChat = \{/);
   assert.match(ui, /odin:reply/);
   assert.match(ui, /section: 'speak'/);
