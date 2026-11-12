@@ -10,6 +10,7 @@
 // - en-tête x-odin obligatoire sur chaque POST (contre les requêtes intersites) ;
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
+import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
@@ -338,7 +339,7 @@ export class WebChannel implements Channel {
     const scheme = this.secure || this.viaHttps(req) ? 'https' : 'http', raw = String(req.headers.host ?? `localhost:${this.port}`);
     const host = raw.replace(/:\d+$/, '').replace(/^\[|\]$/g, ''), port = /:(\d+)$/.exec(raw)?.[1];
     if (!/^(localhost|127\.|::1$)/.test(host)) return `${scheme}://${raw}`;
-    const lan = Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal && isPrivateHost(i.address))?.address;
+    const lan = Object.entries(networkInterfaces()).filter(([n]) => !VIRTUAL_IFACE.test(n)).flatMap(([, l]) => l ?? []).find((i) => i && i.family === 'IPv4' && !i.internal && isPrivateHost(i.address))?.address;
     return `${scheme}://${lan ?? host}${port ? `:${port}` : ''}`;
   }
   /** Derrière un tunnel ou un proxy HTTPS, le cookie doit aussi être marqué « Secure ». */

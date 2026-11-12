@@ -15,6 +15,8 @@ import { tryDirect, type DirectDeps } from '../src/core/direct.ts';
 import { examples, forgetPending, stem } from '../src/valhalla/huginn.ts';
 import { allModules, setValhalla } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
+import { useEngine } from '../src/valhalla/modules/naglfar.ts';
+import { fakeEngine } from './helpers.ts';
 
 const DOCKER = [{ ID: 'abc', Names: 'web', Image: 'nginx', State: 'running', Status: 'Up 2 hours', Ports: '', Labels: '' }, { ID: 'def', Names: 'base-de-donnees', Image: 'postgres', State: 'exited', Status: 'Exited', Ports: '', Labels: '' }].map((x) => JSON.stringify(x)).join('\n');
 const NOW = new Date('2026-11-11T10:00:00');
@@ -23,6 +25,7 @@ const TOOLS = ['valhalla', 'mode_set', 'reminder_set', 'note_save', 'note_find',
 /** Toutes les applis d'Odin, sans rien toucher sur la machine. */
 function world() {
   const home = mkdtempSync(join(tmpdir(), 'odin-precision-'));
+  useEngine(() => fakeEngine(String(DOCKER).split('\n').filter(Boolean).map((l) => JSON.parse(l))));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: { venus: {}, voice: {} } } as never), {
     run: async (cmd, args) => ({ code: 0, out: /command -v/.test(args.join(' ')) ? '/usr/bin/x' : /^(docker|podman)$/.test(cmd) && args[0] === 'ps' ? DOCKER : '', err: '' }),
     fetch: (async () => { throw new Error('réseau coupé'); }) as unknown as typeof fetch,

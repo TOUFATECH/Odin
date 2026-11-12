@@ -11,6 +11,7 @@
 // Dans tous les cas le jeton reste exigé pour chaque appel /api, et les essais de jeton
 // ratés sont limités par adresse.
 
+import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { createHash, createPrivateKey, generateKeyPairSync, randomBytes, sign, X509Certificate, type KeyObject } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { hostname, networkInterfaces } from 'node:os';
@@ -49,7 +50,8 @@ export function remoteAllowed(access: WebAccess, remote: string | undefined, net
  */
 export function localNetworks(): string[] {
   const out = new Set<string>();
-  for (const list of Object.values(networkInterfaces())) {
+  for (const [name, list] of Object.entries(networkInterfaces())) {
+    if (VIRTUAL_IFACE.test(name)) continue; // le réseau des conteneurs n'est pas ton réseau local
     for (const a of list ?? []) {
       if (a.internal || !a.cidr) continue;
       if (a.family === 'IPv4' && isPrivateHost(a.address)) {
@@ -109,7 +111,8 @@ function v6(s: string): number[] | null {
 /** Adresses de cette machine sur le réseau local (pour afficher les liens). */
 export function lanAddresses(): string[] {
   const out: string[] = [];
-  for (const list of Object.values(networkInterfaces())) {
+  for (const [name, list] of Object.entries(networkInterfaces())) {
+    if (VIRTUAL_IFACE.test(name)) continue;
     for (const a of list ?? []) {
       if (a.internal) continue;
       if (a.family === 'IPv4' && isPrivateHost(a.address)) out.push(a.address);

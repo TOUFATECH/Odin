@@ -4,6 +4,10 @@ import assert from 'node:assert/strict';
 import { autoName, freePort, parseMounts, parsePorts, slug, usedPorts } from '../src/valhalla/parc.ts';
 import { installDocker, parc } from '../src/valhalla/modules/ymir.ts';
 import type { ModCtx } from '../src/valhalla/types.ts';
+import { useEngine } from '../src/valhalla/modules/naglfar.ts';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 test('noms automatiques : préfixe du type, ce que c\'est, numéro libre', () => {
   assert.equal(slug('jellyfin/jellyfin:10.11.1'), 'jellyfin');
@@ -63,19 +67,42 @@ test('parc : Docker, piles et ordinateurs réunis, noms automatiques gardés', a
   assert.equal(f.saved.length, 1, 'enregistrés une seule fois');
 });
 
-test('installer un conteneur : port pris corrigé, santé vérifiée, suivi branché', async () => {
-  const f = fakeCtx(), r = await installDocker(f.ctx, { image: 'jellyfin/jellyfin:10.11.1', ports: '8096:8096', dossiers: '/data/jf:/config', memoire: '4g' }, async () => {});
-  assert.ok(r.ok, JSON.stringify(r.steps));
-  assert.equal(r.name, 'dk-jellyfin-02', 'dk-jellyfin-01 est déjà dans le parc');
-  assert.deepEqual(r.ports.map((p) => p.host), [8097]);
-  assert.equal(r.steps.find((x) => x.t === 'Choisir les ports')?.state, 'corrigé');
-  const run = f.runs.find((x) => x[1] === 'run')!;
-  assert.ok(run.includes('8097:8096') && run.includes('/data/jf:/config') && run.includes('--memory') && run.includes('odin.parc=1'));
-  assert.ok(f.calls.some(([m, a, i]) => m === 'vordr' && a === 'ajouter' && i.cible === '127.0.0.1:8097'));
+/** Un faux moteur d'Odin : « autre » tourne déjà sur le port 8096. */
+function fakeEng(o: { exitAfterRun?: boolean } = {}) {
+  const ran: Array<Record<string, unknown>> = [];
+  const autre = { id: 'x', spec: { name: 'autre', ports: [{ host: 8096, inner: 8096, proto: 'tcp' }] }, state: { status: 'en marche' } };
+  let made: { spec: { name: string }; state: { status: string; exitCode?: number } } | null = null;
+  useEngine(() => ({
+    getTools: async () => ({}),
+    pull: async (n: string) => ({ id: 'b'.repeat(64), names: [n], size: 512e6 }),
+    ps: () => [autre, ...(made ? [made] : [])],
+    run: async (opts: Record<string, unknown>) => { ran.push(opts); made = { spec: { name: String(opts.name) }, state: { status: o.exitAfterRun ? 'sorti' : 'en marche', exitCode: o.exitAfterRun ? 1 : undefined } }; return made; },
+    find: (n: string) => (n === 'autre' ? autre : made!),
+    logs: () => [{ text: 'erreur : config absente' }],
+  }) as never);
+  return ran;
+}
+
+test('installer un conteneur : port pris corrigé, santé vérifiée, suivi branché (moteur d\'Odin, sans Docker)', async () => {
+  const ran = fakeEng(), f = fakeCtx(), dir = mkdtempSync(join(tmpdir(), 'parc-'));
+  try {
+    const r = await installDocker(f.ctx, { image: 'jellyfin/jellyfin:10.11.1', ports: '8096:8096', dossiers: `${dir}/jf:/config`, memoire: '4g' }, async () => {});
+    assert.ok(r.ok, JSON.stringify(r.steps));
+    assert.equal(r.name, 'dk-jellyfin-02', 'dk-jellyfin-01 est déjà dans le parc');
+    assert.deepEqual(r.ports.map((p) => p.host), [8097]);
+    assert.equal(r.steps.find((x) => x.t === 'Choisir les ports')?.state, 'corrigé');
+    assert.equal(r.steps[0].t, 'Vérifier le moteur d\'Odin');
+    assert.ok(existsSync(join(dir, 'jf')), 'dossier créé');
+    assert.deepEqual((ran[0].ports as Array<{ host: number }>).map((p) => p.host), [8097]);
+    assert.equal(ran[0].memory, '4g'); assert.equal(ran[0].restart, 'sauf-arret');
+    assert.ok(!f.runs.some((x) => /docker|podman/.test(x[0])), 'ni Docker ni Podman');
+    assert.ok(f.calls.some(([m, a, i]) => m === 'vordr' && a === 'ajouter' && i.cible === '127.0.0.1:8097'));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('installer un conteneur : arrêt net si le conteneur tombe, rien d\'inventé', async () => {
-  const f = fakeCtx({ exitAfterRun: true }), r = await installDocker(f.ctx, { image: 'jellyfin/jellyfin', ports: '9000' }, async () => {});
+  fakeEng({ exitAfterRun: true });
+  const f = fakeCtx(), r = await installDocker(f.ctx, { image: 'jellyfin/jellyfin', ports: '9000' }, async () => {});
   assert.equal(r.ok, false);
   assert.match(r.steps.at(-1)!.note ?? '', /config absente/);
   assert.ok(!f.calls.some(([m]) => m === 'vordr'), 'pas de sonde sur un conteneur en échec');

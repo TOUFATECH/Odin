@@ -4,7 +4,10 @@
 
 import { pveApi, type PveResource } from '../../tools/proxmox.ts';
 import type { ModCtx, Module } from '../types.ts';
+import { mkdir } from 'node:fs/promises';
 import { autoName, freePort, parseMounts, parsePorts, usedPorts, type Kind } from '../parc.ts';
+import { restartOf } from '../hringhorni/engine.ts';
+import { engine as ctEngine } from './naglfar.ts';
 
 export interface PveServer { name: string; url: string; token?: string }
 const s = (v: unknown) => String(v ?? '');
@@ -58,27 +61,23 @@ export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wai
   const ports = parsePorts(s(i.ports)), mounts = parseMounts(s(i.dossiers)), steps: Step[] = [];
   const mem = s(i.memoire).trim(), cpus = s(i.coeurs).trim(); if (mem && !/^\d+(\.\d+)?[mg]$/i.test(mem)) throw new Error('mémoire : par exemple 4g ou 512m'); if (cpus && !/^\d+(\.\d+)?$/.test(cpus)) throw new Error('cœurs : un nombre');
   const step = async (t: string, f: () => Promise<string | { note: string; fixed?: boolean } | void>) => { const t0 = Date.now(); try { const r = await f(); const note = typeof r === 'string' ? r : r?.note; steps.push({ t, state: typeof r === 'object' && r?.fixed ? 'corrigé' : 'ok', ms: Date.now() - t0, ...(note ? { note } : {}) }); return true; } catch (e) { steps.push({ t, state: 'échec', ms: Date.now() - t0, note: (e as Error).message.slice(0, 300) }); return false; } };
-  let eng = '';
-  const run = async (args: string[], ms = 120_000) => { const r = await ctx.run(eng, args, { timeoutMs: ms }); if (r.code) throw new Error((r.err || r.out).trim().split('\n').pop() || `${eng} a échoué`); return r.out; };
+  const eng = ctEngine();
   const { units } = await parc(ctx), name = s(i.nom).trim() ? s(i.nom).trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').slice(0, 60) : autoName('Docker', image, units.map((u) => u.auto).concat(units.map((u) => u.name)));
-  const final: Array<{ host: number; inner: number; proto: string }> = [];
-  const done = await step('Vérifier l\'hôte Docker', async () => { for (const e of ['docker', 'podman']) if (await ctx.has(e)) { eng = e; return `${e} présent`; } throw new Error('ni Docker ni Podman ici : demande « installe Docker »'); })
-    && await step('Télécharger l\'image', async () => { await run(['pull', image], 900_000); return image; })
-    && await step('Vérifier l\'image', async () => { const out = await run(['image', 'inspect', '--format', '{{.Size}}', image]); const mb = Math.round(Number(out.trim()) / 1e6); return Number.isFinite(mb) ? `${mb} Mo` : 'image présente'; })
-    && await step('Créer les dossiers', async () => { for (const m of mounts.filter((x) => !x.ro)) await ctx.run('mkdir', ['-p', m.host], { timeoutMs: 10_000 }); return mounts.length ? mounts.map((m) => `${m.host} → ${m.inner}${m.ro ? ' (lecture seule)' : ''}`).join(' · ') : 'aucun dossier'; })
+  const final: Array<{ host: number; inner: number; proto: 'tcp' | 'udp' }> = [];
+  const done = await step('Vérifier le moteur d\'Odin', async () => { const t = await (eng as { getTools?: () => Promise<unknown> }).getTools?.(); return t ? 'prêt, sans démon (ni Docker ni Podman)' : 'prêt'; })
+    && await step('Télécharger l\'image', async () => { const img = await eng.pull(image); return `${img.names.at(-1)} · ${(img.size / 1e6).toFixed(0)} Mo, empreintes vérifiées`; })
+    && await step('Créer les dossiers', async () => { for (const m of mounts.filter((x) => !x.ro)) await mkdir(m.host, { recursive: true }); return mounts.length ? mounts.map((m) => `${m.host} → ${m.inner}${m.ro ? ' (lecture seule)' : ''}`).join(' · ') : 'aucun dossier'; })
     && await step('Choisir les ports', async () => {
-      const ps = await run(['ps', '--format', '{{json .}}']).catch(() => ''), ss = (await ctx.run('ss', ['-ltnH'], { timeoutMs: 5000 }).catch(() => ({ out: '' }))).out;
-      const used = usedPorts(ps.split('\n').map((l) => { try { return (JSON.parse(l) as { Ports?: string }).Ports ?? ''; } catch { return ''; } }), ss), fixes: string[] = [];
+      const ss = (await ctx.run('ss', ['-ltnH'], { timeoutMs: 5000 }).catch(() => ({ out: '' }))).out;
+      const used = usedPorts([], ss), fixes: string[] = [];
+      for (const c of eng.ps()) for (const p of c.spec.ports) used.add(p.host);
       for (const p of ports) { const h = freePort(p.host, used); used.add(h); if (h !== p.host) fixes.push(`${p.host} déjà pris → ${h}`); final.push({ host: h, inner: p.inner, proto: p.proto }); }
       return fixes.length ? { note: fixes.join(' · '), fixed: true } : final.map((p) => `${p.host} → ${p.inner}`).join(' · ') || 'aucun port';
     })
-    && await step('Démarrer le conteneur', async () => {
-      const args = ['run', '-d', '--name', name, '--restart', s(i.redemarrage) || 'unless-stopped', '--label', 'odin.parc=1', ...final.flatMap((p) => ['-p', `${p.host}:${p.inner}${p.proto === 'udp' ? '/udp' : ''}`]), ...mounts.flatMap((m) => ['-v', `${m.host}:${m.inner}${m.ro ? ':ro' : ''}`]), ...(mem ? ['--memory', mem] : []), ...(cpus ? ['--cpus', cpus] : []), image];
-      await run(args); return name;
-    })
+    && await step('Démarrer le conteneur', async () => { await eng.run({ image, name, ports: final, mounts, restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: mem || undefined, cpus: cpus || undefined }); return name; })
     && await step('Vérifier la santé', async () => {
-      for (let k = 0; k < 10; k++) { const st = (await run(['inspect', '-f', '{{.State.Status}}', name]).catch(() => '')).trim(); if (st === 'running') return 'en marche'; if (st === 'exited' || st === 'dead') { const lg = await ctx.run(eng, ['logs', '--tail', '20', name], { timeoutMs: 10_000 }); throw new Error(`le conteneur s'est arrêté : ${`${lg.out}${lg.err}`.trim().split('\n').slice(-3).join(' / ')}`); } await wait(1500); }
-      throw new Error('ne démarre pas dans les temps');
+      for (let k = 0; k < 6; k++) { await wait(500); const st = eng.find(name).state; if (st.status === 'sorti' || st.status === 'arrêté') throw new Error(`le conteneur s'est arrêté : ${eng.logs(name, 3).map((l) => l.text).join(' / ') || st.error || `code ${st.exitCode}`}`); }
+      return 'en marche';
     });
   if (done) await step('Brancher le suivi (Vörðr)', async () => { const p = final[0]; if (!p) return 'pas de port : suivi du conteneur par Naglfar'; await ctx.call('vordr', 'ajouter', { nom: name, genre: 'tcp', cible: `127.0.0.1:${p.host}`, groupe: 'Machines' }, 'nouveau conteneur installé'); return `sonde sur le port ${p.host}`; });
   return { steps, name, ports: final, ok: steps.every((x) => x.state !== 'échec') };
@@ -96,7 +95,7 @@ export const ymir: Module = {
       const { units, errors } = await parc(ctx);
       return { text: units.length ? units.map((u) => `- ${u.kind} · ${u.name} (${u.auto}) · ${u.state}${u.ip ? ` · ${u.ip}` : ''}${u.what ? ` · ${u.what}` : ''}`).join('\n') + (errors.length ? `\n⚠ ${errors.join(' ; ')}` : '') : 'Aucune machine pour l\'instant.', data: { units, errors } };
     } },
-    { id: 'installer_docker', label: 'Installer un conteneur Docker', what: 'Odin télécharge et vérifie l\'image, crée les dossiers, choisit des ports libres, démarre, vérifie la santé et branche le suivi',
+    { id: 'installer_docker', label: 'Installer un conteneur', what: 'Sur le moteur d\'Odin (sans Docker ni démon) : image téléchargée et vérifiée, dossiers créés, ports libres choisis, démarrage, santé vérifiée, suivi branché',
       params: [{ key: 'image', label: 'Image (ex. jellyfin/jellyfin:10.11.1)', kind: 'text', required: true }, { key: 'nom', label: 'Nom (vide : nom automatique dk-…)', kind: 'text', default: '' }, { key: 'ports', label: 'Ports (8096:8096, …)', kind: 'text', default: '' }, { key: 'dossiers', label: 'Dossiers (/data/x:/config, /media:/media:ro)', kind: 'text', default: '' }, { key: 'memoire', label: 'Mémoire max (4g)', kind: 'text', default: '' }, { key: 'coeurs', label: 'Cœurs max', kind: 'text', default: '' }],
       grave: (i) => `installer le conteneur ${s(i.image)}`, words: ['installe le conteneur', 'installe l\'image'], run: async (ctx, i) => {
         const r = await installDocker(ctx, i);
@@ -119,11 +118,11 @@ export const ymir: Module = {
       tabs: ['Ymir · machines', 'Asgard · serveurs', 'Andvari · sauvegardes'],
       kpis: [{ label: 'Processeur', value: `${cpu} %`, pct: cpu, tone: cpu > 85 ? 'attention' : 'bon' }, { label: 'Mémoire', value: `${gb(mem)} / ${gb(maxmem)}`, pct: maxmem ? Math.round((mem / maxmem) * 100) : 0 }, { label: 'Machines actives', value: `${vms.filter((v) => v.status === 'running').length} / ${vms.length}` }],
       sections: [
-        ...(['PC', 'VM', 'LXC', 'Docker', 'Pile'] as Kind[]).map((k) => ({ kind: 'cards' as const, title: { PC: 'Ordinateurs', VM: 'Machines virtuelles', LXC: 'Conteneurs LXC', Docker: 'Conteneurs Docker', Pile: 'Piles Docker' }[k], empty: k === 'Docker' ? 'Aucun conteneur : « Installer un conteneur Docker ».' : 'Aucune.',
+        ...(['PC', 'VM', 'LXC', 'Docker', 'Pile'] as Kind[]).map((k) => ({ kind: 'cards' as const, title: { PC: 'Ordinateurs', VM: 'Machines virtuelles', LXC: 'Conteneurs LXC', Docker: 'Conteneurs (images Docker)', Pile: 'Groupes de conteneurs' }[k], empty: k === 'Docker' ? 'Aucun conteneur : « Installer un conteneur ».' : 'Aucune.',
           items: p.units.filter((u) => u.kind === k).map((u) => ({ title: u.name, sub: `${u.auto}${u.ip ? ` · ${u.ip}` : ''}${u.what ? ` · ${u.what}` : ''}`, badge: u.state, tone: u.state === 'en marche' ? 'bon' as const : 'neutre' as const, ...(u.cpu !== undefined ? { progress: u.cpu, meta: `processeur ${u.cpu} %${u.ram !== undefined ? ` · mémoire ${u.ram} %` : ''}` } : {}),
             actions: u.kind === 'PC' ? [] : u.kind === 'Pile' ? [] : u.module === 'naglfar' ? [u.state === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: u.ref, module: 'naglfar' } : { action: 'demarrer', label: 'Démarrer', input: u.ref, module: 'naglfar' }, { action: 'journaux', label: 'Journal', input: u.ref, module: 'naglfar' }, { action: 'supprimer', label: 'Supprimer', input: u.ref, module: 'naglfar' }]
               : [u.state === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: u.ref } : { action: 'demarrer', label: 'Démarrer', input: u.ref }, { action: 'instantane', label: 'Instantané', input: u.ref }] })) })).filter((x) => x.items.length || x.title === 'Conteneurs Docker'),
-        { kind: 'form', title: 'Installer un conteneur Docker', action: 'installer_docker', params: [{ key: 'image', label: 'Image (ex. jellyfin/jellyfin)', kind: 'text', required: true }, { key: 'ports', label: 'Ports (8096:8096)', kind: 'text', default: '' }, { key: 'dossiers', label: 'Dossiers (/data/x:/config)', kind: 'text', default: '' }], submit: 'Installer' },
+        { kind: 'form', title: 'Installer un conteneur', action: 'installer_docker', params: [{ key: 'image', label: 'Image (ex. jellyfin/jellyfin)', kind: 'text', required: true }, { key: 'ports', label: 'Ports (8096:8096)', kind: 'text', default: '' }, { key: 'dossiers', label: 'Dossiers (/data/x:/config)', kind: 'text', default: '' }], submit: 'Installer' },
         { kind: 'table', title: 'Machines', columns: ['N°', 'Machine', 'Type', 'Serveur / nœud', 'Processeur', 'Mémoire', 'État'], empty: 'Aucune machine.', rows: vms.sort((a, b) => (a.vmid ?? 0) - (b.vmid ?? 0)).map((v) => ({ cells: [String(v.vmid), v.name ?? '', v.type === 'lxc' ? 'conteneur' : 'VM', `${v.server} / ${v.node}`, `${Math.round((v.cpu ?? 0) * 100)} %`, `${gb(v.mem)} / ${gb(v.maxmem)}`, v.status ?? ''], tone: v.status === 'running' ? 'bon' : 'neutre', actions: v.status === 'running' ? [{ action: 'instantane', label: 'Instantané', input: { vmid: v.vmid } }, { action: 'redemarrer', label: 'Redémarrer', input: { vmid: v.vmid } }, { action: 'arreter', label: 'Arrêter', input: { vmid: v.vmid } }] : [{ action: 'demarrer', label: 'Démarrer', input: { vmid: v.vmid } }] })) }],
       side: [{ kind: 'list', title: 'Asgard · nœuds', items: nodes.map((n) => ({ title: `${n.server} / ${n.node}`, detail: `${Math.round((n.cpu ?? 0) * 100)} % CPU · ${gb(n.mem)} / ${gb(n.maxmem)}`, tone: n.status === 'online' ? 'bon' : 'mauvais' })), empty: 'Aucun nœud.' }, { kind: 'form', title: 'Relier un serveur', action: 'serveur', submit: 'Ajouter', params: ymir.actions.find((a) => a.id === 'serveur')?.params ?? [] }],
     };

@@ -6,6 +6,7 @@
 // Liens : Gjöll (les appareils du VPN passent par Víðarr), Forseti (un appareil qui demande un site
 // dangereux = alerte), Garmr (une machine qui inonde le DNS), le registre réseau (noms des appareils).
 
+import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
 import { openOnHost } from '../hostports.ts';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
@@ -129,7 +130,7 @@ export function stats(entries: LogEntry[], now: number, hours = 24) {
 
 // ---------------- Le serveur ----------------
 function lanAddress(): string | undefined {
-  return Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(i.address))?.address;
+  return Object.entries(networkInterfaces()).filter(([n]) => !VIRTUAL_IFACE.test(n)).flatMap(([, l]) => l ?? []).find((i) => i && i.family === 'IPv4' && !i.internal && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(i.address))?.address;
 }
 async function startServer(ctx: ModCtx): Promise<string> {
   if (srv) srv.stop();

@@ -8,6 +8,7 @@
 //     chaque ISO a été déployée.
 // Sécurité : une machine inconnue démarre par défaut sur son propre disque ; l'installation automatique
 // (qui efface le disque) ne se fait que pour une machine autorisée par toi, une seule fois.
+import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
 import { createHash, randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
@@ -66,7 +67,7 @@ export function thjalfi(): Module {
   /** L'adresse d'Odin sur le réseau local (réglable). */
   const serverIp = (ctx: ModCtx): string => {
     if (s(ctx.settings.ip)) return s(ctx.settings.ip);
-    const all = Object.values(networkInterfaces()).flat().filter((a) => a && a.family === 'IPv4' && !a.internal).map((a) => a!.address);
+    const all = Object.entries(networkInterfaces()).filter(([n]) => !VIRTUAL_IFACE.test(n)).flatMap(([, l]) => l ?? []).filter((a) => a && a.family === 'IPv4' && !a.internal).map((a) => a!.address);
     return all.find((a) => /^192\.168\./.test(a)) ?? all.find((a) => /^10\./.test(a)) ?? all.find((a) => /^172\.(1[6-9]|2\d|3[01])\./.test(a)) ?? all[0] ?? '127.0.0.1';
   };
   const base = (ctx: ModCtx) => `http://${serverIp(ctx)}:${http?.port ?? ports(ctx).http}`;

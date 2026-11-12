@@ -1,75 +1,139 @@
-// Naglfar — conteneurs : liste, démarrer, arrêter, journaux, piles (compose), images, volumes,
-// réseaux, mises à jour d'images. Pilote Docker (ou Podman) de la machine d'Odin.
-
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import type { ModCtx, Module } from '../types.ts';
+// Naglfar — tes conteneurs, sur le moteur d'Odin (Hringhorni) : sans Docker, sans Podman, sans démon.
+// Lancer une appli à partir d'une image Docker, la voir, la démarrer, l'arrêter, lire son journal, lancer une
+// commande dedans, la mettre à jour, la supprimer (avec ton accord). Les mêmes commandes que dans un terminal
+// marchent aussi dans la discussion : « run -d -p 8080:80 nginx », « ps », « logs web », « stop web »…
+import { Engine, restartOf, type Ctr } from '../hringhorni/engine.ts';
+import { cli, parseArgs, splitLine, psTable, VERBS } from '../hringhorni/cli.ts';
+import type { ModCtx, Module, Param } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const safe = (v: unknown) => { const x = s(v).trim(); if (!/^[\w.:/@-]{1,200}$/.test(x)) throw new Error(`nom invalide : ${x}`); return x; };
-async function engine(ctx: ModCtx): Promise<string> { for (const e of ['docker', 'podman']) if (await ctx.has(e)) return e; throw new Error('ni Docker ni Podman sur cette machine (Odin peut l\'installer : demande « installe Docker »)'); }
-export function parseLines<T = Record<string, string>>(out: string): T[] { return out.split('\n').map((l) => l.trim()).filter(Boolean).flatMap((l) => { try { return [JSON.parse(l) as T]; } catch { return []; } }); }
-async function dk(ctx: ModCtx, args: string[], timeoutMs = 60_000) { const e = await engine(ctx); const r = await ctx.run(e, args, { timeoutMs }); if (r.code) throw new Error((r.err || r.out).trim().split('\n').pop() || `${e} a échoué`); return r.out; }
-type Ct = { ID: string; Names: string; Image: string; State: string; Status: string; Ports: string; Labels?: string };
-async function containers(ctx: ModCtx): Promise<Ct[]> { return parseLines<Ct>(await dk(ctx, ['ps', '-a', '--format', '{{json .}}'])); }
-async function stats(ctx: ModCtx): Promise<Map<string, { cpu: string; mem: string }>> {
-  try { return new Map(parseLines<{ Name: string; CPUPerc: string; MemUsage: string }>(await dk(ctx, ['stats', '--no-stream', '--format', '{{json .}}'], 20_000)).map((x) => [x.Name, { cpu: x.CPUPerc, mem: x.MemUsage.split('/')[0].trim() }])); } catch { return new Map(); }
-}
+/** Le moteur (remplaçable dans les essais). */
+export type EngineLike = Pick<Engine, 'ps' | 'find' | 'start' | 'stop' | 'restart' | 'rm' | 'run' | 'logs' | 'images' | 'pull' | 'rmi' | 'execArgs' | 'inspect' | 'findImage'>;
+let make: () => EngineLike = () => new Engine();
+let cached: EngineLike | null = null;
+export function useEngine(f: () => EngineLike): void { make = f; cached = null; }
+export const engine = (): EngineLike => (cached ??= make());
+
 /** Arrêt demandé par le propriétaire : la surveillance ne doit pas le prendre pour une panne. */
 function forget(ctx: ModCtx, name: string): void { const was = (ctx.settings.running as string[] | undefined) ?? []; if (was.includes(name)) ctx.saveSettings({ running: was.filter((n) => n !== name) }); }
-const pile = (c: Ct) => /com\.docker\.compose\.project=([^,]+)/.exec(c.Labels ?? '')?.[1] ?? '—';
+const line = (c: Ctr) => `- ${c.spec.name} · ${c.spec.image} · ${c.state.status}${c.spec.ports.length ? ` · ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}`;
+const CT: Param = { key: 'conteneur', label: 'Conteneur', kind: 'text', required: true };
+const LANCER: Param[] = [
+  { key: 'image', label: 'Image (ex. jellyfin/jellyfin:10.11.1)', kind: 'text', required: true },
+  { key: 'nom', label: 'Nom (vide : nom automatique dk-…)', kind: 'text', default: '' },
+  { key: 'ports', label: 'Ports (8096:8096, 7359:7359/udp)', kind: 'text', default: '' },
+  { key: 'dossiers', label: 'Dossiers (/data/jf:/config, /media:/media:ro)', kind: 'text', default: '' },
+  { key: 'env', label: 'Variables (une par ligne : CLE=valeur)', kind: 'textarea', default: '' },
+  { key: 'redemarrage', label: 'Redémarrage', kind: 'select', options: ['unless-stopped', 'always', 'on-failure', 'no'], default: 'unless-stopped' },
+  { key: 'memoire', label: 'Mémoire max (2g)', kind: 'text', default: '' },
+  { key: 'coeurs', label: 'Cœurs max', kind: 'text', default: '' },
+];
+/** Une commande « comme dans un terminal » : grave ou pas selon ce qu'elle fait. */
+export function graveOf(lineText: string): string | undefined {
+  const [v, ...rest] = splitLine(lineText); const verb = (v ?? '').toLowerCase();
+  if (verb === 'run') return `lancer un conteneur (${rest.filter((x) => !x.startsWith('-')).slice(-1)[0] ?? 'image'})`;
+  if (verb === 'rm') return `supprimer le conteneur ${rest.filter((x) => !x.startsWith('-')).join(', ')}`;
+  if (verb === 'rmi') return `supprimer l'image ${rest.filter((x) => !x.startsWith('-')).join(', ')}`;
+  if (verb === 'exec') return `lancer une commande dans ${rest.filter((x) => !x.startsWith('-'))[0] ?? 'un conteneur'}`;
+  return undefined;
+}
+const env = (t: string) => Object.fromEntries(t.split('\n').map((l) => l.trim()).filter((l) => /^[A-Za-z_]\w*=/.test(l)).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
 
 export const naglfar: Module = {
   id: 'naglfar', name: 'Naglfar', family: 'Machines',
-  what: 'Tes conteneurs : les voir, les démarrer, les arrêter, lire leurs journaux, déployer des piles et mettre à jour les images.',
-  does: ['liste des conteneurs avec processeur et mémoire', 'démarrer, arrêter, redémarrer', 'journaux', 'déployer une pile (fichier compose)', 'mettre à jour une image et relancer', 'images, volumes, réseaux', 'nettoyage de ce qui ne sert plus (avec ton accord)', 'alerte si un conteneur important s\'arrête'],
-  from: ['Portainer CE'], upstream: ['portainer/portainer'],
-  words: ['conteneur', 'conteneurs', 'docker', 'podman', 'compose', 'pile', 'stack', 'image', 'images docker', 'volume'],
+  what: 'Tes conteneurs, sur le moteur d\'Odin (sans Docker ni Podman, sans démon) : lancer une appli depuis une image Docker, la suivre, l\'arrêter, lire son journal, la mettre à jour.',
+  does: ['lancer une appli à partir d\'une image Docker (Docker Hub, GHCR, Quay…)', 'liste des conteneurs, démarrer, arrêter, redémarrer', 'journal de chaque conteneur', 'lancer une commande dedans', 'mettre à jour l\'image et relancer avec les mêmes réglages', 'images présentes, nettoyage', 'les commandes run, ps, stop, start, rm, logs, exec, pull, images aussi dans la discussion', 'ports publiés, dossiers partagés, limites de mémoire et de processeur, relance automatique'],
+  from: ['Portainer CE', 'Podman'], upstream: [],
+  words: ['conteneur', 'conteneurs', 'docker', 'podman', 'image', 'images docker', 'hringhorni', 'moteur de conteneurs'],
   actions: [
-    { id: 'lister', label: 'Lister les conteneurs', what: 'Tous les conteneurs et leur état', read: true, words: ['liste', 'lister', 'quels conteneurs'], run: async (ctx) => { const c = await containers(ctx); return { text: c.map((x) => `- ${x.Names} · ${x.Image} · ${x.Status}`).join('\n') || 'Aucun conteneur.', data: c }; } },
-    { id: 'journaux', label: 'Journaux', what: 'Les 80 dernières lignes', read: true, params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['journaux', 'logs'], run: async (ctx, i) => { const e = await engine(ctx); const r = await ctx.run(e, ['logs', '--tail', '80', safe(i.conteneur)], { timeoutMs: 20_000 }); return { text: `${r.out}${r.err}`.trim().slice(-6000) || '(vide)' }; } },
-    { id: 'demarrer', undo: (i) => ({ action: 'arreter', input: { conteneur: i.conteneur }, label: 'conteneur arrêté' }), label: 'Démarrer', what: 'Démarre un conteneur', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['demarre', 'démarre', 'lance'], run: async (ctx, i) => { await dk(ctx, ['start', safe(i.conteneur)]); return { text: `▶ ${s(i.conteneur)} démarré.` }; } },
-    { id: 'arreter', undo: (i) => ({ action: 'demarrer', input: { conteneur: i.conteneur }, label: 'conteneur relancé' }), label: 'Arrêter', what: 'Arrête un conteneur', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['arrete', 'arrête', 'stop'], run: async (ctx, i) => { const n = safe(i.conteneur); await dk(ctx, ['stop', n]); forget(ctx, n); return { text: `■ ${n} arrêté.` }; } },
-    { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], words: ['redemarre', 'redémarre', 'relance'], run: async (ctx, i) => { await dk(ctx, ['restart', safe(i.conteneur)]); return { text: `↻ ${s(i.conteneur)} redémarré.` }; } },
-    { id: 'mettre_a_jour', label: 'Mettre à jour l\'image', what: 'Télécharge la dernière image puis recrée la pile', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], grave: (i) => `recréer ${s(i.conteneur)} avec une nouvelle image`, run: async (ctx, i) => {
-      const c = (await containers(ctx)).find((x) => x.Names === s(i.conteneur)); if (!c) throw new Error('conteneur introuvable');
-      await dk(ctx, ['pull', c.Image], 600_000);
-      const p = pile(c);
-      if (p !== '—') { await dk(ctx, ['compose', '-p', p, 'up', '-d'], 600_000); return { text: `⬆ ${c.Names} : image ${c.Image} à jour, pile ${p} relancée.` }; }
-      return { text: `⬆ Image ${c.Image} téléchargée. Ce conteneur n'est pas dans une pile : redémarre-le depuis sa configuration pour l'utiliser.` };
+    { id: 'lister', label: 'Lister les conteneurs', what: 'Tous les conteneurs et leur état', read: true, words: ['liste', 'lister', 'quels conteneurs'], run: async () => { const c = engine().ps(true); return { text: c.map(line).join('\n') || 'Aucun conteneur.', data: c.map((x) => ({ Names: x.spec.name, Image: x.spec.image, State: x.state.status === 'en marche' ? 'running' : 'exited', Status: x.state.status, Ports: x.spec.ports.map((p) => `${p.host}->${p.inner}`).join(', '), Labels: '' })) }; } },
+    { id: 'journaux', label: 'Journaux', what: 'Les 80 dernières lignes', read: true, params: [CT], words: ['journaux', 'logs'], run: async (_ctx, i) => ({ text: engine().logs(safe(i.conteneur), 80).map((l) => l.text).join('\n') || '(journal vide)' }) },
+    { id: 'demarrer', undo: (i) => ({ action: 'arreter', input: { conteneur: i.conteneur }, label: 'conteneur arrêté' }), label: 'Démarrer', what: 'Démarre un conteneur', params: [CT], words: ['demarre', 'démarre', 'lance le conteneur'], run: async (ctx, i) => { const c = await engine().start(safe(i.conteneur)); ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] }); return { text: `▶ ${c.spec.name} démarré.` }; } },
+    { id: 'arreter', undo: (i) => ({ action: 'demarrer', input: { conteneur: i.conteneur }, label: 'conteneur relancé' }), label: 'Arrêter', what: 'Arrête un conteneur', params: [CT], words: ['arrete', 'arrête', 'stoppe'], run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const c = await engine().stop(safe(i.conteneur)); return { text: `⏹ ${c.spec.name} arrêté.` }; } },
+    { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
+    { id: 'lancer', label: 'Lancer une appli', what: 'Récupère l\'image si besoin, crée le conteneur et le démarre', params: LANCER, grave: (i) => `lancer un conteneur à partir de ${s(i.image)}`, words: ['lance l\'image', 'installe le conteneur'], run: async (ctx, i) => {
+      const c = await engine().run({ image: safe(i.image), name: s(i.nom).trim() || undefined, ports: s(i.ports), mounts: s(i.dossiers), env: env(s(i.env)), restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: s(i.memoire).trim() || undefined, cpus: s(i.coeurs).trim() || undefined });
+      ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), c.spec.name])] });
+      return { text: `🚢 ${c.spec.name} lancé (${c.spec.image})${c.spec.ports.length ? ` · ports ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}.`, data: { name: c.spec.name, id: c.id } };
     } },
-    { id: 'deployer', label: 'Déployer une pile', what: 'Fichier compose → pile lancée', params: [{ key: 'nom', label: 'Nom de la pile', kind: 'text', required: true }, { key: 'compose', label: 'Fichier compose (YAML)', kind: 'textarea', required: true }], grave: (i) => `déployer la pile ${s(i.nom)}`, run: async (ctx, i) => {
-      const name = safe(i.nom).replace(/[^\w-]/g, ''); const dir = join(ctx.dir, 'piles', name); mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, 'compose.yaml'), s(i.compose));
-      await dk(ctx, ['compose', '-p', name, '-f', join(dir, 'compose.yaml'), 'up', '-d'], 900_000);
-      return { text: `🚢 Pile ${name} déployée.` };
+    { id: 'executer', label: 'Commande dans un conteneur', what: 'Lance une commande dans un conteneur en marche et montre sa réponse', params: [CT, { key: 'commande', label: 'Commande', kind: 'text', required: true }], grave: (i) => `lancer « ${s(i.commande)} » dans ${s(i.conteneur)}`, external: true, run: async (_ctx, i) => {
+      const out: string[] = []; const code = await cli(['exec', safe(i.conteneur), ...splitLine(s(i.commande))], { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
+      return { text: `${out.join('\n').slice(-6000) || '(rien)'}${code ? `\n(code ${code})` : ''}`, ok: code === 0 };
     } },
-    { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur arrêté (ses volumes sont gardés)', params: [{ key: 'conteneur', label: 'Conteneur', kind: 'text', required: true }], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); await dk(ctx, ['rm', safe(i.conteneur)]); return { text: `🗑 ${s(i.conteneur)} supprimé (volumes conservés).` }; } },
-    { id: 'nettoyer', label: 'Nettoyer', what: 'Images et réseaux inutilisés', grave: () => 'supprimer les images et réseaux inutilisés', words: ['nettoie', 'place'], run: async (ctx) => { const o = await dk(ctx, ['system', 'prune', '-f'], 600_000); return { text: `🧹 ${o.trim().split('\n').pop()}` }; } },
+    { id: 'mettre_a_jour', label: 'Mettre à jour l\'image', what: 'Récupère la dernière image puis recrée le conteneur avec les mêmes réglages', params: [CT], grave: (i) => `recréer ${s(i.conteneur)} avec la nouvelle image`, words: ['mets a jour le conteneur'], run: async (_ctx, i) => {
+      const e = engine(), c = e.find(safe(i.conteneur)), old = e.findImage(c.spec.image)?.id;
+      const img = await e.pull(c.spec.image);
+      if (img.id === old) return { text: `✓ ${c.spec.name} : l'image ${c.spec.image} est déjà la plus récente.` };
+      const sp = c.spec; await e.rm(sp.id, true);
+      const n = await e.run({ image: sp.image, name: sp.name, cmd: sp.cmd, env: sp.env, ports: sp.ports, mounts: sp.mounts, restart: sp.restart, memory: sp.memory, cpus: sp.cpus, user: sp.user, workdir: sp.workdir, hostname: sp.hostname, network: sp.network, labels: sp.labels });
+      return { text: `⬆ ${n.spec.name} relancé avec la nouvelle image (${img.id.slice(0, 12)}).` };
+    } },
+    { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur (ses dossiers partagés sont gardés)', params: [CT], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const sp = await engine().rm(safe(i.conteneur), true); return { text: `🗑 ${sp.name} supprimé (dossiers partagés conservés).` }; } },
+    { id: 'images', label: 'Images', what: 'Les images présentes', read: true, words: ['quelles images'], run: () => { const l = engine().images(); return { text: l.map((x) => `- ${x.names.join(', ')} · ${(x.size / 1e6).toFixed(0)} Mo`).join('\n') || 'Aucune image.', data: l.map((x) => ({ names: x.names, id: x.id.slice(0, 12), size: x.size })) }; } },
+    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image'], run: async (_ctx, i) => { const img = await engine().pull(safe(i.image)); return { text: `⬇ ${img.names.at(-1)} prête (${(img.size / 1e6).toFixed(0)} Mo).` }; } },
+    { id: 'supprimer_image', label: 'Supprimer une image', what: 'Supprime une image qui ne sert plus', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], grave: (i) => `supprimer l'image ${s(i.image)}`, run: async (_ctx, i) => { const img = await engine().rmi(safe(i.image)); return { text: `🗑 Image ${img.names.join(', ')} supprimée.` }; } },
+    { id: 'nettoyer', label: 'Nettoyer', what: 'Supprime les images qu\'aucun conteneur n\'utilise', grave: () => 'supprimer les images inutilisées', words: ['nettoie', 'place'], run: async () => {
+      const e = engine(), used = new Set(e.ps(true).map((c) => c.spec.imageId)), out: string[] = [];
+      for (const img of e.images()) if (!used.has(img.id)) { await e.rmi(img.id); out.push(img.names.join(', ')); }
+      return { text: out.length ? `🧹 Images supprimées : ${out.join(' ; ')}` : '🧹 Rien à nettoyer.' };
+    } },
+    { id: 'commande', label: 'Commande', what: 'Une commande comme dans un terminal : run, ps, stop, start, restart, rm, logs, exec, pull, images, rmi, inspect', quick: false, params: [{ key: 'ligne', label: 'Commande (ex. run -d -p 8080:80 nginx)', kind: 'text', required: true }], grave: (i) => graveOf(s(i.ligne)), external: true, run: async (ctx, i) => {
+      const argv = splitLine(s(i.ligne)); if (!VERBS.includes((argv[0] ?? '').toLowerCase())) throw new Error(`commande inconnue : ${argv[0] ?? ''} (${VERBS.join(', ')})`);
+      argv[0] = argv[0].toLowerCase();
+      const out: string[] = []; const code = await cli(argv, { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
+      if (argv[0] === 'stop' || argv[0] === 'rm') for (const n of argv.slice(1).filter((x) => !x.startsWith('-'))) forget(ctx, n);
+      return { text: out.join('\n').slice(-8000) || '✓', ok: code === 0 };
+    } },
   ],
-  async view(ctx) {
-    let cts: Ct[] = [], err = '';
-    try { cts = await containers(ctx); } catch (e) { err = (e as Error).message; }
-    const st = cts.length ? await stats(ctx) : new Map();
-    const imgs = err ? [] : parseLines<{ Repository: string; Tag: string; Size: string }>(await dk(ctx, ['images', '--format', '{{json .}}']).catch(() => ''));
-    const vols = err ? [] : parseLines<{ Name: string; Driver: string }>(await dk(ctx, ['volume', 'ls', '--format', '{{json .}}']).catch(() => ''));
-    const up = cts.filter((c) => c.State === 'running').length;
+  async view() {
+    const e = engine(); let cts: Ctr[] = [], err = '';
+    try { cts = e.ps(true); } catch (x) { err = (x as Error).message; }
+    const imgs = err ? [] : e.images(), up = cts.filter((c) => c.state.status === 'en marche').length;
     return {
-      subtitle: err || `${up} en marche sur ${cts.length}`,
-      tabs: ['Conteneurs', 'Piles', 'Images', 'Volumes'],
-      kpis: [{ label: 'En marche', value: `${up} / ${cts.length}`, tone: up === cts.length ? 'bon' : 'attention' }, { label: 'Piles', value: String(new Set(cts.map(pile).filter((p) => p !== '—')).size) }, { label: 'Images', value: String(imgs.length) }, { label: 'Volumes', value: String(vols.length) }],
+      subtitle: err || `${up} en marche sur ${cts.length} · moteur d'Odin, sans démon`,
+      tabs: ['Conteneurs', 'Images'],
+      kpis: [{ label: 'En marche', value: `${up} / ${cts.length}`, tone: up === cts.length ? 'bon' : 'attention' }, { label: 'Images', value: String(imgs.length) }, { label: 'Place des images', value: `${(imgs.reduce((a, i) => a + i.size, 0) / 1e9).toFixed(1)} Go` }],
       sections: [
-        { kind: 'table', title: 'Conteneurs', columns: ['Conteneur', 'Pile', 'Image', 'CPU', 'Mémoire', 'État'], empty: err || 'Aucun conteneur.', rows: cts.map((c) => ({ cells: [c.Names, pile(c), c.Image, st.get(c.Names)?.cpu ?? '—', st.get(c.Names)?.mem ?? '—', c.Status], tone: c.State === 'running' ? 'bon' : c.State === 'exited' && !/Exited \(0\)/.test(c.Status) ? 'mauvais' : 'neutre', actions: c.State === 'running' ? [{ action: 'journaux', label: 'Journaux', input: { conteneur: c.Names } }, { action: 'redemarrer', label: 'Redémarrer', input: { conteneur: c.Names } }, { action: 'arreter', label: 'Arrêter', input: { conteneur: c.Names } }] : [{ action: 'demarrer', label: 'Démarrer', input: { conteneur: c.Names } }, { action: 'journaux', label: 'Journaux', input: { conteneur: c.Names } }] })) },
-        { kind: 'table', title: 'Images', columns: ['Image', 'Version', 'Taille'], rows: imgs.slice(0, 40).map((i) => ({ cells: [i.Repository, i.Tag, i.Size] })) },
+        { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 nginx ».', items: cts.map((c) => ({
+          title: c.spec.name, sub: `${c.spec.image}${c.state.ip ? ` · ${c.state.ip}` : ''}${c.spec.ports.length ? ` · ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}`,
+          badge: c.state.status, tone: c.state.status === 'en marche' ? 'bon' as const : c.state.status === 'redémarre' ? 'attention' as const : 'neutre' as const,
+          actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }],
+        })) },
+        { kind: 'table', title: 'Images', columns: ['Image', 'Identifiant', 'Taille'], empty: 'Aucune image.', rows: imgs.flatMap((i) => i.names.map((n) => ({ cells: [n, i.id.slice(0, 12), `${(i.size / 1e6).toFixed(0)} Mo`] }))) },
+        { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 nginx · ps · logs web · stop web · start web · exec web ls / · pull alpine · images · rm web. Lancer, supprimer et exec demandent ton accord.' },
       ],
-      side: [{ kind: 'form', title: 'Déployer une pile', action: 'deployer', submit: 'Déployer', params: naglfar.actions.find((a) => a.id === 'deployer')!.params! }],
+      side: [{ kind: 'form', title: 'Lancer une appli', action: 'lancer', submit: 'Lancer', params: LANCER.slice(0, 4) }],
     };
   },
   watch: { every: 120, async run(ctx) {
-    let cts: Ct[]; try { cts = await containers(ctx); } catch { return; }
+    let cts: Ctr[]; try { cts = engine().ps(true); } catch { return; }
     const was = (ctx.settings.running as string[] | undefined) ?? [];
-    const now = cts.filter((c) => c.State === 'running').map((c) => c.Names);
-    for (const n of was) if (!now.includes(n)) { const c = cts.find((x) => x.Names === n); ctx.alert({ level: 'haute', title: `Le conteneur « ${n} » s'est arrêté`, detail: c ? c.Status : 'disparu', key: `down:${n}` }); ctx.emit('conteneur_arrete', { conteneur: n }); }
+    const now = cts.filter((c) => c.state.status === 'en marche' || c.state.status === 'redémarre').map((c) => c.spec.name);
+    for (const n of was) if (!now.includes(n)) { const c = cts.find((x) => x.spec.name === n); ctx.alert({ level: 'haute', title: `Le conteneur « ${n} » s'est arrêté`, detail: c ? `${c.state.status}${c.state.exitCode !== undefined ? ` (code ${c.state.exitCode})` : ''}${c.state.error ? ` — ${c.state.error}` : ''}` : 'disparu', key: `down:${n}` }); ctx.emit('conteneur_arrete', { conteneur: n }); }
     ctx.saveSettings({ running: now });
   } },
 };
+export { psTable };
+
+const IMAGE = /^[a-z0-9][a-z0-9._/:@-]{0,200}$/;
+/**
+ * Une ligne de la discussion qui est une commande de conteneurs (« run -d -p 8080:80 nginx », « ps », « logs web »…),
+ * écrite comme dans un terminal, sans « odin » devant. Rend la ligne si c'en est une, sinon rien : « stop la musique »
+ * n'est pas pour les conteneurs (« la » n'est pas un conteneur connu). Pur, sauf la liste des conteneurs.
+ */
+export function chatCommand(text: string, known: () => string[] = () => engine().ps(true).flatMap((c) => [c.spec.name, c.id.slice(0, 12)])): string | undefined {
+  let argv: string[]; try { argv = splitLine(text.trim()); } catch { return undefined; }
+  const verb = (argv[0] ?? '').toLowerCase(); if (!VERBS.includes(verb)) return undefined;
+  let a; try { a = parseArgs(argv.slice(1), new Set(['name', 'p', 'v', 'e', 'env-file', 'restart', 'm', 'cpus', 'u', 'w', 'entrypoint', 'hostname', 'network', 'timeout', 'tail', 'label', ...(verb === 'stop' || verb === 'restart' ? ['t'] : [])])); } catch { return undefined; }
+  const words = a.rest;
+  const ok = (() => {
+    if (verb === 'ps' || verb === 'images' || verb === 'image') return words.length === 0;
+    if (verb === 'pull' || verb === 'rmi') return words.length >= 1 && words.every((w) => IMAGE.test(w));
+    if (verb === 'run') return words.length >= 1 && IMAGE.test(words[0]) && (Object.keys(a.flags).length + Object.keys(a.opts).length + Object.keys(a.multi).length > 0 || /[/:.@]/.test(words[0]) || words.length === 1);
+    let names: string[] = []; try { names = known(); } catch { return false; }
+    if (verb === 'exec' || verb === 'logs' || verb === 'log' || verb === 'inspect') return words.length >= 1 && names.includes(words[0]);
+    return words.length >= 1 && words.every((w) => names.includes(w));
+  })();
+  return ok ? [verb, ...argv.slice(1)].map((x) => (/[\s'"]/.test(x) || !x ? `'${x.replace(/'/g, `'"'"'`)}'` : x)).join(' ') : undefined;
+}

@@ -73,6 +73,7 @@ async function namesOf(v: Valhalla, m: Module): Promise<Names> {
     for (const sec of [...view.sections, ...(view.side ?? [])]) {
       if (sec.kind === 'table') for (const r of sec.rows) { add('*', r.cells[0]); for (const a of r.actions ?? []) for (const [k, val] of Object.entries(a.input)) add(k, val); }
       if (sec.kind === 'list') for (const it of sec.items) add('*', it.title);
+      if (sec.kind === 'cards') for (const it of sec.items) { add('*', it.title); for (const x of it.actions ?? []) for (const [k, val] of Object.entries(x.input ?? {})) add(k, val); }
     }
   } catch { /* page indisponible : on se passera des noms */ }
   cache.set(m.id, { at: Date.now(), names });

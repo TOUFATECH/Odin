@@ -60,7 +60,13 @@ Usage : odin <commande>
 
   init                         crée ~/.odin (config, SOUL.md, USER.md, MEMORY.md, dossiers)
   chat [--demo]                conversation interactive dans le terminal
-  run "<demande>" [--demo]     une seule demande, puis quitte
+  demande "<demande>" [--demo] une seule demande, puis quitte (aussi « run "<demande>" »)
+
+Conteneurs (moteur d'Odin, sans démon, sans Docker ni Podman) :
+  run [-d] [--name N] [-p 8080:80] [-v /dossier:/dans] [-e CLE=v] [--restart unless-stopped] <image> [cmd…]
+  ps [-a] · stop · start · restart · rm [-f] <conteneur>
+  logs [-f] [--tail N] <conteneur> · exec <conteneur> <cmd…> · inspect <nom>
+  pull <image> · images · rmi <image>
   gateway                      démarre Telegram / API HTTP + tâches planifiées
   doctor                       diagnostic complet de l'installation
   test                         teste pour de vrai chaque fonction reliée (modèle, mail, Proxmox…)
@@ -727,8 +733,25 @@ async function modelCmd(): Promise<void> {
   console.log(c.dim('Redémarre Odin s\'il tourne déjà (service, ou « odin web »).'));
 }
 
+/** « odin run nginx », « odin ps »… : le moteur de conteneurs. « odin run "une phrase" » reste une demande à Odin. */
+async function containerCmd(argv: string[]): Promise<boolean> {
+  const verb = argv[0];
+  const { VERBS, cli } = await import('../valhalla/hringhorni/cli.ts');
+  if (!verb || !VERBS.includes(verb)) return false;
+  if (verb === 'run') {
+    const rest = argv.slice(1), first = rest[0] ?? '';
+    const imageLike = /^[a-z0-9][a-z0-9._/:@-]*$/.test(first);
+    const looks = first.startsWith('-') || (imageLike && (/[/:@]/.test(first) || rest.length === 1)) || (imageLike && (await import('../valhalla/hringhorni/engine.ts').then((m) => !!new m.Engine().findImage(first)).catch(() => false)));
+    if (!looks) return false;
+  }
+  process.exitCode = await cli(argv);
+  return true;
+}
+
 async function main(): Promise<void> {
   const cmd = pos[0];
+  // Le moteur de conteneurs d'Odin (Hringhorni) : odin run / ps / stop / start / restart / rm / logs / exec / pull / images / rmi / inspect
+  if (await containerCmd(args)) return;
   if (cmd === 'auth') return authCmd();
   if (cmd === 'admin') return adminCmd();
   if (cmd === 'machines') return machinesCmd();
@@ -749,7 +772,7 @@ async function main(): Promise<void> {
     return;
   }
   if (cmd === 'chat') return chat();
-  if (cmd === 'run') return runOnce(pos.slice(1).join(' '));
+  if (cmd === 'run' || cmd === 'demande') return runOnce(pos.slice(1).join(' '));
   if (cmd === 'update') {
     const { updateApp, hasGit } = await import('../tools/self.ts');
     if (hasGit()) {

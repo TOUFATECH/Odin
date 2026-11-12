@@ -3,6 +3,7 @@
 // auto-signés pour la maison. Passage forcé en HTTPS, HSTS, WebSocket, accès par adresses, mot de passe,
 // redirections, flux TCP, journal et statistiques, graphe. Fonctions reprises (réécrites) de Nginx Proxy
 // Manager, Traefik et Caddy. (Valgrind : la grille sacrée devant le Valhalla, que seuls les dignes passent.)
+import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
 import { openOnHost } from '../hostports.ts';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
@@ -28,7 +29,7 @@ const redirects = (ctx: ModCtx): Redirect[] => (ctx.settings.redirects as Redire
 const streams = (ctx: ModCtx): Stream[] => (ctx.settings.streams as Stream[] | undefined) ?? [];
 const ports = (ctx: ModCtx) => ({ http: 80, https: 443, ...(ctx.settings.ports as { http?: number; https?: number } | undefined) });
 const DOMAIN = /^(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$|^[a-z0-9-]+\.(local|lan|home|maison|internal)$/;
-const lan = () => Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(i.address))?.address;
+const lan = () => Object.entries(networkInterfaces()).filter(([n]) => !VIRTUAL_IFACE.test(n)).flatMap(([, l]) => l ?? []).find((i) => i && i.family === 'IPv4' && !i.internal && /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(i.address))?.address;
 const day = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 // ---------------- Certificats ----------------

@@ -8,6 +8,8 @@ import { offlineAct } from '../src/core/offline-act.ts';
 import { fill, forgetPending, minutesIn, stem, understand, type Understood } from '../src/valhalla/huginn.ts';
 import { allModules, setValhalla } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
+import { useEngine } from '../src/valhalla/modules/naglfar.ts';
+import { fakeEngine } from './helpers.ts';
 
 const DOCKER = [{ ID: 'abc', Names: 'web', Image: 'nginx', State: 'running', Status: 'Up 2 hours', Ports: '', Labels: '' }, { ID: 'def', Names: 'base-de-donnees', Image: 'postgres', State: 'exited', Status: 'Exited', Ports: '', Labels: '' }].map((x) => JSON.stringify(x)).join('\n');
 const NOW = new Date('2026-11-11T10:00:00');
@@ -16,6 +18,7 @@ const NOW = new Date('2026-11-11T10:00:00');
 function world() {
   const home = mkdtempSync(join(tmpdir(), 'odin-huginn-')), ran: string[] = [], sent: string[] = [];
   let level: 'prudent' | 'equilibre' | 'autonome' | 'breaker' = 'equilibre';
+  useEngine(() => fakeEngine(String(DOCKER).split('\n').filter(Boolean).map((l) => JSON.parse(l)), (c) => { ran.push(c); }));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: { venus: {}, voice: {} } } as never), {
     run: async (cmd, args) => { ran.push(`${cmd} ${args.join(' ')}`); return { code: 0, out: /command -v/.test(args.join(' ')) ? '/usr/bin/x' : /^(docker|podman)$/.test(cmd) && args[0] === 'ps' ? DOCKER : '', err: '' }; },
     fetch: (async () => { throw new Error('réseau coupé'); }) as unknown as typeof fetch,

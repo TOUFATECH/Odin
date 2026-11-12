@@ -13,6 +13,8 @@ import { LokiEngine } from '../src/valhalla/modules/loki.ts';
 import { santeText } from '../src/valhalla/modules/venus.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
+import { useEngine } from '../src/valhalla/modules/naglfar.ts';
+import { fakeEngine } from './helpers.ts';
 import { gunzipSync } from 'node:zlib';
 import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
 
@@ -47,6 +49,7 @@ function world(): World {
     }
     throw new Error('réseau coupé par le test');
   }) as unknown as typeof fetch;
+  useEngine(() => fakeEngine(String(DOCKER).split('\n').filter(Boolean).map((l) => JSON.parse(l)), (c) => { ran.push(c); }));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: { venus: { url: 'http://venus.test:8096' }, voice: {} } } as never), {
     run: async (cmd, args) => { ran.push(`${cmd} ${args.join(' ')}`); return { code: 0, out: /command -v/.test(args.join(' ')) ? '/usr/bin/x' : /^(docker|podman)$/.test(cmd) && args[0] === 'ps' ? DOCKER : cmd === 'ss' ? 'tcp   0 0 192.168.1.20:51000 203.0.113.66:4444 users:(("mineur",pid=4242,fd=3))\n' : '', err: '' }; },
     fetch: fakeFetch, notify: async (t) => { sent.push(t); }, autonomy: () => lvl,
@@ -173,19 +176,19 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   'naglfar>naglfar': async (w) => {
     w.level('prudent');
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'api' }); await wait(60);
-    assert.ok(!w.ran.some((c) => /docker start api/.test(c)), 'niveau « Me demander » : Odin ne touche à rien');
+    assert.ok(!w.ran.some((c) => /odin start api/.test(c)), 'niveau « Me demander » : Odin ne touche à rien');
     assert.ok(w.v.alerts({ module: 'naglfar' }).some((a) => /Je peux réparer : démarre le conteneur api/.test(a.title)), 'il propose seulement');
     w.level('equilibre');
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'web' });
-    assert.ok(await until(() => w.ran.some((c) => /^docker start web/.test(c))), 'le conteneur arrêté tout seul est relancé');
+    assert.ok(await until(() => w.ran.some((c) => /^odin start web/.test(c))), 'le conteneur arrêté tout seul est relancé');
     const m = w.v.manips()[0];
     assert.equal(m.by, 'odin'); assert.equal(m.state, 'à décider'); assert.match(m.why ?? '', /s'est arrêté tout seul/);
     assert.match(w.sent.at(-1) ?? '', new RegExp(`Manip faite de moi-même : Naglfar · Démarrer.*« garde ${m.id} » ou « annule ${m.id} »`));
-    const n = w.ran.filter((c) => /docker start web/.test(c)).length;
+    const n = w.ran.filter((c) => /odin start web/.test(c)).length;
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'web' }); await wait(60);
-    assert.equal(w.ran.filter((c) => /docker start web/.test(c)).length, n, 'pas de boucle : une relance par heure au plus');
+    assert.equal(w.ran.filter((c) => /odin start web/.test(c)).length, n, 'pas de boucle : une relance par heure au plus');
     assert.match((await w.v.decide(m.id, false)).text, /↩ Annulé : Naglfar · Démarrer \(conteneur arrêté\)/);
-    assert.ok(w.ran.some((c) => /^docker stop web/.test(c)), '« annule » : le conteneur est arrêté de nouveau');
+    assert.ok(w.ran.some((c) => /^odin stop web/.test(c)), '« annule » : le conteneur est arrêté de nouveau');
   },
   'ymir>ymir': async (w) => {
     w.v.ctx('ymir').emit('vm_arretee', { vmid: 101, nom: 'serveur-web' });

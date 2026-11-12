@@ -8,6 +8,7 @@
 // répond alors avec la mémoire et garde la question pour plus tard).
 
 import { forgetPending, helpText, understand } from '../valhalla/huginn.ts';
+import { chatCommand } from '../valhalla/modules/naglfar.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 
 export type RunTool = (name: string, input: Record<string, unknown>) => Promise<{ ok: boolean; content: string }>;
@@ -82,6 +83,11 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   // Pour plus tard, pour une durée ou sous condition (« dans 30 minutes », « à 18h », « jusqu'à 15h », « quand je rentre ») :
   // une action immédiate serait fausse. Avec une IA sous la main, c'est elle qui programme.
   const timed = /\b(?:dans (?:\d+|une?|deux|trois|quelques)|a \d{1,2}\s?h|vers \d{1,2}|jusqu'a|pendant|demain|ce soir|cette nuit|tout a l'heure|plus tard|quand|lorsque|des que|si (?:je|tu|il|elle|on|le|la|les|quelqu)|apres|avant)\b/.test(s);
+
+  // Les commandes de conteneurs écrites comme dans un terminal (« run -d -p 8080:80 nginx », « ps », « logs web ») :
+  // le moteur d'Odin, par Naglfar ; lancer, supprimer et exec demandent ton accord.
+  const ct = has('valhalla') ? chatCommand(text) : undefined;
+  if (ct) { o.label?.('Conteneurs'); return (await run('valhalla', { action: 'action', appli: 'naglfar', quoi: 'commande', entree: JSON.stringify({ ligne: ct }) })).content; }
 
   if (strict ? /^(?:aide|help|\?|que (?:peux|sais)[- ]tu faire|tu sais faire quoi)\s*\??$/.test(s) : /^(aide|help|\?)$|que (peux|sais)[- ]tu faire|tu sais faire quoi/.test(s)) { o.label?.('Aide'); const v = valhallaOf(); return v && has('valhalla') ? `${HELP}\n\nMes applis, sans IA aussi (dis « explique <appli> » pour le détail) :\n${helpText(v)}` : HELP; }
 

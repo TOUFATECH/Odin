@@ -51,9 +51,12 @@ export function isPrivateV4(ip: string): boolean {
  * Un masque trop large (/16) est réduit au /24 de la machine : on ne balaie jamais
  * plus de 1 024 adresses par interface.
  */
+/** Interfaces virtuelles de la machine (réseau des conteneurs d'Odin, ponts de conteneurs ou de VM) : ce n'est pas ton réseau local. */
+export const VIRTUAL_IFACE = /^(odin0|od[0-9a-f]{10}[hc]|docker\d*|br-[0-9a-f]+|veth|virbr|cni|flannel|podman|lxcbr|lxdbr|vnet|tap)/;
 export function localSubnets(ifaces = networkInterfaces()): Subnet[] {
   const out: Subnet[] = [];
   for (const [name, list] of Object.entries(ifaces)) {
+    if (VIRTUAL_IFACE.test(name)) continue;
     for (const a of list ?? []) {
       if (a.family !== 'IPv4' || a.internal || !isPrivateV4(a.address)) continue;
       let prefix = a.netmask.split('.').reduce((n, o) => n + Number(o).toString(2).replace(/0/g, '').length, 0);
