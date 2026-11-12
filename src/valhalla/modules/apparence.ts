@@ -39,7 +39,7 @@ export function odinColor(hour: number, w?: Wx & { wind?: number }, highTide = f
   if (w?.temp !== undefined && w.temp <= 20) return { color: '#5b8fd9', why: `il fait frais (${w.temp}°)` };
   return undefined;
 }
-/** Les 36 pouvoirs (maquettes validées) et leur famille. */
+/** Les 38 pouvoirs (maquettes validées, + Éclair et Téléportation) et leur famille. */
 export const POWERS: Record<string, { name: string; fam: string }> = {
   feu: { name: 'Boule de feu', fam: 'Feu' }, jet: { name: 'Lance-flammes', fam: 'Feu' }, lave: { name: 'Lave', fam: 'Feu' }, meteores: { name: 'Météores', fam: 'Feu' }, comete: { name: 'Comète', fam: 'Feu' },
   vague: { name: 'Vague', fam: 'Eau' }, bulles: { name: 'Bulles', fam: 'Eau' }, glace: { name: 'Glace', fam: 'Eau' }, blizzard: { name: 'Blizzard', fam: 'Eau' },
@@ -48,7 +48,7 @@ export const POWERS: Record<string, { name: string; fam: string }> = {
   foudre: { name: 'Foudre', fam: 'Ciel' }, orage: { name: 'Orage', fam: 'Ciel' }, etoiles: { name: 'Étoiles filantes', fam: 'Ciel' }, soleil: { name: 'Rayon de soleil', fam: 'Ciel' }, aurore: { name: 'Aurore boréale', fam: 'Ciel' }, trounoir: { name: 'Trou noir', fam: 'Ciel' },
   lianes: { name: 'Lianes', fam: 'Nature' }, petales: { name: 'Pétales', fam: 'Nature' }, feuilles: { name: 'Feuilles d\'automne', fam: 'Nature' }, poison: { name: 'Poison', fam: 'Nature' },
   laser: { name: 'Laser des yeux', fam: 'Magie' }, runes: { name: 'Runes', fam: 'Magie' }, onde: { name: 'Onde de choc', fam: 'Magie' }, ombre: { name: 'Ombre', fam: 'Magie' }, lumiere: { name: 'Lumière sacrée', fam: 'Magie' }, pixels: { name: 'Pixels', fam: 'Magie' }, aimant: { name: 'Aimant', fam: 'Magie' },
-  gungnir: { name: 'Gungnir, la lance', fam: 'Nordique' }, corbeaux: { name: 'Huginn et Muninn', fam: 'Nordique' }, bifrost: { name: 'Bifröst', fam: 'Nordique' }, artifice: { name: 'Feu d\'artifice', fam: 'Fête' },
+  gungnir: { name: 'Gungnir, la lance', fam: 'Nordique' }, corbeaux: { name: 'Huginn et Muninn', fam: 'Nordique' }, bifrost: { name: 'Bifröst', fam: 'Nordique' }, eclair: { name: 'Éclair', fam: 'Ciel' }, teleport: { name: 'Téléportation', fam: 'Magie' }, artifice: { name: 'Feu d\'artifice', fam: 'Fête' },
 };
 /** Le pouvoir qui va avec le thème ou la météo. */
 export const powerForTheme: Record<string, string> = { glace: 'glace', neige: 'blizzard', pluie: 'vague', orage: 'foudre', ocean: 'bulles', plage: 'vague', desert: 'sable', foret: 'lianes', automne: 'feuilles', printemps: 'petales', nuit: 'etoiles', espace: 'trounoir', aurore: 'aurore', coucher: 'feu', montagne: 'rochers', ciel: 'rafale', paysage: 'feuilles', vacances: 'bulles', mayotte: 'vague', valhalla: 'gungnir' };
@@ -71,7 +71,7 @@ export const DEFAULT_POWERS: Required<Omit<PowersCfg, 'quand'>> & { quand: Requi
 export function cleanPowers(p: unknown): typeof DEFAULT_POWERS {
   const x = (p && typeof p === 'object' ? p : {}) as PowersCfg, q = { ...DEFAULT_POWERS.quand };
   for (const k of Object.keys(q) as Array<keyof typeof q>) if (typeof x.quand?.[k] === 'boolean') q[k] = x.quand[k] as boolean;
-  const fav = Array.isArray(x.favoris) ? x.favoris.filter((f) => POWERS[f]).slice(0, 36) : DEFAULT_POWERS.favoris;
+  const fav = Array.isArray(x.favoris) ? x.favoris.filter((f) => POWERS[f]).slice(0, 38) : DEFAULT_POWERS.favoris;
   return { actif: x.actif === true, quand: q, choix: ['hasard', 'favoris', 'theme', 'meteo'].includes(x.choix as string) ? x.choix as 'favoris' : DEFAULT_POWERS.choix, favoris: fav.length ? fav : DEFAULT_POWERS.favoris, force: ['discrete', 'normale', 'spectaculaire'].includes(x.force as string) ? x.force as 'normale' : 'normale', son: x.son === true };
 }
 export function cleanClicks(c: unknown): Record<string, string> {

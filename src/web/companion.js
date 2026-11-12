@@ -103,6 +103,18 @@
   function place(p, how = 'walk') {
     if (!bud || !p) return;
     const far = !pos || Math.hypot(p.x - pos.x, p.y - pos.y) > 4;
+    // Loin, et pouvoirs activés : il se téléporte (étincelles au départ, il disparaît, réapparaît à l'arrivée).
+    if (pos && !reduce.matches && window.OdinPowers?.cfg?.actif && Math.hypot(p.x - pos.x, p.y - pos.y) > 380 && !bud.hidden) {
+      const s0 = size, from = { x: pos.x + s0 / 2, y: pos.y + s0 / 2 };
+      window.OdinPowers.sparkle(from.x, from.y);
+      bud.animate([{ opacity: 1, scale: '1', filter: 'brightness(1)' }, { opacity: 0, scale: '0.15', filter: 'brightness(3)' }], { duration: 200, easing: 'ease-in' }).finished.then(() => {
+        pos = { x: p.x, y: p.y }; size = p.s; bud.style.setProperty('--rs', `${size}px`);
+        bud.style.transition = 'none'; bud.style.translate = `${Math.round(pos.x)}px ${Math.round(pos.y)}px`; void bud.offsetWidth; bud.style.transition = '';
+        window.OdinPowers.sparkle(pos.x + size / 2, pos.y + size / 2);
+        bud.animate([{ opacity: 0, scale: '0.15', filter: 'brightness(3)' }, { opacity: 1, scale: '1', filter: 'brightness(1)' }], { duration: 260, easing: 'ease-out' });
+      }).catch(() => {});
+      return;
+    }
     pos = { x: p.x, y: p.y }; size = p.s;
     bud.style.setProperty('--rs', `${size}px`);
     bud.classList.remove('walk', 'hopto');

@@ -66,7 +66,7 @@ test('réglages nettoyés : clics, pouvoirs, événements', () => {
   const p = cleanPowers({ actif: true, favoris: ['feu', 'inconnu'], choix: 'meteo', quand: { clic: true } });
   assert.deepEqual(p.favoris, ['feu']); assert.equal(p.choix, 'meteo'); assert.equal(p.quand.clic, true); assert.equal(p.quand.ferme, true);
   assert.equal(cleanPowers({}).actif, false, 'désactivés au départ');
-  assert.equal(Object.keys(POWERS).length, 36);
+  assert.equal(Object.keys(POWERS).length, 38);
   const e = cleanEvents({ choix: { noel: false, faux: true }, pauses: ['2026-12-24', 'x'], anniversaire: '13-40', decalageHijri: 9 });
   assert.deepEqual(e.choix, { noel: false }); assert.deepEqual(e.pauses, ['2026-12-24']); assert.equal(e.anniversaire, undefined); assert.equal(e.decalageHijri, 2);
 });

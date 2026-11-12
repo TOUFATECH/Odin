@@ -22,8 +22,8 @@
     feu: { name: 'Boule de feu', c: '#ff7a1a', kit: 'burn', shot: 'fire', appear: 'fire' },
     jet: { name: 'Lance-flammes', c: '#ff8a1a', kit: 'burn', shot: 'jet', appear: 'fire' },
     lave: { name: 'Lave', c: '#ff5a00', kit: 'melt', shot: 'lava', drip: '#ff8a1a', fx: 'sepia(1) saturate(6) hue-rotate(-30deg) brightness(1.2)', appear: 'fire' },
-    meteores: { name: 'Météores', c: '#ff6a1a', kit: 'burn', shot: 'meteors', appear: 'fire' },
-    comete: { name: 'Comète', c: '#58d7ff', kit: 'pop', shot: 'comet', shard: ['#1e5a7a', '#bff0ff'], appear: 'light', pc: ['#bff0ff', '#58d7ff', '#ffffff'] },
+    meteores: { name: 'Météores', c: '#ff6a1a', kit: 'meteor', many: true, shot: 'none', appear: 'fire' },
+    comete: { name: 'Comète', c: '#ff9a2a', kit: 'meteor', shot: 'none', appear: 'light', pc: ['#fff3c0', '#ffd36a', '#ff7a1a'] },
     vague: { name: 'Vague', c: '#3d9cf0', kit: 'wash', shot: 'wave', appear: 'light', pc: ['#bfe6ff', '#3d9cf0', '#ffffff'] },
     bulles: { name: 'Bulles', c: '#7fd4ff', kit: 'lift', shot: 'bubbles', appear: 'light', pc: ['#bfe9ff', '#7fd4ff'] },
     glace: { name: 'Glace', c: '#7fd4ff', kit: 'ice', shot: 'shards', appear: 'ice' },
@@ -49,11 +49,13 @@
     onde: { name: 'Onde de choc', c: '#9fd0ff', kit: 'pop', shot: 'ring', shard: ['#283044', '#b8dcff'], appear: 'light', pc: ['#dff0ff', '#9fd0ff'] },
     ombre: { name: 'Ombre', c: '#9a6bff', kit: 'dis', shot: 'veil', dir: 'h', pc: ['#2a1a4a', '#5b3fa8', '#140a24'], dx: [-4, 18], dy: [-30, -10], size: [3, 5], glow: 3, fx: 'brightness(.3) saturate(.4)', smoke: '#05030a', appear: 'light' },
     lumiere: { name: 'Lumière sacrée', c: '#ffe9a0', kit: 'dis', shot: 'column', dir: 'v', pc: GOLD, dx: [-6, 6], dy: [-44, -22], fx: 'brightness(2.6) saturate(.5)', appear: 'light' },
-    pixels: { name: 'Pixels', c: '#5a6fdb', kit: 'dis', shot: 'pixels', dir: 'h', pc: ['#283044', '#3c4660', '#56617f', '#5a6fdb', '#8fa0ff'], dx: [-14, 30], dy: [-26, 20], size: [4, 6], shape: '0', glow: 0, steps: true, fx: 'contrast(1.4) brightness(1.2)', appear: 'light' },
+    pixels: { name: 'Pixels', c: '#5a6fdb', kit: 'pixelate', shot: 'pixels', dir: 'h', pc: ['#283044', '#3c4660', '#56617f', '#5a6fdb', '#8fa0ff'], dx: [-14, 30], dy: [-26, 20], size: [4, 6], shape: '0', glow: 0, steps: true, fx: 'contrast(1.4) brightness(1.2)', appear: 'light' },
     aimant: { name: 'Aimant', c: '#ff5a5a', kit: 'pull', shot: 'magnet', appear: 'light', pc: ['#ff9a9a', '#ff5a5a'] },
     gungnir: { name: 'Gungnir, la lance', c: '#ffd36a', kit: 'pop', shot: 'spear', shard: ['#283044', '#ffd36a'], appear: 'light', pc: GOLD },
     corbeaux: { name: 'Huginn et Muninn', c: '#c9d2e6', kit: 'carry', shot: 'ravens', appear: 'light', pc: ['#c9d2e6', '#ffffff'] },
     bifrost: { name: 'Bifröst', c: '#ff6ad5', kit: 'bif', shot: 'rainbow', appear: 'light', pc: ['#ff4a4a', '#ffe14a', '#4adf6a', '#4aa8ff', '#9a6bff'] },
+    eclair: { name: 'Éclair', c: '#9fb4ff', kit: 'strike', shot: 'none', appear: 'strike', pc: ['#ffffff', '#e8f0ff', '#9fb4ff'] },
+    teleport: { name: 'Téléportation', c: '#5fe6ff', kit: 'teleport', shot: 'none', appear: 'teleport', pc: ['#ffffff', '#bff8ff', '#5fe6ff'] },
     artifice: { name: 'Feu d\'artifice', c: '#ff6ad5', kit: 'confetti', shot: 'rocket', appear: 'light', pc: ['#ff4a4a', '#ffe14a', '#4adf6a', '#4aa8ff', '#ff6ad5'] },
   };
   const IDS = Object.keys(P);
@@ -89,7 +91,7 @@
       for (const k of ['backgroundColor', 'backgroundImage', 'color', 'borderRadius', 'border', 'boxShadow', 'font', 'padding', 'display', 'flexDirection', 'alignItems', 'justifyContent', 'gap', 'textAlign', 'lineHeight', 'overflow']) g.style[k] = cs[k];
       if (cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none') g.style.backgroundColor = getComputedStyle(document.body).getPropertyValue('--panel') || 'rgba(40,48,68,.9)';
     } catch { g = document.createElement('div'); g.style.cssText = 'background:rgba(40,48,68,.9);border-radius:10px'; }
-    return { rect: { x: r.left, y: r.top, w: r.width, h: r.height }, node: g };
+    return { rect: { x: r.left, y: r.top, w: r.width, h: r.height }, node: g, src };
   }
   function stage(snap) {
     const { x, y, w, h } = snap.rect, L = getLayer();
@@ -98,10 +100,95 @@
     box.append(g); return { box, g, w, h };
   }
   function mascotPoint() {
-    const m = [...document.querySelectorAll('#buddyRoam, .odin.roam, #maisonOdin, .m-odin, .odin')].find((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none' && !e.hidden);
+    const m = [...document.querySelectorAll('#buddyRoam, .odin.roam, .pet, .vn-odin-face, .odin')].find((e) => e.getClientRects().length && getComputedStyle(e).display !== 'none' && !e.hidden);
     if (!m) return null; const r = m.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, el: m };
   }
   function castFrom(from) { if (!from?.el) return; window.OdinFace?.flash?.(from.el, 'excite', 1200); window.OdinCompanion?.act?.('act-joy', 900); }
+
+  // ---------------------------------------------------------------- particules (canevas) : des milliers d'éclats, braises, poussières
+  const PX = (() => {
+    let cv = null, ctx = null, list = [], raf = 0, last = 0;
+    function ensure() {
+      const L = getLayer(); if (cv && cv.parentNode === L) return;
+      cv = document.createElement('canvas'); cv.style.cssText = 'position:absolute;left:0;top:0;width:100vw;height:100vh;z-index:20'; L.append(cv); ctx = cv.getContext('2d'); size();
+    }
+    function size() { if (!cv) return; const d = Math.min(2, devicePixelRatio || 1); cv.width = Math.round(innerWidth * d); cv.height = Math.round(innerHeight * d); ctx.setTransform(d, 0, 0, d, 0, 0); }
+    addEventListener('resize', size);
+    function draw(p, k) {
+      const a = Math.max(0, 1 - Math.max(0, (k - (p.hold ?? 0.35)) / (1 - (p.hold ?? 0.35)))) * (p.alpha ?? 1);
+      if (a <= 0.01) return;
+      ctx.globalAlpha = p.steps ? Math.round(a * 4) / 4 : a; ctx.globalCompositeOperation = p.add ? 'lighter' : 'source-over'; ctx.fillStyle = p.c; ctx.strokeStyle = p.c;
+      switch (p.shape) {
+        case 'shard': ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.beginPath(); ctx.moveTo(-p.s, -p.s * 0.35); ctx.lineTo(p.s * 0.55, -p.s * 0.7); ctx.lineTo(p.s * 0.85, p.s * 0.45); ctx.lineTo(-p.s * 0.35, p.s * 0.75); ctx.closePath(); ctx.fill(); if (p.edge) { ctx.strokeStyle = p.edge; ctx.lineWidth = 0.9; ctx.stroke(); } ctx.restore(); break;
+        case 'spark': { const v = Math.hypot(p.vx, p.vy) || 1, l = Math.min(26, v * 0.035) + p.s; ctx.lineWidth = p.s; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - (p.vx / v) * l, p.y - (p.vy / v) * l); ctx.stroke(); break; }
+        case 'square': ctx.fillRect(p.x - p.s / 2, p.y - p.s / 2, p.s, p.s); break;
+        case 'smoke': { const r = p.s * (1 + k * 2.4), g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r); g.addColorStop(0, p.c); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill(); break; }
+        case 'petal': ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.beginPath(); ctx.ellipse(0, 0, p.s, p.s * 0.55, 0, 0, 7); ctx.fill(); ctx.restore(); break;
+        case 'flake': ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillRect(-p.s / 2, -p.s * 0.3, p.s, p.s * 0.6); ctx.restore(); break;
+        default: ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, 7); ctx.fill();
+      }
+    }
+    function tick(t) {
+      const dt = Math.min(0.05, (t - (last || t)) / 1000); last = t;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); const d = Math.min(2, devicePixelRatio || 1); ctx.setTransform(d, 0, 0, d, 0, 0);
+      const keep = [];
+      for (const p of list) {
+        p.age += dt; if (p.age < 0) { keep.push(p); continue; }
+        const k = p.age / p.life; if (k >= 1) continue; keep.push(p);
+        const dr = Math.pow(p.drag ?? 0.985, dt * 60); p.vx = p.vx * dr + (p.ax ?? 0) * dt; p.vy = p.vy * dr + (p.g ?? 0) * dt;
+        if (p.wob) p.vx += Math.sin((p.age + p.seed) * p.wob) * 30 * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.r += (p.vr ?? 0) * dt;
+        if (p.floor !== undefined && p.y > p.floor && p.vy > 0) { p.y = p.floor; p.vy *= -0.32; p.vx *= 0.7; p.vr = (p.vr ?? 0) * 0.5; }
+        draw(p, k);
+      }
+      list = keep; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+      if (list.length) raf = requestAnimationFrame(tick); else { raf = 0; last = 0; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); }
+    }
+    /** Ajoute des particules : chacune { x, y, vx, vy, g, life, s, c, shape, delay… } */
+    function add(ps) { ensure(); for (const p of ps) list.push({ r: 0, vr: 0, seed: Math.random() * 9, ...p, age: -(p.delay ?? 0) }); if (!raf) { last = 0; raf = requestAnimationFrame(tick); } }
+    function clear() { list = []; if (raf) cancelAnimationFrame(raf); raf = 0; cv = null; ctx = null; }
+    return { add, clear };
+  })();
+  const Q = () => ({ discrete: 0.45, normale: 1, spectaculaire: 1.8 }[cfg.force] ?? 1);
+  /** Les couleurs de l'élément (fond, bord, texte, enfants) : ses éclats lui ressemblent. */
+  function colorsOf(src) {
+    const out = new Set(), ok = (c) => c && !/rgba\(0, 0, 0, 0\)|transparent/.test(c);
+    try {
+      for (const e of [src, ...[...src.querySelectorAll('*')].slice(0, 30)]) { const cs = getComputedStyle(e); if (ok(cs.backgroundColor)) out.add(cs.backgroundColor); if (e === src && ok(cs.borderTopColor)) out.add(cs.borderTopColor); if (e.childNodes.length && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) out.add(cs.color); }
+    } catch { /* */ }
+    const l = [...out]; return l.length ? l : ['#283044', '#3c4660', '#aab3c8'];
+  }
+  /** Fait voler l'élément en éclats (n morceaux, à partir du point d'impact). */
+  function shatter(rect, n, colors, o = {}) {
+    const ps = [], at = o.at ?? { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 }, k = Math.max(0.8, Math.min(2.2, Math.sqrt(rect.w * rect.h) / 120));
+    for (let i = 0; i < n; i++) {
+      const x = rect.x + Math.random() * rect.w, y = rect.y + Math.random() * rect.h, dx = x - at.x, dy = y - at.y, d = Math.hypot(dx, dy) || 1, sp = R(...(o.speed ?? [120, 620])) * k * (o.fromCenter === false ? 0.5 : 1);
+      ps.push({ x, y, vx: (dx / d) * sp + R(-60, 60), vy: (dy / d) * sp + R(-(o.up ?? 200), 60) - (o.lift ?? 120), g: o.g ?? 900, drag: o.drag ?? 0.985, life: R(...(o.life ?? [0.7, 1.5])), s: R(...(o.size ?? [1.5, 5.5])) * Math.min(1.6, k), c: pick(colors), edge: o.edge, shape: o.shape ?? 'shard', vr: R(-14, 14), r: R(0, 6), add: o.add, delay: (o.delay ?? 0) + (o.stagger ? Math.random() * o.stagger : 0), floor: o.floor, hold: o.hold, steps: o.steps });
+    }
+    PX.add(ps);
+  }
+  function smokeAt(rect, n, color, o = {}) {
+    const ps = []; for (let i = 0; i < n; i++) ps.push({ x: rect.x + Math.random() * rect.w, y: rect.y + Math.random() * rect.h, vx: R(...(o.vx ?? [-20, 20])), vy: R(...(o.vy ?? [-70, -25])), g: 0, drag: 0.99, life: R(...(o.life ?? [0.9, 1.8])), s: R(8, 18) * Math.max(1, Math.min(2.5, rect.h / 50)), c: color, shape: 'smoke', delay: (o.delay ?? 0) + Math.random() * (o.spread ?? 0.4), hold: 0.1 });
+    PX.add(ps);
+  }
+  function shake(px = 6, ms = 380) { const L = getLayer(), b = document.body; for (const n of [L, document.querySelector('.view.on') || b]) anim(n, [{ transform: 'none' }, { transform: `translate(${px}px,${-px / 2}px)` }, { transform: `translate(${-px}px,${px / 2}px)` }, { transform: `translate(${px / 2}px,${px / 3}px)` }, { transform: 'none' }], { duration: ms, fill: 'none' }); }
+  /** L'explosion en mille morceaux (couleurs de l'élément), au bon moment de l'animation. */
+  function boomAt(snap, ms, o = {}) {
+    if (!snap) return; const r = snap.rect, q = Q();
+    setTimeout(() => {
+      const cols = o.cols ?? colorsOf(snap.src ?? snap.node).concat(o.extra ?? []), n = Math.round((o.n ?? Math.min(1200, 160 + (r.w * r.h) / 45)) * q);
+      shatter(r, n, cols, { edge: o.edge, speed: o.speed ?? [140, 680], g: o.g ?? 1000, lift: o.lift ?? 140, size: o.size ?? [1.2, 4.6], shape: o.shape, floor: Math.min(innerHeight - 4, r.y + r.h + 120) });
+      if (o.spark) shatter(r, Math.round(160 * q), o.spark, { speed: [200, 950], g: 380, life: [0.25, 0.7], size: [1, 2.2], shape: 'spark', add: true });
+    }, ms);
+  }
+  /** La désintégration : une poussière de particules qui part au passage du balayage. */
+  function dust(snap, p, D) {
+    if (!snap) return; const r = snap.rect, q = Q(), n = Math.round(Math.min(1600, 120 + (r.w * r.h) / 14) * q), ps = [], v = p.dir === 'v';
+    const shape = p.shape === '0' ? 'square' : p.shape === '50% 0' ? 'petal' : 'dot', add = (p.glow ?? 5) > 0;
+    for (let i = 0; i < n; i++) { const x = r.x + Math.random() * r.w, y = r.y + Math.random() * r.h, f = v ? (y - r.y) / r.h : (x - r.x) / r.w; ps.push({ x, y, vx: R(...(p.dx || [-6, 14])) * 3.2, vy: R(...(p.dy || [-30, -12])) * 3.2, g: shape === 'petal' ? 40 : 0, drag: 0.985, wob: shape === 'petal' ? 6 : 0, life: R(0.5, 1.1), s: R(...(p.size || [2, 4])) / (shape === 'dot' ? 2.2 : 1.2), c: pick(p.pc || GOLD), shape, add, vr: R(-6, 6), steps: p.steps, delay: (0.15 * D + f * 0.7 * D) / 1000 + Math.random() * 0.05 }); }
+    PX.add(ps);
+  }
+
 
   // ---------------------------------------------------------------- effets réutilisables
   function particles(S, p, o = {}) {
@@ -147,26 +234,85 @@
     }
   }
   const svgNS = (w, h, inner, css = '') => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="overflow:visible;${css}">${inner}</svg>`;
+  // Une flamme : pointe ondulée, cœur jaune-blanc en bas, bords orange et rouge (trois tailles de teinte).
+  const FLAME = (k = 0) => { const tip = R(-3, 3), id = `fl${Math.random().toString(36).slice(2, 8)}`, c = [['#fff7c2', '#ffd23a', '#ff7a1a', '#e0360f'], ['#ffe9a0', '#ffb020', '#ff5a10', '#c62a0c'], ['#ffd36a', '#ff8a1a', '#e8430f', '#9e1f08']][k];
+    return `<svg viewBox="0 0 20 32" width="100%" height="100%" preserveAspectRatio="none" style="overflow:visible"><defs><linearGradient id="${id}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${c[0]}"/><stop offset=".35" stop-color="${c[1]}"/><stop offset=".7" stop-color="${c[2]}"/><stop offset="1" stop-color="${c[3]}" stop-opacity=".85"/></linearGradient></defs><path d="M${10 + tip} 0 C${12 + tip} 7 19 11 18 20 C17.5 27 13.5 31 10 31 C6.5 31 2.5 27 2 20 C1.6 14 6 11 7 6 C8 9 8.5 11 9 12 C9.5 8 ${10 + tip} 4 ${10 + tip} 0Z" fill="url(#${id})"/><path d="M10 14 C12 18 14 21 13 25 C12.5 28 11 29.5 10 29.5 C9 29.5 7.5 28 7 25 C6.6 21 9 18 10 14Z" fill="#fffbe6" opacity=".85"/></svg>`; };
   function zigzag(x0, y0, x1, y1, n = 7, amp = 12) { const pts = []; for (let i = 0; i <= n; i++) { const t = i / n; pts.push(`${(x0 + (x1 - x0) * t + (i && i < n ? R(-amp / 3, amp / 3) : 0)).toFixed(1)},${(y0 + (y1 - y0) * t + (i && i < n ? R(-amp, amp) : 0)).toFixed(1)}`); } return pts.join(' '); }
 
   // ---------------------------------------------------------------- les façons de détruire
   const KITS = {
-    burn(S) { // il prend feu et brûle de bas en haut
-      const { box, g, w, h } = S, D = DUR();
-      anim(g, [{ clipPath: 'inset(0 0 0 0)', filter: 'none' }, { filter: 'brightness(1.7) sepia(.6) saturate(3) hue-rotate(-20deg)', offset: 0.08 }, { clipPath: 'inset(0 0 5% 0)', filter: 'sepia(1) saturate(3) hue-rotate(-25deg) brightness(.85)', offset: 0.18 }, { clipPath: 'inset(0 0 100% 0)', filter: 'sepia(1) saturate(2) hue-rotate(-25deg) brightness(.4)' }], { duration: D, easing: 'linear' });
-      const ff = el(box, `left:-6px;width:${w + 12}px;top:${h}px;height:2px;z-index:5`);
-      ff.innerHTML = `<div style="position:absolute;left:4px;right:4px;top:0;height:3px;border-radius:2px;background:linear-gradient(90deg,#ff5a10,#ffe066,#ff7a1a,#ffe066,#ff5a10);box-shadow:0 0 8px #ff7a1a,0 0 3px #fff3b0"></div>`;
-      const fh = Math.max(16, Math.min(34, h * 0.5));
-      for (let x = -4; x < w + 8; x += Math.max(9, Math.min(14, w / 12))) {
-        const f = el(ff, `left:${x}px;bottom:-2px;width:${fh * 0.62}px;height:${fh * R(0.75, 1.15)}px;border-radius:50% 50% 50% 50%/65% 65% 35% 35%;background:radial-gradient(circle at 50% 80%,#fff7c2 0,#ffc43a 26%,#ff6a1a 58%,rgba(255,80,20,0) 74%);transform-origin:50% 100%;filter:drop-shadow(0 0 4px #ff7a1a)`);
-        f.style.animation = `opFlick ${R(0.2, 0.3).toFixed(2)}s ease-in-out ${-R(0, 0.3).toFixed(2)}s infinite alternate`;
+    burn(S, p, from, snap) { // le feu démarre en bas, s'étend sur tout l'élément, le carbonise, il part en cendres
+      const { box, g, w, h } = S, D = DUR() * 1.7, r = snap.rect, x0 = snap.hit?.x !== undefined ? snap.hit.x - r.x : w / 2;
+      const glow = el(box, `left:${-w * 0.25}px;top:${-h * 0.6}px;width:${w * 1.5}px;height:${h * 1.9}px;border-radius:50%;background:radial-gradient(ellipse at 50% 70%,rgba(255,140,30,.55),rgba(255,80,20,.18) 45%,transparent 70%);z-index:0`);
+      anim(glow, [{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 1, offset: 0.75 }, { opacity: 0 }], { duration: D });
+      anim(g, [{ filter: 'none', opacity: 1 }, { filter: 'brightness(1.5) sepia(.5) saturate(3) hue-rotate(-20deg)', offset: 0.18 }, { filter: 'sepia(1) saturate(2.2) hue-rotate(-25deg) brightness(.5)', offset: 0.5 }, { filter: 'brightness(.12) saturate(0)', opacity: 1, offset: 0.72 }, { filter: 'brightness(.08) saturate(0)', opacity: 0 }], { duration: D, easing: 'linear' });
+      // Les flammes : d'abord en bas, au point d'impact, puis sur toute la largeur, puis elles montent et couvrent tout.
+      const sp = Math.max(10, Math.min(18, w / 10)), rows = Math.max(2, Math.min(6, Math.round(h / 22))), fl = el(box, 'left:0;top:0;width:100%;height:100%;z-index:5;overflow:visible');
+      let n = 0;
+      for (let rI = 0; rI < rows; rI++) for (let x = -sp / 2; x < w + sp / 2 && n < 140; x += sp * (1 + rI * 0.15)) {
+        n++; const y = h - (rI * h) / rows, big = 1 - rI / (rows + 1), fh = Math.max(16, Math.min(40, h * 0.55)) * R(0.75, 1.2) * (0.7 + big * 0.5);
+        const f = el(fl, `left:${x + R(-4, 4) - fh * 0.32}px;top:${y - fh}px;width:${fh * 0.64}px;height:${fh}px;transform-origin:50% 100%;filter:drop-shadow(0 0 6px #ff6a1a);opacity:0`, FLAME(rI === 0 ? 0 : Math.min(2, rI)));
+        f.style.animation = `opFlick ${R(0.18, 0.3).toFixed(2)}s ease-in-out ${-R(0, 0.3).toFixed(2)}s infinite alternate`;
+        const start = (Math.abs(x - x0) / w) * 0.32 + (rI / rows) * 0.25;
+        anim(f, [{ opacity: 0, scale: '0.1' }, { opacity: 0, scale: '0.1', offset: start }, { opacity: 1, scale: '1', offset: Math.min(0.9, start + 0.12) }, { opacity: 1, scale: '1.1', offset: 0.78 }, { opacity: 0, scale: '0.4' }], { duration: D, easing: 'linear' });
       }
-      anim(ff, [{ opacity: 0, transform: 'translateY(0)' }, { opacity: 1, transform: 'translateY(-2px)', offset: 0.1 }, { opacity: 1, transform: `translateY(${-h}px)`, offset: 0.92 }, { opacity: 0, transform: `translateY(${-h - 6}px)` }], { duration: D, easing: 'linear' });
-      for (let i = 0; i < Math.round(14 * F() * Math.min(3, w / 60)); i++) { const e = el(box, `left:${R(2, w - 2)}px;top:${R(4, h)}px;width:3px;height:3px;border-radius:50%;background:#ffc04a;box-shadow:0 0 5px #ff7a1a;opacity:0;z-index:6`); anim(e, [{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 0, transform: `translate(${R(-14, 14)}px,${R(-70, -30)}px)` }], { duration: D * 0.5, delay: R(0.1, 0.7) * D }); }
-      smokes(S, '#8a8f9a', Math.round(4 * F()), { start: 0.45 });
-      return D * 1.25;
+      // Braises, cendres et fumée
+      const q = Q(), em = [], ash = [];
+      for (let i = 0; i < Math.round(90 * q); i++) em.push({ x: r.x + Math.random() * r.w, y: r.y + r.h * R(0.2, 1), vx: R(-30, 30), vy: R(-180, -60), g: -20, drag: 0.98, wob: R(4, 9), life: R(0.6, 1.3), s: R(1, 2.4), c: pick(['#ffd36a', '#ffb020', '#ff7a1a', '#fff3c0']), add: true, delay: (R(0.08, 0.75) * D) / 1000 });
+      for (let i = 0; i < Math.round(260 * q); i++) ash.push({ x: r.x + Math.random() * r.w, y: r.y + Math.random() * r.h, vx: R(-40, 40), vy: R(-110, -20), g: 60, drag: 0.97, wob: R(3, 7), life: R(0.9, 1.8), s: R(1.5, 4), c: pick(['#2a2a2e', '#3b3b40', '#55555c', '#1a1a1c', '#ff7a1a']), shape: 'flake', vr: R(-8, 8), delay: (R(0.7, 0.95) * D) / 1000 });
+      PX.add(em); PX.add(ash); smokeAt(r, Math.round(18 * q), 'rgba(110,112,120,.5)', { delay: (0.35 * D) / 1000, spread: (0.55 * D) / 1000 });
+      return D * 1.15;
     },
-    zap(S, p) { // électrocuté, puis il explose
+    meteor(S, p, from, snap) { // une météorite tombe du ciel sur la fenêtre et la fait exploser en mille morceaux
+      const { g, w, h } = S, r = snap.rect, L = getLayer(), T = 520, tx = r.x + r.w / 2, ty = r.y + r.h * 0.35, sx = tx - Math.min(380, innerWidth * 0.4), sy = -120, q = Q(), many = p.many;
+      const fall = (delay, ox, oy, s0) => {
+        const head = el(L, `left:${sx + ox - s0 / 2}px;top:${sy + oy - s0 / 2}px;width:${s0}px;height:${s0}px;border-radius:50%;background:radial-gradient(circle at 40% 40%,#fff3c0,#ff9a2a 40%,#8a3a10 75%);box-shadow:0 0 18px #ff7a1a,0 0 40px #ff4a0088;z-index:21`);
+        anim(head, [{ transform: 'translate(0,0)', opacity: 1 }, { transform: `translate(${tx - sx - ox * 0.3}px,${ty - sy - oy * 0.3}px)`, opacity: 1, offset: 0.97 }, { opacity: 0 }], { duration: T, delay, easing: 'cubic-bezier(.5,0,1,1)' }); setTimeout(() => head.remove(), T + delay + 40);
+        const tr = []; for (let i = 0; i < 70 * q; i++) { const t = i / (70 * q), x = sx + ox + (tx - sx) * t ** 2.2, y = sy + oy + (ty - sy) * t ** 2.2; tr.push({ x, y, vx: R(-25, 25), vy: R(-25, 10), g: 0, life: R(0.35, 0.8), s: R(2, 4.5), c: pick(['#ffd36a', '#ff7a1a', '#fff3c0']), add: true, delay: (delay + T * t ** 0.7) / 1000 }, { x, y, vx: R(-10, 10), vy: R(-30, -10), g: 0, life: R(0.8, 1.4), s: R(5, 9), c: 'rgba(120,110,105,.35)', shape: 'smoke', delay: (delay + T * t ** 0.7) / 1000, hold: 0.1 }); }
+        PX.add(tr);
+      };
+      fall(0, 0, 0, many ? 18 : 38); if (many) { fall(110, -60, 30, 14); fall(220, 50, -40, 16); }
+      const hit = T + (many ? 220 : 0);
+      setTimeout(() => {
+        anim(g, [{ opacity: 1, filter: 'brightness(3)' }, { opacity: 0, filter: 'brightness(3)' }], { duration: 90 });
+        flash({ ...S, box: S.box }, '#ff9a2a', 0, 1.6); shake(7, 420);
+        const cols = colorsOf(snap.src ?? g), n = Math.round(Math.min(1400, 180 + (r.w * r.h) / 40) * q);
+        shatter(r, n, cols, { at: { x: tx, y: ty - 10 }, speed: [160, 900], g: 1100, life: [0.8, 1.7], size: [1.2, 4.5], lift: 220, floor: Math.min(innerHeight - 4, r.y + r.h + 140) });
+        shatter(r, Math.round(160 * q), ['#fff3c0', '#ffd36a', '#ff7a1a'], { at: { x: tx, y: ty }, speed: [200, 1000], g: 600, life: [0.3, 0.8], size: [1, 2.4], shape: 'spark', add: true });
+        smokeAt({ x: r.x - r.w * 0.1, y: r.y + r.h * 0.3, w: r.w * 1.2, h: r.h * 0.7 }, Math.round(24 * q), 'rgba(140,120,105,.5)', { vy: [-60, -15], spread: 0.25 });
+      }, hit);
+      return hit + DUR() * 1.2;
+    },
+    strike(S, p, from, snap) { // un éclair tombe du ciel sur l'élément, qui s'électrise et explose
+      const { g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), tx = r.x + r.w / 2, ty = r.y + 4;
+      const dark = el(L, 'left:0;top:0;width:100vw;height:100vh;background:#060814;z-index:2');
+      anim(dark, [{ opacity: 0 }, { opacity: 0.45, offset: 0.2 }, { opacity: 0.45, offset: 0.6 }, { opacity: 0 }], { duration: 700 }); setTimeout(() => dark.remove(), 720);
+      const path = () => { const pts = [[tx + R(-60, 60), -10]]; const n = 12; for (let i = 1; i <= n; i++) { const t = i / n; pts.push([tx + (pts[0][0] - tx) * (1 - t) + (i < n ? R(-26, 26) : 0), -10 + (ty + 10) * t]); } return pts; };
+      const bolt = () => { const pts = path(), main = pts.map((x) => x.join(',')).join(' '); let br = ''; for (let i = 3; i < 10; i += 3) { const [bx, by] = pts[i]; br += `<polyline points="${bx},${by} ${bx + R(-50, 50)},${by + R(30, 70)} ${bx + R(-80, 80)},${by + R(60, 120)}" fill="none" stroke="#e8f0ff" stroke-width="1.4"/>`; } return svgNS(innerWidth, innerHeight, `<polyline points="${main}" fill="none" stroke="#9fb4ff" stroke-width="9" opacity=".5" style="filter:blur(3px)"/><polyline points="${main}" fill="none" stroke="#ffffff" stroke-width="3"/>${br}`); };
+      for (const [d, k] of [[120, 0], [260, 1], [420, 2]]) { const b = el(L, 'left:0;top:0;z-index:22', bolt()); anim(b, [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 0.3, offset: 0.4 }, { opacity: 1, offset: 0.6 }, { opacity: 0 }], { duration: 180, delay: d, easing: 'steps(1)' }); setTimeout(() => b.remove(), d + 220); if (k === 2) setTimeout(() => shake(5, 300), d); }
+      const fl = el(L, 'left:0;top:0;width:100vw;height:100vh;background:#f2f6ff;z-index:3'); anim(fl, [{ opacity: 0 }, { opacity: 0.5, offset: 0.1 }, { opacity: 0, offset: 0.3 }, { opacity: 0.35, offset: 0.55 }, { opacity: 0 }], { duration: 560, delay: 110 }); setTimeout(() => fl.remove(), 700);
+      anim(g, [{ filter: 'none', opacity: 1 }, { filter: 'none', offset: 0.2 }, { filter: 'invert(1) brightness(1.6)', offset: 0.28 }, { filter: 'brightness(3) saturate(0)', offset: 0.4 }, { filter: 'invert(1) hue-rotate(180deg)', offset: 0.5 }, { filter: 'brightness(4) saturate(0)', opacity: 1, offset: 0.62 }, { opacity: 0, offset: 0.63 }, { opacity: 0 }], { duration: 760, easing: 'linear' });
+      setTimeout(() => { const cols = colorsOf(snap.src ?? g); shatter(r, Math.round(Math.min(1000, 140 + (r.w * r.h) / 50) * q), cols, { at: { x: tx, y: r.y }, speed: [140, 760], g: 1000, size: [1.2, 4.5], edge: '#ffe9a0', lift: 160 }); shatter(r, Math.round(220 * q), ['#ffffff', '#e8f0ff', '#9fb4ff', '#f5d020'], { at: { x: tx, y: r.y }, speed: [250, 1100], g: 300, life: [0.25, 0.7], size: [1, 2.2], shape: 'spark', add: true }); smokeAt(r, Math.round(14 * q), 'rgba(80,84,100,.5)'); flash(S, '#9fb4ff', 0, 1.3); }, 480);
+      return 480 + DUR() * 1.2;
+    },
+    teleport(S, p, from, snap) { // téléportation : balayé de lignes, aplati en un trait de lumière, puis il disparaît en étincelles
+      const { box, g, w, h } = S, D = DUR() * 1.15, r = snap.rect, q = Q();
+      const col = el(box, `left:${-w * 0.08}px;top:${-Math.max(140, innerHeight)}px;width:${w * 1.16}px;height:${Math.max(140, innerHeight) * 2}px;background:linear-gradient(90deg,transparent,rgba(120,240,255,.25) 25%,rgba(230,255,255,.75) 50%,rgba(120,240,255,.25) 75%,transparent);z-index:0`);
+      anim(col, [{ opacity: 0, transform: 'scaleX(.1)' }, { opacity: 1, transform: 'scaleX(1)', offset: 0.25 }, { opacity: 1, transform: 'scaleX(.6)', offset: 0.75 }, { opacity: 0, transform: 'scaleX(0)' }], { duration: D });
+      const scan = el(box, 'left:0;top:0;width:100%;height:100%;z-index:4;background:repeating-linear-gradient(180deg,rgba(150,245,255,.0) 0 3px,rgba(150,245,255,.55) 3px 4px);mix-blend-mode:screen');
+      anim(scan, [{ opacity: 0, backgroundPosition: '0 0' }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.55 }, { opacity: 0, backgroundPosition: '0 60px' }], { duration: D * 0.7 });
+      anim(g, [{ transform: 'none', filter: 'none', opacity: 1 }, { filter: 'sepia(1) hue-rotate(150deg) saturate(3) brightness(1.5)', offset: 0.2 }, { transform: 'scaleX(1.02) scaleY(1)', filter: 'sepia(1) hue-rotate(150deg) saturate(3) brightness(2.4)', offset: 0.42 }, { transform: 'scaleX(1.12) scaleY(.03)', filter: 'brightness(4)', offset: 0.62 }, { transform: 'scaleX(0) scaleY(.03)', filter: 'brightness(5)', opacity: 1, offset: 0.78 }, { opacity: 0, transform: 'scale(0)' }], { duration: D, easing: 'cubic-bezier(.6,0,.4,1)' });
+      setTimeout(() => { const c = { x: r.x + r.w / 2, y: r.y + r.h / 2 }; shatter({ x: c.x - r.w * 0.3, y: c.y - 2, w: r.w * 0.6, h: 4 }, Math.round(180 * q), ['#ffffff', '#bff8ff', '#5fe6ff'], { at: c, speed: [60, 420], g: -60, life: [0.4, 1], size: [1, 2.4], shape: 'dot', add: true, lift: 80 }); flash(S, '#5fe6ff', 0, 0.8); }, D * 0.76);
+      return D * 1.1;
+    },
+    pixelate(S, p, from, snap) { // il se désagrège en pixels (bug, puis grille de carrés qui s'éparpillent)
+      const { g } = S, r = snap.rect, D = DUR(), q = Q(), cs = Math.max(5, Math.min(12, Math.min(r.w, r.h) / 8)), cols = colorsOf(snap.src ?? g).concat(['#5a6fdb', '#8fa0ff']);
+      anim(g, [{ transform: 'none', filter: 'none', opacity: 1 }, { transform: 'translateX(3px)', filter: 'hue-rotate(90deg) contrast(1.6)', offset: 0.1 }, { transform: 'translateX(-4px) skewX(8deg)', filter: 'hue-rotate(200deg)', offset: 0.2 }, { transform: 'translateX(2px)', filter: 'contrast(2) brightness(1.4)', opacity: 1, offset: 0.3 }, { opacity: 0, offset: 0.31 }, { opacity: 0 }], { duration: D, easing: 'steps(6)' });
+      const ps = []; let n = 0;
+      for (let y = r.y; y < r.y + r.h; y += cs) for (let x = r.x; x < r.x + r.w; x += cs) { if (n++ > 2200 * q) break; ps.push({ x: x + cs / 2, y: y + cs / 2, vx: R(-120, 160), vy: R(-180, 40), g: 380, drag: 0.97, life: R(0.6, 1.3), s: cs - 1, c: pick(cols), shape: 'square', steps: true, hold: 0.2, delay: (0.3 * D) / 1000 + ((x - r.x) / r.w) * 0.25 }); }
+      PX.add(ps); return D * 1.4;
+    },
+    zap(S, p, from, snap) { // électrocuté, puis il explose
       const { box, g, w, h } = S, D = DUR();
       anim(g, [{ filter: 'none', transform: 'none', opacity: 1 }, { filter: 'brightness(2.8) saturate(0)', offset: 0.06 }, { filter: 'brightness(.7) hue-rotate(200deg)', transform: 'translate(1.5px,-1px)', offset: 0.14 }, { filter: 'brightness(2.6) saturate(0)', transform: 'translate(-1.5px,1px)', offset: 0.24 }, { filter: 'brightness(.8) hue-rotate(200deg)', transform: 'translate(1px,1px)', offset: 0.34 }, { filter: 'brightness(3) saturate(0)', transform: 'scale(1.05)', offset: 0.46 }, { filter: 'brightness(4) saturate(0)', transform: 'scale(1.16)', opacity: 1, offset: 0.55 }, { opacity: 0, transform: 'scale(1.2)', offset: 0.56 }, { opacity: 0 }], { duration: D * 1.1, easing: 'linear' });
       for (let k = 0; k < 2; k++) {
@@ -175,10 +321,11 @@
         fr.push({ opacity: 0, offset: 0.56 }, { opacity: 0 });
         anim(s, fr, { duration: D * 1.1, easing: 'steps(1)' });
       }
-      flash(S, p.c, 0.6); shards(S, Math.round(12 * F()), '#3c4660', '#fff6b0', { start: 0.6 }); rays(S, p.c, 10, 0.6);
+      flash(S, p.c, 0.6); rays(S, p.c, 10, 0.6);
+      boomAt(snap, D * 1.1 * 0.56, { spark: ['#fffbe0', p.c, '#ffffff'], edge: '#fff6b0' });
       return D * 1.25;
     },
-    ice(S) { // il se congèle, la glace craque, puis elle explose
+    ice(S, p, from, snap) { // il se congèle, la glace craque, puis elle explose
       const { box, g, w, h } = S, D = DUR() * 1.15;
       anim(g, [{ filter: 'none', opacity: 1 }, { filter: 'saturate(.2) brightness(1.5)', offset: 0.18 }, { transform: 'none', offset: 0.6 }, { transform: 'translateX(-1px)', offset: 0.63 }, { transform: 'translateX(1px)', offset: 0.66 }, { opacity: 1, filter: 'saturate(.2) brightness(1.5)', transform: 'none', offset: 0.69 }, { opacity: 0, offset: 0.7 }, { opacity: 0 }], { duration: D, easing: 'linear' });
       const ib = el(box, `left:-5px;top:-5px;width:${w + 10}px;height:${h + 10}px;border-radius:9px;overflow:hidden;border:1px solid #f2fbffcc;background:linear-gradient(135deg,rgba(232,249,255,.88),rgba(150,210,245,.55) 38%,rgba(214,243,255,.82) 58%,rgba(120,190,235,.6));box-shadow:0 0 14px #9fe0ffaa,inset 0 0 8px #ffffffaa;z-index:4`,
@@ -195,11 +342,12 @@
         const d = el(box, `left:${lx}px;top:${ly}px;width:${s}px;height:${s}px;background:linear-gradient(135deg,#fff,#b8ecff 45%,#5ab8ee);clip-path:polygon(50% 0,100% 100%,0 72%);opacity:0;z-index:6`);
         anim(d, [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: `translate(${x}px,${y}px) rotate(${Ri(80, 220)}deg)`, offset: 0.4 }, { opacity: 0, transform: `translate(${x * 1.3}px,${y + 28 * k}px) rotate(${Ri(260, 560)}deg)` }], { duration: D * 0.5, delay: D * 0.7, easing: 'cubic-bezier(.2,.7,.4,1)' });
       }
+      boomAt(snap, D * 0.7, { cols: ['#ffffff', '#dff6ff', '#a8e4ff', '#5ab8ee', '#cfeeff'], edge: '#ffffff', spark: ['#ffffff', '#bfeaff'] });
       const mist = el(box, `left:${-w * 0.2}px;top:${-h * 0.2}px;width:${w * 1.4}px;height:${h * 1.4}px;border-radius:50%;background:radial-gradient(circle,#e8f8ffcc,transparent 65%);filter:blur(3px);opacity:0;z-index:5`);
       anim(mist, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, offset: 0.2 }, { opacity: 0, transform: 'scale(1.7)' }], { duration: D * 0.4, delay: D * 0.7 });
       return D * 1.25;
     },
-    dis(S, p) { // il se désintègre (lumière, sable, pétales, pixels, ombre, aurore, runes, étoiles)
+    dis(S, p, from, snap) { // il se désintègre (lumière, sable, pétales, pixels, ombre, aurore, runes, étoiles)
       const { g, w, h } = S, D = DUR(), v = p.dir === 'v';
       const grad = `linear-gradient(${v ? '180deg' : '90deg'},transparent 40%,#000 60%)`, size = v ? '100% 250%' : '250% 100%', a = v ? '0 100%' : '100% 0', b = '0 0';
       for (const k of ['maskImage', 'webkitMaskImage']) g.style[k] = grad;
@@ -208,7 +356,7 @@
       anim(g, [{ maskPosition: a, webkitMaskPosition: a, filter: 'none' }, { filter: p.fx || 'brightness(1.8)', maskPosition: a, webkitMaskPosition: a, offset: 0.15 }, { filter: p.fx || 'brightness(1.8)', maskPosition: b, webkitMaskPosition: b }], { duration: D * 0.85, easing: p.steps ? 'steps(8)' : 'linear' });
       const halo = el(S.box, `left:-10px;top:-10px;width:${w + 20}px;height:${h + 20}px;border-radius:14px;background:radial-gradient(ellipse,${(p.pc || GOLD)[0]}66 0,transparent 70%);opacity:0;z-index:0`);
       anim(halo, [{ opacity: 0 }, { opacity: 0.9, offset: 0.2 }, { opacity: 0.9, offset: 0.7 }, { opacity: 0 }], { duration: D });
-      particles(S, p, { start: 0.12 });
+      dust(snap, p, D);
       if (p.smoke) smokes(S, p.smoke, Math.round(6 * F()), { start: 0.15, spread: 0.5, dx: [10, 30], dy: [-30, -12], op: 0.85 });
       return D * 1.15;
     },
@@ -264,24 +412,25 @@
       for (let i = 0; i < 10; i++) { const a = i * 36, d = el(box, `left:${w / 2}px;top:${h / 2 + lift}px;width:2px;height:8px;border-radius:2px;background:${p.c};transform-origin:50% 0;opacity:0;z-index:5`); anim(d, [{ opacity: 1, transform: `rotate(${a}deg) translateY(${Math.max(w, h) * 0.3}px)` }, { opacity: 0, transform: `rotate(${a}deg) translateY(${Math.max(w, h) * 0.6}px)` }], { duration: D * 0.25, delay: D * 0.84 }); }
       return D * 1.1;
     },
-    crush(S, p) { // écrasé, il part en morceaux
+    crush(S, p, from, snap) { // écrasé, il part en morceaux
       const { g, h } = S, D = DUR();
       anim(g, [{ transform: 'none', filter: 'none', opacity: 1 }, { transform: `translateY(${h * 0.2}px) scaleY(.6) scaleX(1.14)`, filter: 'brightness(.8)', offset: 0.08 }, { transform: `translateY(${h * 0.22}px) scaleY(.56) scaleX(1.16)`, opacity: 1, offset: 0.24 }, { opacity: 0, offset: 0.25 }, { opacity: 0 }], { duration: D, easing: 'linear' });
-      shards(S, Math.round(10 * F()), '#283044', '#56617f', { start: 0.24 });
+      boomAt(snap, D * 0.24, { lift: 30, speed: [80, 420], size: [2, 7] });
       smokes(S, '#8a7058', Math.round(6 * F()), { start: 0.2, dx: [-24, 24], dy: [-26, -10], op: 0.9 });
       flash(S, p.c, 0.05, 0.6);
       return D;
     },
-    pop(S, p) { // il vibre, gonfle, puis éclate
+    pop(S, p, from, snap) { // il vibre, gonfle, puis éclate
       const { g } = S, D = DUR();
       anim(g, [{ transform: 'none', filter: 'none', opacity: 1 }, { transform: 'translateX(1.5px)', filter: `brightness(1.4) drop-shadow(0 0 6px ${p.c})`, offset: 0.1 }, { transform: 'translateX(-1.5px)', offset: 0.2 }, { transform: 'translateX(1.5px)', offset: 0.3 }, { transform: 'translateX(-1px) scale(1.04)', filter: `brightness(1.9) drop-shadow(0 0 8px ${p.c})`, offset: 0.4 }, { transform: 'scale(1.15)', filter: `brightness(2.6) drop-shadow(0 0 10px ${p.c})`, opacity: 1, offset: 0.5 }, { opacity: 0, transform: 'scale(1.2)', offset: 0.51 }, { opacity: 0 }], { duration: D, easing: 'linear' });
-      flash(S, p.c, 0.5); shards(S, Math.round(12 * F()), (p.shard || [])[0] || '#3c4660', (p.shard || [])[1] || p.c, { start: 0.5 }); rays(S, p.c, 10, 0.5);
+      flash(S, p.c, 0.5); rays(S, p.c, 10, 0.5);
+      boomAt(snap, D * 0.5, { edge: (p.shard || [])[1], spark: [p.c, '#ffffff'], extra: p.shard });
       return D * 1.1;
     },
-    confetti(S, p) { // feu d'artifice : il explose en confettis
+    confetti(S, p, from, snap) { // feu d'artifice : il explose en confettis
       const r = KITS.pop(S, p); const { box, w, h } = S, D = DUR();
       for (let i = 0; i < Math.round(26 * F()); i++) { const c = pick(p.pc), d = el(box, `left:${w / 2}px;top:${h / 2}px;width:${R(4, 7)}px;height:${R(3, 6)}px;background:${c};box-shadow:0 0 4px ${c};opacity:0;z-index:6`), a = R(0, Math.PI * 2), dd = R(20, 60) * Math.max(1, Math.min(3, w / 80)); anim(d, [{ opacity: 1, transform: 'none' }, { opacity: 1, transform: `translate(${Math.cos(a) * dd}px,${Math.sin(a) * dd * 0.7}px) rotate(${Ri(60, 300)}deg)`, offset: 0.4 }, { opacity: 0, transform: `translate(${Math.cos(a) * dd * 1.2}px,${Math.sin(a) * dd * 0.7 + 40}px) rotate(${Ri(300, 700)}deg)` }], { duration: D * 0.7, delay: D * 0.5 }); }
-      rays(S, p.c, 15, 0.5, p.pc); return r;
+      rays(S, p.c, 15, 0.5, p.pc); boomAt(snap, DUR() * 0.5, { cols: p.pc, shape: 'flake', n: 500, speed: [150, 700], g: 500 }); return r;
     },
     fall(S, p) { // il tombe dans la faille
       const { box, g, w, h } = S, D = DUR();
@@ -385,10 +534,10 @@
     const id = o.power && P[o.power] ? o.power : choose(), p = P[id], from = mascotPoint();
     const to = { x: snap.rect.x + snap.rect.w / 2, y: snap.rect.y + snap.rect.h / 2 };
     const S = stage(snap); castFrom(from);
-    if (from && Math.hypot(to.x - from.x, to.y - from.y) > 30 && cfg.force !== 'discrete') await shoot(p, from, to);
+    if (from && p.shot !== 'none' && Math.hypot(to.x - from.x, to.y - from.y) > 30 && cfg.force !== 'discrete') await shoot(p, from, to);
     if (!cfg.actif) { S.box.remove(); return false; }
     sky(p, S); noise(p.kit);
-    const ms = KITS[p.kit](S, p, from);
+    const ms = KITS[p.kit](S, p, from, snap);
     setTimeout(() => S.box.remove(), ms + 120);
     return id;
   }
@@ -404,6 +553,17 @@
       const ff = el(S.box, `left:-6px;width:${S.w + 12}px;top:0;height:2px;z-index:5`), fh = Math.max(14, Math.min(28, r.height * 0.4));
       for (let x = -4; x < S.w + 8; x += Math.max(10, Math.min(14, S.w / 12))) { const f = el(ff, `left:${x}px;bottom:-2px;width:${fh * 0.62}px;height:${fh * R(0.75, 1.15)}px;border-radius:50% 50% 50% 50%/65% 65% 35% 35%;background:radial-gradient(circle at 50% 80%,#fff7c2 0,#ffc43a 26%,#ff6a1a 58%,rgba(255,80,20,0) 74%);transform-origin:50% 100%`); f.style.animation = `opFlick ${R(0.2, 0.3).toFixed(2)}s ease-in-out ${-R(0, 0.3).toFixed(2)}s infinite alternate`; }
       anim(ff, [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 1, transform: `translateY(${r.height}px)`, offset: 0.7 }, { opacity: 0, transform: `translateY(${r.height}px)` }], { duration: D, easing: 'linear' });
+    } else if (kind === 'teleport') {
+      const col = el(S.box, `left:${-S.w * 0.08}px;top:${-innerHeight}px;width:${S.w * 1.16}px;height:${innerHeight * 2}px;background:linear-gradient(90deg,transparent,rgba(120,240,255,.25) 25%,rgba(230,255,255,.75) 50%,rgba(120,240,255,.25) 75%,transparent);z-index:0`);
+      anim(col, [{ opacity: 0, transform: 'scaleX(0)' }, { opacity: 1, transform: 'scaleX(.6)', offset: 0.3 }, { opacity: 1, transform: 'scaleX(1)', offset: 0.6 }, { opacity: 0, transform: 'scaleX(.1)' }], { duration: D * 1.2 });
+      anim(target, [{ transform: 'scaleX(0) scaleY(.03)', filter: 'brightness(5)', opacity: 1 }, { transform: 'scaleX(1.1) scaleY(.03)', filter: 'brightness(4)', offset: 0.3 }, { transform: 'scaleX(1) scaleY(1)', filter: 'sepia(1) hue-rotate(150deg) saturate(3) brightness(1.8)', offset: 0.6 }, { transform: 'none', filter: 'none' }], { duration: D * 1.2, fill: 'none', easing: 'cubic-bezier(.4,0,.2,1)' });
+      const c = { x: r.left + r.width / 2, y: r.top + r.height / 2 }, ps = []; for (let i = 0; i < 140 * Q(); i++) { const a2 = Math.random() * 7, d = R(60, 180); ps.push({ x: c.x + Math.cos(a2) * d, y: c.y + Math.sin(a2) * d * 0.5, vx: -Math.cos(a2) * d * 2.6, vy: -Math.sin(a2) * d * 1.3, g: 0, drag: 1, life: 0.38, s: R(1, 2.2), c: pick(['#ffffff', '#bff8ff', '#5fe6ff']), add: true, hold: 0.7 }); } PX.add(ps);
+    } else if (kind === 'strike') {
+      const L2 = getLayer(), tx = r.left + r.width / 2, pts = [[tx + R(-50, 50), -10]]; for (let i = 1; i <= 10; i++) pts.push([i < 10 ? tx + R(-24, 24) : tx, -10 + (r.top + 10) * (i / 10)]);
+      const b = el(L2, 'left:0;top:0;z-index:22', svgNS(innerWidth, innerHeight, `<polyline points="${pts.map((x) => x.join(',')).join(' ')}" fill="none" stroke="#9fb4ff" stroke-width="8" opacity=".5" style="filter:blur(3px)"/><polyline points="${pts.map((x) => x.join(',')).join(' ')}" fill="none" stroke="#fff" stroke-width="2.6"/>`));
+      anim(b, [{ opacity: 0 }, { opacity: 1, offset: 0.1 }, { opacity: 0.3, offset: 0.4 }, { opacity: 1, offset: 0.6 }, { opacity: 0 }], { duration: 260, easing: 'steps(1)' }); setTimeout(() => b.remove(), 300);
+      anim(target, [{ opacity: 0, filter: 'brightness(4) saturate(0)' }, { opacity: 0, offset: 0.3 }, { opacity: 1, filter: 'brightness(3) saturate(0)', offset: 0.35 }, { filter: 'invert(1)', offset: 0.45 }, { opacity: 1, filter: 'none' }], { duration: D, fill: 'none' });
+      shatter({ x: r.left, y: r.top, w: r.width, h: 4 }, Math.round(90 * Q()), ['#ffffff', '#e8f0ff', '#9fb4ff'], { speed: [150, 600], g: 400, life: [0.2, 0.6], size: [1, 2], shape: 'spark', add: true, delay: 0.09 });
     } else if (kind === 'ice') {
       const ib = el(S.box, `left:-4px;top:-4px;width:${S.w + 8}px;height:${r.height + 8}px;border-radius:9px;border:1px solid #f2fbffcc;background:linear-gradient(135deg,rgba(232,249,255,.9),rgba(150,210,245,.6) 38%,rgba(214,243,255,.85) 58%,rgba(120,190,235,.6));box-shadow:0 0 12px #9fe0ffaa;z-index:4`);
       anim(ib, [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'scale(1)', offset: 0.3 }, { transform: 'translateX(1px)', offset: 0.5 }, { transform: 'translateX(-1px)', offset: 0.55 }, { opacity: 1, offset: 0.6 }, { opacity: 0, offset: 0.61 }, { opacity: 0 }], { duration: D * 1.2 });
@@ -433,7 +593,7 @@
     setTimeout(() => b.remove(), 380);
   }
   /** Coupe tout, tout de suite (pouvoirs désactivés). */
-  function stopAll() { for (const a of [...live]) { try { a.cancel(); } catch { /* */ } } live.clear(); if (layer) { layer.remove(); layer = null; } }
+  function stopAll() { for (const a of [...live]) { try { a.cancel(); } catch { /* */ } } live.clear(); PX.clear(); if (layer) { layer.remove(); layer = null; } }
   function configure(c) {
     if (!c || typeof c !== 'object') return;
     cfg = { ...cfg, ...c, quand: { ...DEF.quand, ...(cfg.quand || {}), ...(c.quand || {}) } };
@@ -481,7 +641,13 @@
     reduce.addEventListener?.('change', () => { if (reduce.matches) stopAll(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) stopAll(); });
   }
-  window.OdinPowers = { POWERS: P, IDS, configure, destroy, appear, burst, stop: stopAll, get cfg() { return { ...cfg }; },
+  /** Odin se téléporte (quand il va loin et que les pouvoirs sont activés) : étincelles au départ et à l'arrivée. */
+  function sparkle(x, y, n = 70) {
+    if (!cfg.actif || reduce.matches) return;
+    const ps = []; for (let i = 0; i < n * Q(); i++) { const a = Math.random() * 7, v = R(40, 220); ps.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, g: -40, life: R(0.3, 0.7), s: R(1, 2.4), c: pick(['#ffffff', '#bff8ff', '#5fe6ff', '#ffe9a0']), add: true }); }
+    PX.add(ps);
+  }
+  window.OdinPowers = { POWERS: P, IDS, configure, destroy, appear, burst, sparkle, stop: stopAll, get cfg() { return { ...cfg }; },
     /** Essai depuis les réglages : un pouvoir sur un élément (même si les pouvoirs sont coupés). */
     async demo(target, id) { const keep = cfg.actif; cfg.actif = true; const q = cfg.quand; cfg.quand = { ...DEF.quand, ferme: true, ouvre: true }; try { const snap = snapshot(target); if (snap) { target.style.visibility = 'hidden'; await destroy(snap, { power: id }); await wait(DUR() * 1.3); target.style.visibility = ''; appear(target, { power: id }); } } finally { cfg.actif = keep; cfg.quand = q; } } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
