@@ -63,7 +63,7 @@ export function menu(m: MenuIn): string {
   const L = ['#!ipxe', `# Odin · Þjálfi — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ''];
   L.push(`menu Odin - Deploiement reseau (${m.mac})`, 'item local Demarrer sur le disque de cette machine');
   if (m.entries.length) L.push('item --gap -- ISO d\'Odin (Eitri) :');
-  for (const e of m.entries) L.push(`item e-${e.id} ${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}${m.auto?.id === e.id ? ' [cette machine]' : ''}`);
+  for (const e of m.entries) { const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
   L.push('item --gap --', 'item shell Ligne de commande iPXE');
   L.push(`choose --default ${m.def === 'local' ? 'local' : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
   L.push(':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1', '');
