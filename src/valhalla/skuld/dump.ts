@@ -48,7 +48,7 @@ export async function dump(home: string, b: Base, file: string, t: Tools): Promi
     if (!b.fichier || !existsSync(b.fichier)) throw new Error(`fichier introuvable : ${b.fichier}`);
     await secret(async (d) => { const tmp = join(d, 'copie.sqlite'), src = new DatabaseSync(b.fichier!, { readOnly: true }); try { await backup(src, tmp); } finally { src.close(); } await pipeline(createReadStream(tmp), createGzip(), createWriteStream(file, { mode: 0o600 })); });
   } else if (b.type === 'postgres') {
-    if (b.conteneur) { const x = await t.inContainer(b.conteneur, ['pg_dump', '-U', b.utilisateur ?? 'postgres', '-Fc', '-d', b.base ?? 'postgres']); await exec(x.cmd, x.args, { env: x.env, out: file }); }
+    if (b.conteneur) { const x = await t.inContainer(b.conteneur, ['pg_dump', '-U', 'postgres', '-Fc', '-d', b.base ?? 'postgres']); await exec(x.cmd, x.args, { env: x.env, out: file }); }
     else { await need(t, 'pg_dump', 'PostgreSQL'); await secret((d) => exec('pg_dump', [...pgConn(b), '-Fc', '-d', b.base ?? 'postgres'], { env: pgEnv(home, b, d), out: file })); }
   } else if (b.type === 'mysql') {
     const bin = (await t.has('mariadb-dump')) ? 'mariadb-dump' : 'mysqldump'; await need(t, bin, 'MySQL / MariaDB');
@@ -81,10 +81,10 @@ export async function restore(home: string, b: Base, file: string, target: { new
     return dest;
   }
   if (b.type === 'postgres') {
-    const user = b.utilisateur ?? 'postgres', db = target.name;
+    const user = b.conteneur ? 'postgres' : (b.utilisateur ?? 'postgres'), db = target.name;
     if (b.conteneur) {
-      if (target.new) { const c = await t.inContainer(b.conteneur, ['createdb', '-U', user, db]); await exec(c.cmd, c.args, { env: c.env }); }
-      const r = await t.inContainer(b.conteneur, ['pg_restore', '-U', user, '-d', db, '--no-owner', ...(target.new ? [] : ['--clean', '--if-exists'])]);
+      if (target.new) { const c = await t.inContainer(b.conteneur, ['createdb', '-U', user, ...(b.utilisateur && b.utilisateur !== 'postgres' ? ['-O', b.utilisateur] : []), db]); await exec(c.cmd, c.args, { env: c.env }); }
+      const r = await t.inContainer(b.conteneur, ['pg_restore', '-U', user, '-d', db, ...(target.new ? ['--no-owner', ...(b.utilisateur && b.utilisateur !== 'postgres' ? ['--role', b.utilisateur] : [])] : ['--clean', '--if-exists'])]);
       await exec(r.cmd, r.args, { env: r.env, input: file });
     } else {
       await need(t, 'pg_restore', 'PostgreSQL');

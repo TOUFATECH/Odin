@@ -10,6 +10,7 @@
 // - en-tête x-odin obligatoire sur chaque POST (contre les requêtes intersites) ;
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
+import { dictee } from '../valhalla/modules/rodd.ts';
 import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -826,6 +827,16 @@ export class WebChannel implements Channel {
       if (!sttReady(v)) { const blocked = voiceBlocked(this.odin.paths.home); if (blocked) return json(res, 200, { ok: false, error: blocked }); void ensureLocalVoice((msg) => this.push({ type: 'message', peer: 'principal', role: 'assistant', text: msg })); return json(res, 200, { ok: false, error: 'J\'installe de quoi comprendre ta voix (gratuit, tout reste chez toi) : 5 à 15 minutes. Je te préviens quand c\'est prêt ; en attendant, écris-moi.' }); }
       try { const audio = await readRaw(req, 25 * 1024 * 1024); const h = await hear(audio, String(req.headers['content-type'] ?? 'audio/webm'), v); return json(res, 200, { ok: true, text: h.text, lang: h.language }); }
       catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    if (url.pathname === '/api/rodd/dictee' && req.method === 'POST') {
+      // Rödd : la dictée (navigateur, téléphone, agent des PC) — audio → texte (tes mots) → mise en forme, ou une demande à Odin.
+      const va = valhallaOf(); if (!va) return json(res, 503, { ok: false, error: 'applis non démarrées' });
+      if (!sttReady(v)) return json(res, 200, { ok: false, error: 'L\'écoute n\'est pas encore installée : dis-moi « installe la voix locale ».' });
+      try {
+        const audio = await readRaw(req, 25 * 1024 * 1024), h = await hear(audio, String(req.headers['content-type'] ?? 'audio/webm'), v);
+        const r = await dictee(va.ctx('rodd'), h.text, { mode: (url.searchParams.get('mode') ?? undefined) as never, ou: (url.searchParams.get('ou') ?? 'Odin (web)').slice(0, 60), langue: url.searchParams.get('langue') ?? undefined });
+        return json(res, 200, { ok: true, ...r.data, lang: h.language });
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/voice/clone') {
       // Copie d'une voix : un enregistrement d'une à quelques minutes, avec consentement explicite.

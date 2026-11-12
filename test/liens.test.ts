@@ -59,6 +59,7 @@ function world(): World {
   return { v, home, ran, sent, fetched, acts, events, level: (l) => { lvl = l; }, end: () => { unwire(); v.stop(); for (const [k, val] of Object.entries(saved)) { if (val === undefined) delete process.env[k]; else process.env[k] = val; } rmSync(home, { recursive: true, force: true }); } };
 }
 const did = (w: World, module: string, action: string) => w.acts.some((a) => a.module === module && a.action === action);
+const skuldWatch = async (w: World) => { const m = w.v.module('skuld')!; await m.watch!.run(w.v.ctx('skuld')); };
 
 /** Une vérification par lien : « de>vers ». */
 const CHECKS: Record<string, (w: World) => Promise<void>> = {
@@ -173,6 +174,39 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.equal(w.acts.filter((a) => a.module === 'ymir' && a.action === 'instantane').length, 2, 'Ymir est appelé pour chaque machine avant la sauvegarde');
   },
   // ---- Soins : ce qu'Odin répare tout seul
+  'naglfar>urdr': async (w) => {
+    const { envFor, needsDb } = await import('../src/valhalla/urdr/serveur.ts');
+    const lancer = w.v.action('naglfar', 'lancer')!.a;
+    assert.match(lancer.grave!({ image: 'n8nio/n8n:1.120' })!, /avec sa base dans la base de données d'Odin/, 'une appli qui a besoin d\'une base la reçoit d\'office');
+    assert.doesNotMatch(lancer.grave!({ image: 'nginx' })!, /base/, 'les autres : pas de base');
+    assert.doesNotMatch(lancer.grave!({ image: 'n8nio/n8n', base: 'aucune' })!, /base/, 'sauf si tu dis « aucune »');
+    assert.ok(needsDb('vaultwarden/server') && w.v.action('ymir', 'installer_docker')!.a.params!.some((p) => p.key === 'base'), 'Ymir aussi');
+    const env = envFor('n8nio/n8n', { host: 'odin-pg', ip: '10.89.0.250', port: 5432, database: 'app_n8n', user: 'app_n8n', password: 'x', url: 'postgresql://app_n8n:x@odin-pg:5432/app_n8n' });
+    assert.equal(env.DB_TYPE, 'postgresdb'); assert.equal(env.DB_POSTGRESDB_HOST, 'odin-pg'); assert.ok(!Object.keys(env).some((k) => /SQLITE/i.test(k)), 'jamais de fichier SQLite');
+  },
+  'urdr>brisingamen': async (w) => {
+    const r = await w.v.act('urdr', 'relier', { nom: 'Boutique', type: 'mysql', hote: '192.168.1.30', port: 3306, utilisateur: 'shop', mot_de_passe: 'secret-de-test', base: 'shop' });
+    assert.match(r.text, /Mot de passe rangé dans le coffre/); assert.ok(did(w, 'brisingamen', 'ajouter'), 'coffre appelé');
+    assert.doesNotMatch(JSON.stringify(await w.v.act('urdr', 'bases')), /secret-de-test/, 'jamais affiché');
+  },
+  'urdr>skuld': async (w) => {
+    const { DatabaseSync } = await import('node:sqlite'); const f = join(w.home, 'notes.sqlite'), d = new DatabaseSync(f); d.exec("CREATE TABLE n (id INTEGER PRIMARY KEY, t TEXT); INSERT INTO n (t) VALUES ('a'), ('b')"); d.close();
+    await w.v.act('urdr', 'relier', { nom: 'Notes', type: 'sqlite', fichier: f });
+    const r = await w.v.act('urdr', 'sql', { base: 'notes', requete: "delete from n where t = 'a'" });
+    assert.match(r.text, /sauvegarde faite juste avant/); assert.equal(readdirSync(join(w.home, 'valhalla', 'skuld', 'archives', 'notes')).length, 1);
+  },
+  'skuld>forseti': async (w) => {
+    await w.v.act('urdr', 'relier', { nom: 'Compta', type: 'mysql', hote: '127.0.0.1', port: 3306, utilisateur: 'c', base: 'compta' });
+    await w.v.act('skuld', 'plan', { base: 'compta', toutes: 'heure' });
+    await skuldWatch(w);
+    assert.ok(w.v.alerts({ module: 'skuld' }).some((a) => /Sauvegarde de Compta ratée/.test(a.title) && a.fix?.action === 'sauvegarder'), 'alerte avec « Réessayer »');
+  },
+  'rodd>bragi': async (w) => {
+    await w.v.act('rodd', 'ajouter_mot', { mot: 'Hringhorni', entendus: 'ring horni, ringorni' });
+    const { applyMots, mots } = await import('../src/voice/mots.ts');
+    assert.equal(applyMots('démarre ring horni et le reste', mots(w.home)), 'démarre Hringhorni et le reste', 'la voix d\'Odin lit les mêmes mots');
+    const r = await w.v.act('rodd', 'dicter', { texte: 'lance ringorni', mode: 'tel quel' }); assert.equal(r.text, 'lance Hringhorni');
+  },
   'naglfar>naglfar': async (w) => {
     w.level('prudent');
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'api' }); await wait(60);

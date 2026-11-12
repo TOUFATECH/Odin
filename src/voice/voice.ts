@@ -7,6 +7,7 @@
 //   d'un enregistrement (clonage instantané), seulement avec l'accord de la personne.
 // Aucune dépendance : fetch + FormData de Node.
 
+import { applyMots, mots, prompt } from './mots.ts';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -97,9 +98,11 @@ export async function hear(audio: Uint8Array | { file: string }, mime: string, v
   const bytes = 'file' in audio ? undefined : audio;
   if (bytes && bytes.byteLength === 0) throw new Error('enregistrement vide');
   const big = 'file' in audio || (bytes?.byteLength ?? 0) > 24 * 1024 * 1024;
-  const local = (a: typeof audio) => hearLocal(a, v.stt.language || 'auto', undefined, big ? 3 * 3600_000 : 300_000).then(remember);
+  // Tes mots (Rödd) : soufflés à Whisper, puis corrigés après — pour la dictée comme pour tout ce que tu dis à Odin.
+  const words = mots(), fix = (h: Heard): Heard => (words.length ? { ...h, text: applyMots(h.text, words), segments: h.segments?.map((x) => ({ ...x, text: applyMots(x.text, words) })) } : h);
+  const local = (a: typeof audio) => hearLocal(a, v.stt.language || 'auto', undefined, big ? 3 * 3600_000 : 300_000, prompt(words)).then(fix).then(remember);
   if (remoteStt(v, env) && !big) {
-    try { return remember(await hearRemote(bytes!, mime, v, signal, env)); } catch (e) {
+    try { return remember(fix(await hearRemote(bytes!, mime, v, signal, env, prompt(words)))); } catch (e) {
       if (localWhisper()) return local(audio); // service en panne : on se débrouille seul
       throw e;
     }
@@ -112,10 +115,11 @@ export async function hear(audio: Uint8Array | { file: string }, mime: string, v
   throw new Error((voiceBlocked() ?? lastVoiceFailure() ?? 'Je n\'ai pas réussi à installer l\'écoute des vocaux sur ma machine (il faut git, cmake, un compilateur et ffmpeg). Ajoute une clé OpenAI dans Réglages → Voix, ou dis-moi « installe la voix locale » pour voir l\'erreur.').replace(/^⚠\s*/, ''));
 }
 
-async function hearRemote(audio: Uint8Array, mime: string, v: VoiceConfig, signal?: AbortSignal, env = process.env): Promise<Heard> {
+async function hearRemote(audio: Uint8Array, mime: string, v: VoiceConfig, signal?: AbortSignal, env = process.env, hint = ''): Promise<Heard> {
   const form = new FormData();
   form.append('file', new Blob([audio], { type: mime || 'audio/webm' }), `parole.${extFor(mime)}`);
   form.append('model', v.stt.model);
+  if (hint) form.append('prompt', hint);
   // Pas de langue imposée (sauf réglage autre que le français par défaut) : elle est détectée.
   if (v.stt.language && v.stt.language !== 'fr' && v.stt.language !== 'auto') form.append('language', v.stt.language);
   const verbose = v.stt.model === 'whisper-1' || !/gpt-4o/.test(v.stt.model);

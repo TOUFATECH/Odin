@@ -2,6 +2,7 @@
 // (mode « Asgard ») : ressources, démarrer, arrêter, redémarrer, instantanés, sauvegarde d'une machine
 // (via Sindri en mode Andvari), alertes si une machine importante s'arrête ou si un nœud sature.
 
+import { databaseFor, needsDb } from '../urdr/serveur.ts';
 import { pveApi, type PveResource } from '../../tools/proxmox.ts';
 import type { ModCtx, Module } from '../types.ts';
 import { mkdir } from 'node:fs/promises';
@@ -64,6 +65,8 @@ export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wai
   const eng = ctEngine();
   const { units } = await parc(ctx), name = s(i.nom).trim() ? s(i.nom).trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').slice(0, 60) : autoName('Docker', image, units.map((u) => u.auto).concat(units.map((u) => u.name)));
   const final: Array<{ host: number; inner: number; proto: 'tcp' | 'udp' }> = [];
+  // Une appli qui a besoin d'une base la reçoit dans LA base d'Odin (PostgreSQL), jamais dans un fichier SQLite.
+  const wantDb = s(i.base) && !/selon/.test(s(i.base)) ? !/^(aucune|non|no|0|false)$/i.test(s(i.base)) : needsDb(image); let dbEnv: Record<string, string> = {}; let dbName = '';
   const done = await step('Vérifier le moteur d\'Odin', async () => { const t = await (eng as { getTools?: () => Promise<unknown> }).getTools?.(); return t ? 'prêt, sans démon (ni Docker ni Podman)' : 'prêt'; })
     && await step('Télécharger l\'image', async () => { const img = await eng.pull(image); return `${img.names.at(-1)} · ${(img.size / 1e6).toFixed(0)} Mo, empreintes vérifiées`; })
     && await step('Créer les dossiers', async () => { for (const m of mounts.filter((x) => !x.ro)) await mkdir(m.host, { recursive: true }); return mounts.length ? mounts.map((m) => `${m.host} → ${m.inner}${m.ro ? ' (lecture seule)' : ''}`).join(' · ') : 'aucun dossier'; })
@@ -74,11 +77,19 @@ export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wai
       for (const p of ports) { const h = freePort(p.host, used); used.add(h); if (h !== p.host) fixes.push(`${p.host} déjà pris → ${h}`); final.push({ host: h, inner: p.inner, proto: p.proto }); }
       return fixes.length ? { note: fixes.join(' · '), fixed: true } : final.map((p) => `${p.host} → ${p.inner}`).join(' · ') || 'aucun port';
     })
-    && await step('Démarrer le conteneur', async () => { await eng.run({ image, name, ports: final, mounts, restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: mem || undefined, cpus: cpus || undefined }); return name; })
+    && (!wantDb || await step('Préparer sa base (base de données d\'Odin)', async () => {
+      const r = await databaseFor(ctx.home, eng, name, image); dbEnv = r.env; dbName = r.base.id;
+      return `${r.serverCreated ? 'base d\'Odin créée · ' : ''}base « ${r.info.database} » ${r.created ? 'créée' : 'reprise'}, compte à elle, mot de passe dans le coffre`;
+    }))
+    && await step('Démarrer le conteneur', async () => { await eng.run({ image, name, ports: final, mounts, env: { ...dbEnv, ...(i.env && typeof i.env === 'object' ? i.env as Record<string, string> : {}) }, restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: mem || undefined, cpus: cpus || undefined }); return name; })
     && await step('Vérifier la santé', async () => {
       for (let k = 0; k < 6; k++) { await wait(500); const st = eng.find(name).state; if (st.status === 'sorti' || st.status === 'arrêté') throw new Error(`le conteneur s'est arrêté : ${eng.logs(name, 3).map((l) => l.text).join(' / ') || st.error || `code ${st.exitCode}`}`); }
       return 'en marche';
     });
+  if (done && dbName) await step('Sauvegarde de sa base chaque nuit (Skuld)', async () => {
+    await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${name}`, identifiant: dbEnv.DB_USER ?? dbEnv.POSTGRES_USER ?? dbEnv.DB_POSTGRESDB_USER ?? name, mot_de_passe: Object.entries(dbEnv).find(([k]) => /PASSWORD|PASSWD/.test(k))?.[1] ?? '', site: 'Base d\'Odin (odin-pg)', coffre: 'TOUFATECH' }, `ranger le mot de passe de la base de ${name}`).catch(() => undefined);
+    const r = await ctx.call('skuld', 'plan', { base: dbName, toutes: 'nuit', heure: 3 }, `sauvegarder chaque nuit la base de ${name}`); return r.text.replace(/^🗓 /, '');
+  });
   if (done) await step('Brancher le suivi (Vörðr)', async () => { const p = final[0]; if (!p) return 'pas de port : suivi du conteneur par Naglfar'; await ctx.call('vordr', 'ajouter', { nom: name, genre: 'tcp', cible: `127.0.0.1:${p.host}`, groupe: 'Machines' }, 'nouveau conteneur installé'); return `sonde sur le port ${p.host}`; });
   return { steps, name, ports: final, ok: steps.every((x) => x.state !== 'échec') };
 }
@@ -96,7 +107,7 @@ export const ymir: Module = {
       return { text: units.length ? units.map((u) => `- ${u.kind} · ${u.name} (${u.auto}) · ${u.state}${u.ip ? ` · ${u.ip}` : ''}${u.what ? ` · ${u.what}` : ''}`).join('\n') + (errors.length ? `\n⚠ ${errors.join(' ; ')}` : '') : 'Aucune machine pour l\'instant.', data: { units, errors } };
     } },
     { id: 'installer_docker', label: 'Installer un conteneur', what: 'Sur le moteur d\'Odin (sans Docker ni démon) : image téléchargée et vérifiée, dossiers créés, ports libres choisis, démarrage, santé vérifiée, suivi branché',
-      params: [{ key: 'image', label: 'Image (ex. jellyfin/jellyfin:10.11.1)', kind: 'text', required: true }, { key: 'nom', label: 'Nom (vide : nom automatique dk-…)', kind: 'text', default: '' }, { key: 'ports', label: 'Ports (8096:8096, …)', kind: 'text', default: '' }, { key: 'dossiers', label: 'Dossiers (/data/x:/config, /media:/media:ro)', kind: 'text', default: '' }, { key: 'memoire', label: 'Mémoire max (4g)', kind: 'text', default: '' }, { key: 'coeurs', label: 'Cœurs max', kind: 'text', default: '' }],
+      params: [{ key: 'image', label: 'Image (ex. jellyfin/jellyfin:10.11.1)', kind: 'text', required: true }, { key: 'nom', label: 'Nom (vide : nom automatique dk-…)', kind: 'text', default: '' }, { key: 'ports', label: 'Ports (8096:8096, …)', kind: 'text', default: '' }, { key: 'dossiers', label: 'Dossiers (/data/x:/config, /media:/media:ro)', kind: 'text', default: '' }, { key: 'memoire', label: 'Mémoire max (4g)', kind: 'text', default: '' }, { key: 'coeurs', label: 'Cœurs max', kind: 'text', default: '' }, { key: 'base', label: 'Base de données', kind: 'select', options: ['selon l\'appli', 'PostgreSQL d\'Odin', 'aucune'], default: 'selon l\'appli' }],
       grave: (i) => `installer le conteneur ${s(i.image)}`, words: ['installe le conteneur', 'installe l\'image'], run: async (ctx, i) => {
         const r = await installDocker(ctx, i);
         return { text: `${r.ok ? '✅' : '⚠️'} ${r.name} : ${r.ok ? 'installé et vérifié' : 'installation arrêtée'}\n${r.steps.map((x) => `${STATE_ICON[x.state]} ${x.t}${x.note ? ` — ${x.note}` : ''} (${(x.ms / 1000).toFixed(1)} s)`).join('\n')}`, data: r };

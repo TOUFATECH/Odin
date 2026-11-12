@@ -13,6 +13,7 @@ import { parseRef, Registry } from './registry.ts';
 import { findTools, resolveIn, resolveUser, setupScript, finalExec, type Plan, type Tools } from './script.ts';
 import { defaultDir, isRoot, Store, type Image, type Mount, type Port, type Restart, type Spec, type State, type Status } from './store.ts';
 import { extractLayer, layerStream } from './tar.ts';
+import { bytes, resizeLive } from './scale.ts';
 
 export interface RunOpts {
   image: string; name?: string; cmd?: string[]; entrypoint?: string[]; env?: Record<string, string>;
@@ -211,7 +212,8 @@ export class Engine {
     const { uid, gid } = this.rootless ? { uid: 0, gid: 0 } : await resolveUser(layers, spec.user);
     const env = { ...spec.env, HOSTNAME: spec.hostname };
     // fichiers réseau du conteneur
-    const others = this.ps().filter((c) => c.id !== spec.id && c.state.ip).map((c) => `${c.state.ip} ${c.spec.name}`);
+    // les autres conteneurs en marche, et ceux à adresse fixe (la base d'Odin) même arrêtés : on les retrouve par leur nom
+    const others = this.ps(true).filter((c) => c.id !== spec.id && (c.state.ip || c.spec.labels['odin.ip'])).map((c) => `${c.state.ip ?? c.spec.labels['odin.ip']} ${c.spec.name}`);
     writeFileSync(join(ctrDir, 'hosts'), `127.0.0.1\tlocalhost\n::1\tlocalhost ip6-localhost\n${extra.ip ? `${extra.ip}\t${spec.hostname} ${spec.name}\n` : `127.0.1.1\t${spec.hostname}\n`}${others.join('\n')}${others.length ? '\n' : ''}`);
     writeFileSync(join(ctrDir, 'resolv.conf'), resolvConf(spec.network === 'pont'));
     writeFileSync(join(ctrDir, 'hostname'), `${spec.hostname}\n`);
@@ -227,7 +229,8 @@ export class Engine {
   async startNetwork(spec: Spec): Promise<string | undefined> {
     if (spec.network !== 'pont') return undefined;
     const run = this.runner(); await ensureBridge(run);
-    const ip = await lease(run, spec.id);
+    const ip = await lease(run, spec.id, undefined, spec.labels['odin.ip']);
+    if (spec.labels['odin.ip'] && ip !== spec.labels['odin.ip']) { release(ip, spec.id); throw new Error(`l'adresse ${spec.labels['odin.ip']} est déjà prise`); }
     try { await attach(run, spec.id, ip); } catch (e) { release(ip, spec.id); throw e; }
     return ip;
   }
@@ -243,6 +246,20 @@ export class Engine {
       writeFileSync(join(dir, 'pids.max'), '4096');
       return dir;
     } catch { return undefined; }
+  }
+  /** Change la mémoire et le processeur d'un conteneur sans l'arrêter ; `grow` « 1g-8g/1-4 » : il grandit tout seul entre ces bornes. */
+  async resize(nameOrId: string, o: { memory?: string; cpus?: string; grow?: string }): Promise<Ctr> {
+    const c = this.find(nameOrId), spec = { ...c.spec, labels: { ...c.spec.labels } };
+    if (o.memory) { if (!/^\d+(\.\d+)?[kmg]?$/i.test(o.memory)) throw new Error('mémoire : par exemple 512m ou 4g'); spec.memory = o.memory; }
+    if (o.cpus) { if (!/^\d+(\.\d+)?$/.test(o.cpus) || !(Number(o.cpus) > 0)) throw new Error('cœurs : un nombre'); spec.cpus = o.cpus; }
+    if (o.grow === 'non') delete spec.labels['odin.grandir'];
+    else if (o.grow) { if (!/^\d+(\.\d+)?[kmg]-\d+(\.\d+)?[kmg]\/\d+(\.\d+)?-\d+(\.\d+)?$/i.test(o.grow)) throw new Error('grandir : mémoire min-max / cœurs min-max, ex. 1g-8g/1-4'); spec.labels['odin.grandir'] = o.grow; spec.memory ??= o.grow.split('-')[0]; spec.cpus ??= o.grow.split('/')[1].split('-')[0]; }
+    this.store.saveSpec(spec);
+    const st = this.store.state(c.id), dir = join('/sys/fs/cgroup/odin', c.id.slice(0, 12));
+    if (st.status === 'en marche' && !this.rootless && existsSync(dir)) {
+      resizeLive(dir, { memory: spec.memory ? bytes(spec.memory) : undefined, cpus: spec.cpus ? Number(spec.cpus) : undefined });
+    }
+    return { ...c, spec };
   }
   /** Démarre : lance le gardien du conteneur (détaché) et attend qu'il tourne vraiment. */
   async start(nameOrId: string): Promise<Ctr> {

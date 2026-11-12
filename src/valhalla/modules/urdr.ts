@@ -10,12 +10,13 @@ import { join } from 'node:path';
 import { bases, findBase, open, saveBases, setPassword, slug, useHostOf, type Base, type Kind } from '../urdr/bases.ts';
 import { isRead, OPS, type Filter, type Op, type Value } from '../urdr/db.ts';
 import { engine } from './naglfar.ts';
+import { databaseFor, serverBase, SERVER, SERVER_IP, PG_VERSION } from '../urdr/serveur.ts';
 import { isSecretFile } from '../../heimdall/policy.ts';
 import { realpathSync } from 'node:fs';
 import type { ActionResult, ModCtx, Module, Param, Section } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
-export const PG_IMAGE = 'postgres:18';
+export const PG_IMAGE = `postgres:${PG_VERSION}`;
 const BASE: Param = { key: 'base', label: 'Base', kind: 'text', required: true };
 const TABLE: Param = { key: 'table', label: 'Table', kind: 'text', required: true };
 const json = <T>(v: unknown, d: T): T => { if (v && typeof v === 'object') return v as T; const t = s(v); if (!t) return d; try { return JSON.parse(t) as T; } catch { throw new Error(`format attendu : JSON (${t.slice(0, 40)}…)`); } };
@@ -67,18 +68,21 @@ export const urdr: Module = {
       if (pw) await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${nom}`, identifiant: b.utilisateur ?? '', mot_de_passe: pw, site: `${b.hote}:${b.port}`, coffre: 'TOUFATECH' }, `ranger le mot de passe de la base ${nom}`).catch(() => undefined);
       return { text: `🗄 ${nom} reliée${type === 'postgres' || type === 'sqlite' ? ` (${tables} tables)` : ' (sauvegardes par Skuld)'}.${pw ? ' Mot de passe rangé dans le coffre.' : ''}` };
     } },
-    { id: 'creer', label: 'Créer une base PostgreSQL', what: 'Crée une base PostgreSQL dans le moteur de conteneurs d\'Odin (jamais publiée dehors) ; mot de passe généré et rangé dans le coffre', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'version', label: 'Version de PostgreSQL', kind: 'select', options: ['18', '17', '16'], default: '18' }],
-      grave: (i) => `créer la base PostgreSQL ${s(i.nom)} (un conteneur ${PG_IMAGE.replace('18', s(i.version) || '18')})`, words: ['cree une base', 'crée une base', 'nouvelle base'], run: async (ctx, i) => {
-      const nom = s(i.nom); if (!nom) throw new Error('quel nom ?'); const l = bases(ctx.home); if (l.some((b) => b.nom.toLowerCase() === nom.toLowerCase())) throw new Error(`${nom} existe déjà`);
-      const v = ['18', '17', '16'].includes(s(i.version)) ? s(i.version) : '18', id = slug(nom), ct = `urdr-${id}`, data = join(ctx.dir, 'donnees', id);
-      mkdirSync(data, { recursive: true, mode: 0o700 });
-      const pw = randomBytes(24).toString('base64url');
-      setPassword(ctx.home, id, pw);
-      const j = engine().runJob({ image: `postgres:${v}`, name: ct, env: { POSTGRES_PASSWORD: pw, POSTGRES_DB: id.replace(/-/g, '_') }, mounts: `${data}:/var/lib/postgresql`, restart: 'sauf-arret' });
-      saveBases(ctx.home, [...l, { id, nom, type: 'postgres', utilisateur: 'postgres', base: id.replace(/-/g, '_'), conteneur: ct, version: v, ssl: 'non', ajoutee: ctx.now().toISOString() }]);
-      await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${nom}`, identifiant: 'postgres', mot_de_passe: pw, site: `Urðr (conteneur ${ct})`, coffre: 'TOUFATECH' }, `ranger le mot de passe de la base ${nom}`).catch(() => undefined);
-      return { text: `🗄 Base ${nom} en création (PostgreSQL ${v}) : suis l'installation dans Naglfar. Mot de passe généré et rangé dans le coffre.`, data: { job: j.id, conteneur: ct } };
+    { id: 'creer', label: 'Créer une base', what: 'Une nouvelle base dans LA base de données d\'Odin (PostgreSQL, créée la première fois), avec son propre compte ; mot de passe dans le coffre ; sauvegarde chaque nuit par Skuld', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }],
+      grave: (i, ctx) => `créer la base ${s(i.nom)}${ctx && !serverBase(ctx.home) ? ` (et la base de données d'Odin : un conteneur ${PG_IMAGE}, la première fois)` : ''}`, words: ['cree une base', 'crée une base', 'nouvelle base'], run: async (ctx, i) => {
+      const nom = s(i.nom); if (!nom) throw new Error('quel nom ?');
+      const e = engine();
+      const j = e.startJob('installer', PG_IMAGE, async (report) => {
+        report({ phase: 'démarrer', done: 0, total: 1 }, serverBase(ctx.home) ? 'Base d\'Odin : vérification' : 'Base d\'Odin : création (la première fois)');
+        const r = await databaseFor(ctx.home, e, nom, 'postgres');
+        await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${nom}`, identifiant: r.info.user, mot_de_passe: r.info.password, site: 'Base d\'Odin (odin-pg)', coffre: 'TOUFATECH' }, `ranger le mot de passe de la base ${nom}`).catch(() => undefined);
+        await ctx.call('skuld', 'plan', { base: r.base.id, toutes: 'nuit', heure: 3 }, `sauvegarder chaque nuit la base ${nom}`).catch(() => undefined);
+        if (r.serverCreated) await ctx.call('skuld', 'plan', { base: SERVER, toutes: 'nuit', heure: 2 }, 'sauvegarder chaque nuit la base d\'Odin entière').catch(() => undefined);
+        return { note: `Base « ${r.info.database} » ${r.created ? 'créée' : 'déjà là'} dans la base d'Odin · sauvegardée chaque nuit` };
+      }, `base ${nom}`);
+      return { text: `🗄 Base ${nom} en préparation dans la base de données d'Odin${serverBase(ctx.home) ? '' : ' (créée la première fois : quelques minutes)'} : suis-la dans Naglfar. Mot de passe généré et rangé dans le coffre, sauvegarde chaque nuit.`, data: { job: j.id } };
     } },
+    { id: 'acces', label: 'Accès d\'une appli', what: 'Ce qu\'une appli doit utiliser pour joindre sa base (le mot de passe reste dans le coffre)', read: true, params: [BASE], run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); return { text: b.conteneur ? `${b.nom} : hôte ${b.conteneur === SERVER ? `${SERVER} (${SERVER_IP})` : b.conteneur}, port 5432, base ${b.base}, compte ${b.utilisateur} ; mot de passe dans le coffre (« Base · ${b.nom} »).` : `${b.nom} : ${b.hote}:${b.port}/${b.base}, compte ${b.utilisateur ?? '—'}.` }; } },
     { id: 'oublier', label: 'Retirer de la liste', what: 'Retire une base de la liste d\'Urðr (la base elle-même et ses données ne sont pas touchées)', params: [BASE], quick: false, run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); saveBases(ctx.home, bases(ctx.home).filter((x) => x.id !== b.id)); setPassword(ctx.home, b.id, undefined); return { text: `${b.nom} retirée de la liste (données intactes${b.conteneur ? `, conteneur ${b.conteneur} toujours là` : ''}).` }; } },
     { id: 'ouvrir', label: 'Ouvrir', what: 'Ouvre une base (et une table) dans la page d\'Urðr', read: true, quiet: true, params: [BASE, { ...TABLE, required: false }], run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); ctx.saveSettings({ courante: { base: b.id, table: s(i.table) || undefined, page: 0, filtres: [] } }); return { text: `📂 ${b.nom}${s(i.table) ? ` · ${s(i.table)}` : ''}` }; } },
     { id: 'tables', label: 'Tables', what: 'Les tables d\'une base, leurs lignes et leurs liens', read: true, params: [BASE], words: ['quelles tables'], run: (ctx, i) => withDb(ctx, s(i.base), async (b, d) => { const t = await d.tables(), r = await d.relations(); return { text: `${b.nom} : ${t.length} tables\n${t.map((x) => `- ${x.name} (${x.rows} lignes)`).join('\n')}${r.length ? `\nLiens :\n${r.map((x) => `- ${x.from}.${x.column} → ${x.to}.${x.toColumn}`).join('\n')}` : ''}`, data: { tables: t, liens: r } }; }) },

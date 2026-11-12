@@ -145,3 +145,28 @@ test('Skuld : base hébergée par Odin → pg_dump et pg_restore lancés DANS so
     await d.sql(`drop database ${name}`, true); await d.close();
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
+
+test('base d\'Odin : chaque appli reçoit SA base et son compte, isolés des autres ; variables selon l\'appli', { skip: !PG && 'ODIN_TEST_PG absent' }, async () => {
+  const { provision, envFor, needsDb, roleOf, useServerPort, SERVER } = await import('../src/valhalla/urdr/serveur.ts');
+  const { setPassword } = await import('../src/valhalla/urdr/bases.ts');
+  const { Pg } = await import('../src/valhalla/urdr/pg.ts');
+  const u = new URL(PG!), home = mkdtempSync(join(tmpdir(), 'odin-pg-')); useServerPort(Number(u.port));
+  setPassword(home, SERVER, decodeURIComponent(u.password));
+  const e = { find: () => ({ state: { status: 'en marche', ip: u.hostname } }) } as never;
+  const admin = await Pg.connect({ host: u.hostname, port: Number(u.port), user: 'postgres', password: decodeURIComponent(u.password), database: 'postgres' });
+  try {
+    assert.equal(roleOf('Mon n8n !'), 'app_mon_n8n'); assert.ok(needsDb('n8nio/n8n:1.120')); assert.ok(needsDb('vaultwarden/server')); assert.ok(!needsDb('nginx'));
+    const a = await provision(home, e, 'essai-a'), b = await provision(home, e, "essai-b'; drop table x; --");
+    assert.equal(a.created, true); assert.equal(a.info.database, 'app_essai_a'); assert.equal(b.info.user, 'app_essai_b_drop_table_x');
+    assert.equal((await provision(home, e, 'essai-a')).created, false, 'deuxième fois : la même base');
+    const ca = await Pg.connect({ host: u.hostname, port: Number(u.port), user: a.info.user, password: a.info.password, database: a.info.database, ssl: 'non' });
+    await ca.query('create table t (x int)'); await ca.query('insert into t values (1)'); await ca.close();
+    await assert.rejects(() => Pg.connect({ host: u.hostname, port: Number(u.port), user: a.info.user, password: a.info.password, database: b.info.database, ssl: 'non' }), /permission denied|not have CONNECT/, 'une appli n\'entre pas dans la base d\'une autre');
+    assert.deepEqual(Object.keys(envFor('n8nio/n8n', a.info)).sort(), ['DB_POSTGRESDB_DATABASE', 'DB_POSTGRESDB_HOST', 'DB_POSTGRESDB_PASSWORD', 'DB_POSTGRESDB_PORT', 'DB_POSTGRESDB_USER', 'DB_TYPE']);
+    assert.match(envFor('vaultwarden/server', a.info).DATABASE_URL, /^postgresql:\/\/app_essai_a:[\w-]+@odin-pg:5432\/app_essai_a$/);
+    assert.equal(envFor('nextcloud:31', a.info).POSTGRES_HOST, 'odin-pg:5432');
+  } finally {
+    for (const r of ['app_essai_a', 'app_essai_b_drop_table_x']) { await admin.simple(`drop database if exists ${r}`).catch(() => {}); await admin.simple(`drop role if exists ${r}`).catch(() => {}); }
+    await admin.close(); rmSync(home, { recursive: true, force: true });
+  }
+});

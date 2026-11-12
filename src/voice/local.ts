@@ -85,7 +85,7 @@ export function parseWhisperOut(out: string): Segment[] {
 }
 
 /** Audio (ogg, webm, mp3, vidéo…) → texte horodaté et langue parlée, avec whisper.cpp sur la machine. */
-export async function hearLocal(audio: Uint8Array | { file: string }, language = 'auto', home?: string, timeoutMs = 300_000): Promise<Heard> {
+export async function hearLocal(audio: Uint8Array | { file: string }, language = 'auto', home?: string, timeoutMs = 300_000, hint = ''): Promise<Heard> {
   const w = localWhisper(home);
   if (!w) throw new Error('Whisper local non installé');
   const dir = mkdtempSync(join(tmpdir(), 'odin-ecoute-'));
@@ -97,7 +97,7 @@ export async function hearLocal(audio: Uint8Array | { file: string }, language =
     // Langue détectée toute seule (« auto ») : il te répond dans la langue que tu parles.
     // (Sans -np : la ligne « auto-detected language » est écrite dans les journaux, les résultats restent seuls sur la sortie.)
     const lang = !language || language === 'fr' ? 'auto' : language;
-    const r = await run(w.bin, ['-m', w.model, '-l', lang, '-t', String(Math.min(8, Math.max(2, (await import('node:os')).availableParallelism?.() ?? 4))), '-f', wav], { timeout: timeoutMs });
+    const r = await run(w.bin, ['-m', w.model, '-l', lang, '-t', String(Math.min(8, Math.max(2, (await import('node:os')).availableParallelism?.() ?? 4))), '-f', wav, ...(hint ? ['--prompt', hint] : [])], { timeout: timeoutMs });
     if (r.code !== 0) throw new Error(`Whisper local : ${r.err.slice(-300)}`);
     const segments = parseWhisperOut(r.out);
     const detected = /auto-detected language:\s*([a-z]{2,3})/i.exec(r.err)?.[1] ?? (lang === 'auto' ? 'fr' : lang);

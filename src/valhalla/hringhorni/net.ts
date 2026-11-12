@@ -40,10 +40,12 @@ export async function ensureBridge(run: Runner): Promise<void> {
 /** Les adresses prises, pour toute la machine (plusieurs dossiers de moteur partagent le même pont). */
 export const LEASES = process.env.ODIN_HRINGHORNI_BAUX ?? '/run/odin/hringhorni-adresses';
 /** Réserve une adresse libre sur le pont (réservation atomique ; une réservation dont l'espace réseau a disparu est reprise). */
-export async function lease(run: Runner, id: string, dir = LEASES): Promise<string> {
+export async function lease(run: Runner, id: string, dir = LEASES, want?: string): Promise<string> {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const live = new Set((await run('ip', ['netns', 'list'])).out.split('\n').map((l) => l.split(' ')[0]).filter(Boolean));
-  for (let i = 2; i < 255; i++) {
+  // une adresse fixe demandée (service de base, comme la base de données d'Odin) d'abord ; les autres évitent 240 à 254
+  const wanted = want && new RegExp(`^${SUBNET.replace(/\./g, '\\.')}\\.(\\d+)$`).test(want) ? [Number(want.split('.')[3])] : [];
+  for (const i of [...wanted, ...Array.from({ length: 238 }, (_, k) => k + 2)]) {
     const ip = `${SUBNET}.${i}`, f = join(dir, ip);
     try { writeFileSync(f, nsName(id), { flag: 'wx', mode: 0o600 }); return ip; } catch { /* prise */ }
     try { const owner = readFileSync(f, 'utf8').trim(); if (owner === nsName(id) || !live.has(owner)) { writeFileSync(f, nsName(id), { mode: 0o600 }); return ip; } } catch { /* concurrence : suivante */ }
@@ -66,6 +68,8 @@ export async function attach(run: Runner, id: string, ip: string): Promise<void>
   const steps: string[][] = [['netns', 'add', ns], ['link', 'add', h, 'type', 'veth', 'peer', 'name', c], ['link', 'set', c, 'netns', ns], ['link', 'set', h, 'master', BRIDGE], ['link', 'set', h, 'up'],
     ['-n', ns, 'link', 'set', c, 'name', 'eth0'], ['-n', ns, 'addr', 'add', `${ip}/24`, 'dev', 'eth0'], ['-n', ns, 'link', 'set', 'eth0', 'up'], ['-n', ns, 'link', 'set', 'lo', 'up'], ['-n', ns, 'route', 'add', 'default', 'via', GW]];
   for (const s of steps) { const r = await run('ip', s); if (r.code !== 0) { await detach(run, id); throw new Error(`réseau du conteneur : ${r.err.trim() || s.join(' ')}`); } }
+  // l'adresse a pu servir à un conteneur disparu : la machine oublie son ancienne carte (sinon 30 s sans réponse)
+  await run('ip', ['neigh', 'del', ip, 'dev', BRIDGE]);
 }
 export async function detach(run: Runner, id: string): Promise<void> {
   await run('ip', ['netns', 'del', nsName(id)]);

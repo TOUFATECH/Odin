@@ -4,9 +4,10 @@
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { Engine, mo, pctOf, restartOf, type Ctr, type Progress } from './engine.ts';
+import { defineService, removeService, services, startService, stopService, tuneService } from './services.ts';
 
 const ALIAS: Record<string, string> = { publish: 'p', volume: 'v', env: 'e', detach: 'd', all: 'a', quiet: 'q', follow: 'f', force: 'f', interactive: 'i', tty: 't', user: 'u', workdir: 'w', memory: 'm', net: 'network', time: 'timeout' };
-const VALUES = new Set(['name', 'p', 'v', 'e', 'env-file', 'restart', 'm', 'cpus', 'u', 'w', 'entrypoint', 'hostname', 'network', 'timeout', 'tail', 'label']);
+export const VALUES = new Set(['name', 'p', 'v', 'e', 'env-file', 'restart', 'm', 'cpus', 'u', 'w', 'entrypoint', 'hostname', 'network', 'timeout', 'tail', 'label', 'min', 'max', 'cible-cpu', 'visiteurs', 'budget', 'sante', 'grandir']);
 const MULTI = new Set(['p', 'v', 'e', 'label']);
 export interface Parsed { flags: Record<string, boolean>; opts: Record<string, string>; multi: Record<string, string[]>; rest: string[] }
 
@@ -40,7 +41,7 @@ export function splitLine(s: string): string[] {
   if (cur || has) out.push(cur);
   return out;
 }
-export const VERBS = ['run', 'ps', 'stop', 'start', 'restart', 'rm', 'logs', 'log', 'exec', 'pull', 'images', 'image', 'rmi', 'inspect'];
+export const VERBS = ['run', 'ps', 'stop', 'start', 'restart', 'rm', 'logs', 'log', 'exec', 'pull', 'images', 'image', 'rmi', 'inspect', 'service', 'scale', 'resize'];
 const ago = (iso?: string) => { if (!iso) return ''; const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000); return s < 60 ? `${Math.round(s)} s` : s < 3600 ? `${Math.round(s / 60)} min` : s < 86400 ? `${Math.round(s / 3600)} h` : `${Math.round(s / 86400)} j`; };
 const pad = (rows: string[][]) => { const w = rows[0].map((_, i) => Math.max(...rows.map((r) => (r[i] ?? '').length))); return rows.map((r) => r.map((c, i) => (i === r.length - 1 ? c : c.padEnd(w[i]))).join('  ')).join('\n'); };
 export function psTable(l: Ctr[]): string {
@@ -105,6 +106,36 @@ export async function cli(argv: string[], io: CliIO = { out: (s) => console.log(
         return new Promise((res) => spawn(x.cmd, x.args, { env: x.env, stdio: 'inherit' }).on('close', (c) => res(c ?? 1)));
       }
       case 'inspect': { const [n] = parseArgs(args).rest; io.out(JSON.stringify(eng.inspect(n), null, 2)); return 0; }
+      case 'scale': return cli(['service', 'scale', ...args], io, eng);
+      case 'resize': {
+        const a = parseArgs(args), [n] = a.rest; if (!n || (!a.opts.m && !a.opts.cpus && !a.opts.grandir)) throw new Error('resize <conteneur> [--memory 2g] [--cpus 2] [--grandir 1g-8g/1-4|non]');
+        const c = await eng.resize(n, { memory: a.opts.m, cpus: a.opts.cpus, grow: a.opts.grandir });
+        io.out(`${c.spec.name} : ${c.spec.memory ?? 'mémoire libre'} · ${c.spec.cpus ?? 'tous les'} cœurs${c.spec.labels['odin.grandir'] ? ` · grandit tout seul (${c.spec.labels['odin.grandir']})` : ''}`); return 0;
+      }
+      case 'service': {
+        const [sub, ...rest] = args, a = parseArgs(rest);
+        const num = (k: string) => (a.opts[k] !== undefined ? Number(a.opts[k]) : undefined);
+        if (!sub || sub === 'ls' || sub === 'ps') {
+          const l = services(eng); io.out(l.length ? pad([['SERVICE', 'IMAGE', 'ÉTAT', 'COPIES', 'MIN-MAX', 'VISITEURS', 'PORTS', 'POURQUOI'], ...l.map(({ spec: sp, state: st }) => [sp.name, sp.image, st.status, `${st.replicas.filter((r) => r.healthy).length}/${st.replicas.length}`, `${sp.scale.min}-${sp.scale.max}`, String(st.active), sp.ports.map((p) => `${p.host}→${p.inner}`).join(', '), st.reason])]) : 'Aucun service.'); return 0;
+        }
+        if (sub === 'create' || sub === 'run') {
+          const [image, ...cmd] = a.rest, name = a.opts.name; if (!image || !name) throw new Error('service create --name N -p 8080:80 [--min 2] [--max 10] [--cpus 1] [--memory 512m] [--cible-cpu 70] [--visiteurs 100] [--budget 80] [--sante /] <image> [cmd…]');
+          const env: Record<string, string> = {}; for (const e of a.multi.e ?? []) { const i = e.indexOf('='); if (i > 0) env[e.slice(0, i)] = e.slice(i + 1); }
+          if (!eng.findImage(image)) await eng.pull(image, () => {}, barWriter(io));
+          defineService(eng, { name, image, cmd: cmd.length ? cmd : undefined, env, ports: (a.multi.p ?? []).join(','), mounts: (a.multi.v ?? []).join(','), cpus: a.opts.cpus, memory: a.opts.m, min: num('min'), max: num('max'), cpu: num('cible-cpu'), conns: num('visiteurs'), budgetPct: num('budget'), health: a.opts.sante });
+          const st = await startService(eng, name); io.out(`${name} : ${st.replicas.filter((r) => r.healthy).length} copie(s) prête(s), mise à l'échelle automatique active.`); return 0;
+        }
+        const [n, range] = a.rest; if (!n) throw new Error(`service ${sub} <nom>`);
+        if (sub === 'start') { const st = await startService(eng, n); io.out(`${n} : ${st.status}`); return 0; }
+        if (sub === 'stop') { await stopService(eng, n); io.out(`${n} arrêté`); return 0; }
+        if (sub === 'rm') { await removeService(eng, n); io.out(`${n} supprimé`); return 0; }
+        if (sub === 'scale') {
+          const m = /^(\d+)(?:-(\d+))?$/.exec(range ?? ''); if (!m && !a.opts.min && !a.opts.max) throw new Error('scale <service> <min-max> (ex. 2-10)');
+          const sp = tuneService(eng, n, { min: m ? Number(m[1]) : num('min'), max: m ? Number(m[2] ?? m[1]) : num('max'), cpu: num('cible-cpu'), conns: num('visiteurs'), budgetPct: num('budget') });
+          io.out(`${n} : de ${sp.scale.min} à ${sp.scale.max} copies · processeur visé ${sp.scale.cpu} % · ${sp.scale.conns} visiteurs par copie`); return 0;
+        }
+        throw new Error('service ls | create | start | stop | rm | scale');
+      }
       default: io.out(HELP); return verb ? 1 : 0;
     }
   } catch (e) { io.err(`✗ ${(e as Error).message}`); return 1; }
@@ -130,4 +161,9 @@ export const HELP = `Hringhorni, le moteur de conteneurs d'Odin (sans démon, sa
   start · stop · restart · rm [-f]  <conteneur…>
   logs [-f] [--tail N] <conteneur>  journal
   exec [-u u] [-w d] <conteneur> <cmd…>  lancer une commande dedans
-  inspect <conteneur|image>         tout le détail`;
+  inspect <conteneur|image>         tout le détail
+  resize <conteneur> --memory 2g --cpus 2 [--grandir 1g-8g/1-4]   sans l'arrêter ; « grandir » : tout seul
+Mise à l'échelle automatique (plusieurs copies derrière un répartiteur) :
+  service create --name site -p 8080:80 [--min 2] [--max 10] [--cpus 1] [--memory 512m]
+                 [--cible-cpu 70] [--visiteurs 100] [--budget 80] [--sante /] <image>
+  service ls · service start|stop|rm <nom> · scale <service> 2-10`;

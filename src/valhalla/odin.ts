@@ -49,6 +49,7 @@ import { venus } from './modules/venus.ts';
 import { naglfar } from './modules/naglfar.ts';
 import { urdr } from './modules/urdr.ts';
 import { skuld } from './modules/skuld.ts';
+import { rodd } from './modules/rodd.ts';
 import { sindri } from './modules/sindri.ts';
 import { skogul } from './modules/skogul.ts';
 import { idunn, idunnKeys } from './modules/idunn.ts';
@@ -129,7 +130,7 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Brú peut publier l'interface d'Odin elle-même sous ton domaine.
   setOdinWeb(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
   const devices = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
+  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */
