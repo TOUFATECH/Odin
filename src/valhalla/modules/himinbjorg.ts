@@ -46,9 +46,9 @@ async function frame(ctx: ModCtx, c: Cam): Promise<Buffer> {
   if (r.code !== 0 || !r.out.trim()) throw new Error(`${c.name} : flux illisible${why(r.err)}`);
   return Buffer.from(r.out.trim(), 'base64');
 }
-async function snapshot(ctx: ModCtx, c: Cam): Promise<string> {
+async function snapshot(ctx: ModCtx, c: Cam, file?: string): Promise<string> {
   const dir = join(ctx.dir, 'photos'); mkdirSync(dir, { recursive: true });
-  const f = join(dir, `${slug(c.name)}-${ctx.now().toISOString().replace(/[:.]/g, '-')}.jpg`);
+  const f = file ?? join(dir, `${slug(c.name)}-${ctx.now().toISOString().replace(/[:.]/g, '-')}.jpg`);
   const shot = (fast: boolean) => ctx.run('ffmpeg', ['-nostdin', '-loglevel', 'error', ...(fast ? FAST : []), ...input(withCreds(c)), '-frames:v', '1', '-q:v', '3', '-y', f], { timeoutMs: 20_000 });
   let r = await shot(true);
   if (r.code !== 0 || !existsSync(f)) r = await shot(false);
@@ -128,3 +128,15 @@ export const himinbjorg: Module = {
     if (existsSync(shots)) for (const f of readdirSync(shots)) { const p = join(shots, f); if (ctx.now().getTime() - statSync(p).mtimeMs > keep) rmSync(p, { force: true }); }
   } },
 };
+
+/** Les caméras (noms seulement, jamais leurs adresses) pour l'écran de la maison. */
+export const cameraNames = (ctx: ModCtx) => cams(ctx).map((c) => c.name);
+/** Un aperçu d'une caméra (toujours le même fichier, remplacé : rien ne s'accumule), au plus une fois toutes les 4 s. */
+const previews = new Map<string, { at: number; p: Promise<string> }>();
+export function preview(ctx: ModCtx, name: string): Promise<string> {
+  const c = cams(ctx).find((x) => x.name.toLowerCase() === name.toLowerCase()); if (!c) return Promise.reject(new Error('caméra inconnue'));
+  const k = slug(c.name), old = previews.get(k); if (old && Date.now() - old.at < 4000) return old.p;
+  const dir = join(ctx.dir, 'apercus'); mkdirSync(dir, { recursive: true });
+  const p = snapshot(ctx, c, join(dir, `${k}.jpg`)); previews.set(k, { at: Date.now(), p }); p.catch(() => previews.delete(k));
+  return p;
+}

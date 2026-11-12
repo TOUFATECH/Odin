@@ -10,5 +10,5 @@ export const eitri = forgeModule({
   from: ['ISOMan', 'netboot.xyz', 'Ventoy'], upstream: ['netbootxyz/netboot.xyz', 'ventoy/Ventoy'],
   words: ['iso', 'isos', 'image iso', 'images iso', 'image disque', 'isoman', 'distribution linux', 'ubuntu', 'debian', 'fedora', 'proxmox'],
   sources: ISO,
-  extraDoes: ['Windows : Microsoft ne permet pas le téléchargement automatique, Odin repère tes ISO et donne la page officielle', 'clé USB de démarrage avec Rufus ou Ventoy, gardés à jour par Andvari'],
+  extraDoes: ['Windows : Microsoft ne permet pas le téléchargement automatique, Odin repère tes ISO et donne la page officielle', 'clé USB de démarrage avec Rufus ou Ventoy, gardés à jour par Fjalar'],
 });

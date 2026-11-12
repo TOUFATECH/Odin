@@ -3196,7 +3196,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('div', { class: 'dim' }, 'Les notifications arrivent quand Odin te répond (appli fermée), te demande une validation ou te prévient d\'un problème — même quand l\'appli est fermée.')].filter(Boolean));
   }
   // Ouvrir directement une section : /#chat, /#net…
-  const hashView = () => { const v = location.hash.slice(1); if (v && document.getElementById('v-' + v)) show(v); };
+  // /#app=vordr ouvre directement une appli (lien depuis l'écran de la maison).
+  const hashView = () => { const v = location.hash.slice(1), app = /^app=([a-z0-9_-]{2,40})$/.exec(v); if (app) { show('apps'); setTimeout(() => window.OdinApps?.app(app[1]), 150); return; } if (v && document.getElementById('v-' + v)) show(v); };
   addEventListener('hashchange', hashView);
 
 

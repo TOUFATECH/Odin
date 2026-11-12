@@ -1,11 +1,11 @@
-// Andvari · les logiciels : un dossier d'installateurs (disque ou partage réseau) gardé à jour depuis les sites
+// Fjalar · les logiciels : un dossier d'installateurs (disque ou partage réseau) gardé à jour depuis les sites
 // officiels des éditeurs ou leurs dépôts GitHub, empreinte vérifiée, antivirus (Ullr), deux versions gardées.
 // Reprend les idées de Ketarin, WingetUI / UniGetUI et Chocolatey (dossier d'installateurs), réécrit pour Odin.
 import { forgeModule } from '../forge/forge.ts';
 import { SOFT } from '../forge/sources.ts';
 
-export const andvari = forgeModule({
-  id: 'andvari', name: 'Andvari', kind: 'logiciel', noun: 'logiciel', nouns: 'logiciels', defaultDir: 'Logiciels',
+export const fjalar = forgeModule({
+  id: 'fjalar', name: 'Fjalar', kind: 'logiciel', noun: 'logiciel', nouns: 'logiciels', defaultDir: 'Logiciels',
   what: 'Les logiciels : un dossier d\'installateurs (disque ou partage réseau) gardé à jour depuis les sites officiels, aux jours que tu programmes, analysé par l\'antivirus, deux versions gardées.',
   from: ['Ketarin', 'UniGetUI', 'Chocolatey'], upstream: ['canneverbe/Ketarin', 'marticliment/UniGetUI', 'chocolatey/choco'],
   words: ['logiciels', 'installateurs', 'installateur', 'setup', 'programmes à installer', 'ketarin', 'mise à jour des logiciels', 'firefox', 'vlc', '7-zip'],

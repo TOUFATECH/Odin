@@ -34,6 +34,8 @@ let dotMaterial: { key: string | Buffer; cert: string | Buffer } | undefined;
 /** Le certificat de l'interface d'Odin, pour le DNS chiffré par TLS. */
 export function setDotMaterial(m: { key: string | Buffer; cert: string | Buffer } | undefined): void { dotMaterial = m; }
 export const dhcpServer = () => dhcp;
+/** Les services de vidéo coupés ensemble (« couper la vidéo d'un appareil »). */
+export const VIDEO = ['youtube', 'netflix', 'twitch', 'tiktok', 'amazon_video', 'disney'];
 const leasesOf = (ctx: ModCtx): Lease[] => (ctx.settings.leases as Lease[] | undefined) ?? [];
 /** Les noms appris par le DHCP : « nom-de-l-appareil.domaine » → son adresse. */
 function dhcpNames(ctx: ModCtx): Record<string, string[]> {
@@ -315,6 +317,14 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         ctx.emit('machine_coupee', { ip, nom: name, horaires: sc ? scheduleText(sc) : 'tout le temps' });
         return { text: `⛔ ${name} (${ip}) coupé d'Internet ${sc ? scheduleText(sc) : 'jusqu\'à ce que tu le rétablisses'}. Les sites ne lui répondent plus ; les noms de la maison restent joignables.\nLimite : une machine réglée sur un autre DNS à la main y échappe ; pour la couper vraiment, Odin doit être sa passerelle ou la box doit la bloquer.` };
       }, undo: (i) => ({ action: 'retablir_machine', input: { ip: i.ip }, label: 'Rétablir Internet' }) },
+      { id: 'couper_video', label: 'Couper la vidéo d\'un appareil', what: 'YouTube, Netflix, Twitch, TikTok, Prime Video et Disney+ ne répondent plus à cet appareil (le reste d\'Internet marche)', params: [{ key: 'ip', label: 'Adresse IP de l\'appareil', kind: 'text', required: true }, { key: 'coupe', label: 'Coupée', kind: 'boolean', default: true }, { key: 'nom', label: 'Nom (facultatif)', kind: 'text', default: '' }], words: ['couper la vidéo', 'bloquer la vidéo', 'bloque youtube sur'], run: (ctx, i) => {
+        const ip = s(i.ip).trim(); if (!IPV4.test(ip) && !/^[0-9a-f:]+$/i.test(ip)) throw new Error('adresse IP attendue');
+        const d = settingsOf(ctx), old = d.clients.find((c) => c.ids.includes(ip)), on = i.coupe !== false;
+        const name = old?.name ?? (s(i.nom).trim() || leasesOf(ctx).find((l) => l.ip === ip)?.name || inventoryName?.(ip) || ip);
+        const services = [...new Set([...(old?.services ?? []).filter((x) => !VIDEO.includes(x)), ...(on ? VIDEO : [])])];
+        upsertClient(ctx, { ...(old ?? { id: `m-${ip}`, name, ids: [ip] }), services }); srv?.cache.clear();
+        return { text: on ? `📵 Vidéo coupée pour ${name} (${ip}) : ${VIDEO.map((x) => SERVICES[x].label).join(', ')}.` : `▶ Vidéo rétablie pour ${name} (${ip}).` };
+      }, undo: (i) => ({ action: 'couper_video', input: { ip: i.ip, coupe: i.coupe === false }, label: i.coupe === false ? 'Recouper la vidéo' : 'Rétablir la vidéo' }) },
       { id: 'retablir_machine', label: 'Rétablir une machine', what: 'Elle retrouve Internet', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], run: (ctx, i) => {
         const d = settingsOf(ctx), c = d.clients.find((x) => x.ids.includes(s(i.ip).trim())); if (!c?.cut) throw new Error('cette machine n\'est pas coupée');
         const rest = { ...c, cut: undefined, cutSchedule: undefined };
@@ -553,4 +563,11 @@ export function recentDomains(ip: string, since: number): Array<{ name: string; 
   const m = new Map<string, { name: string; n: number; blocked: boolean; list?: string }>();
   for (const e of ring) if (e.t >= since && e.client.replace(/^::ffff:/, '') === ip) { const x = m.get(e.name) ?? { name: e.name, n: 0, blocked: false }; x.n++; if (e.status === 'bloqué') { x.blocked = true; x.list = e.list; } m.set(e.name, x); }
   return [...m.values()].sort((a, b) => b.n - a.n);
+}
+
+/** Les appareils du réseau vus par le DNS/DHCP, et ce qui leur est coupé (pour l'écran de la maison). */
+export function netState(ctx: ModCtx): { leases: Lease[]; cut: Set<string>; video: Set<string> } {
+  const d = settingsOf(ctx), cut = new Set<string>(), video = new Set<string>();
+  for (const c of d.clients) for (const ip of c.ids) { if (c.cut) cut.add(ip); if (VIDEO.every((x) => c.services?.includes(x))) video.add(ip); }
+  return { leases: leasesOf(ctx), cut, video };
 }

@@ -123,3 +123,14 @@ export const midgard: Module = {
     };
   },
 };
+
+/** Les appareils de toutes les box (pour l'écran de la maison, Glaðsheimr). */
+export const homeDevices = (ctx: ModCtx) => devices(ctx);
+export const homeScenes = (ctx: ModCtx) => scenes(ctx);
+export type HomeDevice = Dev;
+/** Les membres de la famille suivis par la box (entités « person » : position partagée par l'appli Home Assistant de chacun). */
+export async function homePeople(ctx: ModCtx): Promise<Array<{ id: string; name: string; state: string; since?: string; lat?: number; lon?: number; picture?: string }>> {
+  const url = s(ctx.settings.haUrl).replace(/\/$/, ''), token = process.env.HA_TOKEN; if (!url || !token) return [];
+  const st = await haApi(url, token, 'GET', '/states') as Array<HaState & { last_changed?: string }>;
+  return st.filter((x) => x.entity_id.startsWith('person.')).map((x) => ({ id: x.entity_id, name: x.attributes.friendly_name ?? x.entity_id.slice(7), state: x.state, since: x.last_changed, ...(typeof x.attributes.latitude === 'number' && typeof x.attributes.longitude === 'number' ? { lat: x.attributes.latitude, lon: x.attributes.longitude } : {}) }));
+}

@@ -1,4 +1,4 @@
-// Eitri (ISO) et Andvari (logiciels) — d'où viennent les fichiers : uniquement les sites officiels des éditeurs
+// Eitri (ISO) et Fjalar (logiciels) — d'où viennent les fichiers : uniquement les sites officiels des éditeurs
 // (ou leurs dépôts GitHub), avec l'empreinte SHA-256 publiée par eux. Rien d'autre n'est téléchargé.
 //
 // Chaque source sait :
@@ -117,7 +117,7 @@ export const ISO: Source[] = [
   { id: 'windows-server', name: 'Windows Server', kind: 'iso', family: 'Windows', about: 'Windows Server (évaluation ou licence)', match: /^(?:SERVER_EVAL_)?.*?Windows[_ ]?Server[_ ]?(\d{4}).*\.iso$/i, icon: 'https://www.microsoft.com/favicon.ico', color: '#0078D4', page: 'https://www.microsoft.com/fr-fr/evalcenter', manual: 'Le centre d\'évaluation de Microsoft demande un formulaire : Odin ne le remplit pas à ta place.' },
 ];
 
-// ---------------- Les logiciels (Andvari) ----------------
+// ---------------- Les logiciels (Fjalar) ----------------
 const firefox = async (f: Fetch): Promise<Release> => {
   const v = (await json<{ LATEST_FIREFOX_VERSION: string }>(f, 'https://product-details.mozilla.org/1.0/firefox_versions.json')).LATEST_FIREFOX_VERSION;
   const base = `https://ftp.mozilla.org/pub/firefox/releases/${v}/`, rel = `win64/fr/Firefox Setup ${v}.exe`;

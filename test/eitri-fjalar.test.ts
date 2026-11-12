@@ -1,4 +1,4 @@
-// Eitri (ISO) et Andvari (logiciels) : reconnaître les fichiers d'un dossier, trouver la dernière version sur
+// Eitri (ISO) et Fjalar (logiciels) : reconnaître les fichiers d'un dossier, trouver la dernière version sur
 // les sites officiels (faux sites ici), télécharger avec l'empreinte de l'éditeur, reprendre un fichier entamé,
 // garder 2 versions, programmer, résumé du jour, antivirus sur les installateurs, sources à soi, historique.
 import { test } from 'node:test';
@@ -163,35 +163,35 @@ test('Eitri : programmer, prévenir sans télécharger, résumé du jour', async
   } finally { w.end(); }
 });
 
-test('Andvari : installateurs depuis GitHub, antivirus (mis de côté), source à soi', async () => {
+test('Fjalar : installateurs depuis GitHub, antivirus (mis de côté), source à soi', async () => {
   const w = world();
   try {
-    mkdirSync(w.sdir, { recursive: true }); await w.act('andvari', 'dossier', { chemin: w.sdir });
+    mkdirSync(w.sdir, { recursive: true }); await w.act('fjalar', 'dossier', { chemin: w.sdir });
     writeFileSync(join(w.sdir, '7z2408-x64.exe'), 'ancien 7zip');
     const exe = Buffer.from(`MZ${'propre'.repeat(1000)}`);
     w.web.routes.set('https://api.github.com/repos/ip7z/7zip/releases/latest', JSON.stringify({ tag_name: '25.01', html_url: 'h', assets: [{ name: '7z2501-x64.exe', browser_download_url: 'https://github.com/ip7z/7zip/releases/download/25.01/7z2501-x64.exe', size: exe.length, digest: `sha256:${sha(exe)}` }] }));
     w.web.routes.set('https://github.com/ip7z/7zip/releases/download/25.01/7z2501-x64.exe', exe);
-    assert.match((await w.act('andvari', 'mettre_a_jour')).text, /✅ 7-Zip 2501 .*empreinte vérifiée/);
+    assert.match((await w.act('fjalar', 'mettre_a_jour')).text, /✅ 7-Zip 2501 .*empreinte vérifiée/);
     assert.ok(existsSync(join(w.sdir, '7-Zip', '7z2501-x64.exe')) && existsSync(join(w.sdir, '7z2408-x64.exe')));
     // Un installateur piégé (fichier test EICAR) : mis de côté, l'ancien reste.
     const bad = Buffer.from(EICAR);
     w.web.routes.set('https://api.github.com/repos/pbatard/rufus/releases/latest', JSON.stringify({ tag_name: 'v4.11', html_url: 'h', assets: [{ name: 'rufus-4.11.exe', browser_download_url: 'https://github.com/pbatard/rufus/releases/download/v4.11/rufus-4.11.exe', size: bad.length, digest: `sha256:${sha(bad)}` }] }));
     w.web.routes.set('https://github.com/pbatard/rufus/releases/download/v4.11/rufus-4.11.exe', bad);
-    assert.match((await w.act('andvari', 'telecharger', { nom: 'rufus' })).text, /🛡 Rufus 4\.11 mis de côté/);
+    assert.match((await w.act('fjalar', 'telecharger', { nom: 'rufus' })).text, /🛡 Rufus 4\.11 mis de côté/);
     assert.ok(!existsSync(join(w.sdir, 'Rufus', 'rufus-4.11.exe')) && existsSync(join(w.sdir, '.mis-de-cote', 'rufus-4.11.exe')));
     assert.ok(w.alerts.some((a) => a.level === 'critique' && /Rufus 4\.11 mis de côté/.test(a.title)));
     // Une source à soi (dépôt GitHub + motif).
-    assert.equal((await w.act('andvari', 'ajouter_source', { nom: 'Outil', depot: 'pas un depot', motif: 'x-{version}.exe' })).ok, false);
-    assert.equal((await w.act('andvari', 'ajouter_source', { nom: 'Outil', adresse: 'http://x/y.exe', motif: 'y-{version}.exe' })).ok, false);
-    assert.match((await w.act('andvari', 'ajouter_source', { nom: 'MonOutil', depot: 'toufatech/monoutil', motif: 'MonOutil-{version}-x64.exe' })).text, /MonOutil ajouté et suivi/);
+    assert.equal((await w.act('fjalar', 'ajouter_source', { nom: 'Outil', depot: 'pas un depot', motif: 'x-{version}.exe' })).ok, false);
+    assert.equal((await w.act('fjalar', 'ajouter_source', { nom: 'Outil', adresse: 'http://x/y.exe', motif: 'y-{version}.exe' })).ok, false);
+    assert.match((await w.act('fjalar', 'ajouter_source', { nom: 'MonOutil', depot: 'toufatech/monoutil', motif: 'MonOutil-{version}-x64.exe' })).text, /MonOutil ajouté et suivi/);
     const tool = Buffer.from('outil');
     w.web.routes.set('https://api.github.com/repos/toufatech/monoutil/releases/latest', JSON.stringify({ tag_name: 'v2.0.0', html_url: 'h', assets: [{ name: 'MonOutil-2.0.0-x64.exe', browser_download_url: 'https://github.com/toufatech/monoutil/releases/download/v2.0.0/MonOutil-2.0.0-x64.exe', size: 5 }, { name: 'SHA256SUMS', browser_download_url: 'https://github.com/toufatech/monoutil/releases/download/v2.0.0/SHA256SUMS', size: 90 }] }));
     w.web.routes.set('https://github.com/toufatech/monoutil/releases/download/v2.0.0/SHA256SUMS', `${sha(tool)}  MonOutil-2.0.0-x64.exe\n`);
     w.web.routes.set('https://github.com/toufatech/monoutil/releases/download/v2.0.0/MonOutil-2.0.0-x64.exe', tool);
-    assert.match((await w.act('andvari', 'telecharger', { nom: 'MonOutil' })).text, /✅ MonOutil 2\.0\.0 .*empreinte vérifiée/);
+    assert.match((await w.act('fjalar', 'telecharger', { nom: 'MonOutil' })).text, /✅ MonOutil 2\.0\.0 .*empreinte vérifiée/);
     assert.ok(existsSync(join(w.sdir, 'Autres', 'MonOutil-2.0.0-x64.exe')));
-    assert.match((await w.act('andvari', 'catalogue')).text, /Ajoutés par toi :\n- ★ MonOutil/);
-    assert.match((await w.act('andvari', 'retirer_source', { nom: 'MonOutil' })).text, /retiré/);
-    assert.equal((await w.act('andvari', 'retirer_source', { nom: 'firefox' })).ok, false);
+    assert.match((await w.act('fjalar', 'catalogue')).text, /Ajoutés par toi :\n- ★ MonOutil/);
+    assert.match((await w.act('fjalar', 'retirer_source', { nom: 'MonOutil' })).text, /retiré/);
+    assert.equal((await w.act('fjalar', 'retirer_source', { nom: 'firefox' })).ok, false);
   } finally { w.end(); }
 });

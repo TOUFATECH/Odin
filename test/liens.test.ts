@@ -443,10 +443,10 @@ CHECKS['gjoll>garmr'] = async (w) => {
   try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Gjöll/); }
   finally { await w.v.act('gjoll', 'eteindre'); }
 };
-CHECKS['andvari>ullr'] = async (w) => {
-  await w.v.act('andvari', 'dossier', { chemin: join(w.home, 'logiciels') });
-  await w.v.act('andvari', 'ajouter_source', { nom: 'Piège', depot: 'odin-test/piege', motif: 'piege-{version}.exe' });
-  assert.match((await w.v.act('andvari', 'telecharger', { nom: 'Piège' })).text, /🛡 Piège 1\.0 mis de côté/);
+CHECKS['fjalar>ullr'] = async (w) => {
+  await w.v.act('fjalar', 'dossier', { chemin: join(w.home, 'logiciels') });
+  await w.v.act('fjalar', 'ajouter_source', { nom: 'Piège', depot: 'odin-test/piege', motif: 'piege-{version}.exe' });
+  assert.match((await w.v.act('fjalar', 'telecharger', { nom: 'Piège' })).text, /🛡 Piège 1\.0 mis de côté/);
   assert.ok(w.acts.some((a) => a.module === 'ullr' && a.action === 'fichier' && a.by === 'réflexe'));
 };
 CHECKS['var>skidbladnir'] = async (w) => {

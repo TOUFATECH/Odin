@@ -49,6 +49,7 @@ import { brainGet, brainPost } from './brain-api.ts';
 import { evolutionTree } from './evolutions.ts';
 import { NETWORK as RAN_NETWORK, capture as ranCapture, flows as ranFlows, history as ranHistory, isPaused as ranIsPaused, packet as ranPacket, setOwnPort as ranOwnPort, sourcesFor as ranSources, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
+import { maisonRoute } from './maison-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
@@ -175,6 +176,15 @@ export class WebChannel implements Channel {
   private clients = new Set<ServerResponse>();
   /** Raccourcis (Siri, Android) : réponse attendue par conversation. */
   private waiters = new Map<string, (text: string) => void>();
+  /** Pose une question à Odin (même chemin que la discussion : mêmes droits, mêmes validations) et attend sa réponse. */
+  private askAs(peer: string, text: string, onMessage: (m: Inbound) => Promise<void>): Promise<string> {
+    if (this.waiters.has(peer)) return Promise.resolve('Je réponds déjà à une demande : un instant.');
+    return new Promise<string>((resolve) => {
+      const timer = setTimeout(() => { this.waiters.delete(peer); resolve('Je travaille encore dessus : la réponse arrivera dans Odin.'); }, 110_000);
+      this.waiters.set(peer, (r) => { clearTimeout(timer); resolve(r); });
+      void onMessage({ channel: 'web', peer, name: peer, text: text.slice(0, 4000) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
+    });
+  }
   private vaultFails = 0;
   private verCache?: { at: number; v: { running: string; disk: string } };
   /** Version chargée et version installée (relue au plus toutes les 30 s). */
@@ -542,6 +552,10 @@ export class WebChannel implements Channel {
     if (url.pathname === '/favicon.svg' || url.pathname === '/favicon.ico') {
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=86400' });
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
+    }
+    // L'écran de la maison (Glaðsheimr) : sa page, son script et son API (session, ou clé de tablette).
+    if (url.pathname === '/maison' || url.pathname === '/maison.js' || url.pathname.startsWith('/api/maison/') || url.pathname === '/api/owntracks') {
+      if (await maisonRoute(req, res, url, { authed: this.authed(req), name: this.accounts.profile()?.prenom ?? '', mascot: MASCOT, fail: () => this.throttle.fail(ip), ask: (text) => this.askAs('maison', text, onMessage) })) return;
     }
     if (!url.pathname.startsWith('/api/') && url.pathname !== '/mcp') return json(res, 404, { error: 'introuvable' });
     // Demander l'accès sans jeton : le propriétaire valide d'un geste (Telegram ou écran déjà connecté).

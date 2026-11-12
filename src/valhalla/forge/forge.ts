@@ -1,4 +1,4 @@
-// Le moteur commun d'Eitri (ISO) et d'Andvari (logiciels) :
+// Le moteur commun d'Eitri (ISO) et de Fjalar (logiciels) :
 //   - un dossier choisi (disque, ou partage réseau monté : /mnt/nas/iso…) ;
 //   - Odin y reconnaît ce que tu as déjà, suit ce que tu choisis, et aux jours et à l'heure que tu programmes
 //     (ou à une date), vérifie les sites officiels, télécharge la nouvelle version, contrôle l'empreinte publiée
