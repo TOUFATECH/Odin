@@ -7,7 +7,7 @@ import dgram from 'node:dgram';
 import net from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { RCODE, TYPE, dataText, parse, query as mkQuery, rdata, reuse, respond, typeName, type Answer, type Message } from './wire.ts';
-import { addRule, cleanDomain, emptyList, judge, safeSearchFor, servicesList, type Compiled, type Verdict } from './rules.ts';
+import { addRule, cleanDomain, emptyList, judge, safeSearchFor, servicesList, socialAdsList, SOCIAL_ADS, type Compiled, type Verdict } from './rules.ts';
 import { DnsCache, forward, parseUpstream, type Forwarder, type RecursiveOpts } from './resolve.ts';
 
 export interface ClientRule {
@@ -21,6 +21,20 @@ export interface ClientRule {
   upstreams?: string[];
   /** liste blanche : cet appareil ne peut joindre que ces domaines */
   onlyThese?: string[];
+  /** quand ses services sont coupés (sinon : tout le temps) */
+  schedule?: Schedule;
+}
+/** Une plage horaire : jours (0 = dimanche … 6 = samedi) et heures ; « 21:00 → 07:00 » passe minuit. */
+export interface Schedule { days: number[]; from: string; to: string }
+/** Vrai si `at` (heure locale) tombe dans la plage. Pur. */
+export function inSchedule(sc: Schedule | undefined, at: Date): boolean {
+  if (!sc) return true;
+  const m = (x: string) => { const [h, mi] = x.split(':').map(Number); return h * 60 + (mi || 0); };
+  const now = at.getHours() * 60 + at.getMinutes(), a = m(sc.from), b = m(sc.to), d = at.getDay(), prev = (d + 6) % 7;
+  if (a === b) return sc.days.includes(d);
+  if (a < b) return sc.days.includes(d) && now >= a && now < b;
+  // Plage qui passe minuit : le soir du jour prévu, ou le petit matin du lendemain.
+  return (sc.days.includes(d) && now >= a) || (sc.days.includes(prev) && now < b);
 }
 export interface LogEntry { t: number; client: string; clientName?: string; name: string; type: string; status: 'ok' | 'cache' | 'bloqué' | 'réécrit' | 'erreur' | 'refusé'; rule?: string; list?: string; upstream?: string; ms: number; answer?: string; rcode: string }
 export interface Lists { name: string; c: Compiled; kind: 'blocage' | 'menace' | 'parental' | 'autorisation' }
@@ -38,11 +52,15 @@ export interface DnsSettings {
   custom: string[];
   /** bloquer les noms en .local / sans point vers l'extérieur, et les PTR des adresses privées */
   privateReverse: boolean;
+  /** pubs et pistage des réseaux et plateformes (vidéos et comptes jamais touchés) ; plateformes laissées de côté */
+  socialAds: boolean; socialAdsOff?: string[];
+  /** quand les services coupés pour toute la maison le sont (sinon : tout le temps) */
+  servicesSchedule?: Schedule;
 }
 export const DEFAULTS: DnsSettings = {
   filtering: true, mode: 'ip_nulle', blockTtl: 10, upstreams: ['https://dns.quad9.net/dns-query', 'https://cloudflare-dns.com/dns-query'], fallback: ['9.9.9.9', '1.1.1.1'], strategy: 'rapide',
   cache: { size: 10_000, minTtl: 0, maxTtl: 86400, optimistic: true }, rateLimit: 50, refuseAny: true, safeSearch: false, parental: false, services: [],
-  rewrites: {}, clients: [], custom: [], privateReverse: true,
+  rewrites: {}, clients: [], custom: [], privateReverse: true, socialAds: true,
 };
 
 const ip4 = (s: string) => { const p = s.split('.').map(Number); return p.length === 4 && p.every((x) => x >= 0 && x < 256) ? ((p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]) >>> 0 : undefined; };
@@ -58,6 +76,8 @@ const PRIVATE_PTR = /\.(10|127|(1(6|7|8|9)|2\d|3[01])\.172|168\.192|254\.169)\.i
 
 export interface ServerDeps {
   settings: () => DnsSettings; lists: () => Lists[];
+  /** noms appris ailleurs (baux DHCP : « telephone-awa.maison » → son adresse) */
+  local?: () => Record<string, string[]>;
   /** nom d'un appareil d'après son adresse (registre des appareils, VPN) */
   nameOf?: (ip: string) => string | undefined;
   /** une machine a demandé un domaine de la liste des menaces */
@@ -99,6 +119,13 @@ export class DnsServer {
     if (!this.udp.length) throw new Error(`le port ${port} est déjà pris sur cette machine`);
     return this.addresses;
   }
+  /** DNS chiffré par TLS (DoT, port 853) pour les appareils qui le savent (Android « DNS privé », iPhone par profil). */
+  async startTls(port: number, material: { key: string | Buffer; cert: string | Buffer }, host = '0.0.0.0'): Promise<number> {
+    const { createServer } = await import('node:tls');
+    const s = createServer({ key: material.key, cert: material.cert, minVersion: 'TLSv1.2' }, (c) => this.onTcp(c as unknown as net.Socket));
+    await new Promise<void>((ok, ko) => { s.once('error', ko); s.listen(port, host, () => { s.off('error', ko); ok(); }); });
+    this.tcp.push(s as unknown as net.Server); return (s.address() as { port: number }).port;
+  }
   stop(): void { for (const s of this.udp) s.close(); for (const s of this.tcp) s.close(); this.udp = []; this.tcp = []; this.addresses = []; }
 
   private async onUdp(s: dgram.Socket, m: Buffer, r: dgram.RemoteInfo): Promise<void> {
@@ -135,7 +162,7 @@ export class DnsServer {
     const s = this.d.settings(), { rule } = this.clientOf(ip), n = cleanDomain(name);
     const filtering = rule?.filtering === 'oui' ? true : rule?.filtering === 'non' ? false : s.filtering && !(s.pausedUntil && this.now() < s.pausedUntil);
     // Les noms de la maison passent toujours, même filtrage coupé.
-    const local = s.rewrites[n] ?? Object.entries(s.rewrites).find(([k]) => k.startsWith('*.') && n.endsWith(k.slice(1)))?.[1];
+    const local = s.rewrites[n] ?? this.d.local?.()[n] ?? Object.entries(s.rewrites).find(([k]) => k.startsWith('*.') && n.endsWith(k.slice(1)))?.[1];
     if (local) return { action: 'rewrite', rule: `${n} → ${local.join(', ')}`, list: 'Noms de la maison', to: local };
     if (rule?.onlyThese?.length && !rule.onlyThese.some((d) => n === cleanDomain(d) || n.endsWith(`.${cleanDomain(d)}`))) return { action: 'block', rule: 'pas dans la liste autorisée de cet appareil', list: rule.name };
     const lists = this.d.lists();
@@ -145,13 +172,21 @@ export class DnsServer {
     for (const l of lists.filter((x) => x.kind === 'autorisation')) { const v = judge(l.c, n, l.name); if (v?.action === 'allow') return v; }
     for (const l of lists.filter((x) => x.kind === 'menace')) { const v = judge(l.c, n, l.name); if (v?.action === 'block') return { ...v, why: 'menace' }; }
     if (!filtering) return undefined;
-    const services = [...new Set([...(rule?.services ?? []), ...s.services])];
+    const at = new Date(this.now());
+    const services = [...new Set([...(inSchedule(rule?.schedule, at) ? rule?.services ?? [] : []), ...(inSchedule(s.servicesSchedule, at) ? s.services : [])])];
     if (services.length) { const v = judge(servicesList(services), n, 'Services coupés'); if (v?.action === 'block') return v; }
+    // Pubs et pistage des plateformes (YouTube, TikTok, Instagram…) : les vidéos et les comptes passent.
+    if (s.socialAds !== false) { const v = judge(this.socialList(s.socialAdsOff ?? []), n, 'Pubs des réseaux et plateformes'); if (v?.action === 'block') return v; }
     const safe = (rule?.safeSearch ?? s.safeSearch) ? safeSearchFor(n) : undefined;
     if (safe && n !== safe.to) return { action: 'rewrite', rule: `recherche sécurisée ${safe.label}`, list: 'Recherche sécurisée', to: [safe.to] };
     if (allowCustom) return allowCustom;
     for (const l of lists.filter((x) => x.kind === 'blocage' || (x.kind === 'parental' && (rule?.parental ?? s.parental)))) { const v = judge(l.c, n, l.name); if (v) return v; }
     return undefined;
+  }
+  private socialCache?: { key: string; c: Compiled };
+  private socialList(off: string[]): Compiled {
+    const key = off.join(','); if (this.socialCache?.key !== key) this.socialCache = { key, c: socialAdsList(Object.keys(SOCIAL_ADS).filter((x) => !off.includes(x))) };
+    return this.socialCache.c;
   }
   private customCache?: { key: string; c: Compiled };
   private customList(): Compiled {
@@ -176,7 +211,7 @@ export class DnsServer {
     if (q.opcode !== 0) return done(respond(q, { rcode: RCODE.NOTIMP }), { status: 'refusé', rule: 'opération non prise en charge' });
     if (s.refuseAny && qq.type === TYPE.ANY) return done(respond(q, { rcode: RCODE.NOTIMP }), { status: 'refusé', rule: 'requête ANY refusée' });
     // Noms internes qui ne doivent pas partir sur Internet (adresses privées inverses, noms sans point).
-    if (s.privateReverse && (PRIVATE_PTR.test(qq.name) || (!qq.name.includes('.') && qq.name !== '' && !s.rewrites[qq.name]))) {
+    if (s.privateReverse && (PRIVATE_PTR.test(qq.name) || (!qq.name.includes('.') && qq.name !== '' && !s.rewrites[qq.name] && !this.d.local?.()[qq.name]))) {
       return done(respond(q, { rcode: RCODE.NXDOMAIN }), { status: 'refusé', rule: 'nom privé : ne part pas sur Internet' });
     }
     const v = this.verdict(qq.name, ip);
@@ -230,6 +265,20 @@ export class DnsServer {
   }
   private async rewritten(q: Message, to: string[], ip: string): Promise<Buffer> {
     const qq = q.qd[0], an: Answer[] = [];
+    // Zone de la maison : enregistrements typés (« MX 10 mail.maison », « TXT … », « SRV 0 5 5060 sip.maison », « A … », « AAAA … », « CNAME … »).
+    const typed = to.map((x) => /^(A|AAAA|CNAME|MX|TXT|SRV|NS|PTR)\s+(.+)$/i.exec(x.trim())).filter(Boolean) as RegExpExecArray[];
+    if (typed.length) {
+      const want = typed.filter((m) => TYPE[m[1].toUpperCase()] === qq.type || qq.type === TYPE.ANY);
+      for (const m of want.length ? want : typed.filter((x) => x[1].toUpperCase() === 'CNAME')) {
+        const k = m[1].toUpperCase(), v = m[2].trim(); let data: Buffer;
+        if (k === 'A') data = rdata.a(v); else if (k === 'AAAA') data = rdata.aaaa(v); else if (k === 'TXT') data = rdata.txt(v);
+        else if (k === 'MX') { const [pr, host] = v.split(/\s+/); data = rdata.mx(Number(pr) || 10, host ?? v); }
+        else if (k === 'SRV') { const [pr, w, port, host] = v.split(/\s+/); const b = Buffer.alloc(6); b.writeUInt16BE(Number(pr) || 0, 0); b.writeUInt16BE(Number(w) || 0, 2); b.writeUInt16BE(Number(port) || 0, 4); data = Buffer.concat([b, rdata.name(host ?? '')]); }
+        else data = rdata.name(v);
+        an.push({ name: qq.name, type: TYPE[k], ttl: 300, data });
+      }
+      return respond(q, { an, aa: true });
+    }
     const ips = to.filter((x) => /^[\d.]+$/.test(x) || x.includes(':')), names = to.filter((x) => !ips.includes(x));
     if (ips.length) {
       for (const x of ips) { if (qq.type === TYPE.A && /^[\d.]+$/.test(x)) an.push({ name: qq.name, type: TYPE.A, ttl: 300, data: rdata.a(x) }); if (qq.type === TYPE.AAAA && x.includes(':')) an.push({ name: qq.name, type: TYPE.AAAA, ttl: 300, data: rdata.aaaa(x) }); }

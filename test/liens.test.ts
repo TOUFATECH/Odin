@@ -213,7 +213,20 @@ CHECKS['vidarr>forseti'] = async (w) => {
     assert.ok(await until(() => w.v.alerts({ module: 'vidarr' }).some((a) => /a voulu joindre un site dangereux/.test(a.title) && a.level === 'haute')), 'alerte haute dans le fil commun');
     await Promise.all(Array.from({ length: 12 }, (_x, i) => dnsAsk(port, `n${i}.exemple.fr`)));
     assert.ok(await until(() => w.v.alerts({ module: 'vidarr' }).some((a) => /inonde le DNS/.test(a.title))), 'machine qui inonde : signalée');
+    // Internet coupé (le serveur amont de l'essai ne répond jamais) : la surveillance le voit dans les réponses.
+    await wait(1200);
+    for (let i = 0; i < 12; i++) await dnsAsk(port, `p${i}.exemple.fr`);
+    await wait(2500); await w.v.module('vidarr')!.watch!.run(w.v.ctx('vidarr'));
+    assert.ok(w.v.alerts({ module: 'vidarr' }).some((a) => /n'arrive plus à joindre Internet/.test(a.title) && a.level === 'haute'), 'panne d\'Internet signalée');
   } finally { await w.v.act('vidarr', 'arreter'); }
+};
+CHECKS['gjoll>forseti'] = async (w) => {
+  await w.v.act('gjoll', 'ajouter', { nom: 'Invité', fin: '2020-01-01' }).catch(() => undefined);
+  const peers = (w.v.ctx('gjoll').settings.peers as Array<{ name: string; expires?: string }> | undefined) ?? [];
+  if (!peers.some((p) => p.name === 'Invité')) w.v.ctx('gjoll').saveSettings({ peers: [...peers, { name: 'Invité', pub: 'x', ip: '10.8.0.9', enabled: true, expires: '2020-01-01' }] });
+  await w.v.module('gjoll')!.watch!.run(w.v.ctx('gjoll'));
+  assert.ok(w.v.alerts({ module: 'gjoll' }).some((a) => /Accès VPN de « Invité » terminé/.test(a.title)), 'fin d\'accès signalée');
+  assert.equal(((w.v.ctx('gjoll').settings.peers as Array<{ name: string; enabled: boolean }>).find((p) => p.name === 'Invité'))?.enabled, false, 'coupé tout seul');
 };
 const incidents = (w: World) => (w.v.ctx('ullr').settings.incidents as Array<{ title: string; kind: string; apps: string[]; score: number; level: string; done: string[] }> | undefined) ?? [];
 const nameOf = (w: World, id: string) => w.v.modules().find((m) => m.id === id)!.name;

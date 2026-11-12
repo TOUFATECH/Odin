@@ -11,9 +11,11 @@ import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import type { ModCtx, Module, Param } from '../types.ts';
 import { DnsServer, DEFAULTS, type ClientRule, type DnsSettings, type Lists, type LogEntry } from '../vidarr/server.ts';
-import { SERVICES, cleanDomain, compile, isDomain, emptyList, type Compiled } from '../vidarr/rules.ts';
+import { SERVICES, SOCIAL_ADS, cleanDomain, compile, isDomain, emptyList, type Compiled } from '../vidarr/rules.ts';
+import type { Schedule } from '../vidarr/server.ts';
 import { parseUpstream, upstreamTimes } from '../vidarr/resolve.ts';
 import { parse, query, TYPE, dataText } from '../vidarr/wire.ts';
+import { DhcpServer, detectDhcp, hostLabel, ipNum, type DhcpConfig, type Lease } from '../vidarr/dhcp.ts';
 
 export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
 export const DEFAULT_LISTS: ListMeta[] = [
@@ -22,8 +24,23 @@ export const DEFAULT_LISTS: ListMeta[] = [
   { id: 'parental', name: 'Contrôle parental (sites pour adultes)', url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts', kind: 'parental', enabled: true },
 ];
 
-let srv: DnsServer | undefined, appCtx: ModCtx | undefined, compiled = new Map<string, Compiled>();
-const ring: LogEntry[] = []; const RING = 50_000;
+let srv: DnsServer | undefined, appCtx: ModCtx | undefined, compiled = new Map<string, Compiled>(), dhcp: DhcpServer | undefined, dotPort = 0;
+let dotMaterial: { key: string | Buffer; cert: string | Buffer } | undefined;
+/** Le certificat de l'interface d'Odin, pour le DNS chiffré par TLS. */
+export function setDotMaterial(m: { key: string | Buffer; cert: string | Buffer } | undefined): void { dotMaterial = m; }
+export const dhcpServer = () => dhcp;
+const leasesOf = (ctx: ModCtx): Lease[] => (ctx.settings.leases as Lease[] | undefined) ?? [];
+/** Les noms appris par le DHCP : « nom-de-l-appareil.domaine » → son adresse. */
+function dhcpNames(ctx: ModCtx): Record<string, string[]> {
+  const c = dhcpConfig(ctx), now = ctx.now().getTime(), out: Record<string, string[]> = {};
+  for (const l of leasesOf(ctx)) if (l.name && (l.fixed || l.expires > now)) { const h = hostLabel(l.name); if (h) { out[`${h}.${c.domain ?? 'maison'}`] = [l.ip]; out[h] = [l.ip]; } }
+  return out;
+}
+function dhcpConfig(ctx: ModCtx): DhcpConfig {
+  const d = ctx.settings.dhcp as Partial<DhcpConfig> | undefined, lan = lanAddress() ?? '192.168.1.2', base = lan.split('.').slice(0, 3).join('.');
+  return { server: lan, start: `${base}.100`, end: `${base}.199`, mask: '255.255.255.0', router: `${base}.1`, dns: [lan], leaseSeconds: 86400, domain: 'maison', fixed: [], ...d };
+}
+const ring: LogEntry[] = []; const RING = 50_000; const upstreamErrors: number[] = [];
 let inventoryName: ((ip: string) => string | undefined) | undefined;
 export const dnsServer = () => srv;
 /** Pour les essais et le démarrage : d'où viennent les noms des appareils. */
@@ -57,7 +74,9 @@ async function fetchList(ctx: ModCtx, l: ListMeta): Promise<ListMeta> {
 // ---------------- Journal ----------------
 const day = (t: number) => new Date(t).toISOString().slice(0, 10);
 function record(ctx: ModCtx, e: LogEntry): void {
-  ring.push(e); if (ring.length > RING) ring.splice(0, ring.length - RING);
+  ring.push(e);
+  // Surveillance : si Internet ou les serveurs amont ne répondent plus, Odin le voit dans ses propres réponses.
+  if (e.status === 'erreur') upstreamErrors.push(e.t); if (ring.length > RING) ring.splice(0, ring.length - RING);
   if (ctx.settings.journal === false) return;
   try { const dir = join(ctx.dir, 'journal'); mkdirSync(dir, { recursive: true }); appendFileSync(join(dir, `${day(e.t)}.jsonl`), `${JSON.stringify(e)}\n`); } catch { /* disque plein : le journal en mémoire reste */ }
 }
@@ -95,7 +114,8 @@ async function startServer(ctx: ModCtx): Promise<string> {
   const port = Number(ctx.settings.port ?? 53);
   const d = new DnsServer({
     settings: () => settingsOf(ctx), lists: () => activeLists(ctx), fetch: ctx.fetch,
-    nameOf: (ip) => inventoryName?.(ip),
+    nameOf: (ip) => leasesOf(ctx).find((l) => l.ip === ip && l.name)?.name ?? inventoryName?.(ip),
+    local: () => dhcpNames(ctx),
     log: (e) => record(ctx, e),
     // Lien Víðarr → Forseti : un appareil demande un site dangereux (il est bloqué, et tu es prévenu).
     onThreat: (e) => { ctx.alert({ level: 'haute', title: `${e.clientName ?? e.client} a voulu joindre un site dangereux`, detail: `${e.name} (${e.list}) : bloqué par Víðarr. Un logiciel de cet appareil est peut-être infecté : lance une analyse (Ullr).`, key: `dns-menace-${e.client}-${e.name}`, data: { ip: e.client, domaine: e.name } }); ctx.emit('dns_menace', { ip: e.client, domaine: e.name, liste: e.list ?? '' }); },
@@ -104,8 +124,24 @@ async function startServer(ctx: ModCtx): Promise<string> {
   });
   const where = await d.start(port, Array.isArray(ctx.settings.listen) && (ctx.settings.listen as string[]).length ? ctx.settings.listen as string[] : undefined);
   srv = d;
+  if (ctx.settings.dot === true && dotMaterial) { try { dotPort = await d.startTls(Number(ctx.settings.dotPort ?? 853), dotMaterial); } catch (e) { ctx.alert({ level: 'moyenne', title: 'DNS chiffré (TLS) pas démarré', detail: (e as Error).message, key: 'dns-dot' }); } }
   return `✅ Víðarr répond sur le port ${d.port} (${where.join(', ')}). ${compiled.size} liste(s) chargée(s).`;
 }
+
+async function startDhcp(ctx: ModCtx): Promise<string> {
+  dhcp?.stop();
+  const d = new DhcpServer({
+    config: () => dhcpConfig(ctx), leases: () => leasesOf(ctx), save: (l) => ctx.saveSettings({ leases: l }), now: () => ctx.now().getTime(),
+    log: (l) => ctx.emit('dhcp_journal', { ligne: l }),
+    // Lien DHCP → Forseti et registre : un appareil jamais vu rejoint le réseau.
+    onLease: (l, isNew) => { ctx.emit('dhcp_bail', { mac: l.mac, ip: l.ip, nom: l.name ?? '' }); if (isNew) ctx.emit('dhcp_nouveau', { ip: l.ip, mac: l.mac, nom: l.name ?? '' }); if (isNew) ctx.alert({ level: 'info', title: `Nouvel appareil sur le réseau : ${l.name ?? l.mac}`, detail: `Adresse ${l.ip} (MAC ${l.mac}). Si tu ne le connais pas, bloque-le (Réseau) ou donne-lui une adresse fixe et un nom (Víðarr → DHCP).`, key: `dhcp-nouveau-${l.mac}`, data: { ip: l.ip, mac: l.mac } }); },
+  });
+  const ports = (ctx.settings.dhcpPorts as [number, number] | undefined) ?? [67, 68];
+  await d.start(ports[0], ports[1]); dhcp = d;
+  const c = dhcpConfig(ctx);
+  return `✅ DHCP d'Odin en marche : adresses ${c.start} → ${c.end}, passerelle ${c.router}, DNS ${c.dns.join(', ')}, baux de ${Math.round(c.leaseSeconds / 3600)} h.`;
+}
+const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/, MAC = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i;
 
 const LIST_KINDS = ['blocage', 'menace', 'parental', 'autorisation'];
 const CLIENT_PARAMS: Param[] = [
@@ -143,7 +179,7 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       'cache avec réponses servies même expirées pendant le rafraîchissement',
       'journal des requêtes (qui, quoi, résultat, temps), statistiques, pause du blocage',
       'limite de requêtes par machine, requêtes ANY refusées',
-      'alerte quand un appareil demande un site dangereux ; lien avec le VPN Gjöll',
+      'pubs et pistage de YouTube, TikTok, Instagram, Snapchat, X, télés et téléphones bloqués sans toucher aux vidéos', 'horaires : services coupés seulement à certaines heures, pour la maison ou un appareil', 'zone de la maison : A, AAAA, CNAME, MX, TXT, SRV', 'serveur DHCP : adresses, passerelle, DNS, adresses fixes, noms des appareils servis par le DNS, vérification qu\'aucun autre DHCP ne répond', 'DNS chiffré pour les appareils : HTTPS (/dns-query) et TLS (port 853)', 'surveillance : alerte si Internet ou les serveurs amont ne répondent plus, nouvel appareil sur le réseau', 'alerte quand un appareil demande un site dangereux ; lien avec le VPN Gjöll',
     ],
     from: ['AdGuard Home', 'Pi-hole', 'Technitium DNS Server'], upstream: ['AdguardTeam/AdGuardHome', 'pi-hole/pi-hole', 'TechnitiumSoftware/DnsServer'],
     words: ['dns', 'bloquer les pubs', 'bloque les pubs', 'publicite', 'publicités', 'pisteurs', 'traqueurs', 'bloquer un site', 'bloque le site', 'controle parental', 'contrôle parental', 'recherche securisee', 'nom de domaine', 'resolution', 'resolveur', 'filtrage', 'couper tiktok', 'couper youtube'],
@@ -220,14 +256,90 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         return { text: `📱 ${c.name} (${ids.join(', ')}) : filtrage ${c.filtering}${c.parental ? ', contrôle parental' : ''}${c.safeSearch ? ', recherche sécurisée' : ''}${services.length ? `, services coupés : ${services.map((x) => SERVICES[x].label).join(', ')}` : ''}.` };
       } },
       { id: 'retirer_appareil', label: 'Retirer un appareil', what: 'Ses réglages propres sont oubliés', quick: false, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx); if (!d.clients.some((c) => c.name === s(i.nom))) throw new Error('appareil introuvable'); saveDns(ctx, { clients: d.clients.filter((c) => c.name !== s(i.nom)) }); return { text: `🗑 Réglages de ${s(i.nom)} retirés (il suit les réglages de tout le monde).` }; } },
-      { id: 'nom_local', label: 'Nom de la maison', what: 'Un nom pour une machine (nas.maison → 192.168.1.10), ou un alias', params: [{ key: 'nom', label: 'Nom (ex. nas.maison, *.labo.maison)', kind: 'text', required: true }, { key: 'valeur', label: 'Adresse(s) IP ou nom cible', kind: 'text', required: true }], run: (ctx, i) => {
+      { id: 'nom_local', label: 'Nom de la maison', what: 'Un nom pour une machine (nas.maison → 192.168.1.10), ou un alias', params: [{ key: 'nom', label: 'Nom (ex. nas.maison, *.labo.maison)', kind: 'text', required: true }, { key: 'valeur', label: 'Adresse(s) IP, nom cible, ou enregistrement (MX 10 mail.maison ; TXT …)', kind: 'text', required: true }], run: (ctx, i) => {
         const n = cleanDomain(s(i.nom)), base = n.replace(/^\*\./, ''); if (!isDomain(base)) throw new Error('nom invalide');
-        const to = parseIds(i.valeur); if (!to.length) throw new Error('valeur vide');
-        for (const x of to) if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(x) && !x.includes(':') && !isDomain(x)) throw new Error(`valeur invalide : ${x}`);
+        // Une adresse, un nom, ou un enregistrement typé (« MX 10 mail.maison », « TXT … », « SRV 0 5 5060 sip.maison ») ; plusieurs : séparés par « ; ».
+        const raw = s(i.valeur).trim(), to = /^(A|AAAA|CNAME|MX|TXT|SRV|NS|PTR)\s/i.test(raw) ? raw.split(';').map((x) => x.trim()).filter(Boolean) : parseIds(raw);
+        if (!to.length) throw new Error('valeur vide');
+        for (const x of to) {
+          const m = /^(A|AAAA|CNAME|MX|TXT|SRV|NS|PTR)\s+(.+)$/i.exec(x);
+          if (m) { const k = m[1].toUpperCase(), v = m[2].trim(); const ok = k === 'A' ? /^\d{1,3}(\.\d{1,3}){3}$/.test(v) : k === 'AAAA' ? v.includes(':') : k === 'TXT' ? v.length <= 1000 : k === 'MX' ? /^\d+\s+\S+$/.test(v) : k === 'SRV' ? /^\d+\s+\d+\s+\d+\s+\S+$/.test(v) : isDomain(v); if (!ok) throw new Error(`enregistrement invalide : ${x}`); continue; }
+          if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(x) && !x.includes(':') && !isDomain(x)) throw new Error(`valeur invalide : ${x}`);
+        }
         const d = settingsOf(ctx); saveDns(ctx, { rewrites: { ...d.rewrites, [n]: to } }); srv?.cache.clear();
         return { text: `🏷 ${n} → ${to.join(', ')}` };
       } },
       { id: 'retirer_nom', label: 'Retirer un nom', what: 'Retire un nom de la maison', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => { const d = settingsOf(ctx), n = cleanDomain(s(i.nom)); if (!d.rewrites[n]) throw new Error('nom introuvable'); const r = { ...d.rewrites }; delete r[n]; saveDns(ctx, { rewrites: r }); srv?.cache.clear(); return { text: `🗑 ${n} retiré.` }; } },
+      { id: 'pubs_reseaux', label: 'Pubs des réseaux et plateformes', what: 'Bloque la pub et le pistage de YouTube, TikTok, Instagram… sans toucher aux vidéos', params: [{ key: 'actif', label: 'Bloquer ces pubs', kind: 'boolean', default: true }, { key: 'sauf', label: 'Plateformes à laisser (séparées par des virgules)', kind: 'text', default: '', help: `parmi : ${Object.keys(SOCIAL_ADS).join(', ')}` }], words: ['bloque les pubs youtube', 'pubs tiktok', 'pubs instagram'], run: (ctx, i) => {
+        const off = parseIds(i.sauf); for (const x of off) if (!SOCIAL_ADS[x]) throw new Error(`plateforme inconnue : ${x}`);
+        saveDns(ctx, { socialAds: i.actif !== false, socialAdsOff: off }); srv?.cache.clear();
+        const on = Object.entries(SOCIAL_ADS).filter(([k]) => !off.includes(k));
+        return { text: i.actif === false ? '⚪ Pubs des réseaux : plus bloquées.' : `🚫 Pubs et pistage bloqués (les vidéos et les comptes passent) : ${on.map(([, v]) => v.label).join(', ')}.\nLimite : ${on.map(([, v]) => v.limit).filter(Boolean).join(' ; ')}.` };
+      } },
+      { id: 'horaires', label: 'Horaires des services coupés', what: 'Couper les services seulement à certaines heures (ex. TikTok après 21 h)', params: [{ key: 'pour', label: 'Pour (« maison » ou le nom d\'un appareil)', kind: 'text', default: 'maison' }, { key: 'jours', label: 'Jours (lun, mar, mer, jeu, ven, sam, dim, ou « tous »)', kind: 'text', default: 'tous' }, { key: 'de', label: 'De (HH:MM)', kind: 'text', default: '21:00' }, { key: 'a', label: 'À (HH:MM)', kind: 'text', default: '07:00' }, { key: 'toujours', label: 'Tout le temps (retire l\'horaire)', kind: 'boolean', default: false }], run: (ctx, i) => {
+        const J = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+        let sc: Schedule | undefined;
+        if (i.toujours !== true) {
+          const days = s(i.jours).trim().toLowerCase() === 'tous' || !s(i.jours).trim() ? [0, 1, 2, 3, 4, 5, 6] : parseIds(i.jours).map((x) => J.indexOf(x.slice(0, 3).toLowerCase()));
+          if (days.some((x) => x < 0)) throw new Error('jours : lun, mar, mer, jeu, ven, sam, dim');
+          const hm = (x: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(x.trim()); if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new Error('heures sous la forme 21:00 (de 00:00 à 23:59)'); return `${m[1].padStart(2, '0')}:${m[2]}`; };
+          sc = { days: [...new Set(days)].sort(), from: hm(s(i.de)), to: hm(s(i.a)) };
+        }
+        const d = settingsOf(ctx), who = s(i.pour).trim() || 'maison', whoText = who === 'maison' ? 'toute la maison' : who;
+        if (who === 'maison') saveDns(ctx, { servicesSchedule: sc });
+        else { const c = d.clients.find((x) => x.name === who); if (!c) throw new Error('appareil introuvable (réglages d\'un appareil d\'abord)'); saveDns(ctx, { clients: d.clients.map((x) => (x === c ? { ...x, schedule: sc } : x)) }); }
+        srv?.cache.clear();
+        return { text: sc ? `🕘 Services coupés pour ${whoText} : ${sc.days.length === 7 ? 'tous les jours' : sc.days.map((x) => J[x]).join(', ')}, de ${sc.from} à ${sc.to}. Le reste du temps, ils passent.` : `🕘 Services coupés pour ${whoText} : tout le temps.` };
+      } },
+      { id: 'dhcp_chercher', label: 'Chercher un autre DHCP', what: 'Y a-t-il déjà un serveur qui donne les adresses (la box) ?', read: true, quick: false, run: async (ctx) => {
+        const ports = (ctx.settings.dhcpPorts as [number, number] | undefined) ?? [67, 68];
+        const found = await detectDhcp({ serverPort: ports[0], clientPort: ports[1], waitMs: 3000 });
+        const others = found.filter((x) => x !== dhcpConfig(ctx).server);
+        return { text: others.length ? `⚠ Un autre serveur DHCP répond : ${others.join(', ')} (souvent la box). Coupe le DHCP de la box avant d'allumer celui d'Odin.` : '✅ Aucun autre serveur DHCP ne répond : celui d\'Odin peut s\'allumer.', data: { found: others } };
+      } },
+      { id: 'dhcp_reglages', label: 'Réglages DHCP', what: 'Plage d\'adresses, passerelle, DNS, durée des baux, domaine', quick: false, params: [
+        { key: 'debut', label: 'Première adresse', kind: 'text', required: true }, { key: 'fin', label: 'Dernière adresse', kind: 'text', required: true },
+        { key: 'passerelle', label: 'Passerelle (la box)', kind: 'text', required: true }, { key: 'masque', label: 'Masque', kind: 'text', default: '255.255.255.0' },
+        { key: 'dns', label: 'DNS donné aux appareils (vide = Odin)', kind: 'text', default: '' }, { key: 'heures', label: 'Durée des baux (heures)', kind: 'number', default: 24 },
+        { key: 'domaine', label: 'Domaine de la maison', kind: 'text', default: 'maison' },
+      ], run: (ctx, i) => {
+        i = { ...i, masque: s(i.masque).trim() || '255.255.255.0', domaine: s(i.domaine).trim() || 'maison' };
+        for (const k of ['debut', 'fin', 'passerelle', 'masque']) if (!IPV4.test(s(i[k]))) throw new Error(`${k} : adresse IPv4 attendue`);
+        if (ipNum(s(i.debut)) > ipNum(s(i.fin))) throw new Error('la première adresse doit précéder la dernière');
+        const dns = parseIds(i.dns); for (const x of dns) if (!IPV4.test(x)) throw new Error(`DNS invalide : ${x}`);
+        const h = Number(i.heures) || 24; if (h < 0.1 || h > 24 * 30) throw new Error('baux entre 6 minutes et 30 jours');
+        const dom = cleanDomain(s(i.domaine) || 'maison'); if (!isDomain(dom)) throw new Error('domaine invalide');
+        const cur = dhcpConfig(ctx);
+        ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), start: s(i.debut), end: s(i.fin), router: s(i.passerelle), mask: s(i.masque), dns: dns.length ? dns : [cur.server], leaseSeconds: Math.round(h * 3600), domain: dom } });
+        return { text: `⚙️ DHCP : ${s(i.debut)} → ${s(i.fin)}, passerelle ${s(i.passerelle)}, DNS ${(dns.length ? dns : [cur.server]).join(', ')}, baux ${h} h, domaine .${dom}.` };
+      } },
+      { id: 'dhcp_demarrer', label: 'Allumer le DHCP', what: 'Odin donne les adresses aux appareils (coupe d\'abord celui de la box)', quick: false, params: [{ key: 'forcer', label: 'Même si un autre DHCP répond', kind: 'boolean', default: false }], grave: () => 'donner les adresses du réseau à la place de la box (deux serveurs DHCP en même temps couperaient Internet à certains appareils)', run: async (ctx, i) => {
+        if (i.forcer !== true) {
+          const ports = (ctx.settings.dhcpPorts as [number, number] | undefined) ?? [67, 68];
+          const others = (await detectDhcp({ serverPort: ports[0], clientPort: ports[1], waitMs: 2500 })).filter((x) => x !== dhcpConfig(ctx).server);
+          if (others.length) return { ok: false, text: `⚠ Un autre serveur DHCP répond (${others.join(', ')}). Coupe le DHCP de la box d'abord, ou coche « Même si un autre DHCP répond ».` };
+        }
+        const msg = await startDhcp(ctx); ctx.saveSettings({ dhcpOn: true }); return { text: msg };
+      } },
+      { id: 'dhcp_arreter', label: 'Arrêter le DHCP', what: 'Odin ne donne plus d\'adresses (rallume celui de la box)', quick: false, grave: () => 'arrêter de donner les adresses (rallume le DHCP de la box)', run: (ctx) => { dhcp?.stop(); dhcp = undefined; ctx.saveSettings({ dhcpOn: false }); return { text: '⏹ DHCP d\'Odin arrêté. Rallume celui de la box.' }; } },
+      { id: 'dhcp_fixe', label: 'Adresse fixe', what: 'Toujours la même adresse (et un nom) pour un appareil', params: [{ key: 'mac', label: 'Adresse MAC (aa:bb:cc:dd:ee:ff)', kind: 'text', required: true }, { key: 'ip', label: 'Adresse IP', kind: 'text', required: true }, { key: 'nom', label: 'Nom', kind: 'text', default: '' }], run: (ctx, i) => {
+        const mac = s(i.mac).trim().toLowerCase().replace(/-/g, ':'), ip = s(i.ip).trim();
+        if (!MAC.test(mac)) throw new Error('adresse MAC invalide'); if (!IPV4.test(ip)) throw new Error('adresse IP invalide');
+        const c = dhcpConfig(ctx); if (c.fixed.some((f) => f.ip === ip && f.mac !== mac)) throw new Error('adresse déjà donnée à un autre appareil');
+        const fixed = [...c.fixed.filter((f) => f.mac !== mac), { mac, ip, ...(s(i.nom).trim() ? { name: s(i.nom).trim().slice(0, 60) } : {}) }];
+        ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), fixed } });
+        return { text: `📌 ${s(i.nom) || mac} aura toujours ${ip}${s(i.nom).trim() ? ` (et le nom ${hostLabel(s(i.nom))}.${c.domain ?? 'maison'})` : ''}.` };
+      } },
+      { id: 'dhcp_retirer_fixe', label: 'Retirer une adresse fixe', what: 'L\'appareil reprend une adresse de la plage', quick: false, params: [{ key: 'mac', label: 'Adresse MAC', kind: 'text', required: true }], run: (ctx, i) => { const c = dhcpConfig(ctx), mac = s(i.mac).toLowerCase(); if (!c.fixed.some((f) => f.mac === mac)) throw new Error('aucune adresse fixe pour cet appareil'); ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), fixed: c.fixed.filter((f) => f.mac !== mac) } }); return { text: '🗑 Adresse fixe retirée.' }; } },
+      { id: 'baux', label: 'Appareils du réseau (baux)', what: 'Qui a reçu quelle adresse', read: true, run: (ctx) => { const now = ctx.now().getTime(); return { text: leasesOf(ctx).sort((a, b) => ipNum(a.ip) - ipNum(b.ip)).map((l) => `- ${l.ip} · ${l.name ?? '(sans nom)'} · ${l.mac}${l.fixed ? ' · fixe' : l.expires > now ? ` · jusqu'à ${new Date(l.expires).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : ' · expiré'}`).join('\n') || 'Aucun bail.' }; } },
+      { id: 'dns_chiffre', label: 'DNS chiffré (TLS)', what: 'Les appareils qui le savent (Android « DNS privé ») chiffrent leurs questions jusqu\'à Odin', quick: false, params: [{ key: 'actif', label: 'Actif', kind: 'boolean', default: true }, { key: 'port', label: 'Port', kind: 'number', default: 853 }], run: async (ctx, i) => {
+        if (i.actif === false) { ctx.saveSettings({ dot: false }); if (srv) await startServer(ctx); return { text: '⚪ DNS chiffré (TLS) coupé.' }; }
+        if (!dotMaterial) throw new Error('il faut d\'abord le HTTPS de l\'interface (Réglages → Accès) : son certificat sert aussi au DNS chiffré');
+        if (!srv) throw new Error('démarre d\'abord le DNS');
+        ctx.saveSettings({ dot: true, dotPort: Number(i.port) || 853 });
+        dotPort = await srv.startTls(Number(i.port) || 853, dotMaterial);
+        return { text: `🔒 DNS chiffré (TLS) sur le port ${dotPort}. Android : Réglages → Réseau → DNS privé → l'adresse de cette machine. Le DNS en HTTPS est aussi disponible à l'adresse de l'interface, chemin /dns-query.` };
+      } },
       { id: 'pause', label: 'Pause du blocage', what: 'Laisse tout passer quelques minutes (les sites dangereux restent bloqués)', params: [{ key: 'minutes', label: 'Minutes', kind: 'number', default: 5 }], words: ['pause du blocage', 'desactive le blocage'], run: (ctx, i) => { const m = Math.max(1, Math.min(1440, Number(i.minutes) || 5)), until = ctx.now().getTime() + m * 60_000; saveDns(ctx, { pausedUntil: until }); srv?.cache.clear(); return { text: `⏸ Blocage en pause ${m} min (jusqu'à ${new Date(until).toLocaleTimeString('fr-FR')}). Les sites dangereux restent bloqués.` }; } },
       { id: 'reprendre', label: 'Reprendre le blocage', what: 'Fin de la pause', quick: false, run: (ctx) => { saveDns(ctx, { pausedUntil: undefined }); srv?.cache.clear(); return { text: '▶ Blocage repris.' }; } },
       { id: 'reglages', label: 'Réglages DNS', what: 'Serveurs amont, stratégie, façon de bloquer, recherche sécurisée, contrôle parental', quick: false, params: [
@@ -277,6 +389,8 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           { kind: 'table', title: 'Listes', columns: ['Liste', 'Type', 'Règles', 'Mise à jour', 'État'], rows: ls.map((l) => ({ cells: [l.name, l.kind, String(l.count ?? '—'), l.updated ? new Date(l.updated).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais', l.error ? `⚠ ${l.error}` : l.enabled ? 'active' : 'coupée'], tone: l.error ? 'attention' as const : undefined, actions: [{ action: 'activer_liste', label: l.enabled ? 'Couper' : 'Activer', input: { id: l.id, active: !l.enabled } }, { action: 'retirer_liste', label: 'Retirer', input: { id: l.id } }] })) },
           { kind: 'table', title: 'Appareils avec réglages propres', columns: ['Appareil', 'Adresses', 'Filtrage', 'Parental', 'Recherche sûre', 'Services coupés'], empty: 'Tous les appareils suivent les réglages de la maison.', rows: d.clients.map((c) => ({ cells: [c.name, c.ids.join(', '), c.filtering ?? 'global', c.parental ? 'oui' : 'non', c.safeSearch ? 'oui' : 'non', (c.services ?? []).map((x) => SERVICES[x]?.label ?? x).join(', ') || '—'], actions: [{ action: 'retirer_appareil', label: 'Retirer', input: { nom: c.name } }] })) },
           { kind: 'table', title: 'Noms de la maison', columns: ['Nom', 'Répond'], empty: 'Aucun nom : ajoute « nas.maison → 192.168.1.10 » à droite.', rows: Object.entries(d.rewrites).map(([k, v]) => ({ cells: [k, v.join(', ')], actions: [{ action: 'retirer_nom', label: 'Retirer', input: { nom: k } }] })) },
+          { kind: 'table', title: dhcp ? 'Appareils du réseau (DHCP d\'Odin en marche)' : 'Appareils du réseau (DHCP d\'Odin arrêté)', columns: ['Adresse', 'Nom', 'MAC', 'Bail'], empty: dhcp ? 'Aucun appareil n\'a encore demandé d\'adresse.' : 'Le DHCP de la box donne les adresses. Pour qu\'Odin le fasse (noms des appareils, adresses fixes) : « Chercher un autre DHCP », coupe celui de la box, puis « Allumer le DHCP ».', rows: [...leasesOf(ctx), ...dhcpConfig(ctx).fixed.filter((f) => !leasesOf(ctx).some((l) => l.mac === f.mac)).map((f) => ({ mac: f.mac, ip: f.ip, name: f.name, expires: 0, fixed: true }) as Lease)].sort((a, b) => ipNum(a.ip) - ipNum(b.ip)).map((l) => ({ cells: [l.ip, l.name ?? '—', l.mac, l.fixed ? 'fixe' : l.expires > ctx.now().getTime() ? `jusqu'à ${new Date(l.expires).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'expiré'], tone: !l.fixed && l.expires <= ctx.now().getTime() ? 'attention' as const : undefined, actions: l.fixed ? [{ action: 'dhcp_retirer_fixe', label: 'Retirer l\'adresse fixe', input: { mac: l.mac } }] : [{ action: 'dhcp_fixe', label: 'Garder cette adresse', input: { mac: l.mac, ip: l.ip, nom: l.name ?? '' } }] })) },
+          { kind: 'list', title: 'Pubs des réseaux bloquées (les vidéos passent)', empty: 'Coupé.', items: d.socialAds === false ? [] : Object.entries(SOCIAL_ADS).filter(([k]) => !(d.socialAdsOff ?? []).includes(k)).map(([, v]) => ({ title: v.label, meta: v.limit ? `limite : ${v.limit}` : undefined })) },
           { kind: 'table', title: 'Règles perso', columns: ['Règle'], empty: 'Aucune règle perso.', rows: d.custom.map((r) => ({ cells: [r], actions: [{ action: 'retirer_regle', label: 'Retirer', input: { regle: r } }] })) },
           { kind: 'list', title: 'Services coupés pour toute la maison', empty: 'Aucun.', items: d.services.map((x) => ({ title: SERVICES[x]?.label ?? x })) },
           { kind: 'list', title: 'Serveurs amont (temps moyen)', items: d.upstreams.map((u) => ({ title: u, meta: upstreamTimes()[u] ? `${Math.round(upstreamTimes()[u])} ms` : 'pas encore utilisé' })) },
@@ -286,6 +400,9 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           { kind: 'form', title: 'Bloquer un domaine', action: 'bloquer', submit: 'Bloquer', params: m.actions.find((a) => a.id === 'bloquer')!.params! },
           { kind: 'form', title: 'Couper un service', action: 'services', submit: 'Appliquer', params: m.actions.find((a) => a.id === 'services')!.params! },
           { kind: 'form', title: 'Réglages d\'un appareil', action: 'appareil', submit: 'Enregistrer', params: CLIENT_PARAMS },
+          { kind: 'form', title: 'Pubs des réseaux', action: 'pubs_reseaux', submit: 'Appliquer', params: m.actions.find((a) => a.id === 'pubs_reseaux')!.params! },
+          { kind: 'form', title: 'Horaires des services coupés', action: 'horaires', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'horaires')!.params! },
+          { kind: 'form', title: 'Adresse fixe (DHCP)', action: 'dhcp_fixe', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'dhcp_fixe')!.params! },
           { kind: 'form', title: 'Nom de la maison', action: 'nom_local', submit: 'Ajouter', params: m.actions.find((a) => a.id === 'nom_local')!.params! },
           { kind: 'form', title: paused ? 'Blocage en pause' : 'Pause du blocage', action: paused ? 'reprendre' : 'pause', submit: paused ? 'Reprendre' : 'Mettre en pause', params: paused ? [] : m.actions.find((a) => a.id === 'pause')!.params! },
         ],
@@ -295,9 +412,10 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       appCtx = ctx;
       const f = o.names?.(); if (f) inventoryName = f;
       loadLists(ctx);
+      if (ctx.settings.dhcpOn === true) { try { await startDhcp(ctx); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }
       if (ctx.settings.on === true) { try { await startServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le DNS d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Les appareils qui passent par Odin n'ont plus de résolution de noms.`, key: 'dns-demarrage' }); } }
     },
-    stop() { srv?.stop(); srv = undefined; },
+    stop() { srv?.stop(); srv = undefined; dhcp?.stop(); dhcp = undefined; },
     // Chaque jour : listes à jour, vieux journaux effacés. Chaque 5 min : le serveur répond-il encore ?
     watch: { every: 300, async run(ctx) {
       prune(ctx);
@@ -307,6 +425,10 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         ctx.saveSettings({ lists: out, listsAt: ctx.now().toISOString() });
       }
       if (ctx.settings.on === true && !srv) { try { await startServer(ctx); } catch { /* alerte déjà donnée au démarrage */ } }
+      // Surveillance de la résolution : beaucoup d'échecs ces 5 dernières minutes = Internet ou les serveurs amont en panne.
+      const now = ctx.now().getTime(), recent = ring.filter((e) => now - e.t < 300_000 && (e.status === 'ok' || e.status === 'erreur')), bad = recent.filter((e) => e.status === 'erreur').length;
+      upstreamErrors.splice(0, upstreamErrors.length, ...upstreamErrors.filter((t) => now - t < 300_000));
+      if (recent.length >= 10 && bad / recent.length > 0.5) { ctx.alert({ level: 'haute', title: 'Le DNS n\'arrive plus à joindre Internet', detail: `${bad} échecs sur ${recent.length} questions en 5 minutes (serveurs : ${settingsOf(ctx).upstreams.join(', ')}). Vérifie la connexion de la box ; Odin bascule tout seul sur les serveurs de secours.`, key: 'dns-amont' }); ctx.emit('dns_amont_panne', { echecs: bad, total: recent.length }); }
     } },
   };
   return m;

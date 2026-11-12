@@ -122,6 +122,31 @@ export function servicesList(ids: string[]): Compiled {
   return c;
 }
 
+/**
+ * Pubs et pistage des réseaux et des plateformes, SANS toucher aux vidéos ni aux comptes : seulement des noms
+ * qui ne servent qu'à la pub ou au pistage. Limite (vraie pour tout bloqueur DNS) : les pubs que YouTube,
+ * Instagram ou Facebook glissent dans le même flux que les vidéos et les publications viennent des mêmes
+ * serveurs que le contenu ; les bloquer couperait aussi les vidéos.
+ */
+export const SOCIAL_ADS: Record<string, { label: string; domains: string[]; limit?: string }> = {
+  google: { label: 'YouTube et Google', domains: ['doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'adservice.google.com', 'pagead2.googlesyndication.com', 'imasdk.googleapis.com', 'googletagservices.com', 'google-analytics.com', 'app-measurement.com', 'adsense.google.com', 'partnerad.l.doubleclick.net', 'ade.googlesyndication.com'], limit: 'les pubs dans l\'appli YouTube viennent des mêmes serveurs que les vidéos : celles-là restent (seul YouTube Premium ou un lecteur sans pub les enlève)' },
+  tiktok: { label: 'TikTok', domains: ['ads.tiktok.com', 'ads-api.tiktok.com', 'ads-sg.tiktok.com', 'analytics.tiktok.com', 'analytics-sg.tiktok.com', 'business-api.tiktok.com', 'ads.tiktokv.com', 'ads-api.tiktokv.com', 'ads-sg.tiktokv.com', 'log.byteoversea.com', 'ads.byteoversea.com', 'ads-api.byteoversea.com'], limit: 'les vidéos sponsorisées du fil « Pour toi » sont des vidéos comme les autres : elles restent' },
+  meta: { label: 'Instagram, Facebook, WhatsApp', domains: ['an.facebook.com', 'pixel.facebook.com', 'ads.facebook.com', 'adsmanager.facebook.com', 'ad.atdmt.com', 'atdmt.com', 'connect.facebook.net', 'analytics.facebook.com', 'ads.instagram.com'], limit: 'les publications sponsorisées d\'Instagram et Facebook arrivent avec le fil : elles restent' },
+  snapchat: { label: 'Snapchat', domains: ['tr.snapchat.com', 'ads.snapchat.com', 'adsapi.snapchat.com', 'sc-analytics.appspot.com', 'app-analytics.snapchat.com', 'snapads.com'] },
+  x: { label: 'X (Twitter)', domains: ['ads-api.twitter.com', 'ads-twitter.com', 'analytics.twitter.com', 'static.ads-twitter.com', 'ads-api.x.com', 'analytics.x.com'] },
+  amazon: { label: 'Amazon', domains: ['amazon-adsystem.com', 'aax.amazon-adsystem.com', 'device-metrics-us.amazon.com', 'adtago.s3.amazonaws.com'] },
+  microsoft: { label: 'Microsoft, Bing, LinkedIn', domains: ['ads.microsoft.com', 'bat.bing.com', 'ads.linkedin.com', 'px.ads.linkedin.com', 'analytics.linkedin.com', 'c.bing.com'] },
+  apple: { label: 'Apple', domains: ['iadsdk.apple.com', 'api-adservices.apple.com', 'banners.itunes.apple.com'] },
+  samsung_tv: { label: 'Télés Samsung, LG, Roku (pubs de l\'écran d\'accueil)', domains: ['ads.samsungads.com', 'samsungads.com', 'config.samsungads.com', 'ad.lgappstv.com', 'lgad.cjpowercast.com', 'ads.roku.com', 'logs.roku.com'] },
+  xiaomi: { label: 'Téléphones Xiaomi, Huawei, Oppo (pubs du système)', domains: ['api.ad.xiaomi.com', 'ad.xiaomi.com', 'ad.mi.com', 'tracking.miui.com', 'data.mistat.xiaomi.com', 'ads.huawei.com', 'adx.ads.oppomobile.com', 'adsfs.oppomobile.com'] },
+};
+/** La liste « pubs des réseaux » compilée (les sous-domaines compris). */
+export function socialAdsList(ids: string[] = Object.keys(SOCIAL_ADS)): Compiled {
+  const c = emptyList();
+  for (const id of ids) for (const d of SOCIAL_ADS[id]?.domains ?? []) { c.sub.add(d); c.count++; }
+  return c;
+}
+
 /** Recherche sécurisée : les moteurs sont renvoyés vers leur version filtrée (par leur propre nom « sûr »). */
 export const SAFE_SEARCH: Array<{ match: RegExp; to: string; label: string }> = [
   { match: /^(?:www\.)?google\.[a-z]{2,3}(?:\.[a-z]{2})?$/, to: 'forcesafesearch.google.com', label: 'Google' },

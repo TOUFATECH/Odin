@@ -59,6 +59,7 @@ import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
 import { listScripts, readScript, revertScript } from '../tools/scripts.ts';
 import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
+import { dnsServer, setDotMaterial } from '../valhalla/modules/vidarr.ts';
 import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
 import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
@@ -202,6 +203,8 @@ export class WebChannel implements Channel {
     this.accounts = new Accounts(odin.paths.home, opts.scryptN ? { scryptN: opts.scryptN } : {});
     this.port = opts.port; this.host = opts.host; this.token = opts.token;
     this.access = opts.access ?? 'local'; this.tls = opts.tls;
+    // Le certificat de l'interface sert aussi au DNS chiffré (DoT) de Víðarr.
+    if (opts.tls) setDotMaterial({ key: opts.tls.key, cert: opts.tls.cert });
   }
 
   /** Lien à ouvrir sur cette machine. */
@@ -452,6 +455,25 @@ export class WebChannel implements Channel {
       return void res.end(UI.replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
+    // DNS chiffré (DoH) de Víðarr pour les appareils de la maison et du VPN : pas de compte, mais seulement depuis
+    // une adresse privée (jamais un résolveur ouvert à tout Internet).
+    if (url.pathname === '/dns-query') {
+      const ip = remoteOf(req), dns = dnsServer();
+      if (!dns) return json(res, 503, { ok: false, error: 'le DNS d\'Odin est arrêté' });
+      if (!(isPrivateV4(ip) || ip === '127.0.0.1' || ip === '::1' || /^f[cd]/i.test(ip))) return json(res, 403, { ok: false, error: 'réservé au réseau de la maison et au VPN' });
+      let q: Buffer | undefined;
+      if (req.method === 'GET') { const d = url.searchParams.get('dns'); if (d && /^[A-Za-z0-9_-]{1,700}$/.test(d)) q = Buffer.from(d, 'base64url'); }
+      else if (req.method === 'POST' && /application\/dns-message/.test(String(req.headers['content-type'] ?? ''))) {
+        const parts: Buffer[] = []; let n = 0;
+        for await (const c of req) { n += (c as Buffer).length; if (n > 65535) return json(res, 413, { ok: false, error: 'trop long' }); parts.push(c as Buffer); }
+        q = Buffer.concat(parts);
+      }
+      if (!q || q.length < 12) return json(res, 400, { ok: false, error: 'message DNS attendu (application/dns-message)' });
+      const out = await dns.handle(q, ip);
+      if (!out) return json(res, 400, { ok: false, error: 'message DNS illisible' });
+      res.writeHead(200, { 'content-type': 'application/dns-message', 'cache-control': 'no-store', 'content-length': String(out.length) });
+      return void res.end(out);
+    }
     // WhatsApp (Meta) : pas de jeton Odin ici, chaque envoi est signé par Meta et vérifié par le canal.
     if (url.pathname === '/hook/whatsapp') {
       const wa = this.hooks.whatsapp?.();
