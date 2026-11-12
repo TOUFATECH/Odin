@@ -342,7 +342,9 @@ export function jailPath(root: string, p: string): string {
 }
 
 /** Fichiers d'Odin qui contiennent tes secrets : jamais lus ni écrits par les outils de fichiers. */
-const SECRET_FILES = /(^|[\\/])\.odin[\\/](\.env|env|admin\.json|machines\.json|codex-auth\.json|web-token|compte\.json|sessions\.json|askpass[^\\/]*|id_ed25519[^\\/]*|secrets?[^\\/]*|vault\.json|backup-pass|vapid\.json|[^\\/]*\.enc)$|(^|[\\/])valhalla[\\/]ullr[\\/]signatures[\\/]cle-signatures\.json$|(^|[\\/])valhalla[\\/]valgrind[\\/](certs[\\/][^\\/]*-key\.pem|acme-compte\.pem)$|(^|[\\/])valhalla[\\/]var[\\/]r[ée]glages\.json$|(^|[\\/])valhalla[\\/]bru[\\/]jeton-tunnel$|(^|[\\/])valhalla[\\/]skidbladnir[\\/](r[ée]glages\.json|notes[\\/][^\\/]+)$|(^|[\\/])valhalla[\\/]gladsheim[\\/](r[ée]glages|positions)\.json$|(^|[\\/])valhalla[\\/]thjalfi[\\/]secrets\.json$/i;
+const SECRET_FILES = /(^|[\\/])\.odin[\\/](\.env|env|admin\.json|machines\.json|codex-auth\.json|web-token|compte\.json|sessions\.json|askpass[^\\/]*|id_ed25519[^\\/]*|secrets?[^\\/]*|vault\.json|backup-pass|vapid\.json|[^\\/]*\.enc)$|(^|[\\/])valhalla[\\/]ullr[\\/]signatures[\\/]cle-signatures\.json$|(^|[\\/])valhalla[\\/]valgrind[\\/](certs[\\/][^\\/]*-key\.pem|acme-compte\.pem)$|(^|[\\/])valhalla[\\/]var[\\/]r[ée]glages\.json$|(^|[\\/])valhalla[\\/]bru[\\/]jeton-tunnel$|(^|[\\/])valhalla[\\/]skidbladnir[\\/](r[ée]glages\.json|notes[\\/][^\\/]+)$|(^|[\\/])valhalla[\\/]gladsheim[\\/](r[ée]glages|positions)\.json$|(^|[\\/])valhalla[\\/](thjalfi|urdr)[\\/]secrets\.json$|(^|[\\/])valhalla[\\/](skuld[\\/]archives|urdr[\\/]donnees)([\\/]|$)/i;
+/** Un fichier de secrets d'Odin (ou une copie de tes bases) : jamais lu par les outils de fichiers ni ouvert par Urðr. */
+export const isSecretFile = (p: string) => SECRET_FILES.test(p);
 
 /**
  * Chemin pour les outils de fichiers. Avec l'accès complet (propriétaire), un chemin absolu
