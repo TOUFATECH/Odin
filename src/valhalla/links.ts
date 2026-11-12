@@ -64,6 +64,7 @@ export const LINKS: Link[] = [
   { from: 'var', to: 'skidbladnir', when: 'tu ranges une personne dans un groupe', does: 'elle lit ou écrit dans les espaces de fichiers de ce groupe, et a son espace perso', auto: true, kind: 'donnée' },
   { from: 'skidbladnir', to: 'valgrind', when: 'tu mets les fichiers en ligne', does: 'deux noms dans le proxy : l\'espace (réservé) et les liens publics, en HTTPS', auto: true, kind: 'réflexe' },
   { from: 'skidbladnir', to: 'var', when: 'tu mets les fichiers en ligne', does: 'l\'espace demande la connexion d\'Odin ; l\'identité de la personne décide de ses droits', auto: true, kind: 'réflexe' },
+  { from: 'andvari', to: 'ullr', when: 'un installateur est téléchargé', does: 'l\'antivirus le vérifie ; s\'il est suspect il est mis de côté et ne remplace pas l\'ancienne version', auto: true, kind: 'réflexe' },
   { from: 'skidbladnir', to: 'ullr', when: 'un fichier arrive (envoi, dépôt, lecteur réseau)', does: 'l\'antivirus le vérifie ; s\'il est suspect il est mis de côté, pas publié', auto: true, kind: 'réflexe' },
   { from: 'skidbladnir', to: 'forseti', when: 'un fichier suspect arrive, un espace est presque plein, une synchro a un conflit', does: 'alerte avec la procédure et le bouton qui règle', auto: true, kind: 'donnée' },
   { from: 'skidbladnir', to: 'garmr', when: '5 mots de passe faux sur un lien ou le lecteur réseau', does: 'l\'adresse est bannie (jamais une adresse de la maison)', auto: true, kind: 'réflexe' },

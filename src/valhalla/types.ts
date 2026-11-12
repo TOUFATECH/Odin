@@ -45,6 +45,8 @@ export interface Kpi { label: string; value: string; pct?: number; tone?: Tone; 
 export type Section =
   | { kind: 'table'; title: string; columns: string[]; rows: Array<{ cells: string[]; tone?: Tone; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; /** une autre appli (ex. « ran ») */ module?: string }> }>; empty?: string }
   | { kind: 'list'; title: string; items: Array<{ title: string; detail?: string; tone?: Tone; meta?: string }>; empty?: string }
+  /** Des cartes avec une icône (data: ou /…), un état, une barre de progression et des boutons. */
+  | { kind: 'cards'; title: string; items: Array<{ icon?: string; title: string; sub?: string; badge?: string; tone?: Tone; progress?: number; meta?: string; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; module?: string }> }>; empty?: string }
   | { kind: 'log'; title: string; lines: string[] }
   | { kind: 'text'; title: string; text: string; tone?: Tone }
   | { kind: 'bars'; title: string; items: Array<{ label: string; value: number; display?: string }> }

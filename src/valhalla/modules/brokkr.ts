@@ -39,7 +39,7 @@ export const brokkr: Module = {
   what: 'L\'atelier des modules connectés : trouver, brancher sur Odin, commander et préparer les prises et modules ESP.',
   does: ['trouve les prises et modules flashés sur le réseau (Tasmota, ESPHome)', 'les branche sur le relais d\'Odin en un clic (ils apparaissent ensuite dans Appareils)', 'commandes directes (allumer, consommation, redémarrer)', 'prépare la configuration d\'un nouveau module ESP (température, relais, mouvement, porte)', 'mise à jour du micrologiciel (avec ton accord)'],
   from: ['ESPHome', 'Tasmota'], upstream: ['esphome/esphome', 'arendst/Tasmota'],
-  modes: ['Eitri · prises flashées'],
+  modes: ['Prises flashées'],
   words: ['tasmota', 'esphome', 'esp32', 'esp8266', 'module', 'modules', 'prise connectee', 'prise connectée', 'flasher', 'micrologiciel', 'firmware'],
   actions: [
     { id: 'chercher', label: 'Chercher les modules', what: 'Balaye le réseau local', read: true, words: ['cherche', 'trouve', 'detecte', 'détecte'], run: async (ctx) => {
@@ -70,7 +70,7 @@ export const brokkr: Module = {
     const m = mods(ctx);
     return {
       subtitle: `${m.length} module(s) connu(s)`,
-      tabs: ['Brokkr · modules', 'Eitri · prises flashées'],
+      tabs: ['Brokkr · modules', 'Prises flashées'],
       kpis: [{ label: 'Modules', value: String(m.length) }, { label: 'Branchés sur Odin', value: String(m.filter((x) => x.mqtt).length) }],
       sections: [{ kind: 'table', title: 'Modules trouvés', columns: ['Module', 'Type', 'Adresse', 'Version', 'Relais'], empty: 'Lance « Chercher les modules ».', rows: m.map((x) => ({ cells: [x.name, x.kind, x.ip, x.version ?? '—', x.mqtt ?? 'pas branché'], tone: x.mqtt ? 'bon' : 'attention', actions: x.kind === 'Tasmota' ? [{ action: 'commande', label: 'Allumer', input: { ip: x.ip, commande: 'Power on' } }, { action: 'commande', label: 'Éteindre', input: { ip: x.ip, commande: 'Power off' } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { ip: x.ip } }] : [] })) }],
       side: [{ kind: 'form', title: 'Brancher sur Odin', action: 'brancher', submit: 'Brancher', params: brokkr.actions.find((a) => a.id === 'brancher')?.params ?? [] }, { kind: 'form', title: 'Préparer un module ESP', action: 'preparer', submit: 'Préparer', params: brokkr.actions.find((a) => a.id === 'preparer')?.params ?? [] }],

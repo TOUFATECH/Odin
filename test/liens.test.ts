@@ -27,6 +27,8 @@ function world(): World {
   const fakeFetch = (async (input: string | URL, init?: RequestInit) => {
     const url = String(input); fetched.push({ url, body: typeof init?.body === 'string' ? init.body : undefined });
     if (/pirate\.exemple\/bot\.sh/.test(url)) return new Response(EICAR, { status: 200 });
+    if (url === 'https://api.github.com/repos/odin-test/piege/releases/latest') return Response.json({ tag_name: 'v1.0', html_url: 'h', assets: [{ name: 'piege-1.0.exe', browser_download_url: 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe', size: EICAR.length }] });
+    if (url === 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe') return new Response(EICAR, { status: 200 });
     if (/firehol_level1|feodotracker/.test(url)) return new Response('203.0.113.66\n198.51.100.0/24\n', { status: 200 });
     if (/\/api\/states/.test(url)) return Response.json([{ entity_id: 'media_player.salon', state: 'idle', attributes: { friendly_name: 'Enceinte salon' } }, { entity_id: 'tts.demo', state: 'unknown', attributes: {} }]);
     if (/\/api\/services\//.test(url)) return Response.json([]);
@@ -440,6 +442,12 @@ CHECKS['gjoll>garmr'] = async (w) => {
   const r = await w.v.act('gjoll', 'allumer'); assert.ok(r.ok, r.text);
   try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Gjöll/); }
   finally { await w.v.act('gjoll', 'eteindre'); }
+};
+CHECKS['andvari>ullr'] = async (w) => {
+  await w.v.act('andvari', 'dossier', { chemin: join(w.home, 'logiciels') });
+  await w.v.act('andvari', 'ajouter_source', { nom: 'Piège', depot: 'odin-test/piege', motif: 'piege-{version}.exe' });
+  assert.match((await w.v.act('andvari', 'telecharger', { nom: 'Piège' })).text, /🛡 Piège 1\.0 mis de côté/);
+  assert.ok(w.acts.some((a) => a.module === 'ullr' && a.action === 'fichier' && a.by === 'réflexe'));
 };
 CHECKS['var>skidbladnir'] = async (w) => {
   await w.v.act('var', 'ajouter', { login: 'awa', nom: 'Awa', groupes: 'famille', mot_de_passe: 'une phrase assez longue' });
