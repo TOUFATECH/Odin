@@ -65,6 +65,7 @@ import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '.
 import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
 import { activationPage } from './activate.ts';
+import { setMascot as setVarMascot } from '../valhalla/modules/var.ts';
 import { svg as qrSvg } from '../valhalla/qr.ts';
 import { Accounts, SESSION_RE, clearSessionCookie, sessionCookie, type Via } from './account.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
@@ -120,6 +121,7 @@ export interface WebHooks {
 const UI = readFileSync(new URL('./ui.html', import.meta.url), 'utf8');
 /** La mascotte d'Odin (celle de l'écran de connexion), reprise sur la page d'activation du téléphone. */
 const MASCOT = /<div id="login"[\s\S]*?(<svg viewBox="0 0 120 120"[\s\S]*?<\/svg>)/.exec(UI)?.[1] ?? '';
+setVarMascot(MASCOT);
 const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
 // Application installable (PWA) : icônes, manifeste, service worker (aucun secret dedans).
 /** Espace Cerveau de l'interface (fichier à part, chargé avec le même nonce). */

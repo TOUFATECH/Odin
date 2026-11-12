@@ -364,6 +364,40 @@ CHECKS['valgrind>ran'] = async (w) => {
   const g = view.sections.find((x) => x.kind === 'graph') as { details: Record<string, { actions?: Array<{ module?: string; action: string; input: Record<string, unknown> }> }> };
   assert.deepEqual(g.details['m:192.168.1.10:5000'].actions?.find((a) => a.module === 'ran')?.input, { ip: '192.168.1.10' });
 };
+/** Vár prêt : portail réglé, une personne, un site du proxy réservé. Rend le port HTTPS. */
+async function varUp(w: World, body = 'login=awa&password=faux'): Promise<{ port: number; end: () => void; post: (b?: string) => Promise<number> }> {
+  const p = await proxyUp(w); const https = await import('node:https');
+  await w.v.act('var', 'reglages', { portail: 'connexion.exemple.fr', domaine: 'exemple.fr', double_auth: '' });
+  await w.v.act('var', 'ajouter', { login: 'awa', nom: 'Awa', groupes: 'famille', mot_de_passe: 'une phrase assez longue' });
+  const port = (await import('../src/valhalla/modules/valgrind.ts')).proxyServer()!.httpsPort;
+  const post = (b = body) => new Promise<number>((ok, ko) => { const q = https.request({ host: '127.0.0.1', port, path: '/connexion', method: 'POST', servername: 'connexion.exemple.fr', rejectUnauthorized: false, headers: { host: 'connexion.exemple.fr', 'content-type': 'application/x-www-form-urlencoded', connection: 'close' } }, (r) => { r.resume(); r.on('end', () => ok(r.statusCode!)); }); q.on('error', ko); q.end(b); });
+  return { port, end: p.end, post };
+}
+CHECKS['var>valgrind'] = async (w) => {
+  const u = await varUp(w);
+  try {
+    await w.v.act('valgrind', 'ajouter', { domaines: 'nas.exemple.fr', cible: 'http://127.0.0.1:9', https: 'auto-signé', dns_maison: false, surveiller: false });
+    assert.match((await w.v.act('var', 'proteger_site', { domaine: 'nas.exemple.fr', groupes: 'famille' })).text, /demande maintenant la connexion d'Odin/);
+    assert.equal((w.v.ctx('valgrind').settings.hosts as Array<{ sso?: boolean }>)[0].sso, true);
+    const https = await import('node:https');
+    const st = await new Promise<number>((ok) => https.get({ host: '127.0.0.1', port: u.port, servername: 'nas.exemple.fr', rejectUnauthorized: false, headers: { host: 'nas.exemple.fr', connection: 'close' } }, (r) => { r.resume(); ok(r.statusCode!); }));
+    assert.equal(st, 302, 'renvoyé au portail');
+  } finally { u.end(); }
+};
+CHECKS['var>brisingamen'] = async (w) => {
+  const r = await w.v.act('var', 'ajouter', { login: 'sara', nom: 'Sara', groupes: 'famille' });
+  assert.match(r.text, /Son mot de passe est dans le coffre/, r.text); assert.ok(did(w, 'brisingamen', 'ajouter'));
+};
+CHECKS['var>garmr'] = async (w) => {
+  const u = await varUp(w);
+  try { for (let k = 0; k < 5; k++) await u.post(); assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Garmr appelé au verrouillage'); }
+  finally { u.end(); }
+};
+CHECKS['var>forseti'] = async (w) => {
+  const u = await varUp(w);
+  try { for (let k = 0; k < 5; k++) await u.post(); assert.equal(await u.post('login=awa&password=une+phrase+assez+longue'), 423); assert.ok(w.v.alerts({ module: 'var' }).some((a) => /Compte « awa » verrouillé/.test(a.title) && a.level === 'haute')); }
+  finally { u.end(); }
+};
 CHECKS['gjoll>forseti'] = async (w) => {
   await w.v.act('gjoll', 'ajouter', { nom: 'Invité', fin: '2020-01-01' }).catch(() => undefined);
   const peers = (w.v.ctx('gjoll').settings.peers as Array<{ name: string; expires?: string }> | undefined) ?? [];
@@ -384,6 +418,7 @@ const SIGNALS: Record<string, { alone: [string, Record<string, unknown>]; with: 
   // Un site web n'a qu'un témoin (Idunn) : son DNS qui change ne dit rien seul ; avec sa page d'accueil qui change aussi, c'est un incident.
   idunn: { alone: ['dns_change', { site: 'boutique' }], with: ['idunn', 'titre_change', { site: 'boutique' }], kind: 'site détourné' },
   // Une machine de la maison qui demande un site dangereux ET tombe dans un piège : elle est sans doute infectée.
+  var: { alone: ['verrouillage', { login: 'awa', ip: '203.0.113.90' }], with: ['loki', 'piege', { ip: '203.0.113.90', type: 'identifiants', 'piège': 'ssh', 'détail': 'root/123456' }], kind: 'attaque' },
   valgrind: { alone: ['scan', { ip: '203.0.113.88', chemin: '/.env', site: 'nas.exemple.fr' }], with: ['loki', 'piege', { ip: '203.0.113.88', type: 'identifiants', 'piège': 'ssh', 'détail': 'root/123456' }], kind: 'attaque' },
   vidarr: { alone: ['dns_menace', { ip: '192.168.1.40', domaine: 'c2.virus.example', liste: 'Sites dangereux' }], with: ['loki', 'piege', { ip: '192.168.1.40', type: 'identifiants', 'piège': 'ssh', 'détail': 'root/123456' }], kind: 'attaque' },
 };

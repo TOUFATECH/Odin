@@ -12,6 +12,7 @@ import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } f
 import { ProxyServer, hashPassword, inNet, route, type AccessLog, type Host, type Redirect, type Stream } from '../valgrind/proxy.ts';
 import { LETS_ENCRYPT, LETS_ENCRYPT_STAGING, newKey, obtain } from '../valgrind/acme.ts';
 import { issueCertificate } from '../../web/access.ts';
+import { check as varCheck, portal as varPortal, portalDomain, portalUrl } from './var.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 let srv: ProxyServer | undefined, appCtx: ModCtx | undefined;
@@ -48,7 +49,7 @@ export function certInfo(pem: string, now = Date.now()): { issuer: string; notAf
 }
 function selfSigned(ctx: ModCtx, h: Host): void { const r = issueCertificate(h.domains[0].replace(/^\*\./, ''), h.domains, [], { days: 825 }); writeCert(ctx, h.domains[0], r); }
 /** Le certificat d'un nom : celui du site (exact ou joker), sinon rien (le certificat par défaut d'Odin répond). */
-function certFor(ctx: ModCtx, name: string) { const h = route(hosts(ctx), name); return h && h.tls !== 'aucun' ? readCert(ctx, h.domains[0]) : undefined; }
+function certFor(ctx: ModCtx, name: string) { if (name === portalDomain()) return readCert(ctx, name); const h = route(hosts(ctx), name); return h && h.tls !== 'aucun' ? readCert(ctx, h.domains[0]) : undefined; }
 function defaultCert(ctx: ModCtx) { let c = readCert(ctx, '_odin'); if (!c) { const r = issueCertificate('Odin', ['odin.local'], [], { days: 825 }); writeCert(ctx, '_odin', r); c = r; } return c; }
 async function letsEncrypt(ctx: ModCtx, h: Host): Promise<string> {
   if (!srv?.httpServer || ports(ctx).http !== 80 && ctx.settings.acmeAnyPort !== true) throw new Error('Let\'s Encrypt vérifie par le port 80 : démarre le proxy sur le port 80 (et ouvre-le sur ta box vers cette machine)');
@@ -82,6 +83,8 @@ async function startProxy(ctx: ModCtx): Promise<string> {
   const d = new ProxyServer({
     hosts: () => hosts(ctx), redirects: () => redirects(ctx), cert: (n) => certFor(ctx, n), defaultCert: () => defaultCert(ctx),
     challenge: (t) => challenges.get(t), banned: (ip) => banned.has(ip), log: (e) => record(ctx, e),
+    // Lien Vár → Valgrind : la connexion unique (qui est connecté, a-t-il le droit) et le portail de connexion.
+    sso: (cookie, domain, ip) => varCheck(cookie, domain, ip), portal: { domain: () => portalDomain(), url: () => { const u = portalUrl(); if (!u || !srv) return u; return srv.httpsPort === 443 ? u : `${u}:${srv.httpsPort}`; }, handle: (q, r, secure) => void varPortal(q, r, secure) },
     onAuthFail: (ip, host) => {
       const now = Date.now(), list = [...(authFails.get(ip) ?? []).filter((t) => now - t < 600_000), now]; authFails.set(ip, list);
       ctx.emit('mot_de_passe_refuse', { ip, site: host, essais: list.length });
@@ -204,6 +207,15 @@ export const valgrind: Module = {
       try { const u = new URL(s(i.vers)); if (!/^https?:$/.test(u.protocol)) throw new Error(''); } catch { throw new Error('adresse de destination invalide (https://…)'); }
       ctx.saveSettings({ redirects: [...redirects(ctx), { id: randomBytes(4).toString('hex'), domain: d, to: s(i.vers), code: s(i.code) === '302' ? 302 : 301, keepPath: i.garder_chemin !== false }] });
       return { text: `↪ ${d} → ${s(i.vers)} (${s(i.code) === '302' ? 'temporaire' : 'définitive'}).` };
+    } },
+    { id: 'connexion_unique', label: 'Connexion unique (Vár)', what: 'Le site demande la connexion d\'Odin', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, sso: i.actif !== false } : x))); return { text: `${i.actif !== false ? '🛡' : '🔓'} ${h.domains[0]} ${i.actif !== false ? 'demande la connexion d\'Odin (Vár)' : 'ne demande plus la connexion d\'Odin'}.` }; } },
+    { id: 'portail', label: 'Servir le portail de connexion', what: 'Le nom du portail de Vár, avec son certificat', quick: false, params: [{ key: 'domaine', label: 'Nom du portail', kind: 'text', required: true }], run: async (ctx, i) => {
+      const d = s(i.domaine).toLowerCase(); if (!DOMAIN.test(d) || d.startsWith('*.')) throw new Error('nom invalide');
+      if (hosts(ctx).some((h) => h.domains.includes(d))) throw new Error(`${d} est déjà un site du proxy`);
+      const fake: Host = { id: 'portail', domains: [d], target: 'http://127.0.0.1', enabled: true, tls: 'letsencrypt' };
+      let how = 'auto-signé'; try { await letsEncrypt(ctx, fake); how = 'Let\'s Encrypt'; } catch { selfSigned(ctx, fake); }
+      const ip = s(ctx.settings.lanIp) || lan(); if (ip) await ctx.call('vidarr', 'nom_local', { nom: d, valeur: ip }, `portail ${d} servi par Odin`).catch(() => undefined);
+      return { text: `🚪 Portail ${d} servi par le proxy (certificat ${how}).` };
     } },
     { id: 'retirer_redirection', label: 'Retirer une redirection', what: '', quick: false, params: [{ key: 'domaine', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => { const l = redirects(ctx); if (!l.some((r) => r.domain === s(i.domaine))) throw new Error('aucune redirection pour ce nom'); ctx.saveSettings({ redirects: l.filter((r) => r.domain !== s(i.domaine)) }); return { text: '🗑 Redirection retirée.' }; } },
     { id: 'flux', label: 'Flux TCP', what: 'Un port d\'Odin mène à un service (jeux, SSH, base de données…)', quick: false, params: [{ key: 'port', label: 'Port d\'Odin', kind: 'number', required: true }, { key: 'cible', label: 'Service (adresse:port)', kind: 'text', required: true }], run: async (ctx, i) => {

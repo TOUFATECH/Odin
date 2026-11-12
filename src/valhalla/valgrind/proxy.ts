@@ -23,6 +23,8 @@ export interface Host {
   /** certificat : aucun, auto-signé ou Let's Encrypt */
   tls?: 'aucun' | 'auto' | 'letsencrypt';
   timeoutMs?: number;
+  /** connexion unique par Vár : il faut être connecté (et dans un groupe autorisé) pour passer */
+  sso?: boolean;
 }
 export interface Redirect { id: string; domain: string; to: string; code: 301 | 302; keepPath: boolean }
 export interface Stream { id: string; port: number; target: string; enabled: boolean }
@@ -39,6 +41,10 @@ export interface ProxyDeps {
   log?: (e: AccessLog) => void;
   /** mot de passe raté (Garmr peut bannir l'adresse après plusieurs essais) */
   onAuthFail?: (ip: string, host: string) => void;
+  /** Vár : qui est connecté (d'après son cookie) et a-t-il le droit d'entrer sur ce site ? */
+  sso?: (cookie: string, domain: string, ip: string) => { user: string; groups: string[] } | 'refusé' | undefined;
+  /** Vár : le portail de connexion (son nom, et ce qui répond dessus) */
+  portal?: { domain: () => string | undefined; url: () => string | undefined; handle: (q: IncomingMessage, r: ServerResponse, secure: boolean) => void };
 }
 
 /** Empreinte d'un mot de passe (scrypt, sel aléatoire). */
@@ -98,7 +104,7 @@ export class ProxyServer {
     const ctx = tls.createSecureContext({ cert: c.cert, key: c.key }); this.ctxCache.set(name, { pem, ctx }); return ctx;
   }
   /** Les gardes : bannie, liste d'accès, mot de passe. Rend la raison du refus et son code. */
-  private guard(q: IncomingMessage, h: Host, ip: string): { status: number; why: string; headers?: Record<string, string> } | undefined {
+  private guard(q: IncomingMessage, h: Host, ip: string, secure = false): { status: number; why: string; headers?: Record<string, string>; user?: { user: string; groups: string[] } } | undefined {
     if (this.d.banned?.(ip)) return { status: 403, why: 'adresse bannie (Garmr)' };
     if (h.deny?.some((n) => inNet(ip, n))) return { status: 403, why: 'adresse refusée' };
     if (h.allow?.length && !h.allow.some((n) => inNet(ip, n))) return { status: 403, why: 'adresse pas autorisée' };
@@ -106,6 +112,16 @@ export class ProxyServer {
       const m = /^Basic\s+(.+)$/i.exec(String(q.headers.authorization ?? '')), raw = m ? Buffer.from(m[1], 'base64').toString('utf8') : '';
       const i = raw.indexOf(':'), user = raw.slice(0, i), pass = raw.slice(i + 1);
       if (!m || i < 0 || !h.auth[user] || !checkPassword(pass, h.auth[user])) { if (m) this.d.onAuthFail?.(ip, h.domains[0]); return { status: 401, why: m ? 'mauvais mot de passe' : 'mot de passe demandé', headers: { 'www-authenticate': 'Basic realm="Odin", charset="UTF-8"' } }; }
+    }
+    if (h.sso) {
+      const who = this.d.sso?.(String(q.headers.cookie ?? ''), String(q.headers.host ?? '').toLowerCase().replace(/:\d+$/, ''), ip), portal = this.d.portal?.url();
+      if (who === 'refusé') return { status: 403, why: 'pas dans un groupe autorisé (Vár)' };
+      if (!who) {
+        if (!portal) return { status: 503, why: 'connexion unique sans portail (Vár)' };
+        const back = `${secure ? 'https' : 'http'}://${q.headers.host}${q.url ?? '/'}`;
+        return { status: 302, why: 'connexion demandée (Vár)', headers: { location: `${portal}/?rd=${encodeURIComponent(back)}` } };
+      }
+      return { status: 0, why: '', user: who };
     }
     return undefined;
   }
@@ -115,16 +131,21 @@ export class ProxyServer {
     // Défi Let's Encrypt : servi sur le port 80 pour tous les noms.
     const ch = /^\/\.well-known\/acme-challenge\/([\w-]{10,200})$/.exec(path);
     if (ch && !secure) { const a = this.d.challenge(ch[1]); r.writeHead(a ? 200 : 404, { 'content-type': 'text/plain' }); r.end(a ?? ''); return done(a ? 200 : 404, 'défi Let\'s Encrypt'); }
+    // Le portail de connexion de Vár répond sous son propre nom.
+    if (this.d.portal && name && name === this.d.portal.domain()) { this.d.portal.handle(q, r, secure); return done(200, 'portail Vár'); }
     const rd = this.d.redirects().find((x) => x.domain === name);
     if (rd) { const to = rd.keepPath ? `${rd.to.replace(/\/$/, '')}${path}` : rd.to; r.writeHead(rd.code, { location: to }); r.end(); return done(rd.code, 'redirection'); }
     const h = route(this.d.hosts(), name);
     if (!h) { r.writeHead(404, { 'content-type': 'text/html; charset=utf-8' }); r.end(page('Rien ici', `Aucun site n'est rangé sous le nom « ${name.replace(/[<>&"]/g, '')} » dans le proxy d'Odin.`)); return done(404, 'nom inconnu'); }
     if (!secure && h.forceHttps && this.httpsServer) { const port = this.httpsPort === 443 ? '' : `:${this.httpsPort}`; r.writeHead(301, { location: `https://${name}${port}${path}` }); r.end(); return done(301, 'vers HTTPS'); }
-    const g = this.guard(q, h, ip);
+    const g0 = this.guard(q, h, ip, secure), who = g0?.status === 0 ? g0.user : undefined, g = g0?.status === 0 ? undefined : g0;
+    if (g?.status === 302) { r.writeHead(302, g.headers); r.end(); return done(302, g.why); }
     if (g) { r.writeHead(g.status, { 'content-type': 'text/html; charset=utf-8', ...g.headers }); r.end(page(g.status === 401 ? 'Mot de passe' : 'Accès refusé', g.status === 401 ? 'Ce site demande un identifiant et un mot de passe.' : 'Cette adresse n\'a pas accès à ce site.')); return done(g.status, g.why); }
     const u = new URL(h.target), lib = u.protocol === 'https:' ? https : http;
     const headers: Record<string, string | string[]> = {};
-    for (const [k, v] of Object.entries(q.headers)) if (v !== undefined && !HOP.has(k.toLowerCase())) headers[k] = v;
+    // Les en-têtes d'identité ne viennent jamais du visiteur : seul Vár les pose.
+    for (const [k, v] of Object.entries(q.headers)) if (v !== undefined && !HOP.has(k.toLowerCase()) && !/^remote-|^x-remote-/i.test(k)) headers[k] = v;
+    if (who) { headers['remote-user'] = who.user; headers['remote-groups'] = who.groups.join(','); }
     headers['x-forwarded-for'] = [q.headers['x-forwarded-for'], ip].filter(Boolean).join(', ');
     headers['x-forwarded-proto'] = secure ? 'https' : 'http'; headers['x-forwarded-host'] = name; headers['x-real-ip'] = ip;
     if (!h.preserveHost) headers.host = u.host;
@@ -146,12 +167,13 @@ export class ProxyServer {
     const ip = v4(sock.remoteAddress ?? ''), name = String(q.headers.host ?? '').toLowerCase().replace(/:\d+$/, ''), h = route(this.d.hosts(), name);
     const refuse = (code: number, why: string) => { sock.end(`HTTP/1.1 ${code} ${why}\r\nconnection: close\r\n\r\n`); this.d.log?.({ t: Date.now(), host: name, ip, method: 'UPGRADE', path: q.url ?? '/', status: code, ms: 0, bytes: 0, why }); };
     if (!h) return refuse(404, 'Not Found'); if (!h.websocket) return refuse(400, 'WebSocket off');
-    const g = this.guard(q, h, ip); if (g) return refuse(g.status, g.status === 401 ? 'Unauthorized' : 'Forbidden');
+    const g = this.guard(q, h, ip, secure); if (g && g.status !== 0) return refuse(g.status === 302 ? 401 : g.status, g.status === 401 || g.status === 302 ? 'Unauthorized' : 'Forbidden');
     const u = new URL(h.target), port = Number(u.port || (u.protocol === 'https:' ? 443 : 80));
     const up = u.protocol === 'https:' ? tls.connect({ host: u.hostname, port, servername: net.isIP(u.hostname) ? undefined : u.hostname, rejectUnauthorized: false }) : net.connect(port, u.hostname);
     up.on(u.protocol === 'https:' ? 'secureConnect' : 'connect', () => {
       const lines = [`${q.method} ${u.pathname.replace(/\/$/, '')}${q.url} HTTP/1.1`];
-      for (const [k, v] of Object.entries(q.headers)) if (v !== undefined && k !== 'host') for (const x of [v].flat()) lines.push(`${k}: ${x}`);
+      for (const [k, v] of Object.entries(q.headers)) if (v !== undefined && k !== 'host' && !/^(x-)?remote-/i.test(k)) for (const x of [v].flat()) lines.push(`${k}: ${x}`);
+      if (g?.user) lines.push(`remote-user: ${g.user.user}`, `remote-groups: ${g.user.groups.join(',')}`);
       lines.push(`host: ${h.preserveHost ? q.headers.host : u.host}`, `x-forwarded-for: ${ip}`, `x-forwarded-proto: ${secure ? 'https' : 'http'}`);
       up.write(`${lines.join('\r\n')}\r\n\r\n`); if (head.length) up.write(head);
       sock.pipe(up).pipe(sock);
