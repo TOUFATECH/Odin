@@ -132,6 +132,7 @@ const FLOWS_JS = (() => { try { return readFileSync(new URL('./flows.js', import
 const RUNES_JS = (() => { try { return readFileSync(new URL('./runes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const THEMES_JS = (() => { try { return readFileSync(new URL('./themes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const NOTICES_JS = (() => { try { return readFileSync(new URL('./notices.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
@@ -536,6 +537,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
+    if (url.pathname === '/themes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(THEMES_JS); }
     if (url.pathname === '/notices.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(NOTICES_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/packets.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PACKETS_JS); }

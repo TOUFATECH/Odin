@@ -209,5 +209,13 @@
   /** Change l'humeur « de fond » (celle à laquelle on revient après une expression passagère). */
   function base(el, mood) { if (!el) return; if (el._flash) el._base = mood; else set(el, mood); }
   document.querySelectorAll('.odin svg').forEach(own);
-  window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, blinkSounds, get soundOn() { return soundOn; } };
+  /** Couleur de fond d'Odin (celle du thème choisi) : il la prend au repos ; ses humeurs la changent un moment, puis il y revient. null = sa couleur d'origine. */
+  const NEUTRE = MOODS.neutre.tint.slice();
+  function tintBase(hex) {
+    const ok = typeof hex === 'string' && /^#[0-9a-f]{6}$/i.test(hex);
+    const mix = (h, w, k) => { const a = parseInt(h.slice(1), 16), b = w ? 255 : 0; const c = [16, 8, 0].map((s) => Math.round(((a >> s) & 255) * (1 - k) + b * k)); return `#${c.map((x) => x.toString(16).padStart(2, '0')).join('')}`; };
+    MOODS.neutre.tint = ok ? [mix(hex, false, .14), hex, mix(hex, true, .32), mix(hex, true, .62)] : NEUTRE.slice();
+    document.querySelectorAll('.odin').forEach((el) => { if ((el.dataset.mood || 'neutre') === 'neutre') { delete el.dataset.mood; set(el, 'neutre'); } });
+  }
+  window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, blinkSounds, tintBase, get soundOn() { return soundOn; } };
 })();
