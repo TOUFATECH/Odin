@@ -98,9 +98,9 @@
     const close = () => { dlg.close(); dlg.remove(); };
     const name = String(d.filename || 'configuration.conf').replace(/[^\w.-]/g, '_');
     dlg.append(el('h2', { style: 'margin:0 0 12px;font-size:17px' }, text),
-      d.svg ? el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(d.svg)))}`, alt: 'QR code à scanner avec l\'appli WireGuard' }) : null,
+      d.svg ? el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(d.svg)))}`, alt: d.alt || 'QR code à scanner avec l\'appli WireGuard' }) : null,
       // La configuration contient la clé privée de l'appareil : cachée tant que tu ne demandes pas à la voir.
-      d.conf ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px' }, 'Voir la configuration (contient la clé secrète de l\'appareil)'), el('pre', {}, d.conf)) : null,
+      d.conf ? el('details', { open: d.show ? true : undefined }, el('summary', { style: 'cursor:pointer;min-height:36px' }, d.label || 'Voir la configuration (contient la clé secrète de l\'appareil)'), el('pre', {}, d.conf)) : null,
       el('div', { class: 'va-acts-bar', style: 'margin:12px 0 0' },
         d.conf ? el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(d.conf); e.target.textContent = 'Copié'; } catch { e.target.textContent = 'Copie impossible'; } } }, 'Copier') : null,
         d.conf ? el('button', { class: 'btn small', type: 'button', onclick: () => { const a = el('a', { href: URL.createObjectURL(new Blob([d.conf], { type: 'text/plain' })), download: name }); document.body.append(a); a.click(); a.remove(); } }, `Télécharger ${name}`) : null,

@@ -268,6 +268,32 @@ CHECKS['vordr>forseti'] = async (w) => {
     assert.ok(w.v.alerts({ module: 'vordr' }).some((a) => /✅ NAS répond de nouveau/.test(a.title)), 'retour signalé');
   } finally { srv.close(); }
 };
+CHECKS['vidarr>askr'] = async (w) => {
+  // Un bail du DHCP d'Odin (posé à la main) : l'inventaire crée la fiche, fabricant compris.
+  w.v.ctx('vidarr').saveSettings({ leases: [{ mac: 'b8:27:eb:12:34:56', ip: '192.168.1.60', name: 'Lecteur salon', expires: Date.now() + 3600_000, first: Date.now() }] });
+  await dnsUp(w); await w.v.act('vidarr', 'arreter');
+  const r = await w.v.act('askr', 'synchroniser');
+  assert.match(r.text, /1 appareil\(s\) ajouté\(s\) : Lecteur salon \(ODN-0001\)/, r.text);
+  assert.match((await w.v.act('askr', 'chercher', { q: '192.168.1.60' })).text, /ODN-0001 · Lecteur salon/);
+};
+CHECKS['askr>vordr'] = async (w) => {
+  await w.v.act('askr', 'ajouter', { nom: 'NAS', type: 'serveur', ip: '192.168.1.10', piece: 'Bureau' });
+  const r = await w.v.act('askr', 'surveiller', { appareil: 'NAS' });
+  assert.match(r.text, /NAS surveillé \(ping 192\.168\.1\.10/, r.text);
+  assert.ok(sondes(w).some((m) => m.name === 'NAS' && m.kind === 'ping'));
+};
+CHECKS['askr>brisingamen'] = async (w) => {
+  const r = await w.v.act('askr', 'licence', { nom: 'Office 2024', postes: 3, cle: 'ABCDE-12345-FGHIJ' });
+  assert.match(r.text, /clé rangée dans le coffre/, r.text);
+  assert.ok(did(w, 'brisingamen', 'ajouter'), 'la clé est partie dans le coffre');
+  assert.doesNotMatch(JSON.stringify(w.v.ctx('askr').settings), /ABCDE-12345/, 'jamais en clair dans l\'inventaire');
+};
+CHECKS['askr>forseti'] = async (w) => {
+  const soon = new Date(Date.now() + 5 * 86400_000).toISOString().slice(0, 10);
+  await w.v.act('askr', 'ajouter', { nom: 'PC portable', type: 'portable', garantie: soon, serie: 'SN123' });
+  await w.v.module('askr')!.watch!.run(w.v.ctx('askr'));
+  assert.ok(w.v.alerts({ module: 'askr' }).some((a) => /Garantie de PC portable : plus que [45] jour/.test(a.title) && a.level === 'haute'));
+};
 CHECKS['gjoll>forseti'] = async (w) => {
   await w.v.act('gjoll', 'ajouter', { nom: 'Invité', fin: '2020-01-01' }).catch(() => undefined);
   const peers = (w.v.ctx('gjoll').settings.peers as Array<{ name: string; expires?: string }> | undefined) ?? [];
