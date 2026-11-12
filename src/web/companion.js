@@ -193,6 +193,8 @@
   function onUp(e) {
     if (!drag || e.pointerId !== drag.id) return;
     if (drag.moved) { bud.classList.remove('dragging'); pinnedUntil = Date.now() + 120_000; window.OdinFace?.flash(bud, 'joie', 1500); }
+    // Un simple toucher : la petite fenêtre pour lui parler, sur n'importe quel onglet.
+    else if (window.OdinNotices?.talk) { window.OdinFace?.flash(bud, 'ecoute', 1500); window.OdinNotices.talk(); }
     drag = null;
   }
 

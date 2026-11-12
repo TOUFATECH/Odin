@@ -7,21 +7,39 @@
   'use strict';
   if (window.OdinNotices) return;
   const COLORS = { ok: '#1E7A4C', souci: '#A85A06', grave: '#B8321F' };
+  // La petite bulle prend la couleur du message : humeur, moment, information, souci ou urgence.
+  const TONE = { ok: ['#13301f', '#bff0d1', '#34c77b'], info: ['#16234a', '#c9d6ff', '#5a6fdb'], moment: ['#3b2a0b', '#ffe3a6', '#ffc53d'], fierte: ['#2a1747', '#e0d2ff', '#9166e6'], souci: ['#3a2306', '#ffd9a3', '#f0a020'], grave: ['#4a1210', '#ffd0ca', '#ef4f43'] };
+  const toneOf = (n) => (n.level === 'grave' ? 'grave' : n.level === 'souci' ? 'souci' : /moment|bonjour|bonsoir|bonne nuit/i.test(`${n.kind}`) ? 'moment' : /décision/i.test(`${n.kind}`) ? 'fierte' : /info|réponse|odin/i.test(`${n.kind}`) && !/souci/i.test(`${n.kind}`) ? 'info' : 'ok');
   const SEEN = 'odin-bulle-vue';
   const css = `
-  #odinBubble{position:fixed;z-index:60;left:0;top:0;width:min(320px,calc(100vw - 24px));box-sizing:border-box;text-align:left;border:0;border-radius:18px;padding:12px 16px 12px 16px;color:#fff;font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:3px;box-shadow:0 12px 40px rgba(0,0,0,.35);transition:opacity .2s, transform .2s}
+  #odinBubble{position:fixed;z-index:60;left:0;top:0;max-width:min(320px,calc(100vw - 24px));box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 6px 0 6px;border:0;border-radius:17px;font:500 13.5px/1 inherit;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.3)}
   #odinBubble[hidden]{display:none}
-  #odinBubble .ob-top{display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:700}
-  #odinBubble .ob-top span:last-child{font-weight:500;opacity:.9}
-  #odinBubble .ob-t{font-size:15px;font-weight:600;line-height:1.35}
-  #odinBubble .ob-h{font-size:12px;opacity:.92}
-  #odinBubble .ob-tail{position:absolute;width:16px;height:16px;transform:rotate(45deg);background:inherit}
-  #odinBubble .ob-x{position:absolute;top:2px;right:2px;width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:#fff;font-size:18px;cursor:pointer;opacity:.85}
-  #odinBubble .ob-x:hover{background:rgba(0,0,0,.15)}
-  #odinBubble .ob-top{padding-right:26px}
-  @keyframes obPop{0%{opacity:0;transform:translateY(8px) scale(.94)}100%{opacity:1;transform:none}}
-  #odinBubble.pop{animation:obPop .22s ease-out}
-  #odinAdvice{position:fixed;z-index:61;right:16px;bottom:16px;width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;background:var(--panel,#1f2228);color:var(--ink,#f3f4f6);border:2px solid var(--ob,#3a3f47);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  #odinBubble .ob-dot{width:22px;height:22px;border-radius:50%;flex:none}
+  #odinBubble .ob-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  #odinBubble .ob-say{width:26px;height:26px;border:0;border-radius:13px;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer;opacity:.8;flex:none}
+  #odinBubble .ob-say:hover{background:rgba(255,255,255,.12)}
+  #odinBubble .ob-tail{position:absolute;width:12px;height:12px;transform:rotate(45deg);background:inherit;border-radius:2px}
+  @keyframes obPop{0%{opacity:0;transform:translateY(6px) scale(.92)}100%{opacity:1;transform:none}}
+  #odinBubble.pop{animation:obPop .2s ease-out}
+  @keyframes obBlink{0%,100%{box-shadow:0 6px 16px rgba(0,0,0,.3),0 0 0 0 rgba(239,79,67,.55)}50%{box-shadow:0 6px 16px rgba(0,0,0,.3),0 0 0 6px rgba(239,79,67,0)}}
+  #odinBubble.grave{animation:obBlink 1.6s infinite}
+  #odinTalk{position:fixed;z-index:61;left:0;top:0;width:min(300px,calc(100vw - 24px));box-sizing:border-box;border-radius:18px;background:rgba(30,34,48,.97);color:#eef0f6;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 24px rgba(0,0,0,.4);padding:8px;display:flex;flex-direction:column;gap:8px;font:14px/1.45 inherit}
+  #odinTalk[hidden]{display:none}
+  #odinTalk .ot-h{display:flex;align-items:flex-start;gap:8px;padding:2px 4px 0}
+  #odinTalk .ot-h b{font-weight:600;flex:1;min-width:0}
+  #odinTalk .ot-dot{width:14px;height:14px;border-radius:50%;flex:none;margin-top:3px}
+  #odinTalk .ot-x{width:28px;height:28px;border:0;border-radius:9px;background:transparent;color:#c9ceda;cursor:pointer;flex:none}
+  #odinTalk .ot-d{margin:0 4px;font-size:13px;color:#b9c0cf;white-space:pre-line;max-height:30vh;overflow:auto}
+  #odinTalk .ot-acts{display:flex;flex-wrap:wrap;gap:6px;padding:0 2px}
+  #odinTalk .ot-acts button{height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:inherit;font:500 13px inherit;padding:0 10px;cursor:pointer}
+  #odinTalk .ot-acts button.p{border:0;color:#1a0d02;font-weight:600}
+  #odinTalk form{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);border-radius:12px;padding:4px 4px 4px 10px}
+  #odinTalk input{flex:1;min-width:0;border:0;background:transparent;color:inherit;font:14px inherit;outline:none}
+  #odinTalk form button{width:32px;height:32px;border-radius:10px;border:0;display:grid;place-items:center;cursor:pointer;flex:none}
+  #odinTalk .ot-mic{background:rgba(255,255,255,.1);color:#eef0f6}#odinTalk .ot-mic[aria-pressed=true]{background:#ef4f43;color:#fff}
+  #odinTalk .ot-go{background:#ff8a3d;color:#1a0d02}
+  #odinTalk .ot-tail{position:absolute;width:12px;height:12px;transform:rotate(45deg);background:rgba(30,34,48,.97);border-right:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1)}
+  #odinAdvice{position:fixed;z-index:62;right:16px;bottom:16px;width:min(400px,calc(100vw - 24px));max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;background:rgba(24,27,36,.97);border:1px solid rgba(255,255,255,.09);border-radius:24px!important;box-shadow:0 24px 60px rgba(0,0,0,.5);color:var(--ink,#f3f4f6);border:2px solid var(--ob,#3a3f47);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
   #odinAdvice[hidden]{display:none}
   #odinAdvice .oa-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
   #odinAdvice .oa-chip{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;color:#fff}
@@ -39,15 +57,16 @@
   #odinAdvice .oa-prev button{display:flex;gap:8px;align-items:center;text-align:left;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;padding:6px 4px;border-radius:8px;cursor:pointer}
   #odinAdvice .oa-prev button:hover{background:rgba(127,127,127,.12)}
   #odinAdvice .oa-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  #odinAdvice{color:#eef0f6}#odinAdvice .oa-acts button{border-color:rgba(255,255,255,.14)}
   .odin.alarm .body > circle{fill:#D9452E}
   @keyframes obPulse{0%,100%{filter:drop-shadow(0 0 0 rgba(238,106,85,.7))}50%{filter:drop-shadow(0 0 12px rgba(238,106,85,.9))}}
   .odin.alarm svg{animation:obPulse 1.4s infinite}
-  @media (prefers-reduced-motion:reduce){#odinBubble.pop,.odin.alarm svg{animation:none}}`;
+  @media (prefers-reduced-motion:reduce){#odinBubble.pop,#odinBubble.grave,.odin.alarm svg{animation:none}}`;
   const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'on') for (const [ev, f] of Object.entries(v)) e.addEventListener(ev, f); else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? '' : String(v)); } for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) e.append(k); return e; };
   const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } }); return r.json(); };
   const ago = (iso) => { const s = (Date.now() - Date.parse(iso)) / 1000; return s < 60 ? 'à l\'instant' : s < 3600 ? `il y a ${Math.round(s / 60)} min` : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
 
-  let bubble, tail, panel, current = null, hideT = 0, raf = 0;
+  let bubble, tail, panel, talk, ttail, current = null, hideT = 0, raf = 0, waiting = false, later = null;
   const history = [];
 
   // ---------- Où est Odin ? La mascotte en liberté, sinon celle de la Discussion ----------
@@ -58,18 +77,19 @@
   }
   function mascots() { return [...document.querySelectorAll('.odin')]; }
   function placeBubble() {
-    raf = 0; if (!bubble || bubble.hidden) return;
-    const a = anchor(), w = bubble.offsetWidth, h = bubble.offsetHeight, m = 12;
+    raf = 0; if (!bubble) return;
+    const box = !talk.hidden ? talk : !bubble.hidden ? bubble : null, tl = box === talk ? ttail : tail; if (!box) return;
+    const a = anchor(), w = box.offsetWidth, h = box.offsetHeight, m = 12;
     let x, y, below = false, cx;
     if (a) {
       cx = a.r.left + a.r.width / 2;
-      x = Math.min(Math.max(m, a.r.right - w), innerWidth - w - m);
-      y = a.r.top - h - 14; if (y < m) { y = a.r.bottom + 14; below = true; }
+      x = Math.min(Math.max(m, cx - w / 2), innerWidth - w - m);
+      y = a.r.top - h - 12; if (y < m) { y = a.r.bottom + 12; below = true; }
     } else { x = innerWidth - w - m; y = innerHeight - h - 90; cx = x + w - 40; }
-    bubble.style.transform = '';
-    bubble.style.left = `${Math.round(x)}px`; bubble.style.top = `${Math.round(y)}px`;
-    const tx = Math.min(Math.max(cx - x - 8, 18), w - 34);
-    tail.style.left = `${Math.round(tx)}px`; tail.style.top = below ? '-8px' : ''; tail.style.bottom = below ? '' : '-8px';
+    box.style.transform = '';
+    box.style.left = `${Math.round(x)}px`; box.style.top = `${Math.round(y)}px`;
+    const tx = Math.min(Math.max(cx - x - 6, 12), w - 24);
+    tl.style.left = `${Math.round(tx)}px`; tl.style.top = below ? '-6px' : ''; tl.style.bottom = below ? '' : '-6px';
     raf = requestAnimationFrame(placeBubble);
   }
   function follow() { if (!raf) raf = requestAnimationFrame(placeBubble); }
@@ -80,6 +100,9 @@
     tail = el('span', { class: 'ob-tail', 'aria-hidden': 'true' });
     bubble = el('div', { id: 'odinBubble', hidden: true, role: 'status', 'aria-live': 'polite' });
     document.body.append(bubble);
+    ttail = el('span', { class: 'ot-tail', 'aria-hidden': 'true' });
+    talk = el('section', { id: 'odinTalk', hidden: true, 'aria-label': 'Parler à Odin', on: { keydown: (e) => { if (e.key === 'Escape') closeTalk(); } } });
+    document.body.append(talk);
     panel = el('section', { id: 'odinAdvice', hidden: true, 'aria-label': 'Conseils d\'Odin', on: { keydown: (e) => { if (e.key === 'Escape') closePanel(); } } });
     document.body.append(panel);
   }
@@ -87,18 +110,23 @@
 
   // ---------- Une nouvelle bulle : elle remplace la précédente ----------
   function show(n, o = {}) {
-    build(); current = n; clearTimeout(hideT);
+    build();
+    // Pendant que tu parles à Odin dans la petite fenêtre, une nouvelle bulle attend qu'elle se ferme (sauf urgence).
+    if (talk && !talk.hidden && n.level !== 'grave') { if (!history.some((x) => x.id === n.id)) { history.unshift(n); history.splice(12); } later = [n, o]; return; }
+    current = n; clearTimeout(hideT);
     if (!history.some((x) => x.id === n.id)) { history.unshift(n); history.splice(12); }
-    const color = COLORS[n.level] || COLORS.ok;
-    bubble.style.background = color; bubble.setAttribute('role', n.level === 'grave' ? 'alert' : 'status');
+    const [bg, fg, dot] = TONE[toneOf(n)];
+    later = null; closeTalk(true);
+    bubble.style.background = bg; bubble.style.color = fg; bubble.setAttribute('role', n.level === 'grave' ? 'alert' : 'status');
+    bubble.classList.toggle('grave', n.level === 'grave');
+    bubble.setAttribute('aria-label', `${n.kind} · ${n.app} : ${n.title}. Touche pour répondre.`);
     bubble.replaceChildren(
-      el('span', { class: 'ob-top' }, el('span', {}, n.kind), el('span', {}, `${n.app} · ${ago(n.at)}`)),
+      el('span', { class: 'ob-dot', style: `background:${dot}`, 'aria-hidden': 'true' }),
       el('span', { class: 'ob-t' }, n.title),
-      el('span', { class: 'ob-h' }, n.level === 'grave' ? 'Urgence à regarder : touche pour voir quoi faire ›' : 'Touche pour voir quoi faire ›'),
-      el('button', { type: 'button', class: 'ob-x', 'aria-label': 'Fermer la bulle', on: { click: (e) => { e.stopPropagation(); hide(); } } }, '×'),
+      el('button', { type: 'button', class: 'ob-say', 'aria-label': 'Écouter', title: 'Écouter', on: { click: (e) => { e.stopPropagation(); window.OdinSay?.(`${n.title}. ${n.detail ?? ''}`, true); } } }, svg('M4 9h4l5-4v14l-5-4H4zM17 8a5 5 0 0 1 0 8', 15)),
       tail);
-    bubble.onclick = () => open(n);
-    bubble.tabIndex = 0; bubble.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(n); } };
+    bubble.onclick = () => talkTo(n);
+    bubble.tabIndex = 0; bubble.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); talkTo(n); } };
     bubble.hidden = false; bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop');
     setAlarm(n.level === 'grave');
     const bud = document.getElementById('buddyRoam');
@@ -106,11 +134,38 @@
     window.OdinCompanion?.act?.(n.level === 'ok' ? 'act-joy' : 'act-tilt', 1400);
     // Odin parle : l'urgence est dite à voix haute (si les sons sont activés).
     if (n.level === 'grave' && !o.quiet && window.OdinFace?.soundOn !== false) window.OdinSay?.(`Urgence. ${n.title}`);
-    if (n.level === 'ok') hideT = setTimeout(hide, 25_000);
+    // Vert, bleu, jaune, violet : 4 secondes. Orange : jusqu'au toucher. Rouge : reste et clignote.
+    if (n.level === 'ok') hideT = setTimeout(hide, 4000);
+    // Odin dit ses messages à voix haute quand la voix est activée (l'urgence, toujours).
+    if (n.level !== 'grave' && !o.quiet && window.OdinVoice?.on?.()) window.OdinSay?.(n.title);
     follow();
   }
   function hide() { if (!bubble) return; bubble.hidden = true; if (current) try { localStorage.setItem(SEEN, current.id); } catch { /* navigation privée */ } if (current?.level === 'grave' && panel.hidden) setAlarm(false); }
 
+  // ---------- La petite fenêtre : lire, agir, et parler à Odin depuis n'importe quel onglet ----------
+  function svg(d, z = 16) { const NS = 'http://www.w3.org/2000/svg', s = document.createElementNS(NS, 'svg'), p = document.createElementNS(NS, 'path'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', z); s.setAttribute('height', z); s.setAttribute('aria-hidden', 'true'); p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '2'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round'); s.append(p); return s; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  function talkTo(n) {
+    build(); clearTimeout(hideT); bubble.hidden = true;
+    const [, , dot] = n ? TONE[toneOf(n)] : TONE.info, out = el('p', { class: 'ot-d', role: 'status', 'aria-live': 'polite', hidden: !n?.detail }, n?.detail ?? '');
+    const input = el('input', { type: 'text', placeholder: n ? 'Réponds à Odin…' : 'Dis-moi… (« allume le salon »)', 'aria-label': 'Parle à Odin', enterkeyhint: 'send' });
+    const mic = el('button', { type: 'button', class: 'ot-mic', 'aria-label': 'Parler au micro', 'aria-pressed': 'false' }, svg('M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3', 15));
+    mic.onclick = () => { if (!SR) { out.hidden = false; out.textContent = 'Ce navigateur ne sait pas écrire ce que tu dis (Chrome, Edge ou Safari).'; return; } if (mic._r) { mic._r.stop(); return; } const r = new SR(), base = input.value.trim() ? `${input.value.trim()} ` : ''; let done = ''; r.lang = 'fr-FR'; r.continuous = true; r.interimResults = true; mic._r = r; mic.setAttribute('aria-pressed', 'true'); r.onresult = (ev) => { let live = ''; for (let k = ev.resultIndex; k < ev.results.length; k++) { if (ev.results[k].isFinal) done += ev.results[k][0].transcript; else live += ev.results[k][0].transcript; } input.value = `${base}${done}${live}`.replace(/\s+/g, ' ').trimStart(); }; r.onend = () => { mic._r = null; mic.setAttribute('aria-pressed', 'false'); input.focus(); }; try { r.start(); } catch { mic._r = null; } };
+    const form = el('form', { on: { submit: async (e) => { e.preventDefault(); const q = input.value.trim(); if (!q) return; input.value = ''; out.hidden = false; out.textContent = 'Odin réfléchit…'; waiting = true; const where = [document.title, location.hash.slice(1)].filter(Boolean).join(' · '); const ok = await window.OdinChat?.send?.(n ? `${q}\n\n[à propos de : ${n.app} · ${n.title}]` : q, where); if (!ok) { waiting = false; out.textContent = 'Je n\'ai pas pu envoyer : réessaie.'; } } } }, input, mic, el('button', { type: 'submit', class: 'ot-go', 'aria-label': 'Envoyer' }, svg('M5 12h14M13 6l6 6-6 6', 15)));
+    talk.replaceChildren(
+      el('div', { class: 'ot-h' }, el('span', { class: 'ot-dot', style: `background:${dot}`, 'aria-hidden': 'true' }), el('b', {}, n ? n.title : 'Que veux-tu ?'), el('button', { type: 'button', class: 'ot-x', 'aria-label': 'Fermer', on: { click: () => closeTalk() } }, '×')),
+      out,
+      n ? el('div', { class: 'ot-acts' }, ...n.actions.slice(0, 2).map((a, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', style: i === 0 ? `background:${dot}` : undefined, on: { click: () => runAction(a, out) } }, a.label)), el('button', { type: 'button', on: { click: () => { closeTalk(); open(n); } } }, 'Que faire ?')) : null,
+      form, ttail);
+    talk.hidden = false; follow(); setTimeout(() => input.focus({ preventScroll: true }), 30);
+    window.OdinCompanion?.pin?.(60_000);
+  }
+  function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); if (later) { const [n, o] = later; later = null; setTimeout(() => show(n, o), 300); } }
+  /** La réponse d'Odin arrive : elle s'affiche dans la petite fenêtre (et Odin la dit si la voix est activée). */
+  function reply(text) {
+    if (!talk || talk.hidden || !waiting) return false; waiting = false;
+    const out = talk.querySelector('.ot-d'); out.hidden = false; out.textContent = String(text).replace(/\[humeur:[^\]]*\]/g, '').trim().slice(0, 1200); follow(); return true;
+  }
   // ---------- Toucher la bulle : la page du problème + les conseils ----------
   function goTo(n) {
     if (n.page?.app && n.page.app !== 'odin') { if (location.hash !== '#apps') location.hash = '#apps'; setTimeout(() => window.OdinApps?.app(n.page.app), 150); }
@@ -168,7 +223,7 @@
       if (last && last.id !== seen) { const age = Date.now() - Date.parse(last.at); if ((last.level !== 'ok' && age < 6 * 3600_000) || age < 15 * 60_000) show(last, { quiet: true }); }
     } catch { /* pas connecté : rien */ }
   }
-  window.OdinNotices = { boot, push: (n) => show(n), open, hide, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };
+  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };
   addEventListener('resize', follow);
   const start = () => setTimeout(boot, 1200);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

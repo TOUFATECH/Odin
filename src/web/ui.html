@@ -2122,7 +2122,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       node.append(el('button', { class: 'why', type: 'button', title: 'Pourquoi Odin a répondu ou agi ainsi', onclick: async (e) => { e.target.disabled = true; e.target.textContent = 'Je t\'explique…'; const r = await api('/api/action', { kind: 'explain', peer }); e.target.replaceWith(el('div', { class: 'whyt' }, r.ok ? r.text : r.error)); } }, 'Pourquoi ?'));
     }
     msgs.append(node); msgs.scrollTop = msgs.scrollHeight;
-    if (role === 'assistant' && !loadingHistory) setTimeout(() => window.OdinBuddy?.onReply(node, text), 120);
+    if (role === 'assistant' && !loadingHistory) { window.OdinNotices?.reply?.(text); setTimeout(() => window.OdinBuddy?.onReply(node, text), 120); }
   }
   // Quelle IA a traité la réponse (journal des routages), en petit sous le message.
   function byIa(model) {
