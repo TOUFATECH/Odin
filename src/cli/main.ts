@@ -835,6 +835,51 @@ async function main(): Promise<void> {
     return;
   }
   if (['skills', 'memory', 'sessions', 'pairing', 'cron', 'audit', 'net', 'updates', 'mimir', 'jev', 'decisions', 'ia', 'grants'].includes(cmd)) return admin();
+  // Les invites de commande des applis : « odin commandes [recherche] », « odin <appli> <action> --option valeur ».
+  if (cmd === 'commandes' || cmd === 'commands') {
+    const paths = odinPaths(); initHome(paths);
+    const { allModules } = await import('../valhalla/odin.ts'); const { commandsOf, findCommands } = await import('../valhalla/commands.ts');
+    const all = commandsOf(allModules({ paths, cfg: loadConfig(paths) } as never)), q = pos.slice(1).filter((w) => !['chercher', 'liste', 'q'].includes(w)).join(' ');
+    const list = q ? findCommands(all, q, 30) : all;
+    for (const x of list) console.log(`${c.bold(x.example)}${x.grave ? c.yellow('  (accord)') : ''}\n  ${c.dim(`${x.appName} · ${x.label} — ${x.what}`)}`);
+    console.log(c.dim(`${list.length} commande(s)${q ? ` pour « ${q} »` : ''}. Options : odin <appli> <action> --aide`));
+    return;
+  }
+  {
+    const paths = odinPaths();
+    const { allModules } = await import('../valhalla/odin.ts');
+    const mods = (() => { try { return allModules({ paths, cfg: loadConfig(paths) } as never); } catch { return []; } })();
+    const m = mods.find((x) => x.id === cmd);
+    if (m) {
+      const { commandOf, parseArgs } = await import('../valhalla/commands.ts');
+      const a = m.actions.find((x) => x.id === pos[1]);
+      if (!a || flags.has('--aide') || flags.has('--help')) {
+        if (pos[1] && !a) console.log(c.red(`Action inconnue pour ${m.name} : ${pos[1]}`));
+        for (const x of (a ? [a] : m.actions)) { const k = commandOf(m, x); console.log(`${c.bold(k.line)}\n  ${c.dim(`${x.label} — ${x.what}`)}${(x.params ?? []).map((p) => `\n    --${p.key} : ${p.label}${p.options ? ` (${p.options.join(', ')})` : ''}`).join('')}`); }
+        return;
+      }
+      const input = parseArgs(process.argv.slice(process.argv.indexOf(pos[1]) + 1), a.params);
+      initHome(paths); const cfg = loadConfig(paths), token = ensureWebToken(paths);
+      const { request } = await import(servesTls(cfg.web) ? 'node:https' : 'node:http');
+      const call = (body: unknown) => new Promise<Record<string, unknown>>((res, rej) => {
+        const r = request({ host: '127.0.0.1', port: cfg.web.port, path: '/api/valhalla/act', method: 'POST', rejectUnauthorized: false, headers: { authorization: `Bearer ${token}`, 'x-odin': '1', 'content-type': 'application/json' } }, (x: import('node:http').IncomingMessage) => { let d = ''; x.on('data', (ch: Buffer) => { d += ch; }); x.on('end', () => { try { res(JSON.parse(d)); } catch { rej(new Error(`réponse inattendue (${x.statusCode})`)); } }); });
+        r.on('error', rej); r.end(JSON.stringify(body));
+      });
+      let r: Record<string, unknown>;
+      try { r = await call({ module: m.id, action: a.id, input }); } catch (e) { console.log(c.red(`Odin ne répond pas sur le port ${cfg.web.port} : ${(e as Error).message}. Lance-le (odin web ou le service).`)); process.exitCode = 1; return; }
+      if (r.confirm) {
+        const rl = (await import('node:readline/promises')).createInterface({ input: process.stdin, output: process.stdout });
+        const yes = /^(o|oui|y|yes)$/i.test((await rl.question(`${c.yellow(String(r.confirm))} (o/N) `)).trim()); rl.close();
+        if (!yes) { console.log('Rien n\'a été fait.'); return; }
+        r = await call({ module: m.id, action: a.id, input, confirm: true });
+      }
+      console.log(r.ok === false ? c.red(String(r.text ?? r.error ?? 'échec')) : String(r.text ?? 'Fait.'));
+      if (flags.has('--json') && r.data !== undefined) console.log(JSON.stringify(r.data, null, 2));
+      process.exitCode = r.ok === false ? 1 : 0;
+      return;
+    }
+  }
+
   console.log(HELP);
   process.exitCode = 1;
 }

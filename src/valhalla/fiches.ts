@@ -4,6 +4,7 @@
 // aucun mot de passe, aucun nom d'appareil n'y figure. Odin les tient à jour ; ce que tu écris sous
 // « Mes notes » est conservé.
 
+import { commandOf } from './commands.ts';
 import type { Vault } from '../brain/vault.ts';
 import { examples } from './huginn.ts';
 import { LINKS, USAGES } from './links.ts';
@@ -33,6 +34,7 @@ export function appSheet(m: Module, all: Module[]): Sheet {
     ...examples(m).slice(0, 8).map((e) => `- « ${e} »`),
     '## Ses actions',
     ...m.actions.map((a) => `- **${a.label}** — ${plain(a.what)} *(${kindOf(a)})*`),
+    '## Ses commandes', 'En invite de commande sur la machine d\'Odin (voir [[Commandes]]) :', ...m.actions.map((a) => `- \`${commandOf(m, a).example}\` — ${a.label}`),
     ...(inc.length || out.length || self.length ? ['## Ses liens avec les autres applis', 'Tous ces liens sont automatiques : il n\'y a rien à activer.',
       ...inc.map((l) => `- ${link(l.from)} → ${m.name} : quand ${l.when}, ${l.does}.`),
       ...out.map((l) => `- ${m.name} → ${link(l.to)} : quand ${l.when}, ${l.does}.`),
