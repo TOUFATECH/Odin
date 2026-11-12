@@ -25,11 +25,7 @@
   const css = `
 .va-need{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}.va-need input{flex:1 1 260px;min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--field);background:var(--panel)}
 .va-ans{white-space:pre-wrap;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 18px;line-height:1.6}
-.va-view{margin:0 0 12px}.va-graph{margin:0 0 22px}.va-fam{margin:0 0 22px}.va-fam h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
-.va-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-.va-card{position:relative;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-height:112px;cursor:pointer;transition:border-color .15s,transform .15s}
-.va-card:hover,.va-card:focus-visible{border-color:var(--accent);transform:translateY(-1px)}.va-card b{font-size:16px}.va-card span{color:var(--muted);font-size:14px;line-height:1.45}
-.va-card .va-n{position:absolute;top:10px;right:10px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--bad);color:var(--on-accent);font-size:12px;font-weight:700;display:grid;place-items:center}
+.va-graph{margin:0 0 22px}.va-fam{margin:0 0 22px}.va-fam h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:0 0 10px}
 .va-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:0 0 16px}
 .va-kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}.va-kpi small{display:block;color:var(--muted);font-size:13px}.va-kpi b{font-size:22px;font-variant-numeric:tabular-nums}
 .va-kpi .va-bar{height:6px;border-radius:4px;background:var(--field);margin-top:8px;overflow:hidden}.va-kpi .va-bar i{display:block;height:100%;background:var(--good)}
@@ -113,17 +109,10 @@
     // Ce qu'Odin a fait de lui-même : à garder ou à annuler. Et l'état de la protection, en une ligne.
     const top = el('div', { class: 'va-top' }); box.append(top);
     manips(top); protection(top);
-    const fams = [...new Set(st.modules.map((m) => m.family))];
-    // Deux façons de voir les applis : le graphe (comme le Cerveau, avec les alertes et les nouveautés en pastilles)
-    // ou les cartes rangées par famille. Le choix est gardé.
-    let mode = 'graphe'; try { mode = localStorage.getItem('odin.appsView') || 'graphe'; } catch { /* */ }
-    const cards = el('div', { class: 'va-cards' }), graph = el('div', { class: 'va-graph' });
-    const seg = el('div', { class: 'seg va-view', role: 'group', 'aria-label': 'Affichage des applis' });
-    const setMode = (m) => { mode = m; try { localStorage.setItem('odin.appsView', m); } catch { /* */ } cards.hidden = m !== 'cartes'; graph.hidden = m !== 'graphe'; for (const b of seg.children) b.setAttribute('aria-pressed', String(b.dataset.m === m)); if (m === 'graphe') drawGraph(graph); };
-    for (const [m, l] of [['graphe', 'Graphe'], ['cartes', 'Cartes']]) seg.append(el('button', { type: 'button', 'data-m': m, onclick: () => setMode(m) }, l));
-    box.append(seg, graph, cards);
-    for (const f of fams) cards.append(el('section', { class: 'va-fam' }, el('h2', {}, `${icon[f] ?? ''} ${f}`), el('div', { class: 'va-grid' }, ...st.modules.filter((m) => m.family === f).map((m) => el('button', { class: 'va-card', type: 'button', onclick: () => openApp(m.id) }, m.alerts ? el('span', { class: 'va-n', 'aria-label': `${m.alerts} alerte(s)` }, String(m.alerts)) : null, el('b', {}, m.name), el('span', {}, m.what))))));
-    setMode(mode);
+    // Les applis en graphe (comme le Cerveau), avec les alertes et les nouveautés en pastilles
+    const graph = el('div', { class: 'va-graph' });
+    box.append(graph);
+    drawGraph(graph);
     const al = await api('/api/valhalla/alerts?n=30');
     box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes récentes'),
       el('div', { class: 'va-acts-bar' }, el('label', { for: 'vaLvl', class: 'sub' }, 'Sur ta messagerie à partir de :'), el('select', { id: 'vaLvl', onchange: async (e) => { await api('/api/valhalla/level', { level: e.target.value }); toast('Enregistré.'); } }, ...['info', 'moyenne', 'haute', 'critique'].map((l) => el('option', { selected: l === st.level ? true : undefined }, l))), el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/valhalla/ack', { ids: (al.alerts ?? []).map((a) => a.id) }); openCatalog(); } }, 'Tout marquer vu')),
@@ -207,6 +196,8 @@
     side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes'), alerts(r.alerts)));
     if (r.links.length) side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`))))));
     const mc = $('#mcur'); if (mc) mc.textContent = r.name;
+    // Rán : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
+    if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[1] || null);
     box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), el('div', { class: 'va-page' }, main, side));
     head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
   }

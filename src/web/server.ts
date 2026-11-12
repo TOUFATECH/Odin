@@ -46,6 +46,7 @@ import { signalLinkState } from '../bifrost/channels/signal.ts';
 import { attachmentHint } from '../files/attach.ts';
 import { brainGet, brainPost } from './brain-api.ts';
 import { evolutionTree } from './evolutions.ts';
+import { capture as ranCapture, history as ranHistory, machineFor as ranMachine, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
@@ -123,6 +124,7 @@ const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js'
 const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const PACKETS_JS = (() => { try { return readFileSync(new URL('./packets.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
 const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
@@ -466,6 +468,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
+    if (url.pathname === '/packets.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PACKETS_JS); }
     if (url.pathname === '/graph.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GRAPH_JS); }
     if (url.pathname === '/evolution.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(EVOLUTION_JS); }
     if (url.pathname === '/guide.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GUIDE_JS); }
@@ -571,6 +574,31 @@ export class WebChannel implements Channel {
       const sess = this.sessionOf(req); if (sess && !/^Bearer\s+/i.test(req.headers.authorization ?? '')) this.streamSession.set(res, sess);
       req.on('close', () => { this.clients.delete(res); this.streamSession.delete(res); });
       return;
+    }
+    // Rán : paquets réseau d'une machine. Historique (JSON) et direct (flux d'évènements tant que la page écoute).
+    if (req.method === 'GET' && url.pathname.startsWith('/api/ran/')) {
+      const ip = String(url.searchParams.get('ip') ?? '').trim();
+      if (!isIP(ip)) return json(res, 400, { error: 'adresse IP invalide' });
+      const home = this.odin.paths.home; ranPump(home);
+      const dev = this.odin.inventory.list({ status: 'all' }).find((d) => d.ip === ip);
+      if (url.pathname === '/api/ran/history') {
+        const h = ranHistory(home, ip, { limit: Number(url.searchParams.get('n')) || 300, q: url.searchParams.get('q') ?? '' });
+        const m = ranMachine(home, ip, dev?.hostname);
+        return json(res, 200, { ok: true, ...h, state: ranState(ip), access: m ? { machine: m.label } : null, recording: ((valhallaOf()?.ctx('ran').settings.record as string[] | undefined) ?? []).includes(ip) });
+      }
+      if (url.pathname === '/api/ran/live') {
+        res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-content-type-options': 'nosniff' });
+        const send = (type: string, data: unknown) => { if (!res.writableEnded) res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`); };
+        let c: { stop: () => void; where: string; machine?: string; error?: string };
+        try { c = ranCapture(home, ip, { hostname: dev?.hostname, onPackets: (p) => send('packets', p.slice(-300)), onStatus: (t) => send('status', { text: t }) }); }
+        catch (e) { send('status', { text: (e as Error).message, end: true }); return void res.end(); }
+        send('start', { where: c.where, machine: c.machine ?? null, error: c.error ?? null });
+        if (c.error) { c.stop(); return void res.end(); }
+        const ping = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, 20_000);
+        req.on('close', () => { clearInterval(ping); c.stop(); });
+        return;
+      }
+      return json(res, 404, { error: 'inconnu' });
     }
     // Arbre d'évolution : chaque mise à jour, datée, rangée par appli autour d'Odin
     if (req.method === 'GET' && url.pathname === '/api/evolutions') return json(res, 200, evolutionTree(RUNNING));

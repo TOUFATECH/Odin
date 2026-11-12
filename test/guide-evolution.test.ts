@@ -94,6 +94,7 @@ test('graphes des applis et de la carte : même composant, pastilles, servi par 
   assert.match(g, /window\.OdinGraph = \{ mount \}/);
   assert.ok(!/innerHTML|insertAdjacentHTML|eval\(/.test(g), 'aucun HTML brut');
   assert.match(ui, /src="\/graph\.js"/); assert.match(server, /url\.pathname === '\/graph\.js'/);
-  assert.match(ui, /renderMapGraph/); assert.match(ui, /data-mm="graphe"/);
+  assert.match(ui, /renderMapGraph/); assert.ok(!/data-mm=|id="netMap"/.test(ui), 'plus de plan : le graphe seul');
+  assert.ok(!/va-card|odin\.appsView/.test(va), 'plus de cartes : le graphe seul');
   assert.match(va, /OdinGraph\.mount/); assert.match(va, /update: m\.updates/);
 });
