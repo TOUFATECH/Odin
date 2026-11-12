@@ -1025,6 +1025,44 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   .br-title,.br-ti{font-size:24px}
 }
 @media (prefers-reduced-motion:reduce){.br-step{animation:none}.br-side{transition:none}}
+
+/* ---- Voix v2 (maquette validée) : barre pour parler, mode de réponse ---- */
+.cbox{align-items:center;border-radius:999px;padding:8px;gap:8px}
+.composer .cbox textarea{font-size:17px;padding-left:8px}
+.cbtn{width:48px;height:48px;background:var(--hover);color:var(--ink)}
+.cbtn.send{display:none}
+.composer.has-text .cbtn.send{display:inline-flex;background:var(--accent);color:var(--on-accent)}
+.composer.has-text:not(.recording) .cbtn.mic{display:none}
+.cbtn.mic[aria-pressed=true]{background:var(--accent);color:var(--on-accent);animation:none}
+.cbtn.halt{color:var(--dim)}
+.cbtn.halt svg{width:18px;height:18px}
+.cbtn.halt:disabled{cursor:default;opacity:.65}
+.cbtn.halt:disabled:active{transform:none}
+.cbtn.halt.live{background:var(--ink);color:var(--panel);opacity:1}
+.composer.recording .cbox{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent),var(--shadow)}
+.composer.recording #camBtn{display:none}
+.cwave{display:none;gap:3px;align-items:center;height:24px;flex:none;padding:0 4px}
+.cwave i{display:block;width:3px;height:12px;border-radius:2px;background:var(--accent);animation:cw 1s ease-in-out infinite}
+.cwave i:nth-child(2){animation-delay:.12s}.cwave i:nth-child(3){animation-delay:.24s}.cwave i:nth-child(4){animation-delay:.36s}.cwave i:nth-child(5){animation-delay:.48s}
+.composer.recording .cwave,.composer.talking .cwave{display:inline-flex}
+@keyframes cw{0%,100%{transform:scaleY(.5)}50%{transform:scaleY(1.7)}}
+@media (prefers-reduced-motion:reduce){.cwave i{animation:none}}
+.rmode{display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--hover);gap:2px}
+.rmode button{min-height:36px;padding:0 12px;border:0;border-radius:8px;background:none;color:var(--ink);font:inherit;font-size:14px;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.rmode button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}
+.rmode button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);font-weight:600}
+@media (max-width:860px){.cbtn{width:44px;height:44px}.rmode .rlong{display:none}.rmode button{padding:0 10px}}
+.cpop .danger{color:var(--bad);font-weight:600}
+.cpop hr{border:0;border-top:1px solid var(--line);margin:4px 6px}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
+.vsec{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;margin:0;min-width:0}
+.vsec legend{font-weight:600;font-size:16px;padding:0 4px}
+.vopt{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.vopt:has(input:checked){border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.vopt input{margin-top:3px}
+.vtrash{display:flex;flex-direction:column;gap:6px}
+.vtrash .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.vtrash .row span{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
 </style>
 </head>
 <body>
@@ -1138,17 +1176,20 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           <div class="tip" id="buddyTip" role="status" aria-live="polite" hidden><div class="tip-t" id="tipText"></div><div class="tip-acts" id="tipActs"></div></div>
           <span class="odin chat-buddy" id="buddyChat" aria-hidden="true" title="Odin"><svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" focusable="false"><defs><radialGradient id="odinBody" cx="50%" cy="46%" r="54%"><stop class="s1" offset="0" stop-color="#E19B1F"/><stop class="s2" offset=".5" stop-color="#EDB03D"/><stop class="s3" offset=".82" stop-color="#F8CC70"/><stop class="s4" offset="1" stop-color="#FFE3A0"/></radialGradient><radialGradient id="odinHalo" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFE7AE" stop-opacity=".46"/><stop offset=".93" stop-color="#FFE7AE" stop-opacity=".3"/><stop offset="1" stop-color="#FFE7AE" stop-opacity="0"/></radialGradient><radialGradient id="odinHalo2" cx="50%" cy="50%" r="50%"><stop offset=".8" stop-color="#FFF6DC" stop-opacity=".34"/><stop offset=".93" stop-color="#FFF6DC" stop-opacity=".2"/><stop offset="1" stop-color="#FFF6DC" stop-opacity="0"/></radialGradient><filter id="odinSoft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation=".8"/></filter><filter id="odinBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1"/></filter></defs><g class="orbit o1"><circle class="halo" cx="63" cy="64" r="49" fill="url(#odinHalo)" filter="url(#odinBlur)"/></g><g class="orbit o2"><circle class="halo" cx="57.5" cy="57" r="48" fill="url(#odinHalo2)" filter="url(#odinBlur)"/></g><g class="body"><circle cx="60" cy="60" r="44" fill="url(#odinBody)" filter="url(#odinSoft)"/><g class="eyes"><g class="brow l"><rect class="eye l" x="43" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g><g class="brow r"><rect class="eye r" x="68" y="45" width="9" height="22" rx="4.5" fill="#fff"/></g></g></g></svg></span>
           <div class="head"><div><h1 id="convTitle">Discussion</h1><div class="sub" id="convSub">Odin répond ici ; les validations apparaissent dans le fil.</div></div>
-            <div class="hacts"><button class="hbtn" id="dryBtn" type="button" aria-pressed="false" title="Mode essai : Odin prépare et explique tout, sans rien changer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg><span class="hl">Essai</span></button><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn" id="handsBtn" type="button" aria-pressed="false" title="Mains libres : dis « Odin, … » et il t'écoute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path class="wave" d="M2 9v4M22 9v4"/></svg><span class="hl">Mains libres</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
+            <div class="hacts"><button class="hbtn" id="dryBtn" type="button" aria-pressed="false" title="Mode essai : Odin prépare et explique tout, sans rien changer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-5-9V3"/><path d="M7.5 15h9"/></svg><span class="hl">Essai</span></button><div class="rmode" role="group" aria-label="Mode de réponse" id="replyMode"><button type="button" data-m="voix" aria-pressed="true" title="Odin parle et écrit sa réponse"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/></svg><span>Voix<span class="rlong"> + texte</span></span></button><button type="button" data-m="texte" aria-pressed="false" title="Odin écrit seulement, même quand tu lui parles"><span>Texte<span class="rlong"> seul</span></span></button></div><button class="hbtn" id="speakBtn" type="button" aria-pressed="false" title="Lire les réponses à voix haute" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span class="hl">Voix</span></button><button class="hbtn" id="handsBtn" type="button" aria-pressed="false" title="Mains libres : dis « Odin, … » et il t'écoute"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path class="wave" d="M2 9v4M22 9v4"/></svg><span class="hl">Mains libres</span></button><button class="hbtn convs-btn" id="convsBtn" type="button" title="Conversations précédentes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="hl">Historique</span></button><button class="hbtn" id="newConv" type="button" title="Nouvelle conversation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="hl">Nouvelle</span></button><button class="hbtn stop" id="stopBtn" type="button" title="Arrêter Odin" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2"/></svg><span class="hl">Arrêter</span></button></div></div>
           <div class="notice" id="demoNotice" hidden>Odin n'a pas encore de modèle (mode démo). <a href="#" id="goSettings">Ouvre les Réglages</a> pour en choisir un : c'est l'affaire d'une minute.</div>
           <div class="msgs" id="msgs" aria-live="polite"></div>
           <div class="typing" id="typing"></div>
           <form class="composer" id="composer">
             <label for="input" class="sr">Message pour Odin</label>
             <div class="cbox">
-              <label class="cbtn" id="camBtn" title="Joindre des fichiers : photo, vidéo, son, PDF, Word, Excel… (ou glisse-les ici)" aria-label="Joindre des fichiers"><input type="file" id="camFile" multiple hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"></path></svg></label>
-              <textarea id="input" rows="1" placeholder="Écris à Odin…" title="Entrée pour envoyer, Maj+Entrée pour aller à la ligne" enterkeyhint="send"></textarea>
-              <button class="cbtn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Parler à Odin (micro)" title="Parler à Odin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
+              <label class="cbtn" id="camBtn" title="Joindre des fichiers : photo, vidéo, son, PDF, Word, Excel… (ou glisse-les ici)" aria-label="Joindre des fichiers"><input type="file" id="camFile" multiple hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></label>
+              <button class="cbtn cancel" type="button" id="micCancel" aria-label="Annuler l'enregistrement" title="Annuler (Échap)" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+              <textarea id="input" rows="1" placeholder="Maintenez pour parler" title="Écris ici, ou maintiens le micro (ou la barre Espace) pour parler. Entrée pour envoyer, Maj+Entrée pour aller à la ligne." enterkeyhint="send"></textarea>
+              <span class="cwave" id="cWave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+              <button class="cbtn mic" type="button" id="micBtn" aria-pressed="false" aria-label="Maintenir pour parler à Odin" title="Maintiens pour parler, relâche pour envoyer (ou Espace)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg></button>
               <button class="cbtn send" type="submit" aria-label="Envoyer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+              <button class="cbtn halt" type="button" id="haltBtn" aria-label="Arrêter Odin" title="Arrêter Odin (Échap)" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg></button>
             </div>
           </form>
         </div>
@@ -1521,9 +1562,55 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             <div class="status" id="p-status" role="status"></div>
           </div></article>
 
+          <article class="card" data-sec="voix"><form class="form" id="f-voice2">
+            <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><h2 style="margin:0">Voix</h2><span class="pill good" id="vo-badge">100 % local · hors ligne</span></div>
+            <p class="sub" style="margin:0">Comment Odin t'écoute, te répond et se laisse couper. Tout se passe sur sa machine.</p>
+            <div class="vgrid">
+              <fieldset class="vsec"><legend>Réponses</legend>
+                <label class="vopt"><input type="radio" name="vo-rep" value="voix"><span><b>Voix + texte</b><br><span class="sub">Odin parle et affiche sa réponse</span></span></label>
+                <label class="vopt"><input type="radio" name="vo-rep" value="texte"><span><b>Texte seul</b><br><span class="sub">Même quand tu lui parles au micro</span></span></label>
+                <label class="check"><input type="checkbox" id="vo-tg"> Note vocale sur Telegram quand la voix est activée</label>
+                <span class="hint">À l'oral : « réponds par écrit » ou « parle-moi ».</span>
+              </fieldset>
+              <fieldset class="vsec"><legend>Écoute</legend>
+                <label class="check"><input type="checkbox" id="vo-hold"> Maintenir le micro (ou la barre Espace) pour parler</label>
+                <label class="check"><input type="checkbox" id="vo-live"> Afficher le texte pendant que je parle</label>
+                <label class="check"><input type="checkbox" id="vo-echo"> Annulation d'écho (Odin ne s'entend pas lui-même)</label>
+                <div class="field"><label for="vo-sens">Sensibilité du micro : <span id="vo-sensV"></span></label><input id="vo-sens" type="range" min="1" max="10" step="1"></div>
+                <div class="field"><label for="vo-wait">Attente en fin de phrase : <span id="vo-waitV"></span></label><input id="vo-wait" type="range" min="500" max="3000" step="100"></div>
+                <div class="field"><label for="vo-wake">Mot de réveil (mains libres)</label><input id="vo-wake" autocomplete="off" maxlength="30"></div>
+              </fieldset>
+              <fieldset class="vsec"><legend>Interruptions</legend>
+                <label class="check"><input type="checkbox" id="vo-barge"> Me laisser couper Odin en parlant</label>
+                <label class="check"><input type="checkbox" id="vo-mmh"> Ignorer « oui », « mmh », « d'accord »</label>
+                <div class="field"><label for="vo-stop">Mots d'arrêt immédiat</label><input id="vo-stop" autocomplete="off"><span class="hint">Séparés par des virgules.</span></div>
+                <div class="field"><label for="vo-keep">Garder un sujet interrompu pendant</label><select id="vo-keep"><option value="10">10 minutes</option><option value="30">30 minutes</option><option value="60">1 heure</option><option value="240">4 heures</option><option value="1440">1 jour</option></select></div>
+              </fieldset>
+              <fieldset class="vsec"><legend>Voix d'Odin</legend>
+                <div class="field"><label for="vo-rate">Vitesse : <span id="vo-rateV"></span></label><input id="vo-rate" type="range" min="0.7" max="1.3" step="0.05"></div>
+                <div class="field"><label for="vo-vol">Volume : <span id="vo-volV"></span></label><input id="vo-vol" type="range" min="0" max="100" step="5"></div>
+                <div class="field"><label for="vo-lex">Prononciations</label><textarea id="vo-lex" rows="3" spellcheck="false" placeholder="Muninn = Mou-ninne&#10;Mamoudzou = Ma-moud-zou"></textarea><span class="hint">Un mot par ligne : mot = façon de le dire.</span></div>
+                <div><button class="btn small" type="button" id="vo-try">Écouter un essai</button></div>
+              </fieldset>
+              <fieldset class="vsec"><legend>Cerveau pour la voix</legend>
+                <label class="vopt"><input type="radio" name="vo-brain" value="sans-ia"><span><b>Sans IA</b><br><span class="sub">Commandes, mémoire et fichiers. Marche toujours.</span></span></label>
+                <label class="vopt"><input type="radio" name="vo-brain" value="auto"><span><b>Automatique</b><br><span class="sub">Les IA réglées (locale d'abord), sinon sans IA.</span></span></label>
+                <label class="check"><input type="checkbox" id="vo-local"> 100 % local : la voix ne passe jamais par un service en ligne</label>
+              </fieldset>
+              <fieldset class="vsec"><legend>Confidentialité</legend>
+                <label class="check"><input type="checkbox" id="vo-private"> Mode privé : ne rien enregistrer</label>
+                <p class="sub" style="margin:0">Conversations, souvenirs et réglages sont rangés en fichiers dans le dossier d'Odin. Aucune base de données.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" type="button" id="vo-exportAll">Exporter tout l'historique</button></div>
+                <div class="vtrash" id="vo-trash"></div>
+              </fieldset>
+            </div>
+            <div><button class="btn primary" type="submit">Enregistrer</button></div>
+            <div class="status" id="vo-status" role="status"></div>
+          </form></article>
+
           <article class="card" data-sec="voix"><form class="form" id="f-voice">
-            <h2>Voix</h2>
-            <p class="sub" style="margin:0">Odin comprend ce que tu dis (Whisper) et te répond à voix haute, dans l'interface et en notes vocales sur Telegram. Avec Piper et un Whisper local, tout reste sur ta machine, gratuitement.</p>
+            <h2>Services de la voix</h2>
+            <p class="sub" style="margin:0">Qui écoute et qui parle. Tant que « 100 % local » est coché (au-dessus), Odin utilise seulement Whisper et Piper installés sur sa machine : les services en ligne ci-dessous ne servent qu'une fois cette case décochée.</p>
             <label class="check"><input type="checkbox" id="v-enabled"> Activer la voix</label>
             <div class="field"><label for="v-ttsProvider">Qui parle</label>
               <select id="v-ttsProvider"><option value="elevenlabs">ElevenLabs (en ligne, voix naturelles, copie de voix)</option><option value="piper">Piper (sur ta machine, gratuit, hors ligne)</option><option value="openai">OpenAI ou serveur local compatible (Kokoro, openedai-speech…)</option></select>
@@ -2231,6 +2318,61 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font:14px/1.55 system-ui,sans-serif;max-width:760px;margin:30px auto;color:#111;padding:0 16px}h1{font-size:20px}.m{margin:12px 0;padding:10px 14px;border-radius:10px;white-space:pre-wrap}.user{background:#f3eee2;margin-left:60px}.assistant{background:#f5f5f5;margin-right:60px}.w{font-size:11px;color:#777;font-weight:700;letter-spacing:.05em}</style></head><body><h1>${esc(title)}</h1><div style="color:#777;font-size:12px">Exporté d'Odin le ${new Date().toLocaleString('fr-FR')}</div>${h.messages.map((m) => `<div class="m ${m.role}"><div class="w">${m.role === 'user' ? 'TOI' : 'ODIN'}</div>${esc(m.text)}</div>`).join('')}<script>setTimeout(()=>print(),300)<\/script></body></html>`);
     w.document.close();
   }
+
+  // ---------- Exporter / supprimer une conversation (corbeille 7 jours, annulable) ----------
+  async function download(url, fallback) {
+    const r = await fetch(url, { headers: { 'x-odin': '1' } });
+    if (!r.ok) { let e = 'Rien à exporter.'; try { e = (await r.json()).error || e; } catch {} say(e, [], 4000); return; }
+    const name = /filename="([^"]+)"/.exec(r.headers.get('content-disposition') || '')?.[1] || fallback;
+    const a = el('a', { href: URL.createObjectURL(await r.blob()), download: name }); document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }
+  function openExport(p, title) {
+    let fmtSel = 'md';
+    const fbtn = (v, label) => el('button', { type: 'button', class: 'btn', 'aria-pressed': String(v === fmtSel), 'data-f': v, onclick: (e) => { fmtSel = v; for (const b of dlg.querySelectorAll('[data-f]')) b.setAttribute('aria-pressed', String(b.dataset.f === v)); syncPdf(); } }, label);
+    const radio = (v, label, checked) => el('label', { class: 'check' }, el('input', { type: 'radio', name: 'ex-what', value: v, ...(checked ? { checked: true } : {}), onchange: () => syncPdf() }), label);
+    const d1 = el('input', { type: 'date' }), d2 = el('input', { type: 'date' });
+    const raw = el('input', { type: 'checkbox' });
+    const pdfHint = el('span', { class: 'hint' });
+    const what = () => dlg.querySelector('input[name="ex-what"]:checked')?.value || 'une';
+    const syncPdf = () => { const pdfOk = what() === 'une'; dlg.querySelector('[data-f="pdf"]').disabled = !pdfOk; if (!pdfOk && fmtSel === 'pdf') dlg.querySelector('[data-f="md"]').click(); pdfHint.textContent = pdfOk ? '' : 'PDF : une conversation à la fois.'; dlg.querySelector('.ex-dates').hidden = what() !== 'periode'; };
+    const dlg = el('dialog', { class: 'stdlg', 'aria-labelledby': 'ex-t' },
+      el('h2', { id: 'ex-t' }, 'Exporter'),
+      el('fieldset', { class: 'field', style: 'border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:6px' }, el('legend', { class: 'sub' }, 'Quoi'),
+        radio('une', `Cette conversation (${title})`, true), radio('periode', 'Une période', false),
+        el('div', { class: 'ex-dates', style: 'display:flex;gap:8px;flex-wrap:wrap;padding-left:28px' }, el('label', { class: 'sub', style: 'display:flex;flex-direction:column;gap:4px' }, 'Du', d1), el('label', { class: 'sub', style: 'display:flex;flex-direction:column;gap:4px' }, 'Au', d2)), radio('tout', 'Tout l\'historique', false)),
+      el('fieldset', { class: 'field', style: 'border:0;padding:0;margin:0' }, el('legend', { class: 'sub' }, 'Format'),
+        el('div', { class: 'seg', style: 'display:flex;gap:8px;flex-wrap:wrap' }, fbtn('md', 'Markdown'), fbtn('pdf', 'PDF'), fbtn('json', 'JSON')), pdfHint),
+      el('label', { class: 'check' }, raw, 'Inclure les étapes d\'Odin (outils utilisés)'),
+      el('div', { style: 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap' },
+        el('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Annuler'),
+        el('button', { type: 'button', class: 'btn primary', onclick: async () => {
+          const w = what();
+          if (fmtSel === 'pdf') { dlg.close(); return exportConv(p, title); }
+          const q = new URLSearchParams({ format: fmtSel, ...(raw.checked ? { raw: '1' } : {}) });
+          if (w === 'une') q.set('peer', p); else q.set('all', '1');
+          if (w === 'periode') { if (d1.value) q.set('from', String(new Date(d1.value + 'T00:00').getTime())); if (d2.value) q.set('to', String(new Date(d2.value + 'T23:59:59').getTime())); }
+          dlg.close(); await download('/api/conversations/export?' + q, 'conversations-odin.' + fmtSel);
+        } }, 'Télécharger')));
+    document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal(); syncPdf();
+  }
+  function askDelete(p, title) {
+    const forget = el('input', { type: 'checkbox' });
+    const dlg = el('dialog', { class: 'stdlg', role: 'alertdialog', 'aria-labelledby': 'del-t', 'aria-describedby': 'del-d' },
+      el('h2', { id: 'del-t' }, `Supprimer « ${String(title).replace(/^\[[^\]]*\]\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 80)} » ?`),
+      el('p', { id: 'del-d', style: 'margin:0' }, 'Elle part dans la corbeille pendant 7 jours, puis elle est effacée pour de bon : messages et passages retrouvables.'),
+      el('label', { class: 'check' }, forget, 'Oublier aussi ce qu\'Odin a retenu de cette conversation'),
+      el('div', { style: 'display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap' },
+        el('button', { type: 'button', class: 'btn', onclick: () => dlg.close() }, 'Garder'),
+        el('button', { type: 'button', class: 'btn danger', style: 'background:var(--bad);color:#fff;border-color:var(--bad)', onclick: async () => {
+          dlg.close();
+          const r = await api('/api/action', { kind: 'conv_delete', peer: p, forget: forget.checked });
+          if (r && r.ok === false) return say(r.error || 'Suppression impossible.', [], 4000);
+          if (p === peer) { peer = 'c-' + Date.now().toString(36); try { localStorage.setItem('odin.peer', peer); } catch {} loadHistory(); }
+          renderConvs();
+          say('Conversation supprimée · corbeille 7 jours', [{ label: 'Annuler', primary: true, run: async () => { await api('/api/action', { kind: 'conv_restore', peer: p }); say('Conversation remise.', [], 2500); } }], 10000);
+        } }, 'Supprimer')));
+    document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal();
+  }
   function renderConvs() {
     const box = $('#convs'); box.textContent = '';
     const search = el('input', { type: 'search', class: 'csearch', placeholder: 'Chercher dans l\'historique…', 'aria-label': 'Chercher dans les conversations', value: convQuery,
@@ -2261,7 +2403,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           el('div', { class: 'cpop' },
             el('button', { type: 'button', onclick: () => api('/api/action', { kind: 'conv_pin', peer: c.peer, on: !c.pinned }) }, c.pinned ? 'Désépingler' : 'Épingler'),
             el('button', { type: 'button', onclick: () => { const n = prompt('Nom de la conversation', c.title || ''); if (n != null) api('/api/action', { kind: 'conv_rename', peer: c.peer, title: n }); } }, 'Renommer'),
-            el('button', { type: 'button', onclick: () => exportConv(c.peer, c.title || 'Conversation avec Odin') }, 'Exporter en PDF')))));
+            el('button', { type: 'button', onclick: (e) => { e.target.closest('details').open = false; openExport(c.peer, c.title || 'Conversation avec Odin'); } }, 'Exporter…'),
+            el('hr'),
+            el('button', { type: 'button', class: 'danger', onclick: (e) => { e.target.closest('details').open = false; askDelete(c.peer, c.title || 'cette conversation'); } }, 'Supprimer')))));
     }
   }
 
@@ -3338,7 +3482,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   let speakOn = true;
   try { localStorage.removeItem('odin.speak'); } catch { /* ancien réglage par appareil */ }
   const speakBtn = $('#speakBtn');
-  function renderSpeak() { speakBtn.setAttribute('aria-pressed', String(speakOn)); speakBtn.classList.toggle('on', speakOn); dispatchEvent(new Event('odin:voice')); }
+  function renderSpeak() {
+    speakBtn.setAttribute('aria-pressed', String(speakOn)); speakBtn.classList.toggle('on', speakOn);
+    for (const b of document.querySelectorAll('#replyMode button')) b.setAttribute('aria-pressed', String((b.dataset.m === 'voix') === speakOn));
+    dispatchEvent(new Event('odin:voice'));
+  }
+  for (const b of document.querySelectorAll('#replyMode button')) b.addEventListener('click', () => setSpeak(b.dataset.m === 'voix'));
   renderSpeak();
   async function setSpeak(on) {
     speakOn = Boolean(on); renderSpeak();
@@ -3357,6 +3506,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return;
       if (player) { player.pause(); URL.revokeObjectURL(player.src); }
       player = new Audio(URL.createObjectURL(await r.blob()));
+      player.volume = Math.min(1, Math.max(0, state?.voice?.speech?.volume ?? 1));
       const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking')); chatBuddy(); moodHold('parle'); player.onended = player.onpause = (ev) => { faces.forEach((o) => o.classList.remove('talking')); chatBuddy(); moodRelease();
         // Conversation continue : en mains libres, après sa réponse Odin t'écoute 8 s sans qu'il faille redire « Odin ».
         if (ev.type === 'ended' && handsOn) { awake = Date.now(); moodHold('ecoute'); say('Je t\'écoute…', [], 2500); setTimeout(() => { if (awake && Date.now() - awake >= 7900) { awake = 0; moodRelease(); } }, 8000); } };
@@ -3368,7 +3518,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   function readWithBrowser(text) {
     try {
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text.replace(/[*_`#>]+/g, '').replace(/https?:\/\/\S+/g, 'lien').slice(0, 1500)); u.lang = 'fr-FR';
+      const u = new SpeechSynthesisUtterance(text.replace(/[*_`#>]+/g, '').replace(/https?:\/\/\S+/g, 'lien').slice(0, 1500)); u.lang = 'fr-FR'; u.volume = Math.min(1, Math.max(0, state?.voice?.speech?.volume ?? 1)); u.rate = state?.voice?.speech?.rate ?? 1;
       const v = frenchVoice(); if (v) u.voice = v;
       const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking'));
       u.onend = u.onerror = () => faces.forEach((o) => o.classList.remove('talking'));
@@ -3398,8 +3548,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     { name: 'Me parler', steps: [
       { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion, c\'est ici que tu me parles, comme à une personne : « mets à jour mes serveurs », « qui est connecté au wifi ? », « résume ce PDF », « bloque le téléphone inconnu ». Entrée pour envoyer, Maj et Entrée pour aller à la ligne.' },
       { v: 'chat', q: '#camBtn', t: 'Le trombone : joins-moi des photos, des vidéos, des sons, des PDF, des fichiers Word ou Excel. Tu peux aussi les glisser dans la discussion, ou les coller.' },
-      { v: 'chat', q: '#micBtn', t: 'Le micro : parle-moi au lieu d\'écrire. Je transcris et je réponds.' },
-      { v: 'chat', q: '#speakBtn', t: '« Voix » : je te lis mes réponses à voix haute.' },
+      { v: 'chat', q: '#micBtn', t: 'Le micro : maintiens-le (ou la barre Espace) pour me parler, relâche pour envoyer. Le carré noir à côté m\'arrête quand je parle.' },
+      { v: 'chat', q: '#replyMode', t: '« Voix + texte » : je te réponds à voix haute et par écrit. « Texte seul » : j\'écris seulement, même quand tu me parles. Tu peux aussi me dire « réponds par écrit » ou « parle-moi ».' },
       { v: 'chat', q: '#handsBtn', t: '« Mains libres » : dis « Odin » et je t\'écoute, sans toucher l\'écran. Dis « stop » pour me couper la parole.' },
       { v: 'chat', q: '#dryBtn', t: 'Le mode Essai : je prépare et j\'explique tout, sans rien changer. Parfait pour voir ce que je ferais avant de me laisser agir.' },
       { v: 'chat', q: '#convsBtn', t: 'L\'historique de tes conversations, rangé par jour. Tu peux en épingler, les renommer ou les exporter en PDF. « Nouvelle » ouvre une conversation vierge.' },
@@ -3920,7 +4070,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };
     rec.onstop = () => { moodRelease(); stream.getTracks().forEach((t) => t.stop()); btn._rec = null; btn.setAttribute('aria-pressed', 'false'); onDone(new Blob(parts, { type: rec.mimeType || 'audio/webm' })); };
     btn._rec = rec; btn.setAttribute('aria-pressed', 'true'); rec.start(); moodHold('ecoute');
-    hintEl.textContent = '🎙 Je t\'écoute… clique encore pour terminer.';
+    hintEl.textContent = btn.id === 'micBtn' ? 'Je t\'écoute… relâche pour envoyer (ou touche encore le micro).' : '🎙 Je t\'écoute… clique encore pour terminer.';
   }
   // Les yeux d'Odin : une photo de la caméra (sur téléphone) ou une image de l'ordinateur.
   $('#camBtn').addEventListener('click', () => moodHold('regarde'));
@@ -3967,9 +4117,18 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     attached.forEach((a) => a.thumb && URL.revokeObjectURL(a.thumb)); attached = []; renderAttached();
     return ok.map((a) => ({ file: a.file, type: a.type, size: a.size, name: a.f.name, icon: ficon(a.f) }));
   }
-  $('#micBtn').addEventListener('click', () => {
-    if (!state?.voice?.stt && !$('#micBtn')._rec) { $('#typing').textContent = 'Pour parler à Odin, active Whisper dans Réglages → Voix.'; return; }
-    record($('#micBtn'), async (blob) => {
+  // Barre pour parler : maintiens le micro (ou la barre Espace) pour parler, relâche pour envoyer.
+  // Un appui court = marche / arrêt. ✕ ou Échap annule. Odin se tait dès que tu commences à parler.
+  const micBtn = $('#micBtn'), composerEl = $('#composer');
+  let micCancelled = false, micDownAt = 0;
+  async function micStart() {
+    if (micBtn._rec) return;
+    if (!state?.voice?.stt) { $('#typing').textContent = 'Pour parler à Odin, installe la voix locale dans Réglages → Voix.'; return; }
+    haltOdin(false);
+    micCancelled = false; composerEl.classList.add('recording'); $('#micCancel').hidden = false;
+    await record(micBtn, async (blob) => {
+      composerEl.classList.remove('recording'); $('#micCancel').hidden = true;
+      if (micCancelled) { $('#typing').textContent = ''; return; }
       $('#typing').textContent = 'Transcription…';
       const r = await (await fetch('/api/voice/transcribe', { method: 'POST', headers: { 'content-type': blob.type, 'x-odin': '1' }, body: blob })).json();
       $('#typing').textContent = '';
@@ -3977,11 +4136,92 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       if (!r.text) { $('#typing').textContent = 'Je n\'ai rien entendu.'; return; }
       $('#input').value = r.text; send();
     }, $('#typing'));
+    if (!micBtn._rec) { composerEl.classList.remove('recording'); $('#micCancel').hidden = true; }
+  }
+  function micStop(cancel = false) { if (!micBtn._rec) return; micCancelled = cancel; micBtn._rec.stop(); }
+  micBtn.addEventListener('pointerdown', (e) => { if (e.button > 0) return; e.preventDefault(); if (micBtn._rec) { micDownAt = 0; micStop(); return; } micDownAt = Date.now(); micStart(); });
+  micBtn.addEventListener('pointerup', () => { if (micDownAt && Date.now() - micDownAt > 400) micStop(); micDownAt = 0; });
+  micBtn.addEventListener('pointercancel', () => { if (micDownAt) micStop(true); micDownAt = 0; });
+  micBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+  micBtn.addEventListener('click', (e) => { if (e.detail === 0) { if (micBtn._rec) micStop(); else micStart(); } }); // clavier (Entrée)
+  $('#micCancel').addEventListener('click', () => micStop(true));
+  // Arrêter Odin : il se tait tout de suite (voix de l'appli ou du navigateur), et s'il travaille encore, il s'arrête.
+  function odinTalking() { try { return Boolean(document.querySelector('.odin.talking')) || (window.speechSynthesis?.speaking ?? false) || Boolean(player && !player.paused); } catch { return false; } }
+  function haltOdin(stopWork = true) {
+    try { player?.pause(); } catch {} try { speechSynthesis?.cancel(); } catch {} try { tourAudio?.pause(); } catch {}
+    if (stopWork && busy) api('/api/message', { peer, text: '/stop' });
+  }
+  $('#haltBtn').addEventListener('click', () => haltOdin(true));
+  setInterval(() => {
+    const talking = odinTalking(), live = talking || busy, h = $('#haltBtn');
+    h.disabled = !live; h.classList.toggle('live', live);
+    composerEl.classList.toggle('talking', talking && !micBtn._rec);
+    const ph = talking ? 'Odin parle… touche ■ ou Échap pour l\'arrêter' : busy ? 'Odin travaille… ■ pour l\'arrêter' : 'Maintenez pour parler';
+    if ($('#input').placeholder !== ph) $('#input').placeholder = ph;
+  }, 250);
+  // Clavier : Espace maintenu (hors d'un champ) = parler ; Échap = annuler l'enregistrement, sinon arrêter Odin.
+  const typingIn = (el0) => el0 && (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(el0.tagName) || el0.isContentEditable);
+  const chatOpen = () => Boolean($('#v-chat')?.offsetParent) && !document.querySelector('dialog[open]');
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && chatOpen()) { if (micBtn._rec) micStop(true); else if (odinTalking() || busy) haltOdin(true); return; }
+    if (e.code === 'Space' && !e.repeat && chatOpen() && !typingIn(document.activeElement) && state?.voice?.listen?.holdToTalk !== false) { e.preventDefault(); micDownAt = Date.now(); micStart(); }
   });
+  addEventListener('keyup', (e) => { if (e.code === 'Space' && micDownAt && micBtn._rec) { micStop(); micDownAt = 0; } });
+
+  // Réglages → Voix (conversation) : réponses, écoute, interruptions, voix d'Odin, cerveau, confidentialité, corbeille.
+  let voDirty = false;
+  $('#f-voice2').addEventListener('input', () => { voDirty = true; voLabels(); });
+  function voLabels() {
+    $('#vo-sensV').textContent = $('#vo-sens').value + ' / 10';
+    $('#vo-waitV').textContent = (Number($('#vo-wait').value) / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' s';
+    const r = Number($('#vo-rate').value); $('#vo-rateV').textContent = Math.abs(r - 1) < 0.01 ? 'normale' : r < 1 ? 'plus lente' : 'plus rapide';
+    $('#vo-volV').textContent = $('#vo-vol').value + ' %';
+  }
+  function renderVoiceOptions() {
+    const V = state.settings?.voice; if (!V || !V.listen) return;
+    const T = state.trash || [];
+    $('#vo-trash').replaceChildren(...(T.length ? [el('b', {}, `Corbeille (${T.length})`), ...T.slice(0, 20).map((x) => el('div', { class: 'row' },
+      el('span', {}, `${(x.title || 'Conversation').slice(0, 60)} · ${x.messages} message(s) · supprimée le ${new Date(x.deleted).toLocaleDateString('fr-FR')}`),
+      el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/action', { kind: 'conv_restore', peer: x.peer }); say('Conversation remise.', [], 2500); } }, 'Remettre'))),
+      el('div', {}, el('button', { class: 'btn small', type: 'button', style: 'color:var(--bad);border-color:var(--bad)', onclick: async () => { if (!confirm('Effacer pour de bon les conversations de la corbeille ?')) return; const r = await api('/api/action', { kind: 'conv_trash_empty' }); say(r.info || 'Corbeille vidée.', [], 3000); } }, 'Vider la corbeille'))]
+      : [el('span', { class: 'hint' }, 'Corbeille vide. Une conversation supprimée y reste 7 jours.')]));
+    $('#vo-badge').hidden = !V.localOnly;
+    if (voDirty) return;
+    for (const r of document.querySelectorAll('input[name="vo-rep"]')) r.checked = r.value === (V.replyMode || 'voix');
+    for (const r of document.querySelectorAll('input[name="vo-brain"]')) r.checked = r.value === (V.brain || 'auto');
+    $('#vo-tg').checked = state.settings.voice.voiceReplies !== false;
+    $('#vo-hold').checked = V.listen.holdToTalk !== false; $('#vo-live').checked = Boolean(V.listen.live); $('#vo-echo').checked = Boolean(V.listen.echoCancel);
+    $('#vo-sens').value = V.listen.sensitivity; $('#vo-wait').value = V.listen.endSilenceMs; $('#vo-wake').value = V.listen.wakeWord;
+    $('#vo-barge').checked = Boolean(V.interrupt.bargeIn); $('#vo-mmh').checked = Boolean(V.interrupt.ignoreBackchannel);
+    $('#vo-stop').value = (V.interrupt.stopWords || []).join(', ');
+    $('#vo-keep').value = [10, 30, 60, 240, 1440].includes(V.interrupt.keepTopicMin) ? String(V.interrupt.keepTopicMin) : '30';
+    $('#vo-rate').value = V.speech.rate; $('#vo-vol').value = Math.round(V.speech.volume * 100);
+    $('#vo-lex').value = Object.entries(V.speech.pronunciations || {}).map(([k, v]) => `${k} = ${v}`).join('\n');
+    $('#vo-local').checked = V.localOnly !== false; $('#vo-private').checked = Boolean(V.privacy?.privateMode);
+    voLabels();
+  }
+  $('#f-voice2').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const lex = Object.fromEntries($('#vo-lex').value.split('\n').map((l) => l.split('=')).filter((x) => x.length === 2 && x[0].trim() && x[1].trim()).map(([k, v]) => [k.trim(), v.trim()]));
+    voDirty = false;
+    await save('voice_options', {
+      replyMode: document.querySelector('input[name="vo-rep"]:checked')?.value || 'voix',
+      brain: document.querySelector('input[name="vo-brain"]:checked')?.value || 'auto',
+      voiceReplies: $('#vo-tg').checked, localOnly: $('#vo-local').checked,
+      listen: { holdToTalk: $('#vo-hold').checked, live: $('#vo-live').checked, echoCancel: $('#vo-echo').checked, sensitivity: Number($('#vo-sens').value), endSilenceMs: Number($('#vo-wait').value), wakeWord: $('#vo-wake').value },
+      interrupt: { bargeIn: $('#vo-barge').checked, ignoreBackchannel: $('#vo-mmh').checked, stopWords: $('#vo-stop').value, keepTopicMin: Number($('#vo-keep').value) },
+      speech: { rate: Number($('#vo-rate').value), volume: Number($('#vo-vol').value) / 100, pronunciations: lex },
+      privacy: { privateMode: $('#vo-private').checked },
+    }, '#vo-status', '✓ Réglages de la voix enregistrés.');
+    speakOn = (document.querySelector('input[name="vo-rep"]:checked')?.value || 'voix') === 'voix'; renderSpeak();
+  });
+  $('#vo-try').addEventListener('click', async () => { const was = speakOn; speakOn = true; await sayAloud('Bonjour, je suis Odin. Voici ma voix avec ces réglages.'); speakOn = was; });
+  $('#vo-exportAll').addEventListener('click', () => download('/api/conversations/export?all=1&format=md', 'conversations-odin.md'));
   // Réglages de la voix
   let voicesLoaded = false;
   function renderVoice() {
     const V = state.settings?.voice; if (!V) return;
+    try { renderVoiceOptions(); } catch (e) { console.error(e); }
     if (speakOn !== (state.voice?.speakReplies !== false)) { speakOn = state.voice?.speakReplies !== false; renderSpeak(); }
     const sec = state.settings.secrets;
     $('#v-elevenHint').textContent = sec.ELEVENLABS_API_KEY?.set ? `Clé enregistrée (${sec.ELEVENLABS_API_KEY.hint}). Laisse vide pour la garder.` : 'Clé sur elevenlabs.io → Profil → API Keys.';

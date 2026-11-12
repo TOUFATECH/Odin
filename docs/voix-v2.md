@@ -47,7 +47,7 @@ fichiers sur Odin (`~/.odin/memoire/`) et dans son cerveau Muninn, qui fait les 
 
 ## Reste à faire
 
-- [ ] Interface selon la maquette (barre « Maintenez pour parler », menu Exporter / Supprimer, Réglages → Voix) : après validation.
+- [x] Interface selon la maquette validée (v1.13.0) : barre « Maintenez pour parler » (+, micro, carré stop), choix « Voix + texte / Texte seul », menu Exporter / Supprimer avec corbeille et Annuler, page Réglages → Voix.
 - [ ] Service vocal temps réel Bragi (Python) : Silero, Smart Turn, transcription en direct, coupure < 200 ms, reprise par segments.
 - [ ] Huginn pour la voix : lexique appris, corrections par prononciation.
 - [ ] Projet actif : index des fichiers d'un projet et réponses sourcées sans IA.
