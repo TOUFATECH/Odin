@@ -132,6 +132,20 @@
     } else if (s.kind === 'list') box.append(s.items.length ? el('ul', { class: 'va-list' }, ...s.items.map((i) => el('li', { class: i.tone ? `va-tone-${i.tone}` : '' }, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null, i.meta ? el('small', {}, i.meta) : null))) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
     else if (s.kind === 'log') box.append(el('pre', { class: 'va-log' }, s.lines.join('\n') || '—'));
     else if (s.kind === 'text') box.append(el('p', { class: s.tone ? `va-tone-${s.tone}` : '' }, s.text));
+    else if (s.kind === 'courbe') {
+      // Courbes en SVG : une ligne et une aire par série, l'échelle à gauche, les heures en bas, la valeur au survol.
+      const W = 640, H = 180, P = 34, max = Math.max(1, ...s.series.flatMap((x) => x.points)), n = Math.max(2, s.labels.length);
+      const X = (i) => P + (i * (W - P - 8)) / (n - 1), Y = (v) => H - 22 - (v / max) * (H - 34);
+      const col = { bon: 'var(--good)', attention: 'var(--warn)', mauvais: 'var(--bad)', neutre: '#5b8fd9' };
+      const fmt = (v) => (s.unit ? `${v >= 100 ? Math.round(v) : v.toFixed(1)} ${s.unit}` : String(Math.round(v)));
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', `${s.title} : ${s.series.map((x) => `${x.name} ${fmt(x.points.at(-1) ?? 0)}`).join(', ')}`); svg.style.width = '100%';
+      let inner = `<g fill="var(--muted)" font-size="10">${[0, 0.5, 1].map((k) => `<text x="0" y="${Y(max * k) + 3}">${fmt(max * k)}</text><line x1="${P}" x2="${W - 8}" y1="${Y(max * k)}" y2="${Y(max * k)}" stroke="var(--line)" stroke-dasharray="3 4"/>`).join('')}`;
+      const step = Math.max(1, Math.ceil(n / 6)); s.labels.forEach((l, i) => { if (i % step === 0) inner += `<text x="${X(i)}" y="${H - 6}" text-anchor="middle">${l}</text>`; }); inner += '</g>';
+      for (const x of s.series) { const c = col[x.tone] ?? 'var(--accent, #0b7f7c)', pts = x.points.map((v, i) => `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' '); inner += `<polygon points="${X(0)},${Y(0)} ${pts} ${X(x.points.length - 1)},${Y(0)}" fill="${c}" opacity=".12"/><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2"/>`; }
+      svg.innerHTML = inner;
+      const legend = el('div', { class: 'va-acts-bar', style: 'margin:6px 0 0;font-size:13px' }, ...s.series.map((x) => el('span', {}, el('b', { style: `color:${col[x.tone] ?? 'var(--accent, #0b7f7c)'}` }, '● '), `${x.name} : ${fmt(x.points.at(-2) ?? x.points.at(-1) ?? 0)}`)));
+      box.append(s.series.some((x) => x.points.some((v) => v > 0)) ? el('div', {}, svg, legend) : el('p', { class: 'sub' }, s.empty ?? 'Rien pour l\'instant.'));
+    }
     else if (s.kind === 'bars') { const max = Math.max(1, ...s.items.map((i) => i.value)); box.append(s.items.length ? el('div', { class: 'va-bars' }, ...s.items.map((i) => el('div', { class: 'va-brow' }, el('span', {}, i.label), el('i', { style: `width:${Math.round((i.value / max) * 100)}%` }), el('b', {}, i.display ?? String(i.value))))) : el('p', { class: 'sub' }, 'Rien.')); }
     else if (s.kind === 'form') box.append(form(mod, s.action, s.params, s.submit));
     // Assistant de configuration : étapes numérotées, faites ou à faire, chacune avec son bouton.

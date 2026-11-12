@@ -32,7 +32,8 @@ function store(home: string): DatabaseSync {
     CREATE INDEX IF NOT EXISTS pk_at ON pk(at);
     CREATE INDEX IF NOT EXISTS pk_src ON pk(src, at);
     CREATE INDEX IF NOT EXISTS pk_dst ON pk(dst, at);
-    CREATE TABLE IF NOT EXISTS names (ip TEXT PRIMARY KEY, name TEXT NOT NULL, at INTEGER NOT NULL);`);
+    CREATE TABLE IF NOT EXISTS names (ip TEXT PRIMARY KEY, name TEXT NOT NULL, at INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS seen (dev TEXT NOT NULL, kind TEXT NOT NULL, val TEXT NOT NULL, first INTEGER NOT NULL, PRIMARY KEY (dev, kind, val));`);
   return db;
 }
 export const KEEP_DAYS = 7, KEEP_MAX = 250_000, RAW_MAX = 4096;
@@ -103,6 +104,49 @@ export function flows(home: string, ip: string | undefined, o: { since?: number;
   for (const h of hosts) { const r = d.prepare('SELECT name FROM names WHERE ip = ?').get(h) as { name?: string } | undefined; if (r?.name) names.set(h, r.name); }
   return { flows: list.map((x) => ({ ...x, apps: String(x.apps ?? '').split(',').filter(Boolean).slice(0, 6), site: x.site ?? '' })), names: Object.fromEntries(names) };
 }
+// ---------- Trafic en direct (comme Sniffnet) ----------
+/** Le sens d'un paquet vu de la maison : sortant (maison → Internet), entrant (Internet → maison) ou local. */
+export const dirOf = (src: string, dst: string): 'sortant' | 'entrant' | 'local' => (isPrivate(src) && !isPrivate(dst) && !isBroadcast(dst) ? 'sortant' : !isPrivate(src) && isPrivate(dst) ? 'entrant' : 'local');
+/** Le débit par tranche de temps (octets entrants, sortants, locaux). */
+export function throughput(home: string, o: { since: number; bucketMs: number; ip?: string; until?: number }): Array<{ t: number; entrant: number; sortant: number; local: number }> {
+  const d = store(home), until = o.until ?? Date.now(), n = Math.max(1, Math.min(720, Math.ceil((until - o.since) / o.bucketMs)));
+  const out = Array.from({ length: n }, (_, i) => ({ t: o.since + i * o.bucketMs, entrant: 0, sortant: 0, local: 0 }));
+  const rows = d.prepare(`SELECT at, src, dst, len FROM pk WHERE at >= ? AND at < ?${o.ip ? ' AND (src = ? OR dst = ?)' : ''}`).all(...[o.since, until, ...(o.ip ? [o.ip, o.ip] : [])]) as Array<{ at: number; src: string; dst: string; len: number }>;
+  for (const r of rows) { const i = Math.min(n - 1, Math.floor((r.at - o.since) / o.bucketMs)); out[i][dirOf(r.src, r.dst)] += r.len; }
+  return out;
+}
+/** Les appareils de la maison : envoyé, reçu, paquets, applis, pairs d'Internet. */
+export function devices(home: string, since: number) {
+  const d = store(home), m = new Map<string, { ip: string; sent: number; recv: number; n: number; apps: Map<string, number>; peers: Map<string, number>; last: number }>();
+  const rows = d.prepare('SELECT at, src, dst, len, COALESCE(NULLIF(app, \'\'), proto) app FROM pk WHERE at >= ?').all(since) as Array<{ at: number; src: string; dst: string; len: number; app: string }>;
+  const get = (ip: string) => { let x = m.get(ip); if (!x) m.set(ip, x = { ip, sent: 0, recv: 0, n: 0, apps: new Map(), peers: new Map(), last: 0 }); return x; };
+  for (const r of rows) {
+    for (const [ip, me, other] of [[r.src, 'sent', r.dst], [r.dst, 'recv', r.src]] as const) {
+      if (!isPrivate(ip) || isBroadcast(ip)) continue;
+      const x = get(ip); x[me] += r.len; x.n++; x.last = Math.max(x.last, r.at); x.apps.set(r.app, (x.apps.get(r.app) ?? 0) + r.len);
+      if (!isPrivate(other) && !isBroadcast(other)) x.peers.set(other, (x.peers.get(other) ?? 0) + r.len);
+    }
+  }
+  const name = d.prepare('SELECT name FROM names WHERE ip = ?');
+  return [...m.values()].map((x) => ({ ip: x.ip, name: (name.get(x.ip) as { name?: string } | undefined)?.name ?? '', sent: x.sent, recv: x.recv, n: x.n, last: x.last,
+    apps: [...x.apps].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k), peers: [...x.peers].sort((a, b) => b[1] - a[1]).slice(0, 50) }))
+    .sort((a, b) => b.sent + b.recv - (a.sent + a.recv));
+}
+/** Les échanges avec Internet depuis `since` : (appareil, adresse, appli, site, octets) pour pays et nouveautés. */
+export function external(home: string, since: number): Array<{ dev: string; far: string; app: string; site: string; bytes: number }> {
+  const rows = store(home).prepare('SELECT src, dst, COALESCE(NULLIF(app, \'\'), proto) app, site, SUM(len) bytes FROM pk WHERE at >= ? GROUP BY src, dst, app, site').all(since) as Array<{ src: string; dst: string; app: string; site: string; bytes: number }>;
+  const out: Array<{ dev: string; far: string; app: string; site: string; bytes: number }> = [];
+  for (const r of rows) { const w = dirOf(r.src, r.dst); if (w === 'local') continue; out.push({ dev: w === 'sortant' ? r.src : r.dst, far: w === 'sortant' ? r.dst : r.src, app: r.app, site: r.site ?? '', bytes: r.bytes }); }
+  return out;
+}
+/** Retient ce qu'un appareil a déjà fait ; rend true la première fois (pays, service…). */
+export function firstSeen(home: string, dev: string, kind: string, val: string, now = Date.now()): boolean {
+  return Number(store(home).prepare('INSERT OR IGNORE INTO seen(dev, kind, val, first) VALUES (?,?,?,?)').run(dev, kind, val, now).changes) > 0;
+}
+/** Depuis quand on connaît cet appareil (première chose retenue). */
+export function knownSince(home: string, dev: string): number | undefined { return (store(home).prepare('SELECT MIN(first) f FROM seen WHERE dev = ?').get(dev) as { f: number | null }).f ?? undefined; }
+export function recentFirsts(home: string, since: number) { return store(home).prepare('SELECT dev, kind, val, first FROM seen WHERE first >= ? ORDER BY first DESC LIMIT 40').all(since) as Array<{ dev: string; kind: string; val: string; first: number }>; }
+
 export function clear(home: string, ip?: string): number {
   const d = store(home);
   return Number((ip ? d.prepare('DELETE FROM pk WHERE src = ? OR dst = ?').run(ip, ip) : d.prepare('DELETE FROM pk').run()).changes);

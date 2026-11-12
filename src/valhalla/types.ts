@@ -50,6 +50,8 @@ export type Section =
   | { kind: 'log'; title: string; lines: string[] }
   | { kind: 'text'; title: string; text: string; tone?: Tone }
   | { kind: 'bars'; title: string; items: Array<{ label: string; value: number; display?: string }> }
+  /** Des courbes dans le temps (débit entrant / sortant…) : une valeur par étiquette. */
+  | { kind: 'courbe'; title: string; labels: string[]; series: Array<{ name: string; tone?: Tone; points: number[] }>; unit?: string; empty?: string }
   | { kind: 'form'; title: string; action: string; params: Param[]; submit: string }
   /** assistant de configuration : étapes dans l'ordre, faites ou non, chacune avec l'action qui la fait */
   | { kind: 'steps'; title: string; items: Array<{ title: string; detail?: string; done: boolean; action?: string; input?: Record<string, unknown>; button?: string }> }

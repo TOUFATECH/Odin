@@ -125,7 +125,8 @@ export const naglfar: Module = {
     const was = (ctx.settings.running as string[] | undefined) ?? [];
     const now = cts.filter((c) => c.state.status === 'en marche' || c.state.status === 'redémarre').map((c) => c.spec.name);
     // Arrêté à la main (odin stop, bouton, discussion) : ce n'est pas une panne. Seul un conteneur sorti tout seul (ou disparu) alerte.
-    for (const n of was) if (!now.includes(n) && cts.find((x) => x.spec.name === n)?.state.status !== 'arrêté') { const c = cts.find((x) => x.spec.name === n); ctx.alert({ level: 'haute', title: `Le conteneur « ${n} » s'est arrêté`, detail: c ? `${c.state.status}${c.state.exitCode !== undefined ? ` (code ${c.state.exitCode})` : ''}${c.state.error ? ` — ${c.state.error}` : ''}` : 'disparu', key: `down:${n}` }); ctx.emit('conteneur_arrete', { conteneur: n }); }
+    // Supprimé à la main (rm) : plus là, pas une panne non plus.
+    for (const n of was) if (!now.includes(n) && cts.find((x) => x.spec.name === n)?.state.status === 'sorti') { const c = cts.find((x) => x.spec.name === n); ctx.alert({ level: 'haute', title: `Le conteneur « ${n} » s'est arrêté`, detail: c ? `${c.state.status}${c.state.exitCode !== undefined ? ` (code ${c.state.exitCode})` : ''}${c.state.error ? ` — ${c.state.error}` : ''}` : 'disparu', key: `down:${n}` }); ctx.emit('conteneur_arrete', { conteneur: n }); }
     ctx.saveSettings({ running: now });
   } },
 };
