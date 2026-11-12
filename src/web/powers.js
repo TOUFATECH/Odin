@@ -305,43 +305,40 @@
       }, T);
       return T + D * 1.1;
     },
-    beam(S, p, from, snap) { // un gros rayon jaillit d'Odin ; dès qu'il touche la fenêtre, elle fond et se perce jusqu'à disparaître
-      const { box, g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), k = F(), D = DUR() * 1.25;
-      const src = from ?? { x: -30, y: Math.max(40, r.y - 120) };
-      const inside = src.x > r.x && src.x < r.x + r.w && src.y > r.y && src.y < r.y + r.h;
-      const cx = inside ? r.x + r.w / 2 : Math.min(r.x + r.w - 2, Math.max(r.x + 2, src.x)), cy = inside ? r.y + r.h / 2 : Math.min(r.y + r.h - 2, Math.max(r.y + 2, src.y));
-      // On vise un peu dans la fenêtre pour que le rayon y entre franchement.
-      const tx = cx + (r.x + r.w / 2 - cx) * 0.12, ty = cy + (r.y + r.h / 2 - cy) * 0.12, dx = tx - src.x, dy = ty - src.y, dist = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
-      const th = Math.round(Math.max(26, Math.min(54, Math.min(r.w, r.h) * 0.4)) * Math.min(1.3, k)), EXT = 130, HOLD = D;
-      const beam = el(L, `left:${src.x}px;top:${src.y - th / 2}px;width:${dist}px;height:${th}px;transform-origin:0 50%;transform:rotate(${ang}deg);z-index:20`);
-      const glow = el(beam, `left:0;top:${-th * 0.6}px;width:100%;height:${th * 2.2}px;border-radius:${th}px;background:linear-gradient(180deg,transparent,rgba(255,110,20,.45) 30%,rgba(255,150,40,.6) 50%,rgba(255,110,20,.45) 70%,transparent);filter:blur(6px)`);
-      const body = el(beam, `left:0;top:0;width:100%;height:100%;border-radius:${th}px;background:linear-gradient(180deg,rgba(255,80,10,.0),#ff5a10 18%,#ffb020 38%,#fff3b0 50%,#ffb020 62%,#ff5a10 82%,rgba(255,80,10,0))`);
+    beam(S, p, from, snap) { // un gros rayon jaillit d'Odin et balaie la fenêtre : elle se désagrège là où il passe, il la suit jusqu'à la fin
+      const { g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), k = F(), EXT = 140, SW = DUR() * 1.5;
+      const src = from ?? { x: -30, y: Math.max(40, r.y - 120) }, ltr = src.x <= r.x + r.w / 2, cols = colorsOf(snap.src ?? g);
+      const th = Math.round(Math.max(22, Math.min(46, Math.min(r.w, r.h) * 0.34)) * Math.min(1.3, k));
+      const beam = el(L, `left:${src.x}px;top:${src.y - th / 2}px;width:10px;height:${th}px;transform-origin:0 50%;z-index:20`);
+      el(beam, `left:0;top:${-th * 0.6}px;width:100%;height:${th * 2.2}px;border-radius:${th}px;background:linear-gradient(180deg,transparent,rgba(255,110,20,.45) 30%,rgba(255,150,40,.6) 50%,rgba(255,110,20,.45) 70%,transparent);filter:blur(6px)`);
+      const body = el(beam, `left:0;top:0;width:100%;height:100%;border-radius:${th}px;background:linear-gradient(180deg,rgba(255,80,10,0),#ff5a10 18%,#ffb020 38%,#fff3b0 50%,#ffb020 62%,#ff5a10 82%,rgba(255,80,10,0))`);
       el(beam, `left:0;top:${th / 2 - Math.max(3, th * 0.12)}px;width:100%;height:${Math.max(6, th * 0.24)}px;border-radius:9px;background:#fffef5;box-shadow:0 0 10px #fff,0 0 22px #ffe08a`);
-      const ripple = el(body, `left:0;top:0;width:100%;height:100%;background:repeating-linear-gradient(90deg,rgba(255,255,255,0) 0 18px,rgba(255,255,255,.35) 22px,rgba(255,255,255,0) 30px);mix-blend-mode:screen`);
-      anim(ripple, [{ backgroundPosition: '0 0' }, { backgroundPosition: '300px 0' }], { duration: 260, iterations: Math.ceil((EXT + HOLD) / 260) + 2, easing: 'linear' });
-      anim(beam, [{ transform: `rotate(${ang}deg) scale(0,.4)` }, { transform: `rotate(${ang}deg) scale(1,1)`, offset: EXT / (EXT + HOLD + 220) }, { transform: `rotate(${ang}deg) scale(1,1.12)`, offset: (EXT + HOLD * 0.5) / (EXT + HOLD + 220) }, { transform: `rotate(${ang}deg) scale(1,1)`, offset: (EXT + HOLD) / (EXT + HOLD + 220) }, { transform: `rotate(${ang}deg) scale(1,0)` }], { duration: EXT + HOLD + 220, easing: 'linear' });
-      anim(glow, [{ opacity: 0.7 }, { opacity: 1 }], { duration: 90, iterations: Math.ceil((EXT + HOLD) / 90), direction: 'alternate' });
-      setTimeout(() => beam.remove(), EXT + HOLD + 260);
-      // Bouche du rayon chez Odin
+      const rip = el(body, 'left:0;top:0;width:100%;height:100%;background:repeating-linear-gradient(90deg,rgba(255,255,255,0) 0 18px,rgba(255,255,255,.35) 22px,rgba(255,255,255,0) 30px);mix-blend-mode:screen');
+      anim(rip, [{ backgroundPosition: '0 0' }, { backgroundPosition: '300px 0' }], { duration: 260, iterations: Math.ceil((EXT + SW) / 260) + 3, easing: 'linear' });
+      const imp = el(L, `left:0;top:0;width:${th * 3}px;height:${th * 3}px;margin:${-th * 1.5}px 0 0 ${-th * 1.5}px;border-radius:50%;background:radial-gradient(circle,#ffffff 0,#fff3b0 20%,#ffb020 42%,rgba(255,90,20,.5) 58%,transparent 72%);z-index:21;opacity:0`);
       const mz = el(L, `left:${src.x - th}px;top:${src.y - th}px;width:${th * 2}px;height:${th * 2}px;border-radius:50%;background:radial-gradient(circle,#fffef5 0,#ffe08a 30%,#ff7a1a 55%,transparent 72%);z-index:21`);
-      anim(mz, [{ transform: 'scale(.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.1 }, { transform: 'scale(1.15)', opacity: 1, offset: 0.85 }, { transform: 'scale(.2)', opacity: 0 }], { duration: EXT + HOLD + 200 }); setTimeout(() => mz.remove(), EXT + HOLD + 240);
-      // Au contact : point d'impact aveuglant, gerbes d'étincelles, fumée, la fenêtre chauffe, se perce et part en fusion.
-      const ax = tx - r.x, ay = ty - r.y;
-      setTimeout(() => {
-        const imp = el(box, `left:${ax - th * 1.6}px;top:${ay - th * 1.6}px;width:${th * 3.2}px;height:${th * 3.2}px;border-radius:50%;background:radial-gradient(circle,#ffffff 0,#fff3b0 20%,#ffb020 42%,rgba(255,90,20,.5) 58%,transparent 72%);z-index:8`);
-        anim(imp, [{ transform: 'scale(.6)' }, { transform: 'scale(1.1)' }], { duration: 70, iterations: Math.ceil(HOLD / 70), direction: 'alternate' }); setTimeout(() => imp.remove(), HOLD);
-        anim(g, [{ filter: 'none' }, { filter: 'brightness(1.5)', offset: 0.3 }, { filter: 'brightness(2)' }], { duration: HOLD * 0.45, fill: 'forwards' });
-        burnHole(S, ax, ay, 0, HOLD * 0.45, { hot: ['#ffffff', '#fff8e0', '#ffe0a0'], clean: true });
-        const back = ang * Math.PI / 180 + Math.PI, iv = setInterval(() => {
-          if (!box.isConnected) { clearInterval(iv); return; }
-          const ps = []; for (let i = 0; i < 14 * q; i++) { const a = back + R(-1.1, 1.1), v = R(220, 620); ps.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v - R(0, 120), g: 900, drag: 0.985, life: R(0.25, 0.7), s: R(1, 2.4), c: pick(['#ffffff', '#fff3b0', '#ffd36a', '#ff8a1a']), shape: 'spark', add: true }); }
-          ps.push({ x: tx, y: ty, vx: R(-20, 20), vy: R(-70, -30), g: 0, life: R(0.8, 1.4), s: R(8, 14), c: 'rgba(110,110,118,.45)', shape: 'smoke' });
+      const born = performance.now();
+      const tick = (now) => {
+        if (!S.box.isConnected) { beam.remove(); imp.remove(); mz.remove(); return; }
+        const t = now - born, f = Math.max(0, Math.min(1, (t - EXT) / SW)), ext = Math.min(1, t / EXT), end = t > EXT + SW;
+        // le front de désagrégation avance d'un bord à l'autre ; le rayon vise ce front et monte et descend dessus
+        const fx = ltr ? f * w : (1 - f) * w, fy = h * (0.5 + 0.38 * Math.sin(t / 95)), tx = r.x + fx, ty = r.y + fy;
+        const m = ltr ? `linear-gradient(90deg,transparent ${(f * 100).toFixed(2)}%,#000 ${(f * 100 + 1.5).toFixed(2)}%)` : `linear-gradient(90deg,#000 ${((1 - f) * 100 - 1.5).toFixed(2)}%,transparent ${((1 - f) * 100).toFixed(2)}%)`;
+        g.style.maskImage = m; g.style.webkitMaskImage = m;
+        const dx = tx - src.x, dy = ty - src.y, len = Math.hypot(dx, dy) * ext, ang = Math.atan2(dy, dx) * 180 / Math.PI, thin = end ? Math.max(0, 1 - (t - EXT - SW) / 220) : 1;
+        beam.style.width = `${len}px`; beam.style.transform = `rotate(${ang}deg) scaleY(${(thin * (0.92 + Math.random() * 0.16)).toFixed(3)})`;
+        imp.style.left = `${src.x + dx * ext}px`; imp.style.top = `${src.y + dy * ext}px`; imp.style.opacity = t > EXT * 0.8 && !end ? String(0.85 + Math.random() * 0.15) : '0';
+        mz.style.opacity = String(thin);
+        if (t > EXT && !end) {
+          const ps = [];
+          for (let i = 0; i < 16 * q; i++) ps.push({ x: r.x + fx + R(-3, 3), y: r.y + R(0, h), vx: (ltr ? 1 : -1) * R(-20, 50) + R(-40, 40), vy: R(-90, -20), g: -10, drag: 0.98, wob: R(2, 6), life: R(0.5, 1.1), s: R(1.2, 3), c: pick(cols), shape: pick(['dot', 'square']) });
+          for (let i = 0; i < 7 * q; i++) { const a = Math.atan2(-dy, -dx) + R(-1, 1), v = R(200, 560); ps.push({ x: tx, y: ty, vx: Math.cos(a) * v, vy: Math.sin(a) * v - R(0, 100), g: 800, life: R(0.2, 0.55), s: R(1, 2.2), c: pick(['#ffffff', '#fff3b0', '#ffd36a', '#ff8a1a']), shape: 'spark', add: true }); }
           PX.add(ps);
-        }, 40);
-        setTimeout(() => clearInterval(iv), HOLD);
-        shake(2 * k, HOLD * 0.4);
-      }, EXT);
-      return EXT + HOLD + 300;
+        }
+        if (t < EXT + SW + 240) requestAnimationFrame(tick); else { beam.remove(); imp.remove(); mz.remove(); g.style.opacity = '0'; }
+      };
+      requestAnimationFrame(tick);
+      return EXT + SW + 320;
     },
     burn(S, p, from, snap) { // le feu démarre en bas, s'étend sur tout l'élément, le carbonise, il part en cendres
       const { box, g, w, h } = S, D = DUR() * 1.7, r = snap.rect, x0 = snap.hit?.x !== undefined ? snap.hit.x - r.x : w / 2;
@@ -650,21 +647,8 @@
       anim(box, [{ transform: 'none', opacity: 1 }, { opacity: 0.35, offset: 0.16 }, { opacity: 1, offset: 0.24 }, { transform: 'none', opacity: 1, offset: 0.5 }, { transform: 'scaleX(1.05) scaleY(.03)', opacity: 1, offset: 0.78 }, { transform: 'scaleX(0) scaleY(.03)', opacity: 0 }], { duration: D, easing: 'linear' });
       return D + 60;
     },
-    fly(S, p, from, snap) { // Bifröst : il s'envole par le pont arc-en-ciel, en laissant une traînée de couleurs
-      const { box, g, w, h } = S, D = DUR() * 1.45, r = snap.rect, L = getLayer(), q = Q(), cx = r.x + r.w / 2, cy = r.y + r.h / 2, side = cx < innerWidth / 2 ? 1 : -1;
-      const ex = cx + side * Math.min(innerWidth * 0.55, 620), ey = -Math.max(140, r.h * 2), dx = ex - cx, dy = ey - cy, c1 = { x: dx * 0.12, y: dy * 0.95 };
-      const at = (t) => ({ x: 2 * (1 - t) * t * c1.x + t * t * dx, y: 2 * (1 - t) * t * c1.y + t * t * dy });
-      const kf = [{ transform: 'none', opacity: 1, offset: 0 }, { transform: 'translateY(6px) scale(1.02)', offset: 0.1 }, { transform: 'translateY(-4px) scale(1.04)', offset: 0.18 }];
-      for (let i = 1; i <= 10; i++) { const t = i / 10, q2 = at(t), tilt = side * Math.min(28, t * 40); kf.push({ transform: `translate(${q2.x.toFixed(1)}px,${(q2.y - 4).toFixed(1)}px) rotate(${tilt.toFixed(1)}deg) scale(${(1.04 - t * 0.8).toFixed(2)})`, opacity: t > 0.85 ? 1 - (t - 0.85) / 0.15 : 1, offset: 0.18 + t * 0.82 }); }
-      anim(box, kf, { duration: D, easing: 'cubic-bezier(.45,0,.75,.6)' });
-      const cols = ['#ff4a4a', '#ff9a2a', '#ffe14a', '#4adf6a', '#4aa8ff', '#9a6bff'], bw = Math.max(5, Math.min(12, r.h * 0.07));
-      const d = `M${cx},${cy} Q${cx + c1.x},${cy + c1.y} ${ex},${ey}`, nx = -c1.y, ny = c1.x, nl = Math.hypot(nx, ny) || 1;
-      const svg = el(L, 'left:0;top:0;z-index:4', svgNS(innerWidth, innerHeight, cols.map((c, i) => { const o = (i - 2.5) * bw; return `<path d="${d}" transform="translate(${(nx / nl * o).toFixed(1)},${(ny / nl * o).toFixed(1)})" fill="none" stroke="${c}" stroke-width="${bw + 0.6}" stroke-linecap="round" opacity=".85" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/>`; }).join('')));
-      for (const pa of svg.querySelectorAll('path')) anim(pa, [{ strokeDashoffset: 1 }, { strokeDashoffset: 1, offset: 0.18 }, { strokeDashoffset: 0 }], { duration: D, easing: 'cubic-bezier(.45,0,.75,.6)' });
-      anim(svg, [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], { duration: D * 1.35 }); setTimeout(() => svg.remove(), D * 1.4);
-      const sp = []; for (let i = 0; i < 90 * q; i++) { const t = R(0.05, 1), q2 = at(t); sp.push({ x: cx + q2.x + R(-10, 10), y: cy + q2.y + R(-10, 10), vx: R(-30, 30), vy: R(-30, 30), g: 0, life: R(0.4, 0.9), s: R(1, 2.4), c: pick(['#ffffff', ...cols]), add: true, delay: (D * (0.18 + t * 0.82)) / 1000 }); }
-      PX.add(sp);
-      return D * 1.4;
+    fly(S, p, from, snap) { // Bifröst : des bulles arc-en-ciel tombent du ciel, éclatent sur la fenêtre, et elle explose avec elles
+      return KITS.bubbles(S, { ...p, rainbow: true }, from, snap);
     },
     blizzard(S, p, from, snap) { // il gèle, la glace explose, puis un vent glacé emporte les éclats et la neige
       const ms = KITS.ice(S, p, from, snap), D = DUR() * 1.15, r = snap.rect, q = Q(), L = getLayer(), dir = from && from.x > r.x + r.w / 2 ? -1 : 1;
@@ -678,21 +662,21 @@
       return Math.max(ms, D * 0.7 + 1300);
     },
     bubbles(S, p, from, snap) { // des bulles arrivent ; chacune éclate et fait éclater un bout de la fenêtre ; la dernière la fait exploser
-      const { g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), hole = holes(S), n = Math.max(4, Math.min(7, Math.round((w * h) / 9000) + 3)), src = from ?? { x: r.x + r.w / 2, y: innerHeight + 30 };
+      const { g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), hole = holes(S), rb = !!p.rainbow, n = Math.max(rb ? 6 : 4, Math.min(rb ? 9 : 7, Math.round((w * h) / 9000) + (rb ? 5 : 3))), src0 = from ?? { x: r.x + r.w / 2, y: innerHeight + 30 }, RB = ['#ff4a4a', '#ff9a2a', '#ffe14a', '#4adf6a', '#4aa8ff', '#9a6bff', '#ff6ad5'];
       let last = 0;
       for (let i = 0; i < n; i++) {
-        const fin = i === n - 1, bx = fin ? w / 2 : R(w * 0.12, w * 0.88), by = fin ? h / 2 : R(h * 0.15, h * 0.85), s = fin ? Math.max(44, Math.min(96, Math.min(w, h) * 0.75)) : R(24, 42), T = R(420, 600), delay = i * 190;
-        const b = el(L, `left:${src.x - s / 2}px;top:${src.y - s / 2}px;width:${s}px;height:${s}px;border-radius:50%;border:1.5px solid #e6f6ffdd;background:radial-gradient(circle at 32% 30%,#ffffffdd 0,#ffffff55 12%,#7fd4ff22 42%,#3d9cf011 70%),radial-gradient(circle at 70% 75%,#c9a8ff44,transparent 50%);box-shadow:inset 0 0 9px #bfe9ff99,0 0 8px #7fd4ff66;z-index:21;opacity:0`);
+        const fin = i === n - 1, bx = fin ? w / 2 : R(w * 0.12, w * 0.88), by = fin ? h / 2 : R(h * 0.15, h * 0.85), s = fin ? Math.max(44, Math.min(96, Math.min(w, h) * 0.75)) : R(24, 42), T = R(420, 600), delay = i * (rb ? 130 : 190), src = rb ? { x: r.x + bx + R(-90, 90), y: -s - R(10, 80) } : src0;
+        const b = el(L, `left:${src.x - s / 2}px;top:${src.y - s / 2}px;width:${s}px;height:${s}px;border-radius:50%;border:1.5px solid #e6f6ffdd;background:${rb ? 'radial-gradient(circle at 32% 30%,#ffffffee 0,#ffffff66 12%,transparent 30%),conic-gradient(from ' + Ri(0, 360) + 'deg,#ff4a4a66,#ffe14a66,#4adf6a66,#4aa8ff66,#9a6bff66,#ff6ad566,#ff4a4a66)' : 'radial-gradient(circle at 32% 30%,#ffffffdd 0,#ffffff55 12%,#7fd4ff22 42%,#3d9cf011 70%),radial-gradient(circle at 70% 75%,#c9a8ff44,transparent 50%)'};box-shadow:inset 0 0 9px ${rb ? '#ffffffaa' : '#bfe9ff99'},0 0 10px ${rb ? '#ff9ad899' : '#7fd4ff66'};z-index:21;opacity:0`);
         const ex = r.x + bx - src.x, ey = r.y + by - src.y, wob = R(-50, 50);
         anim(b, [{ transform: 'translate(0,0) scale(.3)', opacity: 1 }, { transform: `translate(${(ex * 0.5 + wob).toFixed(1)}px,${(ey * 0.5 - 30).toFixed(1)}px) scale(.9)`, opacity: 1, offset: 0.5 }, { transform: `translate(${ex.toFixed(1)}px,${ey.toFixed(1)}px) scale(1)`, opacity: 1, offset: 0.88 }, { transform: `translate(${ex.toFixed(1)}px,${ey.toFixed(1)}px) scale(1.14,.88)`, opacity: 1 }], { duration: T, delay, easing: 'ease-in-out', fill: 'forwards' });
         const at = delay + T + (fin ? 140 : 30); last = Math.max(last, at);
         setTimeout(() => {
           b.remove(); const X = r.x + bx, Y = r.y + by, drops = [];
-          for (let k = 0; k < 30 * q; k++) { const a = Math.random() * 6.283, v = R(140, 420); drops.push({ x: X + Math.cos(a) * s / 2, y: Y + Math.sin(a) * s / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, g: 700, life: R(0.3, 0.7), s: R(1.2, 2.8), c: pick(['#ffffff', '#bfe9ff', '#7fd4ff']), add: true }); }
+          for (let k = 0; k < 30 * q; k++) { const a = Math.random() * 6.283, v = R(140, 420); drops.push({ x: X + Math.cos(a) * s / 2, y: Y + Math.sin(a) * s / 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, g: 700, life: R(0.3, 0.7), s: R(1.2, 2.8), c: pick(rb ? RB : ['#ffffff', '#bfe9ff', '#7fd4ff']), add: true }); }
           PX.add(drops);
-          const ring = el(L, `left:${X - s / 2}px;top:${Y - s / 2}px;width:${s}px;height:${s}px;border-radius:50%;border:2px solid #e6f6ff;z-index:21`); anim(ring, [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.9)', opacity: 0 }], { duration: 280, fill: 'forwards' }); setTimeout(() => ring.remove(), 300);
-          if (!fin) { hole(bx, by, s * 0.8, 180); shatter({ x: X - s * 0.6, y: Y - s * 0.6, w: s * 1.2, h: s * 1.2 }, Math.round(80 * q), colorsOf(snap.src ?? g), { at: { x: X, y: Y }, speed: [120, 460], g: 900, size: [1.2, 3.6], life: [0.5, 1.1] }); }
-          else { shake(4, 260); explodeNow(S, snap, { x: X, y: Y }, { spark: ['#ffffff', '#bfe9ff', '#7fd4ff'], speed: [160, 820], hot: 'brightness(1.6) hue-rotate(160deg)' }); }
+          const ring = el(L, `left:${X - s / 2}px;top:${Y - s / 2}px;width:${s}px;height:${s}px;border-radius:50%;border:2px solid ${rb ? pick(RB) : '#e6f6ff'};z-index:21`); anim(ring, [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1.9)', opacity: 0 }], { duration: 280, fill: 'forwards' }); setTimeout(() => ring.remove(), 300);
+          if (!fin) { hole(bx, by, s * 0.8, 180); shatter({ x: X - s * 0.6, y: Y - s * 0.6, w: s * 1.2, h: s * 1.2 }, Math.round(80 * q), colorsOf(snap.src ?? g).concat(rb ? RB : []), { at: { x: X, y: Y }, speed: [120, 460], g: 900, size: [1.2, 3.6], life: [0.5, 1.1] }); }
+          else { shake(4, 260); explodeNow(S, snap, { x: X, y: Y }, rb ? { extra: RB, spark: ['#ffffff', ...RB], speed: [180, 900], hot: 'brightness(1.8) saturate(2)' } : { spark: ['#ffffff', '#bfe9ff', '#7fd4ff'], speed: [160, 820], hot: 'brightness(1.6) hue-rotate(160deg)' }); }
         }, at);
       }
       return last + DUR();
@@ -735,22 +719,19 @@
       }, HIT);
       return HIT + DUR() * 1.5;
     },
-    storm(S, p, from, snap) { // un orage descend du ciel au-dessus de l'onglet : nuages noirs, pluie, la foudre frappe, il explose aussitôt
-      const r = snap.rect, q = Q(), L = getLayer(), cw = Math.max(170, r.w * 1.3), cx = r.x + r.w / 2, cy = Math.max(36, r.y - 70), HIT = 560;
-      const cloud = el(L, `left:${cx - cw / 2}px;top:${cy - 44}px;width:${cw}px;height:84px;z-index:21`);
-      for (let i = 0; i < 8; i++) { const s = R(52, 96) * Math.min(1.6, cw / 200); el(cloud, `left:${((i / 7) * (cw - s)).toFixed(1)}px;top:${R(0, 30).toFixed(1)}px;width:${s.toFixed(1)}px;height:${(s * 0.7).toFixed(1)}px;border-radius:50%;background:radial-gradient(circle at 50% 38%,#5d6680,#262c3a 72%);filter:blur(1.5px)`); }
-      anim(cloud, [{ transform: `translateY(${-cy - 140}px)`, opacity: 0 }, { transform: 'translateY(0)', opacity: 1, offset: 0.35 }, { transform: 'translateY(0)', opacity: 1, offset: 0.8 }, { transform: 'translateY(-10px)', opacity: 0 }], { duration: 1500, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' }); setTimeout(() => cloud.remove(), 1520);
-      const dark = el(L, 'left:0;top:0;width:100vw;height:100vh;background:#05060f;z-index:2'); anim(dark, [{ opacity: 0 }, { opacity: 0.35, offset: 0.4 }, { opacity: 0.35, offset: 0.7 }, { opacity: 0 }], { duration: 1300, fill: 'forwards' }); setTimeout(() => dark.remove(), 1320);
-      const rain = []; for (let i = 0; i < 150 * q; i++) rain.push({ x: cx + R(-cw / 2, cw / 2), y: cy + R(0, 24), vx: -50, vy: R(750, 1000), g: 0, life: R(0.3, 0.6), s: R(1, 1.6), c: '#bcd0ff', shape: 'spark', delay: R(0.3, 1.1) });
-      PX.add(rain);
-      const tx = r.x + r.w * R(0.35, 0.65);
-      bolt(tx + R(-30, 30), cy + 22, tx, r.y + 4, { width: 5, glow: '#9fb4ff', ms: 320, delay: HIT - 30 });
+    storm(S, p, from, snap) { // une énorme foudre tombe sur l'onglet, crépite trois fois, et il explose
+      const r = snap.rect, L = getLayer(), tx = r.x + r.w / 2, HIT = 120;
+      const dark = el(L, 'left:0;top:0;width:100vw;height:100vh;background:#04050c;z-index:2'); anim(dark, [{ opacity: 0 }, { opacity: 0.6, offset: 0.15 }, { opacity: 0.6, offset: 0.6 }, { opacity: 0 }], { duration: 760, fill: 'forwards' }); setTimeout(() => dark.remove(), 780);
+      for (const [d, wd] of [[HIT - 30, 12], [HIT + 120, 9], [HIT + 260, 14]]) bolt(tx + R(-40, 40), -10, tx + R(-6, 6), r.y + r.h * 0.4, { width: wd, glow: '#9fb4ff', ms: 200, delay: d });
+      const col = el(L, `left:${tx - 40}px;top:0;width:80px;height:${r.y + r.h * 0.5}px;background:linear-gradient(90deg,transparent,rgba(190,205,255,.35),transparent);filter:blur(6px);z-index:21;opacity:0`);
+      anim(col, [{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 0.3, offset: 0.4 }, { opacity: 1, offset: 0.6 }, { opacity: 0 }], { duration: 520, delay: HIT - 30, fill: 'forwards' }); setTimeout(() => col.remove(), HIT + 560);
+      anim(S.g, [{ filter: 'none' }, { filter: 'none', offset: 0.2 }, { filter: 'invert(1) brightness(1.6)', offset: 0.3 }, { filter: 'brightness(3) saturate(0)', offset: 0.5 }, { filter: 'invert(1) hue-rotate(180deg) brightness(2)', offset: 0.7 }, { filter: 'brightness(4) saturate(0)' }], { duration: 420, easing: 'steps(1)', fill: 'forwards' });
       setTimeout(() => {
-        const fl = el(L, 'left:0;top:0;width:100vw;height:100vh;background:#eef2ff;z-index:3'); anim(fl, [{ opacity: 0.55 }, { opacity: 0 }], { duration: 260, fill: 'forwards' }); setTimeout(() => fl.remove(), 280);
-        shake(7, 380);
-        explodeNow(S, snap, { x: tx, y: r.y + 4 }, { base: 380, edge: '#dfe6ff', hot: 'brightness(4) saturate(0)', spark: ['#ffffff', '#dfe6ff', '#9fb4ff'] });
-      }, HIT);
-      return HIT + DUR() * 1.5;
+        const fl = el(L, 'left:0;top:0;width:100vw;height:100vh;background:#eef2ff;z-index:3'); anim(fl, [{ opacity: 0.7 }, { opacity: 0 }], { duration: 300, fill: 'forwards' }); setTimeout(() => fl.remove(), 320);
+        shake(9, 420); flash(S, '#9fb4ff', 0, 2.2);
+        explodeNow(S, snap, { x: tx, y: r.y + r.h * 0.4 }, { base: 420, max: 1500, edge: '#dfe6ff', hot: 'brightness(4) saturate(0)', spark: ['#ffffff', '#dfe6ff', '#9fb4ff'], speed: [220, 1050] });
+      }, HIT + 400);
+      return HIT + 400 + DUR() * 1.5;
     },
     holy(S, p, from, snap) { // une grande lumière se pose sur l'onglet, il devient blanc, puis il explose dans un grand éclat de lumière
       const { box, g, w, h } = S, D = DUR() * 1.35, r = snap.rect, s = Math.max(w, h) * 2.3, L = getLayer(), q = Q();
@@ -913,42 +894,46 @@
       }, D * 0.2);
       return D * 1.1;
     },
-    fold(S, p, from, snap) { // trou noir : l'onglet se plie en deux, encore et encore, puis le petit carré est avalé par le trou noir
-      const { box, g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), STEP = 340, GAP = 70;
-      const full = (z = 2) => el(box, `left:0;top:0;width:${w}px;height:${h}px;z-index:${z}`);
+    fold(S, p, from, snap) { // trou noir au milieu de l'onglet : il se plie sur les lignes du trou, vers lui, puis il est avalé
+      const { box, g, w, h } = S, r = snap.rect, L = getLayer(), q = Q(), STEP = 340, GAP = 80, cx = w / 2, cy = h / 2;
+      const full = () => el(box, `left:0;top:0;width:${w}px;height:${h}px;z-index:2`);
       let cur = full(); const first = g.cloneNode(true); first.style.opacity = '1'; first.style.maskImage = first.style.webkitMaskImage = ''; cur.append(first); g.style.opacity = '0';
-      const reg = { x0: 0, y0: 0, x1: w, y1: h }, steps = ['v', 'h', 'v', 'h'];
-      let t = 80;
-      steps.forEach((ax) => {
+      // [axe, ligne, côté qui se replie] : chaque pli passe par le trou noir ou se rabat vers lui
+      const reg = { x0: 0, y0: 0, x1: w, y1: h };
+      const steps = [['v', cx, 'right'], ['h', cy, 'bottom'], ['v', w / 4, 'left'], ['h', h / 4, 'top']];
+      const ins = (a, b, c, d) => `inset(${b.toFixed(1)}px ${(w - c).toFixed(1)}px ${(h - d).toFixed(1)}px ${a.toFixed(1)}px)`;
+      let t = 380;
+      for (const [ax, at, side] of steps) {
         setTimeout(() => {
           if (!box.isConnected) return;
-          const { x0, y0, x1, y1 } = reg, xm = (x0 + x1) / 2, ym = (y0 + y1) / 2, A = cur, B = cur.cloneNode(true), nc = full();
-          nc.style.perspective = '800px';
-          const ins = (a, b, c, d) => `inset(${b.toFixed(1)}px ${(w - c).toFixed(1)}px ${(h - d).toFixed(1)}px ${a.toFixed(1)}px)`;
-          const stay = el(nc, `left:0;top:0;width:${w}px;height:${h}px;clip-path:${ax === 'v' ? ins(x0, y0, xm, y1) : ins(x0, y0, x1, ym)}`), mov = el(nc, `left:0;top:0;width:${w}px;height:${h}px;z-index:2;clip-path:${ax === 'v' ? ins(xm, y0, x1, y1) : ins(x0, ym, x1, y1)};transform-origin:${ax === 'v' ? `${xm}px 50%` : `50% ${ym}px`}`);
-          A.remove(); A.style.left = A.style.top = '0'; stay.append(A); B.style.left = B.style.top = '0'; mov.append(B);
-          const end = ax === 'v' ? 'rotateY(-180deg)' : 'rotateX(180deg)';
-          anim(mov, [{ transform: 'none', filter: 'brightness(1)' }, { transform: ax === 'v' ? 'rotateY(-90deg)' : 'rotateX(90deg)', filter: 'brightness(.45)', offset: 0.5 }, { transform: end, filter: 'brightness(.72)' }], { duration: STEP, easing: 'ease-in-out', fill: 'forwards' });
+          const { x0, y0, x1, y1 } = reg, A = cur, B = cur.cloneNode(true), nc = full(); nc.style.perspective = '800px';
+          let keep, move, end, mid;
+          if (ax === 'v') { keep = side === 'right' ? ins(x0, y0, at, y1) : ins(at, y0, x1, y1); move = side === 'right' ? ins(at, y0, x1, y1) : ins(x0, y0, at, y1); end = side === 'right' ? 'rotateY(-180deg)' : 'rotateY(180deg)'; mid = side === 'right' ? 'rotateY(-90deg)' : 'rotateY(90deg)'; }
+          else { keep = side === 'bottom' ? ins(x0, y0, x1, at) : ins(x0, at, x1, y1); move = side === 'bottom' ? ins(x0, at, x1, y1) : ins(x0, y0, x1, at); end = side === 'bottom' ? 'rotateX(180deg)' : 'rotateX(-180deg)'; mid = side === 'bottom' ? 'rotateX(90deg)' : 'rotateX(-90deg)'; }
+          const stay = el(nc, `left:0;top:0;width:${w}px;height:${h}px;clip-path:${keep}`), mov = el(nc, `left:0;top:0;width:${w}px;height:${h}px;z-index:2;clip-path:${move};transform-origin:${ax === 'v' ? `${at}px 50%` : `50% ${at}px`}`);
+          A.remove(); stay.append(A); mov.append(B);
+          anim(mov, [{ transform: 'none', filter: 'brightness(1)' }, { transform: mid, filter: 'brightness(.45)', offset: 0.5 }, { transform: end, filter: 'brightness(.72)' }], { duration: STEP, easing: 'ease-in-out', fill: 'forwards' });
           setTimeout(() => { mov.style.transform = end; mov.style.filter = 'brightness(.72)'; }, STEP + 5);
-          anim(nc, [{ transform: 'none' }, { transform: `translate(${R(-2, 2)}px,${R(-2, 2)}px)`, offset: 0.9 }, { transform: 'none' }], { duration: STEP });
-          const crease = []; for (let i = 0; i < 12 * q; i++) crease.push({ x: r.x + (ax === 'v' ? xm : R(x0, x1)), y: r.y + (ax === 'v' ? R(y0, y1) : ym), vx: R(-40, 40), vy: R(-40, 40), g: 0, life: R(0.3, 0.6), s: R(1, 2), c: pick(['#c9a8ff', '#ffffff']), add: true, delay: STEP / 2000 });
+          const crease = []; for (let i = 0; i < 14 * q; i++) crease.push({ x: r.x + (ax === 'v' ? at : R(x0, x1)), y: r.y + (ax === 'v' ? R(y0, y1) : at), vx: R(-40, 40), vy: R(-40, 40), g: 0, life: R(0.3, 0.6), s: R(1, 2), c: pick(['#c9a8ff', '#ffffff']), add: true, delay: STEP / 2000 });
           PX.add(crease);
-          if (ax === 'v') reg.x1 = xm; else reg.y1 = ym;
+          if (ax === 'v') { if (side === 'right') reg.x1 = at; else reg.x0 = at; } else { if (side === 'bottom') reg.y1 = at; else reg.y0 = at; }
           cur = nc;
         }, t);
         t += STEP + GAP;
-      });
-      // le trou noir : un disque noir et son anneau de lumière qui tourne, posé là où il ne reste qu'un petit carré
-      const fx = w / 8, fy = h / 8, hs = Math.max(22, Math.min(54, Math.min(w, h) * 0.38)), X = r.x + fx, Y = r.y + fy;
+      }
+      // le trou noir, au milieu de l'onglet dès le début : disque noir et anneau de lumière qui tourne
+      const hs = Math.max(20, Math.min(50, Math.min(w, h) * 0.32)), X = r.x + cx, Y = r.y + cy;
       const bh = el(L, `left:${X - hs}px;top:${Y - hs}px;width:${hs * 2}px;height:${hs * 2}px;z-index:21;opacity:0`);
       const tilt = el(bh, `left:${-hs * 0.4}px;top:0;width:${hs * 2.8}px;height:${hs * 2}px;transform:scaleY(.38) rotate(-12deg)`);
       const ringC = el(tilt, `left:${hs * 0.4}px;top:0;width:${hs * 2}px;height:${hs * 2}px;border-radius:50%;background:conic-gradient(#c9a8ff,#7c4dff,#ff9ad8,#ffffff,#7c4dff,#c9a8ff);mask-image:radial-gradient(circle,transparent 46%,#000 50%,#000 64%,transparent 70%);-webkit-mask-image:radial-gradient(circle,transparent 46%,#000 50%,#000 64%,transparent 70%);filter:blur(.5px) drop-shadow(0 0 6px #9a6bff)`);
-      anim(ringC, [{ transform: 'rotate(0)' }, { transform: 'rotate(360deg)' }], { duration: 700, iterations: 6, easing: 'linear' });
+      anim(ringC, [{ transform: 'rotate(0)' }, { transform: 'rotate(360deg)' }], { duration: 700, iterations: Math.ceil((t + 1100) / 700), easing: 'linear' });
       el(bh, `left:${hs * 0.55}px;top:${hs * 0.55}px;width:${hs * 0.9}px;height:${hs * 0.9}px;border-radius:50%;background:#000;box-shadow:0 0 14px 4px #1a0b2e,0 0 26px #7c4dff66`);
-      anim(bh, [{ opacity: 0, transform: 'scale(.1)' }, { opacity: 1, transform: 'scale(.6)', offset: 0.5 }, { opacity: 1, transform: 'scale(1)', offset: 0.85 }, { opacity: 0, transform: 'scale(.05)' }], { duration: t + 1000, fill: 'forwards' });
+      anim(bh, [{ opacity: 0, transform: 'scale(.1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.12 }, { opacity: 1, transform: 'scale(1.1)', offset: 0.85 }, { opacity: 0, transform: 'scale(.05)' }], { duration: t + 1000, fill: 'forwards' });
       setTimeout(() => bh.remove(), t + 1050);
+      const pull = []; for (let i = 0; i < 80 * q; i++) { const a = Math.random() * 6.283, d = R(40, 120); pull.push({ x: X + Math.cos(a) * d, y: Y + Math.sin(a) * d * 0.6, vx: -Math.cos(a) * d * 1.6, vy: -Math.sin(a) * d, g: 0, drag: 1, life: 0.6, s: R(1, 2), c: pick(['#c9a8ff', '#9a6bff', '#ffffff']), add: true, delay: R(0, t / 1000) }); }
+      PX.add(pull);
       setTimeout(() => {
-        if (cur) { cur.style.transformOrigin = `${fx}px ${fy}px`; anim(cur, [{ transform: 'none', opacity: 1 }, { transform: 'rotate(300deg) scale(.04)', opacity: 0.7 }], { duration: 560, easing: 'cubic-bezier(.6,0,.9,.5)', fill: 'forwards' }); }
+        if (cur) { cur.style.transformOrigin = `${cx}px ${cy}px`; anim(cur, [{ transform: 'none', opacity: 1 }, { transform: 'rotate(320deg) scale(.03)', opacity: 0.7 }], { duration: 560, easing: 'cubic-bezier(.6,0,.9,.5)', fill: 'forwards' }); }
         const ps = []; for (let i = 0; i < 130 * q; i++) { const a = Math.random() * 6.283, d = R(50, 190); ps.push({ x: X + Math.cos(a) * d, y: Y + Math.sin(a) * d * 0.6, vx: -Math.cos(a) * d * 2.2, vy: -Math.sin(a) * d * 1.3, g: 0, drag: 1, life: 0.45, s: R(1, 2.2), c: pick(['#c9a8ff', '#9a6bff', '#ffffff']), add: true }); }
         PX.add(ps);
         setTimeout(() => { const f = el(L, `left:${X - 44}px;top:${Y - 44}px;width:88px;height:88px;border-radius:50%;background:radial-gradient(circle,#ffffff,#c9a8ff 30%,#7c4dff 55%,transparent 70%);z-index:22`); anim(f, [{ transform: 'scale(.1)', opacity: 1 }, { transform: 'scale(1.5)', opacity: 0 }], { duration: 380, fill: 'forwards' }); setTimeout(() => f.remove(), 400); }, 900);
