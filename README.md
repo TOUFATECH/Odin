@@ -159,6 +159,10 @@ Comme Wireshark, sans rien installer à part `tcpdump` : touche une machine sur 
 
 Si Odin a accès à la machine (Réglages → Droits et machines), la capture se fait sur la machine elle-même, par SSH : **tout son trafic** (la connexion de la capture est écartée). Sinon elle se fait depuis la machine d'Odin : sur un réseau avec switch ou box, seuls les échanges avec Odin et ce que la machine diffuse à tout le réseau sont visibles (sauf si Odin est le routeur ou reçoit une copie du trafic). Rán ne lit que les en-têtes, jamais le contenu des paquets.
 
+#### Cerveau direct et Quotidien
+
+Quand une IA règle une de tes demandes en une action ou quelques-unes à la suite (une « mission »), Odin la retient et la refait ensuite **sans IA** : la même phrase, ou la même avec une autre valeur. Deux façons de dire la même mission ? Il relie les phrases et le mot qui change. Quand aucune IA ne répond, il cherche ce qui ressemble à ta demande, explique comment il a fait le lien et te demande avant d'agir ; après ton oui, ta phrase est retenue. Une action grave s'apprend aussi, mais ton accord est redemandé à chaque fois. Tout est rangé dans **Cerveau → Quotidien** : une note par mission, reliée aux applis (mets-la à la corbeille pour qu'Odin l'oublie).
+
 #### Qui peut ouvrir l'interface ?
 
 Au choix, à l'installation, dans **Réglages → Accès à l'interface** ou avec `odin web access` :

@@ -442,12 +442,17 @@ test('agent : rien n\'est appris d\'une demande à rédiger, d\'une action refus
       const r = await o.agent.run('vire cette adresse', S);
       assert.equal(r.toolCalls, 1); assert.equal(loadAcquis(o.muninn).length, 0);
     } finally { o.cleanup(); }
-    // « Grave » se juge sur ce qui est demandé : une scène qui déverrouille la porte ne s'apprend pas, une scène sans risque, si.
+    // Une scène grave (déverrouiller la porte) s'apprend aussi, mais ton accord est redemandé à chaque fois.
     w.v.ctx('midgard').saveSettings({ scenes: [{ name: 'Dodo', steps: [] }, { name: 'Départ', steps: [{ appareil: 'ha:lock.entree', valeur: 'on' }] }] });
     o = makeOdin([call('valhalla', valhalla('midgard', 'scene', { scene: 'Départ' })), { text: 'Fait.' }, call('valhalla', valhalla('midgard', 'scene', { scene: 'Dodo' })), { text: 'Bonne nuit.' }], { approve: 'always' });
     try {
-      await o.agent.run('protocole grand départ', S);
-      assert.equal(o.approvals.length, 1, 'ton accord a bien été demandé'); assert.equal(loadAcquis(o.muninn).length, 0, 'action grave : jamais apprise');
+      const first = await o.agent.run('protocole grand départ', S);
+      assert.match(first.notices.join(' '), /se fera sans IA \(Midgard · Lancer une scène\)\. Comme elle est grave, je te demanderai ton accord à chaque fois\./);
+      assert.equal(o.approvals.length, 1, 'ton accord a bien été demandé'); assert.equal(loadAcquis(o.muninn).length, 1, 'action grave : apprise elle aussi');
+      const calls = o.provider.calls.length;
+      const again = await o.agent.run('protocole grand départ', S);
+      assert.equal(o.provider.calls.length, calls, 'refaite sans IA'); assert.equal(again.ai?.needed, false);
+      assert.equal(o.approvals.length, 2, 'mais ton accord est redemandé à chaque fois');
       const r = await o.agent.run('protocole marchand de sable', S);
       assert.match(r.notices.join(' '), /J'ai appris : la prochaine fois, « protocole marchand de sable » se fera sans IA \(Midgard · Lancer une scène\)\./);
     } finally { o.cleanup(); }

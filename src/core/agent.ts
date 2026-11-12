@@ -518,15 +518,15 @@ export class Agent {
         // Une demande à rédiger ou à raisonner ne se rejoue pas (la réponse de l'IA compte) ; plusieurs demandes en une, si.
         if (calls.length >= 1 && calls.length <= MAX_STEPS && (!think || think === MANY) && calls.every((c) => LEARNABLE[c.name] && !/^(Erreur|Action refusée|Refusé|\[Mode essai\])/.test(outOf(c.id)) && (c.name !== 'valhalla' || c.input.action === 'action'))) {
           const v = valhallaOf(), found = calls.map((c) => (c.name === 'valhalla' ? v?.action(String(c.input.appli ?? ''), String(c.input.quoi ?? '')) : undefined));
-          // Une action grave (qui demande ton accord à chaque fois) ne s'apprend pas : elle garde toute ton attention.
-          // « Grave » se juge sur ce qui a été demandé (ouvrir la porte l'est, allumer une lampe non) ; et au rejeu, l'outil
-          // repose la question à chaque fois : avec une autre valeur devenue grave, Heimdall redemande ton accord.
+          // Une action grave (ouvrir la porte, supprimer, éteindre une machine) s'apprend aussi, mais au rejeu l'outil
+          // repose la question à CHAQUE fois : Heimdall demande toujours ton accord, avec ou sans IA. On le dit en l'apprenant.
           // Une action d'appli qu'on ne retrouve pas (applis non démarrées) ne s'apprend pas non plus : impossible de dire ce qu'elle fait.
           const grave = (c: ToolCall, f: (typeof found)[number]): boolean => {
             if (!f?.a.grave) return false;
             try { const e = c.input.entree; return Boolean(f.a.grave(typeof e === 'string' ? (e.trim() ? JSON.parse(e) as Record<string, unknown> : {}) : (e ?? {}) as Record<string, unknown>, v!.ctx(f.m.id))); } catch { return true; }
           };
-          if (!calls.some((c, k) => grave(c, found[k])) && calls.every((c, k) => c.name !== 'valhalla' || found[k])) {
+          const risky = calls.some((c, k) => grave(c, found[k]));
+          if (calls.every((c, k) => c.name !== 'valhalla' || found[k])) {
             const text = (x: unknown) => String(x ?? '').replace(/\s+/g, ' ').trim().slice(0, 60);
             const labelOf = (c: ToolCall, f: (typeof found)[number]) => (f ? `${f.m.name} · ${f.a.label}`
               : c.name === 'ha_call' ? `Maison · ${text(c.input.domain)}.${text(c.input.service)}${c.input.entity_id ? ` → ${text(c.input.entity_id)}` : ''}`
@@ -542,10 +542,11 @@ export class Agent {
               const twin = loadAcquis(muninn).find((x) => x.id !== a.id && missionOf(x) === missionOf(a));
               const kept = keepAcquis(muninn, a); muninn.setKv(`acquis-dernier:${o.sessionId}`, kept.id);
               const link = twin ? linkWords(muninn, twin, kept) : undefined;
-              res.notices.push(twin
+              const ask = risky ? ' Comme elle est grave, je te demanderai ton accord à chaque fois.' : '';
+              res.notices.push((twin
                 ? `J'ai fait le lien : « ${kept.phrase} » veut dire la même chose que « ${twin.phrase} »${link ? ` (« ${link.said[0]} » = « ${link.said[1]} »)` : ''}. Les deux se feront sans IA (${kept.label}).`
                 : steps.length > 1 ? `J'ai appris cette mission (${steps.length} actions) : la prochaine fois, « ${kept.phrase} » se fera sans IA (${kept.label}).`
-                : `J'ai appris : la prochaine fois, « ${kept.phrase} » se fera sans IA (${kept.label}).`);
+                : `J'ai appris : la prochaine fois, « ${kept.phrase} » se fera sans IA (${kept.label}).`) + ask);
             }
           }
         }

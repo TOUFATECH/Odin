@@ -126,7 +126,7 @@ export function hubNote(all: Mission[], links: WordLink[], paths: Map<string, st
     ].join('\n'),
     '## Ce qui ne change jamais',
     [
-      '- Chaque action passe par les mêmes garde-fous qu\'avec une IA. Ce qui est grave attend ton accord, et une action grave ne s\'apprend pas.',
+      '- Chaque action passe par les mêmes garde-fous qu\'avec une IA. Une action grave s\'apprend aussi, mais elle attend ton accord à chaque fois, avec ou sans IA.',
       '- Je n\'apprends que de TES demandes : jamais d\'un mail, d\'une page web, d\'un document ni d\'une tâche planifiée.',
       '- Rien n\'est appris d\'une phrase qui dépend du moment (« demain », « ça », « la première »), ni d\'un secret.',
       '- Un rapprochement n\'est proposé que si chaque mot de ta phrase est expliqué. Je ne devine pas.',
