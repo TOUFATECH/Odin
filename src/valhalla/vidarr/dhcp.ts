@@ -27,17 +27,24 @@ export function parsePacket(b: Buffer): Packet {
   }
   return { op: b[0], xid: b.readUInt32BE(4), secs: b.readUInt16BE(8), flags: b.readUInt16BE(10), ciaddr: ipStr(b, 12), yiaddr: ipStr(b, 16), siaddr: ipStr(b, 20), giaddr: ipStr(b, 24), mac, options };
 }
-export function buildPacket(p: Partial<Omit<Packet, 'options'>> & { op: number; xid: number; mac: string; options: Array<[number, Buffer]> }): Buffer {
+export function buildPacket(p: Partial<Omit<Packet, 'options'>> & { op: number; xid: number; mac: string; options: Array<[number, Buffer]>; /** nom du fichier de démarrage (PXE) */ file?: string; sname?: string }): Buffer {
   const b = Buffer.alloc(240);
   b[0] = p.op; b[1] = 1; b[2] = 6; b.writeUInt32BE(p.xid, 4); b.writeUInt16BE(p.secs ?? 0, 8); b.writeUInt16BE(p.flags ?? 0, 10);
   ipBuf(p.ciaddr ?? '0.0.0.0').copy(b, 12); ipBuf(p.yiaddr ?? '0.0.0.0').copy(b, 16); ipBuf(p.siaddr ?? '0.0.0.0').copy(b, 20); ipBuf(p.giaddr ?? '0.0.0.0').copy(b, 24);
   Buffer.from(p.mac.split(':').map((x) => parseInt(x, 16))).copy(b, 28);
+  if (p.sname) b.write(p.sname.slice(0, 63), 44, 'latin1');
+  if (p.file) b.write(p.file.slice(0, 127), 108, 'latin1');
   b.writeUInt32BE(MAGIC, 236);
   const opts: Buffer[] = [];
   for (const [code, v] of p.options) for (let i = 0; i < v.length || i === 0; i += 255) { const c = v.subarray(i, i + 255); opts.push(Buffer.from([code, c.length]), c); if (!v.length) break; }
   const out = Buffer.concat([b, ...opts, Buffer.from([255])]);
   return out.length < 300 ? Buffer.concat([out, Buffer.alloc(300 - out.length)]) : out;
 }
+/**
+ * Démarrage par le réseau (Þjálfi) : quand le DHCP d'Odin répond à une machine qui démarre en PXE, il ajoute
+ * l'adresse du serveur de démarrage et le nom du chargeur. Þjálfi branche ce crochet quand il est allumé.
+ */
+export const pxeHook: { get?: (p: Packet) => { siaddr: string; file: string; options: Array<[number, Buffer]> } | undefined } = {};
 const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n >>> 0); return b; };
 
 export interface Lease { mac: string; ip: string; name?: string; expires: number; fixed?: boolean; /** première fois vu (ms) */ first?: number; /** ce que l'appareil dit de lui au DHCP (« android-dhcp-14 », « MSFT 5.0 »…) */ vendorClass?: string }
@@ -98,7 +105,8 @@ export class DhcpServer {
       if (type !== MSG.ACK || p.options.get(53)?.[0] !== MSG.INFORM) opts.push([51, u32(c.leaseSeconds)], [58, u32(Math.floor(c.leaseSeconds / 2))], [59, u32(Math.floor(c.leaseSeconds * 0.875))]);
       if (c.domain) opts.push([15, Buffer.from(c.domain)]);
     }
-    const out = buildPacket({ op: 2, xid: p.xid, flags: p.flags, ciaddr: type === MSG.ACK && p.options.get(53)?.[0] === MSG.INFORM ? p.ciaddr : '0.0.0.0', yiaddr: type === MSG.NAK || p.options.get(53)?.[0] === MSG.INFORM ? '0.0.0.0' : ip, siaddr: '0.0.0.0', giaddr: p.giaddr, mac: p.mac, options: [...opts, ...extra] });
+    let boot: ReturnType<NonNullable<typeof pxeHook.get>>; try { boot = type !== MSG.NAK ? pxeHook.get?.(p) : undefined; } catch { boot = undefined; }
+    const out = buildPacket({ op: 2, xid: p.xid, flags: p.flags, ciaddr: type === MSG.ACK && p.options.get(53)?.[0] === MSG.INFORM ? p.ciaddr : '0.0.0.0', yiaddr: type === MSG.NAK || p.options.get(53)?.[0] === MSG.INFORM ? '0.0.0.0' : ip, siaddr: boot?.siaddr ?? '0.0.0.0', giaddr: p.giaddr, mac: p.mac, options: [...opts, ...extra, ...(boot?.options ?? [])], file: boot?.file });
     // Un appareil qui a déjà son adresse reçoit la réponse directement ; sinon à tout le réseau (il n'a pas encore d'adresse).
     const to = p.giaddr !== '0.0.0.0' ? p.giaddr : p.ciaddr !== '0.0.0.0' && type !== MSG.NAK ? p.ciaddr : '255.255.255.255';
     this.sock?.send(out, p.giaddr !== '0.0.0.0' ? this.port : this.clientPort, to);

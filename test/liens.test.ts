@@ -12,6 +12,8 @@ import { parseTasmota, tasmotaDevices } from '../src/valhalla/modules/appareils.
 import { LokiEngine } from '../src/valhalla/modules/loki.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
+import { gunzipSync } from 'node:zlib';
+import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
 
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 const DOCKER = [{ ID: 'abc', Names: 'web', Image: 'nginx', State: 'exited', Status: 'Exited (137) 5 seconds ago', Ports: '', Labels: '' }].map((x) => JSON.stringify(x)).join('\n');
@@ -29,6 +31,7 @@ function world(): World {
     if (/pirate\.exemple\/bot\.sh/.test(url)) return new Response(EICAR, { status: 200 });
     if (url === 'https://api.github.com/repos/odin-test/piege/releases/latest') return Response.json({ tag_name: 'v1.0', html_url: 'h', assets: [{ name: 'piege-1.0.exe', browser_download_url: 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe', size: EICAR.length }] });
     if (url === 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe') return new Response(EICAR, { status: 200 });
+    if (/boot\.ipxe\.org|ipxe\/wimboot/.test(url)) return new Response(EICAR, { status: 200 });
     if (/firehol_level1|feodotracker/.test(url)) return new Response('203.0.113.66\n198.51.100.0/24\n', { status: 200 });
     if (/\/api\/states/.test(url)) return Response.json([{ entity_id: 'media_player.salon', state: 'idle', attributes: { friendly_name: 'Enceinte salon' } }, { entity_id: 'tts.demo', state: 'unknown', attributes: {} }]);
     if (/\/api\/services\//.test(url)) return Response.json([]);
@@ -597,6 +600,70 @@ CHECKS['idunn>idunn'] = async (w) => {
   assert.ok(await until(() => w.v.alerts({ module: 'idunn' }).some((a) => /le nouveau déploiement casse quelque chose/.test(a.title) && /reviens à la version précédente du site boutique/.test(a.detail ?? ''))), 'essai raté : tu es prévenu, et le retour en arrière est proposé');
   assert.ok(!did(w, 'idunn', 'revenir') && !did(w, 'idunn', 'deployer'), 'rien de grave n\'est lancé seul');
   assert.equal(w.v.manips({ module: 'idunn' }).length, 0, 'un essai n\'est pas une manip : rien à garder ni à annuler');
+};
+
+// ---------------- Þjálfi (déploiement par le réseau) ----------------
+const ISOS = join(import.meta.dirname, 'fixtures', 'thjalfi');
+async function thj(w: World): Promise<{ base: string; get: (p: string) => Promise<string> }> {
+  const dir = join(w.home, 'iso'); mkdirSync(dir, { recursive: true });
+  for (const f of readdirSync(ISOS)) writeFileSync(join(dir, f.replace(/\.gz$/, '')), gunzipSync(readFileSync(join(ISOS, f))));
+  await w.v.act('eitri', 'dossier', { chemin: dir });
+  w.v.ctx('thjalfi').saveSettings({ ports: { http: 0, tftp: 0, dhcp: 0, pxe: 0, client: 0 }, ip: '127.0.0.1', mode: 'aucun' });
+  const base = /http:\/\/127\.0\.0\.1:\d+/.exec((await w.v.act('thjalfi', 'allumer')).text)![0];
+  return { base, get: async (p) => (await fetch(`${base}${p}`)).text() };
+}
+CHECKS['eitri>thjalfi'] = async (w) => {
+  const t = await thj(w);
+  assert.match((await w.v.act('thjalfi', 'isos')).text, /ubuntu-24\.04\.3-live-server-amd64 : Ubuntu Server \(installation automatique\)/, 'l\'ISO d\'Eitri est reconnue');
+  assert.match(await t.get('/menu.ipxe?mac=52:54:00:00:10:01'), /item e-ubuntu-24-04-3-live-server-amd64 /, 'elle est dans le menu de démarrage');
+};
+CHECKS['fjalar>thjalfi'] = async (w) => {
+  const t = await thj(w);
+  await w.v.act('fjalar', 'dossier', { chemin: join(w.home, 'logiciels') }); mkdirSync(join(w.home, 'logiciels', 'VLC'), { recursive: true }); writeFileSync(join(w.home, 'logiciels', 'VLC', 'vlc-3.0.21-win64.exe'), 'MZ-VLC');
+  await w.v.act('thjalfi', 'partage_windows', { unc: '\\\\nas\\iso', dossier: join(w.home, 'nas') });
+  await w.v.act('thjalfi', 'profil', { nom: 'Bureau', logiciels: 'vlc' });
+  await w.v.act('thjalfi', 'autoriser', { mac: '52:54:00:00:10:02', iso: 'win11', profil: 'Bureau', auto: true });
+  const tok = /seed\/([\w-]+)\//.exec(await t.get('/menu.ipxe?mac=52:54:00:00:10:02&fw=efi'))![1];
+  const ps = await t.get(`/w/${tok}/apres.ps1`);
+  assert.match(ps, /\/logiciel\/[\w-]+\/vlc-3\.0\.21-win64\.exe/, 'l\'installateur de Fjalar est servi'); assert.match(ps, /'\/L=1036 \/S'/, 'en silencieux');
+  assert.equal(await t.get(`/logiciel/${tok}/vlc-3.0.21-win64.exe`), 'MZ-VLC');
+};
+async function installOne(w: World): Promise<void> {
+  const t = await thj(w);
+  await w.v.act('thjalfi', 'autoriser', { mac: '52:54:00:00:10:03', iso: 'ubuntu', nom: 'bureau-1', auto: true });
+  const tok = /seed\/([\w-]+)\//.exec(await t.get('/menu.ipxe?mac=52:54:00:00:10:03'))![1];
+  await t.get('/f/ubuntu-24-04-3-live-server-amd64/casper/vmlinuz?m=52:54:00:00:10:03');
+  assert.equal(await t.get(`/etat/${tok}?e=fini&nom=bureau-1&ip=192.168.1.50`), 'ok');
+}
+CHECKS['thjalfi>askr'] = async (w) => {
+  await installOne(w);
+  assert.ok(await until(async () => /bureau-1/.test((await w.v.act('askr', 'chercher', { q: '52:54:00:00:10:03' })).text)), 'la machine installée a sa fiche');
+  assert.match((await w.v.act('askr', 'chercher', { q: 'bureau-1' })).text, /192\.168\.1\.50/);
+};
+CHECKS['thjalfi>forseti'] = async (w) => {
+  await installOne(w);
+  assert.match((await w.v.act('forseti', 'alertes', { gravite: 'info' })).text, /bureau-1 installée \(ubuntu-24\.04\.3-live-server-amd64\)/);
+};
+CHECKS['thjalfi>brisingamen'] = async (w) => {
+  await w.v.act('thjalfi', 'profil', { nom: 'Atelier', utilisateur: 'tech' });
+  assert.match((await w.v.act('brisingamen', 'chercher', { q: 'Déploiement' })).text, /Déploiement · Atelier · tech/, 'le mot de passe est dans le coffre');
+};
+CHECKS['thjalfi>ullr'] = async (w) => {
+  const t = (await w.v.act('thjalfi', 'preparer')).text;
+  assert.match(t, /🛡 undionly\.kpxe mis de côté/, 'un chargeur suspect est refusé');
+  assert.ok(!existsSync(join(w.home, 'valhalla', 'thjalfi', 'boot', 'undionly.kpxe')), 'il n\'est jamais servi');
+};
+CHECKS['thjalfi>vidarr'] = async (w) => {
+  await thj(w); await w.v.act('thjalfi', 'mode', { mode: 'odin', filtre: 'tous' });
+  const out: Buffer[] = [], d = new DhcpServer({ config: () => ({ server: '192.168.1.2', start: '192.168.1.100', end: '192.168.1.150', mask: '255.255.255.0', router: '192.168.1.1', dns: ['192.168.1.2'], leaseSeconds: 3600, fixed: [] }), leases: () => [], save: () => {} });
+  (d as unknown as { sock: { send: (b: Buffer) => void } }).sock = { send: (b: Buffer) => out.push(b) };
+  const arch = Buffer.alloc(2); arch.writeUInt16BE(7);
+  d.onMessage(buildPacket({ op: 1, xid: 7, mac: '52:54:00:00:10:04', options: [[53, Buffer.from([MSG.DISCOVER])], [60, Buffer.from('PXEClient:Arch:00007')], [93, arch]] }));
+  d.onMessage(buildPacket({ op: 1, xid: 8, mac: '52:54:00:00:10:05', options: [[53, Buffer.from([MSG.DISCOVER])]] }));
+  assert.equal(out.length, 2);
+  assert.equal(out[0].subarray(108, 236).toString('latin1').replace(/\0+$/, ''), 'ipxe.efi', 'la machine PXE reçoit son chargeur dans la réponse du DHCP d\'Odin');
+  assert.equal(parsePacket(out[0]).siaddr, '127.0.0.1');
+  assert.equal(out[1].subarray(108, 236).toString('latin1').replace(/\0+$/, ''), '', 'un appareil ordinaire : rien de plus');
 };
 
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
