@@ -15,6 +15,41 @@ import { TTS_DEFAULTS } from './voice/voice.ts';
 import { buildProvider, Router, strengthsOf, tierOf, visionOf, type Tier } from './providers/router.ts';
 import { providerLabel, serviceOf } from './providers/journal.ts';
 
+type Voice = OdinConfig['voice'];
+/**
+ * Lit les réglages vocaux envoyés par Réglages → Voix (ou par une commande à l'oral) et les vérifie.
+ * Chaque champ absent garde sa valeur actuelle. Pur : ne touche à rien d'autre.
+ */
+export function voiceOptions(b: Record<string, unknown>, v: Voice): Pick<Voice, 'localOnly' | 'replyMode' | 'listen' | 'interrupt' | 'speech' | 'brain' | 'privacy' | 'speakReplies' | 'voiceReplies'> {
+  const num = (x: unknown, d: number, lo: number, hi: number, label: string) => {
+    if (x === undefined || x === null || x === '') return d;
+    const n = Number(x); if (!Number.isFinite(n) || n < lo || n > hi) throw new Error(`${label} : entre ${lo} et ${hi}`); return n;
+  };
+  const bool = (x: unknown, d: boolean) => (x === undefined ? d : Boolean(x));
+  const o = (k: string) => (b[k] && typeof b[k] === 'object' ? b[k] as Record<string, unknown> : {});
+  const replyMode = b.replyMode === undefined ? v.replyMode : b.replyMode === 'texte' ? 'texte' : b.replyMode === 'voix' ? 'voix' : (() => { throw new Error('réponse : voix ou texte'); })();
+  const brain = b.brain === undefined ? v.brain : b.brain === 'sans-ia' || b.brain === 'auto' ? b.brain : (() => { throw new Error('cerveau : auto ou sans-ia'); })();
+  const L = o('listen'), I = o('interrupt'), S = o('speech'), P = o('privacy');
+  const wake = L.wakeWord === undefined ? v.listen.wakeWord : String(L.wakeWord).trim().slice(0, 30);
+  if (!wake) throw new Error('mot de réveil : au moins une lettre');
+  const words = I.stopWords === undefined ? v.interrupt.stopWords : (Array.isArray(I.stopWords) ? I.stopWords : String(I.stopWords).split(',')).map((w) => String(w).trim()).filter(Boolean).slice(0, 12);
+  const lex = S.pronunciations === undefined ? v.speech.pronunciations : Object.fromEntries(Object.entries(S.pronunciations as Record<string, unknown>).map(([k, x]) => [k.trim().slice(0, 40), String(x ?? '').trim().slice(0, 80)]).filter(([k, x]) => k && x).slice(0, 200));
+  return {
+    localOnly: bool(b.localOnly, v.localOnly),
+    replyMode, brain,
+    // Le mode de réponse commande la lecture à voix haute (appli) et les notes vocales (Telegram).
+    speakReplies: replyMode === 'voix', voiceReplies: replyMode === 'voix' ? (b.voiceReplies !== undefined ? Boolean(b.voiceReplies) : v.replyMode === 'texte' ? true : v.voiceReplies) : false,
+    listen: {
+      live: bool(L.live, v.listen.live), echoCancel: bool(L.echoCancel, v.listen.echoCancel), holdToTalk: bool(L.holdToTalk, v.listen.holdToTalk),
+      sensitivity: num(L.sensitivity, v.listen.sensitivity, 1, 10, 'sensibilité du micro'),
+      endSilenceMs: num(L.endSilenceMs, v.listen.endSilenceMs, 300, 5000, 'attente en fin de phrase (ms)'), wakeWord: wake,
+    },
+    interrupt: { bargeIn: bool(I.bargeIn, v.interrupt.bargeIn), ignoreBackchannel: bool(I.ignoreBackchannel, v.interrupt.ignoreBackchannel), stopWords: words, keepTopicMin: num(I.keepTopicMin, v.interrupt.keepTopicMin, 1, 1440, 'durée de vie d\'un sujet (min)') },
+    speech: { rate: num(S.rate, v.speech.rate, 0.7, 1.3, 'vitesse'), volume: num(S.volume, v.speech.volume, 0, 1, 'volume'), pronunciations: lex },
+    privacy: { privateMode: bool(P.privateMode, v.privacy.privateMode), keepAudio: bool(P.keepAudio, v.privacy.keepAudio), keepAudioDays: num(P.keepAudioDays, v.privacy.keepAudioDays, 1, 365, 'durée de conservation de l\'audio (jours)') },
+  };
+}
+
 export const SECRET_NAMES = ['ABUSE_CH_KEY', 'VT_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'DEEPSEEK_API_KEY', 'MOONSHOT_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'NOTION_TOKEN', 'GITHUB_TOKEN', 'VERCEL_TOKEN', 'CLOUDFLARE_API_TOKEN', 'MQTT_PASSWORD', 'BRISINGAMEN_KEY', 'SINDRI_PASSWORD', 'TASMOTA_PASSWORD'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
@@ -153,7 +188,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
-    voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, ttsProvider: cfg.voice.tts.provider, ttsUrl: cfg.voice.tts.baseUrl, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, gender: cfg.voice.gender ?? 'homme', femaleVoiceId: cfg.voice.femaleVoiceId ?? '', ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language },
+    voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, ttsProvider: cfg.voice.tts.provider, ttsUrl: cfg.voice.tts.baseUrl, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, gender: cfg.voice.gender ?? 'homme', femaleVoiceId: cfg.voice.femaleVoiceId ?? '', ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language, localOnly: cfg.voice.localOnly, replyMode: cfg.voice.replyMode, listen: cfg.voice.listen, interrupt: cfg.voice.interrupt, speech: cfg.voice.speech, brain: cfg.voice.brain, privacy: cfg.voice.privacy },
     web: { port: cfg.web.port, access: cfg.web.access, https: cfg.web.tls.enabled, cert: cfg.web.tls.cert, key: cfg.web.tls.key, behindProxy: cfg.web.behindProxy, publicUrl: cfg.web.publicUrl, networks: cfg.web.allowedNetworks.join(', ') },
   };
 }
@@ -326,7 +361,7 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       const defaults = TTS_DEFAULTS[provider];
       const switched = provider !== v.tts.provider;
       const ttsUrl = str('ttsUrl')?.trim() || (switched ? defaults.baseUrl : v.tts.baseUrl);
-      if (!/^https?:\/\//.test(ttsUrl)) throw new Error('adresse du service de synthèse invalide (ex. http://localhost:5000)');
+      if (!/^https?:\/\//.test(ttsUrl) && ttsUrl !== 'local') throw new Error('adresse du service de synthèse invalide (ex. http://localhost:5000, ou « local »)');
       const voiceId = str('voiceId')?.trim() ?? (switched ? defaults.voiceId : v.tts.voiceId);
       if (voiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(voiceId)) throw new Error('nom de voix invalide');
       const gender = (str('gender') ?? v.gender ?? 'homme') === 'femme' ? 'femme' : 'homme';
@@ -335,17 +370,29 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       setConfigValue(paths, ['voice'], {
         ...v,
         gender, femaleVoiceId,
-        enabled: Boolean(b.enabled), speakReplies: Boolean(b.speakReplies), speakRepliesChosen: true, voiceReplies: b.voiceReplies === undefined ? v.voiceReplies : Boolean(b.voiceReplies),
+        enabled: Boolean(b.enabled), speakRepliesChosen: true,
         tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName), model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
         stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
+        // L'ancienne case « lire mes réponses » vaut le mode de réponse quand celui-ci n'est pas envoyé.
+        ...voiceOptions({ ...b, replyMode: b.replyMode ?? (b.speakReplies === undefined ? undefined : b.speakReplies ? 'voix' : 'texte') }, v),
       });
       return true;
+    }
+    // Réglages → Voix (écoute, interruptions, voix d'Odin, cerveau, confidentialité, voix ou texte) sans toucher aux services
+    case 'voice_options': {
+      const next = { ...cfg.voice, ...voiceOptions(b, cfg.voice) };
+      setConfigValue(paths, ['voice'], next);
+      Object.assign(cfg.voice, next);
+      if (next.replyMode === 'texte') { cfg.voice.speakReplies = false; cfg.voice.voiceReplies = false; }
+      return false;
     }
     // Le bouton « Voix » de la discussion et de la bulle d'Odin : le même réglage que Réglages → Voix
     case 'speak': {
       setConfigValue(paths, ['voice', 'speakReplies'], Boolean(b.on));
       setConfigValue(paths, ['voice', 'speakRepliesChosen'], true);
-      cfg.voice.speakReplies = Boolean(b.on); cfg.voice.speakRepliesChosen = true;
+      setConfigValue(paths, ['voice', 'replyMode'], b.on ? 'voix' : 'texte');
+      cfg.voice.speakReplies = Boolean(b.on); cfg.voice.speakRepliesChosen = true; cfg.voice.replyMode = b.on ? 'voix' : 'texte';
+      if (b.on) cfg.voice.voiceReplies = true;
       return false; // rien à redémarrer
     }
     case 'search': {

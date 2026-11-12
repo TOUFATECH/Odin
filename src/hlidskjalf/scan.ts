@@ -12,6 +12,6 @@ export async function scanNetwork(inv: Inventory, cfg: OdinConfig['network'], fu
 
 /** Un balayage complet tous les `fullEvery` balayages (ou si aucun n'a jamais eu lieu). */
 export function shouldRunFull(inv: Inventory, fullEvery: number): boolean {
-  const rows = inv.db.prepare('SELECT full FROM scans ORDER BY id DESC LIMIT ?').all(Math.max(1, fullEvery)) as Array<{ full: number }>;
+  const rows = inv.recentScans(Math.max(1, fullEvery));
   return rows.length === 0 || (rows.length >= fullEvery && rows.every((r) => r.full === 0));
 }

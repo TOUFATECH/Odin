@@ -19,7 +19,7 @@ test('sauvegarde chiffrée : tout ~/.odin sauf journaux et certificat, illisible
     o.muninn.remember('rapports en PDF', 'owner');
 
     const names = backupManifest(o.paths).map((f) => f.name);
-    assert.ok(names.includes('config.json') && names.includes('env') && names.includes('odin.db') && names.includes('workspace/notes.txt'));
+    assert.ok(names.includes('config.json') && names.includes('env') && names.includes('memoire/memories.jsonl') && names.includes('workspace/notes.txt'));
     assert.ok(!names.some((n) => n.startsWith('logs/') || n === 'web-cert'), 'journaux et certificat exclus');
     assert.ok(!backupManifest(o.paths, { workspace: false }).some((n) => n.name.startsWith('workspace/')));
 
@@ -37,7 +37,8 @@ test('sauvegarde chiffrée : tout ~/.odin sauf journaux et certificat, illisible
     assert.equal(readFileSync(join(other, 'env'), 'utf8'), 'ANTHROPIC_API_KEY=sk-secret\n');
     if (process.platform !== 'win32') assert.equal(statSync(join(other, 'env')).mode & 0o777, 0o600, 'les clés restent lisibles par toi seul');
     assert.equal(readFileSync(join(other, 'workspace', 'notes.txt'), 'utf8'), 'bonjour');
-    assert.ok(existsSync(join(other, 'odin.db')));
+    assert.ok(existsSync(join(other, 'memoire', 'memories.jsonl')));
+    assert.ok(!names.includes('odin.db'), 'plus aucune base SQLite');
     assert.deepEqual(JSON.parse(readFileSync(join(other, 'config.json'), 'utf8')), JSON.parse(readFileSync(o.paths.config, 'utf8')));
 
     // Restauration par-dessus un Odin existant : l'ancien est gardé jusqu'au prochain démarrage.

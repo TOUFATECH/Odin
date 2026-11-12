@@ -71,7 +71,8 @@ test('mémoire : un fait plus récent remplace l\'ancien (historique gardé), fi
     m.remember('Je me lève à 6 h', 'owner', 'preference', '', { subject: 'proprietaire', topic: 'heure_reveil' });
     m.remember('Le propriétaire se lève à 9 h', 'untrusted', 'preference', '', { subject: 'proprietaire', topic: 'heure_reveil' });
     assert.equal(m.profile('proprietaire').current[0].content, 'Je me lève à 6 h');
-    m.db.prepare("UPDATE memories SET created_at = 0 WHERE superseded_by IS NOT NULL").run();
+    const mem = m.table<{ id: number; created_at: number; superseded_by?: number | null }>('memories', (r) => r.id);
+    for (const r of mem.filter((x) => x.superseded_by != null)) mem.patch(r.id, { created_at: 0 });
     assert.equal(m.decay(), 1, 'ancienne valeur oubliée après 6 mois');
     m.setVector(m.profile('nas').current[0].id, 'test', Float32Array.from([1, 0, 0]));
     assert.equal(m.nearest('test', Float32Array.from([0.9, 0.1, 0]))[0].content, 'Le NAS est à l\'adresse 192.168.1.35');

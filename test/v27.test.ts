@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DatabaseSync } from 'node:sqlite';
+import { Shelf } from '../src/muninn/tables.ts';
 import { Inventory, formatReport } from '../src/hlidskjalf/inventory.ts';
 import type { Found } from '../src/hlidskjalf/discover.ts';
 import { routerCommands, validMac } from '../src/hlidskjalf/router.ts';
@@ -13,7 +13,7 @@ import { makeOdin } from './helpers.ts';
 const f = (ip: string, mac: string, extra: Partial<Found> = {}): Found => ({ ip, mac, ports: [], services: [], network: '192.168.1.0/24', ...extra } as Found);
 
 test('adresses MAC : même MAC sur deux IP et box qui change de MAC → alertes graves', () => {
-  const inv = new Inventory(new DatabaseSync(':memory:'));
+  const inv = new Inventory(new Shelf(null));
   inv.applyScan([f('192.168.1.1', 'aa:bb:cc:00:00:01', { isGateway: true }), f('192.168.1.20', '00:11:22:33:44:55')], ['192.168.1.0/24'], 1000);
   const r = inv.applyScan([f('192.168.1.1', 'de:ad:be:ef:00:01', { isGateway: true }), f('192.168.1.20', '00:11:22:33:44:55'), f('192.168.1.21', '00:11:22:33:44:55')], ['192.168.1.0/24'], 2000);
   assert.ok(r.macAlerts!.some((a) => /même adresse MAC 00:11:22:33:44:55/.test(a)));

@@ -25,7 +25,7 @@
 - **Il se souvient et apprend** : mémoire durable avec recherche, compétences proposées après une tâche réussie (tu les relis avant de les activer).
 - **Il connaît ton réseau** : inventaire automatique des appareils, alerte quand l'un apparaît, se déconnecte ou disparaît.
 - **Il est sûr par défaut** : une page web piégée ne peut pas lui faire exécuter, écrire ou envoyer quoi que ce soit ; les secrets sont masqués partout ; chaque décision est tracée.
-- **Il est léger** : aucune dépendance à l'exécution, un seul fichier de données (SQLite), ~5 000 lignes de code commentées en français.
+- **Il est léger** : aucune dépendance à l'exécution, aucune base de données : sa mémoire est rangée en fichiers lisibles dans `~/.odin/memoire/`, ~5 000 lignes de code commentées en français.
 
 ---
 
@@ -233,6 +233,10 @@ Odin retient seul ce qui est durable (préférences, faits, projets) et le retro
 
 Chaque nuit, il **range lui-même sa mémoire** : il améliore ce qui est flou, fusionne les doublons, met à jour ce que la réalité a changé et oublie le périmé. Dans l'interface (Mémoire), les souvenirs sont rangés par thème ; **épingle** ce qui compte (il n'y touchera plus), **modifie** ou **fais-lui oublier** d'un clic. Un rangement s'annule pendant 7 jours.
 
+Tout est rangé **en fichiers** dans `~/.odin/memoire/` (un fichier `.jsonl` par sorte de choses : conversations, souvenirs, tâches, coûts…) : **aucune base de données, jamais de SQLite**. Au démarrage, Odin relit ces fichiers ; chaque changement est écrit tout de suite. Une ancienne mémoire `odin.db` est convertie une seule fois au premier démarrage, puis gardée à part sous le nom `odin.db.ancien-AAAA-MM-JJ`.
+
+**Conversations** : chacune peut être **supprimée** (corbeille 7 jours, annulable, puis effacement réel sur le disque, souvenirs venus d'elle compris si tu le demandes) ou **exportée** en Markdown, JSON ou texte (`/api/conversations/export?peer=…&format=md`, ou `?all=1` pour tout). À l'écrit comme à la voix : « supprime cette conversation » (Odin demande confirmation).
+
 ```bash
 odin memory              # liste
 odin memory search café  # recherche
@@ -302,7 +306,13 @@ Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, p
 
 ### Voix
 
-Réglages → Voix. **Whisper** (OpenAI, ou un serveur local sans clé, ex. [speaches](https://github.com/speaches-ai/speaches)) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. Pour parler, au choix : **ElevenLabs** (voix naturelles, **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite), **Piper** (gratuit, hors ligne, sur ta machine : `pip install piper-tts` puis `python3 -m piper.http_server --model fr_FR-tom-medium`), ou tout serveur **compatible OpenAI** `/v1/audio/speech` (Kokoro, openedai-speech…). Avec Piper et un Whisper local, ta voix ne quitte jamais la maison ; les notes vocales Telegram sont converties en Opus par ffmpeg s'il est là.
+**Par défaut, la voix est 100 % locale** : whisper.cpp pour comprendre, Piper (voix « tom » ou « siwis ») pour parler, installés par Odin sur sa machine. Aucune clé, rien n'est envoyé en ligne, même si une clé OpenAI est présente. Pour utiliser un service en ligne, coupe « 100 % local » dans Réglages → Voix.
+
+- **Réponse en voix ou en texte** : bouton Voix, Réglages → Voix, ou à l'oral (« réponds par écrit », « parle-moi »). En texte seul, Odin écrit sa réponse même quand tu lui parles au micro, et n'envoie plus de note vocale sur Telegram.
+- **Réglages** : texte en direct, annulation d'écho, sensibilité du micro, attente en fin de phrase, mot de réveil, maintenir pour parler, mots d'arrêt, « oui / mmh » ignorés, vitesse et volume de la voix, lexique de prononciation, cerveau (« auto » ou « sans IA » pour les demandes à la voix), mode privé (rien n'est retenu ni écrit).
+- Cahier des charges complet de la voix : [docs/voix-v2.md](docs/voix-v2.md).
+
+Services possibles quand « 100 % local » est coupé : **Whisper** (OpenAI, ou un serveur local sans clé, ex. [speaches](https://github.com/speaches-ai/speaches)) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. Pour parler, au choix : **ElevenLabs** (voix naturelles, **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite), **Piper** (gratuit, hors ligne, sur ta machine : `pip install piper-tts` puis `python3 -m piper.http_server --model fr_FR-tom-medium`), ou tout serveur **compatible OpenAI** `/v1/audio/speech` (Kokoro, openedai-speech…). Avec Piper et un Whisper local, ta voix ne quitte jamais la maison ; les notes vocales Telegram sont converties en Opus par ffmpeg s'il est là.
 
 ### Modèles : le bon pour chaque tâche
 
@@ -726,7 +736,7 @@ npm run check      # vérification des types + tests
 | `src/core` | **Huginn**, la boucle de l'agent |
 | `src/heimdall` | sécurité : politique, marquage, secrets, chemins |
 | `src/mimir` | décisions : questions, juges, tables de vérité |
-| `src/muninn` | mémoire SQLite |
+| `src/muninn` | mémoire en fichiers (JSONL), recherche plein texte en mémoire, export, corbeille |
 | `src/yggdrasil` | compétences |
 | `src/tools` | outils (**Gungnir**) |
 | `src/bifrost` | passerelle et canaux |

@@ -5,7 +5,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, extname, join } from 'node:path';
-import type { DatabaseSync } from 'node:sqlite';
+import { snippet as cut, TextIndex } from '../muninn/fulltext.ts';
+import type { Table } from '../muninn/tables.ts';
 import { readDocx, readPptx, readXlsx } from '../files/office.ts';
 import { readPdf } from '../files/pdf.ts';
 import { wrapUntrusted } from '../heimdall/injection.ts';
@@ -16,10 +17,24 @@ const TEXT_EXT = new Set(['.txt', '.md', '.csv', '.json', '.log', '.html', '.xml
 const DOC_EXT = new Set(['.pdf', '.docx', '.xlsx', '.pptx', ...TEXT_EXT]);
 const SKIP = /^(\.|node_modules$|@eaDir$|#recycle$|\$RECYCLE\.BIN$|System Volume Information$)/;
 
-export function ensureDocsTable(db: DatabaseSync): void {
-  db.exec(`CREATE TABLE IF NOT EXISTS docs(path TEXT PRIMARY KEY, name TEXT NOT NULL, ext TEXT NOT NULL, size INTEGER NOT NULL, mtime INTEGER NOT NULL, indexed_at INTEGER NOT NULL);
-    CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(path UNINDEXED, name, body, tokenize='unicode61 remove_diacritics 2');`);
+/** Où ranger l'index : la mémoire d'Odin (fichier `docs.jsonl`), jamais une base de données. */
+export interface DocHost { table<T extends Record<string, unknown>>(name: string, keyOf: (r: T) => string | number): Table<T> }
+interface DocRow { path: string; name: string; ext: string; size: number; mtime: number; indexed_at: number; body: string; [k: string]: unknown }
+/** Texte gardé par document pour la recherche (le reste se relit dans le fichier lui-même). */
+const BODY_MAX = 50_000;
+interface Idx { name: TextIndex; body: TextIndex; ids: Map<string, number>; paths: Map<number, string>; next: number }
+const cache = new WeakMap<object, Idx>();
+const docsOf = (h: DocHost) => h.table<DocRow>('docs', (r) => r.path);
+function idxOf(h: DocHost): Idx {
+  let x = cache.get(h);
+  if (!x) { x = { name: new TextIndex(), body: new TextIndex(), ids: new Map(), paths: new Map(), next: 1 }; cache.set(h, x); for (const r of docsOf(h).values()) addIdx(x, r); }
+  return x;
 }
+function addIdx(x: Idx, r: DocRow): void {
+  let id = x.ids.get(r.path); if (!id) { id = x.next++; x.ids.set(r.path, id); x.paths.set(id, r.path); }
+  x.name.add(id, r.name.replace(/[_.-]+/g, ' ')); x.body.add(id, r.body);
+}
+function dropIdx(x: Idx, path: string): void { const id = x.ids.get(path); if (!id) return; x.name.remove(id); x.body.remove(id); x.ids.delete(path); x.paths.delete(id); }
 
 /** Texte d'un document (ou son seul nom pour les autres fichiers). */
 export function docText(path: string): string {
@@ -35,13 +50,10 @@ export function docText(path: string): string {
 }
 
 /** Indexe (ou met à jour) les dossiers : seuls les fichiers nouveaux ou modifiés sont relus. */
-export function indexDocs(db: DatabaseSync, dirs: string[], o: { maxFiles?: number; maxBytes?: number } = {}): { files: number; updated: number; removed: number } {
-  ensureDocsTable(db);
+export function indexDocs(h: DocHost, dirs: string[], o: { maxFiles?: number; maxBytes?: number } = {}): { files: number; updated: number; removed: number } {
+  const docs = docsOf(h), x = idxOf(h);
   const maxFiles = o.maxFiles ?? 50_000, maxBytes = o.maxBytes ?? 50 * 1024 * 1024;
   const seen = new Set<string>(); let updated = 0;
-  const get = db.prepare('SELECT mtime, size FROM docs WHERE path = ?');
-  const up = db.prepare('INSERT OR REPLACE INTO docs(path, name, ext, size, mtime, indexed_at) VALUES (?,?,?,?,?,?)');
-  const delFts = db.prepare('DELETE FROM docs_fts WHERE path = ?'), addFts = db.prepare('INSERT INTO docs_fts(path, name, body) VALUES (?,?,?)');
   const walk = (dir: string, depth: number) => {
     if (depth > 12 || seen.size >= maxFiles) return;
     let entries; try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
@@ -52,21 +64,21 @@ export function indexDocs(db: DatabaseSync, dirs: string[], o: { maxFiles?: numb
       if (!e.isFile()) continue;
       let st; try { st = statSync(p); } catch { continue; }
       seen.add(p);
-      const cur = get.get(p) as { mtime: number; size: number } | undefined;
+      const cur = docs.get(p);
       if (cur && cur.mtime === Math.floor(st.mtimeMs) && cur.size === st.size) continue;
       const ext = extname(e.name).toLowerCase();
       const body = DOC_EXT.has(ext) && st.size <= maxBytes ? docText(p) : '';
-      up.run(p, e.name, ext, st.size, Math.floor(st.mtimeMs), Date.now());
-      delFts.run(p); addFts.run(p, e.name.replace(/[_.-]+/g, ' '), body);
+      addIdx(x, docs.put({ path: p, name: e.name, ext, size: st.size, mtime: Math.floor(st.mtimeMs), indexed_at: Date.now(), body: body.slice(0, BODY_MAX) }));
       updated++;
     }
   };
   for (const d of dirs) walk(d, 0);
   let removed = 0;
   const inDirs = (p: string) => dirs.some((d) => p.startsWith(d));
-  for (const r of db.prepare('SELECT path FROM docs').all() as Array<{ path: string }>) {
-    if (inDirs(r.path) && !seen.has(r.path)) { db.prepare('DELETE FROM docs WHERE path = ?').run(r.path); delFts.run(r.path); removed++; }
+  for (const r of docs.all()) {
+    if (inDirs(r.path) && !seen.has(r.path)) { docs.delete(r.path); dropIdx(x, r.path); removed++; }
   }
+  if (removed) docs.compact();
   return { files: seen.size, updated, removed };
 }
 
@@ -77,13 +89,20 @@ export function docDirs(chosen: string[] | undefined, workspace?: string): strin
   return [...['Documents', 'Téléchargements', 'Downloads', 'Bureau', 'Desktop', 'Images', 'Pictures'].map((d) => join(h, d)), ...(workspace ? [join(workspace, 'inbox')] : [])].filter((d) => { try { return existsSync(d) && statSync(d).isDirectory(); } catch { return false; } });
 }
 
-/** Recherche plein texte (nom et contenu), les plus pertinents d'abord. */
-export function findDocs(db: DatabaseSync, query: string, limit = 15): Array<{ path: string; name: string; size: number; mtime: number; snippet: string }> {
-  ensureDocsTable(db);
-  const terms = query.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').match(/[a-z0-9]{2,}/g) ?? [];
+/** Recherche plein texte (nom et contenu) : tous les mots doivent être trouvés, le nom compte 5 fois plus. */
+export function findDocs(h: DocHost, query: string, limit = 15): Array<{ path: string; name: string; size: number; mtime: number; snippet: string }> {
+  const terms = query.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]{2,}/g) ?? [];
   if (!terms.length) return [];
-  const fts = terms.map((t) => `"${t}"*`).join(' ');
-  return db.prepare(`SELECT f.path, d.name, d.size, d.mtime, snippet(docs_fts, 2, '«', '»', '…', 12) AS snippet FROM docs_fts f JOIN docs d ON d.path = f.path WHERE docs_fts MATCH ? ORDER BY bm25(docs_fts, 0, 5, 1) LIMIT ?`).all(fts, limit) as Array<{ path: string; name: string; size: number; mtime: number; snippet: string }>;
+  const docs = docsOf(h), x = idxOf(h);
+  let total: Map<number, number> | undefined;
+  for (const term of [...new Set(terms)]) {
+    const s = new Map<number, number>();
+    for (const r of x.name.search(term, () => true, 100_000)) s.set(r.id, (s.get(r.id) ?? 0) + 5 * r.score);
+    for (const r of x.body.search(term, () => true, 100_000)) s.set(r.id, (s.get(r.id) ?? 0) + r.score);
+    total = total ? new Map([...total].filter(([id]) => s.has(id)).map(([id, v]) => [id, v + s.get(id)!])) : s;
+  }
+  return [...(total ?? [])].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => docs.get(x.paths.get(id)!)!).filter(Boolean)
+    .map((d) => ({ path: d.path, name: d.name, size: d.size, mtime: d.mtime, snippet: d.body ? cut(d.body, query, 12) : d.name }));
 }
 
 export const docFind: Tool = {
@@ -96,9 +115,8 @@ export const docFind: Tool = {
     const dirs = docDirs(ctx.docs?.dirs, ctx.workspace);
     if (!dirs.length) return 'Aucun dossier de documents trouvé : choisis-en dans Réglages → Documents.';
     // Premier usage : index fait tout de suite (ensuite chaque nuit).
-    ensureDocsTable(ctx.muninn.db);
-    if (!(ctx.muninn.db.prepare('SELECT 1 FROM docs LIMIT 1').get())) { try { indexDocs(ctx.muninn.db, dirs); } catch { /* on cherche avec ce qu'on a */ } }
-    const r = findDocs(ctx.muninn.db, s(i.query), Math.min(50, Number(i.count ?? 15)));
+    if (!docsOf(ctx.muninn).size) { try { indexDocs(ctx.muninn, dirs); } catch { /* on cherche avec ce qu'on a */ } }
+    const r = findDocs(ctx.muninn, s(i.query), Math.min(50, Number(i.count ?? 15)));
     if (!r.length) return 'Aucun document trouvé (l\'index est mis à jour chaque nuit ; doc_index pour le refaire maintenant).';
     const text = r.map((d, k) => `${k + 1}. ${d.path}\n   ${new Date(d.mtime).toLocaleDateString('fr-FR')} · ${(d.size / 1024).toFixed(0)} Ko${d.snippet && d.snippet !== d.name ? `\n   ${d.snippet.replace(/\s+/g, ' ').slice(0, 200)}` : ''}`).join('\n');
     return { output: wrapUntrusted('documents', text), tainted: true };
@@ -113,7 +131,7 @@ export const docIndex: Tool = {
   async run(_i, ctx) {
     const dirs = docDirs(ctx.docs?.dirs, ctx.workspace);
     if (!dirs.length) return 'Aucun dossier de documents trouvé : choisis-en dans Réglages → Documents.';
-    const r = indexDocs(ctx.muninn.db, dirs);
+    const r = indexDocs(ctx.muninn, dirs);
     return `Index à jour : ${r.files} fichier(s), ${r.updated} relu(s), ${r.removed} retiré(s) — dossiers : ${dirs.map((d) => basename(d) || d).join(', ')}.`;
   },
 };

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
 import type { AddressInfo } from 'node:net';
-import { DatabaseSync } from 'node:sqlite';
+import { Shelf } from '../src/muninn/tables.ts';
 import { encodeQuery, isRandomMac, localSubnets, parseDns, parseNeighbors, parseSsdp, probe, sanitize, summarizeMdns, type Found } from '../src/hlidskjalf/discover.ts';
 import { classify, formatReport, Inventory, linksFor } from '../src/hlidskjalf/inventory.ts';
 import { Gateway } from '../src/bifrost/gateway.ts';
@@ -107,7 +107,7 @@ const NET = '192.168.1.0/24';
 const dev = (ip: string, mac?: string, ports: number[] = []): Found => ({ ip, mac, ports, services: [], network: NET });
 
 test('inventaire : nouveau → déconnecté → retiré → reconnecté, IP changée, autre réseau intact', () => {
-  const inv = new Inventory(new DatabaseSync(':memory:'));
+  const inv = new Inventory(new Shelf(null));
   const day = 86_400_000, t0 = Date.parse('2026-11-01T10:00:00Z');
   inv.applyScan([{ ...dev('10.0.0.5', 'aa:aa:aa:aa:aa:aa'), network: '10.0.0.0/24' }], ['10.0.0.0/24'], t0 - day);
   let r = inv.applyScan([dev('192.168.1.20', '3c:2a:f4:11:22:33', [631]), dev('192.168.1.30')], [NET], t0, 7, true);

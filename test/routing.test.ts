@@ -145,8 +145,7 @@ test('agent : la réponse dit quelle IA l\'a traitée, le journal garde le tour,
   assert.match(toolOut, /a répondu/);
   assert.notEqual(r2.turnId, r1.turnId);
   // Les coûts sont rattachés à la vraie conversation.
-  const u = o.muninn.db.prepare("SELECT COUNT(*) AS n FROM usage WHERE session_id = 'web:principal'").get() as { n: number };
-  assert.ok(u.n >= 3);
+  assert.ok(o.muninn.usageCount('web:principal') >= 3);
   o.cleanup();
 });
 

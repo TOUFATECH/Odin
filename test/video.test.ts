@@ -54,7 +54,7 @@ test('vraie vidéo (fichier) : scènes extraites par FFmpeg, regardées, paroles
     const out = await videoAnalyze.run({ source: 'demo.mp4', mode: 'résumé', remember: true }, ctx);
     const text = typeof out === 'string' ? out : out.output;
     assert.match(text, /trois écrans \[0:01\]/); assert.match(text, /Enregistré en mémoire/);
-    assert.equal((o.muninn.db.prepare("SELECT COUNT(*) n FROM memories WHERE tags LIKE '%video%'").get() as { n: number }).n, 1, 'mémoire avec la source');
+    assert.equal(o.muninn.listMemories(1000).filter((x) => x.tags.toLowerCase().includes('video')).length, 1, 'mémoire avec la source');
     const last = readdirSync(join(o.paths.workspace, 'videos')).find((d) => existsSync(join(o.paths.workspace, 'videos', d, 'analyse-résumé.md')))!;
     assert.match(readFileSync(join(o.paths.workspace, 'videos', last, 'analyse-résumé.md'), 'utf8'), /trois écrans/);
   } finally { o.cleanup(); rmSync(dir, { recursive: true, force: true }); }

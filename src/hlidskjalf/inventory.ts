@@ -1,7 +1,7 @@
 // Hliðskjálf — l'inventaire : chaque appareil vu sur le réseau, son type, son état
 // (en ligne / déconnecté / retiré), son historique, et ce qu'Odin peut faire avec lui.
 
-import type { DatabaseSync } from 'node:sqlite';
+import type { Table } from '../muninn/tables.ts';
 import { execFile } from 'node:child_process';
 import { type Found, isRandomMac } from './discover.ts';
 import { vendorOf, WEB_HINTS } from './vendors.ts';
@@ -46,15 +46,13 @@ export interface ScanReport {
   changed: Array<{ device: Device; what: string }>;
 }
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS devices(
-  id TEXT PRIMARY KEY, ip TEXT NOT NULL, mac TEXT NOT NULL DEFAULT '', hostname TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '',
-  model TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'inconnu', ports TEXT NOT NULL DEFAULT '[]', services TEXT NOT NULL DEFAULT '[]',
-  server TEXT NOT NULL DEFAULT '', network TEXT NOT NULL, status TEXT NOT NULL, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL,
-  label TEXT NOT NULL DEFAULT '', web TEXT NOT NULL DEFAULT '[]');
-CREATE TABLE IF NOT EXISTS device_events(id INTEGER PRIMARY KEY AUTOINCREMENT, device_id TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS scans(id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, networks TEXT NOT NULL, seen INTEGER NOT NULL, full INTEGER NOT NULL);
-`;
+/** Où l'inventaire range ses tables : la mémoire d'Odin (Muninn) ou une étagère en mémoire vive. */
+export interface TableHost { table<T extends Record<string, unknown>>(name: string, keyOf: (r: T) => string | number): Table<T> }
+type DeviceRow = Device & Record<string, unknown>;
+interface EventRow { id: number; device_id: string; kind: string; detail: string; at: number }
+interface ScanRow { id: number; at: number; networks: string[]; seen: number; full: number }
+const RANK: Record<string, number> = { online: 0, offline: 1 };
+const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 const has = (f: { ports: number[]; services: string[] }, ...needles: Array<number | string>) =>
   needles.some((n) => (typeof n === 'number' ? f.ports.includes(n) : f.services.some((s) => s.includes(n))));
@@ -103,55 +101,49 @@ export function linksFor(d: Pick<Device, 'ip' | 'ports' | 'services' | 'kind'> &
   return L;
 }
 
-const rowToDevice = (r: Record<string, unknown>): Device => ({
-  ...(r as unknown as Device),
-  ports: JSON.parse(r.ports as string) as number[],
-  services: JSON.parse(r.services as string) as string[],
-  web: JSON.parse((r.web as string) || '[]') as WebEndpoint[],
-});
+const rowToDevice = (r: DeviceRow): Device => ({ ...r, ports: [...(r.ports ?? [])], services: [...(r.services ?? [])], web: [...(r.web ?? [])] });
 
 export class Inventory {
-  readonly db: DatabaseSync;
-  constructor(db: DatabaseSync) {
-    this.db = db;
-    this.db.exec(SCHEMA);
-    try { this.db.exec("ALTER TABLE devices ADD COLUMN web TEXT NOT NULL DEFAULT '[]'"); } catch { /* colonne déjà présente */ }
-    try { this.db.exec("ALTER TABLE devices ADD COLUMN os TEXT NOT NULL DEFAULT ''"); } catch { /* colonne déjà présente */ }
-    try { this.db.exec('ALTER TABLE devices ADD COLUMN blocked INTEGER NOT NULL DEFAULT 0'); } catch { /* colonne déjà présente */ }
+  private readonly devices: Table<DeviceRow>;
+  private readonly evts: Table<EventRow & Record<string, unknown>>;
+  private readonly scans: Table<ScanRow & Record<string, unknown>>;
+  constructor(host: TableHost) {
+    this.devices = host.table<DeviceRow>('devices', (r) => r.id);
+    this.evts = host.table<EventRow & Record<string, unknown>>('device_events', (r) => r.id);
+    this.scans = host.table<ScanRow & Record<string, unknown>>('scans', (r) => r.id);
   }
 
   list(filter: { status?: DeviceStatus | 'all'; kind?: string } = {}): Device[] {
-    const rows = this.db.prepare("SELECT * FROM devices ORDER BY CASE status WHEN 'online' THEN 0 WHEN 'offline' THEN 1 ELSE 2 END, kind, ip").all() as Array<Record<string, unknown>>;
+    const rows = this.devices.all().sort((a, b) => (RANK[a.status] ?? 2) - (RANK[b.status] ?? 2) || cmp(a.kind, b.kind) || cmp(a.ip, b.ip));
     return rows.map(rowToDevice)
       .filter((d) => (filter.status === 'all' ? true : filter.status ? d.status === filter.status : d.status !== 'removed'))
       .filter((d) => !filter.kind || d.kind.includes(filter.kind));
   }
 
   get(idOrIp: string): Device | undefined {
-    const r = this.db.prepare('SELECT * FROM devices WHERE id = ? OR ip = ? ORDER BY last_seen DESC').get(idOrIp, idOrIp) as Record<string, unknown> | undefined;
+    const r = this.devices.get(idOrIp) ?? this.devices.filter((d) => d.ip === idOrIp).sort((a, b) => b.last_seen - a.last_seen)[0];
     return r ? rowToDevice(r) : undefined;
   }
 
   events(limit = 50, deviceId?: string): Array<{ device_id: string; kind: string; detail: string; at: number }> {
-    return (deviceId
-      ? this.db.prepare('SELECT * FROM device_events WHERE device_id = ? ORDER BY id DESC LIMIT ?').all(deviceId, limit)
-      : this.db.prepare('SELECT * FROM device_events ORDER BY id DESC LIMIT ?').all(limit)) as Array<{ device_id: string; kind: string; detail: string; at: number }>;
+    return this.evts.filter((e) => !deviceId || e.device_id === deviceId).sort((a, b) => b.id - a.id).slice(0, limit);
   }
 
   lastScan(): { at: number; seen: number; full: number } | undefined {
-    return this.db.prepare('SELECT at, seen, full FROM scans ORDER BY id DESC LIMIT 1').get() as { at: number; seen: number; full: number } | undefined;
+    const s = this.recentScans(1)[0]; return s ? { at: s.at, seen: s.seen, full: s.full } : undefined;
   }
+  /** Les derniers balayages, du plus récent au plus ancien. */
+  recentScans(n: number): Array<{ at: number; seen: number; full: number }> { return this.scans.all().sort((a, b) => b.id - a.id).slice(0, n); }
 
   /** Complète un appareil après identification approfondie (sans écraser un nom donné par toi). */
   enrich(id: string, f: { hostname?: string; model?: string; os?: string }): void {
     const cut = (v?: string) => (v ?? '').replace(/[\u0000-\u001f]/g, '').slice(0, 80);
-    if (f.hostname) this.db.prepare("UPDATE devices SET hostname = ? WHERE id = ? AND hostname = ''").run(cut(f.hostname), id);
-    if (f.model) this.db.prepare('UPDATE devices SET model = ? WHERE id = ?').run(cut(f.model), id);
-    if (f.os) this.db.prepare('UPDATE devices SET os = ? WHERE id = ?').run(cut(f.os), id);
+    const d = this.devices.get(id); if (!d) return;
+    this.devices.patch(id, { ...(f.hostname && !d.hostname ? { hostname: cut(f.hostname) } : {}), ...(f.model ? { model: cut(f.model) } : {}), ...(f.os ? { os: cut(f.os) } : {}) });
   }
 
   setBlocked(id: string, on: boolean, why = '', now = Date.now()): void {
-    this.db.prepare('UPDATE devices SET blocked = ? WHERE id = ?').run(on ? now : 0, id);
+    this.devices.patch(id, { blocked: on ? now : 0 });
     this.event(id, on ? 'bloqué' : 'débloqué', why.slice(0, 200), now);
   }
   /** Retrouve un appareil par IP, MAC, identifiant ou nom (insensible à la casse). */
@@ -162,11 +154,11 @@ export class Inventory {
   }
 
   setLabel(id: string, label: string): boolean {
-    return Number(this.db.prepare('UPDATE devices SET label = ? WHERE id = ?').run(label.slice(0, 80), id).changes) > 0;
+    return this.devices.patch(id, { label: label.slice(0, 80) });
   }
 
   private event(id: string, kind: string, detail: string, at: number): void {
-    this.db.prepare('INSERT INTO device_events(device_id, kind, detail, at) VALUES (?,?,?,?)').run(id, kind, detail, at);
+    this.evts.insert({ device_id: id, kind, detail, at });
   }
 
   /**
@@ -185,7 +177,7 @@ export class Inventory {
     }
     for (const f of found) {
       if (!f.mac) continue;
-      const prev = this.db.prepare("SELECT * FROM devices WHERE ip = ? AND mac != '' AND lower(mac) != ? AND status = 'online'").get(f.ip, f.mac.toLowerCase()) as Record<string, unknown> | undefined;
+      const prev = this.devices.find((x) => x.ip === f.ip && x.mac !== '' && x.mac.toLowerCase() !== f.mac!.toLowerCase() && x.status === 'online');
       if (!prev) continue;
       const d = rowToDevice(prev);
       if (f.isGateway || d.kind === 'routeur') {
@@ -198,7 +190,7 @@ export class Inventory {
     }
     return out;
   }
-  private byIp(ip: string): Device | undefined { const r = this.db.prepare('SELECT * FROM devices WHERE ip = ? ORDER BY last_seen DESC LIMIT 1').get(ip) as Record<string, unknown> | undefined; return r ? rowToDevice(r) : undefined; }
+  private byIp(ip: string): Device | undefined { const r = this.devices.filter((d) => d.ip === ip).sort((a, b) => b.last_seen - a.last_seen)[0]; return r ? rowToDevice(r) : undefined; }
 
   /**
    * Fusionne un balayage avec l'inventaire.
@@ -215,11 +207,11 @@ export class Inventory {
       const kind = classify(f);
       let cur = f.mac ? this.get(f.mac) : undefined;
       if (!cur) {
-        const byIp = this.db.prepare("SELECT * FROM devices WHERE ip = ? AND (mac = '' OR mac = ?)").get(f.ip, f.mac ?? '') as Record<string, unknown> | undefined;
+        const byIp = this.devices.find((d) => d.ip === f.ip && (d.mac === '' || d.mac === (f.mac ?? '')));
         if (byIp) cur = rowToDevice(byIp);
       }
       const id = cur?.id && (cur.mac || !f.mac) ? cur.id : f.mac ?? `ip:${f.ip}`;
-      if (cur && cur.id !== id) this.db.prepare('UPDATE devices SET id = ? WHERE id = ?').run(id, cur.id); // l'IP a désormais une MAC connue
+      if (cur && cur.id !== id) { const old = this.devices.get(cur.id)!; this.devices.delete(cur.id); this.devices.put({ ...old, id }); } // l'IP a désormais une MAC connue
       seenIds.add(id);
       // En balayage rapide (sans ports), on garde les ports connus.
       const ports = full || !cur ? f.ports : cur.ports;
@@ -229,9 +221,7 @@ export class Inventory {
         model: [f.manufacturer, f.model].filter(Boolean).join(' ') || cur?.model || '', kind: kind === 'inconnu' && cur ? cur.kind : kind, ports, services, server: f.server ?? cur?.server ?? '', network: f.network,
       };
       if (!cur) {
-        this.db.prepare(`INSERT INTO devices(id, ip, mac, hostname, name, model, kind, ports, services, server, network, status, first_seen, last_seen, web)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?, 'online', ?, ?, ?)`).run(id, next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, now, JSON.stringify(f.web ?? []));
-        if (f.os) this.db.prepare('UPDATE devices SET os = ? WHERE id = ?').run(f.os.slice(0, 80), id);
+        this.devices.put({ ...next, status: 'online', first_seen: now, last_seen: now, label: '', web: f.web ?? [], os: f.os ? f.os.slice(0, 80) : '', blocked: 0 });
         this.event(id, 'nouveau', `${next.kind} ${next.ip}`, now);
         rep.added.push(this.get(id)!);
         continue;
@@ -241,24 +231,22 @@ export class Inventory {
       const newPorts = ports.filter((p) => !cur!.ports.includes(p));
       if (full && newPorts.length) { this.event(id, 'nouveaux ports', newPorts.join(','), now); rep.changed.push({ device: cur, what: `ports ouverts : ${newPorts.join(', ')}` }); }
       const web = full && f.web ? f.web : cur.web;
-      this.db.prepare(`UPDATE devices SET ip=?, mac=?, hostname=?, name=?, model=?, kind=?, ports=?, services=?, server=?, network=?, status='online', last_seen=?, web=? WHERE id=?`)
-        .run(next.ip, next.mac, next.hostname, next.name, next.model, next.kind, JSON.stringify(ports), JSON.stringify(services), next.server, next.network, now, JSON.stringify(web), id);
-      if (f.os) this.db.prepare('UPDATE devices SET os = ? WHERE id = ?').run(f.os.slice(0, 80), id);
+      this.devices.patch(id, { ...next, status: 'online', last_seen: now, web, ...(f.os ? { os: f.os.slice(0, 80) } : {}) });
       if (cur.status !== 'online') rep.reconnected.push(this.get(id)!);
     }
     for (const d of this.list({ status: 'all' })) {
       if (seenIds.has(d.id) || !networks.includes(d.network) || d.status === 'removed') continue;
       if (now - d.last_seen > removeAfterDays * 86_400_000) {
-        this.db.prepare("UPDATE devices SET status='removed' WHERE id=?").run(d.id);
+        this.devices.patch(d.id, { status: 'removed' });
         this.event(d.id, 'retiré', `absent depuis ${removeAfterDays} jours`, now);
         rep.removed.push({ ...d, status: 'removed' });
       } else if (d.status === 'online') {
-        this.db.prepare("UPDATE devices SET status='offline' WHERE id=?").run(d.id);
+        this.devices.patch(d.id, { status: 'offline' });
         this.event(d.id, 'déconnecté', d.ip, now);
         rep.disconnected.push({ ...d, status: 'offline' });
       }
     }
-    this.db.prepare('INSERT INTO scans(at, networks, seen, full) VALUES (?,?,?,?)').run(now, JSON.stringify(networks), found.length, full ? 1 : 0);
+    this.scans.insert({ at: now, networks, seen: found.length, full: full ? 1 : 0 });
     return rep;
   }
 }
