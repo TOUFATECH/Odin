@@ -420,6 +420,62 @@ CHECKS['bru>forseti'] = async (w) => {
     assert.ok(w.v.alerts({ module: 'bru' }).some((a) => /Le tunnel Cloudflare est coupé/.test(a.title) && a.level === 'haute'));
   } finally { end(); }
 };
+/** Skíðblaðnir prêt : un espace « Famille » et le serveur des fichiers (port au hasard). */
+async function skidUp(w: World): Promise<{ port: number; send: (path: string, o?: { body?: string; headers?: Record<string, string>; method?: string }) => Promise<{ status: number; text: string }> }> {
+  await w.v.act('skidbladnir', 'espace', { nom: 'Famille', lecture: 'famille', ecriture: 'famille', quota_go: 1 });
+  await w.v.act('skidbladnir', 'demarrer', { port: 0 });
+  const port = (await import('../src/valhalla/modules/skidbladnir.ts')).filesServer()!.port, http = await import('node:http');
+  const send = (path: string, o: { body?: string; headers?: Record<string, string>; method?: string } = {}) => new Promise<{ status: number; text: string }>((ok, ko) => { const q = http.request({ host: '127.0.0.1', port, path, method: o.method ?? 'GET', headers: { host: 'fichiers.exemple.fr', connection: 'close', ...o.headers } }, (r) => { let b = ''; r.on('data', (c) => { b += c; }); r.on('end', () => ok({ status: r.statusCode!, text: b })); }); q.on('error', ko); q.end(o.body); });
+  return { port, send };
+}
+const skidDown = (w: World) => w.v.act('skidbladnir', 'arreter');
+CHECKS['var>skidbladnir'] = async (w) => {
+  await w.v.act('var', 'ajouter', { login: 'awa', nom: 'Awa', groupes: 'famille', mot_de_passe: 'une phrase assez longue' });
+  assert.match((await w.v.act('skidbladnir', 'mot_de_passe_appli', { login: 'awa', nom: 'PC' })).text, /Mot de passe d'appli pour awa/);
+  assert.match((await w.v.act('skidbladnir', 'mot_de_passe_appli', { login: 'personne', nom: 'PC' })).text, /pas de compte actif dans Vár/);
+};
+CHECKS['skidbladnir>valgrind'] = async (w) => {
+  const p = await proxyUp(w);
+  try {
+    await w.v.act('skidbladnir', 'espace', { nom: 'Famille' });
+    const r = await w.v.act('skidbladnir', 'publier', { fichiers: 'fichiers.exemple.fr', partage: 'partage.exemple.fr', https: 'aucun' });
+    assert.match(r.text, /✓ fichiers\.exemple\.fr dans le proxy[\s\S]*✓ partage\.exemple\.fr dans le proxy/, r.text);
+    const hs = (w.v.ctx('valgrind').settings.hosts as Array<{ domains: string[]; target: string }>);
+    assert.ok(hs.some((h) => h.domains.includes('partage.exemple.fr') && /^http:\/\/127\.0\.0\.1:\d+$/.test(h.target)));
+  } finally { p.end(); await skidDown(w); }
+};
+CHECKS['skidbladnir>var'] = async (w) => {
+  const u = await varUp(w);
+  try {
+    const r = await w.v.act('skidbladnir', 'publier', { fichiers: 'fichiers.exemple.fr', partage: 'partage.exemple.fr', https: 'auto-signé' });
+    assert.match(r.text, /fichiers\.exemple\.fr demande la connexion d'Odin/, r.text);
+    assert.equal((w.v.ctx('valgrind').settings.hosts as Array<{ domains: string[]; sso?: boolean }>).find((h) => h.domains.includes('fichiers.exemple.fr'))?.sso, true);
+    assert.ok(!(w.v.ctx('valgrind').settings.hosts as Array<{ domains: string[]; sso?: boolean }>).find((h) => h.domains.includes('partage.exemple.fr'))?.sso, 'les liens publics restent publics');
+  } finally { u.end(); await skidDown(w); }
+};
+CHECKS['skidbladnir>ullr'] = async (w) => {
+  const k = await skidUp(w);
+  try {
+    const r = await k.send('/api/televerser?e=famille&p=', { method: 'POST', body: EICAR, headers: { 'remote-user': 'awa', 'remote-groups': 'famille', 'x-skid': '1', 'x-nom': 'facture.com' } });
+    assert.equal(r.status, 202, r.text); assert.ok(did(w, 'ullr', 'fichier'));
+  } finally { await skidDown(w); }
+};
+CHECKS['skidbladnir>forseti'] = async (w) => {
+  const k = await skidUp(w);
+  try {
+    await k.send('/api/televerser?e=famille&p=', { method: 'POST', body: EICAR, headers: { 'remote-user': 'awa', 'remote-groups': 'famille', 'x-skid': '1', 'x-nom': 'facture.com' } });
+    const a = w.v.alerts({ module: 'skidbladnir' }).find((x) => /Fichier (suspect|dangereux) reçu dans « Famille »/.test(x.title)); assert.ok(a);
+  } finally { await skidDown(w); }
+};
+CHECKS['skidbladnir>garmr'] = async (w) => {
+  const k = await skidUp(w);
+  try {
+    const lk = JSON.parse((await k.send('/api/lien', { method: 'POST', body: JSON.stringify({ e: 'famille', p: '', motdepasse: 'abc' }), headers: { 'remote-user': 'awa', 'remote-groups': 'famille', 'x-skid': '1' } })).text);
+    const token = /\/p\/([\w-]+)$/.exec(lk.url)![1];
+    for (let i = 0; i < 5; i++) await k.send(`/p/${token}/mot-de-passe`, { method: 'POST', body: 'mot_de_passe=x', headers: { host: 'partage.exemple.fr', 'x-real-ip': '203.0.113.50' } });
+    assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Garmr appelé au 5e essai');
+  } finally { await skidDown(w); }
+};
 CHECKS['var>brisingamen'] = async (w) => {
   const r = await w.v.act('var', 'ajouter', { login: 'sara', nom: 'Sara', groupes: 'famille' });
   assert.match(r.text, /Son mot de passe est dans le coffre/, r.text); assert.ok(did(w, 'brisingamen', 'ajouter'));

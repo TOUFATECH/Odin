@@ -19,6 +19,8 @@ const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim(
 let appCtx: ModCtx | undefined; let mascot = '';
 /** La mascotte d'Odin (prise sur l'écran de connexion) pour le portail. */
 export function setMascot(svg: string): void { mascot = svg; }
+/** La mascotte, pour les pages publiques des autres applis (liens de partage…). */
+export const mascotSvg = () => mascot;
 // Le dernier contexte vu sert au proxy, qui demande à chaque requête qui est connecté.
 const people = (ctx: ModCtx): Person[] => { appCtx = ctx; return (ctx.settings.people as Person[] | undefined) ?? []; };
 const rules = (ctx: ModCtx): Rule[] => (ctx.settings.rules as Rule[] | undefined) ?? [];
@@ -220,6 +222,10 @@ export const varModule: Module = {
       const pub = await ctx.call('bru', 'publier', { domaine: portal }, 'publier le portail de connexion sur Internet').catch(() => ({ ok: false, text: '' }));
       return { text: `⚙️ Portail ${portal} (sessions de ${h} h, valables sur *.${dom})${r.ok !== false ? ' servi par le proxy.' : ` — ⚠ le proxy n'a pas pu le servir : ${r.text}`}${pub.ok !== false && pub.text ? `\n${pub.text}` : ''}` };
     } },
+    { id: 'personnes', label: 'Personnes et groupes', what: 'Qui a un compte et dans quels groupes (sans aucun mot de passe)', read: true, quiet: true, run: (ctx) => {
+      const l = people(ctx).map((p) => ({ login: p.login, name: p.name, groups: p.groups, active: p.active }));
+      return { text: l.length ? l.map((p) => `- ${p.name} (${p.login}) : ${p.groups.join(', ')}${p.active ? '' : ' · coupé'}`).join('\n') : 'Personne pour l\'instant.', data: { people: l } };
+    } },
     { id: 'journal', label: 'Journal des connexions', what: 'Qui s\'est connecté, d\'où, et les échecs', read: true, run: (ctx) => ({ text: journal(ctx).slice(-40).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`).join('\n') || 'Rien.' }) },
   ],
   view(ctx) {
@@ -233,7 +239,7 @@ export const varModule: Module = {
         { kind: 'graph', title: 'Graphe des identités', ...idGraph(ps, rs, ss, now), empty: 'Personne pour l\'instant : ajoute une personne à droite.', legend: [['#4F9DDE', 'Odin, groupes'], ['#57C98A', 'connecté en ce moment'], ['#E8EAEC', 'personne'], ['#B48CF0', 'double authentification'], ['#F0A040', 'site réservé'], ['#EE6A55', 'verrouillé']] },
         { kind: 'table', title: 'Personnes', columns: ['Nom', 'Identifiant', 'Groupes', 'Double auth.', 'Dernière connexion'], empty: 'Personne.', rows: ps.map((p) => ({ cells: [p.name, p.login, p.groups.join(', ') || '—', p.totp ? 'oui' : 'non', p.lastLogin ? new Date(p.lastLogin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais'], tone: !p.active ? 'neutre' as const : p.lockedUntil && p.lockedUntil > now ? 'mauvais' as const : undefined, actions: [{ action: 'double_auth', label: 'Double auth.', input: { login: p.login } }] })) },
         { kind: 'log', title: 'Journal des connexions', lines: j.slice(-25).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`) },
-        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Skíðblaðnir (fichiers)', detail: 'les dossiers partagés par groupe, avec le compte d\'Odin' }, { title: 'Sól (photos)', detail: 'les albums visibles selon les groupes' }, { title: 'Snotra (bureau)', detail: 'le bureau à distance réservé aux admins, avec code' }] },
+        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Sól (photos)', detail: 'les albums visibles selon les groupes' }, { title: 'Snotra (bureau)', detail: 'le bureau à distance réservé aux admins, avec code' }] },
       ],
       side: [{ kind: 'form', title: 'Ajouter une personne', action: 'ajouter', submit: 'Ajouter', params: ADD }, { kind: 'form', title: 'Réserver un site', action: 'proteger_site', submit: 'Réserver', params: varModule.actions.find((a) => a.id === 'proteger_site')!.params! }, { kind: 'form', title: 'Réglages du portail', action: 'reglages', submit: 'Enregistrer', params: varModule.actions.find((a) => a.id === 'reglages')!.params! }],
     };
