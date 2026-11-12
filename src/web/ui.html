@@ -3470,7 +3470,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     { name: 'Me parler', steps: [
       { v: 'chat', q: '#v-chat .cbox', t: 'La Discussion, c\'est ici que tu me parles, comme à une personne : « mets à jour mes serveurs », « qui est connecté au wifi ? », « résume ce PDF », « bloque le téléphone inconnu ». Entrée pour envoyer, Maj et Entrée pour aller à la ligne.' },
       { v: 'chat', q: '#camBtn', t: 'Le trombone : joins-moi des photos, des vidéos, des sons, des PDF, des fichiers Word ou Excel. Tu peux aussi les glisser dans la discussion, ou les coller.' },
-      { v: 'chat', q: '#micBtn', t: 'Le micro : parle-moi au lieu d\'écrire. Je transcris et je réponds.' },
+      { v: 'chat', q: '#micBtn', t: 'Le micro : parle, je t\'écris ce que tu dis ; tu relis et tu envoies.' },
       { v: 'chat', q: '#speakBtn', t: '« Voix » : je te lis mes réponses à voix haute.' },
       { v: 'chat', q: '#handsBtn', t: '« Mains libres » : dis « Odin » et je t\'écoute, sans toucher l\'écran. Dis « stop » pour me couper la parole.' },
       { v: 'chat', q: '#dryBtn', t: 'Le mode Essai : je prépare et j\'explique tout, sans rien changer. Parfait pour voir ce que je ferais avant de me laisser agir.' },
@@ -4039,15 +4039,28 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     attached.forEach((a) => a.thumb && URL.revokeObjectURL(a.thumb)); attached = []; renderAttached();
     return ok.map((a) => ({ file: a.file, type: a.type, size: a.size, name: a.f.name, icon: ficon(a.f) }));
   }
+  // Le micro écrit pendant que tu parles (dictée du navigateur, en direct) ; tu relis, puis tu envoies.
+  // Sans dictée dans le navigateur : enregistrement transcrit par Whisper, le texte arrive dans la zone de saisie.
+  let dict = null;
+  function dictate(btn, input, hint) {
+    if (dict) { dict.stop(); return; }
+    const base = input.value.trim() ? `${input.value.replace(/\s*$/, '')} ` : ''; let done = '';
+    dict = new SR(); dict.lang = 'fr-FR'; dict.continuous = true; dict.interimResults = true;
+    dict.onresult = (ev) => { let live = ''; for (let k = ev.resultIndex; k < ev.results.length; k++) { const x = ev.results[k][0].transcript; if (ev.results[k].isFinal) done += x; else live += x; } input.value = `${base}${done}${live}`.replace(/\s+/g, ' ').trimStart(); input.dispatchEvent(new Event('input', { bubbles: true })); };
+    dict.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') hint.textContent = 'Le micro est refusé : autorise-le pour ce site dans le navigateur.'; };
+    dict.onend = () => { dict = null; btn.setAttribute('aria-pressed', 'false'); moodRelease(); if (hint.textContent.startsWith('🎙')) hint.textContent = input.value.trim() ? 'Relis, puis envoie ⏎' : ''; input.focus(); };
+    try { dict.start(); btn.setAttribute('aria-pressed', 'true'); moodHold('ecoute'); hint.textContent = '🎙 Je t\'écris ce que tu dis… touche le micro pour arrêter.'; } catch { dict = null; }
+  }
   $('#micBtn').addEventListener('click', () => {
-    if (!state?.voice?.stt && !$('#micBtn')._rec) { $('#typing').textContent = 'Pour parler à Odin, active Whisper dans Réglages → Voix.'; return; }
+    if (SR && !$('#micBtn')._rec) { dictate($('#micBtn'), $('#input'), $('#typing')); return; }
+    if (!state?.voice?.stt && !$('#micBtn')._rec) { $('#typing').textContent = 'Ce navigateur ne sait pas écrire ce que tu dis : utilise Chrome, Edge ou Safari, ou active Whisper dans Réglages → Voix.'; return; }
     record($('#micBtn'), async (blob) => {
       $('#typing').textContent = 'Transcription…';
       const r = await (await fetch('/api/voice/transcribe', { method: 'POST', headers: { 'content-type': blob.type, 'x-odin': '1' }, body: blob })).json();
       $('#typing').textContent = '';
       if (!r.ok) { $('#typing').textContent = r.error; return; }
       if (!r.text) { $('#typing').textContent = 'Je n\'ai rien entendu.'; return; }
-      $('#input').value = r.text; send();
+      const i = $('#input'); i.value = `${i.value.trim() ? `${i.value.trim()} ` : ''}${r.text}`; i.dispatchEvent(new Event('input', { bubbles: true })); i.focus(); $('#typing').textContent = 'Relis, puis envoie ⏎';
     }, $('#typing'));
   });
   // Réglages de la voix
