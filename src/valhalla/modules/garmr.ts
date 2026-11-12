@@ -49,6 +49,24 @@ async function fw(ctx: ModCtx, op: 'ban' | 'unban' | 'init', ip = '', seconds = 
   throw new Error('aucun pare-feu pilotable (nftables ou iptables)');
 }
 
+// ---------------- Ports ouverts sur la machine d'Odin (pare-feu de la machine) ----------------
+export interface OpenPort { port: number; proto: 'tcp' | 'udp'; why: string; by: string; via: string; at: number; box?: boolean }
+const openPorts = (ctx: ModCtx): OpenPort[] => (ctx.settings.openPorts as OpenPort[] | undefined) ?? [];
+/** Le pare-feu actif de la machine (ufw, firewalld), ou aucun (alors le port est déjà joignable). */
+async function hostFirewall(ctx: ModCtx): Promise<'ufw' | 'firewalld' | undefined> {
+  if (await ctx.has('ufw')) { const r = await ctx.run('ufw', ['status'], { sudo: true }); if (/Status:\s*active|État\s*:\s*actif/i.test(r.out)) return 'ufw'; }
+  if (await ctx.has('firewall-cmd')) { const r = await ctx.run('firewall-cmd', ['--state'], { sudo: true }); if (/running/.test(r.out)) return 'firewalld'; }
+  return undefined;
+}
+/** Ouvre (ou ferme) un port sur la machine. Rend le moyen utilisé. */
+export async function hostPort(ctx: ModCtx, op: 'ouvrir' | 'fermer', port: number, proto: 'tcp' | 'udp', why = ''): Promise<string> {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('port invalide');
+  const fw = await hostFirewall(ctx);
+  if (fw === 'ufw') { const r = await ctx.run('ufw', op === 'ouvrir' ? ['allow', `${port}/${proto}`, 'comment', `Odin ${why}`.slice(0, 60).replace(/[^\w .:-]/g, '')] : ['delete', 'allow', `${port}/${proto}`], { sudo: true }); if (r.code) throw new Error(r.err.trim() || 'ufw a refusé (droits administrateur nécessaires)'); return 'ufw'; }
+  if (fw === 'firewalld') { for (const perm of [[], ['--permanent']]) { const r = await ctx.run('firewall-cmd', [...perm, op === 'ouvrir' ? `--add-port=${port}/${proto}` : `--remove-port=${port}/${proto}`], { sudo: true }); if (r.code) throw new Error(r.err.trim() || 'firewalld a refusé'); } return 'firewalld'; }
+  return 'aucun pare-feu actif';
+}
+
 export function bans(ctx: ModCtx): Ban[] { return ((ctx.settings.bans as Ban[] | undefined) ?? []).filter((b) => b.until > ctx.now().getTime()); }
 export async function ban(ctx: ModCtx, ip: string, reason: string, source = 'Garmr', baseMinutes?: number): Promise<{ text: string; ok: boolean }> {
   if (!isIP(ip)) return { ok: false, text: `adresse invalide : ${ip}` };
@@ -76,6 +94,22 @@ export const garmr: Module = {
     { id: 'bannis', label: 'Bannis en ce moment', what: 'Adresses bannies et pour combien de temps', read: true, words: ['bannis', 'liste', 'adresses bannies', 'qui est banni'], run: (ctx) => { const b = bans(ctx); return { text: b.map((x) => `- ${x.ip} · ${x.reason} · jusqu'à ${new Date(x.until).toLocaleString('fr-FR')}`).join('\n') || 'Personne n\'est banni.', data: b }; } },
     { id: 'bannir', undo: (i) => ({ action: 'debannir', input: { ip: i.ip }, label: 'adresse débannie' }), label: 'Bannir une adresse', what: 'Bloque une adresse au pare-feu', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }, { key: 'raison', label: 'Raison', kind: 'text', default: 'à la demande' }, { key: 'minutes', label: 'Durée (minutes)', kind: 'number', default: 60 }], words: ['bannis', 'bloque'], run: (ctx, i) => ban(ctx, s(i.ip).trim(), s(i.raison) || 'à la demande', s(i.source) || 'toi', Number(i.minutes) || undefined) },
     { id: 'debannir', undo: (i) => ({ action: 'bannir', input: { ip: i.ip, raison: 'bannissement remis', minutes: 60 }, label: 'adresse bannie de nouveau (1 h)' }), label: 'Débannir', what: 'Retire une adresse du pare-feu', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], words: ['debannis', 'débannis', 'autorise'], run: async (ctx, i) => { const ip = s(i.ip).trim(); if (!isIP(ip)) return { ok: false, text: `adresse invalide : ${ip.slice(0, 60)}` }; await fw(ctx, 'unban', ip).catch(() => ''); ctx.saveSettings({ bans: bans(ctx).filter((b) => b.ip !== ip) }); return { text: `✅ ${ip} n'est plus banni.` }; } },
+    { id: 'ouvrir_port', label: 'Ouvrir un port', what: 'Sur la machine d\'Odin (pare-feu), et sur la box si demandé (UPnP)', params: [{ key: 'port', label: 'Port', kind: 'number', required: true }, { key: 'proto', label: 'Protocole', kind: 'select', options: ['tcp', 'udp'], default: 'tcp' }, { key: 'pour', label: 'Pour quoi (ex. proxy, VPN)', kind: 'text', default: '' }, { key: 'box', label: 'Aussi sur la box (accès depuis Internet)', kind: 'boolean', default: false }], run: async (ctx, i) => {
+      const port = Number(i.port), proto = (i.proto === 'udp' ? 'udp' : 'tcp') as 'tcp' | 'udp', why = String(i.pour ?? '').slice(0, 60);
+      const via = await hostPort(ctx, 'ouvrir', port, proto, why);
+      let boxText = '';
+      if (i.box === true) { try { const { openPorts: upnp } = await import('../upnp.ts'); boxText = ` ${(await upnp([{ port, proto: proto.toUpperCase() as 'TCP' | 'UDP' }], `Odin · ${why || 'port'}`, ctx.fetch)).text}`; } catch (e) { boxText = ` Box : ${(e as Error).message} (sinon : le tunnel Cloudflare, Brú, pour le web).`; } }
+      ctx.saveSettings({ openPorts: [...openPorts(ctx).filter((x) => !(x.port === port && x.proto === proto)), { port, proto, why, by: String(i.par ?? 'toi'), via, at: Date.now(), ...(i.box === true ? { box: true } : {}) }] });
+      return { text: `🔓 Port ${port}/${proto} ${via === 'aucun pare-feu actif' ? 'déjà joignable (pas de pare-feu actif sur la machine)' : `ouvert sur la machine (${via})`}${why ? ` pour ${why}` : ''}.${boxText}` };
+    }, undo: (i) => ({ action: 'fermer_port', input: { port: i.port, proto: i.proto ?? 'tcp' }, label: 'Refermer le port' }) },
+    { id: 'fermer_port', label: 'Fermer un port', what: 'Sur la machine d\'Odin (et la box si Odin l\'y avait ouvert)', quick: false, grave: (i) => `fermer le port ${String(i.port)} (le service ne sera plus joignable de l'extérieur de la machine)`, params: [{ key: 'port', label: 'Port', kind: 'number', required: true }, { key: 'proto', label: 'Protocole', kind: 'select', options: ['tcp', 'udp'], default: 'tcp' }], run: async (ctx, i) => {
+      const port = Number(i.port), proto = (i.proto === 'udp' ? 'udp' : 'tcp') as 'tcp' | 'udp', x = openPorts(ctx).find((y) => y.port === port && y.proto === proto);
+      const via = await hostPort(ctx, 'fermer', port, proto);
+      if (x?.box) { try { const { closePorts } = await import('../upnp.ts'); await closePorts([{ port, proto: proto.toUpperCase() as 'TCP' | 'UDP' }], ctx.fetch); } catch { /* box injoignable */ } }
+      ctx.saveSettings({ openPorts: openPorts(ctx).filter((y) => y !== x) });
+      return { text: `🔒 Port ${port}/${proto} fermé (${via}).` };
+    } },
+    { id: 'ports_ouverts', label: 'Ports ouverts par Odin', what: 'Ce qu\'Odin a ouvert, pour qui, et comment', read: true, words: ['ports ouverts du pare-feu', 'ports ouverts', 'port ouvert'], run: (ctx) => ({ text: openPorts(ctx).map((x) => `- ${x.port}/${x.proto} · ${x.why || 'sans nom'} · ${x.via}${x.box ? ' + box' : ''} · demandé par ${x.by}`).join('\n') || 'Aucun port ouvert par Odin.', data: openPorts(ctx) }) },
     { id: 'journal', label: 'Surveiller un journal', what: 'Ajoute un fichier journal à lire (application, site…)', params: [{ key: 'fichier', label: 'Chemin du fichier', kind: 'text', required: true }], run: (ctx, i) => { const f = s(i.fichier).trim(); if (!f.startsWith('/') || !existsSync(f)) return { ok: false, text: 'fichier introuvable (chemin complet attendu)' }; ctx.saveSettings({ logs: [...new Set([...((ctx.settings.logs as string[]) ?? []), f])] }); return { text: `👁 ${f} est maintenant surveillé.` }; } },
     { id: 'proteger', label: 'Protéger une adresse', what: 'Ajoute à la liste blanche (jamais bannie)', params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], run: (ctx, i) => { const ip = s(i.ip).trim(); if (!isIP(ip)) return { ok: false, text: 'adresse invalide' }; ctx.saveSettings({ allow: [...new Set([...((ctx.settings.allow as string[]) ?? []), ip])] }); return { text: `🛡 ${ip} ne sera jamais bannie.` }; } },
   ],
@@ -92,7 +126,7 @@ export const garmr: Module = {
     return {
       subtitle: `Bannit après ${ctx.settings.maxretry ?? 5} échecs en ${ctx.settings.findtime ?? 10} min · ${ctx.settings.minutes ?? 60} min la première fois, ×4 à chaque récidive`,
       kpis: [{ label: 'Bannis en ce moment', value: String(b.length), tone: b.length ? 'attention' : 'bon' }, { label: 'Adresses déjà vues', value: String(Object.keys(hist).length) }, { label: 'Liste blanche', value: String(((ctx.settings.allow as string[]) ?? []).length) }],
-      sections: [{ kind: 'table', title: 'Bannis', columns: ['Adresse', 'Raison', 'Par', 'Jusqu\'à', 'Récidive'], empty: 'Personne n\'est banni.', rows: b.map((x) => ({ cells: [x.ip, x.reason, x.source, new Date(x.until).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }), String(x.count)], actions: [{ action: 'debannir', label: 'Débannir', input: { ip: x.ip } }] })) }],
+      sections: [{ kind: 'table', title: 'Ports ouverts par Odin', columns: ['Port', 'Pour', 'Comment', 'Demandé par', 'Le'], empty: 'Aucun : les applis en ouvrent un quand elles en ont besoin.', rows: openPorts(ctx).map((x) => ({ cells: [`${x.port}/${x.proto}`, x.why || '—', `${x.via}${x.box ? ' + box (UPnP)' : ''}`, x.by, new Date(x.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })], actions: [{ action: 'fermer_port', label: 'Fermer', input: { port: x.port, proto: x.proto } }] })) }, { kind: 'table', title: 'Bannis', columns: ['Adresse', 'Raison', 'Par', 'Jusqu\'à', 'Récidive'], empty: 'Personne n\'est banni.', rows: b.map((x) => ({ cells: [x.ip, x.reason, x.source, new Date(x.until).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }), String(x.count)], actions: [{ action: 'debannir', label: 'Débannir', input: { ip: x.ip } }] })) }],
       side: [{ kind: 'form', title: 'Bannir une adresse', action: 'bannir', submit: 'Bannir', params: garmr.actions.find((a) => a.id === 'bannir')?.params ?? [] }, { kind: 'list', title: 'Les plus insistants', items: top.map(([ip, n]) => ({ title: ip, meta: `${n} fois` })), empty: 'Rien pour l\'instant.' }],
     };
   },

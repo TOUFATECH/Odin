@@ -2,6 +2,7 @@
 // messagerie selon leur gravité), les événements entre modules (réflexes et Draupnir), et le choix du
 // bon module pour un besoin, avec ou sans IA.
 
+import { Metrics, setMetrics } from './metrics.ts';
 import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -40,7 +41,10 @@ export class Valhalla {
     this.alertsFile = join(this.dir, 'alertes.jsonl');
     for (const m of modules) this.mods.set(m.id, m);
     this.events.setMaxListeners(100);
+    // Les mesures gardées dans le temps (courbes, déclencheurs, tableaux de bord).
+    this.metrics = new Metrics(join(this.dir, 'mesures'), deps.now ? () => deps.now!().getTime() : Date.now); setMetrics(this.metrics);
   }
+  readonly metrics: Metrics;
 
   modules(): Module[] { return [...this.mods.values()]; }
   module(id: string): Module | undefined {
@@ -86,7 +90,7 @@ export class Valhalla {
       }
     }
   }
-  stop(): void { if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } }
+  stop(): void { if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } }
 
   // ---------------- Actions
   action(moduleId: string, actionId: string): { m: Module; a: Action } | undefined {

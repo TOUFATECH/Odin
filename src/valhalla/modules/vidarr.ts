@@ -6,6 +6,7 @@
 // Liens : Gjöll (les appareils du VPN passent par Víðarr), Forseti (un appareil qui demande un site
 // dangereux = alerte), Garmr (une machine qui inonde le DNS), le registre réseau (noms des appareils).
 
+import { openOnHost } from '../hostports.ts';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
@@ -237,7 +238,8 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       { id: 'demarrer', label: 'Démarrer le DNS', what: 'Víðarr répond aux appareils (port 53)', params: [{ key: 'port', label: 'Port', kind: 'number', default: 53 }], grave: () => 'démarrer le serveur DNS de la maison', run: async (ctx, i) => {
         const port = Number(i.port ?? 53); if (!(port >= 0 && port <= 65535)) throw new Error('port entre 1 et 65535');
         ctx.saveSettings({ port, on: true });
-        return { text: await startServer(ctx) };
+        const t = await startServer(ctx);
+        return { text: `${t}${srv?.port ? await openOnHost(ctx, [[srv.port, 'udp', 'DNS de la maison'], [srv.port, 'tcp', 'DNS de la maison']]) : ''}` };
       } },
       { id: 'arreter', label: 'Arrêter le DNS', what: 'Les appareils ne peuvent plus résoudre par Víðarr', quick: false, grave: () => 'arrêter le DNS de la maison (les appareils qui l\'utilisent n\'auront plus Internet)', undo: () => ({ action: 'demarrer', input: {}, label: 'Redémarrer le DNS' }), run: (ctx) => { srv?.stop(); srv = undefined; ctx.saveSettings({ on: false }); return { text: '⏹ Víðarr arrêté.' }; } },
       { id: 'etat', label: 'État', what: 'En marche, chiffres du jour', read: true, words: ['etat du dns', 'statistiques dns'], run: (ctx) => {

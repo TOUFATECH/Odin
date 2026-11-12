@@ -3,6 +3,7 @@
 // auto-signés pour la maison. Passage forcé en HTTPS, HSTS, WebSocket, accès par adresses, mot de passe,
 // redirections, flux TCP, journal et statistiques, graphe. Fonctions reprises (réécrites) de Nginx Proxy
 // Manager, Traefik et Caddy. (Valgrind : la grille sacrée devant le Valhalla, que seuls les dignes passent.)
+import { openOnHost } from '../hostports.ts';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
@@ -166,7 +167,7 @@ export const valgrind: Module = {
       const http = i.http === undefined || i.http === '' ? ports(ctx).http : Number(i.http), https = i.https === undefined || i.https === '' ? ports(ctx).https : Number(i.https);
       for (const p of [http, https]) if (!Number.isInteger(p) || p < 0 || p > 65535) throw new Error('ports entre 1 et 65535');
       ctx.saveSettings({ ports: { http, https } });
-      try { const t = await startProxy(ctx); ctx.saveSettings({ on: true }); return { text: t }; }
+      try { const t = await startProxy(ctx); ctx.saveSettings({ on: true }); const fw = await openOnHost(ctx, [[srv?.httpPort ?? http, 'tcp', 'proxy (HTTP)'], [srv?.httpsPort ?? https, 'tcp', 'proxy (HTTPS)']]); return { text: `${t}${fw}` }; }
       catch (e) { const m = (e as Error & { code?: string }); return { ok: false, text: m.code === 'EACCES' ? `Les ports ${http} et ${https} sont réservés à l'administrateur : lance Odin avec le droit d'ouvrir ces ports (sudo setcap 'cap_net_bind_service=+ep' $(which node)), ou choisis d'autres ports.` : m.code === 'EADDRINUSE' ? `Un autre programme utilise déjà le port ${http} ou ${https} (un autre proxy, un serveur web) : arrête-le ou choisis d'autres ports.` : m.message }; }
     } },
     { id: 'arreter', label: 'Arrêter le proxy', what: 'Les sites ne répondent plus par Odin', quick: false, grave: () => 'couper l\'accès à tous les sites servis par le proxy', run: (ctx) => { srv?.stop(); srv = undefined; ctx.saveSettings({ on: false }); return { text: '⏹ Proxy arrêté.' }; } },

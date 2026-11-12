@@ -3,6 +3,7 @@
 // Le protocole WireGuard est ÉCRIT DANS ODIN (../wireguard/) : rien à installer. Les téléphones et les
 // ordinateurs se connectent avec l'appli WireGuard habituelle, que le moteur d'Odin comprend.
 
+import { openOnHost } from '../hostports.ts';
 import { generateKeyPairSync, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -297,7 +298,7 @@ export const gjoll: Module = {
     { id: 'port', label: 'Port ouvert sur la box', what: 'Note que la redirection du port est faite sur la box', quick: false, params: [{ key: 'ouvert', label: 'Port ouvert', kind: 'boolean', default: true }], run: (ctx, i) => { ctx.saveSettings({ portOpened: i.ouvert !== false }); return { text: i.ouvert !== false ? '👍 Noté. Prochaine étape : allumer le tunnel.' : 'Noté : port pas encore ouvert.' }; } },
     { id: 'allumer', label: 'Allumer le tunnel', what: 'Démarre le VPN (et au démarrage de la machine)', grave: () => 'allumer le VPN de la maison', run: async (ctx) => {
       const msg = await bringUp(ctx); ctx.saveSettings({ on: true });
-      return { text: msg };
+      return { text: `${msg}${await openOnHost(ctx, [[server(ctx).port, 'udp', 'VPN Gjöll']])}` };
     } },
     { id: 'eteindre', label: 'Éteindre le tunnel', what: 'Coupe le VPN pour tous les appareils', quick: false, grave: () => 'couper le VPN pour tous les appareils', undo: () => ({ action: 'allumer', input: {}, label: 'Rallumer le tunnel' }), run: async (ctx) => {
       await bringDown(ctx); ctx.saveSettings({ on: false });

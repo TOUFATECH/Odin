@@ -429,6 +429,18 @@ async function skidUp(w: World): Promise<{ port: number; send: (path: string, o?
   return { port, send };
 }
 const skidDown = (w: World) => w.v.act('skidbladnir', 'arreter');
+CHECKS['vidarr>garmr'] = async (w) => {
+  await dnsUp(w);
+  try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · DNS de la maison/); }
+  finally { await w.v.act('vidarr', 'arreter', {}, { by: 'toi' }); }
+};
+CHECKS['gjoll>garmr'] = async (w) => {
+  const { setTunFactory } = await import('../src/valhalla/modules/gjoll.ts');
+  setTunFactory(async () => ({ write: () => {}, onPacket: () => {}, close: () => {} }));
+  const r = await w.v.act('gjoll', 'allumer'); assert.ok(r.ok, r.text);
+  try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Gjöll/); }
+  finally { await w.v.act('gjoll', 'eteindre'); }
+};
 CHECKS['var>skidbladnir'] = async (w) => {
   await w.v.act('var', 'ajouter', { login: 'awa', nom: 'Awa', groupes: 'famille', mot_de_passe: 'une phrase assez longue' });
   assert.match((await w.v.act('skidbladnir', 'mot_de_passe_appli', { login: 'awa', nom: 'PC' })).text, /Mot de passe d'appli pour awa/);

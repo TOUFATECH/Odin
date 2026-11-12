@@ -43,7 +43,7 @@ test('Huginn : la bonne appli, la bonne action, les bons réglages (sans IA)', a
   const cases: Array<[string, string]> = [
     ['les alertes', 'forseti.alertes {"gravite":"moyenne"}'],
     ['état de la machine', 'eir.etat {}'],
-    ['qui consomme le plus', 'eir.processus {}'],
+    ['qui consomme le plus', 'eir.processus {"tri":"processeur","n":15}'],
     ['bannis 203.0.113.9 pendant 2 heures', 'garmr.bannir {"ip":"203.0.113.9","minutes":120,"raison":"à la demande"}'],
     ['débannis 203.0.113.9', 'garmr.debannir {"ip":"203.0.113.9"}'],
     ['qui est banni', 'garmr.bannis {}'],
