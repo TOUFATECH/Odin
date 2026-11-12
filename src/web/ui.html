@@ -705,6 +705,8 @@ details.activity .ai.info{color:#8FC1E3}
 .tour-bud{position:fixed;z-index:1003;width:64px;height:64px;transition:left .7s cubic-bezier(.4,1.35,.5,1),top .7s cubic-bezier(.4,1.35,.5,1);filter:drop-shadow(0 8px 16px rgba(0,0,0,.45));pointer-events:none}
 .tour-bud.hop svg{animation:a-joy .9s cubic-bezier(.3,1.4,.5,1) .45s}
 .tour-ring.none{border-color:transparent}
+.tour-ring.cfg{box-shadow:0 0 0 9999px rgba(6,12,18,.18)}
+.tour-box.mini{left:auto!important;right:16px;bottom:16px;top:auto!important;width:min(380px,calc(100vw - 32px))!important}
 .tour-ring{position:fixed;z-index:1000;border:3px solid var(--accent);border-radius:14px;box-shadow:0 0 0 9999px rgba(6,12,18,.55);transition:all .5s cubic-bezier(.4,0,.2,1);pointer-events:none}
 .tour-box{position:fixed;z-index:1002;background:var(--panel);color:var(--ink);border:1px solid var(--accent);border-radius:16px;padding:14px 16px 12px 18px;box-shadow:0 18px 50px rgba(0,0,0,.45);transition:left .5s cubic-bezier(.4,0,.2,1),top .5s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;gap:10px;overflow:auto}
 .tourh{display:flex;align-items:center;gap:10px;padding-left:34px}
@@ -2237,6 +2239,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const t = $('#input').value.trim(); if (!t && !attached.length) return;
     // « visite guidée », « fais-moi la présentation de l'application » : la visite se lance directement.
     if (/^(?:(?:fais|lance|montre|refais|démarre)(?:-moi)?\s+)?(?:la\s+|une\s+)?(?:visite guidée|présentation (?:de l'app(?:lication)?|guidée|de l'interface))\s*[.!]?$/i.test(t)) { $('#input').value = ''; grow(); window.OdinTour?.start(true); return; }
+    // « continue la visite », « reprends la visite à Telegram », « continue la visite depuis les applis »
+    { const m = /^(?:continue|reprends|poursuis|reprend)\s+(?:la\s+)?(?:visite|présentation)(?:\s+(?:à|a|depuis|au|aux|par|avec)\s+(.+?))?\s*[.!]?$/i.exec(t); if (m) { $('#input').value = ''; grow(); window.OdinTour?.resume(m[1] || ''); return; } }
     $('#input').value = ''; grow(); msgs.querySelector('.empty')?.remove(); msgs.querySelector('.hello')?.remove();
     setBusy(true);
     const files = await takeAttachments();
@@ -3516,6 +3520,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'settings', sec: 'agenda', q: S('agenda'), t: 'Agenda : je connais tes rendez-vous, je te les rappelle et j\'en ajoute quand tu me le demandes.' },
       { v: 'settings', sec: 'documents', q: S('documents'), t: 'Documents : j\'indexe tes dossiers, ou ceux de ton NAS, pour retrouver n\'importe quel document en un mot.' },
       { v: 'settings', sec: 'ecriture', q: S('ecriture'), t: 'Écriture : je corrige tes fautes, je te donne des conseils et je me promène dans la discussion. Tout se règle ici.' },
+      { v: 'settings', sec: 'apparence', q: S('apparence'), t: 'Apparence : mes 20 thèmes, mes clics (dix clics me cachent partout), mes pouvoirs, désactivés au départ, et les fêtes de l\'année, chacune avec son thème.' },
       { v: 'settings', sec: 'acces', q: S('acces'), t: 'Accès : pour m\'utiliser depuis l\'extérieur de chez toi, en toute sécurité, et gérer les appareils de confiance.' },
       { v: 'settings', sec: 'plus', q: S('plus'), t: 'Plus : les fonctions que tu n\'utilises pas encore apparaissent ici. C\'est aussi ici que tu peux revoir cette présentation.' },
     ] },
@@ -3546,6 +3551,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     } catch { /* applis indisponibles : la visite se fait sans ce chapitre */ }
     TOUR = CHAPTERS.flatMap((c, ci) => c.steps.map((s) => ({ ...s, ch: ci })));
   }
+  // Visite + configuration : aux étapes des réglages, « Configurer maintenant » te laisse remplir la rubrique (la visite attend),
+  // « Passer » continue sans rien changer. Sans ton geste, rien n'est configuré. La visite retient où elle en est.
+  let tourCfg = false, tourWork = false;
   let tourI = -1, tourVoice = true, tourAuto = true, tourAudio = null, tourBud = null, tourBox = null, tourRing = null, tourSeq = 0, tourSecUse = null, autoT = 0;
   const stopVoice = () => { clearTimeout(autoT); try { tourAudio?.pause(); } catch {} try { speechSynthesis?.cancel(); } catch {} tourBud?.classList.remove('talking'); };
   // Fin de lecture : en lecture automatique, on passe à l'étape suivante.
@@ -3583,7 +3591,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     document.body.classList.remove('touring');
     // La visite ne compte pas comme une utilisation des réglages (ordre des rubriques inchangé).
     if (tourSecUse) { try { tourSecUse[0] == null ? localStorage.removeItem('odin.secUse') : localStorage.setItem('odin.secUse', tourSecUse[0]); if (tourSecUse[1] != null) localStorage.setItem('odin.sec', tourSecUse[1]); } catch {} tourSecUse = null; if (typeof rankChips === 'function') rankChips(); }
-    if (done) { try { localStorage.setItem('odin.tour', 'done'); } catch {} api('/api/action', { kind: 'tour_done' }).catch(() => {}); }
+    tourWork = false;
+    if (done === 'pause') { try { localStorage.setItem('odin.tour', 'pause'); } catch {} return; }
+    if (done) { try { localStorage.setItem('odin.tour', 'done'); localStorage.removeItem('odin.tourAt'); } catch {} api('/api/action', { kind: 'tour_done' }).catch(() => {}); }
   }
   // Rectangle visible d'un élément (coupé par l'écran) ; rien si l'élément est caché.
   function visRect(n) {
@@ -3600,7 +3610,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     // Étape sans objet ici (aucun appareil connu…) : on passe.
     if (TOUR[i].skip?.()) return tourGo(i + tourDir);
     const seq = ++tourSeq; stopVoice();
-    tourI = i; const s = TOUR[i];
+    tourI = i; const s = TOUR[i]; tourWork = false;
+    try { localStorage.setItem('odin.tourAt', JSON.stringify({ i, ch: CHAPTERS[s.ch]?.name, cfg: tourCfg })); } catch {}
     if (s.v !== 'device') show(s.v);
     if (s.sec) openSettings(s.sec);
     if (s.nt && typeof netTab === 'function') netTab(s.nt);
@@ -3621,7 +3632,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const toc = el('div', { class: 'tour-toc', hidden: true }, ...CHAPTERS.map((c, ci) => el('button', { type: 'button', class: ci === s.ch ? 'on' : '', onclick: () => tourGo(TOUR.findIndex((x) => x.ch === ci)) }, `${ci + 1}. ${c.name}`)));
     tourBox.replaceChildren(
       el('div', { class: 'tourh' }, el('b', {}, `${s.ch + 1}. ${ch.name}`), el('span', { class: 'dim' }, `${k} / ${inCh.length}`),
-        el('button', { type: 'button', class: 'tourx', 'aria-label': 'Arrêter la présentation', title: 'Arrêter (Échap)', onclick: () => tourEnd(true) }, '×')),
+        el('button', { type: 'button', class: 'tourx', 'aria-label': 'Arrêter la présentation', title: 'Arrêter (Échap) : je retiens où on en est', onclick: () => tourEnd('pause') }, '×')),
       el('div', { class: 'tourbar', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': TOUR.length, 'aria-valuenow': i + 1 }, el('i', { style: `width:${Math.round((i + 1) / TOUR.length * 100)}%` })),
       el('div', { class: 'tourt', 'aria-live': 'polite' }, s.t),
       toc,
@@ -3631,7 +3642,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         el('button', { type: 'button', class: 'btn small', 'aria-pressed': String(tourAuto), title: 'Passer seul à l\'étape suivante à la fin de la lecture', onclick: () => { tourAuto = !tourAuto; if (!tourAuto) clearTimeout(autoT); renderBtns(); } }, tourAuto ? '⏵ Auto' : '⏸ Pas à pas'),
         el('span', { class: 'sp' }),
         i ? el('button', { type: 'button', class: 'btn small', onclick: () => tourGo(i - 1) }, 'Précédent') : null,
-        el('button', { type: 'button', class: 'btn small primary', onclick: () => tourGo(i + 1) }, last ? 'Terminer' : 'Suivant')));
+        tourCfg && s.sec && s.sec !== 'plus' ? el('button', { type: 'button', class: 'btn small primary', onclick: () => tourConfigure(s) }, 'Configurer maintenant') : null,
+        el('button', { type: 'button', class: tourCfg && s.sec && s.sec !== 'plus' ? 'btn small' : 'btn small primary', onclick: () => tourGo(i + 1) }, last ? 'Terminer' : tourCfg && s.sec && s.sec !== 'plus' ? 'Passer' : 'Suivant')));
     function renderBtns() { const b = tourBox.querySelectorAll('.tourb .btn'); b[1].textContent = tourVoice ? '🔊 Voix' : '🔇 Muet'; b[1].setAttribute('aria-pressed', String(tourVoice)); b[2].textContent = tourAuto ? '⏵ Auto' : '⏸ Pas à pas'; b[2].setAttribute('aria-pressed', String(tourAuto)); }
     // Placement : la bulle entière toujours à l'écran, à côté de la zone présentée, sans la couvrir si possible.
     function place() {
@@ -3661,8 +3673,31 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     tourBox.querySelector('.btn.primary')?.focus({ preventScroll: true });
     tourSpeak(s.t, seq);
   }
-  async function tourStart(voice = true) {
-    tourEnd(false); tourVoice = voice; tourAuto = voice;
+  // « Configurer maintenant » : la visite se fait petite en bas de l'écran et attend ; tu remplis la rubrique, puis « Continuer ».
+  function tourConfigure(s) {
+    stopVoice(); tourAuto = false; tourWork = true;
+    tourRing.classList.add('cfg');
+    const name = (s.t.match(/^(?:[A-ZÉ][a-zé]+\s*:\s*)?(?:le |la |les |l')?([^:.,]+)/) || [])[1] || 'cette rubrique';
+    tourBox.replaceChildren(el('div', { class: 'tourh' }, el('b', {}, 'À toi : configure cette rubrique'), el('button', { type: 'button', class: 'tourx', 'aria-label': 'Arrêter la présentation', onclick: () => tourEnd('pause') }, '×')),
+      el('div', { class: 'tourt' }, 'Remplis les champs entourés, puis « Enregistrer » ou « Tester ». Quand c\'est fait, je reprends la visite là où on en était. Rien n\'est changé sans toi.'),
+      el('div', { class: 'tourb' }, el('button', { type: 'button', class: 'btn small', onclick: () => { tourRing.classList.remove('cfg'); tourGo(tourI); } }, 'Revenir à l\'explication'), el('span', { class: 'sp' }), el('button', { type: 'button', class: 'btn small primary', onclick: () => { tourRing.classList.remove('cfg'); tourGo(tourI + 1); } }, 'Continuer la visite')));
+    tourBox.classList.add('mini');
+    Object.assign(tourBox.style, { left: '', top: '', width: '' });
+    tourBud.style.left = 'auto'; tourBud.style.top = 'auto';
+    say?.(`D'accord, je te laisse configurer ${name.trim()}. Dis « continue la visite » ou touche « Continuer la visite » quand tu as fini.`, [], 5000);
+  }
+  /** Reprend la visite : là où elle s'était arrêtée, ou à l'endroit demandé (« continue la visite à Telegram »). */
+  async function tourResume(where = '') {
+    let at = null; try { at = JSON.parse(localStorage.getItem('odin.tourAt') || 'null'); } catch {}
+    await tourStart(tourVoice, at?.cfg ?? tourCfg, true);
+    const w = where.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    let i = at?.i ?? 0;
+    if (w) { const c = CHAPTERS.findIndex((x) => norm(x.name).includes(w)); let k = c >= 0 ? TOUR.findIndex((x) => x.ch === c) : TOUR.findIndex((x) => x.sec && norm(x.sec).includes(w)); if (k < 0) k = TOUR.findIndex((x) => norm(x.t).includes(w)); if (k >= 0) i = k; }
+    tourGo(Math.min(i, TOUR.length - 1));
+  }
+  async function tourStart(voice = true, cfg = false, resume = false) {
+    tourEnd(false); tourVoice = voice; tourAuto = voice && !cfg; tourCfg = cfg;
     await tourApps();
     try { tourSecUse = [localStorage.getItem('odin.secUse'), localStorage.getItem('odin.sec')]; } catch {}
     const src = $('#buddyChat svg');
@@ -3671,22 +3706,31 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     tourRing = el('div', { class: 'tour-ring' });
     tourBox = el('div', { class: 'tour-box', role: 'dialog', 'aria-label': 'Présentation d\'Odin' });
     document.body.append(tourRing, tourBox, tourBud); document.body.classList.add('touring');
-    tourGo(0);
+    if (!resume) tourGo(0);
   }
-  addEventListener('keydown', (e) => { if (tourI < 0) return; if (e.key === 'Escape') tourEnd(true); else if (e.key === 'ArrowRight') tourGo(tourI + 1); else if (e.key === 'ArrowLeft' && tourI > 0) tourGo(tourI - 1); });
-  addEventListener('resize', () => { if (tourI >= 0) tourGo(tourI); });
+  addEventListener('keydown', (e) => { if (tourI < 0) return; if (e.key === 'Escape') tourEnd('pause'); else if (e.key === 'ArrowRight') tourGo(tourI + 1); else if (e.key === 'ArrowLeft' && tourI > 0) tourGo(tourI - 1); });
+  addEventListener('resize', () => { if (tourI >= 0 && !tourWork) tourGo(tourI); });
   // Odin propose la visite (on peut refuser). N'est plus appelée d'office : seulement sur demande (window.OdinTour.offer()).
-  function tourOffer() {
+  // Au premier démarrage, Odin propose sa visite, avec ou sans la configuration en même temps. Rien ne se fait si tu ne choisis rien.
+  function tourOffer(force = false) {
     let seen = ''; try { seen = localStorage.getItem('odin.tour') || ''; } catch {}
-    if (seen || state?.tourDone || tourOffer.done) return; tourOffer.done = true;
+    if (!force && (seen === 'done' || state?.tourDone || tourOffer.done)) return; tourOffer.done = true;
+    let at = null; try { at = JSON.parse(localStorage.getItem('odin.tourAt') || 'null'); } catch {}
     show('chat');
-    setTimeout(() => say('Bonjour ! Je suis Odin. Je te présente qui je suis, comment te servir de moi et comment me configurer ? Une dizaine de minutes, en texte et à voix haute, avec un sommaire.', [
-      { label: '▶ Oui, avec la voix', primary: true, run: () => tourStart(true) },
-      { label: 'Oui, sans la voix', run: () => tourStart(false) },
-      { label: 'Non merci', run: () => { tourEnd(true); say('D\'accord. Tu pourras la revoir dans Réglages, rubrique Plus.', [], 4000); } },
+    setTimeout(() => say(at && seen === 'pause'
+      ? `Bon retour ! On s'était arrêtés à « ${at.ch || 'la visite'} ». On reprend ?`
+      : 'Bonjour ! Je suis Odin. Je te fais visiter toutes mes pages et mes applis ? Si tu veux, on fait ta configuration en même temps : à chaque rubrique, tu choisis « Configurer maintenant » ou « Passer ». Tu peux aussi me dire où reprendre (« continue la visite à Telegram »).', at && seen === 'pause' ? [
+      { label: '▶ Reprendre la visite', primary: true, run: () => tourResume() },
+      { label: 'Recommencer depuis le début', run: () => tourStart(true, at.cfg) },
+      { label: 'Plus tard', run: () => say('D\'accord. Dis « continue la visite » quand tu veux.', [], 4000) },
+    ] : [
+      { label: '▶ Visite + configuration', primary: true, run: () => tourStart(true, true) },
+      { label: 'Visite seulement', run: () => tourStart(true, false) },
+      { label: 'Sans la voix', run: () => tourStart(false, false) },
+      { label: 'Non merci', run: () => { tourEnd(true); say('D\'accord. Tu pourras la revoir dans Réglages, rubrique Plus, ou en disant « visite guidée ».', [], 4000); } },
     ]), 900);
   }
-  window.OdinTour = { start: tourStart, end: tourEnd, offer: tourOffer };
+  window.OdinTour = { start: tourStart, end: tourEnd, offer: tourOffer, resume: tourResume };
   // ---------- Odin t'aide à écrire, te conseille et se déplace ----------
   const ASSIST = () => ({ spelling: 'auto', tips: true, roam: true, ...(state?.settings?.assist || {}) });
   // Ce que la mascotte en liberté (companion.js) a besoin de savoir.
@@ -4546,8 +4590,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       setTimeout(connect, 3000);
     };
   }
-  // La visite guidée ne se lance que si tu la demandes (« visite guidée », Réglages → Plus, ou la bulle d'Odin).
-  refresh().then(() => { loadHistory(); hashView(); }); connect();
+  // Au premier démarrage (et tant qu'elle n'est ni finie ni refusée), Odin propose sa visite, avec ou sans configuration.
+  refresh().then(() => { loadHistory(); hashView(); setTimeout(() => window.OdinTour?.offer(), 1500); }); connect();
 })();
 </script>
 <script nonce="__NONCE__" src="/flows.js"></script>
