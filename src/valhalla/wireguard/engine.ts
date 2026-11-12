@@ -69,6 +69,19 @@ export function ipInfo(p: Buffer): { src: Buffer; dst: Buffer; len: number } | u
   return undefined;
 }
 
+// ---------------- Flux (tout le trafic du VPN, visible) ----------------
+/** Protocole et ports d'un paquet IP. Pur. Le contenu n'est jamais lu (chiffré de bout en bout le plus souvent). */
+export function flowOf(p: Buffer): { proto: string; src: string; dst: string; sport: number; dport: number } | undefined {
+  const v = p[0] >> 4; let proto: number, off: number, src: string, dst: string;
+  if (v === 4 && p.length >= 20) { proto = p[9]; off = (p[0] & 15) * 4; src = [...p.subarray(12, 16)].join('.'); dst = [...p.subarray(16, 20)].join('.'); }
+  else if (v === 6 && p.length >= 40) { proto = p[6]; off = 40; const w = (b: Buffer) => [0, 2, 4, 6, 8, 10, 12, 14].map((i) => b.readUInt16BE(i).toString(16)).join(':').replace(/(^|:)0(:0)+(:|$)/, '::'); src = w(p.subarray(8, 24)); dst = w(p.subarray(24, 40)); }
+  else return undefined;
+  const ports = (proto === 6 || proto === 17) && p.length >= off + 4;
+  return { proto: proto === 6 ? 'TCP' : proto === 17 ? 'UDP' : proto === 1 || proto === 58 ? 'ICMP' : `IP ${proto}`, src, dst, sport: ports ? p.readUInt16BE(off) : 0, dport: ports ? p.readUInt16BE(off + 2) : 0 };
+}
+/** Un échange d'un appareil du VPN avec une destination (maison ou Internet). up = de l'appareil vers la destination. */
+export interface Flow { device: string; deviceIp: string; proto: string; remote: string; port: number; up: number; down: number; pkUp: number; pkDown: number; first: number; last: number }
+
 // ---------------- Fenêtre anti-rejeu ----------------
 export class Replay {
   private max = -1n; private seen = new Uint8Array(WINDOW);
@@ -109,6 +122,22 @@ export class WgDevice {
   private macKey: Buffer; private cookieKey: Buffer; port = 0; private mtu: number;
 
   private o: DeviceOptions;
+  private flowTab = new Map<string, Flow>();
+  /** Tous les échanges vus dans le tunnel (2 000 au plus, les plus anciens oubliés). */
+  flows(): Flow[] { return [...this.flowTab.values()]; }
+  private note(p: Peer, pkt: Buffer, up: boolean): void {
+    const f = flowOf(pkt); if (!f) return;
+    // Côté appareil : l'adresse de l'appareil et le port de la destination (le service : 443, 53…).
+    const deviceIp = up ? f.src : f.dst, remote = up ? f.dst : f.src, port = up ? f.dport : f.sport;
+    const k = `${p.pub.toString('base64')}|${f.proto}|${remote}|${port}`, now = this.now();
+    let x = this.flowTab.get(k);
+    if (!x) {
+      if (this.flowTab.size >= 2000) { let old: string | undefined, t = Infinity; for (const [kk, v] of this.flowTab) if (v.last < t) { t = v.last; old = kk; } if (old) this.flowTab.delete(old); }
+      x = { device: p.cfg.name ?? p.pub.toString('base64').slice(0, 8), deviceIp, proto: f.proto, remote, port, up: 0, down: 0, pkUp: 0, pkDown: 0, first: now, last: now }; this.flowTab.set(k, x);
+    }
+    if (up) { x.up += pkt.length; x.pkUp++; } else { x.down += pkt.length; x.pkDown++; }
+    x.last = now;
+  }
   constructor(o: DeviceOptions) {
     this.o = o;
     this.priv = Buffer.from(o.privateKey, 'base64');
@@ -287,6 +316,7 @@ export class WgDevice {
     const info = ipInfo(plain); if (!info) return;
     if (!p.allowed.some((c) => inCidr(c, info.src))) { this.log(`paquet refusé : ${p.cfg.name ?? 'appareil'} envoie depuis une adresse qui n'est pas la sienne`); return; }
     p.lastRecvData = now; p.needKeepalive ??= now + T.KEEPALIVE_TIMEOUT;
+    this.note(p, plain.subarray(0, info.len), true);
     this.o.tun?.write(plain.subarray(0, info.len));
   }
 
@@ -296,7 +326,7 @@ export class WgDevice {
     const info = ipInfo(pkt); if (!info) return;
     let best: Peer | undefined, bits = -1;
     for (const p of this.peers.values()) for (const c of p.allowed) if (c.bits > bits && inCidr(c, info.dst)) { best = p; bits = c.bits; }
-    if (best) this.sendData(best, pkt);
+    if (best) { this.note(best, pkt.subarray(0, info.len), false); this.sendData(best, pkt); }
   }
   private sendData(p: Peer, pkt: Buffer): void {
     const kp = p.current, now = this.now();

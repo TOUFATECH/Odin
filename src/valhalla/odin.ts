@@ -28,6 +28,7 @@ import { vordr } from './modules/vordr.ts';
 import { askr } from './modules/askr.ts';
 import { valgrind } from './modules/valgrind.ts';
 import { varModule } from './modules/var.ts';
+import { bru, setOdinWeb } from './modules/bru.ts';
 import { deviceLabel } from '../hlidskjalf/inventory.ts';
 import { hermod } from './modules/hermod.ts';
 import { himinbjorg } from './modules/himinbjorg.ts';
@@ -113,8 +114,10 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // … et sait d'eux ce que le registre a vu : MAC, modèle, type, première fois vu (pour le graphe du réseau).
   // Askr inventorie ce que le registre a vu (une fiche par appareil, sans écraser ce que tu as écrit).
   const seen = () => (odin.inventory?.list({ status: 'all' }) ?? []).filter((d) => d.status !== 'removed').map((d) => ({ ip: d.ip, mac: d.mac || undefined, name: d.label || d.name || d.hostname || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen, lastSeen: d.status === 'online' ? d.last_seen : undefined, online: d.status === 'online' }));
+  // Brú peut publier l'interface d'Odin elle-même sous ton domaine.
+  setOdinWeb(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
   const devices = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
+  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir];
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */

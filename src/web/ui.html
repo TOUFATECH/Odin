@@ -1671,7 +1671,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           <article class="card" data-sec="documents"><div class="form" id="more-documents"></div></article>
           <article class="card" data-sec="personnalite"><div class="form" id="more-personnalite"></div></article>
           <article class="card" data-sec="plus"><div class="form" id="more-plus"></div></article>
-          <article class="card" data-sec="acces"><div class="form" id="more-compte" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-raccourci" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
+          <article class="card" data-sec="acces"><div class="form" id="more-compte" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-cloudflare" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-raccourci" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
               <button type="button" class="choice" data-access="lan">Réseau local (recommandé)</button>
@@ -3364,7 +3364,32 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         F.btn('Se déconnecter', async () => { await send('/api/account/logout', {}); location.replace('/'); })),
     );
   }
+  // Ton domaine par Cloudflare (Brú) : toujours visible dans Réglages → Accès, même sans « accès extérieur ».
+  function renderCloudflare() {
+    const box = $('#more-cloudflare'); if (!box) return;
+    box.replaceChildren(...[
+      // Ton domaine par Cloudflare : Odin crée le tunnel, ajoute les DNS lui-même et se publie (ex. odin.exemple.fr).
+      el('h2', {}, 'Ton domaine par Cloudflare'),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Colle ta clé Cloudflare : Odin crée le tunnel, ajoute tout seul les DNS chez Cloudflare, et se publie sous ton domaine. Tes sites du proxy (Valgrind) sont publiés de la même façon.'),
+      el('div', { class: 'field' }, el('label', { for: 'cf-key' }, 'Clé Cloudflare (jeton API)'), el('input', { id: 'cf-key', type: 'password', autocomplete: 'off', placeholder: 'laisser vide pour garder la clé actuelle' }), el('span', { class: 'hint' }, `${keyHint('CLOUDFLARE_API_TOKEN')} Crée-la sur dash.cloudflare.com → Mon profil → Jetons API, avec : Compte › Cloudflare Tunnel : modifier ; Zone › DNS : modifier ; Zone › Zone : lire.`)),
+      el('div', { class: 'field' }, el('label', { for: 'cf-dom' }, 'Adresse d\'Odin sur Internet'), el('input', { id: 'cf-dom', autocomplete: 'off', placeholder: 'odin.exemple.fr', inputmode: 'url', autocapitalize: 'none', spellcheck: 'false' })),
+      el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap' }, F.btn('Publier Odin sur mon domaine', async () => {
+        const key = $('#cf-key').value.trim(), dom = $('#cf-dom').value.trim().toLowerCase(), st = (x) => { $('#cf-st').textContent = x; };
+        if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(dom)) return st('Écris l\'adresse voulue, par exemple odin.exemple.fr.');
+        try {
+          if (key) { st('Clé enregistrée…'); await api('/api/action', { kind: 'settings_save', section: 'secret', name: 'CLOUDFLARE_API_TOKEN', value: key }); $('#cf-key').value = ''; }
+          const act = (action, input) => api('/api/valhalla/act', { module: 'bru', action, input, confirm: true });
+          st('Tunnel chez Cloudflare…'); const c = await act('creer', { domaine: dom, nom: 'odin' });
+          if (!c.ok && !/existe déjà/.test(c.text || c.error || '')) return st(`✗ ${c.text || c.error}`);
+          st('Publication d\'Odin (DNS chez Cloudflare)…'); const p = await act('publier_odin', { domaine: dom }); if (!p.ok) return st(`✗ ${p.text || p.error}`);
+          st('Démarrage du tunnel (téléchargement vérifié du programme la première fois)…'); const d = await act('demarrer', {});
+          st(d.ok ? `✓ Odin est accessible sur https://${dom} (quelques minutes pour les DNS). Connecte-toi avec ton e-mail et ton mot de passe.` : `✗ ${d.text || d.error}`);
+        } catch (e) { st(`✗ ${e.message}`); }
+      }, true)),
+      F.status('cf-st')]);
+  }
   function renderTunnel() {
+    renderCloudflare();
     const T = state?.tunnel, box = $('#more-tunnel'); if (!T || !box) return;
     const kinds = [['tailscale', 'Tailscale', 'conseillé : Odin visible seulement de tes appareils Tailscale, vrai certificat'], ['cloudflare', 'Cloudflare', 'adresse publique sur Internet, protégée par ton jeton']];
     box.replaceChildren(...[el('h2', {}, 'Accès depuis l\'extérieur'),

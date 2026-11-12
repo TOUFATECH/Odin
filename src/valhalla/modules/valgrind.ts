@@ -12,6 +12,7 @@ import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } f
 import { ProxyServer, hashPassword, inNet, route, type AccessLog, type Host, type Redirect, type Stream } from '../valgrind/proxy.ts';
 import { LETS_ENCRYPT, LETS_ENCRYPT_STAGING, newKey, obtain } from '../valgrind/acme.ts';
 import { issueCertificate } from '../../web/access.ts';
+import { closePorts, openPorts } from '../upnp.ts';
 import { check as varCheck, portal as varPortal, portalDomain, portalUrl } from './var.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
@@ -145,6 +146,7 @@ const ADD: Param[] = [
   { key: 'acces', label: 'Réservé à ces adresses (vide : tout le monde)', kind: 'text', default: '', help: 'ex. 192.168.1.0/24, 10.8.0.0/24' },
   { key: 'dns_maison', label: 'À la maison, ce nom mène directement au proxy (Víðarr)', kind: 'boolean', default: true },
   { key: 'surveiller', label: 'Surveiller le service (Vörðr)', kind: 'boolean', default: true },
+  { key: 'internet', label: 'Accessible depuis Internet par le tunnel Cloudflare (s\'il est réglé dans Brú)', kind: 'boolean', default: true },
 ];
 
 export const valgrind: Module = {
@@ -154,6 +156,12 @@ export const valgrind: Module = {
   from: ['Nginx Proxy Manager', 'Traefik', 'Caddy'], upstream: ['NginxProxyManager/nginx-proxy-manager', 'traefik/traefik', 'caddyserver/caddy'],
   words: ['proxy', 'reverse proxy', 'proxy inverse', 'nom de domaine', 'certificat', 'let\'s encrypt', 'lets encrypt', 'https', 'sous-domaine', 'redirection', 'rediriger'],
   actions: [
+    { id: 'ouvrir_ports', label: 'Ouvrir 80 et 443 sur la box', what: 'Accès direct depuis Internet (sans tunnel) et certificats Let\'s Encrypt : Odin ouvre lui-même les ports de la box (UPnP)', quick: false, grave: () => 'ouvrir les ports 80 et 443 de la box vers Odin (tes sites deviennent joignables directement depuis Internet)', run: async (ctx) => {
+      const r = await openPorts([{ port: 80, proto: 'TCP' }, { port: 443, proto: 'TCP' }], 'Odin · proxy Valgrind', ctx.fetch);
+      ctx.saveSettings({ upnp: { lease: r.lease, at: Date.now(), ip: r.ip, cgnat: r.cgnat } });
+      return { text: `${r.text}${proxyServer() ? '' : ' Démarre le proxy pour qu\'il réponde.'} Sans ouvrir de port, le tunnel Cloudflare (Brú) fait la même chose.` };
+    } },
+    { id: 'fermer_ports', label: 'Fermer 80 et 443 sur la box', what: 'Plus d\'accès direct depuis Internet (le tunnel Cloudflare continue)', quick: false, run: async (ctx) => { const t = await closePorts([{ port: 80, proto: 'TCP' }, { port: 443, proto: 'TCP' }], ctx.fetch); ctx.saveSettings({ upnp: undefined }); return { text: t }; } },
     { id: 'demarrer', label: 'Démarrer le proxy', what: 'Odin répond sur les ports 80 et 443', quick: false, params: [{ key: 'http', label: 'Port HTTP', kind: 'number', default: 80 }, { key: 'https', label: 'Port HTTPS', kind: 'number', default: 443 }], run: async (ctx, i) => {
       const http = i.http === undefined || i.http === '' ? ports(ctx).http : Number(i.http), https = i.https === undefined || i.https === '' ? ports(ctx).https : Number(i.https);
       for (const p of [http, https]) if (!Number.isInteger(p) || p < 0 || p > 65535) throw new Error('ports entre 1 et 65535');
@@ -180,6 +188,8 @@ export const valgrind: Module = {
       const ip = s(ctx.settings.lanIp) || lan();
       if (i.dns_maison !== false && ip) for (const d of domains.filter((x) => !x.startsWith('*.'))) { const r = await ctx.call('vidarr', 'nom_local', { nom: d, valeur: ip }, `${d} servi par le proxy d'Odin`).catch(() => undefined); if (r?.ok !== false && r) out.push(`🏠 À la maison, ${d} mène directement à Odin (${ip}).`); }
       if (i.surveiller !== false) { const r = await ctx.call('vordr', 'ajouter', { nom: `Service ${domains[0]}`, genre: 'http', cible: target, groupe: 'Proxy', essais: 2, secondes: 60, codes: '200-499' }, `surveiller le service derrière ${domains[0]}`).catch(() => undefined); if (r?.ok !== false && r) out.push(`👁 Service surveillé par Vörðr.`); }
+      // Lien Valgrind → Brú : avec un tunnel Cloudflare, le nom est publié sur Internet (règle + DNS chez Cloudflare).
+      if (i.internet !== false) for (const d of domains.filter((x) => !x.startsWith('*.') && !/\.(local|lan|home|maison|internal)$/.test(x))) { const r = await ctx.call('bru', 'publier', { domaine: d }, `publier ${d} sur Internet`).catch((e) => ({ ok: false, text: (e as Error).message })); if (r.ok !== false) out.push(r.text); else if (!/crée d'abord le tunnel|clé Cloudflare absente/.test(r.text)) out.push(`⚠ Internet : ${r.text}`); }
       if (!srv) out.push('Le proxy est arrêté : « Démarrer le proxy ».');
       return { text: out.join('\n'), data: { id: h.id } };
     }, undo: (i) => ({ action: 'retirer', input: { domaine: s(i.domaines).split(/[\s,;]+/)[0] }, label: 'Retirer le site' }) },

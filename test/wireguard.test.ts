@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import dgram from 'node:dgram';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { blake2s, hchacha20, HMAC, XAEAD, XAEAD_OPEN, dhGenerate } from '../src/valhalla/wireguard/crypto.ts';
-import { Replay, T, WgDevice, inCidr, ipInfo, parseCidr, tai64n, type TunPort } from '../src/valhalla/wireguard/engine.ts';
+import { Replay, T, WgDevice, flowOf, inCidr, ipInfo, parseCidr, tai64n, type TunPort } from '../src/valhalla/wireguard/engine.ts';
 
 test('chiffrement : BLAKE2s, HMAC, HChaCha20 et XChaCha20-Poly1305 justes', () => {
   const k = Buffer.from([...Array(32).keys()]);
@@ -125,5 +125,28 @@ test('saturation : sous une pluie de poignées de main, Odin exige un cookie, et
     x.ta.inject(packet('10.9.0.1', '10.9.0.2', 'malgré la charge'));
     // 1re tentative : cookie demandé ; la tentative suivante (5 s plus tard) porte le cookie et passe.
     assert.ok(await wait(() => x.tb.got.length === 1, 9000), 'passe avec le cookie');
+  } finally { x.end(); }
+});
+
+test('tout le trafic visible : par appareil, destination, protocole, port, octets dans les deux sens', async () => {
+  const tcp = (src: string, dst: string, sport: number, dport: number, n = 20) => { const p = Buffer.alloc(40 + n); p[0] = 0x45; p.writeUInt16BE(p.length, 2); p[8] = 64; p[9] = 6; Buffer.from(src.split('.').map(Number)).copy(p, 12); Buffer.from(dst.split('.').map(Number)).copy(p, 16); p.writeUInt16BE(sport, 20); p.writeUInt16BE(dport, 22); p[32] = 0x50; return p; };
+  assert.deepEqual(flowOf(tcp('10.9.0.1', '93.184.216.34', 51000, 443)), { proto: 'TCP', src: '10.9.0.1', dst: '93.184.216.34', sport: 51000, dport: 443 });
+  const v6 = Buffer.alloc(48); v6[0] = 0x60; v6.writeUInt16BE(8, 4); v6[6] = 17; v6[23] = 1; v6[24] = 0xfd; v6[39] = 2; v6.writeUInt16BE(5353, 40); v6.writeUInt16BE(53, 42);
+  assert.deepEqual(flowOf(v6), { proto: 'UDP', src: '::1', dst: 'fd00::2', sport: 5353, dport: 53 });
+  // A (le téléphone) en « tout le trafic » : tout passe par B (Odin).
+  const ka = dhGenerate(), kb = dhGenerate(), ta = fakeTun(), tb = fakeTun();
+  const b = new WgDevice({ privateKey: kb.priv.toString('base64'), listenPort: 0, tun: tb.port, peers: [{ name: 'A', publicKey: ka.pub.toString('base64'), allowedIps: ['10.9.0.1/32'] }] });
+  const pb = await b.start();
+  const a = new WgDevice({ privateKey: ka.priv.toString('base64'), listenPort: 0, tun: ta.port, peers: [{ name: 'B', publicKey: kb.pub.toString('base64'), allowedIps: ['0.0.0.0/0'], endpoint: `127.0.0.1:${pb}` }] });
+  await a.start();
+  const x = { a, b, ta, tb, end: () => { a.stop(); b.stop(); } };
+  try {
+    for (let i = 0; i < 3; i++) x.ta.inject(tcp('10.9.0.1', '93.184.216.34', 51000, 443));
+    assert.ok(await wait(() => x.tb.got.length === 3));
+    x.tb.inject(tcp('93.184.216.34', '10.9.0.1', 443, 51000, 1000));
+    assert.ok(await wait(() => x.ta.got.length === 1), 'la réponse d\'Internet arrive au téléphone');
+    const f = x.b.flows();
+    assert.equal(f.length, 1, 'aller et retour : un seul échange');
+    assert.deepEqual([f[0].device, f[0].deviceIp, f[0].proto, f[0].remote, f[0].port, f[0].pkUp, f[0].pkDown, f[0].up, f[0].down], ['A', '10.9.0.1', 'TCP', '93.184.216.34', 443, 3, 1, 180, 1040]);
   } finally { x.end(); }
 });

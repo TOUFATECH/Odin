@@ -117,7 +117,7 @@
       else {
         const hasA = s.rows.some((r) => r.actions?.length);
         box.append(el('div', { class: 'va-tw' }, el('table', { class: 'va-t' }, el('thead', {}, el('tr', {}, ...s.columns.map((c) => el('th', { scope: 'col' }, c)), hasA ? el('th', {}, el('span', { class: 'sr' }, 'Actions')) : null)),
-          el('tbody', {}, ...s.rows.map((r) => el('tr', { class: r.tone ? `va-tone-${r.tone}` : '' }, ...r.cells.map((c) => el('td', { class: cellClass(c) }, c)), hasA ? el('td', { class: 'va-acts' }, ...(r.actions ?? []).map((a) => el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = await run(mod, a.action, a.input); e.target.disabled = false; toast(t); } }, a.label))) : null))))));
+          el('tbody', {}, ...s.rows.map((r) => el('tr', { class: r.tone ? `va-tone-${r.tone}` : '' }, ...r.cells.map((c) => el('td', { class: cellClass(c) }, c)), hasA ? el('td', { class: 'va-acts' }, ...(r.actions ?? []).map((a) => el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = a.module && a.module !== mod ? await runOther(a.module, a.action, a.input) : await run(mod, a.action, a.input); e.target.disabled = false; toast(t); } }, a.label))) : null))))));
       }
     } else if (s.kind === 'list') box.append(s.items.length ? el('ul', { class: 'va-list' }, ...s.items.map((i) => el('li', { class: i.tone ? `va-tone-${i.tone}` : '' }, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null, i.meta ? el('small', {}, i.meta) : null))) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
     else if (s.kind === 'log') box.append(el('pre', { class: 'va-log' }, s.lines.join('\n') || '—'));

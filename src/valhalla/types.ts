@@ -43,7 +43,7 @@ export interface Action {
 export type Tone = 'bon' | 'attention' | 'mauvais' | 'neutre';
 export interface Kpi { label: string; value: string; pct?: number; tone?: Tone; hint?: string }
 export type Section =
-  | { kind: 'table'; title: string; columns: string[]; rows: Array<{ cells: string[]; tone?: Tone; actions?: Array<{ action: string; label: string; input: Record<string, unknown> }> }>; empty?: string }
+  | { kind: 'table'; title: string; columns: string[]; rows: Array<{ cells: string[]; tone?: Tone; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; /** une autre appli (ex. « ran ») */ module?: string }> }>; empty?: string }
   | { kind: 'list'; title: string; items: Array<{ title: string; detail?: string; tone?: Tone; meta?: string }>; empty?: string }
   | { kind: 'log'; title: string; lines: string[] }
   | { kind: 'text'; title: string; text: string; tone?: Tone }

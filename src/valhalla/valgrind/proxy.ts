@@ -51,6 +51,11 @@ export interface ProxyDeps {
 export function hashPassword(p: string): string { const salt = randomBytes(16); return `${salt.toString('hex')}:${scryptSync(p, salt, 32).toString('hex')}`; }
 export function checkPassword(p: string, h: string): boolean { const [s, d] = h.split(':'); if (!s || !d) return false; const a = scryptSync(p, Buffer.from(s, 'hex'), 32), b = Buffer.from(d, 'hex'); return a.length === b.length && timingSafeEqual(a, b); }
 const v4 = (ip: string) => ip.replace(/^::ffff:/, '');
+/** L'adresse du visiteur : celle de la connexion, ou celle que Cloudflare donne quand la requête vient du tunnel local (cloudflared tourne sur la machine d'Odin). */
+export function visitor(q: IncomingMessage): string {
+  const ip = v4(q.socket.remoteAddress ?? ''), cf = String(q.headers['cf-connecting-ip'] ?? '').trim();
+  return (ip === '127.0.0.1' || ip === '::1') && cf && net.isIP(cf) ? v4(cf) : ip;
+}
 /** L'adresse est-elle dans ce réseau (192.168.1.0/24) ou est-ce elle (192.168.1.5) ? IPv4. Pur. */
 export function inNet(ip: string, net0: string): boolean {
   const a = v4(ip), [n, bits = '32'] = net0.split('/'); if (!net.isIPv4(a) || !net.isIPv4(n)) return a === n;
@@ -126,7 +131,7 @@ export class ProxyServer {
     return undefined;
   }
   async handle(q: IncomingMessage, r: ServerResponse, secure: boolean): Promise<void> {
-    const t0 = Date.now(), ip = v4(q.socket.remoteAddress ?? ''), name = String(q.headers.host ?? '').toLowerCase().replace(/:\d+$/, ''), path = q.url ?? '/';
+    const t0 = Date.now(), ip = visitor(q), name = String(q.headers.host ?? '').toLowerCase().replace(/:\d+$/, ''), path = q.url ?? '/';
     const done = (status: number, why?: string, upstream?: string, bytes = 0) => this.d.log?.({ t: t0, host: name, ip, method: q.method ?? 'GET', path: path.slice(0, 300), status, ms: Date.now() - t0, bytes, upstream, why });
     // Défi Let's Encrypt : servi sur le port 80 pour tous les noms.
     const ch = /^\/\.well-known\/acme-challenge\/([\w-]{10,200})$/.exec(path);
@@ -164,7 +169,7 @@ export class ProxyServer {
   }
   /** WebSocket (et tout « Upgrade ») : relié tel quel au service, après les mêmes gardes. */
   private upgrade(q: IncomingMessage, sock: net.Socket, head: Buffer, secure: boolean): void {
-    const ip = v4(sock.remoteAddress ?? ''), name = String(q.headers.host ?? '').toLowerCase().replace(/:\d+$/, ''), h = route(this.d.hosts(), name);
+    const ip = visitor(q), name = String(q.headers.host ?? '').toLowerCase().replace(/:\d+$/, ''), h = route(this.d.hosts(), name);
     const refuse = (code: number, why: string) => { sock.end(`HTTP/1.1 ${code} ${why}\r\nconnection: close\r\n\r\n`); this.d.log?.({ t: Date.now(), host: name, ip, method: 'UPGRADE', path: q.url ?? '/', status: code, ms: 0, bytes: 0, why }); };
     if (!h) return refuse(404, 'Not Found'); if (!h.websocket) return refuse(400, 'WebSocket off');
     const g = this.guard(q, h, ip, secure); if (g && g.status !== 0) return refuse(g.status === 302 ? 401 : g.status, g.status === 401 || g.status === 302 ? 'Unauthorized' : 'Forbidden');

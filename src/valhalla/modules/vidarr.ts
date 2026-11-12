@@ -541,6 +541,11 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
   return m;
 }
 export const appContext = () => appCtx;
+/** Le nom de domaine qui a donné cette adresse (dernière réponse du DNS d'Odin), si on le sait. */
+export function nameForIp(ip: string): string | undefined {
+  for (let i = ring.length - 1; i >= 0; i--) { const e = ring[i]; if (e.answer && e.answer.split(', ').includes(ip)) return e.name; }
+  return undefined;
+}
 /** Les domaines demandés par une adresse depuis `since` (pour les graphes des autres applis : VPN, surveillance). */
 export function recentDomains(ip: string, since: number): Array<{ name: string; n: number; blocked: boolean; list?: string }> {
   const m = new Map<string, { name: string; n: number; blocked: boolean; list?: string }>();

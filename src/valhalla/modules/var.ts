@@ -216,7 +216,9 @@ export const varModule: Module = {
       if (h < 1 || h > 24 * 30) throw new Error('durée entre 1 heure et 30 jours');
       ctx.saveSettings({ portal, cookieDomain: dom, hours: h, require2fa: s(i.double_auth) ? groupsOf(i.double_auth) : [] });
       const r = await ctx.call('valgrind', 'portail', { domaine: portal }, 'servir le portail de connexion').catch((e) => ({ ok: false, text: (e as Error).message }));
-      return { text: `⚙️ Portail ${portal} (sessions de ${h} h, valables sur *.${dom})${r.ok !== false ? ' servi par le proxy.' : ` — ⚠ le proxy n'a pas pu le servir : ${r.text}`}` };
+      // Avec un tunnel Cloudflare (Brú), le portail est aussi publié sur Internet.
+      const pub = await ctx.call('bru', 'publier', { domaine: portal }, 'publier le portail de connexion sur Internet').catch(() => ({ ok: false, text: '' }));
+      return { text: `⚙️ Portail ${portal} (sessions de ${h} h, valables sur *.${dom})${r.ok !== false ? ' servi par le proxy.' : ` — ⚠ le proxy n'a pas pu le servir : ${r.text}`}${pub.ok !== false && pub.text ? `\n${pub.text}` : ''}` };
     } },
     { id: 'journal', label: 'Journal des connexions', what: 'Qui s\'est connecté, d\'où, et les échecs', read: true, run: (ctx) => ({ text: journal(ctx).slice(-40).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`).join('\n') || 'Rien.' }) },
   ],

@@ -38,6 +38,8 @@ function parseEnv(text: string): Array<[string, string]> {
 }
 
 /** Enregistre (ou efface si vide) une clé dans ~/.odin/env et dans l'environnement du processus. */
+/** Clés lues dans l'environnement au moment de servir : les changer ne demande pas de redémarrage. */
+const LIVE_SECRETS = new Set(['CLOUDFLARE_API_TOKEN']);
 export function writeSecret(paths: OdinPaths, name: string, value: string, env: NodeJS.ProcessEnv = process.env): void {
   // Identifiants des automatisations (Draupnir) : DRAUPNIR_NOM, choisis par le propriétaire.
   if (!(SECRET_NAMES as readonly string[]).includes(name) && !/^(DRAUPNIR|PROXMOX_TOKEN|CAMERA|MCP)_[A-Z0-9_]{2,40}$/.test(name)) throw new Error(`variable non autorisée : ${name}`);
@@ -369,7 +371,8 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
     }
     case 'secret': {
       writeSecret(paths, String(b.name), String(b.value ?? ''));
-      return true;
+      // Lues à chaque usage (pas au démarrage) : pas besoin de redémarrer Odin.
+      return !LIVE_SECRETS.has(String(b.name));
     }
     default: throw new Error('section inconnue');
   }

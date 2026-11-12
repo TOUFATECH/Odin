@@ -31,6 +31,14 @@ function world(): World {
     if (/\/api\/states/.test(url)) return Response.json([{ entity_id: 'media_player.salon', state: 'idle', attributes: { friendly_name: 'Enceinte salon' } }, { entity_id: 'tts.demo', state: 'unknown', attributes: {} }]);
     if (/\/api\/services\//.test(url)) return Response.json([]);
     if (/\/cm\?cmnd=/.test(url)) return Response.json({ ok: true });
+    // Une fausse API Cloudflare (Brú) : zones, DNS, règles et santé du tunnel.
+    if (/^http:\/\/cf\.test\//.test(url)) {
+      const u = new URL(url), m = init?.method ?? 'GET', ok = (result: unknown) => Response.json({ success: true, result });
+      if (u.pathname === '/zones') return ok(u.searchParams.get('name') === 'exemple.fr' ? [{ id: 'z1', name: 'exemple.fr', account: { id: 'acc' } }] : []);
+      if (u.pathname === '/zones/z1/dns_records') return ok(m === 'POST' ? { id: 'r1' } : []);
+      if (/\/configurations$/.test(u.pathname)) return ok(m === 'PUT' ? {} : { config: { ingress: [] } });
+      if (u.pathname === '/accounts/acc/cfd_tunnel/t1') return ok({ status: 'down', connections: [] });
+    }
     throw new Error('réseau coupé par le test');
   }) as unknown as typeof fetch;
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: { venus: { url: 'http://venus.test:8096' }, voice: {} } } as never), {
@@ -383,6 +391,34 @@ CHECKS['var>valgrind'] = async (w) => {
     const st = await new Promise<number>((ok) => https.get({ host: '127.0.0.1', port: u.port, servername: 'nas.exemple.fr', rejectUnauthorized: false, headers: { host: 'nas.exemple.fr', connection: 'close' } }, (r) => { r.resume(); ok(r.statusCode!); }));
     assert.equal(st, 302, 'renvoyé au portail');
   } finally { u.end(); }
+};
+/** Brú prêt : clé, tunnel déjà créé, fausse API Cloudflare. */
+function bruUp(w: World): () => void {
+  const saved = process.env.CLOUDFLARE_API_TOKEN; process.env.CLOUDFLARE_API_TOKEN = 'cle-de-test-cloudflare-123456';
+  w.v.ctx('bru').saveSettings({ apiBase: 'http://cf.test', tunnel: { id: 't1', name: 'odin', account: 'acc' }, bin: join(w.home, 'absent') });
+  return () => { if (saved === undefined) delete process.env.CLOUDFLARE_API_TOKEN; else process.env.CLOUDFLARE_API_TOKEN = saved; };
+}
+const cfPosted = (w: World, name: string) => w.fetched.some((f) => f.url === 'http://cf.test/zones/z1/dns_records' && f.body && JSON.parse(f.body).name === name && JSON.parse(f.body).content === 't1.cfargotunnel.com');
+CHECKS['valgrind>bru'] = async (w) => {
+  const end = bruUp(w), p = await proxyUp(w);
+  try {
+    const r = await w.v.act('valgrind', 'ajouter', { domaines: 'nas.exemple.fr', cible: p.svcUrl, https: 'aucun', dns_maison: false, surveiller: false });
+    assert.match(r.text, /publié sur Internet/, r.text); assert.ok(cfPosted(w, 'nas.exemple.fr'));
+    assert.deepEqual((w.v.ctx('bru').settings.published as Array<{ hostname: string }>).map((x) => x.hostname), ['nas.exemple.fr']);
+  } finally { p.end(); end(); }
+};
+CHECKS['var>bru'] = async (w) => {
+  const end = bruUp(w);
+  try { await w.v.act('var', 'reglages', { portail: 'connexion.exemple.fr', domaine: 'exemple.fr', double_auth: '' }); assert.ok(cfPosted(w, 'connexion.exemple.fr'), 'portail publié'); }
+  finally { end(); }
+};
+CHECKS['bru>forseti'] = async (w) => {
+  const end = bruUp(w);
+  try {
+    w.v.ctx('bru').saveSettings({ on: true });
+    await w.v.module('bru')!.watch!.run(w.v.ctx('bru'));
+    assert.ok(w.v.alerts({ module: 'bru' }).some((a) => /Le tunnel Cloudflare est coupé/.test(a.title) && a.level === 'haute'));
+  } finally { end(); }
 };
 CHECKS['var>brisingamen'] = async (w) => {
   const r = await w.v.act('var', 'ajouter', { login: 'sara', nom: 'Sara', groupes: 'famille' });

@@ -40,7 +40,7 @@ test('Gjöll : la mise en route se fait pas à pas, chaque étape avec son bouto
   try {
     const steps = async () => { const view = await w.v.module('gjoll')!.view(w.v.ctx('gjoll'), new URLSearchParams()); return view.sections.find((s) => s.kind === 'steps') as { items: Array<{ title: string; done: boolean; action?: string }> } | undefined; };
     let st = await steps();
-    assert.deepEqual(st?.items.map((x) => [x.done, x.action]), [[true, undefined], [false, 'detecter'], [false, 'port'], [false, 'allumer'], [false, undefined], [false, undefined]]);
+    assert.deepEqual(st?.items.map((x) => [x.done, x.action]), [[true, undefined], [false, 'detecter'], [false, 'ouvrir_port'], [false, 'allumer'], [false, undefined], [false, undefined]]);
     assert.match(st!.items[0].title, /Moteur VPN d'Odin/); assert.ok(!w.ran.some((c) => /apt-get|wireguard-tools|wg-quick/.test(c)), 'rien n\'est installé');
     assert.match((await act(w.v, 'detecter')).text, /203\.0\.113\.7/);
     await act(w.v, 'port', { ouvert: true });
