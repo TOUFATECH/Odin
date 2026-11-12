@@ -50,6 +50,11 @@
 .va-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;margin:0 0 8px;align-items:start}.va-top:empty{display:none}.va-top .va-sec{margin:0 0 14px}
 .va-manip{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}.va-manip>div:first-child{flex:1 1 220px;min-width:0;overflow-wrap:anywhere}.va-mbtn{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .va-prot.attention{border-color:var(--warn)}.va-t td.va-acts{white-space:normal}
+.va-steps{list-style:none;margin:0;padding:0;counter-reset:st}.va-steps li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}.va-steps li:last-child{border-bottom:0}
+.va-steps li::before{counter-increment:st;content:counter(st);display:grid;place-items:center;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);font-size:13px;font-weight:600}
+.va-steps li.ok::before{content:'✓';background:var(--good);border-color:var(--good);color:#fff}.va-steps small{display:block;color:var(--muted);white-space:pre-wrap}
+.va-dlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:inherit;padding:18px;max-width:min(560px,calc(100vw - 32px));width:100%}.va-dlg::backdrop{background:rgba(0,0,0,.45)}
+.va-dlg img{display:block;width:min(320px,100%);margin:0 auto 12px;background:#fff;border-radius:10px;padding:10px}.va-dlg pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:10px;max-height:240px;overflow:auto}
 `;
   let st = null, cur = null, busy = false;
   const LV = { critique: 'bad', haute: 'warn', moyenne: 'warn', info: '' };
@@ -75,8 +80,25 @@
   async function run(mod, action, input, confirmed) {
     const r = await api('/api/valhalla/act', { module: mod, action, input, confirm: confirmed === true });
     if (r.confirm) { if (!window.confirm(r.confirm)) return 'Annulé.'; return run(mod, action, input, true); }
+    if (r.ok && r.data && (r.data.svg || r.data.conf)) show(r.text, r.data);
     setTimeout(() => cur === mod && openApp(mod, true), 600);
     return r.ok ? r.text : `✗ ${r.text ?? r.error}`;
+  }
+  /** Ce qu'une action rend à voir ou à garder : un QR code (image), un fichier texte à copier ou télécharger. */
+  function show(text, d) {
+    const dlg = el('dialog', { class: 'va-dlg', 'aria-label': text });
+    const close = () => { dlg.close(); dlg.remove(); };
+    const name = String(d.filename || 'configuration.conf').replace(/[^\w.-]/g, '_');
+    dlg.append(el('h2', { style: 'margin:0 0 12px;font-size:17px' }, text),
+      d.svg ? el('img', { src: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(d.svg)))}`, alt: 'QR code à scanner avec l\'appli WireGuard' }) : null,
+      // La configuration contient la clé privée de l'appareil : cachée tant que tu ne demandes pas à la voir.
+      d.conf ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px' }, 'Voir la configuration (contient la clé secrète de l\'appareil)'), el('pre', {}, d.conf)) : null,
+      el('div', { class: 'va-acts-bar', style: 'margin:12px 0 0' },
+        d.conf ? el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(d.conf); e.target.textContent = 'Copié'; } catch { e.target.textContent = 'Copie impossible'; } } }, 'Copier') : null,
+        d.conf ? el('button', { class: 'btn small', type: 'button', onclick: () => { const a = el('a', { href: URL.createObjectURL(new Blob([d.conf], { type: 'text/plain' })), download: name }); document.body.append(a); a.click(); a.remove(); } }, `Télécharger ${name}`) : null,
+        el('button', { class: 'btn small primary', type: 'button', onclick: close }, 'Fermer')));
+    dlg.addEventListener('close', () => dlg.remove());
+    document.body.append(dlg); dlg.showModal();
   }
   /** Une valeur courte ne se coupe jamais ; un long mot (chemin, empreinte, adresse) se coupe où il faut. */
   const cellClass = (c) => { const x = String(c ?? ''); return x.length <= 16 && !/\s.*\s.*\s/.test(x) ? 'va-short' : /\S{26,}/.test(x) ? 'va-long' : ''; };
@@ -94,6 +116,8 @@
     else if (s.kind === 'text') box.append(el('p', { class: s.tone ? `va-tone-${s.tone}` : '' }, s.text));
     else if (s.kind === 'bars') { const max = Math.max(1, ...s.items.map((i) => i.value)); box.append(s.items.length ? el('div', { class: 'va-bars' }, ...s.items.map((i) => el('div', { class: 'va-brow' }, el('span', {}, i.label), el('i', { style: `width:${Math.round((i.value / max) * 100)}%` }), el('b', {}, i.display ?? String(i.value))))) : el('p', { class: 'sub' }, 'Rien.')); }
     else if (s.kind === 'form') box.append(form(mod, s.action, s.params, s.submit));
+    // Assistant de configuration : étapes numérotées, faites ou à faire, chacune avec son bouton.
+    else if (s.kind === 'steps') box.append(el('ol', { class: 'va-steps' }, ...s.items.map((i) => el('li', { class: i.done ? 'ok' : '' }, el('div', {}, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null), i.action && !i.done ? el('button', { class: 'btn small primary', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = await run(mod, i.action, i.input ?? {}); e.target.disabled = false; toast(t); } }, i.button ?? 'Faire') : el('span', { class: 'sub' }, i.done ? 'Fait' : '')))));
     return box;
   }
   function toast(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:60;max-width:min(560px,calc(100% - 32px));box-shadow:var(--shadow);background:var(--panel)' }, t); document.body.append(n); setTimeout(() => n.remove(), 4500); }

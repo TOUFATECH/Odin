@@ -48,7 +48,9 @@ export type Section =
   | { kind: 'log'; title: string; lines: string[] }
   | { kind: 'text'; title: string; text: string; tone?: Tone }
   | { kind: 'bars'; title: string; items: Array<{ label: string; value: number; display?: string }> }
-  | { kind: 'form'; title: string; action: string; params: Param[]; submit: string };
+  | { kind: 'form'; title: string; action: string; params: Param[]; submit: string }
+  /** assistant de configuration : étapes dans l'ordre, faites ou non, chacune avec l'action qui la fait */
+  | { kind: 'steps'; title: string; items: Array<{ title: string; detail?: string; done: boolean; action?: string; input?: Record<string, unknown>; button?: string }> };
 export interface View { subtitle?: string; kpis?: Kpi[]; sections: Section[]; side?: Section[]; tabs?: string[] }
 
 export interface ModCtx {
