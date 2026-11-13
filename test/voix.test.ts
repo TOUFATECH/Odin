@@ -492,8 +492,8 @@ test('Telegram : la note vocale d\'ElevenLabs part telle quelle ; un refus de Te
     const gw = new Gateway(o, { owners: { telegram: ['42'] } });
     const ch = new TelegramChannel(tg.token, tg.url, { owner: '42', progress: false, home: o.paths.home });
     gw.add(ch); await gw.start(); tt.onEnd(() => gw.stop());
-    tg.say(42, 'Réponds-moi en vocal.');
-    assert.ok(await until(() => tg.sent.some((x) => x.method === 'sendVoice'), 15_000));
+    tg.say(42, 'Quelle heure est-il ? Réponds-moi en vocal.');
+    assert.ok(await until(() => tg.sent.some((x) => x.method === 'sendVoice'), 15_000), `note vocale envoyée (${JSON.stringify(tg.sent.map((x) => x.text ?? x.method))})`);
     const n = tg.sent.find((x) => x.method === 'sendVoice')!;
     assert.deepEqual(n.file!.data, PETIT_OGG, 'l\'Opus d\'ElevenLabs est envoyé sans conversion'); assert.equal(n.file!.name, 'odin.ogg');
     assert.deepEqual(el.said.at(-1), { voice: 'XB0fDUnXU5powFXDhCwa', text: 'Réponse une.', model: 'eleven_multilingual_v2', format: 'opus_48000_64' });
@@ -505,7 +505,7 @@ test('Telegram : la note vocale d\'ElevenLabs part telle quelle ; un refus de Te
     await ch.sendVoice('42', wav(0.3)); assert.deepEqual({ m: tg.sent.at(-1)!.method, n: tg.sent.at(-1)!.file!.name }, { m: 'sendDocument', n: 'odin.wav' });
     // La voix tombe en panne : la réponse écrite arrive quand même.
     await el.close();
-    tg.say(42, 'Encore, en vocal.');
+    tg.say(42, 'Et demain ? Dis-le à voix haute.');
     assert.ok(await until(() => tg.sent.some((x) => x.method === 'sendMessage' && /Réponse deux/.test(x.text ?? '')), 15_000), 'la réponse écrite arrive');
   } finally { await tt.end(); }
 });
