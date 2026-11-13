@@ -1,5 +1,25 @@
 [
  {
+  "id": "v1140",
+  "at": "2026-11-13T14:10:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.14.0",
+  "title": "Nouveaux noms et icônes des applis, nouveaux pouvoirs (Odin se transforme), un clic sur Odin n'ouvre plus que « Que veux-tu ? »",
+  "details": [
+   "Applis renommées (noms validés) avec leur icône ; les anciens noms sont oubliés.",
+   "« Tes applis » : toutes les applis en icônes en haut de la page Applis ; un clic ouvre l'appli.",
+   "32 pouvoirs validés sur le nouveau moteur : Odin prend la matière du pouvoir, l'attaque part de lui et détruit l'élément jusqu'au bout ; 16 pouvoirs retirés.",
+   "Un clic sur Odin n'ouvre plus la bulle d'aide de la page, seulement « Que veux-tu ? ».",
+   "Champollion : lire les PDF scannés, images, documents et l'audio ; Zénith (tableaux de bord) ; Alchimie (conversions)."
+  ],
+  "planets": [
+   "applis",
+   "interface",
+   "guide"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "2ea655c",
   "at": "2026-11-12T16:52:15+03:00",
   "date": "2026-11-12",

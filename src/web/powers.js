@@ -68,7 +68,7 @@
     papillons: { name: 'Papillons', c: '#ff9ac8', kit: 'dis', shot: 'none', dir: 'h', pc: ['#ffc4dd', '#ff9ac8', '#ffffff'], appear: 'light' },
   };
   // Les pouvoirs proposés : ceux que tu as gardés (13/11). Les autres ne sont plus tirés au sort ni proposés.
-  const KEPT = ['feu', 'vague', 'glace', 'blizzard', 'rochers', 'seisme', 'cristaux', 'aurore', 'gungnir', 'lianes', 'petales', 'feuilles', 'poison', 'teleport', 'pixels', 'givre', 'bulle_geante', 'mercure', 'encre', 'hologramme', 'origami', 'plasma', 'papillons'];
+  const KEPT = ['feu', 'vague', 'glace', 'blizzard', 'rochers', 'seisme', 'cristaux', 'aurore', 'gungnir', 'lianes', 'petales', 'feuilles', 'poison', 'teleport', 'pixels', 'givre', 'bulle_geante', 'mercure', 'encre', 'hologramme', 'origami', 'plasma', 'papillons', 'bulles', 'comete', 'corbeaux', 'eclair', 'etoiles', 'foudre', 'ombre', 'sable', 'trounoir'];
   const IDS = KEPT.filter((k) => P[k]);
 
   // ---------------------------------------------------------------- outils

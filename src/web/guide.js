@@ -1,4 +1,4 @@
-// Odin, ton guide, sur toutes les pages. Un clic (ou Entrée) sur la mascotte ouvre sa bulle :
+// Odin, ton guide, sur toutes les pages. Sa bulle s’ouvre par « Explique-moi », « Quoi de neuf » ou une question (plus par un clic sur la mascotte) :
 // - tu lui parles directement, où que tu sois : c'est la même conversation que la page Discussion (il voit
 //   la page ou l'appli ouverte), il te répond dans la bulle, et à voix haute tant que tu ne l'as pas coupé
 //   (Réglages → Voix, ou le bouton 🔊 de la bulle) ;
@@ -290,11 +290,11 @@
   function arm(m) {
     if (!m || m.dataset.guide) return;
     m.dataset.guide = '1'; m.classList.add('guide-on');
-    m.removeAttribute('aria-hidden'); m.setAttribute('role', 'button'); m.setAttribute('tabindex', '0'); m.setAttribute('aria-haspopup', 'dialog'); m.setAttribute('aria-expanded', 'false');
+    m.removeAttribute('aria-hidden'); m.setAttribute('role', 'button'); m.setAttribute('tabindex', '0'); m.setAttribute('aria-haspopup', 'dialog');
     paintTip();
-    m.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY }; });
-    m.addEventListener('click', (e) => { if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) return; e.stopPropagation(); toggle(m); });
-    m.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(m); } });
+    // Un clic sur Odin n'ouvre plus cette bulle d'aide (13/11) : il ouvre seulement « Que veux-tu ? » (notices.js).
+    // L'aide reste accessible par OdinGuide.ask / news (boutons « Explique-moi », « Quoi de neuf »).
+    m.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.OdinNotices?.talk?.(); } });
   }
   function start() {
     document.head.append(el('style', {}, css));
