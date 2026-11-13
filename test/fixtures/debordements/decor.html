@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page d'essai : texte posé sur le décor du thème</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:16px/1.5 system-ui,sans-serif;color:#10363a;background:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 170' preserveAspectRatio='xMidYMax slice'%3E%3Cpath d='M0 60 Q64 40 128 60 T256 56 V170 H0Z' fill='%230b5f6e'/%3E%3C/svg%3E") center bottom/100% 40vh no-repeat fixed,linear-gradient(180deg,#bfeaf3,#e6f8f4) fixed}
+main{height:100%;overflow:auto;padding:16px}
+.carte{background:#fff;border:1px solid #c2dfe1;border-radius:14px;padding:14px 16px;margin:0 0 14px}
+</style>
+</head>
+<body>
+<main>
+  <p id="nu" style="margin:0 0 14px">Ce texte n'a pas de fond : en défilant, il passe sur le décor du thème.</p>
+  <div class="carte"><p id="protege" style="margin:0">Ce texte est dans une carte : le décor ne passe pas derrière.</p></div>
+  <div style="height:1400px"></div>
+  <p id="nu-bas" style="margin:0">Fin de page, sans fond non plus.</p>
+</main>
+</body>
+</html>
