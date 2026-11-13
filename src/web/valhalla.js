@@ -284,6 +284,10 @@
     const mc = $('#mcur'); if (mc) mc.textContent = r.name;
     // Rán : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
     if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[0] || null);
+    // Une appli qui a sa propre page dessinée (src/web/pages/<appli>.js) : elle prend la place du centre ;
+    // les sections génériques restent à sa disposition (par exemple dans un onglet « Bases »).
+    const page = window.OdinPages?.[id];
+    if (page) { const generic = [...main.childNodes]; main.replaceChildren(); try { await page({ host: main, generic, view: v, info: r, quiet: Boolean(quiet), reload: () => openApp(id, true), toast, show: (n) => window.OdinShow?.(n) }); } catch (e) { main.replaceChildren(el('p', { class: 'sub' }, String(e?.message ?? e)), ...generic); } }
     box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), top, wide, el('div', { class: 'va-page' }, main, side));
     if (!quiet) head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
     // Une page qui bouge (barre de progression) se met à jour toute seule, sauf pendant que tu remplis un champ.

@@ -25,7 +25,7 @@
     citrouille: '<ellipse cx="60" cy="14" rx="18" ry="11" fill="#ff7a1a"/><path d="M60 3 v-6" stroke="#2f8f4e" stroke-width="3"/><path d="M50 13 l3 -3 3 3 M64 13 l3 -3 3 3" stroke="#1a0f24" stroke-width="1.6" fill="none"/>',
     masque: '<path d="M30 52 q30 -16 60 0 q-4 16 -20 14 q-10 -2 -10 -8 q0 6 -10 8 q-16 2 -20 -14Z" fill="#9a6bff" opacity=".85"/>',
     note: '<path d="M96 2 v18 a5 4 0 1 1 -3 -3.5 V6 l12 -3 v4Z" fill="#9aa8ff"/>',
-    oeuf: '',
+    oeuf: '', // Pâques : Odin devient en chocolat (voir CHOC plus bas), pas d'objet sur la tête
   };
   function dress() {
     const ev = D?.event, acc = ev?.accessory && ACC[ev.accessory] !== undefined ? ACC[ev.accessory] : '';
@@ -34,22 +34,91 @@
       let g = svg.querySelector(':scope > g.odin-acc');
       if (!acc) { g?.remove(); } else { if (!g) { g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'odin-acc'); svg.append(g); } if (g.dataset.k !== ev.accessory) { g.innerHTML = acc; g.dataset.k = ev.accessory; } }
       o.classList.toggle('ev-dark-eyes', Boolean(ev?.eyes));
+      choc(svg, ev?.accessory === 'oeuf');
     }
     egg(ev?.accessory === 'oeuf');
   }
-  // Pâques : un petit œuf pastel suit Odin partout ; de temps en temps il craque et un joli lapin en sort.
-  let eggEl = null, eggT = 0;
+  // Pâques (maquette validée « Odin · Pâques v2 ») : Odin en chocolat brillant (nappage qui coule, éclat, vermicelles),
+  // un vrai œuf en chocolat avec ruban et nœud qui le suit en sautillant, gigote, se fêle, et un lapin tout doux en sort.
+  const PQ_DEFS = '<radialGradient id="pqEgg" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="#a9653e"/><stop offset=".5" stop-color="#6c381c"/><stop offset="1" stop-color="#341709"/></radialGradient>'
+    + '<linearGradient id="pqNap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5a2c14"/><stop offset="1" stop-color="#3a1a0a"/></linearGradient>'
+    + '<linearGradient id="pqRub" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5ab8f0"/><stop offset=".5" stop-color="#9fdcff"/><stop offset="1" stop-color="#4aa6e0"/></linearGradient>'
+    + '<radialGradient id="pqFur" cx="42%" cy="32%" r="70%"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#f6f1f6"/><stop offset="1" stop-color="#e6dbe8"/></radialGradient>'
+    + '<radialGradient id="pqEar" cx="50%" cy="40%" r="60%"><stop offset="0" stop-color="#ffd3df"/><stop offset="1" stop-color="#ffb0c6"/></radialGradient>'
+    + '<radialGradient id="pqShadow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#1d3a14" stop-opacity=".3"/><stop offset="1" stop-color="#1d3a14" stop-opacity="0"/></radialGradient>'
+    + '<clipPath id="pqBody" clipPathUnits="userSpaceOnUse"><circle cx="60" cy="60" r="44"/></clipPath>'
+    + '<clipPath id="pqLow" clipPathUnits="userSpaceOnUse"><path d="M-34 6 L-26 -2 L-18 6 L-10 -3 L-2 6 L6 -3 L14 6 L22 -2 L30 6 L34 4 L34 60 L-34 60Z"/></clipPath>'
+    + '<clipPath id="pqHigh" clipPathUnits="userSpaceOnUse"><path d="M-34 6 L-26 -2 L-18 6 L-10 -3 L-2 6 L6 -3 L14 6 L22 -2 L30 6 L34 4 L34 -60 L-34 -60Z"/></clipPath>';
+  function pqDefs() {
+    if (document.getElementById('pqDefs')) return;
+    const d = document.createElementNS(NS, 'svg'); d.id = 'pqDefs'; d.setAttribute('aria-hidden', 'true'); d.setAttribute('width', '0'); d.setAttribute('height', '0');
+    d.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden'; d.innerHTML = `<defs>${PQ_DEFS}</defs>`; document.body.append(d);
+  }
+  const SPR = [[-24, -40, '#ff8fb0', 30], [-8, -46, '#ffe08a', -20], [10, -44, '#9fdcff', 50], [26, -36, '#b9f3c4', -40], [-32, -30, '#c8b6ff', 10], [18, -32, '#ff8fb0', 70], [0, -38, '#b9f3c4', 0]];
+  // Le chocolat se pose dans le corps d'Odin, sous ses yeux (repère du corps : centre 60,60, rayon 44).
+  const CHOC = '<g clip-path="url(#pqBody)"><path transform="translate(60 60) scale(.94) translate(0 -30)" d="M-48 -10 C-46 -40 -22 -46 0 -46 C22 -46 44 -38 45 -10 C40 -6 38 6 34 6 C30 6 30 -4 26 -4 C21 -4 22 12 16 12 C10 12 12 -2 6 -2 C1 -2 2 6 -3 6 C-8 6 -7 -6 -12 -6 C-17 -6 -16 16 -22 16 C-28 16 -26 -2 -31 -2 C-36 -2 -38 4 -42 2 C-46 0 -48 -4 -48 -10Z" fill="url(#pqNap)"/></g>'
+    + '<g transform="translate(60 60) scale(.94)"><path d="M-36 -26 C-30 -40 -14 -44 -4 -43" stroke="#fff" stroke-opacity=".28" stroke-width="5" fill="none" stroke-linecap="round"/>'
+    + SPR.map(([x, y, c, r]) => `<rect x="${x - 3.5}" y="${y - 1.3}" width="7" height="2.6" rx="1.3" fill="${c}" transform="rotate(${r} ${x} ${y})"/>`).join('')
+    + '<ellipse cx="-26" cy="18" rx="8" ry="14" fill="#fff" opacity=".10" transform="rotate(25 -26 18)"/><path d="M30 28 A40 40 0 0 1 4 44" stroke="#d99a6c" stroke-opacity=".35" stroke-width="3" fill="none" stroke-linecap="round"/></g>';
+  function choc(svg, on) {
+    const body = svg.querySelector('g.body'); if (!body) return;
+    let g = body.querySelector(':scope > g.odin-choc');
+    if (!on) { g?.remove(); svg.classList.remove('pq'); return; }
+    pqDefs(); svg.classList.add('pq');
+    if (!g) { g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'odin-choc'); g.innerHTML = CHOC; body.insertBefore(g, body.querySelector(':scope > g.eyes')); }
+  }
+  const EGG = 'M0 -40 C22 -40 34 -10 34 10 C34 30 19 42 0 42 C-19 42 -34 30 -34 10 C-34 -10 -22 -40 0 -40Z';
+  const CUT = 'M-34 6 L-26 -2 L-18 6 L-10 -3 L-2 6 L6 -3 L14 6 L22 -2 L30 6 L34 4';
+  const RIB = '<rect x="-34" y="6" width="68" height="9" fill="url(#pqRub)"/><path d="M-34 6 h68" stroke="#fff" stroke-opacity=".5" stroke-width="1.2"/>';
+  const SHINE = '<ellipse cx="-14" cy="-18" rx="7" ry="14" fill="#fff" opacity=".22" transform="rotate(22 -14 -18)"/><circle cx="-6" cy="-30" r="2.5" fill="#fff" opacity=".35"/>';
+  const BOW = '<g transform="translate(0 10)"><path d="M0 0 C-10 -10 -20 -4 -16 4 C-12 10 -4 4 0 0Z M0 0 C10 -10 20 -4 16 4 C12 10 4 4 0 0Z" fill="#7cc8f5" stroke="#3f97cf" stroke-width="1"/><path d="M-2 2 L-8 16 L-3 14 M2 2 L8 16 L3 14" stroke="#4aa6e0" stroke-width="3" fill="none" stroke-linecap="round"/><circle r="3.4" fill="#3f97cf"/></g>';
+  const CRACK = '<path d="M-24 -6 L-17 -14 L-11 -7 L-4 -17 L3 -8 L10 -15 L17 -6" stroke="#f3d9c2" stroke-width="1.6" fill="none" stroke-linejoin="round"/><path d="M-4 -17 L-2 -24" stroke="#f3d9c2" stroke-width="1.2"/>';
+  const BUNNY = '<path d="M-12 -46 C-26 -82 -20 -100 -10 -100 C0 -100 0 -76 -4 -46Z" fill="url(#pqFur)" stroke="#e2d6e4"/><path d="M-11 -52 C-20 -78 -16 -92 -10 -92 C-4 -92 -4 -72 -6 -52Z" fill="url(#pqEar)"/>'
+    + '<path d="M4 -46 C4 -78 14 -96 23 -92 C32 -88 26 -70 12 -46Z" fill="url(#pqFur)" stroke="#e2d6e4"/><path d="M7 -50 C8 -74 15 -86 21 -84 C26 -82 21 -68 12 -50Z" fill="url(#pqEar)"/>'
+    + '<ellipse cx="0" cy="-2" rx="22" ry="20" fill="url(#pqFur)"/><ellipse cx="0" cy="-28" rx="22" ry="20" fill="url(#pqFur)" stroke="#e2d6e4"/>'
+    + '<ellipse cx="-8" cy="-31" rx="3.6" ry="4.4" fill="#2b2033"/><circle cx="-6.8" cy="-32.8" r="1.4" fill="#fff"/><ellipse cx="8" cy="-31" rx="3.6" ry="4.4" fill="#2b2033"/><circle cx="9.2" cy="-32.8" r="1.4" fill="#fff"/>'
+    + '<ellipse cx="-13" cy="-22" rx="4.5" ry="2.8" fill="#ffb3c8" opacity=".7"/><ellipse cx="13" cy="-22" rx="4.5" ry="2.8" fill="#ffb3c8" opacity=".7"/>'
+    + '<path d="M-3 -24 Q0 -21.5 3 -24 Q0 -20 -3 -24Z" fill="#ff7aa2"/><path d="M0 -21 q-2.6 3 -5 1.2 M0 -21 q2.6 3 5 1.2" stroke="#b9708c" stroke-width="1.1" fill="none" stroke-linecap="round"/>'
+    + '<path d="M-9 -23 l-11 -2 M-9 -21 l-11 2 M9 -23 l11 -2 M9 -21 l11 2" stroke="#cdbfd1" stroke-width=".8" stroke-linecap="round"/>';
+  const PAWS = '<ellipse cx="-14" cy="2" rx="6.5" ry="5" fill="url(#pqFur)" stroke="#e2d6e4"/><ellipse cx="14" cy="2" rx="6.5" ry="5" fill="url(#pqFur)" stroke="#e2d6e4"/>';
+  let eggEl = null, eggT = 0, eggH = 0;
   function egg(on) {
-    if (!on) { eggEl?.remove(); eggEl = null; clearInterval(eggT); return; }
+    if (!on) { eggEl?.remove(); eggEl = null; clearInterval(eggT); clearInterval(eggH); return; }
     if (eggEl) return;
+    pqDefs();
     eggEl = document.createElement('div'); eggEl.id = 'odinEgg'; eggEl.setAttribute('aria-hidden', 'true');
-    eggEl.innerHTML = `<svg viewBox="0 0 40 52" width="26" height="34"><ellipse cx="20" cy="30" rx="14" ry="18" fill="#ffd6e7"/><path d="M7 26 q6 -4 13 0 q7 4 13 0" stroke="#9ad7ff" stroke-width="3" fill="none"/><path d="M8 36 q6 4 12 0 q6 -4 12 0" stroke="#d9c4ff" stroke-width="3" fill="none"/><g class="bunny" opacity="0"><ellipse cx="14" cy="6" rx="3.4" ry="9" fill="#fff" stroke="#f0c9d6"/><ellipse cx="26" cy="6" rx="3.4" ry="9" fill="#fff" stroke="#f0c9d6"/><circle cx="20" cy="18" r="9" fill="#fff" stroke="#f0c9d6"/><circle cx="17" cy="17" r="1.3" fill="#3a2a30"/><circle cx="23" cy="17" r="1.3" fill="#3a2a30"/><ellipse cx="20" cy="20.5" rx="1.6" ry="1.1" fill="#ff9ac8"/></g></svg>`;
-    eggEl.style.cssText = 'position:fixed;left:0;top:0;z-index:49;pointer-events:none;transition:translate 1.2s cubic-bezier(.45,.05,.3,1);filter:drop-shadow(0 3px 5px rgba(0,0,0,.25))';
+    eggEl.innerHTML = `<svg viewBox="-46 -100 92 146" width="40" height="64" style="overflow:visible"><ellipse cx="0" cy="44" rx="30" ry="5" fill="url(#pqShadow)"/>`
+      + `<g class="whole" style="transform-box:fill-box;transform-origin:50% 100%"><path d="${EGG}" fill="url(#pqEgg)"/>${RIB}${SHINE}${BOW}<g class="crack" opacity="0">${CRACK}</g></g>`
+      + `<g class="open" opacity="0"><g class="bunny" style="transform-box:fill-box;transform-origin:50% 100%"><g transform="translate(0 -6)">${BUNNY}</g></g>`
+      + `<g clip-path="url(#pqLow)"><path d="${EGG}" fill="url(#pqEgg)"/>${RIB}</g><path d="${CUT}" stroke="#2a1206" stroke-width="1.5" fill="none"/>${PAWS}`
+      + `<g class="lid"><g clip-path="url(#pqHigh)"><path d="${EGG}" fill="url(#pqEgg)"/>${SHINE}</g><path d="${CUT}" stroke="#2a1206" stroke-width="1.5" fill="none"/></g></g></svg>`;
+    eggEl.style.cssText = 'position:fixed;left:0;top:0;z-index:49;pointer-events:none;transition:translate 1.2s cubic-bezier(.45,.05,.3,1);filter:drop-shadow(0 3px 5px rgba(0,0,0,.22))';
     document.body.append(eggEl);
-    const follow = () => { const b = bud(); if (!b || b.hidden || !eggEl) { if (eggEl) eggEl.style.opacity = '0'; return; } const r = b.getBoundingClientRect(); eggEl.style.opacity = '1'; eggEl.style.translate = `${Math.round(r.left - 22)}px ${Math.round(r.bottom - 34)}px`; };
+    const svg = eggEl.querySelector('svg');
+    const follow = () => { const b = bud(); if (!b || b.hidden || !eggEl) { if (eggEl) eggEl.style.opacity = '0'; return; } const r = b.getBoundingClientRect(); eggEl.style.opacity = '1'; eggEl.style.translate = `${Math.round(r.left - 30)}px ${Math.round(r.bottom - 58)}px`; };
     follow(); eggT = setInterval(follow, 600);
-    const hatch = () => { const g = eggEl?.querySelector('.bunny'); if (!g) return; g.animate([{ opacity: 0, transform: 'translateY(16px)' }, { opacity: 1, transform: 'translateY(-6px)', offset: 0.25 }, { opacity: 1, transform: 'translateY(-4px)', offset: 0.8 }, { opacity: 0, transform: 'translateY(16px)' }], { duration: 5000, easing: 'ease-in-out' }); };
-    setTimeout(hatch, 4000); setInterval(() => { if (eggEl && !document.hidden) hatch(); }, 45_000);
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Il sautille derrière Odin.
+    if (!still) svg.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-5px)' }, { transform: 'translateY(0)' }], { duration: 1100, iterations: Infinity, easing: 'ease-in-out' });
+    const hatch = async () => {
+      if (!eggEl || document.hidden) return;
+      const $ = (c) => eggEl?.querySelector(c); const whole = $('.whole'), crack = $('.crack'), open = $('.open'), bunny = $('.bunny'), lid = $('.lid');
+      if (!whole) return;
+      if (!still) await whole.animate([0, -12, 12, -8, 6, 0].map((d) => ({ transform: `rotate(${d}deg)` })), { duration: 900, easing: 'ease-in-out' }).finished.catch(() => {});
+      crack.setAttribute('opacity', '1');
+      await new Promise((ok) => setTimeout(ok, 700));
+      if (!eggEl) return;
+      whole.setAttribute('opacity', '0'); open.setAttribute('opacity', '1');
+      if (!still) {
+        lid.animate([{ transform: 'translate(0,0) rotate(0)' }, { transform: 'translate(30px,-64px) rotate(38deg)' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+        bunny.animate([{ transform: 'translateY(24px) scale(.7)' }, { transform: 'translateY(-8px) scale(1.06)', offset: .6 }, { transform: 'translateY(0) scale(1)' }], { duration: 650, easing: 'ease-out' });
+      } else lid.setAttribute('transform', 'translate(30 -64) rotate(38)');
+      await new Promise((ok) => setTimeout(ok, 4200));
+      if (!eggEl) return;
+      lid.getAnimations().forEach((a) => a.cancel()); lid.removeAttribute('transform');
+      open.setAttribute('opacity', '0'); crack.setAttribute('opacity', '0'); whole.setAttribute('opacity', '1');
+    };
+    setTimeout(hatch, 4000); eggH = setInterval(hatch, 45_000);
   }
 
   // ---------------------------------------------------------------- caché ou visible (sur tous tes écrans)
