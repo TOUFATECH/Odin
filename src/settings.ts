@@ -369,7 +369,7 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       const gender = (str('gender') ?? v.gender ?? 'homme') === 'femme' ? 'femme' : 'homme';
       const femaleVoiceId = (str('femaleVoiceId') ?? v.femaleVoiceId ?? '').trim();
       if (femaleVoiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(femaleVoiceId)) throw new Error('nom de voix de femme invalide');
-      setConfigValue(paths, ['voice'], {
+      const next: Voice = {
         ...v,
         gender, femaleVoiceId,
         enabled: Boolean(b.enabled), speakRepliesChosen: true,
@@ -377,8 +377,12 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
         stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
         // L'ancienne case « lire mes réponses » vaut le mode de réponse quand celui-ci n'est pas envoyé.
         ...voiceOptions({ ...b, replyMode: b.replyMode ?? (b.speakReplies === undefined ? undefined : b.speakReplies ? 'voix' : 'texte') }, v),
-      });
-      return true;
+      };
+      setConfigValue(paths, ['voice'], next);
+      // Pris en compte tout de suite (la voix est relue à chaque phrase) : pas besoin de redémarrer Odin pour changer de voix.
+      Object.assign(cfg.voice, next);
+      // Seule une nouvelle clé OpenAI demande de relancer les services : les modèles d'IA la lisent au démarrage.
+      return Boolean(str('sttKey'));
     }
     // Réglages → Voix (écoute, interruptions, voix d'Odin, cerveau, confidentialité, voix ou texte) sans toucher aux services
     case 'voice_options': {

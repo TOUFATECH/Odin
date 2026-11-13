@@ -227,6 +227,28 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.equal(applyMots('démarre ring horni et le reste', mots(w.home)), 'démarre Hringhorni et le reste', 'la voix d\'Odin lit les mêmes mots');
     const r = await w.v.act('rodd', 'dicter', { texte: 'lance ringorni', mode: 'tel quel' }); assert.equal(r.text, 'lance Hringhorni');
   },
+  'volva>bragi': async () => {
+    // Une vraie voix pour cet essai : un faux serveur Piper (protocole actuel, POST /synthesize) qui rend un petit WAV.
+    const wav = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVEfmt '), Buffer.alloc(40)]), dit: string[] = [];
+    const srv = createServer((req, res) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { if (req.method === 'POST' && req.url === '/synthesize') { dit.push((JSON.parse(b) as { text: string }).text); res.end(wav); } else { res.writeHead(404); res.end(); } }); });
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    const home = mkdtempSync(join(tmpdir(), 'odin-liens-voix-')), { DEFAULT_CONFIG } = await import('../src/config.ts');
+    const voice = { ...DEFAULT_CONFIG.voice, localOnly: false, gender: 'femme', tts: { ...DEFAULT_CONFIG.voice.tts, provider: 'piper', baseUrl: `http://127.0.0.1:${(srv.address() as { port: number }).port}` } };
+    const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: { venus: { url: '' }, voice, profiles: DEFAULT_CONFIG.profiles } } as never), {}), faits: string[] = [];
+    v.events.on('action', (a: { module: string; action: string }) => faits.push(`${a.module}.${a.action}`));
+    try {
+      const vide = await v.act('volva', 'ecouter', {}); assert.equal(vide.ok, false); assert.match(vide.text, /aucune recherche à lire/);
+      writeFileSync(join(v.ctx('volva').dir, 'historique.json'), JSON.stringify([{ id: 'abc123', at: 1, q: 'Quel est le chef-lieu de Mayotte ?', focus: 'tout', answer: '**Mamoudzou** est le chef-lieu de Mayotte [1].', sources: [], engines: [], followups: [], apps: [], ai: false, errors: [] }]));
+      const r = await v.act('volva', 'ecouter', {});
+      assert.equal(r.ok, true, r.text); assert.ok(faits.includes('bragi.dire'), 'c\'est Orphée qui lit');
+      assert.deepEqual(dit, ['Mamoudzou est le chef-lieu de Mayotte.'], 'la réponse est dite sans ses renvois ni ses étoiles');
+      const son = v.module('volva')!.retrait!(v.ctx('volva'), r.fichiers![0].ref)!;
+      assert.match(son, /bragi[\\/]audio[\\/]odin-\d+\.wav$/); assert.deepEqual(readFileSync(son), wav, 'le son d\'Orphée est remis par la page de Pythie');
+      assert.equal(v.module('volva')!.retrait!(v.ctx('volva'), '../réglages.json'), undefined, 'rien d\'autre ne sort par là');
+      const u = (await v.order('lis la dernière recherche')).understood as { kind: string; module?: string; action?: string } | undefined;
+      assert.deepEqual([u?.kind, u?.module, u?.action], ['action', 'volva', 'ecouter'], '« lis la dernière recherche » arrive chez Pythie, sans IA');
+    } finally { v.stop(); await new Promise((r) => srv.close(r)); rmSync(home, { recursive: true, force: true }); }
+  },
   'naglfar>naglfar': async (w) => {
     w.level('prudent');
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'api' }); await wait(60);
