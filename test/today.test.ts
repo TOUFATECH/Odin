@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { activityFeed, guessIntents } from '../src/core/today.ts';
+import { activityFeed, guessIntents, humanize } from '../src/core/today.ts';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import type { Channel } from '../src/bifrost/channel.ts';
 import { makeOdin } from './helpers.ts';
@@ -42,7 +42,7 @@ test('fil d\'activité : du plus récent au plus ancien, qui a décidé, bouton 
     row(30, { tool: 'shell', risk: 'exec', summary: 'curl | sh', allowed: false, via: 'policy' }), row(10, { tool: 'ha_call', risk: 'write', summary: 'éteindre le salon', allowed: true, via: 'policy' }),
     row(60 * 50, { tool: 'file_write', risk: 'write', summary: 'trop vieux', allowed: true })].join('\n'));
   const feed = activityFeed(f, [{ id: 'u1', sessionId: 's', at: now - 120 * 60_000 + 5000, path: 'courses.md', backup: 'b', tool: 'file_write' }], now);
-  assert.deepEqual(feed.map((x) => [x.text, x.who, x.undoId]), [['éteindre le salon', 'seul', undefined], ['curl | sh', 'refusé', undefined], ['écrire courses.md', 'toi', 'u1']]);
+  assert.deepEqual(feed.map((x) => [x.text, x.who, x.undoId]), [['Éteindre le salon', 'seul', undefined], ['Curl | sh', 'refusé', undefined], ['Écrire courses.md', 'toi', 'u1']]);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -58,4 +58,12 @@ test('discrétion « l\'urgent seulement » : le reste attend le bilan', async (
   assert.equal(sent.length, 1);
   assert.match(sent[0], /Intrusion ![\s\S]*Pendant que tu étais occupé[\s\S]*Nouvelle vidéo intéressante/, 'ce qui attendait part avec le premier message');
   o.cleanup();
+});
+
+test('fil d\'activité lisible : plus de noms techniques', () => {
+  assert.equal(humanize('calendar_list {"days":1}'), 'Lire l\'agenda (1 jour)');
+  assert.equal(humanize('net_identify {"ip":"172.18.0.2"}'), 'Identifier l\'appareil (172.18.0.2)');
+  assert.equal(humanize('GET http://192.168.1.144:7777/'), 'Ouvrir http://192.168.1.144:7777/');
+  assert.equal(humanize('applis action naglfar executer', (x) => (x === 'naglfar' ? 'Argo' : x), (m, a) => (m === 'naglfar' && a === 'executer' ? 'Exécuter une commande' : undefined)), 'Argo : Exécuter une commande');
+  assert.equal(humanize('balayer le réseau local (complet)'), 'Balayer le réseau local (complet)');
 });

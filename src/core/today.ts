@@ -2,6 +2,7 @@
 // Tout est calculé sans modèle (instantané, gratuit) à partir de tes habitudes, de tes conversations en
 // suspens, de tes rappels, de l'état de la maison et de l'heure.
 
+import { NAMES } from '../valhalla/names.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { detectHabits, keywords, type Ask } from '../learn/habits.ts';
 import type { Thread } from '../muninn/threads.ts';
@@ -76,10 +77,39 @@ export function guessIntents(g: GuessInput, max = 4): Guess[] {
     .filter((x) => { const k = (x.prompt ?? x.view ?? x.label).toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, max);
 }
 
-export interface FeedItem { at: number; text: string; who: 'seul' | 'toi' | 'refusé'; risk: string; undoId?: string; undone?: boolean }
+export interface FeedItem { at: number; text: string; who: 'seul' | 'toi' | 'refusé'; risk: string; undoId?: string; undone?: boolean; why?: string }
+
+/** Des mots pour les outils les plus courants (le reste : le nom de l'outil, mis en mots). */
+const TOOL_WORDS: Record<string, string> = {
+  calendar_list: 'Lire l\'agenda', calendar_add: 'Ajouter un rendez-vous', net_identify: 'Identifier l\'appareil', net_scan: 'Balayer le réseau', mail_send: 'Envoyer un e-mail', mail_list: 'Lire les e-mails',
+  web_fetch: 'Lire la page', web_search: 'Chercher sur le web', shell: 'Lancer une commande', file_write: 'Écrire le fichier', file_read: 'Lire le fichier', file_delete: 'Supprimer le fichier', memory_save: 'Retenir', remind: 'Créer un rappel',
+};
+const ARG_WORDS: Record<string, string> = { days: 'jours', ip: '', url: '', path: '', query: '', q: '', to: 'à', subject: 'objet', name: '', host: '' };
+/** Une ligne lisible à la place du nom technique (« calendar_list {"days":1} » → « Lire l'agenda (1 jour) »). Pur. */
+export function humanize(summary: string, appName: (id: string) => string = (x) => x, actionLabel: (mod: string, act: string) => string | undefined = () => undefined): string {
+  const s = summary.replace(/\s+/g, ' ').trim();
+  let m = /^applis action ([\w-]+) ([\w-]+)(.*)$/.exec(s);
+  if (m) return `${appName(m[1])} : ${actionLabel(m[1], m[2]) ?? m[2].replace(/_/g, ' ')}${m[3] ? ` ${m[3].trim()}` : ''}`.trim();
+  m = /^(GET|POST|PUT|DELETE|HEAD) (\S+)$/.exec(s);
+  if (m) return `${m[1] === 'GET' || m[1] === 'HEAD' ? 'Ouvrir' : 'Envoyer à'} ${m[2]}`;
+  m = /^([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\s*(\{.*\})?$/.exec(s);
+  if (m) {
+    const name = TOOL_WORDS[m[1]] ?? (m[1].charAt(0).toUpperCase() + m[1].slice(1).replace(/_/g, ' '));
+    let args = '';
+    try {
+      const o = m[2] ? JSON.parse(m[2]) as Record<string, unknown> : {};
+      args = Object.entries(o).filter(([, v]) => v !== '' && v !== null && typeof v !== 'object').slice(0, 3).map(([k, v]) => {
+        const w = ARG_WORDS[k]; if (k === 'days' && typeof v === 'number') return `${v} jour${v > 1 ? 's' : ''}`;
+        return w === undefined ? `${k.replace(/_/g, ' ')} : ${String(v).slice(0, 40)}` : `${w ? `${w} ` : ''}${String(v).slice(0, 60)}`;
+      }).join(', ');
+    } catch { args = m[2].slice(0, 60); }
+    return args ? `${name} (${args})` : name;
+  }
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 /** Fil d'activité (48 h) : ce qu'Odin a fait ou refusé, avec de quoi annuler les fichiers et réglages modifiés. */
-export function activityFeed(auditFile: string, undos: UndoEntry[], now = Date.now(), max = 30): FeedItem[] {
+export function activityFeed(auditFile: string, undos: UndoEntry[], now = Date.now(), max = 30, appName: (id: string) => string = (x) => NAMES[x] ?? x, actionLabel?: (mod: string, act: string) => string | undefined): FeedItem[] {
   if (!existsSync(auditFile)) return [];
   const rows = readFileSync(auditFile, 'utf8').trim().split('\n').slice(-3000).map((l) => { try { return JSON.parse(l) as Record<string, unknown>; } catch { return null; } })
     .filter((r): r is Record<string, unknown> => Boolean(r) && r!.risk !== 'read' && now - Date.parse(String(r!.t)) < 48 * 3600_000);
@@ -89,6 +119,6 @@ export function activityFeed(auditFile: string, undos: UndoEntry[], now = Date.n
     const u = undos.find((x) => !used.has(x.id) && x.tool === r.tool && Math.abs(x.at - at) < 120_000);
     if (u) used.add(u.id);
     const who: FeedItem['who'] = r.allowed === false ? 'refusé' : /human|grant/.test(String(r.via ?? '')) ? 'toi' : 'seul';
-    return { at, text: String(r.summary ?? r.tool ?? '').replace(/\s+/g, ' ').slice(0, 160), who, risk: String(r.risk ?? ''), undoId: u?.id, undone: u?.undone };
+    return { at, text: humanize(String(r.summary ?? r.tool ?? ''), appName, actionLabel).slice(0, 160), who, risk: String(r.risk ?? ''), undoId: u?.id, undone: u?.undone, ...(who === 'refusé' && r.reason ? { why: String(r.reason).replace(/\s+/g, ' ').slice(0, 140) } : {}) };
   });
 }

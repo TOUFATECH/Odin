@@ -1,5 +1,20 @@
 [
  {
+  "id": "v1161",
+  "at": "2026-11-13T16:40:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.16.1",
+  "title": "« Ce qu'Odin a fait » en clair : plus de noms techniques, et la raison d'un refus",
+  "details": [
+   "« calendar_list {\"days\":1} » devient « Lire l'agenda (1 jour) », « applis action naglfar executer » devient « Argo : » suivi du nom de l'action.",
+   "Un refus dit pourquoi Odin a refusé (au survol)."
+  ],
+  "planets": [
+   "interface"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1160",
   "at": "2026-11-13T15:45:00+03:00",
   "date": "2026-11-13",

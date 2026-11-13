@@ -977,7 +977,7 @@ export class WebChannel implements Channel {
     return {
       guesses,
       controls: { autonomy: this.odin.cfg.mimir.autonomy, mode: mode.mode, modeUntil: mode.until, discretion: muninn.getKv('discretion') || 'essentiel' },
-      feed: activityFeed(join(this.odin.paths.logs, 'audit.jsonl'), undoList(this.odin.paths.home), now),
+      feed: activityFeed(join(this.odin.paths.logs, 'audit.jsonl'), undoList(this.odin.paths.home), now, 30, (id) => valhallaOf()?.module(id)?.name ?? id, (m, a) => valhallaOf()?.action(m, a)?.a.label),
     };
   }
 

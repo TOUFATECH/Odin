@@ -3042,7 +3042,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       ...live.slice(0, 2).map((m) => el('div', { class: 'fitem' }, el('time', {}, 'en cours'), el('div', { class: 'ft' }, m.goal.slice(0, 120)), el('span', { class: 'spin' }))),
       F.length ? el('div', { class: 'feed' }, F.slice(0, 12).map((x) => el('div', { class: 'fitem' + (x.who === 'refusé' ? ' refuse' : '') },
         el('time', { datetime: new Date(x.at).toISOString(), title: new Date(x.at).toLocaleString('fr-FR') }, new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })),
-        el('div', { class: 'ft' }, x.text, el('span', { class: 'fw' }, x.who === 'seul' ? 'fait seul' : x.who === 'toi' ? 'validé par toi' : 'refusé pour te protéger')),
+        el('div', { class: 'ft' }, x.text, el('span', { class: 'fw', title: x.why || '' }, x.who === 'seul' ? 'fait seul' : x.who === 'toi' ? 'validé par toi' : `refusé pour te protéger${x.why ? ` · ${x.why}` : ''}`)),
         x.undoId && !x.undone ? el('button', { type: 'button', class: 'btn small', onclick: async (e) => { const r = await api('/api/action', { kind: 'undo', id: x.undoId }); e.target.replaceWith(el('span', { class: 'pill ' + (r.ok ? 'good' : 'bad') }, r.ok ? 'annulé' : 'impossible')); } }, 'Annuler') : x.undone ? el('span', { class: 'pill' }, 'annulé') : el('span')))) : el('div', { class: 'hok' }, feedFilter === 'tout' ? 'Rien pour l\'instant aujourd\'hui.' : 'Rien dans ce filtre.'));
     box.replaceChildren(hello, guesses || '', ctrls, el('div', { class: 'today-cols' }, todo, feed));
   }
