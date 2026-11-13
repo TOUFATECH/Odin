@@ -50,6 +50,37 @@ export function mediasText(d: MediaState): string {
 }
 const s = (v: unknown) => String(v ?? '');
 
+/** Les filtres par catégorie appliqués par Venus (GET /api/admin/acquire → filtres). */
+export interface MediaFilter { label: string; reglee?: boolean; min?: number; max?: number; cible?: number; langues?: Record<string, number>; seuil?: number; hevc?: number; maxGo?: number; formats?: string[]; langue?: string; ancienAvant?: number }
+export const CATS = ['films', 'animation', 'series', 'animes', 'musique', 'livres', 'livres_audio'] as const;
+const catOf = (v: string) => { const x = v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]+/g, '_').replace(/^_|_$/g, ''); return ({ film: 'films', films_d_animation: 'animation', film_d_animation: 'animation', serie: 'series', anime: 'animes', livre: 'livres', livres_audios: 'livres_audio', livre_audio: 'livres_audio', audio: 'livres_audio', books: 'livres', audiobooks: 'livres_audio' } as Record<string, string>)[x] ?? x; };
+const langWord = (f: MediaFilter, k: string) => { const v = f.langues?.[k]; if (v === undefined) return '?'; return v <= (f.seuil ?? -200) ? 'refusée' : v >= 80 ? `oui (+${v})` : v >= 0 ? `acceptée (${v})` : `en attendant mieux (${v})`; };
+/** Les filtres en texte, une ligne par catégorie (pur). */
+export function filtresText(f: Record<string, MediaFilter>): string {
+  return CATS.filter((c) => f[c]).map((c) => {
+    const x = f[c], mark = x.reglee ? ' ✎' : '';
+    if (x.langues) return `${x.label}${mark} : ${x.min}p → ${x.max}p, visé ${x.cible}p · MULTI ${langWord(x, 'multi')} · VF ${langWord(x, 'vf')} · VOSTFR ${langWord(x, 'vostfr')} · anglais ${langWord(x, 'vo')}${x.hevc ? ` · HEVC +${x.hevc}` : ''} · ≤ ${x.maxGo} Go${x.ancienAvant ? ` · 480p avant ${x.ancienAvant}` : ''}`;
+    return `${x.label}${mark} : ${(x.formats ?? []).join(' > ')} · ${x.langue === 'fr' ? 'en français' : x.langue === 'fr_en' ? 'français ou anglais' : 'toutes langues'}`;
+  }).join('\n') + '\n(✎ = réglé par toi ; le reste = filtre de départ)';
+}
+/** Ce qu'on envoie à Venus pour régler une catégorie (pur). Champs vides = inchangés. */
+export function filtreBody(i: Record<string, unknown>): { categories: Record<string, unknown> } {
+  const cat = catOf(s(i.categorie));
+  if (!(CATS as readonly string[]).includes(cat)) throw new Error(`catégorie inconnue : ${s(i.categorie)} (films, animation, series, animes, musique, livres, livres_audio)`);
+  if (i.depart === true || i.depart === 'true') return { categories: { [cat]: null } };
+  const o: Record<string, unknown> = {}, n = (v: unknown) => (s(v).trim() === '' || !Number.isFinite(Number(v)) ? undefined : Number(v));
+  for (const [k, key] of [['min', 'min'], ['max', 'max'], ['cible', 'cible'], ['hevc', 'hevc'], ['taille_max_go', 'maxGo']] as const) { const v = n(i[k]); if (v !== undefined) o[key] = v; }
+  const langues: Record<string, number> = {};
+  const vost = s(i.vostfr); if (vost) langues.vostfr = vost === 'favoriser' ? 90 : vost === 'refuser' ? -500 : -100;
+  const en = s(i.anglais); if (en) langues.vo = en === 'refuser' ? -1000 : -100;
+  if (Object.keys(langues).length) o.langues = langues;
+  if (vost === 'favoriser') o.cibleLangues = ['multi', 'vf', 'vostfr']; else if (vost) o.cibleLangues = ['multi', 'vf'];
+  const fm = s(i.formats).split(/[,\s>]+/).map((x) => x.trim().toLowerCase()).filter(Boolean); if (fm.length) o.formats = fm;
+  if (['fr', 'fr_en', 'tout'].includes(s(i.langue))) o.langue = s(i.langue);
+  if (!Object.keys(o).length) throw new Error('rien à changer : donne au moins une valeur');
+  return { categories: { [cat]: o } };
+}
+
 /** Une arrivée dans Venus (fil /api/arrivals) : épisode, film, série, ou VF arrivée. */
 export interface Arrival { kind: 'episode' | 'movie' | 'show' | 'vf'; at: number; id: number; title?: string; show?: string; showId?: number; season?: number; episode?: number; vf?: boolean | null; anime?: boolean; text?: string; type?: string; year?: number }
 const ep = (a: Arrival) => `S${String(a.season ?? 0).padStart(2, '0')}E${String(a.episode ?? 0).padStart(2, '0')}`;
@@ -128,10 +159,46 @@ export function venus(url: () => string): Module {
         const d = await venusApi<MediaState>(conf(), 'GET', '/api/admin/acquire');
         return { text: mediasText(d), data: d };
       } },
-      { id: 'medias_regler', label: 'Régler les médias automatiques', what: 'Activer, langue voulue (VF exigée, VF puis VOSTFR, tout), qualité visée, meilleures versions, partage après téléchargement', params: [{ key: 'actif', label: 'Actif (le ♡ télécharge)', kind: 'boolean', default: true }, { key: 'langue', label: 'Langue', kind: 'select', options: ['vf', 'vf_puis_vo', 'tout'], default: 'vf' }, { key: 'cible', label: 'Qualité visée', kind: 'select', options: ['1080', '2160', '720'], default: '1080' }, { key: 'ameliorer', label: 'Chercher de meilleures versions', kind: 'boolean', default: true }, { key: 'partager', label: 'Continuer à partager après', kind: 'boolean', default: true }], run: async (_c, i) => {
-        const cible = Number(i.cible) || 1080, qualites = cible === 2160 ? [2160, 1080, 720] : cible === 720 ? [720, 1080] : [1080, 2160, 720];
-        await venusApi(conf(), 'PUT', '/api/admin/acquire', { on: i.actif !== false && i.actif !== 'false', profil: { langue: s(i.langue) || 'vf', cible, qualites }, upgrade: i.ameliorer !== false && i.ameliorer !== 'false', keepSeeding: i.partager !== false && i.partager !== 'false' });
-        return { text: `Médias automatiques ${i.actif === false || i.actif === 'false' ? 'coupés' : 'actifs'} · ${s(i.langue) === 'tout' ? 'toutes langues' : s(i.langue) === 'vf_puis_vo' ? 'VF, sinon VOSTFR' : 'VF ou MULTI exigée'} · ${cible}p visé.` };
+      { id: 'medias_regler', label: 'Régler les médias automatiques', what: 'Activer (le ♡, « À venir » et « Télécharger » passent au moteur de Venus), meilleures versions, partage après téléchargement. Les langues et qualités se règlent par catégorie (« filtre des médias »)', params: [{ key: 'actif', label: 'Actif', kind: 'boolean', default: true }, { key: 'ameliorer', label: 'Chercher de meilleures versions', kind: 'boolean', default: true }, { key: 'partager', label: 'Continuer à partager après', kind: 'boolean', default: true }], run: async (_c, i) => {
+        await venusApi(conf(), 'PUT', '/api/admin/acquire', { on: i.actif !== false && i.actif !== 'false', upgrade: i.ameliorer !== false && i.ameliorer !== 'false', keepSeeding: i.partager !== false && i.partager !== 'false' });
+        return { text: `Médias automatiques ${i.actif === false || i.actif === 'false' ? 'coupés' : 'actifs : ♡, « À venir » et « Télécharger » passent par Bygul et Fólkvangr'}.` };
+      } },
+      { id: 'medias_filtres', label: 'Filtres des médias', what: 'Qualité et langues appliquées par catégorie : films, films d\'animation, séries, animés, musique, livres, livres audio', read: true, words: ['filtres des medias', 'filtres des médias', 'profils de qualite', 'profils de qualité'], run: async () => {
+        const d = await venusApi<{ filtres: Record<string, MediaFilter> }>(conf(), 'GET', '/api/admin/acquire');
+        return { text: filtresText(d.filtres), data: d.filtres };
+      } },
+      { id: 'medias_filtre', label: 'Régler le filtre d\'une catégorie', what: 'Résolution min / max / visée, VOSTFR (favoriser, en attendant la VF, refuser), anglais, bonus HEVC, taille max ; formats et langue pour musique et livres. Champs vides = inchangés', params: [
+        { key: 'categorie', label: 'Catégorie', kind: 'select', options: [...CATS], default: 'films' },
+        { key: 'min', label: 'Résolution minimale', kind: 'select', options: ['', '400', '480', '720', '1080'], default: '' },
+        { key: 'max', label: 'Résolution maximale', kind: 'select', options: ['', '720', '1080', '2160'], default: '' },
+        { key: 'cible', label: 'Résolution visée', kind: 'select', options: ['', '720', '1080', '2160'], default: '' },
+        { key: 'vostfr', label: 'VOSTFR', kind: 'select', options: ['', 'favoriser', 'en_attendant', 'refuser'], default: '' },
+        { key: 'anglais', label: 'Sans français', kind: 'select', options: ['', 'refuser', 'accepter'], default: '' },
+        { key: 'hevc', label: 'Bonus HEVC', kind: 'text', default: '' },
+        { key: 'taille_max_go', label: 'Taille max (Go)', kind: 'text', default: '' },
+        { key: 'formats', label: 'Formats (musique, livres) dans l\'ordre', kind: 'text', default: '' },
+        { key: 'langue', label: 'Langue (musique, livres)', kind: 'select', options: ['', 'fr', 'fr_en', 'tout'], default: '' },
+        { key: 'depart', label: 'Revenir au filtre de départ', kind: 'boolean', default: false },
+      ], run: async (_c, i) => {
+        const body = filtreBody(i);
+        await venusApi(conf(), 'PUT', '/api/admin/acquire', body);
+        const d = await venusApi<{ filtres: Record<string, MediaFilter> }>(conf(), 'GET', '/api/admin/acquire');
+        const cat = Object.keys(body.categories)[0];
+        return { text: `${body.categories[cat] === null ? 'Filtre de départ remis' : 'Filtre réglé'} :\n${filtresText({ [cat]: d.filtres[cat] }).split('\n')[0]}` };
+      } },
+      { id: 'medias_lots', label: 'Recherche par lots', what: 'Pour ne pas saturer les indexeurs : envies cherchées par passage (toutes les 15 min), pause entre deux recherches, meilleures versions par passage, recherches par minute et par source', params: [{ key: 'taille', label: 'Envies par passage', kind: 'number', default: 10 }, { key: 'pause', label: 'Pause entre deux (secondes)', kind: 'number', default: 4 }, { key: 'ameliorations', label: 'Meilleures versions par passage', kind: 'number', default: 5 }, { key: 'par_minute', label: 'Recherches par minute et par source', kind: 'number', default: 10 }], run: async (_c, i) => {
+        await venusApi(conf(), 'PUT', '/api/admin/acquire', { lots: { taille: Number(i.taille) || 10, pauseS: Number(i.pause) >= 0 ? Number(i.pause) : 4, ameliorations: Number(i.ameliorations) >= 0 ? Number(i.ameliorations) : 5, parMinute: Number(i.par_minute) || 10 } });
+        const d = await venusApi<{ lots: { taille: number; pauseS: number; ameliorations: number; parMinute: number } }>(conf(), 'GET', '/api/admin/acquire');
+        return { text: `Par lots : ${d.lots.taille} envie(s) par passage, ${d.lots.pauseS} s entre deux, ${d.lots.ameliorations} meilleure(s) version(s), au plus ${d.lots.parMinute} recherche(s) par minute et par source.` };
+      } },
+      { id: 'medias_autotest', label: 'Autotest des médias', what: 'Un film du domaine public (archive.org) traverse toute la chaîne : Bygul, téléchargement, rangement, vérification ; puis tout est retiré', params: [{ key: 'archive', label: 'Identifiant archive.org (vide = The Skeleton Dance, 1929)', kind: 'text', default: '' }], run: async (_c, i) => {
+        const r = await venusApi<{ item: { id: string } }>(conf(), 'POST', '/api/admin/acquire/selftest', s(i.archive) ? { id: s(i.archive) } : {});
+        return { text: `Autotest lancé (archive.org : ${r.item.id}). Dis « état de l'autotest » pour suivre.` };
+      } },
+      { id: 'medias_autotest_etat', label: 'État de l\'autotest', what: 'Les étapes de l\'autotest des médias', read: true, words: ['etat de l autotest', 'état de l\'autotest', 'autotest des medias', 'autotest des médias'], run: async () => {
+        const r = await venusApi<{ running: boolean; result: string | null; steps: Array<{ text: string; ok: boolean }> }>(conf(), 'GET', '/api/admin/acquire/selftest');
+        if (!r.steps.length) return { text: 'Aucun autotest lancé.' };
+        return { text: [`Autotest ${r.running ? 'en cours…' : r.result === 'réussi' ? '✅ réussi' : '❌ en échec'}`, ...r.steps.map((x) => `${x.ok ? '✓' : '✗'} ${x.text}`)].join('\n'), ok: r.running || r.result === 'réussi' };
       } },
       { id: 'medias_source', label: 'Ajouter une source', what: 'Un indexeur Torznab ou Newznab (adresse et clé). Venus ne fournit aucune source : n\'ajoute que des sources autorisées', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['torznab', 'newznab'], default: 'torznab' }, { key: 'adresse', label: 'Adresse de l\'API', kind: 'text', required: true }, { key: 'cle', label: 'Clé', kind: 'password', default: '' }], run: async (_c, i) => {
         const r = await venusApi<{ id: number }>(conf(), 'POST', '/api/admin/acquire/sources', { name: s(i.nom), kind: s(i.type) || 'torznab', url: s(i.adresse), key: s(i.cle) });
@@ -146,9 +213,18 @@ export function venus(url: () => string): Module {
         const r = await venusApi<{ ok: boolean; ms: number; error?: string; caps?: Record<string, boolean> }>(conf(), 'POST', `/api/admin/acquire/sources/${Number(i.id)}/test`);
         return { text: r.ok ? `✅ Source ${Number(i.id)} : répond en ${r.ms} ms · ${['films', 'series', 'musique', 'livres'].filter((k) => r.caps?.[k]).join(', ') || 'recherche générale seulement'}` : `❌ Source ${Number(i.id)} : ${r.error}`, ok: r.ok };
       } },
-      { id: 'bygul_regler', label: 'Régler une source', what: 'Activer ou couper, priorité (1 = d\'abord), types servis', params: [{ key: 'id', label: 'Numéro de la source', kind: 'number', required: true }, { key: 'actif', label: 'Active', kind: 'boolean', default: true }, { key: 'priorite', label: 'Priorité (1 à 50)', kind: 'number', default: 25 }, { key: 'types', label: 'Types (films, series, musique, livres ; vide = tous)', kind: 'text', default: '' }], run: async (_c, i) => {
+      { id: 'bygul_importer_prowlarr', label: 'Importer depuis Prowlarr', what: 'Reprend les indexeurs de TON Prowlarr (actifs et coupés, priorités) ; Bygul passe par l\'API Torznab de Prowlarr. Un nouvel import met à jour sans doublon', params: [{ key: 'adresse', label: 'Adresse de Prowlarr (ex. http://192.168.1.170:9696)', kind: 'text', required: true }, { key: 'cle', label: 'Clé API de Prowlarr', kind: 'password', required: true }], words: ['importe prowlarr', 'importer prowlarr', 'importe mes indexeurs'], run: async (_c, i) => {
+        const r = await venusApi<{ added: number; updated: number; active: number; disabled: number; total: number }>(conf(), 'POST', '/api/admin/acquire/sources/import-prowlarr', { url: s(i.adresse), key: s(i.cle) });
+        return { text: `Prowlarr : ${r.total} indexeur(s) · ${r.active} actif(s), ${r.disabled} coupé(s) · ${r.added} ajouté(s), ${r.updated} mis à jour. La clé reste dans Venus. Dis « teste toutes les sources » pour les vérifier.` };
+      } },
+      { id: 'bygul_tester_tout', label: 'Tester toutes les sources', what: 'Teste les sources actives une à une (connexion, ce qu\'elles savent chercher)', read: true, words: ['teste toutes les sources', 'tester les sources', 'teste les indexeurs'], run: async () => {
+        const l = await venusApi<Array<{ id: number; name: string; ok: boolean; ms: number; error?: string }>>(conf(), 'POST', '/api/admin/acquire/sources/test-all');
+        const ko = l.filter((x) => !x.ok);
+        return { text: [`${l.length - ko.length} / ${l.length} source(s) répondent.`, ...l.map((x) => `${x.ok ? '🟢' : '🔴'} n° ${x.id} ${x.name}${x.ok ? ` · ${x.ms} ms` : ` · ${x.error}`}`)].join('\n'), ok: !ko.length };
+      } },
+      { id: 'bygul_regler', label: 'Régler une source', what: 'Activer ou couper, priorité (1 = d\'abord), types servis, recherches par minute', params: [{ key: 'id', label: 'Numéro de la source', kind: 'number', required: true }, { key: 'actif', label: 'Active', kind: 'boolean', default: true }, { key: 'priorite', label: 'Priorité (1 à 50)', kind: 'number', default: 25 }, { key: 'types', label: 'Types (films, series, musique, livres ; vide = tous)', kind: 'text', default: '' }, { key: 'par_minute', label: 'Recherches par minute (vide = réglage général)', kind: 'text', default: '' }], run: async (_c, i) => {
         const kinds = s(i.types).split(/[,\s]+/).map((x) => x.trim().toLowerCase().replace('séries', 'series')).filter(Boolean);
-        await venusApi(conf(), 'PUT', `/api/admin/acquire/sources/${Number(i.id)}`, { enabled: i.actif !== false && i.actif !== 'false', priority: Number(i.priorite) || 25, kinds });
+        await venusApi(conf(), 'PUT', `/api/admin/acquire/sources/${Number(i.id)}`, { enabled: i.actif !== false && i.actif !== 'false', priority: Number(i.priorite) || 25, kinds, rpm: Number(s(i.par_minute)) || null });
         return { text: `Source ${Number(i.id)} : ${i.actif === false || i.actif === 'false' ? 'coupée' : 'active'}, priorité ${Number(i.priorite) || 25}${kinds.length ? `, ${kinds.join(', ')}` : ''}.` };
       } },
       { id: 'bygul_chercher', label: 'Chercher dans les sources', what: 'Recherche à la main dans toutes les sources : versions notées (VF, qualité), et pourquoi les autres sont écartées', read: true, params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'épisode', 'album', 'livre', 'livre audio'], default: 'film' }, { key: 'annee', label: 'Année / saison', kind: 'text', default: '' }, { key: 'episode', label: 'Épisode', kind: 'text', default: '' }], words: ['cherche dans les sources', 'recherche manuelle'], run: async (_c, i) => {

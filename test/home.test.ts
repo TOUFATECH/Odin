@@ -138,3 +138,21 @@ test('Freyja · Bygul (sources) : santé, priorité, chiffres, sans source', asy
   const t = bygulText([{ id: 1, name: 'Rapide', enabled: true, priority: 10, health: 'bonne', fails: 0, queries: 12, grabs: 3, avgMs: 240 }, { id: 2, name: 'Lente', enabled: true, priority: 40, health: 'en pause', fails: 3, last_error: 'réponse 503', queries: 5, grabs: 0, avgMs: 9000, paused_until: Date.now() + 3600e3 }]);
   assert.match(t, /🟢 n° 1 Rapide · priorité 10 · bonne · 12 recherche\(s\), 3 téléchargement\(s\), 240 ms/); assert.match(t, /⏸ n° 2 Lente · priorité 40 · en pause jusqu'à \d\d:\d\d .* · réponse 503/);
 });
+
+test('Freyja : filtres des médias par catégorie (texte et réglage)', async () => {
+  const { filtresText, filtreBody } = await import('../src/valhalla/modules/venus.ts');
+  const t = filtresText({
+    films: { label: 'Films', reglee: true, min: 720, max: 2160, cible: 1080, langues: { multi: 100, vf: 90, vostfr: -100, vo: -500 }, seuil: -200, hevc: 0, maxGo: 40 },
+    animes: { label: 'Animés', min: 400, max: 1080, cible: 1080, langues: { multi: 100, vf: 100, vostfr: 90, vo: -100 }, seuil: -200, hevc: 60, maxGo: 8 },
+    livres: { label: 'Livres', formats: ['epub', 'pdf'], langue: 'fr' },
+  });
+  assert.match(t, /^Films ✎ : 720p → 2160p, visé 1080p · MULTI oui \(\+100\) · VF oui \(\+90\) · VOSTFR en attendant mieux \(-100\) · anglais refusée/m);
+  assert.match(t, /Animés : 400p → 1080p.*VOSTFR oui \(\+90\).*HEVC \+60/);
+  assert.match(t, /Livres : epub > pdf · en français/);
+  assert.deepEqual(filtreBody({ categorie: 'Films d’animation', min: '480', vostfr: 'refuser', anglais: 'refuser' }), { categories: { animation: { min: 480, langues: { vostfr: -500, vo: -1000 }, cibleLangues: ['multi', 'vf'] } } });
+  assert.deepEqual(filtreBody({ categorie: 'animes', vostfr: 'favoriser', hevc: '60' }), { categories: { animes: { hevc: 60, langues: { vostfr: 90 }, cibleLangues: ['multi', 'vf', 'vostfr'] } } });
+  assert.deepEqual(filtreBody({ categorie: 'livre audio', formats: 'm4b, mp3', langue: 'fr' }), { categories: { livres_audio: { formats: ['m4b', 'mp3'], langue: 'fr' } } });
+  assert.deepEqual(filtreBody({ categorie: 'series', depart: true }), { categories: { series: null } });
+  assert.throws(() => filtreBody({ categorie: 'jeux' }), /catégorie inconnue/);
+  assert.throws(() => filtreBody({ categorie: 'films' }), /rien à changer/);
+});
