@@ -11,6 +11,7 @@ import { createHash } from 'node:crypto';
 import { chownSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as httpServer, request as httpRequest, type Server } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { connect, type Socket } from 'node:net';
 import { networkInterfaces, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { T, freePort, until } from './banc/lib.ts';
@@ -86,6 +87,10 @@ const adresseReseau = () => Object.values(networkInterfaces()).flat().find((i) =
 /** Là où Odin écoute vraiment pour ce port (lu sur la machine avec « ss »). */
 const ecouteSur = async (port: number) => (await listeners()).filter((x) => x.proto === 'tcp' && x.port === port).map((x) => x.addr);
 const refuse = async (f: () => Promise<unknown>) => { try { await f(); return ''; } catch (e) { return String(((e as Error).cause as Error | undefined)?.message ?? (e as Error).message); } };
+/** Une NOUVELLE connexion vers ce port (« fetch » garde ses connexions ouvertes : il ne dit pas si le port accepte encore). */
+const nouvelleConnexion = (port: number, host = '127.0.0.1') => new Promise<string>((ok) => { const s = connect(port, host, () => { s.destroy(); ok('acceptée'); }); s.on('error', (e: NodeJS.ErrnoException) => ok(String(e.code))); });
+/** Une demande HTTP en clair avec l'en-tête Host voulu (« fetch » ne laisse pas le changer) ; les redirections ne sont pas suivies. */
+const brute = (port: number, path: string, host: string) => new Promise<{ status: number; location: string; text: string }>((ok, ko) => { const q = httpRequest({ host: '127.0.0.1', port, path, agent: false, headers: { host } }, (r) => { let b = ''; r.on('data', (d) => { b += d; }); r.on('end', () => ok({ status: r.statusCode!, location: String(r.headers.location ?? ''), text: b })); }); q.on('error', ko); q.end(); });
 
 // ---------------------------------------------------------------- le plan (pur)
 test('plan : un port direct ne marche sur rien (interface, protocoles, applis installées, plages, ports refusés par les navigateurs)', () => {
@@ -141,7 +146,8 @@ test('plan : sans session, un port direct ne laisse passer que l\'écran de conn
   assert.equal(directPage(html, '"><script>', 'x'), html, 'un identifiant qui n\'en est pas un ne change rien');
   // la vraie page d'Odin a bien les deux repères que le port direct remplace
   const ui = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8');
-  assert.equal(ui.split('<html lang="fr">').length, 2); assert.equal(ui.split('<title>Odin</title>').length, 2);
+  assert.equal(ui.indexOf('<html lang="fr">'), '<!doctype html>\n'.length, 'le repère remplacé est bien la balise de la page'); assert.equal(ui.split('<title>Odin</title>').length, 2);
+  assert.match(directPage(ui, 'freyja', 'Vénus').slice(0, 300), /^<!doctype html>\n<html lang="fr" data-direct="app=freyja">\n<head>[\s\S]*<title>Vénus · Odin<\/title>/);
   assert.match(ui, /if \(!location\.hash && document\.documentElement\.dataset\.direct\) history\.replaceState\(null, '', '#' \+ document\.documentElement\.dataset\.direct\);/);
 });
 
@@ -248,7 +254,8 @@ test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la m�
     assert.equal((await fetch(`${d}/api/state`, { headers: { cookie: s3.split(';')[0] } })).status, 200);
 
     // En accès « cette machine », le nom d'hôte est vérifié comme sur l'interface (contre le « DNS rebinding »).
-    f = await fetch(`${d}/`, { headers: { host: 'pirate.exemple' } }); assert.equal(f.status, 403); assert.deepEqual(await f.json(), { error: 'hôte refusé' });
+    for (const h of ['pirate.exemple', `pirate.exemple:${p}`, '192.168.1.20']) { const x = await brute(p, '/', h); assert.equal(x.status, 403, h); assert.deepEqual(JSON.parse(x.text), { error: 'hôte refusé' }); }
+    assert.equal((await brute(p, '/', `localhost:${p}`)).status, 200);
 
     // Thot, Papyrus et Talos ont leur propre écran : leur port direct y mène.
     r = await post({ appli: 'saga', faire: 'regler' }); assert.equal(r.ok, true, r.text);
@@ -333,7 +340,7 @@ test('port direct : changer le port sans redémarrer, le retirer ; l\'ancien por
     const [a, b] = [await freePort(), await freePort()], H = { cookie: v.session };
     assert.equal((await post({ appli: 'freyja', faire: 'regler', port: a })).ok, true);
     // Une connexion gardée ouverte sur l'ancien port (comme un navigateur resté sur la page).
-    const garde = await new Promise<import('node:net').Socket>((ok, ko) => { const s = require('node:net').connect(a, '127.0.0.1', () => ok(s)); s.on('error', ko); });
+    const garde = await new Promise<Socket>((ok, ko) => { const s = connect(a, '127.0.0.1', () => ok(s)); s.on('error', ko); });
     let recu = ''; garde.on('data', (x) => { recu += x; }); let fermee = false; garde.on('close', () => { fermee = true; });
     const demande = (path: string, extra = '') => { recu = ''; garde.write(`GET ${path} HTTP/1.1\r\nhost: 127.0.0.1:${a}\r\n${extra}\r\n`); return until(() => /\r\n\r\n/.test(recu), 4000); };
     assert.ok(await demande('/health')); assert.match(recu, /^HTTP\/1\.1 200/);
@@ -341,17 +348,18 @@ test('port direct : changer le port sans redémarrer, le retirer ; l\'ancien por
     const r = await post({ appli: 'freyja', faire: 'regler', port: b });
     assert.equal(r.ok, true); assert.equal(r.text, `🚪 Vénus passe du port ${a} au port ${b} (l'ancien est fermé). Depuis cette machine, http://127.0.0.1:${b} ouvre directement sa page (avec ta connexion habituelle). Pour les autres appareils : « Ouvrir sur le réseau ».`);
     assert.match(await (await fetch(`http://127.0.0.1:${b}/`, { headers: H })).text(), /data-direct="app=freyja"/);
-    assert.match(await refuse(() => fetch(`http://127.0.0.1:${a}/health`)), /ECONNREFUSED/);
+    assert.equal(await nouvelleConnexion(a), 'ECONNREFUSED'); assert.equal(await nouvelleConnexion(b), 'acceptée');
     assert.deepEqual([await ecouteSur(a), await ecouteSur(b)], [[], ['127.0.0.1']]);
     // La connexion restée sur l'ancien port : toujours traitée comme un port direct (rien sans session), puis coupée.
     assert.ok(await demande('/api/pair')); assert.match(recu, /^HTTP\/1\.1 401/, 'pas de retour à la surface de l\'interface par une vieille connexion');
     assert.ok(await demande('/api/state', `authorization: Bearer ${v.token}\r\n`)); assert.match(recu, /^HTTP\/1\.1 401/);
-    assert.ok(await until(() => fermee, 5000), 'coupée dans les secondes qui suivent');
+    assert.ok(await until(() => fermee, 3500), 'coupée dans les secondes qui suivent');
     // Retirer : plus d'écoute, plus rien de gardé ; la page reste dans l'interface.
     const x = await post({ appli: 'freyja', faire: 'retirer' });
     assert.equal(x.ok, true); assert.equal(x.text, `🔒 Vénus n'a plus de port direct (le port ${b} est fermé) : sa page reste dans l'interface d'Odin, port ${v.port}.`);
     assert.deepEqual([x.appli!.port, x.appli!.etat], [null, 'fermé']);
-    assert.match(await refuse(() => fetch(`http://127.0.0.1:${b}/health`)), /ECONNREFUSED/);
+    assert.equal(await nouvelleConnexion(b), 'ECONNREFUSED');
+    assert.ok(await until(async () => /ECONNREFUSED|other side closed|ECONNRESET|fetch failed/.test(await refuse(() => fetch(`http://127.0.0.1:${b}/health`))), 4000), 'même une connexion gardée par le navigateur ne répond plus après deux secondes');
     assert.deepEqual(JSON.parse(readFileSync(directFile(v.o.paths.home), 'utf8')), { applis: {} });
     assert.equal((await fetch(`${v.url}/api/valhalla/view?id=freyja`, { headers: H })).status, 200);
     assert.ok(!reserved().has(b));
@@ -381,7 +389,7 @@ test('port direct : gardé après un redémarrage ; pris entre-temps par un autr
     const relance = async () => { const w = new WebChannel(v.o, { scanNetwork: async () => undefined }, { port: v.port, host: '127.0.0.1', token: v.token, access: 'local', scryptN: 1024 }); await w.start(async () => {}); tt.onEnd(() => w.stop()); return w; };
     // Arrêt : plus rien n'écoute. Redémarrage : les mêmes ports, sans rien refaire.
     await v.web.stop();
-    assert.match(await refuse(() => fetch(`http://127.0.0.1:${a}/health`)), /ECONNREFUSED/); assert.equal(directs(), undefined);
+    assert.equal(await nouvelleConnexion(a), 'ECONNREFUSED'); assert.equal(directs(), undefined);
     let w = await relance();
     assert.match(await (await fetch(`http://127.0.0.1:${a}/`, { headers: H })).text(), /data-direct="app=freyja"/, 'la session aussi est gardée');
     assert.match(await (await fetch(`http://127.0.0.1:${b}/`, { headers: H })).text(), /data-direct="brain"/);
@@ -417,7 +425,7 @@ test('port direct : ce qui est gardé est relu avec prudence ; sans compte, un p
     const v = await odinRegle(tt, { access: 'local', compte: false, avant: (home) => { mkdirSync(dirname(directFile(home)), { recursive: true }); writeFileSync(directFile(home), JSON.stringify({ applis: { freyja: { port: a, reseau: true }, '../evasion': { port: b }, eir: { port: 'abc' }, garmr: { port: a }, saga: { port: 8096 }, runes: { port: 99999 }, hlid: null } })); } });
     assert.deepEqual(directs()!.all(), { freyja: { port: a, etat: 'écoute', reseau: false, sur: '127.0.0.1' }, saga: { port: 8096, etat: 'fermé', reseau: false, pourquoi: 'le port 8096 est gardé pour Vénus (Venus) : interface de Venus' } });
     assert.deepEqual(await ecouteSur(a), ['127.0.0.1'], '« ouvert sur le réseau » dans le fichier, mais Odin est réglé sur cette machine : boucle locale');
-    assert.deepEqual([await ecouteSur(b), await ecouteSur(8096).then((l) => l.length === 0 || true)], [[], true]);
+    assert.deepEqual(await ecouteSur(b), []); assert.ok(!(await listeners()).some((x) => x.port === 8096 && x.pid === process.pid), 'Odin ne se met jamais sur le port de Venus');
     // Pas encore de compte : la création se fait sur l'interface, jamais par un port direct (ni page, ni lien de première connexion).
     for (const path of ['/', `/?token=${v.token}`, '/api/state', '/activer', '/valhalla.js']) {
       const x = await v.call(a, path); assert.equal(x.status, 403, path); assert.deepEqual(JSON.parse(x.text), { error: `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${v.port}).`, account: false, direct: true }); assert.equal(x.headers['set-cookie'], undefined);
@@ -449,7 +457,7 @@ test('port direct : ouvert sur le réseau seulement avec ton accord (Cerbère ou
     const act = JSON.parse((await v.call(v.port, '/api/valhalla/act', H, { module: 'hlid', action: 'ouvrir_port_direct', input: { appli: 'Vénus' } })).text) as Rep; assert.match(act.confirm!, /^Confirmer : ouvrir le port/);
     // Avec ton accord : Odin écoute là où son interface écoute, et Cerbère ouvre le pare-feu de la machine.
     r = await v.api({ appli: 'freyja', faire: 'ouvrir', confirm: true });
-    assert.equal(r.ok, true, r.text); assert.match(r.text!, new RegExp(`^🔓 Le port ${a} de Vénus est ouvert sur le réseau : http://[^ ]+:${a} ouvre directement sa page\\. Cerbère a ouvert le port ${a} dans le pare-feu de la machine\\. La connexion à Odin reste exigée\\.$`));
+    assert.equal(r.ok, true, r.text); assert.match(r.text!, new RegExp(`^🔓 Le port ${a} de Vénus est ouvert sur le réseau : http://(?:[\\d.]+|<adresse de la machine d'Odin>):${a} ouvre directement sa page\\. Cerbère a ouvert le port ${a} dans le pare-feu de la machine\\. La connexion à Odin reste exigée\\.$`));
     assert.deepEqual([r.appli!.etat, r.appli!.reseau, r.appli!.note], ['écoute', true, `Écoute sur le port ${a}, ouvert sur le réseau.`]);
     assert.deepEqual(await ecouteSur(a), ['0.0.0.0']); assert.deepEqual(ufw(), [`allow ${a}/tcp comment Odin page directe de Vnus`]);
     const ouverts = (await va.act('garmr', 'ports_ouverts')).data as Array<{ port: number; proto: string; why: string; by: string; via: string; box?: boolean }>;
@@ -502,18 +510,15 @@ test('port direct : sans pare-feu actif sur la machine, l\'accord est demandé q
   try {
     // Pas de faux pare-feu « actif » ici : un faux « ufw » éteint (et un « firewall-cmd » absent ou éteint), comme une machine sans pare-feu.
     const dir = tt.tmp('pare-feu-eteint-'), log = join(dir, 'appels.log');
-    for (const n of ['ufw', 'firewall-cmd', 'nft']) writeFileSync(join(dir, n), `#!/bin/sh\necho "${n} $*" >> "${log}"\n[ "$1" = status ] && echo "Status: inactive"\n[ "$1" = --state ] && echo "not running"\nexit 0\n`, { mode: 0o755 });
+    for (const n of ['ufw', 'firewall-cmd', 'nft']) writeFileSync(join(dir, n), `#!/bin/sh\necho "${n} $*" >> "${log}"\nif [ "$1" = status ]; then echo "Status: inactive"; exit 0; fi\nif [ "$1" = --state ]; then echo "not running" >&2; exit 252; fi\nexit 0\n`, { mode: 0o755 });
     const avant = process.env.PATH; process.env.PATH = `${dir}:${avant}`; tt.onEnd(() => { process.env.PATH = avant; });
-    const reseau: string[] = []; const vrai = globalThis.fetch;
     const v = await odinRegle(tt, { access: 'lan' }), va = valhallaOf()!, a = await freePort();
     assert.equal((await v.api({ appli: 'freyja', faire: 'regler', port: a })).ok, true);
     let r = await v.api({ appli: 'freyja', faire: 'ouvrir' }); assert.match(r.confirm!, /^Confirmer : ouvrir le port/);
-    globalThis.fetch = (async (u: unknown, i?: RequestInit) => { reseau.push(String(u)); return vrai(u as string, i); }) as typeof fetch; tt.onEnd(() => { globalThis.fetch = vrai; });
-    r = await v.api({ appli: 'freyja', faire: 'ouvrir', confirm: true }); globalThis.fetch = vrai;
+    r = await v.api({ appli: 'freyja', faire: 'ouvrir', confirm: true });
     assert.equal(r.ok, true, r.text); assert.match(r.text!, /La machine n'a pas de pare-feu actif : rien d'autre à ouvrir\. La connexion à Odin reste exigée\.$/); assert.equal(r.appli!.reseau, true);
     const appels = readFileSync(log, 'utf8').trim().split('\n'); assert.ok(appels.every((l) => /^(ufw status|firewall-cmd --state|nft )/.test(l)), `aucune règle posée : ${appels.join(' | ')}`);
-    assert.deepEqual(reseau, [], 'aucun appel réseau : la box (UPnP) n\'est jamais sollicitée');
-    assert.deepEqual(((await va.act('garmr', 'ports_ouverts')).data as Array<{ via: string; box?: boolean }>).map((x) => [x.via, x.box]), [['aucun pare-feu actif', undefined]]);
+    assert.deepEqual(((await va.act('garmr', 'ports_ouverts')).data as Array<{ via: string; box?: boolean }>).map((x) => [x.via, x.box]), [['aucun pare-feu actif', undefined]], 'noté chez Cerbère, sans la box');
   } finally { await tt.end(); }
 });
 
@@ -535,11 +540,10 @@ test('port direct en HTTPS : même chiffrement que l\'interface, cookie « Secur
     assert.equal(x.status, 308); assert.equal(x.headers.get('location'), `https://127.0.0.1:${a}/`);
     x = await fetch(`http://127.0.0.1:${a}/api/state?x=1`, { redirect: 'manual' }); assert.equal(x.headers.get('location'), `https://127.0.0.1:${a}/api/state?x=1`);
     // Un en-tête Host piégé est ignoré : on reste sur l'adresse de la machine et sur CE port (pas celui de l'interface).
-    x = await fetch(`http://127.0.0.1:${a}/`, { redirect: 'manual', headers: { host: 'pirate.exemple/x' } }); assert.equal(x.headers.get('location'), `https://127.0.0.1:${a}/`);
-    x = await fetch(`http://127.0.0.1:${a}/`, { redirect: 'manual', headers: { host: 'a b' } }); assert.equal(x.headers.get('location'), `https://127.0.0.1:${a}/`);
+    for (const h of ['pirate.exemple/x', 'a b', 'pirate.exemple:80@x', '']) { const y = await brute(a, '/', h); assert.equal(y.status, 308, h); assert.equal(y.location, `https://127.0.0.1:${a}/`, `Host « ${h} »`); }
     // Un chemin qui ressemble à une autre adresse reste un chemin de ce site.
     x = await fetch(`http://127.0.0.1:${a}//pirate.exemple/x`, { redirect: 'manual' }); assert.equal(x.headers.get('location'), `https://127.0.0.1:${a}//pirate.exemple/x`); assert.equal(new URL(x.headers.get('location')!).host, `127.0.0.1:${a}`);
-    const brut = await new Promise<string>((ok, ko) => { const s = require('node:net').connect(a, '127.0.0.1', () => s.write('GET http://pirate.exemple/ HTTP/1.1\r\nhost: 127.0.0.1\r\nconnection: close\r\n\r\n')); let b = ''; s.on('data', (d: Buffer) => { b += d; }); s.on('end', () => ok(b)); s.on('error', ko); });
+    const brut = await new Promise<string>((ok, ko) => { const s = connect(a, '127.0.0.1', () => s.write('GET http://pirate.exemple/ HTTP/1.1\r\nhost: 127.0.0.1\r\nconnection: close\r\n\r\n')); let b = ''; s.on('data', (d: Buffer) => { b += d; }); s.on('end', () => ok(b)); s.on('error', ko); });
     assert.match(brut, /^HTTP\/1\.1 308/); assert.match(brut, /\r\nlocation: https:\/\/127\.0\.0\.1\/\r\n/i, 'une adresse complète dans la demande ne sert pas de destination');
     assert.equal((await v.call(a, '/api/state', H)).status, 200, 'le https marche toujours après');
   } finally { await tt.end(); }
@@ -582,6 +586,7 @@ test('appli installée (moteur d\'Odin) : elle reçoit son port fixe ; s\'il est
     const g = new DirectPorts({ home: dir, web: 7777, host: '127.0.0.1', access: 'local', attach: (s) => s.destroy() }); await g.start();
     try {
       const libre = await freePort(); await e.run({ image: ref, name: 'autre', ports: `${libre}:8080`, network: e.find('pb1').spec.network });
+      assert.ok(await until(async () => (await page(libre)) === 'salut depuis le conteneur', 10_000));
       await assert.rejects(g.set('eir', libre), new RegExp(`le port ${libre} est déjà pris par l'appli installée « autre » \\(Argo\\) : choisis-en un autre, ou arrête ce programme`));
       await e.rm('autre', true);
       // … et une appli installée ne prend jamais un port direct : elle va au suivant.
@@ -609,6 +614,7 @@ test('appli installée (moteur d\'Odin) : elle reçoit son port fixe ; s\'il est
     await autre.stop();
   } finally {
     for (const c of e.ps(true)) await e.rm(c.id, true).catch(() => {});
+    useEngine(() => new Engine());
     reg.srv.close(); await tt.end(); rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -636,23 +642,26 @@ test('sans IA : « les ports directs » se demande à Thermopyles ; il manque l\
       await understand(v, 'ouvre le port direct', 'grave'); const o = await v.order('Hygie', 'grave');
       assert.equal(o.ok, false); assert.match(o.confirm ?? '', /^ouvrir le port \d+ de Hygie sur le réseau/); assert.equal(g.status('eir')!.reseau, false);
     } finally { g.stop(); }
-  } finally { v.stop(); rmSync(home, { recursive: true, force: true }); }
+  } finally { v.stop(); useEngine(() => new Engine()); rmSync(home, { recursive: true, force: true }); }
 });
 
 test('Valgrind : un site du proxy peut mener au port direct d\'une appli (son propre nom), toujours avec la connexion d\'Odin', { timeout: 60_000 }, async () => {
   const tt = new T();
   try {
     fauxPareFeu(tt);
-    const v = await vraiOdin(tt, { compte: true, modules: mods }), va = valhallaOf()!, a = await freePort(), web = await freePort(), tls = await freePort();
-    assert.equal(((await v.json('/api/ports', { appli: 'freyja', faire: 'regler', port: a })).body as Rep).ok, true);
+    const par = (port: number, path: string, h: Record<string, string> = {}) => new Promise<{ status: number; text: string }>((ok, ko) => { const q = httpRequest({ host: '127.0.0.1', port, path, agent: false, headers: { host: 'venus.maison', ...h } }, (x) => { let b = ''; x.on('data', (d) => { b += d; }); x.on('end', () => ok({ status: x.statusCode!, text: b })); }); q.on('error', ko); q.end(); });
+    const v = await odinRegle(tt, { access: 'lan' }), va = valhallaOf()!, a = await freePort(), web = await freePort(), tls = await freePort();
+    assert.equal((await v.api({ appli: 'freyja', faire: 'regler', port: a })).ok, true);
     let r = await va.act('valgrind', 'ajouter', { domaines: 'venus.maison', cible: `http://127.0.0.1:${a}`, https: 'aucun', forcer_https: false, websocket: true, dns_maison: false, surveiller: false, internet: false }); assert.equal(r.ok, true, r.text);
     r = await va.act('valgrind', 'demarrer', { http: web, https: tls }); assert.equal(r.ok, true, r.text);
     try {
-      const par = (path: string, h: Record<string, string> = {}) => new Promise<{ status: number; text: string }>((ok, ko) => { const q = httpRequest({ host: '127.0.0.1', port: web, path, agent: false, headers: { host: 'venus.maison', ...h } }, (x) => { let b = ''; x.on('data', (d) => { b += d; }); x.on('end', () => ok({ status: x.statusCode!, text: b })); }); q.on('error', ko); q.end(); });
-      const page = await par('/'); assert.equal(page.status, 200); assert.match(page.text, /<title>Vénus · Odin<\/title>/); assert.match(page.text, /const AUTHED = false;/);
-      assert.equal((await par('/api/state')).status, 401, 'par le proxy non plus, rien sans session');
-      assert.equal((await par('/api/state', { cookie: v.session })).status, 200);
-      assert.equal((await par('/api/state', { authorization: `Bearer ${v.token}` })).status, 401);
+      // Le port direct n'est pas ouvert sur le réseau (boucle locale) : c'est le proxy, sur la même machine, qui y mène.
+      assert.deepEqual(await ecouteSur(a), ['127.0.0.1']);
+      const page = await par(web, '/'); assert.equal(page.status, 200); assert.match(page.text, /<title>Vénus · Odin<\/title>/); assert.match(page.text, /data-direct="app=freyja"/); assert.match(page.text, /const AUTHED = false;/);
+      assert.equal((await par(web, '/api/state')).status, 401, 'par le proxy non plus, rien sans session');
+      assert.equal((await par(web, '/api/state', { cookie: v.session })).status, 200);
+      assert.equal((await par(web, '/api/state', { authorization: `Bearer ${v.token}` })).status, 401);
+      assert.equal((await par(web, '/api/pair')).status, 401);
     } finally { await va.act('valgrind', 'arreter'); }
   } finally { await tt.end(); }
 });

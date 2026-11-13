@@ -55,7 +55,7 @@ const openPorts = (ctx: ModCtx): OpenPort[] => (ctx.settings.openPorts as OpenPo
 /** Le pare-feu actif de la machine (ufw, firewalld), ou aucun (alors le port est déjà joignable). */
 async function hostFirewall(ctx: ModCtx): Promise<'ufw' | 'firewalld' | undefined> {
   if (await ctx.has('ufw')) { const r = await ctx.run('ufw', ['status'], { sudo: true }); if (/Status:\s*active|État\s*:\s*actif/i.test(r.out)) return 'ufw'; }
-  if (await ctx.has('firewall-cmd')) { const r = await ctx.run('firewall-cmd', ['--state'], { sudo: true }); if (/running/.test(r.out)) return 'firewalld'; }
+  if (await ctx.has('firewall-cmd')) { const r = await ctx.run('firewall-cmd', ['--state'], { sudo: true }); if (!r.code && /^running/m.test(r.out)) return 'firewalld'; }
   return undefined;
 }
 /** Ouvre (ou ferme) un port sur la machine. Rend le moyen utilisé. */
