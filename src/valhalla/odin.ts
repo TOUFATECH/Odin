@@ -43,6 +43,7 @@ import { hermod } from './modules/hermod.ts';
 import { himinbjorg } from './modules/himinbjorg.ts';
 import { kvasir } from './modules/kvasir.ts';
 import { syn } from './modules/syn.ts';
+import { dvalinn } from './modules/dvalinn.ts';
 import { loki } from './modules/loki.ts';
 import { midgard } from './modules/midgard.ts';
 import { ratatoskr } from './modules/ratatoskr.ts';
@@ -132,7 +133,7 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Brú peut publier l'interface d'Odin elle-même sous ton domaine.
   setOdinWeb(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
   const devices = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn];
+  return [...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn];
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */
