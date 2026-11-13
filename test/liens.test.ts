@@ -728,6 +728,24 @@ CHECKS['thjalfi>vidarr'] = async (w) => {
   assert.equal(out[1].subarray(108, 236).toString('latin1').replace(/\0+$/, ''), '', 'un appareil ordinaire : rien de plus');
 };
 
+CHECKS['eir>syn'] = async (w) => {
+  await w.v.module('eir')!.watch!.run(w.v.ctx('eir')); w.v.metrics.flush();
+  await w.v.act('syn', 'modele', { modele: 'machine' });
+  assert.match((await w.v.act('syn', 'voir', { tableau: 'machine', periode: '1h' })).text, /Processeur \(moyenne\) : \S+ eir\.cpu \d/, 'les mesures d\'Eir arrivent dans le tableau Machine');
+};
+CHECKS['vordr>syn'] = async (w) => {
+  w.v.metrics.put({ 'vordr.up.site': 1, 'vordr.temps.site': 230 }); w.v.metrics.flush();
+  await w.v.act('syn', 'modele', { modele: 'sites' });
+  assert.match((await w.v.act('syn', 'voir', { tableau: 'sites-et-appareils', periode: '1h' })).text, /Temps de réponse \(moyenne\) : 🟢 site 230 ms[\s\S]*Disponibilité \(moyenne\) : 🟢 site 100 %/);
+};
+CHECKS['syn>forseti'] = async (w) => {
+  w.v.metrics.put({ 'eir.mem': 97 }); w.v.metrics.flush();
+  await w.v.act('syn', 'modele', { modele: 'machine' });
+  await w.v.module('syn')!.watch!.run(w.v.ctx('syn'));
+  const a = w.v.alerts({ module: 'syn' }).find((x) => /Mémoire : eir\.mem 97 %/.test(x.title));
+  assert.ok(a, 'seuil rouge dépassé : alerte dans Forseti'); assert.equal(a!.level, 'haute');
+};
+
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
   assert.ok(LINKS.length >= 32);
   assert.deepEqual(LINKS.filter((l) => l.auto !== true).map((l) => `${l.from}>${l.to}`), [], 'aucun lien « à activer »');

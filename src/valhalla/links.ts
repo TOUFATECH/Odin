@@ -99,10 +99,14 @@ export const LINKS: Link[] = [
   { from: 'idunn', to: 'idunn', when: 'un déploiement arrive en production', does: 'Odin essaie le site (pages, liens, erreurs affichées) ; si quelque chose casse, tu es prévenu et il te propose de revenir en arrière', auto: true, kind: 'soin' },
   { from: 'ullr', to: 'garmr', when: 'un incident sérieux implique une adresse extérieure', does: 'l\'adresse est bannie 24 h au pare-feu (manip annulable)', auto: true, kind: 'réflexe' },
   { from: 'ullr', to: 'saga', when: 'un incident sérieux est ouvert, s\'aggrave ou est classé', does: 'une note datée dans le Cerveau raconte l\'incident : chronologie, score, ce qui a été fait', auto: true, kind: 'réflexe' },
+  { from: 'eir', to: 'syn', when: 'chaque minute', does: 'les mesures de la machine alimentent les tableaux de bord', auto: true, kind: 'donnée' },
+  { from: 'vordr', to: 'syn', when: 'chaque vérification', does: 'temps de réponse et disponibilité alimentent les tableaux de bord', auto: true, kind: 'donnée' },
+  { from: 'syn', to: 'forseti', when: 'un seuil orange ou rouge d\'un panneau est dépassé', does: 'une alerte avec la mesure et sa valeur', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
 export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
+  { need: 'suivre des mesures dans le temps (tableau de bord)', chain: ['eir', 'vordr', 'syn'], why: 'Eir et Vörðr mesurent, Sýn affiche les courbes et prévient quand un seuil est dépassé.' },
   { need: 'protéger un serveur ouvert sur Internet', chain: ['loki', 'garmr', 'geri', 'forseti'], why: 'Loki attire et repère les pirates, Garmr les bannit, Geri surveille ce qui sort, Forseti rassemble tout.' },
   { need: 'savoir si un fichier est dangereux', chain: ['ullr'], why: 'empreintes connues, règles et heuristiques, quarantaine.' },
   { need: 'surveiller la santé d\'une machine', chain: ['eir', 'skogul', 'forseti'], why: 'Eir mesure, Skögul regarde les processus, Forseti alerte.' },
