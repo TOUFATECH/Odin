@@ -93,7 +93,7 @@ function changeOf(e: Etat | undefined, id: string): Change | undefined { return 
 
 async function speed(ctx: ModCtx): Promise<{ mbps: number; at: string }> {
   const bytes = 25_000_000, t0 = performance.now();
-  const r = await ctx.fetch(`https://speed.cloudflare.com/__down?bytes=${bytes}`, { signal: AbortSignal.timeout(60_000) });
+  const r = await ctx.fetch(`https://speed.cloudflare.com/__down?bytes=${bytes}`, { signal: AbortSignal.timeout(60_000) }).catch(() => { throw new Error('Internet ne répond pas depuis la machine d\'Odin : test de débit impossible pour l\'instant'); });
   if (!r.ok || !r.body) throw new Error(`test de débit impossible (${r.status})`);
   let n = 0; const rd = r.body.getReader(); for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; }
   const sec = (performance.now() - t0) / 1000; return { mbps: Math.round((n * 8) / sec / 1e6), at: ctx.now().toISOString() };

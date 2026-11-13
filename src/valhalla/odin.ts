@@ -46,6 +46,15 @@ import { syn } from './modules/syn.ts';
 import { rename } from './names.ts';
 import { dvalinn } from './modules/dvalinn.ts';
 import { champollion } from './modules/champollion.ts';
+import { mimisbrunnr } from './modules/mimisbrunnr.ts';
+import { gefjon } from './modules/gefjon.ts';
+import { sol } from './modules/sol.ts';
+import { fensalir } from './modules/fensalir.ts';
+import { hlid } from './modules/hlid.ts';
+import { ivaldi } from './modules/ivaldi.ts';
+import { heidrun } from './modules/heidrun.ts';
+import { leikvangr } from './modules/leikvangr.ts';
+import { snotra } from './modules/snotra.ts';
 import { loki } from './modules/loki.ts';
 import { midgard } from './modules/midgard.ts';
 import { ratatoskr } from './modules/ratatoskr.ts';
@@ -135,7 +144,7 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Bifröst peut publier l'interface d'Odin elle-même sous ton domaine.
   setOdinWeb(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
   const devices = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return ([...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion] as Module[]).map(rename);
+  return ([...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => odin.cfg.voice), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra] as Module[]).map(rename);
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */

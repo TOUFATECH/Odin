@@ -8,6 +8,7 @@
 //   5. DNS inverse.
 // Tout texte venant d'un appareil est assaini (un nom mDNS peut contenir une injection).
 
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { createSocket } from 'node:dgram';
 import { reverse } from 'node:dns/promises';
@@ -70,6 +71,16 @@ export function localSubnets(ifaces = networkInterfaces()): Subnet[] {
     }
   }
   return out;
+}
+
+/**
+ * Odin tourne dans un conteneur Docker isolé (réseau « bridge ») : il ne voit que le réseau du conteneur,
+ * pas la maison. Renvoie la phrase à dire (sinon rien). Pur (fichiers et cartes réseau passés en entrée).
+ */
+export function isolatedContainerNote(subnets: Subnet[] = localSubnets(), has: (p: string) => boolean = existsSync, env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const container = has('/.dockerenv') || has('/run/.containerenv') || Boolean(env.container);
+  if (!container || !subnets.length || !subnets.every((x) => /^172\.(1[6-9]|2\d|3[01])\./.test(x.address))) return undefined;
+  return `Odin tourne dans un conteneur isolé du réseau de la maison : il ne voit que le réseau du conteneur (${subnets.map((x) => x.cidr).join(', ')}), pas tes appareils. Pour voir la maison, relance le conteneur avec « --network host » (voir « Avec Docker » dans le README).`;
 }
 
 export function inSubnet(ip: string, cidr: string): boolean {

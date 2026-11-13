@@ -2,7 +2,7 @@
 // (ElevenLabs, Piper local, ou compatible OpenAI), annonces sur les enceintes de la maison (Stentor),
 // et diffusion d'une alerte à voix haute partout (Triton). Réutilise src/voice (pas de doublon).
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { haApi, speakPlan, type HaState } from '../../tools/homeassistant.ts';
 import { hear, listVoices, speakAudio, sttReady, ttsIsLocal, ttsReady, type VoiceConfig } from '../../voice/voice.ts';
@@ -62,6 +62,7 @@ export function bragi(voice: () => VoiceConfig): Module {
       { id: 'annoncer', label: 'Annoncer', what: 'Sur une enceinte (nom), ou « partout »', params: [{ key: 'message', label: 'Message', kind: 'textarea', required: true }, { key: 'ou', label: 'Enceinte (ou « partout »)', kind: 'text', default: '' }], words: ['annonce', 'enceinte', 'previens a voix haute', 'préviens à voix haute'], run: async (ctx, i) => ({ text: await announce(ctx, s(i.message), s(i.ou) || undefined) }) },
       { id: 'transcrire', label: 'Transcrire', what: 'Fichier audio → texte', read: true, params: [{ key: 'fichier', label: 'Chemin du fichier', kind: 'text', required: true }], words: ['transcris', 'transcription'], run: async (_ctx, i) => {
         const f = s(i.fichier), mime = MIME[extname(f).toLowerCase()] ?? 'audio/mpeg';
+        if (!existsSync(f) || !statSync(f).isFile()) throw new Error(`fichier audio introuvable : ${f}`);
         const h = await hear(readFileSync(f), mime, voice()); return { text: h.text, data: h };
       } },
       { id: 'ordre', label: 'Ordre à la voix', what: 'Comprend un ordre dit ou écrit (« mets Inception sur la télé », « allume le salon ») et le fait faire par la bonne appli, sans IA. Une action grave n\'est jamais lancée ainsi.', params: [{ key: 'texte', label: 'Ordre (texte)', kind: 'text', default: '' }, { key: 'fichier', label: 'ou fichier audio', kind: 'text', default: '' }], quiet: true, words: ['ordre', 'ordre vocal', 'commande vocale'], run: async (ctx, i) => {

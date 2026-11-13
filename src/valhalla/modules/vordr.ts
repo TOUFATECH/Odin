@@ -93,7 +93,14 @@ export async function check(ctx: ModCtx, m: Monitor, now = Date.now()): Promise<
     if (m.kind === 'ping') {
       const r = await ctx.run('ping', ['-c', '1', '-W', String(Math.max(1, Math.round(m.timeoutMs / 1000))), m.target], { timeoutMs: m.timeoutMs + 2000 });
       const tm = /time[=<]([\d.]+)\s*ms/.exec(r.out);
-      return r.code === 0 ? { t: now, ok: true, ms: tm ? Math.round(Number(tm[1])) : ms(), msg: 'répond au ping' } : { t: now, ok: false, ms: ms(), msg: 'ne répond pas au ping' };
+      if (r.code === 0) return { t: now, ok: true, ms: tm ? Math.round(Number(tm[1])) : ms(), msg: 'répond au ping' };
+      // « ping » absent ou interdit sur cette machine (conteneur sans ce droit) : ce n'est pas une panne de la cible.
+      // On vérifie autrement : une connexion acceptée ou refusée prouve que la machine est là.
+      if (pingUnavailable(r)) {
+        const alive = await tcpAlive(m.target, Math.min(m.timeoutMs, 3000));
+        return alive ? { t: now, ok: true, ms: ms(), msg: 'répond (testé par connexion : « ping » n\'est pas disponible sur la machine d\'Odin)' } : { t: now, ok: false, ms: ms(), msg: 'ne répond pas (testé par connexion : « ping » n\'est pas disponible sur la machine d\'Odin)' };
+      }
+      return { t: now, ok: false, ms: ms(), msg: 'ne répond pas au ping' };
     }
     if (m.kind === 'dns') {
       const res = new Resolver({ timeout: m.timeoutMs, tries: 1 });
@@ -138,8 +145,9 @@ export async function check(ctx: ModCtx, m: Monitor, now = Date.now()): Promise<
       return { t: now, ok: r.code === 0, ms: ms(), msg: out || `code ${r.code}` };
     }
     // Les applis d'Odin elles-mêmes.
-    if (m.target === 'vidarr') { const d = dnsServer(); return d ? { t: now, ok: true, ms: ms(), msg: `DNS d'Odin en marche (port ${d.port})` } : { t: now, ok: false, ms: ms(), msg: 'le DNS d\'Odin est arrêté' }; }
-    if (m.target === 'gjoll') { const e = engine(); return e ? { t: now, ok: true, ms: ms(), msg: `tunnel allumé, ${e.stats().length} appareil(s)` } : { t: now, ok: false, ms: ms(), msg: 'le tunnel VPN est éteint' }; }
+    // Une appli que tu n'as jamais allumée n'est pas « en panne » : la sonde ne signale que ce qui devrait tourner.
+    if (m.target === 'vidarr') { const d = dnsServer(); return d ? { t: now, ok: true, ms: ms(), msg: `DNS d'Odin en marche (port ${d.port})` } : wanted(ctx, 'vidarr') ? { t: now, ok: false, ms: ms(), msg: 'le DNS d\'Odin est arrêté alors qu\'il devrait tourner' } : { t: now, ok: true, ms: ms(), msg: 'DNS d\'Odin pas allumé (tu ne l\'as pas démarré) : rien à surveiller' }; }
+    if (m.target === 'gjoll') { const e = engine(); return e ? { t: now, ok: true, ms: ms(), msg: `tunnel allumé, ${e.stats().length} appareil(s)` } : wanted(ctx, 'gjoll') ? { t: now, ok: false, ms: ms(), msg: 'le tunnel VPN est éteint alors qu\'il devrait tourner' } : { t: now, ok: true, ms: ms(), msg: 'VPN pas allumé (tu ne l\'as pas démarré) : rien à surveiller' }; }
     const mod = ctx.modules().find((x) => x.id === m.target);
     return mod ? { t: now, ok: true, ms: ms(), msg: `${mod.name} présent` } : { t: now, ok: false, ms: ms(), msg: `appli ${m.target} introuvable` };
   } catch (e) {
@@ -147,6 +155,27 @@ export async function check(ctx: ModCtx, m: Monitor, now = Date.now()): Promise<
     const why = err.name === 'TimeoutError' || /timeout|pas de réponse/i.test(err.message) ? `pas de réponse en ${m.timeoutMs / 1000} s` : err.cause?.code ?? err.code ?? err.message;
     return { t: now, ok: false, ms: ms(), msg: String(why).slice(0, 160) };
   }
+}
+/** L'appli (DNS, VPN) a-t-elle été allumée par toi ? (son réglage « on », lu dans son dossier). */
+function wanted(ctx: ModCtx, id: string): boolean {
+  try { return (JSON.parse(readFileSync(join(ctx.dir, '..', id, 'réglages.json'), 'utf8')) as { on?: boolean }).on === true; } catch { return false; }
+}
+/** « ping » n'a pas pu partir : programme absent, ou droit refusé (conteneur). Pur. */
+export function pingUnavailable(r: { code: number; out: string; err: string }): boolean {
+  return r.code !== 0 && /ENOENT|not found|introuvable|Operation not permitted|not permitted|permission denied|cap_net_raw|socket: |setuid/i.test(`${r.err} ${r.out}`);
+}
+/** La machine répond-elle à une connexion ? (acceptée ou refusée = elle est là ; aucun retour = absente). */
+export function tcpAlive(host: string, timeoutMs = 3000, ports = [80, 443, 53, 22, 445, 139, 8080, 7]): Promise<boolean> {
+  return new Promise((done) => {
+    let left = ports.length, over = false; const socks: net.Socket[] = [];
+    const end = (v: boolean) => { if (over) return; if (v || --left <= 0) { over = true; for (const x of socks) x.destroy(); done(v); } };
+    for (const port of ports) {
+      const c = net.connect({ host, port, timeout: timeoutMs }); socks.push(c);
+      c.once('connect', () => end(true));
+      c.once('timeout', () => { c.destroy(); end(false); });
+      c.once('error', (e: NodeJS.ErrnoException) => end(e.code === 'ECONNREFUSED'));
+    }
+  });
 }
 function splitHostPort(x: string, def = 0): [string, number] {
   const m = /^\[?([^\]]+?)\]?:(\d+)$/.exec(x.trim()); if (m) return [m[1], Number(m[2])];
@@ -315,8 +344,9 @@ async function autoMonitors(ctx: ModCtx): Promise<Array<Partial<Monitor> & { nam
   const gw = /default via (\d+\.\d+\.\d+\.\d+)/.exec((await ctx.run('ip', ['route', 'show', 'default'], { timeoutMs: 3000 }).catch(() => ({ out: '' }))).out)?.[1];
   if (gw) out.push({ name: 'Box', kind: 'ping', target: gw, group: 'Maison', source: 'Odin', level: 'critique' });
   out.push({ name: 'Internet', kind: 'http', target: 'https://www.google.com/generate_204', status: '204', group: 'Internet', source: 'Odin' });
-  if (ctx.modules().some((m) => m.id === 'vidarr')) out.push({ name: 'DNS d\'Odin', kind: 'odin', target: 'vidarr', group: 'Odin', source: 'Sphinx' });
-  if (ctx.modules().some((m) => m.id === 'gjoll')) out.push({ name: 'VPN d\'Odin', kind: 'odin', target: 'gjoll', group: 'Odin', source: 'Vortex' });
+  // Le DNS et le VPN d'Odin ne sont surveillés que si tu les as allumés (sinon : fausse panne).
+  if (ctx.modules().some((m) => m.id === 'vidarr') && (dnsServer() || wanted(ctx, 'vidarr'))) out.push({ name: 'DNS d\'Odin', kind: 'odin', target: 'vidarr', group: 'Odin', source: 'Sphinx' });
+  if (ctx.modules().some((m) => m.id === 'gjoll') && (engine() || wanted(ctx, 'gjoll'))) out.push({ name: 'VPN d\'Odin', kind: 'odin', target: 'gjoll', group: 'Odin', source: 'Vortex' });
   const fv = await ctx.call('freyja', 'adresse', {}, 'surveiller Venus').catch(() => undefined), vurl = (fv?.data as { url?: string } | undefined)?.url;
   if (vurl) out.push({ name: 'Venus', kind: 'http', target: `${vurl.replace(/\/+$/, '')}/api/health`, group: 'Maison', source: 'Vénus' });
   const r = await ctx.call('idunn', 'sites', {}, 'surveiller les sites suivis').catch(() => undefined);

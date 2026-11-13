@@ -72,9 +72,14 @@ Node.js exécute directement le TypeScript : aucune compilation.
 
 ```bash
 docker build -t odin .
-docker run -d --name odin -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
+# Recommandé à la maison (Linux) : Odin voit tes appareils (balayage, identification, DNS, VPN, démarrage réseau)
+docker run -d --name odin --network host --cap-add NET_ADMIN --cap-add NET_RAW -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
+# Isolé (réseau « bridge ») : seulement la discussion et le web ; Odin ne voit pas la maison (il te le dit)
+docker run -d --name odin -p 7777:7777 -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
 docker exec -it odin node bin/odin.mjs chat
 ```
+
+En conteneur isolé, « le réseau local » d'Odin est celui du conteneur (172.17 à 172.31) : il ne peut ni balayer ni identifier les postes de la maison. Avec `--network host`, il est sur le même réseau que la machine. Les applis qui lisent la machine (disques, journaux, pare-feu, nettoyage) lisent alors le conteneur, pas la machine hôte : pour elles, installe Odin directement sur la machine (`install.sh`).
 
 Dans le conteneur, Odin est administrateur (sudo sans mot de passe pour son compte) : il peut y installer ce dont il a besoin. Ne le lance pas avec `--security-opt no-new-privileges`, qui l'en empêcherait (il te le dirait).
 

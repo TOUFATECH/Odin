@@ -310,6 +310,10 @@ CHECKS['vidarr>ran'] = async (w) => {
 };
 const sondes = (w: World) => (w.v.ctx('vordr').settings.monitors as Array<{ name: string; kind: string; target: string; source?: string }> | undefined) ?? [];
 CHECKS['vidarr>vordr'] = async (w) => {
+  // Tant que tu n'as pas allumé le DNS d'Odin, Pulsar ne le surveille pas (pas de fausse panne).
+  await w.v.act('vordr', 'liens');
+  assert.ok(!sondes(w).some((m) => m.target === 'vidarr'), 'DNS jamais allumé : pas de sonde');
+  w.v.ctx('vidarr').saveSettings({ on: true });
   await w.v.act('vordr', 'liens');
   assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'vidarr' && m.source === 'Sphinx'));
   assert.match((await w.v.act('vordr', 'verifier', { nom: 'DNS d\'Odin' })).text, /❌ DNS d'Odin : le DNS d'Odin est arrêté/);
@@ -318,8 +322,29 @@ CHECKS['vidarr>vordr'] = async (w) => {
 };
 CHECKS['gjoll>vordr'] = async (w) => {
   await w.v.act('vordr', 'liens');
+  assert.ok(!sondes(w).some((m) => m.target === 'gjoll'), 'VPN jamais allumé : pas de sonde');
+  w.v.ctx('gjoll').saveSettings({ on: true });
+  await w.v.act('vordr', 'liens');
   assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'gjoll' && m.source === 'Vortex'));
   assert.match((await w.v.act('vordr', 'verifier', { nom: 'VPN d\'Odin' })).text, /❌ VPN d'Odin : le tunnel VPN est éteint/);
+};
+CHECKS['heidrun>vidarr'] = async (w) => {
+  const r = await w.v.act('heidrun', 'profil', { nom: 'Sami', age: 'enfant', appareils: '192.168.1.77' });
+  assert.equal(r.ok, true, r.text);
+  const regle = ((w.v.ctx('vidarr').settings.dns as { clients: Array<{ name: string; ids: string[]; parental?: boolean; safeSearch?: boolean; services?: string[]; cut?: boolean }> }).clients).find((c) => c.name === 'Héra · Sami');
+  assert.ok(regle, 'Sphinx a reçu la règle de l\'enfant'); assert.deepEqual(regle!.ids, ['192.168.1.77']);
+  assert.ok(regle!.parental && regle!.safeSearch && regle!.services!.includes('tiktok') && regle!.cut, 'filtrage, recherche sécurisée, réseaux sociaux coupés, coucher');
+  assert.ok(!w.v.manips({ limit: 20 }).some((m) => m.module === 'vidarr'), 'pas de « manip » en double : c\'est toi qui as demandé le profil');
+};
+CHECKS['mimisbrunnr>forseti'] = async (w) => {
+  const log = join(w.home, 'boutique.log'), il_y_a = (s: number) => new Date(Date.now() - s * 1000).toISOString();
+  writeFileSync(log, [il_y_a(40), il_y_a(20)].map((d) => `${d} caisse ERREUR-CAISSE-77 tiroir bloqué`).join('\n') + '\n');
+  w.v.ctx('mimisbrunnr').saveSettings({ journald: false });
+  await w.v.act('mimisbrunnr', 'fichier', { chemin: log });
+  await w.v.act('mimisbrunnr', 'regle', { motif: 'ERREUR-CAISSE-77', fois: 2, minutes: 5, niveau: 'haute' });
+  await w.v.module('mimisbrunnr')!.watch!.run(w.v.ctx('mimisbrunnr'));
+  const a = w.v.alerts({ module: 'mimisbrunnr' }).find((x) => /ERREUR-CAISSE-77/.test(x.title));
+  assert.ok(a, 'la règle déclenche une alerte dans le fil commun'); assert.equal(a!.level, 'haute'); assert.match(a!.title, /2 fois en 5 min/);
 };
 CHECKS['freyja>vordr'] = async (w) => {
   await w.v.act('vordr', 'liens');

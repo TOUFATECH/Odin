@@ -66,6 +66,8 @@ export const calendarList: Tool = {
   description: 'Tes rendez-vous à venir (agenda relié dans Réglages → Agenda). Par défaut les 7 prochains jours.',
   risk: 'network',
   taints: true,
+  // Lire TON agenda : une consultation (le point du matin doit pouvoir le lire même après la météo ou une recherche).
+  lookup: () => true,
   schema: obj({ days: num('nombre de jours à venir (7 par défaut, 90 max)'), search: str('mot à chercher (facultatif)') }),
   async run(i) {
     const url = process.env.CALENDAR_ICS_URL ?? '';

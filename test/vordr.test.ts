@@ -103,7 +103,16 @@ test('signe de vie (push), applis d\'Odin, sondes automatiques, page publique sa
     assert.match((await w.act('verifier', { nom: 'Sauvegarde' })).text, /✅ Sauvegarde nocturne : signe de vie il y a \d+ s/);
     // Sondes apportées par les autres applis.
     const l = await w.act('liens');
-    assert.match(l.text, /Box \(Odin\)[\s\S]*Internet \(Odin\)[\s\S]*DNS d'Odin \(Sphinx\)[\s\S]*VPN d'Odin \(Vortex\)/);
+    assert.match(l.text, /Box \(Odin\)[\s\S]*Internet \(Odin\)/);
+    assert.doesNotMatch(l.text, /DNS d'Odin|VPN d'Odin/, 'le DNS et le VPN ne sont pas surveillés tant que tu ne les as pas allumés (pas de fausse panne)');
+    // Une ancienne sonde « VPN d'Odin » (installations d'avant) ne crie plus à la panne si le VPN n'a jamais été allumé…
+    await w.act('ajouter', { nom: 'VPN d\'Odin', genre: 'odin', cible: 'gjoll' });
+    assert.match((await w.act('verifier', { nom: 'VPN d\'Odin' })).text, /✅ VPN d'Odin : VPN pas allumé/);
+    // … mais elle le dit s'il devrait tourner.
+    w.v.ctx('gjoll').saveSettings({ on: true });
+    assert.match((await w.act('verifier', { nom: 'VPN d\'Odin' })).text, /❌ VPN d'Odin : le tunnel VPN est éteint alors qu'il devrait tourner/);
+    assert.match((await w.act('liens')).text, /VPN d'Odin \(Vortex\)|Rien de nouveau/);
+    w.v.ctx('gjoll').saveSettings({ on: false });
     // Page publique : seulement les sondes cochées, jamais leur adresse.
     await w.act('ajouter', { nom: 'Site vitrine', genre: 'http', cible: 'http://127.0.0.1:9/', public: true, essais: 1 });
     assert.match((await w.act('page_publique', { titre: 'TOUFATECH · état' })).text, /\/etat\/[a-f0-9]{18}/);
@@ -122,4 +131,18 @@ test('certificat HTTPS : jours restants', async (t) => {
   await new Promise<void>((ok) => s.listen(0, '127.0.0.1', () => ok()));
   try { const d = await certDaysLeft('127.0.0.1', (s.address() as { port: number }).port); assert.ok(d >= 9 && d <= 10, String(d)); }
   finally { s.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('ping indisponible sur la machine d\'Odin (conteneur) : pas de fausse panne, la cible est testée par connexion', async () => {
+  const { pingUnavailable, tcpAlive } = await import('../src/valhalla/modules/vordr.ts');
+  assert.equal(pingUnavailable({ code: 1, out: '', err: 'spawn ping ENOENT' }), true);
+  assert.equal(pingUnavailable({ code: 2, out: '', err: 'ping: socket: Operation not permitted' }), true);
+  assert.equal(pingUnavailable({ code: 1, out: '1 packets transmitted, 0 received, 100% packet loss', err: '' }), false, 'une vraie absence de réponse reste une panne');
+  assert.equal(pingUnavailable({ code: 0, out: 'time=1 ms', err: '' }), false);
+  const srv = (await import('node:net')).createServer((c) => c.end()); await new Promise<void>((ok) => srv.listen(0, '127.0.0.1', () => ok()));
+  const port = (srv.address() as { port: number }).port;
+  try {
+    assert.equal(await tcpAlive('127.0.0.1', 1500, [port]), true, 'connexion acceptée : la machine est là');
+    assert.equal(await tcpAlive('127.0.0.1', 1500, [1]), true, 'connexion refusée : la machine est là aussi');
+  } finally { srv.close(); }
 });

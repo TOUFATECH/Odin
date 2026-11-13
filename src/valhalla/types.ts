@@ -81,7 +81,8 @@ export interface ModCtx {
   /** IA d'Odin si disponible (sinon undefined) */
   ask?: (text: string) => Promise<string>;
   /** action d'un autre module (liens entre modules) ; `why` explique le réflexe dans le journal des manips */
-  call(module: string, action: string, input?: Record<string, unknown>, why?: string): Promise<ActionResult>;
+  /** `o.interne` : étape interne d'une action déjà lancée (par toi, ou notée elle-même comme manip) : pas de manip à part pour cette étape */
+  call(module: string, action: string, input?: Record<string, unknown>, why?: string, o?: { interne?: boolean }): Promise<ActionResult>;
   now(): Date;
   /** fil d'alertes commun (Forseti) */
   alerts(o?: { module?: string; level?: Level; q?: string; limit?: number }): Alert[];

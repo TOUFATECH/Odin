@@ -1,5 +1,35 @@
 [
  {
+  "id": "v1180",
+  "at": "2026-11-13T18:00:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.18.0",
+  "title": "9 nouvelles applis (journaux, nettoyage, photos, disques, pare-feu, dépôts, contrôle parental, jeux rétro, bureautique) et fin des fausses alertes à la connexion",
+  "details": [
+   "Chroniques : le journal du système, les fichiers de /var/log et les alertes d'Odin au même endroit ; recherche, messages qui se répètent, règles « préviens-moi si ça revient N fois ».",
+   "Héraclès : mesure ce qui encombre (temporaires anciens, corbeille, caches) et le libère avec ton accord, jamais tes documents ni ce qu'un programme utilise.",
+   "Hélios : tes photos rangées par date, appareil et lieu (lus dans la photo), frise par mois, doublons, albums. Rien ne quitte la maison.",
+   "Pyramide : disques, remplissage, santé (SMART) et partages Samba / NFS ; ajouter ou retirer un partage avec ton accord.",
+   "Thermopyles : état du pare-feu, ports à l'écoute et qui peut les joindre, routes, ports ouverts sur la box ; ouvrir ou fermer un port avec ton accord, sans jamais fermer la porte d'Odin ni SSH.",
+   "Dédale : tes dépôts git, ce qui n'est pas envoyé, mise à jour sans risque, dépôts de la maison ; un dépôt piégé (réglage qui lance un programme) est refusé.",
+   "Héra : un profil par enfant (âge, appareils), heure du coucher, pause d'Internet, rapport du jour. Elle règle Sphinx.",
+   "Olympie : tes jeux rétro rangés par console, noms nettoyés, variantes, favoris, listes pour RetroArch. Odin ne télécharge aucun jeu.",
+   "Plume : tes documents Word, OpenDocument, Excel lus et cherchés ; créer un document ou un tableur à partir d'un texte simple, avec des modèles. Fichiers vérifiés dans LibreOffice.",
+   "Corrigé : Pulsar n'annonce plus « DNS d'Odin en panne » ni « VPN en panne » quand tu ne les as jamais allumés, ni « ne répond pas au ping » quand ping n'existe pas sur la machine (Docker) : il teste alors par connexion.",
+   "Corrigé : après avoir lu une page web, un mail ou l'agenda, Odin peut toujours consulter le réseau de la maison et l'agenda (lecture seule) sans te redemander.",
+   "Nouveau : Méduse « Analyser une adresse » : une IP de la maison, une IP d'Internet (pays, réputation, jamais de balayage de ports) ou un lien.",
+   "Docker : l'image contient ping et les outils réseau ; Odin dit clairement quand le conteneur est isolé du réseau de la maison et comment le relancer (--network host)."
+  ],
+  "planets": [
+   "applis",
+   "securite",
+   "machines",
+   "maison",
+   "installation"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1170",
   "at": "2026-11-13T17:10:00+03:00",
   "date": "2026-11-13",

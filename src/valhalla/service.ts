@@ -69,7 +69,7 @@ export class Valhalla {
       fetch: this.deps.fetch ?? fetch,
       notify: async (t, o) => { await this.deps.notify?.(t, o); },
       ask: this.deps.ask,
-      call: (m, a, input = {}, why) => this.act(m, a, input, { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}` }),
+      call: (m, a, input = {}, why, o) => this.act(m, a, input, o?.interne ? { by: 'toi' } : { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}` }),
       now: () => this.deps.now?.() ?? new Date(),
       alerts: (o) => this.alerts(o),
       ack: (ids) => this.ack(ids),

@@ -197,7 +197,7 @@ export class Heimdall {
     }
     // Recherche web et lecture de pages : jamais de validation (Odin cite ses sources), même après
     // avoir lu du contenu non fiable — sauf si le réseau est interdit ou une manipulation détectée.
-    if (g.lookup && mode !== 'deny' && !g.suspicious) return this.log(g, { allowed: true, via: 'policy', why: 'consultation du web (sources citées)' });
+    if (g.lookup && mode !== 'deny' && !g.suspicious) return this.log(g, { allowed: true, via: 'policy', why: 'consultation en lecture seule (web, agenda, réseau de la maison)' });
     const autonomy = capAutonomy(this.effectiveAutonomy(), g.maxAutonomy);
     if (g.maxAutonomy && autonomy !== this.effectiveAutonomy()) notes.push(`membre : autonomie plafonnée à ${autonomy}`);
 

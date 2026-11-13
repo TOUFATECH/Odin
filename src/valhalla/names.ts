@@ -261,4 +261,13 @@ export const NAME_STORY: Record<string, string> = {
  "syn": "Le zénith, le point le plus haut du ciel, d'où l'on voit tout : tes tableaux de bord.",
  "dvalinn": "L'alchimie, l'art de changer une matière en une autre : un fichier devient un autre format.",
  "champollion": "Champollion, qui a déchiffré les hiéroglyphes : il lit le texte des images et des sons.",
+ "mimisbrunnr": "Les chroniques, ces récits écrits jour après jour par les scribes : tout ce que la machine a noté, dans l'ordre.",
+ "gefjon": "Héraclès (Hercule), qui a nettoyé en un jour les écuries d'Augias en y détournant deux fleuves : le grand ménage de la machine.",
+ "sol": "Hélios, le dieu grec du soleil, qui voit tout depuis son char : la lumière, donc tes photos.",
+ "fensalir": "Les pyramides d'Égypte, bâties pour garder les trésors des pharaons pendant des millénaires : tes disques et tes dossiers partagés.",
+ "hlid": "Les Thermopyles, le passage étroit où Léonidas et ses 300 Spartiates ont retenu une armée entière : le pare-feu, la porte que rien ne force.",
+ "ivaldi": "Dédale, l'architecte du Labyrinthe et l'inventeur des ailes d'Icare : le constructeur, donc ton code et tes dépôts.",
+ "snotra": "La plume du scribe, avec laquelle on écrivait lettres et registres : tes documents de bureau.",
+ "leikvangr": "Olympie, la cité grecque où sont nés les Jeux olympiques : le terrain de jeu.",
+ "heidrun": "Héra, la reine de l'Olympe, protectrice de la famille et du foyer : elle veille sur ce que voient les enfants.",
 };

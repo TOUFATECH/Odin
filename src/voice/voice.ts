@@ -223,6 +223,9 @@ export interface VoiceInfo { id: string; name: string; category: string }
 
 /** Voix disponibles sur le compte ElevenLabs (prédéfinies et copiées). */
 export async function listVoices(v: VoiceConfig, env = process.env): Promise<VoiceInfo[]> {
+  // Voix locale (Piper) ou OpenAI : pas de liste à demander à un serveur ; on donne la voix réglée (et celles d'OpenAI).
+  if (v.tts.provider === 'openai') return ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer', 'verse'].map((id) => ({ id, name: id, category: 'OpenAI' }));
+  if (v.tts.provider !== 'elevenlabs' || !/^https?:\/\//.test(v.tts.baseUrl)) return [{ id: v.tts.voiceId || 'fr_FR-tom-medium', name: v.tts.voiceName || v.tts.voiceId || 'voix locale', category: 'locale (Piper), sur la machine d\'Odin' }];
   const res = await fetch(`${v.tts.baseUrl.replace(/\/$/, '')}/v1/voices`, { headers: { 'xi-api-key': key(v.tts.apiKeyEnv, env) }, signal: AbortSignal.timeout(20_000) });
   await failIfBad(res, 'Liste des voix indisponible');
   const data = await res.json() as { voices?: Array<{ voice_id: string; name: string; category?: string }> };

@@ -3,13 +3,15 @@ import { spawn } from 'node:child_process';
 import { checkUpdates, deviceLabel, formatReport, linksFor, UPDATE_MANAGERS } from '../hlidskjalf/inventory.ts';
 import { serviceName } from '../hlidskjalf/identify.ts';
 import { deepIdentify, formatDeep, smbList } from '../hlidskjalf/deep.ts';
-import { isPrivateV4 } from '../hlidskjalf/discover.ts';
+import { isolatedContainerNote, isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { normMac, routerAction, routerMachine, validMac } from '../hlidskjalf/router.ts';
 import { networkInterfaces } from 'node:os';
 export const localIps = () => Object.values(networkInterfaces()).flat().filter(Boolean).map((x) => x!.address);
 import { auditNetwork } from '../guard/watch.ts';
 import { CATEGORIES, vendorOf } from '../hlidskjalf/vendors.ts';
 import { scanNetwork } from '../hlidskjalf/scan.ts';
+import { valhallaOf } from '../valhalla/odin.ts';
+import { wrapUntrusted } from '../heimdall/injection.ts';
 import { safeEnv } from './builtin.ts';
 import { bool, num, obj, str, type Tool } from './registry.ts';
 import { findMachine, listMachines, runOnMachine, withAdmin } from '../machines/access.ts';
@@ -51,10 +53,13 @@ export const netIdentify: Tool = {
   name: 'net_identify',
   description: 'Identifie UN appareil du réseau à fond : nom d\'hôte, système et version (Windows avec n° de build, Linux et distribution, macOS, iOS), modèle (iPhone 15 Pro…), ports ouverts, partages réseau (SMB, NFS, AFP) et dossiers partagés. À utiliser dès qu\'on te demande ce qu\'est un appareil, son nom, son système ou ce qu\'il partage. Prend 5 à 20 s.',
   risk: 'network',
-  schema: obj({ ip: str('adresse IP privée de l\'appareil') }, ['ip']),
+  // Regarder un appareil de la maison, sans rien changer : une consultation (pas de validation, même après une page web).
+  lookup: () => true,
+  schema: obj({ ip: str('adresse IP de l\'appareil (de la maison ; une adresse d\'Internet ou un nom est analysé sans balayage)') }, ['ip']),
   async run(i, ctx) {
     const ip = s(i.ip).trim();
-    if (!isPrivateV4(ip)) return 'Adresse privée attendue (192.168…, 10…, 172.16–31…).';
+    // Une adresse d'Internet ou un nom : analyse sans balayage (nom, pays, listes d'adresses malveillantes) par Méduse.
+    if (!isPrivateV4(ip)) { const v = valhallaOf(); if (!v) return 'Adresse privée attendue (192.168…, 10…, 172.16–31…).'; const r = await v.act('geri', 'analyser', { cible: ip }); return { output: wrapUntrusted(`analyse de ${ip.slice(0, 80)}`, r.text), tainted: true }; }
     const d = ctx.inventory?.get(ip);
     const m = ctx.home ? listMachines(ctx.home).find((x) => x.host === ip) : undefined;
     const r = await deepIdentify(ip, { user: m?.user, password: m?.password });
@@ -95,12 +100,14 @@ export const netScan: Tool = {
   name: 'net_scan',
   description: 'Balaye les réseaux locaux PRIVÉS de la machine (jamais Internet) et met l\'inventaire à jour. `full` teste aussi les ports (plus long, ~30 s).',
   risk: 'network',
+  // Balayer SES réseaux privés, sans rien changer : une consultation (pas de validation, même après une page web ou dans une tâche planifiée).
+  lookup: () => true,
   schema: obj({ full: bool('balayage complet avec ports') }),
   summarize: (i) => `balayer le réseau local${i.full ? ' (complet)' : ''}`,
   async run(i, ctx) {
     if (!ctx.inventory || !ctx.netConfig) return 'Inventaire indisponible.';
-    const r = await scanNetwork(ctx.inventory, ctx.netConfig, Boolean(i.full));
-    return formatReport(r);
+    const r = await scanNetwork(ctx.inventory, ctx.netConfig, Boolean(i.full)), note = isolatedContainerNote();
+    return formatReport(r) + (note ? `\n⚠ ${note}` : '');
   },
 };
 
