@@ -16,7 +16,7 @@ export interface Channel {
   readonly interactive: boolean;
   start(onMessage: (m: Inbound) => Promise<void>): Promise<void>;
   /** mood : l'humeur d'Odin, montrée à la fin du texte quand le canal sait le faire (son visage en émoji sur Telegram). */
-  send(peer: string, text: string, opts?: { mood?: string; final?: boolean; /** IA qui ont traité ce tour (affichées discrètement). */ model?: string; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string }; /** Nouvelle version : bouton « Mettre à jour ». */ update?: { version: string }; /** Coupure parentale imminente : boutons pour prolonger. */ parental?: { id: string }; /** Réveil : « Je suis réveillé » / « +5 min ». */ alarm?: { attempt: number }; /** Appareil qui demande l'accès : Autoriser / Refuser. */ pair?: { id: string } }): Promise<void>;
+  send(peer: string, text: string, opts?: { /** Réponse de Völva en carte (HTML prêt) avec Écouter · Fiche · Ouvrir dans Völva. */ search?: { id: string; html: string; url?: string }; mood?: string; final?: boolean; /** IA qui ont traité ce tour (affichées discrètement). */ model?: string; approval?: { id: string; grantable?: boolean }; secret?: boolean; /** Rappel : boutons « C'est fait » / « Plus tard ». */ reminder?: { id: string }; /** Proposition d'habitude : boutons Oui / Non. */ habit?: { key: string }; /** Nouvelle version : bouton « Mettre à jour ». */ update?: { version: string }; /** Coupure parentale imminente : boutons pour prolonger. */ parental?: { id: string }; /** Réveil : « Je suis réveillé » / « +5 min ». */ alarm?: { attempt: number }; /** Appareil qui demande l'accès : Autoriser / Refuser. */ pair?: { id: string } }): Promise<void>;
   /** « Odin écrit… » pendant qu'il travaille. */
   typing?(peer: string): Promise<void>;
   stop(): Promise<void>;
@@ -26,6 +26,8 @@ export interface Channel {
   event?(peer: string, e: AgentEvent): void;
   /** Envoie une note vocale (Telegram). */
   sendVoice?(peer: string, audio: Uint8Array): Promise<void>;
+  /** Envoie un fichier (Telegram). */
+  sendDocument?(peer: string, name: string, data: Uint8Array, caption?: string): Promise<void>;
   /** Envoie une image avec une légende (alerte d'une caméra…). */
   sendPhoto?(peer: string, image: Uint8Array, caption?: string): Promise<void>;
   /** Autocollant (WEBP 512×512) : le visage d'Odin selon son humeur. */
@@ -57,6 +59,7 @@ export function buttonText(data: string): string | undefined {
   const pc = /^pc:(\d+):(\S+)$/.exec(data); if (pc) return `/parental ${pc[2]} ${pc[1]}`;
   const pa = /^pa:(ok|no):([a-f0-9]{12})$/.exec(data); if (pa) return `/acces ${pa[1] === 'ok' ? 'ok' : 'non'} ${pa[2]}`;
   if (data === 'up:go') return '/update'; if (data === 'up:later') return '/update plus tard';
+  const vs = /^vs:(ec|fi):([a-f0-9]{6,20})$/.exec(data); if (vs) return `/volva ${vs[1] === 'ec' ? 'ecouter' : 'fiche'} ${vs[2]}`;
   return undefined;
 }
 

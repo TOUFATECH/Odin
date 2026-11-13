@@ -102,3 +102,17 @@ test('sans IA : les meilleurs extraits, chacun avec sa source', async () => {
     assert.equal(e.ai, false); assert.match(e.answer, /sans IA réglée dans Odin[\s\S]*• Canonical publie Ubuntu 24\.04\.3 LTS\. \[1\]/); assert.deepEqual(e.followups, ['ubuntu 24.04.3 nouveautés']);
   } finally { w.end(); }
 });
+
+test('Völva sur Telegram : la carte (titre court, numéros en petit, l\'essentiel, sources en liens, rien d\'injecté)', async () => {
+  const { searchCard, titleOf } = await import('../src/valhalla/volva/carte.ts');
+  assert.equal(titleOf('Cherche comment sécuriser le Wi-Fi de la maison, et envoie-moi l\'audio'), 'Sécuriser le Wi-Fi de la maison');
+  const c = searchCard({ q: 'Comment sécuriser le Wi-Fi ?', answer: 'Change le mot de passe **d\'origine** [2], passe en WPA3 [1][3] <script>.', at: Date.UTC(2026, 10, 13, 15, 41), essentials: [{ title: 'WPS coupé', detail: 'Svalinn' }],
+    sources: [1, 2, 3, 4, 5].map((n) => ({ n, title: `S${n}`, url: `https://ex${n}.fr/a?b="c"`, domain: n === 3 ? 'fr.wikipedia.org' : `ex${n}.fr`, snippet: '', engines: [] })) }, { tz: 'Indian/Mayotte' });
+  assert.match(c, /^<b>Sécuriser le Wi-Fi<\/b>/); assert.match(c, /d'origine<\/b> ², passe en WPA3 ¹˒³ &lt;script&gt;/); assert.match(c, /<blockquote>▫️ WPS coupé <i>— Svalinn<\/i><\/blockquote>/);
+  assert.match(c, /Sources : <a href="https:\/\/ex1\.fr\/a\?b=&quot;c&quot;">ex1\.fr<\/a> · .*>Wikipédia<\/a> · \+2/); assert.match(c, /<i>Völva · 5 sources · 18:41<\/i>$/);
+});
+
+test('Völva sur Telegram : les boutons Écouter et Fiche deviennent des commandes d\'Odin', async () => {
+  const { buttonText } = await import('../src/bifrost/channel.ts');
+  assert.equal(buttonText('vs:ec:a1b2c3d4e5'), '/volva ecouter a1b2c3d4e5'); assert.equal(buttonText('vs:fi:a1b2c3d4e5'), '/volva fiche a1b2c3d4e5'); assert.equal(buttonText('vs:xx:a1'), undefined);
+});

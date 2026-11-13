@@ -244,6 +244,12 @@ export class TelegramChannel implements Channel {
       await onMessage({ channel: this.name, peer: String(q.from?.id ?? q.message.chat.id), name: q.from?.first_name ?? 'propriétaire', text: go ? '/update' : '/update plus tard' });
       return;
     }
+    const vs = /^vs:(ec|fi):([a-f0-9]{6,20})$/.exec(q.data ?? '');
+    if (vs && q.message) {
+      await this.call('answerCallbackQuery', { callback_query_id: q.id, text: vs[1] === 'ec' ? 'Odin prépare sa voix…' : 'La fiche arrive' }).catch(() => undefined);
+      await onMessage({ channel: this.name, peer: String(q.from?.id ?? q.message.chat.id), name: q.from?.first_name ?? 'propriétaire', text: buttonText(q.data!)! });
+      return;
+    }
     const hb = /^hb:(oui|non)$/.exec(q.data ?? '');
     if (hb && q.message) {
       await this.call('answerCallbackQuery', { callback_query_id: q.id, text: hb[1] === 'oui' ? 'C\'est noté' : 'Compris' }).catch(() => undefined);
@@ -327,13 +333,20 @@ export class TelegramChannel implements Channel {
     if (this.opts.home && Object.keys(this.faces).length) writeFileSync(join(this.opts.home, 'telegram-faces.json'), JSON.stringify(this.faces));
   }
 
-  async send(peer: string, text: string, opts: { mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string }; habit?: { key: string }; update?: { version: string }; parental?: { id: string }; alarm?: { attempt: number }; pair?: { id: string } } = {}): Promise<void> {
+  async send(peer: string, text: string, opts: { search?: { id: string; html: string; url?: string }; mood?: string; final?: boolean; approval?: { id: string; grantable?: boolean }; secret?: boolean; reminder?: { id: string }; habit?: { key: string }; update?: { version: string }; parental?: { id: string }; alarm?: { attempt: number }; pair?: { id: string } } = {}): Promise<void> {
     const mood = isMood(opts.mood) ? opts.mood : undefined;
     if (opts.final || mood) await this.endProgress(peer); // réponse finale : le message de progression est terminé
     // Son visage à la fin du texte, à la taille d'un émoji.
     if (mood && !Object.keys(this.faces).length && Date.now() > this.facesOff) {
       this.facesPending ??= this.ensureFaces(this.opts.owner ?? peer).catch((e) => { console.error('[telegram]', (e as Error).message); this.facesOff = Date.now() + 6 * 3600_000; }).finally(() => { this.facesPending = undefined; });
       await this.facesPending;
+    }
+    // Réponse de Völva : la carte et ses boutons (Écouter · Fiche · Ouvrir dans Völva).
+    if (opts.search) {
+      const kb: Array<Array<Record<string, string>>> = [[{ text: '🔊 Écouter', callback_data: `vs:ec:${opts.search.id}` }, { text: '📄 Fiche', callback_data: `vs:fi:${opts.search.id}` }]];
+      if (opts.search.url && /^https:\/\//.test(opts.search.url)) kb.push([{ text: '🔎 Ouvrir dans Völva', url: opts.search.url }]);
+      const r = await this.call('sendMessage', { chat_id: peer, text: opts.search.html, parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: { inline_keyboard: kb } }).catch(() => ({ ok: false }));
+      if (r.ok) return;
     }
     // Message secret (nouveau mot de passe) : masqué sous un voile, non transférable, effacé au bout de 10 minutes.
     if (opts.secret) {
@@ -404,6 +417,12 @@ export class TelegramChannel implements Channel {
   }
 
   /** Note vocale (Ogg/Opus, produite par ElevenLabs). */
+  async sendDocument(peer: string, name: string, data: Uint8Array, caption = ''): Promise<void> {
+    const form = new FormData();
+    form.append('chat_id', peer); if (caption) form.append('caption', caption.slice(0, 1000));
+    form.append('document', new Blob([data]), name);
+    await fetch(this.url('sendDocument'), { method: 'POST', body: form });
+  }
   async sendVoice(peer: string, audio: Uint8Array): Promise<void> {
     const form = new FormData();
     form.append('chat_id', peer);

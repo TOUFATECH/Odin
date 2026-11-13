@@ -161,6 +161,11 @@ export class Gateway {
     await ch.send(peer, text, opts);
   }
 
+  /** Une recherche de Völva par son identifiant (ou les recherches faites depuis `since`). */
+  private async volvaEntry(id: string): Promise<import('../valhalla/modules/volva.ts').Entry | undefined> { return (await this.volvaSince(0)).find((x) => x.id === id); }
+  private async volvaSince(since: number): Promise<Array<import('../valhalla/modules/volva.ts').Entry>> {
+    try { const { valhallaOf } = await import('../valhalla/odin.ts'); const { history } = await import('../valhalla/modules/volva.ts'); const v = valhallaOf(); if (!v?.module('volva')) return []; return history(v.ctx('volva')).filter((x) => x.at >= since); } catch { return []; }
+  }
   /** Point d'entrée de tout message entrant. */
   async handle(m: Inbound): Promise<void> {
     const ch = this.channels.get(m.channel)!;
@@ -223,6 +228,21 @@ export class Gateway {
       if (/plus tard/i.test(text)) return ch.send(m.peer, '👌 D\'accord, je te le redemanderai à la prochaine version.');
       await ch.send(m.peer, '⬆️ Je me mets à jour…');
       return ch.send(m.peer, await this.updateNow());
+    }
+    // Völva : les boutons de la carte (Écouter · Fiche).
+    const vs = owner ? /^\/volva (ecouter|fiche) ([a-f0-9]{6,20})$/.exec(text) : null;
+    if (vs) {
+      const e = await this.volvaEntry(vs[2]);
+      if (!e) return ch.send(m.peer, 'Cette recherche n\'est plus dans l\'historique de Völva.');
+      if (vs[1] === 'ecouter') {
+        if (!ch.sendVoice || !ttsReady(this.odin.cfg.voice)) return ch.send(m.peer, 'La voix d\'Odin n\'est pas réglée (Réglages → Voix).');
+        await speakAudio(e.answer.replace(/\[\d{1,2}\]/g, '').replace(/\*\*/g, '').slice(0, 4000), voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((x) => ch.send(m.peer, `⚠️ ${(x as Error).message}`));
+        return;
+      }
+      const { toMarkdown } = await import('../valhalla/volva/engine.ts');
+      const md = toMarkdown({ question: e.q, answer: e.answer, sources: e.sources, at: e.at, engines: e.engines });
+      if (ch.sendDocument) return ch.sendDocument(m.peer, `volva-${e.q.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').slice(0, 40)}.md`, new TextEncoder().encode(md), e.q);
+      return ch.send(m.peer, md);
     }
     // Habitudes : réponse à une proposition (boutons /habitude oui|non, ou « oui » / « non » tout court), « redemande-moi ».
     const hb = /^\/habitude (oui|non)(?: (.+))?$/.exec(text);
@@ -344,7 +364,7 @@ export class Gateway {
     // « Odin écrit… » tant qu'il travaille (Telegram l'efface au bout de 5 s : on le renouvelle).
     const typing = ch.typing ? setInterval(() => void ch.typing!(m.peer), 4500) : undefined;
     void ch.typing?.(m.peer);
-    const used: string[] = [];
+    const used: string[] = [], t0 = Date.now();
     // Vocal dans une autre langue : Odin répond dans cette langue (texte et voix).
     const lang = m.voice ? spokenLanguage(m.text) : undefined;
     const langHint = lang && lang !== 'fr' ? `\n\n[Précision d'Odin pour lui-même : il t'a parlé en ${LANG_NAME[lang] ?? lang} (${lang}) ; réponds en ${LANG_NAME[lang] ?? lang}.]` : '';
@@ -378,7 +398,14 @@ export class Gateway {
       const byLine = !owner || !ia || m.channel === 'web' || show === 'jamais' ? '' : show === 'partout' ? `\n\n— ${ia}` : r.ai && !r.ai.needed ? '\n\n🔌 Fait sans IA.' : '';
       const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '') + byLine;
       // Texte seul : plus d'émoji ajouté à la fin (demande du propriétaire)
-      await ch.send(m.peer, body, { final: true, ...(owner && ia && show !== 'jamais' ? { model: ia } : {}) });
+      // Une recherche de Völva pendant ce tour : sur Telegram, la réponse part en carte (Écouter · Fiche · Ouvrir dans Völva).
+      const found = m.channel !== 'web' && ch.name === 'telegram' ? (await this.volvaSince(t0)).sort((a, b) => b.at - a.at)[0] : undefined;
+      if (found) {
+        const { searchCard } = await import('../valhalla/volva/carte.ts'), pub = (this.odin.cfg.web as { publicUrl?: string }).publicUrl?.replace(/\/$/, '');
+        await ch.send(m.peer, found.answer, { final: true, search: { id: found.id, html: searchCard(found), ...(pub ? { url: `${pub}/recherche#r=${found.id}` } : {}) } });
+        // Ce qu'Odin ajoute en plus de la recherche (une appli qui a vérifié, une question) part à la suite.
+        if (r.text && !r.text.includes(found.answer.slice(0, 60))) await ch.send(m.peer, body, { ...(owner && ia && show !== 'jamais' ? { model: ia } : {}) });
+      } else await ch.send(m.peer, body, { final: true, ...(owner && ia && show !== 'jamais' ? { model: ia } : {}) });
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       // … ou quand tu le demandes (« réponds-moi en vocal », « dis-le à voix haute »).
       const askVoice = /\b(en vocal|vocalement|a voix haute|à voix haute|message vocal|note vocale|dis[- ]le moi)\b/i.test(m.text);
