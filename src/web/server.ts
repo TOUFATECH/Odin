@@ -786,7 +786,7 @@ export class WebChannel implements Channel {
       const r = await v.act('apparence', 'mascotte', {}, { by: 'toi', why: 'une appli reliée (Venus)' });
       const d = (r.data ?? {}) as Record<string, unknown>;
       res.setHeader('cache-control', 'no-store');
-      return json(res, 200, { ok: r.ok !== false, cache: d.cache, event: d.event, odin: d.odin, pouvoirs: d.pouvoirs, clics: d.clics, theme: d.theme, day: d.day });
+      return json(res, 200, { ok: r.ok !== false, cache: d.cache, event: d.event, odin: d.odin, pouvoirs: d.pouvoirs, clics: d.clics, clicsOn: d.clicsOn, theme: d.theme, day: d.day });
     }
     if (url.pathname === '/mcp') {
       if (!/^Bearer\s+/i.test(req.headers.authorization ?? '')) return json(res, 401, { error: 'jeton Bearer requis' });
@@ -1093,6 +1093,13 @@ export class WebChannel implements Channel {
         if (!this.hooks.updateNow) return { ok: false, error: 'mise à jour indisponible ici' };
         const text = await this.hooks.updateNow();
         return { ok: !/^⚠️/.test(text), text, error: /^⚠️/.test(text) ? text.replace(/^⚠️\s*/, '') : undefined, restarting: /redémarre/.test(text) };
+      }
+      case 'host_restart': {
+        // Redémarre la machine d'Odin (le serveur). Grave : seulement avec confirm: true (ta confirmation à l'écran).
+        if (b.confirm !== true) return { ok: false, error: 'confirmation requise' };
+        const { execFile } = await import('node:child_process');
+        const [cmd, args] = process.platform === 'win32' ? ['shutdown', ['/r', '/t', '15', '/c', 'Odin redémarre le serveur (demandé par toi)']] : process.platform === 'darwin' ? ['sudo', ['-n', 'shutdown', '-r', '+1']] : ['sudo', ['-n', 'systemctl', 'reboot']];
+        return await new Promise((res) => execFile(cmd, args as string[], { timeout: 15_000 }, (e, _o, err) => res(e ? { ok: false, error: `redémarrage refusé par la machine : ${String(err || e.message).trim().slice(0, 200)} (il faut le droit de redémarrer sans mot de passe)` } : { ok: true, text: 'Le serveur redémarre : je reviens dans une à deux minutes.' })));
       }
       case 'app_restart': { const { restartSelf, checkApp } = await import('../tools/self.ts'); const c = checkApp(undefined, false); if (!c.ok) return { ok: false, error: `le nouveau code ne se charge pas : ${c.output.slice(0, 300)}` }; if (process.env.ODIN_NO_RESTART || this.odin.demo) return { ok: true, simulated: true }; return { ok: true, text: restartSelf(800) }; }
       case 'skill_approve_all': { const done: string[] = []; for (const d of skills.drafts()) { try { skills.approve(d.name); done.push(d.name); } catch { /* suivant */ } } this.notify('skills'); return { ok: true, count: done.length }; }

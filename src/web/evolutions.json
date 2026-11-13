@@ -1,5 +1,24 @@
 [
  {
+  "id": "v1150",
+  "at": "2026-11-13T14:50:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.15.0",
+  "title": "Clics sur Odin : de 4 à 100 clics, une action par nombre, choisie par toi (Réglages → Apparence), toujours confirmée ; icônes finies",
+  "details": [
+   "1 clic = « Que veux-tu ? », 2 et 3 = rien, à partir de 4 : l'action dont tu as mis le nombre (99 actions). 4 clics = redémarrer tout le serveur.",
+   "Odin pose toujours la question avant de faire ; les actions graves passent aussi par Heimdall.",
+   "Réglages → Apparence : interrupteur « Clics sur Odin activés », carrousel de 18 actions par page avec grosses flèches, un nombre = une seule action (doublon refusé).",
+   "Icônes : finition sur 118 icônes (symbole recentré, reflet, ombre, liseré)."
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "applis"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1140",
   "at": "2026-11-13T14:10:00+03:00",
   "date": "2026-11-13",

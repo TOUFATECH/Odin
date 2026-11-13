@@ -258,7 +258,7 @@
       if (last && last.id !== seen) { const age = Date.now() - Date.parse(last.at); if ((last.level !== 'ok' && age < 6 * 3600_000) || age < 15 * 60_000) show(last, { quiet: true }); }
     } catch { /* pas connecté : rien */ }
   }
-  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };
+  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };
   addEventListener('resize', follow);
   const start = () => setTimeout(boot, 1200);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

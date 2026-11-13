@@ -3,6 +3,7 @@
 // « remets automatique », aussi sur Telegram), ou tout seul selon l'heure et la météo (au plus une fois par heure,
 // sauf orage). Les couleurs et décors sont dans l'interface (themes.js) ; ici : le choix et la règle automatique.
 import type { ModCtx, Module } from '../types.ts';
+import { CLICK_CATALOG, cleanClicks2 } from '../clics.ts';
 import { EVENTS, EVENT_BY_ID, inRamadan, todayEvent, upcoming, ymd, type EventsCfg } from '../fetes.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
@@ -145,18 +146,18 @@ export const apparence: Module = (() => {
           return { text: `🎨 Je passe en ${THEME_NAMES[id]}${why ? ` : ${why}` : ''}. Tu en préfères un autre ? ${others(id)}. Dis « remets automatique » pour suivre l'heure et la météo.`, data: { mode: 'fixe', theme: id } };
         } },
       { id: 'mascotte', label: 'Odin : apparence du moment', what: 'Thème, couleur d\'Odin (météo, marée, nuit), événement du jour, clics, pouvoirs : ce que tous tes écrans affichent', read: true, quiet: true, run: async (ctx) => {
-        const n = await now(ctx), tz = s(ctx.settings.fuseau) || 'Indian/Mayotte', day = ymd(ctx.now(), tz), ev = cleanEvents(ctx.settings.evenements), m = (ctx.settings.mascotte ?? {}) as { cache?: boolean; clics?: unknown };
+        const n = await now(ctx), tz = s(ctx.settings.fuseau) || 'Indian/Mayotte', day = ymd(ctx.now(), tz), ev = cleanEvents(ctx.settings.evenements), m = (ctx.settings.mascotte ?? {}) as { cache?: boolean; clics?: unknown; clics2?: unknown; clicsOn?: boolean };
         const color = n.mode === 'auto' ? odinColor(hourIn(ctx.now(), tz), n.wx, n.wx ? await highTide(ctx, n.wx.lat, n.wx.lon) : false) : undefined;
         const event = todayEvent(day, ev), p = cleanPowers(ctx.settings.pouvoirs), mute = ev.ramadanSansPouvoirs && inRamadan(day, ev);
         const power = p.choix === 'theme' ? (event?.power ?? powerForTheme[n.theme] ?? 'feu') : p.choix === 'meteo' ? powerForWeather(n.wx) : undefined;
-        const data = { mode: n.mode, theme: n.theme, why: n.why, odin: color, event, day, cache: m.cache === true, clics: cleanClicks(m.clics), pouvoirs: { ...p, actif: p.actif && !mute, coupeRamadan: mute, pouvoir: power }, evenements: ev };
+        const data = { mode: n.mode, theme: n.theme, why: n.why, odin: color, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, pouvoirs: { ...p, actif: p.actif && !mute, coupeRamadan: mute, pouvoir: power }, evenements: ev };
         return { text: `🎨 ${THEME_NAMES[n.theme]}${color ? ` · Odin ${color.why}` : ''}${event ? ` · ${event.name}` : ''} · pouvoirs ${data.pouvoirs.actif ? 'activés' : 'coupés'}${data.cache ? ' · Odin caché' : ''}`, data };
       } },
       { id: 'regler_mascotte', label: 'Régler Odin (clics, pouvoirs, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, pouvoirs, evenements)', quiet: true, quick: false,
         params: [{ key: 'reglages', label: 'Réglages (JSON)', kind: 'text', required: true }], run: (ctx, i) => {
           let j: Record<string, unknown>; try { j = JSON.parse(s(i.reglages)) as Record<string, unknown>; } catch { throw new Error('réglages illisibles'); }
           const patch: Record<string, unknown> = {};
-          if (j.mascotte && typeof j.mascotte === 'object') { const m = j.mascotte as { cache?: unknown; clics?: unknown }, old = (ctx.settings.mascotte ?? {}) as Record<string, unknown>; patch.mascotte = { ...old, ...(typeof m.cache === 'boolean' ? { cache: m.cache } : {}), ...(m.clics !== undefined ? { clics: cleanClicks(m.clics) } : {}) }; }
+          if (j.mascotte && typeof j.mascotte === 'object') { const m = j.mascotte as { cache?: unknown; clics?: unknown; clics2?: unknown; clicsOn?: unknown }, old = (ctx.settings.mascotte ?? {}) as Record<string, unknown>; patch.mascotte = { ...old, ...(typeof m.cache === 'boolean' ? { cache: m.cache } : {}), ...(m.clics !== undefined ? { clics: cleanClicks(m.clics) } : {}), ...(m.clics2 !== undefined ? { clics2: cleanClicks2(m.clics2) } : {}), ...(typeof m.clicsOn === 'boolean' ? { clicsOn: m.clicsOn } : {}) }; }
           if (j.pouvoirs !== undefined) patch.pouvoirs = cleanPowers({ ...cleanPowers(ctx.settings.pouvoirs), ...(j.pouvoirs as object), quand: { ...cleanPowers(ctx.settings.pouvoirs).quand, ...((j.pouvoirs as PowersCfg).quand ?? {}) } });
           if (j.evenements !== undefined) patch.evenements = cleanEvents({ ...cleanEvents(ctx.settings.evenements), ...(j.evenements as object) });
           if (!Object.keys(patch).length) throw new Error('rien à enregistrer');

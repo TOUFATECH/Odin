@@ -1,5 +1,5 @@
-// Odin, la mascotte (maquettes validées) : les clics rapides (1 à 20, chaque nombre réglable ; 10 = il se cache
-// sur tous tes écrans, 20 = il propose de redémarrer), ses habits de fête (bonnet de Noël, œuf de Pâques et son
+// Odin, la mascotte (maquettes validées) : les clics rapides (1 = « Que veux-tu ? », 2 et 3 = rien, de 4 à 100 une action
+// choisie par toi dans Réglages → Apparence, toujours confirmée avant d'être faite ; voir src/valhalla/clics.ts), ses habits de fête (bonnet de Noël, œuf de Pâques et son
 // lapin, lune du Ramadan…), sa phrase du jour, ses pouvoirs, et les réglages (Réglages → Apparence) : Odin,
 // Pouvoirs, Événements de l'année. Tout est gardé par Odin : les mêmes réglages sur tous tes écrans.
 (() => {
@@ -129,6 +129,7 @@
   // ---------------------------------------------------------------- les clics rapides (1 à 20)
   let taps = [], tapT = 0, badge = null;
   const NEXT_HIDE = () => { const c = D?.clics || {}; return Object.keys(c).map(Number).filter((n) => c[n] === 'cacher').sort((a, b) => a - b)[0]; };
+  const CLICKS_PAGE = 18; let clickPage = 0, clickQuery = '', clickErr = {};
   function showBadge(n) {
     const b = bud(); if (!b) return;
     if (!badge) { badge = document.createElement('span'); badge.id = 'odinTaps'; badge.setAttribute('aria-live', 'polite'); document.body.append(badge); }
@@ -155,17 +156,59 @@
       try { const r = await fetch('/api/action', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ kind: 'app_restart' }) }).then((x) => x.json()); if (!r.ok) { say(r.error || 'Redémarrage impossible', 'souci'); return; } say('Je redémarre… à tout de suite.'); setTimeout(() => location.reload(), 8000); } catch (e) { say(e.message, 'souci'); }
     });
   }
+  /** Une petite fenêtre « Je le fais ? » : Oui / Non. Résout true seulement sur Oui. */
+  function confirmAsk(title, text, grave) {
+    return new Promise((done) => {
+      const d = document.createElement('dialog'); d.className = 'odin-restart';
+      const f = document.createElement('form'); f.method = 'dialog'; f.style.cssText = 'display:flex;flex-direction:column;gap:12px;max-width:400px';
+      const b = document.createElement('b'); b.style.fontSize = '17px'; b.textContent = title;
+      const t = document.createElement('span'); t.style.cssText = 'font-size:14px;line-height:1.5'; t.textContent = text;
+      const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+      const no = document.createElement('button'); no.value = 'non'; no.className = 'btn'; no.textContent = 'Non';
+      const yes = document.createElement('button'); yes.value = 'oui'; yes.className = 'btn primary'; yes.textContent = grave ? 'Oui, je confirme' : 'Oui'; if (grave) yes.style.background = '#c0392b';
+      row.append(no, yes); f.append(b, t, ...(grave ? [Object.assign(document.createElement('small'), { textContent: 'Action importante : Heimdall la vérifie aussi.', style: 'color:#c0392b' })] : []), row); d.append(f); document.body.append(d); d.showModal(); no.focus();
+      d.addEventListener('close', () => { const ok = d.returnValue === 'oui'; d.remove(); done(ok); });
+    });
+  }
+  const post = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) }).then((r) => r.json());
+  /** Lance l'action du catalogue `a` (après ta confirmation, sauf pour les petits gestes d'Odin). */
+  async function runClick(a, b, n) {
+    const fn = a.run?.fn || '';
+    if (['rire', 'phrase', 'avertir', 'theme', 'pouvoir'].includes(fn)) return void ACTIONS[fn]?.(b, n);
+    if (!(await confirmAsk(`${n} clics : ${a.label}`, a.ask || `${a.label} ?`, a.grave))) { say('D\'accord, je ne fais rien.'); return; }
+    try {
+      if (a.run?.act) {
+        const [module, action] = a.run.act;
+        let r = await post('/api/valhalla/act', { module, action, input: {} });
+        if (r.confirm) r = await post('/api/valhalla/act', { module, action, input: {}, confirm: true });
+        say(r.ok === false ? `✗ ${r.text || r.error || 'échec'}` : String(r.text || 'Fait.').split('\n')[0].slice(0, 140), r.ok === false ? 'souci' : 'ok');
+      } else if (a.run?.say) {
+        if (window.OdinGuide?.ask) window.OdinGuide.ask(a.run.say); else { location.hash = '#chat'; }
+      } else if (fn === 'redemarrer_serveur') {
+        const r = await post('/api/action', { kind: 'host_restart', confirm: true }); say(r.ok ? r.text : `✗ ${r.error}`, r.ok ? 'ok' : 'souci');
+      } else if (fn === 'redemarrer_odin') {
+        const r = await post('/api/action', { kind: 'app_restart' }); say(r.ok ? 'Je redémarre, je reviens tout de suite.' : `✗ ${r.error || 'redémarrage impossible'}`, r.ok ? 'ok' : 'souci');
+      } else if (fn === 'maj_chercher') { const r = await post('/api/action', { kind: 'update_check' }); say(r.ok === false ? `✗ ${r.error || 'échec'}` : (r.info?.available ? `Nouvelle version disponible : ${r.info.latest || ''} (${r.info.behind} changement(s))` : 'Odin est à jour.'), 'ok'); }
+      else if (fn === 'maj_installer') { const r = await post('/api/action', { kind: 'update_apply' }); say(r.ok ? (r.text || 'Mise à jour installée.') : `✗ ${r.error || 'échec'}`, r.ok ? 'ok' : 'souci'); }
+      else if (fn === 'cacher' || fn === 'muet') await ACTIONS[fn](b, n);
+      else if (fn.startsWith('vue:')) window.OdinShow?.(fn.slice(4));
+      else if (fn.startsWith('app:')) { window.OdinShow?.('apps'); setTimeout(() => window.OdinApps?.app?.(fn.slice(4)), 150); }
+      else if (fn === 'nouveautes') window.OdinGuide?.news?.();
+      else if (fn === 'surprise') { ACTIONS.rire(b, n); ACTIONS.pouvoir(b, n); window.OdinPowers?.sparkle?.(b.getBoundingClientRect().left + 30, b.getBoundingClientRect().top + 30, 160); say('Cent clics ! Tu es le champion de la patience. 🎉'); }
+    } catch (e) { say(`✗ ${e.message}`, 'souci'); }
+  }
   /** Un toucher sur Odin : 1 = lui parler ; plusieurs toucher rapides = l'action réglée pour ce nombre, quand tu t'arrêtes. */
   function tap(b, talk) {
     const now = Date.now(); taps = taps.length && now - taps[taps.length - 1] < 1200 ? [...taps, now] : [now];
     const n = taps.length; clearTimeout(tapT);
     if (n === 1) (talk || window.OdinNotices?.talk)?.();
-    else { window.OdinFace?.flash(b, n >= 8 ? 'surprise' : 'joie', 900); window.OdinCompanion?.act?.('act-tilt', 500); }
+    else { if (n === 2) window.OdinNotices?.closeTalk?.(); window.OdinFace?.flash(b, n >= 8 ? 'surprise' : 'joie', 900); window.OdinCompanion?.act?.('act-tilt', 500); }
     showBadge(n);
     tapT = setTimeout(() => {
       if (badge) badge.hidden = true; taps = [];
-      const a = n >= 2 ? (D?.clics || {})[Math.min(n, 20)] : undefined;
-      if (a && ACTIONS[a]) void ACTIONS[a](b, n);
+      if (n < 4 || D?.clicsOn === false) return;
+      const id = (D?.clics || {})[n], a = id && (D?.clicsCatalogue || []).find((x) => x.id === id);
+      if (a) void runClick(a, b, n); else if (n >= 4) say(`${n} clics : aucune action réglée pour ce nombre (Réglages → Apparence).`);
     }, 1200);
   }
 
@@ -193,22 +236,45 @@
   function paint() {
     const card = document.querySelector('article.card[data-sec="apparence"]'); if (!card || !D) return;
     let box = card.querySelector('#odinMascotteBox');
-    if (!box) { box = h('div', { id: 'odinMascotteBox', style: 'display:flex;flex-direction:column;gap:18px;margin-top:14px' }); card.append(box); const st = document.createElement('style'); st.textContent = '#odinMascotteBox h3{margin:0;font-size:15px}#odinMascotteBox .mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#odinMascotteBox .pw{display:flex;flex-wrap:wrap;gap:6px}#odinMascotteBox .pw button{min-height:32px;border-radius:16px;border:1px solid var(--line);background:none;color:var(--ink);padding:0 10px;font-size:13px;cursor:pointer}#odinMascotteBox .pw button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}#odinMascotteBox .evg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 16px}#odinMascotteBox .demo{height:56px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;padding:0 14px;font-size:13px;max-width:280px}'; document.head.append(st); }
+    if (!box) { box = h('div', { id: 'odinMascotteBox', style: 'display:flex;flex-direction:column;gap:18px;margin-top:14px' }); card.append(box); const st = document.createElement('style'); st.textContent = '#odinMascotteBox .mc-head{display:flex;gap:8px;align-items:center;margin:6px 0}#odinMascotteBox .mc-head input{flex:1;min-width:0;height:44px;box-sizing:border-box;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:10px;padding:0 12px;font:inherit}#odinMascotteBox .mc-pos{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;white-space:nowrap}#odinMascotteBox .mc-arrow{width:52px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:700 32px/1 system-ui,sans-serif;cursor:pointer;flex:none}#odinMascotteBox .mc-arrow:disabled{opacity:.35;cursor:default}#odinMascotteBox .mc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:8px}#odinMascotteBox .mc-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--panel)}#odinMascotteBox .mc-row.off{opacity:.75}#odinMascotteBox .mc-n{display:grid;place-items:center;height:30px;border-radius:15px;background:var(--accent,#2457c5);color:var(--on-accent,#fff);font-weight:700;font-variant-numeric:tabular-nums}#odinMascotteBox .mc-row.off .mc-n{background:var(--line);color:var(--muted)}#odinMascotteBox .mc-t{min-width:0}#odinMascotteBox .mc-t b{display:block;font-size:14px}#odinMascotteBox .mc-t small{color:var(--muted);font-size:12px}#odinMascotteBox .mc-in{display:grid;justify-items:end;gap:4px}#odinMascotteBox .mc-in input{width:72px;height:38px;text-align:center;font:700 16px system-ui,sans-serif;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:10px}#odinMascotteBox .mc-in input.bad{border-color:#c0392b;outline:2px solid rgba(192,57,43,.3)}#odinMascotteBox .mc-err{color:#c0392b;font-size:12px;max-width:220px;text-align:right}#odinMascotteBox h3{margin:0;font-size:15px}#odinMascotteBox .mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#odinMascotteBox .pw{display:flex;flex-wrap:wrap;gap:6px}#odinMascotteBox .pw button{min-height:32px;border-radius:16px;border:1px solid var(--line);background:none;color:var(--ink);padding:0 10px;font-size:13px;cursor:pointer}#odinMascotteBox .pw button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}#odinMascotteBox .evg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 16px}#odinMascotteBox .demo{height:56px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;padding:0 14px;font-size:13px;max-width:280px}'; document.head.append(st); }
     const p = D.pouvoirs || {}, q = p.quand || {}, ev = D.evenements || {}, clics = D.clics || {};
     const P = window.OdinPowers?.POWERS || {};
     const sp = (patch) => void save({ pouvoirs: patch });
     const se = (patch) => void save({ evenements: patch }).then(loadEvents).then(paint);
-    const rows = Object.keys(clics).map(Number).sort((a, b) => a - b).map((n) => h('div', { class: 'mrow' }, h('span', { style: 'min-width:70px;font-weight:600' }, `${n} clics`),
-      h('select', { 'aria-label': `Action pour ${n} clics`, on: { change: (e) => void save({ mascotte: { clics: { ...clics, [n]: e.target.value } } }) } }, Object.entries(LABELS).map(([k, t]) => h('option', { value: k, ...(clics[n] === k ? { selected: true } : {}) }, t)))));
-    const addSel = h('select', { 'aria-label': 'Nombre de clics à ajouter' }, Array.from({ length: 19 }, (_, i) => i + 2).filter((n) => !clics[n]).map((n) => h('option', { value: n }, `${n} clics`)));
+    // Clics sur Odin : chaque action a son nombre (4 à 100), un nombre = une action ; 18 actions par page.
+    const cat = D.clicsCatalogue || [], numOf = (id) => { for (const [k, v] of Object.entries(clics)) if (v === id) return Number(k); return null; };
+    const list = cat.filter((a) => !clickQuery || `${a.label} ${a.app}`.toLowerCase().includes(clickQuery)).sort((x, y) => (numOf(x.id) ?? 999) - (numOf(y.id) ?? 999));
+    const pages = Math.max(1, Math.ceil(list.length / CLICKS_PAGE)); clickPage = Math.min(clickPage, pages - 1);
+    const setNum = (a, raw) => {
+      const v = String(raw).trim(); delete clickErr[a.id];
+      const next = Object.fromEntries(Object.entries(clics).filter(([, id]) => id !== a.id));
+      if (v !== '') {
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < 4 || n > 100) { clickErr[a.id] = 'Entre 4 et 100 (1 = « Que veux-tu ? », 2 et 3 = rien).'; paint(); return; }
+        const o = next[n] && cat.find((x) => x.id === next[n]); if (o) { clickErr[a.id] = `${n} clics, c'est déjà « ${o.label} ». Choisis un autre nombre, ou change d'abord celui-là.`; paint(); return; }
+        next[n] = a.id;
+      }
+      void save({ mascotte: { clics2: next } });
+    };
+    const arrow = (dir, label) => h('button', { type: 'button', class: 'mc-arrow', 'aria-label': label, ...(dir < 0 ? (clickPage === 0 ? { disabled: true } : {}) : (clickPage >= pages - 1 ? { disabled: true } : {})), on: { click: () => { clickPage = Math.max(0, Math.min(pages - 1, clickPage + dir)); paint(); } } }, dir < 0 ? '‹' : '›');
+    const search = h('input', { type: 'search', placeholder: 'Chercher une action…', 'aria-label': 'Chercher une action', value: clickQuery, on: { input: (e) => { clickQuery = e.target.value.toLowerCase(); clickPage = 0; paint(); const q = document.querySelector('#odinMascotteBox .mc-head input'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } } } });
+    const rows = [
+      h('div', { class: 'mc-head' }, search, h('span', { class: 'mc-pos' }, `${clickPage + 1} / ${pages}`), arrow(-1, 'Page précédente'), arrow(1, 'Page suivante')),
+      h('div', { class: 'mc-grid' }, list.slice(clickPage * CLICKS_PAGE, clickPage * CLICKS_PAGE + CLICKS_PAGE).map((a) => { const n = numOf(a.id); return h('div', { class: `mc-row${n ? '' : ' off'}` },
+        h('span', { class: 'mc-n' }, n ? String(n) : '—'),
+        h('div', { class: 'mc-t' }, h('b', {}, a.label), h('small', {}, `${a.app}${a.grave ? ' · grave' : ''}`)),
+        h('div', { class: 'mc-in' }, h('input', { type: 'number', inputmode: 'numeric', min: '4', max: '100', placeholder: 'aucun', value: n ?? '', 'aria-label': `Nombre de clics pour ${a.label}`, ...(clickErr[a.id] ? { class: 'bad' } : {}), on: { change: (e) => setNum(a, e.target.value) } }), clickErr[a.id] ? h('span', { class: 'mc-err', role: 'alert' }, clickErr[a.id]) : null)); })),
+      h('div', { class: 'mrow' }, h('button', { type: 'button', class: 'btn', on: { click: () => { clickErr = {}; void save({ mascotte: { clics2: null } }); } } }, 'Remettre les nombres proposés'), h('span', { class: 'hint' }, `${Object.keys(clics).length} actions ont un nombre sur ${cat.length}`)),
+    ];
     const demoEl = h('div', { class: 'demo', 'data-power': 'non' }, 'Un onglet d\'essai');
     const groups = {};
     for (const e of events?.events || []) (groups[e.group] ??= []).push(e);
     box.replaceChildren(
       h('section', { 'aria-label': 'Odin' }, h('h3', {}, 'Odin'),
         check('Odin visible sur tous tes écrans', !D.cache, (on) => void save({ mascotte: { cache: !on } }), 'Dix clics rapides le cachent partout ; il revient ici.'),
-        h('p', { class: 'hint', style: 'margin:8px 0 4px' }, 'Clics rapides sur Odin (1 = lui parler ; 2 à 4 : rien ; l\'action se fait quand tu t\'arrêtes) :'),
-        ...rows, h('div', { class: 'mrow' }, addSel, h('button', { type: 'button', class: 'btn', on: { click: () => void save({ mascotte: { clics: { ...clics, [addSel.value]: 'rire' } } }) } }, 'Ajouter'))),
+        check('Clics sur Odin activés', D.clicsOn !== false, (on) => void save({ mascotte: { clicsOn: on } }), 'Coupé : un clic ouvre seulement « Que veux-tu ? ».'),
+        h('p', { class: 'hint', style: 'margin:8px 0 4px' }, '1 clic = « Que veux-tu ? » ; 2 et 3 = rien ; à partir de 4, l\'action dont tu as mis le nombre. Odin te demande toujours avant de faire.'),
+        ...rows),
       h('section', { 'aria-label': 'Pouvoirs' }, h('h3', {}, 'Pouvoirs d\'Odin'),
         check('Pouvoirs activés', p.actif || p.coupeRamadan, (on) => sp({ actif: on }), p.coupeRamadan ? 'Coupés pendant le Ramadan (réglage des événements).' : 'Désactivés au départ. Coupés : plus aucun pouvoir, nulle part, et celui en cours s\'arrête aussitôt.'),
         h('div', { class: 'mrow', style: 'margin-top:6px' }, [['ouvre', 'Un onglet s\'ouvre'], ['ferme', 'Un onglet se ferme'], ['supprime', 'Supprimer'], ['fenetre', 'Une fenêtre s\'ouvre ou se ferme'], ['clic', 'Clic n\'importe où']].map(([k, t]) => check(t, q[k], (on) => sp({ quand: { [k]: on } })))),

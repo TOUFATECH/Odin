@@ -1,6 +1,6 @@
 {
   "name": "odin-agent",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "description": "Odin — agent IA personnel, auto-apprenant et sûr par défaut : interface web, Telegram, inventaire du réseau, décisions transparentes.",
   "type": "module",
   "license": "MIT",
