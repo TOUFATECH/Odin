@@ -8,7 +8,7 @@
 # Sur un PC (amd64), la construction passe par l'émulation : paquets qemu-user-static et binfmt-support.
 export ARCH=arm64
 . "$(dirname "$0")/commun.sh"
-racine_requise; besoin tar xz mke2fs mkfs.vfat mcopy sfdisk grub-mkstandalone
+racine_requise; besoin tar xz mke2fs mkfs.vfat mcopy sfdisk
 "$(dirname "$0")/base.sh"
 mkdir -p "$SORTIE"
 
@@ -64,12 +64,15 @@ menuentry "Odin OS $VERSION_OS (dépannage : console)" {
   initrd /boot/initrd.img
 }
 G
+# Le chargeur de démarrage UEFI est fabriqué avec le GRUB de l'image elle-même : l'outil et ses modules sont de la même
+# version (un outil de la machine de construction avec les modules de l'image donne un chargeur qui plante au démarrage).
+T="$TRAVAIL/mobile-image"; rm -rf "$T"; mkdir -p "$T"
+printf 'search --no-floppy --label ODINOS --set=root\nset prefix=($root)/boot/grub\nconfigfile /boot/grub/grub.cfg\n' > "$S/tmp/demarrage.cfg"
+dans "$S" grub-mkstandalone -O arm64-efi --modules="part_gpt ext2 fat normal linux search search_label configfile gzio all_video" -o /tmp/BOOTAA64.EFI "boot/grub/grub.cfg=/tmp/demarrage.cfg" >/dev/null
+mv "$S/tmp/BOOTAA64.EFI" "$T/BOOTAA64.EFI"; rm -f "$S/tmp/demarrage.cfg"
 sceller "$S"
 
 dire "Image disque (UEFI)"
-T="$TRAVAIL/mobile-image"; rm -rf "$T"; mkdir -p "$T"
-printf 'search --no-floppy --label ODINOS --set=root\nset prefix=($root)/boot/grub\nconfigfile /boot/grub/grub.cfg\n' > "$T/demarrage.cfg"
-grub-mkstandalone -d "$S/usr/lib/grub/arm64-efi" -O arm64-efi --modules="part_gpt ext2 fat normal linux search search_label configfile gzio all_video" -o "$T/BOOTAA64.EFI" "boot/grub/grub.cfg=$T/demarrage.cfg" >/dev/null
 # Sans périphérique « loop » : chaque partition est fabriquée dans un fichier, puis posée à sa place dans l'image.
 truncate -s 200M "$T/efi.fat"; mkfs.vfat -n ODINEFI "$T/efi.fat" >/dev/null
 mmd -i "$T/efi.fat" ::/EFI ::/EFI/BOOT; mcopy -i "$T/efi.fat" "$T/BOOTAA64.EFI" ::/EFI/BOOT/BOOTAA64.EFI

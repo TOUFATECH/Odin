@@ -160,6 +160,25 @@ Sur l'image PC : systemd démarre `odin.service` (Odin, sur `127.0.0.1:7777`) pu
 - **Paquets et ponts** : seulement dans une image Odin OS. Odin ne touche jamais aux paquets d'une machine où il est simplement installé.
 - Dans une image, le compte `odin` a les droits administrateur sans mot de passe : c'est le système d'Odin. Protège donc l'accès au bureau (compte, réseau).
 
+## Ce qui a été testé (0.1.0)
+
+Les essais sur machine ont été faits dans des machines virtuelles QEMU, sans accélération (donc lentes), et dans de vrais conteneurs.
+
+| Quoi | Comment | Résultat |
+|---|---|---|
+| Bureau, les 5 thèmes, écran téléphone, Odin Setup, Odin Store, Fichiers, Terminal, Réglages, Ullr | captures dans WebKit, en mode essai et avec un Odin réel | marche |
+| Image Docker | conteneur réel : compte, bureau, vraies commandes, recherche et installation d'un paquet, pont Windows (Wine) avec un programme console | marche |
+| Modèle LXC | `lxc-create` puis démarrage : systemd, service Odin, bureau en HTTPS | marche |
+| ISO PC | démarrage par son menu en BIOS et en UEFI, Odin Setup complet (compte, clavier, disque, style, applis), installation sur le disque | marche |
+| Disque installé | démarrage en BIOS et en UEFI, mot de passe demandé, bureau au style choisi, vraies commandes dans le Terminal | marche |
+| Base arm64 (téléphone) | lancée en émulation : Odin démarre, compte, bureau, commandes | marche |
+| Image arm64 UEFI | machine ARM émulée : menu de démarrage, noyau, session graphique, Odin Setup s'affiche | marche jusque-là ; la suite d'Odin Setup n'a pas été parcourue sur cette image |
+| Odin Launcher (APK) | compilée, signée, signature vérifiée | pas installée sur un téléphone |
+| Paquet WSL et scripts PowerShell | construits | pas testés (il faut un Windows avec WSL) |
+| Installation par Proxmox (`pct`) | écrite | pas testée (le modèle est le même que pour `lxc-create`) |
+| Ponts Android (Waydroid) et Mac (Darling) | paquets vérifiés sur Ubuntu 26.04 | pas testés de bout en bout |
+| Vrai PC, Wi-Fi, son, écran tactile | — | pas testés |
+
 ## Pas encore dans 0.1
 
 - Installation à côté d'un autre système, chiffrement du disque.

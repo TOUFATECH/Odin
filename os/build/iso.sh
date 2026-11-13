@@ -21,6 +21,8 @@ installer "$R" "$NOYAU" initramfs-tools live-boot udev kmod zstd \
 cp -a "$RACINE/os/rootfs/ecran/." "$RACINE/os/rootfs/pc/." "$R/"
 find "$R/usr/local/bin" "$R/usr/local/sbin" "$R/usr/local/lib/odin-os" -type f -exec chmod +x {} +
 echo fr > "$R/etc/odin-os/clavier"
+# Au démarrage de la session d'essai, live-boot écrit un fichier dans /etc/network : sans ce dossier, un message d'erreur s'affiche à l'écran.
+mkdir -p "$R/etc/network"
 dans "$R" systemctl enable odin-os-ecran.service >/dev/null 2>&1
 dans "$R" systemctl set-default graphical.target >/dev/null 2>&1
 dans "$R" systemctl mask getty@tty1.service >/dev/null 2>&1
