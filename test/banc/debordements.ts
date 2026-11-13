@@ -45,6 +45,8 @@ export interface OptionsDetection {
   racine?: string;
   /** Sélecteurs à laisser de côté (eux et ce qu'ils contiennent). */
   ignorer?: string[];
+  /** Panneaux flottants ouverts exprès (menu, petite fenêtre) : ils ont le droit de couvrir la page. */
+  dessus?: string[];
   /** Vérifier les cibles tactiles. Par défaut : seulement si la fenêtre fait 480 px de large ou moins. */
   tactile?: boolean;
   /** Taille minimale d'une cible tactile (40 px). */

@@ -11,7 +11,7 @@
 (function () {
   'use strict';
   return async function detecter(o) {
-    o = Object.assign({ racine: '', ignorer: [], tactile: null, cibleMin: 40, contraste: true, focus: true, defiler: true, decor: true, onglets: '', cadre: null, regrouper: true, maxFocus: 80 }, o || {});
+    o = Object.assign({ racine: '', ignorer: [], dessus: [], tactile: null, cibleMin: 40, contraste: true, focus: true, defiler: true, decor: true, onglets: '', cadre: null, regrouper: true, maxFocus: 80 }, o || {});
     const t0 = performance.now();
     const D = document, DE = D.documentElement, B = D.body, W = innerWidth, H = innerHeight, EPS = 1.5;
     const SVGNS = 'http://www.w3.org/2000/svg';
@@ -24,7 +24,7 @@
     const cs = (e) => { let s = csC.get(e); if (!s) { s = getComputedStyle(e); csC.set(e, s); } return s; };
     const rect = (e) => e.getBoundingClientRect();
     const R = (e) => { const r = rect(e); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
-    const ign = (o.ignorer || []).filter(Boolean).join(',');
+    const ign = (o.ignorer || []).filter(Boolean).join(','), dessus = (o.dessus || []).filter(Boolean).join(',');
     const ignore = (e) => Boolean(ign && e.closest && e.closest(ign));
     const esc = (s) => CSS.escape(s);
     const VOLATILE = /^(on|open|active|cur|pop|in|out|walk|hopto|follow|bounce|thinking|talking|dragging)$|^(m-|e-|act-|is-|has-)/;
@@ -379,6 +379,7 @@
       const f = racineFixe(S), me = M(e.el), memeFixe = f && (f.el === me.fix || f.el === me.colle);
       if (f && !memeFixe) {
         if (estModale(f.el)) continue;
+        if (dessus && f.el.matches(dessus)) continue;     // un panneau ouvert exprès (menu, petite fenêtre) a le droit de couvrir la page
         const type = typeFixe(f);
         // Sous une barre, le contenu qui défile passe normalement : seul compte ce qui ne peut jamais en sortir.
         if (type === 'barre-bas' && (e.clair || !cc.passes.has(derniere))) continue;

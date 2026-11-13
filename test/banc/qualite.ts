@@ -57,6 +57,8 @@ export interface Cible {
   racine?: string;
   /** Ouvre aussi chaque onglet trouvé sous ce sélecteur (un passage par onglet). */
   onglets?: string;
+  /** … y compris ceux que la rangée ne montre pas pour l'instant (rubriques des Réglages). */
+  ongletsCaches?: boolean;
   famille: 'ecran' | 'appli' | 'hors' | 'essai';
   /** Cette page montre exprès une notification : on ne la referme pas avant de mesurer. */
   bulle?: boolean;
@@ -72,7 +74,7 @@ export const ECRANS: Cible[] = [
   spa('maison', 'Maison (réseau)', `window.OdinShow('net')`, '#v-net', { onglets: '#v-net .ntabs' }),
   spa('appareil', 'Fiche d\'un appareil', `window.OdinShow('net'); setTimeout(() => (document.querySelector('#v-net tr.clickable, #v-net .dev, #v-net [data-id]') || {}).click?.(), 400)`, '#v-net, #v-device'),
   spa('applis', 'Carte des applis', `window.OdinShow('apps')`, '#v-apps'),
-  spa('reglages', 'Réglages', `window.OdinShow('settings')`, '#v-settings', { onglets: '#snav' }),
+  spa('reglages', 'Réglages', `window.OdinShow('settings')`, '#v-settings', { onglets: '#snav', ongletsCaches: true }),
   spa('evolutions', 'Évolutions', `window.OdinShow('home'); window.OdinEvolution.open()`, 'body'),
   spa('automatisations', 'Automatisations', `window.OdinShow('flows')`, '#v-flows'),
   spa('papyrus', 'Papyrus (bases)', `window.OdinShow('runes')`, '#v-runes'),
@@ -82,15 +84,15 @@ export const ECRANS: Cible[] = [
   spa('taches', 'Tâches planifiées', `window.OdinShow('jobs')`, '#v-jobs'),
   spa('decisions', 'Décisions', `window.OdinShow('audit')`, '#v-audit'),
   spa('palette', 'Chercher ou faire (Ctrl K)', `window.OdinShow('home'); document.querySelector('#palBtn').click()`, 'body'),
-  spa('guide', 'Guide d\'Odin', `window.OdinShow('home'); window.OdinGuide.open()`, 'body'),
-  spa('menu', 'Menu ouvert (téléphone)', `window.OdinShow('home'); document.querySelector('#moreBtn').click()`, 'body'),
+  spa('guide', 'Guide d\'Odin', `window.OdinShow('home'); window.OdinGuide.open()`, 'body', { options: { dessus: ['.guide'] } }),
+  spa('menu', 'Menu ouvert (téléphone)', `window.OdinShow('home'); document.querySelector('#moreBtn').click()`, 'body', { options: { dessus: ['#sideNav'] } }),
   spa('visite', 'Visite guidée proposée au premier démarrage', `window.OdinTour.offer(true)`, 'body'),
   spa('bulle:aujourdhui', 'Notification sur Aujourd\'hui', `window.OdinShow('home'); ${BULLE}`, 'body', { bulle: true }),
   spa('bulle:discussion', 'Notification sur Discussion', `window.OdinShow('chat'); ${BULLE}`, 'body', { bulle: true }),
   spa('bulle:reglages', 'Notification sur Réglages', `window.OdinShow('settings'); ${BULLE}`, 'body', { bulle: true }),
   spa('bulle:applis', 'Notification sur la carte des applis', `window.OdinShow('apps'); ${BULLE}`, 'body', { bulle: true }),
   spa('bulle:appli', 'Notification sur la page d\'une appli', `void window.OdinApps.app('ullr').then(() => ${BULLE})`, 'body', { bulle: true }),
-  spa('fenetre-odin', 'Petite fenêtre « Que veux-tu ? » (un toucher sur Odin)', `window.OdinShow('home'); window.OdinNotices.talk()`, 'body', { bulle: true }),
+  spa('fenetre-odin', 'Petite fenêtre « Que veux-tu ? » (un toucher sur Odin)', `window.OdinShow('home'); window.OdinNotices.talk()`, 'body', { bulle: true, options: { dessus: ['#odinTalk'] } }),
   { id: 'ecran-maison', titre: 'Écran de la maison (/maison)', genre: 'url', url: '/maison', pret: 'body', famille: 'hors' },
   { id: 'recherche', titre: 'Recherche (/recherche)', genre: 'url', url: '/recherche', pret: 'body', famille: 'hors' },
   { id: 'connexion', titre: 'Connexion', genre: 'anonyme', url: '/', pret: '#login:not([hidden])', famille: 'hors' },
@@ -221,20 +223,22 @@ async function parcourir(nav: Nav, s: Session, cibles: Cible[], largeurs: number
               if (c.pret && c.pret !== 'body') await page.waitForSelector(c.pret.split(',')[0].trim(), { timeout: 8000, state: 'attached' }).catch(() => undefined);
               const ouv = await ouverture(page, m, { calme: 350, max: 9000 });
               // Une notification arrivée toute seule fausserait la mesure de la page : elles ont leurs propres passages (« bulle:… »).
-              if (!c.bulle) await page.evaluate(`window.OdinNotices?.closeTalk?.(); window.OdinNotices?.hide?.()`).catch(() => undefined);
+              if (!c.bulle) await page.evaluate(`window.OdinNotices?.closeTalk?.(true); window.OdinNotices?.hide?.()`).catch(() => undefined);
               // Odin a pu changer d'écran entre-temps (une réponse qui arrive…) : on revient sur le bon.
               if (c.pret && /\.on$/.test(c.pret) && !(await page.evaluate<boolean>(`!!document.querySelector(${JSON.stringify(c.pret)})`))) { await page.evaluate(c.ouvrir!); await page.waitForTimeout(600); }
               await repos(page);
+              if (!c.bulle) await page.evaluate(`window.OdinNotices?.hide?.()`).catch(() => undefined);
               const r = await mesurer(page, c, largeur, apparence, sortie, vus, o);
               noter({ page: c.id, titre: c.titre, famille: c.famille, largeur, apparence, ouverture: ouv, mesures: r.mesures, defauts: r.defauts, erreurs: erreurs.slice(avantErr), ms: Date.now() - t0 });
               // Chaque onglet de la page (rubriques des Réglages, vues de la Maison, onglets d'une appli dessinée à part).
               if (c.onglets && (o.onglets || c.famille === 'appli')) {
-                const noms = await page.evaluate<string[]>(`[...document.querySelectorAll(${JSON.stringify(c.onglets)} + ' [role=tab]')].filter((t) => t.checkVisibility() && t.getAttribute('aria-selected') !== 'true').map((t) => t.textContent.trim()).slice(0, 30)`);
+                const noms = await page.evaluate<string[]>(`[...new Set([...document.querySelectorAll(${JSON.stringify(c.onglets)} + ' [role=tab]')].filter((t) => (${JSON.stringify(Boolean(c.ongletsCaches))} || t.checkVisibility()) && t.getAttribute('aria-selected') !== 'true').map((t) => t.textContent.trim()))].slice(0, 40)`);
                 for (const nom of noms) {
                   const t1 = Date.now(), m2 = await marquer(page, c.racine ?? '');
                   const ok = await page.evaluate<boolean>(`(() => { const t = [...document.querySelectorAll(${JSON.stringify(c.onglets)} + ' [role=tab]')].find((x) => x.textContent.trim() === ${JSON.stringify(nom)}); if (!t) return false; t.click(); return true; })()`);
                   if (!ok) continue;
                   const ouv2 = await ouverture(page, m2, { calme: 300, max: 6000 }); await repos(page, 1500);
+                  if (!c.bulle) await page.evaluate(`window.OdinNotices?.hide?.()`).catch(() => undefined);
                   const r2 = await mesurer(page, c, largeur, apparence, sortie, vus, { ...o, suffixe: `:${slug(nom)}` });
                   noter({ page: `${c.id}:${slug(nom)}`, titre: `${c.titre} › ${nom}`, famille: c.famille, largeur, apparence, ouverture: ouv2, mesures: r2.mesures, defauts: r2.defauts, erreurs: [], ms: Date.now() - t1 });
                 }
@@ -318,7 +322,8 @@ interface Ligne { cle: string; type: string; gravite: Gravite; selecteur: string
 export function origine(d: Defaut): string {
   const s = `${d.selecteur} ${d.dessous ?? ''} ${String(d.valeurs?.par ?? '')} ${String(d.valeurs?.boite ?? '')}`;
   if (/#odinBubble|#odinTalk|#odinAdvice|\.ob-|\.ot-|\.oa-/.test(s)) return 'notices.js';
-  if (/#buddyRoam|\.odin\.roam|span\.odin/.test(d.selecteur)) return 'companion.js / mascotte.js';
+  if (/\.odin-app-ic/.test(d.selecteur)) return 'app-icons.js';
+  if (/#buddyRoam|\.odin\.roam|span\.odin(?![\w-])/.test(d.selecteur)) return 'companion.js / mascotte.js';
   if (/\.fe-|#fenetre/.test(s)) return 'fenetre.js';
   if (/\.sv-/.test(s)) return 'pages/svalinn.js'; if (/\.ym-|\.ym\b/.test(s)) return 'pages/ymir.js'; if (/\.ur-/.test(s)) return 'pages/urdr.js'; if (/\.tj-/.test(s)) return 'pages/thjalfi.js'; if (/\.rd-/.test(s)) return 'pages/rodd.js'; if (/\.ng-|\.nf-/.test(s)) return 'pages/naglfar.js';
   if (/\.va-|#v-app\b|#v-apps\b|#vaTitle|#vaSub/.test(s)) return 'valhalla.js';
