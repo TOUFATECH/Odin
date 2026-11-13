@@ -39,6 +39,13 @@ export interface HttpDeps {
   report: (token: string, q: URLSearchParams, from: string) => boolean;
   /** une machine charge un fichier (pour suivre l'avancement) */
   fetched: (mac: string | undefined, what: 'noyau' | 'iso' | 'fichier', id: string, path: string, from: string) => void;
+  /** L'écran d'Odin (« /ecran ») : la page, l'état pour une machine, un choix, et l'attente côté iPXE. */
+  ecran?: {
+    page: () => string;
+    etat: (mac: string, from: string) => Promise<unknown>;
+    choisir: (mac: string, iso: string, mode: string, from: string) => Promise<unknown>;
+    attente: (mac: string, fw: string, n: number, from: string) => Promise<string>;
+  };
   log?: (s: string) => void;
 }
 
@@ -61,6 +68,14 @@ export class PxeHttp {
     const text = (body: string, type = 'text/plain; charset=utf-8') => { r.writeHead(200, { 'content-type': type, 'cache-control': 'no-store', 'content-length': Buffer.byteLength(body) }); r.end(q.method === 'HEAD' ? undefined : body); };
     if (path === '/boot.ipxe') return text(this.d.bootScript());
     if (path === '/menu.ipxe') { const mac = normMac(u.searchParams.get('mac') ?? ''); return text(await this.d.menu(mac, u.searchParams.get('fw') ?? '', from)); }
+    if (this.d.ecran && /^\/ecran(\/|$)/.test(path)) {
+      const e = this.d.ecran, mac = normMac(u.searchParams.get('mac') ?? '');
+      const json = (x: unknown) => text(JSON.stringify(x), 'application/json; charset=utf-8');
+      if (path === '/ecran' || path === '/ecran/') { r.setHeader('content-security-policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"); r.setHeader('x-content-type-options', 'nosniff'); return text(e.page(), 'text/html; charset=utf-8'); }
+      if (path === '/ecran/etat') return json(await e.etat(mac, from));
+      if (path === '/ecran/choisir') return json(await e.choisir(mac, u.searchParams.get('iso') ?? '', u.searchParams.get('mode') ?? '', from));
+      if (path === '/ecran/attente.ipxe') return text(await e.attente(mac, u.searchParams.get('fw') ?? '', Math.max(0, Math.min(10_000, Number(u.searchParams.get('n')) || 0)), from));
+    }
     let m = /^\/f\/([\w.-]+)\/(.+)$/.exec(path);
     if (m) {
       const f = await this.d.isoFile(m[1], m[2]); if (!f) { r.writeHead(404); r.end('absent'); return; }

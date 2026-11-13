@@ -217,3 +217,71 @@ test('préparer : chargeurs officiels téléchargés, Debian vérifiée par son 
     assert.equal(readFileSync(join(w.home, 'valhalla', 'thjalfi', 'boot', 'undionly.kpxe'), 'utf8'), 'K');
   } finally { w.end(); }
 });
+
+test('écran d\'Odin : choisir sur un téléphone, la machine attend puis démarre ; « Installer pour moi » attend ton accord', async () => {
+  const w = await world();
+  const mac = '52:54:00:cc:00:01', U = 'ubuntu-24-04-3-live-server-amd64';
+  try {
+    const m0 = (await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text;
+    assert.match(m0, /item ecran Choisir sur l'ecran d'Odin/); assert.match(m0, /chain http:\/\/127\.0\.0\.1:\d+\/ecran\/attente\.ipxe\?mac=52:54:00:cc:00:01&fw=\$\{platform\}/);
+    assert.match(m0, /choose --default local/, 'par défaut, toujours le disque');
+    const page = await fetch(`${w.base}/ecran?mac=${mac}`); assert.equal(page.status, 200); assert.match(page.headers.get('content-security-policy') ?? '', /default-src 'none'/); assert.match(await page.text(), /démarrage par le réseau/);
+    const st = JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text) as { systemes: Array<{ id: string; modes: string[]; title: string; category: string }>; dit: Record<string, string>; disposition: string };
+    const u = st.systemes.find((x) => x.id === U)!; assert.deepEqual(u.modes, ['installer', 'auto']); assert.equal(u.category, 'Serveurs'); assert.equal(st.disposition, 'eventail');
+    assert.match(st.dit[U], /je te demande ton accord avant/);
+    // La machine attend : elle redemande toutes les 3 s, puis reprend son disque (5 min).
+    const a0 = (await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=0`)).text; assert.match(a0, /sleep 3/); assert.match(a0, /n=1 /); assert.match(a0, /ecran\?mac=52:54:00:cc:00:01/);
+    assert.match((await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=100`)).text, /Pas de choix[\s\S]*goto local/);
+    // Un mode que ce système n'a pas : refusé.
+    assert.equal((JSON.parse((await w.get(`/ecran/choisir?mac=${mac}&iso=${U}&mode=essai`)).text) as { ok: boolean }).ok, false);
+    assert.equal((JSON.parse((await w.get(`/ecran/choisir?iso=${U}&mode=installer`)).text) as { ok: boolean }).ok, false, 'sans adresse de machine');
+    // « Installer » : la machine reprend le menu, qui lance l'ISO tout de suite, sans installation automatique — une seule fois.
+    assert.match((JSON.parse((await w.get(`/ecran/choisir?mac=${mac}&iso=${U}&mode=installer`)).text) as { texte: string }).texte, /C'est parti/);
+    assert.match((await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=7`)).text, /chain http:\/\/127\.0\.0\.1:\d+\/menu\.ipxe\?mac=52:54:00:cc:00:01&fw=efi/);
+    const m1 = (await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text; assert.match(m1, new RegExp(`choose --default e-${U} --timeout 0 `)); assert.doesNotMatch(m1, /autoinstall/);
+    assert.match((await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text, /choose --default local --timeout 10000/, 'le choix ne sert qu\'une fois');
+    // « Échap » : le disque, tout de suite.
+    await w.get(`/ecran/choisir?mac=${mac}&mode=disque`); assert.match((await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text, /choose --default local --timeout 0 /);
+    // « Installer pour moi » : une demande, une alerte ; rien ne s'efface avant ton accord.
+    assert.match((JSON.parse((await w.get(`/ecran/choisir?mac=${mac}&iso=${U}&mode=auto`)).text) as { texte: string }).texte, /j'attends ton accord/);
+    assert.match((await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=0`)).text, /accord demande/);
+    assert.match((await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=150`)).text, /n=151 /, 'en attente d\'accord, la machine patiente plus longtemps');
+    const tab = (await w.v.act('thjalfi', 'tableau')).data as { demandes: Array<{ id: string; statut: string; mac: string }>; chiffres: { enCours: number }; url: string };
+    const d = tab.demandes[0]; assert.equal(d.statut, 'attente'); assert.equal(d.mac, mac); assert.match(tab.url, /\/ecran$/);
+    assert.ok(w.v.alerts().some((x) => /demande « Installer pour moi »/.test(x.title) && x.fix?.action === 'decider'), 'alerte avec le bouton');
+    assert.equal(JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text).demande.statut, 'attente');
+    // L'accord est une action grave : refusée depuis une automatisation.
+    assert.equal((await w.v.act('thjalfi', 'decider', { id: d.id, accord: 'oui' }, { auto: true })).ok, false);
+    assert.match((await w.v.act('thjalfi', 'decider', { id: d.id, accord: 'oui' })).text, /Accepté : pc-cc0001 installe ubuntu-24\.04\.3-live-server-amd64 tout seul/);
+    assert.equal((await w.v.act('thjalfi', 'decider', { id: d.id, accord: 'non' })).ok, false, 'déjà décidé');
+    assert.match((await w.get(`/ecran/attente.ipxe?mac=${mac}&fw=efi&n=3`)).text, /chain .*\/menu\.ipxe/);
+    assert.match((await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text, /autoinstall/, 'accord donné : installation automatique');
+    // Refus et « sans effacer ».
+    const mac2 = '52:54:00:cc:00:02';
+    await w.get(`/ecran/choisir?mac=${mac2}&iso=${U}&mode=auto`);
+    let d2 = ((await w.v.act('thjalfi', 'tableau')).data as typeof tab).demandes.find((x) => x.mac === mac2)!;
+    assert.match((await w.v.act('thjalfi', 'decider', { id: d2.id, accord: 'non' })).text, /Refusé : rien n'est touché/);
+    assert.doesNotMatch((await w.get(`/menu.ipxe?mac=${mac2}&fw=efi`)).text, /autoinstall/);
+    await w.get(`/ecran/choisir?mac=${mac2}&iso=${U}&mode=auto`);
+    d2 = ((await w.v.act('thjalfi', 'tableau')).data as typeof tab).demandes.find((x) => x.mac === mac2 && x.statut === 'attente')!;
+    assert.match((await w.v.act('thjalfi', 'decider', { id: d2.id, accord: 'sans_effacer' })).text, /installation normale/);
+    const m2 = (await w.get(`/menu.ipxe?mac=${mac2}&fw=efi`)).text; assert.match(m2, new RegExp(`--default e-${U} --timeout 0 `)); assert.doesNotMatch(m2, /autoinstall/);
+    // Réglages de l'écran : par défaut, thème.
+    assert.match((await w.v.act('thjalfi', 'ecran', { parDefaut: true, theme: 'mayotte', disposition: 'liste', attente: 2 })).text, /proposé et par défaut · liste · thème Mayotte · attente 2 min/);
+    assert.match((await w.get('/menu.ipxe?mac=52:54:00:cc:00:03&fw=efi')).text, /choose --default ecran --timeout 10000/);
+    assert.match((await w.get('/ecran/attente.ipxe?mac=52:54:00:cc:00:03&n=40')).text, /Pas de choix/, '2 min');
+    assert.equal(JSON.parse((await w.get('/ecran/etat?mac=52:54:00:cc:00:03')).text).theme, 'mayotte');
+  } finally { w.end(); }
+});
+
+test('écran : familles, modes, noms lisibles et ce que dit Odin', async () => {
+  const { category, modes, pretty, brand, odinSays, systems } = await import('../src/valhalla/thjalfi/ecran.ts');
+  assert.equal(category({ kind: 'windows', label: '', auto: true, os: 'windows' }, 'Win11_24H2_French_x64'), 'Windows');
+  assert.equal(category(undefined, 'clonezilla-live-3.2'), 'Outils'); assert.equal(category({ kind: 'casper', label: '', auto: false, os: 'linux' }, 'linuxmint-22-cinnamon'), 'Linux');
+  assert.deepEqual(modes({ kind: 'casper', label: '', auto: false, os: 'linux' }), ['essai', 'installer']); assert.deepEqual(modes({ kind: 'windows', label: '', auto: true, os: 'windows' }), ['auto']); assert.deepEqual(modes(undefined), []);
+  assert.deepEqual(pretty('ubuntu-24.04.3-desktop-amd64'), { title: 'Ubuntu Desktop', version: '24.04.3' });
+  assert.equal(brand('debian-13.1.0-amd64-netinst').color, '#C70036'); assert.equal(brand('inconnu').color, '#5B6CD6');
+  const sys = systems([{ id: 'a', name: 'linuxmint-22-cinnamon', size: 3e9, recipe: { kind: 'casper', label: 'Mint', auto: false, os: 'linux' } }, { id: 'b', name: 'illisible', size: 1 }], { a: { lances: 3, finis: 2 } });
+  assert.equal(sys.length, 1, 'une ISO illisible n\'est pas proposée'); assert.equal(sys[0].deployed, 2);
+  assert.match(odinSays(sys[0], 'efi'), /essaie-le d'abord, rien n'est écrit/); assert.match(odinSays(undefined, ''), /Choisis un système/);
+});

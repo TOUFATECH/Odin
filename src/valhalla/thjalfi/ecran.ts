@@ -1,0 +1,63 @@
+// Þjálfi · l'écran de démarrage (maquettes validées « Démarrage réseau ») : ce que voit un PC qui démarre par le
+// réseau — les systèmes en éventail, en affiches ou en liste, le détail (Essayer · Installer · Installer pour moi),
+// le chargement avec ses étapes, et la fin. Fonctions pures : classement, couleurs, modes possibles, état envoyé à
+// l'écran. L'écran ne fait que demander : « Installer pour moi » (qui efface le disque) attend toujours ton accord.
+import type { Recipe } from './recipes.ts';
+
+export type Category = 'Linux' | 'Windows' | 'Serveurs' | 'Outils';
+export type Mode = 'essai' | 'installer' | 'auto';
+export const DISPOSITIONS = ['eventail', 'affiches', 'liste'] as const;
+export type Disposition = typeof DISPOSITIONS[number];
+export const THEMES = { nuit: 'Nuit étoilée', mayotte: 'Mayotte', espace: 'Espace', ocean: 'Océan', odin: 'Comme Odin' } as const;
+export type Theme = keyof typeof THEMES;
+
+/** La famille d'un système, pour les onglets de l'écran. */
+export function category(r: Recipe | undefined, name: string): Category {
+  const n = name.toLowerCase();
+  if (r?.os === 'windows' || /windows|win1[01]|win2\d/.test(n)) return /server/.test(n) ? 'Serveurs' : 'Windows';
+  if (r?.os === 'outil' || /clonezilla|gparted|memtest|rescue|hiren|systemrescue|shredos/.test(n)) return 'Outils';
+  if (/server|proxmox|truenas|rocky|alma|rhel|centos|opnsense|pfsense/.test(n) || r?.kind === 'rhel') return 'Serveurs';
+  return 'Linux';
+}
+/** Ce que le PC peut faire de ce système : l'essayer sans rien toucher, l'installer pas à pas, ou tout automatique. */
+export function modes(r: Recipe | undefined): Mode[] {
+  if (!r) return [];
+  const out: Mode[] = [];
+  if (['casper', 'fedora-live', 'debian-live', 'alpine', 'arch'].includes(r.kind) || r.os === 'outil') out.push('essai');
+  if (['casper', 'ubuntu', 'debian', 'rhel', 'fedora-live', 'arch'].includes(r.kind)) out.push('installer');
+  if (r.auto) out.push('auto');
+  return out;
+}
+const BRANDS: Array<[RegExp, string, string]> = [
+  [/ubuntu.*server/, '#E95420', 'Ubuntu pour les serveurs : léger, sans bureau.'], [/ubuntu/, '#E95420', 'Le Linux le plus simple pour un ordinateur de bureau.'], [/windows/, '#0A6CD6', 'Pour les logiciels et les jeux Windows.'], [/debian/, '#C70036', 'Solide et stable, idéal pour un serveur.'],
+  [/fedora/, '#3C6EB4', 'Les logiciels les plus récents, très propre.'], [/mint/, '#69B53F', 'Proche de Windows, très facile à prendre en main.'], [/proxmox/, '#E57000', 'Virtualisation : des machines et des conteneurs sur un serveur.'],
+  [/rocky/, '#10B981', 'Serveur d\'entreprise, compatible Red Hat.'], [/alma/, '#0F4266', 'Serveur d\'entreprise, compatible Red Hat.'], [/truenas/, '#0095D5', 'Un stockage réseau (NAS) solide.'],
+  [/arch/, '#1793D1', 'Pour qui aime tout régler soi-même.'], [/alpine/, '#0D597F', 'Minuscule et sûr, pour les petits serveurs.'], [/memtest/, '#7C3AED', 'Teste la mémoire du PC.'],
+  [/clonezilla/, '#D4A017', 'Copie ou sauvegarde un disque entier.'], [/gparted/, '#4CAF50', 'Partitionne et répare les disques.'], [/kali/, '#367BF0', 'Outils de test de sécurité.'],
+];
+export function brand(name: string): { color: string; blurb: string } {
+  const n = name.toLowerCase(), b = BRANDS.find(([re]) => re.test(n));
+  return b ? { color: b[1], blurb: b[2] } : { color: '#5B6CD6', blurb: 'Système prêt à démarrer par le réseau.' };
+}
+/** Une version lisible tirée du nom de l'ISO (« ubuntu-24.04.3-desktop-amd64 » → « Ubuntu Desktop », « 24.04.3 »). */
+export function pretty(name: string): { title: string; version: string } {
+  const w = /win(?:dows)?[-_ ]?(1[01]|7|8)(?![\d.])/i.exec(name), ws = /windows[-_ ]?server[-_ ]?(20\d\d)/i.exec(name);
+  if (ws) return { title: `Windows Server ${ws[1]}`, version: /(\d\d[hH]\d)/.exec(name)?.[1].toUpperCase() ?? '' };
+  if (w) return { title: `Windows ${w[1]}`, version: /(\d\d[hH]\d)/.exec(name)?.[1].toUpperCase() ?? '' };
+  const n = name.replace(/[_]+/g, '-'), v = /(\d+(?:\.\d+){0,2})/.exec(n)?.[1] ?? '';
+  const words = n.replace(/\.iso$/i, '').replace(/\b(amd64|x86[-_]64|x64|arm64|aarch64|i386|i686|live|dvd|netinst|english|french|fr|en-us|fr-fr|multi)\b/gi, ' ').replace(/(\d+(?:\.\d+){0,2})/g, ' ').split(/[-\s]+/).filter(Boolean);
+  const title = words.slice(0, 3).map((w) => (/^(lts|le|de|la)$/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))).join(' ').replace(/\bLTS\b/i, '').trim();
+  return { title: title || name, version: v };
+}
+export interface EcranSystem { id: string; name: string; title: string; version: string; category: Category; size: number; modes: Mode[]; label: string; needs?: string; color: string; blurb: string; deployed: number }
+export function systems(list: Array<{ id: string; name: string; size: number; recipe?: Recipe }>, stats: Record<string, { lances: number; finis: number }> = {}): EcranSystem[] {
+  return list.filter((i) => i.recipe).map((i) => { const p = pretty(i.name), b = brand(i.name); return { id: i.id, name: i.name, title: p.title, version: p.version, category: category(i.recipe, i.name), size: i.size, modes: modes(i.recipe), label: i.recipe!.label, ...(i.recipe!.needs ? { needs: i.recipe!.needs } : {}), color: b.color, blurb: b.blurb, deployed: stats[i.id]?.finis ?? 0 }; });
+}
+/** Ce qu'Odin dit en bas de l'écran, selon le système choisi et le PC. */
+export function odinSays(sys: EcranSystem | undefined, fw: string): string {
+  if (!sys) return 'Choisis un système avec les flèches, puis Entrée pour l\'essayer.';
+  const uefi = /efi/i.test(fw) ? 'ce PC démarre en UEFI' : fw ? 'ce PC démarre en BIOS' : '';
+  if (sys.modes.includes('auto')) return `${sys.title} : je peux tout faire pour toi (compte, logiciels, mises à jour)${uefi ? ` — ${uefi}` : ''}. « Installer pour moi » efface le disque : je te demande ton accord avant.`;
+  if (sys.modes.includes('essai')) return `${sys.title} : essaie-le d'abord, rien n'est écrit sur ton disque.`;
+  return `${sys.title} : ${sys.blurb}`;
+}

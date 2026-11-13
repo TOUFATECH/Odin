@@ -54,6 +54,8 @@ export interface MenuIn {
   /** pour l'installation automatique de cette machine : jeton et entrée */
   auto?: { id: string; token: string; host: string };
   netboot?: (codename: string) => { kernel: string; initrd: string } | undefined;
+  /** l'écran d'Odin : choisir le système sur un téléphone ou un PC du réseau (la machine attend le choix) */
+  ecran?: boolean;
 }
 /** Texte du menu : les écrans de démarrage n'affichent que l'ASCII (accents retirés). Pur. */
 const q = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ._()+'-]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -61,13 +63,16 @@ const q = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').repl
 /** Le script iPXE d'une machine : menu, entrée par défaut, démarrage de chaque ISO. Pur. */
 export function menu(m: MenuIn): string {
   const L = ['#!ipxe', `# Odin · Þjálfi — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ''];
-  L.push(`menu Odin - Deploiement reseau (${m.mac})`, 'item local Demarrer sur le disque de cette machine');
+  L.push(`menu Odin - Deploiement reseau (${m.mac})`);
+  if (m.ecran) L.push('item ecran Choisir sur l\'ecran d\'Odin (telephone ou PC du reseau)');
+  L.push('item local Demarrer sur le disque de cette machine');
   if (m.entries.length) L.push('item --gap -- ISO d\'Odin (Eitri) :');
   for (const e of m.entries) { const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
   L.push('item --gap --', 'item shell Ligne de commande iPXE');
-  L.push(`choose --default ${m.def === 'local' ? 'local' : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
+  L.push(`choose --default ${m.def === 'local' || (m.def === 'ecran' && m.ecran) ? m.def : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
   L.push(':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1', '');
   L.push(':shell', 'shell', 'goto local', '');
+  if (m.ecran) L.push(':ecran', `chain ${m.base}/ecran/attente.ipxe?mac=${m.mac}&fw=\${platform} || goto local`, '');
   for (const e of m.entries) L.push(...entry(m, e), '');
   L.push(':echec', 'echo Le demarrage a echoue. Retour au menu dans 10 s.', 'sleep 10', `chain ${m.base}/menu.ipxe?mac=${m.mac} || goto local`);
   return `${L.join('\n')}\n`;

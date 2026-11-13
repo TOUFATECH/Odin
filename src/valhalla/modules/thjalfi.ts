@@ -18,6 +18,8 @@ import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
 import { debianPreseed, detect, kickstart, menu, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
 import { normMac, PxeHttp } from '../thjalfi/server.ts';
+import { DISPOSITIONS, THEMES, odinSays, systems, type Disposition, type Theme } from '../thjalfi/ecran.ts';
+import { ecranPage } from '../thjalfi/ecran-page.ts';
 import { TftpServer } from '../thjalfi/tftp.ts';
 import { pxeHook } from '../vidarr/dhcp.ts';
 
@@ -30,6 +32,11 @@ export interface Profile { id: string; nom: string; utilisateur: string; paquets
 export interface Machine { mac: string; ip?: string; fw?: string; iso?: string; isoName?: string; step: Step; steps: Array<{ at: number; step: string; detail?: string }>; started: number; updated: number; host?: string; token?: string; profil?: string; logiciels?: Array<{ nom: string; ok: boolean }> }
 interface Session { token: string; mac: string; iso: string; profil: string; host: string; fw: 'uefi' | 'bios'; created: number; files?: Record<string, string> }
 export interface Done { at: number; mac: string; host?: string; ip?: string; iso: string; isoName: string; profil?: string; ms: number; result: 'fini' | 'échec' | 'sans nouvelles'; logiciels?: Array<{ nom: string; ok: boolean }> }
+/** Un choix fait sur l'écran d'Odin, lu une seule fois par le menu de la machine. */
+interface Choix { iso: string; mode: 'essai' | 'installer' | 'disque'; at: number }
+/** « Installer pour moi » demandé depuis l'écran : rien ne s'efface sans ton accord. */
+export interface Demande { id: string; mac: string; iso: string; isoName: string; at: number; statut: 'attente' | 'acceptee' | 'refusee' | 'sans_effacer'; decide?: number; host?: string; depuis?: string }
+export interface EcranCfg { actif: boolean; parDefaut: boolean; disposition: Disposition; theme: Theme; attente: number }
 interface Ports { http: number; tftp: number; dhcp: number; pxe: number; client: number }
 
 /** Les chargeurs officiels (iPXE, wimboot) : téléchargés depuis leurs sites, jamais modifiés, analysés par Ullr. */
@@ -62,6 +69,19 @@ export function thjalfi(): Module {
   const histFile = (ctx: ModCtx) => join(ctx.dir, 'historique.jsonl');
   const history = (ctx: ModCtx, n = 300): Done[] => { try { return readFileSync(histFile(ctx), 'utf8').trim().split('\n').filter(Boolean).slice(-n).map((l) => JSON.parse(l) as Done).reverse(); } catch { return []; } };
   const stats = (ctx: ModCtx): Record<string, { lances: number; finis: number }> => (ctx.settings.stats as Record<string, { lances: number; finis: number }> | undefined) ?? {};
+  const ecranCfg = (ctx: ModCtx): EcranCfg => ({ actif: true, parDefaut: false, disposition: 'eventail', theme: 'nuit', attente: 5, ...(ctx.settings.ecran as Partial<EcranCfg> | undefined) });
+  const jsonFile = <T,>(ctx: ModCtx, name: string, fallback: T): T => { try { return JSON.parse(readFileSync(join(ctx.dir, name), 'utf8')) as T; } catch { return fallback; } };
+  const saveJson = (ctx: ModCtx, name: string, x: unknown) => { mkdirSync(ctx.dir, { recursive: true }); const f = join(ctx.dir, name); writeFileSync(`${f}.tmp`, JSON.stringify(x)); renameSync(`${f}.tmp`, f); };
+  const choices = (ctx: ModCtx) => jsonFile<Record<string, Choix>>(ctx, 'ecran-choix.json', {});
+  const demandes = (ctx: ModCtx): Demande[] => jsonFile<Demande[]>(ctx, 'ecran-demandes.json', []);
+  const saveDemandes = (ctx: ModCtx, l: Demande[]) => { const now = ctx.now().getTime(); saveJson(ctx, 'ecran-demandes.json', l.filter((d) => now - d.at < 7 * 864e5).slice(-100)); };
+  /** Le choix encore valable (30 min) de cette machine ; « prendre » l'efface (une seule fois). */
+  const choiceOf = (ctx: ModCtx, mac: string, take = false): Choix | undefined => {
+    const all = choices(ctx), c = all[mac]; if (!c) return undefined;
+    const ok = ctx.now().getTime() - c.at < 30 * 60_000;
+    if (take || !ok) { delete all[mac]; saveJson(ctx, 'ecran-choix.json', all); }
+    return ok ? c : undefined;
+  };
   const bump = (ctx: ModCtx, iso: string, k: 'lances' | 'finis') => { const st = stats(ctx); st[iso] = st[iso] ?? { lances: 0, finis: 0 }; st[iso][k]++; ctx.saveSettings({ stats: st }); };
 
   /** L'adresse d'Odin sur le réseau local (réglable). */
@@ -168,12 +188,64 @@ export function thjalfi(): Module {
         track(ctx, mac, from, 'menu', { iso: target.id, isoName: target.name, host, token: x.token, profil: p.id, detail: `installation automatique prévue : ${target.name}` });
       }
     } else if (r?.iso && list.some((i) => i.id === r.iso)) def = r.iso;
+    const ec = ecranCfg(ctx), ch = auto || !mac ? undefined : choiceOf(ctx, mac, true);
+    if (ch?.mode === 'disque') { def = 'local'; timeout = 0; }
+    else if (ch && list.some((i) => i.id === ch.iso)) { const i = list.find((x) => x.id === ch.iso)!; def = i.id; timeout = 0; track(ctx, mac, from, 'menu', { iso: i.id, isoName: i.name, detail: `choisi sur l'écran : ${i.name} (${ch.mode === 'essai' ? 'essai' : 'installation'})` }); }
     if (def !== 'local' && !list.some((i) => i.id === def)) def = 'local';
+    if (ec.actif && ec.parDefaut && !ch && !auto && def === 'local') def = 'ecran';
     const nb = (codename: string) => {
       const d = join(bootDir(ctx), 'debian', codename || 'x');
       return codename && existsSync(join(d, 'linux')) && existsSync(join(d, 'initrd.gz')) ? { kernel: `boot/debian/${codename}/linux`, initrd: `boot/debian/${codename}/initrd.gz` } : undefined;
     };
-    return menu({ base: base(ctx), mac, entries: list.map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! })), def, timeout, auto, netboot: nb });
+    return menu({ base: base(ctx), mac, entries: list.map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! })), def, timeout, auto, netboot: nb, ecran: ec.actif && Boolean(mac) });
+  }
+
+  // ---------------- L'écran d'Odin (choisir sur un téléphone ou un PC du réseau) ----------------
+  async function ecranEtat(ctx: ModCtx, mac: string): Promise<Record<string, unknown>> {
+    const list = await isos(ctx), sys = systems(list, stats(ctx)), m = mac ? live(ctx)[mac] : undefined, fw = m?.fw ?? '', ec = ecranCfg(ctx);
+    for (const i of list) isoNames.set(i.id, i.name);
+    const now = ctx.now().getTime(), d = mac ? demandes(ctx).filter((x) => x.mac === mac && (x.statut === 'attente' || now - (x.decide ?? x.at) < 10 * 60_000)).at(-1) : undefined;
+    const last = mac ? history(ctx, 300).find((h) => h.mac === mac && h.result === 'fini') : undefined;
+    return { mac, fw, systemes: sys, disposition: ec.disposition, theme: ec.theme, machine: m ?? null, demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
+  }
+  async function ecranChoisir(ctx: ModCtx, mac: string, iso: string, mode: string): Promise<{ ok: boolean; texte: string }> {
+    if (!mac) return { ok: false, texte: 'Il manque l\'adresse de la machine : ouvre l\'écran depuis le lien affiché par la machine.' };
+    const all = choices(ctx), now = ctx.now().getTime();
+    if (mode === 'disque') { all[mac] = { iso: '', mode: 'disque', at: now }; saveJson(ctx, 'ecran-choix.json', all); return { ok: true, texte: 'Le PC démarre sur son disque.' }; }
+    const list = await isos(ctx), sys = systems(list, stats(ctx)).find((x) => x.id === iso);
+    if (!sys) return { ok: false, texte: 'Ce système n\'est plus dans Odin.' };
+    if (!['essai', 'installer', 'auto'].includes(mode) || !sys.modes.includes(mode as 'essai')) return { ok: false, texte: `${sys.title} ne se lance pas de cette façon.` };
+    if (mode === 'auto') {
+      if (list.find((i) => i.id === iso)?.recipe?.kind === 'windows' && !(ctx.settings.partage as { unc?: string } | undefined)?.unc) return { ok: false, texte: 'Windows automatique : le partage réseau n\'est pas encore réglé dans Odin.' };
+      const l = demandes(ctx).map((d) => (d.mac === mac && d.statut === 'attente' ? { ...d, statut: 'refusee' as const, decide: now } : d));
+      const d: Demande = { id: randomBytes(6).toString('hex'), mac, iso, isoName: sys.name, at: now, statut: 'attente', host: rules(ctx).find((r) => r.mac === mac)?.nom ?? hostOf(mac) };
+      saveDemandes(ctx, [...l, d]);
+      track(ctx, mac, undefined, 'menu', { iso, isoName: sys.name, detail: `demande « Installer pour moi » : ${sys.title} (attend ton accord)` });
+      ctx.alert({ level: 'haute', title: `🖥 ${d.host} demande « Installer pour moi » : ${sys.title} ${sys.version}`.trim(), detail: `Machine ${mac}. Son disque sera EFFACÉ puis ${sys.title} s'installera tout seul (compte, langue, logiciels). Rien ne se passe sans ton accord.`, key: `thjalfi-demande-${d.id}`, data: { demande: d.id, mac, iso }, steps: ['Vérifie que c\'est bien ce PC (son adresse est sur son écran).', 'Accepte : le disque est effacé et l\'installation démarre.', 'Ou refuse : rien n\'est touché.'], fix: { action: 'decider', label: 'Accepter (efface le disque)', input: { id: d.id, accord: 'oui' } } });
+      return { ok: true, texte: 'J\'ai prévenu Odin : j\'attends ton accord sur ton téléphone ou dans l\'appli.' };
+    }
+    all[mac] = { iso, mode: mode as 'essai' | 'installer', at: now }; saveJson(ctx, 'ecran-choix.json', all);
+    track(ctx, mac, undefined, 'menu', { iso, isoName: sys.name, detail: `choisi sur l'écran : ${sys.title} (${mode === 'essai' ? 'essai' : 'installation'})` });
+    return { ok: true, texte: `C'est parti : ${sys.title} démarre dans quelques secondes.` };
+  }
+  /** Ce que lit la machine pendant qu'elle attend un choix (iPXE) : elle redemande toutes les 3 s, puis reprend son disque. */
+  function ecranAttente(ctx: ModCtx, mac: string, fw: string, n: number, from: string): string {
+    const b = base(ctx), plat = fw ? fw.replace(/[^\w-]/g, '') : '${platform}', local = [':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1'];
+    if (!mac) return ['#!ipxe', 'goto local', ...local, ''].join('\n');
+    const r = rules(ctx).find((x) => x.mac === mac), pending = demandes(ctx).some((d) => d.mac === mac && d.statut === 'attente');
+    if (choiceOf(ctx, mac) || (r?.auto && !r.fait)) return ['#!ipxe', `chain ${b}/menu.ipxe?mac=${mac}&fw=${plat} || goto local`, ...local, ''].join('\n');
+    if (n === 0) track(ctx, mac, from, 'menu', { fw: fw || undefined, detail: 'attend un choix sur l\'écran d\'Odin' });
+    const max = pending ? 600 : Math.max(1, ecranCfg(ctx).attente) * 20;
+    if (n >= max) return ['#!ipxe', 'echo Pas de choix : la machine demarre sur son disque.', 'goto local', ...local, ''].join('\n');
+    return ['#!ipxe', ...(n % 10 === 0 ? [`echo Odin attend ton choix : ouvre ${b}/ecran?mac=${mac}`, `echo sur un telephone ou un PC du reseau${pending ? ' (accord demande)' : ''}.`] : []), 'sleep 3', `chain ${b}/ecran/attente.ipxe?mac=${mac}&fw=${plat}&n=${n + 1} || goto local`, ...local, ''].join('\n');
+  }
+  /** Accepter une demande : comme « autoriser » en installation automatique (une fois). */
+  async function accept(ctx: ModCtx, d: Demande): Promise<string> {
+    const iso = (await isos(ctx)).find((i) => i.id === d.iso); if (!iso?.recipe?.auto) throw new Error(`${d.isoName} ne sait plus s'installer toute seule`);
+    const old = rules(ctx).find((r) => r.mac === d.mac), p = profiles(ctx).find((x) => x.id === old?.profil) ?? profiles(ctx)[0];
+    const all = rules(ctx).filter((r) => r.mac !== d.mac); all.push({ mac: d.mac, nom: old?.nom ?? (d.host ? hostLabel(d.host) : undefined), iso: iso.id, profil: p.id, auto: true, ajoute: ctx.now().getTime() });
+    ctx.saveSettings({ machines: all });
+    return p.nom;
   }
   async function answer(ctx: ModCtx, x: Session): Promise<Answer> {
     const p = profiles(ctx).find((y) => y.id === x.profil) ?? profiles(ctx)[0];
@@ -269,6 +341,7 @@ export function thjalfi(): Module {
           if (r?.auto && !r.fait && r.iso === iso) { r.fait = true; ctx.saveSettings({ machines: all }); }
         }
       },
+      ecran: { page: () => ecranPage(), etat: (mac) => ecranEtat(ctx, mac), choisir: (mac, iso, mode) => ecranChoisir(ctx, mac, iso, mode), attente: async (mac, fw, n, from) => ecranAttente(ctx, mac, fw, n, from) },
       log: (t) => ctx.emit('journal', { texte: t }),
     });
     await http.start(p.http);
@@ -387,6 +460,36 @@ export function thjalfi(): Module {
     { id: 'machines', label: 'Machines', what: 'En cours de déploiement, autorisées, et déjà passées', read: true, words: ['machines en cours de déploiement', 'machines déployées'], run: (ctx) => {
       const m = Object.values(live(ctx)).sort((a, b) => b.updated - a.updated), now = ctx.now().getTime();
       return { text: m.length ? m.map((x) => `- ${STEP_ICON[x.step]} ${x.host ?? x.mac} (${x.mac}${x.ip ? `, ${x.ip}` : ''}) : ${x.step}${x.isoName ? ` · ${x.isoName}` : ''} · ${ago(now - x.updated)}`).join('\n') : 'Aucune machine n\'a encore démarré par le réseau.', data: m };
+    } },
+    { id: 'decider', label: 'Décider (Installer pour moi)', what: 'Répond à une machine qui demande « Installer pour moi » depuis l\'écran : oui (son disque est effacé), sans effacer (installation où tu choisis le disque), ou non', params: [{ key: 'id', label: 'Demande', kind: 'text', required: true }, { key: 'accord', label: 'Réponse', kind: 'select', options: ['oui', 'sans_effacer', 'non'], default: 'non' }], quick: false,
+      grave: (i, ctx) => { if (s(i.accord) !== 'oui') return undefined; const d = ctx ? demandes(ctx).find((x) => x.id === s(i.id)) : undefined; return `installer automatiquement ${d?.isoName ?? 'le système'} sur la machine ${d?.host ?? ''} ${d?.mac ?? ''} : son disque sera EFFACÉ`.replace(/\s+/g, ' '); },
+      words: ['accepte l\'installation', 'refuse l\'installation', 'demande d\'installation'], run: async (ctx, i) => {
+        const l = demandes(ctx), d = l.find((x) => x.id === s(i.id)); if (!d) throw new Error('demande introuvable');
+        if (d.statut !== 'attente') return { text: `Déjà décidé : ${d.statut === 'acceptee' ? 'acceptée' : d.statut === 'sans_effacer' ? 'installation sans effacer' : 'refusée'}.`, ok: false };
+        const a = s(i.accord), now = ctx.now().getTime();
+        if (a === 'oui') { const p = await accept(ctx, d); d.statut = 'acceptee'; d.decide = now; saveDemandes(ctx, l); track(ctx, d.mac, undefined, 'menu', { detail: `accord donné : ${d.isoName} s'installe (profil ${p})` }); return { text: `🛠 Accepté : ${d.host ?? d.mac} installe ${d.isoName} tout seul (profil ${p}), une fois. La machine démarre dans quelques secondes.` }; }
+        if (a === 'sans_effacer') { const all = choices(ctx); all[d.mac] = { iso: d.iso, mode: 'installer', at: now }; saveJson(ctx, 'ecran-choix.json', all); d.statut = 'sans_effacer'; d.decide = now; saveDemandes(ctx, l); return { text: `✔ ${d.host ?? d.mac} lance l'installation normale de ${d.isoName} : c'est toi qui choisis le disque, rien ne s'efface tout seul.` }; }
+        d.statut = 'refusee'; d.decide = now; saveDemandes(ctx, l); track(ctx, d.mac, undefined, 'menu', { detail: 'demande refusée' });
+        return { text: `✋ Refusé : rien n'est touché sur ${d.host ?? d.mac}.` };
+      } },
+    { id: 'ecran', label: 'Écran de démarrage', what: 'L\'écran d\'Odin où l\'on choisit le système (sur un téléphone ou un PC du réseau) : disposition, thème, par défaut ou non, temps d\'attente', params: [{ key: 'actif', label: 'Proposer l\'écran dans le menu', kind: 'boolean', default: true }, { key: 'parDefaut', label: 'L\'écran par défaut (au lieu du disque)', kind: 'boolean', default: false }, { key: 'disposition', label: 'Disposition', kind: 'select', options: [...DISPOSITIONS], default: 'eventail' }, { key: 'theme', label: 'Thème', kind: 'select', options: Object.keys(THEMES), default: 'nuit' }, { key: 'attente', label: 'Attente d\'un choix (minutes), puis le disque', kind: 'number', default: 5 }], quick: false, words: ['écran de démarrage', 'écran pxe', 'thème de l\'écran'], run: (ctx, i) => {
+      const c = ecranCfg(ctx), b = (x: unknown, d: boolean) => (x === undefined || x === '' ? d : x === true || x === 'true');
+      const n: EcranCfg = { actif: b(i.actif, c.actif), parDefaut: b(i.parDefaut, c.parDefaut), disposition: (DISPOSITIONS as readonly string[]).includes(s(i.disposition)) ? s(i.disposition) as Disposition : c.disposition, theme: s(i.theme) in THEMES ? s(i.theme) as Theme : c.theme, attente: Math.max(1, Math.min(60, Number(i.attente ?? c.attente) || 5)) };
+      ctx.saveSettings({ ecran: n });
+      return { text: `Écran : ${n.actif ? `proposé${n.parDefaut ? ' et par défaut' : ''}` : 'retiré du menu'} · ${n.disposition} · thème ${THEMES[n.theme]} · attente ${n.attente} min puis le disque${http ? ` · ${base(ctx)}/ecran` : ''}.` };
+    } },
+    { id: 'tableau', label: 'Tableau (Odin te prévient)', what: 'Demandes à décider, machines en direct, fil des événements, chiffres, réglages de l\'écran', read: true, run: async (ctx) => {
+      const now = ctx.now().getTime(), m = Object.values(live(ctx)), h = history(ctx, 300), l = await isos(ctx);
+      for (const i of l) isoNames.set(i.id, i.name);
+      const fil = m.flatMap((x) => x.steps.map((st) => ({ at: st.at, mac: x.mac, nom: x.host ?? x.mac, etape: st.step, detail: st.detail ?? '' }))).sort((a, b) => b.at - a.at).slice(0, 40);
+      const today = h.filter((d) => now - d.at < 864e5);
+      return { text: `${demandes(ctx).filter((d) => d.statut === 'attente').length} demande(s) à décider · ${m.filter((x) => !FINAL.includes(x.step)).length} en cours`, data: {
+        allume: Boolean(http), url: http ? `${base(ctx)}/ecran` : '', ecran: ecranCfg(ctx), themes: THEMES, dispositions: DISPOSITIONS,
+        demandes: demandes(ctx).filter((d) => d.statut === 'attente' || now - (d.decide ?? d.at) < 864e5).reverse(),
+        enCours: m.filter((x) => !FINAL.includes(x.step)).sort((a, b) => b.updated - a.updated),
+        fil, chiffres: { enCours: m.filter((x) => !FINAL.includes(x.step)).length, aujourdhui: today.filter((d) => d.result === 'fini').length, echecs: today.filter((d) => d.result !== 'fini').length, total: h.filter((d) => d.result === 'fini').length, isos: l.filter((i) => i.recipe).length },
+        systemes: systems(l, stats(ctx)),
+      } };
     } },
     { id: 'historique', label: 'Historique', what: 'Les machines déployées : nom pris sur le réseau, ISO, durée, résultat', read: true, words: ['historique des déploiements'], run: (ctx) => { const h = history(ctx, 50); return { text: h.length ? h.map((d) => `- ${new Date(d.at).toLocaleString('fr-FR')} · ${d.host ?? d.mac} (${d.ip ?? '?'}) · ${d.isoName} · ${d.result} en ${ago(d.ms)}`).join('\n') : 'Aucun déploiement pour l\'instant.', data: h }; } },
   ];
