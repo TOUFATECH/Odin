@@ -34,6 +34,11 @@ export const ODIN_PORTS: PortDef[] = [
   { app: 'urdr', name: 'Urðr', port: 5432, proto: 'tcp', what: 'base de données d\'Odin (odin-pg, 10.89.0.250), jamais publiée dehors', where: 'interne' },
   ...([[2323, 'tcp', 'Telnet'], [2222, 'tcp', 'SSH'], [2200, 'tcp', 'SSH (2e)'], [8081, 'tcp', 'site web'], [9201, 'tcp', 'Elasticsearch'], [6380, 'tcp', 'Redis'], [2525, 'tcp', 'mail (SMTP)'], [2121, 'tcp', 'FTP'], [5020, 'tcp', 'automates (Modbus)'], [5556, 'tcp', 'ADB Android'], [5061, 'tcp', 'téléphonie (SIP)'], [11212, 'udp', 'Memcached'], [2375, 'tcp', 'Docker']] as const)
     .map(([port, proto, w]) => ({ app: 'loki', name: 'Loki', port, proto, what: `piège : faux ${w}`, where: 'réseau' as Where, optional: true })),
+  // Freyja = Venus (serveur multimédia, sur sa machine) : interface, HTTPS, base PostgreSQL, Fólkvangr (BitTorrent)
+  { app: 'freyja', name: 'Freyja (Venus)', port: 8096, proto: 'tcp', what: 'interface de Venus', where: 'réseau' },
+  { app: 'freyja', name: 'Freyja (Venus)', port: 8920, proto: 'tcp', what: 'interface de Venus en HTTPS', where: 'réseau', optional: true },
+  { app: 'freyja', name: 'Freyja (Venus)', port: 5433, proto: 'tcp', what: 'base PostgreSQL de Venus', where: 'machine' },
+  { app: 'freyja', name: 'Fólkvangr', port: 51413, proto: 'tcp', what: 'téléchargements BitTorrent de Venus (pairs)', where: 'Internet', optional: true },
 ];
 
 /** Les applis connues qu'on installe dans le moteur de conteneurs : leur port fixe sur la machine → leur port dedans. */

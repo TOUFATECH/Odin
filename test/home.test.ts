@@ -119,3 +119,15 @@ test('Venus : épisode demandé dans la phrase, et messages d\'arrivée (VF)', (
   ]);
   assert.deepEqual(arrivalMessages(items, 'vf'), ['🇫🇷 VF arrivée sur Venus : « Frieren » : 3 épisodes de plus en VF (12 au total)', '📺 Épisode arrivé sur Venus en VF : One Piece S01E1071']);
 });
+
+test('Freyja · médias automatiques de Venus : résumé (téléchargements, à trouver, erreurs, sans source)', async () => {
+  const { mediasText } = await import('../src/valhalla/modules/venus.ts');
+  assert.match(mediasText({ on: false, client: null, sources: [], wants: [], log: [] }), /coupés/);
+  const t = mediasText({ on: true, client: { type: 'venus' }, sources: [], log: [], wants: [
+    { id: 1, kind: 'movie', title: 'Orage', season: -1, episode: -1, status: 'telechargement', progress: 42 },
+    { id: 2, kind: 'episode', title: 'Brigade Nord', season: 1, episode: 2, status: 'erreur', progress: 0, note: 'aucun fichier' },
+    { id: 3, kind: 'movie', title: 'Nuit', season: -1, episode: -1, status: 'range', progress: 100 },
+  ] });
+  assert.match(t, /0 source\(s\) · moteur Fólkvangr · 1 en téléchargement · 0 à trouver · 1 rangé\(s\) · ⚠ 1 en erreur/);
+  assert.match(t, /⬇ Orage : 42 %/); assert.match(t, /⚠ Brigade Nord S01E02 : aucun fichier/); assert.match(t, /Aucune source/);
+});

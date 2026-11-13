@@ -25,6 +25,19 @@ export function santeText(h: VHealth): string {
   const disk = h.disk ? ` · disque : ${go(h.disk.free)} libres sur ${go(h.disk.total)}${h.disk.free / h.disk.total < 0.1 ? ' ⚠️ presque plein' : ''}` : '';
   return `✅ ${h.name ?? 'Venus'}${h.version ? ` ${h.version}` : ''} en marche${h.uptime ? ` depuis ${j ? `${j} j` : `${Math.round(h.uptime / 3600)} h`}` : ''} · ${h.playing ?? 0} lecture(s)${h.scanning ? ' · analyse de la bibliothèque en cours' : ''}${disk}`;
 }
+/** L'état des médias automatiques de Venus (GET /api/admin/acquire). */
+export interface MediaWant { id: number; kind: string; title: string; season: number; episode: number; status: string; progress: number; note?: string | null; file?: string | null }
+export interface MediaState { on: boolean; client: { type: string } | null; sources: Array<{ id: number; name: string; kind: string; enabled: boolean }>; wants: MediaWant[]; log: Array<{ at: number; text: string; title?: string }> }
+const ST: Record<string, string> = { attente: 'en attente', pas_trouve: 'pas encore trouvé', pas_sorti: 'pas encore sorti', telechargement: 'en téléchargement', range: 'rangé', erreur: 'erreur' };
+/** Le résumé en une phrase et une liste (pur). */
+export function mediasText(d: MediaState): string {
+  if (!d.on) return 'Médias automatiques coupés dans Venus (dis « règle les médias automatiques »).';
+  const by = (st: string) => d.wants.filter((w) => w.status === st);
+  const dl = by('telechargement'), lab = (w: MediaWant) => (w.kind === 'episode' ? `${w.title} S${String(w.season).padStart(2, '0')}E${String(w.episode).padStart(2, '0')}` : w.title);
+  return [`${d.sources.length} source(s) · moteur ${d.client?.type && d.client.type !== 'venus' ? d.client.type : 'Fólkvangr'} · ${dl.length} en téléchargement · ${by('attente').length + by('pas_trouve').length} à trouver · ${by('range').length} rangé(s)${by('erreur').length ? ` · ⚠ ${by('erreur').length} en erreur` : ''}`,
+    ...dl.slice(0, 10).map((w) => `- ⬇ ${lab(w)} : ${w.progress} %`), ...by('erreur').slice(0, 5).map((w) => `- ⚠ ${lab(w)} : ${w.note ?? 'erreur'}`),
+    ...(d.sources.length ? [] : ['Aucune source : ajoute un indexeur autorisé (« ajoute une source »).'])].join('\n');
+}
 const s = (v: unknown) => String(v ?? '');
 
 /** Une arrivée dans Venus (fil /api/arrivals) : épisode, film, série, ou VF arrivée. */
@@ -57,7 +70,7 @@ export function venus(url: () => string): Module {
     what: 'Ton serveur multimédia : films, séries, chaînes, programmes, enregistrements, sur tous tes écrans.',
     does: ['lance un film, une série ou une chaîne sur l\'écran choisi (« mets One Piece sur la télé du salon »)', 'guide des programmes : ce qui passe maintenant et ce soir', 'enregistre une émission ou toutes ses diffusions', 'liste les écrans où Venus est ouvert', 'recherche dans toute la bibliothèque', 'ma liste et demandes de nouveaux titres', 'alerte si un enregistrement échoue', 'te prévient quand un épisode arrive (et quand la VF arrive)', 'demande la VF d\'un titre à Radarr / Sonarr', 'met le dernier épisode, le suivant ou S2E5 d\'une série'],
     from: ['Venus (TOUFATECH)', 'Jellyfin', 'Plex'], upstream: ['TOUFATECH/Venus'],
-    modes: ['Fólkvangr · télé en direct', 'Sessrúmnir · bibliothèque'],
+    modes: ['Sessrúmnir · bibliothèque et télé en direct', 'Hnoss · demandes', 'Gersemi · films', 'Hildisvíni · séries et animés', 'Sjöfn · livres et livres audio', 'Fólkvangr · téléchargements'],
     words: ['venus', 'vénus', 'freyja', 'film', 'films', 'serie', 'série', 'series', 'chaine', 'chaîne', 'tele', 'télé', 'television', 'programme tv', 'ce soir a la tele', 'enregistre', 'enregistrement', 'anime', 'regarder', 'vf', 'version francaise', 'episode', 'épisode', 'episodes', 'épisodes'],
     actions: [
       { id: 'etat', label: 'État', what: 'Serveur joignable, lecture en cours', read: true, run: async () => { const st = await venusApi<{ name?: string; version?: string; authenticated?: boolean; profile?: { name?: string }; elsewhere?: { title: string; device: string } | null }>(conf(), 'GET', '/api/status'); if (st.authenticated === false) throw new Error('Venus refuse la clé API : crées-en une dans Venus → Serveur → Clés API, puis range-la dans le coffre (VENUS_API_KEY)'); return { text: `${st.name ?? 'Venus'} ${st.version ?? ''} · profil ${st.profile?.name ?? '—'}${st.elsewhere ? ` · en lecture : ${st.elsewhere.title} sur ${st.elsewhere.device}` : ''}` }; } },
@@ -99,6 +112,33 @@ export function venus(url: () => string): Module {
       } },
       { id: 'ecrans', label: 'Écrans', what: 'Où Venus est ouvert', read: true, words: ['ecrans', 'écrans'], run: async () => ({ text: await tool({ action: 'ecrans' }) }) },
       { id: 'chercher', label: 'Chercher', what: 'Dans la bibliothèque', read: true, params: [{ key: 'quoi', label: 'Titre', kind: 'text', required: true }], words: ['cherche', 'trouve'], run: async (_c, i) => ({ text: await tool({ action: 'chercher', quoi: s(i.quoi) }) }) },
+      // ---------------- Médias automatiques (dans Venus) : Hnoss · Gersemi · Hildisvíni · Sjöfn · Fólkvangr
+      { id: 'medias', label: 'Médias automatiques', what: 'Hnoss (demandes), Gersemi (films), Hildisvíni (séries), Sjöfn (livres), Fólkvangr (téléchargements) : envies, téléchargements en cours, rangés, journal', read: true, words: ['medias automatiques', 'médias automatiques', 'telechargements', 'téléchargements', 'en cours de telechargement', 'hnoss', 'gersemi', 'hildisvini', 'hildisvíni', 'folkvangr', 'fólkvangr', 'sjofn', 'sjöfn'], run: async () => {
+        const d = await venusApi<MediaState>(conf(), 'GET', '/api/admin/acquire');
+        return { text: mediasText(d), data: d };
+      } },
+      { id: 'medias_regler', label: 'Régler les médias automatiques', what: 'Activer, langue voulue (VF exigée, VF puis VOSTFR, tout), qualité visée, meilleures versions, partage après téléchargement', params: [{ key: 'actif', label: 'Actif (le ♡ télécharge)', kind: 'boolean', default: true }, { key: 'langue', label: 'Langue', kind: 'select', options: ['vf', 'vf_puis_vo', 'tout'], default: 'vf' }, { key: 'cible', label: 'Qualité visée', kind: 'select', options: ['1080', '2160', '720'], default: '1080' }, { key: 'ameliorer', label: 'Chercher de meilleures versions', kind: 'boolean', default: true }, { key: 'partager', label: 'Continuer à partager après', kind: 'boolean', default: true }], run: async (_c, i) => {
+        const cible = Number(i.cible) || 1080, qualites = cible === 2160 ? [2160, 1080, 720] : cible === 720 ? [720, 1080] : [1080, 2160, 720];
+        await venusApi(conf(), 'PUT', '/api/admin/acquire', { on: i.actif !== false && i.actif !== 'false', profil: { langue: s(i.langue) || 'vf', cible, qualites }, upgrade: i.ameliorer !== false && i.ameliorer !== 'false', keepSeeding: i.partager !== false && i.partager !== 'false' });
+        return { text: `Médias automatiques ${i.actif === false || i.actif === 'false' ? 'coupés' : 'actifs'} · ${s(i.langue) === 'tout' ? 'toutes langues' : s(i.langue) === 'vf_puis_vo' ? 'VF, sinon VOSTFR' : 'VF ou MULTI exigée'} · ${cible}p visé.` };
+      } },
+      { id: 'medias_source', label: 'Ajouter une source', what: 'Un indexeur Torznab ou Newznab (adresse et clé). Venus ne fournit aucune source : n\'ajoute que des sources autorisées', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['torznab', 'newznab'], default: 'torznab' }, { key: 'adresse', label: 'Adresse de l\'API', kind: 'text', required: true }, { key: 'cle', label: 'Clé', kind: 'password', default: '' }], run: async (_c, i) => {
+        const r = await venusApi<{ id: number }>(conf(), 'POST', '/api/admin/acquire/sources', { name: s(i.nom), kind: s(i.type) || 'torznab', url: s(i.adresse), key: s(i.cle) });
+        return { text: `Source « ${s(i.nom)} » ajoutée (n° ${r.id}). La clé reste dans Venus.` };
+      } },
+      { id: 'medias_retirer_source', label: 'Retirer une source', what: 'Retire une source de Venus', quick: false, params: [{ key: 'id', label: 'Numéro de la source', kind: 'number', required: true }], run: async (_c, i) => { await venusApi(conf(), 'DELETE', `/api/admin/acquire/sources/${Number(i.id)}`); return { text: `Source ${Number(i.id)} retirée.` }; } },
+      { id: 'medias_moteur', label: 'Moteur de téléchargement', what: 'Fólkvangr (le moteur de Venus, par défaut), ou un qBittorrent / Transmission / SABnzbd que tu as déjà', params: [{ key: 'type', label: 'Moteur', kind: 'select', options: ['venus', 'qbittorrent', 'transmission', 'sabnzbd'], default: 'venus' }, { key: 'adresse', label: 'Adresse (moteur existant)', kind: 'text', default: '' }, { key: 'utilisateur', label: 'Utilisateur', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe ou clé', kind: 'password', default: '' }], run: async (_c, i) => {
+        const type = s(i.type) || 'venus';
+        await venusApi(conf(), 'PUT', '/api/admin/acquire', { client: { type, url: s(i.adresse), user: s(i.utilisateur), ...(type === 'sabnzbd' ? { key: s(i.mot_de_passe) } : { password: s(i.mot_de_passe) }) } });
+        return { text: type === 'venus' ? 'Téléchargements : Fólkvangr, le moteur de Venus.' : `Téléchargements : ${type} (${s(i.adresse)}).` };
+      } },
+      { id: 'medias_chercher', label: 'Chercher maintenant', what: 'Relance tout de suite la recherche d\'une envie (titre)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }], run: async (_c, i) => {
+        const d = await venusApi<MediaState>(conf(), 'GET', '/api/admin/acquire'), q = s(i.titre).toLowerCase();
+        const w = d.wants.find((x) => x.title.toLowerCase() === q) ?? d.wants.find((x) => x.title.toLowerCase().includes(q));
+        if (!w) throw new Error(`« ${s(i.titre)} » n'est pas dans les envies`);
+        const r = await venusApi<{ ok: boolean; why?: string; pick?: { r: { title: string } } }>(conf(), 'POST', `/api/admin/acquire/wants/${w.id}/search`);
+        return { text: r.ok ? `⬇ ${w.title} : ${r.pick?.r.title ?? 'version trouvée'}, téléchargement lancé.` : `${w.title} : ${r.why ?? 'rien trouvé'}.`, ok: r.ok };
+      } },
       { id: 'ma_liste', label: 'Ma liste', what: 'Titres gardés pour plus tard', read: true, run: async () => { const l = await venusApi<Array<{ title: string; year?: number; type: string }>>(conf(), 'GET', '/api/mylist'); return { text: l.slice(0, 40).map((x) => `- ${x.title}${x.year ? ` (${x.year})` : ''}`).join('\n') || 'Liste vide.' }; } },
       { id: 'demander', label: 'Demander un titre', what: 'Titre absent de la bibliothèque (via la demande de Venus)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'série'], default: 'film' }], run: async (_c, i) => { const r = await venusApi<{ state?: string }>(conf(), 'POST', '/api/discover/request', { type: i.type === 'série' ? 'tv' : 'movie', title: s(i.titre) }); return { text: `📥 Demande envoyée : « ${s(i.titre)} »${r.state ? ` (${r.state})` : ''}.` }; } },
     ],
