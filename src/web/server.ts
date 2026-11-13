@@ -513,7 +513,7 @@ export class WebChannel implements Channel {
       const w = this.who(req), authed = w === 'session' || w === 'cle', hasAccount = this.accounts.exists();
       // Peut-il créer le compte ? Oui avec le lien de première connexion, ou depuis le réseau local d'une installation neuve.
       const setup = !authed && !hasAccount && (w === 'installation' || this.claimable(req));
-      return void res.end((direct ? directPage(UI, direct, valhallaOf()?.module(direct)?.name) : UI).replace('<!--PAGES-->', Object.keys(PAGES_JS).sort().map((n) => `<script nonce="__NONCE__" src="/pages/${n}"></script>`).join('\n')).replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
+      return void res.end((direct && w === 'session' ? directPage(UI, direct, valhallaOf()?.module(direct)?.name) : UI).replace('<!--PAGES-->', Object.keys(PAGES_JS).sort().map((n) => `<script nonce="__NONCE__" src="/pages/${n}"></script>`).join('\n')).replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     // La page du téléphone pour la première connexion (code tapé ou QR code scanné).

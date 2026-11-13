@@ -166,6 +166,24 @@ udp   UNCONN 0      0            0.0.0.0:51820      0.0.0.0:*`);
   assert.deepEqual(r.ports.map((p) => p.host), [20142, 20143, 9000]); assert.deepEqual(r.moved, ['20141 déjà pris → 20142', '20142 déjà pris → 20143']);
 });
 
+test('port déjà pris au démarrage : l\'interface d\'Odin et le service d\'une appli le disent en clair, avec le programme qui le tient', { timeout: 60_000 }, async () => {
+  const tt = new T();
+  try {
+    const p = await freePort(), autre = await squatteur(tt, p, '0.0.0.0'), qui = `« node » (programme n° ${autre.pid})`;
+    // L'interface : Odin ne démarre pas, et dit pourquoi (avant : « listen EADDRINUSE: address already in use »).
+    const o = makeOdin([{ text: 'ok' }]); tt.onEnd(() => o.cleanup());
+    const w = new WebChannel(o, { scanNetwork: async () => undefined }, { port: p, host: '127.0.0.1', token: ensureWebToken(o.paths), access: 'local', scryptN: 1024 });
+    await assert.rejects(w.start(async () => {}), { message: `l'interface d'Odin ne peut pas démarrer : le port ${p} est déjà pris par ${qui} : arrête ce programme, ou change de port, puis relance (un autre Odin tourne peut-être déjà ; sinon, change « web.port » dans le fichier config.json d'Odin)` });
+    await w.stop();
+    // Le service d'une appli (le relais MQTT de Constellation) : Odin démarre, l'appli est signalée avec la vraie raison.
+    const { appareils } = await import('../src/valhalla/modules/appareils.ts');
+    const sauve = process.env.MQTT_PASSWORD; process.env.MQTT_PASSWORD = 'relais-d-essai'; tt.onEnd(() => { if (sauve === undefined) delete process.env.MQTT_PASSWORD; else process.env.MQTT_PASSWORD = sauve; });
+    const { v, alerts } = tt.valhalla([appareils]); v.ctx('appareils').saveSettings({ port: p });
+    await v.start();
+    assert.deepEqual(alerts.map((a) => [a.title, a.detail]), [['Appareils n\'a pas pu démarrer', `le port ${p} est déjà pris par ${qui} : arrête ce programme, ou change de port, puis relance`]]);
+  } finally { await tt.end(); }
+});
+
 // ---------------------------------------------------------------- un vrai Odin : la page par son port, avec et sans session
 test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la même interface et avec la même connexion', { timeout: 120_000 }, async () => {
   const tt = new T();
@@ -197,9 +215,9 @@ test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la m�
     r = (await v.json('/api/ports?appli=V%C3%A9nus')).body as Rep; assert.equal(r.appli!.id, 'freyja'); assert.equal(r.appli!.port, p);
     assert.match(((await v.json('/api/ports?appli=nexiste-pas')).body as Rep).error!, /appli inconnue/);
 
-    // Sans session : la page d'Odin (écran de connexion), qui sait qu'elle mène à Vénus. Rien d'autre.
+    // Sans session : la page d'Odin (écran de connexion), sans même dire quelle appli est derrière ce port. Rien d'autre.
     let f = await fetch(`${d}/`), html = await f.text();
-    assert.equal(f.status, 200); assert.match(html, /<html lang="fr" data-direct="app=freyja">/); assert.match(html, /<title>Vénus · Odin<\/title>/);
+    assert.equal(f.status, 200); assert.doesNotMatch(html, /data-direct|Vénus · Odin/); assert.match(html, /<title>Odin<\/title>/);
     assert.match(html, /const AUTHED = false;/); assert.match(html, /const ACCOUNT = true, SETUP = false;/, 'jamais de création de compte par un port direct');
     const main = await fetch(`${v.url}/`);
     for (const h of ['content-security-policy', 'x-frame-options', 'x-content-type-options', 'referrer-policy', 'cross-origin-opener-policy', 'cross-origin-resource-policy', 'permissions-policy', 'cache-control']) assert.equal((f.headers.get(h) ?? '').replace(/nonce-[^']+/, 'nonce'), (main.headers.get(h) ?? '').replace(/nonce-[^']+/, 'nonce'), `même en-tête ${h} que l'interface`);
@@ -223,7 +241,8 @@ test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la m�
     // Avec la session ouverte sur l'interface (même cookie : il vaut pour tous les ports de la même adresse).
     const H = { cookie: v.session };
     f = await fetch(`${d}/`, { headers: H }); html = await f.text();
-    assert.match(html, /const AUTHED = true;/); assert.match(html, /data-direct="app=freyja"/);
+    assert.match(html, /const AUTHED = true;/); assert.match(html, /<html lang="fr" data-direct="app=freyja">/); assert.match(html, /<title>Vénus · Odin<\/title>/);
+    assert.doesNotMatch(await (await fetch(`${d}/`, { headers: { authorization: `Bearer ${v.token}` } })).text(), /data-direct/, 'la clé d\'API n\'est pas une session');
     f = await fetch(`${d}/api/valhalla/view?id=freyja`, { headers: H }); assert.equal(f.status, 200); assert.equal(((await f.json()) as { name: string }).name, 'Vénus');
     assert.equal((await fetch(`${d}/api/state`, { headers: H })).status, 200);
     assert.equal(((await (await fetch(`${d}/api/ports?appli=freyja`, { headers: H })).json()) as Rep).appli!.port, p, 'le réglage se lit aussi par le port direct');
@@ -642,6 +661,9 @@ test('sans IA : « les ports directs » se demande à Thermopyles ; il manque l\
       await understand(v, 'ouvre le port direct', 'grave'); const o = await v.order('Hygie', 'grave');
       assert.equal(o.ok, false); assert.match(o.confirm ?? '', /^ouvrir le port \d+ de Hygie sur le réseau/); assert.equal(g.status('eir')!.reseau, false);
     } finally { g.stop(); }
+    // Odin ouvert à Internet : la phrase d'accord dit que ce port peut l'être aussi.
+    const wan = new DirectPorts({ home, web: 7777, host: '127.0.0.1', access: 'wan', attach: (s) => s.destroy() }); await wan.start();
+    try { assert.match(v.action('hlid', 'ouvrir_port_direct')!.a.grave!({ appli: 'Hygie' }, v.ctx('hlid')) ?? '', /joignable depuis ton réseau, et Internet si ta box ou ton hébergeur laisse passer ce port \(la connexion à Odin reste exigée\)/); } finally { wan.stop(); }
   } finally { v.stop(); useEngine(() => new Engine()); rmSync(home, { recursive: true, force: true }); }
 });
 
@@ -657,7 +679,8 @@ test('Valgrind : un site du proxy peut mener au port direct d\'une appli (son pr
     try {
       // Le port direct n'est pas ouvert sur le réseau (boucle locale) : c'est le proxy, sur la même machine, qui y mène.
       assert.deepEqual(await ecouteSur(a), ['127.0.0.1']);
-      const page = await par(web, '/'); assert.equal(page.status, 200); assert.match(page.text, /<title>Vénus · Odin<\/title>/); assert.match(page.text, /data-direct="app=freyja"/); assert.match(page.text, /const AUTHED = false;/);
+      let page = await par(web, '/'); assert.equal(page.status, 200); assert.match(page.text, /const AUTHED = false;/); assert.doesNotMatch(page.text, /data-direct/);
+      page = await par(web, '/', { cookie: v.session }); assert.match(page.text, /<title>Vénus · Odin<\/title>/); assert.match(page.text, /data-direct="app=freyja"/); assert.match(page.text, /const AUTHED = true;/);
       assert.equal((await par(web, '/api/state')).status, 401, 'par le proxy non plus, rien sans session');
       assert.equal((await par(web, '/api/state', { cookie: v.session })).status, 200);
       assert.equal((await par(web, '/api/state', { authorization: `Bearer ${v.token}` })).status, 401);
