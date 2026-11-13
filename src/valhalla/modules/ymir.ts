@@ -145,7 +145,6 @@ export const ymir: Module = {
   },
   watch: { every: 60, async run(ctx) {
     await machinesWatch(ctx).catch(() => undefined);
-    const tick = Number(ctx.settings.tickPve ?? 0) + 1; ctx.saveSettings({ tickPve: tick % 3 }); if (tick % 3) return;
     const { res } = await resources(ctx); if (!res.length) return;
     const was = (ctx.settings.running as number[] | undefined) ?? [], now = res.filter((r) => r.vmid && r.status === 'running').map((r) => r.vmid!);
     for (const id of was) if (!now.includes(id)) { const r = res.find((x) => x.vmid === id); ctx.alert({ level: 'haute', title: `La machine ${r?.name ?? id} s'est arrêtée`, key: `vm:${id}` }); ctx.emit('vm_arretee', { vmid: id, nom: r?.name }); }
