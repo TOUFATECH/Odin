@@ -14,6 +14,7 @@ import { createDocx, createPptx, createXlsx, parseCsv, readDocx, readPptx, readX
 import { createPdf, readPdf } from '../files/pdf.ts';
 import { bool, num, obj, str, type Tool, type ToolContext, type ToolResult } from './registry.ts';
 import { isExternal, safeEnv } from './builtin.ts';
+import { ocrPdf, ocrReady, understanding } from '../valhalla/champollion/ocr.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const clip = (t: string, n = 40_000) => (t.length > n ? `${t.slice(0, n)}\n… [${t.length - n} caractères tronqués]` : t);
@@ -37,10 +38,15 @@ export const docRead: Tool = {
     const ext = extname(p).toLowerCase();
     if (ext === '.pdf') {
       const r = readPdf(buf, p);
-      const txt = r.text || '(aucun texte : PDF scanné ? Une reconnaissance de caractères est nécessaire, par exemple avec tesseract.)';
-      return result(ctx, rel, `PDF, ${r.pages || '?'} page(s), lecture ${r.via}\n\n${txt}`);
+      // PDF scanné (pas de texte) : Champollion reconnaît le texte des pages
+      if (r.text.replace(/\s+/g, '').length / Math.max(1, r.pages || 1) < 40 && ocrReady()) {
+        const o = await ocrPdf(p);
+        if (o.text.trim()) return result(ctx, rel, `PDF scanné, ${o.pages} page(s), texte reconnu par Champollion\n\n${o.text}${understanding(o.text, rel)}`);
+      }
+      const txt = r.text || '(aucun texte : PDF scanné, et la reconnaissance de caractères n\'est pas installée : paquets tesseract-ocr tesseract-ocr-fra poppler-utils.)';
+      return result(ctx, rel, `PDF, ${r.pages || '?'} page(s), lecture ${r.via}\n\n${txt}${r.text ? understanding(r.text, rel) : ''}`);
     }
-    if (ext === '.docx') return result(ctx, rel, readDocx(buf));
+    if (ext === '.docx') { const d = readDocx(buf); return result(ctx, rel, `${d}${understanding(d, rel)}`); }
     if (ext === '.xlsx' || ext === '.xlsm') {
       const sheets = readXlsx(buf).filter((sh) => !i.sheet || sh.name === s(i.sheet));
       if (!sheets.length) return `Feuille « ${s(i.sheet)} » introuvable.`;

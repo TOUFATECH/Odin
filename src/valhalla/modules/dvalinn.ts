@@ -43,7 +43,7 @@ export const folders = (ctx: ModCtx): Folder[] => [{ nom: 'atelier', chemin: ate
 export function resolveFile(ctx: ModCtx, ref: string): { abs: string; folder: Folder; rel: string } {
   const m = /^([\w.-]{1,40}):(.*)$/.exec(s(ref)), name = m ? m[1] : 'atelier', rel = cleanRel(m ? m[2] : s(ref));
   const folder = folders(ctx).find((f) => f.nom === name); if (!folder) throw new Error(`dossier inconnu : ${name} (${folders(ctx).map((f) => f.nom).join(', ')})`);
-  if (FORBIDDEN.test(rel)) throw new Error('fichier protégé : Dvalinn n\'y touche pas');
+  if (FORBIDDEN.test(rel)) throw new Error('fichier protégé : Odin n\'y touche pas');
   mkdirSync(folder.chemin, { recursive: true });
   return { abs: inside(folder.chemin, rel), folder, rel };
 }
@@ -51,7 +51,7 @@ const human = (n: number) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} Go` : n > 1e6 ?
 const relOf = (f: Folder, abs: string) => `${f.nom}:${abs.slice(f.chemin.length + 1)}`;
 
 /** Lance une recette dans un dossier de travail à part, puis range les fichiers produits à côté de l'original. */
-async function runStep(ctx: ModCtx, st: Step, work: string, destDir: string, timeoutMs = 30 * 60e3): Promise<string[]> {
+export async function runStep(ctx: ModCtx, st: Step, work: string, destDir: string, timeoutMs = 30 * 60e3): Promise<string[]> {
   let { cmd, args } = st;
   if (!(await ctx.has(cmd)) && st.alt && (await ctx.has(st.alt.cmd))) ({ cmd, args } = st.alt);
   if (!(await ctx.has(cmd))) { const t = TOOLS.find((x) => x.cmd === cmd || x.alt === cmd); throw new Error(`outil manquant : ${cmd}${t ? ` (paquet ${t.pkg} ; « outils de conversion » pour la liste)` : ''}`); }
@@ -62,7 +62,7 @@ async function runStep(ctx: ModCtx, st: Step, work: string, destDir: string, tim
   mkdirSync(destDir, { recursive: true });
   return made.sort().map((f) => { const to = join(destDir, freeName(destDir, f)); renameSync(join(work, f), to); return to; });
 }
-const workDir = (ctx: ModCtx) => { const d = join(ctx.dir, 'travail', randomBytes(6).toString('hex')); mkdirSync(d, { recursive: true, mode: 0o700 }); return d; };
+export const workDir = (ctx: ModCtx) => { const d = join(ctx.dir, 'travail', randomBytes(6).toString('hex')); mkdirSync(d, { recursive: true, mode: 0o700 }); return d; };
 function remember(ctx: ModCtx, h: Hist) { ctx.saveSettings({ historique: [h, ...(((ctx.settings.historique as Hist[] | undefined) ?? []))].slice(0, 40) }); }
 
 const QUAL = ['normale', 'haute', 'legere'];
@@ -102,17 +102,17 @@ export const dvalinn: Module = {
       const miss = [...new Set(l.filter((t) => !t.ok).map((t) => t.pkg))];
       return { text: [...l.map((t) => `${t.ok ? '✅' : '⬜'} ${t.cmd} · ${t.does}`), miss.length ? `Pour tout avoir : sudo apt install ${miss.join(' ')}` : 'Tout est installé.'].join('\n'), data: l };
     } },
-    { id: 'dossiers', label: 'Dossiers', what: 'Les dossiers où Dvalinn prend et range les fichiers', read: true, run: (ctx) => ({ text: folders(ctx).map((f) => `${f.nom} → ${f.chemin}`).join('\n') + '\nÉcris « dossier:chemin/fichier » (sans dossier : l\'atelier).' }) },
-    { id: 'ajouter_dossier', label: 'Donner un dossier', what: 'Dvalinn pourra lire et écrire dans ce dossier (et ses sous-dossiers)', quick: false, grave: (i) => `donner à Dvalinn l'accès au dossier ${s(i.chemin)}`, params: [{ key: 'nom', label: 'Nom court (ex. videos)', kind: 'text', required: true }, { key: 'chemin', label: 'Chemin complet', kind: 'text', required: true }], run: (ctx, i) => {
+    { id: 'dossiers', label: 'Dossiers', what: 'Les dossiers où l\'appli prend et range les fichiers', read: true, run: (ctx) => ({ text: folders(ctx).map((f) => `${f.nom} → ${f.chemin}`).join('\n') + '\nÉcris « dossier:chemin/fichier » (sans dossier : l\'atelier).' }) },
+    { id: 'ajouter_dossier', label: 'Donner un dossier', what: 'L\'appli pourra lire et écrire dans ce dossier (et ses sous-dossiers)', quick: false, grave: (i) => `ouvrir le dossier ${s(i.chemin)} à l'appli`, params: [{ key: 'nom', label: 'Nom court (ex. videos)', kind: 'text', required: true }, { key: 'chemin', label: 'Chemin complet', kind: 'text', required: true }], run: (ctx, i) => {
       const nom = s(i.nom).toLowerCase(), chemin = s(i.chemin).replace(/\/+$/, '');
       if (!/^[a-z0-9_-]{1,30}$/.test(nom) || nom === 'atelier') throw new Error('nom : lettres, chiffres, - ou _');
       if (!chemin.startsWith('/') || chemin === '/' || /\/(etc|proc|sys|dev|boot|root)(\/|$)|^\/(etc|proc|sys|dev|boot|root)$/.test(chemin) || FORBIDDEN.test(chemin)) throw new Error('dossier refusé (système ou protégé)');
       if (!existsSync(chemin) || !statSync(chemin).isDirectory()) throw new Error('dossier introuvable');
       ctx.saveSettings({ dossiers: [...((ctx.settings.dossiers as Folder[] | undefined) ?? []).filter((f) => f.nom !== nom), { nom, chemin }] });
-      return { text: `Dossier « ${nom} » donné à Dvalinn : ${chemin}` };
+      return { text: `Dossier « ${nom} » ouvert à l'appli : ${chemin}` };
     }, undo: (i) => ({ action: 'retirer_dossier', input: { nom: s(i.nom) }, label: 'Retirer le dossier' }) },
-    { id: 'retirer_dossier', label: 'Retirer un dossier', what: 'Dvalinn n\'y a plus accès (les fichiers restent)', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => {
-      ctx.saveSettings({ dossiers: ((ctx.settings.dossiers as Folder[] | undefined) ?? []).filter((f) => f.nom !== s(i.nom)) }); return { text: `Dossier « ${s(i.nom)} » retiré de Dvalinn (les fichiers restent).` };
+    { id: 'retirer_dossier', label: 'Retirer un dossier', what: 'L\'appli n\'y a plus accès (les fichiers restent)', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => {
+      ctx.saveSettings({ dossiers: ((ctx.settings.dossiers as Folder[] | undefined) ?? []).filter((f) => f.nom !== s(i.nom)) }); return { text: `Dossier « ${s(i.nom)} » retiré (les fichiers restent).` };
     } },
     { id: 'convertir', label: 'Convertir un fichier', what: 'Vers un autre format ; le résultat est écrit à côté de l\'original', words: ['convertis le fichier', 'convertir le fichier'], params: [
       { key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
