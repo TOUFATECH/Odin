@@ -17,6 +17,8 @@ import { useEngine } from '../src/valhalla/modules/naglfar.ts';
 import { fakeEngine } from './helpers.ts';
 import { gunzipSync } from 'node:zlib';
 import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
+import { fakeLivebox } from './fake-livebox.ts';
+const LIVEBOX = fakeLivebox();
 
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 const DOCKER = [{ ID: 'abc', Names: 'web', Image: 'nginx', State: 'exited', Status: 'Exited (137) 5 seconds ago', Ports: '', Labels: '' }].map((x) => JSON.stringify(x)).join('\n');
@@ -31,6 +33,7 @@ function world(): World {
   let lvl: 'prudent' | 'equilibre' | 'autonome' | 'breaker' = 'equilibre';
   const fakeFetch = (async (input: string | URL, init?: RequestInit) => {
     const url = String(input); fetched.push({ url, body: typeof init?.body === 'string' ? init.body : undefined });
+    if (/^http:\/\/box\.test\//.test(url)) { const r = LIVEBOX.handle(url, init); if (r) return r; }
     if (/pirate\.exemple\/bot\.sh/.test(url)) return new Response(EICAR, { status: 200 });
     if (url === 'https://api.github.com/repos/odin-test/piege/releases/latest') return Response.json({ tag_name: 'v1.0', html_url: 'h', assets: [{ name: 'piege-1.0.exe', browser_download_url: 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe', size: EICAR.length }] });
     if (url === 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe') return new Response(EICAR, { status: 200 });
@@ -200,6 +203,16 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     await w.v.act('skuld', 'plan', { base: 'compta', toutes: 'heure' });
     await skuldWatch(w);
     assert.ok(w.v.alerts({ module: 'skuld' }).some((a) => /Sauvegarde de Compta ratée/.test(a.title) && a.fix?.action === 'sauvegarder'), 'alerte avec « Réessayer »');
+  },
+  'svalinn>brisingamen': async (w) => {
+    const r = await w.v.act('svalinn', 'relier_box', { adresse: 'box.test', marque: 'livebox', utilisateur: 'admin', mot_de_passe: 'mot-de-passe-box' });
+    assert.match(r.text, /mot de passe rangé dans le coffre/); assert.ok(did(w, 'brisingamen', 'ajouter'), 'coffre appelé');
+    assert.match((await w.v.act('brisingamen', 'chercher', { q: 'Box internet' })).text, /Box internet \(Svalinn\)/);
+  },
+  'svalinn>forseti': async (w) => {
+    await w.v.act('svalinn', 'relier_box', { adresse: 'box.test', marque: 'livebox', utilisateur: 'admin', mot_de_passe: 'mot-de-passe-box' });
+    await w.v.act('svalinn', 'etat');
+    assert.ok(w.v.alerts({ module: 'svalinn' }).some((a) => /Wi-Fi : WPS activé/.test(a.title)), 'alerte dans le fil commun');
   },
   'rodd>bragi': async (w) => {
     await w.v.act('rodd', 'ajouter_mot', { mot: 'Hringhorni', entendus: 'ring horni, ringorni' });
