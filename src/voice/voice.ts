@@ -113,6 +113,15 @@ async function failIfBad(res: Response, what: string, ...secrets: string[]): Pro
   throw new Error(`${what} : ${WHY[res.status] ?? (res.status >= 500 ? 'le service est en panne' : 'demande refusée')} (HTTP ${res.status})${said ? ` — ${said}` : ''}`);
 }
 
+/** Appelle un service de voix ; s'il ne répond pas, une phrase claire (jamais « fetch failed »). L'arrêt demandé par toi reste un arrêt. */
+async function reach(who: string, url: string, init: RequestInit): Promise<Response> {
+  try { return await fetch(url, init); } catch (e) {
+    const x = e as Error;
+    if (x.name === 'AbortError') throw e;
+    throw new Error(x.name === 'TimeoutError' ? `${who} met trop de temps à répondre : réessaie dans un instant` : `${who} ne répond pas (pas d'Internet, ou mauvaise adresse dans Réglages → Voix)`);
+  }
+}
+
 export type AudioKind = 'ogg' | 'mp3' | 'wav' | 'm4a' | 'webm' | '';
 /** Le vrai format d'un son, lu dans ses premiers octets (on ne se fie pas à ce qu'annonce le service). Pur. */
 export function audioKind(b: Uint8Array): AudioKind {
@@ -232,7 +241,7 @@ export async function speakAudio(text: string, v: VoiceConfig, format: AudioForm
     // OpenAI /v1/audio/speech, ou un serveur local compatible (Kokoro, openedai-speech, speaches…).
     const k = key(v.tts.apiKeyEnv, env);
     const fmt = format === 'opus_48000_64' ? 'opus' : 'mp3';
-    const res = await fetch(`${base}/audio/speech`, {
+    const res = await reach('Le service de voix', `${base}/audio/speech`, {
       method: 'POST', headers: { ...(k ? { authorization: `Bearer ${k}` } : {}), 'content-type': 'application/json' },
       body: JSON.stringify({ model: v.tts.model || 'tts-1', input: clean, voice: serviceVoice(v) || 'onyx', response_format: fmt }), signal: sig,
     });
@@ -243,7 +252,7 @@ export async function speakAudio(text: string, v: VoiceConfig, format: AudioForm
   const voice = serviceVoice(v);
   if (!voice) throw new Error('aucune voix choisie (Réglages → Voix)');
   const k = key(v.tts.apiKeyEnv, env);
-  const res = await fetch(`${base}/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=${format}`, {
+  const res = await reach('ElevenLabs', `${base}/v1/text-to-speech/${encodeURIComponent(voice)}?output_format=${format}`, {
     method: 'POST',
     headers: { 'xi-api-key': k, 'content-type': 'application/json', accept: 'audio/*' },
     body: JSON.stringify({ text: clean, model_id: v.tts.model || TTS_DEFAULTS.elevenlabs.model }),
@@ -297,10 +306,10 @@ export async function listVoices(v: VoiceConfig, env = process.env): Promise<Voi
   type Page = { voices?: Array<{ voice_id: string; name: string; category?: string }>; has_more?: boolean; next_page_token?: string | null };
   let token = '';
   for (let page = 0; page < 20; page++) {
-    let res = await fetch(`${base}/v2/voices?page_size=100&include_total_count=false${token ? `&next_page_token=${encodeURIComponent(token)}` : ''}`, { headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(20_000) });
+    let res = await reach('ElevenLabs', `${base}/v2/voices?page_size=100&include_total_count=false${token ? `&next_page_token=${encodeURIComponent(token)}` : ''}`, { headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(20_000) });
     // Un serveur compatible plus ancien ne connaît que /v1/voices (tout en une fois).
     const old = page === 0 && (res.status === 404 || res.status === 405);
-    if (old) res = await fetch(`${base}/v1/voices`, { headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(20_000) });
+    if (old) res = await reach('ElevenLabs', `${base}/v1/voices`, { headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(20_000) });
     await failIfBad(res, 'Liste des voix indisponible', k);
     const data = await res.json() as Page;
     out.push(...(data.voices ?? []).map((x) => ({ id: x.voice_id, name: x.name, category: x.category ?? '' })));
@@ -336,7 +345,7 @@ export async function cloneVoice(name: string, samples: Array<{ data: Uint8Array
   form.append('description', 'Voix copiée pour Odin, avec consentement');
   form.append('remove_background_noise', 'true');
   for (const s of samples) form.append('files', new Blob([s.data], { type: s.mime || 'audio/mpeg' }), s.filename || 'echantillon.mp3');
-  const res = await fetch(`${v.tts.baseUrl.replace(/\/$/, '')}/v1/voices/add`, { method: 'POST', headers: { 'xi-api-key': k }, body: form, signal: AbortSignal.timeout(120_000) });
+  const res = await reach('ElevenLabs', `${v.tts.baseUrl.replace(/\/$/, '')}/v1/voices/add`, { method: 'POST', headers: { 'xi-api-key': k }, body: form, signal: AbortSignal.timeout(120_000) });
   await failIfBad(res, 'Copie de la voix impossible', k);
   const data = await res.json() as { voice_id?: string; requires_verification?: boolean };
   if (!data.voice_id || !/^[A-Za-z0-9_.-]{1,80}$/.test(data.voice_id)) throw new Error('ElevenLabs n\'a pas renvoyé d\'identifiant de voix');
@@ -349,7 +358,7 @@ export async function removeVoice(voiceId: string, v: VoiceConfig, env = process
   // Même si un autre service parle aujourd'hui (Piper…), la voix copiée est chez ElevenLabs : on l'efface là-bas.
   const el = v.tts.provider === 'elevenlabs' && /^https?:\/\//.test(v.tts.baseUrl) ? { base: v.tts.baseUrl, keyEnv: v.tts.apiKeyEnv } : { base: TTS_DEFAULTS.elevenlabs.baseUrl, keyEnv: TTS_DEFAULTS.elevenlabs.apiKeyEnv };
   const k = key(el.keyEnv, env); if (!k) throw new Error('il manque ta clé ElevenLabs (Réglages → Voix)');
-  const res = await fetch(`${el.base.replace(/\/$/, '')}/v1/voices/${encodeURIComponent(voiceId)}`, { method: 'DELETE', headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(30_000) });
+  const res = await reach('ElevenLabs', `${el.base.replace(/\/$/, '')}/v1/voices/${encodeURIComponent(voiceId)}`, { method: 'DELETE', headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(30_000) });
   // Elle n'y est déjà plus (effacée depuis elevenlabs.io) : c'est ce qu'on voulait.
   if (res.status === 404 || (res.status === 400 && /does[_ ]not[_ ]exist|not[_ ]found/i.test(await res.clone().text().catch(() => '')))) return;
   await failIfBad(res, 'Effacement de la voix impossible', k);

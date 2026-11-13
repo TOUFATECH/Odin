@@ -425,7 +425,8 @@ test('copie de voix : retirer l\'accord arrête Odin tout de suite et efface la 
     // Le service ne répond pas : Odin arrête quand même de parler avec cette voix, et dit ce qui reste à faire.
     const vraieAdresse = v.o.cfg.voice.tts.baseUrl; v.o.cfg.voice.tts.baseUrl = `http://127.0.0.1:${await freePort()}`;
     const x = await w.retirer(id);
-    assert.equal(x.ok, false); assert.match(x.error!, /Odin ne parle plus avec « Ma voix », mais je n'ai pas pu l'effacer chez ElevenLabs/);
+    assert.equal(x.ok, false); assert.match(x.error!, /Odin ne parle plus avec « Ma voix », mais je n'ai pas pu l'effacer chez ElevenLabs : ElevenLabs ne répond pas/);
+    assert.doesNotMatch(x.error!, /fetch failed/, 'dit simplement, sans jargon');
     assert.equal(v.o.cfg.voice.tts.voiceId, '', 'Odin ne s\'en sert plus');
     let c = (await w.copies())[0]; assert.ok(c.retire); assert.equal(c.effacee, false); assert.equal(c.actuelle, false);
     assert.equal(el.deleted.length, 0);
