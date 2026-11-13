@@ -274,11 +274,16 @@ export async function overview(mods: Module[], o: { home?: string; adresses?: Re
   for (const m of mods) {
     if (o.seulement && m.id !== o.seulement) continue;
     const k = kept?.get(m.id), st: DirectStatus | undefined = g ? g.status(m.id) : k ? { port: k.port, etat: 'fermé', reseau: false, pourquoi: 'l\'interface web d\'Odin n\'est pas démarrée' } : undefined;
-    const services: ServicePort[] = [];
-    for (const p of portsOf(m.id)) {
-      const here = l.filter((x) => x.proto === p.proto && x.port === p.port), adresse = p.web ? o.adresses?.[m.id] : undefined;
-      let etat: ServicePort['etat'] = 'inconnu', par: string | undefined;
-      if (adresse) { try { const u = new URL(adresse); etat = await tcpProbe(u.hostname, Number(u.port) || (u.protocol === 'https:' ? 443 : 80)) ? 'écoute' : 'fermé'; } catch { etat = 'fermé'; } }
+    const services: ServicePort[] = [], plan = portsOf(m.id);
+    // L'adresse réglée pour le service web de l'appli (Venus : Réglages → Vénus) : elle vaut pour UN service, celui de
+    // ce port-là (sinon le principal). On n'en montre que « http(s)://machine:port », jamais un identifiant qui y serait écrit.
+    let u: URL | undefined; try { const x = new URL(o.adresses?.[m.id] ?? ''); if (/^https?:$/.test(x.protocol)) u = x; } catch { /* pas d'adresse réglée */ }
+    const portU = u ? Number(u.port) || (u.protocol === 'https:' ? 443 : 80) : 0;
+    const cible = u ? plan.find((p) => p.web && p.port === portU) ?? plan.find((p) => p.web && !p.optional) ?? plan.find((p) => p.web) : undefined;
+    for (const p of plan) {
+      const here = l.filter((x) => x.proto === p.proto && x.port === p.port);
+      let etat: ServicePort['etat'] = 'inconnu', par: string | undefined, adresse: string | undefined;
+      if (u && p === cible) { adresse = u.origin; etat = await tcpProbe(u.hostname.replace(/^\[|\]$/g, ''), portU) ? 'écoute' : 'fermé'; }
       else if (l.length) {
         // Tenu par Odin, ou par le programme prévu (Venus, la base) : il écoute. Tenu par un autre programme : pris.
         const mine = here.some((x) => x.pid === process.pid || x.pid === undefined), other = here.find((x) => x.pid !== undefined && x.pid !== process.pid);

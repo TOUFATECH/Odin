@@ -3577,7 +3577,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       const inp = el('input', { type: 'number', min: 1, max: 65535, inputmode: 'numeric', value: a.port ?? '', placeholder: 'aucun', 'aria-label': `Port direct de ${a.nom}`, style: 'flex:0 0 104px;width:104px;min-width:0' });
       const save = () => { const v = inp.value.trim(); return !v && a.port ? ask(a, 'retirer') : ask(a, 'regler', v ? { port: Number(v) } : {}); };
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
-      const fixed = !/interface d'Odin/.test(a.plan), web = a.services.filter((x) => x.web && !x.facultatif);
+      // Le service web de l'appli (Venus) : celui dont l'adresse est réglée ; sinon celui du plan, sur cette machine.
+      const fixed = !/interface d'Odin/.test(a.plan), reglee = a.services.filter((x) => x.web && x.adresse), web = reglee.length ? reglee : a.services.filter((x) => x.web && !x.facultatif);
       return el('div', { class: 'svc', 'data-app': a.nom.toLowerCase() },
         el('div', { class: 'svc2' },
           el('b', { style: 'flex:1 1 150px;min-width:0;overflow-wrap:anywhere' }, a.nom), inp, pill(a),
@@ -3586,7 +3587,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           a.port ? el('button', { class: 'btn small danger', type: 'button', onclick: () => ask(a, 'retirer') }, 'Retirer') : null,
           a.etat === 'écoute' && (a.reseau || onMachine) ? el('a', { class: 'btn small', href: `${scheme}://${location.hostname}:${a.port}/`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ouvrir') : null),
         a.port !== null ? el('span', { class: 'hint' }, a.note) : null,
-        fixed ? el('span', { class: 'hint' }, `Ses services gardent leurs ports : ${a.plan}.`, ...web.map((x) => el('span', {}, ` ${x.quoi.replace(/^./, (c) => c.toUpperCase())} (port ${x.port}) : ${x.etat === 'écoute' ? 'répond' : x.etat === 'inconnu' ? 'état inconnu' : 'ne répond pas'}. `, /^https?:\/\//i.test(x.adresse || '') ? el('a', { href: x.adresse, target: '_blank', rel: 'noopener' }, 'Ouvrir') : null))) : null);
+        fixed ? el('span', { class: 'hint' }, `Ses services gardent leurs ports : ${a.plan}.`, ...web.map((x) => el('span', {}, ` ${x.quoi.replace(/^./, (c) => c.toUpperCase())} (${x.adresse ? x.adresse.replace(/^https?:\/\//i, '') : `port ${x.port}`}) : ${x.etat === 'écoute' ? 'répond' : x.etat === 'inconnu' ? 'état inconnu' : 'ne répond pas'}. `, /^https?:\/\//i.test(x.adresse || '') ? el('a', { href: x.adresse, target: '_blank', rel: 'noopener' }, 'Ouvrir') : null))) : null);
     };
     const byName = (a, b) => a.nom.localeCompare(b.nom, 'fr'), withPort = r.applis.filter((a) => a.port !== null).sort(byName), without = r.applis.filter((a) => a.port === null).sort(byName);
     const list = el('div', { class: 'svcs' }, ...withPort.map(row), ...without.map(row));

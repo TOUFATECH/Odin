@@ -455,6 +455,41 @@ test('port direct : ce qui est gardé est relu avec prudence ; sans compte, un p
   } finally { await tt.end(); }
 });
 
+test('Vénus (« IP:8096 ») : c\'est son service qui répond sur son port ; la liste dit s\'il répond, sans jamais montrer un identifiant écrit dans son adresse', { timeout: 120_000 }, async () => {
+  const tt = new T();
+  try {
+    fauxPareFeu(tt);
+    const v = await odinRegle(tt, { access: 'local' }), p = await freePort();
+    // Un vrai service à la place de Venus, sur une autre adresse que 8096 (celle réglée dans Réglages → Vénus).
+    const faux: Server = httpServer((_q, r) => r.end('Venus')); await new Promise<void>((ok) => faux.listen(p, '127.0.0.1', ok)); tt.onEnd(() => { faux.close(); });
+    const lire = async () => { const x = await v.call(v.port, '/api/ports?appli=freyja', { cookie: v.session }); return { brut: x.text, appli: (JSON.parse(x.text) as Rep).appli! }; };
+    (v.od.cfg as { venus?: { url: string } }).venus = { url: `http://moi:motdepasse-essai@127.0.0.1:${p}/web/index.html?cle=essai` };
+    const web = (a: Appli) => a.services.filter((x) => x.web);
+    let r = await lire();
+    assert.deepEqual(web(r.appli).map((x) => [x.port, x.adresse]), [[8096, `http://127.0.0.1:${p}`], [8920, undefined]], 'l\'adresse réglée vaut pour l\'interface de Venus ; ce qui est montré s\'arrête au port');
+    assert.equal(web(r.appli)[0]!.etat, 'écoute', 'l\'état vient d\'une vraie connexion au service');
+    assert.doesNotMatch(r.brut, /motdepasse-essai|moi:|cle=essai|index\.html/, 'ni identifiant, ni chemin, ni clé');
+    assert.equal(r.appli.port, null, 'Vénus n\'a pas pour autant de port direct dans Odin : sa page reste dans l\'interface');
+    // Le service s'arrête : la liste le dit.
+    await new Promise<void>((ok) => faux.close(() => ok()));
+    r = await lire();
+    assert.equal(web(r.appli)[0]!.etat, 'fermé');
+    // Une adresse sur le port HTTPS de Venus se range sur cette ligne-là.
+    (v.od.cfg as { venus?: { url: string } }).venus = { url: 'https://127.0.0.1:8920' };
+    r = await lire();
+    assert.deepEqual(web(r.appli).map((x) => [x.port, x.adresse]), [[8096, undefined], [8920, 'https://127.0.0.1:8920']]);
+    // Une adresse qui n'en est pas une : rien n'est montré, rien ne casse (on regarde alors ce qui écoute sur la machine).
+    (v.od.cfg as { venus?: { url: string } }).venus = { url: 'javascript:alert(1)' };
+    r = await lire();
+    assert.ok(web(r.appli).every((x) => x.adresse === undefined), 'seule une adresse http(s) est montrée');
+    // Et sa page dans Odin peut recevoir un port direct comme les autres (jamais 8096 : il reste à Venus).
+    const q = await freePort(); let x = await v.api({ appli: 'Vénus', faire: 'regler', port: 8096 });
+    assert.equal(x.ok, false); assert.match(x.error!, /le port 8096 est gardé pour Vénus \(Venus\) : interface de Venus/);
+    x = await v.api({ appli: 'Vénus', faire: 'regler', port: q }); assert.equal(x.ok, true, x.text);
+    const page = await v.call(q, '/', { cookie: v.session }); assert.equal(page.status, 200); assert.match(page.text, /<html lang="fr" data-direct="app=freyja">/); assert.match(page.text, /<title>Vénus · Odin<\/title>/);
+  } finally { await tt.end(); }
+});
+
 // ---------------------------------------------------------------- ouvert sur le réseau (accord, Cerbère)
 test('port direct : ouvert sur le réseau seulement avec ton accord (Cerbère ouvre le pare-feu), refermé ou retiré : la règle part', { timeout: 120_000 }, async () => {
   const tt = new T();
