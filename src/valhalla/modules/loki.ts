@@ -21,7 +21,7 @@ export const TRAPS: Trap[] = [
   { id: 'thrym', name: 'Pandore', proto: 'Redis', what: 'faux Redis sans mot de passe : commandes d\'attaque notées', port: 6380 },
   { id: 'skrymir', name: 'Calypso', proto: 'Mail (SMTP)', what: 'faux relais de mail : identifiants et spams capturés', port: 2525 },
   { id: 'jormungandr', name: 'Troie', proto: 'FTP', what: 'faux FTP : identifiants et fichiers déposés capturés', port: 2121 },
-  { id: 'muspel', name: 'Muspel', proto: 'Modbus (automates)', what: 'faux automate industriel', port: 5020 },
+  { id: 'muspel', name: 'Héron', proto: 'Modbus (automates)', what: 'faux automate industriel', port: 5020 },
   { id: 'bergelmir', name: 'Gorgone', proto: 'Android ADB', what: 'faux téléphone Android en débogage ouvert', port: 5556 },
   { id: 'logi', name: 'Cassandre', proto: 'Téléphonie (SIP)', what: 'fausse centrale téléphonique : tentatives d\'appels frauduleux', port: 5061, udp: true },
   { id: 'hraesvelg', name: 'Éole', proto: 'Amplification (UDP)', what: 'repère les attaques par déni de service sans jamais répondre', port: 11212, udp: true },

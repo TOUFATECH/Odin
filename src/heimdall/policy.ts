@@ -1,4 +1,4 @@
-// Heimdall — le gardien du Bifröst. Chaque appel d'outil passe par ici AVANT d'être exécuté.
+// Heimdall — le gardien d’Iris (les messageries). Chaque appel d'outil passe par ici AVANT d'être exécuté.
 //
 // Principe clé : l'autorité des outils dépend de
 // l'ORIGINE du contenu présent dans la conversation (« taint tracking »). Une page web

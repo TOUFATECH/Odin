@@ -69,7 +69,8 @@ export const NAMES: Record<string, string> = {
  "appareils": "Constellation",
  "brokkr": "Héphaïstos",
  "bragi": "Orphée",
- "heidrun": "Héra"
+ "heidrun": "Héra",
+ "bifrost": "Iris"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
@@ -171,6 +172,7 @@ export const PART_NAMES: Record<string, string> = {
  "Ýdalir": "Mosaïque",
  "Breiðablik": "Écume",
  "Vör": "Stentor",
+ "Muspel": "Héron",
  "Víðarr": "Sphinx",
  "Gjallarhorn": "Triton",
  "Ran": "Euterpe",

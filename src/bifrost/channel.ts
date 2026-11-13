@@ -1,4 +1,4 @@
-// Bifröst — le pont entre Odin et les messageries. Un canal = une petite classe.
+// Iris — la messagère : le lien entre Odin et les messageries. Un canal = une petite classe.
 import type { AgentEvent } from '../types.ts';
 
 export interface Inbound {

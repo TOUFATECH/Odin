@@ -1,4 +1,4 @@
-// Interface web locale d'Odin : un canal Bifröst comme Telegram, servi par node:http.
+// Interface web locale d'Odin : un canal d’Iris comme Telegram, servi par node:http.
 //
 // Sécurité :
 // - accès au choix (web.access, voir access.ts) : cette machine seulement (par défaut),
