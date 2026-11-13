@@ -66,9 +66,12 @@
     origami: { name: 'Origami', c: '#f2efe6', kit: 'fly', shot: 'none', appear: 'light', pc: ['#ffffff', '#f2efe6'] },
     plasma: { name: 'Plasma', c: '#ff5ac8', kit: 'pop', shot: 'none', shard: ['#3a1a99', '#ff5ac8'], appear: 'light', pc: ['#ffffff', '#ff5ac8', '#7d5cff'] },
     papillons: { name: 'Papillons', c: '#ff9ac8', kit: 'dis', shot: 'none', dir: 'h', pc: ['#ffc4dd', '#ff9ac8', '#ffffff'], appear: 'light' },
+    magma_coulee: { name: 'Coulée de magma', c: '#ff5a00', kit: 'lava', shot: 'none', appear: 'fire' },
+    neon_coupe: { name: 'Découpe néon', c: '#3af0ff', kit: 'vanish', shot: 'none', appear: 'teleport', pc: ['#ffffff', '#3af0ff', '#ff3ad6'] },
+    spirale: { name: 'Spirale galactique', c: '#c8a8ff', kit: 'fold', shot: 'none', appear: 'light', pc: ['#ffffff', '#c8a8ff', '#ff5ac8'] },
   };
   // Les pouvoirs proposés : ceux que tu as gardés (13/11). Les autres ne sont plus tirés au sort ni proposés.
-  const KEPT = ['feu', 'vague', 'glace', 'blizzard', 'rochers', 'seisme', 'cristaux', 'aurore', 'gungnir', 'lianes', 'petales', 'feuilles', 'poison', 'teleport', 'pixels', 'givre', 'bulle_geante', 'mercure', 'encre', 'hologramme', 'origami', 'plasma', 'papillons', 'bulles', 'comete', 'corbeaux', 'eclair', 'etoiles', 'foudre', 'ombre', 'sable', 'trounoir'];
+  const KEPT = ['feu', 'vague', 'glace', 'blizzard', 'rochers', 'seisme', 'cristaux', 'aurore', 'gungnir', 'lianes', 'petales', 'feuilles', 'poison', 'teleport', 'pixels', 'givre', 'bulle_geante', 'mercure', 'encre', 'hologramme', 'origami', 'plasma', 'papillons', 'bulles', 'comete', 'corbeaux', 'eclair', 'etoiles', 'foudre', 'ombre', 'sable', 'trounoir', 'artifice', 'jet', 'lumiere', 'magma_coulee', 'meteores', 'neon_coupe', 'orage', 'soleil', 'spirale'];
   const IDS = KEPT.filter((k) => P[k]);
 
   // ---------------------------------------------------------------- outils

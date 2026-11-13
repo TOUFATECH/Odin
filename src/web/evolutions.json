@@ -1,5 +1,20 @@
 [
  {
+  "id": "v1151",
+  "at": "2026-11-13T15:10:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.15.1",
+  "title": "Pouvoirs : 41 effets gardés (9 remis : feu d'artifice, rayon de feu, lumière sacrée, coulée de magma, météores, découpe néon, orage, rayon de soleil, spirale galactique)",
+  "details": [
+   "Les effets que tu as remis sont joués par le nouveau moteur (Odin se transforme).",
+   "Toujours retirés : lave, laser des yeux, arc-en-ciel, rafale, runes, tornade, aimant."
+  ],
+  "planets": [
+   "interface"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1150",
   "at": "2026-11-13T14:50:00+03:00",
   "date": "2026-11-13",
