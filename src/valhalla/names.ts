@@ -173,6 +173,7 @@ export const PART_NAMES: Record<string, string> = {
  "Breiðablik": "Écume",
  "Vör": "Stentor",
  "Muspel": "Héron",
+ "Níðhögg": "Galien",
  "Víðarr": "Sphinx",
  "Gjallarhorn": "Triton",
  "Ran": "Euterpe",

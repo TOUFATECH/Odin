@@ -11,7 +11,7 @@
   'use strict';
   if (window.OdinPowers) return;
   const reduce = matchMedia('(prefers-reduced-motion:reduce)');
-  const DEF = { actif: false, quand: { ouvre: true, ferme: true, supprime: true, fenetre: true, clic: false }, choix: 'favoris', favoris: ['feu', 'foudre', 'glace', 'lumiere'], force: 'normale', son: false, pouvoir: undefined };
+  const DEF = { actif: false, quand: { ouvre: true, ferme: true, supprime: true, fenetre: true, clic: false }, choix: 'favoris', favoris: ['feu', 'glace', 'vague', 'aurore'], force: 'normale', son: false, pouvoir: undefined };
   let cfg = { ...DEF, quand: { ...DEF.quand } };
   try { const c = JSON.parse(localStorage.getItem('odin.pouvoirs') || 'null'); if (c && typeof c === 'object') cfg = { ...cfg, ...c, quand: { ...DEF.quand, ...(c.quand || {}) } }; } catch { /* */ }
   const R = (a, b) => a + Math.random() * (b - a), Ri = (a, b) => Math.round(R(a, b)), pick = (l) => l[Math.floor(Math.random() * l.length)];
@@ -57,8 +57,19 @@
     eclair: { name: 'Éclair', c: '#9fb4ff', kit: 'strike', shot: 'none', appear: 'strike', pc: ['#ffffff', '#e8f0ff', '#9fb4ff'] },
     teleport: { name: 'Téléportation', c: '#5fe6ff', kit: 'vanish', shot: 'none', appear: 'teleport', pc: ['#ffffff', '#bff8ff', '#5fe6ff'] },
     artifice: { name: 'Feu d\'artifice', c: '#ff6ad5', kit: 'confetti', shot: 'rocket', appear: 'light', pc: ['#ff4a4a', '#ffe14a', '#4adf6a', '#4aa8ff', '#ff6ad5'] },
+    // Nouveaux pouvoirs validés (maquette du 13/11) : joués par le nouveau moteur (powers3.js).
+    givre: { name: 'Givre', c: '#bfe9ff', kit: 'ice', shot: 'none', appear: 'ice' },
+    bulle_geante: { name: 'Bulle géante', c: '#a8dcff', kit: 'bubbles', shot: 'none', appear: 'light', pc: ['#ffffff', '#a8dcff', '#ffb3e6'] },
+    mercure: { name: 'Métal liquide', c: '#c4cad4', kit: 'melt', shot: 'none', appear: 'light', pc: ['#ffffff', '#c4cad4'] },
+    encre: { name: 'Tache d\'encre', c: '#2d1b4e', kit: 'dis', shot: 'none', dir: 'h', pc: ['#2a1a4a', '#140a24'], appear: 'light' },
+    hologramme: { name: 'Hologramme', c: '#3af0ff', kit: 'vanish', shot: 'none', appear: 'teleport', pc: ['#ffffff', '#3af0ff'] },
+    origami: { name: 'Origami', c: '#f2efe6', kit: 'fly', shot: 'none', appear: 'light', pc: ['#ffffff', '#f2efe6'] },
+    plasma: { name: 'Plasma', c: '#ff5ac8', kit: 'pop', shot: 'none', shard: ['#3a1a99', '#ff5ac8'], appear: 'light', pc: ['#ffffff', '#ff5ac8', '#7d5cff'] },
+    papillons: { name: 'Papillons', c: '#ff9ac8', kit: 'dis', shot: 'none', dir: 'h', pc: ['#ffc4dd', '#ff9ac8', '#ffffff'], appear: 'light' },
   };
-  const IDS = Object.keys(P);
+  // Les pouvoirs proposés : ceux que tu as gardés (13/11). Les autres ne sont plus tirés au sort ni proposés.
+  const KEPT = ['feu', 'vague', 'glace', 'blizzard', 'rochers', 'seisme', 'cristaux', 'aurore', 'gungnir', 'lianes', 'petales', 'feuilles', 'poison', 'teleport', 'pixels', 'givre', 'bulle_geante', 'mercure', 'encre', 'hologramme', 'origami', 'plasma', 'papillons'];
+  const IDS = KEPT.filter((k) => P[k]);
 
   // ---------------------------------------------------------------- outils
   let layer = null; const live = new Set();
@@ -77,9 +88,9 @@
   function videoPlaying() { if (document.fullscreenElement) return true; for (const v of document.querySelectorAll('video')) if (!v.paused && !v.ended && v.readyState > 2) return true; return false; }
   const can = (when) => cfg.actif && (!when || cfg.quand?.[when] !== false) && !reduce.matches && !document.hidden && !videoPlaying();
   function choose() {
-    if (cfg.pouvoir && P[cfg.pouvoir] && (cfg.choix === 'theme' || cfg.choix === 'meteo')) return cfg.pouvoir;
+    if (cfg.pouvoir && IDS.includes(cfg.pouvoir) && (cfg.choix === 'theme' || cfg.choix === 'meteo')) return cfg.pouvoir;
     if (cfg.choix === 'hasard') return pick(IDS);
-    const f = (cfg.favoris || []).filter((x) => P[x]); return f.length ? pick(f) : pick(IDS);
+    const f = (cfg.favoris || []).filter((x) => IDS.includes(x)); return f.length ? pick(f) : pick(IDS);
   }
   // Le fantôme : une copie figée de l'élément, posée exactement à sa place, sur laquelle joue le pouvoir.
   function snapshot(src) {
@@ -91,7 +102,7 @@
       for (const k of ['backgroundColor', 'backgroundImage', 'color', 'borderRadius', 'border', 'boxShadow', 'font', 'padding', 'display', 'flexDirection', 'alignItems', 'justifyContent', 'gap', 'textAlign', 'lineHeight', 'overflow']) g.style[k] = cs[k];
       if (cs.backgroundColor === 'rgba(0, 0, 0, 0)' && cs.backgroundImage === 'none') g.style.backgroundColor = getComputedStyle(document.body).getPropertyValue('--panel') || 'rgba(40,48,68,.9)';
     } catch { g = document.createElement('div'); g.style.cssText = 'background:rgba(40,48,68,.9);border-radius:10px'; }
-    return { rect: { x: r.left, y: r.top, w: r.width, h: r.height }, node: g, src };
+    return { rect: { x: r.left, y: r.top, w: r.width, h: r.height }, node: g, src, cap: window.OdinPowers3?.capture?.(src) || null };
   }
   function stage(snap) {
     const { x, y, w, h } = snap.rect, L = getLayer();
@@ -993,6 +1004,7 @@
     if (!can(o.when ?? 'ferme')) return false;
     const snap = target?.rect ? target : target instanceof Element ? snapshot(target) : null; if (!snap) return false;
     const id = o.power && P[o.power] ? o.power : choose(), p = P[id], from = mascotPoint();
+    if (window.OdinPowers3?.has(id) && snap.cap && !window.OdinPowers3.busy) { castFrom(from); window.OdinPowers3.play(snap.cap, id, from); return id; }
     const to = { x: snap.rect.x + snap.rect.w / 2, y: snap.rect.y + snap.rect.h / 2 };
     const S = stage(snap); castFrom(from);
     if (from && p.shot !== 'none' && Math.hypot(to.x - from.x, to.y - from.y) > 30 && cfg.force !== 'discrete') await shoot(p, from, to);
@@ -1110,7 +1122,7 @@
     const ps = []; for (let i = 0; i < n * Q(); i++) { const a = Math.random() * 7, v = R(40, 220); ps.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, g: -40, life: R(0.3, 0.7), s: R(1, 2.4), c: pick(['#ffffff', '#bff8ff', '#5fe6ff', '#ffe9a0']), add: true }); }
     PX.add(ps);
   }
-  window.OdinPowers = { POWERS: P, IDS, configure, destroy, appear, burst, sparkle, stop: stopAll, get cfg() { return { ...cfg }; },
+  window.OdinPowers = { POWERS: Object.fromEntries(IDS.map((k) => [k, P[k]])), IDS, configure, destroy, appear, burst, sparkle, stop: stopAll, get cfg() { return { ...cfg }; },
     /** Essai depuis les réglages : un pouvoir sur un élément (même si les pouvoirs sont coupés). */
     async demo(target, id) { const keep = cfg.actif; cfg.actif = true; const q = cfg.quand; cfg.quand = { ...DEF.quand, ferme: true, ouvre: true }; try { const snap = snapshot(target); if (snap) { target.style.visibility = 'hidden'; await destroy(snap, { power: id }); await wait(DUR() * 1.3); target.style.visibility = ''; appear(target, { power: id }); } } finally { cfg.actif = keep; cfg.quand = q; } } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
