@@ -131,3 +131,10 @@ test('Freyja · médias automatiques de Venus : résumé (téléchargements, à 
   assert.match(t, /0 source\(s\) · moteur Fólkvangr · 1 en téléchargement · 0 à trouver · 1 rangé\(s\) · ⚠ 1 en erreur/);
   assert.match(t, /⬇ Orage : 42 %/); assert.match(t, /⚠ Brigade Nord S01E02 : aucun fichier/); assert.match(t, /Aucune source/);
 });
+
+test('Freyja · Bygul (sources) : santé, priorité, chiffres, sans source', async () => {
+  const { bygulText } = await import('../src/valhalla/modules/venus.ts');
+  assert.match(bygulText([]), /Aucune source dans Bygul/);
+  const t = bygulText([{ id: 1, name: 'Rapide', enabled: true, priority: 10, health: 'bonne', fails: 0, queries: 12, grabs: 3, avgMs: 240 }, { id: 2, name: 'Lente', enabled: true, priority: 40, health: 'en pause', fails: 3, last_error: 'réponse 503', queries: 5, grabs: 0, avgMs: 9000, paused_until: Date.now() + 3600e3 }]);
+  assert.match(t, /🟢 n° 1 Rapide · priorité 10 · bonne · 12 recherche\(s\), 3 téléchargement\(s\), 240 ms/); assert.match(t, /⏸ n° 2 Lente · priorité 40 · en pause jusqu'à \d\d:\d\d .* · réponse 503/);
+});
