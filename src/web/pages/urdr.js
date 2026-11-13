@@ -256,6 +256,8 @@
   window.OdinPages.urdr = async ({ host, generic, view }) => {
     if (!document.getElementById('urCss')) document.head.append(el('style', { id: 'urCss' }, CSS));
     const br = await act('bases', {}); const bases = (br.data ?? []).filter((b) => b.type === 'postgres' || b.type === 'sqlite');
+    const want = window.OdinOpenWant?.module === 'urdr' ? window.OdinOpenWant : undefined; window.OdinOpenWant = undefined;
+    if (want && bases.some((b) => b.id === want.base)) Object.assign(S, { base: want.base, table: want.table ?? '', tab: 'studio', tables: [], data: null, filters: [], sort: '', page: 1, pending: {}, sel: null });
     if (!S.base || !bases.some((b) => b.id === S.base)) { S.base = bases[0]?.id ?? ''; S.table = ''; }
     const root = el('div', { class: 'ur' });
     host.append(root);

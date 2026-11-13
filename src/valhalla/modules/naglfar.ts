@@ -5,9 +5,11 @@
 import { Engine, restartOf, type Ctr } from '../hringhorni/engine.ts';
 import { cli, parseArgs, splitLine, psTable, VALUES, VERBS } from '../hringhorni/cli.ts';
 import { defineService, removeService, services, startService, stopService, tuneService } from '../hringhorni/services.ts';
+import { appPort, describe as portsText, ODIN_PORTS, APP_PORTS, WEB, SERVICES_RANGE } from '../ports.ts';
 import { budget, bytes, cgStat, human, load, vertical, type CgStat } from '../hringhorni/scale.ts';
 import { join } from 'node:path';
-import { databaseFor, needsDb } from '../urdr/serveur.ts';
+import { databaseFor, needsDb, roleOf, SERVER as PG_SERVER } from '../urdr/serveur.ts';
+import { bases as urdrBases } from '../urdr/bases.ts';
 import type { ModCtx, Module, Param } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -61,7 +63,7 @@ export const naglfar: Module = {
     { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
     { id: 'lancer', label: 'Lancer une appli', what: 'Récupère l\'image si besoin, crée le conteneur et le démarre ; une appli qui a besoin d\'une base la reçoit dans la base d\'Odin', params: LANCER, grave: (i) => `lancer un conteneur à partir de ${s(i.image)}${(s(i.base) && !/selon/.test(s(i.base)) ? !/aucune/i.test(s(i.base)) : needsDb(s(i.image))) ? ' (avec sa base dans la base de données d\'Odin)' : ''}`, words: ['lance l\'image', 'installe le conteneur'], run: async (ctx, i) => {
       const image = safe(i.image), name = s(i.nom).trim() || undefined;
-      const opts = { image, name, ports: s(i.ports), mounts: s(i.dossiers), env: env(s(i.env)), restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: s(i.memoire).trim() || undefined, cpus: s(i.coeurs).trim() || undefined };
+      const known = appPort(image), opts = { image, name, ports: s(i.ports) || (known ? `${known.host}:${known.inner}` : ''), mounts: s(i.dossiers), env: env(s(i.env)), restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: s(i.memoire).trim() || undefined, cpus: s(i.coeurs).trim() || undefined };
       const wantDb = s(i.base) && !/selon/.test(s(i.base)) ? !/^(aucune|non|no)$/i.test(s(i.base)) : needsDb(image);
       const e = engine();
       // Avec base : le serveur d'Odin (créé si besoin), la base de l'appli et ses variables, puis l'appli ; sauvegarde chaque nuit.
@@ -104,6 +106,10 @@ export const naglfar: Module = {
       for (const img of e.images()) if (!used.has(img.id)) { await e.rmi(img.id); out.push(img.names.join(', ')); }
       return { text: out.length ? `🧹 Images supprimées : ${out.join(' ; ')}` : '🧹 Rien à nettoyer.' };
     } },
+    { id: 'ports', label: 'Les ports des applis', what: 'Chaque appli et son port, au même endroit (Odin, ses services réseau, les applis installées)', read: true, words: ['quels ports', 'les ports', 'ports des applis', 'tableau des ports'], run: (ctx) => {
+      const mods = ctx.modules(), own = mods.map((m) => `- ${m.name} : ${portsText(m.id)}`), apps = APP_PORTS.map((a) => `- ${a.name} : ${a.host} → ${a.inner} dans le conteneur`);
+      return { text: `Interface d'Odin : ${WEB}\nServices réseau d'Odin :\n${ODIN_PORTS.filter((p) => p.app !== 'odin').map((p) => `- ${p.name} : ${p.port}/${p.proto.toUpperCase()} · ${p.what} (${p.where})`).join('\n')}\nApplis d'Odin :\n${own.join('\n')}\nApplis installées (ports fixes) :\n${apps.join('\n')}\nServices mis à l'échelle : ${SERVICES_RANGE[0]}-${SERVICES_RANGE[1]}`, data: { odin: ODIN_PORTS, applis: APP_PORTS.map((a) => ({ name: a.name, host: a.host, inner: a.inner })), modules: mods.map((m) => ({ id: m.id, name: m.name, ports: portsText(m.id) })) } };
+    } },
     { id: 'services', label: 'Services mis à l\'échelle', what: 'Les services en plusieurs copies : copies prêtes, visiteurs, pourquoi', read: true, words: ['mise a l\'echelle', 'autoscaling', 'combien de copies'], run: () => { const l = services(engine() as Engine); return { text: l.map(({ spec: sp, state: st }) => `- ${sp.name} · ${st.status} · ${st.replicas.filter((r) => r.healthy).length} copies (${sp.scale.min}-${sp.scale.max}) · ${st.active} visiteurs · ${st.reason}`).join('\n') || 'Aucun service mis à l\'échelle.', data: l.map((x) => { const b = budget(x.spec.budgetPct, { cpus: x.spec.budget?.cpus, memory: x.spec.budget?.memory ? bytes(x.spec.budget.memory) : undefined }), per = { cpus: Number(x.spec.per.cpus) || 1, memory: bytes(x.spec.per.memory) }, n = x.state.replicas.length; return { ...x, budget: { cpus: b.cpus, memory: b.memory, usedCpus: n * per.cpus, usedMemory: n * per.memory, room: Math.max(0, Math.min(Math.floor((b.cpus - n * per.cpus) / per.cpus), per.memory ? Math.floor((b.memory - n * per.memory) / per.memory) : Infinity)) } }; }) }; } },
     { id: 'creer_service', label: 'Créer un service mis à l\'échelle', what: 'Une appli en plusieurs copies derrière un répartiteur : le moteur ajoute ou retire des copies selon les visiteurs, le processeur et la mémoire', quick: false, params: [
       { key: 'nom', label: 'Nom (minuscules)', kind: 'text', required: true }, { key: 'image', label: 'Image', kind: 'text', required: true }, { key: 'ports', label: 'Ports (8080:80)', kind: 'text', required: true },
@@ -132,9 +138,10 @@ export const naglfar: Module = {
       return { text: out.join('\n').slice(-8000) || '✓', ok: code === 0 };
     } },
   ],
-  async view() {
+  async view(ctx) {
     const e = engine(); let cts: Ctr[] = [], err = '';
     try { cts = e.ps(true); } catch (x) { err = (x as Error).message; }
+    const pgBases = (() => { try { return urdrBases(ctx.home).filter((b) => b.conteneur === PG_SERVER); } catch { return []; } })();
     const imgs = err ? [] : e.images(), up = cts.filter((c) => c.state.status === 'en marche').length;
     const jobs = err ? [] : e.jobs(), live = jobs.filter((j) => !j.ended);
     let svcs: ReturnType<typeof services> = []; try { svcs = services(e as Engine); } catch { /* pas de service */ }
@@ -157,10 +164,11 @@ export const naglfar: Module = {
           meta: `${st.active} visiteurs en cours · ${st.rate} nouveaux/s · ${st.reason}${st.refused ? ` · ${st.refused} refusés` : ''}`,
           actions: [st.status === 'arrêté' ? { action: 'demarrer_service', label: 'Démarrer', input: { service: sp.name } } : { action: 'arreter_service', label: 'Arrêter', input: { service: sp.name } }, { action: 'regler_service', label: 'Régler', input: { service: sp.name } }, { action: 'supprimer_service', label: 'Supprimer', input: { service: sp.name } }] }; }) },
           ...svcs.filter(({ state: st }) => st.history.length > 2).slice(0, 2).map(({ spec: sp, state: st }) => { const h = st.history.slice(-60); return { kind: 'courbe' as const, title: `${sp.name} · copies et visiteurs`, labels: h.map((x) => x.at.slice(11, 16)), series: [{ name: 'visiteurs en cours', tone: 'neutre' as const, points: h.map((x) => x.active) }, { name: 'copies × 10', tone: 'bon' as const, points: h.map((x) => x.copies * 10) }] }; })] : []),
+        // Une appli qui a sa base dans la base d'Odin : un bouton l'ouvre dans Urðr Studio.
         { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 nginx ».', items: cts.map((c) => ({
           title: c.spec.name, sub: `${c.spec.labels['odin.service'] ? `copie de ${c.spec.labels['odin.service']} · ` : ''}${c.spec.labels['odin.grandir'] ? `grandit tout seul (${c.spec.memory} · ${c.spec.cpus} cœurs) · ` : ''}${c.spec.image}${c.state.ip ? ` · ${c.state.ip}` : ''}${c.spec.ports.length ? ` · ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}`,
           badge: c.state.status, tone: c.state.status === 'en marche' ? 'bon' as const : c.state.status === 'redémarre' ? 'attention' as const : 'neutre' as const,
-          actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }],
+          actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }, ...(() => { const b = pgBases.find((x) => x.nom === c.spec.name || x.utilisateur === roleOf(c.spec.name)); return b ? [{ action: 'ouvrir', label: 'Sa base (Urðr)', input: { base: b.id }, module: 'urdr' }] : []; })()],
         })) },
         { kind: 'table', title: 'Images', columns: ['Image', 'Identifiant', 'Taille'], empty: 'Aucune image.', rows: imgs.flatMap((i) => i.names.map((n) => ({ cells: [n, i.id.slice(0, 12), `${(i.size / 1e6).toFixed(0)} Mo`] }))) },
         { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 nginx · ps · logs web · stop web · start web · exec web ls / · pull alpine · images · rm web. Lancer, supprimer et exec demandent ton accord.' },

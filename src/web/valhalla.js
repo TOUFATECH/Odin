@@ -176,6 +176,8 @@
   async function runOther(m, action, input) {
     const r = await api('/api/valhalla/act', { module: m, action, input });
     if (r.confirm) { if (!window.confirm(r.confirm)) return 'Annulé.'; const x = await api('/api/valhalla/act', { module: m, action, input, confirm: true }); return x.ok ? x.text : `✗ ${x.text ?? x.error}`; }
+    // « Ouvrir » dans une autre appli : on y va (ex. la base d'une appli dans Urðr Studio).
+    if (r.ok && action === 'ouvrir') { window.OdinOpenWant = { module: m, ...input }; setTimeout(() => openApp(m), 50); return r.text; }
     setTimeout(() => cur && openApp(cur, true), 600);
     return r.ok ? r.text : `✗ ${r.text ?? r.error}`;
   }

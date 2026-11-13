@@ -7,6 +7,7 @@ import { pveApi, type PveResource } from '../../tools/proxmox.ts';
 import type { ModCtx, Module } from '../types.ts';
 import { mkdir } from 'node:fs/promises';
 import { autoName, freePort, parseMounts, parsePorts, usedPorts, type Kind } from '../parc.ts';
+import { appPort, reserved } from '../ports.ts';
 import { restartOf } from '../hringhorni/engine.ts';
 import { engine as ctEngine } from './naglfar.ts';
 
@@ -59,7 +60,8 @@ export interface Step { t: string; state: 'ok' | 'corrigé' | 'échec'; ms: numb
 /** Installe un conteneur Docker et le vérifie : image, dossiers, ports (un port pris → le suivant libre), santé, suivi. */
 export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<{ steps: Step[]; name: string; ports: Array<{ host: number; inner: number }>; ok: boolean }> {
   const image = s(i.image).trim(); if (!/^[\w.\/:@-]{1,200}$/.test(image)) throw new Error(`image invalide : ${image}`);
-  const ports = parsePorts(s(i.ports)), mounts = parseMounts(s(i.dossiers)), steps: Step[] = [];
+  // Sans port demandé, une appli connue prend SON port fixe (voir ports.ts) : toujours le même, jamais celui d'une autre.
+  const known = appPort(image), ports = parsePorts(s(i.ports) || (known ? `${known.host}:${known.inner}` : '')), mounts = parseMounts(s(i.dossiers)), steps: Step[] = [];
   const mem = s(i.memoire).trim(), cpus = s(i.coeurs).trim(); if (mem && !/^\d+(\.\d+)?[mg]$/i.test(mem)) throw new Error('mémoire : par exemple 4g ou 512m'); if (cpus && !/^\d+(\.\d+)?$/.test(cpus)) throw new Error('cœurs : un nombre');
   const step = async (t: string, f: () => Promise<string | { note: string; fixed?: boolean } | void>) => { const t0 = Date.now(); try { const r = await f(); const note = typeof r === 'string' ? r : r?.note; steps.push({ t, state: typeof r === 'object' && r?.fixed ? 'corrigé' : 'ok', ms: Date.now() - t0, ...(note ? { note } : {}) }); return true; } catch (e) { steps.push({ t, state: 'échec', ms: Date.now() - t0, note: (e as Error).message.slice(0, 300) }); return false; } };
   const eng = ctEngine();
@@ -74,6 +76,7 @@ export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wai
       const ss = (await ctx.run('ss', ['-ltnH'], { timeoutMs: 5000 }).catch(() => ({ out: '' }))).out;
       const used = usedPorts([], ss), fixes: string[] = [];
       for (const c of eng.ps()) for (const p of c.spec.ports) used.add(p.host);
+      for (const r of reserved()) if (r !== known?.host) used.add(r); // les ports gardés par Odin et les autres applis
       for (const p of ports) { const h = freePort(p.host, used); used.add(h); if (h !== p.host) fixes.push(`${p.host} déjà pris → ${h}`); final.push({ host: h, inner: p.inner, proto: p.proto }); }
       return fixes.length ? { note: fixes.join(' · '), fixed: true } : final.map((p) => `${p.host} → ${p.inner}`).join(' · ') || 'aucun port';
     })
