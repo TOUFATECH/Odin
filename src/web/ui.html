@@ -4371,7 +4371,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       + (online && state.settings?.voice?.localOnly !== false ? ' ⚠ « 100 % local » est coché (au-dessus) : ce service en ligne reste éteint tant que tu ne décoches pas cette case.' : '');
     if (d && !$('#v-ttsUrl').value) $('#v-ttsUrl').placeholder = d.baseUrl;
   }
-  $('#v-ttsProvider').addEventListener('change', () => { const d = state.voice?.ttsDefaults?.[$('#v-ttsProvider').value]; if (d) { $('#v-ttsUrl').value = d.baseUrl; $('#v-voiceName').value = d.voiceId; } ttsProviderUi(); });
+  // Changer de service : son adresse et sa voix par défaut (la voix de l'ancien service n'existe pas chez le nouveau).
+  $('#v-ttsProvider').addEventListener('change', () => { const d = state.voice?.ttsDefaults?.[$('#v-ttsProvider').value]; if (d) { $('#v-ttsUrl').value = d.baseUrl; $('#v-voiceName').value = d.voiceId; $('#v-voice').value = ''; $('#v-female').value = ''; } ttsProviderUi(); });
   $('#v-load').addEventListener('click', async () => {
     st('#v-status', 'Chargement des voix…');
     const r = await api('/api/voice/voices');

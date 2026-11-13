@@ -289,7 +289,12 @@ test('ElevenLabs par la page : la clé enregistrée dans Réglages → Voix rest
     const v = await vraiOdin(tt, { compte: true, valhalla: false }), w = web(v);
     // Tant que « 100 % local » est coché, un service en ligne reste éteint : on le décoche, puis on règle ElevenLabs.
     assert.equal((await w.save('voice_options', { localOnly: false })).ok, true);
-    const r = await w.save('voice', w.services({ ttsProvider: 'elevenlabs', ttsUrl: el.url, elevenKey: cle, voiceId: '', gender: 'femme' }));
+    // En passant de Piper à ElevenLabs, la page renvoyait le nom de la voix Piper : il n'existe pas chez ElevenLabs,
+    // Odin repart donc de la voix prête à l'emploi (sinon : « voix introuvable » à la première phrase).
+    let r = await w.save('voice', w.services({ ttsProvider: 'elevenlabs', ttsUrl: el.url, elevenKey: cle, voiceId: 'fr_FR-tom-medium', voiceName: 'fr_FR-tom-medium', gender: 'homme' }));
+    assert.equal(r.ok, true, r.error); assert.equal(v.o.cfg.voice.tts.voiceId, '', 'la voix de l\'ancien service n\'est pas gardée');
+    assert.equal((await w.speak({ text: 'Bonjour.' })).type, 'audio/mpeg'); assert.equal(el.said.at(-1)!.voice, 'onwK4e9ZLuTAKqWW03F9', 'une clé suffit : la voix d\'homme prête à l\'emploi parle');
+    r = await w.save('voice', w.services({ ttsProvider: 'elevenlabs', ttsUrl: el.url, voiceId: '', gender: 'femme' }));
     assert.deepEqual({ ok: r.ok, reloading: r.reloading, restartNeeded: r.restartNeeded }, { ok: true, reloading: false, restartNeeded: false });
     const a = await w.speak({ text: 'Bonjour, je parle avec ElevenLabs.' });
     assert.equal(a.type, 'audio/mpeg'); assert.deepEqual(Buffer.from(a.data), PETIT_MP3); lisible(a.data, /mp3/, 'son reçu par le navigateur');
