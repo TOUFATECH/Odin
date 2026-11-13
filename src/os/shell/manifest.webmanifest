@@ -1,0 +1,12 @@
+{
+  "name": "Odin OS",
+  "short_name": "Odin OS",
+  "description": "Le bureau d'Odin, sur ordinateur et sur téléphone.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "background_color": "#101A24",
+  "theme_color": "#101A24",
+  "icons": [{ "src": "./icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

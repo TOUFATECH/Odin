@@ -367,6 +367,18 @@ Odin a son propre antivirus, fait maison : fichiers, archives, téléchargements
 
 Dis par exemple : « analyse mes téléchargements », « vérifie le lien https://… », « y a-t-il un virus sur ma machine ? », « les incidents ». Tout cela marche sans IA connectée.
 
+### Odin OS (Valaskjálf)
+
+Odin OS est le système d'exploitation d'Odin : un système léger, sur Ubuntu 26.04 LTS, dont le bureau est servi par Odin. Le même bureau partout : navigateur, Docker, LXC, PC, Windows, téléphone.
+
+- **Essayer** : `odin os essai`, puis ouvre `/os/` (rien à installer). L'écran téléphone : `/os/?ecran=mobile`.
+- **Installer** : `odin os installer --docker` ou `odin os installer --lxc`. PC (ISO), Windows (WSL) et téléphone (Odin Launcher) : voir le guide.
+- **Dedans** : cinq thèmes (Odin, Verre, Fenêtres, Libre, Néon), Fichiers, Terminal, Réglages, Odin Store avec les applis d'Odin, Ullr, et la bulle d'Odin.
+- **Applis** : Linux (dépôt Ubuntu), Windows avec Wine (à la demande). Android (Waydroid) et Mac (Darling) : expérimental, image PC seulement.
+- **Images** : `sudo os/build/images.sh`, puis `odin os images` (taille et empreinte SHA-256).
+
+Guide complet : [docs/odin-os.md](docs/odin-os.md).
+
 ### Sites web (Idunn)
 
 Odin surveille tes sites et s'en occupe, **sans IA** : il répond ou non, son temps de réponse, son certificat,

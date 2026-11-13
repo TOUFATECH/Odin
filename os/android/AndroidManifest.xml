@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Odin Launcher : l'écran d'accueil Odin OS pour téléphone Android.
+     Il affiche le bureau servi par Odin (sur le téléphone même, ou sur ton serveur) et lance les applis du téléphone. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="os.odin.lanceur" android:versionCode="1" android:versionName="0.1.0">
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="29" />
+    <!-- Réseau : pour joindre Odin. Aucune autre permission. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Le trafic en clair (http) est autorisé pour Odin sur le téléphone même (127.0.0.1) ou sur le réseau de la maison. -->
+    <application android:label="@string/nom" android:icon="@drawable/icone" android:allowBackup="false" android:usesCleartextTraffic="true" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+        <activity android:name=".Lanceur" android:exported="true" android:launchMode="singleTask" android:stateNotNeeded="true" android:configChanges="orientation|screenSize|keyboardHidden|keyboard|uiMode" android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Proposé comme écran d'accueil du téléphone. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,76 @@
+#!/usr/bin/python3
+# Odin OS — la vue du bureau : une fenêtre sans bordure, plein écran, qui affiche le bureau servi par Odin
+# (http://127.0.0.1:7777/os/). Tant qu'Odin démarre, elle patiente ; si la page tombe, elle la recharge.
+import os
+import urllib.request
+
+import gi
+
+gi.require_version('Gtk', '4.0')
+gi.require_version('WebKit', '6.0')
+from gi.repository import GLib, Gtk, WebKit  # noqa: E402
+
+def lire(chemin, defaut):
+    try:
+        with open(chemin, encoding='utf-8') as f:
+            return f.read().strip() or defaut
+    except OSError:
+        return defaut
+
+CIBLE = lire('/etc/odin-os/cible', 'pc')
+ODIN = 'http://127.0.0.1:7777'
+ADRESSE = ODIN + '/os/' + ('?ecran=mobile' if CIBLE == 'mobile' else '')
+ATTENTE = ('<!doctype html><html lang="fr"><meta charset="utf-8"><body style="margin:0;height:100vh;display:grid;place-items:center;'
+           'background:#101A24;color:#E6ECEF;font:20px system-ui,sans-serif"><div style="text-align:center">'
+           '<div style="width:96px;height:96px;margin:0 auto 18px;border-radius:50%;background:radial-gradient(circle at 50% 46%,#E19B1F,#F8CC70 80%,#FFE3A0)"></div>'
+           '<b style="font-size:28px">Odin OS</b><p style="opacity:.7">Odin démarre…</p></div></body></html>')
+
+
+class Vue(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id='os.odin.Vue')
+        self.vue = None
+
+    def do_activate(self):
+        fenetre = Gtk.ApplicationWindow(application=self, title='Odin OS')
+        fenetre.set_decorated(False)
+        donnees = os.path.expanduser('~/.local/share/odin-os-vue')
+        os.makedirs(donnees, mode=0o700, exist_ok=True)
+        session = WebKit.NetworkSession.new(donnees, os.path.expanduser('~/.cache/odin-os-vue'))
+        # Le cookie de connexion vit dans le dossier de la session en cours (en mémoire, effacé à l'arrêt) :
+        # la vue peut se relancer sans redemander le mot de passe, mais chaque démarrage de la machine le redemande.
+        session_en_cours = os.path.join(os.environ.get('XDG_RUNTIME_DIR') or donnees, 'odin-os-vue')
+        os.makedirs(session_en_cours, mode=0o700, exist_ok=True)
+        session.get_cookie_manager().set_persistent_storage(os.path.join(session_en_cours, 'cookies.sqlite'), WebKit.CookiePersistentStorage.SQLITE)
+        self.vue = WebKit.WebView(network_session=session)
+        reglages = self.vue.get_settings()
+        reglages.set_enable_developer_extras(False)
+        if os.environ.get('ODIN_OS_RENDU') == 'logiciel':
+            reglages.set_hardware_acceleration_policy(WebKit.HardwareAccelerationPolicy.NEVER)
+        self.vue.connect('context-menu', lambda *a: True)  # pas de menu « Recharger / Inspecter »
+        self.vue.connect('load-failed', self.echec)
+        self.vue.connect('web-process-terminated', lambda *a: self.patienter())
+        fenetre.set_child(self.vue)
+        fenetre.maximize()
+        fenetre.present()
+        self.patienter()
+
+    def patienter(self):
+        self.vue.load_html(ATTENTE, None)
+        GLib.timeout_add(700, self.essayer)
+
+    def essayer(self):
+        try:
+            urllib.request.urlopen(ODIN + '/health', timeout=1).read()
+        except Exception:  # Odin n'est pas encore prêt
+            return True
+        self.vue.load_uri(ADRESSE)
+        return False
+
+    def echec(self, vue, evenement, adresse, erreur):
+        self.patienter()
+        return True
+
+
+if __name__ == '__main__':
+    Vue().run(None)

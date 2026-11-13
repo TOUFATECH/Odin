@@ -1,0 +1,18 @@
+# Odin OS — Odin (l'agent et le bureau), démarré avec le système.
+[Unit]
+Description=Odin (agent et bureau Odin OS)
+# Odin démarre même sans réseau (le bureau local marche) ; il n'attend donc pas que le réseau soit « en ligne ».
+After=network.target
+Wants=network-online.target
+
+[Service]
+User=odin
+Group=odin
+WorkingDirectory=/home/odin
+Environment=HOME=/home/odin ODIN_OS=1 ODIN_SERVICE=1 LANG=C.UTF-8
+ExecStart=/usr/local/bin/odin-os-demarrer
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

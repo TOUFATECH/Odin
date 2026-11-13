@@ -1,0 +1,57 @@
+#!/bin/bash
+# Odin OS — installe un pont de compatibilité. Lancé par Odin Store (avec sudo) : pont windows|android|mac
+# Chaque étape s'annonce « [n/total] … » : le bureau suit l'avancement dans son journal.
+set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8
+etape() { echo; echo "[$1/$2] $3"; }
+cible="$(cat /etc/odin-os/cible 2>/dev/null || echo "${ODIN_OS_CIBLE:-docker}")"
+case "${1:-}" in
+  windows)
+    [ "$(dpkg --print-architecture)" = amd64 ] || { echo "Wine fait tourner des applis Windows pour processeur Intel/AMD : pas sur ce processeur."; exit 2; }
+    etape 1 3 "Liste des paquets Ubuntu"
+    apt-get update -q
+    etape 2 3 "Wine (environ 200 Mo à télécharger, 1,2 Go installés)"
+    # Sur l'image PC, Xwayland affiche les fenêtres des applis Windows dans la session d'Odin OS.
+    apt-get install -y --no-install-recommends wine wine64 $([ "$cible" = pc ] && echo xwayland)
+    etape 3 3 "Vérification"
+    wine --version
+    echo "Odin Bridge Windows est prêt."
+    ;;
+  android)
+    # Waydroid : un Android complet (LineageOS) dans un conteneur, affiché dans la session d'Odin OS. Image PC seulement.
+    [ "$cible" = pc ] || { echo "Waydroid a besoin de l'image PC d'Odin OS (un vrai noyau Linux et un écran)."; exit 2; }
+    code="$(. /etc/os-release && echo "${VERSION_CODENAME:-resolute}")"
+    etape 1 5 "Dépôt Waydroid (paquets signés)"
+    /usr/lib/apt/apt-helper download-file https://repo.waydro.id/waydroid.gpg /usr/share/keyrings/waydroid.gpg
+    echo "deb [signed-by=/usr/share/keyrings/waydroid.gpg] https://repo.waydro.id/ $code main" > /etc/apt/sources.list.d/waydroid.list
+    apt-get update -q
+    etape 2 5 "Modules du noyau pour Android (binder)"
+    apt-get install -y --no-install-recommends "linux-modules-extra-$(uname -r)" || echo "  (modules supplémentaires introuvables pour ce noyau : je continue)"
+    modprobe binder_linux 2>/dev/null || true
+    etape 3 5 "Waydroid"
+    apt-get install -y --no-install-recommends waydroid
+    etape 4 5 "Android (environ 1 Go à télécharger)"
+    waydroid init
+    etape 5 5 "Démarrage du conteneur Android"
+    systemctl enable --now waydroid-container
+    echo "Odin Bridge Android est prêt : l'appli « Waydroid » apparaît dans le lanceur."
+    ;;
+  mac)
+    # Darling : expérimental. Seuls les outils Mac en ligne de commande sont installés (les applis à fenêtre ne démarrent pas encore).
+    [ "$cible" = pc ] || { echo "Darling a besoin de l'image PC d'Odin OS (un vrai noyau Linux)."; exit 2; }
+    [ "$(dpkg --print-architecture)" = amd64 ] || { echo "Darling n'existe que pour processeur Intel/AMD."; exit 2; }
+    version=v0.1.20260608; archive=debs_20260608.zip; somme=27469ef3932da2e91dd7fb34b70e3628a3e54b7af9fb5480051f44af35eca1fd
+    t="$(mktemp -d)"; trap 'rm -rf "$t"' EXIT
+    etape 1 4 "Outils nécessaires"
+    apt-get update -q; apt-get install -y --no-install-recommends unzip
+    etape 2 4 "Darling $version (environ 120 Mo, depuis GitHub)"
+    /usr/lib/apt/apt-helper download-file "https://github.com/darlinghq/darling/releases/download/$version/$archive" "$t/$archive" "SHA256:$somme"
+    etape 3 4 "Installation (outils en ligne de commande)"
+    unzip -q "$t/$archive" -d "$t"
+    apt-get install -y --no-install-recommends "$t"/debs_*/darling-core_*.deb "$t"/debs_*/darling-system_*.deb "$t"/debs_*/darling-cli_*.deb "$t"/debs_*/darling-cli-gui-common_*.deb "$t"/debs_*/darling-cli-python2-common_*.deb
+    etape 4 4 "Vérification"
+    command -v darling >/dev/null
+    echo "Odin Bridge Mac est installé (expérimental). Dans le Terminal : darling shell"
+    ;;
+  *) echo "Usage : pont windows|android|mac"; exit 64 ;;
+esac
