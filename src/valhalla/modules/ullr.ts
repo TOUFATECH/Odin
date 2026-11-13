@@ -20,6 +20,7 @@ import { Correlator, SENSORS, story, toSignal, type Incident } from '../ullr/inc
 import { Intel, parseClamHsb, parseHashList, reputation, reputationText, SOURCES, type FetchCtx, type Patch, type Reputation } from '../ullr/intel.ts';
 import { findMachine, listMachines, saveMachine, type Machine } from '../../machines/access.ts';
 import { isolerSurPoste, lirePoste, remettreSurPoste, type BilanLecture, type FichierLu } from '../../machines/lecture.ts';
+import { lienDeMaison, lienPropre, nomDeLien, telecharger } from '../lien.ts';
 import type { ModCtx, Module } from '../types.ts';
 
 export { BASE_RULES };
@@ -429,6 +430,8 @@ export const ullr: Module = {
   from: ['ClamAV', 'ClamWin', 'ClamUI', 'YARA', 'Linux Malware Detect', 'MalwareBazaar', 'VirusTotal'], upstream: ['Cisco-Talos/clamav', 'VirusTotal/yara', 'rfxn/linux-malware-detect', 'Neo23x0/signature-base', 'YARAHQ/yara-forge', 'AssoEchap/stalkerware-indicators'],
   modes: ['Hippocrate · console', 'Grimoire · règles sur mesure', 'Galien · sites web', 'Quarantaine'],
   words: ['antivirus', 'virus', 'malware', 'malveillant', 'analyse', 'scanner', 'scan', 'quarantaine', 'webshell', 'regle yara', 'règle', 'infecte', 'infecté', 'rancongiciel', 'rançongiciel', 'ransomware', 'hameconnage', 'hameçonnage', 'phishing', 'arnaque', 'espion', 'logiciel espion', 'signatures', 'empreintes', 'incident', 'incidents', 'cheval de troie', 'piratage', 'piraté', 'exception', 'exceptions', 'sentinelle', 'sentinelles', 'failles', 'bizarre', 'anormal', 'anormale', 'louche', 'dangereux', 'dangereuse', 'verifie le lien', 'verifie ce lien', 'verifie le site', 'verifie ce site', 'verifie cette adresse', 'verifie ce message', 'verifie ce mail'],
+  // Un fichier envoyé depuis le navigateur pour être analysé arrive dans « depots » (copie effacée après le verdict).
+  depot: (ctx) => ({ dossier: join(ctx.dir, 'depots'), ref: (nom) => join(ctx.dir, 'depots', nom) }),
   actions: [
     { id: 'etat', label: 'État de la protection', what: 'En une phrase : es-tu protégé, y a-t-il quelque chose à regarder ?', read: true, words: ['etat', 'protection', 'protege', 'protégé', 'y a-t-il un virus', 'suis-je protege', 'tout va bien'], run: (ctx) => {
       const x = st(ctx), m = x.intel.manifest(), open = x.corr.incidents.filter((i) => i.state === 'ouvert'), todo = dets(ctx).filter((d) => d.action === 'à vérifier'), last = reports(ctx)[0], age = m ? Math.round((ctx.now().getTime() - Date.parse(m.at)) / 3600_000) : undefined;
@@ -478,16 +481,38 @@ export const ullr: Module = {
       ctx.saveSettings({ quarantineDistante: qdist(ctx).filter((x) => x.id !== q.id), released: [...new Set([q.sha256, ...((ctx.settings.released as string[] | undefined) ?? [])])].filter(Boolean).slice(0, 300), hits: dets(ctx).map((x) => (x.file === q.file && x.action === 'isolé sur le poste' ? { ...x, action: 'laissé en place à ta demande' } : x)) });
       return { text: `↩ ${q.file} remis à sa place sur ${q.posteNom}.` };
     } },
-    { id: 'fichier', label: 'Analyser un fichier', what: 'Un seul fichier, avec l\'explication du verdict', read: true, params: [{ key: 'chemin', label: 'Fichier', kind: 'text', required: true }], words: ['fichier'], run: async (ctx, i) => {
+    { id: 'fichier', label: 'Analyser un fichier', what: 'Un seul fichier, avec l\'explication du verdict (un fichier de la machine d\'Odin, ou envoyé depuis ton appareil)', read: true, params: [{ key: 'chemin', label: 'Fichier', kind: 'text', required: true, depot: {}, help: 'Son chemin sur la machine d\'Odin, ou un fichier de cet appareil : il est envoyé, analysé, puis effacé d\'Odin.' }], words: ['fichier'], run: async (ctx, i) => {
       // Un nom seul (« rapport.pdf ») est cherché là où les fichiers arrivent.
       let f = s(i.chemin).trim(); if (f && !/^(\/|~|[A-Za-z]:\\)/.test(f) && !existsSync(f)) f = PROFILES(ctx)['téléchargements'].map((d) => join(d, f)).find((x) => existsSync(x)) ?? f;
       if (f.startsWith('~/')) f = join(homedir(), f.slice(2));
-      const v = await scanPath(ctx, f); if (!v) return { ok: false, text: `Fichier introuvable, vide, ou dans tes exceptions : ${f}` }; return { text: verdictText(v), data: v };
+      // Un fichier envoyé depuis ton appareil pour être analysé : c'est une copie, effacée d'Odin dès le verdict rendu.
+      const envoye = dirname(f) === join(ctx.dir, 'depots');
+      try {
+        const v = await scanPath(ctx, f); if (!v) return { ok: false, text: `Fichier introuvable, vide, ou dans tes exceptions : ${envoye ? basename(f) : f}` };
+        if (!envoye) return { text: verdictText(v), data: v };
+        const tout = flat(v), essai = tout.length > 0 && tout.every((x) => x.klass === 'test');
+        const conseil = essai ? 'C\'est le fichier d\'essai des antivirus : il est inoffensif. ' : v.level ? 'Ne l\'ouvre pas : supprime-le de ton appareil. ' : '';
+        return { text: `${basename(f)}\n${verdictText({ ...v, file: basename(f) })}\n${conseil}(La copie envoyée à Odin est effacée.)`, data: { ...v, file: basename(f) } };
+      } finally { if (envoye) rmSync(f, { force: true }); }
     } },
     { id: 'adresse', label: 'Vérifier une adresse web', what: 'Un lien ou un nom de site est-il dangereux (malware, hameçonnage, espion) ?', read: true, params: [{ key: 'lien', label: 'Adresse', kind: 'text', required: true }], words: ['adresse web', 'verifie le lien', 'verifie ce lien', 'verifie le site', 'verifie ce site', 'verifie cette adresse', 'lien dangereux', 'site dangereux', 'lien suspect'], run: (ctx, i) => {
       const u = s(i.lien).trim(), known = st(ctx).intel.site(u), f = urlRisk(u), c = combine(known ? [{ threat: '', by: 'indicateur', level: 'critique', klass: 'hameçonnage', score: 100, why: '' }, ...f] : f);
       return { text: known ? `⚠ Adresse connue comme dangereuse (${known.what}, source ${known.source}) : n'ouvre pas ce lien.${f.length ? `\n${f.map((q) => `- ${q.why}`).join('\n')}` : ''}` : f.length ? `${c.level ? '⚠' : 'ℹ'} Score de risque ${c.score}/100${c.level ? ` (${c.level})` : ''} — pas dans les listes, mais :\n${f.map((q) => `- ${q.threat} : ${q.why}`).join('\n')}` : '✓ Rien de suspect : pas dans les listes de sites dangereux, et l\'adresse a une forme normale. (Aucune liste n\'est complète : reste prudent.)', data: { connu: known, score: c.score } };
     } },
+    // Ni l'identifiant ni le titre ne contiennent « lien » : sans IA, « garde ce lien https://… » ouvrirait cette action.
+    { id: 'fichier_internet', label: 'Analyser un fichier sur Internet', what: 'Avant de télécharger : Odin prend le fichier du lien dans sa mémoire, l\'analyse et te dit s\'il est sûr. Rien n\'est gardé sur le disque.', read: true, external: true,
+      params: [{ key: 'lien', label: 'Lien du fichier (https://… ou http://192.168…)', kind: 'text', required: true }, { key: 'utilisateur', label: 'Identifiant (si le lien en demande un)', kind: 'text' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password', help: 'Jamais gardé ni affiché. Avec un lien http:// (sans « s »), il voyage en clair sur le réseau.' }],
+      words: ['analyse le fichier du lien', 'analyse le fichier de ce lien', 'analyse ce lien', 'analyse le lien', 'scanne ce lien', 'scanne le lien'],
+      // Une adresse de la maison (NAS, autre poste) : Odin ne va y chercher un fichier qu'avec ton accord.
+      grave: (i) => (lienDeMaison(i.lien) ? `ce lien pointe vers ton réseau (${(() => { try { return new URL(s(i.lien)).hostname; } catch { return 'adresse locale'; } })()}) : Odin va y télécharger un fichier` : undefined),
+      run: async (ctx, i) => {
+        const u = lienPropre(i.lien), connu = st(ctx).intel.site(u.toString());
+        if (connu) return { text: `⚠ Adresse connue comme dangereuse (${connu.what}, source ${connu.source}) : je ne télécharge pas ce fichier, et toi non plus.`, data: { connu, telecharge: false } };
+        const t = await telecharger(ctx.fetch, u.toString(), { max: 200 * 1024 * 1024, maison: lienDeMaison(i.lien), ...(s(i.utilisateur) ? { compte: { utilisateur: s(i.utilisateur), motDePasse: s(i.mot_de_passe) } } : {}) });
+        const nom = nomDeLien(t.url, t.disposition, t.type), v = scanBuffer(nom, t.data, knowledge(ctx), {});
+        const taille = t.data.length > 1e6 ? `${(t.data.length / 1e6).toFixed(1)} Mo` : `${Math.max(1, Math.round(t.data.length / 1e3))} ko`;
+        return { text: `${nom} (${taille})${t.url.host !== u.host ? `, servi par ${t.url.host}` : ''}\n${verdictText({ ...v, file: nom })}\n(Rien n'a été gardé sur le disque. Aucun antivirus ne voit tout : reste prudent avec un programme inconnu.)`, data: { fichier: nom, octets: t.data.length, sha256: v.sha256, type: v.type, score: v.score, level: v.level, findings: v.findings, telecharge: true } };
+      } },
     { id: 'message', label: 'Vérifier un message', what: 'Un e-mail (fichier .eml) ou un texte reçu : est-ce un hameçonnage ?', read: true, params: [{ key: 'texte', label: 'Texte du message, ou chemin d\'un fichier .eml', kind: 'textarea', required: true }], words: ['verifie ce message', 'verifie le message', 'verifie ce mail', 'verifie cet e-mail', 'verifie ce sms', 'est-ce une arnaque', 'arnaque'], run: (ctx, i) => {
       const t = s(i.texte), text = t.length < 400 && !t.includes('\n') && existsSync(t) && statSync(t).isFile() ? readable(readFileSync(t).subarray(0, 2_000_000)) : t, x = st(ctx);
       const f = phishing(text, /^[\w-]+:\s/m.test(text.slice(0, 300)) ? 'eml' : 'texte');
@@ -601,12 +626,14 @@ export const ullr: Module = {
         { kind: 'table', title: 'Capteurs : les applis qui renseignent l\'antivirus', columns: ['Appli', 'Ce qu\'elle signale', 'Dernier signal'], rows: SENSORS.filter((q) => ctx.modules().some((y) => y.id === q.app)).map((q) => { const lastSig = x.seen.get(q.app); return { cells: [name(q.app), q.what, lastSig ? new Date(lastSig).toLocaleString('fr-FR') : 'rien à signaler'], tone: 'neutre' as const }; }) },
         { kind: 'text', title: 'Ce qu\'il faut savoir', text: 'Aucun antivirus ne détecte 100 % des menaces, celui-ci non plus. Une empreinte connue ou une règle sûre déclenche la quarantaine (réversible). Un simple faisceau d\'indices est marqué « à vérifier » : c\'est toi qui décides. Rien n\'est jamais supprimé sans ton accord, et aucun fichier n\'est envoyé sur Internet (seulement des empreintes).' },
       ],
-      side: [{ kind: 'form', title: 'Analyser', action: 'analyser', submit: 'Analyser', params: [{ key: 'dossier', label: 'Dossier ou profil', kind: 'text', default: 'téléchargements', help: `Profils : ${Object.keys(PROFILES(ctx)).join(', ')}` }] }, { kind: 'form', title: 'Vérifier une adresse web', action: 'adresse', submit: 'Vérifier', params: ullr.actions.find((a) => a.id === 'adresse')!.params! }, { kind: 'form', title: 'Planifier une analyse', action: 'plan', submit: 'Planifier', params: ullr.actions.find((a) => a.id === 'plan')!.params! }, { kind: 'form', title: 'Grimoire · nouvelle règle', action: 'regle', submit: 'Ajouter', params: ullr.actions.find((a) => a.id === 'regle')!.params! }, { kind: 'form', title: `Clés des sources (abuse.ch : ${process.env.ABUSE_CH_KEY ? 'présente' : 'absente'} · VirusTotal : ${process.env.VT_API_KEY ? 'présente' : 'absente'})`, action: 'cles', submit: 'Ranger', params: ullr.actions.find((a) => a.id === 'cles')!.params! }],
+      side: [{ kind: 'form', title: 'Analyser un fichier', action: 'fichier', submit: 'Analyser ce fichier', params: ullr.actions.find((a) => a.id === 'fichier')!.params! }, { kind: 'form', title: 'Analyser un dossier', action: 'analyser', submit: 'Analyser', params: [{ key: 'dossier', label: 'Dossier ou profil', kind: 'text', default: 'téléchargements', help: `Profils : ${Object.keys(PROFILES(ctx)).join(', ')}` }] }, { kind: 'form', title: 'Vérifier une adresse web', action: 'adresse', submit: 'Vérifier', params: ullr.actions.find((a) => a.id === 'adresse')!.params! }, { kind: 'form', title: 'Analyser le fichier d\'un lien', action: 'fichier_internet', submit: 'Télécharger en mémoire et analyser', params: ullr.actions.find((a) => a.id === 'fichier_internet')!.params! }, { kind: 'form', title: 'Planifier une analyse', action: 'plan', submit: 'Planifier', params: ullr.actions.find((a) => a.id === 'plan')!.params! }, { kind: 'form', title: 'Grimoire · nouvelle règle', action: 'regle', submit: 'Ajouter', params: ullr.actions.find((a) => a.id === 'regle')!.params! }, { kind: 'form', title: `Clés des sources (abuse.ch : ${process.env.ABUSE_CH_KEY ? 'présente' : 'absente'} · VirusTotal : ${process.env.VT_API_KEY ? 'présente' : 'absente'})`, action: 'cles', submit: 'Ranger', params: ullr.actions.find((a) => a.id === 'cles')!.params! }],
     };
   },
   watch: { every: 60, async run(ctx) {
     const x = st(ctx), now = ctx.now();
     checkCanaries(ctx);
+    // Un fichier envoyé pour analyse mais jamais analysé (page fermée, connexion coupée) ne reste pas : effacé au bout d'une heure.
+    try { const d = join(ctx.dir, 'depots'); for (const f of readdirSync(d)) { const p = join(d, f); if (now.getTime() - statSync(p).mtimeMs > 3_600_000) rmSync(p, { force: true }); } } catch { /* pas de dossier d'arrivée : rien à faire */ }
     // Supports amovibles : un nouveau support monté est analysé (les 20 000 premiers fichiers).
     const mounts = new Set(removable()); if (x.mounts && ctx.settings.usb !== false) for (const mnt of mounts) if (!x.mounts.has(mnt) && !x.running) { ctx.emit('support_branche', { dossier: mnt }); void runScan(ctx, mnt, { max: 20_000 }).then((r) => { if (r.detections.length) ctx.alert({ level: 'haute', title: `Asclépios : ${r.detections.length} menace(s) sur le support ${basename(mnt)}`, detail: reportText(r).slice(0, 700), key: `usb:${mnt}:${r.id}` }); }).catch(() => undefined); }
     x.mounts = mounts;

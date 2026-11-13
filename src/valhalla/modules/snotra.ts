@@ -158,6 +158,8 @@ const colName = (n: number) => { let x = ''; for (n++; n > 0; n = Math.floor((n 
 export function xlsx(rows: string[][], feuille = 'Feuille1'): Buffer {
   const cell = (v: string, r: number, c: number) => { const ref = `${colName(c)}${r + 1}`;
     if (v === '') return ''; if (/^=/.test(v)) return `<c r="${ref}"><f>${esc(v.slice(1))}</f></c>`;
+    // Comme dans un tableur : une apostrophe en tête garde le contenu en texte (« '0976 » reste « 0976 »).
+    if (v.startsWith('\'')) return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${esc(v.slice(1))}</t></is></c>`;
     if (/^-?\d{1,15}([.,]\d+)?$/.test(v)) return `<c r="${ref}"><v>${v.replace(',', '.')}</v></c>`;
     return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`; };
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows.map((r, k) => `<row r="${k + 1}">${r.map((v, c) => cell(v, k, c)).join('')}</row>`).join('')}</sheetData></worksheet>`;

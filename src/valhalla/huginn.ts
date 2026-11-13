@@ -75,6 +75,8 @@ async function namesOf(v: Valhalla, m: Module): Promise<Names> {
       if (sec.kind === 'table') for (const r of sec.rows) { add('*', r.cells[0]); for (const a of r.actions ?? []) for (const [k, val] of Object.entries(a.input)) add(k, val); }
       if (sec.kind === 'list') for (const it of sec.items) add('*', it.title);
       if (sec.kind === 'cards') for (const it of sec.items) { add('*', it.title); for (const x of it.actions ?? []) for (const [k, val] of Object.entries(x.input ?? {})) add(k, val); }
+      // Les postes proposés par un formulaire (« Voir un autre poste ») : « … sur serveur-web » désigne ce poste.
+      if (sec.kind === 'form') for (const fp of sec.params ?? []) if (fp.key === 'poste' && fp.kind === 'select') for (const o of fp.options ?? []) add('poste', o);
     }
   } catch { /* page indisponible : on se passera des noms */ }
   cache.set(m.id, { at: Date.now(), names });

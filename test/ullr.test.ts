@@ -3,7 +3,7 @@
 // Aucun vrai malware n'est téléchargé ni créé.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -678,5 +678,73 @@ test('Asclépios · relié aux autres applis : mots de passe d\'Odin refusés �
     // Sans IA : « les incidents », « analyse le fichier … », « mets à jour les signatures » sont compris par Logos.
     assert.match((await w.v.order('les incidents de sécurité')).text, /deviner ton mot de passe/);
     assert.equal((await w.v.order('analyse le fichier /tmp/x.sh')).understood?.kind, 'action');
+  } finally { w.end(); }
+});
+
+test('Asclépios · analyser le fichier d\'un lien : verdict avant de télécharger, rien gardé sur le disque, adresses internes refusées', async () => {
+  const w = world({ keys: true });
+  try {
+    const sain = 'Compte rendu de chantier\n', connu = Buffer.from(`programme inoffensif ${Math.random()}`), hsb = join(w.home, 'essai.hsb');
+    writeFileSync(hsb, `${sha(connu)}:${connu.length}:Essai.Lien-2\n`); assert.match((await act(w, 'importer', { chemin: hsb })).text, /1 empreinte\(s\) importée\(s\)/);
+    const vus: Array<{ url: string; auth: string | null }> = [];
+    const sert = (corps: string | Buffer | null, init?: ResponseInit) => (url: string, req?: RequestInit) => { vus.push({ url, auth: new Headers(req?.headers).get('authorization') }); return new Response(corps, init); };
+    w.routes.push(
+      [/openphish\/public_feed/, () => new Response('https://faux-colis.mechant-exemple.org/suivi\n')],
+      [/^https:\/\/exemple\.test\/rapport\.txt$/, sert(sain)],
+      [/^https:\/\/exemple\.test\/dl\?id=7$/, sert(connu, { headers: { 'content-disposition': 'attachment; filename="../../Facture.exe"' } })],
+      [/^https:\/\/exemple\.test\/page\.php$/, sert(WEBSHELL)],
+      [/^https:\/\/exemple\.test\/essai\.com$/, sert(EICAR)],
+      [/^https:\/\/exemple\.test\/miroir$/, sert(null, { status: 302, headers: { location: 'https://cdn.exemple.test/outil.txt' } })],
+      [/^https:\/\/cdn\.exemple\.test\/outil\.txt$/, sert(sain)],
+      [/^https:\/\/exemple\.test\/piege$/, sert(null, { status: 302, headers: { location: 'http://192.168.1.1/config.bin' } })],
+      [/^http:\/\/192\.168\.1\.20\/partage\/note\.txt$/, sert(sain)],
+      [/^https:\/\/exemple\.test\/prive\.txt$/, (url, req) => { const auth = new Headers(req?.headers).get('authorization'); vus.push({ url, auth }); return auth ? new Response(sain) : new Response('non', { status: 401 }); }],
+      [/faux-colis|192\.168\.1\.1\/|127\.0\.0\.1/, sert('ne devrait jamais être demandé')],
+    );
+    await act(w, 'mettre_a_jour');
+    const avant = new Set(readdirSync(w.home, { recursive: true }) as string[]);
+    // Un fichier sain : dit clairement, avec sa taille et son vrai type.
+    let r = await act(w, 'fichier_internet', { lien: 'https://exemple.test/rapport.txt' }); assert.equal(r.ok, true, r.text);
+    assert.match(r.text, /^rapport\.txt \(1 ko\)\n✓ Rien de dangereux trouvé .*\n\(Rien n'a été gardé sur le disque\./, r.text);
+    // Un programme connu des bases (ici : un fichier inoffensif déclaré « connu » pour l'essai), sous un nom piégé.
+    r = await act(w, 'fichier_internet', { lien: 'https://exemple.test/dl?id=7' });
+    assert.match(r.text, /^Facture\.exe \(1 ko\)\n⚠ Malware connu : Essai\.Lien-2 \(empreinte\) — score 100\/100, risque critique/, r.text);
+    assert.equal((r.data as { level: string; sha256: string }).level, 'critique'); assert.equal((r.data as { sha256: string }).sha256, sha(connu));
+    assert.match((await act(w, 'fichier_internet', { lien: 'https://exemple.test/page.php' })).text, /⚠ .*\(règle\)/);
+    assert.match((await act(w, 'fichier_internet', { lien: 'https://exemple.test/essai.com' })).text, /EICAR|fichier de test/i);
+    r = await act(w, 'fichier_internet', { lien: 'https://exemple.test/miroir' }); assert.match(r.text, /^outil\.txt \(1 ko\), servi par cdn\.exemple\.test\n✓/, r.text);
+    // Une adresse connue comme dangereuse : rien n'est téléchargé.
+    r = await act(w, 'fichier_internet', { lien: 'https://faux-colis.mechant-exemple.org/suivi' }); assert.match(r.text, /⚠ Adresse connue comme dangereuse \(hameçonnage, source openphish\) : je ne télécharge pas/);
+    assert.equal((r.data as { telecharge: boolean }).telecharge, false);
+    // Refus : Odin lui-même, redirection vers la maison, autre protocole, identifiants écrits dans le lien.
+    assert.match((await act(w, 'fichier_internet', { lien: 'http://127.0.0.1:3000/compte.json' })).text, /refusée/);
+    assert.match((await act(w, 'fichier_internet', { lien: 'http://[::ffff:127.0.0.1]:3000/x' })).text, /refusée/);
+    assert.match((await act(w, 'fichier_internet', { lien: 'https://exemple.test/piege' })).text, /renvoie vers une adresse de ton réseau/);
+    assert.match((await act(w, 'fichier_internet', { lien: 'file:///etc/shadow' })).text, /http et https/);
+    assert.match((await act(w, 'fichier_internet', { lien: 'https://awa:secret@exemple.test/rapport.txt' })).text, /dans leurs cases/);
+    assert.ok(!vus.some((x) => /faux-colis|192\.168\.1\.1\/|127\.0\.0\.1/.test(x.url)), 'aucune adresse dangereuse ou interne n\'a été contactée');
+    // Une adresse de la maison : ton accord d'abord (action grave), puis l'analyse se fait.
+    const a = ullr.actions.find((x) => x.id === 'fichier_internet')!;
+    assert.match(a.grave!({ lien: 'http://192.168.1.20/partage/note.txt' }) ?? '', /pointe vers ton réseau \(192\.168\.1\.20\)/); assert.equal(a.grave!({ lien: 'https://exemple.test/rapport.txt' }), undefined);
+    assert.ok(a.read && a.external, 'lecture seule, et réponse traitée comme une donnée venue d\'ailleurs');
+    assert.match((await act(w, 'fichier_internet', { lien: 'http://192.168.1.20/partage/note.txt' })).text, /^note\.txt .*\n✓/);
+    // Avec identifiant et mot de passe (masqué, jamais gardé).
+    assert.match((await act(w, 'fichier_internet', { lien: 'https://exemple.test/prive.txt' })).text, /demande un identifiant/);
+    assert.match((await act(w, 'fichier_internet', { lien: 'https://exemple.test/prive.txt', utilisateur: 'awa', mot_de_passe: 'Secret 42!' })).text, /^prive\.txt .*\n✓/);
+    assert.equal(a.params!.find((p) => p.key === 'mot_de_passe')!.kind, 'password');
+    // Rien n'a été écrit : ni le fichier, ni son contenu, ni le mot de passe.
+    const apres = (readdirSync(w.home, { recursive: true }) as string[]).filter((f) => !avant.has(f));
+    assert.deepEqual(apres.filter((f) => /Facture|rapport|outil|note\.txt|prive|essai\.com|page\.php/i.test(f)), [], `aucun fichier téléchargé n'est gardé (${apres.join(', ')})`);
+    for (const f of readdirSync(w.home, { recursive: true }) as string[]) { let c = ''; try { c = readFileSync(join(w.home, f), 'utf8'); } catch { continue; } assert.ok(!c.includes('Secret 42!'), `le mot de passe n'est gardé nulle part (${f})`); }
+    assert.ok(!existsSync(join(w.home, 'Facture.exe')) && !existsSync(join(w.home, '..', 'Facture.exe')));
+    // Un fichier envoyé depuis l'appareil mais jamais analysé (page fermée) : effacé au bout d'une heure, pas avant.
+    const depots = join(w.v.ctx('ullr').dir, 'depots'); mkdirSync(depots, { recursive: true });
+    writeFileSync(join(depots, 'oublie.bin'), 'x'); writeFileSync(join(depots, 'recent.bin'), 'x'); const hier = new Date(Date.now() - 2 * 3_600_000); utimesSync(join(depots, 'oublie.bin'), hier, hier);
+    await ullr.watch!.run(w.v.ctx('ullr'));
+    assert.deepEqual(readdirSync(depots), ['recent.bin']);
+    // Sans IA : compris par Logos ; et le formulaire est sur la page.
+    const o = await w.v.order('analyse le fichier du lien https://exemple.test/rapport.txt'); assert.match(o.text, /rapport\.txt \(1 ko\)\n✓/, o.text);
+    const vue = await ullr.view(w.v.ctx('ullr'), new URLSearchParams());
+    assert.ok(vue.side?.some((x) => x.kind === 'form' && x.action === 'fichier_internet'));
   } finally { w.end(); }
 });

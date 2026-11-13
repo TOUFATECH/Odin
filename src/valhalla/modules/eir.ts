@@ -4,7 +4,8 @@
 import { readdirSync, readFileSync, statfsSync } from 'node:fs';
 import { cpus, loadavg, totalmem, freemem, uptime } from 'node:os';
 import type { Kpi, Module, ModCtx } from '../types.ts';
-import { DEFAULT_LIMITS, health, level, parseNvidia, parsePs, parseSmart, parseWho, toSeries, type Health, type Limits, type Lvl } from '../eir/collect.ts';
+import { cpuPct, DEFAULT_LIMITS, health, level, parseMem, parseNvidia, parsePs, parseSmart, parseStat, parseWho, toSeries, type Health, type Limits, type Lvl } from '../eir/collect.ts';
+import { PARAM_POSTE, posteDe, postesLisibles, type Poste } from '../postes.ts';
 import { metrics } from '../metrics.ts';
 
 const read = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return ''; } };
@@ -86,6 +87,37 @@ async function slow(ctx: ModCtx): Promise<void> {
 }
 function current(): Health { return last && Date.now() - last.at < 20_000 ? last : (last = health()); }
 
+// ---------------- Un autre poste (Linux ou Mac), lu par SSH ----------------
+export interface EtatDistant { poste: string; systeme: string; hote: string; noyau: string; allumeDepuis: number; coeurs: number; cpu?: number; attente?: number; charge: number[]; mem?: { total: number; utilisee: number; echange: number }; disques: Array<{ mount: string; pct: number; libre: number; taille: number }> }
+/** Ce que le poste écrit quand on lui demande son état : une suite de rubriques « ---NOM ». */
+const SONDE = 'echo ---SYS; uname -s; uname -n; uname -r; echo ---STAT; head -1 /proc/stat 2>/dev/null; sleep 1; head -1 /proc/stat 2>/dev/null; echo ---MEM; cat /proc/meminfo 2>/dev/null; echo ---CHARGE; cat /proc/loadavg 2>/dev/null || uptime; echo ---DUREE; cat /proc/uptime 2>/dev/null; echo ---COEURS; nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null; echo ---DISQUES; df -P -k 2>/dev/null';
+/** La réponse d'un poste à la sonde → son état. Pur. */
+export function lireSonde(poste: string, out: string): EtatDistant {
+  const r: Record<string, string[]> = {}; let cur = '';
+  for (const l of out.split('\n')) { const m = /^---([A-Z]+)$/.exec(l.trim()); if (m) { cur = m[1]; r[cur] = []; } else if (cur) r[cur].push(l); }
+  const sys = r.SYS ?? [], stat = (r.STAT ?? []).filter((l) => l.startsWith('cpu')), a = parseStat(stat[0] ?? '').get('cpu'), b = parseStat(stat[1] ?? '').get('cpu'), pc = a && b ? cpuPct(a, b) : undefined;
+  const memTxt = (r.MEM ?? []).join('\n'), mem = /MemTotal/.test(memTxt) ? parseMem(memTxt) : undefined;
+  const chargeTxt = (r.CHARGE ?? []).join(' '), charge = (/load averages?:\s*([\d.,]+)[ ,]+([\d.,]+)[ ,]+([\d.,]+)/.exec(chargeTxt)?.slice(1, 4) ?? chargeTxt.trim().split(/\s+/).slice(0, 3)).map((x) => Number(String(x).replace(',', '.'))).filter((x) => Number.isFinite(x));
+  const virtuel = /^(tmpfs|devtmpfs|overlay|shm|none|udev|map|devfs|efivarfs)\b|^\/dev\/loop/;
+  const disques = (r.DISQUES ?? []).slice(1).map((l) => l.trim().split(/\s+/)).filter((c) => c.length >= 6 && !virtuel.test(c[0]) && Number(c[1]) > 0 && !/^\/(snap|proc|sys|dev|run|boot\/efi|System\/Volumes\/(VM|Preboot|Update|xarts|iSCPreboot|Hardware))(\/|$)/.test(c.slice(5).join(' ')))
+    .map((c) => ({ mount: c.slice(5).join(' '), taille: Number(c[1]) * 1024, libre: Number(c[3]) * 1024, utilise: Number(c[2]) * 1024, pct: Math.round((Number(c[2]) / Math.max(1, Number(c[2]) + Number(c[3]))) * 100) }));
+  // Un même disque monté à deux endroits (mêmes taille, occupation et place libre) ne compte qu'une fois.
+  const vus = new Set<string>(), uniques = disques.filter((d) => { const k = `${d.taille}|${d.utilise}|${d.libre}`; if (vus.has(k)) return false; vus.add(k); return true; }).map(({ utilise: _u, ...d }) => d);
+  return { poste, systeme: /Darwin/i.test(sys[0] ?? '') ? 'macOS' : (sys[0] ?? '').trim() || 'inconnu', hote: (sys[1] ?? '').trim(), noyau: (sys[2] ?? '').trim(), allumeDepuis: Math.round(Number((r.DUREE ?? [])[0]?.trim().split(/\s+/)[0]) || 0), coeurs: Number((r.COEURS ?? [])[0]) || 0, ...(pc ? { cpu: pc.total, attente: pc.iowait } : {}), charge, ...(mem ? { mem: { total: mem.total, utilisee: mem.used, echange: mem.swapUsed } } : {}), disques: uniques };
+}
+async function etatDistant(p: Poste): Promise<EtatDistant> {
+  const r = await p.run('sh', ['-c', SONDE], { timeoutMs: 30_000 });
+  if (r.code !== 0 && !/---SYS/.test(r.out)) throw new Error(`${p.nom} n'a pas répondu à la demande d'état${r.err.trim() ? ` : ${r.err.trim().split('\n').at(-1)!.slice(0, 160)}` : ''}`);
+  return lireSonde(p.nom, r.out);
+}
+function texteDistant(e: EtatDistant, lv: (v: number, k: string) => string): string {
+  const mp = e.mem ? Math.round((e.mem.utilisee / e.mem.total) * 100) : undefined;
+  return [`${e.poste}${e.hote && e.hote !== e.poste ? ` (${e.hote})` : ''} · ${e.systeme}${e.noyau ? ` ${e.noyau}` : ''}${e.allumeDepuis ? ` · allumé depuis ${dur(e.allumeDepuis)}` : ''}`,
+    `${e.cpu !== undefined ? `Processeur ${e.cpu} % (${lv(e.cpu, 'cpu')}) · ` : ''}${e.coeurs ? `${e.coeurs} cœurs · ` : ''}charge ${e.charge.map((x) => x.toFixed(1)).join(' / ') || '?'}${(e.attente ?? 0) > 5 ? ` · attente disque ${e.attente} %` : ''}`,
+    ...(e.mem && mp !== undefined ? [`Mémoire ${human(e.mem.utilisee)} / ${human(e.mem.total)} (${mp} %, ${lv(mp, 'mem')})${e.mem.echange ? ` · échange ${human(e.mem.echange)}` : ''}`] : []),
+    ...e.disques.map((d) => `Disque ${d.mount} : ${d.pct} % (${lv(d.pct, 'fs')}) · ${human(d.libre)} libres`)].join('\n');
+}
+
 export const eir: Module = {
   id: 'eir', name: 'Hygie', family: 'Machines',
   what: 'La santé de la machine en direct et dans le temps : processeur, mémoire, disques, réseau, capteurs, SMART, RAID, carte graphique, processus. Comme Glances, lisible d\'un coup d\'œil.',
@@ -93,15 +125,16 @@ export const eir: Module = {
   from: ['Glances'], upstream: ['nicolargo/glances'],
   words: ['etat de la machine', 'état de la machine', 'etat du serveur', 'état du serveur', 'serveur', 'sante', 'santé', 'processeur', 'cpu', 'memoire', 'mémoire', 'ram', 'disque plein', 'espace disque', 'temperature', 'température', 'charge', 'lent', 'rame', 'processus', 'ressources', 'smart', 'raid', 'ventilateur', 'carte graphique', 'gpu', 'glances'],
   actions: [
-    { id: 'etat', label: 'État de la machine', what: 'Mesures du moment, avec leur niveau', read: true, words: ['etat', 'état', 'comment va', 'sante', 'santé'], run: (ctx) => {
+    { id: 'etat', label: 'État de la machine', what: 'Mesures du moment, avec leur niveau (de cette machine, ou d\'un autre poste Linux ou Mac)', read: true, params: [PARAM_POSTE], words: ['etat', 'état', 'comment va', 'sante', 'santé'], run: async (ctx, i) => {
+      const poste = posteDe(ctx, i.poste); if (!poste.local) { const e = await etatDistant(poste), lvd = (v: number, k: string) => WORD[level(v, limits(ctx, k))]; return { text: texteDistant(e, lvd), data: e }; }
       const h = current(), mp = Math.round((h.mem.used / h.mem.total) * 100), lv = (v: number, k: string) => WORD[level(v, limits(ctx, k))];
       const temps = h.sensors.filter((x) => x.kind === 'temp').sort((a, b) => b.value - a.value).slice(0, 4);
       return { text: [`${h.host} · ${h.os} · allumée depuis ${dur(h.uptime)}`, `Processeur ${h.cpu.total} % (${lv(h.cpu.total, 'cpu')}) · ${h.cores} cœurs · charge ${h.load.map((x) => x.toFixed(1)).join(' / ')}${h.cpu.iowait > 5 ? ` · attente disque ${h.cpu.iowait} %` : ''}`, `Mémoire ${human(h.mem.used)} / ${human(h.mem.total)} (${mp} %, ${lv(mp, 'mem')})${h.mem.swapTotal ? ` · échange ${human(h.mem.swapUsed)}` : ''}`, ...h.fs.map((f) => `Disque ${f.mount} : ${f.pct} % (${lv(f.pct, 'fs')}) · ${human(f.free)} libres`), ...(temps.length ? [`Températures : ${temps.map((x) => `${x.label} ${x.value} °C`).join(', ')}`] : []), ...h.raid.map((r) => `RAID ${r.name} (${r.level}) : ${r.state}${r.progress ? ` ${r.progress} %` : ''}`), ...extra.smart.filter((x) => x.passed === false || (x.reallocated ?? 0) > 0).map((x) => `⚠ SMART ${x.dev} : ${x.passed === false ? 'défaillant' : `${x.reallocated} secteurs réalloués`}`)].join('\n'), data: h };
     } },
-    { id: 'processus', label: 'Processus', what: 'Les processus qui consomment le plus (processeur ou mémoire)', read: true, words: ['processus', 'qui consomme', 'gourmand'], params: [{ key: 'tri', label: 'Trier par', kind: 'select', options: ['processeur', 'memoire'], default: 'processeur' }, { key: 'n', label: 'Combien', kind: 'number', default: 15 }], run: async (ctx, i) => {
-      const r = await ctx.run('ps', ['-eo', 'pid,user,pcpu,pmem,rss,stat,time,args', '--sort', i.tri === 'memoire' ? '-rss' : '-pcpu']);
+    { id: 'processus', label: 'Processus', what: 'Les processus qui consomment le plus (processeur ou mémoire)', read: true, words: ['processus', 'qui consomme', 'gourmand'], params: [{ key: 'tri', label: 'Trier par', kind: 'select', options: ['processeur', 'memoire'], default: 'processeur' }, { key: 'n', label: 'Combien', kind: 'number', default: 15 }, PARAM_POSTE], run: async (ctx, i) => {
+      const poste = posteDe(ctx, i.poste), r = await poste.run('ps', ['-eo', 'pid,user,pcpu,pmem,rss,stat,time,args', '--sort', i.tri === 'memoire' ? '-rss' : '-pcpu']);
       const l = parsePs(r.out).slice(0, Math.min(100, Number(i.n) || 15));
-      return { text: l.map((p) => `${p.pid} · ${p.user} · ${p.cpu} % proc. · ${human(p.rss)} · ${p.cmd}`).join('\n') || 'Liste indisponible.', data: l };
+      return { text: (poste.local ? '' : `Sur ${poste.nom} :\n`) + l.map((p) => `${p.pid} · ${p.user} · ${p.cpu} % proc. · ${human(p.rss)} · ${p.cmd}`).join('\n') || `${poste.local ? '' : `Sur ${poste.nom} : `}liste indisponible.`, data: l };
     } },
     { id: 'arreter_processus', label: 'Arrêter un processus', what: 'Demande poliment à un programme de s\'arrêter (signal TERM)', quick: false, grave: (i) => `arrêter le processus ${String(i.pid)}`, params: [{ key: 'pid', label: 'Numéro du processus (PID)', kind: 'number', required: true }], run: async (ctx, i) => {
       const pid = Number(i.pid); if (!Number.isInteger(pid) || pid < 2) throw new Error('numéro invalide'); if (pid === process.pid) throw new Error('c\'est Odin lui-même');
@@ -144,6 +177,7 @@ export const eir: Module = {
         ...(extra.who.length ? [{ kind: 'list' as const, title: 'Personnes connectées', items: extra.who.map((w) => ({ title: w.user, detail: `${w.tty}${w.from ? ` depuis ${w.from}` : ''}`, meta: w.since })) }] : []),
       ],
       side: [
+        ...(postesLisibles(ctx).length > 1 ? [{ kind: 'form' as const, title: 'Voir l\'état d\'un autre poste', action: 'etat', submit: 'Voir son état', params: [{ key: 'poste', label: 'Poste (Linux ou Mac, par SSH)', kind: 'select' as const, options: postesLisibles(ctx).slice(1).map((x) => x.nom), default: postesLisibles(ctx)[1].nom }] }] : []),
         { kind: 'bars', title: 'Disques (place)', items: h.fs.map((d) => ({ label: d.mount, value: Math.round(d.pct), display: `${d.pct} % · ${human(d.free)} libres` })) },
         { kind: 'list', title: 'Capteurs', items: h.sensors.map((x) => ({ title: x.label, meta: x.kind === 'temp' ? `${x.value} °C${x.crit ? ` (critique ${x.crit})` : ''}` : `${x.value} tr/min`, tone: x.kind === 'temp' ? TONE[lv(x.value, 'temp')] : undefined })), empty: 'Pas de capteur lisible.' },
         ...(h.batteries.length ? [{ kind: 'list' as const, title: 'Batterie', items: h.batteries.map((b) => ({ title: b.name, meta: `${b.pct} % · ${b.status}`, tone: b.pct < 15 ? 'mauvais' as const : undefined })) }] : []),

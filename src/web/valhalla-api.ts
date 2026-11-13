@@ -51,7 +51,9 @@ export async function valhallaPost(path: string, b: Record<string, unknown>): Pr
       const why = f.a.grave?.(input, v.ctx(f.m.id));
       if (why && b.confirm !== true) return { ok: false, confirm: `Confirmer : ${why} ?` };
       const r = await v.act(f.m.id, f.a.id, input);
-      return { ok: r.ok !== false, text: r.text, data: r.data && typeof r.data === 'object' && 'file' in (r.data as object) ? { file: true } : r.data };
+      // Les fichiers à télécharger : seulement si l'appli sait les remettre (`retrait`), et jamais plus de 20 par réponse.
+      const fichiers = f.m.retrait && Array.isArray(r.fichiers) ? r.fichiers.filter((x) => x && typeof x.nom === 'string' && typeof x.ref === 'string').slice(0, 20).map((x) => ({ nom: x.nom.slice(0, 160), ref: x.ref.slice(0, 600) })) : [];
+      return { ok: r.ok !== false, text: r.text, data: r.data && typeof r.data === 'object' && 'file' in (r.data as object) ? { file: true } : r.data, ...(fichiers.length ? { fichiers, module: f.m.id } : {}) };
     }
     // « Garder » ou « annuler » une manip (annuler lance l'action inverse ; si elle est grave, une confirmation est demandée).
     case '/api/valhalla/manip': {

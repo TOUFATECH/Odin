@@ -109,14 +109,18 @@ export const champollion: Module = {
   does: ['texte reconnu sur les photos et les captures (français, anglais et 20 autres langues)', 'PDF scanné : texte reconnu page par page ; PDF rendu « cherchable » (texte posé sur les pages)', 'documents Word, Excel, PowerPoint, OpenDocument, PDF, Markdown, HTML, texte', 'audio et vidéo : ce qui est dit, avec le Whisper local de Orphée', 'type de document : facture, devis, contrat, bulletin de salaire, relevé, ordonnance, convocation, billet, CV, courrier', 'événements trouvés : rendez-vous, réunions, échéances, livraisons, voyages, avec la date et l\'heure', 'montants (et le total), e-mails, téléphones, liens, IBAN (masqués)', 'résumé par l\'IA d\'Odin quand elle est là (le document n\'est jamais pris pour un ordre)', 'chaque fichier passe d\'abord par l\'antivirus ; ce qui est lu peut être gardé dans le Cerveau'],
   from: ['Tesseract', 'OCRmyPDF', 'Whisper', 'Paperless-ngx'], upstream: ['tesseract-ocr/tesseract', 'ocrmypdf/OCRmyPDF', 'ggml-org/whisper.cpp', 'paperless-ngx/paperless-ngx'],
   words: ['reconnaissance', 'reconnais le texte', 'lis ce document', 'lis le document', 'ocr', 'texte de l image', 'qu y a t il dans', 'transcris', 'champollion', 'pdf scanne', 'pdf scanné'],
+  // Un fichier envoyé depuis le navigateur (photo du téléphone, PDF…) arrive dans l'atelier de Champollion, et se désigne « atelier:nom ».
+  depot: (ctx) => ({ dossier: join(ctx.dir, 'atelier'), ref: (nom) => `atelier:${nom}` }),
+  // Le PDF rendu cherchable peut être repris sur l'appareil (« Télécharger »), s'il est dans l'atelier ou un dossier que tu as donné.
+  retrait: (ctx, ref) => { const f = resolveFile(ctx, ref); return existsSync(f.abs) && statSync(f.abs).isFile() ? f.abs : undefined; },
   actions: [
-    { id: 'lire', label: 'Lire un fichier', what: 'Photo, PDF (même scanné), document, audio ou vidéo : le texte, puis ce qu\'il y a dedans', read: true, external: true, words: ['lis le fichier', 'lis ce fichier', 'qu y a t il dans le fichier', 'reconnais le texte'], params: [{ key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true }, { key: 'langues', label: 'Langues du texte', kind: 'select', options: ['fra+eng', 'fra', 'eng', 'ara', 'spa', 'deu'], default: 'fra+eng' }], run: (ctx, i) => read(ctx, s(i.fichier), s(i.langues) || LANGS) },
+    { id: 'lire', label: 'Lire un fichier', what: 'Photo, PDF (même scanné), document, audio ou vidéo : le texte, puis ce qu\'il y a dedans', read: true, external: true, words: ['lis le fichier', 'lis ce fichier', 'qu y a t il dans le fichier', 'reconnais le texte'], params: [{ key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true, depot: {} }, { key: 'langues', label: 'Langues du texte', kind: 'select', options: ['fra+eng', 'fra', 'eng', 'ara', 'spa', 'deu'], default: 'fra+eng' }], run: (ctx, i) => read(ctx, s(i.fichier), s(i.langues) || LANGS) },
     { id: 'texte', label: 'Comprendre un texte', what: 'Un texte collé ou reçu : type, dates, rendez-vous, montants, contacts', read: true, external: true, words: ['comprends ce texte', 'analyse ce texte'], params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }], run: async (ctx, i) => {
       const t = String(i.texte ?? ''); if (!t.trim()) throw new Error('texte vide');
       const a = analyse(t, ctx.now()), r = remember(ctx, 'texte collé', t, a), ai = await aiSummary(ctx, t);
       return { text: `${report(a, 'Texte')}\nlecture n° ${r.id}${ai ? `\n\nRésumé (IA d'Odin) :\n${ai}` : ''}`, data: { analyse: a, lecture: r.id } };
     } },
-    { id: 'pdf_cherchable', label: 'Rendre un PDF cherchable', what: 'Un PDF scanné reçoit son texte (invisible, sous les pages) : on peut chercher et copier dedans ; l\'original reste', params: [{ key: 'fichier', label: 'PDF (dossier:chemin)', kind: 'text', required: true }, { key: 'langues', label: 'Langues', kind: 'select', options: ['fra+eng', 'fra', 'eng'], default: 'fra+eng' }], run: async (ctx, i) => {
+    { id: 'pdf_cherchable', label: 'Rendre un PDF cherchable', what: 'Un PDF scanné reçoit son texte (invisible, sous les pages) : on peut chercher et copier dedans ; l\'original reste', params: [{ key: 'fichier', label: 'PDF (dossier:chemin)', kind: 'text', required: true, depot: {} }, { key: 'langues', label: 'Langues', kind: 'select', options: ['fra+eng', 'fra', 'eng'], default: 'fra+eng' }], run: async (ctx, i) => {
       const f = resolveFile(ctx, s(i.fichier)); if (!existsSync(f.abs) || extOf(f.abs) !== 'pdf') throw new Error('PDF introuvable');
       await scan(ctx, f.abs);
       const work = workDir(ctx), dest = dirname(f.abs), name = freeName(dest, `${basename(f.abs, '.pdf')}.texte.pdf`), out = join(work, 'out.pdf'), langs = s(i.langues) || LANGS;
@@ -131,7 +135,7 @@ export const champollion: Module = {
           const r = await ctx.run('qpdf', ['--empty', '--pages', ...pages, '--', out], { timeoutMs: 300_000 }); if (!existsSync(out)) throw new Error(r.err || 'assemblage impossible');
         }
         const final = join(dest, name); writeFileSync(final, readFileSync(out));
-        return { text: `✅ PDF cherchable : ${name} (l'original reste à côté)` };
+        return { text: `✅ PDF cherchable : ${name} (l'original reste à côté)`, fichiers: [{ nom: name, ref: `${f.folder.nom}:${final.slice(f.folder.chemin.length + 1)}` }] };
       } finally { rmSync(work, { recursive: true, force: true }); }
     } },
     { id: 'garder', label: 'Garder dans le Cerveau', what: 'Ce qui a été lu devient une note du Cerveau (avec le compte rendu)', params: [{ key: 'lecture', label: 'N° de lecture (vide = la dernière)', kind: 'text', default: '' }, { key: 'titre', label: 'Titre de la note', kind: 'text', default: '' }], run: async (ctx, i) => {
@@ -149,7 +153,7 @@ export const champollion: Module = {
   view(ctx) {
     const l = (ctx.settings.lectures as Reading[] | undefined) ?? [];
     return { subtitle: `${l.length} lecture(s)`, sections: [
-      { kind: 'form', title: 'Lire un fichier', action: 'lire', submit: 'Lire', params: [{ key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true, help: 'Photo, PDF (même scanné), Word, Excel, PowerPoint, texte, audio, vidéo. Sans dossier : l\'atelier.' }] },
+      { kind: 'form', title: 'Lire un fichier', action: 'lire', submit: 'Lire', params: [{ key: 'fichier', label: 'Fichier', kind: 'text', required: true, depot: {}, help: 'Photo, PDF (même scanné), Word, Excel, PowerPoint, texte, audio, vidéo. Un fichier de l\'atelier ou d\'un de tes dossiers (dossier:chemin), ou un fichier de cet appareil (une photo prise au téléphone, par exemple) : il est déposé dans l\'atelier.' }] },
       { kind: 'form', title: 'Comprendre un texte', action: 'texte', submit: 'Comprendre', params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }] },
       { kind: 'table', title: 'Dernières lectures', columns: ['Quand', 'Source', 'Type', 'Mots', 'Événements'], rows: l.map((x) => ({ cells: [x.at.slice(0, 16).replace('T', ' '), x.source, x.type, String(x.mots), String(x.evenements)], actions: [{ action: 'garder', label: 'Garder dans le Cerveau', input: { lecture: x.id } }] })), empty: 'Rien lu pour l\'instant.' },
     ] };

@@ -6,20 +6,26 @@
 //     images → PDF, nettoyer les informations cachées ;
 //   - vidéos par lot (comme Tdarr) : un dossier entier recompressé, une vidéo à la fois, en arrière-plan ;
 //   - boîte à outils (comme IT-Tools) : empreintes, Base64, JWT, horodatage, JSON, sous-réseau, couleurs…
+//   - sans aucun outil (idées de Filee, réécrites) : sous-titres, données (JSON, CSV, YAML, TOML, XML, Excel), contacts,
+//     agenda, cartes (GeoJSON, KML, GPX), archives (ZIP, TAR) ; dossiers surveillés ; conversion depuis un lien.
 // Les fichiers sont pris dans les dossiers que tu donnes à Alchimie (l'atelier par défaut). Un résultat est
 // toujours écrit à côté de l'original sous un nouveau nom : rien n'est jamais écrasé ni effacé.
-import { chmodSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { cleanRel, freeName, inside } from '../skidbladnir/store.ts';
 import { extOf, familyOf, pdfPlan, plan, qpdfSecretArgs, TARGETS, type Opts, type PdfOp, type Step } from '../dvalinn/plan.ts';
 import { OUTILS, outil } from '../dvalinn/outils.ts';
+import { CIBLES_MAISON, ciblesMaison, convertirMaison, familleMaison, peutMaison } from '../dvalinn/maison.ts';
+import { lienDeMaison, lienPropre, nomDeLien, telecharger } from '../lien.ts';
 import type { ModCtx, Module, Section } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export interface Folder { nom: string; chemin: string }
 interface Job { id: string; src: string; codec: 'h264' | 'h265' | 'av1'; qualite: 'haute' | 'normale' | 'legere'; hauteur?: number; state: 'attente' | 'en cours' | 'fini' | 'erreur'; out?: string; err?: string; gain?: number; at: string }
 interface Hist { at: string; what: string; ok: boolean; out?: string[]; err?: string }
+/** Un dossier surveillé : tout fichier qui y arrive est converti vers `vers` (résultat dans son sous-dossier « convertis »). */
+interface Veille { id: string; dossier: string; vers: string; at: string; faits: Record<string, number> }
 
 /** Les outils libres que Alchimie sait utiliser (et le paquet qui les apporte). */
 export const TOOLS: Array<{ cmd: string; alt?: string; pkg: string; does: string }> = [
@@ -73,6 +79,50 @@ const optsOf = (i: Record<string, unknown>): Opts => ({
   ...(i.sans_son === true || i.sans_son === 'true' ? { sansSon: true } : {}), ...(s(i.debut) ? { debut: s(i.debut) } : {}), ...(s(i.duree) ? { duree: s(i.duree) } : {}),
 });
 
+const propre = (x: string) => s(x).toLowerCase().replace(/^\./, '').replace('jpeg', 'jpg');
+/** Alchimie sait-elle (elle-même ou avec un outil) convertir ce fichier vers ce format ? */
+export const convertible = (nom: string, vers: string) => { const to = propre(vers), f = familyOf(nom); return peutMaison(nom, to) || (Boolean(f) && TARGETS[f!].includes(to) && extOf(nom) !== to); };
+/**
+ * Convertit un fichier vers un format : par Alchimie elle-même quand elle sait (sous-titres, données, contacts,
+ * agenda, cartes, archives), sinon par l'outil libre qu'il faut. Le résultat va dans `destDir`, sans rien écraser.
+ */
+export async function convertirFichier(ctx: ModCtx, abs: string, vers: string, destDir: string, o: Opts = {}): Promise<string[]> {
+  const to = propre(vers);
+  if (peutMaison(basename(abs), to)) {
+    if (statSync(abs).size > 512 * 1024 * 1024) throw new Error('fichier trop gros pour cette conversion (512 Mo au plus)');
+    const r = convertirMaison(basename(abs), readFileSync(abs), to);
+    mkdirSync(destDir, { recursive: true }); const out = join(destDir, freeName(destDir, r.nom)); writeFileSync(out, r.data); return [out];
+  }
+  // Un fichier qu'Alchimie lit elle-même, mais pas vers ce format : on dit ce qu'il peut devenir.
+  const fm = familleMaison(basename(abs));
+  if (fm && !familyOf(abs)) throw new Error(`conversion pas possible : un fichier .${extOf(abs)} (${fm}) se convertit en ${ciblesMaison(basename(abs)).join(', ')}`);
+  const work = workDir(ctx);
+  try { return await runStep(ctx, plan(abs, to, work, o), work, destDir); } finally { rmSync(work, { recursive: true, force: true }); }
+}
+const veilles = (ctx: ModCtx): Veille[] => (ctx.settings.surveilles as Veille[] | undefined) ?? [];
+let veilleEnCours = false;
+/** Un tour des dossiers surveillés : les fichiers arrivés (et finis d'écrire) sont convertis, cinq au plus par tour. */
+export async function tourDeVeille(ctx: ModCtx): Promise<number> {
+  if (veilleEnCours) return 0; veilleEnCours = true; let n = 0;
+  try {
+    for (const v of veilles(ctx)) {
+      let f: ReturnType<typeof resolveFile>; try { f = resolveFile(ctx, v.dossier); } catch { continue; }
+      if (!existsSync(f.abs) || !statSync(f.abs).isDirectory()) continue;
+      const now = ctx.now().getTime(), faits = { ...v.faits }; let change = false;
+      for (const nom of readdirSync(f.abs).sort()) {
+        if (n >= 5) break; if (nom.startsWith('.') || nom.startsWith('~$')) continue;
+        const p = join(f.abs, nom); let st; try { st = statSync(p); } catch { continue; }
+        // Un fichier encore en train d'arriver (modifié il y a moins de 5 s) attend le tour suivant.
+        if (!st.isFile() || st.size === 0 || now - st.mtimeMs < 5000 || faits[nom] === Math.round(st.mtimeMs) || !convertible(nom, v.vers) || FORBIDDEN.test(nom)) continue;
+        try { const out = await convertirFichier(ctx, p, v.vers, join(f.abs, 'convertis')); remember(ctx, { at: ctx.now().toISOString(), what: `${nom} → ${v.vers} (dossier surveillé)`, ok: true, out: out.map((x) => relOf(f.folder, x)) }); n++; }
+        catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `${nom} → ${v.vers} (dossier surveillé)`, ok: false, err: (e as Error).message.slice(0, 300) }); }
+        faits[nom] = Math.round(st.mtimeMs); change = true;
+      }
+      if (change) ctx.saveSettings({ surveilles: veilles(ctx).map((x) => (x.id === v.id ? { ...x, faits: Object.fromEntries(Object.entries(faits).slice(-3000)) } : x)) });
+    }
+  } finally { veilleEnCours = false; }
+  return n;
+}
 // ---------------------------------------------------------------- vidéos par lot (comme Tdarr)
 let busy = false;
 const jobs = (ctx: ModCtx): Job[] => (ctx.settings.lots as Job[] | undefined) ?? [];
@@ -93,14 +143,19 @@ async function nextJob(ctx: ModCtx): Promise<void> {
 export const dvalinn: Module = {
   id: 'dvalinn', name: 'Alchimie', family: 'Données',
   what: 'La conversion de tes fichiers et les PDF (comme VERT, BentoPDF, Stirling-PDF), les vidéos par lot (comme Tdarr) et une boîte à outils (comme IT-Tools), tout sur ta machine.',
-  does: ['convertir vidéo, son, image, document, tableur, présentation, texte, PDF, livre numérique', 'vidéo : MP4, MKV, WebM, GIF animé, extraire le son, couper un passage, réduire la taille', 'image : PNG, JPG, WebP, AVIF, HEIC, icône, redimensionner', 'documents : Word, Excel, PowerPoint, OpenDocument, Markdown, HTML ↔ PDF', 'PDF : fusionner, extraire des pages, découper, pivoter, alléger, compresser, protéger par mot de passe, retirer un mot de passe, images → PDF, effacer les informations cachées', 'PDF → texte, PDF → images, texte reconnu (OCR) en PDF/A', 'vidéos par lot : tout un dossier recompressé en H.265 ou AV1, en arrière-plan, gain affiché', 'boîte à outils : empreintes, Base64, URL, UUID, JWT, horodatage, JSON, mot de passe, sous-réseau, couleurs, texte', 'rien n\'est envoyé hors de la machine, rien n\'est écrasé : le résultat est écrit à côté'],
-  from: ['VERT', 'Frame', 'BentoPDF', 'Stirling-PDF', 'IT-Tools', 'Tdarr'], upstream: ['VERT-sh/vert', 'alam00000/bentopdf', 'Stirling-Tools/Stirling-PDF', 'CorentinTh/it-tools', 'HaveAGitGat/Tdarr'],
+  does: ['convertir vidéo, son, image, document, tableur, présentation, texte, PDF, livre numérique', 'vidéo : MP4, MKV, WebM, GIF animé, extraire le son, couper un passage, réduire la taille', 'image : PNG, JPG, WebP, AVIF, HEIC, icône, redimensionner', 'documents : Word, Excel, PowerPoint, OpenDocument, Markdown, HTML ↔ PDF', 'PDF : fusionner, extraire des pages, découper, pivoter, alléger, compresser, protéger par mot de passe, retirer un mot de passe, images → PDF, effacer les informations cachées', 'PDF → texte, PDF → images, texte reconnu (OCR) en PDF/A', 'vidéos par lot : tout un dossier recompressé en H.265 ou AV1, en arrière-plan, gain affiché', 'boîte à outils : empreintes, Base64, URL, UUID, JWT, horodatage, JSON, mot de passe, sous-réseau, couleurs, texte', 'sans aucun outil à installer : sous-titres (SRT, WebVTT, ASS, LRC, SAMI, TTML), données (JSON, CSV, YAML, TOML, XML, Excel), contacts (vCard) et agenda (iCalendar) ↔ tableau, cartes (GeoJSON, KML, GPX), archives (ZIP, TAR, TAR.GZ)', 'dossier surveillé : tout fichier qui y arrive est converti tout seul', 'conversion depuis un lien : le fichier est téléchargé, vérifié par l\'antivirus, puis converti', 'rien n\'est envoyé hors de la machine, rien n\'est écrasé : le résultat est écrit à côté'],
+  // « Filee » écrit seul se réduirait à « fil » pour le mode sans IA (« mon fils… » ouvrirait Alchimie) : on l'écrit avec son auteur.
+  from: ['VERT', 'Frame', 'BentoPDF', 'Stirling-PDF', 'IT-Tools', 'Tdarr', 'KnifeLemon/Filee'], upstream: ['VERT-sh/vert', 'alam00000/bentopdf', 'Stirling-Tools/Stirling-PDF', 'CorentinTh/it-tools', 'HaveAGitGat/Tdarr', 'KnifeLemon/Filee'],
   words: ['convertir', 'conversion', 'convertis', 'pdf', 'fusionner des pdf', 'compresser une video', 'compresser une vidéo', 'en mp4', 'en mp3', 'en pdf', 'en jpg', 'en png', 'dvalinn', 'boite a outils', 'boîte à outils'],
+  // Un fichier envoyé depuis le navigateur arrive dans l'atelier (jamais ailleurs), et se désigne « atelier:nom ».
+  depot: (ctx) => ({ dossier: atelier(ctx), ref: (nom) => `atelier:${nom}` }),
+  // Un résultat peut être remis à l'appareil (« Télécharger ») s'il est dans l'atelier ou un dossier que tu as donné, et n'est pas un fichier protégé.
+  retrait: (ctx, ref) => { const f = resolveFile(ctx, ref); return existsSync(f.abs) && statSync(f.abs).isFile() ? f.abs : undefined; },
   actions: [
     { id: 'outils', label: 'Outils de conversion', what: 'Les outils libres présents sur la machine, ce que chacun permet, et ceux qui manquent', read: true, words: ['outils de conversion', 'que sais tu convertir'], run: async (ctx) => {
       const l = await Promise.all(TOOLS.map(async (t) => ({ ...t, ok: (await ctx.has(t.cmd)) || (t.alt ? await ctx.has(t.alt) : false) })));
       const miss = [...new Set(l.filter((t) => !t.ok).map((t) => t.pkg))];
-      return { text: [...l.map((t) => `${t.ok ? '✅' : '⬜'} ${t.cmd} · ${t.does}`), miss.length ? `Pour tout avoir : sudo apt install ${miss.join(' ')}` : 'Tout est installé.'].join('\n'), data: l };
+      return { text: ['✅ Alchimie elle-même (rien à installer) · ' + Object.entries(CIBLES_MAISON).map(([k, v]) => `${k} → ${v.join(', ')}`).join(' ; '), ...l.map((t) => `${t.ok ? '✅' : '⬜'} ${t.cmd} · ${t.does}`), miss.length ? `Pour tout avoir : sudo apt install ${miss.join(' ')}` : 'Tout est installé.'].join('\n'), data: l };
     } },
     { id: 'dossiers', label: 'Dossiers', what: 'Les dossiers où l\'appli prend et range les fichiers', read: true, run: (ctx) => ({ text: folders(ctx).map((f) => `${f.nom} → ${f.chemin}`).join('\n') + '\nÉcris « dossier:chemin/fichier » (sans dossier : l\'atelier).' }) },
     { id: 'ajouter_dossier', label: 'Donner un dossier', what: 'L\'appli pourra lire et écrire dans ce dossier (et ses sous-dossiers)', quick: false, grave: (i) => `ouvrir le dossier ${s(i.chemin)} à l'appli`, params: [{ key: 'nom', label: 'Nom court (ex. videos)', kind: 'text', required: true }, { key: 'chemin', label: 'Chemin complet', kind: 'text', required: true }], run: (ctx, i) => {
@@ -115,24 +170,68 @@ export const dvalinn: Module = {
       ctx.saveSettings({ dossiers: ((ctx.settings.dossiers as Folder[] | undefined) ?? []).filter((f) => f.nom !== s(i.nom)) }); return { text: `Dossier « ${s(i.nom)} » retiré (les fichiers restent).` };
     } },
     { id: 'convertir', label: 'Convertir un fichier', what: 'Vers un autre format ; le résultat est écrit à côté de l\'original', words: ['convertis le fichier', 'convertir le fichier'], params: [
-      { key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
+      { key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true, depot: {} }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
       { key: 'qualite', label: 'Qualité', kind: 'select', options: QUAL, default: 'normale' }, { key: 'largeur', label: 'Largeur max (images, vidéos)', kind: 'number', default: 0 }, { key: 'hauteur', label: 'Hauteur max', kind: 'number', default: 0 },
       { key: 'codec', label: 'Codec vidéo', kind: 'select', options: ['h264', 'h265', 'av1'], default: 'h264' }, { key: 'sans_son', label: 'Sans le son', kind: 'boolean', default: false },
       { key: 'debut', label: 'Début (ex. 00:01:30)', kind: 'text', default: '' }, { key: 'duree', label: 'Durée (ex. 20)', kind: 'text', default: '' },
     ], run: async (ctx, i) => {
       const f = resolveFile(ctx, s(i.fichier)); if (!existsSync(f.abs) || !statSync(f.abs).isFile()) throw new Error(`fichier introuvable : ${s(i.fichier)}`);
-      const to = s(i.format).toLowerCase().replace(/^\./, '').replace('jpeg', 'jpg'), work = workDir(ctx), t0 = Date.now();
+      const to = propre(s(i.format)), t0 = Date.now();
       try {
-        const st = plan(f.abs, to, work, optsOf(i));
-        const out = await runStep(ctx, st, work, dirname(f.abs));
+        const out = await convertirFichier(ctx, f.abs, to, dirname(f.abs), optsOf(i));
         const size = out.reduce((a, o) => a + statSync(o).size, 0);
         remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: true, out: out.map((o) => relOf(f.folder, o)) });
-        return { text: `✅ ${basename(f.abs)} → ${out.length > 1 ? `${out.length} fichiers` : basename(out[0])} (${human(size)}, ${Math.round((Date.now() - t0) / 100) / 10} s)\n${out.slice(0, 10).map((o) => relOf(f.folder, o)).join('\n')}`, data: out };
-      } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: false, err: (e as Error).message }); throw e; } finally { rmSync(work, { recursive: true, force: true }); }
+        return { text: `✅ ${basename(f.abs)} → ${out.length > 1 ? `${out.length} fichiers` : basename(out[0])} (${human(size)}, ${Math.round((Date.now() - t0) / 100) / 10} s)\n${out.slice(0, 10).map((o) => relOf(f.folder, o)).join('\n')}`, data: out, fichiers: out.map((o) => ({ nom: basename(o), ref: relOf(f.folder, o) })) };
+      } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: false, err: (e as Error).message }); throw e; }
+    } },
+    { id: 'depuis_lien', label: 'Convertir depuis un lien', what: 'Télécharge un fichier (http ou https), le fait vérifier par l\'antivirus, puis le convertit ; l\'original et le résultat vont dans l\'atelier (dossier « arrivees »)', words: ['convertis le lien', 'convertis ce lien'], external: true,
+      params: [{ key: 'lien', label: 'Lien du fichier (https://…)', kind: 'text', required: true }, { key: 'format', label: 'Vers (mp3, pdf, srt, csv…)', kind: 'text', required: true }, { key: 'utilisateur', label: 'Identifiant (si le lien en demande un)', kind: 'text' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password' }],
+      // Une adresse de la maison (NAS, autre poste) : Odin ne va y chercher un fichier qu'avec ton accord.
+      grave: (i) => (lienDeMaison(i.lien) ? `ce lien pointe vers ton réseau (${(() => { try { return new URL(s(i.lien)).hostname; } catch { return 'adresse locale'; } })()}) : Odin va y télécharger un fichier` : undefined),
+      run: async (ctx, i) => {
+      const lien = lienPropre(i.lien), to = propre(s(i.format)), MAX = 512 * 1024 * 1024;
+      if (!/^[a-z0-9.]{2,8}$/.test(to)) throw new Error('format invalide (exemples : mp3, pdf, srt, csv)');
+      const t = await telecharger(ctx.fetch, lien.toString(), { max: MAX, maison: lienDeMaison(i.lien), ...(s(i.utilisateur) ? { compte: { utilisateur: s(i.utilisateur), motDePasse: s(i.mot_de_passe) } } : {}) });
+      const nom = nomDeLien(t.url, t.disposition, t.type), n = t.data.length;
+      if (FORBIDDEN.test(nom)) throw new Error('ce nom de fichier est protégé : je ne l\'enregistre pas');
+      if (!convertible(nom, to)) throw new Error(`je ne sais pas convertir « ${nom} » en ${to} (dis « outils de conversion » pour la liste)`);
+      const dest = join(atelier(ctx), 'arrivees'); mkdirSync(dest, { recursive: true });
+      const path = join(dest, freeName(dest, nom)); writeFileSync(path, t.data);
+      // L'antivirus d'abord : un fichier venu d'ailleurs n'est converti que s'il est sain.
+      if (ctx.modules().some((m) => m.id === 'ullr')) {
+        const v = await ctx.call('ullr', 'fichier', { chemin: path }, 'vérifier un fichier téléchargé avant de le convertir', { interne: true }), d = v.data as { level?: string; findings?: Array<{ threat?: string; klass?: string }> } | undefined;
+        if (d?.level && ['moyenne', 'haute', 'critique'].includes(d.level)) {
+          const quoi = [...new Set((d.findings ?? []).map((x) => x.threat).filter(Boolean))].slice(0, 3).join(', ') || d.level, essai = (d.findings ?? []).length > 0 && (d.findings ?? []).every((x) => x.klass === 'test');
+          // Dangereux pour de bon : à l'écart tout de suite (quarantaine de l'antivirus, réversible). Un simple doute ou un fichier de test : laissé là, jamais ouvert.
+          let suite = `Il est resté dans atelier:arrivees/${basename(path)}, sans avoir été ouvert.`;
+          if (!essai && d.level !== 'moyenne') { const q = await ctx.call('ullr', 'isoler', { fichier: path, menace: quoi }, 'fichier téléchargé reconnu dangereux').catch(() => undefined); if (q && q.ok !== false) suite = 'Je l\'ai mis en quarantaine (antivirus) : il ne peut plus être ouvert, et tu peux l\'en ressortir si c\'est une erreur.'; }
+          remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: false, err: `fichier suspect (${quoi}), non converti` });
+          throw new Error(`fichier suspect (${quoi}) : je ne le convertis pas. ${suite}`);
+        }
+      }
+      try {
+        const out = await convertirFichier(ctx, path, to, dest);
+        remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: true, out: out.map((o) => `atelier:arrivees/${basename(o)}`) });
+        return { text: `✅ ${nom} (${human(n)}) téléchargé, vérifié, converti → ${out.map((o) => `atelier:arrivees/${basename(o)}`).join(', ')}`, data: out, fichiers: out.map((o) => ({ nom: basename(o), ref: `atelier:arrivees/${basename(o)}` })) };
+      } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: false, err: (e as Error).message }); throw e; }
+    } },
+    { id: 'surveiller', label: 'Surveiller un dossier', what: 'Tout fichier qui arrive dans ce dossier est converti tout seul vers le format choisi (résultats dans son sous-dossier « convertis » ; les originaux restent)', words: ['surveille le dossier de conversion'], params: [{ key: 'dossier', label: 'Dossier (dossier:chemin)', kind: 'text', required: true }, { key: 'format', label: 'Vers (mp4, pdf, vtt, csv…)', kind: 'text', required: true }], run: async (ctx, i) => {
+      const f = resolveFile(ctx, s(i.dossier)), to = propre(s(i.format));
+      if (!existsSync(f.abs) || !statSync(f.abs).isDirectory()) throw new Error('dossier introuvable');
+      if (!/^[a-z0-9.]{2,8}$/.test(to) || !(Object.values(TARGETS).some((x) => x.includes(to)) || Object.values(CIBLES_MAISON).some((x) => x.includes(to)))) throw new Error(`format inconnu : ${to} (dis « outils de conversion » pour la liste)`);
+      const ref = relOf(f.folder, f.abs) || `${f.folder.nom}:`, v: Veille = { id: randomBytes(4).toString('hex'), dossier: ref, vers: to, at: ctx.now().toISOString(), faits: {} };
+      ctx.saveSettings({ surveilles: [...veilles(ctx).filter((x) => x.dossier !== ref), v] });
+      const n = await tourDeVeille(ctx);
+      return { text: `👁 Dossier ${ref} surveillé : ce qui y arrive est converti en ${to}, dans ${ref}${ref.endsWith(':') ? '' : '/'}convertis.${n ? ` ${n} fichier(s) déjà converti(s).` : ''}` };
+    }, undo: (i) => ({ action: 'ne_plus_surveiller', input: { dossier: s(i.dossier) }, label: 'Ne plus surveiller ce dossier' }) },
+    { id: 'ne_plus_surveiller', label: 'Ne plus surveiller un dossier', what: 'Les fichiers qui arrivent ne sont plus convertis (rien n\'est effacé)', quick: false, params: [{ key: 'dossier', label: 'Dossier (dossier:chemin)', kind: 'text', required: true }], run: (ctx, i) => {
+      const k = s(i.dossier), l = veilles(ctx), reste = l.filter((x) => x.dossier !== k && x.id !== k && x.dossier.replace(/:$/, '') !== k);
+      if (reste.length === l.length) throw new Error('ce dossier n\'est pas surveillé');
+      ctx.saveSettings({ surveilles: reste }); return { text: `Dossier ${k} : plus surveillé (les fichiers restent).` };
     } },
     { id: 'pdf', label: 'Outils PDF', what: 'Fusionner, extraire des pages, découper, pivoter, alléger, compresser, protéger, retirer un mot de passe, images → PDF, nettoyer', words: ['fusionne les pdf', 'protege le pdf', 'protège le pdf', 'compresse le pdf', 'decoupe le pdf', 'découpe le pdf'], params: [
       { key: 'operation', label: 'Opération', kind: 'select', options: ['fusionner', 'extraire', 'decouper', 'pivoter', 'alleger', 'compresser', 'proteger', 'deproteger', 'images_en_pdf', 'nettoyer'], default: 'fusionner' },
-      { key: 'fichiers', label: 'Fichier(s) (dossier:chemin, séparés par des virgules)', kind: 'textarea', required: true },
+      { key: 'fichiers', label: 'Fichier(s) (dossier:chemin, séparés par des virgules)', kind: 'textarea', required: true, depot: { plusieurs: true } },
       { key: 'pages', label: 'Pages (ex. 1-3,5,8-fin)', kind: 'text', default: '' }, { key: 'angle', label: 'Angle', kind: 'select', options: ['90', '180', '270'], default: '90' },
       { key: 'mot_de_passe', label: 'Mot de passe (protéger / retirer)', kind: 'password', default: '' }, { key: 'nom', label: 'Nom du résultat', kind: 'text', default: '' },
     ], run: async (ctx, i) => {
@@ -150,7 +249,7 @@ export const dvalinn: Module = {
         const sz = (p: string) => statSync(p).size, before = files.reduce((a, f) => a + sz(f.abs), 0), after = made.reduce((a, p) => a + sz(p), 0);
         remember(ctx, { at: ctx.now().toISOString(), what: `PDF ${op} · ${files.map((f) => basename(f.abs)).join(', ')}`, ok: true, out: made.map((m) => relOf(first.folder, m)) });
         const gain = op === 'alleger' || op === 'compresser' ? ` · ${human(before)} → ${human(after)} (${Math.round((1 - after / before) * 100)} % de moins)` : '';
-        return { text: `✅ ${op.replace('_', ' ')} : ${made.length} fichier(s)${gain}\n${made.slice(0, 20).map((m) => relOf(first.folder, m)).join('\n')}`, data: made };
+        return { text: `✅ ${op.replace('_', ' ')} : ${made.length} fichier(s)${gain}\n${made.slice(0, 20).map((m) => relOf(first.folder, m)).join('\n')}`, data: made, fichiers: made.map((m) => ({ nom: basename(m), ref: relOf(first.folder, m) })) };
       } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `PDF ${op}`, ok: false, err: (e as Error).message }); throw e; } finally { rmSync(work, { recursive: true, force: true }); }
     } },
     { id: 'lot_videos', label: 'Vidéos par lot', what: 'Recompresse toutes les vidéos d\'un dossier (comme Tdarr), une à la fois en arrière-plan ; l\'original reste', params: [
@@ -177,12 +276,15 @@ export const dvalinn: Module = {
   view(ctx) {
     const h = ((ctx.settings.historique as Hist[] | undefined) ?? []).slice(0, 15), l = jobs(ctx);
     const sections: Section[] = [
-      { kind: 'form', title: 'Convertir un fichier', action: 'convertir', submit: 'Convertir', params: [{ key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true }, { key: 'format', label: 'Vers', kind: 'text', required: true, help: Object.entries(TARGETS).map(([k, v]) => `${k} → ${v.join(', ')}`).join(' · ') }, { key: 'qualite', label: 'Qualité', kind: 'select', options: QUAL, default: 'normale' }] },
-      { kind: 'form', title: 'Outils PDF', action: 'pdf', submit: 'Lancer', params: [{ key: 'operation', label: 'Opération', kind: 'select', options: ['fusionner', 'extraire', 'decouper', 'pivoter', 'alleger', 'compresser', 'proteger', 'deproteger', 'images_en_pdf', 'nettoyer'], default: 'fusionner' }, { key: 'fichiers', label: 'Fichier(s)', kind: 'textarea', required: true }, { key: 'pages', label: 'Pages', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password', default: '' }] },
+      { kind: 'form', title: 'Convertir un fichier', action: 'convertir', submit: 'Convertir', params: [{ key: 'fichier', label: 'Fichier', kind: 'text', required: true, depot: {}, help: 'Un fichier déjà dans l\'atelier ou dans un de tes dossiers (dossier:chemin), ou un fichier de cet appareil : il est déposé dans l\'atelier.' }, { key: 'format', label: 'Vers', kind: 'text', required: true, help: [...Object.entries(TARGETS), ...Object.entries(CIBLES_MAISON)].map(([k, v]) => `${k} → ${v.join(', ')}`).join(' · ') }, { key: 'qualite', label: 'Qualité', kind: 'select', options: QUAL, default: 'normale' }] },
+      { kind: 'form', title: 'Outils PDF', action: 'pdf', submit: 'Lancer', params: [{ key: 'operation', label: 'Opération', kind: 'select', options: ['fusionner', 'extraire', 'decouper', 'pivoter', 'alleger', 'compresser', 'proteger', 'deproteger', 'images_en_pdf', 'nettoyer'], default: 'fusionner' }, { key: 'fichiers', label: 'Fichier(s)', kind: 'textarea', required: true, depot: { plusieurs: true }, help: 'Chemins séparés par des virgules, ou fichiers de cet appareil (plusieurs possibles).' }, { key: 'pages', label: 'Pages', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password', default: '' }] },
+      { kind: 'form', title: 'Convertir depuis un lien', action: 'depuis_lien', submit: 'Télécharger et convertir', params: [{ key: 'lien', label: 'Lien du fichier (https://… ou http://192.168…)', kind: 'text', required: true }, { key: 'format', label: 'Vers', kind: 'text', required: true, help: 'Le fichier est vérifié par l\'antivirus avant d\'être converti.' }, { key: 'utilisateur', label: 'Identifiant (si le lien en demande un)', kind: 'text' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password', help: 'Jamais gardé ni affiché. Avec un lien http:// (sans « s »), il voyage en clair sur le réseau.' }] },
+      { kind: 'table', title: 'Dossiers surveillés', columns: ['Dossier', 'Converti en', 'Depuis', 'Fichiers traités'], empty: 'Aucun. Avec « Surveiller un dossier », tout fichier qui arrive est converti tout seul.', rows: veilles(ctx).map((v) => ({ cells: [v.dossier, v.vers, v.at.slice(0, 10), String(Object.keys(v.faits).length)], actions: [{ action: 'ne_plus_surveiller', label: 'Arrêter', input: { dossier: v.dossier } }] })) },
+      { kind: 'form', title: 'Surveiller un dossier', action: 'surveiller', submit: 'Surveiller', params: [{ key: 'dossier', label: 'Dossier (dossier:chemin)', kind: 'text', required: true, help: `Tes dossiers : ${folders(ctx).map((f) => f.nom).join(', ')}` }, { key: 'format', label: 'Vers', kind: 'text', required: true }] },
       { kind: 'table', title: 'Dernières conversions', columns: ['Quand', 'Quoi', 'Résultat'], rows: h.map((x) => ({ cells: [x.at.slice(0, 16).replace('T', ' '), x.what, x.ok ? (x.out ?? []).slice(0, 2).join(', ') : x.err ?? 'erreur'], tone: x.ok ? 'bon' as const : 'mauvais' as const })), empty: 'Rien encore. Dépose un fichier dans l\'atelier (ou donne un dossier) et convertis-le.' },
       ...(l.length ? [{ kind: 'list' as const, title: 'Vidéos par lot', items: l.slice(-12).map((j) => ({ title: basename(j.src), detail: j.err ?? (j.gain !== undefined ? `${j.gain} % de place gagnée` : `${j.codec}, qualité ${j.qualite}`), meta: j.state, tone: (j.state === 'fini' ? 'bon' : j.state === 'erreur' ? 'mauvais' : 'neutre') as 'bon' | 'mauvais' | 'neutre' })) }] : []),
     ];
-    return { subtitle: `${folders(ctx).length} dossier(s) · ${l.filter((j) => j.state === 'attente').length} vidéo(s) en attente`, sections, side: [{ kind: 'form', title: 'Boîte à outils', action: 'outil', submit: 'Calculer', params: [{ key: 'nom', label: 'Outil', kind: 'select', options: Object.keys(OUTILS), default: 'empreinte' }, { key: 'entree', label: 'Entrée', kind: 'textarea', default: '' }] }] };
+    return { subtitle: `${folders(ctx).length} dossier(s) · ${veilles(ctx).length} surveillé(s) · ${l.filter((j) => j.state === 'attente').length} vidéo(s) en attente`, sections, side: [{ kind: 'form', title: 'Boîte à outils', action: 'outil', submit: 'Calculer', params: [{ key: 'nom', label: 'Outil', kind: 'select', options: Object.keys(OUTILS), default: 'empreinte' }, { key: 'entree', label: 'Entrée', kind: 'textarea', default: '' }] }] };
   },
   // La file des vidéos avance toute seule ; les dossiers de travail oubliés (arrêt brutal) sont nettoyés
   watch: { every: 30, run(ctx) {
@@ -190,5 +292,6 @@ export const dvalinn: Module = {
     const w = join(ctx.dir, 'travail'), old = ctx.now().getTime() - 864e5;
     try { for (const d of readdirSync(w)) if (statSync(join(w, d)).mtimeMs < old) rmSync(join(w, d), { recursive: true, force: true }); } catch { /* rien à nettoyer */ }
     void nextJob(ctx);
+    if (veilles(ctx).length) void tourDeVeille(ctx).catch(() => undefined);
   } },
 };

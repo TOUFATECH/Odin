@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { saveMachine } from '../src/machines/access.ts';
 import test from 'node:test';
 import { LINKS, USAGES, wireReflexes } from '../src/valhalla/links.ts';
 import { parseTasmota, tasmotaDevices } from '../src/valhalla/modules/appareils.ts';
@@ -328,6 +329,25 @@ CHECKS['gjoll>vordr'] = async (w) => {
   assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'gjoll' && m.source === 'Vortex'));
   assert.match((await w.v.act('vordr', 'verifier', { nom: 'VPN d\'Odin' })).text, /❌ VPN d'Odin : le tunnel VPN est éteint/);
 };
+// Les postes du parc (le coffre des machines) sont proposés par les applis qui savent lire un autre poste.
+const parc = (w: World) => { saveMachine(w.home, { label: 'serveur-essai', host: '192.168.1.5', user: 'root', via: 'ssh' }); saveMachine(w.home, { label: 'PC-ESSAI', host: '192.168.1.20', user: 'Fatima', password: 'x', via: 'smb' }); };
+const propose = async (w: World, id: string, titre: RegExp) => {
+  const avant = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams());
+  assert.ok(![...avant.sections, ...(avant.side ?? [])].some((x) => x.kind === 'form' && titre.test(x.title ?? '')), 'sans poste dans le parc, rien n\'est proposé');
+  parc(w);
+  const v = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams()), f = [...v.sections, ...(v.side ?? [])].find((x) => x.kind === 'form' && titre.test(x.title ?? '')) as { params: Array<{ key: string; options?: string[] }> } | undefined;
+  assert.deepEqual(f?.params.find((p) => p.key === 'poste')?.options, ['serveur-essai'], 'le poste Linux du parc est proposé ; le PC Windows ne l\'est pas (cette appli lit par SSH)');
+};
+CHECKS['hermod>ullr'] = async (w) => {
+  parc(w);
+  const v = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams()), t = v.sections.find((x) => x.kind === 'table' && /^Autres postes/.test(x.title ?? '')) as { rows: Array<{ cells: string[]; actions?: Array<{ action: string }> }> };
+  assert.deepEqual(t.rows.map((r) => r.cells[0]), ['serveur-essai', 'PC-ESSAI'], 'Windows et Linux : l\'antivirus sait lire les deux'); assert.ok(t.rows.every((r) => r.actions?.some((a) => a.action === 'analyser_poste')));
+};
+CHECKS['hermod>eir'] = (w) => propose(w, 'eir', /état d'un autre poste/);
+CHECKS['hermod>fensalir'] = (w) => propose(w, 'fensalir', /disques d'un autre poste/);
+CHECKS['hermod>hlid'] = (w) => propose(w, 'hlid', /pare-feu d'un autre poste/);
+CHECKS['hermod>mimisbrunnr'] = (w) => propose(w, 'mimisbrunnr', /journaux d'un autre poste/);
+CHECKS['hermod>skogul'] = (w) => propose(w, 'skogul', /^Analyser un autre poste$/);
 CHECKS['heidrun>vidarr'] = async (w) => {
   const r = await w.v.act('heidrun', 'profil', { nom: 'Sami', age: 'enfant', appareils: '192.168.1.77' });
   assert.equal(r.ok, true, r.text);

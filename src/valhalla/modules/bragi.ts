@@ -2,8 +2,8 @@
 // (ElevenLabs, Piper local, ou compatible OpenAI), annonces sur les enceintes de la maison (Stentor),
 // et diffusion d'une alerte à voix haute partout (Triton). Réutilise src/voice (pas de doublon).
 
-import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { existsSync, readFileSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, extname, join } from 'node:path';
 import { haApi, speakPlan, type HaState } from '../../tools/homeassistant.ts';
 import { hear, listVoices, speakAudio, sttReady, ttsIsLocal, ttsReady, type VoiceConfig } from '../../voice/voice.ts';
 import type { ModCtx, Module } from '../types.ts';
@@ -52,6 +52,8 @@ export function bragi(voice: () => VoiceConfig): Module {
     from: ['Home Assistant Assist', 'Rhasspy', 'Wyoming', 'Piper', 'Whisper', 'openWakeWord'], upstream: ['rhasspy/piper', 'openai/whisper', 'rhasspy/wyoming'],
     modes: ['Stentor · annonces', 'Triton · alertes à voix haute'],
     words: ['voix', 'parle', 'dis', 'annonce', 'enceinte', 'haut-parleur', 'transcris', 'transcription', 'vocal', 'audio', 'lis a voix haute', 'lis à voix haute'],
+    // Un fichier audio envoyé depuis le navigateur pour être transcrit arrive dans « depots » (copie effacée après la transcription).
+    depot: (ctx) => ({ dossier: join(ctx.dir, 'depots'), ref: (nom) => join(ctx.dir, 'depots', nom) }),
     actions: [
       { id: 'etat', label: 'État de la voix', what: 'Ce qui est prêt', read: true, run: () => { const v = voice(); return { text: `Comprendre : ${sttReady(v) ? 'prêt' : 'pas prêt (Whisper absent et pas de clé)'}\nParler : ${ttsReady(v) ? `prêt (${v.tts.provider}${ttsIsLocal(v) ? ', sur la machine' : ', en ligne'})` : 'pas prêt'}\nVoix : ${v.tts.voiceName || v.tts.voiceId || 'par défaut'}` }; } },
       { id: 'dire', label: 'Dire', what: 'Fabrique un fichier audio avec la voix d\'Odin', params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }], words: ['dis', 'lis'], run: async (ctx, i) => {
@@ -60,10 +62,12 @@ export function bragi(voice: () => VoiceConfig): Module {
         return { text: '🗣 Audio prêt.', data: { file: f } };
       } },
       { id: 'annoncer', label: 'Annoncer', what: 'Sur une enceinte (nom), ou « partout »', params: [{ key: 'message', label: 'Message', kind: 'textarea', required: true }, { key: 'ou', label: 'Enceinte (ou « partout »)', kind: 'text', default: '' }], words: ['annonce', 'enceinte', 'previens a voix haute', 'préviens à voix haute'], run: async (ctx, i) => ({ text: await announce(ctx, s(i.message), s(i.ou) || undefined) }) },
-      { id: 'transcrire', label: 'Transcrire', what: 'Fichier audio → texte', read: true, params: [{ key: 'fichier', label: 'Chemin du fichier', kind: 'text', required: true }], words: ['transcris', 'transcription'], run: async (_ctx, i) => {
+      { id: 'transcrire', label: 'Transcrire', what: 'Fichier audio → texte (un fichier de la machine d\'Odin, ou un vocal envoyé depuis ton appareil)', read: true, params: [{ key: 'fichier', label: 'Fichier audio', kind: 'text', required: true, depot: {}, help: 'Son chemin sur la machine d\'Odin, ou un fichier de cet appareil (un vocal, par exemple) : il est envoyé, transcrit, puis effacé d\'Odin.' }], words: ['transcris', 'transcription'], run: async (ctx, i) => {
         const f = s(i.fichier), mime = MIME[extname(f).toLowerCase()] ?? 'audio/mpeg';
         if (!existsSync(f) || !statSync(f).isFile()) throw new Error(`fichier audio introuvable : ${f}`);
-        const h = await hear(readFileSync(f), mime, voice()); return { text: h.text, data: h };
+        // Un vocal envoyé depuis ton appareil pour être transcrit : c'est une copie, effacée d'Odin dès le texte rendu.
+        const envoye = dirname(f) === join(ctx.dir, 'depots');
+        try { const h = await hear(readFileSync(f), mime, voice()); return { text: h.text, data: h }; } finally { if (envoye) rmSync(f, { force: true }); }
       } },
       { id: 'ordre', label: 'Ordre à la voix', what: 'Comprend un ordre dit ou écrit (« mets Inception sur la télé », « allume le salon ») et le fait faire par la bonne appli, sans IA. Une action grave n\'est jamais lancée ainsi.', params: [{ key: 'texte', label: 'Ordre (texte)', kind: 'text', default: '' }, { key: 'fichier', label: 'ou fichier audio', kind: 'text', default: '' }], quiet: true, words: ['ordre', 'ordre vocal', 'commande vocale'], run: async (ctx, i) => {
         let text = s(i.texte).trim();

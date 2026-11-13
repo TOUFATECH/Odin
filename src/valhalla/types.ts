@@ -20,8 +20,16 @@ export interface Manip { id: string; at: string; module: string; action: string;
 
 export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'password' | 'image'; options?: string[]; default?: unknown; required?: boolean; help?: string;
   /** « image » : le navigateur la recadre à w × h, l'assombrit (voile 0-1), l'envoie, et l'action reçoit « image:<clé> » (fichier images/<clé>.png|jpg du module) */
-  image?: { w: number; h: number; type: 'png' | 'jpeg'; voile?: number } }
-export interface ActionResult { text: string; data?: unknown; ok?: boolean }
+  image?: { w: number; h: number; type: 'png' | 'jpeg'; voile?: number };
+  /**
+   * Ce réglage attend un fichier : dans la page, on peut taper son chemin OU l'envoyer depuis l'appareil (ordinateur,
+   * téléphone). Le navigateur le dépose là où l'appli reçoit ses fichiers (`Module.depot`) et l'action reçoit sa
+   * référence. `plusieurs` : plusieurs fichiers d'un coup, références séparées par des virgules.
+   */
+  depot?: { plusieurs?: boolean } }
+export interface ActionResult { text: string; data?: unknown; ok?: boolean;
+  /** Fichiers que la page peut remettre à l'appareil (bouton « Télécharger ») : `ref` est relu par `Module.retrait`, qui décide. */
+  fichiers?: Array<{ nom: string; ref: string }> }
 export interface Action {
   id: string; label: string; what: string;
   params?: Param[];
@@ -108,6 +116,10 @@ export interface Module {
   modes?: string[];
   actions: Action[];
   view(ctx: ModCtx, q: URLSearchParams): Promise<View> | View;
+  /** Où arrivent les fichiers envoyés depuis le navigateur pour cette appli, et comment une action les désigne ensuite (voir `Param.depot`). */
+  depot?(ctx: ModCtx): { dossier: string; ref(nom: string): string };
+  /** Le chemin d'un fichier de l'appli que la page a le droit de remettre à l'appareil (ou rien : refusé). Voir `ActionResult.fichiers`. */
+  retrait?(ctx: ModCtx, ref: string): string | undefined;
   start?(ctx: ModCtx): void | Promise<void>;
   stop?(): void;
   /** surveillance périodique (alertes) ; appelée toutes les `every` secondes */

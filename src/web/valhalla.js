@@ -44,9 +44,10 @@
 .va-hc{display:grid;gap:8px}.va-hc .hd{display:flex;gap:10px;align-items:center}.va-hc .hd b{font-size:17px;display:block;line-height:1.2}.va-hc .chip{font-size:11.5px;padding:1px 8px;border-radius:99px;background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--muted)}
 .va-hc h4,.va-story h4{margin:0 0 2px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.va-hc p{margin:0}.va-hc ul{margin:2px 0 0;padding-left:18px}.va-hc .st{display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px}.va-hc .st span{padding:1px 8px;border-radius:99px}.va-hc .al{background:#EE6A5533;color:#ffb3a6}.va-hc .up{background:#4F9DDE33;color:#a9d2ff}.va-hc .go{color:var(--muted);font-size:12px}
 .va-story{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));margin:0 0 14px}.va-story>div{border:1px solid var(--line);border-radius:12px;padding:12px 14px}.va-story p{margin:0}.va-story ul{margin:0;padding-left:18px}
-.va-form .va-img{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.va-form .va-img input{min-height:40px}.va-imgpv{width:120px;height:68px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}.va-form .va-chk{display:flex;gap:10px;align-items:center;font-weight:500;min-height:40px}.va-form .va-chk input{width:20px;height:20px;flex:none}
+.va-form .va-depot{display:flex;flex-direction:column;gap:6px}.va-form .va-depot-ou{font-size:13px;font-weight:400;color:var(--muted);margin:0}.va-form .va-depot input[type=file]{min-height:40px;padding:6px 0}.va-form .va-img{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.va-form .va-img input{min-height:40px}.va-imgpv{width:120px;height:68px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}.va-form .va-chk{display:flex;gap:10px;align-items:center;font-weight:500;min-height:40px}.va-form .va-chk input{width:20px;height:20px;flex:none}
 .va-form small.sub{display:block;margin-top:4px}.va-form .btn{display:flex}
 .va-out{white-space:pre-wrap;font-size:14px;margin-top:10px;padding:10px;border-radius:10px;background:var(--panel2);overflow-wrap:anywhere}.va-out:empty{display:none}
+.va-dl{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.va-dl:empty{display:none}.va-dl .btn{text-decoration:none}.va-form .va-dl .btn{margin-top:0}.va-res-x{margin:6px 0 12px}.va-res-x[hidden],.va-form .va-res-x[hidden]{display:none}.va-acts-bar+.va-out{margin:-6px 0 4px}
 .va-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}.va-tabs span{padding:4px 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;color:var(--muted)}
 .va-acts-bar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
 .va-al{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}.va-al:last-child{border-bottom:0}.va-al .pill{flex:none}.va-al.ack{opacity:.55}
@@ -84,7 +85,24 @@
       const inp = el('input', { id, name: p.key, type: 'file', accept: 'image/png,image/jpeg,image/webp', onchange: () => { const f = inp.files?.[0]; if (pv.src) URL.revokeObjectURL(pv.src); if (f) { pv.src = URL.createObjectURL(f); pv.hidden = false; } else pv.hidden = true; } });
       return el('span', { class: 'va-img' }, inp, pv);
     }
+    if (p.depot) {
+      // Un fichier : son chemin tapé, ou envoyé depuis cet appareil (l'un ou l'autre ; l'envoi part quand tu valides).
+      const txt = el(p.kind === 'textarea' ? 'textarea' : 'input', { id, name: p.key, ...(p.kind === 'textarea' ? {} : { type: 'text', value: String(v) }), autocomplete: 'off', spellcheck: 'false', placeholder: 'chemin du fichier…' }, p.kind === 'textarea' ? String(v) : null);
+      const fid = `${id}-envoi`, inp = el('input', { id: fid, name: `${p.key}__envoi`, type: 'file', multiple: p.depot.plusieurs ? true : undefined, 'aria-label': `${p.label} : envoyer depuis cet appareil` });
+      return el('span', { class: 'va-depot' }, txt, el('label', { class: 'va-depot-ou', for: fid }, 'ou envoie-le depuis cet appareil :'), inp);
+    }
     return el('input', { id, name: p.key, type: p.kind === 'number' ? 'number' : p.kind === 'password' ? 'password' : 'text', value: String(v), required: p.required, autocomplete: 'off', spellcheck: 'false' });
+  }
+  /** Envoie un fichier de l'appareil à une appli (là où elle reçoit ses fichiers) ; `suivi(pourcent)` pendant l'envoi. Rend sa référence. */
+  function sendFile(mod, file, suivi) {
+    return new Promise((ok, ko) => {
+      const x = new XMLHttpRequest();
+      x.open('POST', `/api/valhalla/depot?module=${encodeURIComponent(mod)}`);
+      x.setRequestHeader('x-odin', '1'); x.setRequestHeader('x-filename', encodeURIComponent(file.name)); x.setRequestHeader('content-type', 'application/octet-stream');
+      x.upload.onprogress = (e) => { if (e.lengthComputable && suivi) suivi(Math.round(100 * e.loaded / e.total)); };
+      x.onload = () => { let r = {}; try { r = JSON.parse(x.responseText); } catch { /* réponse illisible */ } if (r.ok) ok(r.ref); else ko(new Error(r.error || `envoi refusé (${x.status})`)); };
+      x.onerror = () => ko(new Error('connexion coupée pendant l\'envoi')); x.send(file);
+    });
   }
   /** Une image pour un réglage : recadrée à la taille voulue (comme un fond d'écran), assombrie, puis envoyée à Odin. */
   async function sendImage(mod, p, file) {
@@ -99,27 +117,57 @@
     if (!r.ok) throw new Error(r.error || 'envoi refusé');
     return r.ref;
   }
+  /**
+   * Le dernier résultat de chaque action de la page ouverte. La page se redessine après une action : sans cette
+   * mémoire, le résultat d'un formulaire disparaissait au bout d'une demi-seconde, celui d'un bouton au bout de quatre.
+   */
+  const kept = new Map(); let seen = {};
+  /** Une case de résultat qui reste affichée : jusqu'à l'action suivante, au bouton « Fermer », ou en quittant la page. */
+  function resultBox(key) {
+    const out = el('div', { class: 'va-out', role: 'status' }), dl = el('div', { class: 'va-dl' });
+    const close = el('button', { class: 'btn small va-res-x', type: 'button', hidden: true, onclick: () => set('') }, 'Fermer');
+    // Les fichiers produits par l'action (une conversion…) : un bouton « Télécharger » par fichier, pour les reprendre sur cet appareil.
+    const links = (files) => dl.replaceChildren(...(files ?? []).map((f) => el('a', { class: 'btn small', href: f.href, download: f.nom }, `Télécharger ${f.nom}`)));
+    /** `temp` : un message de passage (« … », « Envoi : 45 % ») qui n'est pas gardé. */
+    const set = (text, temp, files) => { out.textContent = text ?? ''; links(text && !temp ? files : []); if (text && !temp) kept.set(key, { text, files: files ?? [] }); else kept.delete(key); close.hidden = !text || Boolean(temp); };
+    const k = kept.get(key); if (k) { out.textContent = k.text; links(k.files); close.hidden = false; }
+    return { out, dl, close, set };
+  }
   function form(mod, action, params, submit) {
     params = params ?? [];   // une action sans réglage : un simple bouton
-    const out = el('div', { class: 'va-out', role: 'status' });
+    // Le même formulaire peut être deux fois sur la page (section et « Autres actions ») : chacun garde son résultat.
+    const nth = (seen[`${mod}:${action}`] = (seen[`${mod}:${action}`] ?? 0) + 1), res = resultBox(`f:${mod}:${action}:${nth}`), out = res.out;
     const f = el('form', { class: 'va-form', onsubmit: async (e) => {
       e.preventDefault(); const input = {};
-      out.textContent = '…';
+      res.set('…', true);
       for (const p of params) {
         const n = f.elements[p.key]; if (!n) continue;
-        if (p.kind === 'image') { const file = n.files?.[0]; if (!file) { input[p.key] = ''; continue; } try { input[p.key] = await sendImage(mod, p, file); } catch (err) { out.textContent = `Image : ${err.message}`; return; } continue; }
+        if (p.kind === 'image') { const file = n.files?.[0]; if (!file) { input[p.key] = ''; continue; } try { input[p.key] = await sendImage(mod, p, file); } catch (err) { res.set(`Image : ${err.message}`); return; } continue; }
+        if (p.depot) {
+          const files = [...(f.elements[`${p.key}__envoi`]?.files ?? [])];
+          if (files.length) {
+            const refs = [];
+            try { for (const [k, file] of files.entries()) refs.push(await sendFile(mod, file, (pc) => { res.set(`Envoi de ${file.name}${files.length > 1 ? ` (${k + 1}/${files.length})` : ''} : ${pc} %`, true); })); }
+            catch (err) { res.set(`✗ Envoi : ${err.message}`); return; }
+            input[p.key] = [n.value.trim(), ...refs].filter(Boolean).join(', '); res.set('…', true); f.elements[`${p.key}__envoi`].value = ''; continue;
+          }
+          if (p.required && !n.value.trim()) { res.set('✗ Choisis un fichier à envoyer, ou tape son chemin.'); return; }
+        }
         input[p.key] = p.kind === 'boolean' ? n.checked : p.kind === 'number' && n.value !== '' ? Number(n.value) : n.value;
-      } const r = await run(mod, action, input); out.textContent = r;
-    } }, ...params.map((p) => { const id = `va-${mod}-${action}-${p.key}`; return p.kind === 'boolean' ? el('label', { class: 'va-chk', for: id }, field(p, id), p.label) : [el('label', { for: id }, p.label, p.required ? ' *' : ''), field(p, id), p.help ? el('small', { class: 'sub' }, p.help) : null]; }), el('button', { class: 'btn primary', type: 'submit' }, submit), out);
+      } const r = await runFull(mod, action, input); res.set(r.text, false, r.files);
+    } }, ...params.map((p) => { const id = `va-${mod}-${action}-${p.key}`; return p.kind === 'boolean' ? el('label', { class: 'va-chk', for: id }, field(p, id), p.label) : [el('label', { for: id }, p.label, p.required ? ' *' : ''), field(p, id), p.help ? el('small', { class: 'sub' }, p.help) : null]; }), el('button', { class: 'btn primary', type: 'submit' }, submit), out, res.dl, res.close);
     return f;
   }
-  async function run(mod, action, input, confirmed) {
+  /** Lance une action : son texte, et les fichiers qu'elle a produits (à télécharger sur cet appareil). */
+  async function runFull(mod, action, input, confirmed) {
     const r = await api('/api/valhalla/act', { module: mod, action, input, confirm: confirmed === true });
-    if (r.confirm) { if (!window.confirm(r.confirm)) return 'Annulé.'; return run(mod, action, input, true); }
+    if (r.confirm) { if (!window.confirm(r.confirm)) return { text: 'Annulé.', files: [] }; return runFull(mod, action, input, true); }
     if (r.ok && r.data && (r.data.svg || r.data.conf)) show(r.text, r.data);
     setTimeout(() => cur === mod && openApp(mod, true), 600);
-    return r.ok ? r.text : `✗ ${r.text ?? r.error}`;
+    const files = r.ok && Array.isArray(r.fichiers) ? r.fichiers.map((f) => ({ nom: String(f.nom), href: `/api/valhalla/fichier?${new URLSearchParams({ module: String(r.module || mod), ref: String(f.ref) })}` })) : [];
+    return { text: r.ok ? r.text : `✗ ${r.text ?? r.error}`, files };
   }
+  async function run(mod, action, input) { return (await runFull(mod, action, input)).text; }
   /** Ce qu'une action rend à voir ou à garder : un QR code (image), un fichier texte à copier ou télécharger. */
   function show(text, d) {
     const dlg = el('dialog', { class: 'va-dlg', 'aria-label': text });
@@ -140,12 +188,15 @@
   const cellClass = (c) => { const x = String(c ?? ''); return x.length <= 16 && !/\s.*\s.*\s/.test(x) ? 'va-short' : /\S{26,}/.test(x) ? 'va-long' : ''; };
   function section(mod, s) {
     const box = el('section', { class: 'va-sec' }, el('h2', {}, s.title));
+    // Les boutons de la section (lignes d'un tableau, cartes, étapes) écrivent leur résultat ici, sous le titre : il reste lisible.
+    const res = resultBox(`s:${mod}:${s.kind}:${s.title}`), done = (text) => { res.set(text); res.out.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); };
+    if (s.kind === 'table' || s.kind === 'cards' || s.kind === 'steps') box.append(res.out, res.close);
     if (s.kind === 'table') {
       if (!s.rows.length) box.append(el('p', { class: 'sub' }, s.empty ?? 'Rien pour l\'instant.'));
       else {
         const hasA = s.rows.some((r) => r.actions?.length);
         box.append(el('div', { class: 'va-tw' }, el('table', { class: 'va-t' }, el('thead', {}, el('tr', {}, ...s.columns.map((c) => el('th', { scope: 'col' }, c)), hasA ? el('th', {}, el('span', { class: 'sr' }, 'Actions')) : null)),
-          el('tbody', {}, ...s.rows.map((r) => el('tr', { class: r.tone ? `va-tone-${r.tone}` : '' }, ...r.cells.map((c) => el('td', { class: cellClass(c) }, c)), hasA ? el('td', { class: 'va-acts' }, ...(r.actions ?? []).map((a) => el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = a.module && a.module !== mod ? await runOther(a.module, a.action, a.input) : await run(mod, a.action, a.input); e.target.disabled = false; toast(t); } }, a.label))) : null))))));
+          el('tbody', {}, ...s.rows.map((r) => el('tr', { class: r.tone ? `va-tone-${r.tone}` : '' }, ...r.cells.map((c) => el('td', { class: cellClass(c) }, c)), hasA ? el('td', { class: 'va-acts' }, ...(r.actions ?? []).map((a) => el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = a.module && a.module !== mod ? await runOther(a.module, a.action, a.input) : await run(mod, a.action, a.input); e.target.disabled = false; done(t); } }, a.label))) : null))))));
       }
     } else if (s.kind === 'cards') {
       // Cartes avec icône (éditeur, système…) : seules les images data: ou de l'interface d'Odin sont affichées.
@@ -155,7 +206,7 @@
           el('div', {}, el('b', {}, c.title), c.sub ? el('small', {}, c.sub) : null, c.meta ? el('small', { class: 'va-tuile-m' }, c.meta) : null)),
         c.badge ? el('span', { class: 'va-tuile-b' }, c.badge) : null,
         typeof c.progress === 'number' ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(c.progress * 100)) }, el('i', { style: `width:${Math.max(0, Math.min(100, Math.round(c.progress * 100)))}%` })) : null,
-        c.actions?.length ? el('div', { class: 'va-tuile-a' }, ...c.actions.map((a) => el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = a.module && a.module !== mod ? await runOther(a.module, a.action, a.input) : await run(mod, a.action, a.input); e.target.disabled = false; toast(t); } }, a.label))) : null))) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
+        c.actions?.length ? el('div', { class: 'va-tuile-a' }, ...c.actions.map((a) => el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = a.module && a.module !== mod ? await runOther(a.module, a.action, a.input) : await run(mod, a.action, a.input); e.target.disabled = false; done(t); } }, a.label))) : null))) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
     } else if (s.kind === 'list') box.append(s.items.length ? el('ul', { class: 'va-list' }, ...s.items.map((i) => el('li', { class: i.tone ? `va-tone-${i.tone}` : '' }, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null, i.meta ? el('small', {}, i.meta) : null))) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
     else if (s.kind === 'log') box.append(el('pre', { class: 'va-log' }, s.lines.join('\n') || '—'));
     else if (s.kind === 'text') box.append(el('p', { class: s.tone ? `va-tone-${s.tone}` : '' }, s.text));
@@ -176,7 +227,7 @@
     else if (s.kind === 'bars') { const max = Math.max(1, ...s.items.map((i) => i.value)); box.append(s.items.length ? el('div', { class: 'va-bars' }, ...s.items.map((i) => el('div', { class: 'va-brow' }, el('span', {}, i.label), el('i', { style: `width:${Math.round((i.value / max) * 100)}%` }), el('b', {}, i.display ?? String(i.value))))) : el('p', { class: 'sub' }, 'Rien.')); }
     else if (s.kind === 'form') box.append(form(mod, s.action, s.params, s.submit));
     // Assistant de configuration : étapes numérotées, faites ou à faire, chacune avec son bouton.
-    else if (s.kind === 'steps') box.append(el('ol', { class: 'va-steps' }, ...s.items.map((i) => el('li', { class: i.done ? 'ok' : '' }, el('div', {}, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null), i.action && !i.done ? el('button', { class: 'btn small primary', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = await run(mod, i.action, i.input ?? {}); e.target.disabled = false; toast(t); } }, i.button ?? 'Faire') : el('span', { class: 'sub' }, i.done ? 'Fait' : '')))));
+    else if (s.kind === 'steps') box.append(el('ol', { class: 'va-steps' }, ...s.items.map((i) => el('li', { class: i.done ? 'ok' : '' }, el('div', {}, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null), i.action && !i.done ? el('button', { class: 'btn small primary', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = await run(mod, i.action, i.input ?? {}); e.target.disabled = false; done(t); } }, i.button ?? 'Faire') : el('span', { class: 'sub' }, i.done ? 'Fait' : '')))));
     else if (s.kind === 'graph') graphSection(mod, s, box);
     return box;
   }
@@ -301,6 +352,7 @@
     return el('div', {}, ...list.map((a) => el('div', { class: `va-al${a.ack ? ' ack' : ''}` }, el('span', { class: `pill ${LV[a.level] ?? ''}` }, a.level), el('div', {}, el('b', {}, `${name(a.module)} — ${a.title}`), a.count > 1 ? ` (×${a.count})` : '', a.detail ? el('div', { class: 'sub' }, a.detail) : null, el('small', { class: 'sub' }, new Date(a.at).toLocaleString('fr-FR'))))));
   }
   async function openApp(id, quiet) {
+    if (!quiet || cur !== id) kept.clear();   // une nouvelle visite repart sans anciens résultats
     cur = id;
     if (!quiet) window.OdinShow?.('app');
     const box = $('#v-app .body'), head = $('#v-app .head'); if (!box) return;
@@ -310,13 +362,17 @@
     if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
     $('#vaTitle').textContent = r.name; if (window.OdinAppIcons) { $('#vaTitle').insertAdjacentHTML('afterbegin', window.OdinAppIcons.tile(id, r.name, 30)); $('#vaTitle').style.cssText += ';display:flex;align-items:center;gap:10px'; } $('#vaSub').textContent = r.view.subtitle ?? r.what;
     const v = r.view, main = el('div', {}), side = el('div', {});
-    const top = el('div', {});
+    const top = el('div', {}); seen = {};
     top.append(el('p', { class: 'va-what' }, r.what));
     if (r.story || r.does?.length) top.append(el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, r.does?.length ? el('div', {}, el('h4', {}, 'Ses fonctions'), el('ul', {}, ...r.does.map((x) => el('li', {}, x)))) : null));
     if (v.tabs?.length) top.append(el('div', { class: 'va-tabs', 'aria-label': 'Modes de l\'appli' }, ...v.tabs.map((t) => el('span', {}, t))));
     if (v.kpis?.length) top.append(el('div', { class: 'va-kpis' }, ...v.kpis.map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), k.pct !== undefined ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuenow': String(k.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': k.label }, el('i', { style: `width:${Math.min(100, Math.max(0, k.pct))}%` })) : null))));
     const quick = r.actions.filter((a) => a.quick !== false && !a.params.some((p) => p.required));
-    if (quick.length) top.append(el('div', { class: 'va-acts-bar' }, ...quick.map((a) => el('button', { class: `btn small${a.read ? '' : ''}`, type: 'button', title: a.what, onclick: async (e) => { e.target.disabled = true; const t = await run(id, a.id, {}); e.target.disabled = false; toast(t); } }, a.label, a.grave ? ' ⚠' : ''))));
+    if (quick.length) {
+      // Le résultat d'un bouton rapide reste sous la barre (avant : une bulle par-dessus la page, disparue en 4 secondes).
+      const res = resultBox(`q:${id}`);
+      top.append(el('div', { class: 'va-acts-bar' }, ...quick.map((a) => el('button', { class: `btn small${a.read ? '' : ''}`, type: 'button', title: a.what, onclick: async (e) => { e.target.disabled = true; const t = await run(id, a.id, {}); e.target.disabled = false; res.set(t); res.out.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); } }, a.label, a.grave ? ' ⚠' : ''))), res.out, res.close);
+    }
     // Les graphes prennent toute la largeur (le graphe à gauche, la fiche du point choisi à droite).
     const wide = el('div', {});
     for (const s of v.sections) (s.kind === 'graph' ? wide : main).append(section(id, s));

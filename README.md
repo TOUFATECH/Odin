@@ -372,6 +372,11 @@ Odin a son propre antivirus, fait maison : fichiers, archives, téléchargements
 
 Dis par exemple : « analyse mes téléchargements », « vérifie le lien https://… », « y a-t-il un virus sur ma machine ? », « les incidents ». Tout cela marche sans IA connectée.
 
+Deux façons de faire vérifier un fichier qui n'est pas sur la machine d'Odin :
+
+- **Un fichier de ton téléphone ou de ton ordinateur** : dans Asclépios → « Analyser un fichier », choisis-le sur ton appareil. Il est envoyé à Odin, analysé, puis sa copie est effacée.
+- **Le fichier d'un lien, avant de le télécharger** : « Analyser le fichier d'un lien » (ou « analyse le fichier du lien https://… »). Odin le prend dans sa mémoire, l'analyse et te dit s'il est sûr ; rien n'est gardé sur le disque. Une adresse connue comme dangereuse n'est même pas téléchargée.
+
 ### Antivirus sur un autre poste (Windows, Mac, Linux, NAS)
 
 Asclépios analyse aussi les autres machines, **sans rien y installer** : il lit leurs fichiers à distance et les analyse chez lui, en mémoire. Rien n'est écrit sur le disque d'Odin, rien n'est modifié sur le poste, rien ne sort de chez toi.
@@ -392,7 +397,31 @@ Une menace trouvée n'est **jamais** touchée sans ton accord : « Isoler sur le
 
 Limites dites clairement : les fichiers ouverts ou verrouillés par le poste ne sont pas lus (ils sont comptés), les très gros fichiers qui ne sont pas des programmes non plus, et aucun antivirus ne détecte tout.
 
-Les applis qui lisent la machine acceptent aussi un autre poste Linux ou Mac (par SSH) : Pyramide (disques), Thermopyles (pare-feu, ports), Chroniques (journaux). Exemple : « état des disques sur serveur-web ».
+Les applis qui lisent la machine acceptent aussi un autre poste Linux ou Mac (par SSH) : Hygie (état, processus), Pyramide (disques), Thermopyles (pare-feu, ports), Chroniques (journaux), Némésis (programmes suspects ; arrêter un programme là-bas demande ton accord). Exemples : « état des disques sur serveur-web », « processus suspects sur serveur-web ».
+
+### Conversion de fichiers (Alchimie)
+
+Alchimie convertit tes fichiers sur ta machine : vidéo, son, image, documents, PDF (avec les outils libres installés : ffmpeg, LibreOffice, pandoc, qpdf…). Et **sans aucun outil à installer**, elle convertit elle-même :
+
+- sous-titres : SRT, WebVTT, ASS/SSA, LRC, SAMI, TTML ;
+- données : JSON, JSON Lines, CSV, TSV, XML, YAML, TOML, Excel (`.xlsx`) ;
+- contacts (vCard) et agenda (iCalendar) ↔ tableau ; cartes : GeoJSON, KML, GPX ; archives : ZIP, TAR, TAR.GZ.
+
+(Ces conversions reprennent les idées du projet libre Filee, réécrites dans Odin.)
+
+Trois façons de lui donner un fichier :
+
+- **depuis ton appareil** (ordinateur ou téléphone) : dans « Convertir un fichier », choisis-le ; il est déposé dans l'atelier d'Alchimie, et le résultat se reprend par le bouton « Télécharger » ;
+- **depuis un lien** : « Convertir depuis un lien ». Le fichier est téléchargé, **vérifié par l'antivirus**, puis converti. Un fichier dangereux part en quarantaine et n'est jamais converti ;
+- **un dossier surveillé** : « Surveiller un dossier » — tout fichier qui y arrive est converti tout seul (résultats dans son sous-dossier `convertis`, les originaux restent).
+
+Un lien vers une adresse de ta maison (NAS, autre poste : `http://192.168…`) demande ton accord ; un lien ne peut jamais viser la machine d'Odin elle-même, et une redirection vers ton réseau est refusée. Si le lien demande un identifiant et un mot de passe, mets-les dans leurs cases (masqués, jamais gardés), pas dans le lien.
+
+### Résultats qui restent
+
+Sur la page d'une appli, le résultat d'une action reste affiché (sous le formulaire, sous la barre de boutons ou sous le titre du tableau) jusqu'à l'action suivante, ou jusqu'au bouton « Fermer ». Quand l'action a fabriqué des fichiers, un bouton « Télécharger » par fichier les remet à ton appareil.
+
+Champollion (lire une photo, un PDF, un document) et Orphée (transcrire un vocal) acceptent eux aussi un fichier envoyé depuis ton appareil.
 
 ### Sites web (Arachné)
 

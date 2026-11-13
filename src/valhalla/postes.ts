@@ -70,4 +70,4 @@ export function postesLisibles(ctx: ModCtx): Array<{ id: string; nom: string }> 
   return [{ id: '', nom: 'Cette machine' }, ...listMachines(ctx.home).filter((m) => m.via !== 'smb').map((m) => ({ id: m.id, nom: m.label }))];
 }
 /** Le réglage « Poste » à ajouter aux actions qui savent lire un autre poste. */
-export const PARAM_POSTE = { key: 'poste', label: 'Poste (vide : cette machine)', kind: 'text' as const, default: '', help: 'Le nom ou l\'adresse d\'un poste Linux ou Mac enregistré dans Réglages → Droits et machines.' };
+export const PARAM_POSTE = { key: 'poste', label: 'Poste (vide : cette machine)', kind: 'text' as const, help: 'Le nom ou l\'adresse d\'un poste Linux ou Mac enregistré dans Réglages → Droits et machines.' };

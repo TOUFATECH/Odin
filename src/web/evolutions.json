@@ -1,5 +1,31 @@
 [
  {
+  "id": "v1200",
+  "at": "2026-11-13T19:50:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.20.0",
+  "title": "Envoyer un fichier depuis ton téléphone et reprendre le résultat, analyser ou convertir le fichier d'un lien, dossiers surveillés, et des résultats qui restent affichés",
+  "details": [
+   "Envoyer un fichier depuis ton appareil (ordinateur ou téléphone), sans rien copier à la main sur la machine d'Odin : Alchimie (convertir, outils PDF), Asclépios (analyser un fichier), Champollion (lire une photo ou un document), Orphée (transcrire un vocal). Pour l'antivirus et la transcription, la copie envoyée est effacée dès la réponse.",
+   "Reprendre le résultat sur ton appareil : après une conversion (Alchimie) ou un PDF rendu cherchable (Champollion), un bouton « Télécharger » par fichier. Odin ne remet que les fichiers de l'atelier ou de tes dossiers, jamais un fichier protégé, et toujours comme un téléchargement.",
+   "Asclépios → « Analyser le fichier d'un lien » : avant de télécharger, Odin prend le fichier dans sa mémoire, l'analyse et te dit s'il est sûr. Rien n'est gardé sur le disque. Une adresse connue comme dangereuse n'est même pas téléchargée.",
+   "Alchimie convertit elle-même, sans outil à installer : sous-titres (SRT, WebVTT, ASS, LRC, SAMI, TTML), données (JSON, CSV, YAML, TOML, XML, Excel), contacts et agenda ↔ tableau, cartes (GeoJSON, KML, GPX), archives (ZIP, TAR). Ce sont les idées du projet libre Filee, réécrites dans Odin.",
+   "Alchimie → « Convertir depuis un lien » : le fichier est téléchargé, vérifié par l'antivirus, puis converti ; un fichier dangereux part en quarantaine et n'est jamais converti. « Surveiller un dossier » : tout fichier qui y arrive est converti tout seul, les originaux restent.",
+   "Liens : une adresse de ta maison (NAS, autre poste) demande ton accord ; un lien ne peut jamais viser la machine d'Odin ; chaque redirection est revérifiée ; l'identifiant et le mot de passe se mettent dans leurs cases (masqués, jamais gardés) et ne sont envoyés qu'au site du lien.",
+   "Les résultats restent affichés. Avant, le résultat d'un formulaire disparaissait au bout d'une demi-seconde, et celui d'un bouton s'affichait quatre secondes dans une bulle par-dessus la page. Maintenant il reste sous le formulaire, sous la barre de boutons ou sous le titre du tableau, jusqu'à l'action suivante ou au bouton « Fermer ».",
+   "Un autre poste Linux ou Mac (par SSH) : Némésis passe ses programmes en revue (arrêter un programme là-bas demande ton accord) et Hygie montre son état et ses processus, en plus de Pyramide, Thermopyles et Chroniques. Sans IA aussi : « processus suspects sur serveur-web », « état des disques sur serveur-web ».",
+   "Sécurité : une adresse interne écrite sous sa forme IPv6 (par exemple [::ffff:127.0.0.1]) n'était pas reconnue comme interne par la lecture de pages web. Corrigé, avec les essais.",
+   "Plume : dans un tableau Excel fabriqué par Odin, un code qui commence par zéro (0976) reste tel quel.",
+   "Pas encore essayé sur un vrai Windows ni un vrai Mac : les essais « autre poste » tournent contre un vrai serveur de partage Samba et un vrai serveur SSH sous Linux."
+  ],
+  "planets": [
+   "applis",
+   "securite",
+   "machines"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1190",
   "at": "2026-11-13T19:10:00+03:00",
   "date": "2026-11-13",

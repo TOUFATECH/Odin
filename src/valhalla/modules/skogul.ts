@@ -7,7 +7,9 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { Module } from '../types.ts';
+import { PARAM_POSTE, posteDe, postesLisibles, type Poste } from '../postes.ts';
 
+const s = (x: unknown) => String(x ?? '').trim();
 export interface Proc { pid: number; ppid: number; uid: number; name: string; exe: string; cmd: string }
 const rd = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return ''; } };
 /** Les programmes en cours. Linux : /proc. macOS et BSD : la commande « ps ». Windows : pas encore lu (liste vide). */
@@ -31,6 +33,22 @@ export function psProcs(run: (args: string[]) => string = (args) => spawnSync('p
     const exe = m[4].trim(); out.push({ pid: Number(m[1]), ppid: Number(m[2]), uid: Number(m[3]), name: basename(exe), exe: exe.startsWith('/') ? exe : '', cmd: cmds.get(Number(m[1])) ?? exe });
   }
   return out;
+}
+/** Ce qu'on demande à un autre poste, en une seule connexion : les programmes (« ps »), et sur Linux le vrai chemin de chacun (/proc). */
+const SONDE = `ps -axo pid=,args= 2>/dev/null; echo ---PROG; ps -axo pid=,ppid=,uid=,comm= 2>/dev/null; echo ---EXE; for d in /proc/[0-9]*; do e=$(readlink "$d/exe" 2>/dev/null) && printf '%s\\t%s\\n' "\${d#/proc/}" "$e"; done 2>/dev/null; true`;
+/** Lit la réponse d'un poste à la sonde : la liste des programmes, avec leur vrai chemin quand le poste l'a donné. Pur. */
+export function lireSondeProcs(out: string): Proc[] {
+  const [args = '', reste = ''] = out.split(/^---PROG$/m), [prog = '', exe = ''] = reste.split(/^---EXE$/m);
+  const chemins = new Map<number, string>(); for (const l of exe.split('\n')) { const k = l.indexOf('\t'); if (k > 0 && /^\d+$/.test(l.slice(0, k))) chemins.set(Number(l.slice(0, k)), l.slice(k + 1).trim()); }
+  return psProcs((a) => (a[1] === 'pid=,args=' ? args : prog)).map((p) => (chemins.has(p.pid) ? { ...p, exe: chemins.get(p.pid)!, name: p.name || basename(chemins.get(p.pid)!.replace(/ \(deleted\)$/, '')) } : p));
+}
+/** Les programmes en cours d'un autre poste (Linux ou Mac), lus par SSH ; `complet` : avec les droits d'administrateur (chemins de tous les comptes). */
+export async function procsDistants(poste: Poste): Promise<{ procs: Proc[]; complet: boolean }> {
+  let r = await poste.run('sh', ['-c', SONDE], { timeoutMs: 30_000, sudo: true }), complet = true;
+  if (r.code !== 0 || !r.out.includes('---PROG')) { r = await poste.run('sh', ['-c', SONDE], { timeoutMs: 30_000 }); complet = false; }
+  if (r.code !== 0 || !r.out.includes('---PROG')) throw new Error(`${poste.nom} n'a pas donné la liste de ses programmes${r.err.trim() ? ` : ${r.err.trim().split('\n').pop()!.slice(0, 160)}` : ''}`);
+  // La sonde elle-même (sh, ps, sudo, la connexion) n'est pas un comportement suspect du poste.
+  return { procs: lireSondeProcs(r.out).filter((p) => !p.cmd.includes('---PROG')), complet };
 }
 const WEB = /^(nginx|apache2|httpd|php-fpm.*|php\d*|lighttpd|caddy|uwsgi|gunicorn)$/;
 const SHELLS = /^(sh|bash|dash|zsh|ash|busybox|nc|ncat|socat|python\d?|perl)$/;
@@ -60,8 +78,17 @@ export const skogul: Module = {
   from: ['Falco'], upstream: ['falcosecurity/falco'],
   words: ['comportement', 'suspect', 'processus', 'processus suspect', 'mineur', 'crypto', 'shell', 'piraté', 'pirate', 'port ouvert', 'cron'],
   actions: [
-    { id: 'analyser', label: 'Analyser maintenant', what: 'Passe tous les programmes en revue', read: true, words: ['analyse', 'verifie', 'vérifie'], run: () => { const f = judge(procs()); return { text: f.length ? f.map((x) => `- [${x.level}] ${x.rule} — ${x.detail}`).join('\n') : '✓ Aucun comportement suspect.', data: f }; } },
-    { id: 'tuer', label: 'Arrêter un processus', what: 'Arrête un processus suspect', params: [{ key: 'pid', label: 'Numéro (PID)', kind: 'number', required: true }], grave: (i) => `arrêter le processus ${String(i.pid)}`, run: async (ctx, i) => { const pid = Number(i.pid); if (!Number.isInteger(pid) || pid < 2) throw new Error('PID invalide'); const r = await ctx.run('kill', ['-9', String(pid)], { sudo: true }); if (r.code) throw new Error(r.err.trim()); return { text: `✋ Processus ${pid} arrêté.` }; } },
+    { id: 'analyser', label: 'Analyser maintenant', what: 'Passe tous les programmes en revue (de cette machine, ou d\'un autre poste Linux ou Mac)', read: true, external: true, params: [PARAM_POSTE], words: ['analyse', 'verifie', 'vérifie'], run: async (ctx, i) => {
+      const poste = posteDe(ctx, i.poste);
+      if (poste.local) { const f = judge(procs()); return { text: f.length ? f.map((x) => `- [${x.level}] ${x.rule} — ${x.detail}`).join('\n') : '✓ Aucun comportement suspect.', data: f }; }
+      const d = await procsDistants(poste), f = judge(d.procs), note = d.complet ? '' : '\n(Sans les droits d\'administrateur sur ce poste : je ne vois pas d\'où sont lancés les programmes des autres comptes.)';
+      return { text: `${poste.nom} · ${d.procs.length} programme(s) en cours\n${f.length ? f.map((x) => `- [${x.level}] ${x.rule} — ${x.detail}`).join('\n') : '✓ Aucun comportement suspect.'}${note}`, data: { poste: poste.nom, programmes: d.procs.length, decouvertes: f, complet: d.complet } };
+    } },
+    { id: 'tuer', label: 'Arrêter un processus', what: 'Arrête un processus suspect (sur cette machine, ou sur un autre poste)', params: [{ key: 'pid', label: 'Numéro (PID)', kind: 'number', required: true }, PARAM_POSTE], grave: (i) => `arrêter le processus ${String(i.pid)}${s(i.poste) ? ` sur ${s(i.poste)}` : ''}`, run: async (ctx, i) => {
+      const pid = Number(i.pid); if (!Number.isInteger(pid) || pid < 2) throw new Error('PID invalide');
+      const poste = posteDe(ctx, i.poste), r = await poste.run('kill', ['-9', String(pid)], { sudo: true }); if (r.code) throw new Error(r.err.trim() || 'arrêt refusé');
+      return { text: `✋ Processus ${pid} arrêté${poste.local ? '' : ` sur ${poste.nom}`}.` };
+    } },
   ],
   async view(ctx) {
     const f = judge(procs()), ports = (ctx.settings.ports as string[] | undefined) ?? [];
@@ -69,7 +96,8 @@ export const skogul: Module = {
       subtitle: process.platform === 'win32' ? 'Sur Windows, je ne lis pas encore les programmes en cours : cette page reste vide.' : 'Analyse toutes les 30 secondes',
       kpis: [{ label: 'Découvertes en cours', value: String(f.length), tone: f.length ? 'mauvais' : 'bon' }, { label: 'Ports à l\'écoute', value: String(ports.length) }],
       sections: [{ kind: 'table', title: 'Comportements suspects', columns: ['Gravité', 'Règle', 'Détail'], empty: '✓ Rien de suspect en ce moment.', rows: f.map((x) => ({ cells: [x.level, x.rule, x.detail], tone: 'mauvais', actions: [{ action: 'tuer', label: 'Arrêter', input: { pid: x.pid } }] })) }],
-      side: [{ kind: 'list', title: 'Ports à l\'écoute', items: ports.map((p) => ({ title: p })), empty: 'Lecture en attente.' }],
+      side: [{ kind: 'list', title: 'Ports à l\'écoute', items: ports.map((p) => ({ title: p })), empty: 'Lecture en attente.' },
+        ...(postesLisibles(ctx).length > 1 ? [{ kind: 'form' as const, title: 'Analyser un autre poste', action: 'analyser', submit: 'Analyser ses programmes', params: [{ key: 'poste', label: 'Poste', kind: 'select' as const, options: postesLisibles(ctx).slice(1).map((x) => x.nom), required: true }] }] : [])],
     };
   },
   watch: { every: 30, async run(ctx) {

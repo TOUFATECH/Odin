@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_CONFIG } from '../src/config.ts';
-import { allowAll, assertPublicUrl, denyAll, Heimdall, jailPath } from '../src/heimdall/policy.ts';
+import { allowAll, assertPublicUrl, denyAll, Heimdall, hiddenV4, isPrivateHost, jailPath } from '../src/heimdall/policy.ts';
 import { Redactor } from '../src/heimdall/redact.ts';
 import { scanForInjection, wrapUntrusted } from '../src/heimdall/injection.ts';
 
@@ -71,6 +71,13 @@ test('anti-SSRF : adresses internes refusées', () => {
     assert.throws(() => assertPublicUrl(u), u);
   }
   assert.equal(assertPublicUrl('https://example.com/a').hostname, 'example.com');
+  // Une adresse IPv4 cachée dans une IPv6 (le navigateur la réécrit en hexadécimal) reste une adresse interne.
+  for (const u of ['http://[::ffff:127.0.0.1]:3000/', 'http://[::ffff:192.168.1.5]/', 'http://[0:0:0:0:0:ffff:7f00:1]/', 'http://[::127.0.0.1]/', 'http://[64:ff9b::a00:2]/', 'http://[::ffff:169.254.169.254]/', 'http://2130706433/', 'http://0x7f.1/', 'http://127.1/', 'http://localhost./'])
+    assert.throws(() => assertPublicUrl(u), /interne/, u);
+  assert.equal(hiddenV4('::ffff:7f00:1'), '127.0.0.1'); assert.equal(hiddenV4('[::ffff:c0a8:105]'), '192.168.1.5'); assert.equal(hiddenV4('64:ff9b::808:808'), '8.8.8.8');
+  assert.equal(hiddenV4('::1'), '::1'); assert.equal(hiddenV4('2001:db8::1'), '2001:db8::1'); assert.equal(hiddenV4('exemple.fr'), 'exemple.fr');
+  for (const ok of ['https://[2001:db8::1]/', 'https://[64:ff9b::808:808]/', 'https://[::ffff:8.8.8.8]/']) assert.doesNotThrow(() => assertPublicUrl(ok), ok);
+  assert.ok(isPrivateHost('::ffff:192.168.1.5') && isPrivateHost('::ffff:c0a8:105') && !isPrivateHost('::ffff:808:808'));
 });
 
 test('masquage des secrets', () => {

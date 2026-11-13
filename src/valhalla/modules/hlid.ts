@@ -172,7 +172,7 @@ export const hlid: Module = {
         { kind: 'table', title: 'Ouverts sur la box (Internet → maison)', columns: ['Port', 'Vers', 'Pour'], empty: box ? 'Aucun port ouvert par UPnP.' : 'Pas encore lu : lance « Ports ouverts sur la box ».', rows: (box?.ports ?? []).map((m) => ({ cells: [`${m.external}/${m.proto}`, `${m.client}:${m.internal}`, m.desc || 'sans nom'], tone: 'attention' as const, actions: [{ action: 'fermer_box', label: 'Fermer', input: { port: m.external, proto: m.proto } }] })) },
       ],
       side: [
-        ...(autres.length ? [{ kind: 'table' as const, title: 'Voir un autre poste', columns: ['Poste'], rows: autres.map((x) => ({ cells: [x.nom], actions: [{ action: 'etat', label: 'État du pare-feu', input: { poste: x.id } }] })) }] : []),
+        ...(autres.length ? [{ kind: 'form' as const, title: 'Voir le pare-feu d\'un autre poste', action: 'etat', submit: 'Voir son pare-feu', params: [{ key: 'poste', label: 'Poste (Linux, par SSH)', kind: 'select' as const, options: autres.map((x) => x.nom), default: autres[0].nom }] }] : []),
         { kind: 'list', title: 'Routes', empty: 'Routes non lues.', items: e.routes.slice(0, 12).map((r) => ({ title: r.vers, detail: `${r.via ? `par ${r.via}` : 'direct'}${r.carte ? ` · ${r.carte}` : ''}` })) },
         { kind: 'text', title: 'Routage', text: e.routage ? 'Cette machine fait passer le trafic entre ses réseaux (routage allumé : VPN, conteneurs, machines virtuelles).' : 'Cette machine ne route pas le trafic des autres.' },
         ...(box?.ip ? [{ kind: 'text' as const, title: 'Adresse publique', text: `${box.ip}${box.cgnat ? ' — partagée par l\'opérateur (CGNAT) : rien ne peut entrer d\'Internet, même avec un port ouvert.' : ''}`, tone: 'neutre' as const }] : []),

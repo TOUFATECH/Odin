@@ -15,7 +15,7 @@ import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
-import { chmodSync, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { isPrivateHost } from '../heimdall/policy.ts';
@@ -738,6 +738,19 @@ export class WebChannel implements Channel {
       const r = await draupnirGet(this.odin, url.pathname, url.searchParams, `${this.odin.cfg.web.tls?.enabled === false ? 'http' : 'https'}://${req.headers.host ?? 'localhost'}`);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
+    if (req.method === 'GET' && url.pathname === '/api/valhalla/fichier') {
+      // Remettre à l'appareil un fichier produit par une appli (résultat d'une conversion…). L'appli décide (`retrait`) ;
+      // le fichier part toujours comme un téléchargement, jamais comme une page affichée par Odin.
+      const va = valhallaOf(), mod = url.searchParams.get('module') ?? '', m = va?.module(mod);
+      let abs: string | undefined;
+      try { abs = m?.retrait && va ? m.retrait(va.ctx(mod), (url.searchParams.get('ref') ?? '').slice(0, 600)) : undefined; } catch { abs = undefined; }
+      let size = -1; try { if (abs) { const st = statSync(abs); if (st.isFile()) size = st.size; } } catch { /* fichier parti entre-temps */ }
+      if (!abs || size < 0) return json(res, 404, { ok: false, error: 'fichier introuvable ou non permis' });
+      // Le vrai nom du fichier (parenthèses et accents gardés) ; seuls les caractères qui casseraient l'en-tête sont remplacés.
+      const nom = (abs.split(/[\\/]/).pop() || 'fichier').replace(/[\u0000-\u001f\u007f"]/g, '_'), ascii = nom.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+      res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': String(size), 'content-disposition': `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(nom)}`, 'x-content-type-options': 'nosniff', 'content-security-policy': 'sandbox', 'cache-control': 'no-store' });
+      const flux = createReadStream(abs); flux.on('error', () => res.destroy()); return void flux.pipe(res);
+    }
     if (req.method === 'GET' && url.pathname.startsWith('/api/valhalla/')) {
       const r = await valhallaGet(url.pathname, url.searchParams);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
@@ -884,6 +897,28 @@ export class WebChannel implements Channel {
         if (!size) { unlinkSync(dest); return json(res, 200, { ok: false, error: 'fichier vide' }); }
         return json(res, 200, { ok: true, file: `inbox/${name}`, type: String(req.headers['content-type'] ?? ''), size });
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    if (url.pathname === '/api/valhalla/depot') {
+      // Un fichier envoyé depuis l'appareil pour une action d'appli (réglage « depot ») : écrit en flux là où l'appli
+      // reçoit ses fichiers. L'endroit est fixé par l'appli, jamais par le navigateur ; rien n'est écrasé.
+      let dest = '';
+      try {
+        const va = valhallaOf(); if (!va) return json(res, 503, { ok: false, error: 'applis non démarrées' });
+        const mod = url.searchParams.get('module') ?? '', m = va.module(mod), d = m?.depot?.(va.ctx(mod));
+        if (!m || !d) { req.resume(); return json(res, 200, { ok: false, error: 'cette appli ne reçoit pas de fichier' }); }
+        let brut = 'fichier'; try { brut = decodeURIComponent(String(req.headers['x-filename'] ?? 'fichier')); } catch { /* nom mal écrit : nom par défaut */ }
+        const nom = depotName(d.dossier, uploadName(brut)), max = 2 * 1024 ** 3;
+        mkdirSync(d.dossier, { recursive: true }); dest = join(d.dossier, nom);
+        const size = await new Promise<number>((ok, ko) => {
+          let n = 0; const out = createWriteStream(dest, { mode: 0o600, flags: 'wx' });
+          out.on('error', ko);
+          // Si le disque est plus lent que le réseau, l'envoi attend : le fichier ne s'entasse pas en mémoire.
+          req.on('data', (c: Buffer) => { n += c.byteLength; if (n > max) { req.destroy(); out.destroy(); ko(new Error('fichier trop lourd (2 Go max)')); } else if (!out.write(c)) { req.pause(); out.once('drain', () => req.resume()); } });
+          req.on('end', () => out.end(() => ok(n))); req.on('error', ko);
+        });
+        if (!size) { unlinkSync(dest); return json(res, 200, { ok: false, error: 'fichier vide' }); }
+        return json(res, 200, { ok: true, ref: d.ref(nom), nom, size });
+      } catch (e) { if (dest) { try { unlinkSync(dest); } catch { /* rien à retirer */ } } return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/valhalla/image') {
       // Une image pour le réglage d'une appli (paramètre « image ») : déjà recadrée par le navigateur, gardée dans images/ du module.
@@ -1542,6 +1577,14 @@ async function readJson(req: IncomingMessage, max = MAX_BODY): Promise<Record<st
 }
 
 /** Nom de fichier déposé : sans chemin ni caractère spécial, extension gardée. */
+/** Un nom libre dans le dossier d'arrivée : « rapport.pdf », puis « rapport (2).pdf »… (rien n'est écrasé). Les noms protégés d'Odin sont renommés. */
+export function depotName(dir: string, name: string): string {
+  let n = name;
+  if (/^(compte|sessions|secrets|signatures|cle-signatures|réglages|reglages|machines)\.json$|-key\.pem$|^acme-compte\.pem$|^jeton-tunnel$/i.test(n)) n = `fichier-${n}`;
+  const k = n.lastIndexOf('.'), base = k > 0 ? n.slice(0, k) : n, ext = k > 0 ? n.slice(k) : '';
+  for (let i = 2; existsSync(join(dir, n)) && i < 1000; i++) n = `${base} (${i})${ext}`;
+  return n;
+}
 export function uploadName(n: string): string {
   const base = n.split(/[\\/]/).pop() ?? '';
   return base.replace(/[^\w.\-À-ÿ ]+/g, '_').replace(/^\.+/, '').slice(-120) || 'fichier';

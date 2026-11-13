@@ -372,8 +372,19 @@ export function assertPublicUrl(raw: string): URL {
   return u;
 }
 
+/**
+ * Une adresse IPv4 cachée dans une adresse IPv6, telle que le navigateur la réécrit en hexadécimal :
+ * `[::ffff:127.0.0.1]` devient `::ffff:7f00:1` (de même `::7f00:1` et `64:ff9b::7f00:1`). Rend l'IPv4 transportée. Pur.
+ */
+export function hiddenV4(host: string): string {
+  const h = host.toLowerCase().replace(/^\[|\]$/g, '');
+  const m = /^(?:(?:0:){5}ffff:|::ffff:|::|64:ff9b::)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+  if (!m) return h;
+  const a = parseInt(m[1], 16), b = parseInt(m[2], 16);
+  return `${a >> 8}.${a & 255}.${b >> 8}.${b & 255}`;
+}
 export function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/^::ffff:/, '').replace(/\.+$/, ''); // « localhost. » = localhost
+  const h = hiddenV4(host).replace(/^(?:::ffff:|(?:0:){5}ffff:)/, '').replace(/\.+$/, ''); // « localhost. » = localhost
   return h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.internal') || h.endsWith('.local') ||
     /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(h) ||
