@@ -22,7 +22,7 @@ const key = (env: string, e: NodeJS.ProcessEnv = process.env) => e[env] ?? '';
 const isLocal = (u: string) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(u);
 
 /** Un service de transcription en ligne ou local est-il utilisable ? (Une clé OpenAI suffit, sans rien cocher.) */
-function remoteStt(v: VoiceConfig, env = process.env): boolean { return Boolean(key(v.stt.apiKeyEnv, env)) || (v.enabled && isLocal(v.stt.baseUrl)); }
+function remoteStt(v: VoiceConfig, env = process.env): boolean { return !v.localOnly && (Boolean(key(v.stt.apiKeyEnv, env)) || (v.enabled && isLocal(v.stt.baseUrl))); }
 /** La transcription est-elle utilisable (clé présente, serveur local, ou Whisper installé sur la machine) ? */
 export function sttReady(v: VoiceConfig, env = process.env): boolean { return remoteStt(v, env) || Boolean(localWhisper()); }
 
@@ -59,6 +59,7 @@ export function guessLang(text: string): string {
 }
 /** Le fournisseur de synthèse choisi est-il prêt (sans compter Piper installé sur la machine) ? */
 function providerReady(v: VoiceConfig, env = process.env): boolean {
+  if (v.localOnly) return false; // 100 % local : seul Piper sur la machine parle
   if (v.tts.provider === 'piper') return Boolean(v.tts.baseUrl) && v.tts.baseUrl !== 'local';
   if (v.tts.provider === 'openai') return (Boolean(key(v.tts.apiKeyEnv, env)) || isLocal(v.tts.baseUrl)) && Boolean(v.tts.voiceId);
   return Boolean(key(v.tts.apiKeyEnv, env)) && Boolean(v.tts.voiceId);
@@ -68,7 +69,7 @@ export function ttsReady(v: VoiceConfig, env = process.env): boolean {
   return (v.enabled && providerReady(v, env)) || Boolean(localPiper());
 }
 /** Est-ce que la voix reste entièrement sur la machine (rien n'est envoyé à un service en ligne) ? */
-export function ttsIsLocal(v: VoiceConfig): boolean { return (v.tts.provider === 'piper' && v.tts.baseUrl === 'local') || (v.tts.provider !== 'elevenlabs' && isLocal(v.tts.baseUrl)); }
+export function ttsIsLocal(v: VoiceConfig): boolean { return Boolean(v.localOnly) || (v.tts.provider === 'piper' && v.tts.baseUrl === 'local') || (v.tts.provider !== 'elevenlabs' && isLocal(v.tts.baseUrl)); }
 /** Adresse par défaut de chaque fournisseur de synthèse. */
 export const TTS_DEFAULTS: Record<VoiceConfig['tts']['provider'], { baseUrl: string; model: string; voiceId: string; apiKeyEnv: string }> = {
   elevenlabs: { baseUrl: 'https://api.elevenlabs.io', model: 'eleven_multilingual_v2', voiceId: '', apiKeyEnv: 'ELEVENLABS_API_KEY' },
@@ -142,14 +143,19 @@ export interface SpeechAudio { data: Uint8Array; mime: string }
 
 /** Texte → audio (mp3 pour le navigateur, opus pour les notes vocales Telegram), selon le fournisseur choisi. */
 export async function speakAudio(text: string, v: VoiceConfig, format: AudioFormat = 'mp3_44100_128', signal?: AbortSignal, env = process.env, lang?: string): Promise<SpeechAudio> {
-  const clean = forSpeech(text);
+  const clean = pronounce(forSpeech(text), v.speech?.pronunciations);
   if (!clean) throw new Error('rien à dire');
+  // 100 % local : Piper sur la machine, installé au besoin ; jamais de service en ligne.
+  if (v.localOnly && !localPiper()) {
+    const ok = await ensureLocalVoice(notifyVoice, undefined, { quiet: true });
+    if (!ok || !localPiper()) throw new Error(voiceBlocked() ?? lastVoiceFailure() ?? 'la voix locale (Piper) n\'est pas encore installée sur ma machine');
+  }
   const language = lang ?? guessLang(clean);
   // Piper sur la machine : choisi (« local »), ou à défaut d'un autre fournisseur prêt.
   if (localPiper() && ((v.tts.provider === 'piper' && (!v.tts.baseUrl || v.tts.baseUrl === 'local')) || !providerReady(v, env))) {
     // Voix de secours locale : on garde le genre choisi (homme « tom », femme « siwis »).
     const g = (v as VoiceConfig & { gender?: string }).gender === 'femme' || /siwis/.test(v.tts.voiceId) ? 'femme' : 'homme';
-    return { data: await speakLocal(clean, undefined, g, language), mime: 'audio/wav' };
+    return { data: await speakLocal(clean, undefined, g, language, v.speech?.rate ?? 1), mime: 'audio/wav' };
   }
   const base = v.tts.baseUrl.replace(/\/$/, '');
   const sig = signal ?? AbortSignal.timeout(90_000);
@@ -189,6 +195,17 @@ export async function speak(text: string, v: VoiceConfig, format: AudioFormat = 
 }
 
 /** Ce qui se lit mal à voix haute (code, liens, émojis de statut) est retiré ; 2 500 caractères au plus. */
+/** Applique le lexique de prononciation (mot entier, sans tenir compte des majuscules) : « Muninn » → « Mou-ninne ». */
+export function pronounce(text: string, lexicon: Record<string, string> = {}): string {
+  let out = text;
+  for (const [word, say] of Object.entries(lexicon)) {
+    if (!word.trim() || !say.trim()) continue;
+    const esc = word.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${esc}(?![\\p{L}\\p{N}])`, 'giu'), say.trim());
+  }
+  return out;
+}
+
 export function forSpeech(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, ' (code affiché à l\'écran) ')

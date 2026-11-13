@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { Shelf } from '../src/muninn/tables.ts';
 import { buildMail, decodeWords, mailText, parseFetchHeaders } from '../src/tools/mail.ts';
 import { buildIcs, parseIcs } from '../src/tools/calendar.ts';
 import { formatStates } from '../src/tools/homeassistant.ts';
@@ -49,7 +49,7 @@ test('Home Assistant : liste filtrée par mot (sans accents) ou domaine', () => 
 
 test('documents : index (nom et contenu), recherche, fichiers modifiés seulement, suppression', () => {
   const dir = mkdtempSync(join(tmpdir(), 'odin-docs-'));
-  const db = new DatabaseSync(':memory:');
+  const db = new Shelf(null);
   try {
     mkdirSync(join(dir, 'Factures'));
     writeFileSync(join(dir, 'Factures', 'edf-2026-03.txt'), 'EDF facture électricité mars 2026 montant 84,20');
@@ -61,7 +61,7 @@ test('documents : index (nom et contenu), recherche, fichiers modifiés seulemen
     assert.equal(indexDocs(db, [dir]).updated, 0, 'rien de modifié : rien de relu');
     rmSync(join(dir, 'photo.jpg'));
     assert.equal(indexDocs(db, [dir]).removed, 1);
-  } finally { db.close(); rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('accès extérieur et personnalités', () => {

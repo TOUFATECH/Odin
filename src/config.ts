@@ -187,6 +187,20 @@ export interface OdinConfig {
     gender?: 'homme' | 'femme';
     femaleVoiceId?: string;
     stt: { provider: 'whisper'; model: string; baseUrl: string; apiKeyEnv: string; language: string };
+    /** 100 % local : la voix ne passe JAMAIS par un service en ligne (whisper.cpp et Piper sur la machine d'Odin). */
+    localOnly: boolean;
+    /** Réponse : « voix » (Odin parle et écrit) ou « texte » (il écrit seulement, même quand tu lui parles au micro). */
+    replyMode: 'voix' | 'texte';
+    /** Écoute : texte en direct, annulation d'écho, sensibilité du micro (1 à 10), attente en fin de phrase, mot de réveil. */
+    listen: { live: boolean; echoCancel: boolean; sensitivity: number; endSilenceMs: number; wakeWord: string; holdToTalk: boolean };
+    /** Interruptions : te laisser couper Odin en parlant, ignorer « oui / mmh », mots d'arrêt immédiat, durée de vie d'un sujet coupé. */
+    interrupt: { bargeIn: boolean; ignoreBackchannel: boolean; stopWords: string[]; keepTopicMin: number };
+    /** Voix d'Odin : vitesse (0,7 à 1,3), volume (0 à 1), prononciations (mot → façon de le dire). */
+    speech: { rate: number; volume: number; pronunciations: Record<string, string> };
+    /** Cerveau pour les demandes à la voix : « auto » (les IA réglées, sinon sans IA) ou « sans-ia » (jamais d'IA). */
+    brain: 'auto' | 'sans-ia';
+    /** Confidentialité : mode privé (rien d'enregistré), garder l'audio brut (et combien de jours). */
+    privacy: { privateMode: boolean; keepAudio: boolean; keepAudioDays: number };
   };
   /** Mímir : jugements typés (juge local sans clé par défaut, Jev ou modèle en option), décisions en code. */
   mimir: MimirConfig;
@@ -254,9 +268,17 @@ export const DEFAULT_CONFIG: OdinConfig = {
   web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
   voice: {
     // Odin répond à voix haute dans l'appli dès qu'une voix est disponible, tant que tu ne l'as pas coupé (Réglages → Voix, ou le bouton 🔊).
-    enabled: false, speakReplies: true, voiceReplies: true, gender: 'homme', femaleVoiceId: '',
-    tts: { provider: 'elevenlabs', voiceId: '', voiceName: '', model: 'eleven_multilingual_v2', baseUrl: 'https://api.elevenlabs.io', apiKeyEnv: 'ELEVENLABS_API_KEY' },
+    // Par défaut tout reste sur la machine : whisper.cpp pour comprendre, Piper (voix « tom ») pour parler.
+    enabled: true, speakReplies: true, voiceReplies: true, gender: 'homme', femaleVoiceId: '',
+    tts: { provider: 'piper', voiceId: 'fr_FR-tom-medium', voiceName: '', model: '', baseUrl: 'local', apiKeyEnv: '' },
     stt: { provider: 'whisper', model: 'whisper-1', baseUrl: 'https://api.openai.com/v1', apiKeyEnv: 'OPENAI_API_KEY', language: 'fr' },
+    localOnly: true,
+    replyMode: 'voix',
+    listen: { live: true, echoCancel: true, sensitivity: 6, endSilenceMs: 1500, wakeWord: 'Odin', holdToTalk: true },
+    interrupt: { bargeIn: true, ignoreBackchannel: true, stopWords: ['stop', 'tais-toi', 'attends', 'Odin'], keepTopicMin: 30 },
+    speech: { rate: 1, volume: 0.8, pronunciations: {} },
+    brain: 'auto',
+    privacy: { privateMode: false, keepAudio: false, keepAudioDays: 7 },
   },
   mimir: DEFAULT_MIMIR,
   channels: {
@@ -322,7 +344,14 @@ export function validateConfig(c: OdinConfig): string[] {
   if (c.agent.maxSteps < 1 || c.agent.maxSteps > 1000) errs.push('agent.maxSteps doit être entre 1 et 1000');
   if (!['none', 'docker'].includes(c.policy.sandbox?.kind)) errs.push('policy.sandbox.kind doit valoir none ou docker');
   if (!['auto', 'local', 'llm', 'jev', 'local+llm', 'local+jev'].includes(c.mimir.judge)) errs.push('mimir.judge doit valoir auto, local, llm, jev, local+llm ou local+jev');
-  if (!/^https?:\/\//.test(c.voice.stt.baseUrl) || !/^https?:\/\//.test(c.voice.tts.baseUrl)) errs.push('voice.stt.baseUrl / voice.tts.baseUrl : des adresses http(s)');
+  if (!/^https?:\/\//.test(c.voice.stt.baseUrl) || !(/^https?:\/\//.test(c.voice.tts.baseUrl) || c.voice.tts.baseUrl === 'local')) errs.push('voice.stt.baseUrl / voice.tts.baseUrl : des adresses http(s) (ou « local » pour Piper sur la machine)');
+  if (!['voix', 'texte'].includes(c.voice.replyMode)) errs.push('voice.replyMode : voix ou texte');
+  if (!['auto', 'sans-ia'].includes(c.voice.brain)) errs.push('voice.brain : auto ou sans-ia');
+  if (!(c.voice.listen.sensitivity >= 1 && c.voice.listen.sensitivity <= 10)) errs.push('voice.listen.sensitivity : de 1 à 10');
+  if (!(c.voice.listen.endSilenceMs >= 300 && c.voice.listen.endSilenceMs <= 5000)) errs.push('voice.listen.endSilenceMs : de 300 à 5000 ms');
+  if (!(c.voice.speech.rate >= 0.7 && c.voice.speech.rate <= 1.3)) errs.push('voice.speech.rate : de 0,7 à 1,3');
+  if (!(c.voice.speech.volume >= 0 && c.voice.speech.volume <= 1)) errs.push('voice.speech.volume : de 0 à 1');
+  if (!Array.isArray(c.voice.interrupt.stopWords)) errs.push('voice.interrupt.stopWords : une liste de mots');
   if (!['elevenlabs', 'piper', 'openai'].includes(c.voice.tts.provider)) errs.push('voice.tts.provider : elevenlabs, piper ou openai');
   if (c.voice.tts.voiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(c.voice.tts.voiceId)) errs.push('voice.tts.voiceId : identifiant de voix invalide');
   if (!(c.routing.monthlyBudgetUsd >= 0)) errs.push('routing.monthlyBudgetUsd doit être positif ou nul');
@@ -353,6 +382,8 @@ export function loadConfig(paths: OdinPaths): OdinConfig {
   const cfg = merge(DEFAULT_CONFIG, raw);
   // Odin répond à voix haute tant que tu ne l'as pas coupé toi-même dans Réglages → Voix
   if (!cfg.voice.speakRepliesChosen) cfg.voice.speakReplies = true;
+  // Le mode de réponse (voix ou texte) commande la lecture à voix haute et les notes vocales.
+  if (cfg.voice.replyMode === 'texte') { cfg.voice.speakReplies = false; cfg.voice.voiceReplies = false; }
   const errs = validateConfig(cfg);
   if (errs.length) throw new Error(`Configuration invalide (${paths.config}) :\n- ${errs.join('\n- ')}`);
   return cfg;

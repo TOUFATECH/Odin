@@ -96,7 +96,7 @@ export function restoreBackup(paths: OdinPaths, data: Buffer, password: string):
     if (existsSync(dest)) { replaced.push(name); rmSync(`${dest}.avant-restauration`, { force: true }); renameSync(dest, `${dest}.avant-restauration`); }
     writeFileSync(dest, buf, { mode: /^(env|web-token|compte\.json|admin\.json|machines\.json|vault\.json|backup-pass|vapid\.json|codex-auth\.json|push\.json|[^/]*\.enc)$/.test(name) ? 0o600 : 0o644 });
   }
-  // Base SQLite : les fichiers WAL de l'ancienne base ne doivent pas se mélanger à la nouvelle.
+  // Restes d'une ancienne base SQLite (avant la mémoire en fichiers) : jamais relus, donc retirés.
   for (const suffix of ['-wal', '-shm', '-journal']) rmSync(paths.db + suffix, { force: true });
   return { files: files.size, replaced };
 }

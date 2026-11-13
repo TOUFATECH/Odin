@@ -16,7 +16,7 @@ export const errorsSince = (since: number) => (g.__odinErrors ?? []).filter((t) 
 export function diagnose(s: SelfState): Array<{ key: string; text: string; fix?: 'vacuum' }> {
   const out: Array<{ key: string; text: string; fix?: 'vacuum' }> = [];
   if (s.diskFreePct < 5 || s.diskFreeGb < 1) out.push({ key: 'disk', text: `💽 Il reste peu de place sur mon disque : ${s.diskFreeGb.toFixed(1)} Go (${s.diskFreePct.toFixed(0)} %). Je peux faire le ménage dans mes sauvegardes et fichiers temporaires si tu veux.` });
-  if (s.dbMb > 500) out.push({ key: 'db', text: `🗄 Ma base fait ${Math.round(s.dbMb)} Mo : je la compacte cette nuit.`, fix: 'vacuum' });
+  if (s.dbMb > 500) out.push({ key: 'db', text: `🗄 Ma mémoire fait ${Math.round(s.dbMb)} Mo : je la range cette nuit.`, fix: 'vacuum' });
   if (s.errorsLastHour >= 5) out.push({ key: 'errors', text: `⚠️ ${s.errorsLastHour} erreurs imprévues dans la dernière heure (je continue de fonctionner). Regarde le journal ou demande-moi « qu'est-ce qui ne va pas ? ».` });
   if (s.failedMissions >= 3) out.push({ key: 'missions', text: `⚠️ ${s.failedMissions} tâches ont échoué dans les dernières 24 h : souvent le modèle injoignable ou une machine éteinte. Je regarde les causes si tu veux.` });
   if (s.budget > 0 && s.monthCost >= s.budget * 0.8) out.push({ key: `budget-${s.monthCost >= s.budget ? 'full' : '80'}`, text: s.monthCost >= s.budget ? `💸 Budget du mois atteint (${s.monthCost.toFixed(2)} $ / ${s.budget} $) : je passe sur les modèles gratuits ou locaux.` : `💸 80 % du budget du mois utilisé (${s.monthCost.toFixed(2)} $ / ${s.budget} $).` });
@@ -34,9 +34,10 @@ export function trimLogs(dir: string, maxMb = 20): number {
   return n;
 }
 
-export function measure(home: string, db: string): Pick<SelfState, 'diskFreePct' | 'diskFreeGb' | 'dbMb'> {
+/** `memoryBytes` : taille de la mémoire d'Odin (ses fichiers), en octets. */
+export function measure(home: string, memoryBytes: number): Pick<SelfState, 'diskFreePct' | 'diskFreeGb' | 'dbMb'> {
   let diskFreePct = 100, diskFreeGb = 999;
   try { const f = statfsSync(home); diskFreeGb = (f.bavail * f.bsize) / 1e9; diskFreePct = (f.bavail / f.blocks) * 100; } catch { /* inconnu */ }
-  let dbMb = 0; for (const x of [db, `${db}-wal`]) { try { dbMb += statSync(x).size / 1048576; } catch { /* absent */ } }
+  const dbMb = memoryBytes / 1048576;
   return { diskFreePct, diskFreeGb, dbMb };
 }

@@ -1,5 +1,116 @@
 [
  {
+  "id": "2ea655c",
+  "at": "2026-11-12T16:52:15+03:00",
+  "date": "2026-11-12",
+  "version": "1.13.0",
+  "title": "Barre « Maintenez pour parler », réponse Voix + texte ou Texte seul, conversations exportées ou supprimées depuis l'interface, page Réglages → Voix",
+  "details": [
+   "Barre en pilule selon la maquette validée : + (fichiers), « Maintenez pour parler », micro (maintenir ou Espace, relâcher pour envoyer, ✕ ou Échap pour annuler), carré stop qui coupe Odin quand il parle ou travaille.",
+   "En-tête : choix « Voix + texte » / « Texte seul ».",
+   "Menu ⋯ d'une conversation : Exporter… (Markdown, PDF, JSON ; une conversation, une période ou tout) et Supprimer (corbeille 7 jours, Annuler pendant 10 s).",
+   "Réglages → Voix : réponses, écoute, interruptions, vitesse, volume, prononciations, cerveau, 100 % local, mode privé, corbeille.",
+   "Volume et vitesse appliqués à la lecture ; historique des versions reconstruit en entier."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "interface",
+   "cerveau",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "159ecbe",
+  "at": "2026-11-12T16:35:56+03:00",
+  "date": "2026-11-12",
+  "version": "1.12.0",
+  "title": "Mémoire 100 % en fichiers (zéro SQLite), voix locale par défaut, réponse en voix ou en texte, conversations supprimables et exportables",
+  "details": [
+   "Muninn, inventaire du réseau, index des documents et capture réseau rangés en fichiers JSONL dans ~/.odin/memoire/ ; recherche plein texte en mémoire (sans accents, début de mot, BM25) ; ancienne odin.db convertie une fois puis mise de côté ; un test interdit tout retour de SQLite.",
+   "Voix 100 % locale par défaut (whisper.cpp + Piper), même avec une clé en ligne présente.",
+   "Réglages vocaux : réponse voix ou texte, écoute, interruptions, vitesse, volume, prononciations, cerveau sans IA, mode privé.",
+   "À l'oral : « réponds par écrit », « parle-moi », « supprime cette conversation » (avec confirmation).",
+   "Conversations : corbeille 7 jours puis effacement réel ; export Markdown, JSON ou texte.",
+   "Cahier des charges de la voix : docs/voix-v2.md."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "cerveau",
+   "maison",
+   "memoire"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "249eb20",
+  "at": "2026-11-12T08:26:43+03:00",
+  "date": "2026-11-12",
+  "version": "1.11.0",
+  "title": "Freyja met le dernier épisode, le suivant ou S2E5, et prévient des arrivées (VF comprise)",
+  "details": [
+   "« Mets le dernier épisode de One Piece sur la télé du salon » : l'épisode lui-même démarre (aussi épisode suivant, premier, saison N épisode M, S02E05, épisode 1071 de…) ; une série seule reprend à l'épisode suivant",
+   "Arrivées sur Venus (toutes les 5 min) : « 📺 Épisode arrivé sur Venus en VF : One Piece S01E1071 », films, VF arrivée ; réglage tout / seulement la VF / rien (« préviens-moi seulement pour la vf »)",
+   "Nouvelles actions sans IA : nouveautes (« les nouveaux épisodes »), chercher_vf (« cherche Frieren en VF » → Radarr / Sonarr par Venus), prevenir",
+   "Tests : phrases d'épisode, messages d'arrivée, routage Huginn"
+  ],
+  "planets": [
+   "discussion",
+   "applis",
+   "ia",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "8db6384",
+  "at": "2026-11-12T07:20:43+03:00",
+  "date": "2026-11-12",
+  "title": "Rán : base des paquets fermée à l'arrêt (Windows refusait d'effacer le dossier)",
+  "details": [],
+  "planets": [
+   "machines"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "7200cc8",
+  "at": "2026-11-12T07:11:32+03:00",
+  "date": "2026-11-12",
+  "version": "1.10.0",
+  "title": "Rán lit les paquets en entier, couche par couche, avec la carte de qui parle à qui",
+  "details": [
+   "Décodeur maison (flux pcap de tcpdump) : trame, Ethernet / capture Linux, IPv4, IPv6, ARP, ICMP, TCP (drapeaux, séquence, fenêtre), UDP, TLS (version, nom du site SNI, ALPN), QUIC, HTTP (requête, en-têtes, début du contenu), DNS (questions et réponses), DHCP, SSDP, NTP, SSH, WireGuard ; contenu brut en hexadécimal ; une phrase en français par paquet",
+   "Noms des sites d'Internet appris (réponses DNS, SNI, hôte HTTP) et affichés à la place des adresses",
+   "Tout le réseau ou une machine ; points de capture : Odin + chaque machine accessible par SSH (tout son trafic : un hôte Proxmox voit ses VM, un routeur Linux tout le réseau) ; un paquet vu deux fois n'est gardé qu'une fois",
+   "Carte interactive : machines, sites d'Internet et diffusions reliés par des flèches dans le sens de la communication, épaisses selon le volume ; machine touchée = ses communications ; flèche touchée = les paquets du lien ; détail de chaque paquet couche par couche",
+   "Lire les paquets / Pause (plus rien n'est lu), aussi sans IA : « lis les paquets », « mets les paquets en pause » ; « 🦉 Odin, explique » pour un paquet ou toute la scène",
+   "Historique 7 jours, 250 000 paquets, 4 ko de contenu par paquet ; l'interface d'Odin n'est jamais capturée",
+   "Tests : relais MQTT des tests sur un port libre (l'échec « lien appareils → Midgard » venait de deux relais sur 1883)"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "interface",
+   "maison",
+   "machines"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "c592b1d",
+  "at": "2026-11-12T06:52:56+03:00",
+  "date": "2026-11-12",
+  "title": "Liste des évolutions livrée : régénérée",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
   "id": "13d2c04",
   "at": "2026-11-12T06:52:55+03:00",
   "date": "2026-11-12",

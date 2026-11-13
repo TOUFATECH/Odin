@@ -79,6 +79,7 @@ import { ASK_KEY, type Ask } from '../learn/habits.ts';
 import { getMode, setMode, type LifeMode } from '../tools/everyday.ts';
 import { isReminderJob, reminderText } from '../cron/reminders.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
+import { exportConversations, type ExportFormat } from '../muninn/export.ts';
 import { TTS_DEFAULTS, cloneVoice, hear, listVoices, speak, speakAudio, sttReady, ttsIsLocal, ttsReady } from '../voice/voice.ts';
 import { ensureLocalVoice, resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
 import { forget as forgetAcquis, loadAcquis } from '../learn/acquis.ts';
@@ -755,6 +756,16 @@ export class WebChannel implements Channel {
       const acquis = loadAcquis(m).sort((a, b) => b.uses - a.uses || b.last - a.last).slice(0, 60).map((a) => ({ id: a.id, phrase: a.phrase, label: a.label, uses: a.uses, slots: a.slots.length, at: a.at }));
       return json(res, 200, { ok: true, stats: m.routeStats(Date.now() - 30 * 86_400_000), recent, savings: savingsOf(m, prices), acquis });
     }
+    // Export des conversations : ?peer=… (une), ?all=1 (tout), &from=&to= (période, ms), &format=md|json|txt, &raw=1 (outils compris).
+    if (req.method === 'GET' && url.pathname === '/api/conversations/export') {
+      const q = url.searchParams, format = (['md', 'json', 'txt'].includes(q.get('format') ?? '') ? q.get('format') : 'md') as ExportFormat;
+      const sessions = q.get('all') === '1' ? undefined : [`web:${safePeer(q.get('peer'))}`];
+      const num = (k: string) => { const n = Number(q.get(k)); return Number.isFinite(n) && n > 0 ? n : undefined; };
+      const out = exportConversations(this.odin.muninn, { sessions, format, from: num('from'), to: num('to'), withTools: q.get('raw') === '1' });
+      if (!out.count) return json(res, 404, { ok: false, error: 'Rien à exporter.' });
+      res.writeHead(200, { 'content-type': out.mime, 'content-disposition': `attachment; filename="${out.filename}"`, 'cache-control': 'no-store' });
+      res.end(out.body); return;
+    }
     if (req.method === 'GET' && url.pathname === '/api/history') {
       const peer = safePeer(url.searchParams.get('peer'));
       const msgs = this.odin.muninn.history(`web:${peer}`).filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content).map((m) => ({ role: m.role, text: m.content }));
@@ -958,6 +969,7 @@ export class WebChannel implements Channel {
     const day = muninn.usageSince(Date.now() - 86_400_000);
     return {
       name: cfg.name,
+      trash: muninn.listTrash().filter((t) => t.id.startsWith('web:')).map((t) => ({ peer: t.id.slice(4), title: t.title, messages: t.messages, deleted: t.deleted_at })),
       conversations: (() => { const pins = muninn.kvPrefix('pin:'), titles = muninn.kvPrefix('title:'); return muninn.listSessions(200).filter((s) => s.id.startsWith('web:')).map((s) => ({ peer: s.id.slice(4), title: titles[s.id.slice(4)] || s.title, updated: s.updated_at, tainted: s.tainted === 1, pinned: Boolean(pins[s.id.slice(4)]) })).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updated - a.updated).slice(0, 80); })(),
       usage: day,
       network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, lastScan: inventory.lastScan() ?? null },
@@ -983,7 +995,7 @@ export class WebChannel implements Channel {
       memoryGarden: (() => { try { return { last: JSON.parse(muninn.getKv('memory-garden-last') ?? 'null') }; } catch { return { last: null }; } })(),
       judge: this.odin.mimir?.judgeName ?? null,
       settings: settingsView(cfg, Boolean(this.odin.demo), process.env, this.odin.paths),
-      voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), local: ttsIsLocal(cfg.voice), provider: cfg.voice.tts.provider, speakReplies: cfg.voice.speakReplies, ttsDefaults: TTS_DEFAULTS },
+      voice: { stt: sttReady(cfg.voice), tts: ttsReady(cfg.voice), local: ttsIsLocal(cfg.voice), provider: cfg.voice.tts.provider, speakReplies: cfg.voice.speakReplies, ttsDefaults: TTS_DEFAULTS, localOnly: cfg.voice.localOnly, replyMode: cfg.voice.replyMode, listen: cfg.voice.listen, interrupt: cfg.voice.interrupt, speech: cfg.voice.speech, brain: cfg.voice.brain, privateMode: cfg.voice.privacy.privateMode },
       failedChannels: this.hooks.failedChannels?.() ?? {},
       missions: muninn.listMissions(60),
       rights: {
@@ -1278,6 +1290,10 @@ export class WebChannel implements Channel {
         return { ok: true, token: this.token };
       }
       case 'conversation_reset': muninn.resetSession(`web:${safePeer(b.peer as string)}`); break;
+      // Supprimer une conversation : corbeille 7 jours (annulable), puis effacement réel.
+      case 'conv_delete': if (!muninn.trashSession(`web:${safePeer(b.peer as string)}`, Boolean(b.forget))) return { ok: false, error: 'Conversation introuvable.' }; break;
+      case 'conv_restore': if (!muninn.restoreSession(`web:${safePeer(b.peer as string)}`)) return { ok: false, error: 'Plus dans la corbeille.' }; break;
+      case 'conv_trash_empty': return { ok: true, info: `${muninn.purgeTrash(Date.now(), true)} conversation(s) effacée(s) pour de bon.` };
       case 'net_scan': void this.hooks.scanNetwork(Boolean(b.full)); return { ok: true, started: true };
       case 'device_watch': {
         const ids = new Set(this.odin.cfg.watch.devices);
@@ -1375,7 +1391,7 @@ export class WebChannel implements Channel {
         break;
       }
       case 'ha_test': try { const n = (await haApi(this.odin.cfg.homeAssistant.url, process.env.HA_TOKEN ?? '', 'GET', '/states') as unknown[]).length; return { ok: true, info: `${n} entités` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
-      case 'docs_index': try { const r = indexDocs(muninn.db, this.odin.cfg.docs.dirs); return { ok: true, info: `${r.files} fichier(s), ${r.updated} relu(s)` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
+      case 'docs_index': try { const r = indexDocs(muninn, this.odin.cfg.docs.dirs); return { ok: true, info: `${r.files} fichier(s), ${r.updated} relu(s)` }; } catch (e) { return { ok: false, error: (e as Error).message }; }
       case 'journal_now': return { ok: true, text: await this.hooks.journalNow?.() ?? '' };
       case 'morning_now': return { ok: true, text: await this.hooks.morningNow?.() ?? '' };
       case 'tunnel_start': {

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { applyParental, extend, minutesToBed, parseDays, rules, shouldBlock, KEY } from '../src/home/parental.ts';
 import { pickNews, severeWeather } from '../src/guard/alerts.ts';
-import { bestMatch, playPathOf, venusTool, type VCard } from '../src/tools/venus.ts';
+import { bestMatch, parseEpisode, playPathOf, venusTool, type VCard } from '../src/tools/venus.ts';
+import { arrivalMessages } from '../src/valhalla/modules/venus.ts';
 import { planTargets, stoppedServices } from '../src/guard/care.ts';
 import { buttonText, buttonsFor } from '../src/bifrost/channel.ts';
 
@@ -75,7 +76,7 @@ test('Venus : titre retrouvé, lecture lancée sur la télé, enregistrement pro
     let body = ''; req.on('data', (c) => { body += c; }); req.on('end', () => {
       got.push({ method: req.method!, url: req.url!, body, key: String(req.headers['x-api-key']) });
       const u = req.url!;
-      const out = u.startsWith('/api/library?type=channel') ? [cards[0]] : u.startsWith('/api/library') ? cards.slice(1) : u === '/api/devices/open' ? [{ id: 'tv1', name: 'Télé du salon', tv: true, playing: false }] : u.startsWith('/api/epg?') ? { channels: [{ id: 1, title: 'Mayotte La 1ère' }], programs: { 1: [{ id: 55, channel: 1, title: 'Le match de foot', start: Date.now() + 3600_000, stop: Date.now() + 7200_000 }] } } : { ok: true };
+      const out = u.startsWith('/api/library?type=channel') ? [cards[0]] : u.startsWith('/api/library') ? cards.slice(1) : u === '/api/shows/9/episode?which=last' ? { id: 77, season: 1, episode: 1071, title: 'Le rêve de Luffy', play: '/animes/one-piece/S01E1071' } : u === '/api/shows/9/episode?s=2&e=5' ? { id: 78, season: 2, episode: 5, title: 'Épisode 5', play: '/animes/one-piece/S02E05' } : u === '/api/devices/open' ? [{ id: 'tv1', name: 'Télé du salon', tv: true, playing: false }] : u.startsWith('/api/epg?') ? { channels: [{ id: 1, title: 'Mayotte La 1ère' }], programs: { 1: [{ id: 55, channel: 1, title: 'Le match de foot', start: Date.now() + 3600_000, stop: Date.now() + 7200_000 }] } } : { ok: true };
       res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(out));
     });
   });
@@ -87,7 +88,34 @@ test('Venus : titre retrouvé, lecture lancée sur la télé, enregistrement pro
     assert.equal(await venusTool.run({ action: 'regarder', quoi: 'One Piece' }, ctx), '▶️ « One Piece » lancé sur Télé du salon.');
     const open = got.find((g) => g.url === '/api/devices/tv1/open')!;
     assert.deepEqual(JSON.parse(open.body), { path: '/animes/one-piece' }); assert.equal(open.key, 'cle-de-test');
+    // « mets le dernier épisode de One Piece sur la télé du salon » : l'épisode lui-même est lancé
+    assert.equal(await venusTool.run({ action: 'regarder', quoi: 'dernier épisode de One Piece', ou: 'télé du salon' }, ctx), '▶️ « One Piece » S01E1071 (Le rêve de Luffy) lancé sur Télé du salon.');
+    assert.deepEqual(JSON.parse(got.filter((g) => g.url === '/api/devices/tv1/open').at(-1)!.body), { path: '/animes/one-piece/S01E1071' });
+    assert.equal(await venusTool.run({ action: 'regarder', quoi: 'One Piece S02E05' }, ctx), '▶️ « One Piece » S02E05 lancé sur Télé du salon.');
     assert.match(await venusTool.run({ action: 'enregistrer', quoi: 'match' }, ctx) as string, /Enregistrement programmé : « Le match de foot » sur Mayotte La 1ère/);
     assert.deepEqual(JSON.parse(got.find((g) => g.url === '/api/recordings')!.body), { programId: 55, series: false });
   } finally { srv.close(); delete process.env.VENUS_API_KEY; }
+});
+
+test('Venus : épisode demandé dans la phrase, et messages d\'arrivée (VF)', () => {
+  assert.deepEqual(parseEpisode('le dernier épisode de One Piece'), { show: 'one piece', which: 'last' });
+  assert.deepEqual(parseEpisode('l\'épisode suivant de Frieren'), { show: 'frieren', which: 'next' });
+  assert.deepEqual(parseEpisode('One Piece saison 2 épisode 5'), { show: 'one piece', which: 'exact', s: 2, e: 5 });
+  assert.deepEqual(parseEpisode('One Piece S02E05'), { show: 'one piece', which: 'exact', s: 2, e: 5 });
+  assert.deepEqual(parseEpisode('épisode 1071 de One Piece'), { show: 'one piece', which: 'exact', e: 1071 });
+  assert.equal(parseEpisode('Inception'), null);
+  const items = [
+    { kind: 'episode' as const, at: 1, id: 1, show: 'One Piece', season: 1, episode: 1071, title: 'Épisode 1071', vf: true },
+    { kind: 'episode' as const, at: 2, id: 2, show: 'Dark', season: 1, episode: 2, title: 'Mensonges', vf: false },
+    { kind: 'episode' as const, at: 3, id: 3, show: 'Dark', season: 1, episode: 3, vf: false },
+    { kind: 'movie' as const, at: 4, id: 4, title: 'Inception', year: 2010, vf: true },
+    { kind: 'vf' as const, at: 5, id: 5, title: 'Frieren', text: '« Frieren » : 3 épisodes de plus en VF (12 au total)' },
+  ];
+  assert.deepEqual(arrivalMessages(items), [
+    '🎬 Nouveau film sur Venus : « Inception » (2010) · VF',
+    '🇫🇷 VF arrivée sur Venus : « Frieren » : 3 épisodes de plus en VF (12 au total)',
+    '📺 Épisode arrivé sur Venus en VF : One Piece S01E1071',
+    '📺 2 épisodes arrivés sur Venus : Dark S01E02 → S01E03',
+  ]);
+  assert.deepEqual(arrivalMessages(items, 'vf'), ['🇫🇷 VF arrivée sur Venus : « Frieren » : 3 épisodes de plus en VF (12 au total)', '📺 Épisode arrivé sur Venus en VF : One Piece S01E1071']);
 });

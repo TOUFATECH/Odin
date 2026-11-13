@@ -66,6 +66,19 @@ export function iaLine(r: { answeredBy?: string; ai?: { needed: boolean; why: st
   return [r.answeredBy, r.ai?.needed && r.ai.why ? `IA nécessaire : ${r.ai.why}` : ''].filter(Boolean).join(' · ');
 }
 
+/** « Supprime / efface cette conversation » (phrase seule). Pur. */
+export function deleteConvCommand(text: string): boolean {
+  const t = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.!?\s]+$/, '').replace(/^odin[\s,]+/, '');
+  return /^(supprime|efface|oublie)(-la)? (cette|la|notre) (conversation|discussion)( en entier| entierement)?$/.test(t);
+}
+/** « Réponds par écrit » → texte ; « parle-moi » / « réponds-moi à voix haute » → voix. Seulement une phrase seule. Pur. */
+export function replyModeCommand(text: string): 'voix' | 'texte' | undefined {
+  const t = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.!?\s]+$/, '').replace(/^odin[\s,]+/, '');
+  if (/^(reponds?|ecris)(-| )?(moi)? (par ecrit|en texte|seulement par ecrit|par message)( seulement| desormais| maintenant| a partir de maintenant)?$/.test(t) || /^(arrete|ne) (de parler|parle plus)$/.test(t) || /^(coupe|desactive) (la voix|le son)$/.test(t)) return 'texte';
+  if (/^(parle(-| )moi|reponds?(-| )moi (a voix haute|en vocal|avec ta voix))( desormais| maintenant| a partir de maintenant)?$/.test(t) || /^(active|remets) (la voix|le son)$/.test(t)) return 'voix';
+  return undefined;
+}
+
 export class Gateway {
   private channels = new Map<string, Channel>();
   private queues = new Map<string, Promise<void>>();
@@ -282,6 +295,29 @@ export class Gateway {
       return ch.send(m.peer, on ? '🧪 Mode essai activé : je prépare et j\'explique tout, sans rien changer. (/essai off pour revenir)' : '✅ Mode essai coupé : j\'agis pour de vrai.');
     }
     if (/^\/new\b/i.test(text)) { this.odin.muninn.resetSession(sessionId); return ch.send(m.peer, '🆕 Nouvelle conversation.'); }
+    // « Supprime cette conversation » (à l'écrit ou à la voix) : Odin demande confirmation, puis la met à la corbeille 7 jours.
+    if (owner) {
+      const pendingKey = `conv-delete-pending:${sessionId}`, pending = Number(this.odin.muninn.getKv(pendingKey) ?? 0);
+      if (pending && Date.now() - pending < 120_000 && /^(oui|ok|d'accord|vas-y|confirme)\b.{0,30}$|^oui,? supprime/i.test(text.trim())) {
+        this.odin.muninn.setKv(pendingKey, '');
+        this.odin.muninn.trashSession(sessionId);
+        for (const c of this.channels.values()) c.notify?.('state');
+        return ch.send(m.peer, '🗑 Conversation supprimée. Elle reste 7 jours dans la corbeille (Réglages → Voix), puis elle est effacée pour de bon.');
+      }
+      if (pending) this.odin.muninn.setKv(pendingKey, '');
+      if (deleteConvCommand(text)) {
+        this.odin.muninn.setKv(pendingKey, String(Date.now()));
+        return ch.send(m.peer, '⚠️ Je supprime cette conversation ? Réponds « oui, supprime » pour confirmer (sinon je ne touche à rien).');
+      }
+    }
+    // Mode de réponse à l'oral ou à l'écrit : « réponds par écrit » / « parle-moi » (phrase seule, pas « parle-moi de… »).
+    const mode = owner ? replyModeCommand(text) : undefined;
+    if (mode) {
+      const { applySettings } = await import('../settings.ts');
+      applySettings(this.odin.paths, this.odin.cfg, 'voice_options', { replyMode: mode });
+      for (const c of this.channels.values()) c.notify?.('state');
+      return ch.send(m.peer, mode === 'texte' ? '✍️ D\'accord, je te réponds par écrit seulement. Dis « parle-moi » pour que je reparle.' : '🔊 D\'accord, je te réponds à voix haute (et par écrit).');
+    }
     // Quelle IA a traité quoi (journal réel) : /ia, /ia 5, /ia tout, /ia bilan, /ia eco (les économies).
     const ia = /^\/ia\b\s*(tout|bilan|eco|[ée]conomies|\d+)?/i.exec(text);
     if (owner && ia) {
@@ -316,6 +352,7 @@ export class Gateway {
       const r = await this.odin.agent.run(m.text + langHint, {
         // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
         sessionId, channel: m.channel, peer: m.peer, trusted: owner || speaker?.role === 'member', signal: ctrl.signal, speaker,
+        withoutAi: m.voice === true && this.odin.cfg.voice.brain === 'sans-ia',
         onEvent: (e) => {
           if (e.type === 'tool_start') used.push(e.name);
           ch.event?.(m.peer, e);
@@ -557,13 +594,13 @@ export class Gateway {
       for (const m of this.odin.muninn.missingVectors(emb.model, 40)) { try { this.odin.muninn.setVector(m.id, emb.model, await emb.embed(m.content)); } catch { break; } }
     }
     const mstamp = join(this.odin.paths.logs, 'memory-decay.txt');
-    if (!(existsSync(mstamp) && readFileSync(mstamp, 'utf8').trim() === new Date(now).toDateString())) { writeFileSync(mstamp, new Date(now).toDateString()); const n = this.odin.muninn.decay(now); if (n) console.error(`[mémoire] ${n} souvenir(s) périmé(s) oublié(s)`); this.odin.muninn.pruneRoutes(now); }
+    if (!(existsSync(mstamp) && readFileSync(mstamp, 'utf8').trim() === new Date(now).toDateString())) { writeFileSync(mstamp, new Date(now).toDateString()); const n = this.odin.muninn.decay(now); if (n) console.error(`[mémoire] ${n} souvenir(s) périmé(s) oublié(s)`); this.odin.muninn.pruneRoutes(now); const gone = this.odin.muninn.purgeTrash(now); if (gone) console.error(`[mémoire] ${gone} conversation(s) effacée(s) de la corbeille`); }
     // Index des documents : chaque nuit vers 3 h (seuls les fichiers modifiés sont relus).
     const dstamp = join(this.odin.paths.logs, 'docs-index.txt'), d = new Date(now);
     const ddirs = docDirs(cfg.docs.dirs, this.odin.paths.workspace);
     if (ddirs.length && d.getHours() >= 3 && !(existsSync(dstamp) && readFileSync(dstamp, 'utf8').trim() === d.toDateString())) {
       writeFileSync(dstamp, d.toDateString());
-      try { const r = indexDocs(this.odin.muninn.db, ddirs); console.error(`[documents] ${r.files} fichiers, ${r.updated} relus`); } catch (e) { console.error('[documents]', (e as Error).message); }
+      try { const r = indexDocs(this.odin.muninn, ddirs); console.error(`[documents] ${r.files} fichiers, ${r.updated} relus`); } catch (e) { console.error('[documents]', (e as Error).message); }
     }
   }
 
@@ -906,9 +943,9 @@ export class Gateway {
     const say = async (key: string, text: string, urgent = false) => { if (now - (told[key] ?? 0) < 86_400_000) return; told[key] = now; sent.push(text); await this.tellOwner(text, 'home', urgent).catch(() => {}); };
     trimLogs(this.odin.paths.logs);
     const failed = kv.listMissions(200).filter((x) => x.status === 'échouée' && now - (x.ended_at ?? x.started_at) < 86_400_000).length;
-    const m = measure(this.odin.paths.home, this.odin.paths.db);
+    const m = measure(this.odin.paths.home, kv.bytes());
     for (const d of diagnose({ ...m, errorsLastHour: errorsSince(now - 3600_000), failedMissions: failed, monthCost: kv.monthCost(), budget: this.odin.cfg.routing.monthlyBudgetUsd })) {
-      if (d.fix === 'vacuum' && new Date(now).getHours() >= 2 && new Date(now).getHours() < 5) { try { kv.db.exec('VACUUM'); } catch { /* plus tard */ } continue; }
+      if (d.fix === 'vacuum' && new Date(now).getHours() >= 2 && new Date(now).getHours() < 5) { try { kv.compactAll(); } catch { /* plus tard */ } continue; }
       await say(d.key, d.text, d.key === 'disk');
     }
     if (!this.odin.demo) {

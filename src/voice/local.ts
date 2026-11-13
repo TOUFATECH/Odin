@@ -109,7 +109,8 @@ export async function hearLocal(audio: Uint8Array | { file: string }, language =
 export async function transcribeLocal(audio: Uint8Array, language = 'auto', home?: string): Promise<string> { return (await hearLocal(audio, language, home)).text; }
 
 /** Texte → WAV, avec Piper sur la machine (voix française d'homme ou de femme, ou voix de la langue demandée). */
-export async function speakLocal(text: string, home?: string, voice = '', lang = 'fr'): Promise<Uint8Array> {
+/** `rate` : vitesse de parole (1 = normale, 1,2 = plus vite). */
+export async function speakLocal(text: string, home?: string, voice = '', lang = 'fr', rate = 1): Promise<Uint8Array> {
   const base = localPiper(home, voice);
   if (!base) throw new Error('Piper local non installé');
   const other = lang && lang !== 'fr' ? await ensurePiperVoice(lang, home).catch(() => undefined) : undefined;
@@ -117,7 +118,8 @@ export async function speakLocal(text: string, home?: string, voice = '', lang =
   const dir = mkdtempSync(join(tmpdir(), 'odin-voix-'));
   try {
     const out = join(dir, 'out.wav');
-    const r = await run(p.bin, ['--model', p.model, '--output_file', out], { input: text, timeout: 120_000, env: { LD_LIBRARY_PATH: join(voiceHome(home), 'piper') } });
+    const scale = Math.min(1.5, Math.max(0.7, 1 / (rate || 1))).toFixed(2);
+    const r = await run(p.bin, ['--model', p.model, '--output_file', out, ...(scale !== '1.00' ? ['--length_scale', scale] : [])], { input: text, timeout: 120_000, env: { LD_LIBRARY_PATH: join(voiceHome(home), 'piper') } });
     if (r.code !== 0 || !existsSync(out)) throw new Error(`Piper local : ${r.err.slice(-300)}`);
     return new Uint8Array(readFileSync(out));
   } finally { rmSync(dir, { recursive: true, force: true }); }

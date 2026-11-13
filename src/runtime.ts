@@ -98,6 +98,8 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   ensureWorkspace(paths.workspace);
 
   const muninn = new Muninn(paths.db);
+  // Mode privé (Réglages → Voix) : suit le réglage en direct, sans redémarrer.
+  Object.defineProperty(muninn, 'privateMode', { get: () => Boolean(cfg.voice.privacy?.privateMode), set: () => {}, configurable: true });
   const skills = new Yggdrasil(paths.skills, paths.drafts);
   skills.signer = { sign: (c) => signContent(paths.home, c), verify: (c, s) => verifyContent(paths.home, c, s) };
   const redactor = Redactor.fromEnv();
@@ -109,7 +111,7 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   try { seedVault(brainOf({ home: paths.home, careCfg: cfg, workspace: paths.workspace }), join(paths.home, 'notes')); } catch (e) { console.error('[cerveau]', (e as Error).message); }
   // Extensions Python de ~/.odin/plugins : chacune devient un outil py_<nom>.
   try { const n = loadPlugins(paths.home, paths.workspace, tools); if (n.length) console.error(`[extensions] ${n.length} extension(s) Python : ${n.join(', ')}`); } catch (e) { console.error('[extensions]', (e as Error).message); }
-  const inventory = new Inventory(muninn.db);
+  const inventory = new Inventory(muninn);
 
   const fixed: Route[] = opts.provider ? [{ provider: opts.provider, cfg: { kind: 'mock', model: 'mock' } }] : [];
   const router = opts.provider ? new Router(fixed) : Router.fromConfig(cfg, [], paths);

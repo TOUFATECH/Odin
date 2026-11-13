@@ -90,6 +90,8 @@ export interface RunOptions {
   depth?: number;
   /** Démarrer la session déjà marquée (sous-agent d'un parent marqué). */
   startTainted?: boolean;
+  /** Répondre sans aucune IA (réglage « cerveau sans IA » pour la voix) : règles, mémoire et outils locaux seulement. */
+  withoutAi?: boolean;
 }
 
 export interface RunResult {
@@ -359,7 +361,7 @@ export class Agent {
         let pend = '', flushT: ReturnType<typeof setTimeout> | undefined;
         const flush = () => { flushT = undefined; if (pend) { emit({ type: 'delta', text: pend }); pend = ''; } };
         const onDelta = depth === 0 && cfg.agent.stream !== false ? (d: string) => { pend += d; flushT ??= setTimeout(flush, 80); } : undefined;
-        if (this.deps.offlineOnly && depth === 0) throw new Error('aucun modèle configuré');
+        if ((this.deps.offlineOnly || o.withoutAi) && depth === 0) throw new Error(o.withoutAi ? 'réglé sans IA pour la voix' : 'aucun modèle configuré');
         reply = await router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal, onDelta }, routeOpts);
         if (flushT) { clearTimeout(flushT); flush(); }
         if (reply.notice && !res.notices.includes(reply.notice)) res.notices.push(reply.notice);

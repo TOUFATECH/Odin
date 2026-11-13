@@ -1,5 +1,5 @@
 // Interface en ligne de commande d'Odin.
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface, type Interface } from 'node:readline';
 import { stdin, stdout } from 'node:process';
@@ -375,10 +375,10 @@ async function doctor(): Promise<void> {
   let cfg;
   try { cfg = loadConfig(paths); ok(validateConfig(cfg).length === 0, 'Configuration valide'); } catch (e) { ok(false, 'Configuration valide', (e as Error).message); return; }
   try {
-    const { DatabaseSync } = await import('node:sqlite');
-    const d = new DatabaseSync(':memory:'); d.exec('CREATE VIRTUAL TABLE t USING fts5(x)'); d.close();
-    ok(true, 'SQLite + FTS5 intégrés');
-  } catch (e) { ok(false, 'SQLite + FTS5', (e as Error).message); }
+    const dir = join(paths.home, 'memoire'); mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const probe = join(dir, '.essai'); writeFileSync(probe, 'ok'); rmSync(probe);
+    ok(true, `Mémoire en fichiers (${dir}), sans base de données`);
+  } catch (e) { ok(false, 'Mémoire en fichiers', (e as Error).message); }
   const usable = cfg.providers.filter((p) => buildProvider(p, process.env, paths));
   for (const p of cfg.providers) ok(Boolean(buildProvider(p, process.env, paths)), `Fournisseur ${p.kind}:${p.model}`, p.kind === 'openai-codex' ? 'pas connecté à ChatGPT : « odin auth add openai-codex »' : p.apiKeyEnv ? `variable ${p.apiKeyEnv} absente` : 'non configuré');
   {

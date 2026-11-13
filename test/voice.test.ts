@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { TelegramChannel } from '../src/bifrost/channels/telegram.ts';
-import type { OdinConfig } from '../src/config.ts';
+import { DEFAULT_CONFIG, type OdinConfig } from '../src/config.ts';
 import { cloneVoice, forSpeech, speak, speakAudio, sttReady, transcribe, ttsIsLocal, ttsReady } from '../src/voice/voice.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
 import { call, makeOdin } from './helpers.ts';
@@ -27,7 +27,9 @@ async function mock(handler: (h: Hit) => { status?: number; type?: string; body:
   return { url: `http://127.0.0.1:${(srv.address() as AddressInfo).port}`, hits, close: () => srv.close() };
 }
 
+// Ces essais visent les services en ligne : le mode 100 % local est coupé ici.
 const voiceCfg = (stt: string, tts: string, voiceId = 'voixTest123'): OdinConfig['voice'] => ({
+  ...DEFAULT_CONFIG.voice, localOnly: false,
   enabled: true, speakReplies: false, voiceReplies: true,
   tts: { provider: 'elevenlabs', voiceId, voiceName: 'Test', model: 'eleven_multilingual_v2', baseUrl: tts, apiKeyEnv: 'ELEVEN_TEST' },
   stt: { provider: 'whisper', model: 'whisper-1', baseUrl: `${stt}/v1`, apiKeyEnv: 'OPENAI_TEST', language: 'fr' },

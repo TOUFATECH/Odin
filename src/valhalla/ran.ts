@@ -6,12 +6,13 @@
 // Sur un réseau avec switch ou box, une machine sans point de capture n'est vue que dans ses échanges avec un
 // point de capture et dans ce qu'elle diffuse — l'interface le dit. Pause : plus aucune lecture ; « Lis les
 // paquets » : la lecture reprend. Les paquets sont gardés 7 jours (250 000 au plus), avec leur contenu brut
-// (4 ko au plus par paquet), dans ran.db, sur la machine d'Odin seulement.
+// (4 ko au plus par paquet), en fichiers dans ~/.odin/memoire/paquets/ (jamais de base de données), sur la machine d'Odin seulement.
 
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { isIP } from 'node:net';
-import { DatabaseSync } from 'node:sqlite';
+import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { Shelf, type Table } from '../muninn/tables.ts';
 import { askpassScript, listMachines, sshArgs, withAdmin, type Machine } from '../machines/access.ts';
 import { PcapReader, hexdump, isBroadcast, isPrivate, type Decoded, type Layer } from './ran-dissect.ts';
 
@@ -21,135 +22,146 @@ export type Scope = string; // « réseau » ou une adresse IP
 export const NETWORK = 'réseau';
 
 // ---------- Historique ----------
-let db: DatabaseSync | undefined, dbHome = '';
-function store(home: string): DatabaseSync {
-  if (db && dbHome === home) return db;
-  db?.close(); dbHome = home;
-  db = new DatabaseSync(join(home, 'ran.db'));
-  db.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;
-    DROP TABLE IF EXISTS packets;
-    CREATE TABLE IF NOT EXISTS pk (id INTEGER PRIMARY KEY, at INTEGER NOT NULL, src TEXT, dst TEXT, sport INTEGER, dport INTEGER, proto TEXT, app TEXT, site TEXT, len INTEGER, info TEXT, way TEXT, origin TEXT, story TEXT, layers TEXT, raw BLOB);
-    CREATE INDEX IF NOT EXISTS pk_at ON pk(at);
-    CREATE INDEX IF NOT EXISTS pk_src ON pk(src, at);
-    CREATE INDEX IF NOT EXISTS pk_dst ON pk(dst, at);
-    CREATE TABLE IF NOT EXISTS names (ip TEXT PRIMARY KEY, name TEXT NOT NULL, at INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS seen (dev TEXT NOT NULL, kind TEXT NOT NULL, val TEXT NOT NULL, first INTEGER NOT NULL, PRIMARY KEY (dev, kind, val));`);
-  return db;
+interface PkRow { id: number; at: number; src: string; dst: string; sport: number | null; dport: number | null; proto: string; app: string; site: string; len: number; info: string; way: string; origin: string; [k: string]: unknown }
+interface NameRow { ip: string; name: string; at: number; [k: string]: unknown }
+interface SeenRow { dev: string; kind: string; val: string; first: number; [k: string]: unknown }
+// En mémoire vive : la forme courte des paquets. Le détail (couches, contenu brut) est écrit à part, par lots
+// de 1 000 paquets (detail-<lot>.jsonl), et relu seulement quand on ouvre un paquet.
+let pk: Table<PkRow> | undefined, names: Table<NameRow> | undefined, seen: Table<SeenRow> | undefined, dbHome = '', dir = '';
+function store(home: string): { pk: Table<PkRow>; names: Table<NameRow>; seen: Table<SeenRow> } {
+  if (pk && names && seen && dbHome === home) return { pk, names, seen };
+  dbHome = home; dir = join(home, 'memoire', 'paquets');
+  // L'ancien historique SQLite (ran.db) n'est plus lu : ce ne sont que des paquets des 7 derniers jours.
+  for (const f of ['ran.db', 'ran.db-wal', 'ran.db-shm']) rmSync(join(home, f), { force: true });
+  const shelf = new Shelf(dir);
+  pk = shelf.table<PkRow>('pk', (r) => r.id); names = shelf.table<NameRow>('names', (r) => r.ip);
+  // Ce que chaque appareil a déjà fait (pays, services) : gardé longtemps, petit.
+  seen = shelf.table<SeenRow>('seen', (r) => `${r.dev}|${r.kind}|${r.val}`);
+  return { pk, names, seen };
 }
 export const KEEP_DAYS = 7, KEEP_MAX = 250_000, RAW_MAX = 4096;
-const cols = 'id, at, src, dst, sport, dport, proto, app, site, len, info, way, origin';
-const row = (r: Record<string, unknown>): Packet => ({ id: Number(r.id), at: Number(r.at), src: String(r.src ?? ''), dst: String(r.dst ?? ''), sport: r.sport == null ? undefined : Number(r.sport), dport: r.dport == null ? undefined : Number(r.dport), proto: String(r.proto ?? ''), app: String(r.app ?? ''), site: String(r.site ?? ''), len: Number(r.len ?? 0), info: String(r.info ?? ''), way: String(r.way ?? ''), origin: String(r.origin ?? '') });
+const lot = (id: number) => join(dir, `detail-${Math.floor(id / 1000)}.jsonl`);
+const row = (r: PkRow): Packet => ({ id: r.id, at: r.at, src: r.src ?? '', dst: r.dst ?? '', sport: r.sport == null ? undefined : r.sport, dport: r.dport == null ? undefined : r.dport, proto: r.proto ?? '', app: r.app ?? '', site: r.site ?? '', len: r.len ?? 0, info: r.info ?? '', way: r.way ?? '', origin: r.origin ?? '' });
 
 /** Garde des paquets décodés ; rend leur forme courte (avec leur numéro). */
 export function save(home: string, list: Array<Decoded & { origin: string }>): Packet[] {
   if (!list.length) return [];
   const d = store(home), now = Date.now();
-  const ins = d.prepare('INSERT INTO pk(at, src, dst, sport, dport, proto, app, site, len, info, way, origin, story, layers, raw) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-  const nm = d.prepare('INSERT INTO names(ip, name, at) VALUES (?,?,?) ON CONFLICT(ip) DO UPDATE SET name = excluded.name, at = excluded.at');
   const out: Packet[] = [];
-  d.exec('BEGIN');
-  try {
-    for (const p of list) {
-      for (const [ip, name] of p.names) if (isIP(ip) && name && name.length < 200) nm.run(ip, name, now);
-      // Le site d'un paquet vers Internet : son nom appris plus tôt (réponse DNS, SNI) quand il ne le porte pas
-      if (!p.site) { const far = !isPrivate(p.dst) && !isBroadcast(p.dst) ? p.dst : !isPrivate(p.src) ? p.src : ''; if (far) p.site = (d.prepare('SELECT name FROM names WHERE ip = ?').get(far) as { name?: string } | undefined)?.name ?? ''; }
-      const r = ins.run(p.at, p.src, p.dst, p.sport ?? null, p.dport ?? null, p.proto, p.app, p.site, p.len, p.info, p.way, p.origin, p.story ?? '', JSON.stringify(p.layers), p.raw.subarray(0, RAW_MAX));
-      out.push({ id: Number(r.lastInsertRowid), at: p.at, src: p.src, dst: p.dst, sport: p.sport, dport: p.dport, proto: p.proto, app: p.app, site: p.site, len: p.len, info: p.info, way: p.way, origin: p.origin });
-    }
-    d.exec('COMMIT');
-  } catch (e) { d.exec('ROLLBACK'); throw e; }
+  for (const p of list) {
+    for (const [ip, name] of p.names) if (isIP(ip) && name && name.length < 200) d.names.put({ ip, name, at: now });
+    // Le site d'un paquet vers Internet : son nom appris plus tôt (réponse DNS, SNI) quand il ne le porte pas
+    if (!p.site) { const far = !isPrivate(p.dst) && !isBroadcast(p.dst) ? p.dst : !isPrivate(p.src) ? p.src : ''; if (far) p.site = d.names.get(far)?.name ?? ''; }
+    const r = d.pk.insert({ at: p.at, src: p.src, dst: p.dst, sport: p.sport ?? null, dport: p.dport ?? null, proto: p.proto, app: p.app, site: p.site, len: p.len, info: p.info, way: p.way, origin: p.origin });
+    appendFileSync(lot(r.id), `${JSON.stringify({ id: r.id, story: p.story ?? '', layers: p.layers, raw: Buffer.from(p.raw.subarray(0, RAW_MAX)).toString('base64') })}\n`);
+    out.push(row(r));
+  }
   return out;
+}
+function dropLots(minId: number): void {
+  if (!existsSync(dir)) return;
+  for (const f of readdirSync(dir)) { const m = /^detail-(\d+)\.jsonl$/.exec(f); if (m && (Number(m[1]) + 1) * 1000 <= minId) rmSync(join(dir, f), { force: true }); }
 }
 export function prune(home: string, now = Date.now()): number {
   const d = store(home);
-  let n = Number(d.prepare('DELETE FROM pk WHERE at < ?').run(now - KEEP_DAYS * 864e5).changes);
-  const c = (d.prepare('SELECT COUNT(*) n FROM pk').get() as { n: number }).n;
-  if (c > KEEP_MAX) n += Number(d.prepare('DELETE FROM pk WHERE id IN (SELECT id FROM pk ORDER BY id LIMIT ?)').run(c - KEEP_MAX).changes);
-  d.prepare('DELETE FROM names WHERE at < ?').run(now - 30 * 864e5);
+  let n = d.pk.deleteWhere((r) => r.at < now - KEEP_DAYS * 864e5);
+  const c = d.pk.size;
+  if (c > KEEP_MAX) { const cut = d.pk.all().map((r) => r.id).sort((a, b) => a - b)[c - KEEP_MAX - 1]; n += d.pk.deleteWhere((r) => r.id <= cut); }
+  d.names.deleteWhere((r) => r.at < now - 30 * 864e5);
+  if (n) { d.pk.compact(); d.names.compact(); dropLots(Math.min(Infinity, ...d.pk.all().map((r) => r.id))); }
   return n;
 }
-function filter(ip: string | undefined, q: string, since?: number, peer?: string): { w: string; a: Array<string | number> } {
-  const where: string[] = [], a: Array<string | number> = [];
-  if (ip) { where.push('(src = ? OR dst = ?)'); a.push(ip, ip); }
-  if (peer) { where.push('(src = ? OR dst = ?)'); a.push(peer, peer); }
-  if (since) { where.push('at >= ?'); a.push(since); }
+function filter(ip: string | undefined, q: string, since?: number, peer?: string): (r: PkRow) => boolean {
   q = q.trim().toLowerCase();
-  if (q) { where.push("(LOWER(proto) LIKE ? OR LOWER(app) LIKE ? OR LOWER(site) LIKE ? OR src LIKE ? OR dst LIKE ? OR LOWER(info) LIKE ? OR CAST(sport AS TEXT) = ? OR CAST(dport AS TEXT) = ?)"); a.push(...Array(6).fill(`%${q}%`), q, q); }
-  return { w: where.length ? `WHERE ${where.join(' AND ')}` : '', a };
+  const like = (v: unknown) => String(v ?? '').toLowerCase().includes(q);
+  return (r) => (!ip || r.src === ip || r.dst === ip) && (!peer || r.src === peer || r.dst === peer) && (!since || r.at >= since)
+    && (!q || like(r.proto) || like(r.app) || like(r.site) || like(r.src) || like(r.dst) || like(r.info) || String(r.sport) === q || String(r.dport) === q);
 }
+const count = <K>(rows: PkRow[], key: (r: PkRow) => K) => { const g = new Map<K, { n: number; bytes: number }>(); for (const r of rows) { const k = key(r), x = g.get(k) ?? { n: 0, bytes: 0 }; x.n++; x.bytes += r.len ?? 0; g.set(k, x); } return g; };
 /** Les paquets gardés (d'une machine, ou de tout le réseau), les plus récents d'abord, avec quelques chiffres. */
 export function history(home: string, ip: string | undefined, o: { limit?: number; q?: string; since?: number; peer?: string } = {}) {
   const d = store(home), lim = Math.min(2000, Math.max(1, o.limit ?? 300));
-  const { w, a } = filter(ip, o.q ?? '', o.since, o.peer);
-  const packets = (d.prepare(`SELECT ${cols} FROM pk ${w} ORDER BY id DESC LIMIT ?`).all(...a, lim) as Array<Record<string, unknown>>).map(row);
-  const t = d.prepare(`SELECT COUNT(*) n, MIN(at) a, MAX(at) b, SUM(len) bytes FROM pk ${w}`).get(...a) as { n: number; a: number | null; b: number | null; bytes: number | null };
-  const apps = d.prepare(`SELECT COALESCE(NULLIF(app,''), proto) app, COUNT(*) n, SUM(len) bytes FROM pk ${w} GROUP BY 1 ORDER BY n DESC LIMIT 15`).all(...a) as Array<{ app: string; n: number; bytes: number }>;
-  const sites = d.prepare(`SELECT site, COUNT(*) n, SUM(len) bytes FROM pk ${w ? `${w} AND` : 'WHERE'} site <> '' GROUP BY site ORDER BY n DESC LIMIT 20`).all(...a) as Array<{ site: string; n: number; bytes: number }>;
-  return { packets, total: t.n, bytes: t.bytes ?? 0, first: t.a ?? undefined, last: t.b ?? undefined, apps, sites };
+  const rows = d.pk.filter(filter(ip, o.q ?? '', o.since, o.peer));
+  const packets = [...rows].sort((a, b) => b.id - a.id).slice(0, lim).map(row);
+  const ats = rows.map((r) => r.at);
+  const apps = [...count(rows, (r) => r.app || r.proto)].map(([app, x]) => ({ app, n: x.n, bytes: x.bytes })).sort((a, b) => b.n - a.n).slice(0, 15);
+  const sites = [...count(rows.filter((r) => r.site !== ''), (r) => r.site)].map(([site, x]) => ({ site, n: x.n, bytes: x.bytes })).sort((a, b) => b.n - a.n).slice(0, 20);
+  return { packets, total: rows.length, bytes: rows.reduce((s, r) => s + (r.len ?? 0), 0), first: ats.length ? Math.min(...ats) : undefined, last: ats.length ? Math.max(...ats) : undefined, apps, sites };
 }
 /** Un paquet en entier : ses couches (OSI), son contenu brut et ce qui se passe. */
 export function packet(home: string, id: number): PacketDetail | undefined {
-  const r = store(home).prepare(`SELECT ${cols}, story, layers, raw FROM pk WHERE id = ?`).get(id) as Record<string, unknown> | undefined;
+  const r = store(home).pk.get(id);
   if (!r) return undefined;
-  let layers: Layer[] = []; try { layers = JSON.parse(String(r.layers)); } catch { /* ancien format */ }
-  return { ...row(r), layers, story: String(r.story ?? ''), hex: hexdump(r.raw as Uint8Array) };
+  let det: { story?: string; layers?: Layer[]; raw?: string } = {};
+  try { for (const line of readFileSync(lot(id), 'utf8').split('\n')) { if (line.startsWith(`{"id":${id},`)) { det = JSON.parse(line); break; } } } catch { /* détail perdu */ }
+  return { ...row(r), layers: det.layers ?? [], story: det.story ?? '', hex: hexdump(new Uint8Array(Buffer.from(det.raw ?? '', 'base64'))) };
 }
 /** Qui parle à qui : une ligne par sens (de → vers), avec ses applis, ses sites, ses paquets et ses octets. */
 export function flows(home: string, ip: string | undefined, o: { since?: number; q?: string } = {}) {
-  const { w, a } = filter(ip, o.q ?? '', o.since ?? Date.now() - 24 * 3600e3);
   const d = store(home);
-  const list = d.prepare(`SELECT src, dst, COUNT(*) n, SUM(len) bytes, MAX(at) last, GROUP_CONCAT(DISTINCT COALESCE(NULLIF(app,''), proto)) apps, MAX(site) site FROM pk ${w} GROUP BY src, dst ORDER BY n DESC LIMIT 600`).all(...a) as Array<{ src: string; dst: string; n: number; bytes: number; last: number; apps: string; site: string | null }>;
+  const g = new Map<string, { src: string; dst: string; n: number; bytes: number; last: number; apps: Set<string>; site: string }>();
+  for (const r of d.pk.filter(filter(ip, o.q ?? '', o.since ?? Date.now() - 24 * 3600e3))) {
+    const k = `${r.src}\u0000${r.dst}`, x = g.get(k) ?? { src: r.src, dst: r.dst, n: 0, bytes: 0, last: 0, apps: new Set<string>(), site: '' };
+    x.n++; x.bytes += r.len ?? 0; x.last = Math.max(x.last, r.at); x.apps.add(r.app || r.proto); if ((r.site ?? '') > x.site) x.site = r.site; g.set(k, x);
+  }
+  const list = [...g.values()].sort((a, b) => b.n - a.n).slice(0, 600);
   const hosts = [...new Set(list.flatMap((x) => [x.src, x.dst]))].filter(Boolean);
-  const names = new Map<string, string>();
-  for (const h of hosts) { const r = d.prepare('SELECT name FROM names WHERE ip = ?').get(h) as { name?: string } | undefined; if (r?.name) names.set(h, r.name); }
-  return { flows: list.map((x) => ({ ...x, apps: String(x.apps ?? '').split(',').filter(Boolean).slice(0, 6), site: x.site ?? '' })), names: Object.fromEntries(names) };
+  const nm = new Map<string, string>();
+  for (const h of hosts) { const n = d.names.get(h)?.name; if (n) nm.set(h, n); }
+  return { flows: list.map((x) => ({ src: x.src, dst: x.dst, n: x.n, bytes: x.bytes, last: x.last, apps: [...x.apps].filter(Boolean).slice(0, 6), site: x.site })), names: Object.fromEntries(nm) };
 }
 // ---------- Trafic en direct (comme Sniffnet) ----------
 /** Le sens d'un paquet vu de la maison : sortant (maison → Internet), entrant (Internet → maison) ou local. */
 export const dirOf = (src: string, dst: string): 'sortant' | 'entrant' | 'local' => (isPrivate(src) && !isPrivate(dst) && !isBroadcast(dst) ? 'sortant' : !isPrivate(src) && isPrivate(dst) ? 'entrant' : 'local');
+const appOf = (r: PkRow) => r.app || r.proto;
 /** Le débit par tranche de temps (octets entrants, sortants, locaux). */
 export function throughput(home: string, o: { since: number; bucketMs: number; ip?: string; until?: number }): Array<{ t: number; entrant: number; sortant: number; local: number }> {
   const d = store(home), until = o.until ?? Date.now(), n = Math.max(1, Math.min(720, Math.ceil((until - o.since) / o.bucketMs)));
   const out = Array.from({ length: n }, (_, i) => ({ t: o.since + i * o.bucketMs, entrant: 0, sortant: 0, local: 0 }));
-  const rows = d.prepare(`SELECT at, src, dst, len FROM pk WHERE at >= ? AND at < ?${o.ip ? ' AND (src = ? OR dst = ?)' : ''}`).all(...[o.since, until, ...(o.ip ? [o.ip, o.ip] : [])]) as Array<{ at: number; src: string; dst: string; len: number }>;
-  for (const r of rows) { const i = Math.min(n - 1, Math.floor((r.at - o.since) / o.bucketMs)); out[i][dirOf(r.src, r.dst)] += r.len; }
+  for (const r of d.pk.values()) { if (r.at < o.since || r.at >= until || (o.ip && r.src !== o.ip && r.dst !== o.ip)) continue; const i = Math.min(n - 1, Math.floor((r.at - o.since) / o.bucketMs)); out[i][dirOf(r.src, r.dst)] += r.len; }
   return out;
 }
 /** Les appareils de la maison : envoyé, reçu, paquets, applis, pairs d'Internet. */
 export function devices(home: string, since: number) {
   const d = store(home), m = new Map<string, { ip: string; sent: number; recv: number; n: number; apps: Map<string, number>; peers: Map<string, number>; last: number }>();
-  const rows = d.prepare('SELECT at, src, dst, len, COALESCE(NULLIF(app, \'\'), proto) app FROM pk WHERE at >= ?').all(since) as Array<{ at: number; src: string; dst: string; len: number; app: string }>;
   const get = (ip: string) => { let x = m.get(ip); if (!x) m.set(ip, x = { ip, sent: 0, recv: 0, n: 0, apps: new Map(), peers: new Map(), last: 0 }); return x; };
-  for (const r of rows) {
+  for (const r of d.pk.values()) {
+    if (r.at < since) continue;
     for (const [ip, me, other] of [[r.src, 'sent', r.dst], [r.dst, 'recv', r.src]] as const) {
       if (!isPrivate(ip) || isBroadcast(ip)) continue;
-      const x = get(ip); x[me] += r.len; x.n++; x.last = Math.max(x.last, r.at); x.apps.set(r.app, (x.apps.get(r.app) ?? 0) + r.len);
+      const x = get(ip), a = appOf(r); x[me] += r.len; x.n++; x.last = Math.max(x.last, r.at); x.apps.set(a, (x.apps.get(a) ?? 0) + r.len);
       if (!isPrivate(other) && !isBroadcast(other)) x.peers.set(other, (x.peers.get(other) ?? 0) + r.len);
     }
   }
-  const name = d.prepare('SELECT name FROM names WHERE ip = ?');
-  return [...m.values()].map((x) => ({ ip: x.ip, name: (name.get(x.ip) as { name?: string } | undefined)?.name ?? '', sent: x.sent, recv: x.recv, n: x.n, last: x.last,
+  return [...m.values()].map((x) => ({ ip: x.ip, name: d.names.get(x.ip)?.name ?? '', sent: x.sent, recv: x.recv, n: x.n, last: x.last,
     apps: [...x.apps].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k]) => k), peers: [...x.peers].sort((a, b) => b[1] - a[1]).slice(0, 50) }))
     .sort((a, b) => b.sent + b.recv - (a.sent + a.recv));
 }
 /** Les échanges avec Internet depuis `since` : (appareil, adresse, appli, site, octets) pour pays et nouveautés. */
 export function external(home: string, since: number): Array<{ dev: string; far: string; app: string; site: string; bytes: number }> {
-  const rows = store(home).prepare('SELECT src, dst, COALESCE(NULLIF(app, \'\'), proto) app, site, SUM(len) bytes FROM pk WHERE at >= ? GROUP BY src, dst, app, site').all(since) as Array<{ src: string; dst: string; app: string; site: string; bytes: number }>;
-  const out: Array<{ dev: string; far: string; app: string; site: string; bytes: number }> = [];
-  for (const r of rows) { const w = dirOf(r.src, r.dst); if (w === 'local') continue; out.push({ dev: w === 'sortant' ? r.src : r.dst, far: w === 'sortant' ? r.dst : r.src, app: r.app, site: r.site ?? '', bytes: r.bytes }); }
-  return out;
+  const g = new Map<string, { dev: string; far: string; app: string; site: string; bytes: number }>();
+  for (const r of store(home).pk.values()) {
+    if (r.at < since) continue; const w = dirOf(r.src, r.dst); if (w === 'local') continue;
+    const dev = w === 'sortant' ? r.src : r.dst, far = w === 'sortant' ? r.dst : r.src, app = appOf(r), site = r.site ?? '', k = `${r.src}|${r.dst}|${app}|${site}`;
+    const x = g.get(k); if (x) x.bytes += r.len; else g.set(k, { dev, far, app, site, bytes: r.len });
+  }
+  return [...g.values()];
 }
 /** Retient ce qu'un appareil a déjà fait ; rend true la première fois (pays, service…). */
 export function firstSeen(home: string, dev: string, kind: string, val: string, now = Date.now()): boolean {
-  return Number(store(home).prepare('INSERT OR IGNORE INTO seen(dev, kind, val, first) VALUES (?,?,?,?)').run(dev, kind, val, now).changes) > 0;
+  const t = store(home).seen; if (t.has(`${dev}|${kind}|${val}`)) return false; t.put({ dev, kind, val, first: now }); return true;
 }
 /** Depuis quand on connaît cet appareil (première chose retenue). */
-export function knownSince(home: string, dev: string): number | undefined { return (store(home).prepare('SELECT MIN(first) f FROM seen WHERE dev = ?').get(dev) as { f: number | null }).f ?? undefined; }
-export function recentFirsts(home: string, since: number) { return store(home).prepare('SELECT dev, kind, val, first FROM seen WHERE first >= ? ORDER BY first DESC LIMIT 40').all(since) as Array<{ dev: string; kind: string; val: string; first: number }>; }
+export function knownSince(home: string, dev: string): number | undefined { let f: number | undefined; for (const r of store(home).seen.values()) if (r.dev === dev && (f === undefined || r.first < f)) f = r.first; return f; }
+export function recentFirsts(home: string, since: number): Array<{ dev: string; kind: string; val: string; first: number }> {
+  return store(home).seen.filter((r) => r.first >= since).sort((a, b) => b.first - a.first).slice(0, 40).map(({ dev, kind, val, first }) => ({ dev, kind, val, first }));
+}
 
 export function clear(home: string, ip?: string): number {
   const d = store(home);
-  return Number((ip ? d.prepare('DELETE FROM pk WHERE src = ? OR dst = ?').run(ip, ip) : d.prepare('DELETE FROM pk').run()).changes);
+  const n = d.pk.deleteWhere((r) => !ip || r.src === ip || r.dst === ip);
+  d.pk.compact(); if (!ip) dropLots(Infinity);
+  return n;
 }
 
 // ---------- Capture ----------
@@ -294,4 +306,4 @@ export function startPump(home: string): void {
 }
 export function stopAll(): void { for (const s of [...sessions.values()]) end(s); if (timer) clearInterval(timer); timer = undefined; }
 /** Arrêt d'Odin (ou de l'appli) : plus de lecture, et la base des paquets est fermée (Windows ne supprime pas un fichier ouvert). */
-export function shutdown(): void { stopAll(); try { db?.close(); } catch { /* déjà fermée */ } db = undefined; dbHome = ''; }
+export function shutdown(): void { stopAll(); pk = undefined; names = undefined; dbHome = ''; }
