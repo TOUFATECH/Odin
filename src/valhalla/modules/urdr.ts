@@ -112,7 +112,7 @@ export const urdr: Module = {
         return { text: `${r.columns.length ? table(r.columns, r.rows) : r.command}\n(${r.ms} ms)${save ? `\n${save}` : ''}`, data: r };
       } catch (e) { note(ctx, { base: b.nom, sql: q, ok: false, result: (e as Error).message, write }); return { text: `❌ ${(e as Error).message}`, ok: false }; }
     }) },
-    { id: 'journal', label: 'Journal des requêtes', what: 'Les dernières requêtes lancées', read: true, run: (ctx) => ({ text: journal(ctx, 30).map((e) => `${e.at.slice(0, 16).replace('T', ' ')} · ${e.base} · ${e.ok ? '✓' : '✗'} ${e.result} · ${e.sql.slice(0, 100)}`).join('\n') || 'Journal vide.' }) },
+    { id: 'journal', label: 'Journal des requêtes', what: 'Les dernières requêtes lancées', read: true, run: (ctx) => { const l = journal(ctx, 30); return { text: l.map((e) => `${e.at.slice(0, 16).replace('T', ' ')} · ${e.base} · ${e.ok ? '✓' : '✗'} ${e.result} · ${e.sql.slice(0, 100)}`).join('\n') || 'Journal vide.', data: l }; } },
   ],
   async view(ctx) {
     const l = bases(ctx.home), cur = ctx.settings.courante as { base?: string; table?: string; page?: number; filtres?: Filter[] } | undefined;
