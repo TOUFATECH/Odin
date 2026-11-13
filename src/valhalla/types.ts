@@ -52,7 +52,14 @@ export interface Action {
 
 export type Tone = 'bon' | 'attention' | 'mauvais' | 'neutre';
 export interface Kpi { label: string; value: string; pct?: number; tone?: Tone; hint?: string }
-export type Section =
+/** Où une section se range dans une page à onglets. */
+export interface Rangement {
+  /** l'onglet où elle se montre (un de `View.onglets`) ; absent : le premier onglet */
+  onglet?: string;
+  /** dans une page à onglets, elle prend toute la largeur (les tableaux, journaux et graphes la prennent d'office) */
+  large?: boolean;
+}
+export type Section = Rangement & (
   | { kind: 'table'; title: string; columns: string[]; rows: Array<{ cells: string[]; tone?: Tone; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; /** une autre appli (ex. « ran ») */ module?: string }> }>; empty?: string }
   | { kind: 'list'; title: string; items: Array<{ title: string; detail?: string; tone?: Tone; meta?: string }>; empty?: string }
   /** Des cartes avec une icône (data: ou /…), un état, une barre de progression et des boutons. */
@@ -66,13 +73,28 @@ export type Section =
   /** assistant de configuration : étapes dans l'ordre, faites ou non, chacune avec l'action qui la fait */
   | { kind: 'steps'; title: string; items: Array<{ title: string; detail?: string; done: boolean; action?: string; input?: Record<string, unknown>; button?: string }> }
   /** graphe (même dessin que le Cerveau) : un clic sur un point ouvre sa fiche ; périodes pour revoir le passé */
-  | { kind: 'graph'; title: string; nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail>; legend?: Array<[string, string]>; periods?: { current: string; options: Array<{ id: string; label: string }>; when?: string }; empty?: string };
+  | { kind: 'graph'; title: string; nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail>; legend?: Array<[string, string]>; periods?: { current: string; options: Array<{ id: string; label: string }>; when?: string }; empty?: string }
+);
 /** Un point du graphe : couleur, taille, anneau (nouveau, dangereux), carré (Odin, box, Internet), éteint. */
 export interface GraphNode { id: string; label: string; sub?: string; color?: string; size?: number; ring?: string; square?: boolean; off?: boolean; hub?: boolean; alert?: { n: number; level: 'grave' | 'attention' }; search?: string }
 export interface GraphEdge { a: string; b: string; color?: string; dash?: boolean; w?: number; title?: string; arrow?: 'to' | 'both' }
 /** La fiche d'un point : titres, pastilles, lignes « clé · valeur · d'où vient l'info », liste, boutons. */
 export interface GraphDetail { kind: string; title: string; subtitle?: string; chips?: Array<{ label: string; tone?: Tone }>; rows?: Array<{ k: string; v: string; src?: string }>; list?: { title: string; items: Array<{ text: string; meta?: string; tone?: Tone }> }; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; module?: string; primary?: boolean }> }
-export interface View { subtitle?: string; kpis?: Kpi[]; sections: Section[]; side?: Section[]; tabs?: string[]; /** la page se met à jour toute seule (ex. une barre de progression) */ refreshMs?: number }
+/** Un poste que la page propose dans « Sur quel poste ? » (`id` vide : la machine d'Odin). */
+export interface ChoixPoste { id: string; nom: string; /** pour le dessin et le libellé : « Windows », « Linux », « Mac », « NAS » */ sys?: string }
+export interface View { subtitle?: string; kpis?: Kpi[]; sections: Section[]; side?: Section[]; tabs?: string[]; /** la page se met à jour toute seule (ex. une barre de progression) */ refreshMs?: number;
+  /**
+   * Les onglets de la page, dans l'ordre : 4 au plus, un mot court chacun (« Analyser », « Résultats », « Réglages »),
+   * toujours sur une seule ligne. Chaque section dit le sien (`onglet`) ; une section sans onglet va dans le premier.
+   * Sans `onglets`, la page reste d'un seul tenant (sections, puis `side` à droite).
+   */
+  onglets?: string[];
+  /**
+   * « Sur quel poste ? » en haut de la page : l'appli sait travailler sur un autre poste du coffre des machines.
+   * La page garde le choix, le renvoie à la vue (`?poste=<id>` dans `q`) et le met dans le réglage `poste` de chaque
+   * action qui en a un (ce réglage n'est alors plus montré dans les formulaires). Voir `choixDePoste` (postes.ts).
+   */
+  postes?: { actuel: string; choix: ChoixPoste[]; /** proposer « Ajouter un poste » */ ajouter?: boolean } }
 
 export interface ModCtx {
   home: string;

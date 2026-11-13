@@ -3,7 +3,7 @@
 // rien n'est installé sur le poste, et son mot de passe ne quitte jamais le coffre.
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import { findMachine, listMachines, streamOnMachine, type Machine } from '../machines/access.ts';
-import type { ModCtx } from './types.ts';
+import type { ModCtx, View } from './types.ts';
 
 type Run = ModCtx['run'];
 export interface Poste {
@@ -71,3 +71,13 @@ export function postesLisibles(ctx: ModCtx): Array<{ id: string; nom: string }> 
 }
 /** Le réglage « Poste » à ajouter aux actions qui savent lire un autre poste. */
 export const PARAM_POSTE = { key: 'poste', label: 'Poste (vide : cette machine)', kind: 'text' as const, help: 'Le nom ou l\'adresse d\'un poste Linux ou Mac enregistré dans Réglages → Droits et machines.' };
+/**
+ * Le bloc « Sur quel poste ? » d'une page (`View.postes`) : le poste que la page demande (`?poste=` dans `q`) et
+ * ceux qu'elle propose. `partages` : l'appli sait aussi lire un poste joint par son partage de fichiers (Windows, NAS).
+ * Un poste demandé qui n'existe pas (ou plus) ramène à la machine d'Odin. Pur (lit seulement le coffre).
+ */
+export function choixDePoste(ctx: ModCtx, q: URLSearchParams | undefined, o: { partages?: boolean } = {}): NonNullable<View['postes']> {
+  const tous = listMachines(ctx.home).filter((m) => o.partages || m.via !== 'smb');
+  const demande = (q?.get('poste') ?? '').trim(), m = demande && !estIci(demande) ? findMachine(ctx.home, demande) : undefined;
+  return { actuel: m && tous.some((x) => x.id === m.id) ? m.id : '', choix: [{ id: '', nom: 'Cette machine' }, ...tous.map((x) => ({ id: x.id, nom: x.label, ...(x.via === 'smb' ? { sys: 'Windows' } : {}) }))], ajouter: true };
+}
