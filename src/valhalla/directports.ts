@@ -239,6 +239,8 @@ export interface AppPort {
   id: string; nom: string; famille: string;
   /** son port direct (rien : sa page est dans l'interface d'Odin) */
   port: number | null; etat: Etat; reseau: boolean; par?: string;
+  /** tu l'avais ouvert sur le réseau, mais il ne l'est pas en ce moment (Odin est réglé sur « cette machine », ou le port est pris) : « fermer » retire cet accord et la règle du pare-feu */
+  reseauEnAttente?: true;
   /** la phrase à afficher telle quelle */
   note: string;
   /** ce que dit le plan pour elle, sans le port direct */
@@ -262,7 +264,7 @@ const tcpProbe = (host: string, port: number, ms = 700) => new Promise<boolean>(
 });
 function noteOf(nom: string, st: DirectStatus | undefined, web: number, access: Access, wanted: boolean): string {
   if (!st) return `Pas de port direct : sa page est dans l'interface d'Odin (port ${web}).`;
-  if (st.etat === 'écoute') return st.reseau ? `Écoute sur le port ${st.port}, ouvert sur le réseau.` : `Écoute sur le port ${st.port}, depuis cette machine seulement${wanted && access === 'local' ? ' (Odin est réglé sur « cette machine »)' : ''}.`;
+  if (st.etat === 'écoute') return st.reseau ? `Écoute sur le port ${st.port}, ouvert sur le réseau.` : `Écoute sur le port ${st.port}, depuis cette machine seulement${wanted && access === 'local' ? ' (Odin est réglé sur « cette machine ») : il sera de nouveau ouvert sur le réseau quand l\'interface d\'Odin le sera, sauf si tu le fermes au réseau' : ''}.`;
   if (st.etat === 'pris') return `Le port ${st.port} est pris par ${st.par ?? 'un autre programme'} : Odin le reprendra dès qu'il sera libre. En attendant, ${nom} reste dans l'interface (port ${web}).`;
   return `Le port ${st.port} est fermé${st.pourquoi ? ` : ${st.pourquoi}` : ''}.`;
 }
@@ -293,7 +295,7 @@ export async function overview(mods: Module[], o: { home?: string; adresses?: Re
       }
       services.push({ port: p.port, proto: p.proto, quoi: p.what, etat, ...(par ? { par } : {}), ...(p.optional ? { facultatif: true } : {}), ...(p.web ? { web: true } : {}), ...(adresse ? { adresse } : {}) });
     }
-    applis.push({ id: m.id, nom: m.name, famille: m.family, port: st?.port ?? null, etat: st?.etat ?? 'fermé', reseau: st?.reseau ?? false, ...(st?.par ? { par: st.par } : {}), note: noteOf(m.name, st, web, access, Boolean(g?.wanted(m.id))), plan: planOf(m.id), vue: directView(m.id), services });
+    applis.push({ id: m.id, nom: m.name, famille: m.family, port: st?.port ?? null, etat: st?.etat ?? 'fermé', reseau: st?.reseau ?? false, ...(st && !st.reseau && g?.wanted(m.id) ? { reseauEnAttente: true as const } : {}), ...(st?.par ? { par: st.par } : {}), note: noteOf(m.name, st, web, access, Boolean(g?.wanted(m.id))), plan: planOf(m.id), vue: directView(m.id), services });
   }
   let installees: Overview['installees'] = [];
   if (!o.seulement) { try { installees = engine().ps(true).map((c) => ({ nom: c.spec.name, image: c.spec.image, etat: c.state.status, ports: c.spec.ports.map((p) => ({ port: p.host, vers: p.inner, proto: p.proto })) })); } catch { /* moteur absent */ } }
@@ -401,7 +403,7 @@ export async function directSection(ctx: ModCtx): Promise<Section> {
   const v = await overview(ctx.modules(), { home: ctx.home }), l = v.applis.filter((a) => a.port !== null);
   return { kind: 'table', title: 'Ports directs des applis', columns: ['Appli', 'Port', 'État', 'Joignable'], empty: 'Aucune appli n\'a de port direct : toutes passent par l\'interface d\'Odin. Donne-en un ici (« Donner un port direct à une appli ») ou dans Réglages → Ports.',
     rows: l.map((a) => ({ cells: [a.nom, String(a.port), a.etat === 'pris' ? `pris par ${a.par ?? 'un autre programme'}` : a.etat, a.etat !== 'écoute' ? '—' : a.reseau ? 'depuis le réseau' : 'cette machine seulement'], tone: a.etat === 'écoute' ? (a.reseau ? 'attention' as const : 'bon' as const) : 'mauvais' as const,
-      actions: [...(a.etat === 'écoute' ? [a.reseau ? { action: 'fermer_port_direct', label: 'Fermer au réseau', input: { appli: a.nom } } : { action: 'ouvrir_port_direct', label: 'Ouvrir sur le réseau', input: { appli: a.nom } }] : []), { action: 'retirer_port_direct', label: 'Retirer', input: { appli: a.nom } }] })) };
+      actions: [...(a.etat === 'écoute' ? [a.reseau || a.reseauEnAttente ? { action: 'fermer_port_direct', label: 'Fermer au réseau', input: { appli: a.nom } } : { action: 'ouvrir_port_direct', label: 'Ouvrir sur le réseau', input: { appli: a.nom } }] : []), { action: 'retirer_port_direct', label: 'Retirer', input: { appli: a.nom } }] })) };
 }
 /** Surveillance : un port direct pris par un autre programme est retenté, et signalé s'il le reste. */
 export async function directWatch(ctx: ModCtx): Promise<void> {

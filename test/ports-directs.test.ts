@@ -38,7 +38,7 @@ import type { Module } from '../src/valhalla/types.ts';
 /** Les applis utiles à ces essais (sans celles qui ouvrent leurs propres ports au démarrage). */
 const APPLIS = ['saga', 'runes', 'draupnir', 'hlid', 'garmr', 'freyja', 'naglfar', 'vidarr', 'valgrind', 'eir'];
 const mods = (o: TestOdin): Module[] => allModules(o).filter((m) => APPLIS.includes(m.id));
-interface Appli { id: string; nom: string; port: number | null; etat: string; reseau: boolean; par?: string; note: string; plan: string; vue: string; services: Array<{ port: number; proto: string; quoi: string; etat: string; web?: boolean; adresse?: string }> }
+interface Appli { id: string; nom: string; port: number | null; etat: string; reseau: boolean; reseauEnAttente?: boolean; par?: string; note: string; plan: string; vue: string; services: Array<{ port: number; proto: string; quoi: string; etat: string; web?: boolean; adresse?: string }> }
 interface Rep { ok?: boolean; text?: string; error?: string; confirm?: string; appli?: Appli; applis?: Appli[]; interface?: { port: number; https: boolean; acces: string }; propose?: number | null; installees?: unknown[]; plages?: Record<string, number[]> }
 
 /** Un faux « ufw » (pare-feu « actif ») et un faux « nft » muet, devant le PATH : chaque demande est notée, rien n'est touché sur la machine. */
@@ -555,7 +555,17 @@ test('port direct : ouvert sur le réseau seulement avec ton accord (Cerbère ou
     await w.stop();
     const w2 = new WebChannel(v.od, { scanNetwork: async () => undefined }, { port: v.port, host: '127.0.0.1', token: v.token, access: 'local', scryptN: 1024 }); await w2.start(async () => {}); tt.onEnd(() => w2.stop());
     assert.deepEqual(await ecouteSur(b), ['127.0.0.1']); assert.equal(directs()!.status('freyja')!.reseau, false);
-    assert.match((await v.api(undefined, '?appli=freyja')).appli!.note, /depuis cette machine seulement \(Odin est réglé sur « cette machine »\)/);
+    r = await v.api(undefined, '?appli=freyja');
+    assert.equal(r.appli!.note, `Écoute sur le port ${b}, depuis cette machine seulement (Odin est réglé sur « cette machine ») : il sera de nouveau ouvert sur le réseau quand l'interface d'Odin le sera, sauf si tu le fermes au réseau.`);
+    assert.deepEqual([r.appli!.reseau, r.appli!.reseauEnAttente], [false, true]);
+    // L'accord donné et la règle du pare-feu sont restés : « Fermer au réseau » retire les deux, même dans ce réglage.
+    assert.deepEqual(((await va.act('garmr', 'ports_ouverts')).data as Array<{ port: number }>).map((x) => x.port), [b]);
+    r = await v.api({ appli: 'freyja', faire: 'fermer' });
+    assert.equal(r.ok, true, r.text); assert.equal(r.text, `🔒 Le port ${b} de Vénus n'est plus ouvert sur le réseau : il reste joignable depuis cette machine. Cerbère a retiré la règle du pare-feu.`);
+    assert.deepEqual([r.appli!.reseau, r.appli!.reseauEnAttente, r.appli!.note], [false, undefined, `Écoute sur le port ${b}, depuis cette machine seulement.`]);
+    assert.deepEqual(ufw().slice(-1), [`delete allow ${b}/tcp`]); assert.deepEqual((await va.act('garmr', 'ports_ouverts')).data, []);
+    assert.deepEqual(JSON.parse(readFileSync(directFile(v.od.paths.home), 'utf8')).applis.freyja.reseau, undefined, 'l\'accord n\'est plus gardé : il faudra le redonner');
+    assert.deepEqual(await ecouteSur(b), ['127.0.0.1']);
   } finally { await tt.end(); }
 });
 

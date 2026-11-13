@@ -3583,7 +3583,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         el('div', { class: 'svc2' },
           el('b', { style: 'flex:1 1 150px;min-width:0;overflow-wrap:anywhere' }, a.nom), inp, pill(a),
           el('button', { class: 'btn small', type: 'button', onclick: save }, a.port ? 'Changer' : 'Donner un port'),
-          a.port && a.etat === 'écoute' ? el('button', { class: 'btn small', type: 'button', onclick: () => ask(a, a.reseau ? 'fermer' : 'ouvrir') }, a.reseau ? 'Fermer au réseau' : 'Ouvrir sur le réseau') : null,
+          a.port && a.etat === 'écoute' ? el('button', { class: 'btn small', type: 'button', onclick: () => ask(a, a.reseau || a.reseauEnAttente ? 'fermer' : 'ouvrir') }, a.reseau || a.reseauEnAttente ? 'Fermer au réseau' : 'Ouvrir sur le réseau') : null,
           a.port ? el('button', { class: 'btn small danger', type: 'button', onclick: () => ask(a, 'retirer') }, 'Retirer') : null,
           a.etat === 'écoute' && (a.reseau || onMachine) ? el('a', { class: 'btn small', href: `${scheme}://${location.hostname}:${a.port}/`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ouvrir') : null),
         a.port !== null ? el('span', { class: 'hint' }, a.note) : null,
