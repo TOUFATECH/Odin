@@ -81,16 +81,22 @@ export class Valhalla {
   }
 
   // ---------------- Démarrage
+  /** Change à chaque arrêt : un démarrage encore en cours s'en aperçoit et s'arrête là. */
+  private tour = 0;
   async start(): Promise<void> {
+    const tour = this.tour;
     for (const m of this.modules()) {
       try { await m.start?.(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'moyenne', title: `${m.name} n'a pas pu démarrer`, detail: (e as Error).message, key: `start:${m.id}` }); }
+      // Odin arrêté pendant ce démarrage : l'appli qui vient de démarrer est arrêtée à son tour, les suivantes ne
+      // démarrent pas (sinon leurs serveurs et leurs minuteries resteraient ouverts après l'arrêt).
+      if (tour !== this.tour) { try { m.stop?.(); } catch { /* rien */ } return; }
       if (m.watch) {
         const tick = async () => { try { await m.watch!.run(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'info', title: `${m.name} : surveillance en échec`, detail: (e as Error).message, key: `watch:${m.id}` }); } };
         this.timers.push(setTimeout(tick, 20_000 + Math.random() * 20_000) as unknown as ReturnType<typeof setInterval>, setInterval(tick, m.watch.every * 1000));
       }
     }
   }
-  stop(): void { if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } }
+  stop(): void { this.tour++; if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } }
 
   // ---------------- Actions
   action(moduleId: string, actionId: string): { m: Module; a: Action } | undefined {

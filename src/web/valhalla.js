@@ -67,10 +67,46 @@
 .va-fl{list-style:none;margin:6px 0 0;padding:0;font-size:13px}.va-fl li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)}.va-fl li small{color:var(--muted);white-space:nowrap}
 .va-dlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:inherit;padding:18px;max-width:min(560px,calc(100vw - 32px));width:100%}.va-dlg::backdrop{background:rgba(0,0,0,.45)}
 .va-dlg img{display:block;width:min(320px,100%);margin:0 auto 12px;background:#fff;border-radius:10px;padding:10px}.va-dlg pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:10px;max-height:240px;overflow:auto}
+#v-app>.head{display:none}#v-app>.body{background:var(--bg);--va-lien:color-mix(in srgb,var(--accent) 72%,var(--ink))}
+.va-head{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:0 0 16px}.va-head .va-back{min-height:44px;padding:0 14px;background:var(--panel);font-size:15px;font-weight:500;flex:none}.va-ic{flex:none;line-height:0}
+.va-tt{flex:1 1 320px;min-width:0}.va-tt h1{margin:0;font-family:var(--display);font-weight:700;font-size:28px;line-height:1.15;letter-spacing:-.01em;overflow-wrap:anywhere}.va-desc{margin:2px 0 0;color:var(--muted);font-size:15px}.va-etat{margin:4px 0 0;font-size:14px;overflow-wrap:anywhere}
+.va-plus{flex:none;font-size:15px;max-width:100%}.va-plus>summary{min-height:44px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:10px;color:var(--va-lien);font-weight:500;cursor:pointer}.va-plus>summary:hover{background:var(--panel2)}.va-plus[open]{flex:1 1 100%}.va-plus .va-story{margin:8px 0 0}.va-plus .va-what-m{display:none;margin:4px 0 0;color:var(--muted);font-size:15px}
+.va-postes{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);margin:0 0 16px}.va-postes>label{margin:0 6px 0 0;font-size:15px;font-weight:600}.va-postes select{display:none}
+.va-poste{display:inline-flex;align-items:center;gap:8px;min-height:44px;max-width:100%;padding:0 14px;border-radius:999px;border:1px solid var(--field-h,var(--line));background:var(--panel);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}.va-poste span{overflow-wrap:anywhere;text-align:left}.va-poste small{color:var(--muted);font-size:13px;white-space:nowrap}
+.va-poste[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}.va-poste[aria-pressed=true] small{color:inherit}.va-poste.va-plusposte{border-color:transparent;background:none;color:var(--va-lien);font-weight:500;padding:0 12px}.va-poste.va-plusposte:hover{background:var(--panel2)}
+@media (max-width:700px){.va-postes{flex-direction:column;align-items:stretch;gap:4px;padding:0;border:0;background:none}.va-postes>label{font-size:14px;margin:0}.va-postes .va-poste{display:none}.va-postes select{display:block;width:100%;min-height:44px;padding:0 12px;border-radius:10px;border:1px solid var(--field-h,var(--line));background:var(--panel);color:var(--ink);font:inherit;font-size:16px;font-weight:600}.va-head{gap:8px 10px;margin-bottom:12px}.va-head .va-back{width:44px;padding:0;justify-content:center}.va-head .va-back>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.va-tt{display:contents}.va-tt h1{flex:1 1 0;min-width:0;font-size:24px}.va-desc{flex:1 1 100%;margin:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}.va-etat{flex:1 1 100%;margin:0;font-size:13px;color:var(--muted)}.va-plus{flex:1 1 100%}.va-plus>summary{padding:0}.va-plus .va-what-m{display:block}.va-ecran .va-desc{display:block}}
+@media (max-width:700px),(pointer:coarse){#v-app .btn.small{min-height:44px}}
+.va-onglets{display:flex;flex-wrap:nowrap;gap:2px;overflow-x:auto;overflow-y:hidden;border-bottom:2px solid var(--line);margin:0 0 16px;scrollbar-width:thin}
+.va-onglets button{flex:1 1 auto;max-width:180px;min-height:44px;padding:0 8px;white-space:nowrap;border:0;background:transparent;color:var(--muted);font:inherit;font-size:15px;cursor:pointer;border-radius:8px 8px 0 0}.va-onglets button:hover{background:var(--panel2)}.va-onglets button[aria-selected=true]{color:var(--ink);font-weight:600;box-shadow:inset 0 -3px 0 var(--accent)}.va-onglets button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.va-cells{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch}.va-cells>*{flex:1 1 280px;min-width:0;margin:0;box-sizing:border-box}.va-cells>.va-large,.va-cells>.va-kpis{flex:1 1 100%}.va-cells>.va-double{flex:2 1 520px}
+.va-carte{display:flex;flex-direction:column;gap:12px}.va-carte>h2{margin:0;font-size:17px}.va-carte .va-btn,.va-ecran .va-btn{min-height:44px;font-size:15px;font-weight:600}.va-carte .va-out,.va-carte .va-dl,.va-carte .va-res-x{margin:0}.va-carte .va-res-x{align-self:flex-start}
+.va-aide{margin:0;color:var(--muted);font-size:13px}.va-l{font-size:14px;font-weight:600}.va-champ{box-sizing:border-box;width:100%;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--field-h,var(--line));background:var(--panel2);color:var(--ink);font:inherit;font-size:15px}
+.va-zone{flex:1;min-height:132px;box-sizing:border-box;padding:16px;border-radius:12px;border:2px dashed var(--field-h,var(--line));background:var(--panel2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:var(--ink)}.va-zone p{margin:0;font-size:15px}.va-zone .va-zone-t{font-size:18px;font-weight:600}.va-zone svg{color:var(--va-lien)}.va-zone.va-sur{border-color:var(--accent);border-style:solid;background:color-mix(in srgb,var(--accent) 12%,var(--panel2))}
+.va-dyn{display:flex;flex-direction:column;gap:14px}.va-dyn:empty{display:none}.va-choisi{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:var(--panel2)}.va-choisi p{margin:0;flex:1 1 200px;min-width:0;overflow-wrap:anywhere}.va-choisi span{color:var(--muted);font-size:14px}.va-choisi svg{flex:none}
+.va-groupes{display:flex;flex-direction:column;gap:10px}.va-groupes h3{margin:0;font-size:17px;font-weight:600}.va-groupe{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.va-groupe>span{flex:1 1 100%;color:var(--muted);font-size:14px}
+.va-press{min-height:44px;min-width:64px;padding:0 14px;border-radius:10px;border:1px solid var(--field-h,var(--line));background:var(--panel);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}.va-press[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}.va-go{align-self:flex-start;min-height:48px;padding:0 24px}
+.va-list li.va-li-f{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.va-list li.va-li-f>div{flex:1 1 160px;min-width:0;overflow-wrap:anywhere}.va-list li.va-li-f .btn{min-height:44px;text-decoration:none;gap:6px}
+.va-ecran{max-width:980px;margin:0 auto}.va-etape{padding:18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:14px;margin:0 0 16px}.va-etape-h{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.va-etape-h h2{margin:0;font-size:18px}.va-etape-h small{color:var(--muted);font-size:14px}
+.va-num{flex:none;width:32px;height:32px;border-radius:999px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:700}
+.va-cartes{display:flex;flex-wrap:wrap;gap:10px}.va-cartes label{flex:1 1 240px;min-width:0;box-sizing:border-box;min-height:60px;padding:12px 14px;border-radius:12px;border:1px solid var(--field-h,var(--line));background:var(--panel);display:flex;align-items:flex-start;gap:12px;cursor:pointer}.va-cartes label:has(input:checked){border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}.va-cartes input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent);flex:none}.va-cartes label>span{flex:1;min-width:0;overflow-wrap:anywhere}.va-cartes b{display:block}.va-cartes small{display:block;color:var(--muted);font-size:14px}
+.va-ligne{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}.va-ligne>div{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:4px}.va-ligne>.va-btn{flex:none}.va-ligne-c{align-items:center}.va-ligne-c>label{flex:0 1 auto}.va-ligne-c>.va-champ{flex:1 1 220px;width:auto}
+.va-essai{margin:0;display:flex;align-items:flex-start;gap:8px;font-size:15px}.va-essai:empty{display:none}.va-essai.ok{color:var(--good)}.va-essai.ko{color:var(--bad)}.va-essai svg{flex:none;margin-top:2px}
+.va-win{font-size:14px}.va-win summary{min-height:44px;display:flex;align-items:center;color:var(--va-lien);font-weight:500;cursor:pointer}.va-win p{margin:4px 0 8px}.va-win pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:10px;margin:0 0 8px}
+.va-fin{display:flex;flex-wrap:wrap;align-items:center;gap:14px}.va-fin p{margin:0;flex:1 1 280px;min-width:0}
 `;
   let st = null, cur = null, busy = false;
   /** Paramètres de la vue de chaque appli (période du graphe…), gardés quand la page se redessine. */
   const viewQ = {};
+  /** L'onglet ouvert, l'écran à part ouvert, « En savoir plus » déplié, l'ajout de poste en cours : par appli, le temps de la visite. */
+  const tabSel = {}, ecran = {}, plusOuvert = {}, assist = {};
+  /** Ce qui est déposé dans une zone de dépôt et pas encore envoyé (fichier, lien, choix faits) : gardé quand la page se redessine. */
+  const depots = new Map();
+  /** Les réglages de chaque action de la page ouverte, et si la page a « Sur quel poste ? ». */
+  let actParams = {}, pagePostes = false;
+  /** Sans le réglage « poste » quand la page a « Sur quel poste ? » : la page le remplit toute seule. */
+  const visibles = (ps) => (pagePostes ? (ps ?? []).filter((p) => p.key !== 'poste') : ps ?? []);
+  const ico = (d, w = 18) => { const x = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: w, height: w, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) x.setAttribute(k, String(v)); x.innerHTML = d; return x; };
+  const I = { retour: '<path d="M19 12H5M11 6l-6 6 6 6"/>', envoi: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>', plus: '<path d="M12 5v14M5 12h14"/>', ok: '<path d="M5 12l5 5 9-10"/>', non: '<path d="M6 6l12 12M18 6L6 18"/>', fichier: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>', bas: '<path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/>', machine: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>' };
   const LV = { critique: 'bad', haute: 'warn', moyenne: 'warn', info: '' };
   const icon = { Sécurité: '🛡', Machines: '🖥', Données: '🗂', Accès: '🔑', Maison: '🏠' };
 
@@ -133,12 +169,12 @@
     const k = kept.get(key); if (k) { out.textContent = k.text; links(k.files); close.hidden = false; }
     return { out, dl, close, set };
   }
-  function form(mod, action, params, submit) {
-    params = params ?? [];   // une action sans réglage : un simple bouton
+  function form(mod, action, params, submit, o) {
+    params = visibles(params);   // une action sans réglage : un simple bouton ; le poste vient de « Sur quel poste ? »
     // Le même formulaire peut être deux fois sur la page (section et « Autres actions ») : chacun garde son résultat.
     const nth = (seen[`${mod}:${action}`] = (seen[`${mod}:${action}`] ?? 0) + 1), res = resultBox(`f:${mod}:${action}:${nth}`), out = res.out;
     const f = el('form', { class: 'va-form', onsubmit: async (e) => {
-      e.preventDefault(); const input = {};
+      e.preventDefault(); const input = { ...(o?.fixe ?? {}) };
       res.set('…', true);
       for (const p of params) {
         const n = f.elements[p.key]; if (!n) continue;
@@ -155,11 +191,12 @@
         }
         input[p.key] = p.kind === 'boolean' ? n.checked : p.kind === 'number' && n.value !== '' ? Number(n.value) : n.value;
       } const r = await runFull(mod, action, input); res.set(r.text, false, r.files);
-    } }, ...params.map((p) => { const id = `va-${mod}-${action}-${p.key}`; return p.kind === 'boolean' ? el('label', { class: 'va-chk', for: id }, field(p, id), p.label) : [el('label', { for: id }, p.label, p.required ? ' *' : ''), field(p, id), p.help ? el('small', { class: 'sub' }, p.help) : null]; }), el('button', { class: 'btn primary', type: 'submit' }, submit), out, res.dl, res.close);
+    } }, ...params.map((p) => { const id = `va-${mod}-${action}-${p.key}`; return p.kind === 'boolean' ? el('label', { class: 'va-chk', for: id }, field(p, id), p.label) : [el('label', { for: id }, p.label, p.required ? ' *' : ''), field(p, id), p.help ? el('small', { class: 'sub' }, p.help) : null]; }), el('button', { class: 'btn primary', type: 'submit' }, submit), o?.aide ? el('p', { class: 'va-aide', style: 'margin-top:8px' }, o.aide) : null, out, res.dl, res.close);
     return f;
   }
   /** Lance une action : son texte, et les fichiers qu'elle a produits (à télécharger sur cet appareil). */
   async function runFull(mod, action, input, confirmed) {
+    if (mod === cur && pagePostes && viewQ[mod]?.poste && !input?.poste && actParams[action]?.some((p) => p.key === 'poste')) input = { ...input, poste: viewQ[mod].poste };
     const r = await api('/api/valhalla/act', { module: mod, action, input, confirm: confirmed === true });
     if (r.confirm) { if (!window.confirm(r.confirm)) return { text: 'Annulé.', files: [] }; return runFull(mod, action, input, true); }
     if (r.ok && r.data && (r.data.svg || r.data.conf)) show(r.text, r.data);
@@ -207,7 +244,13 @@
         c.badge ? el('span', { class: 'va-tuile-b' }, c.badge) : null,
         typeof c.progress === 'number' ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(Math.round(c.progress * 100)) }, el('i', { style: `width:${Math.max(0, Math.min(100, Math.round(c.progress * 100)))}%` })) : null,
         c.actions?.length ? el('div', { class: 'va-tuile-a' }, ...c.actions.map((a) => el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = a.module && a.module !== mod ? await runOther(a.module, a.action, a.input) : await run(mod, a.action, a.input); e.target.disabled = false; done(t); } }, a.label))) : null))) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
-    } else if (s.kind === 'list') box.append(s.items.length ? el('ul', { class: 'va-list' }, ...s.items.map((i) => el('li', { class: i.tone ? `va-tone-${i.tone}` : '' }, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null, i.meta ? el('small', {}, i.meta) : null))) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
+    } else if (s.kind === 'list') {
+      // Une ligne peut porter un fichier de l'appli à reprendre sur cet appareil (bouton « Télécharger »).
+      const ligne = (i) => (i.fichier ? el('li', { class: `va-li-f${i.tone ? ` va-tone-${i.tone}` : ''}` }, el('div', {}, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null, i.meta ? el('small', {}, i.meta) : null), el('a', { class: 'btn small', href: `/api/valhalla/fichier?${new URLSearchParams({ module: mod, ref: String(i.fichier.ref) })}`, download: i.fichier.nom, 'aria-label': `Télécharger ${i.fichier.nom}` }, ico(I.bas), 'Télécharger'))
+        : el('li', { class: i.tone ? `va-tone-${i.tone}` : '' }, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null, i.meta ? el('small', {}, i.meta) : null));
+      box.append(s.items.length ? el('ul', { class: 'va-list' }, ...s.items.map(ligne)) : el('p', { class: 'sub' }, s.empty ?? 'Rien.'));
+      if (s.aide) box.append(el('p', { class: 'va-aide', style: 'margin-top:8px' }, s.aide));
+    }
     else if (s.kind === 'log') box.append(el('pre', { class: 'va-log' }, s.lines.join('\n') || '—'));
     else if (s.kind === 'text') box.append(el('p', { class: s.tone ? `va-tone-${s.tone}` : '' }, s.text));
     else if (s.kind === 'courbe') {
@@ -225,11 +268,99 @@
       box.append(s.series.some((x) => x.points.some((v) => v > 0)) ? el('div', {}, svg, legend) : el('p', { class: 'sub' }, s.empty ?? 'Rien pour l\'instant.'));
     }
     else if (s.kind === 'bars') { const max = Math.max(1, ...s.items.map((i) => i.value)); box.append(s.items.length ? el('div', { class: 'va-bars' }, ...s.items.map((i) => el('div', { class: 'va-brow' }, el('span', {}, i.label), el('i', { style: `width:${Math.round((i.value / max) * 100)}%` }), el('b', {}, i.display ?? String(i.value))))) : el('p', { class: 'sub' }, 'Rien.')); }
-    else if (s.kind === 'form') box.append(form(mod, s.action, s.params, s.submit));
+    else if (s.kind === 'form') box.append(form(mod, s.action, s.params, s.submit, s));
+    else if (s.kind === 'depot') depot(mod, s, box, res);
+    else if (s.kind === 'actions') {
+      // Une carte de boutons ; son résultat reste dessous.
+      box.classList.add('va-carte');
+      const lance = async (btn, action, input) => { btn.disabled = true; res.set('…', true); const r = await runFull(mod, action, input ?? {}); btn.disabled = false; res.set(r.text, false, r.files); res.out.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); };
+      for (const b of s.boutons ?? []) box.append(el('button', { class: `btn va-btn${b.primary ? ' primary' : ''}`, type: 'button', onclick: (e) => lance(e.currentTarget, b.action, b.input) }, b.label));
+      if (s.liste) {
+        const L = s.liste, lid = `va-${mod}-liste-${(seen[`li:${mod}`] = (seen[`li:${mod}`] ?? 0) + 1)}`;
+        const libre = L.libre ? el('input', { class: 'va-champ', type: 'text', 'aria-label': L.libre, placeholder: L.libre, autocomplete: 'off', spellcheck: 'false', hidden: true }) : null;
+        const sel = el('select', { class: 'va-champ', id: lid, onchange: () => { if (libre) { libre.hidden = sel.value !== '::autre::'; if (!libre.hidden) libre.focus(); } } }, ...L.valeurs.map((x) => el('option', { value: x.valeur }, x.label)), L.libre ? el('option', { value: '::autre::' }, L.libre) : null);
+        box.append(el('label', { class: 'va-l', for: lid }, L.label), sel, libre, el('button', { class: 'btn va-btn', type: 'button', onclick: (e) => { const val = libre && sel.value === '::autre::' ? libre.value.trim() : sel.value; if (!val) { res.set(`✗ ${L.libre ?? L.label}`); libre?.focus(); return; } lance(e.currentTarget, L.action, { [L.champ]: val }); } }, L.bouton));
+      }
+      if (s.aide) box.append(el('p', { class: 'va-aide' }, s.aide));
+      box.append(res.out, res.dl, res.close);
+    }
     // Assistant de configuration : étapes numérotées, faites ou à faire, chacune avec son bouton.
     else if (s.kind === 'steps') box.append(el('ol', { class: 'va-steps' }, ...s.items.map((i) => el('li', { class: i.done ? 'ok' : '' }, el('div', {}, el('b', {}, i.title), i.detail ? el('small', {}, i.detail) : null), i.action && !i.done ? el('button', { class: 'btn small primary', type: 'button', onclick: async (e) => { e.target.disabled = true; const t = await run(mod, i.action, i.input ?? {}); e.target.disabled = false; done(t); } }, i.button ?? 'Faire') : el('span', { class: 'sub' }, i.done ? 'Fait' : '')))));
     else if (s.kind === 'graph') graphSection(mod, s, box);
     return box;
+  }
+  /**
+   * Zone de dépôt : un fichier de l'appareil, glissé ou choisi. Sans « choix », il est envoyé et l'action part tout de
+   * suite. Avec « choix », la page demande d'abord ce qu'on peut en faire (formats), puis envoie quand tu valides.
+   */
+  function depot(mod, s, box, res) {
+    box.classList.add('va-carte'); if (s.choix) box.querySelector('h2')?.classList.add('sr');   // la zone parle d'elle-même : le titre reste pour les lecteurs d'écran
+    const cle = `${mod}:${s.title}`, e = depots.get(cle) ?? { files: [], lien: '', choix: null, sel: {} }; depots.set(cle, e);
+    const hid = `va-${mod}-dz-${(seen[`dz:${mod}`] = (seen[`dz:${mod}`] ?? 0) + 1)}`;
+    const inp = el('input', { type: 'file', class: 'sr', tabindex: '-1', 'aria-hidden': 'true', multiple: s.plusieurs ? true : undefined, onchange: () => { const f = [...inp.files]; inp.value = ''; prendre(f); } });
+    const bouton = el('button', { class: 'btn va-btn', type: 'button', onclick: () => inp.click() }, s.bouton ?? 'Choisir un fichier');
+    const zone = el('div', { class: 'va-zone' }, ico(I.envoi, 28), el('p', { class: s.choix ? 'va-zone-t' : '' }, s.texte ?? 'Dépose un fichier ici'), s.choix ? bouton : null, s.choix && s.aide ? el('p', { class: 'va-aide' }, s.aide) : null);
+    const dyn = el('div', { class: 'va-dyn' });
+    const lienInp = s.lien && s.choix ? el('input', { class: 'va-champ', id: `${hid}-lien`, type: 'url', inputmode: 'url', placeholder: 'https://…', autocomplete: 'off', spellcheck: 'false', value: e.lien }) : null;
+    /** Envoie les fichiers à l'appli, puis lance l'action avec leurs références. */
+    const envoyer = async (files, extra) => {
+      const refs = [];
+      try { for (const [k, f] of files.entries()) refs.push(await sendFile(mod, f, (pc) => res.set(`Envoi de ${f.name}${files.length > 1 ? ` (${k + 1}/${files.length})` : ''} : ${pc} %`, true))); }
+      catch (err) { res.set(`✗ Envoi : ${err.message}`); return false; }
+      res.set('…', true);
+      const r = await runFull(mod, s.action, { ...(extra ?? {}), [s.champ]: refs.join(', ') }); res.set(r.text, false, r.files); res.out.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      return !r.text.startsWith('✗') && r.text !== 'Annulé.';
+    };
+    /** Demande à l'appli ce qu'on peut faire de ce fichier (d'après son nom) : les formats possibles, la qualité… */
+    const demander = async (nom) => {
+      let r; try { r = await api('/api/valhalla/act', { module: mod, action: s.choix.action, input: { nom } }); } catch (err) { r = { ok: false, text: err.message }; }
+      const c = r.ok && r.data && Array.isArray(r.data.groupes) ? r.data : { groupes: [], champ: '', refus: r.text ?? r.error ?? 'Je ne sais pas quoi faire de ce fichier.' };
+      e.choix = c; e.sel = {};
+      if (c.groupes.length) e.sel[c.champ] = c.defaut ?? c.groupes[0].valeurs[0].valeur;
+      for (const o of c.options ?? []) e.sel[o.champ] = o.defaut ?? o.valeurs[0].valeur;
+    };
+    const choisi = () => { const c = e.choix; for (const g of c?.groupes ?? []) for (const x of g.valeurs) if (x.valeur === e.sel[c.champ]) return x.label; return ''; };
+    const vider = () => { e.files = []; e.lien = ''; e.choix = null; e.sel = {}; if (lienInp) lienInp.value = ''; };
+    const peindre = () => {
+      const c = e.choix, nom = e.files.length ? (e.files.length > 1 ? `${e.files.length} fichiers` : e.files[0].name) : e.lien;
+      if (!s.choix || !nom || !c) { dyn.replaceChildren(); return; }
+      const presse = (champ, x) => el('button', { class: 'va-press', type: 'button', 'aria-pressed': String(e.sel[champ] === x.valeur), onclick: () => { e.sel[champ] = x.valeur; peindre(); dyn.querySelector(`[data-v="${CSS.escape(`${champ}:${x.valeur}`)}"]`)?.focus(); }, 'data-v': `${champ}:${x.valeur}` }, x.label);
+      const go = el('button', { class: 'btn primary va-btn va-go', type: 'button', onclick: async () => {
+        go.disabled = true;
+        let ok;
+        if (e.files.length) ok = await envoyer(e.files, e.sel);
+        else { res.set('…', true); const r = await runFull(mod, s.lien.action, { ...e.sel, [s.lien.champ]: e.lien }); res.set(r.text, false, r.files); ok = !r.text.startsWith('✗') && r.text !== 'Annulé.'; }
+        go.disabled = false; if (ok) { vider(); peindre(); }
+      } }, s.choix.envoyer.replace('{choix}', choisi()));
+      dyn.replaceChildren(...[
+        el('div', { class: 'va-choisi' }, ico(I.fichier, 22), el('p', {}, el('b', {}, nom.length > 80 ? `${nom.slice(0, 77)}…` : nom), c.famille ? el('span', {}, ` · ${c.famille}`) : null), el('button', { class: 'btn va-btn', type: 'button', onclick: () => { vider(); peindre(); bouton.focus(); } }, 'Retirer')),
+        c.refus ? el('p', { class: 'va-tone-mauvais', role: 'status' }, c.refus) : null,
+        c.groupes.length ? el('div', { class: 'va-groupes', role: 'group', 'aria-labelledby': `${hid}-t` }, el('h3', { id: `${hid}-t` }, s.choix.titre), ...c.groupes.map((g) => el('div', { class: 'va-groupe' }, g.titre ? el('span', {}, g.titre) : null, ...g.valeurs.map((x) => presse(c.champ, x))))) : null,
+        ...(c.groupes.length ? (c.options ?? []).map((o, k) => el('div', { class: 'va-groupes', role: 'group', 'aria-labelledby': `${hid}-o${k}` }, el('h3', { id: `${hid}-o${k}` }, o.titre), el('div', { class: 'va-groupe' }, ...o.valeurs.map((x) => presse(o.champ, x))))) : []),
+        c.groupes.length ? go : null].filter(Boolean));
+    };
+    async function prendre(files) {
+      if (!files.length) return;
+      if (!s.plusieurs) files = files.slice(0, 1);
+      if (!s.choix) { bouton.disabled = true; await envoyer(files); bouton.disabled = false; return; }
+      e.files = files; e.lien = ''; if (lienInp) lienInp.value = ''; res.set('');
+      await demander(files[0].name); peindre();
+    }
+    // Glisser-déposer sur toute la carte : la zone s'allume quand un fichier la survole.
+    const sur = (on) => zone.classList.toggle('va-sur', on);
+    box.addEventListener('dragover', (ev) => { if ([...(ev.dataTransfer?.types ?? [])].includes('Files')) { ev.preventDefault(); sur(true); } });
+    box.addEventListener('dragleave', (ev) => { if (!box.contains(ev.relatedTarget)) sur(false); });
+    box.addEventListener('drop', (ev) => { if (!ev.dataTransfer?.files?.length) return; ev.preventDefault(); sur(false); prendre([...ev.dataTransfer.files]); });
+    box.append(zone, inp);
+    if (!s.choix) { box.append(bouton); if (s.aide) box.append(el('p', { class: 'va-aide' }, s.aide)); }
+    if (lienInp) {
+      // Un lien à la place d'un fichier : dès qu'il a l'air complet, on demande ce qu'on peut en faire.
+      let attente; const lire = async () => { const u = lienInp.value.trim(); if (u === e.lien && e.choix) return; if (!/^https?:\/\/[^\s/]+\.[^\s/]+\/\S+/i.test(u)) { if (!u && e.lien) { vider(); peindre(); } return; } e.files = []; e.lien = u; res.set(''); await demander(u); peindre(); };
+      lienInp.addEventListener('input', () => { clearTimeout(attente); attente = setTimeout(lire, 700); }); lienInp.addEventListener('change', () => { clearTimeout(attente); lire(); });
+      box.append(el('div', { style: 'display:flex;flex-direction:column;gap:4px' }, el('label', { class: 'va-l', for: `${hid}-lien` }, s.lien.label), lienInp, s.lien.aide ? el('p', { class: 'va-aide' }, s.lien.aide) : null));
+    }
+    box.append(dyn, res.out, res.dl, res.close);
+    peindre();
   }
   /** Graphe d'une appli (même dessin que le Cerveau) : un clic sur un point ouvre sa fiche à droite. */
   function graphSection(mod, s, box) {
@@ -351,38 +482,145 @@
     if (!list.length) return el('p', { class: 'sub' }, 'Aucune alerte.');
     return el('div', {}, ...list.map((a) => el('div', { class: `va-al${a.ack ? ' ack' : ''}` }, el('span', { class: `pill ${LV[a.level] ?? ''}` }, a.level), el('div', {}, el('b', {}, `${name(a.module)} — ${a.title}`), a.count > 1 ? ` (×${a.count})` : '', a.detail ? el('div', { class: 'sub' }, a.detail) : null, el('small', { class: 'sub' }, new Date(a.at).toLocaleString('fr-FR'))))));
   }
-  async function openApp(id, quiet) {
-    if (!quiet || cur !== id) kept.clear();   // une nouvelle visite repart sans anciens résultats
-    cur = id;
-    if (!quiet) window.OdinShow?.('app');
-    const box = $('#v-app .body'), head = $('#v-app .head'); if (!box) return;
-    if (!quiet) box.replaceChildren(el('p', { class: 'sub' }, 'Chargement…'));
-    const r = await api(`/api/valhalla/view?${new URLSearchParams({ ...(viewQ[id] ?? {}), id })}`);
-    if (cur !== id) return;
-    if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
-    $('#vaTitle').textContent = r.name; if (window.OdinAppIcons) { $('#vaTitle').insertAdjacentHTML('afterbegin', window.OdinAppIcons.tile(id, r.name, 30)); $('#vaTitle').style.cssText += ';display:flex;align-items:center;gap:10px'; } $('#vaSub').textContent = r.view.subtitle ?? r.what;
-    const v = r.view, main = el('div', {}), side = el('div', {});
-    const top = el('div', {}); seen = {};
-    top.append(el('p', { class: 'va-what' }, r.what));
-    if (r.story || r.does?.length) top.append(el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, r.does?.length ? el('div', {}, el('h4', {}, 'Ses fonctions'), el('ul', {}, ...r.does.map((x) => el('li', {}, x)))) : null));
-    if (v.tabs?.length) top.append(el('div', { class: 'va-tabs', 'aria-label': 'Modes de l\'appli' }, ...v.tabs.map((t) => el('span', {}, t))));
-    if (v.kpis?.length) top.append(el('div', { class: 'va-kpis' }, ...v.kpis.map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), k.pct !== undefined ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuenow': String(k.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': k.label }, el('i', { style: `width:${Math.min(100, Math.max(0, k.pct))}%` })) : null))));
-    const quick = r.actions.filter((a) => a.quick !== false && !a.params.some((p) => p.required));
+  // ---------------------------------------------------------------- La page d'une appli (maquette validée le 13/11/2026)
+  const kpisBox = (v) => el('div', { class: 'va-kpis' }, ...v.kpis.map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), k.pct !== undefined ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuenow': String(k.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': k.label }, el('i', { style: `width:${Math.min(100, Math.max(0, k.pct))}%` })) : null)));
+  const autresActions = (id, list) => el('section', { class: 'va-sec' }, el('h2', {}, 'Autres actions'), ...list.map((a) => el('details', {}, el('summary', { style: 'cursor:pointer;min-height:44px;display:flex;align-items:center' }, a.label, a.grave ? ' ⚠' : ''), el('p', { class: 'sub' }, a.what), form(id, a.id, a.params, a.label))));
+  /** Sur un autre poste, seules les actions qui savent y aller sont proposées ; les autres agissent sur la machine d'Odin. */
+  const surPoste = (id) => Boolean(pagePostes && viewQ[id]?.poste);
+  const vaSurPoste = (id) => (a) => !surPoste(id) || (a.params ?? []).some((p) => p.key === 'poste');
+  const notePoste = () => el('p', { class: 'va-aide', style: 'margin:0 0 14px' }, 'Les autres actions de cette appli agissent sur la machine d\'Odin : choisis « Cette machine » pour les retrouver.');
+  const liensBox = (r) => el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`)))));
+  /** L'en-tête : retour, icône, nom, une ligne d'explication. Le nom, les fonctions et les parties sont repliés (« En savoir plus »). */
+  function entete(id, r, retour, titre) {
+    const v = r.view, ic = el('span', { class: 'va-ic', 'aria-hidden': 'true' }); if (!titre && window.OdinAppIcons) ic.innerHTML = window.OdinAppIcons.tile(id, r.name, 44);
+    const plus = !titre && (r.story || r.does?.length || v.tabs?.length) ? el('details', { class: 'va-plus' }, el('summary', {}, 'En savoir plus : le nom, les fonctions'), el('p', { class: 'va-what-m' }, r.what),
+      el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, r.does?.length ? el('div', {}, el('h4', {}, 'Ses fonctions'), el('ul', {}, ...r.does.map((x) => el('li', {}, x)))) : null, v.tabs?.length ? el('div', {}, el('h4', {}, 'Ses parties'), el('ul', {}, ...v.tabs.map((x) => el('li', {}, x)))) : null)) : null;
+    if (plus) { plus.open = Boolean(plusOuvert[id]); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; }); }
+    return el('div', { class: 'va-head' }, el('button', { class: 'btn va-back', type: 'button', id: 'vaRetour', title: `Retour : ${retour.label}`, onclick: retour.go }, ico(I.retour), el('span', {}, retour.label)), titre ? null : ic,
+      el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), plus);
+  }
+  /** « Sur quel poste ? » : des pastilles sur ordinateur, une liste sur téléphone. Le choix vaut pour toute la page. */
+  function selecteur(id, r) {
+    const P = r.view.postes, sid = `va-poste-${id}`, lid = `${sid}-l`;
+    const choisir = (x) => {
+      if (x === '+') { ecran[id] = 'poste'; delete assist[id]; render(id, r, false).then(() => document.getElementById('vaRetour')?.focus?.({ preventScroll: true })); return; }
+      viewQ[id] = { ...(viewQ[id] ?? {}) }; if (x) viewQ[id].poste = x; else delete viewQ[id].poste;
+      kept.clear(); depots.clear(); openApp(id, true);   // les résultats affichés étaient ceux de l'autre poste
+    };
+    const sel = el('select', { id: sid, onchange: (e) => choisir(e.target.value) }, ...P.choix.map((c) => el('option', { value: c.id, selected: c.id === P.actuel ? true : undefined }, c.sys ? `${c.nom} (${c.sys})` : c.nom)), P.ajouter ? el('option', { value: '+' }, 'Ajouter un poste…') : null);
+    return el('section', { class: 'va-postes', role: 'group', 'aria-labelledby': lid }, el('label', { id: lid, for: sid }, 'Sur quel poste ?'),
+      ...P.choix.map((c) => el('button', { class: 'va-poste', type: 'button', 'aria-pressed': String(c.id === P.actuel), onclick: () => choisir(c.id) }, c.id ? null : ico(I.machine), el('span', {}, c.nom), c.sys ? el('small', {}, c.sys) : null)),
+      P.ajouter ? el('button', { class: 'va-poste va-plusposte', type: 'button', onclick: () => choisir('+') }, ico(I.plus), 'Ajouter un poste') : null, sel);
+  }
+  /**
+   * L'écran « Ajouter un poste », pas à pas : 1 quel poste, 2 son compte administrateur et l'essai de connexion,
+   * 3 (si l'appli le prévoit) ce qu'on en fait. Le mot de passe part une fois vers Odin, qui le range dans le coffre
+   * si la connexion réussit ; il n'est jamais réaffiché.
+   */
+  function ecranPoste(id, r) {
+    const P = r.view.postes, E = P.ensuite, a = (assist[id] ??= { poste: '', nom: '' }), trouves = P.trouves ?? [];
+    const fermer = () => { delete ecran[id]; delete assist[id]; openApp(id, true).then(() => document.getElementById('vaRetour')?.focus?.({ preventScroll: true })); };
+    const etape = (n, titre, note, ...kids) => el('section', { class: 'va-etape', 'aria-labelledby': `va-as-t${n}` }, el('div', { class: 'va-etape-h' }, el('span', { class: 'va-num', 'aria-hidden': 'true' }, String(n)), el('h2', { id: `va-as-t${n}` }, titre), note ? el('small', {}, note) : null), ...kids);
+    // 1. Quel poste ?
+    const adr = el('input', { class: 'va-champ', id: 'va-as-adr', type: 'text', placeholder: '192.168.1.…', autocomplete: 'off', spellcheck: 'false', oninput: () => { for (const x of cartes.querySelectorAll('input')) x.checked = false; raz(); } });
+    const cartes = el('div', { class: 'va-cartes', role: 'radiogroup', 'aria-label': 'Postes trouvés sur ton réseau' }, ...trouves.map((t) => el('label', {}, el('input', { type: 'radio', name: 'va-as-poste', value: t.adresse, onchange: () => { adr.value = ''; raz(); } }), el('span', {}, el('b', {}, t.nom), el('small', {}, [t.adresse !== t.nom ? t.adresse : null, t.sys].filter(Boolean).join(' · '))))));
+    const adresse = () => adr.value.trim() || cartes.querySelector('input:checked')?.value || '';
+    const nomChoisi = () => a.nom || trouves.find((t) => t.adresse === adresse())?.nom || adresse() || 'ce poste';
+    // 2. Son compte administrateur
+    const user = el('input', { class: 'va-champ', id: 'va-as-user', type: 'text', autocomplete: 'off', spellcheck: 'false', oninput: () => raz() });
+    const pw = el('input', { class: 'va-champ', id: 'va-as-pw', type: 'password', autocomplete: 'new-password', oninput: () => { if (pw.value) raz(); } });
+    const etat = el('p', { class: 'va-essai', role: 'status' });
+    const CMD = 'reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f';
+    const win = el('details', { class: 'va-win' }, el('summary', {}, 'Windows refuse le compte ? La commande à lancer une fois sur le PC'),
+      el('p', {}, 'Windows bloque par défaut, à distance, les comptes administrateurs locaux (sauf le compte « Administrateur »). Sur le PC, ouvre une invite de commandes en administrateur et lance une fois cette commande. En attendant, Odin lit les dossiers partagés.'),
+      el('pre', {}, CMD), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(CMD); e.target.textContent = 'Copiée'; } catch { e.target.textContent = 'Copie impossible : sélectionne le texte'; } } }, 'Copier la commande'));
+    const testBtn = el('button', { class: 'btn va-btn', type: 'button', onclick: () => tester() }, 'Tester la connexion');
+    const dit = (ok, texte) => { etat.className = `va-essai ${ok ? 'ok' : 'ko'}`; etat.replaceChildren(ok ? ico(I.ok) : ico(I.non), el('span', {}, texte)); };
+    function raz() { if (!a.poste && !etat.textContent) return maj(); a.poste = ''; a.nom = ''; etat.className = 'va-essai'; etat.replaceChildren(); maj(); }
+    async function tester() {
+      if (!adresse()) { dit(false, 'Choisis un poste dans la liste, ou tape son adresse.'); (trouves.length ? cartes.querySelector('input') : adr)?.focus(); return false; }
+      testBtn.disabled = true; etat.className = 'va-essai'; etat.textContent = 'Connexion en cours…';
+      let x; try { x = await api('/api/valhalla/poste', { adresse: adresse(), utilisateur: user.value.trim(), mot_de_passe: pw.value }); } catch (e) { x = { ok: false, text: `Odin ne répond pas : ${e.message}` }; }
+      testBtn.disabled = false; dit(Boolean(x.ok), x.text ?? x.error ?? 'Connexion refusée.');
+      if (x.commande) win.open = true;
+      if (!x.ok) return false;
+      a.poste = x.poste; a.nom = x.nom || adresse(); pw.value = ''; pw.placeholder = 'rangé dans le coffre'; maj(); return true;
+    }
+    // 3. Ce qu'on en fait (ou simplement : utiliser ce poste)
+    const res = resultBox(`e:${id}`), prec = el('input', { class: 'va-champ', id: 'va-as-prec', type: 'text', autocomplete: 'off', spellcheck: 'false' }), precL = el('label', { class: 'va-l', for: 'va-as-prec' }), precBox = el('div', { class: 'va-ligne va-ligne-c', hidden: true }, precL, prec);
+    const quoi = () => suite?.querySelector('input:checked')?.value ?? E?.defaut ?? E?.cartes[0]?.valeur;
+    const suite = E ? el('div', { class: 'va-cartes', role: 'radiogroup', 'aria-labelledby': 'va-as-t3' }, ...E.cartes.map((c) => el('label', {}, el('input', { type: 'radio', name: 'va-as-quoi', value: c.valeur, checked: c.valeur === (E.defaut ?? E.cartes[0].valeur) ? true : undefined, onchange: () => maj() }), el('span', {}, el('b', {}, c.titre), c.detail ? el('small', {}, c.detail) : null)))) : null;
+    const go = el('button', { class: 'btn primary va-btn va-go', type: 'button', onclick: () => lancer() });
+    function maj() {
+      go.textContent = E ? E.envoyer.replace('{poste}', nomChoisi()) : `Utiliser ${nomChoisi()}`;
+      const d = E?.cartes.find((c) => c.valeur === quoi())?.demande; precBox.hidden = !d; if (d) { precL.textContent = d.label; prec.placeholder = d.exemple ?? ''; }
+    }
+    async function lancer() {
+      if (!a.poste && !(await tester())) return;
+      if (!E) { viewQ[id] = { ...(viewQ[id] ?? {}), poste: a.poste }; fermer(); return; }
+      const c = E.cartes.find((x) => x.valeur === quoi()), input = { poste: a.poste, [E.champ]: c.valeur };
+      if (c.demande) { const val = prec.value.trim(); if (!val) { res.set(`✗ ${c.demande.label}`); prec.focus(); return; } input[c.demande.champ] = val; }
+      go.disabled = true; res.set('…', true); const x = await runFull(id, E.action, input); go.disabled = false;
+      if (x.text.startsWith('✗') || x.text === 'Annulé.') { res.set(x.text); return; }
+      // C'est lancé : retour à la page, sur ce poste, avec le résultat en haut.
+      kept.delete(`e:${id}`); kept.set(`p:${id}`, { text: x.text, files: x.files }); viewQ[id] = { ...(viewQ[id] ?? {}), poste: a.poste }; fermer();
+    }
+    maj();
+    return el('div', { class: 'va-ecran' }, entete(id, r, { label: r.name, go: fermer }, { titre: P.titre ?? 'Ajouter un poste', texte: P.texte ?? 'Windows, Mac, Linux ou NAS. Rien n\'est installé sur le poste, rien n\'y est touché sans ton accord.' }),
+      etape(1, 'Quel poste ?', trouves.length ? 'Trouvés sur ton réseau' : '', trouves.length ? cartes : null, el('div', { class: 'va-ligne va-ligne-c' }, el('label', { class: 'va-l', for: 'va-as-adr' }, trouves.length ? 'Il n\'est pas dans la liste ? Son adresse :' : 'Son adresse sur ton réseau :'), adr)),
+      etape(2, 'Son compte administrateur', 'Rangé dans le coffre, jamais affiché', el('div', { class: 'va-ligne' }, el('div', {}, el('label', { class: 'va-l', for: 'va-as-user' }, 'Identifiant'), user), el('div', {}, el('label', { class: 'va-l', for: 'va-as-pw' }, 'Mot de passe'), pw), testBtn), etat, win),
+      etape(3, E ? E.titre : 'Utiliser ce poste', '', suite, precBox, el('div', { class: 'va-fin' }, go, el('p', { class: 'va-aide' }, E?.aide ?? 'Le poste sera proposé dans « Sur quel poste ? » de toutes les applis qui savent le lire.')), res.out, res.close));
+  }
+  /** Une page à onglets : chaque section dans le sien, en cartes côte à côte ; les chiffres clés ferment le premier onglet. */
+  function pageOnglets(id, r) {
+    const v = r.view, noms = v.onglets, sel = noms.includes(tabSel[id]) ? tabSel[id] : noms[0], dernier = noms[noms.length - 1];
+    const va = (n) => { tabSel[id] = n; render(id, r, true).then(() => document.getElementById(`va-tab-${noms.indexOf(n)}`)?.focus()); };
+    const liste = el('div', { class: 'va-onglets', role: 'tablist', 'aria-label': `Parties de ${r.name}` }, ...noms.map((n, i) => el('button', { type: 'button', role: 'tab', id: `va-tab-${i}`, 'aria-selected': String(n === sel), 'aria-controls': 'va-panneau', tabindex: n === sel ? '0' : '-1', onclick: () => va(n),
+      onkeydown: (e) => { const k = e.key, j = k === 'ArrowRight' ? (i + 1) % noms.length : k === 'ArrowLeft' ? (i - 1 + noms.length) % noms.length : k === 'Home' ? 0 : k === 'End' ? noms.length - 1 : -1; if (j >= 0) { e.preventDefault(); va(noms[j]); } } }, n)));
+    const panneau = el('div', { class: 'va-cells', role: 'tabpanel', id: 'va-panneau', 'aria-labelledby': `va-tab-${noms.indexOf(sel)}` });
+    const toutes = [...v.sections, ...(v.side ?? [])], LARGES = new Set(['table', 'log', 'graph', 'courbe', 'steps', 'cards']);
+    const large = (b) => { b.classList.add('va-large'); return b; };
+    const aVoir = r.alerts.some((x) => !x.ack), alertesBox = () => large(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes'), alerts(r.alerts)));
+    // Une alerte pas encore vue se montre tout de suite, en tête du premier onglet.
+    if (sel === noms[0] && aVoir) panneau.append(alertesBox());
+    for (const s of toutes) {
+      if ((noms.includes(s.onglet) ? s.onglet : noms[0]) !== sel) continue;
+      const b = section(id, s); b.classList.add((s.large ?? LARGES.has(s.kind)) ? 'va-large' : s.kind === 'depot' && s.choix ? 'va-double' : 'va-petit'); panneau.append(b);
+    }
+    if (sel === noms[0] && v.kpis?.length) panneau.append(kpisBox(v));
+    if (sel === dernier) {
+      // Tout ce que l'appli sait faire et qui n'a pas déjà sa carte dans un onglet.
+      const pris = new Set(v.postes?.ensuite ? [v.postes.ensuite.action] : []);
+      // Un formulaire qui ne montre qu'une partie des réglages (« Le fichier d'un lien ») laisse l'action complète dans « Autres actions ».
+      for (const s of toutes) { if (s.kind === 'form' && s.params.length >= visibles(actParams[s.action]).length) pris.add(s.action); if (s.kind === 'actions') { for (const b of s.boutons) pris.add(b.action); if (s.liste) pris.add(s.liste.action); } if (s.kind === 'depot') { if (s.choix) pris.add(s.choix.action); if (s.lien) pris.add(s.lien.action); } }
+      const autres = r.actions.filter((x) => !pris.has(x.id)).filter(vaSurPoste(id));
+      if (autres.length) panneau.append(large(autresActions(id, autres)));
+      if (surPoste(id)) panneau.append(large(notePoste()));
+      if (!(sel === noms[0] && aVoir)) panneau.append(alertesBox());
+      if (r.links.length) panneau.append(large(liensBox(r)));
+    }
+    return [liste, panneau];
+  }
+  /** Une page d'un seul tenant (appli sans onglets, ou qui a sa propre page dessinée). */
+  async function pageSimple(id, r, quiet) {
+    const v = r.view, main = el('div', {}), side = el('div', {}), top = el('div', {}), reserve = v.postes?.ensuite?.action;
+    if (v.kpis?.length) top.append(kpisBox(v));
+    const quick = r.actions.filter((a) => a.quick !== false && a.id !== reserve && !visibles(a.params).some((p) => p.required)).filter(vaSurPoste(id));
     if (quick.length) {
       // Le résultat d'un bouton rapide reste sous la barre (avant : une bulle par-dessus la page, disparue en 4 secondes).
       const res = resultBox(`q:${id}`);
-      top.append(el('div', { class: 'va-acts-bar' }, ...quick.map((a) => el('button', { class: `btn small${a.read ? '' : ''}`, type: 'button', title: a.what, onclick: async (e) => { e.target.disabled = true; const t = await run(id, a.id, {}); e.target.disabled = false; res.set(t); res.out.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); } }, a.label, a.grave ? ' ⚠' : ''))), res.out, res.close);
+      top.append(el('div', { class: 'va-acts-bar' }, ...quick.map((a) => el('button', { class: 'btn small', type: 'button', title: a.what, onclick: async (e) => { e.target.disabled = true; const t = await run(id, a.id, {}); e.target.disabled = false; res.set(t); res.out.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); } }, a.label, a.grave ? ' ⚠' : ''))), res.out, res.close);
     }
     // Les graphes prennent toute la largeur (le graphe à gauche, la fiche du point choisi à droite).
     const wide = el('div', {});
     for (const s of v.sections) (s.kind === 'graph' ? wide : main).append(section(id, s));
     for (const s of v.side ?? []) side.append(section(id, s));
     const used = new Set((v.side ?? []).filter((s) => s.kind === 'form').map((s) => s.action));
-    const others = r.actions.filter((a) => (a.quick === false || a.params.some((p) => p.required)) && !used.has(a.id));
-    if (others.length) side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Autres actions'), ...others.map((a) => el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px;display:flex;align-items:center' }, a.label, a.grave ? ' ⚠' : ''), el('p', { class: 'sub' }, a.what), form(id, a.id, a.params, a.label)))));
+    const others = r.actions.filter((a) => (a.quick === false || visibles(a.params).some((p) => p.required)) && !used.has(a.id) && a.id !== reserve).filter(vaSurPoste(id));
+    if (others.length) side.append(autresActions(id, others));
+    if (surPoste(id)) side.append(notePoste());
     side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes'), alerts(r.alerts)));
-    if (r.links.length) side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`))))));
-    const mc = $('#mcur'); if (mc) mc.textContent = r.name;
+    if (r.links.length) side.append(liensBox(r));
     // Ariane : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
     if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[0] || null);
     // Une appli qui a sa propre page dessinée (src/web/pages/<appli>.js) : elle prend toute la largeur ;
@@ -395,11 +633,36 @@
       try { done = (await page({ host, generic, view: v, info: r, quiet: Boolean(quiet), reload: () => openApp(id, true), toast, show: (n) => window.OdinShow?.(n) })) !== false; } catch (e) { host.replaceChildren(el('p', { class: 'sub' }, String(e?.message ?? e))); }
       if (done) { main.hidden = true; side.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 16px;align-items:start'; }
       else { if (!host.childNodes.length) host.remove(); main.replaceChildren(...generic); }
-      if (cur !== id) return;
     }
-    box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), (() => { const h = el('h2', { style: 'display:flex;align-items:center;gap:10px' }); if (window.OdinAppIcons) h.innerHTML = window.OdinAppIcons.tile(id, r.name, 34); h.append(r.name); return h; })()), top, wide, el('div', { class: 'va-page' }, main, side));
-    if (!quiet) head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
+    return [top, wide, el('div', { class: 'va-page' }, main, side)];
+  }
+  /** Dessine la page d'une appli à partir de sa vue (sans la redemander : sert aussi au changement d'onglet). */
+  async function render(id, r, quiet) {
+    const box = $('#v-app .body'); if (!box) return;
+    const v = r.view; seen = {}; actParams = Object.fromEntries(r.actions.map((a) => [a.id, a.params])); pagePostes = Boolean(v.postes);
+    const t = $('#vaTitle'); if (t) t.textContent = r.name; const mc = $('#mcur'); if (mc) mc.textContent = r.name;
+    // L'écran « Ajouter un poste » garde ce que tu y as tapé : la page ne le redessine pas pendant que tu le remplis.
+    if (v.postes && ecran[id] === 'poste') { if (!(quiet && box.querySelector('.va-ecran'))) { box.replaceChildren(ecranPoste(id, r)); box.scrollTop = 0; } return; }
+    const haut = resultBox(`p:${id}`);   // le résultat d'un écran à part (« analyse de PC-SALON lancée ») reste en haut de la page
+    const corps = v.onglets?.length && !window.OdinPages?.[id] ? pageOnglets(id, r) : await pageSimple(id, r, quiet);
+    if (cur !== id) return;
+    box.replaceChildren(...[entete(id, r, { label: 'Applis', go: () => window.OdinShow?.('apps') }), v.postes ? selecteur(id, r) : null, haut.out, haut.dl, haut.close, ...corps].filter(Boolean));
+  }
+  async function openApp(id, quiet) {
+    // Une nouvelle visite repart de zéro : cette machine, premier onglet, sans anciens résultats ni fichier en attente.
+    if (!quiet || cur !== id) { kept.clear(); depots.clear(); if (viewQ[id]) delete viewQ[id].poste; delete tabSel[id]; delete ecran[id]; delete assist[id]; }
+    cur = id;
+    if (!quiet) window.OdinShow?.('app');
+    const box = $('#v-app .body'); if (!box) return;
+    if (!quiet) box.replaceChildren(el('p', { class: 'sub' }, 'Chargement…'));
+    const r = await api(`/api/valhalla/view?${new URLSearchParams({ ...(viewQ[id] ?? {}), id })}`);
+    if (cur !== id) return;
+    if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
+    await render(id, r, quiet);
+    if (cur !== id) return;
+    if (!quiet) document.getElementById('vaRetour')?.focus?.({ preventScroll: true });
     // Une page qui bouge (barre de progression) se met à jour toute seule, sauf pendant que tu remplis un champ.
+    const v = r.view;
     if (v.refreshMs) setTimeout(() => {
       if (cur !== id || !$('#v-app.on')) return;
       const a = document.activeElement; if (a && box.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) { setTimeout(() => openApp(id, true), v.refreshMs); return; }

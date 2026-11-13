@@ -3,7 +3,7 @@
 // endroit. Recherche par mot, gravité, source et période ; les messages qui se répètent sont regroupés ;
 // des règles « si ce message revient N fois en M minutes, préviens-moi ». Lecture seule : rien n'est effacé.
 import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
-import { PARAM_POSTE, posteDe, postesLisibles } from '../postes.ts';
+import { choixDePoste, PARAM_POSTE, posteDe } from '../postes.ts';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
 
 export type Niveau = 'erreur' | 'attention' | 'info' | 'debug';
@@ -134,12 +134,13 @@ export const mimisbrunnr: Module = {
     } },
   ],
   async view(ctx, q) {
-    const poste = posteDe(ctx, q.get('poste') ?? ''), autres = postesLisibles(ctx).slice(1), l = await collecter(ctx, 24, q.get('poste') ?? ''), f = filtrer(l, { q: q.get('q') ?? '', niveau: (q.get('niveau') ?? '') as Niveau }), now = ctx.now().getTime();
+    const P = choixDePoste(ctx, q), poste = posteDe(ctx, P.actuel), l = await collecter(ctx, 24, P.actuel), f = filtrer(l, { q: q.get('q') ?? '', niveau: (q.get('niveau') ?? '') as Niveau }), now = ctx.now().getTime();
     const err = l.filter((x) => x.niveau === 'erreur').length, warn = l.filter((x) => x.niveau === 'attention').length, sources = [...new Set(l.map((x) => x.source))];
     const heures = Array.from({ length: 24 }, (_, k) => now - (23 - k) * 3600_000);
     const kpis: Kpi[] = [{ label: 'Lignes (24 h)', value: String(l.length) }, { label: 'Erreurs', value: String(err), tone: err ? 'mauvais' : 'bon' }, { label: 'Attention', value: String(warn), tone: warn ? 'attention' : 'bon' }, { label: 'Sources', value: String(sources.length), hint: sources.join(', ') }];
     const regles = (ctx.settings.regles as Regle[] | undefined) ?? [];
     return {
+      postes: P,
       subtitle: `${poste.local ? '' : `${poste.nom} · `}${sources.length} source(s) · dernières 24 h`, kpis,
       sections: [
         { kind: 'courbe', title: 'Erreurs et avertissements, heure par heure', labels: heures.map((t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit' })), series: [{ name: 'erreurs', tone: 'mauvais', points: heures.map((t) => l.filter((x) => x.niveau === 'erreur' && x.t > t - 3600_000 && x.t <= t).length) }, { name: 'attention', tone: 'attention', points: heures.map((t) => l.filter((x) => x.niveau === 'attention' && x.t > t - 3600_000 && x.t <= t).length) }] },
@@ -147,7 +148,7 @@ export const mimisbrunnr: Module = {
         { kind: 'table', title: 'Derniers messages', columns: ['Heure', 'Source', 'Programme', 'Message'], empty: 'Rien pour cette recherche.', rows: f.slice(0, 80).map((x) => ({ cells: [heure(x.t), x.source, x.prog ?? '', x.texte.slice(0, 240)], tone: TONE[x.niveau] })) },
         { kind: 'form', title: 'Chercher', action: 'chercher', submit: 'Chercher', params: [{ key: 'q', label: 'Mots', kind: 'text', default: '' }, { key: 'niveau', label: 'Gravité minimale', kind: 'select', options: ['', 'erreur', 'attention', 'info'], default: '' }, { key: 'heures', label: 'Dernières heures', kind: 'number', default: 24 }] },
       ],
-      side: [...(autres.length ? [{ kind: 'form' as const, title: 'Chercher dans les journaux d\'un autre poste', action: 'chercher', submit: 'Chercher', params: [{ key: 'poste', label: 'Poste (Linux ou Mac, par SSH)', kind: 'select' as const, options: autres.map((x) => x.nom), default: autres[0].nom }, { key: 'q', label: 'Mots', kind: 'text' as const, default: '' }, { key: 'niveau', label: 'Gravité minimale', kind: 'select' as const, options: ['erreur', 'attention', 'info', ''], default: 'erreur' }] }] : []), { kind: 'list', title: 'Règles d\'alerte', empty: 'Aucune règle. Ex. « Failed password » 10 fois en 5 min.', items: regles.map((r) => ({ title: r.motif, detail: `${r.fois} fois en ${r.minutes} min → ${r.niveau}`, meta: r.id })) }],
+      side: [{ kind: 'list', title: 'Règles d\'alerte', empty: 'Aucune règle. Ex. « Failed password » 10 fois en 5 min.', items: regles.map((r) => ({ title: r.motif, detail: `${r.fois} fois en ${r.minutes} min → ${r.niveau}`, meta: r.id })) }],
     };
   },
   watch: { every: 120, async run(ctx) {

@@ -331,23 +331,32 @@ CHECKS['gjoll>vordr'] = async (w) => {
 };
 // Les postes du parc (le coffre des machines) sont proposés par les applis qui savent lire un autre poste.
 const parc = (w: World) => { saveMachine(w.home, { label: 'serveur-essai', host: '192.168.1.5', user: 'root', via: 'ssh' }); saveMachine(w.home, { label: 'PC-ESSAI', host: '192.168.1.20', user: 'Fatima', password: 'x', via: 'smb' }); };
-const propose = async (w: World, id: string, titre: RegExp) => {
+/** « Sur quel poste ? » en haut de la page : la machine d'Odin, puis les postes du parc que l'appli sait lire. */
+const propose = async (w: World, id: string) => {
   const avant = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams());
-  assert.ok(![...avant.sections, ...(avant.side ?? [])].some((x) => x.kind === 'form' && titre.test(x.title ?? '')), 'sans poste dans le parc, rien n\'est proposé');
+  assert.deepEqual(avant.postes?.choix.map((c) => c.nom), ['Cette machine'], 'sans poste dans le parc, seule la machine d\'Odin est proposée');
+  assert.equal(avant.postes?.ajouter, true, 'la page propose d\'ajouter un poste');
   parc(w);
-  const v = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams()), f = [...v.sections, ...(v.side ?? [])].find((x) => x.kind === 'form' && titre.test(x.title ?? '')) as { params: Array<{ key: string; options?: string[] }> } | undefined;
-  assert.deepEqual(f?.params.find((p) => p.key === 'poste')?.options, ['serveur-essai'], 'le poste Linux du parc est proposé ; le PC Windows ne l\'est pas (cette appli lit par SSH)');
+  const v = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams());
+  assert.deepEqual(v.postes?.choix.map((c) => c.nom), ['Cette machine', 'serveur-essai'], 'le poste Linux du parc est proposé ; le PC Windows ne l\'est pas (cette appli lit par SSH)');
+  assert.equal(v.postes?.actuel, '', 'sans choix, la page montre la machine d\'Odin');
+  assert.ok(![...v.sections, ...(v.side ?? [])].some((x) => x.kind === 'form' && /autre poste/.test(x.title ?? '')), 'plus de formulaire « autre poste » dans la page : le choix se fait en haut, une fois');
 };
 CHECKS['hermod>ullr'] = async (w) => {
   parc(w);
-  const v = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams()), t = v.sections.find((x) => x.kind === 'table' && /^Autres postes/.test(x.title ?? '')) as { rows: Array<{ cells: string[]; actions?: Array<{ action: string }> }> };
-  assert.deepEqual(t.rows.map((r) => r.cells[0]), ['serveur-essai', 'PC-ESSAI'], 'Windows et Linux : l\'antivirus sait lire les deux'); assert.ok(t.rows.every((r) => r.actions?.some((a) => a.action === 'analyser_poste')));
+  const v = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams());
+  assert.deepEqual(v.postes?.choix.map((c) => `${c.nom}${c.sys ? ` (${c.sys})` : ''}`), ['Cette machine', 'serveur-essai', 'PC-ESSAI (Windows)'], 'Windows et Linux : l\'antivirus sait lire les deux');
+  assert.equal(v.postes?.ensuite?.action, 'analyser_poste', 'après l\'ajout d\'un poste : « Quoi analyser ? », puis l\'analyse');
+  // Un poste choisi : sa carte propose l'analyse rapide et l'analyse complète de ce poste.
+  const pc = v.postes!.choix.find((c) => c.nom === 'PC-ESSAI')!, sur = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams({ poste: pc.id }));
+  const carte = sur.sections.find((x) => x.kind === 'actions' && x.title === 'PC-ESSAI') as { boutons: Array<{ action: string; input?: Record<string, unknown> }> } | undefined;
+  assert.deepEqual(carte?.boutons.map((b) => `${b.action}:${String(b.input?.quoi)}`), ['analyser_poste:rapide', 'analyser_poste:tout']); assert.equal(sur.postes?.actuel, pc.id);
 };
-CHECKS['hermod>eir'] = (w) => propose(w, 'eir', /état d'un autre poste/);
-CHECKS['hermod>fensalir'] = (w) => propose(w, 'fensalir', /disques d'un autre poste/);
-CHECKS['hermod>hlid'] = (w) => propose(w, 'hlid', /pare-feu d'un autre poste/);
-CHECKS['hermod>mimisbrunnr'] = (w) => propose(w, 'mimisbrunnr', /journaux d'un autre poste/);
-CHECKS['hermod>skogul'] = (w) => propose(w, 'skogul', /^Analyser un autre poste$/);
+CHECKS['hermod>eir'] = (w) => propose(w, 'eir');
+CHECKS['hermod>fensalir'] = (w) => propose(w, 'fensalir');
+CHECKS['hermod>hlid'] = (w) => propose(w, 'hlid');
+CHECKS['hermod>mimisbrunnr'] = (w) => propose(w, 'mimisbrunnr');
+CHECKS['hermod>skogul'] = (w) => propose(w, 'skogul');
 CHECKS['heidrun>vidarr'] = async (w) => {
   const r = await w.v.act('heidrun', 'profil', { nom: 'Sami', age: 'enfant', appareils: '192.168.1.77' });
   assert.equal(r.ok, true, r.text);

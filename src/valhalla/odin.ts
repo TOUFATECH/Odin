@@ -48,6 +48,7 @@ import { dvalinn } from './modules/dvalinn.ts';
 import { champollion } from './modules/champollion.ts';
 import { mimisbrunnr } from './modules/mimisbrunnr.ts';
 import { gefjon } from './modules/gefjon.ts';
+import { setReseau } from './postes.ts';
 import { sol } from './modules/sol.ts';
 import { fensalir } from './modules/fensalir.ts';
 import { hlid } from './modules/hlid.ts';
@@ -141,6 +142,8 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // … et sait d'eux ce que le registre a vu : MAC, modèle, type, première fois vu (pour le graphe du réseau).
   // Atlas inventorie ce que le registre a vu (une fiche par appareil, sans écraser ce que tu as écrit).
   const seen = () => (odin.inventory?.list({ status: 'all' }) ?? []).filter((d) => d.status !== 'removed').map((d) => ({ ip: d.ip, mac: d.mac || undefined, name: d.label || d.name || d.hostname || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen, lastSeen: d.status === 'online' ? d.last_seen : undefined, online: d.status === 'online' }));
+  // « Sur quel poste ? » propose les ordinateurs que le registre a vus sur le réseau (pas encore dans le coffre).
+  setReseau(odin.inventory ? () => odin.inventory!.list({ status: 'all' }).filter((d) => d.status !== 'removed').map((d) => ({ ip: d.ip, nom: d.label || d.name || d.hostname || undefined, kind: d.kind || undefined, os: d.os || undefined, ports: d.ports, enLigne: d.status === 'online' })) : undefined);
   // Bifröst peut publier l'interface d'Odin elle-même sous ton domaine.
   setOdinWeb(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
   const devices = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);

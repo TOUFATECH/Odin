@@ -4,7 +4,7 @@
 // éteindre le pare-feu : toujours avec ton accord, et jamais sans garder la porte d'Odin et de SSH ouverte.
 // (Bannir une adresse reste le travail de Cerbère.)
 import { existsSync } from 'node:fs';
-import { PARAM_POSTE, posteDe, postesLisibles, type Poste } from '../postes.ts';
+import { choixDePoste, PARAM_POSTE, posteDe, type Poste } from '../postes.ts';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
 import { ODIN_PORTS, WEB } from '../ports.ts';
 import { deleteMapping, discover, externalIp, listMappings, behindCgnat, type Mapping } from '../upnp.ts';
@@ -153,7 +153,7 @@ export const hlid: Module = {
       } },
   ],
   async view(ctx, q) {
-    const p = posteDe(ctx, q.get('poste') ?? ''), e = await lireEtat(p), rows = e.ecoutes.map((x) => ({ x, a: acces(x, e.ufw) })), ouverts = rows.filter((r) => r.a.acces === 'ouvert'), autres = postesLisibles(ctx).slice(1);
+    const P = choixDePoste(ctx, q), p = posteDe(ctx, P.actuel), e = await lireEtat(p), rows = e.ecoutes.map((x) => ({ x, a: acces(x, e.ufw) })), ouverts = rows.filter((r) => r.a.acces === 'ouvert');
     const box = ctx.settings.box as { at: number; nom: string; ip: string; cgnat: boolean; ports: Mapping[] } | undefined;
     const risque = ouverts.filter((r) => SENSIBLES.has(r.x.port));
     const kpis: Kpi[] = [
@@ -164,15 +164,15 @@ export const hlid: Module = {
     ];
     const tone = (r: typeof rows[number]): Tone => (r.a.acces === 'ouvert' ? (SENSIBLES.has(r.x.port) ? 'mauvais' : 'attention') : 'neutre');
     return {
+      postes: P,
       subtitle: !p.local ? `${p.nom} · ${e.fw === 'aucun' ? 'pas de pare-feu' : e.ufw?.actif ? 'pare-feu allumé' : 'pare-feu éteint'} · ${ouverts.length} port(s) joignable(s) du réseau` : process.platform !== 'linux' ? 'Sur cette machine (pas Linux), je ne lis pas encore le pare-feu.' : dansConteneur() ? `Odin tourne dans un conteneur : ce sont ses ports à lui (seuls ceux que tu as publiés sortent), pas ceux de la machine · ${ouverts.length} port(s) à l'écoute` : `${e.fw === 'aucun' ? 'Pas de pare-feu' : e.ufw?.actif ? 'Pare-feu allumé' : 'Pare-feu éteint'} · ${ouverts.length} port(s) joignable(s) du réseau`, kpis,
       sections: [
-        ...(e.fw === 'ufw' && !e.ufw?.actif ? [{ kind: 'steps' as const, title: 'Mise en route', items: [{ title: 'Allumer le pare-feu', detail: 'Odin garde sa porte et SSH ouverts, puis refuse le reste', done: false, action: 'allumer', button: 'Allumer' }] }] : []),
+        ...(p.local && e.fw === 'ufw' && !e.ufw?.actif ? [{ kind: 'steps' as const, title: 'Mise en route', items: [{ title: 'Allumer le pare-feu', detail: 'Odin garde sa porte et SSH ouverts, puis refuse le reste', done: false, action: 'allumer', button: 'Allumer' }] }] : []),
         { kind: 'table', title: 'Ports à l\'écoute', columns: ['Port', 'À qui', 'Programme', 'Joignable'], empty: 'Aucun port lu.', rows: rows.map((r) => ({ cells: [`${r.x.port}/${r.x.proto}`, quiEst(r.x), r.x.prog ?? '', r.a.acces === 'ouvert' ? `depuis ${r.a.depuis}` : r.a.acces === 'local' ? 'la machine seulement' : 'non (filtré par le pare-feu)'], tone: tone(r), actions: r.a.acces === 'filtré' ? [{ action: 'ouvrir_port', label: 'Ouvrir', input: { port: r.x.port, proto: r.x.proto } }] : [] })) },
         { kind: 'table', title: 'Règles du pare-feu', columns: ['Vers', 'Action', 'Depuis'], empty: e.fw === 'aucun' ? 'Pas de pare-feu géré (installe « ufw »).' : 'Aucune règle.', rows: (e.ufw?.regles ?? []).filter((r) => !r.v6).map((r) => ({ cells: [r.vers, r.action === 'ALLOW' ? 'laisse entrer' : r.action === 'LIMIT' ? 'laisse entrer (limité)' : 'refuse', /^Anywhere$/i.test(r.depuis) ? 'partout' : r.depuis], tone: r.action === 'ALLOW' || r.action === 'LIMIT' ? 'neutre' as const : 'bon' as const })) },
         { kind: 'table', title: 'Ouverts sur la box (Internet → maison)', columns: ['Port', 'Vers', 'Pour'], empty: box ? 'Aucun port ouvert par UPnP.' : 'Pas encore lu : lance « Ports ouverts sur la box ».', rows: (box?.ports ?? []).map((m) => ({ cells: [`${m.external}/${m.proto}`, `${m.client}:${m.internal}`, m.desc || 'sans nom'], tone: 'attention' as const, actions: [{ action: 'fermer_box', label: 'Fermer', input: { port: m.external, proto: m.proto } }] })) },
       ],
       side: [
-        ...(autres.length ? [{ kind: 'form' as const, title: 'Voir le pare-feu d\'un autre poste', action: 'etat', submit: 'Voir son pare-feu', params: [{ key: 'poste', label: 'Poste (Linux, par SSH)', kind: 'select' as const, options: autres.map((x) => x.nom), default: autres[0].nom }] }] : []),
         { kind: 'list', title: 'Routes', empty: 'Routes non lues.', items: e.routes.slice(0, 12).map((r) => ({ title: r.vers, detail: `${r.via ? `par ${r.via}` : 'direct'}${r.carte ? ` · ${r.carte}` : ''}` })) },
         { kind: 'text', title: 'Routage', text: e.routage ? 'Cette machine fait passer le trafic entre ses réseaux (routage allumé : VPN, conteneurs, machines virtuelles).' : 'Cette machine ne route pas le trafic des autres.' },
         ...(box?.ip ? [{ kind: 'text' as const, title: 'Adresse publique', text: `${box.ip}${box.cgnat ? ' — partagée par l\'opérateur (CGNAT) : rien ne peut entrer d\'Internet, même avec un port ouvert.' : ''}`, tone: 'neutre' as const }] : []),
