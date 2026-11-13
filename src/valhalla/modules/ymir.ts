@@ -10,6 +10,7 @@ import { autoName, freePort, parseMounts, parsePorts, usedPorts, type Kind } fro
 import { appPort, reserved } from '../ports.ts';
 import { restartOf } from '../hringhorni/engine.ts';
 import { engine as ctEngine } from './naglfar.ts';
+import { machinesActions, machinesWatch } from '../ymir/machines.ts';
 
 export interface PveServer { name: string; url: string; token?: string }
 const s = (v: unknown) => String(v ?? '');
@@ -99,11 +100,11 @@ export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wai
 const STATE_ICON: Record<Step['state'], string> = { ok: '✓', corrigé: '↻', échec: '✗' };
 export const ymir: Module = {
   id: 'ymir', name: 'Ymir', family: 'Machines',
-  what: 'Tes machines virtuelles et conteneurs, sur tous tes serveurs de virtualisation.',
-  does: ['tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Sindri, mode Andvari)', 'alerte si une machine s\'arrête ou si un nœud sature'],
+  what: 'Tes machines : les LXC et VM de ce PC (créés par Odin, quarantaine, .ody), et celles de tes serveurs de virtualisation.',
+  does: ['machines de ce PC : LXC (images officielles signées) et VM (QEMU, ISO d\'Eitri), nom automatique, adresse vérifiée', 'aperçu en direct (écran de la VM, console du LXC), processeur et mémoire de chacune', 'quarantaine : la machine débranchée de tout, analyse complète, règle « rouge = isoler »', 'exporter et importer une machine entière en .ody (empreinte vérifiée, antivirus)', 'tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Sindri, mode Andvari)', 'alerte si une machine s\'arrête ou si un nœud sature'],
   from: ['Proxmox VE', 'Proxmox Datacenter Manager'], upstream: ['proxmox/pve-manager'],
   modes: ['Asgard · tous les serveurs', 'Andvari · sauvegarde des machines'],
-  words: ['machine virtuelle', 'machines virtuelles', 'vm', 'proxmox', 'toutes mes machines', 'parc de machines', 'conteneur lxc', 'lxc', 'hyperviseur', 'virtualisation', 'instantane', 'snapshot', 'noeud', 'nœud'],
+  words: ['créer une machine', 'quarantaine', 'isoler une machine', '.ody', 'machines de ce pc', 'machine virtuelle', 'machines virtuelles', 'vm', 'proxmox', 'toutes mes machines', 'parc de machines', 'conteneur lxc', 'lxc', 'hyperviseur', 'virtualisation', 'instantane', 'snapshot', 'noeud', 'nœud'],
   actions: [
     { id: 'parc', label: 'Toutes mes machines', what: 'Ordinateurs installés par le réseau, VM, LXC et conteneurs Docker, avec leur nom automatique', read: true, words: ['toutes mes machines', 'mon parc', 'parc de machines'], run: async (ctx) => {
       const { units, errors } = await parc(ctx);
@@ -121,6 +122,7 @@ export const ymir: Module = {
     { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre une machine', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }], grave: (i) => `redémarrer la machine ${s(i.vmid)}`, run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'reboot') }) },
     { id: 'instantane', label: 'Instantané', what: 'Photo de la machine à cet instant', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }, { key: 'nom', label: 'Nom', kind: 'text', default: '' }], run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'snapshot', { snapname: s(i.nom) || `odin-${ctx.now().toISOString().slice(0, 16).replace(/[-:T]/g, '')}` }) }) },
     { id: 'revenir', label: 'Revenir à un instantané', what: 'Remet la machine dans l\'état de l\'instantané', params: [{ key: 'vmid', label: 'Numéro', kind: 'number', required: true }, { key: 'nom', label: 'Instantané', kind: 'text', required: true }], grave: (i) => `remettre la machine ${s(i.vmid)} à l'instantané ${s(i.nom)} (les changements depuis sont perdus)`, run: async (ctx, i) => ({ text: await act(ctx, Number(i.vmid), 'rollback', { snapname: s(i.nom) }) }) },
+    ...machinesActions(),
     { id: 'serveur', label: 'Ajouter un serveur', what: 'Relier un serveur de virtualisation (jeton d\'API dans le coffre)', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'adresse', label: 'Adresse (https://…:8006)', kind: 'text', required: true }], run: (ctx, i) => { const list = ((ctx.settings.servers as PveServer[]) ?? []).filter((x) => x.name !== s(i.nom)); ctx.saveSettings({ servers: [...list, { name: s(i.nom), url: s(i.adresse).trim() }] }); return { text: `🔗 Serveur ${s(i.nom)} ajouté. Range son jeton d'API dans le coffre (${list.length ? `PROXMOX_TOKEN_${s(i.nom).toUpperCase().replace(/[^A-Z0-9]/g, '_')}` : 'PROXMOX_TOKEN'}).` }; } },
   ],
   async view(ctx) {
@@ -141,7 +143,9 @@ export const ymir: Module = {
       side: [{ kind: 'list', title: 'Asgard · nœuds', items: nodes.map((n) => ({ title: `${n.server} / ${n.node}`, detail: `${Math.round((n.cpu ?? 0) * 100)} % CPU · ${gb(n.mem)} / ${gb(n.maxmem)}`, tone: n.status === 'online' ? 'bon' : 'mauvais' })), empty: 'Aucun nœud.' }, { kind: 'form', title: 'Relier un serveur', action: 'serveur', submit: 'Ajouter', params: ymir.actions.find((a) => a.id === 'serveur')?.params ?? [] }],
     };
   },
-  watch: { every: 180, async run(ctx) {
+  watch: { every: 60, async run(ctx) {
+    await machinesWatch(ctx).catch(() => undefined);
+    const tick = Number(ctx.settings.tickPve ?? 0) + 1; ctx.saveSettings({ tickPve: tick % 3 }); if (tick % 3) return;
     const { res } = await resources(ctx); if (!res.length) return;
     const was = (ctx.settings.running as number[] | undefined) ?? [], now = res.filter((r) => r.vmid && r.status === 'running').map((r) => r.vmid!);
     for (const id of was) if (!now.includes(id)) { const r = res.find((x) => x.vmid === id); ctx.alert({ level: 'haute', title: `La machine ${r?.name ?? id} s'est arrêtée`, key: `vm:${id}` }); ctx.emit('vm_arretee', { vmid: id, nom: r?.name }); }
