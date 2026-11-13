@@ -9,6 +9,7 @@ import type { Vault } from '../brain/vault.ts';
 import { examples } from './huginn.ts';
 import { LINKS, USAGES } from './links.ts';
 import type { Action, Module } from './types.ts';
+import { OLD_NAMES } from './names.ts';
 
 const DIR = 'Odin', APPS = `${DIR}/Applis`, MINE = '## Mes notes';
 export interface Sheet { path: string; tags: string[]; body: string }
@@ -34,7 +35,7 @@ export function appSheet(m: Module, all: Module[]): Sheet {
     ...examples(m).slice(0, 8).map((e) => `- « ${e} »`),
     '## Ses actions',
     ...m.actions.map((a) => `- **${a.label}** — ${plain(a.what)} *(${kindOf(a)})*`),
-    '## Ses commandes', 'En invite de commande sur la machine d\'Odin (voir [[Commandes]]) :', ...m.actions.map((a) => `- \`${commandOf(m, a).example}\` — ${a.label}`),
+    '## Ses commandes', `En invite de commande sur la machine d'Odin (voir ${link('commandes')}) :`, ...m.actions.map((a) => `- \`${commandOf(m, a).example}\` — ${a.label}`),
     ...(inc.length || out.length || self.length ? ['## Ses liens avec les autres applis', 'Tous ces liens sont automatiques : il n\'y a rien à activer.',
       ...inc.map((l) => `- ${link(l.from)} → ${m.name} : quand ${l.when}, ${l.does}.`),
       ...out.map((l) => `- ${m.name} → ${link(l.to)} : quand ${l.when}, ${l.does}.`),
@@ -102,6 +103,12 @@ export function sheets(all: Module[]): Sheet[] { return [indexSheet(all), linksS
  */
 export function syncSheets(vault: Vault, all: Module[]): { written: number; total: number } {
   let written = 0; const list = sheets(all);
+  // Une appli renommée : sa fiche (tenue par Odin) prend le nouveau nom, avec tes notes dedans ; les liens suivent
+  for (const m of all) {
+    const old = OLD_NAMES[m.id]; if (!old || old === m.name) continue;
+    const n = vault.read(`${APPS}/${old}`);
+    if (n && n.meta['tenue par'] === 'Odin' && !vault.read(`${APPS}/${m.name}`)) { try { vault.rename(`${APPS}/${old}`, `${APPS}/${m.name}`); } catch { /* déjà là */ } }
+  }
   for (const s of list) {
     const old = vault.read(s.path), cut = old ? old.body.indexOf(MINE) : -1;
     const mine = cut >= 0 ? old!.body.slice(cut + MINE.length).trim() : '', generated = (cut >= 0 ? old!.body.slice(0, cut) : old?.body ?? '').trim();

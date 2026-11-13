@@ -133,6 +133,7 @@ const FACE = readFileSync(new URL('./face.js', import.meta.url), 'utf8');
 /** Espace Cerveau de l'interface (fichier à part, chargé avec le même nonce). */
 const FLOWS_JS = (() => { try { return readFileSync(new URL('./flows.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const RUNES_JS = (() => { try { return readFileSync(new URL('./runes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+const APP_ICONS_JS = (() => { try { return readFileSync(new URL('./app-icons.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const THEMES_JS = (() => { try { return readFileSync(new URL('./themes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
@@ -543,6 +544,7 @@ export class WebChannel implements Channel {
     // Frigg : page publique de réservation (/r/…), lien secret, sans script.
     if (await friggPublic(req, res, url)) return;
     if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
+    if (url.pathname === '/app-icons.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(APP_ICONS_JS); }
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/themes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(THEMES_JS); }

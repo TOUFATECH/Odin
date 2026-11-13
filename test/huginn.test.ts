@@ -137,9 +137,9 @@ test('Huginn : il ne devine pas — les phrases de tous les jours ne déclenchen
 test('Huginn : explications, question quand il manque un réglage, réponse au message suivant', async () => {
   const w = world();
   const ex = await understand(w.v, 'à quoi sert Sindri', 'e', NOW);
-  assert.equal(ex?.kind, 'say'); assert.match((ex as { text: string }).text, /Sindri[\s\S]*sauvegardes[\s\S]*Liens avec les autres applis[\s\S]*Exemples/);
-  assert.match(((await understand(w.v, 'c\'est quoi un vpn', 'e', NOW)) as { text: string }).text, /Gjöll/);
-  assert.match(((await understand(w.v, 'qui fait quoi', 'e', NOW)) as { text: string }).text, /Loki → Garmr/);
+  assert.equal(ex?.kind, 'say'); assert.match((ex as { text: string }).text, /Phénix[\s\S]*sauvegardes[\s\S]*Liens avec les autres applis[\s\S]*Exemples/);
+  assert.match(((await understand(w.v, 'c\'est quoi un vpn', 'e', NOW)) as { text: string }).text, /Vortex/);
+  assert.match(((await understand(w.v, 'qui fait quoi', 'e', NOW)) as { text: string }).text, /Sirènes → Cerbère/);
   // Demande en deux temps.
   const q = await understand(w.v, 'bannis une adresse', 'deux', NOW);
   assert.equal(show(q), '? garmr.bannir ip'); assert.match((q as { text: string }).text, /il me manque « Adresse IP »/);
@@ -164,20 +164,20 @@ test('sans IA de bout en bout : Odin agit par ses applis, les actions graves dem
       return { ok: true, content: String(await valhallaTool.run(input, { sessionId: 'web:test' } as never)) };
     };
     const has = (n: string) => n === 'valhalla';
-    assert.match((await offlineAct('bannis 203.0.113.9 pendant 2 heures', run, has, 's1'))!, /Garmr · Bannir une adresse\n.*203\.0\.113\.9/);
+    assert.match((await offlineAct('bannis 203.0.113.9 pendant 2 heures', run, has, 's1'))!, /Cerbère · Bannir une adresse\n.*203\.0\.113\.9/);
     assert.ok(w.ran.some((c) => /^nft add element inet odin garmr4 \{ 203\.0\.113\.9 timeout 7200s \}/.test(c)), 'le pare-feu a bien reçu l\'ordre');
     assert.deepEqual(calls.at(-1), { name: 'valhalla', action: 'action', appli: 'garmr', quoi: 'bannir', entree: '{"ip":"203.0.113.9","minutes":120,"raison":"à la demande"}' }, 'l\'action passe par l\'outil, donc par Heimdall');
     assert.equal(w.v.manips().length, 0, 'tu l\'as demandé toi-même : ce n\'est pas une manip d\'Odin');
-    assert.match((await offlineAct('liste les conteneurs', run, has, 's1'))!, /Naglfar · Lister les conteneurs\n[\s\S]*web/);
+    assert.match((await offlineAct('liste les conteneurs', run, has, 's1'))!, /Argo · Lister les conteneurs\n[\s\S]*web/);
     assert.match((await offlineAct('supprime le conteneur web', run, has, 's1'))!, /Action refusée : supprimer/i, 'action grave : jamais sans ton accord');
     assert.ok(!w.ran.some((c) => /\brm\b.*web/.test(c)), 'rien n\'a été supprimé');
-    assert.match((await offlineAct('explique Garmr', run, has, 's1'))!, /Garmr[\s\S]*Bannit/);
-    assert.match((await offlineAct('aide', run, has, 's1'))!, /Mes applis, sans IA aussi[\s\S]*Sécurité :[\s\S]*Garmr/);
-    assert.match((await offlineAct('j\'ai besoin de protéger un serveur ouvert sur Internet', run, has, 's1'))!, /Loki|Garmr/);
+    assert.match((await offlineAct('explique Garmr', run, has, 's1'))!, /Cerbère[\s\S]*Bannit/);
+    assert.match((await offlineAct('aide', run, has, 's1'))!, /Mes applis, sans IA aussi[\s\S]*Sécurité :[\s\S]*Cerbère/);
+    assert.match((await offlineAct('j\'ai besoin de protéger un serveur ouvert sur Internet', run, has, 's1'))!, /Sirènes|Cerbère/);
     assert.equal(await offlineAct('quelle est la capitale du Japon', run, has, 's1'), undefined, 'rien de compris : rien n\'est tenté');
     // Demande en deux messages, dans la même discussion.
     assert.match((await offlineAct('débannis une adresse', run, has, 's2'))!, /il me manque « Adresse IP »/);
-    assert.match((await offlineAct('203.0.113.9', run, has, 's2'))!, /Garmr · Débannir/);
+    assert.match((await offlineAct('203.0.113.9', run, has, 's2'))!, /Cerbère · Débannir/);
   } finally { setValhalla(undefined); w.end(); }
 });
 
@@ -186,13 +186,13 @@ test('manips : ce qu\'Odin fait seul est noté, annoncé, et se garde ou s\'annu
   // Un réflexe (Loki → Garmr) bannit un attaquant : personne ne l'a demandé.
   await w.v.ctx('loki').call('garmr', 'bannir', { ip: '203.0.113.77', raison: 'piège SSH', minutes: 1440 }, 'un pirate a tapé un mot de passe dans un piège');
   const [m] = w.v.manips();
-  assert.equal(m.state, 'à décider'); assert.equal(m.by, 'réflexe'); assert.equal(m.label, 'Garmr · Bannir une adresse');
+  assert.equal(m.state, 'à décider'); assert.equal(m.by, 'réflexe'); assert.equal(m.label, 'Cerbère · Bannir une adresse');
   assert.deepEqual(m.undo, { action: 'debannir', input: { ip: '203.0.113.77' }, label: 'adresse débannie' });
-  assert.match(w.sent.at(-1)!, new RegExp(`🤖 Manip faite par réflexe : Garmr · Bannir une adresse.*pirate.*Réponds « garde ${m.id} » ou « annule ${m.id} »`));
+  assert.match(w.sent.at(-1)!, new RegExp(`🤖 Manip faite par réflexe : Cerbère · Bannir une adresse.*pirate.*Réponds « garde ${m.id} » ou « annule ${m.id} »`));
   // « annule <code> » : compris sans IA, l'action inverse part.
   assert.equal(show(await understand(w.v, `annule ${m.id}`, 'm', NOW)), `manip ${m.id} annuler`);
   const r = await w.v.order(`annule ${m.id}`, 'm');
-  assert.match(r.text, /↩ Annulé : Garmr · Bannir une adresse \(adresse débannie\)/);
+  assert.match(r.text, /↩ Annulé : Cerbère · Bannir une adresse \(adresse débannie\)/);
   assert.ok(w.ran.some((c) => /^nft delete element inet odin garmr4 \{ 203\.0\.113\.77 \}/.test(c)), 'l\'adresse est vraiment débannie');
   assert.equal(w.v.manips()[0].state, 'annulée'); assert.equal(w.v.manips().length, 1, 'l\'annulation demandée par toi n\'est pas une nouvelle manip');
   // « garde » et « garde tout ».
@@ -200,9 +200,9 @@ test('manips : ce qu\'Odin fait seul est noté, annoncé, et se garde ou s\'annu
   await w.v.act('aegir', 'radio', { nom: 'Radio Mayotte', adresse: 'https://radio.exemple/flux' });
   await w.v.act('aegir', 'jouer', { quoi: 'Radio Mayotte', ou: 'ici' }, { by: 'automatisation' });
   assert.equal(w.v.manips({ state: 'à décider' }).length, 2);
-  assert.match((await w.v.order('garde tout', 'm')).text, /✓ Gardé : Naglfar[\s\S]*✓ Gardé : Ægir/);
+  assert.match((await w.v.order('garde tout', 'm')).text, /✓ Gardé : Argo[\s\S]*✓ Gardé : Apollon/);
   assert.equal(w.v.manips({ state: 'à décider' }).length, 0);
-  assert.match((await w.v.order('mes manips', 'm')).text, /Naglfar · Démarrer.*gardée/);
+  assert.match((await w.v.order('mes manips', 'm')).text, /Argo · Démarrer.*gardée/);
   // Une lecture, ou ce que tu fais toi-même, n'est jamais une manip.
   const n = w.v.manips().length;
   await w.v.act('naglfar', 'lister', {}, { by: 'odin' }); await w.v.act('garmr', 'bannir', { ip: '203.0.113.78' });
@@ -214,7 +214,7 @@ test('manips : ce qu\'Odin fait seul est noté, annoncé, et se garde ou s\'annu
   await w.v.act('garmr', 'bannir', { ip: '203.0.113.79', minutes: 60 }, { by: 'odin', why: 'adresse malveillante' });
   const b = w.v.manips()[0];
   assert.equal(b.state, 'gardée'); assert.equal(b.decidedBy, 'Odin (mode Breaker)');
-  assert.match(w.v.manipText(b), new RegExp(`Manip faite de moi-même : Garmr · Bannir une adresse.*Je la garde \\(mode Breaker\\)\\. « annule ${b.id} » pour revenir en arrière`));
+  assert.match(w.v.manipText(b), new RegExp(`Manip faite de moi-même : Cerbère · Bannir une adresse.*Je la garde \\(mode Breaker\\)\\. « annule ${b.id} » pour revenir en arrière`));
   assert.equal(w.sent.filter((x) => x.startsWith('🤖')).length, 3, 'au plus 3 messages par 10 minutes : les suivants sont regroupés');
   assert.match((await w.v.decide(b.id, false)).text, /↩ Annulé/);
   // Jamais de secret dans le journal.

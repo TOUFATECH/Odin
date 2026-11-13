@@ -67,16 +67,16 @@ test('Fiches : tenues à jour sans bruit, tes notes sont gardées, une note à t
     const events: unknown[] = [], on = (e: unknown) => events.push(e); vaultEvents.on('change', on);
     try {
       // Une note que tu as écrite toi-même, du même nom qu'une appli.
-      w.vault.write('Odin/Applis/Loki', { type: 'note' }, '# Loki\n\nMa note à moi sur le dieu Loki.');
+      w.vault.write('Odin/Applis/Sirènes', { type: 'note' }, '# Sirènes\n\nMa note à moi sur les sirènes.');
       events.length = 0;
       const all = w.v.modules(), first = syncSheets(w.vault, all);
       assert.equal(first.written, first.total - 1, 'toutes sauf la tienne');
       assert.equal(events.length, 0, 'aucune automatisation « note créée » n\'est déclenchée par ces fiches');
-      assert.match(readFileSync(join(w.home, 'cerveau', 'Odin', 'Applis', 'Loki.md'), 'utf8'), /Ma note à moi sur le dieu Loki/);
+      assert.match(readFileSync(join(w.home, 'cerveau', 'Odin', 'Applis', 'Sirènes.md'), 'utf8'), /Ma note à moi sur les sirènes/);
       assert.equal(syncSheets(w.vault, all).written, 0, 'rien à réécrire au deuxième passage');
       // Tu ajoutes tes notes sous « Mes notes » ; la fiche change côté Odin : tes notes restent.
-      const f = join(w.home, 'cerveau', 'Odin', 'Applis', 'Ullr.md'), mine = 'Clé abuse.ch demandée le 12 novembre. Penser à tester EICAR chaque mois.';
-      w.vault.write('Odin/Applis/Ullr', w.vault.read('Odin/Applis/Ullr')!.meta, readFileSync(f, 'utf8').replace(/^---[\s\S]*?---\n/, '').replace(/_Écris ici[^\n]*_/, mine));
+      const f = join(w.home, 'cerveau', 'Odin', 'Applis', 'Asclépios.md'), mine = 'Clé abuse.ch demandée le 12 novembre. Penser à tester EICAR chaque mois.';
+      w.vault.write('Odin/Applis/Asclépios', w.vault.read('Odin/Applis/Asclépios')!.meta, readFileSync(f, 'utf8').replace(/^---[\s\S]*?---\n/, '').replace(/_Écris ici[^\n]*_/, mine));
       const changed = all.map((m) => (m.id === 'ullr' ? { ...m, what: 'Antivirus (description changée par une mise à jour d\'Odin).' } : m));
       assert.equal(syncSheets(w.vault, changed).written, 2, 'la fiche de l\'appli et la liste des applis');
       const after = readFileSync(f, 'utf8');
@@ -85,9 +85,9 @@ test('Fiches : tenues à jour sans bruit, tes notes sont gardées, une note à t
       // Le graphe du Cerveau relie les applis entre elles, et un incident retrouve la fiche de l'appli.
       const g = w.vault.graph({});
       const id = (t: string) => g.nodes.find((n) => n.title === t)?.id;
-      assert.ok(g.edges.some((e) => (e.from === id('Ullr') && e.to === id('Garmr')) || (e.from === id('Garmr') && e.to === id('Ullr'))), 'Ullr et Garmr sont reliés dans le graphe');
-      assert.equal(w.vault.find('Ullr')?.path, 'Odin/Applis/Ullr.md');
-      assert.ok(w.vault.search('quarantaine antivirus', 5).some((r) => r.note.path === 'Odin/Applis/Ullr.md'), 'la recherche du Cerveau trouve la fiche');
+      assert.ok(g.edges.some((e) => (e.from === id('Asclépios') && e.to === id('Cerbère')) || (e.from === id('Cerbère') && e.to === id('Asclépios'))), 'Asclépios et Cerbère sont reliés dans le graphe');
+      assert.equal(w.vault.find('Asclépios')?.path, 'Odin/Applis/Asclépios.md');
+      assert.ok(w.vault.search('quarantaine antivirus', 5).some((r) => r.note.path === 'Odin/Applis/Asclépios.md'), 'la recherche du Cerveau trouve la fiche');
     } finally { vaultEvents.off('change', on); }
   } finally { w.end(); }
 });
@@ -113,13 +113,26 @@ test('Cerveau actif dès l\'installation : « odin init » y écrit les fiches, 
     const dir = join(home, 'cerveau', 'Odin');
     assert.deepEqual(readdirSync(dir).filter((f) => f.endsWith('.md')).sort(), ['Comment fonctionne Odin.md', 'Les applis d\'Odin.md', 'Liens entre les applis.md']);
     assert.equal(readdirSync(join(dir, 'Applis')).length, n, 'une fiche par appli');
-    assert.match(readFileSync(join(dir, 'Applis', 'Idunn.md'), 'utf8'), /tenue par: Odin[\s\S]*# Idunn[\s\S]*## Comment lui parler[\s\S]*## Ses liens avec les autres applis/);
+    assert.match(readFileSync(join(dir, 'Applis', 'Arachné.md'), 'utf8'), /tenue par: Odin[\s\S]*# Arachné[\s\S]*## Comment lui parler[\s\S]*## Ses liens avec les autres applis/);
     // 2. Relancer l'installation ne réécrit rien et ne touche pas à ce que tu as noté.
-    const mine = join(dir, 'Applis', 'Ullr.md'); writeFileSync(mine, `${readFileSync(mine, 'utf8').replace(/_Écris ici[^_]*_/, '')}Ma note à moi.\n`);
+    const mine = join(dir, 'Applis', 'Asclépios.md'); writeFileSync(mine, `${readFileSync(mine, 'utf8').replace(/_Écris ici[^_]*_/, '')}Ma note à moi.\n`);
     assert.match(execFileSync(process.execPath, ['--disable-warning=ExperimentalWarning', join(import.meta.dirname, '..', 'bin', 'odin.mjs'), 'init'], { env, encoding: 'utf8' }), /Déjà initialisé\.[\s\S]*Cerveau prêt : \d+ fiches[^\n]*déjà à jour/);
     assert.match(readFileSync(mine, 'utf8'), /## Mes notes[\s\S]*Ma note à moi\./);
     // 3. La même fonction sert au lancement : rien à refaire si tout est à jour.
     assert.deepEqual(seedBrain({ paths: odinPaths(home), cfg: DEFAULT_CONFIG } as never), { written: 0, total: n + 3 });
     assert.ok(!existsSync(join(home, 'cerveau', 'Odin', 'Applis', 'undefined.md')));
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Fiches : une appli renommée garde sa fiche (et tes notes dedans) sous son nouveau nom', () => {
+  const w = world();
+  try {
+    const all = w.v.modules();
+    // La fiche d'avant, au nom d'Ullr, avec une note à toi
+    syncSheets(w.vault, all.map((m) => (m.id === 'ullr' ? { ...m, name: 'Ullr' } : m)));
+    const old = w.vault.read('Odin/Applis/Ullr')!; w.vault.write('Odin/Applis/Ullr', old.meta, old.body.replace(/_Écris ici[^\n]*_/, 'Ma note sur l\'antivirus.'));
+    syncSheets(w.vault, all);
+    assert.equal(w.vault.read('Odin/Applis/Ullr'), undefined, 'l\'ancienne fiche n\'existe plus');
+    assert.match(w.vault.read('Odin/Applis/Asclépios')!.body, /# Asclépios[\s\S]*Ma note sur l'antivirus\./);
+  } finally { w.end(); }
 });

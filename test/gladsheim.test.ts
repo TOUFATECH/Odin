@@ -35,9 +35,9 @@ test('réglages : thèmes, boutons, clés de tablette, météo, Home Assistant',
     assert.match((await w.act('theme', { theme: 'braise' })).text, /Braise/);
     assert.equal((await w.act('theme', { theme: 'rose' })).ok, false);
     assert.match((await w.act('boutons')).text, /VPN : allumer → gjoll\.allumer/);
-    assert.match((await w.act('bouton', { nom: 'Bloquer Awa', appli: 'var', action: 'couper_sessions', reglages: 'login=awa', icone: '🚫', couleur: '#EF4F43' })).text, /Bouton « Bloquer Awa » → Vár · Couper les sessions/);
+    assert.match((await w.act('bouton', { nom: 'Bloquer Awa', appli: 'var', action: 'couper_sessions', reglages: 'login=awa', icone: '🚫', couleur: '#EF4F43' })).text, /Bouton « Bloquer Awa » → Persona · Couper les sessions/);
     assert.equal((await w.act('bouton', { nom: 'X', appli: 'nimporte', action: 'y' })).ok, false);
-    assert.match((await w.act('bouton', { nom: 'X', appli: 'var', action: 'voler' })).text, /action inconnue dans Vár/);
+    assert.match((await w.act('bouton', { nom: 'X', appli: 'var', action: 'voler' })).text, /action inconnue dans Persona/);
     assert.equal((await w.act('bouton', { nom: 'X', appli: 'var', action: 'personnes', couleur: 'rouge' })).ok, false);
     const tiles = w.v.ctx('gladsheim').settings.tiles as Array<{ label: string; input: Record<string, unknown> }>;
     assert.deepEqual(tiles.find((t) => t.label === 'Bloquer Awa')!.input, { login: 'awa' });

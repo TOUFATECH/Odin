@@ -25,7 +25,7 @@ test('journal des applis dans le Cerveau, sans secret', async () => {
     assert.ok(await j.flush() >= 3);
     const note = vault.read('Odin/Journal des applis/2026-11-12.md')!;
     assert.ok(note, 'note du jour');
-    assert.match(note.body, /## \[\[Víðarr\]\]\n- 10:00 · machine coupee — ip : 192\.168\.1\.20 · nom : PC de Nour/);
+    assert.match(note.body, /## \[\[Sphinx\]\]\n- 10:00 · machine coupee — ip : 192\.168\.1\.20 · nom : PC de Nour/);
     assert.match(note.body, /alerte haute : Fichier suspect — clé •••• vue/);
     assert.match(note.body, /fait : Thème \(par toi\)/); assert.ok(!/fait : Boutons/.test(note.body), 'les lectures ne sont pas notées');
     assert.ok(!note.body.includes('SECRET-42'), 'aucun secret');

@@ -29,13 +29,13 @@ test('bulles : alertes (procédure, manip), décisions d\'Odin, direct, historiq
     // Une alerte critique avec sa procédure et sa manip → bulle rouge, bouton « Relancer ».
     v.alert('bru', { level: 'critique', title: 'Le tunnel Cloudflare est coupé', detail: 'odin.exemple.fr ne répond plus', key: 'x', steps: ['Vérifie la box.'], fix: { action: 'demarrer', label: 'Relancer le tunnel' } });
     const a = live.at(-1)!;
-    assert.deepEqual([a.level, a.kind, a.app, a.page?.app, a.source], ['grave', 'Grave', 'Brú', 'bru', 'alerte']);
+    assert.deepEqual([a.level, a.kind, a.app, a.page?.app, a.source], ['grave', 'Grave', 'Bifröst', 'bru', 'alerte']);
     assert.deepEqual(a.steps, ['Vérifie la box.']);
     assert.deepEqual(a.actions[0], { module: 'bru', action: 'demarrer', input: {}, label: 'Relancer le tunnel', primary: true });
     // Une alerte sans procédure : procédure par défaut, et les manips de l'appli qui collent aux mots.
     v.alert('vordr', { level: 'haute', title: 'Le NAS ne répond plus', key: 'y' });
     const b = live.at(-1)!;
-    assert.equal(b.level, 'souci'); assert.match(b.steps[0], /Regarde le détail dans Vörðr/);
+    assert.equal(b.level, 'souci'); assert.match(b.steps[0], /Regarde le détail dans Pulsar/);
     // Une décision prise seul par Odin → bulle verte « Décision d'Odin » avec Garder / annuler.
     v.events.emit('manip', { id: 'abcd', at: new Date().toISOString(), module: 'garmr', action: 'bannir', label: 'Garmr · Bannir', input: {}, text: 'Banni 203.0.113.9 pour 1 h', by: 'réflexe', why: '5 essais ratés', undo: { action: 'debannir', input: { ip: '203.0.113.9' }, label: 'Débannir' }, state: 'à décider' });
     const c = live.at(-1)!;

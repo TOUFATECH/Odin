@@ -31,6 +31,7 @@
 .va-kpi .va-bar{height:6px;border-radius:4px;background:var(--field);margin-top:8px;overflow:hidden}.va-kpi .va-bar i{display:block;height:100%;background:var(--good)}
 .va-kpi.attention b,.va-tone-attention{color:var(--warn)}.va-kpi.mauvais b,.va-tone-mauvais{color:var(--bad)}.va-kpi.bon .va-bar i{background:var(--good)}.va-kpi.attention .va-bar i{background:var(--warn)}.va-kpi.mauvais .va-bar i{background:var(--bad)}
 .va-page{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}@media (max-width:980px){.va-page{grid-template-columns:minmax(0,1fr)}}.va-page>div{min-width:0}
+.va-appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px 8px}.va-appbtn{display:grid;justify-items:center;gap:6px;background:none;border:0;border-radius:12px;padding:8px 4px;color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;min-width:0}.va-appbtn span{overflow-wrap:anywhere;text-align:center}.va-appbtn:hover{background:var(--panel2)}.va-appbtn:focus-visible{outline:2px solid var(--accent)}
 .va-sec{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 14px;min-width:0}.va-sec h2{font-size:16px;margin:0 0 10px}
 .va-tw{position:relative;overflow-x:auto;-webkit-overflow-scrolling:touch}.va-t{width:100%;border-collapse:collapse;font-size:14px}.va-t th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}.va-t td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:break-word}.va-t td.va-short{white-space:nowrap}.va-t td.va-long{overflow-wrap:anywhere;min-width:150px}.va-t tr:last-child td{border-bottom:0}
 .va-t td.va-acts{white-space:nowrap}.va-t td.va-acts .btn{margin:2px 4px 2px 0}
@@ -191,6 +192,12 @@
     const ans = el('div', { class: 'va-ans', role: 'status', hidden: true });
     box.append(el('form', { class: 'va-need', role: 'search', onsubmit: async (e) => { e.preventDefault(); const q = $('#vaNeed').value.trim(); if (!q) return; ans.hidden = false; ans.textContent = '…'; const r = await api(`/api/valhalla/advise?need=${encodeURIComponent(q)}`); ans.replaceChildren(r.text, r.found?.[0] ? el('div', { style: 'margin-top:10px' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openApp(r.found[0].id) }, `Ouvrir ${r.found[0].name}`)) : ''); } },
       el('label', { for: 'vaNeed', class: 'sr' }, 'De quoi as-tu besoin ?'), el('input', { id: 'vaNeed', placeholder: 'J\'ai besoin de… (sauvegarder mes photos, bloquer un pirate, voir la caméra…)', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Trouver l\'appli')), ans);
+    // Toutes les applis, avec leur icône (comme un menu démarrer) : un clic l'ouvre
+    if (window.OdinAppIcons) {
+      const grid = el('div', { class: 'va-appgrid', role: 'list', 'aria-label': 'Tes applis' });
+      for (const m of [...st.modules].sort((a, b) => a.name.localeCompare(b.name, 'fr'))) { const b = el('button', { type: 'button', class: 'va-appbtn', role: 'listitem', title: m.what, onclick: () => openApp(m.id) }); b.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 52); b.append(el('span', {}, m.name)); grid.append(b); }
+      box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Tes applis'), grid));
+    }
     // Ce qu'Odin a fait de lui-même : à garder ou à annuler. Et l'état de la protection, en une ligne.
     const top = el('div', { class: 'va-top' }); box.append(top);
     manips(top); protection(top);
@@ -266,7 +273,7 @@
     const r = await api(`/api/valhalla/view?${new URLSearchParams({ ...(viewQ[id] ?? {}), id })}`);
     if (cur !== id) return;
     if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
-    $('#vaTitle').textContent = r.name; $('#vaSub').textContent = r.view.subtitle ?? r.what;
+    $('#vaTitle').textContent = r.name; if (window.OdinAppIcons) { $('#vaTitle').insertAdjacentHTML('afterbegin', window.OdinAppIcons.tile(id, r.name, 30)); $('#vaTitle').style.cssText += ';display:flex;align-items:center;gap:10px'; } $('#vaSub').textContent = r.view.subtitle ?? r.what;
     const v = r.view, main = el('div', {}), side = el('div', {});
     const top = el('div', {});
     top.append(el('p', { class: 'va-what' }, r.what));
@@ -298,7 +305,7 @@
       else { if (!host.childNodes.length) host.remove(); main.replaceChildren(...generic); }
       if (cur !== id) return;
     }
-    box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), el('h2', {}, r.name)), top, wide, el('div', { class: 'va-page' }, main, side));
+    box.replaceChildren(el('div', { class: 'va-mhead' }, el('button', { class: 'btn small', type: 'button', onclick: () => window.OdinShow?.('apps') }, '← Applis'), (() => { const h = el('h2', { style: 'display:flex;align-items:center;gap:10px' }); if (window.OdinAppIcons) h.innerHTML = window.OdinAppIcons.tile(id, r.name, 34); h.append(r.name); return h; })()), top, wide, el('div', { class: 'va-page' }, main, side));
     if (!quiet) head?.querySelector('#vaBack')?.focus?.({ preventScroll: true });
     // Une page qui bouge (barre de progression) se met à jour toute seule, sauf pendant que tu remplis un champ.
     if (v.refreshMs) setTimeout(() => {

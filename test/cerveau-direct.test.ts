@@ -384,19 +384,19 @@ test('agent : une mission de deux actions est apprise de l\'IA, refaite sans ell
     const r1 = await o.agent.run('Bannis 203.0.113.9 et montre les bannis', S);
     assert.equal(o.provider.calls.length, 3, 'la première fois : l\'IA');
     assert.deepEqual(r1.ai, { needed: true, why: MANY });
-    assert.match(r1.notices.join(' '), /J'ai appris cette mission \(2 actions\) : la prochaine fois, « Bannis 203\.0\.113\.9 et montre les bannis » se fera sans IA \(Garmr · Bannir une adresse → Garmr · Bannis en ce moment\)\./);
+    assert.match(r1.notices.join(' '), /J'ai appris cette mission \(2 actions\) : la prochaine fois, « Bannis 203\.0\.113\.9 et montre les bannis » se fera sans IA \(Cerbère · Bannir une adresse → Cerbère · Bannis en ce moment\)\./);
     assert.ok(w.ran.some((c) => /^nft add element inet odin garmr4 \{ 203\.0\.113\.9 /.test(c)));
     // La même mission, une autre adresse : aucune IA, les deux actions, dans l'ordre.
     const r2 = await o.agent.run('bannis 198.51.100.7 et montre les bannis', S);
     assert.equal(o.provider.calls.length, 3, 'aucun appel de plus');
     assert.equal(r2.ai?.needed, false); assert.equal(r2.toolCalls, 2);
-    assert.match(r2.text, /^1\/2 · Garmr · Bannir une adresse\n[\s\S]*198\.51\.100\.7[\s\S]*\n\n2\/2 · Garmr · Bannis en ce moment\n[\s\S]*203\.0\.113\.9[\s\S]*198\.51\.100\.7/);
+    assert.match(r2.text, /^1\/2 · Cerbère · Bannir une adresse\n[\s\S]*198\.51\.100\.7[\s\S]*\n\n2\/2 · Cerbère · Bannis en ce moment\n[\s\S]*203\.0\.113\.9[\s\S]*198\.51\.100\.7/);
     assert.ok(w.ran.some((c) => /^nft add element inet odin garmr4 \{ 198\.51\.100\.7 /.test(c)), 'le pare-feu a bien reçu le deuxième ordre');
     // Le Cerveau a sa note, reliée à l'appli, à jour après l'utilisation.
     const vault = brainOf({ home: o.paths.home, careCfg: o.cfg, workspace: o.paths.workspace });
     const note = vault.find('Quotidien/Bannis 203.0.113.9 et montre les bannis');
-    assert.equal(note?.meta.type, 'quotidien'); assert.equal(note?.meta.appli, 'Garmr'); assert.equal(note?.meta['étapes'], 2); assert.equal(note?.meta['utilisé'], 1);
-    assert.deepEqual(note?.links.slice().sort(), ['Garmr', 'Quotidien/Cerveau direct']);
+    assert.equal(note?.meta.type, 'quotidien'); assert.equal(note?.meta.appli, 'Cerbère'); assert.equal(note?.meta['étapes'], 2); assert.equal(note?.meta['utilisé'], 1);
+    assert.deepEqual(note?.links.slice().sort(), ['Cerbère', 'Quotidien/Cerveau direct']);
     assert.match(vault.find('Quotidien/Cerveau direct')?.body ?? '', /## Ce que je sais faire \(1 mission\)/);
   } finally { o.cleanup(); w.end(); }
 });
@@ -410,11 +410,11 @@ test('agent : ce qu\'Odin relit pour vérifier ne fait pas partie de la mission 
   try {
     const r1 = await o.agent.run('Vire 203.0.113.9', S);
     assert.equal(r1.toolCalls, 2, 'l\'action, puis la relecture imposée par le contrôle');
-    assert.match(r1.notices.join(' '), /J'ai appris : la prochaine fois, « Vire 203\.0\.113\.9 » se fera sans IA \(Garmr · Bannir une adresse\)\./);
+    assert.match(r1.notices.join(' '), /J'ai appris : la prochaine fois, « Vire 203\.0\.113\.9 » se fera sans IA \(Cerbère · Bannir une adresse\)\./);
     assert.equal(stepsOf(loadAcquis(o.muninn)[0]).length, 1);
     // Une autre façon de le dire, réglée par l'IA de la même façon : Odin relie les deux phrases, et le mot qui change.
     const r2 = await o.agent.run('Dégage 198.51.100.7', S);
-    assert.match(r2.notices.join(' '), /J'ai fait le lien : « Dégage 198\.51\.100\.7 » veut dire la même chose que « Vire 203\.0\.113\.9 » \(« dégage » = « vire »\)\. Les deux se feront sans IA \(Garmr · Bannir une adresse\)\./);
+    assert.match(r2.notices.join(' '), /J'ai fait le lien : « Dégage 198\.51\.100\.7 » veut dire la même chose que « Vire 203\.0\.113\.9 » \(« dégage » = « vire »\)\. Les deux se feront sans IA \(Cerbère · Bannir une adresse\)\./);
     assert.deepEqual(loadLinks(o.muninn).map((l) => l.said), [['dégage', 'vire']]);
     const before = o.provider.calls.length;
     const r3 = await o.agent.run('dégage 192.0.2.44', S);
@@ -470,14 +470,14 @@ test('agent : sans aucune IA, Odin fait le lien avec ce qu\'il a appris, propose
     const calls = o.provider.calls.length;
     const p = await o.agent.run('porte close opération', S);
     assert.equal(p.offline, true); assert.equal(p.toolCalls, 0, 'rien n\'est parti');
-    assert.match(p.text, /^Aucune IA ne me répond, alors j'ai cherché dans ce que j'ai déjà appris\.\nTa demande ressemble à « opération porte close » \(appris le [^)]+\)\.\nCe que je ferais : Garmr · Bannis en ce moment\.\nJe le fais \? Réponds oui ou non\.$/);
+    assert.match(p.text, /^Aucune IA ne me répond, alors j'ai cherché dans ce que j'ai déjà appris\.\nTa demande ressemble à « opération porte close » \(appris le [^)]+\)\.\nCe que je ferais : Cerbère · Bannis en ce moment\.\nJe le fais \? Réponds oui ou non\.$/);
     // Non : rien, et ce « non » n'efface pas ce qu'il sait.
     const no = await o.agent.run('non', S);
     assert.equal(no.text, 'D\'accord, je ne fais rien.'); assert.equal(loadAcquis(o.muninn).length, 1);
     // Oui : fait, et retenu.
     await o.agent.run('porte close opération', S);
     const yes = await o.agent.run('oui', S);
-    assert.equal(yes.toolCalls, 1); assert.match(yes.text, /^Garmr · Bannis en ce moment\n[\s\S]*C'est retenu : « porte close opération » se fera maintenant sans rien demander\.$/);
+    assert.equal(yes.toolCalls, 1); assert.match(yes.text, /^Cerbère · Bannis en ce moment\n[\s\S]*C'est retenu : « porte close opération » se fera maintenant sans rien demander\.$/);
     assert.deepEqual(yes.ai, { needed: false, why: yes.ai!.why }); assert.match(yes.ai!.why, /^lien fait avec « opération porte close »/);
     const direct = await o.agent.run('porte close opération', S);
     assert.equal(direct.toolCalls, 1); assert.match(direct.ai?.why ?? '', /^appris le /);

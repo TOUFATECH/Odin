@@ -150,7 +150,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   },
   'bragi>freyja': async (w) => {
     const r = await w.v.act('bragi', 'ordre', { texte: 'mets Inception sur la télé' });
-    assert.match(r.text, /🎙 « mets Inception sur la télé »\nFreyja · /, r.text);
+    assert.match(r.text, /🎙 « mets Inception sur la télé »\nVénus · /, r.text);
     assert.ok(did(w, 'freyja', 'regarder'), 'Freyja reçoit l\'ordre de lancer le titre');
     const g = await w.v.act('bragi', 'ordre', { texte: 'supprime le conteneur web' });
     assert.equal(g.ok, false); assert.match(g.text, /action grave/i, 'une action grave ne part jamais d\'un ordre à la voix');
@@ -236,11 +236,11 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.ok(await until(() => w.ran.some((c) => /^odin start web/.test(c))), 'le conteneur arrêté tout seul est relancé');
     const m = w.v.manips()[0];
     assert.equal(m.by, 'odin'); assert.equal(m.state, 'à décider'); assert.match(m.why ?? '', /s'est arrêté tout seul/);
-    assert.match(w.sent.at(-1) ?? '', new RegExp(`Manip faite de moi-même : Naglfar · Démarrer.*« garde ${m.id} » ou « annule ${m.id} »`));
+    assert.match(w.sent.at(-1) ?? '', new RegExp(`Manip faite de moi-même : Argo · Démarrer.*« garde ${m.id} » ou « annule ${m.id} »`));
     const n = w.ran.filter((c) => /odin start web/.test(c)).length;
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'web' }); await wait(60);
     assert.equal(w.ran.filter((c) => /odin start web/.test(c)).length, n, 'pas de boucle : une relance par heure au plus');
-    assert.match((await w.v.decide(m.id, false)).text, /↩ Annulé : Naglfar · Démarrer \(conteneur arrêté\)/);
+    assert.match((await w.v.decide(m.id, false)).text, /↩ Annulé : Argo · Démarrer \(conteneur arrêté\)/);
     assert.ok(w.ran.some((c) => /^odin stop web/.test(c)), '« annule » : le conteneur est arrêté de nouveau');
   },
   'ymir>ymir': async (w) => {
@@ -615,7 +615,7 @@ CHECKS['garmr>ullr'] = async (w) => {
   w.v.ctx('geri').emit('malveillant', { ip: '203.0.113.66', programme: 'mineur' });
   assert.ok(await until(() => incidents(w).length === 1));
   await wait(80);
-  assert.ok(incidents(w)[0].apps.includes('Garmr')); assert.deepEqual(incidents(w)[0].done, [], 'adresse déjà bannie : Ullr ne la bannit pas une seconde fois');
+  assert.ok(incidents(w)[0].apps.includes('Cerbère')); assert.deepEqual(incidents(w)[0].done, [], 'adresse déjà bannie : Ullr ne la bannit pas une seconde fois');
   assert.ok(!w.ran.some((c) => /nft add element/.test(c)));
 };
 CHECKS['ullr>garmr'] = async (w) => {

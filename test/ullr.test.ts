@@ -424,8 +424,8 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     // C'est une manip : annoncée, annulable. « annule » remet le fichier, identique.
     const m = w.v.manips({ module: 'ullr' })[0];
     assert.equal(m.action, 'isoler'); assert.equal(m.by, 'réflexe'); assert.equal(m.state, 'à décider'); assert.equal(m.undo?.action, 'restaurer');
-    assert.ok(w.sent.some((s) => /Manip faite par réflexe : Ullr · Mettre en quarantaine/.test(s) && /annule/.test(s)), 'tu es prévenu, avec le moyen d\'annuler');
-    assert.ok(w.sent.some((s) => /Ullr — Ullr : PHP\.Webshell/.test(s)), 'l\'alerte critique part sur ta messagerie');
+    assert.ok(w.sent.some((s) => /Manip faite par réflexe : Asclépios · Mettre en quarantaine/.test(s) && /annule/.test(s)), 'tu es prévenu, avec le moyen d\'annuler');
+    assert.ok(w.sent.some((s) => /Asclépios — .*PHP\.Webshell/.test(s)), 'l\'alerte critique part sur ta messagerie');
     assert.ok(!w.sent.some((s) => /EICAR/.test(s)), 'le fichier de test ne dérange personne (alerte moyenne, dans le fil seulement)');
     assert.equal((await w.v.decide(m.id, false)).ok, true);
     assert.equal(readFileSync(join(d, 'sous', 'shell.php'), 'utf8'), WEBSHELL, 'fichier restauré à l\'identique');

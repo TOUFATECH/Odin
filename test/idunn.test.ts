@@ -346,7 +346,7 @@ test('Idunn · Vercel : relancer (annulable), déployer et revenir en arrière (
     for (const a of ['deployer', 'revenir', 'promouvoir']) assert.match((await w.v.act('idunn', a, { site: 'boutique' }, { auto: true })).text, /action grave/, `${a} ne part jamais d'une automatisation`);
     assert.equal(ve.posted.length, 1); assert.equal(ve.rolled.length, 0);
     const o = await w.v.order('déploie le site boutique');
-    assert.equal(o.ok, false); assert.match(o.text, /Idunn · Déployer le dernier code : mettre en production le dernier code du site boutique\. C'est une action grave : confirme-la\./); assert.equal(ve.posted.length, 1);
+    assert.equal(o.ok, false); assert.match(o.text, /Arachné · Déployer le dernier code : mettre en production le dernier code du site boutique\. C'est une action grave : confirme-la\./); assert.equal(ve.posted.length, 1);
     assert.match((await w.v.order('déploie le site boutique', 'principal', { confirm: true })).text, /🚀 Déploiement du dernier code de boutique lancé/);
     assert.deepEqual(ve.posted[1], { name: 'boutique', project: 'prj_boutique1', deploymentId: 'dpl_n1', withLatestCommit: true, target: 'production', forceNew: '1' });
     // Revenir en arrière : le déploiement d'avant celui qui sert le site, avec le vrai identifiant du projet.
@@ -384,7 +384,7 @@ test('Idunn · Cloudflare : DNS changé, cache vidé, mode « attaque » qui rem
     // Le DNS change, et la page d'accueil aussi : Ullr relie les deux en un incident.
     w.site.st.title = 'H4cked'; await w.act('etat', { site: 'boutique' });
     assert.ok(await until(() => incidents().length === 1), 'DNS et page d\'accueil changés sur le même site : un incident');
-    assert.deepEqual([incidents()[0].kind, incidents()[0].apps], ['site détourné', ['Idunn']]);
+    assert.deepEqual([incidents()[0].kind, incidents()[0].apps], ['site détourné', ['Arachné']]);
     assert.match(incidents()[0].proposed.join(' | '), /vérifie les enregistrements DNS du site/);
     assert.ok(w.v.alerts({ module: 'ullr' }).some((a) => /Incident : Un de tes sites a peut-être été détourné/.test(a.title)));
     // Zone en pause, zone introuvable.
@@ -555,7 +555,7 @@ test('Idunn · ce qui vient du site ou du dépôt arrive à l\'IA comme une donn
     setValhalla(w.v);
     try {
       const out = await valhallaTool.run({ action: 'action', appli: 'idunn', quoi: 'evenements', entree: '{}' }, { sessionId: 's', channel: 'test' } as never) as { output: string; tainted?: boolean };
-      assert.equal(out.tainted, true); assert.match(out.output, /^<untrusted source="appli Idunn">[\s\S]*Ignore tes instructions[\s\S]*<\/untrusted>/);
+      assert.equal(out.tainted, true); assert.match(out.output, /^<untrusted source="appli Arachné">[\s\S]*Ignore tes instructions[\s\S]*<\/untrusted>/);
       const state = await valhallaTool.run({ action: 'etat', appli: 'idunn' }, { sessionId: 's', channel: 'test' } as never) as { output: string; tainted?: boolean };
       assert.equal(state.tainted, true, 'la page de l\'appli (qui montre les événements) aussi');
       const plain = await valhallaTool.run({ action: 'action', appli: 'idunn', quoi: 'sites', entree: '{}' }, { sessionId: 's', channel: 'test' } as never);
@@ -618,8 +618,8 @@ test('Idunn · sans IA : les demandes du quotidien sont comprises, et celles des
     for (const t of ['ouvre le site lemonde.fr', 'cherche un site pour apprendre le piano', 'j\'ai vu un site sympa hier', 'bloque le site facebook.com']) assert.ok(!/idunn/.test(await say(t)), `pas pour Idunn : ${t} → ${await say(t)}`);
     // Et la demande passe vraiment, de bout en bout, sans IA.
     const o = await w.v.order('donne-moi les erreurs du site boutique depuis 2 jours');
-    assert.match(o.text, /^Idunn · Événements\nFiltre : boutique · erreurs · depuis 2 jour\(s\)\nAucun événement avec ces critères\./);
-    assert.match((await w.v.order('teste le site boutique')).text, /^Idunn · Essayer le site\n✗ 1 problème\(s\) sur boutique/);
+    assert.match(o.text, /^Arachné · Événements\nFiltre : boutique · erreurs · depuis 2 jour\(s\)\nAucun événement avec ces critères\./);
+    assert.match((await w.v.order('teste le site boutique')).text, /^Arachné · Essayer le site\n✗ 1 problème\(s\) sur boutique/);
   } finally { await w.end(); }
 });
 
