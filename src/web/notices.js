@@ -11,9 +11,30 @@
   const TONE = { ok: ['#13301f', '#bff0d1', '#34c77b'], info: ['#16234a', '#c9d6ff', '#5a6fdb'], moment: ['#3b2a0b', '#ffe3a6', '#ffc53d'], fierte: ['#2a1747', '#e0d2ff', '#9166e6'], souci: ['#3a2306', '#ffd9a3', '#f0a020'], grave: ['#4a1210', '#ffd0ca', '#ef4f43'] };
   const toneOf = (n) => (n.level === 'grave' ? 'grave' : n.level === 'souci' ? 'souci' : /moment|bonjour|bonsoir|bonne nuit/i.test(`${n.kind}`) ? 'moment' : /décision/i.test(`${n.kind}`) ? 'fierte' : /info|réponse|odin/i.test(`${n.kind}`) && !/souci/i.test(`${n.kind}`) ? 'info' : 'ok');
   const SEEN = 'odin-bulle-vue';
+  // Qui te protège (maquette validée « Alertes : Antivirus ou Malware ? ») : chacun sa couleur ; Odin la prend quand
+  // il alerte, et la bulle porte la pastille de celui qui a trouvé. La gravité garde ses couleurs (vert, orange, rouge).
+  const PROT = { ullr: { label: 'Antivirus', color: '#7c4dff', icon: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', what: 'analyse les fichiers : téléchargements, pièces jointes, clés USB, partages' },
+    skogul: { label: 'Malware', color: '#e0457b', icon: 'M8 9h8v7a4 4 0 0 1-8 0zM9 9V7a3 3 0 0 1 6 0v2M4 12h4M16 12h4M5 7l3 2M19 7l-3 2M5 18l3-2M19 18l-3-2', what: 'surveille ce que font les programmes : chiffrement de fichiers, connexions bizarres, démarrage caché' } };
+  const protOf = (n) => (n && PROT[n.module]) || (n && /ullr|antivirus/i.test(`${n.app}`) ? PROT.ullr : n && /sk[öo]gul|malware/i.test(`${n.app}`) ? PROT.skogul : undefined);
+  const protPill = (p, z = 12) => el('span', { class: 'ob-prot', style: `background:${p.color}` }, svg(p.icon, z), p.label);
+  let tinted = false;
+  /** Odin prend la couleur de celui qui a trouvé, avec sa pastille ; il reprend la sienne quand la bulle part. */
+  function protTint(p) {
+    const b = document.getElementById('buddyRoam');
+    b?.querySelector('.odin-prot')?.remove();
+    if (p) { window.OdinFace?.tintBase?.(p.color); tinted = true; if (b) b.append(el('span', { class: 'odin-prot', style: `color:${p.color}`, 'aria-hidden': 'true' }, svg(p.icon, 11))); }
+    else if (tinted) { tinted = false; const t = window.OdinThemes?.current?.(); if (t) window.OdinThemes.apply(t); else window.OdinFace?.tintBase?.(null); void window.OdinThemes?.sync?.(); }
+  }
   const css = `
   #odinBubble{position:fixed;z-index:60;left:0;top:0;max-width:min(320px,calc(100vw - 24px));box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 6px 0 6px;border:0;border-radius:17px;font:500 13.5px/1 inherit;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.3)}
   #odinBubble[hidden]{display:none}
+  .ob-prot{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;border-radius:12px;color:#fff;font:700 12px/1 inherit;flex:none;white-space:nowrap}
+  .odin-prot{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.3);pointer-events:none}
+  #odinTalk .ot-prot{display:flex;flex-direction:column;gap:6px}#odinTalk .ot-prot small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9aa1b2;padding:0 4px}
+  #odinTalk .ot-pr{display:flex;align-items:center;gap:10px;border-radius:12px;padding:8px 10px;border:1px solid}#odinTalk .ot-pr i{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;flex:none}
+  #odinTalk .ot-pr b{font-size:13.5px}#odinTalk .ot-pr span{display:block;font-size:12px;color:#b9c0cf}
+  #odinTalk .ot-seg{display:flex;gap:2px;background:rgba(0,0,0,.25);border-radius:10px;padding:3px}#odinTalk .ot-seg button{flex:1;height:28px;border:0;border-radius:8px;background:none;color:#b9c0cf;font:600 12px inherit;cursor:pointer}#odinTalk .ot-seg button[aria-pressed=true]{background:rgba(255,255,255,.12);color:#fff}
+  #odinTalk .ot-it{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 4px;border-radius:9px;cursor:pointer}#odinTalk .ot-it:hover{background:rgba(255,255,255,.05)}#odinTalk .ot-it b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}#odinTalk .ot-it time{color:#9aa1b2;font-size:11.5px}
   #odinBubble .ob-dot{width:22px;height:22px;border-radius:50%;flex:none}
   #odinBubble .ob-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   #odinBubble .ob-say{width:26px;height:26px;border:0;border-radius:13px;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer;opacity:.8;flex:none}
@@ -119,9 +140,10 @@
     later = null; closeTalk(true);
     bubble.style.background = bg; bubble.style.color = fg; bubble.setAttribute('role', n.level === 'grave' ? 'alert' : 'status');
     bubble.classList.toggle('grave', n.level === 'grave');
-    bubble.setAttribute('aria-label', `${n.kind} · ${n.app} : ${n.title}. Touche pour répondre.`);
+    bubble.setAttribute('aria-label', `${protOf(n) ? `${protOf(n).label} · ` : ''}${n.kind} · ${n.app} : ${n.title}. Touche pour répondre.`);
+    protTint(n.level !== 'ok' || protOf(n) ? protOf(n) : undefined);
     bubble.replaceChildren(
-      el('span', { class: 'ob-dot', style: `background:${dot}`, 'aria-hidden': 'true' }),
+      protOf(n) ? protPill(protOf(n)) : el('span', { class: 'ob-dot', style: `background:${dot}`, 'aria-hidden': 'true' }),
       el('span', { class: 'ob-t' }, n.title),
       el('button', { type: 'button', class: 'ob-say', 'aria-label': 'Écouter', title: 'Écouter', on: { click: (e) => { e.stopPropagation(); window.OdinSay?.(`${n.title}. ${n.detail ?? ''}`, true); } } }, svg('M4 9h4l5-4v14l-5-4H4zM17 8a5 5 0 0 1 0 8', 15)),
       tail);
@@ -140,7 +162,7 @@
     if (n.level !== 'grave' && !o.quiet && window.OdinVoice?.on?.()) window.OdinSay?.(n.title);
     follow();
   }
-  function hide() { if (!bubble) return; bubble.hidden = true; if (current) try { localStorage.setItem(SEEN, current.id); } catch { /* navigation privée */ } if (current?.level === 'grave' && panel.hidden) setAlarm(false); }
+  function hide() { if (!bubble) return; bubble.hidden = true; protTint(undefined); if (current) try { localStorage.setItem(SEEN, current.id); } catch { /* navigation privée */ } if (current?.level === 'grave' && panel.hidden) setAlarm(false); }
 
   // ---------- La petite fenêtre : lire, agir, et parler à Odin depuis n'importe quel onglet ----------
   function svg(d, z = 16) { const NS = 'http://www.w3.org/2000/svg', s = document.createElementNS(NS, 'svg'), p = document.createElementNS(NS, 'path'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', z); s.setAttribute('height', z); s.setAttribute('aria-hidden', 'true'); p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '2'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round'); s.append(p); return s; }
@@ -155,10 +177,23 @@
     talk.replaceChildren(...[
       el('div', { class: 'ot-h' }, el('span', { class: 'ot-dot', style: `background:${dot}`, 'aria-hidden': 'true' }), el('b', {}, n ? n.title : 'Que veux-tu ?'), el('button', { type: 'button', class: 'ot-x', 'aria-label': 'Fermer', on: { click: () => closeTalk() } }, '×')),
       out,
+      n ? null : protBox(),
       n ? el('div', { class: 'ot-acts' }, ...n.actions.slice(0, 2).map((a, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', style: i === 0 ? `background:${dot}` : undefined, on: { click: () => runAction(a, out) } }, a.label)), el('button', { type: 'button', on: { click: () => { closeTalk(); open(n); } } }, 'Que faire ?')) : null,
       form, ttail].filter(Boolean));
     talk.hidden = false; follow(); setTimeout(() => input.focus({ preventScroll: true }), 30);
     window.OdinCompanion?.pin?.(60_000);
+  }
+  /** Un toucher sur Odin : qui te protège (Antivirus = Ullr, Malware = Skögul) et leurs dernières alertes. */
+  function protBox() {
+    const list = el('div', {}), items = history.filter((x) => protOf(x));
+    const st = { ullr: el('span', {}, PROT.ullr.what), skogul: el('span', {}, PROT.skogul.what) };
+    const row = (id, app) => { const p = PROT[id]; return el('div', { class: 'ot-pr', style: `background:${p.color}1f;border-color:${p.color}55` }, el('i', { style: `background:${p.color}` }, svg(p.icon, 16)), el('div', { style: 'min-width:0' }, el('b', {}, `${p.label} `, el('span', { style: 'display:inline;font-size:13.5px;color:#9aa1b2' }, `= ${app}`)), st[id])); };
+    const draw = (f) => list.replaceChildren(...items.filter((x) => f === 'tout' || protOf(x) === PROT[f]).slice(0, 4).map((x) => el('div', { class: 'ot-it', role: 'button', tabindex: '0', on: { click: () => { closeTalk(); open(x); } } }, protPill(protOf(x), 11), el('b', {}, x.title), el('time', {}, new Date(x.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })))), items.length ? null : el('p', { class: 'ot-d', style: 'margin:2px 4px' }, 'Aucune alerte de protection récente.'));
+    const seg = el('div', { class: 'ot-seg', role: 'group', 'aria-label': 'Filtrer les alertes' }, ...[['tout', 'Tout'], ['ullr', 'Antivirus'], ['skogul', 'Malware']].map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(k === 'tout'), on: { click: (e) => { seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === e.currentTarget))); draw(k); } } }, t)));
+    draw('tout');
+    // L'état du moment (sans attendre : la petite fenêtre s'ouvre tout de suite).
+    api('/api/valhalla/act', { module: 'ullr', action: 'etat', input: {} }).then((r) => { if (r?.ok) st.ullr.textContent = String(r.text).split('\n')[0].replace(/^[^\p{L}\d]+/u, '').slice(0, 90); }).catch(() => {});
+    return el('div', { class: 'ot-prot' }, el('small', {}, 'Qui te protège'), row('ullr', 'Ullr'), row('skogul', 'Skögul'), seg, list);
   }
   function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); if (later) { const [n, o] = later; later = null; setTimeout(() => show(n, o), 300); } }
   /** La réponse d'Odin arrive : elle s'affiche dans la petite fenêtre (et Odin la dit si la voix est activée). */

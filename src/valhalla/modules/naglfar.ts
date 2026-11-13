@@ -5,7 +5,7 @@
 import { Engine, restartOf, type Ctr } from '../hringhorni/engine.ts';
 import { cli, parseArgs, splitLine, psTable, VALUES, VERBS } from '../hringhorni/cli.ts';
 import { defineService, removeService, services, startService, stopService, tuneService } from '../hringhorni/services.ts';
-import { bytes, cgStat, human, load, vertical, type CgStat } from '../hringhorni/scale.ts';
+import { budget, bytes, cgStat, human, load, vertical, type CgStat } from '../hringhorni/scale.ts';
 import { join } from 'node:path';
 import { databaseFor, needsDb } from '../urdr/serveur.ts';
 import type { ModCtx, Module, Param } from '../types.ts';
@@ -104,7 +104,7 @@ export const naglfar: Module = {
       for (const img of e.images()) if (!used.has(img.id)) { await e.rmi(img.id); out.push(img.names.join(', ')); }
       return { text: out.length ? `🧹 Images supprimées : ${out.join(' ; ')}` : '🧹 Rien à nettoyer.' };
     } },
-    { id: 'services', label: 'Services mis à l\'échelle', what: 'Les services en plusieurs copies : copies prêtes, visiteurs, pourquoi', read: true, words: ['mise a l\'echelle', 'autoscaling', 'combien de copies'], run: () => { const l = services(engine() as Engine); return { text: l.map(({ spec: sp, state: st }) => `- ${sp.name} · ${st.status} · ${st.replicas.filter((r) => r.healthy).length} copies (${sp.scale.min}-${sp.scale.max}) · ${st.active} visiteurs · ${st.reason}`).join('\n') || 'Aucun service mis à l\'échelle.', data: l }; } },
+    { id: 'services', label: 'Services mis à l\'échelle', what: 'Les services en plusieurs copies : copies prêtes, visiteurs, pourquoi', read: true, words: ['mise a l\'echelle', 'autoscaling', 'combien de copies'], run: () => { const l = services(engine() as Engine); return { text: l.map(({ spec: sp, state: st }) => `- ${sp.name} · ${st.status} · ${st.replicas.filter((r) => r.healthy).length} copies (${sp.scale.min}-${sp.scale.max}) · ${st.active} visiteurs · ${st.reason}`).join('\n') || 'Aucun service mis à l\'échelle.', data: l.map((x) => { const b = budget(x.spec.budgetPct, { cpus: x.spec.budget?.cpus, memory: x.spec.budget?.memory ? bytes(x.spec.budget.memory) : undefined }), per = { cpus: Number(x.spec.per.cpus) || 1, memory: bytes(x.spec.per.memory) }, n = x.state.replicas.length; return { ...x, budget: { cpus: b.cpus, memory: b.memory, usedCpus: n * per.cpus, usedMemory: n * per.memory, room: Math.max(0, Math.min(Math.floor((b.cpus - n * per.cpus) / per.cpus), per.memory ? Math.floor((b.memory - n * per.memory) / per.memory) : Infinity)) } }; }) }; } },
     { id: 'creer_service', label: 'Créer un service mis à l\'échelle', what: 'Une appli en plusieurs copies derrière un répartiteur : le moteur ajoute ou retire des copies selon les visiteurs, le processeur et la mémoire', quick: false, params: [
       { key: 'nom', label: 'Nom (minuscules)', kind: 'text', required: true }, { key: 'image', label: 'Image', kind: 'text', required: true }, { key: 'ports', label: 'Ports (8080:80)', kind: 'text', required: true },
       { key: 'min', label: 'Copies au moins', kind: 'number', default: 2 }, { key: 'max', label: 'Copies au plus', kind: 'number', default: 10 }, { key: 'coeurs', label: 'Cœurs par copie', kind: 'text', default: '1' }, { key: 'memoire', label: 'Mémoire par copie', kind: 'text', default: '512m' },
