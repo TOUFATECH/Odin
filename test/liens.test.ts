@@ -553,6 +553,21 @@ CHECKS['gjoll>garmr'] = async (w) => {
   try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Vortex/); }
   finally { await w.v.act('gjoll', 'eteindre'); }
 };
+CHECKS['hlid>garmr'] = async (w) => {
+  // Le port direct d'une appli : le donner n'ouvre rien ; l'ouvrir sur le réseau passe par Cerbère ; le refermer retire la règle.
+  const { DirectPorts } = await import('../src/valhalla/directports.ts');
+  const port = await new Promise<number>((ok) => { const x = createServer().listen(0, '127.0.0.1', () => { const p = (x.address() as { port: number }).port; x.close(() => ok(p)); }); });
+  const g = new DirectPorts({ home: w.home, web: 7777, host: '127.0.0.1', access: 'lan', attach: (sock) => sock.destroy() }); await g.start();
+  try {
+    let r = await w.v.act('hlid', 'port_direct', { appli: 'Vénus', port }); assert.ok(r.ok, r.text);
+    assert.ok(!did(w, 'garmr', 'ouvrir_port'), 'donner un port n\'ouvre rien dans le pare-feu');
+    r = await w.v.act('hlid', 'ouvrir_port_direct', { appli: 'Vénus' }); assert.ok(r.ok, r.text);
+    assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, new RegExp(`${port}/tcp · page directe de Vénus`));
+    assert.equal(w.v.manips({ module: 'garmr' }).length, 0, 'étape de ton action : pas de manip à part');
+    r = await w.v.act('hlid', 'fermer_port_direct', { appli: 'Vénus' }); assert.ok(r.ok, r.text);
+    assert.ok(did(w, 'garmr', 'fermer_port')); assert.doesNotMatch((await w.v.act('garmr', 'ports_ouverts')).text, new RegExp(`${port}/tcp`));
+  } finally { g.stop(); }
+};
 CHECKS['fjalar>ullr'] = async (w) => {
   await w.v.act('fjalar', 'dossier', { chemin: join(w.home, 'logiciels') });
   await w.v.act('fjalar', 'ajouter_source', { nom: 'Piège', depot: 'odin-test/piege', motif: 'piege-{version}.exe' });

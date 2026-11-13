@@ -7,7 +7,7 @@
 // dangereux = alerte), Cerbère (une machine qui inonde le DNS), le registre réseau (noms des appareils).
 
 import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
-import { openOnHost } from '../hostports.ts';
+import { explainListen, openOnHost } from '../hostports.ts';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
@@ -517,8 +517,8 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       const f = o.names?.(); if (f) inventoryName = f;
       const g = o.devices?.(); if (g) deviceOf = g;
       loadLists(ctx);
-      if (ctx.settings.dhcpOn === true) { try { await startDhcp(ctx); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }
-      if (ctx.settings.on === true) { try { await startServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le DNS d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Les appareils qui passent par Odin n'ont plus de résolution de noms.`, key: 'dns-demarrage' }); } }
+      if (ctx.settings.dhcpOn === true) { try { await startDhcp(ctx); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }
+      if (ctx.settings.on === true) { try { await startServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le DNS d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils qui passent par Odin n'ont plus de résolution de noms.`, key: 'dns-demarrage' }); } }
     },
     stop() { srv?.stop(); srv = undefined; dhcp?.stop(); dhcp = undefined; },
     // Chaque jour : listes à jour, vieux journaux effacés. Chaque 5 min : le serveur répond-il encore ?

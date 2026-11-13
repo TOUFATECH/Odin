@@ -8,6 +8,7 @@ import { EventEmitter } from 'node:events';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { understand, type Understood } from './huginn.ts';
+import { explainListen } from './hostports.ts';
 import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
@@ -83,7 +84,7 @@ export class Valhalla {
   // ---------------- Démarrage
   async start(): Promise<void> {
     for (const m of this.modules()) {
-      try { await m.start?.(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'moyenne', title: `${m.name} n'a pas pu démarrer`, detail: (e as Error).message, key: `start:${m.id}` }); }
+      try { await m.start?.(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'moyenne', title: `${m.name} n'a pas pu démarrer`, detail: await explainListen(e), key: `start:${m.id}` }); }
       if (m.watch) {
         const tick = async () => { try { await m.watch!.run(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'info', title: `${m.name} : surveillance en échec`, detail: (e as Error).message, key: `watch:${m.id}` }); } };
         this.timers.push(setTimeout(tick, 20_000 + Math.random() * 20_000) as unknown as ReturnType<typeof setInterval>, setInterval(tick, m.watch.every * 1000));

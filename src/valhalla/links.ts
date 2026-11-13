@@ -77,6 +77,7 @@ export const LINKS: Link[] = [
   { from: 'bru', to: 'forseti', when: 'Cloudflare voit le tunnel coupé', does: 'alerte : tes noms publiés ne répondent plus depuis Internet (Odin relance le programme)', auto: true, kind: 'donnée' },
   { from: 'vidarr', to: 'garmr', when: 'le DNS de la maison démarre', does: 'son port (53) est ouvert sur le pare-feu de la machine, et noté dans « Ports ouverts par Odin »', auto: true, kind: 'réflexe' },
   { from: 'gjoll', to: 'garmr', when: 'le VPN s\'allume', does: 'son port UDP est ouvert sur le pare-feu de la machine (la box : bouton « Ouvrir le port »)', auto: true, kind: 'réflexe' },
+  { from: 'hlid', to: 'garmr', when: 'tu ouvres sur le réseau le port direct d\'une appli (avec ton accord)', does: 'Cerbère ouvre ce port dans le pare-feu de la machine et le note dans « Ports ouverts par Odin » ; le refermer, le changer ou le retirer enlève la règle', auto: true, kind: 'réflexe' },
   { from: 'var', to: 'skidbladnir', when: 'tu ranges une personne dans un groupe', does: 'elle lit ou écrit dans les espaces de fichiers de ce groupe, et a son espace perso', auto: true, kind: 'donnée' },
   { from: 'skidbladnir', to: 'valgrind', when: 'tu mets les fichiers en ligne', does: 'deux noms dans le proxy : l\'espace (réservé) et les liens publics, en HTTPS', auto: true, kind: 'réflexe' },
   { from: 'skidbladnir', to: 'var', when: 'tu mets les fichiers en ligne', does: 'l\'espace demande la connexion d\'Odin ; l\'identité de la personne décide de ses droits', auto: true, kind: 'réflexe' },

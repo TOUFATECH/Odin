@@ -1760,6 +1760,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           <article class="card" data-sec="documents"><div class="form" id="more-documents"></div></article>
           <article class="card" data-sec="personnalite"><div class="form" id="more-personnalite"></div></article>
           <article class="card" data-sec="plus"><div class="form" id="more-plus"></div></article>
+          <article class="card" data-sec="ports"><div class="form" id="more-ports"></div></article>
           <article class="card" data-sec="acces"><div class="form" id="more-compte" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-cloudflare" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-raccourci" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
@@ -2045,6 +2046,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (typeof rankChips === 'function') rankChips(sec);
     const body = document.querySelector('#v-settings .body'); if (body) body.scrollTop = 0;
     if (sec === 'modele' && AUTHED) setTimeout(() => loadRouting(), 0);
+    if (sec === 'ports' && AUTHED) setTimeout(() => loadPorts(), 0);
   }
   for (const b of document.querySelectorAll('.schip[data-sec]')) b.addEventListener('click', () => openSettings(b.dataset.sec));
   // Journal des routages (Réglages → Modèle → Qui a répondu).
@@ -2092,6 +2094,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'apparence', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
   const secUse = () => { try { return JSON.parse(localStorage.getItem('odin.secUse') || '{}'); } catch { return {}; } };
   const DEFAULT_TOP = ['modele', 'autonomie', 'telegram', 'reseau', 'droits'];
+  { const c = el('button', { type: 'button', class: 'schip', 'data-sec': 'ports', role: 'tab' }, 'Ports'); $('#snav').insertBefore(c, $('#snav .schip.more')); c.addEventListener('click', () => openSettings('ports')); SEC_GROUPS.find(([g]) => g === 'Accès')?.[1].push('ports'); }
   function rankChips(cur) {
     const use = secUse(), chips = [...document.querySelectorAll('.schip[data-sec]')].filter((c) => c.dataset.sec !== 'plus');
     const usable = chips.filter((c) => !c.hidden);
@@ -3347,6 +3350,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // /#app=vordr ouvre directement une appli (lien depuis l'écran de la maison).
   const hashView = () => { const v = location.hash.slice(1), app = /^app=([a-z0-9_-]{2,40})$/.exec(v); if (app) { show('apps'); setTimeout(() => window.OdinApps?.app(app[1]), 150); return; } if (v && document.getElementById('v-' + v)) show(v); };
   addEventListener('hashchange', hashView);
+  // Port direct d'une appli (http://IP:<son port>) : sans autre demande dans l'adresse, la page s'ouvre sur cette appli.
+  if (!location.hash && document.documentElement.dataset.direct) history.replaceState(null, '', '#' + document.documentElement.dataset.direct);
 
 
   // ---------- Réglages : entretien, maison, mail, agenda, documents, personnalité, accès extérieur ----------
@@ -3548,6 +3553,57 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         T.available[k] ? (T.running && T.kind === k ? F.btn('Arrêter', async () => { await api('/api/action', { kind: 'tunnel_stop' }); }) : F.btn('Activer', async () => { $('#tn-st').textContent = 'Activation…'; const r = await api('/api/action', { kind: 'tunnel_start', tkind: k }); stx('#tn-st', r, `✓ ${r.url || 'actif'}`); }, true))
           : F.btn('Installer', async () => { if (!confirm(`Installer ${name} sur la machine d'Odin ?`)) return; $('#tn-st').textContent = 'Installation (quelques minutes)…'; const r = await api('/api/action', { kind: 'tunnel_install', tkind: k }); stx('#tn-st', r, `✓ ${name} installé. ${k === 'tailscale' ? 'Connecte-le à ton compte (lien affiché par « sudo tailscale up » sur la machine), puis Activer.' : 'Clique sur Activer.'}`); }))),
       F.status('tn-st')].filter(Boolean));
+  }
+
+  // ---------- Réglages → Ports : le port direct de chaque appli (http://adresse:port ouvre directement sa page) ----------
+  async function loadPorts(said) {
+    const box = $('#more-ports'); if (!box) return;
+    let r; try { r = await api('/api/ports'); } catch { return; }
+    if (!r?.ok) { box.replaceChildren(el('h2', {}, 'Ports des applis'), el('p', { class: 'sub', style: 'margin:0' }, r?.error || 'La liste des ports n\'est pas disponible pour l\'instant.')); return; }
+    const I = r.interface, scheme = I.https ? 'https' : 'http', onMachine = /^(localhost$|127\.|\[?::1\]?$)/.test(location.hostname);
+    const tell = (x, ok) => { const n = $('#pt-st'); if (n) { n.textContent = x; n.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); } };
+    // Une demande. Si elle est grave (ouvrir sur le réseau), Odin dit d'abord exactement ce qui va s'ouvrir.
+    const ask = async (a, faire, extra = {}) => {
+      tell('Un instant…');
+      let x = await api('/api/ports', { appli: a.id, faire, ...extra });
+      if (x.confirm) { if (!confirm(x.confirm)) return tell('Annulé : rien n\'a changé.'); x = await api('/api/ports', { appli: a.id, faire, ...extra, confirm: true }); }
+      if (!x.ok) return tell(`✗ ${x.error || x.text || 'refusé'}`, false);
+      // Tu regardais Odin par ce port même : la page te suit sur le nouveau port (ou revient à l'interface s'il n'y en a plus).
+      if (a.port && location.port === String(a.port) && x.appli?.port !== a.port) { tell(x.text, true); return setTimeout(() => { location.port = String(x.appli?.port || I.port); }, 900); }
+      moodFlash('joie', 1500); await loadPorts(x.text);
+    };
+    const pill = (a) => a.port === null ? el('span', { class: 'pill' }, 'fermé') : a.etat === 'écoute' ? el('span', { class: 'pill ' + (a.reseau ? 'warn' : 'good') }, a.reseau ? 'écoute · réseau' : 'écoute · cette machine') : el('span', { class: 'pill bad' }, a.etat === 'pris' ? 'pris' : 'fermé');
+    const row = (a) => {
+      const inp = el('input', { type: 'number', min: 1, max: 65535, inputmode: 'numeric', value: a.port ?? '', placeholder: 'aucun', 'aria-label': `Port direct de ${a.nom}`, style: 'flex:0 0 104px;width:104px;min-width:0' });
+      const save = () => { const v = inp.value.trim(); return !v && a.port ? ask(a, 'retirer') : ask(a, 'regler', v ? { port: Number(v) } : {}); };
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      const fixed = !/interface d'Odin/.test(a.plan), web = a.services.filter((x) => x.web && !x.facultatif);
+      return el('div', { class: 'svc', 'data-app': a.nom.toLowerCase() },
+        el('div', { class: 'svc2' },
+          el('b', { style: 'flex:1 1 150px;min-width:0;overflow-wrap:anywhere' }, a.nom), inp, pill(a),
+          el('button', { class: 'btn small', type: 'button', onclick: save }, a.port ? 'Changer' : 'Donner un port'),
+          a.port && a.etat === 'écoute' ? el('button', { class: 'btn small', type: 'button', onclick: () => ask(a, a.reseau ? 'fermer' : 'ouvrir') }, a.reseau ? 'Fermer au réseau' : 'Ouvrir sur le réseau') : null,
+          a.port ? el('button', { class: 'btn small danger', type: 'button', onclick: () => ask(a, 'retirer') }, 'Retirer') : null,
+          a.etat === 'écoute' && (a.reseau || onMachine) ? el('a', { class: 'btn small', href: `${scheme}://${location.hostname}:${a.port}/`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ouvrir') : null),
+        a.port !== null ? el('span', { class: 'hint' }, a.note) : null,
+        fixed ? el('span', { class: 'hint' }, `Ses services gardent leurs ports : ${a.plan}.`, ...web.map((x) => el('span', {}, ` ${x.quoi.replace(/^./, (c) => c.toUpperCase())} (port ${x.port}) : ${x.etat === 'écoute' ? 'répond' : x.etat === 'inconnu' ? 'état inconnu' : 'ne répond pas'}. `, /^https?:\/\//i.test(x.adresse || '') ? el('a', { href: x.adresse, target: '_blank', rel: 'noopener' }, 'Ouvrir') : null))) : null);
+    };
+    const byName = (a, b) => a.nom.localeCompare(b.nom, 'fr'), withPort = r.applis.filter((a) => a.port !== null).sort(byName), without = r.applis.filter((a) => a.port === null).sort(byName);
+    const list = el('div', { class: 'svcs' }, ...withPort.map(row), ...without.map(row));
+    const fixedPorts = r.applis.filter((a) => a.services.length).sort(byName);
+    box.replaceChildren(
+      el('h2', {}, 'Ports des applis'),
+      el('p', { class: 'sub', style: 'margin:0' }, `Chaque appli peut avoir son port à elle : ${scheme}://adresse-d-odin:port mène directement à sa page, avec ta connexion habituelle (jamais sans). Sans port à elle, une appli reste dans l'interface d'Odin, port ${I.port}. Laisse le champ vide pour qu'Odin choisisse un port libre${r.propose ? ` (le prochain : ${r.propose})` : ''}.`),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Un nouveau port n\'est d\'abord joignable que depuis la machine d\'Odin. « Ouvrir sur le réseau » demande ton accord : Cerbère ouvre alors le pare-feu de la machine. Rien n\'est ouvert sur ta box depuis ici.'),
+      I.acces === 'local' ? el('div', { class: 'warn-box' }, 'Odin est réglé sur « cette machine » (Réglages → Accès) : tant que son interface n\'est pas ouverte au réseau, un port direct ne peut pas l\'être non plus.') : null,
+      el('div', { class: 'status', id: 'pt-st', role: 'status' }),
+      el('div', { class: 'field' }, el('label', { for: 'pt-q' }, `Chercher une appli (${withPort.length} avec un port direct sur ${r.applis.length})`), el('input', { id: 'pt-q', type: 'search', autocomplete: 'off', placeholder: 'ex. Vénus', oninput: (e) => { const v = e.target.value.trim().toLowerCase(); for (const n of list.children) n.hidden = Boolean(v) && !n.dataset.app.includes(v); } })),
+      list,
+      el('details', {}, el('summary', { style: 'cursor:pointer;min-height:40px;display:flex;align-items:center' }, 'Les ports fixes : services d\'Odin et applis installées'),
+        el('ul', { class: 'links' }, ...fixedPorts.map((a) => el('li', {}, `${a.nom} : `, a.services.map((x) => `${x.port}/${x.proto} ${x.quoi} (${x.etat === 'pris' ? `pris${x.par ? ` par ${x.par}` : ''}` : x.etat === 'écoute' ? 'écoute' : x.etat === 'fermé' ? (x.facultatif ? 'éteint' : 'fermé') : 'état inconnu'})`).join(' · '))),
+          ...r.installees.map((c) => el('li', {}, `${c.nom} (installée par Argo, ${c.etat}) : `, c.ports.map((x) => `${x.port} → ${x.vers} dans le conteneur`).join(' · ') || 'aucun port')),
+          el('li', {}, `Plages gardées : ${r.plages.installees[0]}-${r.plages.installees[1]} applis installées · ${r.plages.services[0]}-${r.plages.services[1]} services mis à l'échelle · ${r.plages.directs[0]}-${r.plages.directs[1]} ports directs proposés.`))));
+    if (said) tell(said, true);
   }
 
   // ---------- Voix : micro (Whisper) et lecture (ElevenLabs) ----------
