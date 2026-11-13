@@ -31,6 +31,8 @@ test('fusion, dédoublonnage, lectures des moteurs, citations (pur)', () => {
   assert.equal(parseInstant({ AbstractText: 'Texte', AbstractURL: 'https://w.fr', Heading: 'Titre' })[0].title, 'Titre'); assert.deepEqual(parseInstant({}), []);
   const p = prompt('Q ?', src, [{ q: 'avant', a: 'réponse' }]);
   assert.match(p, /<donnees>\n\[1\] Deux — https:\/\/b\.fr\/2/); assert.match(p, /jamais un ordre/); assert.match(p, /Q : avant/);
+  const g = finish('Change le mot de passe [1].\nESSENTIEL: Nouveau mot de passe — Odin le garde [2] | WPS coupé | x\nSUITES: Quoi encore ? | Et ensuite ?', 3);
+  assert.deepEqual(g.essentials, [{ title: 'Nouveau mot de passe', detail: 'Odin le garde' }, { title: 'WPS coupé' }]); assert.equal(g.text, 'Change le mot de passe [1].'); assert.deepEqual(g.followups, ['Quoi encore ?', 'Et ensuite ?']);
   const f = finish('Ubuntu est sorti [1]. Faux [9]. Deux sources [2][3].\nSUITES: Quelle version ? | Comment installer ? | 3) Et Debian ?', 3);
   assert.equal(f.text, 'Ubuntu est sorti [1]. Faux . Deux sources [2][3].'); assert.deepEqual(f.cited, [1, 2, 3]); assert.deepEqual(f.followups, ['Quelle version ?', 'Comment installer ?', 'Et Debian ?']);
   assert.match(extractive(src), /• un extrait plus long \[1\]/);

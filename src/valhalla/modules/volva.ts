@@ -26,7 +26,7 @@ export const ENGINES: Record<string, { label: string; need?: string; env?: strin
   duckduckgo: { label: 'DuckDuckGo (page web)', keyless: true, note: 'secours sans clé' },
   mojeek: { label: 'Mojeek (page web)', keyless: true, note: 'secours sans clé' },
 };
-export interface Entry { id: string; at: number; q: string; focus: Focus; answer: string; sources: Source[]; engines: string[]; followups: string[]; apps: Array<{ id: string; name: string; action?: string; label?: string }>; ai: boolean; errors: string[]; thread?: string }
+export interface Entry { id: string; at: number; q: string; focus: Focus; answer: string; sources: Source[]; engines: string[]; followups: string[]; apps: Array<{ id: string; name: string; action?: string; label?: string }>; ai: boolean; errors: string[]; read?: number; essentials?: Array<{ title: string; detail?: string }>; thread?: string }
 
 let cfg: () => { searxngUrl?: string } = () => ({});
 const searxUrl = (ctx: ModCtx) => (s(ctx.settings.searxng) || cfg().searxngUrl || '').replace(/\/$/, '');
@@ -77,15 +77,15 @@ export async function ask(ctx: ModCtx, q: string, o: { focus?: Focus; deep?: boo
   const g = await gather(ctx, q, focus, deep ? 10 : 8), sources = fuse(g.lists, deep ? 12 : 8);
   // Lire les meilleures pages (texte seulement, sites publics, poliment).
   if (o.read ?? ctx.settings.lire !== false) await Promise.all(sources.slice(0, deep ? 6 : 4).map(async (x) => { try { const p = await politeFetch(x.url, { fetcher: ctx.fetch as typeof fetch, signal: AbortSignal.timeout(8000) }); x.text = p.text.slice(0, 8000); if (p.published) x.published = p.published.slice(0, 10); } catch { /* page refusée : l'extrait suffit */ } }));
-  let answer = '', followups: string[] = [], ai = false;
+  let answer = '', followups: string[] = [], ai = false, essentials: Array<{ title: string; detail?: string }> = [];
   if (sources.length && ctx.ask) {
-    try { const r = finish(await ctx.ask(prompt(q, sources, prev.map((h) => ({ q: h.q, a: h.answer })), deep)), sources.length); answer = r.text; followups = r.followups; ai = Boolean(answer); } catch (e) { g.errors.push(`IA : ${(e as Error).message.slice(0, 100)}`); }
+    try { const r = finish(await ctx.ask(prompt(q, sources, prev.map((h) => ({ q: h.q, a: h.answer })), deep)), sources.length); answer = r.text; followups = r.followups; essentials = r.essentials; ai = Boolean(answer); } catch (e) { g.errors.push(`IA : ${(e as Error).message.slice(0, 100)}`); }
   }
   if (!answer) answer = sources.length ? `${g.answers.length ? `${g.answers.join('\n')}\n\n` : ''}${extractive(sources)}` : `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}. Règle au moins un moteur dans Völva (SearXNG ou une clé Brave).`;
   if (!followups.length) followups = g.suggestions.slice(0, 3);
   // Les applis d'Odin qui peuvent agir sur le sujet (« tu veux que je le fasse ? »).
   const v = valhallaOf(), apps = (v?.find(q) ?? []).filter((f) => f.score >= 2 && f.m.id !== 'volva').slice(0, 3).map((f) => ({ id: f.m.id, name: f.m.name, ...(f.action ? { action: f.action.id, label: f.action.label } : {}) }));
-  const e: Entry = { id: randomBytes(5).toString('hex'), at: Date.now(), q, focus, answer, sources, engines: [...new Set(sources.flatMap((x) => x.engines))], followups, apps, ai, errors: g.errors, ...(o.thread ? { thread: prev[0]?.thread ?? o.thread } : {}) };
+  const e: Entry = { id: randomBytes(5).toString('hex'), at: Date.now(), q, focus, answer, sources, engines: [...new Set(sources.flatMap((x) => x.engines))], followups, apps, ai, errors: g.errors, read: sources.filter((x) => x.text).length, essentials, ...(o.thread ? { thread: prev[0]?.thread ?? o.thread } : {}) };
   saveHistory(ctx, [e, ...history(ctx)]);
   ctx.emit('recherche', { question: q, sources: sources.length, moteurs: e.engines.join(', ') });
   return e;
