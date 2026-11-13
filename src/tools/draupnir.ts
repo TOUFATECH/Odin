@@ -1,19 +1,19 @@
-// draupnir : Odin crée et pilote ses propres automatisations (moteur Draupnir, intégré à Odin).
+// draupnir : Odin crée et pilote ses propres automatisations (moteur Talos, intégré à Odin).
 // « Chaque matin fais-moi le point », « quand un formulaire arrive, range-le dans Clients »… →
 // une automatisation écrite par Odin, vérifiée, créée désactivée ; tu la testes puis « active-la ».
 
-import { flowFromDescription, templates, type Draupnir } from '../draupnir/service.ts';
+import { flowFromDescription, templates, type Talos } from '../draupnir/service.ts';
 import { CATALOG } from '../draupnir/nodes.ts';
 import { obj, str, type Tool } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '');
-let current: Draupnir | undefined;
-export const setDraupnir = (d: Draupnir | undefined) => { current = d; };
+let current: Talos | undefined;
+export const setDraupnir = (d: Talos | undefined) => { current = d; };
 export const draupnirOf = () => current;
 
 export const draupnirTool: Tool = {
   name: 'draupnir',
-  description: 'Automatisations d\'Odin (Draupnir, son propre moteur : déclencheurs planning, webhook, formulaire, Saga, flux RSS, page surveillée, erreur ; étapes Saga, Runes, Odin IA/agent, mail, messages, web, logique, données, code isolé). « creer » : une demande en français → automatisation vérifiée, créée désactivée. « modele » : modèle prêt. « lister », « voir », « activer », « desactiver », « executer » (test), « executions », « noeuds » (catalogue).',
+  description: 'Automatisations d\'Odin (Talos, son propre moteur : déclencheurs planning, webhook, formulaire, Thot, flux RSS, page surveillée, erreur ; étapes Thot, Papyrus, Odin IA/agent, mail, messages, web, logique, données, code isolé). « creer » : une demande en français → automatisation vérifiée, créée désactivée. « modele » : modèle prêt. « lister », « voir », « activer », « desactiver », « executer » (test), « executions », « noeuds » (catalogue).',
   risk: 'exec',
   schema: obj({ action: { type: 'string', enum: ['creer', 'modele', 'lister', 'voir', 'activer', 'desactiver', 'executer', 'executions', 'noeuds'] }, description: str('pour creer : ce que l\'automatisation doit faire'), id: str('nom ou identifiant de l\'automatisation, ou du modèle') }, ['action']),
   summarize: (i) => `automatisation ${s(i.action)} ${s(i.description || i.id).slice(0, 100)}`,
@@ -21,14 +21,14 @@ export const draupnirTool: Tool = {
   // Activer une automatisation, c'est la laisser agir seule ensuite : toujours avec ton accord.
   grave: (i) => (s(i.action) === 'activer' ? 'activer une automatisation la laisse agir seule' : undefined),
   async run(i, ctx) {
-    const d = current; if (!d) return 'Draupnir n\'est pas démarré (lance Odin avec l\'interface web).';
+    const d = current; if (!d) return 'Talos n\'est pas démarré (lance Odin avec l\'interface web).';
     const a = s(i.action), id = s(i.id);
     if (a === 'noeuds') return [...CATALOG.values()].map((n) => `- ${n.label} (${n.type}, ${n.group}) : ${n.what}`).join('\n');
     if (a === 'creer') {
       if (!ctx.llm) return 'Aucune IA disponible pour écrire l\'automatisation.';
       const draft = await flowFromDescription((sys, user) => ctx.llm!(sys, user, 6000), s(i.description));
       const wf = d.save({ ...draft, active: false });
-      return `✅ Automatisation « ${wf.name} » créée (désactivée) : ${wf.nodes.map((n) => n.name).join(' → ')}.\nOuvre Draupnir pour la voir et la tester, puis dis « active-la ».`;
+      return `✅ Automatisation « ${wf.name} » créée (désactivée) : ${wf.nodes.map((n) => n.name).join(' → ')}.\nOuvre Talos pour la voir et la tester, puis dis « active-la ».`;
     }
     if (a === 'modele') {
       const t = templates().find((x) => x.id === id || x.name.toLowerCase() === id.toLowerCase());

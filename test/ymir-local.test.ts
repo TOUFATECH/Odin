@@ -1,4 +1,4 @@
-// Ymir · machines de ce PC : commandes LXC et QEMU construites par Odin, quarantaine, .ody (empreinte, chemins
+// Hydre · machines de ce PC : commandes LXC et QEMU construites par Odin, quarantaine, .ody (empreinte, chemins
 // dangereux refusés), capture d'écran en PNG, et le parcours complet avec un faux LXC (aucun vrai conteneur créé).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

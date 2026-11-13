@@ -1,4 +1,4 @@
-// Eitri (ISO) et Fjalar (logiciels) : reconnaître les fichiers d'un dossier, trouver la dernière version sur
+// Andromède (ISO) et Hermès (logiciels) : reconnaître les fichiers d'un dossier, trouver la dernière version sur
 // les sites officiels (faux sites ici), télécharger avec l'empreinte de l'éditeur, reprendre un fichier entamé,
 // garder 2 versions, programmer, résumé du jour, antivirus sur les installateurs, sources à soi, historique.
 import { test } from 'node:test';
@@ -88,7 +88,7 @@ test('sources officielles (faux sites) : Ubuntu, Debian, Fedora, GitHub, Firefox
   await assert.rejects(ISO.find((x) => x.id === 'arch')!.latest!(f), /répond 404/);
 });
 
-test('Eitri : dossier, reconnaître, vérifier, télécharger (empreinte), reprise, garder 2, Windows manuel, historique, vue', async () => {
+test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), reprise, garder 2, Windows manuel, historique, vue', async () => {
   const w = world();
   try {
     assert.equal((await w.act('eitri', 'dossier', { chemin: '/etc/iso' })).ok, false);
@@ -143,7 +143,7 @@ test('Eitri : dossier, reconnaître, vérifier, télécharger (empreinte), repri
   } finally { w.end(); }
 });
 
-test('Eitri : programmer, prévenir sans télécharger, résumé du jour', async () => {
+test('Andromède : programmer, prévenir sans télécharger, résumé du jour', async () => {
   const w = world();
   try {
     mkdirSync(w.dir, { recursive: true }); await w.act('eitri', 'dossier', { chemin: w.dir });
@@ -159,11 +159,11 @@ test('Eitri : programmer, prévenir sans télécharger, résumé du jour', async
     await w.act('eitri', 'programmer', { date: '2099-01-01', heure: '03:00' });
     w.v.ctx('eitri').saveSettings({ resume: '00:00' });
     await w.v.module('eitri')!.watch!.run(w.v.ctx('eitri')); await w.v.module('eitri')!.watch!.run(w.v.ctx('eitri'));
-    const r = w.alerts.filter((a) => a.title === '📰 Eitri : le résumé du jour'); assert.equal(r.length, 1); assert.match(r[0].detail ?? '', /nouvelle\(s\) version\(s\) vue\(s\)/);
+    const r = w.alerts.filter((a) => a.title === '📰 Andromède : le résumé du jour'); assert.equal(r.length, 1); assert.match(r[0].detail ?? '', /nouvelle\(s\) version\(s\) vue\(s\)/);
   } finally { w.end(); }
 });
 
-test('Fjalar : installateurs depuis GitHub, antivirus (mis de côté), source à soi', async () => {
+test('Hermès : installateurs depuis GitHub, antivirus (mis de côté), source à soi', async () => {
   const w = world();
   try {
     mkdirSync(w.sdir, { recursive: true }); await w.act('fjalar', 'dossier', { chemin: w.sdir });

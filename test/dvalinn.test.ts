@@ -1,4 +1,4 @@
-// Dvalinn (conversion et PDF, comme VERT / BentoPDF / Stirling-PDF / Tdarr / IT-Tools) : recettes pures, boîte à
+// Alchimie (conversion et PDF, comme VERT / BentoPDF / Stirling-PDF / Tdarr / IT-Tools) : recettes pures, boîte à
 // outils, puis de vraies conversions avec les outils libres de la machine (sautées s'ils manquent).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,7 +12,7 @@ import { DEFAULT_CONFIG } from '../src/config.ts';
 import { familyOf, pages, pdfPlan, plan, qpdfSecretArgs } from '../src/valhalla/dvalinn/plan.ts';
 import { outil } from '../src/valhalla/dvalinn/outils.ts';
 
-test('Dvalinn : recettes (pures)', () => {
+test('Alchimie : recettes (pures)', () => {
   assert.equal(familyOf('a.MKV'), 'video'); assert.equal(familyOf('b.heic'), 'image'); assert.equal(familyOf('c.zip'), undefined);
   const v = plan('/x/film.mov', 'mp4', '/o', { codec: 'h265', qualite: 'legere', hauteur: 720 });
   assert.equal(v.cmd, 'ffmpeg'); assert.ok(v.args.includes('libx265') && v.args.includes('30') && v.args.includes('hvc1')); assert.equal(v.out, '/o/film.mp4');
@@ -30,7 +30,7 @@ test('Dvalinn : recettes (pures)', () => {
   assert.throws(() => qpdfSecretArgs('proteger', '/a', '/o', 'a\nb'), /invalide/);
 });
 
-test('Dvalinn : boîte à outils (comme IT-Tools)', () => {
+test('Alchimie : boîte à outils (comme IT-Tools)', () => {
   assert.match(outil('empreinte', 'odin'), /SHA256 : [0-9a-f]{64}/);
   assert.equal(outil('base64', 'Odin'), 'T2Rpbg=='); assert.equal(outil('base64', 'décode: T2Rpbg=='), 'Odin');
   assert.equal(outil('url', 'a b&c'), 'a%20b%26c'); assert.equal(outil('url', 'decode: a%20b'), 'a b');
@@ -48,7 +48,7 @@ test('Dvalinn : boîte à outils (comme IT-Tools)', () => {
 const sh = (cmd: string, args: string[], o: { timeoutMs?: number } = {}) => new Promise<{ code: number; out: string; err: string }>((ok) => execFile(cmd, args, { timeout: o.timeoutMs ?? 120000, maxBuffer: 1 << 24 }, (e, out, err) => ok({ code: e ? (typeof (e as { code?: unknown }).code === 'number' ? (e as { code: number }).code : 1) : 0, out: String(out), err: String(err) })));
 const has = async (c: string) => (await sh('sh', ['-c', `command -v ${c}`])).code === 0;
 
-test('Dvalinn : vraies conversions (vidéo, son, image, document, PDF), rien n\'est écrasé, fichiers protégés refusés', { timeout: 240000 }, async (t) => {
+test('Alchimie : vraies conversions (vidéo, son, image, document, PDF), rien n\'est écrasé, fichiers protégés refusés', { timeout: 240000 }, async (t) => {
   if (!(await has('ffmpeg')) || !(await has('qpdf'))) { t.skip('ffmpeg ou qpdf absent'); return; }
   const home = mkdtempSync(join(tmpdir(), 'dvalinn-'));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: (c, a, o) => sh(c, a, o), fetch: (async () => new Response('')) as unknown as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });

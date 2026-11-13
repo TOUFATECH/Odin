@@ -94,7 +94,7 @@ export interface OdinConfig {
   mood: { emoji: boolean; stickers: boolean };
   /** Aide à l'écriture dans l'interface : correction d'orthographe (auto = proposée en écrivant, ask = sur demande), conseils, déplacements d'Odin. */
   assist: { spelling: 'auto' | 'ask' | 'off'; tips: boolean; roam: boolean };
-  /** Vörðr : surveillance (appareils importants, disques, certificats) et alertes au propriétaire. */
+  /** Pulsar : surveillance (appareils importants, disques, certificats) et alertes au propriétaire. */
   watch: { enabled: boolean; intervalMin: number; devices: string[]; diskPct: number; certDays: number };
   /** Sauvegarde chiffrée automatique (mot de passe dans ~/.odin/backup-pass). */
   autoBackup: { enabled: boolean; hour: number; dir: string; keep: number };
@@ -144,7 +144,7 @@ export interface OdinConfig {
     /** Apprendre des demandes qu'une IA règle par une action, ou par quelques actions à la suite, pour s'en passer ensuite (défaut : oui). */
     direct?: boolean;
   };
-  /** Hliðskjálf : inventaire du réseau local. */
+  /** Horus : inventaire du réseau local. */
   network: {
     enabled: boolean;
     /** Minutes entre deux balayages rapides (ARP + mDNS + SSDP). */

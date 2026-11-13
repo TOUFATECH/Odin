@@ -19,20 +19,20 @@ aussi dans `npm test` (fichier `test/banc-sim.test.ts`).
 
 | Scénario | Appli d'Odin | Contre quoi | Mode |
 |---|---|---|---|
-| `docker` | Naglfar | un vrai Docker (conteneur lancé, arrêté, relancé, journaux) | réel |
-| `parefeu` | Garmr | le vrai pare-feu nftables, un attaquant dans un réseau isolé | réel |
-| `antivirus` | Ullr | les vraies sources de signatures (OpenPhish, Stalkerware Indicators, signature-base, CISA KEV), de vraies archives (`zip`, `tar`, `gzip`), les programmes de la machine, le fichier de test EICAR | réel |
-| `pieges` | Loki → Ullr → Garmr | un attaquant avec de vrais clients (ssh, curl), virus d'essai EICAR | réel |
-| `vpn` | Gjöll | un vrai tunnel WireGuard (téléphone et NAS dans des réseaux isolés) | réel |
-| `cameras` | Himinbjörg | un vrai flux RTSP avec mot de passe (MediaMTX + ffmpeg) | réel |
-| `venus` | Freyja | le vrai serveur Venus (dépôt TOUFATECH/Venus) | réel |
-| `homeassistant` | Midgard, Bragi, Ægir | un vrai Home Assistant (intégration de démonstration) | réel |
+| `docker` | Argo | un vrai Docker (conteneur lancé, arrêté, relancé, journaux) | réel |
+| `parefeu` | Cerbère | le vrai pare-feu nftables, un attaquant dans un réseau isolé | réel |
+| `antivirus` | Asclépios | les vraies sources de signatures (OpenPhish, Stalkerware Indicators, signature-base, CISA KEV), de vraies archives (`zip`, `tar`, `gzip`), les programmes de la machine, le fichier de test EICAR | réel |
+| `pieges` | Sirènes → Asclépios → Cerbère | un attaquant avec de vrais clients (ssh, curl), virus d'essai EICAR | réel |
+| `vpn` | Vortex | un vrai tunnel WireGuard (téléphone et NAS dans des réseaux isolés) | réel |
+| `cameras` | Cyclope | un vrai flux RTSP avec mot de passe (MediaMTX + ffmpeg) | réel |
+| `venus` | Vénus | le vrai serveur Venus (dépôt TOUFATECH/Venus) | réel |
+| `homeassistant` | Midgard, Orphée, Apollon | un vrai Home Assistant (intégration de démonstration) | réel |
 | `relais` | Appareils | de vrais clients MQTT (Mosquitto) sur le relais d'Odin | réel |
-| `github` | Kvasir | GitHub en ligne (flux publics des versions) | réel |
-| `mcp` | Ratatoskr | les serveurs MCP officiels (programme local et HTTP) | réel |
-| `mcp-serveur` | Ratatoskr | le client officiel du SDK MCP sur le `/mcp` d'un vrai Odin | réel |
-| `proxmox` | Ymir | un simulateur de l'API Proxmox VE (HTTPS, jeton) | simulé |
-| `tasmota` | Brokkr, Appareils | un simulateur de module Tasmota (HTTP + MQTT) | simulé |
+| `github` | Pharos | GitHub en ligne (flux publics des versions) | réel |
+| `mcp` | Interprète | les serveurs MCP officiels (programme local et HTTP) | réel |
+| `mcp-serveur` | Interprète | le client officiel du SDK MCP sur le `/mcp` d'un vrai Odin | réel |
+| `proxmox` | Hydre | un simulateur de l'API Proxmox VE (HTTPS, jeton) | simulé |
+| `tasmota` | Héphaïstos, Appareils | un simulateur de module Tasmota (HTTP + MQTT) | simulé |
 | `telegram` | passerelle d'Odin | un simulateur de l'API Bot de Telegram | simulé |
 | `telegram-reel` | passerelle d'Odin | les vrais serveurs de Telegram | réel (avec ton jeton) |
 

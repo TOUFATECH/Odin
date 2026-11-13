@@ -1,4 +1,4 @@
-// Skögul — comportements suspects des programmes : exécutables lancés depuis /tmp, programme effacé
+// Némésis — comportements suspects des programmes : exécutables lancés depuis /tmp, programme effacé
 // après lancement, shell ouvert par un serveur web, mineurs de cryptomonnaie, nouveaux ports ouverts,
 // tâches planifiées modifiées. Une alerte par découverte, envoyée à Forseti.
 
@@ -54,7 +54,7 @@ export function listening(ssOut: string): string[] {
 }
 
 export const skogul: Module = {
-  id: 'skogul', name: 'Skögul', family: 'Sécurité',
+  id: 'skogul', name: 'Némésis', family: 'Sécurité',
   what: 'Surveille le comportement des programmes et signale ce qui n\'est pas normal.',
   does: ['programme lancé depuis /tmp ou /dev/shm', 'programme effacé après son lancement', 'shell ouvert par un serveur web (site piraté)', 'mineurs de cryptomonnaie', 'nouveau port ouvert sur la machine', 'tâches planifiées modifiées', 'arrêt d\'un processus suspect (avec ton accord)'],
   from: ['Falco'], upstream: ['falcosecurity/falco'],
@@ -73,7 +73,7 @@ export const skogul: Module = {
     };
   },
   watch: { every: 30, async run(ctx) {
-    for (const f of judge(procs())) { ctx.alert({ level: f.level, title: `Skögul : ${f.rule}`, detail: f.detail, key: `${f.rule}:${f.pid}`, data: { pid: f.pid } }); ctx.emit('suspect', { règle: f.rule, pid: f.pid, détail: f.detail }); }
+    for (const f of judge(procs())) { ctx.alert({ level: f.level, title: `Némésis : ${f.rule}`, detail: f.detail, key: `${f.rule}:${f.pid}`, data: { pid: f.pid } }); ctx.emit('suspect', { règle: f.rule, pid: f.pid, détail: f.detail }); }
     const r = await ctx.run('ss', ['-tulnpH'], { timeoutMs: 10_000 });
     if (!r.code) {
       const now = listening(`x\n${r.out}`), was = ctx.settings.ports as string[] | undefined;

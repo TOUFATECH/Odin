@@ -35,14 +35,14 @@ import { type OdinConfig, loadConfig, odinPaths, initHome, type OdinPaths, DEFAU
 import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
 import { Redactor } from './heimdall/redact.ts';
-import { Muninn } from './muninn/store.ts';
+import { Mnemosyne } from './muninn/store.ts';
 import { buildProvider, detectLocalBrain, type Route, Router } from './providers/router.ts';
 import { routeContext } from './providers/journal.ts';
 import { routingHistory } from './tools/routing.ts';
 import { BUILTIN_TOOLS, ensureWorkspace } from './tools/builtin.ts';
 import { ToolRegistry, type ToolContext } from './tools/registry.ts';
 import type { Provider } from './types.ts';
-import { Yggdrasil } from './yggdrasil/skills.ts';
+import { Athena } from './yggdrasil/skills.ts';
 import { Inventory } from './hlidskjalf/inventory.ts';
 import { NETWORK_TOOLS } from './tools/network.ts';
 import { adminEnable, machineOnboard } from './tools/onboard.ts';
@@ -65,8 +65,8 @@ export interface Odin {
   paths: OdinPaths;
   cfg: OdinConfig;
   agent: Agent;
-  muninn: Muninn;
-  skills: Yggdrasil;
+  muninn: Mnemosyne;
+  skills: Athena;
   heimdall: Heimdall;
   tools: ToolRegistry;
   inventory: Inventory;
@@ -97,10 +97,10 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   if (opts.configOverride) cfg = opts.configOverride(cfg);
   ensureWorkspace(paths.workspace);
 
-  const muninn = new Muninn(paths.db);
+  const muninn = new Mnemosyne(paths.db);
   // Mode privé (Réglages → Voix) : suit le réglage en direct, sans redémarrer.
   Object.defineProperty(muninn, 'privateMode', { get: () => Boolean(cfg.voice.privacy?.privateMode), set: () => {}, configurable: true });
-  const skills = new Yggdrasil(paths.skills, paths.drafts);
+  const skills = new Athena(paths.skills, paths.drafts);
   skills.signer = { sign: (c) => signContent(paths.home, c), verify: (c, s) => verifyContent(paths.home, c, s) };
   const redactor = Redactor.fromEnv();
   // Les mots de passe des machines du réseau sont masqués partout (journal, réponses, sorties).

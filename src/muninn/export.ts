@@ -2,7 +2,7 @@
 // en Markdown (lisible), JSON (complet) ou texte brut. Rien ne sort de la machine : le fichier est
 // seulement proposé au téléchargement dans l'interface.
 
-import type { Muninn } from './store.ts';
+import type { Mnemosyne } from './store.ts';
 
 export type ExportFormat = 'md' | 'json' | 'txt';
 export interface ExportRequest { sessions?: string[]; from?: number; to?: number; format?: ExportFormat; withTools?: boolean }
@@ -11,7 +11,7 @@ const when = (t: number) => new Date(t).toLocaleString('fr-FR', { dateStyle: 'sh
 const who = (role: string) => (role === 'user' ? 'Toi' : role === 'assistant' ? 'Odin' : role === 'tool' ? 'Outil' : role);
 
 /** Construit le fichier d'export. Rend son contenu, son type et un nom de fichier. */
-export function exportConversations(m: Muninn, r: ExportRequest): { body: string; mime: string; filename: string; count: number } {
+export function exportConversations(m: Mnemosyne, r: ExportRequest): { body: string; mime: string; filename: string; count: number } {
   const format: ExportFormat = r.format ?? 'md';
   const ids = r.sessions?.length ? r.sessions : m.listSessions(100_000).map((s) => s.id);
   const convs = ids.map((id) => m.getSession(id)).filter((s): s is NonNullable<typeof s> => Boolean(s)).map((s) => ({

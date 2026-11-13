@@ -1,4 +1,4 @@
-// Draupnir en marche : rangement des automatisations, déclencheurs (planning, webhook, Saga, flux,
+// Talos en marche : rangement des automatisations, déclencheurs (planning, webhook, Thot, flux,
 // pages surveillées), journal des exécutions, création à partir d'une phrase, import d'un workflow n8n.
 
 import { createHash, randomBytes } from 'node:crypto';
@@ -11,7 +11,7 @@ import { CATALOG, NODES, parseFeed } from './nodes.ts';
 
 const KEEP_RUNS = 40;
 
-export class Draupnir {
+export class Talos {
   private timers = new Map<string, Array<ReturnType<typeof setTimeout>>>();
   private hits = new Map<string, number[]>();
   private running = new Set<string>();
@@ -84,7 +84,7 @@ export class Draupnir {
       const ex = await execute(wf, CATALOG, this.deps, { node: trigger, items, mode, ...opts });
       this.record(ex);
       if (ex.status === 'erreur' && mode === 'déclencheur') {
-        if (wf.settings?.notifyOnError !== false) await this.deps.notify?.(`⚠️ Draupnir — « ${wf.name} » a échoué${ex.failedNode ? ` à l'étape « ${ex.failedNode} »` : ''} : ${ex.error}`).catch(() => {});
+        if (wf.settings?.notifyOnError !== false) await this.deps.notify?.(`⚠️ Talos — « ${wf.name} » a échoué${ex.failedNode ? ` à l'étape « ${ex.failedNode} »` : ''} : ${ex.error}`).catch(() => {});
         // Automatisations « Quand une automatisation échoue » (jamais pour elles-mêmes : pas de boucle).
         if (!wf.nodes.some((n) => n.type === 'déclencheur.erreur')) for (const w of this.list().filter((x) => x.active)) for (const n of w.nodes.filter((x) => x.type === 'déclencheur.erreur' && !x.disabled)) {
           if (n.params.surveille && String(n.params.surveille).toLowerCase() !== wf.name.toLowerCase()) continue;
@@ -191,11 +191,11 @@ export class Draupnir {
     await this.fire(wf.id, n.name, [{ json: { url, extrait: plain.slice(0, 1500), avant: prev.text.slice(0, 1500) } }]);
     return 1;
   }
-  /** Changement dans Saga → automatisations « Quand Saga change » qui correspondent. */
+  /** Changement dans Thot → automatisations « Quand Thot change » qui correspondent. */
   async onSaga(e: { kind: string; path: string; title?: string; type?: string }): Promise<void> {
     for (const wf of this.list().filter((w) => w.active)) for (const n of wf.nodes.filter((x) => x.type === 'déclencheur.saga' && !x.disabled)) {
       const p = n.params ?? {}, quand = String(p.quand ?? 'créée');
-      if (e.path.startsWith('Draupnir/')) continue;
+      if (e.path.startsWith('Talos/')) continue;
       if (quand !== 'tout' && quand !== e.kind) continue;
       if (p.dossier && !e.path.startsWith(`${String(p.dossier).replace(/\/$/, '')}/`)) continue;
       if (p.type && String(p.type) !== e.type) continue;
@@ -237,7 +237,7 @@ export function catalogText(): string {
   return NODES.map((n) => `- ${n.type}${n.trigger ? ' (DÉCLENCHEUR)' : ''} — ${n.what}${n.outputs ? ` Sorties : ${typeof n.outputs === 'function' ? 'une par cas + autre' : n.outputs.join(', ')}.` : ''}\n  réglages : ${n.params.map((p) => `${p.key}${p.options ? ` (${p.options.join('|')})` : ''}`).join(', ') || 'aucun'}`).join('\n');
 }
 export function flowPrompt(): string {
-  return `Tu écris des automatisations pour Draupnir, le moteur d'automatisations d'Odin. Réponds UNIQUEMENT par un objet JSON :
+  return `Tu écris des automatisations pour Talos, le moteur d'automatisations d'Odin. Réponds UNIQUEMENT par un objet JSON :
 {"name":"…","nodes":[{"name":"…","type":"…","params":{…},"position":[x,y]}],"connections":{"NomSource":[[{"node":"NomCible"}],[…sortie 2…]]},"settings":{"description":"…"}}
 Règles : exactement un déclencheur au début ; noms de nœuds uniques et courts en français ; positions de gauche à droite (x += 220) ; « Si » a deux sorties (oui, non) ;
 les données passent d'un nœud à l'autre en éléments ; dans les réglages, {{ $json.champ }} insère un champ de l'élément courant, {{ $node["Nom"].json.champ }} celui d'un nœud précédent, {{ $today }} la date.
@@ -308,12 +308,12 @@ export function templates(): Array<{ id: string; name: string; what: string; flo
       { name: 'Regrouper', type: 'données.regrouper', params: { champ: 'points' }, position: [440, 200] },
       { name: 'Rédiger', type: 'odin.demander', params: { consigne: 'Fais-moi un point du matin court à partir de : {{ $json.points }}. Commence par le plus urgent. S\'il n\'y a rien, réponds RIEN.', envoyer: 'si utile' }, position: [660, 200] },
     ] as unknown as Workflow['nodes'], connections: { ...L('Chaque matin', 'Attention'), ...L('Attention', 'Regrouper'), ...L('Regrouper', 'Rédiger') } } },
-    { id: 'flux-saga', name: 'Flux vers Saga', what: 'Chaque nouvel article d\'un flux (blog, chaîne YouTube) résumé et rangé dans Captures.', flow: { name: 'Flux vers Saga', nodes: [
+    { id: 'flux-saga', name: 'Flux vers Thot', what: 'Chaque nouvel article d\'un flux (blog, chaîne YouTube) résumé et rangé dans Captures.', flow: { name: 'Flux vers Thot', nodes: [
       { name: 'Nouvel article', type: 'déclencheur.flux', params: { url: 'https://exemple.com/flux.xml', minutes: 60 }, position: [0, 200] },
       { name: 'Résumer', type: 'odin.demander', params: { consigne: 'Résume en 5 lignes cet article : {{ $json.titre }} — {{ $json.résumé }} ({{ $json.lien }})', pour: 'par élément' }, position: [220, 200] },
       { name: 'Ranger', type: 'saga.écrire', params: { mode: 'créer', titre: '{{ $json.titre }}', type: 'capture', contenu: '{{ $json.réponse }}\n\nSource : {{ $json.lien }}' }, position: [440, 200] },
     ] as unknown as Workflow['nodes'], connections: { ...L('Nouvel article', 'Résumer'), ...L('Résumer', 'Ranger') } } },
-    { id: 'formulaire', name: 'Formulaire → Runes', what: 'Un webhook reçoit une demande (formulaire de site) et l\'ajoute à la base Clients, puis te prévient.', flow: { name: 'Formulaire vers Runes', nodes: [
+    { id: 'formulaire', name: 'Formulaire → Papyrus', what: 'Un webhook reçoit une demande (formulaire de site) et l\'ajoute à la base Clients, puis te prévient.', flow: { name: 'Formulaire vers Papyrus', nodes: [
       { name: 'Formulaire', type: 'déclencheur.webhook', params: { réponse: 'tout de suite' }, position: [0, 200] },
       { name: 'Ajouter le contact', type: 'runes.ajouter', params: { base: 'personne', titre: '{{ $json.nom }}', propriétés: '{ "email": "{{ $json.email }}", "message": "{{ $json.message }}" }' }, position: [220, 200] },
       { name: 'Prévenir', type: 'odin.prévenir', params: { texte: '📩 Nouvelle demande de {{ $json.nom }} : {{ $json.message }}' }, position: [440, 200] },
@@ -322,7 +322,7 @@ export function templates(): Array<{ id: string; name: string; what: string; flo
       { name: 'La page change', type: 'déclencheur.surveille', params: { url: 'https://exemple.com', minutes: 60 }, position: [0, 200] },
       { name: 'Ce qui a changé', type: 'odin.demander', params: { consigne: 'Avant : {{ $json.avant }}\nMaintenant : {{ $json.extrait }}\nDis en une phrase ce qui a changé sur {{ $json.url }}. Si rien d\'important, réponds RIEN.', envoyer: 'si utile' }, position: [220, 200] },
     ] as unknown as Workflow['nodes'], connections: L('La page change', 'Ce qui a changé') } },
-    { id: 'nouvelle-tache', name: 'Nouvelle tâche → rappel', what: 'Quand une tâche est créée dans Saga, Odin te la confirme avec son échéance.', flow: { name: 'Nouvelle tâche', nodes: [
+    { id: 'nouvelle-tache', name: 'Nouvelle tâche → rappel', what: 'Quand une tâche est créée dans Thot, Odin te la confirme avec son échéance.', flow: { name: 'Nouvelle tâche', nodes: [
       { name: 'Tâche créée', type: 'déclencheur.saga', params: { quand: 'créée', type: 'tâche' }, position: [0, 200] },
       { name: 'Prévenir', type: 'odin.prévenir', params: { texte: '📝 Nouvelle tâche : {{ $json.titre }}' }, position: [220, 200] },
     ] as unknown as Workflow['nodes'], connections: L('Tâche créée', 'Prévenir') } },

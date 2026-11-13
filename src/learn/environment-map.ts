@@ -78,7 +78,7 @@ export function surprises(devs: Dev[], pres: Record<string, Presence>, now: numb
   const out: Array<{ key: string; text: string }> = [], h = weekHour(now);
   for (const d of devs) {
     const p = pres[String(d.id)]; if (!p || now - p.since < 14 * 86_400_000) continue;
-    if (watched.includes(String(d.id))) continue; // déjà surveillé par Vörðr
+    if (watched.includes(String(d.id))) continue; // déjà surveillé par Pulsar
     const r = rhythm(p);
     if (r.alwaysOn && d.status !== 'online') out.push({ key: `off:${d.id}`, text: `- ${nameOf(d)} (${d.ip}) est éteint alors qu'il est toujours allumé d'habitude.` });
     else if (d.status === 'online' && p.seen[h] >= 2 && p.on[h] === 0 && !r.alwaysOn && sum(p.on) / sum(p.seen) < 0.3) out.push({ key: `odd:${d.id}:${h}`, text: `- ${nameOf(d)} (${d.ip}) est allumé ${DAYS[Math.floor(h / 24)]} à ${h % 24} h, ce qui n'arrive jamais d'habitude.` });

@@ -1,7 +1,7 @@
-// Urðr — LA base de données d'Odin : un seul serveur PostgreSQL (« odin-pg ») dans le moteur de conteneurs, à une
+// Alexandrie — LA base de données d'Odin : un seul serveur PostgreSQL (« odin-pg ») dans le moteur de conteneurs, à une
 // adresse fixe du réseau privé des conteneurs (jamais publié dehors). Chaque appli qui a besoin d'une base y reçoit
 // la sienne, avec son propre compte (elle ne voit pas celles des autres) ; le mot de passe est généré et rangé dans
-// le coffre, et Skuld la sauvegarde chaque nuit. Pas de fichier SQLite pour les applis installées.
+// le coffre, et Arche la sauvegarde chaque nuit. Pas de fichier SQLite pour les applis installées.
 import { randomBytes } from 'node:crypto';
 import { cpus, totalmem } from 'node:os';
 import { mkdirSync } from 'node:fs';
@@ -26,7 +26,7 @@ export interface DbInfo { host: string; ip: string; port: number; database: stri
 export async function serverReady(home: string, e: Pick<Engine, 'find'>): Promise<boolean> {
   try { const c = e.find(SERVER); if (c.state.status !== 'en marche' || !c.state.ip) return false; const p = await Pg.connect({ host: c.state.ip, port, user: 'postgres', password: password(home, SERVER), database: 'postgres', ssl: 'non', timeoutMs: 3000 }); await p.close(); return true; } catch { return false; }
 }
-/** Crée le serveur (une fois) : mot de passe généré, données dans le dossier d'Urðr, adresse fixe, grandit tout seul. */
+/** Crée le serveur (une fois) : mot de passe généré, données dans le dossier d'Alexandrie, adresse fixe, grandit tout seul. */
 export function createServer(home: string, e: Pick<Engine, 'find' | 'runJob'>, now = new Date()): Job | undefined {
   try { e.find(SERVER); return undefined; } catch { /* à créer */ }
   const data = join(dirOf(home), 'donnees', SERVER); mkdirSync(data, { recursive: true, mode: 0o700 });
@@ -40,7 +40,7 @@ export function createServer(home: string, e: Pick<Engine, 'find' | 'runJob'>, n
 /** Attend que le serveur réponde (après sa création ou un redémarrage). */
 export async function waitServer(home: string, e: Pick<Engine, 'find'>, ms = 180_000): Promise<void> {
   const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await serverReady(home, e)) return; await new Promise((r) => setTimeout(r, 1000)); }
-  throw new Error('la base d\'Odin ne répond pas (regarde son journal dans Naglfar : odin-pg)');
+  throw new Error('la base d\'Odin ne répond pas (regarde son journal dans Argo : odin-pg)');
 }
 export const roleOf = (app: string) => (`app_${app.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`.slice(0, 50).replace(/_$/, '')) || 'app_base';
 

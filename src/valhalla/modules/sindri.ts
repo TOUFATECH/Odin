@@ -1,5 +1,5 @@
-// Sindri — le forgeron des sauvegardes : un seul moteur pour tout sauvegarder (dossiers, Saga, Odin,
-// partages des PC du foyer en mode « Hvergelmir », exports de machines virtuelles en mode « Andvari »).
+// Phénix — le forgeron des sauvegardes : un seul moteur pour tout sauvegarder (dossiers, Thot, Odin,
+// partages des PC du foyer en mode « Oïkos », exports de machines virtuelles en mode « Osiris »).
 // Chiffré (AES-256-GCM) avant d'écrire, dédupliqué (un même morceau n'est stocké qu'une fois),
 // instantanés datés, rétention (jours, semaines, mois), restauration et vérification.
 
@@ -13,7 +13,7 @@ import { walk } from './ullr.ts';
 const CHUNK = 1024 * 1024;
 export interface FileEntry { path: string; size: number; mtime: number; mode: number; chunks: string[] }
 export interface Snapshot { id: string; at: string; plan: string; paths: string[]; files: FileEntry[]; bytes: number; added: number }
-export interface Plan { name: string; paths: string[]; repo: string; at: string; keep: { last: number; daily: number; weekly: number; monthly: number }; /** machines virtuelles à figer (instantané Ymir) avant la sauvegarde */ vms?: number[]; exclude?: string[] }
+export interface Plan { name: string; paths: string[]; repo: string; at: string; keep: { last: number; daily: number; weekly: number; monthly: number }; /** machines virtuelles à figer (instantané Hydre) avant la sauvegarde */ vms?: number[]; exclude?: string[] }
 
 export class Repo {
   readonly root: string; private key: Buffer; private mac: Buffer;
@@ -86,7 +86,7 @@ const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined
 function repoOf(ctx: ModCtx, path: string): Repo { const pw = process.env.SINDRI_PASSWORD; if (!pw) throw new Error('mot de passe des sauvegardes absent : range-le dans le coffre (SINDRI_PASSWORD)'); return new Repo(path, pw); }
 const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return `${Math.round(b * 10) / 10} ${u[i]}`; };
 async function runPlan(ctx: ModCtx, p: Plan): Promise<string> {
-  // Mode Andvari (lien Sindri → Ymir) : un instantané de chaque machine virtuelle du plan, juste avant la sauvegarde.
+  // Mode Osiris (lien Phénix → Hydre) : un instantané de chaque machine virtuelle du plan, juste avant la sauvegarde.
   const vmNotes: string[] = [];
   for (const vmid of p.vms ?? []) { const r = await ctx.call('ymir', 'instantane', { vmid, nom: `sindri-${ctx.now().toISOString().slice(0, 10).replace(/-/g, '')}` }, `avant la sauvegarde « ${p.name} »`).catch((e) => ({ ok: false, text: (e as Error).message })); vmNotes.push(`${r.ok === false ? '✗' : '✓'} machine ${vmid}`); }
   const repo = repoOf(ctx, p.repo), t0 = Date.now(), snap = backup(repo, p, ctx.now());
@@ -98,11 +98,11 @@ async function runPlan(ctx: ModCtx, p: Plan): Promise<string> {
 }
 
 export const sindri: Module = {
-  id: 'sindri', name: 'Sindri', family: 'Machines',
+  id: 'sindri', name: 'Phénix', family: 'Machines',
   what: 'Les sauvegardes : chiffrées, dédupliquées, planifiées, vérifiées, et la restauration d\'un fichier ou de tout.',
-  does: ['sauvegarde chiffrée (AES-256) avant d\'écrire quoi que ce soit', 'déduplication : un morceau identique n\'est stocké qu\'une fois', 'plans planifiés (heure par jour) avec rétention (derniers, jours, semaines, mois)', 'dépôts sur disque USB, partage réseau ou serveur monté', 'restauration d\'un fichier, d\'un dossier ou de tout', 'vérification de l\'intégrité chaque semaine', 'mode Hvergelmir : partages des PC du foyer', 'mode Andvari : exports de machines virtuelles', 'alerte si une sauvegarde échoue ou prend du retard'],
+  does: ['sauvegarde chiffrée (AES-256) avant d\'écrire quoi que ce soit', 'déduplication : un morceau identique n\'est stocké qu\'une fois', 'plans planifiés (heure par jour) avec rétention (derniers, jours, semaines, mois)', 'dépôts sur disque USB, partage réseau ou serveur monté', 'restauration d\'un fichier, d\'un dossier ou de tout', 'vérification de l\'intégrité chaque semaine', 'mode Oïkos : partages des PC du foyer', 'mode Osiris : exports de machines virtuelles', 'alerte si une sauvegarde échoue ou prend du retard'],
   from: ['Restic', 'UrBackup', 'Proxmox Backup Server'], upstream: ['restic/restic', 'uroni/urbackup_backend', 'proxmox/proxmox-backup'],
-  modes: ['Hvergelmir · PC du foyer', 'Andvari · machines virtuelles'],
+  modes: ['Oïkos · PC du foyer', 'Osiris · machines virtuelles'],
   words: ['sauvegarde', 'sauvegardes', 'sauvegarder', 'backup', 'restaurer', 'restauration', 'récupérer un fichier', 'recuperer', 'instantane', 'instantané', 'archive'],
   actions: [
     { id: 'plans', label: 'Plans de sauvegarde', what: 'Ce qui est sauvegardé, où et quand', read: true, words: ['plans', 'quoi est sauvegarde'], run: (ctx) => { const l = (ctx.settings.last as Record<string, { at: string; ok: boolean; files: number }>) ?? {}; return { text: plans(ctx).map((p) => `- ${p.name} : ${p.paths.join(', ')} → ${p.repo} · chaque jour à ${p.at} · dernière : ${l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(0, 16).replace('T', ' ')}` : 'jamais'}`).join('\n') || 'Aucun plan.' }; } },
@@ -113,7 +113,7 @@ export const sindri: Module = {
       ctx.saveSettings({ plans: [...plans(ctx).filter((x) => x.name !== p.name), p] });
       return { text: `🗓 Plan « ${p.name} » : chaque jour à ${p.at}, ${p.paths.length} dossier(s) → ${p.repo}.` };
     } },
-    { id: 'machines', label: 'Machines virtuelles du plan (Andvari)', what: 'Avant chaque sauvegarde de ce plan, Ymir prend un instantané de ces machines virtuelles', params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'vms', label: 'Numéros des machines (séparés par des virgules ; vide = aucune)', kind: 'text', default: '' }], run: (ctx, i) => {
+    { id: 'machines', label: 'Machines virtuelles du plan (Osiris)', what: 'Avant chaque sauvegarde de ce plan, Hydre prend un instantané de ces machines virtuelles', params: [{ key: 'plan', label: 'Plan', kind: 'text', required: true }, { key: 'vms', label: 'Numéros des machines (séparés par des virgules ; vide = aucune)', kind: 'text', default: '' }], run: (ctx, i) => {
       const p = plans(ctx).find((x) => x.name === s(i.plan)); if (!p) throw new Error('plan inconnu');
       const vms = s(i.vms).split(/[\s,;]+/).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n < 1e9);
       ctx.saveSettings({ plans: plans(ctx).map((x) => (x.name === p.name ? { ...x, vms } : x)) });
@@ -133,7 +133,7 @@ export const sindri: Module = {
     const ps = plans(ctx), late = ps.filter((p) => !l[p.name] || Date.now() - Date.parse(l[p.name].at) > 36 * 3600_000);
     return {
       subtitle: process.env.SINDRI_PASSWORD ? 'Tout est chiffré avant de partir.' : '⚠ Range d\'abord un mot de passe de sauvegarde dans le coffre (SINDRI_PASSWORD).',
-      tabs: ['Sindri · dossiers', 'Hvergelmir · PC du foyer', 'Andvari · machines virtuelles'],
+      tabs: ['Phénix · dossiers', 'Oïkos · PC du foyer', 'Osiris · machines virtuelles'],
       kpis: [{ label: 'Plans', value: String(ps.length) }, { label: 'En retard', value: String(late.length), tone: late.length ? 'attention' : 'bon' }, { label: 'Dernière réussie', value: Object.values(l).filter((x) => x.ok).sort((a, b) => b.at.localeCompare(a.at))[0]?.at.slice(0, 16).replace('T', ' ') ?? '—' }],
       sections: [{ kind: 'table', title: 'Plans', columns: ['Plan', 'Dossiers', 'Dépôt', 'Quand', 'Dernière'], empty: 'Aucun plan : crée-en un à droite.', rows: ps.map((p) => ({ cells: [p.name, p.paths.join(', '), p.repo, `chaque jour ${p.at}`, l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(5, 16).replace('T', ' ')} · ${human(l[p.name].bytes ?? 0)}` : 'jamais'], tone: !l[p.name] ? 'attention' : l[p.name].ok ? 'bon' : 'mauvais', actions: [{ action: 'sauvegarder', label: 'Maintenant', input: { plan: p.name } }, { action: 'instantanes', label: 'Versions', input: { plan: p.name } }] })) }],
       side: [{ kind: 'form', title: 'Nouveau plan', action: 'creer', submit: 'Créer', params: sindri.actions.find((a) => a.id === 'creer')?.params ?? [] }, { kind: 'form', title: 'Retrouver un fichier', action: 'chercher', submit: 'Chercher', params: sindri.actions.find((a) => a.id === 'chercher')?.params ?? [] }],

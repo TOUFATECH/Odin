@@ -1,4 +1,4 @@
-// Þjálfi dans l'interface (maquettes validées « Démarrage réseau · Odin te prévient » et « Écran de démarrage »),
+// Genèse dans l'interface (maquettes validées « Démarrage réseau · Odin te prévient » et « Écran de démarrage »),
 // dans le thème de la fenêtre d'Odin :
 // - Odin te prévient : les demandes « Installer pour moi » à décider (Autoriser efface le disque : ton accord d'abord),
 //   les machines en direct avec leurs étapes, le fil des événements, les chiffres du jour.
@@ -67,7 +67,7 @@
   const mins = (ms) => Math.max(0, Math.round(ms / 60000));
   const THEME_DOT = { nuit: '#ffd166', mayotte: '#0f8a83', espace: '#8b5cf6', ocean: '#22b3e6', odin: '#ffffff' };
   const sw = (on, label, onchange) => el('button', { class: 'tj-sw', type: 'button', role: 'switch', 'aria-checked': String(Boolean(on)), 'aria-label': label, onclick: (e) => { const b = e.currentTarget, v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(v)); onchange(v); } });
-  const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Þjálfi', app: 'Þjálfi' }); };
+  const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Genèse', app: 'Genèse' }); };
 
   function decision(d, D, redraw) {
     const sys = (D.systemes ?? []).find((x) => x.id === d.iso), left = 30 * 60_000 - (Date.now() - d.at);
@@ -105,7 +105,7 @@
     if (!dec.length) left.append(el('div', { class: 'tj-w' }, el('h3', {}, ic('shield', 16), 'Rien à décider'), el('p', { class: 'tj-empty' }, 'Quand un PC demande « Installer pour moi » sur l\'écran, la demande arrive ici et sur ton téléphone. Rien ne s\'efface sans ton accord.')));
     const run = D.enCours ?? [];
     left.append(el('div', { class: 'tj-w' }, el('h3', {}, 'En direct', el('small', {}, `${run.length} machine${run.length > 1 ? 's' : ''}`), run.length ? el('span', { class: 'r tj-live' }, 'en direct') : null),
-      ...run.map((m) => machine(m, D)), run.length ? null : el('p', { class: 'tj-empty' }, D.allume ? 'Aucune machine ne démarre par le réseau en ce moment.' : 'Þjálfi est éteint : allume-le dans l\'onglet « Tout ».')));
+      ...run.map((m) => machine(m, D)), run.length ? null : el('p', { class: 'tj-empty' }, D.allume ? 'Aucune machine ne démarre par le réseau en ce moment.' : 'Genèse est éteint : allume-le dans l\'onglet « Tout ».')));
     const fil = (D.fil ?? []).filter((e) => S.fil === 'tout' || (S.fil === 'erreurs' ? /échec|sans nouvelles|raté/.test(e.etape + e.detail) : /accord|demande|échec|sans nouvelles/.test(e.etape + e.detail)));
     right.append(el('div', { class: 'tj-w' }, el('h3', {}, 'Fil des événements', el('span', { class: 'r tj-seg' }, ...[['tout', 'Tout'], ['afaire', 'À faire'], ['erreurs', 'Erreurs']].map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(S.fil === k), onclick: () => { S.fil = k; redraw(); } }, t)))),
       ...fil.slice(0, 14).map((e) => { const [col, i] = EV(e); return el('div', { class: 'tj-ev' }, el('time', {}, hhmm(e.at)), el('div', { class: 'c', style: `background:${col}14;border-color:${col}55` }, el('span', { class: 'd', style: `background:${col}` }, ic(i, 12)), el('b', {}, `${e.nom} · ${e.etape}`), e.detail ? el('span', {}, e.detail) : null)); }),
@@ -132,7 +132,7 @@
         el('div', { class: 'tj-row' }, el('span', {}, 'Sans choix, la machine reprend son disque après'), wait, el('small', {}, 'min')),
         el('p', { class: 'tj-note' }, 'Sur l\'écran, la touche T change de thème le temps de la session.'))));
     root.append(el('div', { class: 'tj-btns' }, el('button', { class: 'tj-pill pri', type: 'button', onclick: async (ev) => { ev.currentTarget.disabled = true; const x = await post('ecran', { ...e, attente: Number(wait.value) }); ev.currentTarget.disabled = false; out.textContent = x.text; note(x); } }, 'Enregistrer'),
-      D.url ? el('a', { class: 'tj-pill n', href: `${D.url}?apercu`, target: '_blank', rel: 'noopener' }, 'Voir l\'aperçu') : el('span', { class: 'tj-note', style: 'margin:0' }, 'Allume Þjálfi pour voir l\'aperçu.'), out));
+      D.url ? el('a', { class: 'tj-pill n', href: `${D.url}?apercu`, target: '_blank', rel: 'noopener' }, 'Voir l\'aperçu') : el('span', { class: 'tj-note', style: 'margin:0' }, 'Allume Genèse pour voir l\'aperçu.'), out));
   }
 
   window.OdinPages.thjalfi = async ({ host, generic }) => {

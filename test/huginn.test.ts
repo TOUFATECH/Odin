@@ -1,4 +1,4 @@
-// Huginn : Odin comprend une demande SANS modèle d'IA et utilise toutes ses applis.
+// Logos : Odin comprend une demande SANS modèle d'IA et utilise toutes ses applis.
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,7 +32,7 @@ function world() {
 }
 const show = (u: Understood | undefined) => !u ? '—' : u.kind === 'action' ? `${u.module}.${u.action} ${JSON.stringify(u.input)}` : u.kind === 'ask' ? `? ${u.module}.${u.action} ${u.missing}` : u.kind === 'manip' ? `manip ${u.id} ${u.keep ? 'garder' : 'annuler'}` : 'dit';
 
-test('Huginn : racines des mots, durées, réglages tirés de la phrase', () => {
+test('Logos : racines des mots, durées, réglages tirés de la phrase', () => {
   assert.equal(stem('redémarre'), stem('redémarrer')); assert.equal(stem('sauvegardes'), stem('sauvegarder')); assert.equal(stem('joue'), stem('jouer'));
   assert.notEqual(stem('mail'), stem('maillage'), 'deux mots différents ne doivent pas se confondre');
   assert.equal(minutesIn('pendant 2 heures'), 120); assert.equal(minutesIn('30 min'), 30); assert.equal(minutesIn('pour 1 jour'), 1440); assert.equal(minutesIn('rien'), undefined);
@@ -41,7 +41,7 @@ test('Huginn : racines des mots, durées, réglages tirés de la phrase', () => 
   assert.deepEqual(fill(a, 'bannis 999.1.1.1', new Map()), {}, 'une fausse adresse IP n\'est pas prise');
 });
 
-test('Huginn : la bonne appli, la bonne action, les bons réglages (sans IA)', async () => {
+test('Logos : la bonne appli, la bonne action, les bons réglages (sans IA)', async () => {
   const w = world();
   const cases: Array<[string, string]> = [
     ['les alertes', 'forseti.alertes {"gravite":"moyenne"}'],
@@ -124,7 +124,7 @@ test('Huginn : la bonne appli, la bonne action, les bons réglages (sans IA)', a
   w.end();
 });
 
-test('Huginn : il ne devine pas — les phrases de tous les jours ne déclenchent aucune appli', async () => {
+test('Logos : il ne devine pas — les phrases de tous les jours ne déclenchent aucune appli', async () => {
   const w = world();
   const chat = ['garde ce lien https://exemple.fr/article', 'résume ce site https://exemple.fr', 'envoie un message à Awa : coucou', 'bonjour comment vas-tu', 'quelle heure est-il', 'raconte-moi une blague', 'merci beaucoup', 'quel temps fait-il demain', 'écris un mail à Paul', 'tu peux m\'expliquer la photosynthèse', 'j\'ai mal à la tête', 'quel est le prix du bitcoin', 'traduis bonjour en anglais', 'écris un poème sur la mer', 'on mange quoi ce soir', 'ma voiture est en panne', 'quelle est la capitale du Japon', 'combien font 12 fois 13', 'mon fils a de la fièvre', 'il fait chaud aujourd\'hui', 'la réunion est à 15h', 'pense à acheter du pain', 'j\'ai acheté une nouvelle lampe hier', 'le film d\'hier était super', 'fais-moi un résumé de la page wikipedia sur Mayotte', 'rappelle-moi d\'appeler le client'];
   const caught: string[] = [];
@@ -134,9 +134,9 @@ test('Huginn : il ne devine pas — les phrases de tous les jours ne déclenchen
   w.end();
 });
 
-test('Huginn : explications, question quand il manque un réglage, réponse au message suivant', async () => {
+test('Logos : explications, question quand il manque un réglage, réponse au message suivant', async () => {
   const w = world();
-  const ex = await understand(w.v, 'à quoi sert Sindri', 'e', NOW);
+  const ex = await understand(w.v, 'à quoi sert Phénix', 'e', NOW);
   assert.equal(ex?.kind, 'say'); assert.match((ex as { text: string }).text, /Phénix[\s\S]*sauvegardes[\s\S]*Liens avec les autres applis[\s\S]*Exemples/);
   assert.match(((await understand(w.v, 'c\'est quoi un vpn', 'e', NOW)) as { text: string }).text, /Vortex/);
   assert.match(((await understand(w.v, 'qui fait quoi', 'e', NOW)) as { text: string }).text, /Sirènes → Cerbère/);
@@ -171,7 +171,8 @@ test('sans IA de bout en bout : Odin agit par ses applis, les actions graves dem
     assert.match((await offlineAct('liste les conteneurs', run, has, 's1'))!, /Argo · Lister les conteneurs\n[\s\S]*web/);
     assert.match((await offlineAct('supprime le conteneur web', run, has, 's1'))!, /Action refusée : supprimer/i, 'action grave : jamais sans ton accord');
     assert.ok(!w.ran.some((c) => /\brm\b.*web/.test(c)), 'rien n\'a été supprimé');
-    assert.match((await offlineAct('explique Garmr', run, has, 's1'))!, /Cerbère[\s\S]*Bannit/);
+    assert.match((await offlineAct('explique Cerbère', run, has, 's1'))!, /Cerbère[\s\S]*Bannit/);
+    assert.doesNotMatch((await offlineAct('explique garmr', run, has, 'neuf')) ?? '', /Cerbère/, 'l\'ancien nom est oublié');
     assert.match((await offlineAct('aide', run, has, 's1'))!, /Mes applis, sans IA aussi[\s\S]*Sécurité :[\s\S]*Cerbère/);
     assert.match((await offlineAct('j\'ai besoin de protéger un serveur ouvert sur Internet', run, has, 's1'))!, /Sirènes|Cerbère/);
     assert.equal(await offlineAct('quelle est la capitale du Japon', run, has, 's1'), undefined, 'rien de compris : rien n\'est tenté');
@@ -183,7 +184,7 @@ test('sans IA de bout en bout : Odin agit par ses applis, les actions graves dem
 
 test('manips : ce qu\'Odin fait seul est noté, annoncé, et se garde ou s\'annule (Breaker : il garde seul)', async () => {
   const w = world();
-  // Un réflexe (Loki → Garmr) bannit un attaquant : personne ne l'a demandé.
+  // Un réflexe (Sirènes → Cerbère) bannit un attaquant : personne ne l'a demandé.
   await w.v.ctx('loki').call('garmr', 'bannir', { ip: '203.0.113.77', raison: 'piège SSH', minutes: 1440 }, 'un pirate a tapé un mot de passe dans un piège');
   const [m] = w.v.manips();
   assert.equal(m.state, 'à décider'); assert.equal(m.by, 'réflexe'); assert.equal(m.label, 'Cerbère · Bannir une adresse');

@@ -13,7 +13,7 @@ import { valhallaGet, valhallaPost } from '../src/web/valhalla-api.ts';
 
 test('niveaux et procédure par défaut', () => {
   assert.deepEqual((['critique', 'haute', 'moyenne', 'info'] as const).map(levelOf), ['grave', 'souci', 'souci', 'ok']);
-  assert.match(defaultSteps('grave', 'Ullr')[0], /Ouvre Ullr/);
+  assert.match(defaultSteps('grave', 'Asclépios')[0], /Ouvre Asclépios/);
   assert.deepEqual(defaultSteps('ok', 'X'), ['Rien à faire.']);
 });
 
@@ -37,7 +37,7 @@ test('bulles : alertes (procédure, manip), décisions d\'Odin, direct, historiq
     const b = live.at(-1)!;
     assert.equal(b.level, 'souci'); assert.match(b.steps[0], /Regarde le détail dans Pulsar/);
     // Une décision prise seul par Odin → bulle verte « Décision d'Odin » avec Garder / annuler.
-    v.events.emit('manip', { id: 'abcd', at: new Date().toISOString(), module: 'garmr', action: 'bannir', label: 'Garmr · Bannir', input: {}, text: 'Banni 203.0.113.9 pour 1 h', by: 'réflexe', why: '5 essais ratés', undo: { action: 'debannir', input: { ip: '203.0.113.9' }, label: 'Débannir' }, state: 'à décider' });
+    v.events.emit('manip', { id: 'abcd', at: new Date().toISOString(), module: 'garmr', action: 'bannir', label: 'Cerbère · Bannir', input: {}, text: 'Banni 203.0.113.9 pour 1 h', by: 'réflexe', why: '5 essais ratés', undo: { action: 'debannir', input: { ip: '203.0.113.9' }, label: 'Débannir' }, state: 'à décider' });
     const c = live.at(-1)!;
     assert.deepEqual([c.level, c.kind, c.title], ['ok', 'Décision d\'Odin', 'Banni 203.0.113.9 pour 1 h']);
     assert.match(c.detail!, /par réflexe entre applis \(5 essais ratés\)/);

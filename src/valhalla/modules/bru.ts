@@ -1,4 +1,4 @@
-// Brú — le pont vers Internet par Cloudflare (tunnel nommé) : tes sites et applis d'Odin accessibles de
+// Bifröst — le pont vers Internet par Cloudflare (tunnel nommé) : tes sites et applis d'Odin accessibles de
 // l'extérieur sous ton nom de domaine, sans ouvrir de port sur la box. Avec la clé Cloudflare (Réglages →
 // Accès), Odin crée le tunnel, ajoute tout seul les enregistrements DNS de chaque nom chez Cloudflare et les
 // règles du tunnel, puis le fait tourner et le surveille.
@@ -112,7 +112,7 @@ const ST: Record<string, string> = { healthy: 'en bonne santé', degraded: 'dég
 // ---------------- Le graphe ----------------
 export function bridgeGraph(t: TunnelInfo | undefined, pub: Published[], running: boolean, st?: { status: string; connections: number }): { nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail> } {
   const ok = running && st?.status === 'healthy';
-  const nodes: GraphNode[] = [{ id: 'cloudflare', label: 'Cloudflare', sub: 'Internet', square: true, size: 14, color: '#F0A040' }, { id: 'odin', label: 'Odin · Brú', sub: t ? `tunnel ${t.name}` : 'pas de tunnel', square: true, size: 18, color: running ? '#4F9DDE' : '#7d8791', hub: true }];
+  const nodes: GraphNode[] = [{ id: 'cloudflare', label: 'Cloudflare', sub: 'Internet', square: true, size: 14, color: '#F0A040' }, { id: 'odin', label: 'Odin · Bifröst', sub: t ? `tunnel ${t.name}` : 'pas de tunnel', square: true, size: 18, color: running ? '#4F9DDE' : '#7d8791', hub: true }];
   const edges: GraphEdge[] = [{ a: 'cloudflare', b: 'odin', w: ok ? 4 : 1, color: ok ? '#57C98A' : undefined, dash: !running }], details: Record<string, GraphDetail> = {};
   details.odin = { kind: 'Tunnel Cloudflare', title: t ? t.name : 'Pas encore de tunnel', subtitle: t ? `identifiant ${t.id.slice(0, 8)}…` : 'clé Cloudflare dans Réglages → Accès, puis « Créer le tunnel »', chips: [{ label: running ? 'Programme en marche' : 'Arrêté', tone: running ? 'bon' : 'neutre' }, ...(st ? [{ label: `Cloudflare : ${ST[st.status] ?? st.status}`, tone: (st.status === 'healthy' ? 'bon' : st.status === 'degraded' ? 'attention' : 'mauvais') as Tone }] : [])], rows: [{ k: 'Connexions', v: st ? `${st.connections} vers Cloudflare` : '—' }, { k: 'Noms publiés', v: String(pub.length) }], actions: [{ action: running ? 'arreter' : 'demarrer', label: running ? 'Arrêter le tunnel' : 'Démarrer le tunnel', input: {}, primary: !running }] };
   const zones = [...new Set(pub.map((p) => p.zone))];
@@ -127,9 +127,9 @@ export function bridgeGraph(t: TunnelInfo | undefined, pub: Published[], running
 }
 
 export const bru: Module = {
-  id: 'bru', name: 'Brú', family: 'Accès',
+  id: 'bru', name: 'Bifröst', family: 'Accès',
   what: 'Le pont vers Internet par Cloudflare : tes sites et applis d\'Odin accessibles de l\'extérieur sous ton nom de domaine, sans ouvrir de port sur la box. Les DNS sont ajoutés tout seuls chez Cloudflare.',
-  does: ['tunnel Cloudflare nommé créé avec ta clé, sans ouvrir de port sur la box', 'chaque nom ajouté au proxy Valgrind (et le portail de Vár) est publié tout seul : règle du tunnel + enregistrement DNS chez Cloudflare', 'certificat HTTPS public fourni par Cloudflare', 'vraie adresse du visiteur transmise (bannissements et accès par adresses restent justes)', 'programme officiel cloudflared téléchargé et vérifié par Odin (empreinte), redémarré s\'il s\'arrête', 'santé du tunnel surveillée (Cloudflare), alerte s\'il tombe', 'retirer un nom d\'Internet : règle et DNS enlevés (seulement ceux d\'Odin)', 'graphe : Cloudflare, tes domaines, les noms publiés, Odin'],
+  does: ['tunnel Cloudflare nommé créé avec ta clé, sans ouvrir de port sur la box', 'chaque nom ajouté au proxy Valgrind (et le portail de Persona) est publié tout seul : règle du tunnel + enregistrement DNS chez Cloudflare', 'certificat HTTPS public fourni par Cloudflare', 'vraie adresse du visiteur transmise (bannissements et accès par adresses restent justes)', 'programme officiel cloudflared téléchargé et vérifié par Odin (empreinte), redémarré s\'il s\'arrête', 'santé du tunnel surveillée (Cloudflare), alerte s\'il tombe', 'retirer un nom d\'Internet : règle et DNS enlevés (seulement ceux d\'Odin)', 'graphe : Cloudflare, tes domaines, les noms publiés, Odin'],
   from: ['cloudflared (Cloudflare Tunnel)'], upstream: ['cloudflare/cloudflared'],
   words: ['tunnel cloudflare', 'cloudflare tunnel', 'accessible de l\'extérieur', 'accès extérieur', 'publier sur internet', 'mettre en ligne', 'sans ouvrir de port'],
   actions: [
@@ -181,7 +181,7 @@ export const bru: Module = {
       if (other.length && i.remplacer !== true) postNotice({ level: 'souci', module: 'bru', title: `${host} a déjà un enregistrement DNS chez Cloudflare`, detail: `${other.map((r) => `${r.type} → ${r.content}`).join(', ')}. Odin ne l'a pas écrasé : ce nom n'est pas publié.`, steps: ['Si l\'ancien enregistrement ne sert plus, publie avec « Remplacer ».', 'Sinon, choisis un autre nom.'], actions: [{ module: 'bru', action: 'publier', input: { domaine: host, remplacer: true }, label: 'Remplacer et publier', primary: true }], page: { app: 'bru' }, source: 'info' });
       if (other.length && i.remplacer !== true) return { ok: false, text: `${host} a déjà ${other.map((r) => `un enregistrement ${r.type} → ${r.content}`).join(', ')} chez Cloudflare. Je ne l'écrase pas : coche « Remplacer » si c'est voulu.` };
       for (const r of other) await cf(ctx, `/zones/${z.id}/dns_records/${r.id}`, { method: 'DELETE' });
-      const rec = mine ?? await cf<{ id: string }>(ctx, `/zones/${z.id}/dns_records`, { method: 'POST', body: { type: 'CNAME', name: host, content: target, proxied: true, ttl: 1, comment: 'Odin · tunnel Brú' } });
+      const rec = mine ?? await cf<{ id: string }>(ctx, `/zones/${z.id}/dns_records`, { method: 'POST', body: { type: 'CNAME', name: host, content: target, proxied: true, ttl: 1, comment: 'Odin · tunnel Bifröst' } });
       await setIngress(ctx, t, withRule(await ingress(ctx, t), host, service, s(i.hote) || host));
       ctx.saveSettings({ published: [...published(ctx).filter((p) => p.hostname !== host), { hostname: host, service, zone: z.name, zoneId: z.id, recordId: rec.id, at: Date.now() }] });
       ctx.emit('publie', { nom: host, cible: service });

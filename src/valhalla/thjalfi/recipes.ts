@@ -1,4 +1,4 @@
-// Þjálfi · « recettes » : reconnaître ce que contient une ISO, savoir comment la démarrer par le réseau, et
+// Genèse · « recettes » : reconnaître ce que contient une ISO, savoir comment la démarrer par le réseau, et
 // écrire le fichier de réponses de l'installation sans rien toucher (Ubuntu autoinstall, Debian preseed,
 // Kickstart pour Fedora / Rocky / Alma, unattend.xml pour Windows). Tout est pur ici (sauf la lecture de l'ISO).
 import { createHash, randomBytes } from 'node:crypto';
@@ -62,11 +62,11 @@ const q = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').repl
 
 /** Le script iPXE d'une machine : menu, entrée par défaut, démarrage de chaque ISO. Pur. */
 export function menu(m: MenuIn): string {
-  const L = ['#!ipxe', `# Odin · Þjálfi — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ''];
+  const L = ['#!ipxe', `# Odin · Genèse — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ''];
   L.push(`menu Odin - Deploiement reseau (${m.mac})`);
   if (m.ecran) L.push('item ecran Choisir sur l\'ecran d\'Odin (telephone ou PC du reseau)');
   L.push('item local Demarrer sur le disque de cette machine');
-  if (m.entries.length) L.push('item --gap -- ISO d\'Odin (Eitri) :');
+  if (m.entries.length) L.push('item --gap -- ISO d\'Odin (Andromède) :');
   for (const e of m.entries) { const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
   L.push('item --gap --', 'item shell Ligne de commande iPXE');
   L.push(`choose --default ${m.def === 'local' || (m.def === 'ecran' && m.ecran) ? m.def : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
@@ -135,7 +135,7 @@ export interface Answer {
 const yamlStr = (s: string) => JSON.stringify(s);
 /** La fin commune sous Linux : un petit service qui prévient Odin au premier démarrage (nom pris, adresse). */
 function linuxFirstBoot(a: Answer): string {
-  return `[Unit]\nDescription=Odin Thjalfi : fin du deploiement\nWants=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=/bin/sh -c 'IP=$(hostname -I | cut -d" " -f1); (curl -fsS "${a.report}?e=fini&nom=$(hostname)&ip=$IP" || wget -qO- "${a.report}?e=fini&nom=$(hostname)&ip=$IP") >/dev/null 2>&1; systemctl disable odin-thjalfi.service'\n[Install]\nWantedBy=multi-user.target\n`;
+  return `[Unit]\nDescription=Odin Genèse : fin du deploiement\nWants=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=/bin/sh -c 'IP=$(hostname -I | cut -d" " -f1); (curl -fsS "${a.report}?e=fini&nom=$(hostname)&ip=$IP" || wget -qO- "${a.report}?e=fini&nom=$(hostname)&ip=$IP") >/dev/null 2>&1; systemctl disable odin-thjalfi.service'\n[Install]\nWantedBy=multi-user.target\n`;
 }
 const b64 = (s: string) => Buffer.from(s).toString('base64');
 
@@ -168,14 +168,14 @@ export function debianPreseed(a: Answer): string {
 /** Fedora, Rocky, AlmaLinux : Kickstart. */
 export function kickstart(a: Answer): string {
   const unit = linuxFirstBoot(a);
-  return `# Odin · Þjálfi\ntext\n${a.repo ? `url --url=${a.repo}\n` : ''}lang ${a.locale}\nkeyboard ${a.keymap}\ntimezone ${a.timezone} --utc\nnetwork --bootproto=dhcp --hostname=${a.host} --activate\nrootpw --lock\nuser --name=${a.user} --groups=wheel --password=${sha512crypt(a.password)} --iscrypted\nzerombr\nclearpart --all --initlabel\nautopart\nbootloader\nfirstboot --disable\nreboot\n\n%pre\ncurl -fsS '${a.report}?e=installation' || true\n%end\n\n%packages\n@core\ncurl\n${a.packages.join('\n')}${a.packages.length ? '\n' : ''}%end\n\n%post\ncat > /etc/systemd/system/odin-thjalfi.service <<'ODIN'\n${unit}ODIN\nsystemctl enable odin-thjalfi.service\ncurl -fsS '${a.report}?e=logiciels' || true\n%end\n`;
+  return `# Odin · Genèse\ntext\n${a.repo ? `url --url=${a.repo}\n` : ''}lang ${a.locale}\nkeyboard ${a.keymap}\ntimezone ${a.timezone} --utc\nnetwork --bootproto=dhcp --hostname=${a.host} --activate\nrootpw --lock\nuser --name=${a.user} --groups=wheel --password=${sha512crypt(a.password)} --iscrypted\nzerombr\nclearpart --all --initlabel\nautopart\nbootloader\nfirstboot --disable\nreboot\n\n%pre\ncurl -fsS '${a.report}?e=installation' || true\n%end\n\n%packages\n@core\ncurl\n${a.packages.join('\n')}${a.packages.length ? '\n' : ''}%end\n\n%post\ncat > /etc/systemd/system/odin-thjalfi.service <<'ODIN'\n${unit}ODIN\nsystemctl enable odin-thjalfi.service\ncurl -fsS '${a.report}?e=logiciels' || true\n%end\n`;
 }
 
 /** Windows : ce que WinPE lance (au lieu de l'installateur) : relier le partage, puis lancer l'installation. */
 export function winpeshl(): string { return '[LaunchApps]\r\n"%SYSTEMROOT%\\System32\\wpeinit.exe"\r\n"%SYSTEMROOT%\\System32\\cmd.exe", "/c %SYSTEMROOT%\\System32\\odin.cmd"\r\n'; }
 export function odinCmd(a: Answer): string {
   const s = a.share!; const user = s.user ? ` /user:${s.user} "${(s.password ?? '').replace(/"/g, '')}"` : '';
-  return ['@echo off', 'echo Odin - Thjalfi : preparation de l\'installation de Windows...', 'wpeutil InitializeNetwork', 'ping -n 6 127.0.0.1 >nul',
+  return ['@echo off', 'echo Odin - Genèse : preparation de l\'installation de Windows...', 'wpeutil InitializeNetwork', 'ping -n 6 127.0.0.1 >nul',
     `powershell -NoProfile -Command "try { Invoke-WebRequest -UseBasicParsing '${a.report}?e=installation' | Out-Null } catch {}" 2>nul`,
     `net use O: ${s.unc}${user}`, 'if errorlevel 1 (echo Le partage reseau ne repond pas. & pause & exit /b 1)',
     'O:\\setup.exe /unattend:X:\\Windows\\System32\\unattend.xml', ''].join('\r\n');
@@ -209,7 +209,7 @@ export function unattend(a: Answer, fw: 'uefi' | 'bios'): string {
       <OOBE><HideEULAPage>true</HideEULAPage><HideOnlineAccountScreens>true</HideOnlineAccountScreens><HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE><ProtectYourPC>3</ProtectYourPC></OOBE>
       <UserAccounts><LocalAccounts><LocalAccount wcm:action="add"><Name>${xml(a.user)}</Name><Group>Administrators</Group><Password><Value>${pw(a.password, 'Password')}</Value><PlainText>false</PlainText></Password></LocalAccount></LocalAccounts></UserAccounts>
       <AutoLogon><Enabled>true</Enabled><LogonCount>1</LogonCount><Username>${xml(a.user)}</Username><Password><Value>${pw(a.password, 'Password')}</Value><PlainText>false</PlainText></Password></AutoLogon>
-      <FirstLogonCommands><SynchronousCommand wcm:action="add"><Order>1</Order><CommandLine>${xml(after)}</CommandLine><Description>Odin Thjalfi : logiciels et fin</Description></SynchronousCommand></FirstLogonCommands>
+      <FirstLogonCommands><SynchronousCommand wcm:action="add"><Order>1</Order><CommandLine>${xml(after)}</CommandLine><Description>Odin Genèse : logiciels et fin</Description></SynchronousCommand></FirstLogonCommands>
     </component>
   </settings>
 </unattend>
@@ -232,7 +232,7 @@ function windowsZone(tz: string): string {
   return z[tz] ?? 'UTC';
 }
 
-/** Les options silencieuses des installateurs connus de Fjalar (sinon « /S », le plus courant). Pur. */
+/** Les options silencieuses des installateurs connus de Hermès (sinon « /S », le plus courant). Pur. */
 export function silentArgs(sourceId: string, file: string): { args: string; msi: boolean } {
   if (/\.msi$/i.test(file)) return { args: '', msi: true };
   const known: Record<string, string> = { firefox: '-ms', vscode: '/VERYSILENT /NORESTART /MERGETASKS=!runcode', '7zip': '/S', notepadpp: '/S', git: '/VERYSILENT /NORESTART', obs: '/S', powertoys: '/quiet /norestart', vlc: '/L=1036 /S' };

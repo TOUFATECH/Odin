@@ -1,4 +1,4 @@
-// Huginn — le corbeau de la pensée : la boucle de l'agent.
+// Logos — le corbeau de la pensée : la boucle de l'agent.
 //
 //   message → prompt (persona + mémoire + compétences) → modèle → appels d'outils
 //          → Heimdall (autorisation) → exécution → résultats → modèle → … → réponse
@@ -17,12 +17,12 @@ import { scanForInjection, wrapUntrusted } from '../heimdall/injection.ts';
 import type { Mimir } from '../mimir/decisions.ts';
 import type { Heimdall } from '../heimdall/policy.ts';
 import type { Redactor } from '../heimdall/redact.ts';
-import type { Muninn } from '../muninn/store.ts';
+import type { Mnemosyne } from '../muninn/store.ts';
 import type { Embedder } from '../muninn/embed.ts';
 import type { Router } from '../providers/router.ts';
 import { type ToolContext, type ToolRegistry, type ToolResult, validateInput } from '../tools/registry.ts';
 import type { AgentEvent, Message, ToolCall } from '../types.ts';
-import type { Yggdrasil } from '../yggdrasil/skills.ts';
+import type { Athena } from '../yggdrasil/skills.ts';
 import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForSummary } from './compaction.ts';
 import { buildSystemPrompt } from './prompt.ts';
 import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
@@ -54,8 +54,8 @@ export interface AgentDeps {
   router: Router;
   /** Modèle moins cher pour compaction, réflexion et sous-agents (sinon `router`). */
   cheapRouter?: Router;
-  muninn: Muninn;
-  skills: Yggdrasil;
+  muninn: Mnemosyne;
+  skills: Athena;
   tools: ToolRegistry;
   heimdall: Heimdall;
   redactor: Redactor;
@@ -977,7 +977,7 @@ Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|miss
   }
 
   /** Rappel : par mots (toujours), complété par le sens (si un modèle local est disponible). */
-  async recallSmart(query: string, limit: number, signal?: AbortSignal): Promise<ReturnType<Muninn['recall']>> {
+  async recallSmart(query: string, limit: number, signal?: AbortSignal): Promise<ReturnType<Mnemosyne['recall']>> {
     const byWords = this.deps.muninn.recall(query, limit);
     const e = this.deps.embedder;
     if (!e || !query.trim()) return byWords;
@@ -1079,17 +1079,17 @@ export function taskCategory(text: string): string {
   if (/(lumi[eè]re|prise|chauffage|volet|maison)/.test(t)) return 'maison';
   return 'discussion';
 }
-export function recordOutcome(m: Muninn, category: string, provider: string, ok: boolean): void {
+export function recordOutcome(m: Mnemosyne, category: string, provider: string, ok: boolean): void {
   const k = `model-stats:${category}:${provider}`, [a, b] = (m.getKv(k) ?? '0,0').split(',').map(Number);
   m.setKv(k, `${a + (ok ? 1 : 0)},${b + (ok ? 0 : 1)}`);
 }
 /** Fournisseurs qui échouent trop souvent sur ce type de tâche chez toi (au moins 5 essais, moins de 70 % de réussite). */
-export function weakProviders(m: Muninn, category: string): string[] | undefined {
+export function weakProviders(m: Mnemosyne, category: string): string[] | undefined {
   const weak = Object.entries(m.kvPrefix(`model-stats:${category}:`)).map(([p, v]) => { const [a, b] = v.split(',').map(Number); return { p, n: a + b, rate: (a + 1) / (a + b + 2) }; }).filter((x) => x.n >= 5 && x.rate < 0.7).map((x) => x.p);
   return weak.length ? weak : undefined;
 }
 /** Fournisseurs classés par taux de réussite (au moins 5 essais) pour ce type de tâche. */
-export function preferredProviders(m: Muninn, category: string): string[] | undefined {
+export function preferredProviders(m: Mnemosyne, category: string): string[] | undefined {
   const stats = Object.entries(m.kvPrefix(`model-stats:${category}:`)).map(([p, v]) => { const [a, b] = v.split(',').map(Number); return { p, n: a + b, rate: (a + 1) / (a + b + 2) }; }).filter((x) => x.n >= 5);
   return stats.length ? stats.sort((x, y) => y.rate - x.rate).map((x) => x.p) : undefined;
 }

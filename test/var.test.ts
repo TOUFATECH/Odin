@@ -1,4 +1,4 @@
-// Vár, les identités : portail de connexion, connexion unique sur les sites du proxy, groupes, double
+// Persona, les identités : portail de connexion, connexion unique sur les sites du proxy, groupes, double
 // authentification, en-têtes d'identité impossibles à falsifier, verrouillage, sessions coupées, graphe.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -87,7 +87,7 @@ test('connexion unique : portail, groupes, identité transmise (jamais falsifiab
     assert.equal(c3.status, 303); assert.ok(cookieOf(c3));
     // Formulaire envoyé depuis un autre site : refusé.
     assert.equal((await req(port, 'connexion.exemple.fr', '/connexion', { method: 'POST', body: 'login=awa&password=x', headers: { origin: 'https://pirate.com' } })).status, 403);
-    // Verrouillage après 5 essais : alerte et Garmr appelé.
+    // Verrouillage après 5 essais : alerte et Cerbère appelé.
     for (let k = 0; k < 5; k++) await req(port, 'connexion.exemple.fr', '/connexion', { method: 'POST', body: 'login=invite&password=faux' });
     const lk = await req(port, 'connexion.exemple.fr', '/connexion', { method: 'POST', body: 'login=invite&password=une+autre+phrase+longue' });
     assert.equal(lk.status, 423); assert.match(lk.body, /verrouillé/);

@@ -1,4 +1,4 @@
-// Urðr — client PostgreSQL écrit pour Odin (protocole v3, sans bibliothèque) : connexion en clair, MD5 ou
+// Alexandrie — client PostgreSQL écrit pour Odin (protocole v3, sans bibliothèque) : connexion en clair, MD5 ou
 // SCRAM-SHA-256 (vérifie aussi la signature du serveur), TLS si le serveur l'offre, requêtes simples et
 // requêtes à paramètres (le texte de l'utilisateur n'est jamais collé dans le SQL : il passe en paramètre).
 import { createHash, createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from 'node:crypto';

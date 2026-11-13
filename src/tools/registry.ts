@@ -3,8 +3,8 @@
 // qui décide s'il peut s'exécuter.
 
 import type { Redactor } from '../heimdall/redact.ts';
-import type { Muninn } from '../muninn/store.ts';
-import type { Yggdrasil } from '../yggdrasil/skills.ts';
+import type { Mnemosyne } from '../muninn/store.ts';
+import type { Athena } from '../yggdrasil/skills.ts';
 import type { Inventory } from '../hlidskjalf/inventory.ts';
 import type { OdinConfig } from '../config.ts';
 import type { Mimir } from '../mimir/decisions.ts';
@@ -25,14 +25,14 @@ export interface ToolContext {
   fullAccess?: boolean;
   /** Dossier d'Odin (~/.odin) : coffre des machines, clé SSH, askpass. */
   home?: string;
-  muninn: Muninn;
-  skills: Yggdrasil;
+  muninn: Mnemosyne;
+  skills: Athena;
   redactor: Redactor;
   signal: AbortSignal;
   isTainted(): boolean;
   /** Mímir (Jev) : jugements typés, si activé. */
   mimir?: Mimir;
-  /** Inventaire du réseau (Hliðskjálf). */
+  /** Inventaire du réseau (Horus). */
   inventory?: Inventory;
   netConfig?: OdinConfig['network'];
   /** Mode Odin Breaker actif (réseau local ouvert aux outils web). */

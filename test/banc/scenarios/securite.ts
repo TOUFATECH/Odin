@@ -168,7 +168,7 @@ export const securite: Scenario = {
     const payloads = [`x; touch /tmp/${MARK}`, `$(touch /tmp/${MARK})`, `\`touch /tmp/${MARK}\``, `x | touch /tmp/${MARK}`, `x && touch /tmp/${MARK}`, `--${MARK}=1`, `x\ntouch /tmp/${MARK}`];
     let tried = 0; const crashed: string[] = [];
     for (const m of fuzz.v.modules()) for (const a of m.actions) {
-      // Loki ouvre de vrais ports, Ullr parcourt le disque : on vérifie ici la construction des commandes, pas ces effets-là.
+      // Sirènes ouvre de vrais ports, Asclépios parcourt le disque : on vérifie ici la construction des commandes, pas ces effets-là.
       if (m.id === 'loki' && a.id === 'allumer') continue;
       for (const p of payloads.slice(0, a.params?.length ? payloads.length : 1)) {
         const input = Object.fromEntries((a.params ?? []).map((q) => [q.key, q.kind === 'boolean' ? true : q.kind === 'select' ? (q.options?.[0] ?? p) : p]));

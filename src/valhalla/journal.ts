@@ -2,7 +2,7 @@
 // ce que les applis ont fait, signalé et vu (événements, alertes, actions, chiffres clés). Odin y pioche pour
 // ses idées et ses réponses (« qu'est-ce qui s'est passé hier ? », « depuis quand le disque se remplit ? »).
 // Jamais de secret : les champs sensibles sont retirés et le texte passe par le masqueur d'Odin ; les secrets
-// restent dans le coffre (Brísingamen). Les notes de plus de 90 jours partent à la corbeille du Cerveau.
+// restent dans le coffre (Thésauros). Les notes de plus de 90 jours partent à la corbeille du Cerveau.
 import type { Vault } from '../brain/vault.ts';
 import type { Valhalla } from './service.ts';
 

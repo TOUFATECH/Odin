@@ -1,10 +1,10 @@
-// Urðr dans l'interface (maquettes validées « Urðr · Studio » et « Urðr · SQL ») :
+// Alexandrie dans l'interface (maquettes validées « Alexandrie · Studio » et « Alexandrie · SQL ») :
 // - Studio, comme Prisma Studio : la liste des tables, la grille (filtres, tri, pages), une case modifiée reste
 //   « en attente » (ancienne valeur affichée) jusqu'à « Enregistrer » ; les liens entre tables dans le panneau de droite.
 // - SQL : l'éditeur, le résultat en tableau, le journal ; ce qui modifie la base passe par ton accord.
-// - Bases : la liste de tes bases (la vue générique d'Urðr).
+// - Bases : la liste de tes bases (la vue générique d'Alexandrie).
 // Rien n'est écrit sans ton accord : « Enregistrer », « Ajouter », « Supprimer » et le SQL qui écrit demandent confirmation,
-// et Skuld sauvegarde la base juste avant une suppression ou une requête qui modifie.
+// et Arche sauvegarde la base juste avant une suppression ou une requête qui modifie.
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -129,7 +129,7 @@
       });
       mid.append(el('div', { class: 'ur-grid' }, el('table', {}, el('thead', {}, head), el('tbody', {}, ...body))));
       if (!d.rows.length) mid.append(el('p', { class: 'sub' }, S.filters.length ? 'Aucune ligne ne correspond aux filtres.' : 'Table vide.'));
-      if (!canEdit) mid.append(el('p', { class: 'sub' }, 'Cette table n\'a pas de clé : elle se lit, mais Urðr ne la modifie pas case par case (passe par le SQL).'));
+      if (!canEdit) mid.append(el('p', { class: 'sub' }, 'Cette table n\'a pas de clé : elle se lit, mais Alexandrie ne la modifie pas case par case (passe par le SQL).'));
       else mid.append(el('p', { class: 'sub', style: 'margin:0' }, 'Double-clic (ou Entrée) sur une case pour la modifier ; rien n\'est écrit avant « Enregistrer ».'));
       const n = nPending();
       if (n) {
@@ -236,14 +236,14 @@
       if (d?.columns?.length) out.append(el('p', { class: 'sub', style: 'margin:0 0 6px' }, `${fmtN(d.rows.length)} ligne${d.rows.length > 1 ? 's' : ''} · ${d.ms} ms`), el('div', { class: 'ur-grid' }, el('table', {}, el('thead', {}, el('tr', {}, ...d.columns.map((c) => el('th', {}, c)))), el('tbody', {}, ...d.rows.slice(0, 500).map((row) => el('tr', {}, ...row.map((v) => el('td', { class: v === null ? 'null' : '', title: v ?? 'NULL' }, v ?? 'NULL'))))))));
       else out.append(el('p', { class: 'ur-out' }, r.text));
     };
-    const ask = (q) => { window.OdinShow?.('chat'); window.OdinChat?.send?.(q, 'Urðr · SQL'); };
+    const ask = (q) => { window.OdinShow?.('chat'); window.OdinChat?.send?.(q, 'Alexandrie · SQL'); };
     const log = el('aside', { class: 'ur-log', 'aria-label': 'Journal des requêtes' }, el('b', { style: 'font-size:14.5px;margin-bottom:4px' }, 'Journal des requêtes'));
     const logBox = async () => {
       const r = await act('journal', {}); const l = (r.data ?? []).slice(0, 14);
       log.replaceChildren(el('b', { style: 'font-size:14.5px;margin-bottom:4px' }, 'Journal des requêtes'),
         ...l.map((e) => el('div', {}, el('span', { class: 'sub', style: 'font-family:ui-monospace,Menlo,monospace' }, e.at.slice(11, 16)), el('code', { title: `${e.base} · ${e.sql}`, onclick: () => { ed.value = e.sql; S.sql = e.sql; ed.focus(); } }, e.sql), el('span', { class: e.ok ? 'ok' : 'ko' }, e.result))),
         l.length ? null : el('p', { class: 'sub' }, 'Rien encore.'),
-        el('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Une requête qui modifie ou supprime passe toujours par ton accord, et Skuld fait une sauvegarde juste avant.'));
+        el('p', { class: 'sub', style: 'margin:10px 0 0' }, 'Une requête qui modifie ou supprime passe toujours par ton accord, et Arche fait une sauvegarde juste avant.'));
     };
     root.append(el('div', { class: 'ur-sql' }, el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' }, ed,
       el('div', { class: 'ur-bar' }, el('button', { class: 'btn small primary', type: 'button', onclick: go }, ic('play', 13), ' Lancer'),

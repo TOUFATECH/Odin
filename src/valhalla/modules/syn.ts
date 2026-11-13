@@ -1,5 +1,5 @@
-// Sýn — les tableaux de bord d'Odin (comme Grafana), sur les mesures qu'Odin garde déjà (Eir : machine,
-// Vörðr : sites et appareils, Gjöll, Rán…). Un tableau = des panneaux ; un panneau = une ou plusieurs mesures
+// Zénith — les tableaux de bord d'Odin (comme Grafana), sur les mesures qu'Odin garde déjà (Hygie : machine,
+// Pulsar : sites et appareils, Vortex, Ariane…). Un tableau = des panneaux ; un panneau = une ou plusieurs mesures
 // (« eir.fs.* » prend toutes les mesures qui commencent par eir.fs.), affichées en courbe, en valeur ou en barres,
 // avec un calcul (moyenne, maximum, minimum, dernière valeur) et des seuils orange / rouge qui préviennent.
 // Modèles prêts : Machine, Réseau, Sites et appareils. Rien n'est envoyé hors de la machine d'Odin.
@@ -106,9 +106,9 @@ const PANEL_PARAMS = [
 const num = (v: unknown) => (s(v) === '' || !Number.isFinite(Number(v)) ? undefined : Number(v));
 
 export const syn: Module = {
-  id: 'syn', name: 'Sýn', family: 'Données',
+  id: 'syn', name: 'Zénith', family: 'Données',
   what: 'Tes tableaux de bord (comme Grafana) : courbes, valeurs et barres sur les mesures d\'Odin, avec des seuils qui préviennent.',
-  does: ['tableaux de bord : panneaux en courbe, valeur ou barres', 'mesures d\'Odin : machine (Eir), sites et appareils (Vörðr), réseau', 'plusieurs mesures d\'un coup (eir.fs.* = tous les disques)', 'calcul : moyenne, maximum, minimum, dernière valeur', 'périodes : 1 h, 6 h, 24 h, 7 j, 30 j, 1 an', 'seuils orange / rouge par panneau, alerte quand ils sont dépassés', 'modèles prêts : Machine, Réseau, Sites et appareils', 'export Prometheus des mesures (pour un autre outil)'],
+  does: ['tableaux de bord : panneaux en courbe, valeur ou barres', 'mesures d\'Odin : machine (Hygie), sites et appareils (Pulsar), réseau', 'plusieurs mesures d\'un coup (eir.fs.* = tous les disques)', 'calcul : moyenne, maximum, minimum, dernière valeur', 'périodes : 1 h, 6 h, 24 h, 7 j, 30 j, 1 an', 'seuils orange / rouge par panneau, alerte quand ils sont dépassés', 'modèles prêts : Machine, Réseau, Sites et appareils', 'export Prometheus des mesures (pour un autre outil)'],
   from: ['Grafana'], upstream: ['grafana/grafana'],
   words: ['tableau de bord', 'tableaux de bord', 'dashboard', 'grafana', 'graphique', 'graphiques', 'syn', 'sýn'],
   actions: [

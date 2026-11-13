@@ -1,4 +1,4 @@
-// Les nœuds de Draupnir : déclencheurs, Saga (le Cerveau), Runes (pages et bases), Odin, logique,
+// Les nœuds de Talos : déclencheurs, Thot (le Cerveau), Papyrus (pages et bases), Odin, logique,
 // données, web. Chaque nœud reçoit des éléments ({ json }) et en renvoie sur ses sorties.
 
 import { createHash, createHmac, randomUUID } from 'node:crypto';
@@ -54,7 +54,7 @@ export const NODES: NodeDef[] = [
     { key: 'chemin', label: 'Chemin secret', kind: 'text', help: 'Généré tout seul ; l\'adresse complète est affichée sur le nœud.' },
     { key: 'réponse', label: 'Répondre', kind: 'select', options: ['tout de suite', 'à la fin'], default: 'tout de suite' },
   ], run: pass },
-  { type: 'déclencheur.saga', label: 'Quand Saga change', group: 'Déclencheurs', trigger: true, what: 'Une note du Cerveau est créée, modifiée ou mise à la corbeille.', params: [
+  { type: 'déclencheur.saga', label: 'Quand Thot change', group: 'Déclencheurs', trigger: true, what: 'Une note du Cerveau est créée, modifiée ou mise à la corbeille.', params: [
     { key: 'quand', label: 'Événement', kind: 'select', options: ['tout', 'créée', 'modifiée', 'corbeille'], default: 'créée' },
     { key: 'dossier', label: 'Seulement dans le dossier', kind: 'text', default: '' },
     { key: 'type', label: 'Seulement le type', kind: 'text', default: '' },
@@ -69,50 +69,50 @@ export const NODES: NodeDef[] = [
     { key: 'minutes', label: 'Vérifier toutes les N minutes', kind: 'number', default: 60 },
   ], run: pass },
 
-  // ---------------- Saga (le Cerveau)
-  { type: 'saga.chercher', label: 'Chercher dans Saga', group: 'Saga', what: 'Trouve des notes (titre, texte, étiquettes).', params: [
+  // ---------------- Thot (le Cerveau)
+  { type: 'saga.chercher', label: 'Chercher dans Thot', group: 'Thot', what: 'Trouve des notes (titre, texte, étiquettes).', params: [
     { key: 'requête', label: 'Chercher', kind: 'text', required: true }, { key: 'nombre', label: 'Nombre max', kind: 'number', default: 10 },
   ], run: (c, items) => {
-    if (!c.deps.saga) throw new Error('Saga indisponible');
+    if (!c.deps.saga) throw new Error('Thot indisponible');
     return [items.flatMap((it, i) => c.deps.saga!.search(c.s('requête', it, i), num(c.p('nombre', it, i), 10)).map((r) => ({ json: { ...r } })))];
   } },
-  { type: 'saga.lire', label: 'Lire une note', group: 'Saga', what: 'Le contenu d\'une note (par titre ou chemin).', params: [{ key: 'note', label: 'Note', kind: 'text', required: true }], run: (c, items) => {
-    if (!c.deps.saga) throw new Error('Saga indisponible');
+  { type: 'saga.lire', label: 'Lire une note', group: 'Thot', what: 'Le contenu d\'une note (par titre ou chemin).', params: [{ key: 'note', label: 'Note', kind: 'text', required: true }], run: (c, items) => {
+    if (!c.deps.saga) throw new Error('Thot indisponible');
     return [items.map((it, i) => { const n = c.deps.saga!.read(c.s('note', it, i)); if (!n) throw new Error(`note introuvable : ${c.s('note', it, i)}`); return { json: { ...it.json, note: n } }; })];
   } },
-  { type: 'saga.écrire', label: 'Écrire dans Saga', group: 'Saga', what: 'Crée une note, ou ajoute du texte à une note existante.', params: [
+  { type: 'saga.écrire', label: 'Écrire dans Thot', group: 'Thot', what: 'Crée une note, ou ajoute du texte à une note existante.', params: [
     { key: 'mode', label: 'Action', kind: 'select', options: ['créer', 'ajouter'], default: 'créer' },
     { key: 'titre', label: 'Titre (créer)', kind: 'text', default: '{{ $json.titre }}' },
     { key: 'type', label: 'Type (créer)', kind: 'select', options: ['note', 'capture', 'idée', 'tâche', 'projet', 'ressource', 'réunion', 'personne'], default: 'capture' },
     { key: 'note', label: 'Note (ajouter)', kind: 'text', default: '' },
     { key: 'contenu', label: 'Texte', kind: 'textarea', default: '{{ $json.résumé }}' },
   ], run: (c, items) => {
-    if (!c.deps.saga) throw new Error('Saga indisponible');
+    if (!c.deps.saga) throw new Error('Thot indisponible');
     return [items.map((it, i) => {
       const body = c.s('contenu', it, i);
-      const path = c.s('mode', it, i) === 'ajouter' ? c.deps.saga!.append(c.s('note', it, i), body) : c.deps.saga!.create(c.s('titre', it, i) || 'Note de Draupnir', c.s('type', it, i) || 'note', body, { source: 'automatisation', fiable: false, automatisation: c.wf.name });
+      const path = c.s('mode', it, i) === 'ajouter' ? c.deps.saga!.append(c.s('note', it, i), body) : c.deps.saga!.create(c.s('titre', it, i) || 'Note de Talos', c.s('type', it, i) || 'note', body, { source: 'automatisation', fiable: false, automatisation: c.wf.name });
       return { json: { ...it.json, note: path } };
     })];
   } },
-  { type: 'saga.attention', label: 'Ce qui demande attention', group: 'Saga', what: 'Tâches en retard, échéances proches, projets à l\'arrêt.', params: [], run: (c) => {
-    if (!c.deps.saga) throw new Error('Saga indisponible');
+  { type: 'saga.attention', label: 'Ce qui demande attention', group: 'Thot', what: 'Tâches en retard, échéances proches, projets à l\'arrêt.', params: [], run: (c) => {
+    if (!c.deps.saga) throw new Error('Thot indisponible');
     return [c.deps.saga.attention().map((a) => ({ json: { ...a } }))];
   } },
 
-  // ---------------- Runes (pages et bases)
-  { type: 'runes.lister', label: 'Lignes d\'une base', group: 'Runes', what: 'Les fiches d\'une base Runes (projets, tâches, clients…).', params: [
+  // ---------------- Papyrus (pages et bases)
+  { type: 'runes.lister', label: 'Lignes d\'une base', group: 'Papyrus', what: 'Les fiches d\'une base Papyrus (projets, tâches, clients…).', params: [
     { key: 'base', label: 'Base', kind: 'text', default: 'tâche', required: true },
     { key: 'champ', label: 'Filtrer sur la propriété', kind: 'text', default: '' }, { key: 'opérateur', label: 'Condition', kind: 'select', options: OPS, default: 'égal' }, { key: 'valeur', label: 'Valeur', kind: 'text', default: '' },
   ], run: (c) => {
-    if (!c.deps.saga) throw new Error('Runes indisponible');
+    if (!c.deps.saga) throw new Error('Papyrus indisponible');
     const f = c.s('champ');
     return [c.deps.saga.rows(c.s('base')).filter((r) => !f || test(r.meta[f], c.s('opérateur'), c.s('valeur'))).map((r) => ({ json: { titre: r.title, chemin: r.path, ...r.meta } }))];
   } },
-  { type: 'runes.ajouter', label: 'Ajouter à une base', group: 'Runes', what: 'Nouvelle fiche dans une base Runes, avec ses propriétés.', params: [
+  { type: 'runes.ajouter', label: 'Ajouter à une base', group: 'Papyrus', what: 'Nouvelle fiche dans une base Papyrus, avec ses propriétés.', params: [
     { key: 'base', label: 'Base', kind: 'text', default: 'tâche', required: true }, { key: 'titre', label: 'Titre', kind: 'text', default: '{{ $json.titre }}' },
     { key: 'propriétés', label: 'Propriétés (JSON)', kind: 'json', default: '{}' }, { key: 'contenu', label: 'Texte', kind: 'textarea', default: '' },
   ], run: (c, items) => {
-    if (!c.deps.saga) throw new Error('Runes indisponible');
+    if (!c.deps.saga) throw new Error('Papyrus indisponible');
     return [items.map((it, i) => ({ json: { ...it.json, note: c.deps.saga!.create(c.s('titre', it, i) || 'Sans titre', c.s('base', it, i), c.s('contenu', it, i), { ...json(c.p('propriétés', it, i)), source: 'automatisation', fiable: false }) } }))];
   } },
 
@@ -443,7 +443,7 @@ NODES.push(...MORE_NODES);
 // ---------------------------------------------------------------- Applis d'Odin (Valhalla)
 NODES.push(
   { type: 'déclencheur.module', label: 'Quand une appli signale', group: 'Déclencheurs', trigger: true, what: 'Un événement ou une alerte d\'une appli d\'Odin (mouvement caméra, pirate piégé, sauvegarde échouée, réservation…).', params: [
-    { key: 'module', label: 'Appli (Loki, Himinbjörg, Sindri…)', kind: 'text', required: true },
+    { key: 'module', label: 'Appli (Sirènes, Cyclope, Phénix…)', kind: 'text', required: true },
     { key: 'événement', label: 'Événement (vide = tous ; « alerte » = ses alertes)', kind: 'text', default: '' },
     { key: 'niveau', label: 'Pour les alertes : niveau minimum', kind: 'select', options: ['info', 'moyenne', 'haute', 'critique'], default: 'haute' },
   ], run: pass },

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 
-// Hliðskjálf — reconnaître le fabricant d'un appareil à partir de son adresse MAC (préfixe OUI),
+// Horus — reconnaître le fabricant d'un appareil à partir de son adresse MAC (préfixe OUI),
 // et en déduire un nom lisible quand l'appareil n'en annonce pas. Liste courte des marques les
 // plus sûres, puis la base officielle de l'IEEE si elle est sur la machine ; aucune requête réseau.
 

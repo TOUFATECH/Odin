@@ -1,4 +1,4 @@
-// Garmr contre le VRAI pare-feu (nftables) : un « attaquant » dans un réseau isolé essaie d'entrer,
+// Cerbère contre le VRAI pare-feu (nftables) : un « attaquant » dans un réseau isolé essaie d'entrer,
 // rate cinq mots de passe SSH, se fait bannir, et ses connexions sont vraiment coupées par le noyau.
 
 import { createServer } from 'node:net';
@@ -10,7 +10,7 @@ import { sh, until, type Scenario } from '../lib.ts';
 const NS = 'odinbanc-att', HOST_IP = '203.0.113.1', ATT_IP = '203.0.113.9';
 
 export const parefeu: Scenario = {
-  id: 'pare-feu', title: 'Garmr ↔ pare-feu nftables', mode: 'réel',
+  id: 'pare-feu', title: 'Cerbère ↔ pare-feu nftables', mode: 'réel',
   what: 'Un attaquant simulé dans un réseau isolé : échecs SSH lus dans un journal, bannissement, paquets vraiment bloqués, récidive, débannissement.',
   async run(t) {
     t.needRoot(); await t.need('nft', 'ip');
@@ -34,7 +34,7 @@ export const parefeu: Scenario = {
     // Seul ce journal d'essai est lu : les vrais journaux de la machine ne sont pas touchés par le banc.
     writeFileSync(log, ''); ctx.saveSettings({ logs: [log], useJournal: false, useSystemLogs: false });
     await garmr.start!(ctx);
-    t.match((await sh('nft', ['list', 'chain', 'inet', 'odin', 'entree'])).out, /ip saddr @garmr4 drop/, 'Garmr a posé sa règle dans le pare-feu');
+    t.match((await sh('nft', ['list', 'chain', 'inet', 'odin', 'entree'])).out, /ip saddr @garmr4 drop/, 'Cerbère a posé sa règle dans le pare-feu');
     t.ok(await until(async () => (await attack()) === 'ENTRE', 5000), 'avant : l\'attaquant atteint le service');
 
     // Première lecture (rien), puis cinq mots de passe ratés.
@@ -53,11 +53,11 @@ export const parefeu: Scenario = {
     t.match(again.text, /4 h.*récidive n°2/, 'récidive : durée multipliée par 4');
     t.eq(await attack(), 'BLOQUE', 'récidive : bloqué de nouveau');
 
-    // Redémarrage de la machine simulé : le pare-feu a tout oublié, Garmr remet les bannissements valables.
+    // Redémarrage de la machine simulé : le pare-feu a tout oublié, Cerbère remet les bannissements valables.
     await sh('nft', ['flush', 'set', 'inet', 'odin', 'garmr4']);
     t.eq(await attack(), 'ENTRE', '(pare-feu vidé : il repasse)');
     await garmr.start!(ctx);
-    t.eq(await attack(), 'BLOQUE', 'au redémarrage, Garmr remet les bannissements encore valables');
+    t.eq(await attack(), 'BLOQUE', 'au redémarrage, Cerbère remet les bannissements encore valables');
 
     t.match((await v.act('garmr', 'bannir', { ip: '192.168.1.10' })).text, /protégée/, 'le réseau local n\'est jamais banni');
     await v.act('garmr', 'proteger', { ip: '198.51.100.7' });

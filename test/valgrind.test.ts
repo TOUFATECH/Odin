@@ -170,7 +170,7 @@ test('appli Valgrind : démarrer, ajouter (DNS de la maison, surveillance), mot 
     assert.match((await act('demarrer', { http: 0, https: 0 })).text, /Proxy en marche : HTTP sur le port \d+, HTTPS sur le port \d+/);
     const added = await act('ajouter', { domaines: 'nas.exemple.fr', cible: svc.url.replace('http://', ''), https: 'letsencrypt' });
     assert.match(added.text, /nas\.exemple\.fr → http:\/\/127\.0\.0\.1:\d+\.\n⚠ Let's Encrypt pas encore possible : Let's Encrypt vérifie par le port 80/, 'port 80 non utilisé : certificat auto-signé en attendant');
-    assert.match(added.text, /Service surveillé par Vörðr/);
+    assert.match(added.text, /Service surveillé par Pulsar/);
     assert.ok(((v.ctx('vordr').settings.monitors as Array<{ name: string }>) ?? []).some((m) => m.name === 'Service nas.exemple.fr'));
     assert.equal((await act('ajouter', { domaines: 'nas.exemple.fr', cible: svc.url })).ok, false, 'nom déjà pris');
     assert.equal((await act('ajouter', { domaines: 'pas un nom', cible: svc.url })).ok, false);
@@ -186,7 +186,7 @@ test('appli Valgrind : démarrer, ajouter (DNS de la maison, surveillance), mot 
     const pr = await act('proteger', { domaine: 'nas.exemple.fr', utilisateur: 'awa', mot_de_passe: 'une phrase assez longue' });
     assert.match(pr.text, /demande maintenant un mot de passe \(identifiant « awa »\)\. Le mot de passe est dans le coffre/);
     assert.doesNotMatch(JSON.stringify(v.ctx('valgrind').settings), /une phrase assez longue/);
-    // Bannissement après 5 mauvais mots de passe (lien Valgrind → Garmr) : une adresse de la maison n'est jamais bannie.
+    // Bannissement après 5 mauvais mots de passe (lien Valgrind → Cerbère) : une adresse de la maison n'est jamais bannie.
     const srvp = (await import('../src/valhalla/modules/valgrind.ts')).proxyServer()!;
     for (let k = 0; k < 5; k++) await get(srvp.httpsPort, 'nas.exemple.fr', '/', { secure: true, headers: { authorization: `Basic ${Buffer.from('awa:faux').toString('base64')}` } });
     await new Promise((ok) => setTimeout(ok, 100));

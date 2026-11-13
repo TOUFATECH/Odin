@@ -1,4 +1,4 @@
-// Svalinn — l'analyse du Wi-Fi de la maison, sans rien toucher : les réseaux autour (nmcli ou iw), l'encombrement
+// Zéphyr — l'analyse du Wi-Fi de la maison, sans rien toucher : les réseaux autour (nmcli ou iw), l'encombrement
 // des canaux, et la note de sécurité du Wi-Fi avec ce qu'il faut corriger (le plus urgent en premier).
 
 export interface Net { ssid: string; bssid?: string; chan: number; freq?: number; signal: number; security: string; wps?: boolean; mine?: boolean }

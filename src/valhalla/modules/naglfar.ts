@@ -1,4 +1,4 @@
-// Naglfar — tes conteneurs, sur le moteur d'Odin (Hringhorni) : sans Docker, sans Podman, sans démon.
+// Argo — tes conteneurs, sur le moteur d'Odin (Hringhorni) : sans Docker, sans Podman, sans démon.
 // Lancer une appli à partir d'une image Docker, la voir, la démarrer, l'arrêter, lire son journal, lancer une
 // commande dedans, la mettre à jour, la supprimer (avec ton accord). Les mêmes commandes que dans un terminal
 // marchent aussi dans la discussion : « run -d -p 8080:80 nginx », « ps », « logs web », « stop web »…
@@ -50,7 +50,7 @@ export function graveOf(lineText: string): string | undefined {
 const env = (t: string) => Object.fromEntries(t.split('\n').map((l) => l.trim()).filter((l) => /^[A-Za-z_]\w*=/.test(l)).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
 
 export const naglfar: Module = {
-  id: 'naglfar', name: 'Naglfar', family: 'Machines',
+  id: 'naglfar', name: 'Argo', family: 'Machines',
   what: 'Tes conteneurs, sur le moteur d\'Odin (sans Docker ni Podman, sans démon) : lancer une appli depuis une image Docker, la suivre, l\'arrêter, lire son journal, la mettre à jour.',
   does: ['lancer une appli à partir d\'une image Docker (Docker Hub, GHCR, Quay…)', 'liste des conteneurs, démarrer, arrêter, redémarrer', 'journal de chaque conteneur', 'lancer une commande dedans', 'mettre à jour l\'image et relancer avec les mêmes réglages', 'images présentes, nettoyage', 'les commandes run, ps, stop, start, rm, logs, exec, pull, images aussi dans la discussion', 'ports publiés, dossiers partagés, limites de mémoire et de processeur, relance automatique'],
   from: ['Portainer CE', 'Podman'], upstream: [],
@@ -79,7 +79,7 @@ export const naglfar: Module = {
         return { container: c.spec.name, name: c.spec.name, note: `${c.spec.name} en marche · sa base « ${db.info.database} » dans la base d'Odin, sauvegardée chaque nuit` };
       }, name);
       if (name) ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), name])] });
-      return { text: `🚢 Installation de ${image} lancée${wantDb ? ', avec sa base dans la base de données d\'Odin (sauvegardée chaque nuit)' : ''} : la barre de progression est dans Naglfar (téléchargement, montage, démarrage).`, data: { job: j.id } };
+      return { text: `🚢 Installation de ${image} lancée${wantDb ? ', avec sa base dans la base de données d\'Odin (sauvegardée chaque nuit)' : ''} : la barre de progression est dans Argo (téléchargement, montage, démarrage).`, data: { job: j.id } };
     } },
     { id: 'executer', label: 'Commande dans un conteneur', what: 'Lance une commande dans un conteneur en marche et montre sa réponse', params: [CT, { key: 'commande', label: 'Commande', kind: 'text', required: true }], grave: (i) => `lancer « ${s(i.commande)} » dans ${s(i.conteneur)}`, external: true, run: async (_ctx, i) => {
       const out: string[] = []; const code = await cli(['exec', safe(i.conteneur), ...splitLine(s(i.commande))], { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
@@ -95,11 +95,11 @@ export const naglfar: Module = {
         const n = await e.run({ image: sp.image, name: sp.name, cmd: sp.cmd, env: sp.env, ports: sp.ports, mounts: sp.mounts, restart: sp.restart, memory: sp.memory, cpus: sp.cpus, user: sp.user, workdir: sp.workdir, hostname: sp.hostname, network: sp.network, labels: sp.labels });
         set({ container: n.spec.name }); return { note: `${n.spec.name} relancé avec la nouvelle image (${img.id.slice(0, 12)})` };
       }, sp.name);
-      return { text: `⬆ Mise à jour de ${sp.name} lancée : suis-la dans Naglfar.` };
+      return { text: `⬆ Mise à jour de ${sp.name} lancée : suis-la dans Argo.` };
     } },
     { id: 'supprimer', label: 'Supprimer un conteneur', what: 'Supprime un conteneur (ses dossiers partagés sont gardés)', params: [CT], grave: (i) => `supprimer le conteneur ${s(i.conteneur)}`, run: async (ctx, i) => { forget(ctx, safe(i.conteneur)); const sp = await engine().rm(safe(i.conteneur), true); return { text: `🗑 ${sp.name} supprimé (dossiers partagés conservés).` }; } },
     { id: 'images', label: 'Images', what: 'Les images présentes', read: true, words: ['quelles images'], run: () => { const l = engine().images(); return { text: l.map((x) => `- ${x.names.join(', ')} · ${(x.size / 1e6).toFixed(0)} Mo`).join('\n') || 'Aucune image.', data: l.map((x) => ({ names: x.names, id: x.id.slice(0, 12), size: x.size })) }; } },
-    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans Naglfar.` }; } },
+    { id: 'tirer', label: 'Récupérer une image', what: 'Télécharge une image (vérifiée) sans rien lancer', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], words: ['telecharge l\'image', 'recupere l\'image'], run: async (_ctx, i) => { engine().pullJob(safe(i.image)); return { text: `⬇ Récupération de ${safe(i.image)} lancée : suis-la dans Argo.` }; } },
     { id: 'supprimer_image', label: 'Supprimer une image', what: 'Supprime une image qui ne sert plus', params: [{ key: 'image', label: 'Image', kind: 'text', required: true }], grave: (i) => `supprimer l'image ${s(i.image)}`, run: async (_ctx, i) => { const img = await engine().rmi(safe(i.image)); return { text: `🗑 Image ${img.names.join(', ')} supprimée.` }; } },
     { id: 'nettoyer', label: 'Nettoyer', what: 'Supprime les images qu\'aucun conteneur n\'utilise', grave: () => 'supprimer les images inutilisées', words: ['nettoie', 'place'], run: async () => {
       const e = engine(), used = new Set(e.ps(true).map((c) => c.spec.imageId)), out: string[] = [];
@@ -164,11 +164,11 @@ export const naglfar: Module = {
           meta: `${st.active} visiteurs en cours · ${st.rate} nouveaux/s · ${st.reason}${st.refused ? ` · ${st.refused} refusés` : ''}`,
           actions: [st.status === 'arrêté' ? { action: 'demarrer_service', label: 'Démarrer', input: { service: sp.name } } : { action: 'arreter_service', label: 'Arrêter', input: { service: sp.name } }, { action: 'regler_service', label: 'Régler', input: { service: sp.name } }, { action: 'supprimer_service', label: 'Supprimer', input: { service: sp.name } }] }; }) },
           ...svcs.filter(({ state: st }) => st.history.length > 2).slice(0, 2).map(({ spec: sp, state: st }) => { const h = st.history.slice(-60); return { kind: 'courbe' as const, title: `${sp.name} · copies et visiteurs`, labels: h.map((x) => x.at.slice(11, 16)), series: [{ name: 'visiteurs en cours', tone: 'neutre' as const, points: h.map((x) => x.active) }, { name: 'copies × 10', tone: 'bon' as const, points: h.map((x) => x.copies * 10) }] }; })] : []),
-        // Une appli qui a sa base dans la base d'Odin : un bouton l'ouvre dans Urðr Studio.
+        // Une appli qui a sa base dans la base d'Odin : un bouton l'ouvre dans Alexandrie Studio.
         { kind: 'cards', title: 'Conteneurs', empty: err || 'Aucun conteneur : « Lancer une appli », ou dans la discussion « run -d -p 8080:80 nginx ».', items: cts.map((c) => ({
           title: c.spec.name, sub: `${c.spec.labels['odin.service'] ? `copie de ${c.spec.labels['odin.service']} · ` : ''}${c.spec.labels['odin.grandir'] ? `grandit tout seul (${c.spec.memory} · ${c.spec.cpus} cœurs) · ` : ''}${c.spec.image}${c.state.ip ? ` · ${c.state.ip}` : ''}${c.spec.ports.length ? ` · ${c.spec.ports.map((p) => `${p.host}→${p.inner}`).join(', ')}` : ''}`,
           badge: c.state.status, tone: c.state.status === 'en marche' ? 'bon' as const : c.state.status === 'redémarre' ? 'attention' as const : 'neutre' as const,
-          actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }, ...(() => { const b = pgBases.find((x) => x.nom === c.spec.name || x.utilisateur === roleOf(c.spec.name)); return b ? [{ action: 'ouvrir', label: 'Sa base (Urðr)', input: { base: b.id }, module: 'urdr' }] : []; })()],
+          actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }, ...(() => { const b = pgBases.find((x) => x.nom === c.spec.name || x.utilisateur === roleOf(c.spec.name)); return b ? [{ action: 'ouvrir', label: 'Sa base (Alexandrie)', input: { base: b.id }, module: 'urdr' }] : []; })()],
         })) },
         { kind: 'table', title: 'Images', columns: ['Image', 'Identifiant', 'Taille'], empty: 'Aucune image.', rows: imgs.flatMap((i) => i.names.map((n) => ({ cells: [n, i.id.slice(0, 12), `${(i.size / 1e6).toFixed(0)} Mo`] }))) },
         { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 nginx · ps · logs web · stop web · start web · exec web ls / · pull alpine · images · rm web. Lancer, supprimer et exec demandent ton accord.' },

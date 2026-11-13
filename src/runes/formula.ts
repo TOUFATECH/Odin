@@ -1,4 +1,4 @@
-// Formules des bases Runes : un petit langage sûr (aucun code exécuté), proche de celui des bases de notes.
+// Formules des bases Papyrus : un petit langage sûr (aucun code exécuté), proche de celui des bases de notes.
 //   prop("Prix") * prop("Quantité")        si(prop("Statut") == "Fait", "✓", "…")
 //   concat(prop("Nom"), " — ", prop("Ville"))   jours(prop("Échéance"), maintenant())   arrondi(x, 2)
 // Opérateurs : + - * / % == != < <= > >= et ou non ; textes entre guillemets ; nombres ; vrai / faux.

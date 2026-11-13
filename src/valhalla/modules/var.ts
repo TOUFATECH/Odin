@@ -1,8 +1,8 @@
-// Vár — les identités d'Odin : les personnes, leurs groupes, un seul mot de passe (et la double
+// Persona — les identités d'Odin : les personnes, leurs groupes, un seul mot de passe (et la double
 // authentification) pour entrer sur tous les sites du proxy Valgrind. Portail de connexion à la mascotte
 // d'Odin, sessions qu'on peut couper, verrouillage après trop d'essais, journal des connexions, graphe.
 // Fonctions reprises (réécrites) d'Authelia, Authentik et Keycloak.
-// (Vár : la déesse qui entend les serments et veille sur la parole donnée.)
+// (Persona : la déesse qui entend les serments et veille sur la parole donnée.)
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } from '../types.ts';
@@ -98,7 +98,7 @@ ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}<button type="submit"
     const fail = (why: string, msg = 'Identifiant ou mot de passe incorrect.') => {
       tries.set(ip, [...t, now]); log(ctx, { t: now, login: login.slice(0, 32), ip, ok: false, why });
       if (p) { const n = p.fails + 1, lock = n >= 5 ? now + 15 * 60_000 : p.lockedUntil; savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? { ...x, fails: n, lockedUntil: lock } : x)));
-        if (n === 5) { ctx.alert({ level: 'haute', title: `Compte « ${p.login} » verrouillé 15 minutes`, detail: `5 mauvais essais, le dernier depuis ${ip}. Si ce n'est pas cette personne, quelqu'un essaie de deviner son mot de passe.`, key: `var-verrou-${p.id}-${Math.floor(now / 900_000)}` }); ctx.emit('verrouillage', { login: p.login, ip }); void ctx.call('garmr', 'bannir', { ip, raison: `5 mauvais mots de passe sur le compte ${p.login} (Vár)`, minutes: 60 }, 'trop d\'essais de mot de passe').catch(() => undefined); } }
+        if (n === 5) { ctx.alert({ level: 'haute', title: `Compte « ${p.login} » verrouillé 15 minutes`, detail: `5 mauvais essais, le dernier depuis ${ip}. Si ce n'est pas cette personne, quelqu'un essaie de deviner son mot de passe.`, key: `var-verrou-${p.id}-${Math.floor(now / 900_000)}` }); ctx.emit('verrouillage', { login: p.login, ip }); void ctx.call('garmr', 'bannir', { ip, raison: `5 mauvais mots de passe sur le compte ${p.login} (Persona)`, minutes: 60 }, 'trop d\'essais de mot de passe').catch(() => undefined); } }
       ctx.emit('connexion_refusee', { login: login.slice(0, 32), ip, essais: t.length + 1 });
       r.writeHead(401, headers); r.end(form(msg, 'mdp', login));
     };
@@ -113,7 +113,7 @@ ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}<button type="submit"
     } else {
       if (!checkPassword(s(f.password), p.hash)) return fail('mauvais mot de passe');
       const needs = p.totp || c.require2fa.some((g) => p.groups.includes(g));
-      if (needs && !p.totp) { log(ctx, { t: now, login, ip, ok: false, why: 'double authentification à configurer' }); r.writeHead(403, headers); return void r.end(page('Double authentification', '<div class="card"><h1>Double authentification obligatoire</h1><p>Ton groupe demande un code en plus du mot de passe. Demande à l\'administrateur d\'Odin de l\'activer pour toi (Vár → Double authentification).</p></div>', nonce)); }
+      if (needs && !p.totp) { log(ctx, { t: now, login, ip, ok: false, why: 'double authentification à configurer' }); r.writeHead(403, headers); return void r.end(page('Double authentification', '<div class="card"><h1>Double authentification obligatoire</h1><p>Ton groupe demande un code en plus du mot de passe. Demande à l\'administrateur d\'Odin de l\'activer pour toi (Persona → Double authentification).</p></div>', nonce)); }
       if (p.totp) { pending.set(randomBytes(12).toString('hex'), { login, ip, exp: now + 5 * 60_000 }); r.writeHead(200, headers); return void r.end(form('', 'code', login)); }
     }
     const token = randomBytes(32).toString('base64url'), hours = c.hours;
@@ -134,9 +134,9 @@ const pending = new Map<string, { login: string; ip: string; exp: number }>();
 
 // ---------------- Le graphe ----------------
 export function idGraph(ps: Person[], rs: Rule[], ss: Session[], now = Date.now()): { nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail> } {
-  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Vár', sub: `${ps.length} personne(s)`, square: true, size: 18, color: '#4F9DDE', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
+  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Persona', sub: `${ps.length} personne(s)`, square: true, size: 18, color: '#4F9DDE', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
   const groups = [...new Set(ps.flatMap((p) => p.groups))];
-  details.odin = { kind: 'Vár', title: 'Les identités', subtitle: `${ps.length} personne(s) · ${groups.length} groupe(s) · ${ss.length} session(s) ouverte(s)`, rows: [{ k: 'Sites protégés', v: rs.map((r) => r.domain).join(', ') || 'aucun' }, { k: 'Double authentification', v: `${ps.filter((p) => p.totp).length} / ${ps.length} personne(s)` }] };
+  details.odin = { kind: 'Persona', title: 'Les identités', subtitle: `${ps.length} personne(s) · ${groups.length} groupe(s) · ${ss.length} session(s) ouverte(s)`, rows: [{ k: 'Sites protégés', v: rs.map((r) => r.domain).join(', ') || 'aucun' }, { k: 'Double authentification', v: `${ps.filter((p) => p.totp).length} / ${ps.length} personne(s)` }] };
   for (const g of groups) { nodes.push({ id: `g:${g}`, label: g, sub: 'groupe', square: true, size: 11, color: '#7FB3E6', hub: true }); edges.push({ a: 'odin', b: `g:${g}`, w: 2, color: '#7FB3E6' }); details[`g:${g}`] = { kind: 'Groupe', title: g, rows: [{ k: 'Personnes', v: ps.filter((p) => p.groups.includes(g)).map((p) => p.name).join(', ') }, { k: 'Sites', v: rs.filter((r) => r.groups.includes(g) || r.groups.includes('*')).map((r) => r.domain).join(', ') || '—' }] }; }
   for (const r of rs) { const id = `s:${r.domain}`; nodes.push({ id, label: r.domain, sub: r.groups.includes('*') ? 'tout le monde (connecté)' : r.groups.join(', '), size: 7, color: '#F0A040' }); for (const g of r.groups.includes('*') ? groups : r.groups) if (groups.includes(g)) edges.push({ a: `g:${g}`, b: id, dash: true, color: '#F0A040' }); details[id] = { kind: 'Site protégé', title: r.domain, rows: [{ k: 'Autorisés', v: r.groups.includes('*') ? 'toute personne connectée' : r.groups.join(', ') }], actions: [{ action: 'proteger_site', label: 'Changer les groupes', input: { domaine: r.domain, groupes: r.groups.join(', ') } }] }; }
   for (const p of ps) {
@@ -163,9 +163,9 @@ async function vault(ctx: ModCtx, p: { login: string; name: string }, pass: stri
 const ADD: Param[] = [{ key: 'login', label: 'Identifiant (ex. awa)', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', required: true }, { key: 'groupes', label: 'Groupes (ex. famille, admins)', kind: 'text', default: 'famille' }, { key: 'email', label: 'E-mail (facultatif, reste sur Odin)', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un, rangé dans le coffre)', kind: 'password', default: '' }];
 
 export const varModule: Module = {
-  id: 'var', name: 'Vár', family: 'Accès',
+  id: 'var', name: 'Persona', family: 'Accès',
   what: 'Les identités : les personnes et leurs groupes, un seul compte (et la double authentification) pour entrer sur tous les sites du proxy, avec sessions, verrouillage et journal.',
-  does: ['personnes, groupes, comptes coupés ou réactivés', 'portail de connexion à la mascotte d\'Odin : une connexion pour tous les sites du proxy Valgrind (connexion unique)', 'double authentification par code (appli Google Authenticator, Aegis…), obligatoire par groupe', 'sites réservés à des groupes ; l\'identité est transmise au service (Remote-User, Remote-Groups)', 'sessions ouvertes visibles et coupables, durée réglable', 'verrouillage après 5 essais, adresse bannie par Garmr, alerte, journal des connexions', 'mots de passe choisis par Odin rangés dans le coffre', 'graphe : personnes, groupes, sites, sessions'],
+  does: ['personnes, groupes, comptes coupés ou réactivés', 'portail de connexion à la mascotte d\'Odin : une connexion pour tous les sites du proxy Valgrind (connexion unique)', 'double authentification par code (appli Google Authenticator, Aegis…), obligatoire par groupe', 'sites réservés à des groupes ; l\'identité est transmise au service (Remote-User, Remote-Groups)', 'sessions ouvertes visibles et coupables, durée réglable', 'verrouillage après 5 essais, adresse bannie par Cerbère, alerte, journal des connexions', 'mots de passe choisis par Odin rangés dans le coffre', 'graphe : personnes, groupes, sites, sessions'],
   from: ['Authelia', 'Authentik', 'Keycloak'], upstream: ['authelia/authelia', 'goauthentik/authentik', 'keycloak/keycloak'],
   words: ['identité', 'identités', 'connexion unique', 'sso', 'comptes', 'utilisateurs', 'double authentification', '2fa', 'groupes', 'portail de connexion'],
   actions: [
@@ -177,7 +177,7 @@ export const varModule: Module = {
       const p: Person = { id: randomBytes(5).toString('hex'), login, name, ...(s(i.email) ? { email: s(i.email) } : {}), groups: groupsOf(i.groupes || 'famille'), hash: hashPassword(pass), active: true, created: Date.now(), fails: 0 };
       savePeople(ctx, [...people(ctx), p]);
       const inVault = await vault(ctx, p, pass);
-      return { text: `👤 ${name} (« ${login} », groupes ${p.groups.join(', ')}) ajouté. ${inVault ? 'Son mot de passe est dans le coffre Brísingamen.' : s(i.mot_de_passe) ? '' : '⚠ Le coffre n\'a pas pu garder le mot de passe : choisis-en un toi-même.'}` };
+      return { text: `👤 ${name} (« ${login} », groupes ${p.groups.join(', ')}) ajouté. ${inVault ? 'Son mot de passe est dans le coffre Thésauros.' : s(i.mot_de_passe) ? '' : '⚠ Le coffre n\'a pas pu garder le mot de passe : choisis-en un toi-même.'}` };
     }, undo: (i) => ({ action: 'retirer', input: { login: i.login }, label: 'Retirer la personne' }) },
     { id: 'modifier', label: 'Modifier une personne', what: 'Nom, groupes, compte actif', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes (vide : inchangés)', kind: 'text', default: '' }, { key: 'actif', label: 'Compte', kind: 'select', options: ['inchangé', 'actif', 'coupé'], default: 'inchangé' }], run: (ctx, i) => {
       const p = { ...byLogin(ctx, i.login) }; if (s(i.nom)) p.name = s(i.nom).slice(0, 60); if (s(i.groupes)) p.groups = groupsOf(i.groupes); if (s(i.actif) === 'actif') p.active = true; if (s(i.actif) === 'coupé') p.active = false;
@@ -218,7 +218,7 @@ export const varModule: Module = {
       if (h < 1 || h > 24 * 30) throw new Error('durée entre 1 heure et 30 jours');
       ctx.saveSettings({ portal, cookieDomain: dom, hours: h, require2fa: s(i.double_auth) ? groupsOf(i.double_auth) : [] });
       const r = await ctx.call('valgrind', 'portail', { domaine: portal }, 'servir le portail de connexion').catch((e) => ({ ok: false, text: (e as Error).message }));
-      // Avec un tunnel Cloudflare (Brú), le portail est aussi publié sur Internet.
+      // Avec un tunnel Cloudflare (Bifröst), le portail est aussi publié sur Internet.
       const pub = await ctx.call('bru', 'publier', { domaine: portal }, 'publier le portail de connexion sur Internet').catch(() => ({ ok: false, text: '' }));
       return { text: `⚙️ Portail ${portal} (sessions de ${h} h, valables sur *.${dom})${r.ok !== false ? ' servi par le proxy.' : ` — ⚠ le proxy n'a pas pu le servir : ${r.text}`}${pub.ok !== false && pub.text ? `\n${pub.text}` : ''}` };
     } },
@@ -239,7 +239,7 @@ export const varModule: Module = {
         { kind: 'graph', title: 'Graphe des identités', ...idGraph(ps, rs, ss, now), empty: 'Personne pour l\'instant : ajoute une personne à droite.', legend: [['#4F9DDE', 'Odin, groupes'], ['#57C98A', 'connecté en ce moment'], ['#E8EAEC', 'personne'], ['#B48CF0', 'double authentification'], ['#F0A040', 'site réservé'], ['#EE6A55', 'verrouillé']] },
         { kind: 'table', title: 'Personnes', columns: ['Nom', 'Identifiant', 'Groupes', 'Double auth.', 'Dernière connexion'], empty: 'Personne.', rows: ps.map((p) => ({ cells: [p.name, p.login, p.groups.join(', ') || '—', p.totp ? 'oui' : 'non', p.lastLogin ? new Date(p.lastLogin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais'], tone: !p.active ? 'neutre' as const : p.lockedUntil && p.lockedUntil > now ? 'mauvais' as const : undefined, actions: [{ action: 'double_auth', label: 'Double auth.', input: { login: p.login } }] })) },
         { kind: 'log', title: 'Journal des connexions', lines: j.slice(-25).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`) },
-        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Sól (photos)', detail: 'les albums visibles selon les groupes' }, { title: 'Snotra (bureau)', detail: 'le bureau à distance réservé aux admins, avec code' }] },
+        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Hélios (photos)', detail: 'les albums visibles selon les groupes' }, { title: 'Plume (bureau)', detail: 'le bureau à distance réservé aux admins, avec code' }] },
       ],
       side: [{ kind: 'form', title: 'Ajouter une personne', action: 'ajouter', submit: 'Ajouter', params: ADD }, { kind: 'form', title: 'Réserver un site', action: 'proteger_site', submit: 'Réserver', params: varModule.actions.find((a) => a.id === 'proteger_site')!.params! }, { kind: 'form', title: 'Réglages du portail', action: 'reglages', submit: 'Enregistrer', params: varModule.actions.find((a) => a.id === 'reglages')!.params! }],
     };

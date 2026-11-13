@@ -1,4 +1,4 @@
-// Ullr — la base de connaissances de l'antivirus : empreintes de malwares, indicateurs (sites, adresses,
+// Asclépios — la base de connaissances de l'antivirus : empreintes de malwares, indicateurs (sites, adresses,
 // applis espionnes), règles importées, failles exploitées. Elle se met à jour depuis des sources publiques,
 // et chaque mise à jour est un PAQUET VERSIONNÉ ET SIGNÉ : vérifié avant d'être chargé, testé avant d'être
 // activé (pas de faux positif sur des fichiers sains, le fichier de test EICAR toujours détecté), et
@@ -260,7 +260,7 @@ const get = async (c: FetchCtx, url: string, headers: Record<string, string> = {
   return Buffer.from(await r.arrayBuffer());
 };
 const needKey = (c: FetchCtx, name: string) => { const k = c.key(name); if (!k) throw new Error(`clé absente du coffre (${name})`); return k; };
-/** Fichiers de règles repris de signature-base (Florian Roth), licence DRL 1.1 : sous-ensemble compris par Ullr. */
+/** Fichiers de règles repris de signature-base (Florian Roth), licence DRL 1.1 : sous-ensemble compris par Asclépios. */
 export const SIGBASE = ['gen_susp_obfuscation', 'crime_ransom_generic', 'gen_powershell_susp', 'gen_susp_lnk_files', 'gen_metasploit_payloads', 'gen_cn_hacktools', 'thor-webshells'];
 export const SOURCES: Source[] = [
   { id: 'malwarebazaar', name: 'MalwareBazaar', what: 'Empreintes SHA-256 et familles des malwares récents', home: 'https://bazaar.abuse.ch/', gives: 'empreintes', mode: 'automatique', needs: 'ABUSE_CH_KEY', everyHours: 6, on: true, licence: 'Données CC0 ; clé gratuite (auth.abuse.ch) ; usage raisonnable, offre payante pour un usage commercial',
@@ -284,13 +284,13 @@ export const SOURCES: Source[] = [
   { id: 'virustotal', name: 'VirusTotal', what: 'Avis de dizaines d\'antivirus sur une empreinte (jamais d\'envoi de fichier)', home: 'https://www.virustotal.com/', gives: 'réputation', mode: 'à la demande', needs: 'VT_API_KEY', licence: 'Clé gratuite : 4 demandes par minute, 500 par jour, interdite dans un produit ou service commercial' },
   { id: 'malwarebazaar-api', name: 'MalwareBazaar (recherche)', what: 'Famille et étiquettes d\'une empreinte', home: 'https://bazaar.abuse.ch/api/', gives: 'réputation', mode: 'à la demande', needs: 'ABUSE_CH_KEY', licence: 'Même clé abuse.ch ; usage raisonnable' },
   { id: 'circl', name: 'CIRCL hashlookup', what: 'Fichiers connus de logiciels légitimes : évite les fausses alertes', home: 'https://www.circl.lu/services/hashlookup/', gives: 'fichiers sains', mode: 'à la demande', licence: 'Service public gratuit du CIRCL (Luxembourg)' },
-  { id: 'firehol', name: 'FireHOL et Feodo Tracker', what: 'Adresses IP malveillantes (botnets, serveurs de commande)', home: 'https://iplists.firehol.org/', gives: 'adresses IP', mode: 'automatique', licence: 'Listes publiques ; gérées par l\'appli Geri (connexions sortantes)' },
+  { id: 'firehol', name: 'FireHOL et Feodo Tracker', what: 'Adresses IP malveillantes (botnets, serveurs de commande)', home: 'https://iplists.firehol.org/', gives: 'adresses IP', mode: 'automatique', licence: 'Listes publiques ; gérées par l\'appli Méduse (connexions sortantes)' },
   { id: 'clamav', name: 'ClamAV', what: 'Référence technique ; signatures d\'empreintes au format .hsb importables', home: 'https://www.clamav.net/', gives: 'référence', mode: 'référence', licence: 'Moteur GPL non intégré (moteur d\'Odin fait maison) ; ses signatures ont leurs propres conditions' },
   { id: 'malpedia', name: 'Malpedia', what: 'Fiches des familles de malwares et règles YARA', home: 'https://malpedia.caad.fkie.fraunhofer.de/', gives: 'référence', mode: 'référence', needs: 'compte Malpedia', licence: 'Accès sur invitation ; conditions propres' },
   { id: 'otx', name: 'AlienVault OTX', what: 'Indicateurs partagés par la communauté', home: 'https://otx.alienvault.com/', gives: 'référence', mode: 'référence', needs: 'clé OTX', licence: 'Clé gratuite ; conditions d\'OTX' },
   { id: 'kaspersky', name: 'Kaspersky OpenTIP', what: 'Réputation de fichiers, sites et adresses', home: 'https://opentip.kaspersky.com/', gives: 'référence', mode: 'référence', needs: 'clé OpenTIP', licence: 'Selon accès et conditions de Kaspersky' },
-  { id: 'attack', name: 'MITRE ATT&CK', what: 'Classement des techniques d\'attaque : chaque détection d\'Ullr porte son code (ex. T1105)', home: 'https://attack.mitre.org/', gives: 'référence', mode: 'référence', licence: 'Libre d\'usage avec mention ; ce n\'est pas une base de signatures' },
-  { id: 'nvd', name: 'NVD', what: 'Toutes les failles connues (CVE)', home: 'https://nvd.nist.gov/', gives: 'référence', mode: 'référence', licence: 'Domaine public ; Ullr suit d\'abord les failles réellement exploitées (CISA KEV)' },
+  { id: 'attack', name: 'MITRE ATT&CK', what: 'Classement des techniques d\'attaque : chaque détection d\'Asclépios porte son code (ex. T1105)', home: 'https://attack.mitre.org/', gives: 'référence', mode: 'référence', licence: 'Libre d\'usage avec mention ; ce n\'est pas une base de signatures' },
+  { id: 'nvd', name: 'NVD', what: 'Toutes les failles connues (CVE)', home: 'https://nvd.nist.gov/', gives: 'référence', mode: 'référence', licence: 'Domaine public ; Asclépios suit d\'abord les failles réellement exploitées (CISA KEV)' },
   { id: 'androzoo', name: 'AndroZoo', what: 'Collection d\'applis Android pour la recherche', home: 'https://androzoo.uni.lu/', gives: 'référence', mode: 'référence', needs: 'accord universitaire', licence: 'Accès soumis à conditions' },
   { id: 'wdsi', name: 'Microsoft Security Intelligence', what: 'Documentation des menaces Windows', home: 'https://www.microsoft.com/en-us/wdsi', gives: 'référence', mode: 'référence', licence: 'Documentation' },
   { id: 'objective-see', name: 'Objective-See', what: 'Recherches et indicateurs sur macOS', home: 'https://objective-see.org/', gives: 'référence', mode: 'référence', licence: 'Documentation et outils libres' },

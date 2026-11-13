@@ -1,4 +1,4 @@
-// Dvalinn · les recettes de conversion : quel outil libre de la machine, avec quels arguments (pur, testé).
+// Alchimie · les recettes de conversion : quel outil libre de la machine, avec quels arguments (pur, testé).
 // Idées reprises de VERT, Frame, BentoPDF, Stirling-PDF, IT-Tools et Tdarr ; aucun code copié.
 //   - vidéo et son : ffmpeg ;  images : ImageMagick ;  bureautique : LibreOffice (sans écran) et pandoc ;
 //   - PDF : qpdf (fusion, découpe, rotation, mot de passe, allègement), Ghostscript si présent (compression forte),

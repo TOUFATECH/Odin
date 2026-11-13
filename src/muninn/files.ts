@@ -2,14 +2,14 @@
 //   ~/.odin/SOUL.md    sa personnalité (qui il est, comment il parle) — ex-ODIN.md
 //   ~/.odin/USER.md    ce qu'il sait de toi (préférences, personnes, habitudes)
 //   ~/.odin/MEMORY.md  ce qu'il sait du reste (machines, projets, faits, façons de faire, leçons)
-// Les deux derniers sont synchronisés avec sa base (Muninn) dans les deux sens : une ligne que tu
+// Les deux derniers sont synchronisés avec sa base (Mnémosyne) dans les deux sens : une ligne que tu
 // modifies est corrigée, une ligne que tu supprimes est oubliée, une ligne que tu ajoutes est retenue
 // (comme venant de toi). Chaque ligne garde son numéro en commentaire invisible : <!-- #12 -->.
 // Rien de ce qui vient d'un contenu non fiable (web, mails) n'est écrit dans ces fichiers.
 
 import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { MemoryRow, Muninn } from './store.ts';
+import type { MemoryRow, Mnemosyne } from './store.ts';
 
 export const USER_KINDS = new Set(['preference', 'person']);
 export const isAboutUser = (m: Pick<MemoryRow, 'kind' | 'subject'>) => USER_KINDS.has(m.kind) || /^(proprietaire|moi|owner|personne:)/i.test(m.subject ?? '');
@@ -63,10 +63,10 @@ const kindOf = (section: string, user: boolean) => Object.entries(LABEL).find(([
 export interface SyncReport { edited: number; forgotten: number; added: number }
 
 /**
- * Synchronise USER.md et MEMORY.md avec Muninn. Si tu as modifié un fichier depuis la dernière
+ * Synchronise USER.md et MEMORY.md avec Mnémosyne. Si tu as modifié un fichier depuis la dernière
  * écriture d'Odin, tes changements sont appliqués d'abord ; puis les deux fichiers sont réécrits.
  */
-export function syncMemoryFiles(home: string, muninn: Muninn): SyncReport {
+export function syncMemoryFiles(home: string, muninn: Mnemosyne): SyncReport {
   const rep: SyncReport = { edited: 0, forgotten: 0, added: 0 };
   const state = JSON.parse(muninn.getKv('memfiles') ?? '{}') as Record<string, { at: number; ids: number[] }>;
   for (const [file, user] of [['USER.md', true], ['MEMORY.md', false]] as const) {

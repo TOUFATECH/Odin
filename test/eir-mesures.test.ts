@@ -1,4 +1,4 @@
-// Eir (façon Glances) : lectures du système, niveaux de couleur, mesures gardées dans le temps (minutes,
+// Hygie (façon Glances) : lectures du système, niveaux de couleur, mesures gardées dans le temps (minutes,
 // heures, export Prometheus), et la vraie machine lue de bout en bout.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -58,7 +58,7 @@ test('mesures gardées : minutes, moyennes, heures, fenêtres, Prometheus', () =
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('la vraie machine : instantané, séries, appli Eir', async () => {
+test('la vraie machine : instantané, séries, appli Hygie', async () => {
   C.health(); await new Promise((r) => setTimeout(r, 300)); const h = C.health();
   assert.ok(h.cores >= 1 && h.mem.total > 0 && h.fs.length >= 0 && typeof h.cpu.total === 'number');
   const s = C.toSeries(h); assert.ok('eir.cpu' in s && 'eir.mem' in s && 'eir.load1' in s);

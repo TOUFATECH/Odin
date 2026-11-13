@@ -1,8 +1,8 @@
-// Völva · la recherche : une question en français, plusieurs moteurs interrogés ensemble (ton SearXNG, qui
+// Pythie · la recherche : une question en français, plusieurs moteurs interrogés ensemble (ton SearXNG, qui
 // réunit Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…, plus Brave, Wikipédia, Tavily, Exa selon
 // tes clés), résultats fusionnés et dédoublonnés, pages lues, réponse rédigée par l'IA réglée dans Odin avec
 // des sources numérotées cliquables, questions de suite, et les applis d'Odin qui peuvent agir sur le sujet.
-// Toutes les recherches d'Odin passent par Völva quand il est réglé. Reprend les idées de Perplexica (Vane),
+// Toutes les recherches d'Odin passent par Pythie quand il est réglé. Reprend les idées de Perplexica (Vane),
 // Perplexity et SearXNG (piloté à côté, jamais copié : SearXNG est sous AGPL).
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { extractive, finish, FOCUS, fuse, parseInstant, parseSearx, parseWikiped
 import type { ModCtx, Module, Param } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '');
-/** Les moteurs que Völva sait interroger, et ce qu'il faut pour chacun. */
+/** Les moteurs que Pythie sait interroger, et ce qu'il faut pour chacun. */
 export const ENGINES: Record<string, { label: string; need?: string; env?: string[]; note?: string; keyless?: boolean }> = {
   searxng: { label: 'SearXNG (Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…)', need: 'ton instance SearXNG (« Installer SearXNG » la lance à côté d\'Odin)', note: 'SearXNG interroge ces moteurs comme un navigateur : leurs conditions d\'usage s\'appliquent ; garde un usage personnel et raisonnable.' },
   brave: { label: 'Brave Search', env: ['BRAVE_API_KEY'], note: 'clé gratuite avec 5 $ de crédit par mois (environ 1 000 recherches)' },
@@ -81,7 +81,7 @@ export async function ask(ctx: ModCtx, q: string, o: { focus?: Focus; deep?: boo
   if (sources.length && ctx.ask) {
     try { const r = finish(await ctx.ask(prompt(q, sources, prev.map((h) => ({ q: h.q, a: h.answer })), deep)), sources.length); answer = r.text; followups = r.followups; essentials = r.essentials; ai = Boolean(answer); } catch (e) { g.errors.push(`IA : ${(e as Error).message.slice(0, 100)}`); }
   }
-  if (!answer) answer = sources.length ? `${g.answers.length ? `${g.answers.join('\n')}\n\n` : ''}${extractive(sources)}` : `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}. Règle au moins un moteur dans Völva (SearXNG ou une clé Brave).`;
+  if (!answer) answer = sources.length ? `${g.answers.length ? `${g.answers.join('\n')}\n\n` : ''}${extractive(sources)}` : `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}. Règle au moins un moteur dans Pythie (SearXNG ou une clé Brave).`;
   if (!followups.length) followups = g.suggestions.slice(0, 3);
   // Les applis d'Odin qui peuvent agir sur le sujet (« tu veux que je le fasse ? »).
   const v = valhallaOf(), apps = (v?.find(q) ?? []).filter((f) => f.score >= 2 && f.m.id !== 'volva').slice(0, 3).map((f) => ({ id: f.m.id, name: f.m.name, ...(f.action ? { action: f.action.id, label: f.action.label } : {}) }));
@@ -91,10 +91,10 @@ export async function ask(ctx: ModCtx, q: string, o: { focus?: Focus; deep?: boo
   return e;
 }
 
-const SEARXNG_SETTINGS = (secret: string) => `# Réglages de SearXNG écrits par Odin (Völva) : format JSON activé, en français, sans limiteur (usage privé).
+const SEARXNG_SETTINGS = (secret: string) => `# Réglages de SearXNG écrits par Odin (Pythie) : format JSON activé, en français, sans limiteur (usage privé).
 use_default_settings: true
 general:
-  instance_name: "Völva"
+  instance_name: "Pythie"
 server:
   secret_key: "${secret}"
   limiter: false
@@ -119,9 +119,9 @@ const ASK: Param[] = [
 export function volva(config: () => { searxngUrl?: string } = () => ({})): Module {
   cfg = config;
   return {
-    id: 'volva', name: 'Völva', family: 'Données',
+    id: 'volva', name: 'Pythie', family: 'Données',
     what: 'La recherche façon Perplexity : une question, tous tes moteurs (SearXNG avec Google, Bing, DuckDuckGo, Qwant…, Brave, Wikipédia), une réponse rédigée par ton IA avec des sources cliquables, et les applis d\'Odin qui peuvent agir.',
-    does: ['plusieurs moteurs ensemble : ton SearXNG (Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…), Brave, Wikipédia, Tavily, Exa', 'résultats fusionnés et dédoublonnés (une page vue par plusieurs moteurs passe devant), 3 pages au plus par site', 'pages lues, réponse rédigée par l\'IA réglée dans Odin, chaque phrase avec ses sources [1][2], sans rien inventer', 'sans IA : les meilleurs extraits, chacun avec sa source', 'questions de suite, conversation (la suite comprend la question d\'avant), focus Actualités, Wikipédia, Science, Vidéos', 'les applis d\'Odin qui peuvent agir sur le sujet, avec leur bouton', 'historique, export Markdown et JSON, lien de partage, impression en PDF', 'toutes les recherches d\'Odin passent par Völva quand il est réglé', 'installe et lance SearXNG à côté d\'Odin (Docker), en français, format JSON activé'],
+    does: ['plusieurs moteurs ensemble : ton SearXNG (Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…), Brave, Wikipédia, Tavily, Exa', 'résultats fusionnés et dédoublonnés (une page vue par plusieurs moteurs passe devant), 3 pages au plus par site', 'pages lues, réponse rédigée par l\'IA réglée dans Odin, chaque phrase avec ses sources [1][2], sans rien inventer', 'sans IA : les meilleurs extraits, chacun avec sa source', 'questions de suite, conversation (la suite comprend la question d\'avant), focus Actualités, Wikipédia, Science, Vidéos', 'les applis d\'Odin qui peuvent agir sur le sujet, avec leur bouton', 'historique, export Markdown et JSON, lien de partage, impression en PDF', 'toutes les recherches d\'Odin passent par Pythie quand il est réglé', 'installe et lance SearXNG à côté d\'Odin (Docker), en français, format JSON activé'],
     from: ['Perplexity', 'Perplexica', 'SearXNG', 'Farfalle'], upstream: ['ItzCrazyKns/Perplexica', 'searxng/searxng', 'rashadphz/farfalle'],
     words: ['völva', 'volva', 'recherche', 'cherche sur internet', 'moteur de recherche', 'perplexity', 'searxng', 'pose une question à internet'],
     actions: [
@@ -156,7 +156,7 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         const r = await ctx.run('docker', ['run', '-d', '--name', 'odin-searxng', '--restart', 'unless-stopped', '-p', `127.0.0.1:${port}:8080`, '-v', `${dir}:/etc/searxng`, 'docker.io/searxng/searxng:latest'], { timeoutMs: 300_000 });
         if (r.code !== 0) throw new Error(`Docker : ${(r.err || r.out).trim().slice(-300)}`);
         ctx.saveSettings({ searxng: `http://127.0.0.1:${port}`, searxngLocal: true });
-        return { text: `🚀 SearXNG démarre sur http://127.0.0.1:${port} (seulement sur cette machine). Völva l'utilise dès qu'il répond (quelques secondes).` };
+        return { text: `🚀 SearXNG démarre sur http://127.0.0.1:${port} (seulement sur cette machine). Pythie l'utilise dès qu'il répond (quelques secondes).` };
       }, undo: () => ({ action: 'arreter_searxng', input: {}, label: 'Arrêter SearXNG' }) },
       { id: 'arreter_searxng', label: 'Arrêter SearXNG', what: 'Arrête et retire le SearXNG lancé par Odin', quick: false, run: async (ctx) => { await ctx.run('docker', ['rm', '-f', 'odin-searxng'], { timeoutMs: 60_000 }); ctx.saveSettings({ searxng: '', searxngLocal: false }); return { text: '⏹ SearXNG arrêté.' }; } },
       { id: 'historique', label: 'Historique', what: 'Les dernières recherches', read: true, words: ['historique des recherches'], params: [{ key: 'n', label: 'Combien', kind: 'number', default: 20 }], run: (ctx, i) => ({ text: history(ctx).slice(0, Math.max(1, Math.min(200, Number(i.n) || 20))).map((h) => `- ${new Date(h.at).toLocaleString('fr-FR')} · ${h.q} (${h.sources.length} sources)`).join('\n') || 'Aucune recherche.' }) },
@@ -165,7 +165,7 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         return { text: s(i.format) === 'json' ? JSON.stringify(e, null, 2) : toMarkdown({ question: e.q, answer: e.answer, sources: e.sources, at: e.at, engines: e.engines }) };
       } },
       { id: 'oublier', label: 'Effacer l\'historique', what: 'Toutes les recherches gardées', quick: false, grave: () => 'effacer tout l\'historique des recherches', run: (ctx) => { saveHistory(ctx, []); writeFileSync(histFile(ctx), '[]'); return { text: '🧹 Historique effacé.' }; } },
-      { id: 'reglages', label: 'Réglages', what: 'Lire les pages, recherches d\'Odin par Völva, historique', quick: false, params: [{ key: 'lire', label: 'Lire les pages (réponse plus juste)', kind: 'boolean', default: true }, { key: 'pour_odin', label: 'Les recherches d\'Odin passent par Völva', kind: 'boolean', default: true }, { key: 'garder', label: 'Recherches gardées', kind: 'number', default: 200 }], run: (ctx, i) => { ctx.saveSettings({ lire: i.lire !== false, pourOdin: i.pour_odin !== false, garder: Math.max(10, Math.min(1000, Number(i.garder) || 200)) }); return { text: '⚙ Réglages de Völva enregistrés.' }; } },
+      { id: 'reglages', label: 'Réglages', what: 'Lire les pages, recherches d\'Odin par Pythie, historique', quick: false, params: [{ key: 'lire', label: 'Lire les pages (réponse plus juste)', kind: 'boolean', default: true }, { key: 'pour_odin', label: 'Les recherches d\'Odin passent par Pythie', kind: 'boolean', default: true }, { key: 'garder', label: 'Recherches gardées', kind: 'number', default: 200 }], run: (ctx, i) => { ctx.saveSettings({ lire: i.lire !== false, pourOdin: i.pour_odin !== false, garder: Math.max(10, Math.min(1000, Number(i.garder) || 200)) }); return { text: '⚙ Réglages de Pythie enregistrés.' }; } },
     ],
     async view(ctx) {
       const h = history(ctx), act = activeEngines(ctx);
@@ -173,7 +173,7 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         subtitle: `${act.length} moteur(s) : ${act.map((e) => ENGINES[e].label.split(' (')[0]).join(', ') || 'aucun'} · ${h.length} recherche(s) gardée(s)`,
         kpis: [{ label: 'Moteurs', value: String(act.length), tone: act.length ? 'bon' : 'attention' }, { label: 'SearXNG', value: searxUrl(ctx) ? 'relié' : 'non', tone: searxUrl(ctx) ? 'bon' : 'attention' }, { label: 'IA', value: ctx.ask ? 'oui' : 'sans IA' }, { label: 'Recherches', value: String(h.length) }],
         sections: [
-          { kind: 'steps', title: 'Völva', items: [{ title: 'Ouvrir la page de recherche', detail: '/recherche sur l\'adresse d\'Odin', done: true }, { title: 'SearXNG (Google, Bing, Qwant…)', detail: searxUrl(ctx) || 'pas encore : « Installer SearXNG » ou « Relier mon SearXNG »', done: Boolean(searxUrl(ctx)), action: 'installer_searxng', input: {}, button: 'Installer' }, { title: 'Une clé Brave (facultatif)', detail: 'BRAVE_API_KEY dans le coffre', done: Boolean(process.env.BRAVE_API_KEY) }] },
+          { kind: 'steps', title: 'Pythie', items: [{ title: 'Ouvrir la page de recherche', detail: '/recherche sur l\'adresse d\'Odin', done: true }, { title: 'SearXNG (Google, Bing, Qwant…)', detail: searxUrl(ctx) || 'pas encore : « Installer SearXNG » ou « Relier mon SearXNG »', done: Boolean(searxUrl(ctx)), action: 'installer_searxng', input: {}, button: 'Installer' }, { title: 'Une clé Brave (facultatif)', detail: 'BRAVE_API_KEY dans le coffre', done: Boolean(process.env.BRAVE_API_KEY) }] },
           { kind: 'table', title: 'Dernières recherches', columns: ['Quand', 'Question', 'Sources', 'Moteurs'], empty: 'Aucune recherche.', rows: h.slice(0, 30).map((x) => ({ cells: [new Date(x.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), x.q, String(x.sources.length), x.engines.slice(0, 4).join(', ')], actions: [{ action: 'exporter', label: 'Markdown', input: { id: x.id } }] })) },
         ],
         side: [{ kind: 'form', title: 'Chercher', action: 'chercher', submit: 'Chercher', params: ASK }, { kind: 'form', title: 'Relier mon SearXNG', action: 'searxng', submit: 'Relier', params: [{ key: 'adresse', label: 'Adresse', kind: 'text', required: true }] }],

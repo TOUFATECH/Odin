@@ -40,7 +40,7 @@ export const PLANETS: Planet[] = [
   { id: 'machines', name: 'Machines', what: 'Serveurs, Proxmox, droits, mises à jour', words: /machine|proxmox|serveur|ssh|droits|sudo|administrateur|windows|linux|docker|conteneur/i },
   { id: 'securite', name: 'Sécurité', what: 'Heimdall, coffre, antivirus, compte', words: /sécurité|heimdall|coffre|mot de passe|antivirus|ullr|compte|connexion|jeton|chiffr|garmr/i },
   { id: 'applis', name: 'Applis (Valhalla)', what: 'Les applis reliées entre elles', words: /appli|valhalla|idunn|sindri|brokkr|garmr|loki|frigg|bragi|hermod|kvasir|ymir|aegir|eir|forseti|geri|gjoll|himinbjorg|midgard|naglfar|ratatoskr|skogul|brisingamen|venus/i },
-  { id: 'automatisations', name: 'Automatisations', what: 'Draupnir, Runes, tâches planifiées', words: /automatisation|draupnir|runes?\b|tâche|planifi|rappel|cron|webhook/i },
+  { id: 'automatisations', name: 'Automatisations', what: 'Talos, Papyrus, tâches planifiées', words: /automatisation|draupnir|runes?\b|tâche|planifi|rappel|cron|webhook/i },
   { id: 'memoire', name: 'Mémoire et compétences', what: 'Ce qu\'Odin retient et apprend', words: /mémoire|souvenir|compétence|apprend|muninn|mimir/i },
   { id: 'ia', name: 'Modèles d\'IA', what: 'Fournisseurs, routage, sans IA', words: /openai|anthropic|claude|codex|ollama|openrouter|routage|deepseek|moonshot|fournisseur|modèle d'ia|modèle local|\bllm\b|sans ia/i },
   { id: 'installation', name: 'Installation', what: 'Installer, mettre à jour, sauvegarder', words: /install|mise à jour|mises à jour|sauvegarde|restaur|version|docker|tests?\b/i },

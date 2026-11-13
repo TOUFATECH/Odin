@@ -1,4 +1,4 @@
-// Vörðr, la télésurveillance : sondes HTTP (codes, mot attendu), port, DNS, signe de vie, applis d'Odin,
+// Pulsar, la télésurveillance : sondes HTTP (codes, mot attendu), port, DNS, signe de vie, applis d'Odin,
 // échecs avant alerte, maintenance, pause, certificat, disponibilité gardée jour par jour, graphe, page publique.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -103,7 +103,7 @@ test('signe de vie (push), applis d\'Odin, sondes automatiques, page publique sa
     assert.match((await w.act('verifier', { nom: 'Sauvegarde' })).text, /✅ Sauvegarde nocturne : signe de vie il y a \d+ s/);
     // Sondes apportées par les autres applis.
     const l = await w.act('liens');
-    assert.match(l.text, /Box \(Odin\)[\s\S]*Internet \(Odin\)[\s\S]*DNS d'Odin \(Víðarr\)[\s\S]*VPN d'Odin \(Gjöll\)/);
+    assert.match(l.text, /Box \(Odin\)[\s\S]*Internet \(Odin\)[\s\S]*DNS d'Odin \(Sphinx\)[\s\S]*VPN d'Odin \(Vortex\)/);
     // Page publique : seulement les sondes cochées, jamais leur adresse.
     await w.act('ajouter', { nom: 'Site vitrine', genre: 'http', cible: 'http://127.0.0.1:9/', public: true, essais: 1 });
     assert.match((await w.act('page_publique', { titre: 'TOUFATECH · état' })).text, /\/etat\/[a-f0-9]{18}/);

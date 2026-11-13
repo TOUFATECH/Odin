@@ -1,9 +1,9 @@
-# Ullr — l'antivirus d'Odin
+# Asclépios — l'antivirus d'Odin
 
-Ullr est l'antivirus d'Odin. Son moteur est fait maison (aucun moteur d'un autre antivirus n'est
+Asclépios est l'antivirus d'Odin. Son moteur est fait maison (aucun moteur d'un autre antivirus n'est
 intégré) et il est nourri par des sources publiques. Il est relié à toutes les autres applis d'Odin.
 
-**Aucun antivirus ne détecte 100 % des menaces, Ullr non plus.** Son moteur n'a pas été validé par un
+**Aucun antivirus ne détecte 100 % des menaces, Asclépios non plus.** Son moteur n'a pas été validé par un
 laboratoire indépendant. Il s'ajoute à tes autres protections, il ne les remplace pas.
 
 ## 1. Ce qu'il fait
@@ -20,9 +20,9 @@ laboratoire indépendant. Il s'ajoute à tes autres protections, il ne les rempl
 
 ## 2. Mise en route
 
-Rien à faire : Ullr marche dès l'installation d'Odin, avec ses règles de base, même sans Internet.
+Rien à faire : Asclépios marche dès l'installation d'Odin, avec ses règles de base, même sans Internet.
 
-Deux clés **facultatives** l'améliorent. Colle-les dans la page Ullr, encadré « Clés des sources » :
+Deux clés **facultatives** l'améliorent. Colle-les dans la page Asclépios, encadré « Clés des sources » :
 elles sont rangées avec les autres secrets d'Odin (`~/.odin/env`), jamais affichées, et masquées
 partout. Ne les donne jamais dans une discussion.
 
@@ -31,12 +31,12 @@ partout. Ne les donne jamais dans une discussion.
 | `ABUSE_CH_KEY` | empreintes des malwares récents (MalwareBazaar), indicateurs (ThreatFox), sites qui distribuent des malwares (URLhaus) | gratuite, sur auth.abuse.ch | usage raisonnable ; offre payante pour un usage commercial |
 | `VT_API_KEY` | l'avis de dizaines d'antivirus sur une empreinte (VirusTotal) | gratuite, sur virustotal.com | 4 demandes par minute, 500 par jour ; **interdite dans un produit ou un service commercial** |
 
-Sans clé, Ullr utilise quand même : OpenPhish, Stalkerware Indicators, les règles signature-base et le
+Sans clé, Asclépios utilise quand même : OpenPhish, Stalkerware Indicators, les règles signature-base et le
 catalogue CISA KEV.
 
 ## 3. Procédure d'utilisation
 
-Tout se fait en parlant à Odin (compris **sans IA**), ou depuis la page **Ullr**.
+Tout se fait en parlant à Odin (compris **sans IA**), ou depuis la page **Asclépios**.
 
 | Tu veux | Tu dis | Ce qui se passe |
 |---|---|---|
@@ -45,7 +45,7 @@ Tout se fait en parlant à Odin (compris **sans IA**), ou depuis la page **Ullr*
 | Vérifier tes téléchargements | « analyse mes téléchargements » | profils : `téléchargements`, `sites web`, `maison`, `temporaire`, `tout` |
 | Vérifier un lien | « vérifie le lien https://… » | connu comme dangereux ? forme suspecte ? |
 | Vérifier un message | « vérifie ce message : … » | signes d'hameçonnage, avec la raison de chacun |
-| Programmer une analyse | page Ullr → « Planifier une analyse » | chaque heure, jour ou semaine, avec des dossiers exclus |
+| Programmer une analyse | page Asclépios → « Planifier une analyse » | chaque heure, jour ou semaine, avec des dossiers exclus |
 | Arrêter une analyse | « arrête l'analyse » | le rapport partiel est gardé |
 | Lire le rapport | « rapport antivirus » | fichiers, durée, détections (chemin, empreinte, règle, gravité, action) |
 | Mettre à jour | « mets à jour les signatures » | se fait aussi tout seul |
@@ -57,7 +57,7 @@ Tout se fait en parlant à Odin (compris **sans IA**), ou depuis la page **Ullr*
 | Savoir où tu en es | « y a-t-il un virus sur ma machine ? » | l'état en quelques lignes : incidents, fichiers à vérifier, signatures, dernière analyse |
 | Voir les analyses faites | « les analyses » | les derniers rapports |
 
-### Quand Ullr trouve quelque chose
+### Quand Asclépios trouve quelque chose
 
 1. **C'est sûr** (empreinte connue, ou règle fiable sur un fichier qui peut se lancer). Le fichier est mis
    en **quarantaine** : déplacé et brouillé, il ne peut plus se lancer. Tu reçois un message.
@@ -85,12 +85,12 @@ Crée un fichier texte nommé `eicar.com` contenant exactement cette ligne, dans
 X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*
 ```
 
-En deux secondes environ, l'alerte « Ullr : Test antivirus EICAR » apparaît. C'est le fichier de test
+En deux secondes environ, l'alerte « Asclépios : Test antivirus EICAR » apparaît. C'est le fichier de test
 standard de tous les antivirus : il ne fait rien.
 
 ## 4. Mode de fonctionnement
 
-Ullr travaille en quatre étages.
+Asclépios travaille en quatre étages.
 
 ### Connaître — la base de signatures
 
@@ -107,7 +107,7 @@ Les sources sont interrogées toutes seules (chacune à son rythme). Chaque mise
 6. les trois dernières versions sont gardées : on peut **revenir en arrière**.
 
 Au démarrage, la signature et l'empreinte de chaque fichier du paquet sont vérifiées. Un paquet modifié
-sur le disque est refusé : Ullr revient à la dernière version saine, sinon aux règles de base.
+sur le disque est refusé : Asclépios revient à la dernière version saine, sinon aux règles de base.
 
 > La clé de signature est créée sur ta machine et y reste. Elle protège contre un paquet abîmé ou
 > modifié par un autre compte. Elle ne protège pas contre quelqu'un qui a déjà les droits d'Odin sur
@@ -118,14 +118,14 @@ sur le disque est refusé : Ullr revient à la dernière version saine, sinon au
 | Moyen | Exemple | Fiabilité |
 |---|---|---|
 | **Empreinte** (SHA-256) | « Malware connu : AgentTesla » | sûre |
-| **Règle** (Galdr maison, ou YARA importée) | « PHP.Webshell (eval encodé) » | sûre sur un fichier qui peut se lancer |
+| **Règle** (Grimoire maison, ou YARA importée) | « PHP.Webshell (eval encodé) » | sûre sur un fichier qui peut se lancer |
 | **Heuristique** | « Programme déguisé en document » | indice |
 | **Réputation** (VirusTotal, MalwareBazaar, CIRCL) | « 39 antivirus sur 69 le jugent dangereux » | confirme ou calme un soupçon |
 
 Chaque trouvaille a un poids (0 à 100) et **sa raison écrite**. Les poids se cumulent sans dépasser
 100 :
 
-| Score | Niveau | Ce que fait Ullr |
+| Score | Niveau | Ce que fait Asclépios |
 |---|---|---|
 | moins de 35 | rien | l'indice est noté dans le verdict, sans alerte |
 | 35 à 59 | moyenne | alerte dans le fil d'Odin, « à vérifier » |
@@ -155,18 +155,18 @@ exemple T1105).
 Un signal seul ne dit rien. Plusieurs signaux qui touchent la même chose (même adresse, même
 programme, même fichier, ou la même machine dans les mêmes minutes) racontent une attaque.
 
-| Appli | Ce qu'elle signale à Ullr |
+| Appli | Ce qu'elle signale à Asclépios |
 |---|---|
-| Loki | un attaquant tombé dans un piège |
-| Skögul | un processus suspect, un port qui s'ouvre |
-| Geri | un programme qui parle à une adresse malveillante ou nouvelle |
-| Garmr | une adresse bannie |
+| Sirènes | un attaquant tombé dans un piège |
+| Némésis | un processus suspect, un port qui s'ouvre |
+| Méduse | un programme qui parle à une adresse malveillante ou nouvelle |
+| Cerbère | une adresse bannie |
 | Forseti | un fichier système modifié |
-| Eir | le processeur saturé |
-| Naglfar | un conteneur arrêté tout seul |
+| Hygie | le processeur saturé |
+| Argo | un conteneur arrêté tout seul |
 | Hermóðr | une machine disparue du réseau |
-| Himinbjörg | un mouvement aux heures surveillées |
-| Idunn | le DNS, le certificat ou la page d'accueil d'un de tes sites qui change |
+| Cyclope | un mouvement aux heures surveillées |
+| Arachné | le DNS, le certificat ou la page d'accueil d'un de tes sites qui change |
 | Odin | un mot de passe refusé à la connexion |
 
 Un incident s'ouvre s'il y a un **vrai indice d'attaque** et, soit deux applis qui se recoupent, soit
@@ -184,7 +184,7 @@ Exemples : « Cette machine communique avec un attaquant », « Comportement de 
 | Odin fait seul (tu peux annuler) | Odin propose seulement |
 |---|---|
 | mettre un fichier sûr en quarantaine | tuer un processus |
-| bannir 24 h une adresse **extérieure** d'un incident sérieux (par Garmr) | couper le réseau, restaurer depuis Sindri |
+| bannir 24 h une adresse **extérieure** d'un incident sérieux (par Cerbère) | couper le réseau, restaurer depuis Phénix |
 | écrire la note de l'incident dans le Cerveau | supprimer un fichier |
 
 Une adresse du réseau local n'est jamais bannie. Un fichier du système n'est jamais déplacé. Aucune
@@ -230,19 +230,19 @@ des règles.
 
 | Lien | Ce qui se passe |
 |---|---|
-| Loki → Ullr | le fichier qu'un pirate dépose dans un piège est analysé, sans jamais être lancé |
-| Skögul → Ullr | le programme d'un processus suspect est analysé |
-| toutes les applis → Ullr | leurs signaux rejoignent les incidents |
-| Ullr → Garmr | l'adresse extérieure d'un incident sérieux est bannie 24 h (annulable) |
-| Ullr → Saga (le Cerveau) | chaque incident sérieux a sa note, complétée quand il s'aggrave ou est classé |
-| Ullr → Forseti | toutes ses alertes rejoignent le fil commun et ta messagerie |
-| Ullr → Bragi | une alerte critique est dite à voix haute (si activé) |
-| Draupnir | les événements `menace` et `incident` peuvent lancer tes automatisations |
+| Sirènes → Asclépios | le fichier qu'un pirate dépose dans un piège est analysé, sans jamais être lancé |
+| Némésis → Asclépios | le programme d'un processus suspect est analysé |
+| toutes les applis → Asclépios | leurs signaux rejoignent les incidents |
+| Asclépios → Cerbère | l'adresse extérieure d'un incident sérieux est bannie 24 h (annulable) |
+| Asclépios → Thot (le Cerveau) | chaque incident sérieux a sa note, complétée quand il s'aggrave ou est classé |
+| Asclépios → Forseti | toutes ses alertes rejoignent le fil commun et ta messagerie |
+| Asclépios → Orphée | une alerte critique est dite à voix haute (si activé) |
+| Talos | les événements `menace` et `incident` peuvent lancer tes automatisations |
 
 ## 7. Limites connues
 
 - Pas de garantie de détection, pas de validation par un laboratoire indépendant.
-- Ullr tourne sur la machine d'Odin (Linux, macOS, Windows avec Node). Il n'y a **pas d'agent** à
+- Asclépios tourne sur la machine d'Odin (Linux, macOS, Windows avec Node). Il n'y a **pas d'agent** à
   installer sur d'autres postes, ni d'appli Android ou iOS. Une page web ne peut pas lire les disques
   d'un autre ordinateur.
 - Pas de blocage avant l'ouverture d'un fichier (cela demande un pilote du système) : la protection
@@ -261,9 +261,9 @@ des règles.
 ## 8. Tests
 
 ```bash
-npm test                      # 21 tests pour Ullr, 33 pour les liens entre applis, 22 phrases comprises sans IA
+npm test                      # 21 tests pour Asclépios, 33 pour les liens entre applis, 22 phrases comprises sans IA
 npm run banc -- antivirus     # vraies sources, vraies archives, vrai disque (34 vérifications)
-npm run banc -- pieges        # Loki → Ullr → Garmr contre un attaquant simulé
+npm run banc -- pieges        # Sirènes → Asclépios → Cerbère contre un attaquant simulé
 ```
 
 Mesures faites pendant le développement :
@@ -297,8 +297,8 @@ isolé, qui n'existe pas ici.
 | Aucun fichier envoyé à un tiers | fait (empreintes seulement) |
 | Aucune action grave décidée par une IA, journal d'audit | fait |
 | Périphériques USB : analyse des supports | fait sur Linux |
-| Inventaire, santé, processus, parc | par les applis existantes (Eir, Skögul, Hermóðr) ; pas d'historique des mises à jour des postes |
-| Tableau de bord, filtres, alertes | page Ullr et fil de Forseti ; export CSV/PDF : non |
+| Inventaire, santé, processus, parc | par les applis existantes (Hygie, Némésis, Hermóðr) ; pas d'historique des mises à jour des postes |
+| Tableau de bord, filtres, alertes | page Asclépios et fil de Forseti ; export CSV/PDF : non |
 | Rapport horodaté : chemin, empreinte, règle, gravité, action | fait |
 | Test EICAR | fait (seul, compressé, en archive, en archive dans une archive) |
 | Précision, rappel, temps d'analyse | fausses alertes et vitesse mesurées ; rappel non mesuré |

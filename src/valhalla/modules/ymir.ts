@@ -1,6 +1,6 @@
-// Ymir — les machines virtuelles et conteneurs de tes serveurs de virtualisation, tous serveurs réunis
+// Hydre — les machines virtuelles et conteneurs de tes serveurs de virtualisation, tous serveurs réunis
 // (mode « Asgard ») : ressources, démarrer, arrêter, redémarrer, instantanés, sauvegarde d'une machine
-// (via Sindri en mode Andvari), alertes si une machine importante s'arrête ou si un nœud sature.
+// (via Phénix en mode Osiris), alertes si une machine importante s'arrête ou si un nœud sature.
 
 import { databaseFor, needsDb } from '../urdr/serveur.ts';
 import { pveApi, type PveResource } from '../../tools/proxmox.ts';
@@ -37,7 +37,7 @@ async function act(ctx: ModCtx, vmid: number, what: string, extra?: Record<strin
 /** Une machine du parc, quel que soit son type (même suivi, mêmes boutons). */
 export interface Unit { key: string; kind: Kind; name: string; auto: string; state: 'en marche' | 'arrêtée' | 'en installation'; ip?: string; what?: string; cpu?: number; ram?: number; where: string; module: string; ref: Record<string, unknown> }
 const pct = (a?: number, b?: number) => (a !== undefined && b ? Math.round((a / b) * 100) : undefined);
-/** Tout le parc : Proxmox (VM, LXC), Docker (Naglfar), ordinateurs installés par le réseau (Þjálfi). Les noms automatiques restent les mêmes. */
+/** Tout le parc : Proxmox (VM, LXC), Docker (Argo), ordinateurs installés par le réseau (Genèse). Les noms automatiques restent les mêmes. */
 export async function parc(ctx: ModCtx): Promise<{ units: Unit[]; errors: string[] }> {
   const names = { ...((ctx.settings.noms as Record<string, string> | undefined) ?? {}) }, taken = new Set(Object.values(names)), errors: string[] = [], units: Unit[] = [];
   const name = (key: string, kind: Kind, what: string) => { if (!names[key]) { names[key] = autoName(kind, what, taken); taken.add(names[key]); } return names[key]; };
@@ -90,20 +90,20 @@ export async function installDocker(ctx: ModCtx, i: Record<string, unknown>, wai
       for (let k = 0; k < 6; k++) { await wait(500); const st = eng.find(name).state; if (st.status === 'sorti' || st.status === 'arrêté') throw new Error(`le conteneur s'est arrêté : ${eng.logs(name, 3).map((l) => l.text).join(' / ') || st.error || `code ${st.exitCode}`}`); }
       return 'en marche';
     });
-  if (done && dbName) await step('Sauvegarde de sa base chaque nuit (Skuld)', async () => {
+  if (done && dbName) await step('Sauvegarde de sa base chaque nuit (Arche)', async () => {
     await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${name}`, identifiant: dbEnv.DB_USER ?? dbEnv.POSTGRES_USER ?? dbEnv.DB_POSTGRESDB_USER ?? name, mot_de_passe: Object.entries(dbEnv).find(([k]) => /PASSWORD|PASSWD/.test(k))?.[1] ?? '', site: 'Base d\'Odin (odin-pg)', coffre: 'TOUFATECH' }, `ranger le mot de passe de la base de ${name}`).catch(() => undefined);
     const r = await ctx.call('skuld', 'plan', { base: dbName, toutes: 'nuit', heure: 3 }, `sauvegarder chaque nuit la base de ${name}`); return r.text.replace(/^🗓 /, '');
   });
-  if (done) await step('Brancher le suivi (Vörðr)', async () => { const p = final[0]; if (!p) return 'pas de port : suivi du conteneur par Naglfar'; await ctx.call('vordr', 'ajouter', { nom: name, genre: 'tcp', cible: `127.0.0.1:${p.host}`, groupe: 'Machines' }, 'nouveau conteneur installé'); return `sonde sur le port ${p.host}`; });
+  if (done) await step('Brancher le suivi (Pulsar)', async () => { const p = final[0]; if (!p) return 'pas de port : suivi du conteneur par Argo'; await ctx.call('vordr', 'ajouter', { nom: name, genre: 'tcp', cible: `127.0.0.1:${p.host}`, groupe: 'Machines' }, 'nouveau conteneur installé'); return `sonde sur le port ${p.host}`; });
   return { steps, name, ports: final, ok: steps.every((x) => x.state !== 'échec') };
 }
 const STATE_ICON: Record<Step['state'], string> = { ok: '✓', corrigé: '↻', échec: '✗' };
 export const ymir: Module = {
-  id: 'ymir', name: 'Ymir', family: 'Machines',
+  id: 'ymir', name: 'Hydre', family: 'Machines',
   what: 'Tes machines : les LXC et VM de ce PC (créés par Odin, quarantaine, .ody), et celles de tes serveurs de virtualisation.',
-  does: ['machines de ce PC : LXC (images officielles signées) et VM (QEMU, ISO d\'Eitri), nom automatique, adresse vérifiée', 'aperçu en direct (écran de la VM, console du LXC), processeur et mémoire de chacune', 'quarantaine : la machine débranchée de tout, analyse complète, règle « rouge = isoler »', 'exporter et importer une machine entière en .ody (empreinte vérifiée, antivirus)', 'tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Sindri, mode Andvari)', 'alerte si une machine s\'arrête ou si un nœud sature'],
+  does: ['machines de ce PC : LXC (images officielles signées) et VM (QEMU, ISO d\'Andromède), nom automatique, adresse vérifiée', 'aperçu en direct (écran de la VM, console du LXC), processeur et mémoire de chacune', 'quarantaine : la machine débranchée de tout, analyse complète, règle « rouge = isoler »', 'exporter et importer une machine entière en .ody (empreinte vérifiée, antivirus)', 'tous les serveurs réunis (mode Asgard) : nœuds, machines, conteneurs', 'processeur, mémoire, disque de chaque machine', 'démarrer, arrêt propre, arrêt forcé, redémarrer', 'instantanés et retour en arrière (avec ton accord)', 'sauvegarde d\'une machine (Phénix, mode Osiris)', 'alerte si une machine s\'arrête ou si un nœud sature'],
   from: ['Proxmox VE', 'Proxmox Datacenter Manager'], upstream: ['proxmox/pve-manager'],
-  modes: ['Asgard · tous les serveurs', 'Andvari · sauvegarde des machines'],
+  modes: ['Asgard · tous les serveurs', 'Osiris · sauvegarde des machines'],
   words: ['créer une machine', 'quarantaine', 'isoler une machine', '.ody', 'machines de ce pc', 'machine virtuelle', 'machines virtuelles', 'vm', 'proxmox', 'toutes mes machines', 'parc de machines', 'conteneur lxc', 'lxc', 'hyperviseur', 'virtualisation', 'instantane', 'snapshot', 'noeud', 'nœud'],
   actions: [
     { id: 'parc', label: 'Toutes mes machines', what: 'Ordinateurs installés par le réseau, VM, LXC et conteneurs Docker, avec leur nom automatique', read: true, words: ['toutes mes machines', 'mon parc', 'parc de machines'], run: async (ctx) => {
@@ -131,7 +131,7 @@ export const ymir: Module = {
     const cpu = nodes.length ? Math.round((nodes.reduce((a, n) => a + (n.cpu ?? 0), 0) / nodes.length) * 100) : 0, mem = nodes.reduce((a, n) => a + (n.mem ?? 0), 0), maxmem = nodes.reduce((a, n) => a + (n.maxmem ?? 0), 0);
     return {
       subtitle: errors.length ? `⚠ ${errors.join(' ; ')}` : servers(ctx).length ? `${servers(ctx).length} serveur(s) · ${nodes.length} nœud(s)` : 'Aucun serveur relié : ajoute-en un à droite.',
-      tabs: ['Ymir · machines', 'Asgard · serveurs', 'Andvari · sauvegardes'],
+      tabs: ['Hydre · machines', 'Asgard · serveurs', 'Osiris · sauvegardes'],
       kpis: [{ label: 'Processeur', value: `${cpu} %`, pct: cpu, tone: cpu > 85 ? 'attention' : 'bon' }, { label: 'Mémoire', value: `${gb(mem)} / ${gb(maxmem)}`, pct: maxmem ? Math.round((mem / maxmem) * 100) : 0 }, { label: 'Machines actives', value: `${vms.filter((v) => v.status === 'running').length} / ${vms.length}` }],
       sections: [
         ...(['PC', 'VM', 'LXC', 'Docker', 'Pile'] as Kind[]).map((k) => ({ kind: 'cards' as const, title: { PC: 'Ordinateurs', VM: 'Machines virtuelles', LXC: 'Conteneurs LXC', Docker: 'Conteneurs (images Docker)', Pile: 'Groupes de conteneurs' }[k], empty: k === 'Docker' ? 'Aucun conteneur : « Installer un conteneur ».' : 'Aucune.',

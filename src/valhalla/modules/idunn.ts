@@ -1,5 +1,5 @@
-// Idunn — tes sites web : Odin les surveille, les essaie, les relance et les met à jour, sans IA.
-// (Idunn garde les pommes qui empêchent les dieux de vieillir : elle garde tes sites en vie et à jour.)
+// Arachné — tes sites web : Odin les surveille, les essaie, les relance et les met à jour, sans IA.
+// (Arachné garde les pommes qui empêchent les dieux de vieillir : elle garde tes sites en vie et à jour.)
 //   - Surveiller : le site répond-il, en combien de temps, son certificat, son titre, son contenu ; et
 //     tout ce qui se passe autour : envois de code, tests, demandes de fusion (GitHub), déploiements
 //     (Vercel), zone et DNS (Cloudflare). Tout devient un événement, que tu peux filtrer.
@@ -395,12 +395,12 @@ const slug = (t: string) => norm(t).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$
 
 const kindNames = KINDS.map(([n]) => n).join(', ');
 export const idunn: Module = {
-  id: 'idunn', name: 'Idunn', family: 'Machines',
+  id: 'idunn', name: 'Arachné', family: 'Machines',
   what: 'Tes sites web : Odin les surveille, les essaie, les relance et les met à jour, sans IA.',
   does: ['surveille chaque site : disponibilité, lenteur, certificat HTTPS, titre et contenu', 'journal de tout ce qui se passe : envois de code, tests, demandes de fusion (GitHub), déploiements (Vercel), zone et DNS (Cloudflare)', 'événements filtrables en français : « les erreurs du site … depuis 2 jours »', 'essais du site : pages, liens, erreurs affichées, en-têtes de sécurité', 'relancer, déployer, revenir en arrière, remettre en ligne (Vercel)', 'mises à jour de sécurité : les activer, les lister, fusionner celles dont les tests passent (GitHub)', 'créer un projet (dépôt GitHub et projet Vercel reliés)', 'vider le cache et mode « attaque » (Cloudflare)', 'bilan : ce qu\'il faut garder, améliorer, ne pas garder', 'avec une IA : faire évoluer le code sur une branche « odin/… », avec une demande de fusion et des garde-fous', 'les jetons d\'accès restent dans le coffre ; ce qui touche la production demande ton accord'],
   from: ['Uptime Kuma', 'Vercel', 'Cloudflare', 'Dependabot'], upstream: ['louislam/uptime-kuma', 'vercel/vercel', 'cloudflare/cloudflare-typescript', 'dependabot/dependabot-core'],
   modes: ['Veille', 'Essais', 'Déploiements', 'Mises à jour'],
-  // Pas le mot « site » tout seul : il désignerait Idunn pour « ouvre le site … » ou « ce site est-il dangereux ? ».
+  // Pas le mot « site » tout seul : il désignerait Arachné pour « ouvre le site … » ou « ce site est-il dangereux ? ».
   // Les noms des sites suivis et les expressions des actions (« teste le site », « relance le site »…) suffisent.
   words: ['site web', 'sites web', 'mes sites', 'deploiement', 'mise en ligne', 'certificat du site', 'idun'],
   actions: [
@@ -583,7 +583,7 @@ export const idunn: Module = {
         { kind: 'table', title: 'Sites', columns: ['Site', 'État', 'Réponse', 'Certificat', 'Relié à'], empty: 'Aucun site suivi.', rows: l.map((x) => ({ cells: [x.name, st[x.name]?.up === false ? 'hors ligne' : st[x.name]?.up ? 'en ligne' : 'à vérifier', st[x.name]?.ms !== undefined ? `${st[x.name]!.ms} ms` : '—', st[x.name]?.certOk === false ? 'non valable' : st[x.name]?.cert !== undefined ? `${st[x.name]!.cert} j` : '—', [x.github && 'GitHub', x.vercel && 'Vercel', x.zone && 'Cloudflare'].filter(Boolean).join(', ') || 'le site seul'], tone: tone(x), actions: [{ action: 'etat', label: 'Vérifier', input: { site: x.name } }, { action: 'tester', label: 'Essayer', input: { site: x.name } }, { action: 'bilan', label: 'Bilan', input: { site: x.name } }, ...(x.vercel ? [{ action: 'relancer', label: 'Relancer', input: { site: x.name } }] : [])] })) },
         { kind: 'table', title: 'Derniers événements', columns: ['Quand', 'Site', 'Source', 'Événement'], empty: 'Rien pour l\'instant.', rows: all.slice(-25).reverse().map((e) => ({ cells: [e.at.slice(5, 16).replace('T', ' '), e.site, e.source, e.text], tone: lv[e.level] })) },
         { kind: 'table', title: 'Accès', columns: ['Service', 'Jeton', 'Ce qu\'il permet'], rows: ([['GitHub', 'GITHUB_TOKEN', 'envois de code, tests, demandes de fusion, mises à jour, création de dépôt, évolution du code'], ['Vercel', 'VERCEL_TOKEN', 'déploiements, relance, retour en arrière, création de projet'], ['Cloudflare', 'CLOUDFLARE_API_TOKEN', 'zone, DNS, cache, mode « attaque »']] as const).map(([n, k, w]) => ({ cells: [n, key(k) ? 'présent' : 'absent', w], tone: (key(k) ? 'bon' : 'neutre') as Tone })) },
-        { kind: 'text', title: 'Avec ou sans IA', text: 'Sans IA, je surveille, j\'essaie, je relance, je déploie, je reviens en arrière et j\'applique les mises à jour dont les tests passent. Déployer du nouveau code, revenir en arrière, fusionner ou créer un projet touche la production : je te demande toujours ton accord. Avec une IA, je peux aussi faire évoluer le code : un fichier à la fois, sur une branche « odin/… », avec une demande de fusion que tu relis. Si un serveur MCP de GitHub ou de Cloudflare est branché (appli Ratatoskr), l\'IA peut aussi s\'en servir.' },
+        { kind: 'text', title: 'Avec ou sans IA', text: 'Sans IA, je surveille, j\'essaie, je relance, je déploie, je reviens en arrière et j\'applique les mises à jour dont les tests passent. Déployer du nouveau code, revenir en arrière, fusionner ou créer un projet touche la production : je te demande toujours ton accord. Avec une IA, je peux aussi faire évoluer le code : un fichier à la fois, sur une branche « odin/… », avec une demande de fusion que tu relis. Si un serveur MCP de GitHub ou de Cloudflare est branché (appli Interprète), l\'IA peut aussi s\'en servir.' },
       ],
       side: [{ kind: 'form', title: 'Surveiller un site', action: 'ajouter', submit: 'Surveiller', params: param('ajouter') }, { kind: 'form', title: 'Voir des événements', action: 'evenements', submit: 'Chercher', params: param('evenements') }, { kind: 'form', title: 'Accès', action: 'acces', submit: 'Ranger et vérifier', params: param('acces') }],
     };

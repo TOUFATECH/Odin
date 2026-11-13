@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { lineDiff, parseSkill, Yggdrasil } from '../src/yggdrasil/skills.ts';
+import { lineDiff, parseSkill, Athena } from '../src/yggdrasil/skills.ts';
 
-const tree = () => { const d = mkdtempSync(join(tmpdir(), 'ygg-')); return new Yggdrasil(join(d, 'skills'), join(d, 'skills', '_drafts')); };
+const tree = () => { const d = mkdtempSync(join(tmpdir(), 'ygg-')); return new Athena(join(d, 'skills'), join(d, 'skills', '_drafts')); };
 
 test('une proposition reste un brouillon hors de l\'index jusqu\'à approbation', () => {
   const y = tree();

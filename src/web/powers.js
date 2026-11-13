@@ -3,7 +3,7 @@
 // puis explosion. Glace : il se congèle, la glace craque puis explose. Lumière : il se désintègre en particules.
 // Sable : il s'efface en grains et part en fumée. Vent : il tourne et zigzague jusqu'à disparaître. Etc.
 // Quand : un onglet ou une fenêtre s'ouvre ou se ferme, tu supprimes quelque chose (et, en option, un petit éclat
-// là où tu cliques). Partout : l'interface d'Odin, l'écran de la maison (Glaðsheimr), ordinateur, téléphone.
+// là où tu cliques). Partout : l'interface d'Odin, l'écran de la maison (Hestia), ordinateur, téléphone.
 // Règles : désactivés au départ ; coupés = plus rien et l'animation en cours s'arrête ; jamais pendant une vidéo,
 // ni si l'appareil demande moins d'animations. Un pouvoir ne supprime rien : l'élément est déjà fermé, le pouvoir
 // joue sur une copie (un « fantôme ») et ne retarde rien.
@@ -45,14 +45,14 @@
     feuilles: { name: 'Feuilles d\'automne', c: '#ff9a3d', kit: 'leafcut', shot: 'none', appear: 'light', pc: ['#ff9a3d', '#e85d2a', '#f2c14a'] },
     poison: { name: 'Poison', c: '#8aff5a', kit: 'melt', shot: 'poison', drip: '#8aff5a', fx: 'hue-rotate(70deg) saturate(2.2) brightness(1.2)', appear: 'light', pc: ['#b8ff8a', '#8aff5a'] },
     laser: { name: 'Laser des yeux', c: '#ff2a2a', kit: 'halves', shot: 'laser', appear: 'light', pc: ['#ffd0d0', '#ff2a2a'] },
-    runes: { name: 'Runes', c: '#ffd36a', kit: 'dis', shot: 'runes', dir: 'h', pc: GOLD, dx: [-6, 14], dy: [-30, -12], fx: 'sepia(1) saturate(4) brightness(1.7)', appear: 'light' },
+    runes: { name: 'Papyrus', c: '#ffd36a', kit: 'dis', shot: 'runes', dir: 'h', pc: GOLD, dx: [-6, 14], dy: [-30, -12], fx: 'sepia(1) saturate(4) brightness(1.7)', appear: 'light' },
     onde: { name: 'Onde de choc', c: '#9fd0ff', kit: 'pop', shot: 'ring', shard: ['#283044', '#b8dcff'], appear: 'light', pc: ['#dff0ff', '#9fd0ff'] },
     ombre: { name: 'Ombre', c: '#9a6bff', kit: 'dis', shot: 'veil', dir: 'h', pc: ['#2a1a4a', '#5b3fa8', '#140a24'], dx: [-4, 18], dy: [-30, -10], size: [3, 5], glow: 3, fx: 'brightness(.3) saturate(.4)', smoke: '#05030a', appear: 'light' },
     lumiere: { name: 'Lumière sacrée', c: '#ffe9a0', kit: 'holy', shot: 'none', dir: 'v', pc: GOLD, dx: [-6, 6], dy: [-44, -22], fx: 'brightness(2.6) saturate(.5)', appear: 'light' },
     pixels: { name: 'Pixels', c: '#5a6fdb', kit: 'pixelate', shot: 'pixels', dir: 'h', pc: ['#283044', '#3c4660', '#56617f', '#5a6fdb', '#8fa0ff'], dx: [-14, 30], dy: [-26, 20], size: [4, 6], shape: '0', glow: 0, steps: true, fx: 'contrast(1.4) brightness(1.2)', appear: 'light' },
     aimant: { name: 'Aimant', c: '#ff5a5a', kit: 'pull', shot: 'magnet', appear: 'light', pc: ['#ff9a9a', '#ff5a5a'] },
     gungnir: { name: 'Gungnir, la lance', c: '#ffd36a', kit: 'pop', shot: 'spear', shard: ['#283044', '#ffd36a'], appear: 'light', pc: GOLD },
-    corbeaux: { name: 'Huginn et Muninn', c: '#c9d2e6', kit: 'carry', shot: 'ravens', appear: 'light', pc: ['#c9d2e6', '#ffffff'] },
+    corbeaux: { name: 'Logos et Mnémosyne', c: '#c9d2e6', kit: 'carry', shot: 'ravens', appear: 'light', pc: ['#c9d2e6', '#ffffff'] },
     bifrost: { name: 'Bifröst', c: '#ff6ad5', kit: 'fly', shot: 'none', appear: 'light', pc: ['#ff4a4a', '#ffe14a', '#4adf6a', '#4aa8ff', '#9a6bff'] },
     eclair: { name: 'Éclair', c: '#9fb4ff', kit: 'strike', shot: 'none', appear: 'strike', pc: ['#ffffff', '#e8f0ff', '#9fb4ff'] },
     teleport: { name: 'Téléportation', c: '#5fe6ff', kit: 'vanish', shot: 'none', appear: 'teleport', pc: ['#ffffff', '#bff8ff', '#5fe6ff'] },

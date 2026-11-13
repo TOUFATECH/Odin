@@ -78,7 +78,7 @@ Conteneurs (moteur d'Odin, sans démon, sans Docker ni Podman) :
   cron [list|add "EXPR" "DEMANDE"|remove ID]
   audit [N]                    dernières décisions de Heimdall
   net [scan [--full]|list [--all]|show IP|events|label ID NOM|enable|disable]
-                               inventaire du réseau local (Hliðskjálf)
+                               inventaire du réseau local (Horus)
   updates                      mises à jour disponibles sur cette machine
   web                          interface web (+ canaux et tâches planifiées)
   web access [lan|local|wan]   qui peut l'ouvrir : ton réseau local en HTTPS (défaut), cette machine,
@@ -258,7 +258,7 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     owners.http = ['*']; // quiconque détient le jeton est le propriétaire
     gw.add(new HttpChannel(http.port, token, http.host ?? '127.0.0.1'));
   }
-  // Draupnir (automatisations d'Odin) : démarré avec Odin, arrêté avec lui.
+  // Talos (automatisations d'Odin) : démarré avec Odin, arrêté avec lui.
   const stopDraupnir = startDraupnir(odin, (t) => gw!.notifyOwner(t));
   // Valhalla (toutes les applis d'Odin) : alertes sur ta messagerie, liens entre applis, veille.
   const stopValhalla = startValhalla(odin, (t, o) => gw!.notifyOwner(t, o));

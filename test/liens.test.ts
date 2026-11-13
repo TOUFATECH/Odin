@@ -42,7 +42,7 @@ function world(): World {
     if (/\/api\/states/.test(url)) return Response.json([{ entity_id: 'media_player.salon', state: 'idle', attributes: { friendly_name: 'Enceinte salon' } }, { entity_id: 'tts.demo', state: 'unknown', attributes: {} }]);
     if (/\/api\/services\//.test(url)) return Response.json([]);
     if (/\/cm\?cmnd=/.test(url)) return Response.json({ ok: true });
-    // Une fausse API Cloudflare (Brú) : zones, DNS, règles et santé du tunnel.
+    // Une fausse API Cloudflare (Bifröst) : zones, DNS, règles et santé du tunnel.
     if (/^http:\/\/cf\.test\//.test(url)) {
       const u = new URL(url), m = init?.method ?? 'GET', ok = (result: unknown) => Response.json({ success: true, result });
       if (u.pathname === '/zones') return ok(u.searchParams.get('name') === 'exemple.fr' ? [{ id: 'z1', name: 'exemple.fr', account: { id: 'acc' } }] : []);
@@ -78,7 +78,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   'loki>ullr': async (w) => {
     await new LokiEngine(w.v.ctx('loki')).capture('narfi', '203.0.113.9', 'http://pirate.exemple/bot.sh');
     const a = w.v.alerts({ module: 'loki' }).find((x) => /capturé/.test(x.title));
-    assert.match(a?.detail ?? '', /jamais exécuté[\s\S]*Ullr : ⚠ Test antivirus EICAR/, 'le verdict d\'Ullr part avec l\'alerte');
+    assert.match(a?.detail ?? '', /jamais exécuté[\s\S]*Asclépios : ⚠ Test antivirus EICAR/, 'le verdict d\'Asclépios part avec l\'alerte');
   },
   'geri>garmr': async (w) => {
     await w.v.module('geri')!.watch!.run(w.v.ctx('geri')); // les listes publiques sont chargées, puis les connexions en cours sont comparées
@@ -87,7 +87,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   },
   'skogul>ullr': async (w) => {
     w.v.ctx('skogul').emit('suspect', { règle: 'mineur', pid: process.pid, détail: 'test' });
-    assert.ok(await until(() => did(w, 'ullr', 'fichier')), 'le programme du processus suspect est analysé par Ullr');
+    assert.ok(await until(() => did(w, 'ullr', 'fichier')), 'le programme du processus suspect est analysé par Asclépios');
     w.v.ctx('eir').emit('mesure', { cpu: 99, mem: 40, disque: 30 });
     assert.ok(await until(() => ((w.v.ctx('ullr').settings.incidents as Array<{ kind: string }> | undefined) ?? [])[0]?.kind === 'programme suspect'), 'et le signal rejoint les incidents');
   },
@@ -100,7 +100,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.ok(!w.events.some((e) => e.module === 'midgard'), 'hors des heures surveillées : rien');
   },
   'forseti>bragi': async (w) => {
-    // Une fausse box domotique (protocole Home Assistant) : on y lit ce que Bragi demande de dire.
+    // Une fausse box domotique (protocole Home Assistant) : on y lit ce que Orphée demande de dire.
     const said: string[] = [];
     const ha = createServer((req, res) => { let b = ''; req.on('data', (c: Buffer) => { b += c; }); req.on('end', () => {
       if (req.url === '/api/states') { res.setHeader('content-type', 'application/json'); return void res.end(JSON.stringify([{ entity_id: 'media_player.salon', state: 'idle', attributes: { friendly_name: 'Enceinte salon' } }, { entity_id: 'tts.demo', state: 'unknown', attributes: {} }])); }
@@ -151,7 +151,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   'bragi>freyja': async (w) => {
     const r = await w.v.act('bragi', 'ordre', { texte: 'mets Inception sur la télé' });
     assert.match(r.text, /🎙 « mets Inception sur la télé »\nVénus · /, r.text);
-    assert.ok(did(w, 'freyja', 'regarder'), 'Freyja reçoit l\'ordre de lancer le titre');
+    assert.ok(did(w, 'freyja', 'regarder'), 'Vénus reçoit l\'ordre de lancer le titre');
     const g = await w.v.act('bragi', 'ordre', { texte: 'supprime le conteneur web' });
     assert.equal(g.ok, false); assert.match(g.text, /action grave/i, 'une action grave ne part jamais d\'un ordre à la voix');
     assert.ok(!w.ran.some((c) => /docker rm/.test(c)));
@@ -159,12 +159,12 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   'midgard>freyja': async (w) => {
     await w.v.act('midgard', 'creer_scene', { nom: 'Film', etapes: 'freyja.regarder = Inception\nnaglfar.supprimer = web' });
     const r = await w.v.act('midgard', 'scene', { scene: 'Film' });
-    assert.ok(did(w, 'freyja', 'regarder'), 'la scène lance le titre sur Freyja');
+    assert.ok(did(w, 'freyja', 'regarder'), 'la scène lance le titre sur Vénus');
     assert.match(r.text, /✗ naglfar\.supprimer : action grave : elle ne part pas d'une scène/, 'une action grave ne part jamais d\'une scène');
     assert.ok(!w.ran.some((c) => /docker rm/.test(c)));
   },
   'kvasir>runes': async (w) => {
-    await w.v.ctx('kvasir').call('runes', 'evolution', { titre: 'nocodb/nocodb 0.300.0', appli: 'Runes', lien: 'https://github.com/nocodb/nocodb/releases/tag/0.300.0', resume: 'Nouvelle vue calendrier.' });
+    await w.v.ctx('kvasir').call('runes', 'evolution', { titre: 'nocodb/nocodb 0.300.0', appli: 'Papyrus', lien: 'https://github.com/nocodb/nocodb/releases/tag/0.300.0', resume: 'Nouvelle vue calendrier.' });
     assert.match((await w.v.act('runes', 'bases')).text, /Évolutions/, 'la base « Évolutions » reçoit la fiche');
     assert.match((await w.v.act('saga', 'chercher', { q: 'nocodb 0.300.0' })).text, /nocodb/);
   },
@@ -174,7 +174,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.match((await w.v.act('sindri', 'machines', { plan: 'Serveur', vms: '101, 102' })).text, /instantané des machines 101, 102/);
     const r = await w.v.act('sindri', 'sauvegarder', { plan: 'Serveur' });
     assert.match(r.text, /💾 Serveur : 1 fichiers[\s\S]*Instantanés des machines virtuelles/, r.text);
-    assert.equal(w.acts.filter((a) => a.module === 'ymir' && a.action === 'instantane').length, 2, 'Ymir est appelé pour chaque machine avant la sauvegarde');
+    assert.equal(w.acts.filter((a) => a.module === 'ymir' && a.action === 'instantane').length, 2, 'Hydre est appelé pour chaque machine avant la sauvegarde');
   },
   // ---- Soins : ce qu'Odin répare tout seul
   'naglfar>urdr': async (w) => {
@@ -183,7 +183,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.match(lancer.grave!({ image: 'n8nio/n8n:1.120' })!, /avec sa base dans la base de données d'Odin/, 'une appli qui a besoin d\'une base la reçoit d\'office');
     assert.doesNotMatch(lancer.grave!({ image: 'nginx' })!, /base/, 'les autres : pas de base');
     assert.doesNotMatch(lancer.grave!({ image: 'n8nio/n8n', base: 'aucune' })!, /base/, 'sauf si tu dis « aucune »');
-    assert.ok(needsDb('vaultwarden/server') && w.v.action('ymir', 'installer_docker')!.a.params!.some((p) => p.key === 'base'), 'Ymir aussi');
+    assert.ok(needsDb('vaultwarden/server') && w.v.action('ymir', 'installer_docker')!.a.params!.some((p) => p.key === 'base'), 'Hydre aussi');
     const env = envFor('n8nio/n8n', { host: 'odin-pg', ip: '10.89.0.250', port: 5432, database: 'app_n8n', user: 'app_n8n', password: 'x', url: 'postgresql://app_n8n:x@odin-pg:5432/app_n8n' });
     assert.equal(env.DB_TYPE, 'postgresdb'); assert.equal(env.DB_POSTGRESDB_HOST, 'odin-pg'); assert.ok(!Object.keys(env).some((k) => /SQLITE/i.test(k)), 'jamais de fichier SQLite');
   },
@@ -213,7 +213,7 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   'svalinn>brisingamen': async (w) => {
     const r = await w.v.act('svalinn', 'relier_box', { adresse: 'box.test', marque: 'livebox', utilisateur: 'admin', mot_de_passe: 'mot-de-passe-box' });
     assert.match(r.text, /mot de passe rangé dans le coffre/); assert.ok(did(w, 'brisingamen', 'ajouter'), 'coffre appelé');
-    assert.match((await w.v.act('brisingamen', 'chercher', { q: 'Box internet' })).text, /Box internet \(Svalinn\)/);
+    assert.match((await w.v.act('brisingamen', 'chercher', { q: 'Box internet' })).text, /Box internet \(Zéphyr\)/);
   },
   'svalinn>forseti': async (w) => {
     await w.v.act('svalinn', 'relier_box', { adresse: 'box.test', marque: 'livebox', utilisateur: 'admin', mot_de_passe: 'mot-de-passe-box' });
@@ -256,10 +256,10 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
   },
 };
 /**
- * Liens vers Ullr : le signal de chaque appli rejoint les incidents. Seul, il ne dit rien ; recoupé avec
+ * Liens vers Asclépios : le signal de chaque appli rejoint les incidents. Seul, il ne dit rien ; recoupé avec
  * celui d'une autre appli, il ouvre un incident où l'appli est citée.
  */
-/** Víðarr démarré pour l'essai : une liste « menaces » écrite à la main (pas de réseau), sur un port libre. */
+/** Sphinx démarré pour l'essai : une liste « menaces » écrite à la main (pas de réseau), sur un port libre. */
 async function dnsUp(w: World): Promise<number> {
   const dir = join(w.v.ctx('vidarr').dir, 'listes'); mkdirSync(dir, { recursive: true }); writeFileSync(join(dir, 'menaces.txt'), '0.0.0.0 c2.virus.example\n');
   w.v.ctx('vidarr').saveSettings({ lists: [{ id: 'menaces', name: 'Sites dangereux', url: 'https://exemple.invalid/l.txt', kind: 'menace', enabled: true }], dns: { upstreams: ['udp://127.0.0.1:9'], fallback: [], rateLimit: 5 } });
@@ -272,7 +272,7 @@ async function dnsAsk(port: number, name: string): Promise<void> {
 }
 CHECKS['gjoll>vidarr'] = async (w) => {
   const r = await w.v.act('gjoll', 'ajouter', { nom: 'Téléphone de Sara', dns_odin: true });
-  assert.match(r.text, /Il passe par le DNS d'Odin \(Víðarr\)/, r.text);
+  assert.match(r.text, /Il passe par le DNS d'Odin \(Sphinx\)/, r.text);
   const clients = (w.v.ctx('vidarr').settings.dns as { clients: Array<{ name: string; ids: string[] }> }).clients;
   assert.deepEqual(clients.map((c) => [c.name, c.ids]), [['VPN · Téléphone de Sara', ['10.8.0.2']]]);
 };
@@ -296,7 +296,7 @@ CHECKS['vidarr>saga'] = async (w) => {
   const dir = join(w.v.ctx('vidarr').dir, 'journal'); mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${day}.jsonl`), [{ t: d.getTime(), client: '192.168.1.30', clientName: 'Tablette', name: 'pub.exemple', type: 'A', status: 'bloqué', list: 'Pubs', ms: 1, rcode: 'NOERROR' }, { t: d.getTime() + 1, client: '192.168.1.30', name: 'exemple.fr', type: 'A', status: 'ok', ms: 3, rcode: 'NOERROR' }].map((x) => JSON.stringify(x)).join('\n') + '\n');
   await w.v.module('vidarr')!.watch!.run(w.v.ctx('vidarr'));
-  assert.ok(await until(() => did(w, 'saga', 'noter')), 'note du jour dans Saga');
+  assert.ok(await until(() => did(w, 'saga', 'noter')), 'note du jour dans Thot');
   assert.ok(existsSync(join(w.v.ctx('vidarr').dir, 'historique', day.slice(0, 4), day.slice(5, 7), `${day.slice(8)}.json`)), 'résumé du jour gardé dans l\'historique');
   const h = await w.v.act('vidarr', 'historique', { periode: 'jour', date: day });
   assert.match(h.text, /2 requêtes, 1 bloquées[\s\S]*Tablette \(192\.168\.1\.30\)/);
@@ -306,24 +306,24 @@ CHECKS['vidarr>ran'] = async (w) => {
   const view = await w.v.module('vidarr')!.view(w.v.ctx('vidarr'), new URLSearchParams());
   const g = view.sections.find((x) => x.kind === 'graph') as { details: Record<string, { actions?: Array<{ module?: string; action: string; input: Record<string, unknown> }> }> };
   const a = g.details['p:192.168.1.40'].actions!.find((x) => x.module === 'ran');
-  assert.deepEqual([a?.action, a?.input], ['lire', { ip: '192.168.1.40' }], 'la fiche du poste ouvre ses paquets dans Rán');
+  assert.deepEqual([a?.action, a?.input], ['lire', { ip: '192.168.1.40' }], 'la fiche du poste ouvre ses paquets dans Ariane');
 };
 const sondes = (w: World) => (w.v.ctx('vordr').settings.monitors as Array<{ name: string; kind: string; target: string; source?: string }> | undefined) ?? [];
 CHECKS['vidarr>vordr'] = async (w) => {
   await w.v.act('vordr', 'liens');
-  assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'vidarr' && m.source === 'Víðarr'));
+  assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'vidarr' && m.source === 'Sphinx'));
   assert.match((await w.v.act('vordr', 'verifier', { nom: 'DNS d\'Odin' })).text, /❌ DNS d'Odin : le DNS d'Odin est arrêté/);
   await dnsUp(w);
   try { assert.match((await w.v.act('vordr', 'verifier', { nom: 'DNS d\'Odin' })).text, /✅ DNS d'Odin : DNS d'Odin en marche/); } finally { await w.v.act('vidarr', 'arreter'); }
 };
 CHECKS['gjoll>vordr'] = async (w) => {
   await w.v.act('vordr', 'liens');
-  assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'gjoll' && m.source === 'Gjöll'));
+  assert.ok(sondes(w).some((m) => m.kind === 'odin' && m.target === 'gjoll' && m.source === 'Vortex'));
   assert.match((await w.v.act('vordr', 'verifier', { nom: 'VPN d\'Odin' })).text, /❌ VPN d'Odin : le tunnel VPN est éteint/);
 };
 CHECKS['freyja>vordr'] = async (w) => {
   await w.v.act('vordr', 'liens');
-  assert.ok(sondes(w).some((m) => m.name === 'Venus' && m.kind === 'http' && m.target === 'http://venus.test:8096/api/health' && m.source === 'Freyja'), JSON.stringify(sondes(w)));
+  assert.ok(sondes(w).some((m) => m.name === 'Venus' && m.kind === 'http' && m.target === 'http://venus.test:8096/api/health' && m.source === 'Vénus'), JSON.stringify(sondes(w)));
   assert.match((await w.v.act('vordr', 'liens')).text, /Rien de nouveau/, 'pas de doublon');
 };
 CHECKS['idunn>vordr'] = async (w) => {
@@ -408,7 +408,7 @@ CHECKS['valgrind>garmr'] = async (w) => {
     await w.v.act('valgrind', 'ajouter', { domaines: 'nas.maison', cible: p.svcUrl, https: 'aucun', dns_maison: false, surveiller: false });
     await w.v.act('valgrind', 'proteger', { domaine: 'nas.maison', utilisateur: 'awa', mot_de_passe: 'une phrase assez longue' });
     for (let k = 0; k < 5; k++) assert.equal(await httpGet(p.port, 'nas.maison', { authorization: `Basic ${Buffer.from('awa:faux').toString('base64')}` }), 401);
-    assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Garmr est appelé au 5e essai');
+    assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Cerbère est appelé au 5e essai');
     assert.ok(!w.ran.some((c) => /nft add element .*127\.0\.0\.1/.test(c)), 'une adresse de la maison n\'est jamais bannie');
   } finally { p.end(); }
 };
@@ -439,7 +439,7 @@ CHECKS['valgrind>ran'] = async (w) => {
   const g = view.sections.find((x) => x.kind === 'graph') as { details: Record<string, { actions?: Array<{ module?: string; action: string; input: Record<string, unknown> }> }> };
   assert.deepEqual(g.details['m:192.168.1.10:5000'].actions?.find((a) => a.module === 'ran')?.input, { ip: '192.168.1.10' });
 };
-/** Vár prêt : portail réglé, une personne, un site du proxy réservé. Rend le port HTTPS. */
+/** Persona prêt : portail réglé, une personne, un site du proxy réservé. Rend le port HTTPS. */
 async function varUp(w: World, body = 'login=awa&password=faux'): Promise<{ port: number; end: () => void; post: (b?: string) => Promise<number> }> {
   const p = await proxyUp(w); const https = await import('node:https');
   await w.v.act('var', 'reglages', { portail: 'connexion.exemple.fr', domaine: 'exemple.fr', double_auth: '' });
@@ -459,7 +459,7 @@ CHECKS['var>valgrind'] = async (w) => {
     assert.equal(st, 302, 'renvoyé au portail');
   } finally { u.end(); }
 };
-/** Brú prêt : clé, tunnel déjà créé, fausse API Cloudflare. */
+/** Bifröst prêt : clé, tunnel déjà créé, fausse API Cloudflare. */
 function bruUp(w: World): () => void {
   const saved = process.env.CLOUDFLARE_API_TOKEN; process.env.CLOUDFLARE_API_TOKEN = 'cle-de-test-cloudflare-123456';
   w.v.ctx('bru').saveSettings({ apiBase: 'http://cf.test', tunnel: { id: 't1', name: 'odin', account: 'acc' }, bin: join(w.home, 'absent') });
@@ -487,7 +487,7 @@ CHECKS['bru>forseti'] = async (w) => {
     assert.ok(w.v.alerts({ module: 'bru' }).some((a) => /Le tunnel Cloudflare est coupé/.test(a.title) && a.level === 'haute'));
   } finally { end(); }
 };
-/** Skíðblaðnir prêt : un espace « Famille » et le serveur des fichiers (port au hasard). */
+/** Nébuleuse prêt : un espace « Famille » et le serveur des fichiers (port au hasard). */
 async function skidUp(w: World): Promise<{ port: number; send: (path: string, o?: { body?: string; headers?: Record<string, string>; method?: string }) => Promise<{ status: number; text: string }> }> {
   await w.v.act('skidbladnir', 'espace', { nom: 'Famille', lecture: 'famille', ecriture: 'famille', quota_go: 1 });
   await w.v.act('skidbladnir', 'demarrer', { port: 0 });
@@ -505,7 +505,7 @@ CHECKS['gjoll>garmr'] = async (w) => {
   const { setTunFactory } = await import('../src/valhalla/modules/gjoll.ts');
   setTunFactory(async () => ({ write: () => {}, onPacket: () => {}, close: () => {} }));
   const r = await w.v.act('gjoll', 'allumer'); assert.ok(r.ok, r.text);
-  try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Gjöll/); }
+  try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Vortex/); }
   finally { await w.v.act('gjoll', 'eteindre'); }
 };
 CHECKS['fjalar>ullr'] = async (w) => {
@@ -517,7 +517,7 @@ CHECKS['fjalar>ullr'] = async (w) => {
 CHECKS['var>skidbladnir'] = async (w) => {
   await w.v.act('var', 'ajouter', { login: 'awa', nom: 'Awa', groupes: 'famille', mot_de_passe: 'une phrase assez longue' });
   assert.match((await w.v.act('skidbladnir', 'mot_de_passe_appli', { login: 'awa', nom: 'PC' })).text, /Mot de passe d'appli pour awa/);
-  assert.match((await w.v.act('skidbladnir', 'mot_de_passe_appli', { login: 'personne', nom: 'PC' })).text, /pas de compte actif dans Vár/);
+  assert.match((await w.v.act('skidbladnir', 'mot_de_passe_appli', { login: 'personne', nom: 'PC' })).text, /pas de compte actif dans Persona/);
 };
 CHECKS['skidbladnir>valgrind'] = async (w) => {
   const p = await proxyUp(w);
@@ -558,7 +558,7 @@ CHECKS['skidbladnir>garmr'] = async (w) => {
     const lk = JSON.parse((await k.send('/api/lien', { method: 'POST', body: JSON.stringify({ e: 'famille', p: '', motdepasse: 'abc' }), headers: { 'remote-user': 'awa', 'remote-groups': 'famille', 'x-skid': '1' } })).text);
     const token = /\/p\/([\w-]+)$/.exec(lk.url)![1];
     for (let i = 0; i < 5; i++) await k.send(`/p/${token}/mot-de-passe`, { method: 'POST', body: 'mot_de_passe=x', headers: { host: 'partage.exemple.fr', 'x-real-ip': '203.0.113.50' } });
-    assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Garmr appelé au 5e essai');
+    assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Cerbère appelé au 5e essai');
   } finally { await skidDown(w); }
 };
 CHECKS['var>brisingamen'] = async (w) => {
@@ -567,7 +567,7 @@ CHECKS['var>brisingamen'] = async (w) => {
 };
 CHECKS['var>garmr'] = async (w) => {
   const u = await varUp(w);
-  try { for (let k = 0; k < 5; k++) await u.post(); assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Garmr appelé au verrouillage'); }
+  try { for (let k = 0; k < 5; k++) await u.post(); assert.ok(await until(() => did(w, 'garmr', 'bannir')), 'Cerbère appelé au verrouillage'); }
   finally { u.end(); }
 };
 CHECKS['var>forseti'] = async (w) => {
@@ -592,7 +592,7 @@ const SIGNALS: Record<string, { alone: [string, Record<string, unknown>]; with: 
   naglfar: { alone: ['conteneur_arrete', { conteneur: 'web' }], with: ['skogul', 'suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' }], kind: 'activité anormale' },
   hermod: { alone: ['machine_hors_ligne', { machine: 'NAS' }], with: ['ullr', 'sentinelle', { fichier: '/srv/docs/!000-ne-pas-toucher.docx', action: 'modifié' }], kind: 'rançongiciel' },
   himinbjorg: { alone: ['mouvement', { caméra: 'Bureau', part: 14, surveillé: true }], with: ['ullr', 'support_branche', { dossier: '/media/cle' }], kind: 'intrusion physique' },
-  // Un site web n'a qu'un témoin (Idunn) : son DNS qui change ne dit rien seul ; avec sa page d'accueil qui change aussi, c'est un incident.
+  // Un site web n'a qu'un témoin (Arachné) : son DNS qui change ne dit rien seul ; avec sa page d'accueil qui change aussi, c'est un incident.
   idunn: { alone: ['dns_change', { site: 'boutique' }], with: ['idunn', 'titre_change', { site: 'boutique' }], kind: 'site détourné' },
   // Une machine de la maison qui demande un site dangereux ET tombe dans un piège : elle est sans doute infectée.
   var: { alone: ['verrouillage', { login: 'awa', ip: '203.0.113.90' }], with: ['loki', 'piege', { ip: '203.0.113.90', type: 'identifiants', 'piège': 'ssh', 'détail': 'root/123456' }], kind: 'attaque' },
@@ -609,13 +609,13 @@ for (const [from, sc] of Object.entries(SIGNALS)) CHECKS[`${from}>ullr`] = async
   assert.ok(w.v.alerts({ module: 'ullr' }).some((a) => a.title.startsWith('Incident : ')), 'annoncé une fois, avec sa chronologie');
 };
 CHECKS['garmr>ullr'] = async (w) => {
-  // Un bannissement est une réponse, pas un témoin : il ne crée pas d'incident à lui seul, mais Ullr le sait (pas de double bannissement).
+  // Un bannissement est une réponse, pas un témoin : il ne crée pas d'incident à lui seul, mais Asclépios le sait (pas de double bannissement).
   w.v.ctx('garmr').emit('banni', { ip: '203.0.113.66', raison: 'essai', minutes: 60, source: 'toi' });
   w.v.ctx('skogul').emit('suspect', { règle: 'mineur', pid: 4242, détail: '/tmp/.x/mineur' });
   w.v.ctx('geri').emit('malveillant', { ip: '203.0.113.66', programme: 'mineur' });
   assert.ok(await until(() => incidents(w).length === 1));
   await wait(80);
-  assert.ok(incidents(w)[0].apps.includes('Cerbère')); assert.deepEqual(incidents(w)[0].done, [], 'adresse déjà bannie : Ullr ne la bannit pas une seconde fois');
+  assert.ok(incidents(w)[0].apps.includes('Cerbère')); assert.deepEqual(incidents(w)[0].done, [], 'adresse déjà bannie : Asclépios ne la bannit pas une seconde fois');
   assert.ok(!w.ran.some((c) => /nft add element/.test(c)));
 };
 CHECKS['ullr>garmr'] = async (w) => {
@@ -631,7 +631,7 @@ CHECKS['ullr>saga'] = async (w) => {
   const dir = join(w.home, 'cerveau');
   assert.ok(await until(() => existsSync(dir) && readdirSync(dir).some((f) => /^Incident .*rançongiciel/.test(f))), 'une note datée raconte l\'incident dans le Cerveau');
   const note = join(dir, readdirSync(dir).find((f) => /^Incident /.test(f))!);
-  assert.match(readFileSync(note, 'utf8'), /#sécurité #incident[\s\S]*Score de risque : \d+\/100 \(critique\)[\s\S]*\[\[Ullr\]\]/);
+  assert.match(readFileSync(note, 'utf8'), /#sécurité #incident[\s\S]*Score de risque : \d+\/100 \(critique\)[\s\S]*\[\[Asclépios\]\]/);
   const id = (w.v.ctx('ullr').settings.incidents as Array<{ id: string }>)[0].id;
   await w.v.act('ullr', 'incident', { incident: id, etat: 'traité' });
   assert.ok(await until(() => /Incident classé : traité/.test(readFileSync(note, 'utf8'))), 'la note est complétée quand l\'incident est classé');
@@ -644,7 +644,7 @@ for (const from of ['ullr', 'sindri', 'eir', 'naglfar', 'ymir', 'hermod']) CHECK
   assert.ok(await until(() => w.sent.some((s) => s.includes(`Alerte de test ${from}`))), 'envoyée sur ta messagerie');
 };
 
-/** Idunn → Forseti : un site qui ne répond pas deux fois de suite, c'est une alerte critique dans le fil commun et sur ta messagerie. */
+/** Arachné → Forseti : un site qui ne répond pas deux fois de suite, c'est une alerte critique dans le fil commun et sur ta messagerie. */
 CHECKS['idunn>forseti'] = async (w) => {
   await w.v.act('idunn', 'ajouter', { adresse: 'http://boutique.exemple', nom: 'boutique' });
   assert.ok(!w.v.alerts({ module: 'idunn' }).length, 'un seul essai raté : pas encore une panne');
@@ -652,7 +652,7 @@ CHECKS['idunn>forseti'] = async (w) => {
   assert.match((await w.v.act('forseti', 'alertes', { gravite: 'info' })).text, /boutique : le site ne répond plus/, 'visible dans le fil commun de Forseti');
   assert.ok(await until(() => w.sent.some((s) => s.includes('boutique : le site ne répond plus'))), 'envoyée sur ta messagerie');
 };
-/** Idunn se surveille : chaque mise en production est essayée ; un essai raté propose le retour en arrière, sans jamais le lancer. */
+/** Arachné se surveille : chaque mise en production est essayée ; un essai raté propose le retour en arrière, sans jamais le lancer. */
 CHECKS['idunn>idunn'] = async (w) => {
   await w.v.act('idunn', 'ajouter', { adresse: 'http://boutique.exemple', nom: 'boutique' }); w.acts.length = 0;
   w.v.ctx('idunn').emit('deploiement_ok', { site: 'boutique', production: false }); await wait(80);
@@ -664,7 +664,7 @@ CHECKS['idunn>idunn'] = async (w) => {
   assert.equal(w.v.manips({ module: 'idunn' }).length, 0, 'un essai n\'est pas une manip : rien à garder ni à annuler');
 };
 
-// ---------------- Þjálfi (déploiement par le réseau) ----------------
+// ---------------- Genèse (déploiement par le réseau) ----------------
 const ISOS = join(import.meta.dirname, 'fixtures', 'thjalfi');
 async function thj(w: World): Promise<{ base: string; get: (p: string) => Promise<string> }> {
   const dir = join(w.home, 'iso'); mkdirSync(dir, { recursive: true });
@@ -676,7 +676,7 @@ async function thj(w: World): Promise<{ base: string; get: (p: string) => Promis
 }
 CHECKS['eitri>thjalfi'] = async (w) => {
   const t = await thj(w);
-  assert.match((await w.v.act('thjalfi', 'isos')).text, /ubuntu-24\.04\.3-live-server-amd64 : Ubuntu Server \(installation automatique\)/, 'l\'ISO d\'Eitri est reconnue');
+  assert.match((await w.v.act('thjalfi', 'isos')).text, /ubuntu-24\.04\.3-live-server-amd64 : Ubuntu Server \(installation automatique\)/, 'l\'ISO d\'Andromède est reconnue');
   assert.match(await t.get('/menu.ipxe?mac=52:54:00:00:10:01'), /item e-ubuntu-24-04-3-live-server-amd64 /, 'elle est dans le menu de démarrage');
 };
 CHECKS['fjalar>thjalfi'] = async (w) => {
@@ -687,7 +687,7 @@ CHECKS['fjalar>thjalfi'] = async (w) => {
   await w.v.act('thjalfi', 'autoriser', { mac: '52:54:00:00:10:02', iso: 'win11', profil: 'Bureau', auto: true });
   const tok = /seed\/([\w-]+)\//.exec(await t.get('/menu.ipxe?mac=52:54:00:00:10:02&fw=efi'))![1];
   const ps = await t.get(`/w/${tok}/apres.ps1`);
-  assert.match(ps, /\/logiciel\/[\w-]+\/vlc-3\.0\.21-win64\.exe/, 'l\'installateur de Fjalar est servi'); assert.match(ps, /'\/L=1036 \/S'/, 'en silencieux');
+  assert.match(ps, /\/logiciel\/[\w-]+\/vlc-3\.0\.21-win64\.exe/, 'l\'installateur de Hermès est servi'); assert.match(ps, /'\/L=1036 \/S'/, 'en silencieux');
   assert.equal(await t.get(`/logiciel/${tok}/vlc-3.0.21-win64.exe`), 'MZ-VLC');
 };
 async function installOne(w: World): Promise<void> {
@@ -731,7 +731,7 @@ CHECKS['thjalfi>vidarr'] = async (w) => {
 CHECKS['eir>syn'] = async (w) => {
   await w.v.module('eir')!.watch!.run(w.v.ctx('eir')); w.v.metrics.flush();
   await w.v.act('syn', 'modele', { modele: 'machine' });
-  assert.match((await w.v.act('syn', 'voir', { tableau: 'machine', periode: '1h' })).text, /Processeur \(moyenne\) : \S+ eir\.cpu \d/, 'les mesures d\'Eir arrivent dans le tableau Machine');
+  assert.match((await w.v.act('syn', 'voir', { tableau: 'machine', periode: '1h' })).text, /Processeur \(moyenne\) : \S+ eir\.cpu \d/, 'les mesures d\'Hygie arrivent dans le tableau Machine');
 };
 CHECKS['vordr>syn'] = async (w) => {
   w.v.metrics.put({ 'vordr.up.site': 1, 'vordr.temps.site': 230 }); w.v.metrics.flush();
@@ -766,7 +766,7 @@ for (const l of LINKS) {
   });
 }
 
-test('Freyja : santé de Venus (en marche, lectures, disque presque plein)', () => {
+test('Vénus : santé de Venus (en marche, lectures, disque presque plein)', () => {
   const t = santeText({ ok: true, name: 'Venus', version: '3.2', uptime: 3 * 86400, scanning: true, playing: 2, disk: { free: 40e9, total: 1e12 } });
   assert.match(t, /Venus 3\.2 en marche depuis 3 j/); assert.match(t, /2 lecture/); assert.match(t, /analyse/); assert.match(t, /40\.0 Go libres sur 1000 Go ⚠️ presque plein/);
   assert.doesNotMatch(santeText({ ok: true, uptime: 7200, disk: { free: 5e11, total: 1e12 } }), /presque plein/);

@@ -1,4 +1,4 @@
-// Midgard — la maison : tableau de bord par pièce (cartes Ýdalir et bulles Breiðablik), scènes
+// Midgard — la maison : tableau de bord par pièce (cartes Mosaïque et bulles Écume), scènes
 // (« Je pars », « Bonne nuit »…), présence, et ponts vers d'autres box domotiques (Home Assistant
 // et équivalents) pour reprendre leurs appareils. Les appareils viennent du registre « Appareils ».
 
@@ -79,7 +79,7 @@ export async function runScene(ctx: ModCtx, name: string): Promise<string> {
   const out: string[] = [];
   for (const st of sc.steps) {
     try {
-      // « appli.action = valeur » : la scène pilote une autre appli (Freyja lance le film, Ægir la musique, Bragi annonce…).
+      // « appli.action = valeur » : la scène pilote une autre appli (Vénus lance le film, Apollon la musique, Orphée annonce…).
       const app = /^([\p{L}]+)\.([a-z_]+)$/u.exec(st.appareil.trim()), mod = app ? ctx.modules().find((m) => m.id === app[1].toLowerCase() || m.name.toLowerCase() === app[1].toLowerCase()) : undefined;
       if (app && mod) {
         const a = mod.actions.find((x) => x.id === app[2]); if (!a) throw new Error(`action inconnue : ${app[2]}`);
@@ -97,9 +97,9 @@ export async function runScene(ctx: ModCtx, name: string): Promise<string> {
 export const midgard: Module = {
   id: 'midgard', name: 'Midgard', family: 'Maison',
   what: 'Le tableau de bord de la maison : pièces, scènes, et les appareils de toutes tes box réunis.',
-  does: ['tableau de bord par pièce (cartes Ýdalir, bulles Breiðablik)', 'scènes : plusieurs appareils d\'un coup (« Je pars », « Film », « Bonne nuit »)', 'ponts vers d\'autres box (Home Assistant, et box compatibles) : leurs appareils apparaissent ici', 'allumer, éteindre, ouvrir, fermer depuis le tableau ou par la voix', 'chaque changement d\'état peut lancer une automatisation Draupnir'],
+  does: ['tableau de bord par pièce (cartes Mosaïque, bulles Écume)', 'scènes : plusieurs appareils d\'un coup (« Je pars », « Film », « Bonne nuit »)', 'ponts vers d\'autres box (Home Assistant, et box compatibles) : leurs appareils apparaissent ici', 'allumer, éteindre, ouvrir, fermer depuis le tableau ou par la voix', 'chaque changement d\'état peut lancer une automatisation Talos'],
   from: ['Home Assistant', 'Mushroom', 'Bubble Card', 'HACS', 'openHAB', 'Domoticz', 'ioBroker'], upstream: ['home-assistant/core', 'piitaya/lovelace-mushroom', 'Clooos/Bubble-Card'],
-  modes: ['Ýdalir · cartes', 'Breiðablik · bulles', 'Ponts (Jörð, Nóatún, Bilskírnir)'],
+  modes: ['Mosaïque · cartes', 'Écume · bulles', 'Ponts · autres box domotiques'],
   words: ['maison', 'domotique', 'scene', 'scène', 'je pars', 'bonne nuit', 'piece', 'pièce', 'salon', 'chambre', 'tableau de bord', 'home assistant'],
   actions: [
     { id: 'maison', label: 'État de la maison', what: 'Résumé par pièce', read: true, words: ['etat de la maison', 'état de la maison', 'comment va la maison'], run: async (ctx) => { const d = await devices(ctx); const rooms = [...new Set(d.map((x) => x.room || 'Sans pièce'))]; return { text: rooms.map((r) => `${r} : ${d.filter((x) => (x.room || 'Sans pièce') === r).map((x) => `${x.name} ${x.state ?? '?'}${x.unit ? ` ${x.unit}` : ''}`).join(', ')}`).join('\n') || 'Aucun appareil relié.' }; } },
@@ -124,7 +124,7 @@ export const midgard: Module = {
   },
 };
 
-/** Les appareils de toutes les box (pour l'écran de la maison, Glaðsheimr). */
+/** Les appareils de toutes les box (pour l'écran de la maison, Hestia). */
 export const homeDevices = (ctx: ModCtx) => devices(ctx);
 export const homeScenes = (ctx: ModCtx) => scenes(ctx);
 export type HomeDevice = Dev;

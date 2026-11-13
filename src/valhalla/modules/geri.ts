@@ -1,7 +1,7 @@
-// Geri — détection d'intrusion réseau et journal des connexions (mode « Freki ») : chaque connexion de
+// Méduse — détection d'intrusion réseau et journal des connexions (mode « Clio ») : chaque connexion de
 // la machine est comparée aux listes publiques d'adresses malveillantes (mises à jour chaque jour),
 // aux ports typiques des pirates, et notée dans un journal (qui parle à qui, depuis quand).
-// Une adresse malveillante est bannie par Garmr, l'alerte part dans Forseti.
+// Une adresse malveillante est bannie par Cerbère, l'alerte part dans Forseti.
 
 import { isIP } from 'node:net';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -43,11 +43,11 @@ type JournalRow = { prog: string; dest: string; first: string; last: string; n: 
 function journal(ctx: ModCtx): Record<string, JournalRow> { try { return JSON.parse(readFileSync(join(ctx.dir, 'journal.json'), 'utf8')); } catch { return {}; } }
 
 export const geri: Module = {
-  id: 'geri', name: 'Geri', family: 'Sécurité',
+  id: 'geri', name: 'Méduse', family: 'Sécurité',
   what: 'Surveille les connexions réseau de la machine : adresses malveillantes connues, ports de pirates, et journal de qui parle à qui.',
-  does: ['compare chaque connexion aux listes publiques d\'adresses malveillantes (mises à jour chaque jour)', 'repère les ports typiques des pirates (minage, portes dérobées, IRC)', 'journal des connexions (mode Freki) : programme, destination, première et dernière fois', 'bannit les adresses malveillantes via Garmr', 'alerte quand un programme contacte une nouvelle destination à l\'étranger la nuit'],
+  does: ['compare chaque connexion aux listes publiques d\'adresses malveillantes (mises à jour chaque jour)', 'repère les ports typiques des pirates (minage, portes dérobées, IRC)', 'journal des connexions (mode Clio) : programme, destination, première et dernière fois', 'bannit les adresses malveillantes via Cerbère', 'alerte quand un programme contacte une nouvelle destination à l\'étranger la nuit'],
   from: ['Suricata', 'Zeek'], upstream: ['OISF/suricata', 'zeek/zeek'],
-  modes: ['Freki · journal des connexions'],
+  modes: ['Clio · journal des connexions'],
   words: ['intrusion', 'connexion', 'connexions', 'trafic', 'reseau suspect', 'réseau suspect', 'qui parle', 'adresse malveillante', 'botnet', 'freki', 'ids'],
   actions: [
     { id: 'connexions', label: 'Connexions en cours', what: 'Qui parle à qui en ce moment', read: true, words: ['connexions', 'qui parle'], run: async (ctx) => { const c = parseSs((await ctx.run('ss', ['-tunpH', 'state', 'established'], { timeoutMs: 10_000 })).out).filter((x) => !isPrivateV4(x.rip)); return { text: c.map((x) => `- ${x.prog} → ${x.rip}:${x.rport}${inList(x.rip, list(ctx)) ? ' ⚠ MALVEILLANTE' : ''}`).join('\n') || 'Aucune connexion vers Internet.', data: c }; } },
@@ -60,11 +60,11 @@ export const geri: Module = {
     const j = Object.values(journal(ctx)).sort((a, b) => b.last.localeCompare(a.last)).slice(0, 40), bad = c.filter((x) => inList(x.rip, list(ctx)));
     return {
       subtitle: `Listes à jour : ${ctx.settings.listsAt ? new Date(String(ctx.settings.listsAt)).toLocaleString('fr-FR') : 'jamais'} · ${list(ctx).length} réseaux malveillants connus`,
-      tabs: ['Geri · intrusions', 'Freki · journal'],
+      tabs: ['Méduse · intrusions', 'Clio · journal'],
       kpis: [{ label: 'Connexions vers Internet', value: String(c.length) }, { label: 'Vers une adresse malveillante', value: String(bad.length), tone: bad.length ? 'mauvais' : 'bon' }, { label: 'Destinations connues', value: String(Object.keys(journal(ctx)).length) }],
       sections: [
         { kind: 'table', title: 'Connexions en cours', columns: ['Programme', 'Destination', 'Port', 'Statut'], empty: 'Aucune connexion vers Internet.', rows: c.map((x) => ({ cells: [x.prog, x.rip, String(x.rport), inList(x.rip, list(ctx)) ? 'MALVEILLANTE' : BAD_PORTS[x.rport] ?? 'normal'], tone: inList(x.rip, list(ctx)) ? 'mauvais' : BAD_PORTS[x.rport] ? 'attention' : undefined, actions: [{ action: 'verifier', label: 'Vérifier', input: { ip: x.rip } }] })) },
-        { kind: 'table', title: 'Freki · journal des connexions', columns: ['Programme', 'Destination', 'Fois', 'Première', 'Dernière'], rows: j.map((r) => ({ cells: [r.prog, r.dest, String(r.n), r.first.slice(0, 16).replace('T', ' '), r.last.slice(0, 16).replace('T', ' ')] })) },
+        { kind: 'table', title: 'Clio · journal des connexions', columns: ['Programme', 'Destination', 'Fois', 'Première', 'Dernière'], rows: j.map((r) => ({ cells: [r.prog, r.dest, String(r.n), r.first.slice(0, 16).replace('T', ' '), r.last.slice(0, 16).replace('T', ' ')] })) },
       ],
     };
   },
@@ -82,7 +82,7 @@ export const geri: Module = {
       if (inList(c.rip, list(ctx))) {
         ctx.alert({ level: 'critique', title: `${c.prog} parle à une adresse malveillante`, detail: `${c.rip}:${c.rport} est dans les listes publiques (botnet, serveur de commande…).`, key: `bad:${c.rip}`, data: { ip: c.rip } });
         ctx.emit('malveillant', { ip: c.rip, programme: c.prog });
-        await ctx.call('garmr', 'bannir', { ip: c.rip, raison: 'adresse malveillante (Geri)', source: 'Geri', minutes: 1440 }).catch(() => undefined);
+        await ctx.call('garmr', 'bannir', { ip: c.rip, raison: 'adresse malveillante (Méduse)', source: 'Méduse', minutes: 1440 }).catch(() => undefined);
       } else if (BAD_PORTS[c.rport]) ctx.alert({ level: 'haute', title: `${c.prog} utilise le port ${c.rport}`, detail: `${BAD_PORTS[c.rport]} — vers ${c.rip}.`, key: `port:${c.prog}:${c.rport}` });
     }
     const keys = Object.keys(j); if (keys.length > 5000) for (const k of keys.sort((a, b) => j[a].last.localeCompare(j[b].last)).slice(0, keys.length - 5000)) delete j[k];

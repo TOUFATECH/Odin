@@ -1,6 +1,6 @@
-// Bragi — la voix d'Odin réunie en un module : comprendre (Whisper, local ou en ligne), parler
-// (ElevenLabs, Piper local, ou compatible OpenAI), annonces sur les enceintes de la maison (Vör),
-// et diffusion d'une alerte à voix haute partout (Gjallarhorn). Réutilise src/voice (pas de doublon).
+// Orphée — la voix d'Odin réunie en un module : comprendre (Whisper, local ou en ligne), parler
+// (ElevenLabs, Piper local, ou compatible OpenAI), annonces sur les enceintes de la maison (Stentor),
+// et diffusion d'une alerte à voix haute partout (Triton). Réutilise src/voice (pas de doublon).
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { extname, join } from 'node:path';
@@ -46,11 +46,11 @@ async function announce(ctx: ModCtx, message: string, where?: string): Promise<s
 
 export function bragi(voice: () => VoiceConfig): Module {
   const m: Module = {
-    id: 'bragi', name: 'Bragi', family: 'Maison',
+    id: 'bragi', name: 'Orphée', family: 'Maison',
     what: 'La voix d\'Odin : comprendre ce que tu dis, parler, annoncer sur les enceintes.',
-    does: ['comprend les vocaux et fichiers audio (Whisper sur la machine ou en ligne), langue détectée', 'parle avec la voix choisie (ElevenLabs, Piper local gratuit, ou compatible OpenAI)', 'Vör : annonce sur une enceinte de la maison ou partout', 'Gjallarhorn : les alertes critiques peuvent être dites à voix haute', 'transcrit un fichier audio en texte horodaté'],
+    does: ['comprend les vocaux et fichiers audio (Whisper sur la machine ou en ligne), langue détectée', 'parle avec la voix choisie (ElevenLabs, Piper local gratuit, ou compatible OpenAI)', 'Stentor : annonce sur une enceinte de la maison ou partout', 'Triton : les alertes critiques peuvent être dites à voix haute', 'transcrit un fichier audio en texte horodaté'],
     from: ['Home Assistant Assist', 'Rhasspy', 'Wyoming', 'Piper', 'Whisper', 'openWakeWord'], upstream: ['rhasspy/piper', 'openai/whisper', 'rhasspy/wyoming'],
-    modes: ['Vör · annonces', 'Gjallarhorn · alertes à voix haute'],
+    modes: ['Stentor · annonces', 'Triton · alertes à voix haute'],
     words: ['voix', 'parle', 'dis', 'annonce', 'enceinte', 'haut-parleur', 'transcris', 'transcription', 'vocal', 'audio', 'lis a voix haute', 'lis à voix haute'],
     actions: [
       { id: 'etat', label: 'État de la voix', what: 'Ce qui est prêt', read: true, run: () => { const v = voice(); return { text: `Comprendre : ${sttReady(v) ? 'prêt' : 'pas prêt (Whisper absent et pas de clé)'}\nParler : ${ttsReady(v) ? `prêt (${v.tts.provider}${ttsIsLocal(v) ? ', sur la machine' : ', en ligne'})` : 'pas prêt'}\nVoix : ${v.tts.voiceName || v.tts.voiceId || 'par défaut'}` }; } },
@@ -73,22 +73,22 @@ export function bragi(voice: () => VoiceConfig): Module {
         return { ok: r.ok, text: `🎙 « ${text} »\n${r.text}` };
       } },
       { id: 'voix', label: 'Voix disponibles', what: 'Voix du fournisseur', read: true, run: async () => ({ text: (await listVoices(voice())).map((x) => `- ${x.name} (${x.category}) ${x.id}`).join('\n') || 'Aucune.' }) },
-      { id: 'gjallarhorn', label: 'Alertes à voix haute', what: 'Dire les alertes critiques sur les enceintes', params: [{ key: 'actif', label: 'Activé', kind: 'boolean', default: false }, { key: 'ou', label: 'Enceinte (ou « partout »)', kind: 'text', default: 'partout' }, { key: 'heures', label: 'Heures autorisées (ex. 7-22)', kind: 'text', default: '7-22' }], run: (ctx, i) => { ctx.saveSettings({ horn: i.actif === true || i.actif === 'true', hornWhere: s(i.ou) || 'partout', hornHours: s(i.heures) || '7-22' }); return { text: `Gjallarhorn ${ctx.settings.horn ? 'activé' : 'désactivé'}.` }; } },
+      { id: 'gjallarhorn', label: 'Alertes à voix haute', what: 'Dire les alertes critiques sur les enceintes', params: [{ key: 'actif', label: 'Activé', kind: 'boolean', default: false }, { key: 'ou', label: 'Enceinte (ou « partout »)', kind: 'text', default: 'partout' }, { key: 'heures', label: 'Heures autorisées (ex. 7-22)', kind: 'text', default: '7-22' }], run: (ctx, i) => { ctx.saveSettings({ horn: i.actif === true || i.actif === 'true', hornWhere: s(i.ou) || 'partout', hornHours: s(i.heures) || '7-22' }); return { text: `Triton ${ctx.settings.horn ? 'activé' : 'désactivé'}.` }; } },
     ],
     view(ctx) {
       const v = voice();
       return {
         subtitle: `${sttReady(v) ? 'comprend' : 'ne comprend pas encore'} · ${ttsReady(v) ? 'parle' : 'ne parle pas encore'}`,
-        tabs: ['Bragi · voix', 'Vör · annonces', 'Gjallarhorn · alertes'],
-        kpis: [{ label: 'Comprendre', value: sttReady(v) ? 'prêt' : 'non', tone: sttReady(v) ? 'bon' : 'attention' }, { label: 'Parler', value: ttsReady(v) ? v.tts.provider : 'non', tone: ttsReady(v) ? 'bon' : 'attention' }, { label: 'Gjallarhorn', value: ctx.settings.horn ? 'actif' : 'éteint' }],
-        sections: [{ kind: 'text', title: 'Comment ça marche', text: 'Envoie un vocal à Odin sur ta messagerie ou parle-lui dans l\'interface : Bragi comprend, Odin répond, et Bragi peut répondre à voix haute. Pour les enceintes de la maison, relie ta box dans Midgard.' }],
-        side: [{ kind: 'form', title: 'Annoncer', action: 'annoncer', submit: 'Annoncer', params: m.actions.find((a) => a.id === 'annoncer')?.params ?? [] }, { kind: 'form', title: 'Gjallarhorn', action: 'gjallarhorn', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'gjallarhorn')?.params ?? [] }],
+        tabs: ['Orphée · voix', 'Stentor · annonces', 'Triton · alertes'],
+        kpis: [{ label: 'Comprendre', value: sttReady(v) ? 'prêt' : 'non', tone: sttReady(v) ? 'bon' : 'attention' }, { label: 'Parler', value: ttsReady(v) ? v.tts.provider : 'non', tone: ttsReady(v) ? 'bon' : 'attention' }, { label: 'Triton', value: ctx.settings.horn ? 'actif' : 'éteint' }],
+        sections: [{ kind: 'text', title: 'Comment ça marche', text: 'Envoie un vocal à Odin sur ta messagerie ou parle-lui dans l\'interface : Orphée comprend, Odin répond, et Orphée peut répondre à voix haute. Pour les enceintes de la maison, relie ta box dans Midgard.' }],
+        side: [{ kind: 'form', title: 'Annoncer', action: 'annoncer', submit: 'Annoncer', params: m.actions.find((a) => a.id === 'annoncer')?.params ?? [] }, { kind: 'form', title: 'Triton', action: 'gjallarhorn', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'gjallarhorn')?.params ?? [] }],
       };
     },
   };
   return m;
 }
-/** Gjallarhorn : appelé par les liens pour une alerte critique. */
+/** Triton : appelé par les liens pour une alerte critique. */
 export async function horn(ctx: ModCtx, text: string): Promise<void> {
   if (!ctx.settings.horn) return;
   const [a, b] = s(ctx.settings.hornHours || '7-22').split('-').map(Number), h = ctx.now().getHours();

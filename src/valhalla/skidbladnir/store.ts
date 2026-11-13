@@ -1,4 +1,4 @@
-// Skíðblaðnir — le rangement des fichiers : chemins sûrs (jamais hors de l'espace), versions gardées à
+// Nébuleuse — le rangement des fichiers : chemins sûrs (jamais hors de l'espace), versions gardées à
 // chaque remplacement, corbeille (rien n'est effacé d'un coup), quota, recherche, archive .zip en flux.
 // Écrit pour Odin, sans bibliothèque.
 import { createReadStream, createWriteStream, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, copyFileSync, realpathSync } from 'node:fs';

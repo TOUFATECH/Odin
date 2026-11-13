@@ -62,9 +62,9 @@ test('VPN : Odin ouvre lui-même le port de la box, le liste, le referme ; adres
     const o = await v.act('gjoll', 'ouvrir_port');
     assert.ok(o.ok, o.text); assert.match(o.text, /Livebox d'essai.*51820\/UDP ouvert vers Odin \(127\.0\.0\.1\)/); assert.match(o.text, /41\.213\.10\.2/); assert.match(o.text, /Un seul port suffit/);
     assert.ok(r.searches.some((s) => /M-SEARCH/.test(s) && /InternetGatewayDevice/.test(s)));
-    assert.deepEqual(r.maps.get('51820/UDP'), { ext: 51820, proto: 'UDP', int: 51820, client: '127.0.0.1', desc: 'Odin · VPN Gjöll', lease: 0 });
+    assert.deepEqual(r.maps.get('51820/UDP'), { ext: 51820, proto: 'UDP', int: 51820, client: '127.0.0.1', desc: 'Odin · VPN Vortex', lease: 0 });
     assert.equal((v.ctx('gjoll').settings.server as { endpoint: string }).endpoint, '41.213.10.2', 'adresse publique retenue pour les QR codes');
-    assert.match((await v.act('gjoll', 'ports_box')).text, /51820\/UDP → 127\.0\.0\.1:51820 · Odin · VPN Gjöll \(Odin\)/);
+    assert.match((await v.act('gjoll', 'ports_box')).text, /51820\/UDP → 127\.0\.0\.1:51820 · Odin · VPN Vortex \(Odin\)/);
     assert.match((await v.act('gjoll', 'fermer_port')).text, /51820\/UDP refermé/);
     assert.equal(r.maps.size, 0);
     assert.match((await v.act('gjoll', 'fermer_port')).text, /Rien à refermer/);

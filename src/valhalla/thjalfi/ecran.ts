@@ -1,4 +1,4 @@
-// Þjálfi · l'écran de démarrage (maquettes validées « Démarrage réseau ») : ce que voit un PC qui démarre par le
+// Genèse · l'écran de démarrage (maquettes validées « Démarrage réseau ») : ce que voit un PC qui démarre par le
 // réseau — les systèmes en éventail, en affiches ou en liste, le détail (Essayer · Installer · Installer pour moi),
 // le chargement avec ses étapes, et la fin. Fonctions pures : classement, couleurs, modes possibles, état envoyé à
 // l'écran. L'écran ne fait que demander : « Installer pour moi » (qui efface le disque) attend toujours ton accord.

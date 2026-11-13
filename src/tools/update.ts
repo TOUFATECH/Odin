@@ -108,7 +108,7 @@ export function healInstalled(root = APP_ROOT, home: string | undefined, running
   return { ok: false, output: c.output, ...(r.files.length ? { healed: { files: r.files, aside: r.aside } } : {}) };
 }
 
-/** État gardé pour l'interface et les rappels (clé-valeur de Muninn). */
+/** État gardé pour l'interface et les rappels (clé-valeur de Mnémosyne). */
 export interface Kv { getKv(k: string): string | undefined | null; setKv(k: string, v: string): void }
 export const lastUpdateInfo = (kv: Kv): UpdateInfo | undefined => { try { return JSON.parse(kv.getKv('update-info') ?? 'null') ?? undefined; } catch { return undefined; } };
 

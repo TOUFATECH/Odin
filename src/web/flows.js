@@ -1,4 +1,4 @@
-// Espace « Automatisations » : Draupnir, le moteur d'automatisations d'Odin. Liste, création en une
+// Espace « Automatisations » : Talos, le moteur d'automatisations d'Odin. Liste, création en une
 // phrase, modèles (dont ceux qui relient les applis), éditeur à nœuds (glisser, relier, régler),
 // test pas à pas, historique des exécutions et versions.
 (() => {
@@ -62,7 +62,7 @@
     wf = null;
     const box = $('#v-flows .body'); if (!box) return;
     $('#v-flows .head h1').textContent = 'Automatisations';
-    $('#v-flows .head .sub').textContent = 'Draupnir, le moteur d\'Odin : décris ce que tu veux automatiser, ou pars d\'un modèle. Tout est relié à Saga, Runes et tes applis.';
+    $('#v-flows .head .sub').textContent = 'Talos, le moteur d\'Odin : décris ce que tu veux automatiser, ou pars d\'un modèle. Tout est relié à Thot, Papyrus et tes applis.';
     st = await api('/api/draupnir/state');
     box.replaceChildren();
     if (!st.ok) { box.append(el('p', { class: 'sub' }, st.error)); return; }

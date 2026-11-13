@@ -1,7 +1,7 @@
-// Þjálfi · la réponse aux machines qui démarrent par le réseau (PXE).
+// Genèse · la réponse aux machines qui démarrent par le réseau (PXE).
 //   - « proxy DHCP » : la box (ou un autre DHCP) donne l'adresse, Odin ajoute seulement « démarre avec ce
 //     chargeur, chez moi » (ports 67 et 4011). Rien à régler sur la box.
-//   - avec le DHCP d'Odin (Víðarr) : le crochet ajoute la même chose dans sa réponse.
+//   - avec le DHCP d'Odin (Sphinx) : le crochet ajoute la même chose dans sa réponse.
 // Le chargeur est iPXE (binaires officiels). Une fois iPXE lancé, il redemande et reçoit l'adresse HTTP du menu.
 import dgram from 'node:dgram';
 import { buildPacket, MSG, parsePacket, type Packet } from '../vidarr/dhcp.ts';

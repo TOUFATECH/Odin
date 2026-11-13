@@ -1,4 +1,4 @@
-// Runes — l'écriture d'Odin : pages et bases de données, dans le même coffre que Saga.
+// Papyrus — l'écriture d'Odin : pages et bases de données, dans le même coffre que Thot.
 // Une base = un dossier de notes (une note par fiche, ses propriétés dans l'en-tête) + un schéma
 // (propriétés typées, vues, modèles, automatisations) rangé dans .runes/ (invisible pour Obsidian).
 // Vues : table, tableau (colonnes), calendrier, galerie, liste, chronologie, formulaire.
@@ -33,7 +33,7 @@ const STATUS_GROUP = (n: string): Opt['group'] => /fait|termin|retenu|livr|ok|ga
 const rid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** Bases par défaut (les types de Saga), avec un schéma typé et des vues prêtes. */
+/** Bases par défaut (les types de Thot), avec un schéma typé et des vues prêtes. */
 function builtIn(type: string): Base {
   const t = TYPES[type];
   const props: Prop[] = t.props.map((k) => {
@@ -56,7 +56,7 @@ function builtIn(type: string): Base {
   return { id: type, name: t.label, folder: t.folder, type, props, views };
 }
 
-export class Runes {
+export class Papyrus {
   private dir: string;
   private vault: Vault;
   constructor(vault: Vault) {
@@ -179,7 +179,7 @@ export class Runes {
       }
       return 0;
     });
-    const out: ReturnType<Runes['query']> = { base, view, rows };
+    const out: ReturnType<Papyrus['query']> = { base, view, rows };
     if (view.type === 'tableau' && view.groupBy) {
       const p = base.props.find((x) => x.key === view.groupBy);
       const names = p?.options?.map((o) => o.name) ?? [...new Set(rows.map((r) => String(r.values[view.groupBy!] ?? '')))];
@@ -277,13 +277,13 @@ export class Runes {
   comments(path: string): Array<{ id: string; at: string; by: string; text: string; done?: boolean }> {
     try { return JSON.parse(readFileSync(join(this.dir, 'commentaires', `${this.key(path)}.json`), 'utf8')); } catch { return []; }
   }
-  comment(path: string, by: string, text: string): ReturnType<Runes['comments']> {
+  comment(path: string, by: string, text: string): ReturnType<Papyrus['comments']> {
     if (!text.trim()) throw new Error('commentaire vide');
     const list = [...this.comments(path), { id: rid(), at: new Date().toISOString(), by, text: text.slice(0, 4000) }];
     writeFileSync(join(this.dir, 'commentaires', `${this.key(path)}.json`), JSON.stringify(list));
     return list;
   }
-  resolveComment(path: string, id: string): ReturnType<Runes['comments']> {
+  resolveComment(path: string, id: string): ReturnType<Papyrus['comments']> {
     const list = this.comments(path).map((c) => (c.id === id ? { ...c, done: true } : c));
     writeFileSync(join(this.dir, 'commentaires', `${this.key(path)}.json`), JSON.stringify(list));
     return list;

@@ -1,4 +1,4 @@
-// Brísingamen — le coffre de mots de passe : identifiants, cartes, notes sécurisées, codes à deux
+// Thésauros — le coffre de mots de passe : identifiants, cartes, notes sécurisées, codes à deux
 // facteurs (TOTP), générateur, bilan (fuites connues, réutilisés, faibles) et envoi unique sécurisé.
 // Chiffré (AES-256-GCM) avec une clé rangée dans le coffre d'Odin. Les mots de passe ne sont JAMAIS
 // renvoyés dans une conversation : seulement copiés depuis l'interface, sur ta machine.
@@ -49,14 +49,14 @@ const s = (v: unknown) => String(v ?? '');
 const pub = (i: Item) => ({ id: i.id, type: i.type, name: i.name, user: i.user ?? '', url: i.url ?? '', folder: i.folder ?? '', hasTotp: Boolean(i.totp), strength: i.password ? strength(i.password).label : '', breached: Boolean(i.breached), updated: i.updated });
 
 export const brisingamen: Module = {
-  id: 'brisingamen', name: 'Brísingamen', family: 'Accès',
+  id: 'brisingamen', name: 'Thésauros', family: 'Accès',
   what: 'Le coffre de mots de passe de la famille et de l\'entreprise, avec codes à deux facteurs.',
   does: ['identifiants, cartes et notes sécurisées, rangés par coffre (Famille, TOUFATECH, Clients)', 'codes à deux facteurs (TOTP) intégrés', 'générateur de mots de passe et de phrases de passe', 'bilan : mots de passe trouvés dans des fuites, réutilisés, trop faibles', 'historique des anciens mots de passe', 'chiffré avec une clé du coffre d\'Odin ; jamais affiché dans une conversation'],
   from: ['Vaultwarden'], upstream: ['dani-garcia/vaultwarden'],
   words: ['mot de passe', 'mots de passe', 'identifiant', 'identifiants', 'coffre', '2fa', 'totp', 'code de connexion', 'generer un mot de passe', 'générer un mot de passe'],
   actions: [
     { id: 'chercher', label: 'Chercher', what: 'Trouve un élément (le mot de passe n\'est jamais affiché ici)', read: true, params: [{ key: 'q', label: 'Site ou nom', kind: 'text', required: true }], words: ['cherche', 'trouve', 'ou est'], run: (ctx, i) => { const q = s(i.q).toLowerCase(); const l = load(ctx).filter((x) => `${x.name} ${x.url ?? ''} ${x.user ?? ''}`.toLowerCase().includes(q)); return { text: l.map((x) => `- ${x.name} · ${x.user ?? ''} · ${x.url ?? ''}${x.totp ? ' · 2FA' : ''}`).join('\n') || 'Rien trouvé.', data: l.map(pub) }; } },
-    { id: 'generer', label: 'Générer un mot de passe', what: 'Mot de passe ou phrase de passe solide', params: [{ key: 'longueur', label: 'Longueur', kind: 'number', default: 20 }, { key: 'phrase', label: 'Phrase de mots', kind: 'boolean', default: false }], words: ['genere', 'génère', 'nouveau mot de passe'], run: (_ctx, i) => { const p = generate(Number(i.longueur) || 20, { words: i.phrase === true }); return { text: `Mot de passe généré (${strength(p).label}). Copie-le depuis Brísingamen.`, data: { password: p } }; } },
+    { id: 'generer', label: 'Générer un mot de passe', what: 'Mot de passe ou phrase de passe solide', params: [{ key: 'longueur', label: 'Longueur', kind: 'number', default: 20 }, { key: 'phrase', label: 'Phrase de mots', kind: 'boolean', default: false }], words: ['genere', 'génère', 'nouveau mot de passe'], run: (_ctx, i) => { const p = generate(Number(i.longueur) || 20, { words: i.phrase === true }); return { text: `Mot de passe généré (${strength(p).label}). Copie-le depuis Thésauros.`, data: { password: p } }; } },
     { id: 'ajouter', label: 'Ajouter', what: 'Nouvel élément', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'identifiant', label: 'Identifiant', kind: 'text' }, { key: 'mot_de_passe', label: 'Mot de passe (vide = généré)', kind: 'password' }, { key: 'site', label: 'Site', kind: 'text' }, { key: 'totp', label: 'Clé 2FA (facultatif)', kind: 'password' }, { key: 'coffre', label: 'Coffre', kind: 'select', options: ['Personnel', 'Famille', 'TOUFATECH', 'Clients'], default: 'Personnel' }], run: (ctx, i) => {
       const items = load(ctx), it: Item = { id: randomBytes(6).toString('hex'), type: 'identifiant', name: s(i.nom), user: s(i.identifiant), password: s(i.mot_de_passe) || generate(20), url: s(i.site), totp: s(i.totp).replace(/\s/g, '') || undefined, folder: s(i.coffre) || 'Personnel', updated: ctx.now().toISOString() };
       if (it.totp) totp(it.totp);
@@ -66,7 +66,7 @@ export const brisingamen: Module = {
     { id: 'fuites', label: 'Vérifier les fuites', what: 'Compare à la base publique des mots de passe volés (seuls 5 caractères d\'empreinte partent)', run: async (ctx) => {
       const items = load(ctx); let n = 0;
       for (const it of items) { if (!it.password) continue; const h = createHash('sha1').update(it.password).digest('hex').toUpperCase(); const r = await ctx.fetch(`https://api.pwnedpasswords.com/range/${h.slice(0, 5)}`, { headers: { 'Add-Padding': 'true' }, signal: AbortSignal.timeout(15_000) }); if (!r.ok) continue; it.breached = (await r.text()).split('\n').some((l) => l.startsWith(h.slice(5)) && !l.endsWith(':0')); if (it.breached) n++; }
-      store(ctx, items); if (n) ctx.alert({ level: 'haute', title: `${n} mot(s) de passe trouvé(s) dans des fuites`, detail: 'Change-les depuis Brísingamen.', key: `breach:${n}` });
+      store(ctx, items); if (n) ctx.alert({ level: 'haute', title: `${n} mot(s) de passe trouvé(s) dans des fuites`, detail: 'Change-les depuis Thésauros.', key: `breach:${n}` });
       return { text: n ? `⚠ ${n} mot(s) de passe trouvé(s) dans des fuites publiques.` : '✓ Aucun de tes mots de passe n\'est dans les fuites connues.' };
     } },
   ],

@@ -1,4 +1,4 @@
-// Midgard, Bragi et Ægir contre un VRAI Home Assistant, lancé pour l'occasion avec ses entités de
+// Midgard, Orphée et Apollon contre un VRAI Home Assistant, lancé pour l'occasion avec ses entités de
 // démonstration (lumières, volets, clim, serrures, lecteurs). Le banc crée le compte et le jeton
 // comme tu le ferais à la main, range quelques appareils dans des pièces, puis Odin pilote la maison.
 
@@ -27,7 +27,7 @@ async function boot(t: T): Promise<HaAccess> {
 }
 
 export const homeassistant: Scenario = {
-  id: 'home-assistant', title: 'Midgard, Bragi, Ægir ↔ Home Assistant', mode: 'réel',
+  id: 'home-assistant', title: 'Midgard, Orphée, Apollon ↔ Home Assistant', mode: 'réel',
   what: 'Un vrai Home Assistant avec ses appareils de démonstration : pièces, lumières, volets, clim, serrure (avec accord), scènes, annonce vocale, radio sur une enceinte.',
   async run(t) {
     const a = await boot(t);
@@ -91,14 +91,14 @@ export const homeassistant: Scenario = {
 
     // Voix : annonce sur l'enceinte du salon.
     const say = await act('bragi', 'annoncer', { message: 'Le dîner est prêt', ou: 'living room' });
-    t.ok(say.ok && /Annoncé sur Living Room/.test(say.text), 'Bragi annonce un message sur l\'enceinte du salon', say.text);
+    t.ok(say.ok && /Annoncé sur Living Room/.test(say.text), 'Orphée annonce un message sur l\'enceinte du salon', say.text);
     t.ok(await until(async () => /tts|demo/.test(String((await state('media_player.living_room')).attributes.media_content_id ?? '')), 6000), 'l\'enceinte joue bien la voix de synthèse', JSON.stringify((await state('media_player.living_room')).attributes.media_content_id));
     t.match((await act('bragi', 'annoncer', { message: 'x', ou: 'enceinte inconnue' })).text, /aucune enceinte/, 'enceinte inconnue : message clair');
 
     // Musique : une radio sur une enceinte.
     await act('aegir', 'radio', { nom: 'Radio du banc', adresse: 'http://127.0.0.1:9/radio.mp3' });
     const radio = await act('aegir', 'jouer', { quoi: 'Radio du banc', ou: 'bedroom' });
-    t.ok(radio.ok && /Sur Bedroom/.test(radio.text), 'Ægir lance une radio sur l\'enceinte de la chambre', radio.text);
+    t.ok(radio.ok && /Sur Bedroom/.test(radio.text), 'Apollon lance une radio sur l\'enceinte de la chambre', radio.text);
     t.ok(await until(async () => (await state('media_player.bedroom')).attributes.media_content_id === 'http://127.0.0.1:9/radio.mp3', 6000), 'l\'enceinte a reçu l\'adresse de la radio', JSON.stringify((await state('media_player.bedroom')).attributes));
 
     // Jeton refusé.

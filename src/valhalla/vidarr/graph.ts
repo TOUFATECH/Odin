@@ -16,7 +16,7 @@ export interface NetInfo {
   /** ce que le registre réseau d'Odin sait d'une adresse */
   device: (ip: string) => DeviceInfo | undefined;
   vendorOf: (mac: string) => string;
-  /** débit moyen de la dernière minute (Rán), en octets par seconde, si la capture tourne */
+  /** débit moyen de la dernière minute (Ariane), en octets par seconde, si la capture tourne */
   rate?: (ip: string) => number | undefined;
   /** nom d'un appareil du VPN (10.8.0.x) */
   vpnName?: (ip: string) => string | undefined;
@@ -39,10 +39,10 @@ export function networkGraph(sum: Summary, o: NetInfo): { nodes: GraphNode[]; ed
     kind: 'Odin', title: 'DNS et DHCP d\'Odin', subtitle: `${o.odinIp} · ${o.dnsOn ? `DNS en marche (port ${o.port})` : 'DNS arrêté'} · ${o.dhcpOn ? 'DHCP en marche' : 'DHCP arrêté'}`,
     chips: [{ label: o.dnsOn ? 'DNS en marche' : 'DNS arrêté', tone: o.dnsOn ? 'bon' : 'mauvais' }, { label: o.dhcpOn ? 'DHCP d\'Odin' : 'DHCP de la box', tone: o.dhcpOn ? 'bon' : 'neutre' }],
     rows: [
-      { k: o.periodLabel, v: `${fmt(sum.total)} requêtes · ${fmt(sum.blocked)} bloquées (${sum.total ? Math.round(sum.blocked / sum.total * 100) : 0} %) · ${fmt(sum.threats)} dangereuses`, src: 'Víðarr' },
-      { k: 'Postes', v: `${totalClients} ont posé des questions`, src: 'Víðarr' },
+      { k: o.periodLabel, v: `${fmt(sum.total)} requêtes · ${fmt(sum.blocked)} bloquées (${sum.total ? Math.round(sum.blocked / sum.total * 100) : 0} %) · ${fmt(sum.threats)} dangereuses`, src: 'Sphinx' },
+      { k: 'Postes', v: `${totalClients} ont posé des questions`, src: 'Sphinx' },
       { k: 'DNS proposé', v: o.dhcpOn ? `Odin (${o.odinIp}), donné à chaque appareil par le DHCP` : 'celui de la box : pour que tous passent par Odin, allume le DHCP d\'Odin', src: 'diffusion Wi-Fi et câble' },
-      { k: 'Serveurs amont', v: o.upstreams.join(', ') || '—', src: 'Víðarr' },
+      { k: 'Serveurs amont', v: o.upstreams.join(', ') || '—', src: 'Sphinx' },
     ],
     actions: [{ action: o.dnsOn ? 'arreter' : 'demarrer', label: o.dnsOn ? 'Arrêter le DNS' : 'Démarrer le DNS', input: {}, primary: !o.dnsOn }, { action: 'dhcp_chercher', label: 'Chercher un autre DHCP', input: {} }],
   };
@@ -62,7 +62,7 @@ export function networkGraph(sum: Summary, o: NetInfo): { nodes: GraphNode[]; ed
     nodes.push({ id, label: name, sub: ip, size: 7 + Math.round(9 * Math.sqrt((c?.n ?? 0) / maxN)), color: vpn ? C.vpn : C.poste, off: cut, ring: c?.threats ? C.menace : fresh ? C.nouveau : undefined, alert: c?.threats ? { n: c.threats, level: 'grave' } : undefined, search: `${ip} ${mac ?? ''} ${dev.vendor ?? ''}` });
     edges.push({ a: id, b: 'odin', w: c ? Math.min(3, Math.log10(c.n + 1)) : 0, dash: cut, color: cut ? C.menace : undefined });
     const vendor = mac ? o.vendorOf(mac) : dev.vendor;
-    const conn = vpn ? 'VPN (tunnel Gjöll)' : mac && randomMac(mac) ? 'Wi-Fi (adresse privée de téléphone ou tablette)' : 'Wi-Fi ou câble : la box le dirait';
+    const conn = vpn ? 'VPN (tunnel Vortex)' : mac && randomMac(mac) ? 'Wi-Fi (adresse privée de téléphone ou tablette)' : 'Wi-Fi ou câble : la box le dirait';
     const tops = Object.entries(c?.domains ?? {}).sort((x, y) => y[1].n - x[1].n);
     const chips: Array<{ label: string; tone?: Tone }> = [];
     if (cut) chips.push({ label: rule?.cutSchedule ? `Coupé ${rule.cutSchedule.from} → ${rule.cutSchedule.to}` : 'Coupé d\'Internet', tone: 'mauvais' });
@@ -80,14 +80,14 @@ export function networkGraph(sum: Summary, o: NetInfo): { nodes: GraphNode[]; ed
         { k: 'Fabricant', v: vendor || (mac && randomMac(mac) ? 'caché (adresse privée)' : 'inconnu'), src: 'déduit de la MAC' },
         { k: 'Modèle', v: dev.model || osFromVendorClass(lease?.vendorClass) || 'inconnu', src: dev.model ? 'registre réseau (l\'appareil le dit)' : lease?.vendorClass ? 'deviné d\'après le DHCP : à confirmer' : '' },
         { k: 'Connexion', v: conn, src: '' },
-        ...(rate !== undefined ? [{ k: 'Débit', v: mbps(rate), src: 'Rán, dernière minute (ce qui passe par Odin)' }] : []),
-        { k: o.periodLabel, v: c ? `${fmt(c.n)} requêtes · ${fmt(c.b)} bloquées · ${tops.length} domaines` : 'aucune requête', src: 'Víðarr' },
+        ...(rate !== undefined ? [{ k: 'Débit', v: mbps(rate), src: 'Ariane, dernière minute (ce qui passe par Odin)' }] : []),
+        { k: o.periodLabel, v: c ? `${fmt(c.n)} requêtes · ${fmt(c.b)} bloquées · ${tops.length} domaines` : 'aucune requête', src: 'Sphinx' },
         ...(first ? [{ k: 'Vu la 1re fois', v: dt(first), src: '' }] : []),
       ],
       list: { title: 'Domaines les plus demandés', items: tops.slice(0, 12).map(([d, x]) => ({ text: d, meta: `${fmt(x.n)}${x.b ? ` · ${x.threat ? 'dangereux' : 'bloqué'}` : ''}`, tone: x.threat ? 'mauvais' as const : x.b ? 'attention' as const : undefined })) },
       actions: [
         cut || rule?.cut ? { action: 'retablir_machine', label: 'Rétablir Internet', input: { ip }, primary: true } : { action: 'couper_machine', label: 'Couper d\'Internet', input: { ip, nom: name } },
-        { action: 'lire', label: 'Voir ses paquets (Rán)', input: { ip }, module: 'ran' },
+        { action: 'lire', label: 'Voir ses paquets (Ariane)', input: { ip }, module: 'ran' },
         ...(mac ? [{ action: 'dhcp_fixe', label: lease?.fixed ? 'Adresse fixe ✓' : 'Garder cette adresse', input: { mac, ip, nom: name === ip ? '' : name } }] : []),
         { action: 'tester', label: 'Tester un domaine pour lui', input: { domaine: tops[0]?.[0] ?? 'exemple.fr', appareil: ip } },
       ],

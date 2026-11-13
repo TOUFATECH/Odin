@@ -1,5 +1,5 @@
 // Forseti — le centre de sécurité : toutes les alertes de tous les modules au même endroit, la chasse
-// (mode « Vígríðr » : recherche dans les alertes, le journal des connexions et les journaux système),
+// (mode « Artémis » : recherche dans les alertes, le journal des connexions et les journaux système),
 // la surveillance des fichiers sensibles et les contrôles de conformité (avec un score).
 
 import { createHash } from 'node:crypto';
@@ -47,9 +47,9 @@ export async function checks(ctx: ModCtx): Promise<Array<{ name: string; ok: boo
 export const forseti: Module = {
   id: 'forseti', name: 'Forseti', family: 'Sécurité',
   what: 'Le centre de sécurité : toutes les alertes, la chasse aux menaces, les fichiers sensibles et la conformité.',
-  does: ['fil unique des alertes de tous les modules (gravité, module, recherche, « vu »)', 'chasse (mode Vígríðr) : recherche dans les alertes, le journal des connexions et les journaux système', 'surveillance des fichiers sensibles (comptes, sudo, SSH, clés autorisées…)', 'contrôles de conformité avec un score', 'expiration des certificats de tes sites', 'envoie les alertes graves sur ta messagerie'],
+  does: ['fil unique des alertes de tous les modules (gravité, module, recherche, « vu »)', 'chasse (mode Artémis) : recherche dans les alertes, le journal des connexions et les journaux système', 'surveillance des fichiers sensibles (comptes, sudo, SSH, clés autorisées…)', 'contrôles de conformité avec un score', 'expiration des certificats de tes sites', 'envoie les alertes graves sur ta messagerie'],
   from: ['Wazuh', 'Security Onion'], upstream: ['wazuh/wazuh', 'Security-Onion-Solutions/securityonion'],
-  modes: ['Vígríðr · chasse aux menaces'],
+  modes: ['Artémis · chasse aux menaces'],
   words: ['securite', 'sécurité', 'alerte', 'alertes', 'conformite', 'conformité', 'menace', 'menaces', 'chasse', 'audit', 'certificat', 'siem'],
   actions: [
     { id: 'alertes', label: 'Dernières alertes', what: 'Les alertes récentes, les plus graves d\'abord', read: true, params: [{ key: 'gravite', label: 'Gravité minimale', kind: 'select', options: ['info', 'moyenne', 'haute', 'critique'], default: 'moyenne' }], words: ['alertes', 'quoi de neuf', 'incidents'], run: (ctx, i) => { const a = ctx.alerts({ level: (String(i.gravite || 'moyenne') as Level), limit: 30 }); return { text: a.map((x) => `- [${x.level}] ${x.at.slice(5, 16).replace('T', ' ')} ${x.module} — ${x.title}${x.count > 1 ? ` (×${x.count})` : ''}`).join('\n') || '✓ Aucune alerte.', data: a }; } },
@@ -72,13 +72,13 @@ export const forseti: Module = {
     const t = (l: Level) => (l === 'critique' ? 'mauvais' : l === 'haute' ? 'attention' : 'neutre') as 'mauvais' | 'attention' | 'neutre';
     return {
       subtitle: 'Toutes les alertes de tes modules, triées',
-      tabs: ['Alertes', 'Vígríðr · chasse', 'Conformité'],
+      tabs: ['Alertes', 'Artémis · chasse', 'Conformité'],
       kpis: [{ label: 'Alertes 24 h', value: String(day.length) }, { label: 'Critiques 24 h', value: String(day.filter((a) => a.level === 'critique').length), tone: day.some((a) => a.level === 'critique') ? 'mauvais' : 'bon' }, { label: 'Non vues', value: String(all.filter((a) => !a.ack).length) }, { label: 'Conformité', value: `${ok}/${c.length}`, pct: Math.round((ok / Math.max(1, c.length)) * 100), tone: ok === c.length ? 'bon' : 'attention' }],
       sections: [
         { kind: 'table', title: search ? `Résultats pour « ${search} »` : 'Alertes récentes', columns: ['Gravité', 'Quand', 'Module', 'Alerte', 'Détail'], empty: '✓ Aucune alerte.', rows: shown.map((a) => ({ cells: [a.level, a.at.slice(5, 16).replace('T', ' '), ctx.modules().find((m) => m.id === a.module)?.name ?? a.module, `${a.title}${a.count > 1 ? ` (×${a.count})` : ''}`, a.detail ?? ''], tone: a.ack ? 'neutre' : t(a.level), actions: a.ack ? [] : [{ action: 'vu', label: 'Vu', input: { ids: a.id } }] })) },
       ],
       side: [
-        { kind: 'form', title: 'Vígríðr · chasser', action: 'chercher', submit: 'Chercher', params: forseti.actions.find((a) => a.id === 'chercher')?.params ?? [] },
+        { kind: 'form', title: 'Artémis · chasser', action: 'chercher', submit: 'Chercher', params: forseti.actions.find((a) => a.id === 'chercher')?.params ?? [] },
         { kind: 'list', title: 'Conformité', items: c.map((x) => ({ title: x.name, detail: x.detail, tone: x.ok ? 'bon' : 'mauvais', meta: x.ok ? '✓' : '✗' })) },
       ],
     };

@@ -31,7 +31,7 @@ export function appSheet(m: Module, all: Module[]): Sheet {
     '## Ce qu\'elle fait', ...m.does.map((d) => `- ${plain(d)}`),
     ...(m.modes?.length ? ['## Ses modes', ...m.modes.map((x) => `- ${x}`)] : []),
     '## Comment lui parler',
-    'Ces demandes sont comprises **sans IA** (Huginn). Avec une IA connectée, tu peux le dire comme tu veux.',
+    'Ces demandes sont comprises **sans IA** (Logos). Avec une IA connectée, tu peux le dire comme tu veux.',
     ...examples(m).slice(0, 8).map((e) => `- « ${e} »`),
     '## Ses actions',
     ...m.actions.map((a) => `- **${a.label}** — ${plain(a.what)} *(${kindOf(a)})*`),
@@ -80,7 +80,7 @@ export function howSheet(all: Module[]): Sheet {
     '# Comment fonctionne Odin',
     'Odin est un agent personnel : il tourne chez toi, il agit sur ta machine et ton réseau, et il te rend compte.',
     '## Avec ou sans IA',
-    '- **Sans IA connectée**, Odin comprend quand même les demandes qui visent ses applis : c\'est le rôle de Huginn, un moteur à règles. « arrête le conteneur web », « bannis 203.0.113.9 », « analyse mes téléchargements », « les alertes ». Il ne devine pas : s\'il n\'est pas sûr, il ne fait rien ; s\'il manque un réglage, il le demande.\n- **Avec une IA**, tu parles librement, et Odin enchaîne plusieurs applis pour un même but. L\'IA passe par les mêmes actions et les mêmes garde-fous.\n- **Ce qu\'une IA a réglé une fois, Odin le retient** (son « Cerveau direct ») : la même demande, ou la même avec une autre valeur, se refait ensuite sans IA. Quand aucune IA ne répond, il fait le lien avec ce qu\'il a appris et te demande avant d\'agir. Tout est rangé dans le Cerveau, rubrique Quotidien.',
+    '- **Sans IA connectée**, Odin comprend quand même les demandes qui visent ses applis : c\'est le rôle de Logos, un moteur à règles. « arrête le conteneur web », « bannis 203.0.113.9 », « analyse mes téléchargements », « les alertes ». Il ne devine pas : s\'il n\'est pas sûr, il ne fait rien ; s\'il manque un réglage, il le demande.\n- **Avec une IA**, tu parles librement, et Odin enchaîne plusieurs applis pour un même but. L\'IA passe par les mêmes actions et les mêmes garde-fous.\n- **Ce qu\'une IA a réglé une fois, Odin le retient** (son « Cerveau direct ») : la même demande, ou la même avec une autre valeur, se refait ensuite sans IA. Quand aucune IA ne répond, il fait le lien avec ce qu\'il a appris et te demande avant d\'agir. Tout est rangé dans le Cerveau, rubrique Quotidien.',
     '## Les quatre niveaux d\'autonomie',
     '- **Me demander** : Odin propose, tu décides.\n- **Équilibré** : il fait seul ce qui est simple et annulable, et te prévient.\n- **Autonome** : il enchaîne davantage, toujours en te prévenant.\n- **Odin Breaker** : il agit seul et garde ses manips ; les actions graves restent soumises à ton accord.',
     '## Les manips : garder ou annuler',
@@ -90,7 +90,7 @@ export function howSheet(all: Module[]): Sheet {
     '## Les applis et leurs liens',
     `Les applis sont rangées en familles (voir [[Les applis d'Odin]]) et reliées entre elles (voir [[Liens entre les applis]]). ${has('forseti') ? `Toutes les alertes arrivent dans un seul fil (${n('forseti')}).` : ''} ${has('ullr') ? `${n('ullr')} relie les signaux de toutes les applis pour reconnaître une attaque.` : ''} ${has('saga') ? `Ce que tu confies à Odin est rangé ici, dans le Cerveau (${n('saga')}).` : ''}`.trim(),
     '## Où est quoi',
-    '- **Discussion** : tu parles à Odin (interface web, Telegram, voix).\n- **Applis** : une page par appli, avec ses indicateurs, ses tableaux et ses boutons.\n- **Cerveau** : tes notes, le graphe, et ces fiches.\n- **Automatisations** (Draupnir) : « quand ceci arrive, fais cela », entre plusieurs applis.\n- **Réglages** : le modèle d\'IA, les accès, ton compte, le niveau d\'autonomie.',
+    '- **Discussion** : tu parles à Odin (interface web, Telegram, voix).\n- **Applis** : une page par appli, avec ses indicateurs, ses tableaux et ses boutons.\n- **Cerveau** : tes notes, le graphe, et ces fiches.\n- **Automatisations** (Talos) : « quand ceci arrive, fais cela », entre plusieurs applis.\n- **Réglages** : le modèle d\'IA, les accès, ton compte, le niveau d\'autonomie.',
   ].join('\n\n') };
 }
 

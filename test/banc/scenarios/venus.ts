@@ -1,4 +1,4 @@
-// Freyja contre un VRAI serveur Venus (le dépôt TOUFATECH/Venus, lancé pour l'occasion avec une
+// Vénus contre un VRAI serveur Venus (le dépôt TOUFATECH/Venus, lancé pour l'occasion avec une
 // bibliothèque d'essai) : un film fabriqué sur place, une chaîne d'essai, une « télé » simulée qui
 // garde Venus ouvert. Odin cherche, lance sur la télé, programme et annule des enregistrements,
 // et prévient quand un enregistrement échoue.
@@ -55,7 +55,7 @@ async function tv(t: T, b: Booted): Promise<{ opened: string[] }> {
 }
 
 export const venus: Scenario = {
-  id: 'venus', title: 'Freyja ↔ Venus', mode: 'réel',
+  id: 'venus', title: 'Vénus ↔ Venus', mode: 'réel',
   what: 'Le vrai serveur Venus lancé avec un film et une chaîne d\'essai, et une télé simulée : chercher, lancer sur la télé, ma liste, enregistrer, annuler, alerte d\'échec.',
   async run(t) {
     await t.need('ffmpeg');
@@ -69,7 +69,7 @@ export const venus: Scenario = {
     const { v, alerts, events } = t.valhalla([mod]);
     const act = (a: string, i: Record<string, unknown> = {}) => v.act('freyja', a, i);
 
-    t.match((await act('etat')).text, /Venus du banc .* profil Odin/, 'Freyja joint Venus avec sa clé API (nom du serveur, profil)');
+    t.match((await act('etat')).text, /Venus du banc .* profil Odin/, 'Vénus joint Venus avec sa clé API (nom du serveur, profil)');
     t.match((await act('chercher', { quoi: 'voyage' })).text, /Le Voyage \(2024\)/, 'recherche dans la bibliothèque : le film est trouvé');
     const screens = await act('ecrans');
     t.ok(await until(async () => /\(télé\)/.test((await act('ecrans')).text), 5000), 'la télé du salon apparaît dans les écrans ouverts', screens.text);
@@ -98,7 +98,7 @@ export const venus: Scenario = {
     const failed = await until(async () => /Direct du banc .* échoué/.test((await act('enregistrements')).text), 45_000, 1000);
     t.ok(failed, 'le flux ne répond pas : Venus marque l\'enregistrement « échoué »', (await act('enregistrements')).text);
     await mod.watch!.run(v.ctx('freyja'));
-    t.ok(alerts.some((a) => /Enregistrement échoué : Direct du banc/.test(a.title)), 'Freyja t\'alerte de l\'enregistrement échoué', JSON.stringify(alerts));
+    t.ok(alerts.some((a) => /Enregistrement échoué : Direct du banc/.test(a.title)), 'Vénus t\'alerte de l\'enregistrement échoué', JSON.stringify(alerts));
     t.ok(events.some((e) => e.type === 'enregistrement_echoue'), 'événement « enregistrement échoué » émis');
     const n = alerts.length; await mod.watch!.run(v.ctx('freyja'));
     t.ok(alerts.length === n, 'la même panne n\'est pas signalée deux fois');

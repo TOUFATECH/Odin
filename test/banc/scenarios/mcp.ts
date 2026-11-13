@@ -1,4 +1,4 @@
-// Ratatoskr contre de VRAIS serveurs MCP tiers : les serveurs officiels du protocole (fichiers,
+// Interprète contre de VRAIS serveurs MCP tiers : les serveurs officiels du protocole (fichiers,
 // mémoire, référence « everything »), en programme local et par HTTP. Leurs outils deviennent des
 // outils d'Odin ; les garde-fous sont vérifiés (accord pour lancer un programme, rien de l'environnement
 // d'Odin ne fuit vers le serveur, outil destructeur signalé).
@@ -13,7 +13,7 @@ const BIN = join(TOOLS, 'mcp', 'node_modules', '.bin');
 const text = (r: unknown) => (typeof r === 'string' ? r : (r as { output: string }).output);
 
 export const mcp: Scenario = {
-  id: 'mcp', title: 'Ratatoskr ↔ serveurs MCP officiels', mode: 'réel',
+  id: 'mcp', title: 'Interprète ↔ serveurs MCP officiels', mode: 'réel',
   what: 'Les serveurs MCP de référence (fichiers, mémoire, « everything ») branchés en local et par HTTP : outils importés, appels réels, garde-fous.',
   async run(t) {
     if (!existsSync(join(BIN, 'mcp-server-everything'))) t.skip('serveurs MCP officiels absents : lance « npm run banc:outils »');

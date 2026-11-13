@@ -177,7 +177,7 @@
   async function runOther(m, action, input) {
     const r = await api('/api/valhalla/act', { module: m, action, input });
     if (r.confirm) { if (!window.confirm(r.confirm)) return 'Annulé.'; const x = await api('/api/valhalla/act', { module: m, action, input, confirm: true }); return x.ok ? x.text : `✗ ${x.text ?? x.error}`; }
-    // « Ouvrir » dans une autre appli : on y va (ex. la base d'une appli dans Urðr Studio).
+    // « Ouvrir » dans une autre appli : on y va (ex. la base d'une appli dans Alexandrie Studio).
     if (r.ok && action === 'ouvrir') { window.OdinOpenWant = { module: m, ...input }; setTimeout(() => openApp(m), 50); return r.text; }
     setTimeout(() => cur && openApp(cur, true), 600);
     return r.ok ? r.text : `✗ ${r.text ?? r.error}`;
@@ -291,7 +291,7 @@
     side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes'), alerts(r.alerts)));
     if (r.links.length) side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`))))));
     const mc = $('#mcur'); if (mc) mc.textContent = r.name;
-    // Rán : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
+    // Ariane : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
     if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[0] || null);
     // Une appli qui a sa propre page dessinée (src/web/pages/<appli>.js) : elle prend toute la largeur ;
     // les sections génériques restent à sa disposition (par exemple dans un onglet « Bases »).

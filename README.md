@@ -153,18 +153,18 @@ La **visite guidée** ne se lance que si tu la demandes (« visite guidée », R
 
 Comme le Cerveau, **Applis** et **Maison → Carte** s'affichent en graphe : on glisse, on zoome, on cherche, on touche un point pour l'ouvrir. Les applis sont reliées à leur famille et aux applis avec lesquelles elles travaillent ; les appareils, à leur famille et à la box. Les pastilles montrent ce qui demande ton attention : **rouge ou orange** pour les alertes d'une appli ou un problème sur une machine (risque repéré, appareil surveillé tombé), **bleue** pour les nouveautés du projet d'origine d'une appli ; un point **gris** est hors ligne.
 
-#### Paquets réseau (Rán)
+#### Paquets réseau (Ariane)
 
-Comme Wireshark : Rán **lit les paquets en entier et les décode couche par couche** (modèle OSI : trame, liaison Ethernet, réseau IPv4/IPv6, transport TCP/UDP, chiffrement TLS, application), avec tous les champs et le contenu brut en hexadécimal. Il reconnaît DNS (questions et réponses), HTTP (requêtes, en-têtes, début du contenu), HTTPS (nom du site demandé), QUIC, DHCP, ARP, ICMP, SSH, mDNS, UPnP, NTP, WireGuard…, et apprend le nom des sites d'Internet (réponses DNS, noms TLS) pour les afficher à la place des adresses.
+Comme Wireshark : Ariane **lit les paquets en entier et les décode couche par couche** (modèle OSI : trame, liaison Ethernet, réseau IPv4/IPv6, transport TCP/UDP, chiffrement TLS, application), avec tous les champs et le contenu brut en hexadécimal. Il reconnaît DNS (questions et réponses), HTTP (requêtes, en-têtes, début du contenu), HTTPS (nom du site demandé), QUIC, DHCP, ARP, ICMP, SSH, mDNS, UPnP, NTP, WireGuard…, et apprend le nom des sites d'Internet (réponses DNS, noms TLS) pour les afficher à la place des adresses.
 
-- **Lire les paquets** : tout le réseau (page de l'appli Rán) ou une machine (sous sa fiche, sur la carte de la Maison). **Pause** : plus aucun paquet n'est lu. Aussi en le disant : « lis les paquets », « pause ».
+- **Lire les paquets** : tout le réseau (page de l'appli Ariane) ou une machine (sous sa fiche, sur la carte de la Maison). **Pause** : plus aucun paquet n'est lu. Aussi en le disant : « lis les paquets », « pause ».
 - **Qui parle à qui** : une carte interactive (machines du réseau, sites d'Internet en bleu, diffusions en vert) reliée par des flèches dans le sens de la communication, épaisses selon le volume. Touche une machine : ses communications (avec qui, dans quel sens, quelles applis, quels sites) ; touche une flèche : les paquets de ce lien.
 - **Chaque paquet** : ce qui se passe en une phrase, chaque couche avec ses champs, le contenu brut. **🦉 Odin, explique** : Odin explique le paquet ou toute la scène dans sa bulle.
 - Historique 7 jours (250 000 paquets au plus, 4 ko de contenu par paquet), sur la machine d'Odin seulement ; filtre par appli, site, protocole, port ou adresse.
 
-Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accès** (Réglages → Droits et machines) — tout son trafic, par SSH. Un hôte Proxmox voit ainsi tout ce qu'échangent ses machines virtuelles, un routeur Linux tout ce qui entre et sort du réseau. Sur un réseau avec switch ou box, une machine sans point de capture n'est vue que dans ses échanges avec un point de capture et dans ce qu'elle diffuse. Le contenu chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark sans les clés ; ce qui passe en clair (HTTP, DNS…) se lit en entier, mots de passe compris : l'historique reste sur ta machine et s'efface depuis Rán.
+Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accès** (Réglages → Droits et machines) — tout son trafic, par SSH. Un hôte Proxmox voit ainsi tout ce qu'échangent ses machines virtuelles, un routeur Linux tout ce qui entre et sort du réseau. Sur un réseau avec switch ou box, une machine sans point de capture n'est vue que dans ses échanges avec un point de capture et dans ce qu'elle diffuse. Le contenu chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark sans les clés ; ce qui passe en clair (HTTP, DNS…) se lit en entier, mots de passe compris : l'historique reste sur ta machine et s'efface depuis Ariane.
 
-#### Venus (Freyja) : épisodes et VF
+#### Venus (Vénus) : épisodes et VF
 
 - « Mets le dernier épisode de One Piece sur la télé du salon » : l'épisode lui-même démarre. Aussi « l'épisode suivant de Frieren », « One Piece saison 2 épisode 5 », « S02E05 », « l'épisode 1071 de One Piece » ; une série nommée seule reprend à l'épisode suivant de ton profil.
 - **Arrivées** : Odin te prévient quand un épisode ou un film arrive sur Venus (« 📺 Épisode arrivé sur Venus en VF : One Piece S01E1071 »), et quand la VF d'un titre arrive. « Préviens-moi seulement pour la VF » ou « ne me préviens plus » ; « les nouveaux épisodes » pour la liste des derniers jours.
@@ -353,7 +353,7 @@ Réponses **en direct**, mot à mot (Anthropic, compatibles OpenAI, Codex). Les 
 
 La page d'accueil résume l'essentiel : modèle et dépenses du mois, ce qui t'attend (validations, compétences à relire, problèmes de sécurité), missions en cours, état du réseau, surveillance (disques, appareils importants), sauvegarde, routines, et les demandes que tu fais souvent (Odin propose d'en faire une tâche automatique, chaque jour ou chaque lundi).
 
-### Surveillance (Vörðr)
+### Surveillance (Pulsar)
 
 Marque tes appareils importants avec ★ dans Réseau : Odin te prévient (Telegram ou interface) quand l'un tombe, puis quand il revient. Il surveille aussi les disques de sa machine (alerte à 90 % par défaut) et les certificats HTTPS des appareils (14 jours avant expiration). Une alerte n'est envoyée qu'une fois (rappel après 24 h si elle dure). Réglages → Surveillance.
 
@@ -361,13 +361,13 @@ Marque tes appareils importants avec ★ dans Réseau : Odin te prévient (Teleg
 
 Onglet Réseau → Sécurité : Telnet ou Docker ouverts sans protection, bureau à distance, VNC, FTP, MQTT, Redis exposés, interfaces d'administration non chiffrées, appareils inconnus récents — chacun avec un conseil, et un bouton pour demander à Odin de corriger (avec ta validation). Odin observe, il n'attaque rien. Outil `net_security`.
 
-### Antivirus (Ullr)
+### Antivirus (Asclépios)
 
 Odin a son propre antivirus, fait maison : fichiers, archives, téléchargements, clés USB, sites web, liens et messages. Il se met à jour tout seul depuis des sources publiques (paquets signés, testés avant d'être activés, annulables), met en quarantaine ce qui est sûr (réversible : « garde » ou « annule ») et te laisse décider pour le reste. Il relie les signaux de toutes les applis (pièges, processus, connexions, pare-feu, fichiers système, caméras) pour reconnaître une attaque, et note chaque incident dans le Cerveau. Aucun antivirus ne détecte tout, celui-ci non plus. Procédure d'utilisation et mode de fonctionnement : [`docs/antivirus-ullr.md`](docs/antivirus-ullr.md).
 
 Dis par exemple : « analyse mes téléchargements », « vérifie le lien https://… », « y a-t-il un virus sur ma machine ? », « les incidents ». Tout cela marche sans IA connectée.
 
-### Sites web (Idunn)
+### Sites web (Arachné)
 
 Odin surveille tes sites et s'en occupe, **sans IA** : il répond ou non, son temps de réponse, son certificat,
 sa page d'accueil ; et, si tu donnes les accès, tout ce qui se passe sur GitHub (envois de code, tests,
@@ -733,7 +733,7 @@ npm run check      # vérification des types + tests
 
 | Dossier | Module |
 |---|---|
-| `src/core` | **Huginn**, la boucle de l'agent |
+| `src/core` | **Logos**, la boucle de l'agent |
 | `src/heimdall` | sécurité : politique, marquage, secrets, chemins |
 | `src/mimir` | décisions : questions, juges, tables de vérité |
 | `src/muninn` | mémoire en fichiers (JSONL), recherche plein texte en mémoire, export, corbeille |

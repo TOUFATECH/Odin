@@ -1,4 +1,4 @@
-// Huginn — « la pensée » : le moteur d'Odin qui comprend une demande SANS modèle d'IA.
+// Logos — « la pensée » : le moteur d'Odin qui comprend une demande SANS modèle d'IA.
 // Il lit la phrase, choisit l'appli et l'action (mots-clés des applis, verbes, noms des choses que
 // l'appli connaît : conteneurs, caméras, appareils, plans…), remplit les réglages à partir de la
 // phrase (adresse IP, nom, durée, jour, heure, texte entre guillemets), et pose une question quand
@@ -9,6 +9,7 @@
 import { isIP } from 'node:net';
 import { parseWhen } from '../cron/reminders.ts';
 import { LINKS, USAGES } from './links.ts';
+import { forgetsId } from './names.ts';
 import type { Valhalla } from './service.ts';
 import type { Action, Module, Param, View } from './types.ts';
 
@@ -202,7 +203,7 @@ function within(text: string, expr: string): boolean {
 
 /**
  * Phrases d'exemple tirées des actions de l'appli (pour l'aide et la mascotte). Chacune doit marcher
- * telle quelle, sans IA, y compris quand une IA est disponible : un test les passe toutes à Huginn.
+ * telle quelle, sans IA, y compris quand une IA est disponible : un test les passe toutes à Logos.
  * Dans l'ordre : l'intitulé de l'action quand il nomme l'appli (« lister les conteneurs »), sinon une
  * expression que l'action déclare (« vérifie les sauvegardes »), sinon son verbe suivi de la chose
  * (« démarre conteneur <conteneur> »). Une action qu'on ne sait pas dire sûrement n'a pas d'exemple.
@@ -239,7 +240,7 @@ const words = (t: string) => norm(t.replace(/,\s*odin\s*[.!?]*\s*$/i, '').replac
   .split(/[^a-z0-9.:/@_-]+/).map((w) => w.replace(/^(?:[ldjmtsnc]|qu)'/, '').replace(/^[.:/@_-]+|[.:/@_-]+$/g, '')).filter((w) => w && (w === 'odin' || !STOP.has(w)));
 const stemsOf = (list: string[]) => new Set(list.flatMap((x) => tokens(x)).map(stem));
 /** Vocabulaire d'une appli (ses mots, son nom, d'où elle vient). */
-const vocab = (m: Module) => stemsOf([...m.words, m.name, m.id, ...m.from, ...(m.modes ?? []).map((x) => x.split(' ')[0])]);
+const vocab = (m: Module) => stemsOf([...m.words, m.name, ...(forgetsId(m.id) ? [] : [m.id]), ...m.from, ...(m.modes ?? []).map((x) => x.split(' ')[0])]);
 
 interface Evidence {
   body: string; m: Module; a: Action; input: Record<string, unknown>; names: Names;
@@ -343,10 +344,10 @@ export async function understand(v: Valhalla, text: string, session = 'principal
   const explain = /^(?:c'est quoi|qu'est-ce que(?: c'est)?|a quoi sert|a quoi ca sert|explique(?:-moi)?|presente(?:-moi)?|comment (?:marche|fonctionne)|parle-moi de|decris|que fait|que sait faire)\s+(.+?)\??$/.exec(s);
   if (explain) {
     const asked = /^(l'appli|l'application|le module|la page)\b/.test(explain[1]), subject = explain[1].replace(/^(l'appli|l'application|le module|la page|l')\s*/, '').replace(/^(?:des |de |du |d')/, '').trim();
-    const exact = v.module(subject), m = exact ?? v.find(explain[1])[0]?.m;
-    // Sûr seulement si c'est bien l'appli qu'on demande : par son nom (« explique Garmr »), ou « l'appli … » avec ses mots à elle.
+    const byId = v.module(subject), exact = byId && forgetsId(byId.id) && norm(subject) === norm(byId.id) ? undefined : byId, m = exact ?? v.find(explain[1])[0]?.m;
+    // Sûr seulement si c'est bien l'appli qu'on demande : par son nom (« explique Cerbère »), ou « l'appli … » avec ses mots à elle.
     // « Explique-moi Docker », « c'est quoi un VPN » : c'est la notion qu'on veut, pas la fiche de mon appli.
-    if (m) { const own = vocab(m), byName = norm(subject) === norm(m.name) || norm(subject) === norm(m.id); return { kind: 'say', text: describe(v, m), ...(byName || (asked && words(subject).every((w) => own.has(stem(w)))) ? {} : { unsure: true }) }; }
+    if (m) { const own = vocab(m), byName = norm(subject) === norm(m.name) || (!forgetsId(m.id) && norm(subject) === norm(m.id)); return { kind: 'say', text: describe(v, m), ...(byName || (asked && words(subject).every((w) => own.has(stem(w)))) ? {} : { unsure: true }) }; }
   }
   if (/\b(qui fait quoi|liens? entre (les |tes |mes )?applis?)\b/.test(s)) return { kind: 'say', text: ['Les liens entre mes applis (tous automatiques) :', ...LINKS.map((l) => `- ${v.module(l.from)?.name ?? l.from} → ${v.module(l.to)?.name ?? l.to} : quand ${l.when}, ${l.does}`)].join('\n') };
 
@@ -392,7 +393,7 @@ export async function understand(v: Valhalla, text: string, session = 'principal
     // Un mot qui est aussi un verbe d'action (« allume », « dis », « joue ») désigne moins sûrement l'appli
     // qu'un nom : à égalité, l'appli désignée par un nom passe devant.
     for (const w of m.words) if (has(w)) { ms += w.includes(' ') ? 3 : 2; if (!verbish(m, w)) nouns++; }
-    if (has(m.name) || has(m.id)) ms += 5;
+    if (has(m.name) || (!forgetsId(m.id) && has(m.id))) ms += 5;
     for (const x of m.from) if (has(x)) ms += 4;
     for (const x of m.modes ?? []) if (has(x.split(' ')[0])) ms += 3;
     let best: Action | undefined, bs = 0;
@@ -402,7 +403,7 @@ export async function understand(v: Valhalla, text: string, session = 'principal
   if (!scored.length) return undefined;
   const order = () => scored.sort((a, b) => (b.ms - a.ms) || (b.nouns - a.nouns) || (b.bs - a.bs));
   order();
-  // Les noms connus départagent (« arrête web » : le conteneur « web » désigne Naglfar).
+  // Les noms connus départagent (« arrête web » : le conteneur « web » désigne Argo).
   for (const c of [...scored].sort((a, b) => (b.ms + b.bs) - (a.ms + a.bs)).slice(0, 4)) {
     const names = await namesOf(v, c.m), mine = [...names.values()].flat().filter((n) => norm(n).length >= 3 && !COMMON.test(norm(n)));
     if (pickName(body, mine)) { c.ms += 3; c.nouns++; c.bs = 0; c.best = undefined; for (const a of c.m.actions) { const as = actionScore(c.m, a, names); if (as > c.bs) { c.bs = as; c.best = a; } } }
@@ -457,14 +458,14 @@ export async function understand(v: Valhalla, text: string, session = 'principal
     const orders = new Set([...SYN.flatMap(([, syn]) => syn), ...m.actions.filter((x) => !(x.read && !(x.params ?? []).some((p) => p.required))).flatMap((x) => x.words ?? [])].filter((w) => !w.includes(' ')).map(norm));
     const ws = words(body), first = ws[0] ?? '', determined = /^(?:le|la|les|l'|mes|mon|ma|un|une|des|du|ce|cet|cette|ces|quels?|quelles?)(?:\s|')/.test(norm(body));
     const asNoun = (w: string) => w.trim().includes(' ') || ws.slice(1).some((x) => stem(x) === stem(w)) || (stem(first) === stem(w) && (determined || !orders.has(first)));
-    const byThing = m.words.some((w) => has(w) && asNoun(w)) || has(m.name) || has(m.id) || m.from.some(has)
+    const byThing = m.words.some((w) => has(w) && asNoun(w)) || has(m.name) || (!forgetsId(m.id) && has(m.id)) || m.from.some(has)
       || [...names.values()].flat().some((n) => norm(n).length >= 3 && !COMMON.test(norm(n)) && Boolean(pickName(body, [n])));
     return { m, a, input, names, doubt: doubtOf({ body, m, a, input, names, captured, designated: byThing, fallback: !(c.bs >= 2 && c.best) }) };
   };
   let pick = await build(top);
   if (!pick) return { kind: 'say', text: describe(v, top.m), unsure: true };
   // L'appli la mieux notée laisse des mots de côté alors qu'une autre explique toute la phrase : c'est l'autre qu'on voulait
-  // (« processus gourmands » : Eir, pas Skögul ; « appareils vpn » : Gjöll, pas Appareils ; « fiches des applis » : Saga, pas Runes).
+  // (« processus gourmands » : Hygie, pas Némésis ; « appareils vpn » : Vortex, pas Appareils ; « fiches des applis » : Thot, pas Papyrus).
   if (pick.doubt) for (const c of scored.slice(1, 4)) {
     if (!(c.ms >= 2 && c.bs >= 2) && !(c.bs >= 4 && c.best && strong.has(`${c.m.id}.${c.best.id}`))) continue;
     const alt = await build(c);

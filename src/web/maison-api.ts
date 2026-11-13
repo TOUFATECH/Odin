@@ -1,4 +1,4 @@
-// L'écran de la maison (Glaðsheimr) : la page /maison, son script, et son API /api/maison/*.
+// L'écran de la maison (Hestia) : la page /maison, son script, et son API /api/maison/*.
 // Deux façons d'y entrer :
 //   - ta session Odin (cookie) : tous les droits, comme partout dans Odin ;
 //   - une clé de tablette (en-tête x-odin-maison, lue depuis #cle=… dans l'adresse, jamais envoyée au serveur
@@ -106,7 +106,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     const [w, dev, apps, haPeople] = await Promise.all([weather(g), homeDevices(mid).catch(() => []), full ? appStates() : Promise.resolve([]), full ? homePeople(mid).catch(() => []) : Promise.resolve([])]);
     // La famille : les personnes de la box (Home Assistant) et les membres qui partagent leur position (OwnTracks).
     const people = full ? [...haPeople.map((x) => ({ ...x, source: 'Home Assistant' })), ...familyNow(g).filter((f) => !haPeople.some((h) => h.name.toLowerCase() === f.name.toLowerCase())).map((f) => ({ id: `ot:${f.id}`, name: f.name, state: f.place ?? 'position partagée', since: new Date(f.at).toISOString(), lat: f.lat, lon: f.lon, batt: f.batt, acc: f.acc, source: 'OwnTracks' }))] : [];
-    // Le réseau de la maison (inventaire Askr + baux DHCP de Víðarr) et ce qui est coupé à chaque appareil.
+    // Le réseau de la maison (inventaire Atlas + baux DHCP de Sphinx) et ce qui est coupé à chaque appareil.
     const network: Array<{ ip: string; name: string; kind: string; cut: boolean; video: boolean }> = [];
     if (full) {
       const ns = v.module('vidarr') ? netState(v.ctx('vidarr')) : { leases: [], cut: new Set<string>(), video: new Set<string>() };
@@ -126,7 +126,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     json(res, 200, { ok: true, fenetre, rights: who.rights, name: d.name, theme: s(g.settings.theme) || 'verre', themes: Object.fromEntries(Object.entries(THEMES).map(([k, x]) => [k, x.label])), weather: w ? { ...w, word: wword(w.code) } : undefined, rooms, scenes: homeScenes(mid).map((x) => x.name), tiles, apps, network, cameras: full ? cameraNames(v.ctx('himinbjorg')) : [], people, mascotte, notices: who.rights === 'complet' ? noticesOf()?.recent(8) ?? [] : [], at: Date.now() });
     return true;
   }
-  // Aperçu d'une caméra (Himinbjörg) : une image JPEG, rafraîchie par la page.
+  // Aperçu d'une caméra (Cyclope) : une image JPEG, rafraîchie par la page.
   if (req.method === 'GET' && p === '/api/maison/camera') {
     if (who.rights !== 'complet') { json(res, 403, { ok: false, error: 'les caméras se regardent avec ta session (ou une clé « complet »)' }); return true; }
     try { const f = await preview(v.ctx('himinbjorg'), s(url.searchParams.get('nom')).slice(0, 80)); res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(readFileSync(f)); }
@@ -149,7 +149,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
       const t = tilesOf(g).find((x) => x.id === s(b.id)); if (!t) { json(res, 404, { ok: false, text: 'bouton introuvable' }); return true; }
       json(res, 200, await run(who, t.module, t.action, t.input, confirm)); return true;
     }
-    // Couper Internet ou la vidéo d'un appareil du réseau (Víðarr), seulement avec tous les droits.
+    // Couper Internet ou la vidéo d'un appareil du réseau (Sphinx), seulement avec tous les droits.
     case '/api/maison/reseau': case '/api/maison/video': {
       if (who.rights !== 'complet') { json(res, 403, { ok: false, text: 'réservé à ta session (ou à une clé « complet »)' }); return true; }
       const ip = s(b.ip).trim().slice(0, 45), cut = b.couper !== false, nom = s(b.nom).trim().slice(0, 60);

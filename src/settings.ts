@@ -76,7 +76,7 @@ function parseEnv(text: string): Array<[string, string]> {
 /** Clés lues dans l'environnement au moment de servir : les changer ne demande pas de redémarrage. */
 const LIVE_SECRETS = new Set(['CLOUDFLARE_API_TOKEN']);
 export function writeSecret(paths: OdinPaths, name: string, value: string, env: NodeJS.ProcessEnv = process.env): void {
-  // Identifiants des automatisations (Draupnir) : DRAUPNIR_NOM, choisis par le propriétaire.
+  // Identifiants des automatisations (Talos) : DRAUPNIR_NOM, choisis par le propriétaire.
   if (!(SECRET_NAMES as readonly string[]).includes(name) && !/^(DRAUPNIR|PROXMOX_TOKEN|CAMERA|MCP)_[A-Z0-9_]{2,40}$/.test(name)) throw new Error(`variable non autorisée : ${name}`);
   const v = value.trim();
   if (v.length > 400 || /[\s"'`$\\]/.test(v)) throw new Error('valeur invalide (espaces, guillemets ou caractères spéciaux refusés)');

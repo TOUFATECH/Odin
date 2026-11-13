@@ -99,7 +99,7 @@ export async function hear(audio: Uint8Array | { file: string }, mime: string, v
   const bytes = 'file' in audio ? undefined : audio;
   if (bytes && bytes.byteLength === 0) throw new Error('enregistrement vide');
   const big = 'file' in audio || (bytes?.byteLength ?? 0) > 24 * 1024 * 1024;
-  // Tes mots (Rödd) : soufflés à Whisper, puis corrigés après — pour la dictée comme pour tout ce que tu dis à Odin.
+  // Tes mots (Écho) : soufflés à Whisper, puis corrigés après — pour la dictée comme pour tout ce que tu dis à Odin.
   const words = mots(), fix = (h: Heard): Heard => (words.length ? { ...h, text: applyMots(h.text, words), segments: h.segments?.map((x) => ({ ...x, text: applyMots(x.text, words) })) } : h);
   const local = (a: typeof audio) => hearLocal(a, v.stt.language || 'auto', undefined, big ? 3 * 3600_000 : 300_000, prompt(words)).then(fix).then(remember);
   if (remoteStt(v, env) && !big) {
@@ -195,7 +195,7 @@ export async function speak(text: string, v: VoiceConfig, format: AudioFormat = 
 }
 
 /** Ce qui se lit mal à voix haute (code, liens, émojis de statut) est retiré ; 2 500 caractères au plus. */
-/** Applique le lexique de prononciation (mot entier, sans tenir compte des majuscules) : « Muninn » → « Mou-ninne ». */
+/** Applique le lexique de prononciation (mot entier, sans tenir compte des majuscules) : « Mnémosyne » → « Mné-mo-zine ». */
 export function pronounce(text: string, lexicon: Record<string, string> = {}): string {
   let out = text;
   for (const [word, say] of Object.entries(lexicon)) {

@@ -1,5 +1,5 @@
 // QR codes (norme ISO 18004), écrits pour Odin : mode octet, correction L ou M, versions 1 à 20.
-// Sert aux configurations VPN (Gjöll), à l'appairage, aux liens de réservation (Frigg).
+// Sert aux configurations VPN (Vortex), à l'appairage, aux liens de réservation (Chronos).
 // Sortie : matrice de booléens, ou image SVG.
 
 type Ecc = 'L' | 'M';

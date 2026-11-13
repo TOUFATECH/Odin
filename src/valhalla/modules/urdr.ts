@@ -1,9 +1,9 @@
-// Urðr — tes bases de données, comme Supabase, et Urðr Studio comme Prisma Studio.
+// Alexandrie — tes bases de données, comme Supabase, et Alexandrie Studio comme Prisma Studio.
 // Bases PostgreSQL créées par Odin dans son moteur de conteneurs (Hringhorni), bases existantes reliées
-// (PostgreSQL ; MySQL et MongoDB pour les sauvegardes de Skuld ; zéro SQLite). Tables, colonnes, liens entre tables,
+// (PostgreSQL ; MySQL et MongoDB pour les sauvegardes de Arche ; zéro SQLite). Tables, colonnes, liens entre tables,
 // lignes avec filtres, tri et pages ; une modification n'est écrite qu'avec ton accord ; SQL libre en lecture
 // seule (la base elle-même refuse d'écrire), et tout ce qui écrit passe par ton accord avec une sauvegarde
-// Skuld juste avant. Chaque requête est notée dans le journal.
+// Arche juste avant. Chaque requête est notée dans le journal.
 import { randomBytes } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -32,7 +32,7 @@ async function withDb<T>(ctx: ModCtx, name: string, f: (b: Base, d: Awaited<Retu
   const b = findBase(ctx.home, name), d = await open(ctx.home, b);
   try { return await f(b, d); } finally { await d.close().catch(() => undefined); }
 }
-/** Sauvegarde Skuld juste avant une écriture (si Skuld sait faire pour cette base) ; un échec n'empêche pas, mais il est dit. */
+/** Sauvegarde Arche juste avant une écriture (si Arche sait faire pour cette base) ; un échec n'empêche pas, mais il est dit. */
 async function before(ctx: ModCtx, b: Base): Promise<string> {
   try { const r = await ctx.call('skuld', 'sauvegarder', { base: b.id, raison: 'avant une modification' }, `sauvegarder ${b.nom} avant de la modifier`); return r.ok === false ? `⚠ sauvegarde avant modification impossible : ${r.text}` : '💾 sauvegarde faite juste avant.'; }
   catch (e) { return `⚠ sauvegarde avant modification impossible : ${(e as Error).message}`; }
@@ -40,9 +40,9 @@ async function before(ctx: ModCtx, b: Base): Promise<string> {
 const table = (cols: string[], rows: Array<Array<Value>>, max = 30) => [cols.join(' | '), ...rows.slice(0, max).map((r) => r.map(cell).join(' | ')), ...(rows.length > max ? [`… ${rows.length - max} lignes de plus`] : [])].join('\n');
 
 export const urdr: Module = {
-  id: 'urdr', name: 'Urðr', family: 'Données',
-  what: 'Tes bases de données comme Supabase : créer une base PostgreSQL, relier les tiennes, parcourir et modifier les tables comme un tableur (Urðr Studio, comme Prisma Studio), SQL avec journal.',
-  does: ['créer une base PostgreSQL dans le moteur de conteneurs d\'Odin (mot de passe généré, rangé dans le coffre)', 'relier une base PostgreSQL existante (zéro SQLite)', 'tables, colonnes, clés et liens entre tables', 'lignes avec filtres, tri et pages (Urðr Studio)', 'modifier, ajouter ou supprimer une ligne avec ton accord', 'SQL en lecture seule garantie par la base ; ce qui écrit demande ton accord et Skuld sauvegarde juste avant', 'journal de toutes les requêtes'],
+  id: 'urdr', name: 'Alexandrie', family: 'Données',
+  what: 'Tes bases de données comme Supabase : créer une base PostgreSQL, relier les tiennes, parcourir et modifier les tables comme un tableur (Alexandrie Studio, comme Prisma Studio), SQL avec journal.',
+  does: ['créer une base PostgreSQL dans le moteur de conteneurs d\'Odin (mot de passe généré, rangé dans le coffre)', 'relier une base PostgreSQL existante (zéro SQLite)', 'tables, colonnes, clés et liens entre tables', 'lignes avec filtres, tri et pages (Alexandrie Studio)', 'modifier, ajouter ou supprimer une ligne avec ton accord', 'SQL en lecture seule garantie par la base ; ce qui écrit demande ton accord et Arche sauvegarde juste avant', 'journal de toutes les requêtes'],
   from: ['Supabase', 'Prisma Studio', 'drawDB'], upstream: ['supabase/supabase', 'prisma/studio'],
   words: ['base de donnees', 'base de données', 'bases de données', 'postgres', 'postgresql', 'sql', 'requete sql', 'requête sql', 'table', 'tables', 'supabase', 'prisma', 'studio', 'urdr', 'urðr'],
   actions: [
@@ -52,7 +52,7 @@ export const urdr: Module = {
       { key: 'hote', label: 'Adresse', kind: 'text', default: '127.0.0.1' }, { key: 'port', label: 'Port', kind: 'number', default: 5432 }, { key: 'utilisateur', label: 'Utilisateur', kind: 'text', default: 'postgres' },
       { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password' }, { key: 'base', label: 'Nom de la base', kind: 'text', default: 'postgres' },
       { key: 'ssl', label: 'Chiffrement', kind: 'select', options: ['si-possible', 'obligatoire', 'non'], default: 'si-possible' }], run: async (ctx, i) => {
-      const type = (s(i.type) || 'postgres') as Kind; if (!['postgres', 'mysql', 'mongodb'].includes(type)) throw new Error(type === ('sqlite' as Kind) ? 'zéro SQLite dans Odin : passe la base en PostgreSQL (Urðr t\'en crée une)' : 'type inconnu');
+      const type = (s(i.type) || 'postgres') as Kind; if (!['postgres', 'mysql', 'mongodb'].includes(type)) throw new Error(type === ('sqlite' as Kind) ? 'zéro SQLite dans Odin : passe la base en PostgreSQL (Alexandrie t\'en crée une)' : 'type inconnu');
       const nom = s(i.nom); if (!nom) throw new Error('quel nom ?'); const l = bases(ctx.home); if (l.some((b) => b.nom.toLowerCase() === nom.toLowerCase())) throw new Error(`${nom} existe déjà`);
       let id = slug(nom); while (l.some((b) => b.id === id)) id = `${id}-${randomBytes(2).toString('hex')}`;
       const b: Base = { id, nom, type, hote: s(i.hote) || '127.0.0.1', port: Number(i.port) || ({ postgres: 5432, mysql: 3306, mongodb: 27017 } as Record<string, number>)[type], utilisateur: s(i.utilisateur) || undefined, base: s(i.base) || undefined, ssl: (s(i.ssl) || 'si-possible') as Base['ssl'], ajoutee: ctx.now().toISOString() };
@@ -62,9 +62,9 @@ export const urdr: Module = {
       if (type === 'postgres') { try { const d = await open(ctx.home, b); tables = (await d.tables()).length; await d.close(); } catch (e) { setPassword(ctx.home, id, undefined); throw new Error(`connexion impossible : ${(e as Error).message}`); } }
       saveBases(ctx.home, [...l, b]);
       if (pw) await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${nom}`, identifiant: b.utilisateur ?? '', mot_de_passe: pw, site: `${b.hote}:${b.port}`, coffre: 'TOUFATECH' }, `ranger le mot de passe de la base ${nom}`).catch(() => undefined);
-      return { text: `🗄 ${nom} reliée${type === 'postgres' ? ` (${tables} tables)` : ' (sauvegardes par Skuld)'}.${pw ? ' Mot de passe rangé dans le coffre.' : ''}` };
+      return { text: `🗄 ${nom} reliée${type === 'postgres' ? ` (${tables} tables)` : ' (sauvegardes par Arche)'}.${pw ? ' Mot de passe rangé dans le coffre.' : ''}` };
     } },
-    { id: 'creer', label: 'Créer une base', what: 'Une nouvelle base dans LA base de données d\'Odin (PostgreSQL, créée la première fois), avec son propre compte ; mot de passe dans le coffre ; sauvegarde chaque nuit par Skuld', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }],
+    { id: 'creer', label: 'Créer une base', what: 'Une nouvelle base dans LA base de données d\'Odin (PostgreSQL, créée la première fois), avec son propre compte ; mot de passe dans le coffre ; sauvegarde chaque nuit par Arche', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }],
       grave: (i, ctx) => `créer la base ${s(i.nom)}${ctx && !serverBase(ctx.home) ? ` (et la base de données d'Odin : un conteneur ${PG_IMAGE}, la première fois)` : ''}`, words: ['cree une base', 'crée une base', 'nouvelle base'], run: async (ctx, i) => {
       const nom = s(i.nom); if (!nom) throw new Error('quel nom ?');
       const e = engine();
@@ -76,11 +76,11 @@ export const urdr: Module = {
         if (r.serverCreated) await ctx.call('skuld', 'plan', { base: SERVER, toutes: 'nuit', heure: 2 }, 'sauvegarder chaque nuit la base d\'Odin entière').catch(() => undefined);
         return { note: `Base « ${r.info.database} » ${r.created ? 'créée' : 'déjà là'} dans la base d'Odin · sauvegardée chaque nuit` };
       }, `base ${nom}`);
-      return { text: `🗄 Base ${nom} en préparation dans la base de données d'Odin${serverBase(ctx.home) ? '' : ' (créée la première fois : quelques minutes)'} : suis-la dans Naglfar. Mot de passe généré et rangé dans le coffre, sauvegarde chaque nuit.`, data: { job: j.id } };
+      return { text: `🗄 Base ${nom} en préparation dans la base de données d'Odin${serverBase(ctx.home) ? '' : ' (créée la première fois : quelques minutes)'} : suis-la dans Argo. Mot de passe généré et rangé dans le coffre, sauvegarde chaque nuit.`, data: { job: j.id } };
     } },
     { id: 'acces', label: 'Accès d\'une appli', what: 'Ce qu\'une appli doit utiliser pour joindre sa base (le mot de passe reste dans le coffre)', read: true, params: [BASE], run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); return { text: b.conteneur ? `${b.nom} : hôte ${b.conteneur === SERVER ? `${SERVER} (${SERVER_IP})` : b.conteneur}, port 5432, base ${b.base}, compte ${b.utilisateur} ; mot de passe dans le coffre (« Base · ${b.nom} »).` : `${b.nom} : ${b.hote}:${b.port}/${b.base}, compte ${b.utilisateur ?? '—'}.` }; } },
-    { id: 'oublier', label: 'Retirer de la liste', what: 'Retire une base de la liste d\'Urðr (la base elle-même et ses données ne sont pas touchées)', params: [BASE], quick: false, run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); saveBases(ctx.home, bases(ctx.home).filter((x) => x.id !== b.id)); setPassword(ctx.home, b.id, undefined); return { text: `${b.nom} retirée de la liste (données intactes${b.conteneur ? `, conteneur ${b.conteneur} toujours là` : ''}).` }; } },
-    { id: 'ouvrir', label: 'Ouvrir', what: 'Ouvre une base (et une table) dans la page d\'Urðr', read: true, quiet: true, params: [BASE, { ...TABLE, required: false }], run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); ctx.saveSettings({ courante: { base: b.id, table: s(i.table) || undefined, page: 0, filtres: [] } }); return { text: `📂 ${b.nom}${s(i.table) ? ` · ${s(i.table)}` : ''}` }; } },
+    { id: 'oublier', label: 'Retirer de la liste', what: 'Retire une base de la liste d\'Alexandrie (la base elle-même et ses données ne sont pas touchées)', params: [BASE], quick: false, run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); saveBases(ctx.home, bases(ctx.home).filter((x) => x.id !== b.id)); setPassword(ctx.home, b.id, undefined); return { text: `${b.nom} retirée de la liste (données intactes${b.conteneur ? `, conteneur ${b.conteneur} toujours là` : ''}).` }; } },
+    { id: 'ouvrir', label: 'Ouvrir', what: 'Ouvre une base (et une table) dans la page d\'Alexandrie', read: true, quiet: true, params: [BASE, { ...TABLE, required: false }], run: (ctx, i) => { const b = findBase(ctx.home, s(i.base)); ctx.saveSettings({ courante: { base: b.id, table: s(i.table) || undefined, page: 0, filtres: [] } }); return { text: `📂 ${b.nom}${s(i.table) ? ` · ${s(i.table)}` : ''}` }; } },
     { id: 'tables', label: 'Tables', what: 'Les tables d\'une base, leurs lignes et leurs liens', read: true, params: [BASE], words: ['quelles tables'], run: (ctx, i) => withDb(ctx, s(i.base), async (b, d) => { const t = await d.tables(), r = await d.relations(); return { text: `${b.nom} : ${t.length} tables\n${t.map((x) => `- ${x.name} (${x.rows} lignes)`).join('\n')}${r.length ? `\nLiens :\n${r.map((x) => `- ${x.from}.${x.column} → ${x.to}.${x.toColumn}`).join('\n')}` : ''}`, data: { tables: t, liens: r } }; }) },
     { id: 'colonnes', label: 'Colonnes', what: 'Les colonnes d\'une table (type, clé, lien)', read: true, params: [BASE, TABLE], run: (ctx, i) => withDb(ctx, s(i.base), async (_b, d) => { const c = await d.columns(s(i.table)); return { text: c.map((x) => `- ${x.name} · ${x.type}${x.pk ? ' · clé' : ''}${x.nullable ? '' : ' · obligatoire'}${x.ref ? ` · → ${x.ref.table}.${x.ref.column}` : ''}`).join('\n'), data: c }; }) },
     { id: 'lignes', label: 'Lignes', what: 'Les lignes d\'une table, avec filtres, tri et pages', read: true, external: true, params: [BASE, TABLE, { key: 'filtres', label: 'Filtres (JSON : [{"col":"ville","op":"=","value":"Mamoudzou"}])', kind: 'text', default: '' }, { key: 'tri', label: 'Trier par', kind: 'text', default: '' }, { key: 'sens', label: 'Sens', kind: 'select', options: ['asc', 'desc'], default: 'asc' }, { key: 'page', label: 'Page', kind: 'number', default: 1 }, { key: 'par_page', label: 'Lignes par page', kind: 'number', default: 25 }], run: (ctx, i) => withDb(ctx, s(i.base), async (_b, d) => {
@@ -97,9 +97,9 @@ export const urdr: Module = {
     }) },
     { id: 'ajouter_ligne', label: 'Ajouter une ligne', what: 'Ajoute une ligne (les cases vides prennent leur valeur par défaut)', quick: false, params: [BASE, TABLE, { key: 'valeurs', label: 'Valeurs (JSON : {"nom":"Awa"})', kind: 'textarea', default: '{}' }],
       grave: (i) => `ajouter une ligne dans ${s(i.table)} (${s(i.base)})`, run: (ctx, i) => withDb(ctx, s(i.base), async (b, d) => { const v = json<Record<string, Value>>(i.valeurs, {}); const n = await d.insert(s(i.table), v); note(ctx, { base: b.nom, sql: `INSERT INTO ${s(i.table)} (${Object.keys(v).join(', ')})`, ok: true, result: `${n} ligne`, write: true }); return { text: `➕ Ligne ajoutée dans ${s(i.table)}.` }; }) },
-    { id: 'supprimer_ligne', label: 'Supprimer une ligne', what: 'Supprime une ligne (repérée par sa clé) ; Skuld sauvegarde la base juste avant', quick: false, params: [BASE, TABLE, { key: 'cle', label: 'Clé (JSON)', kind: 'text', required: true }],
+    { id: 'supprimer_ligne', label: 'Supprimer une ligne', what: 'Supprime une ligne (repérée par sa clé) ; Arche sauvegarde la base juste avant', quick: false, params: [BASE, TABLE, { key: 'cle', label: 'Clé (JSON)', kind: 'text', required: true }],
       grave: (i) => `supprimer la ligne ${s(i.cle)} de ${s(i.table)} (${s(i.base)})`, run: (ctx, i) => withDb(ctx, s(i.base), async (b, d) => { const save = await before(ctx, b); const n = await d.remove(s(i.table), json<Record<string, Value>>(i.cle, {})); note(ctx, { base: b.nom, sql: `DELETE FROM ${s(i.table)} WHERE ${s(i.cle)}`, ok: true, result: `${n} ligne`, write: true }); return { text: `🗑 ${n} ligne supprimée de ${s(i.table)}. ${save}` }; }) },
-    { id: 'sql', label: 'Lancer du SQL', what: 'Une instruction SQL : une lecture passe tout de suite (la base refuse d\'écrire) ; ce qui modifie demande ton accord, avec une sauvegarde Skuld juste avant', params: [BASE, { key: 'requete', label: 'Requête', kind: 'textarea', required: true }], external: true,
+    { id: 'sql', label: 'Lancer du SQL', what: 'Une instruction SQL : une lecture passe tout de suite (la base refuse d\'écrire) ; ce qui modifie demande ton accord, avec une sauvegarde Arche juste avant', params: [BASE, { key: 'requete', label: 'Requête', kind: 'textarea', required: true }], external: true,
       grave: (i) => (isRead(s(i.requete)) ? undefined : `lancer sur ${s(i.base)} une requête qui modifie la base : ${s(i.requete).slice(0, 160)}`), words: ['lance la requete', 'requete sql'], run: (ctx, i) => withDb(ctx, s(i.base), async (b, d): Promise<ActionResult> => {
       const q = s(i.requete), write = !isRead(q); let save = '';
       if (write) save = await before(ctx, b);

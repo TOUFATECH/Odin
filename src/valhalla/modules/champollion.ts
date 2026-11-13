@@ -2,12 +2,12 @@
 //   - texte des photos et des PDF scannés (Tesseract, sur la machine) ; PDF rendu « cherchable » (texte invisible
 //     posé sur les pages, comme OCRmyPDF) ;
 //   - documents : PDF, Word, Excel, PowerPoint, OpenDocument, Markdown, HTML, texte ;
-//   - audio et vidéo : ce qui est dit (Whisper local de Bragi) ;
+//   - audio et vidéo : ce qui est dit (Whisper local de Orphée) ;
 //   - puis il comprend : type de document (facture, devis, contrat, convocation, billet…), langue, dates,
 //     événements (rendez-vous, échéances, livraisons, voyages), montants, contacts, liens, IBAN (masqués) ;
 //     et, si l'IA d'Odin est là, un résumé.
-// Avec les autres applis : chaque fichier passe d'abord par l'antivirus (Ullr) ; ce qu'il a lu peut être gardé
-// dans le Cerveau (Saga) ; les conversions passent par Dvalinn. Rien n'est envoyé hors de la machine.
+// Avec les autres applis : chaque fichier passe d'abord par l'antivirus (Asclépios) ; ce qu'il a lu peut être gardé
+// dans le Cerveau (Thot) ; les conversions passent par Alchimie. Rien n'est envoyé hors de la machine.
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -44,7 +44,7 @@ export async function extract(ctx: ModCtx, file: string, langs = LANGS): Promise
     return { text: ext === 'html' || ext === 'htm' ? raw.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ') : raw, how: 'fichier texte' };
   }
   if (fam === 'audio' || fam === 'video') {
-    const h = await hear(file, ctx.home).catch((e: Error) => { throw new Error(/non installé/.test(e.message) ? 'pour écouter, installe la voix locale d\'Odin (Bragi → « installer la voix locale »)' : e.message); });
+    const h = await hear(file, ctx.home).catch((e: Error) => { throw new Error(/non installé/.test(e.message) ? 'pour écouter, installe la voix locale d\'Odin (Orphée → « installer la voix locale »)' : e.message); });
     return { text: h.text, how: `ce qui est dit (${h.language})` };
   }
   const work = workDir(ctx);
@@ -68,7 +68,7 @@ export async function extract(ctx: ModCtx, file: string, langs = LANGS): Promise
   } finally { rmSync(work, { recursive: true, force: true }); }
 }
 
-/** Avant de lire : l'antivirus (Ullr) regarde le fichier ; un fichier dangereux n'est pas ouvert. */
+/** Avant de lire : l'antivirus (Asclépios) regarde le fichier ; un fichier dangereux n'est pas ouvert. */
 async function scan(ctx: ModCtx, file: string): Promise<string> {
   try {
     const r = await ctx.call('ullr', 'fichier', { chemin: file }, 'Champollion ouvre un fichier : analyse antivirus avant lecture');
@@ -106,7 +106,7 @@ async function read(ctx: ModCtx, ref: string, langs: string) {
 export const champollion: Module = {
   id: 'champollion', name: 'Champollion', family: 'Données',
   what: 'La reconnaissance : le texte des photos, des PDF scannés et des documents, ce qui est dit dans un audio, et ce que ça veut dire (dates, rendez-vous, montants, contacts).',
-  does: ['texte reconnu sur les photos et les captures (français, anglais et 20 autres langues)', 'PDF scanné : texte reconnu page par page ; PDF rendu « cherchable » (texte posé sur les pages)', 'documents Word, Excel, PowerPoint, OpenDocument, PDF, Markdown, HTML, texte', 'audio et vidéo : ce qui est dit, avec le Whisper local de Bragi', 'type de document : facture, devis, contrat, bulletin de salaire, relevé, ordonnance, convocation, billet, CV, courrier', 'événements trouvés : rendez-vous, réunions, échéances, livraisons, voyages, avec la date et l\'heure', 'montants (et le total), e-mails, téléphones, liens, IBAN (masqués)', 'résumé par l\'IA d\'Odin quand elle est là (le document n\'est jamais pris pour un ordre)', 'chaque fichier passe d\'abord par l\'antivirus ; ce qui est lu peut être gardé dans le Cerveau'],
+  does: ['texte reconnu sur les photos et les captures (français, anglais et 20 autres langues)', 'PDF scanné : texte reconnu page par page ; PDF rendu « cherchable » (texte posé sur les pages)', 'documents Word, Excel, PowerPoint, OpenDocument, PDF, Markdown, HTML, texte', 'audio et vidéo : ce qui est dit, avec le Whisper local de Orphée', 'type de document : facture, devis, contrat, bulletin de salaire, relevé, ordonnance, convocation, billet, CV, courrier', 'événements trouvés : rendez-vous, réunions, échéances, livraisons, voyages, avec la date et l\'heure', 'montants (et le total), e-mails, téléphones, liens, IBAN (masqués)', 'résumé par l\'IA d\'Odin quand elle est là (le document n\'est jamais pris pour un ordre)', 'chaque fichier passe d\'abord par l\'antivirus ; ce qui est lu peut être gardé dans le Cerveau'],
   from: ['Tesseract', 'OCRmyPDF', 'Whisper', 'Paperless-ngx'], upstream: ['tesseract-ocr/tesseract', 'ocrmypdf/OCRmyPDF', 'ggml-org/whisper.cpp', 'paperless-ngx/paperless-ngx'],
   words: ['reconnaissance', 'reconnais le texte', 'lis ce document', 'lis le document', 'ocr', 'texte de l image', 'qu y a t il dans', 'transcris', 'champollion', 'pdf scanne', 'pdf scanné'],
   actions: [

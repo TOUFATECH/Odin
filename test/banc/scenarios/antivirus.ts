@@ -1,4 +1,4 @@
-// Ullr contre du réel : les vraies sources de signatures (téléchargées sur Internet), de vraies archives
+// Asclépios contre du réel : les vraies sources de signatures (téléchargées sur Internet), de vraies archives
 // faites par les outils du système, le vrai disque de la machine, et le fichier de test standard des
 // antivirus (EICAR). Aucun vrai malware n'est téléchargé ni créé : seulement des empreintes, des listes
 // d'adresses, des règles de détection, et des échantillons inoffensifs écrits ici.
@@ -14,7 +14,7 @@ const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$
 const WEBSHELL = '<?php eval(base64_decode($_POST["c"])); ?>';
 
 export const antivirus: Scenario = {
-  id: 'antivirus', title: 'Ullr (antivirus) : vraies sources, vraies archives, vrai disque', mode: 'réel',
+  id: 'antivirus', title: 'Asclépios (antivirus) : vraies sources, vraies archives, vrai disque', mode: 'réel',
   what: 'Mise à jour depuis les vraies sources publiques, paquet signé et testé, fichier EICAR détecté à l\'arrivée et dans de vraies archives, aucune fausse alerte sur les programmes de la machine, paquet altéré refusé.',
   async run(t) {
     await t.need('zip', 'tar');
@@ -52,11 +52,11 @@ export const antivirus: Scenario = {
     const inbox = join(home, 'workspace', 'inbox'); mkdirSync(inbox, { recursive: true });
     ullr.start!(ctx); await wait(300);
     const before = Date.now(); writeFileSync(join(inbox, 'eicar.com'), EICAR);
-    t.ok(await until(() => alerts.some((a) => a.title === 'Ullr : Test antivirus EICAR'), 10_000), `fichier EICAR détecté à l'arrivée en ${((Date.now() - before) / 1000).toFixed(1)} s`);
+    t.ok(await until(() => alerts.some((a) => a.title === 'Asclépios : Test antivirus EICAR'), 10_000), `fichier EICAR détecté à l'arrivée en ${((Date.now() - before) / 1000).toFixed(1)} s`);
     t.ok(existsSync(join(inbox, 'eicar.com')), 'fichier de test laissé en place (il est inoffensif)');
     writeFileSync(join(inbox, 'recu.php'), WEBSHELL);
     t.ok(await until(() => !existsSync(join(inbox, 'recu.php')), 10_000), 'une vraie menace qui arrive (porte dérobée PHP) est mise en quarantaine toute seule');
-    t.ok(sent.some((s) => /Manip faite par réflexe : Ullr · Mettre en quarantaine/.test(s)), 'tu es prévenu, avec « garde » ou « annule »');
+    t.ok(sent.some((s) => /Manip faite par réflexe : Asclépios · Mettre en quarantaine/.test(s)), 'tu es prévenu, avec « garde » ou « annule »');
     const manip = v.manips({ module: 'ullr' })[0];
     t.ok((await v.decide(manip.id, false)).ok && readFileSync(join(inbox, 'recu.php'), 'utf8') === WEBSHELL, '« annule » remet le fichier à sa place, identique');
 
@@ -72,7 +72,7 @@ export const antivirus: Scenario = {
     await sh('zip', ['-j', '-P', 'motdepasse', join(arch, 'verrou.zip'), join(work, 'eicar.com')]);
     const r = await act('analyser', { dossier: arch });
     for (const f of ['max.zip', 'stocke.zip', 'double.zip', 'sauvegarde.tar.gz', 'sauvegarde.tar', 'seul.gz']) t.ok(new RegExp(`Test antivirus EICAR — .*${f.replace(/\./g, '\\.')}`).test(r.text), `EICAR trouvé dans ${f}`, r.text);
-    t.ok(!/verrou\.zip/.test(r.text), 'archive à mot de passe : le contenu n\'est pas lisible, Ullr ne prétend pas l\'avoir analysé');
+    t.ok(!/verrou\.zip/.test(r.text), 'archive à mot de passe : le contenu n\'est pas lisible, Asclépios ne prétend pas l\'avoir analysé');
     const rep = await act('rapport');
     t.match(rep.text, /7 fichiers[\s\S]*base de signatures version 1[\s\S]*empreinte [a-f0-9]{64} · trouvé par règle · action : fichier de test, laissé en place/, 'rapport horodaté : chemin, empreinte, règle, gravité, action, version des signatures');
 
@@ -83,7 +83,7 @@ export const antivirus: Scenario = {
     t.note(`Vitesse mesurée : ${Math.round(last.files / (last.ms / 1000))} fichiers/s, ${(last.bytes / 1e6 / (last.ms / 1000)).toFixed(1)} Mo/s (un seul cœur, ${rules} règles).`);
     // …ni les fichiers d'Odin lui-même, qui contiennent pourtant le texte de ses règles.
     const self = await act('analyser', { dossier: join(dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'src') });
-    t.ok((self.data as { detections: number }).detections === 0, 'Ullr ne se prend pas lui-même pour un virus (ses fichiers contiennent le texte de ses règles)', self.text.slice(0, 600));
+    t.ok((self.data as { detections: number }).detections === 0, 'Asclépios ne se prend pas lui-même pour un virus (ses fichiers contiennent le texte de ses règles)', self.text.slice(0, 600));
     t.ok(v.manips({ module: 'ullr' }).filter((x) => x.action === 'isoler').length === 1, 'rien d\'autre n\'a été déplacé pendant ces analyses');
 
     // 6. Paquet altéré : refusé au redémarrage, les règles de base restent en service, tu es prévenu.

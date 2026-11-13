@@ -1,6 +1,6 @@
-// Ullr — le moteur de détection d'Odin (fait maison, sans moteur tiers).
+// Asclépios — le moteur de détection d'Odin (fait maison, sans moteur tiers).
 // Pour chaque fichier : son vrai type (lu dans son contenu, pas dans son nom), son empreinte SHA-256,
-// les règles (Galdr + règles YARA importées, sous-ensemble), et des heuristiques qui donnent un score
+// les règles (Grimoire + règles YARA importées, sous-ensemble), et des heuristiques qui donnent un score
 // de risque EXPLICABLE (chaque point vient avec sa raison). Les archives sont ouvertes (zip, gzip, tar).
 // Aucun antivirus ne détecte 100 % des menaces : un score sans empreinte ni règle sûre reste « à vérifier ».
 
@@ -98,7 +98,7 @@ export const isPassive = (name: string, type: string) => type === 'texte' && (DO
 /** Code source et fichiers de règles : même une demande de rançon ou une configuration de mineur n'y est qu'un exemple. */
 const isCode = (name: string, type: string) => type === 'texte' && CODE_TEXT.test(name);
 
-// ---------------------------------------------------------------- Règles : Galdr (maison) et YARA (sous-ensemble)
+// ---------------------------------------------------------------- Règles : Grimoire (maison) et YARA (sous-ensemble)
 export interface Rule { name: string; level: Level; strings: string[]; need: 'un' | 'tous' | number; files?: string; note?: string; klass?: Klass; source?: string; attack?: string; /** garde tout son poids même dans un document de texte (demande de rançon, configuration de mineur) */ anywhere?: boolean; /** ne vaut que pour un fichier d'au plus cette taille (octets) */ maxSize?: number }
 /** `atoms` : un morceau fixe par écriture possible de la chaîne (ASCII, UTF-16) ; absent si la chaîne n'en a pas d'indexable. */
 interface CStr { id: string; test(h: Hay): boolean; atoms?: string[]; nocase?: boolean; /** chaîne fixe : vraie si l'une de ces écritures est dans le fichier (vérifiée à sa position pendant le balayage, sans relire le fichier) */ lits?: Lit[] }
@@ -118,7 +118,7 @@ function bestWindow(x: string): { atom: string; off: number } | undefined {
   }
   return best < 0 ? undefined : { atom: x.slice(best, best + 4), off: best };
 }
-export interface CRule { name: string; level: Level; klass: Klass; source: string; attack?: string; sure: boolean; anywhere?: boolean; /** la condition peut être vraie sans qu'aucune chaîne soit là (« not $a ») : toujours essayée */ loose?: boolean; /** Galdr : assez de chaînes ont un morceau fixe pour que l'index suffise */ indexable?: boolean; strs: CStr[]; cond(h: Hay, has: (id: string) => boolean): boolean; files?: RegExp }
+export interface CRule { name: string; level: Level; klass: Klass; source: string; attack?: string; sure: boolean; anywhere?: boolean; /** la condition peut être vraie sans qu'aucune chaîne soit là (« not $a ») : toujours essayée */ loose?: boolean; /** Grimoire : assez de chaînes ont un morceau fixe pour que l'index suffise */ indexable?: boolean; strs: CStr[]; cond(h: Hay, has: (id: string) => boolean): boolean; files?: RegExp }
 /** Le contenu à analyser, préparé une fois : octets vus comme du texte (1 octet = 1 caractère), et en minuscules. */
 export interface Hay { bytes: Buffer; text: string; /** texte en minuscules (calculé à la demande) */ low: string; /** début du texte (2 Mo) : les expressions régulières ne courent pas sur des dizaines de Mo */ short: string; size: number; name: string; head: Buffer }
 const RE_MAX = 2 * 1024 * 1024;
@@ -166,7 +166,7 @@ export function reAtom(src: string): string | undefined {
 /** Le contenu est lu octet par octet : une lettre accentuée d'une règle doit reconnaître ses deux écritures (UTF-8 et Latin-1). */
 const asBytes = (x: string) => Buffer.from(x, 'utf8').toString('latin1');
 const accents = (src: string) => src.replace(/[\u0080-\uffff]/g, (c) => `(?:${esc(asBytes(c))}${c.charCodeAt(0) <= 0xff ? `|\\x${c.charCodeAt(0).toString(16)}` : ''})`);
-/** Règle Galdr → règle compilée. Les chaînes entre / / sont des expressions régulières (pas de lettre accentuée entre crochets : écris « (é|e) »). */
+/** Règle Grimoire → règle compilée. Les chaînes entre / / sont des expressions régulières (pas de lettre accentuée entre crochets : écris « (é|e) »). */
 export function compileGaldr(r: Rule): CRule {
   const strs: CStr[] = r.strings.map((x, i) => {
     const m = /^\/(.*)\/([gimsuy]*)$/s.exec(x);
@@ -177,7 +177,7 @@ export function compileGaldr(r: Rule): CRule {
     return { id: `s${i}`, test: (h) => forms.some((f) => h.text.includes(f)), atoms: atomsOf(forms), lits: forms.map((f) => ({ text: f })) };
   });
   const need = r.need, needN = need === 'un' ? 1 : need === 'tous' ? strs.length : need, blind = strs.filter((x) => !x.atoms?.length).length;
-  return { name: r.name, level: r.level, klass: r.klass ?? klassOf(r.name), source: r.source ?? 'Galdr', attack: r.attack, sure: r.level !== 'moyenne', anywhere: r.anywhere, indexable: blind < needN, strs, files: r.files ? new RegExp(r.files, 'i') : undefined,
+  return { name: r.name, level: r.level, klass: r.klass ?? klassOf(r.name), source: r.source ?? 'Grimoire', attack: r.attack, sure: r.level !== 'moyenne', anywhere: r.anywhere, indexable: blind < needN, strs, files: r.files ? new RegExp(r.files, 'i') : undefined,
     cond: (h, has) => { if (r.maxSize && h.size > r.maxSize) return false; const n = strs.filter((s) => has(s.id)).length; return need === 'un' ? n >= 1 : need === 'tous' ? n === strs.length : n >= need; } };
 }
 
@@ -341,7 +341,7 @@ export class RuleSet {
   }
 }
 
-/** Règles de base (format Galdr). */
+/** Règles de base (format Grimoire). */
 export const BASE_RULES: Rule[] = [
   // Le fichier de test standard : 68 caractères en tête d'un fichier d'au plus 128 octets (c'est sa définition ; le texte cité dans un document n'en est pas un).
   { name: 'Test antivirus EICAR', level: 'moyenne', klass: 'test', anywhere: true, maxSize: 128, strings: ['/^X5O!P%@AP\\[4\\\\PZX54\\(P\\^\\)7CC\\)7\\}\\$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\\$H\\+H\\*/'], need: 'un' },

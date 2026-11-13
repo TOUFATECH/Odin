@@ -6,7 +6,7 @@
 // 2. Confiance : une action « importante » que tu acceptes 3 fois de suite sans jamais la refuser,
 //    il la fait ensuite seul (et te le dit). Un seul « non » la remet sous ton contrôle.
 //    Jamais pour le grave, jamais après lecture d'un contenu non fiable.
-// Tout est pur ou passe par le clé-valeur de Muninn : testable, et rien ne quitte la machine.
+// Tout est pur ou passe par le clé-valeur de Mnémosyne : testable, et rien ne quitte la machine.
 
 import { EventEmitter } from 'node:events';
 

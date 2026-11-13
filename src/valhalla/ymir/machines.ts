@@ -1,4 +1,4 @@
-// Ymir · les actions des machines de CE PC (LXC et VM) : créer, démarrer, arrêter, aperçu, ressources, ranger,
+// Hydre · les actions des machines de CE PC (LXC et VM) : créer, démarrer, arrêter, aperçu, ressources, ranger,
 // cloner, exporter / importer en .ody, quarantaine (isoler, analyser, libérer) ; la surveillance qui isole une
 // machine touchée par une alerte critique (règle « rouge = isoler ») et prévient si une machine s'arrête seule.
 import { randomBytes } from 'node:crypto';
@@ -14,14 +14,14 @@ const machineParam = { key: 'machine', label: 'Machine (nom ou adresse)', kind: 
 /** Les applis d'Odin branchées sur une nouvelle machine (chacune fait vraiment quelque chose). */
 export const APPS: Array<{ id: string; nom: string; quoi: string; reco: boolean; lxc: boolean; vm: boolean }> = [
   { id: 'ullr', nom: 'Antivirus', quoi: 'analyse son disque chaque nuit', reco: true, lxc: true, vm: false },
-  { id: 'vordr', nom: 'Vörðr', quoi: 'surveillance (prévient si elle ne répond plus)', reco: true, lxc: true, vm: true },
-  { id: 'vidarr', nom: 'Víðarr', quoi: 'son nom sur le réseau (.maison)', reco: true, lxc: true, vm: true },
-  { id: 'sindri', nom: 'Sindri', quoi: 'sauvegarde chaque nuit', reco: true, lxc: true, vm: false },
+  { id: 'vordr', nom: 'Pulsar', quoi: 'surveillance (prévient si elle ne répond plus)', reco: true, lxc: true, vm: true },
+  { id: 'vidarr', nom: 'Sphinx', quoi: 'son nom sur le réseau (.maison)', reco: true, lxc: true, vm: true },
+  { id: 'sindri', nom: 'Phénix', quoi: 'sauvegarde chaque nuit', reco: true, lxc: true, vm: false },
 ];
 export interface Categorie { nom: string; couleur: string }
 const categories = (ctx: ModCtx): Categorie[] => (ctx.settings.categories as Categorie[] | undefined) ?? [{ nom: 'Bureau', couleur: '#d97706' }, { nom: 'Maison', couleur: '#1f9d55' }, { nom: 'Médias', couleur: '#8b5cf6' }, { nom: 'Cloud maison', couleur: '#22b3e6' }, { nom: 'Réseau', couleur: '#f97316' }];
 async function eitriDir(ctx: ModCtx): Promise<string> {
-  try { const r = await ctx.call('eitri', 'etat', {}, 'ISO pour une machine virtuelle'); const d = (r.data as { dossier?: string } | undefined)?.dossier; if (d) return d; } catch { /* Eitri absent */ }
+  try { const r = await ctx.call('eitri', 'etat', {}, 'ISO pour une machine virtuelle'); const d = (r.data as { dossier?: string } | undefined)?.dossier; if (d) return d; } catch { /* Andromède absent */ }
   return join(ctx.home, 'ISO');
 }
 async function brancher(ctx: ModCtx, L: Local, m: Machine): Promise<string[]> {
@@ -57,8 +57,8 @@ export function machinesActions(): Action[] {
       const ok = await L.ipDispo(ip);
       return { text: ok ? `L'adresse ${ip} est libre.` : `L'adresse ${ip} est déjà prise.`, ok, data: { ip, libre: ok } };
     } },
-    { id: 'creer_machine', label: 'Créer une machine', what: 'Un LXC (léger, depuis une image officielle signée) ou une VM (depuis une ISO d\'Eitri) : nom automatique, ressources, adresse vérifiée, applis d\'Odin branchées', external: true,
-      params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['lxc', 'vm'], default: 'lxc' }, { key: 'modele', label: 'Modèle LXC (ex. debian trixie)', kind: 'text', default: 'debian trixie' }, { key: 'iso', label: 'ISO d\'Eitri (VM)', kind: 'text', default: '' },
+    { id: 'creer_machine', label: 'Créer une machine', what: 'Un LXC (léger, depuis une image officielle signée) ou une VM (depuis une ISO d\'Andromède) : nom automatique, ressources, adresse vérifiée, applis d\'Odin branchées', external: true,
+      params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['lxc', 'vm'], default: 'lxc' }, { key: 'modele', label: 'Modèle LXC (ex. debian trixie)', kind: 'text', default: 'debian trixie' }, { key: 'iso', label: 'ISO d\'Andromède (VM)', kind: 'text', default: '' },
         { key: 'fin', label: 'Fin du nom (ex. Nextcloud famille)', kind: 'text', default: '' }, { key: 'nom', label: 'Nom complet (remplace le nom automatique)', kind: 'text', default: '' },
         { key: 'coeurs', label: 'Cœurs', kind: 'number', default: 2 }, { key: 'memoire', label: 'Mémoire (Go)', kind: 'number', default: 2 }, { key: 'disque', label: 'Disque (Go)', kind: 'number', default: 32 },
         { key: 'ip', label: 'Adresse IP (vide : la première libre)', kind: 'text', default: '' }, { key: 'categorie', label: 'Catégorie', kind: 'text', default: '' },
@@ -72,7 +72,7 @@ export function machinesActions(): Action[] {
           modele = { dist: md.dist, release: md.release }; systeme = md.titre; version = md.version;
         } else {
           const l = L.isos(await eitriDir(ctx)), q = s(i.iso).toLowerCase(), f = l.find((x) => x.nom.toLowerCase() === q) ?? l.find((x) => q.length >= 3 && x.nom.toLowerCase().includes(q));
-          if (!f) throw new Error(q ? `ISO introuvable dans Eitri : « ${s(i.iso)} »` : 'choisis l\'ISO d\'installation');
+          if (!f) throw new Error(q ? `ISO introuvable dans Andromède : « ${s(i.iso)} »` : 'choisis l\'ISO d\'installation');
           iso = f.chemin; const w = /win(?:dows)?[-_ ]?(1[01])/i.exec(f.nom); systeme = w ? `Windows ${w[1]}` : (f.nom.split(/[-_ ]/)[0] ?? 'Système').replace(/^./, (c) => c.toUpperCase()); version = /(\d+(?:\.\d+){0,2})/.exec(f.nom.replace(/win(?:dows)?[-_ ]?1[01]/i, ''))?.[1] ?? '';
         }
         const nom = s(i.nom).trim() ? slug(s(i.nom)) : nomAuto(systeme, version, now, s(i.fin));
@@ -115,7 +115,7 @@ export function machinesActions(): Action[] {
       if (lvl && ['moyenne', 'haute', 'critique'].includes(lvl)) { const { rmSync } = await import('node:fs'); rmSync(o.tmp, { recursive: true, force: true }); throw new Error(`l'antivirus juge ce .ody ${lvl} : import refusé`); }
       const m = await L.importer(o, s(i.nom)); return { text: `📥 ${m.nom} importée (${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} ${m.version}) · ${m.ip} · empreinte vérifiée${v ? ', antivirus : rien trouvé' : ''}. Elle est éteinte : démarre-la quand tu veux.`, data: m };
     } },
-    { id: 'reseau_machines', label: 'Réseau des machines', what: 'Le pont réseau où se branchent les machines et la plage d\'adresses', params: [{ key: 'pont', label: 'Pont (ex. br0 pour le réseau de la maison, lxcbr0 pour un réseau à part)', kind: 'text', default: 'lxcbr0' }, { key: 'reseau', label: 'Réseau (ex. 192.168.1.0/24)', kind: 'text', default: '10.0.3.0/24' }, { key: 'passerelle', label: 'Passerelle', kind: 'text', default: '10.0.3.1' }, { key: 'dns', label: 'DNS (Víðarr)', kind: 'text', default: '' }, { key: 'debut', label: 'Première adresse', kind: 'number', default: 60 }], run: (ctx, i) => {
+    { id: 'reseau_machines', label: 'Réseau des machines', what: 'Le pont réseau où se branchent les machines et la plage d\'adresses', params: [{ key: 'pont', label: 'Pont (ex. br0 pour le réseau de la maison, lxcbr0 pour un réseau à part)', kind: 'text', default: 'lxcbr0' }, { key: 'reseau', label: 'Réseau (ex. 192.168.1.0/24)', kind: 'text', default: '10.0.3.0/24' }, { key: 'passerelle', label: 'Passerelle', kind: 'text', default: '10.0.3.1' }, { key: 'dns', label: 'DNS (Sphinx)', kind: 'text', default: '' }, { key: 'debut', label: 'Première adresse', kind: 'number', default: 60 }], run: (ctx, i) => {
       const m = /^(\d{1,3}\.\d{1,3}\.\d{1,3})\.0\/(\d{1,2})$/.exec(s(i.reseau).trim()); if (!m || m[2] !== '24') throw new Error('réseau attendu en /24, ex. 192.168.1.0/24');
       const pont = s(i.pont).trim(); if (!/^[\w.-]{1,15}$/.test(pont)) throw new Error('nom de pont invalide');
       const r = { pont, prefixe: m[1], masque: 24, passerelle: s(i.passerelle).trim() || `${m[1]}.1`, dns: s(i.dns).trim() || s(i.passerelle).trim() || `${m[1]}.1`, debut: n(i.debut, 60, 2, 250) };
@@ -166,7 +166,7 @@ export async function machinesWatch(ctx: ModCtx): Promise<void> {
       const cut = await ctx.call('vidarr', 'couper_machine', { ip: m.ip, nom: m.nom }, `quarantaine de ${m.nom}`).catch(() => undefined);
       const mm = L.find(m.id); if (mm.quarantaine) {
         mm.quarantaine.journal.unshift({ at: Date.parse(a.at), quoi: `Alerte : ${a.title}`, detail: a.module });
-        if (cut && cut.ok !== false) mm.quarantaine.journal.push({ at: Date.now(), quoi: 'Coupée d\'Internet dans le DNS d\'Odin', detail: 'Víðarr', annuler: { action: 'retablir_machine', input: { ip: m.ip }, label: 'Annuler', module: 'vidarr' } });
+        if (cut && cut.ok !== false) mm.quarantaine.journal.push({ at: Date.now(), quoi: 'Coupée d\'Internet dans le DNS d\'Odin', detail: 'Sphinx', annuler: { action: 'retablir_machine', input: { ip: m.ip }, label: 'Annuler', module: 'vidarr' } });
         L.update(mm);
       }
       ctx.alert({ level: 'haute', title: `🔒 ${m.nom} isolée par Odin`, detail: `Règle « rouge = isoler » : ${a.title}. Plus d'Internet ni de réseau ; lance l'analyse complète.`, key: `ymir-isolee-${m.id}`, steps: ['Regarde « D\'où vient le souci » dans Machines → Quarantaine.', 'Lance l\'analyse complète.', 'Si elle est propre, sors la machine de quarantaine.'], fix: { action: 'analyser_machine', label: 'Analyse complète', input: { machine: m.id } } });

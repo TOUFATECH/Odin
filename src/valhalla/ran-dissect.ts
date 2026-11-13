@@ -1,4 +1,4 @@
-// Rán : le décodeur de paquets, couche par couche (modèle OSI), comme Wireshark.
+// Ariane : le décodeur de paquets, couche par couche (modèle OSI), comme Wireshark.
 // Entrée : le flux « pcap » que tcpdump écrit (-w -). Sortie : pour chaque paquet, ses couches (liaison, réseau,
 // transport, session/présentation, application) avec tous leurs champs, l'appli reconnue, le site (nom DNS,
 // nom TLS « SNI », hôte HTTP), un résumé, une explication en français et le contenu brut (hexadécimal).

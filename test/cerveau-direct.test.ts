@@ -20,8 +20,8 @@ const valhalla = (appli: string, quoi: string, entree: Record<string, unknown>) 
 const T0 = Date.UTC(2026, 10, 10, 9), NOW = new Date(2026, 10, 12, 8, 30);
 const ok = (a: Acquis | { skip: string }): Acquis => { assert.ok(!('skip' in a), 'skip' in a ? `refusé : ${a.skip}` : ''); return a as Acquis; };
 const skip = (a: Acquis | { skip: string }): string => ('skip' in a ? a.skip : '');
-const BAN = { tool: 'valhalla', input: valhalla('garmr', 'bannir', { ip: '203.0.113.9' }), label: 'Garmr · Bannir une adresse' };
-const LIST = { tool: 'valhalla', input: valhalla('garmr', 'bannis', {}), label: 'Garmr · Bannis en ce moment' };
+const BAN = { tool: 'valhalla', input: valhalla('garmr', 'bannir', { ip: '203.0.113.9' }), label: 'Cerbère · Bannir une adresse' };
+const LIST = { tool: 'valhalla', input: valhalla('garmr', 'bannis', {}), label: 'Cerbère · Bannis en ce moment' };
 const NIGHT = { tool: 'mode_set', input: { mode: 'sommeil' }, label: 'Mode du moment · sommeil' };
 const LIGHT = (entity: string, service = 'turn_on') => ({ tool: 'ha_call', input: { domain: 'light', service, entity_id: entity }, label: `Maison · light.${service} → ${entity}` });
 
@@ -32,7 +32,7 @@ function deps(over: Partial<DirectDeps> = {}): DirectDeps & { calls: Array<[stri
 
 test('mission : plusieurs actions à la suite s\'apprennent ; la valeur dite change partout à la fois', () => {
   const a = ok(learn({ phrase: 'Bannis 203.0.113.9 et montre les bannis', label: '', steps: [BAN, LIST], now: T0 }));
-  assert.equal(a.label, 'Garmr · Bannir une adresse → Garmr · Bannis en ce moment');
+  assert.equal(a.label, 'Cerbère · Bannir une adresse → Cerbère · Bannis en ce moment');
   assert.equal(stepsOf(a).length, 2); assert.deepEqual(a.slots, [{ shape: 'ip' }]); assert.equal(a.origin, 'ia');
   // La même mission, avec une autre adresse : les deux actions sont prêtes, dans l'ordre.
   const m = match([a], 'bannis 198.51.100.7 et montre les bannis !');
@@ -132,8 +132,8 @@ test('sans IA : une mission se rejoue dans l\'ordre, s\'arrête au premier souci
   const r = await tryDirect('Bannis 198.51.100.7 et montre les bannis', d);
   assert.ok(r.done && r.acquis === a.id);
   assert.deepEqual(d.calls.map(([n, i]) => [n, i.quoi, i.entree]), [['valhalla', 'bannir', '{"ip":"198.51.100.7"}'], ['valhalla', 'bannis', '{}']]);
-  assert.equal(r.done ? r.text : '', '1/2 · Garmr · Bannir une adresse\nfait:valhalla\n\n2/2 · Garmr · Bannis en ce moment\nfait:valhalla');
-  assert.match(r.done ? r.why : '', /^appris le 10 novembre : « bannis 203\.0\.113\.9 et montre les bannis » → Garmr · Bannir une adresse → Garmr · Bannis en ce moment$/);
+  assert.equal(r.done ? r.text : '', '1/2 · Cerbère · Bannir une adresse\nfait:valhalla\n\n2/2 · Cerbère · Bannis en ce moment\nfait:valhalla');
+  assert.match(r.done ? r.why : '', /^appris le 10 novembre : « bannis 203\.0\.113\.9 et montre les bannis » → Cerbère · Bannir une adresse → Cerbère · Bannis en ce moment$/);
   assert.equal(loadAcquis(d.kv)[0].uses, 1);
   // Plusieurs demandes qui ne sont PAS une mission apprise : une IA, comme avant.
   const other = await tryDirect('bannis 198.51.100.7 et envoie un mail à Paul', d);
@@ -142,7 +142,7 @@ test('sans IA : une mission se rejoue dans l\'ordre, s\'arrête au premier souci
   let n = 0;
   const half = deps({ run: async () => (++n % 2 === 1 ? { ok: true, content: 'banni' } : { ok: false, content: 'Erreur : pare-feu injoignable' }) }); keep(half.kv, a);
   const h1 = await tryDirect('bannis 203.0.113.9 et montre les bannis', half);
-  assert.ok(h1.done); assert.match(h1.done ? h1.text : '', /^1\/2 · Garmr · Bannir une adresse\nbanni\n\n2\/2 · Garmr · Bannis en ce moment\nErreur : pare-feu injoignable\n\nJe me suis arrêté là : 1 action sur 2 faite\.$/);
+  assert.ok(h1.done); assert.match(h1.done ? h1.text : '', /^1\/2 · Cerbère · Bannir une adresse\nbanni\n\n2\/2 · Cerbère · Bannis en ce moment\nErreur : pare-feu injoignable\n\nJe me suis arrêté là : 1 action sur 2 faite\.$/);
   const h2 = await tryDirect('bannis 203.0.113.9 et montre les bannis', half);
   assert.match(h2.done ? h2.text : '', /échoué deux fois : je l'ai oubliée/); assert.equal(loadAcquis(half.kv).length, 0);
   // La première action échoue : rien n'a été fait, l'IA reprend la main.
@@ -152,7 +152,7 @@ test('sans IA : une mission se rejoue dans l\'ordre, s\'arrête au premier souci
   let k = 0;
   const no = deps({ run: async () => (++k === 1 ? { ok: true, content: 'banni' } : { ok: false, content: 'Action refusée.', refused: true }) }); keep(no.kv, a);
   const r2 = await tryDirect('bannis 203.0.113.9 et montre les bannis', no);
-  assert.match(r2.done ? r2.text : '', /2\/2 · Garmr · Bannis en ce moment\nAction refusée\.\n\nJe me suis arrêté là : 1 action sur 2 faite\.$/); assert.equal(loadAcquis(no.kv).length, 1); assert.equal(loadAcquis(no.kv)[0].fails, 0);
+  assert.match(r2.done ? r2.text : '', /2\/2 · Cerbère · Bannis en ce moment\nAction refusée\.\n\nJe me suis arrêté là : 1 action sur 2 faite\.$/); assert.equal(loadAcquis(no.kv).length, 1); assert.equal(loadAcquis(no.kv)[0].fails, 0);
   // Un outil de la mission n'est pas disponible : elle n'est pas tentée.
   const lack = deps({ has: () => false }); keep(lack.kv, a);
   assert.equal((await tryDirect('bannis 203.0.113.9 et montre les bannis', lack)).done, false); assert.equal(lack.calls.length, 0);
@@ -219,9 +219,9 @@ test('aucune IA ne répond : Odin dit comment il a fait le lien, propose, et n\'
 
 function vaultWorld() {
   const dir = mkdtempSync(join(tmpdir(), 'odin-quotidien-')), vault = new Vault(dir), k = kv();
-  for (const name of ['Garmr', 'Midgard', 'Freyja']) vault.write(`Odin/Applis/${name}`, { type: 'fiche', 'tenue par': 'Odin' }, `# ${name}\n`, { quiet: true });
+  for (const name of ['Cerbère', 'Midgard', 'Vénus']) vault.write(`Odin/Applis/${name}`, { type: 'fiche', 'tenue par': 'Odin' }, `# ${name}\n`, { quiet: true });
   vault.write('Odin/Comment fonctionne Odin', { type: 'fiche', 'tenue par': 'Odin' }, '# Comment fonctionne Odin\n', { quiet: true });
-  const names: Record<string, string> = { garmr: 'Garmr', midgard: 'Midgard', freyja: 'Freyja' };
+  const names: Record<string, string> = { garmr: 'Cerbère', midgard: 'Midgard', freyja: 'Vénus' };
   const d: DailyDeps = { vault, kv: k, app: (ref) => names[ref.toLowerCase()], now: Date.UTC(2026, 10, 12, 6) };
   return { dir, vault, kv: k, d, read: (p: string) => readFileSync(join(dir, `${p}.md`), 'utf8'), end: () => rmSync(dir, { recursive: true, force: true }) };
 }
@@ -246,8 +246,8 @@ test('Quotidien : une note par mission, reliée aux applis, avec les façons de 
     assert.deepEqual(readdirSync(join(w.dir, 'Quotidien')).sort(), ['Allume la lumière du salon.md', 'Bannis 203.0.113.9 et montre les bannis.md', 'Cerveau direct.md', 'Je file au lit.md', 'Éteins la lumière du salon.md'].sort());
     // Une mission en deux actions, avec une valeur qui peut changer.
     const nb = w.read('Quotidien/Bannis 203.0.113.9 et montre les bannis');
-    assert.match(nb, /^---\ntype: quotidien\nappli: Garmr\nétapes: 2\nutilisé: 0\nmission: m\w+\ntenue par: Odin\ncréé: 2026-11-12\n---\n# Bannis 203\.0\.113\.9 et montre les bannis\n/);
-    assert.match(nb, /## Ce que je fais\n\n1\. \[\[Garmr\]\] · Bannir une adresse\n2\. \[\[Garmr\]\] · Bannis en ce moment\n\nDans cet ordre\./);
+    assert.match(nb, /^---\ntype: quotidien\nappli: Cerbère\nétapes: 2\nutilisé: 0\nmission: m\w+\ntenue par: Odin\ncréé: 2026-11-12\n---\n# Bannis 203\.0\.113\.9 et montre les bannis\n/);
+    assert.match(nb, /## Ce que je fais\n\n1\. \[\[Cerbère\]\] · Bannir une adresse\n2\. \[\[Cerbère\]\] · Bannis en ce moment\n\nDans cet ordre\./);
     assert.match(nb, /## Ce qui peut changer\n\n« 203\.0\.113\.9 » \(une adresse IP\) : la même phrase avec une autre valeur marche aussi\./);
     assert.match(nb, /## Comment je l'ai appris\n\nLe 10 novembre 2026, une IA a réglé cette demande en 2 actions\. J'ai retenu « cette phrase → ces actions »\. Je ne l'ai pas encore refaite seul\./);
     assert.match(nb, new RegExp(`Dis « oublie l'acquis ${ban.id} », ou mets cette note à la corbeille`));
@@ -260,11 +260,11 @@ test('Quotidien : une note par mission, reliée aux applis, avec les façons de 
     assert.match(ns, /## Missions proches\n\n- \[\[Quotidien\/Éteins la lumière du salon\|Éteins la lumière du salon\]\] \(mots en commun : lumière, salon\)/);
     // La note d'ensemble : les missions par appli, les mots reliés.
     const hub = w.read('Quotidien/Cerveau direct');
-    assert.match(hub, /## Ce que je sais faire \(4 missions\)\n\n### Garmr\n\n- \[\[Quotidien\/Bannis 203\.0\.113\.9 et montre les bannis\|Bannis 203\.0\.113\.9 et montre les bannis\]\] — Garmr · Bannir une adresse → Garmr · Bannis en ce moment\n\n### Midgard\n\n- \[\[Quotidien\/Allume la lumière du salon\|Allume la lumière du salon\]\] — Maison · light\.turn_on → light\.salon · 2 façons de le dire\n- [^\n]*Éteins la lumière du salon[^\n]*\n\n### Mode du moment\n\n- [^\n]*Je file au lit/);
+    assert.match(hub, /## Ce que je sais faire \(4 missions\)\n\n### Cerbère\n\n- \[\[Quotidien\/Bannis 203\.0\.113\.9 et montre les bannis\|Bannis 203\.0\.113\.9 et montre les bannis\]\] — Cerbère · Bannir une adresse → Cerbère · Bannis en ce moment\n\n### Midgard\n\n- \[\[Quotidien\/Allume la lumière du salon\|Allume la lumière du salon\]\] — Maison · light\.turn_on → light\.salon · 2 façons de le dire\n- [^\n]*Éteins la lumière du salon[^\n]*\n\n### Mode du moment\n\n- [^\n]*Je file au lit/);
     assert.match(hub, /## Mots que j'ai reliés\n\n- « lampe » = « lumière »/);
     // Le graphe du Cerveau relie la mission à ses applis, à la note d'ensemble et à la mission proche.
     const g = w.vault.graph({ guessed: false }), edge = (x: string, y: string) => g.edges.some((e) => e.kind === 'lien' && [e.from, e.to].sort().join('|') === [x, y].sort().join('|'));
-    assert.ok(edge('Quotidien/Bannis 203.0.113.9 et montre les bannis.md', 'Odin/Applis/Garmr.md'));
+    assert.ok(edge('Quotidien/Bannis 203.0.113.9 et montre les bannis.md', 'Odin/Applis/Cerbère.md'));
     assert.ok(edge('Quotidien/Allume la lumière du salon.md', 'Odin/Applis/Midgard.md'));
     assert.ok(edge('Quotidien/Allume la lumière du salon.md', 'Quotidien/Cerveau direct.md'));
     assert.ok(edge('Quotidien/Allume la lumière du salon.md', 'Quotidien/Éteins la lumière du salon.md'));
@@ -317,7 +317,7 @@ test('Quotidien : tenu à jour sans bruit ; tes notes sont gardées ; une missio
     } finally { ren.end(); }
     // Le lien vers l'appli ne dépend pas du démarrage des applis (sinon la note changerait d'un lancement à l'autre).
     const bare = missionNote(missions([ok(learn({ phrase: 'bannis 203.0.113.9 et allume le salon', label: '', steps: [BAN, LIGHT('light.salon')], now: T0 }))])[0], { all: [], links: [], paths: new Map() });
-    assert.match(bare.body, /1\. \[\[Garmr\]\] · Bannir une adresse\n2\. Maison · light\.turn_on → light\.salon \(\[\[Midgard\]\]\)/); assert.equal(bare.meta.appli, 'Garmr, Midgard');
+    assert.match(bare.body, /1\. \[\[Cerbère\]\] · Bannir une adresse\n2\. Maison · light\.turn_on → light\.salon \(\[\[Midgard\]\]\)/); assert.equal(bare.meta.appli, 'Cerbère, Midgard');
     assert.match(hubNote([], [], new Map()).body, /Rien encore\./);
     // Odin oublie une mission : sa note part à la corbeille (restaurable), et la note d'ensemble suit.
     forget(w.kv, lit.id);

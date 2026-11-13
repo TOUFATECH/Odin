@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Vault } from '../src/brain/vault.ts';
 import { formula } from '../src/runes/formula.ts';
-import { Runes } from '../src/runes/runes.ts';
+import { Papyrus } from '../src/runes/runes.ts';
 
-test('Runes : formules sûres', () => {
+test('Papyrus : formules sûres', () => {
   const p = (n: string) => (({ Prix: 12.5, Quantité: 4, Statut: 'fait', Échéance: '2026-11-20' }) as Record<string, string | number>)[n] ?? null;
   const now = new Date('2026-11-11T10:00:00Z');
   assert.equal(formula('prop("Prix") * prop("Quantité")', p), 50);
@@ -19,10 +19,10 @@ test('Runes : formules sûres', () => {
   assert.match(String(formula('constructor("x")', p)), /fonction inconnue/);
 });
 
-test('Runes : base typée, vues (tableau, calendrier, filtres, tris), formules, agrégations, automatisations, CSV, sous-pages, historique', () => {
+test('Papyrus : base typée, vues (tableau, calendrier, filtres, tris), formules, agrégations, automatisations, CSV, sous-pages, historique', () => {
   const v = new Vault(mkdtempSync(join(tmpdir(), 'runes-')));
-  const r = new Runes(v);
-  assert.ok(r.bases().some((b) => b.id === 'tâche' && b.views.some((x) => x.type === 'tableau')), 'bases par défaut issues de Saga');
+  const r = new Papyrus(v);
+  assert.ok(r.bases().some((b) => b.id === 'tâche' && b.views.some((x) => x.type === 'tableau')), 'bases par défaut issues de Thot');
   const clients = r.createBase('Clients', [{ label: 'Ville', type: 'sélection' }, { label: 'Code', type: 'id', prefix: 'CL-' }]);
   const cmd = r.createBase('Commandes', [
     { label: 'Statut', type: 'statut' }, { label: 'Date', type: 'date' }, { label: 'Prix', type: 'nombre' }, { label: 'Quantité', type: 'nombre' },

@@ -38,7 +38,7 @@ export function connectors(odin: Pick<Odin, 'cfg'>, counts: Map<string, number> 
     { id: 'Fichiers', label: 'Fichiers', state: 'intégré', what: 'PDF, Word, Excel, images', how: '' },
     { id: 'Vocal', label: 'Vocaux', state: 'intégré', what: 'idées dictées', how: '' },
     { id: 'GitHub', label: 'GitHub', state: st(has('GITHUB_TOKEN') || has('GH_TOKEN')), what: 'dépôts et outils', how: 'Réglages → Coffre : GITHUB_TOKEN' },
-    { id: 'Draupnir', label: 'Draupnir', key: 'Automatisation', state: 'intégré', what: 'automatisations : formulaires, flux, pages surveillées, webhooks', how: '' },
+    { id: 'Talos', label: 'Talos', key: 'Automatisation', state: 'intégré', what: 'automatisations : formulaires, flux, pages surveillées, webhooks', how: '' },
     { id: 'Notion', label: 'Import Notion', state: st(has('NOTION_TOKEN')), what: 'pages importées depuis un compte Notion', how: 'Réglages → Coffre : NOTION_TOKEN' },
   ];
   return list.map(({ key, ...x }) => ({ ...x, on: x.state === 'actif', notes: c(key ?? x.id) }));

@@ -1,5 +1,5 @@
-// Kvasir — la veille d'Odin sur ses propres applis : suit les versions publiées par les projets
-// d'origine (GitHub), note chaque nouveauté (base Runes « Évolutions » + messagerie), et étudie un
+// Pharos — la veille d'Odin sur ses propres applis : suit les versions publiées par les projets
+// d'origine (GitHub), note chaque nouveauté (base Papyrus « Évolutions » + messagerie), et étudie un
 // lien GitHub que tu envoies : à quelle appli d'Odin il se rattache, ce qui est déjà couvert, ce qui
 // est nouveau (sans doublon). Les fonctions nouvelles vont dans le carnet de travail.
 // Odin ne recopie jamais de code : il note les idées, la réécriture se fait dans le projet.
@@ -148,7 +148,7 @@ export function match(mods: Module[], about: string, readme = ''): Array<{ id: s
 }
 
 export const kvasir: Module = {
-  id: 'kvasir', name: 'Kvasir', family: 'Données',
+  id: 'kvasir', name: 'Pharos', family: 'Données',
   what: 'La veille d\'Odin : nouveautés des applis d\'origine, et étude des liens GitHub que tu envoies.',
   does: ['suit les versions publiées par chaque projet d\'origine (GitHub)', 'résume ce qui pourrait servir à l\'appli d\'Odin correspondante (avec IA) ou liste les points clés (sans IA)', 'note chaque nouveauté dans la base « Évolutions » et te prévient', 'étudie un lien GitHub : appli d\'Odin concernée, ce qui est déjà couvert, ce qui est nouveau', 'carnet de travail des fonctions à ajouter, sans doublon'],
   from: ['Renovate', 'Dependabot', 'GitHub Releases'], upstream: [],
@@ -205,6 +205,6 @@ export const kvasir: Module = {
       ctx.alert({ level: 'info', title: `${n.repo} ${n.tag} (pour ${mod?.name})`, detail: sum.slice(0, 800), key: `rel:${n.repo}:${n.tag}` });
       await ctx.call('runes', 'evolution', { titre: `${n.repo} ${n.tag}`, appli: mod?.name ?? n.module, lien: n.url, resume: sum }).catch(() => undefined);
     }
-    if (got.length) await ctx.notify(`🆕 Kvasir : ${got.length} nouvelle(s) version(s) chez les applis d'origine\n${got.map((n) => `- ${n.repo} ${n.tag} → ${ctx.modules().find((m) => m.id === n.module)?.name}`).join('\n')}\n(détails dans Kvasir et la base Évolutions)`);
+    if (got.length) await ctx.notify(`🆕 Pharos : ${got.length} nouvelle(s) version(s) chez les applis d'origine\n${got.map((n) => `- ${n.repo} ${n.tag} → ${ctx.modules().find((m) => m.id === n.module)?.name}`).join('\n')}\n(détails dans Pharos et la base Évolutions)`);
   } },
 };

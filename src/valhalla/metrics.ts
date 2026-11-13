@@ -1,6 +1,6 @@
 // Les mesures d'Odin gardées dans le temps (façon Prometheus / Zabbix / Glances) : chaque appli range ses
-// chiffres (processeur, mémoire, temps de réponse, débit…) sous un nom de série ; Eir, Vörðr et les tableaux
-// de bord de Sýn les relisent sur 1 h, 24 h, 7 j, 30 j, 1 an.
+// chiffres (processeur, mémoire, temps de réponse, débit…) sous un nom de série ; Hygie, Pulsar et les tableaux
+// de bord de Zénith les relisent sur 1 h, 24 h, 7 j, 30 j, 1 an.
 //   - une ligne par minute et par jour : mesures/AAAA-MM-JJ.jsonl (gardées 31 jours) ;
 //   - une moyenne par heure, gardée pour toujours : mesures/heures-AAAA-MM.jsonl (petit).
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';

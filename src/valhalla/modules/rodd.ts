@@ -1,4 +1,4 @@
-// Rödd — la dictée vocale partout (comme Murmure, idées reprises, code écrit pour Odin) : tu parles, le texte
+// Écho — la dictée vocale partout (comme Murmure, idées reprises, code écrit pour Odin) : tu parles, le texte
 // s'écrit. 100 % local (Whisper sur la machine d'Odin), corrigé si tu veux par l'IA d'Odin (ponctuation,
 // grammaire, mail, traduction, liste), avec TES mots (partagés avec tout ce que tu dis à Odin). Une dictée
 // qui commence par « Odin, … » est une demande à Odin, pas un texte ; une action grave garde ton accord.
@@ -54,7 +54,7 @@ export async function dictee(ctx: ModCtx, raw: string, o: { mode?: Mode; ou?: st
 }
 
 export const rodd: Module = {
-  id: 'rodd', name: 'Rödd', family: 'Données',
+  id: 'rodd', name: 'Écho', family: 'Données',
   what: 'La dictée vocale partout (comme Murmure) : tu parles, le texte s\'écrit, corrigé si tu veux, avec tes mots ; « Odin, … » devient une demande.',
   does: ['dictée 100 % locale (Whisper sur la machine d\'Odin)', 'mise en forme : tel quel, corrigé, mail, traduction, liste (IA d\'Odin ; sans IA : ponctuation de base)', 'tes mots : ce que tu dis → ce qu\'il faut écrire, appris aussi de tes corrections, partagés avec tout ce que tu dis à Odin', '« Odin, … » en dictée = une demande (les actions graves gardent ton accord)', 'historique des dictées (désactivable)'],
   from: ['Murmure'], upstream: ['Kieirra/murmure'],

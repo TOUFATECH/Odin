@@ -1,4 +1,4 @@
-// Eir — ce que Glances mesure, lu directement dans le système (Linux : /proc et /sys), sans rien installer :
+// Hygie — ce que Glances mesure, lu directement dans le système (Linux : /proc et /sys), sans rien installer :
 // processeur par cœur (attente disque, vol de temps des VM), mémoire et échange, charge, réseau par carte
 // (filaire, Wi-Fi avec signal, VPN, conteneurs), disques (place et débit lecture / écriture), capteurs
 // (températures, ventilateurs, seuils critiques), batterie, RAID logiciel, SMART (avec smartctl), carte

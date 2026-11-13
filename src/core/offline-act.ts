@@ -72,7 +72,7 @@ const HELP = `Sans IA, je sais quand même :
 export interface ActOptions {
   /** Une IA est disponible : ne prendre la main que si la demande est comprise entièrement et sans doute (sinon rien, et on dit pourquoi). */
   strict?: boolean;
-  /** Ce qui a été reconnu, en clair (« Maison », « Loki · Bannir une adresse »). */
+  /** Ce qui a été reconnu, en clair (« Maison », « Sirènes · Bannir une adresse »). */
   label?: (l: string) => void;
   /** Pourquoi Odin ne prend pas la main (mode strict). */
   miss?: (why: string) => void;
@@ -85,7 +85,7 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   const timed = /\b(?:dans (?:\d+|une?|deux|trois|quelques)|a \d{1,2}\s?h|vers \d{1,2}|jusqu'a|pendant|demain|ce soir|cette nuit|tout a l'heure|plus tard|quand|lorsque|des que|si (?:je|tu|il|elle|on|le|la|les|quelqu)|apres|avant)\b/.test(s);
 
   // Les commandes de conteneurs écrites comme dans un terminal (« run -d -p 8080:80 nginx », « ps », « logs web ») :
-  // le moteur d'Odin, par Naglfar ; lancer, supprimer et exec demandent ton accord.
+  // le moteur d'Odin, par Argo ; lancer, supprimer et exec demandent ton accord.
   const ct = has('valhalla') ? chatCommand(text) : undefined;
   if (ct) { o.label?.('Conteneurs'); return (await run('valhalla', { action: 'action', appli: 'naglfar', quoi: 'commande', entree: JSON.stringify({ ligne: ct }) })).content; }
 
@@ -157,7 +157,7 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   // Réseau local
   if (/\b(scanne|balaye|scan)\b.*\breseau\b/.test(s) && has('net_scan') && (!strict || few)) { o.label?.('Réseau'); const r = await run('net_scan', {}); return r.content.slice(0, 1500); }
 
-  // Les applis d'Odin, sans IA : Huginn comprend la demande (appli, action, réglages), pose une question
+  // Les applis d'Odin, sans IA : Logos comprend la demande (appli, action, réglages), pose une question
   // s'il manque quelque chose, et chaque action part par l'outil « valhalla », donc sous Heimdall.
   const vh = valhallaOf();
   if (vh && has('valhalla')) {

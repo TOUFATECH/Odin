@@ -1,6 +1,6 @@
-// Garmr — le chien de garde : lit les journaux (SSH, web, Odin), repère qui force tes portes et le bannit
-// au pare-feu pour un temps (plus long à chaque récidive). Seule action de bannissement d'Odin : Loki,
-// Geri et Forseti l'appellent aussi. Jamais ton réseau local ni les adresses que tu protèges.
+// Cerbère — le chien de garde : lit les journaux (SSH, web, Odin), repère qui force tes portes et le bannit
+// au pare-feu pour un temps (plus long à chaque récidive). Seule action de bannissement d'Odin : Sirènes,
+// Méduse et Forseti l'appellent aussi. Jamais ton réseau local ni les adresses que tu protèges.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isIP } from 'node:net';
@@ -68,7 +68,7 @@ export async function hostPort(ctx: ModCtx, op: 'ouvrir' | 'fermer', port: numbe
 }
 
 export function bans(ctx: ModCtx): Ban[] { return ((ctx.settings.bans as Ban[] | undefined) ?? []).filter((b) => b.until > ctx.now().getTime()); }
-export async function ban(ctx: ModCtx, ip: string, reason: string, source = 'Garmr', baseMinutes?: number): Promise<{ text: string; ok: boolean }> {
+export async function ban(ctx: ModCtx, ip: string, reason: string, source = 'Cerbère', baseMinutes?: number): Promise<{ text: string; ok: boolean }> {
   if (!isIP(ip)) return { ok: false, text: `adresse invalide : ${ip}` };
   const allow = (ctx.settings.allow as string[] | undefined) ?? [];
   if (protectedIp(ip, allow)) return { ok: false, text: `${ip} est protégée (réseau local ou liste blanche) : pas de bannissement.` };
@@ -85,9 +85,9 @@ export async function ban(ctx: ModCtx, ip: string, reason: string, source = 'Gar
 const LOGS = ['/var/log/auth.log', '/var/log/secure', '/var/log/nginx/access.log', '/var/log/apache2/access.log', '/var/log/mail.log'];
 
 export const garmr: Module = {
-  id: 'garmr', name: 'Garmr', family: 'Sécurité',
+  id: 'garmr', name: 'Cerbère', family: 'Sécurité',
   what: 'Bannit au pare-feu ceux qui essaient d\'entrer de force (SSH, sites, mail, Odin).',
-  does: ['lit les journaux SSH, web, mail et ceux d\'Odin', 'bannit après 5 échecs en 10 minutes (réglable)', 'durée multipliée par 4 à chaque récidive', 'liste blanche ; jamais le réseau local', 'seule action de bannissement d\'Odin, utilisée par Loki, Geri et Forseti'],
+  does: ['lit les journaux SSH, web, mail et ceux d\'Odin', 'bannit après 5 échecs en 10 minutes (réglable)', 'durée multipliée par 4 à chaque récidive', 'liste blanche ; jamais le réseau local', 'seule action de bannissement d\'Odin, utilisée par Sirènes, Méduse et Forseti'],
   from: ['Fail2ban'], upstream: ['fail2ban/fail2ban'],
   words: ['bannir', 'banni', 'bannis', 'ban', 'bloquer une ip', 'force brute', 'brute force', 'tentatives', 'pare-feu', 'firewall', 'attaque ssh'],
   actions: [
@@ -98,7 +98,7 @@ export const garmr: Module = {
       const port = Number(i.port), proto = (i.proto === 'udp' ? 'udp' : 'tcp') as 'tcp' | 'udp', why = String(i.pour ?? '').slice(0, 60);
       const via = await hostPort(ctx, 'ouvrir', port, proto, why);
       let boxText = '';
-      if (i.box === true) { try { const { openPorts: upnp } = await import('../upnp.ts'); boxText = ` ${(await upnp([{ port, proto: proto.toUpperCase() as 'TCP' | 'UDP' }], `Odin · ${why || 'port'}`, ctx.fetch)).text}`; } catch (e) { boxText = ` Box : ${(e as Error).message} (sinon : le tunnel Cloudflare, Brú, pour le web).`; } }
+      if (i.box === true) { try { const { openPorts: upnp } = await import('../upnp.ts'); boxText = ` ${(await upnp([{ port, proto: proto.toUpperCase() as 'TCP' | 'UDP' }], `Odin · ${why || 'port'}`, ctx.fetch)).text}`; } catch (e) { boxText = ` Box : ${(e as Error).message} (sinon : le tunnel Cloudflare, Bifröst, pour le web).`; } }
       ctx.saveSettings({ openPorts: [...openPorts(ctx).filter((x) => !(x.port === port && x.proto === proto)), { port, proto, why, by: String(i.par ?? 'toi'), via, at: Date.now(), ...(i.box === true ? { box: true } : {}) }] });
       return { text: `🔓 Port ${port}/${proto} ${via === 'aucun pare-feu actif' ? 'déjà joignable (pas de pare-feu actif sur la machine)' : `ouvert sur la machine (${via})`}${why ? ` pour ${why}` : ''}.${boxText}` };
     }, undo: (i) => ({ action: 'fermer_port', input: { port: i.port, proto: i.proto ?? 'tcp' }, label: 'Refermer le port' }) },

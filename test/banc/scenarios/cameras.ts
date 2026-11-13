@@ -1,4 +1,4 @@
-// Himinbjörg contre un VRAI flux de caméra RTSP : un serveur de flux (MediaMTX) protégé par mot de
+// Cyclope contre un VRAI flux de caméra RTSP : un serveur de flux (MediaMTX) protégé par mot de
 // passe, une « caméra » qui publie une image fixe puis une scène qui change (ffmpeg). Odin prend une
 // photo, enregistre un clip, détecte le mouvement, envoie l'alerte avec la photo, respecte les heures.
 
@@ -16,7 +16,7 @@ function publish(t: T, port: number, pw: string, scene: string) {
 }
 
 export const cameras: Scenario = {
-  id: 'cameras', title: 'Himinbjörg ↔ caméra RTSP', mode: 'réel',
+  id: 'cameras', title: 'Cyclope ↔ caméra RTSP', mode: 'réel',
   what: 'Un vrai serveur de flux RTSP avec mot de passe et une caméra simulée par ffmpeg : photo, clip, détection de mouvement, alerte avec photo, heures de surveillance, panne.',
   async run(t) {
     await t.need('ffmpeg', 'ffprobe');

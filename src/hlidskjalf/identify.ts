@@ -1,4 +1,4 @@
-// Hliðskjálf — reconnaître ce que chaque appareil expose : nom, services par port, interfaces web.
+// Horus — reconnaître ce que chaque appareil expose : nom, services par port, interfaces web.
 //
 // - Noms : NetBIOS (ordinateurs Windows, NAS, Samba), description UPnP (box, TV, enceintes :
 //   nom, fabricant, modèle), titre de la page web d'administration.

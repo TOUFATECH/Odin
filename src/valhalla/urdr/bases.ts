@@ -1,5 +1,5 @@
-// Urðr — la liste de tes bases (partagée avec Skuld). Les mots de passe sont à part, dans un fichier protégé
-// (lecture par Odin seul, jamais affiché) et dans le coffre (Brísingamen).
+// Alexandrie — la liste de tes bases (partagée avec Arche). Les mots de passe sont à part, dans un fichier protégé
+// (lecture par Odin seul, jamais affiché) et dans le coffre (Thésauros).
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PgDriver, type Driver } from './db.ts';
@@ -37,7 +37,7 @@ export function useHostOf(f: HostOf) { hostOf = f; }
 /** Pour les essais : une autre façon d'ouvrir une base (une fausse base en mémoire). */
 let opener: ((b: Base) => Driver | undefined) | undefined;
 export function useOpener(f: typeof opener) { opener = f; }
-/** Ouvre la base PostgreSQL ; MySQL et MongoDB : sauvegardes seulement (Skuld). Zéro SQLite dans Odin. */
+/** Ouvre la base PostgreSQL ; MySQL et MongoDB : sauvegardes seulement (Arche). Zéro SQLite dans Odin. */
 export async function open(home: string, b: Base): Promise<Driver> {
   const o = opener?.(b); if (o) return o;
   if (b.type === 'postgres') {
@@ -45,5 +45,5 @@ export async function open(home: string, b: Base): Promise<Driver> {
     if (b.conteneur && !at) throw new Error(`la base ${b.nom} ne tourne pas (conteneur ${b.conteneur} arrêté ?)`);
     return PgDriver.open({ host: at?.host ?? b.hote ?? '127.0.0.1', port: at?.port ?? b.port ?? 5432, user: b.utilisateur ?? 'postgres', password: password(home, b.id), database: b.base ?? 'postgres', ssl: b.ssl });
   }
-  throw new Error(`${b.type === 'mysql' ? 'MySQL / MariaDB' : 'MongoDB'} : Urðr Studio ne l'ouvre pas encore ; Skuld la sauvegarde déjà`);
+  throw new Error(`${b.type === 'mysql' ? 'MySQL / MariaDB' : 'MongoDB'} : Alexandrie Studio ne l'ouvre pas encore ; Arche la sauvegarde déjà`);
 }

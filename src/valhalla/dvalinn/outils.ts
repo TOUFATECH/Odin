@@ -1,4 +1,4 @@
-// Dvalinn · la boîte à outils (idées d'IT-Tools, réécrites) : petits calculs sans rien installer, tout reste sur
+// Alchimie · la boîte à outils (idées d'IT-Tools, réécrites) : petits calculs sans rien installer, tout reste sur
 // la machine. Pur, testé.
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 

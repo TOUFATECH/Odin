@@ -1,4 +1,4 @@
-// Ymir · les machines de CE PC (maquettes validées « Machines », « Créer une machine », « Quarantaine ») :
+// Hydre · les machines de CE PC (maquettes validées « Machines », « Créer une machine », « Quarantaine ») :
 // des conteneurs LXC (légers) et des machines virtuelles QEMU, créés et suivis par Odin, sans Docker ni Podman.
 //   - LXC : les outils officiels (lxc-create avec le modèle « download », qui vérifie la signature des images
 //     de linuxcontainers.org), dans un dossier à part pour Odin ; limites processeur et mémoire par cgroup v2.
@@ -61,7 +61,7 @@ export function ipLibre(r: Reseau, prises: string[], debut = r.debut): string | 
 /** Les lignes ajoutées à la configuration du conteneur (limites, réseau, console, démarrage avec le PC). Pur. */
 export function lxcConfig(m: Machine, r: Reseau, lxcDir: string): string[] {
   const out = [
-    '# Odin · Ymir', `lxc.cgroup2.cpu.max = ${m.cpu * 100000} 100000`, `lxc.cgroup2.memory.max = ${m.ram}M`,
+    '# Odin · Hydre', `lxc.cgroup2.cpu.max = ${m.cpu * 100000} 100000`, `lxc.cgroup2.memory.max = ${m.ram}M`,
     `lxc.console.logfile = ${join(lxcDir, m.nom, 'console.log')}`, 'lxc.start.auto = 1',
   ];
   if (m.quarantaine) out.push('lxc.net.0.type = empty');
@@ -70,7 +70,7 @@ export function lxcConfig(m: Machine, r: Reseau, lxcDir: string): string[] {
 }
 /** Remplace, dans une configuration LXC, le réseau et les limites par ceux d'Odin (les autres lignes restent). Pur. */
 export function rewriteConfig(text: string, extra: string[]): string {
-  const keep = text.split('\n').filter((l) => !/^\s*lxc\.(net\.|cgroup2\.cpu\.max|cgroup2\.memory\.max|console\.logfile|start\.auto)|^# Odin · Ymir/.test(l));
+  const keep = text.split('\n').filter((l) => !/^\s*lxc\.(net\.|cgroup2\.cpu\.max|cgroup2\.memory\.max|console\.logfile|start\.auto)|^# Odin · Hydre/.test(l));
   while (keep.length && !keep.at(-1)!.trim()) keep.pop();
   return `${[...keep, '', ...extra].join('\n')}\n`;
 }
@@ -345,7 +345,7 @@ export class Local {
       const base = m.genre === 'lxc' ? this.lxcDir : join(this.dir, 'vm'), payload = join(tmp, 'machine.tgz');
       await this.must('tar', ['--numeric-owner', '-C', base, '-czf', payload, m.nom], 'archive de la machine', 3_600_000);
       const sha = await sha256File(payload), taille = statSync(payload).size;
-      const man: OdyManifest = { format: 'ody', version: 1, genre: m.genre, nom: m.nom, systeme: m.systeme, versionSysteme: m.version, cpu: m.cpu, ram: m.ram, disque: m.disque, modele: m.modele, uefi: m.uefi, apps: m.apps, paquets: m.paquets, sha256: sha, taille, cree: m.cree, exporte: Date.now(), par: 'Odin · Ymir' };
+      const man: OdyManifest = { format: 'ody', version: 1, genre: m.genre, nom: m.nom, systeme: m.systeme, versionSysteme: m.version, cpu: m.cpu, ram: m.ram, disque: m.disque, modele: m.modele, uefi: m.uefi, apps: m.apps, paquets: m.paquets, sha256: sha, taille, cree: m.cree, exporte: Date.now(), par: 'Odin · Hydre' };
       writeFileSync(join(tmp, 'manifest.json'), JSON.stringify(man, null, 1));
       const out = join(dest, `${m.nom}.ody`);
       await this.must('tar', ['-C', tmp, '-cf', `${out}.part`, 'manifest.json', 'machine.tgz'], 'fichier .ody');
@@ -395,7 +395,7 @@ export class Local {
     try { const r = await this.ctx.run('df', ['-B1', '--output=size,used', existsSync(this.dir) ? this.dir : this.ctx.dir], { timeoutMs: 5000 }); const l = r.out.trim().split('\n').at(-1)?.trim().split(/\s+/); if (l && l.length >= 2) { dt = Number(l[0]); du = Number(l[1]); } } catch { /* df absent */ }
     return { coeurs: c, cpuPct: Math.round(Math.min(100, (loadavg()[0] / c) * 100)), ramTotal: totalmem(), ramUtilisee: used, disqueTotal: dt, disqueUtilise: du, kvm: this.kvm() };
   }
-  /** Les ISO d'Eitri (pour une VM). */
+  /** Les ISO d'Andromède (pour une VM). */
   isos(root: string): Array<{ nom: string; chemin: string; taille: number }> {
     const out: Array<{ nom: string; chemin: string; taille: number }> = [];
     const walk = (d: string, depth: number) => { let n: string[] = []; try { n = readdirSync(d); } catch { return; } for (const x of n.sort()) { if (x.startsWith('.')) continue; const p = join(d, x); let st; try { st = statSync(p); } catch { continue; } if (st.isDirectory()) { if (depth < 2) walk(p, depth + 1); } else if (/\.iso$/i.test(x)) out.push({ nom: x.replace(/\.iso$/i, ''), chemin: p, taille: st.size }); } };

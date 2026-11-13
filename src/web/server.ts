@@ -98,7 +98,7 @@ export interface WebHooks {
   scanNetwork(full: boolean): Promise<unknown>;
   /** Canaux qui n'ont pas pu démarrer (nom → raison). */
   failedChannels?(): Record<string, string>;
-  /** Prévenir le propriétaire (automatisations Draupnir, bases Runes). */
+  /** Prévenir le propriétaire (automatisations Talos, bases Papyrus). */
   tellOwner?(text: string): Promise<void>;
   /** « Envoyer un test » sur une messagerie. */
   testChannel?(name: string): Promise<{ ok: boolean; message: string }>;
@@ -109,7 +109,7 @@ export interface WebHooks {
   reload?(): Promise<void>;
   /** Un appareil demande l'accès : prévenir le propriétaire (Telegram…) avec les boutons Autoriser / Refuser. */
   pairAsk?(r: PairRequest): Promise<void> | void;
-  /** Vörðr : contrôle de santé immédiat (renvoie les alertes envoyées). */
+  /** Pulsar : contrôle de santé immédiat (renvoie les alertes envoyées). */
   watchNow?(): Promise<string[]>;
   /** Journal de bord maintenant. */
   journalNow?(): Promise<string | undefined>;
@@ -145,7 +145,7 @@ const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import
 const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const PACKETS_JS = (() => { try { return readFileSync(new URL('./packets.js', import.meta.url)); } catch { return Buffer.from(''); } })();
-// Les pages dessinées à part pour certaines applis (Urðr Studio, Rödd, Svalinn…) : src/web/pages/<appli>.js
+// Les pages dessinées à part pour certaines applis (Alexandrie Studio, Écho, Zéphyr…) : src/web/pages/<appli>.js
 const PAGES_JS: Record<string, Buffer> = (() => { try { return Object.fromEntries(readdirSync(new URL('./pages/', import.meta.url)).filter((n) => /^[a-z0-9-]+\.js$/.test(n)).map((n) => [n, readFileSync(new URL(`./pages/${n}`, import.meta.url))])); } catch { return {}; } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
@@ -238,7 +238,7 @@ export class WebChannel implements Channel {
     this.accounts = new Accounts(odin.paths.home, opts.scryptN ? { scryptN: opts.scryptN } : {});
     this.port = opts.port; this.host = opts.host; this.token = opts.token;
     this.access = opts.access ?? 'local'; this.tls = opts.tls;
-    // Le certificat de l'interface sert aussi au DNS chiffré (DoT) de Víðarr.
+    // Le certificat de l'interface sert aussi au DNS chiffré (DoT) de Sphinx.
     if (opts.tls) setDotMaterial({ key: opts.tls.key, cert: opts.tls.cert });
     // Les bulles de la mascotte partent en direct vers toutes les pages ouvertes (téléphone compris).
     noticeBus.on('notice', this.onNotice);
@@ -509,9 +509,9 @@ export class WebChannel implements Channel {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY' });
       return void res.end(activationPage(nonce, MASCOT));
     }
-    // DNS chiffré (DoH) de Víðarr pour les appareils de la maison et du VPN : pas de compte, mais seulement depuis
+    // DNS chiffré (DoH) de Sphinx pour les appareils de la maison et du VPN : pas de compte, mais seulement depuis
     // une adresse privée (jamais un résolveur ouvert à tout Internet).
-    // Vörðr : un programme envoie son signe de vie (/v/<jeton secret>) ; la page publique d'état (/etat/<adresse secrète>).
+    // Pulsar : un programme envoie son signe de vie (/v/<jeton secret>) ; la page publique d'état (/etat/<adresse secrète>).
     if (url.pathname.startsWith('/v/')) { const n = vordrPush(url.pathname.slice(3)); return n ? json(res, 200, { ok: true }) : json(res, 404, { ok: false }); }
     if (url.pathname.startsWith('/etat/')) { const h = statusPage(url.pathname.slice(6)); if (!h) return json(res, 404, { ok: false, error: 'page inconnue' }); res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'", 'referrer-policy': 'no-referrer' }); return void res.end(h); }
     if (url.pathname === '/dns-query') {
@@ -539,9 +539,9 @@ export class WebChannel implements Channel {
       const r = await wa.webhook(req.method ?? 'GET', url.searchParams, raw, req.headers['x-hub-signature-256'] as string | undefined).catch(() => ({ status: 500, body: 'erreur' }));
       res.writeHead(r.status, { 'content-type': 'text/plain; charset=utf-8' }); return void res.end(r.body);
     }
-    // Draupnir : webhooks (/h/…) et formulaires (/f/…) publics, chemin secret, débit limité.
+    // Talos : webhooks (/h/…) et formulaires (/f/…) publics, chemin secret, débit limité.
     if (await publicRoute(req, res, url)) return;
-    // Frigg : page publique de réservation (/r/…), lien secret, sans script.
+    // Chronos : page publique de réservation (/r/…), lien secret, sans script.
     if (await friggPublic(req, res, url)) return;
     if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
     if (url.pathname === '/app-icons.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(APP_ICONS_JS); }
@@ -574,7 +574,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/recherche' || url.pathname === '/recherche.js' || url.pathname.startsWith('/api/recherche/')) {
       if (await rechercheRoute(req, res, url, { authed: this.authed(req), mascot: MASCOT })) return;
     }
-    // L'écran de la maison (Glaðsheimr) : sa page, son script et son API (session, ou clé de tablette).
+    // L'écran de la maison (Hestia) : sa page, son script et son API (session, ou clé de tablette).
     if (url.pathname === '/maison' || url.pathname === '/maison.js' || url.pathname.startsWith('/api/maison/') || url.pathname === '/api/owntracks') {
       if (await maisonRoute(req, res, url, { authed: this.authed(req), name: this.accounts.profile()?.prenom ?? '', mascot: MASCOT, fail: () => this.throttle.fail(ip), ask: (text) => this.askAs('maison', text, onMessage) })) return;
     }
@@ -650,7 +650,7 @@ export class WebChannel implements Channel {
       if (!r.ok) {
         this.throttle.fail(ip);
         console.log(`[web] connexion refusée depuis ${ip}`);
-        // Ullr compte les mots de passe refusés : plusieurs essais de suite deviennent un incident.
+        // Asclépios compte les mots de passe refusés : plusieurs essais de suite deviennent un incident.
         valhallaOf()?.events.emit('event', { module: 'odin', type: 'connexion_refusee', data: { ip }, at: new Date().toISOString() });
         if (r.retryAfter) res.setHeader('retry-after', String(r.retryAfter));
         return json(res, r.retryAfter && /Trop d'essais/.test(r.error) ? 429 : 401, { ok: false, error: r.error, retryAfter: r.retryAfter ?? 0 });
@@ -694,7 +694,7 @@ export class WebChannel implements Channel {
       req.on('close', () => { this.clients.delete(res); this.streamSession.delete(res); });
       return;
     }
-    // Rán : paquets réseau (une machine ou tout le réseau) — historique, qui parle à qui, détail d'un paquet, direct.
+    // Ariane : paquets réseau (une machine ou tout le réseau) — historique, qui parle à qui, détail d'un paquet, direct.
     if (req.method === 'GET' && url.pathname.startsWith('/api/ran/')) {
       const raw = String(url.searchParams.get('ip') ?? '').trim(), scope = raw ? raw : RAN_NETWORK;
       if (raw && !isIP(raw)) return json(res, 400, { error: 'adresse IP invalide' });
@@ -776,8 +776,8 @@ export class WebChannel implements Channel {
 
     // Raccourci Siri / Android / Home Assistant : jeton dans « Authorization: Bearer … » (jamais par
     // cookie : une page piégée ne peut donc pas s'en servir), réponse en texte simple quand Odin a fini.
-    // Serveur MCP d'Odin (Ratatoskr) : applis exposées aux autres assistants, jeton Bearer obligatoire.
-    // Odin d'aujourd'hui pour les autres applis (Venus/Freyja) : caché ou non, fête du jour, couleur, pouvoirs.
+    // Serveur MCP d'Odin (Interprète) : applis exposées aux autres assistants, jeton Bearer obligatoire.
+    // Odin d'aujourd'hui pour les autres applis (Venus/Vénus) : caché ou non, fête du jour, couleur, pouvoirs.
     if (req.method === 'GET' && url.pathname === '/api/mascotte') {
       if (!/^Bearer\s+/i.test(req.headers.authorization ?? '')) return json(res, 401, { error: 'jeton Bearer requis' });
       const v = valhallaOf(); if (!v) return json(res, 503, { error: 'applis non démarrées' });
@@ -845,7 +845,7 @@ export class WebChannel implements Channel {
       catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/rodd/dictee' && req.method === 'POST') {
-      // Rödd : la dictée (navigateur, téléphone, agent des PC) — audio → texte (tes mots) → mise en forme, ou une demande à Odin.
+      // Écho : la dictée (navigateur, téléphone, agent des PC) — audio → texte (tes mots) → mise en forme, ou une demande à Odin.
       const va = valhallaOf(); if (!va) return json(res, 503, { ok: false, error: 'applis non démarrées' });
       if (!sttReady(v)) return json(res, 200, { ok: false, error: 'L\'écoute n\'est pas encore installée : dis-moi « installe la voix locale ».' });
       try {

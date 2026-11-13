@@ -183,7 +183,7 @@
     talk.hidden = false; follow(); setTimeout(() => input.focus({ preventScroll: true }), 30);
     window.OdinCompanion?.pin?.(60_000);
   }
-  /** Un toucher sur Odin : qui te protège (Antivirus = Ullr, Malware = Skögul) et leurs dernières alertes. */
+  /** Un toucher sur Odin : qui te protège (Antivirus = Asclépios, Malware = Némésis) et leurs dernières alertes. */
   function protBox() {
     const list = el('div', {}), items = history.filter((x) => protOf(x));
     const st = { ullr: el('span', {}, PROT.ullr.what), skogul: el('span', {}, PROT.skogul.what) };
@@ -193,7 +193,7 @@
     draw('tout');
     // L'état du moment (sans attendre : la petite fenêtre s'ouvre tout de suite).
     api('/api/valhalla/act', { module: 'ullr', action: 'etat', input: {} }).then((r) => { if (r?.ok) st.ullr.textContent = String(r.text).split('\n')[0].replace(/^[^\p{L}\d]+/u, '').slice(0, 90); }).catch(() => {});
-    return el('div', { class: 'ot-prot' }, el('small', {}, 'Qui te protège'), row('ullr', 'Ullr'), row('skogul', 'Skögul'), seg, list);
+    return el('div', { class: 'ot-prot' }, el('small', {}, 'Qui te protège'), row('ullr', 'Asclépios'), row('skogul', 'Némésis'), seg, list);
   }
   function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); if (later) { const [n, o] = later; later = null; setTimeout(() => show(n, o), 300); } }
   /** La réponse d'Odin arrive : elle s'affiche dans la petite fenêtre (et Odin la dit si la voix est activée). */

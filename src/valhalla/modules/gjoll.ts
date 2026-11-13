@@ -1,5 +1,5 @@
-// Gjöll — le VPN d'Odin : un seul moteur WireGuard pour les tunnels, les clients avec QR code
-// (mode « Gjallarbrú ») et le réseau maillé entre tes appareils (mode « Gleipnir »).
+// Vortex — le VPN d'Odin : un seul moteur WireGuard pour les tunnels, les clients avec QR code
+// (mode « Charon ») et le réseau maillé entre tes appareils (mode « Orion »).
 // Le protocole WireGuard est ÉCRIT DANS ODIN (../wireguard/) : rien à installer. Les téléphones et les
 // ordinateurs se connectent avec l'appli WireGuard habituelle, que le moteur d'Odin comprend.
 
@@ -15,7 +15,7 @@ import { nameForIp, recentDomains } from './vidarr.ts';
 import { localDay } from '../vidarr/history.ts';
 import { closePorts, discover, listMappings, openPorts } from '../upnp.ts';
 
-export interface Peer { name: string; pub: string; priv?: string; psk: string; ip: string; created: string; enabled: boolean; full: boolean; mesh?: boolean; endpoint?: string; /** fin de l'accès (AAAA-MM-JJ) : passé ce jour, l'appareil est coupé tout seul */ expires?: string; /** passe par le DNS d'Odin (Víðarr) : pubs et sites dangereux bloqués aussi en dehors de la maison */ odinDns?: boolean }
+export interface Peer { name: string; pub: string; priv?: string; psk: string; ip: string; created: string; enabled: boolean; full: boolean; mesh?: boolean; endpoint?: string; /** fin de l'accès (AAAA-MM-JJ) : passé ce jour, l'appareil est coupé tout seul */ expires?: string; /** passe par le DNS d'Odin (Sphinx) : pubs et sites dangereux bloqués aussi en dehors de la maison */ odinDns?: boolean }
 export function keypair(): { priv: string; pub: string } {
   const { privateKey, publicKey } = generateKeyPairSync('x25519');
   return { priv: privateKey.export({ format: 'der', type: 'pkcs8' }).subarray(-32).toString('base64'), pub: publicKey.export({ format: 'der', type: 'spki' }).subarray(-32).toString('base64') };
@@ -72,7 +72,7 @@ export function forwarding(sv: Server): { up: string; down: string } | undefined
 }
 export function serverConf(sv: Server, ps: Peer[]): string {
   const f = forwarding(sv);
-  return `[Interface]\n# Gjöll (Odin) — ne pas modifier à la main\nAddress = ${sv.net}.1/24\nListenPort = ${sv.port}\nPrivateKey = ${sv.priv}\n${sv.mtu ? `MTU = ${sv.mtu}\n` : ''}${f ? `PostUp = ${f.up}\nPostDown = ${f.down}\n` : ''}${ps.filter((p) => p.enabled).map((p) => `\n[Peer]\n# ${p.name}\nPublicKey = ${p.pub}\nPresharedKey = ${p.psk}\nAllowedIPs = ${p.ip}/32\n`).join('')}`;
+  return `[Interface]\n# Vortex (Odin) — ne pas modifier à la main\nAddress = ${sv.net}.1/24\nListenPort = ${sv.port}\nPrivateKey = ${sv.priv}\n${sv.mtu ? `MTU = ${sv.mtu}\n` : ''}${f ? `PostUp = ${f.up}\nPostDown = ${f.down}\n` : ''}${ps.filter((p) => p.enabled).map((p) => `\n[Peer]\n# ${p.name}\nPublicKey = ${p.pub}\nPresharedKey = ${p.psk}\nAllowedIPs = ${p.ip}/32\n`).join('')}`;
 }
 export function clientConf(sv: Server, p: Peer, all: Peer[] = []): string {
   // « Maison seulement » : le réseau du VPN et les réseaux de la maison ; « tout » : tout le trafic.
@@ -90,7 +90,7 @@ export async function setup(ctx: ModCtx): Promise<Array<{ title: string; detail?
   const sv = server(ctx), why = await engineReady(ctx), up = Boolean(dev);
   const known = !/^\[/.test(sv.endpoint), upnp = ctx.settings.upnp as { cgnat?: boolean } | undefined, opened = ctx.settings.portOpened === true || Boolean(upnp && !upnp.cgnat), ps = peers(ctx);
   return [
-    { title: 'Moteur VPN d\'Odin', detail: why ? `Pas prêt : ${why}.` : 'Le moteur VPN de Gjöll est intégré à Odin : rien à installer.', done: !why },
+    { title: 'Moteur VPN d\'Odin', detail: why ? `Pas prêt : ${why}.` : 'Le moteur VPN de Vortex est intégré à Odin : rien à installer.', done: !why },
     { title: 'Adresse de la maison sur Internet', detail: known ? `${sv.endpoint}` : 'Odin trouve ton adresse publique. Si elle change souvent, mets plutôt un nom de domaine (formulaire « Adresse de la maison »).', done: known, action: 'detecter', button: 'Trouver mon adresse' },
     { title: `Ouvrir le port ${sv.port} (UDP) sur ta box`, detail: upnp?.cgnat ? 'Ouvert par Odin, mais ta box n\'a pas d\'adresse Internet à elle (Starlink, 4G, double box) : demande une adresse publique à l\'opérateur ou mets la box en mode « bridge ».' : `Odin l'ouvre lui-même si la box accepte l'UPnP (bouton). Sinon, dans l'interface de ta box (souvent http://192.168.1.1) : « Redirection de ports » ou « NAT/PAT », UDP ${sv.port} vers cette machine, puis « C'est fait » dans le formulaire.`, done: opened, ...(ctx.settings.upnpFailed === true ? { action: 'port', input: { ouvert: true }, button: 'C\'est fait' } : { action: 'ouvrir_port', button: 'Ouvrir le port' }) },
     { title: 'Allumer le tunnel', detail: 'Le VPN démarre, et redémarre tout seul avec Odin.', done: up, action: 'allumer', button: 'Allumer' },
@@ -99,13 +99,13 @@ export async function setup(ctx: ModCtx): Promise<Array<{ title: string; detail?
   ];
 }
 const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return `${Math.round(b * 10) / 10} ${u[i]}`; };
-// ---------------- Lien avec Víðarr (le DNS d'Odin) ----------------
-/** L'appareil passe par le DNS d'Odin : Víðarr le connaît sous son nom (journal, réglages propres). */
+// ---------------- Lien avec Sphinx (le DNS d'Odin) ----------------
+/** L'appareil passe par le DNS d'Odin : Sphinx le connaît sous son nom (journal, réglages propres). */
 async function linkDns(ctx: ModCtx, p: Peer, before?: string): Promise<string> {
   if (before && before !== p.name) await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${before}` }, 'appareil VPN renommé').catch(() => undefined);
   if (!p.odinDns) { await ctx.call('vidarr', 'retirer_appareil', { nom: `VPN · ${p.name}` }, 'appareil VPN sans le DNS d\'Odin').catch(() => undefined); return ''; }
   const r = await ctx.call('vidarr', 'appareil', { nom: `VPN · ${p.name}`, adresses: p.ip, filtrage: 'global', parental: false, recherche_sure: false, services: '', amont: '' }, 'appareil VPN qui passe par le DNS d\'Odin').catch((e: Error) => ({ ok: false, text: e.message }));
-  return r.ok === false ? ` ⚠ Lien avec le DNS d'Odin : ${r.text}` : ' Il passe par le DNS d\'Odin (Víðarr) : pubs et sites dangereux bloqués aussi hors de la maison.';
+  return r.ok === false ? ` ⚠ Lien avec le DNS d'Odin : ${r.text}` : ' Il passe par le DNS d\'Odin (Sphinx) : pubs et sites dangereux bloqués aussi hors de la maison.';
 }
 
 // ---------------- Le moteur VPN d'Odin ----------------
@@ -166,7 +166,7 @@ function rates(d: Map<string, { rx: number; tx: number }>, now: number): Map<str
 const mbps = (bps: number) => `${(bps * 8 / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} Mb/s`;
 /** Le graphe du VPN : Odin au centre, chaque appareil relié par son tunnel (vert s'il est connecté), ce qu'il joint (maison, Internet) et ses domaines. */
 export function vpnGraph(sv: Server, ps: Peer[], d: Map<string, { handshake: number; rx: number; tx: number; endpoint: string }>, r: Map<string, { rx: number; tx: number }>, now: number, domains: (ip: string) => Array<{ name: string; n: number; blocked: boolean; list?: string }> = () => [], fl: Flow[] = [], nameOf: (ip: string) => string | undefined = () => undefined): { nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail> } {
-  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Gjöll', sub: `${sv.iface} · ${sv.net}.1 · port ${sv.port}`, square: true, size: 18, color: '#4F9DDE', hub: true }];
+  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Vortex', sub: `${sv.iface} · ${sv.net}.1 · port ${sv.port}`, square: true, size: 18, color: '#4F9DDE', hub: true }];
   const edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
   details.odin = { kind: 'Tunnel', title: `Tunnel ${sv.iface}`, subtitle: `${sv.endpoint}:${sv.port} (UDP) · réseau ${sv.net}.0/24`, chips: [{ label: dev ? 'Allumé' : 'Éteint', tone: dev ? 'bon' : 'mauvais' }], rows: [{ k: 'Appareils', v: `${ps.length}, dont ${ps.filter((p) => { const x = d.get(p.pub); return x?.handshake && now - x.handshake < 180_000; }).length} connectés`, src: '' }, { k: 'Maison joignable', v: sv.lan?.join(', ') || '—', src: '' }], actions: [{ action: dev ? 'eteindre' : 'allumer', label: dev ? 'Éteindre le tunnel' : 'Allumer le tunnel', input: {}, primary: !dev }] };
   if (sv.lan?.length) { nodes.push({ id: 'maison', label: 'Maison', sub: sv.lan.join(', '), square: true, size: 13, color: '#7FB3E6' }); edges.push({ a: 'odin', b: 'maison', w: 2, color: '#7FB3E6' }); details.maison = { kind: 'Réseau', title: 'Réseau de la maison', subtitle: sv.lan.join(', '), rows: [{ k: 'Joint par', v: ps.filter((p) => p.enabled).map((p) => p.name).join(', ') || 'personne', src: '' }] }; }
@@ -179,12 +179,12 @@ export function vpnGraph(sv: Server, ps: Peer[], d: Map<string, { handshake: num
     nodes.push({ id, label: p.name, sub: `${ip}${on ? ' · connecté' : ended ? ' · accès terminé' : !p.enabled ? ' · désactivé' : ' · hors ligne'}`, size: 8 + Math.round(8 * Math.sqrt(((x?.rx ?? 0) + (x?.tx ?? 0)) / maxT)), color: on ? '#57C98A' : '#E8EAEC', off: !on, ring: ended ? '#EE6A55' : undefined });
     edges.push({ a: id, b: 'odin', w: on ? 3 : 0, color: on ? '#57C98A' : undefined, dash: !on });
     const doms = p.odinDns ? domains(ip).slice(0, 8) : [];
-    for (const dm of doms) { const did = `d:${dm.name}`; if (!nodes.some((n) => n.id === did)) nodes.push({ id: did, label: dm.name, sub: dm.blocked ? 'bloqué' : 'demandé', size: 4, color: dm.blocked ? '#F0A040' : '#8E959D' }); edges.push({ a: id, b: did, dash: dm.blocked, color: dm.blocked ? '#F0A040' : undefined }); details[did] ??= { kind: dm.blocked ? 'Domaine bloqué' : 'Domaine demandé', title: dm.name, rows: [{ k: 'Par', v: p.name, src: 'DNS d\'Odin (Víðarr)' }], actions: [dm.blocked ? { action: 'autoriser', label: 'Autoriser', input: { domaine: dm.name }, module: 'vidarr' } : { action: 'bloquer', label: 'Bloquer', input: { domaine: dm.name }, module: 'vidarr' }] }; }
+    for (const dm of doms) { const did = `d:${dm.name}`; if (!nodes.some((n) => n.id === did)) nodes.push({ id: did, label: dm.name, sub: dm.blocked ? 'bloqué' : 'demandé', size: 4, color: dm.blocked ? '#F0A040' : '#8E959D' }); edges.push({ a: id, b: did, dash: dm.blocked, color: dm.blocked ? '#F0A040' : undefined }); details[did] ??= { kind: dm.blocked ? 'Domaine bloqué' : 'Domaine demandé', title: dm.name, rows: [{ k: 'Par', v: p.name, src: 'DNS d\'Odin (Sphinx)' }], actions: [dm.blocked ? { action: 'autoriser', label: 'Autoriser', input: { domaine: dm.name }, module: 'vidarr' } : { action: 'bloquer', label: 'Bloquer', input: { domaine: dm.name }, module: 'vidarr' }] }; }
     details[id] = {
       kind: 'Appareil du VPN', title: p.name, subtitle: `${ip} · ${on ? 'connecté' : x?.handshake ? `vu le ${dt(x.handshake)}` : 'jamais connecté'}`,
       chips: [{ label: on ? 'Connecté' : ended ? 'Accès terminé' : !p.enabled ? 'Désactivé' : 'Hors ligne', tone: on ? 'bon' : ended ? 'mauvais' : 'neutre' }, { label: p.full ? 'Tout le trafic' : 'Maison seulement' }, ...(p.odinDns ? [{ label: 'DNS d\'Odin', tone: 'bon' as const }] : []), ...(p.mesh ? [{ label: 'Maillage' }] : [])],
       rows: [
-        { k: 'Adresse VPN', v: ip, src: 'Gjöll' },
+        { k: 'Adresse VPN', v: ip, src: 'Vortex' },
         { k: 'Vient de', v: x?.endpoint || '—', src: x?.endpoint ? (isPrivateV4(x.endpoint.split(':')[0]) ? 'réseau privé (même maison ou même box)' : 'adresse publique : 4G, autre Wi-Fi…') : '' },
         ...(rt ? [{ k: 'Débit', v: `↓ ${mbps(rt.tx)} · ↑ ${mbps(rt.rx)}`, src: 'mesuré dans le tunnel' }] : []),
         { k: 'Échangé', v: `reçu ${human(x?.rx ?? 0)} · envoyé ${human(x?.tx ?? 0)}`, src: 'depuis l\'allumage du tunnel' },
@@ -192,7 +192,7 @@ export function vpnGraph(sv: Server, ps: Peer[], d: Map<string, { handshake: num
         { k: 'Accès', v: p.expires ? `jusqu'au ${p.expires}` : 'sans date de fin', src: '' },
       ],
       ...(doms.length ? { list: { title: 'Domaines demandés (15 dernières minutes)', items: doms.map((dm) => ({ text: dm.name, meta: `${dm.n}${dm.blocked ? ' · bloqué' : ''}`, tone: dm.blocked ? 'attention' as const : undefined })) } } : {}),
-      actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'lire', label: 'Voir ses paquets (Rán)', input: { ip }, module: 'ran' }, { action: 'activer', label: p.enabled ? 'Couper l\'accès' : 'Rouvrir l\'accès', input: { nom: p.name, actif: !p.enabled }, primary: !p.enabled }],
+      actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'lire', label: 'Voir ses paquets (Ariane)', input: { ip }, module: 'ran' }, { action: 'activer', label: p.enabled ? 'Couper l\'accès' : 'Rouvrir l\'accès', input: { nom: p.name, actif: !p.enabled }, primary: !p.enabled }],
     };
   }
   // Tout le trafic : les destinations de chaque appareil (les plus grosses des 15 dernières minutes).
@@ -205,7 +205,7 @@ export function vpnGraph(sv: Server, ps: Peer[], d: Map<string, { handshake: num
       const nid = x.name ? `d:${x.name}` : `ip:${x.remote}`;
       if (!nodes.some((n) => n.id === nid)) nodes.push({ id: nid, label: x.name ?? x.remote, sub: `${x.where} · ${[...x.services].slice(0, 2).join(', ')}`, size: 4 + Math.round(4 * Math.sqrt(x.bytes / max)), color: x.where === 'Internet' ? '#7FB3E6' : '#B48CF0' });
       edges.push({ a: id, b: nid, w: 1 + Math.round(3 * Math.sqrt(x.bytes / max)), color: '#57C98A' });
-      details[nid] ??= { kind: x.where === 'Internet' ? 'Destination sur Internet' : 'Destination dans la maison', title: x.name ?? x.remote, subtitle: x.name ? x.remote : undefined, rows: [], actions: [{ action: 'lire', label: 'Voir les paquets (Rán)', input: { ip: x.remote }, module: 'ran' }] };
+      details[nid] ??= { kind: x.where === 'Internet' ? 'Destination sur Internet' : 'Destination dans la maison', title: x.name ?? x.remote, subtitle: x.name ? x.remote : undefined, rows: [], actions: [{ action: 'lire', label: 'Voir les paquets (Ariane)', input: { ip: x.remote }, module: 'ran' }] };
       details[nid].rows!.push({ k: p.name, v: `${human(x.bytes)} · ${[...x.services].join(', ')}`, src: 'trafic vu dans le tunnel (15 min)' });
     }
   }
@@ -257,11 +257,11 @@ function live(): Map<string, { handshake: number; rx: number; tx: number; endpoi
 }
 
 export const gjoll: Module = {
-  id: 'gjoll', name: 'Gjöll', family: 'Accès',
+  id: 'gjoll', name: 'Vortex', family: 'Accès',
   what: 'Le VPN de la maison : tes appareils se connectent chez toi de n\'importe où, chiffré, avec un QR code.',
-  does: ['clés générées par Odin (jamais réutilisées)', 'un appareil = une config + un QR code à scanner', 'tout le trafic par la maison, ou seulement le réseau de la maison', 'mode Gleipnir : réseau maillé, les appareils se parlent directement', 'activer, désactiver, révoquer, renommer un appareil', 'date de fin d\'accès : coupé tout seul le jour venu', 'qui est connecté, trafic reçu et envoyé, dernière connexion', 'fichier .conf à télécharger pour un ordinateur', 'moteur VPN écrit dans Odin (Gjallarbrú) : rien à installer ; les téléphones et ordinateurs se connectent avec l\'appli VPN gratuite « WireGuard »', 'assistant de mise en route : adresse, port de la box, essai depuis dehors', 'réglages du tunnel : port, MTU, maintien de connexion', 'chaque appareil peut passer par le DNS d\'Odin (Víðarr) : pubs et sites dangereux bloqués aussi hors de la maison', 'alerte quand un appareil se connecte'],
+  does: ['clés générées par Odin (jamais réutilisées)', 'un appareil = une config + un QR code à scanner', 'tout le trafic par la maison, ou seulement le réseau de la maison', 'mode Orion : réseau maillé, les appareils se parlent directement', 'activer, désactiver, révoquer, renommer un appareil', 'date de fin d\'accès : coupé tout seul le jour venu', 'qui est connecté, trafic reçu et envoyé, dernière connexion', 'fichier .conf à télécharger pour un ordinateur', 'moteur VPN écrit dans Odin (Charon) : rien à installer ; les téléphones et ordinateurs se connectent avec l\'appli VPN gratuite « WireGuard »', 'assistant de mise en route : adresse, port de la box, essai depuis dehors', 'réglages du tunnel : port, MTU, maintien de connexion', 'chaque appareil peut passer par le DNS d\'Odin (Sphinx) : pubs et sites dangereux bloqués aussi hors de la maison', 'alerte quand un appareil se connecte'],
   from: ['WireGuard', 'wg-easy', 'Headscale', 'NetBird'], upstream: ['WireGuard/wireguard-go', 'WireGuard/wireguard-tools', 'wg-easy/wg-easy', 'juanfont/headscale', 'netbirdio/netbird'],
-  modes: ['Gjallarbrú · clients', 'Gleipnir · réseau maillé'],
+  modes: ['Charon · clients', 'Orion · réseau maillé'],
   words: ['vpn', 'wireguard', 'tunnel', 'acces a distance', 'accès à distance', 'depuis l exterieur', 'qr code vpn', 'connexion maison', 'mesh', 'maillage'],
   actions: [
     { id: 'trafic', label: 'Trafic du VPN', what: 'Tout ce qui est passé dans le tunnel : par appareil, vers où, quel service, combien (en direct ou un jour passé)', read: true, params: [{ key: 'jour', label: 'Jour (AAAA-MM-JJ, vide : en direct)', kind: 'text', default: '' }, { key: 'appareil', label: 'Appareil (vide : tous)', kind: 'text', default: '' }], run: (ctx, i) => {
@@ -276,7 +276,7 @@ export const gjoll: Module = {
     { id: 'ouvrir_port', label: 'Ouvrir le port du VPN sur la box', what: 'Odin ouvre lui-même le port du VPN sur la box (UPnP). Par ce seul port : Odin, son DNS (pubs bloquées), la maison et Internet par la maison', quick: false, run: async (ctx) => {
       const sv = server(ctx);
       // La box refuse ou n'a pas l'UPnP : l'étape repasse au réglage à la main (« C'est fait »).
-      const r = await openPorts([{ port: sv.port, proto: 'UDP' }], 'Odin · VPN Gjöll', ctx.fetch).catch((e) => { ctx.saveSettings({ upnpFailed: true }); throw new Error(`${(e as Error).message}. Ouvre-le à la main : UDP ${sv.port} vers cette machine dans « Redirection de ports » de la box, puis « C'est fait ».`); });
+      const r = await openPorts([{ port: sv.port, proto: 'UDP' }], 'Odin · VPN Vortex', ctx.fetch).catch((e) => { ctx.saveSettings({ upnpFailed: true }); throw new Error(`${(e as Error).message}. Ouvre-le à la main : UDP ${sv.port} vers cette machine dans « Redirection de ports » de la box, puis « C'est fait ».`); });
       ctx.saveSettings({ upnpFailed: false });
       ctx.saveSettings({ upnp: { port: sv.port, lease: r.lease, at: Date.now(), ip: r.ip, cgnat: r.cgnat } });
       if (r.ip && !r.cgnat && (!sv.endpoint || sv.endpoint.startsWith('['))) ctx.saveSettings({ server: { ...sv, endpoint: r.ip } });
@@ -298,14 +298,14 @@ export const gjoll: Module = {
     { id: 'port', label: 'Port ouvert sur la box', what: 'Note que la redirection du port est faite sur la box', quick: false, params: [{ key: 'ouvert', label: 'Port ouvert', kind: 'boolean', default: true }], run: (ctx, i) => { ctx.saveSettings({ portOpened: i.ouvert !== false }); return { text: i.ouvert !== false ? '👍 Noté. Prochaine étape : allumer le tunnel.' : 'Noté : port pas encore ouvert.' }; } },
     { id: 'allumer', label: 'Allumer le tunnel', what: 'Démarre le VPN (et au démarrage de la machine)', grave: () => 'allumer le VPN de la maison', run: async (ctx) => {
       const msg = await bringUp(ctx); ctx.saveSettings({ on: true });
-      return { text: `${msg}${await openOnHost(ctx, [[server(ctx).port, 'udp', 'VPN Gjöll']])}` };
+      return { text: `${msg}${await openOnHost(ctx, [[server(ctx).port, 'udp', 'VPN Vortex']])}` };
     } },
     { id: 'eteindre', label: 'Éteindre le tunnel', what: 'Coupe le VPN pour tous les appareils', quick: false, grave: () => 'couper le VPN pour tous les appareils', undo: () => ({ action: 'allumer', input: {}, label: 'Rallumer le tunnel' }), run: async (ctx) => {
       await bringDown(ctx); ctx.saveSettings({ on: false });
       return { text: '⏹ Tunnel coupé.' };
     } },
     { id: 'appareils', label: 'Appareils VPN', what: 'Liste et état', read: true, words: ['appareils', 'qui est connecte', 'connectés'], run: async (ctx) => { const d = live(); return { text: peers(ctx).map((p) => { const x = d.get(p.pub); return `- ${p.name} (${p.ip}) · ${p.enabled ? (x?.handshake && Date.now() - x.handshake < 180_000 ? 'connecté' : 'hors ligne') : 'désactivé'}`; }).join('\n') || 'Aucun appareil.' }; } },
-    { id: 'ajouter', label: 'Ajouter un appareil', what: 'Nouvelle config + QR code', params: [{ key: 'nom', label: 'Nom de l\'appareil', kind: 'text', required: true }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'boolean', default: true }, { key: 'maillage', label: 'Réseau maillé (Gleipnir)', kind: 'boolean', default: false }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, vide = sans fin)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'Passer par le DNS d\'Odin (Víðarr)', kind: 'boolean', default: true }], grave: (i) => `ouvrir l'accès VPN à « ${s(i.nom)} »`, words: ['ajoute', 'nouvel appareil'], run: async (ctx, i) => {
+    { id: 'ajouter', label: 'Ajouter un appareil', what: 'Nouvelle config + QR code', params: [{ key: 'nom', label: 'Nom de l\'appareil', kind: 'text', required: true }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'boolean', default: true }, { key: 'maillage', label: 'Réseau maillé (Orion)', kind: 'boolean', default: false }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, vide = sans fin)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'Passer par le DNS d\'Odin (Sphinx)', kind: 'boolean', default: true }], grave: (i) => `ouvrir l'accès VPN à « ${s(i.nom)} »`, words: ['ajoute', 'nouvel appareil'], run: async (ctx, i) => {
       const ps = peers(ctx), sv = server(ctx), used = new Set(ps.map((p) => p.ip)), fin = s(i.fin).trim();
       if (!/^[\p{L}\p{N} _.'-]{1,40}$/u.test(s(i.nom).trim())) throw new Error('nom : lettres, chiffres, espaces, 40 au plus');
       if (ps.some((p) => p.name === s(i.nom).trim())) throw new Error('un appareil porte déjà ce nom');
@@ -314,15 +314,15 @@ export const gjoll: Module = {
       const k = keypair(), p: Peer = { name: s(i.nom).trim(), ...(fin ? { expires: fin } : {}), ...k, psk: randomBytes(32).toString('base64'), ip: `${sv.net}.${n}`, created: ctx.now().toISOString(), enabled: true, full: i.tout !== false, mesh: i.maillage === true, odinDns: i.dns_odin !== false };
       ctx.saveSettings({ peers: [...ps, p] });
       const msg = await apply(ctx);
-      // Lien Gjöll → Brísingamen : la configuration de l'appareil (sa clé privée) est rangée dans le coffre chiffré.
-      const kept = await ctx.call('brisingamen', 'ajouter', { nom: `VPN ${p.name}`, identifiant: p.name, mot_de_passe: clientConf(await ready(ctx), p, [...ps, p]), site: 'Gjöll (VPN de la maison)' }, 'nouvel accès VPN').then((r) => r.ok !== false, () => false);
+      // Lien Vortex → Thésauros : la configuration de l'appareil (sa clé privée) est rangée dans le coffre chiffré.
+      const kept = await ctx.call('brisingamen', 'ajouter', { nom: `VPN ${p.name}`, identifiant: p.name, mot_de_passe: clientConf(await ready(ctx), p, [...ps, p]), site: 'Vortex (VPN de la maison)' }, 'nouvel accès VPN').then((r) => r.ok !== false, () => false);
       const conf = clientConf(await ready(ctx), p, [...ps, p]), dnsNote = await linkDns(ctx, p);
       const noAddr = /^\[/.test(server(ctx).endpoint) ? ' ⚠ L\'adresse de la maison n\'est pas encore connue : ce QR code ne marchera pas. Fais l\'étape « Adresse de la maison », puis rouvre son QR code.' : '';
-      return { text: `📱 « ${p.name} » ajouté (${p.ip}). Scanne ce QR code avec l'appli WireGuard.${noAddr}${dnsNote}${kept ? ' Sa configuration est rangée dans le coffre (Brísingamen).' : ''}\n${msg}`, data: { name: p.name, svg: svg(conf, { ecc: 'L', scale: 5 }), conf, filename: confName(p) } };
+      return { text: `📱 « ${p.name} » ajouté (${p.ip}). Scanne ce QR code avec l'appli WireGuard.${noAddr}${dnsNote}${kept ? ' Sa configuration est rangée dans le coffre (Thésauros).' : ''}\n${msg}`, data: { name: p.name, svg: svg(conf, { ecc: 'L', scale: 5 }), conf, filename: confName(p) } };
     } },
     { id: 'qr', label: 'QR code', what: 'QR code de configuration (à scanner)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: async (ctx, i) => { const p = peers(ctx).find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable'); const sv = await ready(ctx), conf = clientConf(sv, p, peers(ctx)); return { text: /^\[/.test(sv.endpoint) ? `⚠ L'adresse de la maison n'est pas encore connue : ce QR code ne marchera pas tant que l'étape « Adresse de la maison » n'est pas faite.` : `QR code de « ${p.name} » : ouvre l'appli WireGuard → « + » → « Scanner un QR code ».`, data: { svg: svg(conf, { ecc: 'L', scale: 5 }), conf, filename: confName(p) } }; } },
     { id: 'telecharger', label: 'Fichier de configuration', what: 'Le fichier .conf d\'un appareil (pour un ordinateur)', read: true, params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }], run: async (ctx, i) => { const p = peers(ctx).find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable'); return { text: `Configuration de « ${p.name} » : dans l'appli WireGuard de l'ordinateur, « Importer un tunnel depuis un fichier ».`, data: { conf: clientConf(await ready(ctx), p, peers(ctx)), filename: confName(p) } }; } },
-    { id: 'modifier', label: 'Modifier un appareil', what: 'Nom, tout le trafic ou maison seulement, maillage, date de fin d\'accès', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'nouveau_nom', label: 'Nouveau nom (vide = inchangé)', kind: 'text', default: '' }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'maillage', label: 'Réseau maillé', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, « aucune » pour retirer)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'DNS d\'Odin (Víðarr)', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }], run: async (ctx, i) => {
+    { id: 'modifier', label: 'Modifier un appareil', what: 'Nom, tout le trafic ou maison seulement, maillage, date de fin d\'accès', params: [{ key: 'nom', label: 'Appareil', kind: 'text', required: true }, { key: 'nouveau_nom', label: 'Nouveau nom (vide = inchangé)', kind: 'text', default: '' }, { key: 'tout', label: 'Tout le trafic par la maison', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'maillage', label: 'Réseau maillé', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }, { key: 'fin', label: 'Fin de l\'accès (AAAA-MM-JJ, « aucune » pour retirer)', kind: 'text', default: '' }, { key: 'dns_odin', label: 'DNS d\'Odin (Sphinx)', kind: 'select', options: ['inchangé', 'oui', 'non'], default: 'inchangé' }], run: async (ctx, i) => {
       const ps = peers(ctx), p = ps.find((x) => x.name === s(i.nom)); if (!p) throw new Error('appareil introuvable');
       const nn = s(i.nouveau_nom).trim(), fin = s(i.fin).trim();
       if (nn && ps.some((x) => x.name === nn && x !== p)) throw new Error('un appareil porte déjà ce nom');
@@ -363,9 +363,9 @@ export const gjoll: Module = {
     const steps = await setup(ctx), ps = peers(ctx), online = ps.filter((p) => { const x = d.get(p.pub); return x?.handshake && Date.now() - x.handshake < 180_000; });
     return {
       subtitle: `Joignable sur ${sv.endpoint}:${sv.port} (UDP) · réseau ${sv.net}.0/24${sv.lan?.length ? ` · maison : ${sv.lan.join(', ')}` : ''}${dev ? ' · tunnel allumé' : ' · tunnel éteint'}`,
-      tabs: ['Gjallarbrú · clients', 'Gjöll · tunnel', 'Gleipnir · maillage'],
+      tabs: ['Charon · clients', 'Vortex · tunnel', 'Orion · maillage'],
       kpis: [{ label: 'Appareils', value: String(ps.length) }, { label: 'Connectés', value: String(online.length), tone: online.length ? 'bon' : 'neutre' }, { label: 'Maillage', value: String(ps.filter((p) => p.mesh).length) }],
-      sections: [...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route le VPN', items: steps }]), graph, { kind: 'table', title: 'Appareils', columns: ['Appareil', 'Adresse', 'État', 'Reçu', 'Envoyé', 'Trafic', 'Fin d\'accès'], empty: 'Aucun appareil : ajoute ton téléphone à droite.', rows: ps.map((p) => { const x = d.get(p.pub), on = x?.handshake && Date.now() - x.handshake < 180_000; return { cells: [p.name, p.ip, !p.enabled ? 'désactivé' : on ? 'connecté' : x?.handshake ? `vu ${new Date(x.handshake).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'jamais', human(x?.rx ?? 0), human(x?.tx ?? 0), `${p.full ? 'tout' : 'maison seulement'}${p.odinDns ? ' · DNS d\'Odin' : ''}`, p.expires ?? '—'], tone: !p.enabled ? 'neutre' : on ? 'bon' : undefined, actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'telecharger', label: 'Fichier .conf', input: { nom: p.name } }, { action: 'activer', label: p.enabled ? 'Désactiver' : 'Réactiver', input: { nom: p.name, actif: !p.enabled } }, { action: 'revoquer', label: 'Révoquer', input: { nom: p.name } }] }; }) }, { kind: 'table', title: 'Trafic du VPN (tout ce qui passe dans le tunnel)', columns: ['Appareil', 'Vers', 'Où', 'Service', '↑ Envoyé', '↓ Reçu', 'Paquets', 'Dernière activité'], empty: dev ? 'Rien n\'est encore passé dans le tunnel.' : 'Tunnel éteint.', rows: flows().sort((a, b) => b.last - a.last).slice(0, 80).map((f) => { const w = whereTo(f.remote, sv), nm = nameForIp(f.remote); return { cells: [f.device, nm ? `${nm} (${f.remote})` : f.remote, w, serviceOf(f.proto, f.port), human(f.up), human(f.down), String(f.pkUp + f.pkDown), new Date(f.last).toLocaleTimeString('fr-FR')], tone: now - f.last < 60_000 ? 'bon' as const : undefined, actions: [{ action: 'lire', label: 'Paquets (Rán)', input: { ip: f.remote }, module: 'ran' }] }; }) }],
+      sections: [...(steps.every((x) => x.done) ? [] : [{ kind: 'steps' as const, title: 'Mettre en route le VPN', items: steps }]), graph, { kind: 'table', title: 'Appareils', columns: ['Appareil', 'Adresse', 'État', 'Reçu', 'Envoyé', 'Trafic', 'Fin d\'accès'], empty: 'Aucun appareil : ajoute ton téléphone à droite.', rows: ps.map((p) => { const x = d.get(p.pub), on = x?.handshake && Date.now() - x.handshake < 180_000; return { cells: [p.name, p.ip, !p.enabled ? 'désactivé' : on ? 'connecté' : x?.handshake ? `vu ${new Date(x.handshake).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'jamais', human(x?.rx ?? 0), human(x?.tx ?? 0), `${p.full ? 'tout' : 'maison seulement'}${p.odinDns ? ' · DNS d\'Odin' : ''}`, p.expires ?? '—'], tone: !p.enabled ? 'neutre' : on ? 'bon' : undefined, actions: [{ action: 'qr', label: 'QR code', input: { nom: p.name } }, { action: 'telecharger', label: 'Fichier .conf', input: { nom: p.name } }, { action: 'activer', label: p.enabled ? 'Désactiver' : 'Réactiver', input: { nom: p.name, actif: !p.enabled } }, { action: 'revoquer', label: 'Révoquer', input: { nom: p.name } }] }; }) }, { kind: 'table', title: 'Trafic du VPN (tout ce qui passe dans le tunnel)', columns: ['Appareil', 'Vers', 'Où', 'Service', '↑ Envoyé', '↓ Reçu', 'Paquets', 'Dernière activité'], empty: dev ? 'Rien n\'est encore passé dans le tunnel.' : 'Tunnel éteint.', rows: flows().sort((a, b) => b.last - a.last).slice(0, 80).map((f) => { const w = whereTo(f.remote, sv), nm = nameForIp(f.remote); return { cells: [f.device, nm ? `${nm} (${f.remote})` : f.remote, w, serviceOf(f.proto, f.port), human(f.up), human(f.down), String(f.pkUp + f.pkDown), new Date(f.last).toLocaleTimeString('fr-FR')], tone: now - f.last < 60_000 ? 'bon' as const : undefined, actions: [{ action: 'lire', label: 'Paquets (Ariane)', input: { ip: f.remote }, module: 'ran' }] }; }) }],
       side: [{ kind: 'form', title: 'Ajouter un appareil', action: 'ajouter', submit: 'Ajouter', params: gjoll.actions.find((a) => a.id === 'ajouter')?.params ?? [] }, { kind: 'form', title: 'Adresse de la maison', action: 'adresse', submit: 'Enregistrer', params: gjoll.actions.find((a) => a.id === 'adresse')?.params ?? [] }, { kind: 'form', title: 'Modifier un appareil', action: 'modifier', submit: 'Modifier', params: gjoll.actions.find((a) => a.id === 'modifier')?.params ?? [] }],
     };
   },
@@ -377,7 +377,7 @@ export const gjoll: Module = {
     if (dev) saveTraffic(ctx, Date.now());
     // Ouverture de la box d'une journée : renouvelée deux fois par jour.
     const up = ctx.settings.upnp as { port: number; lease: number; at: number } | undefined;
-    if (up?.lease && Date.now() - up.at > 12 * 3600_000) { try { const r = await openPorts([{ port: up.port, proto: 'UDP' }], 'Odin · VPN Gjöll', ctx.fetch); ctx.saveSettings({ upnp: { ...up, lease: r.lease, at: Date.now() } }); } catch (e) { ctx.alert({ level: 'haute', title: 'Le port du VPN n\'a pas pu être rouvert sur la box', detail: (e as Error).message, key: 'vpn-upnp' }); } }
+    if (up?.lease && Date.now() - up.at > 12 * 3600_000) { try { const r = await openPorts([{ port: up.port, proto: 'UDP' }], 'Odin · VPN Vortex', ctx.fetch); ctx.saveSettings({ upnp: { ...up, lease: r.lease, at: Date.now() } }); } catch (e) { ctx.alert({ level: 'haute', title: 'Le port du VPN n\'a pas pu être rouvert sur la box', detail: (e as Error).message, key: 'vpn-upnp' }); } }
     // Accès arrivés à leur fin : coupés tout seuls (et dit).
     const late = expired(peers(ctx), ctx.now());
     if (late.length) {

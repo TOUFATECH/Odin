@@ -1,4 +1,4 @@
-// Askr, l'inventaire : fiches, appareils du réseau ajoutés sans écraser ce que tu as écrit, prêts, garanties,
+// Atlas, l'inventaire : fiches, appareils du réseau ajoutés sans écraser ce que tu as écrit, prêts, garanties,
 // étiquettes QR, licences, export / import CSV (Excel, sans formules piégées), graphe.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,7 +40,7 @@ test('garanties, prêts en retard ; CSV pour Excel sans formules piégées ; gra
   assert.ok(g.edges.some((e) => e.a === 'a:ODN-0003' && e.b === 'o:Ali' && e.dash), 'prêt : lien en pointillé vers la personne');
 });
 
-test('appli Askr : ajouter, doublons refusés, modifier, prêter / rendre, étiquette, licences, export / import, supprimer (grave)', async () => {
+test('appli Atlas : ajouter, doublons refusés, modifier, prêter / rendre, étiquette, licences, export / import, supprimer (grave)', async () => {
   const home = mkdtempSync(join(tmpdir(), 'askr-'));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: async () => ({ code: 0, out: '', err: '' }), fetch: (async () => new Response('')) as unknown as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });
   const act = (x: string, i: Record<string, unknown> = {}) => v.act('askr', x, i);

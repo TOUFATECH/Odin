@@ -1,4 +1,4 @@
-// Dvalinn · la conversion de fichiers et les PDF (idées de VERT, Frame, BentoPDF, Stirling-PDF, IT-Tools et Tdarr,
+// Alchimie · la conversion de fichiers et les PDF (idées de VERT, Frame, BentoPDF, Stirling-PDF, IT-Tools et Tdarr,
 // réécrites pour Odin, aucun code copié). Tout se fait sur la machine d'Odin avec les outils libres installés
 // (ffmpeg, ImageMagick, LibreOffice, pandoc, qpdf, Poppler, Ghostscript, OCRmyPDF, Calibre) : rien n'est envoyé dehors.
 //   - convertir : vidéo, son, image, document, tableur, présentation, texte, PDF, livre ;
@@ -6,7 +6,7 @@
 //     images → PDF, nettoyer les informations cachées ;
 //   - vidéos par lot (comme Tdarr) : un dossier entier recompressé, une vidéo à la fois, en arrière-plan ;
 //   - boîte à outils (comme IT-Tools) : empreintes, Base64, JWT, horodatage, JSON, sous-réseau, couleurs…
-// Les fichiers sont pris dans les dossiers que tu donnes à Dvalinn (l'atelier par défaut). Un résultat est
+// Les fichiers sont pris dans les dossiers que tu donnes à Alchimie (l'atelier par défaut). Un résultat est
 // toujours écrit à côté de l'original sous un nouveau nom : rien n'est jamais écrasé ni effacé.
 import { chmodSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
@@ -21,7 +21,7 @@ export interface Folder { nom: string; chemin: string }
 interface Job { id: string; src: string; codec: 'h264' | 'h265' | 'av1'; qualite: 'haute' | 'normale' | 'legere'; hauteur?: number; state: 'attente' | 'en cours' | 'fini' | 'erreur'; out?: string; err?: string; gain?: number; at: string }
 interface Hist { at: string; what: string; ok: boolean; out?: string[]; err?: string }
 
-/** Les outils libres que Dvalinn sait utiliser (et le paquet qui les apporte). */
+/** Les outils libres que Alchimie sait utiliser (et le paquet qui les apporte). */
 export const TOOLS: Array<{ cmd: string; alt?: string; pkg: string; does: string }> = [
   { cmd: 'ffmpeg', pkg: 'ffmpeg', does: 'vidéo et son, GIF, vidéos par lot' },
   { cmd: 'magick', alt: 'convert', pkg: 'imagemagick', does: 'images, images → PDF' },
@@ -91,7 +91,7 @@ async function nextJob(ctx: ModCtx): Promise<void> {
 }
 
 export const dvalinn: Module = {
-  id: 'dvalinn', name: 'Dvalinn', family: 'Données',
+  id: 'dvalinn', name: 'Alchimie', family: 'Données',
   what: 'La conversion de tes fichiers et les PDF (comme VERT, BentoPDF, Stirling-PDF), les vidéos par lot (comme Tdarr) et une boîte à outils (comme IT-Tools), tout sur ta machine.',
   does: ['convertir vidéo, son, image, document, tableur, présentation, texte, PDF, livre numérique', 'vidéo : MP4, MKV, WebM, GIF animé, extraire le son, couper un passage, réduire la taille', 'image : PNG, JPG, WebP, AVIF, HEIC, icône, redimensionner', 'documents : Word, Excel, PowerPoint, OpenDocument, Markdown, HTML ↔ PDF', 'PDF : fusionner, extraire des pages, découper, pivoter, alléger, compresser, protéger par mot de passe, retirer un mot de passe, images → PDF, effacer les informations cachées', 'PDF → texte, PDF → images, texte reconnu (OCR) en PDF/A', 'vidéos par lot : tout un dossier recompressé en H.265 ou AV1, en arrière-plan, gain affiché', 'boîte à outils : empreintes, Base64, URL, UUID, JWT, horodatage, JSON, mot de passe, sous-réseau, couleurs, texte', 'rien n\'est envoyé hors de la machine, rien n\'est écrasé : le résultat est écrit à côté'],
   from: ['VERT', 'Frame', 'BentoPDF', 'Stirling-PDF', 'IT-Tools', 'Tdarr'], upstream: ['VERT-sh/vert', 'alam00000/bentopdf', 'Stirling-Tools/Stirling-PDF', 'CorentinTh/it-tools', 'HaveAGitGat/Tdarr'],

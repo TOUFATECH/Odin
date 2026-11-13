@@ -31,7 +31,7 @@ import { sshdRisks } from '../src/valhalla/modules/forseti.ts';
 import { judge, procs, psProcs } from '../src/valhalla/modules/skogul.ts';
 import { execute } from '../src/draupnir/engine.ts';
 import { CATALOG } from '../src/draupnir/nodes.ts';
-import { Draupnir } from '../src/draupnir/service.ts';
+import { Talos } from '../src/draupnir/service.ts';
 import { checkFlow } from '../src/draupnir/engine.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 
@@ -104,7 +104,7 @@ test('Valhalla : Odin choisit la bonne appli sans IA et explique', () => {
   assert.equal(top('mets un film sur la télé du salon'), 'freyja');
   assert.equal(top('branche un serveur mcp'), 'ratatoskr');
   const txt = advise(v, 'j\'ai besoin de protéger mon serveur contre les pirates');
-  assert.match(txt, /➡ \*\*/); assert.match(txt, /Loki → Garmr|Garmr/);
+  assert.match(txt, /➡ \*\*/); assert.match(txt, /Sirènes → Cerbère|Cerbère/);
 });
 
 test('Valhalla : alertes dédoublonnées, envoi selon le niveau, actions graves refusées en automatique', async () => {
@@ -128,7 +128,7 @@ test('Valhalla : alertes dédoublonnées, envoi selon le niveau, actions graves 
   await new Promise((r2) => setTimeout(r2, 10)); assert.equal(sent.length, 2);
 });
 
-test('Frigg : créneaux libres, réservation, conflit refusé, page publique', async () => {
+test('Chronos : créneaux libres, réservation, conflit refusé, page publique', async () => {
   const day = '2030-03-04'; // un lundi
   const h = { 1: '9:00-10:00' };
   assert.deepEqual(freeSlots(day, 30, h, [], new Date('2030-01-01')), ['09:00', '09:15', '09:30']);
@@ -141,7 +141,7 @@ test('Frigg : créneaux libres, réservation, conflit refusé, page publique', a
   const view = await frigg.view(ctx, new URLSearchParams()); assert.match(view.subtitle ?? '', /1 à confirmer/);
 });
 
-test('Kvasir : liens GitHub et rattachement aux applis sans IA', () => {
+test('Pharos : liens GitHub et rattachement aux applis sans IA', () => {
   assert.equal(repoOf('https://github.com/n8n-io/n8n/tree/master/packages'), 'n8n-io/n8n');
   assert.equal(repoOf('blakeblackshear/frigate'), 'blakeblackshear/frigate');
   assert.equal(repoOf('https://github.com/orgs/x'), undefined);
@@ -151,7 +151,7 @@ test('Kvasir : liens GitHub et rattachement aux applis sans IA', () => {
   assert.equal(match(mods, 'headscale open source wireguard vpn control server')[0].id, 'gjoll');
 });
 
-test('Modules : briques pures (ESP, caméra, musique, Garmr, Geri, Ullr, TOTP, WireGuard, Wake-on-LAN…)', () => {
+test('Modules : briques pures (ESP, caméra, musique, Cerbère, Méduse, Asclépios, TOTP, WireGuard, Wake-on-LAN…)', () => {
   const y = espConfig('Salon capteur', ['température@GPIO4', 'relais@GPIO5'], { wifi: 'Maison', mqttHost: '192.168.1.2', mqttUser: 'odin' });
   assert.match(y, /name: salon-capteur/); assert.match(y, /platform: dht/); assert.match(y, /platform: gpio\n {4}pin: GPIO5/); assert.doesNotMatch(y, /password: [^!]/);
   assert.equal(changed(Buffer.alloc(100, 10), Buffer.concat([Buffer.alloc(50, 10), Buffer.alloc(50, 200)])), 0.5);
@@ -180,7 +180,7 @@ test('Modules : briques pures (ESP, caméra, musique, Garmr, Geri, Ullr, TOTP, W
   assert.ok(Array.isArray(procs()), 'la liste des programmes se lit sur cette machine, quel que soit son système');
 });
 
-test('Sindri : sauvegarde chiffrée dédoublonnée, restauration et vérification', () => {
+test('Phénix : sauvegarde chiffrée dédoublonnée, restauration et vérification', () => {
   const h = realpathSync(home()), src = join(h, 'src'); mkdirSync(join(src, 'sous'), { recursive: true });
   writeFileSync(join(src, 'a.txt'), 'bonjour '.repeat(5000)); writeFileSync(join(src, 'sous', 'b.bin'), Buffer.alloc(3 * 1024 * 1024, 7));
   const repo = new Repo(join(h, 'depot'), 'mot-de-passe-long');
@@ -194,7 +194,7 @@ test('Sindri : sauvegarde chiffrée dédoublonnée, restauration et vérificatio
   assert.throws(() => new Repo(join(h, 'depot'), 'mauvais'), /mot/);
 });
 
-test('Draupnir ↔ applis : nœud « Action d\'une appli » et déclencheur « Quand une appli signale »', async () => {
+test('Talos ↔ applis : nœud « Action d\'une appli » et déclencheur « Quand une appli signale »', async () => {
   assert.ok(CATALOG.get('module.action') && CATALOG.get('déclencheur.module')?.trigger);
   const calls: unknown[] = [];
   const wf = { id: 'w', name: 'W', active: true, nodes: [{ name: 'Go', type: 'déclencheur.manuel', params: {} }, { name: 'Photo', type: 'module.action', params: { module: 'himinbjorg', action: 'photo', entrée: '{"camera":"{{ $json.c }}"}' } }], connections: { Go: [[{ node: 'Photo' }]] } };
@@ -206,14 +206,14 @@ test('Draupnir ↔ applis : nœud « Action d\'une appli » et déclencheur « Q
   for (const t of linkTemplates()) assert.equal(checkFlow(t.flow as never, CATALOG), undefined, t.id);
   // Déclencheur
   const told: string[] = [];
-  const d = new Draupnir(home(), { notify: async (t) => { told.push(t); } });
-  d.save({ id: 'm', name: 'Mouvement', active: true, nodes: [{ name: 'Quand', type: 'déclencheur.module', params: { module: 'Himinbjörg', événement: 'mouvement' } }, { name: 'Dire', type: 'odin.prévenir', params: { texte: 'Mouvement {{ $json.caméra }}' } }] as never, connections: { Quand: [[{ node: 'Dire' }]] } });
-  await d.onModule({ module: 'himinbjorg', name: 'Himinbjörg', type: 'autre', data: {} });
-  await d.onModule({ module: 'himinbjorg', name: 'Himinbjörg', type: 'mouvement', data: { caméra: 'Portail' } });
+  const d = new Talos(home(), { notify: async (t) => { told.push(t); } });
+  d.save({ id: 'm', name: 'Mouvement', active: true, nodes: [{ name: 'Quand', type: 'déclencheur.module', params: { module: 'Cyclope', événement: 'mouvement' } }, { name: 'Dire', type: 'odin.prévenir', params: { texte: 'Mouvement {{ $json.caméra }}' } }] as never, connections: { Quand: [[{ node: 'Dire' }]] } });
+  await d.onModule({ module: 'himinbjorg', name: 'Cyclope', type: 'autre', data: {} });
+  await d.onModule({ module: 'himinbjorg', name: 'Cyclope', type: 'mouvement', data: { caméra: 'Portail' } });
   assert.deepEqual(told, ['Mouvement Portail']);
 });
 
-test('Ratatoskr : serveur MCP d\'Odin et client MCP (HTTP et stdio)', async () => {
+test('Interprète : serveur MCP d\'Odin et client MCP (HTTP et stdio)', async () => {
   const m: Module = { id: 'meteo', name: 'Météo', family: 'Données', what: 'Le temps', does: ['x'], from: [], upstream: [], words: ['meteo'], actions: [
     { id: 'lire', label: 'Lire', what: 'temps', read: true, params: [{ key: 'ville', label: 'Ville', kind: 'text' }], run: (_c, i) => ({ text: `Beau à ${String(i.ville ?? 'Mamoudzou')}` }) },
     { id: 'tout_effacer', label: 'Effacer', what: 'x', grave: () => 'grave', run: () => ({ text: 'non' }) },

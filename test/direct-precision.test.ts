@@ -100,7 +100,7 @@ const SEUL: Array<[string, RegExp]> = [
   ['Quelle heure est-il ?', /^$/], ['mes rappels', /^$/], ['es-tu administrateur ?', /^$/], ['mes économies', /^$/],
   ['rappelle-moi demain à 9h de payer la facture EDM', /^reminder_set/], ['liste les conteneurs', /^naglfar\./], ['redémarre le conteneur web', /^naglfar\.redemarrer.*web/],
   ['bannis 203.0.113.9 pendant 2 heures', /^garmr\.bannir.*203\.0\.113\.9/], ['mes sauvegardes', /^\w+\./], ['lance une analyse antivirus', /^ullr\./],
-  ['montre les caméras', /^himinbjorg\./], ['mes manips', /^$/], ['explique Garmr', /^$/], ['mes applis', /^\.lister|^valhalla|lister/],
+  ['montre les caméras', /^himinbjorg\./], ['mes manips', /^$/], ['explique Cerbère', /^$/], ['mes applis', /^\.lister|^valhalla|lister/],
   ['je conduis', /^mode_set.*conduite/], ['bonne nuit', /^mode_set.*sommeil|^midgard\./], ['scanne le réseau', /^net_scan/],
   ['note que la clim du bureau est en panne', /^note_save/], ['cherche dans mes fiches clim', /^note_find/], ['qu\'est-ce qui passe à la télé ce soir ?', /^venus/],
   ['état du pare-feu', /^\w+\./], ['les adresses bannies', /^garmr\./], ['arrête le conteneur web', /^naglfar\.arreter.*web/],
@@ -154,12 +154,12 @@ test('sans IA d\'abord : chaque phrase d\'exemple affichée par une appli marche
   } finally { w.end(); }
 });
 
-test('Huginn : « vérifie » et « vérifier » ont la même racine, « fichier » n\'est pas « fiche »', () => {
+test('Logos : « vérifie » et « vérifier » ont la même racine, « fichier » n\'est pas « fiche »', () => {
   for (const [a, b] of [['vérifie', 'vérifier'], ['vérifiez', 'vérifier'], ['étudie', 'étudier'], ['copie', 'copier'], ['modifie', 'modifier'], ['redémarre', 'redémarrer'], ['bannies', 'bannir'], ['sauvegardes', 'sauvegarder']]) assert.equal(stem(a), stem(b), `${a} / ${b}`);
   assert.notEqual(stem('fichier'), stem('fiche')); assert.notEqual(stem('dossier'), stem('dos')); assert.equal(stem('fichiers'), stem('fichier'));
 });
 
-test('Rán sans IA : lire les paquets, pause, reprise', async () => {
+test('Ariane sans IA : lire les paquets, pause, reprise', async () => {
   const w = world();
   try {
     for (const [t, want] of [['lis les paquets', 'ran.lire'], ['vas-y lis les paquets', 'ran.lire'], ['mets les paquets en pause', 'ran.pause'], ['arrête la capture des paquets', 'ran.pause'], ['reprends la lecture des paquets', 'ran.'], ['qui parle à qui sur le réseau', 'ran.expliquer']] as const) {

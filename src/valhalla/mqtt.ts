@@ -1,4 +1,4 @@
-// Veðrfölnir — le relais de messages d'Odin : un serveur MQTT 3.1.1 écrit pour Odin (QoS 0 et 1,
+// Mercure — le relais de messages d'Odin : un serveur MQTT 3.1.1 écrit pour Odin (QoS 0 et 1,
 // messages retenus, jokers + et #, identifiants, message de dernière volonté). Les appareils
 // (prises flashées, modules ESP, passerelles Zigbee/Z-Wave, capteurs) y publient leur état ;
 // Odin s'y abonne et y envoie ses ordres.

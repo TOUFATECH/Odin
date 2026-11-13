@@ -1,4 +1,4 @@
-// Hliðskjálf — l'inventaire : chaque appareil vu sur le réseau, son type, son état
+// Horus — l'inventaire : chaque appareil vu sur le réseau, son type, son état
 // (en ligne / déconnecté / retiré), son historique, et ce qu'Odin peut faire avec lui.
 
 import type { Table } from '../muninn/tables.ts';
@@ -46,7 +46,7 @@ export interface ScanReport {
   changed: Array<{ device: Device; what: string }>;
 }
 
-/** Où l'inventaire range ses tables : la mémoire d'Odin (Muninn) ou une étagère en mémoire vive. */
+/** Où l'inventaire range ses tables : la mémoire d'Odin (Mnémosyne) ou une étagère en mémoire vive. */
 export interface TableHost { table<T extends Record<string, unknown>>(name: string, keyOf: (r: T) => string | number): Table<T> }
 type DeviceRow = Device & Record<string, unknown>;
 interface EventRow { id: number; device_id: string; kind: string; detail: string; at: number }

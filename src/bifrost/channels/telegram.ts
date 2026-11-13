@@ -341,10 +341,10 @@ export class TelegramChannel implements Channel {
       this.facesPending ??= this.ensureFaces(this.opts.owner ?? peer).catch((e) => { console.error('[telegram]', (e as Error).message); this.facesOff = Date.now() + 6 * 3600_000; }).finally(() => { this.facesPending = undefined; });
       await this.facesPending;
     }
-    // Réponse de Völva : la carte et ses boutons (Écouter · Fiche · Ouvrir dans Völva).
+    // Réponse de Pythie : la carte et ses boutons (Écouter · Fiche · Ouvrir dans Pythie).
     if (opts.search) {
       const kb: Array<Array<Record<string, string>>> = [[{ text: '🔊 Écouter', callback_data: `vs:ec:${opts.search.id}` }, { text: '📄 Fiche', callback_data: `vs:fi:${opts.search.id}` }]];
-      if (opts.search.url && /^https:\/\//.test(opts.search.url)) kb.push([{ text: '🔎 Ouvrir dans Völva', url: opts.search.url }]);
+      if (opts.search.url && /^https:\/\//.test(opts.search.url)) kb.push([{ text: '🔎 Ouvrir dans Pythie', url: opts.search.url }]);
       const r = await this.call('sendMessage', { chat_id: peer, text: opts.search.html, parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: { inline_keyboard: kb } }).catch(() => ({ ok: false }));
       if (r.ok) return;
     }

@@ -16,13 +16,13 @@ const kv = (): Kv & { data: Map<string, string> } => { const data = new Map<stri
 const valhalla = (appli: string, quoi: string, entree: Record<string, unknown>) => ({ action: 'action', appli, quoi, entree: JSON.stringify(entree) });
 
 test('sans IA d\'abord : ce qui demande de réfléchir part à une IA, avec la raison', () => {
-  for (const t of ['quelle heure est-il ?', 'allume la lumière du salon', 'bannis 1.2.3.4', 'comment va le site monsite.fr ?', 'explique Ullr', 'éteins la clim merci']) assert.equal(needsThinking(t), undefined, t);
+  for (const t of ['quelle heure est-il ?', 'allume la lumière du salon', 'bannis 1.2.3.4', 'comment va le site monsite.fr ?', 'explique Asclépios', 'éteins la clim merci']) assert.equal(needsThinking(t), undefined, t);
   assert.match(needsThinking('pourquoi le site est lent ?') ?? '', /rédiger, expliquer ou raisonner/);
   assert.match(needsThinking('écris-moi un mail pour le client') ?? '', /rédiger/);
   assert.match(needsThinking('résume ce document') ?? '', /rédiger/);
   assert.match(needsThinking('allume le salon et envoie-moi le rapport du site') ?? '', /plusieurs demandes en une/);
   assert.match(needsThinking('bannis 1.2.3.4 puis préviens-moi') ?? '', /plusieurs demandes/);
-  assert.match(needsThinking('C\'est quoi Ullr ? Et Idunn, ça sert à quoi ?') ?? '', /plusieurs demandes/);
+  assert.match(needsThinking('C\'est quoi Asclépios ? Et Arachné, ça sert à quoi ?') ?? '', /plusieurs demandes/);
   assert.match(needsThinking('regarde\n[Image jointe : inbox/photo.jpg (image/jpeg, 1200 o)]') ?? '', /pièce jointe/);
   assert.match(needsThinking(`${'mot '.repeat(40)}`) ?? '', /longue/);
   // Une adresse, un nom de domaine, un nombre à virgule ne coupent pas la phrase.
@@ -30,7 +30,7 @@ test('sans IA d\'abord : ce qui demande de réfléchir part à une IA, avec la r
 });
 
 test('acquis : une demande réglée par une seule action s\'apprend ; la valeur peut changer, jamais l\'action', () => {
-  const a = learn({ phrase: 'Vire l’adresse 1.2.3.4 pendant 60 minutes stp', tool: 'valhalla', input: valhalla('loki', 'bannir', { ip: '1.2.3.4', minutes: 60 }), label: 'Loki · Bannir une adresse', now: 1 }) as Acquis;
+  const a = learn({ phrase: 'Vire l’adresse 1.2.3.4 pendant 60 minutes stp', tool: 'valhalla', input: valhalla('loki', 'bannir', { ip: '1.2.3.4', minutes: 60 }), label: 'Sirènes · Bannir une adresse', now: 1 }) as Acquis;
   assert.equal(a.phrase, 'Vire l’adresse 1.2.3.4 pendant 60 minutes');
   assert.deepEqual(a.slots, [{ shape: 'ip' }, { shape: 'nombre', number: true }]);
   // La même demande avec d'autres valeurs : mêmes appli et action, valeurs reprises telles qu'écrites.
@@ -50,7 +50,7 @@ test('acquis : une demande réglée par une seule action s\'apprend ; la valeur 
   assert.deepEqual(match([c], 'Allume la lumière du salon !')!.input, { domain: 'light', service: 'turn_on', entity_id: 'light.salon_plafonnier' });
   assert.equal(match([c], 'allume la lumière de la cuisine'), undefined);
   // L'appli et l'action ne deviennent jamais des valeurs, même si la phrase les nomme.
-  const d = learn({ phrase: 'loki bannir 1.2.3.4', tool: 'valhalla', input: valhalla('loki', 'bannir', { ip: '1.2.3.4' }), label: 'Loki', now: 1 }) as Acquis;
+  const d = learn({ phrase: 'loki bannir 1.2.3.4', tool: 'valhalla', input: valhalla('loki', 'bannir', { ip: '1.2.3.4' }), label: 'Sirènes', now: 1 }) as Acquis;
   assert.equal(d.slots.length, 1);
   assert.equal(match([d], 'freyja bannir 1.2.3.4'), undefined);
 });

@@ -1,4 +1,4 @@
-// Skíðblaðnir — synchronisation de deux dossiers (façon Syncthing, sur la machine d'Odin : un espace et un
+// Nébuleuse — synchronisation de deux dossiers (façon Syncthing, sur la machine d'Odin : un espace et un
 // disque, une clé USB, un partage du NAS monté…). Dans les deux sens ou dans un seul. Rien n'est perdu :
 // une suppression va à la corbeille, deux modifications en même temps gardent les deux (copie « conflit »).
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, utimesSync, writeFileSync } from 'node:fs';

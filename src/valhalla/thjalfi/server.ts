@@ -1,4 +1,4 @@
-// Þjálfi · le serveur HTTP des machines qui démarrent par le réseau : menu iPXE, fichiers des ISO (lus
+// Genèse · le serveur HTTP des machines qui démarrent par le réseau : menu iPXE, fichiers des ISO (lus
 // directement dans le .iso, avec reprise), fichiers de réponses, et retours d'avancement des installations.
 // Il ne répond qu'aux adresses du réseau local (jamais à Internet). Aucun mot de passe ne passe en clair :
 // les fichiers de réponses ne contiennent que l'empreinte (Linux) ou la forme encodée de Windows.
@@ -33,7 +33,7 @@ export interface HttpDeps {
   bootFile: (path: string) => string | undefined;
   /** un fichier de réponses (« /seed/<jeton>/<nom> ») ou le script Windows d'après (« /w/<jeton>/apres.ps1 ») */
   seed: (token: string, name: string, from: string) => Promise<string | undefined>;
-  /** un installateur de Fjalar pour cette installation (« /logiciel/<jeton>/<fichier> ») */
+  /** un installateur de Hermès pour cette installation (« /logiciel/<jeton>/<fichier> ») */
   software: (token: string, file: string) => string | undefined;
   /** « /etat/<jeton>?e=… » : où en est l'installation */
   report: (token: string, q: URLSearchParams, from: string) => boolean;

@@ -1,4 +1,4 @@
-// Les règles de Víðarr : listes de blocage (format « hosts », liste de domaines, règles de blocage
+// Les règles de Sphinx : listes de blocage (format « hosts », liste de domaines, règles de blocage
 // « ||domaine^ »), règles perso (bloquer, autoriser, expression régulière, joker), réécritures locales,
 // services bloqués, recherche sécurisée. Tout est compilé en tables pour répondre vite.
 

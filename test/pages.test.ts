@@ -1,7 +1,7 @@
 // Les pages des applis : chaque formulaire doit porter les réglages de SON action, et chaque bouton
 // désigner une action qui existe. (Une action ajoutée au milieu d'une appli avait décalé les formulaires
-// qui désignaient leur action par son numéro d'ordre : la page de Bragi ne s'ouvrait plus, un formulaire de
-// Sindri envoyait le mauvais réglage, et la vérification hebdomadaire des sauvegardes ne se faisait plus.)
+// qui désignaient leur action par son numéro d'ordre : la page de Orphée ne s'ouvrait plus, un formulaire de
+// Phénix envoyait le mauvais réglage, et la vérification hebdomadaire des sauvegardes ne se faisait plus.)
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -53,7 +53,7 @@ test('Applis : aucune action n\'est désignée par son numéro d\'ordre dans le 
   assert.deepEqual(bad, [], 'désigne l\'action par son identifiant : actions.find((a) => a.id === \'…\')');
 });
 
-test('Sindri : le dimanche à 4 h 30, c\'est bien la vérification des sauvegardes qui tourne (et rien d\'autre)', async () => {
+test('Phénix : le dimanche à 4 h 30, c\'est bien la vérification des sauvegardes qui tourne (et rien d\'autre)', async () => {
   const sunday = new Date(2026, 10, 15, 4, 30, 0); assert.equal(sunday.getDay(), 0);
   const w = world(() => sunday), called: string[] = [], saved = sindri.actions.map((a) => a.run);
   try {

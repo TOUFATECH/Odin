@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Muninn } from '../src/muninn/store.ts';
+import { Mnemosyne } from '../src/muninn/store.ts';
 import { HttpError } from '../src/providers/http.ts';
 import { MockProvider } from '../src/providers/mock.ts';
 import { prettyModel, providerLabel, routingReport, serviceOf, turnSummary, withRouteContext, type RouteContext, type RouteEntry } from '../src/providers/journal.ts';
@@ -99,9 +99,9 @@ test('répartition : spécialité, images, données personnelles', () => {
   assert.deepEqual(r.order({ purpose: 'mémoire' }).map((x) => x.provider.name), ['anthropic:claude']);
 });
 
-test('Muninn : journal enregistré, relu par tour, bilan, rapport', () => {
+test('Mnémosyne : journal enregistré, relu par tour, bilan, rapport', () => {
   const dir = mkdtempSync(join(tmpdir(), 'odin-rt-'));
-  const m = new Muninn(join(dir, 'm.db'));
+  const m = new Mnemosyne(join(dir, 'm.db'));
   const base: RouteEntry = { at: 1000, turnId: 'a', sessionId: 's', channel: 'web', request: 'quelle heure', purpose: 'agent', provider: 'anthropic:claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (Anthropic)', tier: 'standard', minTier: 'standard', need: 'discussion', reason: 'premier de ta liste', attempts: [{ provider: 'anthropic:claude-sonnet-5-5', ok: true, ms: 5 }], ok: true, ms: 800, tokensIn: 10, tokensOut: 5, costUsd: 0.001 };
   m.recordRoute(base);
   m.recordRoute({ ...base, at: 1100, purpose: 'relecture', provider: 'openai-codex:gpt-6-luna', label: 'GPT-6 Luna (ChatGPT Codex)' });

@@ -1,8 +1,8 @@
-// Askr — l'inventaire du matériel : chaque appareil a sa fiche (type, fabricant, modèle, numéro de série,
+// Atlas — l'inventaire du matériel : chaque appareil a sa fiche (type, fabricant, modèle, numéro de série,
 // MAC, IP, pièce, propriétaire, achat, garantie, état), son étiquette QR, son historique. Les appareils vus
-// sur le réseau (registre d'Odin, DHCP de Víðarr, VPN) s'ajoutent tout seuls ; les prêts, les garanties qui
+// sur le réseau (registre d'Odin, DHCP de Sphinx, VPN) s'ajoutent tout seuls ; les prêts, les garanties qui
 // finissent et les licences sont suivis. Fonctions reprises (réécrites) de Snipe-IT, GLPI et NetBox.
-// (Askr : le frêne d'où les dieux tirèrent le premier homme — ici, chaque objet de la maison prend son nom.)
+// (Atlas : le frêne d'où les dieux tirèrent le premier homme — ici, chaque objet de la maison prend son nom.)
 import { randomBytes } from 'node:crypto';
 import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } from '../types.ts';
 import { svg as qrSvg } from '../qr.ts';
@@ -104,9 +104,9 @@ export function fromCsv(text: string): Array<Partial<Asset>> {
 // ---------------- Le graphe ----------------
 const COLOR: Record<State, string> = { 'en service': '#E8EAEC', 'en stock': '#4F9DDE', 'en réparation': '#F0A040', prêté: '#B48CF0', retiré: '#7d8791' };
 export function assetGraph(list: Asset[], on: string, online: (a: Asset) => boolean): { nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail> } {
-  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Askr', sub: `${list.length} appareil(s)`, square: true, size: 18, color: '#4F9DDE', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
+  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Atlas', sub: `${list.length} appareil(s)`, square: true, size: 18, color: '#4F9DDE', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
   const dd0 = due(list, on);
-  details.odin = { kind: 'Askr', title: 'L\'inventaire', subtitle: `${list.length} appareil(s)`, chips: [{ label: `${list.filter(online).length} en ligne`, tone: 'bon' }, ...(dd0.warranty.length ? [{ label: `${dd0.warranty.length} garantie(s) à surveiller`, tone: 'attention' as Tone }] : []), ...(dd0.late.length ? [{ label: `${dd0.late.length} prêt(s) en retard`, tone: 'mauvais' as Tone }] : [])], rows: (['en service', 'en stock', 'en réparation', 'prêté', 'retiré'] as State[]).map((st) => ({ k: st, v: String(list.filter((a) => a.state === st).length) })), actions: [{ action: 'synchroniser', label: 'Ajouter les appareils du réseau', input: {}, primary: true }, { action: 'exporter', label: 'Exporter (CSV)', input: {} }] };
+  details.odin = { kind: 'Atlas', title: 'L\'inventaire', subtitle: `${list.length} appareil(s)`, chips: [{ label: `${list.filter(online).length} en ligne`, tone: 'bon' }, ...(dd0.warranty.length ? [{ label: `${dd0.warranty.length} garantie(s) à surveiller`, tone: 'attention' as Tone }] : []), ...(dd0.late.length ? [{ label: `${dd0.late.length} prêt(s) en retard`, tone: 'mauvais' as Tone }] : [])], rows: (['en service', 'en stock', 'en réparation', 'prêté', 'retiré'] as State[]).map((st) => ({ k: st, v: String(list.filter((a) => a.state === st).length) })), actions: [{ action: 'synchroniser', label: 'Ajouter les appareils du réseau', input: {}, primary: true }, { action: 'exporter', label: 'Exporter (CSV)', input: {} }] };
   const places = [...new Set(list.map((a) => a.location || 'Sans pièce'))];
   for (const p of places) { const inP = list.filter((a) => (a.location || 'Sans pièce') === p); nodes.push({ id: `l:${p}`, label: p, sub: `${inP.length} appareil(s)`, square: true, size: 12, color: '#7FB3E6', hub: true }); edges.push({ a: 'odin', b: `l:${p}`, w: 2, color: '#7FB3E6' }); details[`l:${p}`] = { kind: 'Pièce', title: p, rows: inP.map((a) => ({ k: a.name, v: `${a.kind} · ${a.state}`, src: a.tag })) }; }
   const owners = [...new Set(list.map((a) => a.loan?.to || a.owner).filter(Boolean))] as string[];
@@ -131,7 +131,7 @@ export function assetGraph(list: Asset[], on: string, online: (a: Asset) => bool
         ...(a.notes ? [{ k: 'Notes', v: a.notes }] : []),
       ],
       list: { title: 'Historique', items: [...a.history].reverse().slice(0, 10).map((h) => ({ text: h.what, meta: new Date(h.t).toLocaleDateString('fr-FR') })) },
-      actions: [{ action: 'etiquette', label: 'Étiquette QR', input: { appareil: a.tag }, primary: true }, a.loan ? { action: 'rendre', label: 'Rendu', input: { appareil: a.tag } } : { action: 'preter', label: 'Prêter…', input: { appareil: a.tag, a: '', retour: '' } }, ...(a.ip ? [{ action: 'surveiller', label: 'Surveiller (Vörðr)', input: { appareil: a.tag } }, { action: 'lire', label: 'Voir ses paquets (Rán)', input: { ip: a.ip }, module: 'ran' }] : [])],
+      actions: [{ action: 'etiquette', label: 'Étiquette QR', input: { appareil: a.tag }, primary: true }, a.loan ? { action: 'rendre', label: 'Rendu', input: { appareil: a.tag } } : { action: 'preter', label: 'Prêter…', input: { appareil: a.tag, a: '', retour: '' } }, ...(a.ip ? [{ action: 'surveiller', label: 'Surveiller (Pulsar)', input: { appareil: a.tag } }, { action: 'lire', label: 'Voir ses paquets (Ariane)', input: { ip: a.ip }, module: 'ran' }] : [])],
     };
   }
   return { nodes, edges, details };
@@ -160,7 +160,7 @@ function fields(i: Record<string, unknown>, partial: boolean): Partial<Asset> {
 }
 
 export function askr(o: { seen?: () => Seen[] } = {}): Module {
-  /** Ce qui est vu sur le réseau : le registre d'Odin et les baux du DHCP de Víðarr. */
+  /** Ce qui est vu sur le réseau : le registre d'Odin et les baux du DHCP de Sphinx. */
   const seenNow = async (ctx: ModCtx): Promise<Seen[]> => {
     const out = new Map<string, Seen>();
     for (const x of o.seen?.() ?? []) out.set(x.mac?.toLowerCase() || x.ip, x);
@@ -170,9 +170,9 @@ export function askr(o: { seen?: () => Seen[] } = {}): Module {
   };
   const sync = async (ctx: ModCtx) => { const r = merge(assets(ctx), await seenNow(ctx), ctx.now().getTime(), vendorOf); if (r.added.length || r.updated) save(ctx, r.list); return r; };
   const m: Module = {
-    id: 'askr', name: 'Askr', family: 'Machines',
+    id: 'askr', name: 'Atlas', family: 'Machines',
     what: 'L\'inventaire du matériel : une fiche par appareil (modèle, série, MAC, IP, pièce, propriétaire, achat, garantie), étiquettes QR, prêts et licences, avec les appareils du réseau ajoutés tout seuls.',
-    does: ['fiche par appareil : type, fabricant, modèle, n° de série, MAC, IP, système, pièce, propriétaire, achat, prix, fournisseur, garantie, notes, historique', 'appareils vus sur le réseau (registre d\'Odin, DHCP de Víðarr) ajoutés tout seuls, sans écraser ce que tu as écrit', 'état : en service, en stock, en réparation, prêté, retiré', 'prêts (à qui, retour prévu) et alerte de retard ; alerte avant la fin de garantie', 'étiquette QR imprimable pour chaque appareil', 'licences (postes utilisés, expiration), clé rangée dans le coffre Brísingamen', 'graphe : pièces, appareils, personnes ; export et import CSV (Excel)'],
+    does: ['fiche par appareil : type, fabricant, modèle, n° de série, MAC, IP, système, pièce, propriétaire, achat, prix, fournisseur, garantie, notes, historique', 'appareils vus sur le réseau (registre d\'Odin, DHCP de Sphinx) ajoutés tout seuls, sans écraser ce que tu as écrit', 'état : en service, en stock, en réparation, prêté, retiré', 'prêts (à qui, retour prévu) et alerte de retard ; alerte avant la fin de garantie', 'étiquette QR imprimable pour chaque appareil', 'licences (postes utilisés, expiration), clé rangée dans le coffre Thésauros', 'graphe : pièces, appareils, personnes ; export et import CSV (Excel)'],
     from: ['Snipe-IT', 'GLPI', 'NetBox'], upstream: ['grokability/snipe-it', 'glpi-project/glpi', 'netbox-community/netbox'],
     words: ['inventaire du matériel', 'inventaire du materiel', 'inventaire matériel', 'mon inventaire', 'inventorier', 'fiche matériel', 'mon matériel', 'garantie', 'numéro de série', 'numero de serie', 'étiquette', 'prêter', 'preter', 'prêté', 'licence', 'licences', 'parc matériel'],
     actions: [
@@ -207,10 +207,10 @@ export function askr(o: { seen?: () => Seen[] } = {}): Module {
         const a = find(ctx, i.appareil), text = `ODIN ${a.tag} · ${a.name}${a.serial ? ` · S/N ${a.serial}` : ''}`;
         return { text: `🏷 Étiquette de ${a.name} (${a.tag}).`, data: { svg: qrSvg(text, { scale: 6, margin: 3 }), alt: `QR code de l'étiquette ${a.tag}`, conf: `${a.tag}\n${a.name}\n${[a.maker, a.model].filter(Boolean).join(' ')}${a.serial ? `\nS/N ${a.serial}` : ''}`, label: 'Texte de l\'étiquette', show: true, filename: `etiquette-${a.tag}.txt` } };
       } },
-      { id: 'surveiller', label: 'Surveiller avec Vörðr', what: 'Une sonde ping pour cet appareil (alerte s\'il ne répond plus)', quick: false, params: [{ key: 'appareil', label: 'Appareil', kind: 'text', required: true }], run: async (ctx, i) => {
+      { id: 'surveiller', label: 'Surveiller avec Pulsar', what: 'Une sonde ping pour cet appareil (alerte s\'il ne répond plus)', quick: false, params: [{ key: 'appareil', label: 'Appareil', kind: 'text', required: true }], run: async (ctx, i) => {
         const a = find(ctx, i.appareil); if (!a.ip) throw new Error('pas d\'adresse IP connue pour cet appareil');
         const r = await ctx.call('vordr', 'ajouter', { nom: a.name, genre: 'ping', cible: a.ip, groupe: a.location || 'Maison', secondes: 60, essais: 3 }, `surveiller ${a.name} (inventaire)`);
-        if (r.ok !== false) put(ctx, { ...a }, 'surveillé par Vörðr');
+        if (r.ok !== false) put(ctx, { ...a }, 'surveillé par Pulsar');
         return { ok: r.ok, text: r.text };
       } },
       { id: 'retirer', label: 'Retirer du service', what: 'Vendu, cassé, donné : la fiche reste dans l\'historique', quick: false, params: [{ key: 'appareil', label: 'Appareil', kind: 'text', required: true }, { key: 'pourquoi', label: 'Pourquoi', kind: 'text', default: '' }], run: (ctx, i) => { const a = { ...find(ctx, i.appareil) }; a.state = 'retiré'; a.loan = undefined; put(ctx, a, `retiré${s(i.pourquoi) ? ` : ${s(i.pourquoi)}` : ''}`); return { text: `📤 ${a.name} retiré du service (la fiche est gardée).` }; } },
@@ -222,7 +222,7 @@ export function askr(o: { seen?: () => Seen[] } = {}): Module {
         let inVault = false;
         if (s(i.cle)) { const r = await ctx.call('brisingamen', 'ajouter', { nom: `Licence ${name}`, identifiant: name, mot_de_passe: s(i.cle), coffre: 'TOUFATECH' }, `ranger la clé de licence de ${name}`); inVault = r.ok !== false; if (!inVault) throw new Error(`la clé n'a pas pu aller dans le coffre : ${r.text}`); }
         ctx.saveSettings({ licences: [...licences(ctx), { id: randomBytes(5).toString('hex'), name, seats, ...(s(i.expire) ? { expires: s(i.expire) } : {}), assets: [], inVault }] });
-        return { text: `🔑 Licence ${name} : ${seats} poste(s)${s(i.expire) ? `, jusqu'au ${s(i.expire)}` : ''}${inVault ? ' ; clé rangée dans le coffre Brísingamen' : ''}.` };
+        return { text: `🔑 Licence ${name} : ${seats} poste(s)${s(i.expire) ? `, jusqu'au ${s(i.expire)}` : ''}${inVault ? ' ; clé rangée dans le coffre Thésauros' : ''}.` };
       } },
       { id: 'attribuer', label: 'Attribuer une licence', what: 'Un poste de la licence va à un appareil', quick: false, params: [{ key: 'licence', label: 'Licence', kind: 'text', required: true }, { key: 'appareil', label: 'Appareil', kind: 'text', required: true }], run: (ctx, i) => {
         const ls = licences(ctx), l = ls.find((x) => x.name.toLowerCase() === s(i.licence).toLowerCase()); if (!l) throw new Error('licence introuvable');

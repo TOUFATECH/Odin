@@ -1,21 +1,21 @@
-// Runes : pages et bases d'Odin (comme un espace de travail Notion), dans le même coffre que Saga.
+// Papyrus : pages et bases d'Odin (comme un espace de travail Notion), dans le même coffre que Thot.
 //   runes_base  : bases (lister, schéma, créer, propriétés, vues, automatisations de base) ;
 //   runes_fiche : fiches d'une base (chercher selon une vue ou un filtre, ajouter, modifier) ;
 //   runes_page  : sous-pages, commentaires, historique.
 
 import { wrapUntrusted } from '../heimdall/injection.ts';
-import { Runes, PROP_TYPES, type Prop, type View } from '../runes/runes.ts';
+import { Papyrus, PROP_TYPES, type Prop, type View } from '../runes/runes.ts';
 import { brainOf } from './brain.ts';
 import { obj, str, type Tool, type ToolContext } from './registry.ts';
 
 const s = (v: unknown) => String(v ?? '');
-const cache = new WeakMap<object, Runes>();
-export function runesOf(ctx: Pick<ToolContext, 'home' | 'careCfg' | 'workspace'>): Runes { const v = brainOf(ctx); let r = cache.get(v); if (!r) { r = new Runes(v); cache.set(v, r); } return r; }
+const cache = new WeakMap<object, Papyrus>();
+export function runesOf(ctx: Pick<ToolContext, 'home' | 'careCfg' | 'workspace'>): Papyrus { const v = brainOf(ctx); let r = cache.get(v); if (!r) { r = new Papyrus(v); cache.set(v, r); } return r; }
 const json = (v: unknown) => { if (v && typeof v === 'object') return v as Record<string, unknown>; try { return JSON.parse(s(v) || '{}'); } catch { throw new Error('JSON invalide'); } };
 
 export const runesBase: Tool = {
   name: 'runes_base',
-  description: `Bases de données de Runes (projets, tâches, clients, commandes… avec propriétés typées : ${PROP_TYPES.join(', ')}). « lister » ; « schema » (propriétés et vues) ; « creer » (nom + proprietes JSON [{"label":"Prix","type":"nombre"}]) ; « propriete » (ajouter : propriete JSON) ; « vue » (vue JSON {name,type: table|tableau|calendrier|galerie|liste|chronologie|formulaire, groupBy, date, filters:[{prop,op,value}], sorts:[{prop,dir}]}) ; « automatisation » (JSON {when:{prop,to},then:{kind:"définir"|"prévenir",…}}) ; « exporter » (CSV).`,
+  description: `Bases de données de Papyrus (projets, tâches, clients, commandes… avec propriétés typées : ${PROP_TYPES.join(', ')}). « lister » ; « schema » (propriétés et vues) ; « creer » (nom + proprietes JSON [{"label":"Prix","type":"nombre"}]) ; « propriete » (ajouter : propriete JSON) ; « vue » (vue JSON {name,type: table|tableau|calendrier|galerie|liste|chronologie|formulaire, groupBy, date, filters:[{prop,op,value}], sorts:[{prop,dir}]}) ; « automatisation » (JSON {when:{prop,to},then:{kind:"définir"|"prévenir",…}}) ; « exporter » (CSV).`,
   risk: 'write',
   schema: obj({ action: { type: 'string', enum: ['lister', 'schema', 'creer', 'propriete', 'vue', 'automatisation', 'exporter'] }, base: str('base (identifiant ou nom)'), nom: str('nom de la nouvelle base'), proprietes: str('JSON'), propriete: str('JSON'), vue: str('JSON'), automatisation: str('JSON') }, ['action']),
   summarize: (i) => `runes ${s(i.action)} ${s(i.base || i.nom)}`,
@@ -36,7 +36,7 @@ export const runesBase: Tool = {
 
 export const runesRow: Tool = {
   name: 'runes_fiche',
-  description: 'Fiches d\'une base Runes. « chercher » (vue = id de vue, ou filtre JSON [{"prop":"statut","op":"égal","value":"fait"}], q = texte) ; « ajouter » (titre + proprietes JSON + texte) ; « modifier » (fiche = chemin ou titre + proprietes JSON).',
+  description: 'Fiches d\'une base Papyrus. « chercher » (vue = id de vue, ou filtre JSON [{"prop":"statut","op":"égal","value":"fait"}], q = texte) ; « ajouter » (titre + proprietes JSON + texte) ; « modifier » (fiche = chemin ou titre + proprietes JSON).',
   risk: 'write',
   schema: obj({ action: { type: 'string', enum: ['chercher', 'ajouter', 'modifier'] }, base: str('base'), vue: str('id de vue'), filtre: str('JSON'), q: str('texte à chercher'), titre: str('titre de la fiche'), fiche: str('chemin ou titre'), proprietes: str('JSON'), texte: str('contenu de la fiche') }, ['action']),
   summarize: (i) => `runes ${s(i.action)} ${s(i.titre || i.fiche || i.base)}`,
@@ -55,7 +55,7 @@ export const runesRow: Tool = {
 
 export const runesPage: Tool = {
   name: 'runes_page',
-  description: 'Pages de Runes : « sous_page » (parent + titre + texte), « enfants » (parent), « commenter » (page + texte), « commentaires », « historique » (versions), « restaurer » (page + version = date en ms).',
+  description: 'Pages de Papyrus : « sous_page » (parent + titre + texte), « enfants » (parent), « commenter » (page + texte), « commentaires », « historique » (versions), « restaurer » (page + version = date en ms).',
   risk: 'write',
   schema: obj({ action: { type: 'string', enum: ['sous_page', 'enfants', 'commenter', 'commentaires', 'historique', 'restaurer'] }, page: str('page (chemin ou titre)'), parent: str('page parente'), titre: str('titre'), texte: str('texte'), version: str('date de la version (ms)') }, ['action']),
   summarize: (i) => `runes ${s(i.action)} ${s(i.page || i.parent)}`,

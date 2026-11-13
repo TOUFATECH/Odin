@@ -1,4 +1,4 @@
-// Le parc d'Ymir : noms automatiques, ports libres, dossiers refusés, installation Docker vérifiée pas à pas.
+// Le parc d'Hydre : noms automatiques, ports libres, dossiers refusés, installation Docker vérifiée pas à pas.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { autoName, freePort, parseMounts, parsePorts, slug, usedPorts } from '../src/valhalla/parc.ts';

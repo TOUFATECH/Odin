@@ -70,8 +70,8 @@ export const mcpServeur: Scenario = {
     t.match(r.instructions ?? '', /actions graves/, 'Odin annonce ses règles au client (pas d\'action grave par MCP)');
     const fr = r.tools?.find((x) => x.name === 'odin_frigg');
     t.ok((r.tools?.length ?? 0) >= 6 && fr && fr.actions?.includes('reserver') && !fr.actions?.includes('annuler'), 'les applis d\'Odin sont listées comme outils ; « annuler » (grave) n\'y figure pas', JSON.stringify(fr));
-    t.match(r.applis?.text ?? '', /Frigg \(Données\) : Les rendez-vous/, 'outil « odin_applis » : la liste des applis');
-    t.match(r.conseil?.text ?? '', /\*\*Frigg\*\*/, 'outil « odin_conseil » : Odin choisit Frigg pour le besoin');
+    t.match(r.applis?.text ?? '', /Chronos \(Données\) : Les rendez-vous/, 'outil « odin_applis » : la liste des applis');
+    t.match(r.conseil?.text ?? '', /\*\*Chronos\*\*/, 'outil « odin_conseil » : Odin choisit Chronos pour le besoin');
     t.match(r.creneaux?.text ?? '', /10:00/, 'action de lecture par MCP : créneaux libres');
     t.ok(r.reserver && !r.reserver.isError && (v.ctx('frigg').settings.bookings as Array<{ name: string }>).some((b) => b.name === 'Client MCP'), 'action simple par MCP : la réservation est bien créée dans Odin', JSON.stringify(r.reserver));
     t.ok(r.annuler?.isError === true && /Action inconnue|grave/.test(r.annuler.text) && (v.ctx('frigg').settings.bookings as Array<{ status: string }>)[0].status !== 'annulé', 'action grave par MCP : refusée, rien n\'est annulé', JSON.stringify(r.annuler));

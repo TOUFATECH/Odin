@@ -219,7 +219,7 @@
         seg([['discrete', 'Discrète'], ['normale', 'Normale'], ['spectaculaire', 'Spectaculaire']], p.force, (v) => sp({ force: v }), 'Force'),
         check('Son des pouvoirs', p.son, (on) => sp({ son: on })),
         h('div', { class: 'mrow', style: 'margin-top:8px' }, demoEl, h('select', { id: 'powerTry', 'aria-label': 'Pouvoir à essayer' }, Object.entries(P).map(([id, x]) => h('option', { value: id }, x.name))), h('button', { type: 'button', class: 'btn', 'data-power': 'non', on: { click: () => void window.OdinPowers?.demo(demoEl, box.querySelector('#powerTry').value) } }, 'Essayer')),
-        h('p', { class: 'hint' }, 'Partout : l\'interface d\'Odin, l\'écran de la maison (Glaðsheimr) et Venus. Jamais sur le texte ni pendant une vidéo ; coupé si ton appareil demande moins d\'animations. Un pouvoir ne supprime rien.')),
+        h('p', { class: 'hint' }, 'Partout : l\'interface d\'Odin, l\'écran de la maison (Hestia) et Venus. Jamais sur le texte ni pendant une vidéo ; coupé si ton appareil demande moins d\'animations. Un pouvoir ne supprime rien.')),
       h('section', { 'aria-label': 'Événements de l\'année' }, h('h3', {}, 'Événements de l\'année'),
         check('Événements activés', ev.actif !== false, (on) => se({ actif: on }), 'Odin change de couleur ou d\'habit ces jours-là. Coupé : plus aucun événement.'),
         check('Le jour d\'un événement, tout Odin prend son thème', ev.themes !== false, (on) => se({ themes: on })),

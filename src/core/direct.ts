@@ -4,7 +4,7 @@
 //   1. ce qu'il a appris (acquis : une demande qu'une IA a déjà réglée par une action, ou par une mission
 //      de quelques actions à la suite) ;
 //   2. ce qu'il sait d'avance (l'heure, tes rappels, ses droits, ses économies) ;
-//   3. ses actions sans IA (maison, mode, fiches, Venus, réseau, et ses applis via Huginn).
+//   3. ses actions sans IA (maison, mode, fiches, Venus, réseau, et ses applis via Logos).
 // Il ne prend la main que s'il est SÛR : une phrase simple, une seule demande, une action nette. Au
 // moindre doute (demande longue, plusieurs demandes, rédaction, raisonnement, précision manquante),
 // il laisse faire l'IA et dit pourquoi. Chaque action part par l'outil habituel, donc sous Heimdall.

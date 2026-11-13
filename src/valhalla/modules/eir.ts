@@ -1,5 +1,5 @@
-// Eir — santé des machines en direct : processeur, mémoire, disques, réseau, charge, températures,
-// processus gourmands. Mesures partagées avec Ymir et Naglfar (calculées une seule fois ici).
+// Hygie — santé des machines en direct : processeur, mémoire, disques, réseau, charge, températures,
+// processus gourmands. Mesures partagées avec Hydre et Argo (calculées une seule fois ici).
 
 import { readdirSync, readFileSync, statfsSync } from 'node:fs';
 import { cpus, loadavg, totalmem, freemem, uptime } from 'node:os';
@@ -48,7 +48,7 @@ export function topProcs(psOut: string, n = 8): Array<{ pid: number; cpu: number
 }
 
 let prevCpu = cpuTimes(), prevNet = { ...netTotals(), at: Date.now() };
-/** Instantané partagé (utilisé aussi par Ymir, Naglfar, Forseti). */
+/** Instantané partagé (utilisé aussi par Hydre, Argo, Forseti). */
 export function snapshot(): { cpu: number; mem: { total: number; used: number; pct: number }; net: { rx: number; tx: number }; load: number[]; disks: ReturnType<typeof disks>; temps: ReturnType<typeof temps>; uptime: number; cores: number } {
   const c = cpuTimes(); let cpu = 0;
   if (c && prevCpu && c.total > prevCpu.total) cpu = Math.round((1 - (c.idle - prevCpu.idle) / (c.total - prevCpu.total)) * 100);
@@ -87,7 +87,7 @@ async function slow(ctx: ModCtx): Promise<void> {
 function current(): Health { return last && Date.now() - last.at < 20_000 ? last : (last = health()); }
 
 export const eir: Module = {
-  id: 'eir', name: 'Eir', family: 'Machines',
+  id: 'eir', name: 'Hygie', family: 'Machines',
   what: 'La santé de la machine en direct et dans le temps : processeur, mémoire, disques, réseau, capteurs, SMART, RAID, carte graphique, processus. Comme Glances, lisible d\'un coup d\'œil.',
   does: ['processeur par cœur, attente disque, vol de temps (VM), charge 1 / 5 / 15 min', 'mémoire, cache, échange (swap)', 'réseau par carte : filaire, Wi-Fi (signal), VPN, débit et erreurs', 'disques : place, débit lecture / écriture, occupation', 'capteurs : températures (avec seuil critique), ventilateurs, batterie', 'RAID logiciel (complet, dégradé, reconstruction)', 'santé SMART des disques (secteurs réalloués, usure des SSD)', 'carte graphique NVIDIA (charge, mémoire, température, watts)', 'processus : tri par processeur ou mémoire, arrêt d\'un processus avec ton accord', 'personnes connectées, connexions réseau', 'chaque mesure gardée : courbes 1 h, 24 h, 7 j, 30 j, 1 an', 'seuils réglables : vert, bleu, orange, rouge (comme Glances)', 'export pour Prometheus et Grafana', 'alertes : disque plein, mémoire saturée, surchauffe, RAID dégradé, disque qui lâche'],
   from: ['Glances'], upstream: ['nicolargo/glances'],
@@ -156,10 +156,10 @@ export const eir: Module = {
     metrics()?.put(toSeries(h));
     void slow(ctx).catch(() => {});
     const fsL = limits(ctx, 'fs'), memL = limits(ctx, 'mem'), tL = limits(ctx, 'temp'), mp = (h.mem.used / h.mem.total) * 100;
-    for (const d of h.fs) if (d.pct >= fsL.grave) ctx.alert({ level: d.pct >= 97 ? 'critique' : 'haute', title: `Disque ${d.mount} plein à ${Math.round(d.pct)} %`, detail: `Reste ${human(d.free)}.`, key: `disk:${d.mount}`, steps: ['Regarde ce qui prend de la place (gros fichiers, journaux, sauvegardes, images Docker).', 'Vide les corbeilles et les vieux journaux ; nettoie Docker (Naglfar).', 'Ou ajoute un disque.'] });
+    for (const d of h.fs) if (d.pct >= fsL.grave) ctx.alert({ level: d.pct >= 97 ? 'critique' : 'haute', title: `Disque ${d.mount} plein à ${Math.round(d.pct)} %`, detail: `Reste ${human(d.free)}.`, key: `disk:${d.mount}`, steps: ['Regarde ce qui prend de la place (gros fichiers, journaux, sauvegardes, images Docker).', 'Vide les corbeilles et les vieux journaux ; nettoie Docker (Argo).', 'Ou ajoute un disque.'] });
     if (mp >= Math.max(95, memL.grave)) ctx.alert({ level: 'haute', title: `Mémoire saturée (${Math.round(mp)} %)`, key: 'mem', steps: ['Regarde les processus qui consomment le plus de mémoire.', 'Redémarre le programme fautif ou arrête-le (avec ton accord).'] });
     for (const x of h.sensors) if (x.kind === 'temp' && (x.value >= Math.max(90, tL.grave) || (x.crit && x.value >= x.crit - 5))) ctx.alert({ level: 'haute', title: `Surchauffe : ${x.label} à ${x.value} °C`, key: `temp:${x.label}`, steps: ['Vérifie que la machine respire (poussière, ventilateurs, pièce chaude).', 'Allège la charge (transcodages, compilations).'] });
-    for (const r of h.raid) if (r.state === 'dégradé') ctx.alert({ level: 'critique', title: `RAID ${r.name} dégradé (${r.ok}/${r.disks} disques)`, detail: 'Un disque de la grappe est absent ou en panne : un deuxième incident ferait perdre les données.', key: `raid:${r.name}`, steps: ['Fais une sauvegarde tout de suite (Sindri).', 'Repère le disque en panne (SMART) et remplace-le.', 'Ajoute le nouveau disque à la grappe : la reconstruction se suit ici.'] });
+    for (const r of h.raid) if (r.state === 'dégradé') ctx.alert({ level: 'critique', title: `RAID ${r.name} dégradé (${r.ok}/${r.disks} disques)`, detail: 'Un disque de la grappe est absent ou en panne : un deuxième incident ferait perdre les données.', key: `raid:${r.name}`, steps: ['Fais une sauvegarde tout de suite (Phénix).', 'Repère le disque en panne (SMART) et remplace-le.', 'Ajoute le nouveau disque à la grappe : la reconstruction se suit ici.'] });
     for (const x of extra.smart) if (x.passed === false || (x.pending ?? 0) > 0) ctx.alert({ level: 'critique', title: `Disque ${x.dev} en train de lâcher (SMART)`, detail: `${x.model ?? ''} : ${x.passed === false ? 'test de santé échoué' : `${x.pending} secteurs illisibles`}.`, key: `smart:${x.dev}`, steps: ['Sauvegarde ce disque maintenant.', 'Remplace-le dès que possible.'] });
     ctx.emit('mesure', { cpu: h.cpu.total, mem: Math.round(mp), disque: Math.max(0, ...h.fs.map((d) => Math.round(d.pct))) });
   } },

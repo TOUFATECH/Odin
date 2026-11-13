@@ -1,4 +1,4 @@
-// Rán dans l'interface : l'analyseur de paquets, comme Wireshark, en trois étages.
+// Ariane dans l'interface : l'analyseur de paquets, comme Wireshark, en trois étages.
 // 1. La carte : les machines du réseau et les sites d'Internet, reliés par des flèches (de qui vers qui ;
 //    épaisseur = volume). Touche une machine : ses communications ; touche une flèche : les paquets de ce lien.
 // 2. Les communications (avec qui, dans quel sens, quelles applis, quels sites) et la liste des paquets.
@@ -46,7 +46,7 @@
 @media (max-width:980px){.rn-two{grid-template-columns:1fr}.rn td:nth-child(6),.rn th:nth-child(6),.rn td:nth-child(1),.rn th:nth-child(1){display:none}}`;
 
   const studios = new Map();
-  /** L'analyseur : ip = une machine (sa fiche), sinon tout le réseau (page de l'appli Rán). */
+  /** L'analyseur : ip = une machine (sa fiche), sinon tout le réseau (page de l'appli Ariane). */
   function studio(o = {}) {
     if (!document.getElementById('rnCss')) document.head.append(el('style', { id: 'rnCss' }, css));
     const scope = o.ip || '';
@@ -155,7 +155,7 @@
         head.textContent = `${r.total} paquet(s) · ${size(r.bytes)} sur la période${r.first ? ` (du ${day(r.first)} au ${day(r.last)})` : ''} · gardés 7 jours.`;
         chips.replaceChildren(...r.apps.slice(0, 8).map((a) => el('button', { type: 'button', onclick: () => { filt.value = a.app; q = a.app.toLowerCase(); refresh(); } }, el('b', {}, a.app), ` ${a.n}`)), ...r.sites.slice(0, 10).map((x) => el('button', { type: 'button', onclick: () => { filt.value = x.site; q = x.site.toLowerCase(); refresh(); } }, '🌐 ', el('b', {}, x.site), ` ${x.n}`)));
         reading = r.recording || Boolean(es); paused = Boolean(r.state?.paused); paintButtons();
-        if (paused) say('⏸ En pause : Rán ne lit plus aucun paquet. Touche « Lire les paquets » pour reprendre.');
+        if (paused) say('⏸ En pause : Ariane ne lit plus aucun paquet. Touche « Lire les paquets » pour reprendre.');
         else if (!es) say(sources.length ? `Points de capture : ${sources.map((x) => `${x.label}${x.machine ? ' (tout son trafic)' : ''}`).join(', ')}.${sources.some((x) => x.machine) ? '' : ' Sur un réseau avec switch ou box, Odin ne voit que ses propres échanges et les diffusions : donne-lui l\'accès à une machine (un hôte Proxmox, le routeur) pour voir tout son trafic.'}` : '');
       }
       paintRows();
@@ -216,7 +216,7 @@
     async function pauseAll() {
       pause.disabled = true; closeLive();
       await post('/api/valhalla/act', { module: 'ran', action: 'pause', input: {} }).catch(() => null);
-      pause.disabled = false; paused = true; reading = false; paintButtons(); paintRows(); say('⏸ En pause : Rán ne lit plus aucun paquet. Touche « Lire les paquets » pour reprendre.');
+      pause.disabled = false; paused = true; reading = false; paintButtons(); paintRows(); say('⏸ En pause : Ariane ne lit plus aucun paquet. Touche « Lire les paquets » pour reprendre.');
     }
     let t = 0; filt.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { q = filt.value.trim().toLowerCase(); refresh(); }, 300); });
     per.addEventListener('change', () => { period = Number(per.value); refresh(); });

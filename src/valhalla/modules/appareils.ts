@@ -1,6 +1,6 @@
 // Appareils — un seul registre pour tous les appareils de la maison, quel que soit leur réseau radio.
-// Tout passe par Veðrfölnir (le relais MQTT d'Odin) : les passerelles Zigbee (Hjúki), Z-Wave (Bil),
-// Matter (Alfheim), radio 433 MHz / BLE (Gná) et les modules ESP ou prises flashées (Brokkr) s'y
+// Tout passe par Mercure (le relais MQTT d'Odin) : les passerelles Zigbee (Mélissa), Z-Wave (Néréide),
+// Matter (Atome), radio 433 MHz / BLE (Ondine) et les modules ESP ou prises flashées (Héphaïstos) s'y
 // annoncent ; Odin les range, suit leur état, leur pile, leur signal, et leur envoie les ordres.
 
 import { randomBytes } from 'node:crypto';
@@ -87,7 +87,7 @@ export function tasmotaSensors(c: TasmotaConfig, payload: string): Device[] {
 
 let broker: MqttBroker | undefined, appCtx: ModCtx | undefined;
 export const brokerOf = () => broker;
-/** Registre partagé (Midgard, Draupnir, mode sans IA). */
+/** Registre partagé (Midgard, Talos, mode sans IA). */
 export const allDevices = (): Device[] => (appCtx ? Object.values(devs(appCtx)) : []);
 const devs = (ctx: ModCtx): Record<string, Device> => (ctx.settings.devices as Record<string, Device> | undefined) ?? {};
 let dirty = false, saver: ReturnType<typeof setInterval> | undefined, flush: (() => void) | undefined;
@@ -114,9 +114,9 @@ export function unlockRisk(idOrName: string, value: string): string | undefined 
 export const appareils: Module = {
   id: 'appareils', name: 'Appareils', family: 'Maison',
   what: 'Tous les appareils de la maison dans un seul registre : lumières, prises, capteurs, volets, clims…',
-  does: ['relais de messages intégré (Veðrfölnir) auquel les appareils se connectent', 'reconnaissance automatique des appareils qui s\'annoncent (passerelles Zigbee, Z-Wave, modules ESP, prises flashées Tasmota au format d\'aujourd\'hui)', 'en ligne ou hors ligne, su tout de suite', 'état, pile, qualité du signal, dernière nouvelle de chaque appareil', 'allumer, éteindre, régler', 'pièces et noms', 'mode appairage des passerelles Zigbee (60 s)', 'alerte pile faible et appareil muet depuis longtemps'],
+  does: ['relais de messages intégré (Mercure) auquel les appareils se connectent', 'reconnaissance automatique des appareils qui s\'annoncent (passerelles Zigbee, Z-Wave, modules ESP, prises flashées Tasmota au format d\'aujourd\'hui)', 'en ligne ou hors ligne, su tout de suite', 'état, pile, qualité du signal, dernière nouvelle de chaque appareil', 'allumer, éteindre, régler', 'pièces et noms', 'mode appairage des passerelles Zigbee (60 s)', 'alerte pile faible et appareil muet depuis longtemps'],
   from: ['Zigbee2MQTT', 'Z-Wave JS UI', 'Mosquitto', 'OpenMQTTGateway', 'Matter Server'], upstream: ['Koenkk/zigbee2mqtt', 'zwave-js/zwave-js-ui', 'eclipse-mosquitto/mosquitto', '1technophile/OpenMQTTGateway', 'home-assistant-libs/python-matter-server'],
-  modes: ['Hjúki · Zigbee', 'Bil · Z-Wave', 'Alfheim · Matter', 'Gná · radio 433 MHz et BLE', 'Veðrfölnir · messages'],
+  modes: ['Mélissa · Zigbee', 'Néréide · Z-Wave', 'Atome · Matter', 'Ondine · radio 433 MHz et BLE', 'Mercure · messages'],
   words: ['appareil', 'appareils', 'lumiere', 'lumière', 'lampe', 'prise', 'capteur', 'zigbee', 'z-wave', 'zwave', 'mqtt', 'appairer', 'pile', 'allume', 'eteins', 'éteins', 'volet', 'clim'],
   actions: [
     { id: 'lister', label: 'Appareils', what: 'Tous les appareils et leur état', read: true, words: ['liste', 'appareils', 'etat des appareils'], run: (ctx) => ({ text: Object.values(devs(ctx)).map((d) => `- ${d.name} (${d.kind}${d.room ? `, ${d.room}` : ''}) : ${d.online === false ? 'hors ligne' : `${d.state ?? '?'}${d.unit ? ` ${d.unit}` : ''}`}`).join('\n') || 'Aucun appareil : branche une passerelle ou un module sur le relais.' }) },
@@ -172,10 +172,10 @@ export const appareils: Module = {
     const all = Object.values(devs(ctx)), nets = [...new Set(all.map((d) => d.network))];
     return {
       subtitle: `${all.length} appareil(s) · relais ${broker ? `en marche (port ${ctx.settings.port ?? 1883}, ${broker.connected().length} connexion(s))` : 'arrêté'}`,
-      tabs: ['Tous', ...nets, 'Veðrfölnir · messages'],
+      tabs: ['Tous', ...nets, 'Mercure · messages'],
       kpis: [{ label: 'Appareils', value: String(all.length) }, { label: 'Piles faibles', value: String(all.filter((d) => (d.battery ?? 100) < 20).length), tone: all.some((d) => (d.battery ?? 100) < 20) ? 'attention' : 'bon' }, { label: 'Muets depuis 24 h', value: String(all.filter((d) => d.lastSeen && Date.now() - Date.parse(d.lastSeen) > 86_400_000).length) }, { label: 'Hors ligne', value: String(all.filter((d) => d.online === false).length), tone: all.some((d) => d.online === false) ? 'attention' : 'bon' }, { label: 'Connexions au relais', value: String(broker?.connected().length ?? 0) }],
       sections: [{ kind: 'table', title: 'Appareils', columns: ['Appareil', 'Type', 'Pièce', 'Réseau', 'État', 'Pile', 'Signal', 'Dernière nouvelle'], empty: 'Aucun appareil : branche une passerelle ou un module sur le relais (voir « Accès au relais »).', rows: all.map((d) => ({ cells: [d.name, d.kind, d.room, d.network, d.online === false ? 'hors ligne' : `${d.state ?? '?'}${d.unit ? ` ${d.unit}` : ''}`, d.battery !== undefined ? `${d.battery} %` : '—', d.signal !== undefined ? String(d.signal) : '—', d.lastSeen ? new Date(d.lastSeen).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'], tone: d.online === false ? 'mauvais' : (d.battery ?? 100) < 20 ? 'attention' : undefined, actions: d.commandTopic ? [{ action: 'commander', label: 'Allumer', input: { appareil: d.id, valeur: 'on' } }, { action: 'commander', label: 'Éteindre', input: { appareil: d.id, valeur: 'off' } }] : [] })) }],
-      side: [{ kind: 'log', title: 'Veðrfölnir · derniers messages', lines: [...(broker?.retained.values() ?? [])].slice(-12).map((m) => `${m.topic} ${m.payload.toString().slice(0, 60)}`) }, { kind: 'form', title: 'Nom et pièce', action: 'ranger', submit: 'Enregistrer', params: appareils.actions.find((a) => a.id === 'ranger')?.params ?? [] }],
+      side: [{ kind: 'log', title: 'Mercure · derniers messages', lines: [...(broker?.retained.values() ?? [])].slice(-12).map((m) => `${m.topic} ${m.payload.toString().slice(0, 60)}`) }, { kind: 'form', title: 'Nom et pièce', action: 'ranger', submit: 'Enregistrer', params: appareils.actions.find((a) => a.id === 'ranger')?.params ?? [] }],
     };
   },
   watch: { every: 3600, run(ctx) {

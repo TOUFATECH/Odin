@@ -1,4 +1,4 @@
-// Le moteur commun d'Eitri (ISO) et de Fjalar (logiciels) :
+// Le moteur commun d'Andromède (ISO) et de Hermès (logiciels) :
 //   - un dossier choisi (disque, ou partage réseau monté : /mnt/nas/iso…) ;
 //   - Odin y reconnaît ce que tu as déjà, suit ce que tu choisis, et aux jours et à l'heure que tu programmes
 //     (ou à une date), vérifie les sites officiels, télécharge la nouvelle version, contrôle l'empreinte publiée
@@ -144,7 +144,7 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       const r = await download(ctx.fetch as never, rel, dir, { signal: ctrl.signal, rate: Number(ctx.settings.debit) || undefined, progress: (d, t) => { job.done = d; job.total = t; } });
       const ms = Date.now() - job.started;
       const hold = o.after ? await o.after(ctx, r.path, src).catch(() => undefined) : undefined;
-      if (hold) { const aside = join(root(ctx), '.mis-de-cote'); mkdirSync(aside, { recursive: true }); renameSync(r.path, join(aside, basename(r.path))); log(ctx, { what: 'mis de côté', source: src.id, name: src.name, version: rel.version, file: rel.file, detail: hold }); say(ctx, 'critique', `${src.name} ${rel.version} mis de côté`, `L'antivirus a trouvé : ${hold}. Le fichier n'a pas remplacé l'ancienne version.`, { steps: ['Ne lance pas ce fichier', 'Regarde le détail dans Ullr', 'Garde l\'ancienne version en attendant'] }); return `🛡 ${src.name} ${rel.version} mis de côté (antivirus : ${hold}).`; }
+      if (hold) { const aside = join(root(ctx), '.mis-de-cote'); mkdirSync(aside, { recursive: true }); renameSync(r.path, join(aside, basename(r.path))); log(ctx, { what: 'mis de côté', source: src.id, name: src.name, version: rel.version, file: rel.file, detail: hold }); say(ctx, 'critique', `${src.name} ${rel.version} mis de côté`, `L'antivirus a trouvé : ${hold}. Le fichier n'a pas remplacé l'ancienne version.`, { steps: ['Ne lance pas ce fichier', 'Regarde le détail dans Asclépios', 'Garde l\'ancienne version en attendant'] }); return `🛡 ${src.name} ${rel.version} mis de côté (antivirus : ${hold}).`; }
       log(ctx, { what: 'téléchargé', source: src.id, name: src.name, version: rel.version, file: rel.file, size: r.size, sha256: r.sha256, ms, detail: r.checked ? 'empreinte de l\'éditeur vérifiée' : 'l\'éditeur ne publie pas d\'empreinte' });
       // Ménage : seulement les N dernières versions.
       const pruned = toPrune(scan(root(ctx), [src]).found, keep(ctx));

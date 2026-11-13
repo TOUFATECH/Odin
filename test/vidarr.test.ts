@@ -1,6 +1,6 @@
-// Víðarr, le DNS d'Odin, de A à Z : format des messages, règles et listes, serveur (cache, blocage, alias,
+// Sphinx, le DNS d'Odin, de A à Z : format des messages, règles et listes, serveur (cache, blocage, alias,
 // noms de la maison, réglages par appareil, pause, menaces, limite), amont chiffré (HTTPS, TLS),
-// résolution autonome depuis la racine, appli (actions, journal, statistiques) et lien avec le VPN Gjöll.
+// résolution autonome depuis la racine, appli (actions, journal, statistiques) et lien avec le VPN Vortex.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import dgram from 'node:dgram';
@@ -185,7 +185,7 @@ test('récursif : depuis la racine, délégations avec et sans adresses jointes,
     assert.deepEqual(b.an.map((x) => [x.name, x.type]), [['web.exemple.fr', TYPE.CNAME], ['site.autre.net', TYPE.A]], 'alias vers une autre zone, dont le serveur a dû être cherché');
     assert.equal(b.an.length, 2); assert.equal([...b.an[1].data].join('.'), '198.51.100.9');
     assert.equal((await recurse('rien.exemple.fr', TYPE.A, o)).rcode, RCODE.NXDOMAIN);
-    // Par le serveur Víðarr, mode « récursif » : réponse complète au client.
+    // Par le serveur Sphinx, mode « récursif » : réponse complète au client.
     const x = await server({ upstreams: ['récursif'] }, [], { recursive: o });
     try { assert.deepEqual((await x.ask('web.exemple.fr')).an, ['site.autre.net', '198.51.100.9']); } finally { x.end(); }
   } finally { for (const s of servers) s.close(); }
@@ -198,7 +198,7 @@ test('statistiques : total, bloquées, temps moyen, classements, par heure', () 
   assert.deepEqual(st.topBlocked, [['pub.fr', 2]]); assert.deepEqual(st.topDomains, [['a.fr', 2]]); assert.equal(st.perHour.length, 24); assert.equal(st.perHour[23], 4);
 });
 
-test('appli Víðarr : démarrer, tester, bloquer, autoriser, listes, services, appareils, noms, pause, journal ; lien avec le VPN', async () => {
+test('appli Sphinx : démarrer, tester, bloquer, autoriser, listes, services, appareils, noms, pause, journal ; lien avec le VPN', async () => {
   const home = mkdtempSync(join(tmpdir(), 'vidarr-')), up = await fakeUpstream();
   setTunFactory(async () => ({ write: () => {}, onPacket: () => {}, close: () => {} }));
   const fetched: string[] = [];
@@ -210,7 +210,7 @@ test('appli Víðarr : démarrer, tester, bloquer, autoriser, listes, services, 
   const act = (a: string, i: Record<string, unknown> = {}) => v.act('vidarr', a, i);
   try {
     v.ctx('vidarr').saveSettings({ dns: { ...DEFAULTS, upstreams: [up.up], fallback: [] } });
-    assert.match((await act('demarrer', { port: 0 })).text, /Víðarr répond sur le port \d+/);
+    assert.match((await act('demarrer', { port: 0 })).text, /Sphinx répond sur le port \d+/);
     assert.match((await act('mettre_a_jour')).text, /✅ Pubs et pisteurs : 2 règles\n✅ Sites dangereux \(virus, hameçonnage\) : 1 règles\n✅ Contrôle parental \(sites pour adultes\) : 1 règles/);
     assert.match((await act('tester', { domaine: 'x.pub.fr' })).text, /^x\.pub\.fr : 🚫 bloqué par « \|\|pub\.fr\^ » \(Pubs et pisteurs\)\nRéponse : 0\.0\.0\.0$/);
     assert.match((await act('tester', { domaine: 'exemple.fr' })).text, /✅ pas de règle, laissé passer\nRéponse : 93\.184\.216\.34/);
@@ -231,9 +231,9 @@ test('appli Víðarr : démarrer, tester, bloquer, autoriser, listes, services, 
     assert.match((await act('journal', { filtre: 'pub.fr', statut: 'tous' })).text, /pub\.fr/);
     const view = await v.module('vidarr')!.view(v.ctx('vidarr'), new URLSearchParams());
     assert.ok(view.kpis!.some((k) => k.label === 'Requêtes (24 h)')); assert.ok(view.sections.some((s) => s.title === 'Journal (dernières requêtes)'));
-    // Lien Gjöll → Víðarr : un appareil du VPN qui passe par le DNS d'Odin.
+    // Lien Vortex → Sphinx : un appareil du VPN qui passe par le DNS d'Odin.
     const g = await v.act('gjoll', 'ajouter', { nom: 'Téléphone', tout: true, dns_odin: true });
-    assert.match(g.text, /Il passe par le DNS d'Odin \(Víðarr\)/);
+    assert.match(g.text, /Il passe par le DNS d'Odin \(Sphinx\)/);
     assert.match((g.data as { conf: string }).conf, /DNS = 10\.8\.0\.1\n/, 'le téléphone résout par Odin, à travers le tunnel');
     assert.match((await act('tester', { domaine: 'adulte.example', appareil: '10.8.0.2' })).text, /laissé passer/, 'il suit les réglages de la maison');
     const clients = (v.ctx('vidarr').settings.dns as DnsSettings).clients;
@@ -241,7 +241,7 @@ test('appli Víðarr : démarrer, tester, bloquer, autoriser, listes, services, 
     await v.act('gjoll', 'modifier', { nom: 'Téléphone', nouveau_nom: 'Tel Awa', tout: 'inchangé', maillage: 'inchangé', fin: '', dns_odin: 'inchangé' });
     assert.ok((v.ctx('vidarr').settings.dns as DnsSettings).clients.some((c) => c.name === 'VPN · Tel Awa') && !(v.ctx('vidarr').settings.dns as DnsSettings).clients.some((c) => c.name === 'VPN · Téléphone'), 'renommé des deux côtés');
     await v.act('gjoll', 'revoquer', { nom: 'Tel Awa' });
-    assert.ok(!(v.ctx('vidarr').settings.dns as DnsSettings).clients.some((c) => c.name.startsWith('VPN ·')), 'révoqué : oublié de Víðarr aussi');
+    assert.ok(!(v.ctx('vidarr').settings.dns as DnsSettings).clients.some((c) => c.name.startsWith('VPN ·')), 'révoqué : oublié de Sphinx aussi');
     assert.match((await act('arreter')).text, /arrêté/);
   } finally { v.stop(); up.close(); rmSync(home, { recursive: true, force: true }); }
 });

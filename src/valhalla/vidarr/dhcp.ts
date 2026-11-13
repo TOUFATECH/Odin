@@ -1,8 +1,8 @@
-// Le serveur DHCP d'Odin (dans Víðarr) : il donne aux appareils de la maison leur adresse, la box comme
+// Le serveur DHCP d'Odin (dans Sphinx) : il donne aux appareils de la maison leur adresse, la box comme
 // passerelle et Odin comme DNS. Baux enregistrés, adresses fixes par appareil (adresse MAC), noms des
 // appareils retenus (et servis par le DNS : « telephone-awa.maison »). Écrit dans Odin (RFC 2131 / 2132).
 //
-// À NE PAS faire tourner en même temps que le DHCP de la box : Víðarr vérifie qu'aucun autre serveur ne
+// À NE PAS faire tourner en même temps que le DHCP de la box : Sphinx vérifie qu'aucun autre serveur ne
 // répond avant de s'allumer.
 
 import dgram from 'node:dgram';
@@ -41,8 +41,8 @@ export function buildPacket(p: Partial<Omit<Packet, 'options'>> & { op: number; 
   return out.length < 300 ? Buffer.concat([out, Buffer.alloc(300 - out.length)]) : out;
 }
 /**
- * Démarrage par le réseau (Þjálfi) : quand le DHCP d'Odin répond à une machine qui démarre en PXE, il ajoute
- * l'adresse du serveur de démarrage et le nom du chargeur. Þjálfi branche ce crochet quand il est allumé.
+ * Démarrage par le réseau (Genèse) : quand le DHCP d'Odin répond à une machine qui démarre en PXE, il ajoute
+ * l'adresse du serveur de démarrage et le nom du chargeur. Genèse branche ce crochet quand il est allumé.
  */
 export const pxeHook: { get?: (p: Packet) => { siaddr: string; file: string; options: Array<[number, Buffer]> } | undefined } = {};
 const u32 = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32BE(n >>> 0); return b; };

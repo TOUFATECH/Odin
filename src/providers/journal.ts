@@ -138,7 +138,7 @@ export function describeEntry(e: RouteEntry): string {
   return `${when} · ${PURPOSE_TXT[e.purpose] ?? e.purpose} · ${who} · ${(e.ms / 1000).toFixed(1)} s, ${e.tokensIn + e.tokensOut} jetons${cost} · ${e.reason}${fall}${e.request ? ` · demande « ${e.request} »` : ''} [${e.channel}, tour ${e.turnId}]`;
 }
 
-/** Ce qu'il faut du journal (Muninn le fournit) : gardé abstrait pour les tests. */
+/** Ce qu'il faut du journal (Mnémosyne le fournit) : gardé abstrait pour les tests. */
 export interface RouteSource {
   routes(q: { limit?: number; sessionId?: string; turnId?: string; since?: number }): RouteEntry[];
   recentTurns(sessionId: string, limit?: number): string[];

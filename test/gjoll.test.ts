@@ -1,4 +1,4 @@
-// Gjöll (VPN) de A à Z : mise en route pas à pas, appareils (QR code, fichier .conf, modifier, fin d'accès),
+// Vortex (VPN) de A à Z : mise en route pas à pas, appareils (QR code, fichier .conf, modifier, fin d'accès),
 // réglages du tunnel, allumer / éteindre. Les commandes système sont simulées : rien ne touche la machine.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,7 +35,7 @@ function world(o: { python?: boolean; on?: boolean } = {}) {
 }
 const act = async (v: Valhalla, a: string, i: Record<string, unknown> = {}) => v.act('gjoll', a, i);
 
-test('Gjöll : la mise en route se fait pas à pas, chaque étape avec son bouton, et disparaît une fois finie', async () => {
+test('Vortex : la mise en route se fait pas à pas, chaque étape avec son bouton, et disparaît une fois finie', async () => {
   const w = world();
   try {
     const steps = async () => { const view = await w.v.module('gjoll')!.view(w.v.ctx('gjoll'), new URLSearchParams()); return view.sections.find((s) => s.kind === 'steps') as { items: Array<{ title: string; done: boolean; action?: string }> } | undefined; };
@@ -57,7 +57,7 @@ test('Gjöll : la mise en route se fait pas à pas, chaque étape avec son bouto
   } finally { w.end(); }
 });
 
-test('Gjöll : un appareil ajouté donne tout de suite son QR code et son fichier ; on le modifie, on le coupe à une date', async () => {
+test('Vortex : un appareil ajouté donne tout de suite son QR code et son fichier ; on le modifie, on le coupe à une date', async () => {
   const w = world();
   try {
     await act(w.v, 'detecter'); await act(w.v, 'allumer');
@@ -98,7 +98,7 @@ test('Gjöll : un appareil ajouté donne tout de suite son QR code et son fichie
   } finally { w.end(); }
 });
 
-test('Gjöll : réglages du tunnel (port, MTU, maintien) vérifiés et appliqués aux deux bouts', async () => {
+test('Vortex : réglages du tunnel (port, MTU, maintien) vérifiés et appliqués aux deux bouts', async () => {
   const w = world();
   try {
     await act(w.v, 'ajouter', { nom: 'Tel', tout: true });
@@ -114,7 +114,7 @@ test('Gjöll : réglages du tunnel (port, MTU, maintien) vérifiés et appliqué
   } finally { w.end(); }
 });
 
-test('Gjöll : si la machine ne peut pas faire tourner le moteur, Odin le dit au lieu de faire semblant', async () => {
+test('Vortex : si la machine ne peut pas faire tourner le moteur, Odin le dit au lieu de faire semblant', async () => {
   const w = world({ python: false });
   try {
     const r = await act(w.v, 'allumer');

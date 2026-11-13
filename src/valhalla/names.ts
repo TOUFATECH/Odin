@@ -1,6 +1,6 @@
 // Les nouveaux noms des applis d'Odin et des parties de leurs fiches (maquette « Icônes et noms d'Odin »,
 // validés par toi le 13/11/2026). Les identifiants ne changent pas (réglages, adresses, historique) : seul le nom
-// affiché change, et l'ancien nom reste compris (« ouvre Ullr » marche toujours).
+// affiché change. Les anciens noms sont oubliés : Odin ne les affiche plus et ne les comprend plus.
 import type { Module } from './types.ts';
 
 /** Nom affiché de chaque appli (identifiant → nom). */
@@ -60,9 +60,19 @@ export const NAMES: Record<string, string> = {
  "ivaldi": "Dédale",
  "snotra": "Plume",
  "champollion": "Champollion",
- "leikvangr": "Olympie"
+ "leikvangr": "Olympie",
+ "skuld": "Arche",
+ "rodd": "Écho",
+ "eitri": "Andromède",
+ "hermod": "Satellites",
+ "brisingamen": "Thésauros",
+ "appareils": "Constellation",
+ "brokkr": "Héphaïstos",
+ "bragi": "Orphée",
+ "heidrun": "Héra"
 };
-/** Les anciens noms (pour retrouver les fiches et les notes qui les portent). */
+/** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
+ *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
 export const OLD_NAMES: Record<string, string> = {
  "huginn": "Huginn",
  "muninn": "Muninn",
@@ -119,7 +129,16 @@ export const OLD_NAMES: Record<string, string> = {
  "ivaldi": "Ívaldi",
  "snotra": "Snotra",
  "champollion": "Reconnaissance",
- "leikvangr": "Leikvangr"
+ "leikvangr": "Leikvangr",
+ "skuld": "Skuld",
+ "rodd": "Rödd",
+ "eitri": "Eitri",
+ "hermod": "Hermod",
+ "brisingamen": "Brísingamen",
+ "appareils": "Appareils",
+ "brokkr": "Brokkr",
+ "bragi": "Bragi",
+ "heidrun": "Heiðrún"
 };
 /** Les parties à l'intérieur des fiches (« Narfi · Telnet » → « Loki · Telnet »). */
 export const PART_NAMES: Record<string, string> = {
@@ -152,6 +171,7 @@ export const PART_NAMES: Record<string, string> = {
  "Ýdalir": "Mosaïque",
  "Breiðablik": "Écume",
  "Vör": "Stentor",
+ "Víðarr": "Sphinx",
  "Gjallarhorn": "Triton",
  "Ran": "Euterpe",
  "Nornes": "Moires",
@@ -168,12 +188,21 @@ export function renamePart(label: string): string {
   const m = /^(.+?)( · .*)?$/.exec(label); if (!m) return label;
   const n = PART_NAMES[m[1]]; return n ? `${n}${m[2] ?? ''}` : label;
 }
-/** Applique les nouveaux noms à une appli (l'ancien nom devient un mot-clé). */
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/ð/g, 'd').replace(/þ/g, 'th').replace(/æ/g, 'ae');
+/** Anciens noms qui sont aussi des mots courants : on les garde comme mots-clés (« mes appareils »). */
+const COMMON = new Set(['appareils', 'commandes', 'apparence', 'reconnaissance']);
+/** Vrai si l'identifiant interne d'une appli est un ancien nom oublié (« garmr ») : Odin ne le comprend plus. Pur. */
+export function forgetsId(id: string): boolean { const n = NAMES[id]; return !!n && !COMMON.has(id) && fold(n) !== fold(id); }
+/** Applique le nouveau nom à une appli : l'ancien nom disparaît aussi de ses mots-clés. */
 export function rename(m: Module): Module {
   const n = NAMES[m.id];
   const modes = m.modes?.map(renamePart);
   if (!n && !modes) return m;
-  const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const words = n && n !== m.name ? [...new Set([...m.words, fold(m.name), m.name.toLowerCase(), fold(n), n.toLowerCase()])] : m.words;
+  let words = m.words;
+  if (n && n !== m.name) {
+    const old = new Set([fold(m.name), fold(OLD_NAMES[m.id] ?? m.name), fold(m.id)].filter((w) => w !== fold(n) && !COMMON.has(w)));
+    const hasOld = (w: string) => fold(w).split(/[^a-z0-9]+/).some((t) => old.has(t));
+    words = [...new Set([...m.words.filter((w) => !hasOld(w)), fold(n), n.toLowerCase()])];
+  }
   return Object.assign(m, { ...(n ? { name: n } : {}), words, ...(modes ? { modes } : {}) });
 }

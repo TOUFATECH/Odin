@@ -1,4 +1,4 @@
-// Svalinn — le bouclier du Wi-Fi de la maison (maquettes validées « Svalinn · Wi-Fi de la maison » et « Régler la box ») :
+// Zéphyr — le bouclier du Wi-Fi de la maison (maquettes validées « Zéphyr · Wi-Fi de la maison » et « Régler la box ») :
 // la note de sécurité du Wi-Fi et ce qu'il faut corriger (le plus urgent d'abord), les réseaux et les canaux autour,
 // les appareils connectés (et leur nombre sur 24 h), le débit, le Wi-Fi invités (QR code), la box.
 // Rien ne change sans ton accord : chaque changement est précédé d'une sauvegarde de l'état de la box, et si les
@@ -63,7 +63,7 @@ export async function refresh(ctx: ModCtx): Promise<Etat> {
   const a = assess(facts);
   const e: Etat = { at: ctx.now().toISOString(), gateway: gw, nets: sc.nets, mine, box, upnpSeen, debit: prev?.debit, facts, ...a, source: [box ? (box.model && box.model.toLowerCase().includes(box.brand.toLowerCase()) ? box.model : `${box.brand}${box.model ? ` ${box.model}` : ''}`) : err ? `box : ${err}` : boxCfg(ctx) ? 'box non pilotée' : 'box non reliée', sc.how].join(' · ') };
   mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); writeFileSync(etatFile(ctx), JSON.stringify(e), { mode: 0o600 });
-  if (a.fixes.some((f) => f.level === 'urgent')) ctx.alert({ level: 'haute', title: `Wi-Fi : ${a.fixes.filter((f) => f.level === 'urgent').map((f) => f.title).join(', ')}`, detail: `Note ${a.note}/100. Svalinn propose de corriger (avec ton accord).`, key: 'svalinn-urgent' });
+  if (a.fixes.some((f) => f.level === 'urgent')) ctx.alert({ level: 'haute', title: `Wi-Fi : ${a.fixes.filter((f) => f.level === 'urgent').map((f) => f.title).join(', ')}`, detail: `Note ${a.note}/100. Zéphyr propose de corriger (avec ton accord).`, key: 'svalinn-urgent' });
   return e;
 }
 const devicesOf = async (ctx: ModCtx, e?: Etat) => e?.box?.devices ?? await neigh(ctx);
@@ -71,10 +71,10 @@ const GUIDE: Record<Change['kind'], (host: string) => string> = {
   wps: (h) => `Ouvre http://${h} → Wi-Fi → WPS → désactive-le, puis enregistre.`,
   securite: (h) => `Ouvre http://${h} → Wi-Fi → Sécurité → choisis « WPA2/WPA3 » (ou « WPA2-WPA3 mixte »), enregistre. Le Wi-Fi coupe environ 1 minute.`,
   canal: (h) => `Ouvre http://${h} → Wi-Fi → 2,4 GHz → Canal → choisis celui proposé (au lieu d'« automatique »), enregistre.`,
-  upnp: (h) => `Ouvre http://${h} → Réseau (ou Avancé) → UPnP → désactive-le. Odin garde ses propres ouvertures de ports dans Gjöll.`,
+  upnp: (h) => `Ouvre http://${h} → Réseau (ou Avancé) → UPnP → désactive-le. Odin garde ses propres ouvertures de ports dans Vortex.`,
   distance: (h) => `Ouvre http://${h} → Accès à distance (ou Administration) → désactive l'accès depuis Internet.`,
   invites: (h) => `Ouvre http://${h} → Wi-Fi → Wi-Fi invités → active ou coupe.`,
-  mot_de_passe: (h) => `Ouvre http://${h} → Administration → Mot de passe : mets-en un nouveau (Odin peut t'en proposer un), puis donne-le à Svalinn (« Relier la box ») : il va dans le coffre.`,
+  mot_de_passe: (h) => `Ouvre http://${h} → Administration → Mot de passe : mets-en un nouveau (Odin peut t'en proposer un), puis donne-le à Zéphyr (« Relier la box ») : il va dans le coffre.`,
 };
 function label(c: Change): string { return c.kind === 'wps' ? `WPS ${c.on ? 'activé' : 'coupé'}` : c.kind === 'securite' ? `chiffrement ${c.mode}` : c.kind === 'canal' ? `canal 2,4 GHz → ${c.chan}` : c.kind === 'upnp' ? `UPnP ${c.on ? 'activé' : 'coupé'}` : c.kind === 'distance' ? `accès à distance ${c.on ? 'ouvert' : 'fermé'}` : c.kind === 'invites' ? `Wi-Fi invités ${c.on ? 'allumé' : 'coupé'}` : 'mot de passe de la box'; }
 /** Un changement accepté : sauvegarde, application, puis surveillance (retour automatique si le Wi-Fi ne revient pas). */
@@ -107,7 +107,7 @@ export function hours(h: Array<{ at: string; n: number }>, now: Date): number[] 
 }
 
 export const svalinn: Module = {
-  id: 'svalinn', name: 'Svalinn', family: 'Sécurité',
+  id: 'svalinn', name: 'Zéphyr', family: 'Sécurité',
   what: 'Le Wi-Fi de la maison : sa note de sécurité et ce qu\'il faut corriger, les réseaux et canaux autour, qui est connecté, le débit, le Wi-Fi invités, et la box (Livebox pilotée, les autres guidées). Rien ne change sans ton accord.',
   does: ['note du Wi-Fi sur 100 et corrections, le plus urgent d\'abord (WPS, chiffrement, mot de passe d\'origine, accès à distance, UPnP, canal encombré)', 'réseaux voisins et meilleur canal (carte Wi-Fi de la machine d\'Odin)', 'appareils connectés et leur nombre sur 24 h', 'test de débit', 'Wi-Fi invités avec QR code', 'Livebox : lecture et changements avec ton accord, sauvegarde avant, retour automatique si le Wi-Fi ne revient pas', 'autres box : Odin te guide écran par écran ; il ne force jamais l\'accès'],
   from: ['Home Assistant', 'WiFi Analyzer'], upstream: [],
@@ -124,7 +124,7 @@ export const svalinn: Module = {
         const pw = s(i.mot_de_passe);
         if (marque === 'livebox' && pw) { const d = new Livebox(host, pw, { user: s(i.utilisateur) || 'admin', fetch: ctx.fetch }); await d.login(); }
         ctx.saveSettings({ box: { host, marque, utilisateur: s(i.utilisateur) || 'admin' } });
-        if (pw) { setSecret(ctx, 'box', pw); await ctx.call('brisingamen', 'ajouter', { nom: 'Box internet (Svalinn)', identifiant: s(i.utilisateur) || 'admin', mot_de_passe: pw, site: `http://${host}`, coffre: 'TOUFATECH' }, 'ranger le mot de passe de la box').catch(() => undefined); }
+        if (pw) { setSecret(ctx, 'box', pw); await ctx.call('brisingamen', 'ajouter', { nom: 'Box internet (Zéphyr)', identifiant: s(i.utilisateur) || 'admin', mot_de_passe: pw, site: `http://${host}`, coffre: 'TOUFATECH' }, 'ranger le mot de passe de la box').catch(() => undefined); }
         return { text: `📡 Box reliée (${host}, ${marque})${pw ? ' : connexion réussie, mot de passe rangé dans le coffre' : ' sans mot de passe : Odin lit ce qu\'il peut et te guide'}.` };
       } },
     { id: 'corriger', label: 'Corriger', what: 'Applique une correction proposée (la box est sauvegardée avant ; retour automatique si le Wi-Fi ne revient pas)', quick: false, params: [{ key: 'correction', label: 'Correction', kind: 'select', options: ['wps', 'chiffrement', 'canal', 'upnp', 'distance', 'mot_de_passe'], required: true }],
@@ -132,14 +132,14 @@ export const svalinn: Module = {
       run: async (ctx, i) => { const e = lastEtat(ctx) ?? await refresh(ctx), c = changeOf(e, s(i.correction)); if (!c) return { text: `Rien à corriger pour « ${s(i.correction)} » d'après la dernière analyse.`, ok: false }; const r = await applyChange(ctx, c); await refresh(ctx).catch(() => undefined); return r; } },
     { id: 'tout_corriger', label: 'Tout corriger avec Odin', what: 'Applique toutes les corrections proposées, une par une, avec une seule sauvegarde avant', quick: false, words: ['corrige tout le wifi', 'securise mon wifi', 'sécurise mon wifi'], grave: (_i, ctx) => { const e = ctx ? lastEtat(ctx) : undefined; return `corriger sur la box : ${(e?.fixes ?? []).filter((f) => f.change && f.change.kind !== 'mot_de_passe').map((f) => f.title).join(', ') || 'rien'} (le Wi-Fi peut couper environ 1 minute)`; },
       run: async (ctx) => { const e = await refresh(ctx), out: string[] = []; for (const f of e.fixes.filter((x) => x.change && x.change.kind !== 'mot_de_passe')) { try { out.push((await applyChange(ctx, f.change!)).text); } catch (err) { out.push(`✗ ${f.title} : ${(err as Error).message}`); } } await refresh(ctx).catch(() => undefined); return { text: out.join('\n') || 'Rien à corriger.' }; } },
-    { id: 'annuler', label: 'Revenir en arrière', what: 'Remet le dernier réglage changé par Svalinn', quick: false, grave: () => 'remettre le dernier réglage de la box', run: async (ctx) => { const p = ctx.settings.attente as Pending | undefined, last = ctx.settings.dernier as Pending | undefined, x = p ?? last; if (!x?.undo) return { text: 'Rien à annuler.', ok: false }; const r = await applyChange(ctx, x.undo); ctx.saveSettings({ attente: undefined, dernier: undefined }); return { text: `↩ ${x.label} annulé. ${r.text}` }; } },
+    { id: 'annuler', label: 'Revenir en arrière', what: 'Remet le dernier réglage changé par Zéphyr', quick: false, grave: () => 'remettre le dernier réglage de la box', run: async (ctx) => { const p = ctx.settings.attente as Pending | undefined, last = ctx.settings.dernier as Pending | undefined, x = p ?? last; if (!x?.undo) return { text: 'Rien à annuler.', ok: false }; const r = await applyChange(ctx, x.undo); ctx.saveSettings({ attente: undefined, dernier: undefined }); return { text: `↩ ${x.label} annulé. ${r.text}` }; } },
     { id: 'invites', label: 'Wi-Fi invités', what: 'Allume ou coupe le Wi-Fi invités (Internet seulement : ni tes PC, ni tes caméras)', params: [{ key: 'allume', label: 'Allumé', kind: 'boolean', default: true }], grave: (i) => `${i.allume === false || s(i.allume) === 'false' ? 'couper' : 'allumer'} le Wi-Fi invités`, run: (ctx, i) => applyChange(ctx, { kind: 'invites', on: !(i.allume === false || s(i.allume) === 'false') }) },
-    { id: 'qr_invites', label: 'QR code invités', what: 'Le QR code du Wi-Fi invités, à montrer à tes visiteurs', read: true, run: (ctx) => { const n = s((ctx.settings.invites as { ssid?: string } | undefined)?.ssid), pw = secrets(ctx).invites; if (!n) return { text: 'Donne d\'abord le nom et le mot de passe du Wi-Fi invités (Réglages de Svalinn).', ok: false }; return { text: `QR code du Wi-Fi ${n}`, data: { svg: qrSvg(wifiQr(n, pw ?? '', pw ? 'WPA' : 'nopass'), { scale: 6, margin: 2 }), alt: `QR code du Wi-Fi ${n}` } }; } },
+    { id: 'qr_invites', label: 'QR code invités', what: 'Le QR code du Wi-Fi invités, à montrer à tes visiteurs', read: true, run: (ctx) => { const n = s((ctx.settings.invites as { ssid?: string } | undefined)?.ssid), pw = secrets(ctx).invites; if (!n) return { text: 'Donne d\'abord le nom et le mot de passe du Wi-Fi invités (Réglages de Zéphyr).', ok: false }; return { text: `QR code du Wi-Fi ${n}`, data: { svg: qrSvg(wifiQr(n, pw ?? '', pw ? 'WPA' : 'nopass'), { scale: 6, margin: 2 }), alt: `QR code du Wi-Fi ${n}` } }; } },
     { id: 'appareils', label: 'Qui est connecté ?', what: 'Les appareils connectés à la maison', read: true, words: ['qui est connecte', 'qui est connecté', 'appareils connectes', 'appareils connectés'], run: async (ctx) => { const l = (await devicesOf(ctx, lastEtat(ctx))).filter((d) => d.active); return { text: `${l.length} appareil${l.length > 1 ? 's' : ''} connecté${l.length > 1 ? 's' : ''}\n${l.map((d) => `- ${d.name}${d.ip ? ` (${d.ip})` : ''}${d.band ? ` · ${d.band}` : d.wifi ? ' · Wi-Fi' : ''}`).join('\n')}`, data: l }; } },
     { id: 'tester_debit', label: 'Tester le débit', what: 'Télécharge 25 Mo depuis un serveur de test (Cloudflare) et mesure la vitesse', read: true, words: ['teste la vitesse', 'test de debit', 'test de débit', 'vitesse internet'], run: async (ctx) => { const d = await speed(ctx), e = lastEtat(ctx); if (e) { e.debit = d; writeFileSync(etatFile(ctx), JSON.stringify(e), { mode: 0o600 }); } return { text: `⚡ ${d.mbps} Mb/s en réception.`, data: d }; } },
     { id: 'regler', label: 'Régler', what: 'Wi-Fi invités (nom, mot de passe), retour automatique, ce que tu sais de ta box', quick: false, params: [{ key: 'invites_nom', label: 'Nom du Wi-Fi invités', kind: 'text', default: '' }, { key: 'invites_mdp', label: 'Mot de passe du Wi-Fi invités', kind: 'password' }, { key: 'retour', label: 'Retour automatique (3 min)', kind: 'boolean', default: true }, { key: 'origine', label: 'La box a encore son mot de passe d\'origine', kind: 'boolean', default: false }],
       run: (ctx, i) => { const n = s(i.invites_nom); ctx.saveSettings({ retour: !(i.retour === false || s(i.retour) === 'false'), motDePasseOrigine: i.origine === true || s(i.origine) === 'true', ...(n ? { invites: { ssid: n } } : {}) }); if (s(i.invites_mdp)) setSecret(ctx, 'invites', s(i.invites_mdp)); return { text: 'Réglé.' }; } },
-    { id: 'resume', label: 'Résumé', what: 'Le dernier état connu (sans relire la box), pour la page de Svalinn', read: true, quiet: true, quick: false, run: async (ctx) => {
+    { id: 'resume', label: 'Résumé', what: 'Le dernier état connu (sans relire la box), pour la page de Zéphyr', read: true, quiet: true, quick: false, run: async (ctx) => {
       const e = lastEtat(ctx), b = boxCfg(ctx), p = (ctx.settings.attente ?? ctx.settings.dernier) as Pending | undefined;
       const saves = (() => { try { return readdirSync(join(ctx.dir, 'sauvegardes')).sort(); } catch { return []; } })();
       return { text: e ? `${e.note}/100` : 'pas encore analysé', data: { etat: e, devices: await devicesOf(ctx, e), heures: hours(history(ctx), ctx.now()), box: b ? { ...b, motDePasse: Boolean(secrets(ctx).box) } : undefined, retour: ctx.settings.retour !== false, invites: { ssid: (ctx.settings.invites as { ssid?: string } | undefined)?.ssid, motDePasse: Boolean(secrets(ctx).invites) }, sauvegarde: saves.at(-1)?.replace(/\.json$/, ''), annulable: p?.undo ? p.label : undefined } };
@@ -154,7 +154,7 @@ export const svalinn: Module = {
       if (p.undo && p.wifiBefore >= 2 && back >= 0 && back < Math.ceil(p.wifiBefore / 2)) {
         try { await applyChange(ctx, p.undo); ctx.saveSettings({ attente: undefined }); ctx.alert({ level: 'haute', title: `Wi-Fi : ${p.label} annulé tout seul`, detail: `Seulement ${back} appareil(s) en Wi-Fi sur ${p.wifiBefore} sont revenus en 3 minutes : l'ancien réglage est remis.`, key: 'svalinn-retour' }); }
         catch (e) { ctx.alert({ level: 'critique', title: 'Wi-Fi : retour automatique impossible', detail: (e as Error).message, key: 'svalinn-retour' }); }
-      } else if (back < 0 && driver(ctx)) ctx.alert({ level: 'haute', title: 'La box ne répond plus depuis le changement', detail: `${p.label} : vérifie la box (« Revenir en arrière » dans Svalinn quand elle répond).`, key: 'svalinn-retour' });
+      } else if (back < 0 && driver(ctx)) ctx.alert({ level: 'haute', title: 'La box ne répond plus depuis le changement', detail: `${p.label} : vérifie la box (« Revenir en arrière » dans Zéphyr quand elle répond).`, key: 'svalinn-retour' });
     }
     // Le nombre d'appareils, toutes les 10 minutes (pour le graphique sur 24 h).
     const h = history(ctx), last = h.at(-1);

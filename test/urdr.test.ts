@@ -1,4 +1,4 @@
-// Urðr (bases de données, Studio, SQL) et Skuld (sauvegarde des bases) : client PostgreSQL maison (SCRAM),
+// Alexandrie (bases de données, Studio, SQL) et Arche (sauvegarde des bases) : client PostgreSQL maison (SCRAM),
 // SQLite, lecture seule garantie, modifications avec accord, sauvegarde relue, restauration, durée de garde.
 // Un vrai PostgreSQL est utilisé si ODIN_TEST_PG est donné (ex. postgres://postgres:mdp@127.0.0.1:55432/postgres).
 import { test } from 'node:test';
@@ -34,18 +34,18 @@ test('SCRAM-SHA-256 : exemple de la RFC 7677', () => {
   assert.equal(md5Password('u', 'p', Buffer.from([1, 2, 3, 4])).length, 35);
 });
 
-test('isSecretFile : secrets d\'Urðr et archives de Skuld protégés', () => {
+test('isSecretFile : secrets d\'Alexandrie et archives de Arche protégés', () => {
   assert.ok(isSecretFile('/home/x/.odin/valhalla/urdr/secrets.json'));
   assert.ok(isSecretFile('/home/x/.odin/valhalla/skuld/archives/compta/2026.dump'));
   assert.ok(isSecretFile('/home/x/.odin/valhalla/urdr/donnees/famille/base'));
   assert.ok(!isSecretFile('/home/x/.odin/valhalla/urdr/bases.json'));
 });
 
-/** Brísingamen simulé (le mot de passe y est rangé). */
+/** Thésauros simulé (le mot de passe y est rangé). */
 const coffre: string[] = [];
-const fakeVault: Module = { id: 'brisingamen', name: 'Brísingamen', family: 'Accès', what: '', does: [], from: [], upstream: [], words: [], actions: [{ id: 'ajouter', label: 'Ajouter', what: '', run: (_c, i) => { coffre.push(String(i.nom)); return { text: 'ok' }; } }], view: () => ({ sections: [] }) };
+const fakeVault: Module = { id: 'brisingamen', name: 'Thésauros', family: 'Accès', what: '', does: [], from: [], upstream: [], words: [], actions: [{ id: 'ajouter', label: 'Ajouter', what: '', run: (_c, i) => { coffre.push(String(i.nom)); return { text: 'ok' }; } }], view: () => ({ sections: [] }) };
 
-test('Urðr + Skuld (fausse base PostgreSQL en mémoire) : Studio, SQL, accord, sauvegarde ; zéro SQLite', async () => {
+test('Alexandrie + Arche (fausse base PostgreSQL en mémoire) : Studio, SQL, accord, sauvegarde ; zéro SQLite', async () => {
   const home = mkdtempSync(join(tmpdir(), 'urdr-'));
   const d = new FakeDriver({
     clients: { columns: [{ name: 'id', type: 'int8', nullable: false, pk: true }, { name: 'nom', type: 'text', nullable: false, pk: false }, { name: 'ville', type: 'text', nullable: true, pk: false }],
@@ -78,7 +78,7 @@ test('Urðr + Skuld (fausse base PostgreSQL en mémoire) : Studio, SQL, accord, 
   } finally { useOpener(undefined); useTools(); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('Skuld : quand sauvegarder, quoi garder', () => {
+test('Arche : quand sauvegarder, quoi garder', () => {
   const plan = { base: 'b', toutes: 'nuit' as const, heure: 3, garde: { jours: 7, semaines: 4, mois: 6 }, actif: true };
   const at = (s: string) => new Date(s);
   assert.equal(due(plan, undefined, at('2026-11-13T10:00:00')), true, 'jamais sauvegardée : tout de suite');
@@ -121,7 +121,7 @@ test('PostgreSQL réel : SCRAM, Studio, lecture seule, sauvegarde et restauratio
   } finally { await d.sql('drop table if exists t_rdv', true).catch(() => {}); await d.sql('drop table if exists t_clients', true).catch(() => {}); await d.close(); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('Skuld : base hébergée par Odin → pg_dump et pg_restore lancés DANS son conteneur', { skip: !PG && 'ODIN_TEST_PG absent' }, async () => {
+test('Arche : base hébergée par Odin → pg_dump et pg_restore lancés DANS son conteneur', { skip: !PG && 'ODIN_TEST_PG absent' }, async () => {
   const { dump, restore, verify } = await import('../src/valhalla/skuld/dump.ts');
   const home = mkdtempSync(join(tmpdir(), 'skuld-ct-')), seen: string[][] = [];
   // Le « conteneur » : la commande reçue est lancée ici, sur la socket locale du PostgreSQL d'essai.

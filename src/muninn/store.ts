@@ -1,4 +1,4 @@
-// Muninn — le corbeau de la mémoire. AUCUNE base de données : tout est rangé en fichiers lisibles
+// Mnémosyne — le corbeau de la mémoire. AUCUNE base de données : tout est rangé en fichiers lisibles
 // dans ~/.odin/memoire/ (un fichier JSONL par sorte de choses : sessions, messages, souvenirs,
 // appairages, tâches planifiées, coûts…), relus au démarrage et gardés en mémoire vive.
 // La recherche plein texte se fait en mémoire (mots sans accents, début de mot, classement BM25).
@@ -103,7 +103,7 @@ function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {
 }
 export const TRASH_DAYS = 7;
 
-export class Muninn {
+export class Mnemosyne {
   /** Le dossier de la mémoire (null : mémoire vive seulement). */
   readonly dir: string | null;
   readonly shelf: Shelf;

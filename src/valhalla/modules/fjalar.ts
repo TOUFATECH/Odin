@@ -1,16 +1,16 @@
-// Fjalar · les logiciels : un dossier d'installateurs (disque ou partage réseau) gardé à jour depuis les sites
-// officiels des éditeurs ou leurs dépôts GitHub, empreinte vérifiée, antivirus (Ullr), deux versions gardées.
+// Hermès · les logiciels : un dossier d'installateurs (disque ou partage réseau) gardé à jour depuis les sites
+// officiels des éditeurs ou leurs dépôts GitHub, empreinte vérifiée, antivirus (Asclépios), deux versions gardées.
 // Reprend les idées de Ketarin, WingetUI / UniGetUI et Chocolatey (dossier d'installateurs), réécrit pour Odin.
 import { forgeModule } from '../forge/forge.ts';
 import { SOFT } from '../forge/sources.ts';
 
 export const fjalar = forgeModule({
-  id: 'fjalar', name: 'Fjalar', kind: 'logiciel', noun: 'logiciel', nouns: 'logiciels', defaultDir: 'Logiciels',
+  id: 'fjalar', name: 'Hermès', kind: 'logiciel', noun: 'logiciel', nouns: 'logiciels', defaultDir: 'Logiciels',
   what: 'Les logiciels : un dossier d\'installateurs (disque ou partage réseau) gardé à jour depuis les sites officiels, aux jours que tu programmes, analysé par l\'antivirus, deux versions gardées.',
   from: ['Ketarin', 'UniGetUI', 'Chocolatey'], upstream: ['canneverbe/Ketarin', 'marticliment/UniGetUI', 'chocolatey/choco'],
   words: ['logiciels', 'installateurs', 'installateur', 'setup', 'programmes à installer', 'ketarin', 'mise à jour des logiciels', 'firefox', 'vlc', '7-zip'],
   sources: SOFT,
-  extraDoes: ['chaque installateur téléchargé passe par l\'antivirus (Ullr) : s\'il est suspect, il est mis de côté et ne remplace pas l\'ancien'],
+  extraDoes: ['chaque installateur téléchargé passe par l\'antivirus (Asclépios) : s\'il est suspect, il est mis de côté et ne remplace pas l\'ancien'],
   // L'antivirus d'Odin sur chaque installateur (les ISO, très gros, sont vérifiés par l'empreinte de l'éditeur).
   after: async (ctx, path) => {
     const r = await ctx.call('ullr', 'fichier', { chemin: path }, 'vérifier un installateur téléchargé');

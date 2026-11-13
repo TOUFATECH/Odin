@@ -1,4 +1,4 @@
-// Rán : décodeur de paquets (pcap → couches OSI), historique, qui parle à qui, pause, appli.
+// Ariane : décodeur de paquets (pcap → couches OSI), historique, qui parle à qui, pause, appli.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -112,7 +112,7 @@ test('pause, filtre de capture sans l\'interface d\'Odin, causes d\'échec', () 
   assert.equal(problem('autre chose'), undefined);
 });
 
-test('appli Rán : actions, portée « tout le réseau », effacement soumis à accord', async () => {
+test('appli Ariane : actions, portée « tout le réseau », effacement soumis à accord', async () => {
   assert.equal(ran.id, 'ran'); assert.ok(ran.words.includes('wireshark'));
   for (const id of ['lire', 'pause', 'reprendre', 'expliquer', 'paquet', 'effacer']) assert.ok(ran.actions.some((a) => a.id === id), id);
   const saved: Record<string, unknown> = {};

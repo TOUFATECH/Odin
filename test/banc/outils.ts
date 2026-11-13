@@ -9,7 +9,7 @@ import { sh, TOOLS } from './lib.ts';
 
 const MEDIAMTX = 'v1.15.3';
 
-/** Serveurs MCP officiels (référence du protocole) : pour essayer Ratatoskr contre de vrais serveurs tiers. */
+/** Serveurs MCP officiels (référence du protocole) : pour essayer Interprète contre de vrais serveurs tiers. */
 async function mcp(): Promise<void> {
   const dir = join(TOOLS, 'mcp');
   if (existsSync(join(dir, 'node_modules', '.bin', 'mcp-server-everything'))) { console.log(`✓ Serveurs MCP officiels déjà là (${dir})`); return; }

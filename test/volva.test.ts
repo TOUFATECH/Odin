@@ -1,6 +1,6 @@
-// Völva, la recherche façon Perplexity : fusion des moteurs, dédoublonnage, réponse sourcée par l'IA (citations
+// Pythie, la recherche façon Perplexity : fusion des moteurs, dédoublonnage, réponse sourcée par l'IA (citations
 // vérifiées), sans IA (extraits), questions de suite, conversation, applis d'Odin, historique, export, page web,
-// et l'outil de recherche d'Odin qui passe par Völva.
+// et l'outil de recherche d'Odin qui passe par Pythie.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -54,14 +54,14 @@ function world(withAi = true) {
   return { v, asked, act: (a: string, i: Record<string, unknown> = {}) => v.act('volva', a, i), end: () => { setValhalla(undefined); v.stop(); rmSync(home, { recursive: true, force: true }); } };
 }
 
-test('Völva dans Odin : réponse sourcée, suites, conversation, applis, historique, export, outil de recherche', async () => {
+test('Pythie dans Odin : réponse sourcée, suites, conversation, applis, historique, export, outil de recherche', async () => {
   const w = world();
   try {
     const r = await w.act('chercher', { question: 'Quelle est la dernière version d\'Ubuntu ?' }), e = r.data as { id: string; answer: string; sources: Array<{ n: number; url: string; engines: string[] }>; followups: string[]; apps: Array<{ id: string }>; ai: boolean };
     assert.ok(e.ai); assert.equal(e.answer, 'Ubuntu 24.04.3 est sorti [1], avec des correctifs [2]. Invention .', 'citation inventée retirée');
     assert.deepEqual(e.sources.map((x) => x.engines.join('+')), ['google+duckduckgo', 'Wikipédia', 'bing']);
     assert.deepEqual(e.followups, ['Comment mettre à jour ?', 'Quelles nouveautés ?', 'Faut-il réinstaller ?']);
-    assert.ok(e.apps.some((a) => a.id === 'eitri'), `Eitri proposé pour Ubuntu (${JSON.stringify(e.apps)})`);
+    assert.ok(e.apps.some((a) => a.id === 'eitri'), `Andromède proposé pour Ubuntu (${JSON.stringify(e.apps)})`);
     assert.match(r.text, /Sources :\n\[1\] Ubuntu 24\.04\.3 est sorti — https:\/\/ubuntu\.com\/blog\/24-04-3\?utm_source=x \(google, duckduckgo\)/);
     assert.match(w.asked[0], /<donnees>/);
     const r2 = await w.act('chercher', { question: 'Et comment la mettre à jour ?', suite: e.id });
@@ -71,7 +71,7 @@ test('Völva dans Odin : réponse sourcée, suites, conversation, applis, histor
     assert.equal(JSON.parse((await w.act('exporter', { id: e.id, format: 'json' })).text).id, e.id);
     assert.match((await w.act('moteurs')).text, /✅ SearXNG[\s\S]*⛔ Brave Search — il faut BRAVE_API_KEY[\s\S]*Bing a arrêté son API en août 2025/);
     const out = await webSearchTool.run({ query: 'ubuntu 24.04' }, {} as never) as { output: string };
-    assert.match(out.output, /Völva : google, duckduckgo, Wikipédia, bing/); assert.match(out.output, /1\. Ubuntu 24\.04\.3 est sorti\n   https:\/\/ubuntu\.com/);
+    assert.match(out.output, /Pythie : google, duckduckgo, Wikipédia, bing/); assert.match(out.output, /1\. Ubuntu 24\.04\.3 est sorti\n   https:\/\/ubuntu\.com/);
     assert.match((await w.act('searxng', { adresse: 'http://sansjson.test' })).text, /format JSON n'est pas activé/);
     // La page web : réservée à la session, conversation retrouvée par son identifiant.
     let authed = false;
@@ -103,16 +103,16 @@ test('sans IA : les meilleurs extraits, chacun avec sa source', async () => {
   } finally { w.end(); }
 });
 
-test('Völva sur Telegram : la carte (titre court, numéros en petit, l\'essentiel, sources en liens, rien d\'injecté)', async () => {
+test('Pythie sur Telegram : la carte (titre court, numéros en petit, l\'essentiel, sources en liens, rien d\'injecté)', async () => {
   const { searchCard, titleOf } = await import('../src/valhalla/volva/carte.ts');
   assert.equal(titleOf('Cherche comment sécuriser le Wi-Fi de la maison, et envoie-moi l\'audio'), 'Sécuriser le Wi-Fi de la maison');
-  const c = searchCard({ q: 'Comment sécuriser le Wi-Fi ?', answer: 'Change le mot de passe **d\'origine** [2], passe en WPA3 [1][3] <script>.', at: Date.UTC(2026, 10, 13, 15, 41), essentials: [{ title: 'WPS coupé', detail: 'Svalinn' }],
+  const c = searchCard({ q: 'Comment sécuriser le Wi-Fi ?', answer: 'Change le mot de passe **d\'origine** [2], passe en WPA3 [1][3] <script>.', at: Date.UTC(2026, 10, 13, 15, 41), essentials: [{ title: 'WPS coupé', detail: 'Zéphyr' }],
     sources: [1, 2, 3, 4, 5].map((n) => ({ n, title: `S${n}`, url: `https://ex${n}.fr/a?b="c"`, domain: n === 3 ? 'fr.wikipedia.org' : `ex${n}.fr`, snippet: '', engines: [] })) }, { tz: 'Indian/Mayotte' });
-  assert.match(c, /^<b>Sécuriser le Wi-Fi<\/b>/); assert.match(c, /d'origine<\/b> ², passe en WPA3 ¹˒³ &lt;script&gt;/); assert.match(c, /<blockquote>▫️ WPS coupé <i>— Svalinn<\/i><\/blockquote>/);
-  assert.match(c, /Sources : <a href="https:\/\/ex1\.fr\/a\?b=&quot;c&quot;">ex1\.fr<\/a> · .*>Wikipédia<\/a> · \+2/); assert.match(c, /<i>Völva · 5 sources · 18:41<\/i>$/);
+  assert.match(c, /^<b>Sécuriser le Wi-Fi<\/b>/); assert.match(c, /d'origine<\/b> ², passe en WPA3 ¹˒³ &lt;script&gt;/); assert.match(c, /<blockquote>▫️ WPS coupé <i>— Zéphyr<\/i><\/blockquote>/);
+  assert.match(c, /Sources : <a href="https:\/\/ex1\.fr\/a\?b=&quot;c&quot;">ex1\.fr<\/a> · .*>Wikipédia<\/a> · \+2/); assert.match(c, /<i>Pythie · 5 sources · 18:41<\/i>$/);
 });
 
-test('Völva sur Telegram : les boutons Écouter et Fiche deviennent des commandes d\'Odin', async () => {
+test('Pythie sur Telegram : les boutons Écouter et Fiche deviennent des commandes d\'Odin', async () => {
   const { buttonText } = await import('../src/bifrost/channel.ts');
   assert.equal(buttonText('vs:ec:a1b2c3d4e5'), '/volva ecouter a1b2c3d4e5'); assert.equal(buttonText('vs:fi:a1b2c3d4e5'), '/volva fiche a1b2c3d4e5'); assert.equal(buttonText('vs:xx:a1'), undefined);
 });

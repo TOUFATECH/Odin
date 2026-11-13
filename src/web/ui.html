@@ -1175,7 +1175,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <button class="nav-more" id="navMoreBtn" type="button" aria-expanded="false" aria-controls="navMore"><span>Plus</span><span class="badge" id="navMoreBadge" hidden></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
     <div class="navmore" id="navMore" hidden>
     <button class="tab" data-view="flows"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="6" height="5" rx="1.5"/><rect x="15" y="15" width="6" height="5" rx="1.5"/><rect x="15" y="4" width="6" height="5" rx="1.5"/><path d="M9 6.5h6M18 9v6M9 6.5c3 0 3 11 6 11"/></svg><span class="lbl">Automatisations</span></button>
-    <button class="tab" data-view="runes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9.5 9.5v10"/></svg><span class="lbl">Runes (bases)</span></button>
+    <button class="tab" data-view="runes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9.5 9.5v10"/></svg><span class="lbl">Papyrus (bases)</span></button>
     <button class="tab" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Activité</span> <span class="badge" id="b-missions" hidden>0</span></button>
     <button class="tab" data-view="memory"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5v-15z"/><path d="M19 18v3H6.5A1.5 1.5 0 0 1 5 19.5"/><path d="M9 7h6"/></svg><span class="lbl">Mémoire</span></button>
     <button class="tab" data-view="skills"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5.2 5.2 2.3-5.2 2.3L12 18.5l-2.3-5.2L4.5 11l5.2-2.3z"/><path d="M19 17v4M17 19h4"/></svg><span class="lbl">Compétences</span> <span class="badge" id="b-drafts" hidden>0</span></button>
@@ -1258,12 +1258,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     </section>
 
     <section class="view" id="v-flows" aria-label="Automatisations">
-      <div class="head"><div><h1>Automatisations</h1><div class="sub">Draupnir, le moteur d'Odin : décris ce que tu veux automatiser, Odin le construit.</div></div></div>
+      <div class="head"><div><h1>Automatisations</h1><div class="sub">Talos, le moteur d'Odin : décris ce que tu veux automatiser, Odin le construit.</div></div></div>
       <div class="body"><p class="sub">Chargement…</p></div>
     </section>
 
-    <section class="view" id="v-runes" aria-label="Runes">
-      <div class="head"><div><h1>Runes</h1><div class="sub">Tes bases : tables, tableaux, calendriers. Chaque fiche est une page du Cerveau.</div></div></div>
+    <section class="view" id="v-runes" aria-label="Papyrus">
+      <div class="head"><div><h1>Papyrus</h1><div class="sub">Tes bases : tables, tableaux, calendriers. Chaque fiche est une page du Cerveau.</div></div></div>
       <div class="body"><p class="sub">Chargement…</p></div>
     </section>
 
@@ -1614,7 +1614,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
               <fieldset class="vsec"><legend>Voix d'Odin</legend>
                 <div class="field"><label for="vo-rate">Vitesse : <span id="vo-rateV"></span></label><input id="vo-rate" type="range" min="0.7" max="1.3" step="0.05"></div>
                 <div class="field"><label for="vo-vol">Volume : <span id="vo-volV"></span></label><input id="vo-vol" type="range" min="0" max="100" step="5"></div>
-                <div class="field"><label for="vo-lex">Prononciations</label><textarea id="vo-lex" rows="3" spellcheck="false" placeholder="Muninn = Mou-ninne&#10;Mamoudzou = Ma-moud-zou"></textarea><span class="hint">Un mot par ligne : mot = façon de le dire.</span></div>
+                <div class="field"><label for="vo-lex">Prononciations</label><textarea id="vo-lex" rows="3" spellcheck="false" placeholder="Mnémosyne = Mné-mo-zine&#10;Mamoudzou = Ma-moud-zou"></textarea><span class="hint">Un mot par ligne : mot = façon de le dire.</span></div>
                 <div><button class="btn small" type="button" id="vo-try">Écouter un essai</button></div>
               </fieldset>
               <fieldset class="vsec"><legend>Cerveau pour la voix</legend>
@@ -2284,7 +2284,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     msgs.append(card); msgs.scrollTop = msgs.scrollHeight;
     setTimeout(() => card.replaceChildren(el('div', { class: 'who' }, 'Odin'), el('div', { class: 'sub' }, 'Mot de passe effacé de l\'écran. Il reste chiffré dans le coffre (Réglages → Droits et machines).')), 600_000);
   }
-  // Les appareils connus (noms des machines sur la carte des paquets de Rán)
+  // Les appareils connus (noms des machines sur la carte des paquets de Ariane)
   window.OdinDevices = () => state?.devices || [];
   window.OdinChat = { addMsg, addActivity, addSecret }; // aperçu et tests de l'affichage
   let loadingHistory = false;
@@ -3205,7 +3205,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if ((x.web || []).length) can.push('Ouvrir ses pages d\'administration dans son navigateur et y faire des réglages');
     can.push(...(x.links || []).filter((l) => !/^https?:/.test(l.how)).map((l) => `${l.action} — ${l.how}`));
     if (x.mac && !more.isRouter) can.push(more.router ? 'Le bloquer sur la box (par son adresse MAC), puis le réautoriser' : 'Le bloquer sur la box : enregistre d\'abord l\'accès à la box (Réglages → Droits et machines)');
-    // Paquets réseau de la machine (Rán) : historique en dessous, et « En direct ». Le panneau est gardé quand la
+    // Paquets réseau de la machine (Ariane) : historique en dessous, et « En direct ». Le panneau est gardé quand la
     // fiche se redessine, pour que le direct ne s'interrompe pas.
     if (window.OdinPackets && $('#devPackets').dataset.ip !== x.ip) { $('#devPackets').dataset.ip = x.ip; $('#devPackets').replaceChildren(window.OdinPackets.panel(x.ip)); }
     $('#devBody').replaceChildren(...[
@@ -3513,7 +3513,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         F.btn('Se déconnecter', async () => { await send('/api/account/logout', {}); location.replace('/'); })),
     );
   }
-  // Ton domaine par Cloudflare (Brú) : toujours visible dans Réglages → Accès, même sans « accès extérieur ».
+  // Ton domaine par Cloudflare (Bifröst) : toujours visible dans Réglages → Accès, même sans « accès extérieur ».
   function renderCloudflare() {
     const box = $('#more-cloudflare'); if (!box) return;
     box.replaceChildren(...[

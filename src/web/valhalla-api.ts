@@ -1,5 +1,5 @@
 // API web des applis d'Odin (Valhalla) : catalogue, page d'une appli (vue générique), actions,
-// alertes, liens, conseil « j'ai besoin de… ». Plus la page publique de réservation de Frigg (/r/…),
+// alertes, liens, conseil « j'ai besoin de… ». Plus la page publique de réservation de Chronos (/r/…),
 // sans script, sans compte, débit limité.
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -17,7 +17,7 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
   switch (path) {
     case '/api/valhalla/catalog': {
       const alerts = v.alerts({ limit: 500 }).filter((a) => !a.ack);
-      // Nouveautés des projets d'origine de chaque appli (veille de Kvasir), ces 30 derniers jours : point bleu du graphe
+      // Nouveautés des projets d'origine de chaque appli (veille de Pharos), ces 30 derniers jours : point bleu du graphe
       const since = Date.now() - 30 * 864e5, news = new Map<string, number>();
       try { for (const n of ((v.ctx('kvasir').settings.news as Array<{ module?: string; at?: string }> | undefined) ?? [])) if (n.module && Date.parse(n.at ?? '') > since) news.set(n.module, (news.get(n.module) ?? 0) + 1); } catch { /* veille pas encore lancée */ }
       return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length, grave: alerts.some((a) => a.module === m.id && ['critique', 'haute'].includes(String(a.level))), updates: news.get(m.id) ?? 0 })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
@@ -70,7 +70,7 @@ export async function valhallaPost(path: string, b: Record<string, unknown>): Pr
         return { ok: true, text: text || plain, ai: Boolean(text) };
       } catch { return { ok: true, text: plain, ai: false }; }
     }
-    // Une demande en français, comprise sans IA (Huginn) : « arrête le conteneur web », « les alertes », « explique Garmr ».
+    // Une demande en français, comprise sans IA (Logos) : « arrête le conteneur web », « les alertes », « explique Cerbère ».
     case '/api/valhalla/order': {
       const text = s(b.text).slice(0, 2000).trim(); if (!text) return { ok: false, error: 'demande vide' };
       const r = await v.order(text, `web:${s(b.session).replace(/[^\w-]/g, '').slice(0, 40) || 'principal'}`, { confirm: b.confirm === true });
@@ -82,7 +82,7 @@ export async function valhallaPost(path: string, b: Record<string, unknown>): Pr
   }
 }
 
-// ---------------------------------------------------------------- Frigg : réservation publique
+// ---------------------------------------------------------------- Chronos : réservation publique
 const hits = new Map<string, number[]>();
 export async function friggPublic(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
   const m = /^\/r\/([\w-]{12,64})$/.exec(url.pathname); if (!m) return false;

@@ -1,4 +1,4 @@
-// Þjálfi : lecture des ISO (ISO 9660, Rock Ridge, Joliet, UDF), TFTP, proxy DHCP, menu iPXE, installation
+// Genèse : lecture des ISO (ISO 9660, Rock Ridge, Joliet, UDF), TFTP, proxy DHCP, menu iPXE, installation
 // automatique (Ubuntu, Debian, Rocky, Windows), suivi des machines, historique, et sécurité (machine inconnue
 // = son propre disque ; installation automatique une seule fois, seulement si autorisée).
 import { test } from 'node:test';
@@ -119,7 +119,7 @@ async function world(fetchFn?: typeof fetch): Promise<W> {
   await v.act('eitri', 'dossier', { chemin: isoDir(join(home, 'iso')) });
   const boot = join(home, 'valhalla', 'thjalfi', 'boot'); mkdirSync(boot, { recursive: true }); writeFileSync(join(boot, 'undionly.kpxe'), 'KPXE'); writeFileSync(join(boot, 'ipxe.efi'), 'EFI');
   v.ctx('thjalfi').saveSettings({ ports: { http: 0, tftp: 0, dhcp: 0, pxe: 0, client: 0 }, ip: '127.0.0.1', mode: 'aucun' });
-  const r = await v.act('thjalfi', 'allumer'); assert.match(r.text, /▶ Þjálfi allumé : menu sur http:\/\/127\.0\.0\.1:\d+\/boot\.ipxe/);
+  const r = await v.act('thjalfi', 'allumer'); assert.match(r.text, /▶ Genèse allumé : menu sur http:\/\/127\.0\.0\.1:\d+\/boot\.ipxe/);
   const base = /http:\/\/127\.0\.0\.1:\d+/.exec(r.text)![0];
   const get = async (p: string, h: Record<string, string> = {}) => { const x = await fetch(`${base}${p}`, { headers: h }); const buf = Buffer.from(await x.arrayBuffer()); return { status: x.status, text: buf.toString(), buf }; };
   return { v, home, base, get, sent, end: () => { v.stop(); if (saved === undefined) delete process.env.BRISINGAMEN_KEY; else process.env.BRISINGAMEN_KEY = saved; rmSync(home, { recursive: true, force: true }); } };
@@ -167,7 +167,7 @@ test('de bout en bout : machine inconnue → son disque ; machine autorisée →
   } finally { w.end(); }
 });
 
-test('Debian, Rocky et Windows : chaque fichier de réponses, et les logiciels de Fjalar en silencieux', async () => {
+test('Debian, Rocky et Windows : chaque fichier de réponses, et les logiciels de Hermès en silencieux', async () => {
   const w = await world();
   try {
     // Debian : le programme d'installation réseau doit être préparé.
@@ -185,7 +185,7 @@ test('Debian, Rocky et Windows : chaque fichier de réponses, et les logiciels d
     assert.match(rm, /inst\.repo=\$\{base\}\/f\/rocky-9-6-x86-64-minimal\/ inst\.ks=\$\{base\}\/seed\/[\w-]+\/ks\.cfg/);
     assert.match((await w.get(`/seed/${rt}/ks.cfg`)).text, /url --url=http:\/\/127\.0\.0\.1:\d+\/f\/rocky-9-6-x86-64-minimal\/\n[\s\S]*user --name=admin --groups=wheel --password=\$6\$/);
     assert.equal((await w.get('/f/rocky-9-6-x86-64-minimal/BaseOS/repodata/repomd.xml')).text, '<repomd/>', 'le dépôt est lu dans l\'ISO');
-    // Windows : partage obligatoire, puis wimboot + réponses + logiciels de Fjalar.
+    // Windows : partage obligatoire, puis wimboot + réponses + logiciels de Hermès.
     assert.match((await w.v.act('thjalfi', 'autoriser', { mac: '52:54:00:bb:00:03', iso: 'win11', auto: true })).text, /règle d'abord le partage réseau/);
     await w.v.act('thjalfi', 'partage_windows', { unc: '\\\\nas\\iso', dossier: join(w.home, 'nas'), utilisateur: 'odin', mot_de_passe: 'secret-du-nas' });
     assert.match((await w.v.act('thjalfi', 'preparer_windows', { iso: 'win11' })).text, /✅ Win11_24H2_French_x64 : 7 fichiers/);
@@ -197,7 +197,7 @@ test('Debian, Rocky et Windows : chaque fichier de réponses, et les logiciels d
     assert.match(wm, /kernel \$\{base\}\/boot\/wimboot\?m=52:54:00:bb:00:03 gui/); assert.match(wm, /initrd --name boot\.wim \$\{base\}\/f\/win11-24h2-french-x64\/sources\/boot\.wim boot\.wim/);
     const cmd = (await w.get(`/seed/${wt}/odin.cmd`)).text; assert.match(cmd, /net use O: \\\\nas\\iso\\\.thjalfi\\win11-24h2-french-x64 \/user:odin "secret-du-nas"/);
     const ua = (await w.get(`/seed/${wt}/unattend.xml`)).text; assert.match(ua, /<ComputerName>pc-bb0003<\/ComputerName>/); assert.match(ua, /<Name>awa<\/Name>/); assert.match(ua, /<Type>EFI<\/Type>/); assert.doesNotMatch(ua, /<PlainText>true/);
-    const ps = (await w.get(`/w/${wt}/apres.ps1`)).text; assert.match(ps, /Firefox%20Setup%20140\.0\.exe/); assert.match(ps, /-ArgumentList '-ms'/); assert.doesNotMatch(ps, /VLC/, 'pas encore dans Fjalar : sauté');
+    const ps = (await w.get(`/w/${wt}/apres.ps1`)).text; assert.match(ps, /Firefox%20Setup%20140\.0\.exe/); assert.match(ps, /-ArgumentList '-ms'/); assert.doesNotMatch(ps, /VLC/, 'pas encore dans Hermès : sauté');
     assert.equal((await w.get(`/logiciel/${wt}/Firefox%20Setup%20140.0.exe`)).text, 'MZ-FIREFOX');
     assert.ok((await w.get(`/logiciel/${wt}/..%2F..%2Fsecrets.json`)).status >= 400);
     await w.get(`/etat/${wt}?e=logiciel&nom=Firefox&ok=1`); await w.get(`/etat/${wt}?e=fini&nom=PC-AWA&ip=192.168.1.61`);

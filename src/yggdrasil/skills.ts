@@ -1,4 +1,4 @@
-// Yggdrasil — l'arbre des compétences (skills).
+// Athéna — l'arbre des compétences (skills).
 // Format SKILL.md compatible avec le standard ouvert agentskills.io : un dossier par
 // compétence, frontmatter `name` + `description`, puis le corps.
 //
@@ -53,7 +53,7 @@ export function renderSkill(s: Skill): string {
   return `---\n${head}\n---\n\n${s.body.trim()}\n`;
 }
 
-export class Yggdrasil {
+export class Athena {
   readonly dir: string;
   readonly draftsDir: string;
   /** Signature des compétences validées (un fichier modifié en dehors d'Odin est détecté). */

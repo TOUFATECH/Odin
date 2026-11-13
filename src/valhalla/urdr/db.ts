@@ -1,5 +1,5 @@
-// Urðr — une base PostgreSQL (zéro SQLite dans Odin) : ses tables, leurs colonnes et leurs liens,
-// les lignes avec filtres, tri et pages, et les modifications ligne par ligne (Urðr Studio), plus le SQL libre.
+// Alexandrie — une base PostgreSQL (zéro SQLite dans Odin) : ses tables, leurs colonnes et leurs liens,
+// les lignes avec filtres, tri et pages, et les modifications ligne par ligne (Alexandrie Studio), plus le SQL libre.
 // Les noms de tables et de colonnes viennent toujours de la base elle-même (jamais du texte reçu tel quel),
 // et les valeurs passent en paramètres.
 import { Pg, ident, type PgOpts } from './pg.ts';

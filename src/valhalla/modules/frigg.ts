@@ -1,6 +1,6 @@
-// Frigg — les rendez-vous : prestations (durée, prix), horaires d'ouverture, créneaux libres calculés,
+// Chronos — les rendez-vous : prestations (durée, prix), horaires d'ouverture, créneaux libres calculés,
 // page publique de réservation (lien secret), confirmation et annulation, rappel la veille, et chaque
-// réservation devient un événement (Draupnir, Saga). Pensé pour un salon, un cabinet, un dépannage.
+// réservation devient un événement (Talos, Thot). Pensé pour un salon, un cabinet, un dépannage.
 
 import { randomBytes } from 'node:crypto';
 import type { ModCtx, Module } from '../types.ts';
@@ -40,7 +40,7 @@ export function book(ctx: ModCtx, i: { service: string; jour: string; heure: str
   const b: Booking = { id: randomBytes(5).toString('hex'), service: sv.name, start: local(start), end: local(end), name, contact, note: i.note?.slice(0, 500), status: publicRequest && ctx.settings.confirm !== false ? 'attente' : 'confirmé', created: ctx.now().toISOString() };
   ctx.saveSettings({ bookings: [...bookings(ctx), b] });
   ctx.emit('reservation', { ...b });
-  void ctx.notify(`📅 ${publicRequest ? 'Nouvelle demande' : 'Rendez-vous'} : ${b.name} · ${b.service} · ${b.start.replace('T', ' à ')}${b.status === 'attente' ? ' (à confirmer dans Frigg)' : ''}`);
+  void ctx.notify(`📅 ${publicRequest ? 'Nouvelle demande' : 'Rendez-vous'} : ${b.name} · ${b.service} · ${b.start.replace('T', ' à ')}${b.status === 'attente' ? ' (à confirmer dans Chronos)' : ''}`);
   return b;
 }
 /** Lien public secret (créé une fois). */
@@ -56,9 +56,9 @@ function setStatus(ctx: ModCtx, id: string, status: Booking['status']): Booking 
 }
 
 export const frigg: Module = {
-  id: 'frigg', name: 'Frigg', family: 'Données',
+  id: 'frigg', name: 'Chronos', family: 'Données',
   what: 'Les rendez-vous : prestations, horaires, créneaux libres et page publique de réservation.',
-  does: ['prestations avec durée et prix', 'horaires d\'ouverture par jour', 'créneaux libres calculés tout seuls', 'page publique de réservation (lien secret) sans compte', 'confirmation, annulation, rappel la veille sur ta messagerie', 'chaque réservation peut lancer une automatisation (SMS, fiche client dans Runes…)'],
+  does: ['prestations avec durée et prix', 'horaires d\'ouverture par jour', 'créneaux libres calculés tout seuls', 'page publique de réservation (lien secret) sans compte', 'confirmation, annulation, rappel la veille sur ta messagerie', 'chaque réservation peut lancer une automatisation (SMS, fiche client dans Papyrus…)'],
   from: ['Cal.com', 'Easy!Appointments', 'Calendso'], upstream: ['calcom/cal.com', 'alextselegidis/easyappointments'],
   words: ['rendez-vous', 'rdv', 'reservation', 'réservation', 'creneau', 'créneau', 'prestation', 'agenda du salon', 'prendre rendez-vous', 'disponibilites', 'disponibilités'],
   actions: [

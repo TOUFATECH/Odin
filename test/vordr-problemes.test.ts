@@ -1,4 +1,4 @@
-// Vörðr façon Zabbix / Centreon : SNMP (faux appareil), scénario web en plusieurs pages, greffons Nagios,
+// Pulsar façon Zabbix / Centreon : SNMP (faux appareil), scénario web en plusieurs pages, greffons Nagios,
 // déclencheurs sur les mesures d'Odin, problèmes (prise en main, commentaires, escalade), dépendances
 // (symptômes sans alerte en double), engagement de disponibilité (SLA).
 import { test } from 'node:test';
@@ -51,7 +51,7 @@ test('SNMP : codage, lecture sur un faux appareil, communauté fausse', async ()
     const v = await snmpGet('127.0.0.1', ['1.3.6.1.2.1.1.5.0', '1.3.6.1.2.1.33.1.2.4.0', '1.3.6.1.2.1.1.3.0'], { community: 'maison', port: a.port, timeoutMs: 1500 });
     assert.deepEqual(v.map((x) => x.value), ['box-salon', 87, 100000]);
     await assert.rejects(snmpGet('127.0.0.1', ['1.3.6.1.2.1.1.5.0'], { community: 'faux', port: a.port, timeoutMs: 300 }), /pas de réponse SNMP/);
-    // Dans Vörðr : sonde SNMP sur l'onduleur, valeur rangée dans les mesures.
+    // Dans Pulsar : sonde SNMP sur l'onduleur, valeur rangée dans les mesures.
     const w = world();
     try {
       const t = await w.act('ajouter', { nom: 'Onduleur', genre: 'snmp', cible: `127.0.0.1:${a.port}`, oid: 'onduleur.batterie', communaute: 'maison' });
@@ -118,7 +118,7 @@ test('dans Odin : déclencheur sur une mesure, problème, prise en main, escalad
   await new Promise<void>((ok) => http.listen(0, '127.0.0.1', () => ok()));
   const url = `http://127.0.0.1:${(http.address() as { port: number }).port}/`;
   try {
-    const t = await w.act('declencheur', { nom: 'Mémoire presque pleine', serie: 'eir.mem', fonction: 'avg', minutes: 5, operateur: '>', valeur: 80, retour: '70', gravite: 'haut', conseils: 'Regarde les processus dans Eir\nRedémarre le plus gourmand' });
+    const t = await w.act('declencheur', { nom: 'Mémoire presque pleine', serie: 'eir.mem', fonction: 'avg', minutes: 5, operateur: '>', valeur: 80, retour: '70', gravite: 'haut', conseils: 'Regarde les processus dans Hygie\nRedémarre le plus gourmand' });
     assert.match(t.text, /Si la moyenne de « eir\.mem » sur 5 min dépasse 80, problème Haut ; fini quand elle repasse sous 70\./);
     await refused(w.act('declencheur', { nom: 'X', serie: 'eir mem', valeur: 1 }), /mesure invalide/);
     w.v.metrics.put({ 'eir.mem': 91 });

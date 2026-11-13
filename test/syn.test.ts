@@ -1,4 +1,4 @@
-// Sýn (comme Grafana) : tableaux de bord sur les mesures d'Odin, modèles, panneaux, seuils qui préviennent.
+// Zénith (comme Grafana) : tableaux de bord sur les mesures d'Odin, modèles, panneaux, seuils qui préviennent.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { allModules } from '../src/valhalla/odin.ts';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { compute, expand, toneOf } from '../src/valhalla/modules/syn.ts';
 
-test('Sýn : calculs purs (mesures « * », calcul, seuils dans les deux sens)', () => {
+test('Zénith : calculs purs (mesures « * », calcul, seuils dans les deux sens)', () => {
   assert.deepEqual(expand(['eir.fs.*', 'eir.cpu'], ['eir.fs.racine', 'eir.fs.data', 'eir.mem']), ['eir.fs.racine', 'eir.fs.data', 'eir.cpu']);
   assert.equal(compute([1, 5, 3], 'max'), 5); assert.equal(compute([1, 5, 3], 'derniere'), 3); assert.equal(compute([2, 4], 'moyenne'), 3); assert.equal(compute([], 'min'), undefined);
   const p = { id: 'x', titre: 'X', series: [], type: 'courbe' as const, calcul: 'moyenne' as const, attention: 75, grave: 90 };
@@ -17,7 +17,7 @@ test('Sýn : calculs purs (mesures « * », calcul, seuils dans les deux sens)',
   assert.deepEqual([-60, -75, -85].map((v) => toneOf({ ...p, attention: -70, grave: -80, bas: true }, v)), ['bon', 'attention', 'mauvais']);
 });
 
-test('Sýn : modèle Machine, panneau ajouté, vue, texte, alerte de seuil', async () => {
+test('Zénith : modèle Machine, panneau ajouté, vue, texte, alerte de seuil', async () => {
   const home = mkdtempSync(join(tmpdir(), 'syn-'));
   const alerts: string[] = [];
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: async () => ({ code: 0, out: '', err: '' }), fetch: (async () => new Response('')) as unknown as typeof fetch, notify: async (t: string) => { alerts.push(t); }, autonomy: () => 'equilibre' });

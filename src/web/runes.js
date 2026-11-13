@@ -1,6 +1,6 @@
-// Espace « Runes » : les bases de données d'Odin (comme Notion). Liste des bases, vues table,
+// Espace « Papyrus » : les bases de données d'Odin (comme Notion). Liste des bases, vues table,
 // tableau (kanban), calendrier, galerie, liste, chronologie ; modification directe des cellules,
-// ajout de fiches et de propriétés, recherche, export et import CSV. Les fiches sont des notes de Saga.
+// ajout de fiches et de propriétés, recherche, export et import CSV. Les fiches sont des notes de Thot.
 (() => {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);

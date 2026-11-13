@@ -1,4 +1,4 @@
-// Víðarr, le reste : pubs des réseaux (TikTok, YouTube, Instagram : les pubs bloquées, les vidéos passent),
+// Sphinx, le reste : pubs des réseaux (TikTok, YouTube, Instagram : les pubs bloquées, les vidéos passent),
 // horaires, enregistrements de la maison (MX, TXT…), serveur DHCP (adresses, adresses fixes, noms servis
 // par le DNS, nouvel appareil signalé), DNS chiffré pour les appareils (TLS et HTTPS) et surveillance.
 import { test } from 'node:test';
@@ -142,7 +142,7 @@ test('DHCP : DISCOVER → OFFER → REQUEST → ACK, adresse fixe, refus, libér
   } finally { srv.stop(); d2.close(); }
 });
 
-test('appli Víðarr : DHCP réglé, adresses fixes, noms des appareils servis par le DNS, nouvel appareil signalé ; pubs des réseaux ; horaires ; enregistrements', async () => {
+test('appli Sphinx : DHCP réglé, adresses fixes, noms des appareils servis par le DNS, nouvel appareil signalé ; pubs des réseaux ; horaires ; enregistrements', async () => {
   const home = mkdtempSync(join(tmpdir(), 'vidarr-plus-')), up = await fakeUpstream();
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), {
     run: async () => ({ code: 0, out: '', err: '' }), fetch: (async () => new Response('')) as unknown as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre',
@@ -225,7 +225,7 @@ test('DNS chiffré pour les appareils : TLS (DoT), les blocages s\'appliquent au
   } finally { d.stop(); up.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('DNS en HTTPS (/dns-query) : GET et POST, refus si Víðarr est arrêté', async () => {
+test('DNS en HTTPS (/dns-query) : GET et POST, refus si Sphinx est arrêté', async () => {
   const home = mkdtempSync(join(tmpdir(), 'doh-')), up = await fakeUpstream();
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: async () => ({ code: 0, out: '', err: '' }), fetch: (async () => new Response('')) as unknown as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });
   const o = makeOdin([]); const port = 21000 + Math.floor(Math.random() * 20000), token = ensureWebToken(o.paths);
@@ -246,7 +246,7 @@ test('DNS en HTTPS (/dns-query) : GET et POST, refus si Víðarr est arrêté', 
   } finally { await v.act('vidarr', 'arreter'); v.stop(); await gw.stop(); up.close(); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('Ullr apprend les appareils jamais vus (faible poids : seul, ça ne fait pas un incident)', async () => {
+test('Asclépios apprend les appareils jamais vus (faible poids : seul, ça ne fait pas un incident)', async () => {
   const { toSignal } = await import('../src/valhalla/ullr/incidents.ts');
   const sg = toSignal({ module: 'vidarr', type: 'dhcp_nouveau', data: { ip: '192.168.1.140', mac: '02:aa:bb:cc:dd:02', nom: 'Inconnu' } });
   assert.equal(sg?.weight, 5); assert.deepEqual(sg?.keys, ['ip:192.168.1.140']); assert.match(sg!.text, /jamais vu.*Inconnu/);

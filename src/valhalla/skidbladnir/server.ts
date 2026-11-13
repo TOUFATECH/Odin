@@ -1,5 +1,5 @@
-// Skíðblaðnir — le serveur des fichiers (derrière le proxy Valgrind) :
-//   - « fichiers.exemple.fr » : l'espace de chacun, réservé aux personnes connectées par Vár (le proxy
+// Nébuleuse — le serveur des fichiers (derrière le proxy Valgrind) :
+//   - « fichiers.exemple.fr » : l'espace de chacun, réservé aux personnes connectées par Persona (le proxy
 //     transmet l'identité ; elle n'est crue que si la demande vient de la machine elle-même, le proxy) ;
 //   - « partage.exemple.fr » : public, seulement les liens de partage (/p/…), les dépôts, la lecture des
 //     notes secrètes (/n/…) et le WebDAV (/dav/, avec un mot de passe d'appli) pour monter tes fichiers
@@ -77,7 +77,7 @@ export class FilesServer {
   }
   stop(): void { this.srv?.close(); this.srv?.closeAllConnections(); this.srv = undefined; }
 
-  /** Qui fait la demande (identité posée par le proxy après Vár), seulement depuis la machine elle-même. */
+  /** Qui fait la demande (identité posée par le proxy après Persona), seulement depuis la machine elle-même. */
   private who(q: IncomingMessage): Who | undefined {
     if (!local(q)) return undefined;
     const login = String(q.headers['remote-user'] ?? '').trim().toLowerCase(); if (!/^[a-z0-9][a-z0-9._-]{0,31}$/.test(login)) return undefined;

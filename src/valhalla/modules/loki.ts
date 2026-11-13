@@ -1,6 +1,6 @@
-// Loki — un seul moteur de pièges à pirates, avec un module par protocole. Chaque piège imite un
+// Sirènes — un seul moteur de pièges à pirates, avec un module par protocole. Chaque piège imite un
 // service vulnérable, note tout (adresse, identifiants essayés, commandes, fichiers envoyés), capture
-// les logiciels malveillants pour Ullr, et fait bannir l'attaquant de tes vrais services par Garmr.
+// les logiciels malveillants pour Asclépios, et fait bannir l'attaquant de tes vrais services par Cerbère.
 // Les pièges sont éteints par défaut : tu choisis lesquels allumer et sur quels ports.
 
 import { createHash, randomBytes } from 'node:crypto';
@@ -13,25 +13,25 @@ import type { ModCtx, Module } from '../types.ts';
 
 export interface Trap { id: string; name: string; proto: string; what: string; port: number; udp?: boolean }
 export const TRAPS: Trap[] = [
-  { id: 'narfi', name: 'Narfi', proto: 'Telnet', what: 'faux terminal : identifiants et commandes des robots, téléchargements capturés', port: 2323 },
-  { id: 'fenrir', name: 'Fenrir', proto: 'SSH (enlisement)', what: 'retient les robots SSH des heures en leur envoyant une bannière sans fin', port: 2222 },
-  { id: 'sshid', name: 'Narfi-SSH', proto: 'SSH (identification)', what: 'note la version et l\'outil de chaque robot SSH', port: 2200 },
-  { id: 'skoll', name: 'Sköll', proto: 'Web', what: 'faux site (WordPress, phpMyAdmin, .env) : chemins sondés et mots de passe essayés', port: 8081 },
-  { id: 'hel', name: 'Hel', proto: 'Elasticsearch', what: 'fausse base Elasticsearch ouverte', port: 9201 },
-  { id: 'thrym', name: 'Thrym', proto: 'Redis', what: 'faux Redis sans mot de passe : commandes d\'attaque notées', port: 6380 },
-  { id: 'skrymir', name: 'Skrymir', proto: 'Mail (SMTP)', what: 'faux relais de mail : identifiants et spams capturés', port: 2525 },
-  { id: 'jormungandr', name: 'Jörmungandr', proto: 'FTP', what: 'faux FTP : identifiants et fichiers déposés capturés', port: 2121 },
+  { id: 'narfi', name: 'Loki', proto: 'Telnet', what: 'faux terminal : identifiants et commandes des robots, téléchargements capturés', port: 2323 },
+  { id: 'fenrir', name: 'Charybde', proto: 'SSH (enlisement)', what: 'retient les robots SSH des heures en leur envoyant une bannière sans fin', port: 2222 },
+  { id: 'sshid', name: 'Polyphème', proto: 'SSH (identification)', what: 'note la version et l\'outil de chaque robot SSH', port: 2200 },
+  { id: 'skoll', name: 'Labyrinthe', proto: 'Web', what: 'faux site (WordPress, phpMyAdmin, .env) : chemins sondés et mots de passe essayés', port: 8081 },
+  { id: 'hel', name: 'Léthé', proto: 'Elasticsearch', what: 'fausse base Elasticsearch ouverte', port: 9201 },
+  { id: 'thrym', name: 'Pandore', proto: 'Redis', what: 'faux Redis sans mot de passe : commandes d\'attaque notées', port: 6380 },
+  { id: 'skrymir', name: 'Calypso', proto: 'Mail (SMTP)', what: 'faux relais de mail : identifiants et spams capturés', port: 2525 },
+  { id: 'jormungandr', name: 'Troie', proto: 'FTP', what: 'faux FTP : identifiants et fichiers déposés capturés', port: 2121 },
   { id: 'muspel', name: 'Muspel', proto: 'Modbus (automates)', what: 'faux automate industriel', port: 5020 },
-  { id: 'bergelmir', name: 'Bergelmir', proto: 'Android ADB', what: 'faux téléphone Android en débogage ouvert', port: 5556 },
-  { id: 'logi', name: 'Logi', proto: 'Téléphonie (SIP)', what: 'fausse centrale téléphonique : tentatives d\'appels frauduleux', port: 5061, udp: true },
-  { id: 'hraesvelg', name: 'Hræsvelg', proto: 'Amplification (UDP)', what: 'repère les attaques par déni de service sans jamais répondre', port: 11212, udp: true },
-  { id: 'surtr', name: 'Surtr', proto: 'Tous ports', what: 'piège à tout : note les premiers octets sur des ports choisis', port: 2375 },
+  { id: 'bergelmir', name: 'Gorgone', proto: 'Android ADB', what: 'faux téléphone Android en débogage ouvert', port: 5556 },
+  { id: 'logi', name: 'Cassandre', proto: 'Téléphonie (SIP)', what: 'fausse centrale téléphonique : tentatives d\'appels frauduleux', port: 5061, udp: true },
+  { id: 'hraesvelg', name: 'Éole', proto: 'Amplification (UDP)', what: 'repère les attaques par déni de service sans jamais répondre', port: 11212, udp: true },
+  { id: 'surtr', name: 'Hécatonchires', proto: 'Tous ports', what: 'piège à tout : note les premiers octets sur des ports choisis', port: 2375 },
 ];
 
 export interface Hit { at: string; trap: string; ip: string; port: number; kind: 'connexion' | 'identifiants' | 'commande' | 'requête' | 'capture'; detail: string }
 
 const FAKE_PASSWD = 'root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nadmin:x:1000:1000:admin:/home/admin:/bin/bash\n';
-/** Réponses du faux terminal (Narfi). */
+/** Réponses du faux terminal (Loki). */
 export function fakeShell(cmd: string): string {
   const c = cmd.trim(), first = c.split(/\s+/)[0];
   if (!c) return '';
@@ -63,7 +63,7 @@ export class LokiEngine {
     this.ctx.emit('piege', { piège: h.trap, ip: h.ip, type: h.kind, détail: h.detail });
     const counts = (this.ctx.settings.byIp as Record<string, number> | undefined) ?? {};
     counts[h.ip] = (counts[h.ip] ?? 0) + 1; this.ctx.saveSettings({ byIp: counts });
-    if ((h.kind === 'identifiants' || h.kind === 'commande' || h.kind === 'capture') && this.ctx.settings.ban !== false && isIP(h.ip) && !isPrivateV4(h.ip)) void this.ctx.call('garmr', 'bannir', { ip: h.ip, raison: `piège ${h.trap} (${h.kind})`, source: 'Loki', minutes: 1440 }).catch(() => undefined);
+    if ((h.kind === 'identifiants' || h.kind === 'commande' || h.kind === 'capture') && this.ctx.settings.ban !== false && isIP(h.ip) && !isPrivateV4(h.ip)) void this.ctx.call('garmr', 'bannir', { ip: h.ip, raison: `piège ${h.trap} (${h.kind})`, source: 'Sirènes', minutes: 1440 }).catch(() => undefined);
   }
   async capture(trap: string, ip: string, url: string): Promise<void> {
     // On ne va chercher que des adresses publiques (jamais ton réseau), 10 Mo au plus ; rien n'est exécuté.
@@ -75,9 +75,9 @@ export class LokiEngine {
       const sha = createHash('sha256').update(buf).digest('hex'), f = join(dir, `${sha}.bin`);
       writeFileSync(f, buf, { mode: 0o600 });
       this.record({ trap, ip, port: 0, kind: 'capture', detail: `${url} → ${sha.slice(0, 16)}… (${buf.length} o)` });
-      // Le fichier reste à l'écart (jamais exécuté) ; le verdict d'Ullr part avec l'alerte.
+      // Le fichier reste à l'écart (jamais exécuté) ; le verdict d'Asclépios part avec l'alerte.
       const verdict = await this.ctx.call('ullr', 'fichier', { chemin: f }).then((r) => (r.ok === false ? '' : r.text.split('\n')[0]), () => '');
-      this.ctx.alert({ level: 'haute', title: 'Loki a capturé un fichier déposé par un pirate', detail: `${url} envoyé par ${ip} — ${buf.length} octets, gardé à l'écart (jamais exécuté). Ullr : ${verdict || 'analyse indisponible'}`, key: `cap:${sha}`, data: { fichier: f, verdict } });
+      this.ctx.alert({ level: 'haute', title: 'Sirènes a capturé un fichier déposé par un pirate', detail: `${url} envoyé par ${ip} — ${buf.length} octets, gardé à l'écart (jamais exécuté). Asclépios : ${verdict || 'analyse indisponible'}`, key: `cap:${sha}`, data: { fichier: f, verdict } });
     } catch { /* téléchargement impossible */ }
   }
   private tcp(t: Trap, onConn: (s: Socket, ip: string) => void): Server {
@@ -161,7 +161,7 @@ export class LokiEngine {
         const u = createSocket('udp4');
         u.on('message', (m, r) => {
           const ip = r.address; this.record({ trap: t.name, ip, port: t.port, kind: 'requête', detail: m.toString('latin1').split('\r\n')[0].replace(/[^\x20-\x7e]/g, '.').slice(0, 200) });
-          // Logi répond comme une vraie centrale (petite réponse) ; Hræsvelg ne répond jamais (pas d'amplification).
+          // Cassandre répond comme une vraie centrale (petite réponse) ; Éole ne répond jamais (pas d'amplification).
           if (t.id === 'logi' && /^(REGISTER|INVITE|OPTIONS)/.test(m.toString('latin1'))) { const via = /^(Via:.*)$/mi.exec(m.toString('latin1'))?.[1] ?? ''; u.send(`SIP/2.0 401 Unauthorized\r\n${via}\r\nWWW-Authenticate: Digest realm="asterisk", nonce="${randomBytes(8).toString('hex')}"\r\nContent-Length: 0\r\n\r\n`, r.port, ip); }
         });
         u.on('error', () => {});
@@ -188,9 +188,9 @@ const eng = (ctx: ModCtx) => { if (engine && engine.home !== ctx.dir) { engine.s
 const on = (ctx: ModCtx): Record<string, number> => (ctx.settings.on as Record<string, number> | undefined) ?? {};
 
 export const loki: Module = {
-  id: 'loki', name: 'Loki', family: 'Sécurité',
+  id: 'loki', name: 'Sirènes', family: 'Sécurité',
   what: 'Pièges à pirates : de faux services qui attirent les attaquants, notent tout et les font bannir.',
-  does: TRAPS.map((t) => `${t.name} — ${t.proto} : ${t.what}`).concat(['identifiants essayés, commandes, chemins sondés : tout est noté', 'logiciels malveillants capturés et analysés par Ullr', 'attaquant banni de tes vrais services par Garmr', 'console centrale et statistiques (origine, protocoles, mots de passe les plus essayés)']),
+  does: TRAPS.map((t) => `${t.name} — ${t.proto} : ${t.what}`).concat(['identifiants essayés, commandes, chemins sondés : tout est noté', 'logiciels malveillants capturés et analysés par Asclépios', 'attaquant banni de tes vrais services par Cerbère', 'console centrale et statistiques (origine, protocoles, mots de passe les plus essayés)']),
   from: ['T-Pot', 'OpenCanary', 'Modern Honey Network', 'CommunityHoneyNetwork', 'Cowrie', 'Endlessh', 'Heralding', 'Dionaea', 'SNARE', 'TANNER', 'ElasticPot', 'RedisHoneyPot', 'Mailoney', 'Wordpot', 'Honeytrap', 'Conpot', 'ADBHoney', 'DDoSPot', 'SentryPeer'],
   upstream: ['telekom-security/tpotce', 'cowrie/cowrie', 'skeeto/endlessh', 'thinkst/opencanary', 'mushorg/conpot'],
   modes: TRAPS.map((t) => `${t.name} · ${t.proto}`),
@@ -219,7 +219,7 @@ export const loki: Module = {
         { kind: 'table', title: 'Pièges', columns: ['Piège', 'Protocole', 'Ce qu\'il fait', 'Port', 'État'], rows: TRAPS.map((t) => { const p = on(ctx)[t.id]; return { cells: [t.name, t.proto, t.what, String(p ?? t.port), e.running().includes(t.id) ? 'allumé' : 'éteint'], tone: e.running().includes(t.id) ? 'bon' : 'neutre', actions: [e.running().includes(t.id) ? { action: 'eteindre', label: 'Éteindre', input: { piege: t.id } } : { action: 'allumer', label: 'Allumer', input: { piege: t.id } }] }; }) },
         { kind: 'table', title: 'Activité récente', columns: ['Quand', 'Piège', 'Adresse', 'Type', 'Détail'], empty: 'Aucune activité pour l\'instant.', rows: h.slice(0, 60).map((x) => ({ cells: [x.at.slice(5, 16).replace('T', ' '), x.trap, x.ip, x.kind, x.detail], tone: x.kind === 'capture' ? 'mauvais' : x.kind === 'identifiants' ? 'attention' : undefined })) },
       ],
-      side: [{ kind: 'list', title: 'Identifiants les plus essayés', items: creds.map(([k, v]) => ({ title: k, meta: `×${v}` })), empty: 'Rien encore.' }, { kind: 'text', title: 'Sécurité des pièges', text: 'Les pièges imitent des services sans jamais exécuter ce qu\'on leur envoie. Ils ne touchent pas à tes données. Les fichiers capturés restent isolés et sont analysés par Ullr.' }],
+      side: [{ kind: 'list', title: 'Identifiants les plus essayés', items: creds.map(([k, v]) => ({ title: k, meta: `×${v}` })), empty: 'Rien encore.' }, { kind: 'text', title: 'Sécurité des pièges', text: 'Les pièges imitent des services sans jamais exécuter ce qu\'on leur envoie. Ils ne touchent pas à tes données. Les fichiers capturés restent isolés et sont analysés par Asclépios.' }],
     };
   },
 };

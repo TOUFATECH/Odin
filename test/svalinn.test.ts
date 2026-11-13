@@ -1,4 +1,4 @@
-// Svalinn : l'analyse du Wi-Fi (réseaux autour, canaux, note), la Livebox (connexion, lecture, réglages),
+// Zéphyr : l'analyse du Wi-Fi (réseaux autour, canaux, note), la Livebox (connexion, lecture, réglages),
 // les corrections avec accord, la sauvegarde avant, le retour automatique, le QR code invités, le secret du mot de passe.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,7 +34,7 @@ BSS aa:bb:cc:00:00:02(on wlan0)
 \t\t * Authentication suites: PSK SAE
 `;
 
-test('Svalinn : réseaux autour (nmcli, iw), chiffrement, meilleur canal', () => {
+test('Zéphyr : réseaux autour (nmcli, iw), chiffrement, meilleur canal', () => {
   const n = parseNmcli(NMCLI);
   assert.equal(n.length, 7); assert.equal(n[0].bssid, 'AA:BB:CC:00:00:01'); assert.ok(n[0].mine); assert.equal(n[4].security, 'ouvert');
   const iw = parseIw(IW);
@@ -44,7 +44,7 @@ test('Svalinn : réseaux autour (nmcli, iw), chiffrement, meilleur canal', () =>
   assert.equal(c.best, 11, 'le 11 est le plus libre'); assert.equal(c.voisins, 2); assert.ok(c.nowCrowd > c.bestCrowd);
 });
 
-test('Svalinn : la note et les corrections, le plus urgent d\'abord ; rien d\'inconnu ne coûte de points', () => {
+test('Zéphyr : la note et les corrections, le plus urgent d\'abord ; rien d\'inconnu ne coûte de points', () => {
   const a = assess({ security: 'WPA2', wps: true, upnp: true, remoteAdmin: true, defaultPassword: true, channel: bestChannel(parseNmcli(NMCLI), 6) });
   assert.deepEqual(a.fixes.map((f) => f.id), ['wps', 'mot_de_passe', 'chiffrement', 'distance', 'upnp', 'canal']);
   assert.equal(a.note, 100 - 18 - 15 - 12 - 12 - 8 - 5); assert.equal(a.verdict, 'dangereux');
@@ -56,7 +56,7 @@ test('Svalinn : la note et les corrections, le plus urgent d\'abord ; rien d\'in
   assert.equal(wifiQr('Maison;Invités', 'p:ss'), 'WIFI:T:WPA;S:Maison\\;Invités;P:p\\:ss;;');
 });
 
-test('Svalinn : la Livebox (connexion, lecture, réglages et inverse)', async () => {
+test('Zéphyr : la Livebox (connexion, lecture, réglages et inverse)', async () => {
   const { box, handle } = fakeLivebox();
   const f = (async (u: string | URL, i?: RequestInit) => handle(String(u), i) ?? new Response('', { status: 404 })) as typeof fetch;
   await assert.rejects(new Livebox('box.test', 'faux', { fetch: f }).login(), /mot de passe de la box refusé/);
@@ -70,12 +70,12 @@ test('Svalinn : la Livebox (connexion, lecture, réglages et inverse)', async ()
   assert.deepEqual([box.state.upnp, box.state.remote, box.state.guest], [false, false, true]);
 });
 
-test('Svalinn dans Odin : relier la box (coffre), analyser, corriger avec accord, sauvegarde, retour automatique', async () => {
+test('Zéphyr dans Odin : relier la box (coffre), analyser, corriger avec accord, sauvegarde, retour automatique', async () => {
   const home = mkdtempSync(join(tmpdir(), 'odin-svalinn-'));
   setDiscoveryTarget({ host: '127.0.0.1', port: 9, timeoutMs: 200 });
   try {
     const { box, handle } = fakeLivebox(); let now = new Date('2026-11-13T10:00:00Z'); const coffre: string[] = [];
-    const fakeVault: Module = { id: 'brisingamen', name: 'Brísingamen', family: 'Accès', what: '', does: [], from: [], upstream: [], words: [], actions: [{ id: 'ajouter', label: 'Ajouter', what: '', run: (_c, i) => { coffre.push(String(i.nom)); return { text: 'ok' }; } }], view: () => ({ sections: [] }) };
+    const fakeVault: Module = { id: 'brisingamen', name: 'Thésauros', family: 'Accès', what: '', does: [], from: [], upstream: [], words: [], actions: [{ id: 'ajouter', label: 'Ajouter', what: '', run: (_c, i) => { coffre.push(String(i.nom)); return { text: 'ok' }; } }], view: () => ({ sections: [] }) };
     const v = new Valhalla(home, [svalinn, fakeVault], {
       now: () => now,
       fetch: (async (u: string | URL, i?: RequestInit) => { const url = String(u); if (/speed\.cloudflare\.com/.test(url)) return new Response(new Uint8Array(1_000_000)); return handle(url, i) ?? new Response('', { status: 404 }); }) as typeof fetch,
@@ -90,7 +90,7 @@ test('Svalinn dans Odin : relier la box (coffre), analyser, corriger avec accord
     let r = await v.act('svalinn', 'etat');
     assert.match(r.text, /box non reliée/); assert.match(r.text, /Chiffrement WPA2 seul/, 'sans box : ce que voit la carte Wi-Fi');
     r = await v.act('svalinn', 'relier_box', { adresse: 'box.test', marque: 'livebox', utilisateur: 'admin', mot_de_passe: 'mot-de-passe-box' });
-    assert.match(r.text, /connexion réussie, mot de passe rangé dans le coffre/); assert.deepEqual(coffre, ['Box internet (Svalinn)']);
+    assert.match(r.text, /connexion réussie, mot de passe rangé dans le coffre/); assert.deepEqual(coffre, ['Box internet (Zéphyr)']);
     assert.ok(isSecretFile(join(home, 'valhalla', 'svalinn', 'secrets.json')), 'fichier de secrets bloqué pour les outils');
     assert.doesNotMatch(JSON.stringify(await svalinn.view(v.ctx('svalinn'), new URLSearchParams())), /mot-de-passe-box/, 'jamais affiché');
     r = await v.act('svalinn', 'etat');
@@ -121,7 +121,7 @@ test('Svalinn dans Odin : relier la box (coffre), analyser, corriger avec accord
   } finally { setDiscoveryTarget(undefined); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('Svalinn : 24 barres d\'appareils, la dernière = maintenant', () => {
+test('Zéphyr : 24 barres d\'appareils, la dernière = maintenant', () => {
   const now = new Date('2026-11-13T10:30:00Z');
   const h = hours([{ at: '2026-11-13T10:20:00Z', n: 7 }, { at: '2026-11-13T09:10:00Z', n: 3 }, { at: '2026-11-12T09:00:00Z', n: 99 }], now);
   assert.equal(h.length, 24); assert.equal(h[23], 7); assert.equal(h[22], 3); assert.ok(!h.includes(99));

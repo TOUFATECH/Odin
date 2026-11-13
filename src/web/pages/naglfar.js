@@ -1,7 +1,7 @@
-// Naglfar dans l'interface : en haut, chaque service mis à l'échelle (maquette validée « Mise à l'échelle automatique
+// Argo dans l'interface : en haut, chaque service mis à l'échelle (maquette validée « Mise à l'échelle automatique
 // et base de données d'Odin ») — copies prêtes, visiteurs, processeur, budget de la machine, la journée en courbe
 // (visiteurs et copies), ce que le moteur a fait, les copies une à une, la base de données d'Odin. Dessous : le reste
-// de Naglfar (conteneurs, images…), comme avant. Régler et Arrêter passent par les actions de Naglfar (Arrêter = accord).
+// de Argo (conteneurs, images…), comme avant. Régler et Arrêter passent par les actions de Argo (Arrêter = accord).
 (() => {
   'use strict';
   window.OdinPages = window.OdinPages || {};
@@ -60,7 +60,7 @@
 
   window.OdinPages.naglfar = async ({ host, generic, reload }) => {
     const r = await post('naglfar', 'services'); const list = r.data ?? [];
-    if (!list.length) return false; // pas de service mis à l'échelle : la page de Naglfar comme avant
+    if (!list.length) return false; // pas de service mis à l'échelle : la page de Argo comme avant
     if (!document.getElementById('ecCss')) document.head.append(el('style', { id: 'ecCss' }, CSS));
     if (!list.some((x) => x.spec.name === S.svc)) S.svc = list[0].spec.name;
     const { spec: sp, state: st, budget: bu } = list.find((x) => x.spec.name === S.svc);
@@ -69,7 +69,7 @@
     const hToday = st.history.filter((h) => Date.parse(h.at) >= today.getTime()), peak = hToday.reduce((a, h) => (h.active > (a?.active ?? -1) ? h : a), undefined);
     const cpu = st.replicas.length ? Math.round(st.replicas.reduce((k, x) => k + x.cpu, 0) / st.replicas.length) : 0;
     const root = el('div', { class: 'ec' });
-    root.append(el('div', { class: 'ec-top' }, el('div', {}, el('h2', {}, `Naglfar · ${sp.name}`), el('p', {}, `Mise à l'échelle automatique : de ${sp.scale.min} à ${sp.scale.max} copies selon les visiteurs, le processeur et la mémoire${sp.ports[0] ? ` · port ${sp.ports[0].host}` : ''} · ${sp.per.cpus} cœur${Number(sp.per.cpus) > 1 ? 's' : ''} et ${sp.per.memory} par copie`)),
+    root.append(el('div', { class: 'ec-top' }, el('div', {}, el('h2', {}, `Argo · ${sp.name}`), el('p', {}, `Mise à l'échelle automatique : de ${sp.scale.min} à ${sp.scale.max} copies selon les visiteurs, le processeur et la mémoire${sp.ports[0] ? ` · port ${sp.ports[0].host}` : ''} · ${sp.per.cpus} cœur${Number(sp.per.cpus) > 1 ? 's' : ''} et ${sp.per.memory} par copie`)),
       el('div', { class: 'acts' }, el('button', { class: 'btn small', type: 'button', onclick: () => { const d = document.querySelector('#v-app details summary'); const det = [...document.querySelectorAll('#v-app details')].find((x) => /Régler la mise à l'échelle/.test(x.textContent)); if (det) { det.open = true; det.scrollIntoView({ behavior: 'smooth', block: 'center' }); const f = det.querySelector('input'); if (f) { f.value = sp.name; f.focus(); } } void d; } }, 'Régler'),
         el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.currentTarget.disabled = true; const x = await act('naglfar', 'arreter_service', { service: sp.name }); if (x.ok !== false) reload(); else e.currentTarget.disabled = false; } }, 'Arrêter'))));
     if (list.length > 1) root.append(el('div', { class: 'ec-svcs', role: 'group', 'aria-label': 'Services' }, ...list.map((x) => el('button', { type: 'button', 'aria-pressed': String(x.spec.name === S.svc), onclick: () => { S.svc = x.spec.name; reload(); } }, x.spec.name))));
@@ -87,12 +87,12 @@
       el('div', { class: 'ec-c' }, el('h3', {}, 'Les copies'), el('table', { class: 'ec-t' }, el('thead', {}, el('tr', {}, ...['Copie', 'Adresse', 'État', 'Processeur', 'Mémoire', 'Visiteurs'].map((h) => el('th', {}, h)))),
         el('tbody', {}, ...st.replicas.map((x) => { const [t, c] = stateOf(x); return el('tr', {}, el('td', {}, el('b', {}, x.name)), el('td', {}, x.ip ?? '—'), el('td', { style: `color:${c}` }, el('span', { class: 'ec-dot', style: `background:${c}` }), t), el('td', {}, `${Math.round(x.cpu)} %`), el('td', {}, `${Math.round(x.mem)} %`), el('td', {}, fmt(x.conns))); })))),
       el('div', { class: 'ec-c' }, el('h3', {}, 'Base de données d\'Odin'), el('p', { class: 'sub', style: 'margin:0 0 8px' }, base ? `odin-pg · PostgreSQL${base.version ? ` ${base.version}` : ''} · adresse fixe, jamais publiée dehors` : 'odin-pg · créée à la première appli qui a besoin d\'une base'),
-        el('div', {}, el('span', { class: 'ec-chip', style: `background:${GREEN}22;color:${GREEN}` }, 'grandit tout seul'), el('span', { class: 'ec-chip', style: `background:${BLUE}22;color:${BLUE}` }, '500 connexions au plus'), el('span', { class: 'ec-chip', style: `background:${GREEN}22;color:${GREEN}` }, 'sauvegardée chaque nuit (Skuld)')),
+        el('div', {}, el('span', { class: 'ec-chip', style: `background:${GREEN}22;color:${GREEN}` }, 'grandit tout seul'), el('span', { class: 'ec-chip', style: `background:${BLUE}22;color:${BLUE}` }, '500 connexions au plus'), el('span', { class: 'ec-chip', style: `background:${GREEN}22;color:${GREEN}` }, 'sauvegardée chaque nuit (Arche)')),
         el('p', { style: 'margin:4px 0 0;font-size:13.5px;line-height:1.5' }, 'Chaque appli a sa base et son compte. Mémoire +25 % si elle dépasse 85 %, +½ cœur si le processeur sature, sans arrêt ; elle redescend après 30 min de calme.'))));
     const last = st.events.at(-1);
     root.append(el('div', { class: 'ec-say' }, odinFace(), el('p', {}, `${last ? `${last.text}. ` : ''}${st.reason ? `${st.reason}. ` : ''}${bu.room > 0 ? `Il reste de la place pour ${bu.room} copie${bu.room > 1 ? 's' : ''} de plus dans le budget de la machine.` : 'Le budget de la machine est atteint : augmente-le dans « Régler » si besoin.'}`)));
     host.append(root);
-    // Le reste de Naglfar, dessous.
+    // Le reste de Argo, dessous.
     host.append(...generic);
   };
 })();

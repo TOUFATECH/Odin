@@ -27,15 +27,15 @@
       ['« Nouvelle note » ou capture rapide ; [[un nom]] relie deux notes.', 'Le graphe montre les liens ; touche un point pour ouvrir la note.', '« Demander au cerveau » : je réponds à partir de tes notes, avec les sources.', '« Quotidien » : ce que je sais refaire sans IA, parce que je l\'ai appris en te parlant. Ouvre une mission pour voir ce que je fais et à quoi elle est reliée ; mets-la à la corbeille pour que je l\'oublie.'],
       ['Les connecteurs (Telegram, mail, agenda, Notion…) remplissent le Cerveau quand ils sont configurés : chacun dit s\'il est actif ou ce qu\'il manque.', 'Les réglages du graphe (couleurs, étiquettes, forces) sont dans le panneau du graphe.']],
     net: ['Maison', 'Ta maison et ton réseau : les appareils, les pièces, les scènes.',
-      ['La liste montre chaque appareil ; touche-le pour sa fiche (nom, pièce, bloquer sur la box).', 'Touche une machine : sous sa fiche, ses paquets réseau (Rán, comme Wireshark) — « En direct » pour les voir passer, l\'historique en dessous, « Enregistrer en continu » pour tout garder.', 'Carte : un graphe où chaque appareil est relié à sa famille et à la box, comme le Cerveau. Pastille rouge : un risque repéré ou un appareil surveillé tombé ; point gris : hors ligne. Touche un point pour sa fiche.', 'L\'étoile : je te préviens quand l\'appareil tombe, puis quand il revient.', 'La carte place les appareils ; la sécurité liste ce qui est exposé.'],
+      ['La liste montre chaque appareil ; touche-le pour sa fiche (nom, pièce, bloquer sur la box).', 'Touche une machine : sous sa fiche, ses paquets réseau (Ariane, comme Wireshark) — « En direct » pour les voir passer, l\'historique en dessous, « Enregistrer en continu » pour tout garder.', 'Carte : un graphe où chaque appareil est relié à sa famille et à la box, comme le Cerveau. Pastille rouge : un risque repéré ou un appareil surveillé tombé ; point gris : hors ligne. Touche un point pour sa fiche.', 'L\'étoile : je te préviens quand l\'appareil tombe, puis quand il revient.', 'La carte place les appareils ; la sécurité liste ce qui est exposé.'],
       ['Le réseau à surveiller et la box : Réglages → Réseau.', 'Home Assistant, Hue, WLED : Réglages → Maison connectée.', 'Proxmox : Réglages → Machines.']],
     apps: ['Applis', 'Toutes mes applis, rangées par famille. En haut : ce que j\'ai fait de moi-même (à garder ou à annuler) et l\'état de la protection.',
       ['Le graphe relie chaque appli à sa famille et aux applis avec lesquelles elle travaille ; pastille rouge ou orange = alertes, bleue = nouveautés de son projet d\'origine.', 'Touche un point pour ouvrir l\'appli : ses chiffres, ses boutons rapides, ses autres actions.', '« J\'ai besoin de… » : décris ton besoin, je choisis l\'appli.', 'Touche-moi sur une appli : je t\'explique comment l\'utiliser et la régler.'],
       ['Le niveau des alertes se règle en haut de cette page.', 'Les clés et mots de passe des applis se rangent dans le coffre (Réglages → Coffre), jamais dans une note.']],
-    flows: ['Automatisations', 'Draupnir : « quand ceci arrive, fais cela », entre plusieurs applis.',
+    flows: ['Automatisations', 'Talos : « quand ceci arrive, fais cela », entre plusieurs applis.',
       ['« Nouvelle automatisation » : un déclencheur (heure, alerte, formulaire, webhook), puis des étapes.', 'Le journal montre chaque exécution et son résultat.'],
       ['Une action grave ne part jamais d\'une automatisation : elle attend ton accord.', 'Désactive une automatisation avec son interrupteur, sans la supprimer.']],
-    runes: ['Runes', 'Tes pages et tes bases : tableaux, calendriers, fiches clients.',
+    runes: ['Papyrus', 'Tes pages et tes bases : tableaux, calendriers, fiches clients.',
       ['« Nouvelle base » : choisis les colonnes ; ajoute des lignes à la main ou par import CSV.', 'Changer de vue : tableau, calendrier, fiches.'],
       ['Les réservations et les nouveautés des applis s\'y rangent toutes seules quand l\'appli est reliée.', 'Exporter en CSV : bouton de la base.']],
     missions: ['Activité', 'Ce que je suis en train de faire et ce que j\'ai fait : missions longues, étapes, résultats.',
@@ -68,7 +68,7 @@
   }
   const view = () => document.querySelector('.view.on')?.id?.replace(/^v-/, '') || 'home';
   const appName = () => $('#vaTitle')?.textContent?.trim() || '';
-  /** Où tu es, en clair : « Applis › Garmr », « Réglages › Voix »… (pour l'infobulle et pour Odin). */
+  /** Où tu es, en clair : « Applis › Cerbère », « Réglages › Voix »… (pour l'infobulle et pour Odin). */
   function where() {
     const v = view();
     if (v === 'app') return `Applis › ${appName() || 'appli'}`;

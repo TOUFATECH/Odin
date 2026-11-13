@@ -3,7 +3,7 @@
 // l'est maintenant) et oublie ce qui est périmé. Les souvenirs épinglés par toi ne sont jamais
 // touchés ; tout ce qui est modifié ou oublié peut être annulé pendant 7 jours.
 
-import type { Muninn, MemoryRow } from './store.ts';
+import type { Mnemosyne, MemoryRow } from './store.ts';
 
 export type Llm = (system: string, user: string, maxTokens?: number) => Promise<string>;
 export interface GardenPlan { update?: Array<{ id: number; content: string; why?: string }>; merge?: Array<{ ids: number[]; content: string }>; forget?: Array<{ id: number; why?: string }> }
@@ -17,7 +17,7 @@ Objectif : une mémoire courte, juste, à jour et en français.
 - Ne touche pas aux préférences du propriétaire sauf pour les clarifier. Garde tout ce qui est utile.
 Réponds en JSON strict : {"update":[{"id":N,"content":"…","why":"…"}],"merge":[{"ids":[N,M],"content":"…"}],"forget":[{"id":N,"why":"…"}]}. Listes vides si rien à faire.`;
 
-export async function gardenMemory(m: Muninn, llm: Llm, facts: string, now = Date.now()): Promise<GardenReport> {
+export async function gardenMemory(m: Mnemosyne, llm: Llm, facts: string, now = Date.now()): Promise<GardenReport> {
   const all = (m.listMemories(400) as MemoryRow[]).filter((x) => !x.pinned && x.origin !== 'untrusted' && !x.superseded_by && x.kind !== 'lesson');
   const rep: GardenReport = { updated: 0, merged: 0, forgotten: 0, lines: [] };
   if (all.length < 3) return rep;
@@ -54,7 +54,7 @@ export async function gardenMemory(m: Muninn, llm: Llm, facts: string, now = Dat
 }
 
 /** Annule un rangement (7 jours). */
-export function undoGarden(m: Muninn, at: number): number {
+export function undoGarden(m: Mnemosyne, at: number): number {
   const raw = m.getKv(`memory-undo:${at}`); if (!raw) return 0;
   const rows = JSON.parse(raw) as MemoryRow[];
   for (const r of rows) m.restoreMemory(r);

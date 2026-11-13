@@ -1,4 +1,4 @@
-// Où Víðarr va chercher les réponses : serveurs amont (UDP, TCP, chiffré TLS, chiffré HTTPS),
+// Où Sphinx va chercher les réponses : serveurs amont (UDP, TCP, chiffré TLS, chiffré HTTPS),
 // en parallèle, l'un après l'autre ou le plus rapide ; ou tout seul depuis la racine d'Internet (récursif,
 // sans dépendre d'aucun fournisseur). Un cache garde les réponses le temps qu'elles indiquent.
 

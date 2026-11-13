@@ -199,12 +199,12 @@ export const webSearchTool: Tool = {
     const site = s(i.site).trim().toLowerCase();
     const domain = site ? SITES[site] ?? site.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '';
     const query = `${s(i.query)}${domain ? ` site:${domain}` : ''}`;
-    // Völva réglé : tous les moteurs ensemble (SearXNG, Brave, Wikipédia…), résultats fusionnés et dédoublonnés.
+    // Pythie réglé : tous les moteurs ensemble (SearXNG, Brave, Wikipédia…), résultats fusionnés et dédoublonnés.
     if (!ctx.search?.provider || ctx.search.provider === 'auto') try {
       const { volvaResults } = await import('../valhalla/modules/volva.ts');
       const m = await volvaResults(query, Number(i.count ?? 8));
-      if (m?.results.length) return { output: wrapUntrusted('recherche:völva', `Recherche « ${query} » (Völva : ${m.engines.join(', ')}) :\n${m.results.map((r, k) => `${k + 1}. ${r.title}\n   ${r.url}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n')}`), tainted: true };
-    } catch { /* Völva indisponible : moteur habituel */ }
+      if (m?.results.length) return { output: wrapUntrusted('recherche:völva', `Recherche « ${query} » (Pythie : ${m.engines.join(', ')}) :\n${m.results.map((r, k) => `${k + 1}. ${r.title}\n   ${r.url}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n')}`), tainted: true };
+    } catch { /* Pythie indisponible : moteur habituel */ }
     const cfg = ctx.search ?? {};
     const { provider, results } = await webSearch(query, Number(i.count ?? 8), { provider: cfg.provider, searxngUrl: cfg.searxngUrl, signal: ctx.signal });
     const text = results.map((r, k) => `${k + 1}. ${r.title}\n   ${r.url}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n') || '(aucun résultat)';

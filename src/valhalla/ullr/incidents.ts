@@ -1,4 +1,4 @@
-// Ullr — les incidents : Odin relie ce que voient toutes ses applis.
+// Asclépios — les incidents : Odin relie ce que voient toutes ses applis.
 // Un signal isolé (un processus bizarre, une connexion nouvelle, un fichier modifié) ne dit pas grand-chose.
 // Plusieurs signaux qui touchent la même chose (la même adresse, le même programme, le même fichier, la
 // même machine dans les mêmes minutes) racontent une attaque. Chaque incident a un score explicable, une
@@ -17,7 +17,7 @@ const WINDOW = 2 * 3600_000;
 const s = (v: unknown) => String(v ?? '');
 const SENSITIVE = /^\/etc\/(passwd|shadow|sudoers|ssh\/|cron|systemd\/|ld\.so\.preload|rc\.local|profile)|authorized_keys|\.bashrc$|\/crontabs\//;
 
-/** Les applis qui renseignent Ullr, et ce que chacune lui apprend. */
+/** Les applis qui renseignent Asclépios, et ce que chacune lui apprend. */
 export const SENSORS: Array<{ app: string; when: string; what: string }> = [
   { app: 'loki', when: 'un attaquant tombe dans un piège', what: 'attaquants pris dans les pièges (identifiants, commandes, fichiers déposés)' },
   { app: 'skogul', when: 'un processus suspect tourne ou un port s\'ouvre', what: 'processus suspects, ports nouvellement ouverts' },
@@ -41,8 +41,8 @@ export function toSignal(e: { module: string; type: string; data: Record<string,
   const sig = (weight: number, text: string, keys: string[], more: Partial<Signal> = {}): Signal => ({ at: now, app: e.module, type: e.type, keys, weight, text, ...(ip ? { ip } : {}), ...more });
   switch (k) {
     case 'loki.piege': return ip ? sig(d.type === 'capture' ? 45 : d.type === 'identifiants' || d.type === 'commande' ? 35 : 15, `un attaquant (${ip}) est tombé dans le piège ${s(d['piège'])} : ${s(d['détail']).slice(0, 80)}`, [`ip:${ip}`], { attack: 'T1110', anchor: d.type === 'capture' || d.type === 'identifiants' || d.type === 'commande' }) : undefined;
-    // Víðarr : un appareil de la maison a demandé un site dangereux (souvent un logiciel infecté qui appelle son serveur).
-    case 'vidarr.dns_menace': return ip ? sig(40, `${ip} a demandé ${s(d.domaine)} (${s(d.liste)}) : bloqué par Víðarr`, [`ip:${ip}`, `dom:${s(d.domaine)}`], { attack: 'T1071.004' }) : undefined;
+    // Sphinx : un appareil de la maison a demandé un site dangereux (souvent un logiciel infecté qui appelle son serveur).
+    case 'vidarr.dns_menace': return ip ? sig(40, `${ip} a demandé ${s(d.domaine)} (${s(d.liste)}) : bloqué par Sphinx`, [`ip:${ip}`, `dom:${s(d.domaine)}`], { attack: 'T1071.004' }) : undefined;
     // Un appareil jamais vu : rien seul ; avec une attaque venue de la même adresse, c'est l'intrus.
     // Valgrind : une adresse d'Internet cherche des failles sur tes sites (/.env, /wp-login.php…).
     case 'var.verrouillage': return ip ? sig(25, `compte « ${s(d.login)} » verrouillé après 5 essais depuis ${ip}`, [`ip:${ip}`], { attack: 'T1110' }) : undefined;
@@ -125,7 +125,7 @@ export class Correlator {
       // (rançongiciel en cours, mot de passe d'Odin essayé cinq fois). Un bannissement est une réponse, pas un témoin.
       const anchors = group.filter((x) => x.anchor), sc = score(group);
       const witnesses = new Set(group.filter((x) => `${x.app}.${x.type}` !== 'garmr.banni').map((x) => x.app));
-      // Un site web n'a qu'un témoin (Idunn) : il faut alors deux changements de genres différents sur le même site, dont son DNS ou son certificat.
+      // Un site web n'a qu'un témoin (Arachné) : il faut alors deux changements de genres différents sur le même site, dont son DNS ou son certificat.
       const site = anchors.some((x) => x.app === 'idunn') && new Set(group.filter((x) => x.app === 'idunn').map((x) => x.type)).size >= 2 && sc >= 45;
       const alone = site || anchors.some((x) => x.app === 'ullr' && (x.type === 'sentinelle' || x.type === 'rafale')) || anchors.filter((x) => x.app === 'odin' && x.type === 'connexion_refusee').length >= 5;
       if (!anchors.length || !((witnesses.size >= 2 && sc >= 45) || alone)) return { announce: false, responses: [] };
@@ -139,12 +139,12 @@ export class Correlator {
     // Réponses : bannir les adresses extérieures impliquées (annulable) ; le reste est proposé.
     const responses: Response[] = [];
     if (inc.score >= 60) for (const ip of new Set(inc.signals.map((x) => x.ip).filter((x): x is string => Boolean(x)))) {
-      // Jamais une adresse du réseau local ; et pas deux fois la même (déjà bannie par Loki, Geri ou toi).
+      // Jamais une adresse du réseau local ; et pas deux fois la même (déjà bannie par Sirènes, Méduse ou toi).
       if (isPrivateV4(ip) || ip === '127.0.0.1' || ip.includes(':') || inc.done.includes(`bannir ${ip}`) || inc.signals.some((x) => x.app === 'garmr' && x.type === 'banni' && x.ip === ip)) continue;
       inc.done.push(`bannir ${ip}`); responses.push({ kind: 'bannir', ip, why: `incident « ${inc.title} »` });
     }
     const pids = [...new Set(inc.signals.map((x) => x.pid).filter((x): x is number => Boolean(x)))];
-    inc.proposed = [...pids.map((p) => `tue le processus ${p}`), ...(inc.kind === 'intrusion physique' ? ['regarde les enregistrements de la caméra (« les clips »), et ce qui a été branché'] : []), ...(inc.kind === 'rançongiciel' ? ['coupe le réseau de la machine touchée et restaure les fichiers depuis Sindri (« mes sauvegardes »)'] : []), ...(inc.kind === 'force brute' ? ['change ton mot de passe d\'Odin si tu as un doute (Réglages → Accès)'] : []), ...(inc.kind === 'site détourné' ? ['vérifie les enregistrements DNS du site et les dernières connexions à ton compte Cloudflare', 'si ce n\'est pas toi : change le mot de passe du compte et active la double authentification'] : [])];
+    inc.proposed = [...pids.map((p) => `tue le processus ${p}`), ...(inc.kind === 'intrusion physique' ? ['regarde les enregistrements de la caméra (« les clips »), et ce qui a été branché'] : []), ...(inc.kind === 'rançongiciel' ? ['coupe le réseau de la machine touchée et restaure les fichiers depuis Phénix (« mes sauvegardes »)'] : []), ...(inc.kind === 'force brute' ? ['change ton mot de passe d\'Odin si tu as un doute (Réglages → Accès)'] : []), ...(inc.kind === 'site détourné' ? ['vérifie les enregistrements DNS du site et les dernières connexions à ton compte Cloudflare', 'si ce n\'est pas toi : change le mot de passe du compte et active la double authentification'] : [])];
     const rank = { moyenne: 0, haute: 1, critique: 2 };
     const announce = inc.told === 0 || rank[inc.level] > rank[before];
     if (announce) inc.told++;

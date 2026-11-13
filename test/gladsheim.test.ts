@@ -1,4 +1,4 @@
-// Glaðsheimr, l'écran de la maison : thèmes, boutons vers les applis, clés de tablette (droits « maison » ou
+// Hestia, l'écran de la maison : thèmes, boutons vers les applis, clés de tablette (droits « maison » ou
 // « complet »), météo, page /maison (sécurité : cadre autorisé seulement pour Home Assistant), API avec
 // confirmation des actions graves, mascotte (heure, météo, ordres).
 import { test } from 'node:test';
@@ -71,7 +71,7 @@ test('page et API /maison : session, clé de tablette, droits, confirmation, mas
     assert.match(r.headers.get('content-security-policy')!, /frame-ancestors 'self';/); assert.match(html, /<template id="mascotte"><svg/); assert.match(html, /src="\/maison\.js"/);
     await w.act('home_assistant', { adresse: 'https://ha.maison.fr:8123', odin: 'https://odin.maison.fr' });
     assert.match((await get('/maison')).headers.get('content-security-policy')!, /frame-ancestors 'self' https:\/\/ha\.maison\.fr:8123;/);
-    assert.match(await (await get('/maison.js')).text(), /Glaðsheimr/);
+    assert.match(await (await get('/maison.js')).text(), /Hestia/);
     // Sans session ni clé : refusé ; une fausse clé compte comme un essai raté.
     assert.equal((await get('/api/maison/etat')).status, 401);
     assert.equal((await get('/api/maison/etat', { 'x-odin-maison': 'gk_faussefaussefaussefaussefaussefausse' })).status, 401); assert.equal(fails, 1);
@@ -117,7 +117,7 @@ test('page et API /maison : session, clé de tablette, droits, confirmation, mas
     assert.equal((await post('/api/maison/reseau', { ip: '192.168.1.20' }, K)).status, 403); assert.equal((await get('/api/maison/camera?nom=x', K)).status, 403); authed = true;
     await w.act('retirer_membre', { nom: 'Nour' }); assert.equal((await ot('nour', pass, { _type: 'location', lat: 1, lon: 1 })).status, 401);
     assert.ok(!(await w.act('positions')).text.includes('Nour'), 'positions effacées');
-    // Réseau : couper Internet / la vidéo d'un appareil (Víðarr), réservé à la session.
+    // Réseau : couper Internet / la vidéo d'un appareil (Sphinx), réservé à la session.
     assert.match(String((await post('/api/maison/reseau', { ip: '192.168.1.20', nom: 'PC de Nour' })).text), /PC de Nour \(192\.168\.1\.20\) coupé d'Internet/);
     assert.match(String((await post('/api/maison/video', { ip: '192.168.1.30', nom: 'Télé' })).text), /Vidéo coupée pour Télé .*YouTube, Netflix/);
     assert.match(String((await post('/api/maison/reseau', { ip: '192.168.1.20', couper: false })).text), /retrouve Internet/);

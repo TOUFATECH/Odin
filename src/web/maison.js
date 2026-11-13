@@ -1,4 +1,4 @@
-// Glaðsheimr — l'écran de la maison (tablette murale, téléphone, ordinateur, Home Assistant).
+// Hestia — l'écran de la maison (tablette murale, téléphone, ordinateur, Home Assistant).
 // Pièces et appareils, scènes, météo, état des applis, tes boutons, onze thèmes, et la mascotte qui se promène,
 // joue à la balle, répond (météo, heure, alertes) et fait ce que tu lui demandes (mêmes droits que dans Odin).
 // Aucune page HTML construite à partir de texte : tout est créé élément par élément.
@@ -49,7 +49,7 @@
     aurore: { bg: '#0f0d1a', bg2: 'radial-gradient(800px 500px at 100% 0%,#3b2a12,transparent),radial-gradient(900px 500px at 0% 100%,#24184a,transparent),#0f0d1a', card: 'rgba(55,45,95,.32)', card2: 'rgba(75,60,120,.36)', line: 'rgba(255,255,255,.08)', text: '#f3f0ff', muted: '#aaa3c8', accent: '#f59e0b', accent2: '#8b5cf6', on: 'linear-gradient(135deg,#fbbf24,#f97316)' },
     lagon: { bg: '#0b4f5c', bg2: 'linear-gradient(160deg,#0f6b78,#0a3d4a)', card: 'rgba(255,255,255,.10)', card2: 'rgba(255,255,255,.16)', line: 'rgba(255,255,255,.14)', text: '#f2fbfc', muted: '#b6dfe4', accent: '#ffd23f', accent2: '#5eead4', on: 'linear-gradient(135deg,#ffd23f,#f5a524)' },
     clair: { bg: '#eef1f5', bg2: '#eef1f5', card: '#ffffff', card2: '#f5f7fa', line: '#dfe4ea', text: '#18202a', muted: '#5d6875', accent: '#e8590c', accent2: '#1971c2', on: 'linear-gradient(135deg,#ff922b,#e8590c)' },
-    // Les 20 thèmes validés (maquettes Glaðsheimr) : couleurs et décors dessinés ici (aucune image externe).
+    // Les 20 thèmes validés (maquettes Hestia) : couleurs et décors dessinés ici (aucune image externe).
     ocean: { bg: '#0a1f3d', bg2: 'linear-gradient(160deg,#0b3a6e,#0a1f3d)', card: 'rgba(255,255,255,.10)', card2: 'rgba(255,255,255,.15)', line: 'rgba(255,255,255,.16)', text: '#eaf3ff', muted: '#a9c3e4', accent: '#5ab0ff', accent2: '#7fe0ff', on: 'linear-gradient(135deg,#3d8bff,#1f5fd1)', decor: 'vagues' },
     blanc: { bg: '#f4f6f9', bg2: '#f4f6f9', card: '#ffffff', card2: '#f2f5f8', line: '#e2e7ee', text: '#16202b', muted: '#56606e', accent: '#1971c2', accent2: '#e8590c', on: 'linear-gradient(135deg,#4dabf7,#1971c2)', light: true },
     rubis: { bg: '#14070a', bg2: 'linear-gradient(160deg,#3a0b12,#14070a)', card: 'rgba(255,255,255,.07)', card2: 'rgba(255,255,255,.11)', line: 'rgba(255,120,130,.18)', text: '#ffecee', muted: '#d7a7ad', accent: '#ff5a6a', accent2: '#ffb3bb', on: 'linear-gradient(135deg,#ff5a6a,#c2182e)' },
@@ -192,7 +192,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     return el('div', { class: `card dev${on ? ' on' : ''}${d.kind === 'serrure' || d.kind === 'lecteur' ? ' w2' : ''}`, 'data-dev': d.id }, head, ctl);
   }
   function weatherCard(w) {
-    if (!w) return el('div', { class: 'card wx w2' }, el('h3', {}, 'Météo'), el('p', { class: 'muted' }, 'Météo indisponible : choisis la ville dans Odin (Glaðsheimr).'));
+    if (!w) return el('div', { class: 'card wx w2' }, el('h3', {}, 'Météo'), el('p', { class: 'muted' }, 'Météo indisponible : choisis la ville dans Odin (Hestia).'));
     const ICO = { 0: '☀️', 1: '🌤', 2: '⛅', 3: '☁️', 45: '🌫', 48: '🌫', 51: '🌦', 53: '🌦', 55: '🌧', 61: '🌦', 63: '🌧', 65: '🌧', 71: '🌨', 73: '🌨', 75: '❄️', 80: '🌦', 81: '🌧', 82: '⛈', 95: '⛈', 96: '⛈', 99: '⛈' };
     const days = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
     // Courbe des 24 prochaines heures.
@@ -290,7 +290,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     catch { img.closest('.cam')?.classList.add('off'); }
   }
   function startCams() { clearInterval(camTimer); const imgs = () => [...document.querySelectorAll('img[data-cam]')]; if (!imgs().length) return; imgs().forEach(refreshCam); camTimer = setInterval(() => { if (!document.hidden) imgs().forEach(refreshCam); }, 6000); }
-  // ---------- Réseau : couper Internet ou la vidéo d'un appareil (Víðarr) ----------
+  // ---------- Réseau : couper Internet ou la vidéo d'un appareil (Sphinx) ----------
   const NETICO = { ordinateur: '💻', 'téléphone': '📱', tablette: '📱', 'télévision': '📺', imprimante: '🖨', console: '🎮', camera: '📷', 'caméra': '📷', routeur: '📶', serveur: '🗄' };
   function netView() {
     const ds = (D.network || []).filter((d) => match(`${d.name} ${d.ip} ${d.kind}`));
@@ -299,7 +299,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
         el('div', { class: 'row' }, el('span', { class: 'em', 'aria-hidden': 'true' }, NETICO[d.kind] || '🔌'), el('div', { style: { minWidth: 0 } }, el('b', {}, d.name), el('span', { class: 'muted' }, `${d.ip}${d.cut ? ' · Internet coupé' : ''}${d.video ? ' · vidéo coupée' : ''}`))),
         el('div', { class: 'ctl' },
           el('button', { class: `btn${d.cut ? ' primary' : ''}`, 'aria-pressed': String(d.cut), onclick: () => act('/api/maison/reseau', { ip: d.ip, nom: d.name, couper: !d.cut }) }, d.cut ? 'Rétablir Internet' : 'Couper Internet'),
-          el('button', { class: `btn${d.video ? ' primary' : ''}`, 'aria-pressed': String(d.video), onclick: () => act('/api/maison/video', { ip: d.ip, nom: d.name, couper: !d.video }) }, d.video ? 'Rétablir la vidéo' : 'Couper la vidéo'))))) : el('p', { class: 'empty' }, 'Aucun appareil connu : lance le DNS de la maison (Víðarr) ou l\'inventaire (Askr).'),
+          el('button', { class: `btn${d.video ? ' primary' : ''}`, 'aria-pressed': String(d.video), onclick: () => act('/api/maison/video', { ip: d.ip, nom: d.name, couper: !d.video }) }, d.video ? 'Rétablir la vidéo' : 'Couper la vidéo'))))) : el('p', { class: 'empty' }, 'Aucun appareil connu : lance le DNS de la maison (Sphinx) ou l\'inventaire (Atlas).'),
       el('p', { class: 'muted', style: { marginTop: '12px' } }, 'Coupure par le DNS de la maison : un appareil réglé à la main sur un autre DNS y échappe.')];
   }
   function appsGrid(list) {
@@ -312,7 +312,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     const ts = (D.tiles || []).filter((t) => match(t.label));
     return [el('div', { class: 'grid' }, ...ts.map((t) => el('button', { class: 'tile', style: t.color ? { borderColor: t.color } : null, onclick: () => act('/api/maison/bouton', { id: t.id }) }, el('span', { class: 'em', 'aria-hidden': 'true', style: t.color ? { background: t.color } : null }, t.icon), el('b', {}, t.label), t.grave ? el('span', { class: 'muted' }, 'avec confirmation') : null)),
       ...(ts.length ? [] : [el('p', { class: 'empty' }, 'Aucun bouton.')])),
-      ...(full ? [el('p', { class: 'muted', style: { marginTop: '14px' } }, 'Ajoute un bouton vers n\'importe quelle action d\'une appli dans Odin → Glaðsheimr → « Ajouter un bouton » (ou dis-le à la mascotte).')] : [])];
+      ...(full ? [el('p', { class: 'muted', style: { marginTop: '14px' } }, 'Ajoute un bouton vers n\'importe quelle action d\'une appli dans Odin → Hestia → « Ajouter un bouton » (ou dis-le à la mascotte).')] : [])];
   }
   function themesView() {
     return [el('h2', { class: 'sec' }, 'Thèmes'), el('div', { class: 'themes' }, ...Object.entries(D.themes || {}).map(([k, label]) => { const t = T[k] || T.verre; return el('button', { class: 'th', 'aria-pressed': String(D.theme === k), onclick: async () => { applyTheme(k); D.theme = k; draw(); if (D.rights === 'complet') await act('/api/maison/theme', { theme: k }); else try { localStorage.setItem('odin.maison.theme', k); } catch { /* */ } } },
@@ -333,7 +333,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       if (first) { first = false; setTimeout(() => pet.say(`${hello()} ! ${d.weather ? `Il fait ${d.weather.temp}° à ${d.weather.place}, ${d.weather.word.toLowerCase()}.` : ''} Touche-moi pour me parler.`, 'ok', 'joie'), 900); }
     } catch (e) {
       applyTheme('verre');
-      root.replaceChildren(el('main', {}, el('div', { class: 'card', style: { maxWidth: '520px', margin: '12vh auto' } }, el('h1', {}, 'Écran de la maison'), el('p', {}, e.auth ? 'Connecte-toi à Odin, ou ouvre le lien de tablette donné par Glaðsheimr.' : `Odin ne répond pas : ${e.message}`), e.auth ? el('a', { class: 'btn primary', href: '/', style: { textDecoration: 'none' } }, 'Se connecter à Odin') : null)));
+      root.replaceChildren(el('main', {}, el('div', { class: 'card', style: { maxWidth: '520px', margin: '12vh auto' } }, el('h1', {}, 'Écran de la maison'), el('p', {}, e.auth ? 'Connecte-toi à Odin, ou ouvre le lien de tablette donné par Hestia.' : `Odin ne répond pas : ${e.message}`), e.auth ? el('a', { class: 'btn primary', href: '/', style: { textDecoration: 'none' } }, 'Se connecter à Odin') : null)));
     }
   }
 

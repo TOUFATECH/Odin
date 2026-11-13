@@ -6,11 +6,11 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Muninn } from '../muninn/store.ts';
+import type { Mnemosyne } from '../muninn/store.ts';
 import { isReminderJob, parseWhen, reminderText, whenFr } from '../cron/reminders.ts';
 import { allThreads } from '../muninn/threads.ts';
 
-export interface OfflineDeps { muninn: Muninn; home?: string; inventory?: { list(f: { status: 'all' }): Array<{ ip: string; label: string; name: string; hostname: string; kind: string; status: string }> } }
+export interface OfflineDeps { muninn: Mnemosyne; home?: string; inventory?: { list(f: { status: 'all' }): Array<{ ip: string; label: string; name: string; hostname: string; kind: string; status: string }> } }
 export interface QueuedAsk { text: string; sessionId: string; channel: string; peer: string; at: number; tries: number }
 export const QUEUE_KEY = 'offline-queue';
 
@@ -19,7 +19,7 @@ const STOP = new Set('les des une un le la de du et ou en au aux pour par sur av
 const words = (t: string) => norm(t).split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !STOP.has(w));
 
 /** Garde la question pour y répondre quand un modèle revient. */
-export function queueAsk(kv: Pick<Muninn, 'getKv' | 'setKv'>, q: Omit<QueuedAsk, 'tries'>): void {
+export function queueAsk(kv: Pick<Mnemosyne, 'getKv' | 'setKv'>, q: Omit<QueuedAsk, 'tries'>): void {
   let l: QueuedAsk[] = []; try { l = JSON.parse(kv.getKv(QUEUE_KEY) ?? '[]') as QueuedAsk[]; } catch { /* vide */ }
   if (l.some((x) => x.text === q.text && x.sessionId === q.sessionId)) return;
   l.push({ ...q, tries: 0 }); kv.setKv(QUEUE_KEY, JSON.stringify(l.slice(-20)));

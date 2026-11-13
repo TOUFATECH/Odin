@@ -1,4 +1,4 @@
-// Brú, le tunnel Cloudflare : face à une fausse API Cloudflare, un faux GitHub et un faux programme
+// Bifröst, le tunnel Cloudflare : face à une fausse API Cloudflare, un faux GitHub et un faux programme
 // cloudflared. Création du tunnel, publication (règle + DNS), refus d'écraser un DNS existant, retrait (seulement
 // ce qu'Odin a ajouté), Odin publié sous ton domaine, programme téléchargé et vérifié, jamais exécuté sans empreinte.
 import { test } from 'node:test';

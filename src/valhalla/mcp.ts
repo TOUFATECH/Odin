@@ -1,4 +1,4 @@
-// Ratatoskr — le messager MCP d'Odin, dans les deux sens.
+// Interprète — le messager MCP d'Odin, dans les deux sens.
 //   Client : Odin se branche sur des serveurs MCP (programme local en stdio, ou adresse HTTP) et
 //            leurs outils deviennent des outils d'Odin, toujours sous Heimdall (accord, contenu non fiable).
 //   Serveur : Odin expose ses applis en MCP (/mcp, jeton obligatoire) pour d'autres assistants ;

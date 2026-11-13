@@ -1,4 +1,4 @@
-// Gjöll contre un VRAI WireGuard : la maison (cette machine), un « téléphone » dans un réseau isolé
+// Vortex contre un VRAI WireGuard : la maison (cette machine), un « téléphone » dans un réseau isolé
 // qui scanne la configuration d'Odin, et un « NAS » sur le réseau de la maison. Le téléphone doit
 // joindre la maison par le tunnel chiffré, puis le NAS derrière elle ; désactivé, il ne passe plus.
 
@@ -14,7 +14,7 @@ const TEL = 'odinbanc-tel', NAS = 'odinbanc-nas', IFACE = 'obwg0';
 async function freeUdp(): Promise<number> { return new Promise((res, rej) => { const s = createSocket('udp4'); s.once('error', rej); s.bind(0, () => { const p = s.address().port; s.close(() => res(p)); }); }); }
 
 export const vpn: Scenario = {
-  id: 'vpn', title: 'Gjöll ↔ WireGuard', mode: 'réel',
+  id: 'vpn', title: 'Vortex ↔ WireGuard', mode: 'réel',
   what: 'Un vrai tunnel WireGuard : un téléphone simulé se connecte avec la configuration du QR code, atteint la maison puis un appareil du réseau local ; désactivation et révocation coupent l\'accès.',
   async run(t) {
     t.needRoot(); await t.need('wg', 'wg-quick', 'ip');
@@ -70,7 +70,7 @@ export const vpn: Scenario = {
     t.ok(hs > 0 && Date.now() / 1000 - hs < 120, 'poignée de main WireGuard faite (échange de clés réussi)');
     const seen = await fromPhone('http://192.168.77.10:8080/');
     t.match(seen, /^NAS vu depuis 192\.168\.77\.1$/, 'le téléphone atteint le NAS de la maison à travers le VPN');
-    t.match((await v.act('gjoll', 'appareils')).text, /Téléphone \(10\.213\.77\.2\) · connecté/, 'Gjöll voit l\'appareil connecté');
+    t.match((await v.act('gjoll', 'appareils')).text, /Téléphone \(10\.213\.77\.2\) · connecté/, 'Vortex voit l\'appareil connecté');
     await gjoll.watch!.run(ctx);
     t.ok(events.some((e) => e.type === 'vpn_connecte' && e.data.appareil === 'Téléphone'), 'événement « appareil connecté au VPN » émis');
     const view = await gjoll.view(ctx, new URLSearchParams());

@@ -3,7 +3,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { arch, cpus, hostname, platform, release, totalmem } from 'node:os';
-import type { Muninn } from '../muninn/store.ts';
+import type { Mnemosyne } from '../muninn/store.ts';
 
 const TOOLS = ['git', 'docker', 'ffmpeg', 'ffprobe', 'python3', 'pdftotext', 'soffice', 'magick', 'tesseract', 'brew', 'apt', 'winget', 'ollama', 'ssh'];
 
@@ -20,7 +20,7 @@ export function environmentProfile(): string {
 }
 
 /** Remplace l'ancien profil (épinglé) par le profil actuel. */
-export function refreshEnvironment(muninn: Muninn, profile = environmentProfile()): number {
+export function refreshEnvironment(muninn: Mnemosyne, profile = environmentProfile()): number {
   for (const m of muninn.listMemories(500)) if (m.kind === 'environment' && m.content.startsWith('Environnement de la machine')) muninn.forget(m.id);
   const { id } = muninn.remember(profile, 'agent', 'environment');
   muninn.pin(id, true);

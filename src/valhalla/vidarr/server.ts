@@ -1,4 +1,4 @@
-// Le serveur DNS de Víðarr : il écoute (UDP et TCP), reconnaît l'appareil qui demande, applique ses
+// Le serveur DNS de Sphinx : il écoute (UDP et TCP), reconnaît l'appareil qui demande, applique ses
 // règles (réécritures locales, exceptions, services coupés, recherche sécurisée, listes, menaces), répond
 // tout de suite pour ce qui est bloqué, cherche le reste (cache, puis amont), vérifie aussi les alias
 // de la réponse, et note tout dans le journal (requêtes, temps, qui, pourquoi).

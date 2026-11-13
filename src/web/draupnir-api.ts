@@ -1,4 +1,4 @@
-// API web de Draupnir (automatisations) et de Runes (pages et bases), plus les adresses publiques
+// API web de Talos (automatisations) et de Papyrus (pages et bases), plus les adresses publiques
 // des automatisations : /h/<chemin secret> (webhook) et /f/<chemin secret> (formulaire hébergé par Odin).
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -22,7 +22,7 @@ export function catalogForUi() {
 }
 
 export async function draupnirGet(odin: Odin, path: string, q: URLSearchParams, base: string): Promise<unknown> {
-  const d = draupnirOf(); if (!d) return { ok: false, error: 'Draupnir n\'est pas démarré' };
+  const d = draupnirOf(); if (!d) return { ok: false, error: 'Talos n\'est pas démarré' };
   switch (path) {
     case '/api/draupnir/state': {
       const creds = Object.keys(process.env).filter((k) => /^DRAUPNIR_[A-Z0-9_]+$/.test(k)).map((k) => ({ name: k.slice(9), ...secretHint(k) }));
@@ -37,7 +37,7 @@ export async function draupnirGet(odin: Odin, path: string, q: URLSearchParams, 
 }
 
 export async function draupnirPost(odin: Odin, path: string, b: Record<string, unknown>): Promise<unknown> {
-  const d = draupnirOf(); if (!d) return { ok: false, error: 'Draupnir n\'est pas démarré' };
+  const d = draupnirOf(); if (!d) return { ok: false, error: 'Talos n\'est pas démarré' };
   try {
     switch (path) {
       case '/api/draupnir/save': return { ok: true, flow: d.save(b.flow as never) };
@@ -62,7 +62,7 @@ export async function draupnirPost(odin: Odin, path: string, b: Record<string, u
   } catch (e) { return { ok: false, error: (e as Error).message }; }
 }
 
-// ---------------------------------------------------------------- Runes
+// ---------------------------------------------------------------- Papyrus
 
 export function runesGet(odin: Odin, path: string, q: URLSearchParams): unknown {
   const r = runesOf(ctxOf(odin));

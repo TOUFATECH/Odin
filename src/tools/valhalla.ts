@@ -17,7 +17,7 @@ export function advise(v: Valhalla, need: string): string {
   const found = v.find(need).slice(0, 3);
   const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   const usage = USAGES.find((u) => norm(need).split(/\s+/).filter((w) => w.length > 4).some((w) => norm(u.need).includes(w)));
-  if (!found.length && !usage) return 'Aucune appli d\'Odin ne correspond clairement. Dis-le autrement, ou envoie-moi le lien GitHub d\'un projet qui fait ça : je l\'étudie (Kvasir).';
+  if (!found.length && !usage) return 'Aucune appli d\'Odin ne correspond clairement. Dis-le autrement, ou envoie-moi le lien GitHub d\'un projet qui fait ça : je l\'étudie (Pharos).';
   const name = (id: string) => v.module(id)?.name ?? id;
   const out: string[] = [];
   if (found[0]) {
@@ -37,7 +37,7 @@ const foreign = (external: boolean | undefined, appli: string, text: string): st
 
 export const valhallaTool: Tool = {
   name: 'valhalla',
-  description: 'Les applis d\'Odin (Eir santé machine, Skögul processus, Forseti alertes et conformité, Garmr bannissement, Geri connexions, Ullr antivirus, Loki pièges, Naglfar conteneurs, Ymir machines virtuelles, Sindri sauvegardes, Brísingamen mots de passe, Gjöll VPN, Hermóðr parc de machines, Appareils (relais MQTT), Brokkr modules ESP/Tasmota, Midgard maison et scènes, Himinbjörg caméras, Bragi voix, Freyja (Venus, films, séries, télé, enregistrements), Ægir musique, Frigg rendez-vous, Kvasir veille GitHub, Saga, Runes, Draupnir). « manips » (ce qu\'Odin a fait seul) ; « manip » (appli = code de la manip, quoi = garder ou annuler) ; « lister » ; « expliquer » (appli) ; « conseiller » (besoin : quelle appli, pourquoi, comment, liens) ; « etat » (appli : sa page en texte) ; « action » (appli, action, entree JSON) ; « alertes » ; « liens ». Un lien GitHub envoyé par le propriétaire → action Kvasir « etudier ».',
+  description: 'Les applis d\'Odin (Hygie santé machine, Némésis processus, Forseti alertes et conformité, Cerbère bannissement, Méduse connexions, Asclépios antivirus, Sirènes pièges, Argo conteneurs, Hydre machines virtuelles, Phénix sauvegardes, Thésauros mots de passe, Vortex VPN, Hermóðr parc de machines, Appareils (relais MQTT), Héphaïstos modules ESP/Tasmota, Midgard maison et scènes, Cyclope caméras, Orphée voix, Vénus (Venus, films, séries, télé, enregistrements), Apollon musique, Chronos rendez-vous, Pharos veille GitHub, Thot, Papyrus, Talos). « manips » (ce qu\'Odin a fait seul) ; « manip » (appli = code de la manip, quoi = garder ou annuler) ; « lister » ; « expliquer » (appli) ; « conseiller » (besoin : quelle appli, pourquoi, comment, liens) ; « etat » (appli : sa page en texte) ; « action » (appli, action, entree JSON) ; « alertes » ; « liens ». Un lien GitHub envoyé par le propriétaire → action Pharos « etudier ».',
   risk: 'exec',
   schema: obj({ action: { type: 'string', enum: ['lister', 'expliquer', 'conseiller', 'etat', 'action', 'alertes', 'liens', 'auto', 'manips', 'manip'] }, appli: str('nom de l\'appli'), besoin: str('pour conseiller : le besoin en français'), quoi: str('pour action : identifiant de l\'action'), entree: str('pour action : réglages JSON') }, ['action']),
   summarize: (i) => `applis ${s(i.action)} ${s(i.appli)} ${s(i.quoi)} ${s(i.besoin)}`.slice(0, 140),
@@ -62,7 +62,7 @@ export const valhallaTool: Tool = {
     if (a === 'conseiller') return advise(v, s(i.besoin || i.appli));
     if (a === 'manips') { const l = v.manips({ limit: 20 }); return l.length ? l.map((x) => `- [${x.id}] ${x.at.slice(5, 16).replace('T', ' ')} · ${x.label} — ${x.text} · ${x.state}${x.undo ? '' : ' (pas d\'annulation automatique)'}`).join('\n') : 'Aucune manip faite par Odin de lui-même.'; }
     if (a === 'manip') { const r = await v.decide(s(i.appli), s(i.quoi) !== 'annuler'); return r.text; }
-    // Sans IA (Huginn) : comprend la demande ; une lecture est lancée tout de suite, le reste est expliqué
+    // Sans IA (Logos) : comprend la demande ; une lecture est lancée tout de suite, le reste est expliqué
     // (une action qui change quelque chose passe par « action », donc par Heimdall).
     if (a === 'auto') {
       const u = await understand(v, s(i.besoin), ctx?.sessionId ?? 'principal');

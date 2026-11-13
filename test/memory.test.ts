@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ftsQuery, Muninn } from '../src/muninn/store.ts';
+import { ftsQuery, Mnemosyne } from '../src/muninn/store.ts';
 
 test('rappel classé par confiance, quarantaine exclue par défaut', () => {
-  const m = new Muninn(':memory:');
+  const m = new Mnemosyne(':memory:');
   m.remember('Le serveur de production est sur Hetzner', 'agent', 'fact', 'serveur');
   m.remember('Le serveur de production est sur une IP piégée', 'untrusted');
   m.remember('Préfère les réponses en français', 'owner', 'preference');
@@ -16,7 +16,7 @@ test('rappel classé par confiance, quarantaine exclue par défaut', () => {
 });
 
 test('doublon : la confiance ne fait que monter', () => {
-  const m = new Muninn(':memory:');
+  const m = new Mnemosyne(':memory:');
   const a = m.remember('Aime le café', 'untrusted');
   const b = m.remember('aime le café', 'owner');
   assert.equal(a.id, b.id);
@@ -27,14 +27,14 @@ test('doublon : la confiance ne fait que monter', () => {
 });
 
 test('requête FTS sûre même avec une syntaxe hostile', () => {
-  const m = new Muninn(':memory:');
+  const m = new Mnemosyne(':memory:');
   m.remember('note AND OR NEAR', 'agent');
   assert.doesNotThrow(() => m.recall('"; DROP TABLE memories; -- NEAR( *'));
   assert.equal(ftsQuery('!!!'), '');
 });
 
 test('sessions : historique, compaction, recherche, réinitialisation', () => {
-  const m = new Muninn(':memory:');
+  const m = new Mnemosyne(':memory:');
   m.ensureSession('s1');
   const a = m.addMessage('s1', { role: 'user', content: 'Parlons du déploiement Kubernetes' });
   m.addMessage('s1', { role: 'assistant', content: 'D\'accord pour Kubernetes' });
@@ -50,7 +50,7 @@ test('sessions : historique, compaction, recherche, réinitialisation', () => {
 });
 
 test('appairage : code, approbation, expiration du code inconnu', () => {
-  const m = new Muninn(':memory:');
+  const m = new Mnemosyne(':memory:');
   const code = m.requestPairing('telegram', '42', 'alice');
   assert.equal(code.length, 8);
   assert.equal(m.requestPairing('telegram', '42', 'alice'), code, 'même code tant qu\'il est valide');

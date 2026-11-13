@@ -1,5 +1,5 @@
-// Le parc de machines d'Ymir (maquettes validées) : ordinateurs installés par le réseau (Þjálfi), VM et LXC
-// (Proxmox), conteneurs et piles Docker (Naglfar) réunis, avec les mêmes noms automatiques (pc-, vm-, lxc-, dk-,
+// Le parc de machines d'Hydre (maquettes validées) : ordinateurs installés par le réseau (Genèse), VM et LXC
+// (Proxmox), conteneurs et piles Docker (Argo) réunis, avec les mêmes noms automatiques (pc-, vm-, lxc-, dk-,
 // pile-) et le même suivi. Calculs purs : noms, ports libres, lecture des ports déjà pris.
 
 export type Kind = 'PC' | 'VM' | 'LXC' | 'Docker' | 'Pile';

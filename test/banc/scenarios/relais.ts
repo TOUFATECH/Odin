@@ -1,4 +1,4 @@
-// Le relais de messages d'Odin (Veðrfölnir, serveur MQTT maison) contre de VRAIS clients tiers :
+// Le relais de messages d'Odin (Mercure, serveur MQTT maison) contre de VRAIS clients tiers :
 // les outils Mosquitto (mosquitto_pub, mosquitto_sub). Connexion avec mot de passe, refus sans,
 // messages retenus, jokers, accusé de réception, dernière volonté, puis un appareil qui s'annonce
 // au format standard et qu'Odin pilote.

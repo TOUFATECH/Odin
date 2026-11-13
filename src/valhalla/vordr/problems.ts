@@ -1,4 +1,4 @@
-// Vörðr — problèmes et déclencheurs (façon Zabbix / Centreon) :
+// Pulsar — problèmes et déclencheurs (façon Zabbix / Centreon) :
 //   - un déclencheur lit une mesure d'Odin (« eir.mem », « vordr.temps.nas »…) sur une fenêtre et la compare
 //     à un seuil : « si la moyenne de la mémoire sur 10 min dépasse 80 %, problème Moyen ; fini sous 70 % » ;
 //   - un problème a une gravité (5 niveaux), une date de début, une prise en main, des commentaires ;

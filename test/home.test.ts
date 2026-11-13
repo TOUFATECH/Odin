@@ -120,7 +120,7 @@ test('Venus : épisode demandé dans la phrase, et messages d\'arrivée (VF)', (
   assert.deepEqual(arrivalMessages(items, 'vf'), ['🇫🇷 VF arrivée sur Venus : « Frieren » : 3 épisodes de plus en VF (12 au total)', '📺 Épisode arrivé sur Venus en VF : One Piece S01E1071']);
 });
 
-test('Freyja · médias automatiques de Venus : résumé (téléchargements, à trouver, erreurs, sans source)', async () => {
+test('Vénus · médias automatiques de Venus : résumé (téléchargements, à trouver, erreurs, sans source)', async () => {
   const { mediasText } = await import('../src/valhalla/modules/venus.ts');
   assert.match(mediasText({ on: false, client: null, sources: [], wants: [], log: [] }), /coupés/);
   const t = mediasText({ on: true, client: { type: 'venus' }, sources: [], log: [], wants: [
@@ -128,18 +128,18 @@ test('Freyja · médias automatiques de Venus : résumé (téléchargements, à 
     { id: 2, kind: 'episode', title: 'Brigade Nord', season: 1, episode: 2, status: 'erreur', progress: 0, note: 'aucun fichier' },
     { id: 3, kind: 'movie', title: 'Nuit', season: -1, episode: -1, status: 'range', progress: 100 },
   ] });
-  assert.match(t, /0 source\(s\) · moteur Fólkvangr · 1 en téléchargement · 0 à trouver · 1 rangé\(s\) · ⚠ 1 en erreur/);
+  assert.match(t, /0 source\(s\) · moteur Comète · 1 en téléchargement · 0 à trouver · 1 rangé\(s\) · ⚠ 1 en erreur/);
   assert.match(t, /⬇ Orage : 42 %/); assert.match(t, /⚠ Brigade Nord S01E02 : aucun fichier/); assert.match(t, /Aucune source/);
 });
 
-test('Freyja · Bygul (sources) : santé, priorité, chiffres, sans source', async () => {
+test('Vénus · Delta (sources) : santé, priorité, chiffres, sans source', async () => {
   const { bygulText } = await import('../src/valhalla/modules/venus.ts');
-  assert.match(bygulText([]), /Aucune source dans Bygul/);
+  assert.match(bygulText([]), /Aucune source dans Delta/);
   const t = bygulText([{ id: 1, name: 'Rapide', enabled: true, priority: 10, health: 'bonne', fails: 0, queries: 12, grabs: 3, avgMs: 240 }, { id: 2, name: 'Lente', enabled: true, priority: 40, health: 'en pause', fails: 3, last_error: 'réponse 503', queries: 5, grabs: 0, avgMs: 9000, paused_until: Date.now() + 3600e3 }]);
   assert.match(t, /🟢 n° 1 Rapide · priorité 10 · bonne · 12 recherche\(s\), 3 téléchargement\(s\), 240 ms/); assert.match(t, /⏸ n° 2 Lente · priorité 40 · en pause jusqu'à \d\d:\d\d .* · réponse 503/);
 });
 
-test('Freyja : filtres des médias par catégorie (texte et réglage)', async () => {
+test('Vénus : filtres des médias par catégorie (texte et réglage)', async () => {
   const { filtresText, filtreBody } = await import('../src/valhalla/modules/venus.ts');
   const t = filtresText({
     films: { label: 'Films', reglee: true, min: 720, max: 2160, cible: 1080, langues: { multi: 100, vf: 90, vostfr: -100, vo: -500 }, seuil: -200, hevc: 0, maxGo: 40 },

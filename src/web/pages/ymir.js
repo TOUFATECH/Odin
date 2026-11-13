@@ -1,8 +1,8 @@
-// Ymir dans l'interface (maquettes validées « Toutes les machines », « Créer une machine », « Quarantaine »),
+// Hydre dans l'interface (maquettes validées « Toutes les machines », « Créer une machine », « Quarantaine »),
 // dans le thème de la fenêtre d'Odin :
 // - Machines : les LXC et VM de ce PC rangés par système, avec l'aperçu en direct (écran de la VM, console du LXC),
 //   processeur et mémoire, tes catégories, ce PC (l'hôte), et pour la machine choisie : ressources, exporter, cloner.
-// - Créer : système (modèle LXC ou ISO d'Eitri), nom automatique, ressources, adresse vérifiée, applis d'Odin.
+// - Créer : système (modèle LXC ou ISO d'Andromède), nom automatique, ressources, adresse vérifiée, applis d'Odin.
 // - Quarantaine : les machines isolées, d'où vient le souci, ce qu'Odin a fait, l'analyse, la sortie.
 // - Serveurs : la vue générique (Proxmox, conteneurs du moteur d'Odin).
 // Tout ce qui est grave (arrêter, supprimer, sortir de quarantaine) passe par ton accord.
@@ -17,7 +17,7 @@
   };
   const post = async (action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'ymir', action, input, confirm }) })).json();
   const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!confirm(r.confirm)) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
-  const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Ymir', app: 'Ymir' }); };
+  const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Hydre', app: 'Hydre' }); };
   const P = {
     box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', plus: 'M12 5v14M5 12h14', down: 'M12 4v12M6 12l6 6 6-6M4 20h16', up: 'M12 20V8M6 12l6-6 6 6M4 4h16', copy: 'M8 8h12v12H8zM4 16V4h12',
     save: 'M5 3h11l3 3v15H5zM8 3v6h8M8 21v-7h8v7', screen: 'M3 4h18v12H3zM8 20h8M12 16v4', term: 'M4 5h16v14H4zM7 9l3 3-3 3M12 15h5', play: 'M7 5v14l12-7z', stop: 'M6 6h12v12H6z', lock: 'M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4',
@@ -105,7 +105,7 @@
     main.append(el('div', { class: 'ym-k' }, el('div', {}, el('small', {}, 'En marche'), el('b', {}, `${on} / ${all.length}`), el('span', {}, `${all.length - on} éteinte${all.length - on > 1 ? 's' : ''}`)), el('div', {}, el('small', {}, 'Processeur'), el('b', {}, `${cpu} %`), el('span', {}, 'moyenne des machines')),
       el('div', {}, el('small', {}, 'Mémoire'), el('b', {}, `${go(all.filter((m) => m.etat?.state === 'en marche').reduce((a, m) => a + (m.etat.ramMo ?? 0), 0) * 1048576)} Go`), el('span', {}, `sur ${go(D.hote?.ramTotal ?? 0)} Go`)),
       el('div', {}, el('small', {}, 'Protégées'), el('b', {}, `${all.filter((m) => (m.apps ?? []).includes('ullr')).length} / ${all.length}`), el('span', {}, 'antivirus chaque nuit')), el('div', {}, el('small', {}, 'Quarantaine'), el('b', { style: q.length ? 'color:var(--ybad)' : '' }, String(q.length)), el('span', {}, q.map((m) => m.nom).join(', ') || '—'))));
-    if (!all.length) { main.append(el('div', { class: 'ym-w' }, el('h3', {}, ic('box', 16), 'Aucune machine sur ce PC'), el('p', { class: 'ym-empty' }, (D.manque?.lxc ?? []).length ? `Pour les LXC, installe d'abord sur ce PC : ${D.manque.lxc.join(', ')} (paquet « lxc »).` : 'Crée un LXC (léger, quelques secondes) ou une VM (depuis une ISO d\'Eitri).'), el('button', { class: 'ym-btn pri', type: 'button', onclick: () => { S.tab = 'creer'; redraw(); } }, ic('plus', 14), 'Créer une machine'))); return; }
+    if (!all.length) { main.append(el('div', { class: 'ym-w' }, el('h3', {}, ic('box', 16), 'Aucune machine sur ce PC'), el('p', { class: 'ym-empty' }, (D.manque?.lxc ?? []).length ? `Pour les LXC, installe d'abord sur ce PC : ${D.manque.lxc.join(', ')} (paquet « lxc »).` : 'Crée un LXC (léger, quelques secondes) ou une VM (depuis une ISO d\'Andromède).'), el('button', { class: 'ym-btn pri', type: 'button', onclick: () => { S.tab = 'creer'; redraw(); } }, ic('plus', 14), 'Créer une machine'))); return; }
     for (const g of [['Linux', 'Linux'], ['Windows · Mac · Autre', null]]) {
       const l = shown.filter((m) => (g[1] ? m.famille === 'Linux' : m.famille !== 'Linux')); if (!l.length) continue;
       main.append(el('div', { class: 'ym-sec' }, el('i', { style: `background:${g[1] ? FAM.Linux : FAM.Windows}` }), g[0], el('small', {}, String(l.length))), el('div', { class: 'ym-cards' }, ...l.map((m) => card(m, D, redraw))));
@@ -134,7 +134,7 @@
         tile('up', 'Exporter en .ody', 'Toute la machine dans un fichier vérifié (machine éteinte).', () => { const d = prompt('Dossier de destination (vide : Machines dans ton dossier) ?', ''); return d === null ? null : post('exporter_machine', { machine: m.id, dossier: d }); }),
         tile('down', 'Importer un .ody', 'Odin vérifie le fichier et l\'antivirus avant de la créer.', () => { const f = prompt('Chemin du fichier .ody ?'); return f ? post('importer_machine', { fichier: f }) : null; }),
         tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', () => { const n = prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? post('cloner_machine', { machine: m.id, nom: n }) : null; }),
-        tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Sindri.' : 'Exporte-la en .ody, ou ajoute Sindri à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Sindri la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' }))));
+        tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' }))));
   }
   function creer(root, D, redraw) {
     const C = S.create; if (C.apps === null) C.apps = new Set((D.apps ?? []).filter((a) => a.reco).map((a) => a.id));
@@ -154,7 +154,7 @@
     root.append(el('div', { class: 'ym-bot', style: 'grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)' },
       el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
         el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Système'), el('div', { class: 'ym-seg', role: 'group', 'aria-label': 'Genre' }, ...[['lxc', 'LXC (léger)'], ['vm', 'VM']].map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(C.genre === k), onclick: () => { C.genre = k; redraw(); } }, t))),
-          el('label', { for: 'ymSys' }, C.genre === 'lxc' ? 'Modèle (image officielle signée)' : 'ISO d\'Eitri'), sys, C.genre === 'vm' && !(D.isos ?? []).length ? el('span', { class: 'ym-ko' }, 'Aucune ISO dans Eitri.') : null,
+          el('label', { for: 'ymSys' }, C.genre === 'lxc' ? 'Modèle (image officielle signée)' : 'ISO d\'Andromède'), sys, C.genre === 'vm' && !(D.isos ?? []).length ? el('span', { class: 'ym-ko' }, 'Aucune ISO dans Andromède.') : null,
           el('label', { for: 'ymFin' }, 'Nom (fait par Odin, tu ajoutes la fin)'), fin, full),
         el('div', { class: 'ym-w' }, el('h3', {}, 'Ressources'), cpuR, ramR, dkR, el('p', { class: 'ym-empty', style: 'font-size:12px;margin:4px 0 0' }, `Ce PC : ${h.coeurs} cœurs, ${go(h.ramTotal - h.ramUtilisee)} Go de mémoire libre${h.disqueTotal ? `, ${go(h.disqueTotal - h.disqueUtilise)} Go de disque libre` : ''}.`)),
         el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Réseau'), el('label', { for: 'ymIp' }, 'Adresse IP'), el('div', { style: 'display:flex;gap:8px;align-items:center' }, ip, ipOk), el('p', { class: 'ym-empty', style: 'font-size:12px;margin:0' }, `Passerelle ${D.reseau?.passerelle} · DNS ${D.reseau?.dns} · pont ${D.reseau?.pont}. Odin vérifie que personne ne répond sur l'adresse.`))),

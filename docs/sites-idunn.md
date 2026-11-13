@@ -1,14 +1,14 @@
-# Idunn — tes sites web
+# Arachné — tes sites web
 
-Idunn garde tes sites en vie et à jour : elle les surveille, les essaie, les relance, les déploie et applique
+Arachné garde tes sites en vie et à jour : elle les surveille, les essaie, les relance, les déploie et applique
 leurs mises à jour. Tout cela marche **sans IA**. Avec une IA connectée, elle peut aussi faire évoluer le
 code, sur une branche à part, sous garde-fous.
 
-(Dans les mythes, Idunn garde les pommes qui empêchent les dieux de vieillir.)
+(Dans les mythes, Arachné garde les pommes qui empêchent les dieux de vieillir.)
 
 ## Mise en route
 
-1. Ouvre **Applis → Idunn**, encadré **Surveiller un site** : l'adresse suffit. Ou dis :
+1. Ouvre **Applis → Arachné**, encadré **Surveiller un site** : l'adresse suffit. Ou dis :
    « surveille le site https://monsite.fr ».
 2. Pour aller plus loin, renseigne ce que tu as (tout est facultatif) :
    - le **dépôt GitHub** (`propriétaire/dépôt`) ;
@@ -76,11 +76,11 @@ contenu, DNS et Cloudflare, disponibilité, versions.
 Ce qui touche la production est une **action grave** : Odin te demande toujours ton accord, et elle ne part
 jamais d'une automatisation, ni d'un autre assistant.
 
-Deux choses qu'Idunn fait d'elle-même :
+Deux choses qu'Arachné fait d'elle-même :
 
 - après **chaque mise en production**, elle essaie le site ; si quelque chose casse, tu es prévenu et elle te
   propose de revenir en arrière (elle ne le fait pas seule) ;
-- si le **DNS ou le certificat** d'un site change **et** que sa page d'accueil change aussi, Ullr ouvre un
+- si le **DNS ou le certificat** d'un site change **et** que sa page d'accueil change aussi, Asclépios ouvre un
   incident « site peut-être détourné ».
 
 ## Faire évoluer le code, avec une IA
@@ -108,27 +108,27 @@ Garde-fous, vérifiés par le code et non par l'IA :
 
 Un fichier à la fois : pour plusieurs fichiers, redonne la même branche.
 
-## Serveurs MCP (appli Ratatoskr)
+## Serveurs MCP (appli Interprète)
 
-- **GitHub** et **Cloudflare** acceptent un jeton : leur serveur MCP peut être branché dans Ratatoskr. L'IA
+- **GitHub** et **Cloudflare** acceptent un jeton : leur serveur MCP peut être branché dans Interprète. L'IA
   d'Odin s'en sert alors ; sans IA, tu peux appeler un outil toi-même : « appelle l'outil … » (un outil qui
   peut modifier quelque chose demande ton accord).
-- **Vercel** : son serveur MCP exige une connexion par navigateur (OAuth) qu'Odin ne fait pas encore. Idunn
+- **Vercel** : son serveur MCP exige une connexion par navigateur (OAuth) qu'Odin ne fait pas encore. Arachné
   passe par l'API officielle de Vercel, avec ton jeton.
 
-Idunn elle-même n'a pas besoin de ces serveurs : elle parle directement aux API officielles.
+Arachné elle-même n'a pas besoin de ces serveurs : elle parle directement aux API officielles.
 
 ## Ses liens avec les autres applis
 
 - **Forseti** : ses alertes rejoignent le fil commun et ta messagerie.
-- **Ullr** : les changements de DNS, de certificat et de page d'accueil sont des signaux ; recoupés, ils
+- **Asclépios** : les changements de DNS, de certificat et de page d'accueil sont des signaux ; recoupés, ils
   ouvrent un incident.
-- **Draupnir** : chaque événement peut déclencher une automatisation (« quand un déploiement échoue… »).
-- **Saga** : sa fiche est dans le Cerveau (`Odin/Applis/Idunn`), sans aucun de tes réglages.
+- **Talos** : chaque événement peut déclencher une automatisation (« quand un déploiement échoue… »).
+- **Thot** : sa fiche est dans le Cerveau (`Odin/Applis/Arachné`), sans aucun de tes réglages.
 
 ## Limites, dites clairement
 
-- Idunn regarde le site de l'extérieur : elle ne lit pas les journaux du serveur ni les erreurs des
+- Arachné regarde le site de l'extérieur : elle ne lit pas les journaux du serveur ni les erreurs des
   visiteurs.
 - « Essayer le site » vérifie que les pages répondent et s'affichent sans erreur ; ce n'est pas un test de
   parcours (panier, paiement, connexion).

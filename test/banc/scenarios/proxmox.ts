@@ -1,4 +1,4 @@
-// Ymir contre un Proxmox simulé (même API, HTTPS auto-signé, jeton) : deux serveurs réunis,
+// Hydre contre un Proxmox simulé (même API, HTTPS auto-signé, jeton) : deux serveurs réunis,
 // démarrer, arrêter, instantané, retour en arrière, alertes quand une machine tombe ou qu'un nœud
 // disparaît. Un vrai Proxmox demande une machine entière : ici c'est son API qui est rejouée.
 
@@ -7,7 +7,7 @@ import { proxmoxSim } from '../sim/proxmox.ts';
 import { has, type Scenario } from '../lib.ts';
 
 export const proxmox: Scenario = {
-  id: 'proxmox', title: 'Ymir ↔ Proxmox VE', mode: 'simulé',
+  id: 'proxmox', title: 'Hydre ↔ Proxmox VE', mode: 'simulé',
   what: 'L\'API de Proxmox rejouée par un simulateur (HTTPS, jeton) : deux serveurs, machines, démarrer, arrêter, instantanés, alertes.',
   async run(t) {
     if (!(await has('openssl'))) t.skip('openssl absent (certificat du simulateur)');

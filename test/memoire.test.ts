@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { appendFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Muninn } from '../src/muninn/store.ts';
+import { Mnemosyne } from '../src/muninn/store.ts';
 import { Table } from '../src/muninn/tables.ts';
 
 function walk(dir: string): string[] {
@@ -21,13 +21,13 @@ test('zéro SQLite : aucun fichier du code ne charge SQLite (sauf la conversion 
 test('mémoire en fichiers : tout est relu après un redémarrage, recherche sans accents et par début de mot', () => {
   const dir = mkdtempSync(join(tmpdir(), 'odin-mem-'));
   try {
-    const a = new Muninn(dir);
+    const a = new Mnemosyne(dir);
     a.ensureSession('web:x', 'web', 'x'); a.setSessionTitle('web:x', 'Projet Athena');
     a.addMessage('web:x', { role: 'user', content: 'Redémarre le serveur Proxmox du garage' });
     a.addMessage('web:x', { role: 'assistant', content: 'C\'est fait, Proxmox a redémarré.' });
     const id = a.remember('Le NAS s\'appelle Coffre', 'owner', 'fact', 'nas');
     a.setKv('pin:x', '1'); a.recordUsage('web:x', 'ollama', 10, 5, 0);
-    const b = new Muninn(dir);
+    const b = new Mnemosyne(dir);
     assert.equal(b.getSession('web:x')?.title, 'Projet Athena');
     assert.equal(b.history('web:x').length, 2);
     assert.equal(b.recall('coffre')[0]?.id, id.id);
@@ -66,7 +66,7 @@ test('ancienne base odin.db convertie une seule fois en fichiers, puis mise de c
       INSERT INTO usage VALUES ('web:a','claude',1,2,0.5,5,'agent');
       INSERT INTO devices VALUES ('aa:bb','192.168.1.2','[22,80]','[]','[]');`);
     db.close();
-    const m = new Muninn(join(home, 'odin.db'));
+    const m = new Mnemosyne(join(home, 'odin.db'));
     assert.equal(m.getSession('web:a')?.title, 'Ancienne');
     assert.equal(m.pinned()[0]?.content, 'Mon chat s\'appelle Simba');
     assert.equal(m.monthCost(new Date(0)), 0.5);
@@ -75,14 +75,14 @@ test('ancienne base odin.db convertie une seule fois en fichiers, puis mise de c
     assert.ok(readdirSync(home).some((f) => f.startsWith('odin.db.ancien-')));
     assert.ok(existsSync(join(home, 'memoire', 'migration.json')));
     m.remember('Nouveau souvenir', 'owner');
-    assert.equal(new Muninn(join(home, 'odin.db')).listMemories().length, 2, 'pas de seconde conversion');
+    assert.equal(new Mnemosyne(join(home, 'odin.db')).listMemories().length, 2, 'pas de seconde conversion');
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
 test('suppression d\'une conversation : corbeille, annulation, puis effacement réel sur le disque', () => {
   const dir = mkdtempSync(join(tmpdir(), 'odin-mem-'));
   try {
-    const m = new Muninn(dir);
+    const m = new Mnemosyne(dir);
     m.ensureSession('web:secret', 'web', 'secret');
     m.addMessage('web:secret', { role: 'user', content: 'Mon code de portail est 4242' });
     m.remember('Le code du portail est 4242', 'owner', 'fact', '', { source: 'conversation:web:secret' });

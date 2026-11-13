@@ -1,4 +1,4 @@
-// Draupnir — l'anneau d'Odin qui se recrée tout seul : le moteur d'automatisations d'Odin.
+// Talos — l'anneau d'Odin qui se recrée tout seul : le moteur d'automatisations d'Odin.
 // Même principe qu'un éditeur à nœuds (déclencheur → étapes → branches) mais écrit pour Odin :
 // les données circulent en « éléments » ({ json }), chaque nœud reçoit les éléments du précédent
 // et en renvoie, sur une ou plusieurs sorties (ex. « Si » : oui / non).
@@ -24,7 +24,7 @@ export interface Execution {
 }
 
 export interface Deps {
-  /** Les outils d'Odin dont les nœuds se servent (Saga, Runes, IA, messages, web). */
+  /** Les outils d'Odin dont les nœuds se servent (Thot, Papyrus, IA, messages, web). */
   saga?: {
     search(q: string, n: number): Array<{ title: string; path: string; snippet: string; type: string }>;
     read(note: string): { title: string; path: string; body: string; meta: Record<string, unknown> } | undefined;
@@ -52,7 +52,7 @@ export interface Deps {
 
 export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'json' | 'cron'; options?: string[]; default?: unknown; help?: string; required?: boolean }
 export interface NodeDef {
-  type: string; label: string; group: 'Déclencheurs' | 'Saga' | 'Runes' | 'Odin' | 'Applis' | 'Logique' | 'Données' | 'Web';
+  type: string; label: string; group: 'Déclencheurs' | 'Thot' | 'Papyrus' | 'Odin' | 'Applis' | 'Logique' | 'Données' | 'Web';
   what: string; trigger?: boolean; params: Param[];
   /** Noms des sorties (une par défaut). Peut dépendre des réglages (aiguillage). */
   outputs?: string[] | ((params: Record<string, unknown>) => string[]);

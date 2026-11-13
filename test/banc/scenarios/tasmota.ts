@@ -1,4 +1,4 @@
-// Brokkr, Appareils et Midgard contre un module Tasmota simulé (une prise avec mesure de
+// Héphaïstos, Appareils et Midgard contre un module Tasmota simulé (une prise avec mesure de
 // consommation, micrologiciel 14.x) : Odin le trouve, le branche sur son relais de messages, le
 // module s'annonce au format Tasmota d'aujourd'hui, puis Odin l'allume, lit sa consommation et
 // apprend tout de suite quand il est débranché.
@@ -12,7 +12,7 @@ import { freePort, until, type Scenario } from '../lib.ts';
 const IP = '10.77.0.50'; // adresse « sur le réseau » du module simulé
 
 export const tasmota: Scenario = {
-  id: 'tasmota', title: 'Brokkr, Appareils ↔ module Tasmota', mode: 'simulé',
+  id: 'tasmota', title: 'Héphaïstos, Appareils ↔ module Tasmota', mode: 'simulé',
   what: 'Une prise Tasmota simulée (web + MQTT comme le vrai micrologiciel) : identification, branchement sur le relais d\'Odin, annonce native, allumage, consommation, hors ligne, mise à jour.',
   async run(t) {
     const dev = await tasmotaSim({ name: 'Prise salon', webPassword: 'web-du-module' });
@@ -56,7 +56,7 @@ export const tasmota: Scenario = {
     t.ok(on.ok && await until(() => dev.state.power === true, 3000), '« allume la prise du salon » : l\'ordre arrive au module par le relais', on.text);
     t.ok(await until(() => allDevices().find((x) => x.name === 'Prise salon')?.state === 'ON', 3000), 'le module confirme : état ON');
     t.ok(await until(() => allDevices().find((x) => x.name === 'Prise salon puissance')?.state === '42', 3000), 'la puissance mesurée remonte (42 W)', allDevices().find((x) => x.name === 'Prise salon puissance')?.state);
-    t.ok(events.some((e) => e.type === 'etat' && e.data.appareil === 'Prise salon' && e.data.après === 'ON'), 'événement « état » émis (pour les scènes et Draupnir)');
+    t.ok(events.some((e) => e.type === 'etat' && e.data.appareil === 'Prise salon' && e.data.après === 'ON'), 'événement « état » émis (pour les scènes et Talos)');
     await act('appareils', 'ranger', { appareil: 'Prise salon', piece: 'Salon' });
     t.match((await act('midgard', 'maison')).text, /^Salon : .*Prise salon ON/m, 'Midgard montre la prise dans le salon, allumée');
     await act('midgard', 'creer_scene', { nom: 'Bonne nuit', etapes: 'Prise salon = off' });

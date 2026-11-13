@@ -38,7 +38,7 @@ test('Fiches : une par appli, plus la liste, les liens et le mode de fonctionnem
     const titles = new Set(list.map((s) => s.path.split('/').pop()));
     for (const s of list) for (const m of s.body.matchAll(/\[\[([^\]|#]+)/g)) assert.ok(titles.has(m[1]), `${s.path} : lien vers « ${m[1]} »`);
     const how = list.find((s) => s.path.endsWith('Comment fonctionne Odin'))!.body;
-    for (const re of [/Sans IA connectée[\s\S]*Huginn/, /Odin Breaker/, /garde » ou « annule/, /commandes destructrices sont interdites/, /jamais un ordre/]) assert.match(how, re);
+    for (const re of [/Sans IA connectée[\s\S]*Logos/, /Odin Breaker/, /garde » ou « annule/, /commandes destructrices sont interdites/, /jamais un ordre/]) assert.match(how, re);
     assert.match(list.find((s) => s.path.endsWith('Liens entre les applis'))!.body, new RegExp(`${LINKS.length} liens`));
   } finally { w.end(); }
 });
@@ -92,7 +92,7 @@ test('Fiches : tenues à jour sans bruit, tes notes sont gardées, une note à t
   } finally { w.end(); }
 });
 
-test('Fiches : Saga peut les remettre à jour à la demande, sans IA', async () => {
+test('Fiches : Thot peut les remettre à jour à la demande, sans IA', async () => {
   const w = world();
   try {
     const r = await w.v.order('mets à jour les fiches des applis dans le Cerveau');

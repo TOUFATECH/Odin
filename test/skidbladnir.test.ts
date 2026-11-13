@@ -1,4 +1,4 @@
-// Skíðblaðnir : rangement sûr (chemins, versions, corbeille, archive .zip), synchronisation de dossiers,
+// Nébuleuse : rangement sûr (chemins, versions, corbeille, archive .zip), synchronisation de dossiers,
 // serveur des fichiers (droits par groupe, envois, liens de partage avec mot de passe, dépôt, notes secrètes
 // lues une seule fois, WebDAV avec mot de passe d'appli), antivirus sur les fichiers reçus.
 import { test } from 'node:test';
@@ -71,7 +71,7 @@ test('synchro : nouveaux, modifiés, supprimés (corbeille), conflits gardés, s
   } finally { rmSync(A, { recursive: true, force: true }); rmSync(B, { recursive: true, force: true }); }
 });
 
-/** Une demande au serveur des fichiers, comme si elle passait par le proxy (identité posée par Vár). */
+/** Une demande au serveur des fichiers, comme si elle passait par le proxy (identité posée par Persona). */
 function req(port: number, method: string, path: string, o: { user?: string; groups?: string; body?: string | Buffer; headers?: Record<string, string>; host?: string } = {}): Promise<{ status: number; headers: http.IncomingHttpHeaders; body: Buffer }> {
   return new Promise((ok, ko) => {
     const h: Record<string, string> = { host: o.host ?? 'fichiers.exemple.fr', connection: 'close', ...(o.user ? { 'remote-user': o.user, 'remote-groups': o.groups ?? '' } : {}), ...(o.host ? { 'x-forwarded-host': o.host } : {}), ...o.headers };
@@ -96,7 +96,7 @@ test('serveur des fichiers : droits, envois, versions, liens, dépôt, notes, We
     assert.match((await k('demarrer', { port: 0 })).text, /port local/); const port = filesServer()!.port;
     v.ctx('skidbladnir').saveSettings({ publicHost: 'partage.exemple.fr', privateHost: 'fichiers.exemple.fr' });
 
-    // Sans identité (pas passé par Vár) : refusé. Sans en-tête x-skid : écriture refusée.
+    // Sans identité (pas passé par Persona) : refusé. Sans en-tête x-skid : écriture refusée.
     assert.equal((await req(port, 'GET', '/api/moi')).status, 401);
     const me = J(await req(port, 'GET', '/api/moi', { user: 'awa', groups: 'famille' }));
     assert.deepEqual(me.spaces.map((x: { id: string; write: boolean }) => [x.id, x.write]), [['perso-awa', true], ['famille', true]]);

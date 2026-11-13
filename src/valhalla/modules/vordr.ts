@@ -1,9 +1,9 @@
-// Vörðr — la surveillance d'Odin (télésurveillance des services) : sites, machines, ports, DNS, certificats,
+// Pulsar — la surveillance d'Odin (télésurveillance des services) : sites, machines, ports, DNS, certificats,
 // battements envoyés par d'autres programmes, et les applis d'Odin elles-mêmes. Chaque sonde a son rythme,
 // ses essais avant d'alerter, ses heures de maintenance ; l'historique (disponibilité, temps de réponse,
 // pannes) est gardé jour par jour pour toujours ; une page publique d'état peut être partagée.
 // Fonctions reprises (réécrites) d'Uptime Kuma, Gatus et Statping.
-// (Vörðr : l'esprit gardien qui veille sur chaque maison et chaque personne.)
+// (Pulsar : l'esprit gardien qui veille sur chaque maison et chaque personne.)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -38,7 +38,7 @@ export interface Monitor {
   group: string; paused?: boolean; maintenance?: Schedule;
   /** niveau de l'alerte en cas de panne */
   level?: 'critique' | 'haute' | 'moyenne';
-  /** créée toute seule par un lien (Iðunn, Víðarr, Gjöll…) */
+  /** créée toute seule par un lien (Iðunn, Sphinx, Vortex…) */
   source?: string;
   /** sur la page publique d'état */
   public?: boolean;
@@ -275,15 +275,15 @@ export function statusPage(slug: string, now = Date.now()): string | undefined {
 const COLOR: Record<string, string> = { 'en ligne': '#57C98A', 'en panne': '#EE6A55', 'en attente': '#F0A040', maintenance: '#4F9DDE', 'en pause': '#7d8791' };
 const TONE: Record<string, Tone> = { 'en ligne': 'bon', 'en panne': 'mauvais', 'en attente': 'attention', maintenance: 'neutre', 'en pause': 'neutre' };
 export function monitorGraph(ctx: ModCtx, ms: Monitor[], now = Date.now()): { nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail> } {
-  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Vörðr', sub: `${ms.length} sonde(s)`, square: true, size: 18, color: '#4F9DDE', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
+  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Pulsar', sub: `${ms.length} sonde(s)`, square: true, size: 18, color: '#4F9DDE', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
   const st = (k: string) => ms.filter((m) => liveOf(m.id).status === k).length;
-  details.odin = { kind: 'Vörðr', title: 'La surveillance d\'Odin', subtitle: `${ms.length} sonde(s)`, chips: [{ label: `${st('en ligne')} en ligne`, tone: 'bon' }, ...(st('en panne') ? [{ label: `${st('en panne')} en panne`, tone: 'mauvais' as Tone }] : []), ...(st('en attente') ? [{ label: `${st('en attente')} en attente`, tone: 'attention' as Tone }] : [])], rows: ms.slice(0, 20).map((m) => ({ k: m.name, v: liveOf(m.id).status, src: liveOf(m.id).last?.msg ?? '' })), actions: [{ action: 'verifier', label: 'Tout vérifier maintenant', input: { nom: '' }, primary: true }, { action: 'liens', label: 'Sondes automatiques', input: {} }] };
+  details.odin = { kind: 'Pulsar', title: 'La surveillance d\'Odin', subtitle: `${ms.length} sonde(s)`, chips: [{ label: `${st('en ligne')} en ligne`, tone: 'bon' }, ...(st('en panne') ? [{ label: `${st('en panne')} en panne`, tone: 'mauvais' as Tone }] : []), ...(st('en attente') ? [{ label: `${st('en attente')} en attente`, tone: 'attention' as Tone }] : [])], rows: ms.slice(0, 20).map((m) => ({ k: m.name, v: liveOf(m.id).status, src: liveOf(m.id).last?.msg ?? '' })), actions: [{ action: 'verifier', label: 'Tout vérifier maintenant', input: { nom: '' }, primary: true }, { action: 'liens', label: 'Sondes automatiques', input: {} }] };
   const groups = [...new Set(ms.map((m) => m.group))];
   for (const g of groups) { const inG = ms.filter((m) => m.group === g), bad = inG.filter((m) => liveOf(m.id).status === 'en panne').length; nodes.push({ id: `g:${g}`, label: g, sub: bad ? `${bad} en panne` : 'tout va bien', square: true, size: 12, color: bad ? '#EE6A55' : '#7FB3E6', hub: true }); edges.push({ a: 'odin', b: `g:${g}`, w: 2, color: '#7FB3E6' }); details[`g:${g}`] = { kind: 'Groupe', title: g, subtitle: `${inG.length} sonde(s)`, rows: inG.map((m) => ({ k: m.name, v: liveOf(m.id).status, src: liveOf(m.id).last?.msg ?? '' })) }; }
   // Une même machine surveillée de plusieurs façons (ping, port, site) : un point pour elle, relié à ses sondes.
   const hostOf = (m: Monitor) => { try { return m.kind === 'http' ? new URL(m.target).hostname : m.kind === 'tcp' ? splitHostPort(m.target)[0] : m.kind === 'ping' || m.kind === 'dns' ? m.target : ''; } catch { return ''; } };
   const hosts = new Map<string, Monitor[]>(); for (const m of ms) { const h = hostOf(m); if (h) hosts.set(h, [...(hosts.get(h) ?? []), m]); }
-  for (const [h, hm] of hosts) if (hm.length > 1) { nodes.push({ id: `h:${h}`, label: h, sub: 'machine', size: 6, color: '#8E959D' }); details[`h:${h}`] = { kind: 'Machine', title: h, rows: hm.map((m) => ({ k: m.name, v: liveOf(m.id).status, src: m.kind })), actions: [{ action: 'lire', label: 'Voir ses paquets (Rán)', input: { ip: h }, module: 'ran' }] }; }
+  for (const [h, hm] of hosts) if (hm.length > 1) { nodes.push({ id: `h:${h}`, label: h, sub: 'machine', size: 6, color: '#8E959D' }); details[`h:${h}`] = { kind: 'Machine', title: h, rows: hm.map((m) => ({ k: m.name, v: liveOf(m.id).status, src: m.kind })), actions: [{ action: 'lire', label: 'Voir ses paquets (Ariane)', input: { ip: h }, module: 'ran' }] }; }
   const day = (t: number) => new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
   for (const m of ms) {
     const l = liveOf(m.id), id = `m:${m.id}`, u1 = uptime(ctx.dir, m.id, 1, now), u30 = uptime(ctx.dir, m.id, 30, now), u365 = uptime(ctx.dir, m.id, 365, now);
@@ -315,10 +315,10 @@ async function autoMonitors(ctx: ModCtx): Promise<Array<Partial<Monitor> & { nam
   const gw = /default via (\d+\.\d+\.\d+\.\d+)/.exec((await ctx.run('ip', ['route', 'show', 'default'], { timeoutMs: 3000 }).catch(() => ({ out: '' }))).out)?.[1];
   if (gw) out.push({ name: 'Box', kind: 'ping', target: gw, group: 'Maison', source: 'Odin', level: 'critique' });
   out.push({ name: 'Internet', kind: 'http', target: 'https://www.google.com/generate_204', status: '204', group: 'Internet', source: 'Odin' });
-  if (ctx.modules().some((m) => m.id === 'vidarr')) out.push({ name: 'DNS d\'Odin', kind: 'odin', target: 'vidarr', group: 'Odin', source: 'Víðarr' });
-  if (ctx.modules().some((m) => m.id === 'gjoll')) out.push({ name: 'VPN d\'Odin', kind: 'odin', target: 'gjoll', group: 'Odin', source: 'Gjöll' });
+  if (ctx.modules().some((m) => m.id === 'vidarr')) out.push({ name: 'DNS d\'Odin', kind: 'odin', target: 'vidarr', group: 'Odin', source: 'Sphinx' });
+  if (ctx.modules().some((m) => m.id === 'gjoll')) out.push({ name: 'VPN d\'Odin', kind: 'odin', target: 'gjoll', group: 'Odin', source: 'Vortex' });
   const fv = await ctx.call('freyja', 'adresse', {}, 'surveiller Venus').catch(() => undefined), vurl = (fv?.data as { url?: string } | undefined)?.url;
-  if (vurl) out.push({ name: 'Venus', kind: 'http', target: `${vurl.replace(/\/+$/, '')}/api/health`, group: 'Maison', source: 'Freyja' });
+  if (vurl) out.push({ name: 'Venus', kind: 'http', target: `${vurl.replace(/\/+$/, '')}/api/health`, group: 'Maison', source: 'Vénus' });
   const r = await ctx.call('idunn', 'sites', {}, 'surveiller les sites suivis').catch(() => undefined);
   for (const x of ((r?.data as Array<{ name: string; url: string }> | undefined) ?? [])) out.push({ name: `Site ${x.name}`, kind: 'http', target: x.url, group: 'Sites', source: 'Iðunn', public: true });
   return out;
@@ -346,7 +346,7 @@ const ADD: Param[] = [
 ];
 
 export const vordr: Module = {
-  id: 'vordr', name: 'Vörðr', family: 'Machines',
+  id: 'vordr', name: 'Pulsar', family: 'Machines',
   what: 'La télésurveillance : sites, machines, ports, DNS, certificats, programmes et applis d\'Odin vérifiés en continu, avec l\'historique et une page d\'état à partager.',
   does: ['sondes HTTP(S) (codes acceptés, mot attendu ou interdit), port TCP, ping, DNS (réponse attendue), signe de vie (push) et applis d\'Odin', 'rythme, nombre d\'échecs avant d\'alerter, délai, heures de maintenance, pause', 'certificats HTTPS : alerte avant l\'expiration', 'alerte de panne et de retour, avec la cause probable (box, Internet, autres pannes) expliquée par Odin', 'disponibilité sur 24 h, 30 jours et un an, temps de réponse, journal des pannes, gardés jour par jour', 'graphe : Odin, les groupes, les machines et leurs sondes, une fiche par point', 'page publique d\'état à partager (sans les adresses)', 'sondes ajoutées toutes seules : la box, Internet, le DNS et le VPN d\'Odin, les sites suivis par Iðunn', 'SNMP (box, switch, imprimante, onduleur, NAS), scénarios web en plusieurs pages, greffons Nagios / Centreon', 'déclencheurs sur toutes les mesures d\'Odin (moyenne, min, max, variation, pas de données), 5 gravités', 'problèmes : prise en main, commentaires, escalade si personne ne s\'en occupe, dépendances (symptômes sans alerte en double)', 'engagement de disponibilité (SLA) : objectif, temps de panne permis'],
   from: ['Uptime Kuma', 'Gatus', 'Statping-ng', 'Zabbix', 'Centreon', 'Nagios'], upstream: ['louislam/uptime-kuma', 'TwiN/gatus', 'statping-ng/statping-ng', 'zabbix/zabbix', 'centreon/centreon', 'NagiosEnterprises/nagioscore'],
@@ -427,7 +427,7 @@ export const vordr: Module = {
       const tr: Trigger = { id: randomBytes(5).toString('hex'), name, serie, fn, windowMin: mins, op, value, ...(rec !== undefined ? { recovery: rec } : {}), severity: sev, enabled: true, ...(deps.length ? { dependsOn: deps } : {}), ...(i.sans_donnees === true ? { nodata: 1 } : {}), ...(s(i.conseils).trim() ? { steps: s(i.conseils).split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 8) } : {}) };
       ctx.saveSettings({ triggers: [...triggers(ctx), tr] });
       const known = metrics()?.names().includes(serie);
-      return { text: `⚡ ${describeTrigger(tr)}${known === false ? `\n⚠ Aucune valeur de « ${serie} » pour l'instant : vérifie le nom (Eir → « mesures » liste les séries).` : ''}`, data: { id: tr.id } };
+      return { text: `⚡ ${describeTrigger(tr)}${known === false ? `\n⚠ Aucune valeur de « ${serie} » pour l'instant : vérifie le nom (Hygie → « mesures » liste les séries).` : ''}`, data: { id: tr.id } };
     }, undo: (i) => ({ action: 'retirer_declencheur', input: { nom: i.nom }, label: 'Retirer le déclencheur' }) },
     { id: 'retirer_declencheur', label: 'Retirer un déclencheur', what: 'Ses problèmes ouverts sont fermés', quick: false, params: [{ key: 'nom', label: 'Déclencheur', kind: 'text', required: true }], run: (ctx, i) => {
       const t = triggers(ctx).find((x) => x.name.toLowerCase() === s(i.nom).trim().toLowerCase()); if (!t) throw new Error('déclencheur introuvable');

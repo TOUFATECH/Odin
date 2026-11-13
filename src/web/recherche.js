@@ -1,4 +1,4 @@
-// Völva — la page de recherche d'Odin (maquette validée « Recherche dans l'interface web ») : l'historique rangé par
+// Pythie — la page de recherche d'Odin (maquette validée « Recherche dans l'interface web ») : l'historique rangé par
 // jour, la question en grand, les sources en cartes, la réponse d'Odin avec ses numéros cliquables et ce qui a été
 // vérifié, « L'essentiel » à cocher, « Odin peut le faire » (l'appli d'Odin qui agit sur le sujet), les questions de
 // suite, et à droite : la fiche du sujet, « Écouter la réponse » (voix d'Odin) et les applis d'Odin liées.
@@ -196,10 +196,10 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
   }
   function draw() {
     const side = el('aside', { class: 'side card', 'aria-label': 'Historique' },
-      el('div', { class: 'brand' }, el('span', { class: 'ico', 'aria-hidden': 'true' }, icon('spark', 18)), el('b', {}, 'Völva'), el('small', {}, 'recherche')),
+      el('div', { class: 'brand' }, el('span', { class: 'ico', 'aria-hidden': 'true' }, icon('spark', 18)), el('b', {}, 'Pythie'), el('small', {}, 'recherche')),
       el('button', { class: 'new', type: 'button', onclick: () => { thread = []; current = null; tab = 'reponse'; history.replaceState(null, '', '/recherche'); draw(); } }, icon('plus', 16), 'Nouvelle recherche'),
       ...groups(),
-      el('p', { class: 'eng' }, `Moteurs : ${state.engines.join(', ') || 'aucun — règle Völva dans Odin'}${state.ai ? ' · IA d\'Odin' : ' · sans IA'}. Les pages lues ne donnent jamais d'ordre à Odin.`));
+      el('p', { class: 'eng' }, `Moteurs : ${state.engines.join(', ') || 'aucun — règle Pythie dans Odin'}${state.ai ? ' · IA d\'Odin' : ' · sans IA'}. Les pages lues ne donnent jamais d'ordre à Odin.`));
     const nav = el('div', { class: 'top' },
       el('button', { class: 'tbtn mob', type: 'button', 'aria-label': 'Historique', onclick: () => side.classList.toggle('open') }, icon('menu', 18)),
       thread[0] ? el('span', { class: 'when' }, icon('clock', 15), when(thread[0].at)) : null,
@@ -212,7 +212,7 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
       if (tab === 'sources') main.append(sourcesTab());
       else if (tab === 'images' || tab === 'videos') main.append(mediaTab(tab));
       else { thread.forEach((e, i) => main.append(qa(e, i, i === thread.length - 1))); if (busy) main.append(el('div', { class: 'card ansc wait', 'aria-busy': 'true' }, el('div', { class: 'ah' }, odinFace(), el('b', {}, thread.length ? busy : 'Odin cherche, lit les pages et vérifie…')), el('div', { class: 'bar', style: { width: '90%' } }), el('div', { class: 'bar', style: { width: '75%' } }), el('div', { class: 'bar', style: { width: '82%' } }))); }
-    } else main.append(el('div', { class: 'hero' }, el('h1', {}, 'Que veux-tu savoir ?'), el('p', {}, 'Völva cherche sur tous tes moteurs, lit les pages et te répond avec ses sources.'), box(true),
+    } else main.append(el('div', { class: 'hero' }, el('h1', {}, 'Que veux-tu savoir ?'), el('p', {}, 'Pythie cherche sur tous tes moteurs, lit les pages et te répond avec ses sources.'), box(true),
       el('div', { class: 'foc', role: 'group', 'aria-label': 'Où chercher' }, ...Object.entries(state.focus).map(([k, label]) => el('button', { type: 'button', class: 'chip', 'aria-pressed': String(focus === k), onclick: () => { focus = k; draw(); } }, label)))));
     if (thread.length && !busy) main.append(el('div', { class: 'follow' }, box(false)));
     root.replaceChildren(side, main, ...(thread.length && tab === 'reponse' ? [right(thread.at(-1))] : []));
@@ -228,6 +228,6 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
     } catch (e) { busy = false; draw(); toast(e.auth ? 'Connecte-toi à Odin d\'abord' : e.message); if (e.auth) setTimeout(() => { location.href = '/'; }, 1500); }
   }
   async function open(id) { const r = await api(`/api/recherche/entree?id=${encodeURIComponent(id)}`).catch(() => ({ ok: false })); if (r.ok) { thread = r.thread; current = id; tab = 'reponse'; audio = null; history.replaceState(null, '', `/recherche#r=${id}`); draw(); } }
-  async function refresh() { try { const r = await api('/api/recherche/etat'); if (r.ok) state = r; } catch (e) { if (e.auth) { root.replaceChildren(el('main', {}, el('div', { class: 'hero' }, el('h1', {}, 'Völva'), el('p', {}, 'Connecte-toi à Odin pour chercher.'), el('a', { class: 'act', href: '/' }, 'Se connecter')))); throw e; } } }
+  async function refresh() { try { const r = await api('/api/recherche/etat'); if (r.ok) state = r; } catch (e) { if (e.auth) { root.replaceChildren(el('main', {}, el('div', { class: 'hero' }, el('h1', {}, 'Pythie'), el('p', {}, 'Connecte-toi à Odin pour chercher.'), el('a', { class: 'act', href: '/' }, 'Se connecter')))); throw e; } } }
   refresh().then(() => { draw(); const m = /r=([a-f0-9]{6,20})/.exec(location.hash); if (m) open(m[1]); const q = new URLSearchParams(location.search).get('q'); if (q) run(q, false); }).catch(() => 0);
 })();

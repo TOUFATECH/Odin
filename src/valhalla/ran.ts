@@ -1,4 +1,4 @@
-// Rán : les paquets réseau, lus en entier et décodés couche par couche (voir ran-dissect.ts), comme Wireshark.
+// Ariane : les paquets réseau, lus en entier et décodés couche par couche (voir ran-dissect.ts), comme Wireshark.
 // Deux portées : une machine (son adresse IP) ou tout le réseau. Points de capture :
 // - la machine d'Odin (tout ce qui passe par sa carte réseau) ;
 // - chaque machine où Odin a un accès (Réglages → Droits et machines), par SSH : tout son trafic. Un hôte
@@ -282,7 +282,7 @@ export function stopRecording(scope: Scope): void { const s = sessions.get(scope
 export function setPaused(home: string, on: boolean): void {
   paused = on;
   for (const s of sessions.values()) {
-    if (on) { for (const x of s.procs) { const p = x.proc; x.proc = undefined; p?.kill('SIGTERM'); } for (const f of s.status) f('En pause : Rán ne lit plus les paquets.'); }
+    if (on) { for (const x of s.procs) { const p = x.proc; x.proc = undefined; p?.kill('SIGTERM'); } for (const f of s.status) f('En pause : Ariane ne lit plus les paquets.'); }
     else { for (const x of s.procs) if (!x.proc && !x.error) begin(home, s, x); for (const f of s.status) f('Lecture reprise.'); }
   }
 }

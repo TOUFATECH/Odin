@@ -1,4 +1,4 @@
-// Une fausse Livebox pour les tests de Svalinn : l'API « sysbus » (/ws) avec connexion, lecture et réglages.
+// Une fausse Livebox pour les tests de Zéphyr : l'API « sysbus » (/ws) avec connexion, lecture et réglages.
 export interface FakeBox { calls: Array<{ service: string; method: string; parameters: Record<string, unknown> }>; state: { wps: boolean; mode: string; chan: number; upnp: boolean; remote: boolean; guest: boolean; wifiActive: number }; password: string }
 export function fakeLivebox(password = 'mot-de-passe-box'): { box: FakeBox; handle: (url: string, init?: RequestInit) => Response | undefined } {
   const box: FakeBox = { calls: [], password, state: { wps: true, mode: 'WPA2-Personal', chan: 6, upnp: true, remote: true, guest: false, wifiActive: 4 } };

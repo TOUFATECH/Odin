@@ -1,5 +1,5 @@
-// Völva sur Telegram (maquette validée « Recherche sur Telegram ») : la réponse en carte — le titre, la réponse avec
-// ses numéros de sources en petit, « l'essentiel », les sources en liens, et une ligne « Völva · n sources · heure ».
+// Pythie sur Telegram (maquette validée « Recherche sur Telegram ») : la réponse en carte — le titre, la réponse avec
+// ses numéros de sources en petit, « l'essentiel », les sources en liens, et une ligne « Pythie · n sources · heure ».
 // HTML de Telegram seulement (b, i, a, blockquote) ; tout le texte venu des sources est échappé. Pur.
 import type { Source } from './engine.ts';
 
@@ -18,5 +18,5 @@ export function searchCard(e: { q: string; answer: string; sources: Source[]; es
   const more = e.sources.length > 3 ? ` · +${e.sources.length - 3}` : '';
   const hm = new Date(e.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', ...(o.tz ? { timeZone: o.tz } : {}) });
   return [`<b>${esc(titleOf(e.q))}</b>`, '', answer.slice(0, 2600), ...(ess.length ? ['', `<blockquote>${ess.join('\n')}</blockquote>`] : []), '',
-    ...(shown.length ? [`Sources : ${shown.join(' · ')}${more}`] : []), `<i>Völva · ${e.sources.length} source${e.sources.length > 1 ? 's' : ''} · ${hm}</i>`].join('\n');
+    ...(shown.length ? [`Sources : ${shown.join(' · ')}${more}`] : []), `<i>Pythie · ${e.sources.length} source${e.sources.length > 1 ? 's' : ''} · ${hm}</i>`].join('\n');
 }

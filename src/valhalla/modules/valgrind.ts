@@ -72,7 +72,7 @@ async function letsEncrypt(ctx: ModCtx, h: Host): Promise<string> {
 function record(ctx: ModCtx, e: AccessLog): void {
   ring.push(e); if (ring.length > RING) ring.splice(0, ring.length - RING);
   try { const d = join(ctx.dir, 'journal'); mkdirSync(d, { recursive: true }); appendFileSync(join(d, `${day(e.t)}.jsonl`), `${JSON.stringify(e)}\n`); } catch { /* disque plein */ }
-  // Les robots qui cherchent des failles (/.env, /wp-login.php…) : signalés à Ullr.
+  // Les robots qui cherchent des failles (/.env, /wp-login.php…) : signalés à Asclépios.
   if (/^\/(\.env|\.git\/|wp-login\.php|xmlrpc\.php|phpmyadmin|admin\.php|\.aws\/|cgi-bin\/|vendor\/phpunit|boaform|HNAP1)/i.test(e.path) && e.status >= 400) ctx.emit('scan', { ip: e.ip, chemin: e.path.slice(0, 80), site: e.host });
 }
 function stats(now: number, hours = 24) {
@@ -86,12 +86,12 @@ async function startProxy(ctx: ModCtx): Promise<string> {
   const d = new ProxyServer({
     hosts: () => hosts(ctx), redirects: () => redirects(ctx), cert: (n) => certFor(ctx, n), defaultCert: () => defaultCert(ctx),
     challenge: (t) => challenges.get(t), banned: (ip) => banned.has(ip), log: (e) => record(ctx, e),
-    // Lien Vár → Valgrind : la connexion unique (qui est connecté, a-t-il le droit) et le portail de connexion.
+    // Lien Persona → Valgrind : la connexion unique (qui est connecté, a-t-il le droit) et le portail de connexion.
     sso: (cookie, domain, ip) => varCheck(cookie, domain, ip), portal: { domain: () => portalDomain(), url: () => { const u = portalUrl(); if (!u || !srv) return u; return srv.httpsPort === 443 ? u : `${u}:${srv.httpsPort}`; }, handle: (q, r, secure) => void varPortal(q, r, secure) },
     onAuthFail: (ip, host) => {
       const now = Date.now(), list = [...(authFails.get(ip) ?? []).filter((t) => now - t < 600_000), now]; authFails.set(ip, list);
       ctx.emit('mot_de_passe_refuse', { ip, site: host, essais: list.length });
-      // Lien Valgrind → Garmr : 5 mauvais mots de passe en 10 minutes, l'adresse est bannie (jamais une adresse de la maison).
+      // Lien Valgrind → Cerbère : 5 mauvais mots de passe en 10 minutes, l'adresse est bannie (jamais une adresse de la maison).
       if (list.length === 5) void ctx.call('garmr', 'bannir', { ip, raison: `5 mauvais mots de passe sur ${host} (proxy)`, minutes: 60 }, `trop d'essais de mot de passe sur ${host}`);
     },
   });
@@ -129,7 +129,7 @@ export function proxyGraph(hs: Host[], rds: Redirect[], sts: Stream[], st: Retur
   for (const [mk, ids] of machines) {
     const ip = mk.replace(/:\d+$/, '');
     nodes.push({ id: `m:${mk}`, label: mk, sub: 'service', size: 6, color: '#E8EAEC' }); for (const i of ids) edges.push({ a: i, b: `m:${mk}` });
-    details[`m:${mk}`] = { kind: 'Service de la maison', title: mk, rows: ids.map((i) => ({ k: 'Servi sous', v: details[i].title })), actions: [{ action: 'lire', label: 'Voir ses paquets (Rán)', input: { ip }, module: 'ran' }] };
+    details[`m:${mk}`] = { kind: 'Service de la maison', title: mk, rows: ids.map((i) => ({ k: 'Servi sous', v: details[i].title })), actions: [{ action: 'lire', label: 'Voir ses paquets (Ariane)', input: { ip }, module: 'ran' }] };
   }
   for (const r of rds) { const id = `r:${r.id}`; nodes.push({ id, label: r.domain, sub: `→ ${r.to}`, size: 6, color: '#B48CF0' }); edges.push({ a: 'odin', b: id, dash: true, color: '#B48CF0' }); details[id] = { kind: `Redirection ${r.code}`, title: r.domain, subtitle: `→ ${r.to}`, rows: [{ k: 'Chemin gardé', v: r.keepPath ? 'oui' : 'non' }], actions: [{ action: 'retirer_redirection', label: 'Retirer', input: { domaine: r.domain } }] }; }
   for (const x of sts) { const id = `f:${x.id}`; nodes.push({ id, label: `port ${x.port}`, sub: `TCP → ${x.target}`, size: 6, color: '#F0A040', off: !x.enabled }); edges.push({ a: 'odin', b: id, dash: true }); details[id] = { kind: 'Flux TCP', title: `Port ${x.port}`, subtitle: `→ ${x.target}`, actions: [{ action: 'retirer_flux', label: 'Retirer', input: { port: x.port } }] }; }
@@ -146,22 +146,22 @@ const ADD: Param[] = [
   { key: 'websocket', label: 'WebSocket (discussions, Home Assistant…)', kind: 'boolean', default: true },
   { key: 'hsts', label: 'HSTS (les navigateurs retiennent le HTTPS)', kind: 'boolean', default: false },
   { key: 'acces', label: 'Réservé à ces adresses (vide : tout le monde)', kind: 'text', default: '', help: 'ex. 192.168.1.0/24, 10.8.0.0/24' },
-  { key: 'dns_maison', label: 'À la maison, ce nom mène directement au proxy (Víðarr)', kind: 'boolean', default: true },
-  { key: 'surveiller', label: 'Surveiller le service (Vörðr)', kind: 'boolean', default: true },
-  { key: 'internet', label: 'Accessible depuis Internet par le tunnel Cloudflare (s\'il est réglé dans Brú)', kind: 'boolean', default: true },
+  { key: 'dns_maison', label: 'À la maison, ce nom mène directement au proxy (Sphinx)', kind: 'boolean', default: true },
+  { key: 'surveiller', label: 'Surveiller le service (Pulsar)', kind: 'boolean', default: true },
+  { key: 'internet', label: 'Accessible depuis Internet par le tunnel Cloudflare (s\'il est réglé dans Bifröst)', kind: 'boolean', default: true },
 ];
 
 export const valgrind: Module = {
   id: 'valgrind', name: 'Valgrind', family: 'Accès',
   what: 'Le proxy inverse : tes services de la maison sous un vrai nom, en HTTPS (Let\'s Encrypt ou auto-signé), avec accès par adresses, mot de passe, redirections et flux TCP.',
-  does: ['un nom de domaine → un service de la maison (HTTP ou HTTPS), jokers *.exemple.fr', 'certificats Let\'s Encrypt obtenus et renouvelés tout seuls (sans envoyer d\'adresse e-mail), ou auto-signés pour la maison', 'passage forcé en HTTPS, HSTS, WebSocket, en-têtes X-Forwarded', 'accès réservé à des adresses ou réseaux ; mot de passe par site (gardé dans le coffre) ; adresses bannies par Garmr refusées', 'redirections 301 / 302, flux TCP (un port → un service)', 'journal et statistiques par site, alertes (certificat, service en panne), robots qui cherchent des failles signalés à Ullr', 'graphe : Internet, le proxy, les sites, les services de la maison'],
+  does: ['un nom de domaine → un service de la maison (HTTP ou HTTPS), jokers *.exemple.fr', 'certificats Let\'s Encrypt obtenus et renouvelés tout seuls (sans envoyer d\'adresse e-mail), ou auto-signés pour la maison', 'passage forcé en HTTPS, HSTS, WebSocket, en-têtes X-Forwarded', 'accès réservé à des adresses ou réseaux ; mot de passe par site (gardé dans le coffre) ; adresses bannies par Cerbère refusées', 'redirections 301 / 302, flux TCP (un port → un service)', 'journal et statistiques par site, alertes (certificat, service en panne), robots qui cherchent des failles signalés à Asclépios', 'graphe : Internet, le proxy, les sites, les services de la maison'],
   from: ['Nginx Proxy Manager', 'Traefik', 'Caddy'], upstream: ['NginxProxyManager/nginx-proxy-manager', 'traefik/traefik', 'caddyserver/caddy'],
   words: ['proxy', 'reverse proxy', 'proxy inverse', 'nom de domaine', 'certificat', 'let\'s encrypt', 'lets encrypt', 'https', 'sous-domaine', 'redirection', 'rediriger'],
   actions: [
     { id: 'ouvrir_ports', label: 'Ouvrir 80 et 443 sur la box', what: 'Accès direct depuis Internet (sans tunnel) et certificats Let\'s Encrypt : Odin ouvre lui-même les ports de la box (UPnP)', quick: false, grave: () => 'ouvrir les ports 80 et 443 de la box vers Odin (tes sites deviennent joignables directement depuis Internet)', run: async (ctx) => {
       const r = await openPorts([{ port: 80, proto: 'TCP' }, { port: 443, proto: 'TCP' }], 'Odin · proxy Valgrind', ctx.fetch);
       ctx.saveSettings({ upnp: { lease: r.lease, at: Date.now(), ip: r.ip, cgnat: r.cgnat } });
-      return { text: `${r.text}${proxyServer() ? '' : ' Démarre le proxy pour qu\'il réponde.'} Sans ouvrir de port, le tunnel Cloudflare (Brú) fait la même chose.` };
+      return { text: `${r.text}${proxyServer() ? '' : ' Démarre le proxy pour qu\'il réponde.'} Sans ouvrir de port, le tunnel Cloudflare (Bifröst) fait la même chose.` };
     } },
     { id: 'fermer_ports', label: 'Fermer 80 et 443 sur la box', what: 'Plus d\'accès direct depuis Internet (le tunnel Cloudflare continue)', quick: false, run: async (ctx) => { const t = await closePorts([{ port: 80, proto: 'TCP' }, { port: 443, proto: 'TCP' }], ctx.fetch); ctx.saveSettings({ upnp: undefined }); return { text: t }; } },
     { id: 'demarrer', label: 'Démarrer le proxy', what: 'Odin répond sur les ports 80 et 443', quick: false, params: [{ key: 'http', label: 'Port HTTP', kind: 'number', default: 80 }, { key: 'https', label: 'Port HTTPS', kind: 'number', default: 443 }], run: async (ctx, i) => {
@@ -186,11 +186,11 @@ export const valgrind: Module = {
       const out = [`🌐 ${domains.join(', ')} → ${target}.`];
       if (tlsMode === 'auto') { selfSigned(ctx, h); out.push('🔐 Certificat auto-signé créé (les navigateurs avertissent une fois : pour la maison).'); }
       if (tlsMode === 'letsencrypt') { try { out.push(await letsEncrypt(ctx, h)); } catch (e) { selfSigned(ctx, h); out.push(`⚠ Let's Encrypt pas encore possible : ${(e as Error).message}. Certificat auto-signé en attendant ; « Renouveler le certificat » quand c'est prêt.`); } }
-      // Liens : à la maison, le nom mène au proxy (Víðarr) ; le service est surveillé (Vörðr).
+      // Liens : à la maison, le nom mène au proxy (Sphinx) ; le service est surveillé (Pulsar).
       const ip = s(ctx.settings.lanIp) || lan();
       if (i.dns_maison !== false && ip) for (const d of domains.filter((x) => !x.startsWith('*.'))) { const r = await ctx.call('vidarr', 'nom_local', { nom: d, valeur: ip }, `${d} servi par le proxy d'Odin`).catch(() => undefined); if (r?.ok !== false && r) out.push(`🏠 À la maison, ${d} mène directement à Odin (${ip}).`); }
-      if (i.surveiller !== false) { const r = await ctx.call('vordr', 'ajouter', { nom: `Service ${domains[0]}`, genre: 'http', cible: target, groupe: 'Proxy', essais: 2, secondes: 60, codes: '200-499' }, `surveiller le service derrière ${domains[0]}`).catch(() => undefined); if (r?.ok !== false && r) out.push(`👁 Service surveillé par Vörðr.`); }
-      // Lien Valgrind → Brú : avec un tunnel Cloudflare, le nom est publié sur Internet (règle + DNS chez Cloudflare).
+      if (i.surveiller !== false) { const r = await ctx.call('vordr', 'ajouter', { nom: `Service ${domains[0]}`, genre: 'http', cible: target, groupe: 'Proxy', essais: 2, secondes: 60, codes: '200-499' }, `surveiller le service derrière ${domains[0]}`).catch(() => undefined); if (r?.ok !== false && r) out.push(`👁 Service surveillé par Pulsar.`); }
+      // Lien Valgrind → Bifröst : avec un tunnel Cloudflare, le nom est publié sur Internet (règle + DNS chez Cloudflare).
       if (i.internet !== false) for (const d of domains.filter((x) => !x.startsWith('*.') && !/\.(local|lan|home|maison|internal)$/.test(x))) { const r = await ctx.call('bru', 'publier', { domaine: d }, `publier ${d} sur Internet`).catch((e) => ({ ok: false, text: (e as Error).message })); if (r.ok !== false) out.push(r.text); else if (!/crée d'abord le tunnel|clé Cloudflare absente/.test(r.text)) out.push(`⚠ Internet : ${r.text}`); }
       if (!srv) out.push('Le proxy est arrêté : « Démarrer le proxy ».');
       return { text: out.join('\n'), data: { id: h.id } };
@@ -202,10 +202,10 @@ export const valgrind: Module = {
       if (i.retirer === true) { saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, auth: undefined } : x))); return { text: `🔓 ${h.domains[0]} n'a plus de mot de passe.` }; }
       const user = s(i.utilisateur) || 'odin'; if (!/^[\w.@-]{1,40}$/.test(user)) throw new Error('identifiant : lettres, chiffres, . _ - @');
       const pass = s(i.mot_de_passe) || randomBytes(15).toString('base64url'); if (pass.length < 10) throw new Error('10 caractères au moins');
-      // Lien Valgrind → Brísingamen : le mot de passe va dans le coffre ; le proxy n'en garde que l'empreinte.
+      // Lien Valgrind → Thésauros : le mot de passe va dans le coffre ; le proxy n'en garde que l'empreinte.
       const v = await ctx.call('brisingamen', 'ajouter', { nom: `Proxy ${h.domains[0]}`, identifiant: user, mot_de_passe: pass, site: `https://${h.domains[0]}`, coffre: 'Personnel' }, `ranger le mot de passe du site ${h.domains[0]}`).catch((e) => ({ ok: false, text: (e as Error).message }));
       saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, auth: { ...(x.auth ?? {}), [user]: hashPassword(pass) } } : x)));
-      return { text: `🔒 ${h.domains[0]} demande maintenant un mot de passe (identifiant « ${user} »). ${v.ok !== false ? 'Le mot de passe est dans le coffre Brísingamen (« Proxy ' + h.domains[0] + ' »).' : `⚠ Le coffre n'a pas pu le garder (${v.text}) : retiens-le, il n'est affiché nulle part.`}` };
+      return { text: `🔒 ${h.domains[0]} demande maintenant un mot de passe (identifiant « ${user} »). ${v.ok !== false ? 'Le mot de passe est dans le coffre Thésauros (« Proxy ' + h.domains[0] + ' »).' : `⚠ Le coffre n'a pas pu le garder (${v.text}) : retiens-le, il n'est affiché nulle part.`}` };
     } },
     { id: 'acces', label: 'Accès par adresses', what: 'Réserver un site à certaines adresses, ou en refuser', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'autoriser', label: 'Seulement (vide : tout le monde)', kind: 'text', default: '' }, { key: 'refuser', label: 'Refuser', kind: 'text', default: '' }], run: (ctx, i) => {
       const h = byDomain(ctx, i.domaine), list = (v: unknown) => s(v).split(/[\s,;]+/).filter(Boolean);
@@ -220,8 +220,8 @@ export const valgrind: Module = {
       ctx.saveSettings({ redirects: [...redirects(ctx), { id: randomBytes(4).toString('hex'), domain: d, to: s(i.vers), code: s(i.code) === '302' ? 302 : 301, keepPath: i.garder_chemin !== false }] });
       return { text: `↪ ${d} → ${s(i.vers)} (${s(i.code) === '302' ? 'temporaire' : 'définitive'}).` };
     } },
-    { id: 'connexion_unique', label: 'Connexion unique (Vár)', what: 'Le site demande la connexion d\'Odin', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, sso: i.actif !== false } : x))); return { text: `${i.actif !== false ? '🛡' : '🔓'} ${h.domains[0]} ${i.actif !== false ? 'demande la connexion d\'Odin (Vár)' : 'ne demande plus la connexion d\'Odin'}.` }; } },
-    { id: 'portail', label: 'Servir le portail de connexion', what: 'Le nom du portail de Vár, avec son certificat', quick: false, params: [{ key: 'domaine', label: 'Nom du portail', kind: 'text', required: true }], run: async (ctx, i) => {
+    { id: 'connexion_unique', label: 'Connexion unique (Persona)', what: 'Le site demande la connexion d\'Odin', quick: false, params: [{ key: 'domaine', label: 'Domaine', kind: 'text', required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const h = byDomain(ctx, i.domaine); saveHosts(ctx, hosts(ctx).map((x) => (x.id === h.id ? { ...x, sso: i.actif !== false } : x))); return { text: `${i.actif !== false ? '🛡' : '🔓'} ${h.domains[0]} ${i.actif !== false ? 'demande la connexion d\'Odin (Persona)' : 'ne demande plus la connexion d\'Odin'}.` }; } },
+    { id: 'portail', label: 'Servir le portail de connexion', what: 'Le nom du portail de Persona, avec son certificat', quick: false, params: [{ key: 'domaine', label: 'Nom du portail', kind: 'text', required: true }], run: async (ctx, i) => {
       const d = s(i.domaine).toLowerCase(); if (!DOMAIN.test(d) || d.startsWith('*.')) throw new Error('nom invalide');
       if (hosts(ctx).some((h) => h.domains.includes(d))) throw new Error(`${d} est déjà un site du proxy`);
       const fake: Host = { id: 'portail', domains: [d], target: 'http://127.0.0.1', enabled: true, tls: 'letsencrypt' };
@@ -268,7 +268,7 @@ export const valgrind: Module = {
         { kind: 'graph', title: 'Graphe du proxy', ...g, legend: [['#4F9DDE', 'Odin, Internet'], ['#57C98A', 'site qui répond'], ['#F0A040', 'certificat bientôt fini / flux'], ['#EE6A55', 'service en erreur'], ['#B48CF0', 'mot de passe / redirection'], ['#E8EAEC', 'service de la maison']] },
         { kind: 'table', title: 'Sites', columns: ['Nom(s)', 'Service', 'HTTPS', 'Protection', 'Requêtes (24 h)'], empty: 'Aucun site : ajoute-en un à droite.', rows: hs.map((h) => { const x = st.by.get(h.domains[0]), c = certOf(h); return { cells: [h.domains.join(', '), h.target, h.tls === 'aucun' ? 'non' : c ? `${h.tls === 'letsencrypt' ? 'Let\'s Encrypt' : 'auto-signé'} · ${c.days} j` : 'en attente', [h.auth && Object.keys(h.auth).length ? 'mot de passe' : '', h.allow?.length ? `réservé (${h.allow.join(', ')})` : ''].filter(Boolean).join(' · ') || '—', x ? `${x.n} (${x.e5} erreurs)` : '0'], tone: !h.enabled ? 'neutre' as const : x && x.n >= 10 && x.e5 / x.n > 0.3 ? 'mauvais' as const : undefined, actions: [{ action: 'tester', label: 'Tester', input: { domaine: h.domains[0] } }, { action: 'activer', label: h.enabled ? 'Couper' : 'Réactiver', input: { domaine: h.domains[0], actif: !h.enabled } }] }; }) },
         { kind: 'table', title: 'Redirections et flux', columns: ['De', 'Vers', 'Genre'], empty: 'Aucun.', rows: [...redirects(ctx).map((r) => ({ cells: [r.domain, r.to, `redirection ${r.code}`], actions: [{ action: 'retirer_redirection', label: 'Retirer', input: { domaine: r.domain } }] })), ...streams(ctx).map((x) => ({ cells: [`port ${x.port}`, x.target, 'flux TCP'], actions: [{ action: 'retirer_flux', label: 'Retirer', input: { port: x.port } }] }))] },
-        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Vár (identités)', detail: 'une seule connexion pour tous les sites du proxy (au lieu d\'un mot de passe par site)' }, { title: 'Sól (photos)', detail: 'albums publiés par le proxy, réservés à qui tu choisis' }, { title: 'Snotra (bureau)', detail: 'le bureau à distance derrière un nom et un mot de passe' }] },
+        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Persona (identités)', detail: 'une seule connexion pour tous les sites du proxy (au lieu d\'un mot de passe par site)' }, { title: 'Hélios (photos)', detail: 'albums publiés par le proxy, réservés à qui tu choisis' }, { title: 'Plume (bureau)', detail: 'le bureau à distance derrière un nom et un mot de passe' }] },
         { kind: 'log', title: 'Journal (dernières requêtes)', lines: ring.slice(-30).reverse().map((e) => `${new Date(e.t).toLocaleTimeString('fr-FR')} ${e.ip} ${e.method} ${e.host}${e.path.slice(0, 60)} → ${e.status} ${e.ms} ms${e.why ? ` (${e.why})` : ''}`) },
       ],
       side: [{ kind: 'form', title: 'Ajouter un site', action: 'ajouter', submit: 'Ajouter', params: ADD }],
@@ -279,7 +279,7 @@ export const valgrind: Module = {
     if (ctx.settings.on === true) { try { await startProxy(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le proxy d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Tes sites ne répondent plus par Odin.`, key: 'valgrind-demarrage' }); } }
   },
   stop() { srv?.stop(); srv = undefined; },
-  // Chaque minute : les adresses bannies par Garmr ; les services en erreur ; une fois par jour, les certificats.
+  // Chaque minute : les adresses bannies par Cerbère ; les services en erreur ; une fois par jour, les certificats.
   watch: { every: 60, async run(ctx) {
     appCtx = ctx;
     const b = await ctx.call('garmr', 'bannis', {}).catch(() => undefined); if (Array.isArray(b?.data)) banned = new Set((b.data as Array<{ ip: string }>).map((x) => x.ip));

@@ -1,4 +1,4 @@
-// Rán comme Sniffnet : débit entrant / sortant, trafic par appareil, pays (table locale), premières fois.
+// Ariane comme Sniffnet : débit entrant / sortant, trafic par appareil, pays (table locale), premières fois.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

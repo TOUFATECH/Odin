@@ -49,7 +49,7 @@ const SHAPES: Record<Shape, string> = { ip: 'une adresse IP', nombre: 'un nombre
 /** L'appli d'Odin derrière une action (pour relier la mission à sa fiche). */
 const appRef = (s: Step): string | undefined => { const i = (s.input ?? {}) as Record<string, unknown>; return s.tool === 'valhalla' ? String(i.appli ?? '') || undefined : s.tool === 'ha_call' ? 'midgard' : s.tool === 'venus' ? 'freyja' : undefined; };
 // Le nom ne doit pas dépendre du moment (applis démarrées ou non) : sinon la note changerait d'un lancement à l'autre.
-const FIXED: Record<string, string> = { midgard: 'Midgard', freyja: 'Freyja' };
+const FIXED: Record<string, string> = { midgard: 'Midgard', freyja: 'Vénus' };
 const appName = (s: Step, app?: DailyDeps['app']): string | undefined => {
   const r = appRef(s); if (!r) return undefined;
   return app?.(r) ?? FIXED[r] ?? (s.tool === 'valhalla' && s.label.includes(' · ') ? plain(s.label).split(' · ')[0] : undefined);

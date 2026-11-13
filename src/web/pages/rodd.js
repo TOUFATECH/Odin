@@ -1,4 +1,4 @@
-// Rödd dans l'interface (maquettes validées « Rödd · Dictée » et « Rödd · mes mots et lien avec la voix d'Odin », bleu et vert) :
+// Écho dans l'interface (maquettes validées « Écho · Dictée » et « Écho · mes mots et lien avec la voix d'Odin », bleu et vert) :
 // - Dictée : Odin au centre, stylo en main, écrit ce que tu dis ; maintiens le bouton (ou Ctrl + Espace) pour parler.
 //   L'audio part à Odin (Whisper local), tes mots corrigent ce qui a été mal entendu, puis la mise en forme choisie.
 //   « Odin, … » au début = une demande à Odin (ses actions graves gardent ton accord).
@@ -156,7 +156,7 @@
       ta.addEventListener('input', () => { learnBtn.hidden = ta.value === L.texte; });
       col.append(el('div', { class: 'rd-g rd-res' }, el('div', { class: 't' }, chips, ta, learnBtn),
         el('div', { class: 'acts' }, el('button', { class: 'rd-ib', type: 'button', title: 'Copier', 'aria-label': 'Copier', onclick: async (e) => { try { await navigator.clipboard.writeText(ta.value); e.currentTarget.style.color = GREEN; } catch { ta.select(); } } }, ic('copy', 17)),
-          el('button', { class: 'rd-ib', type: 'button', title: 'Envoyer à Odin dans la discussion', 'aria-label': 'Envoyer à Odin', onclick: () => { window.OdinShow?.('chat'); window.OdinChat?.send?.(ta.value, 'Rödd'); } }, ic('send', 17)))));
+          el('button', { class: 'rd-ib', type: 'button', title: 'Envoyer à Odin dans la discussion', 'aria-label': 'Envoyer à Odin', onclick: () => { window.OdinShow?.('chat'); window.OdinChat?.send?.(ta.value, 'Écho'); } }, ic('send', 17)))));
     } else if (L && L.odin) {
       txt.className = 'rd-txt'; txt.textContent = L.brut; say('Une demande pour Odin', true);
       col.append(el('div', { class: 'rd-g rd-ask' }, el('span', { class: 'disc', style: 'width:44px;height:44px;border-radius:50%;background:#12141a;display:grid;place-items:center;box-shadow:0 0 0 1px #3ecf8e66' }, Object.assign(odin(), { style: 'width:34px;height:34px;display:block' })),
@@ -168,7 +168,7 @@
     col.append(el('details', { class: 'rd-g rd-type', style: 'padding:12px 16px' }, el('summary', { style: 'cursor:pointer;min-height:32px;color:var(--mut2);font-size:13px' }, 'Mettre en forme un texte (sans micro)'),
       el('div', { style: 'display:flex;flex-direction:column;gap:8px;margin-top:8px' }, typed, el('div', {}, el('button', { class: 'rd-btn', type: 'button', onclick: async () => { if (!typed.value.trim()) return; const r = await act('dicter', { texte: typed.value, mode: S.mode }); if (!r.ok && !r.data) { alert(r.text || r.error); return; } S.last = r.data ?? { texte: r.text, brut: typed.value, ia: false }; await redraw(); } }, 'Mettre en forme')))));
     const feed = el('aside', { class: 'rd-g rd-feed', 'aria-label': 'Dernières dictées' }, el('div', { style: 'display:flex;align-items:center;gap:8px;margin-bottom:4px' }, el('b', { style: 'font-size:15px' }, 'Aujourd\'hui'), el('small', { style: 'margin-left:auto' }, `${h.jour.dictees} dictée${h.jour.dictees > 1 ? 's' : ''} · ${h.jour.demandes} demande${h.jour.demandes > 1 ? 's' : ''}`)),
-      ...h.items.slice(0, 8).map(feedItem), h.items.length ? null : el('p', { style: 'color:var(--mut2);font-size:13px' }, h.garde ? 'Aucune dictée pour l\'instant.' : 'L\'historique n\'est pas gardé (Réglages de Rödd).'));
+      ...h.items.slice(0, 8).map(feedItem), h.items.length ? null : el('p', { style: 'color:var(--mut2);font-size:13px' }, h.garde ? 'Aucune dictée pour l\'instant.' : 'L\'historique n\'est pas gardé (Réglages de Écho).'));
     root.append(el('div', { class: 'rd-main' }, col, feed));
   }
 
@@ -187,7 +187,7 @@
       el('div', { class: 'rd-hint' }, ic('spark', 16), 'Quand tu corriges une dictée, « Retenir mes corrections » ajoute tout seul les mots changés.'));
     const node = (t, d, i, c) => el('div', { class: 'rd-node', style: `border:1px solid ${c}40` }, el('span', { class: 'rd-ib', style: `width:34px;height:34px;color:${c};cursor:default` }, ic(i, 16)), el('div', { style: 'display:flex;flex-direction:column;gap:2px' }, el('b', {}, t), el('small', {}, d)));
     const left = el('div', { style: 'display:flex;flex-direction:column;gap:28px' }, node('Dictée sur tes PC', 'la capsule, dans toutes les applis', 'pc', BLUE), node('Dictée sur le téléphone', 'appli Odin', 'phone', BLUE), node('Dictée dans cette page', 'maintiens Odin', 'web', BLUE));
-    const right = el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, node('Odin sur le web', 'le micro de la discussion', 'web', GREEN), node('Odin sur Telegram', 'tes vocaux', 'chat', GREEN), node('Glaðsheimr', 'l\'écran de la maison', 'tv', GREEN), node('« Odin, … » en dictée', 'devient une demande', 'spark', GREEN));
+    const right = el('div', { style: 'display:flex;flex-direction:column;gap:8px' }, node('Odin sur le web', 'le micro de la discussion', 'web', GREEN), node('Odin sur Telegram', 'tes vocaux', 'chat', GREEN), node('Hestia', 'l\'écran de la maison', 'tv', GREEN), node('« Odin, … » en dictée', 'devient une demande', 'spark', GREEN));
     const hub = el('div', { class: 'rd-hub' }, odin(), el('b', { style: 'font-size:15px' }, 'Tes mots + Whisper local'), el('small', { style: 'font-size:12px;color:var(--mut2)' }, 'soufflés avant d\'écouter,', el('br'), 'corrigés après'));
     const flow = el('div', { class: 'rd-flow' }, left, hub, right);
     const lines = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); lines.setAttribute('aria-hidden', 'true'); lines.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible';
@@ -209,7 +209,7 @@
     const redraw = async () => {
       const tabs = el('div', { class: 'rd-seg', role: 'tablist', style: 'margin:0 auto' }, ...[['dictee', 'Dictée'], ['mots', 'Mes mots']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
       const head = el('div', { class: 'rd-top' }, el('span', { style: `width:40px;height:40px;border-radius:12px;background:#4f8cff1f;color:${BLUE};display:grid;place-items:center;box-shadow:inset 0 0 0 1px #4f8cff40` }, ic('mic', 20)),
-        el('div', {}, el('b', { style: 'font-size:19px;letter-spacing:-.2px' }, 'Rödd'), el('div', { style: 'font-size:12.5px;color:var(--mut2)' }, 'Dictée vocale · reliée à la voix d\'Odin')), tabs, chip('● 100 % local · Whisper', GREEN));
+        el('div', {}, el('b', { style: 'font-size:19px;letter-spacing:-.2px' }, 'Écho'), el('div', { style: 'font-size:12.5px;color:var(--mut2)' }, 'Dictée vocale · reliée à la voix d\'Odin')), tabs, chip('● 100 % local · Whisper', GREEN));
       const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' });
       root.replaceChildren(head, body);
       if (S.tab === 'mots') await words(body, redraw); else await dictation(body, redraw);

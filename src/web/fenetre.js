@@ -1,7 +1,7 @@
 // La fenêtre d'Odin (maquettes validées « Fenetre », « FenetreEdition », « FenetreTel ») : des pages de modules
 // d'applis (chiffres clés ou une partie de la page d'une appli), la météo, des boutons sur mesure. Mode « Modifier » :
 // glisser-déposer (souris et doigt), taille, retirer, pages (ajouter, renommer, supprimer), catalogue des modules,
-// bouton sur mesure, thème. Rangée par Glaðsheimr (côté Odin) : la même sur l'ordinateur et le téléphone.
+// bouton sur mesure, thème. Rangée par Hestia (côté Odin) : la même sur l'ordinateur et le téléphone.
 (() => {
   'use strict';
   const $ = (s, r = document) => r.querySelector(s);
@@ -74,8 +74,8 @@
       w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null);
     if (w.kind === 'meteo') {
       const d = await weather();
-      box.append(head(w.label || 'Météo', 'Glaðsheimr', '☀'), d ? el('div', {}, el('div', { class: 'fe-wx' }, el('b', {}, `${Math.round(d.temp ?? d.now?.temp ?? 0)}°`), el('div', {}, el('div', {}, d.text ?? d.now?.text ?? ''), el('small', { class: 'sub' }, d.place ?? d.ville ?? ''))),
-        Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => el('span', {}, `${h.h ?? h.hour} h · ${Math.round(h.t ?? h.temp)}°`))) : null) : el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Glaðsheimr).'));
+      box.append(head(w.label || 'Météo', 'Hestia', '☀'), d ? el('div', {}, el('div', { class: 'fe-wx' }, el('b', {}, `${Math.round(d.temp ?? d.now?.temp ?? 0)}°`), el('div', {}, el('div', {}, d.text ?? d.now?.text ?? ''), el('small', { class: 'sub' }, d.place ?? d.ville ?? ''))),
+        Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => el('span', {}, `${h.h ?? h.hour} h · ${Math.round(h.t ?? h.temp)}°`))) : null) : el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Hestia).'));
       return box;
     }
     if (w.kind === 'bouton') {

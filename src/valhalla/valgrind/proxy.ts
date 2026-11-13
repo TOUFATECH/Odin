@@ -23,7 +23,7 @@ export interface Host {
   /** certificat : aucun, auto-signé ou Let's Encrypt */
   tls?: 'aucun' | 'auto' | 'letsencrypt';
   timeoutMs?: number;
-  /** connexion unique par Vár : il faut être connecté (et dans un groupe autorisé) pour passer */
+  /** connexion unique par Persona : il faut être connecté (et dans un groupe autorisé) pour passer */
   sso?: boolean;
 }
 export interface Redirect { id: string; domain: string; to: string; code: 301 | 302; keepPath: boolean }
@@ -36,14 +36,14 @@ export interface ProxyDeps {
   defaultCert: () => { cert: string; key: string };
   /** réponse au défi Let's Encrypt (HTTP-01) */
   challenge: (token: string) => string | undefined;
-  /** adresses bannies par Garmr (refusées partout) */
+  /** adresses bannies par Cerbère (refusées partout) */
   banned?: (ip: string) => boolean;
   log?: (e: AccessLog) => void;
-  /** mot de passe raté (Garmr peut bannir l'adresse après plusieurs essais) */
+  /** mot de passe raté (Cerbère peut bannir l'adresse après plusieurs essais) */
   onAuthFail?: (ip: string, host: string) => void;
-  /** Vár : qui est connecté (d'après son cookie) et a-t-il le droit d'entrer sur ce site ? */
+  /** Persona : qui est connecté (d'après son cookie) et a-t-il le droit d'entrer sur ce site ? */
   sso?: (cookie: string, domain: string, ip: string) => { user: string; groups: string[] } | 'refusé' | undefined;
-  /** Vár : le portail de connexion (son nom, et ce qui répond dessus) */
+  /** Persona : le portail de connexion (son nom, et ce qui répond dessus) */
   portal?: { domain: () => string | undefined; url: () => string | undefined; handle: (q: IncomingMessage, r: ServerResponse, secure: boolean) => void };
 }
 
@@ -110,7 +110,7 @@ export class ProxyServer {
   }
   /** Les gardes : bannie, liste d'accès, mot de passe. Rend la raison du refus et son code. */
   private guard(q: IncomingMessage, h: Host, ip: string, secure = false): { status: number; why: string; headers?: Record<string, string>; user?: { user: string; groups: string[] } } | undefined {
-    if (this.d.banned?.(ip)) return { status: 403, why: 'adresse bannie (Garmr)' };
+    if (this.d.banned?.(ip)) return { status: 403, why: 'adresse bannie (Cerbère)' };
     if (h.deny?.some((n) => inNet(ip, n))) return { status: 403, why: 'adresse refusée' };
     if (h.allow?.length && !h.allow.some((n) => inNet(ip, n))) return { status: 403, why: 'adresse pas autorisée' };
     if (h.auth && Object.keys(h.auth).length) {
@@ -120,11 +120,11 @@ export class ProxyServer {
     }
     if (h.sso) {
       const who = this.d.sso?.(String(q.headers.cookie ?? ''), String(q.headers.host ?? '').toLowerCase().replace(/:\d+$/, ''), ip), portal = this.d.portal?.url();
-      if (who === 'refusé') return { status: 403, why: 'pas dans un groupe autorisé (Vár)' };
+      if (who === 'refusé') return { status: 403, why: 'pas dans un groupe autorisé (Persona)' };
       if (!who) {
-        if (!portal) return { status: 503, why: 'connexion unique sans portail (Vár)' };
+        if (!portal) return { status: 503, why: 'connexion unique sans portail (Persona)' };
         const back = `${secure ? 'https' : 'http'}://${q.headers.host}${q.url ?? '/'}`;
-        return { status: 302, why: 'connexion demandée (Vár)', headers: { location: `${portal}/?rd=${encodeURIComponent(back)}` } };
+        return { status: 302, why: 'connexion demandée (Persona)', headers: { location: `${portal}/?rd=${encodeURIComponent(back)}` } };
       }
       return { status: 0, why: '', user: who };
     }
@@ -136,8 +136,8 @@ export class ProxyServer {
     // Défi Let's Encrypt : servi sur le port 80 pour tous les noms.
     const ch = /^\/\.well-known\/acme-challenge\/([\w-]{10,200})$/.exec(path);
     if (ch && !secure) { const a = this.d.challenge(ch[1]); r.writeHead(a ? 200 : 404, { 'content-type': 'text/plain' }); r.end(a ?? ''); return done(a ? 200 : 404, 'défi Let\'s Encrypt'); }
-    // Le portail de connexion de Vár répond sous son propre nom.
-    if (this.d.portal && name && name === this.d.portal.domain()) { this.d.portal.handle(q, r, secure); return done(200, 'portail Vár'); }
+    // Le portail de connexion de Persona répond sous son propre nom.
+    if (this.d.portal && name && name === this.d.portal.domain()) { this.d.portal.handle(q, r, secure); return done(200, 'portail Persona'); }
     const rd = this.d.redirects().find((x) => x.domain === name);
     if (rd) { const to = rd.keepPath ? `${rd.to.replace(/\/$/, '')}${path}` : rd.to; r.writeHead(rd.code, { location: to }); r.end(); return done(rd.code, 'redirection'); }
     const h = route(this.d.hosts(), name);
@@ -148,7 +148,7 @@ export class ProxyServer {
     if (g) { r.writeHead(g.status, { 'content-type': 'text/html; charset=utf-8', ...g.headers }); r.end(page(g.status === 401 ? 'Mot de passe' : 'Accès refusé', g.status === 401 ? 'Ce site demande un identifiant et un mot de passe.' : 'Cette adresse n\'a pas accès à ce site.')); return done(g.status, g.why); }
     const u = new URL(h.target), lib = u.protocol === 'https:' ? https : http;
     const headers: Record<string, string | string[]> = {};
-    // Les en-têtes d'identité ne viennent jamais du visiteur : seul Vár les pose.
+    // Les en-têtes d'identité ne viennent jamais du visiteur : seul Persona les pose.
     for (const [k, v] of Object.entries(q.headers)) if (v !== undefined && !HOP.has(k.toLowerCase()) && !/^remote-|^x-remote-/i.test(k)) headers[k] = v;
     if (who) { headers['remote-user'] = who.user; headers['remote-groups'] = who.groups.join(','); }
     headers['x-forwarded-for'] = [q.headers['x-forwarded-for'], ip].filter(Boolean).join(', ');

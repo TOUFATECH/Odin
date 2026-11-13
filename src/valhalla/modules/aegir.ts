@@ -1,4 +1,4 @@
-// Ægir — la bibliothèque musicale et les radios : indexe tes dossiers de musique (titre, artiste,
+// Apollon — la bibliothèque musicale et les radios : indexe tes dossiers de musique (titre, artiste,
 // album lus par ffprobe), recherche, listes de lecture, radios web, et lecture sur une enceinte de la
 // maison (via la box reliée dans Midgard) ou sur cette machine (mpv/ffplay).
 
@@ -44,7 +44,7 @@ async function tags(ctx: ModCtx, file: string, probe: boolean): Promise<Track> {
 }
 async function play(ctx: ModCtx, url: string, where: string): Promise<string> {
   if (where && where !== 'ici') {
-    const ha = s(ctx.settings.haUrl).replace(/\/$/, ''), token = process.env.HA_TOKEN; if (!ha || !token) throw new Error('relie ta box dans Ægir (même adresse que Midgard) pour jouer sur une enceinte');
+    const ha = s(ctx.settings.haUrl).replace(/\/$/, ''), token = process.env.HA_TOKEN; if (!ha || !token) throw new Error('relie ta box dans Apollon (même adresse que Midgard) pour jouer sur une enceinte');
     if (!/^https?:\/\//.test(url)) throw new Error('une enceinte ne peut lire qu\'une adresse web (radio) : les fichiers locaux se jouent « ici »');
     // L'enceinte est cherchée dans la box par son nom (ou son identifiant), comme pour les annonces.
     const players = (await haApi(ha, token, 'GET', '/states') as HaState[]).filter((x) => x.entity_id.startsWith('media_player.') && x.state !== 'unavailable');
@@ -61,11 +61,11 @@ async function play(ctx: ModCtx, url: string, where: string): Promise<string> {
 }
 
 export const aegir: Module = {
-  id: 'aegir', name: 'Ægir', family: 'Maison',
+  id: 'aegir', name: 'Apollon', family: 'Maison',
   what: 'Ta musique et tes radios : bibliothèque, recherche, listes, lecture sur les enceintes.',
   does: ['indexe tes dossiers de musique (titre, artiste, album, durée)', 'recherche par mots', 'listes de lecture', 'radios web', 'lecture sur une enceinte de la maison ou sur cette machine', 'arrêt de la lecture'],
   from: ['Navidrome', 'Jellyfin (musique)', 'Music Assistant', 'Mopidy'], upstream: ['navidrome/navidrome', 'music-assistant/server'],
-  modes: ['Ran · radios'],
+  modes: ['Euterpe · radios'],
   words: ['musique', 'chanson', 'chansons', 'album', 'artiste', 'radio', 'playlist', 'liste de lecture', 'ecouter', 'écouter', 'joue'],
   actions: [
     { id: 'indexer', label: 'Indexer', what: 'Relit les dossiers de musique', read: true, words: ['indexe', 'actualise'], run: async (ctx) => {
@@ -94,7 +94,7 @@ export const aegir: Module = {
     const byArtist = [...artists].map((a) => ({ label: a, value: l.filter((t) => t.artist === a).length })).sort((a, b) => b.value - a.value).slice(0, 10);
     return {
       subtitle: `${l.length} morceau(x) · ${artists.size} artiste(s) · ${radios(ctx).length} radio(s)`,
-      tabs: ['Ægir · bibliothèque', 'Ran · radios'],
+      tabs: ['Apollon · bibliothèque', 'Euterpe · radios'],
       kpis: [{ label: 'Morceaux', value: String(l.length) }, { label: 'Albums', value: String(albums.size) }, { label: 'Listes', value: String(Object.keys(lists(ctx)).length) }],
       sections: [
         { kind: 'bars', title: 'Artistes les plus présents', items: byArtist },

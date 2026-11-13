@@ -1,4 +1,4 @@
-// Svalinn — la Livebox d'Orange par son interface locale (l'API « sysbus » de sa page d'administration, /ws).
+// Zéphyr — la Livebox d'Orange par son interface locale (l'API « sysbus » de sa page d'administration, /ws).
 // Odin se connecte avec le mot de passe que TU lui as donné (rangé dans le coffre) : jamais de mot de passe deviné,
 // jamais d'accès forcé. Lecture : modèle, logiciel, Wi-Fi (nom, chiffrement, WPS, canaux), invités, UPnP, accès à
 // distance, appareils. Écriture : seulement un changement que tu as accepté, après une sauvegarde de l'état.

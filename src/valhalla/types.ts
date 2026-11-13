@@ -1,5 +1,5 @@
 // Valhalla — les modules d'Odin (réécritures maison des applis du catalogue, sans doublon).
-// Chaque module : une page (vue), des actions (aussi utilisables par Odin, Draupnir et le mode sans IA),
+// Chaque module : une page (vue), des actions (aussi utilisables par Odin, Talos et le mode sans IA),
 // des alertes, des événements, et des mots-clés pour qu'Odin choisisse le bon module tout seul.
 
 export type Level = 'critique' | 'haute' | 'moyenne' | 'info';
@@ -8,7 +8,7 @@ export interface AlertIn { level: Level; title: string; detail?: string; key?: s
 export interface NotifyOpts { urgent?: boolean; photo?: string }
 export interface Alert extends AlertIn { id: string; at: string; module: string; ack?: boolean; count: number }
 
-/** Qui a lancé une action : toi (clic, demande explicite), Odin de lui-même, un réflexe entre applis, une automatisation Draupnir, un autre assistant (MCP). */
+/** Qui a lancé une action : toi (clic, demande explicite), Odin de lui-même, un réflexe entre applis, une automatisation Talos, un autre assistant (MCP). */
 export type By = 'toi' | 'odin' | 'réflexe' | 'automatisation' | 'assistant';
 /** Comment défaire une action : l'action inverse (de la même appli, sauf mention). */
 export interface Undo { action: string; input: Record<string, unknown>; label: string; module?: string }
@@ -86,7 +86,7 @@ export interface ModCtx {
   ack(ids: string[]): void;
   /** liste des modules (pour Valhalla et les explications) */
   modules(): Module[];
-  /** comprend une demande en français SANS IA (Huginn) et l'exécute ; une action grave n'est jamais lancée ainsi */
+  /** comprend une demande en français SANS IA (Logos) et l'exécute ; une action grave n'est jamais lancée ainsi */
   order(text: string): Promise<ActionResult>;
 }
 

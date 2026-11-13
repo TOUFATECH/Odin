@@ -1,7 +1,7 @@
-// Þjálfi · lecture d'une ISO sans la monter ni l'extraire : ISO 9660 (avec les noms Rock Ridge et Joliet) et
+// Genèse · lecture d'une ISO sans la monter ni l'extraire : ISO 9660 (avec les noms Rock Ridge et Joliet) et
 // UDF (les ISO de Windows, dont la partie ISO 9660 ne contient qu'un fichier « lisez-moi »).
 // Odin lit seulement les morceaux utiles (noyau, initrd, fichiers d'installation) et les sert aux machines
-// qui démarrent par le réseau, directement depuis le fichier .iso d'Eitri. Écrit pour Odin (rien de copié).
+// qui démarrent par le réseau, directement depuis le fichier .iso d'Andromède. Écrit pour Odin (rien de copié).
 import { createReadStream } from 'node:fs';
 import { open, type FileHandle } from 'node:fs/promises';
 import { Readable } from 'node:stream';

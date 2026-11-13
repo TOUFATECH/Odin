@@ -1,5 +1,5 @@
 // Valhalla en marche : démarre les modules, leurs surveillances, le fil d'alertes (envoyées sur ta
-// messagerie selon leur gravité), les événements entre modules (réflexes et Draupnir), et le choix du
+// messagerie selon leur gravité), les événements entre modules (réflexes et Talos), et le choix du
 // bon module pour un besoin, avec ou sans IA.
 
 import { Metrics, setMetrics } from './metrics.ts';
@@ -121,7 +121,7 @@ export class Valhalla {
   autonomy(): 'prudent' | 'equilibre' | 'autonome' | 'breaker' { return this.deps.autonomy?.() ?? 'equilibre'; }
 
   /**
-   * Une demande en français, comprise SANS IA (Huginn) puis exécutée. `confirm` : tu as confirmé une
+   * Une demande en français, comprise SANS IA (Logos) puis exécutée. `confirm` : tu as confirmé une
    * action grave (sinon elle n'est pas lancée : la réponse dit ce qu'il faut confirmer).
    */
   async order(text: string, session = 'principal', o: { by?: By; confirm?: boolean } = {}): Promise<ActionResult & { understood?: Understood; confirm?: string }> {

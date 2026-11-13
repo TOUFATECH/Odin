@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../src/config.ts';
 import { deleteConvCommand, replyModeCommand } from '../src/bifrost/gateway.ts';
 import { exportConversations } from '../src/muninn/export.ts';
-import { Muninn } from '../src/muninn/store.ts';
+import { Mnemosyne } from '../src/muninn/store.ts';
 import { voiceOptions } from '../src/settings.ts';
 import { pronounce, sttReady, ttsIsLocal } from '../src/voice/voice.ts';
 
@@ -19,7 +19,7 @@ test('par défaut, la voix reste sur la machine (whisper.cpp + Piper), aucune cl
 
 test('réglages vocaux : valeurs vérifiées, mode texte coupe la lecture et les notes vocales', () => {
   const v = DEFAULT_CONFIG.voice;
-  const o = voiceOptions({ replyMode: 'texte', listen: { sensitivity: 8, wakeWord: ' Odin ' }, interrupt: { stopWords: 'stop, chut' }, speech: { rate: 1.2, pronunciations: { Muninn: 'Mou-ninne' } } }, v);
+  const o = voiceOptions({ replyMode: 'texte', listen: { sensitivity: 8, wakeWord: ' Odin ' }, interrupt: { stopWords: 'stop, chut' }, speech: { rate: 1.2, pronunciations: { Mnémosyne: 'Mou-ninne' } } }, v);
   assert.equal(o.replyMode, 'texte'); assert.equal(o.speakReplies, false); assert.equal(o.voiceReplies, false);
   assert.equal(o.listen.sensitivity, 8); assert.equal(o.listen.wakeWord, 'Odin');
   assert.deepEqual(o.interrupt.stopWords, ['stop', 'chut']);
@@ -46,7 +46,7 @@ test('commandes à l\'oral : « réponds par écrit », « parle-moi », sans co
 });
 
 test('export : Markdown lisible, JSON complet, une conversation ou tout', () => {
-  const m = new Muninn(':memory:');
+  const m = new Mnemosyne(':memory:');
   m.ensureSession('web:a', 'web', 'a'); m.setSessionTitle('web:a', 'Projet Athena');
   m.addMessage('web:a', { role: 'user', content: 'Où en est Athena ?' });
   m.addMessage('web:a', { role: 'tool', content: 'sortie brute', toolName: 'fs_read', toolCallId: 'x' });
@@ -62,7 +62,7 @@ test('export : Markdown lisible, JSON complet, une conversation ou tout', () => 
 });
 
 test('mode privé : rien n\'est retenu ni écrit', () => {
-  const m = new Muninn(':memory:');
+  const m = new Mnemosyne(':memory:');
   m.privateMode = true;
   m.ensureSession('web:p', 'web', 'p');
   m.addMessage('web:p', { role: 'user', content: 'Secret du jour' });

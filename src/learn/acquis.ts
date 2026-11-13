@@ -32,7 +32,7 @@ export interface Acquis {
   /** Entrée de l'outil ; les valeurs variables y sont remplacées par un repère. */
   input: unknown;
   slots: Array<{ shape: Shape; number?: boolean }>;
-  /** En clair : « Loki · Bannir une adresse ». */
+  /** En clair : « Sirènes · Bannir une adresse ». */
   label: string;
   at: number;
   uses: number;

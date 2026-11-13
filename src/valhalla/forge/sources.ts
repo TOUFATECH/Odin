@@ -1,4 +1,4 @@
-// Eitri (ISO) et Fjalar (logiciels) — d'où viennent les fichiers : uniquement les sites officiels des éditeurs
+// Andromède (ISO) et Hermès (logiciels) — d'où viennent les fichiers : uniquement les sites officiels des éditeurs
 // (ou leurs dépôts GitHub), avec l'empreinte SHA-256 publiée par eux. Rien d'autre n'est téléchargé.
 //
 // Chaque source sait :
@@ -94,7 +94,7 @@ export const github = (repo: string, re: RegExp) => async (f: Fetch): Promise<Re
   return { version: v, file: a.name, url: a.browser_download_url, sha256: sha, size: a.size, page: r.html_url };
 };
 
-// ---------------- Les ISO (Eitri) ----------------
+// ---------------- Les ISO (Andromède) ----------------
 const gh = (o: string) => `https://github.com/${o}.png?size=64`;
 export const ISO: Source[] = [
   { id: 'ubuntu', name: 'Ubuntu (bureau, LTS)', kind: 'iso', family: 'Linux', about: 'Ubuntu Desktop, version suivie longtemps (LTS)', match: /^ubuntu-(\d\d\.04(?:\.\d+)?)-desktop-amd64\.iso$/, icon: 'https://ubuntu.com/favicon.ico', color: '#E95420', page: 'https://ubuntu.com/download/desktop', latest: indexThenSums('https://releases.ubuntu.com/', /^(\d\d\.04(?:\.\d+)?)\/$/, 'SHA256SUMS', /^ubuntu-(\d\d\.04(?:\.\d+)?)-desktop-amd64\.iso$/) },
@@ -117,7 +117,7 @@ export const ISO: Source[] = [
   { id: 'windows-server', name: 'Windows Server', kind: 'iso', family: 'Windows', about: 'Windows Server (évaluation ou licence)', match: /^(?:SERVER_EVAL_)?.*?Windows[_ ]?Server[_ ]?(\d{4}).*\.iso$/i, icon: 'https://www.microsoft.com/favicon.ico', color: '#0078D4', page: 'https://www.microsoft.com/fr-fr/evalcenter', manual: 'Le centre d\'évaluation de Microsoft demande un formulaire : Odin ne le remplit pas à ta place.' },
 ];
 
-// ---------------- Les logiciels (Fjalar) ----------------
+// ---------------- Les logiciels (Hermès) ----------------
 const firefox = async (f: Fetch): Promise<Release> => {
   const v = (await json<{ LATEST_FIREFOX_VERSION: string }>(f, 'https://product-details.mozilla.org/1.0/firefox_versions.json')).LATEST_FIREFOX_VERSION;
   const base = `https://ftp.mozilla.org/pub/firefox/releases/${v}/`, rel = `win64/fr/Firefox Setup ${v}.exe`;
@@ -140,14 +140,14 @@ export const SOFT: Source[] = [
   { id: '7zip', name: '7-Zip', kind: 'logiciel', family: 'Outils', about: 'Archives (zip, 7z, rar…)', match: /^7z(\d{4})-x64\.exe$/, icon: gh('ip7z'), color: '#2E3440', page: 'https://www.7-zip.org/', latest: github('ip7z/7zip', /^7z(\d{4})-x64\.exe$/) },
   { id: 'notepadpp', name: 'Notepad++', kind: 'logiciel', family: 'Outils', about: 'Éditeur de texte', match: /^npp\.(\d+(?:\.\d+)+)\.Installer\.x64\.exe$/, icon: gh('notepad-plus-plus'), color: '#90E59A', page: 'https://notepad-plus-plus.org/', latest: github('notepad-plus-plus/notepad-plus-plus', /^npp\.(\d+(?:\.\d+)+)\.Installer\.x64\.exe$/) },
   { id: 'keepassxc', name: 'KeePassXC', kind: 'logiciel', family: 'Sécurité', about: 'Coffre de mots de passe', match: /^KeePassXC-(\d+\.\d+\.\d+)-Win64\.msi$/, icon: gh('keepassxreboot'), color: '#6CAC4D', page: 'https://keepassxc.org/', latest: github('keepassxreboot/keepassxc', /^KeePassXC-(\d+\.\d+\.\d+)-Win64\.msi$/) },
-  { id: 'rufus', name: 'Rufus', kind: 'logiciel', family: 'Outils', about: 'Clé USB de démarrage (avec les ISO d\'Eitri)', match: /^rufus-(\d+\.\d+)\.exe$/, icon: gh('pbatard'), color: '#2C3E50', page: 'https://rufus.ie/', latest: github('pbatard/rufus', /^rufus-(\d+\.\d+)\.exe$/) },
+  { id: 'rufus', name: 'Rufus', kind: 'logiciel', family: 'Outils', about: 'Clé USB de démarrage (avec les ISO d\'Andromède)', match: /^rufus-(\d+\.\d+)\.exe$/, icon: gh('pbatard'), color: '#2C3E50', page: 'https://rufus.ie/', latest: github('pbatard/rufus', /^rufus-(\d+\.\d+)\.exe$/) },
   { id: 'ventoy', name: 'Ventoy', kind: 'logiciel', family: 'Outils', about: 'Clé USB qui démarre plusieurs ISO', match: /^ventoy-(\d+\.\d+\.\d+)-windows\.zip$/, icon: gh('ventoy'), color: '#2E7D32', page: 'https://www.ventoy.net/', latest: github('ventoy/Ventoy', /^ventoy-(\d+\.\d+\.\d+)-windows\.zip$/) },
   { id: 'git', name: 'Git pour Windows', kind: 'logiciel', family: 'Développement', about: 'Git et Git Bash', match: /^Git-(\d+\.\d+\.\d+(?:\.\d+)?)-64-bit\.exe$/, icon: gh('git-for-windows'), color: '#F05032', page: 'https://gitforwindows.org/', latest: github('git-for-windows/git', /^Git-(\d+\.\d+\.\d+(?:\.\d+)?)-64-bit\.exe$/) },
   { id: 'obs', name: 'OBS Studio', kind: 'logiciel', family: 'Multimédia', about: 'Enregistrer et diffuser l\'écran', match: /^OBS-Studio-(\d+\.\d+(?:\.\d+)?)-(?:Full-Installer-x64|Windows-x64-Installer|Windows-Installer)\.exe$/, icon: gh('obsproject'), color: '#302E31', page: 'https://obsproject.com/', latest: github('obsproject/obs-studio', /^OBS-Studio-(\d+\.\d+(?:\.\d+)?)-(?:Full-Installer-x64|Windows-x64-Installer|Windows-Installer)\.exe$/) },
   { id: 'powertoys', name: 'PowerToys', kind: 'logiciel', family: 'Outils', about: 'Petits outils Windows de Microsoft', match: /^PowerToysSetup-(\d+\.\d+\.\d+)-x64\.exe$/, icon: gh('microsoft'), color: '#0078D4', page: 'https://learn.microsoft.com/windows/powertoys/', latest: github('microsoft/PowerToys', /^PowerToysSetup-(\d+\.\d+\.\d+)-x64\.exe$/) },
   { id: 'vlc', name: 'VLC', kind: 'logiciel', family: 'Multimédia', about: 'Lecteur vidéo', match: /^vlc-(\d+\.\d+\.\d+)-win64\.exe$/, icon: 'https://www.videolan.org/favicon.ico', color: '#FF8800', page: 'https://www.videolan.org/vlc/', latest: indexSidecar('https://download.videolan.org/pub/videolan/vlc/last/win64/', /^vlc-(\d+\.\d+\.\d+)-win64\.exe$/) },
   { id: 'putty', name: 'PuTTY', kind: 'logiciel', family: 'Réseau', about: 'Connexion SSH', match: /^putty-64bit-(\d+\.\d+)-installer\.msi$/, color: '#4A5568', page: 'https://www.chiark.greenend.org.uk/~sgtatham/putty/', latest: async (f) => { const base = 'https://the.earth.li/~sgtatham/putty/latest/'; const s = parseSums(await text(f, join(base, 'sha256sums'))); const h = highest([...s.keys()], /^w64\/putty-64bit-(\d+\.\d+)-installer\.msi$/); if (!h) throw new Error('installateur introuvable'); return { version: h.version, file: h.name.split('/').pop()!, url: join(base, h.name), sha256: s.get(h.name) }; } },
-  { id: 'wireguard', name: 'WireGuard', kind: 'logiciel', family: 'Réseau', about: 'Client VPN (avec Gjöll)', match: /^wireguard-amd64-(\d+\.\d+\.\d+)\.msi$/, icon: 'https://www.wireguard.com/favicon.ico', color: '#88171A', page: 'https://www.wireguard.com/install/', latest: async (f) => { const dir = 'https://download.wireguard.com/windows-client/'; const h = highest(parseIndex(await text(f, dir)), /^wireguard-amd64-(\d+\.\d+\.\d+)\.msi$/); if (!h) throw new Error('installateur introuvable'); return { version: h.version, file: h.name, url: join(dir, h.name) }; } },
+  { id: 'wireguard', name: 'WireGuard', kind: 'logiciel', family: 'Réseau', about: 'Client VPN (avec Vortex)', match: /^wireguard-amd64-(\d+\.\d+\.\d+)\.msi$/, icon: 'https://www.wireguard.com/favicon.ico', color: '#88171A', page: 'https://www.wireguard.com/install/', latest: async (f) => { const dir = 'https://download.wireguard.com/windows-client/'; const h = highest(parseIndex(await text(f, dir)), /^wireguard-amd64-(\d+\.\d+\.\d+)\.msi$/); if (!h) throw new Error('installateur introuvable'); return { version: h.version, file: h.name, url: join(dir, h.name) }; } },
 ];
 
 /** Une source ajoutée par l'utilisateur : un dépôt GitHub (« proprietaire/projet ») et le motif de son fichier. */

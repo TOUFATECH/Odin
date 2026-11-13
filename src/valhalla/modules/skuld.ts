@@ -1,8 +1,8 @@
-// Skuld — la sauvegarde de tes bases de données, comme Portabase : PostgreSQL, MySQL / MariaDB,
+// Arche — la sauvegarde de tes bases de données, comme Portabase : PostgreSQL, MySQL / MariaDB,
 // MongoDB ; plans (chaque heure, toutes les 6 h, chaque nuit, chaque semaine), durée de garde (jours,
 // semaines, mois), chaque sauvegarde relue pour être sûre, historique, restauration avec ton accord
 // (dans une nouvelle base à côté, conseillé, ou par-dessus après une sauvegarde de l'état actuel).
-// Les bases viennent d'Urðr ; les archives restent sur la machine d'Odin (dossier protégé).
+// Les bases viennent d'Alexandrie ; les archives restent sur la machine d'Odin (dossier protégé).
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { bases, findBase, password, saveBases, setPassword, type Base } from '../urdr/bases.ts';
@@ -56,9 +56,9 @@ export async function backupNow(ctx: ModCtx, b: Base, raison = 'à la main'): Pr
 const pick = (ctx: ModCtx, b: Base, q: string) => { const l = archives(ctx, b); if (!l.length) throw new Error(`aucune sauvegarde de ${b.nom}`); if (!q) return l[0]; const a = l.find((x) => x.f.startsWith(q) || x.at.startsWith(q) || x.at.replace('T', ' ').startsWith(q)); if (!a) throw new Error(`sauvegarde introuvable : ${q} (la plus récente : ${l[0].at})`); return a; };
 
 export const skuld: Module = {
-  id: 'skuld', name: 'Skuld', family: 'Données',
+  id: 'skuld', name: 'Arche', family: 'Données',
   what: 'La sauvegarde de tes bases de données (comme Portabase) : plans, durée de garde, chaque sauvegarde relue, restauration avec ton accord.',
-  does: ['PostgreSQL (pg_dump, dans le conteneur pour une base hébergée par Odin), MySQL / MariaDB (mysqldump), MongoDB (mongodump)', 'plans : chaque heure, toutes les 6 h, chaque nuit, chaque semaine', 'durée de garde : jours, puis une par semaine, puis une par mois', 'chaque sauvegarde est relue (base rouverte ou archive listée)', 'restaurer dans une nouvelle base à côté (conseillé) ou par-dessus, toujours avec ton accord', 'sauvegarde automatique avant toute requête Urðr qui modifie une base', 'alerte si une sauvegarde échoue'],
+  does: ['PostgreSQL (pg_dump, dans le conteneur pour une base hébergée par Odin), MySQL / MariaDB (mysqldump), MongoDB (mongodump)', 'plans : chaque heure, toutes les 6 h, chaque nuit, chaque semaine', 'durée de garde : jours, puis une par semaine, puis une par mois', 'chaque sauvegarde est relue (base rouverte ou archive listée)', 'restaurer dans une nouvelle base à côté (conseillé) ou par-dessus, toujours avec ton accord', 'sauvegarde automatique avant toute requête Alexandrie qui modifie une base', 'alerte si une sauvegarde échoue'],
   from: ['Portabase'], upstream: ['Portabase/portabase'],
   words: ['sauvegarde de la base', 'sauvegarder la base', 'sauvegarde des bases', 'backup base', 'pg_dump', 'restaurer la base', 'portabase', 'skuld'],
   actions: [
@@ -82,14 +82,14 @@ export const skuld: Module = {
       const got = await restore(ctx.home, b, a.path, { new: !over, name }, t);
       if (!over) { const l = bases(ctx.home); let id = `${b.id}-restauree`; while (l.some((x) => x.id === id)) id += '-2'; saveBases(ctx.home, [...l, { ...b, id, nom: `${b.nom} (restaurée ${a.at.slice(0, 10)})`, base: name, ajoutee: ctx.now().toISOString() }]); const pw = password(ctx.home, b.id); if (pw) setPassword(ctx.home, id, pw); }
       record(ctx, { at: ctx.now().toISOString(), base: b.id, ok: true, fichier: a.path, raison: over ? 'restaurée par-dessus' : `restaurée dans ${got}`, ms: 0 });
-      return { text: over ? `♻ ${b.nom} restaurée par-dessus avec la sauvegarde du ${a.at.slice(0, 16).replace('T', ' ')} (l'état d'avant est sauvegardé).` : `♻ Sauvegarde du ${a.at.slice(0, 16).replace('T', ' ')} restaurée dans une nouvelle base : ${got}. Ouvre-la dans Urðr pour comparer.` };
+      return { text: over ? `♻ ${b.nom} restaurée par-dessus avec la sauvegarde du ${a.at.slice(0, 16).replace('T', ' ')} (l'état d'avant est sauvegardé).` : `♻ Sauvegarde du ${a.at.slice(0, 16).replace('T', ' ')} restaurée dans une nouvelle base : ${got}. Ouvre-la dans Alexandrie pour comparer.` };
     } },
   ],
   view(ctx) {
     const l = bases(ctx.home), h = history(ctx, 500), ps = plans(ctx);
     const last = (id: string) => h.find((e) => e.base === id), fails = l.filter((b) => last(b.id)?.ok === false).length;
     const sections: Section[] = [
-      { kind: 'cards', title: 'Bases suivies', items: l.map((b) => { const p = ps.find((x) => x.base === b.id), e = last(b.id), arch = archives(ctx, b); return { title: b.nom, sub: `${({ postgres: 'PostgreSQL', sqlite: 'SQLite', mysql: 'MySQL / MariaDB', mongodb: 'MongoDB' })[b.type]} · ${p ? (p.actif ? `${when(p.toutes, p.heure)} · garde ${p.garde.jours} j · ${p.garde.semaines} sem. · ${p.garde.mois} mois` : 'plan en pause') : 'pas de plan'}`, badge: e ? (e.ok ? `ok · ${e.at.slice(5, 16).replace('T', ' ')}` : 'échec') : 'jamais', tone: e ? (e.ok ? 'bon' as const : 'mauvais' as const) : 'attention' as const, meta: `${arch.length} sauvegarde${arch.length > 1 ? 's' : ''} · ${mo(arch.reduce((n, a) => n + a.size, 0))}`, actions: [{ action: 'sauvegarder', label: 'Sauvegarder', input: { base: b.id } }, ...(arch.length ? [{ action: 'restaurer', label: 'Restaurer', input: { base: b.id, ou: 'nouvelle base' } }] : []), ...(p ? [] : [{ action: 'plan', label: 'Chaque nuit', input: { base: b.id, toutes: 'nuit' } }])] }; }), empty: 'Aucune base : ajoute-les dans Urðr (créer ou relier).' },
+      { kind: 'cards', title: 'Bases suivies', items: l.map((b) => { const p = ps.find((x) => x.base === b.id), e = last(b.id), arch = archives(ctx, b); return { title: b.nom, sub: `${({ postgres: 'PostgreSQL', sqlite: 'SQLite', mysql: 'MySQL / MariaDB', mongodb: 'MongoDB' })[b.type]} · ${p ? (p.actif ? `${when(p.toutes, p.heure)} · garde ${p.garde.jours} j · ${p.garde.semaines} sem. · ${p.garde.mois} mois` : 'plan en pause') : 'pas de plan'}`, badge: e ? (e.ok ? `ok · ${e.at.slice(5, 16).replace('T', ' ')}` : 'échec') : 'jamais', tone: e ? (e.ok ? 'bon' as const : 'mauvais' as const) : 'attention' as const, meta: `${arch.length} sauvegarde${arch.length > 1 ? 's' : ''} · ${mo(arch.reduce((n, a) => n + a.size, 0))}`, actions: [{ action: 'sauvegarder', label: 'Sauvegarder', input: { base: b.id } }, ...(arch.length ? [{ action: 'restaurer', label: 'Restaurer', input: { base: b.id, ou: 'nouvelle base' } }] : []), ...(p ? [] : [{ action: 'plan', label: 'Chaque nuit', input: { base: b.id, toutes: 'nuit' } }])] }; }), empty: 'Aucune base : ajoute-les dans Alexandrie (créer ou relier).' },
       { kind: 'table', title: 'Historique', columns: ['Quand', 'Base', 'État', 'Taille', 'Détail'], rows: h.slice(0, 20).map((e) => ({ cells: [e.at.slice(0, 16).replace('T', ' '), l.find((b) => b.id === e.base)?.nom ?? e.base, e.ok ? 'ok' : 'échec', e.taille ? mo(e.taille) : '—', e.ok ? `${e.verif ?? e.raison ?? ''}` : e.erreur ?? ''], tone: e.ok ? undefined : 'mauvais' as const })), empty: 'Aucune sauvegarde pour l\'instant.' },
     ];
     return { subtitle: 'Sauvegarde des bases de données', kpis: [{ label: 'Bases', value: String(l.length) }, { label: 'Avec un plan', value: String(ps.filter((p) => p.actif).length) }, { label: 'En échec', value: String(fails), tone: fails ? 'mauvais' : 'bon' }], sections };
@@ -102,7 +102,7 @@ export const skuld: Module = {
       if (!due(p, lastOk ? new Date(lastOk.at) : undefined, now)) continue;
       if (lastTry && !lastTry.ok && now.getTime() - Date.parse(lastTry.at) < 3600_000) continue; // un essai par heure après un échec
       const e = await backupNow(ctx, b, 'plan');
-      if (!e.ok) ctx.alert({ level: 'haute', title: `💾 Sauvegarde de ${b.nom} ratée`, detail: e.erreur, key: `skuld-${b.id}`, steps: ['Regarde l\'erreur dans Skuld', 'Mot de passe changé ? redonne-le dans Urðr (« relier » à nouveau)', 'Puis « Sauvegarder maintenant »'], fix: { action: 'sauvegarder', label: 'Réessayer', input: { base: b.id } } });
+      if (!e.ok) ctx.alert({ level: 'haute', title: `💾 Sauvegarde de ${b.nom} ratée`, detail: e.erreur, key: `skuld-${b.id}`, steps: ['Regarde l\'erreur dans Arche', 'Mot de passe changé ? redonne-le dans Alexandrie (« relier » à nouveau)', 'Puis « Sauvegarder maintenant »'], fix: { action: 'sauvegarder', label: 'Réessayer', input: { base: b.id } } });
     }
   } },
 };

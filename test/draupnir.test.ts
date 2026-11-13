@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { checkFlow, execute, readPath, resolve, type Deps, type Workflow } from '../src/draupnir/engine.ts';
 import { CATALOG, parseFeed, test as cond } from '../src/draupnir/nodes.ts';
-import { Draupnir, flowFromDescription, importN8n, templates } from '../src/draupnir/service.ts';
+import { Talos, flowFromDescription, importN8n, templates } from '../src/draupnir/service.ts';
 
 const scope = { $json: { a: { b: 2 }, 'é t': 'x', l: [1, 2] }, $node: { Avant: { json: { n: 5 }, items: [] } }, $now: '2026-11-11T10:00:00Z', $today: '2026-11-11', $index: 0, $items: [], $workflow: { id: 'w', name: 'W' } };
 
-test('Draupnir : expressions par chemins seulement (pas de code)', () => {
+test('Talos : expressions par chemins seulement (pas de code)', () => {
   assert.equal(readPath('$json.a.b', scope), 2);
   assert.equal(readPath('$json["é t"]', scope), 'x');
   assert.equal(readPath('$node["Avant"].json.n', scope), 5);
@@ -28,7 +28,7 @@ const deps = (over: Partial<Deps> = {}): Deps & { told: string[]; notes: Array<{
     saga: { search: (q) => [{ title: `Note ${q}`, path: 'n.md', snippet: '…', type: 'note' }], read: () => undefined, create: (title, _t, body) => { notes.push({ title, body }); return `Captures/${title}.md`; }, append: (n) => n, attention: () => [{ kind: 'retard', title: 'Payer', path: 't.md' }], rows: () => [{ path: 'a.md', title: 'A', meta: { statut: 'fait' } }, { path: 'b.md', title: 'B', meta: { statut: 'à faire' } }] }, ...over };
 };
 
-test('Draupnir : branches Si, aiguillage, données, Odin, Saga', async () => {
+test('Talos : branches Si, aiguillage, données, Odin, Thot', async () => {
   const wf: Workflow = { id: 'w1', name: 'Test', active: false, nodes: [
     { id: '1', name: 'Go', type: 'déclencheur.manuel', params: {} },
     { id: '2', name: 'Liste', type: 'runes.lister', params: { base: 'tâche' } },
@@ -47,7 +47,7 @@ test('Draupnir : branches Si, aiguillage, données, Odin, Saga', async () => {
   assert.deepEqual(ex.nodes.Tri.outputs, [1, 0, 1], 'A → cas A ; B → autre');
 });
 
-test('Draupnir : erreur arrêtée et signalée, nouvelles tentatives', async () => {
+test('Talos : erreur arrêtée et signalée, nouvelles tentatives', async () => {
   let calls = 0;
   const wf: Workflow = { id: 'w2', name: 'Web', active: false, settings: { retry: 2 }, nodes: [
     { id: '1', name: 'Go', type: 'déclencheur.manuel', params: {} },
@@ -62,11 +62,11 @@ test('Draupnir : erreur arrêtée et signalée, nouvelles tentatives', async () 
   assert.match(checkFlow({ name: 'x', nodes: [{ id: '1', name: 'a', type: 'pirate', params: {} }], connections: {} }, CATALOG)!, /inconnu/);
 });
 
-test('Draupnir : rangement, webhook secret, Saga, flux (nouveautés seulement), page surveillée', async () => {
+test('Talos : rangement, webhook secret, Thot, flux (nouveautés seulement), page surveillée', async () => {
   const home = mkdtempSync(join(tmpdir(), 'draupnir-'));
   let feed = '<rss><channel><item><title>Un</title><link>https://b/1</link><guid>1</guid></item></channel></rss>', page = '<p>Prix 10 €</p>';
   const d = deps({ fetch: (async (u: string) => new Response(String(u).includes('flux') ? feed : page)) as unknown as typeof fetch });
-  const dr = new Draupnir(home, d);
+  const dr = new Talos(home, d);
   try {
     const hook = dr.save({ name: 'Formulaire', active: true, nodes: [
       { id: '', name: 'Formulaire', type: 'déclencheur.webhook', params: { réponse: 'à la fin' } },
@@ -100,7 +100,7 @@ test('Draupnir : rangement, webhook secret, Saga, flux (nouveautés seulement), 
   } finally { dr.stop(); }
 });
 
-test('Draupnir : modèles valides, création par l\'IA, import n8n, flux RSS/Atom', async () => {
+test('Talos : modèles valides, création par l\'IA, import n8n, flux RSS/Atom', async () => {
   for (const t of templates()) assert.equal(checkFlow({ id: 'x', active: false, ...t.flow, nodes: t.flow.nodes!.map((n, i) => ({ ...n, id: String(i) })) } as Workflow, CATALOG), undefined, t.id);
   let n = 0;
   const llm = async () => (++n === 1 ? '{"name":"x","nodes":[{"name":"a","type":"inventé"}]}' : '```json\n{"name":"Veille","nodes":[{"name":"Matin","type":"déclencheur.planning","params":{"cron":"0 8 * * *"}},{"name":"Dire","type":"odin.prévenir","params":{"texte":"Bonjour"}}],"connections":{"Matin":[[{"node":"Dire"}]]}}\n```');
@@ -113,7 +113,7 @@ test('Draupnir : modèles valides, création par l\'IA, import n8n, flux RSS/Ato
   assert.deepEqual(parseFeed('<feed><entry><title>A &amp; B</title><link href="https://y"/><id>z</id></entry></feed>'), [{ titre: 'A & B', lien: 'https://y', date: '', résumé: '', id: 'z' }]);
 });
 
-test('Draupnir : fusion de branches, comparaison, résumé, dates, HTML, conversions, code isolé', async () => {
+test('Talos : fusion de branches, comparaison, résumé, dates, HTML, conversions, code isolé', async () => {
   const { htmlSelect, xmlToJson, mdToHtml, fmtDate } = await import('../src/draupnir/nodes.ts');
   const wf: Workflow = { id: 'm', name: 'Fusion', active: false, nodes: [
     { name: 'Go', type: 'déclencheur.manuel', params: {} },
@@ -138,10 +138,10 @@ test('Draupnir : fusion de branches, comparaison, résumé, dates, HTML, convers
   assert.equal(evil.status, 'erreur'); assert.match(evil.error!, /restricted|restreint|permission/i);
 });
 
-test('Draupnir : sous-automatisation, automatisation d\'erreur, formulaire, versions, exécuter jusqu\'ici', async () => {
+test('Talos : sous-automatisation, automatisation d\'erreur, formulaire, versions, exécuter jusqu\'ici', async () => {
   const home = mkdtempSync(join(tmpdir(), 'draupnir2-'));
   const d = deps();
-  const dr = new Draupnir(home, d);
+  const dr = new Talos(home, d);
   try {
     dr.save({ name: 'Doubler', active: true, nodes: [{ name: 'Appel', type: 'déclencheur.appel', params: {} }, { name: 'Calcul', type: 'données.définir', params: { champs: '{ "double": "{{ $json.n }}{{ $json.n }}" }' } }], connections: { Appel: [[{ node: 'Calcul' }]] } });
     const main = dr.save({ name: 'Principal', active: false, nodes: [{ name: 'Go', type: 'déclencheur.manuel', params: {} }, { name: 'Sous', type: 'flux.exécuter', params: { automatisation: 'Doubler' } }, { name: 'Casse', type: 'logique.erreur', params: { message: 'stop {{ $json.double }}' } }], connections: { Go: [[{ node: 'Sous' }]], Sous: [[{ node: 'Casse' }]] } });

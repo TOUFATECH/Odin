@@ -1,5 +1,5 @@
-// Tes mots (Rödd) : ce que tu dis → ce qu'Odin doit écrire (« elixir » → LXC, « ring horni » → Hringhorni).
-// Les mêmes mots servent à la dictée ET à tout ce que tu dis à Odin (web, téléphone, Telegram, Glaðsheimr) :
+// Tes mots (Écho) : ce que tu dis → ce qu'Odin doit écrire (« elixir » → LXC, « ring horni » → Hringhorni).
+// Les mêmes mots servent à la dictée ET à tout ce que tu dis à Odin (web, téléphone, Telegram, Hestia) :
 // ils sont soufflés à Whisper avant d'écouter, puis corrigés après.
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';

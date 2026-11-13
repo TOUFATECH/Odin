@@ -57,7 +57,7 @@ export const telegram: Scenario = {
     await wait(300);
     t.ok(sentTo(OWNER).length === 0, 'alertes « info » et « moyenne » : rien n\'est envoyé (seuil : haute)', JSON.stringify(tg.sent.map((m) => m.text)));
     v.alert('frigg', { level: 'haute', title: 'Sauvegarde échouée', detail: 'Le disque de sauvegarde ne répond plus.' });
-    t.ok(await until(() => /🟠 Frigg — Sauvegarde échouée\nLe disque de sauvegarde ne répond plus\./.test(lastText()), 4000), 'alerte « haute » : message envoyé à ton compte, avec l\'appli et le détail', lastText());
+    t.ok(await until(() => /🟠 Chronos — Sauvegarde échouée\nLe disque de sauvegarde ne répond plus\./.test(lastText()), 4000), 'alerte « haute » : message envoyé à ton compte, avec l\'appli et le détail', lastText());
     t.eq(sentTo(OWNER).at(-1)?.method, 'sendMessage', '(par sendMessage, vers ton identifiant seulement)');
 
     // Photo d'une caméra jointe à l'alerte.
@@ -65,13 +65,13 @@ export const telegram: Scenario = {
     v.alert('himinbjorg', { level: 'haute', title: 'Mouvement : Portail', detail: '32 % de l\'image a changé', photo });
     t.ok(await until(() => sentTo(OWNER).at(-1)?.method === 'sendPhoto', 4000), 'alerte de caméra : envoyée comme une photo (sendPhoto)', JSON.stringify(sentTo(OWNER).at(-1)?.method));
     const ph = sentTo(OWNER).at(-1);
-    t.ok(ph?.file?.data.equals(JPEG) && /image\/jpeg/.test(ph.file.type) && /Himinbjörg — Mouvement : Portail/.test(ph.caption ?? ''), 'la photo arrive entière, avec la légende de l\'alerte', `${ph?.file?.data.length} octets, ${ph?.caption}`);
+    t.ok(ph?.file?.data.equals(JPEG) && /image\/jpeg/.test(ph.file.type) && /Cyclope — Mouvement : Portail/.test(ph.caption ?? ''), 'la photo arrive entière, avec la légende de l\'alerte', `${ph?.file?.data.length} octets, ${ph?.caption}`);
 
-    // Un message d'une appli (réservation Frigg).
+    // Un message d'une appli (réservation Chronos).
     v.ctx('frigg').saveSettings({ services: [{ name: 'Coupe', minutes: 30 }], hours: { 0: '8:00-20:00', 1: '8:00-20:00', 2: '8:00-20:00', 3: '8:00-20:00', 4: '8:00-20:00', 5: '8:00-20:00', 6: '8:00-20:00' } });
     const day = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
     const book = await v.act('frigg', 'reserver', { service: 'Coupe', jour: day, heure: '10:00', nom: 'Ali', contact: '0639 00 00 00' });
-    t.ok(book.ok && await until(() => /📅 Rendez-vous : Ali · Coupe/.test(lastText()), 4000), 'une réservation Frigg te prévient sur Telegram', `${book.text} | ${lastText()}`);
+    t.ok(book.ok && await until(() => /📅 Rendez-vous : Ali · Coupe/.test(lastText()), 4000), 'une réservation Chronos te prévient sur Telegram', `${book.text} | ${lastText()}`);
 
     // Secrets : jamais en clair sur la messagerie.
     v.alert('frigg', { level: 'haute', title: 'Erreur du service', detail: 'Réponse : accès refusé avec cle-tres-secrete-123456' });
@@ -84,7 +84,7 @@ export const telegram: Scenario = {
     await wait(400);
     t.ok(sentTo(OWNER).length === n, 'mode « seulement l\'urgent » : l\'alerte haute est gardée pour plus tard');
     v.alert('himinbjorg', { level: 'critique', title: 'Intrusion détectée' });
-    t.ok(await until(() => /🔴 Himinbjörg — Intrusion détectée/.test(lastText()), 4000), 'une alerte critique passe quand même, tout de suite', lastText());
+    t.ok(await until(() => /🔴 Cyclope — Intrusion détectée/.test(lastText()), 4000), 'une alerte critique passe quand même, tout de suite', lastText());
     t.match(lastText(), /Pendant que tu étais occupé[\s\S]*Alerte qui peut attendre/, 'et ce qui attendait est joint au message');
     o.muninn.setKv('discretion', '');
 
@@ -111,7 +111,7 @@ export const telegram: Scenario = {
     // Sans IA (plus d'Internet) : Odin choisit quand même l'appli et explique.
     brain = 'coupé';
     tg.say(OWNER, 'j\'ai besoin de prendre rendez-vous pour une coupe');
-    t.ok(await until(() => /Frigg/.test(lastText()) && /rendez-vous/i.test(lastText()), 12_000), 'sans IA : « j\'ai besoin de… » → Odin choisit Frigg et explique', lastText().slice(0, 300));
+    t.ok(await until(() => /Chronos/.test(lastText()) && /rendez-vous/i.test(lastText()), 12_000), 'sans IA : « j\'ai besoin de… » → Odin choisit Chronos et explique', lastText().slice(0, 300));
     t.ok(existsSync(join(o.paths.home, 'valhalla', 'alertes.jsonl')) && readFileSync(join(o.paths.home, 'valhalla', 'alertes.jsonl'), 'utf8').split('\n').filter(Boolean).length >= 6, 'toutes les alertes (même non envoyées) sont gardées dans le fil commun');
   },
 };

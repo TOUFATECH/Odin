@@ -1,6 +1,6 @@
-// Himinbjörg — les caméras : flux RTSP/HTTP lus avec ffmpeg, photo à la demande, détection de
+// Cyclope — les caméras : flux RTSP/HTTP lus avec ffmpeg, photo à la demande, détection de
 // mouvement maison (comparaison d'images réduites), enregistrement de clips, rétention, zones de nuit
-// (alerte seulement aux heures choisies). Chaque mouvement est un événement (Midgard, Draupnir).
+// (alerte seulement aux heures choisies). Chaque mouvement est un événement (Midgard, Talos).
 
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -70,7 +70,7 @@ const last = new Map<string, Buffer>();
 const busy = new Set<string>();
 
 export const himinbjorg: Module = {
-  id: 'himinbjorg', name: 'Himinbjörg', family: 'Maison',
+  id: 'himinbjorg', name: 'Cyclope', family: 'Maison',
   what: 'Tes caméras : voir, photographier, détecter les mouvements et enregistrer.',
   does: ['toutes les caméras réseau (RTSP, HTTP) au même endroit', 'photo à la demande', 'détection de mouvement maison, avec sensibilité et heures de surveillance', 'enregistrement d\'un clip à chaque mouvement, gardé N jours', 'alerte avec photo sur ta messagerie ; chaque mouvement peut lancer une scène Midgard ou une automatisation'],
   from: ['Frigate', 'go2rtc', 'Shinobi', 'motionEye', 'ZoneMinder', 'Viseron'], upstream: ['blakeblackshear/frigate', 'AlexxIT/go2rtc'],

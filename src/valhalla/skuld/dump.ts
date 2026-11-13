@@ -1,4 +1,4 @@
-// Skuld — sauvegarder et restaurer une base avec ses outils propres (zéro SQLite dans Odin) : pg_dump /
+// Arche — sauvegarder et restaurer une base avec ses outils propres (zéro SQLite dans Odin) : pg_dump /
 // pg_restore pour PostgreSQL (dans le conteneur d'Odin pour une base qu'il héberge, sinon sur la machine),
 // mysqldump pour MySQL / MariaDB, mongodump pour MongoDB. Les mots de passe passent par un fichier temporaire
 // protégé (jamais sur la ligne de commande, donc jamais visibles dans la liste des processus).

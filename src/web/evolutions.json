@@ -28,7 +28,7 @@
   "version": "1.12.0",
   "title": "Mémoire 100 % en fichiers (zéro SQLite), voix locale par défaut, réponse en voix ou en texte, conversations supprimables et exportables",
   "details": [
-   "Muninn, inventaire du réseau, index des documents et capture réseau rangés en fichiers JSONL dans ~/.odin/memoire/ ; recherche plein texte en mémoire (sans accents, début de mot, BM25) ; ancienne odin.db convertie une fois puis mise de côté ; un test interdit tout retour de SQLite.",
+   "Mnémosyne, inventaire du réseau, index des documents et capture réseau rangés en fichiers JSONL dans ~/.odin/memoire/ ; recherche plein texte en mémoire (sans accents, début de mot, BM25) ; ancienne odin.db convertie une fois puis mise de côté ; un test interdit tout retour de SQLite.",
    "Voix 100 % locale par défaut (whisper.cpp + Piper), même avec une clé en ligne présente.",
    "Réglages vocaux : réponse voix ou texte, écoute, interruptions, vitesse, volume, prononciations, cerveau sans IA, mode privé.",
    "À l'oral : « réponds par écrit », « parle-moi », « supprime cette conversation » (avec confirmation).",
@@ -49,12 +49,12 @@
   "at": "2026-11-12T08:26:43+03:00",
   "date": "2026-11-12",
   "version": "1.11.0",
-  "title": "Freyja met le dernier épisode, le suivant ou S2E5, et prévient des arrivées (VF comprise)",
+  "title": "Vénus met le dernier épisode, le suivant ou S2E5, et prévient des arrivées (VF comprise)",
   "details": [
    "« Mets le dernier épisode de One Piece sur la télé du salon » : l'épisode lui-même démarre (aussi épisode suivant, premier, saison N épisode M, S02E05, épisode 1071 de…) ; une série seule reprend à l'épisode suivant",
    "Arrivées sur Venus (toutes les 5 min) : « 📺 Épisode arrivé sur Venus en VF : One Piece S01E1071 », films, VF arrivée ; réglage tout / seulement la VF / rien (« préviens-moi seulement pour la vf »)",
    "Nouvelles actions sans IA : nouveautes (« les nouveaux épisodes »), chercher_vf (« cherche Frieren en VF » → Radarr / Sonarr par Venus), prevenir",
-   "Tests : phrases d'épisode, messages d'arrivée, routage Huginn"
+   "Tests : phrases d'épisode, messages d'arrivée, routage Logos"
   ],
   "planets": [
    "discussion",
@@ -68,7 +68,7 @@
   "id": "8db6384",
   "at": "2026-11-12T07:20:43+03:00",
   "date": "2026-11-12",
-  "title": "Rán : base des paquets fermée à l'arrêt (Windows refusait d'effacer le dossier)",
+  "title": "Ariane : base des paquets fermée à l'arrêt (Windows refusait d'effacer le dossier)",
   "details": [],
   "planets": [
    "machines"
@@ -80,7 +80,7 @@
   "at": "2026-11-12T07:11:32+03:00",
   "date": "2026-11-12",
   "version": "1.10.0",
-  "title": "Rán lit les paquets en entier, couche par couche, avec la carte de qui parle à qui",
+  "title": "Ariane lit les paquets en entier, couche par couche, avec la carte de qui parle à qui",
   "details": [
    "Décodeur maison (flux pcap de tcpdump) : trame, Ethernet / capture Linux, IPv4, IPv6, ARP, ICMP, TCP (drapeaux, séquence, fenêtre), UDP, TLS (version, nom du site SNI, ALPN), QUIC, HTTP (requête, en-têtes, début du contenu), DNS (questions et réponses), DHCP, SSDP, NTP, SSH, WireGuard ; contenu brut en hexadécimal ; une phrase en français par paquet",
    "Noms des sites d'Internet appris (réponses DNS, SNI, hôte HTTP) et affichés à la place des adresses",
@@ -167,9 +167,9 @@
   "at": "2026-11-12T01:55:59+03:00",
   "date": "2026-11-12",
   "version": "1.9.0",
-  "title": "Rán, les paquets réseau d'une machine comme Wireshark (en direct et en historique)",
+  "title": "Ariane, les paquets réseau d'une machine comme Wireshark (en direct et en historique)",
   "details": [
-   "Nouvelle appli Rán (Sécurité) : adresse IP tapée, ou machine touchée sur la carte ; sous sa fiche, « En direct » montre les paquets qui passent (heure, sens, protocole, source, destination, taille, service), et l'historique en dessous (7 jours, 20 000 paquets par machine) se filtre et montre correspondants et services",
+   "Nouvelle appli Ariane (Sécurité) : adresse IP tapée, ou machine touchée sur la carte ; sous sa fiche, « En direct » montre les paquets qui passent (heure, sens, protocole, source, destination, taille, service), et l'historique en dessous (7 jours, 20 000 paquets par machine) se filtre et montre correspondants et services",
    "Enregistrement continu au choix, repris au démarrage ; effacement de l'historique sur accord",
    "Capture sur la machine elle-même par SSH quand Odin y a accès (tout son trafic) ; sinon depuis la machine d'Odin, avec l'explication de ce qui est visible. Seuls les en-têtes sont lus ; 300 paquets/s au plus",
    "Sans IA aussi : « capture les paquets de 192.168.1.20 »",
@@ -204,7 +204,7 @@
   "version": "1.8.0",
   "title": "Graphe des applis et de la carte, avec les alertes et les nouveautés en pastilles",
   "details": [
-   "Applis : vue Graphe (par défaut) ou Cartes. Odin au centre, une famille par point vert, chaque appli reliée à sa famille et aux applis avec lesquelles elle travaille ; pastille rouge ou orange = alertes ouvertes, bleue = nouveautés du projet d'origine (veille de Kvasir, 30 jours). Recherche, zoom, glisser, un point touché ouvre l'appli ; liste accessible sous le graphe",
+   "Applis : vue Graphe (par défaut) ou Cartes. Odin au centre, une famille par point vert, chaque appli reliée à sa famille et aux applis avec lesquelles elle travaille ; pastille rouge ou orange = alertes ouvertes, bleue = nouveautés du projet d'origine (veille de Pharos, 30 jours). Recherche, zoom, glisser, un point touché ouvre l'appli ; liste accessible sous le graphe",
    "Maison → Carte : vue Graphe (par défaut) ou Plan. Chaque appareil relié à sa famille et à la box ; pastille rouge = risque repéré (Sécurité) ou appareil surveillé tombé, orange = à surveiller, point gris = hors ligne. Les points gardent leur place quand la carte se rafraîchit",
    "Un seul composant (graph.js) pour les deux, au style du graphe du Cerveau ; guide et README à jour"
   ],
@@ -338,9 +338,9 @@
   "date": "2026-11-12",
   "title": "Sans IA d'abord : ce qu'Odin sait faire seul n'est plus confié à une IA, il le dit, et il apprend",
   "details": [
-   "Avant d'appeler un modèle, Odin regarde s'il sait faire seul (src/core/direct.ts) : l'heure, les rappels, ses droits, ses économies, se redémarrer, se mettre à jour, se régler, ses applis (Huginn), et ce qu'il a appris. Sous chaque réponse : « Sans IA : … » ou « … a répondu · IA nécessaire : … ».",
+   "Avant d'appeler un modèle, Odin regarde s'il sait faire seul (src/core/direct.ts) : l'heure, les rappels, ses droits, ses économies, se redémarrer, se mettre à jour, se régler, ses applis (Logos), et ce qu'il a appris. Sous chaque réponse : « Sans IA : … » ou « … a répondu · IA nécessaire : … ».",
    "Il apprend (src/learn/acquis.ts) : une demande qu'une IA règle par une seule action est retenue et refaite ensuite sans elle ; listée, oubliable, oubliée après deux échecs.",
-   "La précision d'abord : Huginn mesure ce que la phrase n'explique pas (« doute »). Avec une IA sous la main, au moindre doute c'est elle qui comprend. Banc permanent : 126 demandes à laisser à l'IA, 52 à faire seul, et les 55 phrases d'exemple affichées par les applis, toutes vérifiées.",
+   "La précision d'abord : Logos mesure ce que la phrase n'explique pas (« doute »). Avec une IA sous la main, au moindre doute c'est elle qui comprend. Banc permanent : 126 demandes à laisser à l'IA, 52 à faire seul, et les 55 phrases d'exemple affichées par les applis, toutes vérifiées.",
    "Home Assistant injoignable ou appareil inconnu de lui : mes applis ont la parole (« lance une analyse antivirus » ne finit plus sur « je n'arrive pas à joindre Home Assistant »).",
    "La bonne IA au bon prix : à compétence égale, la moins chère répond ; carte Économies (Réglages → Modèle), « mes économies », /ia eco. Rien n'est chiffré sans trois demandes mesurées.",
    "Odin se règle lui-même (outil settings_set, liste fermée, jamais de secret) : autonomie, mises à jour, règles sans IA, budget. Ce qui baisse la sécurité ou engage de l'argent attend ton accord.",
@@ -425,8 +425,8 @@
   "title": "Windows : exceptions de dossier, fichiers du système protégés, fins de ligne",
   "details": [
    "Trouvé par les tests GitHub sous Windows :",
-   "Ullr : une exception sur un dossier ne s'appliquait pas quand le chemin s'écrit avec des barres inversées. La comparaison vaut maintenant pour Linux, macOS et Windows.",
-   "Ullr : les fichiers dont la machine a besoin pour démarrer ne sont jamais mis en quarantaine, aussi sous Windows (Windows, Program Files) et macOS (/System). Les dossiers temporaires restent traités normalement.",
+   "Asclépios : une exception sur un dossier ne s'appliquait pas quand le chemin s'écrit avec des barres inversées. La comparaison vaut maintenant pour Linux, macOS et Windows.",
+   "Asclépios : les fichiers dont la machine a besoin pour démarrer ne sont jamais mis en quarantaine, aussi sous Windows (Windows, Program Files) et macOS (/System). Les dossiers temporaires restent traités normalement.",
    ".gitattributes : mêmes fins de ligne (LF) sur toutes les machines, pour qu'Odin lise ses propres fichiers de la même façon partout.",
    "Tests : deux attentes écrites pour Linux (séparateur, fin de ligne), et un message d'erreur qui dit pourquoi Odin ne répond plus après un envoi refusé (échec déjà présent sous Windows). 422 tests au vert."
   ],
@@ -444,14 +444,14 @@
   "at": "2026-11-11T21:09:30+03:00",
   "date": "2026-11-11",
   "version": "1.6.0",
-  "title": "27 applis reliées (Valhalla), antivirus Ullr, sites web Idunn, compte, Odin sans IA",
+  "title": "27 applis reliées (Valhalla), antivirus Asclépios, sites web Arachné, compte, Odin sans IA",
   "details": [
    "Cette version réunit tout le travail de la branche draupnir-runes, plus les derniers réglages :",
    "Cerveau prêt dès l'installation : « odin init » écrit les fiches (une par appli, leurs liens, le fonctionnement d'Odin), et chaque lancement les remet à jour.",
    "Mascotte : sur la page de connexion aussi elle réagit au toucher (saut, son, humeur) et prend les humeurs de l'appli. Une règle CSS mal formée est réparée (mouvements réduits).",
    "Page de connexion : elle ne se recharge plus toute seule (toutes les 4 secondes, ce qui effaçait la saisie). Test unitaire et vérification dans un vrai navigateur.",
    "Guide (npm run guide) : sa mascotte est celle de l'appli (mêmes couleurs par humeur, mêmes sons), avec la palette des 22 humeurs.",
-   "macOS et Windows : Skögul lit les programmes sans /proc (commande ps), Ullr compare les chemins quel que soit le séparateur et résout les dossiers liés, Sindri restaure aussi un chemin avec une lettre de lecteur.",
+   "macOS et Windows : Némésis lit les programmes sans /proc (commande ps), Asclépios compare les chemins quel que soit le séparateur et résout les dossiers liés, Phénix restaure aussi un chemin avec une lettre de lecteur.",
    "Journal des IA : le ménage (6 mois, 50 000 appels) se fait une fois par jour, et plus au hasard (un test échouait 3 fois sur 100).",
    "Tests : ceux qui supposaient Linux marchent partout (commande sans effet, fins de ligne, séparateurs) ; ceux qui dépendent de FFmpeg ou d'un navigateur sont ignorés proprement quand l'outil manque ou ne démarre pas.",
    "README : première connexion et accès décrits avec le compte (adresse et mot de passe). Mise à jour depuis la 1.5.0 essayée pour de vrai (installation 1.5.0 utilisée, puis ce code sur le même dossier) : notes et discussion gardées, 13 pages et 27 applis ouvertes, aucune erreur. À la première ouverture, Odin demande de créer le compte (prénom, nom, adresse, mot de passe). 421 tests au vert, 62 vérifications du banc de sécurité, 70 du guide."
@@ -487,16 +487,16 @@
   "id": "8f54c23",
   "at": "2026-11-11T20:07:18+03:00",
   "date": "2026-11-11",
-  "title": "Idunn : l'appli des sites web (veille, essais, déploiements, mises à jour, code avec l'IA)",
+  "title": "Arachné : l'appli des sites web (veille, essais, déploiements, mises à jour, code avec l'IA)",
   "details": [
    "Sans IA :",
    "veille de chaque site (disponibilité après deux essais ratés, lenteur, certificat HTTPS par paliers, titre et contenu), et de ce qui l'entoure : GitHub (envois de code, tests, demandes de fusion, versions), Vercel (déploiements), Cloudflare (zone, DNS, niveau de sécurité) ;",
    "événements filtrables en français (« les erreurs du site … depuis 2 jours ») ;",
    "essais du site (pages, liens, erreurs affichées, en-têtes), bilan « à garder / à améliorer / à ne pas garder » ;",
-   "relancer (annulable), déployer, revenir en arrière, remettre en ligne, créer un projet, fusionner une mise à jour dont les tests passent : tout ce qui touche la production est une action grave. Avec une IA : un fichier à la fois, sur une branche « odin/… », avec demande de fusion et garde-fous vérifiés par le code (jamais la branche principale, ni les secrets, ni .github ; refus si une clé apparaît ou si un en-tête de sécurité disparaît). Liens : Idunn → Forseti (alertes), Idunn → Ullr (DNS ou certificat et page d'accueil qui changent ensemble : incident « site peut-être détourné »), Idunn se surveille (chaque mise en production est essayée ; un essai raté propose le retour en arrière). Chacun a sa vérification. Sécurité :",
-   "les jetons GitHub, Vercel et Cloudflare vont au coffre, sont masqués, et ne partent que vers les adresses officielles écrites dans le code ; les changer est une action grave (aussi pour les clés des sources d'Ullr) : ni automatisation, ni autre assistant ;",
-   "les réponses d'applis qui contiennent du texte écrit par d'autres (Idunn, Kvasir, Loki, outils MCP) arrivent à l'IA comme des données non fiables ;",
-   "Ratatoskr : appeler soi-même un outil MCP, sans IA ; accord demandé s'il peut modifier quelque chose. Huginn : nom de site sans « https:// », réglages libres des nouvelles actions. Tests : test/idunn.test.ts (15 tests : vrai site local ; GitHub, Vercel et Cloudflare simulés), 3 vérifications de liens. 419 tests au vert."
+   "relancer (annulable), déployer, revenir en arrière, remettre en ligne, créer un projet, fusionner une mise à jour dont les tests passent : tout ce qui touche la production est une action grave. Avec une IA : un fichier à la fois, sur une branche « odin/… », avec demande de fusion et garde-fous vérifiés par le code (jamais la branche principale, ni les secrets, ni .github ; refus si une clé apparaît ou si un en-tête de sécurité disparaît). Liens : Arachné → Forseti (alertes), Arachné → Asclépios (DNS ou certificat et page d'accueil qui changent ensemble : incident « site peut-être détourné »), Arachné se surveille (chaque mise en production est essayée ; un essai raté propose le retour en arrière). Chacun a sa vérification. Sécurité :",
+   "les jetons GitHub, Vercel et Cloudflare vont au coffre, sont masqués, et ne partent que vers les adresses officielles écrites dans le code ; les changer est une action grave (aussi pour les clés des sources d'Asclépios) : ni automatisation, ni autre assistant ;",
+   "les réponses d'applis qui contiennent du texte écrit par d'autres (Arachné, Pharos, Sirènes, outils MCP) arrivent à l'IA comme des données non fiables ;",
+   "Interprète : appeler soi-même un outil MCP, sans IA ; accord demandé s'il peut modifier quelque chose. Logos : nom de site sans « https:// », réglages libres des nouvelles actions. Tests : test/idunn.test.ts (15 tests : vrai site local ; GitHub, Vercel et Cloudflare simulés), 3 vérifications de liens. 419 tests au vert."
   ],
   "planets": [
    "discussion",
@@ -526,13 +526,13 @@
   "title": "Interface : guide de la mascotte, manips à décider, pages d'applis corrigées",
   "details": [
    "Corrections",
-   "Les formulaires des pages désignaient leur action par son numéro d'ordre : après l'ajout d'actions, la page de Bragi ne s'ouvrait plus, un formulaire de Sindri envoyait le mauvais réglage, et la vérification hebdomadaire des sauvegardes ne se faisait plus. Toutes les références passent par le nom de l'action ; un test l'impose.",
+   "Les formulaires des pages désignaient leur action par son numéro d'ordre : après l'ajout d'actions, la page de Orphée ne s'ouvrait plus, un formulaire de Phénix envoyait le mauvais réglage, et la vérification hebdomadaire des sauvegardes ne se faisait plus. Toutes les références passent par le nom de l'action ; un test l'impose.",
    "Téléphone : les pages d'applis avec un tableau large débordaient (un texte réservé aux lecteurs d'écran échappait à la zone défilante). Contrôle de 117 pages en trois tailles : plus aucun débordement.",
    "Tableaux : une valeur courte ne se coupe plus au milieu ; un long chemin se coupe où il faut.",
    "En-tête Permissions-Policy : directive non reconnue retirée (avertissement dans la console). Nouveau",
    "Guide : un clic (ou Entrée) sur la mascotte explique la page ou l'appli ouverte, répond à une demande sans IA, et liste les nouveautés. Une action grave attend la confirmation.",
    "Page Applis : « ce qu'Odin a fait de lui-même » avec Garder / Annuler, et la carte Protection.",
-   "Ullr : boutons rapides choisis, retour arrière des signatures confirmé, prochain passage des analyses planifiées calculé (un plan créé à 16 h pour 2 h 30 attend 2 h 30), identifiants distincts."
+   "Asclépios : boutons rapides choisis, retour arrière des signatures confirmé, prochain passage des analyses planifiées calculé (un plan créé à 16 h pour 2 h 30 attend 2 h 30), identifiants distincts."
   ],
   "planets": [
    "guide",
@@ -552,8 +552,8 @@
    "src/valhalla/fiches.ts : 29 fiches écrites à partir de la description des applis, jamais de leurs réglages (aucune adresse, aucun nom d'appareil, aucun secret : vérifié par un test)",
    "tenues à jour au démarrage, sans déclencher les automatisations « note créée »",
    "la partie « Mes notes » de chaque fiche est gardée ; une note à toi du même nom n'est jamais écrasée",
-   "les incidents d'Ullr se relient aux fiches dans le graphe",
-   "Saga : « mets à jour les fiches des applis dans le Cerveau », « complète la note … »"
+   "les incidents d'Asclépios se relient aux fiches dans le graphe",
+   "Thot : « mets à jour les fiches des applis dans le Cerveau », « complète la note … »"
   ],
   "planets": [
    "cerveau",
@@ -568,7 +568,7 @@
   "id": "33ff464",
   "at": "2026-11-11T18:47:33+03:00",
   "date": "2026-11-11",
-  "title": "Ullr : vitesse, fausses alertes, procédure, compréhension sans IA",
+  "title": "Asclépios : vitesse, fausses alertes, procédure, compréhension sans IA",
   "details": [
    "Recherche des règles en un seul passage sur le fichier : clé glissante de 4 octets, filtre binaire, chaînes fixes vérifiées à leur position, morceau d'index le plus rare. Mesuré avec 714 règles réelles : de 8 à 120 Mo/s.",
    "Fichier de test EICAR selon sa définition (68 caractères en tête d'un fichier d'au plus 128 octets).",
@@ -578,7 +578,7 @@
    "Pages d'hameçonnage distinguées des adresses de malwares.",
    "Clés des sources (abuse.ch, VirusTotal) rangées depuis la page, jamais affichées.",
    "État de la protection, analyses faites, profils d'analyse en un clic.",
-   "Huginn : un mot écrit avec et sans accent ne compte qu'une fois ; une demande « les… » ne lance plus une action ; un chemin écrit passe avant un nom connu ; 22 phrases de l'antivirus au test.",
+   "Logos : un mot écrit avec et sans accent ne compte qu'une fois ; une demande « les… » ne lance plus une action ; un chemin écrit passe avant un nom connu ; 22 phrases de l'antivirus au test.",
    "Banc d'essai « antivirus » : vraies sources, vraies archives, vrai disque (34 vérifications).",
    "docs/antivirus-ullr.md : procédure d'utilisation, mode de fonctionnement, sources, limites, table de conformité au cahier des charges."
   ],
@@ -594,19 +594,19 @@
   "id": "fa4bc08",
   "at": "2026-11-11T18:18:46+03:00",
   "date": "2026-11-11",
-  "title": "Ullr v2 : antivirus maison relié à toutes les applis",
+  "title": "Asclépios v2 : antivirus maison relié à toutes les applis",
   "details": [
    "Moteur (src/valhalla/ullr/engine.ts)",
    "vrai type des fichiers par leur contenu, archives ouvertes sans dépendance (zip, gzip, tar, documents Office, APK), bombes de décompression repérées",
-   "règles Galdr (maison) et sous-ensemble de YARA, index par morceaux de 4 caractères",
+   "règles Grimoire (maison) et sous-ensemble de YARA, index par morceaux de 4 caractères",
    "heuristiques au score explicable : programme déguisé, macros, PDF piégé, raccourci, commandes de téléchargement-exécution enchaînées, code caché, vol d'identifiants, hameçonnage (page, message, adresse)",
    "fichiers « passifs » (documentation, données, code source) : une règle n'y est qu'un indice ; mesuré sur 128 000 fichiers sains : aucune fausse alerte Base de connaissances (src/valhalla/ullr/intel.ts)",
    "paquets versionnés, signés (Ed25519), testés avant activation (EICAR toujours détecté, aucun fichier sain signalé), trois versions gardées, retour arrière",
    "sources : MalwareBazaar, ThreatFox, URLhaus (clé abuse.ch), OpenPhish, Stalkerware Indicators, signature-base, CISA KEV ; VirusTotal, MalwareBazaar et CIRCL à la demande (empreinte seulement) Incidents (src/valhalla/ullr/incidents.ts)",
-   "les signaux de Loki, Skögul, Geri, Garmr, Forseti, Eir, Naglfar, Hermóðr, Himinbjörg et de la porte d'Odin sont reliés ; un incident a un score, une chronologie, une réponse annulable (bannissement) et sa note dans le Cerveau Appli (src/valhalla/modules/ullr.ts)",
+   "les signaux de Sirènes, Némésis, Méduse, Cerbère, Forseti, Hygie, Argo, Hermóðr, Cyclope et de la porte d'Odin sont reliés ; un incident a un score, une chronologie, une réponse annulable (bannissement) et sa note dans le Cerveau Appli (src/valhalla/modules/ullr.ts)",
    "analyses à la demande et planifiées, protection à l'arrivée, supports amovibles, fichiers sentinelles",
    "quarantaine réversible (manip annulable), exceptions, fausses alertes, rapports horodatés",
-   "failles réellement exploitées comparées aux logiciels installés Tests : 21 pour Ullr, 9 liens de plus (33 au total), 392 tests au vert."
+   "failles réellement exploitées comparées aux logiciels installés Tests : 21 pour Asclépios, 9 liens de plus (33 au total), 392 tests au vert."
   ],
   "planets": [
    "discussion",
@@ -621,12 +621,12 @@
   "id": "9a6dae0",
   "at": "2026-11-11T17:24:23+03:00",
   "date": "2026-11-11",
-  "title": "Odin sans IA (Huginn), manips à garder ou annuler, liens tous automatiques",
+  "title": "Odin sans IA (Logos), manips à garder ou annuler, liens tous automatiques",
   "details": [
-   "Huginn : Odin comprend une demande sans modèle d'IA et utilise toutes ses applis. Il choisit l'appli (ce dont on parle), l'action (le verbe et ce que la phrase fournit), remplit les réglages (adresse IP, nom connu de l'appli, durée, jour, heure, texte), demande ce qui manque, et ne devine pas : une phrase de tous les jours ne déclenche rien. Chaque action part par l'outil, donc sous Heimdall (les actions graves demandent toujours ton accord). Une question ne lance jamais une action qui change quelque chose. Manips : ce qu'Odin fait de lui-même (réflexe, soin, automatisation, tâche sans surveillance, autre assistant) est noté et annoncé. « garde <code> », « annule <code> » (l'action inverse est lancée), « mes manips », « garde tout ». En mode Odin Breaker, il décide seul de garder ; tu peux encore annuler. Jamais de mot de passe dans le journal ; au plus 3 messages par 10 minutes. Liens entre applis : tous automatiques (23), un test par lien.",
-   "nouveaux réflexes : réservation → fiche client (Runes), nouvel accès VPN → coffre (Brísingamen), ordre à la voix → Freyja (Bragi + Huginn), scène → autre appli (« freyja.regarder = titre »), sauvegarde → instantané des machines virtuelles (Sindri → Ymir) ;",
+   "Logos : Odin comprend une demande sans modèle d'IA et utilise toutes ses applis. Il choisit l'appli (ce dont on parle), l'action (le verbe et ce que la phrase fournit), remplit les réglages (adresse IP, nom connu de l'appli, durée, jour, heure, texte), demande ce qui manque, et ne devine pas : une phrase de tous les jours ne déclenche rien. Chaque action part par l'outil, donc sous Heimdall (les actions graves demandent toujours ton accord). Une question ne lance jamais une action qui change quelque chose. Manips : ce qu'Odin fait de lui-même (réflexe, soin, automatisation, tâche sans surveillance, autre assistant) est noté et annoncé. « garde <code> », « annule <code> » (l'action inverse est lancée), « mes manips », « garde tout ». En mode Odin Breaker, il décide seul de garder ; tu peux encore annuler. Jamais de mot de passe dans le journal ; au plus 3 messages par 10 minutes. Liens entre applis : tous automatiques (23), un test par lien.",
+   "nouveaux réflexes : réservation → fiche client (Papyrus), nouvel accès VPN → coffre (Thésauros), ordre à la voix → Vénus (Orphée + Logos), scène → autre appli (« freyja.regarder = titre »), sauvegarde → instantané des machines virtuelles (Phénix → Hydre) ;",
    "soins : conteneur ou machine virtuelle arrêtés tout seuls → relancés (une fois par heure au plus), sauvegarde échouée → relancée une fois. Au niveau « Me demander », Odin propose seulement. Corrections :",
-   "le coffre de mots de passe (Brísingamen) ne pouvait pas s'ouvrir : sa clé était créée dans un format qu'il refusait ;",
+   "le coffre de mots de passe (Thésauros) ne pouvait pas s'ouvrir : sa clé était créée dans un format qu'il refusait ;",
    "une action grave ne peut pas partir d'une scène ni d'un ordre à la voix ;",
    "test du navigateur : nettoyage du dossier rendu fiable."
   ],
@@ -654,13 +654,13 @@
    "« odin compte » et « odin compte oublier » (sur la machine seulement) ;",
    "le jeton ne sert plus qu'aux programmes (clé d'API : raccourcis, MCP) et au lien de première connexion ; il n'ouvre plus l'interface ;",
    "la demande d'accès par messagerie ne sert plus qu'avant la création du compte. Tests d'intrusion (`npm run banc -- securite`, 60 vérifications sur un vrai Odin, avec un vrai navigateur) : accès sans identifiants sur toutes les routes d'API trouvées dans le code, force brute, CSRF, CORS, « DNS rebinding », en-têtes, requêtes malformées, traversée de chemins, injection de commandes dans toutes les actions de toutes les applis, fuite de secrets, XSS, fin de session. Passé aussi aux scanners Nikto (6 544 essais) et Wapiti : aucune faille. Corrections :",
-   "Garmr : « débannir » acceptait un texte libre transmis au pare-feu (nft lit ses arguments comme un programme) : seule une vraie adresse IP passe ;",
-   "Gjöll : nom d'interface vérifié, plus aucune saisie dans une commande shell ;",
-   "Ægir : le morceau à jouer ne peut plus être lu comme une option du lecteur ;",
+   "Cerbère : « débannir » acceptait un texte libre transmis au pare-feu (nft lit ses arguments comme un programme) : seule une vraie adresse IP passe ;",
+   "Vortex : nom d'interface vérifié, plus aucune saisie dans une commande shell ;",
+   "Apollon : le morceau à jouer ne peut plus être lu comme une option du lecteur ;",
    "API : un corps « null » ou une liste ne fait plus d'erreur interne ;",
    "un mauvais jeton comptait deux fois comme essai raté ;",
    "en-têtes : isolation de la fenêtre et des réponses, permissions du navigateur réduites au micro et à la caméra ;",
-   "Runes : deux modifications dans la même milliseconde s'écrasaient dans l'historique (test instable corrigé)."
+   "Papyrus : deux modifications dans la même milliseconde s'écrasaient dans l'historique (test instable corrigé)."
   ],
   "planets": [
    "discussion",
@@ -678,20 +678,20 @@
   "title": "Banc d'essai virtuel : les applis d'Odin essayées contre de vrais services",
   "details": [
    "Nouveau : `npm run banc` (test/banc/). 15 scénarios, 251 vérifications.",
-   "Réel : Docker (Naglfar), nftables (Garmr), chaîne de défense Loki → Ullr → Garmr avec un attaquant en réseau isolé, WireGuard (Gjöll), caméra RTSP (Himinbjörg), serveur Venus (Freyja), Home Assistant (Midgard, Bragi, Ægir), clients Mosquitto sur le relais d'Odin, GitHub en ligne (Kvasir), serveurs MCP officiels et client officiel du SDK (Ratatoskr).",
-   "Simulé (protocole rejoué) : API Proxmox VE (Ymir), module Tasmota (Brokkr, Appareils), API Bot de Telegram (alertes, photo, alerte critique urgente). Ces trois scénarios tournent aussi dans `npm test`.",
+   "Réel : Docker (Argo), nftables (Cerbère), chaîne de défense Sirènes → Asclépios → Cerbère avec un attaquant en réseau isolé, WireGuard (Vortex), caméra RTSP (Cyclope), serveur Venus (Vénus), Home Assistant (Midgard, Orphée, Apollon), clients Mosquitto sur le relais d'Odin, GitHub en ligne (Pharos), serveurs MCP officiels et client officiel du SDK (Interprète).",
+   "Simulé (protocole rejoué) : API Proxmox VE (Hydre), module Tasmota (Héphaïstos, Appareils), API Bot de Telegram (alertes, photo, alerte critique urgente). Ces trois scénarios tournent aussi dans `npm test`.",
    "Envoi réel sur Telegram : prêt, ignoré sans jeton. Corrections trouvées par le banc :",
    "alertes : photo jointe (caméras) et alerte critique marquée urgente ;",
-   "Naglfar / Ymir : plus de fausse alerte quand on arrête soi-même ;",
-   "Garmr : journaux supplémentaires, bannissements remis au démarrage ;",
-   "Gjöll : routage vers les réseaux de la maison, DNS, validation d'adresse ;",
-   "Himinbjörg : jamais d'identifiants dans une erreur, lecture 3 fois plus rapide ;",
-   "Freyja : enregistrement d'une plage horaire, annulation, clé refusée détectée ;",
+   "Argo / Hydre : plus de fausse alerte quand on arrête soi-même ;",
+   "Cerbère : journaux supplémentaires, bannissements remis au démarrage ;",
+   "Vortex : routage vers les réseaux de la maison, DNS, validation d'adresse ;",
+   "Cyclope : jamais d'identifiants dans une erreur, lecture 3 fois plus rapide ;",
+   "Vénus : enregistrement d'une plage horaire, annulation, clé refusée détectée ;",
    "Midgard : pièces de la box, commandes complètes, déverrouiller = ton accord ;",
-   "Appareils / Brokkr : annonce native Tasmota, appareils hors ligne, balayage rapide, minuterie d'écriture arrêtée proprement avec l'appli ;",
-   "Kvasir : veille par les flux publics de GitHub (sans jeton ni quota) ;",
-   "Ratatoskr : brancher un serveur demande toujours ton accord ;",
-   "Loki : le verdict d'Ullr part avec l'alerte de capture ;",
+   "Appareils / Héphaïstos : annonce native Tasmota, appareils hors ligne, balayage rapide, minuterie d'écriture arrêtée proprement avec l'appli ;",
+   "Pharos : veille par les flux publics de GitHub (sans jeton ni quota) ;",
+   "Interprète : brancher un serveur demande toujours ton accord ;",
+   "Sirènes : le verdict d'Asclépios part avec l'alerte de capture ;",
    "réglages des applis écrits d'un seul coup (jamais à moitié)."
   ],
   "planets": [
@@ -710,13 +710,13 @@
   "title": "Valhalla : toutes les applis d'Odin, reliées entre elles",
   "details": [
    "27 applis réécrites (sécurité, machines, accès, maison, données) avec une interface générique",
-   "Freyja : Venus (TOUFATECH/Venus) comme appli d'Odin",
-   "Liens entre applis (réflexes, usages de prédilection, modèles Draupnir)",
+   "Vénus : Venus (TOUFATECH/Venus) comme appli d'Odin",
+   "Liens entre applis (réflexes, usages de prédilection, modèles Talos)",
    "Alertes sur la messagerie selon le niveau choisi",
-   "Kvasir : veille des dépôts d'origine et étude des liens GitHub",
-   "Ratatoskr : client et serveur MCP (/mcp)",
-   "Draupnir : éditeur à nœuds, déclencheur et action d'appli",
-   "Runes : interface des bases ; Frigg : page publique de réservation",
+   "Pharos : veille des dépôts d'origine et étude des liens GitHub",
+   "Interprète : client et serveur MCP (/mcp)",
+   "Talos : éditeur à nœuds, déclencheur et action d'appli",
+   "Papyrus : interface des bases ; Chronos : page publique de réservation",
    "Outil valhalla et choix de l'appli sans IA"
   ],
   "planets": [
@@ -732,10 +732,10 @@
   "id": "91ff2b7",
   "at": "2026-11-11T12:32:52+03:00",
   "date": "2026-11-11",
-  "title": "Draupnir et Runes : le moteur d'automatisations et les bases d'Odin (sans n8n ni Notion)",
+  "title": "Talos et Papyrus : le moteur d'automatisations et les bases d'Odin (sans n8n ni Notion)",
   "details": [
-   "Draupnir : moteur à nœuds réécrit pour Odin (éléments, branches, fusion, sous-automatisations, automatisation d'erreur, formulaires et webhooks publics à chemin secret, flux RSS, pages surveillées, Saga, Runes, IA d'Odin, agent sous Heimdall, mail, Telegram/Discord/Slack, dates, HTML, XML, code JavaScript isolé par les permissions de Node, identifiants du coffre, versions, données épinglées, « exécuter jusqu'ici », import d'un workflow n8n)",
-   "Runes : bases typées (sélection, statut, date, relation, agrégation, formule sûre, ID…), vues table, tableau, calendrier, galerie, liste, chronologie, filtres, tris, groupes, automatisations de base, sous-pages, commentaires, historique, import/export CSV",
+   "Talos : moteur à nœuds réécrit pour Odin (éléments, branches, fusion, sous-automatisations, automatisation d'erreur, formulaires et webhooks publics à chemin secret, flux RSS, pages surveillées, Thot, Papyrus, IA d'Odin, agent sous Heimdall, mail, Telegram/Discord/Slack, dates, HTML, XML, code JavaScript isolé par les permissions de Node, identifiants du coffre, versions, données épinglées, « exécuter jusqu'ici », import d'un workflow n8n)",
+   "Papyrus : bases typées (sélection, statut, date, relation, agrégation, formule sûre, ID…), vues table, tableau, calendrier, galerie, liste, chronologie, filtres, tris, groupes, automatisations de base, sous-pages, commentaires, historique, import/export CSV",
    "Outils d'Odin : draupnir, runes_base, runes_fiche, runes_page ; API web ; installation n8n retirée"
   ],
   "planets": [
@@ -1614,7 +1614,7 @@
   "at": "2026-11-05T17:50:15+03:00",
   "date": "2026-11-05",
   "version": "0.16.0",
-  "title": "Accueil, surveillance (Vörðr), sécurité et carte du réseau, Proxmox, sauvegarde nocturne, routines et habitudes, mains libres, application installable",
+  "title": "Accueil, surveillance (Pulsar), sécurité et carte du réseau, Proxmox, sauvegarde nocturne, routines et habitudes, mains libres, application installable",
   "details": [],
   "planets": [
    "voix",

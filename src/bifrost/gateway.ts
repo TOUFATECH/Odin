@@ -161,7 +161,7 @@ export class Gateway {
     await ch.send(peer, text, opts);
   }
 
-  /** Une recherche de Völva par son identifiant (ou les recherches faites depuis `since`). */
+  /** Une recherche de Pythie par son identifiant (ou les recherches faites depuis `since`). */
   private async volvaEntry(id: string): Promise<import('../valhalla/modules/volva.ts').Entry | undefined> { return (await this.volvaSince(0)).find((x) => x.id === id); }
   private async volvaSince(since: number): Promise<Array<import('../valhalla/modules/volva.ts').Entry>> {
     try { const { valhallaOf } = await import('../valhalla/odin.ts'); const { history } = await import('../valhalla/modules/volva.ts'); const v = valhallaOf(); if (!v?.module('volva')) return []; return history(v.ctx('volva')).filter((x) => x.at >= since); } catch { return []; }
@@ -229,11 +229,11 @@ export class Gateway {
       await ch.send(m.peer, '⬆️ Je me mets à jour…');
       return ch.send(m.peer, await this.updateNow());
     }
-    // Völva : les boutons de la carte (Écouter · Fiche).
+    // Pythie : les boutons de la carte (Écouter · Fiche).
     const vs = owner ? /^\/volva (ecouter|fiche) ([a-f0-9]{6,20})$/.exec(text) : null;
     if (vs) {
       const e = await this.volvaEntry(vs[2]);
-      if (!e) return ch.send(m.peer, 'Cette recherche n\'est plus dans l\'historique de Völva.');
+      if (!e) return ch.send(m.peer, 'Cette recherche n\'est plus dans l\'historique de Pythie.');
       if (vs[1] === 'ecouter') {
         if (!ch.sendVoice || !ttsReady(this.odin.cfg.voice)) return ch.send(m.peer, 'La voix d\'Odin n\'est pas réglée (Réglages → Voix).');
         await speakAudio(e.answer.replace(/\[\d{1,2}\]/g, '').replace(/\*\*/g, '').slice(0, 4000), voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((x) => ch.send(m.peer, `⚠️ ${(x as Error).message}`));
@@ -398,7 +398,7 @@ export class Gateway {
       const byLine = !owner || !ia || m.channel === 'web' || show === 'jamais' ? '' : show === 'partout' ? `\n\n— ${ia}` : r.ai && !r.ai.needed ? '\n\n🔌 Fait sans IA.' : '';
       const body = (r.text || '(pas de réponse)') + decisionsFooter(r.decisions) + (r.notices.length ? `\n\nℹ️ ${r.notices.join(' ')}` : '') + byLine;
       // Texte seul : plus d'émoji ajouté à la fin (demande du propriétaire)
-      // Une recherche de Völva pendant ce tour : sur Telegram, la réponse part en carte (Écouter · Fiche · Ouvrir dans Völva).
+      // Une recherche de Pythie pendant ce tour : sur Telegram, la réponse part en carte (Écouter · Fiche · Ouvrir dans Pythie).
       const found = m.channel !== 'web' && ch.name === 'telegram' ? (await this.volvaSince(t0)).sort((a, b) => b.at - a.at)[0] : undefined;
       if (found) {
         const { searchCard } = await import('../valhalla/volva/carte.ts'), pub = (this.odin.cfg.web as { publicUrl?: string }).publicUrl?.replace(/\/$/, '');
@@ -494,7 +494,7 @@ export class Gateway {
       const r = await scanNetwork(this.odin.inventory, this.odin.cfg.network, full, this.opts.discover);
       if (this.odin.cfg.network.notify && hasChanges(r)) {
         const t = this.ownerTarget();
-        if (t) await t.ch.send(t.peer, `🛰 Hliðskjálf — ${formatReport(r)}`).catch(() => {});
+        if (t) await t.ch.send(t.peer, `🛰 Horus — ${formatReport(r)}`).catch(() => {});
       }
       for (const ch of this.channels.values()) ch.notify?.('inventory');
       return r;
@@ -595,7 +595,7 @@ export class Gateway {
     if (cfg.services.length && now - this.lastCare >= 5 * 60_000) {
       this.lastCare = now;
       const msgs = await careServices(this.careCtx(), cfg.services, { stateFile: join(this.odin.paths.logs, 'services.json'), now });
-      if (msgs.length) await this.tellOwner(`🛡 Vörðr — services\n${msgs.join('\n')}`, 'home', msgs.some((m) => m.startsWith('🔴')));
+      if (msgs.length) await this.tellOwner(`🛡 Pulsar — services\n${msgs.join('\n')}`, 'home', msgs.some((m) => m.startsWith('🔴')));
     }
     const stamp = join(this.odin.paths.logs, 'updates.txt');
     if (!this.updating && updateDue(cfg.updates, stamp, new Date(now))) {
@@ -1047,7 +1047,7 @@ export class Gateway {
     return text;
   }
 
-  /** Vörðr : santé (appareils importants, disques, certificats) et sauvegarde de la nuit ; alertes au propriétaire. */
+  /** Pulsar : santé (appareils importants, disques, certificats) et sauvegarde de la nuit ; alertes au propriétaire. */
   async watch(now = Date.now(), force = false): Promise<string[]> {
     const w = this.odin.cfg.watch, msgs: string[] = [];
     const b = autoBackup(this.odin.paths, this.odin.cfg.autoBackup, new Date(now));
@@ -1065,7 +1065,7 @@ export class Gateway {
     }
     if (msgs.length) {
       const t = this.ownerTarget();
-      if (t) await t.ch.send(t.peer, `🛡 Vörðr — surveillance\n${msgs.join('\n')}`).catch(() => {});
+      if (t) await t.ch.send(t.peer, `🛡 Pulsar — surveillance\n${msgs.join('\n')}`).catch(() => {});
       void pushAll(this.odin.paths.home, { title: 'Odin — surveillance', body: msgs.join('\n'), view: 'home', tag: 'odin-veille' }).catch(() => 0);
       for (const ch of this.channels.values()) ch.notify?.('watch');
     }

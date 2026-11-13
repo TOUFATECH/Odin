@@ -1,4 +1,4 @@
-// Hliðskjálf — le trône d'où Odin voit les neuf mondes : découverte du réseau local.
+// Horus — le trône d'où Odin voit les neuf mondes : découverte du réseau local.
 //
 // Sans dépendance et sans droits administrateur :
 //   1. réseaux privés des interfaces de la machine (jamais d'adresse publique) ;

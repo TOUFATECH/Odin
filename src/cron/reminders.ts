@@ -1,6 +1,6 @@
 // Rappels intelligents : dates en français courant (« vendredi 9h », « dans 2 heures », « demain soir »),
 // rappels récurrents (« tous les mois le 5 »), relances tant que ce n'est pas fait, « plus tard ».
-// Tout est pur (testable) sauf les petites fonctions de stockage, qui passent par le clé-valeur de Muninn.
+// Tout est pur (testable) sauf les petites fonctions de stockage, qui passent par le clé-valeur de Mnémosyne.
 
 const DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];

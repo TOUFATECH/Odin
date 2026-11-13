@@ -67,7 +67,7 @@ test('machine coupée (tout de suite ou à horaires) et sites bloqués à horair
   } finally { d.stop(); up.close(); }
 });
 
-test('appli Víðarr : couper / rétablir une machine, bloquer à horaires, graphe du réseau et ses fiches', async () => {
+test('appli Sphinx : couper / rétablir une machine, bloquer à horaires, graphe du réseau et ses fiches', async () => {
   const home = mkdtempSync(join(tmpdir(), 'reseau-'));
   const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: DEFAULT_CONFIG } as never), { run: async () => ({ code: 0, out: '', err: '' }), fetch: (async () => new Response('')) as unknown as typeof fetch, notify: async () => {}, autonomy: () => 'equilibre' });
   const act = (a: string, i: Record<string, unknown> = {}) => v.act('vidarr', a, i);

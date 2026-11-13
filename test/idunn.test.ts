@@ -1,4 +1,4 @@
-// Idunn, l'appli des sites web. Le site surveillé est un VRAI serveur web local ; GitHub, Vercel et
+// Arachné, l'appli des sites web. Le site surveillé est un VRAI serveur web local ; GitHub, Vercel et
 // Cloudflare sont simulés (mêmes adresses et mêmes formes de réponses que leurs API officielles) :
 // aucun appel ne sort de la machine, et tout appel vers une autre adresse fait échouer le test.
 import assert from 'node:assert/strict';
@@ -160,7 +160,7 @@ function everything(w: World): string {
 }
 
 // ---------------------------------------------------------------- Surveiller
-test('Idunn · surveiller un site : en ligne, titre changé, contenu changé (une fois par heure), tombé au 2e essai raté, revenu', async () => {
+test('Arachné · surveiller un site : en ligne, titre changé, contenu changé (une fois par heure), tombé au 2e essai raté, revenu', async () => {
   const w = await world({ tokens: false });
   try {
     assert.match((await w.act('sites')).text, /Aucun site suivi/);
@@ -208,7 +208,7 @@ test('Idunn · surveiller un site : en ligne, titre changé, contenu changé (un
   } finally { await w.end(); }
 });
 
-test('Idunn · adresses et noms : formes refusées, site complété sans rien perdre, site retrouvé dans une phrase', async () => {
+test('Arachné · adresses et noms : formes refusées, site complété sans rien perdre, site retrouvé dans une phrase', async () => {
   const w = await world();
   try {
     for (const [input, why] of [[{ adresse: 'ftp://x.fr' }, /adresse/], [{ adresse: 'pas une adresse' }, /adresse/], [{ adresse: w.site.url, depot: 'pas-un-depot' }, /propriétaire\/dépôt/], [{ adresse: w.site.url, depot: '../x' }, /propriétaire\/dépôt/], [{ adresse: w.site.url, zone: 'pas un domaine' }, /nom de domaine/], [{ adresse: w.site.url, projet: 'a/b' }, /projet Vercel/]] as const) {
@@ -231,7 +231,7 @@ test('Idunn · adresses et noms : formes refusées, site complété sans rien pe
 });
 
 // ---------------------------------------------------------------- Événements filtrables
-test('Idunn · filtre dit en français : genre, site, source, gravité, période, mot entre guillemets', () => {
+test('Arachné · filtre dit en français : genre, site, source, gravité, période, mot entre guillemets', () => {
   const now = new Date('2026-11-10T12:00:00Z'), list: Site[] = [{ name: 'toufatech.com', url: 'https://toufatech.com', pages: [] }, { name: 'boutique', url: 'https://boutique.exemple', pages: [] }];
   assert.equal(since('depuis 2 heures', now), 2 * 3600_000); assert.equal(since('30 min', now), 30 * 60_000); assert.equal(since('3 jours', now), 3 * 86_400_000); assert.equal(since('cette semaine', now), 7 * 86_400_000); assert.equal(since('1 mois', now), 30 * 86_400_000); assert.equal(since('hier', now), 48 * 3600_000); assert.equal(since('rien de tel', now), undefined);
   const f = parseFilter('donne-moi les erreurs du site toufatech depuis 2 jours', list, now);
@@ -262,7 +262,7 @@ test('Idunn · filtre dit en français : genre, site, source, gravité, période
   assert.deepEqual(got('tout'), all.map((e) => e.type));
 });
 
-test('Idunn · GitHub : envois de code, tests, demandes de fusion, versions deviennent des événements ; mises à jour fusionnées seulement si leurs tests passent', async () => {
+test('Arachné · GitHub : envois de code, tests, demandes de fusion, versions deviennent des événements ; mises à jour fusionnées seulement si leurs tests passent', async () => {
   const w = await world();
   try {
     await w.follow();
@@ -317,7 +317,7 @@ test('Idunn · GitHub : envois de code, tests, demandes de fusion, versions devi
   } finally { await w.end(); }
 });
 
-test('Idunn · Vercel : relancer (annulable), déployer et revenir en arrière (graves), remettre en ligne ; un déploiement en production est essayé tout seul', async () => {
+test('Arachné · Vercel : relancer (annulable), déployer et revenir en arrière (graves), remettre en ligne ; un déploiement en production est essayé tout seul', async () => {
   const w = await world();
   try {
     await w.follow(); const ve = w.ver.st;
@@ -362,7 +362,7 @@ test('Idunn · Vercel : relancer (annulable), déployer et revenir en arrière (
   } finally { await w.end(); }
 });
 
-test('Idunn · Cloudflare : DNS changé, cache vidé, mode « attaque » qui remet le niveau d\'avant ; DNS et page changés ensemble : incident chez Ullr', async () => {
+test('Arachné · Cloudflare : DNS changé, cache vidé, mode « attaque » qui remet le niveau d\'avant ; DNS et page changés ensemble : incident chez Asclépios', async () => {
   const w = await world();
   try {
     await w.follow(); const cf = w.cfl.st;
@@ -381,7 +381,7 @@ test('Idunn · Cloudflare : DNS changé, cache vidé, mode « attaque » qui rem
     assert.equal(w.types().at(-1), 'dns_change');
     assert.ok(w.v.alerts({ module: 'idunn' }).some((a) => a.level === 'haute' && /les enregistrements DNS de boutique\.exemple ont changé/.test(a.title)));
     const incidents = () => (w.v.ctx('ullr').settings.incidents as Array<{ kind: string; title: string; apps: string[]; proposed: string[] }> | undefined) ?? [];
-    // Le DNS change, et la page d'accueil aussi : Ullr relie les deux en un incident.
+    // Le DNS change, et la page d'accueil aussi : Asclépios relie les deux en un incident.
     w.site.st.title = 'H4cked'; await w.act('etat', { site: 'boutique' });
     assert.ok(await until(() => incidents().length === 1), 'DNS et page d\'accueil changés sur le même site : un incident');
     assert.deepEqual([incidents()[0].kind, incidents()[0].apps], ['site détourné', ['Arachné']]);
@@ -395,7 +395,7 @@ test('Idunn · Cloudflare : DNS changé, cache vidé, mode « attaque » qui rem
 });
 
 // ---------------------------------------------------------------- Essais et bilan
-test('Idunn · essayer le site (sans IA) : pages, liens cassés, erreur affichée, en-têtes de sécurité', async () => {
+test('Arachné · essayer le site (sans IA) : pages, liens cassés, erreur affichée, en-têtes de sécurité', async () => {
   const w = await world({ tokens: false });
   try {
     await w.act('ajouter', { adresse: w.site.url, nom: 'boutique', pages: '/contact\n/panne' });
@@ -417,7 +417,7 @@ test('Idunn · essayer le site (sans IA) : pages, liens cassés, erreur affiché
   } finally { await w.end(); }
 });
 
-test('Idunn · bilan : à garder, à améliorer, à ne pas garder — des faits, sans recopier le contenu d\'un fichier exposé', async () => {
+test('Arachné · bilan : à garder, à améliorer, à ne pas garder — des faits, sans recopier le contenu d\'un fichier exposé', async () => {
   let prompt = '';
   const w = await world({ ask: async (t) => { prompt = t; return 'Commence par retirer le fichier .env.\nEnsuite ajoute HSTS.'; } });
   try {
@@ -448,7 +448,7 @@ test('Idunn · bilan : à garder, à améliorer, à ne pas garder — des faits,
 });
 
 // ---------------------------------------------------------------- Faire évoluer le code avec l'IA
-test('Idunn · garde-fous d\'un changement proposé par l\'IA', () => {
+test('Arachné · garde-fous d\'un changement proposé par l\'IA', () => {
   const ok = guard(PAGE, PAGE.replace('Bonjour', 'Bienvenue'));
   assert.deepEqual([ok.refuse, ok.notes, ok.kept, ok.added, ok.removed], [undefined, [], 4, 1, 1]);
   assert.match(guard(PAGE, '  \n').refuse!, /vide/);
@@ -463,7 +463,7 @@ test('Idunn · garde-fous d\'un changement proposé par l\'IA', () => {
   for (const p of ['.env', 'config/.env.local', '.github/workflows/ci.yml', '.github/dependabot.yml', 'package-lock.json', 'sub/pnpm-lock.yaml', '../ailleurs.ts', 'a/../../b', '/etc/passwd', 'cle.pem', 'a\nb', '']) assert.ok(!pathOk(p), `refusé : ${JSON.stringify(p)}`);
 });
 
-test('Idunn · recoder avec l\'IA : un plan sans rien toucher, puis un fichier sur une branche « odin/… » et une demande de fusion — jamais la branche principale', async () => {
+test('Arachné · recoder avec l\'IA : un plan sans rien toucher, puis un fichier sur une branche « odin/… » et une demande de fusion — jamais la branche principale', async () => {
   let answer = PAGE.replace('<h1>Bonjour</h1>', '<h1>Bienvenue à Mamoudzou</h1>');
   const w = await world({ ask: async (t) => (/plan de changement/.test(t) ? 'Je garde : le HTTPS.\nJe change : le titre.\nJe retire : rien.\nRisques : aucun.' : answer) });
   try {
@@ -516,7 +516,7 @@ test('Idunn · recoder avec l\'IA : un plan sans rien toucher, puis un fichier s
 });
 
 // ---------------------------------------------------------------- Jetons, autres assistants, IA
-test('Idunn · les jetons : rangés au coffre, jamais affichés ni écrits, jamais envoyés au site, changés seulement par toi', async () => {
+test('Arachné · les jetons : rangés au coffre, jamais affichés ni écrits, jamais envoyés au site, changés seulement par toi', async () => {
   const w = await world({ tokens: false });
   try {
     assert.match((await w.act('acces')).text, /- GitHub : jeton absent\n- Vercel : jeton absent\n- Cloudflare : jeton absent/);
@@ -544,7 +544,7 @@ test('Idunn · les jetons : rangés au coffre, jamais affichés ni écrits, jama
   } finally { await w.end(); }
 });
 
-test('Idunn · ce qui vient du site ou du dépôt arrive à l\'IA comme une donnée non fiable, jamais comme un ordre', async () => {
+test('Arachné · ce qui vient du site ou du dépôt arrive à l\'IA comme une donnée non fiable, jamais comme un ordre', async () => {
   const w = await world();
   try {
     await w.follow();
@@ -564,7 +564,7 @@ test('Idunn · ce qui vient du site ou du dépôt arrive à l\'IA comme une donn
   } finally { await w.end(); }
 });
 
-test('Idunn · créer un projet (action grave) : dépôt GitHub privé, depuis un modèle si demandé, et projet Vercel relié', async () => {
+test('Arachné · créer un projet (action grave) : dépôt GitHub privé, depuis un modèle si demandé, et projet Vercel relié', async () => {
   const w = await world();
   try {
     assert.match((await w.v.act('idunn', 'creer_projet', { nom: 'Salon Barber' }, { auto: true })).text, /action grave \(créer le projet « Salon Barber »/);
@@ -579,7 +579,7 @@ test('Idunn · créer un projet (action grave) : dépôt GitHub privé, depuis u
 });
 
 // ---------------------------------------------------------------- Sans IA : les phrases comprises
-test('Idunn · sans IA : les demandes du quotidien sont comprises, et celles des autres applis ne sont pas détournées', async () => {
+test('Arachné · sans IA : les demandes du quotidien sont comprises, et celles des autres applis ne sont pas détournées', async () => {
   const w = await world();
   try {
     await w.follow();
@@ -614,8 +614,8 @@ test('Idunn · sans IA : les demandes du quotidien sont comprises, et celles des
     await like('analyse mes téléchargements', /^ullr\.analyser/);
     await like('bannis 203.0.113.9', /^garmr\.bannir/);
     await like('mes sauvegardes', /^sindri\./);
-    // Le mot « site » seul ne désigne pas Idunn : ces demandes ne sont pas pour elle.
-    for (const t of ['ouvre le site lemonde.fr', 'cherche un site pour apprendre le piano', 'j\'ai vu un site sympa hier', 'bloque le site facebook.com']) assert.ok(!/idunn/.test(await say(t)), `pas pour Idunn : ${t} → ${await say(t)}`);
+    // Le mot « site » seul ne désigne pas Arachné : ces demandes ne sont pas pour elle.
+    for (const t of ['ouvre le site lemonde.fr', 'cherche un site pour apprendre le piano', 'j\'ai vu un site sympa hier', 'bloque le site facebook.com']) assert.ok(!/idunn/.test(await say(t)), `pas pour Arachné : ${t} → ${await say(t)}`);
     // Et la demande passe vraiment, de bout en bout, sans IA.
     const o = await w.v.order('donne-moi les erreurs du site boutique depuis 2 jours');
     assert.match(o.text, /^Arachné · Événements\nFiltre : boutique · erreurs · depuis 2 jour\(s\)\nAucun événement avec ces critères\./);
@@ -624,7 +624,7 @@ test('Idunn · sans IA : les demandes du quotidien sont comprises, et celles des
 });
 
 // ---------------------------------------------------------------- Certificat HTTPS
-test('Idunn · certificat : une alerte par palier (14, 7, 3, 1 jour, puis expiré), et un vrai certificat lu sur un vrai serveur HTTPS', async (t) => {
+test('Arachné · certificat : une alerte par palier (14, 7, 3, 1 jour, puis expiré), et un vrai certificat lu sur un vrai serveur HTTPS', async (t) => {
   assert.equal(certStep(undefined, 60), undefined); assert.equal(certStep(15, 14), 14); assert.equal(certStep(14, 13), undefined, 'déjà prévenu pour ce palier');
   assert.equal(certStep(8, 7), 7); assert.equal(certStep(4, 2), 3); assert.equal(certStep(2, 1), 1); assert.equal(certStep(1, 0), undefined); assert.equal(certStep(0, -1), -1, 'expiré');
   assert.equal(certStep(undefined, 5), 7, 'site ajouté avec un certificat déjà proche de sa fin : prévenu tout de suite');

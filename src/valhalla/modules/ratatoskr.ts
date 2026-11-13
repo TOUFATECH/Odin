@@ -1,4 +1,4 @@
-// Ratatoskr (appli) : les serveurs MCP branchés sur Odin et le serveur MCP d'Odin.
+// Interprète (appli) : les serveurs MCP branchés sur Odin et le serveur MCP d'Odin.
 // Chaque outil d'un serveur branché devient un outil d'Odin « mcp_<serveur>_<outil> » : risque
 // « external », sortie non fiable, accord demandé par Heimdall selon tes règles.
 
@@ -50,7 +50,7 @@ function find(i: Record<string, unknown>): { c: McpClient; t?: McpClient['tools'
 
 export function ratatoskr(registry: () => ToolRegistry | undefined): Module {
   const m: Module = {
-    id: 'ratatoskr', name: 'Ratatoskr', family: 'Accès',
+    id: 'ratatoskr', name: 'Interprète', family: 'Accès',
     what: 'Les serveurs MCP : brancher les outils d\'autres applis sur Odin, et ouvrir Odin aux autres assistants.',
     does: ['branche un serveur MCP local (programme) ou distant (adresse HTTP)', 'ses outils deviennent des outils d\'Odin, sous Heimdall', 'sans IA : tu appelles toi-même un outil (« appelle l\'outil … »)', 'serveur MCP d\'Odin (/mcp, jeton obligatoire) : tes applis utilisables depuis un autre assistant', 'jamais d\'action grave par MCP : elles se valident dans Odin'],
     from: ['Model Context Protocol', 'MCP Inspector'], upstream: ['modelcontextprotocol/modelcontextprotocol', 'modelcontextprotocol/typescript-sdk'],

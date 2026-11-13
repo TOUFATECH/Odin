@@ -1,4 +1,4 @@
-// Nœud « Code » de Draupnir : le code tourne dans un processus Node à part, avec le modèle de
+// Nœud « Code » de Talos : le code tourne dans un processus Node à part, avec le modèle de
 // permissions de Node (aucun fichier, aucune commande, aucun sous-processus), 128 Mo, 10 s max.
 // Il reçoit les éléments et renvoie une liste (ou un objet) qui devient la sortie du nœud.
 

@@ -1,4 +1,4 @@
-// Glaðsheimr · la maison en un écran : un tableau de bord plein écran (tablette murale, téléphone, ordinateur,
+// Hestia · la maison en un écran : un tableau de bord plein écran (tablette murale, téléphone, ordinateur,
 // et dans Home Assistant), à thèmes, qui réunit les appareils de Midgard (lumières, volets, clim, serrures,
 // lecteurs), les scènes, la météo, l'état de toutes les applis d'Odin, et des boutons vers n'importe quelle
 // action d'une appli (bloquer quelqu'un, VPN, accès réseau, mises à jour…). La mascotte s'y promène, joue,
@@ -179,7 +179,7 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
 }
 
 export const gladsheim: Module = {
-  id: 'gladsheim', name: 'Glaðsheimr', family: 'Maison',
+  id: 'gladsheim', name: 'Hestia', family: 'Maison',
   what: 'La maison en un écran, pour tablette murale, téléphone, ordinateur et Home Assistant : appareils, scènes, météo, état de toutes tes applis, tes boutons, onze thèmes, et la mascotte qui joue et obéit.',
   does: ['écran plein format à onze thèmes (verre, bleu nuit, braise, acier, tablette murale, crépuscule, classique, violet, aurore, lagon, clair)', 'pièces et appareils de toutes tes box (Midgard) : lumières (intensité), volets, clim (+/−), serrures (glisser pour ouvrir, avec ton accord), lecteurs', 'scènes d\'un geste', 'météo du lieu choisi (heure par heure, 7 jours, lever et coucher du soleil)', 'l\'état de toutes tes applis (alertes, chiffres clés), un clic pour ouvrir', 'tes boutons vers n\'importe quelle action d\'une appli : bloquer quelqu\'un, VPN, accès réseau, informations, mises à jour…', 'la mascotte se promène, joue à la balle, donne la météo, l\'heure, les alertes, et fait ce que tu lui dis (mêmes droits et mêmes validations que partout dans Odin)', 'clés de tablette (lien à poser sur une tablette ou dans Home Assistant), droits « maison » ou « complet », retirables', 'dans Home Assistant : un tableau de bord « page web » prêt à coller'],
   from: ['Home Assistant', 'Mushroom', 'Bubble Card', 'Homepage', 'Dashy', 'Homarr'], upstream: ['home-assistant/frontend', 'piitaya/lovelace-mushroom', 'gethomepage/homepage', 'Lissy93/dashy', 'homarr-labs/homarr'],
@@ -240,7 +240,7 @@ export const gladsheim: Module = {
       let ha: URL, od: URL; try { ha = new URL(s(i.adresse).trim()); od = new URL(s(i.odin).trim()); } catch { throw new Error('adresses complètes attendues (https://…)'); }
       if (!/^https?:$/.test(ha.protocol) || !/^https?:$/.test(od.protocol)) throw new Error('http ou https seulement');
       ctx.saveSettings({ haOrigin: ha.origin });
-      const warn = ha.protocol === 'https:' && od.protocol === 'http:' ? '\n⚠ Home Assistant est en https et Odin en http : le navigateur bloquera l\'écran. Mets Odin en https (Valgrind ou Brú).' : '';
+      const warn = ha.protocol === 'https:' && od.protocol === 'http:' ? '\n⚠ Home Assistant est en https et Odin en http : le navigateur bloquera l\'écran. Mets Odin en https (Valgrind ou Bifröst).' : '';
       return { text: `🏠 Home Assistant (${ha.origin}) peut afficher l'écran de la maison.\n1. Crée une clé de tablette (« Clé de tablette ») et copie son lien.\n2. Dans Home Assistant : Paramètres → Tableaux de bord → Ajouter → « Page web », adresse : ${od.origin}/maison#cle=<ta clé>\n   ou dans un tableau existant, une carte « Page web » :\n   type: iframe\n   url: ${od.origin}/maison#cle=<ta clé>\n   aspect_ratio: 62%${warn}` };
     } },
   ],

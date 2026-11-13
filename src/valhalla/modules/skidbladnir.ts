@@ -1,4 +1,4 @@
-// Skíðblaðnir — tes fichiers chez toi : espaces partagés par groupe (avec Vár), espace perso de chacun,
+// Nébuleuse — tes fichiers chez toi : espaces partagés par groupe (avec Persona), espace perso de chacun,
 // interface web (ordinateur et téléphone) derrière le proxy, liens de partage (expiration, mot de passe,
 // nombre de téléchargements), dépôts (on t'envoie des fichiers), envoi de gros fichiers, notes secrètes
 // chiffrées qui s'effacent après lecture, versions et corbeille, WebDAV (lecteur réseau), synchronisation
@@ -46,7 +46,7 @@ export const filesServer = () => srv;
 
 function journal(ctx: ModCtx, e: Record<string, unknown>): void { try { mkdirSync(ctx.dir, { recursive: true }); appendFileSync(join(ctx.dir, 'journal.jsonl'), `${JSON.stringify({ at: Date.now(), ...e })}\n`); } catch { /* disque plein */ } }
 function readJournal(ctx: ModCtx, n = 60): Array<Record<string, unknown> & { at: number }> { try { return readFileSync(join(ctx.dir, 'journal.jsonl'), 'utf8').trim().split('\n').slice(-n).map((l) => JSON.parse(l)).reverse(); } catch { return []; } }
-async function refreshPeople(ctx: ModCtx): Promise<void> { try { const r = await ctx.call('var', 'personnes', {}, 'connaître les groupes'); people = ((r.data as { people?: Person[] } | undefined)?.people) ?? people; } catch { /* Vár absent */ } }
+async function refreshPeople(ctx: ModCtx): Promise<void> { try { const r = await ctx.call('var', 'personnes', {}, 'connaître les groupes'); people = ((r.data as { people?: Person[] } | undefined)?.people) ?? people; } catch { /* Persona absent */ } }
 
 function view(ctx: ModCtx, sp: Space, groups: string[]): SpaceView | undefined {
   const r = rights(sp, groups); if (!r.read) return undefined;
@@ -104,7 +104,7 @@ function hub(ctx: ModCtx): Hub {
     fail: (ip: string, why: string) => {
       const l = [...(tries.get(ip) ?? []).filter((t) => Date.now() - t < 900_000), Date.now()]; tries.set(ip, l);
       journal(ctx, { what: 'refusé', ip, detail: why });
-      if (l.length === 5) { ctx.emit('essais_rates', { ip, raison: why }); void ctx.call('garmr', 'bannir', { ip, raison: `Skíðblaðnir : ${why}` }, `${ip} a raté 5 fois : ${why}`).catch(() => {}); }
+      if (l.length === 5) { ctx.emit('essais_rates', { ip, raison: why }); void ctx.call('garmr', 'bannir', { ip, raison: `Nébuleuse : ${why}` }, `${ip} a raté 5 fois : ${why}`).catch(() => {}); }
     },
     mascot: () => mascotSvg(),
   };
@@ -132,9 +132,9 @@ function runSync(ctx: ModCtx, j: SyncJob): string {
 }
 
 export function filesGraph(ctx: ModCtx): { nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail> } {
-  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Skíðblaðnir', sub: srv ? `en marche · port ${srv.port}` : 'arrêté', square: true, size: 18, color: srv ? '#4F9DDE' : '#7d8791', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
+  const nodes: GraphNode[] = [{ id: 'odin', label: 'Odin · Nébuleuse', sub: srv ? `en marche · port ${srv.port}` : 'arrêté', square: true, size: 18, color: srv ? '#4F9DDE' : '#7d8791', hub: true }], edges: GraphEdge[] = [], details: Record<string, GraphDetail> = {};
   const ph = s(ctx.settings.privateHost), pub = s(ctx.settings.publicHost);
-  if (ph) { nodes.push({ id: 'h:priv', label: ph, sub: 'connexion Vár', square: true, size: 11, color: '#7FB3E6' }); edges.push({ a: 'h:priv', b: 'odin', w: 2, color: '#7FB3E6' }); }
+  if (ph) { nodes.push({ id: 'h:priv', label: ph, sub: 'connexion Persona', square: true, size: 11, color: '#7FB3E6' }); edges.push({ a: 'h:priv', b: 'odin', w: 2, color: '#7FB3E6' }); }
   if (pub) { nodes.push({ id: 'h:pub', label: pub, sub: 'liens publics', square: true, size: 11, color: '#F6C177' }); edges.push({ a: 'h:pub', b: 'odin', w: 2, color: '#F6C177' }); }
   const groups = new Set<string>();
   for (const sp of spacesOf(ctx)) {
@@ -145,7 +145,7 @@ export function filesGraph(ctx: ModCtx): { nodes: GraphNode[]; edges: GraphEdge[
     for (const l of linksOf(ctx).filter((x) => x.space === sp.id && !x.off && x.expires > Date.now()).slice(-8)) { const lid = `l:${l.id}`; nodes.push({ id: lid, label: l.label ?? l.path, sub: `${l.kind} · ${l.downloads}`, size: 5, color: '#F0A040' }); edges.push({ a: id, b: lid, dash: true, color: '#F0A040' }); details[lid] = { kind: l.kind === 'depot' ? 'Dépôt' : 'Lien de partage', title: l.label ?? l.path, rows: [{ k: 'Par', v: l.by }, { k: 'Expire', v: new Date(l.expires).toLocaleString('fr-FR') }, { k: 'Utilisé', v: String(l.downloads) }, { k: 'Mot de passe', v: l.pass ? 'oui' : 'non' }], actions: [{ action: 'couper_lien', label: 'Couper le lien', input: { id: l.id } }] }; }
     for (const j of syncs(ctx).filter((x) => x.space === sp.id)) { const jid = `s:${j.id}`; nodes.push({ id: jid, label: basename(j.dir), sub: `synchro ${j.way === 'deux' ? '⇄' : j.way === 'vers_dossier' ? '→' : '←'}`, square: true, size: 8, color: '#7FB3E6' }); edges.push({ a: id, b: jid, w: 2, color: '#7FB3E6' }); details[jid] = { kind: 'Synchronisation', title: j.dir, subtitle: j.result ?? 'jamais lancée', rows: [{ k: 'Sens', v: j.way }, { k: 'Toutes les', v: `${j.every} min` }], actions: [{ action: 'synchroniser', label: 'Synchroniser maintenant', input: { id: j.id }, primary: true }] }; }
   }
-  for (const g of groups) { nodes.push({ id: `g:${g}`, label: g === '*' ? 'tout le monde' : g, sub: 'groupe (Vár)', size: 9, color: '#B48CF0' }); }
+  for (const g of groups) { nodes.push({ id: `g:${g}`, label: g === '*' ? 'tout le monde' : g, sub: 'groupe (Persona)', size: 9, color: '#B48CF0' }); }
   for (const p of people.filter((x) => x.active)) for (const g of p.groups) if (groups.has(g)) { if (!nodes.some((n) => n.id === `p:${p.login}`)) nodes.push({ id: `p:${p.login}`, label: p.name, sub: p.login, size: 6, color: '#E8EAEC' }); edges.push({ a: `p:${p.login}`, b: `g:${g}` }); }
   return { nodes, edges, details };
 }
@@ -153,9 +153,9 @@ export function filesGraph(ctx: ModCtx): { nodes: GraphNode[]; edges: GraphEdge[
 const SPACE_PARAMS = [{ key: 'nom', label: 'Nom de l\'espace (ex. Famille)', kind: 'text' as const, required: true }, { key: 'lecture', label: 'Groupes qui peuvent lire (« * » : tout le monde)', kind: 'text' as const, default: 'famille' }, { key: 'ecriture', label: 'Groupes qui peuvent écrire', kind: 'text' as const, default: 'famille' }, { key: 'quota_go', label: 'Place maximale (Go, 0 : sans limite)', kind: 'number' as const, default: 100 }, { key: 'versions', label: 'Versions gardées par fichier', kind: 'number' as const, default: 10 }, { key: 'dossier', label: 'Dossier sur le disque (vide : dans Odin)', kind: 'text' as const, default: '' }];
 
 export const skidbladnir: Module = {
-  id: 'skidbladnir', name: 'Skíðblaðnir', family: 'Données',
+  id: 'skidbladnir', name: 'Nébuleuse', family: 'Données',
   what: 'Tes fichiers chez toi : espaces partagés par groupe, espace perso de chacun, liens de partage, dépôts, notes secrètes, versions, corbeille, lecteur réseau et synchro de dossiers.',
-  does: ['espaces partagés par groupe (Vár) : lecture ou écriture, quota', 'espace perso pour chaque personne', 'interface web ordinateur et téléphone (téléverser, glisser-déposer, dossiers, renommer, déplacer, chercher, aperçu photo / vidéo / son)', 'versions gardées à chaque remplacement, restaurables', 'corbeille 30 jours (rien n\'est effacé d\'un coup)', 'liens de partage : expiration, mot de passe, nombre de téléchargements, archive .zip', 'dépôt : quelqu\'un t\'envoie des fichiers par un lien', 'envoi de gros fichiers par lien temporaire', 'notes secrètes chiffrées dans le navigateur, effacées après lecture', 'WebDAV : lecteur réseau sur Windows, Mac, Linux et applis du téléphone (mot de passe d\'appli)', 'synchronisation de dossiers (disque, clé USB, NAS) dans les deux sens, conflits gardés', 'antivirus sur chaque fichier reçu : le dangereux est mis de côté', '5 mots de passe faux sur un lien → adresse bannie', 'graphe : espaces, groupes, personnes, liens, synchros'],
+  does: ['espaces partagés par groupe (Persona) : lecture ou écriture, quota', 'espace perso pour chaque personne', 'interface web ordinateur et téléphone (téléverser, glisser-déposer, dossiers, renommer, déplacer, chercher, aperçu photo / vidéo / son)', 'versions gardées à chaque remplacement, restaurables', 'corbeille 30 jours (rien n\'est effacé d\'un coup)', 'liens de partage : expiration, mot de passe, nombre de téléchargements, archive .zip', 'dépôt : quelqu\'un t\'envoie des fichiers par un lien', 'envoi de gros fichiers par lien temporaire', 'notes secrètes chiffrées dans le navigateur, effacées après lecture', 'WebDAV : lecteur réseau sur Windows, Mac, Linux et applis du téléphone (mot de passe d\'appli)', 'synchronisation de dossiers (disque, clé USB, NAS) dans les deux sens, conflits gardés', 'antivirus sur chaque fichier reçu : le dangereux est mis de côté', '5 mots de passe faux sur un lien → adresse bannie', 'graphe : espaces, groupes, personnes, liens, synchros'],
   from: ['Sync-in', 'Erugo', 'Syncthing', 'PrivateBin'], upstream: ['Sync-in/server', 'ErugoOSS/Erugo', 'syncthing/syncthing', 'PrivateBin/PrivateBin'],
   words: ['fichiers partages', 'partage de fichiers', 'espace de fichiers', 'lien de partage', 'envoyer un gros fichier', 'gros fichiers', 'note secrete', 'synchroniser un dossier', 'synchro de dossier', 'webdav', 'lecteur reseau', 'mes fichiers'],
   actions: [
@@ -178,7 +178,7 @@ export const skidbladnir: Module = {
       const x = await ensureServer(ctx), cible = `http://127.0.0.1:${x.port}`, out: string[] = [];
       for (const d of [f, p]) { const r = await ctx.call('valgrind', 'ajouter', { domaines: d, cible, https: s(i.https) || 'letsencrypt', websocket: false, surveiller: d === f, dns_maison: true }, `servir ${d}`).catch((e) => ({ ok: false, text: (e as Error).message })); out.push(r.ok === false && !/déjà utilisé/.test(r.text) ? `⚠ ${d} : ${r.text}` : `✓ ${d} dans le proxy`); }
       const v = await ctx.call('var', 'proteger_site', { domaine: f, groupes: '*' }, `réserver ${f} aux personnes connectées`).catch((e) => ({ ok: false, text: (e as Error).message }));
-      out.push(v.ok === false ? `⚠ connexion Vár : ${v.text} (règle d'abord le portail dans Vár)` : `✓ ${f} demande la connexion d'Odin`);
+      out.push(v.ok === false ? `⚠ connexion Persona : ${v.text} (règle d'abord le portail dans Persona)` : `✓ ${f} demande la connexion d'Odin`);
       ctx.saveSettings({ privateHost: f, publicHost: p });
       return { text: `🌐 Fichiers en ligne :\n${out.join('\n')}\nOuvre https://${f}. Lecteur réseau : https://${p}/dav/ (mot de passe d'appli).` };
     } },
@@ -189,8 +189,8 @@ export const skidbladnir: Module = {
       return { text: `🔗 https://${s(ctx.settings.publicHost) || '(nom des liens publics : « Mettre en ligne »)'}/p/${token}\nValable jusqu'au ${new Date(link.expires).toLocaleDateString('fr-FR')}${link.pass ? ', avec mot de passe' : ''}.`, data: { id: link.id } };
     }, undo: (_i, r) => ({ action: 'couper_lien', input: { id: (r.data as { id: string }).id }, label: 'Couper le lien' }) },
     { id: 'couper_lien', label: 'Couper un lien', what: 'Le lien ne marche plus', quick: false, params: [{ key: 'id', label: 'Lien', kind: 'text', required: true }], run: (ctx, i) => { const l = linksOf(ctx); const x = l.find((y) => y.id === s(i.id)); if (!x) throw new Error('lien inconnu'); x.off = true; ctx.saveSettings({ links: l }); return { text: `✂ Lien « ${x.label ?? x.path} » coupé.` }; } },
-    { id: 'mot_de_passe_appli', label: 'Mot de passe d\'appli (lecteur réseau)', what: 'Pour monter les fichiers sur un ordinateur ou une appli du téléphone (WebDAV). Affiché une seule fois', quick: false, params: [{ key: 'login', label: 'Identifiant de la personne (Vár)', kind: 'text', required: true }, { key: 'nom', label: 'Pour quel appareil (ex. PC du bureau)', kind: 'text', default: 'appareil' }], run: async (ctx, i) => {
-      await refreshPeople(ctx); const login = s(i.login).toLowerCase(); if (!people.some((p) => p.login === login && p.active)) throw new Error(`${login} n'a pas de compte actif dans Vár`);
+    { id: 'mot_de_passe_appli', label: 'Mot de passe d\'appli (lecteur réseau)', what: 'Pour monter les fichiers sur un ordinateur ou une appli du téléphone (WebDAV). Affiché une seule fois', quick: false, params: [{ key: 'login', label: 'Identifiant de la personne (Persona)', kind: 'text', required: true }, { key: 'nom', label: 'Pour quel appareil (ex. PC du bureau)', kind: 'text', default: 'appareil' }], run: async (ctx, i) => {
+      await refreshPeople(ctx); const login = s(i.login).toLowerCase(); if (!people.some((p) => p.login === login && p.active)) throw new Error(`${login} n'a pas de compte actif dans Persona`);
       const pw = randomBytes(18).toString('base64url'), id = randomBytes(4).toString('hex');
       ctx.saveSettings({ appPw: [...appPws(ctx), { id, login, label: s(i.nom).slice(0, 40) || 'appareil', hash: sha(pw), created: Date.now() }] });
       const pub = s(ctx.settings.publicHost) || 'partage.exemple.fr';
@@ -232,9 +232,9 @@ export const skidbladnir: Module = {
       kpis: [{ label: 'Espaces', value: String(sps.length) }, { label: 'Liens actifs', value: String(live.length) }, { label: 'Synchros', value: String(syncs(ctx).length) }, { label: 'Mis de côté', value: String(held(ctx).length), tone: held(ctx).length ? 'mauvais' : undefined }],
       sections: [
         ...(srv && ph && sps.length ? [] : [{ kind: 'steps' as const, title: 'Mettre en route', items: [
-          { title: 'Créer un espace', detail: 'Ex. « Famille » : lu et écrit par le groupe famille de Vár (formulaire à droite).', done: sps.length > 0 },
+          { title: 'Créer un espace', detail: 'Ex. « Famille » : lu et écrit par le groupe famille de Persona (formulaire à droite).', done: sps.length > 0 },
           { title: 'Démarrer le serveur des fichiers', detail: 'Il reste sur la machine ; le proxy Valgrind le sert sous ton nom.', done: Boolean(srv), action: srv ? undefined : 'demarrer', button: 'Démarrer' },
-          { title: 'Mettre en ligne', detail: 'Deux noms : fichiers.exemple.fr (connexion Vár) et partage.exemple.fr (liens publics). Publiés aussi par le tunnel Cloudflare s\'il est réglé.', done: Boolean(ph) },
+          { title: 'Mettre en ligne', detail: 'Deux noms : fichiers.exemple.fr (connexion Persona) et partage.exemple.fr (liens publics). Publiés aussi par le tunnel Cloudflare s\'il est réglé.', done: Boolean(ph) },
         ] }]),
         { kind: 'graph', title: 'Graphe des fichiers', ...filesGraph(ctx), legend: [['#4F9DDE', 'Odin'], ['#57C98A', 'espace'], ['#B48CF0', 'groupe'], ['#F0A040', 'lien de partage'], ['#7FB3E6', 'synchro / nom']], empty: 'Crée un premier espace à droite.' },
         { kind: 'table', title: 'Espaces', columns: ['Espace', 'Lecture', 'Écriture', 'Utilisé', 'Dossier'], empty: 'Aucun espace.', rows: sps.map((sp) => { const root = rootOf(ctx, sp), used = existsSync(root) ? S.usage(root) : 0; return { cells: [sp.name, sp.read.join(', '), sp.write.join(', '), `${human(used)}${sp.quotaGb ? ` / ${sp.quotaGb} Go` : ''}`, root], tone: sp.quotaGb && used > 0.9 * sp.quotaGb * 1024 ** 3 ? 'attention' as const : undefined, actions: [{ action: 'vider_corbeille', label: 'Vider la corbeille', input: { espace: sp.id } }] }; }) },
@@ -242,15 +242,15 @@ export const skidbladnir: Module = {
         { kind: 'table', title: 'Synchros de dossiers', columns: ['Espace', 'Dossier', 'Sens', 'Rythme', 'Dernière fois'], empty: 'Aucune synchro.', rows: syncs(ctx).map((j) => ({ cells: [j.space + (j.sub ? `/${j.sub}` : ''), j.dir, j.way, `${j.every} min`, j.last ? `${new Date(j.last).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} · ${j.result}` : 'jamais'], actions: [{ action: 'synchroniser', label: 'Maintenant', input: { id: j.id } }, { action: 'retirer_synchro', label: 'Retirer', input: { id: j.id } }] })) },
         { kind: 'table', title: 'Mots de passe d\'appli (lecteur réseau)', columns: ['Personne', 'Appareil', 'Créé', 'Dernière utilisation'], empty: 'Aucun.', rows: appPws(ctx).map((x) => ({ cells: [x.login, x.label, new Date(x.created).toLocaleDateString('fr-FR'), x.last ? new Date(x.last).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais'], actions: [{ action: 'retirer_mot_de_passe_appli', label: 'Retirer', input: { id: x.id } }] })) },
         ...(held(ctx).length ? [{ kind: 'table' as const, title: 'Fichiers mis de côté par l\'antivirus', columns: ['Fichier', 'Espace', 'Menace', 'Envoyé par', 'Le'], rows: held(ctx).map((h) => ({ cells: [h.rel, h.space, h.why, h.by, new Date(h.at).toLocaleString('fr-FR')], tone: 'mauvais' as const, actions: [{ action: 'liberer', label: 'Publier quand même', input: { id: h.id } }] })) }] : []),
-        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Sól (photos)', detail: 'les photos du téléphone rangées dans ton espace, albums partagés par lien' }, { title: 'Snotra (bureau)', detail: 'ouvrir et modifier à plusieurs les documents des espaces' }, { title: 'Fensalir (disques)', detail: 'les espaces sur les disques réunis, avec parité' }] },
+        { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Hélios (photos)', detail: 'les photos du téléphone rangées dans ton espace, albums partagés par lien' }, { title: 'Plume (bureau)', detail: 'ouvrir et modifier à plusieurs les documents des espaces' }, { title: 'Pyramide (disques)', detail: 'les espaces sur les disques réunis, avec parité' }] },
         { kind: 'log', title: 'Journal', lines: readJournal(ctx, 20).map((e) => `${new Date(e.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} · ${e.what}${e.who ? ` · ${e.who}` : ''}${e.path ? ` · ${e.path}` : ''}${e.detail ? ` (${e.detail})` : ''}`) },
       ],
       side: ['espace', 'publier', 'lien', 'mot_de_passe_appli', 'synchro'].map((id) => { const a = skidbladnir.actions.find((x) => x.id === id)!; return { kind: 'form' as const, title: a.label, action: a.id, submit: 'Valider', params: a.params ?? [] }; }),
     };
   },
-  async start(ctx) { appCtx = ctx; await refreshPeople(ctx); if (ctx.settings.on === true) { try { await ensureServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Les fichiers (Skíðblaðnir) n\'ont pas pu démarrer', detail: (e as Error).message, key: 'skid-demarrage' }); } } },
+  async start(ctx) { appCtx = ctx; await refreshPeople(ctx); if (ctx.settings.on === true) { try { await ensureServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Les fichiers (Nébuleuse) n\'ont pas pu démarrer', detail: (e as Error).message, key: 'skid-demarrage' }); } } },
   stop() { srv?.stop(); srv = undefined; },
-  // Chaque minute : personnes de Vár, synchros dues, liens et notes expirés, corbeille de plus de 30 jours, place.
+  // Chaque minute : personnes de Persona, synchros dues, liens et notes expirés, corbeille de plus de 30 jours, place.
   watch: { every: 60, async run(ctx) {
     await refreshPeople(ctx);
     for (const j of syncs(ctx)) if (!j.last || Date.now() - j.last >= j.every * 60_000) { try { runSync(ctx, j); } catch (e) { ctx.alert({ level: 'moyenne', title: `Synchro de ${basename(j.dir)} impossible`, detail: (e as Error).message, key: `skid-sync-${j.id}` }); } }

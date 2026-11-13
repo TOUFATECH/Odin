@@ -1,4 +1,4 @@
-// Rán (appli) : les paquets réseau, lus en entier et décodés couche par couche (OSI), comme Wireshark.
+// Ariane (appli) : les paquets réseau, lus en entier et décodés couche par couche (OSI), comme Wireshark.
 // Carte interactive de qui parle à qui (machines du réseau et sites d'Internet, avec des flèches), liste des
 // paquets, détail de chaque paquet (couches, champs, contenu brut) et explication en français par Odin.
 // « Lis les paquets » (tout le réseau ou une machine), « Pause » : plus rien n'est lu.
@@ -44,7 +44,7 @@ export function traffic(home: string, sinceMin = 60) {
 const LEARN_MS = 24 * 3600e3;
 
 export const ran: Module = {
-  id: 'ran', name: 'Rán', family: 'Sécurité',
+  id: 'ran', name: 'Ariane', family: 'Sécurité',
   what: 'Les paquets réseau lus en entier et décodés couche par couche, comme Wireshark : la carte de qui parle à qui, chaque paquet en détail, et Odin qui explique.',
   does: ['lit tous les paquets (tout le réseau ou une machine) et les décode couche par couche : liaison, réseau, transport, chiffrement, application', 'reconnaît les applis et les sites : DNS, HTTP, HTTPS (nom du site), QUIC, DHCP, SSH, mDNS, UPnP, NTP…', 'carte interactive : machines et sites d\'Internet reliés par des flèches, de qui vers qui', 'détail de chaque paquet : tous les champs et le contenu brut (hexadécimal) ; le contenu chiffré reste illisible', 'pause et reprise de la lecture ; historique 7 jours ; Odin explique ce qui se passe'],
   from: ['Wireshark', 'tcpdump'], upstream: ['wireshark/wireshark', 'the-tcpdump-group/tcpdump'],
@@ -114,7 +114,7 @@ export const ran: Module = {
         })(),
         { kind: 'list', title: 'Points de capture', empty: 'Aucune lecture en cours.',
           items: rec.flatMap((sc) => state(sc).sources.map((x) => ({ title: `${label(sc)} — ${x.label}`, detail: x.error ?? (x.machine ? 'tout le trafic de cette machine' : 'ce qui passe par la carte réseau d\'Odin'), meta: `${x.count} paquet(s)`, tone: x.error ? 'mauvais' as const : 'bon' as const }))) },
-        { kind: 'text', title: 'Ce que Rán voit', text: 'Rán lit les paquets en entier et les décode couche par couche. Ce qui est chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark : on voit qui parle à qui, le nom du site (quand il passe en clair), le volume, pas le contenu. Pour tout voir d\'une machine, donne à Odin un accès à cette machine (Réglages → Droits et machines) : un hôte Proxmox montre tout le trafic de ses machines virtuelles, un routeur Linux celui de tout le réseau. Sinon, sur un réseau avec switch ou box, Odin ne voit que ses propres échanges et ce que les machines diffusent à tout le réseau.' },
+        { kind: 'text', title: 'Ce que Ariane voit', text: 'Ariane lit les paquets en entier et les décode couche par couche. Ce qui est chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark : on voit qui parle à qui, le nom du site (quand il passe en clair), le volume, pas le contenu. Pour tout voir d\'une machine, donne à Odin un accès à cette machine (Réglages → Droits et machines) : un hôte Proxmox montre tout le trafic de ses machines virtuelles, un routeur Linux celui de tout le réseau. Sinon, sur un réseau avec switch ou box, Odin ne voit que ses propres échanges et ce que les machines diffusent à tout le réseau.' },
       ],
     };
   },

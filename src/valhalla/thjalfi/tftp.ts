@@ -1,4 +1,4 @@
-// Þjálfi · serveur TFTP (RFC 1350, options 2347/2348/2349 : blksize, tsize, timeout), lecture seule.
+// Genèse · serveur TFTP (RFC 1350, options 2347/2348/2349 : blksize, tsize, timeout), lecture seule.
 // Il ne sert que le petit chargeur de démarrage (iPXE) ; tout le reste passe ensuite par HTTP, bien plus rapide.
 // Chaque transfert a sa propre prise réseau (« TID »), avec renvoi en cas de perte. Écrit pour Odin.
 import dgram from 'node:dgram';

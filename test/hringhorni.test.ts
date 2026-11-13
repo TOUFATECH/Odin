@@ -154,7 +154,7 @@ test('dans la discussion : les commandes comme dans un terminal, sans « odin »
   assert.equal(graveOf('ps'), undefined); assert.equal(graveOf('logs web'), undefined); assert.equal(graveOf('stop web'), undefined);
 });
 
-test('dans la discussion : « ps » et « logs web » partent vers Naglfar sans IA ; « stop la musique » non', async () => {
+test('dans la discussion : « ps » et « logs web » partent vers Argo sans IA ; « stop la musique » non', async () => {
   const { offlineAct } = await import('../src/core/offline-act.ts');
   const { useEngine } = await import('../src/valhalla/modules/naglfar.ts');
   const { fakeEngine } = await import('./helpers.ts');

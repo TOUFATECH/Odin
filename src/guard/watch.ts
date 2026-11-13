@@ -1,4 +1,4 @@
-// Vörðr — le gardien qui veille : surveillance de la maison numérique et audit de sécurité du réseau.
+// Pulsar — le gardien qui veille : surveillance de la maison numérique et audit de sécurité du réseau.
 //
 // - Appareils importants (que tu as marqués) : alerte quand l'un tombe, puis quand il revient.
 // - Disques de la machine d'Odin presque pleins.
