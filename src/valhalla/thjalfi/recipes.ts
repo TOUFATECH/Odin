@@ -58,6 +58,8 @@ export interface MenuIn {
   ecran?: boolean;
   /** l'habillage de l'écran texte (image de fond, couleurs) : lignes iPXE déjà prêtes (voir ecran.ts textLook) */
   look?: string[];
+  /** l'écran graphique sur le PC lui-même (petit système) : lignes iPXE après « :ecran » ; sans elles, on attend un choix fait sur un téléphone */
+  kiosk?: string[];
   /** la famille d'une entrée (Windows, Linux, Serveurs, Outils), pour ranger le menu */
   family?: (e: Entry) => string;
 }
@@ -67,8 +69,14 @@ const q = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').repl
 /** Le script iPXE d'une machine : menu, entrée par défaut, démarrage de chaque ISO. Pur. */
 export function menu(m: MenuIn): string {
   const L = ['#!ipxe', `# Odin · Genèse — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ...(m.look ?? []), ''];
+  // L'écran de démarrage (maquette A1) : ce PC, son adresse, Odin trouvé ; Échap = son disque.
+  if (m.timeout > 0) {
+    const host = /^https?:\/\/([^/]+)/.exec(m.base)?.[1] ?? m.base;
+    L.push('echo', 'echo ODIN - Genese : demarrage par le reseau', 'echo Carte reseau .... ${netX/mac}', 'echo Micrologiciel ... ${platform} ${buildarch}', 'echo Adresse ......... ${netX/ip}', `echo Serveur Odin .... ${host} OK`, 'echo',
+      'prompt --key 0x1b --timeout 2500 Menu dans 3 s   (Echap : demarrer sur le disque de ce PC) && goto local ||', '');
+  }
   L.push(`menu ODIN - Choisis un systeme pour ce PC (${m.mac})`);
-  if (m.ecran) L.push('item ecran Choisir sur l\'ecran d\'Odin (telephone ou PC du reseau)');
+  if (m.ecran) L.push(`item ecran Choisir sur l'ecran d'Odin ${m.kiosk?.length ? '(ici en graphique, ou sur un telephone)' : '(telephone ou PC du reseau)'}`);
   L.push('item local Demarrer sur le disque de cette machine');
   // Les systèmes rangés par famille (maquette « Démarrage réseau ») : Windows, Linux, Serveurs, Outils
   const fam = (e: Entry) => m.family?.(e) ?? 'ISO';
@@ -80,7 +88,7 @@ export function menu(m: MenuIn): string {
   L.push(`choose --default ${m.def === 'local' || (m.def === 'ecran' && m.ecran) ? m.def : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
   L.push(':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1', '');
   L.push(':shell', 'shell', 'goto local', '');
-  if (m.ecran) L.push(':ecran', `chain ${m.base}/ecran/attente.ipxe?mac=${m.mac}&fw=\${platform} || goto local`, '');
+  if (m.ecran) L.push(':ecran', ...(m.kiosk ?? []), ':ecran-tel', `chain ${m.base}/ecran/attente.ipxe?mac=${m.mac}&fw=\${platform} || goto local`, '');
   for (const e of m.entries) L.push(...entry(m, e), '');
   L.push(':echec', 'echo Le demarrage a echoue. Retour au menu dans 10 s.', 'sleep 10', `chain ${m.base}/menu.ipxe?mac=${m.mac} || goto local`);
   return `${L.join('\n')}\n`;

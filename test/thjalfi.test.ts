@@ -317,3 +317,37 @@ test('thèmes de l\'écran : texte iPXE (couleurs + image de fond PNG dessinée 
     assert.equal((await w.get('/ecran/fond-texte.png')).status, 404);
   } finally { w.end(); }
 });
+
+test('écran sur le PC (façon B) : petit système Alpine vérifié, calque par machine, paquets copiés par Odin, redémarre après un choix', async () => {
+  const { tarGz, untar, parseLatest, kioskOverlay } = await import('../src/valhalla/thjalfi/ecran-pc.ts');
+  const tgz = tarGz([{ name: 'boot', dir: true }, { name: 'boot/vmlinuz-lts', data: 'NOYAU' }, { name: 'boot/initramfs-lts', data: 'INITRAMFS' }, { name: 'boot/modloop-lts', data: 'MODLOOP' }, { name: 'boot/config-lts', data: 'x' }]);
+  const sha = createHash('sha256').update(tgz).digest('hex');
+  const yaml = `---\n-\n  title: "Standard"\n  branch: v3.24\n  version: 3.24.1\n  flavor: alpine-standard\n  file: alpine-standard-3.24.1-x86_64.iso\n  sha256: ${'a'.repeat(64)}\n-\n  title: "Netboot"\n  branch: v3.24\n  arch: x86_64\n  version: 3.24.1\n  flavor: alpine-netboot\n  file: alpine-netboot-3.24.1-x86_64.tar.gz\n  sha256: ${sha}\n  size: ${tgz.length}\n`;
+  assert.deepEqual(parseLatest(yaml), { branch: 'v3.24', version: '3.24.1', file: 'alpine-netboot-3.24.1-x86_64.tar.gz', sha256: sha, size: tgz.length });
+  const ov = untar(gunzipSync(kioskOverlay({ base: 'http://10.0.0.2:16000', mac: '52:54:00:ee:00:01', branch: 'v3.24' })));
+  assert.match(ov.get('etc/apk/world')!.toString(), /^cage$/m); assert.match(ov.get('etc/apk/world')!.toString(), /^chromium$/m);
+  assert.equal(ov.get('etc/apk/repositories')!.toString(), 'http://10.0.0.2:16000/alpine/v3.24/main\nhttp://10.0.0.2:16000/alpine/v3.24/community\n');
+  const st = ov.get('etc/local.d/odin-ecran.start')!.toString(); assert.match(st, /--kiosk/); assert.match(st, /ecran\?mac=52:54:00:ee:00:01&pc=1/); assert.match(st, /"relance":true/); assert.match(st, /efibootmgr -q -n/);
+  let apkCalls = 0;
+  const files: Record<string, Buffer | string> = { 'https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/latest-releases.yaml': yaml, 'https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-netboot-3.24.1-x86_64.tar.gz': tgz };
+  const w = await world((async (u: string) => { if (/\/main\/x86_64\/cage-/.test(u)) { apkCalls++; return new Response('APK'); } return u in files ? new Response(files[u]) : new Response('non', { status: 404 }); }) as never);
+  const mac = '52:54:00:ee:00:01';
+  try {
+    assert.doesNotMatch((await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text, /vmlinuz-lts/, 'pas encore prêt : le choix se fait sur un téléphone');
+    assert.match((await w.v.act('thjalfi', 'preparer')).text, /✅ Écran sur le PC : Alpine 3\.24\.1/);
+    const m = (await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text;
+    assert.match(m, /item ecran Choisir sur l'ecran d'Odin \(ici en graphique, ou sur un telephone\)/);
+    assert.match(m, /:ecran\necho Odin prepare[^\n]*\nkernel http:\/\/127\.0\.0\.1:\d+\/boot\/alpine\/vmlinuz-lts initrd=initramfs-lts .*ip=dhcp alpine_repo=http:\/\/127\.0\.0\.1:\d+\/alpine\/v3\.24\/main,.*apkovl=http:\/\/127\.0\.0\.1:\d+\/ecran\/ovl\/525400ee0001\.apkovl\.tar\.gz \|\| goto ecran-tel/);
+    assert.match(m, /:ecran-tel\nchain .*\/ecran\/attente\.ipxe/, 'si le petit système ne démarre pas : choix sur un téléphone');
+    assert.match(m, /prompt --key 0x1b --timeout 2500 .*&& goto local \|\|/, 'écran de démarrage, Échap = disque');
+    assert.equal((await w.get('/boot/alpine/vmlinuz-lts')).text, 'NOYAU');
+    const o = await w.get('/ecran/ovl/525400ee0001.apkovl.tar.gz'); assert.equal(o.status, 200); assert.ok(untar(gunzipSync(o.buf)).has('etc/apk/world'));
+    assert.equal((await w.get('/alpine/v3.24/main/x86_64/cage-0.2.0-r0.apk')).text, 'APK'); assert.equal((await w.get('/alpine/v3.24/main/x86_64/cage-0.2.0-r0.apk')).text, 'APK'); assert.equal(apkCalls, 1, 'copié une fois, servi ensuite par Odin');
+    assert.ok((await w.get('/alpine/v3.24/main/x86_64/..%2F..%2Fsecrets.json')).status >= 400);
+    assert.equal(JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text).relance, false);
+    await w.get(`/ecran/choisir?mac=${mac}&mode=disque`);
+    assert.equal(JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text).relance, true, 'un choix : le petit système redémarre le PC');
+    await w.v.act('thjalfi', 'ecran', { surPc: false });
+    assert.doesNotMatch((await w.get(`/menu.ipxe?mac=52:54:00:ee:00:02&fw=efi`)).text, /vmlinuz-lts/, 'désactivé : retour au téléphone');
+  } finally { w.end(); }
+});

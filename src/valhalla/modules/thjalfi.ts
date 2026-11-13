@@ -20,6 +20,8 @@ import { debianPreseed, detect, kickstart, menu, odinCmd, silentArgs, ubuntuMeta
 import { normMac, PxeHttp } from '../thjalfi/server.ts';
 import { DISPOSITIONS, TEXT_THEMES, category, TEXT_THEME_IDS, THEMES, odinSays, systems, textLook, textThemeOf, themeOf, type Disposition, type TextTheme } from '../thjalfi/ecran.ts';
 import { imageKind, textBackground } from '../thjalfi/fond.ts';
+import { ALPINE_MIRROR, kioskBoot, kioskOverlay, parseLatest, untar } from '../thjalfi/ecran-pc.ts';
+import { gunzipSync } from 'node:zlib';
 import { ecranPage } from '../thjalfi/ecran-page.ts';
 import { TftpServer } from '../thjalfi/tftp.ts';
 import { pxeHook } from '../vidarr/dhcp.ts';
@@ -37,7 +39,7 @@ export interface Done { at: number; mac: string; host?: string; ip?: string; iso
 interface Choix { iso: string; mode: 'essai' | 'installer' | 'disque'; at: number }
 /** « Installer pour moi » demandé depuis l'écran : rien ne s'efface sans ton accord. */
 export interface Demande { id: string; mac: string; iso: string; isoName: string; at: number; statut: 'attente' | 'acceptee' | 'refusee' | 'sans_effacer'; decide?: number; host?: string; depuis?: string }
-export interface EcranCfg { actif: boolean; parDefaut: boolean; disposition: Disposition; theme: ReturnType<typeof themeOf>; texte: TextTheme; attente: number }
+export interface EcranCfg { actif: boolean; parDefaut: boolean; disposition: Disposition; theme: ReturnType<typeof themeOf>; texte: TextTheme; attente: number; /** l'écran graphique sur le PC lui-même (petit système) quand il est prêt */ surPc?: boolean }
 interface Ports { http: number; tftp: number; dhcp: number; pxe: number; client: number }
 
 /** Les chargeurs officiels (iPXE, wimboot) : téléchargés depuis leurs sites, jamais modifiés, analysés par Asclépios. */
@@ -79,6 +81,39 @@ export function thjalfi(): Module {
     try { const data = readFileSync(fondFile(ctx, kind)), k = imageKind(data); if (k) return { type: `image/${k}`, data }; } catch { /* pas d'image à toi */ }
     if (kind === 'texte') { const t = ecranCfg(ctx).texte, data = t === 'classique' ? undefined : textBackground(t); if (data) return { type: 'image/png', data }; }
     return undefined;
+  }
+  // L'écran graphique sur le PC lui-même (façon B) : le petit système d'Alpine, prêt quand ses trois fichiers sont là.
+  const alpineDir = (ctx: ModCtx) => join(bootDir(ctx), 'alpine');
+  const KIOSK_FILES = ['vmlinuz-lts', 'initramfs-lts', 'modloop-lts'];
+  function kiosk(ctx: ModCtx): { branch: string; version: string } | undefined {
+    const a = ctx.settings.alpine as { branch?: string; version?: string } | undefined;
+    return a?.branch && a.version && ecranCfg(ctx).surPc !== false && KIOSK_FILES.every((f) => existsSync(join(alpineDir(ctx), f))) ? { branch: a.branch, version: a.version } : undefined;
+  }
+  /** La copie locale des paquets d'Alpine : un paquet est gardé (signé par Alpine, vérifié par apk sur le PC) ; l'index est relu toutes les 6 h. */
+  async function alpineCopy(ctx: ModCtx, path: string): Promise<Buffer | undefined> {
+    if (!/^v\d+\.\d+\/(main|community)\/x86_64\/[\w.+-]+$/.test(path) || path.includes('..')) return undefined;
+    const f = join(ctx.dir, 'alpine-copie', path), index = /APKINDEX/.test(path);
+    try { const st = statSync(f); if (!index || Date.now() - st.mtimeMs < 6 * 3600_000) return readFileSync(f); } catch { /* pas encore copié */ }
+    try {
+      const r = await ctx.fetch(`${ALPINE_MIRROR}/${path}`, { signal: AbortSignal.timeout(300_000), headers: { 'user-agent': 'Odin-Thjalfi/1' } });
+      if (!r.ok) return existsSync(f) ? readFileSync(f) : undefined;
+      const b = Buffer.from(await r.arrayBuffer()); mkdirSync(join(f, '..'), { recursive: true }); writeFileSync(`${f}.part`, b); renameSync(`${f}.part`, f); return b;
+    } catch { return existsSync(f) ? readFileSync(f) : undefined; }
+  }
+  /** Télécharge le petit système officiel d'Alpine (archive « netboot », empreinte publiée vérifiée) et garde noyau, initramfs et modloop. */
+  async function prepareKiosk(ctx: ModCtx): Promise<string> {
+    let rel; try { const r = await ctx.fetch(`${ALPINE_MIRROR}/latest-stable/releases/x86_64/latest-releases.yaml`, { signal: AbortSignal.timeout(30_000) }); if (r.ok) rel = parseLatest(await r.text()); } catch { /* hors ligne */ }
+    if (!rel) return 'Écran sur le PC : liste des versions d\'Alpine illisible (Internet ?)';
+    const have = ctx.settings.alpine as { version?: string } | undefined;
+    if (have?.version === rel.version && kiosk(ctx)) return `✅ Écran sur le PC : Alpine ${rel.version} déjà prêt`;
+    const tgz = join(alpineDir(ctx), rel.file), got = await fetchTo(ctx, `${ALPINE_MIRROR}/${rel.branch}/releases/x86_64/${rel.file}`, tgz, rel.sha256, 900_000);
+    if (!got.ok) return `Écran sur le PC : ${got.text}`;
+    try {
+      const files = untar(gunzipSync(readFileSync(tgz)));
+      for (const f of KIOSK_FILES) { const b = files.get(`boot/${f}`); if (!b) throw new Error(`${f} absent de l'archive`); writeFileSync(join(alpineDir(ctx), `${f}.part`), b); renameSync(join(alpineDir(ctx), `${f}.part`), join(alpineDir(ctx), f)); }
+    } catch (e) { return `Écran sur le PC : ${(e as Error).message}`; } finally { rmSync(tgz, { force: true }); }
+    ctx.saveSettings({ alpine: { branch: rel.branch, version: rel.version } });
+    return `✅ Écran sur le PC : Alpine ${rel.version} (noyau, initramfs, modloop ; empreinte vérifiée)`;
   }
   /** Une image envoyée par l'interface (« image:clé », déposée dans images/) devient le fond ; « effacer » remet celui du thème. */
   function setFond(ctx: ModCtx, kind: 'texte' | 'graphique', ref: unknown, reset: unknown): string {
@@ -218,7 +253,7 @@ export function thjalfi(): Module {
       return codename && existsSync(join(d, 'linux')) && existsSync(join(d, 'initrd.gz')) ? { kernel: `boot/debian/${codename}/linux`, initrd: `boot/debian/${codename}/initrd.gz` } : undefined;
     };
     const look = textLook(ec.texte, fondPerso(ctx, 'texte') || ec.texte !== 'classique' ? `${base(ctx)}/ecran/fond-texte.png` : undefined);
-    return menu({ base: base(ctx), mac, entries: list.map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! })), def, timeout, auto, netboot: nb, ecran: ec.actif && Boolean(mac), look, family: (e) => category(e.recipe, e.name) });
+    return menu({ base: base(ctx), mac, entries: list.map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! })), def, timeout, auto, netboot: nb, ecran: ec.actif && Boolean(mac), look, family: (e) => category(e.recipe, e.name), kiosk: (() => { const k = kiosk(ctx); return k && mac ? kioskBoot({ base: base(ctx), mac, branch: k.branch }) : undefined; })() });
   }
 
   // ---------------- L'écran d'Odin (choisir sur un téléphone ou un PC du réseau) ----------------
@@ -227,7 +262,7 @@ export function thjalfi(): Module {
     for (const i of list) isoNames.set(i.id, i.name);
     const now = ctx.now().getTime(), d = mac ? demandes(ctx).filter((x) => x.mac === mac && (x.statut === 'attente' || now - (x.decide ?? x.at) < 10 * 60_000)).at(-1) : undefined;
     const last = mac ? history(ctx, 300).find((h) => h.mac === mac && h.result === 'fini') : undefined;
-    return { mac, fw, systemes: sys, disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), machine: m ?? null, demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
+    return { mac, fw, systemes: sys, disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), relance: Boolean(mac && (choiceOf(ctx, mac) || (rules(ctx).find((x) => x.mac === mac)?.auto && !rules(ctx).find((x) => x.mac === mac)?.fait))), machine: m ?? null, demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
   }
   async function ecranChoisir(ctx: ModCtx, mac: string, iso: string, mode: string): Promise<{ ok: boolean; texte: string }> {
     if (!mac) return { ok: false, texte: 'Il manque l\'adresse de la machine : ouvre l\'écran depuis le lien affiché par la machine.' };
@@ -340,6 +375,8 @@ export function thjalfi(): Module {
     stopServers(); const p = ports(ctx), notes: string[] = [], mode = s(ctx.settings.mode) || 'proxy';
     http = new PxeHttp({
       bootScript: () => bootScript(ctx), menu: (mac, fw, from) => menuFor(ctx, mac, fw, from),
+      overlay: (mac) => { const k = kiosk(ctx); return k && mac ? kioskOverlay({ base: base(ctx), mac, branch: k.branch }) : undefined; },
+      alpine: (path) => alpineCopy(ctx, path),
       isoFile: async (id, path) => {
         const x = await isoById(ctx, id).catch(() => undefined); if (!x) return undefined; isoNames.set(id, x.info.name);
         if (path === undefined) return { size: x.info.size, open: (st, en) => import('node:fs').then((fs) => fs.createReadStream(x.info.path, { start: st, end: en })) };
@@ -385,9 +422,9 @@ export function thjalfi(): Module {
   const firmware = (b: Buffer | undefined): Firmware => { const n = b && b.length >= 2 ? b.readUInt16BE(0) : 0; return n === 7 || n === 9 ? 'uefi' : n === 6 ? 'uefi32' : n === 11 ? 'arm64' : 'bios'; };
 
   /** Télécharge un fichier officiel, empreinte gardée ; un fichier suspect pour l'antivirus est jeté. */
-  async function fetchTo(ctx: ModCtx, url: string, file: string, sha?: string): Promise<{ ok: boolean; text: string }> {
+  async function fetchTo(ctx: ModCtx, url: string, file: string, sha?: string, ms = 120_000): Promise<{ ok: boolean; text: string }> {
     try {
-      const r = await ctx.fetch(url, { signal: AbortSignal.timeout(120_000), headers: { 'user-agent': 'Odin-Thjalfi/1' } }); if (!r.ok) return { ok: false, text: `${basename(file)} : HTTP ${r.status}` };
+      const r = await ctx.fetch(url, { signal: AbortSignal.timeout(ms), headers: { 'user-agent': 'Odin-Thjalfi/1' } }); if (!r.ok) return { ok: false, text: `${basename(file)} : HTTP ${r.status}` };
       const b = Buffer.from(await r.arrayBuffer()); const h = createHash('sha256').update(b).digest('hex');
       if (sha && sha !== h) return { ok: false, text: `${basename(file)} : empreinte différente de celle publiée, fichier jeté` };
       mkdirSync(join(file, '..'), { recursive: true }); writeFileSync(`${file}.part`, b);
@@ -423,6 +460,7 @@ export function thjalfi(): Module {
         let sums = ''; try { const r = await ctx.fetch(`${root}/SHA256SUMS`, { signal: AbortSignal.timeout(30_000) }); if (r.ok) sums = await r.text(); } catch { /* hors ligne */ }
         for (const f of ['linux', 'initrd.gz']) { const sha = new RegExp(`^([0-9a-f]{64})\\s+\\./netboot/debian-installer/amd64/${f.replace('.', '\\.')}$`, 'm').exec(sums)?.[1]; out.push(sha ? `Debian ${c} · ${(await fetchTo(ctx, `${root}/netboot/debian-installer/amd64/${f}`, join(bootDir(ctx), 'debian', c, f), sha)).text}` : `Debian ${c} · ${f} : empreinte officielle introuvable, rien téléchargé`); }
       }
+      if (ecranCfg(ctx).actif && ecranCfg(ctx).surPc !== false) out.push(await prepareKiosk(ctx));
       return { text: `Préparation :\n${out.join('\n')}`, ok: out.some((x) => x.includes('✅')) };
     } },
     { id: 'isos', label: 'ISO', what: 'Les ISO d\'Andromède, ce que Genèse en fait, et combien de fois chacune a été déployée', read: true, words: ['iso déployables', 'liste des iso du déploiement'], run: async (ctx) => {
@@ -493,12 +531,12 @@ export function thjalfi(): Module {
         d.statut = 'refusee'; d.decide = now; saveDemandes(ctx, l); track(ctx, d.mac, undefined, 'menu', { detail: 'demande refusée' });
         return { text: `✋ Refusé : rien n'est touché sur ${d.host ?? d.mac}.` };
       } },
-    { id: 'ecran', label: 'Écran de démarrage', what: 'L\'écran d\'Odin où l\'on choisit le système (sur un téléphone ou un PC du réseau) : disposition, thème, par défaut ou non, temps d\'attente', params: [{ key: 'actif', label: 'Proposer l\'écran dans le menu', kind: 'boolean', default: true }, { key: 'parDefaut', label: 'L\'écran par défaut (au lieu du disque)', kind: 'boolean', default: false }, { key: 'disposition', label: 'Disposition', kind: 'select', options: [...DISPOSITIONS], default: 'eventail' }, { key: 'theme', label: 'Thème de l\'écran graphique', kind: 'select', options: Object.keys(THEMES), default: 'bleu', help: Object.entries(THEMES).map(([k, v]) => `${k} : ${v}`).join(' · ') }, { key: 'texte', label: 'Thème de l\'écran texte (iPXE)', kind: 'select', options: TEXT_THEME_IDS, default: 'matrix', help: `${Object.entries(TEXT_THEMES).map(([k, v]) => `${k} : ${v.label}`).join(' · ')} · classique : les couleurs d'iPXE` }, { key: 'attente', label: 'Attente d\'un choix (minutes), puis le disque', kind: 'number', default: 5 },
+    { id: 'ecran', label: 'Écran de démarrage', what: 'L\'écran d\'Odin où l\'on choisit le système (sur un téléphone ou un PC du réseau) : disposition, thème, par défaut ou non, temps d\'attente', params: [{ key: 'actif', label: 'Proposer l\'écran dans le menu', kind: 'boolean', default: true }, { key: 'parDefaut', label: 'L\'écran par défaut (au lieu du disque)', kind: 'boolean', default: false }, { key: 'surPc', label: 'L\'écran graphique sur le PC lui-même (petit système Alpine, 2 Go de mémoire)', kind: 'boolean', default: true }, { key: 'disposition', label: 'Disposition', kind: 'select', options: [...DISPOSITIONS], default: 'eventail' }, { key: 'theme', label: 'Thème de l\'écran graphique', kind: 'select', options: Object.keys(THEMES), default: 'bleu', help: Object.entries(THEMES).map(([k, v]) => `${k} : ${v}`).join(' · ') }, { key: 'texte', label: 'Thème de l\'écran texte (iPXE)', kind: 'select', options: TEXT_THEME_IDS, default: 'matrix', help: `${Object.entries(TEXT_THEMES).map(([k, v]) => `${k} : ${v.label}`).join(' · ')} · classique : les couleurs d'iPXE` }, { key: 'attente', label: 'Attente d\'un choix (minutes), puis le disque', kind: 'number', default: 5 },
       { key: 'fond_texte', label: 'Ton image de fond, écran texte (iPXE)', kind: 'image', image: { w: 1024, h: 768, type: 'png', voile: 0.5 }, help: 'Réduite à 1024 × 768 et assombrie pour que le menu se lise. Sans image : le fond du thème.' },
       { key: 'fond_graphique', label: 'Ton image de fond, écran graphique', kind: 'image', image: { w: 1920, h: 1080, type: 'jpeg', voile: 0.3 }, help: 'Elle remplit l\'écran, avec un voile aux couleurs du thème. Sans image : le décor du thème.' },
       { key: 'sans_fond_texte', label: 'Remettre le fond du thème (écran texte)', kind: 'boolean', default: false }, { key: 'sans_fond_graphique', label: 'Remettre le décor du thème (écran graphique)', kind: 'boolean', default: false }], quick: false, words: ['écran de démarrage', 'écran pxe', 'thème de l\'écran'], run: (ctx, i) => {
       const c = ecranCfg(ctx), b = (x: unknown, d: boolean) => (x === undefined || x === '' ? d : x === true || x === 'true');
-      const n: EcranCfg = { actif: b(i.actif, c.actif), parDefaut: b(i.parDefaut, c.parDefaut), disposition: (DISPOSITIONS as readonly string[]).includes(s(i.disposition)) ? s(i.disposition) as Disposition : c.disposition, theme: s(i.theme) in THEMES ? themeOf(i.theme) : c.theme, texte: i.texte === undefined || i.texte === '' ? c.texte : textThemeOf(i.texte), attente: Math.max(1, Math.min(60, Number(i.attente ?? c.attente) || 5)) };
+      const n: EcranCfg = { actif: b(i.actif, c.actif), parDefaut: b(i.parDefaut, c.parDefaut), disposition: (DISPOSITIONS as readonly string[]).includes(s(i.disposition)) ? s(i.disposition) as Disposition : c.disposition, theme: s(i.theme) in THEMES ? themeOf(i.theme) : c.theme, texte: i.texte === undefined || i.texte === '' ? c.texte : textThemeOf(i.texte), surPc: b(i.surPc, c.surPc !== false), attente: Math.max(1, Math.min(60, Number(i.attente ?? c.attente) || 5)) };
       const f = [setFond(ctx, 'texte', i.fond_texte, i.sans_fond_texte), setFond(ctx, 'graphique', i.fond_graphique, i.sans_fond_graphique)].filter(Boolean);
       ctx.saveSettings({ ecran: n });
       return { text: `Écran : ${n.actif ? `proposé${n.parDefaut ? ' et par défaut' : ''}` : 'retiré du menu'} · ${n.disposition} · graphique ${THEMES[n.theme]} · texte ${n.texte === 'classique' ? 'classique' : TEXT_THEMES[n.texte].label} · attente ${n.attente} min puis le disque${f.length ? ` · ${f.join(' · ')}` : ''}${http ? ` · ${base(ctx)}/ecran` : ''}.` };

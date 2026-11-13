@@ -37,6 +37,10 @@ export interface HttpDeps {
   software: (token: string, file: string) => string | undefined;
   /** « /etat/<jeton>?e=… » : où en est l'installation */
   report: (token: string, q: URLSearchParams, from: string) => boolean;
+  /** le petit système de l'écran sur le PC : son calque (« /ecran/ovl/<mac>.apkovl.tar.gz ») */
+  overlay?: (mac: string) => Buffer | undefined;
+  /** les paquets d'Alpine, copiés par Odin (« /alpine/v3.x/main/x86_64/… ») */
+  alpine?: (path: string) => Promise<Buffer | undefined>;
   /** une machine charge un fichier (pour suivre l'avancement) */
   fetched: (mac: string | undefined, what: 'noyau' | 'iso' | 'fichier', id: string, path: string, from: string) => void;
   /** L'écran d'Odin (« /ecran ») : la page, l'état pour une machine, un choix, et l'attente côté iPXE. */
@@ -93,6 +97,10 @@ export class PxeHttp {
       if (!q.headers.range || /^bytes=0-/.test(q.headers.range)) this.d.fetched(u.searchParams.get('m') ? normMac(u.searchParams.get('m')!) : undefined, 'iso', m[1], '', from);
       return this.send(q, r, f);
     }
+    m = /^\/ecran\/ovl\/([0-9a-f]{12})\.apkovl\.tar\.gz$/.exec(path);
+    if (m && this.d.overlay) { const b = this.d.overlay(normMac(m[1])); if (!b) { r.writeHead(404); r.end('absent'); return; } r.writeHead(200, { 'content-type': 'application/gzip', 'content-length': b.length, 'cache-control': 'no-store' }); return void r.end(q.method === 'HEAD' ? undefined : b); }
+    m = /^\/alpine\/(v\d+\.\d+\/(?:main|community)\/x86_64\/[\w.+-]+)$/.exec(path);
+    if (m && this.d.alpine) { const b = await this.d.alpine(m[1]); if (!b) { r.writeHead(404); r.end('absent'); return; } r.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': b.length }); return void r.end(q.method === 'HEAD' ? undefined : b); }
     m = /^\/boot\/([\w./-]+)$/.exec(path);
     if (m) {
       const p = this.d.bootFile(m[1]); if (!p) { r.writeHead(404); r.end('absent'); return; }

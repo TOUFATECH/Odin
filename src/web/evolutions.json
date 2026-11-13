@@ -1,5 +1,24 @@
 [
  {
+  "id": "v1170",
+  "at": "2026-11-13T17:10:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.17.0",
+  "title": "Démarrage réseau finalisé (façon A puis B) : écran de démarrage, menu, chargement, et l'écran graphique d'Odin sur le PC lui-même",
+  "details": [
+   "Écran de démarrage (A) : carte réseau, micrologiciel, adresse, serveur Odin trouvé, « Menu dans 3 s », Échap = démarrer sur le disque. Vérifié dans une machine virtuelle UEFI.",
+   "Chargement : le nom du système et « Ne débranche pas le câble réseau » avant les pourcentages d'iPXE.",
+   "Façon B : « Choisir sur l'écran d'Odin » démarre un petit système officiel d'Alpine Linux qui affiche l'écran graphique d'Odin en plein écran sur le PC (clavier et souris). Dès qu'un système est choisi (ici, sur un téléphone ou un autre PC), le PC redémarre et le lance ; en UEFI, le prochain démarrage repasse tout seul par le réseau.",
+   "Préparer (Genèse) télécharge ce petit système et vérifie son empreinte publiée ; ses paquets sont copiés par Odin : Internet la première fois, ensuite tout reste à la maison.",
+   "Si le petit système ne démarre pas, le choix se fait comme avant sur un téléphone. Réglage « L'écran graphique sur le PC lui-même » pour le couper."
+  ],
+  "planets": [
+   "installation",
+   "machines"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1161",
   "at": "2026-11-13T16:40:00+03:00",
   "date": "2026-11-13",
