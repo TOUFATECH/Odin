@@ -9,7 +9,7 @@ COPY bin ./bin
 COPY src ./src
 # Outils dont les applis ont besoin (sans eux : fausses pannes de Pulsar, réseau et processus illisibles) :
 # ip et ss (iproute2), ping (iputils-ping), ps et kill (procps), pare-feu de Cerbère (nftables).
-RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends sudo ca-certificates curl git tcpdump openssh-client iproute2 iputils-ping procps nftables >/dev/null \
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends sudo ca-certificates curl git tcpdump openssh-client smbclient iproute2 iputils-ping procps nftables >/dev/null \
  && rm -rf /var/lib/apt/lists/* \
  && useradd -m odin && mkdir -p /data && chown odin /data \
  && printf 'odin ALL=(ALL:ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/odin && chmod 0440 /etc/sudoers.d/odin && visudo -cf /etc/sudoers.d/odin

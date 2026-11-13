@@ -160,6 +160,12 @@ export interface Machine {
   sudoPassword?: string;
   /** La clé SSH d'Odin a été installée sur la machine. */
   keyInstalled?: boolean;
+  /** Par où Odin lit ses fichiers : « ssh » (Linux, Mac) ou « smb » (partage Windows) ; absent = deviné d'après les ports ouverts. */
+  via?: 'ssh' | 'smb';
+  /** Port du partage Windows s'il n'est pas 445. */
+  smbPort?: number;
+  /** Domaine Windows du compte (absent : compte local du poste). */
+  domain?: string;
   addedAt: number;
   lastOk?: number;
 }
@@ -176,12 +182,18 @@ function saveMachines(home: string, list: Machine[]): void {
 export const viewMachine = (m: Machine): MachineView => { const { password: _p, sudoPassword: _s, ...rest } = m; return { ...rest, hasPassword: Boolean(m.password) }; };
 
 const HOST = /^(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$|^\[?[0-9a-fA-F:]+\]?$/;
-const USER = /^[a-z_][a-z0-9_.-]{0,31}\$?$/i;
-export function saveMachine(home: string, m: { id?: string; label?: string; host: string; port?: number; user: string; password?: string; sudoPassword?: string }): Machine {
+// Comptes Linux et Mac, et comptes Windows (« Fatima Ali », « admin@outlook.fr ») : lettres, chiffres, espace, . _ - @.
+// Jamais de tiret en tête (ce serait lu comme une option), ni de caractère de commande.
+const USER = /^(?![-\s])[\p{L}\p{N}_.@ -]{1,64}\$?$/u;
+const DOMAIN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
+export function saveMachine(home: string, m: { id?: string; label?: string; host: string; port?: number; user: string; password?: string; sudoPassword?: string; via?: 'ssh' | 'smb'; smbPort?: number; domain?: string }): Machine {
   const host = m.host.trim(), user = m.user.trim(), port = Number(m.port ?? 22);
   if (!HOST.test(host)) throw new Error('adresse invalide (ex. 192.168.1.30 ou nas.local)');
   if (!USER.test(user)) throw new Error('nom d\'utilisateur invalide');
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('port invalide');
+  if (m.smbPort !== undefined && (!Number.isInteger(m.smbPort) || m.smbPort < 1 || m.smbPort > 65535)) throw new Error('port du partage invalide');
+  if (m.domain && !DOMAIN.test(m.domain.trim())) throw new Error('domaine Windows invalide');
+  if (m.via && m.via !== 'ssh' && m.via !== 'smb') throw new Error('accès : ssh ou smb');
   const list = listMachines(home);
   const prev = list.find((x) => (m.id && x.id === m.id) || (x.host === host && x.user === user && x.port === port));
   const next: Machine = {
@@ -191,6 +203,9 @@ export function saveMachine(home: string, m: { id?: string; label?: string; host
     password: m.password !== undefined && m.password !== '' ? m.password : prev?.password,
     sudoPassword: m.sudoPassword !== undefined && m.sudoPassword !== '' ? m.sudoPassword : prev?.sudoPassword,
     keyInstalled: prev?.keyInstalled,
+    ...((m.via ?? prev?.via) ? { via: m.via ?? prev?.via } : {}),
+    ...((m.smbPort ?? prev?.smbPort) ? { smbPort: m.smbPort ?? prev?.smbPort } : {}),
+    ...((m.domain?.trim() || prev?.domain) ? { domain: m.domain?.trim() || prev?.domain } : {}),
     addedAt: prev?.addedAt ?? Date.now(),
     lastOk: prev?.lastOk,
   };
@@ -266,6 +281,30 @@ export function runOnMachine(home: string, m: Machine, command: string, o: RunOp
       resolve({ code, out: out.replace(/^\[sudo\][^\n]*\n?/gm, ''), ...(o.binary ? { data: Buffer.concat(chunks) } : {}) });
     });
   });
+}
+
+/**
+ * La même commande, en flux : sa sortie arrive au fur et à mesure (des gigaoctets de fichiers à lire ne passent
+ * jamais par la mémoire). `fin` donne le code de sortie et les messages d'erreur (64 Ko au plus).
+ */
+export function streamOnMachine(home: string, m: Machine, command: string, o: { signal?: AbortSignal; timeoutMs?: number } = {}): { sortie: NodeJS.ReadableStream; fin: Promise<{ code: number | null; err: string }>; arreter: () => void; /** laisse la commande finir sans lire le reste de sa sortie */ vider: () => void } {
+  const sudoPw = m.sudoPassword ?? m.password;
+  const usesSudo = /\bsudo\b/.test(command) && Boolean(sudoPw);
+  const remote = remoteCommand(command, usesSudo);
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  if (m.password) Object.assign(env, { SSH_ASKPASS: askpassScript(home), SSH_ASKPASS_REQUIRE: 'force', DISPLAY: env.DISPLAY || ':0', ODIN_ASKPASS_SECRET: m.password });
+  const child = spawn('ssh', sshArgs(home, m, ['-T']).concat(remote), { env, signal: o.signal, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  let err = '';
+  child.stderr.on('data', (d: Buffer) => { if (err.length < 64_000) err += d.toString(); });
+  const n = usesSudo ? (remote.match(/sudo -S/g) ?? []).length : 0;
+  child.stdin.on('error', () => undefined); child.stdin.end(n ? `${sudoPw}\n`.repeat(n) : '');
+  const timer = o.timeoutMs ? setTimeout(() => child.kill('SIGKILL'), o.timeoutMs) : undefined;
+  const fin = new Promise<{ code: number | null; err: string }>((resolve) => {
+    child.on('error', (e) => { if (timer) clearTimeout(timer); resolve({ code: null, err: `${e.message}${/ENOENT/.test(e.message) ? ' (client ssh introuvable : installe openssh-client)' : ''}` }); });
+    child.on('close', (code) => { if (timer) clearTimeout(timer); if (code === 0) touchMachine(home, m.id, { lastOk: Date.now() }); resolve({ code, err: err.replace(/^\[sudo\][^\n]*\n?/gm, '') }); });
+  });
+  // Arrêter : tuer la connexion ET fermer la sortie (une sortie pas lue jusqu'au bout retiendrait la fin pour toujours).
+  return { sortie: child.stdout, fin, arreter: () => { try { child.kill('SIGKILL'); } catch { /* déjà fini */ } child.stdout.destroy(); }, vider: () => { child.stdout.resume(); } };
 }
 
 /** Teste la connexion ; installe au passage la clé d'Odin si demandé. */

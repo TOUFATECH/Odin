@@ -3,6 +3,7 @@
 // endroit. Recherche par mot, gravité, source et période ; les messages qui se répètent sont regroupés ;
 // des règles « si ce message revient N fois en M minutes, préviens-moi ». Lecture seule : rien n'est effacé.
 import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs';
+import { PARAM_POSTE, posteDe, postesLisibles } from '../postes.ts';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
 
 export type Niveau = 'erreur' | 'attention' | 'info' | 'debug';
@@ -78,15 +79,22 @@ export function finDeFichier(f: string, octets = 2_000_000): string[] {
     return b.toString('utf8').split('\n').slice(st.size > octets ? 1 : 0);
   } catch { return []; } finally { if (fd !== undefined) try { closeSync(fd); } catch { /* déjà fermé */ } }
 }
-async function collecter(ctx: ModCtx, heures = 24): Promise<Ligne[]> {
-  const now = ctx.now(), depuis = now.getTime() - heures * 3600_000, out: Ligne[] = [];
-  if (process.platform === 'linux' && ctx.settings.journald !== false) {
-    const r = await ctx.run('journalctl', ['-o', 'json', '--no-pager', '-n', '8000', `--since=-${heures}h`, '--output-fields=MESSAGE,PRIORITY,SYSLOG_IDENTIFIER,_COMM,_HOSTNAME'], { timeoutMs: 20_000 });
+/** Les lignes des dernières heures : de la machine d'Odin (avec les alertes d'Odin), ou d'un autre poste Linux ou Mac (par SSH). */
+async function collecter(ctx: ModCtx, heures = 24, qui?: unknown): Promise<Ligne[]> {
+  const p = posteDe(ctx, qui), now = ctx.now(), depuis = now.getTime() - heures * 3600_000, out: Ligne[] = [];
+  if (await p.systeme() === 'linux' && (ctx.settings.journald !== false || !p.local)) {
+    const r = await p.run('journalctl', ['-o', 'json', '--no-pager', '-n', '8000', `--since=-${heures}h`, '--output-fields=MESSAGE,PRIORITY,SYSLOG_IDENTIFIER,_COMM,_HOSTNAME'], { timeoutMs: 20_000 });
     if (!r.code) for (const l of r.out.split('\n')) { const x = lireJournald(l); if (x) out.push(x); }
   }
-  const fichiers = [...FICHIERS, ...((ctx.settings.fichiers as string[] | undefined) ?? [])];
-  for (const f of [...new Set(fichiers)]) if (existsSync(f)) { const src = f.split('/').slice(-2).join('/'); for (const l of finDeFichier(f)) { const x = lireLigne(l, src, now); if (x && (!x.t || x.t >= depuis)) out.push(x.t ? x : { ...x, t: statSafe(f) }); } }
-  for (const a of ctx.alerts({ limit: 500 })) { const t = Date.parse(a.at); if (t >= depuis) out.push({ t, source: 'Odin', niveau: a.level === 'critique' || a.level === 'haute' ? 'erreur' : a.level === 'moyenne' ? 'attention' : 'info', texte: `${a.title}${a.detail ? ` — ${a.detail}` : ''}`.slice(0, 1000), prog: a.module }); }
+  // Tes fichiers en plus sont ceux de la machine d'Odin ; sur un autre poste, les fichiers habituels de /var/log.
+  const fichiers = [...FICHIERS, ...(p.local ? ((ctx.settings.fichiers as string[] | undefined) ?? []) : [])];
+  for (const f of [...new Set(fichiers)]) {
+    if (p.local && !existsSync(f)) continue;
+    const texte = p.local ? undefined : await p.lire(f, 400_000), lignes = p.local ? finDeFichier(f) : (texte ? texte.split('\n').slice(1) : []); if (!lignes.length) continue;
+    const src = f.split('/').slice(-2).join('/');
+    for (const l of lignes) { const x = lireLigne(l, src, now); if (x && (!x.t || x.t >= depuis)) out.push(x.t ? x : { ...x, t: p.local ? statSafe(f) : now.getTime() }); }
+  }
+  if (p.local) for (const a of ctx.alerts({ limit: 500 })) { const t = Date.parse(a.at); if (t >= depuis) out.push({ t, source: 'Odin', niveau: a.level === 'critique' || a.level === 'haute' ? 'erreur' : a.level === 'moyenne' ? 'attention' : 'info', texte: `${a.title}${a.detail ? ` — ${a.detail}` : ''}`.slice(0, 1000), prog: a.module }); }
   return out.sort((a, b) => b.t - a.t);
 }
 const statSafe = (f: string) => { try { return statSync(f).mtimeMs; } catch { return 0; } };
@@ -100,13 +108,13 @@ export const mimisbrunnr: Module = {
   from: ['OpenSearch', 'Graylog', 'Loki'], upstream: ['opensearch-project/OpenSearch', 'Graylog2/graylog2-server', 'grafana/loki'],
   words: ['journaux du système', 'journaux système', 'logs du système', 'logs système', 'syslog', 'journalctl', 'chroniques', 'erreurs du système', 'mimisbrunnr', 'opensearch', 'graylog'],
   actions: [
-    { id: 'chercher', label: 'Chercher dans les journaux', what: 'Mots, gravité minimale, source et période', read: true, external: true, params: [{ key: 'q', label: 'Mots', kind: 'text', default: '' }, { key: 'niveau', label: 'Gravité minimale', kind: 'select', options: ['', 'erreur', 'attention', 'info', 'debug'], default: '' }, { key: 'source', label: 'Source (vide : toutes)', kind: 'text', default: '' }, { key: 'heures', label: 'Dernières heures', kind: 'number', default: 24 }],
+    { id: 'chercher', label: 'Chercher dans les journaux', what: 'Mots, gravité minimale, source et période', read: true, external: true, params: [{ key: 'q', label: 'Mots', kind: 'text', default: '' }, { key: 'niveau', label: 'Gravité minimale', kind: 'select', options: ['', 'erreur', 'attention', 'info', 'debug'], default: '' }, { key: 'source', label: 'Source (vide : toutes)', kind: 'text', default: '' }, { key: 'heures', label: 'Dernières heures', kind: 'number', default: 24 }, PARAM_POSTE],
       words: ['cherche dans les journaux du système', 'erreurs du système', 'que disent les journaux du système'], run: async (ctx, i) => {
-        const h = Math.max(1, Math.min(24 * 30, Number(i.heures) || 24)), l = filtrer(await collecter(ctx, h), { q: s(i.q), niveau: s(i.niveau) as Niveau, source: s(i.source) });
-        return { text: l.length ? `${l.length} ligne(s) :\n${l.slice(0, 40).map((x) => `- ${heure(x.t)} [${x.niveau}] ${x.source}${x.prog ? ` · ${x.prog}` : ''} : ${x.texte.slice(0, 200)}`).join('\n')}` : 'Rien trouvé.', data: l.slice(0, 500) };
+        const h = Math.max(1, Math.min(24 * 30, Number(i.heures) || 24)), l = filtrer(await collecter(ctx, h, i.poste), { q: s(i.q), niveau: s(i.niveau) as Niveau, source: s(i.source) });
+        return { text: l.length ? `${s(i.poste).trim() ? `Sur ${posteDe(ctx, i.poste).nom} · ` : ''}${l.length} ligne(s) :\n${l.slice(0, 40).map((x) => `- ${heure(x.t)} [${x.niveau}] ${x.source}${x.prog ? ` · ${x.prog}` : ''} : ${x.texte.slice(0, 200)}`).join('\n')}` : 'Rien trouvé.', data: l.slice(0, 500) };
       } },
-    { id: 'repetes', label: 'Messages qui se répètent', what: 'Les messages les plus fréquents sur la période', words: ['messages qui se répètent dans les journaux du système'], read: true, external: true, params: [{ key: 'heures', label: 'Dernières heures', kind: 'number', default: 24 }], run: async (ctx, i) => {
-      const g = regrouper(await collecter(ctx, Math.max(1, Number(i.heures) || 24)));
+    { id: 'repetes', label: 'Messages qui se répètent', what: 'Les messages les plus fréquents sur la période', words: ['messages qui se répètent dans les journaux du système'], read: true, external: true, params: [{ key: 'heures', label: 'Dernières heures', kind: 'number', default: 24 }, PARAM_POSTE], run: async (ctx, i) => {
+      const g = regrouper(await collecter(ctx, Math.max(1, Number(i.heures) || 24), i.poste));
       return { text: g.length ? g.map((x) => `- ${x.fois} × [${x.niveau}] ${x.modele}`).join('\n') : 'Aucun message.', data: g };
     } },
     { id: 'regle', label: 'Ajouter une règle', what: 'Préviens-moi si ce message revient trop souvent', words: ['ajoute une règle sur les journaux du système'], params: [{ key: 'motif', label: 'Mots à repérer (ex. Failed password ; « a|b » = l\'un ou l\'autre)', kind: 'text', required: true }, { key: 'fois', label: 'Nombre de fois', kind: 'number', default: 10 }, { key: 'minutes', label: 'En combien de minutes', kind: 'number', default: 5 }, { key: 'niveau', label: 'Importance', kind: 'select', options: ['moyenne', 'haute'], default: 'moyenne' }],
@@ -126,20 +134,20 @@ export const mimisbrunnr: Module = {
     } },
   ],
   async view(ctx, q) {
-    const l = await collecter(ctx, 24), f = filtrer(l, { q: q.get('q') ?? '', niveau: (q.get('niveau') ?? '') as Niveau }), now = ctx.now().getTime();
+    const poste = posteDe(ctx, q.get('poste') ?? ''), autres = postesLisibles(ctx).slice(1), l = await collecter(ctx, 24, q.get('poste') ?? ''), f = filtrer(l, { q: q.get('q') ?? '', niveau: (q.get('niveau') ?? '') as Niveau }), now = ctx.now().getTime();
     const err = l.filter((x) => x.niveau === 'erreur').length, warn = l.filter((x) => x.niveau === 'attention').length, sources = [...new Set(l.map((x) => x.source))];
     const heures = Array.from({ length: 24 }, (_, k) => now - (23 - k) * 3600_000);
     const kpis: Kpi[] = [{ label: 'Lignes (24 h)', value: String(l.length) }, { label: 'Erreurs', value: String(err), tone: err ? 'mauvais' : 'bon' }, { label: 'Attention', value: String(warn), tone: warn ? 'attention' : 'bon' }, { label: 'Sources', value: String(sources.length), hint: sources.join(', ') }];
     const regles = (ctx.settings.regles as Regle[] | undefined) ?? [];
     return {
-      subtitle: `${sources.length} source(s) · dernières 24 h`, kpis,
+      subtitle: `${poste.local ? '' : `${poste.nom} · `}${sources.length} source(s) · dernières 24 h`, kpis,
       sections: [
         { kind: 'courbe', title: 'Erreurs et avertissements, heure par heure', labels: heures.map((t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit' })), series: [{ name: 'erreurs', tone: 'mauvais', points: heures.map((t) => l.filter((x) => x.niveau === 'erreur' && x.t > t - 3600_000 && x.t <= t).length) }, { name: 'attention', tone: 'attention', points: heures.map((t) => l.filter((x) => x.niveau === 'attention' && x.t > t - 3600_000 && x.t <= t).length) }] },
         { kind: 'table', title: 'Messages qui se répètent', columns: ['Fois', 'Gravité', 'Message'], empty: 'Aucun message.', rows: regrouper(l, 12).map((x) => ({ cells: [String(x.fois), x.niveau, x.modele], tone: TONE[x.niveau] })) },
         { kind: 'table', title: 'Derniers messages', columns: ['Heure', 'Source', 'Programme', 'Message'], empty: 'Rien pour cette recherche.', rows: f.slice(0, 80).map((x) => ({ cells: [heure(x.t), x.source, x.prog ?? '', x.texte.slice(0, 240)], tone: TONE[x.niveau] })) },
         { kind: 'form', title: 'Chercher', action: 'chercher', submit: 'Chercher', params: [{ key: 'q', label: 'Mots', kind: 'text', default: '' }, { key: 'niveau', label: 'Gravité minimale', kind: 'select', options: ['', 'erreur', 'attention', 'info'], default: '' }, { key: 'heures', label: 'Dernières heures', kind: 'number', default: 24 }] },
       ],
-      side: [{ kind: 'list', title: 'Règles d\'alerte', empty: 'Aucune règle. Ex. « Failed password » 10 fois en 5 min.', items: regles.map((r) => ({ title: r.motif, detail: `${r.fois} fois en ${r.minutes} min → ${r.niveau}`, meta: r.id })) }],
+      side: [...(autres.length ? [{ kind: 'table' as const, title: 'Voir un autre poste', columns: ['Poste'], rows: autres.map((x) => ({ cells: [x.nom], actions: [{ action: 'chercher', label: 'Erreurs du jour', input: { poste: x.id, niveau: 'erreur', heures: 24 } }, { action: 'repetes', label: 'Messages répétés', input: { poste: x.id } }] })) }] : []), { kind: 'list', title: 'Règles d\'alerte', empty: 'Aucune règle. Ex. « Failed password » 10 fois en 5 min.', items: regles.map((r) => ({ title: r.motif, detail: `${r.fois} fois en ${r.minutes} min → ${r.niveau}`, meta: r.id })) }],
     };
   },
   watch: { every: 120, async run(ctx) {

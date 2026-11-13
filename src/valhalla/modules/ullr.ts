@@ -18,6 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { BASE_RULES, compileGaldr, flat, hay, importYara, phishing, readable, RuleSet, scanBuffer, sureOf, urlRisk, combine, type CRule, type Finding, type Knowledge, type Rule, type Verdict } from '../ullr/engine.ts';
 import { Correlator, SENSORS, story, toSignal, type Incident } from '../ullr/incidents.ts';
 import { Intel, parseClamHsb, parseHashList, reputation, reputationText, SOURCES, type FetchCtx, type Patch, type Reputation } from '../ullr/intel.ts';
+import { findMachine, listMachines, saveMachine, type Machine } from '../../machines/access.ts';
+import { isolerSurPoste, lirePoste, remettreSurPoste, type BilanLecture, type FichierLu } from '../../machines/lecture.ts';
 import type { ModCtx, Module } from '../types.ts';
 
 export { BASE_RULES };
@@ -33,7 +35,9 @@ const s = (v: unknown) => String(v ?? '');
 let saveKey: ((name: 'ABUSE_CH_KEY' | 'VT_API_KEY', value: string) => void) | undefined;
 export function ullrKeys(fn: typeof saveKey): void { saveKey = fn; }
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
-interface Detection { id: string; at: string; file: string; sha256: string; threat: string; klass: string; level: 'critique' | 'haute' | 'moyenne'; score: number; by: string; why: string[]; action: string; attack?: string }
+interface Detection { id: string; at: string; file: string; sha256: string; threat: string; klass: string; level: 'critique' | 'haute' | 'moyenne'; score: number; by: string; why: string[]; action: string; attack?: string; /** trouvé sur un autre poste : son identifiant dans le coffre, son nom, et où est le fichier là-bas */ poste?: string; posteNom?: string; distant?: { partage?: string; relatif: string } }
+/** Un fichier mis à l'écart sur un autre poste (renommé sur place, réversible). */
+interface QDistant { id: string; poste: string; posteNom: string; partage?: string; relatif: string; vers: string; file: string; sha256: string; threat: string; at: string }
 interface Q { id: string; file: string; sha256: string; threat: string; level: string; at: string; size: number }
 interface Plan { name: string; target: string; every: 'heure' | 'jour' | 'semaine'; at: string; exclude: string[]; last?: string; /** prochain passage prévu */ next?: string }
 /** Le prochain passage d'un plan après `from` : dans une heure, ou à l'heure dite le jour (ou la semaine) qui vient. */
@@ -44,9 +48,9 @@ export function nextRun(p: Pick<Plan, 'every' | 'at'>, from: Date, ranAt?: Date)
   if (d <= from) d.setDate(d.getDate() + 1);
   return d;
 }
-interface Report { id: string; at: string; target: string; plan?: string; files: number; bytes: number; ms: number; state: 'terminé' | 'arrêté'; version: number; detections: Detection[]; errors: string[] }
+interface Report { id: string; at: string; target: string; plan?: string; files: number; bytes: number; ms: number; state: 'terminé' | 'arrêté'; version: number; detections: Detection[]; errors: string[]; /** analyse d'un autre poste : par où, et ce qui n'a pas pu être lu */ distant?: { poste: string; via: 'ssh' | 'smb'; gros: number; illisibles: number; dossiersRefuses: number; notes: string[] } }
 interface Exceptions { paths: string[]; hashes: string[]; rules: string[] }
-interface Running { id: string; target: string; files: number; hits: number; started: number; cancel: boolean }
+interface Running { id: string; target: string; files: number; hits: number; started: number; cancel: boolean; /** où en est l'analyse d'un autre poste, en une phrase */ etape?: string }
 interface State { intel: Intel; set?: RuleSet; setKey?: string; corr: Correlator; watchers: FSWatcher[]; running?: Running; pending: Map<string, ReturnType<typeof setTimeout>>; bursts: Map<string, number[]>; burstAt: number; mounts?: Set<string>; busy: boolean; /** dernier signal reçu de chaque appli */ seen: Map<string, number> }
 const states = new Map<string, State>();
 function st(ctx: ModCtx): State {
@@ -59,6 +63,7 @@ const userRules = (ctx: ModCtx): Rule[] => (ctx.settings.rules as Rule[] | undef
 const disabled = (ctx: ModCtx): string[] => (ctx.settings.disabledRules as string[] | undefined) ?? [];
 const dets = (ctx: ModCtx): Detection[] => (ctx.settings.hits as Detection[] | undefined) ?? [];
 const qlist = (ctx: ModCtx): Q[] => (ctx.settings.quarantine as Q[] | undefined) ?? [];
+const qdist = (ctx: ModCtx): QDistant[] => (ctx.settings.quarantineDistante as QDistant[] | undefined) ?? [];
 const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined) ?? [];
 const reports = (ctx: ModCtx): Array<Omit<Report, 'detections' | 'errors'> & { hits: number }> => (ctx.settings.reports as never[] | undefined) ?? [];
 const qdir = (ctx: ModCtx) => { const d = join(ctx.dir, 'quarantaine'); mkdirSync(d, { recursive: true, mode: 0o700 }); return d; };
@@ -234,7 +239,74 @@ function reportText(r: Report): string {
   return [`Rapport ${r.id} · ${new Date(r.at).toLocaleString('fr-FR')} · cible : ${r.target}${r.plan ? ` (plan « ${r.plan} »)` : ''} · ${r.state}`, `${r.files} fichiers (${human(r.bytes)}) en ${Math.round(r.ms / 1000)} s · base de signatures version ${r.version}`,
     r.detections.length ? `${r.detections.length} détection(s) :` : 'Aucune menace trouvée.',
     ...r.detections.map((d) => `- [${d.level} · ${d.score}/100] ${d.threat} — ${d.file}\n  empreinte ${d.sha256} · trouvé par ${d.by} · action : ${d.action}${d.attack ? ` · ${d.attack}` : ''}\n  ${d.why.slice(0, 3).join('\n  ')}`),
+    ...(r.distant ? [`Poste lu par ${r.distant.via === 'smb' ? 'le partage de fichiers (Windows)' : 'SSH'}, sans rien y installer ni modifier.${r.distant.gros ? ` ${r.distant.gros} très gros fichier(s) non lus (films, sauvegardes, images de disque…).` : ''}${r.distant.illisibles ? ` ${r.distant.illisibles} fichier(s) ouverts ou verrouillés sur le poste, non lus.` : ''}${r.distant.dossiersRefuses ? ` ${r.distant.dossiersRefuses} dossier(s) refusés par le poste.` : ''}`, ...r.distant.notes.map((n) => `- ${n}`)] : []),
     ...(r.errors.length ? [`${r.errors.length} fichier(s) non lus :`, ...r.errors.slice(0, 10).map((e) => `- ${e}`)] : [])].join('\n');
+}
+
+// ---------------------------------------------------------------- Un autre poste (Windows, Mac, Linux), sans rien y installer
+/** Analyse un fichier lu sur un autre poste (il est en mémoire). Un gros fichier : son début et son empreinte complète, comme sur le disque d'ici. */
+function scanDistant(f: FichierLu, k: Knowledge): Verdict {
+  const where = dirname(f.chemin);
+  if (f.data) return { ...scanBuffer(f.chemin, f.data, k, { where }), file: f.chemin };
+  const v = scanBuffer(f.chemin, f.tete ?? Buffer.alloc(0), k, { where, depth: 3 }), known = f.sha256 ? k.hash?.(f.sha256) : undefined;
+  if (known) v.findings.unshift({ threat: known.family ? `Malware connu : ${known.family}` : 'Malware connu', by: 'empreinte', level: 'critique', klass: 'malware', score: 100, why: `son empreinte est dans la base de ${known.source}`, source: known.source, family: known.family, sure: true });
+  const c = combine(flat(v));
+  return { ...v, file: f.chemin, sha256: f.sha256 ?? v.sha256, size: f.octets, score: c.score, level: c.level, note: 'gros fichier : empreinte complète, contenu analysé sur les 8 premiers Mo' };
+}
+/** Une détection sur un autre poste : notée et annoncée. Rien n'est jamais touché là-bas sans ton accord. */
+function noterDistante(ctx: ModCtx, m: Machine, f: FichierLu, v: Verdict): Detection | undefined {
+  const all = flat(v); if (!all.length || !v.level) return undefined;
+  if (!sureOf(v) && v.score < 60 && SYSTEM.test(slash(v.file))) return undefined;
+  const top = [...all].sort((a, b) => b.score - a.score)[0], onlyTest = all.every((x) => x.klass === 'test'), file = `${m.label} › ${v.file}`;
+  const kept = ((ctx.settings.released as string[] | undefined) ?? []).includes(v.sha256);
+  const action = kept ? 'laissé en place à ta demande' : onlyTest ? 'fichier de test, laissé en place' : 'à vérifier';
+  const d: Detection = { id: randomBytes(4).toString('hex'), at: ctx.now().toISOString(), file, sha256: v.sha256, threat: top.threat, klass: top.klass, level: v.level, score: v.score, by: [...new Set(all.map((x) => x.by))].join(' + '), why: all.slice(0, 6).map((x) => `${x.threat} : ${x.why}${x.file !== v.file ? ` (dans ${x.file.split('!').slice(1).join(' › ')})` : ''}`), action, attack: top.attack, poste: m.id, posteNom: m.label, distant: { ...(f.partage ? { partage: f.partage } : {}), relatif: f.relatif } };
+  ctx.saveSettings({ hits: [d, ...dets(ctx).filter((x) => !(x.file === d.file && x.threat === d.threat))].slice(0, 300) });
+  if (!kept) {
+    ctx.alert({ level: v.level, title: `Asclépios : ${top.threat} sur ${m.label}`, detail: `${v.file} — score ${v.score}/100. ${d.why.slice(0, 3).join(' ; ')}. Rien n'a été touché sur le poste${action === 'à vérifier' ? ` : dis « isole la détection ${d.id} » pour mettre le fichier à l'écart là-bas, ou « faux positif ${d.id} ».` : '.'}`, key: `hit:${m.id}:${v.sha256}:${top.threat}`, data: { empreinte: v.sha256, score: v.score, poste: m.label } });
+    ctx.emit('menace', { fichier: file, menace: top.threat, gravité: v.level, action, score: v.score, empreinte: v.sha256, genre: top.klass, poste: m.label });
+  }
+  return d;
+}
+/** Analyse un autre poste : ses fichiers sont lus à distance (partage Windows ou SSH) et analysés ici, un par un, en mémoire. */
+async function runScanDistant(ctx: ModCtx, m: Machine, o: { profil: 'rapide' | 'tout'; ou?: string; max?: number }): Promise<Report> {
+  const x = st(ctx); if (x.running) throw new Error(`une analyse est déjà en cours (${x.running.target}, ${x.running.files} fichiers) : dis « arrête l'analyse » pour la couper`);
+  const cible = `${m.label}${m.label === m.host ? '' : ` (${m.host})`}`;
+  const run: Running = { id: randomBytes(4).toString('hex'), target: cible, files: 0, hits: 0, started: Date.now(), cancel: false, etape: 'connexion au poste' }; x.running = run;
+  const k = knowledge(ctx), found: Detection[] = [], errors: string[] = [], stop = new AbortController(); let bytes = 0, bilan: BilanLecture | undefined;
+  const veille = setInterval(() => { if (run.cancel) stop.abort(); }, 250);
+  try {
+    bilan = await lirePoste(ctx.home, m, { profil: o.profil, ou: o.ou, max: o.max, signal: stop.signal, surEtape: (e) => { run.etape = e; }, surFichier: async (f) => {
+      run.files++; bytes += f.octets;
+      try { const v = scanDistant(f, k); if (v.level) { const d = noterDistante(ctx, m, f, v); if (d) { found.push(d); run.hits++; } } }
+      catch (e) { if (errors.length < 40) errors.push(`${f.chemin} : ${(e as Error).message.slice(0, 100)}`); }
+      if (run.files % 25 === 0) await pause(0);
+    } });
+  } finally { clearInterval(veille); x.running = undefined; }
+  const r: Report = { id: run.id, at: ctx.now().toISOString(), target: `${cible} · ${bilan.racines.join(', ') || 'rien'}`, files: run.files, bytes, ms: Date.now() - run.started, state: run.cancel || bilan.arrete ? 'arrêté' : 'terminé', version: x.intel.current(), detections: found, errors, distant: { poste: m.id, via: bilan.via, gros: bilan.gros, illisibles: bilan.illisibles, dossiersRefuses: bilan.dossiersRefuses, notes: bilan.notes } };
+  mkdirSync(join(ctx.dir, 'rapports'), { recursive: true }); writeFileSync(join(ctx.dir, 'rapports', `${r.id}.json`), JSON.stringify(r, null, 1));
+  const idx = [{ id: r.id, at: r.at, target: r.target, files: r.files, bytes, ms: r.ms, state: r.state, version: r.version, hits: found.length, distant: r.distant }, ...reports(ctx)];
+  for (const old of idx.slice(60)) rmSync(join(ctx.dir, 'rapports', `${old.id}.json`), { force: true });
+  ctx.saveSettings({ reports: idx.slice(0, 60), lastScan: idx[0] });
+  return r;
+}
+/** Le résultat d'une analyse à distance, en clair. */
+function resumeDistant(r: Report): string {
+  const d = r.distant!, reste = [d.gros ? `${d.gros} très gros fichier(s) non lus (films, sauvegardes, images de disque…)` : '', d.illisibles ? `${d.illisibles} fichier(s) ouverts ou verrouillés sur le poste, non lus` : '', d.dossiersRefuses ? `${d.dossiersRefuses} dossier(s) refusés par le poste` : '', ...d.notes].filter(Boolean);
+  return `🔎 ${r.target} : ${r.files} fichiers analysés (${human(r.bytes)}) en ${Math.round(r.ms / 1000)} s, par ${d.via === 'smb' ? 'le partage de fichiers' : 'SSH'}${r.state === 'arrêté' ? ' — analyse arrêtée' : ''}.\n${r.detections.length ? `${r.detections.length} détection(s) :\n${r.detections.map((x) => `- [${x.level}] ${x.threat} — ${x.file} (${x.action})${x.action === 'à vérifier' ? ` → « isole la détection ${x.id} »` : ''}`).join('\n')}` : '✓ Rien de dangereux trouvé.'}${reste.length ? `\nÀ savoir : ${reste.join(' ; ')}.` : ''}\nRien n'a été modifié sur le poste. Aucun antivirus ne détecte tout. Rapport ${r.id}.`;
+}
+/** Le poste demandé (nom ou adresse) ; un compte donné dans la demande est rangé dans le coffre des machines (jamais affiché). */
+function posteDemande(ctx: ModCtx, i: Record<string, unknown>): Machine {
+  const qui = s(i.poste).trim(), compte = s(i.utilisateur).trim(), pw = typeof i.mot_de_passe === 'string' ? i.mot_de_passe : '';
+  if (!qui) throw new Error('quel poste ? Donne son nom ou son adresse (ex. 192.168.1.20)');
+  let m = findMachine(ctx.home, qui);
+  if (compte) {
+    const bs = compte.indexOf('\\'), domaine = bs > 0 ? compte.slice(0, bs) : '', user = bs > 0 ? compte.slice(bs + 1) : compte;
+    const prev = listMachines(ctx.home).find((z) => (z.host === (m?.host ?? qui) || z.id === m?.id) && z.user === user);
+    m = saveMachine(ctx.home, { id: prev?.id, host: m?.host ?? qui, label: prev?.label ?? (m && m.user === user ? m.label : undefined), user, port: prev?.port ?? m?.port, ...(pw ? { password: pw } : {}), ...(domaine ? { domain: domaine } : {}) });
+  } else if (m && pw) m = saveMachine(ctx.home, { id: m.id, host: m.host, port: m.port, user: m.user, label: m.label, password: pw });
+  if (!m) throw new Error(`je n'ai pas encore de compte pour « ${qui.slice(0, 60)} » : ouvre Asclépios → « Analyser un autre poste » et donne son compte administrateur et son mot de passe (champ masqué, rangé dans le coffre d'Odin, montré à aucune IA), ou ajoute le poste dans Réglages → Droits et machines`);
+  return m;
 }
 
 // ---------------------------------------------------------------- Mises à jour (paquet testé, signé, annulable)
@@ -353,7 +425,7 @@ const verdictText = (v: Verdict): string => {
 export const ullr: Module = {
   id: 'ullr', name: 'Asclépios', family: 'Sécurité',
   what: 'L\'antivirus d\'Odin, fait maison : fichiers, archives, téléchargements, clés USB, sites web, liens et messages, relié à toutes les autres applis.',
-  does: ['empreintes de malwares connus et familles (MalwareBazaar, ThreatFox), mises à jour toutes les 6 heures', 'règles : les tiennes (Grimoire) et des règles YARA publiques importées, testées contre les fausses alertes', 'heuristiques au score explicable : programme déguisé, macros, PDF piégé, raccourci, script dissimulé, vol d\'identifiants, espion', 'archives ouvertes (zip, gzip, tar, documents Office, APK), bombes de décompression repérées', 'hameçonnage : pages, messages et adresses web (OpenPhish, URLhaus, imitation de marque, lien menteur)', 'logiciels espions : applis de surveillance pour téléphone (Stalkerware Indicators)', 'réputation d\'une empreinte (VirusTotal, MalwareBazaar, CIRCL) sans jamais envoyer le fichier', 'protection en continu : téléchargements, supports amovibles, fichiers sentinelles contre les rançongiciels', 'analyses planifiées avec exclusions, ralenties si la machine est chargée, annulables', 'incidents : relie les signaux de Némésis, Méduse, Sirènes, Cerbère, Forseti, Hygie… et répond', 'base de signatures signée, versionnée, testée avant activation, annulable', 'quarantaine réversible, exceptions, fausses alertes, rapports horodatés', 'failles réellement exploitées (CISA KEV) comparées aux logiciels installés'],
+  does: ['empreintes de malwares connus et familles (MalwareBazaar, ThreatFox), mises à jour toutes les 6 heures', 'règles : les tiennes (Grimoire) et des règles YARA publiques importées, testées contre les fausses alertes', 'heuristiques au score explicable : programme déguisé, macros, PDF piégé, raccourci, script dissimulé, vol d\'identifiants, espion', 'archives ouvertes (zip, gzip, tar, documents Office, APK), bombes de décompression repérées', 'hameçonnage : pages, messages et adresses web (OpenPhish, URLhaus, imitation de marque, lien menteur)', 'logiciels espions : applis de surveillance pour téléphone (Stalkerware Indicators)', 'réputation d\'une empreinte (VirusTotal, MalwareBazaar, CIRCL) sans jamais envoyer le fichier', 'protection en continu : téléchargements, supports amovibles, fichiers sentinelles contre les rançongiciels', 'analyses planifiées avec exclusions, ralenties si la machine est chargée, annulables', 'incidents : relie les signaux de Némésis, Méduse, Sirènes, Cerbère, Forseti, Hygie… et répond', 'base de signatures signée, versionnée, testée avant activation, annulable', 'quarantaine réversible, exceptions, fausses alertes, rapports horodatés', 'failles réellement exploitées (CISA KEV) comparées aux logiciels installés', 'un autre poste analysé d\'ici, sans rien y installer : PC et serveurs Windows par leur partage de fichiers, Mac et Linux par SSH, NAS ; un fichier dangereux peut être mis à l\'écart sur le poste, avec ton accord'],
   from: ['ClamAV', 'ClamWin', 'ClamUI', 'YARA', 'Linux Malware Detect', 'MalwareBazaar', 'VirusTotal'], upstream: ['Cisco-Talos/clamav', 'VirusTotal/yara', 'rfxn/linux-malware-detect', 'Neo23x0/signature-base', 'YARAHQ/yara-forge', 'AssoEchap/stalkerware-indicators'],
   modes: ['Hippocrate · console', 'Grimoire · règles sur mesure', 'Galien · sites web', 'Quarantaine'],
   words: ['antivirus', 'virus', 'malware', 'malveillant', 'analyse', 'scanner', 'scan', 'quarantaine', 'webshell', 'regle yara', 'règle', 'infecte', 'infecté', 'rancongiciel', 'rançongiciel', 'ransomware', 'hameconnage', 'hameçonnage', 'phishing', 'arnaque', 'espion', 'logiciel espion', 'signatures', 'empreintes', 'incident', 'incidents', 'cheval de troie', 'piratage', 'piraté', 'exception', 'exceptions', 'sentinelle', 'sentinelles', 'failles', 'bizarre', 'anormal', 'anormale', 'louche', 'dangereux', 'dangereuse', 'verifie le lien', 'verifie ce lien', 'verifie le site', 'verifie ce site', 'verifie cette adresse', 'verifie ce message', 'verifie ce mail'],
@@ -371,6 +443,40 @@ export const ullr: Module = {
     { id: 'analyser', label: 'Analyser', what: 'Analyse un dossier, un fichier ou un profil (téléchargements, sites web, maison, temporaire, tout)', params: [{ key: 'dossier', label: 'Dossier ou profil', kind: 'text', default: 'téléchargements' }, { key: 'exclusions', label: 'Dossiers à ne pas analyser (un par ligne)', kind: 'textarea', default: '' }], words: ['analyse', 'scanne'], run: async (ctx, i) => {
       const r = await runScan(ctx, s(i.dossier) || 'téléchargements', { exclude: s(i.exclusions).split('\n').map((q) => q.trim()).filter(Boolean) });
       return { text: `🔎 ${r.files} fichiers analysés (${r.target}) en ${Math.round(r.ms / 1000)} s${r.state === 'arrêté' ? ' — analyse arrêtée' : ''} : ${r.detections.length ? `${r.detections.length} détection(s)\n${r.detections.map((d) => `- [${d.level}] ${d.threat} — ${d.file} (${d.action})`).join('\n')}` : 'rien de dangereux.'}\nRapport ${r.id} (dis « rapport antivirus »).`, data: { rapport: r.id, fichiers: r.files, detections: r.detections.length } };
+    } },
+    { id: 'analyser_poste', label: 'Analyser un autre poste', what: 'Un PC ou un serveur Windows, un Mac, un Linux ou un NAS, analysé d\'ici sans rien y installer : par son partage de fichiers (Windows) ou par SSH',
+      params: [{ key: 'poste', label: 'Poste (nom enregistré ou adresse, ex. 192.168.1.20)', kind: 'text', required: true }, { key: 'utilisateur', label: 'Compte administrateur du poste', kind: 'text', default: '', help: 'Seulement la première fois. Compte d\'un domaine : DOMAINE\\compte.' }, { key: 'mot_de_passe', label: 'Son mot de passe', kind: 'password', default: '', help: 'Rangé dans le coffre d\'Odin, jamais affiché.' }, { key: 'quoi', label: 'Analyse', kind: 'select', options: ['tout', 'rapide'], default: 'tout', help: 'tout : tous les disques (peut durer une heure) · rapide : là où les virus se mettent (profils, téléchargements, temporaires, démarrage)' }, { key: 'ou', label: 'Un seul endroit (facultatif)', kind: 'text', default: '', help: 'C:, D:\\Factures, un partage (Photos), ou /home/fatima' }],
+      grave: (i) => `lire les fichiers de ${s(i.poste) || 'ce poste'} pour les analyser ici (${s(i.ou) || (s(i.quoi) === 'rapide' ? 'analyse rapide' : 'tout le poste')}) ; rien n'est modifié sur le poste, rien ne sort de chez toi`,
+      words: ['analyse le poste', 'analyse le pc', 'scanne le pc', 'scanne le poste', 'analyse un autre poste', 'analyse l\'ordinateur'], run: async (ctx, i) => {
+        const m = posteDemande(ctx, i), ou = s(i.ou).trim() || undefined;
+        const travail = runScanDistant(ctx, m, { profil: s(i.quoi) === 'rapide' ? 'rapide' : 'tout', ou });
+        // Une analyse courte rend son résultat tout de suite. Une longue (un disque entier) continue toute seule :
+        // la page montre l'avancement, et tu es prévenu à la fin.
+        let minuterie: ReturnType<typeof setTimeout> | undefined;
+        const attente = new Promise<undefined>((res) => { minuterie = setTimeout(() => res(undefined), Number(ctx.settings.attenteDistante ?? 25_000)); });
+        const r = await Promise.race([travail, attente]).finally(() => clearTimeout(minuterie));
+        if (r) return { text: resumeDistant(r), data: { rapport: r.id, fichiers: r.files, detections: r.detections.length, poste: m.label } };
+        void travail.then((fin) => ctx.notify(resumeDistant(fin))).catch((e) => ctx.alert({ level: 'moyenne', title: `Asclépios : l'analyse de ${m.label} s'est arrêtée`, detail: (e as Error).message, key: `poste:${m.id}:${ctx.now().getTime()}` }));
+        return { text: `🔎 Analyse de ${m.label} lancée (${st(ctx).running?.files ?? 0} fichiers déjà analysés). Elle continue toute seule : la page d'Asclépios montre l'avancement et je te préviens à la fin. Dis « arrête l'analyse » pour la couper.`, data: { enCours: true, poste: m.label } };
+      } },
+    { id: 'isoler_distant', label: 'Isoler sur le poste', what: 'Met à l\'écart, sur son poste, un fichier trouvé par une analyse à distance : il est renommé sur place et ne peut plus être lancé (réversible)', params: [{ key: 'detection', label: 'Détection (son code)', kind: 'text', required: true }],
+      grave: (i, ctx) => { const d = ctx ? dets(ctx).find((x) => x.id === s(i.detection)) : undefined; return `renommer ${d ? d.file : `le fichier de la détection ${s(i.detection)}`} sur son poste pour qu'il ne puisse plus être lancé (réversible)`; },
+      words: ['isole la détection', 'isole sur le poste'], undo: (_i, r) => { const id = (r.data as { id?: string } | undefined)?.id; return id ? { action: 'restaurer_distant', input: { id }, label: 'fichier remis à sa place sur le poste' } : undefined; }, run: async (ctx, i) => {
+        const d = dets(ctx).find((x) => x.id === s(i.detection)); if (!d) throw new Error('détection introuvable');
+        if (!d.poste || !d.distant) throw new Error('cette détection est sur la machine d\'Odin : utilise « isoler »');
+        const m = listMachines(ctx.home).find((x) => x.id === d.poste); if (!m) throw new Error(`le poste ${d.posteNom ?? ''} n'est plus dans le coffre des machines`);
+        if (vital(d.file.split(' › ').slice(1).join(' › '))) throw new Error('fichier du système : je ne le déplace pas (le poste pourrait ne plus démarrer). Regarde-le d\'abord');
+        const { vers } = await isolerSurPoste(ctx.home, m, d.distant);
+        const q: QDistant = { id: randomBytes(6).toString('hex'), poste: m.id, posteNom: m.label, ...(d.distant.partage ? { partage: d.distant.partage } : {}), relatif: d.distant.relatif, vers, file: d.file, sha256: d.sha256, threat: d.threat, at: ctx.now().toISOString() };
+        ctx.saveSettings({ quarantineDistante: [...qdist(ctx), q], hits: dets(ctx).map((x) => (x.id === d.id ? { ...x, action: 'isolé sur le poste' } : x)) });
+        return { text: `🧊 ${d.file} est mis à l'écart sur ${m.label} : renommé en « ${vers.split('/').pop()} », il ne peut plus être lancé. Tu peux le remettre en place (${q.id}).`, data: { id: q.id } };
+      } },
+    { id: 'restaurer_distant', quick: false, label: 'Remettre en place sur le poste', what: 'Rend son nom à un fichier mis à l\'écart sur un autre poste', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }], grave: (i) => `remettre en place, sur son poste, le fichier mis à l'écart ${s(i.id)}`, run: async (ctx, i) => {
+      const q = qdist(ctx).find((x) => x.id === s(i.id)); if (!q) throw new Error('introuvable');
+      const m = listMachines(ctx.home).find((x) => x.id === q.poste); if (!m) throw new Error(`le poste ${q.posteNom} n'est plus dans le coffre des machines`);
+      await remettreSurPoste(ctx.home, m, q);
+      ctx.saveSettings({ quarantineDistante: qdist(ctx).filter((x) => x.id !== q.id), released: [...new Set([q.sha256, ...((ctx.settings.released as string[] | undefined) ?? [])])].filter(Boolean).slice(0, 300), hits: dets(ctx).map((x) => (x.file === q.file && x.action === 'isolé sur le poste' ? { ...x, action: 'laissé en place à ta demande' } : x)) });
+      return { text: `↩ ${q.file} remis à sa place sur ${q.posteNom}.` };
     } },
     { id: 'fichier', label: 'Analyser un fichier', what: 'Un seul fichier, avec l\'explication du verdict', read: true, params: [{ key: 'chemin', label: 'Fichier', kind: 'text', required: true }], words: ['fichier'], run: async (ctx, i) => {
       // Un nom seul (« rapport.pdf ») est cherché là où les fichiers arrivent.
@@ -478,14 +584,17 @@ export const ullr: Module = {
     const x = st(ctx), m = x.intel.manifest(), last = reports(ctx)[0], hits = dets(ctx).slice(0, 40), open = x.corr.incidents.filter((i) => i.state === 'ouvert'), name = (id: string) => ctx.modules().find((q) => q.id === id)?.name ?? id;
     const age = m ? Math.round((ctx.now().getTime() - Date.parse(m.at)) / 3600_000) : undefined;
     return {
-      subtitle: x.running ? `Analyse en cours : ${x.running.target} · ${x.running.files} fichiers · ${x.running.hits} détection(s)` : `Base version ${m?.version ?? 0}${age !== undefined ? ` (il y a ${age < 48 ? `${age} h` : `${Math.round(age / 24)} j`})` : ' (règles de base)'} · ${x.intel.hashCount() ? `${x.intel.hashCount()} empreintes` : 'pas d\'empreintes (clé abuse.ch absente)'} · ${ruleSet(ctx).rules.length} règles · ${x.watchers.length} dossier${x.watchers.length > 1 ? 's' : ''} surveillé${x.watchers.length > 1 ? 's' : ''}`,
+      subtitle: x.running ? `Analyse en cours : ${x.running.target} · ${x.running.files} fichiers · ${x.running.hits} détection(s)${x.running.etape ? ` · ${x.running.etape}` : ''}` : `Base version ${m?.version ?? 0}${age !== undefined ? ` (il y a ${age < 48 ? `${age} h` : `${Math.round(age / 24)} j`})` : ' (règles de base)'} · ${x.intel.hashCount() ? `${x.intel.hashCount()} empreintes` : 'pas d\'empreintes (clé abuse.ch absente)'} · ${ruleSet(ctx).rules.length} règles · ${x.watchers.length} dossier${x.watchers.length > 1 ? 's' : ''} surveillé${x.watchers.length > 1 ? 's' : ''}`,
       tabs: ['Hippocrate · console', 'Grimoire · règles', 'Galien · sites web', 'Quarantaine'],
+      ...(x.running ? { refreshMs: 3000 } : {}),
       kpis: [{ label: 'Incidents ouverts', value: String(open.length), tone: open.some((i) => i.level === 'critique') ? 'mauvais' : open.length ? 'attention' : 'bon' }, { label: 'Détections', value: String(dets(ctx).filter((d) => d.action === 'à vérifier').length), hint: 'à vérifier', tone: dets(ctx).some((d) => d.action === 'à vérifier') ? 'attention' : 'bon' }, { label: 'Quarantaine', value: String(qlist(ctx).length) }, { label: 'Dernière analyse', value: last ? `${last.files} fichier${last.files > 1 ? 's' : ''}` : '—', hint: last ? `${last.target} · ${new Date(last.at).toLocaleString('fr-FR')}` : undefined }, { label: 'Signatures', value: m ? `v${m.version}` : 'de base', hint: `${x.intel.hashCount()} empreintes · ${x.intel.iocCount()} indicateurs${x.intel.hashCount() ? '' : ' · sans clé abuse.ch, pas d\'empreintes de malwares (encadré « Clés des sources »)'}`, tone: age === undefined || age > 72 ? 'attention' : 'bon' }],
       sections: [
         { kind: 'table', title: 'Incidents (signaux reliés entre les applis)', columns: ['Quand', 'Incident', 'Risque', 'Vu par', 'État'], empty: '✓ Aucun incident.', rows: x.corr.incidents.slice(0, 15).map((i) => ({ cells: [i.at.slice(5, 16).replace('T', ' '), i.title, `${i.score}/100`, i.apps.join(', '), i.state], tone: i.state !== 'ouvert' ? 'neutre' as const : i.level === 'critique' ? 'mauvais' as const : 'attention' as const, actions: i.state === 'ouvert' ? [{ action: 'incident', label: 'Traité', input: { incident: i.id, etat: 'traité' } }, { action: 'incident', label: 'Ignorer', input: { incident: i.id, etat: 'ignoré' } }] : [] })) },
-        { kind: 'table', title: 'Détections', columns: ['Quand', 'Menace', 'Fichier', 'Score', 'Trouvée par', 'Action'], empty: '✓ Rien trouvé.', rows: hits.map((h) => ({ cells: [h.at.slice(5, 16).replace('T', ' '), h.threat, h.file, `${h.score}/100`, h.by, h.action], tone: h.action.startsWith('fausse') ? 'neutre' as const : h.level === 'critique' ? 'mauvais' as const : 'attention' as const, actions: h.action === 'à vérifier' ? [{ action: 'isoler', label: 'Isoler', input: { fichier: h.file, menace: h.threat } }, { action: 'faux_positif', label: 'Fausse alerte', input: { detection: h.id } }] : h.action === 'en quarantaine' ? [{ action: 'faux_positif', label: 'Fausse alerte', input: { detection: h.id } }] : [] })) },
-        { kind: 'table', title: 'Quarantaine', columns: ['Menace', 'Fichier d\'origine', 'Depuis'], empty: 'Vide.', rows: qlist(ctx).map((q) => ({ cells: [q.threat, q.file, q.at.slice(0, 16).replace('T', ' ')], actions: [{ action: 'restaurer', label: 'Restaurer', input: { id: q.id } }, { action: 'supprimer', label: 'Supprimer', input: { id: q.id } }] })) },
+        { kind: 'table', title: 'Détections', columns: ['Quand', 'Menace', 'Fichier', 'Score', 'Trouvée par', 'Action'], empty: '✓ Rien trouvé.', rows: hits.map((h) => ({ cells: [h.at.slice(5, 16).replace('T', ' '), h.threat, h.file, `${h.score}/100`, h.by, h.action], tone: h.action.startsWith('fausse') ? 'neutre' as const : h.level === 'critique' ? 'mauvais' as const : 'attention' as const, actions: h.action === 'à vérifier' ? [h.poste ? { action: 'isoler_distant', label: 'Isoler sur le poste', input: { detection: h.id } } : { action: 'isoler', label: 'Isoler', input: { fichier: h.file, menace: h.threat } }, { action: 'faux_positif', label: 'Fausse alerte', input: { detection: h.id } }] : h.action === 'en quarantaine' ? [{ action: 'faux_positif', label: 'Fausse alerte', input: { detection: h.id } }] : [] })) },
+        { kind: 'table', title: 'Quarantaine', columns: ['Menace', 'Fichier d\'origine', 'Depuis'], empty: 'Vide.', rows: [...qlist(ctx).map((q) => ({ cells: [q.threat, q.file, q.at.slice(0, 16).replace('T', ' ')], actions: [{ action: 'restaurer', label: 'Restaurer', input: { id: q.id } }, { action: 'supprimer', label: 'Supprimer', input: { id: q.id } }] })), ...qdist(ctx).map((q) => ({ cells: [q.threat, `${q.file} (mis à l'écart sur le poste)`, q.at.slice(0, 16).replace('T', ' ')], actions: [{ action: 'restaurer_distant', label: 'Remettre en place', input: { id: q.id } }] }))] },
         { kind: 'table', title: 'Analyser en un clic', columns: ['Profil', 'Ce qui est analysé'], rows: Object.entries(PROFILES(ctx)).map(([k, dirs]) => ({ cells: [k, dirs.filter((d) => existsSync(d)).join(', ') || 'aucun de ces dossiers n\'existe ici'], tone: 'neutre' as const, actions: [{ action: 'analyser', label: 'Analyser', input: { dossier: k } }] })) },
+        { kind: 'table', title: 'Autres postes (Windows, Mac, Linux, NAS) : analysés d\'ici, sans rien y installer', columns: ['Poste', 'Adresse', 'Compte', 'Dernière analyse'], empty: 'Aucun poste enregistré : remplis « Analyser un autre poste » ci-dessous avec son adresse et son compte administrateur.', rows: listMachines(ctx.home).map((mm) => { const lastR = reports(ctx).find((r) => (r as { distant?: { poste: string } }).distant?.poste === mm.id); return { cells: [mm.label, mm.host, `${mm.domain ? `${mm.domain}\\` : ''}${mm.user}`, lastR ? `${lastR.at.slice(0, 16).replace('T', ' ')} · ${lastR.files} fichiers · ${lastR.hits} détection(s)` : 'jamais'], tone: lastR?.hits ? 'attention' as const : 'neutre' as const, actions: [{ action: 'analyser_poste', label: 'Tout analyser', input: { poste: mm.id, quoi: 'tout' } }, { action: 'analyser_poste', label: 'Analyse rapide', input: { poste: mm.id, quoi: 'rapide' } }] }; }) },
+        { kind: 'form', title: 'Analyser un autre poste', action: 'analyser_poste', submit: 'Analyser ce poste', params: ullr.actions.find((a) => a.id === 'analyser_poste')!.params! },
         { kind: 'table', title: 'Analyses planifiées', columns: ['Plan', 'Cible', 'Quand', 'Dernière', 'Prochaine'], empty: 'Aucune : les téléchargements sont analysés à l\'arrivée, les sites web chaque nuit.', rows: plans(ctx).map((p) => ({ cells: [p.name, p.target, `chaque ${p.every}${p.every === 'heure' ? '' : ` à ${p.at}`}`, p.last ? p.last.slice(0, 16).replace('T', ' ') : 'jamais', p.next ? new Date(p.next).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'], actions: [{ action: 'analyser', label: 'Lancer', input: { dossier: p.target, exclusions: p.exclude.join('\n') } }, { action: 'retirer_plan', label: 'Retirer', input: { nom: p.name } }] })) },
         { kind: 'table', title: 'Rapports', columns: ['Quand', 'Cible', 'Fichiers', 'Détections', 'Durée'], empty: 'Aucune analyse faite.', rows: reports(ctx).slice(0, 12).map((r) => ({ cells: [r.at.slice(0, 16).replace('T', ' '), r.target, String(r.files), String(r.hits), `${Math.round(r.ms / 1000)} s`], tone: r.hits ? 'attention' as const : 'bon' as const, actions: [{ action: 'rapport', label: 'Lire', input: { rapport: r.id } }] })) },
         { kind: 'table', title: 'Sources des signatures', columns: ['Source', 'Apporte', 'État', 'Licence et conditions'], rows: SOURCES.map((q) => { const z = m?.sources.find((y) => y.id === q.id), miss = Boolean(q.needs && !process.env[q.needs]); return { cells: [q.name, q.gives, q.mode === 'référence' ? 'référence (non branchée)' : q.mode === 'à la demande' ? (miss ? `clé absente (${q.needs})` : 'à la demande') : !q.fetch ? 'gérée par Méduse' : !srcOn(ctx, q.id) ? 'désactivée' : miss ? `clé absente (${q.needs})` : z ? `${z.count} · ${z.at.slice(0, 10)}` : 'pas encore mise à jour', q.licence], tone: q.mode === 'référence' ? 'neutre' as const : miss || (q.fetch && !srcOn(ctx, q.id)) ? 'attention' as const : 'bon' as const, actions: q.fetch ? [{ action: 'source', label: srcOn(ctx, q.id) ? 'Désactiver' : 'Activer', input: { source: q.id, actif: !srcOn(ctx, q.id) } }] : [] }; }) },

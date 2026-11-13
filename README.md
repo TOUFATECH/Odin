@@ -372,6 +372,28 @@ Odin a son propre antivirus, fait maison : fichiers, archives, téléchargements
 
 Dis par exemple : « analyse mes téléchargements », « vérifie le lien https://… », « y a-t-il un virus sur ma machine ? », « les incidents ». Tout cela marche sans IA connectée.
 
+### Antivirus sur un autre poste (Windows, Mac, Linux, NAS)
+
+Asclépios analyse aussi les autres machines, **sans rien y installer** : il lit leurs fichiers à distance et les analyse chez lui, en mémoire. Rien n'est écrit sur le disque d'Odin, rien n'est modifié sur le poste, rien ne sort de chez toi.
+
+- **PC et serveurs Windows, NAS** : par le partage de fichiers (SMB). Avec un compte administrateur, Odin lit les disques entiers (`C$`, `D$`…) ; sinon, les dossiers partagés.
+- **Linux et Mac** : par SSH (`find` + `tar` lancés sur le poste, en lecture seule).
+
+Dans Asclépios → « Analyser un autre poste » : l'adresse du poste, son compte administrateur et son mot de passe (rangés dans le coffre des machines, jamais affichés), puis « tout » ou « rapide ». Ou en parlant : « analyse le PC 192.168.1.20 ».
+
+Une menace trouvée n'est **jamais** touchée sans ton accord : « Isoler sur le poste » renomme le fichier là-bas (`.odin-quarantaine`) pour qu'il ne puisse plus être lancé, et « Remettre en place » l'annule.
+
+À préparer sur le poste visé :
+
+- **Windows** : « Partage de fichiers et d'imprimantes » activé sur le réseau privé. Windows bloque par défaut les comptes administrateurs *locaux* à distance (sauf le compte « Administrateur ») : une fois, dans une invite de commandes en administrateur, `reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f`. Sans cela, Odin le dit et lit seulement les dossiers partagés.
+- **Mac** : Réglages → Général → Partage → « Session à distance » (SSH).
+- **Linux** : le serveur SSH (`openssh-server`).
+- **Machine d'Odin** : les paquets `smbclient` (Windows) et `openssh-client` (déjà dans l'image Docker).
+
+Limites dites clairement : les fichiers ouverts ou verrouillés par le poste ne sont pas lus (ils sont comptés), les très gros fichiers qui ne sont pas des programmes non plus, et aucun antivirus ne détecte tout.
+
+Les applis qui lisent la machine acceptent aussi un autre poste Linux ou Mac (par SSH) : Pyramide (disques), Thermopyles (pare-feu, ports), Chroniques (journaux). Exemple : « état des disques sur serveur-web ».
+
 ### Sites web (Arachné)
 
 Odin surveille tes sites et s'en occupe, **sans IA** : il répond ou non, son temps de réponse, son certificat,

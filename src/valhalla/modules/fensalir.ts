@@ -4,6 +4,7 @@
 // accord ; Odin n'efface et ne formate jamais un disque.
 import { existsSync, readFileSync } from 'node:fs';
 import { hostname } from 'node:os';
+import { PARAM_POSTE, posteDe, postesLisibles, type Poste } from '../postes.ts';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
 
 export interface Disque { nom: string; taille: number; modele?: string; serie?: string; ssd: boolean; transport?: string; amovible: boolean; parts: Array<{ nom: string; taille: number; fs?: string; monte?: string; etiquette?: string }> }
@@ -70,16 +71,17 @@ export const taille = (o: number) => (o >= 1024 ** 4 ? `${(o / 1024 ** 4).toLoca
 const SMB = '/etc/samba/smb.conf';
 const lire = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return ''; } };
 
-async function etat(ctx: ModCtx): Promise<{ disques: Disque[]; volumes: Volume[]; partages: Partage[]; sante: Record<string, string> }> {
+/** L'état des disques et des partages de la machine d'Odin, ou d'un autre poste Linux ou Mac (mêmes commandes, par SSH). */
+async function etat(ctx: ModCtx, qui?: unknown): Promise<{ poste: Poste; disques: Disque[]; volumes: Volume[]; partages: Partage[]; sante: Record<string, string> }> {
+  const p = posteDe(ctx, qui), sys = await p.systeme();
   let disques: Disque[] = [], volumes: Volume[] = [];
-  if (process.platform === 'linux') { const r = await ctx.run('lsblk', ['-J', '-b', '-o', 'NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,MODEL,SERIAL,ROTA,TRAN,RM,LABEL'], { timeoutMs: 10_000 }); if (!r.code) disques = lireLsblk(r.out); }
-  const d = await ctx.run('df', process.platform === 'linux' ? ['-B1', '-P', '-T'] : ['-k', '-P'], { timeoutMs: 10_000 });
-  if (!d.code) volumes = process.platform === 'linux' ? lireDf(d.out) : d.out.trim().split('\n').slice(1).map((l) => l.trim().split(/\s+/)).filter((c) => c.length >= 6 && c[0].startsWith('/dev/')).map((c) => ({ fs: '', taille: Number(c[1]) * 1024, utilise: Number(c[2]) * 1024, libre: Number(c[3]) * 1024, monte: c.slice(5).join(' ') }));
+  if (sys === 'linux') { const r = await p.run('lsblk', ['-J', '-b', '-o', 'NAME,SIZE,TYPE,MOUNTPOINT,FSTYPE,MODEL,SERIAL,ROTA,TRAN,RM,LABEL'], { timeoutMs: 10_000 }); if (!r.code) disques = lireLsblk(r.out); }
+  const d = await p.run('df', sys === 'linux' ? ['-B1', '-P', '-T'] : ['-k', '-P'], { timeoutMs: 10_000 });
+  if (!d.code) volumes = sys === 'linux' ? lireDf(d.out) : d.out.trim().split('\n').slice(1).map((l) => l.trim().split(/\s+/)).filter((c) => c.length >= 6 && c[0].startsWith('/dev/')).map((c) => ({ fs: '', taille: Number(c[1]) * 1024, utilise: Number(c[2]) * 1024, libre: Number(c[3]) * 1024, monte: c.slice(5).join(' ') }));
   const sante: Record<string, string> = {};
-  if (await ctx.has('smartctl')) for (const x of disques.filter((y) => !y.amovible)) { const r = await ctx.run('smartctl', ['-H', `/dev/${x.nom}`], { sudo: true, timeoutMs: 15_000 }); const m = /(PASSED|FAILED|OK)\b/.exec(r.out); if (m) sante[x.nom] = m[1] === 'FAILED' ? 'en panne' : 'bonne'; }
-  return { disques, volumes, partages: [...lireSmb(lire(SMB)), ...lireExports(lire('/etc/exports'))], sante };
+  if (await p.has('smartctl')) for (const x of disques.filter((y) => !y.amovible)) { const r = await p.run('smartctl', ['-H', `/dev/${x.nom}`], { sudo: true, timeoutMs: 15_000 }); const m = /(PASSED|FAILED|OK)\b/.exec(r.out); if (m) sante[x.nom] = m[1] === 'FAILED' ? 'en panne' : 'bonne'; }
+  return { poste: p, disques, volumes, partages: [...lireSmb(await p.lire(SMB)), ...lireExports(await p.lire('/etc/exports'))], sante };
 }
-
 export const fensalir: Module = {
   id: 'fensalir', name: 'Pyramide', family: 'Machines',
   what: 'Les disques et les partages (comme Unraid) : chaque disque avec sa taille, son type, son remplissage et sa santé, et les dossiers partagés sur le réseau (Samba, NFS), avec ajout ou retrait d\'un partage sur ton accord.',
@@ -87,11 +89,11 @@ export const fensalir: Module = {
   from: ['Unraid', 'OpenMediaVault', 'TrueNAS'], upstream: ['openmediavault/openmediavault', 'truenas/middleware'],
   words: ['disques durs', 'mes disques', 'partages réseau', 'partage réseau', 'partage samba', 'samba', 'nfs', 'stockage', 'pyramide', 'fensalir', 'unraid', 'openmediavault', 'truenas'],
   actions: [
-    { id: 'disques', label: 'Disques', what: 'Les disques, leurs partitions et leur santé', read: true, external: true, words: ['mes disques', 'état des disques', 'santé des disques'], run: async (ctx) => {
-      const e = await etat(ctx);
-      return { text: e.disques.length ? e.disques.map((x) => `- ${x.nom} · ${taille(x.taille)} · ${x.ssd ? 'SSD' : 'disque dur'}${x.amovible ? ' (amovible)' : ''}${x.modele ? ` · ${x.modele}` : ''}${e.sante[x.nom] ? ` · santé ${e.sante[x.nom]}` : ''}\n${x.parts.map((p) => `    ${p.nom} ${taille(p.taille)} ${p.fs ?? ''} ${p.monte ?? ''}`).join('\n')}`).join('\n') : e.volumes.map((v) => `- ${v.monte} : ${taille(v.utilise)} / ${taille(v.taille)}`).join('\n') || 'Aucun disque lu.', data: e };
+    { id: 'disques', label: 'Disques', what: 'Les disques, leurs partitions et leur santé (de cette machine, ou d\'un autre poste Linux ou Mac)', read: true, external: true, params: [PARAM_POSTE], words: ['mes disques', 'état des disques', 'santé des disques'], run: async (ctx, i) => {
+      const e = await etat(ctx, i.poste), ou = e.poste.local ? '' : `Sur ${e.poste.nom} :\n`;
+      return { text: ou + (e.disques.length ? e.disques.map((x) => `- ${x.nom} · ${taille(x.taille)} · ${x.ssd ? 'SSD' : 'disque dur'}${x.amovible ? ' (amovible)' : ''}${x.modele ? ` · ${x.modele}` : ''}${e.sante[x.nom] ? ` · santé ${e.sante[x.nom]}` : ''}\n${x.parts.map((p) => `    ${p.nom} ${taille(p.taille)} ${p.fs ?? ''} ${p.monte ?? ''}`).join('\n')}`).join('\n') : e.volumes.map((v) => `- ${v.monte} : ${taille(v.utilise)} / ${taille(v.taille)}`).join('\n') || 'Aucun disque lu.'), data: { poste: e.poste.nom, disques: e.disques, volumes: e.volumes, sante: e.sante } };
     } },
-    { id: 'partages', label: 'Partages', what: 'Les dossiers partagés sur le réseau', words: ['partages réseau', 'dossiers partagés sur le réseau'], read: true, run: async (ctx) => { const p = (await etat(ctx)).partages; return { text: p.length ? p.map((x) => `- ${x.nom} (${x.type}) : ${x.chemin}${x.lecture ? ' · lecture seule' : ' · lecture et écriture'}${x.utilisateurs ? ` · pour ${x.utilisateurs}` : ''}`).join('\n') : 'Aucun partage.', data: p }; } },
+    { id: 'partages', label: 'Partages', what: 'Les dossiers partagés sur le réseau (par cette machine, ou par un autre poste Linux ou Mac)', words: ['partages réseau', 'dossiers partagés sur le réseau'], read: true, params: [PARAM_POSTE], run: async (ctx, i) => { const e = await etat(ctx, i.poste), p = e.partages; return { text: (e.poste.local ? '' : `Sur ${e.poste.nom} :\n`) + (p.length ? p.map((x) => `- ${x.nom} (${x.type}) : ${x.chemin}${x.lecture ? ' · lecture seule' : ' · lecture et écriture'}${x.utilisateurs ? ` · pour ${x.utilisateurs}` : ''}`).join('\n') : 'Aucun partage.'), data: p }; } },
     { id: 'ajouter_partage', label: 'Partager un dossier', what: 'Ajoute un partage Samba (Windows, Mac, téléphones)', words: ['partage le dossier sur le réseau', 'ajoute un partage samba'], params: [{ key: 'nom', label: 'Nom du partage', kind: 'text', required: true }, { key: 'chemin', label: 'Dossier', kind: 'text', required: true }, { key: 'ecriture', label: 'Autoriser l\'écriture', kind: 'boolean', default: false }, { key: 'utilisateurs', label: 'Seulement pour (comptes Samba, vide : tous les comptes)', kind: 'text', default: '' }],
       grave: (i) => `partager le dossier ${s(i.chemin)} sur le réseau sous le nom « ${s(i.nom)} »${i.ecriture === true ? ' en écriture' : ''}`, run: async (ctx, i) => {
         const chemin = s(i.chemin).trim(); if (!existsSync(chemin)) throw new Error('dossier introuvable');
@@ -101,18 +103,18 @@ export const fensalir: Module = {
     { id: 'retirer_partage', label: 'Retirer un partage', what: 'Le dossier n\'est plus partagé (rien n\'est effacé)', words: ['retire le partage réseau', 'retire le partage samba'], params: [{ key: 'nom', label: 'Nom du partage', kind: 'text', required: true }],
       grave: (i) => `retirer le partage « ${s(i.nom)} » (le dossier et son contenu restent)`, run: async (ctx, i) => { await ecrireSmb(ctx, retirerSmb(lire(SMB), s(i.nom).trim())); return { text: `Partage « ${s(i.nom).trim()} » retiré ; le dossier n'est pas touché.` }; } },
   ],
-  async view(ctx) {
-    const e = await etat(ctx), plein = e.volumes.filter((v) => v.utilise / v.taille > 0.9), tot = e.disques.reduce((a, d) => a + d.taille, 0);
+  async view(ctx, q) {
+    const e = await etat(ctx, q.get('poste') ?? ''), plein = e.volumes.filter((v) => v.utilise / v.taille > 0.9), tot = e.disques.reduce((a, d) => a + d.taille, 0), autres = postesLisibles(ctx).slice(1);
     const kpis: Kpi[] = [{ label: 'Disques', value: String(e.disques.length || e.volumes.length) }, ...(tot ? [{ label: 'Capacité', value: taille(tot) }] : []), { label: 'Presque pleins', value: String(plein.length), tone: plein.length ? 'mauvais' : 'bon' }, { label: 'Partages', value: String(e.partages.length) }];
     const tone = (v: Volume): Tone => (v.utilise / v.taille > 0.9 ? 'mauvais' : v.utilise / v.taille > 0.75 ? 'attention' : 'bon');
     return {
-      subtitle: `${e.disques.length} disque(s) · ${e.partages.length} partage(s)`, kpis,
+      subtitle: `${e.poste.local ? '' : `${e.poste.nom} · `}${e.disques.length} disque(s) · ${e.partages.length} partage(s)`, kpis,
       sections: [
         { kind: 'cards', title: 'Volumes', items: e.volumes.map((v) => ({ title: v.monte, sub: `${taille(v.utilise)} sur ${taille(v.taille)} · ${taille(v.libre)} libres${v.fs ? ` · ${v.fs}` : ''}`, progress: Math.round((v.utilise / v.taille) * 100), tone: tone(v) })) },
         { kind: 'table', title: 'Disques', columns: ['Disque', 'Taille', 'Type', 'Modèle', 'Santé', 'Partitions'], empty: 'Disques non lus (lsblk absent).', rows: e.disques.map((d) => ({ cells: [d.nom, taille(d.taille), `${d.ssd ? 'SSD' : 'disque dur'}${d.transport ? ` · ${d.transport}` : ''}${d.amovible ? ' · amovible' : ''}`, d.modele ?? '', e.sante[d.nom] ?? '—', d.parts.map((p) => `${p.nom}${p.fs ? ` ${p.fs}` : ''}${p.monte ? ` → ${p.monte}` : ''}`).join(' · ')], tone: e.sante[d.nom] === 'en panne' ? 'mauvais' as const : undefined })) },
         { kind: 'table', title: 'Partages sur le réseau', columns: ['Nom', 'Type', 'Dossier', 'Accès', 'Pour'], empty: 'Aucun partage. « Partager un dossier » en ajoute un.', rows: e.partages.map((p) => ({ cells: [p.nom, p.type === 'samba' ? 'Samba (Windows, Mac)' : 'NFS (Linux)', p.chemin, p.lecture ? 'lecture seule' : 'lecture et écriture', p.utilisateurs ?? p.clients ?? 'tous les comptes'], actions: p.type === 'samba' ? [{ action: 'retirer_partage', label: 'Retirer', input: { nom: p.nom } }] : [] })) },
       ],
-      side: [{ kind: 'form', title: 'Partager un dossier', action: 'ajouter_partage', submit: 'Partager', params: [{ key: 'nom', label: 'Nom du partage', kind: 'text', required: true }, { key: 'chemin', label: 'Dossier', kind: 'text', required: true }, { key: 'ecriture', label: 'Autoriser l\'écriture', kind: 'boolean', default: false }] }],
+      side: [...(autres.length ? [{ kind: 'table' as const, title: 'Voir un autre poste', columns: ['Poste'], rows: autres.map((x) => ({ cells: [x.nom], actions: [{ action: 'disques', label: 'Disques', input: { poste: x.id } }, { action: 'partages', label: 'Partages', input: { poste: x.id } }] })) }] : []), { kind: 'form', title: 'Partager un dossier', action: 'ajouter_partage', submit: 'Partager', params: [{ key: 'nom', label: 'Nom du partage', kind: 'text', required: true }, { key: 'chemin', label: 'Dossier', kind: 'text', required: true }, { key: 'ecriture', label: 'Autoriser l\'écriture', kind: 'boolean', default: false }] }],
     };
   },
   watch: { every: 1800, async run(ctx) {

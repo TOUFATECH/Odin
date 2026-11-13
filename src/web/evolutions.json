@@ -1,5 +1,28 @@
 [
  {
+  "id": "v1190",
+  "at": "2026-11-13T19:10:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.19.0",
+  "title": "L'antivirus analyse un autre poste (Windows, Mac, Linux, NAS) sans rien y installer, et les applis lisent un autre poste",
+  "details": [
+   "Asclépios → « Analyser un autre poste » : l'adresse du poste, son compte administrateur et son mot de passe (rangés dans le coffre, jamais affichés), puis « tout » ou « rapide ». Odin lit les fichiers à distance et les analyse chez lui, en mémoire.",
+   "Windows (PC et serveurs) et NAS : par le partage de fichiers, disques entiers avec un compte administrateur (C$, D$…). Linux et Mac : par SSH.",
+   "Rien n'est touché sur le poste sans ton accord. « Isoler sur le poste » renomme le fichier dangereux là-bas pour qu'il ne puisse plus être lancé ; « Remettre en place » l'annule.",
+   "Une longue analyse continue toute seule : la page montre l'avancement, Odin te prévient à la fin, et « arrête l'analyse » la coupe.",
+   "Les gros programmes et archives sont reconnus par leur empreinte complète ; les gros films et sauvegardes ne sont pas rapatriés. Les fichiers verrouillés sont comptés et dits.",
+   "Les refus sont expliqués : mot de passe refusé, partage fermé, poste éteint, et le blocage des comptes administrateurs locaux de Windows avec la commande à lancer une fois.",
+   "Pyramide (disques), Thermopyles (pare-feu, ports) et Chroniques (journaux) lisent aussi un autre poste Linux ou Mac : réglage « Poste », ou « état des disques sur serveur-web ».",
+   "Vérifié ici sur un vrai partage de fichiers (Samba) et un vrai SSH. Pas encore essayé sur un vrai Windows ni un vrai Mac."
+  ],
+  "planets": [
+   "securite",
+   "machines",
+   "applis"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1180",
   "at": "2026-11-13T18:00:00+03:00",
   "date": "2026-11-13",
