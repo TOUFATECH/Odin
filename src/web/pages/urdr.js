@@ -255,7 +255,7 @@
 
   window.OdinPages.urdr = async ({ host, generic, view }) => {
     if (!document.getElementById('urCss')) document.head.append(el('style', { id: 'urCss' }, CSS));
-    const br = await act('bases', {}); const bases = (br.data ?? []).filter((b) => b.type === 'postgres' || b.type === 'sqlite');
+    const br = await act('bases', {}); const bases = (br.data ?? []).filter((b) => b.type === 'postgres');
     const want = window.OdinOpenWant?.module === 'urdr' ? window.OdinOpenWant : undefined; window.OdinOpenWant = undefined;
     if (want && bases.some((b) => b.id === want.base)) Object.assign(S, { base: want.base, table: want.table ?? '', tab: 'studio', tables: [], data: null, filters: [], sort: '', page: 1, pending: {}, sel: null });
     if (!S.base || !bases.some((b) => b.id === S.base)) { S.base = bases[0]?.id ?? ''; S.table = ''; }
@@ -267,7 +267,7 @@
       const pick = bases.length > 1 && S.tab !== 'bases' ? el('select', { 'aria-label': 'Base', style: 'margin-left:auto;min-height:38px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px', onchange: async (e) => { if (nPending() && !confirm('Des modifications ne sont pas enregistrées : les abandonner ?')) { e.target.value = S.base; return; } Object.assign(S, { base: e.target.value, table: '', filters: [], sort: '', page: 1, pending: {}, sel: null, res: null }); await redraw('tables'); } }, ...bases.map((b) => el('option', { value: b.id, selected: b.id === S.base }, b.nom))) : null;
       const cur = bases.find((b) => b.id === S.base);
       root.replaceChildren(el('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, tabs, pick, cur && S.tab !== 'bases' && !pick ? el('span', { class: 'sub', style: 'margin-left:auto' }, `${cur.nom}${cur.version ? ` · ${cur.version}` : ''}`) : null));
-      if (S.tab === 'bases' || !bases.length) { root.append(...generic); if (!bases.length && S.tab !== 'bases') root.prepend(el('p', { class: 'sub' }, 'Aucune base PostgreSQL ou SQLite pour le Studio : « Créer une base » ou « Relier une base ».')); return; }
+      if (S.tab === 'bases' || !bases.length) { root.append(...generic); if (!bases.length && S.tab !== 'bases') root.prepend(el('p', { class: 'sub' }, 'Aucune base PostgreSQL pour le Studio : « Créer une base » ou « Relier une base ».')); return; }
       if (S.tab === 'studio') studio(root, redraw); else sqlTab(root, redraw);
     };
     await redraw(S.base ? (S.tables.length ? true : 'tables') : false);

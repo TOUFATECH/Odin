@@ -1,15 +1,13 @@
 // Urðr — la liste de tes bases (partagée avec Skuld). Les mots de passe sont à part, dans un fichier protégé
 // (lecture par Odin seul, jamais affiché) et dans le coffre (Brísingamen).
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PgDriver, SqliteDriver, type Driver } from './db.ts';
+import { PgDriver, type Driver } from './db.ts';
 
-export type Kind = 'postgres' | 'sqlite' | 'mysql' | 'mongodb';
+export type Kind = 'postgres' | 'mysql' | 'mongodb';
 export interface Base {
   id: string; nom: string; type: Kind;
   hote?: string; port?: number; utilisateur?: string; base?: string; ssl?: 'non' | 'si-possible' | 'obligatoire';
-  /** SQLite : le fichier */
-  fichier?: string;
   /** base hébergée par Odin : le conteneur Hringhorni qui la fait tourner */
   conteneur?: string; version?: string;
   ajoutee: string;
@@ -18,7 +16,8 @@ export const dirOf = (home: string) => join(home, 'valhalla', 'urdr');
 const read = <T>(f: string, d: T): T => { try { return JSON.parse(readFileSync(f, 'utf8')) as T; } catch { return d; } };
 const write = (f: string, v: unknown, mode = 0o600) => { mkdirSync(join(f, '..'), { recursive: true, mode: 0o700 }); const t = `${f}.${process.pid}.tmp`; writeFileSync(t, JSON.stringify(v, null, 1), { mode }); renameSync(t, f); chmodSync(f, mode); };
 
-export const bases = (home: string): Base[] => read<Base[]>(join(dirOf(home), 'bases.json'), []);
+/** Zéro SQLite : une ancienne entrée SQLite éventuelle n'est plus lue. */
+export const bases = (home: string): Base[] => read<Base[]>(join(dirOf(home), 'bases.json'), []).filter((b) => (b.type as string) !== 'sqlite');
 export const saveBases = (home: string, l: Base[]) => write(join(dirOf(home), 'bases.json'), l);
 export function findBase(home: string, q: string): Base {
   const k = String(q ?? '').trim().toLowerCase(), l = bases(home);
@@ -35,9 +34,12 @@ export type HostOf = (b: Base) => { host: string; port: number } | undefined;
 let hostOf: HostOf = () => undefined;
 export function useHostOf(f: HostOf) { hostOf = f; }
 
-/** Ouvre la base (PostgreSQL ou SQLite) ; MySQL et MongoDB : sauvegardes seulement (Skuld). */
+/** Pour les essais : une autre façon d'ouvrir une base (une fausse base en mémoire). */
+let opener: ((b: Base) => Driver | undefined) | undefined;
+export function useOpener(f: typeof opener) { opener = f; }
+/** Ouvre la base PostgreSQL ; MySQL et MongoDB : sauvegardes seulement (Skuld). Zéro SQLite dans Odin. */
 export async function open(home: string, b: Base): Promise<Driver> {
-  if (b.type === 'sqlite') { if (!b.fichier || !existsSync(b.fichier)) throw new Error(`fichier introuvable : ${b.fichier}`); return new SqliteDriver(b.fichier); }
+  const o = opener?.(b); if (o) return o;
   if (b.type === 'postgres') {
     const at = b.conteneur ? hostOf(b) : undefined;
     if (b.conteneur && !at) throw new Error(`la base ${b.nom} ne tourne pas (conteneur ${b.conteneur} arrêté ?)`);

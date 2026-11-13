@@ -1,4 +1,4 @@
-// Skuld — la sauvegarde de tes bases de données, comme Portabase : PostgreSQL, SQLite, MySQL / MariaDB,
+// Skuld — la sauvegarde de tes bases de données, comme Portabase : PostgreSQL, MySQL / MariaDB,
 // MongoDB ; plans (chaque heure, toutes les 6 h, chaque nuit, chaque semaine), durée de garde (jours,
 // semaines, mois), chaque sauvegarde relue pour être sûre, historique, restauration avec ton accord
 // (dans une nouvelle base à côté, conseillé, ou par-dessus après une sauvegarde de l'état actuel).
@@ -15,8 +15,9 @@ export type Every = 'heure' | '6h' | 'nuit' | 'semaine';
 export interface Plan { base: string; toutes: Every; heure: number; garde: { jours: number; semaines: number; mois: number }; actif: boolean }
 export interface Entry { at: string; base: string; ok: boolean; fichier?: string; taille?: number; verif?: string; erreur?: string; raison?: string; ms: number }
 
-let tools: (ctx: ModCtx) => Tools = (ctx) => ({ inContainer: (ct, argv) => engine().execArgs(ct, argv), has: (c) => ctx.has(c) });
-export function useTools(f: (ctx: ModCtx) => Tools) { tools = f; }
+const DEFAULT_TOOLS = (ctx: ModCtx): Tools => ({ inContainer: (ct, argv) => engine().execArgs(ct, argv), has: (c) => ctx.has(c) });
+let tools: (ctx: ModCtx) => Tools = DEFAULT_TOOLS;
+export function useTools(f?: (ctx: ModCtx) => Tools) { tools = f ?? DEFAULT_TOOLS; }
 
 const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined) ?? [];
 const archDir = (ctx: ModCtx, b: Base) => join(ctx.dir, 'archives', b.id);
@@ -57,7 +58,7 @@ const pick = (ctx: ModCtx, b: Base, q: string) => { const l = archives(ctx, b); 
 export const skuld: Module = {
   id: 'skuld', name: 'Skuld', family: 'Données',
   what: 'La sauvegarde de tes bases de données (comme Portabase) : plans, durée de garde, chaque sauvegarde relue, restauration avec ton accord.',
-  does: ['PostgreSQL (pg_dump, dans le conteneur pour une base hébergée par Odin), SQLite (copie à chaud), MySQL / MariaDB (mysqldump), MongoDB (mongodump)', 'plans : chaque heure, toutes les 6 h, chaque nuit, chaque semaine', 'durée de garde : jours, puis une par semaine, puis une par mois', 'chaque sauvegarde est relue (base rouverte ou archive listée)', 'restaurer dans une nouvelle base à côté (conseillé) ou par-dessus, toujours avec ton accord', 'sauvegarde automatique avant toute requête Urðr qui modifie une base', 'alerte si une sauvegarde échoue'],
+  does: ['PostgreSQL (pg_dump, dans le conteneur pour une base hébergée par Odin), MySQL / MariaDB (mysqldump), MongoDB (mongodump)', 'plans : chaque heure, toutes les 6 h, chaque nuit, chaque semaine', 'durée de garde : jours, puis une par semaine, puis une par mois', 'chaque sauvegarde est relue (base rouverte ou archive listée)', 'restaurer dans une nouvelle base à côté (conseillé) ou par-dessus, toujours avec ton accord', 'sauvegarde automatique avant toute requête Urðr qui modifie une base', 'alerte si une sauvegarde échoue'],
   from: ['Portabase'], upstream: ['Portabase/portabase'],
   words: ['sauvegarde de la base', 'sauvegarder la base', 'sauvegarde des bases', 'backup base', 'pg_dump', 'restaurer la base', 'portabase', 'skuld'],
   actions: [
@@ -78,10 +79,8 @@ export const skuld: Module = {
       const b = findBase(ctx.home, s(i.base)), a = pick(ctx, b, s(i.quand)), over = s(i.ou) === 'par-dessus', t = tools(ctx);
       if (over) { const pre = await backupNow(ctx, b, 'avant une restauration'); if (!pre.ok) throw new Error(`je n'écrase pas ${b.nom} sans sauvegarde de l'état actuel : ${pre.erreur}`); }
       const name = over ? (b.base ?? b.nom) : `${(b.base ?? b.id).replace(/[^\w]/g, '_')}_restauree_${a.at.slice(0, 10).replace(/-/g, '')}`.slice(0, 60);
-      const file = b.type === 'sqlite' && !over ? join(dirname(b.fichier!), `${b.id}-restauree-${a.at.slice(0, 10)}.sqlite`) : undefined;
-      if (file && existsSync(file)) throw new Error(`${file} existe déjà`);
-      const got = await restore(ctx.home, b, a.path, { new: !over, name, file }, t);
-      if (!over) { const l = bases(ctx.home); let id = `${b.id}-restauree`; while (l.some((x) => x.id === id)) id += '-2'; saveBases(ctx.home, [...l, { ...b, id, nom: `${b.nom} (restaurée ${a.at.slice(0, 10)})`, ...(file ? { fichier: file } : { base: name }), ajoutee: ctx.now().toISOString() }]); const pw = password(ctx.home, b.id); if (pw) setPassword(ctx.home, id, pw); }
+      const got = await restore(ctx.home, b, a.path, { new: !over, name }, t);
+      if (!over) { const l = bases(ctx.home); let id = `${b.id}-restauree`; while (l.some((x) => x.id === id)) id += '-2'; saveBases(ctx.home, [...l, { ...b, id, nom: `${b.nom} (restaurée ${a.at.slice(0, 10)})`, base: name, ajoutee: ctx.now().toISOString() }]); const pw = password(ctx.home, b.id); if (pw) setPassword(ctx.home, id, pw); }
       record(ctx, { at: ctx.now().toISOString(), base: b.id, ok: true, fichier: a.path, raison: over ? 'restaurée par-dessus' : `restaurée dans ${got}`, ms: 0 });
       return { text: over ? `♻ ${b.nom} restaurée par-dessus avec la sauvegarde du ${a.at.slice(0, 16).replace('T', ' ')} (l'état d'avant est sauvegardé).` : `♻ Sauvegarde du ${a.at.slice(0, 16).replace('T', ' ')} restaurée dans une nouvelle base : ${got}. Ouvre-la dans Urðr pour comparer.` };
     } },

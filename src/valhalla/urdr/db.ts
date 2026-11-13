@@ -1,8 +1,7 @@
-// Urðr — une base, quelle qu'elle soit (PostgreSQL ou SQLite) : ses tables, leurs colonnes et leurs liens,
+// Urðr — une base PostgreSQL (zéro SQLite dans Odin) : ses tables, leurs colonnes et leurs liens,
 // les lignes avec filtres, tri et pages, et les modifications ligne par ligne (Urðr Studio), plus le SQL libre.
 // Les noms de tables et de colonnes viennent toujours de la base elle-même (jamais du texte reçu tel quel),
 // et les valeurs passent en paramètres.
-import { DatabaseSync } from 'node:sqlite';
 import { Pg, ident, type PgOpts } from './pg.ts';
 
 export interface Column { name: string; type: string; nullable: boolean; default?: string; pk: boolean; ref?: { table: string; column: string } }
@@ -17,7 +16,7 @@ export interface SqlResult { columns: string[]; rows: Array<Array<string | null>
 export type Value = string | null;
 
 export interface Driver {
-  kind: 'postgres' | 'sqlite';
+  kind: 'postgres';
   tables(): Promise<TableInfo[]>;
   columns(table: string): Promise<Column[]>;
   relations(): Promise<Rel[]>;
@@ -131,64 +130,4 @@ export class PgDriver implements Driver {
     return { columns: r.fields.map((f) => f.name), rows: r.rows.slice(0, 1000), command: r.command, count: r.count, ms: Date.now() - t0 };
   }
   close(): Promise<void> { return this.c.close(); }
-}
-
-// ---------------------------------------------------------------- SQLite
-const str = (v: unknown): Value => (v === null || v === undefined ? null : v instanceof Uint8Array ? `\\x${Buffer.from(v).toString('hex')}` : String(v));
-export class SqliteDriver implements Driver {
-  kind = 'sqlite' as const; private db: DatabaseSync;
-  constructor(file: string, readOnly = false) { this.db = new DatabaseSync(file, { readOnly }); this.db.exec('PRAGMA foreign_keys = ON'); }
-  private all(sql: string, params: Value[] = []): { columns: string[]; rows: Array<Array<Value>> } {
-    const s = this.db.prepare(sql); s.setReturnArrays(true);
-    return { columns: s.columns().map((c) => c.name), rows: (s.all(...params) as unknown as unknown[][]).map((r) => r.map(str)) };
-  }
-  private ro<T>(f: () => T): T { this.db.exec('PRAGMA query_only = 1'); try { return f(); } finally { this.db.exec('PRAGMA query_only = 0'); } }
-  async tables(): Promise<TableInfo[]> {
-    return this.all(`SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' ORDER BY name`).rows.map(([n]) => ({ name: n!, rows: Number(this.all(`SELECT count(*) FROM ${ident(n!)}`).rows[0][0]) }));
-  }
-  private async known(t: string) { if (!(await this.tables()).some((x) => x.name === t)) throw new Error(`table inconnue : ${t}`); }
-  async relations(): Promise<Rel[]> {
-    const out: Rel[] = [];
-    for (const t of await this.tables()) for (const r of this.all(`SELECT "table", "from", "to" FROM pragma_foreign_key_list(?)`, [t.name]).rows) out.push({ from: t.name, column: r[1]!, to: r[0]!, toColumn: r[2] ?? 'rowid' });
-    return out;
-  }
-  async columns(table: string): Promise<Column[]> {
-    await this.known(table); const rels = (await this.relations()).filter((x) => x.from === table);
-    return this.all(`SELECT name, type, "notnull", dflt_value, pk FROM pragma_table_info(?)`, [table]).rows.map(([n, ty, nn, de, pk]) => { const r = rels.find((x) => x.column === n); return { name: n!, type: ty || 'any', nullable: nn === '0', default: de ?? undefined, pk: pk !== '0', ref: r ? { table: r.to, column: r.toColumn } : undefined }; });
-  }
-  /** Sans clé primaire, SQLite a toujours son « rowid ». */
-  private async keyOf(table: string): Promise<string[]> { const k = (await this.columns(table)).filter((c) => c.pk).map((c) => c.name); return k.length ? k : ['rowid']; }
-  async rows(table: string, q: RowsQuery): Promise<Rows> {
-    const cols = await this.columns(table), names = new Set(cols.map((c) => c.name)), key = await this.keyOf(table);
-    const w = where(q.filters ?? [], names, ident, () => '?', '? LIKE');
-    const sort = q.sort && names.has(q.sort) ? ` ORDER BY ${ident(q.sort)} ${q.dir === 'desc' ? 'DESC' : 'ASC'}` : ` ORDER BY ${key.map((k) => (k === 'rowid' ? 'rowid' : ident(k))).join(', ')}`;
-    const limit = lim(q.limit, 25, 500), offset = Math.max(0, Math.floor(Number(q.offset) || 0));
-    const extra = key[0] === 'rowid' ? 'rowid AS "rowid", ' : '';
-    return this.ro(() => {
-      const r = this.all(`SELECT ${extra}* FROM ${ident(table)}${w.sql}${sort} LIMIT ${limit} OFFSET ${offset}`, w.params);
-      return { ...r, total: Number(this.all(`SELECT count(*) FROM ${ident(table)}${w.sql}`, w.params).rows[0][0]), key };
-    });
-  }
-  private async keyWhere(table: string, key: Record<string, Value>) { const k = await this.keyOf(table); for (const c of k) if (!(c in key)) throw new Error(`clé ${c} manquante`); return { sql: k.map((c) => `${c === 'rowid' ? 'rowid' : ident(c)} = ?`).join(' AND '), params: k.map((c) => key[c]) }; }
-  async update(table: string, key: Record<string, Value>, changes: Record<string, Value>): Promise<number> {
-    const names = new Set((await this.columns(table)).map((c) => c.name)), set = Object.keys(changes); if (!set.length) return 0;
-    for (const c of set) if (!names.has(c)) throw new Error(`colonne inconnue : ${c}`);
-    const w = await this.keyWhere(table, key);
-    return Number(this.db.prepare(`UPDATE ${ident(table)} SET ${set.map((c) => `${ident(c)} = ?`).join(', ')} WHERE ${w.sql}`).run(...set.map((c) => changes[c]), ...w.params).changes);
-  }
-  async insert(table: string, values: Record<string, Value>): Promise<number> {
-    const names = new Set((await this.columns(table)).map((c) => c.name)), cols = Object.keys(values); for (const c of cols) if (!names.has(c)) throw new Error(`colonne inconnue : ${c}`);
-    return Number(this.db.prepare(cols.length ? `INSERT INTO ${ident(table)} (${cols.map(ident).join(', ')}) VALUES (${cols.map(() => '?').join(', ')})` : `INSERT INTO ${ident(table)} DEFAULT VALUES`).run(...cols.map((c) => values[c])).changes);
-  }
-  async remove(table: string, key: Record<string, Value>): Promise<number> { const w = await this.keyWhere(table, key); return Number(this.db.prepare(`DELETE FROM ${ident(table)} WHERE ${w.sql}`).run(...w.params).changes); }
-  async sql(text: string, write: boolean): Promise<SqlResult> {
-    const st = one(text), t0 = Date.now();
-    if (!write) return this.ro(() => { const r = this.all(st); return { ...r, rows: r.rows.slice(0, 1000), command: `SELECT ${r.rows.length}`, count: r.rows.length, ms: Date.now() - t0 }; });
-    const s = this.db.prepare(st);
-    if (s.columns().length) { s.setReturnArrays(true); const rows = (s.all() as unknown as unknown[][]).map((r) => r.map(str)); return { columns: s.columns().map((c) => c.name), rows: rows.slice(0, 1000), command: `${st.split(/\s/)[0].toUpperCase()} ${rows.length}`, count: rows.length, ms: Date.now() - t0 }; }
-    const r = s.run(); return { columns: [], rows: [], command: `${st.split(/\s/)[0].toUpperCase()} ${r.changes}`, count: Number(r.changes), ms: Date.now() - t0 };
-  }
-  /** Copie cohérente de la base (même ouverte), pour Skuld. */
-  file(): DatabaseSync { return this.db; }
-  async close(): Promise<void> { this.db.close(); }
 }

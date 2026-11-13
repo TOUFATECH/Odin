@@ -1,4 +1,4 @@
-// Skuld — sauvegarder et restaurer une base avec ses outils propres : copie à chaud pour SQLite, pg_dump /
+// Skuld — sauvegarder et restaurer une base avec ses outils propres (zéro SQLite dans Odin) : pg_dump /
 // pg_restore pour PostgreSQL (dans le conteneur d'Odin pour une base qu'il héberge, sinon sur la machine),
 // mysqldump pour MySQL / MariaDB, mongodump pour MongoDB. Les mots de passe passent par un fichier temporaire
 // protégé (jamais sur la ligne de commande, donc jamais visibles dans la liste des processus).
@@ -7,7 +7,6 @@ import { createReadStream, createWriteStream, existsSync, mkdtempSync, readFileS
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { DatabaseSync, backup } from 'node:sqlite';
 import { createGunzip, createGzip } from 'node:zlib';
 import { password, type Base } from '../urdr/bases.ts';
 
@@ -40,14 +39,11 @@ const myConf = (home: string, b: Base, dir: string) => { const f = join(dir, 'my
 const mongoConf = (home: string, b: Base, dir: string) => { const f = join(dir, 'mongo.yaml'); writeFileSync(f, `password: ${JSON.stringify(password(home, b.id) ?? '')}\n`, { mode: 0o600 }); return f; };
 const need = async (t: Tools, c: string, what: string) => { if (!(await t.has(c))) throw new Error(`${c} n'est pas installé sur la machine d'Odin (il faut les outils ${what})`); };
 
-export const extOf = (b: Base) => ({ sqlite: 'sqlite.gz', postgres: 'dump', mysql: 'sql.gz', mongodb: 'archive.gz' })[b.type];
+export const extOf = (b: Base) => ({ postgres: 'dump', mysql: 'sql.gz', mongodb: 'archive.gz' })[b.type];
 
 /** Sauvegarde `b` dans `file`. */
 export async function dump(home: string, b: Base, file: string, t: Tools): Promise<Done> {
-  if (b.type === 'sqlite') {
-    if (!b.fichier || !existsSync(b.fichier)) throw new Error(`fichier introuvable : ${b.fichier}`);
-    await secret(async (d) => { const tmp = join(d, 'copie.sqlite'), src = new DatabaseSync(b.fichier!, { readOnly: true }); try { await backup(src, tmp); } finally { src.close(); } await pipeline(createReadStream(tmp), createGzip(), createWriteStream(file, { mode: 0o600 })); });
-  } else if (b.type === 'postgres') {
+  if (b.type === 'postgres') {
     if (b.conteneur) { const x = await t.inContainer(b.conteneur, ['pg_dump', '-U', 'postgres', '-Fc', '-d', b.base ?? 'postgres']); await exec(x.cmd, x.args, { env: x.env, out: file }); }
     else { await need(t, 'pg_dump', 'PostgreSQL'); await secret((d) => exec('pg_dump', [...pgConn(b), '-Fc', '-d', b.base ?? 'postgres'], { env: pgEnv(home, b, d), out: file })); }
   } else if (b.type === 'mysql') {
@@ -60,10 +56,9 @@ export async function dump(home: string, b: Base, file: string, t: Tools): Promi
   return { file, bytes: statSync(file).size };
 }
 
-/** Vérifie qu'une sauvegarde se relit : SQLite rouverte et contrôlée, archive PostgreSQL listée, gzip lu jusqu'au bout. */
+/** Vérifie qu'une sauvegarde se relit : archive PostgreSQL listée, gzip lu jusqu'au bout. */
 export async function verify(b: Base, file: string, t: Tools): Promise<string> {
   if (!existsSync(file) || statSync(file).size === 0) throw new Error('sauvegarde vide');
-  if (b.type === 'sqlite') return secret(async (d) => { const tmp = join(d, 'v.sqlite'); await pipeline(createReadStream(file), createGunzip(), createWriteStream(tmp)); const db = new DatabaseSync(tmp, { readOnly: true }); try { const r = db.prepare('PRAGMA integrity_check').get() as Record<string, string>; const n = (db.prepare(`SELECT count(*) AS n FROM sqlite_master WHERE type = 'table'`).get() as { n: number }).n; if (Object.values(r)[0] !== 'ok') throw new Error(`base abîmée : ${Object.values(r)[0]}`); return `vérifiée (rouverte, ${n} tables, intégrité ok)`; } finally { db.close(); } });
   if (b.type === 'postgres') {
     const head = readFileSync(file).subarray(0, 5).toString('latin1'); if (head !== 'PGDMP') throw new Error('ce n\'est pas une archive pg_dump');
     if (await t.has('pg_restore')) { const out = join(file + '.liste'); try { await exec('pg_restore', ['-l', file], { out }); const n = readFileSync(out, 'utf8').split('\n').filter((l) => /^\d+;/.test(l)).length; return `vérifiée (archive relue, ${n} éléments)`; } finally { rmSync(out, { force: true }); } }
@@ -75,11 +70,6 @@ export async function verify(b: Base, file: string, t: Tools): Promise<string> {
 
 /** Restaure : dans une nouvelle base `target` (conseillé) ou par-dessus la base elle-même (`target` = son nom). */
 export async function restore(home: string, b: Base, file: string, target: { new: boolean; name: string; file?: string }, t: Tools): Promise<string> {
-  if (b.type === 'sqlite') {
-    const dest = target.file ?? b.fichier!;
-    await secret(async (d) => { const tmp = join(d, 'r.sqlite'); await pipeline(createReadStream(file), createGunzip(), createWriteStream(tmp)); const src = new DatabaseSync(tmp, { readOnly: true }); try { await backup(src, dest); } finally { src.close(); } });
-    return dest;
-  }
   if (b.type === 'postgres') {
     const user = b.conteneur ? 'postgres' : (b.utilisateur ?? 'postgres'), db = target.name;
     if (b.conteneur) {

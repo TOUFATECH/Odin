@@ -13,9 +13,7 @@ function walk(dir: string): string[] {
 }
 
 test('zéro SQLite : aucun fichier du code ne charge SQLite (sauf la conversion unique de l\'ancienne base)', () => {
-  // Exceptions : la conversion unique de l'ancienne base, et Urðr / Skuld qui ouvrent ou sauvegardent les fichiers
-  // SQLite À TOI (tes bases à toi) — jamais pour les données d'Odin.
-  const bad = walk('src').filter((f) => /\.(ts|js|mjs)$/.test(f) && ![join('muninn', 'migrate.ts'), join('urdr', 'db.ts'), join('skuld', 'dump.ts')].some((x) => f.endsWith(x)))
+  const bad = walk('src').filter((f) => /\.(ts|js|mjs)$/.test(f) && !f.endsWith(join('muninn', 'migrate.ts')))
     .filter((f) => /from 'node:sqlite'|import\('node:sqlite'\)|DatabaseSync|getBuiltinModule\?*\.?\(?'node:sqlite'/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(bad, []);
 });

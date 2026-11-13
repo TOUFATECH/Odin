@@ -1,18 +1,16 @@
 // Urðr — tes bases de données, comme Supabase, et Urðr Studio comme Prisma Studio.
 // Bases PostgreSQL créées par Odin dans son moteur de conteneurs (Hringhorni), bases existantes reliées
-// (PostgreSQL, SQLite ; MySQL et MongoDB pour les sauvegardes de Skuld). Tables, colonnes, liens entre tables,
+// (PostgreSQL ; MySQL et MongoDB pour les sauvegardes de Skuld ; zéro SQLite). Tables, colonnes, liens entre tables,
 // lignes avec filtres, tri et pages ; une modification n'est écrite qu'avec ton accord ; SQL libre en lecture
 // seule (la base elle-même refuse d'écrire), et tout ce qui écrit passe par ton accord avec une sauvegarde
 // Skuld juste avant. Chaque requête est notée dans le journal.
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bases, findBase, open, saveBases, setPassword, slug, useHostOf, type Base, type Kind } from '../urdr/bases.ts';
 import { isRead, OPS, type Filter, type Op, type Value } from '../urdr/db.ts';
 import { engine } from './naglfar.ts';
 import { databaseFor, serverBase, SERVER, SERVER_IP, PG_VERSION } from '../urdr/serveur.ts';
-import { isSecretFile } from '../../heimdall/policy.ts';
-import { realpathSync } from 'node:fs';
 import type { ActionResult, ModCtx, Module, Param, Section } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -44,29 +42,27 @@ const table = (cols: string[], rows: Array<Array<Value>>, max = 30) => [cols.joi
 export const urdr: Module = {
   id: 'urdr', name: 'Urðr', family: 'Données',
   what: 'Tes bases de données comme Supabase : créer une base PostgreSQL, relier les tiennes, parcourir et modifier les tables comme un tableur (Urðr Studio, comme Prisma Studio), SQL avec journal.',
-  does: ['créer une base PostgreSQL dans le moteur de conteneurs d\'Odin (mot de passe généré, rangé dans le coffre)', 'relier une base PostgreSQL ou un fichier SQLite existants', 'tables, colonnes, clés et liens entre tables', 'lignes avec filtres, tri et pages (Urðr Studio)', 'modifier, ajouter ou supprimer une ligne avec ton accord', 'SQL en lecture seule garantie par la base ; ce qui écrit demande ton accord et Skuld sauvegarde juste avant', 'journal de toutes les requêtes'],
+  does: ['créer une base PostgreSQL dans le moteur de conteneurs d\'Odin (mot de passe généré, rangé dans le coffre)', 'relier une base PostgreSQL existante (zéro SQLite)', 'tables, colonnes, clés et liens entre tables', 'lignes avec filtres, tri et pages (Urðr Studio)', 'modifier, ajouter ou supprimer une ligne avec ton accord', 'SQL en lecture seule garantie par la base ; ce qui écrit demande ton accord et Skuld sauvegarde juste avant', 'journal de toutes les requêtes'],
   from: ['Supabase', 'Prisma Studio', 'drawDB'], upstream: ['supabase/supabase', 'prisma/studio'],
-  words: ['base de donnees', 'base de données', 'bases de données', 'postgres', 'postgresql', 'sqlite', 'sql', 'requete sql', 'requête sql', 'table', 'tables', 'supabase', 'prisma', 'studio', 'urdr', 'urðr'],
+  words: ['base de donnees', 'base de données', 'bases de données', 'postgres', 'postgresql', 'sql', 'requete sql', 'requête sql', 'table', 'tables', 'supabase', 'prisma', 'studio', 'urdr', 'urðr'],
   actions: [
-    { id: 'bases', label: 'Mes bases', what: 'La liste de tes bases', read: true, words: ['mes bases sql', 'mes bases postgres', 'quelles bases sql'], run: (ctx) => { const l = bases(ctx.home); return { text: l.map((b) => `- ${b.nom} · ${b.type}${b.conteneur ? ` · hébergée par Odin (${b.conteneur})` : b.fichier ? ` · ${b.fichier}` : ` · ${b.hote}:${b.port}/${b.base}`}`).join('\n') || 'Aucune base pour l\'instant : « crée une base » ou « relie une base ».', data: l }; } },
+    { id: 'bases', label: 'Mes bases', what: 'La liste de tes bases', read: true, words: ['mes bases sql', 'mes bases postgres', 'quelles bases sql'], run: (ctx) => { const l = bases(ctx.home); return { text: l.map((b) => `- ${b.nom} · ${b.type}${b.conteneur ? ` · hébergée par Odin (${b.conteneur})` : ` · ${b.hote}:${b.port}/${b.base}`}`).join('\n') || 'Aucune base pour l\'instant : « crée une base » ou « relie une base ».', data: l }; } },
     { id: 'relier', label: 'Relier une base', what: 'Ajoute une base existante (essai de connexion avant) ; le mot de passe va dans le coffre', quick: false, params: [
-      { key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['postgres', 'sqlite', 'mysql', 'mongodb'], default: 'postgres' },
+      { key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['postgres', 'mysql', 'mongodb'], default: 'postgres' },
       { key: 'hote', label: 'Adresse', kind: 'text', default: '127.0.0.1' }, { key: 'port', label: 'Port', kind: 'number', default: 5432 }, { key: 'utilisateur', label: 'Utilisateur', kind: 'text', default: 'postgres' },
-      { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password' }, { key: 'base', label: 'Nom de la base', kind: 'text', default: 'postgres' }, { key: 'fichier', label: 'Fichier SQLite', kind: 'text' },
+      { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password' }, { key: 'base', label: 'Nom de la base', kind: 'text', default: 'postgres' },
       { key: 'ssl', label: 'Chiffrement', kind: 'select', options: ['si-possible', 'obligatoire', 'non'], default: 'si-possible' }], run: async (ctx, i) => {
-      const type = (s(i.type) || 'postgres') as Kind; if (!['postgres', 'sqlite', 'mysql', 'mongodb'].includes(type)) throw new Error('type inconnu');
+      const type = (s(i.type) || 'postgres') as Kind; if (!['postgres', 'mysql', 'mongodb'].includes(type)) throw new Error(type === ('sqlite' as Kind) ? 'zéro SQLite dans Odin : passe la base en PostgreSQL (Urðr t\'en crée une)' : 'type inconnu');
       const nom = s(i.nom); if (!nom) throw new Error('quel nom ?'); const l = bases(ctx.home); if (l.some((b) => b.nom.toLowerCase() === nom.toLowerCase())) throw new Error(`${nom} existe déjà`);
       let id = slug(nom); while (l.some((b) => b.id === id)) id = `${id}-${randomBytes(2).toString('hex')}`;
-      const b: Base = type === 'sqlite' ? { id, nom, type, fichier: s(i.fichier), ajoutee: ctx.now().toISOString() } : { id, nom, type, hote: s(i.hote) || '127.0.0.1', port: Number(i.port) || ({ postgres: 5432, mysql: 3306, mongodb: 27017 } as Record<string, number>)[type], utilisateur: s(i.utilisateur) || undefined, base: s(i.base) || undefined, ssl: (s(i.ssl) || 'si-possible') as Base['ssl'], ajoutee: ctx.now().toISOString() };
-      if (type === 'sqlite' && (!b.fichier?.startsWith('/') || !existsSync(b.fichier))) throw new Error('chemin complet d\'un fichier SQLite existant, s\'il te plaît');
-      if (type === 'sqlite' && (isSecretFile(b.fichier!) || isSecretFile(realpathSync(b.fichier!)))) throw new Error('ce fichier fait partie des secrets d\'Odin : Urðr ne l\'ouvre pas');
+      const b: Base = { id, nom, type, hote: s(i.hote) || '127.0.0.1', port: Number(i.port) || ({ postgres: 5432, mysql: 3306, mongodb: 27017 } as Record<string, number>)[type], utilisateur: s(i.utilisateur) || undefined, base: s(i.base) || undefined, ssl: (s(i.ssl) || 'si-possible') as Base['ssl'], ajoutee: ctx.now().toISOString() };
       const pw = s(i.mot_de_passe);
       if (pw) setPassword(ctx.home, id, pw);
       let tables = 0;
-      if (type === 'postgres' || type === 'sqlite') { try { const d = await open(ctx.home, b); tables = (await d.tables()).length; await d.close(); } catch (e) { setPassword(ctx.home, id, undefined); throw new Error(`connexion impossible : ${(e as Error).message}`); } }
+      if (type === 'postgres') { try { const d = await open(ctx.home, b); tables = (await d.tables()).length; await d.close(); } catch (e) { setPassword(ctx.home, id, undefined); throw new Error(`connexion impossible : ${(e as Error).message}`); } }
       saveBases(ctx.home, [...l, b]);
       if (pw) await ctx.call('brisingamen', 'ajouter', { nom: `Base · ${nom}`, identifiant: b.utilisateur ?? '', mot_de_passe: pw, site: `${b.hote}:${b.port}`, coffre: 'TOUFATECH' }, `ranger le mot de passe de la base ${nom}`).catch(() => undefined);
-      return { text: `🗄 ${nom} reliée${type === 'postgres' || type === 'sqlite' ? ` (${tables} tables)` : ' (sauvegardes par Skuld)'}.${pw ? ' Mot de passe rangé dans le coffre.' : ''}` };
+      return { text: `🗄 ${nom} reliée${type === 'postgres' ? ` (${tables} tables)` : ' (sauvegardes par Skuld)'}.${pw ? ' Mot de passe rangé dans le coffre.' : ''}` };
     } },
     { id: 'creer', label: 'Créer une base', what: 'Une nouvelle base dans LA base de données d\'Odin (PostgreSQL, créée la première fois), avec son propre compte ; mot de passe dans le coffre ; sauvegarde chaque nuit par Skuld', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }],
       grave: (i, ctx) => `créer la base ${s(i.nom)}${ctx && !serverBase(ctx.home) ? ` (et la base de données d'Odin : un conteneur ${PG_IMAGE}, la première fois)` : ''}`, words: ['cree une base', 'crée une base', 'nouvelle base'], run: async (ctx, i) => {
@@ -116,10 +112,10 @@ export const urdr: Module = {
   ],
   async view(ctx) {
     const l = bases(ctx.home), cur = ctx.settings.courante as { base?: string; table?: string; page?: number; filtres?: Filter[] } | undefined;
-    const sections: Section[] = [{ kind: 'cards', title: 'Tes bases', items: l.map((b) => ({ title: b.nom, sub: `${({ postgres: 'PostgreSQL', sqlite: 'SQLite', mysql: 'MySQL / MariaDB', mongodb: 'MongoDB' })[b.type]}${b.version ? ` ${b.version}` : ''} · ${b.conteneur ? 'hébergée par Odin' : b.fichier ?? `${b.hote}:${b.port}`}`, badge: b.id === cur?.base ? 'ouverte' : undefined, tone: 'neutre' as const, actions: [{ action: 'ouvrir', label: 'Ouvrir', input: { base: b.id } }, { action: 'sauvegarder', label: 'Sauvegarder', input: { base: b.id }, module: 'skuld' }] })), empty: 'Aucune base : « Créer une base PostgreSQL » ou « Relier une base ».' }];
+    const sections: Section[] = [{ kind: 'cards', title: 'Tes bases', items: l.map((b) => ({ title: b.nom, sub: `${({ postgres: 'PostgreSQL', mysql: 'MySQL / MariaDB', mongodb: 'MongoDB' })[b.type]}${b.version ? ` ${b.version}` : ''} · ${b.conteneur ? 'hébergée par Odin' : `${b.hote}:${b.port}`}`, badge: b.id === cur?.base ? 'ouverte' : undefined, tone: 'neutre' as const, actions: [{ action: 'ouvrir', label: 'Ouvrir', input: { base: b.id } }, { action: 'sauvegarder', label: 'Sauvegarder', input: { base: b.id }, module: 'skuld' }] })), empty: 'Aucune base : « Créer une base PostgreSQL » ou « Relier une base ».' }];
     const kpis = [{ label: 'Bases', value: String(l.length) }, { label: 'Requêtes (24 h)', value: String(journal(ctx, 1000).filter((e) => Date.parse(e.at) > ctx.now().getTime() - 864e5).length) }];
     const b = cur?.base ? l.find((x) => x.id === cur.base) : undefined;
-    if (b && (b.type === 'postgres' || b.type === 'sqlite')) {
+    if (b && b.type === 'postgres') {
       try {
         await withDb(ctx, b.id, async (_b, d) => {
           const t = await d.tables(); kpis.push({ label: `Tables de ${b.nom}`, value: String(t.length) });

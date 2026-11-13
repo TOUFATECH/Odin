@@ -193,10 +193,16 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.doesNotMatch(JSON.stringify(await w.v.act('urdr', 'bases')), /secret-de-test/, 'jamais affiché');
   },
   'urdr>skuld': async (w) => {
-    const { DatabaseSync } = await import('node:sqlite'); const f = join(w.home, 'notes.sqlite'), d = new DatabaseSync(f); d.exec("CREATE TABLE n (id INTEGER PRIMARY KEY, t TEXT); INSERT INTO n (t) VALUES ('a'), ('b')"); d.close();
-    await w.v.act('urdr', 'relier', { nom: 'Notes', type: 'sqlite', fichier: f });
-    const r = await w.v.act('urdr', 'sql', { base: 'notes', requete: "delete from n where t = 'a'" });
-    assert.match(r.text, /sauvegarde faite juste avant/); assert.equal(readdirSync(join(w.home, 'valhalla', 'skuld', 'archives', 'notes')).length, 1);
+    // Une base hébergée par Odin (fausse base en mémoire, fausse archive pg_dump) : zéro SQLite.
+    const { saveBases, useOpener } = await import('../src/valhalla/urdr/bases.ts'); const { useTools } = await import('../src/valhalla/modules/skuld.ts'); const { FakeDriver } = await import('./fake-driver.ts');
+    saveBases(w.home, [{ id: 'notes', nom: 'Notes', type: 'postgres', utilisateur: 'app_notes', base: 'app_notes', conteneur: 'odin-pg', ajoutee: new Date().toISOString() }]);
+    const d = new FakeDriver({ n: { columns: [{ name: 'id', type: 'int8', nullable: false, pk: true }, { name: 't', type: 'text', nullable: true, pk: false }], rows: [{ id: '1', t: 'a' }, { id: '2', t: 'b' }] } });
+    useOpener(() => d); useTools(() => ({ has: async () => false, inContainer: async () => ({ cmd: 'sh', args: ['-c', 'printf PGDMP-archive-de-test'], env: {} }) }));
+    try {
+      const r = await w.v.act('urdr', 'sql', { base: 'notes', requete: "delete from n where t = 'a'" });
+      assert.match(r.text, /sauvegarde faite juste avant/); assert.equal(readdirSync(join(w.home, 'valhalla', 'skuld', 'archives', 'notes')).length, 1);
+      assert.deepEqual(d.sqls.at(-1), { text: "delete from n where t = 'a'", write: true });
+    } finally { useOpener(undefined); useTools(); }
   },
   'skuld>forseti': async (w) => {
     await w.v.act('urdr', 'relier', { nom: 'Compta', type: 'mysql', hote: '127.0.0.1', port: 3306, utilisateur: 'c', base: 'compta' });

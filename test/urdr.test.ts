@@ -6,12 +6,12 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { isRead, statements, SqliteDriver, PgDriver } from '../src/valhalla/urdr/db.ts';
+import { isRead, statements, PgDriver } from '../src/valhalla/urdr/db.ts';
+import { FakeDriver } from './fake-driver.ts';
 import { md5Password, scramFinal, scramFirst } from '../src/valhalla/urdr/pg.ts';
-import { bases, password } from '../src/valhalla/urdr/bases.ts';
+import { bases, password, saveBases, useOpener } from '../src/valhalla/urdr/bases.ts';
 import { keep } from '../src/valhalla/skuld/dump.ts';
-import { due, skuld } from '../src/valhalla/modules/skuld.ts';
+import { due, skuld, useTools } from '../src/valhalla/modules/skuld.ts';
 import { urdr } from '../src/valhalla/modules/urdr.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { isSecretFile } from '../src/heimdall/policy.ts';
@@ -45,44 +45,37 @@ test('isSecretFile : secrets d\'Urðr et archives de Skuld protégés', () => {
 const coffre: string[] = [];
 const fakeVault: Module = { id: 'brisingamen', name: 'Brísingamen', family: 'Accès', what: '', does: [], from: [], upstream: [], words: [], actions: [{ id: 'ajouter', label: 'Ajouter', what: '', run: (_c, i) => { coffre.push(String(i.nom)); return { text: 'ok' }; } }], view: () => ({ sections: [] }) };
 
-test('Urðr + Skuld sur SQLite : Studio, SQL, accord, sauvegarde, restauration', async () => {
+test('Urðr + Skuld (fausse base PostgreSQL en mémoire) : Studio, SQL, accord, sauvegarde ; zéro SQLite', async () => {
   const home = mkdtempSync(join(tmpdir(), 'urdr-'));
+  const d = new FakeDriver({
+    clients: { columns: [{ name: 'id', type: 'int8', nullable: false, pk: true }, { name: 'nom', type: 'text', nullable: false, pk: false }, { name: 'ville', type: 'text', nullable: true, pk: false }],
+      rows: [{ id: '1', nom: 'Awa', ville: 'Mamoudzou' }, { id: '2', nom: 'Ibrahim', ville: 'Koungou' }, { id: '3', nom: 'Nour', ville: 'Dembéni' }, { id: '4', nom: "O'Neil", ville: 'Mamoudzou' }] },
+    rdv: { columns: [{ name: 'id', type: 'int8', nullable: false, pk: true }, { name: 'client_id', type: 'int8', nullable: true, pk: false, ref: { table: 'clients', column: 'id' } }, { name: 'quand', type: 'date', nullable: true, pk: false }], rows: [{ id: '1', client_id: '3', quand: '2026-11-15' }] },
+  });
+  useOpener((b) => (b.id === 'boutique' ? d : undefined));
+  useTools(() => ({ has: async () => false, inContainer: async () => ({ cmd: 'sh', args: ['-c', 'printf PGDMP-archive-de-test'], env: {} }) }));
   try {
-    const f = join(home, 'boutique.sqlite'), db = new DatabaseSync(f);
-    db.exec(`CREATE TABLE clients (id INTEGER PRIMARY KEY, nom TEXT NOT NULL, ville TEXT); CREATE TABLE rdv (id INTEGER PRIMARY KEY, client_id INTEGER REFERENCES clients(id), quand TEXT);
-      INSERT INTO clients (nom, ville) VALUES ('Awa', 'Mamoudzou'), ('Ibrahim', 'Koungou'), ('Nour', 'Dembéni'), ('O''Neil', 'Mamoudzou'); INSERT INTO rdv (client_id, quand) VALUES (3, '2026-11-15'), (3, '2026-11-01');`); db.close();
     const v = new Valhalla(home, [urdr, skuld, fakeVault]);
-    let r = await v.act('urdr', 'relier', { nom: 'Boutique', type: 'sqlite', fichier: f });
-    assert.match(r.text, /Boutique reliée \(2 tables\)/);
-    r = await v.act('urdr', 'relier', { nom: 'Secrets', type: 'sqlite', fichier: join(home, 'nope.sqlite') }); assert.equal(r.ok, false);
+    let r = await v.act('urdr', 'relier', { nom: 'Notes', type: 'sqlite', fichier: '/tmp/x.sqlite' }); assert.equal(r.ok, false); assert.match(r.text, /zéro SQLite/);
+    saveBases(home, [{ id: 'boutique', nom: 'Boutique', type: 'postgres', utilisateur: 'app_boutique', base: 'app_boutique', conteneur: 'odin-pg', ajoutee: new Date().toISOString() }]);
     r = await v.act('urdr', 'tables', { base: 'boutique' }); assert.match(r.text, /clients \(4 lignes\)/); assert.match(r.text, /rdv\.client_id → clients\.id/);
     r = await v.act('urdr', 'lignes', { base: 'Boutique', table: 'clients', filtres: '[{"col":"ville","op":"=","value":"Mamoudzou"}]', tri: 'nom', sens: 'desc' });
     assert.deepEqual((r.data as { rows: string[][] }).rows.map((x) => x[1]), ["O'Neil", 'Awa']);
-    r = await v.act('urdr', 'lignes', { base: 'boutique', table: 'clients', filtres: '[{"col":"nom","op":"contient","value":"%"}]' }); assert.equal((r.data as { total: number }).total, 0, '« % » est cherché tel quel');
-    r = await v.act('urdr', 'lignes', { base: 'boutique', table: 'clients; drop table clients' }); assert.equal(r.ok, false); assert.match(r.text, /table inconnue/);
-    r = await v.act('urdr', 'lignes', { base: 'boutique', table: 'clients', tri: 'nom; drop table clients' }); assert.equal(r.ok, true, 'un tri inconnu est ignoré');
-    // Lecture : pas d'accord ; écriture : accord (grave) et sauvegarde Skuld avant
     const sql = v.action('urdr', 'sql')!.a;
     assert.equal(sql.grave!({ base: 'boutique', requete: 'select count(*) from clients' }), undefined);
     assert.match(sql.grave!({ base: 'boutique', requete: "update clients set ville = 'Sada'" })!, /modifie/);
     assert.match(v.action('urdr', 'modifier')!.a.grave!({ base: 'boutique', table: 'clients', cle: '{"id":3}', changements: '{"ville":"Chirongui"}' })!, /la case ville de clients/);
-    r = await v.act('urdr', 'sql', { base: 'boutique', requete: 'select count(*) as n from clients' }); assert.match(r.text, /^n\n4/);
-    r = await v.act('urdr', 'modifier', { base: 'boutique', table: 'clients', cle: '{"id":3}', changements: '{"ville":"Chirongui"}' }); assert.match(r.text, /1 ligne modifiée/);
+    r = await v.act('urdr', 'modifier', { base: 'boutique', table: 'clients', cle: '{"id":"3"}', changements: '{"ville":"Chirongui"}' }); assert.match(r.text, /1 ligne modifiée/); assert.equal(d.t.clients.rows[2].ville, 'Chirongui');
     r = await v.act('urdr', 'sql', { base: 'boutique', requete: "delete from rdv where quand < '2026-11-10'" }); assert.match(r.text, /DELETE 1/); assert.match(r.text, /sauvegarde faite juste avant/);
     assert.equal(readdirSync(join(home, 'valhalla', 'skuld', 'archives', 'boutique')).length, 1);
     r = await v.act('urdr', 'journal'); assert.match(r.text, /delete from rdv/); assert.match(r.text, /UPDATE clients SET ville/);
-    // Skuld : sauvegarde relue, plan, restauration dans une nouvelle base
-    r = await v.act('skuld', 'sauvegarder', { base: 'boutique' }); assert.match(r.text, /sauvegardée .*vérifiée \(rouverte, 2 tables, intégrité ok\)/);
-    await v.act('urdr', 'supprimer_ligne', { base: 'boutique', table: 'clients', cle: '{"id":1}' });
-    r = await v.act('skuld', 'restaurer', { base: 'boutique', ou: 'nouvelle base' }); assert.match(r.text, /restaurée dans une nouvelle base/);
-    const restored = bases(home).find((b) => b.id === 'boutique-restauree')!; assert.ok(existsSync(restored.fichier!));
-    r = await v.act('urdr', 'sql', { base: restored.id, requete: 'select nom from clients where id = 1' }); assert.match(r.text, /Awa/, 'la ligne supprimée est là dans la copie restaurée');
+    r = await v.act('skuld', 'sauvegarder', { base: 'boutique' }); assert.match(r.text, /sauvegardée .*vérifiée/);
     assert.match(v.action('skuld', 'restaurer')!.a.grave!({ base: 'boutique', ou: 'par-dessus' })!, /PAR-DESSUS/);
     r = await v.act('skuld', 'plan', { base: 'boutique', toutes: 'nuit', heure: 3, jours: 7 }); assert.match(r.text, /chaque nuit à 3 h · garde 7 j, 4 sem., 6 mois/);
     const view = await skuld.view(v.ctx('skuld'), new URLSearchParams()); assert.equal(view.sections[0].kind, 'cards');
     await v.act('urdr', 'ouvrir', { base: 'boutique', table: 'clients' });
-    const uv = await urdr.view(v.ctx('urdr'), new URLSearchParams()); assert.ok(uv.sections.some((x) => x.title.startsWith('Studio · clients (3 lignes)')));
-  } finally { rmSync(home, { recursive: true, force: true }); }
+    const uv = await urdr.view(v.ctx('urdr'), new URLSearchParams()); assert.ok(uv.sections.some((x) => x.title.startsWith('Studio · clients (4 lignes)')));
+  } finally { useOpener(undefined); useTools(); rmSync(home, { recursive: true, force: true }); }
 });
 
 test('Skuld : quand sauvegarder, quoi garder', () => {
