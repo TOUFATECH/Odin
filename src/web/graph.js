@@ -20,7 +20,9 @@
 .og-leg{position:absolute;left:10px;bottom:10px;display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--muted);background:color-mix(in srgb,var(--panel) 85%,transparent);padding:5px 9px;border-radius:9px}
 .og-leg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:-1px}
 .og-alt{margin-top:8px}.og-alt summary{cursor:pointer;min-height:36px;display:flex;align-items:center;color:var(--muted);font-size:14px}
-.og-alt ul{columns:2 220px;margin:6px 0 0;padding-left:18px}.og-alt button{border:0;background:none;color:inherit;text-decoration:underline;padding:2px 0;cursor:pointer;text-align:left}
+.og-alt ul{columns:2 220px;margin:6px 0 0;padding-left:18px}.og-alt li.og-ic{list-style:none;display:flex;gap:8px;align-items:flex-start;break-inside:avoid;margin:0 0 8px -18px}.og-alt li.og-ic>.og-li-ic{flex:none;border-radius:7px}.og-what{color:var(--muted);font-size:13px}.og-alt button{border:0;background:none;color:inherit;text-decoration:underline;padding:2px 0;cursor:pointer;text-align:left}
+.og-card{position:absolute;z-index:5;width:min(330px,calc(100% - 20px));pointer-events:none;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.4);padding:12px 14px;display:grid;gap:8px;font-size:13px;line-height:1.45;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+.og-card.on{opacity:1;transform:none}.og-card[hidden]{display:none}
 @media (max-width:860px){.og{height:62vh}.og-leg{display:none}}`;
   const RED = '#EE6A55', ORANGE = '#F0A040', BLUE = '#4F9DDE', GREEN = '#57C98A';
   const el = (t, a = {}, ...kids) => { const n = document.createElement(t); for (const [k, v] of Object.entries(a)) { if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'class') n.className = v; else n.setAttribute(k, v === true ? '' : v); } for (const k of kids.flat()) if (k != null && k !== false) n.append(k.nodeType ? k : document.createTextNode(String(k))); return n; };
@@ -36,6 +38,7 @@
     const zb = (t, l, f) => el('button', { type: 'button', 'aria-label': l, onclick: f }, t);
     const box = el('div', { class: `og${opts.dark ? ' og-dark' : ''}` }, cv, el('div', { class: 'og-bar' }, q, count), leg, el('div', { class: 'og-z' }, zb('+', 'Zoomer', () => zoom(1.25)), zb('−', 'Dézoomer', () => zoom(0.8)), zb('⤢', 'Tout voir', () => fit())));
     const alt = el('details', { class: 'og-alt' }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}));
+    const card = el('div', { class: 'og-card', hidden: true, 'aria-hidden': 'true' }); box.append(card);
     host.replaceChildren(box, alt);
     const ctx = cv.getContext('2d');
     let hoverEdge = null; let nodes = [], edges = [], byId = new Map(), view = { x: 0, y: 0, k: 1 }, hover = null, drag = null, pan = null, heat = 1, raf = 0, fitted = false, query = '';
@@ -43,7 +46,7 @@
 
     function setData(d) {
       const old = byId;
-      nodes = d.nodes.map((n) => { const o = old.get(n.id) || pos.get(n.id); const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 200; return { ...n, x: o ? o.x : Math.cos(a) * r, y: o ? o.y : Math.sin(a) * r, vx: 0, vy: 0, fixed: o?.fixed || false }; });
+      nodes = d.nodes.map((n) => { const o = old.get(n.id) || pos.get(n.id); const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 200; return { ...n, img: n.icon && window.OdinAppIcons?.image ? window.OdinAppIcons.image(n.icon, n.label, () => draw()) : undefined, x: o ? o.x : Math.cos(a) * r, y: o ? o.y : Math.sin(a) * r, vx: 0, vy: 0, fixed: o?.fixed || false }; });
       byId = new Map(nodes.map((n) => [n.id, n]));
       edges = d.edges.map((e) => (Array.isArray(e) ? { a: e[0], b: e[1] } : e)).filter((e) => byId.has(e.a) && byId.has(e.b) && e.a !== e.b).map((e) => Object.assign([byId.get(e.a), byId.get(e.b)], { w: e.w || 0, arrow: e.arrow || '', title: e.title || '', color: e.color || '', dash: Boolean(e.dash) }));
       opts.onEdge = d.onEdge ?? opts.onEdge; opts.onOpen = d.onOpen ?? opts.onOpen; opts.counter = d.counter ?? opts.counter;
@@ -52,7 +55,7 @@
       const fresh = nodes.some((n) => !old.has(n.id) && !pos.has(n.id));
       heat = Math.max(heat, fresh ? 1 : 0.15);
       count.textContent = opts.counter ? opts.counter(nodes, edges) : `${nodes.length} points · ${edges.length} liens`;
-      alt.lastChild.replaceChildren(...nodes.filter((n) => !n.hub).sort((a, b) => a.label.localeCompare(b.label, 'fr')).map((n) => el('li', {}, el('button', { type: 'button', onclick: () => opts.onOpen?.(n.id) }, n.label), n.alert?.n ? ` · ${n.alert.n} alerte(s)` : '', n.update ? ` · ${n.update} nouveauté(s)` : '', n.off ? ' · hors ligne' : '')));
+      alt.lastChild.replaceChildren(...nodes.filter((n) => !n.hub).sort((a, b) => a.label.localeCompare(b.label, 'fr')).map((n) => el('li', { class: n.icon ? 'og-ic' : null }, n.icon && window.OdinAppIcons?.image ? el('img', { src: window.OdinAppIcons.image(n.icon, n.label).src, width: 26, height: 26, alt: '', class: 'og-li-ic' }) : '', el('button', { type: 'button', onclick: () => opts.onOpen?.(n.id) }, n.label), n.what ? el('span', { class: 'og-what' }, ` — ${n.what}`) : '', n.alert?.n ? ` · ${n.alert.n} alerte(s)` : '', n.update ? ` · ${n.update} nouveauté(s)` : '', n.off ? ' · hors ligne' : '')));
       kick();
     }
     const radius = (n) => (n.size || (n.hub ? 15 : 9 + Math.min(10, Math.sqrt(n.deg || 0) * 2.4)));
@@ -129,6 +132,7 @@
         if (n.selected) { dot(n.x, n.y, r + 8, 'transparent', BLUE); dot(n.x, n.y, r + 11, 'transparent', BLUE); }
         if (n.ring) { dot(n.x, n.y, r + 5, 'transparent', n.ring); dot(n.x, n.y, r + 6.5, 'transparent', n.ring); }
         if (n.square) { const c = n.off ? '#7d8791' : n.color || BLUE; ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n.x - r, n.y - r, r * 2, r * 2, r * 0.3) : ctx.rect(n.x - r, n.y - r, r * 2, r * 2); ctx.fill(); if (n === hover) { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = ink; ctx.stroke(); } }
+        else if (n.img && n.img.complete && n.img.naturalWidth) { const s = r * 2, rr = r * 0.46; ctx.save(); if (n.off) ctx.filter = 'grayscale(1) brightness(.75)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n.x - r, n.y - r, s, s, rr) : ctx.rect(n.x - r, n.y - r, s, s); ctx.closePath(); ctx.save(); ctx.clip(); ctx.drawImage(n.img, n.x - r, n.y - r, s, s); ctx.restore(); ctx.filter = 'none'; if (n === hover) { ctx.lineWidth = 2.5 / view.k; ctx.strokeStyle = ink; ctx.stroke(); } ctx.restore(); }
         else dot(n.x, n.y, r, n.off ? '#7d8791' : n.color || (n.hub ? GREEN : '#E8EAEC'), n === hover ? ink : null);
         // Pastilles : alerte (rouge / orange, avec le nombre), mise à jour (bleue), hors ligne (point gris)
         let bx = n.x + r * 0.72, by = n.y - r * 0.72;
@@ -163,7 +167,7 @@
       if (drag) { const p = at(e); if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 4) drag.moved = true; drag.n.x = p.x; drag.n.y = p.y; drag.n.fixed = true; pos.set(drag.n.id, { x: p.x, y: p.y, fixed: true }); heat = Math.max(heat, 0.25); kick(); return; }
       if (pan) { if (Math.hypot(e.clientX - pan.sx, e.clientY - pan.sy) > 4) pan.moved = true; view.x = pan.vx + e.clientX - pan.sx; view.y = pan.vy + e.clientY - pan.sy; draw(); return; }
       const p = at(e), n = pick(p), ed = n || !opts.onEdge ? null : pickEdge(p);
-      if (n !== hover || ed !== hoverEdge) { hover = n; hoverEdge = ed; cv.classList.toggle('on', !!(n || ed)); cv.title = n ? (n.title || n.label) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; draw(); }
+      if (n !== hover || ed !== hoverEdge) { hover = n; hoverEdge = ed; cv.classList.toggle('on', !!(n || ed)); const c = n && opts.card ? opts.card(n) : null; cv.title = c ? '' : n ? (n.title || n.label) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; showCard(n, c); draw(); }
     });
     const up = (e) => {
       touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
@@ -172,7 +176,16 @@
       drag = pan = null; cv.classList.remove('drag');
     };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag && !pan) { hover = null; draw(); } });
+    cv.addEventListener('pointerleave', () => { if (!drag && !pan) { hover = null; showCard(null); draw(); } });
+    /** La fiche de l'appli survolée, posée à côté du point (du côté où il y a de la place). */
+    function showCard(n, c) {
+      if (!n || !c) { card.classList.remove('on'); card.hidden = true; return; }
+      card.replaceChildren(c); card.hidden = false;
+      const { w, h } = size(), sx = w / 2 + view.x + n.x * view.k, sy = h / 2 + view.y + n.y * view.k, r = radius(n) * view.k, cw = card.offsetWidth, ch = card.offsetHeight;
+      let x = sx + r + 14; if (x + cw > w - 8) x = sx - r - 14 - cw; x = Math.max(8, Math.min(w - cw - 8, x));
+      const y = Math.max(8, Math.min(h - ch - 8, sy - ch / 2));
+      card.style.left = `${x}px`; card.style.top = `${y}px`; requestAnimationFrame(() => card.classList.add('on'));
+    }
     cv.addEventListener('wheel', (e) => { e.preventDefault(); const r = cv.getBoundingClientRect(), mx = e.clientX - r.left - r.width / 2, my = e.clientY - r.top - r.height / 2, k2 = Math.min(4, Math.max(0.2, view.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12))); view.x = mx - ((mx - view.x) * k2) / view.k; view.y = my - ((my - view.y) * k2) / view.k; view.k = k2; draw(); }, { passive: false });
     function zoom(f) { view.k = Math.min(4, Math.max(0.2, view.k * f)); view.x *= f; view.y *= f; draw(); }
     function fit() {

@@ -56,18 +56,26 @@ export interface MenuIn {
   netboot?: (codename: string) => { kernel: string; initrd: string } | undefined;
   /** l'écran d'Odin : choisir le système sur un téléphone ou un PC du réseau (la machine attend le choix) */
   ecran?: boolean;
+  /** l'habillage de l'écran texte (image de fond, couleurs) : lignes iPXE déjà prêtes (voir ecran.ts textLook) */
+  look?: string[];
+  /** la famille d'une entrée (Windows, Linux, Serveurs, Outils), pour ranger le menu */
+  family?: (e: Entry) => string;
 }
 /** Texte du menu : les écrans de démarrage n'affichent que l'ASCII (accents retirés). Pur. */
 const q = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 ._()+'-]/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** Le script iPXE d'une machine : menu, entrée par défaut, démarrage de chaque ISO. Pur. */
 export function menu(m: MenuIn): string {
-  const L = ['#!ipxe', `# Odin · Genèse — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ''];
-  L.push(`menu Odin - Deploiement reseau (${m.mac})`);
+  const L = ['#!ipxe', `# Odin · Genèse — ${m.mac}`, `set base ${m.base}`, 'isset ${menu-timeout} || set menu-timeout 0', ...(m.look ?? []), ''];
+  L.push(`menu ODIN - Choisis un systeme pour ce PC (${m.mac})`);
   if (m.ecran) L.push('item ecran Choisir sur l\'ecran d\'Odin (telephone ou PC du reseau)');
   L.push('item local Demarrer sur le disque de cette machine');
-  if (m.entries.length) L.push('item --gap -- ISO d\'Odin (Andromède) :');
-  for (const e of m.entries) { const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
+  // Les systèmes rangés par famille (maquette « Démarrage réseau ») : Windows, Linux, Serveurs, Outils
+  const fam = (e: Entry) => m.family?.(e) ?? 'ISO';
+  const order = ['Windows', 'Linux', 'Serveurs', 'Outils', 'ISO'], groups = [...new Set(m.entries.map(fam))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  let lastFam = '';
+  for (const e of [...m.entries].sort((a, b) => groups.indexOf(fam(a)) - groups.indexOf(fam(b)))) {
+    if (fam(e) !== lastFam) { lastFam = fam(e); L.push(`item --gap -- --- ${q(lastFam).toUpperCase()} ${'-'.repeat(Math.max(3, 44 - lastFam.length))}`); } const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
   L.push('item --gap --', 'item shell Ligne de commande iPXE');
   L.push(`choose --default ${m.def === 'local' || (m.def === 'ecran' && m.ecran) ? m.def : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
   L.push(':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1', '');
@@ -80,7 +88,7 @@ export function menu(m: MenuIn): string {
 function entry(m: MenuIn, e: Entry): string[] {
   const r = e.recipe, f = `\${base}/f/${e.id}`, mark = `?m=${m.mac}`, auto = m.auto?.id === e.id ? m.auto : undefined;
   const seed = auto ? `\${base}/seed/${auto.token}` : '';
-  const out = [`:e-${e.id}`, `echo ${q(e.name)}`];
+  const out = [`:e-${e.id}`, `echo Chargement : ${q(e.name)}`, 'echo Ne debranche pas le cable reseau.'];
   const kernel = (path: string, args: string) => out.push(`kernel ${f}/${path}${mark} initrd=initrd ${args}`.trimEnd());
   const initrd = (path: string, name = 'initrd') => out.push(`initrd --name ${name} ${f}/${path}`);
   switch (r.kind) {

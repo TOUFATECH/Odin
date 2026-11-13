@@ -2,6 +2,7 @@
 // alertes, liens, conseil « j'ai besoin de… ». Plus la page publique de réservation de Chronos (/r/…),
 // sans script, sans compte, débit limité.
 
+import { NAME_STORY } from '../valhalla/names.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { advise } from '../tools/valhalla.ts';
 import { LINKS, USAGES } from '../valhalla/links.ts';
@@ -20,11 +21,11 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
       // Nouveautés des projets d'origine de chaque appli (veille de Pharos), ces 30 derniers jours : point bleu du graphe
       const since = Date.now() - 30 * 864e5, news = new Map<string, number>();
       try { for (const n of ((v.ctx('kvasir').settings.news as Array<{ module?: string; at?: string }> | undefined) ?? [])) if (n.module && Date.parse(n.at ?? '') > since) news.set(n.module, (news.get(n.module) ?? 0) + 1); } catch { /* veille pas encore lancée */ }
-      return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length, grave: alerts.some((a) => a.module === m.id && ['critique', 'haute'].includes(String(a.level))), updates: news.get(m.id) ?? 0 })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
+      return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, story: NAME_STORY[m.id] ?? '', from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length, grave: alerts.some((a) => a.module === m.id && ['critique', 'haute'].includes(String(a.level))), updates: news.get(m.id) ?? 0 })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
     }
     case '/api/valhalla/view': {
       const m = v.module(s(q.get('id'))); if (!m) return { ok: false, error: 'appli inconnue' };
-      try { return { ok: true, id: m.id, name: m.name, family: m.family, what: m.what, view: await m.view(v.ctx(m.id), q), actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: v.alerts({ module: m.id, limit: 30 }), links: LINKS.filter((l) => l.from === m.id || l.to === m.id) }; }
+      try { return { ok: true, id: m.id, name: m.name, family: m.family, what: m.what, does: m.does ?? [], story: NAME_STORY[m.id] ?? '', view: await m.view(v.ctx(m.id), q), actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: v.alerts({ module: m.id, limit: 30 }), links: LINKS.filter((l) => l.from === m.id || l.to === m.id) }; }
       catch (e) { return { ok: false, error: (e as Error).message }; }
     }
     case '/api/valhalla/alerts': return { ok: true, alerts: v.alerts({ module: q.get('module') ?? undefined, q: q.get('q') ?? undefined, limit: Number(q.get('n') ?? 200) }) };

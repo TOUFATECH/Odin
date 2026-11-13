@@ -13,5 +13,19 @@
     const z = i && i.full ? size : Math.round(size * 0.78), inner = i ? `<svg viewBox="0 0 64 64" width="${z}" height="${z}" aria-hidden="true">${i.g}</svg>` : `<span style="color:#fff;font:700 ${Math.round(size * 0.46)}px/1 system-ui,sans-serif">${esc((name || id).slice(0, 1).toUpperCase())}</span>`;
     return `<span class="odin-app-ic" style="display:inline-grid;place-items:center;flex:none;width:${size}px;height:${size}px;border-radius:${Math.round(size * 0.23)}px;background:linear-gradient(145deg,${b[0]},${b[1]});overflow:hidden;box-shadow:0 1px 4px rgba(10,20,50,.25),inset 0 1px 0 rgba(255,255,255,.3)">${inner}</span>`;
   }
-  window.OdinAppIcons = { tile, has: (id) => !!ICONS[id], ids: () => Object.keys(ICONS) };
+  /** L'icône en SVG autonome (fond compris), pour la dessiner dans un canevas (la carte des applis). */
+  function svg(id, name = '') {
+    const i = ICONS[id] || MODES[name], b = i ? i.b : PENDING[id] || ['#64748b', '#334155'];
+    const inner = i ? (i.full ? i.g : `<g transform="translate(7 7) scale(0.78)">${i.g}</g>`) : `<text x="32" y="43" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="700" font-size="30" fill="#fff">${esc((name || id).slice(0, 1).toUpperCase())}</text>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="128" height="128"><defs><linearGradient id="odbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${b[0]}"/><stop offset="1" stop-color="${b[1]}"/></linearGradient><clipPath id="odcl"><rect width="64" height="64" rx="15"/></clipPath></defs><g clip-path="url(#odcl)"><rect width="64" height="64" fill="url(#odbg)"/>${inner}</g></svg>`;
+  }
+  const imgs = new Map();
+  /** L'icône prête pour un canevas (gardée en mémoire) ; onload : redessiner quand elle est chargée. */
+  function image(id, name = '', onload) {
+    const k = `${id}|${name}`; let im = imgs.get(k);
+    if (!im) { im = new Image(); im.decoding = 'async'; im.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg(id, name))}`; imgs.set(k, im); }
+    if (onload && !im.complete) im.addEventListener('load', onload, { once: true });
+    return im;
+  }
+  window.OdinAppIcons = { tile, svg, image, has: (id) => !!ICONS[id], ids: () => Object.keys(ICONS) };
 })();

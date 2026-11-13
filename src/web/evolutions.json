@@ -1,5 +1,25 @@
 [
  {
+  "id": "v1160",
+  "at": "2026-11-13T15:45:00+03:00",
+  "date": "2026-11-13",
+  "version": "1.16.0",
+  "title": "Icônes des applis sur la carte avec leur fiche (d'où vient le nom, ce qu'elle fait) ; thèmes du démarrage réseau (4 en texte iPXE, 9 graphiques) avec ton image de fond",
+  "details": [
+   "Applis : chaque point de la carte est l'icône de l'appli ; au survol, sa fiche (icône, nom, d'où vient le nom, ce qu'elle fait, ses fonctions). Icônes aussi dans la liste sous la carte et en haut de la page de chaque appli (avec « D'où vient le nom » et « Ses fonctions »).",
+   "Aujourd'hui : les cartes ont l'icône de leur appli au lieu d'une lettre ; météo heure par heure corrigée (plus de « undefined h · NaN° »).",
+   "Genèse, écran texte (iPXE) : thèmes Matrix, Lune, Aurore boréale, Néon (ou classique), image de fond dessinée par Odin, systèmes rangés par famille (Windows, Linux, Serveurs, Outils).",
+   "Genèse, écran graphique : thèmes Bleu verre, Matrix, Voyage océan, Lune, Ciel, Galaxie, Mayotte, Coucher de soleil, Clair minimal ; molette de la souris pour faire défiler ; la liste des touches n'est plus affichée (elles marchent toujours).",
+   "Ton image de fond pour les deux écrans : Genèse → Écran de démarrage (recadrée et assombrie par le navigateur) ; sans image, celle du thème."
+  ],
+  "planets": [
+   "applis",
+   "interface",
+   "installation"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1151",
   "at": "2026-11-13T15:10:00+03:00",
   "date": "2026-11-13",

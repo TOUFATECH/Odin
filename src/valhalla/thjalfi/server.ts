@@ -45,6 +45,8 @@ export interface HttpDeps {
     etat: (mac: string, from: string) => Promise<unknown>;
     choisir: (mac: string, iso: string, mode: string, from: string) => Promise<unknown>;
     attente: (mac: string, fw: string, n: number, from: string) => Promise<string>;
+    /** les images de fond : « texte » (PNG pour iPXE) et « graphique » (l'écran graphique) ; absente = rien */
+    fond?: (kind: 'texte' | 'graphique') => { type: string; data: Buffer } | undefined;
   };
   log?: (s: string) => void;
 }
@@ -74,6 +76,8 @@ export class PxeHttp {
       if (path === '/ecran' || path === '/ecran/') { r.setHeader('content-security-policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"); r.setHeader('x-content-type-options', 'nosniff'); return text(e.page(), 'text/html; charset=utf-8'); }
       if (path === '/ecran/etat') return json(await e.etat(mac, from));
       if (path === '/ecran/choisir') return json(await e.choisir(mac, u.searchParams.get('iso') ?? '', u.searchParams.get('mode') ?? '', from));
+      const fm = /^\/ecran\/fond-(texte|graphique)(?:\.\w+)?$/.exec(path);
+      if (fm) { const f = e.fond?.(fm[1] as 'texte' | 'graphique'); if (!f) { r.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); return void r.end('pas d\'image'); } r.writeHead(200, { 'content-type': f.type, 'cache-control': 'no-cache', 'content-length': f.data.length, 'x-content-type-options': 'nosniff' }); return void r.end(q.method === 'HEAD' ? undefined : f.data); }
       if (path === '/ecran/attente.ipxe') return text(await e.attente(mac, u.searchParams.get('fw') ?? '', Math.max(0, Math.min(10_000, Number(u.searchParams.get('n')) || 0)), from));
     }
     let m = /^\/f\/([\w.-]+)\/(.+)$/.exec(path);

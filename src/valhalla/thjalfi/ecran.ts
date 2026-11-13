@@ -8,8 +8,42 @@ export type Category = 'Linux' | 'Windows' | 'Serveurs' | 'Outils';
 export type Mode = 'essai' | 'installer' | 'auto';
 export const DISPOSITIONS = ['eventail', 'affiches', 'liste'] as const;
 export type Disposition = typeof DISPOSITIONS[number];
-export const THEMES = { nuit: 'Nuit étoilée', mayotte: 'Mayotte', espace: 'Espace', ocean: 'Océan', odin: 'Comme Odin' } as const;
+/** Les 9 thèmes de l'écran graphique gardés sur la maquette « Thèmes du démarrage réseau » (13/11/2026). */
+export const THEMES = { bleu: 'Bleu verre', matrix: 'Matrix', ocean: 'Voyage océan', lune: 'Lune', ciel: 'Ciel', galaxie: 'Galaxie', mayotte: 'Mayotte', couchant: 'Coucher de soleil', clair: 'Clair minimal' } as const;
 export type Theme = keyof typeof THEMES;
+/** Un ancien thème (avant la maquette) devient le plus proche des nouveaux. Pur. */
+export function themeOf(x: unknown): Theme {
+  const v = typeof x === 'string' ? x : '';
+  if (v in THEMES) return v as Theme;
+  return ({ nuit: 'bleu', espace: 'galaxie', odin: 'bleu' } as Record<string, Theme>)[v] ?? 'bleu';
+}
+/** Les 4 thèmes de l'écran texte (iPXE) gardés sur la maquette, plus « classique » (les couleurs d'iPXE). */
+export const TEXT_THEMES = {
+  matrix: { label: 'Matrix', fg: '#7dff9b', title: '#c8ffd4', gap: '#2fbf5a', selBg: '#3dff7a', selFg: '#001a07' },
+  lune: { label: 'Lune', fg: '#e9e6dc', title: '#fff7d6', gap: '#b3ad98', selBg: '#f4f1e8', selFg: '#1a1c26' },
+  aurore: { label: 'Aurore boréale', fg: '#dffff4', title: '#7dffcf', gap: '#a98bff', selBg: '#7dffcf', selFg: '#06101e' },
+  neon: { label: 'Néon', fg: '#f0e6ff', title: '#ff4fd8', gap: '#3af0ff', selBg: '#ff4fd8', selFg: '#12002a' },
+} as const;
+export type TextTheme = keyof typeof TEXT_THEMES | 'classique';
+export const TEXT_THEME_IDS = [...Object.keys(TEXT_THEMES), 'classique'] as TextTheme[];
+export const textThemeOf = (x: unknown): TextTheme => (TEXT_THEME_IDS as string[]).includes(String(x)) ? x as TextTheme : 'matrix';
+const rgb = (h: string) => `0x${h.slice(1)}`;
+/**
+ * Les lignes iPXE qui habillent l'écran texte : image de fond (« console --picture ») et couleurs (« colour »,
+ * « cpair »). Chaque ligne finit par « || » : un iPXE qui ne sait pas le faire (chargeur BIOS officiel) garde
+ * simplement ses couleurs, le menu marche quand même. La couleur 4 reste « transparente » (on voit l'image). Pur.
+ */
+export function textLook(theme: TextTheme, picture?: string): string[] {
+  if (theme === 'classique' && !picture) return [];
+  const L: string[] = [];
+  if (picture) L.push(`console --picture ${picture} --left 40 --right 40 --top 36 --bottom 36 ||`);
+  if (theme !== 'classique') {
+    const t = TEXT_THEMES[theme];
+    L.push(`colour --rgb ${rgb(t.fg)} 7 ||`, `colour --rgb ${rgb(t.selBg)} 1 ||`, `colour --rgb ${rgb(t.gap)} 6 ||`, `colour --rgb ${rgb(t.selFg)} 0 ||`, `colour --rgb ${rgb(t.title)} 3 ||`,
+      'cpair --foreground 7 --background 4 0 ||', 'cpair --foreground 7 --background 4 1 ||', 'cpair --foreground 0 --background 1 2 ||', 'cpair --foreground 6 --background 4 3 ||', 'cpair --foreground 3 --background 4 6 ||');
+  }
+  return L;
+}
 
 /** La famille d'un système, pour les onglets de l'écran. */
 export function category(r: Recipe | undefined, name: string): Category {

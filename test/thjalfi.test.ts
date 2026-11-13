@@ -267,7 +267,7 @@ test('écran d\'Odin : choisir sur un téléphone, la machine attend puis démar
     assert.match((await w.v.act('thjalfi', 'decider', { id: d2.id, accord: 'sans_effacer' })).text, /installation normale/);
     const m2 = (await w.get(`/menu.ipxe?mac=${mac2}&fw=efi`)).text; assert.match(m2, new RegExp(`--default e-${U} --timeout 0 `)); assert.doesNotMatch(m2, /autoinstall/);
     // Réglages de l'écran : par défaut, thème.
-    assert.match((await w.v.act('thjalfi', 'ecran', { parDefaut: true, theme: 'mayotte', disposition: 'liste', attente: 2 })).text, /proposé et par défaut · liste · thème Mayotte · attente 2 min/);
+    assert.match((await w.v.act('thjalfi', 'ecran', { parDefaut: true, theme: 'mayotte', disposition: 'liste', attente: 2 })).text, /proposé et par défaut · liste · graphique Mayotte · texte Matrix · attente 2 min/);
     assert.match((await w.get('/menu.ipxe?mac=52:54:00:cc:00:03&fw=efi')).text, /choose --default ecran --timeout 10000/);
     assert.match((await w.get('/ecran/attente.ipxe?mac=52:54:00:cc:00:03&n=40')).text, /Pas de choix/, '2 min');
     assert.equal(JSON.parse((await w.get('/ecran/etat?mac=52:54:00:cc:00:03')).text).theme, 'mayotte');
@@ -284,4 +284,36 @@ test('écran : familles, modes, noms lisibles et ce que dit Odin', async () => {
   const sys = systems([{ id: 'a', name: 'linuxmint-22-cinnamon', size: 3e9, recipe: { kind: 'casper', label: 'Mint', auto: false, os: 'linux' } }, { id: 'b', name: 'illisible', size: 1 }], { a: { lances: 3, finis: 2 } });
   assert.equal(sys.length, 1, 'une ISO illisible n\'est pas proposée'); assert.equal(sys[0].deployed, 2);
   assert.match(odinSays(sys[0], 'efi'), /essaie-le d'abord, rien n'est écrit/); assert.match(odinSays(undefined, ''), /Choisis un système/);
+});
+
+test('thèmes de l\'écran : texte iPXE (couleurs + image de fond PNG dessinée par Odin), graphique, et tes images à toi', async () => {
+  const w = await world(), mac = '52:54:00:dd:00:01';
+  try {
+    const m = (await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text;
+    assert.match(m, /console --picture http:\/\/127\.0\.0\.1:\d+\/ecran\/fond-texte\.png .*\|\|/, 'image de fond, sans bloquer un iPXE qui ne sait pas');
+    assert.match(m, /colour --rgb 0x7dff9b 7 \|\|/, 'thème Matrix par défaut'); assert.match(m, /cpair --foreground 0 --background 1 2 \|\|/);
+    assert.doesNotMatch(m, /Touches :/, 'la liste des touches n\'est plus affichée');
+    for (const line of m.split('\n').filter((l) => /^(console|colour|cpair) /.test(l))) assert.match(line, /\|\|$/, `toujours rattrapé : ${line}`);
+    const png = await w.get('/ecran/fond-texte.png'); assert.equal(png.status, 200); assert.equal(png.buf.subarray(1, 4).toString(), 'PNG'); assert.equal(png.buf.readUInt32BE(16), 1024); assert.equal(png.buf.readUInt32BE(20), 768);
+    assert.equal((await w.get('/ecran/fond-graphique')).status, 404, 'pas d\'image à toi : le décor du thème');
+    assert.equal(JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text).theme, 'bleu');
+    // ancien réglage « nuit » → bleu ; thème texte « lune »
+    w.v.ctx('thjalfi').saveSettings({ ecran: { theme: 'nuit' } });
+    assert.match((await w.v.act('thjalfi', 'ecran', { texte: 'lune', theme: 'galaxie' })).text, /graphique Galaxie · texte Lune/);
+    assert.match((await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text, /colour --rgb 0xe9e6dc 7/);
+    // tes images : déposées par l'interface (images/), puis prises par le réglage
+    const imgs = join(w.home, 'valhalla', 'thjalfi', 'images'); mkdirSync(imgs, { recursive: true });
+    writeFileSync(join(imgs, 'fond_texte.png'), png.buf); writeFileSync(join(imgs, 'fond_graphique.jpg'), Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]));
+    assert.match((await w.v.act('thjalfi', 'ecran', { fond_texte: 'image:fond_texte', fond_graphique: 'image:fond_graphique' })).text, /fond texte : ton image · fond graphique : ton image/);
+    const g = await w.get('/ecran/fond-graphique'); assert.equal(g.status, 200); assert.equal(g.buf[0], 0xff);
+    assert.equal(JSON.parse((await w.get(`/ecran/etat?mac=${mac}`)).text).fond, true);
+    assert.match((await w.v.act('thjalfi', 'ecran', { fond_texte: 'image:absente' })).text, /introuvable/);
+    writeFileSync(join(imgs, 'faux.png'), 'pas une image'); assert.match((await w.v.act('thjalfi', 'ecran', { fond_texte: 'image:faux' })).text, /PNG/);
+    assert.match((await w.v.act('thjalfi', 'ecran', { sans_fond_graphique: true })).text, /fond graphique : celui du thème/);
+    assert.equal((await w.get('/ecran/fond-graphique')).status, 404);
+    // classique : plus de couleurs ni d'image (sauf la tienne)
+    await w.v.act('thjalfi', 'ecran', { texte: 'classique', sans_fond_texte: true });
+    const c = (await w.get(`/menu.ipxe?mac=${mac}&fw=efi`)).text; assert.doesNotMatch(c, /colour|console --picture/);
+    assert.equal((await w.get('/ecran/fond-texte.png')).status, 404);
+  } finally { w.end(); }
 });

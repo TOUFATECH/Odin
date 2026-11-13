@@ -885,6 +885,21 @@ export class WebChannel implements Channel {
         return json(res, 200, { ok: true, file: `inbox/${name}`, type: String(req.headers['content-type'] ?? ''), size });
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
+    if (url.pathname === '/api/valhalla/image') {
+      // Une image pour le réglage d'une appli (paramètre « image ») : déjà recadrée par le navigateur, gardée dans images/ du module.
+      try {
+        const va = valhallaOf(); if (!va) return json(res, 503, { ok: false, error: 'applis non démarrées' });
+        const mod = url.searchParams.get('module') ?? '', key = url.searchParams.get('key') ?? '';
+        if (!va.module(mod) || !/^[a-z0-9_-]{1,40}$/.test(key)) return json(res, 200, { ok: false, error: 'appli ou clé inconnue' });
+        const data = await readRaw(req, 12 * 1024 * 1024), b = Buffer.from(data);
+        const kind = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 ? 'png' : b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff ? 'jpg' : '';
+        if (!kind) return json(res, 200, { ok: false, error: 'image PNG ou JPEG attendue' });
+        const dir = join(va.ctx(mod).dir, 'images'); mkdirSync(dir, { recursive: true });
+        for (const e of ['png', 'jpg']) { try { unlinkSync(join(dir, `${key}.${e}`)); } catch { /* rien */ } }
+        writeFileSync(join(dir, `${key}.${kind}`), b, { mode: 0o600 });
+        return json(res, 200, { ok: true, ref: `image:${key}`, size: b.length });
+      } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
     if (url.pathname === '/api/photo') {
       // Les yeux d'Odin : une photo de la caméra (téléphone) ou une image, déposée dans inbox/ puis montrée à Odin.
       try {

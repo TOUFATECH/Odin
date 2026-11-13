@@ -24,7 +24,7 @@
 .fe-w .va-kpi{padding:8px 10px}.fe-w .va-kpi b{font-size:20px}
 .fe-w .va-sec{background:none;border:0;padding:0;margin:0}.fe-w .va-sec h2{display:none}.fe-w .va-kpis{margin:0;grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
 .fe-h{display:flex;gap:10px;align-items:center;margin:0 0 10px}.fe-h small{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}.fe-h b{font-size:15.5px}
-.fe-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--field);font-weight:700;flex:none}
+.fe-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--field);font-weight:700;flex:none}.fe-ic-app{background:none}
 .fe-open{margin-left:auto;font-size:12.5px;color:var(--muted);background:none;border:0;cursor:pointer;min-height:32px}
 .fe-edit .fe-w{outline:2px dashed color-mix(in srgb,var(--accent,#0b7f7c) 55%,transparent);outline-offset:3px;touch-action:none}
 .fe-chrome{display:none;position:absolute;top:-12px;right:-6px;gap:4px}.fe-edit .fe-chrome{display:flex}.fe-chrome button{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);background:var(--panel);cursor:pointer;display:grid;place-items:center;font-size:14px}
@@ -70,12 +70,14 @@
       w.kind === 'section' || w.kind === 'chiffres' ? el('button', { type: 'button', title: 'Choisir ce qu\'il montre', 'aria-label': 'Réglages du module', onclick: () => configure(w) }, '⚙') : null,
       el('button', { type: 'button', title: 'Retirer', 'aria-label': 'Retirer ce module', onclick: () => { page().widgets = page().widgets.filter((x) => x.id !== w.id); draw(); } }, '✕'));
     box.append(grip, chrome);
-    const head = (title, small, icon) => el('div', { class: 'fe-h' }, el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, icon ?? (title || '?').slice(0, 1)), el('div', {}, el('small', {}, small), el('b', {}, title)),
+    // L'icône de l'appli (comme sur la page Applis) ; sinon un symbole ou la première lettre.
+    const icOf = (mod, icon, title) => { if (mod && window.OdinAppIcons) { const sp = el('span', { class: 'fe-ic fe-ic-app', 'aria-hidden': 'true' }); sp.innerHTML = window.OdinAppIcons.tile(mod, modName(mod), 34); return sp; } return el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, icon ?? (title || '?').slice(0, 1)); };
+    const head = (title, small, icon, mod = w.module) => el('div', { class: 'fe-h' }, icOf(mod, icon, title), el('div', {}, el('small', {}, small), el('b', {}, title)),
       w.module ? el('button', { class: 'fe-open', type: 'button', onclick: () => { location.hash = `#app=${w.module}`; } }, 'Ouvrir ›') : null);
     if (w.kind === 'meteo') {
       const d = await weather();
-      box.append(head(w.label || 'Météo', 'Hestia', '☀'), d ? el('div', {}, el('div', { class: 'fe-wx' }, el('b', {}, `${Math.round(d.temp ?? d.now?.temp ?? 0)}°`), el('div', {}, el('div', {}, d.text ?? d.now?.text ?? ''), el('small', { class: 'sub' }, d.place ?? d.ville ?? ''))),
-        Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => el('span', {}, `${h.h ?? h.hour} h · ${Math.round(h.t ?? h.temp)}°`))) : null) : el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Hestia).'));
+      box.append(head(w.label || 'Météo', 'Hestia', '☀', 'gladsheim'), d ? el('div', {}, el('div', { class: 'fe-wx' }, el('b', {}, `${Math.round(d.temp ?? d.now?.temp ?? 0)}°`), el('div', {}, el('div', {}, d.text ?? d.now?.text ?? ''), el('small', { class: 'sub' }, d.place ?? d.ville ?? ''))),
+        Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => { const at = typeof h.t === 'string' ? h.t.replace(':00', ' h').replace(':', ' h ') : `${h.h ?? h.hour ?? ''} h`, t = Number(h.temp ?? h.t); return el('span', {}, Number.isFinite(t) ? `${at} · ${Math.round(t)}°` : at); })) : null) : el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Hestia).'));
       return box;
     }
     if (w.kind === 'bouton') {

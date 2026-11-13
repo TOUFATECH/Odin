@@ -41,7 +41,10 @@
 .va-log{margin:0;max-height:320px;overflow:auto;font-size:12.5px;line-height:1.6;white-space:pre-wrap;background:var(--panel2);border-radius:10px;padding:10px}
 .va-bars{display:flex;flex-direction:column;gap:6px}.va-brow{display:grid;grid-template-columns:minmax(80px,40%) 1fr auto;gap:8px;align-items:center;font-size:14px}.va-brow i{display:block;height:10px;border-radius:5px;background:var(--accent)}
 .va-form label{display:block;font-size:14px;font-weight:600;margin:10px 0 4px}.va-form input:not([type=checkbox]),.va-form textarea,.va-form select{width:100%;min-height:40px;padding:8px 10px;border-radius:10px;border:1px solid var(--field);background:var(--panel2)}.va-form textarea{min-height:90px}.va-form .btn{margin-top:12px}
-.va-form .va-chk{display:flex;gap:10px;align-items:center;font-weight:500;min-height:40px}.va-form .va-chk input{width:20px;height:20px;flex:none}
+.va-hc{display:grid;gap:8px}.va-hc .hd{display:flex;gap:10px;align-items:center}.va-hc .hd b{font-size:17px;display:block;line-height:1.2}.va-hc .chip{font-size:11.5px;padding:1px 8px;border-radius:99px;background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--muted)}
+.va-hc h4,.va-story h4{margin:0 0 2px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}.va-hc p{margin:0}.va-hc ul{margin:2px 0 0;padding-left:18px}.va-hc .st{display:flex;gap:8px;flex-wrap:wrap;font-size:12.5px}.va-hc .st span{padding:1px 8px;border-radius:99px}.va-hc .al{background:#EE6A5533;color:#ffb3a6}.va-hc .up{background:#4F9DDE33;color:#a9d2ff}.va-hc .go{color:var(--muted);font-size:12px}
+.va-story{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));margin:0 0 14px}.va-story>div{border:1px solid var(--line);border-radius:12px;padding:12px 14px}.va-story p{margin:0}.va-story ul{margin:0;padding-left:18px}
+.va-form .va-img{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.va-form .va-img input{min-height:40px}.va-imgpv{width:120px;height:68px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}.va-form .va-chk{display:flex;gap:10px;align-items:center;font-weight:500;min-height:40px}.va-form .va-chk input{width:20px;height:20px;flex:none}
 .va-form small.sub{display:block;margin-top:4px}.va-form .btn{display:flex}
 .va-out{white-space:pre-wrap;font-size:14px;margin-top:10px;padding:10px;border-radius:10px;background:var(--panel2);overflow-wrap:anywhere}.va-out:empty{display:none}
 .va-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}.va-tabs span{padding:4px 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;color:var(--muted)}
@@ -75,15 +78,38 @@
     if (p.kind === 'textarea') return el('textarea', { id, name: p.key, required: p.required }, String(v));
     if (p.kind === 'select') return el('select', { id, name: p.key, required: p.required }, ...(p.options ?? []).map((o) => el('option', { selected: o === v ? true : undefined }, o)));
     if (p.kind === 'boolean') return el('input', { id, name: p.key, type: 'checkbox', checked: v === true ? true : undefined });
+    if (p.kind === 'image') {
+      // Une image : aperçu tout de suite, envoyée (recadrée, assombrie) seulement quand tu valides le formulaire.
+      const pv = el('img', { class: 'va-imgpv', alt: '', hidden: true });
+      const inp = el('input', { id, name: p.key, type: 'file', accept: 'image/png,image/jpeg,image/webp', onchange: () => { const f = inp.files?.[0]; if (pv.src) URL.revokeObjectURL(pv.src); if (f) { pv.src = URL.createObjectURL(f); pv.hidden = false; } else pv.hidden = true; } });
+      return el('span', { class: 'va-img' }, inp, pv);
+    }
     return el('input', { id, name: p.key, type: p.kind === 'number' ? 'number' : p.kind === 'password' ? 'password' : 'text', value: String(v), required: p.required, autocomplete: 'off', spellcheck: 'false' });
+  }
+  /** Une image pour un réglage : recadrée à la taille voulue (comme un fond d'écran), assombrie, puis envoyée à Odin. */
+  async function sendImage(mod, p, file) {
+    const o = p.image || { w: 1280, h: 720, type: 'jpeg' }, bmp = await createImageBitmap(file);
+    const cv = document.createElement('canvas'); cv.width = o.w; cv.height = o.h; const g = cv.getContext('2d');
+    const k = Math.max(o.w / bmp.width, o.h / bmp.height), w = bmp.width * k, h = bmp.height * k;
+    g.fillStyle = '#000'; g.fillRect(0, 0, o.w, o.h); g.drawImage(bmp, (o.w - w) / 2, (o.h - h) / 2, w, h);
+    if (o.voile) { g.fillStyle = `rgba(0,0,0,${o.voile})`; g.fillRect(0, 0, o.w, o.h); }
+    const type = o.type === 'png' ? 'image/png' : 'image/jpeg', blob = await new Promise((ok) => cv.toBlob(ok, type, 0.86));
+    if (!blob) throw new Error('le navigateur n\'a pas pu préparer l\'image');
+    const r = await (await fetch(`/api/valhalla/image?module=${encodeURIComponent(mod)}&key=${encodeURIComponent(p.key)}`, { method: 'POST', headers: { 'x-odin': '1', 'content-type': type }, body: blob })).json();
+    if (!r.ok) throw new Error(r.error || 'envoi refusé');
+    return r.ref;
   }
   function form(mod, action, params, submit) {
     params = params ?? [];   // une action sans réglage : un simple bouton
     const out = el('div', { class: 'va-out', role: 'status' });
     const f = el('form', { class: 'va-form', onsubmit: async (e) => {
       e.preventDefault(); const input = {};
-      for (const p of params) { const n = f.elements[p.key]; if (!n) continue; input[p.key] = p.kind === 'boolean' ? n.checked : p.kind === 'number' && n.value !== '' ? Number(n.value) : n.value; }
-      out.textContent = '…'; const r = await run(mod, action, input); out.textContent = r;
+      out.textContent = '…';
+      for (const p of params) {
+        const n = f.elements[p.key]; if (!n) continue;
+        if (p.kind === 'image') { const file = n.files?.[0]; if (!file) { input[p.key] = ''; continue; } try { input[p.key] = await sendImage(mod, p, file); } catch (err) { out.textContent = `Image : ${err.message}`; return; } continue; }
+        input[p.key] = p.kind === 'boolean' ? n.checked : p.kind === 'number' && n.value !== '' ? Number(n.value) : n.value;
+      } const r = await run(mod, action, input); out.textContent = r;
     } }, ...params.map((p) => { const id = `va-${mod}-${action}-${p.key}`; return p.kind === 'boolean' ? el('label', { class: 'va-chk', for: id }, field(p, id), p.label) : [el('label', { for: id }, p.label, p.required ? ' *' : ''), field(p, id), p.help ? el('small', { class: 'sub' }, p.help) : null]; }), el('button', { class: 'btn primary', type: 'submit' }, submit), out);
     return f;
   }
@@ -217,16 +243,25 @@
   // Graphe des applis : Odin au centre, une famille par point vert, chaque appli reliée à sa famille et aux applis
   // avec lesquelles elle travaille. Pastille rouge ou orange : alertes ; bleue : nouveautés de son projet d'origine.
   let graphUi = null;
+  /** La fiche d'une appli au survol de la carte : icône, nom, d'où vient le nom, ce qu'elle fait, ses fonctions. */
+  function appCard(m) {
+    const ic = el('span', { 'aria-hidden': 'true' }); if (window.OdinAppIcons) ic.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 46);
+    const st2 = [m.alerts ? el('span', { class: 'al' }, `${m.alerts} alerte(s)`) : null, m.updates ? el('span', { class: 'up' }, `${m.updates} nouveauté(s)`) : null].filter(Boolean);
+    return el('div', { class: 'va-hc' }, el('div', { class: 'hd' }, ic, el('div', {}, el('b', {}, m.name), el('span', { class: 'chip' }, `${icon[m.family] ?? ''} ${m.family}`.trim()))),
+      m.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, m.story)) : null,
+      el('div', {}, el('h4', {}, 'Ce qu\'elle fait'), el('p', {}, m.what), (m.does || []).length ? el('ul', {}, ...m.does.slice(0, 3).map((x) => el('li', {}, x))) : null),
+      st2.length ? el('div', { class: 'st' }, ...st2) : null, el('span', { class: 'go' }, `Clic : ouvrir ${m.name}`));
+  }
   function drawGraph(into) {
     if (!st?.ok || !window.OdinGraph) return;
     const fams = [...new Set(st.modules.map((m) => m.family))];
     const nodes = [{ id: 'odin', label: 'Odin', hub: true, size: 20, color: '#E3AC3F', title: 'Odin : toutes ses applis' },
       ...fams.map((f) => ({ id: `fam:${f}`, label: `${icon[f] ?? ''} ${f}`.trim(), hub: true, title: `Famille ${f}` })),
-      ...st.modules.map((m) => ({ id: m.id, label: m.name, sub: m.family, search: `${m.what} ${(m.does || []).join(' ')}`,
+      ...st.modules.map((m) => ({ id: m.id, label: m.name, icon: m.id, size: 16, what: m.what, sub: m.family, search: `${m.what} ${(m.does || []).join(' ')}`,
         alert: m.alerts ? { n: m.alerts, level: m.grave ? 'grave' : 'attention' } : undefined, update: m.updates || 0,
         title: `${m.name} — ${m.what}${m.alerts ? ` · ${m.alerts} alerte(s)` : ''}${m.updates ? ` · ${m.updates} nouveauté(s) de son projet d'origine` : ''}` }))];
     const edges = [...fams.map((f) => ['odin', `fam:${f}`]), ...st.modules.map((m) => [`fam:${m.family}`, m.id]), ...st.links.filter((l) => l.from !== l.to).map((l) => [l.from, l.to])];
-    const data = { nodes, edges, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
+    const data = { nodes, edges, card: (n) => { const m = st.modules.find((x) => x.id === n.id); return m ? appCard(m) : null; }, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
     if (graphUi && into.contains(graphUi.el)) graphUi.update(data); else graphUi = window.OdinGraph.mount(into, data);
   }
   /** Les manips d'Odin (réflexes, soins, automatisations) qui attendent ta décision. */
@@ -277,6 +312,7 @@
     const v = r.view, main = el('div', {}), side = el('div', {});
     const top = el('div', {});
     top.append(el('p', { class: 'va-what' }, r.what));
+    if (r.story || r.does?.length) top.append(el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, r.does?.length ? el('div', {}, el('h4', {}, 'Ses fonctions'), el('ul', {}, ...r.does.map((x) => el('li', {}, x)))) : null));
     if (v.tabs?.length) top.append(el('div', { class: 'va-tabs', 'aria-label': 'Modes de l\'appli' }, ...v.tabs.map((t) => el('span', {}, t))));
     if (v.kpis?.length) top.append(el('div', { class: 'va-kpis' }, ...v.kpis.map((k) => el('div', { class: `va-kpi ${k.tone ?? ''}`, title: k.hint ?? '' }, el('small', {}, k.label), el('b', {}, k.value), k.pct !== undefined ? el('div', { class: 'va-bar', role: 'progressbar', 'aria-valuenow': String(k.pct), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-label': k.label }, el('i', { style: `width:${Math.min(100, Math.max(0, k.pct))}%` })) : null))));
     const quick = r.actions.filter((a) => a.quick !== false && !a.params.some((p) => p.required));
