@@ -87,6 +87,8 @@ Conteneurs (moteur d'Odin, sans démon, sans Docker ni Podman) :
   acces [code]                 autorise un appareil qui a touché « Demander l'accès » (non <code> : refuser)
   web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
   update                       met Odin à jour
+  os [essai|installer --docker|--lxc|--navigateur|images|terminal on|off]
+                               Odin OS : le bureau d'Odin (navigateur, Docker, LXC), ses images
   auth add openai-codex        connexion à ton abonnement ChatGPT (Codex) ; auth list · auth remove openai-codex
   model [codex|PRESET] [MODÈLE] choisit le modèle par défaut (ex. odin model codex gpt-6-luna)
   admin [status|password|nopasswd|forget]  droits administrateur d'Odin sur cette machine
@@ -785,6 +787,8 @@ async function main(): Promise<void> {
     return;
   }
   if (cmd === 'gateway') return gateway();
+  // Odin OS : essai dans le navigateur, installation dans Docker ou LXC, images construites.
+  if (cmd === 'os') { const { osCommande } = await import('../os/cli.ts'); return osCommande(pos.slice(1), flags); }
   if (cmd === 'web' && pos[1] === 'access') return webAccess(pos[2]);
   if (cmd === 'link' || (cmd === 'web' && pos[1] === 'link')) {
     // Les liens personnels (avec jeton), sans démarrer l'interface : utile quand Odin tourne en service.

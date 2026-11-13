@@ -54,6 +54,7 @@ import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost }
 import { maisonRoute } from './maison-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
+import { osGet, osPost, osStatique } from '../os/api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import { advise } from '../tools/valhalla.ts';
@@ -576,6 +577,8 @@ export class WebChannel implements Channel {
     if (url.pathname === '/maison' || url.pathname === '/maison.js' || url.pathname.startsWith('/api/maison/') || url.pathname === '/api/owntracks') {
       if (await maisonRoute(req, res, url, { authed: this.authed(req), name: this.accounts.profile()?.prenom ?? '', mascot: MASCOT, fail: () => this.throttle.fail(ip), ask: (text) => this.askAs('maison', text, onMessage) })) return;
     }
+    // Odin OS : les fichiers du bureau (/os/…). Aucune donnée ici : tout le reste passe par /api/os/…, derrière la connexion.
+    if (osStatique(req, res, url)) return;
     if (!url.pathname.startsWith('/api/') && url.pathname !== '/mcp') return json(res, 404, { error: 'introuvable' });
     // Demander l'accès sans jeton : le propriétaire valide d'un geste (Telegram ou écran déjà connecté).
     if (req.method === 'POST' && url.pathname === '/api/pair') {
@@ -738,6 +741,11 @@ export class WebChannel implements Channel {
       const r = await valhallaGet(url.pathname, url.searchParams);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
+    // Odin OS : état du bureau, fichiers du dossier personnel, machine, tâches en cours.
+    if (req.method === 'GET' && url.pathname.startsWith('/api/os/')) {
+      const r = await osGet({ paths: this.odin.paths, demo: this.odin.demo, prenom: this.accounts.profile()?.prenom }, url.pathname, url.searchParams);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
     if (req.method === 'GET' && url.pathname === '/api/runes/export') {
       try { const csv = runesCsv(this.odin, url.searchParams.get('base') ?? ''); res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="${(url.searchParams.get('base') ?? 'base').replace(/[^\w-]/g, '_')}.csv"`, 'cache-control': 'no-store' }); return void res.end(`\ufeff${csv}`); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
@@ -897,13 +905,18 @@ export class WebChannel implements Channel {
         return json(res, 202, { ok: true, file: `inbox/${name}` });
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
-    const body = await readJson(req);
+    // L'éditeur d'Odin OS enregistre des textes plus longs qu'une action ordinaire.
+    const body = await readJson(req, url.pathname === '/api/os/fichiers' ? 3 * 1024 * 1024 : undefined);
     if (url.pathname.startsWith('/api/draupnir/')) {
       const r = await draupnirPost(this.odin, url.pathname, body);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/valhalla/')) {
       const r = await valhallaPost(url.pathname, body as Record<string, unknown>);
+      return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
+    }
+    if (url.pathname.startsWith('/api/os/')) {
+      const r = await osPost({ paths: this.odin.paths, demo: this.odin.demo, prenom: this.accounts.profile()?.prenom }, url.pathname, body as Record<string, unknown>);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname.startsWith('/api/runes/')) {

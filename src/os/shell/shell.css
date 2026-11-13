@@ -1,0 +1,446 @@
+/* Odin OS — styles du bureau (ordinateur et téléphone).
+   Un seul fichier, sans dépendance. Les thèmes changent la disposition et les couleurs par des variables :
+   odin (maison), verre (façon Mac), fenetres (façon Windows), libre (façon GNOME), neon (façon KDE). */
+
+@font-face{font-family:"IBM Plex Sans";font-weight:400;font-display:swap;src:url("./fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:500;font-display:swap;src:url("./fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"IBM Plex Sans";font-weight:600;font-display:swap;src:url("./fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Bricolage Grotesque";font-weight:700;font-display:swap;src:url("./fonts/bricolage-grotesque-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Bricolage Grotesque";font-weight:800;font-display:swap;src:url("./fonts/bricolage-grotesque-latin-800-normal.woff2") format("woff2")}
+@font-face{font-family:"JetBrains Mono";font-weight:400;font-display:swap;src:url("./fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2")}
+
+/* ——— Base ——— */
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+body{font-family:var(--police);font-size:14px;line-height:1.45;color:#fff;background:#060A18;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;
+  --police:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--titre:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --accent:#E3AC3F;--accent-texte:#14100A;--bon:#34D399;--attention:#FBBF24;--mauvais:#FB7185;--info:#60A5FA;
+  --rayon:24px;--rayon2:14px;--barre:30px;--bas:96px;--flou:blur(24px)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,textarea{user-select:text;-webkit-user-select:text}
+a{color:var(--accent)}
+h1,h2,h3,p{margin:0}
+.masque{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+[hidden]{display:none!important}
+svg.ic{flex:none;display:block}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(127,127,127,.35);border-radius:5px;border:2px solid transparent;background-clip:content-box}
+
+/* Surfaces des fenêtres : sombre ou clair (Réglages → Apparence), teintées par thème plus bas. */
+body[data-apparence=sombre]{--surface:rgba(23,37,51,.92);--surface2:rgba(255,255,255,.05);--surface3:rgba(255,255,255,.09);--texte:#E6ECEF;--texte2:#A9B8C4;--trait:rgba(255,255,255,.1);--champ:rgba(0,0,0,.25)}
+body[data-apparence=clair]{--surface:rgba(250,251,253,.9);--surface2:rgba(255,255,255,.78);--surface3:rgba(0,0,0,.06);--texte:#1D1D1F;--texte2:#5F6470;--trait:rgba(0,0,0,.09);--champ:rgba(255,255,255,.85)}
+
+/* ——— Écran de démarrage ——— */
+#demarrage{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(circle at 50% 42%,#1A2A3B,#101A24 55%,#090F16);transition:opacity .5s}
+#demarrage.fini{opacity:0;pointer-events:none}
+#demarrage .odin{width:150px;height:150px}
+#demarrage .marque{font-family:var(--titre);font-weight:800;font-size:34px;letter-spacing:-.5px}
+#demarrage .etat{color:#A9B8C4;font-size:15px}
+
+/* ——— Fond d'écran ——— */
+#fond{position:fixed;inset:0;z-index:0;overflow:hidden;background:#101A24}
+#fond svg{position:absolute;inset:0;width:100%;height:100%}
+
+/* ——— Barre du haut ——— */
+#barre{position:fixed;top:0;left:0;right:0;height:var(--barre);z-index:600;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 14px;font-size:13px;background:rgba(9,15,22,.55);backdrop-filter:var(--flou);-webkit-backdrop-filter:var(--flou)}
+#barre .cote{display:flex;align-items:center;gap:6px;min-width:0}
+#barre button{height:24px;padding:0 8px;border-radius:7px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+#barre button:hover,#barre button[aria-expanded=true]{background:rgba(255,255,255,.14)}
+#barre .nom-appli{font-weight:700}
+#barre .odin{width:20px;height:20px}
+#barre .horloge{font-weight:500;font-variant-numeric:tabular-nums}
+.logo-odin path{fill:var(--accent)}
+
+/* ——— Bureau et widgets ——— */
+#bureau{position:fixed;inset:var(--barre) 0 0 0;z-index:10}
+.widgets{position:absolute;left:36px;top:26px;display:flex;flex-direction:column;gap:14px;width:300px;z-index:1}
+.widget{padding:16px 18px;border-radius:26px;background:rgba(23,37,51,.62);border:1px solid rgba(255,255,255,.08);backdrop-filter:var(--flou);-webkit-backdrop-filter:var(--flou)}
+.widget .grand{font-family:var(--titre);font-size:60px;font-weight:800;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums}
+.widget .petit{color:rgba(255,255,255,.75);font-size:14px;margin-top:6px}
+.widget .ligne-odin{display:flex;align-items:center;gap:12px}.widget .ligne-odin .odin{width:50px;height:50px;flex:none}
+.widget .trois{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;font-size:12px;text-align:center}
+.widget .trois div{padding:9px 4px;border-radius:14px;background:rgba(255,255,255,.07)}.widget .trois b{display:block;font-size:15px}
+.anneaux{display:flex;justify-content:space-between;gap:8px}.anneau{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11.5px}
+.anneau i{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:600}
+.anneau i::before{content:"";position:absolute}.anneau i span{width:36px;height:36px;border-radius:50%;background:rgba(16,26,36,.92);display:grid;place-items:center}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;font-size:11px;text-align:center}.cal b{color:var(--mauvais);grid-column:1/-1;text-align:left;font-size:11px;letter-spacing:.4px}
+.cal span{line-height:20px}.cal .entete{opacity:.6}.cal .jour{background:var(--mauvais);color:#fff;border-radius:50%;font-weight:700}
+
+/* ——— Fenêtres ——— */
+.fenetre{position:absolute;display:flex;flex-direction:column;min-width:320px;min-height:200px;border-radius:var(--rayon);background:var(--surface);color:var(--texte);border:1px solid var(--trait);box-shadow:0 30px 80px rgba(0,0,0,.45);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);overflow:hidden;z-index:20}
+.fenetre.active{box-shadow:0 40px 100px rgba(0,0,0,.6)}
+.fenetre.reduite{display:none}
+.fenetre.agrandie{left:0!important;top:0!important;width:100%!important;height:calc(100% - var(--bas))!important;border-radius:0}
+.fenetre .entete{flex:none;height:46px;display:flex;align-items:center;gap:10px;padding:0 14px 0 20px;cursor:default;touch-action:none}
+.fenetre .entete .titre-f{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;color:var(--texte2)}
+.fenetre .ctrl{display:flex;gap:8px;flex:none}
+.fenetre .ctrl button{width:14px;height:14px;border-radius:50%;background:var(--surface3);font-size:0;display:grid;place-items:center}
+.fenetre .ctrl .fermer{background:var(--accent)}
+.fenetre .corps{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto}
+.fenetre .poignee{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;touch-action:none}
+.fenetre .bord-d{position:absolute;right:0;top:40px;bottom:18px;width:6px;cursor:ew-resize;touch-action:none}
+.fenetre .bord-b{position:absolute;left:0;right:18px;bottom:0;height:6px;cursor:ns-resize;touch-action:none}
+
+/* ——— Contenu des applis (commun à tous les thèmes) ——— */
+.colonnes{flex:1;min-height:0;display:flex}
+.lateral{flex:none;width:210px;padding:10px;display:flex;flex-direction:column;gap:2px;overflow:auto;background:var(--surface2);border-right:1px solid var(--trait);font-size:13.5px}
+.lateral .rubrique{font-size:11px;font-weight:600;color:var(--texte2);padding:12px 10px 4px;letter-spacing:.3px}
+.lateral button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:10px;text-align:left}
+.lateral button:hover{background:var(--surface3)}
+.lateral button[aria-current=true]{background:color-mix(in srgb,var(--accent) 22%,transparent);font-weight:600}
+.lateral .pastille{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--mauvais);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.principal{flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto}
+.contenu{padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+.outils{flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--trait);flex-wrap:wrap}
+.outils .chemin{flex:1;min-width:120px;height:32px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:10px;background:var(--champ);border:1px solid var(--trait);font-weight:600;white-space:nowrap;overflow:hidden}
+.bouton{height:36px;padding:0 16px;border-radius:18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:13.5px;background:var(--surface3);color:var(--texte);white-space:nowrap}
+.bouton:hover{filter:brightness(1.12)}
+.bouton.primaire{background:var(--accent);color:var(--accent-texte)}
+.bouton.danger{background:var(--mauvais);color:#fff}
+.bouton.contour{background:transparent;border:1px solid var(--trait)}
+.bouton.petit{height:30px;padding:0 12px;font-size:12.5px}
+.bouton[disabled]{opacity:.5;cursor:default}
+.icone-b{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;flex:none}
+.icone-b:hover{background:var(--surface3)}
+.champ{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--trait);background:var(--champ);color:var(--texte);min-width:0}
+textarea.champ{height:auto;padding:10px 12px;resize:vertical}
+.recherche{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:18px;background:var(--champ);border:1px solid var(--trait);color:var(--texte2)}
+.recherche input{flex:1;min-width:0;border:0;background:none;outline:none;color:var(--texte)}
+.carte{padding:16px 18px;border-radius:var(--rayon2);background:var(--surface2);border:1px solid var(--trait)}
+.titre-app{font-family:var(--titre);font-weight:800;font-size:26px;letter-spacing:-.4px}
+.titre-section{font-weight:700;font-size:15px}
+.attenue{color:var(--texte2)}
+.petit-texte{font-size:12.5px}
+.rangee{display:flex;align-items:center;gap:12px}
+.entre{justify-content:space-between}
+.pousse{margin-left:auto}
+.grille{display:grid;gap:12px}
+.puce{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:600;background:var(--surface3)}
+.puce.bon{color:var(--bon);background:color-mix(in srgb,var(--bon) 16%,transparent)}
+.puce.attention{color:var(--attention);background:color-mix(in srgb,var(--attention) 16%,transparent)}
+.puce.mauvais{color:var(--mauvais);background:color-mix(in srgb,var(--mauvais) 16%,transparent)}
+.puce.info{color:var(--info);background:color-mix(in srgb,var(--info) 18%,transparent)}
+.tuile{flex:none;display:grid;place-items:center;border-radius:28%;color:#fff;font-family:var(--titre);font-weight:800;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+.ligne{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px}
+.ligne:hover{background:var(--surface3)}
+.ligne[aria-selected=true]{background:var(--accent);color:var(--accent-texte)}
+table.liste{width:100%;border-collapse:collapse;font-size:13px}
+table.liste th{text-align:left;font-weight:500;color:var(--texte2);padding:8px 10px;border-bottom:1px solid var(--trait);font-size:12px;position:sticky;top:0;background:var(--surface)}
+table.liste td{padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px}
+table.liste tr[tabindex]:hover td{background:var(--surface3)}
+table.liste tr[aria-selected=true] td{background:var(--accent);color:var(--accent-texte)}
+.type-f{width:22px;height:26px;border-radius:4px;display:inline-grid;place-items:end center;padding-bottom:3px;font-size:7px;font-weight:800;color:#fff;flex:none}
+.type-f.dossier{width:24px;height:19px;background:linear-gradient(180deg,#7CC6F2,#4BA9E8);font-size:0}
+.interrupteur{flex:none;width:44px;height:26px;border-radius:13px;background:var(--surface3);position:relative;transition:background .15s}
+.interrupteur::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+.interrupteur[aria-checked=true]{background:var(--bon)}.interrupteur[aria-checked=true]::after{left:21px}
+.segments{display:inline-flex;padding:4px;border-radius:20px;background:var(--surface3)}
+.segments button{height:32px;padding:0 14px;border-radius:16px;font-weight:600;font-size:13px}
+.segments button[aria-checked=true],.segments button[aria-selected=true]{background:var(--texte);color:var(--surface)}
+.bandeau{display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:20px;border:1px solid color-mix(in srgb,var(--bon) 40%,transparent);background:linear-gradient(120deg,color-mix(in srgb,var(--bon) 20%,transparent),color-mix(in srgb,var(--info) 16%,transparent))}
+.bandeau.attention{border-color:color-mix(in srgb,var(--attention) 45%,transparent);background:color-mix(in srgb,var(--attention) 14%,transparent)}
+.bandeau.mauvais{border-color:color-mix(in srgb,var(--mauvais) 45%,transparent);background:color-mix(in srgb,var(--mauvais) 14%,transparent)}
+.essai{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:600;background:color-mix(in srgb,var(--attention) 18%,transparent);color:var(--attention)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.kpi{padding:12px 14px;border-radius:14px;background:var(--surface2);border:1px solid var(--trait)}.kpi b{display:block;font-size:20px}.kpi.bon b{color:var(--bon)}.kpi.attention b{color:var(--attention)}.kpi.mauvais b{color:var(--mauvais)}
+.journal{font-family:var(--mono);font-size:12px;white-space:pre-wrap;padding:12px;border-radius:12px;background:var(--champ);max-height:240px;overflow:auto;user-select:text;-webkit-user-select:text}
+.dialogue-fond{position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:20px}
+.dialogue{width:min(480px,100%);padding:24px;border-radius:22px;background:var(--surface);color:var(--texte);border:1px solid var(--trait);box-shadow:0 40px 100px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:14px;backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+
+/* Terminal */
+.terminal{flex:1;min-height:0;display:flex;flex-direction:column;background:#080C18;color:#D7DEEA;font-family:var(--mono);font-size:13.5px;line-height:1.6}
+.terminal .sortie{flex:1;overflow:auto;padding:14px 18px 4px;white-space:pre-wrap;word-break:break-word;user-select:text;-webkit-user-select:text}
+.terminal .saisie{display:flex;gap:8px;padding:6px 18px 14px;align-items:center}
+.terminal input{flex:1;border:0;background:none;outline:none;color:#fff;font-family:inherit;font-size:inherit}
+.t-invite{color:#34D399}.t-chemin{color:#60A5FA}.t-fleche{color:#F472B6}.t-odin{color:#F8CC70}.t-ok{color:#34D399}.t-err{color:#FB7185}.t-gris{color:#7C8AA5}
+
+/* Store */
+.store-banniere{flex:none;position:relative;overflow:hidden;border-radius:24px;padding:24px 28px;color:#fff;background:linear-gradient(120deg,#1D4ED8,#7C3AED 55%,#DB2777)}
+.store-banniere h2{font-family:var(--titre);font-weight:800;font-size:28px;line-height:1.08;max-width:520px}
+.store-banniere::after{content:"";position:absolute;right:-60px;top:-80px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.1)}
+.fiche{display:flex;gap:12px;align-items:center;padding:12px;border-radius:18px;background:var(--surface2);border:1px solid var(--trait)}
+.fiche .txt{flex:1;min-width:0}.fiche .txt b{display:block;font-size:14px}.fiche .txt span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;color:var(--texte2)}
+.fiche.colonne{flex-direction:column;align-items:flex-start}.fiche.colonne .bouton{width:100%}
+.plateformes{display:flex;gap:4px;margin-top:4px}.plateformes i{font-style:normal;height:17px;min-width:17px;padding:0 4px;border-radius:5px;color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
+
+/* ——— Dock, lanceur, menus ——— */
+#dock{position:fixed;z-index:700;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:26px;background:rgba(23,37,51,.72);border:1px solid rgba(255,255,255,.1);backdrop-filter:var(--flou);-webkit-backdrop-filter:var(--flou);max-width:calc(100vw - 24px)}
+#dock .zone{display:flex;align-items:center;gap:8px;min-width:0}
+#dock .app{position:relative;width:58px;height:58px;border-radius:17px;display:grid;place-items:center;flex:none;transition:transform .12s}
+#dock .app:hover{transform:translateY(-3px)}
+#dock .app .tuile{width:100%;height:100%;border-radius:inherit}
+#dock .app.ouverte::after{content:"";position:absolute;bottom:-7px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--accent)}
+#dock .app .odin{width:50px;height:50px}
+#dock .sep{width:1px;height:38px;background:rgba(255,255,255,.18);flex:none}
+#dock .plateau{display:none;align-items:center;gap:12px;margin-left:auto;padding:0 10px;font-size:12px;white-space:nowrap}
+#dock .lanceur-b .tuile{background:rgba(255,255,255,.12)}
+#lanceur{position:fixed;z-index:800;inset:0;display:none;flex-direction:column;align-items:center;gap:24px;padding:calc(var(--barre) + 40px) 24px 120px;background:rgba(6,10,24,.72);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);overflow:auto}
+#lanceur.ouvert{display:flex}
+#lanceur .recherche{width:min(520px,100%);height:46px;border-radius:23px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:15px}
+#lanceur .recherche input{color:#fff}
+#lanceur .applis{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:18px 8px;width:min(880px,100%)}
+#lanceur .applis button{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 4px;border-radius:16px;font-size:12.5px;text-align:center}
+#lanceur .applis button:hover{background:rgba(255,255,255,.1)}
+#lanceur .applis .tuile{width:62px;height:62px;font-size:28px}
+#lanceur .pied,#lanceur .cotes,#lanceur .titre-l{display:none}
+.menu{position:fixed;z-index:5500;min-width:200px;padding:6px;border-radius:14px;background:var(--surface);color:var(--texte);border:1px solid var(--trait);box-shadow:0 20px 50px rgba(0,0,0,.45);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+.menu button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border-radius:9px;text-align:left;font-size:13.5px}
+.menu button:hover{background:var(--accent);color:var(--accent-texte)}
+.menu hr{border:0;border-top:1px solid var(--trait);margin:5px 6px}
+
+/* Centre de contrôle, notifications, assistant */
+#controle{position:fixed;z-index:900;right:12px;top:calc(var(--barre) + 8px);width:300px;padding:12px;border-radius:24px;display:none;flex-direction:column;gap:10px;background:var(--surface);color:var(--texte);border:1px solid var(--trait);box-shadow:0 30px 70px rgba(0,0,0,.45);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+#controle.ouvert{display:flex}
+#controle .deux{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#controle .tuile-c{display:flex;align-items:center;gap:10px;padding:10px;border-radius:18px;background:var(--surface2);border:1px solid var(--trait);text-align:left;font-size:12.5px;min-height:56px}
+#controle .tuile-c i{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--surface3);font-style:normal}
+#controle .tuile-c[aria-pressed=true] i{background:var(--accent);color:var(--accent-texte)}
+#notifs{position:fixed;z-index:6500;right:16px;top:calc(var(--barre) + 12px);display:flex;flex-direction:column;gap:10px;width:min(340px,calc(100vw - 32px));pointer-events:none}
+.notif{pointer-events:auto;display:flex;gap:12px;align-items:center;padding:13px 15px;border-radius:18px;background:var(--surface);color:var(--texte);border:1px solid var(--trait);box-shadow:0 16px 40px rgba(0,0,0,.4);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);font-size:13px;animation:n-entre .25s ease-out}
+.notif .tuile{width:40px;height:40px;font-size:19px}.notif b{display:block}
+@keyframes n-entre{from{opacity:0;transform:translateY(-8px)}}
+#assistant{position:fixed;z-index:1000;right:18px;bottom:110px;width:min(380px,calc(100vw - 36px));height:min(520px,calc(100vh - 170px));display:none;flex-direction:column;border-radius:26px;background:var(--surface);color:var(--texte);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:0 30px 80px rgba(0,0,0,.5);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);overflow:hidden}
+#assistant.ouvert{display:flex}
+#assistant header{flex:none;display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--trait)}
+#assistant header .odin{width:44px;height:44px;flex:none}
+#assistant .fil{flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;user-select:text;-webkit-user-select:text}
+.bulle{max-width:88%;padding:10px 14px;border-radius:18px 18px 18px 6px;background:var(--surface2);border:1px solid var(--trait);font-size:13.5px;white-space:pre-wrap;word-break:break-word}
+.bulle.moi{align-self:flex-end;border-radius:18px 18px 6px 18px;background:var(--accent);color:var(--accent-texte);border:0}
+#assistant .idees{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 8px}
+#assistant form{flex:none;display:flex;gap:8px;padding:10px 12px 14px}
+#assistant form input{flex:1}
+#bulle-odin{position:fixed;z-index:950;right:22px;bottom:112px;width:64px;height:64px;border-radius:50%;display:none;place-items:center;background:rgba(16,26,36,.85);border:1px solid rgba(255,255,255,.14);box-shadow:0 12px 30px rgba(0,0,0,.45)}
+#bulle-odin .odin{width:54px;height:54px}
+
+/* ═══ Thème VERRE (façon Mac) ═══ */
+body[data-theme=verre]{--police:system-ui,-apple-system,"Inter","Segoe UI",Roboto,"IBM Plex Sans",sans-serif;--titre:var(--police);--accent:#1E7BF2;--accent-texte:#fff;--rayon:26px;--rayon2:16px;--barre:26px;--bas:80px}
+body[data-theme=verre][data-apparence=sombre]{--surface:rgba(34,36,46,.78);--surface2:rgba(255,255,255,.07)}
+body[data-theme=verre] #barre{background:rgba(20,45,95,.28);text-shadow:0 0 6px rgba(0,30,80,.45)}
+body[data-theme=verre] .logo-odin path{fill:#fff}
+body[data-theme=verre] .fenetre{border-color:rgba(255,255,255,.75);backdrop-filter:blur(40px);-webkit-backdrop-filter:blur(40px);box-shadow:0 40px 100px rgba(10,40,100,.35)}
+body[data-theme=verre] .fenetre .entete{flex-direction:row-reverse;padding:0 20px 0 16px;height:44px}
+body[data-theme=verre] .fenetre .entete .titre-f{color:var(--texte);font-weight:700;font-size:14px;text-align:center}
+body[data-theme=verre] .fenetre .ctrl .fermer{order:-2}body[data-theme=verre] .fenetre .ctrl .reduire{order:-1}
+body[data-theme=verre] .fenetre .ctrl button{width:13px;height:13px}
+body[data-theme=verre] .fenetre .ctrl .fermer{background:#FF5F57}body[data-theme=verre] .fenetre .ctrl .reduire{background:#FEBC2E}body[data-theme=verre] .fenetre .ctrl .agrandir{background:#28C840}
+body[data-theme=verre] .lateral{margin:0 0 10px 10px;border-radius:18px;border:1px solid var(--trait);box-shadow:0 2px 10px rgba(0,0,0,.04)}
+body[data-theme=verre] .outils{border-bottom:0}
+body[data-theme=verre] .widget{background:rgba(40,80,150,.38);border-color:rgba(255,255,255,.5);color:#fff;text-shadow:0 1px 6px rgba(10,20,70,.35)}
+body[data-theme=verre] .widget .grand{font-weight:200;font-family:var(--police)}
+body[data-theme=verre] .widget.blanc{background:#fff;color:#1D1D1F;text-shadow:none}
+body[data-theme=verre] .anneau i span{background:#fff;color:#1D1D1F}
+body[data-theme=verre] #dock{bottom:6px;gap:4px;padding:5px 6px;border-radius:20px;background:rgba(235,242,252,.32);border-color:rgba(255,255,255,.55)}
+body[data-theme=verre] #dock .zone{gap:4px}
+body[data-theme=verre] #dock .app{width:50px;height:50px;border-radius:12px}
+body[data-theme=verre] #dock .app.ouverte::after{background:#1D1D1F;width:4px;height:4px;bottom:-5px}
+body[data-theme=verre] #dock .app .odin{width:44px;height:44px}
+body[data-theme=verre] #lanceur{background:rgba(120,150,200,.35)}
+body[data-theme=verre] #bulle-odin{background:rgba(255,255,255,.5);border-color:rgba(255,255,255,.8)}
+
+/* ═══ Thème FENÊTRES (façon Windows) ═══ */
+body[data-theme=fenetres]{--police:"Segoe UI","Noto Sans",system-ui,"IBM Plex Sans",sans-serif;--titre:var(--police);--accent:#4CC2FF;--accent-texte:#06131F;--rayon:8px;--rayon2:6px;--barre:0px;--bas:48px}
+body[data-theme=fenetres][data-apparence=sombre]{--surface:rgba(32,34,46,.97);--surface2:rgba(255,255,255,.045)}
+body[data-theme=fenetres] #barre{display:none}
+body[data-theme=fenetres] .fenetre .entete{height:38px;padding:0 0 0 14px}
+body[data-theme=fenetres] .fenetre .entete .titre-f{color:var(--texte);font-size:12.5px}
+body[data-theme=fenetres] .fenetre .ctrl{gap:0;align-self:flex-start}
+body[data-theme=fenetres] .fenetre .ctrl button{width:46px;height:32px;border-radius:0;background:none;font-size:13px;color:var(--texte)}
+body[data-theme=fenetres] .fenetre .ctrl button:hover{background:var(--surface3)}
+body[data-theme=fenetres] .fenetre .ctrl .fermer:hover{background:#E81123;color:#fff}
+body[data-theme=fenetres] .bouton{border-radius:5px;height:32px}
+body[data-theme=fenetres] .champ,body[data-theme=fenetres] .recherche,body[data-theme=fenetres] .outils .chemin{border-radius:5px}
+body[data-theme=fenetres] .lateral button,body[data-theme=fenetres] .ligne{border-radius:5px}
+body[data-theme=fenetres] .widgets{display:none}
+body[data-theme=fenetres] #dock{left:0;right:0;bottom:0;transform:none;max-width:none;height:48px;padding:0 4px;gap:2px;border-radius:0;border:0;border-top:1px solid rgba(255,255,255,.07);background:rgba(18,24,48,.92)}
+body[data-theme=fenetres] #dock .zone{gap:2px}
+body[data-theme=fenetres] #dock .app{width:42px;height:40px;border-radius:5px}
+body[data-theme=fenetres] #dock .app:hover{transform:none;background:rgba(255,255,255,.1)}
+body[data-theme=fenetres] #dock .app .tuile{width:26px;height:26px;border-radius:7px;font-size:13px!important}
+body[data-theme=fenetres] #dock .app .tuile svg{width:16px;height:16px}
+body[data-theme=fenetres] #dock .app.ouverte::after{bottom:2px;width:16px;height:3px;margin-left:-8px;border-radius:2px;background:#60A5FA}
+body[data-theme=fenetres] #dock .app .odin{width:28px;height:28px}
+body[data-theme=fenetres] #dock .sep{display:none}
+body[data-theme=fenetres] #dock .plateau,body[data-theme=neon] #dock .plateau{display:flex}
+body[data-theme=fenetres] #dock .lanceur-b .tuile{background:none}
+body[data-theme=fenetres] #lanceur{inset:auto auto 56px 12px;width:min(572px,calc(100vw - 24px));height:min(620px,calc(100vh - 76px));padding:28px 36px 0;gap:14px;align-items:stretch;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(30,52,128,.82);box-shadow:0 20px 50px rgba(0,0,0,.45)}
+body[data-theme=fenetres] #lanceur .recherche{width:100%;height:36px;border-radius:18px;background:rgba(10,16,44,.75);border-bottom:2px solid #4C8DFF;font-size:13px}
+body[data-theme=fenetres] #lanceur .titre-l{display:flex;justify-content:space-between;align-items:center;font-weight:600}
+body[data-theme=fenetres] #lanceur .applis{grid-template-columns:repeat(6,minmax(0,1fr));gap:10px 2px;width:auto}
+body[data-theme=fenetres] #lanceur .applis button{font-size:11.5px;border-radius:5px;padding:8px 2px}
+body[data-theme=fenetres] #lanceur .applis .tuile{width:34px;height:34px;font-size:16px;border-radius:8px}
+body[data-theme=fenetres] #lanceur .applis .tuile svg{width:18px;height:18px}
+body[data-theme=fenetres] #lanceur .pied{display:flex;align-items:center;justify-content:space-between;margin:auto -36px 0;padding:12px 36px;background:rgba(10,22,70,.45);border-top:1px solid rgba(255,255,255,.08);font-size:12.5px}
+body[data-theme=fenetres] #controle{top:auto;bottom:58px;border-radius:8px}
+body[data-theme=fenetres] #notifs{top:auto;bottom:60px}
+body[data-theme=fenetres] .notif,body[data-theme=fenetres] .menu,body[data-theme=fenetres] .dialogue{border-radius:8px}
+body[data-theme=fenetres] #assistant{bottom:60px;border-radius:8px}
+
+/* ═══ Thème LIBRE (façon GNOME) ═══ */
+body[data-theme=libre]{--police:"Nunito",ui-rounded,"IBM Plex Sans",system-ui,sans-serif;--titre:var(--police);--accent:#5EEAFF;--accent-texte:#06202A;--rayon:28px;--rayon2:18px;--barre:72px;--bas:124px}
+body[data-theme=libre][data-apparence=sombre]{--surface:rgba(28,34,56,.94);--surface2:rgba(48,56,84,.9)}
+body[data-theme=libre] #barre{top:12px;left:max(12px,7vw);right:max(12px,7vw);height:52px;border-radius:26px;padding:0 20px;font-size:16px;font-weight:700;background:rgba(40,46,70,.82);border:1px solid rgba(255,255,255,.12)}
+body[data-theme=libre] #barre button{height:34px;border-radius:17px}
+body[data-theme=libre] #barre .odin{width:32px;height:32px}
+body[data-theme=libre] .fenetre{border:2px solid rgba(94,234,255,.55);box-shadow:0 0 34px rgba(56,220,255,.35),0 30px 70px rgba(0,0,0,.5)}
+body[data-theme=libre] .fenetre .entete{height:56px;padding:0 16px 0 22px}
+body[data-theme=libre] .fenetre .entete .titre-f{color:var(--texte);font-weight:800;font-size:16px}
+body[data-theme=libre] .fenetre .ctrl button{width:26px;height:26px}
+body[data-theme=libre] .fenetre .ctrl .reduire{background:#E5B021}body[data-theme=libre] .fenetre .ctrl .agrandir{background:#2FB559}body[data-theme=libre] .fenetre .ctrl .fermer{background:#E5484D}
+body[data-theme=libre] .lateral{margin:0 0 12px 12px;border-radius:22px;border:1px solid rgba(94,234,255,.35);font-size:15px;font-weight:600}
+body[data-theme=libre] .outils{border-bottom:0}
+body[data-theme=libre] #dock{height:96px;padding:0 12px;gap:10px}
+body[data-theme=libre] #dock .zone{gap:10px}
+body[data-theme=libre] #dock .app{width:72px;height:72px;border-radius:20px}
+body[data-theme=libre] #dock .app .odin{width:60px;height:60px}
+body[data-theme=libre] #dock .lanceur-b .tuile{background:none;display:grid;grid-template-columns:1fr 1fr;place-items:start stretch;gap:5px;padding:9px}
+body[data-theme=libre] #dock .lanceur-b .tuile svg{display:none}
+body[data-theme=libre] #dock .lanceur-b .tuile::before,body[data-theme=libre] #dock .lanceur-b .tuile::after{content:"";border-radius:8px;height:24px;background:#F3C6F3;box-shadow:0 29px 0 #CFF0A8}
+body[data-theme=libre] #dock .lanceur-b .tuile::after{background:#9DE5F2;box-shadow:0 29px 0 #FCD5A6}
+body[data-theme=libre] .widgets{display:none}
+
+/* ═══ Thème NÉON (façon KDE) ═══ */
+body[data-theme=neon]{--titre:"Bricolage Grotesque","IBM Plex Sans",sans-serif;--accent:#22D3EE;--accent-texte:#04141A;--rayon:20px;--rayon2:14px;--barre:0px;--bas:78px}
+body[data-theme=neon][data-apparence=sombre]{--surface:rgba(14,17,36,.94);--surface2:rgba(255,255,255,.045)}
+body[data-theme=neon] #barre{display:none}
+body[data-theme=neon] .fenetre{box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 1px rgba(34,211,238,.14)}
+body[data-theme=neon] .fenetre::before{content:"";flex:none;height:3px;background:linear-gradient(90deg,#22D3EE,#8B5CF6,#EC4899)}
+body[data-theme=neon] .fenetre .ctrl .reduire{background:#34D399}body[data-theme=neon] .fenetre .ctrl .agrandir{background:#22D3EE}body[data-theme=neon] .fenetre .ctrl .fermer{background:#F472B6}
+body[data-theme=neon] .lateral button[aria-current=true]{background:linear-gradient(90deg,rgba(34,211,238,.22),rgba(139,92,246,.12));box-shadow:inset 2px 0 0 #22D3EE}
+body[data-theme=neon] .widget{background:rgba(13,16,36,.72);border-color:rgba(139,92,246,.35)}
+body[data-theme=neon] .widget .grand{background:linear-gradient(135deg,#67E8F9,#C084FC 55%,#F472B6);-webkit-background-clip:text;background-clip:text;color:transparent}
+body[data-theme=neon] #dock{left:max(12px,2.2vw);right:max(12px,2.2vw);transform:none;max-width:none;height:50px;padding:0 8px;gap:6px;border-radius:18px;background:rgba(13,16,36,.85)}
+body[data-theme=neon] #dock .zone{gap:6px}
+body[data-theme=neon] #dock .app{width:40px;height:40px;border-radius:12px}
+body[data-theme=neon] #dock .app:hover{transform:none;background:rgba(255,255,255,.08)}
+body[data-theme=neon] #dock .app .tuile{width:28px;height:28px;border-radius:9px;font-size:14px!important}
+body[data-theme=neon] #dock .app .tuile svg{width:16px;height:16px}
+body[data-theme=neon] #dock .app.ouverte::after{bottom:3px;width:14px;height:3px;margin-left:-7px;border-radius:2px;background:#22D3EE;box-shadow:0 0 6px #22D3EE}
+body[data-theme=neon] #dock .app .odin{width:30px;height:30px}
+body[data-theme=neon] #dock .lanceur-b .tuile{background:linear-gradient(135deg,rgba(34,211,238,.3),rgba(139,92,246,.3))}
+body[data-theme=neon] #lanceur{inset:auto auto 76px max(12px,2.2vw);width:min(520px,calc(100vw - 24px));height:min(400px,calc(100vh - 100px));padding:12px 14px 0;gap:10px;align-items:stretch;border-radius:22px;border:1px solid rgba(255,255,255,.08);background:rgba(13,16,36,.95);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+body[data-theme=neon] #lanceur .recherche{width:100%;height:36px;font-size:13px;background:rgba(255,255,255,.06)}
+body[data-theme=neon] #lanceur .applis{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 4px;width:auto}
+body[data-theme=neon] #lanceur .applis .tuile{width:46px;height:46px;font-size:21px;border-radius:14px}
+body[data-theme=neon] #lanceur .applis button{font-size:11.5px}
+body[data-theme=neon] #controle{top:auto;bottom:76px}
+body[data-theme=neon] #notifs{top:auto;bottom:80px}
+
+/* ——— Téléphone ——— */
+body[data-ecran=mobile] #barre,body[data-ecran=mobile] #dock,body[data-ecran=mobile] #bureau,body[data-ecran=mobile] #lanceur,body[data-ecran=mobile] #bulle-odin{display:none!important}
+#mobile{position:fixed;inset:0;z-index:20;display:none;color:#EEF2F8;font-size:14px;--surface:rgba(23,37,51,.82);--surface2:rgba(255,255,255,.07);--surface3:rgba(255,255,255,.12);--texte:#EEF2F8;--texte2:#A9B8C4;--trait:rgba(255,255,255,.1);--champ:rgba(0,0,0,.25)}
+body[data-ecran=mobile] #mobile{display:block}
+#mobile .statut{position:absolute;top:0;left:0;right:0;height:40px;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:0 22px;font-size:13px;font-weight:600}
+#mobile .accueil{position:absolute;inset:44px 0 0 0;padding:8px 18px 118px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+#mobile .carte-m{padding:14px 16px;border-radius:26px;background:var(--surface);border:1px solid var(--trait);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+#mobile .grille-m{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 6px;justify-items:center;text-align:center;font-size:11.5px}
+#mobile .grille-m button{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%}
+#mobile .grille-m .tuile{width:60px;height:60px;font-size:26px;border-radius:20px}
+#mobile .dock-m{position:absolute;left:14px;right:14px;bottom:44px;height:78px;display:flex;align-items:center;justify-content:space-around;border-radius:30px;background:var(--surface);border:1px solid var(--trait);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+#mobile .dock-m .tuile{width:56px;height:56px;font-size:24px;border-radius:18px}
+#mobile .dock-m .odin{width:52px;height:52px}
+#mobile .nav-m{position:absolute;left:0;right:0;bottom:0;height:40px;display:flex;justify-content:space-around;align-items:center;z-index:30}
+#mobile .nav-m button{width:64px;height:40px;display:grid;place-items:center;opacity:.85}
+#mobile .ecran-app{position:absolute;inset:0 0 40px 0;z-index:20;display:flex;flex-direction:column;background:#0A0F1E;color:var(--texte);animation:m-entre .2s ease-out}
+#mobile .ecran-app .tete{flex:none;display:flex;align-items:center;gap:10px;padding:44px 16px 10px}
+#mobile .ecran-app .tete h1{font-family:var(--titre);font-weight:800;font-size:22px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mobile .ecran-app .corps-m{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
+#mobile .ecran-app .colonnes{flex-direction:column}
+#mobile .ecran-app .lateral{width:auto;flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--trait);background:none;padding:6px 12px}
+#mobile .ecran-app .lateral .rubrique,#mobile .ecran-app .lateral p{display:none}
+#mobile .ecran-app .lateral button{width:auto;white-space:nowrap;padding:7px 12px;border-radius:16px;border:1px solid var(--trait)}
+#mobile .ecran-app .contenu{padding:14px 16px}
+@keyframes m-entre{from{opacity:0;transform:translateY(16px)}}
+#mobile .volet{position:absolute;inset:0 0 40px 0;z-index:25;padding:46px 16px 16px;display:none;flex-direction:column;gap:12px;overflow:auto;background:rgba(40,60,120,.55);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+#mobile .volet.ouvert{display:flex}
+#mobile .volet .bascules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 6px;text-align:center;font-size:10.5px;padding:16px 8px;border-radius:26px;background:rgba(40,50,90,.5)}
+#mobile .volet .bascules button{display:flex;flex-direction:column;align-items:center;gap:6px}
+#mobile .volet .bascules i{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.22);font-style:normal}
+#mobile .volet .bascules button[aria-pressed=true] i{background:#fff;color:#3B6FE0}
+#mobile .volet .notif{animation:none;background:rgba(240,244,255,.92);color:#1F2340;border:0;border-radius:22px;backdrop-filter:none}
+/* Styles d'accueil du téléphone : lavande (façon Android) et verre (façon iPhone) */
+body[data-mobile=lavande] #mobile{color:#1E1B3A;--surface:rgba(255,255,255,.5);--trait:rgba(255,255,255,.75);--texte2:#4B4770}
+body[data-mobile=lavande] #mobile .statut,body[data-mobile=lavande] #mobile .nav-m{color:#3B3756}
+body[data-mobile=lavande] #mobile .grille-m .tuile,body[data-mobile=lavande] #mobile .dock-m .tuile{border-radius:22px;box-shadow:0 4px 10px rgba(60,40,140,.18)}
+body[data-mobile=lavande] #mobile .dock-m{background:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+body[data-mobile=verre] #mobile{--surface:rgba(255,255,255,.2);--trait:rgba(255,255,255,.5)}
+body[data-mobile=verre] #mobile .grille-m .tuile{background:rgba(255,255,255,.22)!important;border:1px solid rgba(255,255,255,.55);border-radius:16px}
+body[data-mobile=verre] #mobile .dock-m{border-radius:36px;height:88px}
+
+/* ——— Installation et accueil ——— */
+#installation{position:fixed;inset:0;z-index:5000;display:flex;color:#fff;background:#060A18;font-size:15px}
+#installation .aurore{position:absolute;inset:0}
+#installation .etapes{position:relative;flex:none;width:min(400px,34vw);padding:44px 0 44px 52px;display:flex;flex-direction:column;gap:30px}
+#installation .marque{display:flex;align-items:center;gap:12px;font-family:var(--titre);font-weight:800;font-size:20px}
+#installation .parle{display:flex;align-items:flex-end;gap:14px}
+#installation .parle .odin{width:104px;height:104px;flex:none}
+#installation .parle p{margin-bottom:16px;padding:13px 15px;border-radius:20px 20px 20px 6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font-size:14px}
+#installation ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;position:relative}
+#installation ol li{display:flex;align-items:center;gap:16px;height:44px;color:rgba(255,255,255,.55);font-size:15.5px}
+#installation ol li i{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:700;background:#0B1226;border:2px solid rgba(255,255,255,.22)}
+#installation ol li.fait{color:rgba(255,255,255,.85)}#installation ol li.fait i{background:#10B981;border-color:#10B981;color:#fff}
+#installation ol li.ici{color:#fff;font-weight:700}#installation ol li.ici i{background:#fff;border-color:#fff;color:#2563EB;box-shadow:0 0 0 6px rgba(96,165,250,.35)}
+#installation .panneau{position:relative;flex:1;min-width:0;margin:36px 36px 36px 28px;padding:40px 46px 30px;border-radius:34px;background:#F8FAFC;color:#0F172A;display:flex;flex-direction:column;gap:20px;box-shadow:0 40px 120px rgba(0,0,0,.45);overflow:auto;
+  --surface:#fff;--surface2:#fff;--surface3:#E2E8F0;--texte:#0F172A;--texte2:#475569;--trait:#E2E8F0;--champ:#fff;--accent:#2563EB;--accent-texte:#fff;--rayon2:20px}
+#installation .panneau .sur{font-size:13px;font-weight:600;color:#2563EB;letter-spacing:.8px;text-transform:uppercase}
+#installation .panneau h1{font-family:var(--titre);font-weight:800;font-size:clamp(26px,3.2vw,38px);letter-spacing:-1px;line-height:1.06}
+#installation .panneau .bas{position:sticky;bottom:-30px;z-index:2;margin:auto -46px -30px;padding:16px 46px 30px;display:flex;justify-content:space-between;align-items:center;gap:12px;background:linear-gradient(to top,#F8FAFC 82%,rgba(248,250,252,0))}
+#installation .panneau .bouton{height:48px;padding:0 26px;border-radius:24px;font-size:15px}
+#installation .panneau .bouton.primaire{background:linear-gradient(135deg,#2563EB,#4F46E5);box-shadow:0 10px 24px rgba(37,99,235,.35)}
+#installation .choix{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+#installation .deux{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+#installation .choix label,#installation .appli-c{position:relative;display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:20px;background:#fff;border:1px solid #E2E8F0;cursor:pointer}
+#installation .choix label:has(input:checked),#installation .appli-c:has(input:checked){border:2px solid #2563EB;padding:15px;box-shadow:0 10px 30px rgba(37,99,235,.15)}
+#installation .choix input{position:absolute;right:14px;top:14px;width:20px;height:20px;accent-color:#2563EB}
+#installation .apercu{height:92px;border-radius:14px;position:relative;overflow:hidden}
+#installation .applis-c{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+#installation .appli-c{flex-direction:row;align-items:center;padding:8px 10px;border-radius:14px}
+#installation .appli-c:has(input:checked){padding:7px 9px}
+#installation .appli-c input{width:18px;height:18px;accent-color:#2563EB;flex:none}
+#installation .appli-c .txt{flex:1;min-width:0}#installation .appli-c .txt b{display:block;font-size:13px}#installation .appli-c .txt span{display:block;font-size:11px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#installation .progression{align-self:center;width:min(320px,60vw);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;box-shadow:0 0 80px rgba(52,211,153,.25)}
+#installation .progression>div{width:90%;height:90%;border-radius:50%;background:radial-gradient(circle at 50% 40%,#142046,#0A1022 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#fff}
+#installation .progression .odin{width:46%;height:46%}
+#installation .progression b{font-family:var(--titre);font-size:34px}
+#installation .progression span{max-width:72%;text-align:center;font-size:13.5px;line-height:1.3}
+#verrou{position:fixed;inset:0;z-index:7000;display:grid;place-items:center;padding:20px;background:rgba(6,10,24,.6);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px)}
+#verrou form{width:min(360px,100%);display:flex;flex-direction:column;gap:12px;align-items:center;text-align:center}
+#verrou .odin{width:120px;height:120px}
+#verrou .champ{width:100%;height:44px;border-radius:22px;text-align:center;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);color:#fff}
+
+/* ——— Compléments ——— */
+/* Sur fond clair, les couleurs d'état sont plus foncées pour rester lisibles. */
+body[data-apparence=clair] .fenetre,body[data-apparence=clair] .dialogue,body[data-apparence=clair] .menu,body[data-apparence=clair] #controle,body[data-apparence=clair] #assistant,body[data-apparence=clair] .notif,#installation .panneau{--bon:#047857;--attention:#B45309;--mauvais:#BE123C;--info:#1D4ED8}
+.fenetre:focus{outline:none}
+#barre .activites{display:none}
+body[data-theme=libre] #barre .activites{display:flex;font-weight:800}
+body[data-theme=libre] #barre .nom-appli{opacity:.7;font-weight:600}
+#dock .app .tuile{font-size:26px}
+#dock .app .tuile svg{width:28px;height:28px}
+body[data-theme=verre] #dock .app .tuile{font-size:22px}body[data-theme=verre] #dock .app .tuile svg{width:24px;height:24px}
+body[data-theme=libre] #dock .app .tuile{font-size:32px}body[data-theme=libre] #dock .app .tuile svg{width:34px;height:34px}
+#lanceur .applis .tuile svg{width:30px;height:30px}
+.notif .tuile svg{width:20px;height:20px}
+#mobile .grille-m .tuile svg{width:28px;height:28px}#mobile .dock-m .tuile svg{width:26px;height:26px}
+#mobile .statut{background:none}
+#mobile .dock-m button{display:grid;place-items:center}
+#mobile .volet .notif{cursor:default}
+.discussion{flex:1;min-height:0;display:flex;flex-direction:column}
+.discussion .fil{flex:1;overflow:auto;padding:8px 16px 14px;display:flex;flex-direction:column;gap:10px;user-select:text;-webkit-user-select:text}
+.discussion .idees{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 8px}
+.discussion form{flex:none;display:flex;gap:8px;padding:6px 12px 14px}
+.discussion form input{flex:1}
+.widget .anneau i{position:relative}
+#installation .panneau .carte{background:#fff}
+#installation .panneau .segments button[aria-checked=true]{background:#0F172A;color:#fff}
+/* Téléphone : entêtes qui passent à la ligne, écrans d'applis clairs en apparence claire */
+#mobile .ecran-app .contenu>.rangee,#mobile .bandeau,#mobile .fiche{flex-wrap:wrap}
+#mobile .ecran-app .contenu>.rangee>div,#mobile .bandeau>div{flex:1 1 190px!important}
+#mobile .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+#mobile table.liste td{max-width:150px}
+#mobile .ecran-app .carte{overflow:auto}
+body[data-apparence=clair] #mobile .ecran-app{background:#F3F5FA;color:#1D1D1F;--surface:#fff;--surface2:#fff;--surface3:rgba(0,0,0,.07);--texte:#1D1D1F;--texte2:#5F6470;--trait:rgba(0,0,0,.1);--champ:#fff;--bon:#047857;--attention:#B45309;--mauvais:#BE123C;--info:#1D4ED8}
+body[data-mobile=lavande] #mobile,body[data-mobile=verre] #mobile .carte-m .essai{--attention:#92400E}
+body[data-mobile=verre] #mobile{color:#fff}
+@media (max-width:900px){#installation{flex-direction:column;overflow:auto}#installation .etapes{width:auto;padding:28px 22px 0;gap:14px}#installation ol{flex-direction:row;gap:6px;overflow:hidden}#installation ol li{height:auto}#installation ol li span{display:none}#installation ol li i{width:26px;height:26px;font-size:11px}#installation .parle .odin{width:64px;height:64px}#installation .panneau{margin:14px;padding:24px 20px 20px;border-radius:26px}#installation .panneau .bas{bottom:-20px;margin:auto -20px -20px;padding:14px 20px 20px}.widgets{display:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

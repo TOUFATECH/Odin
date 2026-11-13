@@ -1,0 +1,20 @@
+#!/bin/sh
+# Odin OS — démarre Odin (l'agent et le bureau). Lancé par Docker (point d'entrée) ou par systemd (odin.service).
+# Au tout premier démarrage : crée ~/.odin et choisit qui peut ouvrir le bureau, selon l'endroit où tourne Odin OS.
+set -e
+export HOME="${HOME:-/home/odin}" ODIN_OS=1
+export ODIN_HOME="${ODIN_HOME:-$HOME/.odin}"
+export ODIN_OS_CIBLE="${ODIN_OS_CIBLE:-$(cat /etc/odin-os/cible 2>/dev/null || echo docker)}"
+cd "$HOME"
+if [ ! -f "$ODIN_HOME/config.json" ]; then
+  odin init >/dev/null
+  case "$ODIN_OS_CIBLE" in
+    # Écran sur la machine même (PC, téléphone) ou Windows (WSL relaie localhost) : le bureau n'écoute que cette machine.
+    pc|mobile|wsl) odin web access local --http >/dev/null ;;
+    # Docker : le port est publié par Docker (sur cette machine par défaut). ODIN_OS_HTTPS=1 : HTTPS, pour l'ouvrir au réseau.
+    docker) if [ "${ODIN_OS_HTTPS:-0}" = 1 ]; then odin web access lan >/dev/null; else odin web access lan --http >/dev/null; fi ;;
+    # Conteneur LXC : joignable depuis le réseau local, en HTTPS (certificat d'Odin).
+    *) odin web access lan >/dev/null ;;
+  esac
+fi
+exec odin web --no-open

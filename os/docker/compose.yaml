@@ -1,0 +1,17 @@
+# Odin OS — avec Docker Compose (depuis la racine du dépôt) : docker compose -f os/docker/compose.yaml up -d
+# Le bureau s'ouvre sur http://localhost:7788/os/ (cette machine seulement).
+services:
+  odin-os:
+    build:
+      context: ../..
+      dockerfile: os/docker/Dockerfile
+    image: odin-os:0.1.0
+    container_name: odin-os
+    hostname: odin-os
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7788:7777"
+    volumes:
+      - odin-os-donnees:/home/odin
+volumes:
+  odin-os-donnees:

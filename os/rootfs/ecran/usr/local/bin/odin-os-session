@@ -1,0 +1,14 @@
+#!/bin/sh
+# Odin OS — session graphique : labwc (gestionnaire de fenêtres Wayland) et, dedans, la vue du bureau d'Odin OS.
+export XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=OdinOS
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export XKB_DEFAULT_LAYOUT="$(cat /etc/odin-os/clavier 2>/dev/null || echo fr)"
+# Machine virtuelle ou machine sans carte 3D : rendu logiciel (plus lent, mais il marche partout).
+if systemd-detect-virt -q 2>/dev/null || [ ! -e /dev/dri/renderD128 ]; then
+  export WLR_RENDERER=pixman WLR_NO_HARDWARE_CURSORS=1 LIBGL_ALWAYS_SOFTWARE=1 GSK_RENDERER=cairo WEBKIT_DISABLE_DMABUF_RENDERER=1 ODIN_OS_RENDU=logiciel
+fi
+# La carte graphique met parfois un instant à apparaître au démarrage.
+n=0; while [ -z "$(ls /dev/dri/card* 2>/dev/null)" ] && [ "$n" -lt 40 ]; do sleep 0.5; n=$((n + 1)); done
+# pam_systemd donne à une session locale la capacité CAP_WAKE_ALARM (réveils programmés). Le bac à sable de la vue web
+# (bubblewrap) refuse de démarrer avec une capacité en trop : la session n'en garde donc aucune.
+exec setpriv --inh-caps=-all --ambient-caps=-all labwc -s /usr/local/bin/odin-os-vue

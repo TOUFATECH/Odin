@@ -1,0 +1,29 @@
+# Odin OS — l'écran : ouvre la session graphique d'Odin OS sur le premier écran, sans passer par un écran de connexion système.
+# La connexion se fait dans le bureau (compte d'Odin).
+[Unit]
+Description=Écran d'Odin OS
+After=systemd-user-sessions.service odin.service plymouth-quit-wait.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+User=odin
+Group=odin
+WorkingDirectory=/home/odin
+PAMName=login
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+Environment=HOME=/home/odin XDG_SESSION_TYPE=wayland XDG_SEAT=seat0 XDG_VTNR=1
+ExecStart=/usr/local/bin/odin-os-session
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical.target

@@ -1,0 +1,71 @@
+#!/bin/bash
+# Odin OS — installe sur un disque entier le système de la session d'essai (image de démarrage).
+# TOUT le disque est effacé. Lancé par Odin Setup (avec sudo) : odin-os-installer /dev/sda
+# Chaque étape s'annonce « [n/7] … » : le bureau affiche l'avancement.
+set -euo pipefail
+D="${1:?Usage : odin-os-installer /dev/DISQUE}"
+[ "$(id -u)" = 0 ] || { echo "À lancer en root."; exit 1; }
+[ -b "$D" ] || { echo "Disque introuvable : $D"; exit 2; }
+IMAGE=/run/live/medium/live/filesystem.squashfs
+[ -f "$IMAGE" ] || { echo "À lancer depuis l'image de démarrage d'Odin OS (session d'essai)."; exit 2; }
+SUPPORT="$(awk '$2=="/run/live/medium"{print $1}' /proc/mounts | sed 's/p\?[0-9]*$//')"
+[ "$D" != "$SUPPORT" ] || { echo "C'est le support d'où Odin OS a démarré : choisis un autre disque."; exit 2; }
+case "$D" in *nvme*|*mmcblk*) P=p ;; *) P= ;; esac
+C=/mnt/odin-os-cible
+etape() { echo; echo "[$1/7] $2"; }
+finir() { for m in "$C/boot/efi" "$C/dev/pts" "$C/dev" "$C/proc" "$C/sys" "$C"; do mountpoint -q "$m" && umount -l "$m" || true; done; }
+trap finir EXIT
+
+etape 1 "Partitions (démarrage BIOS, démarrage UEFI, système)"
+for p in "$D"?*; do umount "$p" 2>/dev/null || true; done
+wipefs -a "$D" >/dev/null
+sfdisk --quiet --wipe always "$D" <<S
+label: gpt
+size=1MiB, type=21686148-6449-6E6F-744E-656564454649, name=bios
+size=300MiB, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name=efi
+type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name=odin-os
+S
+blockdev --rereadpt "$D" 2>/dev/null || true; udevadm settle; sleep 1
+
+etape 2 "Formatage"
+mkfs.vfat -F 32 -n ODINEFI "${D}${P}2" >/dev/null
+mkfs.ext4 -q -F -L ODINOS "${D}${P}3"
+
+etape 3 "Copie du système (quelques minutes)"
+mkdir -p "$C"; mount "${D}${P}3" "$C"
+unsquashfs -f -n -d "$C" "$IMAGE" >/dev/null
+
+etape 4 "Tes réglages et ton compte"
+# Ce que tu as fait pendant la session d'essai (compte, style, applis) te suit sur le disque.
+cp -a /home/odin/. "$C/home/odin/"
+printf 'LABEL=ODINOS  /          ext4  errors=remount-ro  0 1\nLABEL=ODINEFI /boot/efi  vfat  umask=0077         0 1\n' > "$C/etc/fstab"
+cp -a /etc/odin-os/. "$C/etc/odin-os/" 2>/dev/null || true
+: > "$C/etc/machine-id"
+
+etape 5 "Chargeur de démarrage (BIOS et UEFI)"
+mkdir -p "$C/boot/efi"; mount "${D}${P}2" "$C/boot/efi"
+mount --bind /dev "$C/dev"; mount -t devpts devpts "$C/dev/pts" 2>/dev/null || true; mount -t proc proc "$C/proc"; mount -t sysfs sys "$C/sys"
+chroot "$C" grub-install --target=i386-pc --recheck "$D" >/dev/null 2>&1 || echo "  (démarrage BIOS non installé : la machine démarrera en UEFI)"
+chroot "$C" grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable --no-nvram >/dev/null 2>&1 || echo "  (démarrage UEFI non installé : la machine démarrera en BIOS)"
+cat > "$C/boot/grub/grub.cfg" <<'G'
+# Odin OS — menu de démarrage. Les liens /boot/vmlinuz et /boot/initrd.img suivent le noyau installé.
+set timeout=3
+set default=0
+search --no-floppy --label ODINOS --set=root
+menuentry "Odin OS" {
+  linux /boot/vmlinuz root=LABEL=ODINOS ro quiet loglevel=3
+  initrd /boot/initrd.img
+}
+menuentry "Odin OS (dépannage : console)" {
+  linux /boot/vmlinuz root=LABEL=ODINOS ro systemd.unit=multi-user.target
+  initrd /boot/initrd.img
+}
+G
+
+etape 6 "Vérification"
+[ -s "$C/boot/vmlinuz" ] && [ -s "$C/boot/initrd.img" ] && [ -s "$C/opt/odin/package.json" ] || { echo "Le système copié est incomplet."; exit 3; }
+[ -s "$C/boot/grub/i386-pc/core.img" ] || [ -s "$C/boot/efi/EFI/BOOT/BOOTX64.EFI" ] || { echo "Aucun chargeur de démarrage n'a pu être installé."; exit 3; }
+sync
+
+etape 7 "Terminé"
+echo "Odin OS est installé sur $D. Retire le support de démarrage, puis redémarre."

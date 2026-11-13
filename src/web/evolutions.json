@@ -1,6 +1,441 @@
 [
  {
-  "id": "2ea655c",
+  "id": "de6e7a3",
+  "at": "2026-11-13T07:39:36+03:00",
+  "date": "2026-11-13",
+  "version": "1.14.0",
+  "title": "Odin OS 0.1 (Valaskjálf) — le système d'exploitation d'Odin : bureau sur /os/, « odin os », images Docker, LXC, Windows (WSL), PC et téléphone",
+  "details": [
+   "Odin OS 0.1.0 : un système léger sur Ubuntu 26.04 LTS dont le bureau est servi par Odin sur /os/. Essai sans rien installer : « odin os essai », ou /os/?essai (données d'exemple).",
+   "Bureau : fenêtres, dock, lanceur, centre de contrôle, widgets, 5 thèmes (Odin, Verre, Fenêtres, Libre, Néon) ; écran téléphone en 3 styles (Odin, Lavande, Verre). La mascotte Odin est dans le dock : elle répond et agit sur le bureau.",
+   "Applis du système : Fichiers (dossier personnel, corbeille), Éditeur, Terminal, Réglages, Odin Store (applis d'Odin, applis Linux, ponts Windows / Android / Mac), Odin Install. Ullr, l'antivirus, a sa page.",
+   "Odin Setup au premier démarrage : compte, clavier, installation sur tout le disque (image PC), style, applis d'Odin.",
+   "Nouvelle appli Valaskjálf (la demeure d'Odin) et commande « odin os » : état, essai dans le navigateur, installation dans Docker ou dans LXC / Proxmox, liste des images construites (taille, SHA-256), terminal du bureau ouvert ou fermé.",
+   "Images (os/build/) sur la même base Ubuntu : Docker, modèle LXC, paquet WSL 2 pour Windows, ISO pour PC (BIOS et UEFI : session d'essai puis installation sur le disque), base arm64 pour téléphone (Termux) et image arm64 UEFI, Odin Launcher (APK Android).",
+   "Sécurité : les fichiers du bureau ne contiennent aucune donnée (politique stricte, aucun script externe) ; tout le reste passe par /api/os/, derrière la connexion d'Odin ; de vraies commandes seulement dans une image Odin OS (ou après « odin os terminal on ») ; paquets et ponts seulement dans une image.",
+   "Guide : docs/odin-os.md (installer, construire les images, ce qui est testé, ce qui reste à faire)."
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "maison",
+   "machines",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "b2b884d",
+  "at": "2026-11-13T04:44:13+03:00",
+  "date": "2026-11-13",
+  "title": "Fusion de main (v1.11 à v1.13 : barre « Maintenez pour parler », mémoire en fichiers) dans valhalla-complet ; Rán (Sniffnet) passé sur la mémoire en fichiers",
+  "details": [],
+  "planets": [
+   "voix",
+   "applis",
+   "memoire"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "1d2fc69",
+  "at": "2026-11-13T04:33:42+03:00",
+  "date": "2026-11-13",
+  "title": "Ports bien définis pour toutes les applis (registre unique, ports fixes des applis installées 20000-20999, services 21000-21999, jamais un port réservé) ; « Sa base (Urðr) » depuis Naglfar, liens base / mémoire",
+  "details": [],
+  "planets": [
+   "applis",
+   "memoire",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "ab3c0ac",
+  "at": "2026-11-13T04:27:37+03:00",
+  "date": "2026-11-13",
+  "title": "Alertes Antivirus (violet) / Malware (framboise) sur Odin et ses bulles, « qui te protège » ; écran de mise à l'échelle dans Naglfar (maquettes validées)",
+  "details": [],
+  "planets": [
+   "guide",
+   "interface",
+   "securite",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "c8c1218",
+  "at": "2026-11-13T04:06:45+03:00",
+  "date": "2026-11-13",
+  "title": "Svalinn : le Wi-Fi de la maison (note, corrections avec accord, sauvegarde et retour automatique, Livebox pilotée, autres box guidées, invités et QR, débit, appareils sur 24 h) + sa page dans le thème de la fenêtre d'Odin",
+  "details": [],
+  "planets": [
+   "interface",
+   "cerveau",
+   "maison",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "7937d6d",
+  "at": "2026-11-13T03:55:29+03:00",
+  "date": "2026-11-13",
+  "title": "Rödd dans l'interface : dictée au micro (maintenir Odin ou Ctrl+Espace), mise en forme, corrections apprises, mes mots, lien avec la voix d'Odin (maquettes validées)",
+  "details": [],
+  "planets": [
+   "voix",
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "7293826",
+  "at": "2026-11-13T03:49:33+03:00",
+  "date": "2026-11-13",
+  "title": "Urðr Studio et SQL dans l'interface : grille modifiable, filtres, tri, pages, liens, journal (maquettes validées)",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "edcfdb2",
+  "at": "2026-11-13T03:45:45+03:00",
+  "date": "2026-11-13",
+  "title": "Pâques v2 : Odin en chocolat, œuf à ruban qui se fêle, lapin, décor du thème",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "f81e203",
+  "at": "2026-11-13T02:14:10+03:00",
+  "date": "2026-11-13",
+  "title": "Mise à l'échelle automatique (Hringhorni), base de données d'Odin partagée (odin-pg), Rödd (dictée vocale)",
+  "details": [
+   "Services en plusieurs copies derrière un répartiteur (la moins chargée, une copie qui ne répond pas est sautée), décision visiteurs / processeur / mémoire, montée rapide, descente une à une après calme, budget de la machine",
+   "Grandir en place (resize à chaud, cgroup v2) pour la base ; commandes service / scale / resize (terminal et discussion)",
+   "Adresse réseau fixe possible (odin.ip), ancienne carte oubliée à la réattribution d'une adresse",
+   "odin-pg : un serveur PostgreSQL pour toutes les applis, une base et un compte par appli (isolés), variables remplies pour n8n, Nextcloud, Gitea, Forgejo, Authentik, Vaultwarden… ; mot de passe dans le coffre ; sauvegarde chaque nuit",
+   "Rödd : tes mots partagés avec la voix d'Odin (soufflés à Whisper puis corrigés), mise en forme, « Odin, … »",
+   "Liens : naglfar→urdr, urdr→brisingamen, urdr→skuld, skuld→forseti, rodd→bragi (chacun vérifié)"
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide",
+   "maison",
+   "machines"
+  ],
+  "kind": "correction"
+ },
+ {
+  "id": "e60e5ba",
+  "at": "2026-11-13T01:49:54+03:00",
+  "date": "2026-11-13",
+  "title": "Urðr (bases de données, comme Supabase + Prisma Studio) et Skuld (sauvegarde des bases, comme Portabase)",
+  "details": [
+   "Client PostgreSQL maison (protocole v3, SCRAM-SHA-256 avec vérification du serveur, MD5, TLS, requêtes à paramètres)",
+   "Tables, colonnes, liens, lignes filtrées/triées/paginées ; modifications avec accord ; SQL en lecture seule garantie par la base",
+   "Création d'une base PostgreSQL dans Hringhorni (mot de passe généré, rangé dans le coffre)",
+   "Skuld : pg_dump/pg_restore (dans le conteneur pour une base hébergée), SQLite à chaud, mysqldump, mongodump ; sauvegarde relue, plans, durée de garde, restauration dans une nouvelle base ou par-dessus (avec accord)",
+   "Secrets d'Urðr et archives de Skuld bloqués pour les outils de fichiers"
+  ],
+  "planets": [
+   "maison",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "4ed8c6d",
+  "at": "2026-11-13T01:26:02+03:00",
+  "date": "2026-11-13",
+  "title": "Rán comme Sniffnet : débit en direct, trafic par appareil, services, pays, premières fois",
+  "details": [
+   "courbe du débit entrant / sortant / dans la maison (10 min), se met à jour toute seule pendant la lecture",
+   "appareils (envoyé, reçu, applis, pays), services et sites, pays (table DB-IP gardée chez toi, CC BY 4.0 : aucune adresse de ton réseau n'est envoyée)",
+   "alertes : un appareil parle à un pays nouveau (après 24 h d'apprentissage), débit au-delà de ton seuil",
+   "nouvelle section « courbe » pour toutes les applis",
+   "Naglfar : un conteneur supprimé à la main ne déclenche plus d'alerte"
+  ],
+  "planets": [
+   "voix",
+   "maison",
+   "machines",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "61cf512",
+  "at": "2026-11-13T01:15:36+03:00",
+  "date": "2026-11-13",
+  "title": "Moteur de conteneurs : barre de progression (téléchargement, montage, démarrage, terminé) et suivi dans Naglfar",
+  "details": [
+   "pull suit les octets téléchargés et les couches dépaquetées ; une couche déjà là compte tout de suite",
+   "installations en arrière-plan (lancer, récupérer, mettre à jour) suivies dans « Installations » de Naglfar, la page se met à jour toute seule tant qu'une installation tourne ; échec affiché avec sa raison",
+   "terminal : barre [█████░░░] 62 % Téléchargement 45 Mo / 120 Mo · Montage · Démarrage · Terminé",
+   "correctif : barres de progression des cartes (Naglfar, Ymir) en fraction"
+  ],
+  "planets": [
+   "interface",
+   "machines",
+   "securite",
+   "applis",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "a9ca816",
+  "at": "2026-11-12T23:47:33+03:00",
+  "date": "2026-11-12",
+  "title": "Fenêtre d'Odin : pages de modules d'applis et mode « Modifier » (maquettes validées)",
+  "details": [
+   "Sur « Aujourd'hui » (ordinateur et téléphone) : pages Maison, Réseau, Sécurité, Machines faites de modules d'applis (chiffres clés ou une partie de la page d'une appli), météo et boutons sur mesure",
+   "Mode « Modifier » : glisser-déposer à la souris et au doigt (et au clavier), taille 1 à 3 colonnes, retirer, réglage de ce que montre un module, pages (ajouter, renommer, supprimer), catalogue des applis, bouton sur mesure (actions graves confirmées à chaque clic), thème",
+   "Rangée par Glaðsheimr (fenetre / regler_fenetre), nettoyée côté Odin (aucune appli inventée, tailles bornées)",
+   "Écran de la maison : les pages marquées « écran de la maison » s'y affichent ; une tablette « maison » ne voit que la météo, les applis de la maison et les boutons sans action grave",
+   "Naglfar : un conteneur arrêté à la main n'est plus pris pour une panne (plus de relance automatique)"
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "f4f269a",
+  "at": "2026-11-12T23:37:51+03:00",
+  "date": "2026-11-12",
+  "title": "Hringhorni : le moteur de conteneurs d'Odin, sans démon, sans Docker ni Podman",
+  "details": [
+   "Récupère les images Docker lui-même (protocole OCI : Docker Hub, GHCR, Quay, registre privé), jeton à la demande, bonne architecture, chaque morceau vérifié (sha256) ; dépaquetage sûr (rien ne sort de la racine, liens piégés suivis dans la racine, whiteouts OCI, pas de périphériques)",
+   "Lance avec les seuls outils de Linux (unshare, mount, setpriv, nsenter) : espaces de noms, racine overlay, /proc et /dev propres, chemins sensibles masqués, capacités réduites, utilisateur de l'image, limites mémoire/processeur (cgroup v2)",
+   "Fonctionne comme Podman : pas de démon, un petit gardien par conteneur (journal, ports relayés, relance selon la règle), réseau privé odin0 avec adresses réservées pour toute la machine",
+   "Commandes : odin run/ps/stop/start/restart/rm/logs/exec/pull/images/rmi/inspect, et les mêmes dans la discussion sans « odin » devant (lancer, supprimer, exec demandent ton accord)",
+   "Naglfar et Ymir passent sur ce moteur (plus de Docker) ; le réseau des conteneurs n'est jamais pris pour ton réseau local",
+   "Essais : vrai conteneur busybox (lancement, journal, exec, isolement, port publié, arrêt), registre local"
+  ],
+  "planets": [
+   "discussion",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "0e2a381",
+  "at": "2026-11-12T23:04:10+03:00",
+  "date": "2026-11-12",
+  "title": "Pouvoirs : Bifröst, Rayon de feu, Orage et Trou noir refaits (2e fiche d'avis)",
+  "details": [
+   "Bifröst : bulles arc-en-ciel tombées du ciel, la fenêtre explose avec elles",
+   "Rayon de feu : le rayon balaie la fenêtre et la suit pendant qu'elle se désagrège",
+   "Orage : une énorme foudre tombe dessus et l'onglet explose",
+   "Trou noir : au milieu de l'onglet, qui se plie sur ses lignes puis est avalé"
+  ],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "f57a758",
+  "at": "2026-11-12T22:57:49+03:00",
+  "date": "2026-11-12",
+  "title": "Pouvoirs : 23 animations refaites d'après la fiche d'avis",
+  "details": [
+   "Lave, Météores, Vague, Bulles, Blizzard, Séisme, Sable, Tornade, Rafale, Foudre, Orage, Soleil, Aurore, Trou noir (pliage), Lianes, Feuilles (découpe en feuilles), Lumière sacrée, Bifröst (envol), Téléportation (sans lumière), apparitions feu (haut vers bas) et téléportation (sans lumière), Rayon de feu (disparition nette)",
+   "Vrais morceaux de l'élément (découpe, pliage, emport) et trous qui s'ouvrent",
+   "Correctif : la secousse ne touche plus <body>, sinon la couche des pouvoirs disparaissait (Glaðsheimr, Venus)"
+  ],
+  "planets": [
+   "guide",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "3d26067",
+  "at": "2026-11-12T22:27:30+03:00",
+  "date": "2026-11-12",
+  "title": "Pouvoirs : boule de feu et rayon de feu refaits d'après les avis",
+  "details": [
+   "Boule de feu : une grosse boule enflammée part d'Odin, s'écrase, la fiche s'embrase et disparaît dans les flammes",
+   "Rayon de feu (ex-Lance-flammes) : un gros rayon ; dès qu'il touche la fenêtre, elle fond et se perce jusqu'à disparaître"
+  ],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "456079e",
+  "at": "2026-11-12T22:19:35+03:00",
+  "date": "2026-11-12",
+  "title": "Ymir : un seul parc (PC, VM, LXC, Docker, piles) et installation Docker vérifiée",
+  "details": [
+   "parc : machines de Proxmox, Naglfar et Þjálfi réunies, noms automatiques stables (pc-, vm-, lxc-, dk-, pile-)",
+   "installer_docker (grave) : image téléchargée et vérifiée, dossiers créés, port pris corrigé vers le suivant libre, santé vérifiée, sonde Vörðr branchée ; arrêt net avec le journal si le conteneur tombe",
+   "dossiers système et socket Docker refusés, image et ports validés",
+   "vue Ymir : cartes par type avec démarrer, arrêter, journal, supprimer (avec accord)"
+  ],
+  "planets": [
+   "machines",
+   "applis",
+   "installation"
+  ],
+  "kind": "correction"
+ },
+ {
+  "id": "4425a5f",
+  "at": "2026-11-12T22:06:38+03:00",
+  "date": "2026-11-12",
+  "title": "Test : la visite est proposée au démarrage, jamais lancée seule",
+  "details": [],
+  "planets": [
+   "guide",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "783cb7d",
+  "at": "2026-11-12T22:06:20+03:00",
+  "date": "2026-11-12",
+  "title": "Visite guidée : proposée au premier démarrage, avec la configuration en même temps (Configurer maintenant / Passer), reprise là où elle s'était arrêtée ou à l'endroit demandé",
+  "details": [],
+  "planets": [
+   "guide"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "98a79a8",
+  "at": "2026-11-12T21:58:43+03:00",
+  "date": "2026-11-12",
+  "title": "Pouvoirs v2 : moteur de particules (mille éclats), feu qui part du bas et couvre tout, météorite qui tombe du ciel, éclair du ciel, téléportation (aussi pour Odin quand il va loin), pixels",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "c0b6e13",
+  "at": "2026-11-12T21:36:20+03:00",
+  "date": "2026-11-12",
+  "title": "Odin : pouvoirs (36, partout), clics 1 à 20, fêtes et thèmes d'événements, couleur selon météo et marée",
+  "details": [
+   "powers.js : chaque pouvoir détruit ou fait apparaître avec sa matière (feu, foudre, glace, lumière, sable…), sur l'interface, l'écran de la maison et les applis reliées ; désactivés au départ, coupés = plus rien",
+   "mascotte.js : clics rapides réglables, Odin caché sur tous les écrans, habits de fête, réglages (Apparence)",
+   "fetes.ts : Pâques, calendrier musulman, anniversaires, pauses, tout couper, Ramadan seul",
+   "apparence : état unique d'Odin (thème, couleur météo/marée, fête, clics, pouvoirs), /api/mascotte"
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "maison",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "9cc77ae",
+  "at": "2026-11-12T20:34:01+03:00",
+  "date": "2026-11-12",
+  "title": "Freyja : santé de Venus et surveillance par Vörðr (lien freyja>vordr)",
+  "details": [],
+  "planets": [
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "8399e6f",
+  "at": "2026-11-12T18:20:58+03:00",
+  "date": "2026-11-12",
+  "title": "Invites de commande : une commande par action de chaque appli (odin <appli> <action> --option), page Commandes, recherche, fiches du Cerveau",
+  "details": [],
+  "planets": [
+   "interface",
+   "cerveau",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "973668e",
+  "at": "2026-11-12T18:09:57+03:00",
+  "date": "2026-11-12",
+  "title": "Les 20 thèmes d'Odin (maquettes validées) : décor, couleurs, Odin à la couleur du thème au repos",
+  "details": [
+   "Réglages → Apparence (20 vignettes + Automatique), « Odin, change ton thème » (aussi sur Telegram), automatique selon l'heure et la météo (au plus une fois par heure), le même thème sur tous les écrans, contrastes AA vérifiés pour chaque thème."
+  ],
+  "planets": [
+   "interface",
+   "canaux"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "d357c69",
+  "at": "2026-11-12T18:01:07+03:00",
+  "date": "2026-11-12",
+  "title": "Þjálfi : libellés du menu raccourcis (le compte à rebours reste visible)",
+  "details": [],
+  "planets": [
+   "interface",
+   "securite"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "210dc43",
+  "at": "2026-11-12T17:57:25+03:00",
+  "date": "2026-11-12",
+  "title": "Þjálfi : menu de démarrage lisible (sans accents), « installation » seulement automatique pour la machine autorisée",
+  "details": [],
+  "planets": [
+   "interface",
+   "machines",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "6aca203",
+  "at": "2026-11-12T17:37:59+03:00",
+  "date": "2026-11-12",
+  "title": "Þjálfi : déploiement par le réseau (façon iVentoy) relié à Eitri et Fjalar",
+  "details": [
+   "PXE BIOS/UEFI (proxy DHCP ou DHCP d'Odin), TFTP, menu iPXE, ISO lues sans extraction (ISO 9660, Rock Ridge, Joliet, UDF), installation automatique Ubuntu / Debian / Rocky-Alma-Fedora / Windows, profils et logiciels Fjalar en silencieux, suivi des machines, historique, compteurs par ISO, fiche Askr, coffre, antivirus."
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "installation"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "5bad1c5",
   "at": "2026-11-12T16:52:15+03:00",
   "date": "2026-11-12",
   "version": "1.13.0",
@@ -20,6 +455,18 @@
    "applis"
   ],
   "kind": "nouveauté"
+ },
+ {
+  "id": "6c3c40b",
+  "at": "2026-11-12T16:35:57+03:00",
+  "date": "2026-11-12",
+  "title": "Notifications : mini-bulle couleur humeur/urgence au-dessus d'Odin, petite fenêtre pour lui parler",
+  "details": [],
+  "planets": [
+   "voix",
+   "guide"
+  ],
+  "kind": "amélioration"
  },
  {
   "id": "159ecbe",
@@ -45,6 +492,365 @@
   "kind": "nouveauté"
  },
  {
+  "id": "4e065d5",
+  "at": "2026-11-12T16:26:58+03:00",
+  "date": "2026-11-12",
+  "title": "Micro : Odin écrit ce que tu dis en direct dans la zone de saisie (discussion et écran de la maison), tu relis puis tu envoies",
+  "details": [],
+  "planets": [
+   "discussion",
+   "voix",
+   "interface",
+   "maison"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "99485e1",
+  "at": "2026-11-12T16:20:19+03:00",
+  "date": "2026-11-12",
+  "title": "Le lien des applis avec la mémoire d'Odin : journal du jour dans le Cerveau (événements, alertes, actions, état des applis), sans secret, 90 jours",
+  "details": [],
+  "planets": [
+   "cerveau",
+   "applis",
+   "memoire"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "a3d36a3",
+  "at": "2026-11-12T16:14:17+03:00",
+  "date": "2026-11-12",
+  "title": "Glaðsheimr : les 20 thèmes validés (couleurs et décors dessinés : plage, étoiles, aurore, lagon de Mayotte, montagne, désert, neige, espace…)",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "9107a24",
+  "at": "2026-11-12T16:00:23+03:00",
+  "date": "2026-11-12",
+  "title": "Völva : la recherche façon Perplexity (SearXNG, Brave, Wikipédia…), réponse sourcée, page /recherche",
+  "details": [
+   "Moteurs interrogés ensemble : ton SearXNG (Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek…), Brave, Wikipédia, réponses instantanées DuckDuckGo, Tavily, Exa ; fusion par rang, doublons retirés, 3 pages au plus par site, moteur d'origine gardé",
+   "Pages lues, réponse rédigée par l'IA d'Odin avec citations [n] vérifiées (une citation inventée est retirée), questions de suite, conversation ; sans IA : extraits sourcés",
+   "Les applis d'Odin qui peuvent agir sur le sujet ; historique, export Markdown/JSON/PDF, lien",
+   "Installer SearXNG à côté d'Odin (Docker, JSON activé, en français) ou relier le sien",
+   "L'outil web_search d'Odin passe par Völva quand aucun moteur n'est imposé",
+   "Page /recherche (session seulement), icône des exports en haut"
+  ],
+  "planets": [
+   "discussion",
+   "interface",
+   "machines",
+   "applis",
+   "ia"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "68ad309",
+  "at": "2026-11-12T15:50:42+03:00",
+  "date": "2026-11-12",
+  "title": "Glaðsheimr : Odin vit dans les zones sans widget (en bas d'abord) et ne monte sur un widget que quand on lui demande quelque chose",
+  "details": [],
+  "planets": [
+   "interface"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "43cdf8a",
+  "at": "2026-11-12T15:42:56+03:00",
+  "date": "2026-11-12",
+  "title": "Glaðsheimr : l'écran de la maison (tablette, téléphone, Home Assistant) ; Andvari devient Fjalar",
+  "details": [
+   "Page /maison plein écran à onze thèmes : pièces et appareils de toutes les box (lumières avec intensité, volets, clim, serrure à glisser avec confirmation, lecteurs), scènes, météo (Open-Meteo, ou ton propre serveur), heure, état de toutes les applis, boutons vers n'importe quelle action",
+   "Famille : personnes de Home Assistant et membres OwnTracks (identifiants par membre, positions partagées entre les téléphones, gardées 1 jour par défaut puis effacées)",
+   "Caméras (aperçus Himinbjörg, un seul fichier remplacé), réseau : couper Internet ou la vidéo d'un appareil (nouvelle action Víðarr « couper la vidéo »)",
+   "La mascotte se promène, s'écarte des boutons, joue à la balle, donne l'heure, la météo, où est quelqu'un, et transmet le reste à Odin (mêmes droits et validations)",
+   "Clés de tablette (empreinte seulement, droits « maison » ou « complet »), affichage dans Home Assistant (cadre autorisé pour son adresse seulement)",
+   "Fjalar (ex-Andvari, nom déjà pris par un mode de Sindri) ; lien /#app=<appli> dans l'interface"
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "maison",
+   "machines",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "044bfab",
+  "at": "2026-11-12T14:49:42+03:00",
+  "date": "2026-11-12",
+  "title": "Eitri (ISO) et Andvari (logiciels) : dossiers gardés à jour depuis les sites officiels",
+  "details": [
+   "Reconnaît les ISO / installateurs déjà dans le dossier (disque ou partage réseau monté)",
+   "Dernière version lue sur les sites officiels (Ubuntu, Debian, Fedora, Mint, Arch, Alpine, Kali, Rocky, Alma, Proxmox, Firefox, VS Code, Node.js, VLC, PuTTY, WireGuard, dépôts GitHub…)",
+   "Téléchargement avec l'empreinte de l'éditeur, reprise après coupure, débit maximum, annulation",
+   "Programmation (jours + heure, ou une date), téléchargement auto ou simple alerte",
+   "Garde 2 versions (réglable), historique, contrôle des fichiers abîmés, résumé du jour",
+   "Windows : pas de téléchargement automatique (Microsoft) — repéré, page officielle donnée",
+   "Andvari : chaque installateur passe par Ullr, mis de côté s'il est suspect",
+   "Nouvelles cartes avec icônes (icône de l'éditeur en cache, sinon pavé de couleur)"
+  ],
+  "planets": [
+   "voix",
+   "interface",
+   "maison",
+   "machines",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "8d99718",
+  "at": "2026-11-12T14:33:02+03:00",
+  "date": "2026-11-12",
+  "title": "Eir façon Glances, Vörðr façon Zabbix/Centreon, mesures gardées, ports ouverts sur la machine",
+  "details": [
+   "Mesures d'Odin gardées dans le temps (minute 31 j, heure pour toujours, export Prometheus)",
+   "Eir : processeur, mémoire, réseau, disques, RAID, SMART, GPU, capteurs, batterie, processus, seuils, courbes",
+   "Vörðr : SNMP (sans bibliothèque), scénarios web en plusieurs pages, greffons Nagios (check_* seulement), déclencheurs sur les mesures (5 gravités, hystérésis, pas de données), problèmes avec prise en main, commentaires, escalade, dépendances (symptômes sans alerte en double), SLA",
+   "Garmr : ports ouverts sur le pare-feu de la machine (ufw/firewalld), utilisés par Valgrind, Gjöll, Víðarr",
+   "Tests : vordr-problemes (faux appareil SNMP, faux site), eir-mesures, liens"
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "machines",
+   "securite",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "4dbc57c",
+  "at": "2026-11-12T13:56:20+03:00",
+  "date": "2026-11-12",
+  "title": "Skíðblaðnir : fichiers partagés par groupe, liens, dépôts, notes secrètes, WebDAV, synchro",
+  "details": [
+   "Nouvelle appli (reprend Sync-in, Erugo, Syncthing, PrivateBin) :",
+   "espaces partagés par groupe Vár (lecture / écriture, quota) et espace perso de chacun ;",
+   "interface web ordinateur et téléphone derrière le proxy et la connexion Vár : téléverser (glisser-déposer), dossiers, renommer, déplacer, chercher, aperçus, archive .zip en flux ;",
+   "versions gardées à chaque remplacement, corbeille 30 jours, rien n'est effacé d'un coup ;",
+   "liens de partage (expiration, mot de passe, nombre de téléchargements), dépôts, envoi de gros fichiers ; 5 mots de passe faux → adresse bannie (Garmr) ;",
+   "notes secrètes chiffrées dans le navigateur, lues une seule fois ;",
+   "WebDAV avec mots de passe d'appli (lecteur réseau Windows / Mac / téléphone) ;",
+   "synchronisation de dossiers (deux sens ou un seul, conflits gardés, suppressions à la corbeille) ;",
+   "antivirus sur chaque fichier reçu : le suspect est mis de côté, publié seulement avec accord ;",
+   "liens et vérifications : Vár, Valgrind, Ullr, Forseti, Garmr ; graphe des espaces."
+  ],
+  "planets": [
+   "interface",
+   "cerveau",
+   "maison",
+   "machines",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "5ce8118",
+  "at": "2026-11-12T13:18:42+03:00",
+  "date": "2026-11-12",
+  "title": "Mascotte : bulles de notification partout (vert, orange, rouge) avec conseils et manips",
+  "details": [
+   "Bulle au-dessus de la mascotte sur toutes les pages (Discussion et téléphone compris), qui la suit ; la suivante remplace la précédente ; vert = tout va bien, orange = un souci, rouge = grave (la mascotte passe au rouge, l'urgence est dite à voix haute si les sons sont activés).",
+   "Toucher la bulle : la page du problème s'ouvre, avec la procédure, les manips proposées (accord demandé pour les actions graves), « Écouter », « Demander conseil à Odin » (IA, données encadrées) et les bulles d'avant.",
+   "Sources : alertes des applis (procédure et manip possibles par alerte), décisions prises seul par Odin (garder / annuler), demandes d'accord, mise à jour installée, tunnel Cloudflare (publié, DNS déjà pris, tunnel coupé). Historique gardé sur disque, relayé en direct."
+  ],
+  "planets": [
+   "discussion",
+   "voix",
+   "guide",
+   "interface",
+   "applis"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "57f8e92",
+  "at": "2026-11-12T12:55:29+03:00",
+  "date": "2026-11-12",
+  "title": "Brú : tunnel Cloudflare, Odin publié sous ton domaine ; ports de la box ; tout le trafic du VPN",
+  "details": [
+   "Brú (nouvelle appli) : tunnel Cloudflare nommé créé avec la clé collée dans Réglages → Accès ; chaque nom publié reçoit sa règle de tunnel et son DNS (CNAME proxifié) chez Cloudflare, sans jamais écraser un enregistrement existant sans accord ; retrait limité à ce qu'Odin a ajouté ; cloudflared officiel téléchargé et vérifié (empreinte SHA-256), jeton passé par l'environnement ; santé surveillée, relance automatique, graphe du pont.",
+   "« Publier Odin sur mon domaine » : l'interface d'Odin accessible depuis le téléphone (odin.exemple.fr), vraie adresse du visiteur prise de Cloudflare, jamais traitée comme locale.",
+   "Valgrind et Vár publient tout seuls leurs sites et le portail par le tunnel ; liens et vérifs.",
+   "Ouverture de ports sur la box par Odin (UPnP IGD écrit pour Odin) : port du VPN (Gjöll), 80/443 (Valgrind, avec accord) ; ouverture d'une journée renouvelée ; CGNAT (Starlink, 4G) signalé ; repli « à la main » si la box n'a pas l'UPnP.",
+   "Tout le trafic du VPN visible : flux par appareil (destination, service, octets, paquets) dans le moteur WireGuard, tableau « Trafic du VPN », destinations dans le graphe, historique par jour.",
+   "La clé Cloudflare s'enregistre sans redémarrer Odin."
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "cerveau",
+   "canaux",
+   "maison"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "b245e87",
+  "at": "2026-11-12T12:01:56+03:00",
+  "date": "2026-11-12",
+  "title": "Vár : les identités d'Odin (connexion unique sur les sites du proxy, groupes, double authentification)",
+  "details": [
+   "personnes et groupes ; mots de passe en empreinte scrypt, mots de passe choisis par Odin rangés dans le coffre",
+   "portail de connexion à la mascotte d'Odin, servi par le proxy sous son propre nom (certificat compris)",
+   "sites du proxy réservés à des groupes : renvoi au portail, retour au site demandé (jamais vers un site étranger), identité transmise au service (Remote-User / Remote-Groups), en-têtes d'identité du visiteur toujours effacés",
+   "double authentification par code (QR code, confirmation), obligatoire par groupe",
+   "sessions visibles et coupables ; verrouillage après 5 essais, adresse bannie par Garmr, alerte ; journal",
+   "page protégée : CSP stricte, formulaire seulement depuis le portail",
+   "corrigé grâce à l'essai en vrai navigateur : la redirection après connexion était bloquée par la politique de sécurité du portail, et l'origine du formulaire n'était pas envoyée",
+   "liens : var→valgrind, var→brisingamen, var→garmr, var→forseti, var→ullr"
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "securite",
+   "applis"
+  ],
+  "kind": "correction"
+ },
+ {
+  "id": "753107e",
+  "at": "2026-11-12T10:34:59+03:00",
+  "date": "2026-11-12",
+  "title": "Valgrind : le proxy inverse d'Odin (HTTPS Let's Encrypt écrit dans Odin), relié aux autres applis",
+  "details": [
+   "un nom de domaine → un service de la maison, jokers *.exemple.fr, HTTP et HTTPS (certificat choisi par le nom)",
+   "Let's Encrypt (ACME, RFC 8555) écrit dans Odin : compte, défi HTTP-01, demande de certificat encodée à la main, renouvellement tout seul 30 jours avant ; aucune adresse e-mail envoyée ; auto-signé pour la maison",
+   "passage forcé en HTTPS, HSTS, WebSocket, en-têtes X-Forwarded, en-têtes ajoutés",
+   "accès par adresses, mot de passe par site (empreinte scrypt, mot de passe rangé dans le coffre), bannis de Garmr refusés",
+   "redirections 301 / 302, flux TCP, page « Rien ici », page « service indisponible »",
+   "journal, statistiques par site, graphe (Internet, proxy, sites, services de la maison)",
+   "clés privées des certificats protégées des outils de fichiers",
+   "liens : valgrind→vidarr, valgrind→vordr, valgrind→brisingamen, valgrind→garmr, garmr→valgrind, valgrind→forseti, valgrind→ullr, valgrind→ran ; liens prévus avec Vár, Skíðblaðnir, Sól, Snotra"
+  ],
+  "planets": [
+   "interface",
+   "cerveau",
+   "maison",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "e018d6a",
+  "at": "2026-11-12T10:12:02+03:00",
+  "date": "2026-11-12",
+  "title": "Askr : l'inventaire du matériel (fiches, étiquettes QR, prêts, garanties, licences, CSV), avec son graphe",
+  "details": [
+   "fiche par appareil : type, fabricant, modèle, série, MAC, IP, système, pièce, propriétaire, achat, garantie, historique",
+   "appareils du registre réseau et des baux DHCP de Víðarr ajoutés tout seuls, sans écraser ce que tu as écrit",
+   "prêts (retour prévu, alerte de retard), garanties et licences qui finissent : alertes",
+   "licences : postes attribués ; la clé part chiffrée dans le coffre Brísingamen, jamais en clair",
+   "étiquette QR, export CSV pour Excel (formules neutralisées), import CSV sans doublons",
+   "graphe : pièces, appareils, personnes, prêts ; « Surveiller » ajoute une sonde Vörðr",
+   "liens : vidarr→askr, askr→vordr, askr→brisingamen, askr→forseti"
+  ],
+  "planets": [
+   "discussion",
+   "cerveau",
+   "maison",
+   "securite",
+   "applis"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "f6f6dc9",
+  "at": "2026-11-12T09:58:18+03:00",
+  "date": "2026-11-12",
+  "title": "Première connexion par le téléphone : code et QR code par défaut, mascotte visible, formulaire à un clic",
+  "details": [
+   "l'écran qui a le droit de créer le compte montre un code (6 caractères, 10 minutes) et un QR code",
+   "le téléphone ouvre /activer (code déjà rempli par le QR code), crée le compte ; l'écran entre tout seul",
+   "un mauvais code est refusé et compté comme un essai raté ; le code ne sert qu'une fois",
+   "bouton « Créer le compte ici » pour le formulaire classique (prénom, nom, e-mail, mot de passe)",
+   "la mascotte d'Odin sur l'écran et sur la page du téléphone ; avertissement si le téléphone ne peut pas joindre l'adresse"
+  ],
+  "planets": [
+   "guide",
+   "interface",
+   "securite"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "b2d41de",
+  "at": "2026-11-12T09:50:03+03:00",
+  "date": "2026-11-12",
+  "title": "Graphes Réseau, VPN et Vörðr (télésurveillance), historique jour / mois / année, machines coupées à horaires",
+  "details": [
+   "composant de graphe partagé (même dessin que le Cerveau) : fond sombre, carrés pour Odin / box / Internet, anneaux (nouveau, dangereux), liens en pointillé (bloqué), fiche du point choisi à droite, périodes",
+   "Víðarr : graphe du réseau (postes, IP, MAC, fabricant, modèle deviné, connexion, débit Rán, domaines demandés / bloqués / dangereux), historique résumé chaque jour et gardé pour toujours (jour, mois, année), résumé quotidien dans Saga, couper une machine d'Internet (tout de suite ou à horaires), sites bloqués à horaires, l'IA d'Odin relit le réseau toutes les 5 minutes et prévient s'il y a un souci",
+   "DHCP : première fois vu, ce que l'appareil dit de lui (système deviné), adresse MAC privée reconnue",
+   "Gjöll : graphe du VPN (appareils connectés, débit, d'où ils viennent, domaines, maillage)",
+   "Vörðr : sondes HTTP(S), port, ping, DNS, signe de vie, applis d'Odin ; échecs avant alerte, maintenance, pause, certificats, cause probable de la panne, disponibilité 24 h / 30 j / 1 an, graphe, page publique d'état ; sondes automatiques (box, Internet, DNS et VPN d'Odin, sites d'Iðunn)",
+   "liens : vidarr→saga, vidarr→ran, vidarr→vordr, gjoll→vordr, idunn→vordr, vordr→forseti"
+  ],
+  "planets": [
+   "interface",
+   "cerveau",
+   "maison",
+   "machines",
+   "securite"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "d43569a",
+  "at": "2026-11-12T08:56:28+03:00",
+  "date": "2026-11-12",
+  "title": "Víðarr : DHCP d'Odin, DNS chiffré (TLS et HTTPS), pubs des réseaux sans couper les vidéos, horaires, surveillance",
+  "details": [
+   "DHCP : plage, passerelle, DNS, baux, domaine, adresses fixes ; refuse de s'allumer si un autre DHCP répond",
+   "noms des appareils (baux) servis par le DNS : telephone-de-awa.maison",
+   "DNS chiffré pour les appareils : TLS (port 853, certificat de l'interface) et HTTPS (/dns-query, maison et VPN seulement)",
+   "pubs et pistage de YouTube, TikTok, Instagram… bloqués, vidéos et photos laissées passer ; limites dites honnêtement",
+   "horaires des services coupés (passage de minuit compris), heures vérifiées",
+   "liens de surveillance : Internet en panne → alerte, nouvel appareil → alerte + signal Ullr, fin d'accès VPN → alerte"
+  ],
+  "planets": [
+   "interface",
+   "canaux",
+   "maison",
+   "securite"
+  ],
+  "kind": "amélioration"
+ },
+ {
+  "id": "029579c",
+  "at": "2026-11-12T08:33:39+03:00",
+  "date": "2026-11-12",
+  "title": "Víðarr : le serveur DNS d'Odin, écrit dans Odin, relié au VPN, à Forseti et à Ullr",
+  "details": [
+   "Format DNS complet (noms compressés, EDNS, durées de vie), serveur UDP + TCP, réponses tronquées puis complètes en TCP, requêtes ANY refusées, noms privés jamais envoyés sur Internet",
+   "Listes (hosts, domaines, ||…^, exceptions, expressions, jokers, $important, $dnsrewrite), règles perso, alias vérifiés (pisteur caché derrière un nom propre), services coupés d'un clic (26), recherche sécurisée, contrôle parental, réglages par appareil (filtrage, services, amont, liste autorisée), noms de la maison, pause du blocage (les sites dangereux restent bloqués), limite par machine",
+   "Amont chiffré HTTPS et TLS (certificat vérifié), stratégies rapide / parallèle / ordre, secours, cache avec réponses servies pendant le rafraîchissement, résolution autonome depuis la racine",
+   "Appli : mise en route, tableau de bord, journal (bloquer / autoriser d'un clic), listes mises à jour chaque jour, statistiques, noms d'appareils tirés du registre réseau",
+   "Liens : Gjöll → Víðarr (case « DNS d'Odin » par appareil du VPN), Víðarr → Forseti (site dangereux, inondation), Víðarr → Ullr (signal d'incident), chacun vérifié dans test/liens.test.ts",
+   "Corrigé : plus de réponse écrite sur une prise fermée quand le DNS s'arrête"
+  ],
+  "planets": [
+   "discussion",
+   "canaux",
+   "maison",
+   "machines",
+   "securite"
+  ],
+  "kind": "correction"
+ },
+ {
   "id": "249eb20",
   "at": "2026-11-12T08:26:43+03:00",
   "date": "2026-11-12",
@@ -60,6 +866,45 @@
    "discussion",
    "applis",
    "ia",
+   "installation"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "6f0a22b",
+  "at": "2026-11-12T08:04:36+03:00",
+  "date": "2026-11-12",
+  "title": "Gjöll : le protocole VPN écrit dans Odin, plus rien à installer",
+  "details": [
+   "src/valhalla/wireguard/ : BLAKE2s, HMAC, HKDF, XChaCha20 (HChaCha20) écrits dans Odin ; poignée de main Noise_IKpsk2 ; paquets chiffrés, anti-rejeu, routage par clé, renouvellement des clés (2 min), refus après 3 min, cookies anti-saturation, maintien de connexion, itinérance ; carte réseau virtuelle par un petit relais en Python standard",
+   "Gjöll l'utilise : plus d'installation de WireGuard, le tunnel se rallume avec Odin",
+   "Vérifié face au WireGuard officiel (wireguard-go) dans les deux sens : pages web et 10 Mo intacts",
+   "Tests : test/wireguard.test.ts (vecteurs officiels, deux moteurs, protections, renouvellement, saturation), test/gjoll.test.ts mis à jour"
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "securite",
+   "applis",
+   "ia"
+  ],
+  "kind": "nouveauté"
+ },
+ {
+  "id": "6cbf342",
+  "at": "2026-11-12T07:35:25+03:00",
+  "date": "2026-11-12",
+  "title": "Gjöll (VPN) de A à Z, et les QR codes visibles dans toutes les applis",
+  "details": [
+   "Page des applis : un QR code ou un fichier rendu par une action s'affiche (fenêtre avec image, copier, télécharger) ; la configuration, qui contient la clé secrète, est cachée par défaut",
+   "Nouvelle section « étapes » : assistant de mise en route avec un bouton par étape",
+   "Gjöll : assistant (installer WireGuard, trouver l'adresse publique, ouvrir le port de la box, allumer, premier appareil, essai depuis la 4G), allumer / éteindre le tunnel (démarrage auto), modifier un appareil (nom, tout le trafic, maillage), date de fin d'accès (coupé tout seul, alerte), fichier .conf à télécharger, réglages du tunnel (port, MTU, maintien), avertissement si l'adresse de la maison n'est pas encore connue",
+   "Tests : test/gjoll.test.ts ; navigateur : assistant, QR code, téléchargement"
+  ],
+  "planets": [
+   "interface",
+   "maison",
+   "applis",
    "installation"
   ],
   "kind": "nouveauté"
