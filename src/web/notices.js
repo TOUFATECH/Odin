@@ -100,13 +100,23 @@
   function placeBubble() {
     raf = 0; if (!bubble) return;
     const box = !talk.hidden ? talk : !bubble.hidden ? bubble : null, tl = box === talk ? ttail : tail; if (!box) return;
-    const a = anchor(), w = box.offsetWidth, h = box.offsetHeight, m = 12;
+    const m = 12, room = innerHeight - 2 * m;
+    // La petite fenêtre « Que veux-tu ? » ne dépasse jamais de l'écran : plus haute que lui, elle défile à l'intérieur.
+    if (box === talk) { const big = talk.scrollHeight > room + 1, mh = big ? `${room}px` : ''; if (talk.style.maxHeight !== mh) { talk.style.maxHeight = mh; talk.style.overflowY = big ? 'auto' : ''; } }
+    const a = anchor(), w = box.offsetWidth, h = box.offsetHeight;
     let x, y, below = false, cx;
     if (a) {
       cx = a.r.left + a.r.width / 2;
       x = Math.min(Math.max(m, cx - w / 2), innerWidth - w - m);
       y = a.r.top - h - 12; if (y < m) { y = a.r.bottom + 12; below = true; }
+      // Dans la Discussion, Odin parle déjà dans son nuage (conseils, visite) : la bulle se pose au-dessus du nuage, pas sur ses boutons.
+      const tip = document.getElementById('buddyTip');
+      if (tip && !tip.hidden && !below) { const t = tip.getBoundingClientRect(); if (t.width && x < t.right && x + w > t.left && y < t.bottom && y + h > t.top && t.top - h - 10 >= m) y = t.top - h - 10; }
     } else { x = innerWidth - w - m; y = innerHeight - h - 90; cx = x + w - 40; }
+    // Ni au-dessus ni au-dessous d'Odin il n'y a la place : elle reste dans l'écran (sa pointe se cache, elle ne touche plus Odin).
+    const cale = y + h > innerHeight - m || y < m;
+    if (cale) y = Math.max(m, innerHeight - h - m);
+    tl.style.display = cale ? 'none' : '';
     box.style.transform = '';
     box.style.left = `${Math.round(x)}px`; box.style.top = `${Math.round(y)}px`;
     const tx = Math.min(Math.max(cx - x - 6, 12), w - 24);
@@ -161,6 +171,8 @@
     // Odin dit ses messages à voix haute quand la voix est activée (l'urgence, toujours).
     if (n.level !== 'grave' && !o.quiet && window.OdinVoice?.on?.()) window.OdinSay?.(n.title);
     follow();
+    // La bulle est là : Odin se déplace tout de suite si elle couvrait du texte ou une commande (il lui cherche une place libre).
+    window.OdinCompanion?.sync?.('hopto');
   }
   function hide() { if (!bubble) return; bubble.hidden = true; protTint(undefined); if (current) try { localStorage.setItem(SEEN, current.id); } catch { /* navigation privée */ } if (current?.level === 'grave' && panel.hidden) setAlarm(false); }
 

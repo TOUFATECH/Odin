@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page d'essai : rien ne dépasse (pour le détecteur de débordements)</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:16px/1.5 system-ui,sans-serif;background:#f6f8f7;color:#15212b;display:flex;flex-direction:column}
+header{position:sticky;top:0;background:#fff;border-bottom:1px solid #d7e0df;padding:10px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+main{flex:1;overflow:auto;padding:16px 16px 84px}
+.carte{background:#fff;border:1px solid #d7e0df;border-radius:14px;padding:14px 16px;margin:0 0 14px;min-width:0;position:relative}
+button,.btn{font:inherit;min-height:44px;padding:0 16px;border:1px solid #6b7a86;border-radius:10px;background:#fff;color:#15212b}
+button:focus-visible{outline:3px solid #0b7f7c;outline-offset:2px}
+[role=tablist]{display:flex;gap:6px;overflow-x:auto}
+[role=tab]{flex:1 1 0;min-width:0;white-space:nowrap;padding:0 2px;font-size:13px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%}td,th{padding:8px;border-bottom:1px solid #d7e0df;text-align:left;white-space:nowrap}
+.long{overflow-wrap:anywhere}
+.fermer{position:absolute;top:6px;right:6px;width:44px;min-height:44px;padding:0}
+nav{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;border-top:1px solid #d7e0df;display:flex}
+nav button{flex:1;border:0;border-radius:0}
+img{display:block;width:120px;height:60px;object-fit:cover;border-radius:8px}
+</style>
+</head>
+<body>
+<header><strong>Odin</strong><button type="button">Vérifier</button></header>
+<main>
+  <div role="tablist" aria-label="Rubriques" style="margin:0 0 14px"><button role="tab" aria-selected="true">Analyser</button><button role="tab" aria-selected="false">Résultats</button><button role="tab" aria-selected="false">Règles</button><button role="tab" aria-selected="false">Réglages</button></div>
+  <section class="carte"><h2 style="margin:0 0 6px;font-size:18px">Une carte ordinaire</h2><p style="margin:0" class="long">Un chemin très long se coupe où il faut : /home/awa/Documents/Comptabilite/2026/Factures/janvier/facture-electricite-mamoudzou.pdf</p><span class="sr">Texte pour les lecteurs d'écran seulement</span></section>
+  <section class="carte"><button type="button" class="fermer" aria-label="Fermer">×</button><h2 style="margin:0 50px 6px 0;font-size:18px">Une carte avec son bouton pour la fermer</h2><p style="margin:0">Le bouton est posé exprès dans le coin de la carte.</p></section>
+  <section class="carte"><h2 style="margin:0 0 6px;font-size:18px">Un tableau large dans sa zone à défilement</h2><div class="tw"><table><thead><tr><th>Appareil</th><th>Adresse</th><th>Fabricant</th><th>Vu la dernière fois</th><th>État</th><th>Ports ouverts</th></tr></thead><tbody><tr><td>Imprimante du bureau</td><td>192.168.1.42</td><td>Brother Industries</td><td>aujourd'hui à 18 h 02</td><td>en ligne</td><td>80, 443, 631, 9100</td></tr></tbody></table></div></section>
+  <section class="carte"><img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="><p style="margin:8px 0 0">Une image recadrée sans être déformée.</p></section>
+  <section class="carte"><p style="margin:0">Encore du contenu pour que la page défile.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p>Ligne.</p><p style="margin-bottom:0">Dernière ligne : elle se dégage de la barre du bas.</p></section>
+</main>
+<nav aria-label="Sections"><button type="button">Aujourd'hui</button><button type="button">Discussion</button><button type="button">Plus</button></nav>
+</body>
+</html>

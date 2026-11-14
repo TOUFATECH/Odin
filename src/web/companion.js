@@ -12,6 +12,8 @@
   const coarse = matchMedia('(pointer:coarse)');
   const S = () => window.OdinState || {};
   let bud = null, pos = null, size = 64, moving = 0, pinnedUntil = 0, lastWander = Date.now(), idleSince = Date.now(), view = '';
+  // `stuck` : la dernière recherche n'a trouvé aucune place libre (il attend avant de rechercher) ; `bubbleSeen` : la bulle déjà prise en compte.
+  let stuck = false, retryAt = 0, bubbleSeen = '';
 
   // ---------- Fabrication : une copie de la mascotte de la discussion, avec ses propres dégradés ----------
   function make() {
@@ -40,19 +42,48 @@
     }
     return false;
   }
-  function busyAt(x, y) {
-    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return true;
-    const hits = document.elementsFromPoint(x, y).filter((e) => e !== bud && !bud?.contains(e));
-    const top = hits[0];
-    if (!top || top === document.documentElement || top === document.body) return false;
-    // Une carte, une section ou un fond ne gênent pas ; un contrôle, un média ou la navigation, si.
-    if (top.closest(BUSY_SEL)) return true;
-    return textAt(top, x, y);
+  // Ce qu'il y a à un point : 0 = rien qui gêne (un fond, une carte) ; 1 = du texte ; 3 = une commande, un champ,
+  // un média ou la navigation. Odin, sa bulle et sa petite fenêtre ne comptent pas : ce sont eux qu'on place.
+  // `memo` : pendant une recherche de place, chaque point (arrondi à 4 px) n'est regardé qu'une fois.
+  let memo = null;
+  function kindAt(x, y) {
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return 3;
+    if (memo) { const key = (Math.round(x / 4) << 12) | Math.round(y / 4); let k = memo.get(key); if (k === undefined) { k = kindHere(x, y); memo.set(key, k); } return k; }
+    return kindHere(x, y);
   }
-  // Nombre de points occupés sous un carré de côté s placé en (x, y) (coin haut gauche).
+  function kindHere(x, y) {
+    const top = document.elementsFromPoint(x, y).find((e) => e !== bud && !bud?.contains(e) && !e.closest('#odinBubble,#odinTalk'));
+    if (!top || top === document.documentElement || top === document.body) return 0;
+    if (top.closest(BUSY_SEL)) return 3;
+    return textAt(top, x, y) ? 1 : 0;
+  }
+  const busyAt = (x, y) => kindAt(x, y) > 0;
+  // Nombre de points occupés sous un carré de côté s placé en (x, y) (coin haut gauche) ; `gene` : pondéré (une commande compte triple).
   function cost(x, y, s) {
     let n = 0; const k = 4;
     for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) if (busyAt(x + (s * i) / k, y + (s * j) / k)) n++;
+    return n;
+  }
+  function gene(x, y, s) {
+    let n = 0; const k = 4;
+    for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) n += kindAt(x + (s * i) / k, y + (s * j) / k);
+    return n;
+  }
+
+  /** Une commande sous lui (carré de côté s en x, y) ? */
+  function onCommand(x, y, s) { const k = 4; for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) if (kindAt(x + (s * i) / k, y + (s * j) / k) === 3) return true; return false; }
+
+  // ---------- Sa bulle (une notification) : posée juste au-dessus de lui, elle ne doit rien couvrir non plus ----------
+  /** La bulle affichée en ce moment : sa taille, son texte. (La petite fenêtre « Que veux-tu ? » est ouverte exprès : il ne bouge pas pour elle.) */
+  function bubble() { const e = document.getElementById('odinBubble'); return e && !e.hidden && e.offsetWidth ? { w: e.offsetWidth, h: e.offsetHeight, text: e.textContent } : null; }
+  /** Où la bulle se poserait si Odin était en (x, y) : centrée au-dessus de lui, dessous s'il n'y a pas la place (même calcul que notices.js). */
+  function bubbleRect(x, y, s, b) { const m = 12, cx = x + s / 2; let by = y - b.h - 12; if (by < m) by = y + s + 12; return { x: Math.min(Math.max(m, cx - b.w / 2), innerWidth - b.w - m), y: by }; }
+  /** La bulle couvrirait-elle une commande là ? */
+  function bubbleCommand(x, y, s, b) { const r = bubbleRect(x, y, s, b), kx = Math.max(4, Math.round(b.w / 36)); for (let i = 0; i <= kx; i++) for (let j = 0; j <= 2; j++) if (kindAt(r.x + (b.w * i) / kx, r.y + (b.h * j) / 2) === 3) return true; return false; }
+  /** Ce que la bulle couvrirait là : un point de texte compte 1, un point de commande 3 ; 0 = rien. */
+  function bubbleCost(x, y, s, b) {
+    const r = bubbleRect(x, y, s, b), kx = Math.max(4, Math.round(b.w / 36)), ky = 2; let n = 0;
+    for (let i = 0; i <= kx; i++) for (let j = 0; j <= ky; j++) n += kindAt(r.x + (b.w * i) / kx, r.y + (b.h * j) / ky);
     return n;
   }
 
@@ -73,8 +104,14 @@
   function baseSize() { const w = innerWidth; return w < 600 ? 46 : w < 1024 ? (coarse.matches ? 56 : 58) : 66; }
 
   // ---------- Choisir une place : libre, proche de ce qui l'intéresse, pas trop loin d'où il est ----------
-  function choose(want) {
+  function choose(want) { memo = new Map(); try { return search(want); } finally { memo = null; } }
+  function search(want) {
     const A = area(); if (!A) return null;
+    const b = bubble(), phone = innerWidth < 600;
+    stuck = false;
+    // Téléphone avec une bulle : lui et sa bulle se rangent en bas, juste au-dessus de la barre, là où ils ne couvrent
+    // aucune commande (bouton, champ, onglet) ; du texte peut passer dessous, il se dégage en faisant défiler.
+    if (b && phone) return bottomSpot(A, b);
     for (const s of [baseSize(), Math.round(baseSize() * 0.78), Math.round(baseSize() * 0.6)]) {
       const W = A.right - A.left - s, H = A.bottom - A.top - s; if (W < 0 || H < 0) continue;
       const step = Math.max(s * 0.7, 28), cands = [];
@@ -89,15 +126,43 @@
         else if (pos) score += Math.hypot(cx - (pos.x + size / 2), cy - (pos.y + size / 2)) * 0.25;
         // Préférence légère pour les bords (il ne se met pas au milieu de ta lecture).
         score += Math.min(cx - A.left, A.right - cx, cy - A.top, A.bottom - cy) * 0.15;
+        // Avec une bulle : d'abord là où elle ne couvre ni texte ni commande ; sur téléphone, plutôt en bas,
+        // juste au-dessus de la barre (comme sur la maquette du téléphone), où le contenu se dégage en défilant.
+        if (b) score += bubbleCost(x, y, s, b) * 60 + (phone ? (A.top + H - y) * 0.5 : 0);
         if (!best || score < best.score) best = { x, y, s, score };
       }
       if (best) return best;
     }
-    // Aucune place libre (graphe plein écran, page très chargée) : petit, dans le coin le moins gênant.
-    const s = Math.round(baseSize() * 0.6);
-    const corners = [[A.right - s, A.bottom - s], [A.right - s, A.top], [A.left, A.bottom - s], [A.left, A.top]];
-    corners.sort((a, b) => cost(a[0], a[1], s) - cost(b[0], b[1], s));
-    return { x: corners[0][0], y: corners[0][1], s };
+    // Aucune place libre (graphe plein écran, page très chargée) : petit, là où lui et sa bulle gênent le moins
+    // (une commande compte triple). Sur téléphone : en bas, juste au-dessus de la barre, un peu plus haut s'il le faut.
+    stuck = true;
+    const s = Math.round(baseSize() * 0.6), W = Math.max(0, A.right - A.left - s), H = Math.max(0, A.bottom - A.top - s), cands = [];
+    if (phone) { for (let k = 0; k < 3; k++) for (const x of [A.left + W, A.left, A.left + W / 2]) cands.push([x, Math.max(A.top, A.top + H - k * 32), k * 4]); cands.push([A.left + W, A.top, 30], [A.left, A.top, 30]); }
+    else cands.push([A.left + W, A.top + H, 0], [A.left + W, A.top, 0], [A.left, A.top + H, 0], [A.left, A.top, 0]);
+    let best = null;
+    for (const [x, y, malus] of cands) { const g = gene(x, y, s) * 2 + (b ? bubbleCost(x, y, s, b) : 0) + malus; if (!best || g < best.g) best = { x, y, s, g }; }
+    return best;
+  }
+
+  // Sur téléphone : la rangée du bas (et jusqu'à sept crans plus haut, ~180 px), de droite à gauche. Une commande couverte
+  // pèse 10, un point de texte 1 ; à gêne égale, le plus bas et le plus à droite.
+  // Plus haut que ces sept crans seulement si, en bas, lui ou sa bulle couvriraient une commande (une commande pèse 20).
+  function bottomSpot(A, b) {
+    const w = (k) => (k === 3 ? 20 : k);
+    let best = null;
+    for (const s of [baseSize(), Math.round(baseSize() * 0.78)]) {
+      const W = A.right - A.left - s, H = A.bottom - A.top - s; if (W < 0 || H < 0) continue;
+      for (let k = 0; k <= H / 26; k++) for (let x = A.left + W; x >= A.left - 1; x -= Math.max(36, W / 8)) {
+        const y = A.top + H - k * 26, r = bubbleRect(x, y, s, b), q = 4; let g = (k < 8 ? k * 1.5 : 12 + (k - 8) * 0.5) + (A.left + W - x) * 0.004 + (s < baseSize() ? 3 : 0);
+        if (best && g >= best.g) continue;
+        for (let i = 0; i <= q; i++) for (let j = 0; j <= q; j++) g += w(kindAt(x + (s * i) / q, y + (s * j) / q));
+        const kx = Math.max(4, Math.round(b.w / 36));
+        for (let i = 0; i <= kx; i++) for (let j = 0; j <= 2; j++) g += w(kindAt(r.x + (b.w * i) / kx, r.y + (b.h * j) / 2));
+        if (!best || g < best.g) best = { x, y, s, g };
+      }
+    }
+    stuck = Boolean(best && best.g >= 1);
+    return best;
   }
 
   function place(p, how = 'walk') {
@@ -152,7 +217,16 @@
     if (!pos) return go(null, how);
     const A = area(); if (!A) return;
     const out = pos.x < A.left - 2 || pos.y < A.top - 2 || pos.x + size > A.right + 2 || pos.y + size > A.bottom + 2;
-    if (out || (cost(pos.x, pos.y, size) > 2 && Date.now() >= pinnedUntil) || Math.abs(size - baseSize()) > 30) go(null, 'walk');
+    const free = Date.now() >= pinnedUntil;
+    // Une bulle vient d'apparaître là où elle couvrirait du texte ou une commande : il se déplace pour elle (une fois par bulle).
+    const b = bubble(), fresh = Boolean(b) && b.text !== bubbleSeen; bubbleSeen = b ? b.text : '';
+    if (fresh && free && bubbleCost(pos.x, pos.y, size, b) > 0) return go(null, how);
+    // Du contenu est apparu sous lui : il s'écarte. Sans aucune place libre, il ne recherche pas à chaque seconde.
+    // (Après un défilement, la bulle encore affichée peut se retrouver sur du texte : même règle pour elle.)
+    // Sur une commande (bouton, champ, onglet), lui ou sa bulle cherchent une autre place tout de suite, même sans place parfaite.
+    const surCommande = free && (onCommand(pos.x, pos.y, size) || (b && bubbleCommand(pos.x, pos.y, size, b)));
+    const on = surCommande || (free && (cost(pos.x, pos.y, size) > 0 || (b && bubbleCost(pos.x, pos.y, size, b) > 0)) && (!stuck || Date.now() >= retryAt));
+    if (out || on || Math.abs(size - baseSize()) > 30) { retryAt = Date.now() + 6000; go(null, 'walk'); }
   }
 
   // ---------- Ce qui l'intéresse : alertes, messages d'état, nouveautés ----------
@@ -236,6 +310,9 @@
 
   function start() {
     bud = make(); if (!bud) return;
+    // Téléphone : la fin de chaque page laisse la place d'Odin et de sa bulle au-dessus de la barre du bas, pour que la
+    // dernière ligne puisse toujours passer au-dessus d'eux en faisant défiler.
+    { const st = document.createElement('style'); st.textContent = '@media (max-width:599px){.view.on>.body::after{content:"";display:block;height:110px;pointer-events:none}}'; document.head.append(st); }
     view = '';
     sync('hopto');
     const views = new MutationObserver(() => sync('hopto'));

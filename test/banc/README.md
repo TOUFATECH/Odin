@@ -58,3 +58,36 @@ aussi dans `npm test` (fichier `test/banc-sim.test.ts`).
   le vrai matériel ni le vrai service.
 - Le mode « tout le trafic par le VPN » est vérifié sur la configuration générée, pas en navigation.
 - Les volets Tasmota à deux relais et Zigbee2MQTT sans annonce Home Assistant ne sont pas couverts.
+
+## Qualité de l'interface (débordements, placement, fluidité)
+
+Un détecteur passe sur l'interface dans un vrai navigateur (Chromium, Playwright) et rend la liste des défauts,
+chacun avec sa page, sa largeur, son sélecteur, sa mesure et une capture recadrée.
+
+```bash
+node test/banc/qualite.ts --liste                                  # les pages connues
+node test/banc/qualite.ts --page appli:ullr --largeur 390          # UNE page, une largeur
+node test/banc/qualite.ts --tout --sortie /tmp/qualite             # tout, avec rapport.md, rapport.json et captures
+node test/banc/qualite.ts --fluidite --sortie /tmp/qualite         # pages qui se redessinent, animations réduites
+node test/banc/qualite.ts --odin /chemin/autre/copie --page aujourdhui   # l'interface d'une autre copie du projet
+```
+
+Ce qu'il cherche, à chaque largeur (1440, 1280, 1024, 768, 390, 360, 320) : la page qui défile de côté ; un élément
+qui sort de l'écran ou de sa boîte ; un texte coupé, tronqué ou recouvert (par un autre élément, une notification,
+la mascotte, la barre du bas) ; un texte posé sur le décor du thème ; des éléments cliquables qui se chevauchent ;
+une rangée d'onglets sur plusieurs lignes ; un libellé de bouton sur 3 lignes ; une cible tactile de moins de 40 px
+sur téléphone ; une image déformée ; un contraste insuffisant (calcul WCAG) ; un focus au clavier invisible.
+Fluidité : temps d'ouverture, décalages de mise en page, tâches longues, page qui se redessine toute seule,
+animations qui tournent malgré « réduire les animations ».
+
+Dans un essai, on donne une page Playwright au détecteur :
+
+```ts
+import { detecter, capturer } from './banc/debordements.ts';
+const defauts = await detecter(page);                    // les plus graves d'abord
+await capturer(page, defauts[0], '/tmp/defaut.png');     // l'élément fautif entouré de rouge
+```
+
+Fichiers : `debordements.ts` (+ `debordements-page.js`, le code qui tourne dans la page), `fluidite.ts`
+(+ `fluidite-page.js`), `odin-plein.ts` (un Odin de test rempli de données de démonstration), `qualite.ts` (le parcours).
+Le détecteur s'essaie lui-même sur des pages à défauts voulus : `test/debordements.test.ts`.
