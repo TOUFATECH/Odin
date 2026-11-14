@@ -99,7 +99,9 @@ export function reconcilier(ctx: ModCtx): number {
     const p = ps.find((x) => x.id === a.sub && x.active);
     for (const e of d.elements) {
       const v = voulu(pctx, e, a, p), o = d.ouvert(a.id, e.id);
-      if (o && (!v || v.action !== o.action || (v.version && o.version && v.version !== o.version))) {
+      // « installer » et « mettre à jour » sont la même chose pour l'appareil : on ne remplace pas un ordre en cours par l'autre.
+      const famille = (x: Action) => (x === 'desinstaller' ? 'd' : 'i');
+      if (o && (!v || famille(v.action) !== famille(o.action) || (v.version && o.version && v.version !== o.version))) {
         o.etat = 'annule'; o.maj = now; change = true; d.bus.emit('annule', a.id, o.id);
       } else if (o) continue;
       if (!v) continue;

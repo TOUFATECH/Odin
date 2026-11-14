@@ -1,0 +1,89 @@
+# Agora sur l'ordinateur (le store d'Odin) : types, construction des installateurs Windows (NSIS), Mac (.dmg) et Linux
+# (AppImage, .deb), et sous Linux l'essai pour de vrai (un vrai Odin, le vrai store sous xvfb, une vraie AppImage
+# installée, mise à jour, refusée si son empreinte est fausse, puis désinstallée).
+# Les installateurs sont dans les « artifacts » de l'exécution (onglet Actions de GitHub). Ils ne sont pas signés :
+# Windows (SmartScreen) et Mac (Gatekeeper) préviennent au premier lancement tant qu'on n'a pas de certificat de signature.
+name: Agora (store du poste)
+
+on:
+  push:
+    paths:
+      - 'agora-poste/**'
+      - 'src/valhalla/agora/**'
+      - 'src/web/agora-api.ts'
+      - 'test/agora-poste.test.ts'
+      - '.github/workflows/agora-poste.yml'
+  pull_request:
+    paths:
+      - 'agora-poste/**'
+      - '.github/workflows/agora-poste.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agora-poste-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  construire:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cible: linux
+          - os: windows-latest
+            cible: win
+          - os: macos-latest
+            cible: mac
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: agora-poste
+    env:
+      # Pas de certificat de signature ici : construction non signée.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: agora-poste/package-lock.json
+
+      - name: Dépendances du store
+        run: npm ci
+
+      - name: Types
+        run: npm run types
+
+      - name: Installateurs (${{ matrix.cible }})
+        run: npm run dist:${{ matrix.cible }}
+
+      - name: Essai pour de vrai (Linux) — dépendances d'Odin et écran virtuel
+        if: matrix.cible == 'linux'
+        working-directory: .
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb > /dev/null
+          npm ci
+
+      - name: Essai pour de vrai (Linux) — vrai Odin, vrai store, vraie AppImage
+        if: matrix.cible == 'linux'
+        working-directory: .
+        run: node --experimental-strip-types --no-warnings --test test/agora-poste.test.ts
+
+      - name: Installateurs
+        uses: actions/upload-artifact@v4
+        with:
+          name: agora-${{ matrix.cible }}
+          path: |
+            agora-poste/sortie/*.exe
+            agora-poste/sortie/*.dmg
+            agora-poste/sortie/*.AppImage
+            agora-poste/sortie/*.deb
+          if-no-files-found: error

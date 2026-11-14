@@ -1,0 +1,57 @@
+/* Agora, le store d'Odin sur l'ordinateur : les couleurs de la maquette validée (StorePC). */
+:root { --fond: #EEF8F9; --cote: #E9F9FA; --bord: #C2DFE1; --texte: #10363A; --doux: #3E5B5E; --accent: #0B7F7C; --accent-fonce: #054845; --actif: #D2E9E9; --vert: #15803D; --vert-fonce: #14532D; --info: #0284C7; --jaune: #FFF8E1; --jaune-bord: #F3D27A; --rouge: #B42318; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--fond); color: var(--texte); font: 16px/1.5 'IBM Plex Sans', system-ui, sans-serif; }
+h1, h2 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; margin: 0; }
+button { font: inherit; }
+#appli { height: 100%; display: flex; }
+nav { width: 210px; flex: none; padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; background: var(--cote); border-right: 1px solid var(--bord); }
+.qui { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
+.avatar { width: 34px; height: 34px; border-radius: 17px; display: grid; place-items: center; background: #F59E0B; color: #fff; font-weight: 700; flex: none; }
+.qui span { display: flex; flex-direction: column; font-size: 13.5px; min-width: 0; }
+.qui small { color: var(--doux); font-size: 13.5px; }
+nav button.onglet { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 12px; border-radius: 10px; color: var(--texte); background: none; border: 0; text-align: left; cursor: pointer; }
+nav button.onglet[aria-current="page"] { font-weight: 600; background: var(--actif); box-shadow: inset 3px 0 0 var(--accent); }
+nav button.onglet:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pastille { margin-left: auto; min-width: 22px; height: 22px; border-radius: 11px; background: var(--accent); color: #fff; font-size: 12px; display: grid; place-items: center; }
+nav .bas { margin-top: auto; font-size: 12.5px; color: var(--doux); padding: 8px; }
+nav .bas button { background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; text-decoration: underline; }
+main { flex: 1; min-width: 0; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
+.tete { display: flex; align-items: center; gap: 10px; }
+.tete h1 { flex: 1; font-size: 24px; }
+.ajour { display: flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--vert); }
+.ajour.non { color: var(--doux); }
+.message { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--jaune); border: 1px solid var(--jaune-bord); font-size: 14px; }
+.message span { flex: 1; }
+.message button { background: none; border: 0; cursor: pointer; color: var(--doux); }
+.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+article { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #fff; border: 1px solid var(--bord); }
+article .haut { display: flex; align-items: center; gap: 12px; }
+.ico { width: 36px; height: 36px; flex: none; border-radius: 9px; display: grid; place-items: center; color: #fff; font: 700 15px 'Bricolage Grotesque', sans-serif; }
+article .haut span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+article .haut small { font-size: 13.5px; color: var(--doux); }
+.etat { font-size: 13px; color: var(--doux); }
+.etat.erreur { color: var(--rouge); }
+.impose { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--vert-fonce); }
+.actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-height: 40px; margin-top: auto; }
+.bouton { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #6F9092; background: #fff; color: var(--texte); font-weight: 500; font-size: 14.5px; cursor: pointer; white-space: nowrap; }
+.bouton.principal { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+.bouton:disabled { opacity: .5; cursor: default; }
+.barre { display: block; width: 90px; height: 6px; border-radius: 3px; background: #DCEFF3; }
+.barre span { display: block; height: 6px; border-radius: 3px; background: var(--info); }
+.vide { color: var(--doux); padding: 30px 0; }
+.histo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.histo li { display: flex; gap: 12px; padding: 10px 12px; background: #fff; border: 1px solid var(--bord); border-radius: 10px; font-size: 14px; }
+.histo li time { color: var(--doux); min-width: 120px; }
+.histo li.non { border-color: #F2B8B5; }
+.connexion { margin: auto; width: min(440px, 92vw); background: #fff; border: 1px solid var(--bord); border-radius: 16px; padding: 26px; display: flex; flex-direction: column; gap: 12px; }
+.connexion h1 { font-size: 26px; }
+.connexion p { margin: 0; color: var(--doux); }
+.connexion label { font-size: 14px; font-weight: 600; display: flex; flex-direction: column; gap: 4px; }
+.connexion input { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #9FBFC1; }
+.connexion .err { color: var(--rouge); font-size: 14px; }
+.connexion .trouves { display: flex; flex-wrap: wrap; gap: 6px; }
+.connexion .trouves button { font-size: 13px; border: 1px solid var(--bord); background: var(--cote); border-radius: 99px; padding: 4px 10px; cursor: pointer; }
+.lien { background: none; border: 0; color: var(--accent); cursor: pointer; text-decoration: underline; padding: 0; font-size: 14px; }
+.note { font-size: 13px; color: var(--doux); }

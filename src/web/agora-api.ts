@@ -142,8 +142,11 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
       const e = d.element(s(x.element)); if (!e) continue;
       const etat = s(x.etat) as EtatInstall; if (!ETATS.includes(etat)) return err(res, 400, 'requete_invalide', `État inconnu : ${propre(x.etat, 20)} (${ETATS.join(', ')}).`);
       vus.add(e.id);
+      // Un compte rendu en retard (progression d'un ordre déjà fini ou annulé) ne change plus rien.
+      const dejaFini = s(x.ordre) && d.ordres.find((y) => y.id === s(x.ordre) && y.appareil === a.id && !OUVERT.includes(y.etat));
+      if (dejaFini && (etat === 'installation' || etat === 'desinstallation')) continue;
       const prog = Number(x.progression), erreur = propre(x.erreur, 200), version = propre(x.version, 40), cur = a.applis[e.id];
-      a.applis[e.id] = { etat, ...(version ? { version } : etat === 'installee' || etat === 'erreur' ? (cur?.version ? { version: cur.version } : {}) : {}), ...(Number.isFinite(prog) && etat !== 'installee' ? { progression: Math.max(0, Math.min(100, Math.round(prog))) } : {}), ...(erreur ? { erreur } : {}), par: x.par === 'personne' ? 'personne' : cur?.par ?? 'impose', maj: now };
+      a.applis[e.id] = { etat, ...(version ? { version } : etat !== 'absente' && cur?.version ? { version: cur.version } : {}), ...(Number.isFinite(prog) && etat !== 'installee' ? { progression: Math.max(0, Math.min(100, Math.round(prog))) } : {}), ...(erreur ? { erreur } : {}), par: x.par === 'personne' ? 'personne' : cur?.par ?? 'impose', maj: now };
       // L'ordre en cours pour cet élément.
       const o = (s(x.ordre) && d.ordres.find((y) => y.id === s(x.ordre) && y.appareil === a.id)) || d.ouvert(a.id, e.id);
       if (o && OUVERT.includes(o.etat)) {
@@ -170,8 +173,8 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
     const pf = s(url.searchParams.get('plateforme')) || a.plateforme, ver = s(url.searchParams.get('version'));
     const m = modePour(pctx, e, personnes(pctx).find((x) => x.id === p.id) ?? p);
     if (a.forces[e.id] !== 'installee' && (!m || m.mode === 'retiree')) return err(res, 403, 'pas_le_droit', `Tu n'as pas droit à ${e.nom} : demande à un admin de t'ajouter au bon groupe.`);
-    const pk = e.paquets.find((x) => x.plateforme === pf && (!ver || x.version === ver)) ?? paquetPour(e, pf);
-    if (!pk) return err(res, 404, 'introuvable', `${e.nom} n'a pas d'installateur pour ${pf}.`);
+    const pk = ver ? e.paquets.find((x) => x.plateforme === pf && x.version === ver) : paquetPour(e, pf);
+    if (!pk) return err(res, 404, 'introuvable', ver ? `${e.nom} ${ver} n'est plus dans le store : relis ton store.` : `${e.nom} n'a pas d'installateur pour ${pf}.`);
     if (pk.lien && !pk.fichier) return json(res, 409, { ok: false, code: 'lien', message: 'Cet installateur se télécharge à son adresse d\'origine.', lien: pk.lien, sha256: pk.sha256 });
     const f = cheminFichier(ag, pk); if (!f) return err(res, 410, 'fichier_absent', `L'installateur de ${e.nom} n'est plus sur Odin : un admin doit le remettre dans le store.`);
     res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': String(statSync(f).size), 'content-disposition': `attachment; filename="${pk.nomFichier.replace(/"/g, '')}"`, 'x-odin-empreinte': pk.sha256, 'x-odin-version': pk.version, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
