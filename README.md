@@ -857,3 +857,5 @@ Ajouter un outil = un objet avec un nom, une description, un **niveau de risque*
 ## Licence
 
 [MIT](LICENSE) © TOUFATECH
+
+Le dictionnaire français de Plume vient de Grammalecte (MPL 2.0) : fichiers inchangés, avec leur licence à côté.

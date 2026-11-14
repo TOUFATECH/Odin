@@ -1,5 +1,23 @@
 [
  {
+  "id": "v1280",
+  "at": "2026-11-14T11:30:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.28.0",
+  "title": "Plume corrige pendant que tu écris, partout",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Plume souligne pendant que tu écris : discussion avec Odin, champs de toutes les applis, pages d'Odin (rouge : orthographe et frappe ; bleu : grammaire).",
+   "Un clic sur le mot : Corriger, Modifier, Tout voir, Désactiver ; le compteur dans le champ ouvre la liste.",
+   "« Désactiver » coupe Plume partout, et Odin ne s'en sert plus ; Réglages → Plume le rallume. Le réglage est par personne, sur tous ses appareils.",
+   "Dictionnaire français livré avec Odin (Grammalecte, MPL 2.0) : le texte ne part jamais sur Internet, et Plume ne touche jamais un mot de passe, un code ou un éditeur de code.",
+   "Demande à Odin de corriger un texte ou un fichier : il relit d'abord avec Plume."
+  ]
+ },
+ {
   "id": "v1270",
   "at": "2026-11-14T11:00:00+03:00",
   "date": "2026-11-14",
@@ -21,7 +39,7 @@
    "machines"
   ],
   "kind": "version"
-},
+ },
  {
   "id": "v1260",
   "at": "2026-11-14T10:45:00+03:00",
