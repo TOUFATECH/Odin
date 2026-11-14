@@ -1,7 +1,7 @@
 // Pégase, le navigateur d'Odin : le processus principal.
-import { app, protocol, session, net, BaseWindow, Menu } from 'electron';
+import { app, protocol, session, net, BaseWindow, Menu, shell } from 'electron';
 import { join, normalize, extname } from 'node:path';
-import { existsSync, readFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import type { Etat, Theme } from '../commun/types';
 import { ProfilOuvert } from './profil';
@@ -10,7 +10,8 @@ import { ecrireSur } from './stockage';
 import { nouvelId } from './outils';
 import { Protection } from './protection';
 import { actionFavoris } from './favoris';
-import { brancherCertificats } from './securite';
+import { brancherCertificats, certificatsEpingles } from './securite';
+import { Synchro, trouverOdin, bonjour, type OdinTrouve } from './odin';
 
 // ————— Où ranger les données (dossier de profil du système) —————
 // Windows : %APPDATA%\Pégase, Mac : ~/Library/Application Support/Pégase, Linux : ~/.config/pegase.
@@ -46,8 +47,12 @@ function appareil(): string {
 class Pegase implements Appli {
   fenetres = new Set<Fenetre>();
   profils = new Map<string, ProfilOuvert>();
+  synchros = new Map<ProfilOuvert, Synchro>();
   protection!: Protection;
   readonly appareil = appareil();
+  /** 1er lancement : les Odin trouvés, la recherche en cours, le compte tapé (le mot de passe reste en mémoire seulement). */
+  private recherche = { trouves: [] as OdinTrouve[], encours: false };
+  private compteEnAttente: { nom: string; email: string; motdepasse: string } | null = null;
 
   async demarrer(): Promise<void> {
     Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]) : null);
@@ -59,7 +64,8 @@ class Pegase implements Appli {
     this.ecrireListeProfils();
     this.protection.reglerDns(undefined, p.reglages().dnsSecours).then(() => { for (const x of this.fenetres) x.planifier(); }).catch(() => 0);
     const f = this.nouvelleFenetreDe(p);
-    f.ecran = 'navigateur';
+    f.ecran = 'demarrage';
+    void this.premierEcran(f, p);
     setInterval(() => this.veiller(), 30_000).unref();
     app.on('second-instance', (_e, argv) => {
       const url = argv.find((a) => /^https?:\/\//.test(a));
@@ -68,6 +74,52 @@ class Pegase implements Appli {
     });
     const url = process.argv.find((a) => /^https?:\/\//.test(a));
     if (url) f.faire('ouvrir', { url });
+  }
+
+  /** Envoi d'un fichier douteux à Asclépios (seulement si la personne l'a permis dans les réglages). */
+  async odinAnalyse(p: ProfilOuvert, chemin: string, nom: string): Promise<{ sain: boolean; menace?: string } | null> {
+    const sy = this.synchros.get(p); if (!sy?.lien) return null;
+    if (statSync(chemin).size > 200 * 1024 * 1024) return null;
+    return sy.analyser(readFileSync(chemin), nom);
+  }
+
+  /** Démarrage : profil déjà relié → le navigateur ; 1er lancement → chercher Odin (ce PC, puis le réseau). */
+  private async premierEcran(f: Fenetre, p: ProfilOuvert): Promise<void> {
+    const sy = this.synchros.get(p)!;
+    const debut = Date.now();
+    const montrer = async (e: Etat['ecran']) => { const reste = 700 - (Date.now() - debut); if (reste > 0) await new Promise((r) => setTimeout(r, reste)); f.ecran = e; f.planifier(); };
+    const multi = this.listeProfils().filter((x) => x.id !== p.id).length > 0;
+    if (sy.lien) { await sy.demarrer(); this.apresConnexion(p); return montrer(multi ? 'connexion' : 'navigateur'); }
+    const sauter = ESSAI && process.env.PEGASE_PREMIER === 'non';
+    if (sy.local.valeur.premierFait || sauter) {
+      await montrer(multi ? 'connexion' : 'navigateur');
+      // Connexion unique du poste en fond : si un autre programme d'Odin est connecté sur ce PC, Pégase le rejoint.
+      if (!sauter) trouverOdin({ reseau: false }).then(async (t) => { if (t[0] && !sy.lien && (await sy.essayerSso(t[0])).ok) { this.apresConnexion(p); this.dire(p, 'Connecté à Odin par la connexion unique de ce PC.'); } }).catch(() => 0);
+      return;
+    }
+    this.recherche = { trouves: [], encours: true };
+    const t = await trouverOdin({ reseau: false }).catch(() => []);
+    this.recherche.trouves = t;
+    if (t[0] && (await sy.essayerSso(t[0])).ok) { this.recherche.encours = false; this.apresConnexion(p); await montrer('navigateur'); this.dire(p, 'Connecté à Odin par la connexion unique de ce PC : tout revient.'); return; }
+    await montrer('odin');
+    if (!t.length) this.chercherReseau();
+    else { this.recherche.encours = false; this.planifierTout(); }
+  }
+  private chercherReseau(): void {
+    this.recherche.encours = true; this.planifierTout();
+    trouverOdin({ surTrouve: (x) => { if (!this.recherche.trouves.some((y) => y.adresse === x.adresse)) this.recherche.trouves.push(x); this.planifierTout(); } })
+      .catch(() => []).finally(() => { this.recherche.encours = false; this.planifierTout(); });
+  }
+  private planifierTout(): void { for (const x of this.fenetres) x.planifier(); }
+  private dire(p: ProfilOuvert, texte: string): void { for (const x of this.fenetres) if (x.profil === p) x.envoyer('message', texte); }
+
+  /** Une fois relié : certificat d'Odin épinglé, DNS chiffré par Sphinx, signatures d'Asclépios. */
+  private apresConnexion(p: ProfilOuvert): void {
+    const sy = this.synchros.get(p); const l = sy?.lien; if (!sy || !l) return;
+    try { const u = new URL(l.adresse); if (l.empreinte) certificatsEpingles.set(u.host, l.empreinte); } catch { /* */ }
+    if (l.dns && l.adresse.startsWith('https:')) this.protection.reglerDns(l.adresse, p.reglages().dnsSecours).then(() => this.planifierTout()).catch(() => 0);
+    sy.signatures(join(racineDonnees, 'signatures.json')).then((s) => { if (s) { this.protection.signatures = s; } }).catch(() => 0);
+    this.planifierTout();
   }
 
   /** Les fichiers de l'interface, servis en pegase://app/… avec une CSP stricte. */
@@ -89,6 +141,13 @@ class Pegase implements Appli {
     const deja = this.profils.get(id); if (deja) return deja;
     const p = new ProfilOuvert({ id, dossier: join(dossierProfils, id), appareil: this.appareil, prive, preparerSession: (s, pr) => this.protection.preparerSession(s, pr) });
     this.profils.set(id, p);
+    if (!prive) {
+      const sy = new Synchro(p);
+      sy.surEtat = () => { for (const f of this.fenetres) if (f.profil === p) f.planifier(); };
+      sy.surMessage = (t) => this.dire(p, t);
+      this.synchros.set(p, sy);
+      if (ESSAI && process.env.PEGASE_PREMIER === 'non') sy.premierFait();
+    }
     return p;
   }
 
@@ -113,16 +172,130 @@ class Pegase implements Appli {
   }
 
   etatGlobal(f: Fenetre): Partial<Etat> {
+    const sy = this.synchros.get(f.profil); const l = sy?.lien;
+    const odins = new Set([...this.synchros.values()].filter((x) => x.lien).map((x) => x.p.id));
     return {
       protection: this.protection.etat(f.profil),
       telechargements: this.protection.telechargements.liste(f.profil),
+      synchro: sy ? sy.etat : { etat: 'local', attente: 0 },
+      odin: l ? { url: l.adresse, nom: l.profil ? `${l.nom} ${l.version}`.trim() : l.nom, connecte: true } : undefined,
+      premier: f.ecran === 'navigateur' ? undefined : {
+        trouves: this.recherche.trouves, recherche: this.recherche.encours,
+        compte: this.compteEnAttente ? { nom: this.compteEnAttente.nom, email: this.compteEnAttente.email } : null,
+        profilsPC: this.listeProfils().map((x) => ({ ...x, odin: odins.has(x.id) })),
+      },
     };
+  }
+
+  /** Trouve l'Odin choisi (dans la liste, sinon en lui disant bonjour). */
+  private async odinDe(adresse: string): Promise<OdinTrouve | null> {
+    const t = this.recherche.trouves.find((x) => x.adresse === adresse); if (t) return t;
+    try { const u = new URL(adresse); const b = await bonjour(u.hostname.replace(/^\[|\]$/g, ''), Number(u.port) || 7777); if (b) this.recherche.trouves.unshift(b); return b; } catch { return null; }
+  }
+
+  /** Ce qui touche à Odin (1er lancement, connexion, synchro, IA). */
+  private async actionOdin(f: Fenetre, action: string, arg: any): Promise<{ fait: boolean; r?: unknown }> {
+    const p = f.profil; const sy = this.synchros.get(p);
+    const fini = (r?: unknown) => ({ fait: true, r });
+    switch (action) {
+      case 'odinChercher': {
+        if (arg?.hote) {
+          const b = await bonjour(String(arg.hote).trim(), Number(arg.port) || 7777);
+          if (b) { this.recherche.trouves = [b, ...this.recherche.trouves.filter((x) => x.adresse !== b.adresse)]; this.planifierTout(); return fini({ ok: true, odin: b }); }
+          return fini({ ok: false, texte: `Pas d'Odin à ${arg.hote}:${Number(arg.port) || 7777}. Vérifie l'adresse et que le PC d'Odin est allumé.` });
+        }
+        if (!this.recherche.encours) this.chercherReseau();
+        return fini({ ok: true });
+      }
+      case 'odinConnecter': {
+        if (!sy) return fini({ ok: false, texte: 'Une fenêtre privée ne se relie pas à Odin.' });
+        const t = await this.odinDe(String(arg?.adresse ?? '')); if (!t) return fini({ ok: false, texte: 'Odin ne répond pas à cette adresse.' });
+        const r = await sy.connecter(t, String(arg?.email ?? '').trim(), String(arg?.motdepasse ?? ''), arg?.code ? String(arg.code) : undefined);
+        if (r.ok) { this.apresConnexion(p); f.ecran = 'navigateur'; f.planifier(); }
+        return fini(r);
+      }
+      case 'odinIgnorer': f.ecran = 'compte'; f.planifier(); return fini();
+      case 'ecranConnexion': f.ecran = arg?.ecran === 'odin' ? 'odin' : arg?.ecran === 'compte' ? 'compte' : 'navigateur'; if (f.ecran === 'odin' && !this.recherche.trouves.length && !this.recherche.encours) this.chercherReseau(); f.planifier(); return fini();
+      case 'compteCreer': {
+        const nom = String(arg?.nom ?? '').trim().slice(0, 60), email = String(arg?.email ?? '').trim().slice(0, 200), mdp = String(arg?.motdepasse ?? '');
+        if (!nom) return fini({ ok: false, texte: 'Écris ton nom.' });
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fini({ ok: false, texte: 'Cette adresse e-mail n’a pas la bonne forme.' });
+        if (mdp && mdp.length < 10) return fini({ ok: false, texte: 'Mot de passe : 10 caractères au moins.' });
+        const pr = p.profil(); p.mettre('profil', { ...pr, nom, email: email || undefined, lettre: nom.slice(0, 1).toUpperCase() });
+        this.ecrireListeProfils();
+        if (mdp) sy?.retenirMotDePasse(mdp);
+        this.compteEnAttente = { nom, email, motdepasse: mdp };
+        f.ecran = 'sauvegarde'; f.planifier();
+        if (!this.recherche.trouves.length && !this.recherche.encours) this.chercherReseau();
+        return fini({ ok: true });
+      }
+      case 'compteIgnorer': case 'sauvegardeIgnorer': this.compteEnAttente = null; sy?.premierFait(); f.ecran = 'navigateur'; f.planifier(); return fini();
+      case 'sauvegarder': { // créer la personne dans Odin (accord du propriétaire), puis tout envoyer
+        const c = this.compteEnAttente; if (!sy || !c) return fini({ ok: false, texte: 'Recommence la création du compte.' });
+        if (!c.email || !c.motdepasse) return fini({ ok: false, texte: 'Pour sauvegarder sur Odin, il faut une adresse e-mail et un mot de passe : reviens en arrière.' });
+        const t = await this.odinDe(String(arg?.adresse ?? '')); if (!t) return fini({ ok: false, texte: 'Odin ne répond pas à cette adresse.' });
+        const r = await sy.creerCompte(t, c.nom, c.email, c.motdepasse);
+        if (!r.ok && r.codeErreur === 'existe_deja') { // déjà un compte : on essaie de s'y connecter avec le même mot de passe
+          const k = await sy.connecter(t, c.email, c.motdepasse);
+          if (k.ok) { this.compteEnAttente = null; this.apresConnexion(p); f.ecran = 'navigateur'; f.planifier(); return fini({ ok: true, etat: 'ok' }); }
+          return fini({ ok: false, texte: 'Un compte Odin existe déjà avec cette adresse, avec un autre mot de passe : connecte-toi avec le tien (« Restaurer un profil depuis Odin »).' });
+        }
+        if (r.ok && r.etat === 'ok') { this.compteEnAttente = null; this.apresConnexion(p); f.ecran = 'navigateur'; f.planifier(); }
+        return fini(r);
+      }
+      case 'sauvegardeEtat': {
+        if (!sy) return fini({ ok: false });
+        const t = await this.odinDe(String(arg?.adresse ?? '')); if (!t) return fini({ ok: false, etat: 'erreur', texte: 'Odin ne répond plus.' });
+        const r = await sy.etatCompte(t, String(arg?.demande ?? ''));
+        if (r.ok && r.etat === 'ok') { this.compteEnAttente = null; this.apresConnexion(p); f.ecran = 'navigateur'; f.planifier(); }
+        return fini(r);
+      }
+      case 'choisirProfil': {
+        const id = String(arg?.id ?? '');
+        if (id === p.id) { f.ecran = 'navigateur'; f.planifier(); return fini(); }
+        if (!this.listeProfils().some((x) => x.id === id)) return fini();
+        const np = this.ouvrirProfil(id); const n = this.nouvelleFenetreDe(np); n.ecran = 'navigateur';
+        void this.synchros.get(np)?.demarrer().then(() => this.apresConnexion(np));
+        f.win.close(); return fini();
+      }
+      case 'deconnexion': await sy?.deconnecter(); this.planifierTout(); return fini(true);
+      case 'synchroMaintenant': await sy?.verifier(); return fini(sy?.etat);
+      case 'synchroInfos': {
+        const taille = dossierTaille(p.opts.dossier);
+        return fini({ lien: sy?.lien ? { adresse: sy.lien.adresse, nom: sy.lien.nom, version: sy.lien.version, mode: sy.lien.mode, profil: sy.lien.profil, derniere: sy.lien.derniere } : null, journal: sy?.local.valeur.journal ?? [], dossier: p.opts.dossier, taille, attente: sy?.etat.attente ?? 0 });
+      }
+      case 'ouvrirDossierProfil': shell.openPath(p.opts.dossier).catch(() => 0); return fini();
+      case 'viderCache': await p.session.clearCache(); return fini(true);
+      case 'odinCopies': return fini(sy?.lien ? await sy.copies().catch(() => []) : []);
+      case 'odinRestaurer': return fini(sy?.lien ? await sy.restaurer(String(arg?.copie ?? '')) : 'Pas relié à Odin.');
+      case 'odinMoi': return fini(sy?.lien ? await sy.moi().catch(() => null) : null);
+      case 'lienAgenda': return fini(sy?.lien ? await sy.lienAgenda(!!arg?.nouvelle).catch(() => null) : null);
+      case 'voir': if (sy?.lien && ['tout', 'sans-historique', 'rien'].includes(arg?.v)) await sy.voir(arg.v).catch(() => false); return fini();
+      case 'propositions': return fini(sy?.lien ? await sy.propositions() : []);
+      case 'odinDemander': {
+        if (!sy?.lien) return fini({ texte: 'Pégase n’est pas encore relié à ton Odin : Réglages → Synchro Odin.' });
+        const id = arg?.onglet ? String(arg.onglet) : f.ongletCourant();
+        const o = id ? p.onglet(id) : undefined; const wc = id ? p.vivants.get(id)?.vue?.webContents : undefined;
+        let page: { url: string; titre: string; extrait: string } | undefined;
+        if (o && wc && /^https?:/.test(o.url)) {
+          // Le texte visible de la page, lu dans un monde isolé (la page ne peut pas le falsifier pour Pégase).
+          const extrait = await wc.executeJavaScriptInIsolatedWorld(1002, [{ code: '(document.body ? document.body.innerText : "").slice(0, 20000)' }]).catch(() => '');
+          page = { url: o.url, titre: o.titre, extrait: String(extrait ?? '') };
+        }
+        const texte = arg?.traduire ? 'Traduis cette page en français, sans rien ajouter.' : arg?.resumer ? 'Résume cette page en quelques points courts.' : arg?.verifier ? 'Vérifie ce site : est-il fiable ? Y a-t-il un risque d’arnaque ou de virus ?' : String(arg?.texte ?? '');
+        if (arg?.verifier && o) { const a = await sy.adresse(o.url); if (a) return fini({ texte: `${a.texte}${a.verdict === 'sur' ? ' (Rien de connu ne veut pas dire « sûr à 100 % ».)' : ''}` }); }
+        return fini({ texte: await sy.demander(texte, page) });
+      }
+      case 'verifierMdpOdin': return fini(sy ? sy.verifierMotDePasse(String(arg?.motdepasse ?? '')) : null);
+    }
+    return { fait: false };
   }
 
   async action(f: Fenetre, action: string, arg: any): Promise<any> {
     if (action === 'memoire') return this.memoire();
     if (action === 'dnsChange') { await this.protection.reglerDns(undefined, f.profil.reglages().dnsSecours); for (const x of this.fenetres) x.planifier(); return; }
     const fav = actionFavoris(f.profil, action, arg); if (fav.fait) return fav.r;
+    const od = await this.actionOdin(f, action, arg); if (od.fait) return od.r;
     const p = f.profil;
     switch (action) {
       case 'majProfil': {
@@ -156,7 +329,7 @@ class Pegase implements Appli {
 
   fenetreFermee(f: Fenetre): void {
     this.fenetres.delete(f);
-    if (![...this.fenetres].some((x) => x.profil === f.profil)) { f.profil.fermer(); this.profils.delete(f.profil.id); }
+    if (![...this.fenetres].some((x) => x.profil === f.profil)) { this.synchros.get(f.profil)?.arreter(); this.synchros.delete(f.profil); f.profil.fermer(); this.profils.delete(f.profil.id); }
     if (!this.fenetres.size && process.platform !== 'darwin') app.quit();
   }
 
@@ -201,7 +374,15 @@ class Pegase implements Appli {
     ecrireSur(join(dossierProfils, 'profils.json'), JSON.stringify(l));
   }
 
-  quitter(): void { for (const p of this.profils.values()) p.fermer(); }
+  quitter(): void { for (const s of this.synchros.values()) s.arreter(); for (const p of this.profils.values()) p.fermer(); }
+}
+
+/** La place prise par un dossier (Mo), sans suivre les liens. */
+function dossierTaille(d: string): number {
+  let n = 0;
+  const tour = (x: string, prof: number) => { if (prof > 6) return; let l: import('node:fs').Dirent[] = []; try { l = readdirSync(x, { withFileTypes: true }); } catch { return; } for (const e of l) { const c = join(x, e.name); if (e.isDirectory()) tour(c, prof + 1); else if (e.isFile()) { try { n += statSync(c).size; } catch { /* */ } } } };
+  tour(d, 0);
+  return Math.round(n / 1024 / 102.4) / 10;
 }
 
 const pegase = new Pegase();

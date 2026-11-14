@@ -372,3 +372,52 @@ h2.jour { margin: 18px 0 8px; text-transform: capitalize; }
 .menu-page { width: 320px; }
 .tete-outils .segments.petits button { white-space: nowrap; }
 .tete-outils b { white-space: nowrap; }
+
+/* ————— Écrans du 1er lancement (maquettes Odin, Compte, Sauvegarde, Connexion) ————— */
+.ecran .centre { text-align: center; }
+.ecran .centre p { margin-top: 18px; }
+.ecran-boite { overflow: auto; padding: 56px 24px 40px; }
+.fen-ecran { position: fixed; top: 0; right: 8px; display: flex; -webkit-app-region: no-drag; }
+.fen-ecran .fen { width: 44px; height: 36px; display: grid; place-items: center; background: transparent; border: 0; color: var(--texte); }
+.boite-ecran.large { width: min(540px, calc(100vw - 48px)); border-radius: 24px; padding: 28px; gap: 18px; background: var(--panneau); }
+.tete-ecran { display: flex; align-items: center; gap: 14px; }
+.tete-ecran .logo { width: 52px; height: 52px; border-radius: 14px; }
+.tete-ecran h1 { margin: 0; font: 700 26px/1.15 var(--police); }
+.tete-ecran span { color: var(--panneau-doux); }
+.etapes { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.etapes li { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--panneau-doux); }
+.etapes li span { height: 4px; border-radius: 2px; background: var(--panneau-bord); }
+.etapes li.actuelle { color: var(--panneau-texte); font-weight: 600; }
+.etapes li.actuelle span, .etapes li.faite span { background: #B98CFF; }
+.bloc-odin { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: var(--panneau-survol); }
+.statut-odin { display: flex; align-items: center; gap: 10px; }
+.ok-rond, .ko-rond { flex: none; width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; background: #2ED378; color: #06210F; font-weight: 700; }
+.ko-rond { background: var(--panneau-bord); color: var(--panneau-texte); }
+.ok-rond.petit, .ko-rond.petit { width: 20px; height: 20px; font-size: 12px; }
+.ip-port { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 8px; }
+.boite-ecran input.champ { height: 44px; font-size: 15px; }
+.mdp { display: flex; align-items: center; gap: 4px; }
+.mdp input { flex: 1; }
+.boutons-ecran { flex-wrap: wrap; gap: 10px; }
+.boutons-ecran .bouton { height: 48px; font-size: 15px; border-radius: 13px; padding: 0 18px; }
+.bouton.fort { flex: 1 1 220px; background: linear-gradient(135deg, #8A2BFF, #D11CFF); border: 0; color: #FFFFFF; font-weight: 600; }
+.bouton.fort:hover { filter: brightness(1.08); }
+.bouton.fort:disabled, .boite-ecran .bouton:disabled { opacity: .55; cursor: default; }
+.note { font-size: 12px; }
+.solidite { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.solidite .jauge { width: 120px; height: 6px; border-radius: 3px; background: var(--panneau-bord); overflow: hidden; }
+.solidite .jauge span { display: block; height: 100%; width: 0; background: #FF8A7A; transition: width .2s; }
+.solidite[data-n="1"] .jauge span { width: 45%; background: #F2C366; }
+.solidite[data-n="2"] .jauge span { width: 75%; background: #2ED378; }
+.solidite[data-n="3"] .jauge span { width: 100%; background: #2ED378; }
+.solidite[data-n="0"] .jauge span { width: 15%; }
+.chemin-profil { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; background: var(--panneau-survol); }
+.titre-ecran { margin: 4px 0 0; font-size: 14px; }
+.ce-qui-part { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; }
+.ce-qui-part li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.attente-accord { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 12px; background: var(--orange-fond); border: 1px solid var(--orange-bord); }
+.code-accord { font-size: 18px; letter-spacing: .12em; }
+.profils-pc { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.carte-profil { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 10px; border-radius: 16px; border: 1px solid var(--panneau-bord); background: var(--panneau-survol); }
+.carte-profil:hover { border-color: #B98CFF; }
+.avatar.grand { width: 56px; height: 56px; border-radius: 28px; font-size: 22px; }

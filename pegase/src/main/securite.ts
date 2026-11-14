@@ -113,10 +113,15 @@ function protocoleExterne(wc: WebContents | null, url: string | undefined, rappe
 }
 
 /** Certificats invalides : arrêt, sauf si la personne a choisi de continuer pour cet hôte (jamais retenu après fermeture). */
+/** Le certificat d'Odin (souvent auto-signé), épinglé au premier contact : hôte:port → SHA-256 du DER en hexadécimal. */
+export const certificatsEpingles = new Map<string, string>();
 export function brancherCertificats(): void {
-  app.on('certificate-error', (e, _wc, url, _erreur, _cert, rappel) => {
+  app.on('certificate-error', (e, _wc, url, _erreur, cert, rappel) => {
     let hote = ''; try { hote = new URL(url).host; } catch { /* */ }
     if (exceptionsCertificat.has(hote)) { e.preventDefault(); rappel(true); return; }
+    // Odin : accepté seulement si c'est exactement le certificat épinglé (Electron donne « sha256/<base64> »).
+    const pin = certificatsEpingles.get(hote);
+    if (pin && /^sha256\//.test(cert?.fingerprint ?? '') && Buffer.from(cert.fingerprint.slice(7), 'base64').toString('hex') === pin) { e.preventDefault(); rappel(true); return; }
     rappel(false);
   });
 }

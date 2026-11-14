@@ -76,7 +76,12 @@ export interface Etat {
   mobile: Record<string, Mobile>;
   proposerMdp?: { origine: string; identifiant: string } | null;
   memoire?: number;
+  /** 1er lancement et connexion : Odin trouvé(s) sur le réseau, recherche en cours, profils de ce PC. */
+  premier?: { trouves: OdinTrouveVu[]; recherche: boolean; compte?: { nom: string; email: string } | null; profilsPC: { id: string; nom: string; lettre: string; couleur: number; odin: boolean }[] };
+  /** Ce que la clé des mots de passe peut proposer pour la page affichée. */
+  cleMdp?: { origine: string; n: number } | null;
 }
+export interface OdinTrouveVu { adresse: string; nom: string; version: string; empreinte: string | null; dns: boolean; comptes: boolean }
 
 /** L'affichage mobile d'un onglet. w × h en pixels CSS (déjà tournés), zoom = « ajuster » ou un nombre. */
 export interface Mobile { appareil: string; w: number; h: number; dpr: number; plie: boolean; paysage: boolean; zoom: 'ajuster' | number; reseau: 'rapide' | '4g' | '3g' | 'horsligne'; agent: string }

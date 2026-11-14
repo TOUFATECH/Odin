@@ -10,7 +10,7 @@
   "private": true,
   "scripts": {
     "icones": "node scripts/icones.mjs",
-    "build:main": "tsc -p tsconfig.main.json",
+    "build:main": "tsc -p tsconfig.main.json && node -e \"require('fs').copyFileSync('src/main/odin-sso.mjs','dist/main/odin-sso.mjs')\"",
     "build:ui": "vite build",
     "build": "npm run icones && npm run build:main && npm run build:ui",
     "types": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.ui.json --noEmit",

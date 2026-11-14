@@ -36,7 +36,7 @@ export class Protection {
   private dossierListes: string;
   filtres = 0;
 
-  constructor(readonly appli: { fenetres: Set<Fenetre>; odinAnalyse?: (chemin: string, nom: string) => Promise<{ sain: boolean; menace?: string } | null> }, readonly racine: string) {
+  constructor(readonly appli: { fenetres: Set<Fenetre>; odinAnalyse?: (p: ProfilOuvert, chemin: string, nom: string) => Promise<{ sain: boolean; menace?: string } | null> }, readonly racine: string) {
     this.quarantaine = join(racine, 'quarantaine');
     this.dossierListes = join(racine, 'bloqueur');
     mkdirSync(this.quarantaine, { recursive: true, mode: 0o700 });
@@ -220,7 +220,7 @@ export class Protection {
       if (r === 'menace') return { sain: false, menace: 'Menace trouvée par l’antivirus de Windows', detail: '' };
     }
     if (p.reglages().analyseOdin && this.appli.odinAnalyse) {
-      const r = await this.appli.odinAnalyse(chemin, nom).catch(() => null);
+      const r = await this.appli.odinAnalyse(p, chemin, nom).catch(() => null);
       if (r && !r.sain) return { sain: false, menace: r.menace ?? 'Menace trouvée par Asclépios (Odin)', detail: '' };
       if (r) return { sain: true, detail: 'analysé sur ce PC et par Asclépios (Odin)' };
     }
