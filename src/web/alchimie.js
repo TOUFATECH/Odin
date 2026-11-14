@@ -63,6 +63,9 @@
   }
   /** La couleur d'Odin en ce moment (celle de son humeur), lue sur son dessin ; sinon celle du thème. */
   function couleurOdin(b = odin()) {
+    // Sa teinte d'humeur (celle où il revient après une expression passagère), lue sans attendre la fin d'un fondu.
+    const el = b?.classList?.contains('odin') ? b : b?.querySelector?.('.odin'), M = window.OdinFace?.MOODS;
+    const t = el && M ? M[el._base || el.dataset.mood || 'neutre']?.tint : null; if (t?.[1]) return t[1];
     const stop = b?.querySelector('[id^="odinBody"] stop:nth-of-type(2), radialGradient stop:nth-of-type(2)');
     let c = stop ? getComputedStyle(stop).stopColor : '';
     if (!c || c === 'rgba(0, 0, 0, 0)') c = getComputedStyle(document.documentElement).getPropertyValue('--odin-tint').trim() || getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#4F7FF0';
@@ -387,7 +390,7 @@
   /** Ce que font 4 clics (ou 4 touchers) rapides sur Odin. */
   function quatre(_b, n = 4) {
     if (pan) { notifier(n); pan.querySelector('.al-zone .al-lien, .al-x')?.focus({ preventScroll: true }); return; }
-    ouvrir(); notifier(n); visage('joie', 1500);
+    ouvrir(); notifier(n);
   }
 
   // ---------------------------------------------------------------- le clic droit d'Odin
