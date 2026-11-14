@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.geckoview)
+    implementation(libs.kotlinx.coroutines.android)
 
     // Essais JVM (la logique pure : synchro, empreintes, conflits, .ics, thèmes, client Odin).
     testImplementation(libs.junit)

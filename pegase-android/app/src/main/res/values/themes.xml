@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Le fond bleu de Pégase dès l'ouverture (avant que Compose dessine le thème choisi). -->
+    <style name="Theme.Pegase" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/fond_pegase</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+    <color name="fond_pegase">#FF3B3F8F</color>
+    <color name="pegase_violet">#FF7F00FF</color>
+</resources>

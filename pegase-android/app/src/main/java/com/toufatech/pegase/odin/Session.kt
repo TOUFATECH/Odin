@@ -193,7 +193,14 @@ class Authentification(
         }
 
         /** Après la page d'Odin (code + PKCE) : `POST /sso/jeton` grant_type=authorization_code. */
-        fun echangerCode(client: ClientOdin, horloge: Horloge, base: Session, code: String, verificateur: String): Session {
+        fun echangerCode(
+            client: ClientOdin,
+            horloge: Horloge,
+            base: Session,
+            code: String,
+            verificateur: String,
+            nonce: String? = null,
+        ): Session {
             val rep = client.postFormulaire(
                 "/sso/jeton",
                 listOf(
@@ -204,6 +211,19 @@ class Authentification(
             )
             if (!rep.ok) throw rep.erreur()
             val s = sessionDe(rep.corps, horloge, base) ?: throw ErreurOdin(rep.statut, "reponse", "Odin a répondu sans jeton : réessaie.")
+            // Le jeton d'identité est vérifié (signature ES256, émetteur, appli, expiration, nonce) avant d'être cru.
+            val identite = rep.corps.texte("id_token")
+            val emetteur = base.emetteur
+            if (identite != null && emetteur != null) {
+                val cles = client.getJson("/sso/cles").corps.liste("keys")?.mapNotNull {
+                    @Suppress("UNCHECKED_CAST")
+                    it as? Map<String, Any?>
+                } ?: emptyList()
+                val raison = com.toufatech.pegase.coeur.Jwt.verifier(identite, cles, emetteur, Oidc.CLIENT, horloge.maintenant() / 1000, nonce)
+                if (raison != null) {
+                    throw ErreurOdin(0, "jeton", "La réponse d'Odin n'a pas pu être vérifiée ($raison) : connexion refusée. Vérifie l'adresse d'Odin.")
+                }
+            }
             // La personne : dans le jeton d'identité, sinon /sso/infos.
             if (s.personne.texte("sub") != null) return s
             val infos = client.getJson("/sso/infos", mapOf("authorization" to "Bearer ${s.acces}"))
