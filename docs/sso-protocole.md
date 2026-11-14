@@ -490,7 +490,7 @@ Renouvellement : même `POST /sso/jeton` avec `grant_type=refresh_token`, `refre
   - un membre n'a **pas** la conversation avec l'IA d'Odin (`/api/message`, `/api/ask` → `403 reserve`) : l'IA a des
     outils au-delà des applis (fichiers, machines) ; il fait agir ses applis par leurs boutons ou par une phrase (Logos) ;
   - tout le reste de l'API (réglages, conversations, machines, sauvegarde d'Odin…) → `403 reserve` ; `/api/state` lui
-    rend un état vide (même forme) avec `membre: { login, name, groups }`.
+    rend un état vide (même forme) avec `membre: { login, name, groups }`, et `/api/history` une conversation vide.
 - **Logiciels du proxy Valgrind** (SearXNG, LanguageTool, Penpot…) : le portail Persona protège un site du proxy dès qu'il
   est « réservé » ; Persona → Applis montre les sites encore sans connexion unique et « Protéger tous les sites ».
   Un logiciel qui sait faire OpenID s'inscrit comme appli cliente **confidentielle** (« Connexion Odin pour un logiciel ») :
