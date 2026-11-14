@@ -1,5 +1,21 @@
 [
  {
+  "id": "v1300",
+  "at": "2026-11-14T12:30:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.30.0",
+  "title": "Le nouvel Odin : bleu, yeux carrés, halos blancs",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Odin est bleu par défaut ; ses 22 humeurs gardent chacune leur couleur.",
+   "Ses yeux sont carrés, un peu plissés, et changent de taille avec l'humeur ; il cligne et regarde autour.",
+   "Deux halos tournent autour de lui, dont un blanc ; même dessin partout : interface, /maison, site, guide, autocollants Telegram."
+  ]
+ },
+ {
   "id": "v1290",
   "at": "2026-11-14T12:00:00+03:00",
   "date": "2026-11-14",
