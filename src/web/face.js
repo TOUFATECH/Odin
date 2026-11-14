@@ -7,7 +7,7 @@
   // (4 teintes du centre vers le bord, la dernière colore aussi les halos).
   const C = (a, b, c, d) => [a, b, c, d];
   const MOODS = {
-    neutre: { tint: C('#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0'), eyes: {} },
+    neutre: { tint: C('#2F6FE0', '#3F82F0', '#7EAEF8', '#C3DBFF'), eyes: {} }, // bleu : la couleur par défaut d'Odin
     joie: { tint: C('#F0A818', '#F7BD32', '#FDD66B', '#FFEDAE'), eyes: { l: [1, .8], r: [1, .8], d: [0, -2], a: 'bob' } },
     rire: { tint: C('#F28A12', '#F8A630', '#FCC468', '#FFE1A8'), eyes: { l: [1.05, .55], r: [1.05, .55], a: 'giggle' }, anim: 'laugh' },
     amour: { tint: C('#E0457B', '#EE6A97', '#F7A3C0', '#FFD3E2'), eyes: { l: [1.12, 1.08], r: [1.12, 1.08], a: 'pulse' } },
@@ -37,7 +37,8 @@
     pink: ['#E0457B', '#EE6A97', '#F7A3C0', '#FFD3E2'],
   };
   const L = 47.5, R = 72.5, Y = 56;
-  const pill = (x, y = Y, h = 22) => `<rect class="eye" x="${x - 4.5}" y="${y - h / 2}" width="9" height="${h}" rx="4.5" fill="${W}"/>`;
+  // Charte du 14/11/2026 : yeux carrés, un peu plissés (15 × 12, coins à peine arrondis).
+  const pill = (x, y = Y, h = 22) => { const hh = h * 12 / 22; return `<rect class="eye" x="${x - 7.5}" y="${y - hh / 2}" width="15" height="${hh}" rx="2.6" fill="${W}"/>`; };
   const line = (d, w = 4) => `<path d="${d}" fill="none" stroke="${W}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const heart = (cx, cy, s = 6.5) => `<path class="eye" d="M${cx} ${cy + s * .95}C${cx - s * 1.7} ${cy - s * .1} ${cx - s * .75} ${cy - s * 1.45} ${cx} ${cy - s * .45}C${cx + s * .75} ${cy - s * 1.45} ${cx + s * 1.7} ${cy - s * .1} ${cx} ${cy + s * .95}Z" fill="${W}"/>`;
   const star = (cx, cy, r = 7.5) => { let d = ''; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; d += `${i ? 'L' : 'M'}${(cx + rr * Math.cos(a)).toFixed(2)} ${(cy + rr * Math.sin(a)).toFixed(2)}`; } return `<path class="eye" d="${d}Z" fill="${W}" stroke="${W}" stroke-width="1" stroke-linejoin="round"/>`; };
