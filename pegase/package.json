@@ -95,7 +95,7 @@
         "entry": {
           "Name": "Pégase",
           "Comment": "Le navigateur d'Odin",
-          "StartupWMClass": "Pégase"
+          "StartupWMClass": "pegase"
         }
       }
     },
