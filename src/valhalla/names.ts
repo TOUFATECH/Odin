@@ -350,7 +350,8 @@ export const SIMILAIRES: Record<string, string[]> = {
  "hlin": ["Sherlock", "Maigret", "WhatsMyName", "SpiderFoot", "PhoneInfoga", "Social Analyzer", "Blackbird"],
  "durinn": ["CrystalDiskInfo", "CrystalDiskMark"],
  "pegase": ["Firefox", "Chromium"],
- "hel": ["TestDisk", "PhotoRec"]
+ "hel": ["TestDisk", "PhotoRec"],
+ "agora": ["Microsoft Intune", "Google Play Console", "Munki"]
 };
 /** Le site officiel d'un applicatif similaire (seulement quand l'adresse est sûre ; sinon le nom seul est affiché). */
 export const SITES_SIMILAIRES: Record<string, string> = {

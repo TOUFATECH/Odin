@@ -26,7 +26,7 @@
   const telecharger = (f) => { const a = el('a', { href: `/api/valhalla/fichier?module=snotra&ref=${encodeURIComponent(f.ref)}`, download: f.nom }); document.body.append(a); a.click(); a.remove(); };
   const CSS = `
 .pl{display:flex;flex-direction:column;gap:14px;min-width:0}
-.pl-tabs{display:flex;gap:6px;flex-wrap:wrap}.pl-tabs button{min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:0 14px;font:600 13.5px inherit;cursor:pointer}
+.pl-tabs{display:flex;gap:6px;flex-wrap:wrap}@media(max-width:520px){.pl-tabs{flex-wrap:nowrap}.pl-tabs button{flex:1 1 0;min-width:0;padding:0 6px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.pl-tabs button{min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:0 14px;font:600 13.5px inherit;cursor:pointer}
 .pl-tabs button[aria-selected=true]{background:var(--panel2);color:var(--ink);border-color:var(--ink)}
 .pl-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .pl-bar button,.pl-bar select,.pl-bar input{min-height:40px;min-width:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 10px;font:inherit;font-size:13px;cursor:pointer}

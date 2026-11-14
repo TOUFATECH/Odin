@@ -1,5 +1,22 @@
 [
  {
+  "id": "v1290",
+  "at": "2026-11-14T12:00:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.29.0",
+  "title": "Chaque appli se présente : son nom, son histoire, les applicatifs similaires",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "La page de chaque appli s'ouvre sur sa fiche : d'où vient son nom, ce qu'elle fait, et les applicatifs similaires existants, avec un lien vers leur site.",
+   "Plus rien ne dépasse dans les applis, de 1440 à 360 px, en clair, en sombre et dans les thèmes ; l'en-tête est au même endroit partout.",
+   "« Exporter / partager » s'ouvre dans toutes les applis.",
+   "Odin ne se pose plus sur une commande et ne gêne plus un clic ; il fait le même petit son partout quand on le touche, y compris sur /maison et au téléphone."
+  ]
+ },
+ {
   "id": "v1281",
   "at": "2026-11-14T11:45:00+03:00",
   "date": "2026-11-14",
