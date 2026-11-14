@@ -2,6 +2,7 @@
 // logo et trois points, 1er lancement (Odin trouvé tout seul, connexion, restauration, « Ignorer »), création du compte,
 // sauvegarde sur Odin (avec l'accord du propriétaire), choix du profil. Les mots de passe ne sont jamais réaffichés.
 import type { Etat } from '../commun/types';
+import { avatar } from './odin-visage';
 import { LOGO, api, esc, type Ctx } from './commun';
 import { I } from './icones';
 
@@ -122,7 +123,7 @@ function monter(el: HTMLElement, E: Etat, ctx: Ctx): void {
   } else if (e === 'connexion') {
     const l = E.premier?.profilsPC ?? [];
     corps = `${tete('Qui navigue ?', 'Choisis ton profil.')}
-      <div class="profils-pc" role="list">${l.map((x) => `<button class="carte-profil" role="listitem" data-profil="${esc(x.id)}"><span class="avatar grand c${x.couleur % 8}" aria-hidden="true">${esc(x.lettre)}</span><b>${esc(x.nom)}</b><span class="doux petit">${x.odin ? 'relié à Odin' : 'sur ce PC'}</span></button>`).join('')}</div>
+      <div class="profils-pc" role="list">${l.map((x) => `<button class="carte-profil" role="listitem" data-profil="${esc(x.id)}">${avatar(x, 'grand')}<b>${esc(x.nom)}</b><span class="doux petit">${x.odin ? 'relié à Odin' : 'sur ce PC'}</span></button>`).join('')}</div>
       <div class="rangee boutons-ecran"><button class="bouton" data-vers="odin">Restaurer un profil depuis Odin</button><button class="bouton" data-ajouter>Ajouter un profil</button></div>`;
   }
   const fen = E.plateforme !== 'darwin' ? `<header class="fen-ecran"><button class="fen" data-a="fenetre" data-op="min" aria-label="Réduire">${I.min()}</button><button class="fen x" data-a="fenetre" data-op="fermer" aria-label="Fermer">${I.fermer()}</button></header>` : '';

@@ -68,7 +68,7 @@ test('organisation : espaces, favoris, rangés, historique, thèmes, profil gard
     }
     // Profil local : renommé, gardé après redémarrage.
     await ui.evaluate(() => window.pegase.faire('majProfil', { nom: 'Zaïnaba' }));
-    await attendre(async () => (await ui.textContent('button[aria-label="Ton profil Odin"] .avatar')) === 'Z');
+    await attendre(async () => (await ui.getAttribute('button[aria-label="Ton profil Odin"]', 'title')) === 'Zaïnaba');
   } finally { await s.fermer(true); }
   // Les fichiers du profil sont chiffrés : aucune adresse, aucun titre en clair.
   const dp = join(dossier, 'profils', 'toi');
@@ -81,7 +81,7 @@ test('organisation : espaces, favoris, rangés, historique, thèmes, profil gard
     const { ui } = s;
     await attendre(async () => (await ui.textContent('.nom-espace b')) !== '');
     await ui.waitForSelector('.tuiles .tuile[aria-label="Page A secrete-a"]');
-    assert.equal(await ui.textContent('button[aria-label="Ton profil Odin"] .avatar'), 'Z');
+    assert.equal(await ui.getAttribute('button[aria-label="Ton profil Odin"]', 'title'), 'Zaïnaba');
     assert.equal(await ui.$$eval('.esp', (l) => l.length), 2);
     assert.ok((await lignes(ui)).length >= 2);
   } finally { await s.fermer(true); await web.fermer(); }

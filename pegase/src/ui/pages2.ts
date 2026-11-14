@@ -1,5 +1,6 @@
 // Pages pegase:// : profil (et, à l'étape 5, agenda, import, synchro Odin).
 import { api, esc, appIcone, type Ctx } from './commun';
+import { odinVisage, reduirePhoto } from './odin-visage';
 import { I } from './icones';
 import { prompt2 } from './pages';
 
@@ -13,13 +14,14 @@ pagesSuite.profil = (el, ctx) => {
     const espaces = E.espaces.map((e) => ({ e, n: E.onglets.filter((o) => o.espace === e.id).length, b: E.bureaux.filter((b) => b.espace === e.id).length }));
     el.innerHTML = `<div class="contenu pile-large">
       <section class="profil-tete">
-        <div class="profil-avatar"><span class="anneau" aria-hidden="true"></span><span class="lettre">${esc(E.profil.lettre)}</span>
-          <button class="profil-couleur" data-couleur aria-label="Changer la couleur">${I.crayon(15)}</button></div>
+        <div class="profil-avatar"><span class="anneau" aria-hidden="true"></span><span class="dedans">${E.profil.photo ? `<img src="${E.profil.photo}" alt="Ta photo">` : `<span class="odin" role="img" aria-label="Odin">${odinVisage()}</span>`}</span>
+          <button class="profil-couleur" data-photo aria-label="${E.profil.photo ? 'Changer la photo' : 'Mettre une photo'}">${I.crayon(15)}</button>
+          <input type="file" accept="image/jpeg,image/png,image/webp" data-fichier-photo hidden></div>
         <div class="profil-nom"><h1>${esc(E.profil.nom)}</h1>
           <span class="doux">${E.odin?.connecte ? 'Compte Odin' : 'Profil de ce PC'} · espace actif ${esc(E.espaces.find((x) => x.id === E.espaceActif)?.nom ?? '')}</span>
           <div class="rangee puces"><span class="puce"><span class="pt ${E.synchro.etat === 'ok' ? 'vert' : ''}"></span>${E.synchro.etat === 'ok' ? 'Synchronisé' : E.synchro.etat === 'horsligne' ? `Hors ligne (${E.synchro.attente} en attente)` : 'Sur ce PC seulement'}</span>
           <span class="puce">Rangé chiffré sur ce PC</span></div></div>
-        <div class="rangee"><button class="bouton" data-renommer-profil>Renommer</button>${E.odin?.connecte ? '<button class="bouton" data-deconnexion>Se déconnecter</button>' : '<button class="bouton plein" data-synchro>Relier à Odin</button>'}</div>
+        <div class="rangee"><button class="bouton" data-renommer-profil>Renommer</button>${E.profil.photo ? '<button class="bouton" data-retirer-photo>Retirer la photo</button>' : ''}${E.odin?.connecte ? '<button class="bouton" data-deconnexion>Se déconnecter</button>' : '<button class="bouton plein" data-synchro>Relier à Odin</button>'}</div>
       </section>
       <div class="cartes">
         <div class="carte chiffre"><img src="${appIcone('vidarr')}" alt="" width="40" height="40"><div><b>${s.bloques.toLocaleString('fr-FR')}</b><span>pubs et pisteurs bloqués</span><small class="doux">depuis l’ouverture de Pégase</small></div></div>
@@ -39,10 +41,18 @@ pagesSuite.profil = (el, ctx) => {
       </div></div>`;
   };
   dessiner();
+  // Photo choisie : réduite ici, puis gardée dans le profil ; sans photo, c'est Odin qui s'affiche.
+  el.addEventListener('change', async (e) => {
+    const i = e.target as HTMLInputElement; if (!i.matches?.('[data-fichier-photo]') || !i.files?.[0]) return;
+    try { const r = await api.faire('majProfil', { photo: await reduirePhoto(i.files[0]) }); if (r && r.ok === false) ctx.toast(r.texte); } catch { ctx.toast('Cette image ne peut pas être lue.'); }
+    i.value = ''; setTimeout(dessiner, 80);
+  });
   el.addEventListener('click', async (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!b) return;
     if (b.hasAttribute('data-renommer-profil')) { const n = await prompt2(el, 'Ton nom', ctx.etat().profil.nom); if (n) { await api.faire('majProfil', { nom: n }); setTimeout(dessiner, 80); } }
     else if (b.hasAttribute('data-couleur')) { await api.faire('majProfil', { couleur: (ctx.etat().profil.couleur + 1) % 8 }); setTimeout(dessiner, 80); }
+    else if (b.hasAttribute('data-photo')) el.querySelector<HTMLInputElement>('[data-fichier-photo]')?.click();
+    else if (b.hasAttribute('data-retirer-photo')) { await api.faire('majProfil', { photo: '' }); setTimeout(dessiner, 80); }
     else if (b.hasAttribute('data-nouvel-espace')) { const n = await prompt2(el, 'Nom du nouvel espace', 'Travail'); if (n) { await api.faire('nouvelEspace', { nom: n }); setTimeout(dessiner, 80); } }
     else if (b.dataset.espace) api.faire('espace', { id: b.dataset.espace });
     else if (b.hasAttribute('data-synchro')) api.faire('interne', { page: 'synchro' });

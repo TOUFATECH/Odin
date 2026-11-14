@@ -514,3 +514,30 @@ h2.jour { margin: 18px 0 8px; text-transform: capitalize; }
 .ligne-import input { width: 18px; height: 18px; }
 .proposition.idee { max-width: 420px; }
 @media (max-width: 900px) { .reglages-mise, .agenda { grid-template-columns: 1fr; } .nav-reglages { border-right: 0; } .grille-protections, .cartes.trois { grid-template-columns: 1fr; } }
+
+/* ————— Avatar : la photo de la personne, ou Odin animé (même dessin et mêmes mouvements que dans Odin) ————— */
+.avatar.odin, .avatar.photo { background: none; padding: 0; overflow: visible; }
+.avatar.photo img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+.avatar.odin svg, .profil-avatar .odin svg { width: 100%; height: 100%; overflow: visible; display: block; }
+.profil-avatar .dedans { position: absolute; inset: 4px; border-radius: 50%; background: #0B0D18; display: grid; place-items: center; overflow: hidden; }
+.profil-avatar .dedans img { width: 100%; height: 100%; object-fit: cover; }
+.profil-avatar .dedans .odin { width: 78%; height: 78%; display: block; }
+.odin .body { transform-origin: 60px 60px; animation: o-breathe 4.4s ease-in-out infinite; }
+.odin .eye { transform-box: fill-box; transform-origin: center; animation: o-blink 5.2s infinite; }
+.odin .orbit { transform-origin: 60px 60px; animation: o-orbit 7s linear infinite; }
+.odin .orbit.o2 { animation-duration: 9.5s; animation-direction: reverse; }
+@keyframes o-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035) translateY(-1px); } }
+@keyframes o-blink { 0%, 91%, 100% { transform: scaleY(1); } 93.5% { transform: scaleY(.08); } 96% { transform: scaleY(1); } }
+@keyframes o-orbit { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .odin .body, .odin .eye, .odin .orbit { animation: none; } }
+
+/* ————— Point d'état d'Odin (à côté de Recharger) et Odin dans la barre et le panneau ————— */
+.point-odin .pt-etat { width: 10px; height: 10px; border-radius: 50%; display: block; box-shadow: 0 0 0 3px rgba(0,0,0,.18); }
+.pt-etat.rouge { background: #EF4444; box-shadow: 0 0 8px rgba(239,68,68,.7); }
+.pt-etat.orange { background: #F59E0B; box-shadow: 0 0 8px rgba(245,158,11,.7); }
+.pt-etat.vert { background: #22C55E; box-shadow: 0 0 8px rgba(34,197,94,.7); }
+.odin.mini { width: 24px; height: 24px; display: block; }
+.odin.tete { width: 34px; height: 34px; display: block; flex: none; }
+.odin.mini svg, .odin.tete svg { width: 100%; height: 100%; overflow: visible; display: block; }
+.odin.grand-odin { width: 44px; height: 44px; display: block; flex: none; } .odin.grand-odin svg { width: 100%; height: 100%; overflow: visible; }
+.ib > img.logo { width: 22px; height: 22px; border-radius: 6px; display: block; }

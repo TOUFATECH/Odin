@@ -121,7 +121,7 @@ class Pegase implements Appli {
     if (sy.local.valeur.premierFait || sauter) {
       await montrer(multi ? 'connexion' : 'navigateur');
       // Connexion unique du poste en fond : si un autre programme d'Odin est connecté sur ce PC, Pégase le rejoint.
-      if (!sauter) trouverOdin({ reseau: false }).then(async (t) => { if (t[0] && !sy.lien && (await sy.essayerSso(t[0])).ok) { this.apresConnexion(p); this.dire(p, 'Connecté à Odin par la connexion unique de ce PC.'); } }).catch(() => 0);
+      if (!sauter) trouverOdin({ reseau: false }).then(async (t) => { if (t.length) { this.recherche.trouves = t; this.planifierTout(); } if (t[0] && !sy.lien && (await sy.essayerSso(t[0])).ok) { this.apresConnexion(p); this.dire(p, 'Connecté à Odin par la connexion unique de ce PC.'); } }).catch(() => 0);
       return;
     }
     this.recherche = { trouves: [], encours: true };
@@ -211,6 +211,7 @@ class Pegase implements Appli {
       synchro: sy ? sy.etat : { etat: 'local', attente: 0 },
       proposerMdp: (() => { const pr = this.mdps.get(f.profil)?.proposition; return pr && Date.now() - pr.quand < 5 * 60_000 ? { origine: pr.origine, identifiant: pr.identifiant, maj: !!pr.maj } as any : null; })(),
       odin: l ? { url: l.adresse, nom: l.profil ? `${l.nom} ${l.version}`.trim() : l.nom, connecte: true } : undefined,
+      odinVu: this.recherche.trouves.length > 0,
       premier: f.ecran === 'navigateur' ? undefined : {
         trouves: this.recherche.trouves, recherche: this.recherche.encours,
         compte: this.compteEnAttente ? { nom: this.compteEnAttente.nom, email: this.compteEnAttente.email } : null,
@@ -351,6 +352,12 @@ class Pegase implements Appli {
         const pr = p.profil(); const n = { ...pr };
         if (arg?.nom) { n.nom = String(arg.nom).slice(0, 60); n.lettre = n.nom.trim().slice(0, 1).toUpperCase() || 'T'; }
         if (typeof arg?.couleur === 'number') n.couleur = arg.couleur % 8;
+        if (typeof arg?.photo === 'string') {
+          // Une petite image seulement (réduite par l'interface), jamais une adresse externe.
+          if (arg.photo === '') delete n.photo;
+          else if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(arg.photo) && arg.photo.length <= 400_000) n.photo = arg.photo;
+          else return { ok: false, texte: 'Image refusée (JPG, PNG ou WebP, petite taille).' };
+        }
         p.mettre('profil', n); this.ecrireListeProfils(); return;
       }
       case 'statsProfil': {

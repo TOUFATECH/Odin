@@ -1,12 +1,13 @@
 // L'interface de Pégase : barre du haut, barre de côté, zone des pages, menus, barre de commande.
 import '@fontsource/ibm-plex-sans/latin-400.css';
+import { avatar, odinVisage, lireHumeur } from './odin-visage';
 import '@fontsource/ibm-plex-sans/latin-500.css';
 import '@fontsource/ibm-plex-sans/latin-600.css';
 import '@fontsource/ibm-plex-sans/latin-700.css';
 import './style.css';
 import type { Etat, OngletVu, Bureau, Theme, Zone } from '../commun/types';
 import { I } from './icones';
-import { api, esc, APPS, appIcone, domaine, iconeSite, titreOnglet, setOdin, getOdin, quand, minutes, srcSure, couleurDe, type Ctx } from './commun';
+import { api, esc, LOGO, APPS, appIcone, domaine, iconeSite, titreOnglet, setOdin, getOdin, quand, minutes, srcSure, couleurDe, type Ctx } from './commun';
 import { pageInterne, rafraichirPages } from './pages';
 import { rendreEcran } from './ecrans';
 
@@ -16,6 +17,7 @@ const VIGNETTES = location.hash === '#vignettes';
 if (VIGNETTES) document.documentElement.classList.add('vignettes');
 type Menu = { type: string; x: number; y: number; arg?: any; ancre?: DOMRect };
 const L = {
+  humeur: 'neutre', // l'humeur d'Odin montrée dans Pégase (la même que dans Odin quand il la donne)
   menu: null as Menu | null,
   commande: null as null | { q: string; sel: number; nouvel: boolean; resultats: Resultat[]; jeton: number; partage?: boolean },
   trouver: null as null | { texte: string; actif: number; total: number },
@@ -87,12 +89,13 @@ function haut(): string {
   const vueAdresse = hote ? `<span class="sous-dom"><bdi dir="ltr">${esc(hote.slice(0, hote.length - site.length))}</bdi></span><b class="site-dom">${esc(site)}</b>` : `<span class="ellipse">${esc(adresse)}</span>`;
   const reduite = E.barreReduite;
   return `<div class="g">
-      <button class="ib" data-a="menu" data-menu="pegase" aria-label="Menu de Pégase" aria-haspopup="menu">${I.aile()}</button>
+      <button class="ib" data-a="menu" data-menu="pegase" aria-label="Menu de Pégase" aria-haspopup="menu">${LOGO(22)}</button>
       <button class="ib" data-a="barre" aria-label="${reduite ? 'Rouvrir la barre de côté' : 'Masquer la barre de côté'}" title="${raccourci('Ctrl+Maj+S')}" aria-pressed="${reduite}">${I.barre()}</button>
       <span class="espaceur"></span>
       <button class="ib" data-a="reculer" aria-label="Page précédente" ${c?.peutReculer ? '' : 'disabled'}>${I.recul()}</button>
       <button class="ib" data-a="avancer" aria-label="Page suivante" ${c?.peutAvancer ? '' : 'disabled'}>${I.avance()}</button>
       ${c?.charge ? `<button class="ib" data-a="arreter" aria-label="Arrêter le chargement">${I.arret(16)}</button>` : `<button class="ib" data-a="recharger" aria-label="Recharger" ${c ? '' : 'disabled'}>${I.recharger()}</button>`}
+      ${E.prive ? '' : pointOdin()}
     </div>
     <div class="c">
       <button class="ib p" data-a="copierLien" aria-label="Copier le lien" ${c && !c.url.startsWith('pegase:') ? '' : 'disabled'}>${I.lien()}</button>
@@ -102,8 +105,8 @@ function haut(): string {
     <div class="d">
       ${E.prive ? '<span class="badge local lisible">Fenêtre privée</span>' : badgeSync}
       ${protege}
-      <button class="ib" data-a="menu" data-menu="profil" aria-label="Ton profil Odin"><span class="avatar c${E.profil.couleur % 8}" aria-hidden="true">${esc(E.profil.lettre)}</span></button>
-      <button class="ib" data-a="panneauOdin" aria-label="Odin sur le côté" aria-pressed="${E.panneauOdin}"><img src="${appIcone('valhalla')}" alt="" width="20" height="20"></button>
+      <button class="ib" data-a="menu" data-menu="profil" aria-label="Ton profil Odin" title="${esc(E.profil.nom)}">${avatar(E.profil)}</button>
+      <button class="ib odin-bouton" data-a="panneauOdin" aria-label="Odin sur le côté" aria-pressed="${E.panneauOdin}"><span class="odin mini" aria-hidden="true">${odinVisage(humeurOdin())}</span></button>
       <button class="ib" data-a="partagerNouveau" aria-label="Écran partagé" ${c ? '' : 'disabled'}>${I.partage()}</button>
       ${win ? `<button class="fen" data-a="fenetre" data-op="min" aria-label="Réduire">${I.min()}</button>
       <button class="fen" data-a="fenetre" data-op="max" aria-label="${E.maximise ? 'Restaurer' : 'Agrandir'}">${E.maximise ? I.restaurer() : I.max()}</button>
@@ -284,11 +287,23 @@ function dimensionnerMobiles(): void {
   }
 }
 
+/** Le point d'état d'Odin, à côté de « Recharger » : rouge (pas d'Odin), orange (Odin trouvé, connexion à faire), vert (synchronisé). */
+function pointOdin(): string {
+  const s = E.synchro?.etat, relie = !!E.odin?.connecte;
+  const [cl, txt] = relie && (s === 'ok' || s === 'encours') ? ['vert', 'Odin : synchronisé avec Pégase']
+    : relie ? ['orange', 'Odin : hors ligne pour l’instant, les changements attendent']
+    : E.odinVu ? ['orange', 'Odin trouvé : il manque la connexion (adresse, e-mail, mot de passe)']
+    : ['rouge', 'Pas d’Odin : Pégase n’est relié à aucun Odin'];
+  return `<button class="ib point-odin" data-a="interne" data-page="synchro" aria-label="${txt}" title="${txt}"><span class="pt-etat ${cl}"></span></button>`;
+}
+/** L'humeur d'Odin à montrer : la sienne quand il est relié, sinon il attend (gêné de ne pas pouvoir aider). */
+function humeurOdin(): string { return E.odin?.connecte ? L.humeur : 'confus'; }
+
 function panneauOdin(): string {
   const fil = L.odinFil.length ? L.odinFil.map((m) => `<div class="bulle${m.moi ? ' moi' : ''}">${esc(m.texte)}</div>`).join('')
     : `<p class="doux">${E.odin?.connecte ? 'Demande-moi ce que tu veux, ou fais-moi résumer la page.' : 'Pégase n’est pas encore relié à ton Odin. Relie-le dans Réglages → Synchro Odin.'}</p>${idees()}`;
   return `<aside class="panneau-odin" aria-label="Odin">
-    <div class="po-tete"><img src="${appIcone('valhalla')}" alt="" width="26" height="26"><b>Odin</b><span class="doux petit t">${E.odin?.connecte ? esc(E.odin.nom) : 'pas relié'}</span>
+    <div class="po-tete"><span class="odin tete" role="img" aria-label="Odin (${esc(humeurOdin())})">${odinVisage(humeurOdin())}</span><b>Odin</b><span class="doux petit t">${E.odin?.connecte ? esc(E.odin.nom) : 'pas relié'}</span>
       <button class="ib" data-a="panneauOdin" aria-label="Fermer le panneau d’Odin">${I.fermer()}</button></div>
     <div class="rangee po-actions"><button class="bouton" data-a="odinResumer">Résumer la page</button><button class="bouton" data-a="odinVerifier">Vérifie ce site</button></div>
     <div class="po-fil" id="po-fil">${fil}</div>
@@ -413,7 +428,7 @@ function menus(): string {
   if (m.type === 'pegase') {
     const t = E.reglages.theme;
     return `<div class="flottant" role="menu" aria-label="Menu de Pégase" data-ancre="gauche">
-      <div class="tete-menu"><span class="avatar c${E.profil.couleur % 8}">${esc(E.profil.lettre)}</span><div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.odin?.connecte ? 'Compte Odin · synchronisé' : 'Sur ce PC'}</div></div><button class="bouton" data-a="interne" data-page="profil">Changer</button></div>
+      <div class="tete-menu">${avatar(E.profil)}<div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.odin?.connecte ? 'Compte Odin · synchronisé' : 'Sur ce PC'}</div></div><button class="bouton" data-a="interne" data-page="profil">Changer</button></div>
       <div class="trio"><button data-a="commande" data-nouvel="1">Onglet<small>${raccourci('Ctrl+T')}</small></button><button data-a="fenetre" data-op="nouvelle">Fenêtre<small>${raccourci('Ctrl+N')}</small></button><button data-a="fenetre" data-op="privee">Privée<small>${raccourci('Ctrl+Maj+N')}</small></button></div>
       <div class="titre">Couleur du navigateur · ${NOMS_THEMES[t]}</div>
       <div class="nuancier" role="group" aria-label="Couleur du navigateur">${(['noir', 'blanc', 'bleu', 'rouge', 'transparent', 'glace'] as Theme[]).map((x) => `<button class="nuance n-${x}" data-a="theme" data-theme="${x}" aria-label="${NOMS_THEMES[x]}" title="${NOMS_THEMES[x]}" aria-pressed="${x === t && !E.reglages.themeAuto}"></button>`).join('')}<button class="nuance n-auto" data-a="theme" data-theme="auto" aria-label="Auto : suit le système" title="Auto" aria-pressed="${!!E.reglages.themeAuto}"></button></div>
@@ -511,7 +526,7 @@ function menus(): string {
   if (m.type === 'telechargements') return menuTelechargements();
   if (m.type === 'profil') {
     return `<div class="flottant" role="menu" aria-label="Ton profil" data-ancre="droite">
-      <div class="tete-menu"><span class="avatar c${E.profil.couleur % 8}">${esc(E.profil.lettre)}</span><div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.profil.email ? esc(E.profil.email) : 'Profil de ce PC'}</div></div></div>
+      <div class="tete-menu">${avatar(E.profil)}<div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.profil.email ? esc(E.profil.email) : 'Profil de ce PC'}</div></div></div>
       ${item('interne', I.profil(18), 'Ton profil', '', '', 'data-page="profil"')}
       ${item('interne', I.reglages(), 'Synchro Odin', '', '', 'data-page="synchro"')}
       ${item('fenetre', I.oeil(), 'Fenêtre privée', '', 'Ctrl+Maj+N', 'data-op="privee"')}
@@ -779,10 +794,12 @@ async function demanderOdin(texte: string, resumer = false, verifier = false, tr
   if (!E.panneauOdin) await api.faire('panneauOdin', { ouvert: true });
   const c = courant();
   L.odinFil.push({ moi: true, texte: resumer ? 'Résume cette page.' : texte });
-  L.odinFil.push({ moi: false, texte: 'Odin réfléchit…' });
+  L.odinFil.push({ moi: false, texte: 'Odin réfléchit…' }); L.humeur = 'reflexion';
   rendre();
   const r = await api.faire('odinDemander', { texte, resumer, verifier, traduire, onglet: c?.id }).catch(() => null);
-  L.odinFil[L.odinFil.length - 1] = { moi: false, texte: r?.texte ?? 'Odin n’a pas répondu. Vérifie qu’il est allumé et que Pégase y est relié (Réglages → Synchro Odin).' };
+  const lu = lireHumeur(String(r?.texte ?? ''));
+  L.humeur = r?.texte ? (lu.humeur ?? 'joie') : 'triste';
+  L.odinFil[L.odinFil.length - 1] = { moi: false, texte: r?.texte ? lu.texte : 'Odin n’a pas répondu. Vérifie qu’il est allumé et que Pégase y est relié (Réglages → Synchro Odin).' };
   rendre();
   const fil = document.getElementById('po-fil'); if (fil) fil.scrollTop = fil.scrollHeight;
 }

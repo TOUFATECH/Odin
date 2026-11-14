@@ -1,6 +1,7 @@
 // pegase://reglages/<section> : les réglages (maquettes « Synchro », « Cookies », « Mots de passe », « Sécurité »).
 // Colonne de gauche : Général · Confidentialité et sécurité · Autres ; à droite, la section choisie.
 import type { Theme } from '../commun/types';
+import { odinVisage } from './odin-visage';
 import { api, esc, iconeSite, quand, taille, appIcone, type Ctx } from './commun';
 import { I } from './icones';
 import appareilsJson from '../commun/appareils.json';
@@ -93,10 +94,10 @@ const SECTIONS_RENDU: Record<string, Rendu> = {
       const quoi: [string, string][] = [['Ton profil', 'nom, couleur'], ['Favoris', 'et dossiers'], ['Onglets et espaces', 'épinglés, bureaux'], ['Historique', r.synchroHistorique === 'tout' ? 'cherchable par Odin' : 'synchronisé, mais Odin ne le lit pas'], ['Agenda', 'tes rendez-vous'], ['Réglages', 'couleurs, protection'], ['Téléchargements', 'le journal, pas les fichiers']];
       let ip = '', port = ''; if (l) { try { const u = new URL(l.adresse); ip = u.hostname.replace(/^\[|\]$/g, ''); port = u.port; } catch { /* */ } }
       el.innerHTML = `<h2 class="titre-section">Synchro Odin</h2><div class="pile">
-        <section class="carte">${l ? `<div class="rangee"><img src="${appIcone('valhalla')}" alt="" width="40" height="40"><div class="pousse"><b>Odin connecté</b><div class="doux petit">${E.synchro.etat === 'ok' ? `Synchronisé${l.derniere ? ` · ${quand(l.derniere)}` : ''}` : E.synchro.etat === 'horsligne' ? `Hors ligne (${E.synchro.attente} en attente)` : 'Synchronisation…'} · ${l.mode === 'sso' ? 'connexion unique de ce PC' : 'jeton de cet appareil'} · ${esc(l.profil?.nom ?? '')}</div></div>
+        <section class="carte">${l ? `<div class="rangee"><span class="odin grand-odin" aria-hidden="true">${odinVisage(E.odin?.connecte ? 'joie' : 'confus')}</span><div class="pousse"><b>Odin connecté</b><div class="doux petit">${E.synchro.etat === 'ok' ? `Synchronisé${l.derniere ? ` · ${quand(l.derniere)}` : ''}` : E.synchro.etat === 'horsligne' ? `Hors ligne (${E.synchro.attente} en attente)` : 'Synchronisation…'} · ${l.mode === 'sso' ? 'connexion unique de ce PC' : 'jeton de cet appareil'} · ${esc(l.profil?.nom ?? '')}</div></div>
             <button class="bouton" data-maintenant>Synchroniser maintenant</button><button class="bouton danger" data-deconnecter>Déconnecter</button></div>
             <div class="ip-port lecture"><label>Adresse IP<input class="champ" value="${esc(ip)}" readonly></label><label>Port<input class="champ" value="${esc(port)}" readonly></label></div>`
-          : `<form class="pile" data-relier><div class="rangee"><img src="${appIcone('valhalla')}" alt="" width="40" height="40"><div><b>Pas encore relié à Odin</b><div class="doux petit">Relie Pégase à ton Odin pour retrouver tout sur tes autres appareils.</div></div></div>
+          : `<form class="pile" data-relier><div class="rangee"><span class="odin grand-odin" aria-hidden="true">${odinVisage(E.odin?.connecte ? 'joie' : 'confus')}</span><div><b>Pas encore relié à Odin</b><div class="doux petit">Relie Pégase à ton Odin pour retrouver tout sur tes autres appareils.</div></div></div>
             <div class="ip-port"><label>Adresse IP d’Odin<input class="champ" name="hote" placeholder="192.168.1.10" required></label><label>Port<input class="champ" name="port" value="7777"></label></div>
             <label>Adresse e-mail<input class="champ" type="email" name="email" autocomplete="username" required></label><label>Mot de passe<input class="champ" type="password" name="motdepasse" autocomplete="current-password" required></label>
             <p class="erreur" role="alert"></p><div class="rangee"><button class="bouton plein" type="submit">Se connecter</button><button class="bouton" type="button" data-chercher>Chercher Odin sur le réseau</button></div></form>`}</section>
