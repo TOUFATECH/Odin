@@ -10,7 +10,8 @@ import { hashPassword, checkPassword } from '../valgrind/proxy.ts';
 import { totp } from './brisingamen.ts';
 import { svg as qrSvg } from '../qr.ts';
 import { ssoActions, ssoSections } from '../sso/persona.ts';
-import { lierProprietaire, revoquerPersonne } from '../sso/etat.ts';
+import { revoquerPersonne } from '../sso/etat.ts';
+import { brancherPersona } from '../sso/registre.ts';
 
 export interface Person { id: string; login: string; name: string; email?: string; groups: string[]; hash: string; totp?: string; totpPending?: string; active: boolean; created: number; lastLogin?: number; fails: number; lockedUntil?: number }
 export interface Rule { domain: string; groups: string[] }
@@ -23,9 +24,8 @@ let appCtx: ModCtx | undefined; let mascot = '';
 export function setMascot(svg: string): void { mascot = svg; }
 /** La mascotte, pour les pages publiques des autres applis (liens de partage…). */
 export const mascotSvg = () => mascot;
-/** Le contexte de Persona et sa page de connexion, pour la connexion unique (src/valhalla/sso). */
-export const personaCtx = () => appCtx;
-export const personaPage = (title: string, body: string, nonce: string) => page(title, body, nonce);
+// La connexion unique (src/valhalla/sso) se sert du contexte de Persona et de sa page de connexion.
+brancherPersona(() => appCtx, (title, body, nonce) => page(title, body, nonce));
 // Le dernier contexte vu sert au proxy, qui demande à chaque requête qui est connecté.
 const people = (ctx: ModCtx): Person[] => { appCtx = ctx; return (ctx.settings.people as Person[] | undefined) ?? []; };
 const rules = (ctx: ModCtx): Rule[] => (ctx.settings.rules as Rule[] | undefined) ?? [];
@@ -252,7 +252,7 @@ export const varModule: Module = {
       side: [{ kind: 'form', title: 'Ajouter une personne', action: 'ajouter', submit: 'Ajouter', params: ADD }, { kind: 'form', title: 'Réserver un site', action: 'proteger_site', submit: 'Réserver', params: varModule.actions.find((a) => a.id === 'proteger_site')!.params! }, { kind: 'form', title: 'Réglages du portail', action: 'reglages', submit: 'Enregistrer', params: varModule.actions.find((a) => a.id === 'reglages')!.params! }],
     };
   },
-  start(ctx) { appCtx = ctx; try { lierProprietaire(ctx); } catch { /* pas encore de compte */ } },
+  start(ctx) { appCtx = ctx; },
   stop() { appCtx = undefined; },
   watch: { every: 300, run(ctx) {
     appCtx = ctx; const all = (ctx.settings.sessions as Session[] | undefined) ?? [];

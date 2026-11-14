@@ -122,10 +122,10 @@ test('connexion unique d\'Odin, pour de vrai', { timeout: 240_000 }, async (t) =
       const obtenir = async () => { const vu: string[] = []; await navigateur(v, 'moussa', MDP_MOUSSA, { vu }).call(null, `${v.url}/sso/autoriser?response_type=code&client_id=venus&redirect_uri=${encodeURIComponent(redirect)}&scope=openid&state=etat-de-l-essai&code_challenge=${challenge}&code_challenge_method=S256`).catch(() => undefined); return new URL(vu[0]).searchParams.get('code')!; };
       const jet = (code: string, ver: string) => fetch(`${v.url}/sso/jeton`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirect, client_id: 'venus', code_verifier: ver }) });
       let code = await obtenir();
-      let j = await jet(code, randomBytes(32).toString('base64url')); assert.equal(j.status, 400); assert.equal((await j.json()).error, 'invalid_grant');
+      let j = await jet(code, randomBytes(32).toString('base64url')); assert.equal(j.status, 400); assert.equal((await j.json() as Record<string, string>).error, 'invalid_grant');
       code = await obtenir(); j = await jet(code, verifier); assert.equal(j.status, 200);
       const tok = await j.json() as { access_token: string };
-      j = await jet(code, verifier); assert.equal(j.status, 400); assert.match((await j.json()).message, /déjà servi/);
+      j = await jet(code, verifier); assert.equal(j.status, 400); assert.match((await j.json() as Record<string, string>).message, /déjà servi/);
       assert.equal((await v.json('/sso/infos', undefined, { authorization: `Bearer ${tok.access_token}` })).status, 401, 'le code rejoué coupe la session qu\'il avait ouverte');
     });
 
@@ -180,9 +180,9 @@ test('connexion unique d\'Odin, pour de vrai', { timeout: 240_000 }, async (t) =
       assert.equal((await sso.connecter({ identifiant: 'moussa', motdepasse: MDP_MOUSSA, poste: false })).ok, true);
       const vieux = sso.etat.refresh; assert.equal((await sso.renouveler()).ok, true); assert.notEqual(sso.etat.refresh, vieux);
       const autre = await fetch(`${v.url}/sso/jeton`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: sso.etat.refresh, client_id: 'pegase', appareil: 'un-autre-appareil-x' }) });
-      assert.equal(autre.status, 400); assert.match((await autre.json()).message, /autre appareil/);
+      assert.equal(autre.status, 400); assert.match((await autre.json() as Record<string, string>).message, /autre appareil/);
       const rejoue = await fetch(`${v.url}/sso/jeton`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: vieux, client_id: 'pegase', appareil: 'appareil-essai-rotation' }) });
-      assert.equal(rejoue.status, 400); assert.match((await rejoue.json()).message, /déjà servi/);
+      assert.equal(rejoue.status, 400); assert.match((await rejoue.json() as Record<string, string>).message, /déjà servi/);
       assert.equal((await sso.renouveler()).ok, false, 'la session entière est coupée');
       assert.ok(va.alerts({ limit: 50 }).some((a) => /coupée/.test(a.title)));
     });
@@ -209,8 +209,8 @@ test('connexion unique d\'Odin, pour de vrai', { timeout: 240_000 }, async (t) =
       // Erreurs : empreinte fausse, jeton d'une autre appli, appli inconnue.
       const tok = await sso.jeton();
       let x = await fetch(`${v.url}/api/sauvegardes/venus`, { method: 'POST', headers: { authorization: `Bearer ${tok}`, 'x-odin-empreinte': 'a'.repeat(64), 'content-type': 'application/octet-stream' }, body: new Uint8Array(base.subarray(0, 100)) });
-      assert.equal(x.status, 400); assert.equal((await x.json()).code, 'empreinte_fausse');
-      x = await fetch(`${v.url}/api/sauvegardes/pegase`, { headers: { authorization: `Bearer ${tok}` } }); assert.equal(x.status, 403); assert.equal((await x.json()).code, 'mauvaise_appli');
+      assert.equal(x.status, 400); assert.equal((await x.json() as Record<string, string>).code, 'empreinte_fausse');
+      x = await fetch(`${v.url}/api/sauvegardes/pegase`, { headers: { authorization: `Bearer ${tok}` } }); assert.equal(x.status, 403); assert.equal((await x.json() as Record<string, string>).code, 'mauvaise_appli');
       x = await fetch(`${v.url}/api/sauvegardes/venus`); assert.equal(x.status, 401);
       // Taille max réglable.
       assert.equal((await va.act('var', 'taille_sauvegardes', { appli: 'venus', mo: 1 })).ok, true);
@@ -242,7 +242,7 @@ test('connexion unique d\'Odin, pour de vrai', { timeout: 240_000 }, async (t) =
       const tout = ((await v.json('/api/valhalla/catalog')).body as { modules: Array<{ id: string }> }).modules.map((x) => x.id); assert.ok(tout.includes('garmr') && tout.includes('fjalar'));
       // Port direct de Cerbère : refusé à Moussa, ouvert au propriétaire.
       const p = await freePort(), rp = (await v.json('/api/ports', { appli: 'garmr', faire: 'regler', port: p })).body as { ok: boolean; text?: string; confirm?: string }; assert.equal(rp.ok, true, JSON.stringify(rp));
-      const dm = await fetch(`http://127.0.0.1:${p}/api/valhalla/view?id=garmr`, { headers: { cookie: m } }); assert.equal(dm.status, 403); assert.match((await dm.json()).message, /pas accès à Cerbère/);
+      const dm = await fetch(`http://127.0.0.1:${p}/api/valhalla/view?id=garmr`, { headers: { cookie: m } }); assert.equal(dm.status, 403); assert.match((await dm.json() as Record<string, string>).message, /pas accès à Cerbère/);
       assert.equal((await fetch(`http://127.0.0.1:${p}/api/valhalla/view?id=garmr`, { headers: { cookie: v.session } })).status, 200);
       // Les cases de Persona (onglet Accès) : la famille reçoit Cerbère, puis le perd.
       assert.equal((await va.act('var', 'acces_cases', { qui: 'famille', garmr: true })).ok, true);

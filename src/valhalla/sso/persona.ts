@@ -6,7 +6,7 @@
 import { randomBytes } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
 import type { Action, ModCtx, Param, Section } from '../types.ts';
-import { valhallaOf } from '../odin.ts';
+import type { Valhalla } from '../service.ts';
 import { sha256hex } from './jwt.ts';
 import {
   POSTE_INACTIF, RENOUV_INACTIF, aDroit, changerDroit, cleDroit, client, clients, delierProprietaire, droits, groupesDe, lierProprietaire, nomAppli, personnes, preinscrites,
@@ -14,6 +14,9 @@ import {
 } from './etat.ts';
 import { demanderRestauration, jeux } from './sauvegardes.ts';
 
+// Valhalla, chargé à part (odin.ts importe Persona, qui importe ce fichier : pas d'import direct, pas de boucle).
+let valhallaOf: () => Valhalla | undefined = () => undefined;
+void import('../odin.ts').then((m) => { valhallaOf = m.valhallaOf; });
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 const quand = (t: number) => new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 const taille = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} Mo` : n >= 1024 ? `${Math.round(n / 1024)} Ko` : `${n} octets`);

@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type { ModCtx } from '../types.ts';
 import type { Person } from '../modules/var.ts';
-import { personaCtx } from '../modules/var.ts';
+import { persona as personaCtx } from './registre.ts';
 import { NAMES } from '../names.ts';
 import { Accounts } from '../../web/account.ts';
 

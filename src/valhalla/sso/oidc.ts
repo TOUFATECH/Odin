@@ -7,7 +7,8 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
 import type { ModCtx } from '../types.ts';
 import { checkPassword } from '../valgrind/proxy.ts';
-import { personaPage, totpOk } from '../modules/var.ts';
+import { totp } from '../modules/brisingamen.ts';
+import { personaPage } from './registre.ts';
 import type { Accounts } from '../../web/account.ts';
 import { b64u, sha256, sha256hex, signer, signeur, verifier, type Signeur } from './jwt.ts';
 import {
@@ -28,6 +29,8 @@ export interface DepsSSO {
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 export const issuerDe = (req: IncomingMessage, https: boolean) => `${https ? 'https' : 'http'}://${s(req.headers.host) || 'localhost'}`;
 export const cleSignature = (ctx: ModCtx): Signeur => signeur(join(ctx.dir, 'sso', 'cle-signature.enc'));
+/** Le code à 6 chiffres est-il bon (fenêtre de ±30 s) ? (comme le portail Persona) */
+const totpOk = (secret: string, code: string, at = Date.now()) => { const c = code.replace(/\s/g, ''); return /^\d{6}$/.test(c) && [-30_000, 0, 30_000].some((d) => totp(secret, at + d).code === c); };
 const egal = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
 
 export function json(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
