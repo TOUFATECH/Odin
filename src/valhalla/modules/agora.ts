@@ -316,7 +316,7 @@ export const agora: Module = {
     for (const g of gs) {
       const membres = ps.filter((p) => p.groups.includes(g) || (g === 'admin' && p.proprio));
       sections.push({ kind: 'form', onglet: T.G, title: `Groupe ${g} · ${membres.length} personne(s)`, action: 'modes_groupe', submit: 'Enregistrer', fixe: { groupe: g },
-        aide: `${membres.map((p) => p.name).join(', ') || 'Personne pour l\'instant.'}${g === 'admin' ? ' Les admins ont droit à tout ; le mode dit seulement ce qui s\'installe d\'office.' : ''}`,
+        aide: `${membres.length ? `${membres.map((p) => p.name).join(', ')}.` : 'Personne pour l\'instant.'}${g === 'admin' ? ' Les admins ont droit à tout ; le mode dit seulement ce qui s\'installe d\'office.' : ''}`,
         params: d.elements.map((e) => ({ key: e.id, label: `${e.nom} · ${ou(e)}`, kind: 'select' as const, options: CHOIX_MODE, default: e.modes[g] ? Object.keys(LIBELLES).find((k) => LIBELLES[k] === e.modes[g].mode) : (pctx && groupesDe(pctx, e.droit).includes(g)) || g === 'admin' ? 'Proposée' : 'Pas pour ce groupe' })) });
     }
     sections.push({ kind: 'text', onglet: T.G, title: 'Comment ça marche', text: 'Mettre quelqu\'un dans un groupe : ces applis apparaissent tout de suite dans son espace Odin, et dans le store de ses ordinateurs et téléphones. L\'enlever du groupe les lui retire.' });
@@ -344,7 +344,7 @@ export const agora: Module = {
     sections.push({ kind: 'table', onglet: T.J, title: 'Ordres', columns: ['Quand', 'Appareil', 'Élément', 'Ordre', 'État'], empty: 'Aucun ordre.',
       rows: d.ordres.slice(-60).reverse().map((o) => ({ cells: [quand(o.cree), nomAp(o.appareil), nomEl(o.element), `${ACTIONS[o.action]}${o.version ? ` ${o.version}` : ''}${o.par === 'force' ? ' (forcé)' : ''}`, { attente: 'en attente', envoye: 'envoyé', en_cours: `en cours${o.progression !== undefined ? ` ${o.progression} %` : ''}`, fait: 'fait', echec: `échec : ${o.erreur ?? '?'}`, annule: 'annulé' }[o.etat]], tone: o.etat === 'echec' ? 'mauvais' as Tone : o.etat === 'fait' ? 'bon' as Tone : undefined })) });
     return {
-      subtitle: 'Le store d\'Odin : qui a droit à quoi, sur Odin, ses ordinateurs et ses téléphones. Réservé aux admins.',
+      subtitle: 'Réservé aux admins.',
       onglets: [T.C, T.G, T.A, T.J],
       kpis: [
         { label: 'Dans le store', value: String(d.elements.length) },

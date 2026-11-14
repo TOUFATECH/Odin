@@ -112,8 +112,10 @@ export class Moteur extends EventEmitter {
     else if (type === 'retire') { this.arret = true; this.changer({ connexion: 'aucune', enLigne: false, connexionInfo: { erreur: String(j.message ?? 'Cet appareil a été retiré du store.') } }); }
   }
   /** Un ordre imposé : il passe dans la file, sans rien demander. */
+  private recus = new Set<string>();
   private recevoir(o: Ordre): void {
-    if (this.file.some((t) => t.ordre?.id === o.id)) return;
+    // Un même ordre peut arriver deux fois (inscription puis flux, ou reconnexion) : il n'est fait qu'une fois.
+    if (this.recus.has(o.id)) return; this.recus.add(o.id);
     this.file.push({ ordre: o, element: o.element, action: o.action, par: 'impose' }); void this.vider();
   }
   /** La personne clique : Installer, Mettre à jour, Désinstaller (refusé si c'est imposé). */

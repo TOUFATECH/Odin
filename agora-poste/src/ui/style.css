@@ -29,7 +29,7 @@ main { flex: 1; min-width: 0; padding: 20px 24px; display: flex; flex-direction:
 article { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px; background: #fff; border: 1px solid var(--bord); }
 article .haut { display: flex; align-items: center; gap: 12px; }
 .ico { width: 36px; height: 36px; flex: none; border-radius: 9px; display: grid; place-items: center; color: #fff; font: 700 15px 'Bricolage Grotesque', sans-serif; }
-article .haut span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+article .haut > span:not(.ico) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 article .haut small { font-size: 13.5px; color: var(--doux); }
 .etat { font-size: 13px; color: var(--doux); }
 .etat.erreur { color: var(--rouge); }
