@@ -6,6 +6,7 @@
 //   node test/banc/qualite.ts --page appli:ullr --largeur 390           UNE page, une largeur (la commande à retenir)
 //   node test/banc/qualite.ts --page aujourdhui,reglages --largeur 1280,390 --apparence mayotte
 //   node test/banc/qualite.ts --tout --sortie /tmp/qualite              toutes les pages, toutes les largeurs
+//   node test/banc/qualite.ts --ecrans --sortie /tmp/qualite            les grandes pages seulement ; --applis : la page de chaque appli
 //   node test/banc/qualite.ts --fluidite --sortie /tmp/qualite          redessins automatiques et animations réduites
 //   node test/banc/qualite.ts --rapport /tmp/qualite                    refait rapport.md et rapport.json du dossier
 //   node test/banc/qualite.ts --url http://127.0.0.1:7790/ --cookie odin_session=… --js "window.OdinShow('home')"
@@ -393,12 +394,18 @@ export function rapport(dossier: string): { md: string; lignes: Ligne[]; passage
   return { md: L.join('\n'), lignes, passages };
 }
 
+/** Écrit rapport.md (les notes écrites à la main, `notes.md`, viennent en tête ; puis les mesures) et rapport.json. */
+function ecrireRapport(d: string): ReturnType<typeof rapport> {
+  const r = rapport(d), notes = existsSync(join(d, 'notes.md')) ? readFileSync(join(d, 'notes.md'), 'utf8').trimEnd() + '\n\n---\n\n' : '';
+  writeFileSync(join(d, 'rapport.md'), notes + r.md);
+  writeFileSync(join(d, 'rapport.json'), JSON.stringify({ date: new Date().toISOString(), defauts: r.lignes.map((l) => ({ type: l.type, nom: TYPES[l.type] ?? l.type, gravite: l.gravite, selecteur: l.selecteur, mesure: l.mesure, texte: l.texte, pages: [...l.pages], largeurs: [...l.largeurs].sort((a, b) => b - a), apparences: [...l.apparences], fichier: origine({ ...l.exemple, page: [...l.pages][0] }), capture: l.capture, valeurs: l.valeurs, fois: l.n })), passages: r.passages.map((p) => ({ page: p.page, largeur: p.largeur, apparence: p.apparence, ouverture: p.ouverture, mesures: p.mesures, defauts: p.defauts.length, echec: p.echec })) }, null, 1));
+  return r;
+}
+
 // ------------------------------------------------------------------ Lancement
 async function main(): Promise<void> {
   if (opt('rapport')) {
-    const d = opt('rapport')!, r = rapport(d);
-    writeFileSync(join(d, 'rapport.md'), r.md);
-    writeFileSync(join(d, 'rapport.json'), JSON.stringify({ date: new Date().toISOString(), defauts: r.lignes.map((l) => ({ type: l.type, nom: TYPES[l.type] ?? l.type, gravite: l.gravite, selecteur: l.selecteur, mesure: l.mesure, texte: l.texte, pages: [...l.pages], largeurs: [...l.largeurs].sort((a, b) => b - a), apparences: [...l.apparences], fichier: origine({ ...l.exemple, page: [...l.pages][0] }), capture: l.capture, valeurs: l.valeurs, fois: l.n })), passages: r.passages.map((p) => ({ page: p.page, largeur: p.largeur, apparence: p.apparence, ouverture: p.ouverture, mesures: p.mesures, defauts: p.defauts.length, echec: p.echec })) }, null, 1));
+    const d = opt('rapport')!, r = ecrireRapport(d);
     console.log(`Rapport écrit : ${join(d, 'rapport.md')} (${r.lignes.length} défauts distincts, ${r.passages.length} passages)`); return;
   }
   const pw = createRequire(import.meta.url)('playwright') as { chromium: { launch(o?: Record<string, unknown>): Promise<Nav> } };
@@ -432,7 +439,8 @@ async function main(): Promise<void> {
     const toutes: Cible[] = [...ECRANS, ...catalogue.map((m) => appli(m.id, m.name)), { ...appli('ullr', 'essai'), id: 'essai:sections', titre: 'Page d\'essai des sections génériques', famille: 'essai', onglets: undefined }];
     if (drapeau('liste')) { for (const c of toutes) console.log(`${c.id.padEnd(30)} ${c.titre}`); console.log(`\nLargeurs : ${Object.keys(LARGEURS).join(', ')}   Apparences : ${APPARENCES.join(', ')} (ou tout thème de src/web/themes.js)`); return; }
     const voulues = liste(opt('page'));
-    const cibles = drapeau('tout') ? toutes : voulues.length ? voulues.flatMap((v) => { const f = v.endsWith('*') ? toutes.filter((c) => c.id.startsWith(v.slice(0, -1))) : toutes.filter((c) => c.id === v); if (!f.length) console.log(`Page inconnue : ${v} (voir --liste)`); return f; }) : toutes.filter((c) => CLES.includes(c.id));
+    // --ecrans : les grandes pages, les pages à part et les notifications ; --applis : la page de chaque appli ; --tout : les deux.
+    const cibles = drapeau('tout') ? toutes : drapeau('ecrans') ? toutes.filter((c) => c.famille === 'ecran' || c.famille === 'hors') : drapeau('applis') ? toutes.filter((c) => c.famille === 'appli' || c.famille === 'essai') : voulues.length ? voulues.flatMap((v) => { const f = v.endsWith('*') ? toutes.filter((c) => c.id.startsWith(v.slice(0, -1))) : toutes.filter((c) => c.id === v); if (!f.length) console.log(`Page inconnue : ${v} (voir --liste)`); return f; }) : toutes.filter((c) => CLES.includes(c.id));
     if (!cibles.length) { code = 2; return; }
     const neuf = cibles.some((c) => c.genre === 'neuf') ? await (await charger<typeof import('./odin-vrai.ts')>(racine, 'test/banc/odin-vrai.ts')).vraiOdin(t, { valhalla: false }) : undefined;
     const s: Session = { od, neuf, t, url: od.url, cookie: od.session, catalogue };
@@ -440,11 +448,12 @@ async function main(): Promise<void> {
     const t0 = Date.now();
     if (drapeau('fluidite')) await fluidite(nav, s, cibles.some((c) => c.famille === 'appli') && (voulues.length || drapeau('tout')) ? cibles : toutes, sortie);
     else {
-      const ps = await parcourir(nav, s, cibles, largeurs.length ? largeurs : drapeau('tout') ? Object.keys(LARGEURS).map(Number).sort((a, b) => b - a) : [1280, 390], apparences.length ? apparences : ['sombre'], sortie, { captures, brut, onglets: drapeau('onglets') || drapeau('tout') });
+      const large = drapeau('tout') || drapeau('ecrans') || drapeau('applis');
+      const ps = await parcourir(nav, s, cibles, largeurs.length ? largeurs : large ? Object.keys(LARGEURS).map(Number).sort((a, b) => b - a) : [1280, 390], apparences.length ? apparences : ['sombre'], sortie, { captures, brut, onglets: drapeau('onglets') || large });
       const tous = ps.flatMap((p) => p.defauts);
       console.log(`\n${ps.length} passage(s) en ${Math.round((Date.now() - t0) / 1000)} s : ${resume(tous)}`);
       if (ps.length <= 12) for (const p of ps) { console.log(`\n${p.titre} — ${p.largeur} px, ${p.apparence}`); for (const d of p.defauts) console.log(`  ${ligne(d)}${d.capture ? `\n      capture : ${d.capture}` : ''}`); }
-      if (sortie) { const r = rapport(sortie); writeFileSync(join(sortie, 'rapport.md'), r.md); console.log(`\nRapport : ${join(sortie, 'rapport.md')}`); }
+      if (sortie) { ecrireRapport(sortie); console.log(`\nRapport : ${join(sortie, 'rapport.md')}`); }
       code = tous.some((d) => d.gravite === 'grave') ? 1 : 0;
     }
   } finally { await t.end(); await wait(50); }
