@@ -899,6 +899,59 @@ CHECKS['hlin>forseti'] = async (w) => {
   assert.ok(a, 'délai dépassé : alerte dans Forseti'); assert.equal(a!.fix?.action, 'relancer');
 };
 
+/**
+ * Tirésias lit les disques avec smartctl ; la machine d'essai n'a pas de SMART : un faux smartctl rend les exemples
+ * de test/fixtures/durinn (au format JSON de smartmontools), dont un disque en échec (sdd).
+ */
+const tiresias = (w: World) => {
+  const dir = join(import.meta.dirname, 'fixtures', 'durinn'), lire = (n: string) => readFileSync(join(dir, `${n}.json`), 'utf8');
+  return Object.assign(Object.create(w.v.ctx('durinn')) as ReturnType<Valhalla['ctx']>, { run: async (cmd: string, args: string[]) => {
+    if (cmd === 'sh') return { code: 0, out: 'smartctl\n', err: '' };
+    if (cmd !== 'smartctl') return { code: 1, out: '', err: '' };
+    if (args.includes('--scan')) return { code: 0, out: lire('scan'), err: '' };
+    const dev = String(args.at(-1)).replace('/dev/', ''), t = args.includes('-d') ? args[args.indexOf('-d') + 1] : '';
+    return { code: 0, out: t && existsSync(join(dir, `${dev}.${t}.json`)) ? lire(`${dev}.${t}`) : lire(dev), err: '' };
+  } });
+};
+CHECKS['durinn>forseti'] = async (w) => {
+  await w.v.module('durinn')!.watch!.run(tiresias(w));
+  const a = w.v.alerts({ module: 'durinn' }).find((x) => /^Disque sdd .* : état Mauvais$/.test(x.title));
+  assert.ok(a, 'le disque en échec lève une alerte'); assert.equal(a!.level, 'critique');
+  assert.match(a!.detail ?? '', /Sauvegarde d'abord ce qui compte, remplace le disque ensuite\./); assert.ok((a!.steps ?? []).length >= 3, 'l\'alerte dit quoi faire, pas à pas');
+  assert.ok(w.v.alerts().some((x) => x.title === a!.title), 'elle est dans le fil commun');
+};
+CHECKS['durinn>sindri'] = async (w) => {
+  w.v.ctx('sindri').saveSettings({ plans: [{ name: 'Serveur', paths: [w.home], repo: join(w.home, 'depot'), at: '02:00', keep: { last: 3, daily: 7, weekly: 4, monthly: 6 } }] });
+  await w.v.module('durinn')!.watch!.run(tiresias(w));
+  const a = w.v.alerts({ module: 'durinn' }).find((x) => /^Disque sdd .* : état Mauvais$/.test(x.title));
+  assert.deepEqual(a?.fix, { module: 'sindri', action: 'sauvegarder', label: 'Sauvegarder maintenant', input: { plan: 'Serveur' } }, 'le bouton lance le plan de sauvegarde');
+  assert.match(a!.steps![0], /Phénix : « Sauvegarder maintenant », plan « Serveur »/);
+  await w.v.act(a!.fix!.module!, a!.fix!.action, a!.fix!.input);
+  assert.ok(did(w, 'sindri', 'sauvegarder'), 'la sauvegarde part');
+};
+CHECKS['durinn>askr'] = async (w) => {
+  await w.v.module('durinn')!.watch!.run(tiresias(w));
+  assert.ok(await until(async () => /Disque WDC WD40EFRX-68N32N0 4 To/.test((await w.v.act('askr', 'chercher', { q: 'WD-WCC7K0XXXXXA' })).text)), 'la fiche du disque est dans l\'inventaire');
+  assert.match((await w.v.act('askr', 'chercher', { q: 'S4EWNX0XXXXXXXK' })).text, /Samsung SSD 970 EVO Plus 1TB/);
+  assert.doesNotMatch((await w.v.act('askr', 'chercher', { q: 'Cruzer' })).text, /Disque SanDisk/, 'pas de fiche pour une clé USB');
+  // Une seule fois : relu, rien de plus ; supprimée, jamais recréée.
+  const n = (await w.v.act('askr', 'chercher', { q: 'Disque' })).text;
+  await w.v.module('durinn')!.watch!.run(tiresias(w)); await wait(100);
+  assert.equal((await w.v.act('askr', 'chercher', { q: 'Disque' })).text, n);
+};
+CHECKS['eir>durinn'] = async (w) => {
+  // Hygie : chaque disque de son tableau de débit a son bouton vers Tirésias.
+  const v = await w.v.module('eir')!.view(w.v.ctx('eir'), new URLSearchParams());
+  const t = v.sections.find((x) => x.kind === 'table' && x.title === 'Disques (débit)') as Extract<(typeof v.sections)[number], { kind: 'table' }> | undefined;
+  assert.ok(t, 'Hygie montre les disques');
+  if (!t!.rows.length) return; // machine sans disque lisible (rare) : rien à relier
+  const b = t!.rows[0].actions?.find((x) => x.module === 'durinn');
+  assert.deepEqual(b && { module: b.module, action: b.action, label: b.label }, { module: 'durinn', action: 'ouvrir', label: 'Santé (Tirésias)' });
+  const r = await w.v.act('durinn', b!.action, b!.input); assert.ok(r.text.length > 0);
+  assert.ok(did(w, 'durinn', 'ouvrir'), 'le bouton ouvre le disque dans Tirésias');
+};
+CHECKS['hermod>durinn'] = (w) => propose(w, 'durinn');
+
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
   assert.ok(LINKS.length >= 32);
   assert.deepEqual(LINKS.filter((l) => l.auto !== true).map((l) => `${l.from}>${l.to}`), [], 'aucun lien « à activer »');

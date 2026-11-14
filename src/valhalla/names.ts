@@ -72,7 +72,8 @@ export const NAMES: Record<string, string> = {
  "bragi": "Orphée",
  "heidrun": "Héra",
  "hlin": "Gygès",
- "bifrost": "Iris"
+ "bifrost": "Iris",
+ "durinn": "Tirésias"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
@@ -274,4 +275,5 @@ export const NAME_STORY: Record<string, string> = {
  "leikvangr": "Olympie, la cité grecque où sont nés les Jeux olympiques : le terrain de jeu.",
  "heidrun": "Héra, la reine de l'Olympe, protectrice de la famille et du foyer : elle veille sur ce que voient les enfants.",
  "hlin": "Gygès, le berger d'une légende grecque que raconte Platon : il trouva un anneau qui le rendait invisible. Ici, c'est toi qui décides de ce qu'on voit de toi.",
+ "durinn": "Tirésias, le devin aveugle de Thèbes qui voyait venir les malheurs avant tout le monde : il lit les signes que tes disques donnent d'eux-mêmes et annonce la panne avant qu'elle n'arrive."
 };
