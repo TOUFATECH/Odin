@@ -85,11 +85,10 @@ function monter(el: HTMLElement, E: Etat, ctx: Ctx): void {
     ciel(el);
     return;
   }
-  const sys = E.plateforme === 'win32' ? 'Windows : C:\\Users\\[toi]\\AppData\\Roaming\\Pégase\\Profils\\[nom]' : E.plateforme === 'darwin' ? 'Mac : ~/Library/Application Support/Pégase/Profils/[nom]' : 'Linux : ~/.config/pegase/profils/[nom]';
   let corps = '';
   if (e === 'odin') {
     corps = `${tete('Retrouver ton profil', 'Pégase se connecte à Odin pour tout remettre comme avant.')}${etapes(1)}
-      <form class="pile" data-ecran="odin">${blocOdin(E)}
+      <form class="pile" novalidate data-ecran="odin">${blocOdin(E)}
         <label>Adresse e-mail<input class="champ" type="email" name="email" autocomplete="username" placeholder="ton adresse e-mail" required></label>
         ${champMdp('motdepasse', 'Mot de passe', 'current-password')}
         <label class="code-2fa" hidden>Code à 6 chiffres de ton appli d’authentification<input class="champ" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
@@ -99,13 +98,12 @@ function monter(el: HTMLElement, E: Etat, ctx: Ctx): void {
       </form>`;
   } else if (e === 'compte') {
     corps = `${tete('Créer ton compte', 'Ton profil Pégase, rangé sur ce PC et sur Odin si tu veux.')}${etapes(2, true)}
-      <form class="pile" data-ecran="compte">
+      <form class="pile" novalidate data-ecran="compte">
         <label>Ton nom<input class="champ" name="nom" autocomplete="name" required value="${esc(E.premier?.compte?.nom ?? '')}"></label>
         <label>Adresse e-mail<input class="champ" type="email" name="email" autocomplete="email" value="${esc(E.premier?.compte?.email ?? '')}"></label>
         ${champMdp('motdepasse', 'Mot de passe', 'new-password')}
         ${champMdp('encore', 'Le même, encore', 'new-password')}
         <div class="solidite" aria-live="polite"><span class="jauge"><span></span></span><b>—</b></div>
-        <div class="chemin-profil"><b>Ton profil sera créé sur ce PC</b><span class="doux petit">${esc(sys)}</span></div>
         <p class="erreur" role="alert"></p>
         <div class="rangee boutons-ecran"><button class="bouton fort" type="submit">Créer mon compte</button><button class="bouton" type="button" data-ignorer="compte">Ignorer</button></div>
         <p class="note">« Ignorer » : tu navigues tout de suite avec un profil sur ce PC seulement. Tu pourras créer ton compte plus tard dans Réglages.</p>
@@ -113,7 +111,7 @@ function monter(el: HTMLElement, E: Etat, ctx: Ctx): void {
   } else if (e === 'sauvegarde') {
     const quoi: [string, string][] = [['Ton profil', 'nom, couleur'], ['Favoris', 'et dossiers'], ['Onglets et espaces', 'épinglés, bureaux'], ['Historique', 'pour demander à Odin'], ['Agenda', 'tes rendez-vous'], ['Réglages', 'couleurs, protection']];
     corps = `${tete('Sauvegarder ton profil sur Odin ?', 'Compte créé. Avec Odin, tu retrouves tout sur un autre PC ou sur ton téléphone.')}${etapes(3, true)}
-      <form class="pile" data-ecran="sauvegarde"><h2 class="titre-ecran">Où est Odin ?</h2>${blocOdin(E)}
+      <form class="pile" novalidate data-ecran="sauvegarde"><h2 class="titre-ecran">Où est Odin ?</h2>${blocOdin(E)}
         <h2 class="titre-ecran">Ce qui part sur Odin</h2>
         <ul class="ce-qui-part">${quoi.map(([a, b]) => `<li><span class="ok-rond petit" aria-hidden="true">✓</span><b>${a}</b><span class="doux">${b}</span></li>`).join('')}<li><span class="ko-rond petit" aria-hidden="true">–</span><b>Cookies</b><span class="doux">restent sur ce PC</span></li></ul>
         <div class="attente-accord" hidden role="status"></div>
@@ -170,6 +168,11 @@ function brancher(el: HTMLElement, ctx: Ctx): void {
   });
   f.addEventListener('submit', async (e) => {
     e.preventDefault(); erreur('');
+    // Nos propres messages, en français, à la place de la bulle du navigateur.
+    const vide = [...f.querySelectorAll<HTMLInputElement>('input[required]')].find((i) => !i.value.trim());
+    if (vide) { const nom = (vide.closest('label')?.firstChild?.textContent ?? '').trim(); erreur(nom ? `Remplis « ${nom} ».` : 'Remplis les champs.'); vide.focus(); return; }
+    const mal = [...f.querySelectorAll<HTMLInputElement>('input[type=email]')].find((i) => i.value.trim() && !i.checkValidity());
+    if (mal) { erreur('Cette adresse e-mail n’est pas valide.'); mal.focus(); return; }
     const d = Object.fromEntries(new FormData(f)) as Record<string, string>;
     if (f.dataset.ecran === 'odin') {
       const a = adresse(); if (!a) { erreur('Tape l’adresse IP d’Odin, ou attends qu’il soit trouvé.'); return; }
