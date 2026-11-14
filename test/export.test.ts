@@ -347,7 +347,7 @@ test('un vrai Odin : export de quatre applis de genres différents dans les quat
     va.alert('forseti', { level: 'haute', title: `Sauvegarde refusée : mot de passe ${SECRET} rejeté`, detail: `essai avec ${SECRET}`, key: 'essai-export' });
 
     // Sans connexion : refusé, rien ne sort.
-    for (const h of [{}, { cookie: 'odin_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' }]) { const r = await prendre({ id: 'eir', format: 'md' }, h); assert.equal(r.status, 401); assert.ok(!(await r.text()).includes('Hygie')); }
+    for (const h of [{} as Record<string, string>, { cookie: 'odin_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' }]) { const r = await prendre({ id: 'eir', format: 'md' }, h); assert.equal(r.status, 401); assert.ok(!(await r.text()).includes('Hygie')); }
     // Demandes mal faites, format inconnu, Google Docs (pas de connexion Google dans Odin : on le dit).
     let r = await prendre({ id: 'nexiste-pas', format: 'md' }); assert.equal(r.status, 404); assert.deepEqual(await r.json(), { ok: false, error: 'Appli inconnue.' });
     r = await prendre({ id: 'eir', format: 'exe' }); assert.equal(r.status, 400); assert.match((await r.json() as { error: string }).error, /^Format inconnu : choisis Word \(docx\), PDF \(pdf\), Markdown \(md\) ou JSON \(json\)\.$/);

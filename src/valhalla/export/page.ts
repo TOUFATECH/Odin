@@ -232,7 +232,7 @@ export async function prendre(va: Valhalla, id: string, q: URLSearchParams, o: {
   if (non) return { ok: false, code: 'refus', error: non };
   const ctx = va.ctx(m.id);
   let vue: View;
-  try { vue = await m.view(ctx, q); } catch (e) { return { ok: false, code: 'vue', error: `La page de ${m.name} ne s'est pas ouverte : ${(e as Error).message}` }; }
+  try { vue = await m.view(ctx, q); } catch (e) { return { ok: false, code: 'vue', error: `La page de ${m.name} ne s'est pas ouverte : ${creerMasqueur(o.connus).texte(propre((e as Error).message))}. Réessaie dans un instant.` }; }
   const page = pageDepuisVue(m, vue, { quand: ctx.now(), onglet: q.get('onglet') ?? undefined, connus: o.connus });
   if ('erreur' in page) return { ok: false, code: 'onglet', error: page.erreur };
   return { ok: true, page, module: m };
