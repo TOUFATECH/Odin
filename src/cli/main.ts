@@ -29,7 +29,7 @@ import { SlackChannel } from '../bifrost/channels/slack.ts';
 import { SignalChannel } from '../bifrost/channels/signal.ts';
 import { WhatsAppChannel } from '../bifrost/channels/whatsapp.ts';
 import { MailChannel } from '../bifrost/channels/mail.ts';
-import { accessUrls, allowedNetworks, bindHost, ensureTls, servesTls, type TlsMaterial } from '../web/access.ts';
+import { accessUrls, addedNetworks, addNetwork, allowedNetworks, bindHost, ensureTls, plageAutorisable, removeNetwork, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
 import { routingReport } from '../providers/journal.ts';
 import { startDraupnir } from '../draupnir/odin.ts';
@@ -345,6 +345,20 @@ function breakerCmd(sub: string | undefined): void {
   console.log(c.dim('  odin breaker on | nuit | off'));
 }
 
+/** odin web reseau [192.168.1.0/24 | retirer <plage>] : autoriser une plage IP en plus (mode lan). */
+function webReseau(a: string | undefined, b: string | undefined): void {
+  const paths = odinPaths(); initHome(paths);
+  if (!a) {
+    const l = addedNetworks(paths.home);
+    console.log(l.length ? `Plages ajoutées : ${l.join(', ')}` : 'Aucune plage ajoutée (seulement le réseau détecté, ou web.allowedNetworks).');
+    console.log(c.dim('  odin web reseau 192.168.1.0/24          autoriser cette plage\n  odin web reseau retirer 192.168.1.0/24  la retirer'));
+    return;
+  }
+  if (a === 'retirer') { if (!b) throw new Error('quelle plage ? ex. odin web reseau retirer 192.168.1.0/24'); console.log(removeNetwork(paths.home, b) ? c.green(`✓ ${b} retirée (pris en compte tout de suite).`) : `${b} n'était pas dans la liste.`); return; }
+  const p = plageAutorisable(a); if (!p.ok) throw new Error(p.error);
+  console.log(addNetwork(paths.home, p.cidr) ? c.green(`✓ Plage ${p.cidr} autorisée (prise en compte tout de suite, sans redémarrer Odin).`) : `${p.cidr} est déjà autorisée.`);
+}
+
 /** odin web access [local|lan|wan] [--https] [--proxy] : qui peut ouvrir l'interface web. */
 function webAccess(mode: string | undefined): void {
   const paths = odinPaths();
@@ -353,7 +367,7 @@ function webAccess(mode: string | undefined): void {
   if (!mode) {
     const w = cfg.web;
     console.log(`Accès à l'interface web : ${c.bold(w.access)}${servesTls(w) ? ' (HTTPS)' : ''}${w.access === 'wan' && w.behindProxy ? ' derrière un proxy' : ''}, port ${w.port}`);
-    if (w.access === 'lan') console.log(`Réseaux autorisés : ${allowedNetworks(w).join(', ') || '—'}${w.allowedNetworks.length ? '' : ' (détectés)'}`);
+    if (w.access === 'lan') console.log(`Réseaux autorisés : ${allowedNetworks(w).join(', ') || '—'}${w.allowedNetworks.length ? '' : ' (détectés)'}${addedNetworks(paths.home).length ? ` + plages ajoutées : ${addedNetworks(paths.home).join(', ')}` : ''}`);
     console.log(c.dim('  odin web access lan     ton réseau local en HTTPS (par défaut ; --http pour ne pas chiffrer)\n  odin web access local   cette machine seulement\n  odin web access wan     + Internet (HTTPS obligatoire ; --proxy si un proxy HTTPS est devant)'));
     return;
   }
@@ -789,6 +803,7 @@ async function main(): Promise<void> {
   }
   if (cmd === 'gateway') return gateway();
   if (cmd === 'web' && pos[1] === 'access') return webAccess(pos[2]);
+  if (cmd === 'web' && (pos[1] === 'reseau' || pos[1] === 'réseau')) return webReseau(pos[2], pos[3]);
   if (cmd === 'link' || (cmd === 'web' && pos[1] === 'link')) {
     // Les liens personnels (avec jeton), sans démarrer l'interface : utile quand Odin tourne en service.
     const paths = odinPaths(); initHome(paths);

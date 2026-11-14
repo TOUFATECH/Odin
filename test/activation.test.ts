@@ -36,3 +36,22 @@ test('première connexion : code + QR code sur l\'écran, compte créé sur le t
     assert.equal((await fetch(`${B}/activer`, { redirect: 'manual' })).status, 302);
   } finally { await gw.stop(); }
 });
+
+test('code d\'activation et QR code : propres à chaque installation et à chaque demande', async () => {
+  const codes: string[] = [], qrs: string[] = [];
+  for (let n = 0; n < 2; n++) { // deux installations neuves, chacune avec son propre dossier
+    const o = makeOdin([]);
+    const port = 21000 + Math.floor(Math.random() * 20000), token = ensureWebToken(o.paths);
+    const gw = new Gateway(o, { owners: { web: ['*'] } });
+    gw.add(new WebChannel(o, { scanNetwork: () => gw.scanNetwork(false) }, { port, host: '127.0.0.1', token, scryptN: 1024 }));
+    await gw.start();
+    try {
+      for (let i = 0; i < 3; i++) {
+        const s = await (await fetch(`http://127.0.0.1:${port}/api/setup/start`, { method: 'POST', headers: { 'x-odin': '1', authorization: `Bearer ${token}` } })).json() as { code: string; svg: string };
+        codes.push(s.code); qrs.push(s.svg);
+      }
+    } finally { await gw.stop(); o.cleanup(); }
+  }
+  assert.equal(new Set(codes).size, codes.length, `jamais deux fois le même code : ${codes.join(' ')}`);
+  assert.equal(new Set(qrs).size, qrs.length, 'jamais deux fois le même QR code');
+});

@@ -1,5 +1,23 @@
 [
  {
+  "id": "v1320",
+  "at": "2026-11-14T22:40:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.32.0",
+  "title": "Autoriser une plage IP en plus de son réseau",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Nouvelle commande « odin web reseau 192.168.1.0/24 » : autorise une plage IP en plus du réseau détecté, même quand l'interface ne s'ouvre pas encore depuis ton appareil.",
+   "Prise en compte tout de suite, sans redémarrer Odin ; « odin web reseau » liste les plages ajoutées, « odin web reseau retirer 192.168.1.0/24 » en retire une.",
+   "Seulement des plages privées (192.168.x.x, 10.x.x.x, 172.16-31.x.x, 100.64.x.x), /16 au maximum. « odin web access » les affiche avec le réseau détecté.",
+   "Rien d'autre ne change : un appareil hors des réseaux autorisés n'obtient toujours aucune réponse.",
+   "Le code d'activation de la première connexion est tiré au hasard sans biais : il est différent sur chaque machine, à chaque ouverture de l'écran et toutes les 10 minutes, et le QR code avec lui (vérifié par un test sur deux installations)."
+  ]
+ },
+ {
   "id": "v1310",
   "at": "2026-11-14T15:10:00+03:00",
   "date": "2026-11-14",

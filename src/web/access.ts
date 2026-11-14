@@ -66,8 +66,46 @@ export function localNetworks(): string[] {
   return [...out];
 }
 
-/** Liste effective : celle de la configuration, sinon les sous-réseaux détectés. */
-export const allowedNetworks = (web: OdinConfig['web']) => (web.allowedNetworks.length ? web.allowedNetworks : localNetworks());
+/** Liste effective : celle de la configuration, sinon les sous-réseaux détectés ; plus les plages ajoutées. */
+export const allowedNetworks = (web: OdinConfig['web'], added: string[] = []) => [...new Set([...(web.allowedNetworks.length ? web.allowedNetworks : localNetworks()), ...added])];
+
+// ---- Plages réseau ajoutées ----
+// En plus du sous-réseau détecté (ou de web.allowedNetworks), on peut autoriser une plage IP de son réseau
+// avec « odin web reseau 192.168.1.0/24 », même sans pouvoir ouvrir l'interface. Gardées dans reseaux-ajoutes.json.
+export const ADDED_NETWORKS_FILE = 'reseaux-ajoutes.json';
+
+/**
+ * Plage qu'on a le droit d'ajouter : une plage privée seulement, jamais plus large qu'un /16 en IPv4
+ * (65 536 adresses). Renvoie la plage ramenée à son début (192.168.1.37/24 → 192.168.1.0/24), ou une erreur.
+ */
+export function plageAutorisable(saisie: string): { ok: true; cidr: string } | { ok: false; error: string } {
+  const c = saisie.trim().replace(/\s+/g, '');
+  if (!validCidr(c)) return { ok: false, error: 'plage invalide : écris-la comme 192.168.1.0/24' };
+  const [ip, b] = c.split('/'), bits = Number(b);
+  if (!ip.includes(':')) {
+    if (!isPrivateHost(ip) || /^(127|0)\./.test(ip)) return { ok: false, error: 'seulement une plage privée (192.168.x.x, 10.x.x.x, 172.16-31.x.x ou 100.64.x.x)' };
+    if (bits < 16) return { ok: false, error: 'plage trop large : /16 au maximum (ex. 192.168.0.0/16)' };
+    return { ok: true, cidr: `${networkOf(ip, bits)}/${bits}` };
+  }
+  if (!/^(fe80|f[cd][0-9a-f]{2}):/i.test(ip)) return { ok: false, error: 'seulement une plage IPv6 locale (fd00::/8 ou fe80::/10)' };
+  return { ok: true, cidr: c.toLowerCase() };
+}
+
+export function addedNetworks(home: string): string[] {
+  try { const l = JSON.parse(readFileSync(join(home, ADDED_NETWORKS_FILE), 'utf8')); return Array.isArray(l) ? l.filter((n) => typeof n === 'string' && validCidr(n)) : []; } catch { return []; }
+}
+function saveAdded(home: string, l: string[]): boolean {
+  try { writeFileSync(join(home, ADDED_NETWORKS_FILE), JSON.stringify(l, null, 2) + '\n', { mode: 0o600 }); return true; } catch { return false; }
+}
+/** Ajoute une plage (sans doublon). Renvoie true si elle est nouvelle. */
+export function addNetwork(home: string, cidr: string): boolean {
+  if (!validCidr(cidr)) return false;
+  const l = addedNetworks(home); return !l.includes(cidr) && saveAdded(home, [...l, cidr]);
+}
+/** Retire une plage ajoutée. Renvoie true si elle était dans la liste. */
+export function removeNetwork(home: string, cidr: string): boolean {
+  const l = addedNetworks(home); return l.includes(cidr) && saveAdded(home, l.filter((n) => n !== cidr));
+}
 
 export function validCidr(c: string): boolean {
   const [ip, b] = c.split('/');

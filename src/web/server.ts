@@ -13,14 +13,14 @@
 import { dictee } from '../valhalla/modules/rodd.ts';
 import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { isPrivateHost } from '../heimdall/policy.ts';
 import { serviceName } from '../hlidskjalf/identify.ts';
-import { accessUrls, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
+import { accessUrls, ADDED_NETWORKS_FILE, addedNetworks, allowedNetworks, AuthThrottle, remoteAllowed, type TlsMaterial, type WebAccess } from './access.ts';
 import { isAbsolute, join } from 'node:path';
 import type { Channel, Inbound } from '../bifrost/channel.ts';
 import { createBackup, restoreBackup } from '../backup.ts';
@@ -370,9 +370,11 @@ export class WebChannel implements Channel {
   private viaHttps(req: IncomingMessage): boolean { return this.clientIp(req).startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? '')); }
 
   // Réseaux autorisés (recalculés toutes les minutes : le Wi-Fi peut changer).
-  private nets?: { at: number; list: string[] };
+  // Une plage ajoutée (odin web reseau …) compte tout de suite : on relit la liste dès que son fichier change.
+  private nets?: { at: number; added: number; list: string[] };
   private networks(): string[] {
-    if (!this.nets || Date.now() - this.nets.at > 60_000) this.nets = { at: Date.now(), list: allowedNetworks(this.odin.cfg.web) };
+    let added = 0; try { added = statSync(join(this.odin.paths.home, ADDED_NETWORKS_FILE)).mtimeMs; } catch { /* aucune plage ajoutée */ }
+    if (!this.nets || Date.now() - this.nets.at > 60_000 || this.nets.added !== added) this.nets = { at: Date.now(), added, list: allowedNetworks(this.odin.cfg.web, addedNetworks(this.odin.paths.home)) };
     return this.nets.list;
   }
 
@@ -649,7 +651,7 @@ export class WebChannel implements Channel {
       if (why) return json(res, 403, { ok: false, error: why });
       const now = Date.now(); for (const [k, x] of this.activations) if (x.exp < now) this.activations.delete(k);
       if (this.activations.size >= 20) this.activations.delete(this.activations.keys().next().value!);
-      const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let code = ''; for (const b of randomBytes(6)) code += A[b % A.length];
+      const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let code = ''; for (let i = 0; i < 6; i++) code += A[randomInt(A.length)]; // tirage sans biais, propre à chaque demande
       const secret = randomBytes(24).toString('hex'); this.activations.set(code, { secret, exp: now + 10 * 60_000 });
       const link = `${this.publicOrigin(req)}/activer?c=${code}`;
       return json(res, 200, { ok: true, code, secret, url: link, short: link.replace(/^https?:\/\//, '').replace(/\?c=.*$/, ''), svg: qrSvg(link, { scale: 4, margin: 2 }), expires: now + 10 * 60_000 });
