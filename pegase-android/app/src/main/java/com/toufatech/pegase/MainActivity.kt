@@ -11,6 +11,7 @@ import android.os.Looper
 import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
@@ -61,6 +62,15 @@ class MainActivity : ComponentActivity() {
             url.startsWith("http://") || url.startsWith("https://") -> {
                 if (pegase.ecran == Ecran.NAVIGATEUR) pegase.navigateur.ouvrir(url) else pegase.lienEnAttente = url
             }
+        }
+    }
+
+    /** Écrans sur le ciel étoilé : icônes claires dans les barres du téléphone ; ailleurs, le réglage de départ. */
+    fun barresSurNoir(oui: Boolean) {
+        if (oui) {
+            enableEdgeToEdge(SystemBarStyle.dark(android.graphics.Color.TRANSPARENT), SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+        } else {
+            enableEdgeToEdge()
         }
     }
 

@@ -40,6 +40,7 @@ import com.toufatech.pegase.stockage.Magasin
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
+import com.toufatech.pegase.coeur.Texte
 
 enum class Ecran { DEMARRAGE, CONNEXION, NAVIGATEUR }
 
@@ -109,7 +110,7 @@ class Pegase(val app: Context) {
             } catch (e: ErreurOdin) {
                 surUi { message = e.message }
             } catch (e: Exception) {
-                surUi { message = "Quelque chose n'a pas marché : ${e.message ?: e.javaClass.simpleName}. Réessaie." }
+                surUi { message = "Quelque chose n'a pas marché : ${Texte.sansChemin(e.message ?: e.javaClass.simpleName)}. Réessaie." }
             }
         }
     }

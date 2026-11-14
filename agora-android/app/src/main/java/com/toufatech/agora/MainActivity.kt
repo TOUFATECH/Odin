@@ -4,8 +4,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,13 +19,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -31,6 +37,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,13 +46,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.toufatech.agora.appli.Agora
@@ -76,9 +86,33 @@ class MainActivity : ComponentActivity() {
         if (Agora.prefs(this).getString("session", null) != null) ServiceStore.demarrer(this)
         setContent {
             val e by Agora.etat.collectAsState()
-            Box(Modifier.fillMaxSize().background(Fond).safeDrawingPadding()) {
-                if (e.connexion == "aucune" && Agora.client == null) EcranConnexion(e) else EcranStore(e)
+            val connexion = e.connexion == "aucune" && Agora.client == null
+            LaunchedEffect(connexion) { barres(connexion) }
+            if (connexion) {
+                // L'écran de connexion sur le ciel noir étoilé (comme Pégase et Agora sur l'ordinateur).
+                Box(Modifier.fillMaxSize()) {
+                    Ciel(Modifier.fillMaxSize())
+                    Box(Modifier.fillMaxSize().safeDrawingPadding()) { EcranConnexion(e) }
+                }
+            } else {
+                Box(Modifier.fillMaxSize().background(Fond).safeDrawingPadding()) { EcranStore(e) }
             }
+        }
+    }
+
+    /** Sur le ciel étoilé : icônes claires dans les barres du téléphone ; sur le store (fond clair) : icônes sombres. */
+    private fun barres(surNoir: Boolean) {
+        val t = android.graphics.Color.TRANSPARENT
+        if (surNoir) enableEdgeToEdge(SystemBarStyle.dark(t), SystemBarStyle.dark(t)) else enableEdgeToEdge(SystemBarStyle.light(t, t), SystemBarStyle.light(t, t))
+    }
+
+    /** Le vrai logo d'Agora : les deux calques de l'icône du lanceur, coupés comme sur l'écran d'accueil du téléphone. */
+    @Composable
+    private fun LogoAgora(taille: Dp) {
+        Box(Modifier.size(taille).clip(RoundedCornerShape(taille * 0.23f)), contentAlignment = Alignment.Center) {
+            // Les calques font 108 dp, dont 72 visibles : on les agrandit d'une fois et demie.
+            Image(painterResource(R.drawable.ic_launcher_fond), null, Modifier.requiredSize(taille * 1.5f))
+            Image(painterResource(R.drawable.ic_launcher_avant), null, Modifier.requiredSize(taille * 1.5f))
         }
     }
 
@@ -87,23 +121,38 @@ class MainActivity : ComponentActivity() {
         var adresse by remember { mutableStateOf(Agora.prefs(this).getString("adresse", "") ?: "") }
         var ident by remember { mutableStateOf("") }; var mdp by remember { mutableStateOf("") }; var code by remember { mutableStateOf("") }
         var occupe by remember { mutableStateOf(false) }; val portee = rememberCoroutineScope()
-        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Agora", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Texte)
-            Text("Le store d'Odin : connecte-toi avec ton compte Odin, et retrouve ici les applis auxquelles tu as droit.", color = Doux)
-            OutlinedTextField(adresse, { adresse = it }, label = { Text("Adresse d'Odin") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
-            OutlinedTextField(ident, { ident = it }, label = { Text("Identifiant ou e-mail") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(mdp, { mdp = it }, label = { Text("Mot de passe") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
-            if (e.codeRequis) OutlinedTextField(code, { code = it }, label = { Text("Code de vérification") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-            e.erreur?.let { Text(it, color = Rouge) }
-            Button(onClick = {
-                occupe = true
-                portee.launch {
-                    val ok = withContext(Dispatchers.IO) { Agora.connecter(this@MainActivity, adresse.trim(), ident.trim(), mdp, code.trim().ifEmpty { null }) }
-                    mdp = ""; occupe = false
-                    if (ok) ServiceStore.demarrer(this@MainActivity)
+        var avis by remember { mutableStateOf<String?>(null) }
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.widthIn(max = 440.dp).fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    LogoAgora(52.dp)
+                    Text("Agora", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Texte)
                 }
-            }, enabled = !occupe && adresse.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = Sarcelle), modifier = Modifier.fillMaxWidth()) { Text(if (occupe) "Connexion…" else "Se connecter") }
-            Text("Ton mot de passe n'est jamais gardé sur ce téléphone : seule la session, chiffrée par le téléphone.", color = Doux, fontSize = 13.sp)
+                Text("Le store d'Odin : connecte-toi avec ton compte Odin, et retrouve ici les applis auxquelles tu as droit.", color = Doux)
+                OutlinedTextField(adresse, { adresse = it }, label = { Text("Adresse d'Odin") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))
+                OutlinedTextField(ident, { ident = it }, label = { Text("Identifiant ou e-mail") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(mdp, { mdp = it }, label = { Text("Mot de passe") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+                if (e.codeRequis) OutlinedTextField(code, { code = it }, label = { Text("Code de vérification") }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                (avis ?: e.erreur)?.let { Text(it, color = Rouge) }
+                Button(onClick = {
+                    // Nos propres messages, en français, pour chaque champ oublié.
+                    avis = when {
+                        adresse.isBlank() -> "Indique l'adresse d'Odin."
+                        ident.isBlank() -> "Remplis « Identifiant ou e-mail »."
+                        mdp.isEmpty() -> "Remplis « Mot de passe »."
+                        e.codeRequis && code.isBlank() -> "Remplis « Code de vérification »."
+                        else -> null
+                    }
+                    if (avis != null) return@Button
+                    occupe = true
+                    portee.launch {
+                        val ok = withContext(Dispatchers.IO) { Agora.connecter(this@MainActivity, adresse.trim(), ident.trim(), mdp, code.trim().ifEmpty { null }) }
+                        mdp = ""; occupe = false
+                        if (ok) ServiceStore.demarrer(this@MainActivity)
+                    }
+                }, enabled = !occupe, colors = ButtonDefaults.buttonColors(containerColor = Sarcelle), modifier = Modifier.fillMaxWidth()) { Text(if (occupe) "Connexion…" else "Se connecter") }
+                Text("Ton mot de passe n'est jamais gardé sur ce téléphone : seule la session, chiffrée par le téléphone.", color = Doux, fontSize = 13.sp)
+            }
         }
     }
 
@@ -113,7 +162,7 @@ class MainActivity : ComponentActivity() {
         val maj = e.articles.filter { a -> val i = e.installees[a.id]; i != null && a.paquet != null && com.toufatech.agora.coeur.Store.compareVersions(a.paquet.version, i.version) > 0 }
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.size(36.dp).background(Brush.linearGradient(listOf(Color(0xFF14B8A6), Color(0xFF0E7490))), RoundedCornerShape(9.dp)))
+                LogoAgora(36.dp)
                 Column(Modifier.weight(1f)) { Text("Agora", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Texte); Text("${e.personne}${if (e.groupes.isNotEmpty()) " · ${e.groupes.joinToString(", ")}" else ""}", color = Doux, fontSize = 13.sp) }
                 Box(Modifier.size(34.dp).background(Color(0xFFF59E0B), CircleShape), contentAlignment = Alignment.Center) { Text(e.personne.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold) }
             }
