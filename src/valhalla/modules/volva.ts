@@ -133,6 +133,12 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         const e = await ask(ctx, q, { focus: s(i.focus) as Focus, deep: i.approfondie === true, thread: s(i.suite) || undefined });
         return { text: `${e.answer}\n\nSources :\n${e.sources.map((x) => `[${x.n}] ${x.title} — ${x.url}${x.engines.length > 1 ? ` (${x.engines.join(', ')})` : ''}`).join('\n')}${e.followups.length ? `\n\nPour aller plus loin : ${e.followups.join(' · ')}` : ''}${e.apps.length ? `\nDans Odin : ${e.apps.map((a) => `${a.name}${a.label ? ` (${a.label})` : ''}`).join(', ')}` : ''}`, data: e };
       } },
+      // Pour les autres applis (Gygès) : les résultats seuls. Rien n'est lu, rien ne part vers l'IA, rien ne reste dans l'historique.
+      { id: 'brut', label: 'Résultats bruts', what: 'Les résultats des moteurs, fusionnés, sans IA, sans lecture des pages et sans rien garder dans l\'historique (pour les autres applis d\'Odin)', read: true, quick: false, external: true, params: [{ key: 'question', label: 'Question', kind: 'textarea', required: true }, { key: 'n', label: 'Combien', kind: 'number', default: 8 }], run: async (ctx, i) => {
+        const q = s(i.question).trim().slice(0, 400); if (!q) throw new Error('pose une question');
+        const n = Math.max(1, Math.min(20, Number(i.n) || 8)), g = await gather(ctx, q, 'tout', n), sources = fuse(g.lists, n);
+        return { text: sources.map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n') || `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}.`, data: { sources, moteurs: activeEngines(ctx), erreurs: g.errors } };
+      } },
       { id: 'moteurs', label: 'Moteurs', what: 'Ce que chaque moteur demande et s\'il est prêt', read: true, words: ['moteurs de recherche'], run: (ctx) => {
         const act = new Set(activeEngines(ctx));
         return { text: `${Object.entries(ENGINES).map(([k, x]) => `${act.has(k) ? '✅' : ready(ctx, k) ? '⚪' : '⛔'} ${x.label}${!ready(ctx, k) ? ` — il faut ${x.need ?? (x.env ?? []).join(' et ') + ' dans le coffre'}` : ''}${x.note ? ` (${x.note})` : ''}`).join('\n')}\nBing a arrêté son API en août 2025 : il reste joignable par SearXNG.` };

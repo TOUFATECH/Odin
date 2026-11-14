@@ -58,6 +58,7 @@ const REFUS: Record<string, (nom: string) => string> = {
   var: (n) => `${n} garde les comptes des personnes, leurs sessions et le journal des connexions : sa page reste dans Odin.`,
   skidbladnir: (n) => `${n} garde tes liens de partage, les mots de passe d'appli et les notes secrètes : sa page reste dans Odin.`,
   gladsheim: (n) => `${n} garde les positions de la famille et les clés des tablettes : sa page reste dans Odin.`,
+  hlin: (n) => `${n} garde où tu apparais sur Internet, tes coordonnées, celles de tes proches et tes demandes de retrait : sa page reste dans Odin.`,
 };
 /** Les sections qui restent dans Odin (l'appli sort, mais pas en entier) : le titre attendu, ce que c'est, et pourquoi. */
 const RETRAITS: Record<string, Array<{ titre: RegExp; quoi: string; pourquoi: string }>> = {

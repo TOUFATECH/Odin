@@ -112,6 +112,9 @@ export const LINKS: Link[] = [
   { from: 'eir', to: 'syn', when: 'chaque minute', does: 'les mesures de la machine alimentent les tableaux de bord', auto: true, kind: 'donnée' },
   { from: 'vordr', to: 'syn', when: 'chaque vérification', does: 'temps de réponse et disponibilité alimentent les tableaux de bord', auto: true, kind: 'donnée' },
   { from: 'syn', to: 'forseti', when: 'un seuil orange ou rouge d\'un panneau est dépassé', does: 'une alerte avec la mesure et sa valeur', auto: true, kind: 'donnée' },
+  { from: 'hlin', to: 'volva', when: 'tu lances « Vérifier maintenant », ou que la revérification du mois passe', does: 'les recherches préparées de la fiche (nom et ville, numéro, e-mail, pseudo) passent par Pythie, sans IA et sans rien garder dans son historique : aucun robot maison sur les moteurs', auto: true, kind: 'réflexe' },
+  { from: 'hlin', to: 'brisingamen', when: 'tu donnes ta clé Have I Been Pwned', does: 'elle est rangée dans le coffre (jamais affichée) ; Gygès la relit là pour chercher tes e-mails dans les fuites connues', auto: true, kind: 'réflexe' },
+  { from: 'hlin', to: 'forseti', when: 'la revérification du mois trouve un nouveau résultat, ou une demande de retrait dépasse son délai d\'un mois', does: 'alerte dans le fil commun et sur ta messagerie, numéros, e-mails et adresses masqués', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */

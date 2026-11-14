@@ -70,6 +70,7 @@ export const NAMES: Record<string, string> = {
  "brokkr": "Héphaïstos",
  "bragi": "Orphée",
  "heidrun": "Héra",
+ "hlin": "Gygès",
  "bifrost": "Iris"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
@@ -270,4 +271,5 @@ export const NAME_STORY: Record<string, string> = {
  "snotra": "La plume du scribe, avec laquelle on écrivait lettres et registres : tes documents de bureau.",
  "leikvangr": "Olympie, la cité grecque où sont nés les Jeux olympiques : le terrain de jeu.",
  "heidrun": "Héra, la reine de l'Olympe, protectrice de la famille et du foyer : elle veille sur ce que voient les enfants.",
+ "hlin": "Gygès, le berger d'une légende grecque que raconte Platon : il trouva un anneau qui le rendait invisible. Ici, c'est toi qui décides de ce qu'on voit de toi.",
 };
