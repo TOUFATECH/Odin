@@ -52,6 +52,7 @@ import { evolutionTree } from './evolutions.ts';
 import { NETWORK as RAN_NETWORK, capture as ranCapture, flows as ranFlows, history as ranHistory, isPaused as ranIsPaused, packet as ranPacket, setOwnPort as ranOwnPort, sourcesFor as ranSources, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 import { maisonRoute } from './maison-api.ts';
+import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
@@ -580,6 +581,8 @@ export class WebChannel implements Channel {
     if (url.pathname === '/maison' || url.pathname === '/maison.js' || url.pathname.startsWith('/api/maison/') || url.pathname === '/api/owntracks') {
       if (await maisonRoute(req, res, url, { authed: this.authed(req), name: this.accounts.profile()?.prenom ?? '', mascot: MASCOT, fail: () => this.throttle.fail(ip), ask: (text) => this.askAs('maison', text, onMessage) })) return;
     }
+    // Ulysse : la page des trajets d'un membre de la famille (/trajets) et son API, avec ses identifiants OwnTracks.
+    if (url.pathname === '/trajets' || url.pathname.startsWith('/api/trajets/')) { if (await trajetsRoute(req, res, url, { fail: () => this.throttle.fail(ip), https: this.secure || this.viaHttps(req) })) return; }
     if (!url.pathname.startsWith('/api/') && url.pathname !== '/mcp') return json(res, 404, { error: 'introuvable' });
     // Demander l'accès sans jeton : le propriétaire valide d'un geste (Telegram ou écran déjà connecté).
     if (req.method === 'POST' && url.pathname === '/api/pair') {
