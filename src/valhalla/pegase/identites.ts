@@ -108,6 +108,8 @@ export interface JetonSso { /** identifiant de la personne dans Persona (`sub`) 
 let sso: ((jeton: string, appli: 'pegase', req?: IncomingMessage) => Promise<JetonSso | undefined> | JetonSso | undefined) | undefined;
 /** Le SSO d'Odin se branche ici : ses jetons d'appli sont alors acceptés sur toutes les routes de Pégase. */
 export function brancherSso(f: typeof sso): void { sso = f; }
+/** Le SSO est-il déjà branché ? */
+export const ssoBranche = (): boolean => Boolean(sso);
 
 export type Identite = { ok: true; personne: Personne; appareil: Appareil; nouveau?: boolean } | { ok: false; http: number; code: string; texte: string };
 /**

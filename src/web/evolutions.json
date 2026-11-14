@@ -4,7 +4,7 @@
   "at": "2026-11-14T08:20:00+03:00",
   "date": "2026-11-14",
   "version": "1.25.0",
-  "title": "Pégase arrive dans Odin : ton navigateur synchronisé à la seconde",
+  "title": "Pégase arrive dans Odin, et la connexion unique pour toutes les applis",
   "details": [
    "Nouvelle appli Pégase dans Odin : tes appareils (avec un bouton Révoquer), l'état de leur synchro, l'historique cherchable par jour, les copies et les réglages.",
    "Un profil Pégase est ta personne d'Odin : même mot de passe, même double authentification. Créer un compte depuis Pégase demande ton accord (code à 6 chiffres affiché des deux côtés).",
@@ -12,7 +12,12 @@
    "Copie chaque jour, avant chaque restauration et avant chaque mise à jour d'Odin ; restauration d'un geste, envoyée à tous les appareils.",
    "L'IA d'Odin peut chercher dans ta navigation seulement si tu le permets (tout, sans l'historique, ou rien) ; le contenu d'une page reste une donnée, jamais un ordre.",
    "Téléchargements analysés par Asclépios, liens vérifiés par Sphinx, alertes dans Forseti (fichier bloqué, nouvel appareil). Agenda partagé en .ics pour Windows ou le téléphone.",
-   "Pégase a son icône (les deux ailes, palette Galaxie)."
+   "Pégase a son icône (les deux ailes, palette Galaxie).",
+   "Connexion unique : Pégase, Vénus et toute appli déclarée se connectent avec ton compte Odin (OpenID Connect, PKCE, jetons signés ES256, jetons courts et révocables).",
+   "Une seule connexion par ordinateur : les autres applis sont déjà connectées (jeton rangé dans le coffre de Windows, Mac ou Linux).",
+   "Droits par appli dans Persona (cases à cocher par groupe ou par personne) : sans droit, l'appli est cachée, ou un message clair dit à qui demander.",
+   "Plusieurs personnes peuvent entrer dans Odin avec leur compte Persona ; le propriétaire garde tout.",
+   "Les applis sauvegardent toute leur base sur Odin, chiffrée, avec des versions ; la page Vénus d'Odin montre la dernière sauvegarde et restaure d'un geste."
   ],
   "planets": [
    "applis",

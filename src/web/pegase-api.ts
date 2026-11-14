@@ -17,8 +17,9 @@ import { dnsServer } from '../valhalla/modules/vidarr.ts';
 import { intelOf } from '../valhalla/modules/ullr.ts';
 import { analyserFichier, iaGroupes, magOf, nouvelAppareil, propositions, verifierAdresse } from '../valhalla/modules/pegase.ts';
 import { COLS, isCol, sha256, VOIRS, type Magasin, type Rec, type Voir } from '../valhalla/pegase/store.ts';
-import { creerPersonne, droit, hashPassword, identifier, parEmail, personne, profilPublic, verifierMotDePasse, voirParDefaut, type Personne } from '../valhalla/pegase/identites.ts';
+import { brancherSso, ssoBranche, creerPersonne, droit, hashPassword, identifier, parEmail, personne, profilPublic, verifierMotDePasse, voirParDefaut, type Personne } from '../valhalla/pegase/identites.ts';
 import { agendaIcs } from '../valhalla/pegase/ics.ts';
+import { lireJeton } from '../valhalla/sso/oidc.ts';
 import { passwordProblem, validEmail } from './account.ts';
 import type { ModCtx } from '../valhalla/types.ts';
 
@@ -101,6 +102,8 @@ export async function pegaseRoute(req: IncomingMessage, res: ServerResponse, url
 async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, route: string, meth: string, deps: PegaseDeps): Promise<void> {
   const v = valhallaOf(), mod = v?.module('pegase');
   if (meth === 'GET' && route === 'bonjour') return json(res, 200, { odin: true, nom: 'Odin', version: deps.version, protocole: 1, empreinte: empreinteCert(deps.certificat), https: Boolean(deps.certificat), dns: Boolean(dnsServer()), comptes: Boolean(mod && v?.module('var')) });
+  // Les jetons d'appli du SSO d'Odin (audience « pegase ») valent un jeton d'appareil Pégase.
+  if (v && v.module('var') && !ssoBranche()) brancherSso((_j, _a, r) => { if (!r) return undefined; const x = lireJeton(v.ctx('var'), r); return x.ok && x.charge.aud === 'pegase' ? { sub: x.p.id, session: x.session.id, appli: 'pegase' } : undefined; });
   if (!v || !mod || !v.module('var')) return err(res, 503, 'indisponible', 'Les applis d\'Odin ne sont pas démarrées (Pégase ou Persona) : réessaie dans un instant.');
   const peg = v.ctx('pegase'), varCtx = v.ctx('var'), m = magOf(peg), now = peg.now().getTime(), ip = deps.ip.replace(/^fwd:/, '');
   if (meth === 'POST' && route !== 'analyser' && !/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) return err(res, 415, 'json_attendu', 'Envoie le corps en JSON (content-type: application/json).');
