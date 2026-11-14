@@ -1,5 +1,21 @@
 [
  {
+  "id": "v1241",
+  "at": "2026-11-14T06:45:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.24.1",
+  "title": "Logos : les variantes et les palettes que tu as choisies",
+  "details": [
+   "Les 75 icônes prennent la variante validée : halo (61 icônes), cadre (Apollon, Arachné, Dédale), pastille (Cerbère) ; les autres restent telles quelles.",
+   "15 icônes changent de palette, exactement comme sur la maquette (par exemple Apollon en bleu, Cerbère et Arachné en rouge sang, Dédale en fraise, Genèse en nuit).",
+   "Les variantes ne touchent jamais au dessin du symbole ; elles s'affichent pareil partout (page des applis, fenêtres, carte des applis)."
+  ],
+  "planets": [
+   "applis"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1240",
   "at": "2026-11-14T05:15:00+03:00",
   "date": "2026-11-14",
