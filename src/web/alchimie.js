@@ -29,6 +29,8 @@
     for (const c of kids.flat()) if (c !== undefined && c !== null && c !== false) e.append(c instanceof Node ? c : document.createTextNode(String(c)));
     return e;
   };
+  /** Remplace le contenu d'un élément (les « rien » — null, false — sont ignorés). */
+  const remplir = (e, ...k) => e.replaceChildren(...k.flat(Infinity).filter((x) => x !== null && x !== undefined && x !== false));
   const ico = (d, n = 18, extra = '') => { const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', n); s.setAttribute('height', n); s.setAttribute('aria-hidden', 'true'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '1.8'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.innerHTML = `<path d="${d}"/>${extra}`; return s; };
   const P = {
     x: 'M6 6l12 12M18 6L6 18', up: 'M12 16V4M7 9l5-5 5 5M5 20h14', img: 'M4 6h16v12H4zM8 14l3-3 4 4 2-2 3 3', doc: 'M6 3h8l4 4v14H6zM14 3v4h4M9 13h6M9 17h6',
@@ -75,14 +77,14 @@
 
   // ---------------------------------------------------------------- styles (variables du thème d'Odin)
   const CSS = `
-.al-root{--al-bg:var(--panel,var(--card,#1E2646));--al-ink:var(--ink,var(--text,#EEF2FF));--al-mut:var(--muted,#AEB9DA);--al-line:var(--line,rgba(255,255,255,.14));--al-acc:var(--accent,#4F7FF0);--al-on:var(--on-accent,var(--on,#fff));
+.al-root{--al-bg:var(--panel,var(--card,#1E2646));--al-ink:var(--ink,var(--text,#EEF2FF));--al-mut:var(--muted,#AEB9DA);--al-line:var(--line,rgba(255,255,255,.14));--al-acc:var(--accent,#4F7FF0);--al-on:var(--on-accent,var(--on,var(--al-on-calc,#fff)));
   --al-soft:color-mix(in srgb,var(--al-acc) 16%,transparent);--al-field:color-mix(in srgb,var(--al-ink) 6%,transparent);color:var(--al-ink);font:14px/1.4 var(--body,system-ui,sans-serif);box-sizing:border-box}
-.al-root *{box-sizing:border-box}.al-root button{font:inherit;color:inherit;cursor:pointer}.al-root :focus-visible{outline:2px solid var(--al-acc);outline-offset:2px}
+.al-root *{box-sizing:border-box}:where(.al-root) button{font:inherit;color:inherit;cursor:pointer}.al-root :focus-visible{outline:2px solid var(--al-acc);outline-offset:2px}
 .al-pan{position:fixed;z-index:70;width:min(480px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;border-radius:20px;background:color-mix(in srgb,var(--al-bg) 94%,transparent);border:1px solid var(--al-line);box-shadow:0 24px 60px rgba(0,0,0,.28),0 2px 6px rgba(0,0,0,.08);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .al-pan.tel{left:0;right:0;bottom:0;width:auto;max-height:86vh;border-radius:24px 24px 0 0;border-width:1px 0 0;padding-bottom:env(safe-area-inset-bottom)}
 .al-anim{animation:al-in .22s cubic-bezier(.2,.8,.3,1)}.al-pan.tel.al-anim{animation:al-up .26s cubic-bezier(.2,.8,.3,1)}
 @keyframes al-in{from{opacity:0;transform:translateY(10px) scale(.98)}}@keyframes al-up{from{transform:translateY(100%)}}
-.al-scrim{position:fixed;inset:0;z-index:69;background:rgba(0,0,0,.35)}
+.al-scrim{position:fixed;inset:0;z-index:69;background:rgba(0,0,0,.35)}html.al-ouvert .odin.roam{z-index:71}
 .al-poignee{display:block;width:40px;height:5px;margin:10px auto 0;border-radius:3px;background:color-mix(in srgb,var(--al-ink) 30%,transparent)}
 .al-tete{display:flex;align-items:center;gap:12px;padding:16px 18px 14px;border-bottom:1px solid var(--al-line)}.al-pan.tel .al-tete{padding:10px 16px 12px;border:0}
 .al-tete b{display:block;font-size:17px;line-height:1.2}.al-tete small{display:block;font-size:13px;color:var(--al-mut)}
@@ -90,7 +92,7 @@
 .al-zone{margin:16px 18px 0;min-height:148px;border-radius:16px;border:2px dashed color-mix(in srgb,var(--al-acc) 55%,transparent);background:linear-gradient(180deg,var(--al-field),var(--al-soft));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:14px;text-align:center}
 .al-zone.sur{border-style:solid;background:var(--al-soft)}.al-zone .al-rond{width:46px;height:46px;border-radius:23px;background:var(--al-bg);box-shadow:0 4px 12px rgba(0,0,0,.1);display:grid;place-items:center;color:var(--al-acc)}
 .al-zone small{font-size:13.5px;color:var(--al-mut)}.al-lien{border:0;background:none;padding:0;color:var(--al-acc);text-decoration:underline;font-size:13.5px}
-.al-sortes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:14px 18px}.al-sortes button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 2px;border-radius:12px;border:1px solid var(--al-line);background:var(--al-field);font-size:13px;min-width:0}
+.al-sortes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;padding:14px 18px}.al-sortes button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0;border-radius:12px;border:1px solid var(--al-line);background:var(--al-field);font-size:12.5px;letter-spacing:-.01em;min-width:0}
 .al-sortes svg{color:var(--al-acc)}.al-sortes span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .al-titre{padding:2px 18px 6px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--al-mut)}
 .al-rec{padding:0 12px 10px}.al-rec>div{display:flex;align-items:center;gap:12px;min-height:46px;padding:0 6px;border-top:1px solid color-mix(in srgb,var(--al-line) 60%,transparent)}
@@ -163,7 +165,9 @@
 
   // ---------------------------------------------------------------- le panneau
   let racine = null, pan = null, scrim = null, avant = null, etat = null, picker = null;
-  function root() { style(); if (!racine) { racine = h('div', { class: 'al-root', id: 'alchimie' }); document.body.append(racine); } return racine; }
+  function root() { style(); if (!racine) { racine = h('div', { class: 'al-root', id: 'alchimie' }); document.body.append(racine); } contraste(); return racine; }
+  /** Le texte posé sur la couleur du thème : foncé sur une couleur claire (thème jaune), blanc sinon. */
+  function contraste() { const a = getComputedStyle(racine || document.body).getPropertyValue('--accent').trim(); document.documentElement.style.setProperty('--al-on-calc', a && clair(a) ? '#14100A' : '#FFFFFF'); }
   function fichierInput(accept, multiple = true) {
     picker?.remove();
     picker = h('input', { type: 'file', ...(multiple ? { multiple: true } : {}), ...(accept ? { accept } : {}), style: 'position:fixed;left:-9999px;width:1px;height:1px;opacity:0', 'aria-hidden': 'true', tabindex: '-1' });
@@ -179,29 +183,39 @@
     const r = root(), tel = phone();
     if (tel) { scrim = h('div', { class: 'al-scrim', on: { click: fermer } }); r.append(scrim); }
     pan = h('section', { class: `al-pan${tel ? ' tel' : ''}${still() ? '' : ' al-anim'}`, role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'alTitre' });
-    pan.addEventListener('keydown', clavier);
+    pan.addEventListener('keydown', clavier); pan.addEventListener('pointerdown', sansNotif);
     pan.addEventListener('dragover', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); pan.querySelector('.al-zone')?.classList.add('sur'); } });
     pan.addEventListener('dragleave', (e) => { if (!pan.contains(e.relatedTarget)) pan.querySelector('.al-zone')?.classList.remove('sur'); });
     pan.addEventListener('drop', (e) => { e.preventDefault(); const l = [...(e.dataTransfer?.files || [])]; if (l.length) void deposer(l); });
-    r.append(pan); dessiner(); placer();
-    if (!o.silencieux) pan.querySelector('.al-zone .al-lien, .al-x')?.focus({ preventScroll: true });
+    r.append(pan); document.documentElement.classList.add('al-ouvert'); dessiner(); placer();
+    // Le focus va dans le panneau (après le geste en cours : le dernier clic sur Odin ne doit pas le reprendre).
+    if (!o.silencieux) { const f = () => pan?.querySelector('.al-zone .al-lien, .al-x')?.focus({ preventScroll: true }); f(); setTimeout(f, 80); }
     void chargerRecentes().then(() => { if (pan && etat.vue === 'accueil') dessiner(); });
-    if (tel) setTimeout(() => { const pr = pan?.getBoundingClientRect(); if (pr) { window.OdinCompanion?.go?.(innerWidth - 80, pr.top - 70); window.OdinCompanion?.pin?.(60_000); } }, 60);
     return pan;
   }
   function fermer() {
-    if (!pan) return; pan.remove(); scrim?.remove(); pan = null; scrim = null;
+    if (!pan) return; sansNotif(); document.documentElement.classList.remove('al-ouvert'); pan.remove(); scrim?.remove(); pan = null; scrim = null;
     for (const u of etat?.apercus || []) URL.revokeObjectURL(u);
     window.OdinCompanion?.pin?.(0);
+    // Odin reprend sa liberté depuis là où il est (au téléphone, il était posé au-dessus de la feuille).
+    { const b = document.getElementById('buddyRoam'); if (b && !b.hidden && phone()) { const r = b.getBoundingClientRect(); window.OdinCompanion?.go?.(r.left + r.width / 2, r.top + r.height / 2); } }
     try { avant?.focus?.({ preventScroll: true }); } catch { /* */ }
   }
   /** Juste au-dessus d'Odin (ordinateur), aligné sur lui ; dessous s'il n'y a pas la place. */
   function placer() {
-    if (!pan || pan.classList.contains('tel')) return;
+    if (pan?.classList.contains('tel')) { odinTel(); return; }
+    if (!pan) return;
     const o = placeOdin(), w = pan.offsetWidth, ht = pan.offsetHeight, m = 12;
     const left = Math.min(Math.max(m, o.right + 8 - w), innerWidth - w - m);
     let top = o.top - 34 - ht; if (top < m) top = Math.min(innerHeight - ht - m, o.bottom + 12); top = Math.max(m, top);
     pan.style.left = `${Math.round(left)}px`; pan.style.top = `${Math.round(top)}px`;
+  }
+  /** Téléphone : Odin se tient juste au-dessus de la feuille, à droite (comme sur la maquette). */
+  function odinTel() {
+    const b = document.getElementById('buddyRoam'); if (!b || b.hidden || !pan) return;
+    window.OdinCompanion?.pin?.(30 * 60e3); const s = b.offsetWidth || 46;
+    const t = `${Math.round(innerWidth - s - 16)}px ${Math.round(innerHeight - pan.offsetHeight - s - 10)}px`;
+    if (b.style.translate !== t) { b.classList.add('hopto'); clearTimeout(odinTel.t); odinTel.t = setTimeout(() => b.classList.remove('hopto'), 800); b.style.translate = t; }
   }
   function clavier(e) {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); return; }
@@ -222,13 +236,13 @@
         h('span', { class: 'al-mini' }, ico(sorteDe(r.famille)?.i || P.doc, 16)), h('span', { class: 't' }, r.titre), h('time', { datetime: r.at }, quand(r.at)),
         h('button', { type: 'button', class: 'al-b', 'data-k': `r${r.id}`, 'aria-label': `Refaire : ${r.titre}`, on: { click: () => choisir(sorteDe(r.famille), r) } }, 'Refaire'))))]
         : [h('div', { class: 'al-vide' }, 'Rien encore : dépose un fichier, Alchimie s\'en souviendra.')];
-      pan.replaceChildren(...tete(etat.recette ? `Refaire : ${etat.recette.titre}` : 'Convertir un fichier'),
+      remplir(pan, ...tete(etat.recette ? `Refaire : ${etat.recette.titre}` : 'Convertir un fichier'),
         h('div', { class: 'al-zone' }, h('span', { class: 'al-rond' }, ico(P.up, 22)), h('b', {}, 'Dépose tes fichiers ici'),
           h('small', {}, 'ou ', h('button', { type: 'button', class: 'al-lien', 'data-k': 'choisir', on: { click: () => choisir(etat.recette ? sorteDe(etat.recette.famille) : null) } }, 'choisis-les sur cet appareil'))),
         h('div', { class: 'al-sortes', role: 'group', 'aria-label': 'Choisir une sorte de fichiers' }, SORTES.map((x) => h('button', { type: 'button', 'data-k': `s${x.id}`, on: { click: () => choisir(x) } }, ico(x.i, 20), h('span', {}, x.label)))),
         h('div', { class: 'al-titre' }, 'Tes conversions récentes'), ...rec);
     } else if (v === 'envoi') {
-      pan.replaceChildren(...tete('Envoi et vérification par Asclépios…'), h('div', { class: 'al-envoi', role: 'status', 'aria-live': 'polite' },
+      remplir(pan, ...tete('Envoi et vérification par Asclépios…'), h('div', { class: 'al-envoi', role: 'status', 'aria-live': 'polite' },
         etat.fichiers.map((f) => h('div', {}, h('span', { class: 't' }, f.file.name), h('small', { style: 'color:var(--al-mut)' }, f.ref ? 'envoyé' : `${f.pct || 0} %`), h('span', { class: `al-barre${f.ref ? '' : ' indet'}` }, h('i', { style: f.ref ? 'width:100%' : '' }))))),
         etat.erreur ? h('div', { class: 'al-msg mal', role: 'alert' }, etat.erreur) : null, etat.erreur ? h('div', { class: 'al-pied' }, h('span', { style: 'flex:1' }), h('button', { type: 'button', class: 'al-b', on: { click: () => { etat = { ...etat, vue: 'accueil', fichiers: [], erreur: '' }; dessiner(); } } }, 'Recommencer')) : null);
     } else if (v === 'formats') dessinerFormats();
@@ -245,7 +259,7 @@
       badge(t.format, tel), h('span', { class: 't' }, h('b', {}, t.label), h('small', {}, t.desc), tel ? null : h('em', {}, t.estim)));
     const tuiles = tel ? c.tuiles : c.tuiles, autre = c.autres.find((x) => x.format === fmt);
     const lab = autre ? autre.label : (c.tuiles.find((t) => t.format === fmt)?.label || fmt.toUpperCase());
-    pan.replaceChildren(...tete(tel ? `${quoi} · ${c.exts}` : 'Convertir un fichier'),
+    remplir(pan, ...tete(tel ? `${quoi} · ${c.exts}` : 'Convertir un fichier'),
       tel ? null : h('div', { class: 'al-sel' }, h('span', { class: 'al-pile', 'aria-hidden': 'true' }, apercus), h('span', { class: 'q' }, h('b', {}, quoi), h('small', {}, `${c.exts} · ${c.totalTexte} · ${av}`)),
         c.antivirus === 'absent' ? null : appIcon('ullr', 22, 'Asclépios')),
       tel ? null : h('div', { class: 'al-titre' }, 'Convertir en'),
@@ -271,7 +285,7 @@
   async function deposer(liste) {
     if (!pan) ouvrir({ silencieux: true });
     const fichiers = liste.slice(0, 50).map((file) => ({ file, pct: 0, ref: '', url: /^image\/(png|jpe?g|webp|gif|avif|bmp)$/.test(file.type) ? URL.createObjectURL(file) : '' }));
-    etat = { ...etat, vue: 'envoi', fichiers, erreur: '', apercus: fichiers.map((f) => f.url).filter(Boolean) }; dessiner();
+    sansNotif(); etat = { ...etat, vue: 'envoi', fichiers, erreur: '', apercus: fichiers.map((f) => f.url).filter(Boolean) }; dessiner();
     visage('ecoute', 2500);
     try {
       for (const f of fichiers) { const r = await envoyer(f.file, (p) => { f.pct = p; const s = pan?.querySelectorAll('.al-envoi small')[fichiers.indexOf(f)]; if (s) s.textContent = `${p} %`; }); f.ref = r.ref; f.taille = r.size; dessiner(); }
@@ -326,7 +340,7 @@
       h('span', { class: 'n' }, l.fichiers?.[0] ? h('a', { href: `/api/valhalla/fichier?module=${MOD}&ref=${encodeURIComponent(l.fichiers[0].ref)}`, download: l.fichiers[0].nom, title: 'Télécharger sur cet appareil' }, l.nom) : h('span', { style: 'font-weight:500' }, l.nom),
         h('small', {}, l.etat === 'fait' ? (l.avant && l.apres ? `${taille(l.avant)} → ${taille(l.apres)}` : l.fichiers?.length > 1 ? `${l.fichiers.length} fichiers` : 'fait') : l.etat === 'cours' ? 'conversion…' : l.etat === 'erreur' ? l.texte : l.etat === 'annule' ? 'annulé' : 'en attente')),
       l.etat === 'fait' ? h('span', { class: 'ok', 'aria-label': 'fait' }, ico(P.ok, 18)) : l.etat === 'erreur' ? h('span', { class: 'ko', 'aria-label': 'échec' }, ico(P.warn, 18)) : l.etat === 'cours' ? h('span', { class: 'al-barre indet', 'aria-hidden': 'true' }, h('i')) : null);
-    s.el.replaceChildren(
+    remplir(s.el, 
       h('div', { class: 'h' }, appIcon(MOD, 28, 'Alchimie'), h('b', {}, s.titre), h('span', {}, s.fini && faits === s.lignes.length ? 'terminé' : `${faits} sur ${s.lignes.length}`)),
       h('div', { class: 'al-lignes' }, s.lignes.map(ligne)),
       h('div', { class: 'f' },
@@ -348,25 +362,32 @@
   let notifT = 0;
   function notifier(n = 4) {
     style(); document.getElementById('alNotif')?.remove(); clearTimeout(notifT);
-    const b = odin(), c = couleurOdin(b), fonce = clair(c), o = placeOdin();
+    const b = odin(), c = couleurOdin(b), fonce = clair(c), sheet = pan?.classList.contains('tel') ? { top: innerHeight - pan.offsetHeight } : null;
+    // Téléphone : la feuille couvre le bas de l'écran ; la notification se pose juste au-dessus d'elle, à droite (là où Odin vient se mettre).
+    const o = sheet ? (() => { const s = b?.offsetWidth || 46; return { left: innerWidth - s - 16, right: innerWidth - 16, width: s, height: s, top: sheet.top - s - 10, bottom: sheet.top - 10 }; })() : placeOdin();
     const pt = h('span', { class: 'pt', 'aria-hidden': 'true', style: `background:${c}` });
     const e = h('div', { id: 'alNotif', class: 'al-root al-notif', role: 'status', 'aria-live': 'polite',
       style: `background:linear-gradient(180deg,color-mix(in srgb,${c} 78%,#fff),${c});color:${fonce ? '#14100A' : '#fff'};box-shadow:0 10px 24px color-mix(in srgb,${c} 45%,transparent),inset 0 1px 0 rgba(255,255,255,.3)` },
     h('span', { class: 'n4', style: `color:${c}` }, String(n)), `${n} clics : Alchimie est ouverte`, pt);
     document.body.append(e);
-    const w = e.offsetWidth, cx = o.left + o.width / 2, m = 8;
-    const left = Math.min(Math.max(m, cx - w * 0.62), innerWidth - w - m), top = Math.max(m, o.top - e.offsetHeight - 14);
-    e.style.left = `${Math.round(left)}px`; e.style.top = `${Math.round(top)}px`; pt.style.left = `${Math.round(Math.min(Math.max(14, cx - left), w - 14))}px`;
+    const w = e.offsetWidth, ht = e.offsetHeight, cx = o.left + o.width / 2, m = 8;
+    if (o.top - ht - 14 >= m) {
+      const left = Math.min(Math.max(m, cx - w * 0.62), innerWidth - w - m);
+      e.style.left = `${Math.round(left)}px`; e.style.top = `${Math.round(o.top - ht - 14)}px`; pt.style.left = `${Math.round(Math.min(Math.max(14, cx - left), w - 14))}px`;
+    } else {
+      // Odin tout en haut de l'écran : la notification se pose à côté de lui (à gauche, ou à droite s'il n'y a pas la place).
+      const gauche = o.left - w - 14 >= m, left = gauche ? o.left - w - 14 : Math.min(o.right + 14, innerWidth - w - m), top = Math.max(m, o.top + o.height / 2 - ht / 2);
+      e.style.left = `${Math.round(left)}px`; e.style.top = `${Math.round(top)}px`;
+      pt.style.bottom = 'auto'; pt.style.top = `${Math.round(ht / 2 - 6)}px`; pt.style.left = gauche ? `${w}px` : '0px';
+    }
     if (!still()) e.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing: 'ease-out' });
     notifT = setTimeout(() => e.remove(), 4000);
   }
+  const sansNotif = () => { clearTimeout(notifT); document.getElementById('alNotif')?.remove(); };
   /** Ce que font 4 clics (ou 4 touchers) rapides sur Odin. */
   function quatre(_b, n = 4) {
-    notifier(n);
-    if (pan) { pan.querySelector('.al-zone .al-lien, .al-x')?.focus({ preventScroll: true }); return; }
-    ouvrir(); visage('joie', 1500);
-    // La notification reste au-dessus d'Odin, devant le panneau.
-    const no = document.getElementById('alNotif'); if (no) document.body.append(no);
+    if (pan) { notifier(n); pan.querySelector('.al-zone .al-lien, .al-x')?.focus({ preventScroll: true }); return; }
+    ouvrir(); notifier(n); visage('joie', 1500);
   }
 
   // ---------------------------------------------------------------- le clic droit d'Odin
