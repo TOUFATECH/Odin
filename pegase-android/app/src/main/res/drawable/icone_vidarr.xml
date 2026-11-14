@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de Sphinx (Odin, src/web/app-icons.js), convertie pour Android. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="64dp" android:height="64dp" android:viewportWidth="64" android:viewportHeight="64">
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v34a15,15 0 0 1 -15,15h-34a15,15 0 0 1 -15,-15v-34a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="64" android:endY="64"
+                android:startColor="#FF1DE9B6" android:endColor="#FF0091EA" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v9Q32,32 0,24v-9a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="32"
+                android:startColor="#47FFFFFF" android:endColor="#00FFFFFF" />
+        </aapt:attr>
+    </path>
+    <group>
+    <path android:pathData="M9 11 H55 L38 32 V50 L26 56 V32Z" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M17.0,17.5a4.0,4.0 0 1,0 8.0,0a4.0,4.0 0 1,0 -8.0,0" android:fillColor="#FF22C55E" />
+    <path android:pathData="M39.0,17.5a4.0,4.0 0 1,0 8.0,0a4.0,4.0 0 1,0 -8.0,0" android:fillColor="#FF22C55E" />
+    <path android:pathData="M27.4,17.5a4.6,4.6 0 1,0 9.2,0a4.6,4.6 0 1,0 -9.2,0" android:fillColor="#FFFF3B5C" />
+    <path android:pathData="M29.4 14.9 L34.6 20.1 M34.6 14.9 L29.4 20.1" android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" />
+    <path android:pathData="M32 36 V46" android:strokeColor="#FF22C55E" android:strokeWidth="3" android:strokeLineCap="round" />
+    <path android:pathData="M28.5 43 L32 47 L35.5 43" android:strokeColor="#FF22C55E" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M54 42.5 L55.35 45.65 L58.5 47 L55.35 48.35 L54 51.5 L52.65 48.35 L49.5 47 L52.65 45.65Z" android:fillColor="#FFFFFFFF" />
+    </group>
+</vector>
