@@ -2,13 +2,17 @@
 // (ElevenLabs, Piper local, ou compatible OpenAI), annonces sur les enceintes de la maison (Stentor),
 // et diffusion d'une alerte à voix haute partout (Triton). Réutilise src/voice (pas de doublon).
 
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, extname, join } from 'node:path';
 import { haApi, speakPlan, type HaState } from '../../tools/homeassistant.ts';
-import { hear, listVoices, speakAudio, sttReady, ttsIsLocal, ttsReady, type VoiceConfig } from '../../voice/voice.ts';
+import { audioKind, hear, listVoices, speakAudio, sttReady, ttsIsLocal, ttsReady, type VoiceConfig } from '../../voice/voice.ts';
 import type { ModCtx, Module } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '');
+/** Un son fabriqué par « Dire » : l'heure de sa fabrication et son format, rien d'autre. */
+const AUDIO = /^odin-(\d{10,16})\.(wav|mp3|ogg|m4a|webm)$/;
+/** Le fichier d'un son fabriqué par « Dire » (dossier d'Orphée donné), s'il existe : rien d'autre ne sort par là. */
+export function sonDit(dossierOrphee: string, ref: string): string | undefined { const f = AUDIO.test(ref) ? join(dossierOrphee, 'audio', ref) : ''; return f && existsSync(f) && statSync(f).isFile() ? f : undefined; }
 const MIME: Record<string, string> = { '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.oga': 'audio/ogg', '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.webm': 'audio/webm', '.flac': 'audio/flac' };
 
 async function speakers(ctx: ModCtx): Promise<{ url: string; token: string; states: HaState[] } | undefined> {
@@ -54,12 +58,19 @@ export function bragi(voice: () => VoiceConfig): Module {
     words: ['voix', 'parle', 'dis', 'annonce', 'enceinte', 'haut-parleur', 'transcris', 'transcription', 'vocal', 'audio', 'lis a voix haute', 'lis à voix haute'],
     // Un fichier audio envoyé depuis le navigateur pour être transcrit arrive dans « depots » (copie effacée après la transcription).
     depot: (ctx) => ({ dossier: join(ctx.dir, 'depots'), ref: (nom) => join(ctx.dir, 'depots', nom) }),
+    // Un son fabriqué par « Dire » peut être remis à l'appareil ; rien d'autre du dossier d'Orphée ne sort par là.
+    retrait: (ctx, ref) => sonDit(ctx.dir, ref),
     actions: [
       { id: 'etat', label: 'État de la voix', what: 'Ce qui est prêt', read: true, run: () => { const v = voice(); return { text: `Comprendre : ${sttReady(v) ? 'prêt' : 'pas prêt (Whisper absent et pas de clé)'}\nParler : ${ttsReady(v) ? `prêt (${v.tts.provider}${ttsIsLocal(v) ? ', sur la machine' : ', en ligne'})` : 'pas prêt'}\nVoix : ${v.tts.voiceName || v.tts.voiceId || 'par défaut'}` }; } },
-      { id: 'dire', label: 'Dire', what: 'Fabrique un fichier audio avec la voix d\'Odin', params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }], words: ['dis', 'lis'], run: async (ctx, i) => {
-        const a = await speakAudio(s(i.texte).slice(0, 4000), voice()); const dir = join(ctx.dir, 'audio'); mkdirSync(dir, { recursive: true });
-        const f = join(dir, `${ctx.now().getTime()}.${a.mime.includes('ogg') ? 'ogg' : 'mp3'}`); writeFileSync(f, a.data);
-        return { text: '🗣 Audio prêt.', data: { file: f } };
+      { id: 'dire', label: 'Dire', what: 'Fabrique un fichier audio avec la voix d\'Odin (à télécharger et à écouter)', params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }], words: ['dis', 'lis'], run: async (ctx, i) => {
+        const texte = s(i.texte).trim(); if (!texte) throw new Error('écris le texte à dire');
+        if (!ttsReady(voice())) throw new Error('la voix d\'Odin n\'est pas encore prête : installe la voix locale ou règle un service dans Réglages → Voix');
+        const a = await speakAudio(texte.slice(0, 4000), voice()); const dir = join(ctx.dir, 'audio'); mkdirSync(dir, { recursive: true });
+        // Les vieux fichiers s'en vont (7 jours) : ce dossier ne grossit pas sans fin.
+        for (const n of readdirSync(dir)) { const m = AUDIO.exec(n); if (m && ctx.now().getTime() - Number(m[1]) > 7 * 86_400_000) rmSync(join(dir, n), { force: true }); }
+        // La vraie extension du son reçu (Piper rend du WAV, ElevenLabs du MP3) : le fichier s'ouvre partout.
+        const nom = `odin-${ctx.now().getTime()}.${audioKind(a.data) || (a.mime.includes('ogg') ? 'ogg' : a.mime.includes('wav') ? 'wav' : 'mp3')}`, f = join(dir, nom); writeFileSync(f, a.data, { mode: 0o600 });
+        return { text: '🗣 Audio prêt.', data: { file: f }, fichiers: [{ nom, ref: nom }] };
       } },
       { id: 'annoncer', label: 'Annoncer', what: 'Sur une enceinte (nom), ou « partout »', params: [{ key: 'message', label: 'Message', kind: 'textarea', required: true }, { key: 'ou', label: 'Enceinte (ou « partout »)', kind: 'text', default: '' }], words: ['annonce', 'enceinte', 'previens a voix haute', 'préviens à voix haute'], run: async (ctx, i) => ({ text: await announce(ctx, s(i.message), s(i.ou) || undefined) }) },
       { id: 'transcrire', label: 'Transcrire', what: 'Fichier audio → texte (un fichier de la machine d\'Odin, ou un vocal envoyé depuis ton appareil)', read: true, params: [{ key: 'fichier', label: 'Fichier audio', kind: 'text', required: true, depot: {}, help: 'Son chemin sur la machine d\'Odin, ou un fichier de cet appareil (un vocal, par exemple) : il est envoyé, transcrit, puis effacé d\'Odin.' }], words: ['transcris', 'transcription'], run: async (ctx, i) => {

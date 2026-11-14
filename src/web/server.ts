@@ -80,7 +80,8 @@ import { getMode, setMode, type LifeMode } from '../tools/everyday.ts';
 import { isReminderJob, reminderText } from '../cron/reminders.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { exportConversations, type ExportFormat } from '../muninn/export.ts';
-import { TTS_DEFAULTS, cloneVoice, hear, listVoices, speak, speakAudio, sttReady, ttsIsLocal, ttsReady } from '../voice/voice.ts';
+import { TTS_DEFAULTS, hear, listVoices, speak, speakAudio, sttReady, ttsIsLocal, ttsReady } from '../voice/voice.ts';
+import { voixCloner, voixCopies, voixRetirer } from './voix-api.ts';
 import { ensureLocalVoice, resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
 import { forget as forgetAcquis, loadAcquis } from '../learn/acquis.ts';
 import { savingsOf } from '../providers/savings.ts';
@@ -732,6 +733,7 @@ export class WebChannel implements Channel {
     if (req.method === 'GET' && url.pathname === '/api/voice/voices') {
       try { return json(res, 200, { ok: true, voices: await listVoices(this.odin.cfg.voice) }); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
+    if (req.method === 'GET' && url.pathname === '/api/voice/copies') return json(res, 200, voixCopies(this.odin));
     // Journal des routages : quelle IA a traité quoi (Réglages → Modèle → Qui a répondu).
     // Cerveau (deuxième cerveau) : pages, graphe, bases, recherche.
     if (req.method === 'GET' && url.pathname.startsWith('/api/draupnir/')) {
@@ -870,15 +872,11 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/voice/clone') {
-      // Copie d'une voix : un enregistrement d'une à quelques minutes, avec consentement explicite.
+      // Copie d'une voix : un enregistrement d'une à quelques minutes ; l'accord est noté avant qu'il parte (voix-api.ts).
       try {
-        const audio = await readRaw(req, 25 * 1024 * 1024);
-        const name = url.searchParams.get('name') ?? '';
-        const id = await cloneVoice(name, [{ data: audio, mime: String(req.headers['content-type'] ?? 'audio/mpeg'), filename: url.searchParams.get('file') ?? 'echantillon.mp3' }], url.searchParams.get('consent') === '1', v);
-        setConfigValue(this.odin.paths, ['voice', 'tts'], { ...v.tts, voiceId: id, voiceName: name.trim().slice(0, 60) });
-        v.tts.voiceId = id; v.tts.voiceName = name.trim().slice(0, 60);
+        const r = await voixCloner(this.odin, url.searchParams, await readRaw(req, 25 * 1024 * 1024), String(req.headers['content-type'] ?? 'audio/mpeg'), this.accounts.profile()?.prenom ?? '');
         this.notify('state');
-        return json(res, 200, { ok: true, voiceId: id });
+        return json(res, 200, r);
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     // Envoi de fichier : lu en flux AVANT toute lecture JSON (sinon un fichier non JSON était refusé).
@@ -968,6 +966,7 @@ export class WebChannel implements Channel {
       const r = await brainPost(this.odin, url.pathname, body, async (text) => { const a = await this.odin.agent.run(text, { sessionId: 'web:cerveau', channel: 'web', peer: 'principal', trusted: true }); return { text: a.text, answeredBy: a.answeredBy }; });
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
+    if (url.pathname === '/api/voice/retirer') { const r = await voixRetirer(this.odin, String(body.id ?? '')); this.notify('state'); return json(res, 200, r); }
     if (url.pathname === '/api/voice/speak') {
       if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
       try {
@@ -1209,7 +1208,7 @@ export class WebChannel implements Channel {
       case 'settings_save': {
         let restart: boolean;
         try { restart = applySettings(this.odin.paths, this.odin.cfg, String(b.section), b); } catch (e) { return { ok: false, error: (e as Error).message }; }
-        for (const v of [b.apiKey, b.token, b.value]) if (typeof v === 'string') this.odin.redactor.add(v.trim());
+        for (const v of [b.apiKey, b.token, b.value, b.elevenKey, b.sttKey]) if (typeof v === 'string') this.odin.redactor.add(v.trim());
         if (restart && this.hooks.reload) {
           // On répond d'abord : la page se reconnecte toute seule au flux après le redémarrage.
           setTimeout(() => void this.hooks.reload!().catch((e) => console.error('[web] redémarrage :', (e as Error).message)), 200);
