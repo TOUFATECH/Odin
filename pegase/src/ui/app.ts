@@ -7,7 +7,7 @@ import '@fontsource/ibm-plex-sans/latin-700.css';
 import './style.css';
 import type { Etat, OngletVu, Bureau, Theme, Zone } from '../commun/types';
 import { I } from './icones';
-import { api, esc, APPS, appIcone, domaine, iconeSite, titreOnglet, setOdin, getOdin, quand, minutes, srcSure, couleurDe, type Ctx } from './commun';
+import { api, esc, LOGO, APPS, appIcone, domaine, iconeSite, titreOnglet, setOdin, getOdin, quand, minutes, srcSure, couleurDe, type Ctx } from './commun';
 import { pageInterne, rafraichirPages } from './pages';
 import { rendreEcran } from './ecrans';
 
@@ -89,7 +89,7 @@ function haut(): string {
   const vueAdresse = hote ? `<span class="sous-dom"><bdi dir="ltr">${esc(hote.slice(0, hote.length - site.length))}</bdi></span><b class="site-dom">${esc(site)}</b>` : `<span class="ellipse">${esc(adresse)}</span>`;
   const reduite = E.barreReduite;
   return `<div class="g">
-      <button class="ib" data-a="menu" data-menu="pegase" aria-label="Menu de Pégase" aria-haspopup="menu">${I.aile()}</button>
+      <button class="ib" data-a="menu" data-menu="pegase" aria-label="Menu de Pégase" aria-haspopup="menu">${LOGO(22)}</button>
       <button class="ib" data-a="barre" aria-label="${reduite ? 'Rouvrir la barre de côté' : 'Masquer la barre de côté'}" title="${raccourci('Ctrl+Maj+S')}" aria-pressed="${reduite}">${I.barre()}</button>
       <span class="espaceur"></span>
       <button class="ib" data-a="reculer" aria-label="Page précédente" ${c?.peutReculer ? '' : 'disabled'}>${I.recul()}</button>
