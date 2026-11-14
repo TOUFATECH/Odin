@@ -77,7 +77,8 @@ async function logiques(l: Lecteur, sec: number, total: number, etendue: Partiti
   }
   return out;
 }
-async function lireGpt(l: Lecteur, lba: number, sec: number): Promise<EtatGpt> {
+/** Un en-tête GPT et ses entrées, lus au secteur `lba` (sommes de contrôle vérifiées). */
+export async function lireGpt(l: Lecteur, lba: number, sec: number): Promise<EtatGpt> {
   const vide: EtatGpt = { present: false, lba, enteteJuste: false, entreesJustes: false, partitions: [] };
   if (lba < 1 || (lba + 1) * sec > l.taille) return vide;
   const h = await l.lire(lba * sec, sec);

@@ -204,6 +204,8 @@ export function peutRanger(source: { chemin: string; bloc: boolean }, dossier: s
     if (dest.inconnu || src.inconnu) return { ok: false, raison: `je n'arrive pas à savoir sur quel disque se trouve « ${cible} ». Dans le doute je refuse : choisis un dossier sur un disque que je reconnais (un autre disque interne, un disque USB)` };
     const meme = [...dest.disques].filter((d) => src.disques.has(d));
     if (meme.length) return { ok: false, raison: `« ${cible} » est sur le même disque que le support (${meme.join(', ')}). Écrire dessus pourrait effacer pour de bon ce qu'on cherche à retrouver : choisis un dossier sur un AUTRE disque` };
+    // Deux boucles sur le même fichier image (une partition montée à part, par exemple) : c'est le même support.
+    if ([...dest.images].some((i) => src.images.has(i))) return { ok: false, raison: `« ${cible} » est monté à partir du même fichier image que le support : y écrire modifierait ce qu'on fouille. Choisis un dossier sur un AUTRE disque` };
     return { ok: true };
   }
   // Source « fichier image » : on n'écrit ni dans l'image, ni par-dessus, ni dans un dossier monté depuis elle.
