@@ -92,6 +92,8 @@
 .va-ligne{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}.va-ligne>div{flex:1 1 220px;min-width:0;display:flex;flex-direction:column;gap:4px}.va-ligne>.va-btn{flex:none}.va-ligne-c{align-items:center}.va-ligne-c>label{flex:0 1 auto}.va-ligne-c>.va-champ{flex:1 1 220px;width:auto}
 .va-essai{margin:0;display:flex;align-items:flex-start;gap:8px;font-size:15px}.va-essai:empty{display:none}.va-essai.ok{color:var(--good)}.va-essai.ko{color:var(--bad)}.va-essai svg{flex:none;margin-top:2px}
 .va-win{font-size:14px}.va-win summary{min-height:44px;display:flex;align-items:center;color:var(--va-lien);font-weight:500;cursor:pointer}.va-win p{margin:4px 0 8px}.va-win pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:10px;margin:0 0 8px}
+.va-share{flex:none;min-height:44px;gap:8px;font-size:15px}.va-share.va-busy{opacity:.8}.va-partage{max-width:min(620px,calc(100vw - 32px))}.va-partage .va-cartes label{flex-basis:200px}
+@media (max-width:700px){.va-desc,.va-etat,.va-plus{order:2}.va-share{width:44px;padding:0;justify-content:center}.va-share>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}}
 .va-fin{display:flex;flex-wrap:wrap;align-items:center;gap:14px}.va-fin p{margin:0;flex:1 1 280px;min-width:0}
 `;
   let st = null, cur = null, busy = false;
@@ -528,7 +530,80 @@
       el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, r.does?.length ? el('div', {}, el('h4', {}, 'Ses fonctions'), el('ul', {}, ...r.does.map((x) => el('li', {}, x)))) : null, v.tabs?.length ? el('div', {}, el('h4', {}, 'Ses parties'), el('ul', {}, ...v.tabs.map((x) => el('li', {}, x)))) : null)) : null;
     if (plus) { plus.open = Boolean(plusOuvert[id]); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; }); }
     return el('div', { class: 'va-head' }, el('button', { class: 'btn va-back', type: 'button', id: 'vaRetour', title: `Retour : ${retour.label}`, onclick: retour.go }, ico(I.retour), el('span', {}, retour.label)), titre ? null : ic,
-      el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), plus);
+      el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), titre ? null : boutonPartage(id, r), plus);
+  }
+  /**
+   * « Exporter et partager » (en haut de la page) : la page en Word, PDF, Markdown ou JSON (toute la page ou l'onglet
+   * ouvert, pour le poste choisi), ou un lien privé / public vers une copie figée. L'icône dit « en cours », puis le fichier.
+   */
+  const exportEtat = {};
+  function boutonPartage(id, r) {
+    const etat = exportEtat[id], b = el('button', { class: `btn va-share${etat?.k === 'cours' ? ' va-busy' : ''}`, type: 'button', 'aria-haspopup': 'dialog', title: etat?.t ?? 'Exporter ou partager cette page', onclick: () => dialoguePartage(id, r) },
+      ico(etat?.k === 'fini' ? I.ok : etat?.k === 'erreur' ? I.non : '<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 15V3M7 8l5-5 5 5"/>'), el('span', {}, etat?.k === 'cours' ? 'Export…' : 'Exporter / partager'));
+    return b;
+  }
+  async function dialoguePartage(id, r) {
+    const v = r.view, onglet = v.onglets?.length ? (v.onglets.includes(tabSel[id]) ? tabSel[id] : v.onglets[0]) : '', poste = viewQ[id]?.poste ?? '';
+    const dlg = el('dialog', { class: 'va-dlg va-partage', 'aria-labelledby': 'va-pt-t' }); document.body.append(dlg);
+    const fermer = () => { dlg.close(); dlg.remove(); };
+    dlg.addEventListener('close', () => dlg.remove());
+    dlg.append(el('p', { class: 'sub' }, 'Lecture…')); dlg.showModal();
+    let info; try { info = await api(`/api/valhalla/partage?${new URLSearchParams({ id })}`); } catch (e) { info = { ok: false, error: e.message }; }
+    if (!info.ok) { dlg.replaceChildren(el('h2', { id: 'va-pt-t' }, 'Exporter ou partager'), el('p', { class: 'va-tone-mauvais' }, info.error ?? 'Pas disponible.'), el('button', { class: 'btn', type: 'button', onclick: fermer }, 'Fermer')); return; }
+    const st = el('p', { class: 'va-essai', role: 'status' }), dit = (ok, t) => { st.className = `va-essai ${ok ? 'ok' : 'ko'}`; st.textContent = t; };
+    const portee = onglet ? el('select', { class: 'va-champ', id: 'va-pt-portee' }, el('option', { value: onglet }, `L'onglet « ${onglet} »`), el('option', { value: '' }, 'Toute la page')) : null;
+    const ou = () => ({ ...(viewQ[id] ?? {}), ...(portee?.value ? { onglet: portee.value } : {}), ...(poste ? { poste } : {}) });
+    const majBouton = () => { const h = document.querySelector('#v-app .va-share'); if (h && cur === id) h.replaceWith(boutonPartage(id, r)); };
+    const exporter = async (f, btn) => {
+      btn.disabled = true; exportEtat[id] = { k: 'cours', t: `Export en ${f.nom}…` }; majBouton(); dit(true, `Export en ${f.nom}…`); st.className = 'va-essai';
+      try {
+        const x = await fetch(`/api/valhalla/export?${new URLSearchParams({ ...ou(), id, format: f.id })}`, { headers: { 'x-odin': '1' } });
+        if (!x.ok) { const j = await x.json().catch(() => ({})); throw new Error(j.error ?? `refusé (${x.status})`); }
+        const nom = decodeURIComponent((/filename\*=UTF-8''([^;]+)/i.exec(x.headers.get('content-disposition') ?? '') ?? [])[1] ?? '') || (/filename="([^"]+)"/i.exec(x.headers.get('content-disposition') ?? '') ?? [])[1] || `${r.name}.${f.ext}`;
+        const url = URL.createObjectURL(await x.blob()), a = el('a', { href: url, download: nom }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+        exportEtat[id] = { k: 'fini', t: `Exporté : ${nom}` }; dit(true, `✓ ${nom}`);
+      } catch (e) { exportEtat[id] = { k: 'erreur', t: `Export : ${e.message}` }; dit(false, `✗ ${e.message}`); }
+      btn.disabled = false; majBouton();
+    };
+    const E = info.export, P = info.partage;
+    const formats = el('div', { class: 'va-acts-bar' }, ...E.formats.filter((f) => f.permis).map((f) => el('button', { class: 'btn', type: 'button', title: `Télécharger en ${f.nom}`, onclick: (e) => exporter(f, e.currentTarget) }, f.nom)));
+    const pasPermis = E.formats.filter((f) => !f.permis && f.raison);
+    // Partager
+    const type = el('select', { class: 'va-champ', id: 'va-pt-type' }, el('option', { value: 'prive' }, 'Privé'), el('option', { value: 'public' }, 'Public'));
+    const jours = el('input', { class: 'va-champ', id: 'va-pt-jours', type: 'number', min: 1, max: P?.jours?.max ?? 90, value: P?.jours?.defaut ?? 7, style: 'max-width:110px' });
+    const gens = el('div', { class: 'va-cartes' }, ...(P?.invites?.personnes ?? []).map((g) => el('label', {}, el('input', { type: 'checkbox', value: g.login }), el('span', {}, el('b', {}, g.nom || g.login), g.groupes?.length ? el('small', {}, g.groupes.join(', ')) : null))));
+    const gensBox = el('div', { hidden: !(P?.invites?.personnes ?? []).length }, el('p', { class: 'va-l', style: 'margin:0 0 6px' }, 'Avec (facultatif)'), gens);
+    const quiVoit = el('p', { class: 'va-aide' }, 'Privé : toi, ou les personnes que tu choisis (avec leur compte).');
+    type.addEventListener('change', () => { gensBox.hidden = type.value !== 'prive' || !(P?.invites?.personnes ?? []).length; quiVoit.textContent = type.value === 'prive' ? 'Privé : toi, ou les personnes que tu choisis (avec leur compte).' : 'Public : toute personne qui a le lien, sans compte. Ton accord est demandé.'; });
+    const lien = el('div', { class: 'va-ligne', hidden: true }), liste = el('ul', { class: 'va-list' });
+    const peindreListe = (l) => liste.replaceChildren(...(l.length ? l.map((x) => el('li', { class: 'va-li-f' }, el('div', {}, el('b', {}, `${x.type === 'public' ? 'Public' : 'Privé'}${x.onglet ? ` · ${x.onglet}` : ''}`), el('small', {}, `jusqu'au ${new Date(x.fin).toLocaleDateString('fr-FR')} · ${x.ouvertures} ouverture${x.ouvertures > 1 ? 's' : ''}`)), el('button', { class: 'btn small', type: 'button', onclick: async () => { const y = await api('/api/valhalla/partage_retirer', { partage: x.id }); dit(y.ok, y.ok ? y.text : `✗ ${y.error}`); peindreListe((info.partages = info.partages.filter((z) => z.id !== x.id))); } }, 'Retirer'))) : [el('li', {}, el('small', {}, 'Aucun partage en cours.'))]));
+    peindreListe(info.partages ?? []);
+    const creer = async (btn, confirm) => {
+      btn.disabled = true;
+      const corps = { id, type: type.value, jours: Number(jours.value) || undefined, ...(portee?.value ? { onglet: portee.value } : {}), ...(poste ? { poste } : {}), vue: viewQ[id] ?? {}, personnes: [...gens.querySelectorAll('input:checked')].map((x) => x.value), ...(confirm ? { confirm: true } : {}) };
+      let y; try { y = await api('/api/valhalla/partage', corps); } catch (e) { y = { ok: false, error: e.message }; }
+      btn.disabled = false;
+      if (y.confirm) { if (window.confirm(y.confirm)) return creer(btn, true); dit(false, 'Annulé : aucun lien créé.'); return; }
+      if (!y.ok) { dit(false, `✗ ${y.error}`); return; }
+      const champ = el('input', { class: 'va-champ', type: 'text', readonly: true, value: y.lien, 'aria-label': 'Lien du partage' });
+      lien.hidden = false; lien.replaceChildren(el('div', {}, champ), el('button', { class: 'btn primary', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(y.lien); e.currentTarget.textContent = 'Copié'; } catch { champ.select(); e.currentTarget.textContent = 'Sélectionné : copie-le'; } } }, 'Copier le lien'));
+      dit(true, `${y.text}${y.notes?.length ? ` ${y.notes.join(' ')}` : ''} Le lien n'est montré qu'une fois.`);
+      try { const z = await api(`/api/valhalla/partages?${new URLSearchParams({ id })}`); if (z.ok) peindreListe((info.partages = z.partages)); } catch { /* liste inchangée */ }
+    };
+    dlg.replaceChildren(...[
+      el('div', { class: 'va-etape-h' }, el('h2', { id: 'va-pt-t', style: 'margin:0;flex:1' }, `Exporter ou partager ${r.name}`), el('button', { class: 'btn small', type: 'button', onclick: fermer, 'aria-label': 'Fermer' }, ico(I.non))),
+      portee ? el('div', { class: 'va-ligne va-ligne-c', style: 'margin:12px 0 0' }, el('label', { class: 'va-l', for: 'va-pt-portee' }, 'Quoi'), portee) : null,
+      poste ? el('p', { class: 'va-aide', style: 'margin:8px 0 0' }, `Pour le poste choisi : ${v.postes?.choix.find((c) => c.id === poste)?.nom ?? poste}.`) : null,
+      el('h3', { style: 'margin:16px 0 8px;font-size:16px' }, 'Exporter'), E.permis ? formats : el('p', { class: 'va-aide' }, E.raison),
+      E.permis && E.retire?.length ? el('p', { class: 'va-aide', style: 'margin:6px 0 0' }, `Pas dans le fichier : ${E.retire.map((x) => x.quoi).join(', ')}.`) : null,
+      ...(E.permis ? pasPermis.map((f) => el('p', { class: 'va-aide', style: 'margin:6px 0 0' }, `${f.nom} : ${f.raison}`)) : []),
+      el('h3', { style: 'margin:18px 0 8px;font-size:16px' }, 'Partager'),
+      P?.permis ? el('div', { style: 'display:flex;flex-direction:column;gap:10px' },
+        el('div', { class: 'va-ligne' }, el('div', {}, el('label', { class: 'va-l', for: 'va-pt-type' }, 'Lien'), type), el('div', { style: 'flex:0 0 auto' }, el('label', { class: 'va-l', for: 'va-pt-jours' }, 'Jours'), jours)),
+        quiVoit, gensBox, el('p', { class: 'va-aide' }, `Une copie figée, en lecture seule : les mots de passe et clés sont masqués. ${P.note ?? ''}`),
+        el('button', { class: 'btn primary', type: 'button', style: 'align-self:flex-start', onclick: (e) => creer(e.currentTarget) }, 'Créer le lien'), lien,
+        el('h3', { style: 'margin:8px 0 0;font-size:15px' }, 'Partages en cours'), liste) : el('p', { class: 'va-aide' }, P?.raison ?? 'Pas de partage pour cette appli.'),
+      st].filter(Boolean));
   }
   /** « Sur quel poste ? » : des pastilles sur ordinateur, une liste sur téléphone. Le choix vaut pour toute la page. */
   function selecteur(id, r) {
