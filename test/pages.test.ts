@@ -38,7 +38,7 @@ test('Pages des applis : chaque page s\'ouvre, chaque formulaire a les réglages
           if (missing.length) wrong.push(`${m.name} · « ${s.title} » (${s.action}) : réglage obligatoire absent du formulaire : ${missing.join(', ')}`);
         }
         if (s.kind === 'table') {
-          for (const r of s.rows) { if (r.cells.length !== s.columns.length) wrong.push(`${m.name} · tableau « ${s.title} » : ${r.cells.length} cases pour ${s.columns.length} colonnes`); for (const x of r.actions ?? []) if (!m.actions.some((a) => a.id === x.action)) wrong.push(`${m.name} · bouton « ${x.label} » : action inconnue « ${x.action} »`); }
+          for (const r of s.rows) { if (r.cells.length !== s.columns.length) wrong.push(`${m.name} · tableau « ${s.title} » : ${r.cells.length} cases pour ${s.columns.length} colonnes`); for (const x of r.actions ?? []) if (!(x.module ? w.v.modules().find((y) => y.id === x.module) : m)?.actions.some((a) => a.id === x.action)) wrong.push(`${m.name} · bouton « ${x.label} » : action inconnue « ${x.action} »`); }
         }
       }
     }

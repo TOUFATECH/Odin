@@ -73,7 +73,7 @@ const sansDisque = (d: string, disque: string) => {
 const HEL: Module = { id: 'hel', name: 'Perséphone', family: 'Données', what: 'récupération (essai)', does: [], from: [], upstream: [], words: [], actions: [{ id: 'ouvrir', label: 'Ouvrir un disque', what: 'essai', read: true, params: [{ key: 'disque', label: 'Disque', kind: 'text' }], run: (_c, i) => ({ text: `ouvert ${String(i.disque)}` }) }], view: () => ({ sections: [] }) };
 
 interface Monde { v: Valhalla; home: string; faux: string; envoyes: string[]; avance: (h: number) => void; fin: () => void }
-function monde(o: { faux?: boolean; hel?: boolean; run?: ConstructorParameters<typeof Valhalla>[2]['run'] } = {}): Monde {
+function monde(o: { faux?: boolean; hel?: boolean; run?: (cmd: string, args: string[]) => Promise<{ code: number; out: string; err: string }> } = {}): Monde {
   oublierMemoire();
   const home = mkdtempSync(join(tmpdir(), 'durinn-')), faux = join(home, 'faux-smart'), envoyes: string[] = [];
   let clock = new Date('2026-11-13T09:00:00');
