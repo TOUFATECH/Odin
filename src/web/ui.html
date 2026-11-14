@@ -73,7 +73,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes e-sink{0%,100%{transform:translateY(0)}50%{transform:translateY(1.5px)}}
 @keyframes e-shiver{0%,100%{transform:translateX(0)}50%{transform:translateX(.8px)}}
 @keyframes e-shy{0%,100%{transform:translateX(0)}50%{transform:translateX(2.5px)}}
-@keyframes e-droop{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
+@keyframes e-droop{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.65)}}
 @keyframes e-attent{0%,100%{transform:scale(1)}50%{transform:scale(1.06,1.1)}}
 @media (prefers-reduced-motion:reduce){.odin .brow{animation:none!important}}
 .odin .eye{transform-box:fill-box;transform-origin:center;animation:o-blink 5.2s infinite}
@@ -81,7 +81,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 .odin.talking .body{animation:o-talk .5s ease-in-out infinite}
 @keyframes o-breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.035) translateY(-1px)}}
 @keyframes o-talk{0%,100%{transform:scale(1)}50%{transform:scale(1.04,.97)}}
-@keyframes o-blink{0%,91%,100%{transform:scaleY(1)}93.5%{transform:scaleY(.08)}96%{transform:scaleY(1)}}
+@keyframes o-blink{0%,91%,100%{transform:scaleY(1)}93.5%{transform:scaleY(.62)}96%{transform:scaleY(1)}}
 @keyframes o-glance{0%,18%{transform:translateX(0)}24%,36%{transform:translateX(5px)}42%,60%{transform:translateX(0)}66%,76%{transform:translateX(-5px)}82%,100%{transform:translateX(0)}}
 /* Réactions au toucher : il se tasse et sourit, s'étonne, ou fait une pirouette ; ses yeux suivent le doigt ou la souris. */ .odin{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none} .odin.follow .eyes{animation:none;transform:translate(var(--ex,0),var(--ey,0));transition:transform .12s ease-out} .odin .ring{transform-origin:60px 60px;animation:o-ring 4.4s ease-in-out infinite}
 .odin .ring.r2{animation-delay:-2.2s}
@@ -93,7 +93,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 .odin.angry .eye{animation:none}
 .odin.angry .s1{animation:o-c1 3s ease forwards}.odin.angry .s2{animation:o-c2 3s ease forwards}.odin.angry .s3{animation:o-c3 3s ease forwards}.odin.angry .s4{animation:o-c4 3s ease forwards}
 @keyframes o-bounce{0%{transform:translateY(0) scale(1)}20%{transform:translateY(-16px) scale(.97,1.05)}45%{transform:translateY(0) scale(1.08,.92)}62%{transform:translateY(-6px) scale(.99,1.02)}80%{transform:translateY(0) scale(1.03,.97)}100%{transform:translateY(0) scale(1)}}
-@keyframes o-bounce-eye{0%,35%{transform:scaleY(1)}45%,55%{transform:scaleY(.12)}65%,100%{transform:scaleY(1)}}
+@keyframes o-bounce-eye{0%,35%{transform:scaleY(1)}45%,55%{transform:scaleY(.6)}65%,100%{transform:scaleY(1)}}
 @keyframes o-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px) rotate(-3deg)}40%{transform:translateX(4px) rotate(3deg)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
 @keyframes o-c1{0%{stop-color:#2F6FE0}8%,40%{stop-color:#C8231C}62%,78%{stop-color:#2F6FE0}100%{stop-color:#2F6FE0}}
 @keyframes o-c2{0%{stop-color:#3F82F0}8%,40%{stop-color:#E0352B}62%,78%{stop-color:#3F82F0}100%{stop-color:#3F82F0}}
@@ -605,6 +605,17 @@ details.activity .ai.info{color:#8FC1E3}
 .odin.roam.walk{transition:translate 1.1s cubic-bezier(.5,0,.3,1),width .35s,height .35s}
 .odin.roam.hopto{transition:translate .75s cubic-bezier(.3,1.35,.5,1),width .35s,height .35s}
 .odin.roam.walk .body{animation:a-walk .35s ease-in-out infinite}
+/* Palettes d'animation (Réglages → Apparence) : Brise glisse (défaut, ci-dessus), Étincelle bondit, Rune tourne lentement, Circuit file droit */
+html[data-odin-pal="B"] .odin.roam.walk{transition:translate .6s cubic-bezier(.3,1.45,.5,1),width .35s,height .35s}
+html[data-odin-pal="B"] .odin.roam.walk .body{animation:a-bond .3s ease-in-out infinite}
+html[data-odin-pal="C"] .odin.roam.walk{transition:translate 1.9s cubic-bezier(.65,0,.35,1),width .35s,height .35s}
+html[data-odin-pal="C"] .odin.roam.walk svg{animation:a-rune 1.9s cubic-bezier(.65,0,.35,1)}
+html[data-odin-pal="C"] .odin.roam.walk .body{animation:none}
+html[data-odin-pal="D"] .odin.roam.walk,html[data-odin-pal="D"] .odin.roam.hopto{transition:translate .45s linear,width .35s,height .35s}
+html[data-odin-pal="D"] .odin.roam.walk .body{animation:none}
+@keyframes a-bond{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-10px) scale(.94,1.06)}}
+@keyframes a-rune{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){html[data-odin-pal] .odin.roam.walk .body,html[data-odin-pal] .odin.roam.walk svg{animation:none}}
 .odin.roam.dragging{transition:none;cursor:grabbing;filter:drop-shadow(0 12px 22px rgba(0,0,0,.45))}
 .odin.roam.act-spin svg{animation:a-spin .9s cubic-bezier(.4,0,.2,1)}
 .odin.roam.act-sad .body{animation:a-sad 1.4s ease}

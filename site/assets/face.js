@@ -24,11 +24,11 @@
     colere: { tint: C('#C8231C', '#E0352B', '#F06A55', '#FFA593'), eyes: { l: [1.1, .4], r: [1.1, .4], d: [3, 1] }, anim: 'shake' },
     peur: { tint: C('#6E5BB8', '#8574CC', '#AB9FE2', '#D9D2F7'), eyes: { l: [.6, .7], r: [.6, .7], d: [1.5, 0], a: 'shiver' }, anim: 'tremble' },
     gene: { tint: C('#E2557A', '#EE7896', '#F6A9BD', '#FFD8E2'), eyes: { l: [.55, .5], r: [.55, .5], d: [0, 3], a: 'shy' } },
-    fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4'), eyes: { l: [1, .25], r: [1, .25], d: [0, 3], a: 'droop' } },
+    fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4'), eyes: { l: [1, .5], r: [1, .5], d: [0, 3], a: 'droop' } },
     ecoute: { tint: C('#2E9E5B', '#43B672', '#7CD29E', '#C2EDD3'), eyes: { l: [1, 1.08], r: [1, 1.08], a: 'attent' } },
     regarde: { tint: C('#0E8FB8', '#22A7CF', '#64C6E2', '#B2E6F4'), eyes: { l: [1.05, 1.05], r: [1.05, 1.05] }, anim: 'look' },
     parle: { tint: C('#D8A112', '#E8B62C', '#F3CF68', '#FCEAB0'), eyes: { a: 'talk' }, anim: 'talk' },
-    cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6'), eyes: { l: [1, .08], r: [1, .08] } },
+    cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6'), eyes: { l: [1, .5], r: [1, .5] } }, // il plisse, il ne ferme jamais les yeux
   };
   const TINTS = {
     gold: ['#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0'],
@@ -184,8 +184,7 @@
       clearTimeout(el._bt1); clearTimeout(el._bt2);
       const ms = (parseFloat(getComputedStyle(eye).animationDuration) || 5.2) * 1000;
       const ok = () => visible && !document.hidden && getComputedStyle(eye).animationName === 'o-blink';
-      el._bt1 = setTimeout(() => { if (ok()) note(900, 520, 0.05, 'sine', 0.045); }, ms * 0.935);
-      el._bt2 = setTimeout(() => { if (ok()) note(520, 940, 0.06, 'sine', 0.04); }, ms * 0.96);
+      el._bt1 = setTimeout(() => { if (ok()) note(1320, 1320, 0.05, 'sine', 0.018); }, ms * 0.935); // petit « tic » léger : les yeux ne se ferment pas
     };
     const hook = () => {
       const eye = el.querySelector('.eye'); if (!eye || eye._hooked) return; eye._hooked = true;

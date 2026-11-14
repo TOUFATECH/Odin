@@ -24,11 +24,11 @@
     colere: { tint: C('#C8231C', '#E0352B', '#F06A55', '#FFA593'), eyes: { l: [1.1, .4], r: [1.1, .4], d: [3, 1] }, anim: 'shake' },
     peur: { tint: C('#6E5BB8', '#8574CC', '#AB9FE2', '#D9D2F7'), eyes: { l: [.6, .7], r: [.6, .7], d: [1.5, 0], a: 'shiver' }, anim: 'tremble' },
     gene: { tint: C('#E2557A', '#EE7896', '#F6A9BD', '#FFD8E2'), eyes: { l: [.55, .5], r: [.55, .5], d: [0, 3], a: 'shy' } },
-    fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4'), eyes: { l: [1, .25], r: [1, .25], d: [0, 3], a: 'droop' } },
+    fatigue: { tint: C('#5F7287', '#768A9F', '#A1B1C2', '#D2DBE4'), eyes: { l: [1, .5], r: [1, .5], d: [0, 3], a: 'droop' } },
     ecoute: { tint: C('#2E9E5B', '#43B672', '#7CD29E', '#C2EDD3'), eyes: { l: [1, 1.08], r: [1, 1.08], a: 'attent' } },
     regarde: { tint: C('#0E8FB8', '#22A7CF', '#64C6E2', '#B2E6F4'), eyes: { l: [1.05, 1.05], r: [1.05, 1.05] }, anim: 'look' },
     parle: { tint: C('#D8A112', '#E8B62C', '#F3CF68', '#FCEAB0'), eyes: { a: 'talk' }, anim: 'talk' },
-    cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6'), eyes: { l: [1, .08], r: [1, .08] } },
+    cache: { tint: C('#8A6E4B', '#A08562', '#C1AA8C', '#E5D8C6'), eyes: { l: [1, .5], r: [1, .5] } }, // il plisse, il ne ferme jamais les yeux
   };
   const TINTS = {
     gold: ['#E19B1F', '#EDB03D', '#F8CC70', '#FFE3A0'],
@@ -134,6 +134,29 @@
     el.setAttribute('title', `Odin : ${key}`);
   }
 
+  // ---------- Les 4 palettes d'animation (maquette validée du 14/11/2026) ----------
+  // Chacune a sa façon de bouger (glisse, bond, rune, circuit) et ses sons. Brise par défaut ; Réglages → Apparence.
+  const PALETTES = {
+    A: { nom: 'Brise', sous: 'Calme et guide : il glisse doucement, sons ronds', w: 'sine', f: [523, 587, 659, 784, 880], v: .05, d: .45 },
+    B: { nom: 'Étincelle', sous: 'Joueur et énergique : il bondit, sons vifs', w: 'triangle', f: [784, 880, 988, 1175, 1319], v: .06, d: .16 },
+    C: { nom: 'Rune', sous: 'Majestueux et nordique : il tourne lentement, sons graves', w: 'sine', f: [196, 247, 294, 330, 392], v: .07, d: 1.2 },
+    D: { nom: 'Circuit', sous: 'Précis et technique : trajets nets, petits bips', w: 'square', f: [880, 1046, 1318, 1568, 1760], v: .022, d: .07 },
+  };
+  let pal = 'A';
+  try { const k = localStorage.getItem('odin-palette'); if (PALETTES[k]) pal = k; } catch { /* stockage indisponible */ }
+  const markPal = () => { try { document.documentElement.dataset.odinPal = pal; } catch { /* */ } };
+  markPal();
+  /** Lire (sans argument) ou choisir la palette d'animation d'Odin (A, B, C ou D). */
+  function palette(k) {
+    if (k === undefined) return pal;
+    if (!PALETTES[k]) return pal;
+    pal = k; markPal();
+    try { localStorage.setItem('odin-palette', k); } catch { /* */ }
+    dispatchEvent(new CustomEvent('odin-palette', { detail: k }));
+    return pal;
+  }
+  addEventListener('storage', (e) => { if (e.key === 'odin-palette' && PALETTES[e.newValue]) { pal = e.newValue; markPal(); } });
+
   // ---------- Sons (synthétisés, aucun fichier) ----------
   // Le navigateur n'autorise le son qu'après un premier toucher ou clic. Coupé/rétabli avec OdinFace.mute().
   let ac = null, unlocked = false, soundOn = true;
@@ -158,27 +181,39 @@
   }
   const UP = ['joie', 'rire', 'amour', 'excite', 'fierte', 'clin', 'malice', 'surprise'];
   const DOWN = ['triste', 'inquiet', 'peur', 'confus', 'fatigue', 'gene', 'cache'];
-  const SOUNDS = {
-    bounce: () => { note(260, 640, 0.12, 'sine', 0.2); note(640, 380, 0.18, 'sine', 0.14, 0.12); },
-    angry: () => { for (let i = 0; i < 3; i++) note(150 - i * 18, 95 - i * 10, 0.16, 'sawtooth', 0.07, i * 0.17); },
-    laugh: () => { for (let i = 0; i < 4; i++) note(700 + i * 60, 900 + i * 60, 0.07, 'triangle', 0.1, i * 0.09); },
-    hop: () => { note(420, 820, 0.1, 'sine', 0.13); },
-    shake: () => { for (let i = 0; i < 5; i++) note(220, 180, 0.05, 'square', 0.04, i * 0.06); },
-    tremble: () => { note(520, 480, 0.35, 'triangle', 0.06); },
-  };
-  /** Son d'un mouvement (bounce, angry, laugh, hop, shake, tremble) ou d'un changement d'humeur. */
+  /**
+   * Les sons de la palette choisie : une petite suite de notes (ou un glissé « g ») sur les 5 notes de la palette.
+   * clic, deplace, reagit, desaccord (5 clics), notif, alerte, verrou, deverrou, ecoute, parle, succes, cligne (léger, les yeux ne se ferment pas)…
+   */
+  function palNotes(name) {
+    const f = PALETTES[pal].f;
+    return {
+      clic: [f[2]], deplace: ['g', f[0], f[3]], reagit: [f[1], f[3]], joie: [f[0], f[2], f[4]], succes: [f[0], f[2], f[4], f[4] * 2],
+      desaccord: [f[2], f[0] * .75, f[0] * .75], erreur: [f[2], f[0] * .75], alerte: [f[0] * .75, f[0] * .75, f[0] * .75], notif: [f[3], f[4]],
+      verrou: [f[4], f[2], f[0]], deverrou: [f[0], f[2], f[4], f[4] * 1.5], ecoute: [f[1], f[3]], parle: [f[Math.floor(Math.random() * 5)]],
+      sommeil: [f[2], f[1], f[0]], bond: ['g', f[0], f[4]], triste: [f[2], f[1] * .9], cligne: [f[4] * 1.5],
+    }[name];
+  }
+  function play(name, vol = 1) {
+    const seq = palNotes(name); if (!seq) return false;
+    const p = PALETTES[pal], g = seq[0] === 'g', ns = g ? seq.slice(1) : seq, step = Math.min(.16, p.d * .45), dur = name === 'parle' || name === 'cligne' ? .05 : p.d;
+    if (g) note(ns[0], ns[1], p.d * 1.2, p.w, p.v * 2.2 * vol);
+    else ns.forEach((fr, i) => note(fr, fr, dur, p.w, p.v * 2.2 * vol * (name === 'cligne' ? .35 : 1), i * step));
+    return true;
+  }
+  // Anciens noms (mouvements de l'interface) → sons de la palette.
+  const ALIAS = { hop: 'clic', bounce: 'bond', angry: 'desaccord', colere: 'desaccord', laugh: 'joie', shake: 'alerte', tremble: 'alerte', walk: 'deplace' };
+  /** Son d'un mouvement, d'un évènement (clic, notif, alerte, verrou…) ou d'un changement d'humeur, dans la palette choisie. */
   function sound(name) {
-    if (SOUNDS[name]) return SOUNDS[name]();
-    if (name === 'colere') return SOUNDS.angry();
-    if (UP.includes(name)) { note(660, 660, 0.12, 'sine', 0.11); note(990, 990, 0.18, 'sine', 0.1, 0.1); }
-    else if (DOWN.includes(name)) { note(520, 520, 0.14, 'sine', 0.1); note(390, 370, 0.22, 'sine', 0.09, 0.12); }
-    else note(740, 760, 0.14, 'sine', 0.08);
-    const m = MOODS[name]; if (m && m.anim && SOUNDS[m.anim]) SOUNDS[m.anim]();
+    if (play(ALIAS[name] || name)) return;
+    if (UP.includes(name)) play('joie');
+    else if (DOWN.includes(name)) play('triste');
+    else play('reagit');
   }
 
   /**
-   * Son du clignement : « tic » qui descend quand les yeux se ferment, qui remonte quand ils s'ouvrent.
-   * Calé sur l'animation CSS o-blink (5,2 s ; fermeture à 93,5 %, réouverture à 96 %).
+   * Son du clignement : un petit « tic » léger. Les yeux ne se ferment jamais : ils s'écrasent un peu (o-blink).
+   * Calé sur l'animation CSS o-blink (5,2 s ; au plus bas à 93,5 %).
    * Seulement pour la mascotte principale, visible à l'écran, page au premier plan.
    */
   function blinkSounds(el) {
@@ -189,8 +224,7 @@
       clearTimeout(el._bt1); clearTimeout(el._bt2);
       const ms = (parseFloat(getComputedStyle(eye).animationDuration) || 5.2) * 1000;
       const ok = () => visible && !document.hidden && getComputedStyle(eye).animationName === 'o-blink';
-      el._bt1 = setTimeout(() => { if (ok()) note(900, 520, 0.05, 'sine', 0.045); }, ms * 0.935);
-      el._bt2 = setTimeout(() => { if (ok()) note(520, 940, 0.06, 'sine', 0.04); }, ms * 0.96);
+      el._bt1 = setTimeout(() => { if (ok()) play('cligne'); }, ms * 0.935);
     };
     const hook = () => {
       const eye = el.querySelector('.eye'); if (!eye || eye._hooked) return; eye._hooked = true;
@@ -221,5 +255,5 @@
     MOODS.neutre.tint = ok ? [mix(hex, false, .14), hex, mix(hex, true, .32), mix(hex, true, .62)] : NEUTRE.slice();
     document.querySelectorAll('.odin').forEach((el) => { if ((el.dataset.mood || 'neutre') === 'neutre') { delete el.dataset.mood; set(el, 'neutre'); } });
   }
-  window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, blinkSounds, tintBase, get soundOn() { return soundOn; } };
+  window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, blinkSounds, tintBase, palette, PALETTES, get soundOn() { return soundOn; } };
 })();

@@ -296,7 +296,7 @@
     if (!drag || e.pointerId !== drag.id) return;
     clearTimeout(drag.lp);
     // Posé au doigt : il reste là (30 min) ; à la souris : 2 min, puis il reprend sa vie.
-    if (drag.moved || (drag.touch && drag.armed)) { bud.classList.remove('dragging'); pinnedUntil = Date.now() + (drag.touch ? 1_800_000 : 120_000); window.OdinFace?.flash(bud, 'joie', 1500); }
+    if (drag.moved || (drag.touch && drag.armed)) { if (drag.moved) window.OdinFace?.sound?.('deplace'); bud.classList.remove('dragging'); pinnedUntil = Date.now() + (drag.touch ? 1_800_000 : 120_000); window.OdinFace?.flash(bud, 'joie', 1500); }
     // Un simple toucher : la petite fenêtre pour lui parler, sur n'importe quel onglet.
     // Les clics rapides (1 à 20) : 1 = lui parler, les autres font ce qui est réglé (Réglages → Apparence).
     else if (window.OdinMascotte?.tap) { window.OdinFace?.flash(bud, 'ecoute', 1500); window.OdinMascotte.tap(bud); }
@@ -310,7 +310,7 @@
     const idle = Date.now() - idleSince, since = Date.now() - lastWander;
     if (S().busy?.()) { if (since > 8000) { lastWander = Date.now(); act('act-advance', 1200); } return; }
     const need = attention();
-    if (need && since > 25_000) { lastWander = Date.now(); go(need, 'hopto'); setTimeout(() => { window.OdinFace?.flash(bud, need.mood, 2200); act('act-tilt', 1600); }, 800); return; }
+    if (need && since > 25_000) { lastWander = Date.now(); go(need, 'hopto'); window.OdinFace?.sound?.('deplace'); setTimeout(() => { window.OdinFace?.flash(bud, need.mood, 2200); act('act-tilt', 1600); }, 800); return; }
     if (S().roam && !S().roam()) return;
     if (idle > 12_000 && since > 15_000 + Math.random() * 25_000) {
       lastWander = Date.now();

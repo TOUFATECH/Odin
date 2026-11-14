@@ -204,7 +204,7 @@
     if (bud && window.OdinFace) {
       window.OdinFace.flash(bud, n.level === 'grave' ? 'peur' : n.level === 'souci' ? 'inquiet' : n.kind === 'Décision d\'Odin' ? 'fierte' : 'joie', 2600);
       // Son de la notification : un petit saut ; l'urgence tremble.
-      if (!o.quiet) window.OdinFace.sound?.(n.level === 'grave' ? 'tremble' : 'hop');
+      if (!o.quiet) window.OdinFace.sound?.(n.level === 'grave' ? 'alerte' : 'notif');
     }
     window.OdinCompanion?.act?.(n.level === 'ok' ? 'act-joy' : 'act-tilt', 1400);
     // Odin parle : l'urgence est dite à voix haute (si les sons sont activés), le reste seulement si la voix est activée.
@@ -273,7 +273,7 @@
     const mic = talk.querySelector('.ot-mic'); if (!mic) return;
     eveilPause(true);
     const bud = document.getElementById('buddyRoam'); if (bud) window.OdinFace?.flash(bud, 'ecoute', 2500);
-    window.OdinFace?.sound?.('hop');
+    window.OdinFace?.sound?.('ecoute');
     setTimeout(() => { if (!mic._r) mic.click(); }, 60);
   }
   // ---------- Trois touchers : « Avec quelle IA veux-tu parler ? » (les IA branchées sur Odin) ----------
@@ -315,7 +315,7 @@
         if (!ev.results[k].isFinal) continue;
         const m = /\b(?:odin|audin|odine)\b[\s,.:!?]*(.*)$/i.exec(ev.results[k][0].transcript.trim()); if (!m) continue;
         const q = m[1].trim(), bud = document.getElementById('buddyRoam');
-        if (bud) window.OdinFace?.flash(bud, 'surprise', 1200); window.OdinFace?.sound?.('hop');
+        if (bud) window.OdinFace?.flash(bud, 'surprise', 1200); window.OdinFace?.sound?.('reagit');
         eveilPause(true);
         if (q.length > 2) { talkTo(null); const f = talk.querySelector('form'), i = talk.querySelector('input'); if (f && i) { i.value = q; f.requestSubmit(); } }
         else listen();
