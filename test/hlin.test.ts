@@ -245,7 +245,7 @@ test('Gygès · garde-fous : aucune action ne cherche un nom libre, ni l\'IA ni 
       assert.equal(r.ok, false); assert.match(r.text, /ta fiche n'existe pas encore|aucune fiche/);
     }
     for (const t of ['vérifie où apparaît Jean Dupont', 'cherche où j\'apparais Jean Dupont', 'cherche les traces sur internet de Jean Dupont']) await w.v.order(t, 'essai', { confirm: true });
-    assert.deepEqual(w.fetched, [], 'aucune demande sur le réseau');
+    assert.equal(w.fetched.length, 0, 'aucune demande sur le réseau');
     assert.equal(existsSync(join(w.dir, 'fiches.json')), false, 'Logos n\'a créé aucune fiche');
     // Même avec la fiche du propriétaire, un nom d'un tiers n'est pas cherché.
     await w.act('moi', MOI);
@@ -294,7 +294,7 @@ test('Gygès · « où j\'apparais » : recherches par Pythie (faux moteur), pse
     assert.ok(!profils.some((x) => x.site === 'gitlab.com' || x.site === 'mastodon.social' || x.site === 'fr.wikipedia.org'), 'absent : rien');
     for (const s of ['snapchat.com', 'instagram.com', 'tiktok.com', 'facebook.com', 'x.com']) assert.equal(profils.find((x) => x.site === s)?.etat, 'à vérifier', `${s} : lien à ouvrir toi-même`);
     // Fuites : sans clé, le lien pour vérifier soi-même.
-    assert.equal(resultats(w).find((x) => x.genre === 'fuite')?.etat, 'à vérifier'); assert.deepEqual(w.hibp, []);
+    assert.equal(resultats(w).find((x) => x.genre === 'fuite')?.etat, 'à vérifier'); assert.equal(w.hibp.length, 0);
     // La réponse : comptes, sans aucune coordonnée en entier.
     assert.match(r.text, /Recherche faite te concernant : \d+ résultats \(2 élevé, \d+ moyen, \d+ faible\)/);
     assert.doesNotMatch(r.text, /0639123456|06 39 12 34 56|awa\.said@|rue des Fleurs/);
