@@ -101,6 +101,8 @@ export class Intel {
   hashCount(): number { return this.hashes.length / HREC; }
   iocCount(): number { return this.iocs.length / IREC; }
   yara(): Array<{ source: string; text: string }> { return this.yaraTexts; }
+  /** Toutes les empreintes SHA-256 connues (hexadécimal minuscule, triées). */
+  hashList(): string[] { const out: string[] = []; for (let i = 0; i + HREC <= this.hashes.length; i += HREC) out.push(this.hashes.subarray(i, i + H).toString('hex')); return out; }
   kev(): Kev[] { return this.kevList; }
 
   // ---------------- Recherches

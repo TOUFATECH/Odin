@@ -169,6 +169,14 @@ Comme Wireshark : Ariane **lit les paquets en entier et les décode couche par c
 
 Points de capture : la machine d'Odin, plus **chaque machine où Odin a un accès** (Réglages → Droits et machines) — tout son trafic, par SSH. Un hôte Proxmox voit ainsi tout ce qu'échangent ses machines virtuelles, un routeur Linux tout ce qui entre et sort du réseau. Sur un réseau avec switch ou box, une machine sans point de capture n'est vue que dans ses échanges avec un point de capture et dans ce qu'elle diffuse. Le contenu chiffré (HTTPS, QUIC, SSH, VPN) reste illisible, comme dans Wireshark sans les clés ; ce qui passe en clair (HTTP, DNS…) se lit en entier, mots de passe compris : l'historique reste sur ta machine et s'efface depuis Ariane.
 
+#### Connexion unique (Persona)
+
+Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout logiciel qui sait faire OpenID (Penpot…). Odin est le fournisseur d'identité (OpenID Connect avec PKCE, jetons ES256 de 15 minutes, renouvellement lié à l'appareil). Sur un ordinateur, la première appli connectée range un jeton dans le coffre du système (Windows, Mac, Linux) : les autres s'ouvrent déjà connectées. Dans Persona, l'onglet **Accès** dit qui a droit à quelle appli ; sans droit, l'appli est cachée ou un message dit à qui demander. Les applis sauvegardent leur base sur Odin (`/api/sauvegardes/<appli>`), chiffrée, avec des versions. Contrat : `docs/sso-protocole.md` ; bibliothèque cliente sans dépendance : `clients/odin-sso.mjs`.
+
+#### Pégase : ton navigateur relié à Odin
+
+Pégase (Windows, Mac, Linux, Android) se connecte à Odin avec ton compte (le même que partout : connexion unique). Dans Odin, l'appli **Pégase** montre tes appareils (et les révoque), l'état de la synchro, l'historique cherchable par jour, les copies (une par jour, restaurables d'un geste) et ce que l'IA d'Odin peut voir de ta navigation (tout, sans l'historique, ou rien). Favoris, onglets, agenda et historique se synchronisent à la seconde entre l'ordinateur et le téléphone, avec une vérification à l'identique ; les cookies et les mots de passe restent sur chaque appareil. Les téléchargements passent par Asclépios, les liens par Sphinx, les alertes arrivent dans Forseti. Contrat entre Pégase et Odin : `docs/pegase-protocole.md`.
+
 #### Venus (Vénus) : épisodes et VF
 
 - « Mets le dernier épisode de One Piece sur la télé du salon » : l'épisode lui-même démarre. Aussi « l'épisode suivant de Frieren », « One Piece saison 2 épisode 5 », « S02E05 », « l'épisode 1071 de One Piece » ; une série nommée seule reprend à l'épisode suivant de ton profil.

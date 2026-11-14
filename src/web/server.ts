@@ -54,6 +54,7 @@ import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost }
 import { maisonRoute } from './maison-api.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
+import { pegaseRoute } from './pegase-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { exportApi } from './export-api.ts';
 import { partageApi, partagePublic } from './partage-api.ts';
@@ -76,6 +77,7 @@ import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
 import { activationPage } from './activate.ts';
 import { setMascot as setVarMascot } from '../valhalla/modules/var.ts';
+import { estMembre, gardeSSO, sessionMembre } from '../valhalla/sso/garde.ts';
 import { svg as qrSvg } from '../valhalla/qr.ts';
 import { Accounts, SESSION_RE, clearSessionCookie, sessionCookie, type Via } from './account.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
@@ -195,12 +197,12 @@ export class WebChannel implements Channel {
   /** Raccourcis (Siri, Android) : réponse attendue par conversation. */
   private waiters = new Map<string, (text: string) => void>();
   /** Pose une question à Odin (même chemin que la discussion : mêmes droits, mêmes validations) et attend sa réponse. */
-  private askAs(peer: string, text: string, onMessage: (m: Inbound) => Promise<void>): Promise<string> {
+  private askAs(peer: string, text: string, onMessage: (m: Inbound) => Promise<void>, max = 4000): Promise<string> {
     if (this.waiters.has(peer)) return Promise.resolve('Je réponds déjà à une demande : un instant.');
     return new Promise<string>((resolve) => {
       const timer = setTimeout(() => { this.waiters.delete(peer); resolve('Je travaille encore dessus : la réponse arrivera dans Odin.'); }, 110_000);
       this.waiters.set(peer, (r) => { clearTimeout(timer); resolve(r); });
-      void onMessage({ channel: 'web', peer, name: peer, text: text.slice(0, 4000) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
+      void onMessage({ channel: 'web', peer, name: peer, text: text.slice(0, max) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
     });
   }
   private vaultFails = 0;
@@ -334,7 +336,7 @@ export class WebChannel implements Channel {
     }
     const raw = req.headers.cookie ?? '';
     const sess = SESSION_RE.exec(raw)?.[1];
-    if (sess) { if (this.accounts.valid(sess)) return 'session'; }
+    if (sess) { if (this.accounts.valid(sess) || sessionMembre(sess)) return 'session'; }
     const cookie = /(?:^|;\s*)odin_token=([a-f0-9]+)/.exec(raw)?.[1];
     if (cookie && this.tokenOk(cookie)) { this.markClaimed('jeton'); return this.accounts.exists() ? undefined : 'installation'; }
     if (cookie && cookie !== this.lastToken) this.throttle.fail(ip); // un jeton faux = un essai raté (sauf l'ancien jeton juste remplacé)
@@ -493,6 +495,8 @@ export class WebChannel implements Channel {
     // (ni clé d'API, ni liens publics, ni création de compte : tout cela reste sur le port de l'interface).
     const direct = this.directs?.appOf(req.socket);
     if (direct && this.who(req) !== 'session' && !(this.accounts.exists() && directOpen(req.method ?? '', url.pathname))) return json(res, this.accounts.exists() ? 401 : 403, { error: this.accounts.exists() ? 'connexion requise' : `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${this.port}).`, account: this.accounts.exists(), direct: true });
+    // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
+    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state() })) return;
 
     if (req.method === 'GET' && url.pathname === '/') {
       const t = url.searchParams.get('token');
@@ -520,6 +524,8 @@ export class WebChannel implements Channel {
       return void res.end((direct && w === 'session' ? directPage(UI, direct, valhallaOf()?.module(direct)?.name) : UI).replace('<!--PAGES-->', Object.keys(PAGES_JS).sort().map((n) => `<script nonce="__NONCE__" src="/pages/${n}"></script>`).join('\n')).replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
+    // Pégase (le navigateur d'Odin) : ses routes, avec ses propres jetons d'appareil (voir pegase-api.ts).
+    if (url.pathname.startsWith('/api/pegase/') && await pegaseRoute(req, res, url, { ip, proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', emailProprietaire: this.accounts.profile()?.email, motDePasseProprietaire: async (e, mdp) => (await this.accounts.login(e, mdp)).ok, fail: () => this.throttle.fail(ip), ask: (peer, text) => this.askAs(peer, text, onMessage, 30_000), certificat: this.tls?.cert, version: RUNNING, origin: this.publicOrigin(req), pair: { collect: (sec) => this.pairing.collect(sec), request: (device, from) => { const r = this.pairing.request('', from, Date.now(), device); if (r) { void Promise.resolve(this.hooks.pairAsk?.({ id: r.id, code: r.code, device: r.device, ip: r.ip, at: r.at, state: r.state })).catch(() => 0); this.notify('state'); } return r; } } })) return;
     // La page du téléphone pour la première connexion (code tapé ou QR code scanné).
     if (req.method === 'GET' && url.pathname === '/activer') {
       if (this.accounts.exists()) { res.writeHead(302, { location: '/' }); return void res.end(); }
@@ -562,7 +568,7 @@ export class WebChannel implements Channel {
     // Chronos : page publique de réservation (/r/…), lien secret, sans script.
     if (await friggPublic(req, res, url)) return;
     // Partage d'une page d'appli : la copie figée (/partage/…), adresse secrète, sans script, débit limité.
-    if (await partagePublic(req, res, url, { ip, https: this.secure || this.viaHttps(req), proprietaire: () => this.authed(req) })) return;
+    if (await partagePublic(req, res, url, { ip, https: this.secure || this.viaHttps(req), proprietaire: () => this.authed(req) && !estMembre(req) })) return;
     if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
     if (url.pathname === '/app-icons.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(APP_ICONS_JS); }
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }

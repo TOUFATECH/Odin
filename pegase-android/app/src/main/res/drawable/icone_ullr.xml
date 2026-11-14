@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône de Asclépios (Odin, src/web/app-icons.js), convertie pour Android. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="64dp" android:height="64dp" android:viewportWidth="64" android:viewportHeight="64">
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v34a15,15 0 0 1 -15,15h-34a15,15 0 0 1 -15,-15v-34a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="64" android:endY="64"
+                android:startColor="#FF00FF5E" android:endColor="#FF05C77A" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M15,0h34a15,15 0 0 1 15,15v9Q32,32 0,24v-9a15,15 0 0 1 15,-15z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="32"
+                android:startColor="#47FFFFFF" android:endColor="#00FFFFFF" />
+        </aapt:attr>
+    </path>
+    <group android:translateX="9.22" android:translateY="9.22" android:scaleX="0.712" android:scaleY="0.712">
+    <path android:pathData="M32 5 L54 13 V30 C54 44 44 54 32 59 C20 54 10 44 10 30 V13z" android:fillColor="#FFFFFFFF" />
+    <path android:pathData="M23.0,32.0a9.0,9.0 0 1,0 18.0,0a9.0,9.0 0 1,0 -18.0,0" android:fillColor="#FFEF4444" />
+    <path android:pathData="M32 19 v6 M32 39 v6 M19 32 h6 M39 32 h6 M23 23 l4 4 M41 23 l-4 4 M23 41 l4 -4 M41 41 l-4 -4" android:strokeColor="#FFEF4444" android:strokeWidth="3" android:strokeLineCap="round" />
+    <path android:pathData="M20 46 L46 18" android:strokeColor="#FF065F46" android:strokeWidth="4.5" android:strokeLineCap="round" />
+    </group>
+</vector>

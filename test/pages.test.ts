@@ -32,9 +32,11 @@ test('Pages des applis : chaque page s\'ouvre, chaque formulaire a les réglages
           const a = m.actions.find((x) => x.id === s.action);
           if (!a) { wrong.push(`${m.name} · « ${s.title} » : action inconnue « ${s.action} »`); continue; }
           if (!Array.isArray(s.params)) { wrong.push(`${m.name} · « ${s.title} » : formulaire sans liste de réglages`); continue; }
-          const known = new Set((a.params ?? []).map((p) => p.key)), extra = s.params.map((p) => p.key).filter((k) => !known.has(k));
+          // Un formulaire « à cases » (réglages fixes + une case par appli, ex. Persona → Accès) peut envoyer des cases que l'action lit elle-même.
+          const fixe = Object.keys((s as { fixe?: Record<string, unknown> }).fixe ?? {}), cases = fixe.length > 0;
+          const known = new Set([...(a.params ?? []).map((p) => p.key), ...fixe]), extra = s.params.filter((p) => !(cases && p.kind === 'boolean')).map((p) => p.key).filter((k) => !known.has(k));
           if (extra.length) wrong.push(`${m.name} · « ${s.title} » (${s.action}) : réglages ${extra.join(', ')} inconnus de l'action (elle attend ${[...known].join(', ') || 'rien'})`);
-          const missing = (a.params ?? []).filter((p) => p.required && !s.params.some((x) => x.key === p.key)).map((p) => p.key);
+          const missing = (a.params ?? []).filter((p) => p.required && !s.params.some((x) => x.key === p.key) && !fixe.includes(p.key)).map((p) => p.key);
           if (missing.length) wrong.push(`${m.name} · « ${s.title} » (${s.action}) : réglage obligatoire absent du formulaire : ${missing.join(', ')}`);
         }
         if (s.kind === 'table') {

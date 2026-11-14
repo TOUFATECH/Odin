@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { understand, type Understood } from './huginn.ts';
 import { explainListen } from './hostports.ts';
 import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
+import { refusAppli } from './sso/acces.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -112,6 +113,7 @@ export class Valhalla {
   async act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string } = {}): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
+    const refus = refusAppli(f.m.id, o.by); if (refus) return { ok: false, text: refus }; // droits par appli (personne de Persona)
     const why = f.a.grave?.(input, this.ctx(f.m.id));
     if (o.auto && why) return { ok: false, text: `${f.m.name} · ${f.a.label} : action grave (${why}), elle demande ton accord et ne part pas d'une automatisation.` };
     for (const p of f.a.params ?? []) if (p.required && (input[p.key] === undefined || input[p.key] === '')) return { ok: false, text: `Il manque « ${p.label} ».` };
