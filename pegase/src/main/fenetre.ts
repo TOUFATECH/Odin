@@ -508,7 +508,7 @@ export class Fenetre {
       case 'barre': this.barreReduite = arg?.reduite ?? !this.barreReduite; this.planifier(); return;
       case 'panneauOdin': this.panneauOdin = arg?.ouvert ?? !this.panneauOdin; this.planifier(); return;
       case 'theme': return this.appli.changerTheme(this, arg?.theme);
-      case 'reglage': { const k = String(arg?.cle); if (k in p.reglages() && k !== 'theme') p.mettreReglage(k as any, arg.valeur); return; }
+      case 'reglage': { const k = String(arg?.cle); if (k in p.reglages() && k !== 'theme') { p.mettreReglage(k as any, arg.valeur); if (k === 'dnsSecours') return this.appli.action(this, 'dnsChange', {}); } return; }
       case 'historique': return p.historique(String(arg?.q ?? ''), Number(arg?.n ?? 200));
       case 'effacerHistorique': { for (const h of p.historique('', 1e9)) if (!arg?.depuis || h.date >= arg.depuis) p.base.suppr('historique', h.id); this.planifier(); return; }
       case 'chercher': return this.chercher(String(arg?.q ?? ''));

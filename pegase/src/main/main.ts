@@ -44,10 +44,11 @@ class Pegase implements Appli {
   async demarrer(): Promise<void> {
     Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]) : null);
     this.servirInterface();
-    this.protection = new Protection(this, racineDonnees);
+    this.protection = new Protection(this as any, racineDonnees);
     await this.protection.demarrer();
     const p = this.ouvrirProfil(process.env.PEGASE_PROFIL || 'toi');
     this.ecrireListeProfils();
+    this.protection.reglerDns(undefined, p.reglages().dnsSecours).then(() => { for (const x of this.fenetres) x.planifier(); }).catch(() => 0);
     const f = this.nouvelleFenetreDe(p);
     f.ecran = 'navigateur';
     setInterval(() => this.veiller(), 30_000).unref();
@@ -111,6 +112,7 @@ class Pegase implements Appli {
 
   async action(f: Fenetre, action: string, arg: any): Promise<any> {
     if (action === 'memoire') return this.memoire();
+    if (action === 'dnsChange') { await this.protection.reglerDns(undefined, f.profil.reglages().dnsSecours); for (const x of this.fenetres) x.planifier(); return; }
     const fav = actionFavoris(f.profil, action, arg); if (fav.fait) return fav.r;
     const p = f.profil;
     switch (action) {
