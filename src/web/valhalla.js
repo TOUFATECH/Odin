@@ -68,9 +68,14 @@
 .va-dlg{border:1px solid var(--line);border-radius:16px;background:var(--panel);color:inherit;padding:18px;max-width:min(560px,calc(100vw - 32px));width:100%}.va-dlg::backdrop{background:rgba(0,0,0,.45)}
 .va-dlg img{display:block;width:min(320px,100%);margin:0 auto 12px;background:#fff;border-radius:10px;padding:10px}.va-dlg pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12.5px;background:var(--panel2);border-radius:10px;padding:10px;max-height:240px;overflow:auto}
 #v-app>.head{display:none}#v-app>.body{background:var(--bg);--va-lien:color-mix(in srgb,var(--accent) 72%,var(--ink))}
-.va-head{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin:0 0 16px}.va-head .va-back{min-height:44px;padding:0 14px;background:var(--panel);font-size:15px;font-weight:500;flex:none}.va-ic{flex:none;line-height:0}
+.va-head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px;margin:0 0 16px}.va-head>.va-tt{padding-top:5px}.va-head .va-back{min-height:44px;padding:0 14px;background:var(--panel);font-size:15px;font-weight:500;flex:none}.va-ic{flex:none;line-height:0}
 .va-tt{flex:1 1 320px;min-width:0}.va-tt h1{margin:0;font-family:var(--display);font-weight:700;font-size:28px;line-height:1.15;letter-spacing:-.01em;overflow-wrap:anywhere}.va-desc{margin:2px 0 0;color:var(--muted);font-size:15px}.va-etat{margin:4px 0 0;font-size:14px;overflow-wrap:anywhere}
 .va-plus{flex:none;font-size:15px;max-width:100%}.va-plus>summary{min-height:44px;display:flex;align-items:center;gap:6px;padding:0 12px;border-radius:10px;color:var(--va-lien);font-weight:500;cursor:pointer}.va-plus>summary:hover{background:var(--panel2)}.va-plus[open]{flex:1 1 100%}.va-plus .va-story{margin:8px 0 0}.va-plus .va-what-m{display:none;margin:4px 0 0;color:var(--muted);font-size:15px}
+.va-plus>summary::before{content:'';flex:none;width:7px;height:7px;margin:0 4px 0 2px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s}.va-plus[open]>summary::before{transform:rotate(45deg) translate(-2px,-2px)}.va-plus>summary::-webkit-details-marker{display:none}.va-plus-o,.va-plus[open] .va-plus-f{display:none}.va-plus[open] .va-plus-o{display:inline}
+.va-story h4{margin:0 0 6px}.va-plus .va-story{align-items:start}.va-parties{margin:8px 0 0!important}.va-story li+li{margin-top:2px}.va-fn{margin:6px 0 0}.va-fn>summary{min-height:32px;display:flex;align-items:center;color:var(--va-lien);font-weight:500;cursor:pointer}.va-fn ul{margin:4px 0 0}
+.va-sim{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0!important}.va-sim li{margin:0!important}.va-sim a,.va-sim span{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:14px;text-decoration:none;overflow-wrap:anywhere}.va-sim a{color:var(--va-lien)}.va-sim a:hover{border-color:var(--va-lien)}.va-sim a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (max-width:700px),(pointer:coarse){.va-sim a{min-height:44px}.va-fn>summary{min-height:44px}}
+@media (max-width:700px){.va-head .va-tt h1{align-self:center}.va-head:has(.va-plus[open]) .va-desc{display:block;-webkit-line-clamp:unset;line-clamp:unset}.va-plus[open] .va-what-m{display:none}}
 .va-postes{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);margin:0 0 16px}.va-postes>label{margin:0 6px 0 0;font-size:15px;font-weight:600}.va-postes select{display:none}
 .va-poste{display:inline-flex;align-items:center;gap:8px;min-height:44px;max-width:100%;padding:0 14px;border-radius:999px;border:1px solid var(--field-h,var(--line));background:var(--panel);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}.va-poste span{overflow-wrap:anywhere;text-align:left}.va-poste small{color:var(--muted);font-size:13px;white-space:nowrap}
 .va-poste[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}.va-poste[aria-pressed=true] small{color:inherit}.va-poste.va-plusposte{border-color:transparent;background:none;color:var(--va-lien);font-weight:500;padding:0 12px}.va-poste.va-plusposte:hover{background:var(--panel2)}
@@ -523,12 +528,28 @@
     return box;
   }
   const liensBox = (r) => el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`)))));
-  /** L'en-tête : retour, icône, nom, une ligne d'explication. Le nom, les fonctions et les parties sont repliés (« En savoir plus »). */
+  /**
+   * La fiche de l'appli, dépliée en entrant (le même bloc pour toutes les applis) : d'où vient le nom, ce qu'elle fait,
+   * ses parties, et les applicatifs similaires existants. Repliée une fois, elle reste repliée partout (réglage du navigateur).
+   */
+  const ficheOuverte = (o) => { try { if (o === undefined) return localStorage.getItem('odin.fiche') !== 'pliee'; localStorage.setItem('odin.fiche', o ? 'ouverte' : 'pliee'); } catch { /* navigateur sans stockage : dépliée */ } return true; };
+  function fiche(id, r) {
+    const v = r.view, does = r.does ?? [], sim = r.similaires ?? [], N = 3;
+    const parties = v.tabs?.length ? el('p', { class: 'va-aide va-parties' }, `Ses parties : ${v.tabs.join(', ')}.`) : null;
+    const fonctions = does.length ? el('div', {}, el('h4', {}, 'Ce qu\'elle fait'), el('ul', {}, ...does.slice(0, N).map((x) => el('li', {}, x))),
+      does.length > N ? el('details', { class: 'va-fn' }, el('summary', {}, `Ses ${does.length - N} autres fonctions`), el('ul', {}, ...does.slice(N).map((x) => el('li', {}, x)))) : null, parties)
+      : el('div', {}, el('h4', {}, 'Ce qu\'elle fait'), el('p', {}, r.what), parties);
+    const similaires = el('div', {}, el('h4', {}, 'Applicatifs similaires existants'), sim.length
+      ? el('ul', { class: 'va-sim' }, ...sim.map((x) => el('li', {}, x.site ? el('a', { href: x.site, target: '_blank', rel: 'noopener noreferrer', title: `Site officiel de ${x.nom} (nouvel onglet)` }, x.nom) : el('span', {}, x.nom))))
+      : el('p', { class: 'va-aide' }, 'Aucun : c\'est une appli propre à Odin.'));
+    return el('details', { class: 'va-plus' }, el('summary', {}, el('span', { class: 'va-plus-o' }, 'Replier la présentation'), el('span', { class: 'va-plus-f' }, 'Le nom, ce qu\'elle fait, les applicatifs similaires')), el('p', { class: 'va-what-m' }, r.what),
+      el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, fonctions, similaires));
+  }
+  /** L'en-tête : retour, icône, nom, une ligne d'explication, puis la fiche de l'appli (dépliée en entrant). */
   function entete(id, r, retour, titre) {
     const v = r.view, ic = el('span', { class: 'va-ic', 'aria-hidden': 'true' }); if (!titre && window.OdinAppIcons) ic.innerHTML = window.OdinAppIcons.tile(id, r.name, 44);
-    const plus = !titre && (r.story || r.does?.length || v.tabs?.length) ? el('details', { class: 'va-plus' }, el('summary', {}, 'En savoir plus : le nom, les fonctions'), el('p', { class: 'va-what-m' }, r.what),
-      el('div', { class: 'va-story' }, r.story ? el('div', {}, el('h4', {}, 'D\'où vient le nom'), el('p', {}, r.story)) : null, r.does?.length ? el('div', {}, el('h4', {}, 'Ses fonctions'), el('ul', {}, ...r.does.map((x) => el('li', {}, x)))) : null, v.tabs?.length ? el('div', {}, el('h4', {}, 'Ses parties'), el('ul', {}, ...v.tabs.map((x) => el('li', {}, x)))) : null)) : null;
-    if (plus) { plus.open = Boolean(plusOuvert[id]); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; }); }
+    const plus = titre ? null : fiche(id, r);
+    if (plus) { plus.open = plusOuvert[id] ?? ficheOuverte(); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; ficheOuverte(plus.open); }); }
     return el('div', { class: 'va-head' }, el('button', { class: 'btn va-back', type: 'button', id: 'vaRetour', title: `Retour : ${retour.label}`, onclick: retour.go }, ico(I.retour), el('span', {}, retour.label)), titre ? null : ic,
       el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), titre ? null : boutonPartage(id, r), plus);
   }
