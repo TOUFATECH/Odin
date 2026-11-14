@@ -1,5 +1,20 @@
 [
  {
+  "id": "v1281",
+  "at": "2026-11-14T11:45:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.28.1",
+  "title": "Plume dans Pégase",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Pégase pour ordinateur (0.1.1) : Plume corrige dans les pages web, comme dans Odin ; jamais dans une fenêtre privée, ni dans un mot de passe, un code ou une carte bancaire.",
+   "Réglages → Plume dans Pégase : l'interrupteur « Dans Pégase » ; si Plume est désactivé partout, seul Réglages → Plume d'Odin le rallume."
+  ]
+ },
+ {
   "id": "v1280",
   "at": "2026-11-14T11:30:00+03:00",
   "date": "2026-11-14",
