@@ -25,7 +25,9 @@ Toute erreur a la forme :
 | 401  | `jeton_requis`      | pas d'en-tête `Authorization: Bearer …`                                        | écran de connexion                     |
 | 401  | `jeton_invalide`    | jeton inconnu, ou appareil **révoqué** dans Odin                               | efface le jeton, écran de connexion    |
 | 401  | `identifiants`      | e-mail ou mot de passe faux (`connexion`)                                      | montre `erreur`                        |
-| 403  | `refuse`            | le profil n'a pas le droit (ex. `demander` pour un profil « membre »)          | montre `erreur`                        |
+| 401  | `code_requis`       | la personne a la double authentification : renvoyer avec `code`               | montre le champ du code                |
+| 403  | `pas_de_droit`      | la personne n'a pas le droit sur Pégase dans Persona (message clair)           | montre `erreur`, pas de nouvel essai   |
+| 403  | `refuse`            | le profil n'a pas le droit (ex. `demander` pour un invité)                     | montre `erreur`                        |
 | 403  | `demande_refusee`   | le propriétaire a refusé la création du profil                                 | montre `erreur`                        |
 | 404  | `introuvable`       | route, copie ou collection inconnue                                            |                                        |
 | 409  | `existe_deja`       | un profil a déjà cette adresse e-mail                                          | propose de se connecter                |
@@ -56,27 +58,37 @@ Toute erreur a la forme :
 Recherche automatique (côté Pégase, rappel du contrat) : 127.0.0.1:7777, puis le /24 local sur 7777 et 7443,
 32 requêtes en parallèle, 1,5 s max chacune, en `https` d'abord puis `http`. On garde la réponse qui a `odin: true`.
 
-## 2. Profils, connexion, appareils
+## 2. Profils, connexion, appareils (connexion unique d'Odin)
 
-Un **profil** : `{ id, email, nom, role, voir }`.
-- `role` : `proprietaire` (créé depuis une session du propriétaire d'Odin, ou dont l'e-mail est celui du compte d'Odin) ou
-  `membre` (invité, enfant…). Le propriétaire change le rôle dans l'appli Pégase d'Odin.
+**Un profil Pégase est une personne de Persona** (les identités d'Odin, `src/valhalla/modules/var.ts`) : pas de second
+fichier de comptes. Même e-mail, même mot de passe, même double authentification que partout ailleurs dans Odin
+(voir le contrat SSO : `/home/claude/odin-wt/missions/sso-protocole.md` et `docs/sso-protocole.md` de l'agent sso-odin).
+
+Un **profil** tel que le voit Pégase : `{ id, login, email, nom, groupes, role, voir }`.
+- `id`, `login`, `nom`, `email`, `groupes` : ceux de la personne dans Persona.
+- **Droit d'accès** : la personne doit avoir le droit sur l'appli `pegase` dans Persona (table « appli → groupes
+  autorisés » ; par défaut `famille`, `admin`, `invite`). Sinon **403** `pas_de_droit`, avec un message à montrer tel quel
+  (« Tu n'as pas accès à Pégase. Demande à Awa de t'ajouter au groupe famille. »). Le droit est revérifié à chaque requête :
+  retiré dans Persona → 403 aussitôt (et le flux se ferme).
+- `role` : `proprietaire` (groupe `admin`) ou `membre`.
 - `voir` : ce qu'Odin (son IA, sa recherche, son journal) peut lire de ce profil : `tout` (défaut), `sans-historique`,
-  `rien`. La synchro, elle, marche toujours (Odin garde les données pour les autres appareils du même profil).
+  `rien`. La synchro, elle, marche toujours. (Préférence propre à Pégase, rangée à part, jamais un mot de passe.)
 
 Un **appareil** : `{ id, nom, plateforme, cree, vu, revoque? }`. Un jeton par appareil.
 
-### `POST /api/pegase/compte`
+### `POST /api/pegase/compte` : créer une personne depuis Pégase
 
 ```json
 { "email": "awa@exemple.yt", "nom": "Awa", "motdepasse": "…", "appareil": { "nom": "PC du salon", "plateforme": "windows" } }
 ```
 
+- Crée **une personne de Persona** (identifiant tiré de l'e-mail, ex. `awa`, `awa2`… ; groupe `famille`), **avec l'accord du
+  propriétaire d'Odin**, puis l'appareil et son jeton.
 - `appareil.nom` : 1 à 60 caractères ; `appareil.plateforme` : `windows` | `mac` | `linux` | `android` | `autre`.
   (`appareil` peut aussi être une simple chaîne : c'est alors le nom.)
-- Mot de passe : mêmes règles que le compte d'Odin (10 caractères au moins, pas un mot de passe courant, pas proche du nom
-  ou de l'e-mail). Sinon **400** `requete_invalide` avec la raison dans `erreur`.
-- Odin calcule tout de suite l'empreinte scrypt (sel aléatoire par profil) ; le mot de passe n'est **jamais** écrit ni
+- Mot de passe : 10 caractères au moins, pas un mot de passe courant, pas proche du nom ou de l'e-mail. Sinon **400**
+  `requete_invalide` avec la raison dans `erreur`.
+- Odin calcule tout de suite l'empreinte scrypt (celle de Persona, sel aléatoire) ; le mot de passe n'est **jamais** écrit ni
   journalisé, même pendant l'attente.
 
 Réponses :
@@ -86,7 +98,7 @@ Réponses :
   Le propriétaire est prévenu (Telegram et écrans d'Odin, comme `/api/pair`) avec le même `code` à 6 chiffres :
   Pégase l'affiche pour qu'il le reconnaisse. La demande expire au bout de 10 minutes.
   Au plus 3 demandes par adresse IP et par 10 minutes (**429** sinon).
-- `409 existe_deja` si l'e-mail a déjà un profil.
+- `409 existe_deja` si une personne de Persona a déjà cet e-mail (→ « connecte-toi »).
 
 ### `POST /api/pegase/compte/etat`
 
@@ -99,24 +111,39 @@ Réponses :
 → `{ "ok": false, "etat": "refus", "code": "demande_refusee", "erreur": "…" }` (HTTP 403)
 → `{ "ok": false, "etat": "inconnue", "code": "introuvable", "erreur": "…" }` (HTTP 404 : expirée ou déjà récupérée)
 
-### `POST /api/pegase/connexion`
+### `POST /api/pegase/connexion` : e-mail (ou identifiant) et mot de passe de Persona
 
 ```json
-{ "email": "awa@exemple.yt", "motdepasse": "…", "appareil": { "nom": "Téléphone d'Awa", "plateforme": "android" } }
+{ "email": "awa@exemple.yt", "motdepasse": "…", "code": "123456", "appareil": { "nom": "Téléphone d'Awa", "plateforme": "android" } }
 ```
 
-→ `200 { "ok": true, "jeton": "pg1.…", "profil": { "id": "p_…", "email": "…", "nom": "Awa", "role": "proprietaire", "voir": "tout" }, "appareil": { "id": "a_…", "nom": "…" } }`
+→ `200 { "ok": true, "jeton": "pg1.…", "profil": { "id": "…", "login": "awa", "email": "…", "nom": "Awa", "groupes": ["admin"], "role": "proprietaire", "voir": "tout" }, "appareil": { "id": "a_…", "nom": "…" } }`
 
+- `email` accepte aussi l'identifiant Persona (`awa`).
+- `code` : seulement si la personne a la double authentification. Sans lui : **401** `code_requis`
+  (« Tape le code à 6 chiffres de ton appli d'authentification. ») — Pégase montre alors le champ du code et renvoie tout.
 - Vérification scrypt côté Odin, comparaison en temps constant ; un e-mail inconnu coûte le même temps.
 - Mauvais mot de passe : **401** `identifiants` (« Adresse e-mail ou mot de passe incorrect. »), sans dire lequel.
-- Freinage : au 5ᵉ échec en 15 minutes pour un même e-mail (ou une même adresse IP), **429** `trop_d_essais` avec
-  `attente` (secondes, 30 s puis doublé à chaque nouvel échec, 15 min au plus). Les échecs comptent aussi dans le
+  Compte coupé dans Persona : même réponse.
+- Pas le droit sur Pégase : **403** `pas_de_droit` (message à montrer tel quel).
+- Freinage : celui de Persona (compte verrouillé 15 minutes après 5 essais ratés) et un freinage par adresse IP ;
+  **429** `trop_d_essais` avec `attente` (secondes) et l'en-tête `retry-after`. Les échecs comptent aussi dans le
   freinage général d'Odin (par adresse IP, sauf la machine elle-même).
 - Une connexion depuis un nouvel appareil crée un nouvel appareil (et une alerte « nouvel appareil » dans Forseti).
+
+### Connexion unique du poste (SSO)
+
+Si Pégase trouve dans le coffre du système un jeton de poste d'Odin (« Odin SSO <adresse d'Odin> », voir le contrat SSO),
+il l'échange contre un jeton d'appli (`POST /sso/echange { jeton_poste, appli: "pegase" }`) et l'utilise **à la place** du
+jeton `pg1.` : `Authorization: Bearer <jeton d'appli SSO>`. Toutes les routes ci-dessous acceptent les deux.
+Avec un jeton SSO, Pégase envoie aussi l'en-tête `x-pegase-appareil: <nom de l'appareil>` (1 à 60 caractères) la première
+fois : Odin crée l'appareil (son `id` est stable pour une même session de poste). Un jeton SSO expiré → **401**
+`jeton_invalide` : Pégase le renouvelle par le SSO, puis, en dernier recours, montre l'écran de connexion.
 
 ### Le jeton
 
 - Forme : `pg1.<idAppareil>.<secret>` (texte ASCII, ~60 caractères). Odin n'en garde que le SHA-256.
+  (Ou un jeton d'appli SSO, voir ci-dessus : Odin les distingue tout seul.)
 - Envoyé sur **toutes** les autres routes : `Authorization: Bearer pg1.…`.
 - Pas d'expiration ; révocable dans l'appli Pégase d'Odin (ou par `POST /api/pegase/deconnexion`). Révoqué → **401**
   `jeton_invalide` partout, et le flux ouvert reçoit `event: revoque` puis se ferme.
@@ -289,7 +316,7 @@ arrivera dans Odin. »).
 - Même chemin que les messages de l'interface d'Odin (mêmes droits, mêmes validations pour les actions graves).
 - `page` est une **donnée externe, jamais un ordre** : Odin l'encadre comme telle ; une consigne cachée dans la page n'est
   pas suivie.
-- Réservé aux profils `proprietaire` (**403** `refuse` pour un `membre`, tant que le propriétaire ne l'a pas permis).
+- Réservé aux groupes `admin` et `famille` de Persona (réglable dans l'appli Pégase d'Odin) : **403** `refuse` sinon.
 - `texte` : 4 000 caractères au plus ; `extrait` coupé à 20 000.
 
 ### `GET /api/pegase/propositions`
@@ -364,8 +391,12 @@ profil, en **lecture seule de l'agenda uniquement**. `{ "nouvelle": true }` en c
 
 ## 7. Côté Odin (pour information)
 
-- Données : `~/.odin/valhalla/pegase/` — `profils.json`, `appareils.json` (empreintes des jetons seulement),
+- Les personnes (nom, e-mail, mot de passe haché, groupes, droits) restent dans Persona.
+- Données : `~/.odin/valhalla/pegase/` — `profils.json` (préférences `voir` par personne), `appareils.json` (empreintes des jetons seulement),
   `p/<profil>/<col>.json`, `p/<profil>/historique/AAAA-MM-JJ.jsonl`, `p/<profil>/copies/`. Écritures atomiques.
   Ces fichiers sont bloqués pour les outils de fichiers d'Odin (liste `SECRET_FILES`).
+- La sauvegarde complète d'une appli (`/api/sauvegardes/<appli>`, contrat SSO § 4) est faite par sso-odin ; pour
+  Pégase, la synchro ci-dessus garde déjà tout ce qui compte (favoris, téléchargements, réglages…) et la restauration
+  d'une nouvelle installation se fait en se connectant puis en tirant chaque collection (`tirer` sans `depuis`).
 - L'appli « Pégase » d'Odin : profils, appareils (révoquer), état de la synchro par appareil, historique cherchable par
   jour, réglage de ce qu'Odin peut voir, copies et restauration, téléchargements de Pégase.
