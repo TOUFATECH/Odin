@@ -3,7 +3,7 @@
 // l'horloge) : les installations imposées par l'admin d'Odin se font sans rien demander.
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray, session } from 'electron';
 import { join } from 'node:path';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { Rangement } from './stockage';
 import { Connexion } from './odin';
@@ -73,6 +73,15 @@ ipcMain.handle('agora:faire', async (_e, action: string, arg: Record<string, unk
     case 'rafraichir': await moteur.rafraichir(); return { ok: true };
     case 'fermerMessage': moteur.etat = { ...moteur.etat, message: undefined }; envoyer(); return { ok: true };
     case 'deconnecter': await moteur.deconnecter(); return { ok: true };
+    // La photo de l'avatar (réduite par l'interface, gardée sur ce PC seulement) ; sans photo, c'est Odin qui s'affiche.
+    case 'lirePhoto': { try { return { ok: true, photo: `data:image/jpeg;base64,${readFileSync(join(racine, 'photo.jpg')).toString('base64')}` }; } catch { return { ok: true, photo: '' }; } }
+    case 'photo': {
+      const ph = typeof arg.photo === 'string' ? arg.photo : '';
+      if (!ph) { rmSync(join(racine, 'photo.jpg'), { force: true }); return { ok: true }; }
+      const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(ph);
+      if (!m || ph.length > 400_000) return { ok: false, message: 'Image refusée : choisis une photo JPG, PNG ou WebP.' };
+      writeFileSync(join(racine, 'photo.jpg'), Buffer.from(m[1], 'base64')); return { ok: true };
+    }
     default: return { ok: false, message: 'action inconnue' };
   }
 });
