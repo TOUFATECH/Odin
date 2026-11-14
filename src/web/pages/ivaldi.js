@@ -22,7 +22,7 @@
   };
   const CSS = `
 .dd{display:flex;flex-direction:column;gap:12px;min-width:0}
-.dd-tabs{display:flex;gap:6px;flex-wrap:wrap}.dd-tabs button{min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:0 14px;font:600 13.5px inherit;cursor:pointer}
+.dd-tabs{display:flex;gap:6px;flex-wrap:wrap}@media(max-width:520px){.dd-tabs{flex-wrap:nowrap}.dd-tabs button{flex:1 1 0;min-width:0;padding:0 6px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}.dd-tabs button{min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:0 14px;font:600 13.5px inherit;cursor:pointer}
 .dd-tabs button[aria-selected=true]{background:var(--panel2);color:var(--ink);border-color:var(--ink)}
 .dd-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .dd-bar button,.dd-bar select,.dd-bar input{min-height:40px;min-width:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 10px;font:inherit;font-size:13px;cursor:pointer}
