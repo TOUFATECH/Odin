@@ -175,14 +175,20 @@ test('connexion unique d\'Odin, pour de vrai', { timeout: 240_000 }, async (t) =
       assert.equal((await pegase.ouvrir()).code, 'pas_de_session');
     });
 
-    await t.test('renouvellement : rotation, lié à l\'appareil, réutilisation = session coupée', async () => {
+    await t.test('renouvellement : rotation, lié à l\'appareil, ancien jeton toléré 60 s (même couple), d\'un autre appareil = session coupée', async () => {
       const sso = new OdinSSO({ adresse: v.url, appli: 'pegase', appareil: { id: 'appareil-essai-rotation', nom: 'Portable' }, coffre: fauxCoffre() });
       assert.equal((await sso.connecter({ identifiant: 'moussa', motdepasse: MDP_MOUSSA, poste: false })).ok, true);
       const vieux = sso.etat.refresh; assert.equal((await sso.renouveler()).ok, true); assert.notEqual(sso.etat.refresh, vieux);
-      const autre = await fetch(`${v.url}/sso/jeton`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: sso.etat.refresh, client_id: 'pegase', appareil: 'un-autre-appareil-x' }) });
+      const jeton = (rt: string, appareil: string) => fetch(`${v.url}/sso/jeton`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: rt, client_id: 'pegase', appareil }) });
+      const autre = await jeton(sso.etat.refresh, 'un-autre-appareil-x');
       assert.equal(autre.status, 400); assert.match((await autre.json() as Record<string, string>).message, /autre appareil/);
-      const rejoue = await fetch(`${v.url}/sso/jeton`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: vieux, client_id: 'pegase', appareil: 'appareil-essai-rotation' }) });
-      assert.equal(rejoue.status, 400); assert.match((await rejoue.json() as Record<string, string>).message, /déjà servi/);
+      // Réponse perdue : le même appareil représente l'ancien jeton dans les 60 s → le MÊME couple (pas une seconde branche).
+      const rejoue = await jeton(vieux, 'appareil-essai-rotation'); assert.equal(rejoue.status, 200);
+      const rj = await rejoue.json() as Record<string, string | number>;
+      assert.equal(rj.refresh_token, sso.etat.refresh, 'même jeton de renouvellement'); assert.equal(rj.access_token, sso.etat.access, 'même jeton d\'accès');
+      assert.ok(Number(rj.expires_in) <= 900 && Number(rj.expires_in) > 840, 'durée restante du même jeton');
+      // Le même ancien jeton présenté par un autre appareil : vol probable → session coupée et alerte.
+      const vol = await jeton(vieux, 'un-autre-appareil-x'); assert.equal(vol.status, 400); assert.match((await vol.json() as Record<string, string>).message, /déjà servi/);
       assert.equal((await sso.renouveler()).ok, false, 'la session entière est coupée');
       assert.ok(va.alerts({ limit: 50 }).some((a) => /coupée/.test(a.title)));
     });

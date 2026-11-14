@@ -20,13 +20,19 @@ export interface Client {
   /** taille max d'une sauvegarde (octets) */ tailleMax?: number;
   prereg?: boolean; ajoute?: number;
 }
-export interface SessionAppli { id: string; sub: string; login: string; appli: string; appareil: Appareil; cree: number; vu: number; fin: number; h: string; anciens: string[]; poste?: string; via: string; revoque?: number; scope: string }
+export interface SessionAppli {
+  id: string; sub: string; login: string; appli: string; appareil: Appareil; cree: number; vu: number; fin: number; h: string; anciens: string[]; poste?: string; via: string; revoque?: number; scope: string;
+  /** dernière rotation : empreinte de l'ancien jeton, sa date, et la réponse rendue, chiffrée avec une clé tirée de l'ancien jeton (que seul son porteur a) */
+  grace?: { h: string; t: number; boite: string };
+}
 export interface SessionPoste { id: string; sub: string; login: string; appareil: Appareil; utilisateur: string; cree: number; vu: number; fin: number; h: string; revoque?: number }
 
 export const ACCES_MIN = 15 * 60;                       // jeton d'accès : 15 minutes (secondes)
 export const RENOUV_INACTIF = 30 * 86_400_000, RENOUV_MAX = 180 * 86_400_000;
 export const POSTE_INACTIF = 30 * 86_400_000, POSTE_MAX = 90 * 86_400_000;
 export const TAILLE_MAX = 500 * 1024 * 1024;
+/** Après une rotation, l'ancien jeton de renouvellement reste accepté ce temps-là (réponse perdue en route) : il rend le même couple. */
+export const GRACE_RENOUV = 60_000;
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 export const nouvelId = (n = 5) => randomBytes(n).toString('hex');

@@ -12,6 +12,8 @@ import { svg as qrSvg } from '../qr.ts';
 import { ssoActions, ssoSections } from '../sso/persona.ts';
 import { revoquerPersonne } from '../sso/etat.ts';
 import { brancherPersona } from '../sso/registre.ts';
+import { arreterFluxSauvegardes } from '../sso/sauvegardes.ts';
+import { arreterFluxVenus } from '../sso/fiches.ts';
 
 export interface Person { id: string; login: string; name: string; email?: string; groups: string[]; hash: string; totp?: string; totpPending?: string; active: boolean; created: number; lastLogin?: number; fails: number; lockedUntil?: number }
 export interface Rule { domain: string; groups: string[] }
@@ -253,7 +255,7 @@ export const varModule: Module = {
     };
   },
   start(ctx) { appCtx = ctx; },
-  stop() { appCtx = undefined; },
+  stop() { appCtx = undefined; arreterFluxSauvegardes(); arreterFluxVenus(); },
   watch: { every: 300, run(ctx) {
     appCtx = ctx; const all = (ctx.settings.sessions as Session[] | undefined) ?? [];
     if (all.some((x) => x.expires <= Date.now())) ctx.saveSettings({ sessions: sessions(ctx) });

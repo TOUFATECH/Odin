@@ -5,15 +5,21 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, closeSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import type { ModCtx } from '../types.ts';
 import { cleDuCoffre } from './jwt.ts';
-import { client, dossierSauvegardes, persona, TAILLE_MAX } from './etat.ts';
+import { client, dossierSauvegardes, persona, sessionValide, TAILLE_MAX } from './etat.ts';
 import { erreur, json, lireJeton } from './oidc.ts';
 
-export interface Version { id: string; date: number; taille: number; empreinte: string; sorte: 'complete' | 'changements'; raison: string; nom: string; base: string | null; appareil: string }
+export interface Version {
+  id: string; date: number; taille: number; empreinte: string; sorte: 'complete' | 'changements'; raison: string; nom: string; base: string | null;
+  /** nom de l'appareil qui l'a envoyée */ appareil: string;
+  /** identifiant de cet appareil (plusieurs serveurs Vénus sur le même compte : chacun sa série) */ appareil_id?: string;
+  /** en-tête x-odin-etat de l'envoi (ex. l'empreinte de la base de l'appli après ces changements), rendu tel quel */ etat?: string | null;
+}
 interface Index { versions: Version[]; restaurer?: string | null; journal: Array<{ t: number; texte: string }> }
 const MAGIC = Buffer.from('OSV1');
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
@@ -42,6 +48,23 @@ export function aGarder(l: Version[], now: number): Set<string> {
   }
   return keep;
 }
+
+/** Série d'un appareil (versions d'avant ce champ : par le nom de l'appareil). */
+export const serieDe = (v: Version) => v.appareil_id || `nom:${v.appareil}`;
+/**
+ * Les versions à garder quand plusieurs appareils (serveurs Vénus) envoient sur le même compte : les règles d'`aGarder`,
+ * appareil par appareil. La dernière complète d'un appareil et ses changements ne sont jamais effacés par les envois d'un autre.
+ */
+export function aGarderParAppareil(l: Version[], now: number): Set<string> {
+  const par = new Map<string, Version[]>(); for (const v of l) par.set(serieDe(v), [...(par.get(serieDe(v)) ?? []), v]);
+  const keep = new Set<string>(); for (const g of par.values()) for (const id of aGarder(g, now)) keep.add(id);
+  return keep;
+}
+
+// ---------------- Flux en direct (GET /api/sauvegardes/<appli>/flux) : chaque version rangée part aussitôt
+const bus = new EventEmitter(); bus.setMaxListeners(500);
+/** Odin s'arrête : les flux ouverts se ferment (sinon le serveur web attendrait leur fin). */
+export function arreterFluxSauvegardes(): void { bus.emit('arret'); }
 
 /** Les jeux de sauvegarde d'une appli (un par personne), pour la page de l'appli dans Odin. */
 export function jeux(appli: string): Array<{ login: string; versions: Version[]; restaurer: string | null; journal: Index['journal'] }> {
@@ -92,17 +115,25 @@ export async function routeSauvegardes(req: IncomingMessage, res: ServerResponse
   if (j.charge.aud !== appli) { erreur(res, 403, 'mauvaise_appli', `Ce jeton est celui de ${String(j.charge.aud)} : connecte ${c.nom} à Odin (ou échange le jeton du poste).`); return true; }
   const login = j.p.login, dir = dossierSauvegardes(ctx, appli, login), cle = cleDe(appli, login);
   if (!cle) { erreur(res, 503, 'indisponible', 'La clé du coffre d\'Odin manque : redémarre Odin (il la crée au démarrage).'); return true; }
-  const ix = lireIndex(dir), versions = tri(ix.versions), derniere = versions[0] ?? null, max = c.tailleMax ?? TAILLE_MAX;
+  const ix = lireIndex(dir), versions = tri(ix.versions), derniere = versions[0] ?? null, max = c.tailleMax ?? TAILLE_MAX, appId = j.session.appareil.id;
   const meth = req.method ?? 'GET';
-  if (!sous && meth === 'GET') { json(res, 200, { ok: true, appli, versions, derniere, taille_totale: versions.reduce((a, v) => a + v.taille, 0), taille_max: max, restaurer: ix.restaurer ?? null }); return true; }
-  if (sous === 'empreinte' && meth === 'GET') { json(res, 200, { ok: true, empreinte: derniere?.empreinte ?? null, version: derniere?.id ?? null, date: derniere?.date ?? null, restaurer: ix.restaurer ?? null }); return true; }
+  const depuis = url.searchParams.has('depuis') ? Number(url.searchParams.get('depuis')) : undefined;
+  if (depuis !== undefined && !Number.isFinite(depuis)) { erreur(res, 400, 'requete_invalide', '« depuis » : une date en millisecondes.'); return true; }
+  if (!sous && meth === 'GET') { json(res, 200, { ok: true, appli, versions: depuis === undefined ? versions : versions.filter((v) => v.date > depuis), derniere, taille_totale: versions.reduce((a, v) => a + v.taille, 0), taille_max: max, restaurer: ix.restaurer ?? null, serveur: Date.now() }); return true; }
+  if (sous === 'empreinte' && meth === 'GET') {
+    // ?appareil=<id> : la dernière version de CET appareil (plusieurs serveurs Vénus sur le même compte)
+    const a = s(url.searchParams.get('appareil')), d = a ? versions.find((v) => v.appareil_id === a) ?? null : derniere;
+    const autre = a && derniere && derniere.appareil_id !== a ? { version: derniere.id, appareil: derniere.appareil, appareil_id: derniere.appareil_id ?? null, date: derniere.date } : null;
+    json(res, 200, { ok: true, empreinte: d?.empreinte ?? null, version: d?.id ?? null, date: d?.date ?? null, etat: d?.etat ?? null, appareil_id: d?.appareil_id ?? null, autre, restaurer: ix.restaurer ?? null }); return true;
+  }
+  if (sous === 'flux' && meth === 'GET') { flux(req, res, ctx, appli, login, j.session.id, depuis === undefined ? undefined : versions.filter((v) => v.date > depuis).reverse()); return true; }
   if (sous === 'restauree' && meth === 'POST') {
     const parts: Buffer[] = []; for await (const ch of req) { parts.push(ch as Buffer); if (parts.length > 64) break; }
     let v = ''; try { v = s((JSON.parse(Buffer.concat(parts).toString('utf8') || '{}') as { version?: unknown }).version); } catch { /* vide */ }
     ix.journal.push({ t: Date.now(), texte: `restaurée par ${c.nom} (${j.session.appareil.nom}) : ${v || 'version non dite'}` }); if (!v || v === ix.restaurer) ix.restaurer = null; ecrireIndex(dir, ix);
     json(res, 200, { ok: true }); return true;
   }
-  if (!sous && meth === 'POST') { await recevoir(req, res, ctx, appli, login, dir, cle, max, ix, j.session.appareil.nom); return true; }
+  if (!sous && meth === 'POST') { await recevoir(req, res, ctx, appli, login, dir, cle, max, ix, j.session.appareil.nom, appId); return true; }
   if (sous && meth === 'GET') {
     const v = versions.find((x) => x.id === sous); if (!v) { erreur(res, 404, 'introuvable', 'Cette version n\'existe pas (ou plus).'); return true; }
     const ascii = v.nom.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
@@ -113,13 +144,30 @@ export async function routeSauvegardes(req: IncomingMessage, res: ServerResponse
   erreur(res, 405, 'requete_invalide', 'Méthode refusée.'); return true;
 }
 
-async function recevoir(req: IncomingMessage, res: ServerResponse, ctx: ModCtx, appli: string, login: string, dir: string, cle: Buffer, max: number, ix: Index, appareil: string): Promise<void> {
+/** Le flux d'une personne pour une appli (Server-Sent Events) : « event: version » à chaque version rangée, de n'importe quel appareil. */
+function flux(req: IncomingMessage, res: ServerResponse, ctx: ModCtx, appli: string, login: string, sid: string, avant?: Version[]): void {
+  res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store', connection: 'keep-alive', 'x-content-type-options': 'nosniff', 'x-accel-buffering': 'no' });
+  const envoie = (event: string, data: unknown) => { if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
+  envoie('bonjour', { appli, serveur: Date.now() });
+  for (const v of avant ?? []) envoie('version', v);
+  const onV = (e: { appli: string; login: string; version: Version }) => { if (e.appli === appli && e.login === login) envoie('version', e.version); };
+  const fin = (event?: string, texte?: string) => { if (event) envoie(event, { texte }); clearInterval(t); bus.off('version', onV); bus.off('arret', onArret); if (!res.writableEnded) res.end(); };
+  const onArret = () => fin();
+  bus.on('version', onV); bus.on('arret', onArret);
+  // Toutes les 25 s : un signe de vie, et la session encore ouverte (coupée dans Persona → le flux se ferme)
+  const t = setInterval(() => { if (!sessionValide(ctx, sid)) return fin('revoque', 'Cette connexion a été coupée dans Odin : reconnecte-toi.'); if (!res.writableEnded) res.write(`: ${Date.now()}\n\n`); }, 25_000);
+  req.on('close', () => fin());
+}
+
+async function recevoir(req: IncomingMessage, res: ServerResponse, ctx: ModCtx, appli: string, login: string, dir: string, cle: Buffer, max: number, ix: Index, appareil: string, appareilId = ''): Promise<void> {
   const want = s(req.headers['x-odin-empreinte']).toLowerCase(), sorte = s(req.headers['x-odin-sorte']) || 'complete', base = s(req.headers['x-odin-base']);
   if (!/^[a-f0-9]{64}$/.test(want)) return erreur(res, 400, 'requete_invalide', 'En-tête x-odin-empreinte : le SHA-256 du contenu (64 caractères hexadécimaux).');
   if (sorte !== 'complete' && sorte !== 'changements') return erreur(res, 400, 'requete_invalide', 'x-odin-sorte : complete ou changements.');
   if (sorte === 'changements' && !ix.versions.some((v) => v.id === base && v.sorte === 'complete')) return erreur(res, 400, 'requete_invalide', 'x-odin-base : la version complète sur laquelle s\'appliquent ces changements.');
   if (Number(req.headers['content-length'] ?? 0) > max) { req.resume(); return erreur(res, 413, 'trop_gros', `Sauvegarde trop grosse (au plus ${Math.round(max / 1048576)} Mo, réglable dans Persona → Applis).`, { limite: max }); }
-  const derniere = tri(ix.versions)[0];
+  // « inchangé » se juge dans la série de cet appareil (un autre serveur Vénus a pu envoyer entre-temps)
+  const derniere = tri(ix.versions).find((v) => !appareilId || v.appareil_id === appareilId);
+  const etat = s(req.headers['x-odin-etat']); if (etat && !/^[\w.:+\/=-]{1,200}$/.test(etat)) return erreur(res, 400, 'requete_invalide', 'En-tête x-odin-etat : 200 caractères au plus (lettres, chiffres, « . : + / = - _ »).');
   mkdirSync(dir, { recursive: true });
   const now = Date.now(), id = `v${new Date(now).toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')}-${randomBytes(2).toString('hex')}`, tmp = join(dir, `.${id}.tmp`);
   const iv = randomBytes(12), ci = createCipheriv('aes-256-gcm', cle, iv), h = createHash('sha256'), ws = createWriteStream(tmp, { mode: 0o600 });
@@ -138,12 +186,13 @@ async function recevoir(req: IncomingMessage, res: ServerResponse, ctx: ModCtx, 
   if (got !== want) { rmSync(tmp, { force: true }); return erreur(res, 400, 'empreinte_fausse', 'Le contenu reçu ne correspond pas à son empreinte : renvoie la sauvegarde.'); }
   if (derniere && derniere.empreinte === got && derniere.sorte === sorte) { rmSync(tmp, { force: true }); return json(res, 200, { ok: true, inchange: true, version: derniere }); }
   renameSync(tmp, join(dir, `${id}.osv`));
-  const v: Version = { id, date: now, taille: n, empreinte: got, sorte, raison: dec(req.headers['x-odin-raison']).slice(0, 120), nom: dec(req.headers['x-odin-nom']).replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 120) || `${appli}-sauvegarde.bin`, base: sorte === 'changements' ? base : null, appareil };
+  const v: Version = { id, date: now, taille: n, empreinte: got, sorte, raison: dec(req.headers['x-odin-raison']).slice(0, 120), nom: dec(req.headers['x-odin-nom']).replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 120) || `${appli}-sauvegarde.bin`, base: sorte === 'changements' ? base : null, appareil, appareil_id: appareilId, etat: etat || null };
   ix.versions.push(v); ix.journal.push({ t: now, texte: `${v.sorte === 'complete' ? 'sauvegarde complète' : 'changements'} reçue (${n} octets${v.raison ? `, ${v.raison}` : ''}) depuis ${appareil}` });
-  const keep = aGarder(ix.versions, now);
+  const keep = aGarderParAppareil(ix.versions, now);
   for (const x of ix.versions) if (!keep.has(x.id)) rmSync(join(dir, `${x.id}.osv`), { force: true });
   ix.versions = ix.versions.filter((x) => keep.has(x.id));
   ecrireIndex(dir, ix);
   ctx.emit('sauvegarde_appli', { appli, login, taille: n, sorte });
+  bus.emit('version', { appli, login, version: v });
   json(res, 201, { ok: true, inchange: false, version: v });
 }
