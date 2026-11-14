@@ -75,6 +75,8 @@ Réponse :
 - Les mots du dictionnaire de la personne et les fautes ignorées (même `avant` et même `regle`) ne sont jamais rendus.
 - Plume coupé pour ce client (`actif` faux, ou `odin` / `pegase` faux selon `ou`) : `{ ok: true, actif: false,
   fautes: [] }` **sans rien corriger**. Le client efface alors tout de suite ses soulignements.
+- `incomplet: true` (rare) : beaucoup de mots inconnus d'un coup, Odin n'a pas tout regardé pour rester rapide ; le client
+  redemande le même texte un peu après (la réponse suivante est complète).
 - Vitesse : moins de 150 ms pour un message avec le correcteur de base (en pratique quelques millisecondes ; le premier
   appel charge le dictionnaire, environ une demi-seconde). Le même texte redemandé sort du cache.
 

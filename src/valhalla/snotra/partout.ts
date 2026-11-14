@@ -29,7 +29,11 @@ const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === 
 
 // ---------------- Le contexte de Plume (branché quand l'appli démarre) ----------------
 let ctxP: ModCtx | undefined;
-export function brancherPlume(ctx: ModCtx | undefined): void { ctxP = ctx; memoire = undefined; }
+export function brancherPlume(ctx: ModCtx | undefined): void {
+  ctxP = ctx; memoire = undefined;
+  // Le dictionnaire est chargé tout de suite (une demi-seconde), pour que la première correction soit rapide.
+  if (ctx) setTimeout(() => { try { dicoFrancais(); } catch { /* il sera chargé à la première demande */ } }, 1500).unref?.();
+}
 /** Le contexte de Plume ; `v` (Valhalla) le retrouve si l'appli n'a pas encore fini de démarrer. */
 export function plumeCtx(v?: { module(id: string): unknown; ctx(id: string): ModCtx }): ModCtx | undefined {
   if (!ctxP && v?.module('snotra')) ctxP = v.ctx('snotra');
@@ -124,7 +128,7 @@ const cache = new Map<string, { at: number; r: { fautes: FautePlume[]; moteur: '
 const CACHE_MS = 120_000;
 
 /** Les fautes d'un texte, pour les soulignements. Rapide : quelques millisecondes avec le correcteur de base. */
-export async function corrigerVif(ctx: ModCtx | undefined, texte: string, o: OptionsVif): Promise<{ fautes: FautePlume[]; moteur: 'maison' | 'LanguageTool'; ms: number }> {
+export async function corrigerVif(ctx: ModCtx | undefined, texte: string, o: OptionsVif): Promise<{ fautes: FautePlume[]; moteur: 'maison' | 'LanguageTool'; ms: number; incomplet?: boolean }> {
   const t0 = performance.now(), lt = ctx ? s(ctx.settings.languagetool) : '';
   const cle = createHash('sha1').update(JSON.stringify([texte, o.grammaire, o.champ, o.langue, o.dico.length, o.ignores.length, lt])).digest('hex');
   const vu = cache.get(cle);
@@ -133,10 +137,12 @@ export async function corrigerVif(ctx: ModCtx | undefined, texte: string, o: Opt
   if (lt && ctx) {
     try { fautes = depuisLanguageTool(texte, await corrigerLanguageTool((u, i) => ctx.fetch(u, { ...i, signal: AbortSignal.timeout(3000) }), lt, texte, o.langue), o.champ); moteur = 'LanguageTool'; } catch { fautes = undefined; }
   }
-  if (!fautes) fautes = o.langue.startsWith('fr') ? fautesFrancais(texte, o.champ) : [];
+  let partiel = false;
+  if (!fautes) { fautes = o.langue.startsWith('fr') ? fautesFrancais(texte, o.champ) : []; partiel = incomplet; }
   const dico = new Set(o.dico.map((m) => m.toLowerCase()));
   fautes = fautes.filter((f) => (o.grammaire || f.genre !== 'grammaire') && !dico.has(f.avant.toLowerCase()) && !o.ignores.some((i) => i.avant === f.avant && (!i.regle || i.regle === f.regle)));
   const r = { fautes, moteur };
+  if (partiel) return { ...r, ms: Math.round(performance.now() - t0), incomplet: true }; // la suite au prochain appel (pas gardé)
   if (cache.size > 300) for (const [k, v] of cache) if (Date.now() - v.at > CACHE_MS || cache.size > 250) cache.delete(k);
   cache.set(cle, { at: Date.now(), r });
   return { ...r, ms: Math.round(performance.now() - t0) };
@@ -145,7 +151,9 @@ export async function corrigerVif(ctx: ModCtx | undefined, texte: string, o: Opt
 export const viderCache = () => cache.clear();
 
 /** Le correcteur français en direct : sûr plutôt que bavard. Pur (en dehors du dictionnaire chargé une fois). */
+let incomplet = false;
 export function fautesFrancais(texte: string, champ: Champ = 'texte'): FautePlume[] {
+  incomplet = false;
   const out: Array<FautePlume & { rang: number }> = [];
   const f = (debut: number, fin: number, genre: GenreFaute, props: string[], raison: string, regle: string, rang: number) => { const avant = texte.slice(debut, fin); out.push({ id: id(debut, avant, regle), debut, fin, genre, avant, propositions: props.filter((p) => p !== avant).slice(0, 3), raison, regle, rang }); };
   const garde = (avant: string, p: string) => (avant[0] && avant[0] !== avant[0].toLowerCase() ? p[0].toUpperCase() + p.slice(1) : p);
@@ -170,7 +178,7 @@ export function fautesFrancais(texte: string, champ: Champ = 'texte'): FautePlum
     f(x.debut, x.debut + n, genre, sug, raisonMaison(x), x.regle, x.regle === 'USAGE' ? 1 : 3);
   }
   // 3) L'orthographe, mot à mot (dictionnaire français).
-  const t0 = performance.now(), d = dicoFrancais(), proteges: Array<[number, number]> = [];
+  const d = dicoFrancais(), t0 = performance.now(), proteges: Array<[number, number]> = [];
   for (const re = new RegExp(PROTEGE.source, 'gu'); (m = re.exec(texte));) proteges.push([m.index, m.index + m[0].length]);
   for (const re = new RegExp(MOT.source, 'gu'); (m = re.exec(texte));) {
     const brut = m[0].replace(/['’-]+$/, ''), debut = m.index, fin = debut + brut.length;
@@ -179,7 +187,7 @@ export function fautesFrancais(texte: string, champ: Champ = 'texte'): FautePlum
     let p = memo.get(brut);
     if (!p) {
       if (motJuste(d, brut)) continue;
-      if (performance.now() - t0 > 110) continue; // trop de mots inconnus d'un coup : la suite au prochain appel (rester sous 150 ms)
+      if (performance.now() - t0 > 110) { incomplet = true; continue; } // trop de mots inconnus d'un coup : la suite au prochain appel (rester sous 150 ms)
       p = propositions(d, brut, 3); if (memo.size > 5000) memo.clear(); memo.set(brut, p);
     }
     if (!p.length) continue;

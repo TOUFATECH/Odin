@@ -79,7 +79,7 @@ export async function plumeRoute(req: IncomingMessage, res: ServerResponse, url:
     if (b.texte.length > MAX_TEXTE_VIF) { refus(res, 413, 'trop_long', `Texte trop long pour Plume en direct (${MAX_TEXTE_VIF} caractères au plus).`); return true; }
     const champ: Champ = s(b.champ) === 'recherche' ? 'recherche' : s(b.champ) === 'ligne' ? 'ligne' : 'texte';
     const c = await corrigerVif(ctx, b.texte, { grammaire: r.grammaire, champ, langue: s(b.langue) || r.langue, dico: r.dico, ignores: r.ignores });
-    json(res, 200, { ok: true, actif: true, maj: r.maj, moteur: c.moteur, ms: c.ms, fautes: c.fautes }); return true;
+    json(res, 200, { ok: true, actif: true, maj: r.maj, moteur: c.moteur, ms: c.ms, fautes: c.fautes, ...(c.incomplet ? { incomplet: true } : {}) }); return true;
   }
   if (route === 'dictionnaire') {
     if (meth === 'POST') {

@@ -33,7 +33,7 @@
   const NS = 'http://www.w3.org/2000/svg';
   const el = (tag, cls, txt) => { const x = document.createElement(tag); if (cls) x.className = cls; if (txt !== undefined) x.textContent = txt; return x; };
   const bouton = (cls, txt, f, titre) => { const b = el('button', `plm-b ${cls || ''}`.trim(), txt); b.type = 'button'; if (titre) b.title = titre; b.addEventListener('mousedown', (e) => e.preventDefault()); b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); f(e); }); return b; };
-  const svgDe = (src) => { const t = document.createElementNS(NS, 'svg'); const d = new DOMParser().parseFromString(src, 'image/svg+xml').documentElement; for (const a of d.attributes) t.setAttribute(a.name, a.value); while (d.firstChild) t.appendChild(document.importNode(d.firstChild, true)); return t; };
+  const svgDe = (src) => { const t = document.createElementNS(NS, 'svg'); const d = new DOMParser().parseFromString(src, 'image/svg+xml').documentElement; for (const a of d.attributes) t.setAttribute(a.name, a.value); for (const c of [...d.childNodes]) t.appendChild(document.importNode(c, true)); return t; };
   // L'icône de Plume (celle de app-icons.js ; recopiée ici pour Pégase et les pages sans app-icons.js).
   const ICONE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="plmbg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d14bff"/><stop offset="1" stop-color="#a316e0"/></linearGradient><radialGradient id="plmha" cx="50%" cy="46%" r="62%"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><linearGradient id="plmgl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><clipPath id="plmcl"><rect width="64" height="64" rx="15"/></clipPath></defs><g clip-path="url(#plmcl)"><rect width="64" height="64" fill="url(#plmbg)"/><rect width="64" height="64" fill="url(#plmha)"/><path d="M0 0H64V24Q32 32 0 24Z" fill="url(#plmgl)"/><g><path d="M12 8 H34 L46 20 V54 Q46 56 44 56 H14 Q12 56 12 54Z" fill="#fff"/><path d="M34 8 V20 H46" fill="#c7d2fe"/><rect x="18" y="27" width="21" height="3.6" rx="1.8" fill="#93c5fd"/><rect x="18" y="34" width="17" height="3.6" rx="1.8" fill="#93c5fd"/><rect x="18" y="41" width="11" height="3.6" rx="1.8" fill="#93c5fd"/><g transform="rotate(40 47 40)"><rect x="42" y="16" width="10" height="6" rx="2" fill="#ff6b8b"/><rect x="42" y="21.5" width="10" height="4" fill="#e2e8f0"/><rect x="42" y="25" width="10" height="20" fill="#ffb020"/><rect x="45.5" y="25" width="3" height="20" fill="#f59000"/><path d="M42 45 H52 L47 54Z" fill="#fde7c4"/><path d="M45.3 51 H48.7 L47 54Z" fill="#1f2937"/></g></g><rect x=".75" y=".75" width="62.5" height="62.5" rx="14" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.5"/></g></svg>';
   function icone(n) {
@@ -49,7 +49,9 @@
   const pluriel = (n, un, plus) => `${n} ${n > 1 ? plus : un}`;
 
   // ---------------- La racine (Odin : dans la page ; Pégase : Shadow DOM fermé) ----------------
-  let racine, docStyle;
+  let racine, hote, docStyle;
+  /** Un élément de Plume lui-même (dans Pégase, la page ne voit que l'hôte de l'ombre fermée). */
+  const aMoi = (x) => Boolean(x && ((racine && racine.contains(x)) || (hote && x === hote)));
   function monter() {
     if (racine && racine.isConnected) return;
     // La racine a été retirée (par la page) : on repart de zéro (les anciens calques ne sont plus dans le document).
@@ -57,7 +59,7 @@
     const feuille = (() => { try { const f = new CSSStyleSheet(); f.replaceSync(CSS); return f; } catch { return null; } })();
     racine = el('div', 'plm-racine'); racine.setAttribute('data-plume', 'non');
     if (T.ombre) {
-      const hote = document.createElement('plume-pegase'); hote.style.cssText = 'all:initial;position:fixed;left:0;top:0;width:0;height:0;z-index:2147483647;pointer-events:none;display:block';
+      hote = document.createElement('plume-pegase'); hote.style.cssText = 'all:initial;position:fixed;left:0;top:0;width:0;height:0;z-index:2147483647;pointer-events:none;display:block';
       const ombre = hote.attachShadow({ mode: 'closed' });
       if (feuille) ombre.adoptedStyleSheets = [feuille]; else { const st = document.createElement('style'); st.textContent = CSS; ombre.appendChild(st); }
       ombre.appendChild(racine); document.documentElement.appendChild(hote);
@@ -91,7 +93,7 @@
   const TYPES = /^(text|search|)$/;
   const SENSIBLE = /(pass|mdp|mot.?de.?passe|passwd|pwd|\bpin\b|otp|totp|2fa|cvc|cvv|\bcb\b|carte|card|iban|\bbic\b|token|jeton|secret|\bcl[eé]s?\b|api.?key|apikey|\bcode\b|verif)/i;
   function eligible(x) {
-    if (!x || x.nodeType !== 1 || (racine && racine.contains(x))) return null;
+    if (!x || x.nodeType !== 1 || aMoi(x)) return null;
     let cible = null, champ = 'texte';
     if (x instanceof HTMLTextAreaElement) cible = x;
     else if (x instanceof HTMLInputElement) { if (!TYPES.test((x.getAttribute('type') || '').toLowerCase())) return null; cible = x; champ = x.type === 'search' || x.getAttribute('role') === 'searchbox' || /search|cherch|recherch/i.test(`${x.name} ${x.id} ${x.placeholder}`) ? 'recherche' : 'ligne'; }
@@ -159,14 +161,14 @@
     let r = cacheClient.get(cle);
     if (!r) {
       try { r = await T.appel('corriger', { texte, ou: T.ou, champ: s.champ }); } catch { return; }
-      if (r && r.actif !== false) { cacheClient.set(cle, r); if (cacheClient.size > 80) cacheClient.delete(cacheClient.keys().next().value); }
+      if (r && r.actif !== false && !r.incomplet) { cacheClient.set(cle, r); if (cacheClient.size > 80) cacheClient.delete(cacheClient.keys().next().value); }
     }
     if (v !== s.version) return;
     if (!r || r.actif === false) { rafraichir(); return; }
     if (etat && r.maj !== etat.maj) rafraichir();
     const maintenant = lire(s.el, s.ce);
-    s.fautes = decaler(r.fautes || [], texte, maintenant); s.verifie = texte; s.texte = maintenant;
-    dessiner(s);
+    s.fautes = decaler(r.fautes || [], texte, maintenant); s.verifie = r.incomplet ? null : texte; s.texte = maintenant;
+    dessiner(s); if (r.incomplet) planifier(s, 200); // Odin n'a pas tout regardé d'un coup : la suite
   }
 
   // ---------------- Dessiner : miroir (champs) ou surbrillance (contenteditable), et le compteur ----------------
@@ -182,7 +184,7 @@
     // Recouvert (une fenêtre par-dessus) ? On regarde ce qui est au milieu de la partie visible.
     const cx = (Math.max(c.l, r.left) + Math.min(c.r, r.right)) / 2, cy = (Math.max(c.t, r.top) + Math.min(c.b, r.bottom)) / 2;
     const h = document.elementFromPoint(cx, cy);
-    if (h && h !== x && !x.contains(h) && !(h.tagName === 'PLUME-PEGASE') && !(racine && racine.contains(h))) return null;
+    if (h && h !== x && !x.contains(h) && !aMoi(h)) return null;
     return { r, c };
   }
   function dessiner(s) {
@@ -308,7 +310,14 @@
     pied.appendChild(bouton('plm-lien', tel() ? `Tout · ${s.fautes.length}` : `Tout voir · ${s.fautes.length}`, () => ouvrirTout(s)));
     pied.appendChild(el('span', 'plm-vide'));
     const off = bouton('plm-off', 'Désactiver', desactiver, 'Désactiver Plume partout (réactiver dans Réglages)'); if (!tel()) off.prepend(svgTrait(POWER, 15, '#6B6280')); pied.appendChild(off);
-    b.appendChild(pied); placerFenetre();
+    b.appendChild(pied); placerFenetre(); serrer(pied);
+  }
+  /** Une police plus large (site sans IBM Plex) : on retire l'icône de « Désactiver », puis on passe à la ligne s'il le faut. */
+  function serrer(pied) {
+    if (tel() || pied.scrollWidth <= pied.clientWidth + 1) return;
+    const ic = pied.querySelector('.plm-off svg'); if (ic) ic.remove();
+    if (pied.scrollWidth > pied.clientWidth + 1) pied.style.flexWrap = 'wrap';
+    placerFenetre();
   }
   function ouvrirModif(s, f, retour) {
     const b = boite('plm-pop', `Modifier « ${f.avant} »`, 'modif', s, f), m = el('div', 'plm-modif');
@@ -417,7 +426,7 @@
   // Clic (ou doigt) sur un mot souligné : la petite fenêtre.
   document.addEventListener('click', (e) => {
     if (!e.isTrusted || !actifIci()) return;
-    const cible = e.target; if (racine && racine.contains(cible)) return;
+    const cible = e.target; if (aMoi(cible)) return;
     const s = cible && cible.nodeType === 1 ? suivis.get(cible) || [...suivis.values()].find((x) => x.ce && x.el.contains(cible)) : null;
     if (!s || !s.fautes.length) { if (ouvert && ouvert.mode !== 'note' && !(ouvert.boite && ouvert.boite.contains(cible))) fermer(); return; }
     let pos;

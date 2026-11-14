@@ -39,10 +39,11 @@
 .plm-change .plm-vers { font-size: 20px; font-weight: 700; color: #14532D; overflow-wrap: anywhere; }
 .plm-change svg { flex: none; align-self: center; }
 .plm-raison { margin: 0; padding: 0 14px 12px; font-size: 13px; color: #5B5470; overflow-wrap: anywhere; }
-.plm-pied { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-top: 1px solid #F0E8F7; flex-wrap: wrap; }
+.plm-pied { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-top: 1px solid #F0E8F7; flex-wrap: nowrap; }
+.plm-pied .plm-vide { flex: 1 1 0; min-width: 0; }
 .plm-b { min-height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid #CFC6DA; background: #FFFFFF; color: #1B1530; font-size: 14px; font-weight: 400; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .plm-b:hover { background: #FAF7FD; }
-.plm-b.plm-p { border: 0; background: #8E14C4; color: #FFFFFF; font-weight: 600; padding: 0 14px; }
+.plm-b.plm-p { border: 0; background: #8E14C4; color: #FFFFFF; font-weight: 600; padding: 0 13px; }
 .plm-b.plm-p:hover { background: #7A0FAA; }
 .plm-b.plm-lien { border: 0; background: transparent; color: #8E14C4; font-weight: 500; padding: 0 10px; }
 .plm-b.plm-lien:hover { background: #F6ECFD; }
