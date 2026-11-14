@@ -1,5 +1,27 @@
 [
  {
+  "id": "v1250",
+  "at": "2026-11-14T08:20:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.25.0",
+  "title": "Pégase arrive dans Odin : ton navigateur synchronisé à la seconde",
+  "details": [
+   "Nouvelle appli Pégase dans Odin : tes appareils (avec un bouton Révoquer), l'état de leur synchro, l'historique cherchable par jour, les copies et les réglages.",
+   "Un profil Pégase est ta personne d'Odin : même mot de passe, même double authentification. Créer un compte depuis Pégase demande ton accord (code à 6 chiffres affiché des deux côtés).",
+   "Favoris, onglets, agenda et historique passent d'un appareil à l'autre en quelques millisecondes ; si deux changements se croisent, le plus récent gagne ; une vérification à l'identique rattrape ce qui a manqué hors ligne.",
+   "Copie chaque jour, avant chaque restauration et avant chaque mise à jour d'Odin ; restauration d'un geste, envoyée à tous les appareils.",
+   "L'IA d'Odin peut chercher dans ta navigation seulement si tu le permets (tout, sans l'historique, ou rien) ; le contenu d'une page reste une donnée, jamais un ordre.",
+   "Téléchargements analysés par Asclépios, liens vérifiés par Sphinx, alertes dans Forseti (fichier bloqué, nouvel appareil). Agenda partagé en .ics pour Windows ou le téléphone.",
+   "Pégase a son icône (les deux ailes, palette Galaxie)."
+  ],
+  "planets": [
+   "applis",
+   "securite",
+   "interface"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1241",
   "at": "2026-11-14T06:45:00+03:00",
   "date": "2026-11-14",

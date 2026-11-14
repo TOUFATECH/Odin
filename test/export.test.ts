@@ -312,7 +312,7 @@ test('les applis sensibles ne sortent pas d\'Odin, avec la raison ; le dossier d
   const { allModules } = await import('../src/valhalla/odin.ts'), { DEFAULT_CONFIG } = await import('../src/config.ts');
   const mods = allModules({ paths: { home: '/x', workspace: '/x/w' }, cfg: DEFAULT_CONFIG } as never);
   const refus = Object.fromEntries(mods.map((m) => [m.id, refusDe(m)]).filter(([, r]) => r)) as Record<string, string>;
-  assert.deepEqual(Object.keys(refus).sort(), ['brisingamen', 'gladsheim', 'gna', 'hlin', 'skidbladnir', 'var']);
+  assert.deepEqual(Object.keys(refus).sort(), ['brisingamen', 'gladsheim', 'gna', 'hlin', 'pegase', 'skidbladnir', 'var']);
   assert.equal(refus.brisingamen, 'Thésauros est ton coffre de mots de passe : sa page ne s\'exporte pas et ne se partage pas.');
   assert.match(refus.var, /^Persona garde les comptes des personnes/); assert.match(refus.skidbladnir, /^Nébuleuse garde tes liens de partage/); assert.match(refus.gladsheim, /^Hestia garde les positions de la famille/);
   // Toute appli dont les réglages sont un fichier secret pour Heimdall est refusée, même hors de la liste.
