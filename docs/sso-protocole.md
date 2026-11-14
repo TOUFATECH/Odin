@@ -57,8 +57,12 @@ l'appli ou l'adresse de retour est inconnue : Odin montre alors une page d'erreu
 - Le **propriétaire d'Odin** est une personne de Persona du groupe `admin` (créée toute seule à sa première connexion SSO,
   `preferred_username` = `proprietaire`, son e-mail et son nom sont ceux du compte d'Odin). Son mot de passe reste celui du
   compte d'Odin (pas de second mot de passe). Il a toujours accès à toutes les applis (on ne peut pas s'enfermer dehors).
-- **Droits par appli** (page Persona → onglet « Applis ») : une table appli → groupes. Valeurs de départ :
-  `odin: admin` · `pegase: famille, admin, invite` · `venus: famille, admin`. `*` = toute personne connectée.
+- **Droits par appli** (page Persona → onglet « Accès », cases à cocher par groupe et par personne ; ou par commande
+  « donne l'accès à Vénus au groupe famille ») : une table appli → groupes, pour **toutes** les applis : les applis
+  clientes (Pégase, Vénus…) **et** les applis d'Odin (Cerbère, Hermès…). Valeurs de départ :
+  `odin: famille, admin` (entrer dans l'interface d'Odin) · `pegase: famille, admin, invite` · `venus: famille, admin` ·
+  toute autre appli d'Odin : `admin` seulement. `*` = toute personne connectée ; `@identifiant` = une personne précise.
+  L'appli Vénus d'Odin (`freyja`) suit le droit de `venus`. Le groupe `admin` a toujours tout (§ 12).
 - Refus : `403 refuse` avec le message à afficher tel quel, de la forme
   « Tu n'as pas accès à Vénus. Demande à Awa de t'ajouter au groupe famille. » (Awa = prénom du propriétaire ; le groupe
   proposé est le premier groupe autorisé qui n'est pas `admin`).
@@ -68,6 +72,7 @@ l'appli ou l'adresse de retour est inconnue : Odin montre alors une page d'erreu
 |----------|--------|--------------------------------------------------------------------------------------------------------|
 | `pegase` | Pégase | `http://127.0.0.1/sso/retour`, `http://[::1]/sso/retour`, `pegase://sso/retour`                        |
 | `venus`  | Vénus  | `http://127.0.0.1/sso/retour`, `http://[::1]/sso/retour`, et `<adresse de Vénus>/auth/odin/retour` si Vénus est relié à Odin (appli Vénus d'Odin) |
+| `odin`   | Odin   | son interface elle-même (§ 12), adresse de retour `<issuer>/sso/odin/retour` seulement |
 
   - Comparaison **exacte** de l'adresse de retour, sauf pour `http://127.0.0.1`, `http://[::1]` et `http://localhost` déclarés
     **sans port** : n'importe quel port est accepté (RFC 8252 § 7.3, programmes qui écoutent sur un port libre).
@@ -465,3 +470,32 @@ fun es256Ok(jwt: String, jwk: JSONObject): Boolean {
 
 Renouvellement : même `POST /sso/jeton` avec `grant_type=refresh_token`, `refresh_token`, `client_id=pegase`,
 `appareil=<appareilId>` ; **remplace** le jeton de renouvellement gardé par le nouveau à chaque fois.
+
+## 12. Plusieurs personnes dans Odin (droits appliqués partout)
+
+- **Entrer dans l'interface d'Odin** : l'écran de connexion garde le compte du propriétaire (e-mail + mot de passe) et
+  ajoute « J'ai un compte Persona » → `GET /sso/odin` → portail Persona (code + PKCE, Odin est sa propre appli cliente
+  `odin`) → `GET /sso/odin/retour` → cookie de session habituel (`odin_session`). Le propriétaire qui passe par là
+  retrouve **sa** session ; une autre personne ouvre une session « membre » (visible et coupable dans Persona).
+- **Le compte du propriétaire est la personne `admin` de Persona** (`preferred_username: proprietaire`, créée toute seule) :
+  aucune copie de son mot de passe (il reste dans `compte.json`, jamais modifié). Retour arrière : Persona → « Délier le
+  compte du propriétaire » (la fiche disparaît, le compte d'Odin reste) ; « Relier » la recrée.
+- **Un seul endroit décide** : `Valhalla.act` refuse toute action d'une appli sans droit pour la personne qui agit
+  (bouton, API `/api/valhalla/act`, phrase comprise par Logos `/api/valhalla/order`). Autour :
+  - la liste des applis (`/api/valhalla/catalog`) ne montre que les applis permises ; `/api/valhalla/view?id=<appli>` sans
+    droit → `403 { ok: false, code: "refuse", error: "<message>" }` (message de § 1) ; alertes et bulles filtrées ;
+  - port direct d'une appli (`http://<odin>:<port de l'appli>`) sans droit → `403 refuse` ;
+  - `/maison` (Hestia) et `/recherche` (Pythie) demandent le droit sur leur appli ; les liens de partage privés ne
+    s'ouvrent plus « en propriétaire » pour un membre ;
+  - un membre n'a **pas** la conversation avec l'IA d'Odin (`/api/message`, `/api/ask` → `403 reserve`) : l'IA a des
+    outils au-delà des applis (fichiers, machines) ; il fait agir ses applis par leurs boutons ou par une phrase (Logos) ;
+  - tout le reste de l'API (réglages, conversations, machines, sauvegarde d'Odin…) → `403 reserve` ; `/api/state` lui
+    rend un état vide (même forme) avec `membre: { login, name, groups }`.
+- **Logiciels du proxy Valgrind** (SearXNG, LanguageTool, Penpot…) : le portail Persona protège un site du proxy dès qu'il
+  est « réservé » ; Persona → Applis montre les sites encore sans connexion unique et « Protéger tous les sites ».
+  Un logiciel qui sait faire OpenID s'inscrit comme appli cliente **confidentielle** (« Connexion Odin pour un logiciel ») :
+  son secret va dans le coffre Thésauros (jamais affiché), `/sso/jeton` accepte `client_secret_basic` et
+  `client_secret_post`, PKCE reste obligatoire s'il l'envoie. Penpot (documentation officielle, backend) :
+  `PENPOT_FLAGS=… enable-login-with-oidc`, `PENPOT_OIDC_CLIENT_ID`, `PENPOT_OIDC_CLIENT_SECRET`, `PENPOT_OIDC_BASE_URI`
+  (= l'`issuer` d'Odin), `PENPOT_OIDC_SCOPES=openid profile email groups`, adresse de retour
+  `https://<penpot>/api/auth/oidc/callback` ; `PENPOT_SSRF_ALLOWED_HOSTS` si Odin est sur une adresse privée.
