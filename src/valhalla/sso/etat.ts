@@ -44,6 +44,7 @@ export function preinscrites(venusUrl = ''): Client[] {
   return [
     { id: 'pegase', nom: 'Pégase', retours: [...LOOPBACK, 'pegase://sso/retour'], module: 'pegase', prereg: true },
     { id: 'venus', nom: 'Vénus', retours: [...LOOPBACK, ...(/^https?:\/\//.test(v) ? [`${v}/auth/odin/retour`] : [])], module: 'freyja', prereg: true },
+    { id: 'agora', nom: 'Agora', retours: [...LOOPBACK, 'agora://sso/retour'], module: 'agora', prereg: true },
     { id: 'odin', nom: 'Odin', retours: [], prereg: true },
   ];
 }
@@ -74,7 +75,7 @@ export function retourPermis(c: Client, uri: string): boolean {
 
 // ---------------- Droits
 /** `odin` : entrer dans l'interface d'Odin (on n'y voit que les applis auxquelles on a droit). */
-const DROITS0: Record<string, string[]> = { odin: ['famille', 'admin'], pegase: ['famille', 'admin', 'invite'], venus: ['famille', 'admin'] };
+const DROITS0: Record<string, string[]> = { odin: ['famille', 'admin'], pegase: ['famille', 'admin', 'invite'], venus: ['famille', 'admin'], /* le store : chacun y voit ce à quoi il a droit */ agora: ['*'] };
 /** Une appli d'Odin qui est aussi une appli cliente (même droit) : Vénus (freyja) ↔ venus. */
 export const ALIAS: Record<string, string> = { freyja: 'venus' };
 export const cleDroit = (id: string) => ALIAS[id] ?? id;

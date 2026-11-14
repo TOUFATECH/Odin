@@ -100,7 +100,7 @@ test('connexion unique d\'Odin, pour de vrai', { timeout: 240_000 }, async (t) =
       const forge = `${h}.${Buffer.from(JSON.stringify({ ...ch, groups: ['admin'] })).toString('base64url')}.${s}`;
       assert.throws(() => verifierJwt(forge, jwks, {}), /signature fausse/, 'un jeton modifié est refusé');
       const infos = (await v.json('/sso/infos', undefined, { authorization: `Bearer ${sso.etat.access}` })).body as Record<string, unknown>;
-      assert.equal(infos.preferred_username, 'moussa'); assert.deepEqual(infos.applis, ['pegase', 'venus'], 'famille : Pégase et Vénus');
+      assert.equal(infos.preferred_username, 'moussa'); assert.deepEqual(infos.applis, ['pegase', 'venus', 'agora'], 'famille : Pégase, Vénus et le store (Agora, ouvert à tous)');
       assert.equal((await v.json('/sso/infos', undefined, { authorization: `Bearer ${forge}` })).status, 401);
       // La session Persona de ce navigateur sert à l'appli suivante : plus d'écran.
     });

@@ -223,7 +223,7 @@ export const pegase: Module = {
       run: (ctx, i) => { const g = [...new Set(s(i.groupes).toLowerCase().split(/[\s,;]+/).filter((x) => /^[\w-]{1,30}$/.test(x)))]; if (!g.length) return { ok: false, text: 'Donne au moins un groupe (ex. admin, famille).' }; ctx.saveSettings({ ia: g }); return { text: `🤖 Peuvent questionner Odin depuis Pégase : ${g.join(', ')}.` }; } },
     { id: 'installateurs', label: 'Chercher les installateurs', what: 'Les dernières versions de Pégase publiées (Windows, Android…)', read: true, quick: false,
       run: async (ctx) => {
-        try { const l = await chercherInstallateurs(ctx); ctx.saveSettings({ installateurs: l, installateursVus: ctx.now().getTime() }); return { text: l.length ? l.map((x) => `- ${x.systeme} : ${x.nom} (${x.version}) — ${x.url}`).join('\n') : 'Pégase n\'est pas encore publié : le lien apparaîtra ici dès la première version.' }; }
+        try { const l = await chercherInstallateurs(ctx); ctx.saveSettings({ installateurs: l, installateursVus: ctx.now().getTime() }); return { data: l, text: l.length ? l.map((x) => `- ${x.systeme} : ${x.nom} (${x.version}) — ${x.url}`).join('\n') : 'Pégase n\'est pas encore publié : le lien apparaîtra ici dès la première version.' }; }
         catch (e) { return { ok: false, text: `Je n'ai pas pu joindre GitHub (${(e as Error).message}) : réessaie plus tard.` }; }
       } },
   ],

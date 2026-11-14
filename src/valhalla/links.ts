@@ -126,6 +126,10 @@ export const LINKS: Link[] = [
   { from: 'pegase', to: 'vidarr', when: 'Pégase vérifie un lien avant de l\'ouvrir', does: 'Sphinx dit si ses listes bloquent ce site, en plus de l\'avis d\'Asclépios', auto: true, kind: 'réflexe' },
   { from: 'pegase', to: 'saga', when: 'un jour se termine (profils qui laissent Odin voir leur historique)', does: 'le résumé de la navigation de la veille (pages, sites, recherches) est noté dans Thot et dans le journal des applis : Odin s\'en souvient', auto: true, kind: 'donnée' },
   { from: 'pegase', to: 'forseti', when: 'un téléchargement est bloqué, ou un nouvel appareil se connecte à un profil', does: 'alerte dans le fil commun, avec le bouton « Révoquer cet appareil »', auto: true, kind: 'donnée' },
+  { from: 'var', to: 'agora', when: 'tu mets une personne dans un groupe de Persona, ou tu l\'en retires', does: 'le store de ses ordinateurs et téléphones suit en moins d\'une seconde : ce qui est installé d\'office s\'installe, ce qui ne lui est plus permis se désinstalle', auto: true, kind: 'donnée' },
+  { from: 'agora', to: 'ullr', when: 'un installateur entre dans le store', does: 'Asclépios l\'analyse d\'abord ; un installateur bloqué n\'entre pas dans le store', auto: true, kind: 'réflexe' },
+  { from: 'agora', to: 'pegase', when: 'une nouvelle version de Pégase est publiée (vérifié chaque jour)', does: 'ses installateurs (Windows, Mac, Linux, Android) entrent dans le store, empreinte calculée : les appareils qui l\'ont d\'office se mettent à jour', auto: true, kind: 'donnée' },
+  { from: 'agora', to: 'forseti', when: 'une installation imposée échoue, un appareil inconnu se présente ou un nouvel appareil s\'inscrit', does: 'alerte dans le fil commun, avec « Réessayer » ou « Retirer cet appareil »', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
