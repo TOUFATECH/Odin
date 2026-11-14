@@ -359,3 +359,10 @@ object Ics {
         return "ics-" + Empreintes.sha256Hex(uid ?: secours).take(32)
     }
 }
+
+/** Une durée en minutes, comme on la dit : « 45 min », « 1 h », « 1 h 30 ». */
+fun dureeLisible(minutes: Long): String = when {
+    minutes < 60 -> "$minutes min"
+    minutes % 60 == 0L -> "${minutes / 60} h"
+    else -> "${minutes / 60} h ${"%02d".format(minutes % 60)}"
+}

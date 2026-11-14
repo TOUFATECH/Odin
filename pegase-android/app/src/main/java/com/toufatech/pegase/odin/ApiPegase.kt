@@ -60,7 +60,9 @@ class ApiPegase(val client: ClientOdin, val auth: Authentification) {
             val j2 = auth.jeton() ?: throw r.erreur()
             return faire(entetes(j2))
         }
-        if (r.statut == 403 && (r.code == "pas_de_droit" || r.code == "refuse")) auth.perdre(r.message)
+        // « pas_de_droit » : le droit sur Pégase a été retiré dans Persona (la session s'arrête, message tel quel).
+        // « refuse » : seulement cette action (ex. « demander » pour un membre) ; on montre le message, sans plus.
+        if (r.statut == 403 && r.code == "pas_de_droit") auth.perdre(r.message)
         return r
     }
 

@@ -124,4 +124,12 @@ class IcsTest {
         assertEquals(setOf("titre", "debut", "fin", "lieu", "agenda", "rappel", "couleur", "notes"), d.keys)
         assertNull(RendezVous.deData("x", mapOf("titre" to "sans début")))
     }
+
+    @Test
+    fun dureesLisibles() {
+        assertEquals("45 min", dureeLisible(45))
+        assertEquals("1 h", dureeLisible(60))
+        assertEquals("1 h 30", dureeLisible(90))
+        assertEquals("2 h 05", dureeLisible(125))
+    }
 }

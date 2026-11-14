@@ -1,0 +1,78 @@
+# Pégase pour Android : essais (JVM et Node), puis APK debug et release (non signée).
+# Les APK sont dans les « artifacts » de l'exécution (onglet Actions de GitHub).
+name: Pégase Android
+
+on:
+  push:
+    paths:
+      - 'pegase-android/**'
+      - '.github/workflows/pegase-android.yml'
+  pull_request:
+    paths:
+      - 'pegase-android/**'
+      - '.github/workflows/pegase-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pegase-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: pegase-android
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: SDK Android (plateforme 37, outils 36)
+        uses: android-actions/setup-android@v3
+      - run: sdkmanager --install "platforms;android-37" "build-tools;36.0.0" > /dev/null
+
+      - name: Gradle (cache, vérification du wrapper)
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Node 22 (essais du bloqueur intégré)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Essais du bloqueur (le vrai fichier de l'extension)
+        run: node --test essais-node/*.test.mjs
+
+      - name: Essais JVM (synchro, empreintes, conflits, .ics, thèmes, connexion, certificat épinglé)
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+
+      - name: Versions retenues (GeckoView « 160.+ » donne le numéro exact)
+        run: ./gradlew --no-daemon -q app:dependencies --configuration releaseRuntimeClasspath | grep -E "geckoview|compose-bom|kotlin-stdlib:" | sort -u | head -20
+
+      - name: APK debug et release (non signée)
+        run: ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
+
+      - name: Rapports des essais
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pegase-android-essais
+          path: pegase-android/app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pegase-android-apk
+          path: |
+            pegase-android/app/build/outputs/apk/debug/*.apk
+            pegase-android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
