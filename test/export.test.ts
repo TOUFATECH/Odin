@@ -243,6 +243,11 @@ test('la page propre : données gardées, boutons, formulaires, icônes et coule
   assert.deepEqual(pageDepuisVue(APPLI, VUE, { quand: QUAND, onglet: 'Suivre' }), { erreur: 'La page de Essai n\'a pas d\'onglets : prends-la en entier.' });
   assert.match(enMarkdown(page(og)), /\n## Suivre\n\n### A\n\na\n\n## Réglages\n\n### B\n\nb\n\n### C\n\nc\n/);
   assert.equal(nomDuFichier(un, 'pdf'), 'Essai - Réglages - 2026-11-13.pdf'); assert.equal(nomDuFichier(page(), 'docx'), 'Essai - 2026-11-13.docx');
+  // « Sur quel poste ? » : le poste n'est écrit que s'il s'agit d'un autre poste ; les zones de dépôt et les boutons ne sont pas des données.
+  const choix = [{ id: '', nom: 'Cette machine' }, { id: 'pc1', nom: 'PC du salon' }];
+  const poste = page({ postes: { actuel: 'pc1', choix }, sections: [{ kind: 'text', title: 'T', text: 't' }, { kind: 'depot', title: 'Dépose', action: 'a', champ: 'f' }, { kind: 'actions', title: 'Agir', boutons: [{ action: 'a', label: 'A' }] }] } as View);
+  assert.equal(poste.poste, 'PC du salon'); assert.deepEqual(poste.sections.map((x) => x.title), ['T']); assert.match(enMarkdown(poste), /_Page Essai d'Odin, prise le 13\/11\/2026 à 21:05 · poste : PC du salon_/);
+  assert.equal(page({ postes: { actuel: '', choix }, sections: [] }).poste, undefined);
   // Un tableau énorme est coupé, et la copie le dit.
   const gros = page({ sections: [{ kind: 'table', title: 'Gros', columns: ['N'], rows: Array.from({ length: MAX_LIGNES + 5 }, (_v, i) => ({ cells: [String(i)] })) }] });
   assert.equal((gros.sections[0] as { rows: unknown[] }).rows.length, MAX_LIGNES); assert.match(gros.retire[0].why, /coupé à 10[\s\u202f\u00a0]000 lignes/);
@@ -381,6 +386,15 @@ test('un vrai Odin : export de quatre applis de genres différents dans les quat
         assert.ok(!texte.includes(cle), 'l\'adresse secrète de réservation n\'est dans aucun export');
       }
     }
+    // Un seul onglet (Ullr : « Règles ») ; un onglet inconnu est refusé ; un poste inconnu retombe sur cette machine.
+    const vueUllr = ((await v.json('/api/valhalla/view?id=ullr')).body.view) as View;
+    const regles = vueUllr.sections.filter((s) => s.onglet === 'Règles' && !['form', 'depot', 'actions'].includes(s.kind)).map((s) => s.title);
+    assert.ok(regles.length >= 1);
+    r = await prendre({ id: 'ullr', format: 'json', onglet: 'Règles' }); assert.equal(r.status, 200);
+    assert.match(String(r.headers.get('content-disposition')), new RegExp(`filename\\*=UTF-8''${encodeURIComponent(`Asclépios - Règles - ${jour()}.json`)}$`));
+    const pu = await r.json() as PageExport; assert.equal(pu.onglet, 'Règles'); assert.deepEqual(pu.sections.map((s) => s.title), regles); assert.ok(pu.sections.every((s) => s.onglet === 'Règles'));
+    r = await prendre({ id: 'ullr', format: 'md', onglet: 'Nulle part' }); assert.equal(r.status, 400); assert.match((await r.json() as { error: string }).error, /n'a pas d'onglet « Nulle part »\. Ses onglets : Analyser, Résultats, Règles, Réglages\./);
+    r = await prendre({ id: 'eir', format: 'json', poste: 'pas-de-tel-poste' }); assert.equal(r.status, 200); assert.equal((await r.json() as PageExport).poste, undefined);
     // L'adresse secrète de Chronos est masquée, et la copie le dit.
     const chronos = await (await prendre({ id: 'frigg', format: 'md' })).text();
     assert.match(chronos, /Tes clients réservent sur \/r\/••• — sans compte\./); assert.match(chronos, /_1 valeur masquée par sécurité/);
