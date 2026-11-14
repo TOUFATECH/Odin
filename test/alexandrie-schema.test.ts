@@ -29,7 +29,8 @@ async function serveur(): Promise<{ url: URL; fin: () => void } | undefined> {
   execFileSync('runuser', ['-u', 'postgres', '--', `${BIN}/initdb`, '-D', data, '-U', 'postgres', '--pwfile', join(dir, 'pw'), '--auth', 'scram-sha-256', '-E', 'UTF8', '--locale', 'C'], { stdio: 'ignore' });
   const p: ChildProcess = spawn('runuser', ['-u', 'postgres', '--', `${BIN}/postgres`, '-D', data, '-p', String(port), '-k', dir, '-c', 'listen_addresses=127.0.0.1'], { stdio: 'ignore' });
   for (let i = 0; i < 100; i++) { if (spawnSync(`${BIN}/pg_isready`, ['-h', '127.0.0.1', '-p', String(port)]).status === 0) break; await new Promise((x) => setTimeout(x, 150)); }
-  return { url: new URL(`postgres://postgres:${pw}@127.0.0.1:${port}/postgres`), fin: () => { p.kill('SIGINT'); setTimeout(() => rmSync(dir, { recursive: true, force: true }), 1500).unref(); } };
+  // « runuser » ne transmet pas le signal au serveur : on l'arrête avec pg_ctl (sinon il survit à l'essai).
+  return { url: new URL(`postgres://postgres:${pw}@127.0.0.1:${port}/postgres`), fin: () => { spawnSync('runuser', ['-u', 'postgres', '--', `${BIN}/pg_ctl`, '-D', data, 'stop', '-m', 'fast'], { stdio: 'ignore' }); p.kill('SIGKILL'); rmSync(dir, { recursive: true, force: true }); } };
 }
 
 test('schéma : changements → SQL vérifié (noms, types, valeurs par défaut), sans rien lancer (pur)', () => {
