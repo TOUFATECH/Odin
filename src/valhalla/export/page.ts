@@ -173,7 +173,8 @@ export function pageDepuisVue(m: Pick<Module, 'id' | 'name' | 'family' | 'what'>
   if (onglets.length) sections.sort((a, b) => onglets.indexOf(a.onglet ?? '') - onglets.indexOf(b.onglet ?? ''));
   const kpis = (vue.kpis ?? []).map((x) => sansVide({ label: propre(x.label), value: k.sous(propre(x.label), propre(x.value)), pct: typeof x.pct === 'number' && Number.isFinite(x.pct) ? Math.max(0, Math.min(100, x.pct)) : undefined, tone: ton(x.tone), hint: x.hint ? k.texte(propre(x.hint)) : undefined }));
   const subtitle = vue.subtitle ? k.texte(propre(vue.subtitle)) : undefined;
-  const poste = vue.postes ? propre(vue.postes.choix?.find((c) => c.id === vue.postes!.actuel)?.nom ?? 'Cette machine') : undefined;
+  // Le poste regardé n'est écrit que s'il s'agit d'un autre poste (« Cette machine » ne dirait rien hors d'Odin).
+  const poste = vue.postes?.actuel ? propre(vue.postes.choix?.find((c) => c.id === vue.postes!.actuel)?.nom ?? vue.postes.actuel) : undefined;
   return sansVide({
     odin: 1 as const, at: o.quand.toISOString(), app: { id: m.id, name: m.name, family: m.family, what: propre(m.what) },
     subtitle, onglet: garde, onglets: onglets.length ? onglets : undefined, poste, kpis, sections, retire, masques: k.n(),

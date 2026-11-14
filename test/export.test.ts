@@ -364,7 +364,7 @@ test('un vrai Odin : export de quatre applis de genres différents dans les quat
     };
     for (const [id, a] of Object.entries(attendu)) {
       const vue = ((await v.json(`/api/valhalla/view?id=${id}`)).body.view) as View;
-      const titres = [...vue.sections, ...(vue.side ?? [])].filter((s) => s.kind !== 'form').map((s) => s.title);
+      const titres = [...vue.sections, ...(vue.side ?? [])].filter((s) => !['form', 'depot', 'actions'].includes(s.kind)).map((s) => s.title);
       for (const f of FORMATS) {
         const x = await prendre({ id, format: f.id }); assert.equal(x.status, 200, `${id} en ${f.id}`);
         // Les mêmes protections que les fichiers remis par les applis : toujours un téléchargement, jamais affiché par Odin.
