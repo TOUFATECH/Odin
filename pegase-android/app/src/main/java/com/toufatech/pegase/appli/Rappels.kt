@@ -55,6 +55,7 @@ object Rappels {
         }
     }
 
+    @android.annotation.SuppressLint("MissingPermission") // vérifiée juste en dessous (Android 13 et plus)
     fun montrer(ctx: Context, id: String, titre: String, texte: String) {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

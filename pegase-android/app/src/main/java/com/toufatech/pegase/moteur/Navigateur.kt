@@ -95,7 +95,8 @@ class Navigateur(private val pegase: Pegase) {
         val v = vivant(id)
         v.url = url
         montrer(id)
-        if (url.isNotEmpty()) session(id).loadUri(url)
+        // La page se crée et charge v.url d'elle-même.
+        if (url.isNotEmpty()) session(id)
         return id
     }
 
@@ -143,8 +144,11 @@ class Navigateur(private val pegase: Pegase) {
             return
         }
         val url = Adresse.versUrl(saisie, moteurRecherche())
-        vivant(id).url = url
-        session(id).loadUri(url)
+        val v = vivant(id)
+        val existait = v.session != null
+        v.url = url
+        val s = session(id)
+        if (existait) s.loadUri(url)
         pegase.feuille = null
     }
 

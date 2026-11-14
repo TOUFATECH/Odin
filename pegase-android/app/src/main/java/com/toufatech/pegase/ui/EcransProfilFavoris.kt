@@ -120,7 +120,6 @@ fun EcranProfil(pegase: Pegase) {
         }
         T("Appuie longtemps sur une carte, puis fais-la glisser", taille = 12.sp, doux = true, modifier = Modifier.align(Alignment.CenterHorizontally))
 
-        class Carte(val id: String, val nombre: String, val texte: String, val icone: Int)
         val cartes = listOf(
             Carte("bloques", "%,d".format(chiffres["bloques"] ?: 0).replace(',', ' '), "pubs bloquées ce mois", R.drawable.icone_vidarr),
             Carte("analyses", "${chiffres["analyses"] ?: 0}", "téléchargements analysés", R.drawable.icone_ullr),
@@ -165,7 +164,6 @@ fun EcranProfil(pegase: Pegase) {
         Tuile(Modifier.fillMaxWidth(), coin = 16.dp) {
             Column(Modifier.padding(12.dp)) {
                 T("Protection", poids = FontWeight.SemiBold, modifier = Modifier.semantics { heading() }.padding(bottom = 4.dp))
-                class Protection(val id: String, val nom: String, val icone: Int, val cle: String?, val defaut: Boolean)
                 val protections = listOf(
                     Protection("analyse", "Analyse des téléchargements par Odin", R.drawable.icone_ullr, "analyse-odin", false),
                     Protection("sphinx", "Adresses par Sphinx", R.drawable.icone_vidarr, "dns-sphinx", true),
@@ -200,6 +198,10 @@ fun EcranProfil(pegase: Pegase) {
         )
     }
 }
+
+private class Carte(val id: String, val nombre: String, val texte: String, val icone: Int)
+
+private class Protection(val id: String, val nom: String, val icone: Int, val cle: String?, val defaut: Boolean)
 
 private fun ilYa(ms: Long): String {
     val s = (System.currentTimeMillis() - ms) / 1000

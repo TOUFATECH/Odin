@@ -115,7 +115,7 @@ class Pegase(val app: Context) {
     }
 
     fun surUi(f: () -> Unit) {
-        if (Looper.myLooper() == Looper.getMainLooper()) f() else ui.post(f)
+        if (Looper.myLooper() == Looper.getMainLooper()) f() else ui.post { f() }
     }
 
     // ------------------------------------------------------------------ démarrage

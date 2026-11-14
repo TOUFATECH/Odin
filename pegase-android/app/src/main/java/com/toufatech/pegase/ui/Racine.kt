@@ -138,13 +138,13 @@ private fun Questions(pegase: Pegase) {
         }
         is Invite.Alerte -> AlertDialog(
             onDismissRequest = q.ok,
-            title = q.titre?.let { { Text(it) } },
+            title = if (q.titre != null) { { Text(q.titre) } } else null,
             text = { Text(q.message) },
             confirmButton = { TextButton(onClick = q.ok) { Text("OK") } },
         )
         is Invite.Confirmer -> AlertDialog(
             onDismissRequest = { q.repondre(false) },
-            title = q.titre?.let { { Text(it) } },
+            title = if (q.titre != null) { { Text(q.titre) } } else null,
             text = { Text(q.message) },
             confirmButton = { TextButton(onClick = { q.repondre(true) }) { Text("OK") } },
             dismissButton = { TextButton(onClick = { q.repondre(false) }) { Text("Annuler") } },
@@ -153,7 +153,7 @@ private fun Questions(pegase: Pegase) {
             var t by remember(q) { mutableStateOf(q.defaut) }
             AlertDialog(
                 onDismissRequest = { q.repondre(null) },
-                title = q.titre?.let { { Text(it) } },
+                title = if (q.titre != null) { { Text(q.titre) } } else null,
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(q.message)
@@ -168,7 +168,7 @@ private fun Questions(pegase: Pegase) {
             var choisis by remember(q) { mutableStateOf(q.options.filter { it.choisie }.map { it.id }.toSet()) }
             AlertDialog(
                 onDismissRequest = { q.repondre(null) },
-                title = q.titre?.let { { Text(it) } },
+                title = if (q.titre != null) { { Text(q.titre) } } else null,
                 text = {
                     LazyColumn(Modifier.heightIn(max = 420.dp)) {
                         items(q.options) { o ->

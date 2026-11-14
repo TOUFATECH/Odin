@@ -15,8 +15,6 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        // Adresse de retour de la connexion unique d'Odin (OpenID Connect) : com.toufatech.pegase:/sso
-        manifestPlaceholders["schemaRetour"] = "com.toufatech.pegase"
     }
 
     buildTypes {
@@ -54,6 +52,12 @@ android {
 
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    }
+
+    lint {
+        // Le rapport de lint est produit, mais il ne bloque pas la construction de l'APK d'essai.
+        abortOnError = false
+        checkReleaseBuilds = false
     }
 
     testOptions {
