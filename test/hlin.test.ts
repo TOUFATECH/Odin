@@ -477,7 +477,7 @@ test('Gygès · la page : onglets courts, marche à suivre, rien en clair', asyn
     const table = v.sections.find((s) => s.title === 'Ce qui est visible') as { rows: Array<{ cells: string[]; tone?: string }> };
     assert.equal(table.rows[0].cells[1], 'élevé · nouveau'); assert.equal(table.rows[0].tone, 'mauvais');
     assert.equal(v.kpis![0].value, '2');
-    assert.match(refusDe(m) ?? '', /reste dans Odin/, 'la page de Gygès ne s\'exporte pas et ne se partage pas');
+    assert.match(refusDe(m) ?? '', /^Gygès garde où tu apparais sur Internet[\s\S]*reste dans Odin/, 'la page de Gygès ne s\'exporte pas et ne se partage pas');
   } finally { w.fin(); }
 });
 
