@@ -1,5 +1,5 @@
 // Pégase, le navigateur d'Odin : le processus principal.
-import { app, protocol, session, net, BaseWindow, Menu, shell } from 'electron';
+import { app, protocol, session, net, BaseWindow, Menu, shell, nativeTheme } from 'electron';
 import { join, normalize, extname } from 'node:path';
 import { existsSync, readFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -82,6 +82,7 @@ class Pegase implements Appli {
     f.ecran = 'demarrage';
     void this.premierEcran(f, p);
     setInterval(() => this.veiller(), 30_000).unref();
+    nativeTheme.on('updated', () => { for (const x of [...this.fenetres]) if (x.profil.reglages().themeAuto && !x.win.isDestroyed()) this.changerTheme(x, 'auto', true); });
     app.on('second-instance', (_e, argv) => {
       const url = argv.find((a) => /^https?:\/\//.test(a));
       const f = [...this.fenetres].find((x) => !x.profil.prive);
@@ -181,7 +182,10 @@ class Pegase implements Appli {
     if (!p.tousVus().length || prive) f.envoyer('commande', 'barre-commande');
   }
 
-  changerTheme(f: Fenetre, t: Theme): void {
+  changerTheme(f: Fenetre, t: Theme | 'auto', parSysteme = false): void {
+    // « Auto » : noir ou blanc selon le thème du système, et suit ses changements.
+    if (t === 'auto') { f.profil.mettreReglage('themeAuto', true); t = nativeTheme.shouldUseDarkColors ? 'noir' : 'blanc'; }
+    else if (!parSysteme) f.profil.mettreReglage('themeAuto', false);
     if (!['noir', 'blanc', 'bleu', 'rouge', 'transparent', 'glace'].includes(t)) return;
     f.profil.mettreReglage('theme', t);
     for (const x of this.fenetres) if (x.profil === f.profil) x.changerTheme(t);

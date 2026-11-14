@@ -14,7 +14,7 @@ import { dialog } from 'electron';
 
 export interface Appli {
   nouvelleFenetre(prive: boolean): void;
-  changerTheme(f: Fenetre, t: Theme): void;
+  changerTheme(f: Fenetre, t: Theme | 'auto', parSysteme?: boolean): void;
   etatGlobal(f: Fenetre): Partial<Etat>;
   action(f: Fenetre, action: string, arg: any): Promise<any> | any | undefined;
   fenetreFermee(f: Fenetre): void;

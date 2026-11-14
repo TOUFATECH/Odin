@@ -25,6 +25,7 @@ const L = {
   posVideo: {} as Record<string, { x: number; y: number }>,
   renommer: null as string | null,
   odinFil: [] as { moi: boolean; texte: string }[],
+  idees: null as null | { type: string; titre: string; texte?: string; url?: string }[],
 };
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string, r: ParentNode = document) => r.querySelector(s) as T | null;
@@ -285,7 +286,7 @@ function dimensionnerMobiles(): void {
 
 function panneauOdin(): string {
   const fil = L.odinFil.length ? L.odinFil.map((m) => `<div class="bulle${m.moi ? ' moi' : ''}">${esc(m.texte)}</div>`).join('')
-    : `<p class="doux">${E.odin?.connecte ? 'Demande-moi ce que tu veux, ou fais-moi résumer la page.' : 'Pégase n’est pas encore relié à ton Odin. Relie-le dans Réglages → Synchro Odin.'}</p>`;
+    : `<p class="doux">${E.odin?.connecte ? 'Demande-moi ce que tu veux, ou fais-moi résumer la page.' : 'Pégase n’est pas encore relié à ton Odin. Relie-le dans Réglages → Synchro Odin.'}</p>${idees()}`;
   return `<aside class="panneau-odin" aria-label="Odin">
     <div class="po-tete"><img src="${appIcone('valhalla')}" alt="" width="26" height="26"><b>Odin</b><span class="doux petit t">${E.odin?.connecte ? esc(E.odin.nom) : 'pas relié'}</span>
       <button class="ib" data-a="panneauOdin" aria-label="Fermer le panneau d’Odin">${I.fermer()}</button></div>
@@ -293,6 +294,13 @@ function panneauOdin(): string {
     <div class="po-fil" id="po-fil">${fil}</div>
     <form data-form="odin"><textarea name="texte" placeholder="Demander à Odin…" aria-label="Demander à Odin"></textarea><button class="ib" type="submit" aria-label="Envoyer">${I.envoyer(18)}</button></form>
   </aside>`;
+}
+
+/** Les idées d'Odin dans le panneau (rendez-vous, « tu cherchais… », sites suivis), chargées une fois par ouverture. */
+function idees(): string {
+  if (!E.odin?.connecte) return '';
+  if (L.idees === null) { L.idees = []; api.faire('propositions').then((l: any[]) => { L.idees = Array.isArray(l) ? l.slice(0, 6) : []; rendre(); }).catch(() => 0); return ''; }
+  return L.idees.length ? `<div class="idees-odin"><div class="titre-cote">Idées d’Odin</div>${L.idees.map((x) => `<button class="proposition idee" ${x.url ? `data-a="ouvrirIdee" data-url="${esc(x.url)}"` : x.type === 'rdv' ? 'data-a="interne" data-page="agenda"' : ''}><span class="ellipse"><b>${esc(x.titre)}</b>${x.texte ? ` <span class="doux">${esc(x.texte)}</span>` : ''}</span></button>`).join('')}</div>` : '';
 }
 
 function videos(): string {
@@ -408,7 +416,7 @@ function menus(): string {
       <div class="tete-menu"><span class="avatar c${E.profil.couleur % 8}">${esc(E.profil.lettre)}</span><div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.odin?.connecte ? 'Compte Odin · synchronisé' : 'Sur ce PC'}</div></div><button class="bouton" data-a="interne" data-page="profil">Changer</button></div>
       <div class="trio"><button data-a="commande" data-nouvel="1">Onglet<small>${raccourci('Ctrl+T')}</small></button><button data-a="fenetre" data-op="nouvelle">Fenêtre<small>${raccourci('Ctrl+N')}</small></button><button data-a="fenetre" data-op="privee">Privée<small>${raccourci('Ctrl+Maj+N')}</small></button></div>
       <div class="titre">Couleur du navigateur · ${NOMS_THEMES[t]}</div>
-      <div class="nuancier" role="group" aria-label="Couleur du navigateur">${(['noir', 'blanc', 'bleu', 'rouge', 'transparent', 'glace'] as Theme[]).map((x) => `<button class="nuance n-${x}" data-a="theme" data-theme="${x}" aria-label="${NOMS_THEMES[x]}" title="${NOMS_THEMES[x]}" aria-pressed="${x === t}"></button>`).join('')}<button class="nuance n-auto" data-a="theme" data-theme="auto" aria-label="Auto : suit le système" title="Auto"></button></div>
+      <div class="nuancier" role="group" aria-label="Couleur du navigateur">${(['noir', 'blanc', 'bleu', 'rouge', 'transparent', 'glace'] as Theme[]).map((x) => `<button class="nuance n-${x}" data-a="theme" data-theme="${x}" aria-label="${NOMS_THEMES[x]}" title="${NOMS_THEMES[x]}" aria-pressed="${x === t && !E.reglages.themeAuto}"></button>`).join('')}<button class="nuance n-auto" data-a="theme" data-theme="auto" aria-label="Auto : suit le système" title="Auto" aria-pressed="${!!E.reglages.themeAuto}"></button></div>
       <hr>
       ${item('menu', I.espaces(), 'Espaces de travail', I.fleche(), '', 'data-menu="espaces"')}
       ${item('interne', I.onglets(), 'Historique', '', 'Ctrl+Y', 'data-page="historique"')}
@@ -681,12 +689,11 @@ async function agir(a: string, d: DOMStringMap, el: HTMLElement): Promise<void> 
     case 'resultat': L.commande?.resultats[Number(d.i)]?.faire(); return;
     case 'interne': fermerCouche(); await api.faire('interne', { page: d.page }); return;
     case 'barre': L.survolBarre = false; await api.faire('barre', {}); return;
-    case 'panneauOdin': await api.faire('panneauOdin', {}); return;
+    case 'panneauOdin': L.idees = null; await api.faire('panneauOdin', {}); return;
+    case 'ouvrirIdee': if (d.url) await api.faire('ouvrir', { url: d.url }); return;
     case 'fenetre': fermerCouche(); await api.faire('fenetre', { op: d.op }); return;
     case 'theme': {
-      let th = d.theme as Theme | 'auto';
-      if (th === 'auto') th = await api.faire('theme-systeme');
-      fermerCouche(); await api.faire('theme', { theme: th }); return;
+      fermerCouche(); await api.faire('theme', { theme: d.theme }); return;
     }
     case 'activer': if (L.renommer) return; await api.faire('activer', { id }); return;
     case 'activerBureau': await api.faire('activerBureau', { id }); return;

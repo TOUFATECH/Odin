@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "description": "Pégase, le navigateur d'Odin : léger, protégé, synchronisé avec ton Odin.",
   "license": "MIT",
-  "author": { "name": "TOUFATECH", "email": "contact@toufatech.com" },
+  "author": {
+    "name": "TOUFATECH",
+    "email": "contact@toufatech.com"
+  },
   "homepage": "https://github.com/TOUFATECH/Odin#readme",
   "main": "dist/main/main.js",
   "private": true,
@@ -16,9 +19,9 @@
     "types": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.ui.json --noEmit",
     "start": "electron .",
     "test": "xvfb-run -a node --test --test-concurrency=1 test/*.test.mjs",
-    "dist:linux": "npm run build && electron-builder --linux AppImage deb",
-    "dist:win": "npm run build && electron-builder --win nsis",
-    "dist:mac": "npm run build && electron-builder --mac dmg"
+    "dist:linux": "npm run build && electron-builder --linux AppImage deb --publish never",
+    "dist:win": "npm run build && electron-builder --win nsis --publish never",
+    "dist:mac": "npm run build && electron-builder --mac dmg --publish never"
   },
   "dependencies": {
     "@ghostery/adblocker-electron": "2.20.3",
@@ -31,5 +34,102 @@
     "electron-builder": "26.18.0",
     "typescript": "5.9.3",
     "vite": "8.3.8"
+  },
+  "build": {
+    "appId": "com.toufatech.pegase",
+    "productName": "Pégase",
+    "executableName": "pegase",
+    "artifactName": "Pegase-${version}-${os}-${arch}.${ext}",
+    "copyright": "© TOUFATECH — licence MIT",
+    "directories": {
+      "output": "paquets",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "build/icone.png",
+      "package.json"
+    ],
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "loadBrowserProcessSpecificV8Snapshot": false,
+      "grantFileProtocolExtraPrivileges": false
+    },
+    "protocols": [
+      {
+        "name": "Pages web",
+        "schemes": [
+          "http",
+          "https"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "TOUFATECH",
+        "repo": "Odin",
+        "releaseType": "release"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network",
+      "icon": "build/icon.png",
+      "synopsis": "Le navigateur d'Odin",
+      "mimeTypes": [
+        "x-scheme-handler/http",
+        "x-scheme-handler/https",
+        "text/html"
+      ],
+      "desktop": {
+        "entry": {
+          "Name": "Pégase",
+          "Comment": "Le navigateur d'Odin",
+          "StartupWMClass": "Pégase"
+        }
+      }
+    },
+    "deb": {
+      "packageName": "pegase"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "fr_FR"
+      ],
+      "language": "1036",
+      "shortcutName": "Pégase",
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "identity": null
+    },
+    "dmg": {
+      "title": "Pégase ${version}"
+    }
   }
 }

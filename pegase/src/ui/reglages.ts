@@ -67,7 +67,7 @@ const SECTIONS_RENDU: Record<string, Rendu> = {
       const r = ctx.etat().reglages;
       el.innerHTML = `<h2 class="titre-section">Apparence et couleurs</h2><div class="pile">
         <section class="carte"><div class="reglage"><div><b>Couleur du navigateur</b><div class="doux petit">Chaque espace peut garder la sienne (clic droit sur l’espace, en bas de la barre). « Auto » suit le thème clair ou sombre de ton système.</div></div>
-          <div class="nuancier">${(Object.keys(NOMS_THEMES) as Theme[]).map((t) => `<button class="nuance n-${t}" data-theme="${t}" aria-label="${NOMS_THEMES[t]}" title="${NOMS_THEMES[t]}" aria-pressed="${r.theme === t}"></button>`).join('')}<button class="nuance n-auto" data-theme="auto" aria-label="Auto : suit le système" title="Auto"></button></div></div>
+          <div class="nuancier">${(Object.keys(NOMS_THEMES) as Theme[]).map((t) => `<button class="nuance n-${t}" data-theme="${t}" aria-label="${NOMS_THEMES[t]}" title="${NOMS_THEMES[t]}" aria-pressed="${r.theme === t}"></button>`).join('')}<button class="nuance n-auto" data-theme="auto" aria-label="Auto : suit le système" title="Auto" aria-pressed="${!!r.themeAuto}"></button></div></div>
           <div class="reglage"><div><b>Transparence de la vitre</b><div class="doux petit">Pour « Transparent » : plus ou moins de bureau visible derrière.</div></div><input type="range" min="10" max="95" value="${r.transparence}" data-cle="transparence" aria-label="Transparence"></div></section>
         <section class="carte"><h3>Onglets</h3>
           <div class="reglage"><div><b>Mettre en veille les onglets inactifs après</b><div class="doux petit">Une page en veille ne prend plus de mémoire ; elle se recharge quand tu y reviens.</div></div>${choix('veilleMinutes', String(r.veilleMinutes), [['5', '5 minutes'], ['10', '10 minutes'], ['30', '30 minutes'], ['60', '1 heure'], ['100000', 'Jamais']], 'Mise en veille')}</div>
@@ -79,8 +79,7 @@ const SECTIONS_RENDU: Record<string, Rendu> = {
     el.addEventListener('input', (e) => { const t = e.target as HTMLInputElement; if (t.dataset.cle === 'transparence') document.documentElement.style.setProperty('--vitre', String(Number(t.value) / 100)); });
     el.addEventListener('click', async (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-theme]'); if (!b) return;
-      let t = b.dataset.theme; if (t === 'auto') t = await api.faire('theme-systeme');
-      await api.faire('theme', { theme: t }); setTimeout(dessiner, 120);
+      await api.faire('theme', { theme: b.dataset.theme }); setTimeout(dessiner, 120);
     });
   },
 

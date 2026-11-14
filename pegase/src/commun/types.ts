@@ -42,6 +42,8 @@ export interface Reglages {
   dnsSecours: string; analyseOdin: boolean; moteur: 'pythie' | 'duckduckgo' | 'google' | 'qwant';
   synchroHistorique: 'tout' | 'sans-historique' | 'rien'; pageAccueil: 'accueil' | 'vide';
   cookiesTiers: boolean; viderFermeture: boolean; garderSites: string[]; proposerMdp: boolean;
+  /** Le thème suit le système (clair → Blanc, sombre → Noir). */
+  themeAuto?: boolean;
 }
 export const REGLAGES_DEFAUT: Reglages = {
   theme: 'bleu', transparence: 60, veilleMinutes: 10, rangerHeures: 12, bloqueur: 'normal', cookiesRefus: true,
