@@ -174,6 +174,8 @@
   /** Lance l'action du catalogue `a` (après ta confirmation, sauf pour les petits gestes d'Odin). */
   async function runClick(a, b, n) {
     const fn = a.run?.fn || '';
+    // 4 clics (réglage proposé) : Alchimie s'ouvre tout de suite au-dessus d'Odin, sans question (rien n'est fait sans toi).
+    if (fn === 'alchimie') { if (window.OdinAlchimie) window.OdinAlchimie.quatre(b, n); else { window.OdinShow?.('apps'); setTimeout(() => window.OdinApps?.app?.('dvalinn'), 150); } return; }
     if (['rire', 'phrase', 'avertir', 'theme', 'pouvoir'].includes(fn)) return void ACTIONS[fn]?.(b, n);
     if (!(await confirmAsk(`${n} clics : ${a.label}`, a.ask || `${a.label} ?`, a.grave))) { say('D\'accord, je ne fais rien.'); return; }
     try {

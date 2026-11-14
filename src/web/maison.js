@@ -346,6 +346,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     const size = () => (innerWidth < 600 ? 60 : 78);
     const mood = (m) => { try { window.OdinFace?.set(body, m); } catch { /* */ } };
     const place = (nx, ny, fast) => {
+      // Pendant des touchers rapides (4 = Alchimie…), il reste sous le doigt.
+      if (!dragging && taps.length && Date.now() - taps[taps.length - 1] < 1300) return;
       const s = size(); w.style.setProperty('--ps', `${s}px`);
       x = Math.max(6, Math.min(innerWidth - s - 6, nx)); y = Math.max(6, Math.min(innerHeight - s - 6, ny));
       w.classList.toggle('fast', Boolean(fast)); w.style.transform = `translate(${x}px,${y}px)`;
@@ -418,7 +420,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       // Le même petit son que partout ailleurs quand on la touche (coupé si le son d'Odin est coupé).
       window.OdinFace?.sound?.('bounce');
       // Les clics rapides réglés dans Odin (1 = parler, 10 = se cacher…) ; sans eux, trois touches = elle rit.
-      if (window.OdinMascotte) { window.OdinMascotte.tap(body, () => { if (bubble?.dataset.chat) closeBubble(); else chat(); }); return; }
+      // La petite fenêtre s'ouvre un court instant après un toucher seul : des touchers rapides (4 = Alchimie) ne la font pas apparaître sous le doigt.
+      if (window.OdinMascotte) { window.OdinMascotte.tap(body, () => { clearTimeout(w._chat); w._chat = setTimeout(() => { if (Date.now() - taps[taps.length - 1] < 380) return; if (bubble?.dataset.chat) closeBubble(); else chat(); }, 400); }); return; }
       if (taps.length >= 3) { taps = []; mood('rire'); anim('spin'); say('Hihi, ça chatouille !', 'ok', 'rire'); return; }
       if (bubble?.dataset.chat) closeBubble(); else chat();
     });

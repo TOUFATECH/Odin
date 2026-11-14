@@ -10,7 +10,7 @@
 //     agenda, cartes (GeoJSON, KML, GPX), archives (ZIP, TAR) ; dossiers surveillés ; conversion depuis un lien.
 // Les fichiers sont pris dans les dossiers que tu donnes à Alchimie (l'atelier par défaut). Un résultat est
 // toujours écrit à côté de l'original sous un nouveau nom : rien n'est jamais écrasé ni effacé.
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { cleanRel, freeName, inside } from '../skidbladnir/store.ts';
@@ -18,12 +18,16 @@ import { extOf, familyOf, pdfPlan, plan, qpdfSecretArgs, TARGETS, type Opts, typ
 import { OUTILS, outil } from '../dvalinn/outils.ts';
 import { CIBLES_MAISON, ciblesMaison, convertirMaison, familleMaison, peutMaison } from '../dvalinn/maison.ts';
 import { lienDeMaison, lienPropre, nomDeLien, telecharger } from '../lien.ts';
+import { heicVersPng, lireHeif } from '../dvalinn/heic.ts';
+import { cadre, choixPour, dateExif, jpegAvecDate, nomRecette, qualiteDe, RAPPORTS, taillePropre } from '../dvalinn/rapide.ts';
 import type { ChoixDepot, ModCtx, Module, Section } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export interface Folder { nom: string; chemin: string }
 interface Job { id: string; src: string; codec: 'h264' | 'h265' | 'av1'; qualite: 'haute' | 'normale' | 'legere'; hauteur?: number; state: 'attente' | 'en cours' | 'fini' | 'erreur'; out?: string; err?: string; gain?: number; at: string }
 interface Hist { at: string; what: string; ok: boolean; out?: string[]; err?: string }
+/** Une conversion récente, à refaire d'un geste (« Photos → JPG ») : le format visé et les réglages, jamais les fichiers. */
+export interface Recette { id: string; titre: string; famille: string; vers: string; qualite?: number; garder_date?: boolean; rogner?: string; at: string }
 /** Un dossier surveillé : tout fichier qui y arrive est converti vers `vers` (résultat dans son sous-dossier « convertis »). */
 interface Veille { id: string; dossier: string; vers: string; at: string; faits: Record<string, number> }
 
@@ -44,11 +48,15 @@ export const TOOLS: Array<{ cmd: string; alt?: string; pkg: string; does: string
 const FORBIDDEN = /(^|\/)(\.ssh|\.gnupg|\.odin-corbeille)(\/|$)|(^|\/)(compte|sessions|secrets|signatures|cle-signatures|réglages|reglages)\.json$|-key\.pem$|acme-compte\.pem$|(^|\/)jeton-tunnel$/i;
 
 const atelier = (ctx: ModCtx) => join(ctx.dir, 'atelier');
+/** Les fichiers joints dans la Discussion : Alchimie peut les convertir (le résultat est écrit à côté). */
+const recus = (ctx: ModCtx): Folder => ({ nom: 'inbox', chemin: join(ctx.home, 'workspace', 'inbox') });
 export const folders = (ctx: ModCtx): Folder[] => [{ nom: 'atelier', chemin: atelier(ctx) }, ...(((ctx.settings.dossiers as Folder[] | undefined) ?? []).filter((f) => f.nom !== 'atelier'))];
 /** « dossier:chemin/fichier » (ou « chemin » dans l'atelier) → chemin absolu vérifié. */
 export function resolveFile(ctx: ModCtx, ref: string): { abs: string; folder: Folder; rel: string } {
-  const m = /^([\w.-]{1,40}):(.*)$/.exec(s(ref)), name = m ? m[1] : 'atelier', rel = cleanRel(m ? m[2] : s(ref));
-  const folder = folders(ctx).find((f) => f.nom === name); if (!folder) throw new Error(`dossier inconnu : ${name} (${folders(ctx).map((f) => f.nom).join(', ')})`);
+  // « inbox/devis.docx » : un fichier joint dans la Discussion (« Odin, convertis ce fichier en PDF »).
+  const brut = s(ref).replace(/^inbox\//, 'inbox:');
+  const m = /^([\w.-]{1,40}):(.*)$/.exec(brut), name = m ? m[1] : 'atelier', rel = cleanRel(m ? m[2] : brut);
+  const folder = name === 'inbox' ? recus(ctx) : folders(ctx).find((f) => f.nom === name); if (!folder) throw new Error(`dossier inconnu : ${name} (${folders(ctx).map((f) => f.nom).join(', ')})`);
   if (FORBIDDEN.test(rel)) throw new Error('fichier protégé : Odin n\'y touche pas');
   mkdirSync(folder.chemin, { recursive: true });
   return { abs: inside(folder.chemin, rel), folder, rel };
@@ -71,9 +79,66 @@ export async function runStep(ctx: ModCtx, st: Step, work: string, destDir: stri
 export const workDir = (ctx: ModCtx) => { const d = join(ctx.dir, 'travail', randomBytes(6).toString('hex')); mkdirSync(d, { recursive: true, mode: 0o700 }); return d; };
 function remember(ctx: ModCtx, h: Hist) { ctx.saveSettings({ historique: [h, ...(((ctx.settings.historique as Hist[] | undefined) ?? []))].slice(0, 40) }); }
 
+// ---------------------------------------------------------------- l'antivirus d'abord (Asclépios)
+/** Verdicts déjà rendus (chemin, taille, date) : un fichier vérifié au dépôt n'est pas revérifié pour sa conversion. */
+const verdicts = new Map<string, Verdict>();
+export interface Verdict { sain: boolean; absent?: boolean; quoi?: string; suite?: string }
+/**
+ * Fait vérifier un fichier par l'antivirus d'Odin (Asclépios) avant de l'ouvrir. Dangereux : mis en quarantaine
+ * (réversible) ; un simple doute ou le fichier d'essai des antivirus : laissé où il est, jamais ouvert.
+ */
+export async function asclepios(ctx: ModCtx, path: string): Promise<Verdict> {
+  if (!ctx.modules().some((m) => m.id === 'ullr')) return { sain: true, absent: true };
+  let cle = ''; try { const st = statSync(path); cle = `${path}|${st.size}|${Math.round(st.mtimeMs)}`; } catch { return { sain: false, quoi: 'fichier introuvable' }; }
+  const deja = verdicts.get(cle); if (deja) return deja;
+  const v = await ctx.call('ullr', 'fichier', { chemin: path }, 'vérifier un fichier avant de le convertir', { interne: true }), d = v.data as { level?: string; findings?: Array<{ threat?: string; klass?: string }> } | undefined;
+  let r: Verdict = { sain: true };
+  if (d?.level && ['moyenne', 'haute', 'critique'].includes(d.level)) {
+    const quoi = [...new Set((d.findings ?? []).map((x) => x.threat).filter(Boolean))].slice(0, 3).join(', ') || d.level, essai = (d.findings ?? []).length > 0 && (d.findings ?? []).every((x) => x.klass === 'test');
+    let suite = 'Il est resté où il était, sans avoir été ouvert.';
+    if (!essai && d.level !== 'moyenne') { const q = await ctx.call('ullr', 'isoler', { fichier: path, menace: quoi }, 'fichier reconnu dangereux avant conversion').catch(() => undefined); if (q && q.ok !== false) suite = 'Je l\'ai mis en quarantaine (antivirus) : il ne peut plus être ouvert, et tu peux l\'en ressortir si c\'est une erreur.'; }
+    r = { sain: false, quoi, suite };
+  }
+  if (verdicts.size > 500) verdicts.clear();
+  verdicts.set(cle, r); return r;
+}
+
+// ---------------------------------------------------------------- réglages des images (rognage, date de prise)
+const identify = async (ctx: ModCtx, args: string[]) => {
+  const im7 = await ctx.has('magick'), r = await ctx.run(im7 ? 'magick' : 'identify', [...(im7 ? ['identify'] : []), ...args], { timeoutMs: 60e3 });
+  return r.code === 0 ? r.out.trim() : '';
+};
+/** Le cadre à garder au centre pour « Rogner avant » (selon le sens réel de la photo). */
+async function cadreDe(ctx: ModCtx, abs: string, rapport: string): Promise<Opts['cadre']> {
+  if (!RAPPORTS[rapport] || familyOf(abs) !== 'image') return undefined;
+  const [w, h, o] = (await identify(ctx, ['-format', '%w %h %[orientation]\n', `${abs}[0]`])).split('\n')[0].split(' ');
+  const tourne = /^(LeftTop|RightTop|RightBottom|LeftBottom)$/.test(o ?? '');
+  return cadre(Number(tourne ? h : w), Number(tourne ? w : h), rapport);
+}
+/** « Garder la date de prise » : la date de la photo (ou du fichier) remise sur le résultat ; dans un JPEG, la date seule. */
+async function garderDate(ctx: ModCtx, src: string, out: string[]): Promise<void> {
+  let d: Date | undefined;
+  if (familyOf(src) === 'image') d = dateExif(await identify(ctx, ['-format', '%[EXIF:DateTimeOriginal]', `${src}[0]`]).catch(() => ''));
+  if (!d && /^(heic|heif)$/.test(extOf(src))) { try { d = dateExif(lireHeif(readFileSync(src)).date ?? ''); } catch { /* pas de date lisible */ } }
+  d ??= statSync(src).mtime;
+  for (const o of out) {
+    try { if (/\.jpe?g$/i.test(o)) writeFileSync(o, jpegAvecDate(readFileSync(o), d)); utimesSync(o, d, d); } catch { /* la conversion reste bonne, seule la date manque */ }
+  }
+}
+const recettes = (ctx: ModCtx): Recette[] => (ctx.settings.recettes as Recette[] | undefined) ?? [];
+/** Retient une conversion pour « Refaire » (la même sorte de fichier vers le même format remonte en tête). */
+function retenirRecette(ctx: ModCtx, nom: string, vers: string, i: Record<string, unknown>) {
+  const famille = String(familyOf(nom) ?? familleMaison(nom) ?? extOf(nom)), titre = nomRecette(nom, vers, optsOf(i).qualite);
+  const r: Recette = { id: randomBytes(4).toString('hex'), titre, famille, vers, ...(pctDe(i.qualite) ? { qualite: pctDe(i.qualite) } : {}), ...(i.garder_date === true || i.garder_date === 'true' ? { garder_date: true } : {}), ...(RAPPORTS[s(i.rogner)] ? { rogner: s(i.rogner) } : {}), at: ctx.now().toISOString() };
+  ctx.saveSettings({ recettes: [r, ...recettes(ctx).filter((x) => x.titre !== titre)].slice(0, 8) });
+}
+
 const QUAL = ['normale', 'haute', 'legere'];
+/** La qualité en pourcentage (« 85 », « 85 % »), ou undefined. */
+const pctDe = (v: unknown) => { const n = Number(s(v).replace(/\s*%$/, '')); return s(v) !== '' && Number.isFinite(n) && n >= 1 && n <= 100 ? Math.round(n) : undefined; };
 const optsOf = (i: Record<string, unknown>): Opts => ({
-  qualite: (QUAL.includes(s(i.qualite)) ? s(i.qualite) : 'normale') as Opts['qualite'],
+  qualite: (QUAL.includes(s(i.qualite)) ? s(i.qualite) : pctDe(i.qualite) ? qualiteDe(pctDe(i.qualite)!) : 'normale') as Opts['qualite'],
+  ...(pctDe(i.qualite) ? { pct: pctDe(i.qualite) } : {}), ...(i.gris === true || i.gris === 'true' ? { gris: true } : {}),
   ...(Number(i.largeur) > 0 ? { largeur: Math.min(8000, Number(i.largeur)) } : {}), ...(Number(i.hauteur) > 0 ? { hauteur: Math.min(8000, Number(i.hauteur)) } : {}),
   ...(['h264', 'h265', 'av1'].includes(s(i.codec)) ? { codec: s(i.codec) as Opts['codec'] } : {}),
   ...(i.sans_son === true || i.sans_son === 'true' ? { sansSon: true } : {}), ...(s(i.debut) ? { debut: s(i.debut) } : {}), ...(s(i.duree) ? { duree: s(i.duree) } : {}),
@@ -97,7 +162,18 @@ export async function convertirFichier(ctx: ModCtx, abs: string, vers: string, d
   const fm = familleMaison(basename(abs));
   if (fm && !familyOf(abs)) throw new Error(`conversion pas possible : un fichier .${extOf(abs)} (${fm}) se convertit en ${ciblesMaison(basename(abs)).join(', ')}`);
   const work = workDir(ctx);
-  try { return await runStep(ctx, plan(abs, to, work, o), work, destDir); } finally { rmSync(work, { recursive: true, force: true }); }
+  try { return await runStep(ctx, plan(abs, to, work, o), work, destDir); }
+  catch (e) {
+    // Photo HEIC et ImageMagick sans décodeur HEVC : Alchimie lit la photo elle-même, ffmpeg la décode (sans perte), puis on reprend.
+    if (!/^(heic|heif)$/.test(extOf(abs)) || !(await ctx.has('ffmpeg'))) throw e;
+    const d = workDir(ctx), png = join(d, `${basename(abs, extname(abs))}.png`);
+    try {
+      await heicVersPng((c, a, x) => ctx.run(c, a, x), abs, png);
+      if (to === 'png') { mkdirSync(destDir, { recursive: true }); const out = join(destDir, freeName(destDir, basename(png))); renameSync(png, out); return [out]; }
+      for (const f of readdirSync(work)) rmSync(join(work, f), { recursive: true, force: true });
+      return await runStep(ctx, plan(png, to, work, o), work, destDir);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  } finally { rmSync(work, { recursive: true, force: true }); }
 }
 /** Le genre de chaque format de sortie (pour ranger les boutons) et son nom affiché quand le sigle ne suffit pas. */
 const GENRES: Array<[string, string[]]> = [['Vidéo', ['mp4', 'mkv', 'webm', 'mov', 'avi']], ['Son', ['mp3', 'm4a', 'flac', 'wav', 'ogg', 'opus', 'aac']], ['Image', ['png', 'jpg', 'webp', 'avif', 'gif', 'bmp', 'tiff', 'ico']],
@@ -198,19 +274,52 @@ export const dvalinn: Module = {
     } },
     { id: 'possibles', label: 'Conversions possibles', what: 'Ce qu\'un fichier peut devenir, d\'après son nom ou son lien (rien n\'est téléchargé ni converti)', read: true, quiet: true, quick: false, params: [{ key: 'nom', label: 'Nom du fichier ou lien', kind: 'text', required: true }],
       run: (_ctx, i) => { const c = conversionsPossibles(s(i.nom)); return { text: c.refus ?? c.groupes.map((g) => `${g.titre ? `${g.titre} : ` : ''}${g.valeurs.map((x) => x.label).join(', ')}`).join('\n'), data: c }; } },
+    // Le panneau d'Alchimie près d'Odin (4 clics sur lui, ou clic droit) : les fichiers déposés passent par l'antivirus,
+    // puis le panneau montre les formats possibles en tuiles (taille estimée), les autres, et les réglages utiles.
+    { id: 'preparer', label: 'Préparer une conversion', what: 'Vérifie les fichiers déposés avec l\'antivirus et dit en quoi les convertir (rien n\'est converti)', read: true, quiet: true, quick: false,
+      params: [{ key: 'fichiers', label: 'Fichier(s) (dossier:chemin, séparés par des virgules)', kind: 'textarea', required: true, depot: { plusieurs: true } }, { key: 'qualite', label: 'Qualité (%)', kind: 'number', default: 85 }],
+      run: async (ctx, i) => {
+        const refs = s(i.fichiers).split(/[,\n]+/).map((x) => x.trim()).filter(Boolean).slice(0, 50);
+        if (!refs.length) return { ok: false, text: 'Aucun fichier : dépose-en un ou choisis-le sur ton appareil.' };
+        const fichiers: Array<{ ref: string; nom: string; taille: number }> = [], possibles: string[][] = [];
+        let absent = false;
+        for (const ref of refs) {
+          const f = resolveFile(ctx, ref); if (!existsSync(f.abs) || !statSync(f.abs).isFile()) return { ok: false, text: `Fichier introuvable : ${basename(f.abs)}. Dépose-le à nouveau.` };
+          const av = await asclepios(ctx, f.abs); absent ||= Boolean(av.absent);
+          if (!av.sain) return { ok: false, text: `${basename(f.abs)} : fichier suspect (${av.quoi}), je ne le convertis pas. ${av.suite ?? ''}`.trim(), data: { suspect: basename(f.abs) } };
+          fichiers.push({ ref: relOf(f.folder, f.abs), nom: basename(f.abs), taille: statSync(f.abs).size });
+          const c = conversionsPossibles(basename(f.abs)); possibles.push(c.groupes.flatMap((g) => g.valeurs.map((x) => x.valeur)));
+        }
+        const c = choixPour(fichiers, possibles, pctDe(i.qualite) ?? 85), total = fichiers.reduce((a, x) => a + x.taille, 0);
+        if (!c.tuiles.length) return { ok: false, text: fichiers.length > 1 ? 'Ces fichiers ne se convertissent pas vers un même format : dépose-les par sorte (photos, documents…).' : conversionsPossibles(fichiers[0].nom).refus ?? 'Je ne sais pas convertir ce fichier.', data: { fichiers } };
+        const exts = [...new Set(fichiers.map((x) => extOf(x.nom).toUpperCase() || '?'))].join(', ');
+        return { text: `${fichiers.length} fichier(s) · ${exts} · ${taillePropre(total)} · ${absent ? 'antivirus absent' : 'vérifiés par Asclépios'}\nConvertir en : ${[...c.tuiles.map((t) => t.label), ...c.autres.map((x) => x.label)].join(', ')}`,
+          data: { ...c, fichiers, total, totalTexte: taillePropre(total), exts, antivirus: absent ? 'absent' : 'sain' } };
+      } },
+    { id: 'recentes', label: 'Conversions récentes', what: 'Les dernières sortes de conversions, à refaire d\'un geste', read: true, quiet: true, quick: false,
+      run: (ctx) => { const l = recettes(ctx); return { text: l.length ? l.map((r) => `${r.titre} (${r.at.slice(0, 10)})`).join('\n') : 'Aucune conversion récente.', data: l }; } },
     { id: 'convertir', label: 'Convertir un fichier', what: 'Vers un autre format ; le résultat est écrit à côté de l\'original', words: ['convertis le fichier', 'convertir le fichier'], params: [
-      { key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true, depot: {} }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
+      { key: 'fichier', label: 'Fichier (dossier:chemin, ou inbox/nom pour un fichier joint dans la Discussion)', kind: 'text', required: true, depot: {} }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
       { key: 'qualite', label: 'Qualité', kind: 'select', options: QUAL, default: 'normale' }, { key: 'largeur', label: 'Largeur max (images, vidéos)', kind: 'number', default: 0 }, { key: 'hauteur', label: 'Hauteur max', kind: 'number', default: 0 },
       { key: 'codec', label: 'Codec vidéo', kind: 'select', options: ['h264', 'h265', 'av1'], default: 'h264' }, { key: 'sans_son', label: 'Sans le son', kind: 'boolean', default: false },
       { key: 'debut', label: 'Début (ex. 00:01:30)', kind: 'text', default: '' }, { key: 'duree', label: 'Durée (ex. 20)', kind: 'text', default: '' },
+      { key: 'garder_date', label: 'Garder la date de prise', kind: 'boolean', default: false, help: 'Photos : seule la date est gardée (ni lieu, ni appareil).' },
+      { key: 'rogner', label: 'Rogner avant (images)', kind: 'select', options: ['', 'carre', '4:3', '3:2', '16:9'], default: '' }, { key: 'gris', label: 'Noir et blanc (images)', kind: 'boolean', default: false },
     ], run: async (ctx, i) => {
       const f = resolveFile(ctx, s(i.fichier)); if (!existsSync(f.abs) || !statSync(f.abs).isFile()) throw new Error(`fichier introuvable : ${s(i.fichier)}`);
-      const to = propre(s(i.format)), t0 = Date.now();
+      const to = propre(s(i.format)), t0 = Date.now(), avant = statSync(f.abs).size;
+      // L'antivirus d'abord : un fichier n'est ouvert par les outils de conversion que s'il est sain.
+      const av = await asclepios(ctx, f.abs);
+      if (!av.sain) { remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: false, err: `fichier suspect (${av.quoi}), non converti` }); return { ok: false, text: `Fichier suspect (${av.quoi}) : je ne le convertis pas. ${av.suite ?? ''}`.trim() }; }
       try {
-        const out = await convertirFichier(ctx, f.abs, to, dirname(f.abs), optsOf(i));
-        const size = out.reduce((a, o) => a + statSync(o).size, 0);
-        remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: true, out: out.map((o) => relOf(f.folder, o)) });
-        return { text: `✅ ${basename(f.abs)} → ${out.length > 1 ? `${out.length} fichiers` : basename(out[0])} (${human(size)}, ${Math.round((Date.now() - t0) / 100) / 10} s)\n${out.slice(0, 10).map((o) => relOf(f.folder, o)).join('\n')}`, data: out, fichiers: out.map((o) => ({ nom: basename(o), ref: relOf(f.folder, o) })) };
+        const o = optsOf(i), rapport = s(i.rogner);
+        if (RAPPORTS[rapport]) o.cadre = await cadreDe(ctx, f.abs, rapport);
+        const out = await convertirFichier(ctx, f.abs, to, dirname(f.abs), o);
+        if (i.garder_date === true || i.garder_date === 'true') await garderDate(ctx, f.abs, out);
+        const size = out.reduce((a, x) => a + statSync(x).size, 0);
+        remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: true, out: out.map((x) => relOf(f.folder, x)) });
+        retenirRecette(ctx, basename(f.abs), to, i);
+        return { text: `✅ ${basename(f.abs)} → ${out.length > 1 ? `${out.length} fichiers` : basename(out[0])} (${human(size)}, ${Math.round((Date.now() - t0) / 100) / 10} s)\n${out.slice(0, 10).map((x) => relOf(f.folder, x)).join('\n')}`, data: { sorties: out.map((x) => relOf(f.folder, x)), avant, apres: size, antivirus: av.absent ? 'absent' : 'sain' }, fichiers: out.map((x) => ({ nom: basename(x), ref: relOf(f.folder, x) })) };
       } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `${basename(f.abs)} → ${to}`, ok: false, err: (e as Error).message }); throw e; }
     } },
     { id: 'depuis_lien', label: 'Convertir depuis un lien', what: 'Télécharge un fichier (http ou https), le fait vérifier par l\'antivirus, puis le convertit ; l\'original et le résultat vont dans l\'atelier (dossier « arrivees »)', words: ['convertis le lien', 'convertis ce lien'], external: true,
@@ -227,16 +336,11 @@ export const dvalinn: Module = {
       const dest = join(atelier(ctx), 'arrivees'); mkdirSync(dest, { recursive: true });
       const path = join(dest, freeName(dest, nom)); writeFileSync(path, t.data);
       // L'antivirus d'abord : un fichier venu d'ailleurs n'est converti que s'il est sain.
-      if (ctx.modules().some((m) => m.id === 'ullr')) {
-        const v = await ctx.call('ullr', 'fichier', { chemin: path }, 'vérifier un fichier téléchargé avant de le convertir', { interne: true }), d = v.data as { level?: string; findings?: Array<{ threat?: string; klass?: string }> } | undefined;
-        if (d?.level && ['moyenne', 'haute', 'critique'].includes(d.level)) {
-          const quoi = [...new Set((d.findings ?? []).map((x) => x.threat).filter(Boolean))].slice(0, 3).join(', ') || d.level, essai = (d.findings ?? []).length > 0 && (d.findings ?? []).every((x) => x.klass === 'test');
-          // Dangereux pour de bon : à l'écart tout de suite (quarantaine de l'antivirus, réversible). Un simple doute ou un fichier de test : laissé là, jamais ouvert.
-          let suite = `Il est resté dans atelier:arrivees/${basename(path)}, sans avoir été ouvert.`;
-          if (!essai && d.level !== 'moyenne') { const q = await ctx.call('ullr', 'isoler', { fichier: path, menace: quoi }, 'fichier téléchargé reconnu dangereux').catch(() => undefined); if (q && q.ok !== false) suite = 'Je l\'ai mis en quarantaine (antivirus) : il ne peut plus être ouvert, et tu peux l\'en ressortir si c\'est une erreur.'; }
-          remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: false, err: `fichier suspect (${quoi}), non converti` });
-          throw new Error(`fichier suspect (${quoi}) : je ne le convertis pas. ${suite}`);
-        }
+      // Dangereux pour de bon : à l'écart tout de suite (quarantaine de l'antivirus, réversible). Un simple doute ou un fichier de test : laissé là, jamais ouvert.
+      const av = await asclepios(ctx, path);
+      if (!av.sain) {
+        remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: false, err: `fichier suspect (${av.quoi}), non converti` });
+        throw new Error(`fichier suspect (${av.quoi}) : je ne le convertis pas. ${av.suite === 'Il est resté où il était, sans avoir été ouvert.' ? `Il est resté dans atelier:arrivees/${basename(path)}, sans avoir été ouvert.` : av.suite}`);
       }
       try {
         const out = await convertirFichier(ctx, path, to, dest, optsOf(i));
@@ -267,6 +371,7 @@ export const dvalinn: Module = {
       const op = s(i.operation) as PdfOp, refs = s(i.fichiers).split(/[,\n]+/).map((x) => x.trim()).filter(Boolean);
       const files = refs.map((r) => resolveFile(ctx, r)); if (!files.length) throw new Error('aucun fichier');
       for (const f of files) { if (!existsSync(f.abs)) throw new Error(`fichier introuvable : ${relOf(f.folder, f.abs)}`); if (op !== 'images_en_pdf' && extOf(f.abs) !== 'pdf') throw new Error(`${basename(f.abs)} n'est pas un PDF`); if (op === 'images_en_pdf' && familyOf(f.abs) !== 'image') throw new Error(`${basename(f.abs)} n'est pas une image`); }
+      for (const f of files) { const av = await asclepios(ctx, f.abs); if (!av.sain) return { ok: false, text: `${basename(f.abs)} : fichier suspect (${av.quoi}), je n'y touche pas. ${av.suite ?? ''}`.trim() }; }
       const first = files[0], stem = s(i.nom).replace(/\.pdf$/i, '') || `${basename(first.abs, extname(first.abs))}.${op}`;
       if (/[/\\]/.test(stem)) throw new Error('nom invalide');
       const work = workDir(ctx), out = join(work, `${stem}.pdf`);
@@ -277,6 +382,7 @@ export const dvalinn: Module = {
         const made = await runStep(ctx, st, work, dirname(first.abs));
         const sz = (p: string) => statSync(p).size, before = files.reduce((a, f) => a + sz(f.abs), 0), after = made.reduce((a, p) => a + sz(p), 0);
         remember(ctx, { at: ctx.now().toISOString(), what: `PDF ${op} · ${files.map((f) => basename(f.abs)).join(', ')}`, ok: true, out: made.map((m) => relOf(first.folder, m)) });
+        if (op === 'images_en_pdf') retenirRecette(ctx, basename(first.abs), 'pdf', {});
         const gain = op === 'alleger' || op === 'compresser' ? ` · ${human(before)} → ${human(after)} (${Math.round((1 - after / before) * 100)} % de moins)` : '';
         return { text: `✅ ${op.replace('_', ' ')} : ${made.length} fichier(s)${gain}\n${made.slice(0, 20).map((m) => relOf(first.folder, m)).join('\n')}`, data: made, fichiers: made.map((m) => ({ nom: basename(m), ref: relOf(first.folder, m) })) };
       } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `PDF ${op}`, ok: false, err: (e as Error).message }); throw e; } finally { rmSync(work, { recursive: true, force: true }); }

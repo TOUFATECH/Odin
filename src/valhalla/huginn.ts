@@ -140,7 +140,9 @@ export function fill(a: Action, text: string, names: Names, now = new Date()): R
     // Un chemin écrit dans la phrase désigne plus sûrement qu'un nom connu.
     if (/^(chemin|fichier|dossier)$/.test(k)) { const path = /(?:^|\s)((?:~|\.{0,2})?\/[^\s"'«»]+|[A-Za-z]:\\[^\s"'«»]+)/.exec(text)?.[1]; if (path) { input[p.key] = path.replace(/[.,;:!?]+$/, ''); continue; }
       // À défaut, un nom de fichier seul (« rapport.pdf ») : l'appli le cherchera là où les fichiers arrivent.
-      const bare = k === 'dossier' ? undefined : /(?:^|\s)([\w(][\w.()-]*\.[A-Za-z][A-Za-z0-9]{1,4})(?=[\s,;:!?]|$)/.exec(text)?.[1]; if (bare && !/^https?:/i.test(bare)) { input[p.key] = bare; continue; } }
+      const bare = k === 'dossier' ? undefined : /(?:^|\s)((?:inbox\/)?[\w(][\w.()-]*\.[A-Za-z][A-Za-z0-9]{1,4})(?=[\s,;:!?]|$)/.exec(text)?.[1]; if (bare && !/^https?:/i.test(bare)) { input[p.key] = bare; continue; } }
+    // Un format de fichier (« convertis ce fichier en PDF »).
+    if (k === 'format') { const f = /\b(?:en|vers)\s+(?:un |une |du |format )?\.?(pdfa|pdf|docx|odt|rtf|txt|html|md|jpe?g|png|webp|avif|gif|bmp|tiff|ico|mp4|mkv|webm|mov|avi|mp3|m4a|flac|wav|ogg|opus|aac|xlsx|ods|csv|tsv|json|yaml|toml|xml|srt|vtt|ass|lrc|vcf|ics|geojson|kml|gpx|zip|tar|epub|mobi|azw3|pptx|odp)\b/.exec(s)?.[1]; if (f) { input[p.key] = f.replace('jpeg', 'jpg'); continue; } }
     if (named) { input[p.key] = named; continue; }
     if (/^(ip|adresse_ip)$/.test(k) || (/adresse/.test(lab) && /\bip\b/.test(lab))) { if (ip) input[p.key] = ip; else if (mac && /mac/.test(lab)) input[p.key] = mac; continue; }
     if (/^(lien|url|adresse|source|site|flux)$/.test(k)) { if (url) input[p.key] = url; else if (k === 'adresse' && /\bsite\b/.test(lab) && domain) input[p.key] = domain; else if (/^(lien)$/.test(k) && repo && /github|depot|lien/.test(lab + s)) input[p.key] = repo; else if (ip && /adresse/.test(k)) input[p.key] = ip; if (input[p.key] !== undefined) continue; }
