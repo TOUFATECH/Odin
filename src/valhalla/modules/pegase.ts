@@ -10,6 +10,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Module, ModCtx, Section } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
+import { BaseAttente, quandBase } from '../base/index.ts';
+import { brancherPegase } from '../pegase/base.ts';
+/** la base d'Odin : Pégase s'y branche dès qu'elle existe */
+let debrancher: (() => void) | undefined;
 import { arreterFlux, magasin, jourDe, dateVisite, VOIRS, type Magasin, type Rec, type Voir } from '../pegase/store.ts';
 import { IA_PAR_DEFAUT, personnes, voirParDefaut, type Personne } from '../pegase/identites.ts';
 import type { Verdict } from '../ullr/engine.ts';
@@ -214,9 +218,9 @@ export const pegase: Module = {
       run: (ctx, i) => { const m = magOf(ctx), pid = profilDe(m, i.profil); if (!pid) return { ok: false, text: `Profil inconnu : « ${s(i.profil)} ».` }; const c = m.copier(pid, 'à la demande'); return { text: `📦 Copie faite pour ${nomDe(pid)} : ${Object.entries(c.nombres).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(', ') || 'rien encore'}.`, data: c }; } },
     { id: 'restaurer', label: 'Restaurer une copie', what: 'Remet les données Pégase d\'un profil comme dans la copie choisie, sur tous ses appareils', params: [PROFIL, { key: 'copie', label: 'Copie (ex. 2026-11-13)', kind: 'text', required: true }],
       grave: (i) => `remettre les données Pégase de ${s(i.profil)} comme dans la copie ${s(i.copie)} (ce qui a changé depuis est remplacé sur tous ses appareils ; une copie de l'état actuel est faite avant)`,
-      run: (ctx, i) => {
+      run: async (ctx, i) => {
         const m = magOf(ctx), pid = profilDe(m, i.profil); if (!pid) return { ok: false, text: `Profil inconnu : « ${s(i.profil)} ».` };
-        try { const r = m.restaurer(pid, s(i.copie)); return { text: `↩ Données de ${nomDe(pid)} remises comme le ${new Date(r.copie.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} (${r.changes} changement(s), envoyés à ses appareils). L'état d'avant est gardé dans une copie « avant restauration ».` }; }
+        try { const r = await m.restaurer(pid, s(i.copie)); return { text: `↩ Données de ${nomDe(pid)} remises comme le ${new Date(r.copie.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} (${r.changes} changement(s), envoyés à ses appareils). L'état d'avant est gardé dans une copie « avant restauration ».` }; }
         catch (e) { return { ok: false, text: `${(e as Error).message === 'copie inconnue' ? 'Cette copie n\'existe pas' : (e as Error).message} : choisis-en une dans l'onglet Copies.` }; }
       } },
     { id: 'ia', label: 'Changer les groupes qui questionnent l\'IA depuis Pégase', words: ['changer les groupes', 'groupes ia', 'qui peut questionner l ia'], what: 'Les groupes de Persona qui peuvent poser des questions à Odin depuis Pégase (« demander »)', quick: false, params: [{ key: 'groupes', label: 'Groupes (séparés par des virgules)', kind: 'text', default: IA_PAR_DEFAUT.join(', ') }],
@@ -228,6 +232,7 @@ export const pegase: Module = {
       } },
   ],
   view(ctx) {
+    if (!magOf(ctx).support.pret()) return { subtitle: 'en attente de la base d\'Odin', sections: [{ kind: 'text', title: 'Base d\'Odin pas encore prête', text: new BaseAttente('la base de Pégase').message, tone: 'attention' }] };
     const m = magOf(ctx), now = ctx.now().getTime(), ps = profils(m), apps = m.appareils(), actifs = apps.filter((a) => !a.revoque);
     const enLigne = actifs.filter((a) => m.enLigne.has(a.id)).length, derniere = Math.max(0, ...actifs.map((a) => a.synchro ?? 0));
     const inst = (ctx.settings.installateurs as Installateur[] | undefined) ?? [];
@@ -262,13 +267,13 @@ export const pegase: Module = {
     sections.push({ kind: 'form', onglet: T.R, title: 'Questions à l\'IA depuis Pégase', action: 'ia', submit: 'Enregistrer', params: [{ key: 'groupes', label: 'Groupes autorisés', kind: 'text', default: ((ctx.settings.ia as string[] | undefined) ?? IA_PAR_DEFAUT).join(', ') }] });
     sections.push({ kind: 'text', onglet: T.R, title: 'Comptes et droits', text: 'Les profils Pégase sont les personnes de Persona : même e-mail et même mot de passe que pour entrer dans Odin. Pour donner ou retirer l\'accès à Pégase, change les groupes de la personne dans Persona. Une personne créée depuis Pégase attend ton accord (code à 6 chiffres affiché des deux côtés).' });
     return {
-      subtitle: `${ps.length} profil(s) · ${actifs.length} appareil(s)${enLigne ? ` · ${enLigne} en direct` : ''}`,
+      subtitle: `${ps.length} profil(s) · ${actifs.length} appareil(s)${enLigne ? ` · ${enLigne} en direct` : ''}${m.support.nom === 'base' ? ' · données dans la base d\'Odin' : ''}`,
       kpis: [{ label: 'Profils', value: String(ps.length) }, { label: 'Appareils', value: String(actifs.length) }, { label: 'En direct', value: String(enLigne), tone: enLigne ? 'bon' : 'neutre' }, { label: 'Dernière synchro', value: derniere ? ilYa(derniere, now) : '—' }],
       sections, onglets: [T.A, T.H, T.C, T.R],
     };
   },
-  start(ctx) { magOf(ctx); },
-  stop() { arreterFlux(); },
+  start(ctx) { const m = magOf(ctx); debrancher?.(); debrancher = quandBase((b) => brancherPegase(m, b, { alerte: (title, detail) => ctx.alert({ level: 'haute', title, detail, key: 'pegase:base' }) })); },
+  stop() { arreterFlux(); debrancher?.(); debrancher = undefined; },
   watch: { every: 300, async run(ctx) {
     await ronde(ctx);
     const vus = Number(ctx.settings.installateursVus ?? 0);

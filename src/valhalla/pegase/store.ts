@@ -1,8 +1,11 @@
 // Pégase (le navigateur d'Odin) : le rangement des données synchronisées, côté Odin.
 //
-// - Zéro base de données : des fichiers JSON par profil et par collection, écrits d'un coup (fichier temporaire puis
-//   renommage : jamais à moitié écrits), droits 600.
-// - L'historique de navigation est un journal d'ajouts : un fichier par jour (une ligne JSON par visite), jamais réécrit.
+// - Dans la base d'Odin (PostgreSQL, schéma « pegase », voir pegase/base.ts) dès qu'elle est prête : les données des
+//   fichiers y passent toutes seules au premier passage (copie de secours des fichiers, retour possible).
+// - Sans base (pas encore prête la première fois, ou pas de PostgreSQL) : des fichiers JSON par profil et par
+//   collection, écrits d'un coup (fichier temporaire puis renommage : jamais à moitié écrits), droits 600 ;
+//   l'historique de navigation y est un journal d'ajouts (un fichier par jour, une ligne JSON par visite).
+// - La mémoire du magasin est la même dans les deux cas : seul le « support » (fichiers ou base) change.
 // - Une copie par jour (et avant chaque restauration ou mise à jour d'Odin) de toutes les collections sauf l'historique.
 // - Conflit : le « maj » le plus récent gagne ; à égalité, l'appareil au plus petit identifiant (docs/pegase-protocole.md).
 // Les personnes (nom, e-mail, mot de passe) ne sont PAS ici : elles sont dans Persona. Ici, seulement leurs préférences
@@ -10,6 +13,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { EventEmitter } from 'node:events';
+import { BaseAttente } from '../base/index.ts';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -52,6 +56,71 @@ export function empreinte(recs: Iterable<Pick<Rec, 'id' | 'maj'>>): { n: number;
 
 interface Profil { cols: Map<Col, Map<string, Rec>>; jourDe: Map<string, string>; emp: Map<Col, { n: number; hash: string }> }
 
+/** Ce que le magasin lit et écrit : des fichiers (SupportFichiers) ou la base d'Odin (pegase/base.ts). */
+export interface Support {
+  readonly nom: 'fichiers' | 'base';
+  /** faux tant que la base n'a pas été lue (Odin vient de démarrer et la base n'est pas prête) */
+  pret(): boolean;
+  lirePrefs(): Record<string, Prefs>;
+  ecrirePrefs(tout: Record<string, Prefs>, pid: string): void;
+  lireAppareils(): Appareil[];
+  ecrireAppareils(tous: Appareil[], change: Appareil): void;
+  personnes(): string[];
+  /** les collections d'un profil, et l'historique dans l'ordre où le rejouer (jour, visite) */
+  lireProfil(pid: string): { cols: Map<Col, Rec[]>; hist: Array<[string, Rec]> };
+  ecrireCol(pid: string, c: Col, tous: Iterable<Rec>, changes: Rec[]): void;
+  ajouterHistorique(pid: string, parJour: Map<string, Rec[]>): void;
+  copies(pid: string): Copie[];
+  ecrireCopie(pid: string, copie: Copie, cols: Record<string, Rec[]>): void;
+  effacerCopie(pid: string, id: string): void;
+  lireCopie(pid: string, id: string): Promise<(Copie & { cols: Record<string, Rec[]> }) | undefined>;
+  taille(pid: string): number;
+}
+
+/** Les données Pégase en fichiers JSON (le rangement d'avant la base, et celui d'un Odin sans base). */
+export class SupportFichiers implements Support {
+  readonly nom = 'fichiers' as const;
+  readonly dir: string;
+  constructor(dir: string) { this.dir = dir; }
+  pret(): boolean { return true; }
+  private get prefsFile() { return join(this.dir, 'profils.json'); }
+  lirePrefs(): Record<string, Prefs> { return lire(this.prefsFile, {}); }
+  ecrirePrefs(tout: Record<string, Prefs>): void { ecrireAtomique(this.prefsFile, JSON.stringify(tout, null, 1)); }
+  private get appsFile() { return join(this.dir, 'appareils.json'); }
+  lireAppareils(): Appareil[] { return lire<Appareil[]>(this.appsFile, []); }
+  ecrireAppareils(tous: Appareil[]): void { ecrireAtomique(this.appsFile, JSON.stringify(tous, null, 1)); }
+  personnes(): string[] { const d = join(this.dir, 'p'); try { return readdirSync(d).filter((x) => PID.test(x)); } catch { return []; } }
+  pdir(pid: string): string { if (!PID.test(pid)) throw new Error('profil invalide'); const d = join(this.dir, 'p', pid); mkdirSync(join(d, 'historique'), { recursive: true, mode: 0o700 }); return d; }
+  lireProfil(pid: string): { cols: Map<Col, Rec[]>; hist: Array<[string, Rec]> } {
+    const d = this.pdir(pid), cols = new Map<Col, Rec[]>(), hist: Array<[string, Rec]> = [];
+    for (const c of COLS) if (c !== 'historique') cols.set(c, lire<Rec[]>(join(d, `${c}.json`), []));
+    for (const f of readdirSync(join(d, 'historique')).filter((x) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(x)).sort()) {
+      for (const l of readFileSync(join(d, 'historique', f), 'utf8').split('\n')) {
+        if (!l.trim()) continue;
+        try { hist.push([f.slice(0, 10), JSON.parse(l) as Rec]); } catch { /* une ligne coupée (arrêt brutal) est ignorée */ }
+      }
+    }
+    return { cols, hist };
+  }
+  ecrireCol(pid: string, c: Col, tous: Iterable<Rec>): void { ecrireAtomique(join(this.pdir(pid), `${c}.json`), JSON.stringify([...tous])); }
+  /** Historique : ajout à la fin du fichier du jour (jamais réécrit). */
+  ajouterHistorique(pid: string, parJour: Map<string, Rec[]>): void { for (const [j, l] of parJour) appendFileSync(join(this.pdir(pid), 'historique', `${j}.jsonl`), l.map((r) => JSON.stringify(r)).join('\n') + '\n', { mode: 0o600 }); }
+  private cdir(pid: string): string { const d = join(this.pdir(pid), 'copies'); mkdirSync(d, { recursive: true, mode: 0o700 }); return d; }
+  copies(pid: string): Copie[] {
+    const d = this.cdir(pid);
+    return readdirSync(d).filter((f) => f.endsWith('.json')).map((f) => lire<Copie & { cols?: unknown }>(join(d, f), undefined as never)).filter(Boolean).map((c) => ({ id: c.id, date: c.date, raison: c.raison, nombres: c.nombres })).sort((a, b) => b.date - a.date);
+  }
+  ecrireCopie(pid: string, copie: Copie, cols: Record<string, Rec[]>): void { ecrireAtomique(join(this.cdir(pid), `${copie.id}.json`), JSON.stringify({ ...copie, cols })); }
+  effacerCopie(pid: string, id: string): void { rmSync(join(this.cdir(pid), `${id}.json`), { force: true }); }
+  async lireCopie(pid: string, id: string): Promise<(Copie & { cols: Record<string, Rec[]> }) | undefined> { return this.lireCopieTout(pid, id); }
+  lireCopieTout(pid: string, id: string): (Copie & { cols: Record<string, Rec[]> }) | undefined { const f = join(this.cdir(pid), `${id}.json`); return existsSync(f) ? lire<Copie & { cols: Record<string, Rec[]> }>(f, undefined as never) : undefined; }
+  taille(pid: string): number {
+    let n = 0; const walk = (d: string) => { for (const f of readdirSync(d, { withFileTypes: true })) { const p = join(d, f.name); if (f.isDirectory()) walk(p); else n += statSync(p).size; } };
+    try { walk(this.pdir(pid)); } catch { /* rien */ }
+    return n;
+  }
+}
+
 /** Les données Pégase d'un Odin (une instance par dossier). */
 export class Magasin {
   readonly dir: string;
@@ -60,31 +129,42 @@ export class Magasin {
   private profils = new Map<string, Profil>();
   private apps?: Appareil[];
   private prefsCache?: Record<string, Prefs>;
+  /** fichiers ou base (pegase/base.ts change le support quand la base est prête) */
+  support: Support;
   /** appareils dont le flux est ouvert en ce moment */
   readonly enLigne = new Map<string, number>();
-  constructor(dir: string, now: () => number = Date.now) { this.dir = dir; this.now = now; mkdirSync(dir, { recursive: true, mode: 0o700 }); this.bus.setMaxListeners(200); }
+  constructor(dir: string, now: () => number = Date.now) { this.dir = dir; this.now = now; mkdirSync(dir, { recursive: true, mode: 0o700 }); this.bus.setMaxListeners(200); this.support = new SupportFichiers(dir); }
+  /** Les données sont-elles lisibles ? (sinon : la base d'Odin n'est pas encore prête) */
+  private sup(): Support { if (!this.support.pret()) throw new BaseAttente('la base de Pégase'); return this.support; }
+  /** Change de support : la mémoire est gardée (migration) ou relue (`oublier`). */
+  changerSupport(s: Support, o: { oublier?: boolean } = {}): void { this.support = s; if (o.oublier) { this.profils.clear(); this.apps = undefined; this.prefsCache = undefined; } }
+  /** Tout ce que le magasin a en mémoire (pour passer d'un support à l'autre) : chaque profil est lu. */
+  instantane(): { prefs: Record<string, Prefs>; appareils: Appareil[]; profils: Map<string, { cols: Map<Col, Rec[]>; jourDe: Map<string, string> }> } {
+    const profils = new Map<string, { cols: Map<Col, Rec[]>; jourDe: Map<string, string> }>();
+    for (const pid of this.personnes()) { const p = this.charge(pid); profils.set(pid, { cols: new Map([...p.cols].map(([c, m]) => [c, [...m.values()]])), jourDe: new Map(p.jourDe) }); }
+    this.prefsCache ??= this.sup().lirePrefs();
+    return { prefs: structuredClone(this.prefsCache), appareils: structuredClone(this.appareils()), profils };
+  }
 
   // ---------------- Préférences par personne ----------------
-  private get prefsFile() { return join(this.dir, 'profils.json'); }
-  prefs(pid: string, defaut: Voir = 'tout'): Prefs { this.prefsCache ??= lire(this.prefsFile, {}); return this.prefsCache[pid] ?? { voir: defaut }; }
+  prefs(pid: string, defaut: Voir = 'tout'): Prefs { this.prefsCache ??= this.sup().lirePrefs(); return this.prefsCache[pid] ?? { voir: defaut }; }
   setPrefs(pid: string, patch: Partial<Prefs>, defaut: Voir = 'tout'): Prefs {
-    this.prefsCache ??= lire(this.prefsFile, {});
+    this.prefsCache ??= this.sup().lirePrefs();
     const p = { ...this.prefs(pid, defaut), ...patch }; this.prefsCache[pid] = p;
-    ecrireAtomique(this.prefsFile, JSON.stringify(this.prefsCache, null, 1)); return p;
+    this.sup().ecrirePrefs(this.prefsCache, pid); return p;
   }
   /** Les personnes qui ont déjà des données Pégase. */
-  personnes(): string[] { const d = join(this.dir, 'p'); try { return readdirSync(d).filter((x) => PID.test(x)); } catch { return []; } }
+  personnes(): string[] { return [...new Set([...this.sup().personnes(), ...this.profils.keys()])]; }
 
   // ---------------- Appareils et jetons ----------------
-  private get appsFile() { return join(this.dir, 'appareils.json'); }
-  appareils(): Appareil[] { this.apps ??= lire<Appareil[]>(this.appsFile, []); return this.apps; }
-  private saveApps(): void { ecrireAtomique(this.appsFile, JSON.stringify(this.appareils(), null, 1)); }
+  appareils(): Appareil[] { this.apps ??= this.sup().lireAppareils(); return this.apps; }
+  private saveApps(a: Appareil): void { this.sup().ecrireAppareils(this.appareils(), a); }
   appareil(id: string): Appareil | undefined { return this.appareils().find((a) => a.id === id); }
   /** Nouvel appareil avec son jeton (rendu une seule fois, jamais gardé). */
   nouvelAppareil(profil: string, o: { nom: string; plateforme: string; ip?: string; sso?: string }): { appareil: Appareil; jeton?: string } {
     const id = `a_${randomBytes(6).toString('hex')}`, secret = randomBytes(32).toString('base64url'), jeton = o.sso ? undefined : `pg1.${id}.${secret}`;
     const a: Appareil = { id, profil, nom: o.nom.slice(0, 60), plateforme: o.plateforme, cree: this.now(), vu: this.now(), ...(o.ip ? { ip: o.ip } : {}), ...(jeton ? { jeton: sha256(jeton) } : {}), ...(o.sso ? { sso: o.sso } : {}), envoyes: 0, recus: 0 };
-    this.appareils().push(a); this.saveApps();
+    this.appareils().push(a); this.saveApps(a);
     return { appareil: a, ...(jeton ? { jeton } : {}) };
   }
   /** L'appareil d'un jeton pg1 (comparaison en temps constant), s'il n'est pas révoqué. */
@@ -104,38 +184,27 @@ export class Magasin {
     const a = this.appareil(id); if (!a) return;
     const ecrire = (patch.synchro !== undefined) || this.now() - a.vu > 60_000 || (patch.ip && patch.ip !== a.ip);
     Object.assign(a, { ...patch, envoyes: a.envoyes + (patch.envoyes ?? 0), recus: a.recus + (patch.recus ?? 0) });
-    if (ecrire) this.saveApps();
+    if (ecrire) this.saveApps(a);
   }
   revoquer(id: string): Appareil | undefined {
     const a = this.appareil(id); if (!a || a.revoque) return a;
-    a.revoque = this.now(); this.saveApps(); this.bus.emit('revoque', a.id); return a;
+    a.revoque = this.now(); this.saveApps(a); this.bus.emit('revoque', a.id); return a;
   }
 
   // ---------------- Données d'un profil ----------------
-  private pdir(pid: string): string { if (!PID.test(pid)) throw new Error('profil invalide'); const d = join(this.dir, 'p', pid); mkdirSync(join(d, 'historique'), { recursive: true, mode: 0o700 }); return d; }
   private charge(pid: string): Profil {
     let p = this.profils.get(pid); if (p) return p;
-    const d = this.pdir(pid);
+    if (!PID.test(pid)) throw new Error('profil invalide');
+    const l = this.sup().lireProfil(pid);
     p = { cols: new Map(), jourDe: new Map(), emp: new Map() };
-    for (const c of COLS) {
-      if (c === 'historique') continue;
-      p.cols.set(c, new Map(lire<Rec[]>(join(d, `${c}.json`), []).map((r) => [r.id, r])));
-    }
+    for (const c of COLS) if (c !== 'historique') p.cols.set(c, new Map((l.cols.get(c) ?? []).map((r) => [r.id, r])));
     // L'historique est rejoué jour après jour, avec la même règle de conflit : le résultat est toujours le même.
     const h = new Map<string, Rec>();
-    for (const f of readdirSync(join(d, 'historique')).filter((x) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(x)).sort()) {
-      const jour = f.slice(0, 10);
-      for (const l of readFileSync(join(d, 'historique', f), 'utf8').split('\n')) {
-        if (!l.trim()) continue;
-        let r: Rec; try { r = JSON.parse(l) as Rec; } catch { continue; } // une ligne coupée (arrêt brutal) est ignorée
-        const old = h.get(r.id); if (!old || gagne(r, old)) { h.set(r.id, r); if (!r.suppr || !p.jourDe.has(r.id)) p.jourDe.set(r.id, jour); }
-      }
-    }
+    for (const [jour, r] of l.hist) { const old = h.get(r.id); if (!old || gagne(r, old)) { h.set(r.id, r); if (!r.suppr || !p.jourDe.has(r.id)) p.jourDe.set(r.id, jour); } }
     p.cols.set('historique', h);
     this.profils.set(pid, p); return p;
   }
   col(pid: string, c: Col): Map<string, Rec> { return this.charge(pid).cols.get(c)!; }
-  private sauve(pid: string, c: Col): void { ecrireAtomique(join(this.pdir(pid), `${c}.json`), JSON.stringify([...this.col(pid, c).values()])); }
 
   /** Vérifie un changement reçu ; rend la raison du refus. */
   static refus(x: unknown, now: number): string | undefined {
@@ -173,10 +242,10 @@ export class Magasin {
         hist.push([jour, r]);
       }
     }
-    // Historique : ajout à la fin du fichier du jour (jamais réécrit).
-    const byDay = new Map<string, string[]>(); for (const [j, r] of hist) byDay.set(j, [...(byDay.get(j) ?? []), JSON.stringify(r)]);
-    for (const [j, lines] of byDay) appendFileSync(join(this.pdir(pid), 'historique', `${j}.jsonl`), lines.join('\n') + '\n', { mode: 0o600 });
-    for (const c of touchees) { p.emp.delete(c); if (c !== 'historique') this.sauve(pid, c); }
+    // Historique : ajouté (fichiers : à la fin du fichier du jour, jamais réécrit ; base : une ligne par visite).
+    const byDay = new Map<string, Rec[]>(); for (const [j, r] of hist) byDay.set(j, [...(byDay.get(j) ?? []), r]);
+    if (byDay.size) this.sup().ajouterHistorique(pid, byDay);
+    for (const c of touchees) { p.emp.delete(c); if (c !== 'historique') this.sup().ecrireCol(pid, c, p.cols.get(c)!.values(), out.acceptes.filter((r) => r.col === c)); }
     if (out.acceptes.length) this.bus.emit('changements', { profil: pid, appareil, recs: out.acceptes });
     return out;
   }
@@ -210,34 +279,29 @@ export class Magasin {
   }
 
   // ---------------- Copies ----------------
-  private cdir(pid: string): string { const d = join(this.pdir(pid), 'copies'); mkdirSync(d, { recursive: true, mode: 0o700 }); return d; }
-  copies(pid: string): Copie[] {
-    const d = this.cdir(pid);
-    return readdirSync(d).filter((f) => f.endsWith('.json')).map((f) => lire<Copie & { cols?: unknown }>(join(d, f), undefined as never)).filter(Boolean).map((c) => ({ id: c.id, date: c.date, raison: c.raison, nombres: c.nombres })).sort((a, b) => b.date - a.date);
-  }
+  copies(pid: string): Copie[] { if (!PID.test(pid)) throw new Error('profil invalide'); return this.sup().copies(pid); }
   copier(pid: string, raison: Copie['raison']): Copie {
     const now = this.now(), id = raison === 'quotidienne' ? jourDe(now) : `${raison === 'avant restauration' ? 'avant' : raison === 'à la demande' ? 'copie' : 'maj'}-${now}`;
     const cols: Record<string, Rec[]> = {}, nombres: Record<string, number> = {};
     for (const c of COLS) if (c !== 'historique') { cols[c] = [...this.col(pid, c).values()]; nombres[c] = cols[c].filter((r) => !r.suppr).length; }
     const copie: Copie = { id, date: now, raison, nombres };
-    ecrireAtomique(join(this.cdir(pid), `${id}.json`), JSON.stringify({ ...copie, cols }));
+    this.sup().ecrireCopie(pid, copie, cols);
     // On garde 30 copies quotidiennes, 10 de chaque autre sorte.
     const all = this.copies(pid);
-    for (const [r, keep] of [['quotidienne', 30], ['avant restauration', 10], ['avant mise à jour', 10], ['à la demande', 10]] as const) for (const c of all.filter((x) => x.raison === r).slice(keep)) rmSync(join(this.cdir(pid), `${c.id}.json`), { force: true });
+    for (const [r, keep] of [['quotidienne', 30], ['avant restauration', 10], ['avant mise à jour', 10], ['à la demande', 10]] as const) for (const c of all.filter((x) => x.raison === r).slice(keep)) this.sup().effacerCopie(pid, c.id);
     return copie;
   }
-  aCopieDuJour(pid: string): boolean { return existsSync(join(this.cdir(pid), `${jourDe(this.now())}.json`)); }
+  aCopieDuJour(pid: string): boolean { const j = jourDe(this.now()); return this.copies(pid).some((c) => c.id === j); }
   /** Remet une copie : ses données reviennent avec « maj » = maintenant (elles gagnent partout), le reste est effacé. */
-  restaurer(pid: string, copieId: string): { changes: number; copie: Copie } {
-    if (!/^[\w-]{1,40}$/.test(copieId)) throw new Error('copie inconnue');
-    const f = join(this.cdir(pid), `${copieId}.json`); if (!existsSync(f)) throw new Error('copie inconnue');
-    const c = lire<Copie & { cols: Record<string, Rec[]> }>(f, undefined as never); if (!c?.cols) throw new Error('copie illisible');
+  async restaurer(pid: string, copieId: string): Promise<{ changes: number; copie: Copie }> {
+    if (!/^[\w-]{1,40}$/.test(copieId) || !PID.test(pid)) throw new Error('copie inconnue');
+    const c = await this.sup().lireCopie(pid, copieId); if (!c) throw new Error('copie inconnue'); if (!c.cols) throw new Error('copie illisible');
     this.copier(pid, 'avant restauration');
     const now = this.now(), ch: Array<Record<string, unknown>> = [];
     for (const col of COLS) {
       if (col === 'historique') continue;
       const voulu = new Map((c.cols[col] ?? []).map((r) => [r.id, r])), actuel = this.col(pid, col);
-      for (const [id, r] of voulu) { const a = actuel.get(id); if (!a || Boolean(a.suppr) !== Boolean(r.suppr) || JSON.stringify(a.data) !== JSON.stringify(r.data)) ch.push({ id, col, data: r.data, maj: now, ...(r.suppr ? { suppr: true } : {}) }); }
+      for (const [id, r] of voulu) { const a = actuel.get(id); if (!a || Boolean(a.suppr) !== Boolean(r.suppr) || !memeDonnee(a.data, r.data)) ch.push({ id, col, data: r.data, maj: now, ...(r.suppr ? { suppr: true } : {}) }); }
       for (const [id, a] of actuel) if (!voulu.has(id) && !a.suppr) ch.push({ id, col, maj: now, suppr: true });
     }
     this.bus.emit('restaure', { profil: pid, copie: c.id, date: c.date });
@@ -245,12 +309,16 @@ export class Magasin {
     return { changes: r.appliques, copie: { id: c.id, date: c.date, raison: c.raison, nombres: c.nombres } };
   }
 
-  /** Taille sur le disque des données d'un profil (octets). */
-  taille(pid: string): number {
-    let n = 0; const walk = (d: string) => { for (const f of readdirSync(d, { withFileTypes: true })) { const p = join(d, f.name); if (f.isDirectory()) walk(p); else n += statSync(p).size; } };
-    try { walk(this.pdir(pid)); } catch { /* rien */ }
-    return n;
-  }
+  /** Taille des données d'un profil (octets sur le disque ; en base : à peu près, d'après la mémoire). */
+  taille(pid: string): number { if (!PID.test(pid)) throw new Error('profil invalide'); return this.sup().taille(pid); }
+}
+
+/** Deux données égales, quel que soit l'ordre de leurs clés (la base range les clés à sa façon). */
+export function memeDonnee(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || !a || !b || Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a as object), kb = Object.keys(b as object); if (ka.length !== kb.length) return false;
+  return ka.every((k) => memeDonnee((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
 }
 
 export const dateVisite = (r: Rec) => (typeof r.data.date === 'number' ? r.data.date : r.maj);

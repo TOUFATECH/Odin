@@ -19,6 +19,7 @@ import { analyserFichier, iaGroupes, magOf, nouvelAppareil, propositions, verifi
 import { COLS, isCol, sha256, VOIRS, type Magasin, type Rec, type Voir } from '../valhalla/pegase/store.ts';
 import { brancherSso, ssoBranche, creerPersonne, droit, hashPassword, identifier, parEmail, personne, profilPublic, verifierMotDePasse, voirParDefaut, type Personne } from '../valhalla/pegase/identites.ts';
 import { agendaIcs } from '../valhalla/pegase/ics.ts';
+import { BaseAttente } from '../valhalla/base/index.ts';
 import { lireJeton } from '../valhalla/sso/oidc.ts';
 import { passwordProblem, validEmail } from './account.ts';
 import type { ModCtx } from '../valhalla/types.ts';
@@ -94,6 +95,7 @@ export async function pegaseRoute(req: IncomingMessage, res: ServerResponse, url
   try { await traiter(req, res, url, route, meth, deps); }
   catch (e) {
     if (e instanceof Trop) { err(res, 413, 'trop_gros', 'Envoi trop gros.'); req.socket?.destroySoon?.(); }
+    else if (e instanceof BaseAttente) err(res, 503, 'base_attente', e.message, { attente: 30 }, { 'retry-after': '30' });
     else { console.error(`[pegase] ${(e as Error).message}`); err(res, 500, 'interne', 'Odin a eu un problème en traitant cette demande : réessaie dans un instant.'); }
   }
   return true;
@@ -210,7 +212,7 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
   if (meth === 'GET' && route === 'copies') return json(res, 200, { ok: true, copies: m.copies(pid) });
   if (meth === 'POST' && route === 'restaurer') {
     const b = await lireJson(req, 4096) ?? {};
-    try { const r = m.restaurer(pid, s(b.copie)); return json(res, 200, { ok: true, changes: r.changes, texte: `Données remises comme le ${new Date(r.copie.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} sur tous tes appareils (l'état d'avant est gardé dans une copie).` }); }
+    try { const r = await m.restaurer(pid, s(b.copie)); return json(res, 200, { ok: true, changes: r.changes, texte: `Données remises comme le ${new Date(r.copie.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} sur tous tes appareils (l'état d'avant est gardé dans une copie).` }); }
     catch (e) { return err(res, 404, 'introuvable', (e as Error).message === 'copie inconnue' ? 'Cette copie n\'existe pas : choisis-en une dans la liste.' : (e as Error).message); }
   }
 
