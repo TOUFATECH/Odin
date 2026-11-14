@@ -1,5 +1,20 @@
 [
  {
+  "id": "v1310",
+  "at": "2026-11-14T15:10:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.31.0",
+  "title": "Odin retrouve ses yeux en pilule",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Plus de yeux carrés : Odin a de nouveau ses yeux en pilule, partout (interface, /maison, site, guide, autocollants, Pégase, Agora, applis Android).",
+   "Il reste bleu par défaut, avec ses deux halos qui tournent, dont un blanc ; ses humeurs gardent leurs couleurs."
+  ]
+ },
+ {
   "id": "v1300",
   "at": "2026-11-14T12:30:00+03:00",
   "date": "2026-11-14",

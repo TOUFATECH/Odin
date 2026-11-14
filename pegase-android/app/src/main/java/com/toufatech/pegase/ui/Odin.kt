@@ -33,7 +33,7 @@ import java.io.FileOutputStream
 import kotlin.math.min
 
 // Odin, le même dessin que dans l'interface d'Odin et dans Pégase sur l'ordinateur (pegase/src/ui/odin-visage.ts) :
-// corps bleu en dégradé, deux halos qui tournent, yeux carrés qui clignent, une respiration lente. Immobile si le
+// corps bleu en dégradé, deux halos qui tournent, yeux en pilule qui clignent, une respiration lente. Immobile si le
 // téléphone demande moins d'animations. Repère de 120 × 120 comme le dessin d'origine.
 
 private val CORPS = listOf(Color(0xFF2F6FE0), Color(0xFF3F82F0), Color(0xFF7EAEF8), Color(0xFFC3DBFF))
@@ -87,9 +87,9 @@ private fun DrawScope.dessinerOdin(tour1: Float, tour2: Float, souffle: Float, y
     scale(souffle, pivot = milieu) {
         // Dégradé du dessin d'origine : centre à (50 %, 46 %) du rond, rayon 54 % de sa largeur (88).
         drawCircle(Brush.radialGradient(0f to CORPS[0], 0.5f to CORPS[1], 0.82f to CORPS[2], 1f to CORPS[3], center = p(60f, 56.48f), radius = 47.52f * k), radius = 44f * k, center = milieu)
-        for (x in listOf(40f, 65f)) {
-            val h = 12f * yeux
-            drawRoundRect(Color.White, topLeft = p(x, 50f + (12f - h) / 2f), size = Size(15f * k, h * k), cornerRadius = CornerRadius(2.6f * k))
+        for (x in listOf(43f, 68f)) {
+            val h = 22f * yeux
+            drawRoundRect(Color.White, topLeft = p(x, 45f + (22f - h) / 2f), size = Size(9f * k, h * k), cornerRadius = CornerRadius(4.5f * k))
         }
     }
 }
