@@ -60,20 +60,18 @@
   const busyAt = (x, y) => kindAt(x, y) > 0;
   // Nombre de points occupés sous un carré de côté s placé en (x, y) (coin haut gauche) ; `gene` : pondéré (une commande compte triple).
   function cost(x, y, s) {
-    let n = 0; const k = 6;
+    let n = 0; const k = 4;
     for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) if (busyAt(x + (s * i) / k, y + (s * j) / k)) n++;
     return n;
   }
   function gene(x, y, s) {
-    let n = 0; const k = 6;
+    let n = 0; const k = 4;
     for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) n += kindAt(x + (s * i) / k, y + (s * j) / k);
     return n;
   }
 
-  /** Rien sous lui (carré de côté s en x, y) ? On s'arrête au premier point occupé (la recherche reste rapide). */
-  function isFree(x, y, s) { const k = 6; for (let j = 0; j <= k; j++) for (let i = 0; i <= k; i++) if (busyAt(x + (s * i) / k, y + (s * j) / k)) return false; return true; }
   /** Une commande sous lui (carré de côté s en x, y) ? */
-  function onCommand(x, y, s) { const k = 6; for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) if (kindAt(x + (s * i) / k, y + (s * j) / k) === 3) return true; return false; }
+  function onCommand(x, y, s) { const k = 4; for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) if (kindAt(x + (s * i) / k, y + (s * j) / k) === 3) return true; return false; }
 
   // ---------- Sa bulle (une notification) : posée juste au-dessus de lui, elle ne doit rien couvrir non plus ----------
   /** La bulle affichée en ce moment : sa taille, son texte. (La petite fenêtre « Que veux-tu ? » est ouverte exprès : il ne bouge pas pour elle.) */
@@ -121,7 +119,7 @@
       cands.push([A.left + W, A.top + H], [A.left + W, A.top], [A.left, A.top + H]);
       let best = null;
       for (const [x, y] of cands) {
-        if (!isFree(x, y, s)) continue;
+        const c = cost(x, y, s); if (c) continue;
         const cx = x + s / 2, cy = y + s / 2;
         let score = Math.random() * 40;
         if (want) score += Math.hypot(cx - want.x, cy - want.y);
@@ -157,11 +155,9 @@
       for (let k = 0; k <= H / 26; k++) for (let x = A.left + W; x >= A.left - 1; x -= Math.max(36, W / 8)) {
         const y = A.top + H - k * 26, r = bubbleRect(x, y, s, b), q = 4; let g = (k < 8 ? k * 1.5 : 12 + (k - 8) * 0.5) + (A.left + W - x) * 0.004 + (s < baseSize() ? 3 : 0);
         if (best && g >= best.g) continue;
-        // La bulle d'abord (c'est elle qui couvre le plus) ; on abandonne dès que cette place fait pire que la meilleure.
-        const pts = [], kx = Math.max(4, Math.round(b.w / 36));
-        for (let i = 0; i <= kx; i++) for (let j = 0; j <= 2; j++) pts.push(r.x + (b.w * i) / kx, r.y + (b.h * j) / 2);
-        for (let i = 0; i <= q; i++) for (let j = 0; j <= q; j++) pts.push(x + (s * i) / q, y + (s * j) / q);
-        for (let n = 0; n < pts.length && !(best && g >= best.g); n += 2) g += w(kindAt(pts[n], pts[n + 1]));
+        for (let i = 0; i <= q; i++) for (let j = 0; j <= q; j++) g += w(kindAt(x + (s * i) / q, y + (s * j) / q));
+        const kx = Math.max(4, Math.round(b.w / 36));
+        for (let i = 0; i <= kx; i++) for (let j = 0; j <= 2; j++) g += w(kindAt(r.x + (b.w * i) / kx, r.y + (b.h * j) / 2));
         if (!best || g < best.g) best = { x, y, s, g };
       }
     }

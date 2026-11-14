@@ -143,7 +143,10 @@
     if (ac.state === 'suspended') ac.resume();
     return ac;
   };
-  for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { unlocked = true; audio(); }, { capture: true, passive: true });
+  // iPhone et iPad ne débloquent le son que sur la fin d'un toucher (touchend) ou un clic : on écoute tout, le premier suffit.
+  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) document.addEventListener(ev, () => { unlocked = true; audio(); }, { capture: true, passive: true });
+  // Son coupé ou remis dans un autre onglet ou une autre fenêtre d'Odin : ici aussi, tout de suite.
+  addEventListener('storage', (e) => { if (e.key === 'odin-sound') soundOn = e.newValue !== '0'; });
   /** Une note : fréquence de départ → d'arrivée, durée (s), forme d'onde, volume, décalage (s). */
   function note(f0, f1, dur, type = 'sine', vol = 0.16, delay = 0) {
     const a = audio(); if (!a) return;

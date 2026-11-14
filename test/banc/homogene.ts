@@ -71,7 +71,7 @@ export function manquesEntete(e: Entete | null): string[] {
 export function ecartsEntetes(liste: Entete[], tol = 2): string[] {
   const ok = liste.filter((e) => e.retour && e.titre);
   if (ok.length < 2) return [];
-  const mode = <T>(xs: T[]): T => { const c = new Map<string, { v: T; n: number }>(); for (const x of xs) { const k = JSON.stringify(x); const e = c.get(k); if (e) e.n++; else c.set(k, { v: x, n: 1 }); } return [...c.values()].sort((a, b) => b.n - a.n)[0].v; };
+  const mode = <T>(xs: T[]): T => { if (!xs.length) return undefined as T; const c = new Map<string, { v: T; n: number }>(); for (const x of xs) { const k = JSON.stringify(x); const e = c.get(k); if (e) e.n++; else c.set(k, { v: x, n: 1 }); } return [...c.values()].sort((a, b) => b.n - a.n)[0].v; };
   const ref = {
     retour: mode(ok.map((e) => [e.retour!.x, e.retour!.y, e.retour!.w, e.retour!.h])),
     icone: mode(ok.filter((e) => e.icone).map((e) => [e.icone!.x, e.icone!.y, e.icone!.w, e.icone!.h])),
@@ -84,10 +84,10 @@ export function ecartsEntetes(liste: Entete[], tol = 2): string[] {
   const ecarts: string[] = [];
   for (const e of ok) {
     if (loin([e.retour!.x, e.retour!.y, e.retour!.w, e.retour!.h], ref.retour)) ecarts.push(`${e.id} : bouton retour en ${e.retour!.x},${e.retour!.y} (${e.retour!.w}×${e.retour!.h}) au lieu de ${ref.retour.join(',')}`);
-    if (e.icone && ref.icone && loin([e.icone.x, e.icone.y, e.icone.w, e.icone.h], ref.icone)) ecarts.push(`${e.id} : icône en ${e.icone.x},${e.icone.y} (${e.icone.w}×${e.icone.h}) au lieu de ${ref.icone.join(',')}`);
+    if (e.icone && ref.icone !== undefined && loin([e.icone.x, e.icone.y, e.icone.w, e.icone.h], ref.icone)) ecarts.push(`${e.id} : icône en ${e.icone.x},${e.icone.y} (${e.icone.w}×${e.icone.h}) au lieu de ${ref.icone.join(',')}`);
     if (Math.abs(e.titre!.x - ref.titreX) > tol || Math.abs(e.titre!.y - ref.titreY) > tol) ecarts.push(`${e.id} : titre en ${e.titre!.x},${e.titre!.y} au lieu de ${ref.titreX},${ref.titreY}`);
     if (e.police !== ref.police) ecarts.push(`${e.id} : titre en ${e.police} px au lieu de ${ref.police} px`);
-    if (e.partage && ref.partage && loin([e.partage.x + e.partage.w, e.partage.w, e.partage.h], ref.partage)) ecarts.push(`${e.id} : « Exporter / partager » finit à ${e.partage.x + e.partage.w} px (${e.partage.w}×${e.partage.h}) au lieu de ${ref.partage.join(',')}`);
+    if (e.partage && ref.partage !== undefined && loin([e.partage.x + e.partage.w, e.partage.w, e.partage.h], ref.partage)) ecarts.push(`${e.id} : « Exporter / partager » finit à ${e.partage.x + e.partage.w} px (${e.partage.w}×${e.partage.h}) au lieu de ${ref.partage.join(',')}`);
     if (e.onglets && ref.onglets !== undefined && Math.abs(e.onglets.hauteur - ref.onglets) > tol) ecarts.push(`${e.id} : rangée d'onglets haute de ${e.onglets.hauteur} px au lieu de ${ref.onglets} px`);
   }
   return ecarts;

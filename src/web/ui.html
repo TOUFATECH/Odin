@@ -600,6 +600,8 @@ details.activity .ai.info{color:#8FC1E3}
 /* Odin en liberté : il se pose où il y a de la place, se déplace, change de taille selon l'écran. */
 .odin.roam{position:fixed;left:0;top:0;z-index:50;width:var(--rs,64px);height:var(--rs,64px);translate:-200px -200px;transition:translate 1.6s cubic-bezier(.45,.05,.3,1),width .35s,height .35s,opacity .25s;touch-action:none;filter:drop-shadow(0 6px 12px rgba(0,0,0,.18))}
 .odin.roam[hidden]{display:none}
+/* Seul son corps (le disque) reçoit la souris et le doigt : les coins vides de son carré laissent passer les clics. */
+.odin.roam{pointer-events:none}.odin.roam .body{pointer-events:visiblePainted;cursor:pointer}
 .odin.roam.walk{transition:translate 1.1s cubic-bezier(.5,0,.3,1),width .35s,height .35s}
 .odin.roam.hopto{transition:translate .75s cubic-bezier(.3,1.35,.5,1),width .35s,height .35s}
 .odin.roam.walk .body{animation:a-walk .35s ease-in-out infinite}

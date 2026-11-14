@@ -39,6 +39,8 @@
   #odinBubble .ob-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
   #odinBubble .ob-say{width:26px;height:26px;border:0;border-radius:13px;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer;opacity:.8;flex:none}
   #odinBubble .ob-say:hover{background:rgba(255,255,255,.12)}
+  /* Au doigt : la zone qu'on touche fait 44 px, sans changer le dessin du petit bouton. */
+  @media (pointer:coarse){#odinBubble .ob-say{position:relative}#odinBubble .ob-say::after{content:'';position:absolute;inset:-9px}}
   #odinBubble .ob-tail{position:absolute;width:12px;height:12px;transform:rotate(45deg);background:inherit;border-radius:2px}
   @keyframes obPop{0%{opacity:0;transform:translateY(6px) scale(.92)}100%{opacity:1;transform:none}}
   #odinBubble.pop{animation:obPop .2s ease-out}

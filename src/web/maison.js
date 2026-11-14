@@ -372,7 +372,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     let home = null, visiting = 0;
     /** Retour à sa place de repos : la place libre la plus basse (au plus près d'où il est). */
     function rest(fast) {
-      const spots = freeSpots(); if (!spots.length) { home = null; return; }
+      // Aucune place libre : il reste où il est, mais toujours dans l'écran (l'écran a pu rapetisser depuis).
+      const spots = freeSpots(); if (!spots.length) { home = null; place(x, y, fast); return; }
       const low = spots[0][1], row = spots.filter((p) => p[1] >= low - 28);
       const best = row.sort((a, b) => Math.abs(a[0] - x) - Math.abs(b[0] - x))[0]; home = best; place(best[0], best[1], fast);
     }
@@ -383,6 +384,9 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       setTimeout(() => { if (Date.now() - visiting >= 5500 && !bubble?.dataset.chat) { visiting = 0; rest(); } }, 6000);
     }
     setTimeout(() => rest(), 600);
+    // Jamais hors de l'écran : au chargement d'un téléphone, la page peut d'abord se croire plus large (980 px), puis
+    // rapetisser sans « resize » ; une fenêtre tournée fait de même. Il revient alors dans l'écran, à la bonne taille.
+    setInterval(() => { const s = size(); if (!dragging && (x > innerWidth - s - 6 || y > innerHeight - s - 6 || parseFloat(w.style.getPropertyValue('--ps')) !== s)) { place(x, y, true); if (!bubble && !visiting) setTimeout(() => rest(true), 500); } }, 1000);
     setInterval(() => {
       if (bubble || dragging || play || reduce || visiting) return;
       const s = size();
@@ -411,6 +415,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     w.addEventListener('pointerup', () => {
       const d = dragging; dragging = null; w.classList.remove('drag'); if (!d || d.moved) return;
       taps = taps.filter((t) => Date.now() - t < 900); taps.push(Date.now());
+      // Le même petit son que partout ailleurs quand on la touche (coupé si le son d'Odin est coupé).
+      window.OdinFace?.sound?.('bounce');
       // Les clics rapides réglés dans Odin (1 = parler, 10 = se cacher…) ; sans eux, trois touches = elle rit.
       if (window.OdinMascotte) { window.OdinMascotte.tap(body, () => { if (bubble?.dataset.chat) closeBubble(); else chat(); }); return; }
       if (taps.length >= 3) { taps = []; mood('rire'); anim('spin'); say('Hihi, ça chatouille !', 'ok', 'rire'); return; }
