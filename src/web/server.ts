@@ -56,6 +56,7 @@ import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { pegaseRoute } from './pegase-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
+import { terminalApi } from './terminal-api.ts';
 import { exportApi } from './export-api.ts';
 import { partageApi, partagePublic } from './partage-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
@@ -771,6 +772,8 @@ export class WebChannel implements Channel {
     // Export (Word, PDF, Markdown, JSON) et partage de la page d'une appli.
     if (await exportApi(req, res, url, { connus: (t) => this.odin.redactor.redact(t) })) return;
     if (await partageApi(req, res, url, { ip, acces: this.access, origine: () => this.publicOrigin(req), connus: (t) => this.odin.redactor.redact(t) })) return;
+    // Les terminaux et l'aperçu des projets de Dédale (propriétaire seulement).
+    if (await terminalApi(req, res, url)) return;
     if (req.method === 'GET' && url.pathname === '/api/valhalla/fichier') {
       // Remettre à l'appareil un fichier produit par une appli (résultat d'une conversion…). L'appli décide (`retrait`) ;
       // le fichier part toujours comme un téléchargement, jamais comme une page affichée par Odin.

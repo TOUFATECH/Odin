@@ -1012,6 +1012,13 @@ CHECKS['snotra>askr'] = async (w) => {
   const d = (await w.v.act('snotra', 'ouvrir_tableau', { id: (r.data as { id: string }).id })).data as { blocs: Array<{ genre: string; nom: string }> };
   assert.deepEqual(d.blocs.map((b) => `${b.genre}:${b.nom}`), ['nuage:Internet', 'box:Livebox', 'nas:NAS Synology']);
 };
+CHECKS['hermod>ivaldi'] = async (w) => {
+  parc(w);
+  const r = await w.v.act('ivaldi', 'ouvrir_terminal', { nom: 'parc', poste: 'serveur-essai' }); assert.notEqual(r.ok, false, r.text);
+  assert.match(r.text, /Terminal « parc » ouvert sur serveur-essai \(SSH\)/);
+  const pc = await w.v.act('ivaldi', 'ouvrir_terminal', { poste: 'PC-ESSAI' }); assert.match(pc.text, /partage Windows : un terminal demande SSH/);
+  await w.v.act('ivaldi', 'fermer_terminal', { id: (r.data as { id: string }).id });
+};
 CHECKS['durinn>hel'] = async (w) => {
   const ctx = tiresias(w); await w.v.module('durinn')!.watch!.run(ctx);
   const v = await w.v.module('durinn')!.view(ctx, new URLSearchParams());
