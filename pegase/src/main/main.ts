@@ -47,6 +47,7 @@ class Pegase implements Appli {
     this.protection = new Protection(this, racineDonnees);
     await this.protection.demarrer();
     const p = this.ouvrirProfil(process.env.PEGASE_PROFIL || 'toi');
+    this.ecrireListeProfils();
     const f = this.nouvelleFenetreDe(p);
     f.ecran = 'navigateur';
     setInterval(() => this.veiller(), 30_000).unref();
@@ -111,6 +112,34 @@ class Pegase implements Appli {
   async action(f: Fenetre, action: string, arg: any): Promise<any> {
     if (action === 'memoire') return this.memoire();
     const fav = actionFavoris(f.profil, action, arg); if (fav.fait) return fav.r;
+    const p = f.profil;
+    switch (action) {
+      case 'majProfil': {
+        const pr = p.profil(); const n = { ...pr };
+        if (arg?.nom) { n.nom = String(arg.nom).slice(0, 60); n.lettre = n.nom.trim().slice(0, 1).toUpperCase() || 'T'; }
+        if (typeof arg?.couleur === 'number') n.couleur = arg.couleur % 8;
+        p.mettre('profil', n); this.ecrireListeProfils(); return;
+      }
+      case 'statsProfil': {
+        const depuis = Date.now() - 30 * 86400_000;
+        const ms = p.historique('', 1e9).filter((h) => h.date > depuis).reduce((s, h) => s + (h.duree ?? 0), 0);
+        const ouverts = new Set([...this.profils.values()].map((x) => x.id));
+        return { heures: Math.round(ms / 360_000) / 10, bloques: p.bloquesTotal, profils: this.listeProfils().map((x) => ({ ...x, actif: ouverts.has(x.id) })) };
+      }
+      case 'ouvrirProfil': {
+        const id = String(arg?.id || ''); if (!this.listeProfils().some((x) => x.id === id)) return;
+        const n = this.nouvelleFenetreDe(this.ouvrirProfil(id)); n.ecran = 'navigateur'; return;
+      }
+      case 'nouveauProfil': {
+        const nom = String(arg?.nom || '').trim().slice(0, 60); if (!nom) return;
+        const id = nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'profil';
+        let k = id, i = 2; while (this.listeProfils().some((x) => x.id === k)) k = `${id}-${i++}`;
+        const np = this.ouvrirProfil(k);
+        np.mettre('profil', { id: 'moi', nom, lettre: nom.slice(0, 1).toUpperCase(), couleur: (this.listeProfils().length + 1) % 8 });
+        this.ecrireListeProfils();
+        const n = this.nouvelleFenetreDe(np); n.ecran = 'navigateur'; return;
+      }
+    }
     return this.protection.action(f, action, arg);
   }
 
@@ -143,6 +172,22 @@ class Pegase implements Appli {
   memoire(): { total: number; processus: { type: string; mo: number }[] } {
     const l = app.getAppMetrics().map((m) => ({ type: m.type, mo: Math.round(m.memory.workingSetSize / 1024) }));
     return { total: l.reduce((s, x) => s + x.mo, 0), processus: l };
+  }
+
+  /** Les profils de ce PC (nom affiché gardé à part, sans rien de secret, pour la liste). */
+  listeProfils(): { id: string; nom: string; lettre: string; couleur: number }[] {
+    try { return JSON.parse(readFileSync(join(dossierProfils, 'profils.json'), 'utf8')); } catch { return []; }
+  }
+  ecrireListeProfils(): void {
+    const l = this.listeProfils();
+    for (const p of this.profils.values()) {
+      if (p.prive) continue;
+      const pr = p.profil(); const i = l.findIndex((x) => x.id === p.id);
+      const e = { id: p.id, nom: pr.nom, lettre: pr.lettre, couleur: pr.couleur };
+      if (i >= 0) l[i] = e; else l.push(e);
+    }
+    mkdirSync(dossierProfils, { recursive: true });
+    ecrireSur(join(dossierProfils, 'profils.json'), JSON.stringify(l));
   }
 
   quitter(): void { for (const p of this.profils.values()) p.fermer(); }

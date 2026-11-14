@@ -308,10 +308,10 @@ function rendreCouche(): void {
 
 /** Les menus se posent près du bouton qui les ouvre, sans dépasser de la fenêtre. */
 function placerFlottants(): void {
-  const el = $<HTMLElement>('.flottant[data-ancre]'); if (!el || !L.menu) return;
+  const el = $<HTMLElement>('#couche .flottant:not(.trouver)'); if (!el || !L.menu) return;
   const m = L.menu; const w = el.offsetWidth, h = el.offsetHeight;
   let x = m.x, y = m.y;
-  if (m.ancre) { x = m.ancre.left; y = m.ancre.bottom + 6; if (el.dataset.ancre === 'droite') x = m.ancre.right - w; if (el.dataset.ancre === 'haut') { y = m.ancre.top - h - 6; } }
+  if (m.ancre && el.dataset.ancre) { x = m.ancre.left; y = m.ancre.bottom + 6; if (el.dataset.ancre === 'droite') x = m.ancre.right - w; if (el.dataset.ancre === 'haut') { y = m.ancre.top - h - 6; } }
   x = Math.max(8, Math.min(innerWidth - w - 8, x)); y = Math.max(8, Math.min(innerHeight - h - 8, y));
   el.style.left = `${x}px`; el.style.top = `${y}px`;
 }

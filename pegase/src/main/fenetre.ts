@@ -64,10 +64,11 @@ export class Fenetre {
     const chercher = (o: any) => this.surOuvrir({ url: adresseRecherche(o.q, this.profil.reglages().moteur, this.appli.etatGlobal(this).odin?.url), espace: o.espace, depuis: o.depuis });
     const demander = (o: any) => { this.panneauOdin = true; this.envoyer('odin', o); this.planifier(); };
     profil.on('change', change); profil.on('video', video); profil.on('ouvrir', ouvrir); profil.on('retirer-vue', retirer); profil.on('pip', pip); profil.on('chercher', chercher); profil.on('demander-odin', demander);
-    this.win.on('closed', () => {
+    this.finale = () => {
       profil.off('change', change); profil.off('video', video); profil.off('ouvrir', ouvrir); profil.off('retirer-vue', retirer); profil.off('pip', pip); profil.off('chercher', chercher); profil.off('demander-odin', demander);
-    });
+    };
   }
+  private finale: () => void = () => {};
 
   private creer(): void {
     const mac = process.platform === 'darwin', win = process.platform === 'win32';
@@ -98,15 +99,18 @@ export class Fenetre {
     this.win.on('resize', caler);
     this.win.on('maximize', () => this.planifier()); this.win.on('unmaximize', () => this.planifier());
     this.win.on('focus', () => this.ui.webContents.focus());
-    this.win.on('closed', () => {
+    const w = this.win, ui = this.ui;
+    w.on('closed', () => {
       fenetres.delete(wcId);
-      for (const [id, vue] of this.montrees) { this.montrees.delete(id); const v = this.profil.vivants.get(id); if (v && v.fenetre === this) v.fenetre = null; void vue; }
-      if (!this.recreation) { try { this.ui.webContents.close(); } catch { /* */ } this.appli.fenetreFermee(this); }
+      if (this.win !== w) return; // fenêtre refaite (changement de thème) : la nouvelle a pris la suite
+      for (const [id] of this.montrees) { this.montrees.delete(id); const v = this.profil.vivants.get(id); if (v && v.fenetre === this) v.fenetre = null; }
+      try { ui.webContents.close(); } catch { /* */ }
+      this.finale();
+      this.appli.fenetreFermee(this);
     });
     this.profil.surVue = (v, wc) => this.brancherPage(v.id, wc);
   }
 
-  private recreation = false;
   /** Le thème transparent a besoin d'une fenêtre transparente dès sa création : on refait la fenêtre, les pages restent. */
   changerTheme(t: Theme): void {
     if (!THEMES.includes(t)) return;
@@ -116,10 +120,9 @@ export class Fenetre {
     const ancien = this.win, ancienneUi = this.ui, bornes = ancien.getBounds(), max = ancien.isMaximized();
     for (const [, vue] of this.montrees) { try { ancien.contentView.removeChildView(vue); } catch { /* */ } }
     this.montrees.clear();
-    this.recreation = true; this.bornes = bornes; this.pret = false;
+    this.bornes = bornes; this.pret = false;
     this.creer();
     if (max) this.win.maximize();
-    this.recreation = false;
     ancien.close();
     try { ancienneUi.webContents.close(); } catch { /* */ }
   }
@@ -128,11 +131,11 @@ export class Fenetre {
     wc.on('before-input-event', (e, i) => {
       if (i.type !== 'keyDown') return;
       const c = combo(i);
-      if (RACCOURCIS.has(c)) { e.preventDefault(); this.envoyer('touche', c); }
+      if (RACCOURCIS.has(c)) { e.preventDefault(); const f = (this.profil.vivants.get(id)?.fenetre as Fenetre | null) ?? this; f.envoyer('touche', c); }
     });
     wc.on('enter-html-full-screen', () => { this.pleinEcran = id; this.win.setFullScreen?.(true); this.poser(this.dernieresZones, this.couche); });
     wc.on('leave-html-full-screen', () => { this.pleinEcran = null; this.win.setFullScreen?.(false); this.poser(this.dernieresZones, this.couche); });
-    wc.on('found-in-page', (_e, r) => this.envoyer('trouve', { actif: r.activeMatchOrdinal, total: r.matches }));
+    wc.on('found-in-page', (_e, r) => ((this.profil.vivants.get(id)?.fenetre as Fenetre | null) ?? this).envoyer('trouve', { actif: r.activeMatchOrdinal, total: r.matches }));
   }
 
   envoyer(commande: string, arg?: unknown): void { if (this.pret && !this.ui.webContents.isDestroyed()) this.ui.webContents.send('pegase:commande', commande, arg); }
