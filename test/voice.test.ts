@@ -70,7 +70,8 @@ test('ElevenLabs : texte nettoyé pour la parole, clé envoyée, audio renvoyé'
     assert.equal(sent.model_id, 'eleven_multilingual_v2');
     assert.equal(sent.text, 'Voilà : npm test passe. Détails sur le lien affiché Odin Breaker');
     assert.equal(ttsReady(v, env), true);
-    assert.equal(ttsReady({ ...v, tts: { ...v.tts, voiceId: '' } }, env), false);
+    assert.equal(ttsReady({ ...v, tts: { ...v.tts, voiceId: '' } }, env), true, 'sans voix choisie : la voix d\'homme prête à l\'emploi sert, une clé suffit');
+    assert.equal(ttsReady({ ...v, tts: { ...v.tts, voiceId: '' } }, {}), false, 'sans clé : pas prêt');
     assert.match(forSpeech('```js\nx()\n```'), /code affiché/);
   } finally { m.close(); }
 });
@@ -82,7 +83,7 @@ test('copie de voix : jamais sans consentement, identifiant renvoyé sinon', asy
     const sample = [{ data: new Uint8Array([9, 9]), mime: 'audio/mpeg', filename: 'moi.mp3' }];
     await assert.rejects(cloneVoice('Ma voix', sample, false, v, env), /accord/);
     assert.equal(m.hits.length, 0, 'rien n\'est envoyé sans consentement');
-    assert.equal(await cloneVoice('Ma voix', sample, true, v, env), 'clone42');
+    assert.deepEqual(await cloneVoice('Ma voix', sample, true, v, env), { voiceId: 'clone42', needsCheck: false });
     assert.equal(m.hits[0].url, '/v1/voices/add');
     assert.match(m.hits[0].body.toString('latin1'), /name="name"\r\n\r\nMa voix/);
   } finally { m.close(); }
@@ -142,8 +143,9 @@ test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichie
   await gw.start();
   try {
     const until = Date.now() + 5000;
-    while (Date.now() < until && tg.hits.filter((x) => x.url.endsWith('/sendMessage')).length < 2) await new Promise((r) => setTimeout(r, 50));
-    await new Promise((r) => setTimeout(r, 200));
+    // On attend les deux réponses écrites ET la note vocale (elle part après le texte ; une machine chargée la retarde).
+    const sent = (t: string) => tg.hits.some((x) => x.url.endsWith('/sendMessage') && JSON.parse(x.body.toString()).text === t);
+    while (Date.now() < until && !(sent('La lumière est allumée.') && sent('Facture rangée.') && tg.hits.some((x) => x.url.endsWith('/sendVoice')))) await new Promise((r) => setTimeout(r, 50));
     const msgs = tg.hits.filter((x) => x.url.endsWith('/sendMessage')).map((x) => JSON.parse(x.body.toString()).text as string);
     assert.ok(msgs.some((t) => t === 'La lumière est allumée.'), 'texte seul, sans émoji');
     assert.match(o.provider.calls[0].messages.at(-1)!.content, /allume la lumière/);
@@ -154,7 +156,8 @@ test('Telegram : note vocale transcrite, réponse écrite + note vocale ; fichie
 });
 
 test('voix locale : Piper (WAV, sans clé) et serveur compatible OpenAI, tout reste sur la machine', async () => {
-  const m = await mock((h) => (h.url === '/' && h.method === 'POST' ? { type: 'audio/wav', body: Buffer.from('RIFFfakewav') } : h.url === '/v1/audio/speech' ? { type: 'audio/mpeg', body: Buffer.from('ID3local') } : { status: 404, body: '{}' }));
+  // Le serveur Piper actuel synthétise sur POST /synthesize (voir test/voix.test.ts pour ses deux protocoles en détail).
+  const m = await mock((h) => (h.url === '/synthesize' && h.method === 'POST' ? { type: 'audio/wav', body: Buffer.from('RIFFfakewav') } : h.url === '/v1/audio/speech' ? { type: 'audio/mpeg', body: Buffer.from('ID3local') } : { status: 404, body: '{}' }));
   try {
     const base = voiceCfg(m.url, m.url);
     const piper = { ...base, tts: { provider: 'piper' as const, voiceId: '', voiceName: '', model: '', baseUrl: m.url, apiKeyEnv: '' } };

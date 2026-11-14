@@ -364,21 +364,28 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       const switched = provider !== v.tts.provider;
       const ttsUrl = str('ttsUrl')?.trim() || (switched ? defaults.baseUrl : v.tts.baseUrl);
       if (!/^https?:\/\//.test(ttsUrl) && ttsUrl !== 'local') throw new Error('adresse du service de synthèse invalide (ex. http://localhost:5000, ou « local »)');
-      const voiceId = str('voiceId')?.trim() ?? (switched ? defaults.voiceId : v.tts.voiceId);
+      // En changeant de service, la voix de l'ancien n'a plus de sens (un nom de voix Piper n'existe pas chez ElevenLabs) :
+      // si la page renvoie l'ancienne telle quelle, on repart de la voix par défaut du nouveau service.
+      const sentVoice = str('voiceId')?.trim(), sentFemale = str('femaleVoiceId')?.trim();
+      const voiceId = switched && (sentVoice === undefined || sentVoice === v.tts.voiceId) ? defaults.voiceId : sentVoice ?? v.tts.voiceId;
       if (voiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(voiceId)) throw new Error('nom de voix invalide');
       const gender = (str('gender') ?? v.gender ?? 'homme') === 'femme' ? 'femme' : 'homme';
-      const femaleVoiceId = (str('femaleVoiceId') ?? v.femaleVoiceId ?? '').trim();
+      const femaleVoiceId = switched && (sentFemale === undefined || sentFemale === (v.femaleVoiceId ?? '')) ? '' : (sentFemale ?? v.femaleVoiceId ?? '');
       if (femaleVoiceId && !/^[A-Za-z0-9_.-]{1,80}$/.test(femaleVoiceId)) throw new Error('nom de voix de femme invalide');
-      setConfigValue(paths, ['voice'], {
+      const next: Voice = {
         ...v,
         gender, femaleVoiceId,
         enabled: Boolean(b.enabled), speakRepliesChosen: true,
-        tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName), model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
+        tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: voiceId ? (str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName)) : '', model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
         stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
         // L'ancienne case « lire mes réponses » vaut le mode de réponse quand celui-ci n'est pas envoyé.
         ...voiceOptions({ ...b, replyMode: b.replyMode ?? (b.speakReplies === undefined ? undefined : b.speakReplies ? 'voix' : 'texte') }, v),
-      });
-      return true;
+      };
+      setConfigValue(paths, ['voice'], next);
+      // Pris en compte tout de suite (la voix est relue à chaque phrase) : pas besoin de redémarrer Odin pour changer de voix.
+      Object.assign(cfg.voice, next);
+      // Seule une nouvelle clé OpenAI demande de relancer les services : les modèles d'IA la lisent au démarrage.
+      return Boolean(str('sttKey'));
     }
     // Réglages → Voix (écoute, interruptions, voix d'Odin, cerveau, confidentialité, voix ou texte) sans toucher aux services
     case 'voice_options': {

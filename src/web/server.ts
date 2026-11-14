@@ -58,6 +58,8 @@ import { exportApi } from './export-api.ts';
 import { partageApi, partagePublic } from './partage-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
+import { DirectPorts, directOpen, directPage, portsGet, portsPost } from '../valhalla/directports.ts';
+import { explainListen } from '../valhalla/hostports.ts';
 import { advise } from '../tools/valhalla.ts';
 
 import type { Odin } from '../runtime.ts';
@@ -82,7 +84,8 @@ import { getMode, setMode, type LifeMode } from '../tools/everyday.ts';
 import { isReminderJob, reminderText } from '../cron/reminders.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { exportConversations, type ExportFormat } from '../muninn/export.ts';
-import { TTS_DEFAULTS, cloneVoice, hear, listVoices, speak, speakAudio, sttReady, ttsIsLocal, ttsReady } from '../voice/voice.ts';
+import { TTS_DEFAULTS, hear, listVoices, speak, speakAudio, sttReady, ttsIsLocal, ttsReady } from '../voice/voice.ts';
+import { voixCloner, voixCopies, voixRetirer } from './voix-api.ts';
 import { ensureLocalVoice, resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
 import { forget as forgetAcquis, loadAcquis } from '../learn/acquis.ts';
 import { savingsOf } from '../providers/savings.ts';
@@ -223,6 +226,8 @@ export class WebChannel implements Channel {
   private tls?: TlsMaterial;
   private throttle = new AuthThrottle();
   private pairing = new Pairing();
+  /** Ports directs des applis (http://IP:<port> → la page d'une appli) : des portes de plus vers ce même serveur. */
+  private directs?: DirectPorts;
   /**
    * Première connexion par le téléphone (comme une télé) : l'écran qui a le droit de créer le compte montre
    * un code et un QR code ; le téléphone crée le compte avec ce code ; l'écran entre tout seul.
@@ -435,7 +440,7 @@ export class WebChannel implements Channel {
       const srv = this.server, tlsListeners = srv.listeners('connection') as Array<(s: unknown) => void>;
       srv.removeAllListeners('connection');
       const plain = createServer((req, res) => {
-        const host = /^[\w.\-]+(:\d+)?$|^\[[0-9a-fA-F:]+\](:\d+)?$/.test(req.headers.host ?? '') ? req.headers.host! : `${req.socket.localAddress?.replace(/^::ffff:/, '')}:${this.port}`;
+        const host = /^[\w.\-]+(:\d+)?$|^\[[0-9a-fA-F:]+\](:\d+)?$/.test(req.headers.host ?? '') ? req.headers.host! : `${req.socket.localAddress?.replace(/^::ffff:/, '')}:${req.socket.localPort ?? this.port}`;
         const path = (req.url ?? '/').startsWith('/') ? req.url! : '/';
         res.writeHead(308, { location: `https://${host}${path}`, 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
         res.end(`Odin est en HTTPS : https://${host}${path}`);
@@ -452,14 +457,19 @@ export class WebChannel implements Channel {
     const listen = (host: string) => new Promise<void>((r, j) => { this.server!.once('error', j); this.server!.listen(this.port, host, () => { this.server!.removeListener('error', j); r(); }); });
     try { await listen(this.host); } catch (e) {
       // Machine sans IPv6 : « :: » est refusé, on écoute alors sur toutes les adresses IPv4.
-      if (this.host !== '::' || !['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes((e as NodeJS.ErrnoException).code ?? '')) throw e;
+      if (this.host !== '::' || !['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes((e as NodeJS.ErrnoException).code ?? '')) throw ['EADDRINUSE', 'EACCES'].includes((e as NodeJS.ErrnoException).code ?? '') ? new Error(`l'interface d'Odin ne peut pas démarrer : ${await explainListen(e)} (un autre Odin tourne peut-être déjà ; sinon, change « web.port » dans le fichier config.json d'Odin)`) : e;
       this.host = '0.0.0.0'; await listen(this.host);
     }
+    // Ports directs des applis : chaque connexion reçue sur l'un d'eux est remise à ce serveur (mêmes règles, même
+    // chiffrement, même connexion exigée). Pas encore ouverts sur le réseau, ils n'écoutent que sur cette machine.
+    this.directs = new DirectPorts({ home: this.odin.paths.home, web: this.port, host: this.host, loopback: this.access === 'local' ? this.host : this.odin.cfg.web.host, access: this.access, https: Boolean(this.tls), attach: (sock) => { this.server!.emit('connection', sock); }, log: (t) => console.error(`[web] ${t}`) });
+    await this.directs.start();
     const ping = setInterval(() => { this.dropDeadStreams(); for (const c of this.clients) c.write(': ping\n\n'); }, 25_000);
     this.server.on('close', () => clearInterval(ping));
   }
 
   async stop(): Promise<void> {
+    this.directs?.stop();
     noticeBus.off('notice', this.onNotice);
     this.codexServer?.close();
     this.codexDevice?.abort();
@@ -478,6 +488,10 @@ export class WebChannel implements Channel {
     const ip = this.clientIp(req);
     if (this.throttle.blocked(ip)) return json(res, 429, { error: 'trop d\'essais de jeton : réessaie dans 15 minutes' });
     if (!this.hostOk(req)) return json(res, 403, { error: 'hôte refusé' });
+    // Port direct d'une appli : même interface, même connexion. Sans session, rien d'autre que l'écran de connexion
+    // (ni clé d'API, ni liens publics, ni création de compte : tout cela reste sur le port de l'interface).
+    const direct = this.directs?.appOf(req.socket);
+    if (direct && this.who(req) !== 'session' && !(this.accounts.exists() && directOpen(req.method ?? '', url.pathname))) return json(res, this.accounts.exists() ? 401 : 403, { error: this.accounts.exists() ? 'connexion requise' : `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${this.port}).`, account: this.accounts.exists(), direct: true });
 
     if (req.method === 'GET' && url.pathname === '/') {
       const t = url.searchParams.get('token');
@@ -502,7 +516,7 @@ export class WebChannel implements Channel {
       const w = this.who(req), authed = w === 'session' || w === 'cle', hasAccount = this.accounts.exists();
       // Peut-il créer le compte ? Oui avec le lien de première connexion, ou depuis le réseau local d'une installation neuve.
       const setup = !authed && !hasAccount && (w === 'installation' || this.claimable(req));
-      return void res.end(UI.replace('<!--PAGES-->', Object.keys(PAGES_JS).sort().map((n) => `<script nonce="__NONCE__" src="/pages/${n}"></script>`).join('\n')).replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
+      return void res.end((direct && w === 'session' ? directPage(UI, direct, valhallaOf()?.module(direct)?.name) : UI).replace('<!--PAGES-->', Object.keys(PAGES_JS).sort().map((n) => `<script nonce="__NONCE__" src="/pages/${n}"></script>`).join('\n')).replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     // La page du téléphone pour la première connexion (code tapé ou QR code scanné).
@@ -736,12 +750,15 @@ export class WebChannel implements Channel {
     if (req.method === 'GET' && url.pathname === '/api/voice/voices') {
       try { return json(res, 200, { ok: true, voices: await listVoices(this.odin.cfg.voice) }); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
+    if (req.method === 'GET' && url.pathname === '/api/voice/copies') return json(res, 200, voixCopies(this.odin));
     // Journal des routages : quelle IA a traité quoi (Réglages → Modèle → Qui a répondu).
     // Cerveau (deuxième cerveau) : pages, graphe, bases, recherche.
     if (req.method === 'GET' && url.pathname.startsWith('/api/draupnir/')) {
       const r = await draupnirGet(this.odin, url.pathname, url.searchParams, `${this.odin.cfg.web.tls?.enabled === false ? 'http' : 'https'}://${req.headers.host ?? 'localhost'}`);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
+    // Ports directs des applis (Réglages → Ports, en-tête de la page d'une appli) : lire ici ; régler, ouvrir, fermer en POST.
+    if (req.method === 'GET' && url.pathname === '/api/ports') return json(res, 200, await portsGet(valhallaOf(), url.searchParams, { adresses: { freyja: this.odin.cfg.venus?.url ?? '' } }));
     // Export (Word, PDF, Markdown, JSON) et partage de la page d'une appli.
     if (await exportApi(req, res, url, { connus: (t) => this.odin.redactor.redact(t) })) return;
     if (await partageApi(req, res, url, { ip, acces: this.access, origine: () => this.publicOrigin(req), connus: (t) => this.odin.redactor.redact(t) })) return;
@@ -877,15 +894,11 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname === '/api/voice/clone') {
-      // Copie d'une voix : un enregistrement d'une à quelques minutes, avec consentement explicite.
+      // Copie d'une voix : un enregistrement d'une à quelques minutes ; l'accord est noté avant qu'il parte (voix-api.ts).
       try {
-        const audio = await readRaw(req, 25 * 1024 * 1024);
-        const name = url.searchParams.get('name') ?? '';
-        const id = await cloneVoice(name, [{ data: audio, mime: String(req.headers['content-type'] ?? 'audio/mpeg'), filename: url.searchParams.get('file') ?? 'echantillon.mp3' }], url.searchParams.get('consent') === '1', v);
-        setConfigValue(this.odin.paths, ['voice', 'tts'], { ...v.tts, voiceId: id, voiceName: name.trim().slice(0, 60) });
-        v.tts.voiceId = id; v.tts.voiceName = name.trim().slice(0, 60);
+        const r = await voixCloner(this.odin, url.searchParams, await readRaw(req, 25 * 1024 * 1024), String(req.headers['content-type'] ?? 'audio/mpeg'), this.accounts.profile()?.prenom ?? '');
         this.notify('state');
-        return json(res, 200, { ok: true, voiceId: id });
+        return json(res, 200, r);
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     // Envoi de fichier : lu en flux AVANT toute lecture JSON (sinon un fichier non JSON était refusé).
@@ -959,6 +972,7 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     const body = await readJson(req);
+    if (url.pathname === '/api/ports') return json(res, 200, await portsPost(valhallaOf(), body, { adresses: { freyja: this.odin.cfg.venus?.url ?? '' } }));
     if (url.pathname.startsWith('/api/draupnir/')) {
       const r = await draupnirPost(this.odin, url.pathname, body);
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
@@ -975,6 +989,7 @@ export class WebChannel implements Channel {
       const r = await brainPost(this.odin, url.pathname, body, async (text) => { const a = await this.odin.agent.run(text, { sessionId: 'web:cerveau', channel: 'web', peer: 'principal', trusted: true }); return { text: a.text, answeredBy: a.answeredBy }; });
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
+    if (url.pathname === '/api/voice/retirer') { const r = await voixRetirer(this.odin, String(body.id ?? '')); this.notify('state'); return json(res, 200, r); }
     if (url.pathname === '/api/voice/speak') {
       if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
       try {
@@ -1216,7 +1231,7 @@ export class WebChannel implements Channel {
       case 'settings_save': {
         let restart: boolean;
         try { restart = applySettings(this.odin.paths, this.odin.cfg, String(b.section), b); } catch (e) { return { ok: false, error: (e as Error).message }; }
-        for (const v of [b.apiKey, b.token, b.value]) if (typeof v === 'string') this.odin.redactor.add(v.trim());
+        for (const v of [b.apiKey, b.token, b.value, b.elevenKey, b.sttKey]) if (typeof v === 'string') this.odin.redactor.add(v.trim());
         if (restart && this.hooks.reload) {
           // On répond d'abord : la page se reconnecte toute seule au flux après le redémarrage.
           setTimeout(() => void this.hooks.reload!().catch((e) => console.error('[web] redémarrage :', (e as Error).message)), 200);

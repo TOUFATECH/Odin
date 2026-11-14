@@ -78,6 +78,12 @@ export function replyModeCommand(text: string): 'voix' | 'texte' | undefined {
   if (/^(parle(-| )moi|reponds?(-| )moi (a voix haute|en vocal|avec ta voix))( desormais| maintenant| a partir de maintenant)?$/.test(t) || /^(active|remets) (la voix|le son)$/.test(t)) return 'voix';
   return undefined;
 }
+/** « Parle avec une voix de femme », « reprends ta voix d'homme » (phrase seule) → le genre de la voix d'Odin. Pur. */
+export function voiceGenderCommand(text: string): 'homme' | 'femme' | undefined {
+  const t = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’`]/g, '\'').replace(/[.!?\s]+$/, '').replace(/^odin[\s,]+/, '');
+  const m = /^(?:(?:parle(?:-| )?(?:moi)? avec|prends|reprends|mets|utilise|choisis|je veux|passe (?:a|sur)) )?(?:(?:une|ta|la) )?voix (?:d'|de )(homme|femme)(?: desormais| maintenant| a partir de maintenant)?$/.exec(t);
+  return m ? (m[1] as 'homme' | 'femme') : undefined;
+}
 
 export class Gateway {
   private channels = new Map<string, Channel>();
@@ -236,7 +242,8 @@ export class Gateway {
       if (!e) return ch.send(m.peer, 'Cette recherche n\'est plus dans l\'historique de Pythie.');
       if (vs[1] === 'ecouter') {
         if (!ch.sendVoice || !ttsReady(this.odin.cfg.voice)) return ch.send(m.peer, 'La voix d\'Odin n\'est pas réglée (Réglages → Voix).');
-        await speakAudio(e.answer.replace(/\[\d{1,2}\]/g, '').replace(/\*\*/g, '').slice(0, 4000), voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((x) => ch.send(m.peer, `⚠️ ${(x as Error).message}`));
+        const { spoken } = await import('../valhalla/modules/volva.ts');
+        await speakAudio(spoken(e.answer), voiceFor(this.odin.cfg.voice, this.odin.cfg), 'opus_48000_64').then((a) => toVoiceNote(a)).then((a) => ch.sendVoice!(m.peer, a)).catch((x) => ch.send(m.peer, `⚠️ Je n'ai pas pu lire la réponse : ${(x as Error).message}`));
         return;
       }
       const { toMarkdown } = await import('../valhalla/volva/engine.ts');
@@ -338,6 +345,14 @@ export class Gateway {
       for (const c of this.channels.values()) c.notify?.('state');
       return ch.send(m.peer, mode === 'texte' ? '✍️ D\'accord, je te réponds par écrit seulement. Dis « parle-moi » pour que je reparle.' : '🔊 D\'accord, je te réponds à voix haute (et par écrit).');
     }
+    // Voix d'homme ou de femme, à la demande (sans IA) : « parle avec une voix de femme », « reprends ta voix d'homme ».
+    const genre = owner ? voiceGenderCommand(text) : undefined;
+    if (genre) {
+      const { setConfigValue } = await import('../config.ts');
+      setConfigValue(this.odin.paths, ['voice', 'gender'], genre); this.odin.cfg.voice.gender = genre;
+      for (const c of this.channels.values()) c.notify?.('state');
+      return ch.send(m.peer, genre === 'femme' ? '👩 D\'accord, je parle maintenant avec une voix de femme.' : '👨 D\'accord, je parle maintenant avec une voix d\'homme.');
+    }
     // Quelle IA a traité quoi (journal réel) : /ia, /ia 5, /ia tout, /ia bilan, /ia eco (les économies).
     const ia = /^\/ia\b\s*(tout|bilan|eco|[ée]conomies|\d+)?/i.exec(text);
     if (owner && ia) {
@@ -408,7 +423,8 @@ export class Gateway {
       } else await ch.send(m.peer, body, { final: true, ...(owner && ia && show !== 'jamais' ? { model: ia } : {}) });
       // Tu as parlé : Odin te répond aussi à voix haute (note vocale), si la voix est réglée.
       // … ou quand tu le demandes (« réponds-moi en vocal », « dis-le à voix haute »).
-      const askVoice = /\b(en vocal|vocalement|a voix haute|à voix haute|message vocal|note vocale|dis[- ]le moi)\b/i.test(m.text);
+      // (« à voix haute » s'écrit avec un accent : la limite de mot classique ne le voyait pas, la demande était ignorée.)
+      const askVoice = /(?<![\p{L}\p{N}])(en vocal|vocalement|[aà] voix haute|message vocal|note vocale|dis[- ]le[- ]moi)(?![\p{L}\p{N}])/iu.test(m.text);
       const driving = owner && getMode(this.odin.muninn).mode === 'conduite';
       // (Tu as parlé : réponse vocale par défaut, sauf si tu as coupé « répondre en vocal » dans Réglages → Voix.)
       if ((m.voice && this.odin.cfg.voice.voiceReplies !== false || askVoice || driving) && ch.sendVoice && ttsReady(this.odin.cfg.voice) && r.text) {

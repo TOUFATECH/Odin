@@ -5,7 +5,8 @@
 import { Engine, restartOf, type Ctr } from '../hringhorni/engine.ts';
 import { cli, parseArgs, splitLine, psTable, VALUES, VERBS } from '../hringhorni/cli.ts';
 import { defineService, removeService, services, startService, stopService, tuneService } from '../hringhorni/services.ts';
-import { appPort, describe as portsText, ODIN_PORTS, APP_PORTS, WEB, SERVICES_RANGE } from '../ports.ts';
+import { appPort, describe as portsText, ODIN_PORTS, APP_PORTS, WEB, SERVICES_RANGE, DIRECT_RANGE, reserved } from '../ports.ts';
+import { parsePorts, placePorts, usedPorts } from '../parc.ts';
 import { budget, bytes, cgStat, human, load, vertical, type CgStat } from '../hringhorni/scale.ts';
 import { join } from 'node:path';
 import { databaseFor, needsDb, roleOf, SERVER as PG_SERVER } from '../urdr/serveur.ts';
@@ -63,9 +64,15 @@ export const naglfar: Module = {
     { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre un conteneur', params: [CT], words: ['redemarre', 'redémarre', 'relance'], run: async (_ctx, i) => { const c = await engine().restart(safe(i.conteneur)); return { text: `🔄 ${c.spec.name} redémarré.` }; } },
     { id: 'lancer', label: 'Lancer une appli', what: 'Récupère l\'image si besoin, crée le conteneur et le démarre ; une appli qui a besoin d\'une base la reçoit dans la base d\'Odin', params: LANCER, grave: (i) => `lancer un conteneur à partir de ${s(i.image)}${(s(i.base) && !/selon/.test(s(i.base)) ? !/aucune/i.test(s(i.base)) : needsDb(s(i.image))) ? ' (avec sa base dans la base de données d\'Odin)' : ''}`, words: ['lance l\'image', 'installe le conteneur'], run: async (ctx, i) => {
       const image = safe(i.image), name = s(i.nom).trim() || undefined;
-      const known = appPort(image), opts = { image, name, ports: s(i.ports) || (known ? `${known.host}:${known.inner}` : ''), mounts: s(i.dossiers), env: env(s(i.env)), restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: s(i.memoire).trim() || undefined, cpus: s(i.coeurs).trim() || undefined };
+      const known = appPort(image), e = engine();
+      // Un port déjà pris (par un autre programme, une autre appli installée, ou gardé par Odin) : le suivant libre, et on le dit.
+      // (Avant, le conteneur démarrait sans son port, avec une seule ligne dans son journal.)
+      const used = usedPorts([], (await ctx.run('ss', ['-ltnH'], { timeoutMs: 5000 }).catch(() => ({ out: '' }))).out);
+      for (const c of e.ps()) for (const p of c.spec.ports) used.add(p.host);
+      for (const r of reserved()) if (r !== known?.host) used.add(r);
+      const placed = placePorts(parsePorts(s(i.ports) || (known ? `${known.host}:${known.inner}` : '')), used);
+      const opts = { image, name, ports: placed.ports, mounts: s(i.dossiers), env: env(s(i.env)), restart: restartOf(s(i.redemarrage) || 'unless-stopped'), memory: s(i.memoire).trim() || undefined, cpus: s(i.coeurs).trim() || undefined };
       const wantDb = s(i.base) && !/selon/.test(s(i.base)) ? !/^(aucune|non|no)$/i.test(s(i.base)) : needsDb(image);
-      const e = engine();
       // Avec base : le serveur d'Odin (créé si besoin), la base de l'appli et ses variables, puis l'appli ; sauvegarde chaque nuit.
       const j = !wantDb ? e.runJob(opts) : e.startJob('installer', image, async (report, set) => {
         if (!e.findImage(image)) await e.pull(image, () => {}, (p) => report(p));
@@ -79,7 +86,7 @@ export const naglfar: Module = {
         return { container: c.spec.name, name: c.spec.name, note: `${c.spec.name} en marche · sa base « ${db.info.database} » dans la base d'Odin, sauvegardée chaque nuit` };
       }, name);
       if (name) ctx.saveSettings({ running: [...new Set([...((ctx.settings.running as string[]) ?? []), name])] });
-      return { text: `🚢 Installation de ${image} lancée${wantDb ? ', avec sa base dans la base de données d\'Odin (sauvegardée chaque nuit)' : ''} : la barre de progression est dans Argo (téléchargement, montage, démarrage).`, data: { job: j.id } };
+      return { text: `🚢 Installation de ${image} lancée${wantDb ? ', avec sa base dans la base de données d\'Odin (sauvegardée chaque nuit)' : ''} : la barre de progression est dans Argo (téléchargement, montage, démarrage).${placed.ports.length ? `\nPort${placed.ports.length > 1 ? 's' : ''} : ${placed.ports.map((p) => `${p.host} → ${p.inner}`).join(' · ')}${placed.moved.length ? ` (${placed.moved.join(' · ')})` : ''}.` : ''}`, data: { job: j.id, ports: placed.ports } };
     } },
     { id: 'executer', label: 'Commande dans un conteneur', what: 'Lance une commande dans un conteneur en marche et montre sa réponse', params: [CT, { key: 'commande', label: 'Commande', kind: 'text', required: true }], grave: (i) => `lancer « ${s(i.commande)} » dans ${s(i.conteneur)}`, external: true, run: async (_ctx, i) => {
       const out: string[] = []; const code = await cli(['exec', safe(i.conteneur), ...splitLine(s(i.commande))], { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
@@ -108,7 +115,7 @@ export const naglfar: Module = {
     } },
     { id: 'ports', label: 'Les ports des applis', what: 'Chaque appli et son port, au même endroit (Odin, ses services réseau, les applis installées)', read: true, words: ['quels ports', 'les ports', 'ports des applis', 'tableau des ports'], run: (ctx) => {
       const mods = ctx.modules(), own = mods.map((m) => `- ${m.name} : ${portsText(m.id)}`), apps = APP_PORTS.map((a) => `- ${a.name} : ${a.host} → ${a.inner} dans le conteneur`);
-      return { text: `Interface d'Odin : ${WEB}\nServices réseau d'Odin :\n${ODIN_PORTS.filter((p) => p.app !== 'odin').map((p) => `- ${p.name} : ${p.port}/${p.proto.toUpperCase()} · ${p.what} (${p.where})`).join('\n')}\nApplis d'Odin :\n${own.join('\n')}\nApplis installées (ports fixes) :\n${apps.join('\n')}\nServices mis à l'échelle : ${SERVICES_RANGE[0]}-${SERVICES_RANGE[1]}`, data: { odin: ODIN_PORTS, applis: APP_PORTS.map((a) => ({ name: a.name, host: a.host, inner: a.inner })), modules: mods.map((m) => ({ id: m.id, name: m.name, ports: portsText(m.id) })) } };
+      return { text: `Interface d'Odin : ${WEB}\nServices réseau d'Odin :\n${ODIN_PORTS.filter((p) => p.app !== 'odin').map((p) => `- ${p.name} : ${p.port}/${p.proto.toUpperCase()} · ${p.what} (${p.where})`).join('\n')}\nApplis d'Odin :\n${own.join('\n')}\nApplis installées (ports fixes) :\n${apps.join('\n')}\nServices mis à l'échelle : ${SERVICES_RANGE[0]}-${SERVICES_RANGE[1]}\nPorts directs des applis d'Odin (proposés) : ${DIRECT_RANGE[0]}-${DIRECT_RANGE[1]} · voir « ports directs » (Thermopyles) ou Réglages → Ports`, data: { odin: ODIN_PORTS, applis: APP_PORTS.map((a) => ({ name: a.name, host: a.host, inner: a.inner })), modules: mods.map((m) => ({ id: m.id, name: m.name, ports: portsText(m.id) })) } };
     } },
     { id: 'services', label: 'Services mis à l\'échelle', what: 'Les services en plusieurs copies : copies prêtes, visiteurs, pourquoi', read: true, words: ['mise a l\'echelle', 'autoscaling', 'combien de copies'], run: () => { const l = services(engine() as Engine); return { text: l.map(({ spec: sp, state: st }) => `- ${sp.name} · ${st.status} · ${st.replicas.filter((r) => r.healthy).length} copies (${sp.scale.min}-${sp.scale.max}) · ${st.active} visiteurs · ${st.reason}`).join('\n') || 'Aucun service mis à l\'échelle.', data: l.map((x) => { const b = budget(x.spec.budgetPct, { cpus: x.spec.budget?.cpus, memory: x.spec.budget?.memory ? bytes(x.spec.budget.memory) : undefined }), per = { cpus: Number(x.spec.per.cpus) || 1, memory: bytes(x.spec.per.memory) }, n = x.state.replicas.length; return { ...x, budget: { cpus: b.cpus, memory: b.memory, usedCpus: n * per.cpus, usedMemory: n * per.memory, room: Math.max(0, Math.min(Math.floor((b.cpus - n * per.cpus) / per.cpus), per.memory ? Math.floor((b.memory - n * per.memory) / per.memory) : Infinity)) } }; }) }; } },
     { id: 'creer_service', label: 'Créer un service mis à l\'échelle', what: 'Une appli en plusieurs copies derrière un répartiteur : le moteur ajoute ou retire des copies selon les visiteurs, le processeur et la mémoire', quick: false, params: [
