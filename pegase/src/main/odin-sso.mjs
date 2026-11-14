@@ -86,6 +86,7 @@ function lancer(cmd, args, entree, env) {
     p.stdout.on('data', (d) => { out += d; }); p.stderr.on('data', (d) => { err += d; });
     p.on('error', (e) => resolve({ code: -1, out, err: String(e) }));
     p.on('close', (code) => resolve({ code: code ?? -1, out, err }));
+    p.stdin.on('error', () => undefined); // programme déjà fini (absent, refus) : son code de sortie le dira
     p.stdin.end(entree ?? '');
   });
 }
@@ -258,11 +259,27 @@ export class OdinSSO {
       return { ok: true, personne: this.etat.personne, idToken: idt };
     } finally { srv.close(); }
   }
+  /**
+   * Renouvelle les jetons (rotation). Un seul renouvellement à la fois. Si la réponse se perd (réseau coupé, délai dépassé,
+   * Odin qui redémarre), on représente le MÊME jeton : Odin le tolère 60 s et rend la même réponse (§ 4).
+   */
   async renouveler() {
     if (!this.etat?.refresh) return { ok: false, code: 'pas_de_session', message: 'Pas connecté à Odin.' };
-    const r = await this._req('/sso/jeton', { corps: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.etat.refresh, client_id: this.appli, appareil: this.appareil.id ?? '' }).toString(), entetes: { 'content-type': 'application/x-www-form-urlencoded' } }), j = lireJson(r);
-    if (r.status !== 200) { if (r.status === 400 || r.status === 403) { this.etat = null; if (this.garder) await this.garder('null'); } return echec(j, r.status); }
-    await this._recevoir(j); return { ok: true };
+    if (this._renouv) return this._renouv;
+    const corps = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: this.etat.refresh, client_id: this.appli, appareil: this.appareil.id ?? '' }).toString();
+    this._renouv = (async () => {
+      let r, perdue;
+      for (const pause of [0, 1000, 4000, 10_000]) {   // dernier essai parti avant 45 s : dans la tolérance de 60 s
+        if (pause) await attendre(pause);
+        try { r = await this._req('/sso/jeton', { corps, entetes: { 'content-type': 'application/x-www-form-urlencoded' }, delai: 10_000 }); } catch (e) { r = undefined; perdue = e; continue; }
+        if (r.status < 500) break;
+      }
+      if (!r) return { ok: false, code: 'injoignable', message: `Odin ne répond pas (${perdue?.message ?? 'réseau'}) : la connexion sera renouvelée à la prochaine demande.` };
+      const j = lireJson(r);
+      if (r.status !== 200) { if (r.status === 400 || r.status === 403) { this.etat = null; if (this.garder) await this.garder('null'); } return echec(j, r.status); }
+      await this._recevoir(j); return { ok: true };
+    })();
+    try { return await this._renouv; } finally { this._renouv = null; }
   }
   /** Un jeton d'accès valable (renouvelé une minute avant la fin). */
   async jeton() {
@@ -272,9 +289,9 @@ export class OdinSSO {
   }
   async _api(chemin, o = {}) { return this._req(chemin, { ...o, entetes: { ...(o.entetes ?? {}), authorization: `Bearer ${await this.jeton()}` } }); }
   async infos() { const r = await this._api('/sso/infos'); const j = lireJson(r); return r.status === 200 ? { ok: true, ...j } : echec(j, r.status); }
-  /** Envoie toute la base (Buffer) ; `sorte: 'changements'` avec `base` pour un envoi partiel. */
-  async sauvegarder(octets, { raison = '', sorte = 'complete', base, nom } = {}) {
-    const e = { 'content-type': 'application/octet-stream', 'x-odin-empreinte': createHash('sha256').update(octets).digest('hex'), 'x-odin-sorte': sorte, ...(raison ? { 'x-odin-raison': encodeURIComponent(raison) } : {}), ...(base ? { 'x-odin-base': base } : {}), ...(nom ? { 'x-odin-nom': encodeURIComponent(nom) } : {}) };
+  /** Envoie toute la base (Buffer) ; `sorte: 'changements'` avec `base` pour un envoi partiel ; `etat` : rendu tel quel (x-odin-etat). */
+  async sauvegarder(octets, { raison = '', sorte = 'complete', base, nom, etat } = {}) {
+    const e = { 'content-type': 'application/octet-stream', 'x-odin-empreinte': createHash('sha256').update(octets).digest('hex'), 'x-odin-sorte': sorte, ...(raison ? { 'x-odin-raison': encodeURIComponent(raison) } : {}), ...(base ? { 'x-odin-base': base } : {}), ...(nom ? { 'x-odin-nom': encodeURIComponent(nom) } : {}), ...(etat ? { 'x-odin-etat': etat } : {}) };
     const r = await this._api(`/api/sauvegardes/${this.appli}`, { corps: octets, entetes: e, delai: 10 * 60_000 }), j = lireJson(r);
     return r.status === 200 || r.status === 201 ? j : echec(j, r.status);
   }
