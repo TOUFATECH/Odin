@@ -9,6 +9,8 @@ import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } f
 import { hashPassword, checkPassword } from '../valgrind/proxy.ts';
 import { totp } from './brisingamen.ts';
 import { svg as qrSvg } from '../qr.ts';
+import { ssoActions, ssoSections } from '../sso/persona.ts';
+import { lierProprietaire, revoquerPersonne } from '../sso/etat.ts';
 
 export interface Person { id: string; login: string; name: string; email?: string; groups: string[]; hash: string; totp?: string; totpPending?: string; active: boolean; created: number; lastLogin?: number; fails: number; lockedUntil?: number }
 export interface Rule { domain: string; groups: string[] }
@@ -21,6 +23,9 @@ let appCtx: ModCtx | undefined; let mascot = '';
 export function setMascot(svg: string): void { mascot = svg; }
 /** La mascotte, pour les pages publiques des autres applis (liens de partage…). */
 export const mascotSvg = () => mascot;
+/** Le contexte de Persona et sa page de connexion, pour la connexion unique (src/valhalla/sso). */
+export const personaCtx = () => appCtx;
+export const personaPage = (title: string, body: string, nonce: string) => page(title, body, nonce);
 // Le dernier contexte vu sert au proxy, qui demande à chaque requête qui est connecté.
 const people = (ctx: ModCtx): Person[] => { appCtx = ctx; return (ctx.settings.people as Person[] | undefined) ?? []; };
 const rules = (ctx: ModCtx): Rule[] => (ctx.settings.rules as Rule[] | undefined) ?? [];
@@ -187,7 +192,7 @@ export const varModule: Module = {
     { id: 'retirer', label: 'Retirer une personne', what: 'Son compte et ses sessions disparaissent', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }], grave: () => 'supprimer ce compte (ses sessions sont fermées tout de suite)', run: (ctx, i) => { const p = byLogin(ctx, i.login); savePeople(ctx, people(ctx).filter((x) => x.id !== p.id)); ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); return { text: `🗑 ${p.name} retiré.` }; } },
     { id: 'mot_de_passe', label: 'Nouveau mot de passe', what: 'Remplace le mot de passe (rangé dans le coffre) et ferme les sessions', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'mot_de_passe', label: 'Mot de passe (vide : Odin en choisit un)', kind: 'password', default: '' }], run: async (ctx, i) => {
       const p = byLogin(ctx, i.login), pass = s(i.mot_de_passe) || randomBytes(12).toString('base64url'); if (pass.length < 10) throw new Error('10 caractères au moins');
-      savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? { ...x, hash: hashPassword(pass), fails: 0, lockedUntil: undefined } : x))); ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) });
+      savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? { ...x, hash: hashPassword(pass), fails: 0, lockedUntil: undefined } : x))); ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); revoquerPersonne(ctx, p.login);
       const v = await vault(ctx, p, pass); return { text: `🔑 Nouveau mot de passe pour ${p.name}${v ? ' (dans le coffre)' : ''} ; ses sessions sont fermées.` };
     } },
     { id: 'double_auth', label: 'Double authentification', what: 'Un QR code à scanner avec une appli d\'authentification, puis un code pour confirmer', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }], run: (ctx, i) => {
@@ -226,12 +231,14 @@ export const varModule: Module = {
       const l = people(ctx).map((p) => ({ login: p.login, name: p.name, groups: p.groups, active: p.active }));
       return { text: l.length ? l.map((p) => `- ${p.name} (${p.login}) : ${p.groups.join(', ')}${p.active ? '' : ' · coupé'}`).join('\n') : 'Personne pour l\'instant.', data: { people: l } };
     } },
+    ...ssoActions,
     { id: 'journal', label: 'Journal des connexions', what: 'Qui s\'est connecté, d\'où, et les échecs', read: true, run: (ctx) => ({ text: journal(ctx).slice(-40).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`).join('\n') || 'Rien.' }) },
   ],
   view(ctx) {
     appCtx = ctx;
     const ps = people(ctx), ss = sessions(ctx), rs = rules(ctx), c = conf(ctx), now = Date.now(), j = journal(ctx), fails = j.filter((e) => !e.ok && now - e.t < 86400_000).length;
     return {
+      onglets: ['Personnes', 'Applis', 'Accès'],
       subtitle: c.portal ? `Portail ${c.portal} · ${ps.length} personne(s) · ${ss.length} session(s)` : 'À régler : le nom du portail de connexion (Réglages).',
       kpis: [{ label: 'Personnes', value: String(ps.length) }, { label: 'Sessions ouvertes', value: String(ss.length), tone: 'bon' }, { label: 'Double authentification', value: `${ps.filter((p) => p.totp).length} / ${ps.length}`, tone: ps.some((p) => !p.totp) ? 'attention' : 'bon' }, { label: 'Échecs (24 h)', value: String(fails), tone: fails > 10 ? 'mauvais' : fails ? 'attention' : 'bon' }],
       sections: [
@@ -239,12 +246,13 @@ export const varModule: Module = {
         { kind: 'graph', title: 'Graphe des identités', ...idGraph(ps, rs, ss, now), empty: 'Personne pour l\'instant : ajoute une personne à droite.', legend: [['#4F9DDE', 'Odin, groupes'], ['#57C98A', 'connecté en ce moment'], ['#E8EAEC', 'personne'], ['#B48CF0', 'double authentification'], ['#F0A040', 'site réservé'], ['#EE6A55', 'verrouillé']] },
         { kind: 'table', title: 'Personnes', columns: ['Nom', 'Identifiant', 'Groupes', 'Double auth.', 'Dernière connexion'], empty: 'Personne.', rows: ps.map((p) => ({ cells: [p.name, p.login, p.groups.join(', ') || '—', p.totp ? 'oui' : 'non', p.lastLogin ? new Date(p.lastLogin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais'], tone: !p.active ? 'neutre' as const : p.lockedUntil && p.lockedUntil > now ? 'mauvais' as const : undefined, actions: [{ action: 'double_auth', label: 'Double auth.', input: { login: p.login } }] })) },
         { kind: 'log', title: 'Journal des connexions', lines: j.slice(-25).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`) },
+        ...ssoSections(ctx),
         { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Hélios (photos)', detail: 'les albums visibles selon les groupes' }, { title: 'Plume (bureau)', detail: 'le bureau à distance réservé aux admins, avec code' }] },
       ],
       side: [{ kind: 'form', title: 'Ajouter une personne', action: 'ajouter', submit: 'Ajouter', params: ADD }, { kind: 'form', title: 'Réserver un site', action: 'proteger_site', submit: 'Réserver', params: varModule.actions.find((a) => a.id === 'proteger_site')!.params! }, { kind: 'form', title: 'Réglages du portail', action: 'reglages', submit: 'Enregistrer', params: varModule.actions.find((a) => a.id === 'reglages')!.params! }],
     };
   },
-  start(ctx) { appCtx = ctx; },
+  start(ctx) { appCtx = ctx; try { lierProprietaire(ctx); } catch { /* pas encore de compte */ } },
   stop() { appCtx = undefined; },
   watch: { every: 300, run(ctx) {
     appCtx = ctx; const all = (ctx.settings.sessions as Session[] | undefined) ?? [];

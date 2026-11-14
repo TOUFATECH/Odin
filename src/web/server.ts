@@ -76,6 +76,7 @@ import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
 import { activationPage } from './activate.ts';
 import { setMascot as setVarMascot } from '../valhalla/modules/var.ts';
+import { estMembre, gardeSSO, sessionMembre } from '../valhalla/sso/garde.ts';
 import { svg as qrSvg } from '../valhalla/qr.ts';
 import { Accounts, SESSION_RE, clearSessionCookie, sessionCookie, type Via } from './account.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
@@ -334,7 +335,7 @@ export class WebChannel implements Channel {
     }
     const raw = req.headers.cookie ?? '';
     const sess = SESSION_RE.exec(raw)?.[1];
-    if (sess) { if (this.accounts.valid(sess)) return 'session'; }
+    if (sess) { if (this.accounts.valid(sess) || sessionMembre(sess)) return 'session'; }
     const cookie = /(?:^|;\s*)odin_token=([a-f0-9]+)/.exec(raw)?.[1];
     if (cookie && this.tokenOk(cookie)) { this.markClaimed('jeton'); return this.accounts.exists() ? undefined : 'installation'; }
     if (cookie && cookie !== this.lastToken) this.throttle.fail(ip); // un jeton faux = un essai raté (sauf l'ancien jeton juste remplacé)
@@ -493,6 +494,8 @@ export class WebChannel implements Channel {
     // (ni clé d'API, ni liens publics, ni création de compte : tout cela reste sur le port de l'interface).
     const direct = this.directs?.appOf(req.socket);
     if (direct && this.who(req) !== 'session' && !(this.accounts.exists() && directOpen(req.method ?? '', url.pathname))) return json(res, this.accounts.exists() ? 401 : 403, { error: this.accounts.exists() ? 'connexion requise' : `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${this.port}).`, account: this.accounts.exists(), direct: true });
+    // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
+    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state() })) return;
 
     if (req.method === 'GET' && url.pathname === '/') {
       const t = url.searchParams.get('token');
@@ -562,7 +565,7 @@ export class WebChannel implements Channel {
     // Chronos : page publique de réservation (/r/…), lien secret, sans script.
     if (await friggPublic(req, res, url)) return;
     // Partage d'une page d'appli : la copie figée (/partage/…), adresse secrète, sans script, débit limité.
-    if (await partagePublic(req, res, url, { ip, https: this.secure || this.viaHttps(req), proprietaire: () => this.authed(req) })) return;
+    if (await partagePublic(req, res, url, { ip, https: this.secure || this.viaHttps(req), proprietaire: () => this.authed(req) && !estMembre(req) })) return;
     if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
     if (url.pathname === '/app-icons.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(APP_ICONS_JS); }
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
