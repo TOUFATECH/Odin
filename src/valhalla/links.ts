@@ -129,6 +129,7 @@ export const LINKS: Link[] = [
   { from: 'hel', to: 'ullr', when: 'Perséphone a fini de retrouver des fichiers', does: '« Analyser avec Asclépios » (dans l\'alerte et dans l\'onglet « Résultats ») fait analyser tout le dossier retrouvé avant qu\'on ouvre les fichiers', auto: true, kind: 'réflexe' },
   { from: 'hel', to: 'forseti', when: 'une récupération de fichiers se termine, une table de partitions est réparée, ou un travail échoue', does: 'alerte dans le fil commun avec le résumé (fichiers entiers, abîmés, perdus) et le bouton suivant (analyser, remettre la table d\'avant)', auto: true, kind: 'donnée' },
   { from: 'durinn', to: 'hel', when: 'un disque est jugé mauvais', does: 'sa carte dans Tirésias a le bouton « Récupérer les fichiers (Perséphone) », qui ouvre ce disque dans Perséphone (lecture seule)', auto: true, kind: 'réflexe' },
+  { from: 'snotra', to: 'askr', when: 'tu demandes « Schéma de mon réseau » dans Plume', does: 'les appareils de l\'inventaire d\'Atlas deviennent des blocs isométriques (box au centre, chacun relié), à ranger à ta façon puis exporter en image', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */

@@ -192,8 +192,9 @@ export function askr(o: { seen?: () => Seen[] } = {}): Module {
         return { text: `✏️ ${a.name} (${a.tag}) : ${changed.join(', ')} mis à jour.` };
       } },
       { id: 'chercher', label: 'Chercher', what: 'Par nom, étiquette, modèle, série, IP, MAC, pièce ou personne', read: true, params: [{ key: 'q', label: 'Recherche', kind: 'text', required: true }], run: (ctx, i) => {
-        const q = s(i.q).toLowerCase(), r = assets(ctx).filter((a) => [a.tag, a.name, a.kind, a.maker, a.model, a.serial, a.ip, a.mac, a.location, a.owner, a.loan?.to].some((x) => x?.toLowerCase().includes(q)));
-        return { text: r.map((a) => `- ${a.tag} · ${a.name} (${a.kind}${a.model ? `, ${a.model}` : ''}) · ${a.state}${a.location ? ` · ${a.location}` : ''}${a.ip ? ` · ${a.ip}` : ''}`).join('\n') || 'Rien trouvé.' };
+        // « * » : tout l'inventaire (Plume en tire un schéma du réseau).
+        const q = s(i.q).toLowerCase(), r = assets(ctx).filter((a) => q === '*' || [a.tag, a.name, a.kind, a.maker, a.model, a.serial, a.ip, a.mac, a.location, a.owner, a.loan?.to].some((x) => x?.toLowerCase().includes(q)));
+        return { text: r.map((a) => `- ${a.tag} · ${a.name} (${a.kind}${a.model ? `, ${a.model}` : ''}) · ${a.state}${a.location ? ` · ${a.location}` : ''}${a.ip ? ` · ${a.ip}` : ''}`).join('\n') || 'Rien trouvé.', data: r.map((a) => ({ nom: a.name, genre: a.kind, ip: a.ip, etat: a.state })) };
       } },
       { id: 'synchroniser', label: 'Ajouter les appareils du réseau', what: 'Ceux que le registre d\'Odin et le DHCP ont vus (rien n\'est écrasé)', run: async (ctx) => { const r = await sync(ctx); return { text: r.added.length ? `🔄 ${r.added.length} appareil(s) ajouté(s) : ${r.added.map((a) => `${a.name} (${a.tag})`).join(', ')}.${r.updated ? ` ${r.updated} fiche(s) mise(s) à jour.` : ''}` : r.updated ? `🔄 ${r.updated} fiche(s) mise(s) à jour (adresse, modèle).` : 'Rien de nouveau sur le réseau.' }; } },
       { id: 'preter', label: 'Prêter', what: 'À qui, jusqu\'à quand', params: [{ key: 'appareil', label: 'Appareil', kind: 'text', required: true }, { key: 'a', label: 'À qui', kind: 'text', required: true }, { key: 'retour', label: 'Retour prévu (AAAA-MM-JJ, facultatif)', kind: 'text', default: '' }], run: (ctx, i) => {

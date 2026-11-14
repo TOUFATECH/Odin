@@ -1005,6 +1005,13 @@ CHECKS['hel>forseti'] = async (w) => {
   const a = w.v.alerts().find((x) => x.module === 'hel' && /Perséphone : 1 fichier\(s\) retrouvé\(s\)/.test(x.title));
   assert.ok(a, 'le résumé est dans le fil commun'); assert.match(a!.detail ?? '', /1 entier\(s\) vérifié\(s\), 0 abîmé/); assert.ok((a!.steps ?? []).length >= 2);
 };
+CHECKS['snotra>askr'] = async (w) => {
+  for (const [nom, type] of [['Livebox', 'réseau'], ['NAS Synology', 'autre']]) await w.v.act('askr', 'ajouter', { nom, type });
+  const r = await w.v.act('snotra', 'schema_reseau'); assert.notEqual(r.ok, false, r.text);
+  assert.ok(did(w, 'askr', 'chercher'), 'Atlas est interrogé');
+  const d = (await w.v.act('snotra', 'ouvrir_tableau', { id: (r.data as { id: string }).id })).data as { blocs: Array<{ genre: string; nom: string }> };
+  assert.deepEqual(d.blocs.map((b) => `${b.genre}:${b.nom}`), ['nuage:Internet', 'box:Livebox', 'nas:NAS Synology']);
+};
 CHECKS['durinn>hel'] = async (w) => {
   const ctx = tiresias(w); await w.v.module('durinn')!.watch!.run(ctx);
   const v = await w.v.module('durinn')!.view(ctx, new URLSearchParams());
