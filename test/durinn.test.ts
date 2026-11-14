@@ -231,7 +231,8 @@ test('Tirésias · de bout en bout (faux smartctl dans le PATH) : état de chaqu
     const cartes = p.sections[0] as Extract<Section, { kind: 'cards' }>;
     assert.equal(cartes.kind, 'cards'); assert.equal(cartes.onglet, 'Disques');
     assert.deepEqual(cartes.items.map((x) => `${x.title.split(' · ')[0]}:${x.badge}`).filter(reels), ['sda:Bon', 'sdb:Mauvais', 'sdc:Inconnu', 'sdd:Mauvais', 'sde:Attention', 'nvme0:Attention'], 'les disques virtuels de la machine d\'essai sont montrés à part, sans état');
-    assert.ok(!cartes.items.some((x) => x.actions?.some((y) => y.module === 'hel')), 'sans l\'appli de récupération, pas de bouton vers elle');
+    // Perséphone (l'appli de récupération, identifiant « hel ») est là : seuls les disques Mauvais ont son bouton.
+    assert.deepEqual(cartes.items.filter((x) => x.actions?.some((y) => y.module === 'hel')).map((x) => x.title.split(' · ')[0]), ['sdb', 'sdd'], 'les disques Mauvais proposent la récupération');
     assert.ok(section(p.sections, /^Valeurs SMART de sd[bd], expliquées$/), 'le disque le plus mal en point est ouvert en détail');
     const temp = section(p.sections, /^Température \(/) as Extract<Section, { kind: 'courbe' }>;
     assert.equal(temp.onglet, 'Historique'); assert.deepEqual(temp.labels, ['13/11', '14/11']);

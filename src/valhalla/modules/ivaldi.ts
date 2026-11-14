@@ -7,6 +7,8 @@ import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { devNull, homedir, hostname, userInfo } from 'node:os';
 import { basename, join } from 'node:path';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
+import { actionsDedale, reglages, sectionsDedale } from '../ivaldi/projets.ts';
+import { menage, toutFermer } from '../ivaldi/terminaux.ts';
 
 export interface Statut { branche: string; amont?: string; avance: number; retard: number; modifies: number; nonSuivis: number; conflits: number }
 export interface Commit { id: string; auteur: string; at: number; sujet: string }
@@ -113,12 +115,15 @@ async function unDepot(ctx: ModCtx, qui: unknown): Promise<Depot> {
 const quand = (t?: number) => (t ? new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—');
 const depotParam = { key: 'depot', label: 'Dépôt (nom ou chemin)', kind: 'text' as const, required: true };
 
-export const ivaldi: Module = {
+/** Le dernier passage de la vérification des dépôts (toutes les 12 heures), par dossier de données. */
+const derniereVerif = new Map<string, number>();
+export const ivaldi: Module & { similaires: string[] } = {
   id: 'ivaldi', name: 'Dédale', family: 'Données',
   what: 'Le code et les dépôts : Odin trouve tes dépôts git, dit où en est chacun (travail non enregistré, commits à envoyer ou à récupérer), les met à jour sans risque, en clone de nouveaux et héberge des dépôts de la maison pour tes autres machines.',
   does: ['tous tes dépôts git trouvés dans tes dossiers de code', 'pour chacun : branche, fichiers modifiés, commits à envoyer et à récupérer, dernier commit', 'récupérer les nouveautés (fetch) sans rien changer à ton travail', 'mettre à jour seulement quand c\'est sans risque (avance rapide, dossier propre)', 'cloner un dépôt (https ou SSH)', 'dépôts de la maison : un endroit chez toi où pousser ton code depuis tes autres machines', 'les jetons des adresses ne sont jamais affichés ; le code des dépôts n\'est jamais exécuté', 'rappel : du travail pas envoyé depuis plus d\'une semaine'],
   from: ['Gitea', 'Forgejo', 'GitHub Desktop'], upstream: ['go-gitea/gitea', 'forgejo/forgejo'],
-  words: ['dépôts git', 'dépôt git', 'depots git', 'depot git', 'mes dépôts', 'mes depots', 'git', 'gitea', 'forgejo', 'dédale', 'dedale', 'ivaldi'],
+  similaires: ['Gitea', 'Forgejo', 'SourceHut', 'GitHub Desktop', 'tmux', 'Replit', 'code-server'],
+  words: ['dépôts git', 'dépôt git', 'depots git', 'depot git', 'mes dépôts', 'mes depots', 'git', 'gitea', 'forgejo', 'dédale', 'dedale', 'ivaldi', 'terminal', 'terminaux', 'tmux', 'replit', 'éditeur de code', 'mes projets de code'],
   actions: [
     { id: 'depots', label: 'Dépôts', what: 'Tous tes dépôts et où en est chacun', read: true, external: true, words: ['mes dépôts', 'état de mes dépôts', 'qu\'est-ce qui n\'est pas poussé'], run: async (ctx) => {
       if (!await ctx.has('git')) return { text: 'git n\'est pas installé sur cette machine.', ok: false };
@@ -165,6 +170,7 @@ export const ivaldi: Module = {
       const adresse = `${userInfo().username}@${hostname()}:${cible}`;
       return { text: `🏠 Dépôt « ${nom} » créé. Depuis une autre machine :\n  git remote add maison ${adresse}\n  git push maison main`, data: { adresse } };
     } },
+    ...actionsDedale((ctx) => dossiers(ctx)),
     { id: 'dossier', label: 'Ajouter un dossier de code', what: 'Un dossier où chercher tes dépôts', words: ['ajoute un dossier de dépôts git'], params: [{ key: 'chemin', label: 'Chemin du dossier', kind: 'text', required: true }], run: (ctx, i) => {
       const d = s(i.chemin).trim(); if (!d || !existsSync(d) || !statSync(d).isDirectory()) throw new Error('dossier introuvable');
       ctx.saveSettings({ dossiers: [...new Set([...dossiers(ctx), d])] }); return { text: `📁 ${d} ajouté.` };
@@ -175,21 +181,29 @@ export const ivaldi: Module = {
     const kpis: Kpi[] = [{ label: 'Dépôts', value: String(w.length) }, { label: 'Travail en cours', value: String(w.filter((d) => d.statut && (d.statut.modifies || d.statut.nonSuivis)).length), tone: w.some((d) => d.statut?.modifies) ? 'attention' : 'bon' }, { label: 'À envoyer', value: String(w.filter((d) => d.statut?.avance).length), tone: w.some((d) => d.statut?.avance) ? 'attention' : 'bon' }, { label: 'À récupérer', value: String(w.filter((d) => d.statut?.retard).length) }, { label: 'De la maison', value: String(l.length - w.length) }];
     return {
       subtitle: ok ? `${w.length} dépôt(s) dans ${dossiers(ctx).length} dossier(s)` : 'git n\'est pas installé sur cette machine.', kpis,
+      // Onglets : Terminaux · Projets (la page dessinée y met le terminal et l'éditeur) · Dépôts (ce que Dédale faisait déjà) · Réglages.
+      onglets: ['Terminaux', 'Projets', 'Dépôts', 'Réglages'],
       sections: [
-        ...(!ok || !dossiers(ctx).length ? [{ kind: 'steps' as const, title: 'Mise en route', items: [{ title: 'git installé', done: ok, detail: ok ? undefined : 'installe le paquet « git »' }, { title: 'Un dossier de code', detail: 'ajoute le dossier où sont tes projets', done: dossiers(ctx).length > 0 }] }] : []),
-        { kind: 'table', title: 'Tes dépôts', columns: ['Dépôt', 'Branche', 'État', 'Dernier commit', 'Distant'], empty: 'Aucun dépôt trouvé : ajoute ton dossier de code, ou clone un dépôt.', rows: w.map((d) => ({ cells: [d.nom, d.statut?.branche ?? '—', d.erreur ?? resume(d.statut).texte, d.dernier ? `${quand(d.dernier.at)} · ${d.dernier.sujet.slice(0, 70)}` : '—', d.distant ?? '—'], tone: d.erreur ? 'mauvais' as const : resume(d.statut).tone, actions: [...(d.distant ? [{ action: 'recuperer', label: 'Récupérer', input: { depot: d.chemin } }] : []), ...(d.statut?.retard && !d.statut.modifies ? [{ action: 'mettre_a_jour', label: 'Mettre à jour', input: { depot: d.chemin } }] : [])] })) },
-        { kind: 'table', title: 'Dépôts de la maison', columns: ['Dépôt', 'Dernier commit', 'Adresse pour pousser'], empty: 'Aucun : crée-en un pour pousser ton code chez toi.', rows: l.filter((d) => d.nu).map((d) => ({ cells: [d.nom, d.dernier ? `${quand(d.dernier.at)} · ${d.dernier.sujet.slice(0, 70)}` : 'vide', `${userInfo().username}@${hostname()}:${d.chemin}`] })) },
+        ...sectionsDedale(ctx, dossiers(ctx)),
+        ...(!ok || !dossiers(ctx).length ? [{ onglet: 'Dépôts', kind: 'steps' as const, title: 'Mise en route', items: [{ title: 'git installé', done: ok, detail: ok ? undefined : 'installe le paquet « git »' }, { title: 'Un dossier de code', detail: 'ajoute le dossier où sont tes projets', done: dossiers(ctx).length > 0 }] }] : []),
+        { onglet: 'Dépôts', kind: 'table', title: 'Tes dépôts', columns: ['Dépôt', 'Branche', 'État', 'Dernier commit', 'Distant'], empty: 'Aucun dépôt trouvé : ajoute ton dossier de code, ou clone un dépôt.', rows: w.map((d) => ({ cells: [d.nom, d.statut?.branche ?? '—', d.erreur ?? resume(d.statut).texte, d.dernier ? `${quand(d.dernier.at)} · ${d.dernier.sujet.slice(0, 70)}` : '—', d.distant ?? '—'], tone: d.erreur ? 'mauvais' as const : resume(d.statut).tone, actions: [...(d.distant ? [{ action: 'recuperer', label: 'Récupérer', input: { depot: d.chemin } }] : []), ...(d.statut?.retard && !d.statut.modifies ? [{ action: 'mettre_a_jour', label: 'Mettre à jour', input: { depot: d.chemin } }] : [])] })) },
+        { onglet: 'Dépôts', kind: 'table', title: 'Dépôts de la maison', columns: ['Dépôt', 'Dernier commit', 'Adresse pour pousser'], empty: 'Aucun : crée-en un pour pousser ton code chez toi.', rows: l.filter((d) => d.nu).map((d) => ({ cells: [d.nom, d.dernier ? `${quand(d.dernier.at)} · ${d.dernier.sujet.slice(0, 70)}` : 'vide', `${userInfo().username}@${hostname()}:${d.chemin}`] })) },
       ],
       side: [
-        { kind: 'form', title: 'Cloner un dépôt', action: 'cloner', submit: 'Cloner', params: [{ key: 'adresse', label: 'Adresse du dépôt', kind: 'text', required: true }] },
-        { kind: 'form', title: 'Créer un dépôt de la maison', action: 'creer_depot', submit: 'Créer', params: [{ key: 'nom', label: 'Nom du dépôt', kind: 'text', required: true }] },
-        { kind: 'list', title: 'Dossiers de code', empty: 'Aucun dossier.', items: dossiers(ctx).map((d) => ({ title: d })) },
+        { onglet: 'Dépôts', kind: 'form', title: 'Cloner un dépôt', action: 'cloner', submit: 'Cloner', params: [{ key: 'adresse', label: 'Adresse du dépôt', kind: 'text', required: true }] },
+        { onglet: 'Dépôts', kind: 'form', title: 'Créer un dépôt de la maison', action: 'creer_depot', submit: 'Créer', params: [{ key: 'nom', label: 'Nom du dépôt', kind: 'text', required: true }] },
+        { onglet: 'Dépôts', kind: 'list', title: 'Dossiers de code', empty: 'Aucun dossier.', items: dossiers(ctx).map((d) => ({ title: d })) },
       ],
     };
   },
-  watch: { every: 12 * 3600, async run(ctx) {
-    if (!await ctx.has('git')) return; const now = ctx.now().getTime();
+  // Chaque minute : les terminaux inactifs se ferment ; toutes les 12 heures : le travail pas envoyé des dépôts.
+  watch: { every: 60, async run(ctx) {
+    const ferme = menage(reglages(ctx).inactif, ctx.now().getTime());
+    if (ferme.length) ctx.emit('terminaux_fermes', { noms: ferme.join(', ') });
+    const now = ctx.now().getTime(); if (now - (derniereVerif.get(ctx.dir) ?? 0) < 12 * 3600_000) return; derniereVerif.set(ctx.dir, now);
+    if (!await ctx.has('git')) return;
     const vieux = (await tous(ctx)).filter((d) => !d.nu && d.statut && (d.statut.avance || d.statut.modifies) && d.dernier && now - d.dernier.at > 7 * 864e5);
     if (vieux.length) ctx.alert({ level: 'info', title: `Dédale : ${vieux.length} dépôt(s) avec du travail pas envoyé depuis plus d'une semaine`, detail: vieux.slice(0, 8).map((d) => `${d.nom} (${resume(d.statut).texte})`).join(' ; '), key: `dedale:attente:${vieux.map((d) => d.nom).sort().join(',').slice(0, 80)}` });
   } },
+  stop() { toutFermer(); },
 };

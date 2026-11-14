@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { basename, extname, join, resolve, sep } from 'node:path';
 import { unzip, zip } from '../../files/zip.ts';
 import type { Kpi, ModCtx, Module } from '../types.ts';
+import { ACTIONS_PLUME, retraitExport, sectionsPlume } from '../snotra/actions.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
@@ -223,12 +224,13 @@ function nouveauChemin(ctx: ModCtx, titre: string, ext: string): string {
 }
 const FORMATS_DOC = ['docx', 'odt', 'html', 'md'];
 
-export const snotra: Module = {
+export const snotra: Module & { similaires: string[] } = {
   id: 'snotra', name: 'Plume', family: 'Données',
   what: 'La bureautique : tes documents (Word, OpenDocument, Excel, PowerPoint, Markdown, texte) listés, lus et cherchés, et de nouveaux documents ou tableurs créés à partir d\'un texte simple, avec des modèles prêts.',
   does: ['tous tes documents au même endroit : textes, tableurs, présentations', 'lecture du texte d\'un document Word, OpenDocument, Excel ou PowerPoint (sans les ouvrir ailleurs)', 'recherche d\'un mot dans tous tes documents', 'mots, caractères et temps de lecture', 'créer un document (.docx, .odt, .html, .md) à partir d\'un texte simple : titres, listes, gras, tableaux', 'créer un tableur (.xlsx) avec nombres et formules', 'modèles : lettre, compte rendu, ordre du jour, note', 'ne lit que dans tes dossiers de documents ; la conversion en PDF se fait avec Alchimie'],
   from: ['ONLYOFFICE', 'LibreOffice', 'Collabora'], upstream: ['ONLYOFFICE/DocumentServer', 'LibreOffice/core'],
-  words: ['bureautique', 'mes documents', 'document word', 'documents word', 'fichier word', 'fichier excel', 'tableau excel', 'classeur excel', 'docx', 'xlsx', 'odt', 'plume', 'snotra', 'onlyoffice', 'libreoffice'],
+  similaires: ['ONLYOFFICE', 'LibreOffice', 'Collabora Online', 'Bento', 'LanguageTool', 'Excalidraw', 'FossFLOW', 'Penpot'],
+  words: ['bureautique', 'mes documents', 'document word', 'documents word', 'fichier word', 'fichier excel', 'tableau excel', 'classeur excel', 'docx', 'xlsx', 'odt', 'plume', 'snotra', 'onlyoffice', 'libreoffice', 'tableau blanc', 'tableaux blancs', 'correcteur', 'corrige ce texte', 'corrige le texte', 'corriger un texte', 'languagetool', 'excalidraw', 'fossflow', 'penpot', 'schéma isométrique'],
   actions: [
     { id: 'documents', label: 'Documents', what: 'Tes documents, du plus récent au plus ancien', read: true, params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['', 'texte', 'tableur', 'présentation'], default: '' }], words: ['mes documents', 'liste de mes documents'], run: (ctx, i) => {
       const l = lister(dossiers(ctx)).filter((d) => !s(i.genre) || d.genre === s(i.genre));
@@ -266,17 +268,21 @@ export const snotra: Module = {
       const d = s(i.chemin).trim(); if (!d || !existsSync(d) || !statSync(d).isDirectory()) throw new Error('dossier introuvable');
       if (!dossierPermis(d, homedir(), ctx.home)) throw new Error('ce dossier est trop large ou sensible : choisis un dossier de documents précis (pas la racine, pas le dossier personnel entier, pas un dossier caché)');
       ctx.saveSettings({ dossiers: [...new Set([...dossiers(ctx), resolve(d)])] }); return { text: `📁 ${resolve(d)} ajouté.` };
-    } },
+    } },    ...ACTIONS_PLUME,
   ],
   view(ctx) {
     const l = lister(dossiers(ctx)), par = (g: Genre) => l.filter((d) => d.genre === g).length;
     const kpis: Kpi[] = [{ label: 'Documents', value: String(l.length) }, { label: 'Textes', value: String(par('texte')) }, { label: 'Tableurs', value: String(par('tableur')) }, { label: 'Présentations', value: String(par('présentation')) }];
     return {
       subtitle: dossiers(ctx).length ? `${l.length} document(s) dans ${dossiers(ctx).length} dossier(s)` : 'Aucun dossier de documents : ajoute le tien.', kpis,
+      // Onglets : Documents (ce que Plume faisait déjà) · Correcteur · Tableaux · Schémas. La page dessinée
+      // (src/web/pages/snotra.js) ajoute l'éditeur de tableaux blancs et de schémas.
+      onglets: ['Documents', 'Correcteur', 'Tableaux', 'Schémas'],
       sections: [
         { kind: 'table', title: 'Documents récents', columns: ['Nom', 'Genre', 'Taille', 'Modifié'], empty: 'Aucun document pour l\'instant : crée le premier ci-dessous.', rows: l.slice(0, 60).map((d) => ({ cells: [d.nom, d.genre, taille(d.octets), quand(d.mtime)], actions: [{ action: 'lire', label: 'Lire', input: { fichier: d.chemin } }] })) },
         { kind: 'form', title: 'Créer un document', action: 'creer', submit: 'Créer', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'texte', label: 'Texte', kind: 'textarea', required: true, help: '# Titre · - liste · **gras** · *italique* · | case | case |' }, { key: 'format', label: 'Format', kind: 'select', options: FORMATS_DOC, default: 'docx' }] },
         { kind: 'form', title: 'Créer un tableur', action: 'tableur', submit: 'Créer', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'lignes', label: 'Lignes', kind: 'textarea', required: true, help: 'Produit;Prix;Quantité  puis  Total;=SUM(B2:B5)' }] },
+        ...sectionsPlume(ctx),
       ],
       side: [
         { kind: 'form', title: 'Chercher dans les documents', action: 'chercher', submit: 'Chercher', params: [{ key: 'q', label: 'Mots', kind: 'text', required: true }] },
@@ -285,4 +291,5 @@ export const snotra: Module = {
       ],
     };
   },
+  retrait: (ctx, ref) => retraitExport(ctx, ref),
 };

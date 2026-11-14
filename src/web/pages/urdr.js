@@ -263,11 +263,13 @@
     host.append(root);
     const redraw = async (reload) => {
       try { if (reload === 'tables') await loadTables(); if (reload) await loadRows(); } catch (e) { root.replaceChildren(el('p', { class: 'sub' }, `Connexion impossible : ${e.message}`)); return; }
-      const tabs = el('div', { class: 'ur-tabs', role: 'tablist' }, ...[['studio', 'table', 'Studio'], ['sql', 'code', 'SQL'], ['bases', 'db', 'Bases']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(false); } }, ic(i, 15), t)));
+      const tabs = el('div', { class: 'ur-tabs', role: 'tablist' }, ...[['studio', 'table', 'Studio'], ['sql', 'code', 'SQL'], ['schema', 'link', 'Schéma'], ['bases', 'db', 'Bases']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(false); } }, ic(i, 15), t)));
       const pick = bases.length > 1 && S.tab !== 'bases' ? el('select', { 'aria-label': 'Base', style: 'margin-left:auto;min-height:38px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px', onchange: async (e) => { if (nPending() && !confirm('Des modifications ne sont pas enregistrées : les abandonner ?')) { e.target.value = S.base; return; } Object.assign(S, { base: e.target.value, table: '', filters: [], sort: '', page: 1, pending: {}, sel: null, res: null }); await redraw('tables'); } }, ...bases.map((b) => el('option', { value: b.id, selected: b.id === S.base }, b.nom))) : null;
       const cur = bases.find((b) => b.id === S.base);
       root.replaceChildren(el('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, tabs, pick, cur && S.tab !== 'bases' && !pick ? el('span', { class: 'sub', style: 'margin-left:auto' }, `${cur.nom}${cur.version ? ` · ${cur.version}` : ''}`) : null));
       if (S.tab === 'bases' || !bases.length) { root.append(...generic); if (!bases.length && S.tab !== 'bases') root.prepend(el('p', { class: 'sub' }, 'Aucune base PostgreSQL pour le Studio : « Créer une base » ou « Relier une base ».')); return; }
+      // Schéma : le dessin des tables et de leurs liens (src/web/pages/urdr-schema.js).
+      if (S.tab === 'schema') { if (window.OdinUrdrSchema) await window.OdinUrdrSchema(root, S.base); return; }
       if (S.tab === 'studio') studio(root, redraw); else sqlTab(root, redraw);
     };
     await redraw(S.base ? (S.tables.length ? true : 'tables') : false);

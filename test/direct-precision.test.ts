@@ -106,7 +106,7 @@ const SEUL: Array<[string, RegExp]> = [
   ['état du pare-feu', /^\w+\./], ['les adresses bannies', /^garmr\./], ['arrête le conteneur web', /^naglfar\.arreter.*web/],
   ['processus gourmands', /^eir\.processus/], ['fiches des applis', /^saga\.fiches/], ['appareils vpn', /^gjoll\.appareils/], ['qui est banni ?', /^garmr\.bannis/],
   ['déploie le site', /^idunn\.deployer/], ['vérifie les sauvegardes', /^sindri\.verifier/], ['les alertes', /^forseti\.alertes/], ['état de la machine', /^eir\.etat/],
-  ['mets à jour les signatures', /^ullr\.mettre_a_jour/], ['la quarantaine', /^ullr\.quarantaine/], ['génère un mot de passe', /^brisingamen\.generer/],
+  ['mets à jour les signatures', /^ullr\.mettre_a_jour/], ['retrouve mes photos effacées', /^hel\.recuperer/], ['cherche les partitions perdues', /^hel\.chercher/], ['arrête la récupération', /^hel\.arreter/], ['analyse les fichiers retrouvés', /^hel\.analyser/], ['mes tableaux blancs', /^snotra\.tableaux/], ['schéma de mon réseau', /^snotra\.schema_reseau/], ['mes terminaux', /^ivaldi\.terminaux/], ['mes projets de code', /^ivaldi\.projets/], ['la quarantaine', /^ullr\.quarantaine/], ['génère un mot de passe', /^brisingamen\.generer/],
   ['allume la lampe salon', /^appareils\.commander.*Lampe salon/], ['lance la scène bonne nuit', /^midgard\.scene.*Bonne nuit/], ['les caméras', /^himinbjorg\.cameras/],
   ['débannis 203.0.113.9', /^garmr\.debannir.*203\.0\.113\.9/], ['tue le processus 4242', /^skogul\.tuer.*4242/], ['cherche dans mes notes facture orange', /^saga\.chercher.*facture orange|^note_find/],
   ['rappelle-moi dans 2 heures de sortir le linge', /^reminder_set/], ['je suis en réunion', /^mode_set.*reunion/], ['mes enregistrements', /^freyja\.enregistrements/],
