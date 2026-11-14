@@ -22,6 +22,8 @@ export const MESURES = [
 export interface LigneMesure { nom: string; sens: 'lecture' | 'ecriture'; moS: number; acces: number; latMs: number; octets: number; ms: number }
 
 const M = 1024 * 1024;
+/** WebAssembly (toujours présent dans Node ; absent des types du projet, qui n'incluent pas ceux du navigateur). */
+const WASM = (globalThis as unknown as { WebAssembly: { Memory: new (o: { initial: number }) => { buffer: ArrayBuffer } } }).WebAssembly;
 const dire = (x: unknown) => { process.stdout.write(`${JSON.stringify(x)}\n`); };
 const p = <T>(f: (cb: (e: NodeJS.ErrnoException | null, v: T) => void) => void) => new Promise<T>((ok, ko) => f((e, v) => (e ? ko(e) : ok(v))));
 
@@ -34,7 +36,7 @@ async function banc(o: Reglages): Promise<number> {
   // Mémoire alignée sur les pages : l'écriture directe (sans le cache du système) l'exige. La mémoire d'un module
   // WebAssembly l'est toujours ; un tampon ordinaire de Node ne l'est pas. 8 Mo de données au hasard à écrire,
   // 8 Mo où lire.
-  const mem = Buffer.from(new WebAssembly.Memory({ initial: (16 * M) / 65536 }).buffer), source = mem.subarray(0, 8 * M), lu = mem.subarray(8 * M);
+  const mem = Buffer.from(new WASM.Memory({ initial: (16 * M) / 65536 }).buffer), source = mem.subarray(0, 8 * M), lu = mem.subarray(8 * M);
   randomFillSync(source);
   let arret = false, fd: number | undefined, cree = false;
   const stop = () => { arret = true; };
