@@ -20,6 +20,7 @@ import { fakeEngine } from './helpers.ts';
 import { gunzipSync } from 'node:zlib';
 import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
 import { fakeLivebox } from './fake-livebox.ts';
+import { analyserFichier, magOf, nouvelAppareil, verifierAdresse } from '../src/valhalla/modules/pegase.ts';
 const LIVEBOX = fakeLivebox();
 
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
@@ -951,6 +952,35 @@ CHECKS['eir>durinn'] = async (w) => {
   assert.ok(did(w, 'durinn', 'ouvrir'), 'le bouton ouvre le disque dans Tirésias');
 };
 CHECKS['hermod>durinn'] = (w) => propose(w, 'durinn');
+CHECKS['pegase>ullr'] = async (w) => {
+  const r = await analyserFichier(w.v.ctx('pegase'), 'facture.pdf.exe', Buffer.from(EICAR));
+  assert.equal(r.verdict, 'bloque'); assert.ok(did(w, 'ullr', 'fichier'), 'Asclépios a analysé le fichier');
+  assert.deepEqual(readdirSync(join(w.v.ctx('ullr').dir, 'depots')), [], 'la copie envoyée est effacée');
+};
+CHECKS['pegase>vidarr'] = async (w) => {
+  await w.v.act('vidarr', 'bloquer', { domaine: 'piege.exemple' });
+  const r = await verifierAdresse(w.v.ctx('pegase'), 'https://www.piege.exemple/connexion');
+  assert.ok(did(w, 'vidarr', 'tester'), 'Sphinx est interrogé'); assert.match(r.texte, /Sphinx : 🚫 bloqué/); assert.notEqual(r.verdict, 'sur');
+  assert.equal((await verifierAdresse(w.v.ctx('pegase'), 'https://mayotte.fr/')).verdict, 'sur');
+};
+CHECKS['pegase>saga'] = async (w) => {
+  const ctx = w.v.ctx('pegase'), m = magOf(ctx), hier = Date.now() - 86400_000;
+  m.setPrefs('p_test', { voir: 'tout' });
+  m.appliquer('p_test', 'a_test', [{ id: 'h1', col: 'historique', data: { url: 'https://www.google.com/search?q=billet+avion+dzaoudzi', titre: 'Recherche', date: hier }, maj: hier }, { id: 'h2', col: 'historique', data: { url: 'https://ewa.yt/vols', titre: 'Vols', date: hier }, maj: hier }]);
+  m.appliquer('p_prive', 'a_test', [{ id: 'h1', col: 'historique', data: { url: 'https://secret.yt', titre: 'Privé', date: hier }, maj: hier }]);
+  await w.v.module('pegase')!.watch!.run(ctx);
+  assert.ok(await until(() => did(w, 'saga', 'noter')), 'résumé noté dans Thot');
+  const e = w.events.filter((x) => x.module === 'pegase' && x.type === 'navigation_du_jour');
+  assert.equal(e.length, 1, 'une ligne pour le profil qui le permet, rien pour l\'historique privé'); assert.match(String(e[0].data.recherches), /billet avion dzaoudzi/);
+  assert.ok(m.copies('p_test').some((c) => c.raison === 'quotidienne'), 'et la copie du jour est faite');
+};
+CHECKS['pegase>forseti'] = async (w) => {
+  const ctx = w.v.ctx('pegase');
+  nouvelAppareil(ctx, { id: 'p_test', name: 'Nour' }, { nom: 'Téléphone de Nour', plateforme: 'android', ip: '192.168.1.42' });
+  assert.ok(w.v.alerts({ module: 'pegase' }).some((a) => /nouvel appareil pour Nour/.test(a.title) && a.fix?.action === 'revoquer'));
+  await analyserFichier(ctx, 'virus.exe', Buffer.from(EICAR));
+  assert.ok(w.v.alerts({ module: 'pegase' }).some((a) => /fichier bloqué/.test(a.title) && a.level === 'haute'));
+};
 
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
   assert.ok(LINKS.length >= 32);

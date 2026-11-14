@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Module, ModCtx, Section } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
-import { magasin, jourDe, dateVisite, VOIRS, type Magasin, type Rec, type Voir } from '../pegase/store.ts';
+import { arreterFlux, magasin, jourDe, dateVisite, VOIRS, type Magasin, type Rec, type Voir } from '../pegase/store.ts';
 import { IA_PAR_DEFAUT, personnes, voirParDefaut, type Personne } from '../pegase/identites.ts';
 import type { Verdict } from '../ullr/engine.ts';
 
@@ -211,7 +211,7 @@ export const pegase: Module = {
         return { text: `👁 ${nomDe(pid)} : Odin voit maintenant ${VOIR_TEXTE[v]}.${v === 'tout' ? '' : ' Son historique n\'apparaît plus dans les recherches, le journal ni les réponses de l\'IA.'}` };
       } },
     { id: 'copier', label: 'Faire une copie maintenant', what: 'Une copie des données Pégase d\'un profil (favoris, onglets, agenda, réglages…)', params: [PROFIL],
-      run: (ctx, i) => { const m = magOf(ctx), pid = profilDe(m, i.profil); if (!pid) return { ok: false, text: `Profil inconnu : « ${s(i.profil)} ».` }; const c = m.copier(pid, 'avant restauration'); return { text: `📦 Copie faite pour ${nomDe(pid)} : ${Object.entries(c.nombres).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(', ') || 'rien encore'}.`, data: c }; } },
+      run: (ctx, i) => { const m = magOf(ctx), pid = profilDe(m, i.profil); if (!pid) return { ok: false, text: `Profil inconnu : « ${s(i.profil)} ».` }; const c = m.copier(pid, 'à la demande'); return { text: `📦 Copie faite pour ${nomDe(pid)} : ${Object.entries(c.nombres).filter(([, n]) => n).map(([k, n]) => `${n} ${k}`).join(', ') || 'rien encore'}.`, data: c }; } },
     { id: 'restaurer', label: 'Restaurer une copie', what: 'Remet les données Pégase d\'un profil comme dans la copie choisie, sur tous ses appareils', params: [PROFIL, { key: 'copie', label: 'Copie (ex. 2026-11-13)', kind: 'text', required: true }],
       grave: (i) => `remettre les données Pégase de ${s(i.profil)} comme dans la copie ${s(i.copie)} (ce qui a changé depuis est remplacé sur tous ses appareils ; une copie de l'état actuel est faite avant)`,
       run: (ctx, i) => {
@@ -246,7 +246,7 @@ export const pegase: Module = {
     const parJour = new Map<string, number>(); for (const p of visibles) for (const j of m.jours(p)) parJour.set(j.jour, (parJour.get(j.jour) ?? 0) + j.n);
     const jours = Array.from({ length: 14 }, (_x, k) => jourDe(now - (13 - k) * 86400_000));
     sections.push({ kind: 'bars', onglet: T.H, title: 'Pages vues par jour (14 jours)', items: jours.map((j) => ({ label: j.slice(5).split('-').reverse().join('/'), value: parJour.get(j) ?? 0 })) });
-    sections.push({ kind: 'form', onglet: T.H, title: 'Chercher dans l\'historique', action: 'historique', submit: 'Chercher', params: pegase.actions[0].params!, aide: 'Exemple : « devis starlink », jour « hier ».' });
+    sections.push({ kind: 'form', onglet: T.H, title: 'Chercher dans l\'historique', action: 'historique', submit: 'Chercher', params: pegase.actions.find((a) => a.id === 'historique')!.params!, aide: 'Exemple : « devis starlink », jour « hier ».' });
     const dernieres = visibles.flatMap((p) => m.chercher(p, { limite: 30 }).map((r) => ({ p, r }))).sort((a, b) => dateVisite(b.r) - dateVisite(a.r)).slice(0, 30);
     sections.push({ kind: 'table', onglet: T.H, title: 'Dernières pages vues', columns: ['Quand', 'Profil', 'Page', 'Adresse'], empty: visibles.length ? 'Rien pour l\'instant.' : 'Aucun profil ne laisse Odin voir son historique.',
       rows: dernieres.map(({ p, r }) => ({ cells: [new Date(dateVisite(r)).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }), nomDe(p), s(r.data.titre).slice(0, 80) || '(sans titre)', s(r.data.url).slice(0, 120)] })) });
@@ -268,6 +268,7 @@ export const pegase: Module = {
     };
   },
   start(ctx) { magOf(ctx); },
+  stop() { arreterFlux(); },
   watch: { every: 300, async run(ctx) {
     await ronde(ctx);
     const vus = Number(ctx.settings.installateursVus ?? 0);

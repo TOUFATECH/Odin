@@ -71,8 +71,9 @@ Un **profil** tel que le voit Pégase : `{ id, login, email, nom, groupes, role,
   (« Tu n'as pas accès à Pégase. Demande à Awa de t'ajouter au groupe famille. »). Le droit est revérifié à chaque requête :
   retiré dans Persona → 403 aussitôt (et le flux se ferme).
 - `role` : `proprietaire` (groupe `admin`) ou `membre`.
-- `voir` : ce qu'Odin (son IA, sa recherche, son journal) peut lire de ce profil : `tout` (défaut), `sans-historique`,
-  `rien`. La synchro, elle, marche toujours. (Préférence propre à Pégase, rangée à part, jamais un mot de passe.)
+- `voir` : ce qu'Odin (son IA, sa recherche, son journal) peut lire de ce profil : `tout`, `sans-historique`, `rien`.
+  Par défaut : `tout` pour le groupe `admin`, `sans-historique` pour les autres (l'historique d'un proche reste privé tant
+  qu'il ne l'a pas permis). La synchro, elle, marche toujours. (Préférence propre à Pégase, rangée à part.)
 
 Un **appareil** : `{ id, nom, plateforme, cree, vu, revoque? }`. Un jeton par appareil.
 
@@ -285,8 +286,9 @@ Exemple : `a:2` et `b:10` → texte `"a:2\nb:10"` → hash de cette chaîne.
                           { "id": "avant-1763112000000", "date": 1763112000000, "raison": "avant restauration", "nombres": { … } } ] }
 ```
 
-- Une copie **quotidienne** (gardée 30 jours), une **avant chaque restauration** et une **avant chaque mise à jour d'Odin**
-  (gardées 10 de chaque). Les copies portent sur toutes les collections sauf `historique` (journal d'ajouts, jamais réécrit).
+- Une copie **quotidienne** (gardée 30 jours), une **avant chaque restauration**, une **avant chaque mise à jour d'Odin**
+  et celles faites **à la demande** depuis l'appli Pégase d'Odin (gardées 10 de chaque) ; `raison` vaut `quotidienne`,
+  `avant restauration`, `avant mise à jour` ou `à la demande`. Les copies portent sur toutes les collections sauf `historique` (journal d'ajouts, jamais réécrit).
 
 ### `POST /api/pegase/restaurer`
 

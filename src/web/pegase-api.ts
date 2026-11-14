@@ -270,11 +270,12 @@ function flux(req: IncomingMessage, res: ServerResponse, peg: ModCtx, varCtx: Mo
   const envoie = (event: string, data: unknown) => { if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); };
   m.enLigne.set(appareil, (m.enLigne.get(appareil) ?? 0) + 1);
   envoie('bonjour', { profil: p.id, appareil, serveur: peg.now().getTime() });
-  const fin = (event?: string, texte?: string) => { if (event) envoie(event, { texte }); clearInterval(t); m.bus.off('changements', onCh); m.bus.off('revoque', onRev); m.bus.off('restaure', onRest); if (!res.writableEnded) res.end(); };
+  const fin = (event?: string, texte?: string) => { if (event) envoie(event, { texte }); clearInterval(t); m.bus.off('changements', onCh); m.bus.off('revoque', onRev); m.bus.off('restaure', onRest); m.bus.off('arret', onArret); if (!res.writableEnded) res.end(); };
   const onCh = (e: { profil: string; appareil: string; recs: Rec[] }) => { if (e.profil !== p.id || e.appareil === appareil) return; envoie('changements', { changements: e.recs }); m.touche(appareil, { recus: e.recs.length }); };
   const onRev = (id: string) => { if (id === appareil) fin('revoque', 'Cet appareil a été déconnecté depuis Odin.'); };
   const onRest = (e: { profil: string; copie: string; date: number }) => { if (e.profil === p.id) envoie('restaure', { copie: e.copie, texte: `Les données ont été remises comme le ${new Date(e.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}.` }); };
-  m.bus.on('changements', onCh); m.bus.on('revoque', onRev); m.bus.on('restaure', onRest);
+  const onArret = () => fin();
+  m.bus.on('changements', onCh); m.bus.on('revoque', onRev); m.bus.on('restaure', onRest); m.bus.on('arret', onArret);
   const t = setInterval(() => {
     const q = personne(varCtx, p.id), d = q ? droit(varCtx, q, deps.nomProprietaire) : 'Ton profil n\'existe plus dans Odin.';
     if (d) return fin('revoque', d);

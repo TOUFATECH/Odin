@@ -26,7 +26,7 @@ export interface Appareil {
   jeton?: string; sso?: string;
   revoque?: number; synchro?: number; envoyes: number; recus: number;
 }
-export interface Copie { id: string; date: number; raison: 'quotidienne' | 'avant restauration' | 'avant mise à jour'; nombres: Record<string, number> }
+export interface Copie { id: string; date: number; raison: 'quotidienne' | 'avant restauration' | 'avant mise à jour' | 'à la demande'; nombres: Record<string, number> }
 export interface Resultat { appliques: number; ignores: Array<{ id: string; col: string; raison: string }>; refuses: Array<{ id: string; col: string; raison: string }>; gagnants: Rec[]; acceptes: Rec[] }
 
 const ID = /^[A-Za-z0-9._:@-]{1,200}$/;
@@ -216,14 +216,14 @@ export class Magasin {
     return readdirSync(d).filter((f) => f.endsWith('.json')).map((f) => lire<Copie & { cols?: unknown }>(join(d, f), undefined as never)).filter(Boolean).map((c) => ({ id: c.id, date: c.date, raison: c.raison, nombres: c.nombres })).sort((a, b) => b.date - a.date);
   }
   copier(pid: string, raison: Copie['raison']): Copie {
-    const now = this.now(), id = raison === 'quotidienne' ? jourDe(now) : `${raison === 'avant restauration' ? 'avant' : 'maj'}-${now}`;
+    const now = this.now(), id = raison === 'quotidienne' ? jourDe(now) : `${raison === 'avant restauration' ? 'avant' : raison === 'à la demande' ? 'copie' : 'maj'}-${now}`;
     const cols: Record<string, Rec[]> = {}, nombres: Record<string, number> = {};
     for (const c of COLS) if (c !== 'historique') { cols[c] = [...this.col(pid, c).values()]; nombres[c] = cols[c].filter((r) => !r.suppr).length; }
     const copie: Copie = { id, date: now, raison, nombres };
     ecrireAtomique(join(this.cdir(pid), `${id}.json`), JSON.stringify({ ...copie, cols }));
     // On garde 30 copies quotidiennes, 10 de chaque autre sorte.
     const all = this.copies(pid);
-    for (const [r, keep] of [['quotidienne', 30], ['avant restauration', 10], ['avant mise à jour', 10]] as const) for (const c of all.filter((x) => x.raison === r).slice(keep)) rmSync(join(this.cdir(pid), `${c.id}.json`), { force: true });
+    for (const [r, keep] of [['quotidienne', 30], ['avant restauration', 10], ['avant mise à jour', 10], ['à la demande', 10]] as const) for (const c of all.filter((x) => x.raison === r).slice(keep)) rmSync(join(this.cdir(pid), `${c.id}.json`), { force: true });
     return copie;
   }
   aCopieDuJour(pid: string): boolean { return existsSync(join(this.cdir(pid), `${jourDe(this.now())}.json`)); }
@@ -260,3 +260,5 @@ const magasins = new Map<string, Magasin>();
 /** Le magasin d'un dossier d'appli (un seul par dossier, partagé par l'appli et les routes web). */
 export function magasin(dir: string, now?: () => number): Magasin { let m = magasins.get(dir); if (!m) { m = new Magasin(dir, now); magasins.set(dir, m); } return m; }
 export function oublierMagasin(dir: string): void { magasins.delete(dir); }
+/** Odin s'arrête : les flux en direct se ferment (sinon le serveur web attendrait leur fin). */
+export function arreterFlux(): void { for (const m of magasins.values()) m.bus.emit('arret'); }

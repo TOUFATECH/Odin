@@ -122,6 +122,10 @@ export const LINKS: Link[] = [
   { from: 'durinn', to: 'askr', when: 'Tirésias voit un nouveau disque fixe (avec son numéro de série)', does: 'sa fiche est créée dans l\'inventaire une seule fois (modèle, n° de série, taille, machine), utile pour la garantie', auto: true, kind: 'donnée' },
   { from: 'eir', to: 'durinn', when: 'tu regardes les disques dans Hygie', does: 'chaque disque a son bouton vers Tirésias (santé détaillée, valeurs SMART, historique) ; Tirésias se charge des alertes de santé des disques', auto: true, kind: 'donnée' },
   { from: 'hermod', to: 'durinn', when: 'un poste Linux ou Mac est enregistré dans ton parc', does: 'Tirésias lit la santé de ses disques (smartctl par SSH) et peut les surveiller toutes les 6 heures', auto: true, kind: 'donnée' },
+  { from: 'pegase', to: 'ullr', when: 'Pégase envoie un fichier téléchargé à analyser (si tu l\'as permis dans Pégase)', does: 'Asclépios rend son verdict (sain, douteux, bloqué) ; la copie envoyée est effacée d\'Odin', auto: true, kind: 'réflexe' },
+  { from: 'pegase', to: 'vidarr', when: 'Pégase vérifie un lien avant de l\'ouvrir', does: 'Sphinx dit si ses listes bloquent ce site, en plus de l\'avis d\'Asclépios', auto: true, kind: 'réflexe' },
+  { from: 'pegase', to: 'saga', when: 'un jour se termine (profils qui laissent Odin voir leur historique)', does: 'le résumé de la navigation de la veille (pages, sites, recherches) est noté dans Thot et dans le journal des applis : Odin s\'en souvient', auto: true, kind: 'donnée' },
+  { from: 'pegase', to: 'forseti', when: 'un téléchargement est bloqué, ou un nouvel appareil se connecte à un profil', does: 'alerte dans le fil commun, avec le bouton « Révoquer cet appareil »', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
