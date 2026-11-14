@@ -1,0 +1,33 @@
+# Versions vérifiées le 14/11/2026 (pages officielles) :
+#  - AGP 9.5.1 (octobre 2026, demande Gradle 9.6 et le JDK 17 au moins) ;
+#  - Gradle 9.6.1 ;
+#  - Kotlin 2.4.20 (septembre 2026) ;
+#  - Compose BOM 2026.09.00 (exemple de la page officielle « Use a Bill of Materials ») ;
+#  - GeckoView 160 : Firefox 160 est sorti le 10/11/2026 (la mission parlait de 153, déjà dépassé).
+#    « 160.+ » prend la dernière 160.0.<numéro de build> publiée sur maven.mozilla.org.
+[versions]
+agp = "9.5.1"
+kotlin = "2.4.20"
+composeBom = "2026.09.00"
+geckoview = "160.+"
+coreKtx = "1.17.0"
+activityCompose = "1.11.0"
+junit = "4.13.2"
+
+[libraries]
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+geckoview = { module = "org.mozilla.geckoview:geckoview", version.ref = "geckoview" }
+junit = { module = "junit:junit", version.ref = "junit" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
