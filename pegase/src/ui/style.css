@@ -530,3 +530,13 @@ h2.jour { margin: 18px 0 8px; text-transform: capitalize; }
 @keyframes o-blink { 0%, 91%, 100% { transform: scaleY(1); } 93.5% { transform: scaleY(.08); } 96% { transform: scaleY(1); } }
 @keyframes o-orbit { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .odin .body, .odin .eye, .odin .orbit { animation: none; } }
+
+/* ————— Point d'état d'Odin (à côté de Recharger) et Odin dans la barre et le panneau ————— */
+.point-odin .pt-etat { width: 10px; height: 10px; border-radius: 50%; display: block; box-shadow: 0 0 0 3px rgba(0,0,0,.18); }
+.pt-etat.rouge { background: #EF4444; box-shadow: 0 0 8px rgba(239,68,68,.7); }
+.pt-etat.orange { background: #F59E0B; box-shadow: 0 0 8px rgba(245,158,11,.7); }
+.pt-etat.vert { background: #22C55E; box-shadow: 0 0 8px rgba(34,197,94,.7); }
+.odin.mini { width: 24px; height: 24px; display: block; }
+.odin.tete { width: 34px; height: 34px; display: block; flex: none; }
+.odin.mini svg, .odin.tete svg { width: 100%; height: 100%; overflow: visible; display: block; }
+.odin.grand-odin { width: 44px; height: 44px; display: block; flex: none; } .odin.grand-odin svg { width: 100%; height: 100%; overflow: visible; }

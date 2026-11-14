@@ -76,6 +76,8 @@ export interface Etat {
   protection: { bloquesTotal: number; dns: string; dnsChiffre: boolean; filtres: number; pret: boolean };
   barreReduite: boolean; panneauOdin: boolean; prive: boolean; maximise: boolean;
   odin?: { url: string; nom: string; connecte: boolean };
+  /** Un Odin a été vu sur ce PC ou le réseau (pour le point orange « connexion à faire »). */
+  odinVu?: boolean;
   outils: Outils | null;
   mobile: Record<string, Mobile>;
   proposerMdp?: { origine: string; identifiant: string } | null;

@@ -1,6 +1,6 @@
 // Pages pegase:// : profil (et, à l'étape 5, agenda, import, synchro Odin).
 import { api, esc, appIcone, type Ctx } from './commun';
-import { ODIN_SVG, reduirePhoto } from './odin-visage';
+import { odinVisage, reduirePhoto } from './odin-visage';
 import { I } from './icones';
 import { prompt2 } from './pages';
 
@@ -14,7 +14,7 @@ pagesSuite.profil = (el, ctx) => {
     const espaces = E.espaces.map((e) => ({ e, n: E.onglets.filter((o) => o.espace === e.id).length, b: E.bureaux.filter((b) => b.espace === e.id).length }));
     el.innerHTML = `<div class="contenu pile-large">
       <section class="profil-tete">
-        <div class="profil-avatar"><span class="anneau" aria-hidden="true"></span><span class="dedans">${E.profil.photo ? `<img src="${E.profil.photo}" alt="Ta photo">` : `<span class="odin" role="img" aria-label="Odin">${ODIN_SVG}</span>`}</span>
+        <div class="profil-avatar"><span class="anneau" aria-hidden="true"></span><span class="dedans">${E.profil.photo ? `<img src="${E.profil.photo}" alt="Ta photo">` : `<span class="odin" role="img" aria-label="Odin">${odinVisage()}</span>`}</span>
           <button class="profil-couleur" data-photo aria-label="${E.profil.photo ? 'Changer la photo' : 'Mettre une photo'}">${I.crayon(15)}</button>
           <input type="file" accept="image/jpeg,image/png,image/webp" data-fichier-photo hidden></div>
         <div class="profil-nom"><h1>${esc(E.profil.nom)}</h1>

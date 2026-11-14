@@ -1,6 +1,6 @@
 // L'interface de Pégase : barre du haut, barre de côté, zone des pages, menus, barre de commande.
 import '@fontsource/ibm-plex-sans/latin-400.css';
-import { avatar } from './odin-visage';
+import { avatar, odinVisage, lireHumeur } from './odin-visage';
 import '@fontsource/ibm-plex-sans/latin-500.css';
 import '@fontsource/ibm-plex-sans/latin-600.css';
 import '@fontsource/ibm-plex-sans/latin-700.css';
@@ -17,6 +17,7 @@ const VIGNETTES = location.hash === '#vignettes';
 if (VIGNETTES) document.documentElement.classList.add('vignettes');
 type Menu = { type: string; x: number; y: number; arg?: any; ancre?: DOMRect };
 const L = {
+  humeur: 'neutre', // l'humeur d'Odin montrée dans Pégase (la même que dans Odin quand il la donne)
   menu: null as Menu | null,
   commande: null as null | { q: string; sel: number; nouvel: boolean; resultats: Resultat[]; jeton: number; partage?: boolean },
   trouver: null as null | { texte: string; actif: number; total: number },
@@ -94,6 +95,7 @@ function haut(): string {
       <button class="ib" data-a="reculer" aria-label="Page précédente" ${c?.peutReculer ? '' : 'disabled'}>${I.recul()}</button>
       <button class="ib" data-a="avancer" aria-label="Page suivante" ${c?.peutAvancer ? '' : 'disabled'}>${I.avance()}</button>
       ${c?.charge ? `<button class="ib" data-a="arreter" aria-label="Arrêter le chargement">${I.arret(16)}</button>` : `<button class="ib" data-a="recharger" aria-label="Recharger" ${c ? '' : 'disabled'}>${I.recharger()}</button>`}
+      ${E.prive ? '' : pointOdin()}
     </div>
     <div class="c">
       <button class="ib p" data-a="copierLien" aria-label="Copier le lien" ${c && !c.url.startsWith('pegase:') ? '' : 'disabled'}>${I.lien()}</button>
@@ -104,7 +106,7 @@ function haut(): string {
       ${E.prive ? '<span class="badge local lisible">Fenêtre privée</span>' : badgeSync}
       ${protege}
       <button class="ib" data-a="menu" data-menu="profil" aria-label="Ton profil Odin" title="${esc(E.profil.nom)}">${avatar(E.profil)}</button>
-      <button class="ib" data-a="panneauOdin" aria-label="Odin sur le côté" aria-pressed="${E.panneauOdin}"><img src="${appIcone('valhalla')}" alt="" width="20" height="20"></button>
+      <button class="ib odin-bouton" data-a="panneauOdin" aria-label="Odin sur le côté" aria-pressed="${E.panneauOdin}"><span class="odin mini" aria-hidden="true">${odinVisage(humeurOdin())}</span></button>
       <button class="ib" data-a="partagerNouveau" aria-label="Écran partagé" ${c ? '' : 'disabled'}>${I.partage()}</button>
       ${win ? `<button class="fen" data-a="fenetre" data-op="min" aria-label="Réduire">${I.min()}</button>
       <button class="fen" data-a="fenetre" data-op="max" aria-label="${E.maximise ? 'Restaurer' : 'Agrandir'}">${E.maximise ? I.restaurer() : I.max()}</button>
@@ -285,11 +287,23 @@ function dimensionnerMobiles(): void {
   }
 }
 
+/** Le point d'état d'Odin, à côté de « Recharger » : rouge (pas d'Odin), orange (Odin trouvé, connexion à faire), vert (synchronisé). */
+function pointOdin(): string {
+  const s = E.synchro?.etat, relie = !!E.odin?.connecte;
+  const [cl, txt] = relie && (s === 'ok' || s === 'encours') ? ['vert', 'Odin : synchronisé avec Pégase']
+    : relie ? ['orange', 'Odin : hors ligne pour l’instant, les changements attendent']
+    : E.odinVu ? ['orange', 'Odin trouvé : il manque la connexion (adresse, e-mail, mot de passe)']
+    : ['rouge', 'Pas d’Odin : Pégase n’est relié à aucun Odin'];
+  return `<button class="ib point-odin" data-a="interne" data-page="synchro" aria-label="${txt}" title="${txt}"><span class="pt-etat ${cl}"></span></button>`;
+}
+/** L'humeur d'Odin à montrer : la sienne quand il est relié, sinon il attend (gêné de ne pas pouvoir aider). */
+function humeurOdin(): string { return E.odin?.connecte ? L.humeur : 'confus'; }
+
 function panneauOdin(): string {
   const fil = L.odinFil.length ? L.odinFil.map((m) => `<div class="bulle${m.moi ? ' moi' : ''}">${esc(m.texte)}</div>`).join('')
     : `<p class="doux">${E.odin?.connecte ? 'Demande-moi ce que tu veux, ou fais-moi résumer la page.' : 'Pégase n’est pas encore relié à ton Odin. Relie-le dans Réglages → Synchro Odin.'}</p>${idees()}`;
   return `<aside class="panneau-odin" aria-label="Odin">
-    <div class="po-tete"><img src="${appIcone('valhalla')}" alt="" width="26" height="26"><b>Odin</b><span class="doux petit t">${E.odin?.connecte ? esc(E.odin.nom) : 'pas relié'}</span>
+    <div class="po-tete"><span class="odin tete" role="img" aria-label="Odin (${esc(humeurOdin())})">${odinVisage(humeurOdin())}</span><b>Odin</b><span class="doux petit t">${E.odin?.connecte ? esc(E.odin.nom) : 'pas relié'}</span>
       <button class="ib" data-a="panneauOdin" aria-label="Fermer le panneau d’Odin">${I.fermer()}</button></div>
     <div class="rangee po-actions"><button class="bouton" data-a="odinResumer">Résumer la page</button><button class="bouton" data-a="odinVerifier">Vérifie ce site</button></div>
     <div class="po-fil" id="po-fil">${fil}</div>
@@ -780,10 +794,12 @@ async function demanderOdin(texte: string, resumer = false, verifier = false, tr
   if (!E.panneauOdin) await api.faire('panneauOdin', { ouvert: true });
   const c = courant();
   L.odinFil.push({ moi: true, texte: resumer ? 'Résume cette page.' : texte });
-  L.odinFil.push({ moi: false, texte: 'Odin réfléchit…' });
+  L.odinFil.push({ moi: false, texte: 'Odin réfléchit…' }); L.humeur = 'reflexion';
   rendre();
   const r = await api.faire('odinDemander', { texte, resumer, verifier, traduire, onglet: c?.id }).catch(() => null);
-  L.odinFil[L.odinFil.length - 1] = { moi: false, texte: r?.texte ?? 'Odin n’a pas répondu. Vérifie qu’il est allumé et que Pégase y est relié (Réglages → Synchro Odin).' };
+  const lu = lireHumeur(String(r?.texte ?? ''));
+  L.humeur = r?.texte ? (lu.humeur ?? 'joie') : 'triste';
+  L.odinFil[L.odinFil.length - 1] = { moi: false, texte: r?.texte ? lu.texte : 'Odin n’a pas répondu. Vérifie qu’il est allumé et que Pégase y est relié (Réglages → Synchro Odin).' };
   rendre();
   const fil = document.getElementById('po-fil'); if (fil) fil.scrollTop = fil.scrollHeight;
 }
