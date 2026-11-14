@@ -30,6 +30,8 @@ function walk(root: string, dir: string, out: ZipEntry[], o: BackupOptions): voi
     const rel = relative(root, p).split(sep).join('/');
     if (dir === root && SKIP.has(name)) continue;
     if (dir === root && name === 'workspace' && o.workspace === false) continue;
+    // Les fichiers vivants du serveur PostgreSQL d'Odin ne se copient pas tels quels : ses sauvegardes chiffrées (pg_dump) partent à leur place.
+    if (rel === 'valhalla/urdr/donnees/odin-locale') continue;
     let st; try { st = statSync(p); } catch { continue; }
     if (st.isSymbolicLink()) continue;
     if (st.isDirectory()) { walk(root, p, out, o); continue; }

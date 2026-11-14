@@ -12,6 +12,7 @@ import { isRead, OPS, type Filter, type Op, type Value } from '../urdr/db.ts';
 import { engine } from './naglfar.ts';
 import { databaseFor, serverBase, SERVER, SERVER_IP, PG_VERSION } from '../urdr/serveur.ts';
 import type { ActionResult, ModCtx, Module, Param, Section } from '../types.ts';
+import { ACTIONS_BASE } from '../base/actions.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export const PG_IMAGE = `postgres:${PG_VERSION}`;
@@ -109,6 +110,7 @@ export const urdr: Module = {
       } catch (e) { note(ctx, { base: b.nom, sql: q, ok: false, result: (e as Error).message, write }); return { text: `❌ ${(e as Error).message}`, ok: false }; }
     }) },
     { id: 'journal', label: 'Journal des requêtes', what: 'Les dernières requêtes lancées', read: true, run: (ctx) => { const l = journal(ctx, 30); return { text: l.map((e) => `${e.at.slice(0, 16).replace('T', ' ')} · ${e.base} · ${e.ok ? '✓' : '✗'} ${e.result} · ${e.sql.slice(0, 100)}`).join('\n') || 'Journal vide.', data: l }; } },
+    ...ACTIONS_BASE,
   ],
   async view(ctx) {
     const l = bases(ctx.home), cur = ctx.settings.courante as { base?: string; table?: string; page?: number; filtres?: Filter[] } | undefined;

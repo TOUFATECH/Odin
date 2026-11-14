@@ -34,6 +34,7 @@ import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../setti
 import { routingReport } from '../providers/journal.ts';
 import { startDraupnir } from '../draupnir/odin.ts';
 import { startValhalla, valhallaOf } from '../valhalla/odin.ts';
+import { demarrerBaseOdin } from '../valhalla/base/demarrage.ts';
 import { startQuotidien } from '../learn/quotidien.ts';
 import { brainOf } from '../tools/brain.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
@@ -262,9 +263,11 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   const stopDraupnir = startDraupnir(odin, (t) => gw!.notifyOwner(t));
   // Valhalla (toutes les applis d'Odin) : alertes sur ta messagerie, liens entre applis, veille.
   const stopValhalla = startValhalla(odin, (t, o) => gw!.notifyOwner(t, o));
+  // La base d'Odin (PostgreSQL géré par Alexandrie) : les données des applis ; préparée en arrière-plan.
+  const stopBase = demarrerBaseOdin(odin.paths.home, valhallaOf());
   // Le Quotidien du Cerveau : ce qu'Odin sait refaire sans IA, en notes reliées aux applis (remises à jour au démarrage).
   const stopQuotidien = startQuotidien({ vault: brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }), kv: odin.muninn, app: (ref) => valhallaOf()?.module(ref)?.name, redact: (t) => odin.redactor.redact(t) }, (line) => console.log(line));
-  const shutdown = async () => { stopQuotidien(); stopValhalla(); stopDraupnir(); await gw!.stop(); odin.close(); };
+  const shutdown = async () => { stopQuotidien(); stopValhalla(); await stopBase(); stopDraupnir(); await gw!.stop(); odin.close(); };
   // Rechargement demandé par l'onglet Réglages : on arrête tout puis on relance avec la nouvelle config.
   let reloading = false;
   const reload = async () => {
