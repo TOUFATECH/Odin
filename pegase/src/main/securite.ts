@@ -104,11 +104,17 @@ export function durcirSession(s: Session, nomSite: (wc: WebContents | null, url?
   (s as any).__reponsesPermissions = reponses;
 }
 
+/** Ce protocole est-il de ceux qu'une page ne peut jamais faire ouvrir (Follina, search-ms…) ? */
+export function protocoleInterdit(url: string): boolean {
+  let proto = ''; try { proto = new URL(url).protocol.replace(':', '').toLowerCase(); } catch { return true; }
+  return PROTOCOLES_INTERDITS.has(proto) || (proto.startsWith('ms-') && proto !== 'ms-teams');
+}
+
 /** Un lien vers un programme (mailto:, zoommtg:…) : demandé avant ; certains protocoles dangereux, jamais. */
 function protocoleExterne(wc: WebContents | null, url: string | undefined, rappel: (ok: boolean) => void): void {
   if (!url) return rappel(false);
   let proto = ''; try { proto = new URL(url).protocol.replace(':', '').toLowerCase(); } catch { return rappel(false); }
-  if (PROTOCOLES_INTERDITS.has(proto) || proto.startsWith('ms-') && !['ms-teams'].includes(proto)) { refus.protocoles++; return rappel(false); }
+  if (protocoleInterdit(url)) { refus.protocoles++; return rappel(false); }
   if ((wc?.session as any)?.__controle || (process.env.PEGASE_PERMISSIONS === 'refuser' && !app.isPackaged)) return rappel(false);
   const site = wc ? new URL(wc.getURL() || 'about:blank').hostname : 'Une page';
   dialog.showMessageBox({ type: 'question', buttons: ['Ouvrir', 'Annuler'], defaultId: 1, cancelId: 1, noLink: true, title: 'Pégase', message: `${site} veut ouvrir un programme de ton ordinateur (lien « ${proto}: »).`, detail: 'N’accepte que si tu as cliqué toi-même sur ce lien et que tu connais ce programme.' })

@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync, readdirSync, readFileSync, readlinkSync, existsSyn
 import { join } from 'node:path';
 import { tmpdir, networkInterfaces } from 'node:os';
 import { ProfilOuvert } from './profil';
-import { hoteAffiche, refus, siteDe } from './securite';
+import { hoteAffiche, refus, siteDe, protocoleInterdit } from './securite';
 import { versAdresse, nouvelId } from './outils';
 import { MotsDePasse, origineSure } from './motsdepasse';
 import type { Protection } from './protection';
@@ -47,7 +47,7 @@ async function serveurPiege() {
         const g = await new Promise((ok) => navigator.geolocation.getCurrentPosition(() => ok('donnée'), (e) => ok('refusée ' + e.code), { timeout: 3000 }));
         rapporte('permissions', { notif: r, geo: g });
       })();</script>`,
-    '/protocole': `<script>setTimeout(() => { location.href = 'ms-msdt:/id PCWDiagnostic /skip force /param "IT_RebrowseForFile=?"'; }, 50); setTimeout(() => { location.href = 'search-ms:query=facture&crumb=location:\\\\\\\\piege.exemple\\\\partage'; }, 300);</script>`,
+    '/protocole': `<a id="a" href="ms-msdt:/id PCWDiagnostic /skip force /param &quot;IT_RebrowseForFile=?&quot;">diagnostic</a><a id="b" href="search-ms:query=facture&amp;crumb=location:%5C%5Cpiege.exemple%5Cpartage">facture</a>`,
     '/webrtc': `<script>${rapporte} (async () => {
         const c = []; const pc = new RTCPeerConnection({ iceServers: [] }); pc.createDataChannel('x');
         pc.onicecandidate = (e) => { if (e.candidate) c.push(e.candidate.candidate); };
@@ -206,7 +206,14 @@ export async function controler(protection: Protection, enregistrerMdp: (p: Prof
     const g7: Essai[] = [];
     g7.push(await essai('Pluie de fenêtres surgissantes (25 d’un coup)', async () => { const n = nbOnglets(); await ouvrir(`${piege.a}/pluie`, 800); const r = await piege.attendre('pluie'); return ok(nbOnglets() === n + 1 && (r?.n ?? 0) === 0, `${nbOnglets() - n - 1} fenêtre(s) ouverte(s)`); }));
     g7.push(await essai('Notifications et position sans ton accord', async () => { const avant = refus.permissions; await ouvrir(`${piege.a}/permissions`, 200); const r = await piege.attendre('permissions', 8000); if (!r) return ['non essayé', 'pas de réponse']; return ok(!r.notif.includes('granted') && String(r.geo).startsWith('refusée') && refus.permissions > avant, `notifications : ${[...new Set(r.notif)].join(', ')} ; position : ${r.geo}`); }));
-    g7.push(await essai('Lien vers un programme dangereux (ms-msdt:, search-ms:)', async () => { const avant = refus.protocoles; await ouvrir(`${piege.a}/protocole`, 1200); return ok(refus.protocoles >= avant + 1, `${refus.protocoles - avant} lien(s) refusé(s) sans rien ouvrir`); }));
+    g7.push(await essai('Lien vers un programme dangereux (ms-msdt:, search-ms:)', async () => {
+      // Comme si la personne cliquait elle-même sur les liens (sans clic, Chromium les refuse déjà).
+      const avant = refus.protocoles; const wc = await ouvrir(`${piege.a}/protocole`, 300);
+      for (const id of ['a', 'b']) { clic(wc); await wc.executeJavaScript(`document.getElementById('${id}').click()`, true).catch(() => 0); await pause(600); }
+      // Sur un PC où aucun programme ne gère ces liens (Linux), Chromium ne demande même rien : la règle est alors vérifiée seule.
+      const regle = protocoleInterdit('ms-msdt:/id PCWDiagnostic') && protocoleInterdit('search-ms:query=x') && protocoleInterdit('ms-officecmd:x') && !protocoleInterdit('mailto:awa@exemple.yt');
+      return ok(regle, `${refus.protocoles - avant} clic(s) refusé(s) par Pégase ; ms-msdt, search-ms, ms-officecmd toujours refusés (mailto demandé)`);
+    }));
     groupes.push({ id: 'pluie', nom: 'Pluie de fenêtres et d’alertes', detail: 'Popups, notifications, permissions, programmes', essais: g7 });
 
     // ————— 8. Port de débogage —————

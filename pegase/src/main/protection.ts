@@ -12,7 +12,7 @@ import type { ProfilOuvert } from './profil';
 import type { Fenetre } from './fenetre';
 import { ecrireSur } from './stockage';
 import { nouvelId, domaine } from './outils';
-import { httpsDabord, estTiers } from './securite';
+import { httpsDabord, estTiers, siteDe } from './securite';
 
 // La signature du fichier d'essai EICAR, découpée pour que Pégase lui-même ne soit jamais pris pour un virus.
 const EICAR = Buffer.from(['X5O!P%@AP[4\\PZX54(P^)7CC)7}$', 'EICAR-STANDARD-ANTIVIRUS-', 'TEST-FILE!$H+H*'].join(''));
@@ -141,6 +141,18 @@ export class Protection {
     // Cookies tiers bloqués (réglable) : ni envoyés, ni reçus pour un autre site que celui de la page.
     s.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (d, rappel) => {
       if (p.reglages().cookiesTiers && estTiers(d as any)) { const h = { ...d.requestHeaders }; for (const k of Object.keys(h)) if (k.toLowerCase() === 'cookie') delete h[k]; return rappel({ requestHeaders: h }); }
+      // Anti-CSRF : un formulaire envoyé (POST) depuis un AUTRE site n'emporte que les cookies qui l'ont explicitement
+      // permis (SameSite=None). Chromium envoie sinon, pendant 2 minutes, les cookies tout neufs sans SameSite.
+      const cle = Object.keys(d.requestHeaders).find((k) => k.toLowerCase() === 'cookie');
+      if (cle && d.resourceType === 'mainFrame' && d.method === 'POST' && croise(d.webContents?.getURL?.() ?? '', d.url)) {
+        s.cookies.get({ url: d.url }).then((l) => {
+          const permis = new Set(l.filter((k) => k.sameSite === 'no_restriction').map((k) => k.name));
+          const garde = String(d.requestHeaders[cle]).split(/;\s*/).filter((x) => permis.has(x.split('=')[0]));
+          const h = { ...d.requestHeaders }; if (garde.length) h[cle] = garde.join('; '); else delete h[cle];
+          rappel({ requestHeaders: h });
+        }).catch(() => rappel({}));
+        return;
+      }
       rappel({});
     });
     s.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (d, rappel) => {
@@ -254,6 +266,12 @@ export class Protection {
     }
     return undefined;
   }
+}
+
+/** La page d'où part la requête et la cible sont-elles de deux sites différents ? */
+function croise(depuis: string, vers: string): boolean {
+  if (!/^https?:/.test(depuis)) return false;
+  return siteDe(depuis) !== siteDe(vers) || new URL(depuis).protocol !== new URL(vers).protocol;
 }
 
 function sha256(chemin: string): Promise<string> {
