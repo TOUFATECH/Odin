@@ -153,6 +153,19 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
   let D = null, view = 'accueil', room = 'Tout', q = '', seen = new Set(), first = true, voice = false;
   try { voice = localStorage.getItem('odin.maison.voix') === '1'; } catch { /* */ }
   const root = el('div', { class: 'app' }); document.body.append(root);
+  // ---------- Accueil : le ciel noir étoilé (ciel.js) tant qu'Odin n'a pas répondu, ou s'il faut se connecter ----------
+  // Ensuite, c'est le thème choisi pour l'écran de la maison qui s'affiche (rien ne change à l'intérieur).
+  document.head.append(el('style', {}, `.nuit{position:fixed;inset:0;z-index:45;background:#000;display:grid;place-items:center;padding:16px;color:#eef0ff;font-family:Plex,system-ui,sans-serif}.nuit .ciel{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.nuit>:not(.ciel){position:relative}.nuit .attente{display:flex;flex-direction:column;align-items:center;gap:14px;color:rgba(255,255,255,.8)}.nuit .boite{width:min(520px,100%);background:#14161f;border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.55)}.nuit .boite h1{margin:0 0 8px;font-size:22px}.nuit .boite p{margin:0 0 14px;color:#c4c8e4;line-height:1.5}.nuit .boite a{display:inline-flex;align-items:center;min-height:46px;padding:0 18px;border-radius:12px;background:#4b5ae0;color:#fff;font-weight:600;text-decoration:none}`));
+  const nuit = (() => {
+    const ciel = el('canvas', { class: 'ciel', 'aria-hidden': 'true' }), dedans = el('div', { class: 'attente', role: 'status' }, el('p', {}, 'L\'écran de la maison démarre…'));
+    const n = el('div', { class: 'nuit' }, ciel, dedans); document.body.append(n); window.OdinCiel?.monter(ciel);
+    const couleur = (c) => document.querySelector('meta[name=theme-color]')?.setAttribute('content', c);
+    couleur('#000000');
+    return {
+      montrer(...enfants) { dedans.className = 'boite'; dedans.setAttribute('role', 'alert'); dedans.replaceChildren(...enfants); if (!n.isConnected) document.body.append(n); couleur('#000000'); },
+      cacher() { n.remove(); },
+    };
+  })();
   const toast = (t) => { document.querySelector('.toast')?.remove(); const n = el('div', { class: 'toast', role: 'status' }, t); document.body.append(n); setTimeout(() => n.remove(), 4200); };
   const confirmBox = (text) => new Promise((ok) => { const d = el('dialog', { 'aria-label': 'Confirmation' }, el('p', {}, text), el('div', { class: 'acts' }, el('button', { class: 'btn', onclick: () => { d.close(); ok(false); } }, 'Annuler'), el('button', { class: 'btn primary', onclick: () => { d.close(); ok(true); } }, 'Confirmer'))); d.addEventListener('close', () => { d.remove(); ok(false); }); document.body.append(d); d.showModal(); });
   /** Une action : si elle est grave, Odin demande confirmation, puis la relance avec « confirm ». */
@@ -325,15 +338,15 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       const d = await api('/api/maison/etat'); if (!d.ok) throw new Error(d.error || 'erreur');
       let th = d.theme; if (d.rights !== 'complet') try { th = localStorage.getItem('odin.maison.theme') || th; } catch { /* */ }
       if (!D || D.theme !== th) applyTheme(th);
-      D = { ...d, theme: th }; draw();
+      D = { ...d, theme: th }; nuit.cacher(); draw();
       // Odin d'aujourd'hui (le même que partout) : caché ou non, fête du jour, pouvoirs.
       if (d.mascotte) { window.OdinMascotte?.onState?.(d.mascotte); const c = d.mascotte.event?.color || d.mascotte.odin?.color; if (c) window.OdinFace?.tintBase?.(c); }
       // Nouvelles bulles : la mascotte les annonce (rouge et à voix haute si c'est grave).
       for (const n of (d.notices || []).slice().reverse()) { if (seen.has(n.id)) continue; seen.add(n.id); if (!first) pet.say(`${n.title}${n.detail ? `\n${n.detail.slice(0, 200)}` : ''}`, n.level, n.level === 'grave' ? 'inquiet' : n.level === 'souci' ? 'reflexion' : 'joie', n.level === 'grave'); }
       if (first) { first = false; setTimeout(() => pet.say(`${hello()} ! ${d.weather ? `Il fait ${d.weather.temp}° à ${d.weather.place}, ${d.weather.word.toLowerCase()}.` : ''} Touche-moi pour me parler.`, 'ok', 'joie'), 900); }
     } catch (e) {
-      applyTheme('verre');
-      root.replaceChildren(el('main', {}, el('div', { class: 'card', style: { maxWidth: '520px', margin: '12vh auto' } }, el('h1', {}, 'Écran de la maison'), el('p', {}, e.auth ? 'Connecte-toi à Odin, ou ouvre le lien de tablette donné par Hestia.' : `Odin ne répond pas : ${e.message}`), e.auth ? el('a', { class: 'btn primary', href: '/', style: { textDecoration: 'none' } }, 'Se connecter à Odin') : null)));
+      if (!D) applyTheme('verre');
+      nuit.montrer(el('h1', {}, 'Écran de la maison'), el('p', {}, e.auth ? 'Connecte-toi à Odin, ou ouvre le lien de tablette donné par Hestia.' : `Odin ne répond pas : ${e.message}. Nouvel essai dans quelques secondes.`), e.auth ? el('a', { href: '/' }, 'Se connecter à Odin') : null);
     }
   }
 

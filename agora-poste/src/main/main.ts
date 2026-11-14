@@ -3,7 +3,7 @@
 // l'horloge) : les installations imposées par l'admin d'Odin se font sans rien demander.
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray, session } from 'electron';
 import { join } from 'node:path';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { Rangement } from './stockage';
 import { Connexion } from './odin';
@@ -24,11 +24,13 @@ if (!ESSAI && !app.requestSingleInstanceLock()) app.quit();
 
 const r = new Rangement(racine), odin = new Connexion(r), moteur = new Moteur(odin, r, app.getVersion());
 let fen: BrowserWindow | null = null, tray: Tray | null = null, quitter = false;
-const icone = () => { const f = join(__dirname, '..', 'ui', 'agora.png'); return existsSync(f) ? nativeImage.createFromPath(f) : nativeImage.createEmpty(); };
+/** Le vrai logo d'Agora : petit pour la zone de notification ; grand (le .ico sous Windows) pour la fenêtre et la barre des tâches. */
+const icone = (fichier = 'agora.png') => { const f = join(__dirname, '..', 'ui', fichier); return existsSync(f) ? nativeImage.createFromPath(f) : nativeImage.createEmpty(); };
+const iconeFenetre = () => icone(process.platform === 'win32' ? 'agora.ico' : 'agora-256.png');
 
 function fenetre(): void {
   if (fen) { fen.show(); fen.focus(); return; }
-  fen = new BrowserWindow({ width: 1080, height: 700, minWidth: 720, minHeight: 520, title: 'Agora · le store d\'Odin', icon: icone(), backgroundColor: '#EEF8F9', show: !CACHE,
+  fen = new BrowserWindow({ width: 1080, height: 700, minWidth: 720, minHeight: 520, title: 'Agora · le store d\'Odin', icon: iconeFenetre(), backgroundColor: '#000000', show: !CACHE,
     webPreferences: { preload: join(__dirname, '..', 'preload', 'ui.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false } });
   fen.removeMenu();
   // La fenêtre ne va nulle part ailleurs que sa propre page ; les liens s'ouvrent dans le navigateur du système.
@@ -71,6 +73,15 @@ ipcMain.handle('agora:faire', async (_e, action: string, arg: Record<string, unk
     case 'rafraichir': await moteur.rafraichir(); return { ok: true };
     case 'fermerMessage': moteur.etat = { ...moteur.etat, message: undefined }; envoyer(); return { ok: true };
     case 'deconnecter': await moteur.deconnecter(); return { ok: true };
+    // La photo de l'avatar (réduite par l'interface, gardée sur ce PC seulement) ; sans photo, c'est Odin qui s'affiche.
+    case 'lirePhoto': { try { return { ok: true, photo: `data:image/jpeg;base64,${readFileSync(join(racine, 'photo.jpg')).toString('base64')}` }; } catch { return { ok: true, photo: '' }; } }
+    case 'photo': {
+      const ph = typeof arg.photo === 'string' ? arg.photo : '';
+      if (!ph) { rmSync(join(racine, 'photo.jpg'), { force: true }); return { ok: true }; }
+      const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(ph);
+      if (!m || ph.length > 400_000) return { ok: false, message: 'Image refusée : choisis une photo JPG, PNG ou WebP.' };
+      writeFileSync(join(racine, 'photo.jpg'), Buffer.from(m[1], 'base64')); return { ok: true };
+    }
     default: return { ok: false, message: 'action inconnue' };
   }
 });

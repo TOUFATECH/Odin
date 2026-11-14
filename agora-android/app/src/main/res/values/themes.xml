@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Le fond clair d'Agora dès l'ouverture (avant que Compose dessine l'écran). -->
+    <!-- Le noir du ciel étoilé dès l'ouverture (écran de lancement d'Android, puis connexion étoilée) ; le store, lui, est clair. -->
     <style name="Theme.Agora" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/fond_agora</item>
+        <item name="android:windowBackground">@color/nuit</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
     <color name="fond_agora">#FFEEF8F9</color>
+    <color name="nuit">#FF000000</color>
     <color name="agora_sarcelle">#FF0B7F7C</color>
 </resources>

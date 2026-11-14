@@ -1,5 +1,8 @@
 package com.toufatech.pegase.ui
 
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -83,6 +86,7 @@ fun EcranProfil(pegase: Pegase) {
     val _r = pegase.revision
     val s = pegase.session
     var quitter by remember { mutableStateOf(false) }
+    val choisirPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) pegase.mettrePhoto(uri) }
     val chiffres = pegase.chiffresDuMois()
     PagePleine("Ton profil", { pegase.feuille = null }) {
         Column(
@@ -92,7 +96,7 @@ fun EcranProfil(pegase: Pegase) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Avatar(s?.nom ?: "Pégase", 64.dp)
+                Avatar(64.dp, pegase.photoProfil)
                 Column(Modifier.weight(1f)) {
                     T(s?.nom ?: "Sur ce téléphone", taille = 20.sp, titre = true, lignes = 1)
                     val quand = pegase.derniereSynchro?.let { ilYa(it) }
@@ -116,6 +120,13 @@ fun EcranProfil(pegase: Pegase) {
                     contentAlignment = Alignment.Center,
                 ) { T("Changer de profil", poids = FontWeight.SemiBold, couleur = Color(0xFF14151E)) }
                 BoutonContour("Quitter", { quitter = true })
+            }
+            // Une photo remplace Odin dans l'avatar ; « Retirer la photo » le fait revenir. Gardée sur ce téléphone.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BoutonContour(if (pegase.photoProfil == null) "Choisir une photo" else "Changer la photo", {
+                    choisirPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }, Modifier.weight(1f))
+                if (pegase.photoProfil != null) BoutonContour("Retirer la photo", { pegase.retirerPhoto() }, Modifier.weight(1f))
             }
         }
         T("Appuie longtemps sur une carte, puis fais-la glisser", taille = 12.sp, doux = true, modifier = Modifier.align(Alignment.CenterHorizontally))

@@ -9,6 +9,7 @@ import android.util.Base64
 import com.toufatech.agora.coeur.Article
 import com.toufatech.agora.coeur.Installee
 import com.toufatech.agora.coeur.Store
+import com.toufatech.agora.coeur.Texte
 import com.toufatech.agora.odin.ClientAgora
 import com.toufatech.agora.odin.Session
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,7 +65,7 @@ object Agora {
     }
     fun connecter(c: Context, adresse: String, identifiant: String, motdepasse: String, code: String?): Boolean {
         val cl = ClientAgora(adresse, if (adresse.trimEnd('/') == prefs(c).getString("adresse", null)) prefs(c).getString("empreinte", null) else null, appareil(c)) { s -> garder(c, s) }
-        val r = try { cl.connecter(identifiant, motdepasse, code, Build.MODEL ?: "Téléphone") } catch (e: Exception) { etat.update { it.copy(connexion = "aucune", erreur = e.message) }; return false }
+        val r = try { cl.connecter(identifiant, motdepasse, code, Build.MODEL ?: "Téléphone") } catch (e: Exception) { etat.update { it.copy(connexion = "aucune", erreur = Texte.sansChemin(e.message)) }; return false }
         if (!r.ok) { etat.update { it.copy(connexion = "aucune", erreur = r.message, codeRequis = r.code == "code_requis") }; return false }
         client = cl; etat.update { it.copy(connexion = "ok", erreur = null, codeRequis = false) }; return true
     }

@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+import com.toufatech.agora.coeur.Texte
 
 class AgoraApp : Application()
 
@@ -120,8 +121,9 @@ class ServiceStore : Service() {
                 Agora.etat.update { it.copy(enCours = it.enCours - o.element, erreurs = it.erreurs + (o.element to (e.message ?: ""))) }; Agora.noter("${o.nom} : ${e.message}")
                 try { cl.etat(o.element, "erreur", ordre, erreur = e.message, par = par) } catch (_: Exception) { }
             } catch (e: Exception) {
-                Agora.etat.update { it.copy(enCours = it.enCours - o.element, erreurs = it.erreurs + (o.element to (e.message ?: "erreur"))) }
-                try { cl.etat(o.element, "erreur", ordre, erreur = e.message ?: "erreur", par = par) } catch (_: Exception) { }
+                val m = Texte.sansChemin(e.message)
+                Agora.etat.update { it.copy(enCours = it.enCours - o.element, erreurs = it.erreurs + (o.element to m)) }
+                try { cl.etat(o.element, "erreur", ordre, erreur = m, par = par) } catch (_: Exception) { }
             }
         }
     }

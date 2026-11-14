@@ -46,6 +46,7 @@ import com.toufatech.pegase.appli.Ecran
 import com.toufatech.pegase.appli.Feuille
 import com.toufatech.pegase.appli.Pegase
 import com.toufatech.pegase.coeur.Palettes
+import com.toufatech.pegase.coeur.Theme
 import com.toufatech.pegase.moteur.Invite
 import kotlinx.coroutines.delay
 
@@ -54,6 +55,9 @@ import kotlinx.coroutines.delay
 fun Racine(pegase: Pegase, activite: MainActivity) {
     val palette = Palettes.de(pegase.theme, isSystemInDarkTheme())
     LaunchedEffect(palette.vitre, palette.base) { activite.reglerVitre(palette.vitre) }
+    // Lancement et connexion à Odin : sur le ciel étoilé, avec des icônes claires dans les barres du téléphone.
+    val surLeCiel = !activite.imageDansImage && (pegase.ecran == Ecran.DEMARRAGE || pegase.ecran == Ecran.CONNEXION)
+    LaunchedEffect(surLeCiel) { activite.barresSurNoir(surLeCiel) }
     val schema = if (pegase.theme.resolu(isSystemInDarkTheme()).clair) {
         lightColorScheme(primary = Palettes.ACCENT.c(), surface = Color(0xFFF7F8FB), onSurface = Color(0xFF1C1F2B))
     } else {
@@ -67,8 +71,8 @@ fun Racine(pegase: Pegase, activite: MainActivity) {
                     return@Box
                 }
                 when (pegase.ecran) {
-                    Ecran.DEMARRAGE -> EcranDemarrage(pegase)
-                    Ecran.CONNEXION -> EcranConnexion(pegase)
+                    Ecran.DEMARRAGE -> SurLeCiel { EcranDemarrage(pegase) }
+                    Ecran.CONNEXION -> SurLeCiel { EcranConnexion(pegase) }
                     Ecran.NAVIGATEUR -> EcranNavigateur(pegase)
                 }
                 when (pegase.feuille) {
@@ -104,6 +108,22 @@ fun Racine(pegase: Pegase, activite: MainActivity) {
         if (pegase.ecran == Ecran.NAVIGATEUR) {
             pegase.lienEnAttente?.let { pegase.navigateur.ouvrir(it) }
             pegase.lienEnAttente = null
+        }
+    }
+}
+
+/**
+ * Un écran d'accueil sur le ciel noir étoilé (comme Pégase sur l'ordinateur). Ses couleurs sont celles du thème « Noir »
+ * pour rester lisibles sur la nuit ; le thème choisi par la personne reste celui du navigateur.
+ */
+@Composable
+private fun SurLeCiel(contenu: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalPalette provides Palettes.de(Theme.NOIR)) {
+        MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFB49CFF), surface = Color(0xFF1E1F2A), onSurface = Color(0xFFF2F3FA))) {
+            Box(Modifier.fillMaxSize()) {
+                Ciel(Modifier.fillMaxSize())
+                contenu()
+            }
         }
     }
 }

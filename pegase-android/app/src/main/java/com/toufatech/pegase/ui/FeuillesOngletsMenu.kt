@@ -210,7 +210,7 @@ fun FeuilleMenu(pegase: Pegase) {
                 .background(p.tuile.c()).padding(10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Avatar(s?.nom ?: "Pégase", 44.dp)
+            Avatar(44.dp, pegase.photoProfil)
             Column(Modifier.weight(1f).clickable { pegase.feuille = Feuille.PROFIL }) {
                 T(s?.nom ?: "Sur ce téléphone", poids = FontWeight.SemiBold, lignes = 1)
                 T(if (s != null) "Compte Odin · ${pegase.indicateur.texte}" else "Sans Odin · rien n'est synchronisé", taille = 12.sp, doux = true, lignes = 1)

@@ -8,7 +8,34 @@ button { font: inherit; }
 #appli { height: 100%; display: flex; }
 nav { width: 210px; flex: none; padding: 16px 10px; display: flex; flex-direction: column; gap: 4px; background: var(--cote); border-right: 1px solid var(--bord); }
 .qui { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
-.avatar { width: 34px; height: 34px; border-radius: 17px; display: grid; place-items: center; background: #F59E0B; color: #fff; font-weight: 700; flex: none; }
+.marque { display: flex; align-items: center; gap: 10px; padding: 0 8px 14px; font: 700 18px 'Bricolage Grotesque', system-ui, sans-serif; }
+.marque .logo { border-radius: 8px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none; padding: 0; border: 0; cursor: pointer; background: #0B0D18; overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar .odin { width: 86%; height: 86%; display: block; }
+.avatar .odin svg { width: 100%; height: 100%; overflow: visible; display: block; }
+/* Odin animé (mêmes mouvements que dans Odin et Pégase) ; immobile si l'ordinateur demande moins d'animations. */
+.odin .body { transform-origin: 60px 60px; animation: o-souffle 4.4s ease-in-out infinite; }
+.odin .eye { transform-box: fill-box; transform-origin: center; animation: o-cligne 5.2s infinite; }
+.odin .orbit { transform-origin: 60px 60px; animation: o-tour 7s linear infinite; }
+.odin .orbit.o2 { animation-duration: 9.5s; animation-direction: reverse; }
+@keyframes o-souffle { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035) translateY(-1px); } }
+@keyframes o-cligne { 0%, 91%, 100% { transform: scaleY(1); } 93.5% { transform: scaleY(.08); } 96% { transform: scaleY(1); } }
+@keyframes o-tour { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .odin .body, .odin .eye, .odin .orbit { animation: none; } }
+/* Point d'état d'Odin, et l'écran de la connexion à Odin. */
+.point-odin { width: 32px; height: 32px; display: grid; place-items: center; border: 0; background: none; border-radius: 50%; cursor: pointer; }
+.point-odin:hover { background: var(--actif); }
+.pt-etat { width: 11px; height: 11px; border-radius: 50%; display: block; }
+.pt-etat.rouge { background: #EF4444; box-shadow: 0 0 8px rgba(239, 68, 68, .7); }
+.pt-etat.orange { background: #F59E0B; box-shadow: 0 0 8px rgba(245, 158, 11, .7); }
+.pt-etat.vert { background: #22C55E; box-shadow: 0 0 8px rgba(34, 197, 94, .7); }
+.carte-odin { max-width: 560px; display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 14px; background: #fff; border: 1px solid var(--bord); }
+.carte-odin p { margin: 0 0 6px; }
+.carte-odin .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--bord); font-size: 14px; }
+.carte-odin .kv span { color: var(--doux); }
+.carte-odin .kv b { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.carte-odin .actions { justify-content: flex-start; margin-top: 8px; }
 .qui span { display: flex; flex-direction: column; font-size: 13.5px; min-width: 0; }
 .qui small { color: var(--doux); font-size: 13.5px; }
 nav button.onglet { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 12px; border-radius: 10px; color: var(--texte); background: none; border: 0; text-align: left; cursor: pointer; }
@@ -36,6 +63,7 @@ article .haut small { font-size: 13.5px; color: var(--doux); }
 .impose { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--vert-fonce); }
 .actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; min-height: 40px; margin-top: auto; }
 .bouton { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid #6F9092; background: #fff; color: var(--texte); font-weight: 500; font-size: 14.5px; cursor: pointer; white-space: nowrap; }
+.connexion .bouton { justify-content: center; }
 .bouton.principal { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
 .bouton:disabled { opacity: .5; cursor: default; }
 .barre { display: block; width: 90px; height: 6px; border-radius: 3px; background: #DCEFF3; }
@@ -45,12 +73,22 @@ article .haut small { font-size: 13.5px; color: var(--doux); }
 .histo li { display: flex; gap: 12px; padding: 10px 12px; background: #fff; border: 1px solid var(--bord); border-radius: 10px; font-size: 14px; }
 .histo li time { color: var(--doux); min-width: 120px; }
 .histo li.non { border-color: #F2B8B5; }
-.connexion { margin: auto; width: min(440px, 92vw); background: #fff; border: 1px solid var(--bord); border-radius: 16px; padding: 26px; display: flex; flex-direction: column; gap: 12px; }
+/* Écrans d'accueil (démarrage, connexion) : nuit noire et étoiles qui scintillent (comme Pégase), la carte par-dessus. */
+.ecran { position: fixed; inset: 0; display: grid; place-items: center; overflow: auto; padding: 24px 16px; background: #000; }
+.ecran > :not(.ciel) { position: relative; z-index: 1; }
+.ecran .ciel { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ecran .centre { display: flex; flex-direction: column; align-items: center; gap: 22px; color: rgba(255, 255, 255, .78); }
+.ecran .centre p { margin: 0; }
+.ecran .logo { border-radius: 22%; box-shadow: 0 10px 40px rgba(20, 184, 166, .35); }
+.connexion { width: min(440px, 100%); background: #fff; border: 1px solid var(--bord); border-radius: 16px; padding: 26px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5); }
+.connexion .titre { display: flex; align-items: center; gap: 14px; }
+.connexion .logo { box-shadow: none; border-radius: 13px; }
 .connexion h1 { font-size: 26px; }
 .connexion p { margin: 0; color: var(--doux); }
 .connexion label { font-size: 14px; font-weight: 600; display: flex; flex-direction: column; gap: 4px; }
 .connexion input { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #9FBFC1; }
 .connexion .err { color: var(--rouge); font-size: 14px; }
+.connexion .err:empty { display: none; }
 .connexion .trouves { display: flex; flex-wrap: wrap; gap: 6px; }
 .connexion .trouves button { font-size: 13px; border: 1px solid var(--bord); background: var(--cote); border-radius: 99px; padding: 4px 10px; cursor: pointer; }
 .lien { background: none; border: 0; color: var(--accent); cursor: pointer; text-decoration: underline; padding: 0; font-size: 14px; }

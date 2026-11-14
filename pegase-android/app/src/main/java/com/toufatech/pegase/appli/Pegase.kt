@@ -2,6 +2,7 @@ package com.toufatech.pegase.appli
 
 import android.content.Context
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import com.toufatech.pegase.coeur.Cols
 import com.toufatech.pegase.coeur.Donnees
 import com.toufatech.pegase.coeur.EtatSynchro
@@ -37,9 +40,11 @@ import com.toufatech.pegase.odin.HORLOGE_SYSTEME
 import com.toufatech.pegase.odin.MoteurSynchro
 import com.toufatech.pegase.odin.Session
 import com.toufatech.pegase.stockage.Magasin
+import com.toufatech.pegase.ui.PhotoProfil
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
+import com.toufatech.pegase.coeur.Texte
 
 enum class Ecran { DEMARRAGE, CONNEXION, NAVIGATEUR }
 
@@ -93,6 +98,31 @@ class Pegase(val app: Context) {
 
     var profil: ProfilOuvert? = null
         private set
+
+    /** La photo du profil (réduite, gardée sur ce téléphone seulement) ; sans photo, c'est Odin qui s'affiche. */
+    var photoProfil by mutableStateOf<ImageBitmap?>(null)
+        private set
+    private fun fichierPhoto(): File? = profil?.let { File(app.filesDir, "photos/${it.id}.jpg") }
+
+    /** Une photo choisie par la personne remplace Odin dans l'avatar. */
+    fun mettrePhoto(uri: Uri) {
+        val f = fichierPhoto() ?: return
+        enFond {
+            val b = PhotoProfil.reduite(app, uri)
+            if (b == null) {
+                surUi { message = "Cette image ne se lit pas : choisis une photo JPG, PNG ou WebP." }
+            } else {
+                PhotoProfil.enregistrer(b, f)
+                surUi { photoProfil = b.asImageBitmap() }
+            }
+        }
+    }
+
+    /** « Retirer la photo » : Odin revient dans l'avatar. */
+    fun retirerPhoto() {
+        fichierPhoto()?.delete()
+        photoProfil = null
+    }
     private var api: ApiPegase? = null
 
     val navigateur = Navigateur(this)
@@ -109,7 +139,7 @@ class Pegase(val app: Context) {
             } catch (e: ErreurOdin) {
                 surUi { message = e.message }
             } catch (e: Exception) {
-                surUi { message = "Quelque chose n'a pas marché : ${e.message ?: e.javaClass.simpleName}. Réessaie." }
+                surUi { message = "Quelque chose n'a pas marché : ${Texte.sansChemin(e.message ?: e.javaClass.simpleName)}. Réessaie." }
             }
         }
     }
@@ -212,6 +242,7 @@ class Pegase(val app: Context) {
             override fun revoque(texte: String) = surUi { message = texte }
         })
         profil = ProfilOuvert(id, magasin, moteur)
+        photoProfil = fichierPhoto()?.let { PhotoProfil.lire(it) }?.asImageBitmap()
         session = s
         if (s != null) {
             val client = ClientOdin(s.odin, Epinglage(s.empreinte))
