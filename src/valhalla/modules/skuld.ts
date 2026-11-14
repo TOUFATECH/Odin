@@ -9,6 +9,7 @@ import { bases, findBase, password, saveBases, setPassword, type Base } from '..
 import { dump, extOf, keep, restore, verify, type Tools } from '../skuld/dump.ts';
 import { engine } from './naglfar.ts';
 import type { ModCtx, Module, Section } from '../types.ts';
+import { Journal, fichierJsonl } from '../base/journal.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export type Every = 'heure' | '6h' | 'nuit' | 'semaine';
@@ -22,8 +23,11 @@ export function useTools(f?: (ctx: ModCtx) => Tools) { tools = f ?? DEFAULT_TOOL
 const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined) ?? [];
 const archDir = (ctx: ModCtx, b: Base) => join(ctx.dir, 'archives', b.id);
 const histFile = (ctx: ModCtx) => join(ctx.dir, 'historique.jsonl');
-export function history(ctx: ModCtx, n = 200): Entry[] { try { return readFileSync(histFile(ctx), 'utf8').trim().split('\n').filter(Boolean).slice(-n).map((l) => JSON.parse(l) as Entry).reverse(); } catch { return []; } }
-function record(ctx: ModCtx, e: Entry) { mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); appendFileSync(histFile(ctx), JSON.stringify(e) + '\n', { mode: 0o600 }); }
+// L'historique des sauvegardes : dans la base d'Odin dès qu'elle est prête (journal « arche »), sinon historique.jsonl.
+const journaux = new WeakMap<ModCtx, Journal<Entry>>();
+const hist = (ctx: ModCtx) => { let j = journaux.get(ctx); if (!j) { mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); j = new Journal<Entry>('arche', ctx.dir, { garder: 2000, rangement: fichierJsonl(histFile(ctx)) }); journaux.set(ctx, j); } return j; };
+export function history(ctx: ModCtx, n = 200): Entry[] { return hist(ctx).tout().slice(-n).reverse(); }
+function record(ctx: ModCtx, e: Entry) { hist(ctx).ajouter(e); }
 const stamp = (d: Date) => d.toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const archives = (ctx: ModCtx, b: Base) => { const d = archDir(ctx, b); try { return readdirSync(d).filter((f) => !f.endsWith('.tmp')).sort().reverse().map((f) => ({ f, path: join(d, f), at: f.slice(0, 19).replace(/^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2})$/, '$1:$2:$3') + 'Z', size: statSync(join(d, f)).size })); } catch { return []; } };
 const mo = (n: number) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} Go` : n > 1e6 ? `${(n / 1e6).toFixed(0)} Mo` : `${Math.max(1, Math.round(n / 1e3))} ko`);

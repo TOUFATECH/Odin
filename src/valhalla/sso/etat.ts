@@ -2,6 +2,7 @@
 // fichiers) : les applis clientes, les droits par appli, les sessions des applis (jetons de renouvellement), les sessions
 // de poste. Seules les empreintes SHA-256 des jetons sont gardées. Et les règles : qui a le droit d'ouvrir quelle appli.
 
+import { connexions } from './connexions.ts';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import type { ModCtx } from '../types.ts';
@@ -159,8 +160,7 @@ export function revoquerPersonne(ctx: ModCtx, login: string, _pourquoi = ''): nu
 }
 /** Journal des connexions de Persona (le même que le portail). */
 export function noter(ctx: ModCtx, e: { login: string; ip: string; ok: boolean; why: string }): void {
-  const j = (ctx.settings.journal as Array<Record<string, unknown>> | undefined) ?? [];
-  ctx.saveSettings({ journal: [...j, { t: Date.now(), login: e.login.slice(0, 32), ip: e.ip, ok: e.ok, why: e.why.slice(0, 120) }].slice(-500) });
+  connexions(ctx).ajouter({ t: Date.now(), login: e.login.slice(0, 32), ip: e.ip, ok: e.ok, why: e.why.slice(0, 120) });
 }
 /** Le dossier de l'appli d'Odin où vont les sauvegardes d'une appli cliente. */
 export function dossierSauvegardes(ctx: ModCtx, appli: string, login: string): string {

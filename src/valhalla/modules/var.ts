@@ -3,6 +3,7 @@
 // d'Odin, sessions qu'on peut couper, verrouillage après trop d'essais, journal des connexions, graphe.
 // Fonctions reprises (réécrites) d'Authelia, Authentik et Keycloak.
 // (Persona : la déesse qui entend les serments et veille sur la parole donnée.)
+import { connexions } from '../sso/connexions.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
 import type { GraphDetail, GraphEdge, GraphNode, ModCtx, Module, Param, Tone } from '../types.ts';
@@ -30,11 +31,11 @@ brancherPersona(() => appCtx, (title, body, nonce) => page(title, body, nonce));
 const people = (ctx: ModCtx): Person[] => { appCtx = ctx; return (ctx.settings.people as Person[] | undefined) ?? []; };
 const rules = (ctx: ModCtx): Rule[] => (ctx.settings.rules as Rule[] | undefined) ?? [];
 const sessions = (ctx: ModCtx): Session[] => ((ctx.settings.sessions as Session[] | undefined) ?? []).filter((x) => x.expires > Date.now());
-const journal = (ctx: ModCtx): Entry[] => (ctx.settings.journal as Entry[] | undefined) ?? [];
+const journal = (ctx: ModCtx): Entry[] => connexions(ctx).tout();
 const conf = (ctx: ModCtx) => ({ portal: s(ctx.settings.portal), cookieDomain: s(ctx.settings.cookieDomain), hours: Number(ctx.settings.hours ?? 12), rememberDays: Number(ctx.settings.rememberDays ?? 30), require2fa: (ctx.settings.require2fa as string[] | undefined) ?? [] });
 const sha = (x: string) => createHash('sha256').update(x).digest('hex');
 const savePeople = (ctx: ModCtx, l: Person[]) => ctx.saveSettings({ people: l });
-const log = (ctx: ModCtx, e: Entry) => ctx.saveSettings({ journal: [...journal(ctx), e].slice(-500) });
+const log = (ctx: ModCtx, e: Entry) => connexions(ctx).ajouter(e);
 const LOGIN = /^[a-z0-9][a-z0-9._-]{1,31}$/;
 
 /** Le code à 6 chiffres est-il bon (fenêtre de ±30 s) ? */
