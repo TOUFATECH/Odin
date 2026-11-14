@@ -93,6 +93,9 @@ export const ECRANS: Cible[] = [
   spa('bulle:reglages', 'Notification sur Réglages', `window.OdinShow('settings'); ${BULLE}`, 'body', { bulle: true }),
   spa('bulle:applis', 'Notification sur la carte des applis', `window.OdinShow('apps'); ${BULLE}`, 'body', { bulle: true }),
   spa('bulle:appli', 'Notification sur la page d\'une appli', `void window.OdinApps.app('ullr').then(() => ${BULLE})`, 'body', { bulle: true }),
+  spa('bulle:alchimie', 'Notification sur la page d\'Alchimie', `void window.OdinApps.app('dvalinn').then(() => ${BULLE})`, 'body', { bulle: true }),
+  spa('bulle:cerveau', 'Notification sur le Cerveau', `window.OdinShow('brain'); ${BULLE}`, 'body', { bulle: true }),
+  spa('bulle:maison', 'Notification sur Maison (réseau)', `window.OdinShow('net'); ${BULLE}`, 'body', { bulle: true }),
   spa('fenetre-odin', 'Petite fenêtre « Que veux-tu ? » (un toucher sur Odin)', `window.OdinShow('home'); window.OdinNotices.talk()`, 'body', { bulle: true, options: { dessus: ['#odinTalk'] } }),
   { id: 'ecran-maison', titre: 'Écran de la maison (/maison)', genre: 'url', url: '/maison', pret: 'body', famille: 'hors' },
   { id: 'recherche', titre: 'Recherche (/recherche)', genre: 'url', url: '/recherche', pret: 'body', famille: 'hors' },
@@ -227,6 +230,9 @@ async function parcourir(nav: Nav, s: Session, cibles: Cible[], largeurs: number
               if (!c.bulle) await page.evaluate(`window.OdinNotices?.closeTalk?.(true); window.OdinNotices?.hide?.()`).catch(() => undefined);
               // Odin a pu changer d'écran entre-temps (une réponse qui arrive…) : on revient sur le bon.
               if (c.pret && /\.on$/.test(c.pret) && !(await page.evaluate<boolean>(`!!document.querySelector(${JSON.stringify(c.pret)})`))) { await page.evaluate(c.ouvrir!); await page.waitForTimeout(600); }
+              // Odin se replace de lui-même toutes les 1,5 s si du contenu est apparu sous lui : on le lui demande tout de suite,
+              // pour mesurer la page une fois qu'il est posé (ce qui reste couvert après ça est un vrai défaut de placement).
+              await page.evaluate(`window.OdinCompanion?.sync?.('hopto')`).catch(() => undefined);
               await repos(page);
               if (!c.bulle) await page.evaluate(`window.OdinNotices?.hide?.()`).catch(() => undefined);
               const r = await mesurer(page, c, largeur, apparence, sortie, vus, o);
@@ -324,7 +330,7 @@ export function origine(d: Defaut): string {
   const s = `${d.selecteur} ${d.dessous ?? ''} ${String(d.valeurs?.par ?? '')} ${String(d.valeurs?.boite ?? '')}`;
   if (/#odinBubble|#odinTalk|#odinAdvice|\.ob-|\.ot-|\.oa-/.test(s)) return 'notices.js';
   if (/\.odin-app-ic/.test(d.selecteur)) return 'app-icons.js';
-  if (/#buddyRoam|\.odin\.roam|span\.odin(?![\w-])/.test(d.selecteur)) return 'companion.js / mascotte.js';
+  if (/#buddyRoam|\.odin\.roam|span\.odin(?![\w-])/.test(d.selecteur)) return 'companion.js';
   if (/\.fe-|#fenetre/.test(s)) return 'fenetre.js';
   if (/\.sv-/.test(s)) return 'pages/svalinn.js'; if (/\.ym-|\.ym\b/.test(s)) return 'pages/ymir.js'; if (/\.ur-/.test(s)) return 'pages/urdr.js'; if (/\.tj-/.test(s)) return 'pages/thjalfi.js'; if (/\.rd-/.test(s)) return 'pages/rodd.js'; if (/\.ng-|\.nf-/.test(s)) return 'pages/naglfar.js';
   if (/\.va-|#v-app\b|#v-apps\b|#vaTitle|#vaSub/.test(s)) return 'valhalla.js';

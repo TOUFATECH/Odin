@@ -345,7 +345,7 @@
     }
     function racineFixe(S) { for (let n = S; n && n.nodeType === 1; n = n.parentElement) { const p = cs(n).position; if (p === 'fixed') return { el: n, colle: false }; if (p === 'sticky') return { el: n, colle: true }; } return null; }
     const estModale = (e) => { if (e.closest('dialog[open],[aria-modal=true],[role=dialog]')) return true; const r = rect(e); return r.width * r.height >= W * H * 0.5; };
-    const typeFixe = (f) => { const r = rect(f.el); if (f.colle) return 'barre'; if (r.width >= W * 0.8 && (r.top <= 2 || r.bottom >= H - 2)) return r.top <= 2 && r.bottom < H / 2 ? 'barre-haut' : 'barre-bas'; return 'flottant'; };
+    const typeFixe = (f) => { const r = rect(f.el); if (f.colle) return 'barre'; if (f.el.matches('#odinBubble,#buddyRoam,.odin.roam')) return 'flottant'; if (r.width >= W * 0.8 && r.height < H * 0.4 && (r.top <= 24 || r.bottom >= H - 24)) return r.top <= 24 && r.bottom < H / 2 ? 'barre-haut' : 'barre-bas'; return 'flottant'; };
     const etat = new Map();   // « groupe:ligne » → { clair, couv: Map(élément au-dessus → { n, passes }) , el }
     function passe(k, mesurer) {
       groupes.forEach((g, gi) => {
@@ -454,7 +454,12 @@
       for (const r of rs) { const m = (r.top + r.bottom) / 2; if (!lg.some((y) => Math.abs(y - m) < r.height * 0.5)) lg.push(m); }
       const role = tl.getAttribute('role') === 'tablist' || /tab|onglet/i.test(String(tl.className)) || tabs.some((t) => /tab|onglet/i.test(String(t.className)));
       const nom = role ? 'rangée d\'onglets' : 'rangée de choix', liste = tabs.map((t) => txt(t, 18)).join(' · ');
-      if (!enColonne && lg.length > 1 && lg.length < tabs.length) add('onglets-lignes', role ? 'grave' : 'moyen', tl, `${nom} sur ${lg.length} lignes (${tabs.length} onglets : ${liste})`, { lignes: lg.length, onglets: tabs.length, largeur: Math.round(rect(tl).width) });
+      // Une grille régulière (deux lignes de deux) est un dessin voulu ; des pastilles séparées qui passent à la ligne aussi (sauf de vrais onglets).
+      const parLigne = lg.map((y) => rs.filter((r) => Math.abs((r.top + r.bottom) / 2 - y) < r.height * 0.5).length);
+      const grille = /grid/.test(s.display) && parLigne.every((n) => n === parLigne[0]) && parLigne[0] > 1;
+      const pastilles = !role && (parseFloat(s.columnGap) || 0) >= 6;
+      if (grille || pastilles) { /* rien à signaler */ }
+      else if (!enColonne && lg.length > 1 && lg.length < tabs.length) add('onglets-lignes', role ? 'grave' : 'moyen', tl, `${nom} sur ${lg.length} lignes (${tabs.length} onglets : ${liste})`, { lignes: lg.length, onglets: tabs.length, largeur: Math.round(rect(tl).width) });
       else if (!enColonne && lg.length > 1 && tabs.length <= 6 && /flex|grid/.test(s.display) && rs[0].width < rect(tl).width * 0.9) add('onglets-lignes', role ? 'grave' : 'moyen', tl, `${nom} empilée : un onglet par ligne (${tabs.length} onglets : ${liste})`, { lignes: lg.length, onglets: tabs.length, largeur: Math.round(rect(tl).width) });
       if (tl.scrollWidth > tl.clientWidth + 1 && s.overflowX !== 'visible') {
         const px = tl.scrollWidth - tl.clientWidth, q = Number(tl.getAttribute('data-q'));

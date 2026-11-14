@@ -106,6 +106,9 @@
       cx = a.r.left + a.r.width / 2;
       x = Math.min(Math.max(m, cx - w / 2), innerWidth - w - m);
       y = a.r.top - h - 12; if (y < m) { y = a.r.bottom + 12; below = true; }
+      // Dans la Discussion, Odin parle déjà dans son nuage (conseils, visite) : la bulle se pose au-dessus du nuage, pas sur ses boutons.
+      const tip = document.getElementById('buddyTip');
+      if (tip && !tip.hidden && !below) { const t = tip.getBoundingClientRect(); if (t.width && x < t.right && x + w > t.left && y < t.bottom && y + h > t.top && t.top - h - 10 >= m) y = t.top - h - 10; }
     } else { x = innerWidth - w - m; y = innerHeight - h - 90; cx = x + w - 40; }
     box.style.transform = '';
     box.style.left = `${Math.round(x)}px`; box.style.top = `${Math.round(y)}px`;
@@ -161,6 +164,8 @@
     // Odin dit ses messages à voix haute quand la voix est activée (l'urgence, toujours).
     if (n.level !== 'grave' && !o.quiet && window.OdinVoice?.on?.()) window.OdinSay?.(n.title);
     follow();
+    // La bulle est là : Odin se déplace tout de suite si elle couvrait du texte ou une commande (il lui cherche une place libre).
+    window.OdinCompanion?.sync?.('hopto');
   }
   function hide() { if (!bubble) return; bubble.hidden = true; protTint(undefined); if (current) try { localStorage.setItem(SEEN, current.id); } catch { /* navigation privée */ } if (current?.level === 'grave' && panel.hidden) setAlarm(false); }
 
