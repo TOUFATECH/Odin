@@ -28,14 +28,14 @@
 @media (prefers-reduced-motion:no-preference){.evo-sky .spin{animation:evoSpin var(--d,120s) linear infinite;transform-origin:var(--cx) var(--cy)}@keyframes evoSpin{to{transform:rotate(360deg)}}.evo-sky:hover .spin,.evo-sky.stop .spin{animation-play-state:paused}}
 .evo-side{border-left:1px solid var(--line);overflow:auto;padding:14px 16px}
 .evo-side h3{margin:0 0 4px;font-size:17px}.evo-side .what{color:var(--muted);font-size:13px;margin:0 0 12px}
-.evo-it{border-left:3px solid var(--c,var(--accent));padding:4px 0 8px 10px;margin:0 0 10px}
+.evo-it{border-left:3px solid var(--c,var(--accent));padding:4px 0 8px 10px;margin:0 0 10px;overflow-wrap:anywhere}
 .evo-it b{display:block}.evo-it small{color:var(--muted)}.evo-it ul{margin:4px 0 0;padding-left:18px;font-size:13.5px}
 .evo-line{display:flex;gap:0;overflow-x:auto;padding:12px 18px 16px 24px;border-top:1px solid var(--line);scroll-snap-type:x proximity}
 .evo-line>:first-child{margin-left:12px}.evo-v{flex:none;position:relative;min-width:150px;max-width:220px;padding:14px 12px 0 0;scroll-snap-align:start;background:none;border:0;color:inherit;text-align:left;cursor:pointer}
 .evo-v::before{content:"";position:absolute;left:0;right:0;top:5px;height:2px;background:var(--line)}
 .evo-v::after{content:"";position:absolute;left:0;top:0;width:12px;height:12px;border-radius:50%;background:var(--accent)}
 .evo-v b{display:block;font-size:14px}.evo-v small{color:var(--muted);font-size:12px;display:block}.evo-v span{display:block;font-size:12.5px;margin-top:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-@media (max-width:860px){.evo-h{flex-wrap:wrap;padding:10px 12px;gap:8px}.evo-h>div:first-child{flex:1 1 calc(100% - 56px);order:1}.evo-x{order:2}.evo-f{order:3;flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto}.evo-f .btn{flex:none}.evo-b{grid-template-columns:1fr;grid-template-rows:minmax(340px,52vh) auto;overflow:auto}.evo-sky text{font-size:20px}.evo-sky text.n{font-size:18px}.evo-side{border-left:0;border-top:1px solid var(--line);overflow:visible}.evo-line{padding:8px 12px 10px 18px}.evo-v{min-width:130px}}`;
+@media (max-width:860px){.evo-h{flex-wrap:wrap;padding:10px 12px;gap:8px}.evo-h>div:first-child{flex:1 1 calc(100% - 56px);order:1}.evo-x{order:2}.evo-f{order:3;flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto}.evo-f .btn{flex:none}.evo-b{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(340px,52vh) auto;overflow:auto}.evo-sky text{font-size:20px}.evo-sky text.n{font-size:18px}.evo-side{border-left:0;border-top:1px solid var(--line);overflow:visible}.evo-line{padding:8px 12px 10px 18px}.evo-v{min-width:130px}}`;
 
   let root = null, data = null, filter = 'tout', sel = null, lastFocus = null;
   const items = () => (data?.evolutions || []).filter((e) => filter === 'tout' || e.kind === filter);

@@ -42,7 +42,7 @@
 .ru-pill{display:inline-block;padding:1px 8px;border-radius:999px;background:var(--sel);font-size:12.5px;margin:1px 2px 1px 0}
 .ru-add{display:flex;gap:8px;margin-top:10px}a.btn{text-decoration:none;color:inherit}.ru-newv{min-height:38px;padding:0 10px;border-radius:10px;border:1px solid var(--field);background:var(--panel);color:var(--ink)}
 @media (max-width:860px){.ru-l{grid-template-columns:minmax(0,1fr)}.ru-side{flex-direction:row;overflow-x:auto;padding:6px}.ru-side button.ru-b{flex:none;white-space:nowrap}.ru-side .btn{margin-top:0!important;flex:none}}
-.ru-add input{flex:1;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--field);background:var(--panel)}
+.ru-add input{flex:1;min-width:0;min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--field);background:var(--panel)}
 `;
   let bases = [], base = null, viewId = null, q = '', cal = new Date();
   const fmt = (v) => Array.isArray(v) ? v.join(', ') : v === true ? '✓' : v === false ? '' : v ?? '';
