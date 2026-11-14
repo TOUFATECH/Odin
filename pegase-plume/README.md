@@ -67,8 +67,11 @@ Ce dossier ne touche pas à `pegase/` : il est prêt à brancher.
 
 ## Essayé
 
-`test/plume-pegase.test.ts` (dans Odin) charge `plume-page.js` dans un vrai Chromium (Playwright), sur une page de
-formulaire servie avec une politique de contenu stricte, avec un transport qui imite l'IPC et parle au vrai Odin avec un
-vrai jeton d'appareil Pégase : soulignement, Corriger, Tout voir, Désactiver, champ mot de passe ignoré, et la page ne
-voit ni l'intérieur de Plume ni le jeton. Il vérifie aussi que `plume-page.js` est à jour. L'Electron réel n'est pas
-lancé par cet essai (l'agent Pégase le fait dans ses essais `test/*.test.mjs`).
+Dans un vrai Chromium (Playwright), `plume-page.js` chargé dans un **monde isolé** (comme le préchargement de Pégase), sur
+une page de formulaire servie avec une politique de contenu stricte (`style-src 'self'`), avec un transport qui imite
+l'IPC et passe par le vrai `plume-main.cjs`, qui appelle le vrai Odin avec un vrai jeton d'appareil Pégase : soulignement,
+Corriger, barre de recherche, compteur → Tout voir, Désactiver (coupé aussi dans Odin), champs mot de passe et code
+ignorés, rien ne dépasse, et la page ne voit ni l'intérieur de Plume, ni le transport, ni le jeton ; ordinateur (1280) et
+téléphone (390). L'essai est gardé hors du dépôt (il a besoin de Playwright) : `plume-partout-tmp/zz-pegase.test.ts`.
+`test/plume-partout.test.ts` vérifie que `plume-page.js` est à jour et ce que `plume-main.cjs` laisse passer.
+L'Electron réel n'est pas lancé (à faire par l'agent Pégase dans ses essais `test/*.test.mjs`).
