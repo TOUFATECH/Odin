@@ -23,7 +23,7 @@ export async function rechercheRoute(req: IncomingMessage, res: ServerResponse, 
     const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
       'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` });
-    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f1116"><title>Pythie · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>Pythie a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/recherche.js"></script></body></html>`);
+    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f1116"><title>Pythie · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>Pythie a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/recherche.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
     return true;
   }
   if (!p.startsWith('/api/recherche/')) return false;

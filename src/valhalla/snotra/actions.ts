@@ -5,6 +5,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameS
 import { join, resolve, sep } from 'node:path';
 import type { Action, ActionResult, ModCtx, Section } from '../types.ts';
 import { appliquer, corrigerLanguageTool, corrigerMaison, type Correction } from './correcteur.ts';
+import { PROPRIETAIRE, changer, reglage } from './partout.ts';
+import { agissant } from '../sso/acces.ts';
 import { genreAppareil, GENRES_BLOC, nettoyer, schemaDepuis, STYLE_BLOC, svgDe, type Dessin } from './dessin.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x)).trim();
@@ -74,7 +76,26 @@ async function enPng(ctx: ModCtx, svg: string): Promise<Buffer | { erreur: strin
   } finally { rmSync(`${tmp}.svg`, { force: true }); rmSync(`${tmp}.png`, { force: true }); }
 }
 
+// ---------------- Plume partout (le réglage de la personne qui agit : un membre de Persona, sinon le propriétaire) ----------------
+const cleQuiAgit = () => agissant()?.login ?? PROPRIETAIRE;
+const OUI_NON = (b: boolean) => (b ? 'oui' : 'non');
+function resumePartout(ctx: ModCtx): string {
+  const r = reglage(ctx, cleQuiAgit());
+  if (!r.actif) return `Plume est désactivé partout${r.depuis ? ` depuis le ${new Date(r.depuis).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : ''} : plus aucune proposition, et Odin ne s'en sert pas. Rallume-le ici ou dans Réglages → Plume.`;
+  return `Plume est activé : dans Odin et ses applis ${OUI_NON(r.odin)}, dans Pégase ${OUI_NON(r.pegase)}, Odin s'en sert ${OUI_NON(r.ia)}, grammaire et style ${OUI_NON(r.grammaire)}. Ton dictionnaire : ${r.dico.length} mot(s) ; ${r.ignores.length} faute(s) ignorée(s).`;
+}
+const B = (key: string, label: string, help: string) => ({ key, label, kind: 'boolean' as const, help });
+
 export const ACTIONS_PLUME: Action[] = [
+  { id: 'partout', label: 'Plume partout', what: 'Où Plume corrige pendant que tu écris (Odin, ses applis, Pégase) et si Odin s\'en sert', read: true, quick: false, words: ['plume partout', 'correcteur pendant que j ecris'], run: (ctx) => ({ text: resumePartout(ctx) }) },
+  { id: 'regler_partout', label: 'Régler Plume partout', what: 'Active ou désactive Plume partout (corrections pendant que tu écris, et l\'usage par Odin), et choisis où', quick: false,
+    params: [B('actif', 'Plume', 'Proposer des corrections pendant que j\'écris, et laisser Odin s\'en servir'), B('odin', 'Dans Odin et ses applis', 'Discussion, champs de toutes les applis'), B('pegase', 'Dans Pégase', 'Sites, formulaires, barre de recherche'), B('ia', 'Odin se sert de Plume', 'Pour corriger un fichier ou répondre sur l\'écriture'), B('grammaire', 'Grammaire et style', 'En plus de l\'orthographe et des fautes de frappe')],
+    words: ['desactive plume partout', 'reactive plume partout', 'rallume plume'], run: (ctx, i) => {
+      const patch: Record<string, unknown> = {};
+      for (const k of ['actif', 'odin', 'pegase', 'ia', 'grammaire']) if (i[k] !== undefined && i[k] !== '') patch[k] = i[k] === true || i[k] === 'true' || i[k] === 'oui' || i[k] === 'on';
+      changer(ctx, cleQuiAgit(), patch); return { text: `✅ ${resumePartout(ctx)}` };
+    } },
+
   { id: 'corriger', label: 'Corriger un texte', what: 'Orthographe, grammaire et typographie d\'un texte : les fautes, une proposition pour chacune, et le texte corrigé (LanguageTool s\'il est installé, sinon le correcteur de base)', read: true,
     params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }, { key: 'langue', label: 'Langue', kind: 'select', options: ['fr', 'en-US', 'en-GB', 'de-DE', 'es', 'it', 'pt-PT'], default: 'fr' }],
     words: ['corrige ce texte', 'corrige le texte', 'correcteur d orthographe'], run: async (ctx, i) => {
@@ -149,7 +170,9 @@ export const ACTIONS_PLUME: Action[] = [
 export function sectionsPlume(ctx: ModCtx): Section[] {
   const l = dessins(ctx), lt = urlLT(ctx), penpot = s(ctx.settings.penpot), C = 'Correcteur', T = 'Tableaux', S = 'Schémas';
   const ligne = (d: Dessin) => ({ cells: [d.nom, d.genre === 'schema' ? `${d.blocs.length} bloc(s)` : `${d.formes.length} forme(s)`, new Date(d.maj).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })], actions: [{ action: 'exporter_tableau', label: 'SVG', input: { id: d.id, format: 'svg' } }, { action: 'exporter_tableau', label: 'PNG', input: { id: d.id, format: 'png' } }] });
+  const r = reglage(ctx, cleQuiAgit());
   return [
+    { kind: 'form', title: 'Plume partout', action: 'regler_partout', submit: 'Enregistrer', onglet: C, params: [B('actif', 'Plume', 'Proposer des corrections pendant que j\'écris, et laisser Odin s\'en servir'), B('odin', 'Dans Odin et ses applis', 'Discussion, champs de toutes les applis'), B('pegase', 'Dans Pégase', 'Sites, formulaires, barre de recherche'), B('ia', 'Odin se sert de Plume', 'Pour corriger un fichier ou répondre sur l\'écriture'), B('grammaire', 'Grammaire et style', 'En plus de l\'orthographe et des fautes de frappe')].map((p) => ({ ...p, default: r[p.key as 'actif'] })), aide: `${resumePartout(ctx)} Le même réglage est dans Réglages → Plume, et vaut sur tous tes appareils.` },
     { kind: 'form', title: 'Corriger un texte', action: 'corriger', submit: 'Corriger', onglet: C, large: true, params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }], aide: 'Orthographe, accords simples, majuscules, espaces et ponctuation française. Les autres applis d\'Odin s\'en servent aussi.' },
     { kind: 'steps', title: 'Correcteur', onglet: C, items: [
       { title: 'Correcteur de base', detail: 'Toujours là, sans rien installer : typographie française, majuscules, mots répétés, accords simples, fautes d\'usage courantes.', done: true },

@@ -55,6 +55,7 @@ import { maisonRoute } from './maison-api.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { pegaseRoute } from './pegase-api.ts';
+import { plumeRoute } from './plume-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { exportApi } from './export-api.ts';
 import { partageApi, partagePublic } from './partage-api.ts';
@@ -156,6 +157,8 @@ const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import
 const PACKETS_JS = (() => { try { return readFileSync(new URL('./packets.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 // Les pages dessinées à part pour certaines applis (Alexandrie Studio, Écho, Zéphyr…) : src/web/pages/<appli>.js
 const PAGES_JS: Record<string, Buffer> = (() => { try { return Object.fromEntries(readdirSync(new URL('./pages/', import.meta.url)).filter((n) => /^[a-z0-9-]+\.js$/.test(n)).map((n) => [n, readFileSync(new URL(`./pages/${n}`, import.meta.url))])); } catch { return {}; } })();
+// Plume partout : le script et son CSS (glissé dedans : la page n'accepte que les styles écrits par ses scripts).
+const PLUME_JS = (() => { try { return Buffer.from(readFileSync(new URL('./plume.js', import.meta.url), 'utf8').replace('"/*@PLUME_CSS@*/"', () => JSON.stringify(readFileSync(new URL('./plume.css', import.meta.url), 'utf8')))); } catch { return Buffer.from(''); } })();
 const BRAIN_JS = (() => { try { return readFileSync(new URL('./brain.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FONTS: Record<string, Buffer> = Object.fromEntries(['ibm-plex-sans-latin-400-normal', 'ibm-plex-sans-latin-500-normal', 'ibm-plex-sans-latin-600-normal'].flatMap((n) => { try { return [[`${n}.woff2`, readFileSync(new URL(`./fonts/${n}.woff2`, import.meta.url))]]; } catch { return []; } }));
 const ICONS: Record<string, Buffer> = Object.fromEntries(['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'].map((n) => [n, readFileSync(new URL(`./icons/${n}`, import.meta.url))]));
@@ -495,6 +498,8 @@ export class WebChannel implements Channel {
     // (ni clé d'API, ni liens publics, ni création de compte : tout cela reste sur le port de l'interface).
     const direct = this.directs?.appOf(req.socket);
     if (direct && this.who(req) !== 'session' && !(this.accounts.exists() && directOpen(req.method ?? '', url.pathname))) return json(res, this.accounts.exists() ? 401 : 403, { error: this.accounts.exists() ? 'connexion requise' : `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${this.port}).`, account: this.accounts.exists(), direct: true });
+    // Plume partout (le correcteur pendant qu'on écrit) : chaque personne, son réglage (avant la garde des membres).
+    if (url.pathname.startsWith('/api/plume/') && await plumeRoute(req, res, url, { proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', fail: () => this.throttle.fail(ip), ip })) return;
     // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
     if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state() })) return;
 
@@ -585,6 +590,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/evolution.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(EVOLUTION_JS); }
     if (url.pathname === '/guide.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GUIDE_JS); }
     if (url.pathname.startsWith('/pages/') && Object.hasOwn(PAGES_JS, url.pathname.slice(7))) { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PAGES_JS[url.pathname.slice(7)]); }
+    if (url.pathname === '/plume.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PLUME_JS); }
     if (url.pathname === '/brain.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(BRAIN_JS); }
     if (url.pathname.startsWith('/fonts/') && FONTS[url.pathname.slice(7)]) { res.writeHead(200, { 'content-type': 'font/woff2', 'cache-control': 'max-age=31536000, immutable', 'x-content-type-options': 'nosniff' }); return void res.end(FONTS[url.pathname.slice(7)]); }
     if (url.pathname === '/face.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'max-age=3600', 'x-content-type-options': 'nosniff' }); return void res.end(FACE); }
