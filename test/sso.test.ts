@@ -15,7 +15,7 @@ import { retourPermis } from '../src/valhalla/sso/etat.ts';
 import { OdinSSO, coffre as coffreSysteme, verifierJwt, requete } from '../clients/odin-sso.mjs';
 
 const MDP_MOUSSA = 'girafe-orange-sous-la-pluie-42', MDP_ZAINA = 'baobab-violet-au-clair-de-lune-7';
-const IDS = ['var', 'brisingamen', 'freyja', 'garmr', 'fjalar', 'valgrind'];
+const IDS = ['var', 'brisingamen', 'freyja', 'garmr', 'fjalar', 'valgrind', 'hlid'];
 /** Un coffre du système en mémoire (même interface que celui de la bibliothèque). */
 const fauxCoffre = () => { const m = new Map<string, string>(); return { m, disponible: async () => true, ranger: async (n: string, s: string) => { m.set(n, s); }, lire: async (n: string) => m.get(n), effacer: async (n: string) => { m.delete(n); } }; };
 /** Un faux « ufw » et un faux « nft » (le port direct de l'essai ne touche pas au pare-feu de la machine). */

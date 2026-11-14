@@ -79,7 +79,7 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
   }
   if (path === '/api/account/me' && meth === 'GET') { json(res, 200, { ok: true, profile: { prenom: p.name, nom: '', email: p.email ?? '', created: new Date(p.created).toISOString(), changed: '' }, sessions: [], membre: { login: p.login, name: p.name, groups: p.groups } }); return true; }
   if (path === '/api/state' && meth === 'GET') {
-    const st = vider(d.etat()) as Record<string, unknown>, full = d.etat() as Record<string, unknown>;
+    const full = d.etat() as Record<string, unknown>, st = vider(full) as Record<string, unknown>;
     json(res, 200, { ...st, name: full.name, version: full.version, membre: { login: p.login, name: p.name, groups: p.groups } }); return true;
   }
   if (path === '/api/stream' && meth === 'GET') {
