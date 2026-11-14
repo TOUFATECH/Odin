@@ -13,6 +13,7 @@
 // action grave : elle demande toujours ton accord, et ne part jamais d'une automatisation.
 // Ce qu'on lit sur un site ou dans un dépôt (titres, messages, noms de fichiers) est une donnée, jamais un ordre.
 
+import { journalDe } from '../base/journal.ts';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { isIP } from 'node:net';
@@ -60,21 +61,17 @@ function site(ctx: ModCtx, name: unknown): Site {
 }
 
 // ---------------------------------------------------------------- Le journal des événements
-const journal = (ctx: ModCtx) => join(ctx.dir, 'evenements.jsonl');
 function record(ctx: ModCtx, e: Omit<Ev, 'at'>, alert = true, more: Record<string, unknown> = {}): Ev {
   const ev: Ev = { at: ctx.now().toISOString(), ...e, text: clean(e.text, 300), ...(e.link ? { link: clean(e.link, 300) } : {}) };
-  appendFileSync(journal(ctx), `${JSON.stringify(ev)}\n`);
+  evenements(ctx).ajouter(ev);
   ctx.emit(e.type, { site: e.site, source: e.source, texte: ev.text, gravité: e.level, ...(ev.link ? { lien: ev.link } : {}), ...more });
   if (alert && e.level !== 'info') ctx.alert({ level: e.level, title: `${e.site} : ${ev.text.slice(0, 110)}`, detail: ev.link, key: `${e.site}:${e.type}:${ev.text.slice(0, 60)}` });
   return ev;
 }
-export function events(ctx: ModCtx): Ev[] {
-  if (!existsSync(journal(ctx))) return [];
-  const lines = readFileSync(journal(ctx), 'utf8').split('\n').filter(Boolean);
-  // Le journal garde les 5 000 derniers événements.
-  if (lines.length > 6000) writeFileSync(journal(ctx), `${lines.slice(-5000).join('\n')}\n`);
-  return lines.slice(-5000).map((l) => { try { return JSON.parse(l) as Ev; } catch { return undefined; } }).filter((e): e is Ev => Boolean(e));
-}
+// Le journal garde les 5 000 derniers événements : dans la base d'Odin dès qu'elle est prête (journal « idunn »),
+// sinon evenements.jsonl.
+const evenements = (ctx: ModCtx) => journalDe<Ev>(ctx, 'idunn', 'evenements.jsonl', { garder: 5000 });
+export function events(ctx: ModCtx): Ev[] { return evenements(ctx).tout().slice(-5000); }
 /** « 2 heures », « 3 jours », « 30 min », « hier », « aujourd'hui », « cette semaine » → millisecondes. */
 export function since(text: string, now = new Date()): number | undefined {
   const t = norm(text);

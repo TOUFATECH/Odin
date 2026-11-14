@@ -147,12 +147,13 @@ export class BaseOdin extends EventEmitter {
 
   /** Prépare la base en arrière-plan, et la surveille (réessaie tant qu'elle ne répond pas). */
   demarrer(): Promise<void> {
-    const tick = () => { if (!this.enCours && !this.arretee) { this.enCours = this.verifier().finally(() => { this.enCours = undefined; }); } return this.enCours ?? Promise.resolve(); };
+    const tick = () => (this.arretee ? Promise.resolve() : this.verifier());
     this.minuterie = setInterval(() => void tick(), this.o.verifierMs ?? 15_000); this.minuterie.unref?.();
     return tick();
   }
-  /** Vérifie maintenant (et prépare si besoin). */
-  async verifier(): Promise<void> {
+  /** Vérifie maintenant (et prépare si besoin) ; une seule vérification à la fois. */
+  verifier(): Promise<void> { return (this.enCours ??= this.verifierUneFois().finally(() => { this.enCours = undefined; })); }
+  private async verifierUneFois(): Promise<void> {
     if (this.etat === 'prete' && this.admin) {
       if (await this.admin.repond()) { for (const a of this.applis.values()) if (!a.prete) await a.brancher(this.admin, this.cible!).catch((e) => { a.erreur = (e as Error).message; }); return; }
       this.signalerPerte();

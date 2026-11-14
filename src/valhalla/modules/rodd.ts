@@ -2,6 +2,7 @@
 // s'écrit. 100 % local (Whisper sur la machine d'Odin), corrigé si tu veux par l'IA d'Odin (ponctuation,
 // grammaire, mail, traduction, liste), avec TES mots (partagés avec tout ce que tu dis à Odin). Une dictée
 // qui commence par « Odin, … » est une demande à Odin, pas un texte ; une action grave garde ton accord.
+import { journalDe } from '../base/journal.ts';
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { applyMots, learn, mots, saveMots, type Mot } from '../../voice/mots.ts';
@@ -35,9 +36,9 @@ export async function shape(ctx: Pick<ModCtx, 'ask'>, raw: string, mode: Mode, l
   try { const r = (await ctx.ask(ask)).trim().replace(/^<dictee>|<\/dictee>$/g, '').trim(); return r ? { text: r, ia: true } : { text: tidy(raw), ia: false }; } catch { return { text: mode === 'corrigé' ? tidy(raw) : raw.trim(), ia: false }; }
 }
 
-const hist = (ctx: ModCtx) => join(ctx.dir, 'historique.jsonl');
-export function history(ctx: ModCtx, n = 50): Entry[] { try { return readFileSync(hist(ctx), 'utf8').trim().split('\n').filter(Boolean).slice(-n).map((l) => JSON.parse(l) as Entry).reverse(); } catch { return []; } }
-function keep(ctx: ModCtx, e: Entry) { if (ctx.settings.historique === false) return; mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); appendFileSync(hist(ctx), JSON.stringify(e) + '\n', { mode: 0o600 }); }
+// L'historique : dans la base d'Odin dès qu'elle est prête (journal « rodd »), sinon historique.jsonl.
+export function history(ctx: ModCtx, n = 50): Entry[] { return journalDe<Entry>(ctx, 'rodd', 'historique.jsonl', { garder: 2000 }).tout().slice(-n).reverse(); }
+function keep(ctx: ModCtx, e: Entry) { if (ctx.settings.historique === false) return; journalDe<Entry>(ctx, 'rodd', 'historique.jsonl', { garder: 2000 }).ajouter(e); }
 
 /** Une dictée reçue (déjà transcrite) : tes mots, la mise en forme, ou une demande à Odin. */
 export async function dictee(ctx: ModCtx, raw: string, o: { mode?: Mode; ou?: string; langue?: string } = {}): Promise<ActionResult & { data: { texte: string; brut: string; odin?: string; ia: boolean } }> {

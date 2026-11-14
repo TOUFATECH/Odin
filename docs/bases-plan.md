@@ -133,3 +133,15 @@ d'autre : `REVOKE ALL ON SCHEMA public`), `odin_lecture` (USAGE sur les schémas
 
 Chaque appli migrée : ses essais au vert + essai de migration (données identiques avant/après) + essai « base arrêtée
 puis revenue ».
+
+## 8. État (14/11, fin de la première passe)
+
+| Appli | État | Essais (vrai PostgreSQL) |
+|---|---|---|
+| Socle (`src/valhalla/base/`) | fait : serveur (machine / à Odin / Hringhorni), comptes, migrations, attente, sauvegardes chiffrées, actions d'Alexandrie | `test/base.test.ts` |
+| Pégase | **en base** | `test/pegase-base.test.ts` |
+| Persona | journal des connexions **en base** ; le reste en fichier bloqué (secrets) | `test/journaux-base.test.ts` |
+| Alertes, bulles, historique d'Arche, requêtes d'Alexandrie | **en base** | `test/journaux-base.test.ts` |
+| Rödd, Iðunn, Forge (historiques) | **en base** (même journal commun) | `test/journaux-base.test.ts` |
+| Agora | à faire après sa fusion (même modèle que Pégase : `DefAppli` + support) | — |
+| Les autres (§3) | à faire, une à la fois | — |

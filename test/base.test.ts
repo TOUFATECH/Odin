@@ -10,6 +10,9 @@ import { pgDisponible, pgJetable } from './banc/pg-jetable.ts';
 import { BaseAttente, BaseOdin, utiliserBase } from '../src/valhalla/base/index.ts';
 import { Reserve } from '../src/valhalla/base/pool.ts';
 import { restaurerACote, sauvegardes, sauvegarder } from '../src/valhalla/base/sauvegarde.ts';
+import { essayerMachine, lancer, programmes } from '../src/valhalla/base/serveur.ts';
+import { chmodSync, chownSync, mkdirSync, mkdtempSync, rmSync, writeFileSync as ecrire } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { bases, password } from '../src/valhalla/urdr/bases.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { urdr } from '../src/valhalla/modules/urdr.ts';
@@ -67,7 +70,7 @@ test('socle : Odin démarre sans base (serveur arrêté), le dit, garde les écr
     await b2.arreter();
     // Mode « serveur à Odin » : Odin démarre le serveur lui-même, et le relance s'il s'arrête.
     await b.demarrer(); assert.equal(b.etat, 'prete', b.message);
-    await pg.arreter(); await b.verifier(); assert.equal(b.etat, 'prete', 'serveur arrêté : relancé par Odin');
+    await pg.arreter(); await b.verifier(); await b.verifier(); assert.equal(b.etat, 'prete', 'serveur arrêté : relancé par Odin');
   } finally { await b.arreter(); await pg.fin(); }
 });
 
@@ -89,3 +92,28 @@ test('socle : sauvegarde chiffrée (pg_dump relu), restaurée dans une nouvelle 
     const e = await v.act('urdr', 'base_odin'); assert.match(e.text, /prête/); assert.match(e.text, /Sauvegardes chiffrées : 1/);
   } finally { utiliserBase(undefined); await b.arreter(); await pg.fin(); }
 });
+
+test('socle : un PostgreSQL déjà présent sur la machine (comme celui d\'une distribution) : compte « odin » créé par le compte système, sans mot de passe sur la ligne de commande', { skip: SANS_PG || (process.getuid?.() !== 0 && 'il faut être root (compte système postgres)'), timeout: 120_000 }, async () => {
+  // Un serveur « de distribution » : superutilisateur postgres, connexion locale par le compte système (peer), réseau en SCRAM.
+  const racine = mkdtempSync(join(tmpdir(), 'odin-pgm-')); chmodSync(racine, 0o755);
+  const bin = programmes()!, data = join(racine, 'data'), prise = join(racine, 'prise'), home = join(racine, 'odin');
+  const port = await new Promise<number>((ok) => { import('node:net').then(({ createServer }) => { const x = createServer(); x.listen(0, '127.0.0.1', () => { const p = (x.address() as { port: number }).port; x.close(() => ok(p)); }); }); });
+  mkdirSync(prise, { recursive: true }); chownSync(prise, ...(require_ids()));
+  const b = new BaseOdin(home, { hringhorni: false, log: silence });
+  try {
+    mkdirSync(data, { mode: 0o700 }); chownSync(data, ...require_ids());
+    const ini = await lancer(join(bin, 'initdb'), ['-D', data, '-U', 'postgres', '--auth-local=peer', '--auth-host=scram-sha-256', '-E', 'UTF8', '--no-locale'], { sous: 'postgres' }); assert.equal(ini.code, 0, ini.sortie);
+    ecrire(join(data, 'postgresql.auto.conf'), `listen_addresses = '127.0.0.1'\nport = ${port}\nunix_socket_directories = '${prise}'\n`);
+    const dem = await lancer(join(bin, 'pg_ctl'), ['-D', data, '-l', join(prise, 'log'), '-w', 'start'], { sous: 'postgres' }); assert.equal(dem.code, 0, `${dem.sortie} ${(() => { try { return readFileSync(join(prise, 'log'), 'utf8'); } catch { return ''; } })()}`);
+    const c = await essayerMachine(home, { port, prise });
+    assert.equal(c?.mode, 'machine'); assert.equal(c?.admin, 'odin');
+    const bo = new BaseOdin(home, { cible: c, hringhorni: false, log: silence });
+    const a = bo.appli({ id: 'essai', migrations: [{ v: 1, nom: 't', sql: 'CREATE TABLE t (x int)' }], ecritures: {} }, join(home, 'e'));
+    await bo.demarrer(); assert.equal(bo.etat, 'prete', bo.message); assert.ok(a.prete);
+    assert.match(bo.message, /PostgreSQL de la machine/);
+    // Le compte « odin » n'est pas superutilisateur : il crée des bases et des comptes, rien de plus.
+    assert.deepEqual((await a.q('SELECT rolsuper, rolcreatedb, rolcreaterole FROM pg_roles WHERE rolname = $1', ['odin'])).rows, [['f', 't', 't']]);
+    await bo.arreter();
+  } finally { await b.arreter(); await lancer(join(bin, 'pg_ctl'), ['-D', data, '-m', 'fast', '-w', 'stop'], { sous: 'postgres' }); rmSync(racine, { recursive: true, force: true }); }
+});
+function require_ids(): [number, number] { const l = readFileSync('/etc/passwd', 'utf8').split('\n').find((x) => x.startsWith('postgres:'))!.split(':'); return [Number(l[2]), Number(l[3])]; }

@@ -26,6 +26,10 @@ CREATE VIEW v_bulles AS SELECT quand, donnees->>'app' AS appli, donnees->>'level
 CREATE VIEW v_sauvegardes AS SELECT quand, donnees->>'base' AS base, (donnees->>'ok')::boolean AS reussie, donnees->>'raison' AS raison, (donnees->>'taille')::bigint AS taille, donnees->>'erreur' AS erreur FROM entrees WHERE journal = 'arche';
 CREATE VIEW v_connexions AS SELECT quand, donnees->>'login' AS compte, (donnees->>'ok')::boolean AS reussie FROM entrees WHERE journal = 'connexions';
 GRANT SELECT ON v_alertes, v_bulles, v_sauvegardes, v_connexions TO odin_lecture`,
+  }, {
+    v: 2, nom: 'événements des sites (Iðunn)',
+    sql: `CREATE VIEW v_evenements_sites AS SELECT quand, donnees->>'site' AS site, donnees->>'type' AS type, donnees->>'level' AS niveau, donnees->>'text' AS texte, donnees->>'link' AS lien FROM entrees WHERE journal = 'idunn';
+GRANT SELECT ON v_evenements_sites TO odin_lecture`,
   }],
   ecritures: {
     ajout: 'INSERT INTO entrees (uid, journal, quand, donnees) VALUES ($1, $2, $3, $4::jsonb) ON CONFLICT (uid) DO NOTHING',
@@ -144,4 +148,13 @@ export class Journal<T extends object> {
 function quandIso(v: string | number | undefined): string {
   const t = typeof v === 'number' ? v : v ? Date.parse(v) : NaN;
   return new Date(Number.isFinite(t) ? t : Date.now()).toISOString();
+}
+
+/** Le journal `nom` d'une appli (un par contexte d'appli) : `fichier` est son rangement d'avant, dans son dossier. */
+const parCtx = new WeakMap<object, Map<string, unknown>>();
+export function journalDe<T extends object>(ctx: { dir: string }, nom: string, fichier: string, o: { garder?: number; quand?: (e: T) => string | number | undefined } = {}): Journal<T> {
+  let m = parCtx.get(ctx); if (!m) { m = new Map(); parCtx.set(ctx, m); }
+  let j = m.get(nom) as Journal<T> | undefined;
+  if (!j) { mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); j = new Journal<T>(nom, ctx.dir, { garder: o.garder, quand: o.quand, rangement: fichierJsonl<T>(join(ctx.dir, fichier), o.garder) }); m.set(nom, j); }
+  return j;
 }

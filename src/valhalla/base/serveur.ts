@@ -120,7 +120,7 @@ export async function demarrerLocale(c: Cible): Promise<void> {
   const data = join(c.donnees, 'data');
   if ((await lancer(join(c.bin, 'pg_ctl'), ['-D', data, 'status'], { sous: c.sous, ms: 20_000 })).code === 0) return;
   const r = await lancer(join(c.bin, 'pg_ctl'), ['-D', data, '-l', join(c.donnees, 'journal.log'), '-w', '-t', '90', 'start'], { sous: c.sous, ms: 120_000 });
-  if (r.code !== 0) throw new Error(`le serveur de la base d'Odin ne démarre pas : ${r.sortie.split('\n').slice(-2).join(' ')} (journal : ${join(c.donnees, 'journal.log')})`);
+  if (r.code !== 0 && (await lancer(join(c.bin, 'pg_ctl'), ['-D', data, 'status'], { sous: c.sous, ms: 20_000 })).code !== 0) throw new Error(`le serveur de la base d'Odin ne démarre pas : ${r.sortie.split('\n').slice(-2).join(' ')} (journal : ${join(c.donnees, 'journal.log')})`);
 }
 /** Arrête le serveur à Odin (les essais ; et l'action d'Alexandrie, avec ton accord). */
 export async function arreterLocale(c: Cible): Promise<void> {

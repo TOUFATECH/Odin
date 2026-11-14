@@ -75,3 +75,21 @@ test('journaux dans la base : alertes, bulles, historique d\'Arche, connexions d
     const v2 = new Valhalla(home, [urdr]); assert.deepEqual(v2.alerts({ limit: 1000 }).map((a) => a.title), l.map((a) => a.title), 'mêmes alertes, relues dans le fichier');
   } finally { v.stop(); n.stop(); utiliserBase(undefined); await b?.arreter(); await pg.fin(); }
 });
+
+test('journaux : Iðunn, Rödd, Forge par journalDe ; migration versionnée (v2 : vue des événements des sites)', { skip: SANS_PG, timeout: 120_000 }, async () => {
+  const { journalDe } = await import('../src/valhalla/base/journal.ts');
+  const pg = await pgJetable(), ctx = { dir: join(pg.home, 'valhalla', 'idunn') };
+  const b = new BaseOdin(pg.home, { cible: pg.cible, hringhorni: false, log: silence });
+  try {
+    const j = journalDe<{ at: string; site: string; type: string; level: string; text: string }>(ctx, 'idunn', 'evenements.jsonl', { garder: 5000 });
+    j.ajouter({ at: '2026-11-14T08:00:00.000Z', site: 'toufatech.yt', type: 'panne', level: 'haute', text: 'le site ne répond plus' });
+    assert.ok(existsSync(join(ctx.dir, 'evenements.jsonl')), 'sans base : le fichier d\'avant');
+    utiliserBase(b); await b.demarrer(); await tousPrets();
+    assert.equal(j.support, 'base'); assert.equal(j.tout().length, 1);
+    const v = new Valhalla(pg.home, [urdr]);
+    const q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select site, niveau, texte from journaux.v_evenements_sites' });
+    assert.match(q.text, /toufatech\.yt \| haute \| le site ne répond plus/);
+    const a = b.applisBranchees().find((x) => x.id === 'journaux')!;
+    assert.deepEqual((await a.q('SELECT version, nom FROM _migrations ORDER BY version')).rows.map((x) => x[0]), ['1', '2']);
+  } finally { utiliserBase(undefined); await b.arreter(); await pg.fin(); }
+});
