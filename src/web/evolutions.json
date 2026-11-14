@@ -1,5 +1,28 @@
 [
  {
+  "id": "v1270",
+  "at": "2026-11-14T11:00:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.27.0",
+  "title": "Agora, le store d'Odin : chacun reçoit les applis auxquelles il a droit, sur Odin, ses ordinateurs et ses téléphones",
+  "details": [
+   "Nouvelle appli Agora (réservée aux admins) : le catalogue (applis d'Odin, installateurs Windows, Mac, Linux et Android avec version, empreinte SHA-256 et analyse par Asclépios), les groupes, les appareils et le journal.",
+   "Pour chaque élément et chaque groupe : Proposée, Installée d'office ou Retirée. Mettre une personne dans un groupe de Persona suffit : ses applis apparaissent dans son espace Odin et dans le store de ses appareils ; l'en retirer les lui retire.",
+   "Les ordres imposés (installer, mettre à jour, désinstaller) arrivent aux appareils en moins d'une seconde ; tu peux forcer une installation ou une désinstallation sur un appareil précis (avec ton accord, noté au journal).",
+   "Agora sur l'ordinateur (Windows, Mac, Linux) : la personne installe ce qui lui est proposé, le reste se fait tout seul ; chaque installateur est vérifié (empreinte) avant d'être installé.",
+   "Agora sur Android : installation confirmée d'un toucher, ou sans toucher si le téléphone est géré par Odin. Sur iPhone, les applis d'Odin passent par le web.",
+   "Alertes dans Forseti : installation échouée (avec « Réessayer »), appareil inconnu, nouvel appareil.",
+   "Connexion unique : 60 secondes de marge pour l'horloge d'un appareil un peu en avance ou en retard ; plusieurs serveurs Vénus synchronisés entre eux à la seconde.",
+   "Bases : Pégase, les journaux et les connexions de Persona passent dans la vraie base PostgreSQL d'Odin (un schéma par appli, sauvegarde chiffrée chaque nuit)."
+  ],
+  "planets": [
+   "applis",
+   "securite",
+   "machines"
+  ],
+  "kind": "version"
+},
+ {
   "id": "v1260",
   "at": "2026-11-14T10:45:00+03:00",
   "date": "2026-11-14",

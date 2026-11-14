@@ -1,0 +1,32 @@
+# Versions vérifiées le 14/11/2026 (pages officielles) :
+#  - AGP 9.5.1 (octobre 2026, demande Gradle 9.6 et le JDK 17 au moins) ;
+#  - Gradle 9.6.1 ;
+#  - Kotlin 2.4.20 (septembre 2026) ;
+#  - Compose BOM 2026.09.00 (exemple de la page officielle « Use a Bill of Materials ») ;
+# Agora Android reprend les versions de Pégase Android (même dépôt, mêmes outils), sans GeckoView.
+[versions]
+agp = "9.5.1"
+kotlin = "2.4.20"
+composeBom = "2026.09.00"
+coreKtx = "1.17.0"
+activityCompose = "1.11.0"
+coroutines = "1.10.2"
+junit = "4.13.2"
+
+[libraries]
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+junit = { module = "junit:junit", version.ref = "junit" }
+kotlin-test-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

@@ -55,6 +55,7 @@ import { maisonRoute } from './maison-api.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { pegaseRoute } from './pegase-api.ts';
+import { agoraRoute } from './agora-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { terminalApi } from './terminal-api.ts';
 import { exportApi } from './export-api.ts';
@@ -527,6 +528,8 @@ export class WebChannel implements Channel {
     if (url.pathname === '/health') return json(res, 200, { ok: true });
     // Pégase (le navigateur d'Odin) : ses routes, avec ses propres jetons d'appareil (voir pegase-api.ts).
     if (url.pathname.startsWith('/api/pegase/') && await pegaseRoute(req, res, url, { ip, proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', emailProprietaire: this.accounts.profile()?.email, motDePasseProprietaire: async (e, mdp) => (await this.accounts.login(e, mdp)).ok, fail: () => this.throttle.fail(ip), ask: (peer, text) => this.askAs(peer, text, onMessage, 30_000), certificat: this.tls?.cert, version: RUNNING, origin: this.publicOrigin(req), pair: { collect: (sec) => this.pairing.collect(sec), request: (device, from) => { const r = this.pairing.request('', from, Date.now(), device); if (r) { void Promise.resolve(this.hooks.pairAsk?.({ id: r.id, code: r.code, device: r.device, ip: r.ip, at: r.at, state: r.state })).catch(() => 0); this.notify('state'); } return r; } } })) return;
+    // Agora (le store d'Odin) : les stores des appareils, avec les jetons d'appli de la connexion unique (voir agora-api.ts).
+    if (url.pathname.startsWith('/api/agora/') && await agoraRoute(req, res, url, { ip, version: RUNNING })) return;
     // La page du téléphone pour la première connexion (code tapé ou QR code scanné).
     if (req.method === 'GET' && url.pathname === '/activer') {
       if (this.accounts.exists()) { res.writeHead(302, { location: '/' }); return void res.end(); }

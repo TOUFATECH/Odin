@@ -1,0 +1,67 @@
+# Agora pour Android (le store d'Odin sur le téléphone) : essais JVM de la logique pure (store, décisions, empreintes,
+# client d'Odin), puis APK debug et release (non signée). Les APK sont dans les « artifacts » de l'exécution.
+name: Agora Android
+
+on:
+  push:
+    paths:
+      - 'agora-android/**'
+      - '.github/workflows/agora-android.yml'
+  pull_request:
+    paths:
+      - 'agora-android/**'
+      - '.github/workflows/agora-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agora-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: agora-android
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: SDK Android (plateforme 37, outils 36)
+        uses: android-actions/setup-android@v3
+      - run: sdkmanager --install "platforms;android-37" "build-tools;36.0.0" > /dev/null
+
+      - name: Gradle (cache, vérification du wrapper)
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Essais JVM (store, décisions, empreinte vérifiée, client d'Odin)
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+
+      - name: APK debug et release (non signée)
+        run: ./gradlew --no-daemon --stacktrace assembleDebug assembleRelease
+
+      - name: Rapports des essais
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agora-android-essais
+          path: agora-android/app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: agora-android-apk
+          path: |
+            agora-android/app/build/outputs/apk/debug/*.apk
+            agora-android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

@@ -75,7 +75,8 @@ export const NAMES: Record<string, string> = {
  "bifrost": "Iris",
  "durinn": "Tirésias",
  "pegase": "Pégase",
- "hel": "Perséphone"
+ "hel": "Perséphone",
+ "agora": "Agora"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
@@ -279,5 +280,6 @@ export const NAME_STORY: Record<string, string> = {
  "hlin": "Gygès, le berger d'une légende grecque que raconte Platon : il trouva un anneau qui le rendait invisible. Ici, c'est toi qui décides de ce qu'on voit de toi.",
  "durinn": "Tirésias, le devin aveugle de Thèbes qui voyait venir les malheurs avant tout le monde : il lit les signes que tes disques donnent d'eux-mêmes et annonce la panne avant qu'elle n'arrive.",
  "pegase": "Pégase, le cheval ailé de la mythologie grecque, né du sang de Méduse : il emporte où tu veux aller, à travers le ciel. Ton navigateur, qui file sur le web et revient toujours à Odin.",
- "hel": "Perséphone, enlevée par Hadès et emmenée aux Enfers, revient chaque printemps à la lumière : elle ramène ce qu'on croyait perdu, partitions disparues et fichiers effacés."
+ "hel": "Perséphone, enlevée par Hadès et emmenée aux Enfers, revient chaque printemps à la lumière : elle ramène ce qu'on croyait perdu, partitions disparues et fichiers effacés.",
+ "agora": "L'agora d'Athènes, la grande place du marché : chacun y trouvait ce qu'il lui fallait. Ici, chaque personne y trouve ce à quoi elle a droit."
 };

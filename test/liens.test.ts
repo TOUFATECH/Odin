@@ -19,9 +19,14 @@ import { rythme } from '../src/valhalla/modules/hlin.ts';
 import { fakeEngine } from './helpers.ts';
 import { attendreHel } from '../src/valhalla/modules/hel.ts';
 import { gunzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
 import { fakeLivebox } from './fake-livebox.ts';
 import { analyserFichier, magOf, nouvelAppareil, verifierAdresse } from '../src/valhalla/modules/pegase.ts';
+import { depotDe, type Ordre } from '../src/valhalla/agora/store.ts';
+import { agoraRoute } from '../src/web/agora-api.ts';
+import { emettre } from '../src/valhalla/sso/oidc.ts';
+import { client as clientSso, personnes as gensPersona } from '../src/valhalla/sso/etat.ts';
 const LIVEBOX = fakeLivebox();
 
 const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
@@ -39,6 +44,9 @@ function world(): World {
     const url = String(input); fetched.push({ url, body: typeof init?.body === 'string' ? init.body : undefined });
     if (/^http:\/\/box\.test\//.test(url)) { const r = LIVEBOX.handle(url, init); if (r) return r; }
     if (/pirate\.exemple\/bot\.sh/.test(url)) return new Response(EICAR, { status: 200 });
+    // Pégase publié (lien Agora → Pégase) : la liste des versions et son AppImage.
+    if (url === 'https://api.github.com/repos/TOUFATECH/Odin/releases?per_page=15') return Response.json([{ tag_name: 'v0.2.0', assets: [{ name: 'Pegase-0.2.0.AppImage', browser_download_url: 'https://github.com/TOUFATECH/Odin/releases/download/v0.2.0/Pegase-0.2.0.AppImage', size: 21 }] }]);
+    if (url === 'https://github.com/TOUFATECH/Odin/releases/download/v0.2.0/Pegase-0.2.0.AppImage') return new Response('pegase-appimage-essai', { status: 200 });
     if (url === 'https://api.github.com/repos/odin-test/piege/releases/latest') return Response.json({ tag_name: 'v1.0', html_url: 'h', assets: [{ name: 'piege-1.0.exe', browser_download_url: 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe', size: EICAR.length }] });
     if (url === 'https://github.com/odin-test/piege/releases/download/v1.0/piege-1.0.exe') return new Response(EICAR, { status: 200 });
     if (/boot\.ipxe\.org|ipxe\/wimboot/.test(url)) return new Response(EICAR, { status: 200 });
@@ -981,6 +989,61 @@ CHECKS['pegase>forseti'] = async (w) => {
   assert.ok(w.v.alerts({ module: 'pegase' }).some((a) => /nouvel appareil pour Nour/.test(a.title) && a.fix?.action === 'revoquer'));
   await analyserFichier(ctx, 'virus.exe', Buffer.from(EICAR));
   assert.ok(w.v.alerts({ module: 'pegase' }).some((a) => /fichier bloqué/.test(a.title) && a.level === 'haute'));
+};
+/** Agora : une personne de Persona, un élément « Outil » (AppImage) installé d'office pour la famille. */
+async function agoraPret(w: World, login: string, groupes = 'invite') {
+  const ag = w.v.ctx('agora'), f = join(w.home, 'outil-2.0.0.AppImage'); writeFileSync(f, '#!/bin/sh\necho outil\n', { mode: 0o755 });
+  assert.equal((await w.v.act('var', 'ajouter', { login, nom: login[0].toUpperCase() + login.slice(1), groupes, mot_de_passe: 'citronnier-du-jardin-9' })).ok, true);
+  const r = await w.v.act('agora', 'ajouter', { nom: 'Outil', fichier: f }); assert.equal(r.ok, true, r.text);
+  assert.equal((await w.v.act('agora', 'definir_mode', { element: 'outil', groupe: 'famille', mode: 'Installée d\'office' })).ok, true);
+  return { ag, d: depotDe(ag.dir), p: gensPersona(w.v.ctx('var')).find((x) => x.login === login)! };
+}
+CHECKS['var>agora'] = async (w) => {
+  const { ag, d, p } = await agoraPret(w, 'nour');
+  await w.v.module('agora')!.start!(ag); // la surveillance des groupes de Persona (arrêtée avec Odin)
+  d.appareils.push({ id: 'pc-de-nour-001', nom: 'PC de Nour', plateforme: 'linux', systeme: '', sub: p.id, login: 'nour', nomPersonne: 'Nour', cree: Date.now(), vu: Date.now(), applis: {}, forces: {} });
+  const recus: Ordre[] = []; d.bus.on('ordre', (_a: string, o: Ordre) => recus.push(o));
+  const t0 = Date.now(); assert.equal((await w.v.act('var', 'modifier', { login: 'nour', groupes: 'famille' })).ok, true);
+  assert.ok(await until(() => recus.some((o) => o.action === 'installer' && o.element === 'outil')), 'mise dans la famille : ordre « installer »');
+  assert.ok(Date.now() - t0 < 1500, `ordre parti en ${Date.now() - t0} ms`);
+  d.appareils[0].applis.outil = { etat: 'installee', version: '2.0.0', maj: Date.now() };
+  assert.equal((await w.v.act('var', 'modifier', { login: 'nour', groupes: 'invite' })).ok, true);
+  assert.ok(await until(() => recus.some((o) => o.action === 'desinstaller' && o.element === 'outil')), 'retirée de la famille : ordre « désinstaller »');
+};
+CHECKS['agora>ullr'] = async (w) => {
+  const f = join(w.home, 'outil-piege-1.0.exe'); writeFileSync(f, EICAR);
+  const r = await w.v.act('agora', 'ajouter', { nom: 'Outil piégé', fichier: f });
+  assert.ok(did(w, 'ullr', 'fichier'), 'Asclépios a analysé l\'installateur'); assert.equal(r.ok, false); assert.match(r.text, /bloqué par Asclépios/);
+  assert.ok(!depotDe(w.v.ctx('agora').dir).element('outil-piege'), 'il n\'entre pas dans le store');
+};
+CHECKS['agora>pegase'] = async (w) => {
+  await w.v.module('agora')!.start!(w.v.ctx('agora')); // le catalogue de départ (Pégase, Vénus)
+  const r = await w.v.act('agora', 'importer_pegase'); assert.equal(r.ok, true, r.text);
+  assert.ok(did(w, 'pegase', 'installateurs'), 'Pégase donne ses installateurs publiés');
+  const k = depotDe(w.v.ctx('agora').dir).element('pegase')!.paquets[0];
+  assert.deepEqual({ pf: k.plateforme, v: k.version, lien: k.lien }, { pf: 'linux', v: '0.2.0', lien: 'https://github.com/TOUFATECH/Odin/releases/download/v0.2.0/Pegase-0.2.0.AppImage' });
+  assert.equal(k.sha256, createHash('sha256').update('pegase-appimage-essai').digest('hex'), 'empreinte calculée par Odin');
+  assert.match((await w.v.act('agora', 'importer_pegase')).text, /Rien de nouveau/);
+};
+CHECKS['agora>forseti'] = async (w) => {
+  const { d, p } = await agoraPret(w, 'ilyas', 'famille'), pctx = w.v.ctx('var');
+  // Les vraies routes /api/agora/*, avec de vrais jetons d'appli de la connexion unique.
+  const srv = createServer((q, r) => void agoraRoute(q, r, new URL(q.url ?? '/', 'http://x'), { ip: '192.168.1.42', version: 'essai', valhalla: w.v }));
+  await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+  try {
+    const base = `http://127.0.0.1:${(srv.address() as { port: number }).port}/api/agora/`;
+    const jeton = (id: string) => emettre(pctx, p, clientSso(pctx, 'agora')!, { iss: 'http://x', appareil: { id, nom: 'PC d\'Ilyas', plateforme: 'linux' }, via: 'essai' }).access_token;
+    const api = async (route: string, tok: string, b?: unknown) => (await fetch(base + route, { method: b ? 'POST' : 'GET', headers: { authorization: `Bearer ${tok}`, ...(b ? { 'content-type': 'application/json' } : {}) }, body: b ? JSON.stringify(b) : undefined })).json() as Promise<Record<string, unknown>>;
+    const tok = jeton('pc-ilyas-0001');
+    assert.equal((await api('inscrire', tok, { nom: 'PC d\'Ilyas', plateforme: 'linux' })).ok, true);
+    assert.ok(w.v.alerts({ module: 'agora' }).some((a) => /nouvel appareil pour Ilyas/.test(a.title)), 'nouvel appareil');
+    const o = d.ouvert('pc-ilyas-0001', 'outil')!; assert.equal(o.action, 'installer');
+    await api('etat', tok, { element: 'outil', etat: 'erreur', erreur: 'disque plein', ordre: o.id });
+    const a = w.v.alerts({ module: 'agora' }).find((x) => /installation de Outil échouée sur PC d'Ilyas/.test(x.title));
+    assert.ok(a, 'installation échouée'); assert.equal(a!.fix?.action, 'reessayer');
+    assert.equal((await api('store', jeton('pc-pas-inscrit-02'))).code, 'appareil_inconnu');
+    assert.ok(w.v.alerts({ module: 'agora' }).some((x) => x.title === 'Agora : appareil inconnu'), 'appareil inconnu');
+  } finally { srv.close(); }
 };
 
 /** Perséphone : une petite image (du bruit, une vraie photo JPEG), récupérée vers un autre dossier ; on attend la fin. */

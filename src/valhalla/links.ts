@@ -131,6 +131,10 @@ export const LINKS: Link[] = [
   { from: 'durinn', to: 'hel', when: 'un disque est jugé mauvais', does: 'sa carte dans Tirésias a le bouton « Récupérer les fichiers (Perséphone) », qui ouvre ce disque dans Perséphone (lecture seule)', auto: true, kind: 'réflexe' },
   { from: 'hermod', to: 'ivaldi', when: 'un poste Linux ou Mac est enregistré dans ton parc', does: 'Dédale y ouvre un terminal qui dure (par SSH, avec ton accord) : on le quitte et on le retrouve où on en était', auto: true, kind: 'donnée' },
   { from: 'snotra', to: 'askr', when: 'tu demandes « Schéma de mon réseau » dans Plume', does: 'les appareils de l\'inventaire d\'Atlas deviennent des blocs isométriques (box au centre, chacun relié), à ranger à ta façon puis exporter en image', auto: true, kind: 'donnée' },
+  { from: 'var', to: 'agora', when: 'tu mets une personne dans un groupe de Persona, ou tu l\'en retires', does: 'le store de ses ordinateurs et téléphones suit en moins d\'une seconde : ce qui est installé d\'office s\'installe, ce qui ne lui est plus permis se désinstalle', auto: true, kind: 'donnée' },
+  { from: 'agora', to: 'ullr', when: 'un installateur entre dans le store', does: 'Asclépios l\'analyse d\'abord ; un installateur bloqué n\'entre pas dans le store', auto: true, kind: 'réflexe' },
+  { from: 'agora', to: 'pegase', when: 'une nouvelle version de Pégase est publiée (vérifié chaque jour)', does: 'ses installateurs (Windows, Mac, Linux, Android) entrent dans le store, empreinte calculée : les appareils qui l\'ont d\'office se mettent à jour', auto: true, kind: 'donnée' },
+  { from: 'agora', to: 'forseti', when: 'une installation imposée échoue, un appareil inconnu se présente ou un nouvel appareil s\'inscrit', does: 'alerte dans le fil commun, avec « Réessayer » ou « Retirer cet appareil »', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
