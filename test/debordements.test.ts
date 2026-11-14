@@ -1,5 +1,7 @@
 // Débordements et éléments mal placés : le détecteur (test/banc/debordements.ts) est essayé sur des pages
 // d'essai (un défaut voulu par case ; une page propre qui ne doit rien déclencher), dans un vrai navigateur.
+// Puis il passe sur les pages clés d'un vrai Odin rempli (1280 et 390 px) : l'essai échoue si un débordement grave
+// revient, ou si Odin et sa bulle de notification se posent sur une commande ou un titre.
 // Sans Playwright sur la machine, l'essai est ignoré (il le dit).
 //   /home/claude/odin-wt/outils/navigateur.sh <copie> test/debordements.test.ts
 
@@ -7,7 +9,9 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { after, before, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { analyser, type Defaut, type PageQ } from './banc/debordements.ts';
+import { analyser, debordementsGraves, type Defaut, type PageQ } from './banc/debordements.ts';
+import { T } from './banc/lib.ts';
+import { odinPlein } from './banc/odin-plein.ts';
 
 interface Page extends PageQ { goto(url: string): Promise<unknown>; close(): Promise<void> }
 interface Navigateur { newPage(o?: Record<string, unknown>): Promise<Page>; close(): Promise<void> }
@@ -73,4 +77,50 @@ test('détecteur : un texte sans fond posé sur le décor du thème est signalé
   assert.ok(nu, 'le texte sans fond est signalé'); assert.match(nu.mesure, /au pire 1\.\d:1 \(texte #10363a sur #0b5f6e\)/); assert.equal(nu.gravite, 'grave');
   assert.ok(a(ds, 'sur-decor', '#nu-bas'), 'même hors de l\'écran (il passera sur le décor en défilant)');
   assert.equal(ds.some((d) => d.selecteur === '#protege'), false, 'le texte dans une carte n\'est pas signalé');
+});
+
+// ------------------------------------------------------------------ Les pages clés d'Odin
+interface Contexte { newPage(): Promise<Page & { waitForSelector(s: string, o?: Record<string, unknown>): Promise<unknown>; waitForFunction(js: string, a?: unknown, o?: Record<string, unknown>): Promise<unknown> }>; addCookies(c: unknown[]): Promise<void>; addInitScript(js: string): Promise<void>; close(): Promise<void> }
+const PAGES: Array<[string, string]> = [
+  ['Aujourd\'hui', `window.OdinShow('home')`],
+  ['Discussion', `window.OdinShow('chat')`],
+  ['Maison', `window.OdinShow('net')`],
+  ['Réglages', `window.OdinShow('settings')`],
+  ['Asclépios', `void window.OdinApps.app('ullr')`],
+  ['Alchimie', `void window.OdinApps.app('dvalinn')`],
+];
+/** Odin et sa bulle se posent (ils choisissent leur place après chaque changement) : on attend qu'ils ne bougent plus. */
+async function posee(p: PageQ): Promise<void> {
+  const js = `[...document.querySelectorAll('#buddyRoam,#odinBubble')].map((e) => { const r = e.getBoundingClientRect(); return Math.round(r.left) + ',' + Math.round(r.top); }).join('|')`;
+  let avant = '', stable = 0; for (let i = 0; i < 24 && stable < 3; i++) { await p.waitForTimeout(150); const a = await p.evaluate<string>(js); if (a === avant) stable++; else { stable = 0; avant = a; } }
+}
+const BULLE = `window.OdinNotices.local({ title: 'Sauvegarde : le disque de sauvegarde est presque plein', detail: 'Il reste 14 Go.', level: 'souci', kind: 'Un souci' })`;
+
+test('pages clés d\'Odin (1280 et 390 px) : aucun débordement grave, Odin et sa bulle jamais sur une commande', { skip: sans, timeout: 120_000 }, async () => {
+  const t = new T(); const t0 = Date.now(), od = await odinPlein(t, { reponses: 12 }); const demarrage = Date.now() - t0;
+  const fautes: string[] = [];
+  try {
+    for (const largeur of [1280, 390]) {
+      const ctx = await (nav as unknown as { newContext(o: Record<string, unknown>): Promise<Contexte> }).newContext({ viewport: { width: largeur, height: largeur > 500 ? 800 : 844 }, deviceScaleFactor: 1, locale: 'fr-FR', colorScheme: 'dark', hasTouch: largeur < 500, isMobile: largeur < 500 });
+      try {
+        const [name, ...v] = od.session.split('=');
+        await ctx.addCookies([{ name, value: v.join('='), url: od.url, httpOnly: true, sameSite: 'Strict' }]);
+        await ctx.addInitScript(`try { localStorage.setItem('odin.theme', 'sombre'); localStorage.setItem('odin.tour', 'done'); } catch {}`);
+        const p = await ctx.newPage();
+        await p.goto(od.url + '/'); await p.waitForSelector('#app:not([hidden])', { timeout: 20000 });
+        await p.waitForFunction('!!window.OdinApps && !!window.OdinShow && !!window.OdinNotices', undefined, { timeout: 20000 });
+        for (const [nom, ouvrir] of PAGES) {
+          await p.evaluate(`window.OdinNotices.hide(); ${ouvrir}`); await p.waitForTimeout(600);
+          await p.evaluate(`window.OdinNotices.hide(); window.OdinCompanion?.sync?.('hopto')`); await posee(p);
+          const opts = { contraste: false, focus: false, decor: false, tactile: false, defiler: false };
+          for (const d of debordementsGraves((await analyser(p, opts)).defauts)) fautes.push(`${nom} ${largeur} px : ${d.type} ${d.selecteur} — ${d.mesure}`);
+          // Une notification : ni Odin ni sa bulle ne couvrent une commande ou un titre (« sous-fixe » grave).
+          await p.evaluate(BULLE); await p.waitForTimeout(400); await p.evaluate(`window.OdinCompanion?.sync?.('hopto')`); await posee(p);
+          for (const d of (await analyser(p, opts)).defauts) if (d.type === 'sous-fixe' && d.gravite === 'grave' && /odinBubble|buddyRoam/.test(d.selecteur)) fautes.push(`${nom} ${largeur} px, notification : ${d.selecteur} — ${d.mesure}`);
+        }
+      } finally { await ctx.close(); }
+    }
+  } finally { await t.end(); }
+  assert.deepEqual(fautes, []);
+  console.log(`(Odin rempli en ${Math.round(demarrage / 1000)} s, pages mesurées en ${Math.round((Date.now() - t0 - demarrage) / 1000)} s)`);
 });
