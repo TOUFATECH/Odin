@@ -5,13 +5,16 @@
 // seule (la base elle-même refuse d'écrire), et tout ce qui écrit passe par ton accord avec une sauvegarde
 // Arche juste avant. Chaque requête est notée dans le journal.
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { bases, findBase, open, saveBases, setPassword, slug, useHostOf, type Base, type Kind } from '../urdr/bases.ts';
 import { isRead, OPS, type Filter, type Op, type Value } from '../urdr/db.ts';
 import { engine } from './naglfar.ts';
 import { databaseFor, serverBase, SERVER, SERVER_IP, PG_VERSION } from '../urdr/serveur.ts';
 import type { ActionResult, ModCtx, Module, Param, Section } from '../types.ts';
+import { existsSync, realpathSync, writeFileSync } from 'node:fs';
+import { resolve, sep } from 'node:path';
+import { exportMarkdown, exportSql, exportSvg, lireSchema, placer, sqlDe, type Changement, type Positions } from '../urdr/schema.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export const PG_IMAGE = `postgres:${PG_VERSION}`;
@@ -37,13 +40,21 @@ async function before(ctx: ModCtx, b: Base): Promise<string> {
   try { const r = await ctx.call('skuld', 'sauvegarder', { base: b.id, raison: 'avant une modification' }, `sauvegarder ${b.nom} avant de la modifier`); return r.ok === false ? `⚠ sauvegarde avant modification impossible : ${r.text}` : '💾 sauvegarde faite juste avant.'; }
   catch (e) { return `⚠ sauvegarde avant modification impossible : ${(e as Error).message}`; }
 }
+// ---------------- Schéma dessiné (comme drawDB) : positions gardées par base, exports remis à l'appareil.
+const positionsDe = (ctx: ModCtx, base: string): Positions => { try { return JSON.parse(readFileSync(join(ctx.dir, 'schemas', `${base.replace(/[^\w-]/g, '_')}.json`), 'utf8')) as Positions; } catch { return {}; } };
+function exporter(ctx: ModCtx, nom: string, contenu: string | Buffer): { nom: string; ref: string } {
+  const sous = `${Date.now().toString(36)}${randomBytes(2).toString('hex')}`, f = nom.replace(/[^\p{L}\p{N} ._-]/gu, '_').slice(0, 80) || 'export';
+  mkdirSync(join(ctx.dir, 'exports', sous), { recursive: true }); writeFileSync(join(ctx.dir, 'exports', sous, f), contenu); return { nom, ref: `export:${sous}/${f}` };
+}
+const changementsDe = (v: unknown): Changement[] => { const l = json<Changement[]>(v, []); if (!Array.isArray(l) || !l.length) throw new Error('aucun changement à appliquer'); if (l.length > 200) throw new Error('trop de changements d\'un coup (200 au plus)'); return l; };
 const table = (cols: string[], rows: Array<Array<Value>>, max = 30) => [cols.join(' | '), ...rows.slice(0, max).map((r) => r.map(cell).join(' | ')), ...(rows.length > max ? [`… ${rows.length - max} lignes de plus`] : [])].join('\n');
 
-export const urdr: Module = {
+export const urdr: Module & { similaires: string[] } = {
   id: 'urdr', name: 'Alexandrie', family: 'Données',
   what: 'Tes bases de données comme Supabase : créer une base PostgreSQL, relier les tiennes, parcourir et modifier les tables comme un tableur (Alexandrie Studio, comme Prisma Studio), SQL avec journal.',
   does: ['créer une base PostgreSQL dans le moteur de conteneurs d\'Odin (mot de passe généré, rangé dans le coffre)', 'relier une base PostgreSQL existante (zéro SQLite)', 'tables, colonnes, clés et liens entre tables', 'lignes avec filtres, tri et pages (Alexandrie Studio)', 'modifier, ajouter ou supprimer une ligne avec ton accord', 'SQL en lecture seule garantie par la base ; ce qui écrit demande ton accord et Arche sauvegarde juste avant', 'journal de toutes les requêtes'],
   from: ['Supabase', 'Prisma Studio', 'drawDB'], upstream: ['supabase/supabase', 'prisma/studio'],
+  similaires: ['Supabase', 'Prisma Studio', 'drawDB', 'pgAdmin', 'DBeaver'],
   words: ['base de donnees', 'base de données', 'bases de données', 'postgres', 'postgresql', 'sql', 'requete sql', 'requête sql', 'table', 'tables', 'supabase', 'prisma', 'studio', 'urdr', 'urðr'],
   actions: [
     { id: 'bases', label: 'Mes bases', what: 'La liste de tes bases', read: true, words: ['mes bases sql', 'mes bases postgres', 'quelles bases sql'], run: (ctx) => { const l = bases(ctx.home); return { text: l.map((b) => `- ${b.nom} · ${b.type}${b.conteneur ? ` · hébergée par Odin (${b.conteneur})` : ` · ${b.hote}:${b.port}/${b.base}`}`).join('\n') || 'Aucune base pour l\'instant : « crée une base » ou « relie une base ».', data: l }; } },
@@ -108,6 +119,44 @@ export const urdr: Module = {
         return { text: `${r.columns.length ? table(r.columns, r.rows) : r.command}\n(${r.ms} ms)${save ? `\n${save}` : ''}`, data: r };
       } catch (e) { note(ctx, { base: b.nom, sql: q, ok: false, result: (e as Error).message, write }); return { text: `❌ ${(e as Error).message}`, ok: false }; }
     }) },
+    { id: 'schema_base', label: 'Schéma de la base', what: 'Les tables, colonnes, clés, liens et index d\'une base, avec leur place sur le dessin', read: true, params: [BASE], words: ['schema de la base', 'dessine la base'], run: (ctx, i) => withDb(ctx, s(i.base), async (b, d) => {
+      const sc = await lireSchema(d), pos = placer(sc, positionsDe(ctx, b.id));
+      return { text: `${b.nom} : ${sc.tables.length} table(s), ${sc.liens.length} lien(s)\n${sc.tables.map((t) => `- ${t.nom} (${t.colonnes.map((c) => `${c.nom}${c.pk ? ' 🔑' : ''}${c.ref ? ` → ${c.ref.table}.${c.ref.colonne}` : ''}`).join(', ')})`).join('\n')}`, data: { base: b.id, schema: sc, positions: pos } };
+    }) },
+    { id: 'placer_tables', label: 'Garder la place des tables', what: 'Les positions des tables sur le dessin (envoyées par la page)', quick: false, quiet: true, params: [BASE, { key: 'positions', label: 'Positions (JSON)', kind: 'textarea', required: true }], run: (ctx, i) => {
+      const b = findBase(ctx.home, s(i.base)), p = json<Positions>(i.positions, {}), propre: Positions = {};
+      for (const [k, v] of Object.entries(p).slice(0, 500)) if (k.length <= 130 && Number.isFinite(v?.x) && Number.isFinite(v?.y)) propre[k] = { x: Math.max(0, Math.min(20000, Math.round(v.x))), y: Math.max(0, Math.min(20000, Math.round(v.y))) };
+      mkdirSync(join(ctx.dir, 'schemas'), { recursive: true }); writeFileSync(join(ctx.dir, 'schemas', `${b.id.replace(/[^\w-]/g, '_')}.json`), JSON.stringify(propre));
+      return { text: `📌 Place de ${Object.keys(propre).length} table(s) gardée.` };
+    } },
+    { id: 'sql_schema', label: 'SQL des changements', what: 'Le SQL qui ferait les changements dessinés (table, colonne, lien) : rien n\'est lancé', read: true, quick: false, params: [BASE, { key: 'changements', label: 'Changements (JSON)', kind: 'textarea', required: true }, { key: 'dialecte', label: 'Pour', kind: 'select', options: ['postgres', 'mysql'], default: 'postgres' }], run: (ctx, i) => withDb(ctx, s(i.base), async (_b, d) => {
+      const sql = sqlDe(changementsDe(i.changements), await lireSchema(d), s(i.dialecte) === 'mysql' ? 'mysql' : 'postgres');
+      return { text: sql.join('\n\n'), data: { sql } };
+    }) },
+    { id: 'appliquer_schema', label: 'Appliquer les changements du schéma', what: 'Lance le SQL des changements dessinés, d\'un seul bloc (tout ou rien), après une sauvegarde Arche', quick: false, params: [BASE, { key: 'changements', label: 'Changements (JSON)', kind: 'textarea', required: true }],
+      grave: (i) => { let n = 0; try { n = changementsDe(i.changements).length; } catch { /* dit plus loin */ } return `modifier la structure de la base ${s(i.base)} (${n} changement(s) : tables, colonnes ou liens ajoutés)`; },
+      run: (ctx, i) => withDb(ctx, s(i.base), async (b, d): Promise<ActionResult> => {
+        let sql: string[]; try { sql = sqlDe(changementsDe(i.changements), await lireSchema(d)); } catch (e) { return { ok: false, text: `Rien n'est lancé : ${(e as Error).message}.` }; }
+        const save = await before(ctx, b);
+        try { await d.sql('BEGIN', true); for (const q of sql) await d.sql(q, true); await d.sql('COMMIT', true); }
+        catch (e) { await d.sql('ROLLBACK', true).catch(() => undefined); note(ctx, { base: b.nom, sql: sql.join('\n'), ok: false, result: (e as Error).message, write: true }); return { ok: false, text: `❌ La base a refusé : ${(e as Error).message}. Rien n'a été changé (tout ou rien).${save ? `\n${save}` : ''}` }; }
+        note(ctx, { base: b.nom, sql: sql.join('\n'), ok: true, result: `${sql.length} changement(s) du schéma`, write: true });
+        return { text: `✅ ${sql.length} changement(s) appliqué(s) à ${b.nom} :\n${sql.join('\n')}${save ? `\n${save}` : ''}`, data: { sql } };
+      }) },
+    { id: 'exporter_schema', label: 'Exporter le schéma', what: 'Le schéma en SQL (PostgreSQL ou MySQL), en image (SVG, PNG) ou en dictionnaire des données (Markdown), à télécharger', read: true, quick: false, params: [BASE, { key: 'format', label: 'Format', kind: 'select', options: ['sql-postgres', 'sql-mysql', 'svg', 'png', 'markdown'], default: 'sql-postgres' }], run: (ctx, i) => withDb(ctx, s(i.base), async (b, d): Promise<ActionResult> => {
+      const sc = await lireSchema(d), f = s(i.format) || 'sql-postgres', base = b.nom.replace(/[\\/:*?"<>|]/g, ' ').trim() || 'base';
+      if (f === 'markdown') { const m = exportMarkdown(sc, b.nom); return { text: `📘 Dictionnaire des données de ${b.nom}.`, fichiers: [exporter(ctx, `${base} - dictionnaire.md`, m)], data: { contenu: m } }; }
+      if (f === 'svg' || f === 'png') {
+        const svg = exportSvg(sc, positionsDe(ctx, b.id), `Schéma de ${b.nom}`);
+        if (f === 'svg') return { text: `🖼 Schéma de ${b.nom} en SVG.`, fichiers: [exporter(ctx, `${base} - schéma.svg`, svg)], data: { contenu: svg } };
+        const tmp = join(ctx.dir, 'exports', `rendu-${randomBytes(3).toString('hex')}`); mkdirSync(join(ctx.dir, 'exports'), { recursive: true }); writeFileSync(`${tmp}.svg`, svg);
+        try { for (const [cmd, args] of [['rsvg-convert', ['-o', `${tmp}.png`, `${tmp}.svg`]], ['convert', [`${tmp}.svg`, `${tmp}.png`]]] as Array<[string, string[]]>) { if (!await ctx.has(cmd)) continue; const r = await ctx.run(cmd, args, { timeoutMs: 60_000 }); if (r.code === 0 && existsSync(`${tmp}.png`)) return { text: `🖼 Schéma de ${b.nom} en PNG.`, fichiers: [exporter(ctx, `${base} - schéma.png`, readFileSync(`${tmp}.png`))] }; } }
+        finally { rmSync(`${tmp}.svg`, { force: true }); rmSync(`${tmp}.png`, { force: true }); }
+        return { ok: false, text: 'Aucun programme pour faire un PNG ici (rsvg-convert ou ImageMagick) : prends le SVG, ou installe « librsvg2-bin ».' };
+      }
+      const dia = f === 'sql-mysql' ? 'mysql' : 'postgres', sql = exportSql(sc, dia);
+      return { text: `🧾 Schéma de ${b.nom} en SQL ${dia === 'mysql' ? 'MySQL' : 'PostgreSQL'}.`, fichiers: [exporter(ctx, `${base} - schéma ${dia}.sql`, sql)], data: { contenu: sql } };
+    }) },
     { id: 'journal', label: 'Journal des requêtes', what: 'Les dernières requêtes lancées', read: true, run: (ctx) => { const l = journal(ctx, 30); return { text: l.map((e) => `${e.at.slice(0, 16).replace('T', ' ')} · ${e.base} · ${e.ok ? '✓' : '✗'} ${e.result} · ${e.sql.slice(0, 100)}`).join('\n') || 'Journal vide.', data: l }; } },
   ],
   async view(ctx) {
@@ -130,5 +179,11 @@ export const urdr: Module = {
     }
     const side: Section[] = [{ kind: 'log', title: 'Journal des requêtes', lines: journal(ctx, 15).map((e) => `${e.at.slice(11, 16)} ${e.ok ? '✓' : '✗'} ${e.base} · ${e.sql.slice(0, 60)} → ${e.result}`) }];
     return { subtitle: 'Bases de données · Studio · SQL', kpis, sections, side };
+  },
+  /** Un export du schéma (dans le dossier des exports d'Alexandrie seulement). */
+  retrait(ctx, ref) {
+    if (!ref.startsWith('export:')) return undefined;
+    const rep = join(ctx.dir, 'exports'), f = resolve(rep, ref.slice(7)); if (!f.startsWith(resolve(rep) + sep)) return undefined;
+    try { const v = realpathSync(f); return v.startsWith(realpathSync(rep) + sep) ? v : undefined; } catch { return undefined; }
   },
 };
