@@ -319,11 +319,12 @@ function posteDemande(ctx: ModCtx, i: Record<string, unknown>): Machine {
 function validate(ctx: ModCtx, cand: Intel): string | undefined {
   const k = knowledge(ctx, cand);
   if (!flat(scanBuffer('eicar.com', Buffer.from(EICAR), k)).some((f) => f.klass === 'test')) return 'le fichier de test EICAR n\'est plus détecté';
-  // Corpus sain : les fichiers d'Odin, puis des programmes et réglages du système. Une empreinte qui y correspond = base polluée.
+  // Corpus sain : les fichiers d'Odin (tous, jusqu'à 600 : avant, 90 seulement, et les nouveaux dossiers poussaient
+  // les fichiers principaux hors du corpus), puis des programmes et réglages du système. Une empreinte qui y correspond = base polluée.
   const corpus: string[] = []; const off = new Set(disabled(ctx)); const fp = new Map<string, number>(), seenFile = new Set<string>();
   const here = dirname(fileURLToPath(import.meta.url));
   const sys: Array<[string, number]> = process.platform === 'win32' ? [[join(process.env.SystemRoot ?? 'C:\\Windows', 'System32'), 90]] : [['/usr/bin', 90], ['/etc', 50]];
-  for (const [d, max] of [[join(here, '..', '..'), 90], ...sys, [dirname(process.execPath), 30]] as Array<[string, number]>) { let n = 0; try { for (const f of walk(d, [], 600)) { if (n >= max) break; if (seenFile.has(f)) continue; seenFile.add(f); corpus.push(f); n++; } } catch { /* dossier absent */ } }
+  for (const [d, max] of [[join(here, '..', '..'), 600], ...sys, [dirname(process.execPath), 30]] as Array<[string, number]>) { let n = 0; try { for (const f of walk(d, [], 600)) { if (n >= max) break; if (seenFile.has(f)) continue; seenFile.add(f); corpus.push(f); n++; } } catch { /* dossier absent */ } }
   for (const f of corpus) {
     let b: Buffer; try { const z = statSync(f); if (!z.isFile() || z.size > 3 * 1024 * 1024 || z.size === 0) continue; b = readFileSync(f); } catch { continue; }
     const v = scanBuffer(f, b, k);

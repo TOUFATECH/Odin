@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { databaseFor, needsDb, roleOf, SERVER as PG_SERVER } from '../urdr/serveur.ts';
 import { bases as urdrBases } from '../urdr/bases.ts';
 import type { ModCtx, Module, Param } from '../types.ts';
+import { verifierVersions, type Version } from '../hringhorni/versions.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const safe = (v: unknown) => { const x = s(v).trim(); if (!/^[\w.:/@-]{1,200}$/.test(x)) throw new Error(`nom invalide : ${x}`); return x; };
@@ -50,11 +51,21 @@ export function graveOf(lineText: string): string | undefined {
 }
 const env = (t: string) => Object.fromEntries(t.split('\n').map((l) => l.trim()).filter((l) => /^[A-Za-z_]\w*=/.test(l)).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
 
-export const naglfar: Module = {
+// Nouvelles versions des images (comme What's Up Docker) : le registre est interrogé toutes les 6 heures au plus.
+const versionsDe = (ctx: ModCtx) => (ctx.settings.versions as Version[] | undefined) ?? [];
+async function controlerVersions(ctx: ModCtx): Promise<Version[]> {
+  const e = engine(), cts = e.ps(true).filter((c) => !c.spec.labels['odin.service']);
+  const l = await verifierVersions(e.images(), cts.map((c) => ({ nom: c.spec.name, image: c.spec.image })), { fetch: ctx.fetch, quand: ctx.now().toISOString() });
+  ctx.saveSettings({ versions: l, versionsQuand: ctx.now().getTime() });
+  for (const v of l.filter((x) => x.nouvelle)) ctx.alert({ level: 'info', title: `Nouvelle version de ${v.image}`, detail: `Le registre propose une image plus récente que celle de ${v.conteneurs.join(', ')} (rien n'est changé tout seul).`, key: `version:${v.image}:${v.distante}`, fix: { module: 'naglfar', action: 'mettre_a_jour', label: `Mettre à jour ${v.conteneurs[0]}`, input: { conteneur: v.conteneurs[0] } } });
+  return l;
+}
+export const naglfar: Module & { similaires: string[] } = {
   id: 'naglfar', name: 'Argo', family: 'Machines',
   what: 'Tes conteneurs, sur le moteur d\'Odin (sans Docker ni Podman, sans démon) : lancer une appli depuis une image Docker, la suivre, l\'arrêter, lire son journal, la mettre à jour.',
   does: ['lancer une appli à partir d\'une image Docker (Docker Hub, GHCR, Quay…)', 'liste des conteneurs, démarrer, arrêter, redémarrer', 'journal de chaque conteneur', 'lancer une commande dedans', 'mettre à jour l\'image et relancer avec les mêmes réglages', 'images présentes, nettoyage', 'les commandes run, ps, stop, start, rm, logs, exec, pull, images aussi dans la discussion', 'ports publiés, dossiers partagés, limites de mémoire et de processeur, relance automatique'],
   from: ['Portainer CE', 'Podman'], upstream: [],
+  similaires: ['Portainer CE', 'Podman', 'Arcane', "What's Up Docker", 'Dozzle', 'CapRover'],
   words: ['conteneur', 'conteneurs', 'docker', 'podman', 'image', 'images docker', 'hringhorni', 'moteur de conteneurs'],
   actions: [
     { id: 'lister', label: 'Lister les conteneurs', what: 'Tous les conteneurs et leur état', read: true, words: ['liste', 'lister', 'quels conteneurs'], run: async () => { const c = engine().ps(true); return { text: c.map(line).join('\n') || 'Aucun conteneur.', data: c.map((x) => ({ Names: x.spec.name, Image: x.spec.image, State: x.state.status === 'en marche' ? 'running' : 'exited', Status: x.state.status, Ports: x.spec.ports.map((p) => `${p.host}->${p.inner}`).join(', '), Labels: '' })) }; } },
@@ -91,6 +102,10 @@ export const naglfar: Module = {
     { id: 'executer', label: 'Commande dans un conteneur', what: 'Lance une commande dans un conteneur en marche et montre sa réponse', params: [CT, { key: 'commande', label: 'Commande', kind: 'text', required: true }], grave: (i) => `lancer « ${s(i.commande)} » dans ${s(i.conteneur)}`, external: true, run: async (_ctx, i) => {
       const out: string[] = []; const code = await cli(['exec', safe(i.conteneur), ...splitLine(s(i.commande))], { out: (t) => out.push(t), err: (t) => out.push(t), interactive: false }, engine() as Engine);
       return { text: `${out.join('\n').slice(-6000) || '(rien)'}${code ? `\n(code ${code})` : ''}`, ok: code === 0 };
+    } },
+    { id: 'nouvelles_versions', label: 'Nouvelles versions des images', what: 'Demande aux registres si une image plus récente existe pour chaque conteneur (rien n\'est téléchargé ni changé)', read: true, external: true, words: ['nouvelles versions des images', 'mises a jour des conteneurs', 'nouvelles versions des conteneurs'], run: async (ctx) => {
+      const l = await controlerVersions(ctx), n = l.filter((x) => x.nouvelle);
+      return { text: l.length ? `${n.length ? `⬆ ${n.length} image(s) avec une nouvelle version` : '✅ Toutes les images sont à jour'} :\n${l.map((v) => `- ${v.image} (${v.conteneurs.join(', ')}) : ${v.erreur ? `pas vérifiée (${v.erreur})` : v.nouvelle ? 'nouvelle version disponible' : 'à jour'}`).join('\n')}` : 'Aucun conteneur à vérifier.', data: l };
     } },
     { id: 'mettre_a_jour', label: 'Mettre à jour l\'image', what: 'Récupère la dernière image puis recrée le conteneur avec les mêmes réglages', params: [CT], grave: (i) => `recréer ${s(i.conteneur)} avec la nouvelle image`, words: ['mets a jour le conteneur'], run: async (_ctx, i) => {
       const e = engine(), c = e.find(safe(i.conteneur)), old = e.findImage(c.spec.image)?.id, sp = c.spec;
@@ -177,6 +192,7 @@ export const naglfar: Module = {
           badge: c.state.status, tone: c.state.status === 'en marche' ? 'bon' as const : c.state.status === 'redémarre' ? 'attention' as const : 'neutre' as const,
           actions: [c.state.status === 'en marche' ? { action: 'arreter', label: 'Arrêter', input: { conteneur: c.spec.name } } : { action: 'demarrer', label: 'Démarrer', input: { conteneur: c.spec.name } }, { action: 'journaux', label: 'Journal', input: { conteneur: c.spec.name } }, { action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: c.spec.name } }, { action: 'supprimer', label: 'Supprimer', input: { conteneur: c.spec.name } }, ...(() => { const b = pgBases.find((x) => x.nom === c.spec.name || x.utilisateur === roleOf(c.spec.name)); return b ? [{ action: 'ouvrir', label: 'Sa base (Alexandrie)', input: { base: b.id }, module: 'urdr' }] : []; })()],
         })) },
+        { kind: 'table', title: 'Nouvelles versions', columns: ['Image', 'Conteneurs', 'État'], empty: 'Pas encore vérifié : « Nouvelles versions des images » (fait aussi toutes les 6 heures).', rows: versionsDe(ctx).map((v) => ({ cells: [v.image, v.conteneurs.join(', '), v.erreur ? `pas vérifiée : ${v.erreur}` : v.nouvelle ? 'nouvelle version' : 'à jour'], ...(v.nouvelle ? { tone: 'attention' as const, actions: [{ action: 'mettre_a_jour', label: 'Mettre à jour', input: { conteneur: v.conteneurs[0] } }] } : {}) })) },
         { kind: 'table', title: 'Images', columns: ['Image', 'Identifiant', 'Taille'], empty: 'Aucune image.', rows: imgs.flatMap((i) => i.names.map((n) => ({ cells: [n, i.id.slice(0, 12), `${(i.size / 1e6).toFixed(0)} Mo`] }))) },
         { kind: 'text', title: 'Dans la discussion aussi', text: 'Écris directement : run -d --name web -p 8080:80 nginx · ps · logs web · stop web · start web · exec web ls / · pull alpine · images · rm web. Lancer, supprimer et exec demandent ton accord.' },
       ],
@@ -197,6 +213,7 @@ export const naglfar: Module = {
     // Supprimé à la main (rm) : plus là, pas une panne non plus.
     for (const n of was) if (!now.includes(n) && cts.find((x) => x.spec.name === n)?.state.status === 'sorti') { const c = cts.find((x) => x.spec.name === n); ctx.alert({ level: 'haute', title: `Le conteneur « ${n} » s'est arrêté`, detail: c ? `${c.state.status}${c.state.exitCode !== undefined ? ` (code ${c.state.exitCode})` : ''}${c.state.error ? ` — ${c.state.error}` : ''}` : 'disparu', key: `down:${n}` }); ctx.emit('conteneur_arrete', { conteneur: n }); }
     ctx.saveSettings({ running: now });
+    if (ctx.now().getTime() - Number(ctx.settings.versionsQuand ?? 0) > 6 * 3600_000 && cts.length) await controlerVersions(ctx).catch(() => undefined);
   } },
 };
 export { psTable };
