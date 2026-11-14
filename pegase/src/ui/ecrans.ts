@@ -44,12 +44,45 @@ export function rendreEcran(E: Etat, ctx: Ctx): void {
   }
 }
 
+// Fond des écrans du 1er lancement : nuit noire, étoiles qui scintillent (quelques-unes brillent fort, les autres
+// doucement) ; immobile si l'appareil demande moins d'animations. Les étoiles restent les mêmes d'un écran à l'autre.
+type Etoile = { x: number; y: number; r: number; b: number; v: number; p: number; forte: boolean };
+let etoiles: Etoile[] = [], anim = 0;
+function ciel(el: HTMLElement): void {
+  const c = el.querySelector('canvas.ciel') as HTMLCanvasElement | null; if (!c) return;
+  const g = c.getContext('2d'); if (!g) return;
+  if (!etoiles.length) for (let i = 0; i < 260; i++) { const forte = Math.random() < 0.07; etoiles.push({ x: Math.random(), y: Math.random(), r: forte ? 1.3 + Math.random() * 1.1 : 0.4 + Math.random() * 0.9, b: forte ? 0.85 : 0.25 + Math.random() * 0.45, v: 0.4 + Math.random() * 1.6, p: Math.random() * 6.3, forte }); }
+  const calme = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  cancelAnimationFrame(anim);
+  const dessiner = (t: number) => {
+    if (!c.isConnected) return;
+    const d = devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(w * d) || c.height !== Math.round(h * d)) { c.width = Math.round(w * d); c.height = Math.round(h * d); }
+    g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, w, h);
+    for (const s of etoiles) {
+      const sc = calme ? 1 : 0.55 + 0.45 * Math.sin(t / 1000 * s.v + s.p);
+      const a = Math.min(1, s.b * (s.forte ? 0.6 + 0.4 * sc : sc)), x = s.x * w, y = s.y * h;
+      if (s.forte) {
+        const halo = g.createRadialGradient(x, y, 0, x, y, s.r * 7);
+        halo.addColorStop(0, `rgba(210,225,255,${(a * 0.55).toFixed(3)})`); halo.addColorStop(1, 'rgba(210,225,255,0)');
+        g.fillStyle = halo; g.beginPath(); g.arc(x, y, s.r * 7, 0, 6.2832); g.fill();
+        g.strokeStyle = `rgba(255,255,255,${(a * 0.7).toFixed(3)})`; g.lineWidth = 0.8; const l = s.r * (4 + 3 * sc);
+        g.beginPath(); g.moveTo(x - l, y); g.lineTo(x + l, y); g.moveTo(x, y - l); g.lineTo(x, y + l); g.stroke();
+      }
+      g.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`; g.beginPath(); g.arc(x, y, s.r, 0, 6.2832); g.fill();
+    }
+    if (!calme) anim = requestAnimationFrame(dessiner);
+  };
+  anim = requestAnimationFrame(dessiner);
+}
+
 function monter(el: HTMLElement, E: Etat, ctx: Ctx): void {
   if (attente) { clearInterval(attente.minuterie); attente = null; }
   const e = E.ecran;
   if (e === 'navigateur') { el.innerHTML = ''; return; }
   if (e === 'demarrage') {
-    el.innerHTML = `<div class="ecran" role="status" aria-label="Pégase démarre"><div class="centre">${LOGO(112)}<div class="trois-points" aria-hidden="true"><span></span><span></span><span></span></div><p class="doux">Recherche d’Odin sur ton réseau…</p></div></div>`;
+    el.innerHTML = `<div class="ecran" role="status" aria-label="Pégase démarre"><canvas class="ciel" aria-hidden="true"></canvas><div class="centre">${LOGO(112)}<div class="trois-points" aria-hidden="true"><span></span><span></span><span></span></div><p class="doux">Recherche d’Odin sur ton réseau…</p></div></div>`;
+    ciel(el);
     return;
   }
   const sys = E.plateforme === 'win32' ? 'Windows : C:\\Users\\[toi]\\AppData\\Roaming\\Pégase\\Profils\\[nom]' : E.plateforme === 'darwin' ? 'Mac : ~/Library/Application Support/Pégase/Profils/[nom]' : 'Linux : ~/.config/pegase/profils/[nom]';
@@ -95,7 +128,8 @@ function monter(el: HTMLElement, E: Etat, ctx: Ctx): void {
       <div class="rangee boutons-ecran"><button class="bouton" data-vers="odin">Restaurer un profil depuis Odin</button><button class="bouton" data-ajouter>Ajouter un profil</button></div>`;
   }
   const fen = E.plateforme !== 'darwin' ? `<header class="fen-ecran"><button class="fen" data-a="fenetre" data-op="min" aria-label="Réduire">${I.min()}</button><button class="fen x" data-a="fenetre" data-op="fermer" aria-label="Fermer">${I.fermer()}</button></header>` : '';
-  el.innerHTML = `<div class="ecran ecran-boite">${fen}<section class="boite-ecran large" aria-labelledby="t-ecran">${corps}</section></div>`;
+  el.innerHTML = `<div class="ecran ecran-boite"><canvas class="ciel" aria-hidden="true"></canvas>${fen}<section class="boite-ecran large" aria-labelledby="t-ecran">${corps}</section></div>`;
+  ciel(el);
   brancher(el, ctx);
   (el.querySelector('input:not([value]), input[value=""]') as HTMLInputElement | null)?.focus();
 }

@@ -271,7 +271,10 @@ select.champ option { color: #1C1F2B; }
 .trouver input { width: 220px; }
 
 /* Démarrage et écrans d'accueil */
-.ecran { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: var(--fond); -webkit-app-region: drag; }
+.ecran { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: #000; -webkit-app-region: drag; }
+.ecran > :not(.ciel):not(.fen-ecran) { position: relative; z-index: 1; }
+.ecran > .fen-ecran { z-index: 2; }
+.ecran .ciel { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ecran button, .ecran input, .ecran a { -webkit-app-region: no-drag; }
 .ecran .logo { width: 112px; height: 112px; }
 .trois-points { display: flex; gap: 10px; justify-content: center; margin-top: 28px; }
