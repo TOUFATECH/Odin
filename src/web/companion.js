@@ -11,7 +11,7 @@
   const reduce = matchMedia('(prefers-reduced-motion:reduce)');
   const coarse = matchMedia('(pointer:coarse)');
   const S = () => window.OdinState || {};
-  let bud = null, pos = null, size = 64, moving = 0, pinnedUntil = 0, lastWander = Date.now(), idleSince = Date.now(), view = '';
+  let bud = null, pos = null, size = 64, moving = 0, pinnedUntil = 0, userPinnedUntil = 0, lastWander = Date.now(), idleSince = Date.now(), view = '';
   // `stuck` : la dernière recherche n'a trouvé aucune place libre (il attend avant de rechercher) ; `bubbleSeen` : la bulle déjà prise en compte.
   let stuck = false, retryAt = 0, bubbleSeen = '';
 
@@ -224,9 +224,10 @@
     // Du contenu est apparu sous lui : il s'écarte. Sans aucune place libre, il ne recherche pas à chaque seconde.
     // (Après un défilement, la bulle encore affichée peut se retrouver sur du texte : même règle pour elle.)
     // Sur une commande (bouton, champ, onglet), lui ou sa bulle cherchent une autre place tout de suite, même sans place parfaite.
-    const surCommande = free && (onCommand(pos.x, pos.y, size) || (b && bubbleCommand(pos.x, pos.y, size, b)));
+    // Jamais sur une commande, même retenu par une notification ; seul un déplacement fait par toi (glisser) l'y laisse.
+    const surCommande = (free || Date.now() >= userPinnedUntil) && (onCommand(pos.x, pos.y, size) || (b && bubbleCommand(pos.x, pos.y, size, b)));
     const on = surCommande || (free && (cost(pos.x, pos.y, size) > 0 || (b && bubbleCost(pos.x, pos.y, size, b) > 0)) && (!stuck || Date.now() >= retryAt));
-    if (out || on || Math.abs(size - baseSize()) > 30) { retryAt = Date.now() + 6000; go(null, 'walk'); }
+    if (out || on || Math.abs(size - baseSize()) > 30) { retryAt = Date.now() + 6000; go(surCommande && !free ? { x: pos.x + size / 2, y: pos.y + size / 2, force: true } : null, 'walk'); }
   }
 
   // ---------- Ce qui l'intéresse : alertes, messages d'état, nouveautés ----------
@@ -281,7 +282,7 @@
   }
   function onUp(e) {
     if (!drag || e.pointerId !== drag.id) return;
-    if (drag.moved) { bud.classList.remove('dragging'); pinnedUntil = Date.now() + 120_000; window.OdinFace?.flash(bud, 'joie', 1500); }
+    if (drag.moved) { bud.classList.remove('dragging'); pinnedUntil = userPinnedUntil = Date.now() + 120_000; window.OdinFace?.flash(bud, 'joie', 1500); }
     // Un simple toucher : la petite fenêtre pour lui parler, sur n'importe quel onglet.
     // Les clics rapides (1 à 20) : 1 = lui parler, les autres font ce qui est réglé (Réglages → Apparence).
     else if (window.OdinMascotte?.tap) { window.OdinFace?.flash(bud, 'ecoute', 1500); window.OdinMascotte.tap(bud); }

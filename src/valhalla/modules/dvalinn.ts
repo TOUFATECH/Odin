@@ -296,7 +296,7 @@ export const dvalinn: Module = {
         return { text: `${fichiers.length} fichier(s) · ${exts} · ${taillePropre(total)} · ${absent ? 'antivirus absent' : 'vérifiés par Asclépios'}\nConvertir en : ${[...c.tuiles.map((t) => t.label), ...c.autres.map((x) => x.label)].join(', ')}`,
           data: { ...c, fichiers, total, totalTexte: taillePropre(total), exts, antivirus: absent ? 'absent' : 'sain' } };
       } },
-    { id: 'recentes', label: 'Conversions récentes', what: 'Les dernières sortes de conversions, à refaire d\'un geste', read: true, quiet: true, quick: false,
+    { id: 'recentes', label: 'Conversions récentes', what: 'Les dernières sortes de conversions, à refaire d\'un geste', read: true, quiet: true, quick: false, words: ['conversions récentes', 'conversions recentes', 'dernières conversions', 'dernieres conversions'],
       run: (ctx) => { const l = recettes(ctx); return { text: l.length ? l.map((r) => `${r.titre} (${r.at.slice(0, 10)})`).join('\n') : 'Aucune conversion récente.', data: l }; } },
     { id: 'convertir', label: 'Convertir un fichier', what: 'Vers un autre format ; le résultat est écrit à côté de l\'original', words: ['convertis le fichier', 'convertir le fichier'], params: [
       { key: 'fichier', label: 'Fichier (dossier:chemin, ou inbox/nom pour un fichier joint dans la Discussion)', kind: 'text', required: true, depot: {} }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
