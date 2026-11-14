@@ -29,6 +29,8 @@ export interface PegaseDeps {
   proprietaire(): boolean;
   /** prénom et e-mail du compte du propriétaire d'Odin */
   nomProprietaire: string; emailProprietaire?: string;
+  /** vérifie le mot de passe du compte du propriétaire d'Odin (sa personne Persona « proprio » n'a pas d'autre mot de passe) */
+  motDePasseProprietaire?(email: string, motdepasse: string): Promise<boolean>;
   /** un essai raté pour le freinage général d'Odin */
   fail(): void;
   /** pose une question à Odin par le même chemin que la discussion */
@@ -145,7 +147,8 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
     const app = appareilDe(b); if (!app) return err(res, 400, 'requete_invalide', 'Donne un nom à cet appareil (ex. « Téléphone d\'Awa »).');
     const att = attenteIp(ip, now);
     if (att) return err(res, 429, 'trop_d_essais', `Trop d'essais ratés : réessaie dans ${att} s.`, { attente: att }, { 'retry-after': String(att) });
-    const r = verifierMotDePasse(varCtx, { email: s(b.email), motdepasse: typeof b.motdepasse === 'string' ? b.motdepasse : '', code: s(b.code), proprietaire: deps.nomProprietaire, now });
+    const mdp = typeof b.motdepasse === 'string' ? b.motdepasse : '', email = s(b.email);
+    const r = await verifierMotDePasse(varCtx, { email, motdepasse: mdp, code: s(b.code), proprietaire: deps.nomProprietaire, now, ...(deps.motDePasseProprietaire && deps.emailProprietaire ? { proprio: (x: string) => deps.motDePasseProprietaire!(deps.emailProprietaire!, x) } : {}) });
     if (!r.ok) {
       if (r.code === 'identifiants') { rateIp(ip, now); deps.fail(); console.log(`[pegase] connexion refusée depuis ${deps.ip}`); v.events.emit('event', { module: 'pegase', type: 'connexion_refusee', data: { ip }, at: new Date(now).toISOString() }); }
       const http = r.code === 'trop_d_essais' ? 429 : r.code === 'pas_de_droit' ? 403 : 401;
@@ -165,7 +168,7 @@ async function traiter(req: IncomingMessage, res: ServerResponse, url: URL, rout
     if (!p || droit(varCtx, p, deps.nomProprietaire)) { deps.fail(); return err(res, 401, 'jeton_invalide', 'Lien d\'agenda inconnu ou retiré : demande un nouveau lien dans Pégase.'); }
     return ics(res, m, p, now);
   }
-  const id = await identifier(peg, varCtx, s(req.headers.authorization).replace(/^Bearer\s+/i, ''), { proprietaire: deps.nomProprietaire, nomAppareil: s(req.headers['x-pegase-appareil']), ip });
+  const id = await identifier(peg, varCtx, s(req.headers.authorization).replace(/^Bearer\s+/i, ''), { proprietaire: deps.nomProprietaire, nomAppareil: s(req.headers['x-pegase-appareil']), ip, req });
   if (!id.ok) { if (id.code === 'jeton_invalide') deps.fail(); return err(res, id.http, id.code, id.texte); }
   const { personne: p, appareil: a } = id, pid = p.id;
   if (id.nouveau) peg.alert({ level: 'moyenne', title: `Pégase : nouvel appareil pour ${p.name}`, detail: `« ${a.nom} » s'est connecté par la connexion unique d'Odin.`, key: `pegase:appareil:${a.id}`, fix: { action: 'revoquer', label: 'Révoquer cet appareil', input: { appareil: a.id }, module: 'pegase' } });

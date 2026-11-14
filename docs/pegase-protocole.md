@@ -67,7 +67,8 @@ fichier de comptes. Même e-mail, même mot de passe, même double authentificat
 Un **profil** tel que le voit Pégase : `{ id, login, email, nom, groupes, role, voir }`.
 - `id`, `login`, `nom`, `email`, `groupes` : ceux de la personne dans Persona.
 - **Droit d'accès** : la personne doit avoir le droit sur l'appli `pegase` dans Persona (table « appli → groupes
-  autorisés » ; par défaut `famille`, `admin`, `invite`). Sinon **403** `pas_de_droit`, avec un message à montrer tel quel
+  autorisés » du SSO, `ssoDroits` ; par défaut `famille`, `admin`, `invite` ; `*` = toute personne connectée,
+  `@identifiant` = une personne précise ; le propriétaire et le groupe `admin` ont toujours accès). Sinon **403** `pas_de_droit`, avec un message à montrer tel quel
   (« Tu n'as pas accès à Pégase. Demande à Awa de t'ajouter au groupe famille. »). Le droit est revérifié à chaque requête :
   retiré dans Persona → 403 aussitôt (et le flux se ferme).
 - `role` : `proprietaire` (groupe `admin`) ou `membre`.
@@ -121,6 +122,8 @@ Réponses :
 → `200 { "ok": true, "jeton": "pg1.…", "profil": { "id": "…", "login": "awa", "email": "…", "nom": "Awa", "groupes": ["admin"], "role": "proprietaire", "voir": "tout" }, "appareil": { "id": "a_…", "nom": "…" } }`
 
 - `email` accepte aussi l'identifiant Persona (`awa`).
+- Le propriétaire d'Odin (sa personne Persona est marquée « propriétaire » par le SSO) se connecte avec le mot de passe
+  de son compte d'Odin : il n'a pas de second mot de passe.
 - `code` : seulement si la personne a la double authentification. Sans lui : **401** `code_requis`
   (« Tape le code à 6 chiffres de ton appli d'authentification. ») — Pégase montre alors le champ du code et renvoie tout.
 - Vérification scrypt côté Odin, comparaison en temps constant ; un e-mail inconnu coûte le même temps.

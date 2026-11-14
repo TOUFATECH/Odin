@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { T } from './banc/lib.ts';
-import { vraiOdin } from './banc/odin-vrai.ts';
+import { COMPTE, vraiOdin } from './banc/odin-vrai.ts';
 import { valhallaOf } from '../src/valhalla/odin.ts';
 import { empreinte, gagne, Magasin, type Rec } from '../src/valhalla/pegase/store.ts';
 import { agendaIcs, plier } from '../src/valhalla/pegase/ics.ts';
@@ -261,10 +261,18 @@ test('Pégase ↔ Odin pour de vrai : profils Persona, accord du propriétaire, 
     // ---- Droits de Persona : Nour (famille) perd l'accès quand Pégase est réservé aux admins
     etape('Droits de Persona : Nour (famille) perd ');
     const N = String(ok.body.jeton);
-    va.ctx('var').saveSettings({ applis: { pegase: ['admin'] } });
+    va.ctx('var').saveSettings({ ssoDroits: { pegase: ['admin'] } }); // la table des droits par appli de Persona (SSO)
     const refus = await api('empreintes', undefined, N); assert.equal(refus.status, 403); assert.equal(refus.body.code, 'pas_de_droit'); assert.match(String(refus.body.erreur), /Tu n'as pas accès à Pégase\. Demande à Awa/);
     const cxN = await api('connexion', { email: 'nour@exemple.yt', motdepasse: MDP_NOUR, appareil: 'Tél' }); assert.equal(cxN.body.code, 'pas_de_droit');
-    va.ctx('var').saveSettings({ applis: undefined });
+    va.ctx('var').saveSettings({ ssoDroits: { pegase: ['admin', '@nour'] } });
+    assert.equal((await api('empreintes', undefined, N)).status, 200, '« @identifiant » donne l\'accès à une personne précise');
+    va.ctx('var').saveSettings({ ssoDroits: undefined });
+    // Le propriétaire d'Odin (personne « proprio » du SSO) se connecte avec le mot de passe de son compte d'Odin.
+    const peuple = va.ctx('var').settings.people as Array<Record<string, unknown>>;
+    va.ctx('var').saveSettings({ people: peuple.map((x) => (x.id === pAwa.id ? { ...x, proprio: true } : x)) });
+    assert.equal((await api('connexion', { email: 'awa@exemple.yt', motdepasse: COMPTE.password, appareil: 'Portable' })).status, 200, 'mot de passe du compte d\'Odin');
+    assert.equal((await api('connexion', { email: 'awa@exemple.yt', motdepasse: MDP_AWA, appareil: 'Portable' })).status, 401, 'pas un second mot de passe');
+    va.ctx('var').saveSettings({ people: peuple });
 
     // ---- SSO : un jeton d'appli du fournisseur d'identité d'Odin est accepté (branchement simulé)
     etape("SSO : un jeton d'appli du fournisseur d'");
@@ -286,7 +294,7 @@ test('Pégase ↔ Odin pour de vrai : profils Persona, accord du propriétaire, 
     etape('Freinage des mots de passe faux (par adr');
     const codes: number[] = [];
     for (let i = 0; i < 6; i++) codes.push((await api('connexion', { email: 'nour@exemple.yt', motdepasse: `faux-mot-de-passe-${i}`, appareil: 'Tél' })).status);
-    assert.deepEqual(codes, [401, 401, 401, 401, 401, 429]);
+    assert.deepEqual(codes, [401, 401, 401, 401, 429, 429], 'le 5e échec de cette adresse (dont celui du propriétaire plus haut) freine');
     const bloque = await api('connexion', { email: 'nour@exemple.yt', motdepasse: MDP_NOUR, appareil: 'Tél' });
     assert.equal(bloque.status, 429, 'même le bon mot de passe attend'); assert.ok(Number(bloque.body.attente) > 0); assert.ok(bloque.headers.get('retry-after'));
 
@@ -301,7 +309,7 @@ test('Pégase ↔ Odin pour de vrai : profils Persona, accord du propriétaire, 
     const fichiers: string[] = []; const walk = (d: string) => { for (const f of readdirSync(d, { withFileTypes: true })) { const p = join(d, f.name); if (f.isDirectory()) walk(p); else if (f.isFile() && statSync(p).size < 50e6) fichiers.push(p); } };
     walk(v.o.paths.home);
     for (const f of fichiers) { const c = readFileSync(f); for (const mdp of [MDP_AWA, MDP_NOUR, 'pas-de-chance-pour-toi-42']) assert.ok(!c.includes(Buffer.from(mdp)), `mot de passe trouvé dans ${f}`); }
-    for (const mdp of [MDP_AWA, MDP_NOUR, 'pas-de-chance-pour-toi-42', A.split('.')[2]]) assert.ok(!journal.some((l) => l.includes(mdp)), 'ni mot de passe ni jeton dans le journal');
+    for (const mdp of [MDP_AWA, MDP_NOUR, 'pas-de-chance-pour-toi-42', COMPTE.password, A.split('.')[2]]) assert.ok(!journal.some((l) => l.includes(mdp)), 'ni mot de passe ni jeton dans le journal');
     etape(`${fichiers.length} fichiers relus, ${journal.length} lignes de journal`);
     const pdir = va.ctx('pegase').dir;
     for (const f of ['appareils.json', 'profils.json', join('p', pAwa.id, 'favoris.json')]) assert.ok(isSecretFile(join(pdir, f)), `${f} bloqué pour les outils de fichiers`);
