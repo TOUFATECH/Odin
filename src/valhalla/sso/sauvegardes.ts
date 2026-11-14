@@ -37,7 +37,7 @@ export function aGarder(l: Version[], now: number): Set<string> {
   const jours = new Set<string>(), mois = new Set<string>();
   for (const x of v.filter((y) => y.sorte === 'complete')) {
     const d = new Date(x.date).toISOString(), j = d.slice(0, 10), m = d.slice(0, 7);
-    if (now - x.date < 30 * J && !jours.has(j)) { jours.add(j); keep.add(x.id); }
+    if (now - x.date < 30 * J) { if (!jours.has(j)) { jours.add(j); keep.add(x.id); } }
     else if (now - x.date < 365 * J && !mois.has(m)) { mois.add(m); keep.add(x.id); }
   }
   return keep;
