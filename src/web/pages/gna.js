@@ -84,6 +84,7 @@
 .ul-e .t button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .ul-e .d{color:var(--muted);font-size:13.5px;line-height:1.45;overflow-wrap:anywhere}
 .ul-e .a{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.ul-paire{display:inline-flex;gap:8px;align-items:center}
 .ul-jours{display:flex;gap:6px;flex-wrap:wrap}
 .ul-vide{text-align:center;padding:26px 14px;color:var(--muted);line-height:1.55}
 .ul-vide b{display:block;color:var(--ink);font-size:16px;margin:0 0 4px}
@@ -100,7 +101,7 @@
 .ul-form label{font-size:14px;font-weight:600}
 .ul-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @container ul (max-width:820px){.ul-g{grid-template-columns:minmax(0,1fr)}}
-@container ul (max-width:560px){.ul-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ul-c{padding:12px}.ul-onglets{max-width:none}}
+@container ul (max-width:560px){.ul-jour b{flex-basis:100%}.ul-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.ul-c{padding:12px}.ul-onglets{max-width:none}}
 @supports not (container-type:inline-size){@media (max-width:900px){.ul-g{grid-template-columns:minmax(0,1fr)}.ul-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}}
 `;
   const poserCss = () => { if (!document.getElementById('ulCss')) document.head.append(el('style', { id: 'ulCss' }, CSS)); };
@@ -357,7 +358,7 @@
           el('p', { class: 'ul-sub' }, f.visible ? (pp ? `Toi et ${f.nom}.` : 'Toi et le propriétaire d\'Odin.') : (pp ? `${f.nom} seulement, sur sa page.` : 'Toi seulement.')),
           el('div', { class: 'ul-ligne', style: 'margin-top:6px' }, el('button', { type: 'button', class: 'ul-b s', onclick: (ev) => agir(ev.currentTarget, 'partage', avec({ visible: !f.visible })) }, f.visible ? (pp ? 'Ne plus voir ses trajets' : 'Ne plus montrer mes trajets') : (pp ? 'Voir ses trajets' : 'Montrer mes trajets au propriétaire'))),
           f.etat !== 'éteint' ? [el('h4', {}, 'Effacer'),
-            f.lisible ? el('div', { class: 'ul-ligne' }, el('span', { class: 'ul-sub' }, 'du'), du, el('span', { class: 'ul-sub' }, 'au'), au, el('button', { type: 'button', class: 'ul-b s d', onclick: (ev) => { if (du.value && au.value) agir(ev.currentTarget, 'effacer', { membre: f.id, du: du.value, au: au.value }); else { S.msg = { texte: 'Choisis le premier et le dernier jour à effacer.', ok: false, fichiers: [] }; dessiner(); } } }, 'Effacer ces jours')) : null,
+            f.lisible ? el('div', { class: 'ul-ligne' }, el('span', { class: 'ul-paire' }, el('span', { class: 'ul-sub' }, 'du'), du), el('span', { class: 'ul-paire' }, el('span', { class: 'ul-sub' }, 'au'), au), el('button', { type: 'button', class: 'ul-b s d', onclick: (ev) => { if (du.value && au.value) agir(ev.currentTarget, 'effacer', { membre: f.id, du: du.value, au: au.value }); else { S.msg = { texte: 'Choisis le premier et le dernier jour à effacer.', ok: false, fichiers: [] }; dessiner(); } } }, 'Effacer ces jours')) : null,
             el('div', { class: 'ul-ligne', style: 'margin-top:8px' }, el('button', { type: 'button', class: 'ul-b s d', onclick: (ev) => agir(ev.currentTarget, 'effacer', { membre: f.id }) }, 'Effacer tout l\'historique'))] : null,
           el('h4', {}, 'Journal des accords'),
           f.journal.length ? el('ul', { class: 'ul-journal' }, ...f.journal.slice(0, 8).map((n) => el('li', {}, n.quoi, el('small', {}, `${n.quand} · par ${n.par}`)))) : el('p', { class: 'ul-sub' }, 'Rien pour l\'instant.')));
