@@ -4,7 +4,7 @@
 // redirections, flux TCP, journal et statistiques, graphe. Fonctions reprises (réécrites) de Nginx Proxy
 // Manager, Traefik et Caddy. (Valgrind : la grille sacrée devant le Valhalla, que seuls les dignes passent.)
 import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
-import { openOnHost } from '../hostports.ts';
+import { explainListen, openOnHost } from '../hostports.ts';
 import { mkdirSync, readFileSync, writeFileSync, existsSync, appendFileSync, chmodSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { networkInterfaces } from 'node:os';
@@ -276,7 +276,7 @@ export const valgrind: Module = {
   },
   async start(ctx) {
     appCtx = ctx;
-    if (ctx.settings.on === true) { try { await startProxy(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le proxy d\'Odin n\'a pas pu démarrer', detail: `${(e as Error).message}. Tes sites ne répondent plus par Odin.`, key: 'valgrind-demarrage' }); } }
+    if (ctx.settings.on === true) { try { await startProxy(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le proxy d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Tes sites ne répondent plus par Odin.`, key: 'valgrind-demarrage' }); } }
   },
   stop() { srv?.stop(); srv = undefined; },
   // Chaque minute : les adresses bannies par Cerbère ; les services en erreur ; une fois par jour, les certificats.

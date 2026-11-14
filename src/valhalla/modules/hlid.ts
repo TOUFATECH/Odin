@@ -6,7 +6,9 @@
 import { existsSync } from 'node:fs';
 import { choixDePoste, PARAM_POSTE, posteDe, type Poste } from '../postes.ts';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
-import { ODIN_PORTS, WEB } from '../ports.ts';
+import { ODIN_PORTS, WEB, directApp } from '../ports.ts';
+import { directActions, directSection, directWatch } from '../directports.ts';
+import { NAMES } from '../names.ts';
 import { deleteMapping, discover, externalIp, listMappings, behindCgnat, type Mapping } from '../upnp.ts';
 
 export interface Ecoute { proto: 'tcp' | 'udp'; port: number; adresse: string; portee: 'machine' | 'réseau'; prog?: string }
@@ -63,6 +65,8 @@ export function lireRoutes(json: string): Route[] {
 export function quiEst(e: Ecoute): string {
   const o = ODIN_PORTS.find((p) => p.port === e.port && p.proto === e.proto);
   if (o) return `${o.name} : ${o.what}`;
+  const d = e.proto === 'tcp' ? directApp(e.port) : undefined;
+  if (d) return `Odin : port direct de ${NAMES[d] ?? d} (sa page, avec ta connexion)`;
   const connus: Record<number, string> = { 22: 'SSH (prise en main à distance)', 25: 'courrier (SMTP)', 80: 'site web', 443: 'site web (HTTPS)', 139: 'partage Windows (Samba)', 445: 'partage Windows (Samba)', 631: 'impression (CUPS)', 2049: 'partage Linux (NFS)', 3306: 'base MySQL', 5353: 'découverte du réseau (mDNS)', 5432: 'base PostgreSQL', 6379: 'Redis', 8006: 'Proxmox', 3389: 'bureau à distance (RDP)', 5900: 'bureau à distance (VNC)', 111: 'services Linux (rpcbind)', 68: 'adresse de la machine (DHCP)', 123: 'heure (NTP)', 1900: 'découverte du réseau (UPnP)' };
   return connus[e.port] ?? e.prog ?? 'programme inconnu';
 }
@@ -100,9 +104,9 @@ const reseauOk = (x: string) => /^\d{1,3}(\.\d{1,3}){3}(\/\d{1,2})?$/.test(x);
 export const hlid: Module = {
   id: 'hlid', name: 'Thermopyles', family: 'Sécurité',
   what: 'Le pare-feu et le routeur (comme pfSense) : l\'état du pare-feu de la machine, ses règles, les ports à l\'écoute et qui peut les joindre, les routes, et les ports ouverts sur la box vers Internet ; ouvrir ou fermer un port se fait avec ton accord.',
-  does: ['état du pare-feu (ufw ou firewalld) et sa politique : ce qui entre, ce qui sort', 'chaque port à l\'écoute : à qui il est, et s\'il est joignable depuis le réseau ou seulement depuis la machine', 'ouvrir ou fermer un port (pour tout le réseau ou un seul sous-réseau), avec ton accord', 'allumer le pare-feu sans s\'enfermer dehors : la porte d\'Odin et SSH restent ouvertes', 'les routes et la passerelle, le routage entre réseaux', 'les ports ouverts sur la box vers Internet (UPnP), et leur fermeture', 'alerte : pare-feu éteint avec un service sensible joignable, nouveau port ouvert sur la box'],
+  does: ['état du pare-feu (ufw ou firewalld) et sa politique : ce qui entre, ce qui sort', 'chaque port à l\'écoute : à qui il est, et s\'il est joignable depuis le réseau ou seulement depuis la machine', 'ouvrir ou fermer un port (pour tout le réseau ou un seul sous-réseau), avec ton accord', 'allumer le pare-feu sans s\'enfermer dehors : la porte d\'Odin et SSH restent ouvertes', 'les routes et la passerelle, le routage entre réseaux', 'les ports ouverts sur la box vers Internet (UPnP), et leur fermeture', 'un port direct par appli (http://IP:port ouvre directement sa page, avec ta connexion) : le donner, le changer, l\'ouvrir sur le réseau avec ton accord, le refermer', 'alerte : pare-feu éteint avec un service sensible joignable, nouveau port ouvert sur la box'],
   from: ['pfSense', 'OPNsense', 'ufw'], upstream: ['opnsense/core', 'pfsense/pfsense'],
-  words: ['pare-feu', 'firewall', 'état du pare-feu', 'règles du pare-feu', 'ufw', 'firewalld', 'routeur', 'ouvrir un port', 'fermer un port', 'redirection de port', 'ports de la box', 'thermopyles', 'hlid', 'pfsense', 'opnsense'],
+  words: ['pare-feu', 'firewall', 'état du pare-feu', 'règles du pare-feu', 'ufw', 'firewalld', 'routeur', 'ouvrir un port', 'fermer un port', 'redirection de port', 'ports de la box', 'port direct', 'ports directs', 'thermopyles', 'hlid', 'pfsense', 'opnsense'],
   actions: [
     { id: 'etat', label: 'État', what: 'Le pare-feu, sa politique et les ports joignables depuis le réseau (de cette machine, ou d\'un autre poste Linux)', read: true, params: [PARAM_POSTE], words: ['état du pare-feu', 'règles du pare-feu', 'quels ports sont joignables'], run: async (ctx, i) => {
       const p = posteDe(ctx, i.poste), e = await lireEtat(p), ouverts = e.ecoutes.filter((x) => acces(x, e.ufw).acces === 'ouvert');
@@ -151,6 +155,7 @@ export const hlid: Module = {
         const g = await discover({ fetch: ctx.fetch, timeoutMs: 4000 }); await deleteMapping(g, port, s(i.proto).toUpperCase() === 'UDP' ? 'UDP' : 'TCP', ctx.fetch);
         return { text: `🔒 Port ${port} fermé sur la box.` };
       } },
+    ...directActions,
   ],
   async view(ctx, q) {
     const P = choixDePoste(ctx, q), p = posteDe(ctx, P.actuel), e = await lireEtat(p), rows = e.ecoutes.map((x) => ({ x, a: acces(x, e.ufw) })), ouverts = rows.filter((r) => r.a.acces === 'ouvert');
@@ -169,6 +174,7 @@ export const hlid: Module = {
       sections: [
         ...(p.local && e.fw === 'ufw' && !e.ufw?.actif ? [{ kind: 'steps' as const, title: 'Mise en route', items: [{ title: 'Allumer le pare-feu', detail: 'Odin garde sa porte et SSH ouverts, puis refuse le reste', done: false, action: 'allumer', button: 'Allumer' }] }] : []),
         { kind: 'table', title: 'Ports à l\'écoute', columns: ['Port', 'À qui', 'Programme', 'Joignable'], empty: 'Aucun port lu.', rows: rows.map((r) => ({ cells: [`${r.x.port}/${r.x.proto}`, quiEst(r.x), r.x.prog ?? '', r.a.acces === 'ouvert' ? `depuis ${r.a.depuis}` : r.a.acces === 'local' ? 'la machine seulement' : 'non (filtré par le pare-feu)'], tone: tone(r), actions: r.a.acces === 'filtré' ? [{ action: 'ouvrir_port', label: 'Ouvrir', input: { port: r.x.port, proto: r.x.proto } }] : [] })) },
+        ...(p.local ? [await directSection(ctx)] : []),
         { kind: 'table', title: 'Règles du pare-feu', columns: ['Vers', 'Action', 'Depuis'], empty: e.fw === 'aucun' ? 'Pas de pare-feu géré (installe « ufw »).' : 'Aucune règle.', rows: (e.ufw?.regles ?? []).filter((r) => !r.v6).map((r) => ({ cells: [r.vers, r.action === 'ALLOW' ? 'laisse entrer' : r.action === 'LIMIT' ? 'laisse entrer (limité)' : 'refuse', /^Anywhere$/i.test(r.depuis) ? 'partout' : r.depuis], tone: r.action === 'ALLOW' || r.action === 'LIMIT' ? 'neutre' as const : 'bon' as const })) },
         { kind: 'table', title: 'Ouverts sur la box (Internet → maison)', columns: ['Port', 'Vers', 'Pour'], empty: box ? 'Aucun port ouvert par UPnP.' : 'Pas encore lu : lance « Ports ouverts sur la box ».', rows: (box?.ports ?? []).map((m) => ({ cells: [`${m.external}/${m.proto}`, `${m.client}:${m.internal}`, m.desc || 'sans nom'], tone: 'attention' as const, actions: [{ action: 'fermer_box', label: 'Fermer', input: { port: m.external, proto: m.proto } }] })) },
       ],
@@ -180,6 +186,7 @@ export const hlid: Module = {
     };
   },
   watch: { every: 900, async run(ctx) {
+    await directWatch(ctx);
     const e = await lireEtat(ici(ctx)), sens = e.ecoutes.filter((x) => SENSIBLES.has(x.port) && acces(x, e.ufw).acces === 'ouvert');
     // Dans un conteneur, « pare-feu éteint » ne veut rien dire (c'est la machine hôte qui filtre) : pas d'alerte.
     if (sens.length && !e.ufw?.actif && !dansConteneur()) ctx.alert({ level: 'moyenne', title: `Thermopyles : ${sens.length} service(s) sensible(s) joignable(s) du réseau, pare-feu éteint`, detail: sens.map((x) => `${x.port}/${x.proto} (${quiEst(x)})`).join(', '), key: `thermopyles:sensibles:${sens.map((x) => x.port).join('-')}`, steps: ['Allume le pare-feu (Thermopyles → Allumer).', 'Ou limite ces services à la machine seule.'] });

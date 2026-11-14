@@ -489,6 +489,37 @@
   const surPoste = (id) => Boolean(pagePostes && viewQ[id]?.poste);
   const vaSurPoste = (id) => (a) => !surPoste(id) || (a.params ?? []).some((p) => p.key === 'poste');
   const notePoste = () => el('p', { class: 'va-aide', style: 'margin:0 0 14px' }, 'Les autres actions de cette appli agissent sur la machine d\'Odin : choisis « Cette machine » pour les retrouver.');
+  /**
+   * « Son port » : l'adresse directe de l'appli (http://adresse:port ouvre sa page, toujours avec ta connexion).
+   * Mêmes demandes que Réglages → Ports (/api/ports) ; ouvrir sur le réseau demande ton accord.
+   */
+  function portBox(id) {
+    const box = el('section', { class: 'va-sec va-port' }, el('h2', {}, 'Son port'), el('p', { class: 'sub' }, 'Lecture…'));
+    const st = el('p', { class: 'va-essai', role: 'status' });
+    const dessine = (a, I) => {
+      if (!a) { box.replaceChildren(el('h2', {}, 'Son port'), el('p', { class: 'sub' }, 'Cette appli passe par l\'interface d\'Odin.')); return; }
+      const scheme = I?.https ? 'https' : 'http', ecoute = a.port && a.etat === 'écoute';
+      const inp = el('input', { class: 'va-champ', type: 'number', min: 1, max: 65535, inputmode: 'numeric', value: a.port ?? '', placeholder: 'aucun', id: `va-port-${id}`, style: 'max-width:140px' });
+      const demande = async (faire, extra = {}) => {
+        st.className = 'va-essai'; st.textContent = 'Un instant…';
+        let x; try { x = await api('/api/ports', { appli: id, faire, ...extra }); if (x.confirm) { if (!window.confirm(x.confirm)) { st.textContent = 'Annulé : rien n\'a changé.'; return; } x = await api('/api/ports', { appli: id, faire, ...extra, confirm: true }); } } catch (e) { x = { ok: false, error: e.message }; }
+        if (!x.ok) { st.className = 'va-essai ko'; st.textContent = `✗ ${x.error || x.text || 'refusé'}`; return; }
+        dessine(x.appli, x.interface); st.className = 'va-essai ok'; st.textContent = x.text;
+      };
+      const garder = () => { const v = inp.value.trim(); return !v && a.port ? demande('retirer') : demande('regler', v ? { port: Number(v) } : {}); };
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); garder(); } });
+      box.replaceChildren(el('h2', {}, 'Son port'),
+        el('p', { class: 'sub', style: 'margin:0 0 8px' }, a.port ? `${a.port} · ${a.etat === 'écoute' ? (a.reseau ? 'ouvert sur le réseau' : 'sur cette machine seulement') : a.etat}${a.note ? ` · ${a.note}` : ''}` : 'Aucun port direct : elle s\'ouvre par l\'interface d\'Odin.'),
+        el('div', { class: 'va-ligne va-ligne-c' }, el('label', { class: 'va-l', for: `va-port-${id}` }, 'Port'), inp, el('button', { class: 'btn', type: 'button', onclick: garder }, a.port ? 'Changer' : 'Donner un port')),
+        el('div', { class: 'va-acts-bar', style: 'margin-top:8px' },
+          ecoute ? el('button', { class: 'btn small', type: 'button', onclick: () => demande(a.reseau || a.reseauEnAttente ? 'fermer' : 'ouvrir') }, a.reseau || a.reseauEnAttente ? 'Fermer au réseau' : 'Ouvrir sur le réseau') : null,
+          a.port ? el('button', { class: 'btn small', type: 'button', onclick: () => demande('retirer') }, 'Retirer') : null,
+          ecoute ? el('a', { class: 'btn small', href: `${scheme}://${location.hostname}:${a.port}/`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ouvrir') : null),
+        st);
+    };
+    api(`/api/ports?${new URLSearchParams({ appli: id })}`).then((r) => (r?.ok ? dessine(r.appli, r.interface) : box.replaceChildren(el('h2', {}, 'Son port'), el('p', { class: 'sub' }, r?.error || 'Pas disponible pour l\'instant.')))).catch(() => box.remove());
+    return box;
+  }
   const liensBox = (r) => el('section', { class: 'va-sec' }, el('h2', {}, 'Liens avec les autres applis'), el('ul', { class: 'va-list' }, ...r.links.map((l) => el('li', {}, el('b', {}, `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`)))));
   /** L'en-tête : retour, icône, nom, une ligne d'explication. Le nom, les fonctions et les parties sont repliés (« En savoir plus »). */
   function entete(id, r, retour, titre) {
@@ -597,6 +628,7 @@
       if (autres.length) panneau.append(large(autresActions(id, autres)));
       if (surPoste(id)) panneau.append(large(notePoste()));
       if (!(sel === noms[0] && aVoir)) panneau.append(alertesBox());
+      panneau.append(portBox(id));
       if (r.links.length) panneau.append(large(liensBox(r)));
     }
     return [liste, panneau];
@@ -620,6 +652,7 @@
     if (others.length) side.append(autresActions(id, others));
     if (surPoste(id)) side.append(notePoste());
     side.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes'), alerts(r.alerts)));
+    side.append(portBox(id));
     if (r.links.length) side.append(liensBox(r));
     // Ariane : le champ d'adresse IP et les paquets (direct et historique), comme Wireshark
     if (id === 'ran' && window.OdinPackets) main.insertBefore(window.OdinPackets.finder(''), main.children[0] || null);

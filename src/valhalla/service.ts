@@ -8,6 +8,7 @@ import { EventEmitter } from 'node:events';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { understand, type Understood } from './huginn.ts';
+import { explainListen } from './hostports.ts';
 import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
@@ -86,7 +87,7 @@ export class Valhalla {
   async start(): Promise<void> {
     const tour = this.tour;
     for (const m of this.modules()) {
-      try { await m.start?.(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'moyenne', title: `${m.name} n'a pas pu démarrer`, detail: (e as Error).message, key: `start:${m.id}` }); }
+      try { await m.start?.(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'moyenne', title: `${m.name} n'a pas pu démarrer`, detail: await explainListen(e), key: `start:${m.id}` }); }
       // Odin arrêté pendant ce démarrage : l'appli qui vient de démarrer est arrêtée à son tour, les suivantes ne
       // démarrent pas (sinon leurs serveurs et leurs minuteries resteraient ouverts après l'arrêt).
       if (tour !== this.tour) { try { m.stop?.(); } catch { /* rien */ } return; }
