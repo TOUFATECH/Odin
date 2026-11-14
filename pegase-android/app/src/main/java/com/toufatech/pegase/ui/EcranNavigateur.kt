@@ -52,10 +52,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.toufatech.pegase.R
+import com.toufatech.pegase.appli.Ecran
 import com.toufatech.pegase.appli.Feuille
 import com.toufatech.pegase.appli.Pegase
 import com.toufatech.pegase.coeur.Adresse
 import com.toufatech.pegase.coeur.Cols
+import com.toufatech.pegase.coeur.EtatSynchro
 import com.toufatech.pegase.coeur.Palettes
 import com.toufatech.pegase.coeur.texte
 import com.toufatech.pegase.moteur.Etape
@@ -162,6 +164,7 @@ private fun BarreDuBas(pegase: Pegase) {
                     }
                 }
             }
+            PointOdin(pegase)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             BoutonIcone(Icones.recul, "Page précédente", { o?.session?.goBack() }, actif = o?.peutReculer == true)
@@ -193,11 +196,8 @@ private fun BarreDuBas(pegase: Pegase) {
                     .semantics { contentDescription = "Ton profil et le menu" },
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.size(26.dp).clip(CircleShape).background(Palettes.OR.c()), contentAlignment = Alignment.Center) {
-                    val nom = pegase.session?.nom
-                    if (nom != null) T(nom.take(1).uppercase(), taille = 13.sp, poids = FontWeight.Bold, couleur = Color(0xFF14100A))
-                    else Icone(Icones.profil, null, Color(0xFF14100A), 15.dp)
-                }
+                // L'avatar du profil : sa photo, ou Odin animé.
+                Avatar(28.dp, pegase.photoProfil)
             }
         }
     }
@@ -297,6 +297,32 @@ private fun PetitBouton(icone: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 // ------------------------------------------------------------------ la page d'accueil d'un nouvel onglet
+
+/**
+ * Le point d'état d'Odin dans la barre (comme Pégase sur l'ordinateur) : rouge = pas d'Odin, orange = Odin trouvé mais
+ * connexion à faire, ou hors ligne pour l'instant, vert = synchronisé. Il ouvre la connexion à Odin (ou sa synchro).
+ */
+@Composable
+private fun PointOdin(pegase: Pegase) {
+    val s = pegase.session
+    val etat = pegase.indicateur.etat
+    val (couleur, texte) = when {
+        s != null && (etat == EtatSynchro.SYNCHRONISE || etat == EtatSynchro.EN_COURS) -> Color(0xFF22C55E) to "Odin : synchronisé avec Pégase"
+        s != null -> Color(0xFFF59E0B) to "Odin : hors ligne pour l'instant, les changements attendent"
+        pegase.odinTrouve != null -> Color(0xFFF59E0B) to "Odin trouvé : il manque la connexion"
+        else -> Color(0xFFEF4444) to "Pas d'Odin : Pégase n'est relié à aucun Odin"
+    }
+    Box(
+        Modifier.size(40.dp).clip(CircleShape)
+            .clickable(role = Role.Button) { if (s == null) pegase.ecran = Ecran.CONNEXION else pegase.feuille = Feuille.REGLAGES }
+            .semantics { contentDescription = texte },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(18.dp).clip(CircleShape).background(couleur.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(couleur))
+        }
+    }
+}
 
 @Composable
 private fun Accueil(pegase: Pegase) {

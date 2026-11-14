@@ -1,5 +1,6 @@
 package com.toufatech.pegase.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,10 +37,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -224,13 +227,17 @@ fun Lettre(nom: String, fond: Color, taille: Dp = 20.dp, coin: Dp = 6.dp, taille
     }
 }
 
-/** L'avatar du profil : un anneau aux couleurs de Pégase et l'initiale. */
+/** L'avatar du profil : un anneau aux couleurs de Pégase, et dedans la photo choisie, ou Odin animé tant qu'il n'y en a pas. */
 @Composable
-fun Avatar(nom: String, taille: Dp) {
+fun Avatar(taille: Dp, photo: ImageBitmap? = null) {
     val anneau = Brush.sweepGradient(listOf(Color(0xFFF2C366), Color(0xFFFF9C86), Color(0xFFB49CFF), Color(0xFF7FB2FF), Color(0xFF6CE0B8), Color(0xFFF2C366)))
-    Box(Modifier.size(taille).clip(CircleShape).background(anneau).padding(3.dp)) {
-        Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF20223A)), contentAlignment = Alignment.Center) {
-            Text(nom.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?", style = style((taille.value * 0.38f).sp, titre = true, couleur = Color(0xFFF2C366)))
+    Box(Modifier.size(taille).clip(CircleShape).background(anneau).padding(if (taille < 32.dp) 2.dp else 3.dp)) {
+        Box(Modifier.fillMaxSize().clip(CircleShape).background(Color(0xFF0B0D18)), contentAlignment = Alignment.Center) {
+            if (photo != null) {
+                Image(photo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            } else {
+                OdinVisage(Modifier.fillMaxSize(0.82f))
+            }
         }
     }
 }
