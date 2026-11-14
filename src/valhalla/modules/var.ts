@@ -15,6 +15,7 @@ import { revoquerPersonne } from '../sso/etat.ts';
 import { brancherPersona } from '../sso/registre.ts';
 import { arreterFluxSauvegardes } from '../sso/sauvegardes.ts';
 import { arreterFluxVenus } from '../sso/fiches.ts';
+import { CIEL_JS } from '../../web/ciel.ts';
 
 export interface Person { id: string; login: string; name: string; email?: string; groups: string[]; hash: string; totp?: string; totpPending?: string; active: boolean; created: number; lastLogin?: number; fails: number; lockedUntil?: number }
 export interface Rule { domain: string; groups: string[] }
@@ -60,18 +61,21 @@ export const portalUrl = () => { const d = portalDomain(); return d ? `https://$
 
 // ---------------- Le portail ----------------
 const esc = (x: string) => x.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+// Les formulaires du portail : nos messages, en français, à la place de la bulle du navigateur ; puis les boutons se grisent.
+const VERIF_JS = `for(const f of document.querySelectorAll('form')){f.noValidate=true;f.addEventListener('submit',(e)=>{const c=[...f.querySelectorAll('input:not([type=hidden])')].find((i)=>!i.checkValidity());if(c){e.preventDefault();const nom=(f.querySelector('label[for="'+c.id+'"]')?.textContent||'').trim();const m=!c.value.trim()?(nom?'Remplis « '+nom+' ».':'Remplis ce champ.'):c.type==='email'?'Cette adresse e-mail n’est pas valide.':c.name==='code'?'Le code fait 6 chiffres.':'Vérifie « '+nom+' ».';let x=f.querySelector('.err[data-champ]');if(!x){x=document.createElement('p');x.className='err';x.setAttribute('role','alert');x.dataset.champ='1';const b=f.querySelector('button');if(b)b.before(x);else f.append(x);}x.textContent=m;c.focus();return;}for(const b of f.querySelectorAll('button'))b.disabled=true;});}`;
 function page(title: string, body: string, nonce: string): string {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>${esc(title)}</title><style>
 :root{--bg:#f4f5f7;--panel:#fff;--ink:#1c1f24;--muted:#4b5563;--line:#d1d5db;--accent:#2563eb;--bad:#b91c1c}
 @media (prefers-color-scheme:dark){:root{--bg:#16181c;--panel:#23262c;--ink:#f3f4f6;--muted:#c3c7ce;--line:#3f444c;--accent:#3b82f6;--bad:#fca5a5}}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-main{width:100%;max-width:400px;padding:28px 18px;display:flex;flex-direction:column;gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:10px}
+*{box-sizing:border-box}html{background:#000}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.ciel{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}main>p{color:rgba(255,255,255,.8)}
+main{position:relative;z-index:1;width:100%;max-width:400px;padding:28px 18px;display:flex;flex-direction:column;gap:12px}.card{box-shadow:0 20px 60px rgba(0,0,0,.55)}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:10px}
 .m{width:92px;height:92px;margin:0 auto;animation:f 4s ease-in-out infinite}@keyframes f{50%{transform:translateY(-6px)}}@media (prefers-reduced-motion:reduce){.m{animation:none}}.m svg{width:100%;height:100%}.m .orbit{display:none}
 h1{margin:0;font-size:22px;text-align:center}p{margin:0;color:var(--muted);line-height:1.5;text-align:center}label{font-size:14px;font-weight:600}
 input{width:100%;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:0 14px;font-size:16px}
 button{min-height:50px;border-radius:12px;border:0;background:var(--accent);color:#fff;font-size:16px;font-weight:600;cursor:pointer;width:100%}.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 .err{color:var(--bad);font-size:14px;text-align:center}ul{margin:0;padding:0;list-style:none}li a{display:block;padding:12px 14px;border:1px solid var(--line);border-radius:12px;color:var(--ink);text-decoration:none;margin:0 0 8px}
-</style></head><body><main><div class="m" aria-hidden="true">${mascot}</div>${body}</main><script nonce="${nonce}">for(const f of document.querySelectorAll('form'))f.addEventListener('submit',()=>{for(const b of f.querySelectorAll('button'))b.disabled=true;});</script></body></html>`;
+</style></head><body><canvas class="ciel" aria-hidden="true"></canvas><main><div class="m" aria-hidden="true">${mascot}</div>${body}</main><script nonce="${nonce}">${VERIF_JS}</script><script nonce="${nonce}">${CIEL_JS}</script></body></html>`;
 }
 const tries = new Map<string, number[]>();
 async function readForm(q: IncomingMessage): Promise<Record<string, string>> { let raw = ''; for await (const c of q) { raw += c; if (raw.length > 8000) break; } return Object.fromEntries(new URLSearchParams(raw)); }

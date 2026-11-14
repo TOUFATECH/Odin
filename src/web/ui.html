@@ -209,7 +209,12 @@ main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow
 .lg-meter{height:6px;border-radius:3px;background:var(--field);overflow:hidden}.lg-meter i{display:block;height:100%;width:0;border-radius:3px;transition:width .2s,background-color .2s}
 .login .lg-err{color:var(--bad);font-size:14px}.login .lg-err:empty{display:none}
 .lg-more{margin-top:4px}.lg-more summary{cursor:pointer;min-height:40px;display:flex;align-items:center}
-@media (max-width:380px){.lg-row{grid-template-columns:1fr}.login{padding:24px 16px}}
+@media (max-width:380px){.lg-row{grid-template-columns:1fr}.login{padding:24px 16px;width:calc(100% - 24px)}}
+/* Connexion : la carte sur le ciel noir étoilé (ciel.js), quel que soit le thème choisi ; le thème reste celui de la carte et d'Odin ensuite */
+body:has(>#login:not([hidden])){background:#000}
+.login{position:relative;z-index:1;width:calc(100% - 32px);margin:max(16px,6vh) auto 24px;background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+.ciel-login{display:none;position:fixed;inset:0;width:100%;height:100%;background:#000;pointer-events:none;z-index:0}
+#login:not([hidden])+.ciel-login{display:block}
 /* Première connexion par le téléphone : code et QR code, comme une télé */
 .login.wide{max-width:780px}.login.wide .odin{width:96px!important;height:96px!important}
 #qrBox{display:flex;flex-direction:column;gap:14px}#qrBox[hidden]{display:none}
@@ -1143,9 +1148,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     </div>
   </div>
   <details style="margin-top:14px" id="tokDetails"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">J'ai un jeton d'accès</summary>
-  <form id="loginForm" method="get" action="/" style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+  <form id="loginForm" method="get" action="/" novalidate style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
     <label for="tok">Jeton d'accès</label>
     <input id="tok" name="token" autocomplete="off" required>
+    <span class="hint lg-err" role="alert" id="tokErr"></span>
     <button class="btn" type="submit">Entrer</button>
   </form>
   </details>
@@ -1154,11 +1160,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       <span>Sur la machine d'Odin, tape : <code>odin link</code> (affiche les liens avec jeton).</span>
       <span>Odin dans un conteneur LXC (Proxmox) : depuis l'hôte, <code>pct exec &lt;ID&gt; -- odin link</code> (ou <code>pct enter &lt;ID&gt;</code> puis <code>odin link</code>).</span>
       <span>Odin en service : le lien est aussi dans son journal, <code>journalctl --user -u odin | grep token</code>.</span>
-      <span>Le jeton seul est dans le fichier <code>~/.odin/web-token</code>.</span>
     </div>
   </details>
   </div>
 </div>
+<canvas class="ciel ciel-login" aria-hidden="true"></canvas>
 
 <div class="app" id="app" hidden>
   <div class="mbar">
@@ -1309,7 +1315,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       </div>
     </section>
     <section class="view" id="v-settings" aria-label="Réglages">
-      <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine, dans ~/.odin/env.</div></div></div>
+      <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine.</div></div></div>
       <div class="snavrow"><div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="maj" role="tab">Mises à jour</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="venus" role="tab">Venus</button><button type="button" class="schip" data-sec="reveil" role="tab">Réveil</button><button type="button" class="schip" data-sec="apparence" role="tab">Apparence</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button></div><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
       <div class="body settings">
         <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
@@ -1811,6 +1817,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
 <div class="palette" id="palette" hidden role="dialog" aria-modal="true" aria-label="Chercher ou faire"><div class="pal"><input id="palIn" type="text" autocomplete="off" placeholder="Chercher un écran, un réglage, ou demander à Odin…" aria-label="Chercher ou demander" aria-controls="palList" role="combobox" aria-expanded="true"><ul id="palList" role="listbox"></ul></div></div>
 <script nonce="__NONCE__" src="/face.js"></script>
+<script nonce="__NONCE__" src="/ciel.js"></script>
 <script nonce="__NONCE__">
 (() => {
   const AUTHED = __AUTHED__;
@@ -1902,6 +1909,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   });
   if (!AUTHED) {
     $('#login').hidden = false;
+    // Jeton d'accès : notre message, en français, à la place de la bulle du navigateur.
+    $('#loginForm').addEventListener('submit', (e) => { if (!$('#tok').value.trim()) { e.preventDefault(); $('#tokErr').textContent = 'Colle ton jeton d\'accès (la commande odin link le donne).'; $('#tok').focus(); } });
+    $('#tok').addEventListener('input', () => { $('#tokErr').textContent = ''; });
     // Compte du propriétaire : créé à la première connexion (prénom, nom, e-mail, mot de passe),
     // exigé ensuite. Le serveur revérifie tout : ici, seulement de l'aide à la saisie.
     const ACCOUNT = __ACCOUNT__, SETUP = __SETUP__;

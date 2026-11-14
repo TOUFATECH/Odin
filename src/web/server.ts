@@ -52,6 +52,7 @@ import { evolutionTree } from './evolutions.ts';
 import { NETWORK as RAN_NETWORK, capture as ranCapture, flows as ranFlows, history as ranHistory, isPaused as ranIsPaused, packet as ranPacket, setOwnPort as ranOwnPort, sourcesFor as ranSources, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 import { maisonRoute } from './maison-api.ts';
+import { CIEL_JS } from './ciel.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { pegaseRoute } from './pegase-api.ts';
@@ -588,6 +589,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/powers.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'access-control-allow-origin': '*' }); return void res.end(POWERS_JS); }
     if (url.pathname === '/fenetre.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FENETRE_JS); }
     if (url.pathname === '/alchimie.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(ALCHIMIE_JS); }
+    if (url.pathname === '/ciel.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(CIEL_JS); }
     if (url.pathname === '/mascotte.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(MASCOTTE_JS); }
     if (url.pathname === '/notices.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(NOTICES_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
