@@ -110,6 +110,8 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
     json(res, 200, r); return true;
   }
   if (path === '/api/message' || path === '/api/ask') { erreur(res, 403, 'reserve', 'La conversation avec l\'IA d\'Odin est réservée à son propriétaire. Ouvre directement une de tes applis, ou demande-lui en une phrase dans la barre des applis.'); return true; }
+  // Les conversations sont celles du propriétaire : un membre en voit une vide (la page s'affiche sans erreur).
+  if (path === '/api/history' && meth === 'GET') { json(res, 200, { peer: '', messages: [] }); return true; }
   ferme(res); return true;
 }
 

@@ -235,7 +235,7 @@ test('connexion unique d\'Odin, pour de vrai', { timeout: 240_000 }, async (t) =
       const act = await post('/api/valhalla/act', { module: 'garmr', action: 'bannir', input: { ip: '203.0.113.9', minutes: 5 }, confirm: true }); assert.equal(act.status, 403);
       const phrase = await post('/api/valhalla/order', { text: 'bannis 203.0.113.9', confirm: true }); assert.equal(phrase.body.ok, false, String(phrase.body.text)); assert.match(String(phrase.body.text), /Tu n'as pas accès à Cerbère/);
       assert.equal((await post('/api/message', { text: 'bannis 203.0.113.9' })).status, 403, 'pas de conversation avec l\'IA pour un membre');
-      assert.equal((await g('/api/history')).status, 403); assert.equal((await post('/api/backup', { password: 'x' })).status, 403);
+      assert.deepEqual((await g('/api/history')).body.messages, [], 'les conversations du propriétaire restent cachées'); assert.equal((await post('/api/backup', { password: 'x' })).status, 403);
       const st = (await g('/api/state')).body as { membre: { login: string }; devices: unknown[] }; assert.equal(st.membre.login, 'moussa'); assert.deepEqual(st.devices, []);
       assert.equal(((await g('/api/account/me')).body as { profile: { prenom: string } }).profile.prenom, 'Moussa');
       // Le propriétaire voit tout.
