@@ -11,6 +11,7 @@ import { LecteurSse } from './odin';
 import type { Rangement } from './stockage';
 import { desinstaller, EmpreinteFausse, formatsDuSysteme, installer, present, telecharger, type Installe, type Paquet } from './installeur';
 import type { EtatUI, LigneStore, Mode } from '../commun/types';
+import { pourLaPersonne } from './texte';
 
 export interface Article { id: string; nom: string; desc: string; mode: Mode; par: string; web?: string; paquet?: Paquet; force?: 'installee' | 'absente'; etat?: string; version?: string; majDispo?: boolean }
 export interface Ordre { id: string; element: string; nom: string; action: 'installer' | 'desinstaller' | 'mettre_a_jour'; version?: string; impose: boolean; par: string; qui: string }
@@ -67,7 +68,7 @@ export class Moteur extends EventEmitter {
       this.prendreStore(i.j.store ?? []);
       for (const o of (i.j.ordres ?? []) as Ordre[]) this.recevoir(o);
       return true;
-    } catch (e) { this.changer({ connexion: 'horsligne', connexionInfo: { erreur: `Odin ne répond pas (${(e as Error).message}).` } }); return false; }
+    } catch (e) { this.changer({ connexion: 'horsligne', connexionInfo: { erreur: `Odin ne répond pas (${pourLaPersonne((e as Error).message)}).` } }); return false; }
   }
   private prendreStore(l: Article[]): void {
     const nouveaux = l.filter((a) => a.mode !== 'retiree' && !this.dejaVus.has(a.id));
@@ -98,7 +99,7 @@ export class Moteur extends EventEmitter {
         if (!this.arret) await this.rafraichir();
       } catch (e) {
         this.fluxOuvert = null; if (this.arret) return;
-        this.changer({ enLigne: false, connexion: 'horsligne', connexionInfo: { erreur: `Odin ne répond pas (${(e as Error).message}) : nouvel essai bientôt.` } });
+        this.changer({ enLigne: false, connexion: 'horsligne', connexionInfo: { erreur: `Odin ne répond pas (${pourLaPersonne((e as Error).message)}) : nouvel essai bientôt.` } });
         await attendre(this.pause); this.pause = Math.min(30_000, this.pause * 2);
         if (this.etat.connexion === 'horsligne') { const ok = await this.inscrire(); if (ok) this.changer({ connexion: 'ok', connexionInfo: undefined }); }
       }
@@ -166,7 +167,7 @@ export class Moteur extends EventEmitter {
       this.r.noter(`${nom} ${p.version} ${t.action === 'mettre_a_jour' || ancien ? 'mise à jour' : 'installée'}${qui}.`);
       await this.compteRendu(t, 'installee', { version: p.version });
     } catch (e) {
-      const m = e instanceof EmpreinteFausse ? e.message : `${(e as Error).message}`;
+      const m = e instanceof EmpreinteFausse ? e.message : pourLaPersonne(`${(e as Error).message}`);
       this.erreurs.set(t.element, m); this.r.noter(`${nom} : ${t.action === 'desinstaller' ? 'désinstallation' : 'installation'} refusée ou ratée — ${m}`, false);
       await this.compteRendu(t, 'erreur', { erreur: m.slice(0, 200), ...(this.r.installes[t.element] ? { version: this.r.installes[t.element].version } : {}) });
     } finally { this.enCours.delete(t.element); this.recalculer(); }

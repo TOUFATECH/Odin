@@ -24,11 +24,13 @@ if (!ESSAI && !app.requestSingleInstanceLock()) app.quit();
 
 const r = new Rangement(racine), odin = new Connexion(r), moteur = new Moteur(odin, r, app.getVersion());
 let fen: BrowserWindow | null = null, tray: Tray | null = null, quitter = false;
-const icone = () => { const f = join(__dirname, '..', 'ui', 'agora.png'); return existsSync(f) ? nativeImage.createFromPath(f) : nativeImage.createEmpty(); };
+/** Le vrai logo d'Agora : petit pour la zone de notification ; grand (le .ico sous Windows) pour la fenêtre et la barre des tâches. */
+const icone = (fichier = 'agora.png') => { const f = join(__dirname, '..', 'ui', fichier); return existsSync(f) ? nativeImage.createFromPath(f) : nativeImage.createEmpty(); };
+const iconeFenetre = () => icone(process.platform === 'win32' ? 'agora.ico' : 'agora-256.png');
 
 function fenetre(): void {
   if (fen) { fen.show(); fen.focus(); return; }
-  fen = new BrowserWindow({ width: 1080, height: 700, minWidth: 720, minHeight: 520, title: 'Agora · le store d\'Odin', icon: icone(), backgroundColor: '#EEF8F9', show: !CACHE,
+  fen = new BrowserWindow({ width: 1080, height: 700, minWidth: 720, minHeight: 520, title: 'Agora · le store d\'Odin', icon: iconeFenetre(), backgroundColor: '#000000', show: !CACHE,
     webPreferences: { preload: join(__dirname, '..', 'preload', 'ui.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false } });
   fen.removeMenu();
   // La fenêtre ne va nulle part ailleurs que sa propre page ; les liens s'ouvrent dans le navigateur du système.

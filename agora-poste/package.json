@@ -1,7 +1,7 @@
 {
   "name": "agora-poste",
   "productName": "Agora",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agora, le store d'Odin sur ton ordinateur : les applis auxquelles tu as droit, installées et tenues à jour.",
   "license": "MIT",
   "author": { "name": "TOUFATECH", "email": "contact@toufatech.com" },
@@ -36,11 +36,12 @@
       "executableName": "agora",
       "synopsis": "Le store d'Odin",
       "maintainer": "TOUFATECH <contact@toufatech.com>",
-      "artifactName": "Agora-${version}-${arch}.${ext}"
+      "artifactName": "Agora-${version}-${arch}.${ext}",
+      "desktop": { "entry": { "Name": "Agora", "Comment": "Le store d'Odin", "StartupWMClass": "agora" } }
     },
     "deb": { "depends": ["libsecret-1-0"], "packageName": "agora-odin" },
-    "win": { "target": ["nsis"], "icon": "build/icon.png", "artifactName": "Agora-${version}-Installation.${ext}" },
-    "nsis": { "oneClick": true, "perMachine": false, "shortcutName": "Agora" },
+    "win": { "target": ["nsis"], "icon": "build/icon.ico", "signAndEditExecutable": true, "artifactName": "Agora-${version}-Installation.${ext}" },
+    "nsis": { "oneClick": true, "perMachine": false, "shortcutName": "Agora", "installerIcon": "build/icon.ico", "uninstallerIcon": "build/icon.ico" },
     "mac": { "target": ["dmg"], "category": "public.app-category.utilities", "icon": "build/icon.png", "artifactName": "Agora-${version}-${arch}.${ext}" }
   }
 }

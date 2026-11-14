@@ -1,5 +1,6 @@
 // L'écran d'Agora sur l'ordinateur (maquette validée « StorePC ») : Mon store, Mises à jour, Historique, et l'écran
 // de connexion à Odin. Aucune donnée n'est interprétée comme du HTML : tout passe par textContent.
+import { ciel } from './ciel.js';
 
 interface Ligne { id: string; nom: string; desc: string; mode: 'proposee' | 'office' | 'retiree'; par: string; impose: boolean; installee: boolean; versionLocale?: string; versionOdin?: string; installable: boolean; web?: string; enCours?: { action: string; progression?: number }; erreur?: string; majDispo: boolean }
 interface Etat { connexion: 'aucune' | 'connexion' | 'ok' | 'horsligne'; odin?: { adresse: string; nom: string }; personne?: { nom: string; login: string; groupes: string[] }; appareil?: { nom: string; plateforme: string }; store: Ligne[]; historique: Array<{ quand: number; texte: string; ok: boolean }>; message?: string; connexionInfo?: { erreur?: string; codeRequis?: boolean; trouves?: Array<{ adresse: string; nom: string }> }; enLigne: boolean; version: string }
@@ -46,28 +47,57 @@ function carte(l: Ligne): HTMLElement {
 }
 function clic(a: string, id: string): void { occupe.add(id); dessiner(); void faire(a, { id }).finally(() => { occupe.delete(id); dessiner(); }); }
 
+// Ce qui est tapé dans l'écran de connexion survit aux nouveaux dessins (l'état d'Agora change pendant qu'on tape).
+const saisie = { adresse: '', identifiant: '', motdepasse: '', code: '' };
+const logo = (taille: number) => el('img', { class: 'logo', src: 'agora-256.png', alt: '', width: String(taille), height: String(taille) });
+/** Le fond noir étoilé des écrans d'accueil, avec son contenu par-dessus. */
+function ecranEtoile(...contenu: HTMLElement[]): HTMLElement {
+  const c = el('canvas', { class: 'ciel', 'aria-hidden': 'true' }) as HTMLCanvasElement;
+  const x = el('div', { class: 'ecran' }, c, ...contenu);
+  requestAnimationFrame(() => ciel(c));
+  return x;
+}
+
 function ecranConnexion(e: Etat): HTMLElement {
-  const info = e.connexionInfo ?? {}, adresse = el('input', { id: 'adresse', name: 'adresse', value: e.odin?.adresse ?? info.trouves?.[0]?.adresse ?? '', placeholder: 'https://192.168.1.10:7777', autocomplete: 'url', spellcheck: 'false' }) as HTMLInputElement;
-  const ident = el('input', { id: 'identifiant', autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }) as HTMLInputElement, mdp = el('input', { id: 'motdepasse', type: 'password', autocomplete: 'current-password' }) as HTMLInputElement;
-  const code = el('input', { id: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '7' }) as HTMLInputElement;
-  const envoyer = async (ev: Event) => { ev.preventDefault(); if (!adresse.value.trim()) { avis = 'Indique l\'adresse d\'Odin (ou clique sur un Odin trouvé).'; dessiner(); return; } avis = ''; await faire('connecter', { adresse: adresse.value.trim(), identifiant: ident.value, motdepasse: mdp.value, code: code.value }); };
-  return el('form', { class: 'connexion', onsubmit: (ev) => void envoyer(ev) },
-    el('h1', {}, 'Agora'), el('p', {}, 'Le store d\'Odin : connecte-toi avec ton compte Odin, et retrouve ici les applis auxquelles tu as droit.'),
-    info.trouves?.length ? el('div', { class: 'trouves' }, ...info.trouves.map((t) => el('button', { type: 'button', onclick: () => { adresse.value = t.adresse; } }, `${t.nom} · ${t.adresse}`))) : el('button', { class: 'lien', type: 'button', onclick: () => void faire('trouver') }, 'Chercher Odin sur le réseau'),
+  const info = e.connexionInfo ?? {};
+  if (!saisie.adresse) saisie.adresse = e.odin?.adresse ?? info.trouves?.[0]?.adresse ?? '';
+  const champ = (id: keyof typeof saisie, a: Attrs) => { const i = el('input', { id, name: id, value: saisie[id], ...a }) as HTMLInputElement; i.addEventListener('input', () => { saisie[id] = i.value; }); return i; };
+  const adresse = champ('adresse', { placeholder: 'https://192.168.1.10:7777', autocomplete: 'url', spellcheck: 'false' });
+  const ident = champ('identifiant', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }), mdp = champ('motdepasse', { type: 'password', autocomplete: 'current-password' });
+  const code = champ('code', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '7' });
+  const err = el('p', { class: 'err', role: 'alert' }, avis || info.erreur || '');
+  // Nos propres messages, en français, à la place de la bulle du navigateur (le formulaire est « novalidate »).
+  const manque = (i: HTMLInputElement, nom: string) => { err.textContent = `Remplis « ${nom} ».`; i.focus(); return true; };
+  const envoyer = async (ev: Event) => {
+    ev.preventDefault(); err.textContent = '';
+    if (!adresse.value.trim()) { err.textContent = 'Indique l\'adresse d\'Odin (ou clique sur un Odin trouvé).'; adresse.focus(); return; }
+    if (!ident.value.trim() && manque(ident, 'Identifiant ou e-mail')) return;
+    if (!mdp.value && manque(mdp, 'Mot de passe')) return;
+    if (info.codeRequis && !code.value.trim() && manque(code, 'Code de vérification')) return;
+    avis = ''; saisie.motdepasse = ''; saisie.code = '';
+    await faire('connecter', { adresse: adresse.value.trim(), identifiant: ident.value, motdepasse: mdp.value, code: code.value });
+  };
+  const navigateur = () => { if (!adresse.value.trim()) { err.textContent = 'Indique d\'abord l\'adresse d\'Odin (ou clique sur un Odin trouvé).'; adresse.focus(); return; } void faire('navigateur', { adresse: adresse.value.trim() }); };
+  return ecranEtoile(el('form', { class: 'connexion', novalidate: true, onsubmit: (ev) => void envoyer(ev) },
+    el('div', { class: 'titre' }, logo(56), el('h1', {}, 'Agora')), el('p', {}, 'Le store d\'Odin : connecte-toi avec ton compte Odin, et retrouve ici les applis auxquelles tu as droit.'),
+    info.trouves?.length ? el('div', { class: 'trouves' }, ...info.trouves.map((t) => el('button', { type: 'button', onclick: () => { adresse.value = t.adresse; saisie.adresse = t.adresse; } }, `${t.nom} · ${t.adresse}`))) : el('button', { class: 'lien', type: 'button', onclick: () => void faire('trouver') }, 'Chercher Odin sur le réseau'),
     el('label', { for: 'adresse' }, 'Adresse d\'Odin', adresse),
     el('label', { for: 'identifiant' }, 'Identifiant ou e-mail', ident),
     el('label', { for: 'motdepasse' }, 'Mot de passe', mdp),
     info.codeRequis ? el('label', { for: 'code' }, 'Code de vérification (appli d\'authentification)', code) : null,
-    info.erreur || avis ? el('p', { class: 'err', role: 'alert' }, avis || info.erreur || '') : null,
+    err,
     el('button', { class: 'bouton principal', type: 'submit' }, e.connexion === 'connexion' ? 'Connexion…' : 'Se connecter'),
-    el('button', { class: 'lien', type: 'button', onclick: () => { if (adresse.value.trim()) void faire('navigateur', { adresse: adresse.value.trim() }); } }, 'Se connecter avec le navigateur'),
-    el('p', { class: 'note' }, 'Ton mot de passe n\'est jamais gardé sur cet ordinateur : seule la session, chiffrée par le système.'));
+    el('button', { class: 'lien', type: 'button', onclick: navigateur }, 'Se connecter avec le navigateur'),
+    el('p', { class: 'note' }, 'Ton mot de passe n\'est jamais gardé sur cet ordinateur : seule la session, chiffrée par le système.')));
 }
+/** Avant la première réponse du moteur : le logo sur le ciel étoilé. */
+const ecranDemarrage = () => ecranEtoile(el('div', { class: 'centre', role: 'status', 'aria-label': 'Agora démarre' }, logo(104), el('p', {}, 'Agora démarre…')));
 
 function dessiner(): void {
   const racine = document.getElementById('appli')!; racine.replaceChildren();
-  const e = etat; if (!e) return;
+  const e = etat; if (!e) { racine.append(ecranDemarrage()); return; }
   if (e.connexion === 'aucune' || (e.connexion === 'connexion' && !e.personne)) { racine.append(ecranConnexion(e)); return; }
+  saisie.motdepasse = '';
   const maj = e.store.filter((l) => l.majDispo && l.installee && l.mode !== 'retiree');
   const nav = el('nav', { 'aria-label': 'Store' },
     el('div', { class: 'qui' }, el('span', { class: 'avatar', 'aria-hidden': 'true' }, (e.personne?.nom ?? '?').slice(0, 1).toUpperCase()), el('span', {}, el('b', {}, e.personne?.nom ?? ''), el('small', {}, `${(e.personne?.groupes ?? []).join(', ')}${e.personne?.groupes?.length ? ' · ' : ''}${e.enLigne ? 'Odin connecté' : 'hors ligne'}`))),
@@ -84,5 +114,6 @@ function dessiner(): void {
   racine.append(nav, el('main', {}, ...contenu));
 }
 
+dessiner();
 agora.surEtat((e) => { etat = e; dessiner(); });
 void agora.etat().then((e) => { etat = e; dessiner(); });
