@@ -3,16 +3,16 @@
 // détectée), infos, clés, déconnexion, révocation ; et le SSO du poste (connexion, poste, échange). Voir docs/sso-protocole.md.
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
 import type { ModCtx } from '../types.ts';
 import { checkPassword } from '../valgrind/proxy.ts';
 import { totp } from '../modules/brisingamen.ts';
 import { personaPage } from './registre.ts';
 import type { Accounts } from '../../web/account.ts';
-import { b64u, sha256, sha256hex, signer, signeur, verifier, type Signeur } from './jwt.ts';
+import { b64u, desceller, sceller, sha256, sha256hex, signer, signeur, verifier, type Signeur } from './jwt.ts';
 import {
-  ACCES_MIN, POSTE_INACTIF, POSTE_MAX, RENOUV_INACTIF, RENOUV_MAX, aDroit, applisDe, client, clients, lierProprietaire, messageRefus, nomAppli, noter, nouvelId,
+  ACCES_MIN, GRACE_RENOUV, POSTE_INACTIF, POSTE_MAX, RENOUV_INACTIF, RENOUV_MAX, aDroit, applisDe, client, clients, lierProprietaire, messageRefus, nomAppli, noter, nouvelId,
   parSub, persona, personnes, retourPermis, revoquerPoste, revoquerSession, sauverPostes, sauverSessions, sessionValide, sessionsApplis, sessionsPostes, trouver, vivante,
   type Appareil, type Client, type Personne, type SessionAppli,
 } from './etat.ts';
@@ -282,6 +282,13 @@ function authClient(c: Client, req: IncomingMessage, v: Record<string, string>):
   return Boolean(sec) && egal(sha256hex(sec), c.secret);
 }
 
+/** La réponse d'une rotation, chiffrée avec une clé tirée de l'ancien jeton (Odin ne garde que son SHA-256 : seul son porteur la rouvre). */
+const cleBoite = (ancien: string, sid: string) => Buffer.from(hkdfSync('sha256', ancien, 'odin-sso-tolerance-v1', sid, 32));
+function fermerBoite(r: Reponse, ancien: string, sid: string): string { return b64u(sceller(cleBoite(ancien, sid), Buffer.from(JSON.stringify(r)))); }
+function ouvrirBoite(boite: string, ancien: string, sid: string): Reponse | undefined {
+  try { const r = JSON.parse(desceller(cleBoite(ancien, sid), Buffer.from(boite, 'base64url')).toString('utf8')) as Reponse; return r?.refresh_token ? r : undefined; } catch { return undefined; }
+}
+
 async function jeton(ctx: ModCtx, req: IncomingMessage, res: ServerResponse, d: DepsSSO, iss: string): Promise<void> {
   const b = await lireCorps(req); if (!b.ok) return oauth(res, 400, 'invalid_request', 'Corps illisible.');
   const v = b.v, basicId = (() => { const x = /^Basic\s+(\S+)$/i.exec(s(req.headers.authorization))?.[1]; return x ? decodeURIComponent(Buffer.from(x, 'base64').toString('utf8').split(':')[0] ?? '') : ''; })();
@@ -310,18 +317,24 @@ async function jeton(ctx: ModCtx, req: IncomingMessage, res: ServerResponse, d: 
     const m = /^odr1\.([a-f0-9]{10})\.[A-Za-z0-9_-]{43}$/.exec(v.refresh_token ?? '');
     const all = sessionsApplis(ctx), x = m ? all.find((y) => y.id === m[1]) : undefined;
     if (!x || !vivante(x, RENOUV_INACTIF) || x.appli !== c.id) { d.fail(); return oauth(res, 400, 'invalid_grant', 'Cette connexion a été coupée ou elle a expiré : reconnecte-toi.'); }
-    const h = sha256hex(v.refresh_token);
-    if (!egal(h, x.h)) {
-      if (x.anciens.includes(h)) { revoquerSession(ctx, x.id); noter(ctx, { login: x.login, ip: d.ip, ok: false, why: `SSO ${c.nom} · jeton de renouvellement réutilisé (session coupée)` }); ctx.alert({ level: 'haute', title: `Connexion de ${x.login} à ${c.nom} coupée`, detail: `Un ancien jeton de renouvellement a été présenté depuis ${d.ip} : il a peut-être été volé. La session (${x.appareil.nom}) est coupée ; la personne doit se reconnecter.`, key: `sso-reuse-${x.id}` }); }
+    const h = sha256hex(v.refresh_token), memeAppareil = !x.appareil.id || (v.appareil ?? '') === x.appareil.id;
+    // Tolérance (60 s) : la réponse de la rotation précédente s'est perdue en route ; le même appareil représente l'ancien
+    // jeton → la MÊME réponse (même couple), jamais une seconde branche. Au-delà, ou d'un autre appareil : vol probable.
+    const rejeu = !egal(h, x.h) && x.grace && egal(h, x.grace.h) && Date.now() - x.grace.t <= GRACE_RENOUV && memeAppareil ? ouvrirBoite(x.grace.boite, v.refresh_token, x.id) : undefined;
+    if (!egal(h, x.h) && !rejeu) {
+      if (x.anciens.includes(h)) { revoquerSession(ctx, x.id); noter(ctx, { login: x.login, ip: d.ip, ok: false, why: `SSO ${c.nom} · jeton de renouvellement réutilisé (session coupée)` }); ctx.alert({ level: 'haute', title: `Connexion de ${x.login} à ${c.nom} coupée`, detail: `Un ancien jeton de renouvellement a été présenté depuis ${d.ip}${x.grace && egal(h, x.grace.h) ? ` ${Math.round((Date.now() - x.grace.t) / 1000)} s après son remplacement (tolérance : ${GRACE_RENOUV / 1000} s)` : ''} : il a peut-être été volé. La session (${x.appareil.nom}) est coupée ; la personne doit se reconnecter.`, key: `sso-reuse-${x.id}` }); }
       d.fail(); return oauth(res, 400, 'invalid_grant', 'Ce jeton de renouvellement a déjà servi : par prudence, la connexion est coupée. Reconnecte-toi.');
     }
-    if (x.appareil.id && (v.appareil ?? '') !== x.appareil.id) { d.fail(); return oauth(res, 400, 'invalid_grant', 'Ce jeton appartient à un autre appareil.'); }
+    if (!memeAppareil) { d.fail(); return oauth(res, 400, 'invalid_grant', 'Ce jeton appartient à un autre appareil.'); }
     if (x.poste) { const po = sessionsPostes(ctx).find((y) => y.id === x.poste); if (!po || !vivante(po, POSTE_INACTIF)) return oauth(res, 400, 'invalid_grant', 'La connexion de ce poste a été coupée : reconnecte-toi.'); }
     const p = parSub(ctx, x.sub); if (!p || !p.active) return oauth(res, 400, 'invalid_grant', 'Ce compte n\'est plus actif.');
     if (!aDroit(ctx, p, c.id)) return oauth(res, 403, 'access_denied', messageRefus(ctx, c.id));
+    if (rejeu) return json(res, 200, { ...rejeu, expires_in: Math.max(1, rejeu.expires_in - Math.floor((Date.now() - (x.grace?.t ?? Date.now())) / 1000)) });
     const secret = b64u(randomBytes(32)), nx: SessionAppli = { ...x, vu: Date.now(), h: sha256hex(`odr1.${x.id}.${secret}`), anciens: [...x.anciens, x.h].slice(-30) };
+    const r = jetons(ctx, p, c, nx, iss, undefined, secret, nx.cree);
+    nx.grace = { h, t: Date.now(), boite: fermerBoite(r, v.refresh_token, x.id) };
     sauverSessions(ctx, sessionsApplis(ctx).map((y) => (y.id === x.id ? nx : y)));
-    return json(res, 200, jetons(ctx, p, c, nx, iss, undefined, secret, nx.cree));
+    return json(res, 200, r);
   }
   return oauth(res, 400, 'unsupported_grant_type', 'grant_type : authorization_code ou refresh_token.');
 }
