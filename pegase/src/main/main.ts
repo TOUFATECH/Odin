@@ -351,6 +351,12 @@ class Pegase implements Appli {
         const pr = p.profil(); const n = { ...pr };
         if (arg?.nom) { n.nom = String(arg.nom).slice(0, 60); n.lettre = n.nom.trim().slice(0, 1).toUpperCase() || 'T'; }
         if (typeof arg?.couleur === 'number') n.couleur = arg.couleur % 8;
+        if (typeof arg?.photo === 'string') {
+          // Une petite image seulement (réduite par l'interface), jamais une adresse externe.
+          if (arg.photo === '') delete n.photo;
+          else if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(arg.photo) && arg.photo.length <= 400_000) n.photo = arg.photo;
+          else return { ok: false, texte: 'Image refusée (JPG, PNG ou WebP, petite taille).' };
+        }
         p.mettre('profil', n); this.ecrireListeProfils(); return;
       }
       case 'statsProfil': {

@@ -1,5 +1,6 @@
 // L'interface de Pégase : barre du haut, barre de côté, zone des pages, menus, barre de commande.
 import '@fontsource/ibm-plex-sans/latin-400.css';
+import { avatar } from './odin-visage';
 import '@fontsource/ibm-plex-sans/latin-500.css';
 import '@fontsource/ibm-plex-sans/latin-600.css';
 import '@fontsource/ibm-plex-sans/latin-700.css';
@@ -102,7 +103,7 @@ function haut(): string {
     <div class="d">
       ${E.prive ? '<span class="badge local lisible">Fenêtre privée</span>' : badgeSync}
       ${protege}
-      <button class="ib" data-a="menu" data-menu="profil" aria-label="Ton profil Odin"><span class="avatar c${E.profil.couleur % 8}" aria-hidden="true">${esc(E.profil.lettre)}</span></button>
+      <button class="ib" data-a="menu" data-menu="profil" aria-label="Ton profil Odin" title="${esc(E.profil.nom)}">${avatar(E.profil)}</button>
       <button class="ib" data-a="panneauOdin" aria-label="Odin sur le côté" aria-pressed="${E.panneauOdin}"><img src="${appIcone('valhalla')}" alt="" width="20" height="20"></button>
       <button class="ib" data-a="partagerNouveau" aria-label="Écran partagé" ${c ? '' : 'disabled'}>${I.partage()}</button>
       ${win ? `<button class="fen" data-a="fenetre" data-op="min" aria-label="Réduire">${I.min()}</button>
@@ -413,7 +414,7 @@ function menus(): string {
   if (m.type === 'pegase') {
     const t = E.reglages.theme;
     return `<div class="flottant" role="menu" aria-label="Menu de Pégase" data-ancre="gauche">
-      <div class="tete-menu"><span class="avatar c${E.profil.couleur % 8}">${esc(E.profil.lettre)}</span><div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.odin?.connecte ? 'Compte Odin · synchronisé' : 'Sur ce PC'}</div></div><button class="bouton" data-a="interne" data-page="profil">Changer</button></div>
+      <div class="tete-menu">${avatar(E.profil)}<div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.odin?.connecte ? 'Compte Odin · synchronisé' : 'Sur ce PC'}</div></div><button class="bouton" data-a="interne" data-page="profil">Changer</button></div>
       <div class="trio"><button data-a="commande" data-nouvel="1">Onglet<small>${raccourci('Ctrl+T')}</small></button><button data-a="fenetre" data-op="nouvelle">Fenêtre<small>${raccourci('Ctrl+N')}</small></button><button data-a="fenetre" data-op="privee">Privée<small>${raccourci('Ctrl+Maj+N')}</small></button></div>
       <div class="titre">Couleur du navigateur · ${NOMS_THEMES[t]}</div>
       <div class="nuancier" role="group" aria-label="Couleur du navigateur">${(['noir', 'blanc', 'bleu', 'rouge', 'transparent', 'glace'] as Theme[]).map((x) => `<button class="nuance n-${x}" data-a="theme" data-theme="${x}" aria-label="${NOMS_THEMES[x]}" title="${NOMS_THEMES[x]}" aria-pressed="${x === t && !E.reglages.themeAuto}"></button>`).join('')}<button class="nuance n-auto" data-a="theme" data-theme="auto" aria-label="Auto : suit le système" title="Auto" aria-pressed="${!!E.reglages.themeAuto}"></button></div>
@@ -511,7 +512,7 @@ function menus(): string {
   if (m.type === 'telechargements') return menuTelechargements();
   if (m.type === 'profil') {
     return `<div class="flottant" role="menu" aria-label="Ton profil" data-ancre="droite">
-      <div class="tete-menu"><span class="avatar c${E.profil.couleur % 8}">${esc(E.profil.lettre)}</span><div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.profil.email ? esc(E.profil.email) : 'Profil de ce PC'}</div></div></div>
+      <div class="tete-menu">${avatar(E.profil)}<div class="ellipse"><b>${esc(E.profil.nom)}</b><div class="petit doux">${E.profil.email ? esc(E.profil.email) : 'Profil de ce PC'}</div></div></div>
       ${item('interne', I.profil(18), 'Ton profil', '', '', 'data-page="profil"')}
       ${item('interne', I.reglages(), 'Synchro Odin', '', '', 'data-page="synchro"')}
       ${item('fenetre', I.oeil(), 'Fenêtre privée', '', 'Ctrl+Maj+N', 'data-op="privee"')}

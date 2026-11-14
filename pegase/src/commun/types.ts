@@ -54,7 +54,7 @@ export const REGLAGES_DEFAUT: Reglages = {
 
 export type EtatSynchro = { etat: 'local' | 'ok' | 'encours' | 'horsligne'; attente: number; odin?: string; derniere?: number };
 
-export interface Profil { id: string; nom: string; email?: string; couleur: number; lettre: string }
+export interface Profil { id: string; nom: string; email?: string; couleur: number; lettre: string; /** Photo choisie (image réduite, gardée sur ce PC) ; sans photo, c'est Odin qui s'affiche. */ photo?: string }
 
 /** L'écran à montrer avant le navigateur (démarrage, 1er lancement, connexion). */
 export type Ecran = 'demarrage' | 'odin' | 'compte' | 'sauvegarde' | 'connexion' | 'navigateur';
