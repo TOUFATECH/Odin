@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, statfsSync } from 'node:fs';
 import { cpus, loadavg, totalmem, freemem, uptime } from 'node:os';
 import type { Kpi, Module, ModCtx } from '../types.ts';
 import { cpuPct, DEFAULT_LIMITS, health, level, parseMem, parseNvidia, parsePs, parseSmart, parseStat, parseWho, toSeries, type Health, type Limits, type Lvl } from '../eir/collect.ts';
-import { PARAM_POSTE, posteDe, postesLisibles, type Poste } from '../postes.ts';
+import { choixDePoste, PARAM_POSTE, posteDe, type Poste } from '../postes.ts';
 import { metrics } from '../metrics.ts';
 
 const read = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return ''; } };
@@ -155,11 +155,29 @@ export const eir: Module = {
     } },
     { id: 'exporter', label: 'Exporter pour Prometheus', what: 'Les dernières valeurs au format Prometheus (pour Grafana ou un autre outil)', read: true, words: ['prometheus', 'exporter les mesures'], run: () => ({ text: metrics()?.prometheus() || 'Pas encore de mesures.' }) },
   ],
-  async view(ctx) {
-    const h = current(), mp = Math.round((h.mem.used / h.mem.total) * 100), lv = (v: number, k: string) => level(v, limits(ctx, k));
+  async view(ctx, q) {
+    const lv = (v: number, k: string) => level(v, limits(ctx, k)), P = choixDePoste(ctx, q);
+    // Un autre poste (Linux ou Mac) choisi dans « Sur quel poste ? » : son état, lu par SSH, sans rien y installer.
+    if (P.actuel) {
+      const poste = posteDe(ctx, P.actuel);
+      try {
+        const e = await etatDistant(poste), mpd = e.mem ? Math.round((e.mem.utilisee / e.mem.total) * 100) : undefined;
+        let psd: ReturnType<typeof parsePs> = [];
+        try { psd = parsePs((await poste.run('ps', ['-eo', 'pid,user,pcpu,pmem,rss,stat,time,args', '--sort', '-pcpu'], { timeoutMs: 20_000 })).out).slice(0, 12); } catch { /* « ps » ne connaît pas ces options sur ce système */ }
+        return {
+          postes: P,
+          subtitle: `${e.poste}${e.hote && e.hote !== e.poste ? ` (${e.hote})` : ''} · ${e.systeme}${e.noyau ? ` ${e.noyau}` : ''}${e.coeurs ? ` · ${e.coeurs} cœurs` : ''}${e.allumeDepuis ? ` · allumé depuis ${dur(e.allumeDepuis)}` : ''} · lu par SSH, rien n'est installé dessus`,
+          kpis: [...(e.cpu !== undefined ? [{ label: 'Processeur', value: `${e.cpu} %`, pct: e.cpu, tone: TONE[lv(e.cpu, 'cpu')] }] : []), ...(e.mem && mpd !== undefined ? [{ label: 'Mémoire', value: `${human(e.mem.utilisee)} / ${human(e.mem.total)}`, pct: mpd, tone: TONE[lv(mpd, 'mem')] }] : []), { label: 'Charge (1/5/15 min)', value: e.charge.map((x) => x.toFixed(1).replace('.', ',')).join(' · ') || '?' }],
+          sections: [psd.length ? { kind: 'table', title: `Processus de ${e.poste}`, columns: ['PID', 'Personne', 'Processeur', 'Mémoire', 'Commande'], rows: psd.map((p) => ({ cells: [String(p.pid), p.user, `${p.cpu} %`, human(p.rss), p.cmd] })) } : { kind: 'text', title: `Processus de ${e.poste}`, text: 'Ce poste ne donne pas la liste de ses processus de cette façon.' }],
+          side: [{ kind: 'bars', title: 'Disques (place)', items: e.disques.map((d) => ({ label: d.mount, value: d.pct, display: `${d.pct} % · ${human(d.libre)} libres` })) }],
+        };
+      } catch (err) { return { postes: P, subtitle: `${poste.nom} ne répond pas`, sections: [{ kind: 'text', title: `${poste.nom} ne répond pas`, tone: 'mauvais', text: `${(err as Error).message}. Vérifie qu'il est allumé et sur le même réseau, puis rouvre la page.` }] }; }
+    }
+    const h = current(), mp = Math.round((h.mem.used / h.mem.total) * 100);
     const ps = parsePs((await ctx.run('ps', ['-eo', 'pid,user,pcpu,pmem,rss,stat,time,args', '--sort', '-pcpu'])).out).slice(0, 12);
     const net = h.net.filter((n) => n.kind !== 'conteneurs');
     return {
+      postes: P,
       subtitle: `${h.host} · ${h.os} · ${h.cores} cœurs · allumée depuis ${dur(h.uptime)}${extra.who.length ? ` · ${extra.who.length} personne(s) connectée(s)` : ''}`,
       kpis: [
         { label: 'Processeur', value: `${h.cpu.total} %`, pct: h.cpu.total, tone: TONE[lv(h.cpu.total, 'cpu')] },
@@ -177,7 +195,6 @@ export const eir: Module = {
         ...(extra.who.length ? [{ kind: 'list' as const, title: 'Personnes connectées', items: extra.who.map((w) => ({ title: w.user, detail: `${w.tty}${w.from ? ` depuis ${w.from}` : ''}`, meta: w.since })) }] : []),
       ],
       side: [
-        ...(postesLisibles(ctx).length > 1 ? [{ kind: 'form' as const, title: 'Voir l\'état d\'un autre poste', action: 'etat', submit: 'Voir son état', params: [{ key: 'poste', label: 'Poste (Linux ou Mac, par SSH)', kind: 'select' as const, options: postesLisibles(ctx).slice(1).map((x) => x.nom), default: postesLisibles(ctx)[1].nom }] }] : []),
         { kind: 'bars', title: 'Disques (place)', items: h.fs.map((d) => ({ label: d.mount, value: Math.round(d.pct), display: `${d.pct} % · ${human(d.free)} libres` })) },
         { kind: 'list', title: 'Capteurs', items: h.sensors.map((x) => ({ title: x.label, meta: x.kind === 'temp' ? `${x.value} °C${x.crit ? ` (critique ${x.crit})` : ''}` : `${x.value} tr/min`, tone: x.kind === 'temp' ? TONE[lv(x.value, 'temp')] : undefined })), empty: 'Pas de capteur lisible.' },
         ...(h.batteries.length ? [{ kind: 'list' as const, title: 'Batterie', items: h.batteries.map((b) => ({ title: b.name, meta: `${b.pct} % · ${b.status}`, tone: b.pct < 15 ? 'mauvais' as const : undefined })) }] : []),

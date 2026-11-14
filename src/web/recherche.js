@@ -171,7 +171,7 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
       if (audio) { audio.play(); return; }
       play.disabled = true; t.textContent = 'Préparation de la voix…';
       try {
-        const r = await fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text: e.answer.replace(/\[\d{1,2}\]/g, '').replace(/\*\*/g, '').slice(0, 4000) }) });
+        const r = await fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text: e.answer.replace(/\s*\[\d{1,2}\]/g, '').replace(/\*\*/g, '').slice(0, 4000) }) });
         if (!/^audio\//.test(r.headers.get('content-type') ?? '')) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'voix indisponible'); }
         audio = new Audio(URL.createObjectURL(await r.blob()));
         audio.ontimeupdate = () => { const k = Math.round((audio.currentTime / (audio.duration || 1)) * bars.length); bars.forEach((b, i) => b.classList.toggle('on', i < k)); t.textContent = `${Math.floor(audio.currentTime / 60)}:${String(Math.floor(audio.currentTime % 60)).padStart(2, '0')} · voix d'Odin`; };
