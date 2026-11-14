@@ -2205,7 +2205,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   function addMsg(role, text, model) {
     activity?.classList.add('done'); activity = null;
-    if (role === 'user') text = String(text).replace(/\n*\[page : [^\]\n]*\]\s*$/, '');
+    if (role === 'user') text = String(text).replace(/\n*\[Plume, le correcteur d'Odin[\s\S]*$/, '').replace(/\n*\[page : [^\]\n]*\]\s*$/, '');
     const m = text.match(/\/yes ([A-Za-z0-9]+)/);
     // Ancien chemin (historique rechargé) : le message texte sert de secours quand aucune carte n'existe déjà.
     if (role === 'assistant' && m && /validation|GRAVE/i.test(text)) { if (cards.has(m[1])) return; return addApproval(text, m[1]); }
@@ -4936,5 +4936,6 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/guide.js"></script>
 <script nonce="__NONCE__" src="/evolution.js"></script>
 <script nonce="__NONCE__" src="/brain.js"></script>
+<script nonce="__NONCE__" src="/plume.js"></script>
 </body>
 </html>

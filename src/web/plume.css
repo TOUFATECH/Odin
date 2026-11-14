@@ -1,0 +1,149 @@
+/* Plume partout — les soulignements, le compteur, la petite fenêtre, « Tout voir », « Modifier », le message
+   « désactivé » (maquettes Plume, PlumeTout, PlumeOff, PlumeTel validées le 14/11/2026).
+   Couleurs de Plume : violet #8E14C4, fond #F6ECFD, bord #E9D3FA. Rouge : orthographe et frappe ; bleu : grammaire.
+   Dans Odin, ces règles s'appliquent sous .plm-racine (et la carte des réglages) ; dans Pégase, dans un Shadow DOM fermé. */
+
+.plm-racine { position: fixed; left: 0; top: 0; width: 0; height: 0; overflow: visible; z-index: 2147483000; pointer-events: none; }
+.plm-racine, .plm-racine * { box-sizing: border-box; }
+.plm-racine button { font: inherit; margin: 0; cursor: pointer; text-transform: none; letter-spacing: normal; box-shadow: none; }
+.plm-racine button:focus-visible, .plm-racine input:focus-visible { outline: 2px solid #8E14C4; outline-offset: 2px; }
+
+/* Le miroir du champ : le même texte, transparent, avec les vagues sous les fautes. */
+.plm-miroir { position: fixed; overflow: hidden; pointer-events: none; color: transparent !important; background: transparent; border-style: solid; border-color: transparent; margin: 0; z-index: 1; }
+.plm-mi { position: relative; color: transparent; }
+.plm-s { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-thickness: 1.5px; text-underline-offset: 4px; text-decoration-skip-ink: none; }
+.plm-rouge { text-decoration-color: #DC2626; }
+.plm-bleu { text-decoration-color: #2563EB; }
+
+/* Le compteur dans le champ : il ouvre « Tout voir ». */
+.plm-puce { position: fixed; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px 0 4px; border-radius: 15px; border: 0; background: #F6ECFD; color: #8E14C4; font: 600 13px/1 'IBM Plex Sans', system-ui, sans-serif; white-space: nowrap; box-shadow: 0 1px 3px rgba(60,10,90,.16); }
+.plm-puce:hover { background: #EEDDFB; }
+.plm-tel .plm-puce { height: 40px; border-radius: 20px; padding: 0 12px 0 8px; }
+
+/* Les icônes de Plume (tuile de l'appli). */
+.plm-ic { display: inline-grid; place-items: center; flex: none; }
+.plm-ic svg { display: block; }
+
+/* La petite fenêtre pointée sur le mot. */
+.plm-pop { position: fixed; z-index: 3; pointer-events: auto; width: 410px; max-width: calc(100vw - 16px); border-radius: 16px; background: #FFFFFF; border: 1px solid #E9D3FA; box-shadow: 0 18px 50px rgba(60,10,90,.22), 0 2px 6px rgba(60,10,90,.08); color: #1B1530; font: 400 15px/1.5 'IBM Plex Sans', system-ui, sans-serif; text-align: left; }
+.plm-fleche { position: absolute; left: 28px; bottom: -7px; width: 14px; height: 14px; background: #FFFFFF; border-right: 1px solid #E9D3FA; border-bottom: 1px solid #E9D3FA; transform: rotate(45deg); }
+.plm-pop.plm-dessous .plm-fleche { bottom: auto; top: -7px; transform: rotate(225deg); }
+.plm-tete { display: flex; align-items: center; gap: 8px; padding: 12px 14px 0; min-width: 0; }
+.plm-tete b { font-size: 13.5px; font-weight: 700; }
+.plm-genre { height: 22px; padding: 0 8px; border-radius: 11px; background: #F6ECFD; color: #8E14C4; font-size: 12px; font-weight: 600; display: flex; align-items: center; white-space: nowrap; }
+.plm-genre.plm-g-grammaire { background: #EAF1FE; color: #1D4ED8; }
+.plm-vide { flex: 1; min-width: 0; }
+.plm-rang { font-size: 12px; color: #5B5470; white-space: nowrap; }
+.plm-change { padding: 10px 14px 4px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.plm-change s { color: #8A8399; font-size: 15px; overflow-wrap: anywhere; }
+.plm-change .plm-vers { font-size: 20px; font-weight: 700; color: #14532D; overflow-wrap: anywhere; }
+.plm-change svg { flex: none; align-self: center; }
+.plm-raison { margin: 0; padding: 0 14px 12px; font-size: 13px; color: #5B5470; overflow-wrap: anywhere; }
+.plm-pied { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-top: 1px solid #F0E8F7; flex-wrap: nowrap; }
+.plm-pied .plm-vide { flex: 1 1 0; min-width: 0; }
+.plm-b { min-height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid #CFC6DA; background: #FFFFFF; color: #1B1530; font-size: 14px; font-weight: 400; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.plm-b:hover { background: #FAF7FD; }
+.plm-b.plm-p { border: 0; background: #8E14C4; color: #FFFFFF; font-weight: 600; padding: 0 13px; }
+.plm-b.plm-p:hover { background: #7A0FAA; }
+.plm-b.plm-lien { border: 0; background: transparent; color: #8E14C4; font-weight: 500; padding: 0 10px; }
+.plm-b.plm-lien:hover { background: #F6ECFD; }
+.plm-b.plm-off { border: 0; background: #F7F5FA; color: #6B6280; font-size: 13px; padding: 0 10px; }
+.plm-b.plm-off:hover { background: #EEEAF4; }
+.plm-b.plm-doux { border: 0; background: transparent; color: #6B6280; }
+.plm-b.plm-doux:hover { background: #F7F5FA; }
+.plm-b[disabled] { opacity: .45; cursor: default; }
+
+/* Téléphone : posée au-dessus du clavier, quatre boutons de 44 px. */
+.plm-tel .plm-pop { width: auto; border-radius: 16px; box-shadow: 0 12px 30px rgba(60,10,90,.18); padding: 12px; }
+.plm-tel .plm-pop .plm-fleche { display: none; }
+.plm-tel .plm-pop .plm-tete { padding: 0; }
+.plm-tel .plm-pop .plm-change { padding: 8px 0 2px; }
+.plm-tel .plm-pop .plm-raison { padding: 0 0 8px; }
+.plm-tel .plm-pop .plm-pied { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 8px 0 0; border-top: 0; }
+.plm-tel .plm-pop .plm-pied .plm-vide { display: none; }
+.plm-tel .plm-b { min-height: 44px; padding: 0 6px; font-size: 13.5px; }
+.plm-tel .plm-pop .plm-pied .plm-b.plm-lien { background: #F6ECFD; }
+.plm-tel .plm-pop .plm-pied .plm-b { overflow: hidden; text-overflow: ellipsis; }
+
+/* Modifier à la main. */
+.plm-modif { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.plm-modif .plm-tete { padding: 0; }
+.plm-modif label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #5B5470; }
+.plm-modif input { min-height: 44px; width: 100%; padding: 0 12px; border-radius: 10px; border: 2px solid #8E14C4; background: #FFFFFF; color: #1B1530; font: 400 16px 'IBM Plex Sans', system-ui, sans-serif; outline: none; }
+.plm-idees { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; }
+.plm-idees span { color: #5B5470; }
+.plm-idee { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 99px; background: #F6ECFD; color: #8E14C4; border: 1px solid #E9D3FA; font-size: 13px; font-weight: 500; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+.plm-tel .plm-idee { min-height: 40px; }
+.plm-fin { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.plm-garder { align-self: flex-start; border: 0; background: transparent; color: #6B6280; font-size: 13px; padding: 4px 0; min-height: 32px; text-decoration: underline; text-underline-offset: 3px; }
+.plm-tel .plm-garder { min-height: 44px; }
+
+/* Tout voir. */
+.plm-tout { position: fixed; z-index: 4; pointer-events: auto; width: 560px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; border-radius: 18px; background: #FFFFFF; border: 1px solid #E9D3FA; box-shadow: 0 24px 60px rgba(60,10,90,.2); overflow: hidden; color: #1B1530; font: 400 15px/1.5 'IBM Plex Sans', system-ui, sans-serif; text-align: left; }
+.plm-tout-tete { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: #F6ECFD; flex: none; }
+.plm-tout-tete h2 { flex: 1; min-width: 0; margin: 0; font-size: 17px; font-weight: 700; color: #1B1530; overflow-wrap: anywhere; }
+.plm-fermer { width: 40px; height: 40px; border: 0; border-radius: 9px; background: transparent; color: #1B1530; display: grid; place-items: center; flex: none; }
+.plm-fermer:hover { background: rgba(142,20,196,.1); }
+.plm-liste { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.plm-rangee { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 16px; border-top: 1px solid #F0E8F7; }
+.plm-point { width: 10px; height: 10px; flex: none; border-radius: 5px; background: #DC2626; }
+.plm-point.plm-bleu-p { background: #2563EB; }
+.plm-quoi { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.plm-quoi > span:first-child { overflow-wrap: anywhere; }
+.plm-quoi s { color: #8A8399; }
+.plm-quoi b { color: #14532D; font-weight: 700; }
+.plm-quoi .plm-pourquoi { font-size: 12.5px; color: #5B5470; overflow-wrap: anywhere; }
+.plm-rangee .plm-b { min-height: 36px; font-size: 13.5px; padding: 0 10px; }
+.plm-rangee .plm-b.plm-p { padding: 0 12px; }
+.plm-boutons { display: flex; gap: 6px; flex: none; }
+.plm-tout-pied { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-top: 1px solid #F0E8F7; background: #FCFAFE; flex: none; flex-wrap: wrap; }
+.plm-tout-pied .plm-b { min-height: 40px; }
+.plm-rien { padding: 18px 16px; color: #5B5470; font-size: 14px; border-top: 1px solid #F0E8F7; }
+.plm-tel .plm-tout { border-radius: 18px; }
+.plm-tel .plm-rangee { flex-wrap: wrap; gap: 8px 12px; }
+.plm-tel .plm-boutons { width: 100%; padding-left: 22px; }
+.plm-tel .plm-boutons .plm-b, .plm-tel .plm-tout-pied .plm-b { min-height: 44px; flex: 1 1 0; }
+.plm-tel .plm-tout-pied .plm-vide { display: none; }
+
+/* « Plume est désactivé partout ». */
+.plm-note { position: fixed; z-index: 5; pointer-events: auto; width: 420px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; background: #1B1530; color: #FFFFFF; box-shadow: 0 18px 50px rgba(0,0,0,.25); font: 400 15px/1.5 'IBM Plex Sans', system-ui, sans-serif; text-align: left; }
+.plm-note-t { display: flex; align-items: center; gap: 10px; }
+.plm-note-t b { font-weight: 700; }
+.plm-note p { margin: 0; font-size: 14px; color: #E9E4F2; }
+.plm-note .plm-fin { justify-content: flex-start; }
+.plm-note .plm-b { border: 1px solid rgba(255,255,255,.35); background: transparent; color: #FFFFFF; }
+.plm-note .plm-b:hover { background: rgba(255,255,255,.08); }
+.plm-note .plm-b.plm-blanc { border: 0; background: #FFFFFF; color: #1B1530; font-weight: 600; padding: 0 14px; }
+.plm-tel .plm-note .plm-b { min-height: 44px; }
+
+/* Réglages → Plume (carte dans la page des réglages d'Odin, en dehors de .plm-racine). */
+.plm-reglages { padding: 0 !important; overflow: hidden; }
+.plm-reglages * { box-sizing: border-box; }
+.plm-r-tete { display: flex; align-items: center; gap: 12px; padding: 16px; }
+.plm-r-tete h2 { margin: 0 !important; font-size: 22px; }
+.plm-r-etat { font-size: 14px; color: var(--muted, #3E5B5E); }
+.plm-r-etat.plm-r-coupe { color: #9A3412; }
+:root[data-theme=sombre] .plm-r-etat.plm-r-coupe, :root[data-theme=dark] .plm-r-etat.plm-r-coupe { color: #FDBA74; }
+.plm-r-ligne { display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 8px 16px; border-top: 1px solid var(--line, #E1EEEF); cursor: pointer; margin: 0; }
+.plm-r-ligne > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.plm-r-ligne b { font-weight: 600; }
+.plm-r-ligne small { font-size: 13.5px; color: var(--muted, #3E5B5E); }
+.plm-r-ligne.plm-r-grise { opacity: .55; }
+.plm-inter { appearance: none; -webkit-appearance: none; width: 44px; height: 24px; flex: none; border-radius: 12px; background: #CFC6DA; position: relative; margin: 0; cursor: pointer; transition: background .15s; border: 0; }
+.plm-inter::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 9px; background: #FFFFFF; transition: left .15s; }
+.plm-inter:checked { background: #8E14C4; }
+.plm-inter:checked::after { left: 23px; }
+.plm-inter:focus-visible { outline: 2px solid #8E14C4; outline-offset: 2px; }
+.plm-r-titre { padding: 10px 16px 4px; font-size: 13px; font-weight: 600; color: var(--muted, #3E5B5E); border-top: 1px solid var(--line, #E1EEEF); }
+.plm-r-pastilles { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--line, #E1EEEF); align-items: center; }
+.plm-r-pastille { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border-radius: 99px; background: var(--panel2, #E9F9FA); color: var(--ink, #10363A); border: 1px solid var(--line, #C2DFE1); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; }
+button.plm-r-pastille { cursor: pointer; }
+.plm-r-pastille select { font: inherit; border: 0; background: transparent; color: inherit; min-height: 30px; }
+.plm-r-dico { padding: 4px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+.plm-r-dico[hidden] { display: none; }
+.plm-r-mots { display: flex; flex-wrap: wrap; gap: 6px; }
+.plm-r-mot { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 4px 0 10px; border-radius: 99px; background: #F6ECFD; color: #8E14C4; border: 1px solid #E9D3FA; font-size: 13px; max-width: 100%; overflow-wrap: anywhere; }
+.plm-r-mot button { border: 0; background: transparent; color: inherit; width: 28px; height: 28px; border-radius: 14px; cursor: pointer; font-size: 15px; line-height: 1; }
+.plm-r-ajout { display: flex; gap: 8px; flex-wrap: wrap; }
+.plm-r-ajout input { flex: 1 1 180px; min-width: 0; min-height: 40px; }
+.plm-r-statut { padding: 0 16px 14px; font-size: 13px; color: var(--muted, #3E5B5E); min-height: 1em; }

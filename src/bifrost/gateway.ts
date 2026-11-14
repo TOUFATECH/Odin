@@ -383,8 +383,10 @@ export class Gateway {
     // Vocal dans une autre langue : Odin répond dans cette langue (texte et voix).
     const lang = m.voice ? spokenLanguage(m.text) : undefined;
     const langHint = lang && lang !== 'fr' ? `\n\n[Précision d'Odin pour lui-même : il t'a parlé en ${LANG_NAME[lang] ?? lang} (${lang}) ; réponds en ${LANG_NAME[lang] ?? lang}.]` : '';
+    // Plume (le correcteur d'Odin) relit d'abord ce qu'on demande de corriger, s'il est activé pour l'IA (sinon rien n'est appelé).
+    const plume = owner ? await import('../valhalla/snotra/partout.ts').then((p) => p.indiceIA(m.text, this.odin.paths.workspace)).catch(() => '') : '';
     try {
-      const r = await this.odin.agent.run(m.text + langHint, {
+      const r = await this.odin.agent.run(m.text + langHint + plume, {
         // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
         sessionId, channel: m.channel, peer: m.peer, trusted: owner || speaker?.role === 'member', signal: ctrl.signal, speaker,
         withoutAi: m.voice === true && this.odin.cfg.voice.brain === 'sans-ia',

@@ -4,7 +4,7 @@
 // Les autres applis l'appellent par `ctx.call('snotra', 'corriger', { texte })`.
 
 /** Une faute : où (en caractères), quoi, et les remplacements proposés (le premier est le meilleur). */
-export interface Faute { debut: number; longueur: number; message: string; suggestions: string[]; regle: string; extrait: string }
+export interface Faute { debut: number; longueur: number; message: string; suggestions: string[]; regle: string; extrait: string; /** LanguageTool : le genre de faute (misspelling, grammar, typographical, style…) */ categorie?: string }
 export interface Correction { moteur: 'maison' | 'LanguageTool'; fautes: Faute[]; corrige: string }
 
 const NBSP = ' ', NNBSP = ' ';
@@ -91,9 +91,9 @@ export function appliquer(texte: string, fautes: Faute[]): string {
 export function lireLanguageTool(texte: string, j: unknown): Faute[] {
   const ms = (j as { matches?: unknown[] })?.matches; if (!Array.isArray(ms)) throw new Error('réponse de LanguageTool illisible');
   return ms.map((x) => {
-    const o = x as { offset?: number; length?: number; message?: string; shortMessage?: string; replacements?: Array<{ value?: string }>; rule?: { id?: string } };
+    const o = x as { offset?: number; length?: number; message?: string; shortMessage?: string; replacements?: Array<{ value?: string }>; rule?: { id?: string; issueType?: string; category?: { id?: string } } };
     const debut = Math.max(0, Number(o.offset) || 0), longueur = Math.max(0, Number(o.length) || 0);
-    return { debut, longueur, message: String(o.message || o.shortMessage || 'À vérifier').slice(0, 300), suggestions: (o.replacements ?? []).slice(0, 5).map((r) => String(r.value ?? '')).filter((r) => r.length < 200), regle: String(o.rule?.id ?? 'LANGUAGETOOL').slice(0, 80), extrait: extrait(texte, debut, longueur) };
+    return { debut, longueur, message: String(o.message || o.shortMessage || 'À vérifier').slice(0, 300), suggestions: (o.replacements ?? []).slice(0, 5).map((r) => String(r.value ?? '')).filter((r) => r.length < 200), regle: String(o.rule?.id ?? 'LANGUAGETOOL').slice(0, 80), extrait: extrait(texte, debut, longueur), ...(o.rule?.issueType || o.rule?.category?.id ? { categorie: `${o.rule?.issueType ?? ''} ${o.rule?.category?.id ?? ''}`.trim() } : {}) };
   }).filter((x) => x.debut + x.longueur <= texte.length);
 }
 

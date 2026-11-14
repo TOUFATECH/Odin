@@ -9,6 +9,7 @@ import { basename, extname, join, resolve, sep } from 'node:path';
 import { unzip, zip } from '../../files/zip.ts';
 import type { Kpi, ModCtx, Module } from '../types.ts';
 import { ACTIONS_PLUME, retraitExport, sectionsPlume } from '../snotra/actions.ts';
+import { brancherPlume } from '../snotra/partout.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
@@ -292,4 +293,7 @@ export const snotra: Module & { similaires: string[] } = {
     };
   },
   retrait: (ctx, ref) => retraitExport(ctx, ref),
+  // Plume partout (le correcteur pendant qu'on écrit) : les routes /api/plume/* et l'IA lisent le réglage par ce contexte.
+  start: (ctx) => brancherPlume(ctx),
+  stop: () => brancherPlume(undefined),
 };

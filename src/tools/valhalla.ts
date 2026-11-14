@@ -8,6 +8,7 @@ import { valhallaOf } from '../valhalla/odin.ts';
 import type { Valhalla } from '../valhalla/service.ts';
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { obj, str, type Tool, type ToolResult } from './registry.ts';
+import { plumePourIA, REFUS_IA } from '../valhalla/snotra/partout.ts';
 
 const s = (v: unknown) => String(v ?? '');
 const parse = (v: unknown): Record<string, unknown> => { if (v && typeof v === 'object') return v as Record<string, unknown>; const t = s(v).trim(); if (!t) return {}; try { return JSON.parse(t) as Record<string, unknown>; } catch { throw new Error('entree : JSON attendu'); } };
@@ -68,6 +69,7 @@ export const valhallaTool: Tool = {
       const u = await understand(v, s(i.besoin), ctx?.sessionId ?? 'principal');
       if (!u) return '';
       if (u.kind === 'say' || u.kind === 'ask') return u.text;
+      if (u.kind === 'action' && u.module === 'snotra' && u.action === 'corriger' && !plumePourIA(v)) return REFUS_IA; // Plume coupé : l'IA ne s'en sert pas
       if (u.kind === 'action' && u.read) { const r = await v.act(u.module, u.action, u.input, { auto: true }); return foreign(v.action(u.module, u.action)?.a.external, v.module(u.module)?.name ?? u.module, `${u.label}\n${r.text}`); }
       return advise(v, s(i.besoin));
     }
@@ -81,6 +83,7 @@ export const valhallaTool: Tool = {
     }
     // Qui agit ? Toi quand tu le demandes dans une discussion ; Odin de lui-même dans une tâche sans surveillance
     // (veille, tâche planifiée, mission) : là, l'action est notée comme une manip (garder / annuler).
+    if (a === 'action' && m.id === 'snotra' && s(i.quoi) === 'corriger' && !plumePourIA(v)) return REFUS_IA; // Plume coupé : l'IA ne s'en sert pas
     if (a === 'action') { const alone = /^(auto|breaker|journal|cron|mission):/.test(ctx?.sessionId ?? ''); const r = await v.act(m.id, s(i.quoi), parse(i.entree), alone ? { by: 'odin', why: 'pendant une tâche sans surveillance' } : {}); return foreign(v.action(m.id, s(i.quoi))?.a.external, m.name, r.text); }
     return 'Action inconnue.';
   },
