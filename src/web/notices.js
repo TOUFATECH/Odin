@@ -267,7 +267,76 @@
     api('/api/valhalla/act', { module: 'ullr', action: 'etat', input: {} }).then((r) => { if (r?.ok) st.ullr.textContent = String(r.text).split('\n')[0].replace(/^[^\p{L}\d]+/u, '').slice(0, 90); }).catch(() => {});
     return el('div', { class: 'ot-prot' }, el('small', {}, 'Qui te protège'), row('ullr', 'Asclépios'), row('skogul', 'Némésis'), seg, list);
   }
-  function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; talk._list = false; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); later = null; badge(); }
+  // ---------- Deux touchers : Odin t'écoute tout de suite (le micro de la petite fenêtre) ----------
+  function listen() {
+    talkTo(null);
+    const mic = talk.querySelector('.ot-mic'); if (!mic) return;
+    eveilPause(true);
+    const bud = document.getElementById('buddyRoam'); if (bud) window.OdinFace?.flash(bud, 'ecoute', 2500);
+    window.OdinFace?.sound?.('hop');
+    setTimeout(() => { if (!mic._r) mic.click(); }, 60);
+  }
+  // ---------- Trois touchers : « Avec quelle IA veux-tu parler ? » (les IA branchées sur Odin) ----------
+  async function chooseAI() {
+    build(); clearTimeout(hideT); bubble.hidden = true;
+    const list = el('div', { class: 'ot-list' }, el('p', { class: 'ot-d' }, 'Je regarde quelles IA sont branchées…'));
+    talk._list = false;
+    talk.replaceChildren(el('div', { class: 'ot-h' }, el('span', { class: 'ot-dot', style: `background:${TONE.fierte[2]}`, 'aria-hidden': 'true' }), el('b', {}, 'Avec quelle IA veux-tu parler ?'), el('button', { type: 'button', class: 'ot-x', 'aria-label': 'Fermer', on: { click: () => closeTalk() } }, '×')), list, ttail);
+    talk.hidden = false; follow(); window.OdinCompanion?.pin?.(60_000);
+    const bud = document.getElementById('buddyRoam'); if (bud) window.OdinFace?.flash(bud, 'joie', 1500);
+    let r; try { r = await api('/api/ias'); } catch { r = null; }
+    if (!r?.ok) { list.replaceChildren(el('p', { class: 'ot-d' }, 'Je n\'arrive pas à lire la liste des IA.')); return; }
+    const pick = async (name, label) => {
+      const a = await api('/api/action', { kind: 'ia_choisir', name }).catch(() => null);
+      if (!a?.ok) { list.append(el('p', { class: 'ot-d' }, `✗ ${a?.error ?? 'échec'}`)); return; }
+      talkTo(null);
+      const tb = talk.querySelector('.ot-h b'); if (tb && !unread().length) tb.textContent = name ? `Tu parles à ${label}` : 'Que veux-tu ?';
+      const out = talk.querySelector('.ot-d'); if (out) { out.hidden = false; out.textContent = name ? `C'est parti : tu parles à ${label}. Je lui transmets ce que tu dis.` : 'D\'accord : je choisis l\'IA la mieux adaptée à chaque question.'; }
+      follow();
+    };
+    const row = (name, label, sub, on) => el('div', { class: 'ot-it', role: 'button', tabindex: '0', 'aria-pressed': String(on), on: { click: () => void pick(name, label), keydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); void pick(name, label); } } } },
+      el('i', { style: `background:${on ? '#34c77b' : '#5a6fdb'}`, 'aria-hidden': 'true' }), el('b', {}, label, el('small', {}, sub)), on ? el('time', {}, 'choisie') : null);
+    const T = { local: 'sur ta machine', standard: 'connectée', strong: 'connectée · la plus capable' };
+    list.replaceChildren(
+      row('', 'Automatique', 'Odin choisit la mieux adaptée à chaque question', !r.choisie),
+      ...r.ias.map((x) => row(x.name, x.label, T[x.tier] ?? 'connectée', r.choisie === x.name)),
+      el('div', { class: 'ot-acts' }, el('button', { type: 'button', on: { click: () => { closeTalk(); location.hash = '#settings'; } } }, 'Connecter une autre IA')));
+    follow();
+  }
+  // ---------- Le mot d'éveil « Odin » : dis « Odin », il t'écoute et répond (réglage de cet appareil) ----------
+  const EVEIL = 'odin-eveil';
+  let eveilR = null, eveilOn = false, eveilHold = false;
+  try { eveilOn = localStorage.getItem(EVEIL) === '1'; } catch { /* */ }
+  function eveilStart() {
+    if (!SR || !eveilOn || eveilR || eveilHold || document.hidden) return;
+    const r = new SR(); r.lang = 'fr-FR'; r.continuous = true; r.interimResults = false; eveilR = r;
+    r.onresult = (ev) => {
+      for (let k = ev.resultIndex; k < ev.results.length; k++) {
+        if (!ev.results[k].isFinal) continue;
+        const m = /\b(?:odin|audin|odine)\b[\s,.:!?]*(.*)$/i.exec(ev.results[k][0].transcript.trim()); if (!m) continue;
+        const q = m[1].trim(), bud = document.getElementById('buddyRoam');
+        if (bud) window.OdinFace?.flash(bud, 'surprise', 1200); window.OdinFace?.sound?.('hop');
+        eveilPause(true);
+        if (q.length > 2) { talkTo(null); const f = talk.querySelector('form'), i = talk.querySelector('input'); if (f && i) { i.value = q; f.requestSubmit(); } }
+        else listen();
+        return;
+      }
+    };
+    r.onend = () => { eveilR = null; if (eveilOn && !eveilHold) setTimeout(eveilStart, 600); };
+    r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { eveilOn = false; try { localStorage.setItem(EVEIL, '0'); } catch { /* */ } } };
+    try { r.start(); } catch { eveilR = null; }
+  }
+  /** Le micro de la petite fenêtre et le mot d'éveil ne peuvent pas écouter en même temps : l'éveil attend. */
+  function eveilPause(on) { eveilHold = on; if (on) { try { eveilR?.abort(); } catch { /* */ } eveilR = null; } else setTimeout(eveilStart, 800); }
+  /** Lire (sans argument) ou régler le mot d'éveil. */
+  function eveil(on) {
+    if (on === undefined) return eveilOn;
+    eveilOn = Boolean(on) && Boolean(SR); try { localStorage.setItem(EVEIL, eveilOn ? '1' : '0'); } catch { /* */ }
+    if (eveilOn) eveilStart(); else { try { eveilR?.abort(); } catch { /* */ } eveilR = null; }
+    return eveilOn;
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { try { eveilR?.abort(); } catch { /* */ } eveilR = null; } else eveilStart(); });
+  function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; talk._list = false; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); later = null; badge(); try { talk.querySelector('.ot-mic')?._r?.stop(); } catch { /* */ } if (eveilHold) eveilPause(false); }
   /** La réponse d'Odin arrive : elle s'affiche dans la petite fenêtre (et Odin la dit si la voix est activée). */
   function reply(text) {
     if (!talk || talk.hidden || !waiting) return false; waiting = false;
@@ -330,8 +399,8 @@
       saveLues(); badge(true); setAlarm(unread().some((x) => x.level === 'grave'));
     } catch { /* pas connecté : rien */ }
   }
-  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };
+  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), listen, chooseAI, eveil, closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };
   addEventListener('resize', follow);
-  const start = () => setTimeout(boot, 1200);
+  const start = () => { setTimeout(boot, 1200); setTimeout(eveilStart, 2500); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

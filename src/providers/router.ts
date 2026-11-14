@@ -72,6 +72,8 @@ export interface CompleteOptions {
   prefer?: string[];
   /** Fournisseurs à éviter (vérification croisée : un autre avis). */
   exclude?: string[];
+  /** L'IA choisie par l'utilisateur (trois touchers sur Odin) : essayée en premier, quel que soit son palier. */
+  first?: string;
   /** Besoin de la tâche (code, web, maison…) : à palier égal, le modèle dont c'est la spécialité passe devant. */
   need?: string;
   /** La demande contient des images : seuls les modèles qui voient sont essayés. */
@@ -184,7 +186,8 @@ export class Router {
       .filter((r) => !(isPrivate && r.cfg.personal === false))
       .map((r, i) => ({ r, i }))
       .sort((a, b) => Number(Boolean(a.r.cfg.fallbackOnly)) - Number(Boolean(b.r.cfg.fallbackOnly)) || rank(a.r) - rank(b.r) || weak(a.r) - weak(b.r) || (o.cheapest ? fit(a.r) - fit(b.r) || price(a.r, b.r) || pref(a.r) - pref(b.r) : pref(a.r) - pref(b.r) || fit(a.r) - fit(b.r)) || a.i - b.i)
-      .map((x) => x.r);
+      .map((x) => x.r)
+      .sort((a, b) => Number(b.provider.name === o.first) - Number(a.provider.name === o.first));
   }
 
   /** Pourquoi ce modèle passe en premier pour cette demande (en clair, pour le journal). */
@@ -193,7 +196,8 @@ export class Router {
     const tier = tierOf(route.cfg), min = o.minTier ?? 'standard';
     const TXT: Record<Tier, string> = { local: 'simple', standard: 'ordinaire', strong: 'complexe' };
     parts.push(tier === min ? `tâche ${TXT[min]} → modèle ${tier === 'local' ? 'local' : tier === 'strong' ? 'le plus capable' : 'standard'}` : `palier ${tier} (demandé : ${min})`);
-    if (o.prefer?.[0] === route.provider.name) parts.push('meilleur taux de réussite chez toi pour ce type de tâche');
+    if (o.first === route.provider.name) parts.push('l\'IA que tu as choisie');
+    else if (o.prefer?.[0] === route.provider.name) parts.push('meilleur taux de réussite chez toi pour ce type de tâche');
     const want = o.need ? NEED_STRENGTH[o.need] : undefined;
     if (want && strengthsOf(route.cfg).includes(want)) parts.push(`spécialité ${want}`);
     // Dit quand c'est le prix qui a décidé : un autre modèle du même palier, tout aussi adapté, coûtait plus.

@@ -127,7 +127,7 @@
   function setHidden(v) { D = { ...(D || {}), cache: Boolean(v) }; applyHidden(); }
 
   // ---------------------------------------------------------------- les clics rapides (1 à 20)
-  let taps = [], tapT = 0, badge = null;
+  let taps = [], tapT = 0, tapQ = 0, badge = null;
   const NEXT_HIDE = () => { const c = D?.clics || {}; return Object.keys(c).map(Number).filter((n) => c[n] === 'cacher').sort((a, b) => a - b)[0]; };
   const CLICKS_PAGE = 18; let clickPage = 0, clickQuery = '', clickErr = {};
   function showBadge(n) {
@@ -199,12 +199,22 @@
       else if (fn === 'surprise') { ACTIONS.rire(b, n); ACTIONS.pouvoir(b, n); window.OdinPowers?.sparkle?.(b.getBoundingClientRect().left + 30, b.getBoundingClientRect().top + 30, 160); say('Cent clics ! Tu es le champion de la patience. 🎉'); }
     } catch (e) { say(`✗ ${e.message}`, 'souci'); }
   }
-  /** Un toucher sur Odin : 1 = lui parler ; plusieurs toucher rapides = l'action réglée pour ce nombre, quand tu t'arrêtes. */
+  /**
+   * Toucher Odin (maquette validée « Odin tactile ») : 1 = tes notifications et « Que veux-tu ? » ; 2 = il t'écoute ;
+   * 3 = « Avec quelle IA veux-tu parler ? » ; à partir de 4, l'action réglée pour ce nombre, quand tu t'arrêtes.
+   */
   function tap(b, talk) {
     const now = Date.now(); taps = taps.length && now - taps[taps.length - 1] < 1200 ? [...taps, now] : [now];
-    const n = taps.length; clearTimeout(tapT);
-    if (n === 1) (talk || window.OdinNotices?.talk)?.();
-    else { if (n === 2) window.OdinNotices?.closeTalk?.(); window.OdinFace?.flash(b, n >= 8 ? 'surprise' : 'joie', 900); window.OdinCompanion?.act?.('act-tilt', 500); }
+    const n = taps.length; clearTimeout(tapT); clearTimeout(tapQ);
+    if (n >= 2) window.OdinNotices?.closeTalk?.();
+    if (n > 1) { window.OdinFace?.flash(b, n >= 8 ? 'surprise' : 'joie', 900); window.OdinCompanion?.act?.('act-tilt', 500); }
+    // 1, 2 ou 3 touchers : on attend un tiers de seconde de voir si tu continues.
+    if (n <= 3) tapQ = setTimeout(() => {
+      if (taps.length !== n) return;
+      if (n === 1 || D?.clicsOn === false) (talk || window.OdinNotices?.talk)?.();
+      else if (n === 2) window.OdinNotices?.listen?.();
+      else window.OdinNotices?.chooseAI?.();
+    }, 330);
     showBadge(n);
     tapT = setTimeout(() => {
       if (badge) badge.hidden = true; taps = [];
@@ -275,7 +285,8 @@
       h('section', { 'aria-label': 'Odin' }, h('h3', {}, 'Odin'),
         check('Odin visible sur tous tes écrans', !D.cache, (on) => void save({ mascotte: { cache: !on } }), 'Dix clics rapides le cachent partout ; il revient ici.'),
         check('Clics sur Odin activés', D.clicsOn !== false, (on) => void save({ mascotte: { clicsOn: on } }), 'Coupé : un clic ouvre seulement « Que veux-tu ? ».'),
-        h('p', { class: 'hint', style: 'margin:8px 0 4px' }, '1 clic = « Que veux-tu ? » ; 2 et 3 = rien ; à partir de 4, l\'action dont tu as mis le nombre. Odin te demande toujours avant de faire.'),
+        check('Mot d\'éveil « Odin »', window.OdinNotices?.eveil?.() === true, (on) => window.OdinNotices?.eveil?.(on), 'Dis « Odin » : il t\'écoute et répond avec l\'IA choisie. Sur cet appareil seulement ; le micro reste ouvert tant que la page est affichée (reconnaissance vocale du navigateur).'),
+        h('p', { class: 'hint', style: 'margin:8px 0 4px' }, '1 toucher = tes notifications et « Que veux-tu ? » ; 2 = Odin t\'écoute ; 3 = choisir l\'IA avec laquelle parler ; à partir de 4, l\'action dont tu as mis le nombre. Odin te demande toujours avant de faire. Sur un téléphone : reste appuyé sur Odin, il vibre, puis glisse-le où tu veux.'),
         ...rows),
       h('section', { 'aria-label': 'Pouvoirs' }, h('h3', {}, 'Pouvoirs d\'Odin'),
         check('Pouvoirs activés', p.actif || p.coupeRamadan, (on) => sp({ actif: on }), p.coupeRamadan ? 'Coupés pendant le Ramadan (réglage des événements).' : 'Désactivés au départ. Coupés : plus aucun pouvoir, nulle part, et celui en cours s\'arrête aussitôt.'),

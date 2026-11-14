@@ -45,6 +45,7 @@ import { spawnSync } from 'node:child_process';
 import { addSubscription, listSubscriptions, pushAll, removeSubscription, vapidKeys } from '../push/webpush.ts';
 import { nextRun } from '../cron/cron.ts';
 import { describeEntry, providerLabel } from '../providers/journal.ts';
+import { tierOf } from '../providers/router.ts';
 import { signalLinkState } from '../bifrost/channels/signal.ts';
 import { attachmentHint } from '../files/attach.ts';
 import { brainGet, brainPost } from './brain-api.ts';
@@ -768,6 +769,13 @@ export class WebChannel implements Channel {
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
       return void res.end(this.stateCache.body);
     }
+    // Les IA branchées sur Odin (pour « Avec quelle IA veux-tu parler ? ») et celle qui est choisie.
+    if (req.method === 'GET' && url.pathname === '/api/ias') {
+      const routes = this.odin.agent.deps.router.routes;
+      let choisie = ''; try { choisie = this.odin.muninn.getKv('ia-choisie') || ''; } catch { /* rien */ }
+      const ias = routes.filter((r) => !r.cfg.fallbackOnly).map((r) => ({ name: r.provider.name, label: providerLabel(r.provider.name), tier: tierOf(r.cfg) }));
+      return json(res, 200, { ok: true, ias, choisie: ias.some((x) => x.name === choisie) ? choisie : '' });
+    }
     if (req.method === 'GET' && url.pathname === '/api/voice/voices') {
       try { return json(res, 200, { ok: true, voices: await listVoices(this.odin.cfg.voice) }); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
@@ -1349,6 +1357,13 @@ export class WebChannel implements Channel {
           if (this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch(() => {}), 300);
           return { ok: true, email: a.email, plan: a.plan };
         } catch (e) { return { ok: false, error: (e as Error).message }; }
+      }
+      case 'ia_choisir': {
+        // Trois touchers sur Odin : l'IA avec laquelle tu veux parler (vide = Odin choisit tout seul).
+        const name = String(body.name ?? '').slice(0, 200);
+        if (name && !this.odin.agent.deps.router.routes.some((r) => r.provider.name === name)) return { ok: false, error: 'IA inconnue' };
+        this.odin.muninn.setKv('ia-choisie', name);
+        return { ok: true, text: name ? `Tu parles à ${providerLabel(name)}.` : 'Odin choisit l\'IA tout seul.' };
       }
       case 'codex_logout': removeCodexAuth(this.odin.paths); if (this.hooks.reload) setTimeout(() => void this.hooks.reload!().catch(() => {}), 300); break;
       case 'breaker_save': {

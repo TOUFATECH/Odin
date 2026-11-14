@@ -267,21 +267,36 @@
       if (below?.closest(BUSY_SEL)) go({ x: cx + (cx - e.clientX) * 4, y: cy + (cy - e.clientY) * 4 }, 'hopto');
     }
   }
+  // Au doigt (maquette validée « Odin tactile ») : un appui long le soulève (petite vibration), puis il suit ton doigt
+  // et reste là où tu le poses. À la souris : il se déplace tout de suite.
   function onDown(e) {
     if (!bud || !(e.target instanceof Element) || !bud.contains(e.target)) return;
-    drag = { x0: e.clientX, y0: e.clientY, px: pos?.x ?? 0, py: pos?.y ?? 0, moved: false, id: e.pointerId };
+    const touch = e.pointerType !== 'mouse';
+    drag = { x0: e.clientX, y0: e.clientY, px: pos?.x ?? 0, py: pos?.y ?? 0, moved: false, id: e.pointerId, touch, armed: !touch, lp: 0 };
+    if (touch) {
+      const d = drag;
+      d.lp = setTimeout(() => {
+        if (drag !== d) return; d.armed = true;
+        try { navigator.vibrate?.(25); } catch { /* pas de vibreur */ }
+        bud.classList.add('dragging'); window.OdinFace?.flash(bud, 'excite', 1500); window.OdinFace?.sound?.('hop');
+      }, 450);
+    }
   }
   function onDrag(e) {
     if (!drag || e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    // Au doigt, avant l'appui long : le doigt qui glisse fait défiler la page, Odin ne bouge pas.
+    if (!drag.armed) { if (Math.hypot(dx, dy) > 10) { clearTimeout(drag.lp); drag = null; } return; }
     if (!drag.moved && Math.hypot(dx, dy) < 6) return;
-    if (!drag.moved) { drag.moved = true; bud.classList.add('dragging'); window.OdinFace?.flash(bud, 'excite', 1500); }
+    if (!drag.moved) { drag.moved = true; bud.classList.add('dragging'); if (!drag.touch) window.OdinFace?.flash(bud, 'excite', 1500); }
     pos = { x: Math.max(0, Math.min(innerWidth - size, drag.px + dx)), y: Math.max(0, Math.min(innerHeight - size, drag.py + dy)) };
     bud.style.translate = `${Math.round(pos.x)}px ${Math.round(pos.y)}px`;
   }
   function onUp(e) {
     if (!drag || e.pointerId !== drag.id) return;
-    if (drag.moved) { bud.classList.remove('dragging'); pinnedUntil = Date.now() + 120_000; window.OdinFace?.flash(bud, 'joie', 1500); }
+    clearTimeout(drag.lp);
+    // Posé au doigt : il reste là (30 min) ; à la souris : 2 min, puis il reprend sa vie.
+    if (drag.moved || (drag.touch && drag.armed)) { bud.classList.remove('dragging'); pinnedUntil = Date.now() + (drag.touch ? 1_800_000 : 120_000); window.OdinFace?.flash(bud, 'joie', 1500); }
     // Un simple toucher : la petite fenêtre pour lui parler, sur n'importe quel onglet.
     // Les clics rapides (1 à 20) : 1 = lui parler, les autres font ce qui est réglé (Réglages → Apparence).
     else if (window.OdinMascotte?.tap) { window.OdinFace?.flash(bud, 'ecoute', 1500); window.OdinMascotte.tap(bud); }

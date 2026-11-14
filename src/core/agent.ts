@@ -336,7 +336,10 @@ export class Agent {
     res.routed = minTier;
     // Choix du modèle selon les résultats : à palier égal, celui qui réussit le mieux ce type de tâche chez toi.
     const category = taskCategory(userText);
-    routeOpts = { minTier, prefer: depth === 0 ? preferredProviders(muninn, category) : undefined, avoid: depth === 0 ? weakProviders(muninn, category) : undefined, cheapest: cfg.routing.cheapestFirst !== false, need: category };
+    // L'IA choisie avec trois touchers sur Odin (« Avec quelle IA veux-tu parler ? ») répond en premier.
+    let first: string | undefined;
+    try { first = depth === 0 ? (muninn.getKv('ia-choisie') || undefined) : undefined; } catch { /* rien */ }
+    routeOpts = { minTier, prefer: depth === 0 ? preferredProviders(muninn, category) : undefined, avoid: depth === 0 ? weakProviders(muninn, category) : undefined, cheapest: cfg.routing.cheapestFirst !== false, need: category, first };
     const cheapOpts = { minTier: 'local' as Tier };
     const seen = new Map<string, number>();
     const turnLog: Message[] = [];

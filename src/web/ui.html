@@ -83,7 +83,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes o-talk{0%,100%{transform:scale(1)}50%{transform:scale(1.04,.97)}}
 @keyframes o-blink{0%,91%,100%{transform:scaleY(1)}93.5%{transform:scaleY(.08)}96%{transform:scaleY(1)}}
 @keyframes o-glance{0%,18%{transform:translateX(0)}24%,36%{transform:translateX(5px)}42%,60%{transform:translateX(0)}66%,76%{transform:translateX(-5px)}82%,100%{transform:translateX(0)}}
-/* Réactions au toucher : il se tasse et sourit, s'étonne, ou fait une pirouette ; ses yeux suivent le doigt ou la souris. */ .odin{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none} .odin.follow .eyes{animation:none;transform:translate(var(--ex,0),var(--ey,0));transition:transform .12s ease-out} .odin .ring{transform-origin:60px 60px;animation:o-ring 4.4s ease-in-out infinite}
+/* Réactions au toucher : il se tasse et sourit, s'étonne, ou fait une pirouette ; ses yeux suivent le doigt ou la souris. */ .odin{cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none} .odin.follow .eyes{animation:none;transform:translate(var(--ex,0),var(--ey,0));transition:transform .12s ease-out} .odin .ring{transform-origin:60px 60px;animation:o-ring 4.4s ease-in-out infinite}
 .odin .ring.r2{animation-delay:-2.2s}
 .odin .orbit{transform-origin:60px 60px;animation:o-orbit 7s linear infinite}.odin .orbit.o2{animation-duration:9.5s;animation-direction:reverse}.odin .orbit .halo{animation:none}
 @keyframes o-orbit{to{transform:rotate(360deg)}}
