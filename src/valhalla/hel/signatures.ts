@@ -54,10 +54,12 @@ async function jpeg(v: Vue, max: number): Promise<Mesure | undefined> {
   let off = 2, cadre = false, balayages = 0;
   const casse = (ou: number) => (cadre && balayages ? M(Math.min(ou, lim), false) : undefined);
   for (let tours = 0; tours < 200000; tours++) {
-    const h = await v.lire(off, 10); if (h.length < 4 || h[0] !== 0xff) return casse(off);
+    // La fin d'image (FF D9) peut être les deux derniers octets du support : elle se lit avant d'exiger un segment entier.
+    const h = await v.lire(off, 10); if (h.length < 2 || h[0] !== 0xff) return casse(off);
     const m = h[1];
     if (m === 0xff) { off++; continue; }
     if (m === 0xd9) return cadre && balayages ? M(off + 2, true) : undefined;
+    if (h.length < 4) return casse(off);
     if (m < 0xc0 || (m >= 0xd0 && m <= 0xd8)) return casse(off);
     const len = h.readUInt16BE(2); if (len < 2) return casse(off);
     if (m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) { if (h.length < 9 || !h.readUInt16BE(7)) return casse(off); cadre = true; }

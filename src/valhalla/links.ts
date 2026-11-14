@@ -126,12 +126,16 @@ export const LINKS: Link[] = [
   { from: 'pegase', to: 'vidarr', when: 'Pégase vérifie un lien avant de l\'ouvrir', does: 'Sphinx dit si ses listes bloquent ce site, en plus de l\'avis d\'Asclépios', auto: true, kind: 'réflexe' },
   { from: 'pegase', to: 'saga', when: 'un jour se termine (profils qui laissent Odin voir leur historique)', does: 'le résumé de la navigation de la veille (pages, sites, recherches) est noté dans Thot et dans le journal des applis : Odin s\'en souvient', auto: true, kind: 'donnée' },
   { from: 'pegase', to: 'forseti', when: 'un téléchargement est bloqué, ou un nouvel appareil se connecte à un profil', does: 'alerte dans le fil commun, avec le bouton « Révoquer cet appareil »', auto: true, kind: 'donnée' },
+  { from: 'hel', to: 'ullr', when: 'Perséphone a fini de retrouver des fichiers', does: '« Analyser avec Asclépios » (dans l\'alerte et dans l\'onglet « Résultats ») fait analyser tout le dossier retrouvé avant qu\'on ouvre les fichiers', auto: true, kind: 'réflexe' },
+  { from: 'hel', to: 'forseti', when: 'une récupération de fichiers se termine, une table de partitions est réparée, ou un travail échoue', does: 'alerte dans le fil commun avec le résumé (fichiers entiers, abîmés, perdus) et le bouton suivant (analyser, remettre la table d\'avant)', auto: true, kind: 'donnée' },
+  { from: 'durinn', to: 'hel', when: 'un disque est jugé mauvais', does: 'sa carte dans Tirésias a le bouton « Récupérer les fichiers (Perséphone) », qui ouvre ce disque dans Perséphone (lecture seule)', auto: true, kind: 'réflexe' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
 export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
   { need: 'suivre des mesures dans le temps (tableau de bord)', chain: ['eir', 'vordr', 'syn'], why: 'Hygie et Pulsar mesurent, Zénith affiche les courbes et prévient quand un seuil est dépassé.' },
   { need: 'protéger un serveur ouvert sur Internet', chain: ['loki', 'garmr', 'geri', 'forseti'], why: 'Sirènes attire et repère les pirates, Cerbère les bannit, Méduse surveille ce qui sort, Forseti rassemble tout.' },
+  { need: 'retrouver des fichiers effacés ou une partition perdue', chain: ['hel', 'ullr', 'forseti'], why: 'Perséphone lit le support sans y écrire et range ce qu\'elle retrouve sur un autre disque, Asclépios analyse les fichiers retrouvés, Forseti garde le résumé.' },
   { need: 'savoir si un fichier est dangereux', chain: ['ullr'], why: 'empreintes connues, règles et heuristiques, quarantaine.' },
   { need: 'surveiller la santé d\'une machine', chain: ['eir', 'skogul', 'forseti'], why: 'Hygie mesure, Némésis regarde les processus, Forseti alerte.' },
   { need: 'ne jamais perdre ses fichiers', chain: ['sindri', 'forseti'], why: 'sauvegardes chiffrées dédoublonnées, alerte si une sauvegarde échoue.' },

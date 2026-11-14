@@ -17,6 +17,7 @@ import { Valhalla } from '../src/valhalla/service.ts';
 import { useEngine } from '../src/valhalla/modules/naglfar.ts';
 import { rythme } from '../src/valhalla/modules/hlin.ts';
 import { fakeEngine } from './helpers.ts';
+import { attendreHel } from '../src/valhalla/modules/hel.ts';
 import { gunzipSync } from 'node:zlib';
 import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
 import { fakeLivebox } from './fake-livebox.ts';
@@ -980,6 +981,38 @@ CHECKS['pegase>forseti'] = async (w) => {
   assert.ok(w.v.alerts({ module: 'pegase' }).some((a) => /nouvel appareil pour Nour/.test(a.title) && a.fix?.action === 'revoquer'));
   await analyserFichier(ctx, 'virus.exe', Buffer.from(EICAR));
   assert.ok(w.v.alerts({ module: 'pegase' }).some((a) => /fichier bloqué/.test(a.title) && a.level === 'haute'));
+};
+
+/** Perséphone : une petite image (du bruit, une vraie photo JPEG), récupérée vers un autre dossier ; on attend la fin. */
+async function persephone(w: World): Promise<string> {
+  const img = join(w.home, 'carte.img'), dest = join(w.home, 'autre-disque'); mkdirSync(dest, { recursive: true });
+  const jpg = readFileSync(join(import.meta.dirname, 'fixtures', 'hel', 'fichiers', 'photo.jpg'));
+  writeFileSync(img, Buffer.concat([Buffer.alloc(8192, 7), jpg, Buffer.alloc(8192)]));
+  const r = await w.v.act('hel', 'recuperer', { source: img, destination: dest }); assert.notEqual(r.ok, false, r.text);
+  await attendreHel(w.v.ctx('hel').dir);
+  return join(dest, 'recuperes');
+}
+CHECKS['hel>ullr'] = async (w) => {
+  const dossier = await persephone(w);
+  const a = w.v.alerts({ module: 'hel' }).find((x) => /fichier\(s\) retrouvé\(s\)/.test(x.title));
+  assert.equal(a?.fix?.action, 'analyser', 'l\'alerte propose l\'analyse');
+  const r = await w.v.act('hel', a!.fix!.action, a!.fix!.input ?? {});
+  assert.ok(did(w, 'ullr', 'analyser'), 'Asclépios analyse le dossier'); assert.match(r.text, /fichiers analysés/);
+  assert.ok(existsSync(join(dossier, 'photos')), 'la photo est retrouvée');
+};
+CHECKS['hel>forseti'] = async (w) => {
+  await persephone(w);
+  const a = w.v.alerts().find((x) => x.module === 'hel' && /Perséphone : 1 fichier\(s\) retrouvé\(s\)/.test(x.title));
+  assert.ok(a, 'le résumé est dans le fil commun'); assert.match(a!.detail ?? '', /1 entier\(s\) vérifié\(s\), 0 abîmé/); assert.ok((a!.steps ?? []).length >= 2);
+};
+CHECKS['durinn>hel'] = async (w) => {
+  const ctx = tiresias(w); await w.v.module('durinn')!.watch!.run(ctx);
+  const v = await w.v.module('durinn')!.view(ctx, new URLSearchParams());
+  const cartes = v.sections.find((x) => x.kind === 'cards') as Extract<(typeof v.sections)[number], { kind: 'cards' }>;
+  const b = cartes.items.flatMap((x) => x.actions ?? []).find((x) => x.module === 'hel');
+  assert.deepEqual(b && { action: b.action, label: b.label }, { action: 'ouvrir', label: 'Récupérer les fichiers (Perséphone)' }, 'le disque mauvais a son bouton');
+  const r = await w.v.act('hel', b!.action, b!.input);
+  assert.ok(did(w, 'hel', 'ouvrir'), 'le disque est ouvert dans Perséphone'); assert.match(r.text, /\/dev\/sdd/);
 };
 
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
