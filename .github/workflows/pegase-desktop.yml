@@ -1,0 +1,78 @@
+# Pégase pour ordinateur : essais, puis installateurs Windows (.exe NSIS), Mac (.dmg) et Linux (.AppImage, .deb).
+# Les installateurs sont dans les « artifacts » de l'exécution (onglet Actions de GitHub). Un tag « pegase-v1.2.3 »
+# les publie en plus dans une Release GitHub : c'est là que les Pégase installés trouvent leurs mises à jour
+# (electron-updater). PAS de certificat de signature (payant, pas encore choisi) : Windows (SmartScreen) et Mac
+# (Gatekeeper) affichent un avertissement à l'installation, et la mise à jour automatique sur Mac exige une app signée.
+name: Pégase ordinateur
+
+on:
+  push:
+    paths:
+      - 'pegase/**'
+      - 'src/web/app-icons.js'
+      - '.github/workflows/pegase-desktop.yml'
+    tags:
+      - 'pegase-v*'
+  pull_request:
+    paths:
+      - 'pegase/**'
+      - '.github/workflows/pegase-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pegase-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  construire:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cible: --linux AppImage deb
+          - os: windows-latest
+            cible: --win nsis
+          - os: macos-latest
+            cible: --mac dmg
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: pegase
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pegase/package-lock.json
+      - name: Dépendances de Pégase
+        run: npm ci
+      - name: Types
+        run: npm run types
+      - name: Construction (icônes des applis d'Odin, processus principal, interface)
+        run: npm run build
+      - name: Essais dans le vrai Pégase (Linux, écran virtuel)
+        if: runner.os == 'Linux'
+        run: |
+          npm install --no-save playwright@1.63.0
+          xvfb-run -a node --test --test-concurrency=1 test/navigateur.test.mjs test/protection.test.mjs test/organisation.test.mjs test/partage.test.mjs test/outils.test.mjs test/donnees.test.mjs test/securite/attaques.test.mjs
+      - name: Installateurs
+        run: npx electron-builder ${{ matrix.cible }} --publish ${{ startsWith(github.ref, 'refs/tags/pegase-v') && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pegase-${{ runner.os }}
+          path: |
+            pegase/paquets/*.exe
+            pegase/paquets/*.dmg
+            pegase/paquets/*.AppImage
+            pegase/paquets/*.deb
+            pegase/paquets/*.yml
+          if-no-files-found: error
