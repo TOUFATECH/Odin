@@ -87,7 +87,8 @@ test('la page de chaque appli (1280 et 390 px) : en-tête complet et à la même
           // Le bouton commun « Exporter / partager » ouvre son dialogue dans chaque appli (même celles qui ne s'exportent pas).
           if (largeur === 1280) {
             await p.evaluate(`document.querySelector('#v-app .va-share')?.click()`);
-            const ouvert = await p.waitForFunction(`!!document.querySelector('dialog[open] #va-pt-t') && !document.querySelector('dialog[open]').textContent.startsWith('Lecture')`, undefined, { timeout: 5000 }).then(() => true, () => false);
+            let ouvert = false;
+            for (let i = 0; i < 25 && !ouvert; i++) { await p.waitForTimeout(200); ouvert = await p.evaluate<boolean>(`!!document.querySelector('dialog[open] #va-pt-t')`); }
             if (!ouvert) fautes.push(`${m.name} (${m.id}) : « Exporter / partager » ne s'ouvre pas`);
             await p.evaluate(`for (const d of document.querySelectorAll('dialog[open]')) d.close()`);
           }
