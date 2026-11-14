@@ -227,6 +227,28 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.equal(applyMots('démarre ring horni et le reste', mots(w.home)), 'démarre Hringhorni et le reste', 'la voix d\'Odin lit les mêmes mots');
     const r = await w.v.act('rodd', 'dicter', { texte: 'lance ringorni', mode: 'tel quel' }); assert.equal(r.text, 'lance Hringhorni');
   },
+  'volva>bragi': async () => {
+    // Une vraie voix pour cet essai : un faux serveur Piper (protocole actuel, POST /synthesize) qui rend un petit WAV.
+    const wav = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVEfmt '), Buffer.alloc(40)]), dit: string[] = [];
+    const srv = createServer((req, res) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { if (req.method === 'POST' && req.url === '/synthesize') { dit.push((JSON.parse(b) as { text: string }).text); res.end(wav); } else { res.writeHead(404); res.end(); } }); });
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    const home = mkdtempSync(join(tmpdir(), 'odin-liens-voix-')), { DEFAULT_CONFIG } = await import('../src/config.ts');
+    const voice = { ...DEFAULT_CONFIG.voice, localOnly: false, gender: 'femme', tts: { ...DEFAULT_CONFIG.voice.tts, provider: 'piper', baseUrl: `http://127.0.0.1:${(srv.address() as { port: number }).port}` } };
+    const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: { venus: { url: '' }, voice, profiles: DEFAULT_CONFIG.profiles } } as never), {}), faits: string[] = [];
+    v.events.on('action', (a: { module: string; action: string }) => faits.push(`${a.module}.${a.action}`));
+    try {
+      const vide = await v.act('volva', 'ecouter', {}); assert.equal(vide.ok, false); assert.match(vide.text, /aucune recherche à lire/);
+      writeFileSync(join(v.ctx('volva').dir, 'historique.json'), JSON.stringify([{ id: 'abc123', at: 1, q: 'Quel est le chef-lieu de Mayotte ?', focus: 'tout', answer: '**Mamoudzou** est le chef-lieu de Mayotte [1].', sources: [], engines: [], followups: [], apps: [], ai: false, errors: [] }]));
+      const r = await v.act('volva', 'ecouter', {});
+      assert.equal(r.ok, true, r.text); assert.ok(faits.includes('bragi.dire'), 'c\'est Orphée qui lit');
+      assert.deepEqual(dit, ['Mamoudzou est le chef-lieu de Mayotte.'], 'la réponse est dite sans ses renvois ni ses étoiles');
+      const son = v.module('volva')!.retrait!(v.ctx('volva'), r.fichiers![0].ref)!;
+      assert.match(son, /bragi[\\/]audio[\\/]odin-\d+\.wav$/); assert.deepEqual(readFileSync(son), wav, 'le son d\'Orphée est remis par la page de Pythie');
+      assert.equal(v.module('volva')!.retrait!(v.ctx('volva'), '../réglages.json'), undefined, 'rien d\'autre ne sort par là');
+      const u = (await v.order('lis la dernière recherche')).understood as { kind: string; module?: string; action?: string } | undefined;
+      assert.deepEqual([u?.kind, u?.module, u?.action], ['action', 'volva', 'ecouter'], '« lis la dernière recherche » arrive chez Pythie, sans IA');
+    } finally { v.stop(); await new Promise((r) => srv.close(r)); rmSync(home, { recursive: true, force: true }); }
+  },
   'naglfar>naglfar': async (w) => {
     w.level('prudent');
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'api' }); await wait(60);
@@ -331,23 +353,32 @@ CHECKS['gjoll>vordr'] = async (w) => {
 };
 // Les postes du parc (le coffre des machines) sont proposés par les applis qui savent lire un autre poste.
 const parc = (w: World) => { saveMachine(w.home, { label: 'serveur-essai', host: '192.168.1.5', user: 'root', via: 'ssh' }); saveMachine(w.home, { label: 'PC-ESSAI', host: '192.168.1.20', user: 'Fatima', password: 'x', via: 'smb' }); };
-const propose = async (w: World, id: string, titre: RegExp) => {
+/** « Sur quel poste ? » en haut de la page : la machine d'Odin, puis les postes du parc que l'appli sait lire. */
+const propose = async (w: World, id: string) => {
   const avant = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams());
-  assert.ok(![...avant.sections, ...(avant.side ?? [])].some((x) => x.kind === 'form' && titre.test(x.title ?? '')), 'sans poste dans le parc, rien n\'est proposé');
+  assert.deepEqual(avant.postes?.choix.map((c) => c.nom), ['Cette machine'], 'sans poste dans le parc, seule la machine d\'Odin est proposée');
+  assert.equal(avant.postes?.ajouter, true, 'la page propose d\'ajouter un poste');
   parc(w);
-  const v = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams()), f = [...v.sections, ...(v.side ?? [])].find((x) => x.kind === 'form' && titre.test(x.title ?? '')) as { params: Array<{ key: string; options?: string[] }> } | undefined;
-  assert.deepEqual(f?.params.find((p) => p.key === 'poste')?.options, ['serveur-essai'], 'le poste Linux du parc est proposé ; le PC Windows ne l\'est pas (cette appli lit par SSH)');
+  const v = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams());
+  assert.deepEqual(v.postes?.choix.map((c) => c.nom), ['Cette machine', 'serveur-essai'], 'le poste Linux du parc est proposé ; le PC Windows ne l\'est pas (cette appli lit par SSH)');
+  assert.equal(v.postes?.actuel, '', 'sans choix, la page montre la machine d\'Odin');
+  assert.ok(![...v.sections, ...(v.side ?? [])].some((x) => x.kind === 'form' && /autre poste/.test(x.title ?? '')), 'plus de formulaire « autre poste » dans la page : le choix se fait en haut, une fois');
 };
 CHECKS['hermod>ullr'] = async (w) => {
   parc(w);
-  const v = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams()), t = v.sections.find((x) => x.kind === 'table' && /^Autres postes/.test(x.title ?? '')) as { rows: Array<{ cells: string[]; actions?: Array<{ action: string }> }> };
-  assert.deepEqual(t.rows.map((r) => r.cells[0]), ['serveur-essai', 'PC-ESSAI'], 'Windows et Linux : l\'antivirus sait lire les deux'); assert.ok(t.rows.every((r) => r.actions?.some((a) => a.action === 'analyser_poste')));
+  const v = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams());
+  assert.deepEqual(v.postes?.choix.map((c) => `${c.nom}${c.sys ? ` (${c.sys})` : ''}`), ['Cette machine', 'serveur-essai', 'PC-ESSAI (Windows)'], 'Windows et Linux : l\'antivirus sait lire les deux');
+  assert.equal(v.postes?.ensuite?.action, 'analyser_poste', 'après l\'ajout d\'un poste : « Quoi analyser ? », puis l\'analyse');
+  // Un poste choisi : sa carte propose l'analyse rapide et l'analyse complète de ce poste.
+  const pc = v.postes!.choix.find((c) => c.nom === 'PC-ESSAI')!, sur = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams({ poste: pc.id }));
+  const carte = sur.sections.find((x) => x.kind === 'actions' && x.title === 'PC-ESSAI') as { boutons: Array<{ action: string; input?: Record<string, unknown> }> } | undefined;
+  assert.deepEqual(carte?.boutons.map((b) => `${b.action}:${String(b.input?.quoi)}`), ['analyser_poste:rapide', 'analyser_poste:tout']); assert.equal(sur.postes?.actuel, pc.id);
 };
-CHECKS['hermod>eir'] = (w) => propose(w, 'eir', /état d'un autre poste/);
-CHECKS['hermod>fensalir'] = (w) => propose(w, 'fensalir', /disques d'un autre poste/);
-CHECKS['hermod>hlid'] = (w) => propose(w, 'hlid', /pare-feu d'un autre poste/);
-CHECKS['hermod>mimisbrunnr'] = (w) => propose(w, 'mimisbrunnr', /journaux d'un autre poste/);
-CHECKS['hermod>skogul'] = (w) => propose(w, 'skogul', /^Analyser un autre poste$/);
+CHECKS['hermod>eir'] = (w) => propose(w, 'eir');
+CHECKS['hermod>fensalir'] = (w) => propose(w, 'fensalir');
+CHECKS['hermod>hlid'] = (w) => propose(w, 'hlid');
+CHECKS['hermod>mimisbrunnr'] = (w) => propose(w, 'mimisbrunnr');
+CHECKS['hermod>skogul'] = (w) => propose(w, 'skogul');
 CHECKS['heidrun>vidarr'] = async (w) => {
   const r = await w.v.act('heidrun', 'profil', { nom: 'Sami', age: 'enfant', appareils: '192.168.1.77' });
   assert.equal(r.ok, true, r.text);
@@ -552,6 +583,21 @@ CHECKS['gjoll>garmr'] = async (w) => {
   const r = await w.v.act('gjoll', 'allumer'); assert.ok(r.ok, r.text);
   try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Vortex/); }
   finally { await w.v.act('gjoll', 'eteindre'); }
+};
+CHECKS['hlid>garmr'] = async (w) => {
+  // Le port direct d'une appli : le donner n'ouvre rien ; l'ouvrir sur le réseau passe par Cerbère ; le refermer retire la règle.
+  const { DirectPorts } = await import('../src/valhalla/directports.ts');
+  const port = await new Promise<number>((ok) => { const x = createServer().listen(0, '127.0.0.1', () => { const p = (x.address() as { port: number }).port; x.close(() => ok(p)); }); });
+  const g = new DirectPorts({ home: w.home, web: 7777, host: '127.0.0.1', access: 'lan', attach: (sock) => sock.destroy() }); await g.start();
+  try {
+    let r = await w.v.act('hlid', 'port_direct', { appli: 'Vénus', port }); assert.ok(r.ok, r.text);
+    assert.ok(!did(w, 'garmr', 'ouvrir_port'), 'donner un port n\'ouvre rien dans le pare-feu');
+    r = await w.v.act('hlid', 'ouvrir_port_direct', { appli: 'Vénus' }); assert.ok(r.ok, r.text);
+    assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, new RegExp(`${port}/tcp · page directe de Vénus`));
+    assert.equal(w.v.manips({ module: 'garmr' }).length, 0, 'étape de ton action : pas de manip à part');
+    r = await w.v.act('hlid', 'fermer_port_direct', { appli: 'Vénus' }); assert.ok(r.ok, r.text);
+    assert.ok(did(w, 'garmr', 'fermer_port')); assert.doesNotMatch((await w.v.act('garmr', 'ports_ouverts')).text, new RegExp(`${port}/tcp`));
+  } finally { g.stop(); }
 };
 CHECKS['fjalar>ullr'] = async (w) => {
   await w.v.act('fjalar', 'dossier', { chemin: join(w.home, 'logiciels') });

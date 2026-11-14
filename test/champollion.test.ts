@@ -60,7 +60,9 @@ test('Champollion : vraies lectures (photo, PDF scanné, PDF cherchable, documen
     // Un audio (écoute simulée : Whisper n'est pas installé ici)
     useHear(async () => ({ text: 'Bonjour, c\'est Fatima, la réunion est déplacée à demain à 15h. Merci.', language: 'fr' }));
     writeFileSync(join(at, 'vocal.ogg'), Buffer.from('OggS'));
-    r = await v.act('champollion', 'lire', { fichier: 'vocal.ogg' }); assert.match(r.text, /ce qui est dit \(fr\)/); assert.match(r.text, /réunion · samedi 14 novembre 2026 à 15 h 00/, r.text);
+    r = await v.act('champollion', 'lire', { fichier: 'vocal.ogg' }); assert.match(r.text, /ce qui est dit \(fr\)/); // « demain » se compte à partir d'aujourd'hui : la date attendue aussi (et pas une date écrite en dur).
+    const demain = new Date(Date.now() + 864e5).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    assert.ok(r.text.includes(`réunion · ${demain} à 15 h 00`), r.text);
     useHear(async () => { throw new Error('Whisper local non installé'); });
     assert.match((await v.act('champollion', 'lire', { fichier: 'vocal.ogg' })).text, /installe la voix locale/);
     useHear();

@@ -7,6 +7,7 @@ import { basename, join } from 'node:path';
 import { buttonText, buttonsFor, type Channel, chunk, type Inbound } from '../channel.ts';
 import type { AgentEvent } from '../../types.ts';
 import { isMood, MOOD_EMOJI, MOOD_IDS, stripMood, type Mood } from '../../mood/mood.ts';
+import { audioKind } from '../../voice/voice.ts';
 
 export interface TelegramOptions {
   /** Transcrit une note vocale (Whisper) ; absent = les vocaux sont refusés poliment. */
@@ -416,18 +417,24 @@ export class TelegramChannel implements Channel {
     }
   }
 
-  /** Note vocale (Ogg/Opus, produite par ElevenLabs). */
   async sendDocument(peer: string, name: string, data: Uint8Array, caption = ''): Promise<void> {
     const form = new FormData();
     form.append('chat_id', peer); if (caption) form.append('caption', caption.slice(0, 1000));
     form.append('document', new Blob([data]), name);
     await fetch(this.url('sendDocument'), { method: 'POST', body: form });
   }
+  /**
+   * Note vocale. Telegram ne l'affiche comme telle que pour de l'Ogg/Opus, du MP3 ou du M4A : le vrai format est lu
+   * dans le son lui-même. Un autre format (WAV sans ffmpeg pour le convertir) part comme un fichier son. Un refus est dit.
+   */
   async sendVoice(peer: string, audio: Uint8Array): Promise<void> {
+    const kind = audioKind(audio) || 'ogg', note = kind === 'ogg' || kind === 'mp3' || kind === 'm4a';
+    const type = { ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4', wav: 'audio/wav', webm: 'audio/webm' }[kind];
     const form = new FormData();
     form.append('chat_id', peer);
-    form.append('voice', new Blob([audio], { type: 'audio/ogg' }), 'odin.ogg');
-    await fetch(this.url('sendVoice'), { method: 'POST', body: form });
+    form.append(note ? 'voice' : 'document', new Blob([audio], { type }), `odin.${kind}`);
+    const r = await (await fetch(this.url(note ? 'sendVoice' : 'sendDocument'), { method: 'POST', body: form })).json().catch(() => ({ ok: false })) as { ok: boolean; description?: string };
+    if (!r.ok) throw new Error(`Telegram a refusé la note vocale${r.description ? ` (${r.description})` : ''}`);
   }
 
   /** Image avec légende (1024 caractères au plus pour Telegram ; au-delà, le texte part d'abord). */

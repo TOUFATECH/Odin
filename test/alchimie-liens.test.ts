@@ -207,7 +207,7 @@ test('Alchimie : convertit elle-même, surveille un dossier, convertit depuis un
     assert.equal(act.params!.find((p) => p.key === 'mot_de_passe')!.kind, 'password');
     for (const fichier of readdirSync(ctx.dir)) { const p = join(ctx.dir, fichier); try { assert.ok(!readFileSync(p, 'utf8').includes('Secret 42!'), `le mot de passe n'est gardé nulle part (${fichier})`); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EISDIR') throw e; } }
     vue = await mod.view(v.ctx('dvalinn'), new URLSearchParams());
-    assert.ok(vue.sections.some((x) => x.kind === 'form' && x.action === 'depuis_lien') && vue.sections.some((x) => x.kind === 'form' && x.action === 'surveiller'));
+    assert.ok(vue.sections.some((x) => x.kind === 'depot' && x.lien?.action === 'depuis_lien') && vue.sections.some((x) => x.kind === 'form' && x.action === 'surveiller' && x.onglet === 'Automatique'));
     assert.ok(!existsSync(join(ctx.dir, 'travail')) || readdirSync(join(ctx.dir, 'travail')).length === 0, 'dossiers de travail nettoyés');
   } finally { v.stop(); rmSync(home, { recursive: true, force: true }); }
 });

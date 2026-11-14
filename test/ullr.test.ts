@@ -745,6 +745,6 @@ test('Asclépios · analyser le fichier d\'un lien : verdict avant de téléchar
     // Sans IA : compris par Logos ; et le formulaire est sur la page.
     const o = await w.v.order('analyse le fichier du lien https://exemple.test/rapport.txt'); assert.match(o.text, /rapport\.txt \(1 ko\)\n✓/, o.text);
     const vue = await ullr.view(w.v.ctx('ullr'), new URLSearchParams());
-    assert.ok(vue.side?.some((x) => x.kind === 'form' && x.action === 'fichier_internet'));
+    assert.ok(vue.sections.some((x) => x.kind === 'form' && x.action === 'fichier_internet' && x.onglet === 'Analyser' && x.params.length === 1));
   } finally { w.end(); }
 });
