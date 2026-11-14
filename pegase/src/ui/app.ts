@@ -11,6 +11,9 @@ import { pageInterne, rafraichirPages } from './pages';
 import { rendreEcran } from './ecrans';
 
 let E: Etat;
+/** Cette page est-elle la vue des vignettes (vidéos qui suivent) plutôt que l'interface entière ? */
+const VIGNETTES = location.hash === '#vignettes';
+if (VIGNETTES) document.documentElement.classList.add('vignettes');
 type Menu = { type: string; x: number; y: number; arg?: any; ancre?: DOMRect };
 const L = {
   menu: null as Menu | null,
@@ -48,6 +51,7 @@ let focusBureau: string | null = null;
 
 function rendre(): void {
   if (!E) return;
+  if (VIGNETTES) { rendreVignettes(); return; }
   const html = document.documentElement;
   html.dataset.theme = E.reglages.theme;
   html.dataset.clair = String(E.reglages.theme === 'blanc' || E.reglages.theme === 'glace');
@@ -195,8 +199,7 @@ function rendreCorps(): void {
   }).join('');
   const html = `${montrerBarre && !reduite ? barre(false) : ''}${reduite ? `<div class="bord-gauche" data-survol-barre="1" aria-hidden="true"></div>${L.survolBarre ? barre(true) : ''}` : ''}
     <main class="pages ${partage ? disposition : ''}" id="pages">${pagesHtml}</main>
-    ${E.panneauOdin ? panneauOdin() : ''}
-    ${videos()}`;
+    ${E.panneauOdin ? panneauOdin() : ''}`;
   if (poser('corps', html)) interneMonte = null;
   // Les pages pegase:// sont montées une fois, puis gardent leur état (champs, défilement).
   for (const el of document.querySelectorAll<HTMLElement>('[data-interne]')) {
@@ -247,33 +250,31 @@ function videos(): string {
   }).join('');
 }
 
-/** Positions des vidéos (empilées en bas à droite, ou là où la personne les a posées) et barres de progression. */
+/** Barres de progression des vidéos. */
 function placerVideos(): void {
-  const els = [...document.querySelectorAll<HTMLElement>('.video')];
-  let bas = 24;
-  for (const el of els) {
-    const id = el.dataset.video!; const p = L.posVideo[id];
-    const h = el.offsetHeight || 270;
-    if (p) { el.style.left = `${Math.max(0, Math.min(innerWidth - el.offsetWidth, p.x))}px`; el.style.top = `${Math.max(0, Math.min(innerHeight - h, p.y))}px`; }
-    else { el.style.right = '24px'; el.style.bottom = `${bas}px`; bas += h + 12; if (bas > innerHeight - 100) bas = 24; }
-    const pr = el.querySelector<HTMLElement>('[data-pct]'); if (pr) pr.style.width = `${pr.dataset.pct}%`;
-  }
+  for (const pr of document.querySelectorAll<HTMLElement>('.video [data-pct], .barre-prog [data-pct]')) pr.style.width = `${pr.dataset.pct}%`;
+}
+
+/** La vue des vignettes : les vidéos qui suivent, empilées ; la vidéo elle-même est posée par-dessus, dans le trou. */
+function rendreVignettes(): void {
+  document.documentElement.dataset.theme = E.reglages.theme;
+  if (!poser('app', `<div class="pile-videos">${videos()}</div>`)) { /* rien de neuf */ }
+  placerVideos();
+  const z: Zone[] = [];
+  for (const el of document.querySelectorAll<HTMLElement>('[data-zone-video]')) { const r = el.getBoundingClientRect(); z.push({ id: el.dataset.zoneVideo!, x: r.left, y: r.top, w: r.width, h: r.height }); }
+  const cle = JSON.stringify(z); if (cle !== derniereZones) { derniereZones = cle; api.zones(z, false); }
 }
 
 // ————— Les pages web posées sur la fenêtre —————
 let derniereZones = '';
 function envoyerZones(): void {
-  placerVideos();
+  if (VIGNETTES) { rendreVignettes(); return; }
   placerFlottants();
   const z: Zone[] = [];
   const ouvert = !!(L.menu || L.commande || L.survolBarre || ecranOuvert() || document.querySelector('.boite-dialogue'));
   for (const el of document.querySelectorAll<HTMLElement>('[data-zone]')) {
     const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue;
     z.push({ id: el.dataset.zone!, x: r.left, y: r.top, w: r.width, h: r.height });
-  }
-  for (const el of document.querySelectorAll<HTMLElement>('[data-zone-video]')) {
-    const r = el.getBoundingClientRect();
-    z.push({ id: el.dataset.zoneVideo!, x: r.left, y: r.top, w: r.width, h: r.height });
   }
   if (ecranOuvert()) z.length = 0;
   // Le cadre (fond du thème) est percé à l'endroit des pages : quand un menu passe devant, on voit la page dessous.
@@ -822,10 +823,10 @@ document.addEventListener('drop', async (e) => {
 document.addEventListener('pointerdown', (e) => {
   const barre = (e.target as HTMLElement).closest?.('[data-glisser-video]') as HTMLElement | null;
   if (!barre || (e.target as HTMLElement).closest('button')) return;
-  const sec = barre.closest('.video') as HTMLElement; const id = barre.dataset.glisserVideo!;
-  const r = sec.getBoundingClientRect(); const dx = e.clientX - r.left, dy = e.clientY - r.top;
+  // La pile des vignettes est une vue à part : on demande au processus principal de la déplacer.
+  let x0 = e.screenX, y0 = e.screenY;
   barre.setPointerCapture(e.pointerId);
-  const bouge = (m: PointerEvent) => { L.posVideo[id] = { x: m.clientX - dx, y: m.clientY - dy }; sec.style.right = ''; sec.style.bottom = ''; placerVideos(); envoyerZones(); };
+  const bouge = (m: PointerEvent) => { const dx = m.screenX - x0, dy = m.screenY - y0; if (!dx && !dy) return; x0 = m.screenX; y0 = m.screenY; api.faire('deplacerVignettes', { dx, dy }); };
   const fin = () => { barre.removeEventListener('pointermove', bouge); barre.removeEventListener('pointerup', fin); };
   barre.addEventListener('pointermove', bouge); barre.addEventListener('pointerup', fin);
 });
@@ -837,8 +838,8 @@ document.addEventListener('error', (e) => {
   const im = e.target as HTMLImageElement;
   if (im?.tagName !== 'IMG' || !im.classList.contains('ic') || im.dataset.repli) return;
   im.dataset.repli = '1';
-  const s = document.createElement('span'); const t = (im.closest('[title]') as HTMLElement)?.title || '?';
-  s.className = `ltr c${couleurDe(t)}`; s.textContent = t.trim().slice(0, 1).toUpperCase(); s.setAttribute('aria-hidden', 'true');
+  const s = document.createElement('span');
+  s.className = `ltr c${im.dataset.c ?? 0}`; s.textContent = im.dataset.l || '?'; s.setAttribute('aria-hidden', 'true');
   im.replaceWith(s);
 }, true);
 api.surCommande((c, arg) => {
@@ -849,6 +850,7 @@ api.surCommande((c, arg) => {
   else if (c === 'odin') { if (arg?.resumer) demanderOdin('', true); else if (arg?.texte) demanderOdin(`Explique-moi : « ${String(arg.texte).slice(0, 500)} »`); }
 });
 api.etat().then((e) => { if (e) { E = e; rendre(); } });
+if (VIGNETTES) addEventListener('resize', () => rendreVignettes());
 (window as any).__pegaseDemander = demander;
 document.addEventListener('pegase:commande', () => ouvrirCommande(true));
 document.addEventListener('pegase:odin', (e) => demanderOdin(String((e as CustomEvent).detail)));

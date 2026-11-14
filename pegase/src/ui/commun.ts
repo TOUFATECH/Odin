@@ -24,9 +24,9 @@ export function iconeSite(url: string, icone?: string, titre?: string, cls = 'ic
   const s = srcSure(icone);
   const app = appliDe(url);
   if (app) return `<img class="${cls}" src="${appIcone(app)}" alt="">`;
-  if (s) return `<img class="${cls}" src="${esc(s)}" alt="" loading="lazy">`;
   const d = url.startsWith('pegase://') ? (titre || 'P') : domaine(url) || titre || '?';
   const l = d === 'Nouvel onglet' ? '+' : d.replace(/^pegase:\/\//, '').slice(0, 1).toUpperCase();
+  if (s) return `<img class="${cls}" src="${esc(s)}" alt="" loading="lazy" data-l="${esc(l)}" data-c="${couleurDe(domaine(url))}">`;
   return `<span class="ltr c${couleurDe(domaine(url))}${cls === 'ic' ? '' : ' ' + cls}" aria-hidden="true">${esc(l)}</span>`;
 }
 

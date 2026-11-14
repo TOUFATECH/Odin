@@ -334,3 +334,9 @@ h2.jour { margin: 18px 0 8px; text-transform: capitalize; }
 .carte-espace:hover { background: var(--actif); }
 .ltr.grand { width: 26px; height: 26px; border-radius: 8px; font-size: 13px; }
 .carte h2 { margin-top: 0; }
+/* Vue des vignettes (vidéos qui suivent) : une petite vue à part, par-dessus les pages. */
+.vignettes #cadre, .vignettes #couche, .vignettes #ecran { display: none; }
+.vignettes body { background: transparent; }
+.pile-videos { display: flex; flex-direction: column; gap: 12px; }
+.vignettes .video { position: relative; width: 340px; height: 280px; box-shadow: none; }
+.vignettes .video .vz { flex: 1; height: auto; }

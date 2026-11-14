@@ -20,7 +20,7 @@ const fenetres = new Map<number, Fenetre>(); // id du webContents de l'interface
 
 ipcMain.handle('pegase:etat', (e) => fenetres.get(e.sender.id)?.etat());
 ipcMain.handle('pegase:faire', (e, action: string, arg: unknown) => fenetres.get(e.sender.id)?.faire(action, arg));
-ipcMain.on('pegase:zones', (e, z: Zone[], couche: boolean) => fenetres.get(e.sender.id)?.poser(Array.isArray(z) ? z : [], couche));
+ipcMain.on('pegase:zones', (e, z: Zone[], couche: boolean) => { const f = fenetres.get(e.sender.id); if (!f) return; const l = Array.isArray(z) ? z : []; if (f.estVignettes.has(e.sender.id)) f.poserVideos(l); else f.poser(l, couche); });
 
 const FOND: Record<Theme, string> = { noir: '#121318', blanc: '#F2F4F8', bleu: '#33377F', rouge: '#8E1A30', transparent: '#00000000', glace: '#DDE6F5' };
 const RACCOURCIS = new Set(['C+t', 'C+n', 'CS+n', 'C+w', 'C+l', 'C+d', 'C+f', 'C+r', 'F5', 'CS+t', 'C+Tab', 'CS+Tab', 'A+ArrowLeft', 'A+ArrowRight', 'C+s', 'C+p',
@@ -94,7 +94,7 @@ export class Fenetre {
     this.ui.webContents.on('did-finish-load', () => { this.pret = true; this.envoyerEtat(); if (!this.win.isVisible()) this.win.show(); });
     this.ui.webContents.on('render-process-gone', () => { this.pret = false; setTimeout(() => !this.win.isDestroyed() && this.ui.webContents.reload(), 300); });
     this.ui.webContents.loadURL('pegase://app/index.html');
-    const caler = () => { const [w, h] = this.win.getContentSize(); this.ui.setBounds({ x: 0, y: 0, width: w, height: h }); };
+    const caler = () => { const [w, h] = this.win.getContentSize(); this.ui.setBounds({ x: 0, y: 0, width: w, height: h }); if (this.vignettes) this.appliquer(); };
     caler();
     this.win.on('resize', caler);
     this.win.on('maximize', () => this.planifier()); this.win.on('unmaximize', () => this.planifier());
@@ -105,6 +105,7 @@ export class Fenetre {
       if (this.win !== w) return; // fenêtre refaite (changement de thème) : la nouvelle a pris la suite
       for (const [id] of this.montrees) { this.montrees.delete(id); const v = this.profil.vivants.get(id); if (v && v.fenetre === this) v.fenetre = null; }
       try { ui.webContents.close(); } catch { /* */ }
+      if (this.vignettes) { try { this.vignettes.webContents.close(); } catch { /* */ } this.vignettes = null; }
       this.finale();
       this.appli.fenetreFermee(this);
     });
@@ -140,7 +141,11 @@ export class Fenetre {
 
   envoyer(commande: string, arg?: unknown): void { if (this.pret && !this.ui.webContents.isDestroyed()) this.ui.webContents.send('pegase:commande', commande, arg); }
   planifier(): void { if (this.planifie) return; this.planifie = setTimeout(() => { this.planifie = null; this.envoyerEtat(); }, 25); }
-  private envoyerEtat(): void { if (this.pret && !this.win.isDestroyed()) this.ui.webContents.send('pegase:etat', this.etat()); }
+  private envoyerEtat(): void {
+    if (!this.pret || this.win.isDestroyed()) return;
+    const e = this.etat(); this.ui.webContents.send('pegase:etat', e);
+    if (this.vignettes && !this.vignettes.webContents.isLoading()) this.vignettes.webContents.send('pegase:etat', e);
+  }
 
   // ————— Ce que l'interface affiche —————
   actif(): { type: 'onglet' | 'bureau'; id: string } | null {
@@ -188,24 +193,70 @@ export class Fenetre {
   poser(zones: Zone[], couche: boolean): void {
     if (this.win.isDestroyed()) return;
     this.dernieresZones = zones; this.couche = couche;
-    let z = zones;
-    if (this.pleinEcran) { const [w, h] = this.win.getContentSize(); z = [{ id: this.pleinEcran, x: 0, y: 0, w, h }]; couche = false; }
+    this.appliquer();
+  }
+  /** Les zones des vidéos qui suivent, envoyées par la vue des vignettes (coordonnées dans cette vue). */
+  poserVideos(z: Zone[]): void {
+    const b = this.vignettes?.getBounds(); if (!b) return;
+    this.zonesVideos = z.filter((x) => this.videos.includes(x.id)).map((x) => ({ ...x, x: x.x + b.x, y: x.y + b.y }));
+    this.appliquer();
+  }
+  private zonesVideos: Zone[] = [];
+  vignettes: WebContentsView | null = null;
+  posVignettes = { droite: 16, bas: 16 };
+
+  /** Pose les vues : interface (dessous), pages, vignettes des vidéos, vidéos ; l'interface passe dessus si un menu est ouvert. */
+  private appliquer(): void {
+    if (this.win.isDestroyed()) return;
+    let z = this.dernieresZones; let couche = this.couche;
+    let zv = this.videos.length ? this.zonesVideos : [];
+    if (this.pleinEcran) { const [w, h] = this.win.getContentSize(); z = [{ id: this.pleinEcran, x: 0, y: 0, w, h }]; zv = []; couche = false; }
     const voulues = new Set<string>();
     const cv = this.win.contentView;
-    for (const zone of z) {
-      if (!this.profil.onglet(zone.id)) continue;
+    const poser1 = (zone: Zone, dessus: boolean) => {
+      if (!this.profil.onglet(zone.id) || voulues.has(zone.id)) return;
       voulues.add(zone.id);
       const v = this.profil.reveiller(zone.id);
       const vue = v.vue!;
       if (v.fenetre && v.fenetre !== this) (v.fenetre as Fenetre).lacher(zone.id);
       v.fenetre = this; v.dernierVu = Date.now();
-      if (this.montrees.get(zone.id) !== vue) { cv.addChildView(vue); this.montrees.set(zone.id, vue); (vue as any).__parent = cv; }
+      if (this.montrees.get(zone.id) !== vue || dessus) { cv.addChildView(vue); this.montrees.set(zone.id, vue); (vue as any).__parent = cv; }
       vue.setBounds({ x: Math.round(zone.x), y: Math.round(zone.y), width: Math.max(1, Math.round(zone.w)), height: Math.max(1, Math.round(zone.h)) });
-    }
+    };
+    for (const zone of z) poser1(zone, false);
+    this.caserVignettes();
+    if (this.vignettes && !this.pleinEcran) cv.addChildView(this.vignettes);
+    for (const zone of zv) poser1(zone, true);
     for (const [id, vue] of [...this.montrees]) if (!voulues.has(id)) { try { cv.removeChildView(vue); } catch { /* */ } this.montrees.delete(id); const v = this.profil.vivants.get(id); if (v?.fenetre === this) v.fenetre = null; }
     // Menus ouverts : l'interface passe par-dessus les pages (ses zones de page restent transparentes).
     if (couche) cv.addChildView(this.ui); else cv.addChildView(this.ui, 0);
   }
+
+  /** La vue des vignettes (contrôles des vidéos qui suivent) n'existe que s'il y a des vidéos. */
+  private caserVignettes(): void {
+    if (!this.videos.length || this.pleinEcran) {
+      if (this.vignettes) { const v = this.vignettes; this.vignettes = null; fenetres.delete(v.webContents.id); try { this.win.contentView.removeChildView(v); v.webContents.close(); } catch { /* */ } this.zonesVideos = []; }
+      return;
+    }
+    if (!this.vignettes) {
+      const v = new WebContentsView({ webPreferences: { preload: join(__dirname, '..', 'preload', 'ui.js'), sandbox: true, contextIsolation: true, nodeIntegration: false, partition: 'pegase-ui', spellcheck: false } });
+      v.setBackgroundColor('#00000000');
+      fenetres.set(v.webContents.id, this); this.estVignettes.add(v.webContents.id);
+      v.webContents.on('will-navigate', (e) => e.preventDefault());
+      v.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+      v.webContents.on('did-finish-load', () => v.webContents.send('pegase:etat', this.etat()));
+      v.webContents.loadURL('pegase://app/index.html#vignettes');
+      this.vignettes = v;
+    }
+    const [W, H] = this.win.getContentSize();
+    const w = 340, h = Math.min(H - 16, this.videos.length * 292 - 12);
+    this.posVignettes.droite = Math.max(0, Math.min(W - w, this.posVignettes.droite));
+    this.posVignettes.bas = Math.max(0, Math.min(H - h, this.posVignettes.bas));
+    this.vignettes.setBounds({ x: W - w - this.posVignettes.droite, y: H - h - this.posVignettes.bas, width: w, height: h });
+  }
+  estVignettes = new Set<number>();
+  deplacerVignettes(dx: number, dy: number): void { this.posVignettes.droite -= dx; this.posVignettes.bas -= dy; this.appliquer(); }
+
   lacher(id: string): void { const vue = this.montrees.get(id); if (vue) { try { this.win.contentView.removeChildView(vue); } catch { /* */ } this.montrees.delete(id); } }
   montre(id: string): boolean { return this.montrees.has(id); }
 
@@ -232,6 +283,7 @@ export class Fenetre {
     wc.insertCSS('[data-pegase-suit]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483647!important;background:#000!important;object-fit:contain!important;transform:none!important}html,body{overflow:hidden!important}', { cssOrigin: 'user' })
       .then((k) => this.css.set(id, k)).catch(() => 0);
     this.lancerSuiviVideo();
+    this.appliquer();
     this.planifier();
   }
   lacherVideo(id: string, pause: boolean): void {
@@ -243,6 +295,8 @@ export class Fenetre {
       if (k) wc.removeInsertedCSS(k).catch(() => 0);
       wc.executeJavaScript(`(()=>{const v=document.querySelector('[data-pegase-suit]');if(v){v.removeAttribute('data-pegase-suit');${pause ? 'v.pause();' : ''}}})()`, false).catch(() => 0);
     }
+    this.zonesVideos = this.zonesVideos.filter((z) => z.id !== id);
+    this.appliquer();
     this.planifier();
   }
   private lancerSuiviVideo(): void {
@@ -450,6 +504,7 @@ export class Fenetre {
         return this.videoFaire(String(arg?.onglet), String(arg?.op));
       }
       case 'pip': return this.pip(String(arg?.id ?? courant()));
+      case 'deplacerVignettes': this.deplacerVignettes(Number(arg?.dx) || 0, Number(arg?.dy) || 0); return;
       case 'barre': this.barreReduite = arg?.reduite ?? !this.barreReduite; this.planifier(); return;
       case 'panneauOdin': this.panneauOdin = arg?.ouvert ?? !this.panneauOdin; this.planifier(); return;
       case 'theme': return this.appli.changerTheme(this, arg?.theme);
