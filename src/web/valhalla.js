@@ -74,7 +74,7 @@
 .va-plus[open]>summary{display:inline-flex}.va-plus>summary::before{content:'';flex:none;width:7px;height:7px;margin:0 4px 0 2px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s}.va-plus[open]>summary::before{transform:rotate(45deg) translate(-2px,-2px)}.va-plus>summary::-webkit-details-marker{display:none}.va-plus-o,.va-plus[open] .va-plus-f{display:none}.va-plus[open] .va-plus-o{display:inline}
 .va-story h4{margin:0 0 6px}.va-plus .va-story{align-items:start}.va-parties{margin:8px 0 0!important}.va-story li+li{margin-top:2px}.va-fn{margin:6px 0 0}.va-fn>summary{min-height:32px;display:flex;align-items:center;color:var(--va-lien);font-weight:500;cursor:pointer}.va-fn ul{margin:4px 0 0}
 .va-sim{list-style:none;display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0!important}.va-sim li{margin:0!important}.va-sim a,.va-sim span{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font-size:14px;text-decoration:none;overflow-wrap:anywhere}.va-sim a{color:var(--va-lien)}.va-sim a:hover{border-color:var(--va-lien)}.va-sim a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-@media (max-width:700px),(pointer:coarse){.va-sim a{min-height:44px}.va-fn>summary{min-height:44px}}
+@media (max-width:700px),(pointer:coarse){.va-sim a,.va-sim span{min-height:44px}.va-fn>summary{min-height:44px}}
 @media (max-width:700px){.va-head .va-tt h1{align-self:center}.va-head:has(.va-plus[open]) .va-desc{display:block;-webkit-line-clamp:unset;line-clamp:unset}.va-plus[open] .va-what-m{display:none}}
 .va-postes{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--panel);border:1px solid var(--line);margin:0 0 16px}.va-postes>label{margin:0 6px 0 0;font-size:15px;font-weight:600}.va-postes select{display:none}
 .va-poste{display:inline-flex;align-items:center;gap:8px;min-height:44px;max-width:100%;padding:0 14px;border-radius:999px;border:1px solid var(--field-h,var(--line));background:var(--panel);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}.va-poste span{overflow-wrap:anywhere;text-align:left}.va-poste small{color:var(--muted);font-size:13px;white-space:nowrap}
@@ -587,8 +587,8 @@
       btn.disabled = false; majBouton();
     };
     const E = info.export, P = info.partage;
-    const formats = el('div', { class: 'va-acts-bar' }, ...E.formats.filter((f) => f.permis).map((f) => el('button', { class: 'btn', type: 'button', title: `Télécharger en ${f.nom}`, onclick: (e) => exporter(f, e.currentTarget) }, f.nom)));
-    const pasPermis = E.formats.filter((f) => !f.permis && f.raison);
+    const formats = el('div', { class: 'va-acts-bar' }, ...(E.formats ?? []).filter((f) => f.permis).map((f) => el('button', { class: 'btn', type: 'button', title: `Télécharger en ${f.nom}`, onclick: (e) => exporter(f, e.currentTarget) }, f.nom)));
+    const pasPermis = (E.formats ?? []).filter((f) => !f.permis && f.raison);
     // Partager
     const type = el('select', { class: 'va-champ', id: 'va-pt-type' }, el('option', { value: 'prive' }, 'Privé'), el('option', { value: 'public' }, 'Public'));
     const jours = el('input', { class: 'va-champ', id: 'va-pt-jours', type: 'number', min: 1, max: P?.jours?.max ?? 90, value: P?.jours?.defaut ?? 7, style: 'max-width:110px' });
