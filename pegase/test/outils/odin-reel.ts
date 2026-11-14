@@ -33,6 +33,10 @@ rl.on('line', async (ligne) => {
       const r = await fetch(v.url + chemin, { method: meth, headers: { authorization: `Bearer ${jeton}`, ...(corps.length ? { 'content-type': 'application/json' } : {}) }, body: corps.length ? corps.join(' ') : undefined });
       return dire({ status: r.status, body: await r.json().catch(() => null) });
     }
+    if (cmd === 'plume') { // plume [json] : l'état de Plume du propriétaire, ou le changer (comme Réglages → Plume d'Odin)
+      const r = rest.length ? await v.json('/api/plume/reglages', JSON.parse(rest.join(' '))) : await v.json('/api/plume/etat');
+      return dire({ status: r.status, body: r.body });
+    }
     if (cmd === 'fin') { await t.end(); dire({ ok: true }); process.exit(0); }
     dire({ ok: false, erreur: `commande inconnue : ${cmd}` });
   } catch (e) { dire({ ok: false, erreur: String((e as Error).message) }); }

@@ -35,11 +35,11 @@ async function qui(req: IncomingMessage, d: DepsPlume): Promise<{ cle: string; n
     if (bearer.startsWith('pg1.')) {
       if (!v.module('pegase')) return { erreur: [503, 'indisponible', 'Pégase n\'est pas démarré dans Odin.'] };
       const id = await identifier(v.ctx('pegase'), varCtx, bearer, { proprietaire: d.nomProprietaire, ip: d.ip, req });
-      if (!id.ok) { if (id.code === 'jeton_invalide') d.fail(); return { erreur: [id.http, 'connexion', id.texte] }; }
+      if (!id.ok) { if (id.code === 'jeton_invalide') d.fail(); return { erreur: [id.http, id.code, id.texte] }; }
       return { cle: cleDe(id.personne as Personne), nom: id.personne.name, cookie: false };
     }
     const x = lireJeton(varCtx, req);
-    if (!x.ok || x.charge.aud !== 'pegase') { d.fail(); return { erreur: [401, 'connexion', x.ok ? 'Ce jeton n\'est pas fait pour Pégase.' : x.message] }; }
+    if (!x.ok || x.charge.aud !== 'pegase') { d.fail(); return { erreur: x.ok ? [401, 'connexion', 'Ce jeton n\'est pas fait pour Pégase.'] : [x.status, x.code, x.message] }; }
     return { cle: cleDe(x.p), nom: x.p.name, cookie: false };
   }
   // Interface d'Odin : un membre de Persona (cookie de session), sinon le propriétaire (session ou clé d'API).

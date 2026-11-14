@@ -9,6 +9,7 @@ type Section = { id: string; nom: string; groupe: string };
 const SECTIONS: Section[] = [
   { id: 'apparence', nom: 'Apparence et couleurs', groupe: 'Général' },
   { id: 'synchro', nom: 'Synchro Odin', groupe: 'Général' },
+  { id: 'plume', nom: 'Plume (correcteur)', groupe: 'Général' },
   { id: 'cookies', nom: 'Cookies et données des sites', groupe: 'Confidentialité et sécurité' },
   { id: 'motsdepasse', nom: 'Mots de passe', groupe: 'Confidentialité et sécurité' },
   { id: 'permissions', nom: 'Permissions des sites', groupe: 'Confidentialité et sécurité' },
@@ -132,6 +133,37 @@ const SECTIONS_RENDU: Record<string, Rendu> = {
       ctx.toast('Relié à Odin : la synchro commence.'); void dessiner();
     });
     let avant = ''; return () => { const k = JSON.stringify(ctx.etat().synchro); if (k !== avant) { const premier = !avant; avant = k; if (!premier) void dessiner(); } };
+  },
+
+  // Plume, le correcteur d'Odin dans les pages web : le réglage est celui de la personne dans Odin (le même partout).
+  // Ici : « Dans Pégase » seulement ; l'interrupteur principal (« Désactiver » coupe partout) ne se rallume que dans
+  // Réglages → Plume d'Odin.
+  plume: (el, ctx) => {
+    const dessiner = async () => {
+      const r = await api.faire('plumeEtat').catch(() => null) as { prive?: boolean; relie?: boolean; etat?: Record<string, any> | null } | null;
+      const tete = `<h2 class="titre-section">Plume (correcteur)</h2><p class="sous">Plume souligne les fautes pendant que tu écris dans les sites, les formulaires et leurs barres de recherche (rouge : orthographe et frappe ; bleu : grammaire) et propose une correction : rien ne change sans ton clic. Jamais dans un champ de mot de passe, de code, de carte bancaire ni dans un éditeur de code. Le texte ne part que vers ton Odin, jamais ailleurs.</p>`;
+      const e = r?.etat;
+      if (r?.prive) { el.innerHTML = `${tete}<section class="carte"><p class="doux">Pas de Plume dans une fenêtre privée : rien de ce que tu y écris n’est envoyé.</p></section>`; return; }
+      if (!r || r.relie === false) { el.innerHTML = `${tete}<section class="carte"><p class="doux">Plume passe par ton Odin : relie d’abord Pégase à Odin (Réglages → Synchro Odin).</p><div class="rangee"><button class="bouton" data-synchro>Synchro Odin</button></div></section>`; return; }
+      if (!e) { el.innerHTML = `${tete}<section class="carte"><p class="doux">Odin ne répond pas pour l’instant : réessaie dans un moment.</p></section>`; return; }
+      const depuis = e.depuis ? new Date(Number(e.depuis)).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+      el.innerHTML = `${tete}<div class="pile"><section class="carte">
+        <div class="rangee"><img src="${appIcone('snotra')}" alt="" width="40" height="40"><div class="pousse"><b>Plume</b><div class="doux petit">${e.actif ? `Activé${e.pegase ? ' dans Pégase' : ', mais pas dans Pégase'}${e.correcteur === 'LanguageTool' ? ' · LanguageTool' : ''}` : `Désactivé partout${depuis ? ` depuis le ${esc(depuis)}` : ''} : seul Réglages → Plume d’Odin le rallume.`}</div></div></div>
+        <div class="reglage"><div><b>Dans Pégase</b><div class="doux petit">Sites, formulaires, barre de recherche${e.actif ? '' : ' (Plume est désactivé partout)'}.</div></div><input type="checkbox" class="interrupteur" data-plume-pegase ${e.pegase ? 'checked' : ''} ${e.actif ? '' : 'disabled'} aria-label="Plume dans Pégase"></div>
+        <div class="rangee"><button class="bouton" data-plume-odin>Ouvrir Réglages → Plume dans Odin</button></div>
+        <p class="doux petit">Langue, ton dictionnaire, les fautes ignorées, « Odin se sert de Plume » : dans Odin. Le réglage est le même sur tous tes appareils.</p></section></div>`;
+    };
+    void dessiner();
+    el.addEventListener('change', async (ev) => {
+      const t = ev.target as HTMLInputElement; if (!t.hasAttribute('data-plume-pegase')) return;
+      const r = await api.faire('plumeDansPegase', { oui: t.checked });
+      ctx.toast(r ? (t.checked ? 'Plume corrige de nouveau dans Pégase.' : 'Plume ne corrige plus dans Pégase.') : 'Odin ne répond pas : rien n’a changé.'); void dessiner();
+    });
+    el.addEventListener('click', (ev) => {
+      const b = (ev.target as HTMLElement).closest<HTMLElement>('button'); if (!b) return;
+      if (b.hasAttribute('data-plume-odin')) void api.faire('plumeOuvrirOdin');
+      else if (b.hasAttribute('data-synchro')) api.faire('naviguer', { texte: 'pegase://reglages/synchro' });
+    });
   },
 
   cookies: (el, ctx) => {

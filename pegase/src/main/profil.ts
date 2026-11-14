@@ -56,6 +56,8 @@ export class ProfilOuvert extends EventEmitter {
     opts.preparerSession?.(this.session, this);
     // Les mots de passe de Pégase (proposer d'enregistrer, la clé dans le champ) : dans le monde isolé de chaque cadre.
     this.session.registerPreloadScript({ type: 'frame', filePath: join(__dirname, '..', 'preload', 'page.js') });
+    // Plume (le correcteur d'Odin, pegase-plume/) : jamais dans une fenêtre privée — le script n'y est même pas chargé.
+    if (!this.prive) this.session.registerPreloadScript({ type: 'frame', filePath: join(__dirname, '..', 'preload', 'plume.js') });
     this.premiereFois();
   }
 
