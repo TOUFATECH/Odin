@@ -7,7 +7,9 @@ export const nouvelId = (prefixe = ''): string => prefixe + randomBytes(9).toStr
 export function versAdresse(texte: string, moteur: string, odin?: string): string {
   const t = texte.trim();
   if (!t) return '';
-  if (/^(https?|file|pegase|about|data|view-source):/i.test(t)) return t;
+  // javascript: et data: tapés dans la barre ne sont jamais exécutés (on cherche le texte à la place).
+  if (/^(javascript|data|vbscript):/i.test(t)) return adresseRecherche(t, moteur, odin);
+  if (/^(https?|file|pegase|about|view-source):/i.test(t)) return t;
   if (/^(localhost|\d{1,3}(\.\d{1,3}){3}|\[[0-9a-f:]+\])(:\d+)?(\/.*)?$/i.test(t)) return `http://${t}`;
   if (!/\s/.test(t) && /^[^/?#]+\.[a-z]{2,}(:\d+)?([/?#].*)?$/i.test(t)) return `https://${t}`;
   return adresseRecherche(t, moteur, odin);

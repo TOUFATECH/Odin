@@ -82,7 +82,7 @@ function haut(): string {
   const reduite = E.barreReduite;
   return `<div class="g">
       <button class="ib" data-a="menu" data-menu="pegase" aria-label="Menu de Pégase" aria-haspopup="menu">${I.aile()}</button>
-      <button class="ib" data-a="barre" aria-label="${reduite ? 'Rouvrir la barre de côté' : 'Masquer la barre de côté'}" aria-pressed="${reduite}">${I.barre()}</button>
+      <button class="ib" data-a="barre" aria-label="${reduite ? 'Rouvrir la barre de côté' : 'Masquer la barre de côté'}" title="${raccourci('Ctrl+Maj+S')}" aria-pressed="${reduite}">${I.barre()}</button>
       <span class="espaceur"></span>
       <button class="ib" data-a="reculer" aria-label="Page précédente" ${c?.peutReculer ? '' : 'disabled'}>${I.recul()}</button>
       <button class="ib" data-a="avancer" aria-label="Page suivante" ${c?.peutAvancer ? '' : 'disabled'}>${I.avance()}</button>
@@ -194,11 +194,12 @@ function rendreCorps(): void {
       </div>` : '';
     const corps = interne ? `<div class="interne" data-interne="${esc(o.url.slice(9))}" data-onglet="${esc(o.id)}"></div>`
       : o.plante ? `<div class="zone-web"><div class="plante"><b>Cette page s’est arrêtée.</b><span>Elle a peut-être manqué de mémoire. Tu peux la relancer.</span><button class="bouton plein" data-a="recharger" data-id="${esc(o.id)}">Relancer la page</button></div></div>`
+      : E.mobile[o.id] ? zoneMobile(o, E.mobile[o.id])
       : `<div class="zone-web" data-zone="${esc(o.id)}"><div class="attente">${o.enVeille ? 'Réveil de la page…' : 'Chargement…'}</div></div>`;
     return `<section class="cadre-page${partage || reduite ? ' partage' : ''}${partage && c?.id === o.id ? ' focus' : ''}" aria-label="${esc(domaine(o.url))}" data-section="${esc(o.id)}">${tete}${corps}</section>`;
   }).join('');
   const html = `${montrerBarre && !reduite ? barre(false) : ''}${reduite ? `<div class="bord-gauche" data-survol-barre="1" aria-hidden="true"></div>${L.survolBarre ? barre(true) : ''}` : ''}
-    <main class="pages ${partage ? disposition : ''}" id="pages">${pagesHtml}</main>
+    ${E.outils && E.outils.position !== 'fenetre' && ids.includes(E.outils.onglet) ? `<div class="travail pos-${E.outils.position}"><main class="pages ${partage ? disposition : ''}" id="pages">${pagesHtml}</main>${cadreOutils(E.outils)}</div>` : `<main class="pages ${partage ? disposition : ''}" id="pages">${pagesHtml}</main>`}
     ${E.panneauOdin ? panneauOdin() : ''}`;
   if (poser('corps', html)) interneMonte = null;
   // Les pages pegase:// sont montées une fois, puis gardent leur état (champs, défilement).
@@ -212,6 +213,60 @@ function rendreCorps(): void {
   void interneMonte;
   rafraichirPages();
   const r = $<HTMLInputElement>('input.renommer'); if (r && document.activeElement !== r) { r.focus(); r.select(); }
+}
+
+// ————— Inspecteur —————
+let bouclierListe: { url: string; type: string; quand: number }[] = [];
+function cadreOutils(o: NonNullable<Etat['outils']>): string {
+  const corps = o.panneau === 'bouclier'
+    ? `<div class="bouclier-liste"><p class="doux petit">Pubs et pisteurs bloqués sur cette page (les plus récents en haut).</p>${bouclierListe.length ? `<table class="tableau"><tbody>${bouclierListe.slice(0, 200).map((b) => `<tr><td class="petit doux col-heure">${esc(b.type)}</td><td class="petit ellipse" title="${esc(b.url)}">${esc(b.url)}</td></tr>`).join('')}</tbody></table>` : '<p class="doux">Rien de bloqué sur cette page pour l’instant.</p>'}</div>`
+    : `<div class="zone-web" data-zone="outils:${esc(o.onglet)}"><div class="attente">Ouverture de l’inspecteur…</div></div>`;
+  return `<section class="cadre-outils" aria-label="Inspecteur">
+    <div class="tete-outils">
+      <b>Inspecteur</b>
+      <button class="ib p" data-a="mobile" data-id="${esc(o.onglet)}" aria-label="Affichage mobile" aria-pressed="${!!E.mobile[o.onglet]}">${I.onglets(16)}</button>
+      <div class="segments petits" role="group" aria-label="Panneau"><button data-a="outilsPanneau" data-p="outils" aria-pressed="${o.panneau === 'outils'}">Outils</button><button data-a="outilsPanneau" data-p="bouclier" aria-pressed="${o.panneau === 'bouclier'}">${I.bouclier(13)} Bouclier</button></div>
+      <span class="pousse"></span>
+      <div class="segments petits" role="group" aria-label="Position : à droite, en bas, fenêtre à part">${(['droite', 'bas', 'fenetre'] as const).map((x) => `<button data-a="outilsPosition" data-p="${x}" aria-pressed="${o.position === x}">${x === 'droite' ? 'À droite' : x === 'bas' ? 'En bas' : 'Fenêtre'}</button>`).join('')}</div>
+      <button class="ib p" data-a="outilsFermer" aria-label="Fermer l’inspecteur">${I.fermer(13)}</button>
+    </div>${corps}</section>`;
+}
+
+// ————— Affichage mobile —————
+import appareilsJson from '../commun/appareils.json';
+const APPAREILS = (appareilsJson as any).groupes as { nom: string; appareils: { id: string; nom: string; w?: number; h?: number; ouvert?: number[]; ferme?: number[]; dpr: number; aConfirmer?: boolean }[] }[];
+function zoneMobile(o: OngletVu, m: Etat['mobile'][string]): string {
+  const a = APPAREILS.flatMap((g) => g.appareils).find((x) => x.id === m.appareil);
+  const options = APPAREILS.map((g) => `<optgroup label="${esc(g.nom)}">${g.appareils.map((x) => `<option value="${x.id}"${x.id === m.appareil ? ' selected' : ''}>${esc(x.nom)}${x.aConfirmer ? ' (à confirmer)' : ''}</option>`).join('')}</optgroup>`).join('') + `<option value="libre"${m.appareil === 'libre' ? ' selected' : ''}>Libre : taille à la souris</option>`;
+  return `<div class="zone-mobile" data-mobile="${esc(o.id)}">
+    <div class="barre-mobile" role="toolbar" aria-label="Affichage mobile">
+      ${I.onglets(16)}<select class="champ petit-champ" data-mobile-appareil="${esc(o.id)}" aria-label="Choisir un appareil">${options}</select>
+      <input class="champ num" type="number" min="200" max="4000" value="${m.w}" data-mobile-w="${esc(o.id)}" aria-label="Largeur"> × <input class="champ num" type="number" min="200" max="4000" value="${m.h}" data-mobile-h="${esc(o.id)}" aria-label="Hauteur">
+      <span class="doux">×${String(m.dpr).replace('.', ',')}</span>
+      <select class="champ petit-champ" data-mobile-zoom="${esc(o.id)}" aria-label="Zoom"><option value="ajuster"${m.zoom === 'ajuster' ? ' selected' : ''}>Ajuster</option>${[0.5, 0.75, 1].map((z) => `<option value="${z}"${m.zoom === z ? ' selected' : ''}>${z * 100} %</option>`).join('')}</select>
+      <select class="champ petit-champ" data-mobile-reseau="${esc(o.id)}" aria-label="Réseau">${[['rapide', 'Rapide'], ['4g', '4G'], ['3g', '3G'], ['horsligne', 'Hors ligne']].map(([v, t]) => `<option value="${v}"${m.reseau === v ? ' selected' : ''}>${t}</option>`).join('')}</select>
+      <button class="ib p" data-a="mobileFaire" data-op="tourner" data-id="${esc(o.id)}" aria-label="Tourner">${I.recharger(16)}</button>
+      ${a?.ouvert ? `<button class="ib p" data-a="mobileFaire" data-op="plier" data-id="${esc(o.id)}" aria-label="Plier / déplier (appareils pliables)" aria-pressed="${m.plie}">${I.ligne(16)}</button>` : ''}
+      <button class="ib p" data-a="mobileFaire" data-op="capture" data-id="${esc(o.id)}" aria-label="Capture de l'écran du téléphone">${I.pip(16)}</button>
+      <span class="doux petit ellipse">${m.appareil === 'libre' ? 'Libre' : 'Tactile simulé · agent du téléphone'}${a?.aConfirmer ? ' · tailles à confirmer' : ''}</span>
+      <span class="pousse"></span>
+      <button class="bouton petit-bouton" data-a="mobileFaire" data-op="quitter" data-id="${esc(o.id)}" aria-label="Quitter l'affichage mobile">Quitter</button>
+    </div>
+    ${m.appareil === 'libre' ? `<div class="largeurs" role="group" aria-label="Largeurs rapides (mode libre)">${(appareilsJson as any).largeursRapides.map(([n, w]: [string, number]) => `<button class="bouton petit-bouton" data-a="mobileLargeur" data-w="${w}" data-id="${esc(o.id)}" aria-pressed="${m.w === w}">${n} · ${w}</button>`).join('')}</div>` : ''}
+    <div class="scene-mobile"><div class="appareil" data-appareil="${esc(o.id)}" data-w="${m.w}" data-h="${m.h}" data-zoom="${m.zoom}">
+      <div class="zone-web" data-zone="${esc(o.id)}"><div class="attente">Chargement…</div></div>
+      ${m.appareil === 'libre' ? `<span class="poignee pd" data-poignee="w" aria-label="Tirer pour élargir"></span><span class="poignee pb" data-poignee="h" aria-label="Tirer pour allonger"></span><span class="poignee pc" data-poignee="wh" aria-label="Tirer pour changer les deux"></span>` : ''}
+    </div></div></div>`;
+}
+/** Taille de l'appareil à l'écran : « ajuster » = aussi grand que possible sans dépasser (jamais plus que 100 %). */
+function dimensionnerMobiles(): void {
+  for (const el of document.querySelectorAll<HTMLElement>('.appareil[data-appareil]')) {
+    const scene = el.parentElement!; const w = Number(el.dataset.w), h = Number(el.dataset.h);
+    const fit = Math.min(1, (scene.clientWidth - 32) / w, (scene.clientHeight - 32) / h);
+    const z = el.dataset.zoom === 'ajuster' ? fit : Math.min(Number(el.dataset.zoom), 2);
+    el.style.width = `${Math.max(50, Math.floor(w * z))}px`; el.style.height = `${Math.max(50, Math.floor(h * z))}px`;
+    el.dataset.echelle = String(z);
+  }
 }
 
 function panneauOdin(): string {
@@ -269,6 +324,7 @@ function rendreVignettes(): void {
 let derniereZones = '';
 function envoyerZones(): void {
   if (VIGNETTES) { rendreVignettes(); return; }
+  dimensionnerMobiles();
   placerFlottants();
   const z: Zone[] = [];
   const ouvert = !!(L.menu || L.commande || L.survolBarre || ecranOuvert() || document.querySelector('.boite-dialogue'));
@@ -332,14 +388,15 @@ function menus(): string {
       ${item('menu', I.espaces(), 'Espaces de travail', I.fleche(), '', 'data-menu="espaces"')}
       ${item('interne', I.onglets(), 'Historique', '', 'Ctrl+Y', 'data-page="historique"')}
       ${item('interne', I.etoile(), 'Favoris', '', 'Ctrl+Maj+O', 'data-page="favoris"')}
-      ${item('interne', I.telecharger(), 'Téléchargements', '', 'Ctrl+J', 'data-page="telechargements"')}
+      ${item('interne', I.telecharger(), 'Téléchargements', '', 'Ctrl+Maj+J', 'data-page="telechargements"')}
       ${item('interne', I.agenda(), 'Agenda', '', '', 'data-page="agenda"')}
       ${item('interne', I.importer(), 'Importer depuis un autre navigateur', '', '', 'data-page="importer"')}
       ${item('defaut', I.coeur(), 'Pégase, navigateur par défaut')}
       ${item('majPegase', I.maj(), 'Chercher une mise à jour')}
       ${item('interne', I.reglages(), 'Réglages', '', 'Ctrl+,', 'data-page="reglages"')}
       ${item('imprimer', I.imprimer(), 'Imprimer', '', 'Ctrl+P')}
-      ${item('outilsDev', I.dev(), 'Développeur', '', 'Ctrl+Maj+I')}
+      ${item('outilsDev', I.dev(), 'Inspecteur (outils de développement)', '', 'Ctrl+Maj+I')}
+      ${item('mobile', I.onglets(), 'Affichage mobile', '', 'Ctrl+Maj+M')}
       ${item('interne', I.aide(), 'Aide', '', '', 'data-page="aide"')}
       ${E.odin?.connecte ? item('deconnexion', I.sortir(), 'Se déconnecter') : ''}
     </div>`;
@@ -416,6 +473,7 @@ function menus(): string {
       ${E.espaces.length > 1 ? `<hr>${item('supprEspace', I.corbeille(), 'Supprimer l’espace (ses onglets vont dans un autre)', '', '', `data-id="${esc(e.id)}"`)}` : ''}
     </div>`;
   }
+  if (m.type === 'page') return menuPageWeb(m.arg);
   if (m.type === 'site') return menuSite();
   if (m.type === 'telechargements') return menuTelechargements();
   if (m.type === 'profil') {
@@ -427,6 +485,41 @@ function menus(): string {
     </div>`;
   }
   return '';
+}
+
+/** Le clic droit dans une page : le menu de Pégase (maquette « Clic droit »). */
+function menuPageWeb(p: any): string {
+  const odin = !!E.odin?.connecte;
+  const it = (op: string, icone: string, texte: string, kbd = '', attrs = '', actif = true) => `<button class="item" role="menuitem" data-a="pageMenu" data-op="${op}" data-onglet="${esc(p.onglet)}" ${attrs} ${actif ? '' : 'disabled aria-disabled="true"'}>${icone}<span class="ellipse">${texte}</span>${kbd ? `<span class="kbd">${raccourci(kbd)}</span>` : ''}</button>`;
+  const h: string[] = [];
+  if (p.editable) {
+    if (p.suggestions?.length) h.push(...p.suggestions.map((m: string) => it('orthographe', I.crayon(), esc(m), '', `data-mot="${esc(m)}"`)), '<hr>');
+    h.push(it('couper', I.retirer(), 'Couper', 'Ctrl+X'), it('copier', I.dupliquer(), 'Copier', 'Ctrl+C'), it('coller', I.boite(), 'Coller', 'Ctrl+V'), it('toutSelectionner', I.coche(), 'Tout sélectionner', 'Ctrl+A'), '<hr>');
+  }
+  if (p.lien) {
+    const autres = E.espaces.filter((e) => e.id !== E.espaceActif);
+    h.push(`<div class="titre ellipse">Lien${p.texteLien ? ` · « ${esc(p.texteLien)} »` : ''}</div>`,
+      it('lienOnglet', I.plus(), 'Ouvrir dans un nouvel onglet', 'Ctrl+clic'), it('lienPartage', I.partage(), 'Ouvrir dans un écran partagé'),
+      ...autres.map((e) => it('lienEspace', `<span class="ltr c${e.couleur % 8}"></span>`, `Ouvrir dans l’espace ${esc(e.nom)}`, '', `data-espace="${esc(e.id)}"`)),
+      it('lienCopier', I.lien(), 'Copier l’adresse du lien'), it('lienEnregistrer', I.telecharger(), 'Enregistrer le lien sous…'),
+      `<button class="item" role="menuitem" data-a="odinLien" data-url="${esc(p.lien)}" ${odin ? '' : 'disabled title="Relie Pégase à Odin pour lui demander."'}><img src="${appIcone('valhalla')}" alt="" width="18" height="18"><span>Demander à Odin sur ce lien</span></button>`, '<hr>');
+  }
+  if (p.image) h.push('<div class="titre">Image</div>', it('imageOnglet', I.plus(), 'Ouvrir l’image dans un nouvel onglet'), it('imageEnregistrer', I.telecharger(), 'Enregistrer l’image…'), it('imageCopier', I.dupliquer(), 'Copier l’image'), '<hr>');
+  if (p.video) h.push(it('pip', I.pip(), 'Vidéo en petite fenêtre'), '<hr>');
+  if (p.selection && !p.editable) {
+    const t = p.selection.trim().slice(0, 40);
+    h.push(it('copier', I.dupliquer(), 'Copier', 'Ctrl+C'), it('chercher', I.loupe(16), `Chercher « ${esc(t)}${p.selection.length > 40 ? '…' : ''} »`),
+      `<button class="item" role="menuitem" data-a="odinSelection" ${odin ? '' : 'disabled title="Relie Pégase à Odin pour lui demander."'}><img src="${appIcone('valhalla')}" alt="" width="18" height="18"><span>Demander à Odin sur ce texte</span></button>`, '<hr>');
+  }
+  if (!p.lien && !p.image && !p.editable && !p.selection) {
+    h.push(it('reculer', I.recul(), 'Retour', 'Alt+←', '', p.peutReculer), it('avancer', I.avance(), 'Avancer', 'Alt+→', '', p.peutAvancer), it('recharger', I.recharger(), 'Actualiser', 'Ctrl+R'), '<hr>',
+      it('enregistrer', I.telecharger(), 'Enregistrer sous…', 'Ctrl+S'), it('imprimer', I.imprimer(), 'Imprimer…', 'Ctrl+P'),
+      `<button class="item" role="menuitem" data-a="odinTraduire" ${odin ? '' : 'disabled title="La traduction passe par Odin : relie Pégase à Odin (Réglages → Synchro Odin)."'}>${I.importer()}<span>Traduire en français</span><span class="kbd">par Odin</span></button>`,
+      `<button class="item" role="menuitem" data-a="odinResumer" ${odin ? '' : 'disabled title="Relie Pégase à Odin pour lui demander."'}><img src="${appIcone('valhalla')}" alt="" width="18" height="18"><span>Demander à Odin sur cette page</span><span class="kbd">${raccourci('Ctrl+J')}</span></button>`,
+      it('mobile', I.onglets(), 'Affichage mobile', 'Ctrl+Maj+M'), it('source', I.dev(), 'Afficher le code source', 'Ctrl+U'), '<hr>');
+  }
+  h.push(it('inspecter', I.dev(), 'Inspecter', 'Ctrl+Maj+I'));
+  return `<div class="flottant menu-page" role="menu" aria-label="Clic droit sur la page">${h.join('')}</div>`;
 }
 
 let infosSite: any = null;
@@ -461,7 +554,7 @@ function menuTelechargements(): string {
   return `<div class="flottant" role="dialog" aria-label="Téléchargements" data-ancre="droite">
     <div class="tete-menu"><img src="${appIcone('ullr')}" alt="" width="26" height="26"><div><b>Téléchargements</b><div class="petit doux">Vérifiés par Asclépios avant le PC</div></div></div>
     ${l.length ? l.slice(0, 8).map(ligne).join('') : '<p class="doux petit vide-menu">Aucun téléchargement pour l’instant. Chaque fichier sera gardé à part et analysé avant d’arriver sur ton PC.</p>'}
-    <hr><button class="item" data-a="interne" data-page="telechargements">${I.telecharger()}<span>Tous les téléchargements</span><span class="kbd">${raccourci('Ctrl+J')}</span></button>
+    <hr><button class="item" data-a="interne" data-page="telechargements">${I.telecharger()}<span>Tous les téléchargements</span><span class="kbd">${raccourci('Ctrl+Maj+J')}</span></button>
   </div>`;
 }
 
@@ -616,7 +709,7 @@ async function agir(a: string, d: DOMStringMap, el: HTMLElement): Promise<void> 
     case 'reglage': await api.faire('reglage', { cle: d.cle, valeur: d.valeur }); return;
     case 'effacerSite': { await api.faire('effacerSite', {}); fermerCouche(); toast('Cookies et données de ce site effacés.'); return; }
     case 'imprimer': fermerCouche(); await api.faire('imprimer'); return;
-    case 'outilsDev': fermerCouche(); await api.faire('outilsDev'); return;
+    case 'outilsDev': fermerCouche(); await api.faire('outils', {}); return;
     case 'trouverSuite': if (L.trouver?.texte) await api.faire('trouver', { texte: L.trouver.texte, suite: true, sens: Number(d.sens) }); return;
     case 'trouverFermer': L.trouver = null; await api.faire('trouver', {}); rendre(); return;
     case 'odinResumer': await demanderOdin('', true); return;
@@ -626,6 +719,19 @@ async function agir(a: string, d: DOMStringMap, el: HTMLElement): Promise<void> 
     case 'deconnexion': fermerCouche(); await api.faire('deconnexion'); return;
     case 'dlOuvrir': await api.faire('dlOuvrir', { id }); return;
     case 'dlDossier': await api.faire('dlDossier', { id }); return;
+    case 'mobile': await api.faire('mobile', { onglet: id, basculer: true }); return;
+    case 'mobileFaire': {
+      if (d.op === 'capture') { const r = await api.faire('captureMobile', { onglet: id }); toast(r ? 'Capture copiée dans le presse-papiers.' : 'Capture impossible.'); return; }
+      await api.faire('mobile', { onglet: id, [d.op === 'quitter' ? 'quitter' : d.op!]: true }); return;
+    }
+    case 'mobileLargeur': await api.faire('mobile', { onglet: id, w: Number(d.w) }); return;
+    case 'outilsPanneau': if (d.p === 'bouclier') bouclierListe = await api.faire('bloquesPage') ?? []; await api.faire('outils', { onglet: E.outils?.onglet, panneau: d.p }); return;
+    case 'outilsPosition': await api.faire('outils', { onglet: E.outils?.onglet, position: d.p }); return;
+    case 'outilsFermer': await api.faire('outils', { fermer: true }); return;
+    case 'pageMenu': { const m = L.menu?.arg; fermerCouche(); const r = await api.faire('menuPage', { onglet: d.onglet, op: d.op, espace: d.espace, mot: d.mot }); if (r === true && /Copier/.test(el.textContent || '')) toast('Copié.'); void m; return; }
+    case 'odinLien': fermerCouche(); await demanderOdin(`Que trouve-t-on à cette adresse, et est-elle fiable ? ${d.url}`); return;
+    case 'odinSelection': { const t = L.menu?.arg?.selection ?? ''; fermerCouche(); await demanderOdin(`Explique-moi ce passage : « ${String(t).slice(0, 1500)} »`); return; }
+    case 'odinTraduire': fermerCouche(); await demanderOdin('Traduis cette page en français.', false, false, true); return;
     default: await api.faire(a, { ...d });
   }
 }
@@ -636,13 +742,13 @@ async function basculerFavori(id?: string): Promise<void> {
   toast(r === 'ajoute' ? 'Ajouté aux favoris (en haut de la barre de côté).' : 'Retiré des favoris.');
 }
 
-async function demanderOdin(texte: string, resumer = false, verifier = false): Promise<void> {
+async function demanderOdin(texte: string, resumer = false, verifier = false, traduire = false): Promise<void> {
   if (!E.panneauOdin) await api.faire('panneauOdin', { ouvert: true });
   const c = courant();
   L.odinFil.push({ moi: true, texte: resumer ? 'Résume cette page.' : texte });
   L.odinFil.push({ moi: false, texte: 'Odin réfléchit…' });
   rendre();
-  const r = await api.faire('odinDemander', { texte, resumer, verifier, onglet: c?.id }).catch(() => null);
+  const r = await api.faire('odinDemander', { texte, resumer, verifier, traduire, onglet: c?.id }).catch(() => null);
   L.odinFil[L.odinFil.length - 1] = { moi: false, texte: r?.texte ?? 'Odin n’a pas répondu. Vérifie qu’il est allumé et que Pégase y est relié (Réglages → Synchro Odin).' };
   rendre();
   const fil = document.getElementById('po-fil'); if (fil) fil.scrollTop = fil.scrollHeight;
@@ -690,15 +796,19 @@ async function touche(k: string): Promise<boolean> {
     case 'C+Tab': case 'CS+Tab': { const l = liste(); if (!l.length) return true; const i = l.findIndex((o) => o.id === c?.id); const n = l[(i + (k === 'C+Tab' ? 1 : -1) + l.length) % l.length]; api.faire('activer', { id: n.id }); return true; }
     case 'A+ArrowLeft': api.faire('reculer', {}); return true;
     case 'A+ArrowRight': api.faire('avancer', {}); return true;
-    case 'C+s': api.faire('barre', {}); return true;
+    case 'CS+s': api.faire('barre', {}); return true;
+    case 'C+s': if (c && /^https?:/.test(c.url)) api.faire('enregistrerPage', {}); return true;
+    case 'C+u': if (c && /^https?:/.test(c.url)) api.faire('ouvrir', { url: `view-source:${c.url}` }); return true;
+    case 'CS+m': if (c && /^https?:/.test(c.url)) api.faire('mobile', { onglet: c.id }); return true;
     case 'C+p': api.faire('imprimer'); return true;
-    case 'CS+i': case 'F12': api.faire('outilsDev'); return true;
+    case 'CS+i': case 'F12': api.faire('outils', { basculer: true }); return true;
     case 'C+=': case 'C++': api.faire('zoom', { sens: 1 }); return true;
     case 'C+-': api.faire('zoom', { sens: -1 }); return true;
     case 'C+0': api.faire('zoom', { sens: 0 }); return true;
     case 'C+,': api.faire('interne', { page: 'reglages' }); return true;
     case 'C+y': api.faire('interne', { page: 'historique' }); return true;
-    case 'C+j': api.faire('interne', { page: 'telechargements' }); return true;
+    case 'CS+j': api.faire('interne', { page: 'telechargements' }); return true;
+    case 'C+j': demanderOdin('', true); return true;
     case 'CS+o': api.faire('interne', { page: 'favoris' }); return true;
     case 'CS+c': if (c) { await api.faire('copierLien', {}); toast('Lien copié.'); } return true;
     case 'CS+d': ouvrirCommande(true, '', true); return true;
@@ -737,6 +847,11 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('change', (e) => {
   const t = e.target as HTMLInputElement;
+  if (t.dataset.mobileAppareil) { api.faire('mobile', { onglet: t.dataset.mobileAppareil, appareil: t.value }); return; }
+  if (t.dataset.mobileW) { api.faire('mobile', { onglet: t.dataset.mobileW, w: Number(t.value), garder: true }); return; }
+  if (t.dataset.mobileH) { api.faire('mobile', { onglet: t.dataset.mobileH, h: Number(t.value), garder: true }); return; }
+  if (t.dataset.mobileZoom) { api.faire('mobile', { onglet: t.dataset.mobileZoom, zoom: t.value === 'ajuster' ? 'ajuster' : Number(t.value) }); return; }
+  if (t.dataset.mobileReseau) { api.faire('mobile', { onglet: t.dataset.mobileReseau, reseau: t.value }); return; }
   if (t.dataset.reglage) api.faire('reglage', { cle: t.dataset.reglage, valeur: t.type === 'checkbox' ? t.checked : t.value });
 });
 document.addEventListener('focusout', async (e) => {
@@ -819,6 +934,22 @@ document.addEventListener('drop', async (e) => {
   }
 });
 
+// Affichage mobile, mode libre : les poignées changent la taille à la souris.
+document.addEventListener('pointerdown', (e) => {
+  const p = (e.target as HTMLElement).closest?.('[data-poignee]') as HTMLElement | null; if (!p) return;
+  const app = p.closest('.appareil') as HTMLElement; const id = app.dataset.appareil!;
+  const w0 = Number(app.dataset.w), h0 = Number(app.dataset.h), z = Number(app.dataset.echelle) || 1, x0 = e.clientX, y0 = e.clientY, sens = p.dataset.poignee!;
+  p.setPointerCapture(e.pointerId); e.preventDefault();
+  let att: any = 0;
+  const bouge = (m: PointerEvent) => {
+    const w = sens.includes('w') ? Math.max(200, Math.round(w0 + (m.clientX - x0) / z)) : w0;
+    const h = sens.includes('h') ? Math.max(200, Math.round(h0 + (m.clientY - y0) / z)) : h0;
+    clearTimeout(att); att = setTimeout(() => api.faire('mobile', { onglet: id, w, h, garder: true }), 40);
+  };
+  const fin = () => { p.removeEventListener('pointermove', bouge); p.removeEventListener('pointerup', fin); };
+  p.addEventListener('pointermove', bouge); p.addEventListener('pointerup', fin);
+});
+
 // Déplacer une vidéo qui suit (par sa barre de titre).
 document.addEventListener('pointerdown', (e) => {
   const barre = (e.target as HTMLElement).closest?.('[data-glisser-video]') as HTMLElement | null;
@@ -846,6 +977,7 @@ api.surCommande((c, arg) => {
   if (c === 'touche') touche(String(arg));
   else if (c === 'trouve' && L.trouver) { L.trouver.actif = arg.actif; L.trouver.total = arg.total; derniers.couche = ''; rendreCouche(); }
   else if (c === 'message') toast(String(arg));
+  else if (c === 'menuPage') { L.commande = null; L.menu = { type: 'page', x: arg.x, y: arg.y, arg }; rendre(); }
   else if (c === 'commande' && arg === 'barre-commande') ouvrirCommande(true);
   else if (c === 'odin') { if (arg?.resumer) demanderOdin('', true); else if (arg?.texte) demanderOdin(`Explique-moi : « ${String(arg.texte).slice(0, 500)} »`); }
 });

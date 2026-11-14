@@ -1,12 +1,16 @@
 // Une fenêtre de Pégase : une vue d'interface (barre de côté, barre du haut, menus, pages pegase://)
 // et, posées par-dessus, les vues des pages web (une par onglet affiché ; jusqu'à 4 en écran partagé,
 // plus jusqu'à 4 vignettes de vidéos qui suivent).
-import { BaseWindow, WebContentsView, ipcMain, clipboard, nativeTheme, screen, type WebContents } from 'electron';
+import { BaseWindow, WebContentsView, ipcMain, clipboard, ClipboardItem, nativeTheme, screen, type WebContents } from 'electron';
 import { join } from 'node:path';
 import type { Bureau, Etat, Theme, Zone, Video, Ecran } from '../commun/types';
 import { THEMES } from '../commun/types';
 import { ProfilOuvert, type OngletRange, type DossierRange } from './profil';
 import { nouvelId, versAdresse, domaine, adresseRecherche } from './outils';
+import { httpPermis, accepterCertificat } from './securite';
+import { ouvrirOutils, colorer, preparerOutils, mobileDe, emuler, quitterMobile } from './outilsdev';
+import type { Mobile, Outils } from '../commun/types';
+import { dialog } from 'electron';
 
 export interface Appli {
   nouvelleFenetre(prive: boolean): void;
@@ -24,7 +28,7 @@ ipcMain.on('pegase:zones', (e, z: Zone[], couche: boolean) => { const f = fenetr
 
 const FOND: Record<Theme, string> = { noir: '#121318', blanc: '#F2F4F8', bleu: '#33377F', rouge: '#8E1A30', transparent: '#00000000', glace: '#DDE6F5' };
 const RACCOURCIS = new Set(['C+t', 'C+n', 'CS+n', 'C+w', 'C+l', 'C+d', 'C+f', 'C+r', 'F5', 'CS+t', 'C+Tab', 'CS+Tab', 'A+ArrowLeft', 'A+ArrowRight', 'C+s', 'C+p',
-  'CS+i', 'F12', 'C+=', 'C++', 'C+-', 'C+0', 'C+,', 'CS+c', 'CS+d', 'C+1', 'C+2', 'C+3', 'C+4', 'C+5', 'C+6', 'C+7', 'C+8', 'C+9', 'C+y', 'C+j', 'CS+o', 'F11']);
+  'CS+i', 'F12', 'C+=', 'C++', 'C+-', 'C+0', 'C+,', 'CS+c', 'CS+d', 'C+1', 'C+2', 'C+3', 'C+4', 'C+5', 'C+6', 'C+7', 'C+8', 'C+9', 'C+y', 'C+j', 'CS+j', 'CS+o', 'F11', 'C+u', 'CS+m', 'CS+s']);
 
 /** Le nom d'une combinaison de touches (« C+t », « CS+Tab »…), pareil pour l'interface et les pages. */
 export function combo(i: { control?: boolean; meta?: boolean; shift?: boolean; alt?: boolean; key: string }): string {
@@ -63,9 +67,15 @@ export class Fenetre {
     const pip = (id: string) => this.pip(id);
     const chercher = (o: any) => this.surOuvrir({ url: adresseRecherche(o.q, this.profil.reglages().moteur, this.appli.etatGlobal(this).odin?.url), espace: o.espace, depuis: o.depuis });
     const demander = (o: any) => { this.panneauOdin = true; this.envoyer('odin', o); this.planifier(); };
+    const menuPage = (o: { id: string; p: any }) => {
+      const vue = this.montrees.get(o.id); if (!vue) return;
+      const b = vue.getBounds();
+      this.envoyer('menuPage', { ...o.p, onglet: o.id, x: o.p.x + b.x, y: o.p.y + b.y });
+    };
+    profil.on('menu-page', menuPage);
     profil.on('change', change); profil.on('video', video); profil.on('ouvrir', ouvrir); profil.on('retirer-vue', retirer); profil.on('pip', pip); profil.on('chercher', chercher); profil.on('demander-odin', demander);
     this.finale = () => {
-      profil.off('change', change); profil.off('video', video); profil.off('ouvrir', ouvrir); profil.off('retirer-vue', retirer); profil.off('pip', pip); profil.off('chercher', chercher); profil.off('demander-odin', demander);
+      profil.off('change', change); profil.off('video', video); profil.off('ouvrir', ouvrir); profil.off('retirer-vue', retirer); profil.off('pip', pip); profil.off('chercher', chercher); profil.off('demander-odin', demander); profil.off('menu-page', menuPage);
     };
   }
   private finale: () => void = () => {};
@@ -117,6 +127,7 @@ export class Fenetre {
     if (!THEMES.includes(t)) return;
     const avant = this.theme; this.theme = t;
     const refaire = (avant === 'transparent') !== (t === 'transparent') || ((avant === 'glace') !== (t === 'glace') && process.platform !== 'linux');
+    if (this.outils?.vue) { colorer(this.outils.vue.webContents, t); const o = this.outils; preparerOutils(this.profil.session, t).then(() => { if (this.outils === o) this.rouvrirOutils(); }); }
     if (!refaire) { if (t !== 'transparent') this.win.setBackgroundColor(FOND[t]); this.planifier(); return; }
     const ancien = this.win, ancienneUi = this.ui, bornes = ancien.getBounds(), max = ancien.isMaximized();
     for (const [, vue] of this.montrees) { try { ancien.contentView.removeChildView(vue); } catch { /* */ } }
@@ -184,6 +195,8 @@ export class Fenetre {
       reglages: { ...r, theme: this.theme },
       synchro: { etat: 'local', attente: 0 },
       protection: { bloquesTotal: p.bloquesTotal, dns: 'système', dnsChiffre: false, filtres: 0, pret: false },
+      outils: this.outils ? { onglet: this.outils.onglet, position: this.outils.position, panneau: this.outils.panneau } : null,
+      mobile: Object.fromEntries(this.mobiles),
       barreReduite: this.barreReduite, panneauOdin: this.panneauOdin, prive: p.prive, maximise: this.win.isMaximized(),
       ...g,
     } as Etat;
@@ -202,6 +215,9 @@ export class Fenetre {
     this.appliquer();
   }
   private zonesVideos: Zone[] = [];
+  outils: (Outils & { vue: WebContentsView | null }) | null = null;
+  mobiles = new Map<string, Mobile>();
+  private echelles = new Map<string, string>();
   vignettes: WebContentsView | null = null;
   posVignettes = { droite: 16, bas: 16 };
 
@@ -223,7 +239,20 @@ export class Fenetre {
       if (this.montrees.get(zone.id) !== vue || dessus) { cv.addChildView(vue); this.montrees.set(zone.id, vue); (vue as any).__parent = cv; }
       vue.setBounds({ x: Math.round(zone.x), y: Math.round(zone.y), width: Math.max(1, Math.round(zone.w)), height: Math.max(1, Math.round(zone.h)) });
     };
-    for (const zone of z) poser1(zone, false);
+    for (const zone of z) if (!zone.id.startsWith('outils:')) poser1(zone, false);
+    // L'inspecteur ancré à droite ou en bas : sa vue à lui, posée à côté de la page.
+    const zo = z.find((x) => x.id.startsWith('outils:'));
+    if (this.outils?.vue) {
+      if (zo && !this.pleinEcran) { cv.addChildView(this.outils.vue); this.outils.vue.setBounds({ x: Math.round(zo.x), y: Math.round(zo.y), width: Math.max(1, Math.round(zo.w)), height: Math.max(1, Math.round(zo.h)) }); }
+      else { try { cv.removeChildView(this.outils.vue); } catch { /* */ } }
+    }
+    // Affichage mobile : l'échelle vient de la taille de la zone (la page garde la taille du téléphone).
+    for (const zone of z) {
+      const m = this.mobiles.get(zone.id); const wc = this.profil.vivants.get(zone.id)?.vue?.webContents; if (!m || !wc) continue;
+      const echelle = Math.max(0.1, Math.min(2, zone.w / m.w));
+      const cle = JSON.stringify([m, echelle.toFixed(3)]);
+      if (this.echelles.get(zone.id) !== cle) { this.echelles.set(zone.id, cle); emuler(wc, m, echelle, this.profil.session.getUserAgent()).catch(() => 0); }
+    }
     this.caserVignettes();
     if (this.vignettes && !this.pleinEcran) cv.addChildView(this.vignettes);
     for (const zone of zv) poser1(zone, true);
@@ -422,6 +451,7 @@ export class Fenetre {
         if (arg?.nouvel || !courant()) { this.surOuvrir({ url, espace: this.espaceActif }); return; }
         const id = courant()!; const o = p.onglet(id)!;
         p.mettreOnglet({ ...o, url });
+        if (url.startsWith('pegase://')) { p.endormir(id); this.planifier(); return; }
         const v = p.vivants.get(id);
         if (v?.vue) v.vue.webContents.loadURL(url).catch(() => 0); else p.reveiller(id);
         this.planifier(); return;
@@ -445,8 +475,7 @@ export class Fenetre {
       case 'zoom': { const wc = wcDe(); if (!wc) return; const z = arg?.sens === 0 ? 0 : wc.getZoomLevel() + (arg?.sens > 0 ? 0.5 : -0.5); wc.setZoomLevel(Math.max(-5, Math.min(5, z))); return; }
       case 'trouver': { const wc = wcDe(); if (!wc) return; if (!arg?.texte) { wc.stopFindInPage('clearSelection'); return; } wc.findInPage(String(arg.texte), { forward: arg.sens !== -1, findNext: !!arg.suite }); return; }
       case 'imprimer': wcDe()?.print(); return;
-      case 'outilsDev': wcDe()?.openDevTools({ mode: 'detach' }); return;
-      case 'copierLien': { const id = arg?.id ?? courant(); const o = id && p.onglet(id); if (o) clipboard.writeText(o.url); return true; }
+      case 'copierLien': { const id = arg?.id ?? courant(); const o = id && p.onglet(id); if (o) await clipboard.writeText(o.url); return true; }
       case 'muet': { const wc = wcDe(arg?.id); if (wc) { wc.setAudioMuted(!wc.isAudioMuted()); this.planifier(); } return; }
       case 'dupliquer': { const o = p.onglet(String(arg?.id)); if (o) this.surOuvrir({ url: o.url, espace: o.espace }); return; }
       case 'renommer': { const o = p.onglet(String(arg?.id)); if (o && arg?.titre) { p.mettreOnglet({ ...o, titre: String(arg.titre).slice(0, 200) }); this.planifier(); } return; }
@@ -527,10 +556,103 @@ export class Fenetre {
       }
       case 'effacerSite': { const id = arg?.id ?? courant(); const o = id && p.onglet(id); if (!o) return; const origine = new URL(o.url).origin; await p.session.clearStorageData({ origin: origine }); return true; }
       case 'dehors': p.ouvrirDehors(String(arg?.url)); return;
+      case 'menuPage': return this.actionMenuPage(String(arg?.onglet), String(arg?.op), arg);
+      case 'outilsDev': case 'outils': return this.actionOutils(arg ?? {});
+      case 'mobile': return this.actionMobile(arg ?? {});
+      case 'captureMobile': { const wc = wcDe(arg?.onglet); if (!wc) return false; const img = await wc.capturePage(); await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(img.toPNG())], { type: 'image/png' }) })]); return true; }
+      case 'enregistrerPage': { const id = courant(); const v = id && p.vivants.get(id); if (v && v.vue) { v.menu = v.menu ?? ({} as any); return this.actionMenuPage(id!, 'enregistrer', {}); } return; }
+      case 'avertissement': { const id = arg?.id ?? courant(); const v = id && p.vivants.get(id); return v ? v.avertissement : null; }
+      case 'avertissementSuite': {
+        const id = String(arg?.id ?? courant()); const v = p.vivants.get(id); const o = p.onglet(id); if (!v?.avertissement || !o) return;
+        const a = v.avertissement;
+        if (arg?.op === 'retour') { v.avertissement = null; v.avertir = null; p.mettreOnglet({ ...o, url: 'pegase://accueil', titre: '' }); if (v.vue?.webContents.navigationHistory.canGoBack()) { p.mettreOnglet({ ...o, url: v.vue.webContents.getURL() || 'pegase://accueil' }); } this.planifier(); return; }
+        if (a.type === 'http') httpPermis.add(new URL(a.url).hostname);
+        if (a.type === 'certificat') accepterCertificat(new URL(a.url).host);
+        p.mettreOnglet({ ...o, url: a.url }); v.avertir = null;
+        if (v.vue) v.vue.webContents.loadURL(a.url).catch(() => 0); else p.reveiller(id);
+        setTimeout(() => { v.avertissement = null; }, 2000);
+        this.planifier(); return;
+      }
       case 'ecran': this.ecran = arg?.ecran; this.planifier(); return;
       case 'theme-systeme': return nativeTheme.shouldUseDarkColors ? 'noir' : 'blanc';
     }
     return this.appli.action(this, action, arg);
+  }
+
+  /** L'inspecteur : ouvrir, changer de place, passer au panneau Bouclier, fermer. */
+  private async actionOutils(arg: any): Promise<void> {
+    const p = this.profil;
+    if (arg.fermer) { const o = this.outils; this.outils = null; if (o) { const wc = p.vivants.get(o.onglet)?.vue?.webContents; if (wc && !wc.isDestroyed()) wc.closeDevTools(); if (o.vue) { try { this.win.contentView.removeChildView(o.vue); o.vue.webContents.close(); } catch { /* */ } } } this.appliquer(); this.planifier(); return; }
+    const id = String(arg.onglet ?? this.ongletCourant() ?? ''); const wc = p.vivants.get(id)?.vue?.webContents; if (!wc) return;
+    if (this.outils && this.outils.onglet === id && !arg.position && !arg.panneau && arg.x === undefined) { if (!arg.basculer) return; return this.actionOutils({ fermer: true }); }
+    const position: Outils['position'] = arg.position ?? this.outils?.position ?? 'droite';
+    const panneau: Outils['panneau'] = arg.panneau ?? this.outils?.panneau ?? 'outils';
+    const refaire = !this.outils || this.outils.onglet !== id || this.outils.position !== position;
+    if (this.outils && refaire && this.outils.onglet !== id) this.actionOutils({ fermer: true });
+    if (refaire) await preparerOutils(p.session, this.theme);
+    const vue = refaire ? ouvrirOutils(wc, position, this.theme, this.outils?.vue) : this.outils!.vue;
+    this.outils = { onglet: id, position, panneau, vue };
+    if (typeof arg.x === 'number') setTimeout(() => { try { wc.inspectElement(Math.round(arg.x), Math.round(arg.y)); } catch { /* */ } }, 300);
+    this.appliquer(); this.planifier();
+  }
+
+  /** Réouvre l'inspecteur (après le passage en français ou le changement de thème sombre/clair). */
+  private rouvrirOutils(): void {
+    const o = this.outils; if (!o || o.position === 'fenetre') return;
+    const wc = this.profil.vivants.get(o.onglet)?.vue?.webContents; if (!wc) return;
+    if (o.vue) { try { this.win.contentView.removeChildView(o.vue); } catch { /* */ } }
+    const suite = () => { if (this.outils !== o) return; o.vue = ouvrirOutils(wc, o.position, this.theme, o.vue); this.appliquer(); };
+    if (wc.isDevToolsOpened()) { wc.once('devtools-closed', () => setTimeout(suite, 50)); wc.closeDevTools(); } else suite();
+  }
+
+  /** L'affichage mobile d'un onglet. */
+  private async actionMobile(arg: any): Promise<void> {
+    const id = String(arg.onglet ?? this.ongletCourant() ?? ''); const wc = this.profil.vivants.get(id)?.vue?.webContents; if (!wc) return;
+    const m = this.mobiles.get(id);
+    if (arg.quitter || (m && arg.basculer)) { this.mobiles.delete(id); this.echelles.delete(id); await quitterMobile(wc, this.profil.session.getUserAgent()); this.planifier(); return; }
+    let n: Mobile = m ?? mobileDe('iphone-18-pro-max');
+    if (arg.appareil === 'libre') n = { ...n, appareil: 'libre', agent: '', plie: false };
+    else if (arg.appareil) n = mobileDe(String(arg.appareil), m);
+    if (arg.plier && n.appareil !== 'libre') n = mobileDe(n.appareil, { ...n, plie: !n.plie });
+    if (arg.tourner) n = { ...n, paysage: !n.paysage, w: n.h, h: n.w };
+    if (typeof arg.w === 'number' && arg.w >= 200 && arg.w <= 4000) n = { ...n, w: Math.round(arg.w), appareil: arg.garder ? n.appareil : 'libre' };
+    if (typeof arg.h === 'number' && arg.h >= 200 && arg.h <= 4000) n = { ...n, h: Math.round(arg.h), appareil: arg.garder ? n.appareil : 'libre' };
+    if (arg.zoom === 'ajuster' || (typeof arg.zoom === 'number' && arg.zoom >= 0.1 && arg.zoom <= 2)) n = { ...n, zoom: arg.zoom };
+    if (['rapide', '4g', '3g', 'horsligne'].includes(arg.reseau)) n = { ...n, reseau: arg.reseau };
+    this.mobiles.set(id, n);
+    this.planifier();
+  }
+
+  /** Ce que fait un choix du menu du clic droit dans une page. */
+  private async actionMenuPage(id: string, op: string, arg: any): Promise<any> {
+    const p = this.profil; const v = p.vivants.get(id); const wc = v?.vue?.webContents; const m = v?.menu;
+    if (!wc || !m) return;
+    const o = p.onglet(id);
+    switch (op) {
+      case 'reculer': wc.navigationHistory.goBack(); return;
+      case 'avancer': wc.navigationHistory.goForward(); return;
+      case 'recharger': wc.reload(); return;
+      case 'enregistrer': {
+        const r = await dialog.showSaveDialog({ title: 'Enregistrer la page', defaultPath: `${(wc.getTitle() || 'page').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80)}.html`, filters: [{ name: 'Page web complète', extensions: ['html'] }] });
+        if (!r.canceled && r.filePath) await wc.savePage(r.filePath, 'HTMLComplete'); return;
+      }
+      case 'imprimer': wc.print(); return;
+      case 'source': this.surOuvrir({ url: `view-source:${wc.getURL()}`, espace: o?.espace }); return;
+      case 'inspecter': this.actionOutils({ onglet: id, x: m.x, y: m.y }); return;
+      case 'mobile': return this.actionMobile({ onglet: id });
+      case 'couper': wc.cut(); return; case 'copier': wc.copy(); return; case 'coller': wc.paste(); return; case 'toutSelectionner': wc.selectAll(); return;
+      case 'orthographe': if (typeof arg?.mot === 'string' && m.dictionarySuggestions.includes(arg.mot)) wc.replaceMisspelling(arg.mot); return;
+      case 'lienOnglet': if (m.linkURL) this.surOuvrir({ url: m.linkURL, espace: o?.espace, arrierePlan: true }); return;
+      case 'lienPartage': if (m.linkURL) this.surOuvrir({ url: m.linkURL, espace: o?.espace, depuis: id, partage: true }); return;
+      case 'lienEspace': if (m.linkURL && p.espaces().some((e) => e.id === arg?.espace)) this.surOuvrir({ url: m.linkURL, espace: arg.espace, arrierePlan: true }); return;
+      case 'lienCopier': if (m.linkURL) await clipboard.writeText(m.linkURL); return true;
+      case 'lienEnregistrer': if (m.linkURL) wc.downloadURL(m.linkURL); return;
+      case 'imageOnglet': if (m.srcURL) this.surOuvrir({ url: m.srcURL, espace: o?.espace, arrierePlan: true }); return;
+      case 'imageEnregistrer': if (m.srcURL) wc.downloadURL(m.srcURL); return;
+      case 'imageCopier': wc.copyImageAt(m.x, m.y); return true;
+      case 'chercher': if (m.selectionText) this.surOuvrir({ url: adresseRecherche(m.selectionText.slice(0, 500), p.reglages().moteur, this.appli.etatGlobal(this).odin?.url), espace: o?.espace }); return;
+      case 'pip': this.pip(id); return;
+    }
   }
 
   /** Les résultats de la barre de commande : onglets ouverts, favoris, historique. */

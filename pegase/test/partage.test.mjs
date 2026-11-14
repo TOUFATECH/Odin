@@ -46,9 +46,9 @@ test('écran partagé, barre réduite et vidéo qui suit', { timeout: 240_000 },
     await attendre(async () => (await zones(ui)).length === 1);
     // Barre réduite (Ctrl+S) : la page prend toute la largeur.
     const avant = (await zones(ui))[0];
-    await ui.keyboard.press('Control+s');
+    await ui.keyboard.press('Control+Shift+S');
     await attendre(async () => { const r = (await zones(ui))[0]; return r && r.w > avant.w + 200; });
-    await ui.keyboard.press('Control+s');
+    await ui.keyboard.press('Control+Shift+S');
     await attendre(async () => !(await ui.$('.bord-gauche')));
     // La vidéo joue ; on revient au groupe de 4 : elle suit dans un coin.
     await attendre(() => pv.evaluate(() => !document.getElementById('v').paused && document.getElementById('v').currentTime > 0.3));

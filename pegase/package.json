@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@ghostery/adblocker-electron": "2.20.3",
+    "tldts-experimental": "7.5.2",
     "electron-updater": "6.8.11"
   },
   "devDependencies": {

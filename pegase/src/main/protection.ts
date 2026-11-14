@@ -12,6 +12,7 @@ import type { ProfilOuvert } from './profil';
 import type { Fenetre } from './fenetre';
 import { ecrireSur } from './stockage';
 import { nouvelId, domaine } from './outils';
+import { httpsDabord, estTiers } from './securite';
 
 // La signature du fichier d'essai EICAR, découpée pour que Pégase lui-même ne soit jamais pris pour un virus.
 const EICAR = Buffer.from(['X5O!P%@AP[4\\PZX54(P^)7CC)7}$', 'EICAR-STANDARD-ANTIVIRUS-', 'TEST-FILE!$H+H*'].join(''));
@@ -121,17 +122,36 @@ export class Protection {
     const pre = s.registerPreloadScript({ type: 'frame', filePath: require.resolve('@ghostery/adblocker-electron-preload') });
     this.preloads.set(s, pre);
     s.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (d, rappel) => {
+      if (d.resourceType === 'mainFrame') {
+        // HTTPS d'abord : un site public demandé en http est d'abord essayé en https (avertissement s'il ne répond pas).
+        const v = [...p.vivants.values()].find((x) => x.vue?.webContents.id === d.webContentsId);
+        const haut = httpsDabord(d.url);
+        if (haut && v && !(v.avertissement?.type === 'http' && v.avertissement.url === d.url)) { v.avertir = { type: 'https', url: d.url }; return rappel({ redirectURL: haut }); }
+        return rappel({});
+      }
       const k2 = this.cle(p); const m = k2 ? this.moteurs.get(k2) : undefined;
-      if (!m || d.resourceType === 'mainFrame' || !d.webContentsId) return rappel({});
+      if (!m || !d.webContentsId) return rappel({});
       m.onBeforeRequest(d, (r: { cancel?: boolean; redirectURL?: string }) => {
         if (r.cancel || r.redirectURL) this.compterBloque(p, d.webContentsId!, d.url, d.resourceType);
         rappel(r);
       });
     });
+    // Cookies tiers bloqués (réglable) : ni envoyés, ni reçus pour un autre site que celui de la page.
+    s.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (d, rappel) => {
+      if (p.reglages().cookiesTiers && estTiers(d as any)) { const h = { ...d.requestHeaders }; for (const k of Object.keys(h)) if (k.toLowerCase() === 'cookie') delete h[k]; return rappel({ requestHeaders: h }); }
+      rappel({});
+    });
     s.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (d, rappel) => {
+      const tiers = p.reglages().cookiesTiers && estTiers(d as any);
+      const fin = (r: Electron.HeadersReceivedResponse) => {
+        if (!tiers) return rappel(r);
+        const h = { ...(r.responseHeaders ?? d.responseHeaders ?? {}) };
+        for (const k of Object.keys(h)) if (k.toLowerCase() === 'set-cookie') delete h[k];
+        rappel({ ...r, responseHeaders: h });
+      };
       const k2 = this.cle(p); const m = k2 ? this.moteurs.get(k2) : undefined;
-      if (!m) return rappel({});
-      m.onHeadersReceived(d, rappel);
+      if (!m) return fin({});
+      m.onHeadersReceived(d, fin);
     });
     s.on('will-download', (_e, item, wc) => this.telecharger(p, item, wc));
     p.on('change', () => { const k3 = this.cle(p); if (k3 && !this.moteurs.has(k3)) this.charger(k3); });

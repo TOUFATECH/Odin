@@ -19,6 +19,8 @@ export interface OngletVu {
   charge: boolean; peutReculer: boolean; peutAvancer: boolean; enVeille: boolean;
   son: boolean; muet: boolean; video: boolean; prive: boolean; plante?: boolean;
   bloques: number; securise: boolean; certificat?: string;
+  /** Le nom du site à montrer (lettres normales, ou xn--… si l'adresse mélange des alphabets). */
+  hote: string;
 }
 export interface DossierVu { id: string; nom: string; espace: string; ouvert: boolean; ordre: number }
 export interface Bureau { id: string; espace: string; onglets: string[]; disposition: 'ligne' | 'colonne' | 'grille'; nom?: string; ordre: number }
@@ -37,11 +39,13 @@ export interface Reglages {
   bloqueur: 'coupe' | 'normal' | 'strict'; cookiesRefus: boolean; videoAuto: boolean;
   dnsSecours: string; analyseOdin: boolean; moteur: 'pythie' | 'duckduckgo' | 'google' | 'qwant';
   synchroHistorique: 'tout' | 'sans-historique' | 'rien'; pageAccueil: 'accueil' | 'vide';
+  cookiesTiers: boolean; viderFermeture: boolean; garderSites: string[]; proposerMdp: boolean;
 }
 export const REGLAGES_DEFAUT: Reglages = {
   theme: 'bleu', transparence: 60, veilleMinutes: 10, rangerHeures: 12, bloqueur: 'normal', cookiesRefus: true,
   videoAuto: true, dnsSecours: 'https://dns.quad9.net/dns-query', analyseOdin: false, moteur: 'duckduckgo',
   synchroHistorique: 'tout', pageAccueil: 'accueil',
+  cookiesTiers: true, viderFermeture: false, garderSites: [], proposerMdp: true,
 };
 
 export type EtatSynchro = { etat: 'local' | 'ok' | 'encours' | 'horsligne'; attente: number; odin?: string; derniere?: number };
@@ -68,8 +72,15 @@ export interface Etat {
   protection: { bloquesTotal: number; dns: string; dnsChiffre: boolean; filtres: number; pret: boolean };
   barreReduite: boolean; panneauOdin: boolean; prive: boolean; maximise: boolean;
   odin?: { url: string; nom: string; connecte: boolean };
+  outils: Outils | null;
+  mobile: Record<string, Mobile>;
+  proposerMdp?: { origine: string; identifiant: string } | null;
   memoire?: number;
 }
+
+/** L'affichage mobile d'un onglet. w × h en pixels CSS (déjà tournés), zoom = « ajuster » ou un nombre. */
+export interface Mobile { appareil: string; w: number; h: number; dpr: number; plie: boolean; paysage: boolean; zoom: 'ajuster' | number; reseau: 'rapide' | '4g' | '3g' | 'horsligne'; agent: string }
+export interface Outils { onglet: string; position: 'droite' | 'bas' | 'fenetre'; panneau: 'outils' | 'bouclier' }
 
 /** Zone où poser une page web (pixels de la fenêtre). */
 export interface Zone { id: string; x: number; y: number; w: number; h: number }

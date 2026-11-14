@@ -10,6 +10,7 @@ import { ecrireSur } from './stockage';
 import { nouvelId } from './outils';
 import { Protection } from './protection';
 import { actionFavoris } from './favoris';
+import { brancherCertificats } from './securite';
 
 // ————— Où ranger les données (dossier de profil du système) —————
 // Windows : %APPDATA%\Pégase, Mac : ~/Library/Application Support/Pégase, Linux : ~/.config/pegase.
@@ -19,9 +20,16 @@ app.setPath('userData', racineDonnees);
 const dossierProfils = join(racineDonnees, process.platform === 'linux' ? 'profils' : 'Profils');
 if (process.platform === 'win32') app.setAppUserModelId('com.toufatech.pegase');
 
+// Bac à sable pour tous les rendus ; interface en français (outils de développement compris).
+if (!app.commandLine.hasSwitch('no-sandbox')) app.enableSandbox(); // (essais ici en root : --no-sandbox ; chaque vue garde sandbox: true)
+if (!app.commandLine.hasSwitch('lang')) app.commandLine.appendSwitch('lang', 'fr');
+// Pégase n'ouvre jamais de port de débogage : un Pégase installé refuse de démarrer si on lui en donne un.
+if (app.isPackaged && (app.commandLine.hasSwitch('remote-debugging-port') || app.commandLine.hasSwitch('remote-debugging-pipe'))) { console.error('Pégase refuse de démarrer avec un port de débogage ouvert.'); app.exit(1); }
+const ESSAI = !app.isPackaged && !!process.env.PEGASE_ESSAI;
+
 protocol.registerSchemesAsPrivileged([{ scheme: 'pegase', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
-if (!process.env.PEGASE_ESSAI && !app.requestSingleInstanceLock()) app.quit();
+if (!ESSAI && !app.requestSingleInstanceLock()) app.quit();
 
 const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https: http:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'";
 const TYPES: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2', '.woff': 'font/woff', '.json': 'application/json' };
@@ -44,6 +52,7 @@ class Pegase implements Appli {
   async demarrer(): Promise<void> {
     Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]) : null);
     this.servirInterface();
+    brancherCertificats();
     this.protection = new Protection(this as any, racineDonnees);
     await this.protection.demarrer();
     const p = this.ouvrirProfil(process.env.PEGASE_PROFIL || 'toi');
@@ -196,7 +205,7 @@ class Pegase implements Appli {
 }
 
 const pegase = new Pegase();
-(globalThis as any).__pegase = pegase; // pour les essais (Playwright évalue dans le processus principal)
+if (ESSAI) (globalThis as any).__pegase = pegase; // pour les essais (Playwright évalue dans le processus principal)
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('before-quit', () => pegase.quitter());
 app.on('activate', () => { if (!BaseWindow.getAllWindows().length) pegase.nouvelleFenetre(false); });

@@ -1,10 +1,11 @@
 // Un profil ouvert : sa base chiffrée, sa session Chromium (cookies à part), ses onglets vivants.
-import { WebContentsView, session as sessions, type Session, type WebContents, Menu, clipboard, shell, dialog } from 'electron';
+import { WebContentsView, session as sessions, type Session, type WebContents, shell } from 'electron';
 import { EventEmitter } from 'node:events';
 import type { Bureau, DossierVu, Espace, Favori, OngletVu, Range, Reglages, HistoireLigne, Profil as ProfilT, Collection } from '../commun/types';
 import { REGLAGES_DEFAUT } from '../commun/types';
 import { Base } from './stockage';
 import { nouvelId, domaine } from './outils';
+import { durcirPage, durcirSession, hoteAffiche } from './securite';
 
 /** Ce qui est rangé pour un onglet (collection « onglets », type « onglet »). */
 export interface OngletRange { id: string; type: 'onglet'; url: string; titre: string; icone?: string; espace: string; epingle: boolean; dossier?: string; ordre: number; appareil: string; vu: number; urlEpingle?: string }
@@ -17,6 +18,10 @@ export class Vivant {
   bloques = 0; securise = false; certificat?: string; plante = false;
   dernierVu = Date.now();
   fenetre: unknown = null; // la fenêtre qui montre la vue en ce moment
+  menu: Electron.ContextMenuParams | null = null; // le dernier clic droit dans la page
+  /** HTTPS d'abord : l'adresse http d'origine, si on essaie d'abord la version https. */
+  avertir: { type: 'https' | 'http' | 'certificat'; url: string; erreur?: string } | null = null;
+  avertissement: { type: 'https' | 'http' | 'certificat'; url: string; erreur?: string } | null = null;
   constructor(readonly id: string) {}
 }
 
@@ -44,7 +49,7 @@ export class ProfilOuvert extends EventEmitter {
     this.session = this.prive ? sessions.fromPartition(`prive-${nouvelId()}`, { cache: false }) : sessions.fromPartition(`persist:${opts.id}`);
     // Un navigateur ordinaire aux yeux des sites : sans « Electron » ni « Pégase » dans l'identité du navigateur.
     this.session.setUserAgent(this.session.getUserAgent().replace(/\s(Electron|pegase|Pégase|P%C3%A9gase)\/\S+/gi, ''));
-    this.session.setPermissionRequestHandler((wc, permission, rappel, details) => this.permission(wc, permission, rappel, details));
+    durcirSession(this.session, (wc, url) => hoteAffiche(new URL(url || wc?.getURL() || 'about:blank').hostname || 'Une page'));
     this.base.surChangement((_e, local) => { if (!local) this.emit('change'); });
     opts.preparerSession?.(this.session, this);
     this.premiereFois();
@@ -84,6 +89,7 @@ export class ProfilOuvert extends EventEmitter {
       charge: !!v?.charge, peutReculer: !!v?.peutReculer, peutAvancer: !!v?.peutAvancer, enVeille: !v?.vue,
       son: !!v?.son, muet: !!v?.vue?.webContents.isAudioMuted(), video: !!v?.video, prive: this.prive, plante: v?.plante,
       bloques: v?.bloques ?? 0, securise: v ? v.securise : o.url.startsWith('https:'), certificat: v?.certificat,
+      hote: (() => { try { const u = new URL(o.url); return /^https?:$/.test(u.protocol) ? hoteAffiche(u.hostname) : o.url; } catch { return o.url; } })(),
     };
   }
   tousVus(): OngletVu[] { return this.ongletsRanges().map((o) => this.vu(o.id)!).filter(Boolean); }
@@ -168,7 +174,7 @@ export class ProfilOuvert extends EventEmitter {
     };
     wc.on('did-start-loading', () => { v.charge = true; this.emit('change'); });
     wc.on('did-stop-loading', () => { v.charge = false; maj(); });
-    wc.on('did-navigate', (_e, url) => { v.bloques = 0; v.securise = url.startsWith('https:'); v.certificat = undefined; maj(); this.visite(v.id, url, wc.getTitle()); });
+    wc.on('did-navigate', (_e, url) => { if (v.avertir?.type === 'https' && url.startsWith('https:')) v.avertir = null; v.bloques = 0; v.securise = url.startsWith('https:'); v.certificat = undefined; maj(); this.visite(v.id, url, wc.getTitle()); });
     wc.on('did-navigate-in-page', (_e, url, principal) => { if (principal) { maj(); this.visite(v.id, url, wc.getTitle()); } });
     wc.on('page-title-updated', (_e, titre) => {
       const o = this.onglet(v.id); if (o && titre && o.titre !== titre) { this.mettreOnglet({ ...o, titre }); this.titreVisite(v.id, titre); this.emit('change'); }
@@ -182,62 +188,29 @@ export class ProfilOuvert extends EventEmitter {
     wc.on('audio-state-changed', (e) => { v.son = e.audible; this.emit('change'); });
     wc.on('render-process-gone', (_e, d) => { if (d.reason !== 'clean-exit') { v.plante = true; v.charge = false; this.emit('change'); } });
     wc.on('certificate-error', () => { v.securise = false; });
-    wc.setWindowOpenHandler(({ url, disposition }) => {
-      const o = this.onglet(v.id);
-      if (/^https?:|^about:blank/.test(url)) this.emit('ouvrir', { url, espace: o?.espace, depuis: v.id, arrierePlan: disposition === 'background-tab' });
-      return { action: 'deny' };
+    durcirPage(wc, (url, arrierePlan) => { const o = this.onglet(v.id); this.emit('ouvrir', { url, espace: o?.espace, depuis: v.id, arrierePlan }); });
+    // Clic droit : le menu de Pégase (dessiné par l'interface), pas celui du système.
+    wc.on('context-menu', (_e, p) => { v.menu = p; this.emit('menu-page', { id: v.id, p: menuDepuis(p, wc) }); });
+    // HTTPS d'abord et certificats : si la version chiffrée ne répond pas, on prévient au lieu d'une page vide.
+    wc.on('did-fail-load', (_e, code, desc, url, principal) => {
+      if (!principal || code === -3) return;
+      const avant = v.avertir;
+      if (avant?.type === 'https' && url.startsWith('https:')) this.avertir(v, { type: 'http', url: avant.url, erreur: desc });
+      else if (code <= -200 && code > -300) this.avertir(v, { type: 'certificat', url, erreur: desc });
     });
-    wc.on('context-menu', (_e, p) => this.menuPage(v, wc, p));
+  }
+
+  /** Une page d'avertissement de Pégase à la place de la page (certificat invalide, site sans HTTPS). */
+  avertir(v: Vivant, a: NonNullable<Vivant['avertir']>): void {
+    v.avertir = a; v.avertissement = a;
+    const o = this.onglet(v.id); if (!o) return;
+    this.mettreOnglet({ ...o, url: `pegase://avertissement`, titre: a.type === 'certificat' ? 'Connexion pas sûre' : 'Site sans chiffrement' });
+    this.emit('change');
   }
 
   private verifierVideo(v: Vivant, wc: WebContents): void {
     wc.executeJavaScript('(()=>{const l=[...document.querySelectorAll("video")].filter(x=>!x.paused&&x.readyState>1);return l.length>0})()', false)
       .then((oui: boolean) => { v.video = !!oui; this.emit('video', v.id); this.emit('change'); }).catch(() => 0);
-  }
-
-  private menuPage(v: Vivant, wc: WebContents, p: Electron.ContextMenuParams): void {
-    const o = this.onglet(v.id);
-    const items: Electron.MenuItemConstructorOptions[] = [];
-    if (p.linkURL) {
-      items.push({ label: 'Ouvrir le lien dans un nouvel onglet', click: () => this.emit('ouvrir', { url: p.linkURL, espace: o?.espace, depuis: v.id, arrierePlan: true }) });
-      items.push({ label: 'Ouvrir le lien en écran partagé', click: () => this.emit('ouvrir', { url: p.linkURL, espace: o?.espace, depuis: v.id, partage: true }) });
-      items.push({ label: 'Copier le lien', click: () => clipboard.writeText(p.linkURL) }, { type: 'separator' });
-    }
-    if (p.mediaType === 'image' && p.srcURL) {
-      items.push({ label: 'Ouvrir l’image dans un nouvel onglet', click: () => this.emit('ouvrir', { url: p.srcURL, espace: o?.espace, depuis: v.id }) });
-      items.push({ label: 'Enregistrer l’image…', click: () => wc.downloadURL(p.srcURL) }, { label: 'Copier l’image', click: () => wc.copyImageAt(p.x, p.y) }, { type: 'separator' });
-    }
-    if (p.mediaType === 'video') items.push({ label: 'Vidéo en petite fenêtre', click: () => this.emit('pip', v.id) }, { type: 'separator' });
-    if (p.isEditable) {
-      for (const s of p.dictionarySuggestions.slice(0, 4)) items.push({ label: s, click: () => wc.replaceMisspelling(s) });
-      if (p.dictionarySuggestions.length) items.push({ type: 'separator' });
-      items.push({ label: 'Couper', role: 'cut' }, { label: 'Copier', role: 'copy' }, { label: 'Coller', role: 'paste' }, { label: 'Tout sélectionner', role: 'selectAll' }, { type: 'separator' });
-    } else if (p.selectionText) {
-      const t = p.selectionText.trim().slice(0, 60);
-      items.push({ label: 'Copier', role: 'copy' }, { label: `Chercher « ${t}${p.selectionText.length > 60 ? '…' : ''} »`, click: () => this.emit('chercher', { q: p.selectionText, espace: o?.espace, depuis: v.id }) });
-      items.push({ label: 'Demander à Odin', click: () => this.emit('demander-odin', { texte: p.selectionText, onglet: v.id }) }, { type: 'separator' });
-    }
-    items.push({ label: 'Page précédente', enabled: wc.navigationHistory.canGoBack(), click: () => wc.navigationHistory.goBack() });
-    items.push({ label: 'Page suivante', enabled: wc.navigationHistory.canGoForward(), click: () => wc.navigationHistory.goForward() });
-    items.push({ label: 'Recharger', click: () => wc.reload() }, { type: 'separator' });
-    items.push({ label: 'Résumer la page avec Odin', click: () => this.emit('demander-odin', { resumer: true, onglet: v.id }) });
-    items.push({ label: 'Imprimer…', click: () => wc.print() });
-    items.push({ label: 'Inspecter', click: () => { wc.inspectElement(p.x, p.y); } });
-    Menu.buildFromTemplate(items).popup();
-  }
-
-  private demandes = new Map<string, boolean>();
-  private permission(wc: WebContents, permission: string, rappel: (ok: boolean) => void, details: any): void {
-    const toujours = ['fullscreen', 'clipboard-sanitized-write', 'pointerLock', 'window-management'];
-    if (toujours.includes(permission)) return rappel(true);
-    const site = domaine(details?.requestingUrl || wc.getURL());
-    const noms: Record<string, string> = { media: details?.mediaTypes?.includes('video') ? 'ta caméra et ton micro' : 'ton micro', geolocation: 'ta position', notifications: 'les notifications', 'clipboard-read': 'lire ton presse-papiers', midi: 'tes instruments MIDI', midiSysex: 'tes instruments MIDI' };
-    const nom = noms[permission];
-    if (!nom) return rappel(false);
-    const cle = `${site}|${permission}`;
-    if (this.demandes.has(cle)) return rappel(this.demandes.get(cle)!);
-    dialog.showMessageBox({ type: 'question', buttons: ['Autoriser', 'Refuser'], defaultId: 1, cancelId: 1, title: 'Pégase', message: `${site} veut utiliser ${nom}.`, detail: 'Tu peux changer d’avis plus tard dans les contrôles du site.' })
-      .then((r) => { const ok = r.response === 0; this.demandes.set(cle, ok); rappel(ok); }).catch(() => rappel(false));
   }
 
   // ————— Historique —————
@@ -283,4 +256,13 @@ export class ProfilOuvert extends EventEmitter {
     this.base.sauver();
     if (this.prive) this.session.clearStorageData().catch(() => 0);
   }
+}
+
+/** Ce que l'interface a besoin de savoir d'un clic droit (sans rien de la page au-delà). */
+export function menuDepuis(p: Electron.ContextMenuParams, wc: WebContents) {
+  return {
+    x: p.x, y: p.y, lien: p.linkURL || '', texteLien: (p.linkText || '').slice(0, 80), image: p.mediaType === 'image' ? p.srcURL : '', video: p.mediaType === 'video',
+    selection: (p.selectionText || '').slice(0, 2000), editable: p.isEditable, suggestions: p.dictionarySuggestions.slice(0, 4), motMalOrthographie: p.misspelledWord || '',
+    peutReculer: wc.navigationHistory.canGoBack(), peutAvancer: wc.navigationHistory.canGoForward(), url: wc.getURL(), cadre: p.frameURL || '',
+  };
 }
