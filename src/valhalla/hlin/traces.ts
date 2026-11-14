@@ -164,7 +164,9 @@ export function analyser(f: Fiche, b: { url: string; titre: string; extrait: str
   const montre = montreDe(v, categorie);
   if (f.genre === 'societe') {
     const chemin = plat(b.url.replace(/^https?:\/\/[^/]+/, '')).replace(/[^a-z0-9]/g, ''), marque = plat(f.nom).replace(/[^a-z0-9]/g, '');
-    const officiel = f.comptes.some((c) => plat(b.url).replace(/^https?:\/\/(www\.|m\.)?/, '').startsWith(plat(c)));
+    // Un compte officiel, ou une de ses pages (« facebook.com/toufatech/photos ») ; pas « facebook.com/toufatech.sav ».
+    const adresse = plat(b.url).replace(/^https?:\/\/(www\.|m\.|mobile\.)?/, '');
+    const officiel = f.comptes.some((c) => { const k = plat(c); return adresse.startsWith(k) && /^($|[/?#])/.test(adresse.slice(k.length)); });
     const imite = categorie === 'réseau social' && !officiel && marque.length >= 3 && chemin.includes(marque);
     if (!touche && !imite) return undefined;
     const r = risque(categorie, montre, { societe: true, officiel, imite, texte: `${b.titre} ${b.url}` });

@@ -121,6 +121,8 @@ export function accord(i: { accord_par?: unknown; accord_le?: unknown; accord_co
   if (par.length < 2 || comment.length < 4 || !net(i.accord_le)) throw new Error('sans l\'accord de cette personne, pas de fiche : note qui a donné l\'accord, quel jour, et comment (de vive voix, par message, par écrit…)');
   if (!le) throw new Error('le jour de l\'accord n\'est pas une date (écris 2026-11-12 ou 12/11/2026)');
   if (le > jourLocal(now)) throw new Error('le jour de l\'accord est dans le futur : note l\'accord une fois qu\'il est donné');
+  const fin = new Date(`${le}T00:00:00Z`); fin.setUTCMonth(fin.getUTCMonth() + ACCORD_MOIS);
+  if (now.getTime() >= fin.getTime()) throw new Error(`cet accord a plus de ${ACCORD_MOIS} mois : redemande-le à la personne et note le jour où elle te le redonne`);
   return { par: par.slice(0, 80), le, comment: comment.slice(0, 200), note: now.toISOString() };
 }
 /** L'accord d'un proche tient-il encore ? (moi et sociétés : toujours ; proche : accord noté depuis moins de douze mois). Pur. */

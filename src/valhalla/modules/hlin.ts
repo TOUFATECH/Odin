@@ -81,7 +81,7 @@ function demandeDe(ctx: ModCtx, ref: unknown): { d: Demande; l: Demande[] } {
   if (!d) throw new Error('demande introuvable : choisis-la dans la liste de l\'onglet « Demandes »');
   return { d, l };
 }
-const ligne = (r: Resultat) => `- ${r.site || r.url} (${r.categorie}) : ${r.montre.length ? `montre ${[...r.montre, ...(r.details?.length ? [`(${r.details.join(', ')})`] : [])].join(', ')}` : r.titre} · risque ${r.risque}`;
+const ligne = (r: Resultat) => `- ${r.site || r.url} (${r.categorie}) : ${r.montre.length ? `montre ${r.montre.join(', ')}${r.details?.length ? ` (${r.details.join(', ')})` : ''}` : r.titre} · risque ${r.risque}`;
 
 /** La clé Have I Been Pwned, relue dans le coffre (Thésauros) : jamais gardée ailleurs, jamais affichée. */
 function cleFuites(ctx: ModCtx): string | undefined {

@@ -60,9 +60,9 @@ export async function sonder(f: typeof fetch, s: SiteProfil, p: string): Promise
 }
 
 // ---------------------------------------------------------------- fuites connues (Have I Been Pwned)
-// API v3, relue le 13/11/2026 (haveibeenpwned.com/API/v3) : GET /breachedaccount/{adresse encodée}, en-têtes
+// API v3, relue le 14/11/2026 (haveibeenpwned.com/API/v3) : GET /breachedAccount/{adresse encodée}, en-têtes
 // « hibp-api-key » (32 caractères hexadécimaux) et « user-agent » (qui décrit vraiment l'appli) ; 200 = fuites,
-// 404 = aucune, 401 = clé refusée, 429 = trop vite (en-tête « retry-after », en secondes). Données sous licence
+// 404 = aucune, 401 = clé refusée, 403 = « user-agent » manquant ou accès refusé, 429 = trop vite (en-tête « retry-after », en secondes). Données sous licence
 // CC BY 4.0 : la source et un lien vers haveibeenpwned.com sont affichés partout où elles apparaissent.
 export interface Fuite { nom: string; titre: string; site: string; date: string; comptes: number; donnees: string[]; spam: boolean; espion: boolean }
 export const cleHibpValide = (k: unknown) => typeof k === 'string' && /^[a-f0-9]{32}$/i.test(k.trim());
@@ -83,7 +83,7 @@ export function lireFuite(b: unknown): Fuite | undefined {
 export type EtatFuites = 'ok' | 'aucune' | 'clé refusée' | 'limite' | 'erreur';
 /** Les fuites connues d'une adresse e-mail. `attendre` : la pause demandée par le service quand on va trop vite (60 s au plus, une seule fois). */
 export async function fuitesDe(f: typeof fetch, cle: string, email: string, attendre: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<{ etat: EtatFuites; fuites: Fuite[]; detail?: string }> {
-  const url = `https://haveibeenpwned.com/api/v3/breachedaccount/${encodeURIComponent(email)}?truncateResponse=false`;
+  const url = `https://haveibeenpwned.com/api/v3/breachedAccount/${encodeURIComponent(email)}?truncateResponse=false`;
   for (let essai = 0; essai < 2; essai++) {
     let r: Response;
     try { r = await f(url, { headers: { 'hibp-api-key': cle.trim(), 'user-agent': AGENT, accept: 'application/json' }, signal: AbortSignal.timeout(20_000) }); } catch (err) { return { etat: 'erreur', fuites: [], detail: `Have I Been Pwned ne répond pas (${(err as Error).message.slice(0, 80)})` }; }
