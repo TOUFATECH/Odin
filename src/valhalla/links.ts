@@ -29,6 +29,7 @@ export const LINKS: Link[] = [
   { from: 'appareils', to: 'midgard', when: 'un appareil change d\'état', does: 'le tableau de bord de la maison est à jour ; les scènes le commandent', auto: true, kind: 'donnée' },
   { from: 'brokkr', to: 'appareils', when: 'un module est branché sur Odin', does: 'il apparaît dans Appareils puis Midgard', auto: true, kind: 'donnée' },
   { from: 'rodd', to: 'bragi', when: 'tu parles à Odin (web, téléphone, Telegram, Hestia)', does: 'tes mots de Écho sont soufflés à l\'écoute puis corrigés : ta voix est mieux comprise partout', auto: true, kind: 'donnée' },
+  { from: 'volva', to: 'bragi', when: 'tu veux écouter une réponse de Pythie (« Écouter » sur sa page ou sous sa carte Telegram, « lis la dernière recherche »)', does: 'Orphée la lit avec la voix d\'Odin, d\'homme ou de femme selon ton réglage', auto: true, kind: 'réflexe' },
   { from: 'naglfar', to: 'urdr', when: 'une appli installée (Argo ou Hydre) a besoin d\'une base', does: 'elle reçoit SA base et son compte dans la base de données d\'Odin (jamais un fichier SQLite), ses variables sont remplies toutes seules, et sa base s\'ouvre dans Alexandrie Studio et SQL (bouton « Sa base (Alexandrie) »)', auto: true, kind: 'réflexe' },
   { from: 'svalinn', to: 'brisingamen', when: 'tu relies la box', does: 'son mot de passe d\'administration est rangé dans le coffre (jamais affiché) ; Odin ne force jamais l\'accès', auto: true, kind: 'réflexe' },
   { from: 'svalinn', to: 'forseti', when: 'le Wi-Fi a un problème urgent (WPS, réseau ouvert…) ou un changement est annulé tout seul', does: 'alerte avec ce qu\'il faut corriger', auto: true, kind: 'donnée' },
@@ -54,6 +55,8 @@ export const LINKS: Link[] = [
   { from: 'hermod', to: 'skogul', when: 'un poste Linux ou Mac est enregistré dans ton parc', does: 'Némésis passe ses programmes en revue (lancés depuis un dossier temporaire, effacés après lancement, mineurs, shell ouvert par un serveur web)', auto: true, kind: 'donnée' },
   { from: 'heidrun', to: 'vidarr', when: 'tu crées ou règles le profil d\'un enfant, ou tu mets Internet en pause', does: 'Sphinx reçoit la règle de ses appareils : sites pour adultes bloqués, recherche sécurisée, services coupés, heure du coucher', auto: true, kind: 'réflexe' },
   { from: 'mimisbrunnr', to: 'forseti', when: 'un message revient trop souvent dans les journaux (une règle que tu as posée)', does: 'alerte dans le fil commun et sur ta messagerie', auto: true, kind: 'donnée' },
+  { from: 'gladsheim', to: 'gna', when: 'un téléphone de la famille envoie sa position (OwnTracks)', does: 'elle rejoint l\'historique des trajets du membre s\'il l\'a allumé ; sinon rien de plus n\'est gardé', auto: true, kind: 'donnée' },
+  { from: 'gna', to: 'forseti', when: 'l\'historique des trajets ne peut plus être écrit ou relu (disque plein, fichier abîmé)', does: 'alerte haute avec ce qu\'il faut vérifier, sans aucune position dedans', auto: true, kind: 'donnée' },
   { from: 'freyja', to: 'vordr', when: 'Venus est relié et Pulsar démarre (ou tu demandes les sondes automatiques)', does: 'Venus est surveillé (/api/health) : panne signalée, temps de réponse et disponibilité sur un an', auto: true, kind: 'donnée' },
   { from: 'idunn', to: 'vordr', when: 'un site est suivi par Iðunn', does: 'il devient une sonde de Pulsar (graphe, disponibilité sur un an, page publique d\'état)', auto: true, kind: 'donnée' },
   { from: 'vordr', to: 'forseti', when: 'une sonde passe en panne ou revient', does: 'alerte avec la cause probable (box, Internet, autres pannes) expliquée par Odin ; certificat qui expire bientôt', auto: true, kind: 'donnée' },
@@ -77,6 +80,7 @@ export const LINKS: Link[] = [
   { from: 'bru', to: 'forseti', when: 'Cloudflare voit le tunnel coupé', does: 'alerte : tes noms publiés ne répondent plus depuis Internet (Odin relance le programme)', auto: true, kind: 'donnée' },
   { from: 'vidarr', to: 'garmr', when: 'le DNS de la maison démarre', does: 'son port (53) est ouvert sur le pare-feu de la machine, et noté dans « Ports ouverts par Odin »', auto: true, kind: 'réflexe' },
   { from: 'gjoll', to: 'garmr', when: 'le VPN s\'allume', does: 'son port UDP est ouvert sur le pare-feu de la machine (la box : bouton « Ouvrir le port »)', auto: true, kind: 'réflexe' },
+  { from: 'hlid', to: 'garmr', when: 'tu ouvres sur le réseau le port direct d\'une appli (avec ton accord)', does: 'Cerbère ouvre ce port dans le pare-feu de la machine et le note dans « Ports ouverts par Odin » ; le refermer, le changer ou le retirer enlève la règle', auto: true, kind: 'réflexe' },
   { from: 'var', to: 'skidbladnir', when: 'tu ranges une personne dans un groupe', does: 'elle lit ou écrit dans les espaces de fichiers de ce groupe, et a son espace perso', auto: true, kind: 'donnée' },
   { from: 'skidbladnir', to: 'valgrind', when: 'tu mets les fichiers en ligne', does: 'deux noms dans le proxy : l\'espace (réservé) et les liens publics, en HTTPS', auto: true, kind: 'réflexe' },
   { from: 'skidbladnir', to: 'var', when: 'tu mets les fichiers en ligne', does: 'l\'espace demande la connexion d\'Odin ; l\'identité de la personne décide de ses droits', auto: true, kind: 'réflexe' },
@@ -110,6 +114,9 @@ export const LINKS: Link[] = [
   { from: 'eir', to: 'syn', when: 'chaque minute', does: 'les mesures de la machine alimentent les tableaux de bord', auto: true, kind: 'donnée' },
   { from: 'vordr', to: 'syn', when: 'chaque vérification', does: 'temps de réponse et disponibilité alimentent les tableaux de bord', auto: true, kind: 'donnée' },
   { from: 'syn', to: 'forseti', when: 'un seuil orange ou rouge d\'un panneau est dépassé', does: 'une alerte avec la mesure et sa valeur', auto: true, kind: 'donnée' },
+  { from: 'hlin', to: 'volva', when: 'tu lances « Vérifier maintenant », ou que la revérification du mois passe', does: 'les recherches préparées de la fiche (nom et ville, numéro, e-mail, pseudo) passent par Pythie, sans IA et sans rien garder dans son historique : aucun robot maison sur les moteurs', auto: true, kind: 'réflexe' },
+  { from: 'hlin', to: 'brisingamen', when: 'tu donnes ta clé Have I Been Pwned', does: 'elle est rangée dans le coffre (jamais affichée) ; Gygès la relit là pour chercher tes e-mails dans les fuites connues', auto: true, kind: 'réflexe' },
+  { from: 'hlin', to: 'forseti', when: 'la revérification du mois trouve un nouveau résultat, ou une demande de retrait dépasse son délai d\'un mois', does: 'alerte dans le fil commun et sur ta messagerie, numéros, e-mails et adresses masqués', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */

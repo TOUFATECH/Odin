@@ -15,6 +15,7 @@ import { santeText } from '../src/valhalla/modules/venus.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { useEngine } from '../src/valhalla/modules/naglfar.ts';
+import { rythme } from '../src/valhalla/modules/hlin.ts';
 import { fakeEngine } from './helpers.ts';
 import { gunzipSync } from 'node:zlib';
 import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
@@ -227,6 +228,28 @@ const CHECKS: Record<string, (w: World) => Promise<void>> = {
     assert.equal(applyMots('démarre ring horni et le reste', mots(w.home)), 'démarre Hringhorni et le reste', 'la voix d\'Odin lit les mêmes mots');
     const r = await w.v.act('rodd', 'dicter', { texte: 'lance ringorni', mode: 'tel quel' }); assert.equal(r.text, 'lance Hringhorni');
   },
+  'volva>bragi': async () => {
+    // Une vraie voix pour cet essai : un faux serveur Piper (protocole actuel, POST /synthesize) qui rend un petit WAV.
+    const wav = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WAVEfmt '), Buffer.alloc(40)]), dit: string[] = [];
+    const srv = createServer((req, res) => { let b = ''; req.on('data', (d) => { b += d; }); req.on('end', () => { if (req.method === 'POST' && req.url === '/synthesize') { dit.push((JSON.parse(b) as { text: string }).text); res.end(wav); } else { res.writeHead(404); res.end(); } }); });
+    await new Promise<void>((r) => srv.listen(0, '127.0.0.1', r));
+    const home = mkdtempSync(join(tmpdir(), 'odin-liens-voix-')), { DEFAULT_CONFIG } = await import('../src/config.ts');
+    const voice = { ...DEFAULT_CONFIG.voice, localOnly: false, gender: 'femme', tts: { ...DEFAULT_CONFIG.voice.tts, provider: 'piper', baseUrl: `http://127.0.0.1:${(srv.address() as { port: number }).port}` } };
+    const v = new Valhalla(home, allModules({ paths: { home, workspace: home }, cfg: { venus: { url: '' }, voice, profiles: DEFAULT_CONFIG.profiles } } as never), {}), faits: string[] = [];
+    v.events.on('action', (a: { module: string; action: string }) => faits.push(`${a.module}.${a.action}`));
+    try {
+      const vide = await v.act('volva', 'ecouter', {}); assert.equal(vide.ok, false); assert.match(vide.text, /aucune recherche à lire/);
+      writeFileSync(join(v.ctx('volva').dir, 'historique.json'), JSON.stringify([{ id: 'abc123', at: 1, q: 'Quel est le chef-lieu de Mayotte ?', focus: 'tout', answer: '**Mamoudzou** est le chef-lieu de Mayotte [1].', sources: [], engines: [], followups: [], apps: [], ai: false, errors: [] }]));
+      const r = await v.act('volva', 'ecouter', {});
+      assert.equal(r.ok, true, r.text); assert.ok(faits.includes('bragi.dire'), 'c\'est Orphée qui lit');
+      assert.deepEqual(dit, ['Mamoudzou est le chef-lieu de Mayotte.'], 'la réponse est dite sans ses renvois ni ses étoiles');
+      const son = v.module('volva')!.retrait!(v.ctx('volva'), r.fichiers![0].ref)!;
+      assert.match(son, /bragi[\\/]audio[\\/]odin-\d+\.wav$/); assert.deepEqual(readFileSync(son), wav, 'le son d\'Orphée est remis par la page de Pythie');
+      assert.equal(v.module('volva')!.retrait!(v.ctx('volva'), '../réglages.json'), undefined, 'rien d\'autre ne sort par là');
+      const u = (await v.order('lis la dernière recherche')).understood as { kind: string; module?: string; action?: string } | undefined;
+      assert.deepEqual([u?.kind, u?.module, u?.action], ['action', 'volva', 'ecouter'], '« lis la dernière recherche » arrive chez Pythie, sans IA');
+    } finally { v.stop(); await new Promise((r) => srv.close(r)); rmSync(home, { recursive: true, force: true }); }
+  },
   'naglfar>naglfar': async (w) => {
     w.level('prudent');
     w.v.ctx('naglfar').emit('conteneur_arrete', { conteneur: 'api' }); await wait(60);
@@ -331,23 +354,32 @@ CHECKS['gjoll>vordr'] = async (w) => {
 };
 // Les postes du parc (le coffre des machines) sont proposés par les applis qui savent lire un autre poste.
 const parc = (w: World) => { saveMachine(w.home, { label: 'serveur-essai', host: '192.168.1.5', user: 'root', via: 'ssh' }); saveMachine(w.home, { label: 'PC-ESSAI', host: '192.168.1.20', user: 'Fatima', password: 'x', via: 'smb' }); };
-const propose = async (w: World, id: string, titre: RegExp) => {
+/** « Sur quel poste ? » en haut de la page : la machine d'Odin, puis les postes du parc que l'appli sait lire. */
+const propose = async (w: World, id: string) => {
   const avant = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams());
-  assert.ok(![...avant.sections, ...(avant.side ?? [])].some((x) => x.kind === 'form' && titre.test(x.title ?? '')), 'sans poste dans le parc, rien n\'est proposé');
+  assert.deepEqual(avant.postes?.choix.map((c) => c.nom), ['Cette machine'], 'sans poste dans le parc, seule la machine d\'Odin est proposée');
+  assert.equal(avant.postes?.ajouter, true, 'la page propose d\'ajouter un poste');
   parc(w);
-  const v = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams()), f = [...v.sections, ...(v.side ?? [])].find((x) => x.kind === 'form' && titre.test(x.title ?? '')) as { params: Array<{ key: string; options?: string[] }> } | undefined;
-  assert.deepEqual(f?.params.find((p) => p.key === 'poste')?.options, ['serveur-essai'], 'le poste Linux du parc est proposé ; le PC Windows ne l\'est pas (cette appli lit par SSH)');
+  const v = await w.v.module(id)!.view(w.v.ctx(id), new URLSearchParams());
+  assert.deepEqual(v.postes?.choix.map((c) => c.nom), ['Cette machine', 'serveur-essai'], 'le poste Linux du parc est proposé ; le PC Windows ne l\'est pas (cette appli lit par SSH)');
+  assert.equal(v.postes?.actuel, '', 'sans choix, la page montre la machine d\'Odin');
+  assert.ok(![...v.sections, ...(v.side ?? [])].some((x) => x.kind === 'form' && /autre poste/.test(x.title ?? '')), 'plus de formulaire « autre poste » dans la page : le choix se fait en haut, une fois');
 };
 CHECKS['hermod>ullr'] = async (w) => {
   parc(w);
-  const v = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams()), t = v.sections.find((x) => x.kind === 'table' && /^Autres postes/.test(x.title ?? '')) as { rows: Array<{ cells: string[]; actions?: Array<{ action: string }> }> };
-  assert.deepEqual(t.rows.map((r) => r.cells[0]), ['serveur-essai', 'PC-ESSAI'], 'Windows et Linux : l\'antivirus sait lire les deux'); assert.ok(t.rows.every((r) => r.actions?.some((a) => a.action === 'analyser_poste')));
+  const v = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams());
+  assert.deepEqual(v.postes?.choix.map((c) => `${c.nom}${c.sys ? ` (${c.sys})` : ''}`), ['Cette machine', 'serveur-essai', 'PC-ESSAI (Windows)'], 'Windows et Linux : l\'antivirus sait lire les deux');
+  assert.equal(v.postes?.ensuite?.action, 'analyser_poste', 'après l\'ajout d\'un poste : « Quoi analyser ? », puis l\'analyse');
+  // Un poste choisi : sa carte propose l'analyse rapide et l'analyse complète de ce poste.
+  const pc = v.postes!.choix.find((c) => c.nom === 'PC-ESSAI')!, sur = await w.v.module('ullr')!.view(w.v.ctx('ullr'), new URLSearchParams({ poste: pc.id }));
+  const carte = sur.sections.find((x) => x.kind === 'actions' && x.title === 'PC-ESSAI') as { boutons: Array<{ action: string; input?: Record<string, unknown> }> } | undefined;
+  assert.deepEqual(carte?.boutons.map((b) => `${b.action}:${String(b.input?.quoi)}`), ['analyser_poste:rapide', 'analyser_poste:tout']); assert.equal(sur.postes?.actuel, pc.id);
 };
-CHECKS['hermod>eir'] = (w) => propose(w, 'eir', /état d'un autre poste/);
-CHECKS['hermod>fensalir'] = (w) => propose(w, 'fensalir', /disques d'un autre poste/);
-CHECKS['hermod>hlid'] = (w) => propose(w, 'hlid', /pare-feu d'un autre poste/);
-CHECKS['hermod>mimisbrunnr'] = (w) => propose(w, 'mimisbrunnr', /journaux d'un autre poste/);
-CHECKS['hermod>skogul'] = (w) => propose(w, 'skogul', /^Analyser un autre poste$/);
+CHECKS['hermod>eir'] = (w) => propose(w, 'eir');
+CHECKS['hermod>fensalir'] = (w) => propose(w, 'fensalir');
+CHECKS['hermod>hlid'] = (w) => propose(w, 'hlid');
+CHECKS['hermod>mimisbrunnr'] = (w) => propose(w, 'mimisbrunnr');
+CHECKS['hermod>skogul'] = (w) => propose(w, 'skogul');
 CHECKS['heidrun>vidarr'] = async (w) => {
   const r = await w.v.act('heidrun', 'profil', { nom: 'Sami', age: 'enfant', appareils: '192.168.1.77' });
   assert.equal(r.ok, true, r.text);
@@ -355,6 +387,39 @@ CHECKS['heidrun>vidarr'] = async (w) => {
   assert.ok(regle, 'Sphinx a reçu la règle de l\'enfant'); assert.deepEqual(regle!.ids, ['192.168.1.77']);
   assert.ok(regle!.parental && regle!.safeSearch && regle!.services!.includes('tiktok') && regle!.cut, 'filtrage, recherche sécurisée, réseaux sociaux coupés, coucher');
   assert.ok(!w.v.manips({ limit: 20 }).some((m) => m.module === 'vidarr'), 'pas de « manip » en double : c\'est toi qui as demandé le profil');
+};
+// Ulysse (trajets) : une position reçue par Hestia n'est gardée que si le membre a allumé son historique ; elle ne passe
+// ni par le journal des actions, ni par les événements, ni par une alerte.
+const membreNour = async (w: World) => { await w.v.act('gladsheim', 'membre', { nom: 'Nour' }); return (w.v.ctx('gladsheim').settings.members as Array<{ id: string; name: string; user: string; hash: string; tid: string; at: number }>)[0]; };
+CHECKS['gladsheim>gna'] = async (w) => {
+  const { recordFix } = await import('../src/valhalla/modules/gladsheim.ts'), { compter } = await import('../src/valhalla/gna/historique.ts');
+  const nour = await membreNour(w), g = w.v.ctx('gladsheim'), dir = w.v.ctx('gna').dir;
+  const envoi = (lat: number, lon: number) => recordFix(g, nour, { _type: 'location', lat, lon, acc: 10, tst: Math.floor(Date.now() / 1000) });
+  envoi(-12.7806, 45.2278);
+  assert.ok(!existsSync(join(dir, 'positions')), 'historique éteint : rien n\'est gardé');
+  assert.match((await w.v.act('gna', 'allumer', { membre: 'Nour', accord: true })).text, /Historique de Nour allumé/);
+  w.acts.length = 0;
+  envoi(-12.7806, 45.2278); envoi(-12.7851, 45.2301);
+  assert.equal(compter(dir, nour.id), 2, 'historique allumé : chaque position reçue est gardée');
+  assert.deepEqual(w.acts, [], 'aucune action lancée : la position ne laisse pas de trace dans le journal des applis');
+  assert.doesNotMatch(JSON.stringify([w.v.manips({ limit: 50 }), w.events, w.v.alerts(), w.sent]), /12\.78|45\.2[23]/, 'aucune coordonnée dans les manips, les événements, les alertes ou les messages');
+  await w.v.act('gna', 'pause', { membre: 'Nour' }); envoi(-12.79, 45.24);
+  assert.equal(compter(dir, nour.id), 2, 'en pause : plus rien n\'est gardé');
+  await w.v.act('gladsheim', 'retirer_membre', { nom: 'Nour' });
+  assert.ok(!existsSync(join(dir, 'positions', nour.id)), 'membre retiré de Hestia : son historique est effacé');
+};
+CHECKS['gna>forseti'] = async (w) => {
+  const { recordFix } = await import('../src/valhalla/modules/gladsheim.ts');
+  const nour = await membreNour(w), dir = w.v.ctx('gna').dir;
+  await w.v.act('gna', 'allumer', { membre: 'Nour', accord: true });
+  // Le dossier des positions ne peut plus être écrit (ici : un fichier a pris la place du dossier du membre).
+  mkdirSync(join(dir, 'positions'), { recursive: true }); writeFileSync(join(dir, 'positions', nour.id), 'pas un dossier');
+  recordFix(w.v.ctx('gladsheim'), nour, { _type: 'location', lat: -12.7806, lon: 45.2278, tst: Math.floor(Date.now() / 1000) });
+  await w.v.module('gna')!.watch!.run(w.v.ctx('gna'));
+  const a = w.v.alerts({ module: 'gna' })[0];
+  assert.ok(a && a.level === 'haute' && /l'historique n'est plus gardé comme prévu/.test(a.title), 'alerte haute dans le fil commun');
+  assert.doesNotMatch(JSON.stringify(a), /12\.78|45\.22/, 'aucune position dans l\'alerte');
+  assert.match((await w.v.act('forseti', 'alertes', { gravite: 'info' })).text, /Trajets : l'historique n'est plus gardé comme prévu/, 'visible dans Forseti');
 };
 CHECKS['mimisbrunnr>forseti'] = async (w) => {
   const log = join(w.home, 'boutique.log'), il_y_a = (s: number) => new Date(Date.now() - s * 1000).toISOString();
@@ -552,6 +617,21 @@ CHECKS['gjoll>garmr'] = async (w) => {
   const r = await w.v.act('gjoll', 'allumer'); assert.ok(r.ok, r.text);
   try { assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, /\/udp · VPN Vortex/); }
   finally { await w.v.act('gjoll', 'eteindre'); }
+};
+CHECKS['hlid>garmr'] = async (w) => {
+  // Le port direct d'une appli : le donner n'ouvre rien ; l'ouvrir sur le réseau passe par Cerbère ; le refermer retire la règle.
+  const { DirectPorts } = await import('../src/valhalla/directports.ts');
+  const port = await new Promise<number>((ok) => { const x = createServer().listen(0, '127.0.0.1', () => { const p = (x.address() as { port: number }).port; x.close(() => ok(p)); }); });
+  const g = new DirectPorts({ home: w.home, web: 7777, host: '127.0.0.1', access: 'lan', attach: (sock) => sock.destroy() }); await g.start();
+  try {
+    let r = await w.v.act('hlid', 'port_direct', { appli: 'Vénus', port }); assert.ok(r.ok, r.text);
+    assert.ok(!did(w, 'garmr', 'ouvrir_port'), 'donner un port n\'ouvre rien dans le pare-feu');
+    r = await w.v.act('hlid', 'ouvrir_port_direct', { appli: 'Vénus' }); assert.ok(r.ok, r.text);
+    assert.ok(did(w, 'garmr', 'ouvrir_port')); assert.match((await w.v.act('garmr', 'ports_ouverts')).text, new RegExp(`${port}/tcp · page directe de Vénus`));
+    assert.equal(w.v.manips({ module: 'garmr' }).length, 0, 'étape de ton action : pas de manip à part');
+    r = await w.v.act('hlid', 'fermer_port_direct', { appli: 'Vénus' }); assert.ok(r.ok, r.text);
+    assert.ok(did(w, 'garmr', 'fermer_port')); assert.doesNotMatch((await w.v.act('garmr', 'ports_ouverts')).text, new RegExp(`${port}/tcp`));
+  } finally { g.stop(); }
 };
 CHECKS['fjalar>ullr'] = async (w) => {
   await w.v.act('fjalar', 'dossier', { chemin: join(w.home, 'logiciels') });
@@ -789,6 +869,34 @@ CHECKS['syn>forseti'] = async (w) => {
   await w.v.module('syn')!.watch!.run(w.v.ctx('syn'));
   const a = w.v.alerts({ module: 'syn' }).find((x) => /Mémoire : eir\.mem 97 %/.test(x.title));
   assert.ok(a, 'seuil rouge dépassé : alerte dans Forseti'); assert.equal(a!.level, 'haute');
+};
+
+CHECKS['hlin>volva'] = async (w) => {
+  rythme(0);
+  await w.v.act('hlin', 'moi', { prenom: 'Awa', nom: 'Saïd', villes: 'Mamoudzou' });
+  const r = await w.v.act('hlin', 'chercher', { quoi: 'web' });
+  assert.equal(r.ok, true, r.text);
+  assert.ok(w.acts.some((a) => a.module === 'volva' && a.action === 'brut' && a.by === 'réflexe'), 'la recherche passe par Pythie');
+  assert.ok(!existsSync(join(w.v.ctx('volva').dir, 'historique.json')), 'rien dans l\'historique de Pythie');
+  assert.match((await w.v.act('hlin', 'chercher', { fiche: 'Jean Dupont' })).text, /aucune fiche/, 'jamais un nom libre');
+};
+CHECKS['hlin>brisingamen'] = async (w) => {
+  rythme(0);
+  await w.v.act('hlin', 'moi', { prenom: 'Awa', nom: 'Saïd', emails: 'awa.said@exemple.yt' });
+  const cle = '0123456789abcdef0123456789abcdef';
+  assert.equal((await w.v.act('hlin', 'cle_fuites', { cle })).ok, true);
+  assert.ok(did(w, 'brisingamen', 'ajouter'), 'la clé va dans le coffre');
+  assert.match((await w.v.act('brisingamen', 'chercher', { q: 'pwned' })).text, /Have I Been Pwned/); assert.doesNotMatch(JSON.stringify(w.v.manips()), new RegExp(cle), 'la clé n\'est jamais dans le journal');
+  await w.v.act('hlin', 'chercher', { quoi: 'fuites' });
+  assert.ok(w.fetched.some((f) => f.url.startsWith('https://haveibeenpwned.com/api/v3/breachedAccount/awa.said%40exemple.yt')), 'Gygès relit la clé dans le coffre');
+};
+CHECKS['hlin>forseti'] = async (w) => {
+  await w.v.act('hlin', 'moi', { prenom: 'Awa', nom: 'Saïd', emails: 'awa.said@exemple.yt' });
+  const d = new Date(Date.now() - 40 * 864e5), jour = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  assert.equal((await w.v.act('hlin', 'noter_demande', { site: 'annuaire.exemple', date: jour })).ok, true);
+  await w.v.module('hlin')!.watch!.run(w.v.ctx('hlin'));
+  const a = w.v.alerts({ module: 'hlin' }).find((x) => /annuaire\.exemple : délai dépassé/.test(x.title));
+  assert.ok(a, 'délai dépassé : alerte dans Forseti'); assert.equal(a!.fix?.action, 'relancer');
 };
 
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {

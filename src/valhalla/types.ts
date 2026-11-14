@@ -61,7 +61,7 @@ export interface Rangement {
 }
 export type Section = Rangement & (
   | { kind: 'table'; title: string; columns: string[]; rows: Array<{ cells: string[]; tone?: Tone; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; /** une autre appli (ex. « ran ») */ module?: string }> }>; empty?: string }
-  | { kind: 'list'; title: string; items: Array<{ title: string; detail?: string; tone?: Tone; meta?: string }>; empty?: string }
+  | { kind: 'list'; title: string; items: Array<{ title: string; detail?: string; tone?: Tone; meta?: string; /** un fichier de l'appli à remettre à l'appareil (bouton « Télécharger », lu par `Module.retrait`) */ fichier?: { nom: string; ref: string } }>; empty?: string; /** une phrase sous la liste */ aide?: string }
   /** Des cartes avec une icône (data: ou /…), un état, une barre de progression et des boutons. */
   | { kind: 'cards'; title: string; items: Array<{ icon?: string; title: string; sub?: string; badge?: string; tone?: Tone; progress?: number; meta?: string; actions?: Array<{ action: string; label: string; input: Record<string, unknown>; module?: string }> }>; empty?: string }
   | { kind: 'log'; title: string; lines: string[] }
@@ -69,12 +69,33 @@ export type Section = Rangement & (
   | { kind: 'bars'; title: string; items: Array<{ label: string; value: number; display?: string }> }
   /** Des courbes dans le temps (débit entrant / sortant…) : une valeur par étiquette. */
   | { kind: 'courbe'; title: string; labels: string[]; series: Array<{ name: string; tone?: Tone; points: number[] }>; unit?: string; empty?: string }
-  | { kind: 'form'; title: string; action: string; params: Param[]; submit: string }
+  | { kind: 'form'; title: string; action: string; params: Param[]; submit: string; /** une phrase sous le bouton */ aide?: string; /** des réglages envoyés tels quels avec le formulaire, sans champ à remplir */ fixe?: Record<string, unknown> }
+  /**
+   * Une zone où déposer un fichier de l'appareil (ou le choisir) : il est envoyé à l'appli (`Module.depot`), puis `action`
+   * part avec sa référence dans le réglage `champ`. Avec `choix`, la page demande d'abord ce qu'on peut faire de ce
+   * fichier (formats de sortie…) : l'action de lecture `choix.action` reçoit `{ nom }` et rend `data: ChoixDepot`.
+   * Avec `lien` (et `choix`), on peut donner à la place le lien d'un fichier : `lien.action` reçoit le lien dans `lien.champ`, plus les choix faits.
+   */
+  | { kind: 'depot'; title: string; action: string; champ: string; plusieurs?: boolean; texte?: string; bouton?: string; aide?: string;
+      lien?: { action: string; champ: string; label: string; aide?: string };
+      choix?: { action: string; /** le titre au-dessus des choix (« Convertir en ») */ titre: string; /** le libellé du bouton final ; « {choix} » est remplacé par le choix fait (« Convertir en {choix} ») */ envoyer: string } }
+  /** Une carte de boutons : chacun lance une action. Plus, au besoin, une liste déroulante et son bouton. */
+  | { kind: 'actions'; title: string; boutons: Array<{ action: string; label: string; input?: Record<string, unknown>; primary?: boolean }>;
+      liste?: { label: string; action: string; champ: string; valeurs: Array<{ valeur: string; label: string }>; bouton: string; /** dernière ligne de la liste : une valeur à taper soi-même (« Un autre dossier… ») */ libre?: string };
+      aide?: string }
   /** assistant de configuration : étapes dans l'ordre, faites ou non, chacune avec l'action qui la fait */
   | { kind: 'steps'; title: string; items: Array<{ title: string; detail?: string; done: boolean; action?: string; input?: Record<string, unknown>; button?: string }> }
   /** graphe (même dessin que le Cerveau) : un clic sur un point ouvre sa fiche ; périodes pour revoir le passé */
   | { kind: 'graph'; title: string; nodes: GraphNode[]; edges: GraphEdge[]; details: Record<string, GraphDetail>; legend?: Array<[string, string]>; periods?: { current: string; options: Array<{ id: string; label: string }>; when?: string }; empty?: string }
 );
+/** Ce qu'on peut faire d'un fichier déposé (rendu dans `data` par l'action `choix` d'une section « depot »). */
+export interface ChoixDepot {
+  /** ce qu'est le fichier, en un mot (« vidéo », « sous-titres ») */ famille?: string;
+  /** pourquoi on ne peut rien en faire (alors `groupes` est vide) */ refus?: string;
+  /** le réglage de l'action qui reçoit le choix (« format ») */ champ: string;
+  groupes: Array<{ titre: string; valeurs: Array<{ valeur: string; label: string }> }>; defaut?: string;
+  /** d'autres réglages à boutons (« Qualité ») */ options?: Array<{ champ: string; titre: string; valeurs: Array<{ valeur: string; label: string }>; defaut?: string }>;
+}
 /** Un point du graphe : couleur, taille, anneau (nouveau, dangereux), carré (Odin, box, Internet), éteint. */
 export interface GraphNode { id: string; label: string; sub?: string; color?: string; size?: number; ring?: string; square?: boolean; off?: boolean; hub?: boolean; alert?: { n: number; level: 'grave' | 'attention' }; search?: string }
 export interface GraphEdge { a: string; b: string; color?: string; dash?: boolean; w?: number; title?: string; arrow?: 'to' | 'both' }
@@ -94,7 +115,15 @@ export interface View { subtitle?: string; kpis?: Kpi[]; sections: Section[]; si
    * La page garde le choix, le renvoie à la vue (`?poste=<id>` dans `q`) et le met dans le réglage `poste` de chaque
    * action qui en a un (ce réglage n'est alors plus montré dans les formulaires). Voir `choixDePoste` (postes.ts).
    */
-  postes?: { actuel: string; choix: ChoixPoste[]; /** proposer « Ajouter un poste » */ ajouter?: boolean } }
+  postes?: { actuel: string; choix: ChoixPoste[]; /** proposer « Ajouter un poste » : un écran en étapes (quel poste, son compte, essai de connexion) */ ajouter?: boolean;
+    /** titre et phrase de cet écran (sinon « Ajouter un poste ») */ titre?: string; texte?: string;
+    /** les ordinateurs vus sur le réseau, pas encore dans le coffre : proposés à la première étape */ trouves?: Array<{ adresse: string; nom: string; sys?: string }>;
+    /**
+     * Une dernière étape propre à l'appli (« Quoi analyser ? ») : des cartes à cocher, puis `action` part avec le poste
+     * (`poste`), la carte cochée (`champ`) et, si la carte demande une précision, sa valeur (`demande.champ`).
+     * « {poste} » dans `envoyer` est remplacé par le nom du poste.
+     */
+    ensuite?: { titre: string; champ: string; cartes: Array<{ valeur: string; titre: string; detail?: string; demande?: { champ: string; label: string; exemple?: string } }>; defaut?: string; action: string; envoyer: string; aide?: string } } }
 
 export interface ModCtx {
   home: string;

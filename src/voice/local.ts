@@ -173,6 +173,8 @@ let installing: Promise<boolean> | undefined;
  */
 export function ensureLocalVoice(onStart?: (msg: string) => void, home?: string, o: { quiet?: boolean } = {}): Promise<boolean> {
   if (localWhisper(home)) return Promise.resolve(true);
+  // Installation automatique coupée (essais, machine où l'on ne veut rien compiler) : on le dit, on n'installe rien.
+  if (process.env.ODIN_NO_VOICE_INSTALL === '1') { lastFailure = 'L\'installation automatique de la voix locale est coupée sur cette machine (ODIN_NO_VOICE_INSTALL). Dis-moi « installe la voix locale », ou règle un service dans Réglages → Voix.'; return Promise.resolve(false); }
   // Il manque des outils et Odin n'est pas administrateur : inutile d'annoncer une installation qui échouerait
   // aussitôt, et de recommencer à chaque vocal. On le dit une fois par demande, avec la marche à suivre.
   const blocked = voiceBlocked(home);

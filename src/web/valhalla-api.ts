@@ -8,6 +8,7 @@ import { advise } from '../tools/valhalla.ts';
 import { LINKS, USAGES } from '../valhalla/links.ts';
 import { book, publicInfo, publicKey, publicSlots } from '../valhalla/modules/frigg.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
+import { COMMANDE_WINDOWS, essayerPoste } from '../valhalla/postes.ts';
 import { noticesOf } from '../valhalla/notices.ts';
 import { body, esc, page } from './draupnir-api.ts';
 
@@ -78,6 +79,12 @@ export async function valhallaPost(path: string, b: Record<string, unknown>): Pr
       const text = s(b.text).slice(0, 2000).trim(); if (!text) return { ok: false, error: 'demande vide' };
       const r = await v.order(text, `web:${s(b.session).replace(/[^\w-]/g, '').slice(0, 40) || 'principal'}`, { confirm: b.confirm === true });
       return { ok: r.ok !== false, text: r.text, ...(r.confirm ? { confirm: `Confirmer : ${r.confirm} ?` } : {}), kind: r.understood?.kind ?? 'rien', module: r.understood && 'module' in r.understood ? r.understood.module : undefined };
+    }
+    // « Tester la connexion » d'un poste (écran « Ajouter un poste ») : il n'entre dans le coffre que si l'essai réussit.
+    // Le mot de passe n'est jamais rendu ; la commande pour Windows n'est donnée que si Windows bloque le compte.
+    case '/api/valhalla/poste': {
+      const r = await essayerPoste(v.ctx(v.modules()[0].id).home, { adresse: b.adresse, utilisateur: b.utilisateur, mot_de_passe: b.mot_de_passe, port: b.port, port_partage: b.port_partage });
+      return { ok: r.ok, text: r.text, poste: r.poste, nom: r.nom, sys: r.sys, ...(r.aideWindows ? { commande: COMMANDE_WINDOWS } : {}) };
     }
     case '/api/valhalla/ack': v.ack(Array.isArray(b.ids) ? b.ids.map(String) : []); return { ok: true };
     case '/api/valhalla/level': { const l = s(b.level); if (!['info', 'moyenne', 'haute', 'critique'].includes(l)) return { ok: false, error: 'niveau inconnu' }; v.saveSettings({ alertLevel: l }); return { ok: true }; }

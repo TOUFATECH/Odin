@@ -12,8 +12,11 @@ import { webSearch, type SearchProvider, type SearchResult } from '../../tools/s
 import { valhallaOf } from '../odin.ts';
 import { extractive, finish, FOCUS, fuse, parseInstant, parseSearx, parseWikipedia, prompt, toMarkdown, type Focus, type Source } from '../volva/engine.ts';
 import type { ModCtx, Module, Param } from '../types.ts';
+import { sonDit } from './bragi.ts';
 
 const s = (v: unknown) => String(v ?? '');
+/** Une réponse telle qu'on la dit : sans les renvois [1] ni les étoiles du gras. */
+export const spoken = (answer: string) => answer.replace(/\s*\[\d{1,2}\]/g, '').replace(/\*\*/g, '').slice(0, 4000);
 /** Les moteurs que Pythie sait interroger, et ce qu'il faut pour chacun. */
 export const ENGINES: Record<string, { label: string; need?: string; env?: string[]; note?: string; keyless?: boolean }> = {
   searxng: { label: 'SearXNG (Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…)', need: 'ton instance SearXNG (« Installer SearXNG » la lance à côté d\'Odin)', note: 'SearXNG interroge ces moteurs comme un navigateur : leurs conditions d\'usage s\'appliquent ; garde un usage personnel et raisonnable.' },
@@ -130,6 +133,12 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         const e = await ask(ctx, q, { focus: s(i.focus) as Focus, deep: i.approfondie === true, thread: s(i.suite) || undefined });
         return { text: `${e.answer}\n\nSources :\n${e.sources.map((x) => `[${x.n}] ${x.title} — ${x.url}${x.engines.length > 1 ? ` (${x.engines.join(', ')})` : ''}`).join('\n')}${e.followups.length ? `\n\nPour aller plus loin : ${e.followups.join(' · ')}` : ''}${e.apps.length ? `\nDans Odin : ${e.apps.map((a) => `${a.name}${a.label ? ` (${a.label})` : ''}`).join(', ')}` : ''}`, data: e };
       } },
+      // Pour les autres applis (Gygès) : les résultats seuls. Rien n'est lu, rien ne part vers l'IA, rien ne reste dans l'historique.
+      { id: 'brut', label: 'Résultats bruts', what: 'Les résultats des moteurs, fusionnés, sans IA, sans lecture des pages et sans rien garder dans l\'historique (pour les autres applis d\'Odin)', read: true, quick: false, external: true, params: [{ key: 'question', label: 'Question', kind: 'textarea', required: true }, { key: 'n', label: 'Combien', kind: 'number', default: 8 }], run: async (ctx, i) => {
+        const q = s(i.question).trim().slice(0, 400); if (!q) throw new Error('pose une question');
+        const n = Math.max(1, Math.min(20, Number(i.n) || 8)), g = await gather(ctx, q, 'tout', n), sources = fuse(g.lists, n);
+        return { text: sources.map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n') || `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}.`, data: { sources, moteurs: activeEngines(ctx), erreurs: g.errors } };
+      } },
       { id: 'moteurs', label: 'Moteurs', what: 'Ce que chaque moteur demande et s\'il est prêt', read: true, words: ['moteurs de recherche'], run: (ctx) => {
         const act = new Set(activeEngines(ctx));
         return { text: `${Object.entries(ENGINES).map(([k, x]) => `${act.has(k) ? '✅' : ready(ctx, k) ? '⚪' : '⛔'} ${x.label}${!ready(ctx, k) ? ` — il faut ${x.need ?? (x.env ?? []).join(' et ') + ' dans le coffre'}` : ''}${x.note ? ` (${x.note})` : ''}`).join('\n')}\nBing a arrêté son API en août 2025 : il reste joignable par SearXNG.` };
@@ -164,9 +173,17 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         const h = history(ctx), e = s(i.id) ? h.find((x) => x.id === s(i.id)) : h[0]; if (!e) throw new Error('recherche introuvable');
         return { text: s(i.format) === 'json' ? JSON.stringify(e, null, 2) : toMarkdown({ question: e.q, answer: e.answer, sources: e.sources, at: e.at, engines: e.engines }) };
       } },
+      // Réponse en audio : Orphée la lit avec la voix d'Odin (celle choisie dans Réglages → Voix) ; le son est à télécharger.
+      { id: 'ecouter', label: 'Écouter une réponse', what: 'La réponse d\'une recherche, lue à voix haute par Orphée (vide : la dernière)', quiet: true, params: [{ key: 'id', label: 'Recherche (vide : la dernière)', kind: 'text', default: '' }], words: ['lis la derniere recherche', 'lis la dernière recherche', 'lis la reponse', 'lis la réponse', 'recherche a voix haute', 'recherche à voix haute'], run: async (ctx, i) => {
+        const h = history(ctx), e = s(i.id) ? h.find((x) => x.id === s(i.id)) : h[0]; if (!e) throw new Error(s(i.id) ? 'cette recherche n\'est plus dans l\'historique' : 'aucune recherche à lire : pose d\'abord une question à Pythie');
+        const r = await ctx.call('bragi', 'dire', { texte: spoken(e.answer) }, 'lire à voix haute la réponse de Pythie', { interne: true });
+        return r.ok === false ? { ok: false, text: `Je n'ai pas pu lire la réponse : ${r.text}` } : { text: `🔊 « ${e.q.slice(0, 80)} » : la réponse est prête à écouter.`, fichiers: r.fichiers };
+      } },
       { id: 'oublier', label: 'Effacer l\'historique', what: 'Toutes les recherches gardées', quick: false, grave: () => 'effacer tout l\'historique des recherches', run: (ctx) => { saveHistory(ctx, []); writeFileSync(histFile(ctx), '[]'); return { text: '🧹 Historique effacé.' }; } },
       { id: 'reglages', label: 'Réglages', what: 'Lire les pages, recherches d\'Odin par Pythie, historique', quick: false, params: [{ key: 'lire', label: 'Lire les pages (réponse plus juste)', kind: 'boolean', default: true }, { key: 'pour_odin', label: 'Les recherches d\'Odin passent par Pythie', kind: 'boolean', default: true }, { key: 'garder', label: 'Recherches gardées', kind: 'number', default: 200 }], run: (ctx, i) => { ctx.saveSettings({ lire: i.lire !== false, pourOdin: i.pour_odin !== false, garder: Math.max(10, Math.min(1000, Number(i.garder) || 200)) }); return { text: '⚙ Réglages de Pythie enregistrés.' }; } },
     ],
+    // Le son d'une réponse lue (fabriqué par Orphée) peut être remis à l'appareil depuis la page de Pythie.
+    retrait: (ctx, ref) => sonDit(join(ctx.dir, '..', 'bragi'), ref),
     async view(ctx) {
       const h = history(ctx), act = activeEngines(ctx);
       return {

@@ -5,11 +5,12 @@
 // donne la météo et l'heure, et exécute ce que tu lui demandes avec les mêmes droits que partout dans Odin.
 // Reprend les idées de Home Assistant (Lovelace, Mushroom, Bubble Card), Homepage, Dashy et Homarr.
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ModCtx, Module, Param, Tone } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
 import { homeDevices } from './midgard.ts';
+import { nourrir, oublier } from '../gna/historique.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export const THEMES: Record<string, { label: string; dark: boolean }> = {
@@ -35,6 +36,14 @@ export interface Key { id: string; name: string; hash: string; rights: 'maison' 
 export interface Member { id: string; name: string; user: string; hash: string; tid: string; at: number }
 export interface Fix { at: number; lat: number; lon: number; acc?: number; batt?: number; conn?: string; place?: string }
 const members = (ctx: ModCtx): Member[] => (ctx.settings.members as Member[] | undefined) ?? [];
+/** Le dossier d'Ulysse (les trajets), à côté de celui de Hestia : chaque position reçue y est gardée si le membre a allumé son historique. */
+const trajetsDir = (ctx: ModCtx) => join(ctx.dir, '..', 'gna');
+const nombre = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : undefined);
+/** Les membres de la famille lus dans le dossier de Hestia, sans leurs identifiants secrets (pour Ulysse). Rien (undefined) si le fichier est illisible. */
+export function famille(dossier: string): Array<{ id: string; name: string; user: string }> | undefined {
+  const f = join(dossier, 'réglages.json'); if (!existsSync(f)) return [];
+  try { const l = (JSON.parse(readFileSync(f, 'utf8')) as { members?: Member[] }).members; return (Array.isArray(l) ? l : []).filter((m) => m && typeof m.id === 'string').map((m) => ({ id: m.id, name: String(m.name ?? ''), user: String(m.user ?? '') })); } catch { return undefined; }
+}
 const fixesFile = (ctx: ModCtx) => join(ctx.dir, 'positions.json');
 function readFixes(ctx: ModCtx): Record<string, Fix[]> { try { return JSON.parse(readFileSync(fixesFile(ctx), 'utf8')) as Record<string, Fix[]>; } catch { return {}; } }
 /** Positions gardées `days` jours (1 par défaut), puis effacées. */
@@ -52,6 +61,9 @@ export function recordFix(ctx: ModCtx, m: Member, body: Record<string, unknown>,
   if (body._type === 'location' && Number.isFinite(Number(body.lat)) && Number.isFinite(Number(body.lon)) && Math.abs(Number(body.lat)) <= 90 && Math.abs(Number(body.lon)) <= 180) {
     const f: Fix = { at: Number(body.tst) ? Math.min(now, Number(body.tst) * 1000) : now, lat: Math.round(Number(body.lat) * 1e5) / 1e5, lon: Math.round(Number(body.lon) * 1e5) / 1e5, ...(Number.isFinite(Number(body.acc)) ? { acc: Math.round(Number(body.acc)) } : {}), ...(Number.isFinite(Number(body.batt)) ? { batt: Number(body.batt) } : {}), ...(typeof body.conn === 'string' ? { conn: body.conn.slice(0, 2) } : {}), ...(Array.isArray(body.inregions) && body.inregions.length ? { place: String(body.inregions[0]).slice(0, 60) } : {}) };
     all[m.id] = [...(all[m.id] ?? []), f].slice(-2000);
+    // Ulysse (trajets) : la position rejoint l'historique du membre seulement s'il l'a allumé ; sinon rien de plus n'est gardé.
+    const vel = nombre(body.vel), alt = nombre(body.alt);
+    nourrir(trajetsDir(ctx), m.id, { t: f.at, lat: f.lat, lon: f.lon, ...(f.acc !== undefined ? { acc: f.acc } : {}), ...(vel !== undefined ? { vel } : {}), ...(alt !== undefined ? { alt } : {}) }, now);
   }
   for (const k of Object.keys(all)) { all[k] = all[k].filter((x) => x.at >= limit); if (!all[k].length || !members(ctx).some((x) => x.id === k)) delete all[k]; }
   try { mkdirSync(ctx.dir, { recursive: true }); writeFileSync(fixesFile(ctx), JSON.stringify(all)); } catch { /* disque plein */ }
@@ -225,11 +237,12 @@ export const gladsheim: Module = {
       const tid = (name.normalize('NFD').replace(/[^A-Za-z0-9]/g, '').slice(0, 2) || 'XX').toUpperCase();
       ctx.saveSettings({ members: [...members(ctx), { id: randomBytes(4).toString('hex'), name, user, hash: hash(pass), tid, at: Date.now() }] });
       const base = s(i.adresse).trim().replace(/\/$/, '') || 'https://<adresse d\'Odin>';
-      return { text: `📍 ${name} peut partager sa position. Sur son téléphone, dans OwnTracks : Réglages → Connexion → Mode « HTTP »\n- Adresse : ${base}/api/owntracks\n- Identifiant : ${user}\n- Mot de passe : ${pass}\n- Appareil : ${tid}\nLe mot de passe ne sera plus affiché. ${name} voit l'appli sur son téléphone et peut la mettre en pause quand il veut. Les positions sont gardées ${keepDays(ctx)} jour(s), puis effacées.`, data: { user } };
+      return { text: `📍 ${name} peut partager sa position. Sur son téléphone, dans OwnTracks : Réglages → Connexion → Mode « HTTP »\n- Adresse : ${base}/api/owntracks\n- Identifiant : ${user}\n- Mot de passe : ${pass}\n- Appareil : ${tid}\nLe mot de passe ne sera plus affiché. ${name} voit l'appli sur son téléphone et peut la mettre en pause quand il veut. Les positions sont gardées ${keepDays(ctx)} jour(s), puis effacées.${ctx.modules().some((x) => x.id === 'gna') ? `\nSes trajets (Ulysse) ne sont pas gardés : ${name} peut allumer son historique, et le revoir, sur ${base}/trajets avec ces mêmes identifiants.` : ''}`, data: { user } };
     }, undo: (i) => ({ action: 'retirer_membre', input: { nom: i.nom }, label: 'Retirer le membre' }) },
     { id: 'retirer_membre', label: 'Retirer un membre', what: 'Ses identifiants ne marchent plus et ses positions sont effacées', quick: false, params: [{ key: 'nom', label: 'Prénom', kind: 'text', required: true }], run: (ctx, i) => {
       const m = members(ctx).find((x) => x.name.toLowerCase() === s(i.nom).trim().toLowerCase()); if (!m) throw new Error('membre introuvable');
       ctx.saveSettings({ members: members(ctx).filter((x) => x.id !== m.id) }); const all = readFixes(ctx); delete all[m.id]; try { writeFileSync(fixesFile(ctx), JSON.stringify(all)); } catch { /* */ }
+      oublier(trajetsDir(ctx), m.id, true);   // et son historique de trajets (Ulysse), avec ses choix
       return { text: `🗑 ${m.name} retiré ; ses positions sont effacées.` };
     } },
     { id: 'positions', label: 'Où est la famille', what: 'La dernière position partagée de chacun', read: true, words: ['où est la famille', 'position de la famille'], run: (ctx) => {
