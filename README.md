@@ -442,6 +442,10 @@ Où tu apparais sur Internet : moteurs, annuaires, revendeurs de données, rése
 
 L'historique des positions des téléphones de la famille (OwnTracks), **éteint au départ** : chaque membre l'allume, le met en pause ou l'efface sur sa page `/trajets`. Trajets et arrêts par jour (distance, durée, vitesse), lieux nommés, carte dessinée par Odin, export GPX, conservation 30 jours, 90 jours ou 1 an. Tu ne vois les trajets d'un membre que s'il l'accepte.
 
+### Disques (Tirésias)
+
+Chaque disque (HDD, SSD, NVMe, USB) avec son état en clair : **Bon, Attention ou Mauvais**, et la raison. Toutes les valeurs SMART sont expliquées (température, heures, allumages, secteurs réalloués, usure du SSD). Un relevé par jour, des courbes, une alerte quand ça se dégrade, avec quoi faire : sauvegarder d'abord (Phénix), remplacer ensuite. Test de vitesse façon CrystalDiskMark (séquentiel et aléatoire 4 Ko), **dans un fichier de test seulement**, effacé à la fin. Un autre poste Linux ou Mac se lit par SSH (`smartctl` lancé là-bas). Il faut `smartmontools` sur la machine (bouton « Installer smartctl »).
+
 ### La page d'une appli
 
 Toutes les applis ont la même page :
