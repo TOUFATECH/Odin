@@ -1,5 +1,25 @@
 [
  {
+  "id": "v1230",
+  "at": "2026-11-14T04:40:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.23.0",
+  "title": "Exporter et partager chaque appli, deux nouvelles applis (Gygès, Ulysse) et des icônes aux couleurs vives",
+  "details": [
+   "Exporter / partager, en haut de chaque appli : la page ou un onglet en Word, PDF, Markdown ou JSON, secrets masqués ; lien privé ou public (avec ton accord) vers une copie figée, avec date de fin et retrait immédiat.",
+   "Nouvelle appli Gygès (vie privée) : où tu apparais sur Internet, le risque, comment le faire retirer, lettres RGPD prêtes, suivi des demandes, revérification chaque mois. Seulement toi, tes sociétés et un proche qui a dit oui.",
+   "Nouvelle appli Ulysse (trajets) : l'historique des positions de la famille, éteint au départ, allumé par chaque membre sur sa page /trajets ; trajets, arrêts, carte, export GPX, conservation au choix.",
+   "Icônes : les couleurs vives que tu as validées (chaque appli garde sa teinte, en couleur pleine), et les icônes de Gygès, Ulysse, Tirésias et Perséphone.",
+   "Pas testé : les vrais sites des réseaux sociaux et une vraie clé Have I Been Pwned, un vrai téléphone avec OwnTracks, Google Docs (pas de connexion Google)."
+  ],
+  "planets": [
+   "applis",
+   "securite",
+   "maison"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1220",
   "at": "2026-11-14T04:00:00+03:00",
   "date": "2026-11-14",

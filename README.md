@@ -430,6 +430,18 @@ Un lien vers une adresse de ta maison (NAS, autre poste : `http://192.168…`) d
 
 Chaque appli peut avoir son adresse directe : `http://adresse-d-odin:<port>` ouvre directement sa page, **toujours avec ta connexion** (sans session, seul l'écran de connexion répond). Réglages → Ports pour toutes les applis, ou la carte « Son port » en bas de la page de l'appli. Le port reste sur cette machine tant que tu ne l'ouvres pas sur le réseau ; l'ouvrir demande ton accord (Cerbère ouvre alors le pare-feu, et referme quand tu le retires). Un port déjà pris est refusé en disant quel programme le tient ; il est gardé après un redémarrage. Les services réseau gardent leur port habituel (Vénus 8096, MQTT 1883…) et les applis installées un port fixe entre 20000 et 20999.
 
+### Exporter et partager une page
+
+En haut de chaque appli, « Exporter / partager » : la page entière ou l'onglet ouvert, pour le poste choisi, en **Word, PDF, Markdown ou JSON**. Les mots de passe, clés et jetons sont masqués, et le fichier dit combien de valeurs l'ont été. « Partager » crée un lien vers une copie figée, en lecture seule : **privé** (toi, ou des personnes de Persona) ou **public** (avec ton accord), avec une date de fin (7 jours par défaut, 90 au plus), les ouvertures comptées, et un retrait immédiat. Le coffre, Persona, la vie privée et les trajets ne s'exportent ni ne se partagent. Google Docs : exporte en Word puis importe-le (Odin n'est pas relié à Google).
+
+### Vie privée (Gygès)
+
+Où tu apparais sur Internet : moteurs, annuaires, revendeurs de données, réseaux sociaux, fuites connues (Have I Been Pwned avec ta clé), photos qui révèlent un lieu. Pour chaque résultat : ce qu'il montre, le risque, et comment le faire retirer, avec les lettres RGPD prêtes (effacement, opposition, accès, relance, en texte, Word et PDF) et le suivi des demandes jusqu'à la CNIL. Revérification chaque mois. Seulement toi, tes sociétés, et un proche qui a donné son accord (noté) ; aucune connexion ni captcha contourné ; rien ne part vers une IA.
+
+### Trajets (Ulysse)
+
+L'historique des positions des téléphones de la famille (OwnTracks), **éteint au départ** : chaque membre l'allume, le met en pause ou l'efface sur sa page `/trajets`. Trajets et arrêts par jour (distance, durée, vitesse), lieux nommés, carte dessinée par Odin, export GPX, conservation 30 jours, 90 jours ou 1 an. Tu ne vois les trajets d'un membre que s'il l'accepte.
+
 ### La page d'une appli
 
 Toutes les applis ont la même page :
