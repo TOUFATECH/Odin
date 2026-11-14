@@ -22,12 +22,12 @@ export class Pairing {
   private perIp = new Map<string, number[]>();
 
   /** Nouvelle demande. undefined si trop de demandes (3 par appareil et par 10 min, 5 en attente au plus). */
-  request(ua: string, ip: string, now = Date.now()): (PairRequest & { secret: string }) | undefined {
+  request(ua: string, ip: string, now = Date.now(), device?: string): (PairRequest & { secret: string }) | undefined {
     this.prune(now);
     const hits = (this.perIp.get(ip) ?? []).filter((t) => now - t < TTL);
     if (hits.length >= 3 || this.pending(now).length >= 5) return undefined;
     this.perIp.set(ip, [...hits, now]);
-    const e: Entry = { id: randomBytes(6).toString('hex'), secret: randomBytes(24).toString('hex'), code: String(randomInt(0, 1_000_000)).padStart(6, '0'), device: deviceName(ua), ip, at: now, state: 'attente' };
+    const e: Entry = { id: randomBytes(6).toString('hex'), secret: randomBytes(24).toString('hex'), code: String(randomInt(0, 1_000_000)).padStart(6, '0'), device: device ?? deviceName(ua), ip, at: now, state: 'attente' };
     this.reqs.set(e.id, e);
     return { ...e };
   }

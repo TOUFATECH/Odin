@@ -54,6 +54,7 @@ import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost }
 import { maisonRoute } from './maison-api.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
+import { pegaseRoute } from './pegase-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { exportApi } from './export-api.ts';
 import { partageApi, partagePublic } from './partage-api.ts';
@@ -195,12 +196,12 @@ export class WebChannel implements Channel {
   /** Raccourcis (Siri, Android) : réponse attendue par conversation. */
   private waiters = new Map<string, (text: string) => void>();
   /** Pose une question à Odin (même chemin que la discussion : mêmes droits, mêmes validations) et attend sa réponse. */
-  private askAs(peer: string, text: string, onMessage: (m: Inbound) => Promise<void>): Promise<string> {
+  private askAs(peer: string, text: string, onMessage: (m: Inbound) => Promise<void>, max = 4000): Promise<string> {
     if (this.waiters.has(peer)) return Promise.resolve('Je réponds déjà à une demande : un instant.');
     return new Promise<string>((resolve) => {
       const timer = setTimeout(() => { this.waiters.delete(peer); resolve('Je travaille encore dessus : la réponse arrivera dans Odin.'); }, 110_000);
       this.waiters.set(peer, (r) => { clearTimeout(timer); resolve(r); });
-      void onMessage({ channel: 'web', peer, name: peer, text: text.slice(0, 4000) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
+      void onMessage({ channel: 'web', peer, name: peer, text: text.slice(0, max) }).catch((e) => this.waiters.get(peer)?.(`Erreur : ${(e as Error).message}`));
     });
   }
   private vaultFails = 0;
@@ -520,6 +521,8 @@ export class WebChannel implements Channel {
       return void res.end((direct && w === 'session' ? directPage(UI, direct, valhallaOf()?.module(direct)?.name) : UI).replace('<!--PAGES-->', Object.keys(PAGES_JS).sort().map((n) => `<script nonce="__NONCE__" src="/pages/${n}"></script>`).join('\n')).replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
+    // Pégase (le navigateur d'Odin) : ses routes, avec ses propres jetons d'appareil (voir pegase-api.ts).
+    if (url.pathname.startsWith('/api/pegase/') && await pegaseRoute(req, res, url, { ip, proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', emailProprietaire: this.accounts.profile()?.email, fail: () => this.throttle.fail(ip), ask: (peer, text) => this.askAs(peer, text, onMessage, 30_000), certificat: this.tls?.cert, version: RUNNING, origin: this.publicOrigin(req), pair: { collect: (sec) => this.pairing.collect(sec), request: (device, from) => { const r = this.pairing.request('', from, Date.now(), device); if (r) { void Promise.resolve(this.hooks.pairAsk?.({ id: r.id, code: r.code, device: r.device, ip: r.ip, at: r.at, state: r.state })).catch(() => 0); this.notify('state'); } return r; } } })) return;
     // La page du téléphone pour la première connexion (code tapé ou QR code scanné).
     if (req.method === 'GET' && url.pathname === '/activer') {
       if (this.accounts.exists()) { res.writeHead(302, { location: '/' }); return void res.end(); }

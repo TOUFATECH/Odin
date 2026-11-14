@@ -73,6 +73,8 @@ const fctx = (ctx: ModCtx): FetchCtx => ({ fetch: ctx.fetch, key: (n) => process
 const srcOn = (ctx: ModCtx, id: string) => { const o = (ctx.settings.sources as Record<string, boolean> | undefined)?.[id]; return o ?? Boolean(SOURCES.find((x) => x.id === id)?.on); };
 
 /** Toutes les règles en service : de base, les tiennes (Grimoire), et celles importées (YARA), moins celles mises de côté. */
+/** La base de signatures d'Asclépios (Pégase en donne les empreintes à ses appareils). */
+export const intelOf = (ctx: ModCtx): Intel => st(ctx).intel;
 export function ruleSet(ctx: ModCtx, intel = st(ctx).intel): RuleSet {
   const x = st(ctx), off = new Set(disabled(ctx)), key = `${intel.current()}:${JSON.stringify(userRules(ctx)).length}:${off.size}:${intel === x.intel}`;
   if (intel === x.intel && x.set && x.setKey === key) return x.set;
