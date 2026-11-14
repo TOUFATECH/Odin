@@ -186,6 +186,12 @@ const HOST = /^(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$|^\[?[0-9a-f
 // Jamais de tiret en tête (ce serait lu comme une option), ni de caractère de commande.
 const USER = /^(?![-\s])[\p{L}\p{N}_.@ -]{1,64}\$?$/u;
 const DOMAIN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
+/** Adresse, utilisateur et domaine sont-ils sûrs à passer à SSH ou au partage de fichiers ? Lève l'erreur à montrer. Pur. */
+export function verifierAcces(host: string, user: string, domain?: string): void {
+  if (!HOST.test(host.trim())) throw new Error('adresse invalide (ex. 192.168.1.30 ou nas.local)');
+  if (!USER.test(user.trim())) throw new Error('nom d\'utilisateur invalide');
+  if (domain && !DOMAIN.test(domain.trim())) throw new Error('domaine Windows invalide');
+}
 export function saveMachine(home: string, m: { id?: string; label?: string; host: string; port?: number; user: string; password?: string; sudoPassword?: string; via?: 'ssh' | 'smb'; smbPort?: number; domain?: string }): Machine {
   const host = m.host.trim(), user = m.user.trim(), port = Number(m.port ?? 22);
   if (!HOST.test(host)) throw new Error('adresse invalide (ex. 192.168.1.30 ou nas.local)');

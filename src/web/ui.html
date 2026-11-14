@@ -1641,11 +1641,13 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
               <select id="v-ttsProvider"><option value="elevenlabs">ElevenLabs (en ligne, voix naturelles, copie de voix)</option><option value="piper">Piper (sur ta machine, gratuit, hors ligne)</option><option value="openai">OpenAI ou serveur local compatible (Kokoro, openedai-speech…)</option></select>
               <span class="hint" id="v-ttsHint"></span></div>
             <div class="field" id="v-ttsUrlBox"><label for="v-ttsUrl">Adresse du service</label><input id="v-ttsUrl" autocomplete="off" spellcheck="false" placeholder="http://localhost:5000"></div>
-            <details class="field" id="v-piperHelp"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Installer Piper sur cette machine (2 minutes)</summary>
+            <details class="field" id="v-piperHelp"><summary style="cursor:pointer;min-height:40px;display:flex;align-items:center">Ou ton propre serveur Piper (2 minutes)</summary>
               <div class="sub" style="margin-top:6px;display:flex;flex-direction:column;gap:6px">
-                <span>1. <code>pip install piper-tts</code> (ou <code>pipx install piper-tts</code>).</span>
-                <span>2. Lance le serveur avec une voix française : <code>python3 -m piper.http_server --model fr_FR-tom-medium --port 5000</code> — la voix se télécharge toute seule la première fois. Autres voix : <code>fr_FR-upmc-medium</code>, <code>fr_FR-tom-medium</code>, <code>en_US-lessac-medium</code>.</span>
-                <span>3. Laisse l'adresse <code>http://localhost:5000</code>, clique « Écouter un essai ». Pour qu'il démarre avec la machine, demande à Odin : « installe Piper comme service au démarrage ».</span>
+                <span>Le plus simple : laisse l'adresse « local » et touche « Installer la voix locale » plus bas, Odin s'occupe de tout. Sinon, pour lancer Piper toi-même :</span>
+                <span>1. <code>pip install "piper-tts[http]"</code> (ou <code>pipx install "piper-tts[http]"</code>).</span>
+                <span>2. Télécharge les deux voix françaises : <code>python3 -m piper.download_voices fr_FR-tom-medium fr_FR-siwis-medium</code> (tom : homme, siwis : femme).</span>
+                <span>3. Lance le serveur, pour cette machine seulement : <code>python3 -m piper.http_server -m fr_FR-tom-medium --host 127.0.0.1 --port 5000</code></span>
+                <span>4. Mets l'adresse <code>http://localhost:5000</code>, enregistre, puis clique « Écouter ». Pour qu'il démarre avec la machine, demande à Odin : « installe Piper comme service au démarrage ».</span>
               </div>
             </details>
             <div class="field" id="v-elevenBox"><label for="v-eleven">Clé ElevenLabs</label><input id="v-eleven" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="v-elevenHint"></span></div>
@@ -1664,8 +1666,14 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
                 <div class="field"><label for="v-cloneName">Nom de la voix</label><input id="v-cloneName" autocomplete="off" placeholder="ex. Ma voix"></div>
                 <div class="field"><label for="v-cloneFile">Enregistrement</label><input id="v-cloneFile" type="file" accept="audio/*"></div>
                 <div><button class="btn small" type="button" id="v-cloneRec" aria-pressed="false">🎙 M'enregistrer</button> <span class="hint" id="v-recHint"></span></div>
-                <label class="check"><input type="checkbox" id="v-consent"> C'est ma voix, ou la personne enregistrée a donné son accord pour cet usage.</label>
+                <fieldset class="field" style="border:0;padding:0;margin:0"><legend style="font-weight:600;margin-bottom:6px">À qui est cette voix ?</legend>
+                  <div role="radiogroup" style="display:flex;gap:8px;flex-wrap:wrap"><label class="check"><input type="radio" name="v-whose" value="moi" checked> C'est ma voix</label><label class="check"><input type="radio" name="v-whose" value="autre"> La voix de quelqu'un d'autre</label></div>
+                </fieldset>
+                <div class="field" id="v-personBox" hidden><label for="v-person">Son nom</label><input id="v-person" autocomplete="off" maxlength="80" placeholder="ex. Mariam Saïd"><span class="hint">Son accord est noté avec son nom et la date. Sans son accord, ne copie pas sa voix.</span></div>
+                <label class="check"><input type="checkbox" id="v-consent"> <span id="v-consentTxt">C'est ma voix, et j'accepte qu'Odin la copie pour parler avec.</span></label>
+                <span class="hint">L'enregistrement part chez ElevenLabs pour fabriquer la voix. Odin ne le garde pas : il note seulement ton accord.</span>
                 <div><button class="btn primary" type="button" id="v-clone">Copier cette voix</button></div>
+                <div id="v-copies" style="display:flex;flex-direction:column;gap:8px"></div>
               </div>
             </details>
             <div class="field"><label for="v-sttUrl">Service Whisper (comprendre)</label><input id="v-sttUrl" autocomplete="off" spellcheck="false" placeholder="https://api.openai.com/v1"><span class="hint">OpenAI par défaut (clé OpenAI). Pour rester 100 % local, un serveur Whisper sur ta machine : http://localhost:8000/v1 (sans clé).</span></div>
@@ -1760,6 +1768,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           <article class="card" data-sec="documents"><div class="form" id="more-documents"></div></article>
           <article class="card" data-sec="personnalite"><div class="form" id="more-personnalite"></div></article>
           <article class="card" data-sec="plus"><div class="form" id="more-plus"></div></article>
+          <article class="card" data-sec="ports"><div class="form" id="more-ports"></div></article>
           <article class="card" data-sec="acces"><div class="form" id="more-compte" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-tunnel" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-cloudflare" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><div class="form" id="more-raccourci" style="padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line)"></div><form class="form" id="f-access">
             <h2>Accès à l'interface</h2>
             <div class="field"><label>Qui peut ouvrir Odin dans un navigateur ?</label><div class="choices" role="group" aria-label="Accès">
@@ -2045,6 +2054,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (typeof rankChips === 'function') rankChips(sec);
     const body = document.querySelector('#v-settings .body'); if (body) body.scrollTop = 0;
     if (sec === 'modele' && AUTHED) setTimeout(() => loadRouting(), 0);
+    if (sec === 'ports' && AUTHED) setTimeout(() => loadPorts(), 0);
   }
   for (const b of document.querySelectorAll('.schip[data-sec]')) b.addEventListener('click', () => openSettings(b.dataset.sec));
   // Journal des routages (Réglages → Modèle → Qui a répondu).
@@ -2092,6 +2102,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   const SEC_GROUPS = [['Odin', ['modele', 'personnalite', 'ecriture', 'voix']], ['Autonomie et droits', ['autonomie', 'droits', 'personnes']], ['Réseau et maison', ['reseau', 'surveillance', 'proxmox', 'maison', 'venus', 'reveil', 'apparence', 'entretien', 'sauvegarde']], ['Messages et web', ['telegram', 'mail', 'agenda', 'recherche', 'documents']], ['Accès', ['acces']]];
   const secUse = () => { try { return JSON.parse(localStorage.getItem('odin.secUse') || '{}'); } catch { return {}; } };
   const DEFAULT_TOP = ['modele', 'autonomie', 'telegram', 'reseau', 'droits'];
+  { const c = el('button', { type: 'button', class: 'schip', 'data-sec': 'ports', role: 'tab' }, 'Ports'); $('#snav').insertBefore(c, $('#snav .schip.more')); c.addEventListener('click', () => openSettings('ports')); SEC_GROUPS.find(([g]) => g === 'Accès')?.[1].push('ports'); }
   function rankChips(cur) {
     const use = secUse(), chips = [...document.querySelectorAll('.schip[data-sec]')].filter((c) => c.dataset.sec !== 'plus');
     const usable = chips.filter((c) => !c.hidden);
@@ -3347,6 +3358,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // /#app=vordr ouvre directement une appli (lien depuis l'écran de la maison).
   const hashView = () => { const v = location.hash.slice(1), app = /^app=([a-z0-9_-]{2,40})$/.exec(v); if (app) { show('apps'); setTimeout(() => window.OdinApps?.app(app[1]), 150); return; } if (v && document.getElementById('v-' + v)) show(v); };
   addEventListener('hashchange', hashView);
+  // Port direct d'une appli (http://IP:<son port>) : sans autre demande dans l'adresse, la page s'ouvre sur cette appli.
+  if (!location.hash && document.documentElement.dataset.direct) history.replaceState(null, '', '#' + document.documentElement.dataset.direct);
 
 
   // ---------- Réglages : entretien, maison, mail, agenda, documents, personnalité, accès extérieur ----------
@@ -3550,6 +3563,58 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       F.status('tn-st')].filter(Boolean));
   }
 
+  // ---------- Réglages → Ports : le port direct de chaque appli (http://adresse:port ouvre directement sa page) ----------
+  async function loadPorts(said) {
+    const box = $('#more-ports'); if (!box) return;
+    let r; try { r = await api('/api/ports'); } catch { return; }
+    if (!r?.ok) { box.replaceChildren(el('h2', {}, 'Ports des applis'), el('p', { class: 'sub', style: 'margin:0' }, r?.error || 'La liste des ports n\'est pas disponible pour l\'instant.')); return; }
+    const I = r.interface, scheme = I.https ? 'https' : 'http', onMachine = /^(localhost$|127\.|\[?::1\]?$)/.test(location.hostname);
+    const tell = (x, ok) => { const n = $('#pt-st'); if (n) { n.textContent = x; n.className = 'status' + (ok === true ? ' ok' : ok === false ? ' err' : ''); } };
+    // Une demande. Si elle est grave (ouvrir sur le réseau), Odin dit d'abord exactement ce qui va s'ouvrir.
+    const ask = async (a, faire, extra = {}) => {
+      tell('Un instant…');
+      let x = await api('/api/ports', { appli: a.id, faire, ...extra });
+      if (x.confirm) { if (!confirm(x.confirm)) return tell('Annulé : rien n\'a changé.'); x = await api('/api/ports', { appli: a.id, faire, ...extra, confirm: true }); }
+      if (!x.ok) return tell(`✗ ${x.error || x.text || 'refusé'}`, false);
+      // Tu regardais Odin par ce port même : la page te suit sur le nouveau port (ou revient à l'interface s'il n'y en a plus).
+      if (a.port && location.port === String(a.port) && x.appli?.port !== a.port) { tell(x.text, true); return setTimeout(() => { location.port = String(x.appli?.port || I.port); }, 900); }
+      moodFlash('joie', 1500); await loadPorts(x.text);
+    };
+    const pill = (a) => a.port === null ? el('span', { class: 'pill' }, 'fermé') : a.etat === 'écoute' ? el('span', { class: 'pill ' + (a.reseau ? 'warn' : 'good') }, a.reseau ? 'écoute · réseau' : 'écoute · cette machine') : el('span', { class: 'pill bad' }, a.etat === 'pris' ? 'pris' : 'fermé');
+    const row = (a) => {
+      const inp = el('input', { type: 'number', min: 1, max: 65535, inputmode: 'numeric', value: a.port ?? '', placeholder: 'aucun', 'aria-label': `Port direct de ${a.nom}`, style: 'flex:0 0 104px;width:104px;min-width:0' });
+      const save = () => { const v = inp.value.trim(); return !v && a.port ? ask(a, 'retirer') : ask(a, 'regler', v ? { port: Number(v) } : {}); };
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      // Le service web de l'appli (Venus) : celui dont l'adresse est réglée ; sinon celui du plan, sur cette machine.
+      const fixed = !/interface d'Odin/.test(a.plan), reglee = a.services.filter((x) => x.web && x.adresse), web = reglee.length ? reglee : a.services.filter((x) => x.web && !x.facultatif);
+      return el('div', { class: 'svc', 'data-app': a.nom.toLowerCase() },
+        el('div', { class: 'svc2' },
+          el('b', { style: 'flex:1 1 150px;min-width:0;overflow-wrap:anywhere' }, a.nom), inp, pill(a),
+          el('button', { class: 'btn small', type: 'button', onclick: save }, a.port ? 'Changer' : 'Donner un port'),
+          a.port && a.etat === 'écoute' ? el('button', { class: 'btn small', type: 'button', onclick: () => ask(a, a.reseau || a.reseauEnAttente ? 'fermer' : 'ouvrir') }, a.reseau || a.reseauEnAttente ? 'Fermer au réseau' : 'Ouvrir sur le réseau') : null,
+          a.port ? el('button', { class: 'btn small danger', type: 'button', onclick: () => ask(a, 'retirer') }, 'Retirer') : null,
+          a.etat === 'écoute' && (a.reseau || onMachine) ? el('a', { class: 'btn small', href: `${scheme}://${location.hostname}:${a.port}/`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ouvrir') : null),
+        a.port !== null ? el('span', { class: 'hint' }, a.note) : null,
+        fixed ? el('span', { class: 'hint' }, `Ses services gardent leurs ports : ${a.plan}.`, ...web.map((x) => el('span', {}, ` ${x.quoi.replace(/^./, (c) => c.toUpperCase())} (${x.adresse ? x.adresse.replace(/^https?:\/\//i, '') : `port ${x.port}`}) : ${x.etat === 'écoute' ? 'répond' : x.etat === 'inconnu' ? 'état inconnu' : 'ne répond pas'}. `, /^https?:\/\//i.test(x.adresse || '') ? el('a', { href: x.adresse, target: '_blank', rel: 'noopener' }, 'Ouvrir') : null))) : null);
+    };
+    const byName = (a, b) => a.nom.localeCompare(b.nom, 'fr'), withPort = r.applis.filter((a) => a.port !== null).sort(byName), without = r.applis.filter((a) => a.port === null).sort(byName);
+    const list = el('div', { class: 'svcs' }, ...withPort.map(row), ...without.map(row));
+    const fixedPorts = r.applis.filter((a) => a.services.length).sort(byName);
+    box.replaceChildren(
+      el('h2', {}, 'Ports des applis'),
+      el('p', { class: 'sub', style: 'margin:0' }, `Chaque appli peut avoir son port à elle : ${scheme}://adresse-d-odin:port mène directement à sa page, avec ta connexion habituelle (jamais sans). Sans port à elle, une appli reste dans l'interface d'Odin, port ${I.port}. Laisse le champ vide pour qu'Odin choisisse un port libre${r.propose ? ` (le prochain : ${r.propose})` : ''}.`),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Un nouveau port n\'est d\'abord joignable que depuis la machine d\'Odin. « Ouvrir sur le réseau » demande ton accord : Cerbère ouvre alors le pare-feu de la machine. Rien n\'est ouvert sur ta box depuis ici.'),
+      I.acces === 'local' ? el('div', { class: 'warn-box' }, 'Odin est réglé sur « cette machine » (Réglages → Accès) : tant que son interface n\'est pas ouverte au réseau, un port direct ne peut pas l\'être non plus.') : null,
+      el('div', { class: 'status', id: 'pt-st', role: 'status' }),
+      el('div', { class: 'field' }, el('label', { for: 'pt-q' }, `Chercher une appli (${withPort.length} avec un port direct sur ${r.applis.length})`), el('input', { id: 'pt-q', type: 'search', autocomplete: 'off', placeholder: 'ex. Vénus', oninput: (e) => { const v = e.target.value.trim().toLowerCase(); for (const n of list.children) n.hidden = Boolean(v) && !n.dataset.app.includes(v); } })),
+      list,
+      el('details', {}, el('summary', { style: 'cursor:pointer;min-height:40px;display:flex;align-items:center' }, 'Les ports fixes : services d\'Odin et applis installées'),
+        el('ul', { class: 'links' }, ...fixedPorts.map((a) => el('li', {}, `${a.nom} : `, a.services.map((x) => `${x.port}/${x.proto} ${x.quoi} (${x.etat === 'pris' ? `pris${x.par ? ` par ${x.par}` : ''}` : x.etat === 'écoute' ? 'écoute' : x.etat === 'fermé' ? (x.facultatif ? 'éteint' : 'fermé') : 'état inconnu'})`).join(' · '))),
+          ...r.installees.map((c) => el('li', {}, `${c.nom} (installée par Argo, ${c.etat}) : `, c.ports.map((x) => `${x.port} → ${x.vers} dans le conteneur`).join(' · ') || 'aucun port')),
+          el('li', {}, `Plages gardées : ${r.plages.installees[0]}-${r.plages.installees[1]} applis installées · ${r.plages.services[0]}-${r.plages.services[1]} services mis à l'échelle · ${r.plages.directs[0]}-${r.plages.directs[1]} ports directs proposés.`))));
+    if (said) tell(said, true);
+  }
+
   // ---------- Voix : micro (Whisper) et lecture (ElevenLabs) ----------
   // Odin répond à voix haute tant que tu ne l'as pas coupé : un seul réglage (Réglages → Voix), que le bouton de la
   // discussion et celui de la bulle d'Odin changent aussi. Sans voix réglée, c'est celle du navigateur qui lit.
@@ -3579,7 +3644,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (!state?.voice?.tts) return readWithBrowser(text);
     try {
       const r = await fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text }) });
-      if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return;
+      // La voix n'a pas pu parler : la raison est rendue (les boutons « Écouter » des réglages l'affichent).
+      if (!r.ok || !(r.headers.get('content-type') || '').startsWith('audio/')) return (await r.json().catch(() => ({}))).error || 'La voix n\'a pas répondu.';
       if (player) { player.pause(); URL.revokeObjectURL(player.src); }
       player = new Audio(URL.createObjectURL(await r.blob()));
       player.volume = Math.min(1, Math.max(0, state?.voice?.speech?.volume ?? 1));
@@ -4331,7 +4397,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     }, '#vo-status', '✓ Réglages de la voix enregistrés.');
     speakOn = (document.querySelector('input[name="vo-rep"]:checked')?.value || 'voix') === 'voix'; renderSpeak();
   });
-  $('#vo-try').addEventListener('click', async () => { const was = speakOn; speakOn = true; await sayAloud('Bonjour, je suis Odin. Voici ma voix avec ces réglages.'); speakOn = was; });
+  $('#vo-try').addEventListener('click', async () => { const was = speakOn; speakOn = true; const err = await sayAloud('Bonjour, je suis Odin. Voici ma voix avec ces réglages.'); speakOn = was; st('#vo-status', typeof err === 'string' ? err : '', typeof err === 'string' ? false : undefined); });
   $('#vo-exportAll').addEventListener('click', () => download('/api/conversations/export?all=1&format=md', 'conversations-odin.md'));
   // Réglages de la voix
   let voicesLoaded = false;
@@ -4357,10 +4423,13 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const p = $('#v-ttsProvider').value, d = state.voice?.ttsDefaults?.[p];
     $('#v-elevenBox').hidden = p !== 'elevenlabs'; $('#v-voiceBox').hidden = p !== 'elevenlabs'; $('#v-cloneBox').hidden = p !== 'elevenlabs';
     $('#v-nameBox').hidden = p === 'elevenlabs'; $('#v-ttsUrlBox').hidden = p === 'elevenlabs'; $('#v-piperHelp').hidden = p !== 'piper';
-    $('#v-ttsHint').textContent = p === 'piper' ? 'Rien ne sort de ta machine. Qualité correcte, réponse immédiate.' : p === 'openai' ? 'Clé OpenAI (Réglages → Modèle ou ci-dessous pour Whisper), ou un serveur local sans clé.' : 'Les meilleures voix, et la copie de la tienne. Le texte des réponses est envoyé à ElevenLabs.';
+    const online = p === 'elevenlabs' || (p === 'openai' && !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test($('#v-ttsUrl').value.trim()));
+    $('#v-ttsHint').textContent = (p === 'piper' ? 'Rien ne sort de ta machine. Qualité correcte, réponse immédiate. Adresse « local » : le Piper installé par Odin ; ou l\'adresse de ton serveur Piper.' : p === 'openai' ? 'Clé OpenAI (Réglages → Modèle ou ci-dessous pour Whisper), ou un serveur local sans clé.' : 'Les meilleures voix, et la copie de la tienne. Le texte des réponses est envoyé à ElevenLabs.')
+      + (online && state.settings?.voice?.localOnly !== false ? ' ⚠ « 100 % local » est coché (au-dessus) : ce service en ligne reste éteint tant que tu ne décoches pas cette case.' : '');
     if (d && !$('#v-ttsUrl').value) $('#v-ttsUrl').placeholder = d.baseUrl;
   }
-  $('#v-ttsProvider').addEventListener('change', () => { const d = state.voice?.ttsDefaults?.[$('#v-ttsProvider').value]; if (d) { $('#v-ttsUrl').value = d.baseUrl; $('#v-voiceName').value = d.voiceId; } ttsProviderUi(); });
+  // Changer de service : son adresse et sa voix par défaut (la voix de l'ancien service n'existe pas chez le nouveau).
+  $('#v-ttsProvider').addEventListener('change', () => { const d = state.voice?.ttsDefaults?.[$('#v-ttsProvider').value]; if (d) { $('#v-ttsUrl').value = d.baseUrl; $('#v-voiceName').value = d.voiceId; $('#v-voice').value = ''; $('#v-female').value = ''; } ttsProviderUi(); });
   $('#v-load').addEventListener('click', async () => {
     st('#v-status', 'Chargement des voix…');
     const r = await api('/api/voice/voices');
@@ -4372,7 +4441,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   $('#v-local')?.addEventListener('click', () => { show('chat'); $('#input').value = 'Installe la voix locale (Whisper et Piper) pour comprendre mes vocaux et me répondre en vocal.'; send(); });
   $('#v-try').addEventListener('click', async () => {
     if (!state.voice.tts) return st('#v-status', 'Enregistre d\'abord le réglage de la voix (et active-la).', false);
-    const was = speakOn; speakOn = true; await sayAloud('Bonjour, je suis Odin, ton agent IA personnel. Que puis-je faire pour toi ?'); speakOn = was;
+    const was = speakOn; speakOn = true; const err = await sayAloud('Bonjour, je suis Odin, ton agent IA personnel. Que puis-je faire pour toi ?'); speakOn = was;
+    st('#v-status', typeof err === 'string' ? err : '', typeof err === 'string' ? false : undefined);
   });
   // Écouter la voix d'homme ou de femme choisie (serveur de voix, sinon voix du navigateur).
   $('#v-try2').addEventListener('click', async () => {
@@ -4380,22 +4450,49 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const text = g === 'femme' ? 'Bonjour, je suis Odin, avec ma voix de femme. Que puis-je faire pour toi ?' : 'Bonjour, je suis Odin, avec ma voix d\'homme. Que puis-je faire pour toi ?';
     try {
       const r = await fetch('/api/voice/speak', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ text, gender: g }) });
-      if (r.ok && /^audio\//.test(r.headers.get('content-type') || '')) { const a = new Audio(URL.createObjectURL(await r.blob())); await a.play(); return; }
+      if (r.ok && /^audio\//.test(r.headers.get('content-type') || '')) { const a = new Audio(URL.createObjectURL(await r.blob())); a.volume = Math.min(1, Math.max(0, state?.voice?.speech?.volume ?? 1)); await a.play(); return st('#v-status', ''); }
+      // Une voix est réglée mais n'a pas pu parler : on dit pourquoi, au lieu de faire parler le navigateur à sa place.
+      if (state.voice?.tts) return st('#v-status', (await r.json().catch(() => ({}))).error || 'La voix n\'a pas répondu.', false);
     } catch {}
     try { const keep = state.settings.voice.gender; state.settings.voice.gender = g; const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; state.settings.voice.gender = keep; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch { st('#v-status', 'Aucune voix disponible sur cet appareil.', false); }
   });
   let cloneBlob = null;
   $('#v-cloneRec').addEventListener('click', () => record($('#v-cloneRec'), (b) => { cloneBlob = b; $('#v-recHint').textContent = `Enregistrement prêt (${Math.round(b.size / 1024)} Ko).`; }, $('#v-recHint')));
+  // À qui est la voix : la tienne, ou celle d'une personne nommée qui a donné son accord (noté avec son nom).
+  const whose = () => document.querySelector('input[name="v-whose"]:checked')?.value === 'autre' ? 'autre' : 'moi';
+  function whoseUi() {
+    const other = whose() === 'autre', n = $('#v-person').value.trim();
+    $('#v-personBox').hidden = !other;
+    $('#v-consentTxt').textContent = other ? `${n || 'Cette personne'} m'a donné son accord pour qu'Odin copie sa voix et parle avec.` : 'C\'est ma voix, et j\'accepte qu\'Odin la copie pour parler avec.';
+  }
+  for (const r of document.querySelectorAll('input[name="v-whose"]')) r.addEventListener('change', () => { $('#v-consent').checked = false; whoseUi(); });
+  $('#v-person').addEventListener('input', whoseUi);
   $('#v-clone').addEventListener('click', async () => {
     const file = $('#v-cloneFile').files[0] || cloneBlob;
-    if (!$('#v-consent').checked) return st('#v-status', 'Coche la case de consentement pour copier une voix.', false);
+    if (whose() === 'autre' && $('#v-person').value.trim().length < 2) return st('#v-status', 'Écris le nom de la personne dont c\'est la voix : son accord est noté avec son nom.', false);
+    if (!$('#v-consent').checked) return st('#v-status', 'Coche la case de l\'accord pour copier une voix.', false);
     if (!file) return st('#v-status', 'Ajoute un enregistrement (fichier ou micro).', false);
     st('#v-status', 'Copie de la voix chez ElevenLabs…');
-    const q = new URLSearchParams({ name: $('#v-cloneName').value || 'Ma voix', consent: '1', file: file.name || 'echantillon.webm' });
-    const r = await (await fetch('/api/voice/clone?' + q, { method: 'POST', headers: { 'content-type': file.type || 'audio/mpeg', 'x-odin': '1' }, body: file })).json();
-    st('#v-status', r.ok ? '✓ Voix copiée et choisie pour Odin.' : r.error, Boolean(r.ok));
-    if (r.ok) { settingsDirty = false; refresh(); }
+    const q = new URLSearchParams({ name: $('#v-cloneName').value || 'Ma voix', consent: '1', de: whose(), personne: whose() === 'autre' ? $('#v-person').value.trim() : '', file: file.name || 'echantillon.webm' });
+    let r; try { r = await (await fetch('/api/voice/clone?' + q, { method: 'POST', headers: { 'content-type': file.type || 'audio/mpeg', 'x-odin': '1' }, body: file })).json(); } catch { r = { ok: false, error: 'Odin ne répond pas : réessaie dans un instant.' }; }
+    st('#v-status', r.ok ? `✓ ${r.text || 'Voix copiée et choisie pour Odin.'}` : r.error, Boolean(r.ok));
+    // L'enregistrement ne reste pas dans la page une fois parti : il faudra en refaire un pour une autre copie.
+    if (r.ok) { cloneBlob = null; $('#v-cloneFile').value = ''; $('#v-recHint').textContent = ''; $('#v-consent').checked = false; settingsDirty = false; voicesLoaded = false; refresh(); loadCopies(); }
   });
+  // Les accords notés : pour chaque voix copiée, à qui elle est, depuis quand, et un bouton pour retirer l'accord.
+  async function loadCopies() {
+    let r; try { r = await api('/api/voice/copies'); } catch { return; }
+    const box = $('#v-copies'), list = r?.copies || [];
+    box.replaceChildren(...(list.length ? [el('b', {}, 'Accords notés'), ...list.map((c) => el('div', { class: 'svc2' },
+      el('span', { style: 'flex:1' }, el('b', {}, c.nom), el('div', { class: 'sub' }, `${c.de === 'autre' ? `voix de ${c.personne}, avec son accord` : 'ta voix'} · noté le ${new Date(c.at).toLocaleDateString('fr-FR')}${c.actuelle ? ' · Odin parle avec' : ''}${c.aVerifier && !c.retire ? ' · à vérifier sur elevenlabs.io' : ''}${c.retire ? ` · accord retiré le ${new Date(c.retire).toLocaleDateString('fr-FR')}${c.effacee ? ', voix effacée' : ', pas encore effacée chez ElevenLabs'}` : ''}`)),
+      c.retire && c.effacee ? null : el('button', { class: 'btn small', type: 'button', style: 'color:var(--bad);border-color:var(--bad)', onclick: async (e) => {
+        if (!confirm(c.retire ? `Réessayer d'effacer « ${c.nom} » chez ElevenLabs ?` : `Retirer l'accord pour « ${c.nom} » ? Odin ne parlera plus avec cette voix, et elle sera effacée chez ElevenLabs.`)) return;
+        e.target.disabled = true; st('#v-status', 'Retrait de l\'accord…');
+        let x; try { x = await api('/api/voice/retirer', { id: c.id }); } catch { x = { ok: false, error: 'Odin ne répond pas : réessaie dans un instant.' }; }
+        st('#v-status', x.ok ? `✓ ${x.text}` : x.error, Boolean(x.ok)); voicesLoaded = false; refresh(); loadCopies();
+      } }, c.retire ? 'Effacer chez ElevenLabs' : 'Retirer l\'accord')))] : []));
+  }
+  $('#v-cloneBox').addEventListener('toggle', () => { if ($('#v-cloneBox').open) loadCopies(); });
   $('#f-voice').addEventListener('submit', async (e) => {
     e.preventDefault();
     const opt = $('#v-voice').selectedOptions[0], p = $('#v-ttsProvider').value;

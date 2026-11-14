@@ -29,6 +29,12 @@ export function freePort(want: number, used: Set<number>): number {
   throw new Error(`aucun port libre après ${want}`);
 }
 export interface PortMap { host: number; inner: number; proto: 'tcp' | 'udp' }
+/** Place les ports d'une appli à installer : le port voulu s'il est libre, sinon le suivant libre, et ce qui a bougé (« 20141 déjà pris → 20142 »). Pur. */
+export function placePorts(want: PortMap[], used: Set<number>): { ports: PortMap[]; moved: string[] } {
+  const ports: PortMap[] = [], moved: string[] = [], taken = new Set(used);
+  for (const p of want) { const h = freePort(p.host, taken); taken.add(h); if (h !== p.host) moved.push(`${p.host} déjà pris → ${h}`); ports.push({ ...p, host: h }); }
+  return { ports, moved };
+}
 /** « 8096:8096, 8920:8920/udp, 3000 » → liste propre (refuse le reste). */
 export function parsePorts(x: string): PortMap[] {
   return String(x || '').split(/[,\s]+/).filter(Boolean).map((p) => {

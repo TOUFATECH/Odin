@@ -8,6 +8,10 @@ import { createOdin, type Odin } from '../src/runtime.ts';
 import type { OdinConfig } from '../src/config.ts';
 import type { Judge } from '../src/mimir/client.ts';
 
+// Pendant les essais, Odin n'installe jamais la voix locale tout seul (compilation de Whisper, 500 Mo téléchargés
+// dans le vrai dossier de la machine) : un vocal sans rien de prêt reçoit une phrase claire, tout de suite.
+process.env.ODIN_NO_VOICE_INSTALL ??= '1';
+
 export interface TestOdin extends Odin {
   provider: MockProvider;
   approvals: ApprovalRequest[];

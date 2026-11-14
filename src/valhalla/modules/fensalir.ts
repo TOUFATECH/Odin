@@ -4,7 +4,7 @@
 // accord ; Odin n'efface et ne formate jamais un disque.
 import { existsSync, readFileSync } from 'node:fs';
 import { hostname } from 'node:os';
-import { PARAM_POSTE, posteDe, postesLisibles, type Poste } from '../postes.ts';
+import { choixDePoste, PARAM_POSTE, posteDe, type Poste } from '../postes.ts';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
 
 export interface Disque { nom: string; taille: number; modele?: string; serie?: string; ssd: boolean; transport?: string; amovible: boolean; parts: Array<{ nom: string; taille: number; fs?: string; monte?: string; etiquette?: string }> }
@@ -104,17 +104,19 @@ export const fensalir: Module = {
       grave: (i) => `retirer le partage « ${s(i.nom)} » (le dossier et son contenu restent)`, run: async (ctx, i) => { await ecrireSmb(ctx, retirerSmb(lire(SMB), s(i.nom).trim())); return { text: `Partage « ${s(i.nom).trim()} » retiré ; le dossier n'est pas touché.` }; } },
   ],
   async view(ctx, q) {
-    const e = await etat(ctx, q.get('poste') ?? ''), plein = e.volumes.filter((v) => v.utilise / v.taille > 0.9), tot = e.disques.reduce((a, d) => a + d.taille, 0), autres = postesLisibles(ctx).slice(1);
+    const P = choixDePoste(ctx, q), e = await etat(ctx, P.actuel), plein = e.volumes.filter((v) => v.utilise / v.taille > 0.9), tot = e.disques.reduce((a, d) => a + d.taille, 0);
     const kpis: Kpi[] = [{ label: 'Disques', value: String(e.disques.length || e.volumes.length) }, ...(tot ? [{ label: 'Capacité', value: taille(tot) }] : []), { label: 'Presque pleins', value: String(plein.length), tone: plein.length ? 'mauvais' : 'bon' }, { label: 'Partages', value: String(e.partages.length) }];
     const tone = (v: Volume): Tone => (v.utilise / v.taille > 0.9 ? 'mauvais' : v.utilise / v.taille > 0.75 ? 'attention' : 'bon');
     return {
+      postes: P,
       subtitle: `${e.poste.local ? '' : `${e.poste.nom} · `}${e.disques.length} disque(s) · ${e.partages.length} partage(s)`, kpis,
       sections: [
         { kind: 'cards', title: 'Volumes', items: e.volumes.map((v) => ({ title: v.monte, sub: `${taille(v.utilise)} sur ${taille(v.taille)} · ${taille(v.libre)} libres${v.fs ? ` · ${v.fs}` : ''}`, progress: Math.round((v.utilise / v.taille) * 100), tone: tone(v) })) },
         { kind: 'table', title: 'Disques', columns: ['Disque', 'Taille', 'Type', 'Modèle', 'Santé', 'Partitions'], empty: 'Disques non lus (lsblk absent).', rows: e.disques.map((d) => ({ cells: [d.nom, taille(d.taille), `${d.ssd ? 'SSD' : 'disque dur'}${d.transport ? ` · ${d.transport}` : ''}${d.amovible ? ' · amovible' : ''}`, d.modele ?? '', e.sante[d.nom] ?? '—', d.parts.map((p) => `${p.nom}${p.fs ? ` ${p.fs}` : ''}${p.monte ? ` → ${p.monte}` : ''}`).join(' · ')], tone: e.sante[d.nom] === 'en panne' ? 'mauvais' as const : undefined })) },
         { kind: 'table', title: 'Partages sur le réseau', columns: ['Nom', 'Type', 'Dossier', 'Accès', 'Pour'], empty: 'Aucun partage. « Partager un dossier » en ajoute un.', rows: e.partages.map((p) => ({ cells: [p.nom, p.type === 'samba' ? 'Samba (Windows, Mac)' : 'NFS (Linux)', p.chemin, p.lecture ? 'lecture seule' : 'lecture et écriture', p.utilisateurs ?? p.clients ?? 'tous les comptes'], actions: p.type === 'samba' ? [{ action: 'retirer_partage', label: 'Retirer', input: { nom: p.nom } }] : [] })) },
       ],
-      side: [...(autres.length ? [{ kind: 'form' as const, title: 'Voir les disques d\'un autre poste', action: 'disques', submit: 'Voir ses disques', params: [{ key: 'poste', label: 'Poste (Linux ou Mac, par SSH)', kind: 'select' as const, options: autres.map((x) => x.nom), default: autres[0].nom }] }] : []), { kind: 'form', title: 'Partager un dossier', action: 'ajouter_partage', submit: 'Partager', params: [{ key: 'nom', label: 'Nom du partage', kind: 'text', required: true }, { key: 'chemin', label: 'Dossier', kind: 'text', required: true }, { key: 'ecriture', label: 'Autoriser l\'écriture', kind: 'boolean', default: false }] }],
+      // Partager un dossier, monter un disque… : ces formulaires agissent sur la machine d'Odin, ils ne se montrent que pour elle.
+      side: e.poste.local ? [{ kind: 'form', title: 'Partager un dossier', action: 'ajouter_partage', submit: 'Partager', params: [{ key: 'nom', label: 'Nom du partage', kind: 'text', required: true }, { key: 'chemin', label: 'Dossier', kind: 'text', required: true }, { key: 'ecriture', label: 'Autoriser l\'écriture', kind: 'boolean', default: false }] }] : [],
     };
   },
   watch: { every: 1800, async run(ctx) {

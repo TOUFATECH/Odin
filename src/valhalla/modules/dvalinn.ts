@@ -18,7 +18,7 @@ import { extOf, familyOf, pdfPlan, plan, qpdfSecretArgs, TARGETS, type Opts, typ
 import { OUTILS, outil } from '../dvalinn/outils.ts';
 import { CIBLES_MAISON, ciblesMaison, convertirMaison, familleMaison, peutMaison } from '../dvalinn/maison.ts';
 import { lienDeMaison, lienPropre, nomDeLien, telecharger } from '../lien.ts';
-import type { ModCtx, Module, Section } from '../types.ts';
+import type { ChoixDepot, ModCtx, Module, Section } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export interface Folder { nom: string; chemin: string }
@@ -99,6 +99,33 @@ export async function convertirFichier(ctx: ModCtx, abs: string, vers: string, d
   const work = workDir(ctx);
   try { return await runStep(ctx, plan(abs, to, work, o), work, destDir); } finally { rmSync(work, { recursive: true, force: true }); }
 }
+/** Le genre de chaque format de sortie (pour ranger les boutons) et son nom affiché quand le sigle ne suffit pas. */
+const GENRES: Array<[string, string[]]> = [['Vidéo', ['mp4', 'mkv', 'webm', 'mov', 'avi']], ['Son', ['mp3', 'm4a', 'flac', 'wav', 'ogg', 'opus', 'aac']], ['Image', ['png', 'jpg', 'webp', 'avif', 'gif', 'bmp', 'tiff', 'ico']],
+  ['Document', ['pdf', 'pdfa', 'docx', 'odt', 'rtf', 'txt', 'html', 'md', 'pptx', 'odp', 'epub', 'mobi', 'azw3']], ['Tableau et données', ['xlsx', 'ods', 'csv', 'tsv', 'json', 'jsonl', 'xml', 'yaml', 'toml']],
+  ['Sous-titres', ['srt', 'vtt', 'ass', 'lrc']], ['Contacts et agenda', ['vcf', 'ics']], ['Carte', ['geojson', 'kml', 'gpx']], ['Archive', ['zip', 'tar', 'tar.gz']]];
+const NOMS: Record<string, string> = { docx: 'Word', xlsx: 'Excel', pptx: 'PowerPoint', md: 'Markdown', txt: 'Texte', pdfa: 'PDF/A', webm: 'WebM', geojson: 'GeoJSON', html: 'Page web (HTML)' };
+const FAMILLES: Record<string, string> = { video: 'vidéo', audio: 'son', image: 'image', document: 'document', tableur: 'tableau', presentation: 'présentation', texte: 'texte', pdf: 'PDF', livre: 'livre' };
+/**
+ * Ce qu'un fichier peut devenir, d'après son nom (ou le lien qui y mène), rangé par genre : sert à la zone de dépôt,
+ * qui ne propose ainsi que les formats possibles. Pur.
+ */
+export function conversionsPossibles(nomOuLien: string): ChoixDepot {
+  const brut = s(nomOuLien), nom = basename(/^https?:\/\//i.test(brut) ? (() => { try { return decodeURIComponent(new URL(brut).pathname); } catch { return brut; } })() : brut);
+  const f = familyOf(nom), fm = familleMaison(nom), de = propre(extOf(nom));
+  const cibles = [...new Set([...(fm ? ciblesMaison(nom) : []), ...(f ? TARGETS[f] : [])])].filter((x) => x !== de);
+  if (!cibles.length) return { champ: 'format', groupes: [], refus: de ? `Je ne sais pas convertir un fichier .${de}. Dis « outils de conversion » pour voir ce que je sais faire.` : 'Ce fichier n\'a pas d\'extension : je ne sais pas ce que c\'est.' };
+  const label = (x: string) => (x === 'gif' && f === 'video' ? 'GIF animé' : NOMS[x] ?? x.toUpperCase());
+  const groupes = GENRES.map(([titre, exts]) => ({ titre: titre === 'Son' && f === 'video' ? 'Son seul' : titre, valeurs: cibles.filter((x) => exts.includes(x) && !(x === 'gif' && f === 'video' && titre === 'Image')).map((x) => ({ valeur: x, label: label(x) })) }));
+  // Le GIF tiré d'une vidéo est une vidéo courte : il se range avec les vidéos.
+  if (f === 'video' && cibles.includes('gif')) groupes[0].valeurs.push({ valeur: 'gif', label: label('gif') });
+  const reste = cibles.filter((x) => !GENRES.some(([, exts]) => exts.includes(x)));
+  if (reste.length) groupes.push({ titre: 'Autre', valeurs: reste.map((x) => ({ valeur: x, label: label(x) })) });
+  // Le genre du premier choix (celui du fichier lui-même, le plus souvent) se montre en premier.
+  const pleins = groupes.filter((g) => g.valeurs.length).sort((x, y) => Number(y.valeurs.some((v) => v.valeur === cibles[0])) - Number(x.valeurs.some((v) => v.valeur === cibles[0])));
+  return { famille: f ? FAMILLES[f] : fm, champ: 'format', groupes: pleins.length === 1 ? [{ ...pleins[0], titre: '' }] : pleins, defaut: cibles[0],
+    // La qualité ne compte que pour ce qui se compresse : vidéo, son, image.
+    ...(f === 'video' || f === 'audio' || f === 'image' ? { options: [{ champ: 'qualite', titre: 'Qualité', defaut: 'normale', valeurs: [{ valeur: 'legere', label: 'Légère' }, { valeur: 'normale', label: 'Normale' }, { valeur: 'haute', label: 'Haute' }] }] } : {}) };
+}
 const veilles = (ctx: ModCtx): Veille[] => (ctx.settings.surveilles as Veille[] | undefined) ?? [];
 let veilleEnCours = false;
 /** Un tour des dossiers surveillés : les fichiers arrivés (et finis d'écrire) sont convertis, cinq au plus par tour. */
@@ -169,6 +196,8 @@ export const dvalinn: Module = {
     { id: 'retirer_dossier', label: 'Retirer un dossier', what: 'L\'appli n\'y a plus accès (les fichiers restent)', quick: false, params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }], run: (ctx, i) => {
       ctx.saveSettings({ dossiers: ((ctx.settings.dossiers as Folder[] | undefined) ?? []).filter((f) => f.nom !== s(i.nom)) }); return { text: `Dossier « ${s(i.nom)} » retiré (les fichiers restent).` };
     } },
+    { id: 'possibles', label: 'Conversions possibles', what: 'Ce qu\'un fichier peut devenir, d\'après son nom ou son lien (rien n\'est téléchargé ni converti)', read: true, quiet: true, quick: false, params: [{ key: 'nom', label: 'Nom du fichier ou lien', kind: 'text', required: true }],
+      run: (_ctx, i) => { const c = conversionsPossibles(s(i.nom)); return { text: c.refus ?? c.groupes.map((g) => `${g.titre ? `${g.titre} : ` : ''}${g.valeurs.map((x) => x.label).join(', ')}`).join('\n'), data: c }; } },
     { id: 'convertir', label: 'Convertir un fichier', what: 'Vers un autre format ; le résultat est écrit à côté de l\'original', words: ['convertis le fichier', 'convertir le fichier'], params: [
       { key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true, depot: {} }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
       { key: 'qualite', label: 'Qualité', kind: 'select', options: QUAL, default: 'normale' }, { key: 'largeur', label: 'Largeur max (images, vidéos)', kind: 'number', default: 0 }, { key: 'hauteur', label: 'Hauteur max', kind: 'number', default: 0 },
@@ -210,7 +239,7 @@ export const dvalinn: Module = {
         }
       }
       try {
-        const out = await convertirFichier(ctx, path, to, dest);
+        const out = await convertirFichier(ctx, path, to, dest, optsOf(i));
         remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: true, out: out.map((o) => `atelier:arrivees/${basename(o)}`) });
         return { text: `✅ ${nom} (${human(n)}) téléchargé, vérifié, converti → ${out.map((o) => `atelier:arrivees/${basename(o)}`).join(', ')}`, data: out, fichiers: out.map((o) => ({ nom: basename(o), ref: `atelier:arrivees/${basename(o)}` })) };
       } catch (e) { remember(ctx, { at: ctx.now().toISOString(), what: `${nom} (lien) → ${to}`, ok: false, err: (e as Error).message }); throw e; }
@@ -274,17 +303,27 @@ export const dvalinn: Module = {
     { id: 'outil', label: 'Boîte à outils', what: 'Empreintes, Base64, URL, UUID, JWT, horodatage, JSON, mot de passe, sous-réseau, couleurs, texte', read: true, words: ['boite a outils', 'boîte à outils', 'calcule le sous reseau', 'décode le jwt', 'decode le jwt', 'genere un uuid', 'génère un uuid'], params: [{ key: 'nom', label: 'Outil', kind: 'select', options: Object.keys(OUTILS), default: 'empreinte' }, { key: 'entree', label: 'Entrée', kind: 'textarea', default: '' }], run: (ctx, i) => ({ text: outil(s(i.nom) || 'empreinte', String(i.entree ?? ''), ctx.now().getTime()) }) },
   ],
   view(ctx) {
-    const h = ((ctx.settings.historique as Hist[] | undefined) ?? []).slice(0, 15), l = jobs(ctx);
+    const hist = (ctx.settings.historique as Hist[] | undefined) ?? [], h = hist.slice(0, 15), l = jobs(ctx);
+    const C = 'Convertir', P = 'PDF', A = 'Automatique', O = 'Outils';
+    // Les derniers fichiers produits, à reprendre sur cet appareil (seulement ceux qui existent encore).
+    const derniers = hist.filter((x) => x.ok).flatMap((x) => (x.out ?? []).slice(0, 3).map((ref) => ({ ref, depuis: x.what.split(' → ')[0] })))
+      .filter((x) => { try { const f = resolveFile(ctx, x.ref); return existsSync(f.abs) && statSync(f.abs).isFile(); } catch { return false; } }).slice(0, 6);
     const sections: Section[] = [
-      { kind: 'form', title: 'Convertir un fichier', action: 'convertir', submit: 'Convertir', params: [{ key: 'fichier', label: 'Fichier', kind: 'text', required: true, depot: {}, help: 'Un fichier déjà dans l\'atelier ou dans un de tes dossiers (dossier:chemin), ou un fichier de cet appareil : il est déposé dans l\'atelier.' }, { key: 'format', label: 'Vers', kind: 'text', required: true, help: [...Object.entries(TARGETS), ...Object.entries(CIBLES_MAISON)].map(([k, v]) => `${k} → ${v.join(', ')}`).join(' · ') }, { key: 'qualite', label: 'Qualité', kind: 'select', options: QUAL, default: 'normale' }] },
-      { kind: 'form', title: 'Outils PDF', action: 'pdf', submit: 'Lancer', params: [{ key: 'operation', label: 'Opération', kind: 'select', options: ['fusionner', 'extraire', 'decouper', 'pivoter', 'alleger', 'compresser', 'proteger', 'deproteger', 'images_en_pdf', 'nettoyer'], default: 'fusionner' }, { key: 'fichiers', label: 'Fichier(s)', kind: 'textarea', required: true, depot: { plusieurs: true }, help: 'Chemins séparés par des virgules, ou fichiers de cet appareil (plusieurs possibles).' }, { key: 'pages', label: 'Pages', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password', default: '' }] },
-      { kind: 'form', title: 'Convertir depuis un lien', action: 'depuis_lien', submit: 'Télécharger et convertir', params: [{ key: 'lien', label: 'Lien du fichier (https://… ou http://192.168…)', kind: 'text', required: true }, { key: 'format', label: 'Vers', kind: 'text', required: true, help: 'Le fichier est vérifié par l\'antivirus avant d\'être converti.' }, { key: 'utilisateur', label: 'Identifiant (si le lien en demande un)', kind: 'text' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password', help: 'Jamais gardé ni affiché. Avec un lien http:// (sans « s »), il voyage en clair sur le réseau.' }] },
-      { kind: 'table', title: 'Dossiers surveillés', columns: ['Dossier', 'Converti en', 'Depuis', 'Fichiers traités'], empty: 'Aucun. Avec « Surveiller un dossier », tout fichier qui arrive est converti tout seul.', rows: veilles(ctx).map((v) => ({ cells: [v.dossier, v.vers, v.at.slice(0, 10), String(Object.keys(v.faits).length)], actions: [{ action: 'ne_plus_surveiller', label: 'Arrêter', input: { dossier: v.dossier } }] })) },
-      { kind: 'form', title: 'Surveiller un dossier', action: 'surveiller', submit: 'Surveiller', params: [{ key: 'dossier', label: 'Dossier (dossier:chemin)', kind: 'text', required: true, help: `Tes dossiers : ${folders(ctx).map((f) => f.nom).join(', ')}` }, { key: 'format', label: 'Vers', kind: 'text', required: true }] },
-      { kind: 'table', title: 'Dernières conversions', columns: ['Quand', 'Quoi', 'Résultat'], rows: h.map((x) => ({ cells: [x.at.slice(0, 16).replace('T', ' '), x.what, x.ok ? (x.out ?? []).slice(0, 2).join(', ') : x.err ?? 'erreur'], tone: x.ok ? 'bon' as const : 'mauvais' as const })), empty: 'Rien encore. Dépose un fichier dans l\'atelier (ou donne un dossier) et convertis-le.' },
-      ...(l.length ? [{ kind: 'list' as const, title: 'Vidéos par lot', items: l.slice(-12).map((j) => ({ title: basename(j.src), detail: j.err ?? (j.gain !== undefined ? `${j.gain} % de place gagnée` : `${j.codec}, qualité ${j.qualite}`), meta: j.state, tone: (j.state === 'fini' ? 'bon' : j.state === 'erreur' ? 'mauvais' : 'neutre') as 'bon' | 'mauvais' | 'neutre' })) }] : []),
+      // ——— Convertir : déposer (ou donner un lien), choisir, convertir
+      { kind: 'depot', onglet: C, title: 'Convertir un fichier', action: 'convertir', champ: 'fichier', texte: 'Dépose un fichier ici', bouton: 'ou choisis-le sur cet appareil', aide: 'Vidéo, son, image, document, PDF, sous-titres, tableau, contacts, carte, archive.',
+        lien: { action: 'depuis_lien', champ: 'lien', label: 'Ou le lien d\'un fichier', aide: 'Téléchargé, vérifié par l\'antivirus, puis converti.' }, choix: { action: 'possibles', titre: 'Convertir en', envoyer: 'Convertir en {choix}' } },
+      { kind: 'list', onglet: C, title: 'Derniers résultats', empty: 'Rien encore : dépose un fichier pour le convertir.', aide: 'Les originaux restent dans l\'atelier.', items: derniers.map((x) => ({ title: basename(x.ref.replace(/^[\w.-]{1,40}:/, '')), detail: `depuis ${x.depuis}`, fichier: { nom: basename(x.ref.replace(/^[\w.-]{1,40}:/, '')), ref: x.ref } })) },
+      // ——— PDF
+      { kind: 'form', onglet: P, title: 'Outils PDF', action: 'pdf', submit: 'Lancer', params: [{ key: 'operation', label: 'Opération', kind: 'select', options: ['fusionner', 'extraire', 'decouper', 'pivoter', 'alleger', 'compresser', 'proteger', 'deproteger', 'images_en_pdf', 'nettoyer'], default: 'fusionner' }, { key: 'fichiers', label: 'Fichier(s)', kind: 'textarea', required: true, depot: { plusieurs: true }, help: 'Chemins séparés par des virgules, ou fichiers de cet appareil (plusieurs possibles).' }, { key: 'pages', label: 'Pages', kind: 'text', default: '' }, { key: 'mot_de_passe', label: 'Mot de passe', kind: 'password', default: '' }] },
+      // ——— Automatique : dossiers surveillés, vidéos par lot
+      { kind: 'table', onglet: A, title: 'Dossiers surveillés', columns: ['Dossier', 'Converti en', 'Depuis', 'Fichiers traités'], empty: 'Aucun. Avec « Surveiller un dossier », tout fichier qui arrive est converti tout seul.', rows: veilles(ctx).map((v) => ({ cells: [v.dossier, v.vers, v.at.slice(0, 10), String(Object.keys(v.faits).length)], actions: [{ action: 'ne_plus_surveiller', label: 'Arrêter', input: { dossier: v.dossier } }] })) },
+      { kind: 'form', onglet: A, title: 'Surveiller un dossier', action: 'surveiller', submit: 'Surveiller', params: [{ key: 'dossier', label: 'Dossier (dossier:chemin)', kind: 'text', required: true, help: `Tes dossiers : ${folders(ctx).map((f) => f.nom).join(', ')}` }, { key: 'format', label: 'Vers', kind: 'text', required: true }] },
+      ...(l.length ? [{ kind: 'list' as const, onglet: A, title: 'Vidéos par lot', items: l.slice(-12).map((j) => ({ title: basename(j.src), detail: j.err ?? (j.gain !== undefined ? `${j.gain} % de place gagnée` : `${j.codec}, qualité ${j.qualite}`), meta: j.state, tone: (j.state === 'fini' ? 'bon' : j.state === 'erreur' ? 'mauvais' : 'neutre') as 'bon' | 'mauvais' | 'neutre' })) }] : []),
+      // ——— Outils
+      { kind: 'form', onglet: O, title: 'Boîte à outils', action: 'outil', submit: 'Calculer', params: [{ key: 'nom', label: 'Outil', kind: 'select', options: Object.keys(OUTILS), default: 'empreinte' }, { key: 'entree', label: 'Entrée', kind: 'textarea', default: '' }] },
+      { kind: 'table', onglet: O, title: 'Dernières conversions', columns: ['Quand', 'Quoi', 'Résultat'], rows: h.map((x) => ({ cells: [x.at.slice(0, 16).replace('T', ' '), x.what, x.ok ? (x.out ?? []).slice(0, 2).join(', ') : x.err ?? 'erreur'], tone: x.ok ? 'bon' as const : 'mauvais' as const })), empty: 'Rien encore. Dépose un fichier dans l\'onglet Convertir.' },
     ];
-    return { subtitle: `${folders(ctx).length} dossier(s) · ${veilles(ctx).length} surveillé(s) · ${l.filter((j) => j.state === 'attente').length} vidéo(s) en attente`, sections, side: [{ kind: 'form', title: 'Boîte à outils', action: 'outil', submit: 'Calculer', params: [{ key: 'nom', label: 'Outil', kind: 'select', options: Object.keys(OUTILS), default: 'empreinte' }, { key: 'entree', label: 'Entrée', kind: 'textarea', default: '' }] }] };
+    return { subtitle: `${folders(ctx).length} dossier(s) · ${veilles(ctx).length} surveillé(s) · ${l.filter((j) => j.state === 'attente').length} vidéo(s) en attente`, onglets: [C, P, A, O], sections };
   },
   // La file des vidéos avance toute seule ; les dossiers de travail oubliés (arrêt brutal) sont nettoyés
   watch: { every: 30, run(ctx) {
