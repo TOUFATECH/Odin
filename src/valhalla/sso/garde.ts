@@ -17,6 +17,7 @@ import { auNomDe, setVerificateur, type Agissant } from './acces.ts';
 import { aDroit, setVenusUrl, lierProprietaire, messageRefus, nomAppli, noter, persona, personnes, type Personne } from './etat.ts';
 import { consommerCode, erreur, issuerDe, json, routeOidc, type DepsSSO } from './oidc.ts';
 import { routeSauvegardes } from './sauvegardes.ts';
+import { routeVenus } from './fiches.ts';
 
 export interface DepsGarde extends DepsSSO {
   /** l'appli du port direct par lequel la requête arrive */ direct?: string;
@@ -66,6 +67,7 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
   if (path === '/sso/odin' || path === '/sso/odin/retour') return odinParPersona(req, res, url, d);
   if (await routeOidc(req, res, url, d)) return true;
   if (await routeSauvegardes(req, res, url)) return true;
+  if (await routeVenus(req, res, url)) return true;
   const m = membreDe(s(req.headers.cookie)); if (!m) return false;
   const { p, ctx } = m, v = valhallaOf();
   // Port direct d'une appli.

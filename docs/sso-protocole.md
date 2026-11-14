@@ -189,8 +189,15 @@ Règles des jetons :
 - **Jeton d'accès** : JWT signé **ES256**, valable **15 minutes** (`expires_in: 900`).
 - **Jeton de renouvellement** : `odr1.<idSession>.<secret>` (opaque, ASCII, ~60 caractères ; Odin n'en garde que le SHA-256).
   Valable 30 jours sans servir, 180 jours au plus. **Lié à l'appareil** : l'`appareil` donné à la connexion doit être redonné
-  à chaque renouvellement. **Rotation** : chaque renouvellement rend un nouveau jeton ; présenter un ancien jeton déjà
-  remplacé = vol probable → la session entière est révoquée (`invalid_grant`).
+  à chaque renouvellement. **Rotation** : chaque renouvellement rend un nouveau jeton.
+- **Tolérance de 60 secondes** (réponse perdue en route : réseau coupé, délai dépassé, appli arrêtée au mauvais moment) :
+  après une rotation, l'**ancien** jeton reste accepté 60 s, par le **même appareil** et pour la **même session**. Il rend
+  alors **exactement la même réponse** que la rotation (même jeton d'accès, même nouveau jeton de renouvellement,
+  `expires_in` = ce qu'il reste au jeton d'accès) : jamais une seconde branche. Cette réponse est gardée chiffrée avec une
+  clé tirée de l'ancien jeton (HKDF-SHA-256 ; Odin ne garde de lui que son SHA-256 : seul son porteur la rouvre).
+  L'appli qui n'a pas reçu la réponse **représente donc le même jeton** (la bibliothèque le fait : 4 essais en 15 s).
+- Au-delà de 60 s, ou d'un autre appareil, ou un jeton encore plus ancien : **vol probable** → la session entière est
+  révoquée (`invalid_grant`), noté au journal de Persona et **alerte** dans le fil commun (Forseti).
 - Révocable à tout moment (Persona → Applis → « Appareils connectés », `/sso/revoquer`, `/sso/deconnexion`, compte coupé,
   nouveau mot de passe, personne retirée). Une session révoquée rend tout de suite `jeton_invalide` sur les routes d'Odin
   (`/sso/infos`, `/api/sauvegardes`). Une appli qui vérifie le JWT **elle-même** (clé publique) peut l'accepter jusqu'à son
@@ -332,26 +339,47 @@ Corps = **les octets de l'archive** (`content-type: application/octet-stream`, e
 → `413 trop_gros` (champ `limite`) ; taille max réglable par appli dans Persona (défaut **500 Mo**).
 
 Une version : `{ "id": "v20261114T153012Z-ab12", "date": 1763134212000, "taille": 48213, "empreinte": "…", "sorte": "complete",
-"raison": "nouvel utilisateur", "nom": "venus-base.tar.gz", "base": null, "appareil": "Serveur Vénus" }`.
+"raison": "nouvel utilisateur", "nom": "venus-base.tar.gz", "base": null, "appareil": "Serveur Vénus", "appareil_id": "6f1c…",
+"etat": "…" }` (`appareil_id` : l'appareil du jeton ; `etat` : l'en-tête `x-odin-etat` de l'envoi, rendu tel quel, ou `null`).
+
+En-tête facultatif de l'envoi : **`x-odin-etat`** (≤ 200 caractères `A-Z a-z 0-9 _ . : + / = -`), par ex. l'empreinte de la
+base de l'appli **après** cet envoi (Vénus) : Odin le garde dans la version et le rend tel quel.
 
 Rangement sur Odin : `~/.odin/valhalla/<module de l'appli>/sauvegardes/<personne>/` (Vénus : `valhalla/freyja/…` ;
 Pégase : `valhalla/pegase/…`), chaque version **chiffrée** (AES-256-GCM, clé dérivée de la clé du coffre d'Odin ;
-jamais en clair sur le disque), dossier bloqué pour les outils de fichiers d'Odin. Versions gardées : tout ce qui a moins de
-48 heures (100 au plus), puis une complète par jour pendant 30 jours, puis une par mois pendant 12 mois ; la dernière
-complète n'est jamais effacée ; les `changements` vivent 48 h ou jusqu'à la complète suivante.
+jamais en clair sur le disque), dossier bloqué pour les outils de fichiers d'Odin. Versions gardées, **appareil par
+appareil** (plusieurs serveurs Vénus sur le même compte : chacun sa série, jamais effacée par les envois d'un autre) : tout
+ce qui a moins de 48 heures (100 au plus), puis une complète par jour pendant 30 jours, puis une par mois pendant 12 mois ;
+la dernière complète de chaque appareil n'est jamais effacée ; les `changements` vivent 48 h ou jusqu'à la complète
+suivante de leur appareil. « Inchangé » (`inchange: true`) se juge aussi dans la série de l'appareil.
 
-### Lister : `GET /api/sauvegardes/<appli>`
+### Lister : `GET /api/sauvegardes/<appli>[?depuis=<ms>]`
+
+`?depuis=<ms>` : seulement les versions rangées **après** cette date (`serveur` dans la réponse : l'heure d'Odin, à redonner
+la fois suivante).
 
 ```json
 { "ok": true, "appli": "venus", "versions": [ { …la plus récente d'abord… } ], "derniere": { … } , "taille_totale": 192841,
   "taille_max": 524288000, "restaurer": null }
 ```
 
-### Empreinte (vérification toutes les 5 minutes) : `GET /api/sauvegardes/<appli>/empreinte`
+### Empreinte (vérification toutes les 5 minutes) : `GET /api/sauvegardes/<appli>/empreinte[?appareil=<id>]`
 
 ```json
-{ "ok": true, "empreinte": "…ou null…", "version": "v20261114T153012Z-ab12", "date": 1763134212000, "restaurer": null }
+{ "ok": true, "empreinte": "…ou null…", "version": "v20261114T153012Z-ab12", "date": 1763134212000, "etat": "…ou null…",
+  "appareil_id": "6f1c…", "autre": null, "restaurer": null }
 ```
+
+Sans `appareil` : la dernière version du compte. Avec `?appareil=<id>` : la dernière version **de cet appareil** (plusieurs
+serveurs Vénus sur le même compte : chacun compare avec la sienne), et `autre` = `{ version, appareil, appareil_id, date }`
+si la dernière version du compte vient d'un autre appareil (sinon `null`).
+
+### Flux en direct : `GET /api/sauvegardes/<appli>/flux[?depuis=<ms>]` (Server-Sent Events)
+
+`event: bonjour` (`{ appli, serveur }`), puis `event: version` (la version, avec `appareil_id` et `etat`) à **chaque** version
+rangée sur ce compte, quel que soit l'appareil ; avec `?depuis`, d'abord les versions rangées après cette date (de la plus
+ancienne à la plus récente). Une ligne `: …` toutes les 25 s (signe de vie) ; session coupée dans Persona →
+`event: revoque` (`{ texte }`) puis fin du flux.
 
 L'appli compare avec l'empreinte de sa base actuelle ; si elle diffère, elle renvoie une sauvegarde (`x-odin-raison:
 vérification`). **`restaurer`** : si le propriétaire a cliqué « Restaurer » sur cette version dans Odin, l'identifiant de la
@@ -366,13 +394,40 @@ version à restaurer ; l'appli la télécharge, la restaure, puis le confirme :
 Restauration d'une nouvelle installation : connexion (`/sso/connexion`), liste, téléchargement de la dernière `complete`
 puis des `changements` plus récents dont `base` est cette version, dans l'ordre des dates.
 
+## 7 bis. Plusieurs serveurs Vénus synchronisés entre eux : `/api/venus/*`
+
+Sur le modèle de Pégase (`/api/pegase/envoyer|tirer|empreintes|flux`), avec le jeton d'accès **de l'appli `venus`** (sinon
+`403 mauvaise_appli` ; sans le droit sur Vénus : `403 refuse`). Toutes les installations de Vénus reliées avec le **même
+compte** Persona partagent le même jeu de **fiches** ; Odin les range comme Pégase (fichiers JSON écrits d'un coup, droits
+600, zéro base de données) dans `~/.odin/valhalla/freyja/sauvegardes/<personne>/fiches/` (bloqué pour les outils de fichiers).
+
+Une fiche : `{ "id": "a41f0c9e2b:tmdb-tv-1399-s1e2", "col": "reprises", "data": { "position": 1234, "duree": 3300, "vu": 0 },
+"maj": 1763134212000, "appareil": "6f1c…", "suppr": true? }` — `id` : 1 à 200 caractères `A-Z a-z 0-9 . _ : @ -` ;
+`col` : `profils`, `reglages`, `maliste`, `favoris`, `reprises` ; `data` : un objet de 64 Kio au plus ; `maj` : date du
+changement (ms) ; `appareil` : **toujours** celui du jeton (Odin remplace ce que le serveur annonce) ; `suppr: true` :
+effacée (sans `data`). **Le `maj` le plus récent gagne** ; à égalité, l'appareil au plus petit identifiant.
+
+| Route | Corps / réponse |
+|-------|-----------------|
+| `POST /api/venus/envoyer` | `{ "changements": [fiches] }` (2 000 au plus) → `{ ok, serveur, appliques, ignores: [{ id, col, raison }], refuses: [{ id, col, raison }], gagnants: [fiches] }` — `gagnants` : les fiches d'Odin plus récentes que celles envoyées (à appliquer chez soi) ; `refuses` : forme fausse, ou `maj` plus de 10 min dans le futur |
+| `POST /api/venus/tirer` | `{ "col": "reprises", "depuis"?: ms, "limite"?: 5000 }` → `{ ok, col, changements: [fiches triées par maj], complet, suite, serveur }` (`suite` : le `depuis` de la page suivante) |
+| `GET /api/venus/empreintes` | `{ ok, serveur, empreintes: { <col>: { n, hash } } }` — `hash` = SHA-256 des lignes `id:maj` triées, jointes par `\n` (fiches effacées comprises) ; Vénus calcule la même |
+| `GET /api/venus/flux` | Server-Sent Events : `event: bonjour` `{ appareil, serveur, empreintes }` ; `event: changements` `{ changements: [fiches] }` dès qu'un **autre** appareil en envoie (jamais les siennes : pas de boucle) ; `event: verif` `{ serveur, empreintes }` toutes les 25 s ; `event: revoque` `{ texte }` (session coupée, droit retiré) puis fin |
+
+Clés communes à tous les serveurs Vénus (leurs identifiants de base diffèrent) : profil = `sub` de la personne de Persona
+liée au profil ; titre = `tmdb-movie-<id>` / `tmdb-tv-<id>`, sinon `imdb-tt…`, sinon `f-<40 hex>` (SHA-256 de la taille du
+fichier sur 8 octets, de ses 64 premiers et 64 derniers Kio) ; épisode = `<clé de la série>-s<saison>e<épisode>` ;
+`profils` : `<sub>` ; `reglages` : `<sub>:reglages` et `<sub>:pistes:<clé de la série>` ; `maliste`, `favoris`,
+`reprises` : `<sub>:<clé du titre>`. Pas de fichier vidéo ni de bibliothèque : seulement ces fiches.
+
 ## 8. Sécurité (résumé)
 
 - Mot de passe : vérifié par scrypt dans Odin, jamais écrit, jamais journalisé, jamais renvoyé. Les applis ne gardent
   **pas** le mot de passe : seulement leurs jetons (coffre du système ou chiffrement de l'appli).
 - Jetons : Odin ne garde que leurs SHA-256. Signature ES256 (clé privée chiffrée avec la clé du coffre d'Odin).
 - PKCE S256 obligatoire, `state` obligatoire, adresse de retour exacte, code à usage unique de 60 s, rotation des jetons de
-  renouvellement avec détection de réutilisation, freinage des essais, verrouillage, journal des connexions dans Persona.
+  renouvellement avec détection de réutilisation (tolérance de 60 s pour une réponse perdue, même appareil, même réponse),
+  freinage des essais, verrouillage, journal des connexions dans Persona.
 - Rien n'est garanti à 100 % : un poste dont la session du système est ouverte et compromise donne accès aux jetons qu'il
   contient (c'est le principe du SSO du poste). Coupe-le dans Persona → Applis → Appareils connectés.
 
@@ -469,7 +524,8 @@ fun es256Ok(jwt: String, jwk: JSONObject): Boolean {
 ```
 
 Renouvellement : même `POST /sso/jeton` avec `grant_type=refresh_token`, `refresh_token`, `client_id=pegase`,
-`appareil=<appareilId>` ; **remplace** le jeton de renouvellement gardé par le nouveau à chaque fois.
+`appareil=<appareilId>` ; **remplace** le jeton de renouvellement gardé par le nouveau à chaque fois. Réponse perdue
+(exception réseau, délai dépassé) : **garde l'ancien** et représente-le dans les 60 s (§ 4, même réponse).
 
 ## 12. Plusieurs personnes dans Odin (droits appliqués partout)
 
