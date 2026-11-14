@@ -1,5 +1,25 @@
 [
  {
+  "id": "v1220",
+  "at": "2026-11-14T04:00:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.22.0",
+  "title": "Voix d'Odin revérifiée et finie, et un port direct pour chaque appli",
+  "details": [
+   "Voix : le choix homme ou femme sert dès la phrase suivante, sans relancer Odin ; « parle avec une voix de femme » marche aussi sans IA. Avec ElevenLabs, une clé suffit pour parler.",
+   "Piper : le serveur Piper actuel est de nouveau compris (Odin prenait sa page d'accueil pour du son) ; l'aide de Réglages → Voix est à jour. Essayé avec le vrai Piper.",
+   "Copie de voix : l'accord est noté avant tout envoi, avec le nom de la personne si ce n'est pas ta voix ; « Retirer l'accord » efface la voix copiée. La clé n'apparaît dans aucun message d'erreur.",
+   "Telegram : « dis-le à voix haute » envoie enfin la note vocale. Pythie : « Écouter une réponse », lue par Orphée.",
+   "Ports directs : http://adresse:port ouvre directement la page d'une appli, toujours avec ta connexion. Réglable dans Réglages → Ports et dans la carte « Son port » de chaque appli ; ouvrir sur le réseau demande ton accord (Cerbère ouvre puis referme le pare-feu). Un port pris est dit en clair, avec le programme qui le tient ; il est gardé après un redémarrage.",
+   "Pas testé : le vrai service ElevenLabs (pas de clé ici), OpenVoice (pas branché : voir docs/voix-v2.md), un vrai téléphone."
+  ],
+  "planets": [
+   "applis",
+   "machines"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1210",
   "at": "2026-11-14T03:00:00+03:00",
   "date": "2026-11-14",

@@ -315,6 +315,9 @@ Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, p
 
 - **Réponse en voix ou en texte** : bouton Voix, Réglages → Voix, ou à l'oral (« réponds par écrit », « parle-moi »). En texte seul, Odin écrit sa réponse même quand tu lui parles au micro, et n'envoie plus de note vocale sur Telegram.
 - **Réglages** : texte en direct, annulation d'écho, sensibilité du micro, attente en fin de phrase, mot de réveil, maintenir pour parler, mots d'arrêt, « oui / mmh » ignorés, vitesse et volume de la voix, lexique de prononciation, cerveau (« auto » ou « sans IA » pour les demandes à la voix), mode privé (rien n'est retenu ni écrit).
+- **Voix d'homme ou de femme** : Réglages → Voix, ou « parle avec une voix de femme » (sans IA aussi) ; le choix sert dès la phrase suivante, sans relancer Odin. Avec ElevenLabs, une clé suffit : une voix d'homme ou de femme prête à l'emploi parle tout de suite.
+- **Copier ta voix** (ElevenLabs) : la page demande si c'est ta voix ou celle de quelqu'un d'autre (son nom est alors obligatoire) ; l'accord est noté avant tout envoi, et « Retirer l'accord » efface la voix copiée chez ElevenLabs.
+- **À voix haute** : sur Telegram, « dis-le à voix haute » envoie une note vocale ; dans Pythie, « Écouter une réponse » la fait lire par Orphée (fichier à télécharger).
 - Cahier des charges complet de la voix : [docs/voix-v2.md](docs/voix-v2.md).
 
 Services possibles quand « 100 % local » est coupé : **Whisper** (OpenAI, ou un serveur local sans clé, ex. [speaches](https://github.com/speaches-ai/speaches)) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. Pour parler, au choix : **ElevenLabs** (voix naturelles, **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite), **Piper** (gratuit, hors ligne, sur ta machine : `pip install piper-tts` puis `python3 -m piper.http_server --model fr_FR-tom-medium`), ou tout serveur **compatible OpenAI** `/v1/audio/speech` (Kokoro, openedai-speech…). Avec Piper et un Whisper local, ta voix ne quitte jamais la maison ; les notes vocales Telegram sont converties en Opus par ffmpeg s'il est là.
@@ -422,6 +425,10 @@ Trois façons de lui donner un fichier :
 - **un dossier surveillé** : « Surveiller un dossier » — tout fichier qui y arrive est converti tout seul (résultats dans son sous-dossier `convertis`, les originaux restent).
 
 Un lien vers une adresse de ta maison (NAS, autre poste : `http://192.168…`) demande ton accord ; un lien ne peut jamais viser la machine d'Odin elle-même, et une redirection vers ton réseau est refusée. Si le lien demande un identifiant et un mot de passe, mets-les dans leurs cases (masqués, jamais gardés), pas dans le lien.
+
+### Le port d'une appli
+
+Chaque appli peut avoir son adresse directe : `http://adresse-d-odin:<port>` ouvre directement sa page, **toujours avec ta connexion** (sans session, seul l'écran de connexion répond). Réglages → Ports pour toutes les applis, ou la carte « Son port » en bas de la page de l'appli. Le port reste sur cette machine tant que tu ne l'ouvres pas sur le réseau ; l'ouvrir demande ton accord (Cerbère ouvre alors le pare-feu, et referme quand tu le retires). Un port déjà pris est refusé en disant quel programme le tient ; il est gardé après un redémarrage. Les services réseau gardent leur port habituel (Vénus 8096, MQTT 1883…) et les applis installées un port fixe entre 20000 et 20999.
 
 ### La page d'une appli
 
