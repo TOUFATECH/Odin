@@ -1,11 +1,12 @@
 // Un profil ouvert : sa base chiffrée, sa session Chromium (cookies à part), ses onglets vivants.
 import { WebContentsView, session as sessions, type Session, type WebContents, shell } from 'electron';
 import { EventEmitter } from 'node:events';
+import { join } from 'node:path';
 import type { Bureau, DossierVu, Espace, Favori, OngletVu, Range, Reglages, HistoireLigne, Profil as ProfilT, Collection } from '../commun/types';
 import { REGLAGES_DEFAUT } from '../commun/types';
 import { Base } from './stockage';
 import { nouvelId, domaine } from './outils';
-import { durcirPage, durcirSession, hoteAffiche } from './securite';
+import { durcirPage, durcirSession, hoteAffiche, siteDe } from './securite';
 
 /** Ce qui est rangé pour un onglet (collection « onglets », type « onglet »). */
 export interface OngletRange { id: string; type: 'onglet'; url: string; titre: string; icone?: string; espace: string; epingle: boolean; dossier?: string; ordre: number; appareil: string; vu: number; urlEpingle?: string }
@@ -27,7 +28,7 @@ export class Vivant {
 
 export const COULEURS = ['#F2C366', '#7FB2FF', '#6CE0B8', '#FF9C86', '#C9A8FF', '#FF8FB8', '#9BE7FF', '#C9CEDB'];
 
-export interface OptionsProfil { id: string; dossier: string; appareil: string; prive?: boolean; preparerSession?: (s: Session, p: ProfilOuvert) => void }
+export interface OptionsProfil { id: string; dossier: string; appareil: string; prive?: boolean; preparerSession?: (s: Session, p: ProfilOuvert) => void; telechargements?: string; fond?: boolean; avantSession?: (s: Session) => void }
 
 export class ProfilOuvert extends EventEmitter {
   readonly base: Base;
@@ -48,10 +49,13 @@ export class ProfilOuvert extends EventEmitter {
     this.base = new Base(opts.dossier, opts.appareil, !!opts.prive);
     this.session = this.prive ? sessions.fromPartition(`prive-${nouvelId()}`, { cache: false }) : sessions.fromPartition(`persist:${opts.id}`);
     // Un navigateur ordinaire aux yeux des sites : sans « Electron » ni « Pégase » dans l'identité du navigateur.
+    opts.avantSession?.(this.session);
     this.session.setUserAgent(this.session.getUserAgent().replace(/\s(Electron|pegase|Pégase|P%C3%A9gase)\/\S+/gi, ''));
     durcirSession(this.session, (wc, url) => hoteAffiche(new URL(url || wc?.getURL() || 'about:blank').hostname || 'Une page'));
     this.base.surChangement((_e, local) => { if (!local) this.emit('change'); });
     opts.preparerSession?.(this.session, this);
+    // Les mots de passe de Pégase (proposer d'enregistrer, la clé dans le champ) : dans le monde isolé de chaque cadre.
+    this.session.registerPreloadScript({ type: 'frame', filePath: join(__dirname, '..', 'preload', 'page.js') });
     this.premiereFois();
   }
 
@@ -90,6 +94,7 @@ export class ProfilOuvert extends EventEmitter {
       son: !!v?.son, muet: !!v?.vue?.webContents.isAudioMuted(), video: !!v?.video, prive: this.prive, plante: v?.plante,
       bloques: v?.bloques ?? 0, securise: v ? v.securise : o.url.startsWith('https:'), certificat: v?.certificat,
       hote: (() => { try { const u = new URL(o.url); return /^https?:$/.test(u.protocol) ? hoteAffiche(u.hostname) : o.url; } catch { return o.url; } })(),
+      site: (() => { try { const u = new URL(o.url); return /^https?:$/.test(u.protocol) ? hoteAffiche(siteDe(o.url) || u.hostname) : ''; } catch { return ''; } })(),
     };
   }
   tousVus(): OngletVu[] { return this.ongletsRanges().map((o) => this.vu(o.id)!).filter(Boolean); }
@@ -127,7 +132,7 @@ export class ProfilOuvert extends EventEmitter {
     if (!v) { v = new Vivant(id); this.vivants.set(id, v); }
     if (v.vue) return v;
     const o = this.onglet(id);
-    const vue = new WebContentsView({ webPreferences: { session: this.session, sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: true, backgroundThrottling: true } });
+    const vue = new WebContentsView({ webPreferences: { session: this.session, sandbox: true, contextIsolation: true, nodeIntegration: false, spellcheck: true, backgroundThrottling: !this.opts.fond, safeDialogs: true, safeDialogsMessage: 'Empêcher cette page d’ouvrir d’autres boîtes' } });
     vue.setBackgroundColor('#FFFFFF');
     try { vue.setBorderRadius(10); } catch { /* ancienne version */ }
     v.vue = v.vue ?? vue; v.plante = false;

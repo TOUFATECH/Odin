@@ -79,6 +79,11 @@ function haut(): string {
   const bloque = E.telechargements.some((t) => t.etat === 'bloque' && Date.now() - t.quand < 600000);
   const protege = `<button class="badge ${bloque ? 'attente' : 'ok'} lisible" data-a="menu" data-menu="telechargements" aria-label="Asclépios : téléchargements analysés"><img src="${appIcone('ullr')}" alt="" width="18" height="18">Protégé${dl ? `<span class="nb">${dl}</span>` : ''}</button>`;
   const adresse = c ? (c.url.startsWith('pegase://') ? (c.url === 'pegase://accueil' ? 'Chercher ou saisir une adresse…' : c.url) : domaine(c.url)) : 'Chercher ou saisir une adresse…';
+  // Le nom du site : le domaine enregistré toujours en entier (à droite), les sous-domaines coupés par la gauche s'ils sont longs,
+  // les lettres sosies d'un autre alphabet en xn--… (anti-usurpation).
+  const hote = c && /^https?:/.test(c.url) ? c.hote.replace(/^www\./, '') : '';
+  const site = hote && c?.site && hote.endsWith(c.site) ? c.site : hote;
+  const vueAdresse = hote ? `<span class="sous-dom"><bdi dir="ltr">${esc(hote.slice(0, hote.length - site.length))}</bdi></span><b class="site-dom">${esc(site)}</b>` : `<span class="ellipse">${esc(adresse)}</span>`;
   const reduite = E.barreReduite;
   return `<div class="g">
       <button class="ib" data-a="menu" data-menu="pegase" aria-label="Menu de Pégase" aria-haspopup="menu">${I.aile()}</button>
@@ -90,7 +95,7 @@ function haut(): string {
     </div>
     <div class="c">
       <button class="ib p" data-a="copierLien" aria-label="Copier le lien" ${c && !c.url.startsWith('pegase:') ? '' : 'disabled'}>${I.lien()}</button>
-      <button class="adresse lisible" data-a="commande" data-nouvel="0" title="${esc(c?.url ?? '')}">${c && c.url.startsWith('https:') ? `<span class="cad">${I.cadenas(13)}</span>` : ''}<span class="ellipse">${esc(adresse)}</span></button>
+      <button class="adresse lisible" data-a="commande" data-nouvel="0" title="${esc(c?.url ?? '')}">${c && c.url.startsWith('https:') ? `<span class="cad">${I.cadenas(13)}</span>` : ''}<span class="nom-adresse" data-site="${esc(site)}">${vueAdresse}</span></button>
       <button class="ib p" data-a="menu" data-menu="site" aria-label="Contrôles du site" ${c && /^https?:/.test(c.url) ? '' : 'disabled'}>${I.reglagesSite()}</button>
     </div>
     <div class="d">
@@ -201,7 +206,16 @@ function rendreCorps(): void {
   const html = `${montrerBarre && !reduite ? barre(false) : ''}${reduite ? `<div class="bord-gauche" data-survol-barre="1" aria-hidden="true"></div>${L.survolBarre ? barre(true) : ''}` : ''}
     ${E.outils && E.outils.position !== 'fenetre' && ids.includes(E.outils.onglet) ? `<div class="travail pos-${E.outils.position}"><main class="pages ${partage ? disposition : ''}" id="pages">${pagesHtml}</main>${cadreOutils(E.outils)}</div>` : `<main class="pages ${partage ? disposition : ''}" id="pages">${pagesHtml}</main>`}
     ${E.panneauOdin ? panneauOdin() : ''}`;
-  if (poser('corps', html)) interneMonte = null;
+  // Les pages pegase:// déjà montées gardent leur état (champs, défilement, ce qu'elles ont chargé) quand le reste change.
+  const gardes = new Map<string, { el: HTMLElement; haut: number }>();
+  for (const el of document.querySelectorAll<HTMLElement>('#corps [data-interne][data-monte]')) gardes.set(el.dataset.monte!, { el, haut: el.scrollTop });
+  if (poser('corps', html)) {
+    interneMonte = null;
+    for (const el of document.querySelectorAll<HTMLElement>('#corps [data-interne]')) {
+      const g = gardes.get(`${el.dataset.interne}|${el.dataset.onglet ?? ''}`);
+      if (g) { el.replaceWith(g.el); g.el.scrollTop = g.haut; }
+    }
+  }
   // Les pages pegase:// sont montées une fois, puis gardent leur état (champs, défilement).
   for (const el of document.querySelectorAll<HTMLElement>('[data-interne]')) {
     const cle = `${el.dataset.interne}|${el.dataset.onglet ?? ''}`;
@@ -327,7 +341,7 @@ function envoyerZones(): void {
   dimensionnerMobiles();
   placerFlottants();
   const z: Zone[] = [];
-  const ouvert = !!(L.menu || L.commande || L.survolBarre || ecranOuvert() || document.querySelector('.boite-dialogue'));
+  const ouvert = !!(L.menu || L.commande || L.survolBarre || ecranOuvert() || document.querySelector('.boite-dialogue') || E?.proposerMdp);
   for (const el of document.querySelectorAll<HTMLElement>('[data-zone]')) {
     const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) continue;
     z.push({ id: el.dataset.zone!, x: r.left, y: r.top, w: r.width, h: r.height });
@@ -353,6 +367,7 @@ function rendreCouche(): void {
   if (L.commande) h += `<div class="voile sombre" data-a="fermerCouche"></div>${commande()}`;
   else if (L.menu) h += `<div class="voile" data-a="fermerCouche"></div>${menus()}`;
   if (L.trouver) h += `<div class="flottant trouver" role="search"><input class="champ" id="trouver" placeholder="Chercher dans la page" value="${esc(L.trouver.texte)}" aria-label="Chercher dans la page"><span class="doux petit">${L.trouver.total ? `${L.trouver.actif}/${L.trouver.total}` : ''}</span><button class="ib p" data-a="trouverSuite" data-sens="-1" aria-label="Précédent">${I.recul(15)}</button><button class="ib p" data-a="trouverSuite" data-sens="1" aria-label="Suivant">${I.avance(15)}</button><button class="ib p" data-a="trouverFermer" aria-label="Fermer la recherche">${I.fermer(12)}</button></div>`;
+  if (E.proposerMdp && !L.commande) h += proposerMdp(E.proposerMdp as any);
   if (L.toast) h += `<div class="toast" role="status">${esc(L.toast)}</div>`;
   const change = poser('couche', h);
   if (change) {
@@ -361,6 +376,16 @@ function rendreCouche(): void {
     const t = $<HTMLInputElement>('#trouver'); if (t && L.trouver && !L.trouver.texte && document.activeElement !== t) t.focus();
     const m = $('.flottant[role="menu"] button, .flottant[role="dialog"] button'); if (m && L.menu && !document.querySelector('.flottant')?.contains(document.activeElement)) (m as HTMLElement).focus({ preventScroll: true });
   }
+}
+
+/** « Enregistrer le mot de passe ? » (maquette « Remplir ») : le mot de passe reste dans le processus principal. */
+function proposerMdp(p: { origine: string; identifiant: string; maj?: boolean }): string {
+  let site = p.origine; try { site = new URL(p.origine).host; } catch { /* */ }
+  return `<section class="flottant proposer-mdp" role="dialog" aria-labelledby="t-mdp">
+    <div class="rangee"><span class="cle-mdp" aria-hidden="true">${I.cadenas(18)}</span><h2 id="t-mdp">${p.maj ? 'Mettre à jour le mot de passe ?' : 'Enregistrer le mot de passe ?'}</h2></div>
+    <dl><dt>Site</dt><dd>${esc(site)}</dd><dt>Identifiant</dt><dd>${esc(p.identifiant || '(aucun)')}</dd><dt>Mot de passe</dt><dd>••••••••••</dd></dl>
+    <p class="doux petit">${I.cadenas(12)} Chiffré sur cet ordinateur</p>
+    <div class="rangee"><button class="bouton" data-a="mdpProposition" data-op="jamais">Jamais pour ce site</button><button class="bouton" data-a="mdpProposition" data-op="plustard">Plus tard</button><button class="bouton plein" data-a="mdpProposition" data-op="enregistrer">Enregistrer</button></div></section>`;
 }
 
 /** Les menus se posent près du bouton qui les ouvre, sans dépasser de la fenêtre. */
@@ -732,6 +757,7 @@ async function agir(a: string, d: DOMStringMap, el: HTMLElement): Promise<void> 
     case 'odinLien': fermerCouche(); await demanderOdin(`Que trouve-t-on à cette adresse, et est-elle fiable ? ${d.url}`); return;
     case 'odinSelection': { const t = L.menu?.arg?.selection ?? ''; fermerCouche(); await demanderOdin(`Explique-moi ce passage : « ${String(t).slice(0, 1500)} »`); return; }
     case 'odinTraduire': fermerCouche(); await demanderOdin('Traduis cette page en français.', false, false, true); return;
+    case 'mdpProposition': { await api.faire('mdpProposition', { op: d.op }); if (d.op === 'enregistrer') toast('Mot de passe enregistré, chiffré sur ce PC.'); return; }
     default: await api.faire(a, { ...d });
   }
 }
@@ -985,5 +1011,6 @@ api.etat().then((e) => { if (e) { E = e; rendre(); } });
 if (VIGNETTES) addEventListener('resize', () => rendreVignettes());
 (window as any).__pegaseDemander = demander;
 document.addEventListener('pegase:commande', () => ouvrirCommande(true));
+document.addEventListener('pegase:zones', () => requestAnimationFrame(envoyerZones));
 document.addEventListener('pegase:odin', (e) => demanderOdin(String((e as CustomEvent).detail)));
 void srcSure; void couleurDe;

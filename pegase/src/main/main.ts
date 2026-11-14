@@ -12,6 +12,10 @@ import { Protection } from './protection';
 import { actionFavoris } from './favoris';
 import { brancherCertificats, certificatsEpingles } from './securite';
 import { Synchro, trouverOdin, bonjour, type OdinTrouve } from './odin';
+import { MotsDePasse, brancherMotsDePasse } from './motsdepasse';
+import { actionsPages, viderEnFermant } from './actions';
+import { controler } from './controle';
+import { webContents } from 'electron';
 
 // ————— Où ranger les données (dossier de profil du système) —————
 // Windows : %APPDATA%\Pégase, Mac : ~/Library/Application Support/Pégase, Linux : ~/.config/pegase.
@@ -48,6 +52,9 @@ class Pegase implements Appli {
   fenetres = new Set<Fenetre>();
   profils = new Map<string, ProfilOuvert>();
   synchros = new Map<ProfilOuvert, Synchro>();
+  mdps = new Map<ProfilOuvert, MotsDePasse>();
+  private controleMdp: { p: ProfilOuvert; m: MotsDePasse } | null = null;
+  private controleEnCours: Promise<unknown> | null = null;
   protection!: Protection;
   readonly appareil = appareil();
   /** 1er lancement : les Odin trouvés, la recherche en cours, le compte tapé (le mot de passe reste en mémoire seulement). */
@@ -58,6 +65,14 @@ class Pegase implements Appli {
     Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { role: 'editMenu' }, { role: 'windowMenu' }]) : null);
     this.servirInterface();
     brancherCertificats();
+    brancherMotsDePasse((wcId) => {
+      const wc = webContents.fromId(wcId); if (!wc) return null;
+      const p = [...this.profils.values(), ...(this.controleMdp ? [this.controleMdp.p] : [])].find((x) => x.session === wc.session); if (!p) return null;
+      if (this.controleMdp?.p === p) return { p, m: this.controleMdp.m, avertir: () => 0, gerer: () => 0 };
+      const m = this.mdps.get(p); if (!m) return null;
+      const f = () => [...this.fenetres].find((x) => x.profil === p && [...p.vivants.values()].some((v) => v.vue?.webContents.id === wcId && v.fenetre === x)) ?? [...this.fenetres].find((x) => x.profil === p);
+      return { p, m, avertir: () => this.planifierTout(), gerer: () => { const x = f(); if (x) void x.faire('naviguer', { texte: 'pegase://reglages/motsdepasse', nouvel: true }); } };
+    });
     this.protection = new Protection(this as any, racineDonnees);
     await this.protection.demarrer();
     const p = this.ouvrirProfil(process.env.PEGASE_PROFIL || 'toi');
@@ -146,6 +161,7 @@ class Pegase implements Appli {
       sy.surEtat = () => { for (const f of this.fenetres) if (f.profil === p) f.planifier(); };
       sy.surMessage = (t) => this.dire(p, t);
       this.synchros.set(p, sy);
+      this.mdps.set(p, new MotsDePasse(p));
       if (ESSAI && process.env.PEGASE_PREMIER === 'non') sy.premierFait();
     }
     return p;
@@ -178,6 +194,7 @@ class Pegase implements Appli {
       protection: this.protection.etat(f.profil),
       telechargements: this.protection.telechargements.liste(f.profil),
       synchro: sy ? sy.etat : { etat: 'local', attente: 0 },
+      proposerMdp: (() => { const pr = this.mdps.get(f.profil)?.proposition; return pr && Date.now() - pr.quand < 5 * 60_000 ? { origine: pr.origine, identifiant: pr.identifiant, maj: !!pr.maj } as any : null; })(),
       odin: l ? { url: l.adresse, nom: l.profil ? `${l.nom} ${l.version}`.trim() : l.nom, connecte: true } : undefined,
       premier: f.ecran === 'navigateur' ? undefined : {
         trouves: this.recherche.trouves, recherche: this.recherche.encours,
@@ -286,6 +303,18 @@ class Pegase implements Appli {
         if (arg?.verifier && o) { const a = await sy.adresse(o.url); if (a) return fini({ texte: `${a.texte}${a.verdict === 'sur' ? ' (Rien de connu ne veut pas dire « sûr à 100 % ».)' : ''}` }); }
         return fini({ texte: await sy.demander(texte, page) });
       }
+      case 'controle': {
+        if (!this.controleEnCours) this.controleEnCours = controler(this.protection, (cp, m) => { this.controleMdp = m ? { p: cp, m } : null; })
+          .then((r) => { ecrireSur(join(racineDonnees, 'controle.json'), JSON.stringify(r)); return r; })
+          .finally(() => { this.controleEnCours = null; });
+        const r: any = await this.controleEnCours;
+        const n = r.groupes.flatMap((g: any) => g.essais); const f = n.filter((x: any) => x.resultat === 'FAILLE').length;
+        return fini({ texte: f ? `${f} faille(s) trouvée(s) : regarde le détail.` : `${n.filter((x: any) => x.resultat === 'bloqué').length} attaques bloquées sur ${n.length}.`, rapport: r });
+      }
+      case 'controleResultats': try { return fini(JSON.parse(readFileSync(join(racineDonnees, 'controle.json'), 'utf8'))); } catch { return fini(null); }
+      case 'versions': return fini({ pegase: app.getVersion(), chromium: process.versions.chrome, electron: process.versions.electron });
+      case 'miseAJour': return fini(await miseAJour());
+      case 'navigateurDefaut': return fini(navigateurParDefaut());
       case 'verifierMdpOdin': return fini(sy ? sy.verifierMotDePasse(String(arg?.motdepasse ?? '')) : null);
     }
     return { fait: false };
@@ -296,6 +325,7 @@ class Pegase implements Appli {
     if (action === 'dnsChange') { await this.protection.reglerDns(undefined, f.profil.reglages().dnsSecours); for (const x of this.fenetres) x.planifier(); return; }
     const fav = actionFavoris(f.profil, action, arg); if (fav.fait) return fav.r;
     const od = await this.actionOdin(f, action, arg); if (od.fait) return od.r;
+    const pa = await actionsPages({ p: f.profil, sy: this.synchros.get(f.profil), mdp: this.mdps.get(f.profil), envoyer: (c, a) => f.envoyer(c, a), planifier: () => this.planifierTout() }, action, arg); if (pa.fait) return pa.r;
     const p = f.profil;
     switch (action) {
       case 'majProfil': {
@@ -377,6 +407,24 @@ class Pegase implements Appli {
   quitter(): void { for (const s of this.synchros.values()) s.arreter(); for (const p of this.profils.values()) p.fermer(); }
 }
 
+/** Mises à jour : electron-updater lit les versions publiées sur GitHub (Releases du dépôt d'Odin). */
+async function miseAJour(): Promise<string> {
+  if (!app.isPackaged) return 'Version de développement : pas de mise à jour automatique.';
+  try {
+    const { autoUpdater } = require('electron-updater');
+    autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true;
+    const r = await autoUpdater.checkForUpdates();
+    const v = r?.updateInfo?.version;
+    return v && v !== app.getVersion() ? `Pégase ${v} se télécharge : il s’installera quand tu fermeras Pégase.` : 'Pégase est à jour.';
+  } catch (e) { return `Impossible de chercher une mise à jour (${String((e as Error).message ?? e).slice(0, 120)}).`; }
+}
+/** Pégase navigateur par défaut (Windows 10/11 demande de le choisir soi-même dans ses paramètres). */
+function navigateurParDefaut(): string {
+  const ok = ['http', 'https'].map((x) => app.setAsDefaultProtocolClient(x)).every(Boolean);
+  if (process.platform === 'win32') { shell.openExternal('ms-settings:defaultapps').catch(() => 0); return 'Windows demande de choisir toi-même : dans « Applications par défaut », choisis Pégase pour le navigateur web.'; }
+  return ok ? 'Pégase est maintenant ton navigateur par défaut.' : 'Ton système n’a pas accepté : choisis Pégase dans ses réglages d’applications par défaut.';
+}
+
 /** La place prise par un dossier (Mo), sans suivre les liens. */
 function dossierTaille(d: string): number {
   let n = 0;
@@ -388,6 +436,12 @@ function dossierTaille(d: string): number {
 const pegase = new Pegase();
 if (ESSAI) (globalThis as any).__pegase = pegase; // pour les essais (Playwright évalue dans le processus principal)
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', () => pegase.quitter());
+let vide = false;
+app.on('before-quit', (e) => {
+  // « Effacer en fermant Pégase » : cookies et données des sites effacés avant de partir (sauf les sites gardés).
+  const l = [...pegase.profils.values()].filter((p) => p.reglages().viderFermeture && !p.prive);
+  if (!vide && l.length) { e.preventDefault(); vide = true; Promise.race([Promise.all(l.map((p) => viderEnFermant(p))), new Promise((r) => setTimeout(r, 4000))]).finally(() => { pegase.quitter(); app.quit(); }); return; }
+  pegase.quitter();
+});
 app.on('activate', () => { if (!BaseWindow.getAllWindows().length) pegase.nouvelleFenetre(false); });
 app.whenReady().then(() => pegase.demarrer()).catch((e) => { console.error('Pégase n’a pas pu démarrer :', e); app.quit(); });

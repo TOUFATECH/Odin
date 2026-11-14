@@ -1,9 +1,10 @@
 // Les pages pegase:// (dessinées par l'interface, dans la zone des pages) : accueil, favoris, historique,
 // réglages, téléchargements, aide. Agenda, import, profil et synchro sont dans pages2.ts.
-import type { Favori, HistoireLigne, Theme } from '../commun/types';
+import type { Favori, HistoireLigne } from '../commun/types';
 import { api, esc, iconeSite, domaine, quand, taille, appIcone, LOGO, type Ctx } from './commun';
 import { I } from './icones';
 import { pagesSuite } from './pages2';
+import { pageReglages } from './reglages';
 
 type Page = (el: HTMLElement, ctx: Ctx) => void | (() => void);
 const rafraichir = new Map<HTMLElement, () => void>();
@@ -20,6 +21,7 @@ export function rafraichirPages(): void { for (const [el, f] of rafraichir) { if
 const ouvrirCommande = () => document.dispatchEvent(new CustomEvent('pegase:commande'));
 
 const PAGES: Record<string, Page> = {
+  reglages: (el, ctx) => pageReglages(el, ctx),
   inconnue: (el) => { el.innerHTML = `<div class="contenu"><h1>Page introuvable</h1><p class="sous">Cette page de Pégase n’existe pas.</p></div>`; },
 
   accueil: (el, ctx) => {
@@ -35,7 +37,8 @@ const PAGES: Record<string, Page> = {
       // Idées d'Odin pour la page d'accueil (contrat §4) : rendez-vous, sites à surveiller, « tu cherchais… ».
       if (E.odin?.connecte) api.faire('propositions').then((l: any[]) => {
         const p = el.querySelector('#propositions'); if (!p || !Array.isArray(l)) return;
-        p.innerHTML = l.slice(0, 6).map((x) => `<button class="proposition" ${x.url ? `data-url="${esc(x.url)}"` : `data-demander="${esc(x.texte)}"`}><img src="${appIcone(x.appli || 'valhalla')}" alt="" width="22" height="22"><span>${esc(x.texte)}</span></button>`).join('');
+        const ic = (x: any) => x.type === 'rdv' ? I.agenda(20) : x.type === 'recherche' ? I.loupe(18) : x.type === 'site' && x.url ? iconeSite(x.url, undefined, x.titre) : `<img src="${appIcone(x.type === 'telechargement' ? 'ullr' : 'valhalla')}" alt="" width="22" height="22">`;
+        p.innerHTML = l.slice(0, 6).map((x) => `<button class="proposition idee" ${x.url ? `data-url="${esc(x.url)}"` : x.type === 'rdv' ? 'data-agenda="1"' : `data-demander="${esc(x.titre)}"`}>${ic(x)}<span class="ellipse"><b>${esc(x.titre)}</b>${x.texte ? ` <span class="doux">${esc(x.texte)}</span>` : ''}</span></button>`).join('');
       }).catch(() => 0);
     };
     dessiner();
@@ -44,6 +47,7 @@ const PAGES: Record<string, Page> = {
       if (b.hasAttribute('data-ouvrir-commande')) ouvrirCommande();
       else if (b.dataset.url) ctx.ouvrir(b.dataset.url);
       else if (b.dataset.onglet) api.faire('activer', { id: b.dataset.onglet });
+      else if (b.dataset.agenda) api.faire('naviguer', { texte: 'pegase://agenda' });
       else if (b.dataset.demander) document.dispatchEvent(new CustomEvent('pegase:odin', { detail: b.dataset.demander }));
     });
   },
@@ -137,59 +141,6 @@ const PAGES: Record<string, Page> = {
     });
     let avant = '';
     return () => { const k = JSON.stringify(ctx.etat().telechargements); if (k !== avant) { avant = k; dessiner(); } };
-  },
-
-  reglages: (el, ctx) => {
-    const NOMS: Record<Theme, string> = { noir: 'Noir', blanc: 'Blanc', bleu: 'Bleu', rouge: 'Rouge', transparent: 'Transparent', glace: 'Glace' };
-    const dessiner = async () => {
-      const E = ctx.etat(); const r = E.reglages;
-      const mem = await api.faire('memoire').catch(() => null);
-      const choix = (cle: string, val: string, opts: [string, string][]) => `<select class="champ" data-cle="${cle}">${opts.map(([v, t]) => `<option value="${v}"${v === val ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
-      el.innerHTML = `<div class="contenu"><h1>Réglages</h1><p class="sous">Tout est gardé sur ce PC, chiffré${E.odin?.connecte ? ', et sur ton Odin' : ''}.</p>
-        <div class="pile">
-        <section class="carte"><h2>Apparence</h2>
-          <div class="reglage"><div><b>Couleur du navigateur</b><div class="doux petit">Chaque espace peut garder la sienne (clic droit sur l’espace, en bas de la barre).</div></div>
-            <div class="nuancier">${(Object.keys(NOMS) as Theme[]).map((t) => `<button class="nuance n-${t}" data-theme="${t}" aria-label="${NOMS[t]}" title="${NOMS[t]}" aria-pressed="${r.theme === t}"></button>`).join('')}</div></div>
-          <div class="reglage"><div><b>Transparence de la vitre</b><div class="doux petit">Pour le thème « Transparent » : plus ou moins de bureau visible derrière.</div></div><input type="range" min="10" max="95" value="${r.transparence}" data-cle="transparence" aria-label="Transparence"></div>
-        </section>
-        <section class="carte"><h2>Onglets</h2>
-          <div class="reglage"><div><b>Mettre en veille les onglets inactifs après</b><div class="doux petit">Une page en veille ne prend plus de mémoire ; elle se recharge quand tu y reviens.</div></div>${choix('veilleMinutes', String(r.veilleMinutes), [['5', '5 minutes'], ['10', '10 minutes'], ['30', '30 minutes'], ['60', '1 heure'], ['100000', 'Jamais']])}</div>
-          <div class="reglage"><div><b>Ranger les onglets du jour après</b><div class="doux petit">Les onglets non épinglés vont dans la boîte en bas de la barre.</div></div>${choix('rangerHeures', String(r.rangerHeures), [['12', '12 heures'], ['24', '1 jour'], ['168', '1 semaine'], ['0', 'Jamais']])}</div>
-          <div class="reglage"><div><b>Vidéo en petite fenêtre automatique</b><div class="doux petit">Quand tu quittes un onglet qui joue une vidéo, elle te suit dans un coin (4 au plus).</div></div><input type="checkbox" class="interrupteur" data-cle="videoAuto" ${r.videoAuto ? 'checked' : ''}></div>
-        </section>
-        <section class="carte"><h2>Recherche</h2>
-          <div class="reglage"><div><b>Moteur de recherche</b><div class="doux petit">Pythie cherche sur tous les moteurs depuis ton Odin.</div></div>${choix('moteur', r.moteur, [['pythie', 'Pythie (Odin)'], ['duckduckgo', 'DuckDuckGo'], ['qwant', 'Qwant'], ['google', 'Google']])}</div>
-        </section>
-        <section class="carte"><h2>Protection</h2>
-          <div class="reglage"><div><b>Bloqueur dans les pages</b><div class="doux petit">Pubs et pisteurs (listes du même genre que Brave). « Strict » bloque aussi les boutons des réseaux sociaux.</div></div>${choix('bloqueur', r.bloqueur, [['coupe', 'Coupé'], ['normal', 'Normal'], ['strict', 'Strict']])}</div>
-          <div class="reglage"><div><b>Refuser tout seul les bandeaux de cookies</b></div><input type="checkbox" class="interrupteur" data-cle="cookiesRefus" ${r.cookiesRefus ? 'checked' : ''}></div>
-          <div class="reglage"><div><b>Adresses des sites (DNS)</b><div class="doux petit">En ce moment : ${esc(E.protection.dns)}${E.protection.dnsChiffre ? ', chiffré' : ''}. Avec Odin : Sphinx. Sans Odin : ce service public chiffré.</div></div>${choix('dnsSecours', r.dnsSecours, [['https://dns.quad9.net/dns-query', 'Quad9 (Suisse)'], ['https://cloudflare-dns.com/dns-query', 'Cloudflare'], ['https://dns.adguard-dns.com/dns-query', 'AdGuard (bloque les pubs)'], ['https://dns.google/dns-query', 'Google']])}</div>
-          <div class="reglage"><div><b>Envoyer les fichiers douteux à Odin pour analyse</b><div class="doux petit">Sinon, seule l’analyse sur ce PC est faite (empreintes connues d’Asclépios${E.plateforme === 'win32' ? ' et antivirus de Windows' : ''}).</div></div><input type="checkbox" class="interrupteur" data-cle="analyseOdin" ${r.analyseOdin ? 'checked' : ''}></div>
-        </section>
-        <section class="carte"><h2>Synchro Odin</h2>
-          <div class="reglage"><div><b>${E.odin?.connecte ? `Relié à ${esc(E.odin.nom)}` : 'Pas encore relié à Odin'}</b><div class="doux petit">Favoris, onglets, espaces, agenda, réglages et historique, à la seconde, sur tous tes appareils.</div></div><button class="bouton" data-page="synchro">Ouvrir</button></div>
-          <div class="reglage"><div><b>Ce qu’Odin reçoit de ta navigation</b></div>${choix('synchroHistorique', r.synchroHistorique, [['tout', 'Tout (historique compris)'], ['sans-historique', 'Tout sauf l’historique'], ['rien', 'Rien']])}</div>
-        </section>
-        <section class="carte"><h2>Pégase</h2>
-          <div class="reglage"><div><b>Mémoire utilisée</b><div class="doux petit">${mem ? `${mem.total} Mo en tout (${mem.processus.length} processus), avec ${E.onglets.filter((o) => !o.enVeille).length} onglet(s) éveillé(s).` : '—'}</div></div><button class="bouton" data-memoire>Mesurer</button></div>
-          <div class="reglage"><div><b>Mises à jour</b><div class="doux petit">Pégase se met à jour tout seul depuis les versions publiées d’Odin.</div></div><button class="bouton" data-maj>Chercher maintenant</button></div>
-          <div class="reglage"><div><b>Importer</b><div class="doux petit">Favoris de Chrome, Edge, Brave, Arc et Firefox trouvés sur ce PC.</div></div><button class="bouton" data-page="importer">Importer</button></div>
-        </section></div></div>`;
-    };
-    dessiner();
-    el.addEventListener('change', async (e) => {
-      const t = e.target as HTMLInputElement; const cle = t.dataset.cle; if (!cle) return;
-      const v = t.type === 'checkbox' ? t.checked : (['veilleMinutes', 'rangerHeures', 'transparence'].includes(cle) ? Number(t.value) : t.value);
-      await api.faire('reglage', { cle, valeur: v });
-    });
-    el.addEventListener('input', (e) => { const t = e.target as HTMLInputElement; if (t.dataset.cle === 'transparence') document.documentElement.style.setProperty('--vitre', String(Number(t.value) / 100)); });
-    el.addEventListener('click', async (e) => {
-      const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!b) return;
-      if (b.dataset.theme) { await api.faire('theme', { theme: b.dataset.theme }); setTimeout(dessiner, 100); }
-      else if (b.dataset.page) api.faire('interne', { page: b.dataset.page });
-      else if (b.hasAttribute('data-memoire')) dessiner();
-      else if (b.hasAttribute('data-maj')) { ctx.toast('Recherche d’une mise à jour…'); const r = await api.faire('miseAJour'); ctx.toast(r || 'Pégase est à jour.'); }
-    });
   },
 
   aide: (el, ctx) => {

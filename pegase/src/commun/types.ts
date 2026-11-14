@@ -21,6 +21,8 @@ export interface OngletVu {
   bloques: number; securise: boolean; certificat?: string;
   /** Le nom du site à montrer (lettres normales, ou xn--… si l'adresse mélange des alphabets). */
   hote: string;
+  /** Le domaine enregistré (ex. « exemple.fr » pour « paypal.com.connexion.exemple.fr ») : toujours montré en entier. */
+  site?: string;
 }
 export interface DossierVu { id: string; nom: string; espace: string; ouvert: boolean; ordre: number }
 export interface Bureau { id: string; espace: string; onglets: string[]; disposition: 'ligne' | 'colonne' | 'grille'; nom?: string; ordre: number }

@@ -11,7 +11,9 @@ const PROTOCOLES_INTERDITS = new Set(['ms-msdt', 'search-ms', 'search', 'ms-offi
 /** Ce qu'une page web peut charger en navigation principale. */
 const SCHEMAS_WEB = /^(https?|about|blob|data|view-source):/i;
 
-export const gestes = new Map<number, number>(); // id du webContents → heure du dernier geste (clic, touche)
+export const gestes = new Map<number, number>();
+/** Compteurs de ce qui a été refusé (lus par le contrôle de sécurité). */
+export const refus = { protocoles: 0, permissions: 0, fenetres: 0 }; // id du webContents → heure du dernier geste (clic, touche)
 const exceptionsCertificat = new Set<string>(); // hôtes acceptés malgré un certificat invalide (cette session seulement)
 export const httpPermis = new Set<string>((!app.isPackaged && process.env.PEGASE_HTTP_OK ? process.env.PEGASE_HTTP_OK.split(',') : []));
 
@@ -52,7 +54,7 @@ export function durcirPage(wc: WebContents, ouvrirOnglet: (url: string, arriereP
   wc.on('input-event', (_e, i) => { if (i.type === 'mouseDown' || i.type === 'keyDown' || i.type === 'rawKeyDown' || i.type === 'gestureTap' || i.type === 'touchStart') gestes.set(wc.id, Date.now()); });
   wc.once('destroyed', () => gestes.delete(wc.id));
   const garde = (e: Electron.Event, url: string) => {
-    if (!SCHEMAS_WEB.test(url)) { e.preventDefault(); return; }
+    if (!SCHEMAS_WEB.test(url)) { e.preventDefault(); if (!/^(pegase|file|chrome|devtools|about|blob|data):/i.test(url)) refus.protocoles++; return; }
     // Une page ne peut pas, toute seule, se changer en data: (hameçonnage) : seulement un geste ou un lien.
     if (/^data:/i.test(url) && !/^data:image\//i.test(url)) e.preventDefault();
   };
@@ -65,7 +67,7 @@ export function durcirPage(wc: WebContents, ouvrirOnglet: (url: string, arriereP
     if (Date.now() - geste < 1500 && /^(https?|about:blank)/i.test(url)) {
       gestes.set(wc.id, 0); // un geste = une fenêtre
       ouvrirOnglet(url, disposition === 'background-tab');
-    }
+    } else refus.fenetres++;
     return { action: 'deny' };
   });
 }
@@ -93,8 +95,9 @@ export function durcirSession(s: Session, nomSite: (wc: WebContents | null, url?
     if (reponses.has(cle)) return rappel(reponses.get(cle)!);
     // Avalanche de demandes : plus de 3 en une minute pour un site → refusé sans demander.
     const l = (demandes.get(origine) ?? []).filter((t) => Date.now() - t < 60_000); l.push(Date.now()); demandes.set(origine, l);
-    if (l.length > 3 || !details.isMainFrame && permission !== 'media') return rappel(false);
-    if (process.env.PEGASE_PERMISSIONS === 'refuser' && !app.isPackaged) { reponses.set(cle, false); return rappel(false); }
+    if (l.length > 3 || !details.isMainFrame && permission !== 'media') { refus.permissions++; return rappel(false); }
+    // Le contrôle de sécurité (et les essais) : refusé sans rien demander.
+    if ((s as any).__controle || (process.env.PEGASE_PERMISSIONS === 'refuser' && !app.isPackaged)) { refus.permissions++; reponses.set(cle, false); return rappel(false); }
     dialog.showMessageBox({ type: 'question', buttons: ['Autoriser', 'Refuser'], defaultId: 1, cancelId: 1, noLink: true, title: 'Pégase', message: `${nomSite(wc, details.requestingUrl)} veut ${nom.startsWith('t’') || nom.startsWith('savoir') || nom.startsWith('lire') || nom.startsWith('voir') ? nom : `utiliser ${nom}`}.`, detail: 'Refuse si tu ne sais pas pourquoi ce site en a besoin. Tu peux changer d’avis dans Réglages → Permissions des sites.' })
       .then((r) => { const ok = r.response === 0; reponses.set(cle, ok); rappel(ok); }).catch(() => rappel(false));
   });
@@ -105,8 +108,8 @@ export function durcirSession(s: Session, nomSite: (wc: WebContents | null, url?
 function protocoleExterne(wc: WebContents | null, url: string | undefined, rappel: (ok: boolean) => void): void {
   if (!url) return rappel(false);
   let proto = ''; try { proto = new URL(url).protocol.replace(':', '').toLowerCase(); } catch { return rappel(false); }
-  if (PROTOCOLES_INTERDITS.has(proto) || proto.startsWith('ms-') && !['ms-teams'].includes(proto)) return rappel(false);
-  if (process.env.PEGASE_PERMISSIONS === 'refuser' && !app.isPackaged) return rappel(false);
+  if (PROTOCOLES_INTERDITS.has(proto) || proto.startsWith('ms-') && !['ms-teams'].includes(proto)) { refus.protocoles++; return rappel(false); }
+  if ((wc?.session as any)?.__controle || (process.env.PEGASE_PERMISSIONS === 'refuser' && !app.isPackaged)) return rappel(false);
   const site = wc ? new URL(wc.getURL() || 'about:blank').hostname : 'Une page';
   dialog.showMessageBox({ type: 'question', buttons: ['Ouvrir', 'Annuler'], defaultId: 1, cancelId: 1, noLink: true, title: 'Pégase', message: `${site} veut ouvrir un programme de ton ordinateur (lien « ${proto}: »).`, detail: 'N’accepte que si tu as cliqué toi-même sur ce lien et que tu connais ce programme.' })
     .then((r) => { if (r.response === 0) shell.openExternal(url).catch(() => 0); rappel(false); }).catch(() => rappel(false));

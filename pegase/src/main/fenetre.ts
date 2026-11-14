@@ -458,7 +458,7 @@ export class Fenetre {
       }
       case 'ouvrir': return this.surOuvrir({ url: String(arg?.url), espace: arg?.espace, arrierePlan: !!arg?.arrierePlan });
       case 'interne': { // une page pegase:// (favoris, historique, réglages…) dans un onglet
-        const url = `pegase://${String(arg?.page ?? 'accueil').replace(/[^a-z-]/g, '')}`;
+        const url = `pegase://${String(arg?.page ?? 'accueil').replace(/[^a-z/-]/g, '').slice(0, 60)}`;
         const deja = p.tousVus().find((o) => o.url === url && o.espace === this.espaceActif);
         if (deja) return this.activer(deja.id);
         return this.surOuvrir({ url, espace: this.espaceActif });

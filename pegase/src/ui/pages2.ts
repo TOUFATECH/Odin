@@ -74,3 +74,178 @@ pagesSuite.avertissement = (el) => {
     if (b.hasAttribute('data-continuer')) api.faire('avertissementSuite', { id: onglet, op: 'continuer' });
   });
 };
+
+// ————— Agenda (maquette « Agenda ») : semaine, jour, mois ; glisser-déposer ; .ics ; synchronisé avec Odin —————
+type Rdv = { id: string; titre: string; debut: string; fin: string; lieu?: string; agenda?: string; rappel?: number; couleur?: string; notes?: string };
+const pad2 = (n: number) => String(n).padStart(2, '0');
+function isoLocal(d: Date): string {
+  const o = -d.getTimezoneOffset(), sg = o >= 0 ? '+' : '-', a = Math.abs(o);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:00${sg}${pad2(Math.floor(a / 60))}:${pad2(a % 60)}`;
+}
+const jourDe = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const lundi = (d: Date) => { const j = jourDe(d); j.setDate(j.getDate() - ((j.getDay() + 6) % 7)); return j; };
+const COULEURS_RDV = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#14b8a6'];
+const H0 = 7, H1 = 22, PX = 48; // heures affichées, pixels par heure
+
+pagesSuite.agenda = (el, ctx) => {
+  let vue: 'jour' | 'semaine' | 'mois' = 'semaine'; let ref = jourDe(new Date()); let l: Rdv[] = []; let aPoser: { id: string; titre: string; duree: number }[] = [];
+  const charger = async () => { l = await api.faire('agenda') ?? []; aPoser = await api.faire('aPoser') ?? []; dessiner(); };
+  const couleur = (r: Rdv) => r.couleur ?? COULEURS_RDV[[...new Set(l.map((x) => x.agenda ?? 'Perso'))].indexOf(r.agenda ?? 'Perso') % COULEURS_RDV.length];
+  const jours = () => { if (vue === 'jour') return [ref]; const m = lundi(ref); return Array.from({ length: 7 }, (_, i) => new Date(m.getFullYear(), m.getMonth(), m.getDate() + i)); };
+  const dessiner = () => {
+    const js = jours(); const auj = jourDe(new Date()).getTime();
+    const titre = vue === 'mois' ? ref.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }) : vue === 'jour' ? ref.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : `Semaine du ${js[0].getDate()}${js[0].getMonth() !== js[6].getMonth() ? ' ' + js[0].toLocaleDateString('fr-FR', { month: 'long' }) : ''} au ${js[6].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`;
+    const agendas = [...new Set(l.map((x) => x.agenda ?? 'Perso'))];
+    // Petit mois de côté
+    const m0 = new Date(ref.getFullYear(), ref.getMonth(), 1), d0 = lundi(m0);
+    const mini = Array.from({ length: 42 }, (_, i) => new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i));
+    const evts = (d: Date) => l.filter((r) => { const a = new Date(r.debut.length === 10 ? `${r.debut}T00:00` : r.debut); return jourDe(a).getTime() === d.getTime(); });
+    let grille = '';
+    if (vue === 'mois') {
+      grille = `<div class="mois-grille">${['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'].map((n) => `<div class="tete-jour">${n}</div>`).join('')}${mini.map((d) => `<div class="case-mois${d.getMonth() !== ref.getMonth() ? ' autre' : ''}${d.getTime() === auj ? ' auj' : ''}" data-jour="${d.getTime()}"><span class="n">${d.getDate()}</span>${evts(d).slice(0, 3).map((r) => `<button class="evt-mois" data-rdv="${esc(r.id)}" data-css="--c:${couleur(r)}">${esc(r.titre)}</button>`).join('')}</div>`).join('')}</div>`;
+    } else {
+      const heures = Array.from({ length: H1 - H0 }, (_, i) => H0 + i);
+      grille = `<div class="semaine" data-css="--n:${js.length}"><div class="coin"></div>${js.map((d) => `<div class="tete-jour${d.getTime() === auj ? ' auj' : ''}">${d.toLocaleDateString('fr-FR', { weekday: 'short' })} <b>${d.getDate()}</b></div>`).join('')}
+        <div class="heures">${heures.map((h) => `<div class="heure">${pad2(h)}:00</div>`).join('')}</div>
+        ${js.map((d) => `<div class="colonne-jour" data-jour="${d.getTime()}" data-css="height:${(H1 - H0) * PX}px">${evts(d).filter((r) => r.debut.length > 10).map((r) => {
+          const a = new Date(r.debut), b = new Date(r.fin); const top = Math.max(0, (a.getHours() + a.getMinutes() / 60 - H0) * PX); const h = Math.max(20, ((b.getTime() - a.getTime()) / 3600_000) * PX);
+          return `<button class="evt" data-rdv="${esc(r.id)}" data-css="top:${top}px;height:${h}px;--c:${couleur(r)}"><b class="ellipse">${esc(r.titre)}</b><span class="ellipse">${pad2(a.getHours())}:${pad2(a.getMinutes())} – ${pad2(b.getHours())}:${pad2(b.getMinutes())}${r.lieu ? ` · ${esc(r.lieu)}` : ''}</span></button>`;
+        }).join('')}${evts(d).filter((r) => r.debut.length === 10).map((r) => `<button class="evt journee" data-rdv="${esc(r.id)}" data-css="--c:${couleur(r)}">${esc(r.titre)}</button>`).join('')}</div>`).join('')}</div>`;
+    }
+    el.innerHTML = `<div class="agenda">
+      <aside class="cote-agenda">
+        <button class="bouton plein" data-nouveau>+ Nouveau rendez-vous</button>
+        <div class="mini-mois"><div class="rangee"><b class="pousse">${esc(ref.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }))}</b></div>
+          <div class="mini-grille">${['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x) => `<span class="doux">${x}</span>`).join('')}${mini.map((d) => `<button class="${d.getMonth() !== ref.getMonth() ? 'autre' : ''}${d.getTime() === auj ? ' auj' : ''}${js.some((x) => x.getTime() === d.getTime()) ? ' choisi' : ''}" data-aller="${d.getTime()}" aria-label="${esc(d.toLocaleDateString('fr-FR', { dateStyle: 'full' }))}">${d.getDate()}</button>`).join('')}</div></div>
+        <div><div class="titre-cote">Agendas</div>${(agendas.length ? agendas : ['Perso']).map((a) => `<div class="rangee petit"><span class="pastille" data-css="background:${COULEURS_RDV[agendas.indexOf(a) % COULEURS_RDV.length] ?? COULEURS_RDV[0]}"></span><span class="pousse">${esc(a)}</span><span class="doux">${ctx.etat().odin?.connecte ? 'Odin' : 'ce PC'}</span></div>`).join('')}</div>
+        <div><div class="titre-cote">À poser</div><p class="doux petit">Glisse un rendez-vous sur la semaine</p>
+          ${aPoser.length ? aPoser.map((b) => `<div class="a-poser" data-poser="${esc(b.id)}"><b class="ellipse">${esc(b.titre)}</b><span class="doux petit">${b.duree} min</span><button class="ib p" data-retirer-poser="${esc(b.id)}" aria-label="Retirer">${I.fermer(11)}</button></div>`).join('') : '<p class="doux petit">Tout est posé.</p>'}
+          <button class="bouton petit-bouton" data-ajouter-poser>+ À poser</button></div>
+        <div class="rangee"><label class="bouton">Importer .ics<input type="file" accept=".ics,text/calendar" hidden data-ics></label><button class="bouton" data-exporter>Exporter .ics</button></div>
+      </aside>
+      <section class="corps-agenda">
+        <div class="rangee entete-agenda"><h1 class="pousse">${esc(titre)}</h1><button class="ib p" data-pas="-1" aria-label="Avant">‹</button><button class="bouton" data-auj>Aujourd’hui</button><button class="ib p" data-pas="1" aria-label="Après">›</button>
+          <div class="segments" role="group" aria-label="Vue">${(['jour', 'semaine', 'mois'] as const).map((v) => `<button data-vue="${v}" aria-pressed="${v === vue}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}</div></div>
+        ${grille}
+      </section></div>`;
+    // La CSP de l'interface interdit les styles écrits dans le HTML : positions et couleurs sont posées par le CSSOM.
+    for (const x of el.querySelectorAll<HTMLElement>('[data-css]')) x.style.cssText = x.dataset.css!;
+  };
+  const editer = (r: Partial<Rdv>) => {
+    const b = document.createElement('div'); b.className = 'boite-dialogue';
+    const a = r.debut ? new Date(r.debut.length === 10 ? `${r.debut}T09:00` : r.debut) : new Date(), f = r.fin ? new Date(r.fin.length === 10 ? `${r.fin}T10:00` : r.fin) : new Date(a.getTime() + 3600_000);
+    const date = `${a.getFullYear()}-${pad2(a.getMonth() + 1)}-${pad2(a.getDate())}`;
+    b.innerHTML = `<div class="voile sombre"></div><form class="flottant pile boite-rdv" role="dialog" aria-label="Rendez-vous">
+      <label>Titre<input class="champ" name="titre" value="${esc(r.titre ?? '')}" required></label>
+      <div class="rangee"><label>Date<input class="champ" type="date" name="date" value="${date}" required></label><label>Début<input class="champ" type="time" name="h1" value="${pad2(a.getHours())}:${pad2(a.getMinutes())}"></label><label>Fin<input class="champ" type="time" name="h2" value="${pad2(f.getHours())}:${pad2(f.getMinutes())}"></label></div>
+      <label>Lieu<input class="champ" name="lieu" value="${esc(r.lieu ?? '')}"></label>
+      <div class="rangee"><label>Agenda<input class="champ" name="agenda" value="${esc(r.agenda ?? 'Perso')}"></label><label>Rappel (minutes avant)<input class="champ" type="number" min="0" name="rappel" value="${r.rappel ?? ''}"></label></div>
+      <label>Notes<textarea class="champ" name="notes">${esc(r.notes ?? '')}</textarea></label>
+      <p class="erreur" role="alert"></p>
+      <div class="rangee">${r.id ? '<button class="bouton danger" type="button" data-suppr>Supprimer</button>' : ''}<span class="pousse"></span><button class="bouton" type="button" data-annuler>Annuler</button><button class="bouton plein" type="submit">Enregistrer</button></div></form>`;
+    document.body.appendChild(b); document.dispatchEvent(new CustomEvent('pegase:zones'));
+    const fm = b.querySelector('form')!; const fin = () => { b.remove(); document.dispatchEvent(new CustomEvent('pegase:zones')); };
+    b.querySelector('.voile')!.addEventListener('click', fin); b.querySelector('[data-annuler]')!.addEventListener('click', fin);
+    fm.addEventListener('keydown', (e) => { if (e.key === 'Escape') fin(); });
+    b.querySelector('[data-suppr]')?.addEventListener('click', async () => { await api.faire('agendaSuppr', { id: r.id }); fin(); await charger(); });
+    fm.addEventListener('submit', async (e) => {
+      e.preventDefault(); const d = Object.fromEntries(new FormData(fm)) as Record<string, string>;
+      const debut = new Date(`${d.date}T${d.h1 || '09:00'}`), finD = new Date(`${d.date}T${d.h2 || d.h1 || '10:00'}`);
+      const x = await api.faire('agendaMettre', { rdv: { ...r, titre: d.titre, debut: isoLocal(debut), fin: isoLocal(finD < debut ? new Date(debut.getTime() + 3600_000) : finD), lieu: d.lieu, agenda: d.agenda, rappel: d.rappel === '' ? undefined : Number(d.rappel), notes: d.notes } });
+      if (!x?.ok) { fm.querySelector('.erreur')!.textContent = x?.texte ?? 'Impossible.'; return; }
+      fin(); await charger();
+    });
+    (fm.querySelector('[name=titre]') as HTMLInputElement).focus();
+  };
+  // Glisser un rendez-vous (ou un « à poser ») sur la semaine, à la souris ou au doigt : l'heure suit, par quarts d'heure.
+  let glisse: { type: 'rdv' | 'poser'; id: string; dy: number; x0: number; y0: number; fantome: HTMLElement | null; source: HTMLElement } | null = null;
+  let sansClic = false;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const t = e.target as HTMLElement; const r = t.closest<HTMLElement>('[data-rdv]:not(.journee):not(.evt-mois)'), p = t.closest<HTMLElement>('[data-poser]');
+    if (t.closest('[data-retirer-poser]') || (!r && !p)) return;
+    const s = (r ?? p)!;
+    glisse = { type: r ? 'rdv' : 'poser', id: r ? r.dataset.rdv! : p!.dataset.poser!, dy: r ? Math.max(0, e.clientY - s.getBoundingClientRect().top) : 0, x0: e.clientX, y0: e.clientY, fantome: null, source: s };
+  });
+  el.addEventListener('pointermove', (e) => {
+    const g = glisse; if (!g) return;
+    if (!g.fantome) {
+      if (Math.abs(e.clientX - g.x0) + Math.abs(e.clientY - g.y0) < 5) return;
+      const b = g.source.getBoundingClientRect(); g.fantome = g.source.cloneNode(true) as HTMLElement;
+      g.fantome.classList.add('fantome'); g.fantome.style.cssText = `position:fixed;left:${b.left}px;top:${b.top}px;width:${b.width}px;height:${b.height}px;pointer-events:none;opacity:.8;z-index:50`;
+      document.body.appendChild(g.fantome); el.setPointerCapture?.(e.pointerId);
+    }
+    g.fantome.style.left = `${e.clientX - 10}px`; g.fantome.style.top = `${e.clientY - g.dy}px`;
+  });
+  const lacher = async (e: PointerEvent) => {
+    const g = glisse; glisse = null; if (!g?.fantome) return;
+    g.fantome.remove(); sansClic = true; setTimeout(() => { sansClic = false; }, 50);
+    const sous = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const c = sous?.closest<HTMLElement>('[data-jour]'); if (!c) return;
+    const jour = new Date(Number(c.dataset.jour));
+    let h = vue === 'mois' ? 9 : H0 + Math.max(0, (e.clientY - c.getBoundingClientRect().top - g.dy) / PX); h = Math.min(H1 - 0.25, Math.round(h * 4) / 4);
+    const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), Math.floor(h), Math.round((h % 1) * 60));
+    if (g.type === 'rdv') {
+      const r = l.find((x) => x.id === g.id); if (!r || r.debut.length === 10) return;
+      const duree = new Date(r.fin).getTime() - new Date(r.debut).getTime();
+      await api.faire('agendaMettre', { rdv: { ...r, debut: isoLocal(debut), fin: isoLocal(new Date(debut.getTime() + duree)) } });
+    } else {
+      const b = aPoser.find((x) => x.id === g.id); if (!b) return;
+      await api.faire('agendaMettre', { rdv: { titre: b.titre, debut: isoLocal(debut), fin: isoLocal(new Date(debut.getTime() + b.duree * 60_000)), agenda: 'Perso' } });
+      await api.faire('aPoserMettre', { liste: aPoser.filter((x) => x.id !== b.id) });
+    }
+    await charger();
+  };
+  el.addEventListener('pointerup', (e) => { void lacher(e); });
+  el.addEventListener('pointercancel', () => { glisse?.fantome?.remove(); glisse = null; });
+  el.addEventListener('dblclick', (e) => {
+    const c = (e.target as HTMLElement).closest<HTMLElement>('.colonne-jour'); if (!c || (e.target as HTMLElement).closest('[data-rdv]')) return;
+    const jour = new Date(Number(c.dataset.jour)); const h = Math.floor(H0 + (e.clientY - c.getBoundingClientRect().top) / PX);
+    const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), h, 0);
+    editer({ debut: isoLocal(debut), fin: isoLocal(new Date(debut.getTime() + 3600_000)) });
+  });
+  el.addEventListener('change', async (e) => {
+    const i = e.target as HTMLInputElement; if (!i.hasAttribute('data-ics') || !i.files?.[0]) return;
+    const r = await api.faire('agendaImporter', { texte: await i.files[0].text() }); ctx.toast(`${r?.n ?? 0} rendez-vous importé${(r?.n ?? 0) > 1 ? 's' : ''}.`); await charger();
+  });
+  el.addEventListener('click', async (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!b || sansClic) return;
+    if (b.dataset.rdv) { const r = l.find((x) => x.id === b.dataset.rdv); if (r) editer(r); }
+    else if (b.hasAttribute('data-nouveau')) { const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); editer({ debut: isoLocal(d), fin: isoLocal(new Date(d.getTime() + 3600_000)) }); }
+    else if (b.dataset.vue) { vue = b.dataset.vue as any; dessiner(); }
+    else if (b.dataset.pas) { const n = Number(b.dataset.pas); ref = vue === 'mois' ? new Date(ref.getFullYear(), ref.getMonth() + n, 1) : new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + n * (vue === 'jour' ? 1 : 7)); dessiner(); }
+    else if (b.hasAttribute('data-auj')) { ref = jourDe(new Date()); dessiner(); }
+    else if (b.dataset.aller) { ref = new Date(Number(b.dataset.aller)); dessiner(); }
+    else if (b.hasAttribute('data-exporter')) { const ok = await api.faire('agendaExporter'); if (ok) ctx.toast('Agenda exporté (.ics).'); }
+    else if (b.hasAttribute('data-ajouter-poser')) { const t = await prompt2(el, 'Rendez-vous à poser plus tard', ''); if (t) { aPoser.push({ id: `ap${Date.now()}`, titre: t, duree: 60 }); await api.faire('aPoserMettre', { liste: aPoser }); dessiner(); } }
+    else if (b.dataset.retirerPoser) { await api.faire('aPoserMettre', { liste: aPoser.filter((x) => x.id !== b.dataset.retirerPoser) }); await charger(); }
+  });
+  void charger();
+  let avant = ''; return () => { const k = `${ctx.etat().nbFavoris}|${ctx.etat().synchro.derniere ?? ''}`; if (k !== avant) { const p = !avant; avant = k; if (!p) void charger(); } };
+};
+
+// ————— Importer (maquette « Import ») : favoris de Chrome, Edge, Brave, Firefox, Arc… trouvés sur ce PC —————
+pagesSuite.importer = (el, ctx) => {
+  let l: { navigateur: string; id: string; nom: string; type: string; n?: number }[] = []; let coches = new Set<string>(); let etat: 'choix' | 'encours' | 'fini' = 'choix'; let res: any = null;
+  const dessiner = () => {
+    const navs = [...new Set(l.map((x) => x.navigateur))];
+    el.innerHTML = `<div class="contenu"><div class="rangee entete-page">${I.importer(30)}<h1>Importer d’un autre navigateur</h1></div>
+      ${l.length ? `<p class="sous"><b>${esc(navs.join(', ').replace(/, ([^,]*)$/, ' et $1'))} ${navs.length > 1 ? 'sont installés' : 'est installé'} sur ce PC.</b> Pégase a trouvé leurs profils. Coche ce que tu veux récupérer.</p>` : '<p class="sous">Aucun autre navigateur trouvé sur ce PC (Chrome, Edge, Brave, Vivaldi, Opera, Firefox, Arc).</p>'}
+      <section class="carte">${l.map((x) => `<label class="ligne-import"><input type="checkbox" data-id="${esc(x.id)}" ${coches.has(x.id) ? 'checked' : ''} ${etat !== 'choix' ? 'disabled' : ''}><span class="ltr c${navs.indexOf(x.navigateur) % 8}" aria-hidden="true">${esc(x.navigateur[0])}</span><span class="pousse"><b>${esc(x.navigateur)}</b> · ${esc(x.nom)}</span><span class="doux petit">${x.type === 'arc' ? `${x.n ?? 0} onglets épinglés (espaces)` : `${x.n ?? 0} favoris`}</span></label>`).join('')}
+        <div class="ligne-import desactive"><span class="pousse"><b>Historique</b></span><span class="puce">bientôt</span></div>
+        <div class="ligne-import desactive"><span class="pousse"><b>Mots de passe</b></span><span class="doux petit">jamais sans ton accord</span></div></section>
+      ${etat === 'encours' ? '<p role="status"><span class="chargement" aria-hidden="true"></span> Récupération en cours…</p>' : ''}
+      ${etat === 'fini' && res ? `<p role="status" class="ok"><b>C’est fait :</b> ${res.favoris} favori${res.favoris > 1 ? 's' : ''}${res.espaces ? `, ${res.espaces} espace${res.espaces > 1 ? 's' : ''}` : ''}${res.onglets ? `, ${res.onglets} onglet${res.onglets > 1 ? 's' : ''} épinglé${res.onglets > 1 ? 's' : ''}` : ''}.${ctx.etat().odin?.connecte ? ' Ils partent aussi sur Odin.' : ''}</p>` : ''}
+      <div class="rangee"><button class="bouton plein" data-tout ${!l.length || etat !== 'choix' ? 'disabled' : ''}>Tout récupérer</button><button class="bouton" data-plus-tard>${etat === 'fini' ? 'Fermer' : 'Plus tard'}</button>${etat === 'fini' ? '<button class="bouton" data-voir>Voir mes favoris</button>' : ''}</div>
+      <p class="doux petit">L’historique de ces navigateurs est rangé dans un format (SQLite) que Pégase ne lit pas encore : bientôt. Les mots de passe iront dans Thésauros, seulement avec ton accord, et ne s’affichent jamais. Tout ce qui est récupéré part ensuite sur Odin avec le reste. Les espaces d’Arc deviennent des espaces de travail Pégase.</p></div>`;
+  };
+  api.faire('importDetecter').then((x: any[]) => { l = x ?? []; coches = new Set(l.map((y) => y.id)); dessiner(); });
+  el.addEventListener('change', (e) => { const i = e.target as HTMLInputElement; if (i.dataset.id) { if (i.checked) coches.add(i.dataset.id); else coches.delete(i.dataset.id); } });
+  el.addEventListener('click', async (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!b) return;
+    if (b.hasAttribute('data-tout')) { etat = 'encours'; dessiner(); res = await api.faire('importer', { ids: [...coches] }); etat = 'fini'; dessiner(); }
+    else if (b.hasAttribute('data-plus-tard')) api.faire('fermer', {});
+    else if (b.hasAttribute('data-voir')) api.faire('naviguer', { texte: 'pegase://favoris' });
+  });
+  dessiner();
+};

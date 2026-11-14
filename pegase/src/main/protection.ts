@@ -32,9 +32,11 @@ export class Protection {
   signatures = new Set<string>();
   readonly quarantaine: string;
   telechargements: { liste: (p: ProfilOuvert) => Telechargement[] };
-  private dls = new Map<string, Telechargement & { profil: string; chemin?: string }>();
+  readonly dls = new Map<string, Telechargement & { profil: string; chemin?: string }>();
   private dossierListes: string;
   filtres = 0;
+  /** Fichiers ouverts par Pégase (toujours au clic sur « Ouvrir », jamais tout seul). */
+  ouvertures = 0;
 
   constructor(readonly appli: { fenetres: Set<Fenetre>; odinAnalyse?: (p: ProfilOuvert, chemin: string, nom: string) => Promise<{ sain: boolean; menace?: string } | null> }, readonly racine: string) {
     this.quarantaine = join(racine, 'quarantaine');
@@ -198,7 +200,7 @@ export class Protection {
       t.etat = 'bloque'; t.menace = verdict.menace; t.detail = `${verdict.menace} : en quarantaine, jamais écrit sur le PC.`;
       try { chmodSync(chemin, 0o000); } catch { /* Windows */ }
     } else {
-      const dest = this.destination(t.nom);
+      const dest = this.destination(t.nom, p.opts.telechargements);
       try { renameSync(chemin, dest); } catch { copyFileSync(chemin, dest); this.oter(chemin); }
       t.etat = 'sain'; t.chemin = dest; t.detail = verdict.detail;
     }
@@ -227,8 +229,8 @@ export class Protection {
     return { sain: true, detail: process.platform === 'win32' ? 'analysé sur ce PC (empreintes d’Asclépios et antivirus de Windows)' : 'analysé sur ce PC (empreintes d’Asclépios)' };
   }
 
-  private destination(nom: string): string {
-    const dossier = process.env.PEGASE_TELECHARGEMENTS || app.getPath('downloads');
+  private destination(nom: string, ici?: string): string {
+    const dossier = ici || process.env.PEGASE_TELECHARGEMENTS || app.getPath('downloads');
     mkdirSync(dossier, { recursive: true });
     const ext = extname(nom), base = nom.slice(0, nom.length - ext.length);
     let d = join(dossier, nom), i = 1;
@@ -245,7 +247,7 @@ export class Protection {
   async action(f: Fenetre, action: string, arg: any): Promise<any> {
     const t = this.dls.get(String(arg?.id));
     switch (action) {
-      case 'dlOuvrir': if (t?.etat === 'sain' && t.chemin) return shell.openPath(t.chemin); return;
+      case 'dlOuvrir': if (t?.etat === 'sain' && t.chemin) { this.ouvertures++; return shell.openPath(t.chemin); } return;
       case 'dlDossier': if (t?.etat === 'sain' && t.chemin) shell.showItemInFolder(t.chemin); return;
       case 'bloquesPage': { const id = f.ongletCourant(); const wc = id ? f.profil.vivants.get(id)?.vue?.webContents : undefined; return wc ? this.bloquesPar.get(wc.id) ?? [] : []; }
       case 'bloqueurPret': return this.pret(f.profil);
