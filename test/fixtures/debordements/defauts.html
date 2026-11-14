@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Page d'essai : un défaut par case (pour le détecteur de débordements)</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 system-ui,sans-serif;background:#fff;color:#111}
+.cas{margin:12px;padding:12px;border:1px solid #ccc;border-radius:8px;background:#fff}
+.carte{width:200px;padding:8px;border:1px solid #888;border-radius:8px;background:#f4f4f4}
+button{font:inherit;min-height:44px;padding:0 14px;border:1px solid #555;border-radius:8px;background:#fff;color:#111}
+[role=tab]{white-space:nowrap}
+</style>
+</head>
+<body>
+<!-- Chaque case porte un défaut voulu, et un seul. L'essai test/debordements.test.ts vérifie que le détecteur le trouve. -->
+<div class="cas" id="cas-large"><div id="trop-large" style="width:1600px;height:20px;background:#dde">Bloc de 1600 px : la page défile de côté</div></div>
+<div class="cas" id="cas-coupe"><div class="carte" id="coupe" style="overflow:hidden;white-space:nowrap">Un texte bien trop long pour sa boîte, coupé net sans prévenir</div></div>
+<div class="cas" id="cas-tronque"><div class="carte" id="tronque" style="overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Un texte bien trop long pour sa boîte, mais tronqué proprement</div></div>
+<div class="cas" id="cas-hors-boite"><div class="carte"><span id="hors-boite">Motsanscoupurebeaucouptroplongpourlacarte</span></div></div>
+<div class="cas" id="cas-bouton-hors"><div class="carte"><button type="button" id="bouton-hors" style="margin-left:120px;width:140px">Dehors</button></div></div>
+<div class="cas" id="cas-recouvert"><p id="dessous" style="margin:0">Ce paragraphe est recouvert par le bloc suivant.</p><div id="dessus" style="margin-top:-22px;height:40px;width:300px;background:#246;position:relative"></div></div>
+<div class="cas" id="cas-fixe"><h2 id="titre-sous-bulle" style="margin:0">Un titre caché sous la bulle</h2></div>
+<div class="cas" id="cas-chevauche"><button type="button" id="b1">Premier bouton</button><button type="button" id="b2" style="margin-left:-60px;position:relative">Second bouton</button></div>
+<div class="cas" id="cas-onglets"><div role="tablist" id="onglets" style="display:flex;flex-wrap:wrap;gap:6px;width:230px"><button role="tab" aria-selected="true">Analyser</button><button role="tab" aria-selected="false">Résultats</button><button role="tab" aria-selected="false">Règles</button><button role="tab" aria-selected="false">Réglages</button></div></div>
+<div class="cas" id="cas-onglets-coupes"><div role="tablist" id="onglets-coupes" style="display:flex;gap:6px;width:230px;overflow:hidden"><button role="tab" aria-selected="true">Convertir</button><button role="tab" aria-selected="false">Documents</button><button role="tab" aria-selected="false">Automatique</button><button role="tab" aria-selected="false">Outils</button></div></div>
+<div class="cas" id="cas-bouton3"><button type="button" id="bouton3" style="width:96px;min-height:44px;padding:4px">Analyser tous mes téléchargements</button></div>
+<div class="cas" id="cas-cible"><button type="button" id="cible" style="min-height:0;width:20px;height:20px;padding:0" aria-label="Fermer">×</button></div>
+<div class="cas" id="cas-image"><canvas id="dessin" width="100" height="100" style="width:200px;height:100px;background:#cde"></canvas> <img id="image" alt="" width="200" height="100" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="></div>
+<div class="cas" id="cas-contraste"><p id="pale" style="margin:0;color:#bbb">Texte gris pâle sur fond blanc : illisible.</p></div>
+<div class="cas" id="cas-focus"><button type="button" id="sans-focus" style="outline:none">Sans focus visible</button></div>
+<div class="cas" id="cas-hauteur"><div class="carte" id="coupe-haut" style="height:34px;overflow:hidden">Première ligne visible, puis une deuxième ligne et une troisième qui disparaissent sous le bord de la boîte.</div></div>
+<div class="cas" id="cas-fin"><p id="derniere" style="margin:0">Dernière ligne de la page : elle reste sous la barre du bas.</p></div>
+<div id="bulle" style="position:fixed;left:14px;top:0;width:260px;height:34px;border-radius:17px;background:#3a2306;color:#ffd9a3;padding:6px 12px;font-size:13px">Une notification</div>
+<div id="dehors" style="position:fixed;right:-40px;top:300px;width:120px;height:40px;background:#a33;color:#fff;padding:8px">Fixe dehors</div>
+<nav id="barre-bas" style="position:fixed;left:0;right:0;bottom:0;height:60px;background:#222;color:#fff;display:flex;align-items:center;justify-content:space-around"><span>Accueil</span><span>Plus</span></nav>
+<script>document.getElementById('bulle').style.top = (document.getElementById('titre-sous-bulle').getBoundingClientRect().top + 2) + 'px';</script>
+</body>
+</html>

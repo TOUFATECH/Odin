@@ -27,7 +27,7 @@
   const CSS = `
 .ur{--ur:#3ecf8e;--ur-soft:color-mix(in srgb,#3ecf8e 16%,var(--panel));display:flex;flex-direction:column;gap:14px;min-width:0}
 .ur-tabs{display:flex;gap:6px;flex-wrap:wrap}.ur-tabs button{min-height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--muted);padding:0 14px;font:600 13.5px inherit;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-.ur-tabs button[aria-selected=true]{background:var(--ur-soft);color:var(--ur);border-color:color-mix(in srgb,var(--ur) 40%,transparent)}
+.ur-tabs button[aria-selected=true]{background:var(--ur-soft);color:color-mix(in srgb,var(--ur) 50%,var(--ink));border-color:color-mix(in srgb,var(--ur) 40%,transparent)}
 .ur-studio{display:grid;grid-template-columns:200px minmax(0,1fr) 290px;gap:14px;align-items:start}
 @media (max-width:1180px){.ur-studio{grid-template-columns:180px minmax(0,1fr)}.ur-rel{grid-column:1/-1}}
 @media (max-width:760px){.ur-studio{grid-template-columns:1fr}}

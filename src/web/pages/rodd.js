@@ -29,6 +29,7 @@
 .rd-seg{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:#ffffff0a;border:1px solid #ffffff10;flex-wrap:wrap}
 .rd-seg button{font:600 13px inherit;padding:8px 16px;min-height:36px;border-radius:999px;color:var(--mut2);background:none;border:0;cursor:pointer}
 .rd-seg button[aria-pressed=true],.rd-seg button[aria-selected=true]{background:#4f8cff1f;color:var(--b);box-shadow:inset 0 0 0 1px #4f8cff55}
+@media (max-width:480px){.rd-hero{padding:24px 16px 20px}.rd-hero>*{max-width:100%;box-sizing:border-box}.rd-seg{display:flex;flex-wrap:nowrap;width:100%;max-width:100%;min-width:0;flex:1 1 100%;box-sizing:border-box;overflow-x:auto;scrollbar-width:none}.rd-seg::-webkit-scrollbar{display:none}.rd-seg button{flex:1 0 auto;padding:8px 8px;white-space:nowrap}}@media (pointer:coarse){.rd-seg button{min-height:44px}}
 .rd-chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;border-radius:999px;font:600 12px inherit}
 .rd-ib{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#ffffff0a;border:1px solid #ffffff10;color:#cfd3dd;cursor:pointer}
 .rd-ib:hover{color:#fff;border-color:#ffffff30}

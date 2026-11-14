@@ -14,8 +14,9 @@
   const api = async (path, body) => { const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } }); return r.json(); };
   const act = (module, action, input = {}, confirm) => api('/api/valhalla/act', { module, action, input, ...(confirm ? { confirm: true } : {}) });
   const css = `
-#fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.fe-bar .sp{flex:1}
-.fe-tab{min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 13.5px inherit;cursor:pointer}.fe-tab[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#fenetre{margin:0 0 18px}.fe-bar{display:flex;gap:8px;align-items:center;margin:0 0 12px}.fe-bar .sp{flex:1}
+.fe-tabs{display:flex;gap:8px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none;padding:3px;margin:-3px}.fe-tabs::-webkit-scrollbar{display:none}.fe-mod{flex:none}
+.fe-tab{flex:none;white-space:nowrap;min-height:36px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 13.5px inherit;cursor:pointer}.fe-tab[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .fe-edit .fe-tab[aria-pressed=true]{background:#fff;color:#10363a}.fe-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-radius:16px;background:#10363a;color:#fff;margin:0 0 12px}
 .fe-tools .fe-tab{background:rgba(255,255,255,.12);color:#fff;border-color:transparent}.fe-tools b{display:flex;gap:6px;align-items:center;margin:0 6px}.fe-tools .btn{min-height:36px}
 .fe-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.fe-edit .fe-wrap{grid-template-columns:minmax(0,1fr) 330px}@media (max-width:980px){.fe-edit .fe-wrap{grid-template-columns:minmax(0,1fr)}}
@@ -116,7 +117,8 @@
         el('span', { class: 'sp' }), themeBtn(),
         el('button', { class: 'btn small', type: 'button', onclick: async () => { L = JSON.parse(saved); edit = false; await fetchViews(); draw(); } }, 'Annuler'),
         el('button', { class: 'btn small primary', type: 'button', onclick: save }, 'Terminé'))
-      : el('div', { class: 'fe-bar' }, ...tabs, el('span', { class: 'sp' }), el('button', { class: 'btn small primary', type: 'button', onclick: () => { edit = true; draw(); } }, '✎ Modifier'));
+      // Les onglets restent sur une seule ligne : s'il y a beaucoup de pages, leur rangée défile, « Modifier » reste à droite.
+      : el('div', { class: 'fe-bar' }, el('div', { class: 'fe-tabs', role: 'group', 'aria-label': 'Pages de la fenêtre' }, ...tabs), el('button', { class: 'btn small primary fe-mod', type: 'button', onclick: () => { edit = true; draw(); } }, '✎ Modifier'));
     const grid = el('div', { class: 'fe-grid', id: 'feGrid' });
     for (const w of page().widgets) grid.append(await widget(w));
     if (!page().widgets.length) grid.append(el('div', { class: 'fe-drop', style: 'grid-column:1/-1' }, edit ? 'Glisse ici un module du catalogue (ou clique dessus).' : 'Page vide : « Modifier » pour ajouter des modules.'));

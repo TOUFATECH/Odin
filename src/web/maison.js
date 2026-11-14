@@ -128,7 +128,7 @@ input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;m
 .scene{border:0;background:var(--card2);border-radius:14px;padding:10px 14px;margin:6px 6px 0 0;color:var(--text)}
 .appc{display:flex;flex-direction:column;gap:6px;text-align:left;text-decoration:none;color:var(--text)}.appc .k{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);gap:8px}.appc .k b{color:var(--text);text-align:right}.badge{position:absolute;top:12px;right:12px;border-radius:999px;padding:2px 9px;font-size:12px;background:var(--bad);color:#fff}
 .k.attention b{color:var(--warn)}.k.mauvais b{color:var(--bad)}.k.bon b{color:var(--good)}
-.notes li{list-style:none;padding:8px 0 8px 12px;border-left:3px solid var(--good);margin:6px 0;font-size:14px}.notes li.souci{border-color:var(--warn)}.notes li.grave{border-color:var(--bad)}.notes ul{margin:0;padding:0}
+.notes li{list-style:none;padding:8px 0 8px 12px;border-left:3px solid var(--good);margin:6px 0;font-size:14px;overflow-wrap:anywhere}.notes li.souci{border-color:var(--warn)}.notes li.grave{border-color:var(--bad)}.notes ul{margin:0;padding:0}
 .themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:14px}.th{border:2px solid transparent;border-radius:18px;padding:0;overflow:hidden;text-align:left;background:none}.th[aria-pressed=true]{border-color:var(--accent)}.th .pv{height:92px;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px}.th .pv i{border-radius:10px;display:block}.th span{display:block;padding:8px 10px;font-size:13px;background:var(--card)}
 .person .av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:18px;background:var(--card2);flex:none}.person.home .av{background:var(--good);color:#fff}.person .row{display:flex;gap:12px;align-items:center}.person{display:flex;flex-direction:column;gap:10px}
 .cam{padding:0;margin:0}.cam img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#000}.cam figcaption{display:flex;justify-content:space-between;align-items:center;padding:10px 14px}.cam .live{color:var(--bad)}.cam.off .live{color:var(--muted)}.cam.off .live::after{content:' (hors ligne)'}.dev.cut{border-color:var(--bad)}
@@ -372,7 +372,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     let home = null, visiting = 0;
     /** Retour à sa place de repos : la place libre la plus basse (au plus près d'où il est). */
     function rest(fast) {
-      const spots = freeSpots(); if (!spots.length) { home = null; return; }
+      // Aucune place libre : il reste où il est, mais toujours dans l'écran (l'écran a pu rapetisser depuis).
+      const spots = freeSpots(); if (!spots.length) { home = null; place(x, y, fast); return; }
       const low = spots[0][1], row = spots.filter((p) => p[1] >= low - 28);
       const best = row.sort((a, b) => Math.abs(a[0] - x) - Math.abs(b[0] - x))[0]; home = best; place(best[0], best[1], fast);
     }
@@ -383,6 +384,9 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       setTimeout(() => { if (Date.now() - visiting >= 5500 && !bubble?.dataset.chat) { visiting = 0; rest(); } }, 6000);
     }
     setTimeout(() => rest(), 600);
+    // Jamais hors de l'écran : au chargement d'un téléphone, la page peut d'abord se croire plus large (980 px), puis
+    // rapetisser sans « resize » ; une fenêtre tournée fait de même. Il revient alors dans l'écran, à la bonne taille.
+    setInterval(() => { const s = size(); if (!dragging && (x > innerWidth - s - 6 || y > innerHeight - s - 6 || parseFloat(w.style.getPropertyValue('--ps')) !== s)) { place(x, y, true); if (!bubble && !visiting) setTimeout(() => rest(true), 500); } }, 1000);
     setInterval(() => {
       if (bubble || dragging || play || reduce || visiting) return;
       const s = size();
@@ -411,6 +415,8 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     w.addEventListener('pointerup', () => {
       const d = dragging; dragging = null; w.classList.remove('drag'); if (!d || d.moved) return;
       taps = taps.filter((t) => Date.now() - t < 900); taps.push(Date.now());
+      // Le même petit son que partout ailleurs quand on la touche (coupé si le son d'Odin est coupé).
+      window.OdinFace?.sound?.('bounce');
       // Les clics rapides réglés dans Odin (1 = parler, 10 = se cacher…) ; sans eux, trois touches = elle rit.
       if (window.OdinMascotte) { window.OdinMascotte.tap(body, () => { if (bubble?.dataset.chat) closeBubble(); else chat(); }); return; }
       if (taps.length >= 3) { taps = []; mood('rire'); anim('spin'); say('Hihi, ça chatouille !', 'ok', 'rire'); return; }
