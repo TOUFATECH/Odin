@@ -388,6 +388,39 @@ CHECKS['heidrun>vidarr'] = async (w) => {
   assert.ok(regle!.parental && regle!.safeSearch && regle!.services!.includes('tiktok') && regle!.cut, 'filtrage, recherche sécurisée, réseaux sociaux coupés, coucher');
   assert.ok(!w.v.manips({ limit: 20 }).some((m) => m.module === 'vidarr'), 'pas de « manip » en double : c\'est toi qui as demandé le profil');
 };
+// Ulysse (trajets) : une position reçue par Hestia n'est gardée que si le membre a allumé son historique ; elle ne passe
+// ni par le journal des actions, ni par les événements, ni par une alerte.
+const membreNour = async (w: World) => { await w.v.act('gladsheim', 'membre', { nom: 'Nour' }); return (w.v.ctx('gladsheim').settings.members as Array<{ id: string; name: string; user: string; hash: string; tid: string; at: number }>)[0]; };
+CHECKS['gladsheim>gna'] = async (w) => {
+  const { recordFix } = await import('../src/valhalla/modules/gladsheim.ts'), { compter } = await import('../src/valhalla/gna/historique.ts');
+  const nour = await membreNour(w), g = w.v.ctx('gladsheim'), dir = w.v.ctx('gna').dir;
+  const envoi = (lat: number, lon: number) => recordFix(g, nour, { _type: 'location', lat, lon, acc: 10, tst: Math.floor(Date.now() / 1000) });
+  envoi(-12.7806, 45.2278);
+  assert.ok(!existsSync(join(dir, 'positions')), 'historique éteint : rien n\'est gardé');
+  assert.match((await w.v.act('gna', 'allumer', { membre: 'Nour', accord: true })).text, /Historique de Nour allumé/);
+  w.acts.length = 0;
+  envoi(-12.7806, 45.2278); envoi(-12.7851, 45.2301);
+  assert.equal(compter(dir, nour.id), 2, 'historique allumé : chaque position reçue est gardée');
+  assert.deepEqual(w.acts, [], 'aucune action lancée : la position ne laisse pas de trace dans le journal des applis');
+  assert.doesNotMatch(JSON.stringify([w.v.manips({ limit: 50 }), w.events, w.v.alerts(), w.sent]), /12\.78|45\.2[23]/, 'aucune coordonnée dans les manips, les événements, les alertes ou les messages');
+  await w.v.act('gna', 'pause', { membre: 'Nour' }); envoi(-12.79, 45.24);
+  assert.equal(compter(dir, nour.id), 2, 'en pause : plus rien n\'est gardé');
+  await w.v.act('gladsheim', 'retirer_membre', { nom: 'Nour' });
+  assert.ok(!existsSync(join(dir, 'positions', nour.id)), 'membre retiré de Hestia : son historique est effacé');
+};
+CHECKS['gna>forseti'] = async (w) => {
+  const { recordFix } = await import('../src/valhalla/modules/gladsheim.ts');
+  const nour = await membreNour(w), dir = w.v.ctx('gna').dir;
+  await w.v.act('gna', 'allumer', { membre: 'Nour', accord: true });
+  // Le dossier des positions ne peut plus être écrit (ici : un fichier a pris la place du dossier du membre).
+  mkdirSync(join(dir, 'positions'), { recursive: true }); writeFileSync(join(dir, 'positions', nour.id), 'pas un dossier');
+  recordFix(w.v.ctx('gladsheim'), nour, { _type: 'location', lat: -12.7806, lon: 45.2278, tst: Math.floor(Date.now() / 1000) });
+  await w.v.module('gna')!.watch!.run(w.v.ctx('gna'));
+  const a = w.v.alerts({ module: 'gna' })[0];
+  assert.ok(a && a.level === 'haute' && /l'historique n'est plus gardé comme prévu/.test(a.title), 'alerte haute dans le fil commun');
+  assert.doesNotMatch(JSON.stringify(a), /12\.78|45\.22/, 'aucune position dans l\'alerte');
+  assert.match((await w.v.act('forseti', 'alertes', { gravite: 'info' })).text, /Trajets : l'historique n'est plus gardé comme prévu/, 'visible dans Forseti');
+};
 CHECKS['mimisbrunnr>forseti'] = async (w) => {
   const log = join(w.home, 'boutique.log'), il_y_a = (s: number) => new Date(Date.now() - s * 1000).toISOString();
   writeFileSync(log, [il_y_a(40), il_y_a(20)].map((d) => `${d} caisse ERREUR-CAISSE-77 tiroir bloqué`).join('\n') + '\n');
