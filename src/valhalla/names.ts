@@ -41,6 +41,7 @@ export const NAMES: Record<string, string> = {
  "bru": "Bifröst",
  "ratatoskr": "Interprète",
  "gladsheim": "Hestia",
+ "gna": "Ulysse",
  "himinbjorg": "Cyclope",
  "aegir": "Apollon",
  "apparence": "Aurore",
@@ -70,7 +71,9 @@ export const NAMES: Record<string, string> = {
  "brokkr": "Héphaïstos",
  "bragi": "Orphée",
  "heidrun": "Héra",
- "bifrost": "Iris"
+ "hlin": "Gygès",
+ "bifrost": "Iris",
+ "durinn": "Tirésias"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
@@ -244,6 +247,7 @@ export const NAME_STORY: Record<string, string> = {
  "fjalar": "Hermès, le messager des dieux, toujours sur la route : il apporte les logiciels à jour.",
  "thjalfi": "La Genèse, le commencement de tout : la naissance d'une machine, de zéro.",
  "gladsheim": "Hestia, la déesse grecque du foyer et de la maison : la maison en un écran.",
+ "gna": "Ulysse, le héros grec de l'Odyssée, qui mit dix ans à rentrer chez lui à Ithaque : le voyageur, donc tes trajets.",
  "apparence": "Aurore, la déesse de l'aube qui colore le ciel chaque matin : les couleurs et thèmes d'Odin.",
  "commandes": "Les glyphes, les signes gravés des hiéroglyphes : une commande écrite pour chaque fonction.",
  "volva": "La Pythie, l'oracle de Delphes qu'on venait interroger : tu poses ta question, elle cherche partout.",
@@ -270,4 +274,6 @@ export const NAME_STORY: Record<string, string> = {
  "snotra": "La plume du scribe, avec laquelle on écrivait lettres et registres : tes documents de bureau.",
  "leikvangr": "Olympie, la cité grecque où sont nés les Jeux olympiques : le terrain de jeu.",
  "heidrun": "Héra, la reine de l'Olympe, protectrice de la famille et du foyer : elle veille sur ce que voient les enfants.",
+ "hlin": "Gygès, le berger d'une légende grecque que raconte Platon : il trouva un anneau qui le rendait invisible. Ici, c'est toi qui décides de ce qu'on voit de toi.",
+ "durinn": "Tirésias, le devin aveugle de Thèbes qui voyait venir les malheurs avant tout le monde : il lit les signes que tes disques donnent d'eux-mêmes et annonce la panne avant qu'elle n'arrive."
 };

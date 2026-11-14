@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { basename } from 'node:path';
 import type { Module } from '../types.ts';
-import { PARAM_POSTE, posteDe, postesLisibles, type Poste } from '../postes.ts';
+import { choixDePoste, PARAM_POSTE, posteDe, type Poste } from '../postes.ts';
 
 const s = (x: unknown) => String(x ?? '').trim();
 export interface Proc { pid: number; ppid: number; uid: number; name: string; exe: string; cmd: string }
@@ -90,14 +90,25 @@ export const skogul: Module = {
       return { text: `✋ Processus ${pid} arrêté${poste.local ? '' : ` sur ${poste.nom}`}.` };
     } },
   ],
-  async view(ctx) {
+  async view(ctx, q) {
+    const P = choixDePoste(ctx, q);
+    // Un autre poste (Linux ou Mac) choisi dans « Sur quel poste ? » : ses programmes, lus par SSH.
+    if (P.actuel) {
+      const poste = posteDe(ctx, P.actuel);
+      try {
+        const d = await procsDistants(poste), fd = judge(d.procs);
+        return { postes: P, subtitle: `${poste.nom} · ${d.procs.length} programme(s) en cours · lu par SSH${d.complet ? '' : ' · sans les droits d\'administrateur : je ne vois pas d\'où sont lancés les programmes des autres comptes'}`,
+          kpis: [{ label: 'Découvertes en cours', value: String(fd.length), tone: fd.length ? 'mauvais' : 'bon' }, { label: 'Programmes en cours', value: String(d.procs.length) }],
+          sections: [{ kind: 'table', title: `Comportements suspects sur ${poste.nom}`, columns: ['Gravité', 'Règle', 'Détail'], empty: '✓ Rien de suspect en ce moment.', rows: fd.map((x) => ({ cells: [x.level, x.rule, x.detail], tone: 'mauvais', actions: [{ action: 'tuer', label: 'Arrêter', input: { pid: x.pid, poste: poste.id } }] })) }] };
+      } catch (err) { return { postes: P, subtitle: `${poste.nom} ne répond pas`, sections: [{ kind: 'text', title: `${poste.nom} ne répond pas`, tone: 'mauvais', text: `${(err as Error).message}. Vérifie qu'il est allumé et sur le même réseau, puis rouvre la page.` }] }; }
+    }
     const f = judge(procs()), ports = (ctx.settings.ports as string[] | undefined) ?? [];
     return {
+      postes: P,
       subtitle: process.platform === 'win32' ? 'Sur Windows, je ne lis pas encore les programmes en cours : cette page reste vide.' : 'Analyse toutes les 30 secondes',
       kpis: [{ label: 'Découvertes en cours', value: String(f.length), tone: f.length ? 'mauvais' : 'bon' }, { label: 'Ports à l\'écoute', value: String(ports.length) }],
       sections: [{ kind: 'table', title: 'Comportements suspects', columns: ['Gravité', 'Règle', 'Détail'], empty: '✓ Rien de suspect en ce moment.', rows: f.map((x) => ({ cells: [x.level, x.rule, x.detail], tone: 'mauvais', actions: [{ action: 'tuer', label: 'Arrêter', input: { pid: x.pid } }] })) }],
-      side: [{ kind: 'list', title: 'Ports à l\'écoute', items: ports.map((p) => ({ title: p })), empty: 'Lecture en attente.' },
-        ...(postesLisibles(ctx).length > 1 ? [{ kind: 'form' as const, title: 'Analyser un autre poste', action: 'analyser', submit: 'Analyser ses programmes', params: [{ key: 'poste', label: 'Poste', kind: 'select' as const, options: postesLisibles(ctx).slice(1).map((x) => x.nom), required: true }] }] : [])],
+      side: [{ kind: 'list', title: 'Ports à l\'écoute', items: ports.map((p) => ({ title: p })), empty: 'Lecture en attente.' }],
     };
   },
   watch: { every: 30, async run(ctx) {

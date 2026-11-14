@@ -315,6 +315,9 @@ Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, p
 
 - **Réponse en voix ou en texte** : bouton Voix, Réglages → Voix, ou à l'oral (« réponds par écrit », « parle-moi »). En texte seul, Odin écrit sa réponse même quand tu lui parles au micro, et n'envoie plus de note vocale sur Telegram.
 - **Réglages** : texte en direct, annulation d'écho, sensibilité du micro, attente en fin de phrase, mot de réveil, maintenir pour parler, mots d'arrêt, « oui / mmh » ignorés, vitesse et volume de la voix, lexique de prononciation, cerveau (« auto » ou « sans IA » pour les demandes à la voix), mode privé (rien n'est retenu ni écrit).
+- **Voix d'homme ou de femme** : Réglages → Voix, ou « parle avec une voix de femme » (sans IA aussi) ; le choix sert dès la phrase suivante, sans relancer Odin. Avec ElevenLabs, une clé suffit : une voix d'homme ou de femme prête à l'emploi parle tout de suite.
+- **Copier ta voix** (ElevenLabs) : la page demande si c'est ta voix ou celle de quelqu'un d'autre (son nom est alors obligatoire) ; l'accord est noté avant tout envoi, et « Retirer l'accord » efface la voix copiée chez ElevenLabs.
+- **À voix haute** : sur Telegram, « dis-le à voix haute » envoie une note vocale ; dans Pythie, « Écouter une réponse » la fait lire par Orphée (fichier à télécharger).
 - Cahier des charges complet de la voix : [docs/voix-v2.md](docs/voix-v2.md).
 
 Services possibles quand « 100 % local » est coupé : **Whisper** (OpenAI, ou un serveur local sans clé, ex. [speaches](https://github.com/speaches-ai/speaches)) transcrit ce que tu dis : micro de l'interface, notes vocales Telegram, fichiers audio. Pour parler, au choix : **ElevenLabs** (voix naturelles, **copie de ta voix** à partir d'un enregistrement d'une minute, avec ton accord explicite), **Piper** (gratuit, hors ligne, sur ta machine : `pip install piper-tts` puis `python3 -m piper.http_server --model fr_FR-tom-medium`), ou tout serveur **compatible OpenAI** `/v1/audio/speech` (Kokoro, openedai-speech…). Avec Piper et un Whisper local, ta voix ne quitte jamais la maison ; les notes vocales Telegram sont converties en Opus par ffmpeg s'il est là.
@@ -374,8 +377,8 @@ Dis par exemple : « analyse mes téléchargements », « vérifie le lien https
 
 Deux façons de faire vérifier un fichier qui n'est pas sur la machine d'Odin :
 
-- **Un fichier de ton téléphone ou de ton ordinateur** : dans Asclépios → « Analyser un fichier », choisis-le sur ton appareil. Il est envoyé à Odin, analysé, puis sa copie est effacée.
-- **Le fichier d'un lien, avant de le télécharger** : « Analyser le fichier d'un lien » (ou « analyse le fichier du lien https://… »). Odin le prend dans sa mémoire, l'analyse et te dit s'il est sûr ; rien n'est gardé sur le disque. Une adresse connue comme dangereuse n'est même pas téléchargée.
+- **Un fichier de ton téléphone ou de ton ordinateur** : dans Asclépios, onglet « Analyser », dépose-le dans la carte « Un fichier de cet appareil » (ou choisis-le). Il est envoyé à Odin, analysé, puis sa copie est effacée.
+- **Le fichier d'un lien, avant de le télécharger** : la carte « Le fichier d'un lien » (ou « analyse le fichier du lien https://… »). Odin le prend dans sa mémoire, l'analyse et te dit s'il est sûr ; rien n'est gardé sur le disque. Une adresse connue comme dangereuse n'est même pas téléchargée.
 
 ### Antivirus sur un autre poste (Windows, Mac, Linux, NAS)
 
@@ -384,7 +387,13 @@ Asclépios analyse aussi les autres machines, **sans rien y installer** : il lit
 - **PC et serveurs Windows, NAS** : par le partage de fichiers (SMB). Avec un compte administrateur, Odin lit les disques entiers (`C$`, `D$`…) ; sinon, les dossiers partagés.
 - **Linux et Mac** : par SSH (`find` + `tar` lancés sur le poste, en lecture seule).
 
-Dans Asclépios → « Analyser un autre poste » : l'adresse du poste, son compte administrateur et son mot de passe (rangés dans le coffre des machines, jamais affichés), puis « tout » ou « rapide ». Ou en parlant : « analyse le PC 192.168.1.20 ».
+En haut d'Asclépios, « Sur quel poste ? » → « Ajouter un poste ». Trois étapes :
+
+1. **Quel poste ?** Les ordinateurs, serveurs et NAS vus sur ton réseau sont proposés ; sinon, tape son adresse.
+2. **Son compte administrateur**, puis « Tester la connexion » : Odin dit ce qu'il peut lire. Le poste n'entre dans le coffre des machines que si l'essai réussit, et le mot de passe n'est jamais réaffiché.
+3. **Quoi analyser ?** Analyse rapide, tout le poste, ou un seul dossier.
+
+Le poste reste ensuite proposé dans « Sur quel poste ? » : un clic, et la page montre ses analyses, ses détections et sa quarantaine. Ou en parlant : « analyse le PC 192.168.1.20 ».
 
 Une menace trouvée n'est **jamais** touchée sans ton accord : « Isoler sur le poste » renomme le fichier là-bas (`.odin-quarantaine`) pour qu'il ne puisse plus être lancé, et « Remettre en place » l'annule.
 
@@ -397,7 +406,7 @@ Une menace trouvée n'est **jamais** touchée sans ton accord : « Isoler sur le
 
 Limites dites clairement : les fichiers ouverts ou verrouillés par le poste ne sont pas lus (ils sont comptés), les très gros fichiers qui ne sont pas des programmes non plus, et aucun antivirus ne détecte tout.
 
-Les applis qui lisent la machine acceptent aussi un autre poste Linux ou Mac (par SSH) : Hygie (état, processus), Pyramide (disques), Thermopyles (pare-feu, ports), Chroniques (journaux), Némésis (programmes suspects ; arrêter un programme là-bas demande ton accord). Exemples : « état des disques sur serveur-web », « processus suspects sur serveur-web ».
+Les applis qui lisent la machine acceptent aussi un autre poste Linux ou Mac (par SSH) : Hygie (état, processus), Pyramide (disques), Thermopyles (pare-feu, ports), Chroniques (journaux), Némésis (programmes suspects ; arrêter un programme là-bas demande ton accord). Elles ont le même « Sur quel poste ? » en haut de leur page ; sur un autre poste, seules les actions qui savent y aller sont proposées. Exemples : « état des disques sur serveur-web », « processus suspects sur serveur-web ».
 
 ### Conversion de fichiers (Alchimie)
 
@@ -411,15 +420,37 @@ Alchimie convertit tes fichiers sur ta machine : vidéo, son, image, documents, 
 
 Trois façons de lui donner un fichier :
 
-- **depuis ton appareil** (ordinateur ou téléphone) : dans « Convertir un fichier », choisis-le ; il est déposé dans l'atelier d'Alchimie, et le résultat se reprend par le bouton « Télécharger » ;
-- **depuis un lien** : « Convertir depuis un lien ». Le fichier est téléchargé, **vérifié par l'antivirus**, puis converti. Un fichier dangereux part en quarantaine et n'est jamais converti ;
+- **depuis ton appareil** (ordinateur ou téléphone) : dans l'onglet « Convertir », dépose-le (ou choisis-le). Alchimie ne propose que les formats possibles pour ce fichier, rangés par genre, et la qualité quand elle compte. Le résultat se reprend par « Télécharger » ; les derniers résultats restent listés dessous ;
+- **depuis un lien** : colle-le sous la zone de dépôt. Le fichier est téléchargé, **vérifié par l'antivirus**, puis converti. Un fichier dangereux part en quarantaine et n'est jamais converti ;
 - **un dossier surveillé** : « Surveiller un dossier » — tout fichier qui y arrive est converti tout seul (résultats dans son sous-dossier `convertis`, les originaux restent).
 
 Un lien vers une adresse de ta maison (NAS, autre poste : `http://192.168…`) demande ton accord ; un lien ne peut jamais viser la machine d'Odin elle-même, et une redirection vers ton réseau est refusée. Si le lien demande un identifiant et un mot de passe, mets-les dans leurs cases (masqués, jamais gardés), pas dans le lien.
 
-### Résultats qui restent
+### Le port d'une appli
 
-Sur la page d'une appli, le résultat d'une action reste affiché (sous le formulaire, sous la barre de boutons ou sous le titre du tableau) jusqu'à l'action suivante, ou jusqu'au bouton « Fermer ». Quand l'action a fabriqué des fichiers, un bouton « Télécharger » par fichier les remet à ton appareil.
+Chaque appli peut avoir son adresse directe : `http://adresse-d-odin:<port>` ouvre directement sa page, **toujours avec ta connexion** (sans session, seul l'écran de connexion répond). Réglages → Ports pour toutes les applis, ou la carte « Son port » en bas de la page de l'appli. Le port reste sur cette machine tant que tu ne l'ouvres pas sur le réseau ; l'ouvrir demande ton accord (Cerbère ouvre alors le pare-feu, et referme quand tu le retires). Un port déjà pris est refusé en disant quel programme le tient ; il est gardé après un redémarrage. Les services réseau gardent leur port habituel (Vénus 8096, MQTT 1883…) et les applis installées un port fixe entre 20000 et 20999.
+
+### Exporter et partager une page
+
+En haut de chaque appli, « Exporter / partager » : la page entière ou l'onglet ouvert, pour le poste choisi, en **Word, PDF, Markdown ou JSON**. Les mots de passe, clés et jetons sont masqués, et le fichier dit combien de valeurs l'ont été. « Partager » crée un lien vers une copie figée, en lecture seule : **privé** (toi, ou des personnes de Persona) ou **public** (avec ton accord), avec une date de fin (7 jours par défaut, 90 au plus), les ouvertures comptées, et un retrait immédiat. Le coffre, Persona, la vie privée et les trajets ne s'exportent ni ne se partagent. Google Docs : exporte en Word puis importe-le (Odin n'est pas relié à Google).
+
+### Vie privée (Gygès)
+
+Où tu apparais sur Internet : moteurs, annuaires, revendeurs de données, réseaux sociaux, fuites connues (Have I Been Pwned avec ta clé), photos qui révèlent un lieu. Pour chaque résultat : ce qu'il montre, le risque, et comment le faire retirer, avec les lettres RGPD prêtes (effacement, opposition, accès, relance, en texte, Word et PDF) et le suivi des demandes jusqu'à la CNIL. Revérification chaque mois. Seulement toi, tes sociétés, et un proche qui a donné son accord (noté) ; aucune connexion ni captcha contourné ; rien ne part vers une IA.
+
+### Trajets (Ulysse)
+
+L'historique des positions des téléphones de la famille (OwnTracks), **éteint au départ** : chaque membre l'allume, le met en pause ou l'efface sur sa page `/trajets`. Trajets et arrêts par jour (distance, durée, vitesse), lieux nommés, carte dessinée par Odin, export GPX, conservation 30 jours, 90 jours ou 1 an. Tu ne vois les trajets d'un membre que s'il l'accepte.
+
+### La page d'une appli
+
+Toutes les applis ont la même page :
+
+- **en haut** : le retour aux applis, l'icône, le nom et une ligne d'explication. « En savoir plus » déplie l'histoire du nom et la liste des fonctions ;
+- **« Sur quel poste ? »**, pour les applis qui savent travailler sur un autre poste (Asclépios, Hygie, Pyramide, Thermopyles, Chroniques, Némésis) : des pastilles sur ordinateur, une liste sur téléphone ;
+- **des onglets** quand l'appli fait beaucoup de choses (quatre au plus, toujours sur une seule ligne) : Asclépios a « Analyser », « Résultats », « Règles », « Réglages » ; Alchimie a « Convertir », « PDF », « Automatique », « Outils ». Le premier onglet contient ce qu'on vient faire le plus souvent ; « Autres actions », les alertes et les liens avec les autres applis sont dans le dernier.
+
+Le résultat d'une action reste affiché (sous le formulaire, sous la barre de boutons ou sous le titre du tableau) jusqu'à l'action suivante, ou jusqu'au bouton « Fermer ». Quand l'action a fabriqué des fichiers, un bouton « Télécharger » par fichier les remet à ton appareil.
 
 Champollion (lire une photo, un PDF, un document) et Orphée (transcrire un vocal) acceptent eux aussi un fichier envoyé depuis ton appareil.
 

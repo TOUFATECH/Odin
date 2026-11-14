@@ -75,9 +75,13 @@ async function namesOf(v: Valhalla, m: Module): Promise<Names> {
       if (sec.kind === 'table') for (const r of sec.rows) { add('*', r.cells[0]); for (const a of r.actions ?? []) for (const [k, val] of Object.entries(a.input)) add(k, val); }
       if (sec.kind === 'list') for (const it of sec.items) add('*', it.title);
       if (sec.kind === 'cards') for (const it of sec.items) { add('*', it.title); for (const x of it.actions ?? []) for (const [k, val] of Object.entries(x.input ?? {})) add(k, val); }
+      // Une carte de boutons (« Analyse rapide », « Tout analyser », « Ou un seul dossier ») : ce que ses boutons et sa liste envoient.
+      if (sec.kind === 'actions') { for (const bt of sec.boutons) for (const [k, val] of Object.entries(bt.input ?? {})) add(k, val); for (const x of sec.liste?.valeurs ?? []) add(sec.liste!.champ, x.valeur); }
       // Les postes proposés par un formulaire (« Voir un autre poste ») : « … sur serveur-web » désigne ce poste.
       if (sec.kind === 'form') for (const fp of sec.params ?? []) if (fp.key === 'poste' && fp.kind === 'select') for (const o of fp.options ?? []) add('poste', o);
     }
+    // « Sur quel poste ? » en haut de la page : les postes qu'elle propose (sauf la machine d'Odin elle-même).
+    for (const c of view.postes?.choix ?? []) if (c.id) add('poste', c.nom);
   } catch { /* page indisponible : on se passera des noms */ }
   cache.set(m.id, { at: Date.now(), names });
   return names;

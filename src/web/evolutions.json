@@ -1,5 +1,69 @@
 [
  {
+  "id": "v1230",
+  "at": "2026-11-14T04:40:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.23.0",
+  "title": "Exporter et partager chaque appli, deux nouvelles applis (Gygès, Ulysse) et des icônes aux couleurs vives",
+  "details": [
+   "Exporter / partager, en haut de chaque appli : la page ou un onglet en Word, PDF, Markdown ou JSON, secrets masqués ; lien privé ou public (avec ton accord) vers une copie figée, avec date de fin et retrait immédiat.",
+   "Nouvelle appli Gygès (vie privée) : où tu apparais sur Internet, le risque, comment le faire retirer, lettres RGPD prêtes, suivi des demandes, revérification chaque mois. Seulement toi, tes sociétés et un proche qui a dit oui.",
+   "Nouvelle appli Ulysse (trajets) : l'historique des positions de la famille, éteint au départ, allumé par chaque membre sur sa page /trajets ; trajets, arrêts, carte, export GPX, conservation au choix.",
+   "Icônes : les couleurs vives que tu as validées (chaque appli garde sa teinte, en couleur pleine), et les icônes de Gygès, Ulysse, Tirésias et Perséphone.",
+   "Pas testé : les vrais sites des réseaux sociaux et une vraie clé Have I Been Pwned, un vrai téléphone avec OwnTracks, Google Docs (pas de connexion Google)."
+  ],
+  "planets": [
+   "applis",
+   "securite",
+   "maison"
+  ],
+  "kind": "version"
+ },
+ {
+  "id": "v1220",
+  "at": "2026-11-14T04:00:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.22.0",
+  "title": "Voix d'Odin revérifiée et finie, et un port direct pour chaque appli",
+  "details": [
+   "Voix : le choix homme ou femme sert dès la phrase suivante, sans relancer Odin ; « parle avec une voix de femme » marche aussi sans IA. Avec ElevenLabs, une clé suffit pour parler.",
+   "Piper : le serveur Piper actuel est de nouveau compris (Odin prenait sa page d'accueil pour du son) ; l'aide de Réglages → Voix est à jour. Essayé avec le vrai Piper.",
+   "Copie de voix : l'accord est noté avant tout envoi, avec le nom de la personne si ce n'est pas ta voix ; « Retirer l'accord » efface la voix copiée. La clé n'apparaît dans aucun message d'erreur.",
+   "Telegram : « dis-le à voix haute » envoie enfin la note vocale. Pythie : « Écouter une réponse », lue par Orphée.",
+   "Ports directs : http://adresse:port ouvre directement la page d'une appli, toujours avec ta connexion. Réglable dans Réglages → Ports et dans la carte « Son port » de chaque appli ; ouvrir sur le réseau demande ton accord (Cerbère ouvre puis referme le pare-feu). Un port pris est dit en clair, avec le programme qui le tient ; il est gardé après un redémarrage.",
+   "Pas testé : le vrai service ElevenLabs (pas de clé ici), OpenVoice (pas branché : voir docs/voix-v2.md), un vrai téléphone."
+  ],
+  "planets": [
+   "applis",
+   "machines"
+  ],
+  "kind": "version"
+ },
+ {
+  "id": "v1210",
+  "at": "2026-11-14T03:00:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.21.0",
+  "title": "Nouvelle page des applis : onglets, « Sur quel poste ? », zone où déposer un fichier, et un autre poste ajouté pas à pas",
+  "details": [
+   "Chaque appli a le même haut de page : le retour, l'icône, le nom et une ligne d'explication. « En savoir plus » déplie l'histoire du nom et la liste des fonctions. Le décor du thème ne passe plus derrière le texte.",
+   "Des onglets courts, toujours sur une seule ligne, même sur téléphone : Asclépios (Analyser, Résultats, Règles, Réglages) et Alchimie (Convertir, PDF, Automatique, Outils) tiennent en un écran au lieu de huit. Le premier onglet contient ce qu'on vient faire le plus souvent ; ils se parcourent aussi au clavier.",
+   "« Sur quel poste ? » en haut d'Asclépios, Hygie, Pyramide, Thermopyles, Chroniques et Némésis : un clic pour passer d'un poste à l'autre (pastilles sur ordinateur, liste sur téléphone). Sur un autre poste, la page montre ses résultats à lui, et seules les actions qui savent y aller sont proposées.",
+   "« Ajouter un poste », pas à pas : les ordinateurs, serveurs et NAS vus sur ton réseau sont proposés ; « Tester la connexion » dit ce qu'Odin peut lire ; le poste n'entre dans le coffre que si l'essai réussit, et le mot de passe n'est jamais réaffiché. Si Windows bloque le compte, la commande à lancer sur le PC est donnée, avec un bouton pour la copier.",
+   "Asclépios → Analyser : une zone où déposer un fichier (ou le choisir), le fichier d'un lien, et « Cette machine » (analyse rapide, tout, ou un seul dossier). Nouveau profil « rapide » : là où les fichiers arrivent (téléchargements, boîte d'arrivée d'Odin, dossiers temporaires).",
+   "Alchimie → Convertir : dépose un fichier ou colle un lien ; Alchimie ne propose que les formats possibles pour ce fichier, rangés par genre, et la qualité quand elle compte. Les derniers résultats se reprennent d'un clic (« Télécharger »).",
+   "Sur téléphone : boutons d'au moins 44 px sur la page des applis, retour en icône, onglets et première carte visibles sans défiler.",
+   "Corrigé : Odin arrêté pendant son démarrage laissait des applis démarrer après l'arrêt (un port restait ouvert).",
+   "Vérifié dans un vrai navigateur, sur ordinateur et sur téléphone : 106 contrôles (rien ne dépasse, onglets sur une ligne, dépôt d'un fichier, conversion et téléchargement, essai de connexion, clavier). Pas testé : un vrai Windows, un vrai Mac, ton installation."
+  ],
+  "planets": [
+   "applis",
+   "securite",
+   "machines"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1200",
   "at": "2026-11-13T19:50:00+03:00",
   "date": "2026-11-13",

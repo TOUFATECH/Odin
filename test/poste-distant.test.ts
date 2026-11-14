@@ -17,7 +17,7 @@ import { listMachines, saveMachine } from '../src/machines/access.ts';
 import { cheminMontre, commandeUnix, grosUtile, GROS_UTILES, lireOu, lirePoste, quelAcces, racinesSmb, type FichierLu } from '../src/machines/lecture.ts';
 import { erreurSmb, ligneLs, lireFichiersSmb, lirePartages, listerSmb, panneConnexion, partagesSmb, tourneEnRond } from '../src/machines/smb.ts';
 import { allModules } from '../src/valhalla/odin.ts';
-import { estIci, ligneDeCommande, posteDe, postesLisibles } from '../src/valhalla/postes.ts';
+import { choixDePoste, essayerPoste, estIci, ligneDeCommande, posteDe, postesLisibles, postesTrouves, setReseau } from '../src/valhalla/postes.ts';
 import { lireSonde } from '../src/valhalla/modules/eir.ts';
 import { judge, lireSondeProcs } from '../src/valhalla/modules/skogul.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
@@ -148,7 +148,8 @@ async function banc(): Promise<Banc> {
     const sshd = spawnSync('sh', ['-c', 'command -v sshd || echo /usr/sbin/sshd'], { encoding: 'utf8' }).stdout.trim().split('\n')[0];
     enfants.push(spawn(sshd, ['-D', '-e', '-f', join(dir, 'ssh', 'sshd_config')], { stdio: 'ignore' })); await attendre(sshPort);
   }
-  return { dir, c, smbPort, sshPort, pw, cle, fin: () => { for (const e of enfants) { try { e.kill('SIGKILL'); } catch { /* déjà fini */ } } rmSync(dir, { recursive: true, force: true }); } };
+  // Samba lance à côté de lui un assistant (samba-dcerpcd) qui lui survit : on l'arrête aussi, par le chemin de sa configuration.
+  return { dir, c, smbPort, sshPort, pw, cle, fin: () => { for (const e of enfants) { try { e.kill('SIGKILL'); } catch { /* déjà fini */ } } spawnSync('pkill', ['-KILL', '-f', `configfile=${join(dir, 'smb.conf')}`]); rmSync(dir, { recursive: true, force: true }); } };
 }
 function monde(b: Banc) {
   const home = mkdtempSync(join(tmpdir(), 'poste-odin-')), envoyes: string[] = [];
@@ -197,6 +198,74 @@ test('partage Windows réel : liste, lecture en flux, noms difficiles, fichier d
     // Le mot de passe ne traîne pas : aucun fichier temporaire d'Odin ne reste.
     assert.deepEqual(temporaires(), avant, 'aucun fichier temporaire ne reste, même après les refus (et le mot de passe n\'est jamais écrit sur le disque)');
   } finally { b.fin(); }
+});
+
+test('« Tester la connexion » d\'un poste réel : il n\'entre dans le coffre que si l\'essai réussit, un mauvais mot de passe n\'écrase jamais le bon', { skip: !peutSmb || !peutSsh ? 'Samba ou sshd absent' : false, timeout: 120_000 }, async () => {
+  const b = await banc(), home = mkdtempSync(join(tmpdir(), 'essai-poste-')), ferme = await libre();
+  try {
+    // Un PC Windows (partage de fichiers) : mauvais mot de passe d'abord.
+    const pc = { adresse: '127.0.0.1', utilisateur: 'root', port: ferme, port_partage: b.smbPort };
+    let r = await essayerPoste(home, { ...pc, mot_de_passe: 'faux' });
+    assert.equal(r.ok, false); assert.match(r.text, /^Connexion refusée : identifiant ou mot de passe refusé/); assert.equal(listMachines(home).length, 0, 'rien n\'est rangé après un essai raté');
+    // Le bon : le disque entier est lisible, le poste est rangé avec son mot de passe et sa façon d'être lu.
+    r = await essayerPoste(home, { ...pc, mot_de_passe: b.pw });
+    assert.equal(r.ok, true, r.text); assert.equal(r.text, 'Connexion réussie : le disque C: est lisible en entier.'); assert.equal(r.sys, 'Windows'); assert.equal(r.aideWindows, undefined);
+    let coffre = listMachines(home); assert.equal(coffre.length, 1); assert.equal(coffre[0].id, r.poste); assert.equal(coffre[0].via, 'smb'); assert.equal(coffre[0].smbPort, b.smbPort); assert.equal(coffre[0].password, b.pw);
+    assert.ok(!JSON.stringify(r).includes(b.pw), 'le mot de passe n\'est jamais rendu');
+    // Un mauvais mot de passe ensuite : refusé, et le bon reste dans le coffre.
+    r = await essayerPoste(home, { ...pc, mot_de_passe: 'encore-faux' }); assert.equal(r.ok, false);
+    coffre = listMachines(home); assert.equal(coffre.length, 1); assert.equal(coffre[0].password, b.pw, 'le bon mot de passe n\'est pas écrasé');
+    // Déjà dans le coffre : on réessaie sans redonner le compte.
+    r = await essayerPoste(home, { adresse: '127.0.0.1' }); assert.equal(r.ok, true, r.text); assert.equal(r.poste, coffre[0].id);
+    // Un Linux par SSH (la clé d'Odin y est déjà) : reconnu, rangé « par SSH ».
+    const home2 = mkdtempSync(join(tmpdir(), 'essai-poste-ssh-'));
+    try {
+      copyFileSync(b.cle, join(home2, 'id_ed25519')); copyFileSync(`${b.cle}.pub`, join(home2, 'id_ed25519.pub')); chmodSync(join(home2, 'id_ed25519'), 0o600);
+      r = await essayerPoste(home2, { adresse: '127.0.0.1', utilisateur: 'root', mot_de_passe: 'peu-importe-ici', port: b.sshPort, port_partage: ferme });
+      assert.equal(r.ok, true, r.text); assert.equal(r.text, 'Connexion réussie : Linux, lu par SSH.'); assert.equal(listMachines(home2)[0].via, 'ssh'); assert.equal(listMachines(home2)[0].port, b.sshPort);
+    } finally { rmSync(home2, { recursive: true, force: true }); }
+    // Un poste éteint (aucun des deux ports ne répond) : dit clairement, rien n'est rangé.
+    const home3 = mkdtempSync(join(tmpdir(), 'essai-poste-vide-'));
+    try {
+      r = await essayerPoste(home3, { adresse: '127.0.0.1', utilisateur: 'root', mot_de_passe: 'x', port: ferme, port_partage: await libre() });
+      assert.equal(r.ok, false); assert.match(r.text, /ne répond ni au partage de fichiers \(Windows, NAS\) ni à SSH/); assert.equal(listMachines(home3).length, 0);
+    } finally { rmSync(home3, { recursive: true, force: true }); }
+  } finally { b.fin(); rmSync(home, { recursive: true, force: true }); }
+});
+
+test('« Tester la connexion » : refus avant toute connexion (compte dangereux, adresse fausse, mot de passe manquant) ; postes trouvés sur le réseau', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'essai-poste-refus-'));
+  try {
+    assert.match((await essayerPoste(home, {})).text, /^Quel poste \?/);
+    assert.match((await essayerPoste(home, { adresse: '192.168.1.20' })).text, /compte administrateur/);
+    assert.match((await essayerPoste(home, { adresse: '192.168.1.20', utilisateur: 'Fatima' })).text, /Il manque le mot de passe/);
+    // Rien ne part vers SSH ni vers le partage de fichiers avec un nom qui cache une option ou une commande.
+    for (const u of ['-oProxyCommand=x', 'a;b', '$(id)', 'a|b', 'a`id`']) { const r = await essayerPoste(home, { adresse: '192.168.1.20', utilisateur: u, mot_de_passe: 'x' }); assert.equal(r.ok, false, u); assert.match(r.text, /^Nom d'utilisateur invalide\.$/, u); }
+    for (const h of ['-oProxyCommand=x', '192.168.1.20; id', 'a b', '$(id)']) { const r = await essayerPoste(home, { adresse: h, utilisateur: 'root', mot_de_passe: 'x' }); assert.equal(r.ok, false, h); assert.match(r.text, /^Adresse invalide/, h); }
+    assert.match((await essayerPoste(home, { adresse: '192.168.1.20', utilisateur: 'MAISON bis\\Fatima', mot_de_passe: 'x' })).text, /^Domaine Windows invalide/);
+    assert.equal(listMachines(home).length, 0);
+    // Les ordinateurs vus sur le réseau, pas encore dans le coffre : ceux qui répondent au partage de fichiers ou à SSH.
+    saveMachine(home, { label: 'serveur-web', host: '192.168.1.5', user: 'root', via: 'ssh' });
+    setReseau(() => [
+      { ip: '192.168.1.20', nom: 'PC-SALON', kind: 'ordinateur / serveur', os: 'Windows 11 Pro', ports: [135, 445], enLigne: true },
+      { ip: '192.168.1.5', nom: 'serveur-web', kind: 'ordinateur / serveur', ports: [22, 80], enLigne: true },   // déjà dans le coffre
+      { ip: '192.168.1.31', nom: 'Mac de Sami', kind: 'ordinateur', os: 'macOS 15', ports: [22], enLigne: false },
+      { ip: '192.168.1.1', nom: 'box', kind: 'routeur', ports: [22, 80, 443], enLigne: true },
+      { ip: '192.168.1.40', nom: 'Télé du salon', kind: 'multimédia', ports: [8008], enLigne: true },
+      { ip: '192.168.1.50', nom: 'nas', kind: 'stockage (NAS)', ports: [445, 5000], enLigne: true },
+      { ip: '192.168.1.60', kind: 'inconnu', ports: [22], enLigne: true },
+    ]);
+    try {
+      assert.deepEqual(postesTrouves(home, { partages: true }), [{ adresse: '192.168.1.20', nom: 'PC-SALON', sys: 'Windows' }, { adresse: '192.168.1.50', nom: 'nas', sys: 'NAS' }, { adresse: '192.168.1.60', nom: '192.168.1.60', sys: 'Linux ou Mac' }, { adresse: '192.168.1.31', nom: 'Mac de Sami', sys: 'Mac' }]);
+      // Une appli qui ne lit que par SSH ne propose pas les postes qui n'ont que le partage de fichiers.
+      assert.deepEqual(postesTrouves(home).map((x) => x.nom), ['192.168.1.60', 'Mac de Sami']);
+      const w = { home, modules: () => [] } as unknown as Parameters<typeof choixDePoste>[0];
+      const c = choixDePoste(w, new URLSearchParams({ poste: 'serveur-web' }));
+      assert.deepEqual(c.choix.map((x) => x.nom), ['Cette machine', 'serveur-web']); assert.equal(c.choix[1].id, c.actuel); assert.equal(c.ajouter, true); assert.deepEqual(c.trouves?.map((x) => x.nom), ['192.168.1.60', 'Mac de Sami']);
+      assert.equal(choixDePoste(w, new URLSearchParams({ poste: 'poste-retiré' })).actuel, '', 'un poste qui n\'existe plus ramène à la machine d\'Odin');
+      assert.equal(choixDePoste(w, new URLSearchParams({ poste: 'ici' })).actuel, '');
+    } finally { setReseau(undefined); }
+  } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
 test('lire un poste réel : tout, rapide, un seul endroit ; gros programmes lus (début + empreinte), gros films laissés ; SSH pareil', { skip: !peutSmb || !peutSsh ? 'Samba ou sshd absent' : false, timeout: 120_000 }, async () => {
@@ -266,8 +335,12 @@ test('Asclépios analyse un PC Windows par son partage : virus connu trouvé, ri
     const table = (v: Awaited<ReturnType<typeof page>>, re: RegExp) => v.sections.find((x) => x.kind === 'table' && re.test(x.title ?? '')) as { rows: Array<{ cells: string[]; actions?: Array<{ action: string; label: string; input: Record<string, unknown> }> }> };
     let v = await page();
     const ligne = table(v, /^Détections/).rows.find((x) => /facture-colis/.test(x.cells[2]))!; assert.equal(ligne.actions![0].action, 'isoler_distant'); assert.equal(ligne.actions![0].label, 'Isoler sur le poste');
-    assert.deepEqual(table(v, /^Autres postes/).rows[0].cells.slice(0, 3), ['PC-SALON', '127.0.0.1', 'root']); assert.match(table(v, /^Autres postes/).rows[0].cells[3], /\d+ fichiers · 3 détection\(s\)/);
-    assert.ok(v.sections.some((x) => x.kind === 'form' && x.title === 'Analyser un autre poste'));
+    // « Sur quel poste ? » propose le PC ; une fois choisi, la page ne montre que ses résultats et propose de le réanalyser.
+    const pc = v.postes!.choix.find((c) => c.nom === 'PC-SALON')!; assert.equal(pc.sys, 'Windows'); assert.equal(v.postes!.ensuite?.action, 'analyser_poste');
+    const sur = await w.v.modules().find((m) => m.id === 'ullr')!.view(w.v.ctx('ullr'), new URLSearchParams({ poste: pc.id }));
+    assert.equal(sur.postes!.actuel, pc.id); assert.match(table(sur, /^Rapports de PC-SALON/).rows[0].cells[1], /PC-SALON/); assert.equal(table(sur, /^Rapports de PC-SALON/).rows[0].cells[3], '3');
+    assert.ok(table(sur, /^Détections sur PC-SALON/).rows.length >= 3 && !sur.sections.some((x) => x.kind === 'table' && /^Incidents/.test(x.title ?? '')));
+    assert.ok(sur.sections.some((x) => x.kind === 'actions' && x.title === 'PC-SALON') && !v.sections.some((x) => x.kind === 'form' && x.title === 'Analyser un autre poste'));
     // Mise à l'écart sur le poste : avec ton accord, réversible.
     const id = String(ligne.actions![0].input.detection), isoler = w.v.modules().find((m) => m.id === 'ullr')!.actions.find((x) => x.id === 'isoler_distant')!;
     assert.match(isoler.grave!({ detection: id }, w.v.ctx('ullr')) ?? '', /renommer PC-SALON › C:\/Users\/Fatima\/Downloads\/facture-colis\.exe sur son poste/);
@@ -350,10 +423,16 @@ test('disques, pare-feu et journaux d\'un autre poste, lus par un vrai SSH : mê
     // Pyramide : les volumes du poste (ici la même machine, donc les mêmes que sur place).
     const local = await w.v.act('fensalir', 'disques'), distant = await w.v.act('fensalir', 'disques', { poste: 'serveur-web' });
     assert.equal(distant.ok, true, distant.text); assert.match(distant.text, /^Sur serveur-web :\n/);
-    assert.deepEqual((distant.data as { volumes: unknown[] }).volumes, (local.data as { volumes: unknown[] }).volumes); assert.equal((distant.data as { poste: string }).poste, 'serveur-web');
+    // Mêmes volumes ; la place libre peut bouger entre les deux lectures (d'autres programmes écrivent) : égale à 512 Mo près.
+    type Vol = { libre: number; utilise: number } & Record<string, unknown>;
+    const sansPlace = (l: Vol[]) => l.map(({ libre: _l, utilise: _u, ...reste }) => reste), VL = (local.data as { volumes: Vol[] }).volumes, VD = (distant.data as { volumes: Vol[] }).volumes;
+    assert.deepEqual(sansPlace(VD), sansPlace(VL));
+    for (const [k, x] of VD.entries()) assert.ok(Math.abs(x.libre - VL[k].libre) < 512e6 && Math.abs(x.utilise - VL[k].utilise) < 512e6, `place du volume ${String(x.monte)}`);
+    assert.equal((distant.data as { poste: string }).poste, 'serveur-web');
     assert.match((await w.v.act('fensalir', 'partages', { poste: 'serveur-web' })).text, /^Sur serveur-web :\n/);
     const page = await w.v.modules().find((m) => m.id === 'fensalir')!.view(ctx, new URLSearchParams({ poste: 'serveur-web' }));
-    assert.match(page.subtitle ?? '', /^serveur-web · /); assert.ok(page.side?.some((x) => x.kind === 'form' && x.title === 'Voir les disques d\'un autre poste' && x.action === 'disques'), 'la page propose de voir un autre poste (le résultat reste affiché sous le formulaire)');
+    assert.match(page.subtitle ?? '', /^serveur-web · /); assert.equal(page.postes?.choix.find((c) => c.id === page.postes?.actuel)?.nom, 'serveur-web', 'la page montre le poste choisi dans « Sur quel poste ? »');
+    assert.deepEqual(page.side, [], 'sur un autre poste, les formulaires qui agissent sur la machine d\'Odin (partager un dossier…) ne sont pas proposés');
     // Thermopyles : les ports à l'écoute du poste, dont le SSH d'essai.
     const fw = await w.v.act('hlid', 'etat', { poste: 'serveur-web' }); assert.equal(fw.ok, true, fw.text); assert.match(fw.text, /^Sur serveur-web · Pare-feu : /);
     assert.ok((fw.data as { ecoutes: Array<{ port: number }> }).ecoutes.some((e) => e.port === b.sshPort), 'le port du SSH d\'essai est vu à l\'écoute sur le poste');
@@ -435,6 +514,9 @@ test('Némésis par un vrai SSH : un programme lancé depuis un dossier temporai
     assert.match((await w.v.act('skogul', 'analyser')).text, /Aucun comportement suspect|\[(critique|haute|moyenne)\]/, 'sans poste : la machine d\'Odin, comme avant');
     assert.match((await w.v.order('processus suspects sur serveur-web')).text, /^Némésis · Analyser maintenant\nserveur-web · \d+ programme/, 'sans IA aussi');
     const vue = await w.v.module('skogul')!.view(w.v.ctx('skogul'), new URLSearchParams());
-    assert.ok(vue.side?.some((x) => x.kind === 'form' && x.title === 'Analyser un autre poste' && x.params[0].options?.includes('serveur-web')));
+    assert.ok(vue.postes?.choix.some((c) => c.nom === 'serveur-web'), '« Sur quel poste ? » propose serveur-web'); assert.equal(vue.postes?.actuel, '');
+    assert.ok(![...vue.sections, ...(vue.side ?? [])].some((x) => x.kind === 'form' && x.params.some((p) => p.key === 'poste')), 'plus de formulaire « autre poste » dans la page');
+    const vueDistante = await w.v.module('skogul')!.view(w.v.ctx('skogul'), new URLSearchParams({ poste: 'serveur-web' }));
+    assert.match(vueDistante.subtitle ?? '', /^serveur-web · \d+ programme/); assert.equal(vueDistante.postes?.choix.find((c) => c.id === vueDistante.postes?.actuel)?.nom, 'serveur-web');
   } finally { try { enfant?.kill('SIGKILL'); } catch { /* déjà arrêté */ } rmSync(dir, { recursive: true, force: true }); w.fin(); b.fin(); }
 });

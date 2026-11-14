@@ -84,7 +84,13 @@ test('envoyer un fichier à une appli : connexion exigée, endroit fixé par l\'
     // La page propose l'envoi sur les bons réglages (et seulement ceux-là).
     const vue = await va.module('dvalinn')!.view(va.ctx('dvalinn'), new URLSearchParams());
     const champ = (titre: string, cle: string) => (vue.sections.find((x) => x.kind === 'form' && x.title === titre) as { params: Array<{ key: string; depot?: { plusieurs?: boolean } }> }).params.find((p) => p.key === cle)!;
-    assert.deepEqual(champ('Convertir un fichier', 'fichier').depot, {}); assert.deepEqual(champ('Outils PDF', 'fichiers').depot, { plusieurs: true }); assert.equal(champ('Convertir un fichier', 'format').depot, undefined);
+    assert.deepEqual(champ('Outils PDF', 'fichiers').depot, { plusieurs: true });
+    // « Convertir » : une zone de dépôt (fichier envoyé dans le réglage « fichier »), qui demande d'abord ce que le fichier peut devenir.
+    const zone = vue.sections.find((x) => x.kind === 'depot') as { action: string; champ: string; onglet?: string; choix?: { action: string }; lien?: { action: string; champ: string } };
+    assert.deepEqual([zone.action, zone.champ, zone.onglet, zone.choix?.action, zone.lien?.action, zone.lien?.champ], ['convertir', 'fichier', 'Convertir', 'possibles', 'depuis_lien', 'lien']);
+    assert.deepEqual(vue.onglets, ['Convertir', 'PDF', 'Automatique', 'Outils']);
+    const reglage = (cle: string) => va.module('dvalinn')!.actions.find((x) => x.id === 'convertir')!.params!.find((p) => p.key === cle)!;
+    assert.deepEqual(reglage('fichier').depot, {}); assert.equal(reglage('format').depot, undefined);
 
     // Asclépios : le fichier envoyé est analysé, puis sa copie est effacée d'Odin (sain ou non).
     r = await envoi('ullr', 'note.txt', 'Compte rendu de chantier\n'); assert.equal(r.body.ref, join(depots, 'note.txt'));

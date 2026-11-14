@@ -2,7 +2,9 @@
 // autre poste Linux ou Mac enregistré dans le coffre des machines. Mêmes commandes, lancées là-bas par SSH ;
 // rien n'est installé sur le poste, et son mot de passe ne quitte jamais le coffre.
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
-import { findMachine, listMachines, streamOnMachine, type Machine } from '../machines/access.ts';
+import { findMachine, listMachines, saveMachine, streamOnMachine, verifierAcces, type Machine } from '../machines/access.ts';
+import { quelAcces, systemeSsh } from '../machines/lecture.ts';
+import { essaiSmb, partagesSmb } from '../machines/smb.ts';
 import type { ModCtx, View } from './types.ts';
 
 type Run = ModCtx['run'];
@@ -79,5 +81,72 @@ export const PARAM_POSTE = { key: 'poste', label: 'Poste (vide : cette machine)'
 export function choixDePoste(ctx: ModCtx, q: URLSearchParams | undefined, o: { partages?: boolean } = {}): NonNullable<View['postes']> {
   const tous = listMachines(ctx.home).filter((m) => o.partages || m.via !== 'smb');
   const demande = (q?.get('poste') ?? '').trim(), m = demande && !estIci(demande) ? findMachine(ctx.home, demande) : undefined;
-  return { actuel: m && tous.some((x) => x.id === m.id) ? m.id : '', choix: [{ id: '', nom: 'Cette machine' }, ...tous.map((x) => ({ id: x.id, nom: x.label, ...(x.via === 'smb' ? { sys: 'Windows' } : {}) }))], ajouter: true };
+  return { actuel: m && tous.some((x) => x.id === m.id) ? m.id : '', choix: [{ id: '', nom: 'Cette machine' }, ...tous.map((x) => ({ id: x.id, nom: x.label, ...(x.via === 'smb' ? { sys: 'Windows' } : {}) }))], ajouter: true, trouves: postesTrouves(ctx.home, o) };
+}
+
+/** Un appareil vu sur le réseau par le registre d'Odin (ce qu'il faut pour proposer un poste à ajouter). */
+export interface VuSurLeReseau { ip: string; nom?: string; kind?: string; os?: string; ports?: number[]; enLigne?: boolean }
+let reseau: (() => VuSurLeReseau[]) | undefined;
+/** Branche le registre réseau d'Odin : sert seulement à proposer les ordinateurs à ajouter (« Trouvés sur ton réseau »). */
+export const setReseau = (f: (() => VuSurLeReseau[]) | undefined) => { reseau = f; };
+/**
+ * Les ordinateurs, serveurs et NAS vus sur le réseau qui ne sont pas encore dans le coffre : ceux qui répondent à SSH
+ * (Linux, Mac) et, avec `partages`, au partage de fichiers (Windows, NAS). En ligne d'abord, 12 au plus.
+ */
+export function postesTrouves(home: string, o: { partages?: boolean } = {}): Array<{ adresse: string; nom: string; sys?: string }> {
+  let vus: VuSurLeReseau[] = []; try { vus = reseau?.() ?? []; } catch { /* registre pas prêt */ }
+  const deja = new Set(listMachines(home).flatMap((m) => [m.host.toLowerCase(), m.label.toLowerCase()]));
+  const sys = (d: VuSurLeReseau) => { const os = d.os ?? '', p = d.ports ?? []; return /windows/i.test(os) ? 'Windows' : /mac ?os|darwin/i.test(os) ? 'Mac' : /linux|ubuntu|debian|fedora/i.test(os) ? 'Linux' : /nas/i.test(d.kind ?? '') ? 'NAS' : p.includes(445) && !p.includes(22) ? 'Windows' : p.includes(22) && !p.includes(445) ? 'Linux ou Mac' : undefined; };
+  return vus.filter((d) => d.ip && !deja.has(d.ip.toLowerCase()) && !(d.nom && deja.has(d.nom.toLowerCase())))
+    // Une appli qui ne lit que par SSH ne propose que les postes où SSH répond ; avec les partages : aussi Windows et les NAS.
+    .filter((d) => { const p = d.ports ?? []; return p.includes(22) || (Boolean(o.partages) && (p.includes(445) || /ordinateur|stockage/i.test(d.kind ?? ''))); })
+    .filter((d) => !/routeur|caméra|imprimante|téléphone|multimédia/i.test(d.kind ?? ''))
+    .sort((a, b) => Number(Boolean(b.enLigne)) - Number(Boolean(a.enLigne)))
+    .slice(0, 12).map((d) => { const y = sys(d); return { adresse: d.ip, nom: d.nom || d.ip, ...(y ? { sys: y } : {}) }; });
+}
+
+/** La commande à lancer une fois sur un PC Windows qui refuse à distance son compte administrateur local. */
+export const COMMANDE_WINDOWS = 'reg add HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System /v LocalAccountTokenFilterPolicy /t REG_DWORD /d 1 /f';
+export interface EssaiPoste { ok: boolean; text: string; /** l'identifiant du poste dans le coffre (rangé seulement si l'essai a réussi) */ poste?: string; nom?: string; sys?: string; /** Windows bloque ce compte à distance : montrer la commande à lancer sur le PC */ aideWindows?: boolean }
+/**
+ * « Tester la connexion » : essaie un poste avec le compte donné et dit ce qui y est lisible. Le poste et son mot de
+ * passe ne sont rangés dans le coffre **que si l'essai réussit** ; un mauvais mot de passe n'écrase donc jamais le bon.
+ * Sans compte : le poste doit déjà être dans le coffre (on réessaie avec ce qu'on a). Le mot de passe n'est jamais rendu.
+ */
+export async function essayerPoste(home: string, i: { adresse?: unknown; utilisateur?: unknown; mot_de_passe?: unknown; /** port SSH s'il n'est pas 22 */ port?: unknown; /** port du partage de fichiers s'il n'est pas 445 */ port_partage?: unknown }): Promise<EssaiPoste> {
+  const adresse = String(i.adresse ?? '').trim(), compte = String(i.utilisateur ?? '').trim(), pw = typeof i.mot_de_passe === 'string' ? i.mot_de_passe : '';
+  if (!adresse) return { ok: false, text: 'Quel poste ? Choisis-le dans la liste ou tape son adresse (par exemple 192.168.1.20).' };
+  const connu = findMachine(home, adresse);
+  const bs = compte.indexOf('\\'), domaine = bs > 0 ? compte.slice(0, bs) : '', user = bs > 0 ? compte.slice(bs + 1) : compte;
+  if (!user && !connu) return { ok: false, text: 'Donne le compte administrateur de ce poste : son identifiant et son mot de passe.' };
+  // Un poste déjà dans le coffre se réessaie avec ce qu'on a (mot de passe rangé, ou clé d'Odin déjà installée dessus).
+  if (user && !pw && !(connu && connu.user === user)) return { ok: false, text: 'Il manque le mot de passe de ce compte.' };
+  const num = (v: unknown) => { const n = Number(v); return Number.isInteger(n) && n > 0 && n < 65536 ? n : undefined; }, portSsh = num(i.port), portSmb = num(i.port_partage);
+  // Rien ne part vers SSH ou le partage de fichiers avant ce contrôle (pas d'option glissée dans un nom).
+  try { verifierAcces(connu?.host ?? adresse, user || connu!.user, domaine || undefined); } catch (e) { return { ok: false, text: `${(e as Error).message[0].toUpperCase()}${(e as Error).message.slice(1)}.` }; }
+  // Le poste tel qu'on l'essaie : rien n'est rangé tant que la connexion n'a pas réussi.
+  const m: Machine = { ...(connu ?? { id: '', label: adresse, host: adresse, port: 22, user, addedAt: Date.now() }), ...(user ? { user } : {}), ...(domaine ? { domain: domaine } : {}), ...(pw ? { password: pw } : {}), ...(portSsh ? { port: portSsh } : {}), ...(portSmb ? { smbPort: portSmb } : {}) };
+  const via = await quelAcces(home, m).catch(() => undefined);
+  if (!via) return { ok: false, text: `${adresse} ne répond ni au partage de fichiers (Windows, NAS) ni à SSH (Linux, Mac) : poste éteint ou en veille, pare-feu fermé, ou autre réseau.` };
+  let sys = '', text = '', aideWindows = false;
+  try {
+    if (via === 'smb') {
+      const parts = await partagesSmb(m), disques = parts.filter((p) => p.disque), autres = parts.filter((p) => !p.disque && !/\$$/.test(p.nom));
+      const noms = `${autres.slice(0, 4).map((a) => a.nom).join(', ')}${autres.length > 4 ? '…' : ''}`;
+      if (!disques.length) { sys = 'NAS'; text = autres.length ? `Connexion réussie : dossiers partagés lisibles (${noms}).` : 'Connexion réussie, mais ce poste ne partage aucun dossier.'; }
+      else {
+        sys = 'Windows';
+        const refus = await essaiSmb(m, disques[0].nom);
+        if (!refus) text = `Connexion réussie : ${disques.length > 1 ? `les disques ${disques.map((d) => `${d.disque}:`).join(', ')} sont lisibles` : `le disque ${disques[0].disque}: est lisible`} en entier.`;
+        else if (autres.length) { text = `Connexion réussie, mais Windows ne laisse lire à ce compte que les dossiers partagés (${noms}), pas le disque entier.`; aideWindows = true; }
+        else return { ok: false, text: 'Le PC répond, mais Windows bloque ce compte à distance : rien n\'est lisible pour l\'instant.', aideWindows: true };
+      }
+    } else {
+      const y = await systemeSsh(home, m); sys = y === 'linux' ? 'Linux' : y === 'mac' ? 'Mac' : y === 'windows' ? 'Windows' : '';
+      text = `Connexion réussie${sys ? ` : ${sys}` : ''}, lu par SSH.`;
+    }
+  } catch (e) { const msg = (e as Error).message; return { ok: false, text: `Connexion refusée : ${msg.slice(0, 400)}`, aideWindows: /administrateur local|accès refusé/i.test(msg) }; }
+  const prev = connu ?? listMachines(home).find((z) => z.host === adresse && z.user === m.user);
+  const range = saveMachine(home, { id: prev?.id, host: m.host, label: prev?.label, user: m.user, port: m.port, via, ...(pw ? { password: pw } : {}), ...(m.domain ? { domain: m.domain } : {}), ...(m.smbPort ? { smbPort: m.smbPort } : {}) });
+  return { ok: true, text, poste: range.id, nom: range.label, ...(sys ? { sys } : {}), ...(aideWindows ? { aideWindows } : {}) };
 }
