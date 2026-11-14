@@ -54,6 +54,8 @@ import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost }
 import { maisonRoute } from './maison-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
+import { exportApi } from './export-api.ts';
+import { partageApi, partagePublic } from './partage-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import { DirectPorts, directOpen, directPage, portsGet, portsPost } from '../valhalla/directports.ts';
@@ -558,6 +560,8 @@ export class WebChannel implements Channel {
     if (await publicRoute(req, res, url)) return;
     // Chronos : page publique de réservation (/r/…), lien secret, sans script.
     if (await friggPublic(req, res, url)) return;
+    // Partage d'une page d'appli : la copie figée (/partage/…), adresse secrète, sans script, débit limité.
+    if (await partagePublic(req, res, url, { ip, https: this.secure || this.viaHttps(req), proprietaire: () => this.authed(req) })) return;
     if (url.pathname === '/runes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(RUNES_JS); }
     if (url.pathname === '/app-icons.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(APP_ICONS_JS); }
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
@@ -755,6 +759,9 @@ export class WebChannel implements Channel {
     }
     // Ports directs des applis (Réglages → Ports, en-tête de la page d'une appli) : lire ici ; régler, ouvrir, fermer en POST.
     if (req.method === 'GET' && url.pathname === '/api/ports') return json(res, 200, await portsGet(valhallaOf(), url.searchParams, { adresses: { freyja: this.odin.cfg.venus?.url ?? '' } }));
+    // Export (Word, PDF, Markdown, JSON) et partage de la page d'une appli.
+    if (await exportApi(req, res, url, { connus: (t) => this.odin.redactor.redact(t) })) return;
+    if (await partageApi(req, res, url, { ip, acces: this.access, origine: () => this.publicOrigin(req), connus: (t) => this.odin.redactor.redact(t) })) return;
     if (req.method === 'GET' && url.pathname === '/api/valhalla/fichier') {
       // Remettre à l'appareil un fichier produit par une appli (résultat d'une conversion…). L'appli décide (`retrait`) ;
       // le fichier part toujours comme un téléchargement, jamais comme une page affichée par Odin.
