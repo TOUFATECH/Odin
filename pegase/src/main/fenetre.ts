@@ -565,7 +565,7 @@ export class Fenetre {
       case 'avertissementSuite': {
         const id = String(arg?.id ?? courant()); const v = p.vivants.get(id); const o = p.onglet(id); if (!v?.avertissement || !o) return;
         const a = v.avertissement;
-        if (arg?.op === 'retour') { v.avertissement = null; v.avertir = null; p.mettreOnglet({ ...o, url: 'pegase://accueil', titre: '' }); if (v.vue?.webContents.navigationHistory.canGoBack()) { p.mettreOnglet({ ...o, url: v.vue.webContents.getURL() || 'pegase://accueil' }); } this.planifier(); return; }
+        if (arg?.op === 'retour') { v.avertissement = null; v.avertir = null; p.mettreOnglet({ ...o, url: 'pegase://accueil', titre: '' }); this.planifier(); return; }
         if (a.type === 'http') httpPermis.add(new URL(a.url).hostname);
         if (a.type === 'certificat') accepterCertificat(new URL(a.url).host);
         p.mettreOnglet({ ...o, url: a.url }); v.avertir = null;

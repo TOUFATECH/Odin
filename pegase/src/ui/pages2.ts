@@ -51,3 +51,26 @@ pagesSuite.profil = (el, ctx) => {
     else if (b.hasAttribute('data-nouveau-profil')) { const n = await prompt2(el, 'Nom du nouveau profil (ex. Invité, Enfant)', ''); if (n) api.faire('nouveauProfil', { nom: n }); }
   });
 };
+
+// HTTPS d'abord et certificats : la page de Pégase à la place d'une page qui n'est pas sûre.
+pagesSuite.avertissement = (el) => {
+  const onglet = el.dataset.onglet;
+  api.faire('avertissement', { id: onglet }).then((a: { type: string; url: string; erreur?: string } | null) => {
+    if (!a) { el.innerHTML = `<div class="contenu avertissement"><h1>Rien à signaler</h1><p class="sous">Cette page n’a plus d’avertissement.</p></div>`; return; }
+    let hote = a.url; try { hote = new URL(a.url).host; } catch { /* adresse brute */ }
+    const cert = a.type === 'certificat';
+    el.innerHTML = `<div class="contenu avertissement" role="alert">
+      <div class="rangee">${I.bouclier(40)}<h1>${cert ? 'Connexion pas sûre' : 'Ce site n’est pas chiffré'}</h1></div>
+      <p class="sous">${cert
+        ? `Le certificat de <b>${esc(hote)}</b> n’est pas valable${a.erreur ? ` (${esc(a.erreur)})` : ''}. Quelqu’un essaie peut-être de se faire passer pour ce site : ne tape ni mot de passe ni carte bancaire.`
+        : `<b>${esc(hote)}</b> ne répond pas en HTTPS. Ce que tu tapes sur ce site (mots de passe, messages) peut être lu en chemin.`}</p>
+      <div class="rangee"><button class="bouton plein" data-retour>Revenir en lieu sûr</button>
+        <button class="bouton" data-continuer>${cert ? 'Continuer quand même (déconseillé)' : 'Continuer sans chiffrement'}</button></div>
+      <p class="doux petit">${cert ? 'Pégase ne retient pas ce choix : il te reposera la question la prochaine fois.' : 'Pégase retient ce choix pour ce site jusqu’à ce que tu le fermes.'}</p></div>`;
+  }).catch(() => 0);
+  el.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('button'); if (!b) return;
+    if (b.hasAttribute('data-retour')) api.faire('avertissementSuite', { id: onglet, op: 'retour' });
+    if (b.hasAttribute('data-continuer')) api.faire('avertissementSuite', { id: onglet, op: 'continuer' });
+  });
+};

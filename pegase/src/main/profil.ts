@@ -164,6 +164,7 @@ export class ProfilOuvert extends EventEmitter {
 
   private brancher(v: Vivant, wc: WebContents): void {
     const maj = () => {
+      if (wc.isDestroyed() || v.vue?.webContents !== wc) return;
       const o = this.onglet(v.id); if (!o) return;
       v.peutReculer = wc.navigationHistory.canGoBack(); v.peutAvancer = wc.navigationHistory.canGoForward();
       const url = wc.getURL(); const titre = wc.getTitle();
@@ -205,6 +206,8 @@ export class ProfilOuvert extends EventEmitter {
     v.avertir = a; v.avertissement = a;
     const o = this.onglet(v.id); if (!o) return;
     this.mettreOnglet({ ...o, url: `pegase://avertissement`, titre: a.type === 'certificat' ? 'Connexion pas sûre' : 'Site sans chiffrement' });
+    // La page d'erreur de Chromium est fermée : c'est la page d'avertissement de Pégase qui s'affiche à la place.
+    setImmediate(() => this.endormir(v.id));
     this.emit('change');
   }
 

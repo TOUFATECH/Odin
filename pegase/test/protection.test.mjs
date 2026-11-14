@@ -39,6 +39,10 @@ test('bloqueur (vraie EasyList) et quarantaine des téléchargements', { timeout
     assert.ok(await ui.evaluate(() => window.pegase.faire('bloqueurPret')), 'bloqueur prêt');
     // Un vrai nom de domaine (les filtres d'apparence génériques ne s'appliquent pas aux adresses IP).
     await ouvrir(ui, `http://actu.exemple-pegase.fr/pub`);
+    // HTTPS d'abord : le site ne répond pas en https → la page d'avertissement de Pégase, puis « Continuer ».
+    await ui.waitForSelector('.avertissement [data-continuer]', { timeout: 20_000 });
+    assert.match(await ui.textContent('.avertissement h1'), /pas chiffré/);
+    await ui.click('.avertissement [data-continuer]');
     const page = await pageDe(app, /\/pub$/);
     await page.waitForSelector('h1');
     await attendre(() => page.evaluate(() => window.OK === 1));
