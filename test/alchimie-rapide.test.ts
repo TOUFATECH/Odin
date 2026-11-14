@@ -13,6 +13,8 @@ import { DEFAULT_CONFIG } from '../src/config.ts';
 import { cadre, choixPour, dateExif, estimer, jpegAvecDate, nomRecette, qualiteDe, taillePropre } from '../src/valhalla/dvalinn/rapide.ts';
 import { plan } from '../src/valhalla/dvalinn/plan.ts';
 import { CLICK_CATALOG, DEFAULT_CLICKS2 } from '../src/valhalla/clics.ts';
+import { filtreHeif, lireHeif } from '../src/valhalla/dvalinn/heic.ts';
+import { fileURLToPath } from 'node:url';
 
 test('Alchimie rapide : tuiles, estimations, qualité, rognage, date (pur)', () => {
   const c = choixPour([{ nom: 'IMG_1.heic', taille: 3.8e6 }, { nom: 'IMG_2.heic', taille: 3.8e6 }], [['png', 'jpg', 'webp', 'avif', 'gif', 'pdf'], ['png', 'jpg', 'webp', 'avif', 'gif', 'pdf']]);
@@ -84,11 +86,26 @@ test('Alchimie rapide : pour de vrai (antivirus, PNG → JPG daté et rogné, r�
     r = await v.act('dvalinn', 'convertir', { fichier: d.fichiers[1].ref, format: 'jpg', qualite: 70 }); assert.notEqual(r.ok, false, r.text);
     const rec = (await v.act('dvalinn', 'recentes')).data as Array<{ titre: string; vers: string; qualite?: number }>;
     assert.deepEqual(rec.map((x) => x.titre), ['Images → JPG', 'Images → PDF']); assert.equal(rec[0].qualite, 70);
+    // Une vraie photo HEIC d'iPhone (grille de 2 × 2 tuiles HEVC, date de prise dans l'Exif) → JPG, même sans décodeur HEVC dans ImageMagick.
+    const fab = fileURLToPath(new URL('./banc/faire-heic.py', import.meta.url));
+    if ((await sh('python3', [fab, join(at, 'IMG_2033.heic'), '640', '480', 'grille', '2025:07:14 09:30:05'])).code === 0) {
+      const h = lireHeif(readFileSync(join(at, 'IMG_2033.heic')));
+      assert.deepEqual([h.colonnes, h.lignes, h.largeur, h.hauteur, h.date], [2, 2, 620, 470, '2025:07:14 09:30:05']); assert.equal(filtreHeif(h), 'tile=2x2,crop=620:470:0:0');
+      assert.equal(filtreHeif({ ...h, rotation: 90 }), 'tile=2x2,crop=620:470:0:0,transpose=2');
+      r = await v.act('dvalinn', 'preparer', { fichiers: 'atelier:IMG_2033.heic' }); assert.match(r.text, /HEIC/); assert.equal((r.data as { tuiles: Array<{ format: string }> }).tuiles[0].format, 'jpg');
+      r = await v.act('dvalinn', 'convertir', { fichier: 'atelier:IMG_2033.heic', format: 'jpg', qualite: 85, garder_date: true }); assert.notEqual(r.ok, false, r.text);
+      const hj = join(at, 'IMG_2033.jpg'); assert.equal(readFileSync(hj).subarray(0, 3).toString('hex'), 'ffd8ff');
+      assert.equal((await sh('identify', ['-format', '%w %h', hj])).out, '620 470', 'les tuiles assemblées, coupées à la taille de la photo');
+      assert.match((await sh('identify', ['-format', '%[EXIF:DateTimeOriginal]', hj])).out, /^2025:07:14 09:30:05/, 'la date de prise de la photo HEIC est gardée');
+      assert.throws(() => lireHeif(Buffer.from('pas une photo')), /HEIC/);
+    } else t.diagnostic('python3 ou libx265 absent : photo HEIC non essayée');
     // Un fichier joint dans la Discussion (inbox/…) : « Odin, convertis ce fichier en PDF ».
     const inbox = join(home, 'workspace', 'inbox'); mkdirSync(inbox, { recursive: true }); await sh('convert', ['-size', '120x80', 'xc:#4F7FF0', join(inbox, 'recu.png')]);
     r = await v.act('dvalinn', 'convertir', { fichier: 'inbox/recu.png', format: 'pdf' }); assert.notEqual(r.ok, false, r.text); assert.ok(existsSync(join(inbox, 'recu.pdf')), 'le résultat est écrit à côté du fichier joint');
-    const o = await v.order('Odin, convertis ce fichier en PDF');
-    assert.match(`${o.text}`, /Alchimie|convertir|fichier/i, o.text);
-    assert.doesNotMatch((await v.order('il fait beau à Mamoudzou')).text, /Alchimie/);
+    // Sans IA (Logos) : la phrase et le fichier joint arrivent chez Alchimie, le format est compris (« en JPG »).
+    const o = await v.order('Odin, convertis ce fichier en JPG\n\n[Fichier reçu : inbox/recu.png (image/png, 1 Ko)]', 'essai-1');
+    assert.match(o.text, /Alchimie · Convertir un fichier/, o.text); assert.ok(existsSync(join(inbox, 'recu.jpg')), o.text);
+    assert.match((await v.order('convertis ce fichier en PDF', 'essai-2')).text, /il me manque « Fichier »/, 'sans fichier : Alchimie le demande');
+    for (const [k, phrase] of ['il fait beau à Mamoudzou', 'mon fils a de la fièvre', 'on se voit en juin'].entries()) assert.doesNotMatch((await v.order(phrase, `banal-${k}`)).text, /Alchimie/, phrase);
   } finally { rmSync(home, { recursive: true, force: true }); }
 });

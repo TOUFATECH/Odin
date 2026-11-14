@@ -18,6 +18,7 @@ import { extOf, familyOf, pdfPlan, plan, qpdfSecretArgs, TARGETS, type Opts, typ
 import { OUTILS, outil } from '../dvalinn/outils.ts';
 import { CIBLES_MAISON, ciblesMaison, convertirMaison, familleMaison, peutMaison } from '../dvalinn/maison.ts';
 import { lienDeMaison, lienPropre, nomDeLien, telecharger } from '../lien.ts';
+import { heicVersPng, lireHeif } from '../dvalinn/heic.ts';
 import { cadre, choixPour, dateExif, jpegAvecDate, nomRecette, qualiteDe, RAPPORTS, taillePropre } from '../dvalinn/rapide.ts';
 import type { ChoixDepot, ModCtx, Module, Section } from '../types.ts';
 
@@ -118,6 +119,7 @@ async function cadreDe(ctx: ModCtx, abs: string, rapport: string): Promise<Opts[
 async function garderDate(ctx: ModCtx, src: string, out: string[]): Promise<void> {
   let d: Date | undefined;
   if (familyOf(src) === 'image') d = dateExif(await identify(ctx, ['-format', '%[EXIF:DateTimeOriginal]', `${src}[0]`]).catch(() => ''));
+  if (!d && /^(heic|heif)$/.test(extOf(src))) { try { d = dateExif(lireHeif(readFileSync(src)).date ?? ''); } catch { /* pas de date lisible */ } }
   d ??= statSync(src).mtime;
   for (const o of out) {
     try { if (/\.jpe?g$/i.test(o)) writeFileSync(o, jpegAvecDate(readFileSync(o), d)); utimesSync(o, d, d); } catch { /* la conversion reste bonne, seule la date manque */ }
@@ -160,7 +162,18 @@ export async function convertirFichier(ctx: ModCtx, abs: string, vers: string, d
   const fm = familleMaison(basename(abs));
   if (fm && !familyOf(abs)) throw new Error(`conversion pas possible : un fichier .${extOf(abs)} (${fm}) se convertit en ${ciblesMaison(basename(abs)).join(', ')}`);
   const work = workDir(ctx);
-  try { return await runStep(ctx, plan(abs, to, work, o), work, destDir); } finally { rmSync(work, { recursive: true, force: true }); }
+  try { return await runStep(ctx, plan(abs, to, work, o), work, destDir); }
+  catch (e) {
+    // Photo HEIC et ImageMagick sans décodeur HEVC : Alchimie lit la photo elle-même, ffmpeg la décode (sans perte), puis on reprend.
+    if (!/^(heic|heif)$/.test(extOf(abs)) || !(await ctx.has('ffmpeg'))) throw e;
+    const d = workDir(ctx), png = join(d, `${basename(abs, extname(abs))}.png`);
+    try {
+      await heicVersPng((c, a, x) => ctx.run(c, a, x), abs, png);
+      if (to === 'png') { mkdirSync(destDir, { recursive: true }); const out = join(destDir, freeName(destDir, basename(png))); renameSync(png, out); return [out]; }
+      for (const f of readdirSync(work)) rmSync(join(work, f), { recursive: true, force: true });
+      return await runStep(ctx, plan(png, to, work, o), work, destDir);
+    } finally { rmSync(d, { recursive: true, force: true }); }
+  } finally { rmSync(work, { recursive: true, force: true }); }
 }
 /** Le genre de chaque format de sortie (pour ranger les boutons) et son nom affiché quand le sigle ne suffit pas. */
 const GENRES: Array<[string, string[]]> = [['Vidéo', ['mp4', 'mkv', 'webm', 'mov', 'avi']], ['Son', ['mp3', 'm4a', 'flac', 'wav', 'ogg', 'opus', 'aac']], ['Image', ['png', 'jpg', 'webp', 'avif', 'gif', 'bmp', 'tiff', 'ico']],
@@ -286,7 +299,7 @@ export const dvalinn: Module = {
     { id: 'recentes', label: 'Conversions récentes', what: 'Les dernières sortes de conversions, à refaire d\'un geste', read: true, quiet: true, quick: false,
       run: (ctx) => { const l = recettes(ctx); return { text: l.length ? l.map((r) => `${r.titre} (${r.at.slice(0, 10)})`).join('\n') : 'Aucune conversion récente.', data: l }; } },
     { id: 'convertir', label: 'Convertir un fichier', what: 'Vers un autre format ; le résultat est écrit à côté de l\'original', words: ['convertis le fichier', 'convertir le fichier'], params: [
-      { key: 'fichier', label: 'Fichier (dossier:chemin)', kind: 'text', required: true, depot: {} }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
+      { key: 'fichier', label: 'Fichier (dossier:chemin, ou inbox/nom pour un fichier joint dans la Discussion)', kind: 'text', required: true, depot: {} }, { key: 'format', label: 'Vers (mp4, mp3, pdf, jpg, webp, docx…)', kind: 'text', required: true },
       { key: 'qualite', label: 'Qualité', kind: 'select', options: QUAL, default: 'normale' }, { key: 'largeur', label: 'Largeur max (images, vidéos)', kind: 'number', default: 0 }, { key: 'hauteur', label: 'Hauteur max', kind: 'number', default: 0 },
       { key: 'codec', label: 'Codec vidéo', kind: 'select', options: ['h264', 'h265', 'av1'], default: 'h264' }, { key: 'sans_son', label: 'Sans le son', kind: 'boolean', default: false },
       { key: 'debut', label: 'Début (ex. 00:01:30)', kind: 'text', default: '' }, { key: 'duree', label: 'Durée (ex. 20)', kind: 'text', default: '' },
