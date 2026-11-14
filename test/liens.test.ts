@@ -15,6 +15,7 @@ import { santeText } from '../src/valhalla/modules/venus.ts';
 import { allModules } from '../src/valhalla/odin.ts';
 import { Valhalla } from '../src/valhalla/service.ts';
 import { useEngine } from '../src/valhalla/modules/naglfar.ts';
+import { rythme } from '../src/valhalla/modules/hlin.ts';
 import { fakeEngine } from './helpers.ts';
 import { gunzipSync } from 'node:zlib';
 import { buildPacket, DhcpServer, MSG, parsePacket } from '../src/valhalla/vidarr/dhcp.ts';
@@ -835,6 +836,34 @@ CHECKS['syn>forseti'] = async (w) => {
   await w.v.module('syn')!.watch!.run(w.v.ctx('syn'));
   const a = w.v.alerts({ module: 'syn' }).find((x) => /Mémoire : eir\.mem 97 %/.test(x.title));
   assert.ok(a, 'seuil rouge dépassé : alerte dans Forseti'); assert.equal(a!.level, 'haute');
+};
+
+CHECKS['hlin>volva'] = async (w) => {
+  rythme(0);
+  await w.v.act('hlin', 'moi', { prenom: 'Awa', nom: 'Saïd', villes: 'Mamoudzou' });
+  const r = await w.v.act('hlin', 'chercher', { quoi: 'web' });
+  assert.equal(r.ok, true, r.text);
+  assert.ok(w.acts.some((a) => a.module === 'volva' && a.action === 'brut' && a.by === 'réflexe'), 'la recherche passe par Pythie');
+  assert.ok(!existsSync(join(w.v.ctx('volva').dir, 'historique.json')), 'rien dans l\'historique de Pythie');
+  assert.match((await w.v.act('hlin', 'chercher', { fiche: 'Jean Dupont' })).text, /aucune fiche/, 'jamais un nom libre');
+};
+CHECKS['hlin>brisingamen'] = async (w) => {
+  rythme(0);
+  await w.v.act('hlin', 'moi', { prenom: 'Awa', nom: 'Saïd', emails: 'awa.said@exemple.yt' });
+  const cle = '0123456789abcdef0123456789abcdef';
+  assert.equal((await w.v.act('hlin', 'cle_fuites', { cle })).ok, true);
+  assert.ok(did(w, 'brisingamen', 'ajouter'), 'la clé va dans le coffre');
+  assert.match((await w.v.act('brisingamen', 'chercher', { q: 'pwned' })).text, /Have I Been Pwned/); assert.doesNotMatch(JSON.stringify(w.v.manips()), new RegExp(cle), 'la clé n\'est jamais dans le journal');
+  await w.v.act('hlin', 'chercher', { quoi: 'fuites' });
+  assert.ok(w.fetched.some((f) => f.url.startsWith('https://haveibeenpwned.com/api/v3/breachedAccount/awa.said%40exemple.yt')), 'Gygès relit la clé dans le coffre');
+};
+CHECKS['hlin>forseti'] = async (w) => {
+  await w.v.act('hlin', 'moi', { prenom: 'Awa', nom: 'Saïd', emails: 'awa.said@exemple.yt' });
+  const d = new Date(Date.now() - 40 * 864e5), jour = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  assert.equal((await w.v.act('hlin', 'noter_demande', { site: 'annuaire.exemple', date: jour })).ok, true);
+  await w.v.module('hlin')!.watch!.run(w.v.ctx('hlin'));
+  const a = w.v.alerts({ module: 'hlin' }).find((x) => /annuaire\.exemple : délai dépassé/.test(x.title));
+  assert.ok(a, 'délai dépassé : alerte dans Forseti'); assert.equal(a!.fix?.action, 'relancer');
 };
 
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
