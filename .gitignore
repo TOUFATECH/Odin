@@ -6,3 +6,6 @@ node_modules/
 .env
 test/banc/rapport.json
 tools/guide/odin-guide.html
+pegase/node_modules/
+pegase/dist/
+pegase/src/ui/odin-icones.json

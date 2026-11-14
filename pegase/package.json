@@ -1,0 +1,34 @@
+{
+  "name": "pegase",
+  "productName": "Pégase",
+  "version": "0.1.0",
+  "description": "Pégase, le navigateur d'Odin : léger, protégé, synchronisé avec ton Odin.",
+  "license": "MIT",
+  "author": { "name": "TOUFATECH", "email": "contact@toufatech.com" },
+  "homepage": "https://github.com/TOUFATECH/Odin#readme",
+  "main": "dist/main/main.js",
+  "private": true,
+  "scripts": {
+    "icones": "node scripts/icones.mjs",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:ui": "vite build",
+    "build": "npm run icones && npm run build:main && npm run build:ui",
+    "types": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.ui.json --noEmit",
+    "start": "electron .",
+    "test": "node --test test/*.test.mjs",
+    "dist:linux": "npm run build && electron-builder --linux AppImage deb",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "dist:mac": "npm run build && electron-builder --mac dmg"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "2.20.3",
+    "electron-updater": "6.8.11"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.8"
+  }
+}
