@@ -117,6 +117,11 @@ export const LINKS: Link[] = [
   { from: 'hlin', to: 'volva', when: 'tu lances « Vérifier maintenant », ou que la revérification du mois passe', does: 'les recherches préparées de la fiche (nom et ville, numéro, e-mail, pseudo) passent par Pythie, sans IA et sans rien garder dans son historique : aucun robot maison sur les moteurs', auto: true, kind: 'réflexe' },
   { from: 'hlin', to: 'brisingamen', when: 'tu donnes ta clé Have I Been Pwned', does: 'elle est rangée dans le coffre (jamais affichée) ; Gygès la relit là pour chercher tes e-mails dans les fuites connues', auto: true, kind: 'réflexe' },
   { from: 'hlin', to: 'forseti', when: 'la revérification du mois trouve un nouveau résultat, ou une demande de retrait dépasse son délai d\'un mois', does: 'alerte dans le fil commun et sur ta messagerie, numéros, e-mails et adresses masqués', auto: true, kind: 'donnée' },
+  { from: 'durinn', to: 'forseti', when: 'un disque se dégrade (secteurs qui montent, test SMART en échec, surchauffe, usure à 80 % puis 90 %, avertissement critique NVMe) ou ne répond plus', does: 'alerte dans le fil commun et sur ta messagerie, avec quoi faire : sauvegarder d\'abord, remplacer ensuite', auto: true, kind: 'donnée' },
+  { from: 'durinn', to: 'sindri', when: 'un disque de la machine d\'Odin se dégrade', does: 'l\'alerte propose « Sauvegarder maintenant » avec ton premier plan de sauvegarde Phénix', auto: true, kind: 'réflexe' },
+  { from: 'durinn', to: 'askr', when: 'Tirésias voit un nouveau disque fixe (avec son numéro de série)', does: 'sa fiche est créée dans l\'inventaire une seule fois (modèle, n° de série, taille, machine), utile pour la garantie', auto: true, kind: 'donnée' },
+  { from: 'eir', to: 'durinn', when: 'tu regardes les disques dans Hygie', does: 'chaque disque a son bouton vers Tirésias (santé détaillée, valeurs SMART, historique) ; Tirésias se charge des alertes de santé des disques', auto: true, kind: 'donnée' },
+  { from: 'hermod', to: 'durinn', when: 'un poste Linux ou Mac est enregistré dans ton parc', does: 'Tirésias lit la santé de ses disques (smartctl par SSH) et peut les surveiller toutes les 6 heures', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */
@@ -139,6 +144,7 @@ export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
   { need: 'écrire en parlant', chain: ['rodd', 'saga', 'volva'], why: 'Écho transcrit et met en forme, Thot garde la note, Pythie cherche à partir de ta dictée.' },
   { need: 'gérer des bases de données', chain: ['urdr', 'skuld', 'brisingamen'], why: 'Alexandrie crée et ouvre les bases (Studio, SQL), Arche les sauvegarde, Thésauros garde les mots de passe.' },
   { need: 'gérer un site web', chain: ['idunn', 'forseti', 'ullr'], why: 'Arachné surveille, essaie, déploie et met à jour ; Forseti t\'alerte ; Asclépios relie un changement de DNS, de certificat ou de page d\'accueil pour reconnaître un détournement.' },
+  { need: 'savoir si un disque va lâcher', chain: ['durinn', 'sindri', 'forseti'], why: 'Tirésias lit la santé de chaque disque et prévient quand elle se dégrade, Phénix sauvegarde avant la panne, Forseti alerte.' },
   { need: 'garder ses mots de passe', chain: ['brisingamen'], why: 'coffre chiffré, codes à usage unique, vérification des fuites.' },
   { need: 'organiser ses idées et projets', chain: ['saga', 'runes', 'draupnir'], why: 'Thot relie les notes, Papyrus en fait des bases, Talos automatise.' },
 ];

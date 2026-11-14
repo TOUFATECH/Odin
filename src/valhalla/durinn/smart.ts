@@ -263,7 +263,7 @@ export function lireSmart(texte: string, o: { chemin?: string; type?: string; se
     const lu = lus !== undefined ? lus * bloc : lec ? quantite(lec, bloc) : undefined; if (lu) d.lu = lu;
     // Le dernier test que le disque a fait sur lui-même, et les erreurs qu'il a notées récemment.
     const jt = obj(j.ata_smart_self_test_log), dernier = tab(obj(jt.extended ?? jt.standard).table)[0], st = obj(dernier?.status);
-    if (dernier && st.passed === false) d.autotestRate = propre(st.string, 80) || 'échec';
+    if (dernier && st.passed === false) { const t = propre(st.string, 80); d.autotestRate = /read failure/i.test(t) ? 'échec de lecture' : /electrical/i.test(t) ? 'défaut électrique' : /servo|seek/i.test(t) ? 'défaut mécanique' : /handling damage/i.test(t) ? 'abîmé par un choc' : /unknown failure/i.test(t) ? 'échec sans précision' : t || 'échec'; }
     const je = obj(j.ata_smart_error_log), log = obj(je.extended ?? je.summary), nbErr = nombre(log.count) ?? 0;
     if (nbErr > 0 && d.heures !== undefined) { const recentes = tab(log.table).filter((e) => typeof e.lifetime_hours === 'number' && d.heures! - (e.lifetime_hours as number) <= 168 && d.heures! - (e.lifetime_hours as number) >= 0).length; if (recentes) d.erreursRecentes = recentes; }
     if (nbErr > 0) d.valeurs.push({ id: 'journal', nom: 'Journal des erreurs', valeur: pluriel(nbErr, 'erreur notée', 'erreurs notées'), etat: d.erreursRecentes ? 'attention' : 'info', explication: `Le disque garde la trace des commandes qui ont échoué. ${d.erreursRecentes ? 'Certaines datent de ces derniers jours : à surveiller.' : 'Aucune ces derniers jours de marche : de vieilles erreurs ne sont pas inquiétantes.'}` });
@@ -374,7 +374,8 @@ export function juger(d: Disque, tendance?: Tendance): { etat: Etat; raisons: Ra
   if (d.enVeille) return { etat: 'inconnu', raisons: [] };
   const r: Raison[] = [], dit = (cle: string, niveau: Raison['niveau'], texte: string) => { r.push({ cle, niveau, texte }); };
   const compteur = ['5', '197', '198'];
-  if (d.passe === false) dit('smart', 'mauvais', 'Le disque annonce lui-même une panne proche (son test de santé SMART a échoué).');
+  // Un NVMe se dit « en échec » dès qu'un bit de son avertissement critique est levé : ce sont alors ces bits qui disent quoi (une simple surchauffe n'est pas une panne).
+  if (d.passe === false && !(d.protocole === 'NVMe' && d.critique)) dit('smart', 'mauvais', 'Le disque annonce lui-même une panne proche (son test de santé SMART a échoué).');
   // Avertissement critique d'un NVMe : la température seule (2) et la mémoire protégée (32) appellent l'attention, le reste est grave.
   for (const bit of [1, 4, 8, 16, 2, 32]) if ((d.critique ?? 0) & bit) dit(bit === 2 ? 'critique:temp' : 'critique', bit === 2 || bit === 32 ? 'attention' : 'mauvais', `Avertissement critique du disque : ${avertissements(bit)[0]}.`);
   if (d.autotestRate) dit('autotest', 'mauvais', `Le dernier test que le disque a fait sur lui-même a échoué (${d.autotestRate}) : des zones ne se lisent plus.`);

@@ -1,0 +1,58 @@
+{
+ "json_format_version": [
+  1,
+  0
+ ],
+ "smartctl": {
+  "version": [
+   7,
+   4
+  ],
+  "pre_release": false,
+  "svn_revision": "5530",
+  "platform_info": "x86_64-linux-6.8.0-45-generic",
+  "build_info": "(local build)",
+  "argv": [
+   "smartctl",
+   "--json=c",
+   "-a",
+   "-d",
+   "scsi",
+   "/dev/sdc"
+  ],
+  "exit_status": 4
+ },
+ "device": {
+  "name": "/dev/sdc",
+  "info_name": "/dev/sdc",
+  "type": "scsi",
+  "protocol": "SCSI"
+ },
+ "scsi_vendor": "SanDisk",
+ "scsi_product": "Cruzer Blade",
+ "scsi_model_name": "SanDisk Cruzer Blade",
+ "scsi_revision": "1.00",
+ "scsi_version": "SPC-4",
+ "user_capacity": {
+  "blocks": 30031250,
+  "bytes": 15376000000
+ },
+ "logical_block_size": 512,
+ "rotation_rate": 0,
+ "serial_number": "4C530001XXXXXXX",
+ "device_type": {
+  "scsi_terminology": "Peripheral Device Type [PDT]",
+  "scsi_value": 0,
+  "name": "disk"
+ },
+ "local_time": {
+  "time_t": 1794600000,
+  "asctime": "Fri Nov 13 22:20:00 2026 EAT"
+ },
+ "smart_support": {
+  "available": false
+ },
+ "temperature": {
+  "current": 0
+ }
+}

@@ -1,0 +1,787 @@
+{
+ "sdb_plus": {
+  "json_format_version": [
+   1,
+   0
+  ],
+  "smartctl": {
+   "version": [
+    7,
+    4
+   ],
+   "pre_release": false,
+   "svn_revision": "5530",
+   "platform_info": "x86_64-linux-6.8.0-45-generic",
+   "build_info": "(local build)",
+   "argv": [
+    "smartctl",
+    "--json=c",
+    "-x",
+    "/dev/sdb"
+   ],
+   "exit_status": 0
+  },
+  "local_time": {
+   "time_t": 1794600000,
+   "asctime": "Fri Nov 13 22:20:00 2026 EAT"
+  },
+  "device": {
+   "name": "/dev/sdb",
+   "info_name": "/dev/sdb [SAT]",
+   "type": "sat",
+   "protocol": "ATA"
+  },
+  "model_family": "Seagate Barracuda 7200.14 (AF)",
+  "model_name": "ST2000DM001-1ER164",
+  "serial_number": "Z4Z0XXXXB",
+  "firmware_version": "CC26",
+  "user_capacity": {
+   "blocks": 3907029168,
+   "bytes": 2000398934016
+  },
+  "logical_block_size": 512,
+  "physical_block_size": 4096,
+  "rotation_rate": 7200,
+  "form_factor": {
+   "ata_value": 2,
+   "name": "3.5 inches"
+  },
+  "in_smartctl_database": true,
+  "ata_version": {
+   "string": "ACS-3 T13/2161-D revision 5",
+   "major_value": 2040,
+   "minor_value": 109
+  },
+  "sata_version": {
+   "string": "SATA 3.1",
+   "value": 127
+  },
+  "interface_speed": {
+   "max": {
+    "sata_value": 14,
+    "string": "6.0 Gb/s",
+    "units_per_second": 60,
+    "bits_per_unit": 100000000
+   },
+   "current": {
+    "sata_value": 3,
+    "string": "6.0 Gb/s",
+    "units_per_second": 60,
+    "bits_per_unit": 100000000
+   }
+  },
+  "smart_support": {
+   "available": true,
+   "enabled": true
+  },
+  "smart_status": {
+   "passed": true
+  },
+  "ata_smart_data": {
+   "offline_data_collection": {
+    "status": {
+     "value": 0,
+     "string": "was never started"
+    },
+    "completion_seconds": 0
+   },
+   "self_test": {
+    "status": {
+     "value": 0,
+     "string": "completed without error",
+     "passed": true
+    },
+    "polling_minutes": {
+     "short": 2,
+     "extended": 120
+    }
+   },
+   "capabilities": {
+    "values": [
+     123,
+     3
+    ],
+    "exec_offline_immediate_supported": true,
+    "self_tests_supported": true,
+    "error_logging_supported": true
+   }
+  },
+  "ata_smart_attributes": {
+   "revision": 16,
+   "table": [
+    {
+     "id": 1,
+     "name": "Raw_Read_Error_Rate",
+     "value": 200,
+     "worst": 200,
+     "thresh": 51,
+     "when_failed": "",
+     "flags": {
+      "value": 11,
+      "string": "PO-R-- ",
+      "prefailure": true,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": true,
+      "event_count": false,
+      "auto_keep": false
+     },
+     "raw": {
+      "value": 0,
+      "string": "0"
+     }
+    },
+    {
+     "id": 3,
+     "name": "Spin_Up_Time",
+     "value": 176,
+     "worst": 172,
+     "thresh": 21,
+     "when_failed": "",
+     "flags": {
+      "value": 39,
+      "string": "POS--K ",
+      "prefailure": true,
+      "updated_online": true,
+      "performance": true,
+      "error_rate": false,
+      "event_count": false,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 6183,
+      "string": "6183"
+     }
+    },
+    {
+     "id": 4,
+     "name": "Start_Stop_Count",
+     "value": 100,
+     "worst": 100,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 1215,
+      "string": "1215"
+     }
+    },
+    {
+     "id": 5,
+     "name": "Reallocated_Sector_Ct",
+     "value": 100,
+     "worst": 100,
+     "thresh": 10,
+     "when_failed": "",
+     "flags": {
+      "value": 51,
+      "string": "PO--CK ",
+      "prefailure": true,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 60,
+      "string": "60"
+     }
+    },
+    {
+     "id": 7,
+     "name": "Seek_Error_Rate",
+     "value": 200,
+     "worst": 200,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 10,
+      "string": "-O-R-- ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": true,
+      "event_count": false,
+      "auto_keep": false
+     },
+     "raw": {
+      "value": 0,
+      "string": "0"
+     }
+    },
+    {
+     "id": 9,
+     "name": "Power_On_Hours",
+     "value": 72,
+     "worst": 72,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 40335,
+      "string": "40335"
+     }
+    },
+    {
+     "id": 10,
+     "name": "Spin_Retry_Count",
+     "value": 100,
+     "worst": 253,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 0,
+      "string": "0"
+     }
+    },
+    {
+     "id": 11,
+     "name": "Calibration_Retry_Count",
+     "value": 100,
+     "worst": 253,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 0,
+      "string": "0"
+     }
+    },
+    {
+     "id": 12,
+     "name": "Power_Cycle_Count",
+     "value": 100,
+     "worst": 100,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 1203,
+      "string": "1203"
+     }
+    },
+    {
+     "id": 192,
+     "name": "Power-Off_Retract_Count",
+     "value": 200,
+     "worst": 200,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 41,
+      "string": "41"
+     }
+    },
+    {
+     "id": 193,
+     "name": "Load_Cycle_Count",
+     "value": 193,
+     "worst": 193,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 22457,
+      "string": "22457"
+     }
+    },
+    {
+     "id": 194,
+     "name": "Temperature_Celsius",
+     "value": 116,
+     "worst": 105,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 34,
+      "string": "-O---K ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": false,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 38,
+      "string": "38"
+     }
+    },
+    {
+     "id": 196,
+     "name": "Reallocated_Event_Count",
+     "value": 200,
+     "worst": 200,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 3,
+      "string": "3"
+     }
+    },
+    {
+     "id": 197,
+     "name": "Current_Pending_Sector",
+     "value": 200,
+     "worst": 200,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 2,
+      "string": "2"
+     }
+    },
+    {
+     "id": 198,
+     "name": "Offline_Uncorrectable",
+     "value": 100,
+     "worst": 253,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 48,
+      "string": "----CK ",
+      "prefailure": false,
+      "updated_online": false,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 0,
+      "string": "0"
+     }
+    },
+    {
+     "id": 199,
+     "name": "UDMA_CRC_Error_Count",
+     "value": 200,
+     "worst": 200,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 50,
+      "string": "-O--CK ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": false,
+      "event_count": true,
+      "auto_keep": true
+     },
+     "raw": {
+      "value": 0,
+      "string": "0"
+     }
+    },
+    {
+     "id": 200,
+     "name": "Multi_Zone_Error_Rate",
+     "value": 200,
+     "worst": 200,
+     "thresh": 0,
+     "when_failed": "",
+     "flags": {
+      "value": 10,
+      "string": "-O-R-- ",
+      "prefailure": false,
+      "updated_online": true,
+      "performance": false,
+      "error_rate": true,
+      "event_count": false,
+      "auto_keep": false
+     },
+     "raw": {
+      "value": 0,
+      "string": "0"
+     }
+    }
+   ]
+  },
+  "power_on_time": {
+   "hours": 40335
+  },
+  "power_cycle_count": 1203,
+  "temperature": {
+   "current": 38
+  },
+  "ata_smart_error_log": {
+   "extended": {
+    "revision": 1,
+    "sectors": 2,
+    "count": 0,
+    "table": []
+   }
+  },
+  "ata_smart_self_test_log": {
+   "extended": {
+    "revision": 1,
+    "sectors": 1,
+    "count": 1,
+    "table": [
+     {
+      "type": {
+       "value": 2,
+       "string": "Extended offline"
+      },
+      "status": {
+       "value": 0,
+       "string": "Completed without error",
+       "passed": true
+      },
+      "lifetime_hours": 40135
+     }
+    ]
+   }
+  }
+ },
+ "nvme_chaud_use": {
+  "json_format_version": [
+   1,
+   0
+  ],
+  "smartctl": {
+   "version": [
+    7,
+    4
+   ],
+   "pre_release": false,
+   "svn_revision": "5530",
+   "platform_info": "x86_64-linux-6.8.0-45-generic",
+   "build_info": "(local build)",
+   "argv": [
+    "smartctl",
+    "--json=c",
+    "-x",
+    "/dev/nvme0"
+   ],
+   "exit_status": 8
+  },
+  "local_time": {
+   "time_t": 1794600000,
+   "asctime": "Fri Nov 13 22:20:00 2026 EAT"
+  },
+  "device": {
+   "name": "/dev/nvme0",
+   "info_name": "/dev/nvme0",
+   "type": "nvme",
+   "protocol": "NVMe"
+  },
+  "model_name": "Samsung SSD 970 EVO Plus 1TB",
+  "serial_number": "S4EWNX0XXXXXXXK",
+  "firmware_version": "2B2QEXM7",
+  "nvme_pci_vendor": {
+   "id": 5197,
+   "subsystem_id": 5197
+  },
+  "nvme_ieee_oui_identifier": 9528,
+  "nvme_total_capacity": 1000204886016,
+  "nvme_unallocated_capacity": 0,
+  "nvme_controller_id": 4,
+  "nvme_version": {
+   "string": "1.3",
+   "value": 66304
+  },
+  "nvme_number_of_namespaces": 1,
+  "nvme_namespaces": [
+   {
+    "id": 1,
+    "size": {
+     "blocks": 1953525168,
+     "bytes": 1000204886016
+    },
+    "capacity": {
+     "blocks": 1953525168,
+     "bytes": 1000204886016
+    },
+    "utilization": {
+     "blocks": 512000000,
+     "bytes": 262144000000
+    },
+    "formatted_lba_size": 512,
+    "eui64": {
+     "oui": 9528,
+     "ext_id": 123456789
+    }
+   }
+  ],
+  "user_capacity": {
+   "blocks": 1953525168,
+   "bytes": 1000204886016
+  },
+  "logical_block_size": 512,
+  "smart_support": {
+   "available": true,
+   "enabled": true
+  },
+  "smart_status": {
+   "passed": false,
+   "nvme": {
+    "value": 2
+   }
+  },
+  "nvme_smart_health_information_log": {
+   "critical_warning": 2,
+   "temperature": 83,
+   "available_spare": 100,
+   "available_spare_threshold": 10,
+   "percentage_used": 91,
+   "data_units_read": 9511859,
+   "data_units_written": 7773431,
+   "host_reads": 111303174,
+   "host_writes": 83170961,
+   "controller_busy_time": 3060,
+   "power_cycles": 266,
+   "power_on_hours": 2401,
+   "unsafe_shutdowns": 43,
+   "media_errors": 0,
+   "num_err_log_entries": 12,
+   "warning_temp_time": 0,
+   "critical_comp_time": 0,
+   "temperature_sensors": [
+    83,
+    89
+   ]
+  },
+  "nvme_composite_temperature_threshold": {
+   "warning": 85,
+   "critical": 85
+  },
+  "temperature": {
+   "current": 83
+  },
+  "power_cycle_count": 266,
+  "power_on_time": {
+   "hours": 2401
+  },
+  "nvme_error_information_log": {
+   "size": 64,
+   "read": 16,
+   "unread": 0
+  },
+  "nvme_self_test_log": {
+   "current_self_test_operation": {
+    "value": 0,
+    "string": "No self-test in progress"
+   }
+  }
+ },
+ "nvme_critique": {
+  "json_format_version": [
+   1,
+   0
+  ],
+  "smartctl": {
+   "version": [
+    7,
+    4
+   ],
+   "pre_release": false,
+   "svn_revision": "5530",
+   "platform_info": "x86_64-linux-6.8.0-45-generic",
+   "build_info": "(local build)",
+   "argv": [
+    "smartctl",
+    "--json=c",
+    "-x",
+    "/dev/nvme0"
+   ],
+   "exit_status": 8
+  },
+  "local_time": {
+   "time_t": 1794600000,
+   "asctime": "Fri Nov 13 22:20:00 2026 EAT"
+  },
+  "device": {
+   "name": "/dev/nvme0",
+   "info_name": "/dev/nvme0",
+   "type": "nvme",
+   "protocol": "NVMe"
+  },
+  "model_name": "Samsung SSD 970 EVO Plus 1TB",
+  "serial_number": "S4EWNX0XXXXXXXK",
+  "firmware_version": "2B2QEXM7",
+  "nvme_pci_vendor": {
+   "id": 5197,
+   "subsystem_id": 5197
+  },
+  "nvme_ieee_oui_identifier": 9528,
+  "nvme_total_capacity": 1000204886016,
+  "nvme_unallocated_capacity": 0,
+  "nvme_controller_id": 4,
+  "nvme_version": {
+   "string": "1.3",
+   "value": 66304
+  },
+  "nvme_number_of_namespaces": 1,
+  "nvme_namespaces": [
+   {
+    "id": 1,
+    "size": {
+     "blocks": 1953525168,
+     "bytes": 1000204886016
+    },
+    "capacity": {
+     "blocks": 1953525168,
+     "bytes": 1000204886016
+    },
+    "utilization": {
+     "blocks": 512000000,
+     "bytes": 262144000000
+    },
+    "formatted_lba_size": 512,
+    "eui64": {
+     "oui": 9528,
+     "ext_id": 123456789
+    }
+   }
+  ],
+  "user_capacity": {
+   "blocks": 1953525168,
+   "bytes": 1000204886016
+  },
+  "logical_block_size": 512,
+  "smart_support": {
+   "available": true,
+   "enabled": true
+  },
+  "smart_status": {
+   "passed": false,
+   "nvme": {
+    "value": 12
+   }
+  },
+  "nvme_smart_health_information_log": {
+   "critical_warning": 12,
+   "temperature": 45,
+   "available_spare": 8,
+   "available_spare_threshold": 10,
+   "percentage_used": 4,
+   "data_units_read": 9511859,
+   "data_units_written": 7773431,
+   "host_reads": 111303174,
+   "host_writes": 83170961,
+   "controller_busy_time": 3060,
+   "power_cycles": 266,
+   "power_on_hours": 2401,
+   "unsafe_shutdowns": 43,
+   "media_errors": 3,
+   "num_err_log_entries": 12,
+   "warning_temp_time": 0,
+   "critical_comp_time": 0,
+   "temperature_sensors": [
+    45,
+    51
+   ]
+  },
+  "nvme_composite_temperature_threshold": {
+   "warning": 85,
+   "critical": 85
+  },
+  "temperature": {
+   "current": 45
+  },
+  "power_cycle_count": 266,
+  "power_on_time": {
+   "hours": 2401
+  },
+  "nvme_error_information_log": {
+   "size": 64,
+   "read": 16,
+   "unread": 0
+  },
+  "nvme_self_test_log": {
+   "current_self_test_operation": {
+    "value": 0,
+    "string": "No self-test in progress"
+   }
+  }
+ }
+}
