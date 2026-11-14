@@ -73,7 +73,8 @@ export const NAMES: Record<string, string> = {
  "heidrun": "Héra",
  "hlin": "Gygès",
  "bifrost": "Iris",
- "durinn": "Tirésias"
+ "durinn": "Tirésias",
+ "pegase": "Pégase"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
@@ -275,5 +276,6 @@ export const NAME_STORY: Record<string, string> = {
  "leikvangr": "Olympie, la cité grecque où sont nés les Jeux olympiques : le terrain de jeu.",
  "heidrun": "Héra, la reine de l'Olympe, protectrice de la famille et du foyer : elle veille sur ce que voient les enfants.",
  "hlin": "Gygès, le berger d'une légende grecque que raconte Platon : il trouva un anneau qui le rendait invisible. Ici, c'est toi qui décides de ce qu'on voit de toi.",
- "durinn": "Tirésias, le devin aveugle de Thèbes qui voyait venir les malheurs avant tout le monde : il lit les signes que tes disques donnent d'eux-mêmes et annonce la panne avant qu'elle n'arrive."
+ "durinn": "Tirésias, le devin aveugle de Thèbes qui voyait venir les malheurs avant tout le monde : il lit les signes que tes disques donnent d'eux-mêmes et annonce la panne avant qu'elle n'arrive.",
+ "pegase": "Pégase, le cheval ailé de la mythologie grecque, né du sang de Méduse : il emporte où tu veux aller, à travers le ciel. Ton navigateur, qui file sur le web et revient toujours à Odin."
 };
