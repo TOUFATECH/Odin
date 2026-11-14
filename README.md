@@ -175,6 +175,8 @@ Toutes les applis se connectent avec ton compte Odin : Pégase, Vénus, et tout 
 
 #### Pégase : ton navigateur relié à Odin
 
+Installateurs : AppImage et .deb (Linux) construits ici ; .exe (Windows) et .dmg (Mac) construits par GitHub Actions au tag `pegase-v*` (`.github/workflows/pegase-desktop.yml`), pas encore signés. Code : `pegase/` (ordinateur, Electron) et `pegase-android/`.
+
 Pégase (Windows, Mac, Linux, Android) se connecte à Odin avec ton compte (le même que partout : connexion unique). Dans Odin, l'appli **Pégase** montre tes appareils (et les révoque), l'état de la synchro, l'historique cherchable par jour, les copies (une par jour, restaurables d'un geste) et ce que l'IA d'Odin peut voir de ta navigation (tout, sans l'historique, ou rien). Favoris, onglets, agenda et historique se synchronisent à la seconde entre l'ordinateur et le téléphone, avec une vérification à l'identique ; les cookies et les mots de passe restent sur chaque appareil. Les téléchargements passent par Asclépios, les liens par Sphinx, les alertes arrivent dans Forseti. Contrat entre Pégase et Odin : `docs/pegase-protocole.md`.
 
 #### Venus (Vénus) : épisodes et VF

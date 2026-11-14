@@ -1,5 +1,25 @@
 [
  {
+  "id": "v1260",
+  "at": "2026-11-14T10:45:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.26.0",
+  "title": "Perséphone, Plume, Dédale, Alexandrie… et Pégase pour ordinateur",
+  "planets": [
+   "applis",
+   "securite"
+  ],
+  "kind": "version",
+  "details": [
+   "Perséphone : retrouve les partitions perdues et les fichiers effacés ; le support est seulement lu, ce qui est retrouvé va sur un autre disque, la table se répare avec une copie de secours.",
+   "Plume : correcteur (maison ou LanguageTool), tableaux blancs à main levée, schémas isométriques de ton réseau, export SVG et PNG.",
+   "Dédale : des terminaux qui durent (on les retrouve même depuis le téléphone, aussi par SSH), et des projets qu'on édite, lance et prévisualise depuis Odin ; chaque ligne passe par Heimdall.",
+   "Alexandrie : le schéma de la base dessiné, modifié avec ton accord (sauvegarde avant), exporté en SQL, image ou Markdown.",
+   "Argo : prévient quand une image a une nouvelle version, avec un bouton « Mettre à jour ».",
+   "Pégase pour ordinateur : trouve Odin tout seul, connexion unique, synchro en temps réel (même hors ligne), mots de passe chiffrés remplis seulement au clic, cookies, agenda, import des favoris de Chrome, Firefox, Arc ; 32 vraies attaques essayées, toutes bloquées. Installateurs AppImage et .deb ; .exe et .dmg construits par GitHub (pas encore signés)."
+  ]
+ },
+ {
   "id": "v1250",
   "at": "2026-11-14T08:20:00+03:00",
   "date": "2026-11-14",
