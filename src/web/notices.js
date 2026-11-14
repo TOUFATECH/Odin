@@ -1,8 +1,9 @@
-// Les bulles de la mascotte : partout (toutes les pages, Discussion comprise, téléphone compris), juste
-// au-dessus d'Odin, et elles le suivent quand il se déplace. Une seule bulle à la fois : la suivante
-// remplace la précédente (l'historique reste dans le panneau). Couleur selon la gravité :
-// vert = tout va bien, orange = un souci, rouge = grave (la mascotte passe alors au rouge et le dit).
-// Toucher la bulle : Odin ouvre la page du problème et explique quoi faire (procédure, manips, voix).
+// Les notifications d'Odin (maquette validée « Notifications : pastille sur Odin et pop-up au clic ») : plus de texte
+// par-dessus l'écran. Une pastille posée sur Odin, partout (toutes les pages, Discussion et téléphone compris) : un point
+// par notification non lue (la plus récente d'abord, 6 points au maximum), de la couleur de sa sorte, et le nombre.
+// Grave : la pastille clignote en rouge et la mascotte passe au rouge (et le dit si la voix est activée).
+// Toucher Odin (ou la pastille) : la petite fenêtre s'ouvre avec la liste ; toucher une notification l'ouvre
+// (détail, boutons) et la marque lue. « Tout lu » vide la pastille. Les conseils complets restent dans le panneau.
 (() => {
   'use strict';
   if (window.OdinNotices) return;
@@ -10,7 +11,7 @@
   // La petite bulle prend la couleur du message : humeur, moment, information, souci ou urgence.
   const TONE = { ok: ['#13301f', '#bff0d1', '#34c77b'], info: ['#16234a', '#c9d6ff', '#5a6fdb'], moment: ['#3b2a0b', '#ffe3a6', '#ffc53d'], fierte: ['#2a1747', '#e0d2ff', '#9166e6'], souci: ['#3a2306', '#ffd9a3', '#f0a020'], grave: ['#4a1210', '#ffd0ca', '#ef4f43'] };
   const toneOf = (n) => (n.level === 'grave' ? 'grave' : n.level === 'souci' ? 'souci' : /moment|bonjour|bonsoir|bonne nuit/i.test(`${n.kind}`) ? 'moment' : /décision/i.test(`${n.kind}`) ? 'fierte' : /info|réponse|odin/i.test(`${n.kind}`) && !/souci/i.test(`${n.kind}`) ? 'info' : 'ok');
-  const SEEN = 'odin-bulle-vue';
+  const LUES = 'odin-notifs-lues'; // les notifications déjà lues (identifiants), gardées sur cet appareil
   // Qui te protège (maquette validée « Alertes : Antivirus ou Malware ? ») : chacun sa couleur ; Odin la prend quand
   // il alerte, et la bulle porte la pastille de celui qui a trouvé. La gravité garde ses couleurs (vert, orange, rouge).
   const PROT = { ullr: { label: 'Antivirus', color: '#7c4dff', icon: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', what: 'analyse les fichiers : téléchargements, pièces jointes, clés USB, partages' },
@@ -26,7 +27,19 @@
     else if (tinted) { tinted = false; const t = window.OdinThemes?.current?.(); if (t) window.OdinThemes.apply(t); else window.OdinFace?.tintBase?.(null); void window.OdinThemes?.sync?.(); }
   }
   const css = `
-  #odinBubble{position:fixed;z-index:60;left:0;top:0;max-width:min(320px,calc(100vw - 24px));box-sizing:border-box;display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 6px 0 6px;border:0;border-radius:17px;font:500 13.5px/1 inherit;cursor:pointer;box-shadow:0 6px 16px rgba(0,0,0,.3)}
+  #odinBubble{position:fixed;z-index:60;left:0;top:0;box-sizing:border-box;display:inline-flex;align-items:center;gap:3px;height:26px;padding:0 9px 0 7px;border-radius:13px;background:#171A20;border:1.5px solid var(--pc,#9166e6);color:#fff;font:800 14px/1 inherit;box-shadow:0 6px 14px rgba(0,0,0,.35);cursor:pointer}
+  #odinBubble .ob-pts{display:inline-flex;align-items:center;gap:3px}#odinBubble .ob-pts i{display:block;width:8px;height:8px;border-radius:50%}
+  #odinBubble .ob-n{margin-left:3px}
+  /* Au doigt : une zone de toucher plus grande, vers le haut et les côtés seulement (jamais sur Odin). */
+  @media (pointer:coarse){#odinBubble::after{content:'';position:absolute;inset:-12px -9px 0}}
+  #odinTalk .ot-tl{height:28px;padding:0 9px;border:0;border-radius:9px;background:rgba(255,255,255,.06);color:#c9ceda;font:500 12.5px inherit;cursor:pointer;flex:none}
+  #odinTalk .ot-list{display:flex;flex-direction:column;gap:1px}
+  #odinTalk .ot-it small{display:block;color:#9aa1b2;font-size:11px;font-weight:400}
+  #odinTalk .ot-it[data-lu] b{font-weight:400;color:#b9c0cf}
+  #odinTalk .ot-it[aria-expanded=true]{background:rgba(255,255,255,.06)}
+  #odinTalk .ot-it i{width:10px;height:10px;border-radius:50%;flex:none}
+  #odinTalk .ot-det{margin:-2px 4px 6px 22px;font-size:12.5px;color:#b9c0cf;white-space:pre-line}
+  #odinTalk .ot-det .ot-acts{margin-top:6px;padding:0}
   #odinBubble[hidden]{display:none}
   .ob-prot{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px 0 7px;border-radius:12px;color:#fff;font:700 12px/1 inherit;flex:none;white-space:nowrap}
   .odin-prot{position:absolute;right:-2px;bottom:-2px;width:20px;height:20px;border-radius:50%;background:#fff;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.3);pointer-events:none}
@@ -42,10 +55,10 @@
   /* Au doigt : la zone qu'on touche fait 44 px, sans changer le dessin du petit bouton. */
   @media (pointer:coarse){#odinBubble .ob-say{position:relative}#odinBubble .ob-say::after{content:'';position:absolute;inset:-9px}}
   #odinBubble .ob-tail{position:absolute;width:12px;height:12px;transform:rotate(45deg);background:inherit;border-radius:2px}
-  @keyframes obPop{0%{opacity:0;transform:translateY(6px) scale(.92)}100%{opacity:1;transform:none}}
-  #odinBubble.pop{animation:obPop .2s ease-out}
+  @keyframes obPop{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:none}}
+  #odinBubble.pop{animation:obPop .45s cubic-bezier(.3,1.6,.5,1)}
   @keyframes obBlink{0%,100%{box-shadow:0 6px 16px rgba(0,0,0,.3),0 0 0 0 rgba(239,79,67,.55)}50%{box-shadow:0 6px 16px rgba(0,0,0,.3),0 0 0 6px rgba(239,79,67,0)}}
-  #odinBubble.grave{animation:obBlink 1.6s infinite}
+  #odinBubble.grave{animation:obPop .45s cubic-bezier(.3,1.6,.5,1),obBlink 1.6s .45s infinite}
   #odinTalk{position:fixed;z-index:61;left:0;top:0;width:min(300px,calc(100vw - 24px));box-sizing:border-box;border-radius:18px;background:rgba(30,34,48,.97);color:#eef0f6;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 24px rgba(0,0,0,.4);padding:8px;display:flex;flex-direction:column;gap:8px;font:14px/1.45 inherit}
   #odinTalk[hidden]{display:none}
   #odinTalk .ot-h{display:flex;align-items:flex-start;gap:8px;padding:2px 4px 0}
@@ -91,6 +104,17 @@
 
   let bubble, tail, panel, talk, ttail, current = null, hideT = 0, raf = 0, waiting = false, later = null;
   const history = [];
+  /** Les notifications déjà lues (sur cet appareil). */
+  let lues = new Set();
+  try { lues = new Set(JSON.parse(localStorage.getItem(LUES) || '[]')); } catch { /* navigation privée */ }
+  const saveLues = () => { try { localStorage.setItem(LUES, JSON.stringify([...lues].slice(-200))); } catch { /* */ } };
+  const unread = () => history.filter((x) => !lues.has(x.id));
+  /** Marque une notification lue (ou toutes) et met la pastille à jour. */
+  function lire(n) {
+    for (const x of n ? [n] : history) lues.add(x.id);
+    saveLues(); badge();
+    if (!unread().some((x) => x.level === 'grave') && panel?.hidden !== false) setAlarm(false);
+  }
 
   // ---------- Où est Odin ? La mascotte en liberté, sinon celle de la Discussion ----------
   function anchor() {
@@ -106,6 +130,14 @@
     // La petite fenêtre « Que veux-tu ? » ne dépasse jamais de l'écran : plus haute que lui, elle défile à l'intérieur.
     if (box === talk) { const big = talk.scrollHeight > room + 1, mh = big ? `${room}px` : ''; if (talk.style.maxHeight !== mh) { talk.style.maxHeight = mh; talk.style.overflowY = big ? 'auto' : ''; } }
     const a = anchor(), w = box.offsetWidth, h = box.offsetHeight;
+    if (box === bubble) {
+      // La pastille se pose juste au-dessus d'Odin, côté droit, et le suit (sans jamais couvrir Odin : on le touche toujours).
+      let bx = a ? a.r.right + 10 - w : innerWidth - w - m, by = a ? a.r.top - h - 2 : innerHeight - h - 90;
+      if (a && by < m) by = a.r.bottom + 2;
+      bx = Math.min(Math.max(m, bx), innerWidth - w - m); by = Math.min(Math.max(m, by), innerHeight - h - m);
+      box.style.left = `${Math.round(bx)}px`; box.style.top = `${Math.round(by)}px`;
+      raf = requestAnimationFrame(placeBubble); return;
+    }
     let x, y, below = false, cx;
     if (a) {
       cx = a.r.left + a.r.width / 2;
@@ -141,46 +173,67 @@
   }
   function setAlarm(on) { for (const o of mascots()) o.classList.toggle('alarm', on); }
 
-  // ---------- Une nouvelle bulle : elle remplace la précédente ----------
+  // ---------- La pastille sur Odin : un point par notification non lue (6 au maximum) et le nombre ----------
+  function badge(pop) {
+    build();
+    const L = unread(), n = L.length, grave = L.some((x) => x.level === 'grave');
+    if (!n || !talk.hidden) { bubble.hidden = true; if (!n) protTint(undefined); return; }
+    const first = TONE[toneOf(grave ? L.find((x) => x.level === 'grave') : L[0])][2];
+    bubble.style.setProperty('--pc', first);
+    bubble.classList.toggle('grave', grave);
+    bubble.setAttribute('role', 'button'); bubble.tabIndex = 0;
+    bubble.setAttribute('aria-label', `${n} notification${n > 1 ? 's' : ''} non lue${n > 1 ? 's' : ''}${grave ? ', dont une urgence' : ''}. Touche pour les voir.`);
+    bubble.replaceChildren(el('span', { class: 'ob-pts', 'aria-hidden': 'true' }, ...L.slice(0, 6).map((x) => el('i', { style: `background:${TONE[toneOf(x)][2]}` }))), el('span', { class: 'ob-n' }, String(n)));
+    bubble.onclick = () => talkTo(null);
+    bubble.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); talkTo(null); } };
+    const was = !bubble.hidden; bubble.hidden = false;
+    if (pop || !was) { bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop'); }
+    follow();
+  }
   function show(n, o = {}) {
     build();
-    // Pendant que tu parles à Odin dans la petite fenêtre, une nouvelle bulle attend qu'elle se ferme (sauf urgence).
-    if (talk && !talk.hidden && n.level !== 'grave') { if (!history.some((x) => x.id === n.id)) { history.unshift(n); history.splice(12); } later = [n, o]; return; }
-    current = n; clearTimeout(hideT);
-    if (!history.some((x) => x.id === n.id)) { history.unshift(n); history.splice(12); }
-    const [bg, fg, dot] = TONE[toneOf(n)];
-    later = null; closeTalk(true);
-    bubble.style.background = bg; bubble.style.color = fg; bubble.setAttribute('role', n.level === 'grave' ? 'alert' : 'status');
-    bubble.classList.toggle('grave', n.level === 'grave');
-    bubble.setAttribute('aria-label', `${protOf(n) ? `${protOf(n).label} · ` : ''}${n.kind} · ${n.app} : ${n.title}. Touche pour répondre.`);
+    current = n; clearTimeout(hideT); later = null;
+    if (!history.some((x) => x.id === n.id)) { history.unshift(n); history.splice(30); }
+    lues.delete(n.id);
+    // La petite fenêtre est ouverte : la notification arrive dans la liste, sous tes yeux.
+    if (!talk.hidden && !waiting) { if (talk._list) talkTo(null); }
+    badge(true);
     protTint(n.level !== 'ok' || protOf(n) ? protOf(n) : undefined);
-    bubble.replaceChildren(
-      protOf(n) ? protPill(protOf(n)) : el('span', { class: 'ob-dot', style: `background:${dot}`, 'aria-hidden': 'true' }),
-      el('span', { class: 'ob-t' }, n.title),
-      el('button', { type: 'button', class: 'ob-say', 'aria-label': 'Écouter', title: 'Écouter', on: { click: (e) => { e.stopPropagation(); window.OdinSay?.(`${n.title}. ${n.detail ?? ''}`, true); } } }, svg('M4 9h4l5-4v14l-5-4H4zM17 8a5 5 0 0 1 0 8', 15)),
-      tail);
-    bubble.onclick = () => talkTo(n);
-    bubble.tabIndex = 0; bubble.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); talkTo(n); } };
-    bubble.hidden = false; bubble.classList.remove('pop'); void bubble.offsetWidth; bubble.classList.add('pop');
-    setAlarm(n.level === 'grave');
+    setAlarm(unread().some((x) => x.level === 'grave'));
     const bud = document.getElementById('buddyRoam');
-    if (bud && window.OdinFace) window.OdinFace.flash(bud, n.level === 'grave' ? 'peur' : n.level === 'souci' ? 'inquiet' : n.kind === 'Décision d\'Odin' ? 'fierte' : 'joie', 2600);
+    if (bud && window.OdinFace) {
+      window.OdinFace.flash(bud, n.level === 'grave' ? 'peur' : n.level === 'souci' ? 'inquiet' : n.kind === 'Décision d\'Odin' ? 'fierte' : 'joie', 2600);
+      // Son de la notification : un petit saut ; l'urgence tremble.
+      if (!o.quiet) window.OdinFace.sound?.(n.level === 'grave' ? 'tremble' : 'hop');
+    }
     window.OdinCompanion?.act?.(n.level === 'ok' ? 'act-joy' : 'act-tilt', 1400);
-    // Odin parle : l'urgence est dite à voix haute (si les sons sont activés).
+    // Odin parle : l'urgence est dite à voix haute (si les sons sont activés), le reste seulement si la voix est activée.
     if (n.level === 'grave' && !o.quiet && window.OdinFace?.soundOn !== false) window.OdinSay?.(`Urgence. ${n.title}`);
-    // Vert, bleu, jaune, violet : 4 secondes. Orange : jusqu'au toucher. Rouge : reste et clignote.
-    if (n.level === 'ok') hideT = setTimeout(hide, 4000);
-    // Odin dit ses messages à voix haute quand la voix est activée (l'urgence, toujours).
-    if (n.level !== 'grave' && !o.quiet && window.OdinVoice?.on?.()) window.OdinSay?.(n.title);
-    follow();
-    // La bulle est là : Odin se déplace tout de suite si elle couvrait du texte ou une commande (il lui cherche une place libre).
+    else if (!o.quiet && window.OdinVoice?.on?.()) window.OdinSay?.(n.title);
     window.OdinCompanion?.sync?.('hopto');
   }
-  function hide() { if (!bubble) return; bubble.hidden = true; protTint(undefined); if (current) try { localStorage.setItem(SEEN, current.id); } catch { /* navigation privée */ } if (current?.level === 'grave' && panel.hidden) setAlarm(false); }
+  function hide() { if (!bubble) return; if (current) lire(current); }
 
   // ---------- La petite fenêtre : lire, agir, et parler à Odin depuis n'importe quel onglet ----------
   function svg(d, z = 16) { const NS = 'http://www.w3.org/2000/svg', s = document.createElementNS(NS, 'svg'), p = document.createElementNS(NS, 'path'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('width', z); s.setAttribute('height', z); s.setAttribute('aria-hidden', 'true'); p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'currentColor'); p.setAttribute('stroke-width', '2'); p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round'); s.append(p); return s; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  /** La liste des notifications (les non lues en gras) ; toucher une ligne l'ouvre et la marque lue. */
+  function notifList() {
+    const items = history.slice(0, 12); if (!items.length) return null;
+    const box = el('div', { class: 'ot-list' });
+    for (const x of items) {
+      const [, , dot] = TONE[toneOf(x)], det = el('div', { class: 'ot-det', hidden: true }, x.detail ?? '',
+        el('div', { class: 'ot-acts' }, ...x.actions.slice(0, 2).map((a, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', style: i === 0 ? `background:${dot}` : undefined, on: { click: () => runAction(a, det.querySelector('.ot-out') || det.appendChild(el('div', { class: 'ot-out' }))) } }, a.label)),
+          el('button', { type: 'button', on: { click: () => { closeTalk(); open(x); } } }, 'Conseils')));
+      const row = el('div', { class: 'ot-it', role: 'button', tabindex: '0', 'aria-expanded': 'false', 'data-lu': lues.has(x.id) ? '' : undefined,
+        on: { click: () => { const o = row.getAttribute('aria-expanded') !== 'true'; for (const r of box.querySelectorAll('.ot-it')) { r.setAttribute('aria-expanded', 'false'); r.nextSibling.hidden = true; } row.setAttribute('aria-expanded', String(o)); det.hidden = !o; if (o) { row.setAttribute('data-lu', ''); lire(x); head(); } follow(); },
+          keydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } } },
+        protOf(x) ? protPill(protOf(x), 11) : el('i', { style: `background:${dot}`, 'aria-hidden': 'true' }), el('b', {}, x.title, el('small', {}, x.app)), el('time', {}, ago(x.at)));
+      box.append(row, det);
+    }
+    return box;
+  }
+  let head = () => {};
   function talkTo(n) {
     build(); clearTimeout(hideT); bubble.hidden = true;
     const [, , dot] = n ? TONE[toneOf(n)] : TONE.info, out = el('p', { class: 'ot-d', role: 'status', 'aria-live': 'polite', hidden: !n?.detail }, n?.detail ?? '');
@@ -188,10 +241,15 @@
     const mic = el('button', { type: 'button', class: 'ot-mic', 'aria-label': 'Parler au micro', 'aria-pressed': 'false' }, svg('M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3', 15));
     mic.onclick = () => { if (!SR) { out.hidden = false; out.textContent = 'Ce navigateur ne sait pas écrire ce que tu dis (Chrome, Edge ou Safari).'; return; } if (mic._r) { mic._r.stop(); return; } const r = new SR(), base = input.value.trim() ? `${input.value.trim()} ` : ''; let done = ''; r.lang = 'fr-FR'; r.continuous = true; r.interimResults = true; mic._r = r; mic.setAttribute('aria-pressed', 'true'); r.onresult = (ev) => { let live = ''; for (let k = ev.resultIndex; k < ev.results.length; k++) { if (ev.results[k].isFinal) done += ev.results[k][0].transcript; else live += ev.results[k][0].transcript; } input.value = `${base}${done}${live}`.replace(/\s+/g, ' ').trimStart(); }; r.onend = () => { mic._r = null; mic.setAttribute('aria-pressed', 'false'); input.focus(); }; try { r.start(); } catch { mic._r = null; } };
     const form = el('form', { on: { submit: async (e) => { e.preventDefault(); const q = input.value.trim(); if (!q) return; input.value = ''; out.hidden = false; out.textContent = 'Odin réfléchit…'; waiting = true; const where = [document.title, location.hash.slice(1)].filter(Boolean).join(' · '); const ok = await window.OdinChat?.send?.(n ? `${q}\n\n[à propos de : ${n.app} · ${n.title}]` : q, where); if (!ok) { waiting = false; out.textContent = 'Je n\'ai pas pu envoyer : réessaie.'; } } } }, input, mic, el('button', { type: 'submit', class: 'ot-go', 'aria-label': 'Envoyer' }, svg('M5 12h14M13 6l6 6-6 6', 15)));
+    const list = n ? null : notifList(), nb = unread().length, titre = el('b', {}, n ? n.title : nb ? `${nb} nouvelle${nb > 1 ? 's' : ''} notification${nb > 1 ? 's' : ''}` : 'Que veux-tu ?');
+    const toutLu = !n && nb ? el('button', { type: 'button', class: 'ot-tl', on: { click: () => { lire(null); talkTo(null); } } }, 'Tout lu') : null;
+    head = () => { const k = unread().length; titre.textContent = k ? `${k} nouvelle${k > 1 ? 's' : ''} notification${k > 1 ? 's' : ''}` : 'Que veux-tu ?'; if (!k) toutLu?.remove(); };
+    talk._list = !n;
     talk.replaceChildren(...[
-      el('div', { class: 'ot-h' }, el('span', { class: 'ot-dot', style: `background:${dot}`, 'aria-hidden': 'true' }), el('b', {}, n ? n.title : 'Que veux-tu ?'), el('button', { type: 'button', class: 'ot-x', 'aria-label': 'Fermer', on: { click: () => closeTalk() } }, '×')),
+      el('div', { class: 'ot-h' }, el('span', { class: 'ot-dot', style: `background:${dot}`, 'aria-hidden': 'true' }), titre, toutLu, el('button', { type: 'button', class: 'ot-x', 'aria-label': 'Fermer', on: { click: () => closeTalk() } }, '×')),
       out,
-      n ? null : protBox(),
+      list,
+      n || nb ? null : protBox(),
       n ? el('div', { class: 'ot-acts' }, ...n.actions.slice(0, 2).map((a, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', style: i === 0 ? `background:${dot}` : undefined, on: { click: () => runAction(a, out) } }, a.label)), el('button', { type: 'button', on: { click: () => { closeTalk(); open(n); } } }, 'Que faire ?')) : null,
       form, ttail].filter(Boolean));
     talk.hidden = false; follow(); setTimeout(() => input.focus({ preventScroll: true }), 30);
@@ -209,7 +267,7 @@
     api('/api/valhalla/act', { module: 'ullr', action: 'etat', input: {} }).then((r) => { if (r?.ok) st.ullr.textContent = String(r.text).split('\n')[0].replace(/^[^\p{L}\d]+/u, '').slice(0, 90); }).catch(() => {});
     return el('div', { class: 'ot-prot' }, el('small', {}, 'Qui te protège'), row('ullr', 'Asclépios'), row('skogul', 'Némésis'), seg, list);
   }
-  function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); if (later) { const [n, o] = later; later = null; setTimeout(() => show(n, o), 300); } }
+  function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; talk._list = false; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); later = null; badge(); }
   /** La réponse d'Odin arrive : elle s'affiche dans la petite fenêtre (et Odin la dit si la voix est activée). */
   function reply(text) {
     if (!talk || talk.hidden || !waiting) return false; waiting = false;
@@ -265,11 +323,11 @@
   async function boot() {
     if (booted) return;
     try {
-      const r = await api('/api/valhalla/notices?n=12'); if (!r.ok) return; booted = true;
+      const r = await api('/api/valhalla/notices?n=20'); if (!r.ok) return; booted = true;
       history.push(...r.notices);
-      let seen = ''; try { seen = localStorage.getItem(SEEN) || ''; } catch { /* */ }
-      const last = r.notices[0];
-      if (last && last.id !== seen) { const age = Date.now() - Date.parse(last.at); if ((last.level !== 'ok' && age < 6 * 3600_000) || age < 15 * 60_000) show(last, { quiet: true }); }
+      // Ce qui a plus d'un jour compte comme lu ; le reste allume la pastille, sans son.
+      for (const x of history) if (Date.now() - Date.parse(x.at) > 24 * 3600_000) lues.add(x.id);
+      saveLues(); badge(true); setAlarm(unread().some((x) => x.level === 'grave'));
     } catch { /* pas connecté : rien */ }
   }
   window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };

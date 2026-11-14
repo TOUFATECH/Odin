@@ -73,11 +73,11 @@
   /** Une commande sous lui (carré de côté s en x, y) ? */
   function onCommand(x, y, s) { const k = 4; for (let i = 0; i <= k; i++) for (let j = 0; j <= k; j++) if (kindAt(x + (s * i) / k, y + (s * j) / k) === 3) return true; return false; }
 
-  // ---------- Sa bulle (une notification) : posée juste au-dessus de lui, elle ne doit rien couvrir non plus ----------
-  /** La bulle affichée en ce moment : sa taille, son texte. (La petite fenêtre « Que veux-tu ? » est ouverte exprès : il ne bouge pas pour elle.) */
+  // ---------- Sa pastille (les notifications) : posée sur son coin haut droit, elle ne doit rien couvrir non plus ----------
+  /** La pastille affichée en ce moment : sa taille, son texte. (La petite fenêtre « Que veux-tu ? » est ouverte exprès : il ne bouge pas pour elle.) */
   function bubble() { const e = document.getElementById('odinBubble'); return e && !e.hidden && e.offsetWidth ? { w: e.offsetWidth, h: e.offsetHeight, text: e.textContent } : null; }
-  /** Où la bulle se poserait si Odin était en (x, y) : centrée au-dessus de lui, dessous s'il n'y a pas la place (même calcul que notices.js). */
-  function bubbleRect(x, y, s, b) { const m = 12, cx = x + s / 2; let by = y - b.h - 12; if (by < m) by = y + s + 12; return { x: Math.min(Math.max(m, cx - b.w / 2), innerWidth - b.w - m), y: by }; }
+  /** Où la pastille des notifications se poserait si Odin était en (x, y) : juste au-dessus de lui, côté droit (même calcul que notices.js). */
+  function bubbleRect(x, y, s, b) { const m = 12; let by = y - b.h - 2; if (by < m) by = y + s + 2; return { x: Math.min(Math.max(m, x + s + 10 - b.w), innerWidth - b.w - m), y: Math.min(by, innerHeight - b.h - m) }; }
   /** La bulle couvrirait-elle une commande là ? */
   function bubbleCommand(x, y, s, b) { const r = bubbleRect(x, y, s, b), kx = Math.max(4, Math.round(b.w / 36)); for (let i = 0; i <= kx; i++) for (let j = 0; j <= 2; j++) if (kindAt(r.x + (b.w * i) / kx, r.y + (b.h * j) / 2) === 3) return true; return false; }
   /** Ce que la bulle couvrirait là : un point de texte compte 1, un point de commande 3 ; 0 = rien. */
