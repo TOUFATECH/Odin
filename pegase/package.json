@@ -1,7 +1,7 @@
 {
   "name": "pegase",
   "productName": "Pégase",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Pégase, le navigateur d'Odin : léger, protégé, synchronisé avec ton Odin.",
   "license": "MIT",
   "author": {
@@ -106,10 +106,12 @@
       "target": [
         "nsis"
       ],
-      "icon": "build/icon.png",
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
     },
     "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
