@@ -5,6 +5,7 @@
 //     par l'éditeur, puis ne garde que les N dernières versions (2 par défaut : l'ancienne et la nouvelle) ;
 //   - historique de tout (vérifié, téléchargé, remplacé, supprimé, échec), bulles de la mascotte à chaque
 //     événement, et un résumé chaque jour à l'heure choisie.
+import { journalDe } from '../base/journal.ts';
 import { createHash } from 'node:crypto';
 import { appendFileSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { open } from 'node:fs/promises';
@@ -107,9 +108,10 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
   const all = (ctx: ModCtx) => [...o.sources, ...customs(ctx)];
   const followed = (ctx: ModCtx) => new Set((ctx.settings.suivis as string[] | undefined) ?? []);
   const byName = (ctx: ModCtx, q: unknown) => { const t = s(q).trim().toLowerCase(); const x = all(ctx).find((y) => y.id === t || y.name.toLowerCase() === t) ?? all(ctx).find((y) => y.name.toLowerCase().includes(t) && t.length >= 3); if (!x) throw new Error(`${o.noun} inconnu : « ${s(q)} » (voir le catalogue)`); return x; };
-  const histFile = (ctx: ModCtx) => join(ctx.dir, 'historique.jsonl');
-  const log = (ctx: ModCtx, e: Omit<Event, 'at'>) => { try { mkdirSync(ctx.dir, { recursive: true }); appendFileSync(histFile(ctx), `${JSON.stringify({ at: Date.now(), ...e })}\n`); } catch { /* disque plein */ } };
-  const history = (ctx: ModCtx, n = 200): Event[] => { try { return readFileSync(histFile(ctx), 'utf8').trim().split('\n').filter(Boolean).slice(-n).map((l) => JSON.parse(l) as Event).reverse(); } catch { return []; } };
+  // L'historique : dans la base d'Odin dès qu'elle est prête (journal « forge_<appli> »), sinon historique.jsonl.
+  const hj = (ctx: ModCtx) => journalDe<Event>(ctx, `forge_${basename(ctx.dir)}`, 'historique.jsonl', { garder: 2000 });
+  const log = (ctx: ModCtx, e: Omit<Event, 'at'>) => { try { hj(ctx).ajouter({ at: Date.now(), ...e } as Event); } catch { /* disque plein */ } };
+  const history = (ctx: ModCtx, n = 200): Event[] => hj(ctx).tout().slice(-n).reverse();
   const latestCache = new Map<string, { at: number; r?: Release; err?: string }>();
   const getLatest = async (ctx: ModCtx, src: Source, fresh = false): Promise<Release> => {
     const c = latestCache.get(src.id); if (!fresh && c && Date.now() - c.at < 3600_000) { if (c.r) return c.r; throw new Error(c.err); }

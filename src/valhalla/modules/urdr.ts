@@ -15,6 +15,8 @@ import type { ActionResult, ModCtx, Module, Param, Section } from '../types.ts';
 import { existsSync, realpathSync, writeFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 import { exportMarkdown, exportSql, exportSvg, lireSchema, placer, sqlDe, type Changement, type Positions } from '../urdr/schema.ts';
+import { ACTIONS_BASE } from '../base/actions.ts';
+import { Journal, fichierJsonl } from '../base/journal.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export const PG_IMAGE = `postgres:${PG_VERSION}`;
@@ -28,8 +30,11 @@ useHostOf((b) => { try { const c = engine().find(b.conteneur!); if (c.state.stat
 
 interface Entry { at: string; base: string; sql: string; ok: boolean; result: string; write: boolean; by?: string }
 const journalFile = (ctx: ModCtx) => join(ctx.dir, 'journal.jsonl');
-function note(ctx: ModCtx, e: Omit<Entry, 'at'>) { mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); appendFileSync(journalFile(ctx), JSON.stringify({ at: ctx.now().toISOString(), ...e, sql: e.sql.slice(0, 2000) }) + '\n', { mode: 0o600 }); }
-export function journal(ctx: ModCtx, n = 50): Entry[] { try { return readFileSync(journalFile(ctx), 'utf8').trim().split('\n').filter(Boolean).slice(-n).map((l) => JSON.parse(l) as Entry).reverse(); } catch { return []; } }
+// Le journal des requêtes : dans la base d'Odin dès qu'elle est prête (journal « requetes »), sinon journal.jsonl.
+const journaux = new WeakMap<ModCtx, Journal<Entry>>();
+const jr = (ctx: ModCtx) => { let j = journaux.get(ctx); if (!j) { mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); j = new Journal<Entry>('requetes', ctx.dir, { garder: 1000, rangement: fichierJsonl(journalFile(ctx)) }); journaux.set(ctx, j); } return j; };
+function note(ctx: ModCtx, e: Omit<Entry, 'at'>) { jr(ctx).ajouter({ at: ctx.now().toISOString(), ...e, sql: e.sql.slice(0, 2000) }); }
+export function journal(ctx: ModCtx, n = 50): Entry[] { return jr(ctx).tout().slice(-n).reverse(); }
 
 async function withDb<T>(ctx: ModCtx, name: string, f: (b: Base, d: Awaited<ReturnType<typeof open>>) => Promise<T>): Promise<T> {
   const b = findBase(ctx.home, name), d = await open(ctx.home, b);
@@ -158,6 +163,7 @@ export const urdr: Module & { similaires: string[] } = {
       return { text: `🧾 Schéma de ${b.nom} en SQL ${dia === 'mysql' ? 'MySQL' : 'PostgreSQL'}.`, fichiers: [exporter(ctx, `${base} - schéma ${dia}.sql`, sql)], data: { contenu: sql } };
     }) },
     { id: 'journal', label: 'Journal des requêtes', what: 'Les dernières requêtes lancées', read: true, run: (ctx) => { const l = journal(ctx, 30); return { text: l.map((e) => `${e.at.slice(0, 16).replace('T', ' ')} · ${e.base} · ${e.ok ? '✓' : '✗'} ${e.result} · ${e.sql.slice(0, 100)}`).join('\n') || 'Journal vide.', data: l }; } },
+    ...ACTIONS_BASE,
   ],
   async view(ctx) {
     const l = bases(ctx.home), cur = ctx.settings.courante as { base?: string; table?: string; page?: number; filtres?: Filter[] } | undefined;

@@ -5,12 +5,13 @@
 import { Metrics, setMetrics } from './metrics.ts';
 import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { understand, type Understood } from './huginn.ts';
 import { explainListen } from './hostports.ts';
 import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
 import { refusAppli } from './sso/acces.ts';
+import { Journal } from './base/journal.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -33,14 +34,15 @@ export class Valhalla {
   private mods = new Map<string, Module>();
   private ctxs = new Map<string, ModCtx>();
   private timers: Array<ReturnType<typeof setInterval>> = [];
-  private alertsFile: string;
+  private journalAlertes: Journal<Alert>;
   private recent = new Map<string, number>();
   private deps: ValhallaDeps;
   constructor(home: string, modules: Module[], deps: ValhallaDeps = {}) {
     this.deps = deps;
     this.dir = join(home, 'valhalla');
     mkdirSync(this.dir, { recursive: true });
-    this.alertsFile = join(this.dir, 'alertes.jsonl');
+    // Le fil d'alertes : dans la base d'Odin dès qu'elle est prête (sinon valhalla/alertes.jsonl, comme avant).
+    this.journalAlertes = new Journal<Alert>('alertes', this.dir, { garder: 5000 });
     for (const m of modules) this.mods.set(m.id, m);
     this.events.setMaxListeners(100);
     // Les mesures gardées dans le temps (courbes, déclencheurs, tableaux de bord).
@@ -98,7 +100,7 @@ export class Valhalla {
       }
     }
   }
-  stop(): void { this.tour++; if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } }
+  stop(): void { this.tour++; if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } this.journalAlertes.fermer(); }
 
   // ---------------- Actions
   action(moduleId: string, actionId: string): { m: Module; a: Action } | undefined {
@@ -219,7 +221,7 @@ export class Valhalla {
     if (last && now.getTime() - last < 6 * 3600_000) { this.bump(key); return undefined; }
     this.recent.set(key, now.getTime());
     const al: Alert = { ...a, id: Math.random().toString(36).slice(2, 10), at: now.toISOString(), module, count: 1, key };
-    appendFileSync(this.alertsFile, `${JSON.stringify(al)}\n`);
+    this.journalAlertes.ajouter(al);
     this.events.emit('alert', al);
     const min = (this.settings().alertLevel as Level) ?? 'haute';
     if (RANK[a.level] >= RANK[min]) {
@@ -232,9 +234,8 @@ export class Valhalla {
   private bump(key: string): void { this.counts.set(key, (this.counts.get(key) ?? 1) + 1); }
   private counts = new Map<string, number>();
   alerts(o: { module?: string; level?: Level; q?: string; limit?: number } = {}): Alert[] {
-    if (!existsSync(this.alertsFile)) return [];
     const acked = this.acked();
-    let all = readFileSync(this.alertsFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Alert).reverse();
+    let all = this.journalAlertes.tout().reverse();
     all = all.map((a) => ({ ...a, ack: acked.has(a.id), count: this.counts.get(a.key ?? '') ?? a.count }));
     if (o.module) all = all.filter((a) => a.module === o.module);
     if (o.level) all = all.filter((a) => RANK[a.level] >= RANK[o.level!]);

@@ -5,7 +5,7 @@
 //   rouge « grave »  : à regarder maintenant.
 // Chaque bulle dit quoi faire (procédure) et propose les manips utiles ; cliquer ramène à la page.
 import { EventEmitter } from 'node:events';
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { Journal, fichierJsonl } from './base/journal.ts';
 import { join } from 'node:path';
 import type { Action, Alert, Level, Manip, Module } from './types.ts';
 
@@ -48,31 +48,26 @@ export function defaultSteps(level: NoticeLevel, app: string): string[] {
 }
 
 export class Notices {
-  private list: Notice[] = [];
-  private file: string;
+  /** les bulles : dans la base d'Odin dès qu'elle est prête (sinon valhalla/bulles.jsonl, 300 gardées, comme avant) */
+  private j: Journal<Notice>;
   private off: Array<() => void> = [];
   private v: Host;
   constructor(v: Host) {
     this.v = v;
-    this.file = join(v.dir, 'bulles.jsonl');
-    try { if (existsSync(this.file)) this.list = readFileSync(this.file, 'utf8').split('\n').filter(Boolean).slice(-300).map((l) => JSON.parse(l) as Notice); } catch { this.list = []; }
+    this.j = new Journal<Notice>('bulles', v.dir, { garder: 300, rangement: fichierJsonl(join(v.dir, 'bulles.jsonl'), 300) });
     const onAlert = (a: Alert) => this.fromAlert(a), onManip = (m: Manip) => this.fromManip(m);
     v.events.on('alert', onAlert); v.events.on('manip', onManip);
     this.off.push(() => v.events.off('alert', onAlert), () => v.events.off('manip', onManip));
     current = this;
   }
-  stop(): void { for (const f of this.off) f(); if (current === this) current = undefined; }
-  recent(n = 30): Notice[] { return this.list.slice(-n).reverse(); }
-  get(id: string): Notice | undefined { return this.list.find((x) => x.id === id); }
+  stop(): void { for (const f of this.off) f(); this.j.fermer(); if (current === this) current = undefined; }
+  recent(n = 30): Notice[] { return this.j.tout().slice(-n).reverse(); }
+  get(id: string): Notice | undefined { return this.j.tout().find((x) => x.id === id); }
 
   add(n: Omit<Notice, 'id' | 'at' | 'kind' | 'steps' | 'actions' | 'app'> & Partial<Pick<Notice, 'kind' | 'steps' | 'actions' | 'app'>>): Notice {
     const app = n.app ?? this.v.module(n.module)?.name ?? n.module;
     const full: Notice = { ...n, id: Math.random().toString(36).slice(2, 10), at: new Date().toISOString(), app, kind: n.kind ?? KIND[n.level], steps: n.steps?.length ? n.steps : defaultSteps(n.level, app), actions: n.actions ?? [] };
-    this.list.push(full);
-    try {
-      appendFileSync(this.file, `${JSON.stringify(full)}\n`);
-      if (this.list.length > 600) { this.list = this.list.slice(-300); writeFileSync(this.file, `${this.list.map((x) => JSON.stringify(x)).join('\n')}\n`); }
-    } catch { /* dossier disparu : la bulle part quand même */ }
+    try { this.j.ajouter(full); } catch { /* dossier disparu : la bulle part quand même */ }
     noticeBus.emit('notice', full);
     return full;
   }
