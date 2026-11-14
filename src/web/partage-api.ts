@@ -222,7 +222,7 @@ export async function partagePublic(req: IncomingMessage, res: ServerResponse, u
     }
   }
   if (req.method === 'GET') magasin.compter(partage.id);
-  const bandeau = `Copie de la page ${page.app.name} d'Odin, prise le ${dateFr(new Date(page.at))}. Elle ne se met pas à jour. ${partage.type === 'prive' ? 'Lien privé, réservé aux personnes invitées, valable' : 'Ce lien marche'} jusqu'au ${dateFr(new Date(partage.fin))}.`;
+  const bandeau = `Copie de la page ${page.app.name} d'Odin${page.onglet ? ` (onglet « ${page.onglet} »)` : ''}${page.poste ? ` (poste : ${page.poste})` : ''}, prise le ${dateFr(new Date(page.at))}. Elle ne se met pas à jour. ${partage.type === 'prive' ? 'Lien privé, réservé aux personnes invitées, valable' : 'Ce lien marche'} jusqu'au ${dateFr(new Date(partage.fin))}.`;
   res.writeHead(200, entetes({ bac: true }));
   res.end(enHtml(page, bandeau));
   return true;
