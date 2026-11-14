@@ -42,7 +42,13 @@ export function ouvrirOutils(wc: WebContents, position: Outils['position'], them
   wc.setDevToolsWebContents(v.webContents);
   wc.openDevTools({ mode: 'detach', activate: false });
   const dt = v.webContents;
-  dt.on('did-finish-load', () => colorer(dt, theme));
+  // Français et sombre/clair : si les préférences de l'inspecteur n'étaient pas encore réglées, on les règle puis on le
+  // recharge une fois (l'inspecteur ne change de langue qu'au chargement).
+  let recharge = false;
+  dt.on('did-finish-load', () => {
+    colorer(dt, theme);
+    if (!recharge) reglerOutils(dt, theme).then((change) => { if (change && !recharge && !dt.isDestroyed()) { recharge = true; dt.reload(); } }).catch(() => 0);
+  });
   return v;
 }
 /**
@@ -103,26 +109,33 @@ export async function emuler(wc: WebContents, m: Mobile, echelle: number, uaNorm
   const ua = m.appareil === 'libre' ? uaNormal : (appareils as any).agents[m.agent] ?? uaNormal;
   const changer = wc.getUserAgent() !== ua;
   if (changer) wc.setUserAgent(ua);
-  try {
-    if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
-    // Taille, densité et « téléphone » (balise viewport respectée, barres de défilement fines) : comme l'affichage
-    // mobile de Chrome. (webContents.enableDeviceEmulation ne lit pas la balise viewport : on passe par le protocole.)
-    await wc.debugger.sendCommand('Emulation.setDeviceMetricsOverride', { width: m.w, height: m.h, deviceScaleFactor: m.dpr, mobile: m.appareil !== 'libre', scale: echelle, screenWidth: m.w, screenHeight: m.h, screenOrientation: m.paysage ? { type: 'landscapePrimary', angle: 90 } : { type: 'portraitPrimary', angle: 0 } });
-    await wc.debugger.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: m.appareil !== 'libre', maxTouchPoints: 5 });
-    await wc.debugger.sendCommand('Emulation.setEmitTouchEventsForMouse', { enabled: m.appareil !== 'libre', configuration: 'mobile' });
-    await wc.debugger.sendCommand('Emulation.setUserAgentOverride', { userAgent: ua, platform: m.agent.startsWith('i') ? 'iPhone' : 'Linux armv8l' });
-    const r = (appareils as any).reseaux[m.reseau];
-    await wc.debugger.sendCommand('Network.enable');
-    await wc.debugger.sendCommand('Network.emulateNetworkConditions', r ? { offline: !!r.horsLigne, latency: r.latence ?? 0, downloadThroughput: r.descente ?? -1, uploadThroughput: r.montee ?? -1 } : { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
-  } catch {
-    // Sans le protocole (un autre outil est branché) : l'émulation d'Electron, sans la balise viewport.
-    wc.enableDeviceEmulation({ screenPosition: 'mobile', screenSize: { width: m.w, height: m.h }, viewPosition: { x: 0, y: 0 }, deviceScaleFactor: m.dpr, viewSize: { width: m.w, height: m.h }, scale: echelle });
-  }
+  const cmd = async (c: string, a?: object) => { try { await wc.debugger.sendCommand(c, a); return true; } catch (e) { if (process.env.PEGASE_ESSAI) console.error(`émulation : ${c} refusé (${(e as Error).message})`); return false; } };
+  try { if (!wc.debugger.isAttached()) wc.debugger.attach('1.3'); } catch { /* déjà branché */ }
+  // Taille, densité et « téléphone » (balise viewport respectée, barres de défilement fines) : comme l'affichage
+  // mobile de Chrome. (webContents.enableDeviceEmulation ne lit pas la balise viewport : on passe par le protocole.)
+  const ok = await cmd('Emulation.setDeviceMetricsOverride', { width: m.w, height: m.h, deviceScaleFactor: m.dpr, mobile: m.appareil !== 'libre', scale: echelle, screenWidth: m.w, screenHeight: m.h, screenOrientation: m.paysage ? { type: 'landscapePrimary', angle: 90 } : { type: 'portraitPrimary', angle: 0 } });
+  // Sans le protocole (un autre outil est branché) : l'émulation d'Electron, sans la balise viewport.
+  if (!ok) wc.enableDeviceEmulation({ screenPosition: 'mobile', screenSize: { width: m.w, height: m.h }, viewPosition: { x: 0, y: 0 }, deviceScaleFactor: m.dpr, viewSize: { width: m.w, height: m.h }, scale: echelle });
+  await cmd('Emulation.setTouchEmulationEnabled', { enabled: m.appareil !== 'libre', maxTouchPoints: 5 });
+  await cmd('Emulation.setEmitTouchEventsForMouse', { enabled: m.appareil !== 'libre', configuration: 'mobile' });
+  await cmd('Emulation.setUserAgentOverride', { userAgent: ua, platform: m.agent.startsWith('i') ? 'iPhone' : 'Linux armv8l' });
+  const r = (appareils as any).reseaux[m.reseau];
+  await cmd('Network.enable');
+  await reseau(wc, r ? { offline: !!r.horsLigne, latency: r.latence ?? 0, downloadThroughput: r.descente ?? -1, uploadThroughput: r.montee ?? -1 } : null).catch(() => 0);
   if (changer) wc.reload();
+}
+
+/** Réseau lent ou coupé (Chromium 156 : conditions « par règle » + état en ligne / hors ligne de la page). */
+async function reseau(wc: WebContents, c: { offline: boolean; latency: number; downloadThroughput: number; uploadThroughput: number } | null): Promise<void> {
+  const x = c ?? { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
+  try {
+    await wc.debugger.sendCommand('Network.emulateNetworkConditionsByRule', { offline: x.offline, matchedNetworkConditions: c ? [{ urlPattern: '', latency: x.latency, downloadThroughput: x.downloadThroughput, uploadThroughput: x.uploadThroughput }] : [] });
+    await wc.debugger.sendCommand('Network.overrideNetworkState', x);
+  } catch { await wc.debugger.sendCommand('Network.emulateNetworkConditions', x); }
 }
 
 export async function quitterMobile(wc: WebContents, uaNormal: string): Promise<void> {
   wc.disableDeviceEmulation();
-  try { if (wc.debugger.isAttached()) { await wc.debugger.sendCommand('Emulation.clearDeviceMetricsOverride'); await wc.debugger.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: false }); await wc.debugger.sendCommand('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 }); wc.debugger.detach(); } } catch { /* */ }
+  try { if (wc.debugger.isAttached()) { await wc.debugger.sendCommand('Emulation.clearDeviceMetricsOverride'); await wc.debugger.sendCommand('Emulation.setTouchEmulationEnabled', { enabled: false }); await reseau(wc, null); wc.debugger.detach(); } } catch { /* */ }
   if (wc.getUserAgent() !== uaNormal) { wc.setUserAgent(uaNormal); wc.reload(); }
 }

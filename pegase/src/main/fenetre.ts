@@ -620,6 +620,7 @@ export class Fenetre {
     if (arg.zoom === 'ajuster' || (typeof arg.zoom === 'number' && arg.zoom >= 0.1 && arg.zoom <= 2)) n = { ...n, zoom: arg.zoom };
     if (['rapide', '4g', '3g', 'horsligne'].includes(arg.reseau)) n = { ...n, reseau: arg.reseau };
     this.mobiles.set(id, n);
+    this.appliquer(); // réseau, agent… : l'émulation suit tout de suite, même si la taille à l'écran ne change pas
     this.planifier();
   }
 
