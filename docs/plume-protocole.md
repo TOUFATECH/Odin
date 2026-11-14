@@ -30,7 +30,8 @@ bleu : grammaire. Une petite fenêtre pointée sur le mot propose **Corriger**, 
 | Programme avec la clé d'API d'Odin | `Authorization: Bearer <clé d'API>` | le propriétaire |
 | Pégase | `Authorization: Bearer pg1.…` (jeton d'appareil Pégase) **ou** jeton d'accès de la connexion unique (audience `pegase`) | la personne de Persona de cet appareil (le compte du propriétaire dans Persona = le propriétaire) |
 
-Sans connexion valable : `401 { ok: false, code: "connexion", message }` (un mauvais jeton compte comme un essai raté
+Sans connexion valable : `401 { ok: false, code: "connexion", message }` (avec un jeton Pégase refusé ou expiré : le code
+de Pégase, `jeton_invalide` ou `jeton_requis`, pour que Pégase renouvelle sa connexion) (un mauvais jeton compte comme un essai raté
 dans la limite d'essais d'Odin). Sans `x-odin: 1` sur un POST avec cookie : `403`. Corps JSON de 64 Ko au plus.
 
 ## 3. Les routes

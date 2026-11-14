@@ -29,20 +29,22 @@ function nettoyer(chemin, corps) {
  * Branche Plume dans le processus principal de Pégase.
  * @param {object} o
  * @param {import('electron').IpcMain} o.ipcMain
- * @param {(chemin: string, corps?: unknown) => Promise<{ status: number, j: any }>} o.appelOdin  GET (corps absent) ou POST JSON
+ * @param {(chemin: string, corps?: unknown, webContentsId?: number) => Promise<{ status: number, j: any }>} o.appelOdin  GET (corps absent) ou POST JSON
  *        vers `https://<Odin>/api/plume/<chemin>` avec `Authorization: Bearer <jeton de l'appareil>` (la fonction `appel`
  *        de src/main/odin.ts, certificat épinglé). Rend `{ status: 0 }` si Pégase n'est pas relié à Odin.
  * @param {(webContentsId: number) => boolean} o.estPage  vrai seulement pour les onglets de pages web (pas l'interface de Pégase)
- * @param {() => void} o.ouvrirReglages  ouvre Réglages → Plume (l'interface d'Odin à l'adresse `<Odin>/#plume`, dans un onglet)
- * @param {() => Iterable<import('electron').WebContents>} o.pages  les onglets ouverts (pour leur dire quand Plume change)
- * @param {boolean} [o.prive]  vrai dans une fenêtre privée : Plume n'y envoie rien (au choix de l'agent Pégase)
+ * @param {(webContentsId?: number) => void} o.ouvrirReglages  ouvre Réglages → Plume (l'interface d'Odin à l'adresse `<Odin>/#plume`, dans un onglet)
+ * @param {(webContentsId?: number) => Iterable<import('electron').WebContents>} o.pages  les onglets ouverts de la même personne
+ *        (profil) que cet onglet (pour leur dire quand Plume change)
+ * @param {(webContentsId: number) => string} [o.groupe]  le profil de cet onglet (un état retenu par profil)
+ * Chaque fonction reçoit en dernier argument l'identifiant du webContents de la page qui demande (profil, fenêtre).
  */
 function brancherPlume(o) {
-  let dernier = null;
-  const diffuser = (etat) => {
+  const derniers = new Map();
+  const diffuser = (etat, id) => {
     if (!etat || typeof etat !== 'object') return;
-    const sig = JSON.stringify(etat); if (sig === dernier) return; dernier = sig;
-    for (const wc of o.pages()) { try { if (!wc.isDestroyed()) wc.send('pegase:plume-etat', etat); } catch { /* onglet fermé */ } }
+    const g = o.groupe && id !== undefined ? o.groupe(id) : '', sig = JSON.stringify(etat); if (derniers.get(g) === sig) return; derniers.set(g, sig);
+    for (const wc of o.pages(id)) { try { if (!wc.isDestroyed()) wc.send('pegase:plume-etat', etat); } catch { /* onglet fermé */ } }
   };
   o.ipcMain.handle('pegase:plume', async (e, d) => {
     if (!o.estPage(e.sender.id)) return { ok: false, status: 403, message: 'Réservé aux pages.' };
@@ -51,15 +53,15 @@ function brancherPlume(o) {
     const corps = nettoyer(chemin, d.corps); if (corps === null) return { ok: false, status: 400, message: 'Demande refusée.' };
     if ((chemin === 'etat' || chemin === 'corriger' || chemin === 'reglages') && (corps === undefined) !== (chemin === 'etat')) return { ok: false, status: 400, message: 'Demande refusée.' };
     try {
-      const r = await o.appelOdin(`/api/plume/${chemin}`, corps);
+      const id = e.sender.id, r = await o.appelOdin(`/api/plume/${chemin}`, corps, id);
       if (!r || !r.status) return { ok: false, status: 0, message: 'Pégase n\'est pas relié à Odin.' };
       if (r.status !== 200) return { ok: false, status: r.status, message: (r.j && (r.j.message || r.j.error)) || `Odin répond ${r.status}.` };
-      if (chemin === 'etat' || chemin === 'reglages') diffuser(r.j);
-      if (chemin === 'corriger' && r.j && r.j.actif === false) diffuser({ ...(dernier ? JSON.parse(dernier) : {}), actif: false });
+      if (chemin === 'etat' || chemin === 'reglages') diffuser(r.j, id);
+      if (chemin === 'corriger' && r.j && r.j.actif === false) { const g = o.groupe ? o.groupe(id) : '', d = derniers.get(g); diffuser({ ...(d ? JSON.parse(d) : {}), actif: false }, id); }
       return r.j;
     } catch (err) { return { ok: false, status: 0, message: `Odin ne répond pas (${err && err.message ? err.message : 'réseau'}).` }; }
   });
-  o.ipcMain.on('pegase:plume-reglages', (e) => { if (o.estPage(e.sender.id)) o.ouvrirReglages(); });
+  o.ipcMain.on('pegase:plume-reglages', (e) => { if (o.estPage(e.sender.id)) o.ouvrirReglages(e.sender.id); });
   return { diffuser, nettoyer };
 }
 

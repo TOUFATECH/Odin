@@ -18,6 +18,8 @@ export const HOTE_PEGASE = `const { ipcRenderer } = require('electron');
     ouvrirReglages: () => ipcRenderer.send('pegase:plume-reglages'),
     diffuser: () => {},
     ecouter: (f) => ipcRenderer.on('pegase:plume-etat', (_e, etat) => f(etat)),
+    // Essais de Pégase seulement : le processus principal répond oui hors paquet et avec PEGASE_ESSAI (jamais chez toi).
+    essai: (api) => { ipcRenderer.invoke('pegase:plume-essai').then((oui) => { if (oui === true) globalThis.__plumeEssai = api; }).catch(() => {}); },
   };`;
 
 /** Le code du script de page, avec ce transport (`hote` : du code qui définit `const PLUME_HOTE = {…}`). */

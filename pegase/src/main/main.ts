@@ -15,6 +15,7 @@ import { Synchro, trouverOdin, bonjour, type OdinTrouve } from './odin';
 import { MotsDePasse, brancherMotsDePasse } from './motsdepasse';
 import { actionsPages, viderEnFermant } from './actions';
 import { controler } from './controle';
+import { brancherPlumePegase, type PlumePegase } from './plume';
 import { webContents } from 'electron';
 
 // ————— Où ranger les données (dossier de profil du système) —————
@@ -56,6 +57,7 @@ class Pegase implements Appli {
   private controleMdp: { p: ProfilOuvert; m: MotsDePasse } | null = null;
   private controleEnCours: Promise<unknown> | null = null;
   protection!: Protection;
+  plume!: PlumePegase;
   readonly appareil = appareil();
   /** 1er lancement : les Odin trouvés, la recherche en cours, le compte tapé (le mot de passe reste en mémoire seulement). */
   private recherche = { trouves: [] as OdinTrouve[], encours: false };
@@ -72,6 +74,15 @@ class Pegase implements Appli {
       const m = this.mdps.get(p); if (!m) return null;
       const f = () => [...this.fenetres].find((x) => x.profil === p && [...p.vivants.values()].some((v) => v.vue?.webContents.id === wcId && v.fenetre === x)) ?? [...this.fenetres].find((x) => x.profil === p);
       return { p, m, avertir: () => this.planifierTout(), gerer: () => { const x = f(); if (x) void x.faire('naviguer', { texte: 'pegase://reglages/motsdepasse', nouvel: true }); } };
+    });
+    // Plume (le correcteur d'Odin) dans les pages web : seul ce processus parle à Odin, jamais les fenêtres privées.
+    this.plume = brancherPlumePegase({
+      profils: () => this.profils.values(),
+      synchro: (p) => this.synchros.get(p),
+      ouvrir: (p, wcId, url) => {
+        const x = [...this.fenetres].find((f) => f.profil === p && [...p.vivants.values()].some((v) => v.vue?.webContents.id === wcId && v.fenetre === f)) ?? [...this.fenetres].find((f) => f.profil === p);
+        if (x) void x.faire('naviguer', { texte: url, nouvel: true });
+      },
     });
     this.protection = new Protection(this as any, racineDonnees);
     await this.protection.demarrer();
@@ -290,6 +301,10 @@ class Pegase implements Appli {
       case 'odinCopies': return fini(sy?.lien ? await sy.copies().catch(() => []) : []);
       case 'odinRestaurer': return fini(sy?.lien ? await sy.restaurer(String(arg?.copie ?? '')) : 'Pas relié à Odin.');
       case 'odinMoi': return fini(sy?.lien ? await sy.moi().catch(() => null) : null);
+      // Réglages → Plume (correcteur) : l'état, « Dans Pégase », et Réglages → Plume dans l'interface d'Odin.
+      case 'plumeEtat': return fini(p.prive ? { prive: true } : sy?.lien ? { etat: await this.plume.etat(p) } : { relie: false });
+      case 'plumeDansPegase': return fini(p.prive || !sy?.lien ? null : await this.plume.regler(p, { pegase: !!arg?.oui }));
+      case 'plumeOuvrirOdin': return fini(this.plume.ouvrirReglages(p));
       case 'lienAgenda': return fini(sy?.lien ? await sy.lienAgenda(!!arg?.nouvelle).catch(() => null) : null);
       case 'voir': if (sy?.lien && ['tout', 'sans-historique', 'rien'].includes(arg?.v)) await sy.voir(arg.v).catch(() => false); return fini();
       case 'propositions': return fini(sy?.lien ? await sy.propositions() : []);

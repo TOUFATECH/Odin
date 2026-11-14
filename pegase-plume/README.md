@@ -28,42 +28,20 @@ Ce dossier ne touche pas à `pegase/` : il est prêt à brancher.
   contrat, appliquées par le script de page). Rien n'est changé sans un clic.
 - Le texte ne part que vers Odin (réseau local ou ton accès à Odin), jamais vers un autre service.
 
-## Brancher (4 étapes)
+## Branché dans Pégase (14/11/2026, Pégase 0.1.1)
 
-1. **Le script de page** : `src/preload/page.ts` est compilé à part et le préchargement est en bac à sable (il ne peut pas
-   `require` un fichier local). Ajoute `plume-page.js` **à la fin** de `dist/preload/page.js` à la construction, par
-   exemple dans `build:main` :
+1. **Script de page** : `build:main` copie `plume-page.js` en `dist/preload/plume.js`, inscrit comme préchargement de cadre
+   (`registerPreloadScript`) **seulement pour les profils ordinaires** (`src/main/profil.ts`) : dans une fenêtre privée,
+   Plume n'est même pas chargé.
+2. **Processus principal** : `src/main/plume.ts` branche `plume-main.cjs` (copié en `dist/main/plume-main.cjs`) avec le
+   jeton du profil ou la connexion unique (`Synchro.api`, certificat épinglé, renouvellement de la connexion unique) ;
+   il refuse les fenêtres privées, l'interface de Pégase et les pages de l'interface d'Odin (qui ont déjà leur Plume).
+3. **État** : chaque changement est envoyé aux onglets du même profil (`pegase:plume-etat`).
+4. **Réglages de Pégase → Plume (correcteur)** : l'état, l'interrupteur « Dans Pégase » (grisé quand Plume est désactivé
+   partout : seul Réglages → Plume d'Odin le rallume), et « Ouvrir Réglages → Plume dans Odin » (`<Odin>/#plume`).
 
-   ```json
-   "build:main": "tsc -p tsconfig.main.json && node -e \"const f=require('fs');f.copyFileSync('src/main/odin-sso.mjs','dist/main/odin-sso.mjs');f.appendFileSync('dist/preload/page.js','\\n'+f.readFileSync('../pegase-plume/plume-page.js','utf8'))\""
-   ```
-
-   (Le script ne fait rien hors des pages `http(s)` ni dans les cadres.)
-
-2. **Le processus principal** (au démarrage, à côté de `brancherMotsDePasse`) — copie `plume-main.cjs` dans
-   `src/main/` (ou `require('../../../pegase-plume/plume-main.cjs')` si tu l'empaquettes) :
-
-   ```ts
-   const { brancherPlume } = require('./plume-main.cjs');
-   const plume = brancherPlume({
-     ipcMain,
-     // GET si corps est undefined, sinon POST JSON ; avec le jeton du profil courant (ou de la connexion unique).
-     appelOdin: async (chemin, corps) => { const l = profil.lien(); if (!l) return { status: 0, j: {} }; const a = await authOdin(l); return appel(l.adresse, chemin, { empreinte: l.empreinte, jeton: a.jeton, entetes: a.entetes, ...(corps === undefined ? {} : { corps }), delai: 5000 }); },
-     estPage: (id) => Boolean(trouverOnglet(id)),              // un onglet de page web, pas l'interface de Pégase
-     ouvrirReglages: () => ouvrirOnglet(`${profil.lien()!.adresse}/#plume`), // Réglages → Plume dans l'interface d'Odin
-     pages: () => tousLesOnglets().map((o) => o.vue.webContents),
-   });
-   ```
-
-   `appel` doit faire un **GET** quand `corps` est `undefined` (lecture de l'état) et un **POST** JSON sinon. Dans une
-   fenêtre privée, tu peux ne pas brancher Plume (rien n'est alors envoyé).
-
-3. **Rafraîchir l'état** : appelle `plume.diffuser(etat)` si tu relis `GET /api/plume/etat` ailleurs (par exemple à la
-   synchro). Sinon chaque page relit l'état quand elle revient au premier plan et au plus toutes les minutes ; une page
-   apprend aussi « désactivé » à son prochain appel (`actif: false`).
-
-4. **Réglages de Pégase** : une ligne « Plume (correcteur) » qui ouvre Réglages → Plume d'Odin (`<Odin>/#plume`) suffit :
-   le réglage est celui de la personne, le même dans Odin, ses applis et Pégase, sur tous ses appareils.
+Pour un autre logiciel : mêmes 4 étapes ; `brancherPlume({ ipcMain, appelOdin, estPage, ouvrirReglages, pages, groupe })`
+(chaque fonction reçoit l'identifiant du webContents de la page qui demande).
 
 ## Essayé
 
@@ -74,4 +52,4 @@ Corriger, barre de recherche, compteur → Tout voir, Désactiver (coupé aussi 
 ignorés, rien ne dépasse, et la page ne voit ni l'intérieur de Plume, ni le transport, ni le jeton ; ordinateur (1280) et
 téléphone (390). L'essai est gardé hors du dépôt (il a besoin de Playwright) : `plume-partout-tmp/zz-pegase.test.ts`.
 `test/plume-partout.test.ts` vérifie que `plume-page.js` est à jour et ce que `plume-main.cjs` laisse passer.
-L'Electron réel n'est pas lancé (à faire par l'agent Pégase dans ses essais `test/*.test.mjs`).
+Et dans le vrai Pégase (Electron) contre un vrai Odin : `pegase/test/plume.test.mjs`.

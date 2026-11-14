@@ -1,7 +1,7 @@
 {
   "name": "pegase",
   "productName": "Pégase",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pégase, le navigateur d'Odin : léger, protégé, synchronisé avec ton Odin.",
   "license": "MIT",
   "author": {
@@ -13,7 +13,7 @@
   "private": true,
   "scripts": {
     "icones": "node scripts/icones.mjs",
-    "build:main": "tsc -p tsconfig.main.json && node -e \"require('fs').copyFileSync('src/main/odin-sso.mjs','dist/main/odin-sso.mjs')\"",
+    "build:main": "tsc -p tsconfig.main.json && node -e \"const f=require('fs');f.copyFileSync('src/main/odin-sso.mjs','dist/main/odin-sso.mjs');f.copyFileSync('../pegase-plume/plume-main.cjs','dist/main/plume-main.cjs');f.copyFileSync('../pegase-plume/plume-page.js','dist/preload/plume.js')\"",
     "build:ui": "vite build",
     "build": "npm run icones && npm run build:main && npm run build:ui",
     "types": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.ui.json --noEmit",
