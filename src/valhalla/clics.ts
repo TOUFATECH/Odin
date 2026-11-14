@@ -9,7 +9,9 @@ export interface ClickAction { id: string; label: string; app: string; ask: stri
 export const CLICK_MIN = 4, CLICK_MAX = 100;
 
 export const CLICK_CATALOG: ClickAction[] = [
-  { id: 'serveur_redemarrer', label: 'Redémarrer tout le serveur', app: 'Odin', ask: 'Je redémarre tout le serveur ? Tout s\'arrête 1 à 2 minutes.', grave: true, def: 4, run: { fn: 'redemarrer_serveur' } },
+  // 4 clics : Alchimie (maquette validée le 14/11/2026) ; le redémarrage du serveur n'a plus de nombre au départ (à choisir).
+  { id: 'alchimie', label: 'Ouvrir Alchimie (convertir des fichiers)', app: 'Alchimie', ask: '', grave: false, def: 4, run: { fn: 'alchimie' } },
+  { id: 'serveur_redemarrer', label: 'Redémarrer tout le serveur', app: 'Odin', ask: 'Je redémarre tout le serveur ? Tout s\'arrête 1 à 2 minutes.', grave: true, def: null, run: { fn: 'redemarrer_serveur' } },
   { id: 'odin_redemarrer', label: 'Redémarrer Odin seulement', app: 'Odin', ask: 'Je me redémarre (le serveur reste allumé) ?', grave: false, def: 5, run: { fn: 'redemarrer_odin' } },
   { id: 'faire_le_point_sante_du_serveur', label: 'Faire le point santé du serveur', app: 'Hygie', ask: 'Je regarde processeur, mémoire, disques et je te dis ?', grave: false, def: 6, run: { act: ['eir', 'etat'] } },
   { id: 'annuler_ma_derniere_manip', label: 'Annuler ma dernière manip', app: 'Odin', ask: 'J\'annule ce que j\'ai fait seul en dernier ?', grave: false, def: null, run: { say: 'Annule ta dernière manip.' } },

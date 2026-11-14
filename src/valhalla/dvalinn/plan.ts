@@ -32,7 +32,7 @@ export const TARGETS: Record<Family, string[]> = {
   livre: ['epub', 'mobi', 'azw3', 'pdf'],
 };
 
-export interface Opts { qualite?: 'haute' | 'normale' | 'legere'; largeur?: number; hauteur?: number; codec?: 'h264' | 'h265' | 'av1'; sansSon?: boolean; debut?: string; duree?: string; fps?: number }
+export interface Opts { qualite?: 'haute' | 'normale' | 'legere'; /** qualité précise des images (1 à 100) */ pct?: number; /** cadre gardé au centre (images) */ cadre?: { w: number; h: number }; /** niveaux de gris (images) */ gris?: boolean; largeur?: number; hauteur?: number; codec?: 'h264' | 'h265' | 'av1'; sansSon?: boolean; debut?: string; duree?: string; fps?: number }
 export interface Step { cmd: string; args: string[]; out: string; /** le fichier produit sous un autre nom (LibreOffice choisit le nom) */ produced?: string; alt?: { cmd: string; args: string[] } }
 
 const CRF: Record<string, Record<string, number>> = { h264: { haute: 18, normale: 22, legere: 28 }, h265: { haute: 20, normale: 25, legere: 30 }, av1: { haute: 24, normale: 30, legere: 38 } };
@@ -79,9 +79,12 @@ export function plan(src: string, to: string, outDir: string, o: Opts = {}): Ste
     return { cmd: 'ffmpeg', args: a, out };
   }
   if (from === 'image') {
-    const a = [src + (extOf(src) === 'gif' && to !== 'gif' ? '[0]' : '')];
+    // Une photo de téléphone est tournée par une simple étiquette : on la tourne pour de bon avant d'effacer les étiquettes.
+    const a = [src + (extOf(src) === 'gif' && to !== 'gif' ? '[0]' : ''), '-auto-orient'];
+    if (o.cadre && o.cadre.w > 0 && o.cadre.h > 0) a.push('-gravity', 'center', '-crop', `${Math.round(o.cadre.w)}x${Math.round(o.cadre.h)}+0+0`, '+repage');
+    if (o.gris) a.push('-colorspace', 'Gray');
     if (o.largeur || o.hauteur) a.push('-resize', `${o.largeur ?? ''}x${o.hauteur ?? ''}>`);
-    if (['jpg', 'webp', 'avif'].includes(to)) a.push('-quality', String({ haute: 92, normale: 82, legere: 65 }[q]));
+    if (['jpg', 'webp', 'avif'].includes(to)) a.push('-quality', String(o.pct && o.pct >= 1 && o.pct <= 100 ? Math.round(o.pct) : { haute: 92, normale: 82, legere: 65 }[q]));
     if (to === 'ico') a.push('-define', 'icon:auto-resize=256,128,64,48,32,16');
     a.push('-strip', out);
     return { cmd: 'magick', args: a, out, alt: { cmd: 'convert', args: a } };

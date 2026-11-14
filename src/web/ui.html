@@ -1894,7 +1894,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const f = e.target.closest?.('.odin'); if (!f || f.id === 'buddyChat' || f.classList.contains('angry')) return;
     e.preventDefault();
     const now = Date.now(); f._taps = (f._taps || []).filter((t) => now - t < 2000).concat(now);
-    if (f._taps.length >= 4) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.sound('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
+    // Odin en liberté : ses clics rapides sont comptés par mascotte.js (4 = Alchimie), il ne se fâche pas.
+    if (f._taps.length >= 4 && !f.classList.contains('roam')) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.sound('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
     f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
     window.OdinFace?.sound('bounce');
     window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
@@ -4936,6 +4937,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/powers3.js"></script>
 <script nonce="__NONCE__" src="/powers.js"></script>
 <script nonce="__NONCE__" src="/mascotte.js"></script>
+<script nonce="__NONCE__" src="/alchimie.js"></script>
 <script nonce="__NONCE__" src="/themes.js"></script>
 <script nonce="__NONCE__" src="/guide.js"></script>
 <script nonce="__NONCE__" src="/evolution.js"></script>

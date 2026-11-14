@@ -4,7 +4,8 @@ import { CLICK_CATALOG, DEFAULT_CLICKS2, cleanClicks2 } from '../src/valhalla/cl
 
 test('clics sur Odin : catalogue, nombres proposés uniques, un nombre = une action', () => {
   assert.equal(new Set(CLICK_CATALOG.map((a) => a.id)).size, CLICK_CATALOG.length, 'chaque action a son identifiant');
-  assert.equal(DEFAULT_CLICKS2['4'], 'serveur_redemarrer', '4 clics : redémarrer tout le serveur');
+  assert.equal(DEFAULT_CLICKS2['4'], 'alchimie', '4 clics : Alchimie (maquette du 14/11/2026)');
+  assert.ok(!Object.values(DEFAULT_CLICKS2).includes('serveur_redemarrer'), 'le redémarrage du serveur n\'a plus de nombre au départ');
   assert.ok(!DEFAULT_CLICKS2['7'] && !DEFAULT_CLICKS2['8'], 'les actions retirées (7, 8) n\'ont pas de nombre au départ');
   assert.ok(Object.keys(DEFAULT_CLICKS2).every((k) => Number(k) >= 4 && Number(k) <= 100));
   assert.equal(new Set(Object.values(DEFAULT_CLICKS2)).size, Object.keys(DEFAULT_CLICKS2).length, 'une action n\'a qu\'un nombre');
