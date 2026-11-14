@@ -1,5 +1,22 @@
 [
  {
+  "id": "v1240",
+  "at": "2026-11-14T05:15:00+03:00",
+  "date": "2026-11-14",
+  "version": "1.24.0",
+  "title": "Nouvelle appli Tirésias (santé et vitesse des disques) et logos redessinés",
+  "details": [
+   "Tirésias : chaque disque avec son état en clair (Bon, Attention, Mauvais) et la raison, ses valeurs SMART expliquées, un relevé par jour, des courbes et une alerte qui dit quoi faire ; test de vitesse dans un fichier de test seulement ; un autre poste Linux ou Mac par SSH. Hygie renvoie vers Tirésias pour chaque disque.",
+   "Logos : 14 logos redessinés (dont la plume de Némésis, le crayon de Plume, la lyre d'Apollon, la cible d'Athéna, le Wi-Fi de Zéphyr), Sphinx et Phénix refaits de zéro, et les coloris choisis icône par icône.",
+   "Pas testé : un vrai disque avec SMART (aucun ici), un vrai Mac."
+  ],
+  "planets": [
+   "applis",
+   "machines"
+  ],
+  "kind": "version"
+ },
+ {
   "id": "v1230",
   "at": "2026-11-14T04:40:00+03:00",
   "date": "2026-11-14",
