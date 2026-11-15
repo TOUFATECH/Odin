@@ -20,7 +20,7 @@ import { fakeEngine } from './helpers.ts';
 
 const DOCKER = [{ ID: 'abc', Names: 'web', Image: 'nginx', State: 'running', Status: 'Up 2 hours', Ports: '', Labels: '' }, { ID: 'def', Names: 'base-de-donnees', Image: 'postgres', State: 'exited', Status: 'Exited', Ports: '', Labels: '' }].map((x) => JSON.stringify(x)).join('\n');
 const NOW = new Date('2026-11-11T10:00:00');
-const TOOLS = ['valhalla', 'mode_set', 'reminder_set', 'note_save', 'note_find', 'venus', 'net_scan', 'ha_call', 'ha_states', 'admin_enable', 'self_restart', 'update_apply', 'update_check', 'settings_get', 'settings_set'];
+const TOOLS = ['valhalla', 'mode_set', 'reminder_set', 'note_save', 'note_find', 'venus', 'net_scan', 'ha_call', 'ha_states', 'admin_enable', 'self_restart', 'update_apply', 'update_check', 'settings_get', 'settings_set', 'voice_set'];
 
 /** Toutes les applis d'Odin, sans rien toucher sur la machine. */
 function world() {
@@ -93,6 +93,8 @@ const IA = [
   'Dis à Karim que j\'arrive', 'Annonce la promo sur Instagram', 'Joue le rôle d\'un client mécontent', 'Enregistre cette conversation', 'Enregistre ce contact : Karim 0639123456',
   'Regarde la vidéo et dis-moi ce que tu en penses', 'Qui est connecté sur mon site ?', 'Connecte-toi à mon compte Vercel', 'Déploie mon appli sur un serveur',
   'Le film d\'hier était super', 'Bonjour comment vas-tu', 'Il fait chaud aujourd\'hui', 'On mange quoi ce soir ?', 'Tu connais une bonne série ?', 'C\'est quoi un VPN ?',
+  // Les mots « homme », « femme », « voix » dans une vraie demande : ce n'est pas le réglage d'Odin.
+  'Mets une voix de femme sur la vidéo', 'Parle-moi de la voix de femme de Piper', 'Quelle voix de femme as-tu ?', 'Un homme a sonné à la porte, qui est-ce ?',
   'Ça sert à quoi un pare-feu ?', 'Explique-moi Docker', 'Fais une sauvegarde de mon téléphone', 'Trouve le fichier du devis Kana',
 ];
 /** Odin sait le faire seul : [phrase, la dernière action qui part] (vide : il répond de lui-même). */
@@ -110,7 +112,9 @@ const SEUL: Array<[string, RegExp]> = [
   ['allume la lampe salon', /^appareils\.commander.*Lampe salon/], ['lance la scène bonne nuit', /^midgard\.scene.*Bonne nuit/], ['les caméras', /^himinbjorg\.cameras/],
   ['débannis 203.0.113.9', /^garmr\.debannir.*203\.0\.113\.9/], ['tue le processus 4242', /^skogul\.tuer.*4242/], ['cherche dans mes notes facture orange', /^saga\.chercher.*facture orange|^note_find/],
   ['rappelle-moi dans 2 heures de sortir le linge', /^reminder_set/], ['je suis en réunion', /^mode_set.*reunion/], ['mes enregistrements', /^freyja\.enregistrements/],
-  ['vérifie le lien https://paypa1.com/x', /^ullr\.adresse.*paypa1/], ['analyse le fichier /tmp/x.sh', /^ullr\.fichier.*x\.sh/], ['ce que tu as appris', /^$/], ['redémarre-toi', /^self_restart/], ['Mets à jour Odin', /^update_apply/], ['es-tu à jour ?', /^update_check/], ['passe en prudent', /^settings_set.*prudent/], ['tes réglages', /^settings_get/], ['as-tu besoin d\'une IA pour écrire un poème ?', /^$/],
+  ['vérifie le lien https://paypa1.com/x', /^ullr\.adresse.*paypa1/], ['analyse le fichier /tmp/x.sh', /^ullr\.fichier.*x\.sh/], ['ce que tu as appris', /^$/], ['redémarre-toi', /^self_restart/], ['Mets à jour Odin', /^update_apply/], ['es-tu à jour ?', /^update_check/], ['passe en prudent', /^settings_set.*prudent/], ['tes réglages', /^settings_get/],
+  // Odin, homme ou femme, en le disant (le réglage unique : voix et accords).
+  ['prends une voix de femme', /^voice_set.*femme/], ['parle comme un homme', /^voice_set.*homme/], ['Odin, parle avec une voix de femme', /^voice_set.*femme/], ['as-tu besoin d\'une IA pour écrire un poème ?', /^$/],
 ];
 
 

@@ -203,6 +203,13 @@ export async function tryDirect(text: string, d: DirectDeps): Promise<Direct> {
     const r = await run('settings_get', {});
     return { done: true, text: r.content, why: 'mes réglages, je les lis moi-même', tools };
   }
+  // Odin, homme ou femme, à la demande (« prends une voix de femme », « parle comme un homme ») : le même réglage que
+  // Réglages → Voix ; la voix et les accords du texte suivent dès la réponse suivante.
+  const genre = d.has('voice_set') ? commandeGenre(raw) : undefined;
+  if (genre) {
+    const r = await run('voice_set', { genre });
+    return { done: true, text: r.content, why: 'homme ou femme : ce réglage, je le change moi-même', tools };
+  }
   const auto = d.has('settings_set') ? /^(?:passe|mets[- ]toi|repasse|reste|sois) (?:en |sur )?(?:mode |autonomie )?(prudent|equilibre|autonome|breaker|odin breaker)$|^autonomie (prudent|prudente|equilibre|equilibree|autonome|breaker)$/.exec(s) : null;
   if (auto) {
     const r = await run('settings_set', { reglage: 'autonomie', valeur: (auto[1] ?? auto[2]).replace(/^odin /, '') });

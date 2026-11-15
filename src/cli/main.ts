@@ -31,6 +31,7 @@ import { WhatsAppChannel } from '../bifrost/channels/whatsapp.ts';
 import { MailChannel } from '../bifrost/channels/mail.ts';
 import { accessUrls, addedNetworks, addNetwork, allowedNetworks, bindHost, ensureTls, plageAutorisable, removeNetwork, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
+import { genreOdin, lireGenre } from '../core/genre.ts';
 import { routingReport } from '../providers/journal.ts';
 import { startDraupnir } from '../draupnir/odin.ts';
 import { startValhalla, valhallaOf } from '../valhalla/odin.ts';
@@ -84,6 +85,7 @@ Conteneurs (moteur d'Odin, sans démon, sans Docker ni Podman) :
   web                          interface web (+ canaux et tâches planifiées)
   web access [lan|local|wan]   qui peut l'ouvrir : ton réseau local en HTTPS (défaut), cette machine,
                                ou Internet (--http : LAN sans chiffrement ; --proxy : proxy HTTPS devant)
+  genre [homme|femme]          Odin, homme ou femme : sa voix et ses accords suivent (sans rien : le choix actuel)
   link  (ou web link)          affiche les liens personnels (avec jeton) pour ouvrir l'interface
   acces [code]                 autorise un appareil qui a touché « Demander l'accès » (non <code> : refuser)
   web rotate                   nouveau jeton d'accès (déconnecte tous les appareils)
@@ -376,6 +378,22 @@ function webAccess(mode: string | undefined): void {
   const msg = { local: 'cette machine seulement', lan: `ton réseau local${flags.has('--http') ? '' : ' en HTTPS'} (${allowedNetworks(loadConfig(paths).web).join(', ') || 'aucun réseau privé détecté pour l\'instant'})`, wan: 'cette machine, ton réseau local et Internet (HTTPS)' }[mode];
   console.log(c.green(`✓ Interface web : ${msg}. Relance « odin web » (ou le service) pour l'appliquer.`));
   if (mode === 'wan' && !flags.has('--proxy')) console.log(c.yellow('  Pense à rediriger le port ' + cfg.web.port + ' sur ta box vers cette machine. Le navigateur demandera d\'accepter le certificat auto-signé.'));
+}
+
+/** odin genre [homme|femme] : Odin, homme ou femme (le seul réglage : la voix et les accords du texte suivent). */
+function genreCmd(choix: string | undefined): void {
+  const paths = odinPaths();
+  initHome(paths);
+  const cfg = loadConfig(paths);
+  if (!choix) {
+    console.log(`Odin est ${c.bold(genreOdin(cfg) === 'femme' ? 'une femme' : 'un homme')}${cfg.voice.genderChosen ? '' : ' (choix par défaut, jamais changé)'} : sa voix et ses accords suivent.`);
+    console.log(c.dim('  odin genre homme     voix d\'homme, « je suis prêt »\n  odin genre femme     voix de femme, « je suis prête »'));
+    return;
+  }
+  const g = lireGenre(choix);
+  if (!g) throw new Error('choix inconnu : homme ou femme');
+  applySettings(paths, cfg, 'genre', { genre: g });
+  console.log(c.green(`✓ Odin est ${g === 'femme' ? 'une femme' : 'un homme'} : voix ${g === 'femme' ? 'de femme, et elle parle d\'elle au féminin' : 'd\'homme, et il parle de lui au masculin'}. (Modifiable : Réglages → Voix, ou « odin genre ».)`));
 }
 
 function openUrl(url: string): void {
@@ -802,6 +820,7 @@ async function main(): Promise<void> {
     return;
   }
   if (cmd === 'gateway') return gateway();
+  if (cmd === 'genre') return genreCmd(pos[1]);
   if (cmd === 'web' && pos[1] === 'access') return webAccess(pos[2]);
   if (cmd === 'web' && (pos[1] === 'reseau' || pos[1] === 'réseau')) return webReseau(pos[2], pos[3]);
   if (cmd === 'link' || (cmd === 'web' && pos[1] === 'link')) {

@@ -68,7 +68,7 @@ test('ElevenLabs : texte nettoyé pour la parole, clé envoyée, audio renvoyé'
     assert.equal(h.headers['xi-api-key'], 'cle-eleven');
     const sent = JSON.parse(h.body.toString()) as { text: string; model_id: string };
     assert.equal(sent.model_id, 'eleven_multilingual_v2');
-    assert.equal(sent.text, 'Voilà : npm test passe. Détails sur le lien affiché Odin Breaker');
+    assert.equal(sent.text, 'Voilà : npm test passe. Détails sur le lien affiché. Odin Breaker', 'une fin de ligne devient une pause');
     assert.equal(ttsReady(v, env), true);
     assert.equal(ttsReady({ ...v, tts: { ...v.tts, voiceId: '' } }, env), true, 'sans voix choisie : la voix d\'homme prête à l\'emploi sert, une clé suffit');
     assert.equal(ttsReady({ ...v, tts: { ...v.tts, voiceId: '' } }, {}), false, 'sans clé : pas prêt');

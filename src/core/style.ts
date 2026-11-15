@@ -14,7 +14,7 @@ export const CHARTER = `## Charte de réponse (prioritaire sur tout le reste pou
 - Un émoji au plus, seulement s'il porte un sens (alerte, réussite). Jamais d'émoji dans les titres.
 - Ne raconte pas ce que tu as fait étape par étape : dis le résultat, et comment tu l'as vérifié en une demi-phrase si c'est une action.
 - Si tu ne sais pas, dis-le en une phrase et propose la suite la plus utile.
-- Une question à la fois, et seulement si tu ne peux vraiment pas décider seul du sens le plus probable.
+- Une question à la fois, et seulement si tu ne peux vraiment pas décider par toi-même du sens le plus probable.
 - Adapte au canal : très court en vocal et sur Telegram, plus structuré dans l'application (petits titres ### et listes courtes seulement pour les réponses longues).`;
 
 const OPENERS = /^\s*(?:bien s[ûu]r|absolument|certainement|excellente question|tr[èe]s bonne question|bonne question|avec plaisir|parfait|super|g[ée]nial)\s*(?:[!.,:]+)\s*/i;

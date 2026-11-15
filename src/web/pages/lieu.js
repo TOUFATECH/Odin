@@ -54,8 +54,9 @@
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   }
   async function toutSeul() {
-    const question = 'Pour me localiser tout seul, je demande à un service en ligne où sort ma connexion Internet : il voit l\'adresse publique de cette machine. C\'est utile pour un serveur loué ; à la maison, c\'est approximatif. Continuer ?';
-    const oui = window.OdinDialog ? await window.OdinDialog.confirm(question, { titre: 'Me configurer tout seul', ok: 'Continuer' }) : true;
+    const seul = window.OdinNaturel ? window.OdinNaturel.accord('tout seul', 'toute seule') : 'tout seul';
+    const question = 'Pour me localiser ' + seul + ', je demande à un service en ligne où sort ma connexion Internet : il voit l\'adresse publique de cette machine. C\'est utile pour un serveur loué ; à la maison, c\'est approximatif. Continuer ?';
+    const oui = window.OdinDialog ? await window.OdinDialog.confirm(question, { titre: 'Me configurer ' + seul, ok: 'Continuer' }) : true;
     if (oui) await faire('se_configurer', {}, 'Je cherche où je suis…');
   }
   function dessiner() {

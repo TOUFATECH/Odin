@@ -10,10 +10,12 @@
 #    2. télécharge Odin dans ~/.odin/app ;
 #    3. crée la commande « odin » dans ~/.local/bin ;
 #    4. initialise ~/.odin (configuration, persona, mémoire) ;
-#    5. te propose : inventaire du réseau local, démarrage automatique ;
+#    5. te demande : qui peut ouvrir l'interface, Odin homme ou femme (sa voix et ses accords),
+#       inventaire du réseau local, démarrage automatique ;
 #    6. ouvre l'interface web : tu y choisis le modèle et tes clés (onglet Réglages).
 #
-#  Variables utiles : ODIN_YES=1 (tout accepter), ODIN_NO_SERVICE=1, ODIN_NO_SCAN=1,
+#  Variables utiles : ODIN_YES=1 (tout accepter, aucune question), ODIN_NO_SERVICE=1, ODIN_NO_SCAN=1,
+#  ODIN_GENRE=homme|femme (sans elle et sans question : un homme, à confirmer au premier démarrage),
 #  ODIN_REPO=<url git>, ODIN_HOME=<dossier>.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -147,6 +149,25 @@ case "$ACCESS" in local|lan|wan) ;; *) ACCESS=lan ;; esac
 if [ "$ACCESS" != local ] && command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
   info "Pare-feu ufw actif : autorise le port avec « sudo ufw allow 8888/tcp »."
 fi
+
+# ---------- Odin : un homme ou une femme ? ----------
+# Un seul réglage pour sa voix et pour sa façon de parler de lui (« je suis prêt » ou « je suis prête »).
+# Modifiable plus tard : Réglages → Voix, « odin genre femme », ou en le lui disant (« prends une voix de femme »).
+# Sans question (ODIN_YES=1, ou pas de terminal) : ODIN_GENRE s'il est donné ; sinon rien n'est écrit, Odin garde
+# sa valeur par défaut (un homme) et pose la question une fois, au premier démarrage de l'interface.
+GENRE="${ODIN_GENRE:-}"
+if [ -z "$GENRE" ] && [ "${ODIN_YES:-}" != "1" ] && [ -r /dev/tty ]; then
+  printf '  Odin, c'"'"'est :\n    1) un homme\n    2) une femme\n  Ton choix [1] : ' > /dev/tty
+  read -r CH < /dev/tty || CH=""
+  case "${CH:-1}" in 2|f|F|femme|Femme|FEMME) GENRE=femme ;; *) GENRE=homme ;; esac
+fi
+case "$GENRE" in femme|Femme|FEMME|f|F|2) GENRE=femme ;; homme|Homme|HOMME|h|H|1) GENRE=homme ;; *) GENRE="" ;; esac
+if [ -n "$GENRE" ] && "$BIN_DIR/odin" genre "$GENRE" >/dev/null; then
+  ok "Odin : $( [ "$GENRE" = femme ] && echo 'une femme (voix de femme, « je suis prête »)' || echo 'un homme (voix d'"'"'homme, « je suis prêt »)' )"
+else
+  info "Odin : un homme par défaut (la question sera posée au premier démarrage ; « odin genre femme » pour changer)."
+fi
+# ---------- (fin : homme ou femme) ----------
 
 if [ "${ODIN_NO_SCAN:-}" != "1" ] && ask "Inventorier les appareils de ton réseau local (et suivre leurs changements) ?" o; then
   "$BIN_DIR/odin" net enable >/dev/null

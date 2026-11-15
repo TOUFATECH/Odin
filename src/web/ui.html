@@ -1358,7 +1358,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
             <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="m-test">Tester</button><button class="btn primary" type="submit">Enregistrer comme modèle par défaut</button><button class="btn" type="button" id="m-backup">Ajouter en secours</button></div>
             <div class="field"><label>Modèles configurés</label><span class="hint">Pour chaque demande qui a besoin d'une IA, Odin prend le palier qu'il faut, puis le modèle dont c'est la spécialité, puis le moins cher (règle ci-dessous), puis celui qui réussit le mieux ce type de tâche chez toi, puis l'ordre de cette liste. Un modèle qui échoue souvent sur un type de tâche ne passe pas devant parce qu'il coûte moins. En panne ou à bout de quota : le suivant prend le relais.</span><div id="m-list" role="list"></div></div>
             <div class="form" style="gap:8px">
-              <label class="check"><input type="checkbox" id="r-direct"> Faire sans IA ce que je sais faire seul (je te dis à chaque fois si une IA a servi, et pourquoi)</label>
+              <label class="check"><input type="checkbox" id="r-direct"> Faire sans IA ce que je sais faire sans elle (je te dis à chaque fois si une IA a servi, et pourquoi)</label>
               <label class="check"><input type="checkbox" id="r-learn"> Apprendre : une demande qu'une IA règle par une action (ou quelques-unes à la suite), je la refais ensuite sans elle</label>
               <label class="check"><input type="checkbox" id="r-cheap"> À palier et spécialité égaux, le modèle le moins cher d'abord</label>
               <label class="check"><input type="checkbox" id="r-local"> Préférer un modèle installé/gratuit quand la tâche ne demande pas plus</label>
@@ -1375,7 +1375,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
           <article class="card" data-sec="modele" id="ecoCard">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h2 style="flex:1">Économies</h2><span class="sub" id="eco-days">30 jours</span></div>
-            <p class="sub" style="margin:0">Ce que j'ai fait sans IA, ce que ça t'a évité, et ce que j'ai appris à faire seul. Tout vient de mon journal réel. Dans une discussion : « mes économies ».</p>
+            <p class="sub" style="margin:0">Ce que j'ai fait sans IA, ce que ça t'a évité, et ce que j'ai appris à faire sans elle. Tout vient de mon journal réel. Dans une discussion : « mes économies ».</p>
             <div class="kpis" id="eco-kpis" style="margin-top:12px"></div>
             <div id="eco-share"></div>
             <p class="sub" id="eco-note" style="margin:8px 0 0"></p>
@@ -1672,9 +1672,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
               </div>
             </details>
             <div class="field" id="v-elevenBox"><label for="v-eleven">Clé ElevenLabs</label><input id="v-eleven" type="password" autocomplete="off" spellcheck="false"><span class="hint" id="v-elevenHint"></span></div>
-            <fieldset class="field" style="border:0;padding:0;margin:0"><legend style="font-weight:600;margin-bottom:6px">Voix d'homme ou de femme</legend>
-              <div class="seg" role="radiogroup" style="display:flex;gap:8px;flex-wrap:wrap"><label class="check"><input type="radio" name="v-gender" value="homme"> 👨 Voix d'homme</label><label class="check"><input type="radio" name="v-gender" value="femme"> 👩 Voix de femme</label><button class="btn small" type="button" id="v-try2">Écouter</button></div>
-              <span class="hint">Aussi à la demande : « parle avec une voix de femme ». OpenAI : nova, shimmer, coral (femme) · onyx, echo, ash (homme). Piper local : siwis (femme), tom (homme).</span>
+            <fieldset class="field" style="border:0;padding:0;margin:0"><legend style="font-weight:600;margin-bottom:6px">Odin : homme ou femme</legend>
+              <div class="seg" role="radiogroup" style="display:flex;gap:8px;flex-wrap:wrap"><label class="check"><input type="radio" name="v-gender" value="homme"> 👨 Un homme</label><label class="check"><input type="radio" name="v-gender" value="femme"> 👩 Une femme</label><button class="btn small" type="button" id="v-try2">Écouter</button></div>
+              <span class="hint">Un seul choix pour sa voix et pour sa façon de parler de lui (« je suis prêt » ou « je suis prête »). Aussi en le disant : « parle avec une voix de femme », « parle comme un homme ». OpenAI : nova, shimmer, coral (femme) · onyx, echo, ash (homme). Piper local : siwis (femme), tom (homme).</span>
             </fieldset>
             <div class="field"><label for="v-female">Voix de femme précise (facultatif)</label><input id="v-female" autocomplete="off" spellcheck="false" placeholder="voix de femme par défaut du fournisseur"></div>
             <div class="field" id="v-nameBox"><label for="v-voiceName">Voix (nom)</label><input id="v-voiceName" autocomplete="off" spellcheck="false" placeholder="onyx"><span class="hint">OpenAI : onyx (homme, grave), ash, echo, alloy… Piper : vide (voix du serveur) ou le nom du modèle si le serveur en sert plusieurs.</span></div>
@@ -1829,6 +1829,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/face.js"></script>
 <script nonce="__NONCE__" src="/ciel.js"></script>
 <script nonce="__NONCE__" src="/dialog.js"></script>
+<script nonce="__NONCE__" src="/naturel.js"></script>
 <script nonce="__NONCE__">
 (() => {
   const AUTHED = __AUTHED__;
@@ -3669,11 +3670,15 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
 
   // Pas de voix réglée (ou voix en panne) : la voix française du navigateur lit la réponse.
-  function readWithBrowser(text) {
+  // Le texte est d'abord préparé par Odin pour être dit (nombres, heures, listes, aucun symbole) ; puis une voix
+  // française du bon genre (homme ou femme) le lit, à vitesse et hauteur naturelles. Jamais une voix anglaise.
+  async function ditPourLaVoix(text) { try { const r = await api('/api/voice/texte', { text: text.slice(0, 5000) }); if (r && r.text) return r.text; } catch { /* Odin ne répond pas : ménage sur place */ } return window.OdinNaturel.sansSymboles(text).slice(0, 2500); }
+  async function readWithBrowser(text) {
     try {
+      const dit = await ditPourLaVoix(text);
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text.replace(/[*_`#>]+/g, '').replace(/https?:\/\/\S+/g, 'lien').slice(0, 1500)); u.lang = 'fr-FR'; u.volume = Math.min(1, Math.max(0, state?.voice?.speech?.volume ?? 1)); u.rate = state?.voice?.speech?.rate ?? 1;
-      const v = frenchVoice(); if (v) u.voice = v;
+      const u = new SpeechSynthesisUtterance(dit);
+      if (!window.OdinNaturel.regler(u, speechSynthesis.getVoices(), state?.settings?.voice?.gender, state?.voice?.speech)) return 'Cet appareil n\'a aucune voix française pour me lire : installe-en une dans ses réglages, ou la voix locale dans Réglages, rubrique Voix.';
       const faces = $$('.odin'); faces.forEach((o) => o.classList.add('talking'));
       u.onend = u.onerror = () => faces.forEach((o) => o.classList.remove('talking'));
       speechSynthesis.speak(u);
@@ -3713,9 +3718,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     ] },
     { name: 'Mon travail', steps: [
       { v: 'missions', q: ['#v-missions .head', '#v-missions .body'], t: 'Les Missions : ce que je fais en ce moment, étape par étape, et combien ça coûte. Tu peux arrêter ou reprendre une mission.' },
-      { v: 'jobs', q: ['#v-jobs .head', '#v-jobs .body'], t: 'Les Tâches planifiées : ce que je fais seul à heure fixe, comme un résumé chaque matin ou une ronde du réseau la nuit. Demande-moi simplement « chaque lundi à 8 heures, fais… ».' },
-      { v: 'audit', q: ['#v-audit .head', '#v-audit .body'], t: 'Les Décisions : tout ce que j\'ai fait, décidé seul ou refusé, classé par jour, semaine, mois ou année. Rien n\'est caché.' },
-      { v: 'chat', q: ['#convSub', '#v-chat .cbox'], t: 'En mode Odin Breaker, j\'agis seul : je fais des rondes sur ton réseau, j\'identifie et je renomme les appareils, je corrige les problèmes, et je te rends compte le soir. Tu le règles dans la configuration.' },
+      { v: 'jobs', q: ['#v-jobs .head', '#v-jobs .body'], t: 'Les Tâches planifiées : ce que je fais de moi-même à heure fixe, comme un résumé chaque matin ou une ronde du réseau la nuit. Demande-moi simplement « chaque lundi à 8 heures, fais… ».' },
+      { v: 'audit', q: ['#v-audit .head', '#v-audit .body'], t: 'Les Décisions : tout ce que j\'ai fait, décidé de moi-même ou refusé, classé par jour, semaine, mois ou année. Rien n\'est caché.' },
+      { v: 'chat', q: ['#convSub', '#v-chat .cbox'], t: 'En mode Odin Breaker, j\'agis sans te demander : je fais des rondes sur ton réseau, j\'identifie et je renomme les appareils, je corrige les problèmes, et je te rends compte le soir. Tu le règles dans la configuration.' },
     ] },
     { name: 'Ton réseau', steps: [
       { v: 'net', nt: 'list', q: '#v-net .ntabs', t: 'Le Réseau : tous les appareils de chez toi, trouvés tout seuls, avec leur nom, leur système et leurs ports. Je te préviens quand un nouvel appareil arrive, ou quand une adresse MAC est suspecte.' },
@@ -3733,11 +3738,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'settings', sec: 'modele', q: S('modele'), t: 'Un : le Modèle, c\'est mon cerveau. Choisis-le en premier : OpenAI, Anthropic, Mistral, ou un modèle local. Tu peux fixer un budget par mois. Sans lui, je ne peux rien faire.' },
       { v: 'settings', sec: 'telegram', q: S('telegram'), t: 'Deux : Telegram, pour me parler depuis ton téléphone, partout. Crée un bot avec BotFather, colle son jeton ici, puis envoie-moi un message.' },
       { v: 'settings', sec: 'voix', q: S('voix'), t: 'Trois : la Voix, pour me parler et m\'entendre. Whisper comprend ce que tu dis. Pour ma voix : ElevenLabs, OpenAI, ou Piper, gratuit et sur ta machine.' },
-      { v: 'settings', sec: 'autonomie', q: S('autonomie'), t: 'Quatre : mon autonomie. Prudent : je te demande tout. Équilibré : je te demande seulement l\'important. Autonome : presque rien. Odin Breaker : j\'agis seul et je te rends compte. Tu peux limiter le Breaker à la nuit.' },
-      { v: 'settings', sec: 'droits', q: S('droits'), t: 'Cinq : Droits et machines. Ici, je deviens administrateur de ce poste, et tu ajoutes les accès à tes autres machines et à ta box, pour que je puisse les mettre à jour, les réparer, ou bloquer un appareil.' },
+      { v: 'settings', sec: 'autonomie', q: S('autonomie'), t: 'Quatre : mon autonomie. Prudent : je te demande tout. Équilibré : je te demande seulement l\'important. Autonome : presque rien. Odin Breaker : j\'agis sans te demander et je te rends compte. Tu peux limiter le Breaker à la nuit.' },
+      { v: 'settings', sec: 'droits', q: S('droits'), t: 'Cinq : Droits et machines. Ici, tu me donnes les droits d\'administrateur sur ce poste, et tu ajoutes les accès à tes autres machines et à ta box, pour que je puisse les mettre à jour, les réparer, ou bloquer un appareil.' },
       { v: 'settings', sec: 'reseau', q: S('reseau'), t: 'Six : le Réseau local. Active le balayage automatique pour que je surveille tes appareils en continu.' },
       { v: 'settings', sec: 'surveillance', q: S('surveillance'), t: 'Surveillance : les appareils et services importants que je vérifie toutes les cinq minutes, et l\'espace de tes disques.' },
-      { v: 'settings', sec: 'proxmox', q: S('proxmox'), t: 'Proxmox : l\'adresse de ton serveur. Le plus simple : donne-moi son mot de passe dans la discussion, je crée mon jeton d\'accès tout seul.' },
+      { v: 'settings', sec: 'proxmox', q: S('proxmox'), t: 'Proxmox : l\'adresse de ton serveur. Le plus simple : donne-moi son mot de passe dans la discussion, je crée mon jeton d\'accès moi-même.' },
       { v: 'settings', sec: 'entretien', q: S('entretien'), t: 'Entretien : je répare et je mets à jour tes machines la nuit, avec un plan de retour en arrière si quelque chose se passe mal.' },
       { v: 'settings', sec: 'sauvegarde', q: S('sauvegarde'), t: 'Sauvegarde : une copie chiffrée de ma mémoire et de mes réglages, chaque nuit. Active-la, c\'est rassurant.' },
       { v: 'settings', sec: 'personnalite', q: S('personnalite'), t: 'Personnalité : mon ton, ma façon de te parler, mes humeurs.' },
@@ -3755,7 +3760,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     { name: 'Au quotidien', steps: [
       { v: 'home', q: '#appCard', t: 'Installe-moi sur ton téléphone ou ton ordinateur, comme une vraie application, et active les notifications : je te préviens même quand l\'application est fermée.' },
       { v: 'home', q: ['#themeBtn', '#menuBtn', '.bnav [data-view="settings"]', '.bnav'], t: 'Le thème : clair, sombre, ou automatique selon l\'heure.' },
-      { v: 'home', q: ['#appVer', '#homeGrid .kpis'], t: 'Je me mets à jour tout seul, quand je ne travaille pas, et je redémarre sans te déranger.' },
+      { v: 'home', q: ['#appVer', '#homeGrid .kpis'], t: 'Je me mets à jour de moi-même, quand je ne travaille pas, et je redémarre sans te déranger.' },
       { v: 'chat', q: '#v-chat .cbox', t: 'C\'est tout ! Pour commencer : choisis mon modèle dans les Réglages, puis dis-moi ce que tu veux faire. Tu peux revoir cette présentation à tout moment, dans Réglages, rubrique Plus. Je suis là.' },
     ] },
   ];
@@ -3799,19 +3804,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     else browserSpeak(text, seq);
   }
   function browserSpeak(text, seq) {
-    try { const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; u.rate = 1; u.pitch = state?.settings?.voice?.gender === 'femme' ? 1 : v && MALE_FR.test(v.name) ? 1 : 0.85; u.onend = () => spoken(seq); u.onerror = () => spoken(seq); speechSynthesis.speak(u); }
+    try { const u = new SpeechSynthesisUtterance(window.OdinNaturel.sansSymboles(text)); if (!window.OdinNaturel.regler(u, speechSynthesis.getVoices(), state?.settings?.voice?.gender, { rate: 1 })) return spoken(seq); u.onend = () => spoken(seq); u.onerror = () => spoken(seq); speechSynthesis.speak(u); }
     catch { spoken(seq); }
   }
-  // Voix du navigateur : une voix d'homme naturelle en français (les voix « Natural / Online » d'Edge sont les plus humaines).
-  const MALE_FR = /henri|paul|thomas|claude|antoine|r[ée]my|j[ée]r[ôo]me|denis|mathieu|nicolas|guillaume|yves|alain|fabrice|gilles|olivier|jean|daniel|male|homme/i;
-  const FEMALE_FR = /female|femme|am[ée]lie|audrey|aur[ée]lie|julie|marie|virginie|hortense|denise|eloise|c[ée]line|chantal|vivienne|brigitte|sylvie|coralie|charline|jos[ée]phine|yvette|lea|léa/i;
-  function frenchVoice() {
-    const vs = speechSynthesis.getVoices().filter((x) => /^fr/i.test(x.lang));
-    // Voix de femme choisie : on inverse la préférence.
-    if (state?.settings?.voice?.gender === 'femme') { const sf = (v) => (FEMALE_FR.test(v.name) ? 4 : 0) + (/natural|online|neural|premium|enhanced/i.test(v.name) ? 3 : 0) + (/fr-FR/i.test(v.lang) ? 1 : 0) - (MALE_FR.test(v.name) ? 3 : 0); return vs.sort((a, b) => sf(b) - sf(a))[0]; }
-    const score = (v) => (MALE_FR.test(v.name) ? 4 : 0) + (/natural|online|neural|premium|enhanced/i.test(v.name) ? 3 : 0) + (/fr-FR/i.test(v.lang) ? 1 : 0) - (/female|femme|am[ée]lie|audrey|aur[ée]lie|julie|marie|virginie|hortense|denise|eloise|c[ée]line|chantal|google/i.test(v.name) ? 3 : 0);
-    return vs.sort((a, b) => score(b) - score(a))[0];
-  }
+  // Voix du navigateur : la meilleure voix française du bon genre (homme ou femme) parmi celles de l'appareil ; les voix
+  // « Natural / Online » d'Edge sont les plus humaines. Le choix est dans naturel.js (fonction pure, essayée à part).
   try { speechSynthesis.getVoices(); } catch {}
   function tourEnd(done = true) {
     tourI = -1; tourSeq++; stopVoice();
@@ -3959,6 +3956,24 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     ]), 900);
   }
   window.OdinTour = { start: tourStart, end: tourEnd, offer: tourOffer, resume: tourResume };
+  // Au premier démarrage, avant la visite : Odin demande s'il est un homme ou une femme (sa voix et ses accords suivent).
+  // Rien n'est demandé quand le choix est déjà fait (à l'installation, dans Réglages → Voix, ou en le disant).
+  function genreOffer(next) {
+    const V = state?.settings?.voice;
+    if (!V || V.genderChosen || V.gender === 'femme' || genreOffer.done) return next();
+    genreOffer.done = true;
+    const choisir = async (genre) => {
+      let ok = false;
+      try { const r = await api('/api/action', { kind: 'settings_save', section: 'genre', genre }); ok = Boolean(r && r.ok); if (ok) await refresh(); } catch { /* Odin ne répond pas : rien n'est changé */ }
+      if (ok) say(genre === 'femme' ? 'D\'accord, je serai une femme : ma voix et ma façon de parler de moi suivent. Tu peux changer quand tu veux dans Réglages, rubrique Voix.' : 'D\'accord, je serai un homme : ma voix et ma façon de parler de moi suivent. Tu peux changer quand tu veux dans Réglages, rubrique Voix.', [], 5000);
+      setTimeout(next, ok ? 5300 : 0);
+    };
+    say('Avant de commencer : tu préfères que je sois un homme ou une femme ? Ma voix et ma façon de parler de moi suivront.', [
+      { label: '👨 Un homme', primary: true, run: () => choisir('homme') },
+      { label: '👩 Une femme', primary: true, run: () => choisir('femme') },
+      { label: 'Plus tard', run: () => next() },
+    ]);
+  }
   // ---------- Odin t'aide à écrire, te conseille et se déplace ----------
   const ASSIST = () => ({ spelling: 'auto', tips: true, roam: true, ...(state?.settings?.assist || {}) });
   // Ce que la mascotte en liberté (companion.js) a besoin de savoir.
@@ -4449,8 +4464,14 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const r = await api('/api/voice/voices');
     if (!r.ok) return st('#v-status', r.error + ' (enregistre d\'abord ta clé ElevenLabs)', false);
     const cur = $('#v-voice').value; const sel = $('#v-voice'); sel.replaceChildren(el('option', { value: '' }, '— choisis une voix —'));
-    for (const v of r.voices) sel.append(el('option', { value: v.id }, `${v.name}${v.category === 'cloned' ? ' (copiée)' : ''}`));
-    sel.value = cur; voicesLoaded = true; st('#v-status', `✓ ${r.voices.length} voix disponibles.`, true);
+    for (const v of r.voices) sel.append(el('option', { value: v.id }, `${v.name}${v.genre ? ` · ${v.genre}` : ''}${v.francaise ? ' · française' : ''}${v.category === 'cloned' ? ' (copiée)' : ''}`));
+    sel.value = cur; voicesLoaded = true;
+    // Une voix française d'origine du bon genre sur ton compte : proposée d'office tant que rien n'est choisi pour ce genre
+    // (les voix prêtes à l'emploi parlent français avec un léger accent). Rien n'est gardé sans « Enregistrer ».
+    const g = document.querySelector('input[name="v-gender"]:checked')?.value || r.genre || 'homme', fr = r.voices.find((v) => v.francaise && v.genre === g);
+    const libre = Boolean(fr) && (g === 'femme' ? !$('#v-female').value.trim() : !cur);
+    if (libre) { if (g === 'femme') $('#v-female').value = fr.id; else sel.value = fr.id; }
+    st('#v-status', `✓ ${r.voices.length} voix disponibles.${libre ? ` J'ai trouvé une voix française ${g === 'femme' ? 'de femme' : 'd\'homme'} sur ton compte : ${fr.name}. Touche « Enregistrer » pour la garder.` : ''}`, true);
   });
   $('#v-local')?.addEventListener('click', () => { show('chat'); $('#input').value = 'Installe la voix locale (Whisper et Piper) pour comprendre mes vocaux et me répondre en vocal.'; send(); });
   $('#v-try').addEventListener('click', async () => {
@@ -4468,7 +4489,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       // Une voix est réglée mais n'a pas pu parler : on dit pourquoi, au lieu de faire parler le navigateur à sa place.
       if (state.voice?.tts) return st('#v-status', (await r.json().catch(() => ({}))).error || 'La voix n\'a pas répondu.', false);
     } catch {}
-    try { const keep = state.settings.voice.gender; state.settings.voice.gender = g; const u = new SpeechSynthesisUtterance(text); u.lang = 'fr-FR'; const v = frenchVoice(); if (v) u.voice = v; state.settings.voice.gender = keep; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch { st('#v-status', 'Aucune voix disponible sur cet appareil.', false); }
+    try { const u = new SpeechSynthesisUtterance(text); if (!window.OdinNaturel.regler(u, speechSynthesis.getVoices(), g, state?.voice?.speech)) return st('#v-status', 'Cet appareil n\'a aucune voix française : installe-en une dans ses réglages, ou touche « Installer la voix locale » plus bas.', false); speechSynthesis.cancel(); speechSynthesis.speak(u); } catch { st('#v-status', 'Aucune voix disponible sur cet appareil.', false); }
   });
   let cloneBlob = null;
   $('#v-cloneRec').addEventListener('click', () => record($('#v-cloneRec'), (b) => { cloneBlob = b; $('#v-recHint').textContent = `Enregistrement prêt (${Math.round(b.size / 1024)} Ko).`; }, $('#v-recHint')));
@@ -4880,6 +4901,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
   async function refresh() {
     state = await api('/api/state');
+    // Odin : homme ou femme. Les phrases toutes faites de l'interface s'accordent (OdinNaturel.accord) et la voix suit.
+    if (window.OdinNaturel) window.OdinNaturel.genre = state?.settings?.voice?.gender === 'femme' ? 'femme' : 'homme';
     $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
     renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderVault(); renderApp(); if ($('#v-device').classList.contains('on')) renderDevicePage(false); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
@@ -4948,7 +4971,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     };
   }
   // Au premier démarrage (et tant qu'elle n'est ni finie ni refusée), Odin propose sa visite, avec ou sans configuration.
-  refresh().then(() => { loadHistory(); hashView(); setTimeout(() => window.OdinTour?.offer(), 1500); }); connect();
+  // Juste avant, une seule fois : « un homme ou une femme ? » si le choix n'a pas encore été fait.
+  refresh().then(() => { loadHistory(); hashView(); setTimeout(() => genreOffer(() => window.OdinTour?.offer()), 1500); }); connect();
 })();
 </script>
 <script nonce="__NONCE__" src="/flows.js"></script>

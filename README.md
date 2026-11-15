@@ -52,6 +52,8 @@ L'installateur :
 5. te propose : ta clé d'API, l'inventaire du réseau local, le démarrage automatique (launchd, systemd ou Planificateur de tâches).
 
 Installation sans question : `ODIN_YES=1` (ajoute `ODIN_NO_SERVICE=1` ou `ODIN_NO_SCAN=1` pour sauter une étape).
+L'installation demande aussi si Odin est un homme ou une femme (sa voix et ses accords suivent) ; sans question,
+`ODIN_GENRE=femme` ou `ODIN_GENRE=homme` le règle, sinon Odin reste un homme et pose la question au premier démarrage.
 
 <details>
 <summary><b>Depuis les sources</b></summary>
@@ -331,7 +333,7 @@ Envoie un fichier à Odin sur Telegram ou dépose-le dans `~/.odin/workspace`, p
 
 - **Réponse en voix ou en texte** : bouton Voix, Réglages → Voix, ou à l'oral (« réponds par écrit », « parle-moi »). En texte seul, Odin écrit sa réponse même quand tu lui parles au micro, et n'envoie plus de note vocale sur Telegram.
 - **Réglages** : texte en direct, annulation d'écho, sensibilité du micro, attente en fin de phrase, mot de réveil, maintenir pour parler, mots d'arrêt, « oui / mmh » ignorés, vitesse et volume de la voix, lexique de prononciation, cerveau (« auto » ou « sans IA » pour les demandes à la voix), mode privé (rien n'est retenu ni écrit).
-- **Voix d'homme ou de femme** : Réglages → Voix, ou « parle avec une voix de femme » (sans IA aussi) ; le choix sert dès la phrase suivante, sans relancer Odin. Avec ElevenLabs, une clé suffit : une voix d'homme ou de femme prête à l'emploi parle tout de suite.
+- **Odin, homme ou femme** : un seul réglage pour sa voix et pour ses accords (« je suis prêt » ou « je suis prête »), choisi à l'installation, au premier démarrage, dans Réglages → Voix, par `odin genre femme`, ou en le disant : « parle avec une voix de femme », « parle comme un homme » (sans IA aussi) ; le choix sert dès la phrase suivante, sans relancer Odin. Ce qu'il dit à voix haute est préparé pour sonner naturel : aucun symbole lu, nombres, heures et unités en toutes lettres, listes dites « d'abord…, ensuite…, enfin… ». Avec ElevenLabs, une clé suffit : une voix d'homme ou de femme prête à l'emploi parle tout de suite.
 - **Copier ta voix** (ElevenLabs) : la page demande si c'est ta voix ou celle de quelqu'un d'autre (son nom est alors obligatoire) ; l'accord est noté avant tout envoi, et « Retirer l'accord » efface la voix copiée chez ElevenLabs.
 - **À voix haute** : sur Telegram, « dis-le à voix haute » envoie une note vocale ; dans Pythie, « Écouter une réponse » la fait lire par Orphée (fichier à télécharger).
 - **Conversation en direct** (page d'Orphée → « Parler en direct ») : un service vocal en Python ([voix-temps-reel/](voix-temps-reel/README.md)), lancé et surveillé par Odin, sait quand tu parles et quand ta phrase est finie, écrit en direct, et coupe Odin en moins de 200 ms quand tu reprends la parole ; « continue » reprend au premier mot jamais dit. Sans Python, la voix habituelle reste.

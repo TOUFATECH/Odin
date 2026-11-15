@@ -115,7 +115,8 @@ export class Gateway {
 
   add(ch: Channel): this {
     // Odin, homme ou femme : ce qu'il envoie de tout fait (« je suis prêt », « désolé ») s'accorde au réglage en cours.
-    { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, accorder(text), opts); }
+    // (Pas ce que TU as dit : un vocal recopié « 🎙 … » reste mot pour mot.)
+    { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, text.startsWith('🎙') ? text : accorder(text), opts); }
     // Hors de l'application : jamais de marqueur d'humeur dans le texte (Telegram, Signal, WhatsApp…).
     if (ch.name !== 'web') { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, stripMood(text), opts); }
     this.channels.set(ch.name, ch); return this;

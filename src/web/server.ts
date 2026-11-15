@@ -102,7 +102,8 @@ import { getMode, setMode, type LifeMode } from '../tools/everyday.ts';
 import { isReminderJob, reminderText } from '../cron/reminders.ts';
 import { applySettings, loadEnvFile, SECRET_NAMES, providerFor, settingsView, testProvider, writeSecret, type ModelPreset } from '../settings.ts';
 import { exportConversations, type ExportFormat } from '../muninn/export.ts';
-import { TTS_DEFAULTS, hear, listVoices, speak, speakAudio, sttReady, ttsIsLocal, ttsReady } from '../voice/voice.ts';
+import { TTS_DEFAULTS, forSpeech, hear, listVoices, pronounce, speak, speakAudio, sttReady, ttsIsLocal, ttsReady, voixFrancaise } from '../voice/voice.ts';
+import { genreOdin } from '../core/genre.ts';
 import { voixCloner, voixCopies, voixRetirer } from './voix-api.ts';
 import { ensureLocalVoice, resumeVoiceInstall, voiceBlocked } from '../voice/local.ts';
 import { forget as forgetAcquis, loadAcquis } from '../learn/acquis.ts';
@@ -170,6 +171,8 @@ const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import
 const PACKETS_JS = (() => { try { return readFileSync(new URL('./packets.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 // Les fenêtres de dialogue au style d'Odin (à la place de confirm, alert et prompt du navigateur).
 const DIALOG_JS = (() => { try { return readFileSync(new URL('./dialog.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+// Odin naturel : les accords (homme ou femme) et le choix de la voix française du navigateur.
+const NATUREL_JS = (() => { try { return readFileSync(new URL('./naturel.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 // Les pages dessinées à part pour certaines applis (Alexandrie Studio, Écho, Zéphyr…) : src/web/pages/<appli>.js
 const PAGES_JS: Record<string, Buffer> = (() => { try { return Object.fromEntries(readdirSync(new URL('./pages/', import.meta.url)).filter((n) => /^[a-z0-9-]+\.js$/.test(n)).map((n) => [n, readFileSync(new URL(`./pages/${n}`, import.meta.url))])); } catch { return {}; } })();
 // Plume partout : le script et son CSS (glissé dedans : la page n'accepte que les styles écrits par ses scripts).
@@ -679,6 +682,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/packets.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PACKETS_JS); }
     if (url.pathname === '/dialog.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(DIALOG_JS); }
+    if (url.pathname === '/naturel.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(NATUREL_JS); }
     if (url.pathname === '/graph.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GRAPH_JS); }
     if (url.pathname === '/evolution.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(EVOLUTION_JS); }
     if (url.pathname === '/guide.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GUIDE_JS); }
@@ -872,7 +876,8 @@ export class WebChannel implements Channel {
       return void res.end(this.stateCache.body);
     }
     if (req.method === 'GET' && url.pathname === '/api/voice/voices') {
-      try { return json(res, 200, { ok: true, voices: await listVoices(this.odin.cfg.voice) }); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+      // `conseil` : une voix française d'origine du bon genre (homme ou femme) trouvée sur le compte, s'il y en a une.
+      try { const voices = await listVoices(this.odin.cfg.voice), g = genreOdin(this.odin.cfg), c = voixFrancaise(voices, g); return json(res, 200, { ok: true, voices, genre: g, ...(c ? { conseil: { id: c.id, name: c.name } } : {}) }); } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (req.method === 'GET' && url.pathname === '/api/voice/copies') return json(res, 200, voixCopies(this.odin));
     // Journal des routages : quelle IA a traité quoi (Réglages → Modèle → Qui a répondu).
@@ -1129,6 +1134,9 @@ export class WebChannel implements Channel {
       return r ? json(res, 200, r) : json(res, 404, { error: 'inconnu' });
     }
     if (url.pathname === '/api/voice/retirer') { const r = await voixRetirer(this.odin, String(body.id ?? '')); this.notify('state'); return json(res, 200, r); }
+    // Le texte préparé pour être DIT (sans symboles, nombres et heures en toutes lettres, listes « d'abord… ») : la voix
+    // du navigateur n'a pas ce travail, la page le demande ici avant de parler.
+    if (url.pathname === '/api/voice/texte') return json(res, 200, { ok: true, text: pronounce(forSpeech(String(body.text ?? '').slice(0, 5000), undefined, v.speech?.pronunciations), v.speech?.pronunciations) });
     if (url.pathname === '/api/voice/speak') {
       if (!ttsReady(v)) return json(res, 200, { ok: false, error: 'La synthèse vocale n\'est pas configurée (Réglages → Voix)' });
       try {

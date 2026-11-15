@@ -9,10 +9,12 @@
 #    2. télécharge Odin dans %LOCALAPPDATA%\Odin\app ;
 #    3. crée la commande « odin » et l'ajoute au PATH de l'utilisateur ;
 #    4. initialise %USERPROFILE%\.odin ;
-#    5. propose : inventaire du réseau local, démarrage à l'ouverture de session ;
+#    5. demande : qui peut ouvrir l'interface, Odin homme ou femme (sa voix et ses accords),
+#       inventaire du réseau local, démarrage à l'ouverture de session ;
 #    6. ouvre l'interface web : tu y choisis le modèle et tes clés (onglet Réglages).
 #
-#  Variables utiles : $env:ODIN_YES = "1", $env:ODIN_NO_SERVICE = "1", $env:ODIN_NO_SCAN = "1",
+#  Variables utiles : $env:ODIN_YES = "1" (aucune question), $env:ODIN_NO_SERVICE = "1", $env:ODIN_NO_SCAN = "1",
+#  $env:ODIN_GENRE = "homme" ou "femme" (sans elle et sans question : un homme, à confirmer au premier démarrage),
 #  $env:ODIN_REPO = "<url git>".
 # ─────────────────────────────────────────────────────────────────────────────
 $ErrorActionPreference = 'Stop'
@@ -139,6 +141,28 @@ if ($Access -ne 'local') {
     }
   }
 }
+
+# ---------- Odin : un homme ou une femme ? ----------
+# Un seul réglage pour sa voix et pour sa façon de parler de lui (« je suis prêt » ou « je suis prête »).
+# Modifiable plus tard : Réglages → Voix, « odin genre femme », ou en le lui disant (« prends une voix de femme »).
+# Sans question ($env:ODIN_YES = "1") : $env:ODIN_GENRE s'il est donné ; sinon rien n'est écrit, Odin garde sa valeur
+# par défaut (un homme) et pose la question une fois, au premier démarrage de l'interface.
+$Genre = $env:ODIN_GENRE
+if (-not $Genre -and $env:ODIN_YES -ne '1') {
+  Write-Host '  Odin, c''est :'
+  Write-Host '    1) un homme'
+  Write-Host '    2) une femme'
+  $ch = Read-Host '  Ton choix [1]'
+  $Genre = if ($ch -match '^(2|f|femme)$') { 'femme' } else { 'homme' }
+}
+$Genre = if ($Genre -match '^(femme|f|2)$') { 'femme' } elseif ($Genre -match '^(homme|h|1)$') { 'homme' } else { '' }
+if ($Genre) {
+  & $Odin genre $Genre | Out-Null
+  Ok "Odin : $(@{ homme = 'un homme (voix d''homme, « je suis prêt »)'; femme = 'une femme (voix de femme, « je suis prête »)' }[$Genre])"
+} else {
+  Info 'Odin : un homme par défaut (la question sera posée au premier démarrage ; « odin genre femme » pour changer).'
+}
+# ---------- (fin : homme ou femme) ----------
 
 if ($env:ODIN_NO_SCAN -ne '1' -and (Ask 'Inventorier les appareils de ton réseau local (et suivre leurs changements) ?')) {
   & $Odin net enable | Out-Null

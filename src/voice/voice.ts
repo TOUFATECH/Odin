@@ -8,6 +8,7 @@
 // Aucune dépendance : fetch + FormData de Node.
 
 import { applyMots, mots, prompt } from './mots.ts';
+import { pourLaVoix } from './dire.ts';
 import { garderAudio } from './audio-brut.ts';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -207,7 +208,7 @@ export interface SpeechAudio { data: Uint8Array; mime: string }
 
 /** Texte → audio (mp3 pour le navigateur, opus pour les notes vocales Telegram), selon le fournisseur choisi. */
 export async function speakAudio(text: string, v: VoiceConfig, format: AudioFormat = 'mp3_44100_128', signal?: AbortSignal, env = process.env, lang?: string): Promise<SpeechAudio> {
-  const clean = pronounce(forSpeech(text), v.speech?.pronunciations);
+  const clean = pronounce(forSpeech(text, lang, v.speech?.pronunciations), v.speech?.pronunciations);
   if (!clean) throw new Error('rien à dire');
   // 100 % local : Piper sur la machine, installé au besoin ; jamais de service en ligne.
   if (v.localOnly && !localPiper()) {
@@ -281,23 +282,42 @@ export function pronounce(text: string, lexicon: Record<string, string> = {}): s
   return out;
 }
 
-export function forSpeech(text: string): string {
-  const t = text
-    .replace(/```[\s\S]*?```/g, ' (code affiché à l\'écran) ')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/https?:\/\/\S+/g, 'le lien affiché')
-    .replace(/[⚡🛡🧭🔔⛔✅⏰💡🛰📌⚠️🛑]/gu, '')
-    .replace(/^\s*[•\-*]\s+/gm, '')
-    .replace(/[*_#>]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+/**
+ * Le texte écrit pour l'écran, préparé pour être DIT : aucun symbole lu, nombres, heures, unités et sigles dits comme
+ * on les dit, petites pauses, listes « d'abord…, ensuite…, enfin… » (tout le détail : dire.ts). `lang` : la langue du
+ * texte si elle est connue (sinon devinée) ; `lexicon` : tes prononciations, appliquées avant d'épeler les sigles.
+ */
+export function forSpeech(text: string, lang?: string, lexicon?: Record<string, string>): string {
+  const t = pourLaVoix(lexicon && Object.keys(lexicon).length ? pronounce(text, lexicon) : text, lang ?? guessLang(text.replace(/```[\s\S]*?```|https?:\/\/\S+/g, ' ')));
   if (t.length <= 2500) return t;
   // Trop long : on s'arrête à la fin d'une phrase, jamais au milieu d'un mot (la suite reste à l'écran).
   const cut = t.slice(0, 2500), end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '), cut.lastIndexOf('… '));
   return end > 1200 ? cut.slice(0, end + 1) : cut.slice(0, cut.lastIndexOf(' ') > 0 ? cut.lastIndexOf(' ') : 2500);
 }
 
-export interface VoiceInfo { id: string; name: string; category: string }
+export interface VoiceInfo {
+  id: string; name: string; category: string;
+  /** Voix d'homme ou de femme, quand le service le dit (étiquette « gender » d'ElevenLabs). */
+  genre?: 'homme' | 'femme';
+  /** Voix dont la langue d'origine est le français (étiquette « language » ou accent français), quand le service le dit. */
+  francaise?: boolean;
+}
+
+/**
+ * Parmi les voix du compte, une voix FRANÇAISE d'origine du bon genre, s'il y en a une (les voix prêtes à l'emploi
+ * d'ElevenLabs parlent français, mais avec un léger accent : une voix française du compte sonne plus naturel). Pur.
+ */
+export function voixFrancaise(voices: VoiceInfo[], genre: 'homme' | 'femme'): VoiceInfo | undefined {
+  return voices.find((v) => v.francaise && v.genre === genre);
+}
+/** Ce que les étiquettes d'une voix ElevenLabs disent d'elle (genre, langue d'origine). Rien n'est supposé. Pur. */
+export function etiquettesVoix(x: { labels?: Record<string, unknown> | null }): Pick<VoiceInfo, 'genre' | 'francaise'> {
+  const l = x.labels ?? {}, g = String(l.gender ?? '').toLowerCase(), langue = String(l.language ?? '').toLowerCase(), accent = String(l.accent ?? '').toLowerCase();
+  return {
+    ...(g === 'female' || g === 'male' ? { genre: g === 'female' ? 'femme' as const : 'homme' as const } : {}),
+    ...(/^fr(?:[-_]|$)|^french|^fran[cç]ais/.test(langue) || /french|fran[cç]ais|parisian|parisien/.test(accent) ? { francaise: true } : {}),
+  };
+}
 
 /** Voix disponibles sur le compte ElevenLabs (prédéfinies et copiées). */
 export async function listVoices(v: VoiceConfig, env = process.env): Promise<VoiceInfo[]> {
@@ -306,7 +326,7 @@ export async function listVoices(v: VoiceConfig, env = process.env): Promise<Voi
   if (v.tts.provider !== 'elevenlabs' || !/^https?:\/\//.test(v.tts.baseUrl)) return [{ id: v.tts.voiceId || 'fr_FR-tom-medium', name: v.tts.voiceName || v.tts.voiceId || 'voix locale', category: 'locale (Piper), sur la machine d\'Odin' }];
   // ElevenLabs : GET /v2/voices, par pages de 100 (l'ancien /v1/voices est déprécié : il s'arrête au-delà de 500 voix).
   const base = v.tts.baseUrl.replace(/\/$/, ''), k = key(v.tts.apiKeyEnv, env), out: VoiceInfo[] = [];
-  type Page = { voices?: Array<{ voice_id: string; name: string; category?: string }>; has_more?: boolean; next_page_token?: string | null };
+  type Page = { voices?: Array<{ voice_id: string; name: string; category?: string; labels?: Record<string, unknown> | null }>; has_more?: boolean; next_page_token?: string | null };
   let token = '';
   for (let page = 0; page < 20; page++) {
     let res = await reach('ElevenLabs', `${base}/v2/voices?page_size=100&include_total_count=false${token ? `&next_page_token=${encodeURIComponent(token)}` : ''}`, { headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(20_000) });
@@ -315,7 +335,7 @@ export async function listVoices(v: VoiceConfig, env = process.env): Promise<Voi
     if (old) res = await reach('ElevenLabs', `${base}/v1/voices`, { headers: { 'xi-api-key': k }, signal: AbortSignal.timeout(20_000) });
     await failIfBad(res, 'Liste des voix indisponible', k);
     const data = await res.json() as Page;
-    out.push(...(data.voices ?? []).map((x) => ({ id: x.voice_id, name: x.name, category: x.category ?? '' })));
+    out.push(...(data.voices ?? []).map((x) => ({ id: x.voice_id, name: x.name, category: x.category ?? '', ...etiquettesVoix(x) })));
     if (old || !data.has_more || !data.next_page_token) break;
     token = data.next_page_token;
   }

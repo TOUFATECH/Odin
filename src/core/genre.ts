@@ -85,7 +85,7 @@ const VERBE = '(?<etre>suis|serai|serais|étais|sois)|reste|resterai|restais|sen
 /** Le verbe, des adverbes, le mot à accorder, et parfois un second après « et ». */
 const JE_SUIS = new RegExp(
   `(?<![${L}])(?<debut>(?:je|j['’])\\s*(?:ne\\s+|n['’]\\s*)?(?:(?<me>me|m['’])\\s*)?(?:${VERBE})(?:\\s+${ADV})*\\s+)(?<mot>${MOT})`
-  + `(?:(?<lien>\\s+(?:et|ou|mais|puis)\\s+(?:${ADV}\\s+)*)(?<mot2>${MOT}))?(?![${L}'’-])`, 'giu');
+  + `(?:(?<lien>(?:\\s*,\\s*(?:(?:et|ou|mais|puis)\\s+)?|\\s+(?:et|ou|mais|puis)\\s+)(?:${ADV}\\s+)*)(?<mot2>${MOT}))?(?![${L}'’-])`, 'giu');
 /** Sans « je » : « Désolé, … », « Ravi de … », « Content que … » en tête de phrase ; « …, désolé. » après une virgule. */
 const SUITE = `(?=\\s*[,.!…)]|\\s+(?:de|d['’]|que|qu['’]|pour|si|mais)(?![${L}]))`;
 const EN_TETE = new RegExp(`(?<=^|[.!?…:]\\s+|\\n\\s*|[\\p{Extended_Pictographic}\\uFE0F]\\s*)(Désolé|Navré|Enchanté|Ravi|Content|Heureux)${SUITE}`, 'gu');
