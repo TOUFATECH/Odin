@@ -84,6 +84,10 @@ test('journaux : Iðunn, Rödd, Forge par journalDe ; migration versionnée (v2 
     const j = journalDe<{ at: string; site: string; type: string; level: string; text: string }>(ctx, 'idunn', 'evenements.jsonl', { garder: 5000 });
     j.ajouter({ at: '2026-11-14T08:00:00.000Z', site: 'toufatech.yt', type: 'panne', level: 'haute', text: 'le site ne répond plus' });
     assert.ok(existsSync(join(ctx.dir, 'evenements.jsonl')), 'sans base : le fichier d\'avant');
+    // L'historique des installations de Genèse : une installation dite abandonnée puis finie a écrit deux lignes (même identifiant).
+    const g = journalDe<{ at: number; mac: string; host: string; iso: string; isoName: string; ms: number; result: string; id: string; debut: number; raison?: string; ip?: string }>({ dir: join(pg.home, 'valhalla', 'thjalfi') }, 'thjalfi', 'historique.jsonl', { garder: 2000 });
+    const t0 = Date.parse('2026-11-15T08:00:00.000Z'), pc = (n: number, result: string, min: number, raison?: string) => ({ at: t0 + min * 60_000, mac: `52:54:00:a1:00:0${n}`, host: `pc-${n}`, ip: `192.168.1.${n}`, iso: 'ubuntu', isoName: 'ubuntu-24.04', ms: min * 60_000, result, id: `inst-${n}`, debut: t0, ...(raison ? { raison } : {}) });
+    g.ajouter(pc(1, 'fini', 10)); g.ajouter(pc(3, 'sans nouvelles', 44, 'plus de signe de vie depuis 31 min')); g.ajouter(pc(3, 'fini', 49)); g.ajouter(pc(2, 'échec', 13, 'disque plein'));
     utiliserBase(b); await b.demarrer(); await tousPrets();
     assert.equal(j.support, 'base'); assert.equal(j.tout().length, 1);
     const v = new Valhalla(pg.home, [urdr]);
@@ -91,6 +95,14 @@ test('journaux : Iðunn, Rödd, Forge par journalDe ; migration versionnée (v2 
     assert.match(q.text, /toufatech\.yt \| haute \| le site ne répond plus/);
     const a = b.applisBranchees().find((x) => x.id === 'journaux_idunn')!;
     assert.equal(a.nomDeBase, 'ARACHNE_ODIN', 'les journaux d\'Arachné vont dans SA base');
-    assert.deepEqual((await a.q('SELECT version, nom FROM journaux._migrations ORDER BY version')).rows.map((x) => x[0]), ['1', '2']);
+    assert.deepEqual((await a.q('SELECT version, nom FROM journaux._migrations ORDER BY version')).rows.map((x) => x[0]), ['1', '2', '3']);
+    // v3 : la vue des installations de Genèse ne garde qu'une ligne par installation (la dernière), sans adresse IP.
+    const ag = b.applisBranchees().find((x) => x.id === 'journaux_thjalfi')!;
+    assert.equal(ag.nomDeBase, 'GENESE_ODIN', 'l\'historique de Genèse va dans SA base');
+    assert.equal(Number((await ag.q('SELECT count(*) FROM journaux.entrees WHERE journal = $1', ['thjalfi'])).rows[0][0]), 4, 'quatre lignes écrites');
+    const vi = (await ag.q('SELECT poste, resultat, minutes::text, image, raison FROM journaux.v_installations ORDER BY poste')).rows;
+    assert.deepEqual(vi.map((x) => `${x[0]} ${x[1]} ${x[2]}`), ['pc-1 fini 10', 'pc-2 échec 13', 'pc-3 fini 49'], 'trois installations : celle dite abandonnée puis finie ne compte qu\'une fois, « fini »');
+    const qi = await v.act('urdr', 'sql', { base: 'GENESE_ODIN', requete: 'select poste, resultat, image from journaux.v_installations order by poste' });
+    assert.match(qi.text, /pc-3 \| fini \| ubuntu-24\.04/, 'Odin lit l\'historique des installations dans la base (compte de lecture)'); assert.doesNotMatch(qi.text, /192\.168\.1\./, 'sans adresse IP');
   } finally { utiliserBase(undefined); await b.arreter(); await pg.fin(); }
 });

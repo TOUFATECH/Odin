@@ -2,6 +2,8 @@
 // dans le thème de la fenêtre d'Odin :
 // - Odin te prévient : les demandes « Installer pour moi » à décider (Autoriser efface le disque : ton accord d'abord),
 //   les machines en direct avec leurs étapes, le fil des événements, les chiffres du jour.
+// - Installations, Historique, Protection : le suivi de chaque poste jusqu'à la fin, bloquer, annuler, mot de passe
+//   d'installation, rapport (voir thjalfi-suivi.js, chargé avant ce fichier).
 // - Écran : la disposition et le thème de l'écran où l'on choisit le système (téléphone ou PC du réseau).
 // - Tout : la vue générique (ISO, machines autorisées, historique, réglages).
 (() => {
@@ -175,9 +177,11 @@
     root.append(el('div', { class: 'tj-top' }, el('span', { class: 'tj-face', 'aria-hidden': 'true' }, el('i'), el('i')), el('div', {}, el('h2', {}, 'Odin te prévient'), el('p', {}, 'Déploiement réseau : chaque machine, de la demande à « c\'est prêt ».')), tabs), body, gen);
     host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[['odin', 'Odin te prévient'], ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
+      tabs.replaceChildren(...[['odin', 'Odin te prévient'], ...(window.OdinGeneseSuivi?.onglets ?? []), ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
       gen.hidden = S.tab !== 'tout'; body.hidden = S.tab === 'tout';
       if (S.tab === 'tout') return;
+      // Suivi des installations (thjalfi-suivi.js) : Installations, Historique, Protection.
+      if (window.OdinGeneseSuivi?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await window.OdinGeneseSuivi.dessiner(n, tab, { post, act, el, ic, note, redraw }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
       const r = await post('tableau'), D = r.data ?? {}, n = el('div', { class: 'tj' });
       if (S.tab === 'ecran') ecran(n, D, redraw); else await odin(n, D, redraw);
       body.replaceChildren(...n.childNodes);
@@ -185,6 +189,6 @@
     await redraw();
     // En direct : on relit toutes les 5 s tant que la page est ouverte (pas sur l'onglet des réglages, pour ne pas perdre la saisie).
     clearInterval(S.timer);
-    S.timer = setInterval(() => { if (!root.isConnected) { clearInterval(S.timer); return; } if (S.tab === 'odin' && !document.hidden) void redraw(); }, 5000);
+    S.timer = setInterval(() => { if (!root.isConnected) { clearInterval(S.timer); return; } if ((S.tab === 'odin' || S.tab === 'installations') && !document.hidden) void redraw(); }, 5000);
   };
 })();

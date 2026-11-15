@@ -121,12 +121,12 @@ base "FORSETI_ODIN", "PERSONA_ODIN", "ARCHE_ODIN", "ALEXANDRIE_ODIN", "ECHO_ODIN
      "ANDROMEDE_ODIN", "NEBULEUSE_ODIN", "SIRENES_ODIN", "GENESE_ODIN", "MASCOTTE_ODIN"…   (compte du même nom)
 └── journaux
     ├── entrees(n bigserial, uid PK, journal, quand, donnees jsonb)  — seulement les journaux de CETTE appli
-    └── vues : v_alertes, v_bulles, v_sauvegardes, v_connexions (sans IP), v_evenements_sites
+    └── vues : v_alertes, v_bulles, v_sauvegardes, v_connexions (sans IP), v_evenements_sites, v_installations (Genèse : une ligne par installation, la dernière écrite ; sans IP)
 ```
 
 Journal → base : `alertes` → FORSETI_ODIN, `bulles` → MASCOTTE_ODIN, `connexions` → PERSONA_ODIN, `arche` →
 ARCHE_ODIN, `requetes` et `liens_bases` → ALEXANDRIE_ODIN, `rodd` → ECHO_ODIN, `idunn` → ARACHNE_ODIN,
-`forge_<appli>` → la base de l'appli, `loki` → SIRENES_ODIN, `thjalfi` → GENESE_ODIN, `skidbladnir` →
+`forge_<appli>` → la base de l'appli, `loki` → SIRENES_ODIN, `thjalfi` et `thjalfi_etapes` → GENESE_ODIN, `skidbladnir` →
 NEBULEUSE_ODIN (`proprietaireJournal()` dans `noms.ts`).
 
 Rôles : `odin` (admin, crée les bases et les comptes, propriétaire des bases), `"<NOM>_ODIN"` (propriétaire de ses
@@ -218,7 +218,7 @@ puis revenue ».
 | | Applis |
 |---|---|
 | **Déjà en base** (avant le 15/11) | Pégase (`PEGASE_ODIN`) ; journaux : alertes (`FORSETI_ODIN`), bulles (`MASCOTTE_ODIN`), connexions de Persona (`PERSONA_ODIN`), historique d'Arche (`ARCHE_ODIN`), requêtes d'Alexandrie (`ALEXANDRIE_ODIN`), Écho, Arachné, Hermès / Andromède (forge) |
-| **Migrées le 15/11** (même mécanisme `journalDe` : copie de secours, repère, retour en fichiers possible) | Sirènes (attaques vues, `SIRENES_ODIN`), Genèse (historique des installations, `GENESE_ODIN`), Nébuleuse (journal des synchronisations, `NEBULEUSE_ODIN`), traçabilité des liens (`ALEXANDRIE_ODIN`) |
+| **Migrées le 15/11** (même mécanisme `journalDe` : copie de secours, repère, retour en fichiers possible) | Sirènes (attaques vues, `SIRENES_ODIN`), Genèse (historique des installations, et fil des étapes, blocages, annulations et mots de passe refusés : journaux `thjalfi` et `thjalfi_etapes`, `GENESE_ODIN`), Nébuleuse (journal des synchronisations, `NEBULEUSE_ODIN`), traçabilité des liens (`ALEXANDRIE_ODIN`) |
 | **Restent en fichiers, à migrer** (liste fermée, une à la fois) | Pythie, Chronos, Pharos, Plume, Dédale, Agora, Pulsar, Atlas, Tirésias, Cerbère, Méduse, Sphinx, Hestia, Ulysse, Gygès |
 | **Restent en fichiers, pour une raison** | réglages de démarrage (toutes les applis), secrets (Persona, Thésauros, Zéphyr, Vortex, Bifröst, Genèse, Satellites…), gros fichiers (Phénix : dépôt des sauvegardes ; Hélios, Olympie, Cyclope, Vénus, Perséphone, Ariane, Asclépios…), démarrage de la base (Argo, Hydre, liste des bases), cœur d'Odin (mémoire, Cerveau, Logos, Athéna, Talos) |
 

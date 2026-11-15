@@ -2,8 +2,11 @@
 // directement dans le .iso, avec reprise), fichiers de réponses, et retours d'avancement des installations.
 // Il ne répond qu'aux adresses du réseau local (jamais à Internet). Aucun mot de passe ne passe en clair :
 // les fichiers de réponses ne contiennent que l'empreinte (Linux) ou la forme encodée de Windows.
+// Une exception, connue : le mot de passe d'installation tapé sur un poste (« /cle.ipxe ») arrive en clair sur le
+// réseau local, parce que l'iPXE officiel n'a pas de chiffrement ; il n'est jamais dans l'adresse ni gardé.
 import { createReadStream, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import type { Socket } from 'node:net';
 import type { Readable } from 'node:stream';
 
 /** Adresse du réseau local (ou de la machine elle-même) ? Pur. */
@@ -34,7 +37,7 @@ export interface HttpDeps {
   /** un fichier de réponses (« /seed/<jeton>/<nom> ») ou le script Windows d'après (« /w/<jeton>/apres.ps1 ») */
   seed: (token: string, name: string, from: string) => Promise<string | undefined>;
   /** un installateur de Hermès pour cette installation (« /logiciel/<jeton>/<fichier> ») */
-  software: (token: string, file: string) => string | undefined;
+  software: (token: string, file: string, from?: string) => string | undefined;
   /** « /etat/<jeton>?e=… » : où en est l'installation */
   report: (token: string, q: URLSearchParams, from: string) => boolean;
   /** le petit système de l'écran sur le PC : son calque (« /ecran/ovl/<mac>.apkovl.tar.gz ») */
@@ -52,7 +55,24 @@ export interface HttpDeps {
     /** les images de fond : « texte » (PNG pour iPXE) et « graphique » (l'écran graphique) ; absente = rien */
     fond?: (kind: 'texte' | 'graphique') => { type: string; data: Buffer } | undefined;
   };
+  /** Le suivi des installations (suivi.ts). Un poste a-t-il droit à ce fichier ? La raison du refus (403), ou rien. */
+  garde?: (mac: string | undefined, from: string, quoi: 'fichier' | 'jeton') => string | undefined;
+  /** ce que le poste dit de lui en demandant le menu (numéro de série, modèle, « l'image n'a pas démarré ») */
+  vu?: (mac: string, q: URLSearchParams, from: string) => void;
+  /** des octets d'une image viennent de partir vers un poste (au plus toutes les 2 s, et à la fin de l'envoi) */
+  servi?: (mac: string | undefined, from: string, id: string, octets: number) => void;
+  /** le mot de passe d'installation donné par un poste (« /cle.ipxe ») → le script iPXE de la suite */
+  cle?: (mac: string, fw: string, from: string, mdp: string, qui: string) => Promise<string>;
   log?: (s: string) => void;
+}
+/** Le corps d'une demande, borné (au-delà : rien). */
+function lireCorps(q: IncomingMessage, max: number): Promise<string | undefined> {
+  return new Promise((ok) => {
+    const parts: Buffer[] = []; let n = 0, fini = false;
+    const rendre = (v: string | undefined) => { if (!fini) { fini = true; ok(v); } };
+    q.on('data', (c: Buffer) => { n += c.length; if (n > max) { rendre(undefined); q.resume(); } else parts.push(c); });
+    q.on('end', () => rendre(Buffer.concat(parts).toString('utf8'))); q.on('error', () => rendre(undefined));
+  });
 }
 
 export class PxeHttp {
@@ -62,18 +82,38 @@ export class PxeHttp {
     const s = createServer((q, r) => { void this.handle(q, r).catch((e) => { this.d.log?.(`HTTP : ${(e as Error).message}`); if (!r.headersSent) { r.writeHead(500); } r.end(); }); });
     await new Promise<void>((ok, ko) => { s.once('error', ko); s.listen(port, host, () => { s.off('error', ko); ok(); }); });
     this.server = s; this.port = (s.address() as { port: number }).port;
+    // Les connexions ouvertes, par adresse : une installation annulée ou un poste bloqué est coupé tout de suite.
+    s.on('connection', (c) => { const ip = (c.remoteAddress ?? '').replace(/^::ffff:/, ''); let l = this.ouvertes.get(ip); if (!l) { l = new Set(); this.ouvertes.set(ip, l); } l.add(c); c.once('close', () => { l.delete(c); if (!l.size && this.ouvertes.get(ip) === l) this.ouvertes.delete(ip); }); });
   }
+  private ouvertes = new Map<string, Set<Socket>>();
+  /** Ferme tout de suite les connexions de cette adresse (téléchargements en cours compris). */
+  couper(ip: string): number { const l = [...(this.ouvertes.get(ip) ?? [])]; for (const c of l) c.destroy(); return l.length; }
   stop(): void { this.server?.closeAllConnections?.(); this.server?.close(); this.server = undefined; }
 
   private async handle(q: IncomingMessage, r: ServerResponse): Promise<void> {
     const from = (q.socket.remoteAddress ?? '').replace(/^::ffff:/, '');
     if (!isLocal(from)) { r.writeHead(403); r.end('réseau local seulement'); return; }
-    if (q.method !== 'GET' && q.method !== 'HEAD') { r.writeHead(405); r.end(); return; }
+    // Seule l'adresse du mot de passe d'installation accepte un envoi (POST) : le mot de passe ne va jamais dans l'adresse.
+    if (q.method !== 'GET' && q.method !== 'HEAD' && !(q.method === 'POST' && /^\/cle\.ipxe(\?|$)/.test(q.url ?? ''))) { r.writeHead(405); r.end(); return; }
     const u = new URL(q.url ?? '/', 'http://x'), path = decodeURIComponent(u.pathname);
     if (path.split('/').includes('..')) { r.writeHead(400); r.end(); return; }
     const text = (body: string, type = 'text/plain; charset=utf-8') => { r.writeHead(200, { 'content-type': type, 'cache-control': 'no-store', 'content-length': Buffer.byteLength(body) }); r.end(q.method === 'HEAD' ? undefined : body); };
     if (path === '/boot.ipxe') return text(this.d.bootScript());
-    if (path === '/menu.ipxe') { const mac = normMac(u.searchParams.get('mac') ?? ''); return text(await this.d.menu(mac, u.searchParams.get('fw') ?? '', from)); }
+    if (path === '/cle.ipxe' && this.d.cle) {
+      if (u.searchParams.has('mdp') || u.searchParams.has('password')) { r.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' }); r.end('le mot de passe ne se donne pas dans l\'adresse'); return; }
+      let mdp = '', qui = '';
+      if (q.method === 'POST') {
+        const corps = await lireCorps(q, 2048); if (corps === undefined) { r.writeHead(413, { connection: 'close' }); r.end(); return; }
+        const p = new URLSearchParams(corps); mdp = p.get('mdp') ?? ''; qui = p.get('qui') ?? '';
+      } else {
+        // iPXE sans la commande « params » : identification HTTP simple (en-tête Authorization).
+        const a = /^Basic\s+([A-Za-z0-9+/=]+)$/i.exec(q.headers.authorization ?? '');
+        if (!a) { r.writeHead(401, { 'www-authenticate': 'Basic realm="Odin Genese", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }); r.end('mot de passe demandé'); return; }
+        const t = Buffer.from(a[1], 'base64').toString('utf8'), k = t.indexOf(':'); mdp = k < 0 ? '' : t.slice(k + 1);
+      }
+      return text(await this.d.cle(normMac(u.searchParams.get('mac') ?? ''), u.searchParams.get('fw') ?? '', from, mdp.slice(0, 200), qui.slice(0, 80)));
+    }
+    if (path === '/menu.ipxe') { const mac = normMac(u.searchParams.get('mac') ?? ''); this.d.vu?.(mac, u.searchParams, from); return text(await this.d.menu(mac, u.searchParams.get('fw') ?? '', from)); }
     if (this.d.ecran && /^\/ecran(\/|$)/.test(path)) {
       const e = this.d.ecran, mac = normMac(u.searchParams.get('mac') ?? '');
       const json = (x: unknown) => text(JSON.stringify(x), 'application/json; charset=utf-8');
@@ -84,18 +124,24 @@ export class PxeHttp {
       if (fm) { const f = e.fond?.(fm[1] as 'texte' | 'graphique'); if (!f) { r.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); return void r.end('pas d\'image'); } r.writeHead(200, { 'content-type': f.type, 'cache-control': 'no-cache', 'content-length': f.data.length, 'x-content-type-options': 'nosniff' }); return void r.end(q.method === 'HEAD' ? undefined : f.data); }
       if (path === '/ecran/attente.ipxe') return text(await e.attente(mac, u.searchParams.get('fw') ?? '', Math.max(0, Math.min(10_000, Number(u.searchParams.get('n')) || 0)), from));
     }
+    // Poste bloqué, installation arrêtée, installations suspendues ou mot de passe pas donné : aucun fichier n'est servi.
+    if (this.d.garde && /^\/(f|iso|boot|seed|w|logiciel|alpine|ecran\/ovl)\//.test(path)) {
+      const ovl = /^\/ecran\/ovl\/([0-9a-f]{12})\./.exec(path), qm = u.searchParams.get('m');
+      const non = this.d.garde(ovl ? normMac(ovl[1]) : qm ? normMac(qm) : undefined, from, /^\/(seed|w|logiciel)\//.test(path) ? 'jeton' : 'fichier');
+      if (non) { r.writeHead(403, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }); r.end(non); return; }
+    }
     let m = /^\/f\/([\w.-]+)\/(.+)$/.exec(path);
     if (m) {
       const f = await this.d.isoFile(m[1], m[2]); if (!f) { r.writeHead(404); r.end('absent'); return; }
       const mac = u.searchParams.get('m') ? normMac(u.searchParams.get('m')!) : undefined;
       this.d.fetched(mac, mac ? 'noyau' : 'fichier', m[1], m[2], from);
-      return this.send(q, r, f);
+      const id = m[1]; return this.send(q, r, f, this.d.servi ? (n) => this.d.servi!(mac, from, id, n) : undefined);
     }
     m = /^\/iso\/([\w.-]+)\.iso$/.exec(path);
     if (m) {
       const f = await this.d.isoFile(m[1], undefined); if (!f) { r.writeHead(404); r.end('absent'); return; }
       if (!q.headers.range || /^bytes=0-/.test(q.headers.range)) this.d.fetched(u.searchParams.get('m') ? normMac(u.searchParams.get('m')!) : undefined, 'iso', m[1], '', from);
-      return this.send(q, r, f);
+      const id = m[1], mac = u.searchParams.get('m') ? normMac(u.searchParams.get('m')!) : undefined; return this.send(q, r, f, this.d.servi ? (n) => this.d.servi!(mac, from, id, n) : undefined);
     }
     m = /^\/ecran\/ovl\/([0-9a-f]{12})\.apkovl\.tar\.gz$/.exec(path);
     if (m && this.d.overlay) { const b = this.d.overlay(normMac(m[1])); if (!b) { r.writeHead(404); r.end('absent'); return; } r.writeHead(200, { 'content-type': 'application/gzip', 'content-length': b.length, 'cache-control': 'no-store' }); return void r.end(q.method === 'HEAD' ? undefined : b); }
@@ -110,13 +156,13 @@ export class PxeHttp {
     m = /^\/(seed|w)\/([A-Za-z0-9_-]{16,})\/([\w.-]+)$/.exec(path);
     if (m) { const body = await this.d.seed(m[2], m[1] === 'w' ? `w:${m[3]}` : m[3], from); if (body === undefined) { r.writeHead(404); r.end('absent'); return; } return text(body, /\.xml$/.test(m[3]) ? 'application/xml; charset=utf-8' : 'text/plain; charset=utf-8'); }
     m = /^\/logiciel\/([A-Za-z0-9_-]{16,})\/([^/]+)$/.exec(path);
-    if (m) { const p = this.d.software(m[1], m[2]); if (!p) { r.writeHead(404); r.end('absent'); return; } const size = statSync(p).size; return this.send(q, r, { size, open: (s, e) => createReadStream(p, { start: s, end: e }), type: 'application/octet-stream' }); }
+    if (m) { const p = this.d.software(m[1], m[2], from); if (!p) { r.writeHead(404); r.end('absent'); return; } const size = statSync(p).size; return this.send(q, r, { size, open: (s, e) => createReadStream(p, { start: s, end: e }), type: 'application/octet-stream' }); }
     m = /^\/etat\/([A-Za-z0-9_-]{16,})$/.exec(path);
     if (m) { const ok = this.d.report(m[1], u.searchParams, from); r.writeHead(ok ? 200 : 404, { 'content-type': 'text/plain; charset=utf-8' }); r.end(ok ? 'ok' : 'inconnu'); return; }
     r.writeHead(404); r.end('absent');
   }
   /** Envoie un fichier, en entier ou par morceaux (Range), sans tout charger en mémoire. */
-  private async send(q: IncomingMessage, r: ServerResponse, f: FileOut): Promise<void> {
+  private async send(q: IncomingMessage, r: ServerResponse, f: FileOut, compte?: (octets: number) => void): Promise<void> {
     const range = parseRange(q.headers.range, f.size);
     if (range === 'invalide') { r.writeHead(416, { 'content-range': `bytes */${f.size}` }); r.end(); return; }
     const start = range?.start ?? 0, end = range?.end ?? f.size - 1;
@@ -124,6 +170,8 @@ export class PxeHttp {
     if (q.method === 'HEAD' || f.size === 0) { r.end(); return; }
     const body = await f.open(start, end);
     body.on('error', () => r.destroy()); r.on('close', () => body.destroy());
+    // Les octets partis vers le poste (avancement réel) : dits au plus toutes les 2 s, et à la fin.
+    if (compte) { let n = 0, t = Date.now(); const dire = () => { if (n) { const x = n; n = 0; try { compte(x); } catch { /* le suivi ne gêne jamais l'envoi */ } } }; body.on('data', (c: Buffer) => { n += c.length; if (Date.now() - t >= 2000) { t = Date.now(); dire(); } }); body.once('end', dire); r.once('close', dire); }
     body.pipe(r);
   }
 }

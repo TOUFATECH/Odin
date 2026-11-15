@@ -115,6 +115,11 @@ const SEUL: Array<[string, RegExp]> = [
   ['vérifie le lien https://paypa1.com/x', /^ullr\.adresse.*paypa1/], ['analyse le fichier /tmp/x.sh', /^ullr\.fichier.*x\.sh/], ['ce que tu as appris', /^$/], ['redémarre-toi', /^self_restart/], ['Mets à jour Odin', /^update_apply/], ['es-tu à jour ?', /^update_check/], ['passe en prudent', /^settings_set.*prudent/], ['tes réglages', /^settings_get/],
   // Odin, homme ou femme, en le disant (le réglage unique : voix et accords).
   ['prends une voix de femme', /^voice_set.*femme/], ['parle comme un homme', /^voice_set.*homme/], ['Odin, parle avec une voix de femme', /^voice_set.*femme/], ['as-tu besoin d\'une IA pour écrire un poème ?', /^$/],
+  // Genèse, le suivi des installations par le réseau : une phrase par action sans réglage (les exemples affichés ne montrent que les 8 premières actions d'une appli).
+  ['suivi des installations', /^thjalfi\.suivi/], ['installations en cours', /^thjalfi\.suivi/], ['rapport des installations pxe', /^thjalfi\.rapport/], ['bilan des installations', /^thjalfi\.rapport/], ['échecs d\'installation', /^thjalfi\.rapport.*échecs/],
+  ['suspends les installations', /^thjalfi\.suspendre/], ['reprends les installations', /^thjalfi\.reprendre/], ['retire le mot de passe d\'installation', /^thjalfi\.retirer_mot_de_passe/],
+  // Dite sans réglage, la phrase ne change rien (ni la portée, ni le mot de passe) : elle dit seulement où on en est.
+  ['mot de passe d\'installation', /^thjalfi\.mot_de_passe(?!.*(tous les postes|non autoris))/],
 ];
 
 

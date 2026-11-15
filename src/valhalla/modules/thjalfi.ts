@@ -6,6 +6,9 @@
 //     choisis (Linux) s'installent, puis la machine prévient Odin avec le nom qu'elle a pris sur le réseau.
 //   - Tu vois les machines en cours, l'ISO de chacune et son étape, celles déjà passées, et combien de fois
 //     chaque ISO a été déployée.
+//   - Chaque poste est suivi jusqu'à la fin (terminée, échouée, abandonnée) ; tu peux le bloquer, annuler son
+//     installation, suspendre toutes les installations, ou exiger un mot de passe sur le poste (voir thjalfi/suivi.ts
+//     et thjalfi/cle.ts) ; tout reste dans l'historique, en base.
 // Sécurité : une machine inconnue démarre par défaut sur son propre disque ; l'installation automatique
 // (qui efface le disque) ne se fait que pour une machine autorisée par toi, une seule fois.
 import { VIRTUAL_IFACE } from '../../hlidskjalf/discover.ts';
@@ -25,6 +28,7 @@ import { ALPINE_MIRROR, kioskBoot, kioskOverlay, parseLatest, untar } from '../t
 import { gunzipSync } from 'node:zlib';
 import { ecranPage } from '../thjalfi/ecran-page.ts';
 import { TftpServer } from '../thjalfi/tftp.ts';
+import { suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/suivi.ts';
 import { pxeHook } from '../vidarr/dhcp.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
@@ -33,9 +37,9 @@ const FINAL: Step[] = ['fini', 'sans nouvelles', 'échec'];
 export interface IsoInfo { id: string; name: string; path: string; size: number; mtime: number; recipe?: Recipe; err?: string; /** son état dans la bibliothèque commune (absent : Hydre n'est pas là) */ etat?: 'prête' | 'scannée' | 'ancienne' }
 export interface Rule { mac: string; nom?: string; iso?: string; profil?: string; auto: boolean; fait?: boolean; ajoute: number }
 export interface Profile { id: string; nom: string; utilisateur: string; paquets: string[]; logiciels: string[]; langue: string; clavier: string; fuseau: string; /** false : pas de compagnon d'Odin à la fin */ compagnon?: boolean }
-export interface Machine { mac: string; ip?: string; fw?: string; iso?: string; isoName?: string; step: Step; steps: Array<{ at: number; step: string; detail?: string }>; started: number; updated: number; host?: string; token?: string; profil?: string; logiciels?: Array<{ nom: string; ok: boolean }> }
-interface Session { token: string; mac: string; iso: string; profil: string; host: string; fw: 'uefi' | 'bios'; created: number; files?: Record<string, string> }
-export interface Done { at: number; mac: string; host?: string; ip?: string; iso: string; isoName: string; profil?: string; ms: number; result: 'fini' | 'échec' | 'sans nouvelles'; logiciels?: Array<{ nom: string; ok: boolean }> }
+export interface Machine extends Passage { mac: string; ip?: string; fw?: string; iso?: string; isoName?: string; step: Step; steps: Array<{ at: number; step: string; detail?: string }>; started: number; updated: number; host?: string; token?: string; profil?: string; logiciels?: Array<{ nom: string; ok: boolean }> }
+interface Session { token: string; mac: string; iso: string; profil: string; host: string; fw: 'uefi' | 'bios'; created: number; files?: Record<string, string>; /** l'installation est finie ou ratée depuis cette heure : le jeton ne sert plus que 10 min */ fin?: number }
+export interface Done extends FicheFin { at: number; mac: string; host?: string; ip?: string; iso: string; isoName: string; profil?: string; ms: number; result: Resultat; logiciels?: Array<{ nom: string; ok: boolean }> }
 /** Un choix fait sur l'écran d'Odin, lu une seule fois par le menu de la machine. */
 interface Choix { iso: string; mode: 'essai' | 'installer' | 'disque'; at: number }
 /** « Installer pour moi » demandé depuis l'écran : rien ne s'efface sans ton accord. */
@@ -76,7 +80,7 @@ export function thjalfi(): Module {
   const histFile = (ctx: ModCtx) => join(ctx.dir, 'historique.jsonl');
   // L'historique des installations : dans la base de l'appli (GENESE_ODIN, journal « thjalfi ») dès qu'elle est prête, sinon historique.jsonl.
   const hist = (ctx: ModCtx) => journalDe<Done>(ctx, 'thjalfi', 'historique.jsonl', { garder: 2000 });
-  const history = (ctx: ModCtx, n = 300): Done[] => { try { return hist(ctx).tout().slice(-n).reverse(); } catch { return []; } };
+  const history = (ctx: ModCtx, n = 300): Done[] => { try { return S.replier(hist(ctx).tout()).slice(-n).reverse(); } catch { return []; } };
   const stats = (ctx: ModCtx): Record<string, { lances: number; finis: number }> => (ctx.settings.stats as Record<string, { lances: number; finis: number }> | undefined) ?? {};
   const ecranCfg = (ctx: ModCtx): EcranCfg => { const c = { actif: true, parDefaut: false, disposition: 'eventail' as Disposition, attente: 5, ...(ctx.settings.ecran as Partial<EcranCfg> | undefined) }; return { ...c, theme: themeOf(c.theme), texte: textThemeOf(c.texte) }; };
   // Les images de fond choisies par toi (sinon : celles du thème). Texte : PNG 1024 × 768 pour iPXE ; graphique : JPEG.
@@ -144,6 +148,14 @@ export function thjalfi(): Module {
     return ok ? c : undefined;
   };
   const bump = (ctx: ModCtx, iso: string, k: 'lances' | 'finis') => { const st = stats(ctx); st[iso] = st[iso] ?? { lances: 0, finis: 0 }; st[iso][k]++; ctx.saveSettings({ stats: st }); };
+  // Le suivi des installations (suivi.ts) : identité des postes, déroulement, blocage, annulation, mot de passe, rapport.
+  const S = suivi({
+    live, saveLive: (c, m) => saveLive(c, m as Record<string, Machine>), rules, sessions, saveSessions: (c, x) => saveSessions(c, x as Record<string, Session>), hist,
+    secrets, saveSecrets: (c, x) => saveSecrets(c, x as ReturnType<typeof secrets>), track: (c, mac, ip, step, o) => track(c, mac, ip, step as Step, o), finish: (c, m, r) => finish(c, m as Machine, r),
+    isoName: (id) => isoName(id), base: (c) => base(c), couper: (ip) => { http?.couper(ip); },
+    infoIso: (id) => { const i = [...isoCache.values()].find((x) => x.id === id); return i ? { recette: i.recipe?.kind, auto: i.recipe?.auto, os: i.recipe?.os, taille: i.size } : undefined; },
+    look: (c) => { const t = ecranCfg(c).texte; return textLook(t, fondPerso(c, 'texte') || t !== 'classique' ? `${base(c)}/ecran/fond-texte.png` : undefined); },
+  });
 
   /** L'adresse d'Odin sur le réseau local (réglable). */
   const serverIp = (ctx: ModCtx): string => {
@@ -205,20 +217,23 @@ export function thjalfi(): Module {
     if (FINAL.includes(m.step) && (step === 'démarrage réseau' || step === 'menu')) m = { mac: m.mac, step, steps: [], started: now, updated: now, host: m.host };
     const order: Step[] = ['démarrage réseau', 'chargeur', 'menu', 'chargement', 'installation', 'logiciels', 'fini'];
     const forward = FINAL.includes(step) || order.indexOf(step) >= order.indexOf(m.step) || FINAL.includes(m.step);
-    if (forward && (m.step !== step || o.detail)) m.steps.push({ at: now, step, ...(o.detail ? { detail: o.detail } : {}) });
+    // La première étape d'un passage est notée aussi (un poste arrivé au menu a son étape « menu », avec l'heure).
+    if (forward && (m.step !== step || o.detail || !m.steps.length)) m.steps.push({ at: now, step, ...(o.detail ? { detail: o.detail } : {}) });
     if (forward) m.step = step;
-    m.updated = now; if (ip) m.ip = ip;
-    for (const k of ['iso', 'isoName', 'fw', 'host', 'token', 'profil'] as const) if (o[k]) m[k] = o[k];
+    // L'adresse IP d'un poste lancé ne suit pas le premier venu qui cite son adresse MAC (suivi.ts) ; l'image ne change pas quand l'étape n'avance pas.
+    m.updated = now; if (ip) S.adresse(m, ip);
+    for (const k of ['iso', 'isoName', 'fw', 'host', 'token', 'profil'] as const) if (o[k] && (forward || (k !== 'iso' && k !== 'isoName'))) m[k] = o[k];
     m.steps = m.steps.slice(-30);
+    S.apres(ctx, m, step, o);
     all[m.mac] = m;
-    // On garde les 200 plus récentes.
-    const keep = Object.values(all).sort((a, b) => b.updated - a.updated).slice(0, 200);
+    // On garde les 200 plus récentes, et toujours les installations en cours (jamais chassées par des postes au menu).
+    const keep = S.garder(Object.values(all));
     saveLive(ctx, Object.fromEntries(keep.map((x) => [x.mac, x])));
     ctx.emit('etape', { mac: m.mac, etape: step, ...(m.isoName ? { iso: m.isoName } : {}), ...(m.host ? { nom: m.host } : {}) });
     return m;
   }
   function finish(ctx: ModCtx, m: Machine, result: Done['result']): void {
-    const iso = m.iso ?? '?', d: Done = { at: ctx.now().getTime(), mac: m.mac, host: m.host, ip: m.ip, iso, isoName: m.isoName ?? iso, profil: m.profil, ms: ctx.now().getTime() - m.started, result, ...(m.logiciels?.length ? { logiciels: m.logiciels } : {}) };
+    const iso = m.iso ?? '?', d: Done = { at: ctx.now().getTime(), mac: m.mac, host: m.host, ip: m.ip, iso, isoName: m.isoName ?? iso, profil: m.profil, ms: ctx.now().getTime() - m.started, result, ...(m.logiciels?.length ? { logiciels: m.logiciels } : {}), ...S.fiche(m) };
     try { hist(ctx).ajouter(d); } catch { /* disque plein */ }
     if (result === 'fini') bump(ctx, iso, 'finis');
   }
@@ -227,12 +242,13 @@ export function thjalfi(): Module {
   function session(ctx: ModCtx, mac: string, iso: string, profil: string, host: string, fw: string): Session {
     const all = sessions(ctx), now = ctx.now().getTime();
     for (const [t, x] of Object.entries(all)) if (now - x.created > 2 * 864e5) delete all[t];
-    const have = Object.values(all).find((x) => x.mac === mac && x.iso === iso && now - x.created < 864e5);
+    const have = Object.values(all).find((x) => x.mac === mac && x.iso === iso && !x.fin && now - x.created < 864e5);
     if (have) return have;
     const x: Session = { token: randomBytes(18).toString('base64url'), mac, iso, profil, host, fw: /efi/i.test(fw) ? 'uefi' : 'bios', created: now };
     all[x.token] = x; saveSessions(ctx, all); return x;
   }
-  const sessionOf = (ctx: ModCtx, token: string): Session | undefined => { const x = sessions(ctx)[token]; return x && ctx.now().getTime() - x.created < 2 * 864e5 ? x : undefined; };
+  // Un jeton vaut 2 jours au plus, et 10 min seulement après la fin de son installation (finie ou ratée).
+  const sessionOf = (ctx: ModCtx, token: string): Session | undefined => { const x = sessions(ctx)[token], now = ctx.now().getTime(); return x && now - x.created < 2 * 864e5 && !(x.fin && now - x.fin > 10 * 60_000) ? x : undefined; };
   /** Le mot de passe du compte créé par un profil : généré une fois, rangé dans le coffre (Thésauros) et ici (fichier protégé). */
   async function profilePassword(ctx: ModCtx, p: Profile): Promise<string> {
     const sec = secrets(ctx); const have = sec.profils?.[p.id]; if (have) return have;
@@ -243,9 +259,12 @@ export function thjalfi(): Module {
   }
 
   // ---------------- Le menu, les fichiers, les réponses ----------------
-  function bootScript(ctx: ModCtx): string { return `#!ipxe\n# Odin · Genèse\nchain ${base(ctx)}/menu.ipxe?mac=\${netX/mac}&fw=\${platform} || shell\n`; }
+  function bootScript(ctx: ModCtx): string { return `#!ipxe\n# Odin · Genèse\nchain ${base(ctx)}/menu.ipxe?mac=\${netX/mac}&fw=\${platform}&serie=\${serial:uristring}&uuid=\${uuid}&marque=\${manufacturer:uristring}&modele=\${product:uristring} || shell\n`; }
   async function menuFor(ctx: ModCtx, mac: string, fw: string, from: string): Promise<string> {
     const list = (await isos(ctx)).filter((i) => i.recipe && prete(i)), r = rules(ctx).find((x) => x.mac === mac);
+    // Poste bloqué, installations suspendues, mot de passe pas encore donné ou pas d'adresse MAC : le poste reçoit ce script à la
+    // place du menu, et aucune fiche n'est ouverte pour une demande refusée.
+    const refus = S.garde(ctx, mac, fw, from); if (refus) return refus;
     track(ctx, mac || undefined, from, 'menu', { fw: fw || undefined });
     let auto: { id: string; token: string; host: string } | undefined, def = s(ctx.settings.defaut) || 'local', timeout = Number(ctx.settings.delai ?? 10);
     if (r?.auto && !r.fait && r.iso) {
@@ -276,10 +295,11 @@ export function thjalfi(): Module {
     for (const i of list) isoNames.set(i.id, i.name);
     const now = ctx.now().getTime(), d = mac ? demandes(ctx).filter((x) => x.mac === mac && (x.statut === 'attente' || now - (x.decide ?? x.at) < 10 * 60_000)).at(-1) : undefined;
     const last = mac ? history(ctx, 300).find((h) => h.mac === mac && h.result === 'fini') : undefined;
-    return { mac, fw, systemes: sys, disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), relance: Boolean(mac && (choiceOf(ctx, mac) || (rules(ctx).find((x) => x.mac === mac)?.auto && !rules(ctx).find((x) => x.mac === mac)?.fait))), machine: m ?? null, demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
+    return { mac, fw, systemes: sys, disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), relance: Boolean(mac && (choiceOf(ctx, mac) || (rules(ctx).find((x) => x.mac === mac)?.auto && !rules(ctx).find((x) => x.mac === mac)?.fait))), machine: S.publique(ctx, mac), demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last && S.publique(ctx, mac) ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
   }
   async function ecranChoisir(ctx: ModCtx, mac: string, iso: string, mode: string): Promise<{ ok: boolean; texte: string }> {
     if (!mac) return { ok: false, texte: 'Il manque l\'adresse de la machine : ouvre l\'écran depuis le lien affiché par la machine.' };
+    const non = S.refus(ctx, mac, mode); if (non) return { ok: false, texte: non };
     const all = choices(ctx), now = ctx.now().getTime();
     if (mode === 'disque') { all[mac] = { iso: '', mode: 'disque', at: now }; saveJson(ctx, 'ecran-choix.json', all); return { ok: true, texte: 'Le PC démarre sur son disque.' }; }
     const list = (await isos(ctx)).filter(prete), sys = systems(list, stats(ctx)).find((x) => x.id === iso);
@@ -302,6 +322,7 @@ export function thjalfi(): Module {
   function ecranAttente(ctx: ModCtx, mac: string, fw: string, n: number, from: string): string {
     const b = base(ctx), plat = fw ? fw.replace(/[^\w-]/g, '') : '${platform}', local = [':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1'];
     if (!mac) return ['#!ipxe', 'goto local', ...local, ''].join('\n');
+    if (S.refus(ctx, mac)) return ['#!ipxe', 'echo Odin ne propose pas d\'installation a ce poste : demarrage sur le disque.', 'goto local', ...local, ''].join('\n');
     const r = rules(ctx).find((x) => x.mac === mac), pending = demandes(ctx).some((d) => d.mac === mac && d.statut === 'attente');
     if (choiceOf(ctx, mac) || (r?.auto && !r.fait)) return ['#!ipxe', `chain ${b}/menu.ipxe?mac=${mac}&fw=${plat} || goto local`, ...local, ''].join('\n');
     if (n === 0) track(ctx, mac, from, 'menu', { fw: fw || undefined, detail: 'attend un choix sur l\'écran d\'Odin' });
@@ -327,10 +348,10 @@ export function thjalfi(): Module {
     };
   }
   async function seed(ctx: ModCtx, token: string, name: string, from: string): Promise<string | undefined> {
-    const x = sessionOf(ctx, token); if (!x) return undefined;
+    const x = sessionOf(ctx, token); if (!x || S.coupe(ctx, x.mac, from)) return undefined;
     const a = await answer(ctx, x), m = live(ctx)[x.mac];
-    if (!['meta-data', 'vendor-data'].includes(name)) track(ctx, x.mac, from, 'installation', { detail: `fichier de réponses lu (${name.replace(/^w:/, '')})` });
-    void m;
+    // Une installation finie ou ratée n'est pas rouverte par une relecture tardive de ses fichiers.
+    if (!['meta-data', 'vendor-data'].includes(name) && m?.step !== 'fini' && m?.step !== 'échec') track(ctx, x.mac, from, 'installation', { detail: `fichier de réponses lu (${name.replace(/^w:/, '')})` });
     switch (name) {
       case 'user-data': return ubuntuUserData(a);
       case 'meta-data': return ubuntuMetaData(x.token);
@@ -362,22 +383,27 @@ export function thjalfi(): Module {
     }
   }
   function report(ctx: ModCtx, token: string, q: URLSearchParams, from: string): boolean {
-    const x = sessionOf(ctx, token); if (!x) return false;
+    const x = sessionOf(ctx, token); if (!x || S.coupe(ctx, x.mac, from)) return false;
     const e = q.get('e') ?? '', nom = (q.get('nom') ?? '').replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 63), ip = /^[\d.]{7,15}$/.test(q.get('ip') ?? '') ? q.get('ip')! : from;
     const info = isoName(x.iso);
+    // Le poste a redemandé le menu après un abandon déclaré, puis continue : c'est la même installation (suivi.ts).
+    S.renouer(ctx, x.mac, x.iso);
     if (e === 'installation') track(ctx, x.mac, from, 'installation', { iso: x.iso, isoName: info, detail: 'installation du système' });
     else if (e === 'logiciels') track(ctx, x.mac, from, 'logiciels', { detail: 'paquets et logiciels' });
     else if (e === 'logiciel') { const all = live(ctx), m = all[x.mac]; if (m) { m.logiciels = [...(m.logiciels ?? []), { nom: q.get('nom') ?? '?', ok: q.get('ok') === '1' }].slice(-40); all[x.mac] = m; saveLive(ctx, all); } track(ctx, x.mac, from, 'logiciels', { detail: `${q.get('nom')} ${q.get('ok') === '1' ? 'installé' : 'raté'}` }); }
     else if (e === 'fini') {
+      // « fini » rejoué, ou arrivé après un échec dit par le poste : rien n'est réécrit (ni ligne, ni compteur, ni alerte).
+      if (S.dejaFini(ctx, x.mac)) return true;
       const m = track(ctx, x.mac, ip, 'fini', { host: nom || x.host, detail: `installée : ${nom || x.host} (${ip})` });
       if (m) {
-        finish(ctx, m, 'fini');
+        finish(ctx, m, 'fini'); S.cloreJeton(ctx, x.mac);
         const bad = (m.logiciels ?? []).filter((l) => !l.ok);
-        ctx.alert({ level: bad.length ? 'moyenne' : 'info', title: `✅ ${m.host ?? x.host} installée (${m.isoName ?? info})`, detail: `Machine ${m.mac} · ${m.ip ?? ''} · en ${ago(m.updated - m.started)}${bad.length ? ` · logiciels ratés : ${bad.map((l) => l.nom).join(', ')}` : ''}.`, key: `thjalfi-fini-${m.mac}-${m.updated}` });
+        S.prevenir(ctx, 'fini', m.host ?? x.host, { level: bad.length ? 'moyenne' : 'info', title: `✅ ${m.host ?? x.host} installée (${m.isoName ?? info})`, detail: `Machine ${m.mac} · ${m.ip ?? ''} · en ${ago(m.updated - m.started)}${bad.length ? ` · logiciels ratés : ${bad.map((l) => l.nom).join(', ')}` : ''}.`, key: `thjalfi-fini-${m.mac}-${m.updated}` });
         ctx.emit('deploye', { mac: m.mac, nom: m.host ?? x.host, ip: m.ip ?? '', iso: m.isoName ?? info });
         void inventory(ctx, m);
       }
-    } else if (e === 'echec') { const m = track(ctx, x.mac, from, 'échec', { detail: (q.get('raison') ?? 'échec signalé').slice(0, 200) }); if (m) { finish(ctx, m, 'échec'); ctx.alert({ level: 'haute', title: `❌ Installation ratée sur ${m.host ?? m.mac}`, detail: q.get('raison') ?? 'La machine a signalé un échec.', key: `thjalfi-echec-${m.mac}` }); } }
+    } else if (e === 'echec') { if (!S.dejaEchec(ctx, x.mac)) { const m = track(ctx, x.mac, from, 'échec', { detail: S.raison(q.get('raison')) }); if (m) S.echec(ctx, m); } }
+    else if (S.signal(ctx, x, e, q, from)) { /* signe de vie de l'installateur : pas une étape */ }
     else return false;
     return true;
   }
@@ -405,12 +431,14 @@ export function thjalfi(): Module {
       },
       bootFile: (path) => { const f = join(bootDir(ctx), path); return path.split('/').includes('..') || !existsSync(f) || statSync(f).isDirectory() ? undefined : f; },
       seed: (t, n, from) => seed(ctx, t, n, from),
-      software: (t, file) => { const x = sessionOf(ctx, t); const f = x?.files?.[decodeURIComponent(file)]; return f && existsSync(f) ? f : undefined; },
+      software: (t, file, from) => { const x = sessionOf(ctx, t); if (x && from && S.coupe(ctx, x.mac, from)) return undefined; const f = x?.files?.[decodeURIComponent(file)]; return f && existsSync(f) ? f : undefined; },
       report: (t, q, from) => report(ctx, t, q, from),
       fetched: (mac, what, id, path, from) => {
         if (what === 'fichier') return;
         let iso = id, name = isoName(id);
         if (id === 'boot') { const r = rules(ctx).find((x) => x.mac === mac); if (!/^debian\//.test(path) && !/wimboot/.test(path)) return; iso = r?.iso ?? live(ctx)[mac ?? '']?.iso ?? 'debian'; name = isoName(iso); }
+        // Un noyau rechargé en pleine installation : le poste a redémarré, l'ancien passage est clos et un nouveau commence.
+        if (what === 'noyau') S.recharge(ctx, mac, from, iso);
         const m = track(ctx, mac, from, 'chargement', { iso, isoName: name, detail: what === 'iso' ? 'copie de l\'ISO en mémoire' : `démarrage de ${name}` });
         if (m && what === 'noyau') {
           bump(ctx, iso, 'lances');
@@ -420,6 +448,7 @@ export function thjalfi(): Module {
         }
       },
       ecran: { page: () => ecranPage(), etat: (mac) => ecranEtat(ctx, mac), choisir: (mac, iso, mode) => ecranChoisir(ctx, mac, iso, mode), attente: async (mac, fw, n, from) => ecranAttente(ctx, mac, fw, n, from), fond: (kind) => fond(ctx, kind) },
+      garde: (mac, from, quoi) => S.acces(ctx, mac, from, quoi), vu: (mac, q, from) => S.vu(ctx, mac, q, from), servi: (mac, from, id, n) => S.servi(ctx, mac, from, id, n), cle: (mac, fw, from, mdp, qui) => S.cle(ctx, mac, fw, from, mdp, qui),
       log: (t) => ctx.emit('journal', { texte: t }),
     });
     await http.start(p.http);
@@ -570,17 +599,19 @@ export function thjalfi(): Module {
         allume: Boolean(http), url: http ? `${base(ctx)}/ecran` : '', ecran: ecranCfg(ctx), themes: THEMES, dispositions: DISPOSITIONS, textes: { ...Object.fromEntries(Object.entries(TEXT_THEMES).map(([k, t]) => [k, t.label])), classique: 'Classique (sans décor)' }, fonds: { texte: fondPerso(ctx, 'texte'), graphique: fondPerso(ctx, 'graphique') },
         demandes: demandes(ctx).filter((d) => d.statut === 'attente' || now - (d.decide ?? d.at) < 864e5).reverse(),
         enCours: m.filter((x) => !FINAL.includes(x.step)).sort((a, b) => b.updated - a.updated),
-        fil, chiffres: { enCours: m.filter((x) => !FINAL.includes(x.step)).length, aujourdhui: today.filter((d) => d.result === 'fini').length, echecs: today.filter((d) => d.result !== 'fini').length, total: h.filter((d) => d.result === 'fini').length, isos: l.filter((i) => i.recipe).length },
+        fil, chiffres: { enCours: m.filter((x) => !FINAL.includes(x.step)).length, aujourdhui: today.filter((d) => d.result === 'fini').length, echecs: today.filter((d) => S.rate(d.result)).length, total: h.filter((d) => d.result === 'fini').length, isos: l.filter((i) => i.recipe).length },
         systemes: systems(l, stats(ctx)),
       } };
     } },
     { id: 'historique', label: 'Historique', what: 'Les machines déployées : nom pris sur le réseau, ISO, durée, résultat', read: true, words: ['historique des déploiements'], run: (ctx) => { const h = history(ctx, 50); return { text: h.length ? h.map((d) => `- ${new Date(d.at).toLocaleString('fr-FR')} · ${d.host ?? d.mac} (${d.ip ?? '?'}) · ${d.isoName} · ${d.result} en ${ago(d.ms)}`).join('\n') : 'Aucun déploiement pour l\'instant.', data: h }; } },
   ];
+  // Suivi, fiche d'un poste, bloquer / débloquer, annuler, suspendre / reprendre, mot de passe d'installation, rapport.
+  actions.push(...S.actions);
 
   return {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
-    what: 'Le déploiement par le réseau : les ISO d\'Andromède démarrent sur n\'importe quelle machine sans clé USB, s\'installent toutes seules sur les machines que tu autorises, avec les logiciels de Hermès ; tu suis chaque machine.',
-    does: ['démarrage par le réseau (PXE) en BIOS et UEFI, sans rien régler sur la box (proxy DHCP) ou avec le DHCP d\'Odin', 'les ISO d\'Andromède lues directement (ISO 9660, Joliet, Rock Ridge, UDF) sans extraction', 'installation automatique : Ubuntu (autoinstall), Debian (preseed), Fedora / Rocky / Alma (Kickstart), Windows (unattend, partage réseau)', 'profils : compte, langue, clavier, fuseau, paquets Linux, logiciels Windows de Hermès en silencieux', 'outils et systèmes live (Clonezilla, GParted, Arch, Alpine…) démarrés depuis le menu', 'suivi en direct : machine, ISO, étape ; historique avec le nom pris sur le réseau ; nombre de déploiements par ISO', 'sécurité : machine inconnue = son propre disque ; installation automatique seulement si tu l\'autorises, une seule fois'],
+    what: 'Le déploiement par le réseau : les ISO d\'Andromède démarrent sur n\'importe quelle machine sans clé USB, s\'installent toutes seules sur les machines que tu autorises, avec les logiciels de Hermès ; tu suis chaque poste jusqu\'à la fin, tu peux le bloquer, annuler son installation ou exiger un mot de passe, et tout reste dans l\'historique.',
+    does: ['démarrage par le réseau (PXE) en BIOS et UEFI, sans rien régler sur la box (proxy DHCP) ou avec le DHCP d\'Odin', 'les ISO d\'Andromède lues directement (ISO 9660, Joliet, Rock Ridge, UDF) sans extraction', 'installation automatique : Ubuntu (autoinstall), Debian (preseed), Fedora / Rocky / Alma (Kickstart), Windows (unattend, partage réseau)', 'profils : compte, langue, clavier, fuseau, paquets Linux, logiciels Windows de Hermès en silencieux', 'outils et systèmes live (Clonezilla, GParted, Arch, Alpine…) démarrés depuis le menu', 'suivi en direct : chaque poste reconnu (adresse MAC, nom, numéro de série, marque et modèle), ses étapes avec l\'heure, son avancement, jusqu\'à « terminée », « échouée » (avec la raison) ou « abandonnée » (plus de signe de vie)', 'bloquer un poste (son écran le dit, puis il démarre sur son disque), suspendre toutes les nouvelles installations, annuler une installation en cours (avec ton accord)', 'mot de passe d\'installation : le poste le tape avant d\'avoir le menu et les fichiers ; seule son empreinte est gardée ; 5 erreurs bloquent le poste 15 minutes', 'historique de toutes les installations dans la base de l\'appli, filtrable, avec un rapport (réussies, échecs, abandons, durée moyenne, par image) et un export pour tableur ; nombre de déploiements par ISO', 'Odin prévient : début d\'une installation, échec, abandon, réussite, poste inconnu, poste bloqué qui retente, mots de passe refusés', 'sécurité : machine inconnue = son propre disque ; installation automatique seulement si tu l\'autorises, une seule fois'],
     from: ['iVentoy', 'netboot.xyz', 'FOG Project'], upstream: ['ventoy/PXE', 'netbootxyz/netboot.xyz', 'FOGProject/fogproject', 'ipxe/ipxe', 'ipxe/wimboot'],
     words: ['déploiement réseau', 'deploiement reseau', 'pxe', 'ipxe', 'iventoy', 'démarrage réseau', 'demarrage par le reseau', 'installer par le réseau', 'installation réseau', 'netboot', 'thjalfi', 'þjálfi', 'déployer une iso'],
     actions,
@@ -602,12 +633,13 @@ export function thjalfi(): Module {
         { title: 'Allumer Genèse', detail: 'une machine inconnue démarre sur son propre disque par défaut', done: Boolean(http), action: 'allumer', button: 'Allumer' },
         { title: 'Démarrer une machine par le réseau', detail: 'touche F12, F11 ou Échap au démarrage, choisis « réseau » ou « PXE »', done: m.length > 0 },
       ] });
-      sections.push({ kind: 'table', title: 'En cours de déploiement', columns: ['Machine', 'Nom', 'Adresse', 'ISO', 'Étape', 'Depuis'], rows: running.map((x) => ({ cells: [x.mac, x.host ?? '—', x.ip ?? '—', x.isoName ?? '—', `${STEP_ICON[x.step]} ${x.step}${x.steps.at(-1)?.detail ? ` · ${x.steps.at(-1)!.detail}` : ''}`, ago(now - x.started)], tone: 'attention' as const })), empty: 'Aucune machine en cours.' });
+      sections.push({ kind: 'table', title: 'En cours de déploiement', columns: ['Machine', 'Nom', 'Adresse', 'ISO', 'Étape', 'Depuis'], rows: running.map((x) => ({ cells: [x.mac, x.host ?? '—', x.ip ?? '—', x.isoName ?? '—', `${STEP_ICON[x.step]} ${x.step}${x.steps.at(-1)?.detail ? ` · ${x.steps.at(-1)!.detail}` : ''}`, ago(now - x.started)], tone: 'attention' as const, actions: S.boutons(x.mac) })), empty: 'Aucune machine en cours.' });
+      sections.push(...S.sections(ctx));
       sections.push({ kind: 'cards', title: 'ISO (Andromède)', items: l.map((i) => ({ title: i.name, sub: i.recipe ? i.recipe.label : `Illisible : ${i.err}`, badge: !prete(i) ? (i.etat === 'ancienne' ? 'ancienne version (old)' : 'scannée · antivirus en attente') : i.id === def ? '★ par défaut' : i.recipe?.auto ? 'auto' : biblio.d ? 'prête' : undefined, tone: i.recipe ? (i.recipe.auto ? 'bon' as const : 'neutre' as const) : 'mauvais' as const, meta: `Déployée ${st[i.id]?.lances ?? 0} fois · ${st[i.id]?.finis ?? 0} réussie(s)${i.recipe?.needs ? ` · il faut ${i.recipe.needs}` : ''}`, actions: i.recipe && prete(i) && i.id !== def ? [{ action: 'iso_par_defaut', label: 'Par défaut', input: { iso: i.id } }] : [] })), empty: 'Aucune ISO : ajoute-en dans Andromède.' });
       // La même bibliothèque que Hydre et Andromède : ce qui n'est pas (encore) démarrable est montré avec son état.
       if (biblio.d && (biblio.d.enCours.length || biblio.d.quarantaine.length)) sections.push({ kind: 'list', title: 'Images pas encore démarrables', items: [...biblio.d.enCours.map((x) => ({ title: x.nom, detail: `en cours de téléchargement${x.pct !== undefined ? ` · ${x.pct} %` : ` · ${Math.round(x.recu / 1024 ** 2)} Mo reçus`} : proposée au démarrage une fois complète et passée par l'antivirus`, tone: 'attention' as const })), ...biblio.d.quarantaine.map((x) => ({ title: x.nom, detail: `en quarantaine (${x.menace}) : jamais proposée ; décide dans Asclépios`, tone: 'mauvais' as const }))] });
       sections.push({ kind: 'table', title: 'Machines autorisées', columns: ['Machine', 'Nom', 'ISO', 'Profil', 'Installation auto', 'État'], rows: rs.map((r) => ({ cells: [r.mac, r.nom ?? hostOf(r.mac), l.find((i) => i.id === r.iso)?.name ?? (r.iso ?? 'menu'), profiles(ctx).find((p) => p.id === r.profil)?.nom ?? 'Standard', r.auto ? 'oui (efface le disque)' : 'non', r.auto ? (r.fait ? 'faite' : 'au prochain démarrage') : '—'], actions: [{ action: 'retirer_machine', label: 'Retirer', input: { mac: r.mac } }, ...(r.auto && r.fait ? [{ action: 'reinstaller', label: 'Réinstaller', input: { mac: r.mac } }] : [])] })), empty: 'Aucune : une machine inconnue a le menu, et démarre sur son disque si personne ne choisit.' });
-      sections.push({ kind: 'table', title: 'Déjà passées', columns: ['Date', 'Nom pris sur le réseau', 'Adresse', 'Machine', 'ISO', 'Durée', 'Résultat'], rows: h.slice(0, 50).map((d) => ({ cells: [new Date(d.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), d.host ?? '—', d.ip ?? '—', d.mac, d.isoName, ago(d.ms), d.result === 'fini' ? `✅ fini${d.logiciels?.some((x) => !x.ok) ? ' (logiciels ratés)' : ''}` : d.result === 'échec' ? '❌ échec' : '❔ sans nouvelles'], tone: d.result === 'fini' ? 'bon' as const : 'mauvais' as const })), empty: 'Aucun déploiement terminé.' });
+      sections.push({ kind: 'table', title: 'Déjà passées', columns: ['Date', 'Nom pris sur le réseau', 'Adresse', 'Machine', 'ISO', 'Durée', 'Résultat'], rows: h.slice(0, 50).map((d) => ({ cells: [new Date(d.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), d.host ?? '—', d.ip ?? '—', d.mac, d.isoName, ago(d.ms), S.libelle(d.result, d)], tone: d.result === 'fini' ? 'bon' as const : S.rate(d.result) ? 'mauvais' as const : 'neutre' as const })), empty: 'Aucun déploiement terminé.' });
       const counts = l.map((i) => ({ label: i.name, value: st[i.id]?.lances ?? 0 })).filter((x) => x.value > 0);
       if (counts.length) sections.push({ kind: 'bars', title: 'Déploiements par ISO', items: counts });
       const side: Section[] = [
@@ -617,15 +649,11 @@ export function thjalfi(): Module {
       return { subtitle: http ? `Allumé · ${serverIp(ctx)}` : 'Éteint', kpis, sections, side };
     },
     async start(ctx) { C = ctx; if (ctx.settings.allume === true) await startServers(ctx); },
-    stop() { stopServers(); },
-    watch: { every: 300, run(ctx) {
-      // Une machine sans nouvelles depuis 3 h : on le dit (elle a peut-être démarré sur son disque, ou l'installation a calé).
-      const all = live(ctx), now = ctx.now().getTime(); let changed = false;
-      for (const m of Object.values(all)) if (!FINAL.includes(m.step) && now - m.updated > 3 * 3600_000) {
-        const was = m.step; m.step = 'sans nouvelles'; m.steps.push({ at: now, step: 'sans nouvelles', detail: `dernière étape : ${was}` }); changed = true;
-        if (['chargement', 'installation', 'logiciels'].includes(was)) { finish(ctx, m, 'sans nouvelles'); ctx.alert({ level: 'moyenne', title: `❔ ${m.host ?? m.mac} : plus de nouvelles du déploiement`, detail: `Dernière étape : ${was}${m.isoName ? ` (${m.isoName})` : ''}, il y a plus de 3 h.`, steps: ['Regarde l\'écran de la machine', 'Si elle attend une réponse, l\'installation automatique n\'a pas été lue', 'Relance-la par le réseau'], key: `thjalfi-silence-${m.mac}` }); }
-      }
-      if (changed) saveLive(ctx, all);
+    stop() { stopServers(); S.fermer(); },
+    watch: { every: 60, run(ctx) {
+      // Chaque minute : un poste sans signe de vie depuis le délai réglé (30 min au départ) est dit « abandonné » ; un poste
+      // resté au menu a repris son disque (ce n'est pas un raté) ; une installation à la main est notée « lancée ».
+      S.veiller(ctx);
       void C;
     } },
   };

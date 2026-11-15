@@ -35,7 +35,7 @@ export const ident = (s: string): string => `"${s.replace(/"/g, '""')}"`;
 
 /** À quelle appli appartient un journal (sa base) : `forge_<appli>` → l'appli ; les autres sont nommés ici. */
 const JOURNAL_APPLI: Record<string, string> = {
-  alertes: 'forseti', bulles: 'mascotte', connexions: 'var', arche: 'skuld', requetes: 'urdr', liens_bases: 'urdr',
+  alertes: 'forseti', bulles: 'mascotte', connexions: 'var', arche: 'skuld', requetes: 'urdr', liens_bases: 'urdr', thjalfi_etapes: 'thjalfi',
 };
 export function proprietaireJournal(nom: string): string {
   if (JOURNAL_APPLI[nom]) return JOURNAL_APPLI[nom];

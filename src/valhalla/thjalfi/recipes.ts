@@ -93,15 +93,16 @@ export function menu(m: MenuIn): string {
   L.push(':shell', 'shell', 'goto local', '');
   if (m.ecran) L.push(':ecran', ...(m.kiosk ?? []), ':ecran-tel', `chain ${m.base}/ecran/attente.ipxe?mac=${m.mac}&fw=\${platform} || goto local`, '');
   for (const e of m.entries) L.push(...entry(m, e), '');
-  L.push(':echec', 'echo Le demarrage a echoue. Retour au menu dans 10 s.', 'sleep 10', `chain ${m.base}/menu.ipxe?mac=${m.mac} || goto local`);
+  L.push(':echec', 'echo Le demarrage a echoue. Retour au menu dans 10 s.', 'sleep 10', `chain ${m.base}/menu.ipxe?mac=${m.mac}&echec=1 || goto local`);
   return `${L.join('\n')}\n`;
 }
 function entry(m: MenuIn, e: Entry): string[] {
   const r = e.recipe, f = `\${base}/f/${e.id}`, mark = `?m=${m.mac}`, auto = m.auto?.id === e.id ? m.auto : undefined;
   const seed = auto ? `\${base}/seed/${auto.token}` : '';
   const out = [`:e-${e.id}`, `echo Chargement : ${q(e.name)}`, 'echo Ne debranche pas le cable reseau.'];
-  const kernel = (path: string, args: string) => out.push(`kernel ${f}/${path}${mark} initrd=initrd ${args}`.trimEnd());
-  const initrd = (path: string, name = 'initrd') => out.push(`initrd --name ${name} ${f}/${path}`);
+  // Un fichier refusé ou absent (403, 404) : le poste revient au menu (« :echec »), qui lui dit pourquoi, au lieu de rester sur l'invite iPXE.
+  const kernel = (path: string, args: string) => out.push(`${`kernel ${f}/${path}${mark} initrd=initrd ${args}`.trimEnd()} || goto echec`);
+  const initrd = (path: string, name = 'initrd') => out.push(`initrd --name ${name} ${f}/${path} || goto echec`);
   switch (r.kind) {
     case 'ubuntu':
       kernel(r.kernel!, `ip=dhcp url=\${base}/iso/${e.id}.iso${auto ? ` autoinstall ds=nocloud-net;s=${seed}/ cloud-config-url=/dev/null` : ''} ---`); initrd(r.initrd![0]); break;
@@ -110,8 +111,8 @@ function entry(m: MenuIn, e: Entry): string[] {
     case 'debian': {
       const nb = m.netboot?.(r.codename ?? '');
       if (!nb) { out.push('echo Le programme d\'installation reseau de Debian n\'est pas encore pret dans Odin.', 'goto echec'); return out; }
-      out.push(`kernel \${base}/${nb.kernel}${mark} initrd=initrd ${auto ? `auto=true priority=critical url=${seed}/preseed.cfg hostname=${auto.host} domain= ` : ''}language=fr country=FR locale=fr_FR.UTF-8 keymap=fr ---`.replace(/\s+---$/, ' ---'));
-      out.push(`initrd --name initrd \${base}/${nb.initrd}`); break;
+      out.push(`kernel \${base}/${nb.kernel}${mark} initrd=initrd ${auto ? `auto=true priority=critical url=${seed}/preseed.cfg hostname=${auto.host} domain= ` : ''}language=fr country=FR locale=fr_FR.UTF-8 keymap=fr ---`.replace(/\s+---$/, ' ---') + ' || goto echec');
+      out.push(`initrd --name initrd \${base}/${nb.initrd} || goto echec`); break;
     }
     case 'rhel':
       kernel(r.kernel!, `ip=dhcp inst.repo=${f}/${auto ? ` inst.ks=${seed}/ks.cfg` : ''} inst.lang=fr_FR.UTF-8 inst.keymap=fr`); initrd(r.initrd![0]); break;
@@ -125,7 +126,7 @@ function entry(m: MenuIn, e: Entry): string[] {
       kernel(r.kernel!, `boot=live components fetch=${f}/live/filesystem.squashfs ip=dhcp`); initrd(r.initrd![0]); break;
     case 'windows':
       if (!auto) { out.push('echo Windows s\'installe seulement pour une machine autorisee dans Odin (installation automatique).', 'goto echec'); return out; }
-      out.push(`kernel \${base}/boot/wimboot${mark} gui`,
+      out.push(`kernel \${base}/boot/wimboot${mark} gui || goto echec`,
         `iseq \${platform} efi && initrd --name bootx64.efi ${f}/efi/boot/bootx64.efi bootx64.efi ||`,
         `iseq \${platform} pcbios && initrd --name bootmgr ${f}/bootmgr bootmgr ||`,
         `initrd --name BCD ${f}/boot/bcd BCD`, `initrd --name boot.sdi ${f}/boot/boot.sdi boot.sdi`,
@@ -161,11 +162,13 @@ function linuxFirstBoot(a: Answer): string {
   return `[Unit]\nDescription=Odin Genèse : fin du deploiement\nWants=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=/bin/sh -c 'IP=$(hostname -I | cut -d" " -f1); (curl -fsS "${a.report}?e=fini&nom=$(hostname)&ip=$IP" || wget -qO- "${a.report}?e=fini&nom=$(hostname)&ip=$IP") >/dev/null 2>&1; ${compagnonLinux(a)}systemctl disable odin-thjalfi.service'\n[Install]\nWantedBy=multi-user.target\n`;
 }
 const b64 = (s: string) => Buffer.from(s).toString('base64');
+/** Signe de vie pendant l'installation : une boucle en fond dit « je suis là » à Odin chaque minute. Détachée de tout (entrées et sorties fermées) : elle ne retient jamais l'installateur. */
+const vieLinux = (a: Answer, outil: 'wget' | 'curl') => `(while :; do ${outil === 'wget' ? 'wget -qO-' : 'curl -fsS'} '${a.report}?e=vie' >/dev/null 2>&1; sleep 60; done) </dev/null >/dev/null 2>&1 &`;
 
 /** Ubuntu (autoinstall de Subiquity) : user-data. */
 export function ubuntuUserData(a: Answer): string {
   const unit = b64(linuxFirstBoot(a));
-  return `#cloud-config\nautoinstall:\n  version: 1\n  locale: ${a.locale}\n  keyboard: {layout: ${a.keymap}}\n  timezone: ${a.timezone}\n  refresh-installer: {update: false}\n  identity:\n    hostname: ${a.host}\n    username: ${a.user}\n    password: ${yamlStr(sha512crypt(a.password))}\n  ssh: {install-server: true, allow-pw: true}\n  storage: {layout: {name: lvm}}\n  packages: [${['curl', ...a.packages].map(yamlStr).join(', ')}]\n  early-commands:\n    - ${yamlStr(`wget -qO- '${a.report}?e=installation' || true`)}\n  late-commands:\n    - ${yamlStr(`echo ${unit} | base64 -d > /target/etc/systemd/system/odin-thjalfi.service`)}\n    - curtin in-target -- systemctl enable odin-thjalfi.service\n    - ${yamlStr(`wget -qO- '${a.report}?e=logiciels' || true`)}\n  shutdown: reboot\n`;
+  return `#cloud-config\nautoinstall:\n  version: 1\n  locale: ${a.locale}\n  keyboard: {layout: ${a.keymap}}\n  timezone: ${a.timezone}\n  refresh-installer: {update: false}\n  identity:\n    hostname: ${a.host}\n    username: ${a.user}\n    password: ${yamlStr(sha512crypt(a.password))}\n  ssh: {install-server: true, allow-pw: true}\n  storage: {layout: {name: lvm}}\n  packages: [${['curl', ...a.packages].map(yamlStr).join(', ')}]\n  early-commands:\n    - ${yamlStr(`wget -qO- '${a.report}?e=installation' || true`)}\n    - ${yamlStr(vieLinux(a, 'wget'))}\n  error-commands:\n    - ${yamlStr(`wget -qO- '${a.report}?e=echec&raison=ubuntu' || true`)}\n  late-commands:\n    - ${yamlStr(`echo ${unit} | base64 -d > /target/etc/systemd/system/odin-thjalfi.service`)}\n    - curtin in-target -- systemctl enable odin-thjalfi.service\n    - ${yamlStr(`wget -qO- '${a.report}?e=logiciels' || true`)}\n  shutdown: reboot\n`;
 }
 export const ubuntuMetaData = (token: string) => `instance-id: odin-thjalfi-${token}\n`;
 
@@ -182,7 +185,7 @@ export function debianPreseed(a: Answer): string {
     'd-i partman-auto/choose_recipe select atomic', 'd-i partman-partitioning/confirm_write_new_label boolean true', 'd-i partman/choose_partition select finish', 'd-i partman/confirm boolean true', 'd-i partman/confirm_nooverwrite boolean true', 'd-i partman-efi/non_efi_system boolean true',
     'd-i apt-setup/cdrom/set-first boolean false', 'tasksel tasksel/first multiselect standard, ssh-server', `d-i pkgsel/include string ${['curl', 'sudo', ...a.packages].join(' ')}`, 'd-i pkgsel/upgrade select full-upgrade', 'popularity-contest popularity-contest/participate boolean false',
     'd-i grub-installer/only_debian boolean true', 'd-i grub-installer/bootdev string default',
-    `d-i preseed/early_command string wget -qO- '${a.report}?e=installation' || true`,
+    `d-i preseed/early_command string wget -qO- '${a.report}?e=installation' || true; ${vieLinux(a, 'wget')}`,
     `d-i preseed/late_command string echo ${unit} | base64 -d > /target/etc/systemd/system/odin-thjalfi.service; in-target systemctl enable odin-thjalfi.service; in-target usermod -aG sudo ${a.user}; wget -qO- '${a.report}?e=logiciels' || true`,
     'd-i finish-install/reboot_in_progress note', '',
   ].join('\n');
@@ -191,17 +194,19 @@ export function debianPreseed(a: Answer): string {
 /** Fedora, Rocky, AlmaLinux : Kickstart. */
 export function kickstart(a: Answer): string {
   const unit = linuxFirstBoot(a);
-  return `# Odin · Genèse\ntext\n${a.repo ? `url --url=${a.repo}\n` : ''}lang ${a.locale}\nkeyboard ${a.keymap}\ntimezone ${a.timezone} --utc\nnetwork --bootproto=dhcp --hostname=${a.host} --activate\nrootpw --lock\nuser --name=${a.user} --groups=wheel --password=${sha512crypt(a.password)} --iscrypted\nzerombr\nclearpart --all --initlabel\nautopart\nbootloader\nfirstboot --disable\nreboot\n\n%pre\ncurl -fsS '${a.report}?e=installation' || true\n%end\n\n%packages\n@core\ncurl\n${a.packages.join('\n')}${a.packages.length ? '\n' : ''}%end\n\n%post\ncat > /etc/systemd/system/odin-thjalfi.service <<'ODIN'\n${unit}ODIN\nsystemctl enable odin-thjalfi.service\ncurl -fsS '${a.report}?e=logiciels' || true\n%end\n`;
+  return `# Odin · Genèse\ntext\n${a.repo ? `url --url=${a.repo}\n` : ''}lang ${a.locale}\nkeyboard ${a.keymap}\ntimezone ${a.timezone} --utc\nnetwork --bootproto=dhcp --hostname=${a.host} --activate\nrootpw --lock\nuser --name=${a.user} --groups=wheel --password=${sha512crypt(a.password)} --iscrypted\nzerombr\nclearpart --all --initlabel\nautopart\nbootloader\nfirstboot --disable\nreboot\n\n%pre\ncurl -fsS '${a.report}?e=installation' || true\n${vieLinux(a, 'curl')}\n%end\n\n%onerror\ncurl -fsS '${a.report}?e=echec&raison=kickstart' || true\n%end\n\n%packages\n@core\ncurl\n${a.packages.join('\n')}${a.packages.length ? '\n' : ''}%end\n\n%post\ncat > /etc/systemd/system/odin-thjalfi.service <<'ODIN'\n${unit}ODIN\nsystemctl enable odin-thjalfi.service\ncurl -fsS '${a.report}?e=logiciels' || true\n%end\n`;
 }
 
 /** Windows : ce que WinPE lance (au lieu de l'installateur) : relier le partage, puis lancer l'installation. */
 export function winpeshl(): string { return '[LaunchApps]\r\n"%SYSTEMROOT%\\System32\\wpeinit.exe"\r\n"%SYSTEMROOT%\\System32\\cmd.exe", "/c %SYSTEMROOT%\\System32\\odin.cmd"\r\n'; }
 export function odinCmd(a: Answer): string {
   const s = a.share!; const user = s.user ? ` /user:${s.user} "${(s.password ?? '').replace(/"/g, '')}"` : '';
+  // Un raté (partage muet, installateur arrêté) est dit à Odin, quand ce petit Windows a PowerShell.
+  const dire = (raison: string) => `powershell -NoProfile -Command "try { Invoke-WebRequest -UseBasicParsing '${a.report}?e=echec&raison=${raison}' | Out-Null } catch {}" 2>nul`;
   return ['@echo off', 'echo Odin - Genèse : preparation de l\'installation de Windows...', 'wpeutil InitializeNetwork', 'ping -n 6 127.0.0.1 >nul',
     `powershell -NoProfile -Command "try { Invoke-WebRequest -UseBasicParsing '${a.report}?e=installation' | Out-Null } catch {}" 2>nul`,
-    `net use O: ${s.unc}${user}`, 'if errorlevel 1 (echo Le partage reseau ne repond pas. & pause & exit /b 1)',
-    'O:\\setup.exe /unattend:X:\\Windows\\System32\\unattend.xml', ''].join('\r\n');
+    `net use O: ${s.unc}${user}`, `if errorlevel 1 (${dire('partage')} & echo Le partage reseau ne repond pas. & pause & exit /b 1)`,
+    'O:\\setup.exe /unattend:X:\\Windows\\System32\\unattend.xml', `if errorlevel 1 ${dire('setup')}`, ''].join('\r\n');
 }
 const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** unattend.xml : disque effacé et partagé automatiquement (UEFI et BIOS), compte local, logiciels au premier démarrage. */

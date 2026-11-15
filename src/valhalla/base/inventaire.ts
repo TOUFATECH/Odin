@@ -61,7 +61,7 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   sindri: [R('dépôt des sauvegardes (morceaux chiffrés et dédupliqués, catalogue des versions)', 'binaire'), R('plans de sauvegarde (réglages)', 'reglages')],
   vordr: [R('sondes, problèmes, historique (réglages.json)', 'a-faire')],
   askr: [R('inventaire du matériel (réglages)', 'a-faire')],
-  thjalfi: [J('historique des installations', 'thjalfi'), R('déploiements en cours, machines (fichiers)', 'demarrage'), R('secrets (secrets.json)', 'secret')],
+  thjalfi: [J('historique des installations (poste, image, étapes, résultat, raison)', 'thjalfi'), J('fil des installations : étapes horodatées, blocages, annulations, mots de passe refusés', 'thjalfi_etapes'), R('déploiements en cours, machines, postes bloqués (fichiers)', 'demarrage'), R('secrets (secrets.json : mots de passe des profils, empreinte du mot de passe d\'installation)', 'secret')],
   skogul: [REG],
   durinn: [R('suivi des disques, vitesses, test en cours (fichiers)', 'a-faire')],
   hermod: [R('parc de machines (réglages), clés des agents', 'secret')],

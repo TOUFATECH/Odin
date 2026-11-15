@@ -32,6 +32,12 @@ GRANT SELECT ON v_alertes, v_bulles, v_sauvegardes, v_connexions TO odin_lecture
     v: 2, nom: 'événements des sites (Iðunn)',
     sql: `CREATE VIEW v_evenements_sites AS SELECT quand, donnees->>'site' AS site, donnees->>'type' AS type, donnees->>'level' AS niveau, donnees->>'text' AS texte, donnees->>'link' AS lien FROM entrees WHERE journal = 'idunn';
 GRANT SELECT ON v_evenements_sites TO odin_lecture`,
+  }, {
+    // Genèse écrit une ligne à chaque résultat : une installation dite abandonnée puis finie en a deux (même identifiant).
+    // La vue n'en garde qu'une par installation, la dernière : c'est elle qu'on lit (requête, export, Odin). Sans adresse IP.
+    v: 3, nom: 'installations par le réseau (Genèse)',
+    sql: `CREATE VIEW v_installations AS SELECT DISTINCT ON (COALESCE(donnees->>'id', uid)) quand AS fin, to_timestamp((donnees->>'debut')::double precision / 1000) AS debut, COALESCE(donnees->>'host', donnees->>'mac') AS poste, donnees->>'mac' AS mac, donnees->>'isoName' AS image, round((donnees->>'ms')::numeric / 60000) AS minutes, donnees->>'result' AS resultat, donnees->>'raison' AS raison, donnees->>'mode' AS mode, donnees->>'lancePar' AS lancee_par, COALESCE((donnees->>'tours')::int, 1) AS essais FROM entrees WHERE journal = 'thjalfi' ORDER BY COALESCE(donnees->>'id', uid), n DESC;
+GRANT SELECT ON v_installations TO odin_lecture`,
   }],
   ecritures: {
     ajout: 'INSERT INTO entrees (uid, journal, quand, donnees) VALUES ($1, $2, $3, $4::jsonb) ON CONFLICT (uid) DO NOTHING',
