@@ -166,7 +166,7 @@ dialogue|Dialogue|ecoute|0|1|0
     fatigue: { y: 'half', e: [1, .96], d: [1, 2.5], a: 'pese', s: 'plat', b: 'baille', x: ['z'], c: ['affaisse', 'lent', 'fond'] },
     epuisement: { y: 'tombant', a: 'pese', s: 'sad', b: 'wobble', x: ['sweat', 'soupir'], c: ['tasse', 'lent', 'fond'] },
     // Le sommeil ne ferme pas les yeux en trait : il se lit aux zzz, à la tête qui tombe et à la respiration.
-    sommeil: { y: 'half', e: [.8, .82], d: [0, 5], r: [0, 3, 0], b: 'flat', x: ['zzz'], c: ['tasse', 'dodeline', 'fond'], clign: 9, coup: 0, aura: [16, .3] },
+    sommeil: { y: 'half', d: [0, 2], r: [0, 3, 0], b: 'flat', x: ['zzz'], c: ['tasse', 'dodeline', 'fond'], clign: 9, coup: 0, aura: [16, .3] },
     clin: { y: 'pill', d: [-1, 0], a: 'clin', b: 'smirk', c: ['penche', 'souffle', 'penche'] },
     reflexion: { y: 'up', a: 'ponder', s: 'one', b: 'side', x: ['points'], c: ['penche', 'souffle', 'penche'] },
     doute: { y: 'up', e: [[1, 1], [1, .8]], s: 'one', b: 'moue', x: ['point_int'], c: ['penche_d', 'souffle', 'penche'] },
@@ -201,6 +201,12 @@ dialogue|Dialogue|ecoute|0|1|0
    * coupe, écart, regard), par leur mouvement, par la couleur du corps et par sa posture. Ne jamais repasser à faux sans son accord.
    */
   const YEUX_SEULS = true;
+  /**
+   * Seule exception, demandée par le propriétaire (15/11/2026) : quand il DORT, ses yeux sont fermés (deux pastilles couchées)
+   * et les « zzz » restent au-dessus de lui pour montrer qu'il dort. Toujours pas de bouche.
+   */
+  const YEUX_FERMES = new Set(['sommeil']);
+  const AJOUTS_PERMIS = { sommeil: ['zzz'] };
   const LIBRE = { rire: 'happy', amour: 'happy', euphorie: 'serre', pleurs: 'serre', frustration: 'serre', admiration: 'heart', excite: 'star', fierte: 'shades', clin: 'wink', serenite: 'closed', soulagement: 'closed', sommeil: 'closed', cache: 'closed', apprehension: 'wide', peur: 'wide', terreur: 'wide', surprise: 'wide', stupeur: 'wide', gene: 'wide', panique: 'small' };
 
   const connu = (id) => (typeof id === 'string' && possede(MOODS, id) ? id : 'neutre');
@@ -385,7 +391,9 @@ dialogue|Dialogue|ecoute|0|1|0
   const K = (m) => m.k ?? [4, 5.5, 6.5][m.degre - 1];
   // Pastille mouillée (9 × 23) : un reflet d'eau en bas.
   const eau = (x) => `<g class="eye">${pill(x, Y, 23, 'plein')}<path d="M${x - 3.3} ${Y + 5.5}Q${x} ${Y + 2.5} ${x + 3.3} ${Y + 5.5}Q${x + 3.3} ${Y + 10} ${x} ${Y + 10.3}Q${x - 3.3} ${Y + 10} ${x - 3.3} ${Y + 5.5}Z" fill="#4A98EC"/></g>`;
-  // Chaque forme d'yeux : [œil gauche, œil droit]. Les formes livrées sont toutes des pastilles debout.
+  // L'œil fermé : la pastille couchée (12 × 4).
+  const couche = (x) => `<rect class="plein ferme" x="${x - 6}" y="${Y + 2}" width="12" height="4" rx="2" fill="${W}"/>`;
+  // Chaque forme d'yeux : [œil gauche, œil droit]. Les formes livrées sont toutes des pastilles debout, sauf l'œil fermé de l'endormi.
   const EYES = {
     pill: () => [pill(L), pill(R)],
     up: () => [pill(L, Y - 4, 20), pill(R, Y - 4, 20)],
@@ -395,6 +403,7 @@ dialogue|Dialogue|ecoute|0|1|0
     fache: (m) => [coupe(L, 1, K(m)), coupe(R, -1, K(m))],   // la coupe descend vers le nez
     tombant: (m) => [coupe(L, -1, K(m)), coupe(R, 1, K(m))], // la coupe descend vers l'extérieur
     mouille: () => (YEUX_SEULS ? [pill(L, Y, 23), pill(R, Y, 23)] : [eau(L), eau(R)]),
+    ferme: () => [couche(L), couche(R)],
     // Formes libres : gardées pour la planche, jamais dessinées tant que FORMES_LIBRES est faux.
     happy: () => [line(`M${L - 5.5} ${Y + 4}Q${L} ${Y - 10} ${L + 5.5} ${Y + 4}`, 4.5), line(`M${R - 5.5} ${Y + 4}Q${R} ${Y - 10} ${R + 5.5} ${Y + 4}`, 4.5)],
     closed: () => [line(`M${L - 5.5} ${Y - 1}Q${L} ${Y + 9} ${L + 5.5} ${Y - 1}`, 4.5), line(`M${R - 5.5} ${Y - 1}Q${R} ${Y + 9} ${R + 5.5} ${Y - 1}`, 4.5)],
@@ -408,8 +417,8 @@ dialogue|Dialogue|ecoute|0|1|0
   };
   // Taille de chaque œil avant échelle [largeur, hauteur] (pour une pastille coupée : son côté le plus court).
   const deux = (l, h) => () => [[l, h], [l, h]];
-  const MESURE = { pill: deux(9, 22), up: deux(9, 20), uneven: () => [[9, 22], [9, 14]], half: deux(9, 14.5), sourit: deux(9, 16), fache: (m) => deux(9, 20 - K(m))(), tombant: (m) => deux(9, 20 - K(m))(), mouille: deux(9, 23), happy: deux(15.5, 11.5), closed: deux(15.5, 9.5), wink: () => [[9, 22], [15.5, 9.5]], serre: deux(13.5, 16.5), wide: deux(13, 18), small: deux(7.6, 7.6), heart: deux(22, 16), star: deux(15, 15), shades: deux(22, 16) };
-  const GENRE = { pill: 'pastille', up: 'pastille', uneven: 'pastille', half: 'pastille', sourit: 'pastille', fache: 'pastille', tombant: 'pastille', mouille: 'pastille', happy: 'arc', closed: 'arc', wink: 'arc', serre: 'arc', wide: 'rond', small: 'rond', heart: 'signe', star: 'signe', shades: 'lunettes' };
+  const MESURE = { ferme: deux(12, 4), pill: deux(9, 22), up: deux(9, 20), uneven: () => [[9, 22], [9, 14]], half: deux(9, 14.5), sourit: deux(9, 16), fache: (m) => deux(9, 20 - K(m))(), tombant: (m) => deux(9, 20 - K(m))(), mouille: deux(9, 23), happy: deux(15.5, 11.5), closed: deux(15.5, 9.5), wink: () => [[9, 22], [15.5, 9.5]], serre: deux(13.5, 16.5), wide: deux(13, 18), small: deux(7.6, 7.6), heart: deux(22, 16), star: deux(15, 15), shades: deux(22, 16) };
+  const GENRE = { ferme: 'ferme', pill: 'pastille', up: 'pastille', uneven: 'pastille', half: 'pastille', sourit: 'pastille', fache: 'pastille', tombant: 'pastille', mouille: 'pastille', happy: 'arc', closed: 'arc', wink: 'arc', serre: 'arc', wide: 'rond', small: 'rond', heart: 'signe', star: 'signe', shades: 'lunettes' };
   const BROWS = {
     angry: () => line('M39 40L53 46', 3.6) + line('M81 40L67 46', 3.6),
     sad: () => line('M40 45L53 39', 3.4) + line('M80 45L67 39', 3.4),
@@ -495,10 +504,11 @@ dialogue|Dialogue|ecoute|0|1|0
     const vif = o.vif !== false, parle = Boolean(o.parle);
     // Le clin d'œil n'existe que par son animation : quand rien ne bouge, l'œil droit est dessiné plus court (toujours une pastille debout) et un sourcil se lève.
     const clinFixe = m.a === 'clin' && (Boolean(o.fige) || !vif);
-    const forme = FORMES_LIBRES && LIBRE[id] ? LIBRE[id] : clinFixe ? 'uneven' : m.y, sourcil = clinFixe ? 'one' : m.s;
+    const forme = FORMES_LIBRES && LIBRE[id] ? LIBRE[id] : YEUX_FERMES.has(id) ? 'ferme' : clinFixe ? 'uneven' : m.y, sourcil = clinFixe ? 'one' : m.s;
     const es = m.e ? (Array.isArray(m.e[0]) ? m.e : [m.e, m.e]) : [[1, 1], [1, 1]];
     const calques = { sous: '', extra: '' };
     for (const x of m.x || []) {
+      if (YEUX_SEULS && !(AJOUTS_PERMIS[id] || []).includes(x)) continue;
       if (!vif && !EXTRAS_DOUX.has(x)) continue;
       const [ou, morceaux] = EXTRA[x];
       for (const [niveau, svg] of morceaux) if (niveau === 'gros' || (!mini && (niveau !== 'fin' || !petit))) calques[ou] += svg;
@@ -517,7 +527,7 @@ dialogue|Dialogue|ecoute|0|1|0
       sourcils: YEUX_SEULS || mini || !sourcil || forme === 'shades' ? '' : BROWS[sourcil](),
       bouche: YEUX_SEULS || !bouche || (mini && !PLEINES.has(bouche)) ? '' : MOUTH[bouche](),
       joues: YEUX_SEULS || petit ? '' : joues(vif ? m.j || 0 : Math.min(1, m.j || 0)),
-      sous: YEUX_SEULS ? '' : calques.sous, extras: YEUX_SEULS ? '' : calques.extra,
+      sous: calques.sous, extras: calques.extra,
       vars: {
         '--lsx': es[0][0], '--lsy': es[0][1], '--rsx': es[1][0], '--rsy': es[1][1], '--edx': `${d[0]}px`, '--edy': `${d[1]}px`,
         '--o-gx': `${r[0]}px`, '--o-gy': `${r[1]}px`, '--o-suivi': r[2],

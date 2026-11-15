@@ -128,6 +128,8 @@ test('même palette que le serveur (src/mood/mood.ts)', (t) => {
 test('décision 1 : des yeux en pastille partout, carrés pour la seule concentration', () => {
   for (const m of liste()) for (const taille of TAILLES) for (const vif of [true, false]) {
     const D = F.dessin(m.id, { taille, vif });
+    // Seule exception avec la concentration : l'endormi a les yeux fermés (deux pastilles couchées).
+    if (m.id === 'sommeil') { assert.equal(D.genre, 'ferme', 'endormi : yeux fermés'); for (const [l, h] of D.mesure) assert.ok(l >= 2.5 * h, 'endormi : une pastille couchée'); continue; }
     assert.equal(D.genre, 'pastille', `${m.id} (${taille})`);
     assert.equal(D.mesure.length, 2); assert.equal(D.yeux.length, 2);
     for (const [largeur, hauteur] of D.mesure) {
@@ -141,7 +143,8 @@ test('décision 1 : des yeux en pastille partout, carrés pour la seule concentr
     assert.ok(Math.abs(sx * yx - sy * yy) < 0.002, `${m.id} : le corps n'aplatit pas les yeux`);
   }
   const carres = liste().filter((m) => F.dessin(m.id).mesure.some(([l, h]) => h / l < 1.5 - 1e-9)).map((m) => m.id);
-  assert.deepEqual(carres, ['concentration'], 'une seule humeur aux yeux carrés');
+  // Deux exceptions voulues par le propriétaire : l'endormi (yeux fermés) et la concentration (yeux carrés).
+  assert.deepEqual(carres, ['sommeil', 'concentration'], "yeux fermés pour l'endormi, carrés pour la seule concentration");
   assert.ok(!SOURCE.includes('squint'), 'l\'ancienne forme aplatie a disparu');
   assert.match(SOURCE, /const FORMES_LIBRES = false;/, 'les formes libres (arcs, cœurs, étoiles) restent éteintes');
   // Le repos : la pastille 9 × 22 d'origine.
@@ -229,19 +232,25 @@ test('dessin : complet pour les 66 émotions, 66 visages différents (yeux, coul
   // ni larmes, ni aucun ajout, pour les 66 émotions, à toutes les tailles, vif ou adouci, qu'il parle ou non, figé ou non.
   for (const m of liste()) for (const taille of TAILLES) for (const vif of [true, false]) for (const parle of [false, true]) for (const fige of [false, true]) {
     const D = F.dessin(m.id, { taille, vif, parle, fige } as never);
-    assert.deepEqual([D.sourcils, D.bouche, D.joues, D.sous, D.extras], ['', '', '', '', ''], `${m.id} (${taille}) : rien d'autre que les yeux`);
+    const dort = m.id === 'sommeil';
+    assert.deepEqual([D.sourcils, D.bouche, D.joues, D.sous], ['', '', '', ''], `${m.id} (${taille}) : ni bouche, ni sourcils, ni joues`);
+    // Seul ajout permis par le propriétaire : les « zzz » de l'endormi.
+    if (dort) assert.equal((D.extras.match(/</g) ?? []).length, (D.extras.match(/<path class="zz /g) ?? []).length, 'endormi : rien d\'autre que des zzz');
+    else assert.equal(D.extras, '', `${m.id} (${taille}) : rien d'autre que les yeux`);
     assert.equal(D.yeux.length, 2, `${m.id} : deux yeux`);
     for (const o of D.yeux) {
       assert.equal((o.match(/</g) ?? []).length, 1, `${m.id} : un œil = une seule forme, d'une seule couleur`);
-      assert.match(o, /^<(rect|path) class="eye plein"/, `${m.id} : une pastille pleine`);
+      assert.match(o, dort ? /^<rect class="plein ferme"/ : /^<(rect|path) class="eye plein"/, `${m.id} : une pastille pleine`);
     }
-    assert.equal(D.genre, 'pastille', `${m.id} : des yeux en pastille`);
+    assert.equal(D.genre, dort ? 'ferme' : 'pastille', `${m.id} : des yeux en pastille (fermés pour l'endormi)`);
   }
   // Chaque émotion a ses pastilles à elle : 66 paires d'yeux différentes (forme, taille, écart, hauteur), sans compter la couleur ni le mouvement.
   const paires = new Map<string, string>();
   for (const m of liste()) { const D = F.dessin(m.id), k = JSON.stringify([D.forme, D.mesure, D.vars['--edx'], D.vars['--edy']]); assert.ok(!paires.has(k), `mêmes yeux : ${m.id} et ${paires.get(k)}`); paires.set(k, m.id); }
   assert.equal(paires.size, 66);
   assert.match(SOURCE, /const YEUX_SEULS = true;/, 'la règle « yeux seuls » est allumée');
+  // L'endormi : yeux fermés, zzz au-dessus de lui, et toujours pas de bouche.
+  { const D = F.dessin('sommeil'); assert.equal(D.forme, 'ferme'); assert.match(D.extras, /class="zz /); assert.equal(D.bouche, ''); assert.equal((D as Dessin & { encre: string }).encre, '#fff'); }
   assert.ok(F.dessin('cache').classes.includes('sans-clin') && F.dessin('cache').classes.includes('sans-coup'));
   assert.ok(F.dessin('rage').classes.includes('o-vive')); assert.ok(!F.dessin('colere').classes.includes('o-vive'));
   assert.deepEqual(net(F.dessin('neutre')), net({ ...F.dessin('neutre'), sourcils: '', bouche: '', joues: '', sous: '', extras: '', entree: '', classes: ['c-souffle', 'o-grand'] }), 'au repos : deux pastilles, rien d\'autre');
@@ -275,7 +284,7 @@ test('style : chaque classe a sa règle, chaque animation ses images clés, mouv
   for (const n of citees) assert.ok(cles.has(n) || PERMIS.includes(n), `animation sans images clés : ${n}`);
   for (const n of cles) { assert.match(n, /^(c|g|x|f)-/, `nom d'animation nouveau : ${n}`); assert.ok(!ui.includes(`@keyframes ${n}{`), `${n} ne redéfinit pas une animation d'ui.html`); assert.ok(citees.includes(n), `images clés inutiles : ${n}`); }
   // Plus aucun ajout dessiné sur le visage (règle « yeux seuls »).
-  assert.equal(liste().map((m) => { const D = F.dessin(m.id); return D.extras + D.bouche + D.sourcils + D.joues + D.sous; }).join(''), '');
+  assert.equal(liste().filter((m) => m.id !== 'sommeil').map((m) => { const D = F.dessin(m.id); return D.extras + D.bouche + D.sourcils + D.joues + D.sous; }).join(''), '');
   assert.ok(css.includes('@media (prefers-reduced-motion:reduce){.odin *{animation:none!important;transition:none!important}}'), 'mouvement réduit : ni boucle, ni geste, ni fondu');
   assert.ok(css.includes('.odin stop{transition:stop-color var(--o-fondu,.7s) ease}'), 'fondu de couleur réglable');
   assert.ok(css.includes('.odin.angry stop.s1,.odin.angry stop.s2,.odin.angry stop.s3,.odin.angry stop.s4{animation:none}'), 'plus de retour forcé au bleu');
