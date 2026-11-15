@@ -64,9 +64,9 @@ const lireJson = (r) => { try { return JSON.parse(r.body.toString('utf8') || '{}
 
 // ---------------------------------------------------------------- Trouver Odin
 
-/** Cherche Odin : la machine elle-même, puis le réseau local /24 (ports 7777 et 7443, https puis http). */
+/** Cherche Odin : la machine elle-même, puis le réseau local /24 (ports 8888, 7777 et 7443, https puis http). */
 export async function trouverOdin(o = {}) {
-  const ports = o.ports ?? [7777, 7443], hotes = ['127.0.0.1'];
+  const ports = o.ports ?? [8888, 7777, 7443], hotes = ['127.0.0.1'];
   if (o.reseau !== false) for (const l of Object.values(networkInterfaces())) for (const i of l ?? []) if (i.family === 'IPv4' && !i.internal) { const b = i.address.split('.').slice(0, 3).join('.'); for (let k = 1; k < 255; k++) hotes.push(`${b}.${k}`); }
   const essais = [...new Set(hotes)].flatMap((h) => ports.flatMap((p) => [`https://${h}:${p}`, `http://${h}:${p}`]));
   const trouves = new Map(); let i = 0;
@@ -161,7 +161,7 @@ const echec = (j, status) => ({ ok: false, code: j.code ?? j.error ?? `http_${st
 export class OdinSSO {
   /**
    * @param {object} o
-   * @param {string} o.adresse  ex. https://192.168.1.10:7777
+   * @param {string} o.adresse  ex. https://192.168.1.10:8888
    * @param {string} o.appli    identifiant de l'appli cliente (pegase, venus…)
    * @param {{id?:string, nom?:string, plateforme?:string}} [o.appareil]
    * @param {string} [o.empreinte]  certificat d'Odin épinglé ; @param {boolean} [o.premierContact] ; @param {string|Buffer} [o.ca]

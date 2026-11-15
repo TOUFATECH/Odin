@@ -4,7 +4,7 @@ Ce fichier précise, sans le contredire, le contrat `missions/pegase-protocole.m
 côtés (Odin, Pégase ordinateur, Pégase téléphone). Version du protocole : **1**.
 
 - Toutes les routes sont sous `/api/pegase/`. Réponses en JSON UTF-8 (sauf `flux` : SSE, `agenda.ics` : texte iCalendar).
-- Odin écoute par défaut sur `https://<ip>:7777` (certificat souvent auto-signé, voir § 1).
+- Odin écoute par défaut sur `https://<ip>:8888` (certificat souvent auto-signé, voir § 1).
 - Toute requête `POST` envoie `content-type: application/json` (sinon **415**). Pas de cookie, pas d'en-tête `x-odin` :
   Pégase n'est pas une page web, il s'authentifie par son jeton.
 - Les dates sont des **millisecondes depuis 1970 (UTC)** (`maj`, `serveur`, `depuis`…), sauf dans les données de l'agenda
@@ -55,7 +55,7 @@ Toute erreur a la forme :
 - `dns` : le DNS chiffré de Sphinx tourne (`https://<odin>:<port>/dns-query`, voir § 5).
 - `comptes` : la création de profils Pégase est possible (l'appli Pégase est démarrée dans Odin).
 
-Recherche automatique (côté Pégase, rappel du contrat) : 127.0.0.1:7777, puis le /24 local sur 7777 et 7443,
+Recherche automatique (côté Pégase, rappel du contrat) : 127.0.0.1:8888, puis le /24 local sur 8888, 7777 (anciennes installations) et 7443,
 32 requêtes en parallèle, 1,5 s max chacune, en `https` d'abord puis `http`. On garde la réponse qui a `odin: true`.
 
 ## 2. Profils, connexion, appareils (connexion unique d'Odin)

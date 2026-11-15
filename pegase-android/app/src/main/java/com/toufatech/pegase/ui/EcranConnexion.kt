@@ -141,7 +141,7 @@ fun EcranConnexion(pegase: Pegase) {
     val cx = remember { ConnexionOdin(pegase) }
     val trouve = pegase.odinTrouve
     var ip by remember(trouve) { mutableStateOf(trouve?.base?.let { hoteDe(it) } ?: "") }
-    var port by remember(trouve) { mutableStateOf(trouve?.base?.let { portDe(it) } ?: "7777") }
+    var port by remember(trouve) { mutableStateOf(trouve?.base?.let { portDe(it) } ?: "8888") }
     var email by remember { mutableStateOf("") }
     var mdp by remember { mutableStateOf("") }
     var voir by remember { mutableStateOf(false) }
@@ -208,7 +208,7 @@ fun EcranConnexion(pegase: Pegase) {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Champ(ip, { ip = it }, "Adresse IP d'Odin", "192.168.1.10", Modifier.weight(1f), clavier = KeyboardType.Uri)
-                    Champ(port, { port = it.filter { c -> c.isDigit() }.take(5) }, "Port", "7777", Modifier.width(96.dp), clavier = KeyboardType.Number)
+                    Champ(port, { port = it.filter { c -> c.isDigit() }.take(5) }, "Port", "8888", Modifier.width(96.dp), clavier = KeyboardType.Number)
                 }
                 if (trouve != null) {
                     T(
@@ -313,7 +313,7 @@ private fun Etapes(fait: Int) {
 }
 
 private fun hoteDe(base: String) = try { URI(base).host ?: "" } catch (e: Exception) { "" }
-private fun portDe(base: String) = try { URI(base).port.takeIf { it > 0 }?.toString() ?: "7777" } catch (e: Exception) { "7777" }
+private fun portDe(base: String) = try { URI(base).port.takeIf { it > 0 }?.toString() ?: "8888" } catch (e: Exception) { "8888" }
 
 /**
  * La page d'Odin dans un WebView (écran intégré) : seulement l'adresse d'Odin, avec son certificat épinglé ;

@@ -103,7 +103,7 @@ test('plan : un port direct ne marche sur rien (interface, protocoles, applis in
     assert.equal(directRefusal(65535, 'freyja'), undefined);
     // hors bornes
     for (const p of [0, -1, 65536, 70000, 81.5, Number.NaN, Number('abc')]) assert.match(directRefusal(p, 'freyja') ?? '', /nombre entier entre 1 et 65535/, String(p));
-    // l'interface d'Odin (7777, ou le port que tu lui as donné)
+    // l'interface d'Odin (8888, ou le port que tu lui as donné)
     assert.match(directRefusal(WEB, 'freyja') ?? '', /celui de l'interface d'Odin/);
     assert.match(directRefusal(9443, 'freyja', { web: 9443 }) ?? '', /celui de l'interface d'Odin/);
     assert.match(directRefusal(WEB, 'freyja', { web: 9443 }) ?? '', /gardé pour Odin/);
@@ -154,10 +154,10 @@ test('plan : sans session, un port direct ne laisse passer que l\'écran de conn
 test('machine : ce qui écoute (« ss »), un refus d\'écoute dit en clair, les ports d\'une appli à installer', async () => {
   const l = readListeners(`udp   UNCONN 0      0      127.0.0.53%lo:53         0.0.0.0:*    users:(("systemd-resolve",pid=600,fd=13))
 tcp   LISTEN 0      128          0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=900,fd=3))
-tcp   LISTEN 0      4096               *:7777             *:*    users:(("node",pid=1200,fd=22))
+tcp   LISTEN 0      4096               *:8888             *:*    users:(("node",pid=1200,fd=22))
 tcp   LISTEN 0      128             [::]:8097          [::]:*
 udp   UNCONN 0      0            0.0.0.0:51820      0.0.0.0:*`);
-  assert.deepEqual(l, [{ proto: 'udp', port: 53, addr: '127.0.0.53', prog: 'systemd-resolve', pid: 600 }, { proto: 'tcp', port: 22, addr: '0.0.0.0', prog: 'sshd', pid: 900 }, { proto: 'tcp', port: 7777, addr: '*', prog: 'node', pid: 1200 }, { proto: 'tcp', port: 8097, addr: '::' }, { proto: 'udp', port: 51820, addr: '0.0.0.0' }]);
+  assert.deepEqual(l, [{ proto: 'udp', port: 53, addr: '127.0.0.53', prog: 'systemd-resolve', pid: 600 }, { proto: 'tcp', port: 22, addr: '0.0.0.0', prog: 'sshd', pid: 900 }, { proto: 'tcp', port: 8888, addr: '*', prog: 'node', pid: 1200 }, { proto: 'tcp', port: 8097, addr: '::' }, { proto: 'udp', port: 51820, addr: '0.0.0.0' }]);
   assert.deepEqual(readListeners('n\'importe quoi\n\n'), []);
   assert.equal(await explainListen(Object.assign(new Error('listen EACCES: permission denied 0.0.0.0:80'), { code: 'EACCES', port: 80, syscall: 'listen' })), 'le port 80 est sous 1024 et demande les droits d\'administrateur : lance Odin en administrateur, ou choisis un port à partir de 1024');
   assert.equal(await explainListen(new Error('autre chose')), 'autre chose');
@@ -200,7 +200,7 @@ test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la m�
     assert.deepEqual(r.applis!.map((a) => a.id).sort(), [...APPLIS].sort());
     assert.ok(r.applis!.every((a) => a.port === null && a.etat === 'fermé' && !a.reseau), 'aucune écoute en plus tant que tu n\'as rien demandé');
     assert.equal(r.applis!.find((a) => a.id === 'eir')!.note, `Pas de port direct : sa page est dans l'interface d'Odin (port ${v.port}).`);
-    assert.equal(r.applis!.find((a) => a.id === 'eir')!.plan, '7777 (interface d\'Odin)');
+    assert.equal(r.applis!.find((a) => a.id === 'eir')!.plan, '8888 (interface d\'Odin)');
     const venus = r.applis!.find((a) => a.id === 'freyja')!;
     assert.equal(venus.nom, 'Vénus'); assert.equal(venus.plan, '8096, 8920, 5433, 51413 TCP'); assert.equal(venus.vue, 'app=freyja');
     assert.deepEqual(venus.services.map((x) => [x.port, x.web === true]), [[8096, true], [8920, true], [5433, false], [51413, false]], 'Venus garde ses ports : c\'est son service qui y répond');
@@ -340,7 +340,7 @@ test('port direct : un port sous 1024 sans les droits d\'administrateur est refu
   const home = mkdtempSync(join(tmpdir(), 'odin-sans-droits-')); chownSync(home, 65534, 65534);
   try {
     const code = `import { DirectPorts } from ${JSON.stringify(new URL('../src/valhalla/directports.ts', import.meta.url).pathname)};
-const g = new DirectPorts({ home: process.argv[1], web: 7777, host: '127.0.0.1', access: 'local', attach: (s) => s.destroy() }); await g.start();
+const g = new DirectPorts({ home: process.argv[1], web: 8888, host: '127.0.0.1', access: 'local', attach: (s) => s.destroy() }); await g.start();
 try { await g.set('freyja', 81); console.log('OUVERT'); } catch (e) { console.log('REFUS ' + e.message); }
 console.log('ETAT ' + JSON.stringify(g.status('freyja') ?? null)); g.stop();`;
     const r = spawnSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '--input-type=module', '-e', code, home], { uid: 65534, gid: 65534, encoding: 'utf8', env: { PATH: process.env.PATH, HOME: home } });
@@ -647,7 +647,7 @@ test('appli installée (moteur d\'Odin) : elle reçoit son port fixe ; s\'il est
     assert.ok(await until(async () => (await page(fixe)) === 'salut depuis le conteneur', 10_000), 'la page du conteneur répond sur le port fixe');
     // Un port direct ne peut pas prendre le port d'une appli installée : le plan le garde, et la machine dit qui le tient.
     assert.match(directRefusal(fixe, 'eir') ?? '', /gardé pour PrivateBin \(appli installée par Argo\)/);
-    const g = new DirectPorts({ home: dir, web: 7777, host: '127.0.0.1', access: 'local', attach: (s) => s.destroy() }); await g.start();
+    const g = new DirectPorts({ home: dir, web: 8888, host: '127.0.0.1', access: 'local', attach: (s) => s.destroy() }); await g.start();
     try {
       const libre = await freePort(); await e.run({ image: ref, name: 'autre', ports: `${libre}:8080`, network: e.find('pb1').spec.network });
       assert.ok(await until(async () => (await page(libre)) === 'salut depuis le conteneur', 10_000));
@@ -700,14 +700,14 @@ test('sans IA : « les ports directs » se demande à Thermopyles ; il manque l\
     // phrases banales : jamais une action sur les ports directs
     for (const p of ['le port de plaisance est fermé', 'mon fils est parti en direct', 'un vol direct pour Paris', 'ouvre la porte du garage', 'donne le port de Marseille', 'mets le film en direct sur la télé', 'regarde le match en direct', 'donne-moi la météo', 'c\'est direct ou pas', 'porte ce carton']) assert.doesNotMatch(await u(p), /port_direct|ports_directs/, p);
     // une action grave ne part jamais d'une phrase sans ton accord
-    const g = new DirectPorts({ home, web: 7777, host: '127.0.0.1', access: 'lan', attach: (s) => s.destroy() }); await g.start();
+    const g = new DirectPorts({ home, web: 8888, host: '127.0.0.1', access: 'lan', attach: (s) => s.destroy() }); await g.start();
     try {
       await g.set('eir', await freePort());
       await understand(v, 'ouvre le port direct', 'grave'); const o = await v.order('Hygie', 'grave');
       assert.equal(o.ok, false); assert.match(o.confirm ?? '', /^ouvrir le port \d+ de Hygie sur le réseau/); assert.equal(g.status('eir')!.reseau, false);
     } finally { g.stop(); }
     // Odin ouvert à Internet : la phrase d'accord dit que ce port peut l'être aussi.
-    const wan = new DirectPorts({ home, web: 7777, host: '127.0.0.1', access: 'wan', attach: (s) => s.destroy() }); await wan.start();
+    const wan = new DirectPorts({ home, web: 8888, host: '127.0.0.1', access: 'wan', attach: (s) => s.destroy() }); await wan.start();
     try { assert.match(v.action('hlid', 'ouvrir_port_direct')!.a.grave!({ appli: 'Hygie' }, v.ctx('hlid')) ?? '', /joignable depuis ton réseau, et Internet si ta box ou ton hébergeur laisse passer ce port \(la connexion à Odin reste exigée\)/); } finally { wan.stop(); }
   } finally { v.stop(); useEngine(() => new Engine()); rmSync(home, { recursive: true, force: true }); }
 });

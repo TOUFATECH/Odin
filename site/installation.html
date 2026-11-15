@@ -88,7 +88,7 @@
     <ol class="steps">
       <li><div><b>Ouvre un terminal</b><span class="muted">Ubuntu, Debian, Fedora, Arch, Raspberry Pi OS… Il faut <span class="ic">curl</span> et, de préférence, <span class="ic">git</span>.</span></div></li>
       <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">curl -fsSL https://raw.githubusercontent.com/<wbr>TOUFATECH/Odin/main/<wbr>install.sh | bash</code><span><button class="btn small" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.sh | bash">Copier</button></span><span class="muted">Sans droits administrateur : tout va dans ~/.odin. Service systemd utilisateur proposé pour le démarrage automatique.</span></div></li>
-      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage automatique. Si ufw est actif : <span class="ic">sudo ufw allow 7777/tcp</span>.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage automatique. Si ufw est actif : <span class="ic">sudo ufw allow 8888/tcp</span>.</span></div></li>
       <li><div><b>Termine dans le navigateur</b><span class="muted">Réglages → Modèle. Pour la vidéo et l'audio, installe <span class="ic">ffmpeg</span> (apt, dnf, pacman).</span></div></li>
     </ol>
   </div>
@@ -97,7 +97,7 @@
     <ol class="steps">
       <li><div><b>Ouvre PowerShell</b><span class="muted">Menu Démarrer → tape « PowerShell » → Entrée. Pas besoin de l'ouvrir en administrateur.</span></div></li>
       <li><div><b>Colle cette commande et appuie sur Entrée</b><code class="code">irm https://raw.githubusercontent.com/<wbr>TOUFATECH/Odin/main/<wbr>install.ps1 | iex</code><span><button class="btn small" type="button" data-copy="irm https://raw.githubusercontent.com/TOUFATECH/Odin/main/install.ps1 | iex">Copier</button></span><span class="muted">Windows 10 et 11, x64 ou ARM. Odin s'installe dans %LOCALAPPDATA%\Odin et la commande <span class="ic">odin</span> est ajoutée à ton PATH.</span></div></li>
-      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage à l'ouverture de session. L'installateur propose d'autoriser le port 7777 dans le pare-feu Windows.</span></div></li>
+      <li><div><b>Réponds à trois questions</b><span class="muted">Accès à l'interface, inventaire du réseau, démarrage à l'ouverture de session. L'installateur propose d'autoriser le port 8888 dans le pare-feu Windows.</span></div></li>
       <li><div><b>Termine dans le navigateur</b><span class="muted">Réglages → Modèle. Pour la vidéo et l'audio : <span class="ic">winget install Gyan.FFmpeg</span>.</span></div></li>
     </ol>
   </div>
@@ -110,7 +110,7 @@ cd Odin
 npm install
 npm link
 odin init
-odin web</code><span class="muted">Avec Docker : <span class="ic">docker build -t odin .</span> puis publie le port 7777.</span></div></li>
+odin web</code><span class="muted">Avec Docker : <span class="ic">docker build -t odin .</span> puis publie le port 8888.</span></div></li>
       <li><div><b>Tests et vérification des types</b><code class="code">npm test
 npm run typecheck</code></div></li>
     </ol>
@@ -123,7 +123,7 @@ npm run typecheck</code></div></li>
   <div class="sec-head"><p class="eyebrow">Juste après</p><h2>Les premières minutes avec Odin</h2></div>
   <div class="grid">
     <article class="card rv"><span class="k">1</span><h3>Choisis le cerveau</h3><p>Réglages → Modèle : Anthropic, OpenRouter, OpenAI, Ollama (local, gratuit) ou un service compatible. Ajoute des modèles de secours et leur palier.</p></article>
-    <article class="card rv d1"><span class="k">2</span><h3>Ouvre-le sur ton téléphone</h3><p>Sur le même Wi-Fi, le lien <span class="ic">https://192.168.1.x:7777</span> affiché à la fin. Accepte le certificat créé par Odin après avoir comparé son empreinte dans Réglages → Accès.</p></article>
+    <article class="card rv d1"><span class="k">2</span><h3>Ouvre-le sur ton téléphone</h3><p>Sur le même Wi-Fi, le lien <span class="ic">https://192.168.1.x:8888</span> affiché à la fin. Accepte le certificat créé par Odin après avoir comparé son empreinte dans Réglages → Accès.</p></article>
     <article class="card rv d2"><span class="k">3</span><h3>Branche Telegram et la voix</h3><p>Réglages → Telegram (jeton du bot, ton identifiant) et Réglages → Voix (transcription, synthèse, voix copiée).</p></article>
     <article class="card rv d3"><span class="k">4</span><h3>Essaie</h3><p>« Quels appareils sont sur mon réseau ? », « Résume ce PDF », « Chaque lundi à 9 h, fais le point sur mes sauvegardes ».</p></article>
   </div>

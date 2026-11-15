@@ -8,7 +8,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
- * Trouver Odin tout seul (protocole § 1) : 127.0.0.1:7777, puis le /24 du Wi-Fi sur 7777 et 7443,
+ * Trouver Odin tout seul (protocole § 1) : 127.0.0.1:8888, puis le /24 du Wi-Fi sur 8888, 7777 (anciennes installations) et 7443,
  * 32 requêtes en parallèle, 1,5 s au plus chacune, https d'abord puis http.
  */
 object Decouvreur {

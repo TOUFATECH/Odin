@@ -21,6 +21,6 @@ VOLUME ["/data"]
 # conteneur sur le réseau de la machine : docker run --network host --cap-add NET_ADMIN --cap-add NET_RAW …
 # Sur un réseau « bridge » (par défaut), il ne voit que le réseau du conteneur et te le dit.
 # Pour exposer l'API HTTP hors du conteneur : "http": { "host": "0.0.0.0", … } dans /data/config.json
-EXPOSE 7777
-HEALTHCHECK --interval=60s --timeout=5s CMD node -e "fetch('http://127.0.0.1:7777/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+EXPOSE 8888
+HEALTHCHECK --interval=60s --timeout=5s CMD node -e "fetch('http://127.0.0.1:8888/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
 CMD ["node", "bin/odin.mjs", "gateway"]

@@ -102,9 +102,9 @@ test('historique, noms appris, qui parle à qui, détail, ménage', () => {
 });
 
 test('pause, filtre de capture sans l\'interface d\'Odin, causes d\'échec', () => {
-  setOwnPort(7777);
-  assert.equal(bpf(NETWORK), 'not tcp port 7777');
-  assert.equal(bpf('192.168.1.20'), 'host 192.168.1.20 and not tcp port 7777');
+  setOwnPort(8888);
+  assert.equal(bpf(NETWORK), 'not tcp port 8888');
+  assert.equal(bpf('192.168.1.20'), 'host 192.168.1.20 and not tcp port 8888');
   const home = mkdtempSync(join(tmpdir(), 'odin-ran-'));
   setPaused(home, true); assert.equal(isPaused(), true); setPaused(home, false); assert.equal(isPaused(), false);
   assert.match(problem('sh: 1: tcpdump: not found')!, /apt install tcpdump/);

@@ -1,12 +1,17 @@
 // Ports directs par appli — « chaque appli sur son port ». http://IP:<port> ouvre directement la page d'une appli
 // d'Odin : c'est la même interface, servie sur un port de plus, avec la même connexion exigée (un port direct ne
 // donne jamais d'accès sans session : ni clé d'API, ni liens publics, ni création de compte).
-//   - Le port se règle (actions de Thermopyles, API /api/ports, Réglages → Ports) ; sans numéro, Odin en propose un.
+//   - Par défaut, chaque appli a le port du plan (ports.ts, DEFAULT_DIRECT : 8FNN) et il écoute là où écoute
+//     l'interface d'Odin (cette machine, ou ton réseau si Odin y est ouvert). Rien n'est gardé sur le disque tant que
+//     tu n'y touches pas : le plan s'applique tel quel.
+//   - Le port se change (page de l'appli, Réglages → Ports, actions de Thermopyles, API /api/ports) ; sans numéro,
+//     Odin propose le port par défaut de l'appli s'il est libre, sinon un port libre de sa famille. Retirer le port
+//     d'une appli est gardé : elle ne le reprend pas au redémarrage.
 //   - Refus clairs : port déjà pris (et par qui), gardé par le plan (ports.ts), sous 1024 sans les droits, hors bornes.
-//   - Un port direct n'écoute d'abord que sur cette machine. L'ouvrir sur le réseau est une action grave (ton accord) :
-//     Odin écoute alors là où son interface écoute, et Cerbère ouvre le pare-feu de la machine. Le refermer ou le
-//     retirer enlève la règle. Jamais sur la box (Internet) depuis ici ; jamais sur le réseau tant qu'Odin est réglé
-//     sur « cette machine seulement ».
+//   - Un port que tu donnes à la main n'écoute d'abord que sur cette machine (sauf s'il remplace un port par défaut déjà
+//     ouvert au réseau). L'ouvrir sur le réseau est une action grave (ton accord) : Odin écoute alors là où son
+//     interface écoute, et Cerbère ouvre le pare-feu de la machine. Le refermer ou le retirer enlève la règle. Jamais
+//     sur la box (Internet) depuis ici ; jamais sur le réseau tant qu'Odin est réglé sur « cette machine seulement ».
 //   - Le changement s'applique tout de suite, sans redémarrer Odin, et il est gardé (valhalla/ports-directs.json).
 // Une appli qui a son propre service web (Vénus : Venus sur 8096) garde ce port-là : c'est son service qui y répond,
 // Odin ne s'y met pas ; sa page dans Odin peut recevoir un autre port direct, comme les autres.
@@ -16,33 +21,36 @@ import { dirname, join } from 'node:path';
 import { lanAddresses } from '../web/access.ts';
 import { engine } from './modules/naglfar.ts';
 import { holderOf as hostHolder, listeners, type Listener } from './hostports.ts';
-import { APPS_RANGE, DIRECT_RANGE, SERVICES_RANGE, WEB, directRefusal, planOf, portsOf, setDirectPorts, suggestDirect, type Proto } from './ports.ts';
+import { APPS_RANGE, DEFAULT_DIRECT, DIRECT_RANGE, SERVICES_RANGE, WEB, directRefusal, familyRange, planOf, portsOf, setDirectPorts, suggestDirect, type Proto } from './ports.ts';
 import type { Valhalla } from './service.ts';
 import type { Action, ActionResult, ModCtx, Module, Section } from './types.ts';
 
 export type Access = 'local' | 'lan' | 'wan';
 /** Ce qui est gardé pour une appli : son port, et s'il est ouvert sur le réseau (avec ton accord). */
-export interface Direct { port: number; reseau?: boolean; depuis?: string }
+export interface Direct { port: number; reseau?: boolean; depuis?: string; /** le port du plan, donné d'office (jamais écrit sur le disque) */ auto?: true }
 export type Etat = 'écoute' | 'pris' | 'fermé';
 /** Un port direct tel qu'il est vraiment sur la machine. */
-export interface DirectStatus { port: number; etat: Etat; /** ouvert sur le réseau (sinon : cette machine seulement) */ reseau: boolean; /** là où Odin écoute */ sur?: string; /** qui tient le port quand il est pris */ par?: string; /** pourquoi il n'écoute pas */ pourquoi?: string; depuis?: string }
+export interface DirectStatus { port: number; etat: Etat; /** ouvert sur le réseau (sinon : cette machine seulement) */ reseau: boolean; /** là où Odin écoute */ sur?: string; /** qui tient le port quand il est pris */ par?: string; /** pourquoi il n'écoute pas */ pourquoi?: string; depuis?: string; /** c'est le port du plan, donné d'office */ auto?: true }
 
 export const directFile = (home: string) => join(home, 'valhalla', 'ports-directs.json');
 const ID = /^[a-z0-9_-]{2,40}$/;
-function load(home: string): Map<string, Direct> {
-  const m = new Map<string, Direct>(), seen = new Set<number>();
+/** Ce qui est gardé : les ports donnés à la main, et les applis dont tu as retiré le port (elles ne le reprennent pas). */
+function load(home: string): { m: Map<string, Direct>; retires: Set<string> } {
+  const m = new Map<string, Direct>(), seen = new Set<number>(), retires = new Set<string>();
   try {
-    const j = JSON.parse(readFileSync(directFile(home), 'utf8')) as { applis?: Record<string, Direct> };
+    const j = JSON.parse(readFileSync(directFile(home), 'utf8')) as { applis?: Record<string, Direct>; retires?: unknown };
     for (const [k, v] of Object.entries(j.applis ?? {})) {
       if (!ID.test(k) || !v || !Number.isInteger(v.port) || v.port < 1 || v.port > 65535 || seen.has(v.port)) continue;
       seen.add(v.port); m.set(k, { port: v.port, ...(v.reseau === true ? { reseau: true } : {}), ...(typeof v.depuis === 'string' ? { depuis: v.depuis.slice(0, 40) } : {}) });
     }
-  } catch { /* pas encore de port direct */ }
-  return m;
+    if (Array.isArray(j.retires)) for (const k of j.retires) if (typeof k === 'string' && ID.test(k) && !m.has(k)) retires.add(k);
+  } catch { /* pas encore de port réglé à la main */ }
+  return { m, retires };
 }
-function save(home: string, m: Map<string, Direct>): void {
+function save(home: string, m: Map<string, Direct>, retires: Set<string>): void {
   const f = directFile(home), tmp = `${f}.tmp`; mkdirSync(dirname(f), { recursive: true });
-  writeFileSync(tmp, JSON.stringify({ applis: Object.fromEntries(m) }, null, 2), { mode: 0o600 }); renameSync(tmp, f);
+  const applis = Object.fromEntries([...m].filter(([, v]) => !v.auto));
+  writeFileSync(tmp, JSON.stringify({ applis, ...(retires.size ? { retires: [...retires].sort() } : {}) }, null, 2), { mode: 0o600 }); renameSync(tmp, f);
 }
 
 // ---------------- Qui tient un port (machine : hostports.ts ; applis installées : Argo) ----------------
@@ -67,6 +75,8 @@ export interface DirectOpts {
   loopback?: string;
   access: Access;
   https?: boolean;
+  /** les applis qui reçoivent d'office leur port du plan (ports.ts) ; rien : aucun port par défaut */
+  defauts?: () => string[];
   /** remet une connexion entrante au serveur de l'interface : mêmes règles, même chiffrement, même connexion exigée */
   attach(sock: Socket): void;
   log?(text: string): void;
@@ -83,6 +93,8 @@ export const directs = (): DirectPorts | undefined => current;
 export class DirectPorts {
   readonly o: DirectOpts;
   private entries = new Map<string, Direct>();
+  /** les applis dont tu as retiré le port : elles ne reprennent pas leur port par défaut */
+  private retires = new Set<string>();
   private open = new Map<string, Open>();
   private down = new Map<string, Down>();
   /** Les connexions arrivées par un port direct, et l'appli de ce port : elles gardent ce statut jusqu'à leur fermeture. */
@@ -94,7 +106,20 @@ export class DirectPorts {
   private get loop(): string { return this.o.loopback ?? '127.0.0.1'; }
   /** Une opération à la fois : deux clics rapprochés ne se marchent pas dessus. */
   private lock<T>(f: () => Promise<T>): Promise<T> { const r = this.queue.then(f, f); this.queue = r.catch(() => undefined); return r; }
-  private sync(): void { setDirectPorts(Object.fromEntries([...this.entries].map(([k, v]) => [k, v.port]))); save(this.o.home, this.entries); }
+  private sync(): void { setDirectPorts(Object.fromEntries([...this.entries].map(([k, v]) => [k, v.port]))); save(this.o.home, this.entries, this.retires); }
+  /** Les applis qui ont laissé leur port par défaut (retiré, ou changé pour un autre) : ce port-là peut servir à une autre. */
+  libres(): Set<string> {
+    return new Set(Object.keys(DEFAULT_DIRECT).filter((a) => this.retires.has(a) || (this.entries.has(a) && this.entries.get(a)!.port !== DEFAULT_DIRECT[a])));
+  }
+  /** Le port par défaut des applis qui n'en ont pas d'autre, ouvert là où l'interface écoute. */
+  private defaults(): void {
+    const pris = new Set([...this.entries.values()].map((e) => e.port));
+    for (const app of this.o.defauts?.() ?? []) {
+      const port = DEFAULT_DIRECT[app];
+      if (!port || this.entries.has(app) || this.retires.has(app) || pris.has(port)) continue;
+      this.entries.set(app, { port, reseau: true, auto: true }); pris.add(port);
+    }
+  }
   private listen(app: string, port: number, host: string): Promise<Open> {
     return new Promise((ok, ko) => {
       const socks = new Set<Socket>();
@@ -129,7 +154,7 @@ export class DirectPorts {
   /** Met à l'écoute le port gardé d'une appli (au démarrage, puis à chaque nouvel essai tant qu'il est pris). */
   private async bring(app: string): Promise<void> {
     const e = this.entries.get(app); if (!e || this.open.has(app)) return;
-    const no = directRefusal(e.port, app, { web: this.o.web });
+    const no = directRefusal(e.port, app, { web: this.o.web, libres: this.libres() });
     if (no) { this.down.set(app, { pris: false, pourquoi: no }); return; }
     try { this.open.set(app, await this.listen(app, e.port, this.hostOf(e))); this.down.delete(app); }
     catch (err) { const w = await this.why(e.port, err), was = this.down.get(app); this.down.set(app, w); if (was?.pourquoi !== w.pourquoi) this.o.log?.(`port direct de ${app} : ${w.pourquoi}`); }
@@ -137,14 +162,22 @@ export class DirectPorts {
 
   /** Relit les ports gardés et les met à l'écoute. Un port pris par un autre programme est retenté toutes les 30 secondes. */
   async start(): Promise<void> {
-    this.entries = load(this.o.home);
+    const l = load(this.o.home); this.entries = l.m; this.retires = l.retires;
+    this.defaults();
     setDirectPorts(Object.fromEntries([...this.entries].map(([k, v]) => [k, v.port])));
     for (const app of this.entries.keys()) await this.bring(app);
     this.timer = setInterval(() => { void this.retry(); }, 30_000); this.timer.unref?.();
     current = this;
   }
   /** Réessaie les ports qui n'écoutent pas (pris par un autre programme au démarrage, par exemple). */
-  retry(): Promise<void> { return this.lock(async () => { for (const app of this.entries.keys()) await this.bring(app); }); }
+  retry(): Promise<void> {
+    return this.lock(async () => {
+      // Les applis démarrées après l'interface reçoivent ici leur port par défaut.
+      const avant = this.entries.size; this.defaults();
+      if (this.entries.size !== avant) setDirectPorts(Object.fromEntries([...this.entries].map(([k, v]) => [k, v.port])));
+      for (const app of this.entries.keys()) await this.bring(app);
+    });
+  }
   stop(): void {
     if (this.timer) clearInterval(this.timer); this.timer = undefined;
     for (const x of this.open.values()) this.shut(x, true);
@@ -159,13 +192,16 @@ export class DirectPorts {
   status(app: string): DirectStatus | undefined {
     const e = this.entries.get(app); if (!e) return undefined;
     const x = this.open.get(app), d = this.down.get(app);
-    return { port: e.port, etat: x ? 'écoute' : d?.pris ? 'pris' : 'fermé', reseau: Boolean(x && e.reseau && this.o.access !== 'local'), ...(x ? { sur: x.host } : {}), ...(!x && d?.par ? { par: d.par } : {}), ...(!x && d ? { pourquoi: d.pourquoi } : {}), ...(e.depuis ? { depuis: e.depuis } : {}) };
+    return { port: e.port, etat: x ? 'écoute' : d?.pris ? 'pris' : 'fermé', reseau: Boolean(x && e.reseau && this.o.access !== 'local'), ...(x ? { sur: x.host } : {}), ...(!x && d?.par ? { par: d.par } : {}), ...(!x && d ? { pourquoi: d.pourquoi } : {}), ...(e.depuis ? { depuis: e.depuis } : {}), ...(e.auto ? { auto: true as const } : {}) };
   }
   /** Tu avais ouvert ce port sur le réseau (il ne l'est vraiment que si l'interface d'Odin l'est aussi). */
-  wanted(app: string): boolean { return Boolean(this.entries.get(app)?.reseau); }
+  wanted(app: string): boolean { const e = this.entries.get(app); return Boolean(e?.reseau && !e.auto); }
   all(): Record<string, DirectStatus> { return Object.fromEntries([...this.entries.keys()].map((k) => [k, this.status(k)!])); }
-  /** Le premier port libre proposé (plage des ports directs), sans compter ce qui écoute déjà sur la machine. */
-  async suggest(): Promise<number | undefined> { return suggestDirect((await listeners()).map((x) => x.port), this.o.web); }
+  /** Le port à proposer : celui de l'appli par défaut s'il est libre, sinon un libre de sa famille (ou de la plage des ports directs). */
+  async suggest(app?: string, family?: string): Promise<number | undefined> {
+    const mine = app ? this.open.get(app)?.port : undefined;
+    return suggestDirect((await listeners()).map((x) => x.port).filter((p) => p !== mine), this.o.web, app, family);
+  }
 
   /**
    * Donne (ou change) le port direct d'une appli. Le nouveau port s'ouvre d'abord, sur cette machine seulement ;
@@ -174,14 +210,16 @@ export class DirectPorts {
   set(app: string, port: number, o: { name?: (id: string) => string; now?: Date } = {}): Promise<{ avant?: Direct; etat: DirectStatus; meme: boolean }> {
     return this.lock(async () => {
       if (!ID.test(app)) throw new Error('appli inconnue');
-      const no = directRefusal(port, app, { web: this.o.web, name: o.name }); if (no) throw new Error(no);
+      const no = directRefusal(port, app, { web: this.o.web, name: o.name, libres: this.libres() }); if (no) throw new Error(no);
       const avant = this.entries.get(app), old = this.open.get(app);
       if (avant?.port === port && old) return { avant, etat: this.status(app)!, meme: true };
+      // Un port par défaut déjà ouvert au réseau (sans règle de pare-feu à part) : le nouveau port l'est aussi.
+      const reseau = Boolean(avant?.auto && avant.reseau), e: Direct = { port, ...(reseau ? { reseau: true } : {}), depuis: (o.now ?? new Date()).toISOString() };
       let next: Open;
-      try { next = await this.listen(app, port, this.loop); } catch (e) { const w = await this.why(port, e); throw new Error(`${w.pourquoi} : ${w.conseil}`); }
+      try { next = await this.listen(app, port, reseau ? this.hostOf(e) : this.loop); } catch (err) { const w = await this.why(port, err); throw new Error(`${w.pourquoi} : ${w.conseil}`); }
       this.shut(old);
       this.open.set(app, next); this.down.delete(app);
-      this.entries.set(app, { port, depuis: (o.now ?? new Date()).toISOString() });
+      this.entries.set(app, e); this.retires.delete(app);
       this.sync();
       return { avant, etat: this.status(app)!, meme: false };
     });
@@ -203,6 +241,7 @@ export class DirectPorts {
         }
       }
       if (on) e.reseau = true; else delete e.reseau;
+      delete e.auto;
       this.sync();
       return this.status(app)!;
     });
@@ -212,7 +251,9 @@ export class DirectPorts {
     return this.lock(async () => {
       const e = this.entries.get(app); if (!e) return undefined;
       this.shut(this.open.get(app));
-      this.open.delete(app); this.down.delete(app); this.entries.delete(app); this.sync();
+      this.open.delete(app); this.down.delete(app); this.entries.delete(app);
+      if (DEFAULT_DIRECT[app]) this.retires.add(app);
+      this.sync();
       return e;
     });
   }
@@ -239,6 +280,10 @@ export interface AppPort {
   id: string; nom: string; famille: string;
   /** son port direct (rien : sa page est dans l'interface d'Odin) */
   port: number | null; etat: Etat; reseau: boolean; par?: string;
+  /** son port d'après le plan (rien : elle n'en a pas) */
+  parDefaut: number | null;
+  /** c'est le port du plan, donné d'office */
+  auto?: true;
   /** tu l'avais ouvert sur le réseau, mais il ne l'est pas en ce moment (Odin est réglé sur « cette machine », ou le port est pris) : « fermer » retire cet accord et la règle du pare-feu */
   reseauEnAttente?: true;
   /** la phrase à afficher telle quelle */
@@ -263,7 +308,8 @@ const tcpProbe = (host: string, port: number, ms = 700) => new Promise<boolean>(
   s.setTimeout(ms, () => end(false)); s.once('connect', () => end(true)); s.once('error', () => end(false));
 });
 function noteOf(nom: string, st: DirectStatus | undefined, web: number, access: Access, wanted: boolean): string {
-  if (!st) return `Pas de port direct : sa page est dans l'interface d'Odin (port ${web}).`;
+  if (!st) return `Pas de port à elle : sa page est dans l'interface d'Odin (port ${web}).`;
+  if (st.auto && st.etat === 'écoute') return st.reseau ? `Son port par défaut, ${st.port}, écoute là où écoute Odin (ton réseau). Si la machine a un pare-feu, « Ouvrir sur le réseau » demande à Cerbère d'y laisser passer ce port.` : `Son port par défaut, ${st.port}, écoute sur cette machine, comme l'interface d'Odin.`;
   if (st.etat === 'écoute') return st.reseau ? `Écoute sur le port ${st.port}, ouvert sur le réseau.` : `Écoute sur le port ${st.port}, depuis cette machine seulement${wanted && access === 'local' ? ' (Odin est réglé sur « cette machine ») : il sera de nouveau ouvert sur le réseau quand l\'interface d\'Odin le sera, sauf si tu le fermes au réseau' : ''}.`;
   if (st.etat === 'pris') return `Le port ${st.port} est pris par ${st.par ?? 'un autre programme'} : Odin le reprendra dès qu'il sera libre. En attendant, ${nom} reste dans l'interface (port ${web}).`;
   return `Le port ${st.port} est fermé${st.pourquoi ? ` : ${st.pourquoi}` : ''}.`;
@@ -271,7 +317,7 @@ function noteOf(nom: string, st: DirectStatus | undefined, web: number, access: 
 /** Tous les ports des applis, tels qu'ils sont vraiment : port direct, ports de service du plan, applis installées. */
 export async function overview(mods: Module[], o: { home?: string; adresses?: Record<string, string>; seulement?: string } = {}): Promise<Overview> {
   const g = directs(), web = g?.o.web ?? WEB, access = g?.o.access ?? 'local', l = await listeners();
-  const kept = g ? undefined : (o.home ? load(o.home) : new Map<string, Direct>());
+  const kept = g ? undefined : (o.home ? load(o.home).m : new Map<string, Direct>());
   const applis: AppPort[] = [];
   for (const m of mods) {
     if (o.seulement && m.id !== o.seulement) continue;
@@ -295,7 +341,7 @@ export async function overview(mods: Module[], o: { home?: string; adresses?: Re
       }
       services.push({ port: p.port, proto: p.proto, quoi: p.what, etat, ...(par ? { par } : {}), ...(p.optional ? { facultatif: true } : {}), ...(p.web ? { web: true } : {}), ...(adresse ? { adresse } : {}) });
     }
-    applis.push({ id: m.id, nom: m.name, famille: m.family, port: st?.port ?? null, etat: st?.etat ?? 'fermé', reseau: st?.reseau ?? false, ...(st && !st.reseau && g?.wanted(m.id) ? { reseauEnAttente: true as const } : {}), ...(st?.par ? { par: st.par } : {}), note: noteOf(m.name, st, web, access, Boolean(g?.wanted(m.id))), plan: planOf(m.id), vue: directView(m.id), services });
+    applis.push({ id: m.id, nom: m.name, famille: m.family, port: st?.port ?? null, parDefaut: DEFAULT_DIRECT[m.id] ?? null, ...(st?.auto ? { auto: true as const } : {}), etat: st?.etat ?? 'fermé', reseau: st?.reseau ?? false, ...(st && !st.reseau && g?.wanted(m.id) ? { reseauEnAttente: true as const } : {}), ...(st?.par ? { par: st.par } : {}), note: noteOf(m.name, st, web, access, Boolean(g?.wanted(m.id))), plan: planOf(m.id), vue: directView(m.id), services });
   }
   let installees: Overview['installees'] = [];
   if (!o.seulement) { try { installees = engine().ps(true).map((c) => ({ nom: c.spec.name, image: c.spec.image, etat: c.state.status, ports: c.spec.ports.map((p) => ({ port: p.host, vers: p.inner, proto: p.proto })) })); } catch { /* moteur absent */ } }
@@ -366,14 +412,15 @@ export const directActions: Action[] = [
     grave: (i, ctx) => (i.reseau === true || i.reseau === 'true' ? graveOpen(ctx, i, Number(i.port) || undefined) : undefined),
     run: async (ctx, i) => {
       const g = need(), m = findApp(ctx.modules(), i.appli), name = (id: string) => ctx.modules().find((x) => x.id === id)?.name ?? id;
-      const asked = s(i.port).trim(), port = asked ? Number(asked) : await g.suggest();
-      if (port === undefined) throw new Error(`plus aucun port libre entre ${DIRECT_RANGE[0]} et ${DIRECT_RANGE[1]} : donne un numéro de port`);
+      const asked = s(i.port).trim(), port = asked ? Number(asked) : await g.suggest(m.id, m.family);
+      if (port === undefined) { const f = familyRange(m.id, m.family); throw new Error(`plus aucun port libre${f ? ` entre ${f[0]} et ${f[1]} ni` : ''} entre ${DIRECT_RANGE[0]} et ${DIRECT_RANGE[1]} : donne un numéro de port`); }
       const r = await g.set(m.id, port, { name, now: ctx.now() });
-      let text = r.meme ? `${m.name} est déjà sur le port ${port}.` : `🚪 ${m.name} ${r.avant ? `passe du port ${r.avant.port} au port ${port} (l'ancien est fermé)` : `a maintenant son port : ${port}`}. Depuis cette machine, ${url(g, port, here(g))} ouvre directement sa page (avec ta connexion habituelle).`;
+      const surReseau = Boolean(r.etat.reseau);
+      let text = r.meme ? `${m.name} est déjà sur le port ${port}.` : `🚪 ${m.name} ${r.avant ? `passe du port ${r.avant.port} au port ${port} (l'ancien est fermé)` : `a maintenant son port : ${port}`}. ${surReseau ? `${fromNetwork(g, port)}` : `Depuis cette machine, ${url(g, port, here(g))}`} ouvre directement sa page (avec ta connexion habituelle).`;
       // L'ancien port est fermé : si Cerbère lui avait ouvert le pare-feu, la règle part avec lui.
       if (!r.meme && r.avant) text += await firewallClose(ctx, r.avant.port);
       if (i.reseau === true || i.reseau === 'true') text += `\n${await openNetwork(ctx, g, m)}`;
-      else if (!r.meme) text += r.avant?.reseau ? ' Le nouveau port n\'est joignable que depuis cette machine : rouvre-le sur le réseau si tu le veux.' : ' Pour les autres appareils : « Ouvrir sur le réseau ».';
+      else if (!r.meme && !surReseau) text += r.avant?.reseau ? ' Le nouveau port n\'est joignable que depuis cette machine : rouvre-le sur le réseau si tu le veux.' : ' Pour les autres appareils : « Ouvrir sur le réseau ».';
       return { text, data: { appli: m.id, port, avant: r.avant ?? null } };
     },
     undo: (_i, r) => { const d = r.data as { appli: string; avant: Direct | null } | undefined; return d ? (d.avant ? { action: 'port_direct', input: { appli: d.appli, port: d.avant.port }, label: `port direct remis à ${d.avant.port}` } : { action: 'retirer_port_direct', input: { appli: d.appli }, label: 'port direct retiré' }) : undefined; } },
@@ -409,7 +456,8 @@ export async function directSection(ctx: ModCtx): Promise<Section> {
 export async function directWatch(ctx: ModCtx): Promise<void> {
   const g = directs(); if (!g) return;
   await g.retry();
-  for (const [app, st] of Object.entries(g.all())) if (st.etat !== 'écoute') {
+  // Un port par défaut pris par un autre programme n'est pas une alerte : il est retenté, et la page de l'appli le dit.
+  for (const [app, st] of Object.entries(g.all())) if (st.etat !== 'écoute' && !st.auto) {
     const nom = ctx.modules().find((m) => m.id === app)?.name ?? app;
     ctx.alert({ level: 'moyenne', title: `Le port direct de ${nom} (${st.port}) ne répond pas`, detail: st.pourquoi ?? 'il n\'écoute pas', key: `port-direct:${app}:${st.port}`, steps: ['La page de l\'appli reste joignable par l\'interface d\'Odin.', 'Arrête le programme qui tient ce port : Odin le reprend tout seul en moins d\'une minute.', 'Ou choisis un autre port dans Réglages → Ports.'] });
   }

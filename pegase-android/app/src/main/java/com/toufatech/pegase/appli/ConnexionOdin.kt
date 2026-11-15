@@ -90,7 +90,7 @@ class ConnexionOdin(private val pegase: Pegase) {
     /** L'adresse tapée à la main (IP et port) : on vérifie qu'un Odin répond, https d'abord. */
     fun essayer(ip: String, port: String, fini: (Bonjour?) -> Unit) {
         pegase.enFond {
-            val p = port.trim().ifEmpty { "7777" }
+            val p = port.trim().ifEmpty { "8888" }
             var b: Bonjour? = null
             for (schema in listOf("https", "http")) {
                 b = ApiPegase.bonjour(ClientOdin("$schema://${ip.trim()}:$p", Epinglage(null)), 4000)

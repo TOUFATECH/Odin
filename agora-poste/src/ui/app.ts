@@ -63,7 +63,7 @@ function ecranConnexion(e: Etat): HTMLElement {
   const info = e.connexionInfo ?? {};
   if (!saisie.adresse) saisie.adresse = e.odin?.adresse ?? info.trouves?.[0]?.adresse ?? '';
   const champ = (id: keyof typeof saisie, a: Attrs) => { const i = el('input', { id, name: id, value: saisie[id], ...a }) as HTMLInputElement; i.addEventListener('input', () => { saisie[id] = i.value; }); return i; };
-  const adresse = champ('adresse', { placeholder: 'https://192.168.1.10:7777', autocomplete: 'url', spellcheck: 'false' });
+  const adresse = champ('adresse', { placeholder: 'https://192.168.1.10:8888', autocomplete: 'url', spellcheck: 'false' });
   const ident = champ('identifiant', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }), mdp = champ('motdepasse', { type: 'password', autocomplete: 'current-password' });
   const code = champ('code', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '7' });
   const err = el('p', { class: 'err', role: 'alert' }, avis || info.erreur || '');

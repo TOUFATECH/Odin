@@ -145,7 +145,7 @@ ACCESS="${ACCESS:-lan}"
 case "$ACCESS" in local|lan|wan) ;; *) ACCESS=lan ;; esac
 "$BIN_DIR/odin" web access "$ACCESS" >/dev/null && ok "Interface web : $( [ "$ACCESS" = local ] && echo 'cette machine seulement' || { [ "$ACCESS" = lan ] && echo 'réseau local en HTTPS' || echo 'réseau local et Internet en HTTPS'; } )"
 if [ "$ACCESS" != local ] && command -v ufw >/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
-  info "Pare-feu ufw actif : autorise le port avec « sudo ufw allow 7777/tcp »."
+  info "Pare-feu ufw actif : autorise le port avec « sudo ufw allow 8888/tcp »."
 fi
 
 if [ "${ODIN_NO_SCAN:-}" != "1" ] && ask "Inventorier les appareils de ton réseau local (et suivre leurs changements) ?" o; then
@@ -270,10 +270,10 @@ SCHEME=https; [ "$ACCESS" = local ] && SCHEME=http
 if [ -n "$SERVICE" ]; then
   for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$ODIN_HOME/web-token" ] && break; sleep 1; done
   TOKEN="$(cat "$ODIN_HOME/web-token" 2>/dev/null || true)"
-  URL="$SCHEME://127.0.0.1:7777/?token=$TOKEN"
+  URL="$SCHEME://127.0.0.1:8888/?token=$TOKEN"
   echo "  Interface web : $URL"
   IP="$(lan_ip || true)"
-  [ "$ACCESS" != local ] && [ -n "$IP" ] && echo "  Depuis ton téléphone ou un autre appareil du réseau : $SCHEME://$IP:7777/?token=$TOKEN"
+  [ "$ACCESS" != local ] && [ -n "$IP" ] && echo "  Depuis ton téléphone ou un autre appareil du réseau : $SCHEME://$IP:8888/?token=$TOKEN"
   [ "$SCHEME" = https ] && echo "  (certificat créé par Odin : le navigateur demandera de l'accepter une fois)"
   open_url "$URL"
   echo "  Première fois : le premier navigateur de ton réseau qui ouvre Odin devient le tien (bouton Commencer)."

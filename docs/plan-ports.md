@@ -1,8 +1,15 @@
-# Plan des ports d'Odin (proposition à valider)
+# Plan des ports d'Odin
 
 Règle : **Odin écoute sur 8888**. Chaque appli a **son port**, en `8FNN` : `F` = la famille (1 à 5), `NN` = son numéro dans la famille (ordre alphabétique).
 Par défaut, chaque port écoute au même endroit que l'interface d'Odin (cette machine, ou le réseau local si Odin y est ouvert) et demande toujours la connexion.
 Les ports imposés par un protocole ou un outil restent les leurs (DNS 53, DHCP 67, MQTT 1883…). Tout port se change dans la page de l'appli (« Son port ») ou dans Réglages → Ports.
+
+Validé le 15/11/2026 et en place depuis la v1.35.0 : le plan est dans `src/valhalla/ports.ts` (`DEFAULT_DIRECT`), le gardien dans `src/valhalla/directports.ts`.
+- Un port par défaut n'est pas écrit sur le disque : il suit le plan. Un port changé ou retiré est gardé dans `~/.odin/valhalla/ports-directs.json`.
+- Sans numéro, Odin propose le port par défaut de l'appli s'il est libre, sinon le premier libre de sa famille, puis 22000-22999.
+- Le port d'une autre appli est refusé, sauf si elle l'a laissé (changé ou retiré).
+- Une appli ajoutée plus tard prend le numéro libre suivant de sa famille : les numéros déjà donnés ne bougent jamais.
+- Une installation qui avait réglé 7777 dans `config.json` le garde ; Pégase, Agora et les clients cherchent 8888, puis 7777 et 7443.
 
 | Famille | Plage |
 |---|---|

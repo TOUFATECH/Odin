@@ -75,7 +75,7 @@ docker build -t odin .
 # Recommandé à la maison (Linux) : Odin voit tes appareils (balayage, identification, DNS, VPN, démarrage réseau)
 docker run -d --name odin --network host --cap-add NET_ADMIN --cap-add NET_RAW -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
 # Isolé (réseau « bridge ») : seulement la discussion et le web ; Odin ne voit pas la maison (il te le dit)
-docker run -d --name odin -p 7777:7777 -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
+docker run -d --name odin -p 8888:8888 -v odin-data:/data -e ANTHROPIC_API_KEY=… odin
 docker exec -it odin node bin/odin.mjs chat
 ```
 
@@ -83,7 +83,7 @@ En conteneur isolé, « le réseau local » d'Odin est celui du conteneur (172.1
 
 Dans le conteneur, Odin est administrateur (sudo sans mot de passe pour son compte) : il peut y installer ce dont il a besoin. Ne le lance pas avec `--security-opt no-new-privileges`, qui l'en empêcherait (il te le dirait).
 
-Dans un conteneur, l'interface web est en mode réseau local par défaut : publie le port (`-p 7777:7777`) et ouvre `https://<ip-de-la-machine>:7777`. L'API HTTP reste disponible (`"http": { "host": "0.0.0.0" }` dans `/data/config.json`, port 7778).
+Dans un conteneur, l'interface web est en mode réseau local par défaut : publie le port (`-p 8888:8888`) et ouvre `https://<ip-de-la-machine>:8888`. L'API HTTP reste disponible (`"http": { "host": "0.0.0.0" }` dans `/data/config.json`, port 8889).
 </details>
 
 **Mise à jour** : `odin update` · **Désinstallation** : voir [Dépannage](#dépannage).
@@ -129,7 +129,7 @@ Essaie : *« Quels appareils sont sur mon réseau ? »*, *« Range mon dossier T
 
 ### Interface web
 
-`odin web` ouvre l'interface. Par défaut elle est **joignable sur ton réseau local, en HTTPS** : `https://127.0.0.1:7777` sur la machine, `https://192.168.1.20:7777` (son adresse locale) depuis ton téléphone. Les liens personnels, avec jeton, s'affichent au démarrage ; le jeton est aussi dans `~/.odin/web-token`.
+`odin web` ouvre l'interface. Par défaut elle est **joignable sur ton réseau local, en HTTPS** : `https://127.0.0.1:8888` sur la machine, `https://192.168.1.20:8888` (son adresse locale) depuis ton téléphone. Les liens personnels, avec jeton, s'affichent au démarrage ; le jeton est aussi dans `~/.odin/web-token`.
 
 | Onglet | Ce que tu y fais |
 |---|---|
@@ -231,8 +231,8 @@ Pour brancher Odin à un raccourci iPhone, à n8n ou à ta propre page :
 
 ```bash
 # ~/.odin/env : ODIN_HTTP_TOKEN=une-longue-chaine-aleatoire
-# config.json  : "http": { "enabled": true, "port": 7778, "tokenEnv": "ODIN_HTTP_TOKEN" }
-curl -s http://127.0.0.1:7778/v1/message \
+# config.json  : "http": { "enabled": true, "port": 8889, "tokenEnv": "ODIN_HTTP_TOKEN" }
+curl -s http://127.0.0.1:8889/v1/message \
   -H "Authorization: Bearer $ODIN_HTTP_TOKEN" \
   -d '{"peer":"moi","text":"Quelles sont mes tâches planifiées ?"}'
 ```
@@ -449,7 +449,9 @@ Un lien vers une adresse de ta maison (NAS, autre poste : `http://192.168…`) d
 
 ### Le port d'une appli
 
-Chaque appli peut avoir son adresse directe : `http://adresse-d-odin:<port>` ouvre directement sa page, **toujours avec ta connexion** (sans session, seul l'écran de connexion répond). Réglages → Ports pour toutes les applis, ou la carte « Son port » en bas de la page de l'appli. Le port reste sur cette machine tant que tu ne l'ouvres pas sur le réseau ; l'ouvrir demande ton accord (Cerbère ouvre alors le pare-feu, et referme quand tu le retires). Un port déjà pris est refusé en disant quel programme le tient ; il est gardé après un redémarrage. Les services réseau gardent leur port habituel (Vénus 8096, MQTT 1883…) et les applis installées un port fixe entre 20000 et 20999.
+Odin écoute sur le port **8888**. Chaque appli a en plus **son port**, facile à retenir : `81xx` Sécurité, `82xx` Accès et réseau, `83xx` Machines, `84xx` Données, `85xx` Maison et médias (par exemple Cerbère 8103, Sphinx 8207, Hydre 8307, Vénus 8512). `http://adresse-d-odin:<port>` ouvre directement sa page, **toujours avec ta connexion** : e-mail et mot de passe, ou QR code ; sans droit sur l'appli, retour à l'écran de connexion d'Odin. Le plan complet est dans [docs/plan-ports.md](docs/plan-ports.md).
+
+Par défaut, le port d'une appli écoute là où écoute Odin. Tu le changes dans la carte « Son port » de la page de l'appli ou dans Réglages → Ports ; un champ vide propose son port par défaut, ou un port libre de sa famille. « Retirer » est gardé après un redémarrage, et « Remettre » rend le port par défaut. Ouvrir le pare-feu demande ton accord : Cerbère s'en charge, et retire la règle quand tu fermes. Un port déjà pris est refusé en disant quel programme le tient. Les ports imposés par un protocole ne changent pas (DNS 53, DHCP 67, MQTT 1883, WireGuard 51820, Venus 8096…), et les applis installées gardent un port fixe entre 20000 et 20999. Pour couper les ports par défaut : `"web": { "portsParAppli": false }` dans `config.json`.
 
 ### Exporter et partager une page
 
@@ -809,7 +811,7 @@ Tout est dans `~/.odin/config.json`, validé au démarrage ; les clés vont dans
 | `policy.sandbox` | `none` | `docker` pour isoler le shell |
 | `mimir.autonomy` · `mimir.judge` | `equilibre` · `auto` | autonomie · juge des décisions |
 | `network.enabled` · `network.intervalMin` | false · 30 | inventaire du réseau |
-| `web.port` | 7777 | port de l'interface web |
+| `web.port` | 8888 | port de l'interface web |
 | `web.access` | `lan` | `lan` (réseau local), `local` (cette machine), `wan` (Internet) |
 | `web.allowedNetworks` | `[]` | réseaux autorisés en LAN, ex. `["192.168.1.0/24"]` (vide = détectés) |
 | `web.tls` | HTTPS actif | `cert` et `key` : ton propre certificat (sinon Odin en crée un) |
@@ -824,7 +826,7 @@ La personnalité d'Odin est dans `~/.odin/ODIN.md` : modifie-la librement.
 
 | Problème | Solution |
 |---|---|
-| Le téléphone n'arrive pas à ouvrir l'interface | même Wi-Fi que l'ordinateur ; utilise l'adresse `https://…` affichée au démarrage ; vérifie que son réseau figure dans Réglages → Accès ; autorise le port 7777 dans le pare-feu |
+| Le téléphone n'arrive pas à ouvrir l'interface | même Wi-Fi que l'ordinateur ; utilise l'adresse `https://…` affichée au démarrage ; vérifie que son réseau figure dans Réglages → Accès ; autorise le port 8888 dans le pare-feu |
 | « Ta connexion n'est pas privée » | normal la première fois avec le certificat créé par Odin : compare l'empreinte (Réglages → Accès) puis accepte |
 | `odin : commande introuvable` | ouvre un nouveau terminal (le PATH a été mis à jour) |
 | Odin répond « mode démo » | Réglages → Modèle : colle ta clé (ou choisis Ollama), « Tester », « Enregistrer » |

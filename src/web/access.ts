@@ -2,7 +2,7 @@
 //
 //   lan   : (par défaut) toutes les interfaces, en HTTPS, mais seuls les appareils de TON
 //           sous-réseau sont acceptés (ex. 192.168.1.0/24, détecté automatiquement, ou la
-//           liste web.allowedNetworks). Lien type https://192.168.1.20:7777.
+//           liste web.allowedNetworks). Lien type https://192.168.1.20:8888.
 //   local : 127.0.0.1 uniquement. Rien n'est visible depuis le réseau.
 //   wan   : toutes les adresses, y compris Internet. HTTPS obligatoire : certificat fourni,
 //           certificat auto-signé généré ici, ou chiffrement assuré par un proxy (Caddy,

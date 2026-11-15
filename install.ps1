@@ -129,13 +129,13 @@ if ($Access -notin @('local', 'lan', 'wan')) { $Access = 'lan' }
 & $Odin web access $Access | Out-Null
 Ok "Interface web : $(@{ local = 'cette machine seulement'; lan = 'réseau local en HTTPS'; wan = 'réseau local et Internet en HTTPS' }[$Access])"
 if ($Access -ne 'local') {
-  # Pare-feu Windows : autoriser le port 7777 (réseaux privés ; tous les profils pour Internet).
+  # Pare-feu Windows : autoriser le port 8888 (réseaux privés ; tous les profils pour Internet).
   $fwProfile = if ($Access -eq 'wan') { 'Any' } else { 'Private' }
-  $rule = "New-NetFirewallRule -DisplayName 'Odin (interface web)' -Direction Inbound -Protocol TCP -LocalPort 7777 -Action Allow -Profile $fwProfile | Out-Null"
+  $rule = "New-NetFirewallRule -DisplayName 'Odin (interface web)' -Direction Inbound -Protocol TCP -LocalPort 8888 -Action Allow -Profile $fwProfile | Out-Null"
   if (-not (Get-NetFirewallRule -DisplayName 'Odin (interface web)' -ErrorAction SilentlyContinue)) {
     if (Ask 'Autoriser Odin dans le pare-feu Windows (une fenêtre administrateur va s''ouvrir) ?') {
-      try { Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "-NoProfile -Command $rule"; Ok 'Pare-feu : port 7777 autorisé' }
-      catch { Info 'Pare-feu non modifié : autorise le port 7777 toi-même si les autres appareils n''y arrivent pas.' }
+      try { Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList "-NoProfile -Command $rule"; Ok 'Pare-feu : port 8888 autorisé' }
+      catch { Info 'Pare-feu non modifié : autorise le port 8888 toi-même si les autres appareils n''y arrivent pas.' }
     }
   }
 }
@@ -182,11 +182,11 @@ if ($service) {
   for ($i = 0; $i -lt 10 -and -not (Test-Path $tokFile); $i++) { Start-Sleep -Seconds 1 }
   $scheme = if ($Access -eq 'local') { 'http' } else { 'https' }
   $tok = Get-Content $tokFile -ErrorAction SilentlyContinue
-  $url = "$($scheme)://127.0.0.1:7777/?token=$tok"
+  $url = "$($scheme)://127.0.0.1:8888/?token=$tok"
   Write-Host "  Interface web : $url"
   if ($Access -ne 'local') {
     $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -match '^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)' } | Select-Object -First 1).IPAddress
-    if ($ip) { Write-Host "  Depuis ton téléphone ou un autre appareil du réseau : $($scheme)://$($ip):7777/?token=$tok" }
+    if ($ip) { Write-Host "  Depuis ton téléphone ou un autre appareil du réseau : $($scheme)://$($ip):8888/?token=$tok" }
     Write-Host '  (certificat créé par Odin : le navigateur demandera de l''accepter une fois)'
   }
   Start-Process $url

@@ -13,7 +13,7 @@ class TexteTest {
 
     @Test
     fun lesAdressesWebRestent() {
-        assertEquals("erreur https://192.168.1.10:7777/api/x 500", Texte.sansChemin("erreur https://192.168.1.10:7777/api/x 500"))
+        assertEquals("erreur https://192.168.1.10:8888/api/x 500", Texte.sansChemin("erreur https://192.168.1.10:8888/api/x 500"))
         assertEquals("erreur inattendue", Texte.sansChemin(null))
     }
 }

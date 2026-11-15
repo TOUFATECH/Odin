@@ -1,5 +1,23 @@
 [
  {
+  "id": "v1350",
+  "at": "2026-11-15T12:00:00+03:00",
+  "date": "2026-11-15",
+  "version": "1.35.0",
+  "title": "Odin sur 8888, chaque appli sur son port",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Odin écoute maintenant sur le port 8888 (le canal HTTP pour les autres programmes passe sur 8889).",
+   "Chaque appli a son port, facile à retenir : 81xx Sécurité, 82xx Accès et réseau, 83xx Machines, 84xx Données, 85xx Maison et médias.",
+   "Le port d'une appli se change dans sa carte « Son port » ou dans Réglages → Ports ; « Remettre » rend son port par défaut.",
+   "Les ports imposés par un protocole ne changent pas : DNS 53, DHCP 67, MQTT 1883, WireGuard 51820…",
+   "Une installation réglée sur 7777 le garde ; Pégase et Agora trouvent Odin sur 8888 comme sur 7777."
+  ]
+ },
+ {
   "id": "v1330",
   "at": "2026-11-15T05:00:00+03:00",
   "date": "2026-11-15",

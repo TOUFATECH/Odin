@@ -3638,9 +3638,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       const fixed = !/interface d'Odin/.test(a.plan), reglee = a.services.filter((x) => x.web && x.adresse), web = reglee.length ? reglee : a.services.filter((x) => x.web && !x.facultatif);
       return el('div', { class: 'svc', 'data-app': a.nom.toLowerCase() },
         el('div', { class: 'svc2' },
-          el('b', { style: 'flex:1 1 150px;min-width:0;overflow-wrap:anywhere' }, a.nom), inp, pill(a),
+          el('b', { style: 'flex:1 1 150px;min-width:0;overflow-wrap:anywhere' }, a.nom, a.auto ? el('span', { class: 'hint', style: 'font-weight:400' }, ' · par défaut') : null), inp, pill(a),
           el('button', { class: 'btn small', type: 'button', onclick: save }, a.port ? 'Changer' : 'Donner un port'),
+          a.port && a.etat === 'écoute' && a.auto && a.reseau ? el('button', { class: 'btn small', type: 'button', onclick: () => ask(a, 'ouvrir') }, 'Ouvrir le pare-feu') : null,
           a.port && a.etat === 'écoute' ? el('button', { class: 'btn small', type: 'button', onclick: () => ask(a, a.reseau || a.reseauEnAttente ? 'fermer' : 'ouvrir') }, a.reseau || a.reseauEnAttente ? 'Fermer au réseau' : 'Ouvrir sur le réseau') : null,
+          a.parDefaut && a.port !== a.parDefaut ? el('button', { class: 'btn small', type: 'button', onclick: () => ask(a, 'regler', { port: a.parDefaut }) }, `Remettre ${a.parDefaut}`) : null,
           a.port ? el('button', { class: 'btn small danger', type: 'button', onclick: () => ask(a, 'retirer') }, 'Retirer') : null,
           a.etat === 'écoute' && (a.reseau || onMachine) ? el('a', { class: 'btn small', href: `${scheme}://${location.hostname}:${a.port}/`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ouvrir') : null),
         a.port !== null ? el('span', { class: 'hint' }, a.note) : null,
@@ -3651,8 +3653,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const fixedPorts = r.applis.filter((a) => a.services.length).sort(byName);
     box.replaceChildren(
       el('h2', {}, 'Ports des applis'),
-      el('p', { class: 'sub', style: 'margin:0' }, `Chaque appli peut avoir son port à elle : ${scheme}://adresse-d-odin:port mène directement à sa page, avec ta connexion habituelle (jamais sans). Sans port à elle, une appli reste dans l'interface d'Odin, port ${I.port}. Laisse le champ vide pour qu'Odin choisisse un port libre${r.propose ? ` (le prochain : ${r.propose})` : ''}.`),
-      el('p', { class: 'sub', style: 'margin:0' }, 'Un nouveau port n\'est d\'abord joignable que depuis la machine d\'Odin. « Ouvrir sur le réseau » demande ton accord : Cerbère ouvre alors le pare-feu de la machine. Rien n\'est ouvert sur ta box depuis ici.'),
+      el('p', { class: 'sub', style: 'margin:0' }, `Chaque appli a son port : ${scheme}://adresse-d-odin:port mène directement à sa page, avec ta connexion habituelle (jamais sans). Odin est sur le port ${I.port}. Par défaut, le port d'une appli est facile à retenir : 81xx Sécurité, 82xx Accès et réseau, 83xx Machines, 84xx Données, 85xx Maison et médias. Tu peux le changer ici ou dans la page de l'appli ; laisse le champ vide pour qu'Odin propose son port par défaut, ou un port libre de sa famille.`),
+      el('p', { class: 'sub', style: 'margin:0' }, 'Un port par défaut écoute là où écoute Odin. Un port que tu donnes à la main n\'est d\'abord joignable que depuis la machine d\'Odin. « Ouvrir sur le réseau » (ou « Ouvrir le pare-feu ») demande ton accord : Cerbère ouvre alors le pare-feu de la machine. Les ports imposés (DNS 53, DHCP 67, MQTT 1883…) ne changent pas. Rien n\'est ouvert sur ta box depuis ici.'),
       I.acces === 'local' ? el('div', { class: 'warn-box' }, 'Odin est réglé sur « cette machine » (Réglages → Accès) : tant que son interface n\'est pas ouverte au réseau, un port direct ne peut pas l\'être non plus.') : null,
       el('div', { class: 'status', id: 'pt-st', role: 'status' }),
       el('div', { class: 'field' }, el('label', { for: 'pt-q' }, `Chercher une appli (${withPort.length} avec un port direct sur ${r.applis.length})`), el('input', { id: 'pt-q', type: 'search', autocomplete: 'off', placeholder: 'ex. Vénus', oninput: (e) => { const v = e.target.value.trim().toLowerCase(); for (const n of list.children) n.hidden = Boolean(v) && !n.dataset.app.includes(v); } })),
@@ -3660,7 +3662,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('details', {}, el('summary', { style: 'cursor:pointer;min-height:40px;display:flex;align-items:center' }, 'Les ports fixes : services d\'Odin et applis installées'),
         el('ul', { class: 'links' }, ...fixedPorts.map((a) => el('li', {}, `${a.nom} : `, a.services.map((x) => `${x.port}/${x.proto} ${x.quoi} (${x.etat === 'pris' ? `pris${x.par ? ` par ${x.par}` : ''}` : x.etat === 'écoute' ? 'écoute' : x.etat === 'fermé' ? (x.facultatif ? 'éteint' : 'fermé') : 'état inconnu'})`).join(' · '))),
           ...r.installees.map((c) => el('li', {}, `${c.nom} (installée par Argo, ${c.etat}) : `, c.ports.map((x) => `${x.port} → ${x.vers} dans le conteneur`).join(' · ') || 'aucun port')),
-          el('li', {}, `Plages gardées : ${r.plages.installees[0]}-${r.plages.installees[1]} applis installées · ${r.plages.services[0]}-${r.plages.services[1]} services mis à l'échelle · ${r.plages.directs[0]}-${r.plages.directs[1]} ports directs proposés.`))));
+          el('li', {}, `Plages gardées : ${r.plages.installees[0]}-${r.plages.installees[1]} applis installées · ${r.plages.services[0]}-${r.plages.services[1]} services mis à l'échelle · 8101-8599 ports des applis d'Odin (par famille) · ${r.plages.directs[0]}-${r.plages.directs[1]} ports proposés quand une famille est pleine.`))));
     if (said) tell(said, true);
   }
 
@@ -4660,7 +4662,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   let accessMode = 'local';
   const ACCESS_DESC = {
     local: 'Seulement depuis cet ordinateur (127.0.0.1). Le plus sûr.',
-    lan: 'Depuis tes autres appareils sur le même réseau (téléphone, tablette…), par exemple https://192.168.1.20:7777. Les appareils hors de tes réseaux autorisés sont refusés.',
+    lan: 'Depuis tes autres appareils sur le même réseau (téléphone, tablette…), par exemple https://192.168.1.20:8888. Les appareils hors de tes réseaux autorisés sont refusés.',
     wan: 'Depuis n\'importe où sur Internet. HTTPS obligatoire. Il faut aussi rediriger le port sur ta box vers cet ordinateur (ou utiliser un tunnel).',
   };
   function pickAccess(m) { accessMode = m; for (const b of document.querySelectorAll('[data-access]')) b.setAttribute('aria-pressed', String(b.dataset.access === m)); accessUi(); }

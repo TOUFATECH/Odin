@@ -4,7 +4,7 @@
 > Ce fichier dit où en est le projet, sans tout relire. Il est tenu à jour à chaque session de travail
 > (voir « Comment tenir ce fichier à jour » tout en bas).
 >
-> Dernière mise à jour : **2026-11-15** · version du code : **1.34.0** (`package.json`) · branche : `main`
+> Dernière mise à jour : **2026-11-15** · version du code : **1.35.0** (`package.json`) · branche : `main`
 
 ---
 
@@ -179,6 +179,7 @@ Dans l'onglet « Catalogue », les 79 logiciels ajoutés le 15/11 restent à év
 
 | Date | Session | Ce qui a été fait | Prochaine étape |
 |---|---|---|---|
+| 2026-11-15 | Plan des ports | v1.35.0 : Odin passe de 7777 à 8888 (canal HTTP 7778 → 8889) dans le code, l'installation, Docker, la CI, Pégase, Agora, les clients et la doc ; chaque appli a son port par défaut `8FNN` (`DEFAULT_DIRECT` dans `src/valhalla/ports.ts`), ouvert d'office là où écoute l'interface, modifiable dans « Son port » et Réglages → Ports (« Remettre », « Ouvrir le pare-feu ») ; retrait gardé (`retires`) ; `web.portsParAppli` (coupé dans les essais). Essai : `test/ports-par-appli.test.ts`. | Mettre le classeur à jour quand il est fermé dans Excel. |
 | 2026-11-15 | Fin des applis en cours | Hydre (créer, cloner, modèles, disque, adresse fixe, console LXC, clavier VM), Phénix (complète / incrémentielle / différentielle, SFTP, partage, restauration par le navigateur), Arche (2e site vérifié), Héraclès et Dédale sur un autre poste, Orphée en direct (service Python `voix-temps-reel/`), Logos pour la voix, Mnémosyne (Projet actif, audio brut), Écho (capsule Linux / Mac), Odyssée (livres), export Google Docs. Essais nouveaux tous verts ; essais Linux-seulement identiques avant / après. Rien essayé sur un vrai SFTP, SMB, QEMU / LXC, Google, ni avec Silero / Smart Turn. | Reste : agent PC et image disque de Phénix, capsule Écho sous Windows, écran vidéo des VM. Mettre à jour le classeur (fermé dans Excel). Valider `docs/plan-ports.md` puis coder les ports. |
 | 2026-11-15 | Connexion par port d'appli | v1.34.0 : sur le port d'une appli, connexion par e-mail et mot de passe (propriétaire ou personne de Persona) ou par QR code autorisé depuis un téléphone déjà connecté ; sans droit sur l'appli : pas de session, retour à l'écran de connexion d'Odin (`?refus=`). Essais : `test/connexion-qr.test.ts` (6/6). Les essais `ports-directs` qui demandent Linux échouent sur Windows, avant comme après. | Port d'Odin 8888 et un port dédié par appli (demandé, pas commencé). |
 | 2026-11-15 | Organisation | Classeur réorganisé par appli : nom validé en 1re colonne, lignes triées par appli, colonne Port (d'après `src/valhalla/ports.ts`), état en dernière colonne coloré (vert / jaune / rouge, gris = à évaluer), texte replié dans les cellules. | — |

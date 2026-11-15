@@ -498,7 +498,8 @@
   const notePoste = () => el('p', { class: 'va-aide', style: 'margin:0 0 14px' }, 'Les autres actions de cette appli agissent sur la machine d\'Odin : choisis « Cette machine » pour les retrouver.');
   /**
    * « Son port » : l'adresse directe de l'appli (http://adresse:port ouvre sa page, toujours avec ta connexion).
-   * Mêmes demandes que Réglages → Ports (/api/ports) ; ouvrir sur le réseau demande ton accord.
+   * Par défaut, celui du plan des ports (8FNN) ; tu le changes ici ou dans Réglages → Ports (/api/ports, mêmes
+   * demandes) ; ouvrir sur le réseau (pare-feu compris) demande ton accord.
    */
   function portBox(id) {
     const box = el('section', { class: 'va-sec va-port' }, el('h2', {}, 'Son port'), el('p', { class: 'sub' }, 'Lecture…'));
@@ -516,10 +517,12 @@
       const garder = () => { const v = inp.value.trim(); return !v && a.port ? demande('retirer') : demande('regler', v ? { port: Number(v) } : {}); };
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); garder(); } });
       box.replaceChildren(el('h2', {}, 'Son port'),
-        el('p', { class: 'sub', style: 'margin:0 0 8px' }, a.port ? `${a.port} · ${a.etat === 'écoute' ? (a.reseau ? 'ouvert sur le réseau' : 'sur cette machine seulement') : a.etat}${a.note ? ` · ${a.note}` : ''}` : 'Aucun port direct : elle s\'ouvre par l\'interface d\'Odin.'),
+        el('p', { class: 'sub', style: 'margin:0 0 8px' }, a.port ? `${a.port}${a.auto ? ' (par défaut)' : ''} · ${a.etat === 'écoute' ? (a.reseau ? 'ouvert sur le réseau' : 'sur cette machine seulement') : a.etat}${a.note ? ` · ${a.note}` : ''}` : `Aucun port à elle : elle s'ouvre par l'interface d'Odin${a.parDefaut ? ` (son port par défaut : ${a.parDefaut})` : ''}.`),
         el('div', { class: 'va-ligne va-ligne-c' }, el('label', { class: 'va-l', for: `va-port-${id}` }, 'Port'), inp, el('button', { class: 'btn', type: 'button', onclick: garder }, a.port ? 'Changer' : 'Donner un port')),
         el('div', { class: 'va-acts-bar', style: 'margin-top:8px' },
+          ecoute && a.auto && a.reseau ? el('button', { class: 'btn small', type: 'button', onclick: () => demande('ouvrir') }, 'Ouvrir le pare-feu') : null,
           ecoute ? el('button', { class: 'btn small', type: 'button', onclick: () => demande(a.reseau || a.reseauEnAttente ? 'fermer' : 'ouvrir') }, a.reseau || a.reseauEnAttente ? 'Fermer au réseau' : 'Ouvrir sur le réseau') : null,
+          a.parDefaut && a.port !== a.parDefaut ? el('button', { class: 'btn small', type: 'button', onclick: () => demande('regler', { port: a.parDefaut }) }, `Remettre ${a.parDefaut}`) : null,
           a.port ? el('button', { class: 'btn small', type: 'button', onclick: () => demande('retirer') }, 'Retirer') : null,
           ecoute ? el('a', { class: 'btn small', href: `${scheme}://${location.hostname}:${a.port}/`, target: '_blank', rel: 'noopener', style: 'text-decoration:none' }, 'Ouvrir') : null),
         st);

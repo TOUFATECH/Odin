@@ -23,7 +23,7 @@ class OidcTest {
 
     @Test
     fun adresseDeConnexion() {
-        val u = Oidc.adresseAutorisation("https://192.168.1.10:7777/sso/autoriser", "DEFI", "ETAT1234", "N", prompt = "none")
+        val u = Oidc.adresseAutorisation("https://192.168.1.10:8888/sso/autoriser", "DEFI", "ETAT1234", "N", prompt = "none")
         val p = Oidc.parametres(u)
         assertEquals("code", p["response_type"])
         assertEquals("pegase", p["client_id"])
@@ -37,8 +37,8 @@ class OidcTest {
 
     @Test
     fun retourDOdin() {
-        val ok = Oidc.lireRetour("pegase://sso/retour?code=abc&state=E1&iss=https%3A%2F%2F192.168.1.10%3A7777", "E1", "https://192.168.1.10:7777")
-        assertEquals(Oidc.Retour.Code("abc", "https://192.168.1.10:7777"), ok)
+        val ok = Oidc.lireRetour("pegase://sso/retour?code=abc&state=E1&iss=https%3A%2F%2F192.168.1.10%3A8888", "E1", "https://192.168.1.10:8888")
+        assertEquals(Oidc.Retour.Code("abc", "https://192.168.1.10:8888"), ok)
         val autreEtat = Oidc.lireRetour("pegase://sso/retour?code=abc&state=E2", "E1", null)
         assertTrue(autreEtat is Oidc.Retour.Erreur)
         val refus = Oidc.lireRetour(
@@ -47,7 +47,7 @@ class OidcTest {
         )
         // Le message d'Odin est montré tel quel.
         assertEquals(Oidc.Retour.Erreur("access_denied", "Tu n'as pas accès à Pégase."), refus)
-        val autreOdin = Oidc.lireRetour("pegase://sso/retour?code=abc&state=E1&iss=https%3A%2F%2Fpirate", "E1", "https://192.168.1.10:7777")
+        val autreOdin = Oidc.lireRetour("pegase://sso/retour?code=abc&state=E1&iss=https%3A%2F%2Fpirate", "E1", "https://192.168.1.10:8888")
         assertTrue(autreOdin is Oidc.Retour.Erreur)
     }
 
@@ -84,18 +84,18 @@ class OidcTest {
             derVersBrut(Signature.getInstance("SHA256withECDSA").run { initSign(paire.private); update(donnees); sign() })
         }
         val maintenant = 1763125200L
-        val charge = mapOf("iss" to "https://192.168.1.10:7777", "aud" to "pegase", "sub" to "a41f0c9e2b", "exp" to maintenant + 900, "nonce" to "n1")
+        val charge = mapOf("iss" to "https://192.168.1.10:8888", "aud" to "pegase", "sub" to "a41f0c9e2b", "exp" to maintenant + 900, "nonce" to "n1")
         val bon = jwt(mapOf("alg" to "ES256", "typ" to "JWT", "kid" to "k1"), charge, signer)
-        assertNull(Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:7777", "pegase", maintenant, "n1"))
-        assertEquals("nonce inattendu", Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:7777", "pegase", maintenant, "n2"))
-        assertEquals("jeton d'une autre appli", Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:7777", "venus", maintenant))
-        assertEquals("jeton expiré", Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:7777", "pegase", maintenant + 2000))
+        assertNull(Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:8888", "pegase", maintenant, "n1"))
+        assertEquals("nonce inattendu", Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:8888", "pegase", maintenant, "n2"))
+        assertEquals("jeton d'une autre appli", Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:8888", "venus", maintenant))
+        assertEquals("jeton expiré", Jwt.verifier(bon, listOf(jwk), "https://192.168.1.10:8888", "pegase", maintenant + 2000))
         assertEquals("émetteur inattendu", Jwt.verifier(bon, listOf(jwk), "https://autre", "pegase", maintenant))
         val sansAlg = jwt(mapOf("alg" to "none", "kid" to "k1"), charge) { ByteArray(64) }
-        assertEquals("algorithme refusé", Jwt.verifier(sansAlg, listOf(jwk), "https://192.168.1.10:7777", "pegase", maintenant))
+        assertEquals("algorithme refusé", Jwt.verifier(sansAlg, listOf(jwk), "https://192.168.1.10:8888", "pegase", maintenant))
         val p = bon.split('.')
         val falsifie = p[0] + "." + Oidc.b64url(Json.ecrire(charge + ("sub" to "pirate")).toByteArray()) + "." + p[2]
-        assertEquals("signature fausse", Jwt.verifier(falsifie, listOf(jwk), "https://192.168.1.10:7777", "pegase", maintenant))
+        assertEquals("signature fausse", Jwt.verifier(falsifie, listOf(jwk), "https://192.168.1.10:8888", "pegase", maintenant))
         assertFalse(Jwt.signatureOk("a.b", jwk))
     }
 

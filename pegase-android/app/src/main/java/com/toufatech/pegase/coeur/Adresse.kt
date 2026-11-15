@@ -61,9 +61,9 @@ object Adresse {
     }
 }
 
-/** Trouver Odin tout seul sur le réseau (protocole § 1) : la machine elle-même, puis le /24 local sur 7777 et 7443. */
+/** Trouver Odin tout seul sur le réseau (protocole § 1) : la machine elle-même, puis le /24 local sur 8888, 7777 (anciennes installations) et 7443. */
 object Decouverte {
-    val PORTS = listOf(7777, 7443)
+    val PORTS = listOf(8888, 7777, 7443)
     const val PARALLELE = 32
     const val DELAI_MS = 1500
 
@@ -71,10 +71,10 @@ object Decouverte {
         fun base(https: Boolean) = (if (https) "https://" else "http://") + hote + ":" + port
     }
 
-    /** Les adresses à essayer, dans l'ordre : 127.0.0.1:7777, puis les 253 voisins du /24 sur chaque port. */
+    /** Les adresses à essayer, dans l'ordre : 127.0.0.1:8888, puis les 253 voisins du /24 sur chaque port. */
     fun candidats(ipLocale: String?): List<Candidat> {
         val r = ArrayList<Candidat>()
-        r += Candidat("127.0.0.1", 7777)
+        r += Candidat("127.0.0.1", 8888)
         val ip = ipLocale?.trim() ?: return r
         val parts = ip.split('.')
         if (parts.size != 4 || parts.any { p -> p.toIntOrNull()?.let { it in 0..255 } != true }) return r

@@ -85,8 +85,8 @@ test('réseau local : l\'en-tête Host n\'est plus filtré, le jeton reste exig�
   await gw.start();
   const call = (headers: Record<string, string>) => new Promise<number>((res) => request({ host: '127.0.0.1', port: p, path: '/api/state', headers }, (r) => { r.resume(); res(r.statusCode!); }).end());
   try {
-    assert.equal(await call({ host: 'odin.local:7777' }), 401, 'sans jeton : refusé');
-    assert.equal(await call({ host: '192.168.1.10:7777', authorization: `Bearer ${token}` }), 200, 'nom ou IP du réseau local accepté');
+    assert.equal(await call({ host: 'odin.local:8888' }), 401, 'sans jeton : refusé');
+    assert.equal(await call({ host: '192.168.1.10:8888', authorization: `Bearer ${token}` }), 200, 'nom ou IP du réseau local accepté');
   } finally { await gw.stop(); o.cleanup(); }
 });
 

@@ -129,7 +129,7 @@ test('validation : on répond simplement « oui », « non », « ok »', async 
 
 import { targetInRequest } from '../src/mimir/decisions.ts';
 test('ce que le propriétaire demande lui-même (une adresse, un site) n\'est pas bloqué', () => {
-  assert.ok(targetInRequest('GET http://192.168.1.127:7777/api/state', 'teste le lien 192.168.1.127:7777 stp'));
+  assert.ok(targetInRequest('GET http://192.168.1.127:8888/api/state', 'teste le lien 192.168.1.127:8888 stp'));
   assert.ok(targetInRequest('ouvrir https://www.exemple.fr/page', 'va sur exemple.fr'));
   assert.ok(!targetInRequest('POST https://pirate.example.com/vol', 'résume cette page'));
 });

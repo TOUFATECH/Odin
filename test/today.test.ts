@@ -63,7 +63,7 @@ test('discrétion « l\'urgent seulement » : le reste attend le bilan', async (
 test('fil d\'activité lisible : plus de noms techniques', () => {
   assert.equal(humanize('calendar_list {"days":1}'), 'Lire l\'agenda (1 jour)');
   assert.equal(humanize('net_identify {"ip":"172.18.0.2"}'), 'Identifier l\'appareil (172.18.0.2)');
-  assert.equal(humanize('GET http://192.168.1.144:7777/'), 'Ouvrir http://192.168.1.144:7777/');
+  assert.equal(humanize('GET http://192.168.1.144:8888/'), 'Ouvrir http://192.168.1.144:8888/');
   assert.equal(humanize('applis action naglfar executer', (x) => (x === 'naglfar' ? 'Argo' : x), (m, a) => (m === 'naglfar' && a === 'executer' ? 'Exécuter une commande' : undefined)), 'Argo : Exécuter une commande');
   assert.equal(humanize('balayer le réseau local (complet)'), 'Balayer le réseau local (complet)');
 });

@@ -48,9 +48,9 @@ export async function appel(adresse: string, chemin: string, o: { empreinte?: st
   return { status: r.status, j };
 }
 
-/** Les ports où chercher Odin (7777 et 7443 ; les essais en ajoutent un). */
+/** Les ports où chercher Odin (8888, puis 7777 et 7443 des anciennes installations ; les essais en ajoutent un). */
 function ports(): number[] {
-  const l = [7777, 7443];
+  const l = [8888, 7777, 7443];
   if (ESSAI && process.env.PEGASE_ODIN_PORTS) l.unshift(...process.env.PEGASE_ODIN_PORTS.split(',').map(Number).filter(Boolean));
   return l;
 }

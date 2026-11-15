@@ -171,6 +171,8 @@ export interface OdinConfig {
     behindProxy: boolean;
     /** Adresse publique éventuelle (ex. https://odin.mondomaine.fr), seulement pour afficher le lien. */
     publicUrl: string;
+    /** Chaque appli sur son port du plan (8FNN, voir valhalla/ports.ts), là où écoute l'interface ; non : seulement les ports réglés à la main. */
+    portsParAppli?: boolean;
   };
   /** La voix : Whisper pour comprendre, ElevenLabs pour parler. */
   voice: {
@@ -265,7 +267,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8, direct: true },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
-  web: { enabled: true, port: 7777, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '' },
+  web: { enabled: true, port: 8888, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '', portsParAppli: true },
   voice: {
     // Odin répond à voix haute dans l'appli dès qu'une voix est disponible, tant que tu ne l'as pas coupé (Réglages → Voix, ou le bouton 🔊).
     // Par défaut tout reste sur la machine : whisper.cpp pour comprendre, Piper (voix « tom ») pour parler.
@@ -283,7 +285,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   mimir: DEFAULT_MIMIR,
   channels: {
     telegram: { enabled: false, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners: [] },
-    http: { enabled: false, port: 7778, tokenEnv: 'ODIN_HTTP_TOKEN' },
+    http: { enabled: false, port: 8889, tokenEnv: 'ODIN_HTTP_TOKEN' },
   },
 };
 

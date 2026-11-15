@@ -108,7 +108,7 @@ export const ssoActions: Action[] = [
     if (r.ok === false) throw new Error(`le coffre Thésauros n'a pas pu garder le secret (${r.text}) : rien n'est inscrit`);
     sauverClient(ctx, { id, nom: log === 'penpot' ? 'Penpot' : dom, retours: [retour], secret: sha256hex(secret), logiciel: log, ajoute: Date.now() });
     for (const g of s(i.groupes || 'famille').split(/[\s,;]+/).filter(Boolean)) changerDroit(ctx, id, quiValide(ctx, g), true);
-    const iss = s(i.odin).replace(/\/+$/, '') || `https://${lanIp()}:7777`;
+    const iss = s(i.odin).replace(/\/+$/, '') || `https://${lanIp()}:8888`;
     const conf = log === 'penpot'
       ? ['PENPOT_FLAGS=… enable-login-with-oidc (ajoute-le aux drapeaux existants)', `PENPOT_OIDC_CLIENT_ID=${id}`, `PENPOT_OIDC_CLIENT_SECRET=<dans le coffre Thésauros : « OpenID · Penpot »>`, `PENPOT_OIDC_BASE_URI=${iss}`, 'PENPOT_OIDC_SCOPES=openid profile email groups', 'PENPOT_OIDC_NAME=Odin', `PENPOT_SSRF_ALLOWED_HOSTS=${new URL(iss).hostname}`]
       : [`Fournisseur (issuer / découverte) : ${iss}/.well-known/openid-configuration`, `client_id : ${id}`, 'client_secret : dans le coffre Thésauros', `adresse de retour : ${retour}`, 'scopes : openid profile email groups'];

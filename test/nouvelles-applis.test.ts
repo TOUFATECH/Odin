@@ -286,10 +286,10 @@ udp   UNCONN 0      0      127.0.0.53%lo:53         0.0.0.0:*    users:(("system
 tcp   LISTEN 0      128          0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=900,fd=3))
 tcp   LISTEN 0      128             [::]:22            [::]:*    users:(("sshd",pid=900,fd=4))
 tcp   LISTEN 0      511        127.0.0.1:6379       0.0.0.0:*    users:(("redis-server",pid=950,fd=6))
-tcp   LISTEN 0      4096               *:7777             *:*    users:(("node",pid=1200,fd=22))
+tcp   LISTEN 0      4096               *:8888             *:*    users:(("node",pid=1200,fd=22))
 tcp   LISTEN 0      50           0.0.0.0:445        0.0.0.0:*    users:(("smbd",pid=1000,fd=30))`;
   const l = lireSs(ss);
-  assert.deepEqual(l.map((x) => `${x.port}/${x.proto}/${x.portee}`), ['22/tcp/réseau', '53/udp/machine', '445/tcp/réseau', '5353/udp/réseau', '6379/tcp/machine', '7777/tcp/réseau']);
+  assert.deepEqual(l.map((x) => `${x.port}/${x.proto}/${x.portee}`), ['22/tcp/réseau', '53/udp/machine', '445/tcp/réseau', '5353/udp/réseau', '6379/tcp/machine', '8888/tcp/réseau']);
   assert.equal(l.find((x) => x.port === 22)!.prog, 'sshd'); assert.equal(l.filter((x) => x.port === 22).length, 1, 'IPv4 et IPv6 du même port : une seule ligne');
   const ufw = lireUfw(`Status: active
 Logging: on (low)
@@ -299,22 +299,22 @@ New profiles: skip
 To                         Action      From
 --                         ------      ----
 22/tcp                     ALLOW IN    Anywhere
-7777/tcp                   ALLOW IN    192.168.1.0/24
+8888/tcp                   ALLOW IN    192.168.1.0/24
 8000:8100/tcp              ALLOW IN    Anywhere
 445/tcp                    DENY IN     Anywhere
 22/tcp (v6)                ALLOW IN    Anywhere (v6)
 53                         ALLOW OUT   Anywhere
 `);
   assert.equal(ufw.actif, true); assert.equal(ufw.entrant, 'deny'); assert.equal(ufw.sortant, 'allow');
-  assert.deepEqual(ufw.regles.filter((r) => !r.v6).map((r) => `${r.vers} ${r.action} ${r.depuis}`), ['22/tcp ALLOW Anywhere', '7777/tcp ALLOW 192.168.1.0/24', '8000:8100/tcp ALLOW Anywhere', '445/tcp DENY Anywhere']);
+  assert.deepEqual(ufw.regles.filter((r) => !r.v6).map((r) => `${r.vers} ${r.action} ${r.depuis}`), ['22/tcp ALLOW Anywhere', '8888/tcp ALLOW 192.168.1.0/24', '8000:8100/tcp ALLOW Anywhere', '445/tcp DENY Anywhere']);
   assert.equal(lireUfw('Status: inactive\n').actif, false);
   assert.ok(couvre('22/tcp', 22, 'tcp') && !couvre('22/tcp', 22, 'udp') && couvre('53', 53, 'udp') && couvre('80,443/tcp', 443, 'tcp') && couvre('8000:8100/tcp', 8050, 'tcp') && !couvre('8000:8100/tcp', 8101, 'tcp') && !couvre('Samba', 445, 'tcp'));
   const de = (port: number) => acces(l.find((x) => x.port === port)!, ufw);
-  assert.deepEqual(de(22), { acces: 'ouvert', depuis: 'tout le réseau' }); assert.deepEqual(de(7777), { acces: 'ouvert', depuis: '192.168.1.0/24' });
+  assert.deepEqual(de(22), { acces: 'ouvert', depuis: 'tout le réseau' }); assert.deepEqual(de(8888), { acces: 'ouvert', depuis: '192.168.1.0/24' });
   assert.deepEqual(de(445), { acces: 'filtré' }); assert.deepEqual(de(5353), { acces: 'filtré' }, 'pas de règle et entrant refusé : filtré'); assert.deepEqual(de(6379), { acces: 'local' });
   assert.deepEqual(acces(l.find((x) => x.port === 445)!, { ...ufw, actif: false }), { acces: 'ouvert', depuis: 'tout le réseau' }, 'pare-feu éteint : tout ce qui écoute sur le réseau est joignable');
   assert.deepEqual(acces(l.find((x) => x.port === 445)!, undefined).acces, 'ouvert');
-  assert.match(quiEst(l.find((x) => x.port === 22)!), /SSH/); assert.match(quiEst(l.find((x) => x.port === 445)!), /Samba/); assert.match(quiEst(l.find((x) => x.port === 7777)!), /Odin|interface/i);
+  assert.match(quiEst(l.find((x) => x.port === 22)!), /SSH/); assert.match(quiEst(l.find((x) => x.port === 445)!), /Samba/); assert.match(quiEst(l.find((x) => x.port === 8888)!), /Odin|interface/i);
   assert.equal(quiEst({ proto: 'tcp', port: 49152, adresse: '0.0.0.0', portee: 'réseau', prog: 'monappli' }), 'monappli');
   const routes = lireRoutes(JSON.stringify([{ dst: '192.168.1.0/24', dev: 'eth0' }, { dst: 'default', gateway: '192.168.1.1', dev: 'eth0' }, { dst: '10.8.0.0/24', dev: 'wg0' }]));
   assert.deepEqual(routes[0], { vers: 'Internet (par défaut)', via: '192.168.1.1', carte: 'eth0', defaut: true }); assert.equal(routes.length, 3); assert.deepEqual(lireRoutes('x'), []);

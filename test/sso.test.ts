@@ -291,11 +291,11 @@ test('coffre du système sur Linux : secret-tool', { timeout: 60_000 }, async (t
     const avant = process.env.PATH; process.env.PATH = `${dir}:${avant}`; tt.onEnd(() => { process.env.PATH = avant; });
     if (coffreSysteme.systeme !== 'linux') return;
     assert.equal(await coffreSysteme.disponible(), true);
-    await coffreSysteme.ranger('Odin SSO https://192.168.1.10:7777', 'odp1.abcdef0123.secret-de-l-essai');
-    assert.equal(await coffreSysteme.lire('Odin SSO https://192.168.1.10:7777'), 'odp1.abcdef0123.secret-de-l-essai');
+    await coffreSysteme.ranger('Odin SSO https://192.168.1.10:8888', 'odp1.abcdef0123.secret-de-l-essai');
+    assert.equal(await coffreSysteme.lire('Odin SSO https://192.168.1.10:8888'), 'odp1.abcdef0123.secret-de-l-essai');
     assert.doesNotMatch(readFileSync(join(store, 'args'), 'utf8'), /secret-de-l-essai/, 'le secret passe par l\'entrée standard, jamais par la ligne de commande');
-    await coffreSysteme.effacer('Odin SSO https://192.168.1.10:7777');
-    assert.equal(await coffreSysteme.lire('Odin SSO https://192.168.1.10:7777'), undefined);
+    await coffreSysteme.effacer('Odin SSO https://192.168.1.10:8888');
+    assert.equal(await coffreSysteme.lire('Odin SSO https://192.168.1.10:8888'), undefined);
     rmSync(store, { recursive: true, force: true });
   } finally { await tt.end(); }
 });

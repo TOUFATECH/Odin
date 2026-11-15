@@ -514,7 +514,7 @@ export class WebChannel implements Channel {
       });
     };
     this.server = this.tls ? createHttpsServer({ key: this.tls.key, cert: this.tls.cert }, handler) : createServer(handler);
-    // Même port, deux portes : si quelqu'un tape « IP:7777 » sans « https:// », le navigateur essaie en http
+    // Même port, deux portes : si quelqu'un tape « IP:8888 » sans « https:// », le navigateur essaie en http
     // et affichait « page inaccessible ». On regarde le premier octet : 0x16 = début d'une connexion
     // chiffrée (TLS) ; sinon c'est du http en clair, et on renvoie vers la même adresse en https.
     if (this.tls) {
@@ -542,8 +542,9 @@ export class WebChannel implements Channel {
       this.host = '0.0.0.0'; await listen(this.host);
     }
     // Ports directs des applis : chaque connexion reçue sur l'un d'eux est remise à ce serveur (mêmes règles, même
-    // chiffrement, même connexion exigée). Pas encore ouverts sur le réseau, ils n'écoutent que sur cette machine.
-    this.directs = new DirectPorts({ home: this.odin.paths.home, web: this.port, host: this.host, loopback: this.access === 'local' ? this.host : this.odin.cfg.web.host, access: this.access, https: Boolean(this.tls), attach: (sock) => { this.server!.emit('connection', sock); }, log: (t) => console.error(`[web] ${t}`) });
+    // chiffrement, même connexion exigée). Chaque appli a d'office son port du plan (8FNN), là où écoute l'interface ;
+    // un port réglé à la main n'écoute d'abord que sur cette machine.
+    this.directs = new DirectPorts({ home: this.odin.paths.home, web: this.port, host: this.host, loopback: this.access === 'local' ? this.host : this.odin.cfg.web.host, access: this.access, https: Boolean(this.tls), defauts: () => (this.odin.cfg.web.portsParAppli === false ? [] : valhallaOf()?.modules().map((m) => m.id) ?? []), attach: (sock) => { this.server!.emit('connection', sock); }, log: (t) => console.error(`[web] ${t}`) });
     await this.directs.start();
     const ping = setInterval(() => { this.dropDeadStreams(); for (const c of this.clients) c.write(': ping\n\n'); }, 25_000);
     this.server.on('close', () => clearInterval(ping));

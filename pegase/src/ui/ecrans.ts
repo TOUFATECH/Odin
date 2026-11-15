@@ -16,8 +16,8 @@ const champMdp = (nom: string, label: string, auto: string) => `<label>${label}<
 /** Le bloc « Odin trouvé sur ton réseau » : adresse IP et port remplis tout seuls. */
 function blocOdin(E: Etat): string {
   const t = E.premier?.trouves[0];
-  let ip = '', port = '7777';
-  if (t) { try { const u = new URL(t.adresse); ip = u.hostname.replace(/^\[|\]$/g, ''); port = u.port || '7777'; } catch { /* */ } }
+  let ip = '', port = '8888';
+  if (t) { try { const u = new URL(t.adresse); ip = u.hostname.replace(/^\[|\]$/g, ''); port = u.port || '8888'; } catch { /* */ } }
   return `<div class="bloc-odin" data-adresse="${esc(t?.adresse ?? '')}">
     <div class="statut-odin" id="statut-odin">${statutOdin(E)}</div>
     <div class="ip-port"><label>Adresse IP d’Odin<input class="champ" name="hote" value="${esc(ip)}" inputmode="decimal" autocomplete="off" spellcheck="false"></label>
@@ -138,7 +138,7 @@ function brancher(el: HTMLElement, ctx: Ctx): void {
   const erreur = (t: string) => { const p = el.querySelector('.erreur'); if (p) p.textContent = t; };
   const adresse = (): string => {
     const h = (el.querySelector('[name=hote]') as HTMLInputElement | null)?.value.trim() ?? '';
-    const port = (el.querySelector('[name=port]') as HTMLInputElement | null)?.value.trim() || '7777';
+    const port = (el.querySelector('[name=port]') as HTMLInputElement | null)?.value.trim() || '8888';
     const b = el.querySelector<HTMLElement>('.bloc-odin');
     if (b?.dataset.adresse) { try { const u = new URL(b.dataset.adresse); if (u.hostname.replace(/^\[|\]$/g, '') === h && u.port === port) return b.dataset.adresse; } catch { /* */ } }
     return h ? `https://${h.includes(':') ? `[${h}]` : h}:${port}` : '';

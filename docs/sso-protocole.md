@@ -3,7 +3,7 @@
 Ce fichier précise, sans le contredire, le contrat `missions/sso-protocole.md`. **C'est lui qui fait foi** pour Odin, Pégase
 (ordinateur et téléphone) et Vénus. Version du protocole : **1**.
 
-- Tout passe par le port de l'interface d'Odin (par défaut `https://<ip>:7777`, certificat souvent auto-signé : voir § 9).
+- Tout passe par le port de l'interface d'Odin (par défaut `https://<ip>:8888`, certificat souvent auto-signé : voir § 9).
 - OpenID Connect « standard » (code d'autorisation + PKCE) pour les pages web et les applis qui ouvrent un navigateur ;
   routes propres à Odin (`/sso/connexion`, `/sso/poste`, `/sso/echange`, `/sso/revoquer`) pour les programmes du poste.
 - Dates : **millisecondes depuis 1970 (UTC)** dans les réponses JSON d'Odin ; **secondes** dans les jetons JWT (`exp`, `iat`)
@@ -87,13 +87,13 @@ l'appli ou l'adresse de retour est inconnue : Odin montre alors une page d'erreu
 
 ```json
 {
-  "issuer": "https://192.168.1.10:7777",
-  "authorization_endpoint": "https://192.168.1.10:7777/sso/autoriser",
-  "token_endpoint": "https://192.168.1.10:7777/sso/jeton",
-  "userinfo_endpoint": "https://192.168.1.10:7777/sso/infos",
-  "jwks_uri": "https://192.168.1.10:7777/sso/cles",
-  "end_session_endpoint": "https://192.168.1.10:7777/sso/deconnexion",
-  "revocation_endpoint": "https://192.168.1.10:7777/sso/revoquer",
+  "issuer": "https://192.168.1.10:8888",
+  "authorization_endpoint": "https://192.168.1.10:8888/sso/autoriser",
+  "token_endpoint": "https://192.168.1.10:8888/sso/jeton",
+  "userinfo_endpoint": "https://192.168.1.10:8888/sso/infos",
+  "jwks_uri": "https://192.168.1.10:8888/sso/cles",
+  "end_session_endpoint": "https://192.168.1.10:8888/sso/deconnexion",
+  "revocation_endpoint": "https://192.168.1.10:8888/sso/revoquer",
   "response_types_supported": ["code"],
   "response_modes_supported": ["query"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
@@ -111,7 +111,7 @@ l'appli ou l'adresse de retour est inconnue : Odin montre alors une page d'erreu
 
 - `issuer` = l'adresse par laquelle **tu** as joint Odin (schéma + hôte + port, sans `/` final). Odin peut être joint par
   plusieurs adresses (IP locale, nom) : garde celle de la découverte et compare `iss` des jetons à **elle**.
-- Trouver Odin sur le réseau : `127.0.0.1:7777`, puis le /24 local sur les ports 7777 et 7443, `https` puis `http`,
+- Trouver Odin sur le réseau : `127.0.0.1:8888`, puis le /24 local sur les ports 8888, 7777 (anciennes installations) et 7443, `https` puis `http`,
   32 requêtes en parallèle, 1,5 s max chacune ; on garde les réponses qui ont `odin.protocole`. (Pégase peut aussi utiliser
   `GET /api/pegase/bonjour`.)
 
@@ -214,7 +214,7 @@ en base64url.
 Jeton d'accès :
 
 ```json
-{ "iss": "https://192.168.1.10:7777", "sub": "a41f0c9e2b", "aud": "venus", "client_id": "venus",
+{ "iss": "https://192.168.1.10:8888", "sub": "a41f0c9e2b", "aud": "venus", "client_id": "venus",
   "iat": 1763125200, "exp": 1763126100, "jti": "…", "sid": "k3v9x2m7aq", "scope": "openid profile email groups",
   "preferred_username": "awa", "name": "Awa Saïd", "groups": ["famille"] }
 ```
@@ -284,7 +284,7 @@ Il est lié à la personne, à `appareil.id` et à `utilisateur` : présenté av
 système, il est refusé (`401 jeton_poste_invalide`).
 
 **Rangement** (jamais en clair dans un fichier) dans le coffre du système de l'utilisateur, nom
-**« Odin SSO <issuer> »** (ex. `Odin SSO https://192.168.1.10:7777`), contenu = le jeton du poste :
+**« Odin SSO <issuer> »** (ex. `Odin SSO https://192.168.1.10:8888`), contenu = le jeton du poste :
 
 | Système  | Coffre                          | Commande / API (voir `clients/odin-sso.mjs`)                                                     |
 |----------|---------------------------------|---------------------------------------------------------------------------------------------------|
@@ -444,7 +444,7 @@ Un seul fichier, sans dépendance, à **copier** dans Pégase (processus princip
 ```js
 import { OdinSSO, trouverOdin, coffre } from './odin-sso.mjs';
 
-const odins = await trouverOdin();                     // [{ adresse: 'https://192.168.1.10:7777', nom, version }]
+const odins = await trouverOdin();                     // [{ adresse: 'https://192.168.1.10:8888', nom, version }]
 const sso = new OdinSSO({
   adresse: odins[0].adresse, appli: 'venus',
   appareil: { nom: 'Serveur Vénus', plateforme: 'linux' },   // id : pris (ou créé) dans le coffre du système

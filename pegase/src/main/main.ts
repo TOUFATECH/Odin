@@ -223,7 +223,7 @@ class Pegase implements Appli {
   /** Trouve l'Odin choisi (dans la liste, sinon en lui disant bonjour). */
   private async odinDe(adresse: string): Promise<OdinTrouve | null> {
     const t = this.recherche.trouves.find((x) => x.adresse === adresse); if (t) return t;
-    try { const u = new URL(adresse); const b = await bonjour(u.hostname.replace(/^\[|\]$/g, ''), Number(u.port) || 7777); if (b) this.recherche.trouves.unshift(b); return b; } catch { return null; }
+    try { const u = new URL(adresse); const b = await bonjour(u.hostname.replace(/^\[|\]$/g, ''), Number(u.port) || 8888); if (b) this.recherche.trouves.unshift(b); return b; } catch { return null; }
   }
 
   /** Ce qui touche à Odin (1er lancement, connexion, synchro, IA). */
@@ -233,9 +233,9 @@ class Pegase implements Appli {
     switch (action) {
       case 'odinChercher': {
         if (arg?.hote) {
-          const b = await bonjour(String(arg.hote).trim(), Number(arg.port) || 7777);
+          const b = await bonjour(String(arg.hote).trim(), Number(arg.port) || 8888);
           if (b) { this.recherche.trouves = [b, ...this.recherche.trouves.filter((x) => x.adresse !== b.adresse)]; this.planifierTout(); return fini({ ok: true, odin: b }); }
-          return fini({ ok: false, texte: `Pas d'Odin à ${arg.hote}:${Number(arg.port) || 7777}. Vérifie l'adresse et que le PC d'Odin est allumé.` });
+          return fini({ ok: false, texte: `Pas d'Odin à ${arg.hote}:${Number(arg.port) || 8888}. Vérifie l'adresse et que le PC d'Odin est allumé.` });
         }
         if (!this.recherche.encours) this.chercherReseau();
         return fini({ ok: true });
