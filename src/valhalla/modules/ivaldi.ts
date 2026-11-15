@@ -9,6 +9,10 @@ import { basename, join } from 'node:path';
 import type { Kpi, ModCtx, Module, Tone } from '../types.ts';
 import { actionsDedale, reglages, sectionsDedale } from '../ivaldi/projets.ts';
 import { menage, toutFermer } from '../ivaldi/terminaux.ts';
+import { cibleDe, type Cible } from '../gefjon/poste.ts';
+import { depotsDistants, gitDistant } from '../ivaldi/poste.ts';
+import { choixDePoste, estIci, PARAM_POSTE } from '../postes.ts';
+import { findMachine } from '../../machines/access.ts';
 
 export interface Statut { branche: string; amont?: string; avance: number; retard: number; modifies: number; nonSuivis: number; conflits: number }
 export interface Commit { id: string; auteur: string; at: number; sujet: string }
@@ -115,32 +119,82 @@ async function unDepot(ctx: ModCtx, qui: unknown): Promise<Depot> {
 const quand = (t?: number) => (t ? new Date(t).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—');
 const depotParam = { key: 'depot', label: 'Dépôt (nom ou chemin)', kind: 'text' as const, required: true };
 
+// ---------------- Sur un autre poste ----------------
+/** Un dépôt d'un autre poste : lu par SSH (comme ici) ou par le partage de fichiers d'un Windows (branche et dernier commit seulement). */
+export interface DepotPoste extends Depot { lecture: 'ssh' | 'partage'; branche?: string }
+const posteParam = { ...PARAM_POSTE, help: 'Un poste du coffre : Linux ou Mac par SSH (tout), Windows par son partage de fichiers (lecture seule).' };
+const ailleurs = (i: Record<string, unknown>) => Boolean(s(i.poste).trim()) && !estIci(i.poste);
+const idPoste = (c: Cible) => (c.genre === 'smb' ? c.m.id : c.genre === 'ssh' ? c.poste.id : '');
+const dossiersPoste = (ctx: ModCtx, c: Cible): string[] => ((ctx.settings.dossiersPostes as Record<string, string[]> | undefined) ?? {})[idPoste(c)] ?? [];
+const vusPostes = new Map<string, { quand: number; l: DepotPoste[] }>();
+async function depotsPoste(ctx: ModCtx, c: Cible): Promise<DepotPoste[]> {
+  const l = (await depotsDistants(c, dossiersPoste(ctx, c), masquer)).map((d): DepotPoste => ({ chemin: d.chemin, nom: d.nom, nu: false, lecture: d.lecture, ...(d.statutBrut ? { statut: lireStatut(d.statutBrut) } : {}), ...(d.branche ? { branche: d.branche } : {}), ...((d.logBrut ? lireJournal(d.logBrut)[0] : d.dernier) ? { dernier: d.logBrut ? lireJournal(d.logBrut)[0] : d.dernier } : {}), ...(d.distant ? { distant: d.distant } : {}) }));
+  vusPostes.set(`${ctx.dir}|${idPoste(c)}`, { quand: ctx.now().getTime(), l }); return l;
+}
+/** Le poste SSH d'une action (un Windows joint par son partage ne se met pas à jour à distance). */
+function posteSsh(ctx: ModCtx, qui: unknown): Extract<Cible, { genre: 'ssh' }> {
+  const c = cibleDe(ctx, qui); if (c.genre === 'smb') throw new Error(`${c.nom} est un Windows joint par son partage de fichiers : Dédale y lit les dépôts, mais récupérer, mettre à jour ou cloner demande git sur le PC (ou SSH)`);
+  if (c.genre !== 'ssh') throw new Error('quel poste ?'); return c;
+}
+async function unDepotPoste(ctx: ModCtx, c: Cible, qui: unknown): Promise<DepotPoste> {
+  const k = s(qui).trim().toLowerCase(); if (!k) throw new Error('quel dépôt ?');
+  const l = await depotsPoste(ctx, c), d = l.find((x) => x.chemin.toLowerCase() === k) ?? l.find((x) => x.nom.toLowerCase() === k) ?? l.find((x) => x.nom.toLowerCase().includes(k));
+  if (!d) throw new Error(`dépôt « ${s(qui)} » introuvable sur ${c.nom}`); return d;
+}
+async function sansPiegeDistant(c: Extract<Cible, { genre: 'ssh' }>, d: Depot): Promise<void> {
+  const r = await gitDistant(c.poste, d.chemin, ['config', '--local', '--list']), x = r.code ? [] : reglagesRisques(r.out);
+  if (x.length) throw new Error(`${d.nom} (sur ${c.nom}) contient un réglage qui lance un programme (${x.slice(0, 3).join(', ')}) : je n'y touche pas`);
+}
+
 /** Le dernier passage de la vérification des dépôts (toutes les 12 heures), par dossier de données. */
 const derniereVerif = new Map<string, number>();
 export const ivaldi: Module & { similaires: string[] } = {
   id: 'ivaldi', name: 'Dédale', family: 'Données',
   what: 'Le code et les dépôts : Odin trouve tes dépôts git, dit où en est chacun (travail non enregistré, commits à envoyer ou à récupérer), les met à jour sans risque, en clone de nouveaux et héberge des dépôts de la maison pour tes autres machines.',
-  does: ['tous tes dépôts git trouvés dans tes dossiers de code', 'pour chacun : branche, fichiers modifiés, commits à envoyer et à récupérer, dernier commit', 'récupérer les nouveautés (fetch) sans rien changer à ton travail', 'mettre à jour seulement quand c\'est sans risque (avance rapide, dossier propre)', 'cloner un dépôt (https ou SSH)', 'dépôts de la maison : un endroit chez toi où pousser ton code depuis tes autres machines', 'les jetons des adresses ne sont jamais affichés ; le code des dépôts n\'est jamais exécuté', 'rappel : du travail pas envoyé depuis plus d\'une semaine'],
+  does: ['tous tes dépôts git trouvés dans tes dossiers de code', 'pour chacun : branche, fichiers modifiés, commits à envoyer et à récupérer, dernier commit', 'récupérer les nouveautés (fetch) sans rien changer à ton travail', 'mettre à jour seulement quand c\'est sans risque (avance rapide, dossier propre)', 'cloner un dépôt (https ou SSH)', 'dépôts de la maison : un endroit chez toi où pousser ton code depuis tes autres machines', 'les jetons des adresses ne sont jamais affichés ; le code des dépôts n\'est jamais exécuté', 'sur un autre poste : ses dépôts, récupérer, mettre à jour et cloner par SSH (Linux, Mac) ; branche et dernier commit d\'un Windows par son partage de fichiers', 'rappel : du travail pas envoyé depuis plus d\'une semaine'],
   from: ['Gitea', 'Forgejo', 'GitHub Desktop'], upstream: ['go-gitea/gitea', 'forgejo/forgejo'],
   similaires: ['Gitea', 'Forgejo', 'SourceHut', 'GitHub Desktop', 'tmux', 'Replit', 'code-server'],
   words: ['dépôts git', 'dépôt git', 'depots git', 'depot git', 'mes dépôts', 'mes depots', 'git', 'gitea', 'forgejo', 'dédale', 'dedale', 'ivaldi', 'terminal', 'terminaux', 'tmux', 'replit', 'éditeur de code', 'mes projets de code'],
   actions: [
-    { id: 'depots', label: 'Dépôts', what: 'Tous tes dépôts et où en est chacun', read: true, external: true, words: ['mes dépôts', 'état de mes dépôts', 'qu\'est-ce qui n\'est pas poussé'], run: async (ctx) => {
+    { id: 'depots', label: 'Dépôts', what: 'Tous tes dépôts et où en est chacun (ici ou sur un autre poste)', read: true, external: true, params: [posteParam], words: ['mes dépôts', 'état de mes dépôts', 'qu\'est-ce qui n\'est pas poussé'], run: async (ctx, i) => {
+      if (ailleurs(i)) {
+        const c = cibleDe(ctx, i.poste), l = await depotsPoste(ctx, c);
+        return { text: l.length ? `${c.nom} :\n${l.map((d) => `- ${d.nom} [${d.statut?.branche ?? d.branche ?? '?'}] : ${d.statut ? resume(d.statut).texte : 'lu par le partage de fichiers'}${d.dernier ? ` · dernier commit ${quand(d.dernier.at)} « ${d.dernier.sujet.slice(0, 60)} »` : ''}`).join('\n')}` : `Aucun dépôt trouvé sur ${c.nom}${c.genre === 'ssh' ? ` (dossiers : ${dossiersPoste(ctx, c).join(', ') || 'code, projets, dev, src, git… du dossier personnel'})` : ''}.`, data: l };
+      }
       if (!await ctx.has('git')) return { text: 'git n\'est pas installé sur cette machine.', ok: false };
       const l = await tous(ctx);
       return { text: l.length ? l.map((d) => `- ${d.nom}${d.nu ? ' (dépôt de la maison)' : ` [${d.statut?.branche ?? '?'}]`} : ${d.nu ? 'prêt à recevoir' : resume(d.statut).texte}${d.dernier ? ` · dernier commit ${quand(d.dernier.at)} « ${d.dernier.sujet.slice(0, 60)} »` : ''}`).join('\n') : `Aucun dépôt dans ${dossiers(ctx).join(', ') || 'tes dossiers de code (ajoute le tien)'}.`, data: l };
     } },
-    { id: 'journal', label: 'Derniers commits', what: 'Les 20 derniers commits d\'un dépôt', words: ['derniers commits du dépôt'], read: true, external: true, params: [depotParam], run: async (ctx, i) => {
-      const d = await unDepot(ctx, i.depot), r = await git(ctx, d.chemin, ['log', '-20', '--format=%H%x1f%an%x1f%at%x1f%s']); if (r.code) throw new Error(r.err.trim().split('\n')[0] || 'journal illisible');
+    { id: 'journal', label: 'Derniers commits', what: 'Les 20 derniers commits d\'un dépôt', words: ['derniers commits du dépôt'], read: true, external: true, params: [depotParam, posteParam], run: async (ctx, i) => {
+      const c = ailleurs(i) ? posteSsh(ctx, i.poste) : undefined, d = c ? await unDepotPoste(ctx, c, i.depot) : await unDepot(ctx, i.depot);
+      const r = c ? await gitDistant(c.poste, d.chemin, ['log', '-20', '--format=%H%x1f%an%x1f%at%x1f%s']) : await git(ctx, d.chemin, ['log', '-20', '--format=%H%x1f%an%x1f%at%x1f%s']); if (r.code) throw new Error(r.err.trim().split('\n')[0] || 'journal illisible');
       const l = lireJournal(r.out); return { text: l.map((c) => `- ${c.id.slice(0, 7)} · ${quand(c.at)} · ${c.auteur} · ${c.sujet}`).join('\n') || 'Aucun commit.', data: l };
     } },
-    { id: 'recuperer', label: 'Récupérer les nouveautés', what: 'Regarde ce qu\'il y a de nouveau sur le dépôt distant, sans toucher à ton travail', params: [{ ...depotParam, required: false, label: 'Dépôt (vide : tous)' }], words: ['récupère les nouveautés du dépôt', 'git fetch'], run: async (ctx, i) => {
+    { id: 'recuperer', label: 'Récupérer les nouveautés', what: 'Regarde ce qu\'il y a de nouveau sur le dépôt distant, sans toucher à ton travail', params: [{ ...depotParam, required: false, label: 'Dépôt (vide : tous)' }, posteParam], words: ['récupère les nouveautés du dépôt', 'git fetch'], run: async (ctx, i) => {
+      if (ailleurs(i)) {
+        const c = posteSsh(ctx, i.poste), l = s(i.depot).trim() ? [await unDepotPoste(ctx, c, i.depot)] : (await depotsPoste(ctx, c)).filter((d) => d.distant), out: string[] = [];
+        for (const d of l) { try { await sansPiegeDistant(c, d); } catch (e) { out.push(`- ${d.nom} : laissé (${(e as Error).message.slice(0, 160)})`); continue; }
+          const r = await gitDistant(c.poste, d.chemin, ['fetch', '--all', '--prune', '--quiet'], 180_000); const st = r.code ? undefined : lireStatut((await gitDistant(c.poste, d.chemin, ['status', '--porcelain=v2', '--branch'])).out); out.push(`- ${d.nom} : ${r.code ? `échec (${masquer(r.err.trim().split('\n')[0] ?? '').slice(0, 120)})` : st?.retard ? `${st.retard} commit(s) à récupérer` : 'rien de nouveau'}`); }
+        vusPostes.delete(`${ctx.dir}|${idPoste(c)}`);
+        return { text: out.length ? `${c.nom} :\n${out.join('\n')}` : `Aucun dépôt avec un distant sur ${c.nom}.` };
+      }
       const l = s(i.depot).trim() ? [await unDepot(ctx, i.depot)] : (await tous(ctx)).filter((d) => d.distant && !d.nu), out: string[] = [];
       for (const d of l) { try { await sansPiege(ctx, d); } catch (e) { out.push(`- ${d.nom} : laissé (${(e as Error).message.slice(0, 160)})`); continue; }
         const r = await git(ctx, d.chemin, ['fetch', '--all', '--prune', '--quiet'], 90_000); const st = r.code ? undefined : lireStatut((await git(ctx, d.chemin, ['status', '--porcelain=v2', '--branch'])).out); out.push(`- ${d.nom} : ${r.code ? `échec (${r.err.trim().split('\n')[0].slice(0, 120)})` : st?.retard ? `${st.retard} commit(s) à récupérer` : 'rien de nouveau'}`); }
       return { text: out.join('\n') || 'Aucun dépôt avec un distant.' };
     } },
-    { id: 'mettre_a_jour', label: 'Mettre à jour', what: 'Prend les nouveaux commits, seulement si c\'est sans risque (dossier propre, avance rapide)', params: [depotParam], words: ['mets à jour le dépôt', 'git pull'], run: async (ctx, i) => {
+    { id: 'mettre_a_jour', label: 'Mettre à jour', what: 'Prend les nouveaux commits, seulement si c\'est sans risque (dossier propre, avance rapide)', params: [depotParam, posteParam], words: ['mets à jour le dépôt', 'git pull'],
+      grave: (i) => (ailleurs(i) ? `mettre à jour le dépôt ${s(i.depot)} sur ${s(i.poste)} (ses fichiers changent)` : undefined), run: async (ctx, i) => {
+      if (ailleurs(i)) {
+        const c = posteSsh(ctx, i.poste), d = await unDepotPoste(ctx, c, i.depot);
+        if (!d.statut) throw new Error('dépôt illisible');
+        if (d.statut.modifies || d.statut.conflits) throw new Error(`${d.nom} a du travail en cours sur ${c.nom} (${resume(d.statut).texte}) : enregistre-le d'abord, je ne mélange rien`);
+        await sansPiegeDistant(c, d);
+        const r = await gitDistant(c.poste, d.chemin, ['pull', '--ff-only', '--no-recurse-submodules', '--quiet'], 180_000);
+        if (r.code) throw new Error(/not possible to fast-forward|diverg/i.test(r.err) ? `${d.nom} et le distant ont divergé : la mise à jour demande une fusion, à faire à la main` : masquer(r.err.trim().split('\n')[0] ?? '') || 'mise à jour refusée');
+        vusPostes.delete(`${ctx.dir}|${idPoste(c)}`);
+        return { text: `⬇ ${d.nom} est à jour sur ${c.nom}.` };
+      }
       const d = await unDepot(ctx, i.depot); if (d.nu) throw new Error('un dépôt de la maison ne se met pas à jour : on y pousse');
       if (!d.statut) throw new Error(d.erreur ?? 'dépôt illisible');
       if (d.statut.modifies || d.statut.conflits) throw new Error(`${d.nom} a du travail en cours (${resume(d.statut).texte}) : enregistre-le d'abord, je ne mélange rien`);
@@ -150,8 +204,20 @@ export const ivaldi: Module & { similaires: string[] } = {
       const st = lireStatut((await git(ctx, d.chemin, ['status', '--porcelain=v2', '--branch'])).out);
       return { text: `⬇ ${d.nom} est à jour (${st.branche}).` };
     } },
-    { id: 'cloner', label: 'Cloner un dépôt', what: 'Copie un dépôt (https ou SSH) dans ton dossier de code', words: ['clone le dépôt', 'git clone'], params: [{ key: 'adresse', label: 'Adresse du dépôt', kind: 'text', required: true, help: 'https://github.com/moi/projet.git ou git@github.com:moi/projet.git' }, { key: 'dossier', label: 'Dans le dossier (vide : le premier dossier de code)', kind: 'text', default: '' }], run: async (ctx, i) => {
+    { id: 'cloner', label: 'Cloner un dépôt', what: 'Copie un dépôt (https ou SSH) dans ton dossier de code', words: ['clone le dépôt', 'git clone'], params: [{ key: 'adresse', label: 'Adresse du dépôt', kind: 'text', required: true, help: 'https://github.com/moi/projet.git ou git@github.com:moi/projet.git' }, { key: 'dossier', label: 'Dans le dossier (vide : le premier dossier de code)', kind: 'text', default: '' }, posteParam],
+      grave: (i) => (ailleurs(i) ? `cloner ${masquer(s(i.adresse))} sur ${s(i.poste)}` : undefined), run: async (ctx, i) => {
       const url = s(i.adresse).trim(); if (!adresseOk(url)) throw new Error('adresse refusée : https://…, ssh://… ou git@hôte:chemin');
+      if (ailleurs(i)) {
+        const c = posteSsh(ctx, i.poste), dans = s(i.dossier).trim() || dossiersPoste(ctx, c)[0] || '', nom = nomDe(url);
+        if (!dans.startsWith('/') || /[\0\n]/.test(dans) || dans.split('/').includes('..')) throw new Error(`dans quel dossier de ${c.nom} ? (chemin absolu, ex. /home/moi/code)`);
+        if (!nom) throw new Error('nom du dépôt illisible');
+        if (!await c.poste.has('git')) throw new Error(`git n'est pas installé sur ${c.nom}`);
+        const cible = `${dans.replace(/\/+$/, '')}/${nom}`; if ((await c.poste.run('test', ['-e', cible], { timeoutMs: 20_000 })).code === 0) throw new Error(`${cible} existe déjà sur ${c.nom}`);
+        await c.poste.run('mkdir', ['-p', '--', dans], { timeoutMs: 20_000 });
+        const r = await c.poste.run('git', ['-c', 'protocol.ext.allow=never', '-c', 'core.hooksPath=/dev/null', 'clone', '--quiet', '--no-recurse-submodules', '--', url, cible], { timeoutMs: 600_000 }); if (r.code) throw new Error(masquer(r.err.trim().split('\n').at(-1) ?? 'clonage refusé'));
+        vusPostes.delete(`${ctx.dir}|${idPoste(c)}`);
+        return { text: `📦 ${nom} cloné dans ${cible} sur ${c.nom}.` };
+      }
       if (!await ctx.has('git')) throw new Error('git n\'est pas installé');
       const dans = s(i.dossier).trim() || dossiers(ctx)[0] || join(homedir(), 'code'), nom = nomDe(url); if (!nom) throw new Error('nom du dépôt illisible');
       if (!dans.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(dans)) throw new Error('dossier : chemin absolu attendu');
@@ -171,18 +237,45 @@ export const ivaldi: Module & { similaires: string[] } = {
       return { text: `🏠 Dépôt « ${nom} » créé. Depuis une autre machine :\n  git remote add maison ${adresse}\n  git push maison main`, data: { adresse } };
     } },
     ...actionsDedale((ctx) => dossiers(ctx)),
-    { id: 'dossier', label: 'Ajouter un dossier de code', what: 'Un dossier où chercher tes dépôts', words: ['ajoute un dossier de dépôts git'], params: [{ key: 'chemin', label: 'Chemin du dossier', kind: 'text', required: true }], run: (ctx, i) => {
-      const d = s(i.chemin).trim(); if (!d || !existsSync(d) || !statSync(d).isDirectory()) throw new Error('dossier introuvable');
+    { id: 'dossier', label: 'Ajouter un dossier de code', what: 'Un dossier où chercher tes dépôts (ici ou sur un autre poste Linux ou Mac)', words: ['ajoute un dossier de dépôts git'], params: [{ key: 'chemin', label: 'Chemin du dossier', kind: 'text', required: true }, posteParam], run: (ctx, i) => {
+      const d = s(i.chemin).trim();
+      if (ailleurs(i)) {
+        const c = posteSsh(ctx, i.poste); if (!d.startsWith('/') || /[\0\n]/.test(d) || d.split('/').includes('..')) throw new Error('un chemin absolu sur le poste (ex. /home/moi/code)');
+        const tous = { ...((ctx.settings.dossiersPostes as Record<string, string[]> | undefined) ?? {}) }; tous[c.poste.id] = [...new Set([...(tous[c.poste.id] ?? []), d])];
+        ctx.saveSettings({ dossiersPostes: tous }); vusPostes.delete(`${ctx.dir}|${c.poste.id}`); return { text: `📁 ${d} ajouté sur ${c.nom}.` };
+      } if (!d || !existsSync(d) || !statSync(d).isDirectory()) throw new Error('dossier introuvable');
       ctx.saveSettings({ dossiers: [...new Set([...dossiers(ctx), d])] }); return { text: `📁 ${d} ajouté.` };
     } },
   ],
-  async view(ctx) {
+  async view(ctx, q) {
+    const P = { ...choixDePoste(ctx, q, { partages: true }), titre: 'Dédale sur un autre poste', texte: 'Ses dépôts git : Linux ou Mac par SSH (tout), Windows par son partage de fichiers (branche et dernier commit).' };
+    if (P.actuel) {
+      const c = cibleDe(ctx, findMachine(ctx.home, P.actuel)?.id ?? ''), input = { poste: P.actuel }, k = `${ctx.dir}|${idPoste(c)}`;
+      let l = vusPostes.get(k), erreur = '';
+      if (!l || ctx.now().getTime() - l.quand > 5 * 60_000) { try { await depotsPoste(ctx, c); l = vusPostes.get(k); } catch (e) { erreur = (e as Error).message; } }
+      const d = l?.l ?? [];
+      return {
+        subtitle: erreur ? `⚠ ${c.nom} : ${erreur}` : `${d.length} dépôt(s) sur ${c.nom} · ${c.genre === 'smb' ? 'Windows, par son partage de fichiers (lecture seule)' : 'par SSH'}`,
+        kpis: [{ label: 'Dépôts', value: String(d.length) }, { label: 'Travail en cours', value: String(d.filter((x) => x.statut && (x.statut.modifies || x.statut.nonSuivis)).length), tone: d.some((x) => x.statut?.modifies) ? 'attention' : 'bon' }, { label: 'À envoyer', value: String(d.filter((x) => x.statut?.avance).length) }, { label: 'À récupérer', value: String(d.filter((x) => x.statut?.retard).length) }],
+        onglets: ['Terminaux', 'Projets', 'Dépôts', 'Réglages'], postes: P,
+        sections: [
+          ...sectionsDedale(ctx, dossiers(ctx)),
+          { onglet: 'Dépôts', kind: 'table', title: `Dépôts de ${c.nom}`, columns: ['Dépôt', 'Branche', 'État', 'Dernier commit', 'Distant'], empty: erreur || 'Aucun dépôt trouvé dans ses dossiers de code.', rows: d.map((x) => ({ cells: [x.nom, x.statut?.branche ?? x.branche ?? '—', x.statut ? resume(x.statut).texte : 'état lisible par SSH seulement', x.dernier ? `${quand(x.dernier.at)} · ${x.dernier.sujet.slice(0, 70)}` : '—', x.distant ?? '—'], tone: x.statut ? resume(x.statut).tone : 'neutre' as const, actions: c.genre === 'ssh' ? [...(x.distant ? [{ action: 'recuperer', label: 'Récupérer', input: { depot: x.chemin, ...input } }] : []), ...(x.statut?.retard && !x.statut.modifies ? [{ action: 'mettre_a_jour', label: 'Mettre à jour', input: { depot: x.chemin, ...input } }] : [])] : [] })) },
+        ],
+        side: [
+          { onglet: 'Dépôts', kind: 'actions', title: 'Relire', boutons: [{ action: 'depots', label: 'Relire les dépôts', input, primary: true }] },
+          ...(c.genre === 'ssh' ? [{ onglet: 'Dépôts', kind: 'form' as const, title: `Cloner sur ${c.nom}`, action: 'cloner', submit: 'Cloner', fixe: input, params: [{ key: 'adresse', label: 'Adresse du dépôt', kind: 'text' as const, required: true }, { key: 'dossier', label: 'Dans le dossier (chemin absolu)', kind: 'text' as const, default: dossiersPoste(ctx, c)[0] ?? '' }] },
+            { onglet: 'Dépôts', kind: 'form' as const, title: 'Dossier de code du poste', action: 'dossier', submit: 'Ajouter', fixe: input, params: [{ key: 'chemin', label: 'Chemin (ex. /home/moi/code)', kind: 'text' as const, required: true }] }] : []),
+          { onglet: 'Dépôts', kind: 'list', title: 'Dossiers lus', items: (c.genre === 'smb' ? ['C:\\Users\\…\\source\\repos', 'Documents\\GitHub', 'code, projets, dev, git, src'] : dossiersPoste(ctx, c).length ? dossiersPoste(ctx, c) : ['code, Code, projets, dev, src, git, workspace… du dossier personnel']).map((t) => ({ title: t })) },
+        ],
+      };
+    }
     const ok = await ctx.has('git'), l = ok ? await tous(ctx) : [], w = l.filter((d) => !d.nu);
     const kpis: Kpi[] = [{ label: 'Dépôts', value: String(w.length) }, { label: 'Travail en cours', value: String(w.filter((d) => d.statut && (d.statut.modifies || d.statut.nonSuivis)).length), tone: w.some((d) => d.statut?.modifies) ? 'attention' : 'bon' }, { label: 'À envoyer', value: String(w.filter((d) => d.statut?.avance).length), tone: w.some((d) => d.statut?.avance) ? 'attention' : 'bon' }, { label: 'À récupérer', value: String(w.filter((d) => d.statut?.retard).length) }, { label: 'De la maison', value: String(l.length - w.length) }];
     return {
       subtitle: ok ? `${w.length} dépôt(s) dans ${dossiers(ctx).length} dossier(s)` : 'git n\'est pas installé sur cette machine.', kpis,
       // Onglets : Terminaux · Projets (la page dessinée y met le terminal et l'éditeur) · Dépôts (ce que Dédale faisait déjà) · Réglages.
-      onglets: ['Terminaux', 'Projets', 'Dépôts', 'Réglages'],
+      onglets: ['Terminaux', 'Projets', 'Dépôts', 'Réglages'], postes: P,
       sections: [
         ...sectionsDedale(ctx, dossiers(ctx)),
         ...(!ok || !dossiers(ctx).length ? [{ onglet: 'Dépôts', kind: 'steps' as const, title: 'Mise en route', items: [{ title: 'git installé', done: ok, detail: ok ? undefined : 'installe le paquet « git »' }, { title: 'Un dossier de code', detail: 'ajoute le dossier où sont tes projets', done: dossiers(ctx).length > 0 }] }] : []),
