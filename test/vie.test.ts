@@ -862,9 +862,9 @@ test('companion.js, mascotte.js, ui.html, notices.js : les corrections de la rel
   // --- mascotte.js ---
   // Règle du propriétaire : les yeux restent blancs, même un jour de fête (la classe des yeux sombres n'est plus jamais posée).
   assert.match(masc, /o\.classList\.remove\('ev-dark-eyes'\);/); assert.ok(!masc.includes("toggle('ev-dark-eyes'"));
-  assert.ok(masc.includes('.odin.ev-dark-eyes .eye:not(.plein){fill:#2a2f3a}'));
-  const sombre = new Function(`${/const sombre = [^\n]*/.exec(masc)?.[0] ?? ''}; return sombre;`)() as (h: unknown) => boolean;
-  assert.deepEqual(['#ffffff', '#2a2f3a', '#f2f2f2', '', undefined, 'rouge'].map((c) => sombre(c)), [false, true, false, false, false, false]);
+  assert.ok(!masc.includes('ev-dark-eyes .eye'), 'plus aucune règle d\'yeux sombres'); assert.ok(!masc.includes('const sombre'));
+  // Carnaval : le loup qui couvrait les yeux n'est plus dessiné.
+  assert.match(masc, /masque: '',/);
   // --- ui.html ---
   // Plus aucun tirage au sort autour de la mascotte.
   const lignes = ui.split('\n');

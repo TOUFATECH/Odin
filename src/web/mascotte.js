@@ -8,7 +8,7 @@
   const api = async (action, input = {}) => { const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'apparence', action, input }) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };
   const save = async (patch) => { await api('regler_mascotte', { reglages: JSON.stringify(patch) }); await window.OdinThemes?.sync?.(); };
   const NS = 'http://www.w3.org/2000/svg';
-  { const st = document.createElement('style'); st.textContent = 'html.odin-hidden .odin.roam,html.odin-hidden .pet,html.odin-hidden #odinEgg,html.odin-hidden #odinTaps{display:none!important}.odin.ev-dark-eyes .eye:not(.plein){fill:#2a2f3a}.odin .odin-acc{pointer-events:none}'; document.head.append(st); }
+  { const st = document.createElement('style'); st.textContent = 'html.odin-hidden .odin.roam,html.odin-hidden .pet,html.odin-hidden #odinEgg,html.odin-hidden #odinTaps{display:none!important}.odin .odin-acc{pointer-events:none}'; document.head.append(st); }
   let D = null; // le dernier état d'Odin (thème, événement, clics, événements)
   try { D = JSON.parse(localStorage.getItem('odin.mascotte') || 'null'); } catch { /* */ }
   const bud = () => document.getElementById('buddyRoam') || document.querySelector('.pet');
@@ -23,12 +23,10 @@
     coeur: '<path d="M96 16 c-4 -6 -14 -4 -12 4 c1 5 12 11 12 11 s11 -6 12 -11 c2 -8 -8 -10 -12 -4z" fill="#ef4f43"/>',
     trefle: '<g fill="#34c77b"><circle cx="92" cy="14" r="6"/><circle cx="101" cy="14" r="6"/><circle cx="96.5" cy="6" r="6"/></g><path d="M96 18 l3 10" stroke="#1d7f3a" stroke-width="2"/>',
     citrouille: '<ellipse cx="60" cy="14" rx="18" ry="11" fill="#ff7a1a"/><path d="M60 3 v-6" stroke="#2f8f4e" stroke-width="3"/><path d="M50 13 l3 -3 3 3 M64 13 l3 -3 3 3" stroke="#1a0f24" stroke-width="1.6" fill="none"/>',
-    masque: '<path d="M30 52 q30 -16 60 0 q-4 16 -20 14 q-10 -2 -10 -8 q0 6 -10 8 q-16 2 -20 -14Z" fill="#9a6bff" opacity=".85"/>',
+    masque: '', // Carnaval : plus de loup, il couvrait les yeux (règle du propriétaire : les yeux restent blancs et visibles)
     note: '<path d="M96 2 v18 a5 4 0 1 1 -3 -3.5 V6 l12 -3 v4Z" fill="#9aa8ff"/>',
     oeuf: '', // Pâques : Odin devient en chocolat (voir CHOC plus bas), pas d'objet sur la tête
   };
-  /** Une couleur sombre ? (des yeux sombres ne vont que sur un corps clair : la fête du travail demande des yeux blancs sur un corps sombre) */
-  const sombre = (hex) => { const m = /^#([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return false; const n = parseInt(m[1], 16); return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 128; };
   function dress() {
     const ev = D?.event, acc = ev?.accessory && ACC[ev.accessory] !== undefined ? ACC[ev.accessory] : '';
     for (const o of document.querySelectorAll('.odin')) {

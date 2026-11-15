@@ -534,11 +534,11 @@ test('usure et retombée : un cran plus léger seulement dans les vraies échell
   assert.deepEqual(retombe('honte'), ['honte', false, 'neutre']);
 });
 
-test('yeux : les pastilles restent blanches quelle que soit la situation (émotions, thèmes, fêtes) ; ombre douce sur un corps clair', async () => {
+test('yeux : les pastilles restent blanches quelle que soit la situation (émotions, thèmes, fêtes), sans ombre ni contour sombre', async () => {
   const encreDe = (id: string, f: Visage = F) => (f.dessin(id) as DessinEncre).encre;
   // RÈGLE DU PROPRIÉTAIRE : la pastille reste blanche, pour les 66 émotions, à toutes les tailles.
   for (const m of liste()) for (const taille of TAILLES) assert.equal((F.dessin(m.id, { taille }) as DessinEncre).encre, '#fff', `${m.id} (${taille}) : yeux blancs`);
-  // Y compris sur les corps clairs (joie, espoir, étonnement…), où le blanc se lit mal : c'est l'ombre derrière la pastille qui aide.
+  // Y compris sur les corps clairs (joie, espoir, étonnement…), où le blanc se lit mal : toujours blanc, sans ombre.
   const clairs = liste().filter((m) => contraste('#ffffff', sousTraits(m.tint)) < 2.5).map((m) => m.id);
   assert.ok(clairs.includes('joie') && clairs.includes('espoir') && clairs.length >= 8, `${clairs.length} émotions au corps clair`);
   for (const id of clairs) assert.equal(encreDe(id), '#fff', id);
@@ -553,7 +553,9 @@ test('yeux : les pastilles restent blanches quelle que soit la situation (émoti
   f.tintBase('#f2f2f2'); assert.equal(encreDe('neutre', f), '#fff');
   assert.match(SOURCE, /const encre = \(\) => W;/, 'l\'encre des yeux est toujours le blanc');
   assert.match(SOURCE, /\.odin\.ev-dark-eyes\{--o-encre:#fff\}/, 'plus d\'yeux sombres un jour de fête');
-  assert.match(SOURCE, /el\.style\.setProperty\('--o-ombre', ombre\(t\)\)/, 'ombre douce derrière la pastille sur un corps clair');
+  // Aucune ombre ni aucun filtre sombre sur les yeux, même sur un corps clair.
+  for (const interdit of ['--o-ombre', 'drop-shadow', 'const ombre', 'ENCRE_SOMBRE']) assert.ok(!SOURCE.includes(interdit), `plus de « ${interdit} » dans face.js`);
+  assert.match(SOURCE, /\.odin \.plein\{fill:var\(--o-encre\);transition/, 'la pastille n\'a aucun filtre');
   // La couleur portée pose son encre ; l'œil reste une pastille d'une seule couleur (pas de goutte dedans).
   assert.match(SOURCE, /el\.style\.setProperty\('--o-encre', encre\(t\)\)/);
   assert.ok(contraste('#ffffff', '#4A98EC') >= 2.5); assert.ok(!F.dessin('gratitude').yeux[0].includes('#4A98EC'));
