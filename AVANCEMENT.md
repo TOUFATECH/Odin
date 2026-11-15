@@ -179,6 +179,7 @@ Dans l'onglet « Catalogue », les 79 logiciels ajoutés le 15/11 restent à év
 
 | Date | Session | Ce qui a été fait | Prochaine étape |
 |---|---|---|---|
+| 2026-11-15 | Couleurs et noms | Classeur : lignes colorées selon l'état (vert codé, jaune en cours, rouge pas codé, gris à évaluer), couleurs qui suivent les listes déroulantes ; 11 noms proposés (onglet « Noms proposés », en bleu, à valider) pour Forseti, Valgrind, Midgard, Hnoss et 7 chantiers sans nom. Code inchangé. | Valider ou refuser les noms proposés ; une fois validés, les reporter dans `src/valhalla/names.ts` (NAMES, NAME_STORY). |
 | 2026-11-15 | Catalogue | Tableau du propriétaire corrigé et versé dans `docs/odin-couverture-catalogue.xlsx` (remplace `applicatifs-odin.xlsx`) : Gygès, Tirésias, Perséphone, Ulysse passés à « Codé » ; Partage/export « En cours » (Google Docs) ; lignes Pégase, SSO, Vénus remplies ; Excalidraw « Codé », Penpot « En cours » ; noms grecs partout ; 79 logiciels ajoutés ; onglet « Corrections ». | Évaluer les 79 logiciels ajoutés ; revérifier les « En cours » du catalogue. |
 | 2026-11-15 | Inventaire | Séparation application / Odin OS : README (application d'abord, Odin OS en dernière section), `ODIN-OS.md` à part. | — |
 | 2026-11-15 | Reprise | Dépôt cloné dans `V:\Work\ODIN` ; inventaire des applis et de leur état ; création de ce fichier. Aucun code modifié. | Obtenir la feuille « Catalogue » ; choisir le prochain chantier (section 6). |
