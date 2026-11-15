@@ -195,6 +195,12 @@ dialogue|Dialogue|ecoute|0|1|0
   const SQUARE_MOOD = 'concentration';
   /** Formes d'yeux libres (arcs, cœurs, étoiles, yeux ronds, lunettes opaques) : éteintes tant que le propriétaire ne les a pas validées sur la planche. */
   const FORMES_LIBRES = false;
+  /**
+   * Règle du propriétaire (rappelée le 15/11/2026) : Odin n'a QUE ses deux yeux en pastille et sa couleur. Ni bouche, ni sourcils,
+   * ni joues, ni dents, ni larmes, ni aucun autre ajout sur le visage. Une émotion se lit par la forme des pastilles (hauteur,
+   * coupe, écart, regard), par leur mouvement, par la couleur du corps et par sa posture. Ne jamais repasser à faux sans son accord.
+   */
+  const YEUX_SEULS = true;
   const LIBRE = { rire: 'happy', amour: 'happy', euphorie: 'serre', pleurs: 'serre', frustration: 'serre', admiration: 'heart', excite: 'star', fierte: 'shades', clin: 'wink', serenite: 'closed', soulagement: 'closed', sommeil: 'closed', cache: 'closed', apprehension: 'wide', peur: 'wide', terreur: 'wide', surprise: 'wide', stupeur: 'wide', gene: 'wide', panique: 'small' };
 
   const connu = (id) => (typeof id === 'string' && possede(MOODS, id) ? id : 'neutre');
@@ -388,7 +394,7 @@ dialogue|Dialogue|ecoute|0|1|0
     sourit: () => [sourit(L), sourit(R)],
     fache: (m) => [coupe(L, 1, K(m)), coupe(R, -1, K(m))],   // la coupe descend vers le nez
     tombant: (m) => [coupe(L, -1, K(m)), coupe(R, 1, K(m))], // la coupe descend vers l'extérieur
-    mouille: () => [eau(L), eau(R)],
+    mouille: () => (YEUX_SEULS ? [pill(L, Y, 23), pill(R, Y, 23)] : [eau(L), eau(R)]),
     // Formes libres : gardées pour la planche, jamais dessinées tant que FORMES_LIBRES est faux.
     happy: () => [line(`M${L - 5.5} ${Y + 4}Q${L} ${Y - 10} ${L + 5.5} ${Y + 4}`, 4.5), line(`M${R - 5.5} ${Y + 4}Q${R} ${Y - 10} ${R + 5.5} ${Y + 4}`, 4.5)],
     closed: () => [line(`M${L - 5.5} ${Y - 1}Q${L} ${Y + 9} ${L + 5.5} ${Y - 1}`, 4.5), line(`M${R - 5.5} ${Y - 1}Q${R} ${Y + 9} ${R + 5.5} ${Y - 1}`, 4.5)],
@@ -507,10 +513,11 @@ dialogue|Dialogue|ecoute|0|1|0
       id, forme, genre: GENRE[forme], tint: m.tint, encre: encre(m.tint),
       mesure: MESURE[forme](m).map(([l, h], i) => [f2(l * es[i][0] * TAILLES[taille]), f2(h * es[i][1] * TAILLES[taille])]),
       yeux: EYES[forme](m),
-      sourcils: mini || !sourcil || forme === 'shades' ? '' : BROWS[sourcil](),
-      bouche: !bouche || (mini && !PLEINES.has(bouche)) ? '' : MOUTH[bouche](),
-      joues: petit ? '' : joues(vif ? m.j || 0 : Math.min(1, m.j || 0)),
-      sous: calques.sous, extras: calques.extra,
+      // Odin n'a que ses yeux et sa couleur : tout le reste du visage est vide (voir YEUX_SEULS).
+      sourcils: YEUX_SEULS || mini || !sourcil || forme === 'shades' ? '' : BROWS[sourcil](),
+      bouche: YEUX_SEULS || !bouche || (mini && !PLEINES.has(bouche)) ? '' : MOUTH[bouche](),
+      joues: YEUX_SEULS || petit ? '' : joues(vif ? m.j || 0 : Math.min(1, m.j || 0)),
+      sous: YEUX_SEULS ? '' : calques.sous, extras: YEUX_SEULS ? '' : calques.extra,
       vars: {
         '--lsx': es[0][0], '--lsy': es[0][1], '--rsx': es[1][0], '--rsy': es[1][1], '--edx': `${d[0]}px`, '--edy': `${d[1]}px`,
         '--o-gx': `${r[0]}px`, '--o-gy': `${r[1]}px`, '--o-suivi': r[2],
