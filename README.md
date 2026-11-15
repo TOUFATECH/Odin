@@ -857,7 +857,7 @@ Ajouter un outil = un objet avec un nom, une description, un **niveau de risque*
 ### Suivi du projet
 
 - [AVANCEMENT.md](AVANCEMENT.md) : où en est le projet, chantiers ouverts, journal des sessions de travail.
-- [docs/applicatifs-odin.xlsx](docs/applicatifs-odin.xlsx) : toutes les applis, leur état (terminée, en cours, pas commencée), les logiciels dont elles s'inspirent, ce qu'elles font et l'histoire de leur nom.
+- [docs/odin-couverture-catalogue.xlsx](docs/odin-couverture-catalogue.xlsx) : couverture du catalogue (chaque logiciel et l'appli d'Odin qui le remplace, codé / en cours / pas codé), ce qui est fait et testé, avancement, noms des applis.
 
 ## Licence
 

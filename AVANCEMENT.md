@@ -60,10 +60,14 @@
 
 ## 5. État des applis
 
-> Tableau complet (logiciels copiés, ce que fait chaque appli, histoire du nom, reste à faire, couleurs vert / jaune / rouge) :
-> **`docs/applicatifs-odin.xlsx`**. Il fait foi pour l'état des applis : le garder aligné avec ce fichier.
+> **Référence : `docs/odin-couverture-catalogue.xlsx`** (tableau du propriétaire). Onglets : « Catalogue » (chaque
+> logiciel du catalogue, l'appli d'Odin qui le remplace, Codé / En cours / Pas codé), « Fait et testé » (chaque appli ou
+> chantier, ce qui est copié, testé, reste à faire), « Avancement » (compteurs), « Noms proposés » (avec le nom validé),
+> « Corrections » (journal des corrections). En cas de désaccord, c'est le classeur qui fait foi.
+> Corrigé le 15/11/2026 : états mis à jour d'après le code (v1.33.0), noms grecs partout, 79 logiciels ajoutés au
+> catalogue (cités dans le code, couverture **à évaluer** : colonne « État dans Odin » vide).
 
-Légende : ✅ codée · 🟡 codée, travail connu restant · ⬜ pas encore codée.
+Légende du tableau ci-dessous (aperçu rapide) : ✅ codée · 🟡 codée, travail connu restant ou fonctions manquantes (estimation) · ⬜ pas encore codée.
 « Taille » = lignes de code (module + dossier) : indicateur d'ampleur, pas de qualité.
 
 ### Cœur d'Odin
@@ -151,8 +155,8 @@ Légende : ✅ codée · 🟡 codée, travail connu restant · ⬜ pas encore co
 | Agora | agora | store (+ applis `agora-*/`) | 658 + applis | 🟡 |
 
 ### Pas encore codées
-Aucune appli nommée n'est sans code dans le dépôt. La liste des applis **prévues** est dans la feuille « Catalogue »
-du propriétaire (citée dans `names.ts`, **absente du dépôt**). À compléter quand elle sera fournie.
+D'après le classeur (onglet « Fait et testé ») : **Compagnon d'Odin sur chaque système installé** (maquette à valider).
+Dans l'onglet « Catalogue », les 79 logiciels ajoutés le 15/11 restent à évaluer un par un.
 
 ## 6. Chantiers ouverts (ce qui reste à faire)
 
@@ -163,7 +167,8 @@ du propriétaire (citée dans `names.ts`, **absente du dépôt**). À compléter
 | Projet actif | Mnémosyne | index des fichiers d'un projet, réponses sourcées sans IA ; option « garder l'audio brut » non branchée | `docs/voix-v2.md` |
 | Données en base | Alexandrie + Pégase, Persona (journal), Valhalla (alertes), Mascotte, Arche, Agora… | migration fichiers JSON → PostgreSQL | `docs/bases-plan.md` |
 | Signature | Pégase | installateurs `.exe` / `.dmg` pas encore signés | `README.md` |
-| Catalogue | — | obtenir la feuille « Catalogue » pour lister les applis pas encore codées | — |
+| Catalogue | toutes | évaluer les 79 logiciels ajoutés (état vide) et revérifier les lignes « En cours » du catalogue depuis la v1.20.0 | `docs/odin-couverture-catalogue.xlsx` |
+| Compagnon d'Odin | Asclépios, Satellites, Genèse | antivirus, mises à jour et failles sur chaque système installé ; maquette à valider | classeur, « Fait et testé » |
 
 ## 7. Branches
 
@@ -174,7 +179,8 @@ du propriétaire (citée dans `names.ts`, **absente du dépôt**). À compléter
 
 | Date | Session | Ce qui a été fait | Prochaine étape |
 |---|---|---|---|
-| 2026-11-15 | Inventaire | Séparation application / Odin OS : README (application d'abord, Odin OS en dernière section), `ODIN-OS.md` à part. Classeur `docs/applicatifs-odin.xlsx` : 68 applis (47 terminées, 21 en cours), logiciels copiés, histoire des noms, 23 tâches restantes. Les « en cours » par manque de fonctions sont une estimation à confirmer. | Le propriétaire confirme les états ; fournir la feuille « Catalogue » (applis pas commencées). |
+| 2026-11-15 | Catalogue | Tableau du propriétaire corrigé et versé dans `docs/odin-couverture-catalogue.xlsx` (remplace `applicatifs-odin.xlsx`) : Gygès, Tirésias, Perséphone, Ulysse passés à « Codé » ; Partage/export « En cours » (Google Docs) ; lignes Pégase, SSO, Vénus remplies ; Excalidraw « Codé », Penpot « En cours » ; noms grecs partout ; 79 logiciels ajoutés ; onglet « Corrections ». | Évaluer les 79 logiciels ajoutés ; revérifier les « En cours » du catalogue. |
+| 2026-11-15 | Inventaire | Séparation application / Odin OS : README (application d'abord, Odin OS en dernière section), `ODIN-OS.md` à part. | — |
 | 2026-11-15 | Reprise | Dépôt cloné dans `V:\Work\ODIN` ; inventaire des applis et de leur état ; création de ce fichier. Aucun code modifié. | Obtenir la feuille « Catalogue » ; choisir le prochain chantier (section 6). |
 
 ---
