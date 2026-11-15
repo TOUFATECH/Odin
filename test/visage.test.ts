@@ -234,9 +234,9 @@ test('dessin : complet pour les 66 émotions, 66 visages différents (yeux, coul
     const D = F.dessin(m.id, { taille, vif, parle, fige } as never);
     const dort = m.id === 'sommeil';
     assert.deepEqual([D.sourcils, D.bouche, D.joues, D.sous], ['', '', '', ''], `${m.id} (${taille}) : ni bouche, ni sourcils, ni joues`);
-    // Seul ajout permis par le propriétaire : les « zzz » de l'endormi.
-    if (dort) assert.equal((D.extras.match(/</g) ?? []).length, (D.extras.match(/<path class="zz /g) ?? []).length, 'endormi : rien d\'autre que des zzz');
-    else assert.equal(D.extras, '', `${m.id} (${taille}) : rien d'autre que les yeux`);
+    // Autour de lui, les petites marques d'émotion sont voulues (zzz, sueur, larmes, cœurs, étincelles, signes) ;
+    // jamais ce qui couvre ses yeux (mains, lunettes), assombrit son visage (voile) ou sort d'une bouche (bave, soupir).
+    assert.doesNotMatch(D.extras, /class="(main|soupir)|#1E1A14|#0B1030|M63\.6 82\.4/, `${m.id} (${taille}) : ni mains, ni lunettes, ni voile, ni bave, ni soupir`);
     assert.equal(D.yeux.length, 2, `${m.id} : deux yeux`);
     for (const o of D.yeux) {
       assert.equal((o.match(/</g) ?? []).length, 1, `${m.id} : un œil = une seule forme, d'une seule couleur`);
@@ -249,6 +249,14 @@ test('dessin : complet pour les 66 émotions, 66 visages différents (yeux, coul
   for (const m of liste()) { const D = F.dessin(m.id), k = JSON.stringify([D.forme, D.mesure, D.vars['--edx'], D.vars['--edy']]); assert.ok(!paires.has(k), `mêmes yeux : ${m.id} et ${paires.get(k)}`); paires.set(k, m.id); }
   assert.equal(paires.size, 66);
   assert.match(SOURCE, /const YEUX_SEULS = true;/, 'la règle « yeux seuls » est allumée');
+  // Les marques d'émotion voulues par le propriétaire : zzz quand il dort, sueur quand il est fatigué, larmes, cœurs, étincelles…
+  assert.match(F.dessin('fatigue').extras, /class="sueur /, 'fatigué : la goutte de sueur'); assert.match(F.dessin('epuisement').extras, /class="sueur /);
+  assert.match(F.dessin('pleurs').extras, /class="flot"/, 'en pleurs : les larmes'); assert.match(F.dessin('triste').extras, /class="larme /);
+  assert.match(F.dessin('amour').extras, /coeur/); assert.match(F.dessin('euphorie').extras, /class="brille /); assert.match(F.dessin('surprise').extras, /class="signe"/);
+  for (const interdit of ['hands', 'main', 'lunettes', 'ombre', 'bave', 'soupir']) assert.doesNotMatch(/const MARQUES_PERMISES = new Set\(\[([^\]]*)\]\)/.exec(SOURCE)?.[1] ?? 'absent', new RegExp(`'${interdit}'`), `${interdit} reste éteint`);
+  // Les deux halos de lumière tournent autour de lui, bien visibles, pour toutes les émotions.
+  assert.ok(F.CSS.includes('.odin .orbit{opacity:1}'), 'les halos ne sont plus atténués selon l\'émotion');
+  for (const m of liste()) { const t = parseFloat(String(F.dessin(m.id).vars['--o-orbite'])); assert.ok(t >= 1.5 && t <= 9, `${m.id} : un tour de halo en ${t} s`); }
   // L'endormi : yeux fermés, zzz au-dessus de lui, et toujours pas de bouche.
   { const D = F.dessin('sommeil'); assert.equal(D.forme, 'ferme'); assert.match(D.extras, /class="zz /); assert.equal(D.bouche, ''); assert.equal((D as Dessin & { encre: string }).encre, '#fff'); }
   assert.ok(F.dessin('cache').classes.includes('sans-clin') && F.dessin('cache').classes.includes('sans-coup'));
@@ -284,7 +292,7 @@ test('style : chaque classe a sa règle, chaque animation ses images clés, mouv
   for (const n of citees) assert.ok(cles.has(n) || PERMIS.includes(n), `animation sans images clés : ${n}`);
   for (const n of cles) { assert.match(n, /^(c|g|x|f)-/, `nom d'animation nouveau : ${n}`); assert.ok(!ui.includes(`@keyframes ${n}{`), `${n} ne redéfinit pas une animation d'ui.html`); assert.ok(citees.includes(n), `images clés inutiles : ${n}`); }
   // Plus aucun ajout dessiné sur le visage (règle « yeux seuls »).
-  assert.equal(liste().filter((m) => m.id !== 'sommeil').map((m) => { const D = F.dessin(m.id); return D.extras + D.bouche + D.sourcils + D.joues + D.sous; }).join(''), '');
+  assert.equal(liste().filter((m) => m.id !== 'sommeil').map((m) => { const D = F.dessin(m.id); return D.bouche + D.sourcils + D.joues + D.sous; }).join(''), '');
   assert.ok(css.includes('@media (prefers-reduced-motion:reduce){.odin *{animation:none!important;transition:none!important}}'), 'mouvement réduit : ni boucle, ni geste, ni fondu');
   assert.ok(css.includes('.odin stop{transition:stop-color var(--o-fondu,.7s) ease}'), 'fondu de couleur réglable');
   assert.ok(css.includes('.odin.angry stop.s1,.odin.angry stop.s2,.odin.angry stop.s3,.odin.angry stop.s4{animation:none}'), 'plus de retour forcé au bleu');

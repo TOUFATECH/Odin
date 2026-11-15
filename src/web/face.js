@@ -163,7 +163,7 @@ dialogue|Dialogue|ecoute|0|1|0
     deception: { y: 'tombant', k: 5, d: [-1, 1], r: [0, 4, .4], s: 'sad', b: 'frown', x: ['soupir'], c: ['affaisse', 'lent', 'tasse'] },
     solitude: { y: 'half', e: [.9, .95], r: [0, 3, .3], s: 'sad', b: 'frown', c: ['petit', 'lent', 'tasse'], aura: [14, .3] },
     lassitude: { y: 'tombant', k: 3, s: 'sad', b: 'flat', x: ['soupir'], c: ['affaisse', 'lent', 'fond'] },
-    fatigue: { y: 'half', e: [1, .96], d: [1, 2.5], a: 'pese', s: 'plat', b: 'baille', x: ['z'], c: ['affaisse', 'lent', 'fond'] },
+    fatigue: { y: 'half', e: [1, .96], d: [1, 2.5], a: 'pese', s: 'plat', b: 'baille', x: ['sweat'], c: ['affaisse', 'lent', 'fond'] },
     epuisement: { y: 'tombant', a: 'pese', s: 'sad', b: 'wobble', x: ['sweat', 'soupir'], c: ['tasse', 'lent', 'fond'] },
     // Le sommeil ne ferme pas les yeux en trait : il se lit aux zzz, à la tête qui tombe et à la respiration.
     sommeil: { y: 'half', d: [0, 2], r: [0, 3, 0], b: 'flat', x: ['zzz'], c: ['tasse', 'dodeline', 'fond'], clign: 9, coup: 0, aura: [16, .3] },
@@ -202,11 +202,13 @@ dialogue|Dialogue|ecoute|0|1|0
    */
   const YEUX_SEULS = true;
   /**
-   * Seule exception, demandée par le propriétaire (15/11/2026) : quand il DORT, ses yeux sont fermés (deux pastilles couchées)
-   * et les « zzz » restent au-dessus de lui pour montrer qu'il dort. Toujours pas de bouche.
+   * Précisions du propriétaire (15/11/2026) : quand il DORT, ses yeux sont fermés (deux pastilles couchées). Et AUTOUR de lui,
+   * les petites marques d'émotion sont voulues : les « zzz » quand il dort, la goutte de sueur quand il est fatigué, les larmes,
+   * les cœurs, les étincelles, les signes ? et !… Ce qui couvre ses yeux (mains, lunettes), ce qui assombrit son visage (voile)
+   * ou ce qui sort d'une bouche (bave, soupir) reste éteint. Toujours pas de bouche, de sourcils ni de joues.
    */
   const YEUX_FERMES = new Set(['sommeil']);
-  const AJOUTS_PERMIS = { sommeil: ['zzz'] };
+  const MARQUES_PERMISES = new Set(['zzz', 'z', 'sweat', 'gouttes', 'tear', 'larmes', 'coeurs', 'etincelles', 'etoile', 'point_ex', 'point_int', 'points', 'fumee', 'veine']);
   const LIBRE = { rire: 'happy', amour: 'happy', euphorie: 'serre', pleurs: 'serre', frustration: 'serre', admiration: 'heart', excite: 'star', fierte: 'shades', clin: 'wink', serenite: 'closed', soulagement: 'closed', sommeil: 'closed', cache: 'closed', apprehension: 'wide', peur: 'wide', terreur: 'wide', surprise: 'wide', stupeur: 'wide', gene: 'wide', panique: 'small' };
 
   const connu = (id) => (typeof id === 'string' && possede(MOODS, id) ? id : 'neutre');
@@ -508,7 +510,7 @@ dialogue|Dialogue|ecoute|0|1|0
     const es = m.e ? (Array.isArray(m.e[0]) ? m.e : [m.e, m.e]) : [[1, 1], [1, 1]];
     const calques = { sous: '', extra: '' };
     for (const x of m.x || []) {
-      if (YEUX_SEULS && !(AJOUTS_PERMIS[id] || []).includes(x)) continue;
+      if (YEUX_SEULS && !MARQUES_PERMISES.has(x)) continue;
       if (!vif && !EXTRAS_DOUX.has(x)) continue;
       const [ou, morceaux] = EXTRA[x];
       for (const [niveau, svg] of morceaux) if (niveau === 'gros' || (!mini && (niveau !== 'fin' || !petit))) calques[ou] += svg;
@@ -532,7 +534,7 @@ dialogue|Dialogue|ecoute|0|1|0
         '--lsx': es[0][0], '--lsy': es[0][1], '--rsx': es[1][0], '--rsy': es[1][1], '--edx': `${d[0]}px`, '--edy': `${d[1]}px`,
         '--o-gx': `${r[0]}px`, '--o-gy': `${r[1]}px`, '--o-suivi': r[2],
         '--o-rot': `${f2(P[0] * k)}deg`, '--o-px': `${f2(P[1] * k)}px`, '--o-py': `${f2(P[2] * k)}px`, '--o-sx': +sx.toFixed(3), '--o-sy': +sy.toFixed(3), '--o-yx': +(moyen / sx).toFixed(4), '--o-yy': +(moyen / sy).toFixed(4),
-        '--o-clign': m.clign ? `${m.clign}s` : '5.2s', '--o-orbite': `${aura[0]}s`, '--o-aura': aura[1],
+        '--o-clign': m.clign ? `${m.clign}s` : '5.2s', '--o-orbite': `${Math.min(aura[0], 9)}s`, '--o-aura': aura[1],
         '--o-c0': m.tint[0], '--o-c2': m.tint[2],
       },
       classes: [a ? (a === 'look' ? 'm-look' : `e-${a}`) : '', `c-${boucle}`, m.clign === 0 ? 'sans-clin' : '', m.coup === 0 ? 'sans-coup' : '', m.vive && vif ? 'o-vive' : '', `o-${taille}`].filter(Boolean),
@@ -621,7 +623,7 @@ dialogue|Dialogue|ecoute|0|1|0
 .odin .extra .pt{animation:x-pt 1.2s ease-in-out infinite}.odin .extra .pt2{animation-delay:.2s}.odin .extra .pt3{animation-delay:.4s}
 .odin .mouth .baille{animation:x-baille 5s ease-in-out infinite}
 .odin .mouth .dit{animation:x-parole 1.9s linear infinite}
-.odin .orbit{opacity:var(--o-aura,1);transition:opacity .8s}
+.odin .orbit{opacity:1}
 .odin .orbit.o1{animation-duration:var(--o-orbite,7s)}.odin .orbit.o2{animation-duration:calc(var(--o-orbite,7s)*1.36)}
 .odin.angry stop.s1,.odin.angry stop.s2,.odin.angry stop.s3,.odin.angry stop.s4{animation:none}
 .odin.o-vive stop.s2{animation:x-vive .8s ease-in-out infinite}
