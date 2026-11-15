@@ -48,10 +48,10 @@ fichiers sur Odin (`~/.odin/memoire/`) et dans son cerveau Mnémosyne, qui fait 
 ## Reste à faire
 
 - [x] Interface selon la maquette validée (v1.13.0) : barre « Maintenez pour parler » (+, micro, carré stop), choix « Voix + texte / Texte seul », menu Exporter / Supprimer avec corbeille et Annuler, page Réglages → Voix.
-- [ ] Service vocal temps réel Orphée (Python) : Silero, Smart Turn, transcription en direct, coupure < 200 ms, reprise par segments.
-- [ ] Logos pour la voix : lexique appris, corrections par prononciation.
-- [ ] Projet actif : index des fichiers d'un projet et réponses sourcées sans IA.
-- [ ] Conserver l'audio brut (réglage prévu, non encore utilisé : aujourd'hui l'audio n'est jamais gardé).
+- [x] Service vocal temps réel Orphée (Python, `voix-temps-reel/`) : Silero, Smart Turn, transcription en direct, coupure < 200 ms, reprise par segments ; lancé, surveillé et relancé par Odin, repli sur la voix habituelle sans lui. Essayé en mode simple (énergie + règles) ; Silero, Smart Turn et faster-whisper pas essayés ici (non installés).
+- [x] Logos pour la voix : lexique appris, corrections par prononciation (`src/valhalla/huginn-voix.ts`).
+- [x] Projet actif : index des fichiers d'un projet et réponses sourcées sans IA (`src/muninn/projet.ts`).
+- [x] Conserver l'audio brut : branché (`src/voice/audio-brut.ts`) ; l'audio n'est gardé que si le réglage est coché, jamais en mode privé, effacé à échéance.
 
 ## Revérifié en novembre 2026 (voix d'homme ou de femme, Piper, ElevenLabs, copie de voix, réponses en audio)
 

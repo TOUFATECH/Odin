@@ -61,6 +61,8 @@ import { plumeRoute } from './plume-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { terminalApi } from './terminal-api.ts';
 import { exportApi } from './export-api.ts';
+import { capsuleRoute } from './capsule-api.ts';
+import { orpheeApi } from './orphee-api.ts';
 import { partageApi, partagePublic } from './partage-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
@@ -782,6 +784,8 @@ export class WebChannel implements Channel {
       console.log(`[web] connexion de ${this.accounts.profile()?.prenom ?? '?'} depuis ${ip} (${deviceName(String(req.headers['user-agent'] ?? ''))})`);
       return json(res, 200, { ok: true });
     }
+    // Écho : la capsule de dictée d'un PC du parc entre avec son propre jeton (pas de session).
+    if (url.pathname === '/api/rodd/capsule' && await capsuleRoute(req, res, url, { ip, home: this.odin.paths.home, voix: () => this.odin.cfg.voice, echec: () => this.throttle.fail(ip) })) return;
     if (!this.authed(req)) {
       // Cookie périmé (nouveau jeton) : on le fait oublier au navigateur, pour qu'il n'insiste pas en boucle.
       const w = this.who(req), hasAccount = this.accounts.exists();
@@ -862,6 +866,8 @@ export class WebChannel implements Channel {
     if (req.method === 'GET' && url.pathname === '/api/ports') return json(res, 200, await portsGet(valhallaOf(), url.searchParams, { adresses: { freyja: this.odin.cfg.venus?.url ?? '' } }));
     // Export (Word, PDF, Markdown, JSON) et partage de la page d'une appli.
     if (await exportApi(req, res, url, { connus: (t) => this.odin.redactor.redact(t) })) return;
+    // Orphée temps réel : la conversation en direct (le service Python reste derrière Odin).
+    if (url.pathname.startsWith('/api/voice/orphee/') && await orpheeApi(req, res, url, { home: this.odin.paths.home, voix: () => this.odin.cfg.voice, ask: (t) => this.askAs('voix', t, onMessage, 4000) })) return;
     if (await partageApi(req, res, url, { ip, acces: this.access, origine: () => this.publicOrigin(req), connus: (t) => this.odin.redactor.redact(t) })) return;
     // Les terminaux et l'aperçu des projets de Dédale (propriétaire seulement).
     if (await terminalApi(req, res, url)) return;
