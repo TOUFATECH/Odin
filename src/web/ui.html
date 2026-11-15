@@ -73,7 +73,7 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 @keyframes e-sink{0%,100%{transform:translateY(0)}50%{transform:translateY(1.5px)}}
 @keyframes e-shiver{0%,100%{transform:translateX(0)}50%{transform:translateX(.8px)}}
 @keyframes e-shy{0%,100%{transform:translateX(0)}50%{transform:translateX(2.5px)}}
-@keyframes e-droop{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
+@keyframes e-droop{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.8)}}
 @keyframes e-attent{0%,100%{transform:scale(1)}50%{transform:scale(1.06,1.1)}}
 @media (prefers-reduced-motion:reduce){.odin .brow{animation:none!important}}
 .odin .eye{transform-box:fill-box;transform-origin:center;animation:o-blink 5.2s infinite}
@@ -127,6 +127,8 @@ nav.side{width:232px;flex:none;border-right:1px solid var(--line);padding:20px 1
 .tab:hover{background:var(--hover);color:var(--ink)}
 .tab[aria-current=page]{background:var(--sel);color:var(--ink)}
 .badge{min-width:22px;height:22px;padding:0 7px;border-radius:11px;background:var(--accent);color:var(--on-accent);font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+/* Pastille d'alertes (onglet Applis) : rouge, pour ne pas la confondre avec un nombre d'applis. */
+.badge.alert{background:var(--bad);color:#fff}
 .badge[hidden]{display:none}
 .side .foot{margin-top:auto;padding:12px 10px 0;font-size:13px;color:var(--dim)}
 main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
@@ -636,6 +638,7 @@ details.activity .ai.info{color:#8FC1E3}
 .membanner{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;flex-direction:column;gap:6px;align-items:flex-start;background:var(--panel)}
 .membanner ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
 @media (max-width:640px){.memrow{flex-direction:column}.memacts{justify-content:flex-start}}
+.br-memhead{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}.br-memhead .br-lead{margin-top:4px}
 .brklog{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
 .brklog .brkh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .brklog ul{margin:4px 0 0;padding-left:18px;font-size:13.5px;display:flex;flex-direction:column;gap:3px}
@@ -1195,7 +1198,6 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <button class="tab" data-view="flows"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="6" height="5" rx="1.5"/><rect x="15" y="15" width="6" height="5" rx="1.5"/><rect x="15" y="4" width="6" height="5" rx="1.5"/><path d="M9 6.5h6M18 9v6M9 6.5c3 0 3 11 6 11"/></svg><span class="lbl">Automatisations</span></button>
     <button class="tab" data-view="runes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9.5 9.5v10"/></svg><span class="lbl">Papyrus (bases)</span></button>
     <button class="tab" data-view="missions"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/></svg><span class="lbl">Activité</span> <span class="badge" id="b-missions" hidden>0</span></button>
-    <button class="tab" data-view="memory"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5v-15z"/><path d="M19 18v3H6.5A1.5 1.5 0 0 1 5 19.5"/><path d="M9 7h6"/></svg><span class="lbl">Mémoire</span></button>
     <button class="tab" data-view="skills"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5.2 5.2 2.3-5.2 2.3L12 18.5l-2.3-5.2L4.5 11l5.2-2.3z"/><path d="M19 17v4M17 19h4"/></svg><span class="lbl">Compétences</span> <span class="badge" id="b-drafts" hidden>0</span></button>
     <button class="tab" data-view="jobs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span class="lbl">Tâches planifiées</span></button>
     <button class="tab" data-view="audit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="lbl">Décisions</span></button>
@@ -1295,10 +1297,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       <div class="body"></div>
     </section>
 
-    <section class="view" id="v-memory" aria-label="Mémoire">
-      <div class="head"><div><h1>Mémoire</h1><div class="sub">Odin range lui-même ses souvenirs chaque nuit : il améliore, fusionne et oublie. Épingle ce qui compte pour toi : il n'y touchera plus.</div></div><div class="hacts"><button class="hbtn" type="button" id="memGarden"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M7 16l3-9 4 6 2-3 3 6"/></svg><span class="hl">Ranger maintenant</span></button></div></div>
-      <div class="body"><div id="memBanner"></div><div class="memtools"><input id="memQ" type="search" placeholder="Chercher dans la mémoire…" aria-label="Chercher dans la mémoire"><div class="choices" id="memF" role="group" aria-label="Filtre"></div></div><div id="memGroups" class="memgroups"></div><table hidden><tbody id="mems"></tbody></table></div>
-    </section>
+    <!-- Les souvenirs d'Odin font partie du Cerveau : ce panneau s'affiche dans le Cerveau (rubrique « Souvenirs », brain.js). -->
+    <div id="brMemHome" hidden><div class="br-page-in br-mem" id="brMem" role="region" aria-label="Souvenirs du Cerveau">
+      <div class="br-memhead"><div><h1 class="br-title">Souvenirs</h1><p class="br-lead">Ce qu'Odin a retenu de toi et de chez toi, dans ton Cerveau. Il les range lui-même chaque nuit : il améliore, fusionne et oublie. Épingle ce qui compte pour toi : il n'y touchera plus.</p></div><button class="btn small" type="button" id="memGarden"><span class="hl">Ranger maintenant</span></button></div>
+      <div><div id="memBanner"></div><div class="memtools"><input id="memQ" type="search" placeholder="Chercher dans les souvenirs…" aria-label="Chercher dans les souvenirs"><div class="choices" id="memF" role="group" aria-label="Filtre"></div></div><div id="memGroups" class="memgroups"></div><table hidden><tbody id="mems"></tbody></table></div>
+    </div></div>
 
     <section class="view" id="v-skills" aria-label="Compétences">
       <div class="head"><div><h1>Compétences</h1><div class="sub">Ses procédures et ses scripts : il les réutilise et les améliore à chaque mission.</div></div><div class="hacts"><button class="hbtn" type="button" id="sk-import" title="Importer les compétences d'Hermes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span class="hl">Importer d'Hermes</span></button><button class="hbtn" type="button" id="sk-all" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg><span class="hl">Tout approuver</span></button></div></div>
@@ -1825,6 +1828,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <div class="palette" id="palette" hidden role="dialog" aria-modal="true" aria-label="Chercher ou faire"><div class="pal"><input id="palIn" type="text" autocomplete="off" placeholder="Chercher un écran, un réglage, ou demander à Odin…" aria-label="Chercher ou demander" aria-controls="palList" role="combobox" aria-expanded="true"><ul id="palList" role="listbox"></ul></div></div>
 <script nonce="__NONCE__" src="/face.js"></script>
 <script nonce="__NONCE__" src="/ciel.js"></script>
+<script nonce="__NONCE__" src="/dialog.js"></script>
 <script nonce="__NONCE__">
 (() => {
   const AUTHED = __AUTHED__;
@@ -2048,16 +2052,18 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   $('#moreBtn').addEventListener('click', () => toggleNav(!sideNav.classList.contains('open')));
   scrim.addEventListener('click', () => toggleNav(false));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && sideNav.classList.contains('open')) toggleNav(false); });
-  const SECONDARY = ['flows', 'runes', 'missions', 'memory', 'skills', 'jobs', 'audit'];
+  const SECONDARY = ['flows', 'runes', 'missions', 'skills', 'jobs', 'audit'];
   function navMore(open) { const b = $('#navMoreBtn'), m = $('#navMore'); if (!b) return; m.hidden = !open; b.setAttribute('aria-expanded', String(open)); try { localStorage.setItem('odin.navmore', open ? '1' : '0'); } catch {} }
   function show(v) {
     toggleNav(false);
+    // Un seul lien : la Mémoire fait partie du Cerveau (ancien écran « memory » → Cerveau, rubrique Souvenirs).
+    let brainPart; if (v === 'memory') { v = 'brain'; brainPart = 'souvenirs'; }
     if (SECONDARY.includes(v)) navMore(true);
     const nv = v === 'device' ? 'net' : v === 'app' ? 'apps' : v;
     for (const b of document.querySelectorAll('.tab[data-view]')) { if (b.dataset.view === nv) { b.setAttribute('aria-current', 'page'); $('#mcur').textContent = (b.querySelector('.lbl') || b).textContent.trim(); } else b.removeAttribute('aria-current'); }
     $('#moreBtn').classList.toggle('cur', !['home', 'chat', 'brain', 'net'].includes(v));
     // Cerveau : chargé à l'ouverture ; en le quittant, ce qui est en cours d'écriture est enregistré.
-    if (v === 'brain') window.OdinBrain?.open(); else window.OdinBrain?.leave?.();
+    if (v === 'brain') window.OdinBrain?.open(brainPart); else window.OdinBrain?.leave?.();
     if (v === 'flows') window.OdinFlows?.open();
     if (v === 'apps') window.OdinApps?.open();
     if (v === 'runes') window.OdinRunes?.open();
@@ -2189,56 +2195,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   const msgs = $('#msgs');
   let activity = null;
   const cards = new Map(); // id → carte de validation affichée
-  // ---------- Mise en forme des réponses (Markdown sûr : on construit le DOM, jamais d'innerHTML) ----------
-  function mdInline(s) {
-    const out = [], re = /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*)|(__[^_\n]+?__)|(\[[^\]\n]+\]\(https?:\/\/[^\s)]+\))|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?])|((?:^|(?<=[\s(]))\*[^*\s][^*\n]*?\*(?=[\s.,;:!?)]|$))/g;
-    let i = 0, m;
-    while ((m = re.exec(s))) {
-      if (m.index > i) out.push(s.slice(i, m.index));
-      const x = m[0];
-      if (m[1]) out.push(el('code', {}, x.slice(1, -1)));
-      else if (m[2] || m[3]) out.push(el('strong', {}, ...mdInline(x.slice(2, -2))));
-      else if (m[4]) { const k = x.match(/^\[([^\]]+)\]\((.+)\)$/); out.push(el('a', { href: k[2], target: '_blank', rel: 'noopener noreferrer' }, k[1])); }
-      else if (m[5]) out.push(el('a', { href: x, target: '_blank', rel: 'noopener noreferrer' }, x.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60)));
-      else out.push(el('em', {}, x.slice(1, -1)));
-      i = m.index + x.length;
-    }
-    if (i < s.length) out.push(s.slice(i));
-    return out;
-  }
-  function md(text) {
-    const root = el('div', { class: 'md' }), lines = String(text).replace(/\r/g, '').split('\n');
-    let list = null, para = [];
-    const flush = () => { if (para.length) { root.append(el('p', {}, ...mdInline(para.join('\n')))); para = []; } };
-    const endList = () => { list = null; };
-    for (let k = 0; k < lines.length; k++) {
-      const l = lines[k];
-      const fence = l.match(/^\s*```(\w[\w+-]*)?\s*$/);
-      if (fence) { flush(); endList(); const code = []; k++; while (k < lines.length && !/^\s*```\s*$/.test(lines[k])) code.push(lines[k++]);
-        const pre = el('pre', { class: 'code' }, el('code', {}, code.join('\n')));
-        pre.append(el('button', { class: 'copy', type: 'button', title: 'Copier', onclick: (e) => { navigator.clipboard?.writeText(code.join('\n')); e.target.textContent = 'Copié'; setTimeout(() => e.target.textContent = 'Copier', 1200); } }, 'Copier'));
-        if (fence[1]) pre.dataset.lang = fence[1]; root.append(pre); continue; }
-      if (/^\s*\|.*\|\s*$/.test(l) && /^\s*\|[\s:|-]+\|\s*$/.test(lines[k + 1] || '')) { flush(); endList();
-        const cells = (r) => r.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
-        const head = cells(l); k += 2; const body = []; while (k < lines.length && /^\s*\|.*\|\s*$/.test(lines[k])) body.push(cells(lines[k++])); k--;
-        root.append(el('div', { class: 'tblw' }, el('table', {}, el('thead', {}, el('tr', {}, ...head.map((h) => el('th', {}, ...mdInline(h))))), el('tbody', {}, ...body.map((r) => el('tr', {}, ...r.map((c) => el('td', {}, ...mdInline(c))))))))); continue; }
-      const h = l.match(/^\s*(#{1,4})\s+(.+?)\s*#*\s*$/);
-      if (h) { flush(); endList(); root.append(el(h[1].length <= 2 ? 'h3' : 'h4', {}, ...mdInline(h[2]))); continue; }
-      if (/^\s*([-*_])\s*\1\s*\1[\s\1]*$/.test(l)) { flush(); endList(); root.append(el('hr')); continue; }
-      const q = l.match(/^\s*>\s?(.*)$/);
-      if (q) { flush(); endList(); const last = root.lastElementChild; if (last?.tagName === 'BLOCKQUOTE') last.append(el('br'), ...mdInline(q[1])); else root.append(el('blockquote', {}, ...mdInline(q[1]))); continue; }
-      const li = l.match(/^(\s*)([-*•]|\d+[.)])\s+(.+)$/);
-      if (li) { flush(); const tag = /\d/.test(li[2]) ? 'ol' : 'ul', sub = li[1].length >= 2;
-        let host = root; if (sub && list?.lastElementChild) { const p = list.lastElementChild; host = p.querySelector(':scope > ul, :scope > ol') || p.appendChild(el(tag)); host.append(el('li', {}, ...mdInline(li[3]))); continue; }
-        if (!list || list.tagName.toLowerCase() !== tag) { list = el(tag); if (tag === 'ol' && /^\d+/.test(li[2]) && li[2] !== '1.' && li[2] !== '1)') list.start = parseInt(li[2]); root.append(list); }
-        list.append(el('li', {}, ...mdInline(li[3]))); continue; }
-      if (!l.trim()) { flush(); endList(); continue; }
-      if (list && /^\s{2,}\S/.test(l)) { list.lastElementChild?.append(' ', ...mdInline(l.trim())); continue; }
-      endList(); para.push(l);
-    }
-    flush();
-    return root;
-  }
+  // ---------- Mise en forme des réponses ----------
+  // Un seul moteur pour toute l'interface (Discussion, infobulle d'Odin, notifications) : pages/rendu.js (Markdown sûr,
+  // tableaux, images, son, vidéo, logos des applis, résultats de Pythie). Pas encore chargé : le texte brut, sans HTML.
+  function md(text) { return window.OdinRendu ? window.OdinRendu.md(text) : el('div', { class: 'md' }, el('p', {}, String(text))); }
   // Fin de réponse « décidé sans te déranger » / « Odin Breaker » : encart repliable, pas un pavé dans la réponse.
   function splitFooter(text) {
     const i = text.search(/\n\n(🛡 Décidé sans te déranger|⚡ Odin Breaker :)/);
@@ -2324,6 +2284,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     else if (e.type === 'blocked') row('ko', el('span', { class: 'ic' }, '⛔'), `${nice(e.name)} : ${e.reason}`);
     else if (e.type === 'compacted') row('', el('span', { class: 'ic' }, '♻'), 'contexte résumé');
     else if (e.type === 'learned') row('info', el('span', { class: 'ic' }, '🧠'), 'appris : ' + e.facts.join(' · '));
+    else if (e.type === 'consulte') { row('info', el('span', { class: 'ic' }, '🧠'), 'Cerveau consulté : ' + [...new Set(e.etapes.map((x) => x.versNom))].slice(0, 8).join(' → ')); if (!activity._n) { activity.querySelector('.at').textContent = 'Odin consulte son Cerveau…'; return; } }
     else if (e.type === 'skill_proposed') row('info', el('span', { class: 'ic' }, '💡'), e.active ? `compétence apprise et active : ${e.name}` : `compétence proposée : ${e.name}`);
     else if (e.type === 'decision' && e.allowed && e.via === 'breaker') row('info', el('span', { class: 'ic' }, '⚡'), 'Breaker : ', el('code', {}, e.summary.slice(0, 120)));
     else if (e.type === 'decision' && e.allowed && (e.via === 'mimir' || e.via === 'grant')) row('info', el('span', { class: 'ic' }, '🛡'), 'décidé seul : ', el('code', {}, e.summary.replace(/^\$\s*/, '').slice(0, 120)));
@@ -2510,7 +2471,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         el('details', { class: 'cmenu' }, el('summary', { 'aria-label': 'Options de la conversation', title: 'Options' }, '⋯'),
           el('div', { class: 'cpop' },
             el('button', { type: 'button', onclick: () => api('/api/action', { kind: 'conv_pin', peer: c.peer, on: !c.pinned }) }, c.pinned ? 'Désépingler' : 'Épingler'),
-            el('button', { type: 'button', onclick: () => { const n = prompt('Nom de la conversation', c.title || ''); if (n != null) api('/api/action', { kind: 'conv_rename', peer: c.peer, title: n }); } }, 'Renommer'),
+            el('button', { type: 'button', onclick: async () => { const n = await OdinDialog.prompt('Nom de la conversation', c.title || ''); if (n != null) api('/api/action', { kind: 'conv_rename', peer: c.peer, title: n }); } }, 'Renommer'),
             el('button', { type: 'button', onclick: (e) => { e.target.closest('details').open = false; openExport(c.peer, c.title || 'Conversation avec Odin'); } }, 'Exporter…'),
             el('hr'),
             el('button', { type: 'button', class: 'danger', onclick: (e) => { e.target.closest('details').open = false; askDelete(c.peer, c.title || 'cette conversation'); } }, 'Supprimer')))));
@@ -2560,7 +2521,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const r = await api('/api/action', { kind: 'mission_trace', id }); if (!r.ok) { say(r.error, [], 4000); return; }
     const icon = { demande: '💬', outil: '⚙', résultat: '↳', réponse: '🤖' };
     const list = el('div', { class: 'tl' }, ...r.items.map((x) => el('div', { class: 'tli ' + x.kind }, el('span', { class: 'tlt' }, new Date(x.at).toLocaleTimeString('fr-FR')), el('span', {}, `${icon[x.kind] || '•'} ${x.text}`))));
-    const und = r.undos.length ? el('div', { class: 'svcs' }, el('h3', { style: 'margin:10px 0 0' }, 'Fichiers modifiés'), ...r.undos.map((u) => el('div', { class: 'svc2' }, el('span', { class: 'mono', style: 'flex:1;overflow-wrap:anywhere' }, u.path), u.undone ? el('span', { class: 'dim' }, 'annulé') : el('button', { class: 'btn small', type: 'button', onclick: async (e) => { if (!confirm(`Remettre ${u.path} dans son état d'avant ?`)) return; const x = await api('/api/action', { kind: 'undo', id: u.id }); e.target.replaceWith(el('span', { class: 'dim' }, x.ok ? '✓ annulé' : x.error)); } }, 'Annuler')))) : null;
+    const und = r.undos.length ? el('div', { class: 'svcs' }, el('h3', { style: 'margin:10px 0 0' }, 'Fichiers modifiés'), ...r.undos.map((u) => el('div', { class: 'svc2' }, el('span', { class: 'mono', style: 'flex:1;overflow-wrap:anywhere' }, u.path), u.undone ? el('span', { class: 'dim' }, 'annulé') : el('button', { class: 'btn small', type: 'button', onclick: async (e) => { if (!(await OdinDialog.confirm(`Remettre ${u.path} dans son état d'avant ?`))) return; const x = await api('/api/action', { kind: 'undo', id: u.id }); e.target.replaceWith(el('span', { class: 'dim' }, x.ok ? '✓ annulé' : x.error)); } }, 'Annuler')))) : null;
     const dlg = el('dialog', { class: 'stdlg' }, el('h2', {}, r.mission.goal.slice(0, 120)), el('div', { class: 'sub' }, `${r.mission.status} · ${r.mission.steps} étape(s) · ${r.mission.cost_usd.toFixed(3)} $`), list, und, el('form', { method: 'dialog' }, el('button', { class: 'btn primary' }, 'Fermer')));
     document.body.append(dlg); dlg.showModal(); dlg.addEventListener('close', () => dlg.remove());
   }
@@ -2601,7 +2562,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('td', { 'data-label': 'Liens' }, (x.web || []).length ? el('div', { class: 'dlinks' }, x.web.map((w) => el('a', { class: 'dlink', href: w.url, target: '_blank', rel: 'noopener noreferrer', title: w.url }, '↗ ', linkName(w, x.web)))) : el('span', { class: 'dim' }, '—')),
       el('td', { 'data-label': 'Ports' }, x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('span', { class: 'dim' }, '—')),
       el('td', { 'data-label': 'État' }, el('span', { class: 'dst ' + x.status }, st)),
-      el('td', { style: 'white-space:nowrap' }, el('button', { class: 'btn small ibtn', type: 'button', title: 'Identifier à fond (nom, système, version, partages)', 'aria-label': 'Identifier ' + x.label, onclick: () => identify(x) }, '🔍'), ' ', el('button', { class: 'btn small ibtn', type: 'button', title: 'Renommer', 'aria-label': 'Renommer ' + x.label, onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, '✎')));
+      el('td', { style: 'white-space:nowrap' }, el('button', { class: 'btn small ibtn', type: 'button', title: 'Identifier à fond (nom, système, version, partages)', 'aria-label': 'Identifier ' + x.label, onclick: () => identify(x) }, '🔍'), ' ', el('button', { class: 'btn small ibtn', type: 'button', title: 'Renommer', 'aria-label': 'Renommer ' + x.label, onclick: async () => { const l = await OdinDialog.prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, '✎')));
   }
   for (const b of document.querySelectorAll('[data-nf]')) b.addEventListener('click', () => { netFilter = b.dataset.nf; for (const x of document.querySelectorAll('[data-nf]')) x.setAttribute('aria-pressed', String(x === b)); renderDevices(); });
   $('#netSearch').addEventListener('input', () => renderDevices());
@@ -2626,7 +2587,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       x.portNames?.length ? el('div', { class: 'dports' }, x.portNames.map((p) => el('span', { class: 'port', title: p.service }, el('b', {}, p.port), ' ', p.service))) : el('div', { class: 'dline dim' }, 'Ports : lance un balayage complet pour les voir.'),
       actions.length ? el('details', { class: 'dacts' }, el('summary', {}, `Ce qu'Odin peut faire (${actions.length})`), el('ul', {}, actions.map((l) => el('li', {}, l.action, ' — ', el('span', { class: 'mono' }, l.how))))) : null,
       el('div', { class: 'dfoot' }, el('span', {}, x.mac ? el('span', { class: 'mono' }, x.mac) : '', ` · vu ${fmt(x.last_seen)}`),
-        el('span', { style: 'display:flex;gap:6px' }, el('button', { class: 'btn small', type: 'button', onclick: () => identify(x) }, 'Identifier'), el('button', { class: 'btn small', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'))));
+        el('span', { style: 'display:flex;gap:6px' }, el('button', { class: 'btn small', type: 'button', onclick: () => identify(x) }, 'Identifier'), el('button', { class: 'btn small', type: 'button', onclick: async () => { const l = await OdinDialog.prompt('Nom de cet appareil', x.label); if (l != null) await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } }, 'Renommer'))));
   }
   // Identification approfondie : nom d'hôte, système et version, modèle, ports, partages et fichiers.
   async function identify(x) {
@@ -2722,7 +2683,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
           !editing && m.origin === 'untrusted' ? el('button', { class: 'btn small', type: 'button', onclick: () => api('/api/action', { kind: 'memory_vouch', id: m.id }) }, 'C\'est vrai') : null,
           !editing ? el('button', { class: 'btn small', type: 'button', title: m.pinned ? 'Odin pourra de nouveau le ranger' : 'Important : Odin ne le modifiera ni ne l\'oubliera', onclick: () => api('/api/action', { kind: 'memory_pin', id: m.id, on: !m.pinned }) }, m.pinned ? 'Désépingler' : '📌 Épingler') : null,
           !editing ? el('button', { class: 'btn small', type: 'button', onclick: () => { memEditing = m.id; renderMemory(); setTimeout(() => $('.memedit')?.focus(), 0); } }, 'Modifier') : null,
-          !editing ? el('button', { class: 'btn small danger', type: 'button', onclick: () => confirm('Faire oublier ce souvenir à Odin ?') && api('/api/action', { kind: 'memory_forget', id: m.id }) }, 'Oublier') : null));
+          !editing ? el('button', { class: 'btn small danger', type: 'button', onclick: async () => (await OdinDialog.confirm('Faire oublier ce souvenir à Odin ?', { danger: true })) && api('/api/action', { kind: 'memory_forget', id: m.id }) }, 'Oublier') : null));
     };
     const box = $('#memGroups'); if (!box) return;
     if (memEditing && document.activeElement?.classList.contains('memedit')) return; // ne pas effacer une modification en cours
@@ -2838,8 +2799,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('div', { style: 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px' },
         F.btn('Enregistrer', async () => { setSt(stt, await api('/api/action', { kind: 'skill_edit', name: s.name, body: ta.value, description: desc.value }), '✓ Nouvelle version active.'); }, true),
         F.btn('Tester (essai)', () => { close(); show('chat'); $('#input').value = `Teste la compétence ${s.name} en mode essai (dry_run) et dis-moi ce qu'elle ferait.`; grow(); $('#input').focus(); }),
-        F.btn('Version précédente', async () => { if (confirm('Revenir à la version précédente ?')) { setSt(stt, await api('/api/action', { kind: 'skill_rollback', name: s.name }), '✓ Version précédente remise.'); } }),
-        F.btn('Ranger', async () => { if (confirm(`Ranger « ${s.name} » ? (récupérable dans le dossier _archive)`)) { await api('/api/action', { kind: 'skill_archive', name: s.name }); close(); } }),
+        F.btn('Version précédente', async () => { if (await OdinDialog.confirm('Revenir à la version précédente ?')) { setSt(stt, await api('/api/action', { kind: 'skill_rollback', name: s.name }), '✓ Version précédente remise.'); } }),
+        F.btn('Ranger', async () => { if (await OdinDialog.confirm(`Ranger « ${s.name} » ? (récupérable dans le dossier _archive)`)) { await api('/api/action', { kind: 'skill_archive', name: s.name }); close(); } }),
         el('form', { method: 'dialog' }, el('button', { class: 'btn' }, 'Fermer'))));
     document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal();
   }
@@ -2860,9 +2821,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         el('form', { method: 'dialog' }, el('button', { class: 'btn' }, 'Fermer'))));
     document.body.append(dlg); dlg.addEventListener('close', () => dlg.remove()); dlg.showModal();
   }
-  $('#sk-all').addEventListener('click', async () => { if (!confirm(`Approuver les ${state.drafts.length} brouillons ?`)) return; const r = await api('/api/action', { kind: 'skill_approve_all' }); say(`✓ ${r.count} compétence(s) activée(s).`, [], 3000); });
+  $('#sk-all').addEventListener('click', async () => { if (!(await OdinDialog.confirm(`Approuver les ${state.drafts.length} brouillons ?`))) return; const r = await api('/api/action', { kind: 'skill_approve_all' }); say(`✓ ${r.count} compétence(s) activée(s).`, [], 3000); });
   $('#sk-import').addEventListener('click', async () => {
-    const src = prompt('Où sont les compétences d\'Hermes ?\n• pct:7700 — conteneur Proxmox (sur la machine d\'Odin)\n• pct:7700@nom-du-proxmox — via l\'hôte Proxmox enregistré dans Droits et machines\n• machine:nom — une machine du réseau\n• /chemin/vers/skills — un dossier de cette machine', 'pct:7700@pve');
+    const src = await OdinDialog.prompt('Où sont les compétences d\'Hermes ?\n• pct:7700 — conteneur Proxmox (sur la machine d\'Odin)\n• pct:7700@nom-du-proxmox — via l\'hôte Proxmox enregistré dans Droits et machines\n• machine:nom — une machine du réseau\n• /chemin/vers/skills — un dossier de cette machine', 'pct:7700@pve');
     if (!src) return;
     moodHold('concentration'); say('Import des compétences…', [], 20000);
     const r = await api('/api/action', { kind: 'skill_import', source: src }); moodRelease();
@@ -2870,12 +2831,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   });
   function renderJobs() {
     $('#jobs').replaceChildren(...state.jobs.map((j) => el('tr', {}, el('td', { class: 'mono' }, j.cron === '@reminder' ? '🔔 rappel' : j.cron), el('td', {}, j.prompt), el('td', {}, fmt(j.next_run)),
-      el('td', {}, el('button', { class: 'btn small danger', onclick: () => confirm('Supprimer cette tâche ?') && api('/api/action', { kind: 'cron_remove', id: j.id }) }, 'Supprimer')))));
+      el('td', {}, el('button', { class: 'btn small danger', onclick: async () => (await OdinDialog.confirm('Supprimer cette tâche ?', { danger: true })) && api('/api/action', { kind: 'cron_remove', id: j.id }) }, 'Supprimer')))));
     if (!state.jobs.length) $('#jobs').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune tâche planifiée.')));
   }
   const AUTO_TXT = { prudent: 'Prudent : Odin te demande pour chaque action soumise à validation.', equilibre: 'Équilibré : Odin décide seul la routine, te demande pour l\'important et le grave.', autonome: 'Autonome : Odin décide seul la routine et l\'important, ne te demande que pour le grave.', breaker: '⚡ Odin Breaker : Odin ne te demande plus rien ; il agit, note tout et te fait un rapport le soir.' };
-  for (const b of document.querySelectorAll('[data-auto]')) b.addEventListener('click', () => {
-    if (b.dataset.auto === 'breaker' && state.autonomy !== 'breaker' && !confirm('Activer Odin Breaker ? Odin ne te demandera plus rien, même pour les actions graves. Il restera bloqué seulement face aux commandes destructrices connues et aux contenus piégés.')) return;
+  for (const b of document.querySelectorAll('[data-auto]')) b.addEventListener('click', async () => {
+    if (b.dataset.auto === 'breaker' && state.autonomy !== 'breaker' && !await OdinDialog.confirm('Activer Odin Breaker ? Odin ne te demandera plus rien, même pour les actions graves. Il restera bloqué seulement face aux commandes destructrices connues et aux contenus piégés.')) return;
     api('/api/action', { kind: 'set_autonomy', autonomy: b.dataset.auto });
   });
   let brkSchedule = 'always';
@@ -3137,7 +3098,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // ---------- Barre de commande (Ctrl K, « / ») : un écran, un réglage, une action, ou une demande ----------
   const palette = $('#palette'), palIn = $('#palIn'), palList = $('#palList');
   let palItems = [], palSel = 0;
-  const VIEWS = [['home', 'Aujourd\'hui'], ['chat', 'Discussion'], ['net', 'Maison et réseau'], ['settings', 'Réglages'], ['missions', 'Activité et missions'], ['memory', 'Mémoire'], ['skills', 'Compétences et scripts'], ['jobs', 'Tâches planifiées'], ['audit', 'Journal des décisions']];
+  const VIEWS = [['home', 'Aujourd\'hui'], ['chat', 'Discussion'], ['net', 'Maison et réseau'], ['settings', 'Réglages'], ['missions', 'Activité et missions'], ['brain', 'Cerveau (notes, fiches des applis)'], ['memory', 'Cerveau : souvenirs (mémoire)'], ['skills', 'Compétences et scripts'], ['jobs', 'Tâches planifiées'], ['audit', 'Journal des décisions']];
   const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   function palSource() {
     const out = [];
@@ -3242,14 +3203,14 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const cat = NET_CATS.find((c) => c[0] === x.kind) || ['', '•', x.kind];
     $('#devTitle').textContent = `${cat[1]} ${mapName(x, true)}`;
     $('#devSub').replaceChildren(el('span', { class: 'dst ' + x.status }, x.status === 'online' ? 'en ligne' : 'hors ligne'), ` ${cat[2] || x.kind} · `, el('span', { class: 'mono' }, x.ip), x.mac ? el('span', { class: 'mono dim' }, ` · ${x.mac}`) : '');
-    $('#devActs').replaceChildren(el('button', { class: 'hbtn', type: 'button', onclick: () => identify(x) }, el('span', { class: 'hl' }, '🔍 Identifier à fond')), el('button', { class: 'hbtn', type: 'button', onclick: async () => { const l = prompt('Nom de cet appareil', x.label); if (l != null) { await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } } }, el('span', { class: 'hl' }, 'Renommer')), starBtn(x),
+    $('#devActs').replaceChildren(el('button', { class: 'hbtn', type: 'button', onclick: () => identify(x) }, el('span', { class: 'hl' }, '🔍 Identifier à fond')), el('button', { class: 'hbtn', type: 'button', onclick: async () => { const l = await OdinDialog.prompt('Nom de cet appareil', x.label); if (l != null) { await api('/api/action', { kind: 'device_label', id: x.id, label: l }); } } }, el('span', { class: 'hl' }, 'Renommer')), starBtn(x),
       el('button', { class: 'hbtn', type: 'button', onclick: () => { show('chat'); $('#input').value = `À propos de l'appareil ${mapName(x, true)} (${x.ip}) : `; grow(); $('#input').focus(); } }, el('span', { class: 'hl' }, 'Demander à Odin')));
     const more = fetchMore || !renderDevicePage.cache || renderDevicePage.cache.id !== x.id ? await api('/api/action', { kind: 'device_page', id: x.id }) : renderDevicePage.cache.r;
     renderDevicePage.cache = { id: x.id, r: more };
     if (more.blocked) $('#devSub').append(' ', el('span', { class: 'pill bad' }, `bloqué depuis ${fmt(more.blocked)}`));
     if (!more.isRouter && x.mac) $('#devActs').append(el('button', { class: 'hbtn' + (more.blocked ? '' : ' danger'), type: 'button', title: more.router ? 'Sur la box, par son adresse MAC' : 'Il faut d\'abord enregistrer l\'accès à la box', onclick: async (e) => {
       const on = !more.blocked;
-      if (!confirm(on ? `Bloquer ${mapName(x, true)} (${x.mac}) sur la box ? Il n'aura plus accès à Internet ni au reste du réseau. Tu pourras le réautoriser ici.` : `Réautoriser ${mapName(x, true)} sur la box ?`)) return;
+      if (!await OdinDialog.confirm(on ? `Bloquer ${mapName(x, true)} (${x.mac}) sur la box ? Il n'aura plus accès à Internet ni au reste du réseau. Tu pourras le réautoriser ici.` : `Réautoriser ${mapName(x, true)} sur la box ?`, { danger: on })) return;
       e.currentTarget.disabled = true; const r = await api('/api/action', { kind: 'device_block', id: x.id, on });
       say(r.ok ? (on ? 'Appareil bloqué sur la box.' : 'Appareil réautorisé.') : r.error, [], r.ok ? 3000 : 8000); await renderDevicePage(true);
     } }, el('span', { class: 'hl' }, more.blocked ? 'Débloquer' : '⛔ Bloquer sur la box')));
@@ -3528,9 +3489,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('form', { class: 'svc2', onsubmit: (e) => { e.preventDefault(); go('vault_unlock', 'vb-pw', 'vb-st', '✓ Déverrouillé : Odin redémarre ses fonctions.'); } }, pw('vb-pw', 'Mot de passe du coffre'), el('button', { class: 'btn primary', type: 'submit' }, 'Déverrouiller')), F.status('vb-st')))] : []));
     $('#vaultBox').replaceChildren(el('h2', {}, 'Coffre (mot de passe maître)'),
       el('p', { class: 'sub', style: 'margin:0' }, 'Facultatif. Chiffre sur le disque les clés, jetons et mots de passe d\'Odin : même quelqu\'un qui copie le disque ne peut pas les lire. Contrepartie : après chaque redémarrage, tu dois déverrouiller depuis l\'Accueil (Odin te le demande), sinon il ne peut rien utiliser. Ne perds pas ce mot de passe : sans lui, il faudra tout ressaisir.'),
-      V === 'off' ? el('div', { class: 'svc2' }, pw('vc-new', 'Nouveau mot de passe (10 caractères mini)'), F.btn('Activer le coffre', () => { if (val('vc-new').length < 10) return stx('#vc-st', { ok: false, error: '10 caractères au moins' }); if (confirm('Activer le coffre ? Après chaque redémarrage, il faudra le déverrouiller.')) go('vault_enable', 'vc-new', 'vc-st', '✓ Coffre activé : les secrets sont chiffrés.'); }, true))
+      V === 'off' ? el('div', { class: 'svc2' }, pw('vc-new', 'Nouveau mot de passe (10 caractères mini)'), F.btn('Activer le coffre', async () => { if (val('vc-new').length < 10) return stx('#vc-st', { ok: false, error: '10 caractères au moins' }); if (await OdinDialog.confirm('Activer le coffre ? Après chaque redémarrage, il faudra le déverrouiller.')) go('vault_enable', 'vc-new', 'vc-st', '✓ Coffre activé : les secrets sont chiffrés.'); }, true))
         : V === 'locked' ? el('p', { class: 'sub' }, '🔒 Verrouillé — déverrouille-le depuis l\'Accueil.')
-        : el('div', { class: 'svc2' }, el('span', { class: 'sub' }, '🔓 Ouvert.'), F.btn('Verrouiller maintenant', () => go('vault_lock', '', 'vc-st', '✓ Verrouillé.')), pw('vc-old', 'Mot de passe'), F.btn('Désactiver', () => confirm('Remettre les secrets en clair (fichiers lisibles par toi seul) ?') && go('vault_disable', 'vc-old', 'vc-st', '✓ Coffre désactivé.'))),
+        : el('div', { class: 'svc2' }, el('span', { class: 'sub' }, '🔓 Ouvert.'), F.btn('Verrouiller maintenant', () => go('vault_lock', '', 'vc-st', '✓ Verrouillé.')), pw('vc-old', 'Mot de passe'), F.btn('Désactiver', async () => (await OdinDialog.confirm('Remettre les secrets en clair (fichiers lisibles par toi seul) ?', { danger: true })) && go('vault_disable', 'vc-old', 'vc-st', '✓ Coffre désactivé.'))),
       F.status('vc-st'));
     const origin = location.origin;
     $('#more-raccourci').replaceChildren(el('h2', {}, 'Parler à Odin depuis Siri, Android ou Home Assistant'),
@@ -3540,7 +3501,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         el('li', {}, 'Android : app HTTP Shortcuts (ou Tasker), même adresse, même en-tête ; relie-la à l\'Assistant avec « Ok Google, lance Odin ».'),
         el('li', {}, 'Home Assistant : rest_command vers la même adresse. Et Odin peut parler sur tes enceintes (outil « ha_speak ») une fois la Maison reliée.')),
       el('p', { class: 'sub' }, 'Il faut que le téléphone puisse joindre Odin (même Wi-Fi, ou accès extérieur ci-dessus). La clé d\'API sert seulement aux programmes : elle ne remplace pas ton mot de passe dans un navigateur.'),
-      F.row(F.btn('Copier la clé', async () => { const tk = await currentToken(); try { await navigator.clipboard.writeText(tk); say('Clé d\'API copiée. Garde-la secrète : elle donne accès à Odin.', [], 4000); } catch { prompt('Clé d\'API (garde-la secrète)', tk); } })));
+      F.row(F.btn('Copier la clé', async () => { const tk = await currentToken(); try { await navigator.clipboard.writeText(tk); say('Clé d\'API copiée. Garde-la secrète : elle donne accès à Odin.', [], 4000); } catch { await OdinDialog.prompt('Clé d\'API (garde-la secrète)', tk); } })));
   }
   // ---------- Ton compte : identité, mot de passe, appareils connectés ----------
   async function renderAccount() {
@@ -3608,7 +3569,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       T.running ? el('div', { class: 'warn-box' }, `✓ Actif (${T.kind}) : `, T.url ? el('a', { href: T.url, target: '_blank', rel: 'noopener' }, T.url) : 'adresse en attente', ' — ajoute ton jeton (lien personnel) la première fois.') : T.error ? el('div', { class: 'warn-box bad' }, T.error) : null,
       ...kinds.map(([k, name, desc]) => el('div', { class: 'svc2' }, el('b', { style: 'min-width:100px' }, name), el('span', { class: 'sub', style: 'flex:1' }, desc),
         T.available[k] ? (T.running && T.kind === k ? F.btn('Arrêter', async () => { await api('/api/action', { kind: 'tunnel_stop' }); }) : F.btn('Activer', async () => { $('#tn-st').textContent = 'Activation…'; const r = await api('/api/action', { kind: 'tunnel_start', tkind: k }); stx('#tn-st', r, `✓ ${r.url || 'actif'}`); }, true))
-          : F.btn('Installer', async () => { if (!confirm(`Installer ${name} sur la machine d'Odin ?`)) return; $('#tn-st').textContent = 'Installation (quelques minutes)…'; const r = await api('/api/action', { kind: 'tunnel_install', tkind: k }); stx('#tn-st', r, `✓ ${name} installé. ${k === 'tailscale' ? 'Connecte-le à ton compte (lien affiché par « sudo tailscale up » sur la machine), puis Activer.' : 'Clique sur Activer.'}`); }))),
+          : F.btn('Installer', async () => { if (!(await OdinDialog.confirm(`Installer ${name} sur la machine d'Odin ?`))) return; $('#tn-st').textContent = 'Installation (quelques minutes)…'; const r = await api('/api/action', { kind: 'tunnel_install', tkind: k }); stx('#tn-st', r, `✓ ${name} installé. ${k === 'tailscale' ? 'Connecte-le à ton compte (lien affiché par « sudo tailscale up » sur la machine), puis Activer.' : 'Clique sur Activer.'}`); }))),
       F.status('tn-st')].filter(Boolean));
   }
 
@@ -3623,7 +3584,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const ask = async (a, faire, extra = {}) => {
       tell('Un instant…');
       let x = await api('/api/ports', { appli: a.id, faire, ...extra });
-      if (x.confirm) { if (!confirm(x.confirm)) return tell('Annulé : rien n\'a changé.'); x = await api('/api/ports', { appli: a.id, faire, ...extra, confirm: true }); }
+      if (x.confirm) { if (!(await OdinDialog.confirm(x.confirm, { danger: true }))) return tell('Annulé : rien n\'a changé.'); x = await api('/api/ports', { appli: a.id, faire, ...extra, confirm: true }); }
       if (!x.ok) return tell(`✗ ${x.error || x.text || 'refusé'}`, false);
       // Tu regardais Odin par ce port même : la page te suit sur le nouveau port (ou revient à l'interface s'il n'y en a plus).
       if (a.port && location.port === String(a.port) && x.appli?.port !== a.port) { tell(x.text, true); return setTimeout(() => { location.port = String(x.appli?.port || I.port); }, 900); }
@@ -3764,7 +3725,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'net', nt: 'pve', optional: true, q: '#v-net .ntabs [data-nt="pve"]', t: 'Proxmox : tes machines virtuelles et conteneurs. Je peux les démarrer, les arrêter, les sauvegarder et les mettre à jour.' },
     ] },
     { name: 'Ce que j\'apprends', steps: [
-      { v: 'memory', q: ['#v-memory .head', '#v-memory .body'], t: 'Ma mémoire : ce que je sais de toi et de chez toi, rangé par thème. Je la range moi-même chaque nuit. Épingle ce qui compte, corrige-moi, ou fais-moi oublier.' },
+      { v: 'memory', q: ['#brMem', '#v-brain .head'], t: 'Mes souvenirs sont dans le Cerveau, rubrique Souvenirs : ce que je sais de toi et de chez toi, rangé par thème. Je les range moi-même chaque nuit. Épingle ce qui compte, corrige-moi, ou fais-moi oublier. La recherche du Cerveau les trouve aussi.' },
       { v: 'skills', q: ['#v-skills .head', '#v-skills .body'], t: 'Mes compétences et mes scripts : j\'apprends de chaque mission et je m\'améliore. Tu relis et tu approuves ce que je propose.' },
     ] },
     { name: 'Me configurer', steps: [
@@ -3787,7 +3748,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       { v: 'settings', sec: 'agenda', q: S('agenda'), t: 'Agenda : je connais tes rendez-vous, je te les rappelle et j\'en ajoute quand tu me le demandes.' },
       { v: 'settings', sec: 'documents', q: S('documents'), t: 'Documents : j\'indexe tes dossiers, ou ceux de ton NAS, pour retrouver n\'importe quel document en un mot.' },
       { v: 'settings', sec: 'ecriture', q: S('ecriture'), t: 'Écriture : je corrige tes fautes, je te donne des conseils et je me promène dans la discussion. Tout se règle ici.' },
-      { v: 'settings', sec: 'apparence', q: S('apparence'), t: 'Apparence : mes 20 thèmes, mes clics (dix clics me cachent partout) et les fêtes de l\'année, chacune avec son thème.' },
+      { v: 'settings', sec: 'apparence', q: S('apparence'), t: 'Apparence : mes 33 thèmes (automatiques : la fête du jour, puis le temps, la température, et sinon l\'heure selon mon humeur), mes clics (dix clics me cachent partout) et les fêtes de l\'année, chacune avec son thème.' },
       { v: 'settings', sec: 'acces', q: S('acces'), t: 'Accès : pour m\'utiliser depuis l\'extérieur de chez toi, en toute sécurité, et gérer les appareils de confiance.' },
       { v: 'settings', sec: 'plus', q: S('plus'), t: 'Plus : les fonctions que tu n\'utilises pas encore apparaissent ici. C\'est aussi ici que tu peux revoir cette présentation.' },
     ] },
@@ -4179,21 +4140,18 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     }
     if (/sources?\s*:|https?:\/\//.test(s)) acts.push({ label: 'Approfondis', run: () => askOdin('Approfondis ce sujet avec d\'autres sources, et dis ce qui reste incertain.') });
     if (a.length > 700) acts.push({ label: 'Résume en 3 points', run: () => askOdin('Résume ta dernière réponse en 3 points.') });
-    if (u && a && !acts.length) {
-      line.push('On continue sur ce sujet ?');
-      acts.push({ label: 'Va plus loin', primary: true, run: () => askOdin('Va plus loin sur ce sujet : quelle est la prochaine étape utile ? Fais-la.') });
-      acts.push({ label: 'Planifie-le', run: () => askOdin('Fais-en une tâche planifiée qui revient au bon rythme.') });
-    }
     if (!acts.length) {
-      // Pas de conversation : ce qui compte chez toi en ce moment.
+      // Rien de précis dans sa dernière réponse : le moteur de parole d'Odin (parole.ts) dit ce qui compte maintenant, jamais deux fois la même chose.
       const off = (state?.devices || []).filter((d) => d.status !== 'online' && (state.watch?.cfg?.devices || []).includes(d.id));
       const unknown = (state?.devices || []).filter((d) => d.status === 'online' && !d.label && !d.name && !d.hostname).length;
-      line.push('Qu\'est-ce qu\'on fait ?');
-      if (off.length) acts.push({ label: `${mapName(off[0])} est hors ligne`, primary: true, run: () => askOdin(`${mapName(off[0], true)} (${off[0].ip}) est hors ligne : regarde pourquoi et relance-le si tu peux.`) });
-      if (unknown) acts.push({ label: `Identifier ${unknown} appareil${unknown > 1 ? 's' : ''}`, run: () => askOdin('Identifie les appareils sans nom de mon réseau et donne-leur un nom clair.') });
-      acts.push({ label: 'Point du jour', primary: !acts.length, run: () => askOdin('Fais-moi le point du jour : réseau, machines, ce qui mérite mon attention.') });
-      acts.push({ label: 'Quoi de neuf', run: () => window.OdinGuide?.news() });
-      acts.push({ label: 'Visite guidée', run: () => window.OdinTour?.start(true) });
+      const faits = [...off.slice(0, 2).map((d) => ({ texte: `${mapName(d)} est hors ligne.`, label: 'Regarde pourquoi', demander: `${mapName(d, true)} (${d.ip}) est hors ligne : regarde pourquoi et relance-le si tu peux.` })),
+        ...(unknown ? [{ texte: `${unknown} appareil${unknown > 1 ? 's' : ''} sans nom sur ton réseau.`, label: 'Identifie-les', demander: 'Identifie les appareils sans nom de mon réseau et donne-leur un nom clair.' }] : [])];
+      window.OdinGuide?.parole?.('toucher', { faits, astuces: TIPS }).then((r) => {
+        if (!r || (!r.texte && !r.propositions?.length)) return;
+        moodFlash('joie', 2000);
+        say(r.texte || 'Une idée :', (r.propositions || []).slice(0, 3).map((p, i) => ({ label: p.label, primary: i === 0, run: () => (p.demander ? askOdin(p.demander) : window.OdinGuide.lancer(p)) })), 20000);
+      });
+      return;
     }
     moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000);
     say(line.filter(Boolean).join(' ') || 'Une idée :', acts.slice(0, 4), 20000);
@@ -4266,7 +4224,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (out) { away = true; goHome(); if (bud.getBoundingClientRect().top > innerHeight - 20) { pos = { x: 0, y: 0 }; applyPos(); try { localStorage.removeItem('odin.budpos'); } catch {} } }
   }, 1500);
   // Il se promène quand il s'ennuie (partout dans la discussion, puis revient), et donne parfois un conseil spontané.
-  let idleSince = Date.now();
+  let idleSince = Date.now(), lastTipAt = 0;
   for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { idleSince = Date.now(); }, { passive: true });
   setInterval(() => {
     const A = ASSIST(); if (!$('#v-chat').classList.contains('on') || busy || !tip.hidden || drag) return;
@@ -4282,7 +4240,12 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       else goHome();
       setTimeout(() => { if (Date.now() - idleSince > 20_000 && Math.random() < .5) goHome(); }, 6000 + Math.random() * 3000);
     }
-    if (A.tips && idle > 90_000 && Math.random() < .15) { idleSince = Date.now(); goHome(); say(TIPS[Math.floor(Math.random() * TIPS.length)], [], 12000); }
+    // Conseil spontané : après 90 s sans rien faire, au plus une fois toutes les 10 minutes ; le moteur de parole
+    // choisit ce qui est neuf et utile (alertes, mémoire, conseils jamais donnés) ou se tait. Plus de tirage au hasard.
+    if (A.tips && idle > 90_000 && Date.now() - lastTipAt > 600_000) {
+      idleSince = lastTipAt = Date.now();
+      window.OdinGuide?.parole?.('spontane', { astuces: TIPS }).then((r) => { if (!r?.texte) return; goHome(); say(r.texte, (r.propositions || []).slice(0, 2).map((p) => ({ label: p.label, run: () => (p.demander ? askOdin(p.demander) : window.OdinGuide.lancer(p)) })), 12000); });
+    }
   }, 5000);
   // Réglages « Écriture »
   let assistLoaded = false;
@@ -4416,7 +4379,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     $('#vo-trash').replaceChildren(...(T.length ? [el('b', {}, `Corbeille (${T.length})`), ...T.slice(0, 20).map((x) => el('div', { class: 'row' },
       el('span', {}, `${(x.title || 'Conversation').slice(0, 60)} · ${x.messages} message(s) · supprimée le ${new Date(x.deleted).toLocaleDateString('fr-FR')}`),
       el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/action', { kind: 'conv_restore', peer: x.peer }); say('Conversation remise.', [], 2500); } }, 'Remettre'))),
-      el('div', {}, el('button', { class: 'btn small', type: 'button', style: 'color:var(--bad);border-color:var(--bad)', onclick: async () => { if (!confirm('Effacer pour de bon les conversations de la corbeille ?')) return; const r = await api('/api/action', { kind: 'conv_trash_empty' }); say(r.info || 'Corbeille vidée.', [], 3000); } }, 'Vider la corbeille'))]
+      el('div', {}, el('button', { class: 'btn small', type: 'button', style: 'color:var(--bad);border-color:var(--bad)', onclick: async () => { if (!(await OdinDialog.confirm('Effacer pour de bon les conversations de la corbeille ?', { danger: true }))) return; const r = await api('/api/action', { kind: 'conv_trash_empty' }); say(r.info || 'Corbeille vidée.', [], 3000); } }, 'Vider la corbeille'))]
       : [el('span', { class: 'hint' }, 'Corbeille vide. Une conversation supprimée y reste 7 jours.')]));
     $('#vo-badge').hidden = !V.localOnly;
     if (voDirty) return;
@@ -4537,7 +4500,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     box.replaceChildren(...(list.length ? [el('b', {}, 'Accords notés'), ...list.map((c) => el('div', { class: 'svc2' },
       el('span', { style: 'flex:1' }, el('b', {}, c.nom), el('div', { class: 'sub' }, `${c.de === 'autre' ? `voix de ${c.personne}, avec son accord` : 'ta voix'} · noté le ${new Date(c.at).toLocaleDateString('fr-FR')}${c.actuelle ? ' · Odin parle avec' : ''}${c.aVerifier && !c.retire ? ' · à vérifier sur elevenlabs.io' : ''}${c.retire ? ` · accord retiré le ${new Date(c.retire).toLocaleDateString('fr-FR')}${c.effacee ? ', voix effacée' : ', pas encore effacée chez ElevenLabs'}` : ''}`)),
       c.retire && c.effacee ? null : el('button', { class: 'btn small', type: 'button', style: 'color:var(--bad);border-color:var(--bad)', onclick: async (e) => {
-        if (!confirm(c.retire ? `Réessayer d'effacer « ${c.nom} » chez ElevenLabs ?` : `Retirer l'accord pour « ${c.nom} » ? Odin ne parlera plus avec cette voix, et elle sera effacée chez ElevenLabs.`)) return;
+        if (!await OdinDialog.confirm(c.retire ? `Réessayer d'effacer « ${c.nom} » chez ElevenLabs ?` : `Retirer l'accord pour « ${c.nom} » ? Odin ne parlera plus avec cette voix, et elle sera effacée chez ElevenLabs.`)) return;
         e.target.disabled = true; st('#v-status', 'Retrait de l\'accord…');
         let x; try { x = await api('/api/voice/retirer', { id: c.id }); } catch { x = { ok: false, error: 'Odin ne répond pas : réessaie dans un instant.' }; }
         st('#v-status', x.ok ? `✓ ${x.text}` : x.error, Boolean(x.ok)); voicesLoaded = false; refresh(); loadCopies();
@@ -4586,7 +4549,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('td', {}, el('div', {}, m.label), el('div', { class: 'sub' }, `${m.host}${m.port !== 22 ? ':' + m.port : ''}`)),
       el('td', { class: 'sub' }, `${m.user}${m.keyInstalled ? ' · clé SSH' : ''}${m.hasPassword ? ' · mot de passe' : ''}`),
       el('td', { class: 'sub' }, m.lastOk ? `✓ ${fmt(m.lastOk)}` : 'jamais testée'),
-      el('td', {}, el('button', { class: 'btn small', type: 'button', onclick: () => act({ kind: 'machine_test', id: m.id }) }, 'Tester'), ' ', el('button', { class: 'btn small danger', type: 'button', onclick: () => { if (confirm(`Retirer ${m.label} ? Odin n'y aura plus accès.`)) act({ kind: 'machine_remove', id: m.id }, 'Machine retirée.'); } }, 'Retirer')))));
+      el('td', {}, el('button', { class: 'btn small', type: 'button', onclick: () => act({ kind: 'machine_test', id: m.id }) }, 'Tester'), ' ', el('button', { class: 'btn small danger', type: 'button', onclick: async () => { if (await OdinDialog.confirm(`Retirer ${m.label} ? Odin n'y aura plus accès.`, { danger: true })) act({ kind: 'machine_remove', id: m.id }, 'Machine retirée.'); } }, 'Retirer')))));
     if (!R.machines.length) $('#r-machines').append(el('tr', {}, el('td', { colspan: 4, class: 'empty' }, 'Aucune machine pour l\'instant.')));
     const known = new Set(R.machines.map((m) => m.host));
     const sug = (R.suggestions || []).filter((d) => !known.has(d.host));
@@ -4623,7 +4586,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       el('td', {}, el('select', { onchange: (e) => act({ kind: 'user_save', id: u.id, name: u.name, role: e.target.value, autonomy: u.autonomy }) }, ...Object.entries(ROLE_FR).map(([v, t]) => el('option', { value: v, selected: v === u.role ? '' : null }, t)))),
       el('td', {}, u.role === 'member' ? el('select', { onchange: (e) => act({ kind: 'user_save', id: u.id, name: u.name, role: u.role, autonomy: e.target.value }) }, ...Object.entries(AUTO_FR).map(([v, t]) => el('option', { value: v, selected: v === u.autonomy ? '' : null }, t))) : '—'),
       el('td', { class: 'sub' }, u.identities.length ? u.identities.map((i) => el('div', {}, `${i.channel}:${i.peer} `, el('button', { class: 'btn small', title: 'Détacher', onclick: () => act({ kind: 'user_unlink', channel: i.channel, peer: i.peer }) }, '×'))) : 'aucune'),
-      el('td', {}, el('button', { class: 'btn small danger', onclick: () => { if (confirm(`Retirer ${u.name} ?`)) act({ kind: 'user_delete', id: u.id }); } }, 'Retirer')))));
+      el('td', {}, el('button', { class: 'btn small danger', onclick: async () => { if (await OdinDialog.confirm(`Retirer ${u.name} ?`, { danger: true })) act({ kind: 'user_delete', id: u.id }); } }, 'Retirer')))));
     if (!P.users.length) $('#peopleTable').append(el('tr', {}, el('td', { colspan: 5, class: 'empty' }, 'Personne d\'autre que toi pour l\'instant.')));
   }
   $('#p-add').addEventListener('click', async () => {
@@ -4651,7 +4614,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const file = $('#bk-file').files[0], password = $('#bk-pw2').value;
     if (!file) return st('#bk-status', 'Choisis un fichier .odinbk.', false);
     if (!password) return st('#bk-status', 'Entre le mot de passe du fichier.', false);
-    if (!confirm('Remplacer la configuration, les clés et la mémoire actuelles par cette sauvegarde ?')) return;
+    if (!(await OdinDialog.confirm('Remplacer la configuration, les clés et la mémoire actuelles par cette sauvegarde ?', { danger: true }))) return;
     st('#bk-status', 'Restauration…');
     const r = await (await fetch('/api/restore', { method: 'POST', headers: { 'content-type': 'application/octet-stream', 'x-odin': '1', 'x-odin-password': encodeURIComponent(password) }, body: file })).json();
     st('#bk-status', r.ok ? `✓ ${r.files} fichiers restaurés. Odin redémarre ses services…` : r.error, Boolean(r.ok));
@@ -4686,8 +4649,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const https = accessMode === 'wan' ? !$('#a-proxy').checked : accessMode === 'lan' && $('#a-https').checked;
     const port = Number($('#a-port').value) || state.settings.web.port;
     const local = /^(127\.|localhost$|\[?::1\]?$)/.test(location.hostname);
-    if (accessMode === 'local' && !local && !confirm('Tu vas perdre l\'accès depuis cet appareil. Continuer ?')) return;
-    if (accessMode === 'wan' && !confirm('Ouvrir Odin à Internet ? Toute personne qui obtient ton lien avec jeton pourra le piloter.')) return;
+    if (accessMode === 'local' && !local && !(await OdinDialog.confirm('Tu vas perdre l\'accès depuis cet appareil. Continuer ?', { danger: true }))) return;
+    if (accessMode === 'wan' && !(await OdinDialog.confirm('Ouvrir Odin à Internet ? Toute personne qui obtient ton lien avec jeton pourra le piloter.', { danger: true }))) return;
     st('#a-status', 'Enregistrement…');
     const r = await api('/api/action', { kind: 'settings_save', section: 'access', access: accessMode, https, networks: $('#a-nets').value.trim(), behindProxy: $('#a-proxy').checked, publicUrl: $('#a-public').value.trim(), cert: $('#a-cert').value.trim(), key: $('#a-key').value.trim(), port });
     if (!r.ok) return st('#a-status', r.error || 'Erreur', false);
@@ -4719,7 +4682,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const t = $('#a-tok'); t.hidden = false; t.value = (r.links || []).join('\n'); t.select();
   });
   $('#a-rotate').addEventListener('click', async () => {
-    if (!confirm('Créer une nouvelle clé d\'API ? Les raccourcis et les programmes qui utilisent l\'ancienne ne marcheront plus. (Ta connexion par mot de passe ne change pas.)')) return;
+    if (!await OdinDialog.confirm('Créer une nouvelle clé d\'API ? Les raccourcis et les programmes qui utilisent l\'ancienne ne marcheront plus. (Ta connexion par mot de passe ne change pas.)')) return;
     const r = await api('/api/action', { kind: 'token_rotate' });
     st('#a-status', r.ok ? '✓ Nouvelle clé d\'API créée. Recopie-la dans tes raccourcis (bouton « Copier la clé »).' : (r.error || 'Erreur'), Boolean(r.ok));
   });
@@ -4936,6 +4899,22 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   }
   function liveEnd() { live?.remove(); live = null; liveText = ''; }
 
+  // ---------- « Odin consulte » : le chemin suivi dans le Cerveau s'allume pendant la réponse ----------
+  // Même mécanisme que les échanges entre applis (graph.js) : chaque étape (Odin → note, note → note liée, Odin → appli,
+  // appli → appli d'un usage connu) part dans l'ordre, puis l'information « revient » vers Odin tant qu'il rédige.
+  // La réponse arrivée (ou au bout de 90 s) : un dernier retour, et le chemin s'éteint de lui-même.
+  const consultEtat = { etapes: [], partis: 0, t: 0, fin: 0, minuteurs: [] };
+  function consulte(etapes) {
+    const E = window.OdinGraph?.echanges; if (!E) return;
+    const now = () => new Date().toISOString(), retour = () => E.recevoir(consultEtat.etapes.slice(0, consultEtat.partis).map((e) => ({ ...e, action: 'consulter', phase: 'reponse', ok: true, at: now() })));
+    if (!etapes) { if (consultEtat.etapes.length) retour(); clearInterval(consultEtat.t); consultEtat.minuteurs.forEach(clearTimeout); consultEtat.etapes = []; return; }
+    if (!Array.isArray(etapes) || !etapes.length) return;
+    clearInterval(consultEtat.t); consultEtat.minuteurs.forEach(clearTimeout);
+    consultEtat.etapes = etapes.filter((e) => e && typeof e.de === 'string' && typeof e.vers === 'string').slice(0, 24); consultEtat.fin = Date.now() + 90_000;
+    consultEtat.partis = 0;
+    consultEtat.minuteurs = consultEtat.etapes.map((e, i) => setTimeout(() => { consultEtat.partis = i + 1; E.recevoir({ ...e, action: 'consulter', phase: 'demande', ok: true, at: now() }); }, i * 260));
+    consultEtat.t = setInterval(() => { if (Date.now() > consultEtat.fin) return consulte(null); retour(); }, 2600);
+  }
   // ---------- Flux temps réel ----------
   let everOpened = false;
   function connect() {
@@ -4955,6 +4934,9 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') { addActivity(d.event); moodFromEvent(d.event); }
       else if (d.type === 'refresh') refresh();
       if (d.type === 'notice') window.OdinNotices?.push(d.notice);
+      if (d.type === 'echange' || d.type === 'echanges') window.OdinGraph?.echanges?.recevoir(d.echange ?? d.list, d.maintenant); // liens qui brillent entre applis
+      if (d.type === 'event' && d.peer === peer && d.event.type === 'consulte') consulte(d.event.etapes); // le chemin suivi dans le Cerveau
+      if (d.type === 'message' && d.peer === peer) consulte(null);
       if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) window.OdinNotices?.local({ kind: 'Odin a besoin de toi', title: d.event.summary || 'Une validation est demandée.', steps: ['Ouvre la Discussion : Odin t\'explique ce qu\'il veut faire.', 'Accepte ou refuse : rien ne part sans toi.'], page: { view: 'chat' } });
     };
     es.onopen = () => { if (everOpened) refresh(); everOpened = true; window.OdinNotices?.boot?.(); };

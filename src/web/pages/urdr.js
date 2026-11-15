@@ -89,7 +89,7 @@
   function studio(root, redraw) {
     const left = el('div', { class: 'ur-left' },
       el('input', { type: 'search', placeholder: 'Chercher une table…', 'aria-label': 'Chercher une table', value: S.find, oninput: (e) => { S.find = e.target.value; list.replaceChildren(...items()); } }));
-    const items = () => S.tables.filter((t) => !S.find || t.name.toLowerCase().includes(S.find.toLowerCase())).map((t) => el('button', { class: 'ur-t', type: 'button', 'aria-current': String(t.name === S.table), onclick: async () => { if (nPending() && !confirm('Des modifications ne sont pas enregistrées : les abandonner ?')) return; Object.assign(S, { table: t.name, filters: [], sort: '', page: 1, pending: {}, sel: null }); await redraw(true); } }, ic('table', 14), el('span', {}, t.name), el('small', {}, fmtN(t.rows))));
+    const items = () => S.tables.filter((t) => !S.find || t.name.toLowerCase().includes(S.find.toLowerCase())).map((t) => el('button', { class: 'ur-t', type: 'button', 'aria-current': String(t.name === S.table), onclick: async () => { if (nPending() && !(await window.OdinDialog.confirm('Des modifications ne sont pas enregistrées : les abandonner ?'))) return; Object.assign(S, { table: t.name, filters: [], sort: '', page: 1, pending: {}, sel: null }); await redraw(true); } }, ic('table', 14), el('span', {}, t.name), el('small', {}, fmtN(t.rows))));
     const list = el('div', { style: 'display:flex;flex-direction:column;gap:2px' }, ...items());
     left.append(list);
     if (!S.tables.length) left.append(el('p', { class: 'sub' }, S.base ? 'Aucune table dans cette base.' : 'Choisis une base.'));
@@ -120,7 +120,7 @@
             const c = d.columns[ci], info = colInfo(c), changed = p && Object.hasOwn(p.ch, c), shown = changed ? p.ch[c] : v;
             const td = el('td', { class: [shown === null ? 'null' : '', info?.pk ? 'mono' : '', info?.ref && !changed ? 'fk' : '', changed ? 'edit' : ''].filter(Boolean).join(' '), title: shown ?? 'vide (NULL)' },
               shown === null ? 'NULL' : shown, changed ? el('em', {}, `(était : ${v ?? 'NULL'})`) : null);
-            if (info?.ref && !changed) td.addEventListener('click', async () => { if (v === null) return; if (nPending() && !confirm('Des modifications ne sont pas enregistrées : les abandonner ?')) return; Object.assign(S, { table: info.ref.table, filters: [{ col: info.ref.column, op: '=', value: v }], sort: '', page: 1, pending: {}, sel: null }); await redraw(true); });
+            if (info?.ref && !changed) td.addEventListener('click', async () => { if (v === null) return; if (nPending() && !(await window.OdinDialog.confirm('Des modifications ne sont pas enregistrées : les abandonner ?'))) return; Object.assign(S, { table: info.ref.table, filters: [{ col: info.ref.column, op: '=', value: v }], sort: '', page: 1, pending: {}, sel: null }); await redraw(true); });
             if (canEdit && !info?.pk) td.addEventListener('dblclick', () => editCell(td, k, c, v, shown, redraw));
             td.tabIndex = canEdit && !info?.pk ? 0 : -1;
             td.addEventListener('keydown', (e) => { if (e.key === 'Enter' && canEdit && !info?.pk) { e.preventDefault(); editCell(td, k, c, v, shown, redraw); } });
@@ -162,14 +162,14 @@
   async function save(btn, redraw) {
     const list = Object.values(S.pending), n = nPending();
     const what = list.map((p) => `${Object.values(JSON.parse(p.key)).join(', ')} : ${Object.entries(p.ch).map(([c, v]) => `${c} ${p.old[c] ?? 'NULL'} → ${v ?? 'NULL'}`).join(' ; ')}`).join('\n');
-    if (!confirm(`Écrire ${n} modification${n > 1 ? 's' : ''} dans ${S.table} (${S.base}) ?\n\n${what}`)) return;
+    if (!(await window.OdinDialog.confirm(`Écrire ${n} modification${n > 1 ? 's' : ''} dans ${S.table} (${S.base}) ?\n\n${what}`))) return;
     btn.disabled = true; const errs = [];
     for (const p of list) {
       const r = await act('modifier', { base: S.base, table: S.table, cle: p.key, changements: JSON.stringify(p.ch) }, true);
       if (r.ok) delete S.pending[p.key]; else errs.push(r.text || r.error);
     }
     window.OdinApps?.toastMsg?.(errs.length ? errs.join('\n') : 'Enregistré.');
-    await redraw(true); if (errs.length) alert(errs.join('\n'));
+    await redraw(true); if (errs.length) await window.OdinDialog.alert(errs.join('\n'));
   }
 
   function addRow(redraw) {
@@ -183,7 +183,7 @@
       const ok = dlg.returnValue === 'oui', v = {}; for (const c of cols) { const x = f.elements[c.name]?.value; if (x) v[c.name] = x; } dlg.remove();
       if (!ok) return;
       const r = await act('ajouter_ligne', { base: S.base, table: S.table, valeurs: JSON.stringify(v) }, true);
-      if (!r.ok) alert(r.text || r.error); await redraw(true);
+      if (!r.ok) await window.OdinDialog.alert(r.text || r.error); await redraw(true);
     });
   }
 
@@ -210,8 +210,8 @@
       });
     }
     if (editable()) box.append(el('button', { class: 'btn small', type: 'button', style: 'margin-top:6px;color:#e0457b', onclick: async () => {
-      if (!confirm(`Supprimer cette ligne de ${S.table} (${Object.values(JSON.parse(S.sel)).join(', ')}) ?\nSkuld sauvegarde la base juste avant.`)) return;
-      const r = await act('supprimer_ligne', { base: S.base, table: S.table, cle: S.sel }, true); if (!r.ok) alert(r.text || r.error); S.sel = null; delete S.pending[S.sel]; await redraw(true);
+      if (!(await window.OdinDialog.confirm(`Supprimer cette ligne de ${S.table} (${Object.values(JSON.parse(S.sel)).join(', ')}) ?\nSkuld sauvegarde la base juste avant.`, { danger: true }))) return;
+      const r = await act('supprimer_ligne', { base: S.base, table: S.table, cle: S.sel }, true); if (!r.ok) await window.OdinDialog.alert(r.text || r.error); S.sel = null; delete S.pending[S.sel]; await redraw(true);
     } }, 'Supprimer la ligne'));
     return box;
   }
@@ -224,7 +224,7 @@
     const go = async () => {
       S.sql = ed.value.trim(); if (!S.sql) return;
       let r = await act('sql', { base: S.base, requete: S.sql });
-      if (r.confirm) { if (!confirm(`${r.confirm}\n\nSkuld sauvegarde la base juste avant.`)) return; r = await act('sql', { base: S.base, requete: S.sql }, true); }
+      if (r.confirm) { if (!(await window.OdinDialog.confirm(`${r.confirm}\n\nSkuld sauvegarde la base juste avant.`, { danger: true }))) return; r = await act('sql', { base: S.base, requete: S.sql }, true); }
       S.res = r; draw(); await logBox();
     };
     ed.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } });
@@ -248,7 +248,7 @@
     root.append(el('div', { class: 'ur-sql' }, el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' }, ed,
       el('div', { class: 'ur-bar' }, el('button', { class: 'btn small primary', type: 'button', onclick: go }, ic('play', 13), ' Lancer'),
         el('button', { class: 'btn small', type: 'button', onclick: () => ask(`Explique-moi simplement cette requête SQL (base ${S.base}) :\n${ed.value}`) }, 'Expliquer la requête'),
-        el('button', { class: 'btn small', type: 'button', onclick: () => { const w = prompt('Que veux-tu obtenir ? (Odin écrit la requête)'); if (w) ask(`Écris-moi une requête SQL en lecture pour la base ${S.base}${S.tables.length ? ` (tables : ${S.tables.map((t) => t.name).join(', ')})` : ''} : ${w}`); } }, 'Odin, écris-la pour moi'),
+        el('button', { class: 'btn small', type: 'button', onclick: async () => { const w = await window.OdinDialog.prompt('Que veux-tu obtenir ? (Odin écrit la requête)'); if (w) ask(`Écris-moi une requête SQL en lecture pour la base ${S.base}${S.tables.length ? ` (tables : ${S.tables.map((t) => t.name).join(', ')})` : ''} : ${w}`); } }, 'Odin, écris-la pour moi'),
         el('span', { class: 'n' }, 'Ctrl + Entrée pour lancer · lecture seule par défaut')), out), log));
     draw(); logBox();
   }
@@ -264,7 +264,7 @@
     const redraw = async (reload) => {
       try { if (reload === 'tables') await loadTables(); if (reload) await loadRows(); } catch (e) { root.replaceChildren(el('p', { class: 'sub' }, `Connexion impossible : ${e.message}`)); return; }
       const tabs = el('div', { class: 'ur-tabs', role: 'tablist' }, ...[['studio', 'table', 'Studio'], ['sql', 'code', 'SQL'], ['schema', 'link', 'Schéma'], ['bases', 'db', 'Bases']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(false); } }, ic(i, 15), t)));
-      const pick = bases.length > 1 && S.tab !== 'bases' ? el('select', { 'aria-label': 'Base', style: 'margin-left:auto;min-height:38px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px', onchange: async (e) => { if (nPending() && !confirm('Des modifications ne sont pas enregistrées : les abandonner ?')) { e.target.value = S.base; return; } Object.assign(S, { base: e.target.value, table: '', filters: [], sort: '', page: 1, pending: {}, sel: null, res: null }); await redraw('tables'); } }, ...bases.map((b) => el('option', { value: b.id, selected: b.id === S.base }, b.nom))) : null;
+      const pick = bases.length > 1 && S.tab !== 'bases' ? el('select', { 'aria-label': 'Base', style: 'margin-left:auto;min-height:38px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px', onchange: async (e) => { if (nPending() && !(await window.OdinDialog.confirm('Des modifications ne sont pas enregistrées : les abandonner ?'))) { e.target.value = S.base; return; } Object.assign(S, { base: e.target.value, table: '', filters: [], sort: '', page: 1, pending: {}, sel: null, res: null }); await redraw('tables'); } }, ...bases.map((b) => el('option', { value: b.id, selected: b.id === S.base }, b.nom))) : null;
       const cur = bases.find((b) => b.id === S.base);
       root.replaceChildren(el('div', { style: 'display:flex;gap:10px;align-items:center;flex-wrap:wrap' }, tabs, pick, cur && S.tab !== 'bases' && !pick ? el('span', { class: 'sub', style: 'margin-left:auto' }, `${cur.nom}${cur.version ? ` · ${cur.version}` : ''}`) : null));
       if (S.tab === 'bases' || !bases.length) { root.append(...generic); if (!bases.length && S.tab !== 'bases') root.prepend(el('p', { class: 'sub' }, 'Aucune base PostgreSQL pour le Studio : « Créer une base » ou « Relier une base ».')); return; }

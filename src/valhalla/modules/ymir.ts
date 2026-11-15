@@ -11,6 +11,10 @@ import { appPort, reserved } from '../ports.ts';
 import { restartOf } from '../hringhorni/engine.ts';
 import { engine as ctEngine } from './naglfar.ts';
 import { machinesActions, machinesWatch } from '../ymir/machines.ts';
+import { dossierArrivees } from '../ymir/isos.ts';
+import { logicielsHermes, retards, surveillerIsos } from '../ymir/bibliotheque.ts';
+import { Local } from '../ymir/local.ts';
+import { join } from 'node:path';
 
 export interface PveServer { name: string; url: string; token?: string }
 const s = (v: unknown) => String(v ?? '');
@@ -125,6 +129,8 @@ export const ymir: Module = {
     ...machinesActions(),
     { id: 'serveur', label: 'Ajouter un serveur', what: 'Relier un serveur de virtualisation (jeton d\'API dans le coffre)', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'adresse', label: 'Adresse (https://…:8006)', kind: 'text', required: true }], run: (ctx, i) => { const list = ((ctx.settings.servers as PveServer[]) ?? []).filter((x) => x.name !== s(i.nom)); ctx.saveSettings({ servers: [...list, { name: s(i.nom), url: s(i.adresse).trim() }] }); return { text: `🔗 Serveur ${s(i.nom)} ajouté. Range son jeton d'API dans le coffre (${list.length ? `PROXMOX_TOKEN_${s(i.nom).toUpperCase().replace(/[^A-Z0-9]/g, '_')}` : 'PROXMOX_TOKEN'}).` }; } },
   ],
+  // Les ISO envoyées depuis le navigateur arrivent dans l'espace ISO (dossier caché des arrivées), puis passent par l'antivirus.
+  depot: (ctx) => ({ dossier: dossierArrivees(ctx), ref: (nom) => join(dossierArrivees(ctx), nom) }),
   async view(ctx) {
     const p = await parc(ctx).catch(() => ({ units: [] as Unit[], errors: [] as string[] }));
     const { res, errors } = await resources(ctx), nodes = res.filter((r) => r.type === 'node'), vms = res.filter((r) => r.vmid);
@@ -145,6 +151,12 @@ export const ymir: Module = {
   },
   watch: { every: 60, async run(ctx) {
     await machinesWatch(ctx).catch(() => undefined);
+    await surveillerIsos(ctx).catch(() => undefined);
+    // Logiciels d'Hermès installés dans les machines : une nouvelle version → proposée (une fois par version).
+    try {
+      const L = new Local(ctx), avec = L.list().filter((m) => m.logiciels?.length);
+      if (avec.length) { const l = await logicielsHermes(ctx); for (const m of avec) { const r = retards(m, l); if (r.length) ctx.alert({ level: 'moyenne', title: `${m.nom} : ${r.length} logiciel(s) à mettre à jour`, detail: r.map((x) => `${x.nouveau.nom} ${x.installe} → ${x.nouveau.version}`).join(', '), key: `ymir-maj-${m.id}-${r.map((x) => x.nouveau.version).join(',')}`, fix: { action: 'mettre_a_jour_logiciels', input: { machine: m.id }, label: 'Mettre à jour' } }); } }
+    } catch { /* Hermès absent */ }
     const { res } = await resources(ctx); if (!res.length) return;
     const was = (ctx.settings.running as number[] | undefined) ?? [], now = res.filter((r) => r.vmid && r.status === 'running').map((r) => r.vmid!);
     for (const id of was) if (!now.includes(id)) { const r = res.find((x) => x.vmid === id); ctx.alert({ level: 'haute', title: `La machine ${r?.name ?? id} s'est arrêtée`, key: `vm:${id}` }); ctx.emit('vm_arretee', { vmid: id, nom: r?.name }); }

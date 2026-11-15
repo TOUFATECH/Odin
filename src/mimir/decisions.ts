@@ -11,6 +11,7 @@
 // Une panne du juge n'est jamais lue comme un « non » : Heimdall applique alors sa politique de base.
 
 import type { Risk } from '../types.ts';
+import { accord } from '../core/genre.ts';
 import { type Answers, choice, type Judge, yes } from './client.ts';
 import { ACTION_QUESTIONS, INJECTION_QUESTIONS, level, type Level, MEMORY_QUESTIONS, REFLECTION_QUESTIONS, ROUTING_QUESTIONS, YES } from './questions.ts';
 
@@ -156,7 +157,7 @@ export function decideAction(l: ActionLevels, i: Pick<ActionInput, 'risk' | 'tai
   if (l.deletes === 'yes' && l.irreversible !== 'no') return v('important', 'suppression définitive, même demandée');
   if (i.tainted) return v('important', 'la conversation contient du contenu non fiable');
   if (l.requested !== 'yes') return v('important', 'action que tu n\'as pas clairement demandée');
-  if (doubts.length) return v('important', `je ne suis pas sûr de ses effets (${doubts.join(', ')})`);
+  if (doubts.length) return v('important', `je ne suis pas ${accord('sûr', 'sûre')} de ses effets (${doubts.join(', ')})`);
   // Routine : demandée, sans effet risqué. Un message que tu as demandé, sans donnée privée, en fait partie.
   return v('routine', l.sends_out === 'yes' ? 'message demandé par toi, sans donnée privée' : 'demandé par toi, sans effet risqué');
 }

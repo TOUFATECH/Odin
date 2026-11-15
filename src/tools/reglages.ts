@@ -9,6 +9,7 @@
 //  - chaque valeur est vérifiée, et la configuration entière est revalidée avant d'être écrite.
 
 import { setConfigValue, type OdinConfig, type OdinPaths } from '../config.ts';
+import { accord } from '../core/genre.ts';
 import { AUTONOMY_LEVELS, type Autonomy } from '../mimir/decisions.ts';
 import { obj, str, type Tool } from './registry.ts';
 
@@ -27,8 +28,9 @@ interface Rule {
   grave?(v: Value, cur: Value): string | undefined;
 }
 
-const bool = (label: string, help: string, path: [keyof OdinConfig & string, string], grave?: Rule['grave']): Rule => ({
-  label, help, kind: 'bool', grave,
+// (Une aide qui parle d'Odin au masculin ou au féminin se donne en fonction : elle est écrite au moment de la lire.)
+const bool = (label: string, help: string | (() => string), path: [keyof OdinConfig & string, string], grave?: Rule['grave']): Rule => ({
+  label, get help() { return typeof help === 'string' ? help : help(); }, kind: 'bool', grave,
   get: (c) => (c[path[0]] as unknown as Record<string, unknown>)[path[1]] !== false,
   set: (d, v) => { setConfigValue(d.paths, path, v); (d.cfg[path[0]] as unknown as Record<string, unknown>)[path[1]] = v; },
 });
@@ -36,20 +38,20 @@ const bool = (label: string, help: string, path: [keyof OdinConfig & string, str
 export const SETTINGS: Record<string, Rule> = {
   autonomie: {
     label: 'Autonomie', kind: 'enum', values: AUTONOMY_LEVELS,
-    help: 'Jusqu\'où j\'agis seul : prudent (je demande presque tout), equilibre (je demande pour ce qui est grave), autonome (j\'agis et je préviens), breaker (je garde seul mes décisions). Ce qui est grave attend toujours ton accord.',
+    get help() { return `Jusqu'où j'agis ${accord('seul', 'seule')} : prudent (je demande presque tout), equilibre (je demande pour ce qui est grave), autonome (j'agis et je préviens), breaker (je garde ${accord('seul', 'seule')} mes décisions). Ce qui est grave attend toujours ton accord.`; },
     get: (c) => c.mimir.autonomy,
     set: (d, v) => { setConfigValue(d.paths, ['mimir', 'autonomy'], v); d.cfg.mimir.autonomy = v as Autonomy; d.heimdall.setAutonomy(v as Autonomy); },
-    grave: (v, cur) => (AUTONOMY_LEVELS.indexOf(v as Autonomy) > AUTONOMY_LEVELS.indexOf(cur as Autonomy) && AUTONOMY_LEVELS.indexOf(v as Autonomy) >= 2 ? `me laisser agir seul davantage (autonomie « ${String(v)} »)` : undefined),
+    grave: (v, cur) => (AUTONOMY_LEVELS.indexOf(v as Autonomy) > AUTONOMY_LEVELS.indexOf(cur as Autonomy) && AUTONOMY_LEVELS.indexOf(v as Autonomy) >= 2 ? `me laisser agir ${accord('seul', 'seule')} davantage (autonomie « ${String(v)} »)` : undefined),
   },
   mises_a_jour: {
     label: 'Mises à jour d\'Odin', kind: 'enum', values: ['off', 'notify', 'auto'],
-    help: 'off : je ne regarde pas ; notify : je te préviens quand une version sort ; auto : je l\'installe tout seul dès que je ne travaille plus.',
+    get help() { return `off : je ne regarde pas ; notify : je te préviens quand une version sort ; auto : je l'installe ${accord('tout seul', 'toute seule')} dès que je ne travaille plus.`; },
     get: (c) => c.update?.auto ?? 'notify',
     set: (d, v) => { const u = { auto: v as 'off' | 'notify' | 'auto', everyHours: d.cfg.update?.everyHours ?? 6 }; setConfigValue(d.paths, ['update'], u); d.cfg.update = u; },
-    grave: (v, cur) => (v === 'auto' && cur !== 'auto' ? 'me mettre à jour tout seul, sans te demander' : undefined),
+    grave: (v, cur) => (v === 'auto' && cur !== 'auto' ? `me mettre à jour ${accord('tout seul', 'toute seule')}, sans te demander` : undefined),
   },
-  sans_ia_d_abord: bool('Sans IA d\'abord', 'Ce que je sais faire seul n\'est pas confié à une IA (plus rapide, gratuit).', ['routing', 'directFirst']),
-  apprendre_sans_ia: bool('Apprendre à faire sans IA', 'Quand une IA règle une demande par une action (ou quelques-unes à la suite), je la retiens pour la refaire seul : c\'est le Cerveau direct, rangé dans le Cerveau, rubrique Quotidien.', ['learning', 'direct']),
+  sans_ia_d_abord: bool('Sans IA d\'abord', () => `Ce que je sais faire ${accord('seul', 'seule')} n'est pas confié à une IA (plus rapide, gratuit).`, ['routing', 'directFirst']),
+  apprendre_sans_ia: bool('Apprendre à faire sans IA', () => `Quand une IA règle une demande par une action (ou quelques-unes à la suite), je la retiens pour la refaire ${accord('seul', 'seule')} : c'est le Cerveau direct, rangé dans le Cerveau, rubrique Quotidien.`, ['learning', 'direct']),
   moins_cher_d_abord: bool('L\'IA la moins chère qui convient', 'À compétence égale, la demande part vers l\'IA la moins chère.', ['routing', 'cheapestFirst']),
   ia_locale_d_abord: bool('IA installée chez toi d\'abord', 'Les demandes simples partent d\'abord vers l\'IA installée sur ta machine, quand il y en a une.', ['routing', 'preferLocal']),
   ia_forte_si_complexe: bool('IA la plus capable pour le complexe', 'Les demandes difficiles partent vers l\'IA la plus capable.', ['routing', 'strongForComplex']),

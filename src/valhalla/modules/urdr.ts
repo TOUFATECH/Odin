@@ -17,6 +17,8 @@ import { resolve, sep } from 'node:path';
 import { exportMarkdown, exportSql, exportSvg, lireSchema, placer, sqlDe, type Changement, type Positions } from '../urdr/schema.ts';
 import { ACTIONS_BASE } from '../base/actions.ts';
 import { Journal, fichierJsonl } from '../base/journal.ts';
+import { appliDeNom, nomConforme } from '../base/noms.ts';
+import { tablesDe, tracer } from '../base/trace.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export const PG_IMAGE = `postgres:${PG_VERSION}`;
@@ -33,7 +35,12 @@ const journalFile = (ctx: ModCtx) => join(ctx.dir, 'journal.jsonl');
 // Le journal des requêtes : dans la base d'Odin dès qu'elle est prête (journal « requetes »), sinon journal.jsonl.
 const journaux = new WeakMap<ModCtx, Journal<Entry>>();
 const jr = (ctx: ModCtx) => { let j = journaux.get(ctx); if (!j) { mkdirSync(ctx.dir, { recursive: true, mode: 0o700 }); j = new Journal<Entry>('requetes', ctx.dir, { garder: 1000, rangement: fichierJsonl(journalFile(ctx)) }); journaux.set(ctx, j); } return j; };
-function note(ctx: ModCtx, e: Omit<Entry, 'at'>) { jr(ctx).ajouter({ at: ctx.now().toISOString(), ...e, sql: e.sql.slice(0, 2000) }); }
+function note(ctx: ModCtx, e: Omit<Entry, 'at'>) {
+  jr(ctx).ajouter({ at: ctx.now().toISOString(), ...e, sql: e.sql.slice(0, 2000) });
+  // La base d'une appli d'Odin (NOM_ODIN) : la lecture ou l'écriture est aussi notée dans la traçabilité (sans les valeurs).
+  const appli = nomConforme(e.base) ? appliDeNom(e.base) : undefined;
+  if (appli) tracer(ctx.home, { qui: `Odin (Alexandrie${e.by ? `, ${e.by}` : ''})`, appli, base: e.base, tables: tablesDe(e.sql), op: e.write ? 'ecriture' : 'lecture', pourquoi: e.write ? 'modification demandée dans Alexandrie' : 'requête dans Alexandrie', ok: e.ok, quand: ctx.now() });
+}
 export function journal(ctx: ModCtx, n = 50): Entry[] { return jr(ctx).tout().slice(-n).reverse(); }
 
 async function withDb<T>(ctx: ModCtx, name: string, f: (b: Base, d: Awaited<ReturnType<typeof open>>) => Promise<T>): Promise<T> {

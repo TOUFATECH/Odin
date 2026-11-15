@@ -18,6 +18,8 @@ import { aDroit, setVenusUrl, lierProprietaire, messageRefus, nomAppli, noter, p
 import { consommerCode, erreur, issuerDe, json, routeOidc, type DepsSSO } from './oidc.ts';
 import { routeSauvegardes } from './sauvegardes.ts';
 import { routeVenus } from './fiches.ts';
+import { routeComptes } from './comptes.ts';
+import { echangeBus, echangesRecents, type Echange } from '../echanges.ts';
 
 export interface DepsGarde extends DepsSSO {
   /** l'appli du port direct par lequel la requête arrive */ direct?: string;
@@ -66,6 +68,7 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
   const path = url.pathname; setVenusUrl(() => d.venus ?? '');
   // L'interface d'Odin par Persona (Odin est sa propre appli cliente).
   if (path === '/sso/odin' || path === '/sso/odin/retour') return odinParPersona(req, res, url, d);
+  if (await routeComptes(req, res, url, d)) return true;
   if (await routeOidc(req, res, url, d)) return true;
   if (await routeSauvegardes(req, res, url)) return true;
   if (await routeVenus(req, res, url)) return true;
@@ -81,6 +84,14 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
     }
     erreur(res, 403, 'refuse', messageRefus(ctx, d.direct), d.accueil ? { accueil: d.accueil(d.direct) } : {}); return true;
   }
+  // Par l'interface d'Odin (pas un port d'appli) : il faut le droit « odin » (entrer dans Odin). Sans lui (groupe retiré
+  // depuis, ou session ouverte sur le port d'une appli), rien de l'interface ne répond ; la session reste bonne sur le
+  // port de ses applis (le même cookie sert pour tous les ports de la machine).
+  if (!d.direct && !aDroit(ctx, p, 'odin') && (path.startsWith('/api/') || path === '/mcp')) {
+    if (path === '/api/account/logout') { fermerSessionMembre(ctx, m.h); res.setHeader('set-cookie', clearSessionCookie(d.https)); json(res, 200, { ok: true }); return true; }
+    noter(ctx, { login: p.login, ip: d.ip, ok: false, why: 'interface d\'Odin · pas le droit' });
+    erreur(res, 403, 'refuse', messageRefus(ctx, 'odin')); return true;
+  }
   for (const [re, mod] of PAGES) if (re.test(path)) { if (!aDroit(ctx, p, mod)) { erreur(res, 403, 'refuse', messageRefus(ctx, mod)); return true; } return false; }
   if (!path.startsWith('/api/') && path !== '/mcp') return false; // la page d'Odin, ses scripts, ses images
   const meth = req.method ?? 'GET';
@@ -94,9 +105,14 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
     json(res, 200, { ...st, name: full.name, version: full.version, membre: { login: p.login, name: p.name, groups: p.groups } }); return true;
   }
   if (path === '/api/stream' && meth === 'GET') {
-    // Le fil en direct de l'interface porte les messages du propriétaire : un membre reçoit un fil muet (la page ne boucle pas).
+    // Le fil en direct de l'interface porte les messages du propriétaire : un membre reçoit un fil muet (la page ne boucle pas),
+    // sauf les échanges entre deux applis auxquelles il a droit toutes les deux (qui demande quoi à qui, sans les données).
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' }); res.write(': ok\n\n');
-    const ping = setInterval(() => res.write(': ping\n\n'), 25_000); req.on('close', () => clearInterval(ping)); return true;
+    const voit = (id: string) => aDroit(ctx, personnes(ctx).find((x) => x.login === p.login), id);
+    const recents = echangesRecents(voit); if (recents.length) res.write(`data: ${JSON.stringify({ type: 'echanges', maintenant: Date.now(), list: recents })}\n\n`);
+    const surEchange = (e: Echange) => { if (!res.writableEnded && voit(e.de) && voit(e.vers)) res.write(`data: ${JSON.stringify({ type: 'echange', echange: e })}\n\n`); };
+    echangeBus.on('echange', surEchange);
+    const ping = setInterval(() => res.write(': ping\n\n'), 25_000); req.on('close', () => { clearInterval(ping); echangeBus.off('echange', surEchange); }); return true;
   }
   if (!v) { erreur(res, 503, 'indisponible', 'Les applis d\'Odin ne sont pas démarrées.'); return true; }
   const qui = agissantDe(p), ok = (id: string) => aDroit(ctx, p, id);

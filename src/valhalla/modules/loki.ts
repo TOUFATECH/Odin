@@ -10,6 +10,7 @@ import { createServer, isIP, type Server, type Socket } from 'node:net';
 import { join } from 'node:path';
 import { isPrivateV4 } from '../../hlidskjalf/discover.ts';
 import type { ModCtx, Module } from '../types.ts';
+import { journalDe } from '../base/journal.ts';
 
 export interface Trap { id: string; name: string; proto: string; what: string; port: number; udp?: boolean }
 export const TRAPS: Trap[] = [
@@ -59,7 +60,8 @@ export class LokiEngine {
   get file() { return join(this.ctx.dir, 'attaques.jsonl'); }
   record(h: Omit<Hit, 'at'>): void {
     const hit: Hit = { ...h, at: this.ctx.now().toISOString() };
-    appendFileSync(this.file, `${JSON.stringify(hit)}\n`);
+    // Les attaques vues : dans la base de l'appli (SIRENES_ODIN, journal « loki ») dès qu'elle est prête, sinon attaques.jsonl.
+    this.journal().ajouter(hit);
     this.ctx.emit('piege', { piège: h.trap, ip: h.ip, type: h.kind, détail: h.detail });
     const counts = (this.ctx.settings.byIp as Record<string, number> | undefined) ?? {};
     counts[h.ip] = (counts[h.ip] ?? 0) + 1; this.ctx.saveSettings({ byIp: counts });
@@ -179,7 +181,8 @@ export class LokiEngine {
   }
   stop(id?: string): void { for (const [k, s] of [...this.servers]) if (!id || k === id) { try { 'close' in s && (s as Server).close(); } catch { /* déjà fermé */ } this.servers.delete(k); } }
   running(): string[] { return [...this.servers.keys()]; }
-  hits(limit = 300): Hit[] { if (!existsSync(this.file)) return []; return readFileSync(this.file, 'utf8').trim().split('\n').slice(-limit).reverse().flatMap((l) => { try { return [JSON.parse(l) as Hit]; } catch { return []; } }); }
+  private journal() { return journalDe<Hit>(this.ctx, 'loki', 'attaques.jsonl', { garder: 5000 }); }
+  hits(limit = 300): Hit[] { return this.journal().tout().slice(-limit).reverse(); }
 }
 
 let engine: LokiEngine | undefined;

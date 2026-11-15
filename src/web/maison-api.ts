@@ -10,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { understand } from '../valhalla/huginn.ts';
 import { cleanLayout, defaultLayout, type Layout } from '../valhalla/modules/gladsheim.ts';
 import type { Module } from '../valhalla/types.ts';
-import { THEMES, appStates, familyNow, keyRights, memberOf, recordFix, tilesOf, weather, weatherText, wword } from '../valhalla/modules/gladsheim.ts';
+import { LIEU_PAR_DEFAUT, THEMES, appStates, familyNow, keyRights, memberOf, recordFix, regionActuelle, tilesOf, weather, weatherText, wword } from '../valhalla/modules/gladsheim.ts';
 import { cameraNames, preview } from '../valhalla/modules/himinbjorg.ts';
 import { homeDevices, homePeople, homeScenes } from '../valhalla/modules/midgard.ts';
 import { netState } from '../valhalla/modules/vidarr.ts';
@@ -50,6 +50,14 @@ async function maisonPages(v: NonNullable<ReturnType<typeof valhallaOf>>, full: 
     for (const w of p.widgets) {
       const m = w.module ? v.module(w.module) : undefined;
       if (w.kind === 'meteo') { ws.push({ id: w.id, kind: 'meteo', w: w.w, title: w.label || 'Météo' }); continue; }
+      if (w.kind === 'heure') { ws.push({ id: w.id, kind: 'heure', w: w.w, title: w.label || 'Heure et lieu' }); continue; }
+      // Un site surveillé (sonde de Pulsar) : son état, visible de tous les écrans ; l'adresse seulement pour qui a tous les droits.
+      if (w.kind === 'site') {
+        const vw = v.module('vordr') ? await view('vordr') : null, t = vw?.sections.find((x) => x.kind === 'table' && x.title === 'Sondes') as { rows?: Array<{ cells: string[]; tone?: string }> } | undefined;
+        const r = t?.rows?.find((x) => x.cells[0] === w.label);
+        ws.push({ id: w.id, kind: 'site', w: w.w, title: w.label ?? 'Site', sonde: r ? { etat: r.cells[3] ?? '', jour: r.cells[4] ?? '', mois: r.cells[5] ?? '', temps: r.cells[6] ?? '', ...(full ? { cible: r.cells[2] ?? '' } : {}), ...(r.tone ? { tone: r.tone } : {}) } : null });
+        continue;
+      }
       if (!m) continue;
       if (!full && m.family !== 'Maison' && w.kind !== 'bouton') continue;
       if (w.kind === 'bouton') { const f = v.action(m.id, w.action ?? ''); if (!f) continue; const grave = Boolean(f.a.grave?.(w.input ?? {}, v.ctx(m.id))); if (grave && !full) continue; ws.push({ id: w.id, kind: 'bouton', w: w.w, title: w.label || f.a.label, app: m.name, grave }); continue; }
@@ -82,7 +90,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     res.writeHead(200, {
       'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer',
       'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; frame-ancestors ${frame}; base-uri 'none'; form-action 'none'`,
-      'permissions-policy': 'microphone=(self), camera=(), geolocation=(), payment=(), usb=()',
+      'permissions-policy': 'microphone=(self), camera=(), geolocation=(self), payment=(), usb=()',
     });
     res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0e14"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><title>Maison · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>L'écran de la maison a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/mascotte.js"></script><script nonce="${nonce}" src="/app-icons.js"></script><script nonce="${nonce}" src="/alchimie.js"></script><script nonce="${nonce}" src="/ciel.js"></script><script nonce="${nonce}" src="/maison.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
     return true;
@@ -123,7 +131,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     // La fenêtre d'Odin : ses pages marquées « écran de la maison ». Une tablette « maison » ne voit que la météo, les
     // chiffres des applis de la famille Maison et les boutons sans action grave ; ta session (ou une clé « complet ») voit tout.
     const fenetre = await maisonPages(v, full);
-    json(res, 200, { ok: true, fenetre, rights: who.rights, name: d.name, theme: s(g.settings.theme) || 'verre', themes: Object.fromEntries(Object.entries(THEMES).map(([k, x]) => [k, x.label])), weather: w ? { ...w, word: wword(w.code) } : undefined, rooms, scenes: homeScenes(mid).map((x) => x.name), tiles, apps, network, cameras: full ? cameraNames(v.ctx('himinbjorg')) : [], people, mascotte, notices: who.rights === 'complet' ? noticesOf()?.recent(8) ?? [] : [], at: Date.now() });
+    json(res, 200, { ok: true, fenetre, rights: who.rights, name: d.name, theme: s(g.settings.theme) || 'verre', themes: Object.fromEntries(Object.entries(THEMES).map(([k, x]) => [k, x.label])), weather: w ? { ...w, word: wword(w.code) } : undefined, lieu: { nom: s(g.settings.villeNom) || s(g.settings.ville) || LIEU_PAR_DEFAUT, fuseau: s(g.settings.fuseau), heure12: regionActuelle(g).heure === '12h', suppose: g.settings.suppose === true }, rooms, scenes: homeScenes(mid).map((x) => x.name), tiles, apps, network, cameras: full ? cameraNames(v.ctx('himinbjorg')) : [], people, mascotte, notices: who.rights === 'complet' ? noticesOf()?.recent(8) ?? [] : [], at: Date.now() });
     return true;
   }
   // Aperçu d'une caméra (Cyclope) : une image JPEG, rafraîchie par la page.

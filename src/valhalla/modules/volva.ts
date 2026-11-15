@@ -11,8 +11,9 @@ import { politeFetch } from '../../research/fetch.ts';
 import { webSearch, type SearchProvider, type SearchResult } from '../../tools/search.ts';
 import { valhallaOf } from '../odin.ts';
 import { extractive, finish, FOCUS, fuse, parseInstant, parseSearx, parseWikipedia, prompt, toMarkdown, type Focus, type Source } from '../volva/engine.ts';
-import type { ModCtx, Module, Param } from '../types.ts';
+import type { ActionResult, ModCtx, Module, Param } from '../types.ts';
 import { sonDit } from './bragi.ts';
+import { RESULTATS_DEFAUT, RESULTATS_MAX, resultatsMarkdown, resultatsParles, type Affichage, type Sorte } from '../volva/demande.ts';
 
 const s = (v: unknown) => String(v ?? '');
 /** Une réponse telle qu'on la dit : sans les renvois [1] ni les étoiles du gras. */
@@ -71,6 +72,35 @@ export async function volvaResults(q: string, n = 8): Promise<{ engines: string[
   const g = await gather(ctx, q, 'tout', n), src = fuse(g.lists, n);
   if (!src.length) return undefined;
   return { engines: [...new Set(src.flatMap((x) => x.engines))], results: src.map((x) => ({ title: x.title, url: x.url, snippet: `${x.snippet}${x.engines.length > 1 ? ` [${x.engines.join(', ')}]` : ''}` })) };
+}
+
+/**
+ * Depuis la discussion (« fais-moi une recherche sur … ») : les résultats seuls, sans IA, chacun avec son image, son
+ * titre et son texte. 5 par défaut ; un nombre demandé (« montre-moi 10 résultats ») devient le réglage. Sans question :
+ * la dernière recherche, avec le nouveau nombre. En cartes, tableau, liste, dans le navigateur (page /recherche) ou à
+ * voix haute (Orphée) ; pages, vidéos, images ou sons.
+ */
+export async function resultats(ctx: ModCtx, i: Record<string, unknown>): Promise<ActionResult> {
+  const reg = ctx.settings as { nbResultats?: number; derniere?: { q: string; sorte: Sorte } };
+  const voulu = Number(i.n), demande = Number.isFinite(voulu) && voulu >= 1;
+  const n = demande ? Math.min(RESULTATS_MAX, Math.round(voulu)) : Math.max(1, Math.min(RESULTATS_MAX, Number(reg.nbResultats) || RESULTATS_DEFAUT));
+  if (demande && n !== reg.nbResultats) ctx.saveSettings({ nbResultats: n });
+  const so = s(i.sorte) as Sorte, aff = s(i.affichage) as Affichage;
+  let q = s(i.question).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, 400), sorte: Sorte = ['pages', 'videos', 'images', 'sons'].includes(so) ? so : 'pages';
+  if (!q && reg.derniere?.q) { q = reg.derniere.q; if (!so) sorte = reg.derniere.sorte ?? 'pages'; }
+  if (!q) throw new Error('dis-moi ce que je dois chercher');
+  ctx.saveSettings({ derniere: { q, sorte } });
+  if (aff === 'navigateur') { const u = `/recherche?q=${encodeURIComponent(q)}`; return { text: `🔎 La recherche « ${q} » est prête dans Pythie : [Ouvrir dans le navigateur](${u})`, data: { lien: u } }; }
+  const g = await gather(ctx, q, sorte === 'pages' ? 'tout' : sorte, Math.max(n, 8)), src = fuse(g.lists, n);
+  const data = { question: q, sorte, n, sources: src, moteurs: [...new Set(src.flatMap((x) => x.engines))], erreurs: g.errors };
+  const md = resultatsMarkdown(src, { q, sorte, affichage: aff, n });
+  const pied = src.length ? `\n\n*Pour en voir plus : « montre-moi ${Math.min(RESULTATS_MAX, n + 5)} résultats » · autre affichage : « en tableau », « en liste », « dans le navigateur », « à voix haute ».*` : g.errors.length ? `\n(${g.errors.slice(0, 2).join(' ; ')})` : '';
+  if (aff === 'audio' && src.length) {
+    const r = await ctx.call('bragi', 'dire', { texte: resultatsParles(src, q) }, 'lire à voix haute les résultats de Pythie', { interne: true });
+    return r.ok === false ? { text: `${md}\n\nJe n'ai pas pu les lire à voix haute : ${r.text}`, data } : { text: `🔊 Je te lis les résultats.\n\n${md}`, fichiers: r.fichiers, data };
+  }
+  ctx.emit('recherche', { question: q, sources: src.length, moteurs: data.moteurs.join(', ') });
+  return { text: `${md}${pied}`, data };
 }
 
 /** Une recherche complète : moteurs, fusion, lecture des pages, réponse sourcée, suites, applis d'Odin. */
@@ -139,6 +169,9 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         const n = Math.max(1, Math.min(20, Number(i.n) || 8)), g = await gather(ctx, q, 'tout', n), sources = fuse(g.lists, n);
         return { text: sources.map((x) => `[${x.n}] ${x.title} — ${x.url}`).join('\n') || `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}.`, data: { sources, moteurs: activeEngines(ctx), erreurs: g.errors } };
       } },
+      { id: 'resultats', label: 'Résultats en cartes', what: 'Les résultats des moteurs sans IA (5 par défaut, réglable), chacun avec son image, son titre et son texte ; en cartes, tableau, liste, dans le navigateur ou à voix haute ; pages, vidéos, images ou sons', read: true, quick: false,
+        params: [{ key: 'question', label: 'Question (vide : la dernière)', kind: 'textarea', default: '' }, { key: 'n', label: 'Combien (vide : le réglage, 5 par défaut)', kind: 'number' }, { key: 'sorte', label: 'Quoi', kind: 'select', options: ['pages', 'videos', 'images', 'sons'], default: 'pages' }, { key: 'affichage', label: 'Affichage', kind: 'select', options: ['cartes', 'tableau', 'liste', 'navigateur', 'audio'], default: 'cartes' }],
+        run: (ctx, i) => resultats(ctx, i) },
       { id: 'moteurs', label: 'Moteurs', what: 'Ce que chaque moteur demande et s\'il est prêt', read: true, words: ['moteurs de recherche'], run: (ctx) => {
         const act = new Set(activeEngines(ctx));
         return { text: `${Object.entries(ENGINES).map(([k, x]) => `${act.has(k) ? '✅' : ready(ctx, k) ? '⚪' : '⛔'} ${x.label}${!ready(ctx, k) ? ` — il faut ${x.need ?? (x.env ?? []).join(' et ') + ' dans le coffre'}` : ''}${x.note ? ` (${x.note})` : ''}`).join('\n')}\nBing a arrêté son API en août 2025 : il reste joignable par SearXNG.` };

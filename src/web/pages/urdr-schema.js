@@ -16,7 +16,7 @@
   const act = async (action, input = {}, confirm = false) => {
     const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'urdr', action, input, confirm }) });
     const j = await r.json().catch(() => ({ ok: false, text: `Odin répond ${r.status}` }));
-    if (j.confirm && !confirm) return window.confirm(j.confirm) ? act(action, input, true) : { ok: false, text: 'Annulé.' };
+    if (j.confirm && !confirm) return (await window.OdinDialog.confirm(j.confirm, { danger: true })) ? act(action, input, true) : { ok: false, text: 'Annulé.' };
     return j;
   };
   const CSS = `

@@ -14,6 +14,7 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renam
 import { networkInterfaces } from 'node:os';
 import { basename, join } from 'node:path';
 import type { Action, Kpi, ModCtx, Module, Section } from '../types.ts';
+import { journalDe } from '../base/journal.ts';
 import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
 import { debianPreseed, detect, kickstart, menu, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
@@ -29,9 +30,9 @@ import { pxeHook } from '../vidarr/dhcp.ts';
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 type Step = 'démarrage réseau' | 'chargeur' | 'menu' | 'chargement' | 'installation' | 'logiciels' | 'fini' | 'sans nouvelles' | 'échec';
 const FINAL: Step[] = ['fini', 'sans nouvelles', 'échec'];
-export interface IsoInfo { id: string; name: string; path: string; size: number; mtime: number; recipe?: Recipe; err?: string }
+export interface IsoInfo { id: string; name: string; path: string; size: number; mtime: number; recipe?: Recipe; err?: string; /** son état dans la bibliothèque commune (absent : Hydre n'est pas là) */ etat?: 'prête' | 'scannée' | 'ancienne' }
 export interface Rule { mac: string; nom?: string; iso?: string; profil?: string; auto: boolean; fait?: boolean; ajoute: number }
-export interface Profile { id: string; nom: string; utilisateur: string; paquets: string[]; logiciels: string[]; langue: string; clavier: string; fuseau: string }
+export interface Profile { id: string; nom: string; utilisateur: string; paquets: string[]; logiciels: string[]; langue: string; clavier: string; fuseau: string; /** false : pas de compagnon d'Odin à la fin */ compagnon?: boolean }
 export interface Machine { mac: string; ip?: string; fw?: string; iso?: string; isoName?: string; step: Step; steps: Array<{ at: number; step: string; detail?: string }>; started: number; updated: number; host?: string; token?: string; profil?: string; logiciels?: Array<{ nom: string; ok: boolean }> }
 interface Session { token: string; mac: string; iso: string; profil: string; host: string; fw: 'uefi' | 'bios'; created: number; files?: Record<string, string> }
 export interface Done { at: number; mac: string; host?: string; ip?: string; iso: string; isoName: string; profil?: string; ms: number; result: 'fini' | 'échec' | 'sans nouvelles'; logiciels?: Array<{ nom: string; ok: boolean }> }
@@ -59,6 +60,9 @@ const STEP_ICON: Record<Step, string> = { 'démarrage réseau': '🔌', chargeur
 export function thjalfi(): Module {
   let C: ModCtx | undefined; let http: PxeHttp | undefined, tftp: TftpServer | undefined, proxy: ProxyDhcp | undefined;
   const isoCache = new Map<string, IsoInfo>(); const open = new Map<string, Iso>();
+  /** La bibliothèque d'ISO commune (Hydre, Andromède), relue au plus toutes les 5 s. */
+  interface Biblio { at: number; /** les fichiers vus au dernier passage (un dossier qui change est relu tout de suite) */ vu?: string; d?: { images: Array<{ chemin: string; nom: string; etat: 'prête' | 'scannée' | 'ancienne' }>; enCours: Array<{ nom: string; recu: number; total?: number; pct?: number }>; quarantaine: Array<{ nom: string; menace: string }> } }
+  let biblio: Biblio = { at: 0 };
   const ports = (ctx: ModCtx): Ports => ({ http: 16000, tftp: 69, dhcp: 67, pxe: 4011, client: 68, ...(ctx.settings.ports as Partial<Ports> | undefined) });
   const rules = (ctx: ModCtx): Rule[] => (ctx.settings.machines as Rule[] | undefined) ?? [];
   const profiles = (ctx: ModCtx): Profile[] => { const p = (ctx.settings.profils as Profile[] | undefined) ?? []; return p.length ? p : [{ id: 'standard', nom: 'Standard', utilisateur: 'admin', paquets: [], logiciels: [], langue: 'fr_FR.UTF-8', clavier: 'fr', fuseau: 'Indian/Mayotte' }]; };
@@ -70,7 +74,9 @@ export function thjalfi(): Module {
   const secrets = (ctx: ModCtx): { profils?: Record<string, string>; partage?: string } => { try { return JSON.parse(readFileSync(join(ctx.dir, 'secrets.json'), 'utf8')); } catch { return {}; } };
   const saveSecrets = (ctx: ModCtx, x: ReturnType<typeof secrets>) => { mkdirSync(ctx.dir, { recursive: true }); writeFileSync(join(ctx.dir, 'secrets.json'), JSON.stringify(x), { mode: 0o600 }); };
   const histFile = (ctx: ModCtx) => join(ctx.dir, 'historique.jsonl');
-  const history = (ctx: ModCtx, n = 300): Done[] => { try { return readFileSync(histFile(ctx), 'utf8').trim().split('\n').filter(Boolean).slice(-n).map((l) => JSON.parse(l) as Done).reverse(); } catch { return []; } };
+  // L'historique des installations : dans la base de l'appli (GENESE_ODIN, journal « thjalfi ») dès qu'elle est prête, sinon historique.jsonl.
+  const hist = (ctx: ModCtx) => journalDe<Done>(ctx, 'thjalfi', 'historique.jsonl', { garder: 2000 });
+  const history = (ctx: ModCtx, n = 300): Done[] => { try { return hist(ctx).tout().slice(-n).reverse(); } catch { return []; } };
   const stats = (ctx: ModCtx): Record<string, { lances: number; finis: number }> => (ctx.settings.stats as Record<string, { lances: number; finis: number }> | undefined) ?? {};
   const ecranCfg = (ctx: ModCtx): EcranCfg => { const c = { actif: true, parDefaut: false, disposition: 'eventail' as Disposition, attente: 5, ...(ctx.settings.ecran as Partial<EcranCfg> | undefined) }; return { ...c, theme: themeOf(c.theme), texte: textThemeOf(c.texte) }; };
   // Les images de fond choisies par toi (sinon : celles du thème). Texte : PNG 1024 × 768 pour iPXE ; graphique : JPEG.
@@ -149,8 +155,9 @@ export function thjalfi(): Module {
 
   // ---------------- Les ISO (dossier d'Andromède) ----------------
   async function isoRoot(ctx: ModCtx): Promise<string> {
-    if (s(ctx.settings.dossier)) return s(ctx.settings.dossier);
+    // Un seul emplacement : l'espace ISO d'Andromède, partagé avec Hydre (pas de deuxième dossier à régler ici).
     try { const r = await ctx.call('eitri', 'etat', {}, 'lister les ISO à déployer'); const d = (r.data as { dossier?: string } | undefined)?.dossier; if (d) return d; } catch { /* Andromède absent */ }
+    if (s(ctx.settings.dossier)) return s(ctx.settings.dossier);
     return join(ctx.home, 'ISO');
   }
   async function isos(ctx: ModCtx): Promise<IsoInfo[]> {
@@ -172,10 +179,17 @@ export function thjalfi(): Module {
       try { const iso = await Iso.open(i.path); try { i.recipe = await detect(iso); } finally { await iso.close(); } } catch (e) { i.err = (e as Error).message; }
       isoCache.set(key, { ...i });
     }
+    // L'état de chaque image dans la bibliothèque commune (Hydre, Andromède) : seule une image « prête » (complète
+    // ET passée par l'antivirus) est démarrable. Sans Hydre, comme avant : tout ce qui est dans le dossier.
+    const vu = out.map((i) => `${i.path}|${i.size}|${i.mtime}`).join('\n');
+    if (Date.now() - biblio.at > 5000 || biblio.vu !== vu) biblio = { at: Date.now(), vu, d: await ctx.call('ymir', 'isos_pxe', {}, 'images démarrables par le réseau', { interne: true }).then((r) => (r.ok === false ? undefined : r.data as Biblio['d']), () => undefined) };
+    if (biblio.d) { const e = new Map(biblio.d.images.map((x) => [x.chemin.replace(/\\/g, '/'), x.etat])); for (const i of out) i.etat = e.get(i.path.replace(/\\/g, '/')) ?? 'scannée'; }
     return out;
   }
+  /** Démarrable par le réseau : dans la bibliothèque, complète et analysée (ni en cours, ni en quarantaine, ni ancienne). */
+  const prete = (i: IsoInfo) => (i.etat ?? 'prête') === 'prête';
   async function isoById(ctx: ModCtx, id: string): Promise<{ info: IsoInfo; iso: Iso } | undefined> {
-    const info = (await isos(ctx)).find((x) => x.id === id); if (!info) return undefined;
+    const info = (await isos(ctx)).find((x) => x.id === id && prete(x)); if (!info) return undefined;
     let iso = open.get(info.path); if (!iso) { iso = await Iso.open(info.path); open.set(info.path, iso); }
     return { info, iso };
   }
@@ -205,7 +219,7 @@ export function thjalfi(): Module {
   }
   function finish(ctx: ModCtx, m: Machine, result: Done['result']): void {
     const iso = m.iso ?? '?', d: Done = { at: ctx.now().getTime(), mac: m.mac, host: m.host, ip: m.ip, iso, isoName: m.isoName ?? iso, profil: m.profil, ms: ctx.now().getTime() - m.started, result, ...(m.logiciels?.length ? { logiciels: m.logiciels } : {}) };
-    try { mkdirSync(ctx.dir, { recursive: true }); appendFileSync(histFile(ctx), `${JSON.stringify(d)}\n`); } catch { /* disque plein */ }
+    try { hist(ctx).ajouter(d); } catch { /* disque plein */ }
     if (result === 'fini') bump(ctx, iso, 'finis');
   }
 
@@ -231,7 +245,7 @@ export function thjalfi(): Module {
   // ---------------- Le menu, les fichiers, les réponses ----------------
   function bootScript(ctx: ModCtx): string { return `#!ipxe\n# Odin · Genèse\nchain ${base(ctx)}/menu.ipxe?mac=\${netX/mac}&fw=\${platform} || shell\n`; }
   async function menuFor(ctx: ModCtx, mac: string, fw: string, from: string): Promise<string> {
-    const list = (await isos(ctx)).filter((i) => i.recipe), r = rules(ctx).find((x) => x.mac === mac);
+    const list = (await isos(ctx)).filter((i) => i.recipe && prete(i)), r = rules(ctx).find((x) => x.mac === mac);
     track(ctx, mac || undefined, from, 'menu', { fw: fw || undefined });
     let auto: { id: string; token: string; host: string } | undefined, def = s(ctx.settings.defaut) || 'local', timeout = Number(ctx.settings.delai ?? 10);
     if (r?.auto && !r.fait && r.iso) {
@@ -258,7 +272,7 @@ export function thjalfi(): Module {
 
   // ---------------- L'écran d'Odin (choisir sur un téléphone ou un PC du réseau) ----------------
   async function ecranEtat(ctx: ModCtx, mac: string): Promise<Record<string, unknown>> {
-    const list = await isos(ctx), sys = systems(list, stats(ctx)), m = mac ? live(ctx)[mac] : undefined, fw = m?.fw ?? '', ec = ecranCfg(ctx);
+    const list = (await isos(ctx)).filter(prete), sys = systems(list, stats(ctx)), m = mac ? live(ctx)[mac] : undefined, fw = m?.fw ?? '', ec = ecranCfg(ctx);
     for (const i of list) isoNames.set(i.id, i.name);
     const now = ctx.now().getTime(), d = mac ? demandes(ctx).filter((x) => x.mac === mac && (x.statut === 'attente' || now - (x.decide ?? x.at) < 10 * 60_000)).at(-1) : undefined;
     const last = mac ? history(ctx, 300).find((h) => h.mac === mac && h.result === 'fini') : undefined;
@@ -268,7 +282,7 @@ export function thjalfi(): Module {
     if (!mac) return { ok: false, texte: 'Il manque l\'adresse de la machine : ouvre l\'écran depuis le lien affiché par la machine.' };
     const all = choices(ctx), now = ctx.now().getTime();
     if (mode === 'disque') { all[mac] = { iso: '', mode: 'disque', at: now }; saveJson(ctx, 'ecran-choix.json', all); return { ok: true, texte: 'Le PC démarre sur son disque.' }; }
-    const list = await isos(ctx), sys = systems(list, stats(ctx)).find((x) => x.id === iso);
+    const list = (await isos(ctx)).filter(prete), sys = systems(list, stats(ctx)).find((x) => x.id === iso);
     if (!sys) return { ok: false, texte: 'Ce système n\'est plus dans Odin.' };
     if (!['essai', 'installer', 'auto'].includes(mode) || !sys.modes.includes(mode as 'essai')) return { ok: false, texte: `${sys.title} ne se lance pas de cette façon.` };
     if (mode === 'auto') {
@@ -308,7 +322,7 @@ export function thjalfi(): Module {
     const sh = ctx.settings.partage as { unc?: string; utilisateur?: string } | undefined;
     return {
       host: x.host, user: p.utilisateur, password: await profilePassword(ctx, p), locale: p.langue, keymap: p.clavier, timezone: p.fuseau, packages: p.paquets,
-      report: `${base(ctx)}/etat/${x.token}`, repo: `${base(ctx)}/f/${x.iso}/`, mirror: s(ctx.settings.miroir) || undefined,
+      report: `${base(ctx)}/etat/${x.token}`, repo: `${base(ctx)}/f/${x.iso}/`, mirror: s(ctx.settings.miroir) || undefined, compagnon: p.compagnon !== false && ctx.modules().some((m) => m.id === 'hermod'),
       ...(sh?.unc ? { share: { unc: `${sh.unc.replace(/[\\/]+$/, '')}\\.thjalfi\\${x.iso}`, user: sh.utilisateur, password: secrets(ctx).partage } } : {}),
     };
   }
@@ -326,6 +340,12 @@ export function thjalfi(): Module {
       case 'winpeshl.ini': return winpeshl();
       case 'odin.cmd': return a.share ? odinCmd(a) : undefined;
       case 'unattend.xml': return unattend(a, x.fw);
+      // Le compagnon d'Odin de cette machine (un jeton neuf, donné par Satellites) : seulement si le profil le veut.
+      case 'compagnon.sh': case 'w:compagnon.ps1': {
+        if (!a.compagnon) return undefined;
+        const r = await ctx.call('hermod', 'compagnon_script', { poste: x.host, systeme: name === 'compagnon.sh' ? 'linux' : 'windows' }, `compagnon d'Odin sur ${x.host}`, { interne: true }).catch(() => undefined);
+        return (r?.data as { script?: string } | undefined)?.script;
+      }
       case 'w:apres.ps1': {
         const p = profiles(ctx).find((y) => y.id === x.profil) ?? profiles(ctx)[0], files: Record<string, string> = {}, sw: NonNullable<Answer['software']> = [];
         let found: Array<{ source: string; nom: string; version: string; chemin: string }> = [];
@@ -488,11 +508,11 @@ export function thjalfi(): Module {
       }, undo: (i) => ({ action: 'retirer_machine', input: { mac: s(i.mac) }, label: 'Retirer' }) },
     { id: 'retirer_machine', label: 'Retirer une machine', what: 'Elle redevient une machine inconnue', quick: false, params: [macParam], run: (ctx, i) => { const mac = normMac(s(i.mac)); const all = rules(ctx); if (!all.some((r) => r.mac === mac)) throw new Error('machine absente de la liste'); ctx.saveSettings({ machines: all.filter((r) => r.mac !== mac) }); return { text: `${mac} retirée.` }; } },
     { id: 'reinstaller', label: 'Réinstaller', what: 'Relance l\'installation automatique d\'une machine déjà installée (son disque sera effacé)', quick: false, params: [macParam], grave: (i) => `réinstaller la machine ${s(i.mac)} : son disque sera EFFACÉ au prochain démarrage par le réseau`, run: (ctx, i) => { const mac = normMac(s(i.mac)); const all = rules(ctx), r = all.find((x) => x.mac === mac); if (!r?.auto) throw new Error('cette machine n\'a pas d\'installation automatique'); r.fait = false; ctx.saveSettings({ machines: all }); return { text: `🛠 ${mac} se réinstallera au prochain démarrage par le réseau.` }; } },
-    { id: 'profil', label: 'Profil d\'installation', what: 'Compte créé, langue, clavier, fuseau, paquets Linux et logiciels Windows (Hermès) ; le mot de passe est généré et rangé dans le coffre', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'utilisateur', label: 'Compte créé', kind: 'text', default: 'admin' }, { key: 'paquets', label: 'Paquets Linux (séparés par des virgules)', kind: 'text', default: '' }, { key: 'logiciels', label: 'Logiciels Windows de Hermès (ex. firefox, vlc, 7zip)', kind: 'text', default: '' }, { key: 'fuseau', label: 'Fuseau', kind: 'text', default: 'Indian/Mayotte' }, { key: 'clavier', label: 'Clavier', kind: 'text', default: 'fr' }, { key: 'langue', label: 'Langue', kind: 'text', default: 'fr_FR.UTF-8' }], quick: false, run: async (ctx, i) => {
+    { id: 'profil', label: 'Profil d\'installation', what: 'Compte créé, langue, clavier, fuseau, paquets Linux et logiciels Windows (Hermès) ; le mot de passe est généré et rangé dans le coffre', params: [{ key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'utilisateur', label: 'Compte créé', kind: 'text', default: 'admin' }, { key: 'paquets', label: 'Paquets Linux (séparés par des virgules)', kind: 'text', default: '' }, { key: 'logiciels', label: 'Logiciels Windows de Hermès (ex. firefox, vlc, 7zip)', kind: 'text', default: '' }, { key: 'fuseau', label: 'Fuseau', kind: 'text', default: 'Indian/Mayotte' }, { key: 'clavier', label: 'Clavier', kind: 'text', default: 'fr' }, { key: 'langue', label: 'Langue', kind: 'text', default: 'fr_FR.UTF-8' }, { key: 'compagnon', label: 'Compagnon d\'Odin sur la machine (antivirus, mises à jour, failles)', kind: 'boolean', default: true }], quick: false, run: async (ctx, i) => {
       const nom = s(i.nom).trim(); if (!nom) throw new Error('donne un nom'); const id = slug(nom), list = (ctx.settings.profils as Profile[] | undefined) ?? profiles(ctx);
       const user = s(i.utilisateur || 'admin').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32) || 'admin';
       const split = (x: unknown) => s(x).split(/[,\s]+/).map((y) => y.trim()).filter((y) => /^[\w.+-]+$/.test(y));
-      const p: Profile = { id, nom, utilisateur: user, paquets: split(i.paquets), logiciels: split(i.logiciels).map((x) => x.toLowerCase()), fuseau: s(i.fuseau) || 'Indian/Mayotte', clavier: s(i.clavier) || 'fr', langue: s(i.langue) || 'fr_FR.UTF-8' };
+      const p: Profile = { id, nom, utilisateur: user, paquets: split(i.paquets), logiciels: split(i.logiciels).map((x) => x.toLowerCase()), fuseau: s(i.fuseau) || 'Indian/Mayotte', clavier: s(i.clavier) || 'fr', langue: s(i.langue) || 'fr_FR.UTF-8', ...(i.compagnon === false || i.compagnon === 'false' ? { compagnon: false } : {}) };
       ctx.saveSettings({ profils: [...list.filter((x) => x.id !== id), p] }); await profilePassword(ctx, p);
       return { text: `Profil ${nom} : compte « ${user} » (mot de passe dans le coffre, Thésauros « Déploiement · ${nom} »)${p.paquets.length ? ` · paquets : ${p.paquets.join(', ')}` : ''}${p.logiciels.length ? ` · logiciels : ${p.logiciels.join(', ')}` : ''}.` };
     } },
@@ -583,7 +603,9 @@ export function thjalfi(): Module {
         { title: 'Démarrer une machine par le réseau', detail: 'touche F12, F11 ou Échap au démarrage, choisis « réseau » ou « PXE »', done: m.length > 0 },
       ] });
       sections.push({ kind: 'table', title: 'En cours de déploiement', columns: ['Machine', 'Nom', 'Adresse', 'ISO', 'Étape', 'Depuis'], rows: running.map((x) => ({ cells: [x.mac, x.host ?? '—', x.ip ?? '—', x.isoName ?? '—', `${STEP_ICON[x.step]} ${x.step}${x.steps.at(-1)?.detail ? ` · ${x.steps.at(-1)!.detail}` : ''}`, ago(now - x.started)], tone: 'attention' as const })), empty: 'Aucune machine en cours.' });
-      sections.push({ kind: 'cards', title: 'ISO (Andromède)', items: l.map((i) => ({ title: i.name, sub: i.recipe ? i.recipe.label : `Illisible : ${i.err}`, badge: i.id === def ? '★ par défaut' : i.recipe?.auto ? 'auto' : undefined, tone: i.recipe ? (i.recipe.auto ? 'bon' as const : 'neutre' as const) : 'mauvais' as const, meta: `Déployée ${st[i.id]?.lances ?? 0} fois · ${st[i.id]?.finis ?? 0} réussie(s)${i.recipe?.needs ? ` · il faut ${i.recipe.needs}` : ''}`, actions: i.recipe && i.id !== def ? [{ action: 'iso_par_defaut', label: 'Par défaut', input: { iso: i.id } }] : [] })), empty: 'Aucune ISO : ajoute-en dans Andromède.' });
+      sections.push({ kind: 'cards', title: 'ISO (Andromède)', items: l.map((i) => ({ title: i.name, sub: i.recipe ? i.recipe.label : `Illisible : ${i.err}`, badge: !prete(i) ? (i.etat === 'ancienne' ? 'ancienne version (old)' : 'scannée · antivirus en attente') : i.id === def ? '★ par défaut' : i.recipe?.auto ? 'auto' : biblio.d ? 'prête' : undefined, tone: i.recipe ? (i.recipe.auto ? 'bon' as const : 'neutre' as const) : 'mauvais' as const, meta: `Déployée ${st[i.id]?.lances ?? 0} fois · ${st[i.id]?.finis ?? 0} réussie(s)${i.recipe?.needs ? ` · il faut ${i.recipe.needs}` : ''}`, actions: i.recipe && prete(i) && i.id !== def ? [{ action: 'iso_par_defaut', label: 'Par défaut', input: { iso: i.id } }] : [] })), empty: 'Aucune ISO : ajoute-en dans Andromède.' });
+      // La même bibliothèque que Hydre et Andromède : ce qui n'est pas (encore) démarrable est montré avec son état.
+      if (biblio.d && (biblio.d.enCours.length || biblio.d.quarantaine.length)) sections.push({ kind: 'list', title: 'Images pas encore démarrables', items: [...biblio.d.enCours.map((x) => ({ title: x.nom, detail: `en cours de téléchargement${x.pct !== undefined ? ` · ${x.pct} %` : ` · ${Math.round(x.recu / 1024 ** 2)} Mo reçus`} : proposée au démarrage une fois complète et passée par l'antivirus`, tone: 'attention' as const })), ...biblio.d.quarantaine.map((x) => ({ title: x.nom, detail: `en quarantaine (${x.menace}) : jamais proposée ; décide dans Asclépios`, tone: 'mauvais' as const }))] });
       sections.push({ kind: 'table', title: 'Machines autorisées', columns: ['Machine', 'Nom', 'ISO', 'Profil', 'Installation auto', 'État'], rows: rs.map((r) => ({ cells: [r.mac, r.nom ?? hostOf(r.mac), l.find((i) => i.id === r.iso)?.name ?? (r.iso ?? 'menu'), profiles(ctx).find((p) => p.id === r.profil)?.nom ?? 'Standard', r.auto ? 'oui (efface le disque)' : 'non', r.auto ? (r.fait ? 'faite' : 'au prochain démarrage') : '—'], actions: [{ action: 'retirer_machine', label: 'Retirer', input: { mac: r.mac } }, ...(r.auto && r.fait ? [{ action: 'reinstaller', label: 'Réinstaller', input: { mac: r.mac } }] : [])] })), empty: 'Aucune : une machine inconnue a le menu, et démarre sur son disque si personne ne choisit.' });
       sections.push({ kind: 'table', title: 'Déjà passées', columns: ['Date', 'Nom pris sur le réseau', 'Adresse', 'Machine', 'ISO', 'Durée', 'Résultat'], rows: h.slice(0, 50).map((d) => ({ cells: [new Date(d.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), d.host ?? '—', d.ip ?? '—', d.mac, d.isoName, ago(d.ms), d.result === 'fini' ? `✅ fini${d.logiciels?.some((x) => !x.ok) ? ' (logiciels ratés)' : ''}` : d.result === 'échec' ? '❌ échec' : '❔ sans nouvelles'], tone: d.result === 'fini' ? 'bon' as const : 'mauvais' as const })), empty: 'Aucun déploiement terminé.' });
       const counts = l.map((i) => ({ label: i.name, value: st[i.id]?.lances ?? 0 })).filter((x) => x.value > 0);

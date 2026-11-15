@@ -70,17 +70,17 @@
     box.append(el('form', { class: 'dr-top', onsubmit: async (e) => { e.preventDefault(); const d = $('#drAsk').value.trim(); if (!d) return; msg.textContent = 'Odin écrit l\'automatisation…'; const r = await api('/api/draupnir/create', { description: d }); if (r.ok) openFlow(r.flow.id); else msg.textContent = `✗ ${r.error}`; } },
       el('label', { for: 'drAsk', class: 'sr' }, 'Décris ton automatisation'), el('input', { id: 'drAsk', placeholder: 'Ex. chaque matin à 7 h, envoie-moi les tâches en retard', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Créer avec Odin'), el('button', { class: 'btn', type: 'button', onclick: newFlow }, 'Partir de zéro')), msg);
     if (st.flows.length) box.append(el('div', { class: 'dr-list' }, ...st.flows.map((w) => el('article', { class: 'dr-card' },
-      el('div', { class: 'dr-h' }, el('b', {}, w.name), el('input', { type: 'checkbox', class: 'g-sw', 'aria-label': `Activer ${w.name}`, checked: w.active ? true : undefined, onchange: async (e) => { if (e.target.checked && !confirm(`Activer « ${w.name} » ? Elle agira seule ensuite.`)) { e.target.checked = false; return; } const r = await api('/api/draupnir/toggle', { id: w.id, on: e.target.checked }); if (!r.ok) { e.target.checked = !e.target.checked; alert(r.error); } } })),
+      el('div', { class: 'dr-h' }, el('b', {}, w.name), el('input', { type: 'checkbox', class: 'g-sw', 'aria-label': `Activer ${w.name}`, checked: w.active ? true : undefined, onchange: async (e) => { if (e.target.checked && !(await window.OdinDialog.confirm(`Activer « ${w.name} » ? Elle agira seule ensuite.`))) { e.target.checked = false; return; } const r = await api('/api/draupnir/toggle', { id: w.id, on: e.target.checked }); if (!r.ok) { e.target.checked = !e.target.checked; await window.OdinDialog.alert(r.error); } } })),
       el('div', { class: 'dr-steps' }, w.nodes.map((n) => n.label).join(' → ')),
       el('div', { class: 'dr-row' }, w.last ? el('span', { class: `pill ${w.last.status === 'succès' ? 'good' : w.last.status === 'erreur' ? 'bad' : ''}` }, `${w.last.status} · ${new Date(w.last.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`) : el('span', { class: 'pill' }, 'jamais lancée'), w.failed ? el('span', { class: 'pill bad' }, `${w.failed} échec(s)`) : null),
-      el('div', { class: 'dr-row' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openFlow(w.id) }, 'Ouvrir'), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const r = await api('/api/draupnir/run', { id: w.id }); e.target.disabled = false; alert(r.ok ? `${r.run.status}${r.run.error ? ` : ${r.run.error}` : ''}` : r.error); openList(); } }, 'Tester')))))); else box.append(el('p', { class: 'sub' }, 'Aucune automatisation pour l\'instant.'));
+      el('div', { class: 'dr-row' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openFlow(w.id) }, 'Ouvrir'), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const r = await api('/api/draupnir/run', { id: w.id }); e.target.disabled = false; await window.OdinDialog.alert(r.ok ? `${r.run.status}${r.run.error ? ` : ${r.run.error}` : ''}` : r.error); openList(); } }, 'Tester')))))); else box.append(el('p', { class: 'sub' }, 'Aucune automatisation pour l\'instant.'));
     box.append(el('section', { class: 'card', style: 'margin-bottom:16px' }, el('h2', { style: 'font-size:17px;margin:0 0 8px' }, 'Modèles prêts'), el('div', { class: 'dr-tpl' }, ...st.templates.map((t) => el('article', {}, el('b', {}, t.name), el('p', {}, t.what), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const r = await api('/api/draupnir/template', { id: t.id }); if (r.ok) openFlow(r.flow.id); else { e.target.textContent = `✗ ${r.error}`; } } }, 'Utiliser'))))));
     box.append(el('details', { class: 'card' }, el('summary', { style: 'cursor:pointer;min-height:40px;display:flex;align-items:center;font-weight:600' }, 'Importer une automatisation n8n (JSON)'),
-      el('form', { onsubmit: async (e) => { e.preventDefault(); const r = await api('/api/draupnir/import', { json: $('#drImp').value }); if (r.ok) { if (r.todo?.length) alert(`À revoir :\n${r.todo.join('\n')}`); openFlow(r.flow.id); } else alert(r.error); } }, el('label', { for: 'drImp', class: 'sub' }, 'Colle le JSON exporté'), el('textarea', { id: 'drImp', style: 'width:100%;min-height:120px' }), el('button', { class: 'btn', type: 'submit' }, 'Importer'))));
+      el('form', { onsubmit: async (e) => { e.preventDefault(); const r = await api('/api/draupnir/import', { json: $('#drImp').value }); if (r.ok) { if (r.todo?.length) await window.OdinDialog.alert(`À revoir :\n${r.todo.join('\n')}`); openFlow(r.flow.id); } else await window.OdinDialog.alert(r.error); } }, el('label', { for: 'drImp', class: 'sub' }, 'Colle le JSON exporté'), el('textarea', { id: 'drImp', style: 'width:100%;min-height:120px' }), el('button', { class: 'btn', type: 'submit' }, 'Importer'))));
   }
   function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; dirty = true; editor(); }
   async function openFlow(id) {
-    const r = await api(`/api/draupnir/flow?id=${encodeURIComponent(id)}`); if (!r.ok) { alert(r.error); return; }
+    const r = await api(`/api/draupnir/flow?id=${encodeURIComponent(id)}`); if (!r.ok) { await window.OdinDialog.alert(r.error); return; }
     if (!st) st = await api('/api/draupnir/state');
     wf = r.flow; outs = r.outputs; last = r.runs[0] ?? null; sel = null; dirty = false; editor(r);
   }
@@ -93,12 +93,12 @@
     const side = el('aside', { class: 'dr-side', id: 'drSide', 'aria-label': 'Réglages' });
     const status = el('span', { class: 'sub', role: 'status', id: 'drSt' });
     box.replaceChildren(
-      el('div', { class: 'dr-bar' }, el('button', { class: 'btn small', type: 'button', onclick: () => { if (!dirty || confirm('Quitter sans enregistrer ?')) openList(); } }, '← Automatisations'), el('label', { for: 'drName', class: 'sr' }, 'Nom'), el('input', { id: 'drName', class: 'dr-name', value: wf.name, oninput: (e) => { wf.name = e.target.value; dirty = true; } }),
+      el('div', { class: 'dr-bar' }, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!dirty || await window.OdinDialog.confirm('Quitter sans enregistrer ?')) openList(); } }, '← Automatisations'), el('label', { for: 'drName', class: 'sr' }, 'Nom'), el('input', { id: 'drName', class: 'dr-name', value: wf.name, oninput: (e) => { wf.name = e.target.value; dirty = true; } }),
         el('button', { class: 'btn small primary', type: 'button', onclick: save }, 'Enregistrer'), el('button', { class: 'btn small', type: 'button', onclick: () => test() }, 'Tester'), el('button', { class: 'btn small', type: 'button', onclick: () => { sel = null; drawSide(); } }, '+ Étape'),
-        wf.id ? el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!confirm('Mettre cette automatisation à la corbeille ?')) return; await api('/api/draupnir/trash', { id: wf.id }); openList(); } }, 'Corbeille') : null, status),
+        wf.id ? el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Mettre cette automatisation à la corbeille ?', { danger: true }))) return; await api('/api/draupnir/trash', { id: wf.id }); openList(); } }, 'Corbeille') : null, status),
       el('div', { class: 'dr-ed' }, canvas, side),
       r ? el('section', { class: 'card', style: 'margin-top:12px' }, el('h2', { style: 'font-size:16px;margin:0' }, 'Dernières exécutions'), r.runs.length ? el('ul', { class: 'dr-runs' }, ...r.runs.slice(0, 10).map((x) => el('li', {}, el('span', { class: `pill ${x.status === 'succès' ? 'good' : x.status === 'erreur' ? 'bad' : ''}` }, x.status), ` ${new Date(x.startedAt).toLocaleString('fr-FR')} · ${x.mode} · ${x.ms} ms${x.error ? ` · ${x.error}` : ''}`))) : el('p', { class: 'sub' }, 'Jamais lancée.'),
-        r.versions?.length ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px;display:flex;align-items:center' }, `Versions (${r.versions.length})`), el('ul', { class: 'dr-runs' }, ...r.versions.slice(0, 15).map((v) => el('li', {}, `${new Date(v.at).toLocaleString('fr-FR')} · ${v.nodes} étapes `, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!confirm('Revenir à cette version ?')) return; const x = await api('/api/draupnir/restore', { id: wf.id, at: v.at }); if (x.ok) openFlow(wf.id); } }, 'Restaurer'))))) : null) : null);
+        r.versions?.length ? el('details', {}, el('summary', { style: 'cursor:pointer;min-height:36px;display:flex;align-items:center' }, `Versions (${r.versions.length})`), el('ul', { class: 'dr-runs' }, ...r.versions.slice(0, 15).map((v) => el('li', {}, `${new Date(v.at).toLocaleString('fr-FR')} · ${v.nodes} étapes `, el('button', { class: 'btn small', type: 'button', onclick: async () => { if (!(await window.OdinDialog.confirm('Revenir à cette version ?'))) return; const x = await api('/api/draupnir/restore', { id: wf.id, at: v.at }); if (x.ok) openFlow(wf.id); } }, 'Restaurer'))))) : null) : null);
     pan(canvas, world); draw(); drawSide();
   }
   function nodeEl(n) {
@@ -133,7 +133,7 @@
         const b = wf.nodes.find((n) => n.name === l.node); if (!b) return;
         const x1 = a.position[0] + NODE_W + 10, y1 = a.position[1] + 27 + i * 22, x2 = b.position[0] - 10, y2 = b.position[1] + 33, dx = Math.max(40, Math.abs(x2 - x1) / 2);
         const p = sv('path', { class: 'dr-link', d: `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}` });
-        p.addEventListener('click', () => { if (confirm(`Retirer le lien ${from} → ${l.node} ?`)) { targets.splice(targets.indexOf(l), 1); dirty = true; draw(); } });
+        p.addEventListener('click', async () => { if (await window.OdinDialog.confirm(`Retirer le lien ${from} → ${l.node} ?`)) { targets.splice(targets.indexOf(l), 1); dirty = true; draw(); } });
         g.append(p);
       }));
     }
@@ -155,8 +155,8 @@
     canvas.addEventListener('wheel', (e) => { e.preventDefault(); const k = Math.min(1.6, Math.max(0.4, view.k * (e.deltaY < 0 ? 1.1 : 0.9))); const r = canvas.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; apply(); }, { passive: false });
     apply();
   }
-  function removeNode(name) {
-    if (!confirm(`Retirer l'étape « ${name} » ?`)) return;
+  async function removeNode(name) {
+    if (!(await window.OdinDialog.confirm(`Retirer l'étape « ${name} » ?`))) return;
     wf.nodes = wf.nodes.filter((n) => n.name !== name); delete wf.connections[name];
     for (const list of Object.values(wf.connections)) for (const t of list) for (let i = t.length - 1; i >= 0; i--) if (t[i].node === name) t.splice(i, 1);
     sel = null; dirty = true; draw(); drawSide();
@@ -188,7 +188,7 @@
       run ? [el('h2', { style: 'margin-top:6px' }, 'Dernier passage'), el('pre', { class: 'dr-out' }, run.error ? `✗ ${run.error}` : JSON.stringify(run.items.slice(0, 5), null, 2))] : null);
   }
   function rename(n, to) {
-    if (!to || to === n.name) return; if (wf.nodes.some((x) => x.name === to)) { alert('Ce nom est déjà pris.'); return; }
+    if (!to || to === n.name) return; if (wf.nodes.some((x) => x.name === to)) { void window.OdinDialog.alert('Ce nom est déjà pris.'); return; }
     const from = n.name; n.name = to;
     if (wf.connections[from]) { wf.connections[to] = wf.connections[from]; delete wf.connections[from]; }
     for (const list of Object.values(wf.connections)) for (const t of list) for (const l of t) if (l.node === from) l.node = to;
@@ -203,9 +203,9 @@
     sel = name; dirty = true; draw(); drawSide();
   }
   async function save() {
-    for (const n of wf.nodes) for (const p of cat(n.type)?.params ?? []) if (p.kind === 'json' && typeof n.params[p.key] === 'string' && n.params[p.key].trim()) { try { JSON.parse(n.params[p.key]); } catch { if (!/\{\{/.test(n.params[p.key])) { alert(`« ${n.name} » : ${p.label} n'est pas un JSON valide.`); return false; } } }
+    for (const n of wf.nodes) for (const p of cat(n.type)?.params ?? []) if (p.kind === 'json' && typeof n.params[p.key] === 'string' && n.params[p.key].trim()) { try { JSON.parse(n.params[p.key]); } catch { if (!/\{\{/.test(n.params[p.key])) { await window.OdinDialog.alert(`« ${n.name} » : ${p.label} n'est pas un JSON valide.`); return false; } } }
     const r = await api('/api/draupnir/save', { flow: wf });
-    if (!r.ok) { alert(r.error); return false; }
+    if (!r.ok) { await window.OdinDialog.alert(r.error); return false; }
     wf = r.flow; dirty = false; const s = $('#drSt'); if (s) s.textContent = '✓ Enregistré.'; return true;
   }
   async function test(stopAfter) {

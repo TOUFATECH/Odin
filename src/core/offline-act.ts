@@ -9,11 +9,16 @@
 
 import { forgetPending, helpText, understand } from '../valhalla/huginn.ts';
 import { chatCommand } from '../valhalla/modules/naglfar.ts';
+import { parseDemande } from '../valhalla/volva/demande.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
+import { accord } from './genre.ts';
 
 export type RunTool = (name: string, input: Record<string, unknown>) => Promise<{ ok: boolean; content: string }>;
 
 const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+
+/** « ma ville est Dembéni », « mon village c'est … », « j'habite à … », « Odin est installé à … », « change de ville pour … » → le nom du lieu. */
+const LIEU = /^(?:odin[\s,]+)?(?:ma ville(?: c'est| est)?|mon village(?: c'est| est)?|j'habite(?: a| au| en)?|je vis (?:a|au|en)|(?:tu es|odin est) installe (?:a|au|en)|(?:change|mets|regle) (?:de |ma |la |le )?(?:ville|lieu)(?: de la meteo)?(?: pour| a| sur)?)\s+([a-z0-9'\-]+,?(?: [a-z0-9'\-]+,?){0,5})[\s.!]*$/;
 
 /** Type d'appareil nommé → domaine Home Assistant. */
 const KIND: Array<[RegExp, string]> = [
@@ -89,6 +94,19 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
   const ct = has('valhalla') ? chatCommand(text) : undefined;
   if (ct) { o.label?.('Conteneurs'); return (await run('valhalla', { action: 'action', appli: 'naglfar', quoi: 'commande', entree: JSON.stringify({ ligne: ct }) })).content; }
 
+  // Une recherche sur internet demandée telle quelle (« fais-moi une recherche sur … », « cherche des vidéos de … »,
+  // « montre-moi 10 résultats ») : Pythie, sans IA, résultats en cartes (image, titre, texte), 5 par défaut.
+  const rech = has('valhalla') && valhallaOf()?.module('volva') ? parseDemande(text) : undefined;
+  if (rech) { o.label?.('Pythie · recherche'); return (await run('valhalla', { action: 'action', appli: 'volva', quoi: 'resultats', entree: JSON.stringify({ question: rech.q, ...(rech.n ? { n: rech.n } : {}), sorte: rech.sorte, ...(rech.affichage ? { affichage: rech.affichage } : {}) }) })).content; }
+
+  // Le lieu d'Odin dit tel quel (« ma ville est Dembéni », « j'habite à … », « change de ville pour … ») : Hestia, sans IA.
+  // Le nom est repris dans la phrase d'origine (avec ses accents et ses majuscules).
+  const lieu = has('valhalla') && valhallaOf()?.module('gladsheim') ? LIEU.exec(s) : null;
+  if (lieu) {
+    const mots = lieu[1].split(' ').length, ville = text.trim().replace(/[\s.!]+$/, '').split(/\s+/).slice(-mots).join(' ');
+    o.label?.('Hestia · lieu'); return (await run('valhalla', { action: 'action', appli: 'gladsheim', quoi: 'lieu', entree: JSON.stringify({ ville }) })).content;
+  }
+
   if (strict ? /^(?:aide|help|\?|que (?:peux|sais)[- ]tu faire|tu sais faire quoi)\s*\??$/.test(s) : /^(aide|help|\?)$|que (peux|sais)[- ]tu faire|tu sais faire quoi/.test(s)) { o.label?.('Aide'); const v = valhallaOf(); return v && has('valhalla') ? `${HELP}\n\nMes applis, sans IA aussi (dis « explique <appli> » pour le détail) :\n${helpText(v)}` : HELP; }
 
   // Mode du moment
@@ -113,7 +131,7 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
     o.label?.('Maison');
     if (h.all && h.domain && ['light', 'switch', 'fan', 'media_player'].includes(h.domain) && !h.place) {
       const r = await run('ha_call', { domain: h.domain, service: h.service, entity_id: 'all' });
-      return r.ok ? `✓ ${h.service === 'turn_on' ? 'Allumé' : 'Éteint'} : tout (${h.domain === 'light' ? 'lumières' : h.domain}).` : r.content;
+      return r.ok ? `C'est fait, j'ai tout ${h.service === 'turn_on' ? 'allumé' : 'éteint'} (${{ light: 'les lumières', switch: 'les prises', fan: 'les ventilateurs', media_player: 'la télé et le son' }[h.domain] ?? h.domain}).` : r.content;
     }
     const look = await run('ha_states', { search: h.place.split(' ').filter((w) => w.length >= 3).slice(-1)[0] ?? '', ...(h.domain ? { domain: h.domain } : {}) });
     if (!look.ok) { homeMiss = 'Home Assistant ne répond pas'; homeSay = `Je n'arrive pas à joindre Home Assistant : ${look.content.slice(0, 200)}`; break home; }
@@ -125,14 +143,16 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
     // Avec une IA sous la main : sans nom de pièce ni d'appareil, plusieurs appareils du même genre = à préciser, pas « tous ».
     if (strict && (found.length > 6 || (!words.length && !h.all && found.length > 1))) { o.miss?.('plusieurs appareils de la maison correspondent'); return undefined; }
     if (!found.length) { homeMiss = `je ne retrouve pas « ${h.place || 'cet appareil'} » tel quel dans la maison`; homeSay = `Je ne trouve pas « ${h.place || 'cet appareil'} » dans la maison. Dis-le avec le nom affiché dans Home Assistant (ex. « allume la lumière du salon »).`; break home; }
-    if (found.length > 6) return `Plusieurs appareils correspondent (${found.slice(0, 6).map((e) => e.name || e.id).join(', ')}…) : précise lequel.`;
+    if (found.length > 6) return `J'en trouve plusieurs (${found.slice(0, 6).map((e) => e.name || e.id).join(', ')}…) : tu parles duquel ?`;
     const domain = found[0].id.split('.')[0];
     const same = found.filter((e) => e.id.startsWith(`${domain}.`));
     const service = domain === 'cover' && h.service === 'turn_on' ? 'open_cover' : domain === 'cover' && h.service === 'turn_off' ? 'close_cover' : h.service;
     const r = await run('ha_call', { domain, service, entity_id: same.map((e) => e.id).join(','), ...(h.temperature ? { data: JSON.stringify({ temperature: h.temperature }) } : {}) });
     if (!r.ok) return r.content;
     const names = same.map((e) => e.name || e.id).join(', ');
-    return h.temperature ? `✓ ${names} : ${h.temperature} °C.` : `✓ ${names} : ${{ turn_on: 'allumé', turn_off: 'éteint', open_cover: 'ouvert', close_cover: 'fermé' }[service] ?? service}.`;
+    // Dit comme on le dit (« j'ai allumé … ») : pas d'accord à deviner sur le nom de l'appareil.
+    const fait = { turn_on: 'allumé', turn_off: 'éteint', open_cover: 'ouvert', close_cover: 'fermé' }[service];
+    return h.temperature ? `C'est fait, j'ai mis ${names} à ${h.temperature} °C.` : fait ? `C'est fait, j'ai ${fait} ${names}.` : `C'est fait : ${names} (${service}).`;
   }
 
   // Fiches
@@ -142,7 +162,7 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
     o.label?.('Fiche');
     const content = note[1].trim(), title = content.split(/\s+/).slice(0, 6).join(' ').replace(/[^\p{L}\p{N} '-]/gu, '').slice(0, 60) || 'note';
     const r = await run('note_save', { title, content });
-    return r.ok ? `📝 Noté (fiche « ${title} »).` : r.content;
+    return r.ok ? `📝 Noté, dans la fiche « ${title} ».` : r.content;
   }
   const find = /\b(cherche|retrouve|trouve)\b.*\b(notes?|fiches?)\b\s*(?:sur|pour|a propos de|:)?\s*(.*)$/.exec(s);
   if (find && has('note_find') && (!strict || /^(?:cherche|retrouve|trouve)\b/.test(s))) { o.label?.('Fiches'); const r = await run('note_find', { query: find[3].trim() }); return r.content; }
@@ -166,7 +186,7 @@ export async function offlineAct(text: string, run: RunTool, has: (tool: string)
     const u = await understand(vh, text, sessionId).catch(() => undefined);
     // Avec une IA sous la main : une précision manquante ou une hésitation, c'est pour elle (elle a le contexte).
     if (strict && u?.kind === 'ask') { forgetPending(sessionId); o.miss?.(`il me manquait une précision (${u.missing}) pour ${vh.module(u.module)?.name ?? u.module}`); return undefined; }
-    if (strict && u?.kind === 'say' && u.unsure) { o.miss?.('je ne suis pas sûr que tu parles d\'une de mes applis'); return undefined; }
+    if (strict && u?.kind === 'say' && u.unsure) { o.miss?.(`je ne suis pas ${accord('sûr', 'sûre')} que tu parles d'une de mes applis`); return undefined; }
     // (Le détail du doute n'est dit que s'il porte sur une demande qui était bien pour cette appli ; sinon la demande n'avait rien à voir.)
     if (strict && u?.kind === 'action' && u.doubt) { o.miss?.(u.near ? u.doubt : 'aucune de mes actions ne correspond clairement'); return undefined; }
     // La maison n'a pas su (plus haut) : mes applis ne prennent le relais que pour une action nette.

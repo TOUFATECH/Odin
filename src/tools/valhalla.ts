@@ -4,6 +4,7 @@
 
 import { understand } from '../valhalla/huginn.ts';
 import { LINKS, USAGES } from '../valhalla/links.ts';
+import { appsFor, fold, usageFor } from '../valhalla/besoin.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import type { Valhalla } from '../valhalla/service.ts';
 import { wrapUntrusted } from '../heimdall/injection.ts';
@@ -15,9 +16,9 @@ const parse = (v: unknown): Record<string, unknown> => { if (v && typeof v === '
 
 /** Pour un besoin : l'appli choisie, pourquoi, comment, et la chaîne d'applis si c'est un usage connu. */
 export function advise(v: Valhalla, need: string): string {
-  const found = v.find(need).slice(0, 3);
-  const norm = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const usage = USAGES.find((u) => norm(need).split(/\s+/).filter((w) => w.length > 4).some((w) => norm(u.need).includes(w)));
+  // Les mots des applis et les usages connus du Cerveau (« sauvegarde mes photos » → Hélios puis Phénix).
+  const found = appsFor(v, need, 3);
+  const usage = usageFor(need) ?? USAGES.find((u) => fold(need).split(/\s+/).filter((w) => w.length > 4).some((w) => fold(u.need).includes(w)));
   if (!found.length && !usage) return 'Aucune appli d\'Odin ne correspond clairement. Dis-le autrement, ou envoie-moi le lien GitHub d\'un projet qui fait ça : je l\'étudie (Pharos).';
   const name = (id: string) => v.module(id)?.name ?? id;
   const out: string[] = [];
@@ -38,7 +39,7 @@ const foreign = (external: boolean | undefined, appli: string, text: string): st
 
 export const valhallaTool: Tool = {
   name: 'valhalla',
-  description: 'Les applis d\'Odin (Hygie santé machine, Némésis processus, Forseti alertes et conformité, Cerbère bannissement, Méduse connexions, Asclépios antivirus, Sirènes pièges, Argo conteneurs, Hydre machines virtuelles, Phénix sauvegardes, Thésauros mots de passe, Vortex VPN, Hermóðr parc de machines, Appareils (relais MQTT), Héphaïstos modules ESP/Tasmota, Midgard maison et scènes, Cyclope caméras, Orphée voix, Vénus (Venus, films, séries, télé, enregistrements), Apollon musique, Chronos rendez-vous, Pharos veille GitHub, Thot, Papyrus, Talos). « manips » (ce qu\'Odin a fait seul) ; « manip » (appli = code de la manip, quoi = garder ou annuler) ; « lister » ; « expliquer » (appli) ; « conseiller » (besoin : quelle appli, pourquoi, comment, liens) ; « etat » (appli : sa page en texte) ; « action » (appli, action, entree JSON) ; « alertes » ; « liens ». Un lien GitHub envoyé par le propriétaire → action Pharos « etudier ».',
+  description: 'Les applis d\'Odin (Hygie santé machine, Némésis processus, Forseti alertes et conformité, Cerbère bannissement, Méduse connexions, Asclépios antivirus, Sirènes pièges, Argo conteneurs, Hydre machines virtuelles, Phénix sauvegardes, Thésauros mots de passe, Vortex VPN, Satellites parc de machines, Constellation appareils connectés (relais MQTT), Héphaïstos modules ESP/Tasmota, Midgard maison et scènes, Cyclope caméras, Orphée voix, Vénus (Venus, films, séries, télé, enregistrements), Apollon musique, Hélios photos, Chronos rendez-vous, Pharos veille GitHub, Thot, Papyrus, Talos ; chaque appli a sa fiche dans le Cerveau, Odin/Applis/<nom>). « manips » (ce qu\'Odin a fait seul) ; « manip » (appli = code de la manip, quoi = garder ou annuler) ; « lister » ; « expliquer » (appli) ; « conseiller » (besoin : quelle appli, pourquoi, comment, liens) ; « etat » (appli : sa page en texte) ; « action » (appli, action, entree JSON) ; « alertes » ; « liens ». Un lien GitHub envoyé par le propriétaire → action Pharos « etudier ». Une question sur les données d\'une appli (« combien de … dans la base de Phénix ? ») → action, appli urdr, quoi base_lire, entree {"appli":"Phénix"} pour voir ses vues, puis {"appli":"Phénix","requete":"SELECT count(*) FROM …"} (lecture seule, chaque base s\'appelle NOM_ODIN) ; « quand as-tu regardé la base de … ? » → quoi base_traces.',
   risk: 'exec',
   schema: obj({ action: { type: 'string', enum: ['lister', 'expliquer', 'conseiller', 'etat', 'action', 'alertes', 'liens', 'auto', 'manips', 'manip'] }, appli: str('nom de l\'appli'), besoin: str('pour conseiller : le besoin en français'), quoi: str('pour action : identifiant de l\'action'), entree: str('pour action : réglages JSON') }, ['action']),
   summarize: (i) => `applis ${s(i.action)} ${s(i.appli)} ${s(i.quoi)} ${s(i.besoin)}`.slice(0, 140),

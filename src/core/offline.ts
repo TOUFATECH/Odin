@@ -43,12 +43,12 @@ export function offlineAnswer(d: OfflineDeps, text: string, ctx: { channel: stri
   if (/\b(mes rappels|rappels|qu'est-ce que j'ai (aujourd'hui|demain)|mon programme)\b/.test(s) && !rem) {
     const l = d.muninn.listJobs().filter(isReminderJob).sort((a, b) => a.next_run - b.next_run).slice(0, 8);
     handled = true;
-    parts.push(l.length ? `Tes rappels :\n${l.map((j) => `- ${whenFr(new Date(j.next_run))} : ${reminderText(j)}`).join('\n')}` : 'Aucun rappel programmé.');
+    parts.push(l.length ? `Tes rappels :\n${l.map((j) => `- ${whenFr(new Date(j.next_run))} : ${reminderText(j)}`).join('\n')}` : 'Tu n\'as aucun rappel en attente.');
   }
   if (/\b(reseau|appareils?|machines?|qui est (a la maison|la)|connectes?|en ligne)\b/.test(s) && d.inventory) {
     const devs = d.inventory.list({ status: 'all' }), on = devs.filter((x) => x.status === 'online');
     const phones = on.filter((x) => /phone|telephone|iphone|android|pixel|galaxy/i.test(`${x.kind} ${x.name} ${x.hostname} ${x.label}`));
-    parts.push(`Réseau (dernier relevé) : ${on.length}/${devs.length} appareils en ligne.${phones.length ? ` Téléphones présents : ${phones.map((x) => x.label || x.name || x.hostname || x.ip).join(', ')}.` : ''}`);
+    parts.push(`D'après mon dernier relevé du réseau, ${on.length} appareils sur ${devs.length} sont en ligne.${phones.length ? ` Côté téléphones, je vois : ${phones.map((x) => x.label || x.name || x.hostname || x.ip).join(', ')}.` : ''}`);
   }
   // 2. Ce que je sais (mémoire, fiches, conversations passées)
   const known: string[] = [];
@@ -68,5 +68,5 @@ export function offlineAnswer(d: OfflineDeps, text: string, ctx: { channel: stri
   }
   if (known.length && !rem) parts.push(`Voici ce que je sais à ce sujet :\n${[...new Set(known)].slice(0, 8).join('\n')}`);
   if (!parts.length) parts.push('Je n\'ai rien en mémoire sur ce sujet pour l\'instant.');
-  return { handled, text: `${parts.join('\n\n')}\n\n🔌 ${handled ? 'Fait sans modèle d\'IA (aucun n\'est joignable).' : 'Aucun modèle d\'IA joignable : réponse tirée de ma mémoire. Je garde ta question et j\'y réponds pour de vrai dès qu\'un modèle revient.'}` };
+  return { handled, text: `${parts.join('\n\n')}\n\n🔌 ${handled ? 'Je l\'ai fait sans IA : aucune ne me répond en ce moment.' : 'Aucune IA ne me répond en ce moment, alors je te dis ce que j\'ai en mémoire. Je garde ta question et j\'y reviens pour de vrai dès qu\'une IA répond.'}` };
 }

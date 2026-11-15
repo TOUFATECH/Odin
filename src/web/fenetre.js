@@ -40,7 +40,9 @@
 .fe-form label{display:block;font-size:13px;font-weight:600;margin:8px 0 4px}.fe-form select,.fe-form input{width:100%;min-height:38px;border-radius:10px;border:1px solid var(--field);padding:0 10px;background:var(--panel)}
 .fe-btnw{display:flex;flex-direction:column;gap:8px}.fe-btnw .btn{min-height:46px;font-size:15px}
 .fe-wx{display:flex;gap:14px;align-items:center}.fe-wx b{font-size:34px}.fe-hours{display:flex;justify-content:space-between;margin-top:10px;font-size:12.5px;color:var(--muted)}
-.fe-err{color:var(--muted);font-size:13.5px}`;
+.fe-err{color:var(--muted);font-size:13.5px}
+.fe-clock{display:flex;flex-direction:column;gap:2px}.fe-clock-h{font-size:38px;line-height:1.1;font-variant-numeric:tabular-nums}.fe-clock-d{font-size:15px}.fe-clock-d::first-letter{text-transform:uppercase}.fe-clock small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.fe-site{display:flex;flex-direction:column;gap:3px;padding-left:12px;border-left:4px solid var(--line)}.fe-site b{font-size:20px}.fe-site small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}.fe-site.bon{border-color:var(--good)}.fe-site.mauvais{border-color:var(--bad)}.fe-site.attention{border-color:var(--warn)}`;
   document.head.append(el('style', {}, css));
 
   let L = null, cur = 0, edit = false, saved = '', cat = null, views = new Map(), timer = 0;
@@ -60,6 +62,21 @@
     await Promise.all(ids.map(async (id) => { try { const r = await api(`/api/valhalla/view?id=${encodeURIComponent(id)}`); if (r.ok) views.set(id, r.view); } catch { /* hors ligne */ } }));
   }
   async function weather() { try { const r = await act('gladsheim', 'meteo', {}); return r.ok ? r.data : null; } catch { return null; } }
+  /** Le lieu d'Odin (village, fuseau, heure sur 12 ou 24 h) : gardé une minute. */
+  let lieuVu = null, lieuAt = 0;
+  async function lieu() {
+    if (lieuVu && Date.now() - lieuAt < 60_000) return lieuVu;
+    try { const r = await act('gladsheim', 'region_actuelle', {}); if (r.ok && r.data) { lieuVu = { nom: r.data.ville, fuseau: r.data.fuseau, h12: r.data.region?.heure === '12h', suppose: r.data.suppose }; lieuAt = Date.now(); } } catch { /* hors ligne : dernier lieu connu */ }
+    return lieuVu;
+  }
+  /** L'heure et la date dans le fuseau d'Odin (pas celui de l'appareil) ; rafraîchies toutes les 10 secondes. */
+  const heureDe = (l, d = new Date()) => { const o = l?.fuseau ? { timeZone: l.fuseau } : {}; try { return [d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: Boolean(l?.h12), ...o }), d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', ...o })]; } catch { return [d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })]; } };
+  function horloge(l) {
+    const h = el('b', { class: 'fe-clock-h' }), j = el('div', { class: 'fe-clock-d' }), box = el('div', { class: 'fe-clock' }, h, j, el('small', {}, `${l?.nom || 'Lieu non réglé'}${l?.fuseau ? ` · ${l.fuseau}` : ''}${l?.suppose ? ' · supposé' : ''}`));
+    const maj = () => { if (!box.isConnected && box.dataset.vu) return clearInterval(t); box.dataset.vu = '1'; [h.textContent, j.textContent] = heureDe(l); };
+    const t = setInterval(maj, 10_000); maj();
+    return box;
+  }
 
   // ------------------------------------------------------------------ dessin d'un module
   async function widget(w) {
@@ -81,10 +98,19 @@
         Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => { const at = typeof h.t === 'string' ? h.t.replace(':00', ' h').replace(':', ' h ') : `${h.h ?? h.hour ?? ''} h`, t = Number(h.temp ?? h.t); return el('span', {}, Number.isFinite(t) ? `${at} · ${Math.round(t)}°` : at); })) : null) : el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Hestia).'));
       return box;
     }
+    if (w.kind === 'heure') { box.append(head(w.label || 'Heure et lieu', 'Hestia', '🕒', 'gladsheim'), horloge(await lieu())); return box; }
+    if (w.kind === 'site') {
+      // Un site surveillé : la sonde de Pulsar qui porte ce nom (état, temps de réponse, disponibilité).
+      const r = (views.get('vordr')?.sections ?? []).find((x) => x.kind === 'table' && x.title === 'Sondes')?.rows?.find((x) => x.cells[0] === w.label);
+      box.append(head(w.label, 'Pulsar · site surveillé', '🌐', 'vordr'), r
+        ? el('div', { class: `fe-site ${r.tone || ''}` }, el('b', {}, r.cells[3] || '—'), el('small', {}, [r.cells[2], r.cells[6]].filter(Boolean).join(' · ')), el('small', {}, `24 h : ${r.cells[4] || '—'} · 30 jours : ${r.cells[5] || '—'}`))
+        : el('p', { class: 'fe-err' }, 'Cette sonde n\'existe pas (ou plus) dans Pulsar.'));
+      return box;
+    }
     if (w.kind === 'bouton') {
       box.append(head(w.label || w.action, modName(w.module), '⚡'), el('div', { class: 'fe-btnw' }, el('button', { class: 'btn primary', type: 'button', onclick: async (e) => {
         const b = e.currentTarget; b.disabled = true;
-        try { let r = await act(w.module, w.action, w.input || {}); if (r.confirm) r = window.confirm(r.confirm) ? await act(w.module, w.action, w.input || {}, true) : { ok: true, text: 'Annulé.' }; say(r.ok ? r.text : `✗ ${r.text ?? r.error}`); }
+        try { let r = await act(w.module, w.action, w.input || {}); if (r.confirm) r = (await window.OdinDialog.confirm(r.confirm, { danger: true })) ? await act(w.module, w.action, w.input || {}, true) : { ok: true, text: 'Annulé.' }; say(r.ok ? r.text : `✗ ${r.text ?? r.error}`); }
         finally { b.disabled = false; }
       } }, w.label || w.action)));
       return box;
@@ -110,9 +136,9 @@
     const tabs = L.pages.map((p, i) => el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(i === cur), onclick: async () => { cur = i; try { localStorage.setItem('odin.fenetre.page', String(i)); } catch { /* */ } await fetchViews(); draw(); }, ondblclick: () => edit && rename(i) }, p.name, p.maison ? ' 🏠' : ''));
     const bar = edit
       ? el('div', { class: 'fe-tools', role: 'toolbar', 'aria-label': 'Modifier la fenêtre' }, el('b', {}, '✎ Modifier'), ...tabs,
-        el('button', { class: 'fe-tab', type: 'button', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onclick: () => { const n = prompt('Nom de la nouvelle page', 'Ma page'); if (n) { L.pages.push({ id: '', name: n.slice(0, 24), widgets: [] }); cur = L.pages.length - 1; draw(); } } }, '+'),
+        el('button', { class: 'fe-tab', type: 'button', title: 'Ajouter une page', 'aria-label': 'Ajouter une page', onclick: async () => { const n = await window.OdinDialog.prompt('Nom de la nouvelle page', 'Ma page'); if (n) { L.pages.push({ id: '', name: n.slice(0, 24), widgets: [] }); cur = L.pages.length - 1; draw(); } } }, '+'),
         el('button', { class: 'fe-tab', type: 'button', onclick: () => rename(cur) }, 'Renommer'),
-        L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: () => { if (confirm(`Supprimer la page « ${page().name} » ?`)) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
+        L.pages.length > 1 ? el('button', { class: 'fe-tab', type: 'button', onclick: async () => { if (await window.OdinDialog.confirm(`Supprimer la page « ${page().name} » ?`, { danger: true })) { L.pages.splice(cur, 1); cur = 0; draw(); } } }, 'Supprimer la page') : null,
         el('button', { class: 'fe-tab', type: 'button', 'aria-pressed': String(Boolean(page().maison)), title: 'Montrer cette page sur l\'écran de la maison', onclick: () => { page().maison = !page().maison; draw(); } }, '🏠 Écran de la maison'),
         el('span', { class: 'sp' }), themeBtn(),
         el('button', { class: 'btn small', type: 'button', onclick: async () => { L = JSON.parse(saved); edit = false; await fetchViews(); draw(); } }, 'Annuler'),
@@ -125,7 +151,7 @@
     if (edit) { grid.addEventListener('dragover', (e) => e.preventDefault()); grid.addEventListener('drop', (e) => { e.preventDefault(); const d = e.dataTransfer.getData('text/odin-module'); if (d) add(JSON.parse(d)); }); }
     h.replaceChildren(bar, el('div', { class: 'fe-wrap' }, grid, edit ? catalogue() : null));
   }
-  function rename(i) { const n = prompt('Nom de la page', L.pages[i].name); if (n) { L.pages[i].name = n.slice(0, 24); draw(); } }
+  async function rename(i) { const n = await window.OdinDialog.prompt('Nom de la page', L.pages[i].name); if (n) { L.pages[i].name = n.slice(0, 24); draw(); } }
   function themeBtn() {
     const themes = window.OdinThemes?.ORDER ?? [];
     const sel = el('select', { 'aria-label': 'Thème', style: 'min-height:36px;border-radius:999px;padding:0 10px;background:#fff;color:#10363a;border:0', onchange: async (e) => { const r = await act('apparence', 'theme', { theme: e.target.value }); say(r.ok ? r.text : `✗ ${r.text ?? r.error}`); } },
@@ -160,7 +186,8 @@
     const fill = (term) => {
       const t = term.trim().toLowerCase(), fams = new Map();
       for (const m of cat?.modules ?? []) { if (t && !`${m.name} ${m.what} ${m.family}`.toLowerCase().includes(t)) continue; if (!fams.has(m.family)) fams.set(m.family, []); fams.get(m.family).push(m); }
-      list.replaceChildren(item({ kind: 'meteo' }, 'Météo', 'le temps, heure par heure', '☀'),
+      list.replaceChildren(item({ kind: 'heure' }, 'Heure et lieu', 'la date et l\'heure là où est Odin', '🕒'), item({ kind: 'meteo' }, 'Météo', 'le temps, heure par heure', '☀'),
+        (cat?.modules ?? []).some((m) => m.id === 'vordr') ? el('button', { class: 'fe-item', type: 'button', onclick: siteSurveille }, el('span', { class: 'fe-ic', 'aria-hidden': 'true' }, '🌐'), el('span', {}, el('b', {}, 'Site surveillé'), el('small', {}, 'un site suivi par Pulsar : en ligne ou en panne'))) : null,
         ...[...fams].flatMap(([f, ms]) => [el('h3', {}, f), ...ms.map((m) => item({ kind: 'chiffres', module: m.id }, m.name, m.what.slice(0, 70), m.name.slice(0, 1)))]));
     };
     fill('');
@@ -180,6 +207,21 @@
     dialog(`Module ${modName(w.module)}`, el('div', {}, el('label', { for: 'feSec' }, 'Ce qu\'il montre'), sel, el('label', { for: 'feLab' }, 'Titre'), lab), () => {
       if (sel.value) { w.kind = 'section'; w.section = sel.value; } else { w.kind = 'chiffres'; delete w.section; }
       w.label = lab.value.trim() || undefined; draw();
+    });
+  }
+  /** « Site surveillé » : une sonde de Pulsar déjà là, ou un nouveau site à surveiller (Pulsar le vérifie ensuite tout seul). */
+  async function siteSurveille() {
+    let sondes = [];
+    try { const r = await api('/api/valhalla/view?id=vordr'); sondes = ((r.view?.sections ?? []).find((x) => x.kind === 'table' && x.title === 'Sondes')?.rows ?? []).map((x) => x.cells[0]); } catch { /* Pulsar ne répond pas : on peut quand même en créer une */ }
+    const sel = el('select', { id: 'feSo' }, el('option', { value: '' }, 'Un nouveau site…'), ...sondes.map((n) => el('option', { value: n }, n)));
+    const nom = el('input', { id: 'feSn', placeholder: 'Nom (ex. Mon site)', maxlength: '60' }), url = el('input', { id: 'feSu', placeholder: 'Adresse (ex. https://exemple.fr)', inputmode: 'url' });
+    const neuf = el('div', {}, el('label', { for: 'feSn' }, 'Nom'), nom, el('label', { for: 'feSu' }, 'Adresse du site'), url);
+    sel.onchange = () => { neuf.hidden = Boolean(sel.value); };
+    dialog('Site surveillé', el('div', {}, el('label', { for: 'feSo' }, 'Sonde de Pulsar'), sel, neuf), () => {
+      if (sel.value) { add({ kind: 'site', module: 'vordr', label: sel.value }); return; }
+      const n = nom.value.trim(), u = url.value.trim();
+      if (!n || !/^https?:\/\/\S+$/i.test(u)) { say('Donne un nom et une adresse qui commence par http:// ou https://.'); return false; }
+      act('vordr', 'ajouter', { nom: n, genre: 'http', cible: u }).then((r) => { say(r.ok ? `Pulsar surveille maintenant « ${n} ».` : `✗ ${r.text || r.error || 'Pulsar a refusé'}`); if (r.ok) add({ kind: 'site', module: 'vordr', label: n }); });
     });
   }
   function ownButton() {

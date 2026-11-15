@@ -43,6 +43,7 @@
     graph: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="9" cy="18" r="2.5"/><path d="M8 7.5l8 0.8M7 8.3l1.6 7.4M16.5 10l-6 6.3"/>',
     table: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M9 9.5v10"/>',
     home: '<path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/>', send: '<path d="M4 12h14M13 6l6 6-6 6"/>', link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    memory: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5v-15z"/><path d="M19 18v3H6.5A1.5 1.5 0 0 1 5 19.5"/><path d="M9 7h6"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>', star: '<path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.3L12 16l-4.9 2.6 1.1-5.3-4-3.7 5.4-.6z"/>',
   };
   const TYPE_LABEL = { projet: 'Projet', tâche: 'Tâche', personne: 'Personne', idée: 'Idée', réunion: 'Réunion', ressource: 'Ressource', capture: 'Capture', journal: 'Journal', quotidien: 'Quotidien', fiche: 'Fiche', note: 'Note', connecteur: 'Connecteur' };
@@ -113,6 +114,7 @@
         navBtn('accueil', IC.home, 'Accueil'),
         navBtn('journal', IC.journal, 'Journal du jour'),
         navBtn('graphe', IC.graph, 'Graphe'),
+        navBtn('souvenirs', IC.memory, 'Souvenirs'),
       ),
       el('div', { id: 'brResults', class: 'br-results', hidden: true }),
       el('div', { class: 'br-sec' }, el('div', { class: 'br-h' }, 'Bases'), el('div', { id: 'brBases' })),
@@ -163,11 +165,25 @@
     if (!q) { box.hidden = true; return; }
     const r = await api(`/api/brain/search?q=${encodeURIComponent(q)}`);
     box.hidden = false;
-    box.replaceChildren(el('div', { class: 'br-h' }, `${r.results.length} résultat${r.results.length > 1 ? 's' : ''}`), ...r.results.map((x) => el('button', { type: 'button', class: 'br-res', onclick: () => openNote(x.path) }, el('b', {}, x.title), el('span', {}, x.snippet))));
+    // Les souvenirs d'Odin font partie du Cerveau : ils sortent avec les pages, et mènent à la rubrique Souvenirs.
+    const mem = r.memories || [], n = r.results.length + mem.length;
+    box.replaceChildren(el('div', { class: 'br-h' }, `${n} résultat${n > 1 ? 's' : ''}`), ...r.results.map((x) => el('button', { type: 'button', class: 'br-res', onclick: () => openNote(x.path) }, el('b', {}, x.title), el('span', {}, x.snippet))),
+      ...(mem.length ? [el('div', { class: 'br-h' }, 'Souvenirs'), ...mem.map((m) => el('button', { type: 'button', class: 'br-res', onclick: () => openMemories(q) }, el('b', {}, m.pinned ? '📌 Souvenir' : 'Souvenir'), el('span', {}, m.content)))] : []));
+  }
+
+  // ---------------- Souvenirs : la mémoire d'Odin, rangée dans le Cerveau ----------------
+  // Le panneau (#brMem) est construit par ui.html (épingler, corriger, oublier, ranger) ; il est montré ici
+  // et rangé de côté (#brMemHome) quand on passe à autre chose, pour ne jamais le perdre.
+  function parkMemories() { const p = $('#brMem'), home = $('#brMemHome'); if (p && home && p.parentElement !== home) home.append(p); }
+  function renderMemories() { const p = $('#brMem'), main = $('#brMain'); if (!p || !main) return; main.replaceChildren(p); }
+  function openMemories(q) {
+    setMode('souvenirs');
+    const inp = $('#memQ'); if (inp && q !== undefined) { inp.value = q; inp.dispatchEvent(new Event('input')); }
   }
 
   function setMode(m) {
     if (S.dirty) saveNow();
+    parkMemories();
     S.mode = m;
     document.querySelector('.br')?.classList.toggle('br-wide', m === 'graphe');
     if (m !== 'page') S.path = null;
@@ -175,6 +191,7 @@
     if (m === 'accueil') renderHome();
     if (m === 'graphe') renderGraph(true);
     if (m === 'base') renderBase();
+    if (m === 'souvenirs') renderMemories();
     if (S.tree) renderSide();
     closeSide();
     if (m !== 'page') renderLinks(null);
@@ -228,6 +245,7 @@
     if (S.dirty) await saveNow();
     const r = await api(`/api/brain/note?path=${encodeURIComponent(path)}`);
     if (!r.ok) return;
+    parkMemories();
     S.mode = 'page'; S.path = r.note.path; S.note = r.note; S.edit = false;
     document.querySelector('.br')?.classList.remove('br-wide');
     stopGraph();
@@ -252,7 +270,7 @@
       ...props.map(([k, v]) => el('div', { class: 'br-prop' }, el('span', { class: 'br-pk' }, k),
         el('span', {}, k === 'statut' && def?.statuses ? el('select', { 'aria-label': k, onchange: (e) => setProp(k, e.target.value) }, ...def.statuses.map((x) => el('option', { selected: x === v ? true : undefined }, x)))
           : el('input', { value: Array.isArray(v) ? v.join(', ') : String(v), 'aria-label': k, onchange: (e) => setProp(k, Array.isArray(v) ? e.target.value.split(',').map((x) => x.trim()).filter(Boolean) : e.target.value) })))),
-      el('div', { class: 'br-prop add' }, el('button', { type: 'button', class: 'br-mini', onclick: () => { const k = (window.prompt('Nom de la propriété (ex. échéance, statut, lien) :') || '').trim(); if (k) setProp(k, ''); } }, ico(IC.plus, 13), ' Propriété')),
+      el('div', { class: 'br-prop add' }, el('button', { type: 'button', class: 'br-mini', onclick: async () => { const k = ((await window.OdinDialog.prompt('Nom de la propriété (ex. échéance, statut, lien) :')) || '').trim(); if (k) setProp(k, ''); } }, ico(IC.plus, 13), ' Propriété')),
     );
     const bar = el('div', { class: 'br-bar' },
       el('div', { class: 'seg', role: 'group', 'aria-label': 'Mode' }, el('button', { type: 'button', 'aria-pressed': String(!S.edit), onclick: () => { S.edit = false; renderPage({ ...r, note: S.note }); } }, 'Lire'), el('button', { type: 'button', 'aria-pressed': String(S.edit), onclick: () => { S.edit = true; renderPage({ ...r, note: S.note }); } }, 'Écrire')),
@@ -527,6 +545,9 @@
     const nb = new Map(); for (const e of edges) { (nb.get(e.from) || nb.set(e.from, new Set()).get(e.from)).add(e.to); (nb.get(e.to) || nb.set(e.to, new Set()).get(e.to)).add(e.from); }
     for (const e of edges) { e.a = byId.get(e.from); e.b = byId.get(e.to); }
     const view = { x: W / 2, y: H / 2, k: 1 };
+    // Échanges entre applis en direct : la fiche d'une appli (Odin/Applis/<nom>) est son point ; leur lien brille (graph.js).
+    const ECH = window.OdinGraph?.echanges, fichesApplis = new Map(nodes.filter((n) => n.folder === 'Odin/Applis').map((n) => [n.title, n])); let echSegs = [];
+    ECH?.brancher(() => { if (!raf) draw(); }, () => cv.isConnected, 30);
     let hover = null, drag = null, pan = null, alpha = 1, moved = false;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const radius = (n) => (n.type === 'connecteur' ? 6 : n.type === 'dossier' ? 5 + Math.sqrt(n.degree) * 0.9 : n.type === 'étiquette' ? 3 : 2.4 + Math.sqrt(n.degree) * 1.8) * GS.nodeSize;
@@ -613,6 +634,11 @@
       ctx.stroke();
       if (hover) { ctx.globalAlpha = 1; ctx.strokeStyle = PAL.linkHi; ctx.lineWidth = lw * 2; ctx.beginPath(); for (const e of edges) if (e.a === hover || e.b === hover) { ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); } ctx.stroke(); }
       if (GS.arrows) { ctx.fillStyle = PAL.link; for (const e of edges) { const r = radius(e.b) + 2, dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, x = e.b.x - ux * r, y = e.b.y - uy * r, s = 4 / view.k; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - ux * s - uy * s * 0.6, y - uy * s + ux * s * 0.6); ctx.lineTo(x - ux * s + uy * s * 0.6, y - uy * s - ux * s * 0.6); ctx.fill(); } }
+      if (ECH) echSegs = ECH.dessiner(ctx, { k: view.k, reduit: reduce, noeud: (id, nom) => {
+        // « Odin consulte » : Odin part du centre de la carte ; une note est trouvée par son chemin, une appli par sa fiche.
+        if (id === 'odin') return { id: 'odin', x: 0, y: 0, r: 0 };
+        const n = fichesApplis.get(nom) || byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) };
+      }, relies: (a, b) => Boolean(nb.get(a)?.has(b)) });
       // Points
       for (const n of nodes) {
         const lit = !hover || n === hover || hi.has(n.id), src = S.sources.has(n.id) || match(n);
@@ -696,6 +722,7 @@
       if (drag) { const p = at(e); drag.x = p.x; drag.y = p.y; drag.vx = 0; drag.vy = 0; moved = true; reheat(0.3); return; }
       if (pan) { view.x = pan.vx + e.clientX - pan.x; view.y = pan.vy + e.clientY - pan.y; moved = true; draw(); return; }
       const h = at(e).node;
+      if (ECH) cv.title = h ? '' : window.OdinGraph.survolEchange(echSegs, at(e), view.k); // « Phénix demande à Arche : … »
       if (h !== hover) { hover = h; cv.style.cursor = h ? 'pointer' : 'grab'; const tip = $('#brTip'); if (h) { tip.hidden = false; tip.textContent = `${h.title} · ${TYPE_LABEL[h.type] || h.type} · ${h.degree} lien${h.degree > 1 ? 's' : ''}`; } else tip.hidden = true; if (!raf) draw(); }
     };
     cv.onpointerleave = () => { if (hover) { hover = null; $('#brTip').hidden = true; if (!raf) draw(); } };
@@ -706,18 +733,21 @@
   }
 
   // ---------------- Petits éléments ----------------
-  function confirmBox(msg) { return window.oqgAsk ? window.oqgAsk(msg) : Promise.resolve(window.confirm(msg)); }
+  function confirmBox(msg) { return window.oqgAsk ? window.oqgAsk(msg) : window.OdinDialog.confirm(msg); }
   function alertBox(msg) { const st = $('#brSaved') || $('#brCapState'); if (st) st.textContent = `✗ ${msg}`; }
   function openSide() { S.sideOpen = true; $('#brSide')?.classList.add('open'); }
   function closeSide() { S.sideOpen = false; $('#brSide')?.classList.remove('open'); }
 
   window.OdinBrain = {
-    async open() {
+    /** Ouvre le Cerveau ; `part` = 'souvenirs' ouvre directement la rubrique Souvenirs (ancien écran Mémoire). */
+    async open(part) {
       if (!$('#v-brain .body')) return;
       if (!S.open) { build(); S.open = true; $('#brPages')?.addEventListener('click', () => (S.sideOpen ? closeSide() : openSide())); $('#brNew')?.addEventListener('click', () => newPage('note')); $('#brGraphBtn')?.addEventListener('click', () => setMode('graphe')); }
+      if (part === 'souvenirs') { parkMemories(); S.mode = 'souvenirs'; }
       await refresh();
-      if (S.mode === 'page' && S.path) openNote(S.path); else if (S.mode === 'graphe') renderGraph(true); else if (S.mode === 'base') renderBase(); else renderHome();
+      if (S.mode === 'page' && S.path) openNote(S.path); else if (S.mode === 'graphe') renderGraph(true); else if (S.mode === 'base') renderBase(); else if (S.mode === 'souvenirs') { renderMemories(); renderSide(); } else renderHome();
     },
+    memories: (q) => openMemories(q),
     md,
   };
   // Changement d'écran ou d'onglet : ce qui est en cours d'écriture est enregistré.

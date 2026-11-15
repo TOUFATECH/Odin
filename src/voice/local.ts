@@ -5,6 +5,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
+import { accord } from '../core/genre.ts';
 import { join } from 'node:path';
 import { hasCommand } from '../learn/environment.ts';
 import { ADMIN_HINT, adminDiagnosis, sudoRefused, withAdmin } from '../machines/access.ts';
@@ -212,7 +213,7 @@ export function voiceFailure(log: string, needsAdmin: boolean, advice = ''): str
   if (needsAdmin) {
     // La vraie cause (mot de passe demandé, service verrouillé, sudo absent…) et la marche à suivre viennent du diagnostic.
     const missing = /Paquets à installer\s*:\s*(.+)/.exec(log)?.[1]?.trim().split(/\s+/).join(', ');
-    return `⚠ Pour installer l'écoute${missing ? `, il manque ${missing} sur ce poste, et` : ','} il me faut les droits administrateur.\n${advice || ADMIN_HINT}\nDès que je les ai, je relance l'installation tout seul. (Autre voie : une clé OpenAI dans Réglages → Voix.)`;
+    return `⚠ Pour installer l'écoute${missing ? `, il manque ${missing} sur ce poste, et` : ','} il me faut les droits administrateur.\n${advice || ADMIN_HINT}\nDès que je les ai, je relance l'installation ${accord('tout seul', 'toute seule')}. (Autre voie : une clé OpenAI dans Réglages → Voix.)`;
   }
   const real = lines.filter((l) => !/^sudo: /.test(l) && l !== 'Terminé.').at(-1)?.slice(0, 220) ?? 'erreur inconnue';
   return `⚠ L'installation de l'écoute a échoué : ${real}. Dis-moi « installe la voix locale » pour réessayer, ou ajoute une clé OpenAI dans Réglages → Voix.`;
@@ -230,7 +231,7 @@ export function voiceBlocked(home?: string, has: (c: string) => boolean = hasCom
   if (process.platform !== 'linux' || localWhisper(home)) return undefined;
   const missing = TOOLS.filter((c) => !has(c)); if (!missing.length) return undefined;
   const d = diag(home ?? process.env.ODIN_HOME ?? join(homedir(), '.odin')); if (d.ok) return undefined;
-  return `Je ne peux pas encore écouter tes vocaux : il manque ${missing.join(', ')} sur ce poste pour installer l'écoute, et je ne suis ${d.state}.\n${d.fix}\nDès que j'ai les droits, je l'installe tout seul. (Autre voie : une clé OpenAI dans Réglages → Voix.)`;
+  return `Je ne peux pas encore écouter tes vocaux : il manque ${missing.join(', ')} sur ce poste pour installer l'écoute, et je ne suis ${d.state}.\n${d.fix}\nDès que j'ai les droits, je l'installe ${accord('tout seul', 'toute seule')}. (Autre voie : une clé OpenAI dans Réglages → Voix.)`;
 }
 
 /** Une installation attend les droits administrateur : elle repart toute seule dès qu'Odin les a. */

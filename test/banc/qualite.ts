@@ -80,7 +80,7 @@ export const ECRANS: Cible[] = [
   spa('automatisations', 'Automatisations', `window.OdinShow('flows')`, '#v-flows'),
   spa('papyrus', 'Papyrus (bases)', `window.OdinShow('runes')`, '#v-runes'),
   spa('activite', 'Activité', `window.OdinShow('missions')`, '#v-missions'),
-  spa('memoire', 'Mémoire', `window.OdinShow('memory')`, '#v-memory'),
+  spa('memoire', 'Souvenirs (dans le Cerveau)', `window.OdinShow('memory')`, '#v-brain'),
   spa('competences', 'Compétences', `window.OdinShow('skills')`, '#v-skills'),
   spa('taches', 'Tâches planifiées', `window.OdinShow('jobs')`, '#v-jobs'),
   spa('decisions', 'Décisions', `window.OdinShow('audit')`, '#v-audit'),

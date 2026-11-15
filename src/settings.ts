@@ -12,6 +12,7 @@ import type { OdinConfig, OdinPaths, ProviderConfig } from './config.ts';
 import { setConfigValue } from './config.ts';
 import { CODEX_MODELS, loadCodexAuth } from './providers/codex.ts';
 import { TTS_DEFAULTS } from './voice/voice.ts';
+import { genreOdin, lireGenre } from './core/genre.ts';
 import { buildProvider, Router, strengthsOf, tierOf, visionOf, type Tier } from './providers/router.ts';
 import { providerLabel, serviceOf } from './providers/journal.ts';
 
@@ -190,7 +191,7 @@ export function settingsView(cfg: OdinConfig, demo: boolean, env: NodeJS.Process
     },
     network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, notify: cfg.network.notify },
     mimir: { enabled: cfg.mimir.enabled, judge: cfg.mimir.judge, autonomy: cfg.mimir.autonomy },
-    voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, ttsProvider: cfg.voice.tts.provider, ttsUrl: cfg.voice.tts.baseUrl, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, gender: cfg.voice.gender ?? 'homme', femaleVoiceId: cfg.voice.femaleVoiceId ?? '', ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language, localOnly: cfg.voice.localOnly, replyMode: cfg.voice.replyMode, listen: cfg.voice.listen, interrupt: cfg.voice.interrupt, speech: cfg.voice.speech, brain: cfg.voice.brain, privacy: cfg.voice.privacy },
+    voice: { enabled: cfg.voice.enabled, speakReplies: cfg.voice.speakReplies, voiceReplies: cfg.voice.voiceReplies, ttsProvider: cfg.voice.tts.provider, ttsUrl: cfg.voice.tts.baseUrl, voiceId: cfg.voice.tts.voiceId, voiceName: cfg.voice.tts.voiceName, gender: genreOdin(cfg), genderChosen: Boolean(cfg.voice.genderChosen), femaleVoiceId: cfg.voice.femaleVoiceId ?? '', ttsModel: cfg.voice.tts.model, sttUrl: cfg.voice.stt.baseUrl, sttModel: cfg.voice.stt.model, language: cfg.voice.stt.language, localOnly: cfg.voice.localOnly, replyMode: cfg.voice.replyMode, listen: cfg.voice.listen, interrupt: cfg.voice.interrupt, speech: cfg.voice.speech, brain: cfg.voice.brain, privacy: cfg.voice.privacy },
     web: { port: cfg.web.port, access: cfg.web.access, https: cfg.web.tls.enabled, cert: cfg.web.tls.cert, key: cfg.web.tls.key, behindProxy: cfg.web.behindProxy, publicUrl: cfg.web.publicUrl, networks: cfg.web.allowedNetworks.join(', ') },
   };
 }
@@ -375,6 +376,8 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       const next: Voice = {
         ...v,
         gender, femaleVoiceId,
+        // Le choix « homme ou femme » envoyé par la page vaut choix fait : Odin ne le redemande plus.
+        ...(str('gender') !== undefined ? { genderChosen: true } : {}),
         enabled: Boolean(b.enabled), speakRepliesChosen: true,
         tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: voiceId ? (str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName)) : '', model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
         stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
@@ -394,6 +397,16 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
       Object.assign(cfg.voice, next);
       if (next.replyMode === 'texte') { cfg.voice.speakReplies = false; cfg.voice.voiceReplies = false; }
       return false;
+    }
+    // Odin : homme ou femme (installation, premier démarrage, « prends une voix de femme ») : le seul réglage,
+    // la voix et les accords du texte le suivent tout de suite.
+    case 'genre': {
+      const g = lireGenre(b.genre ?? b.gender);
+      if (!g) throw new Error('choix invalide : homme ou femme');
+      setConfigValue(paths, ['voice', 'gender'], g);
+      setConfigValue(paths, ['voice', 'genderChosen'], true);
+      cfg.voice.gender = g; cfg.voice.genderChosen = true;
+      return false; // rien à redémarrer
     }
     // Le bouton « Voix » de la discussion et de la bulle d'Odin : le même réglage que Réglages → Voix
     case 'speak': {

@@ -16,7 +16,7 @@
     return n;
   };
   const post = async (action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'ymir', action, input, confirm }) })).json();
-  const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!confirm(r.confirm)) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
+  const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
   const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Hydre', app: 'Hydre' }); };
   const P = {
     box: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', plus: 'M12 5v14M5 12h14', down: 'M12 4v12M6 12l6 6 6-6M4 20h16', up: 'M12 20V8M6 12l6-6 6 6M4 4h16', copy: 'M8 8h12v12H8zM4 16V4h12',
@@ -60,6 +60,12 @@
 .ym-tl{display:flex;gap:6px;overflow-x:auto;padding:4px 0}.ym-tl div{min-width:130px;text-align:center;font-size:12px}.ym-tl i{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;margin:6px auto;border:2px solid currentColor}.ym-tl b{display:block;font-size:12.5px;color:var(--ink)}.ym-tl span{color:var(--muted)}
 .ym-j{display:flex;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}.ym-j:first-of-type{border-top:0}.ym-j .tx{flex:1}.ym-j .ok{color:var(--yok);flex:none}.ym-j small{color:var(--muted)}
 .ym-out{font-size:13px;white-space:pre-wrap;color:var(--muted);margin:8px 0 0}.ym-empty{font-size:13.5px;color:var(--muted)}
+.ym-drop{border:2px dashed var(--line);border-radius:18px;padding:22px 16px;text-align:center;color:var(--muted);font-size:14px;transition:border-color .15s,background .15s}.ym-drop.sur{border-color:var(--ya);background:color-mix(in srgb,var(--ya) 9%,transparent);color:var(--ink)}
+.ym-env{display:flex;flex-direction:column;gap:5px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}.ym-env:first-child{border-top:0}.ym-env .l{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.ym-env .l b{flex:1;min-width:0;overflow-wrap:anywhere}.ym-env .l span{color:var(--muted);font-variant-numeric:tabular-nums}
+.ym-bar{height:10px;border-radius:999px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden}.ym-bar i{display:block;height:100%;width:0;border-radius:999px;background:var(--ya) linear-gradient(110deg,transparent 0 40%,rgba(255,255,255,.38) 50%,transparent 60% 100%);background-size:220% 100%;transition:width .35s ease;animation:ymBar 1.3s linear infinite}.ym-bar.fin i{animation:none;background:var(--yok)}.ym-bar.ko i{animation:none;background:var(--ybad)}
+@keyframes ymBar{from{background-position:120% 0}to{background-position:-120% 0}}@media (prefers-reduced-motion:reduce){.ym-bar i{animation:none;transition:none}}
+.ym-iso{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}.ym-iso .c{border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;gap:12px;min-width:0;background:color-mix(in srgb,var(--panel) 92%,transparent)}.ym-iso img{width:44px;height:44px;border-radius:11px;flex:none}.ym-iso .t{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.ym-iso b{font-size:14px;overflow-wrap:anywhere}.ym-iso small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.ym-nav{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}.ym-nav button{display:flex;gap:8px;align-items:center;min-height:36px;padding:0 10px;border:0;border-radius:9px;background:none;color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}.ym-nav button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-nav button span{margin-left:auto;color:var(--muted);font-size:12px}
 `;
   const S = { tab: 'machines', filtre: 'Toutes', sel: null, timer: 0, previews: {}, create: { genre: 'lxc', apps: null } };
   const FAM = { Linux: '#E95420', Windows: '#0A6CD6', Mac: '#94a3b8', Autre: '#64748b' };
@@ -96,7 +102,7 @@
     const side = el('div', { class: 'ym-w ym-side', role: 'navigation', 'aria-label': 'Ranger les machines' }, el('div', { class: 'h' }, 'Systèmes'),
       ...['Toutes', ...fams].map((f) => el('button', { type: 'button', 'aria-pressed': String(S.filtre === f), onclick: () => { S.filtre = f; redraw(); } }, el('i', { style: `background:${f === 'Toutes' ? 'var(--ya)' : FAM[f]}` }), f, el('span', {}, String(f === 'Toutes' ? all.length : all.filter((m) => m.famille === f).length)))),
       el('div', { class: 'h' }, 'Mes catégories'), ...cats.map((c) => el('button', { type: 'button', 'aria-pressed': String(S.filtre === c.nom), onclick: () => { S.filtre = c.nom; redraw(); } }, el('i', { style: `background:${c.couleur}` }), c.nom, el('span', {}, String(all.filter((m) => m.categorie === c.nom).length)))),
-      el('button', { type: 'button', style: 'color:var(--muted)', onclick: async () => { const n = prompt('Nom de la nouvelle catégorie ?'); if (n) { note(await post('categorie_machines', { nom: n })); redraw(); } } }, ic('plus', 14), 'Nouvelle catégorie'),
+      el('button', { type: 'button', style: 'color:var(--muted)', onclick: async () => { const n = await window.OdinDialog.prompt('Nom de la nouvelle catégorie ?'); if (n) { note(await post('categorie_machines', { nom: n })); redraw(); } } }, ic('plus', 14), 'Nouvelle catégorie'),
       host(D.hote, D));
     const main = el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' });
     root.append(el('div', { class: 'ym-lay' }, side, main));
@@ -151,9 +157,9 @@
         } }, 'Appliquer'),
           el('label', { style: 'font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-left:auto' }, 'Catégorie', el('select', { class: 'ym-btn', onchange: async (e) => { note(await post('ranger_machine', { machine: m.id, categorie: e.target.value })); redraw(); } }, el('option', { value: '' }, '—'), ...(D.categories ?? []).map((c) => el('option', { value: c.nom, selected: m.categorie === c.nom }, c.nom))))), out),
       el('div', { class: 'ym-tiles' },
-        tile('up', 'Exporter en .ody', 'Toute la machine dans un fichier vérifié (machine éteinte).', () => { const d = prompt('Dossier de destination (vide : Machines dans ton dossier) ?', ''); return d === null ? null : post('exporter_machine', { machine: m.id, dossier: d }); }),
-        tile('down', 'Importer un .ody', 'Odin vérifie le fichier et l\'antivirus avant de la créer.', () => { const f = prompt('Chemin du fichier .ody ?'); return f ? post('importer_machine', { fichier: f }) : null; }),
-        tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', () => { const n = prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? post('cloner_machine', { machine: m.id, nom: n }) : null; }),
+        tile('up', 'Exporter en .ody', 'Toute la machine dans un fichier vérifié (machine éteinte).', async () => { const d = await window.OdinDialog.prompt('Dossier de destination (vide : Machines dans ton dossier) ?', ''); return d === null ? null : post('exporter_machine', { machine: m.id, dossier: d }); }),
+        tile('down', 'Importer un .ody', 'Odin vérifie le fichier et l\'antivirus avant de la créer.', async () => { const f = await window.OdinDialog.prompt('Chemin du fichier .ody ?'); return f ? post('importer_machine', { fichier: f }) : null; }),
+        tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', async () => { const n = await window.OdinDialog.prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? post('cloner_machine', { machine: m.id, nom: n }) : null; }),
         tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' })),
         tile('grid', m.estModele ? 'Ce n\'est plus un modèle' : 'Faire un modèle', m.estModele ? 'Elle redevient une machine qui démarre.' : 'Machine éteinte : on crée ensuite des machines depuis elle.', () => post('modele_machine', { machine: m.id, modele: !m.estModele }))),
       el('div', { class: 'ym-w', style: 'grid-column:1/-1' }, el('h3', {}, ic('term', 16), m.genre === 'lxc' ? `Console de ${m.nom}` : `Clavier de ${m.nom}`, el('small', { class: 'r' }, run ? (m.genre === 'lxc' ? 'chaque commande demande ton accord' : 'tape sur son écran (aperçu au-dessus)') : 'machine éteinte')),
@@ -162,9 +168,16 @@
   function creer(root, D, redraw) {
     const C = S.create; if (C.apps === null) C.apps = new Set((D.apps ?? []).filter((a) => a.reco).map((a) => a.id));
     const out = el('p', { class: 'ym-out', role: 'status' }), today = new Date(), d8 = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-    const sys = el('select', { id: 'ymSys' }, ...(C.genre === 'lxc' ? (D.modeles ?? []).map((x) => el('option', { value: `${x.dist} ${x.release}` }, `${x.titre} ${x.version} (${x.release})`)) : (D.isos ?? []).map((x) => el('option', { value: x.nom }, x.nom))));
+    // VM : les ISO de la bibliothèque (Andromède et importées), rangées par système ; les pilotes et les anciennes versions à part.
+    const isos = (D.isos ?? []).filter((x) => !x.pilotes), parSys = ['Windows', 'macOS', 'Linux', 'Autre'].map((g) => [g, isos.filter((x) => (['Windows', 'macOS', 'Linux'].includes(x.systeme) ? x.systeme : 'Autre') === g)]).filter(([, l]) => l.length);
+    const sys = el('select', { id: 'ymSys' }, ...(C.genre === 'lxc' ? (D.modeles ?? []).map((x) => el('option', { value: `${x.dist} ${x.release}` }, `${x.titre} ${x.version} (${x.release})`)) : parSys.map(([g, l]) => el('optgroup', { label: g }, ...l.map((x) => el('option', { value: x.id }, `${x.detail || x.nom} · ${x.nom}${x.antivirus?.verdict === 'sain' ? ' · ✓ antivirus' : x.antivirus?.verdict === 'non analysé' ? ' · pas encore analysée' : ''}`))))));
     const fin = el('input', { id: 'ymFin', placeholder: 'ex. Nextcloud famille' }), full = el('div', { class: 'ym-empty', style: 'font-size:12px' });
-    const upd = () => { const v = sys.value || ''; const md = (D.modeles ?? []).find((x) => `${x.dist} ${x.release}` === v); const base = C.genre === 'lxc' ? `${md?.titre ?? ''}-${md?.version ?? ''}` : v.split(/[-_ ]/)[0]; full.textContent = `Sur le réseau : ${`${base}-${d8}-${fin.value}`.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}.maison`; };
+    // Ce qu'Hydre règle tout seul selon le système de l'ISO choisie (UEFI, TPM, pilotes, disque, réseau), et les limites de macOS.
+    const prof = el('div', { class: 'ym-empty', style: 'font-size:12.5px', role: 'status' }), macOk = el('input', { type: 'checkbox', id: 'ymMac' });
+    const isoChoisie = () => isos.find((x) => x.id === sys.value);
+    const upd = () => { const v = sys.value || ''; const md = (D.modeles ?? []).find((x) => `${x.dist} ${x.release}` === v); const iso = isoChoisie(); const base = C.genre === 'lxc' ? `${md?.titre ?? ''}-${md?.version ?? ''}` : (iso?.distribution || iso?.detail || iso?.nom || '').split(/[-_ ]/)[0];
+      if (C.genre === 'vm') prof.replaceChildren(...(iso?.profil ? [el('b', {}, `Réglé pour ${iso.detail || iso.systeme} : `), ...(iso.profil.notes ?? []).map((n) => el('div', {}, `· ${n}`)), iso.profil.avertissement ? el('div', { class: 'ym-ko', style: 'margin-top:6px;font-weight:500' }, iso.profil.avertissement) : null, iso.profil.avertissement ? el('label', { for: 'ymMac', style: 'display:flex;gap:8px;align-items:center;margin-top:6px;color:var(--ink)' }, macOk, 'J\'ai compris ces limites') : null] : []));
+      full.textContent = `Sur le réseau : ${`${base}-${d8}-${fin.value}`.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}.maison`; };
     sys.onchange = upd; fin.oninput = upd; upd();
     const sl = (label, min, max, val, unit) => { const i = el('input', { type: 'range', min: String(min), max: String(max), value: String(val), 'aria-label': label }), b = el('b', {}, `${val} ${unit}`); i.oninput = () => { b.textContent = `${i.value} ${unit}`; }; return [el('div', { class: 'ym-sl' }, el('span', {}, label), i, b), i]; };
     const h = D.hote ?? { coeurs: 8, ramTotal: 8 * 1024 ** 3 };
@@ -189,7 +202,7 @@
     root.append(el('div', { class: 'ym-bot ym-bot-cr' },
       el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
         el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Système'), el('div', { class: 'ym-seg', role: 'group', 'aria-label': 'Genre' }, ...[['lxc', 'LXC (léger)'], ['vm', 'VM']].map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(C.genre === k), onclick: () => { C.genre = k; redraw(); } }, t))),
-          el('label', { for: 'ymSys' }, C.genre === 'lxc' ? 'Modèle (image officielle signée)' : 'ISO d\'Andromède'), sys, C.genre === 'vm' && !(D.isos ?? []).length ? el('span', { class: 'ym-ko' }, 'Aucune ISO dans Andromède.') : null,
+          el('label', { for: 'ymSys' }, C.genre === 'lxc' ? 'Modèle (image officielle signée)' : 'ISO de la bibliothèque (Andromède et importées)'), sys, C.genre === 'vm' && !isos.length ? el('span', { class: 'ym-ko' }, 'Aucune ISO dans la bibliothèque : onglet « ISO » pour en importer.') : null, C.genre === 'vm' ? prof : null,
           el('label', { for: 'ymFin' }, 'Nom (fait par Odin, tu ajoutes la fin)'), fin, full),
         el('div', { class: 'ym-w' }, el('h3', {}, 'Ressources'), cpuR, ramR, dkR, el('p', { class: 'ym-empty', style: 'font-size:12px;margin:4px 0 0' }, `Ce PC : ${h.coeurs} cœurs, ${go(h.ramTotal - h.ramUtilisee)} Go de mémoire libre${h.disqueTotal ? `, ${go(h.disqueTotal - h.disqueUtilise)} Go de disque libre` : ''}.`)),
         el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Réseau'), el('label', { for: 'ymIp' }, 'Adresse IP'), el('div', { style: 'display:flex;gap:8px;align-items:center' }, ip, ipOk), el('p', { class: 'ym-empty', style: 'font-size:12px;margin:0' }, `Passerelle ${D.reseau?.passerelle} · DNS ${D.reseau?.dns} · pont ${D.reseau?.pont}. Odin vérifie que personne ne répond sur l'adresse.`))),
@@ -197,11 +210,101 @@
         el('div', { class: 'ym-apps' }, ...(D.apps ?? []).map((a) => { const ok = C.genre === 'lxc' ? a.lxc : a.vm; return el('label', { style: ok ? '' : 'opacity:.5' }, el('input', { type: 'checkbox', checked: C.apps.has(a.id) && ok, disabled: !ok, onchange: (e) => { if (e.target.checked) C.apps.add(a.id); else C.apps.delete(a.id); } }), el('span', {}, el('b', {}, a.nom), el('small', {}, ok ? a.quoi : 'pas pour une VM'))); })),
         el('label', { for: 'ymPaq', style: 'margin-top:8px' }, 'Et en plus (logiciels de la distribution)'), paq,
         miss.length ? el('p', { class: 'ym-ko' }, `Il manque sur ce PC : ${miss.join(', ')}.`) : null,
-        el('div', { class: 'ym-row', style: 'margin-top:10px' }, el('button', { class: 'ym-btn pri', type: 'button', style: 'min-height:42px;padding:0 18px', disabled: Boolean(miss.length) || (C.genre === 'vm' && !(D.isos ?? []).length), onclick: async (e) => {
+        el('div', { class: 'ym-row', style: 'margin-top:10px' }, el('button', { class: 'ym-btn pri', type: 'button', style: 'min-height:42px;padding:0 18px', disabled: Boolean(miss.length) || (C.genre === 'vm' && !isos.length), onclick: async (e) => {
           const b = e.currentTarget; b.disabled = true; out.textContent = C.genre === 'lxc' ? 'Téléchargement de l\'image et création… (quelques minutes la première fois)' : 'Création du disque et démarrage…';
-          const x = await act('creer_machine', { genre: C.genre, ...(C.genre === 'lxc' ? { modele: sys.value } : { iso: sys.value }), fin: fin.value, coeurs: Number(cpu.value), memoire: Number(ram.value), disque: Number(dk.value), ip: ip.value.trim(), apps: [...C.apps].join(','), paquets: paq.value });
+          const x = await act('creer_machine', { genre: C.genre, ...(C.genre === 'lxc' ? { modele: sys.value } : { iso: sys.value, macos_compris: macOk.checked }), fin: fin.value, coeurs: Number(cpu.value), memoire: Number(ram.value), disque: Number(dk.value), ip: ip.value.trim(), apps: [...C.apps].join(','), paquets: paq.value });
           b.disabled = false; out.textContent = x.text; note(x); if (x.ok !== false) { S.tab = 'machines'; S.sel = x.data?.id ?? null; C.apps = null; setTimeout(redraw, 1500); }
         } }, ic('plus', 15), 'Créer et installer')), out)));
+  }
+  // ---------------- Onglet « ISO » : l'espace ISO (commun avec Andromède), l'import, la bibliothèque, la vérification
+  const octets = (n) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2).replace('.', ',')} Go` : n >= 1024 ** 2 ? `${Math.round(n / 1024 ** 2)} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`);
+  const duree = (s) => (!Number.isFinite(s) ? '…' : s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min` : s >= 60 ? `${Math.floor(s / 60)} min ${Math.round(s % 60)} s` : `${Math.max(1, Math.round(s))} s`);
+  /** Envoie un fichier en morceaux de 8 Mo ; après une coupure, reprend là où Odin en est. `suivi` reçoit l'avancement. */
+  async function envoyerIso(file, suivi) {
+    const T = 8 * 1024 * 1024; let essais = 0, id = '', recu = 0, t0 = performance.now(), d0 = 0;
+    const preparer = async () => { const p = await post('preparer_envoi_iso', { nom: file.name, taille: file.size }); if (!p.data?.envoi) throw new Error(p.text || 'envoi refusé'); id = p.data.envoi; recu = p.data.recu; t0 = performance.now(); d0 = recu; };
+    await preparer(); if (recu > file.size) recu = 0;
+    suivi({ recu, total: file.size, vitesse: 0, reste: Infinity, repris: recu > 0 });
+    while (recu < file.size) {
+      let r;
+      try { r = await (await fetch(`/api/valhalla/morceau?module=ymir&envoi=${id}&debut=${recu}`, { method: 'POST', headers: { 'x-odin': '1', 'content-type': 'application/octet-stream' }, body: file.slice(recu, recu + T) })).json(); }
+      catch (e) { if (++essais > 8) throw new Error('connexion coupée : relance l\'envoi, il reprendra où il s\'est arrêté'); suivi({ recu, total: file.size, attente: true }); await new Promise((ok) => setTimeout(ok, 2500)); await preparer().catch(() => undefined); continue; }
+      if (!r.ok) { if (typeof r.recu === 'number' && /reprise/.test(r.error || '')) { recu = r.recu; continue; } throw new Error(r.error || 'envoi interrompu'); }
+      essais = 0; recu = r.recu;
+      const sec = (performance.now() - t0) / 1000, v = (recu - d0) / Math.max(sec, 0.001);
+      suivi({ recu, total: file.size, vitesse: v, reste: v > 0 ? (file.size - recu) / v : Infinity });
+    }
+    suivi({ recu: file.size, total: file.size, etape: 'antivirus' });
+    return post('importer_iso', { envoi: id, nom: file.name });
+  }
+  async function isoTab(root, D, redraw) {
+    const B = (await post('bibliotheque_iso')).data ?? { dossier: '', isos: [] }, plan = (await post('plan_verif_iso')).data ?? {};
+    const file = el('div', { class: 'ym-w' }, el('h3', {}, ic('up', 16), 'Envois', el('small', { class: 'r' }, 'antivirus d\'abord, puis la bibliothèque'))); file.hidden = true;
+    S.envois = S.envois ?? [];
+    const ligne = (nom) => { const pct = el('span', {}, '0 %'), info = el('span', {}, 'en attente…'), bar = el('div', { class: 'ym-bar', role: 'progressbar', 'aria-label': `Envoi de ${nom}`, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, el('i', {})), msg = el('small', { style: 'color:var(--muted)', role: 'status' }); file.hidden = false; file.append(el('div', { class: 'ym-env' }, el('div', { class: 'l' }, el('b', {}, nom), pct, info), bar, msg)); return { pct, info, bar, msg }; };
+    const lancer = async (files) => {
+      const l = [...files].filter((f) => /\.iso$/i.test(f.name)); const refus = [...files].length - l.length;
+      if (refus) note({ ok: false, text: `${refus} fichier(s) ignoré(s) : seules les images .iso vont dans l'espace ISO.` });
+      for (const f of l) {   // l'un après l'autre : la barre de chacun reste lisible, et le disque suit
+        const u = ligne(f.name);
+        try {
+          const x = await envoyerIso(f, (p) => {
+            const k = p.total ? Math.floor((p.recu / p.total) * 100) : 0; u.bar.firstChild.style.width = `${k}%`; u.bar.setAttribute('aria-valuenow', String(k)); u.pct.textContent = `${k} %`;
+            u.info.textContent = p.etape === 'antivirus' ? 'analyse antivirus…' : p.attente ? 'connexion coupée, nouvel essai…' : `${octets(p.recu)} / ${octets(p.total)}${p.vitesse ? ` · ${octets(p.vitesse)}/s · reste ${duree(p.reste)}` : ''}${p.repris ? ' · reprise' : ''}`;
+          });
+          u.bar.classList.add(x.ok === false ? 'ko' : 'fin'); u.info.textContent = x.ok === false ? 'bloquée' : 'dans la bibliothèque'; u.msg.textContent = x.text ?? ''; note(x);
+        } catch (e) { u.bar.classList.add('ko'); u.info.textContent = 'arrêté'; u.msg.textContent = e.message; }
+      }
+      if (l.length) setTimeout(redraw, 1200);
+    };
+    const choix = el('input', { type: 'file', accept: '.iso', multiple: true, hidden: true, onchange: (e) => { void lancer(e.target.files); e.target.value = ''; } });
+    const drop = el('div', { class: 'ym-drop', role: 'button', tabindex: '0', 'aria-label': 'Déposer des ISO ici, ou choisir des fichiers', onclick: () => choix.click(), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choix.click(); } },
+      ondragover: (e) => { e.preventDefault(); drop.classList.add('sur'); }, ondragleave: () => drop.classList.remove('sur'), ondrop: (e) => { e.preventDefault(); drop.classList.remove('sur'); void lancer(e.dataTransfer.files); } },
+      ic('up', 22), el('div', { style: 'margin-top:6px' }, el('b', {}, 'Glisse tes ISO ici'), ' ou clique pour les choisir (plusieurs à la fois).'), el('div', { style: 'font-size:12.5px;margin-top:4px' }, 'Envoi en morceaux : une coupure ne fait rien perdre, l\'envoi reprend. Chaque ISO passe par l\'antivirus avant d\'entrer dans la bibliothèque.'));
+    // Espace ISO, lien, réseau.
+    const esp = el('input', { id: 'ymEsp', value: B.dossier ?? '' }), lien = el('input', { id: 'ymLien', placeholder: 'https://…/image.iso' }), out = el('p', { class: 'ym-out', role: 'status' });
+    const nav = el('div', { class: 'ym-nav' }), ou = { poste: '', partage: '', dossier: '' }, fil = el('small', { style: 'color:var(--muted)' });
+    const parcourir = async () => {
+      fil.textContent = ou.poste ? `${ou.posteNom} › ${ou.partage || 'partages'}${ou.dossier ? ` › ${ou.dossier}` : ''}` : ou.dossier || 'Ce PC et le réseau';
+      nav.replaceChildren(el('small', { style: 'padding:8px;color:var(--muted)' }, 'Lecture…'));
+      const x = await post('parcourir', { poste: ou.poste, partage: ou.partage, dossier: ou.dossier }), d = x.data ?? {};
+      const haut = (ou.poste || ou.dossier) ? [el('button', { type: 'button', onclick: () => { if (ou.dossier && ou.poste) ou.dossier = ou.dossier.split('/').slice(0, -1).join('/'); else if (ou.partage) ou.partage = ''; else { ou.poste = ''; ou.dossier = ''; } void parcourir(); } }, '‹ Retour')] : [];
+      if (x.ok === false) { nav.replaceChildren(...haut, el('small', { class: 'ym-ko', style: 'padding:8px' }, x.text)); return; }
+      nav.replaceChildren(...haut,
+        ...(d.entrees ?? []).map((e) => el('button', { type: 'button', onclick: async (ev) => {
+          if (e.genre === 'iso') { const b = ev.currentTarget; b.disabled = true; out.textContent = `Import de ${e.nom}… (copie, puis antivirus)`; const r = await act('importer_iso', ou.poste ? { poste: ou.poste, partage: ou.partage, chemin: e.chemin } : { chemin: e.chemin }); out.textContent = r.text; note(r); b.disabled = false; if (r.ok !== false) setTimeout(redraw, 1200); return; }
+          if (e.genre === 'partage') ou.partage = e.partage; else ou.dossier = e.chemin; void parcourir();
+        } }, ic(e.genre === 'iso' ? 'save' : 'box', 15), e.nom, e.genre === 'iso' ? el('span', {}, `${octets(e.taille ?? 0)} · importer`) : null)),
+        ...(!ou.poste && !ou.dossier ? (d.postes ?? []).map((p) => el('button', { type: 'button', onclick: () => { ou.poste = p.id; ou.posteNom = p.nom; ou.partage = ''; ou.dossier = ''; void parcourir(); } }, ic('screen', 15), p.nom, el('span', {}, `partages de ${p.hote}`))) : []),
+        !(d.entrees ?? []).length && !(d.postes ?? []).length ? el('small', { style: 'padding:8px;color:var(--muted)' }, 'Rien ici (ni dossier ni image .iso).') : null);
+    };
+    const freq = el('select', { id: 'ymVf' }, ...[['mois', 'chaque mois'], ['semaine', 'chaque semaine'], ['jour', 'chaque jour']].map(([v, t]) => el('option', { value: v, selected: plan.frequence === v }, t))), jour = el('input', { id: 'ymVj', type: 'number', min: '0', max: '28', value: String(plan.jour ?? 1) }), heure = el('input', { id: 'ymVh', type: 'time', value: plan.heure ?? '04:00' }), vOut = el('p', { class: 'ym-out', role: 'status' }, plan.prochaine ? `Prochaine vérification : ${new Date(plan.prochaine).toLocaleString('fr-FR')}${plan.derniere ? ` · dernière : ${new Date(plan.derniere).toLocaleString('fr-FR')}` : ''}` : '');
+    const isos = B.isos ?? [];
+    root.append(choix,
+      el('div', { class: 'ym-bot' },
+        el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' },
+          el('div', { class: 'ym-w' }, el('h3', {}, ic('up', 16), 'Importer des ISO'), drop),
+          file,
+          el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Depuis un lien'), el('label', { for: 'ymLien' }, 'Adresse http(s) de l\'image'), lien,
+            el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn pri', type: 'button', onclick: async (e) => { const b = e.currentTarget; if (!lien.value.trim()) return; b.disabled = true; out.textContent = 'Téléchargement (reprenable), puis antivirus…'; const r = await act('importer_iso', { lien: lien.value.trim() }); b.disabled = false; out.textContent = r.text; note(r); if (r.ok !== false) { lien.value = ''; setTimeout(redraw, 1200); } } }, ic('down', 15), 'Télécharger et importer')), out)),
+        el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' },
+          el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Espace ISO', el('small', { class: 'r' }, 'commun à Hydre, Andromède et Genèse')), el('label', { for: 'ymEsp' }, 'Dossier où sont rangées les images (disque ou partage monté)'), esp,
+            el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn', type: 'button', onclick: async () => { const r = await act('espace_iso', { dossier: esp.value.trim() }); note(r); redraw(); } }, 'Enregistrer')),
+            el('p', { class: 'ym-empty', style: 'font-size:12px;margin:0' }, 'Toute image .iso qui s\'y trouve, même déposée à la main, entre dans la bibliothèque après l\'antivirus.')),
+          el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Parcourir ce PC et le réseau', el('small', { class: 'r' }, 'partages montés (NFS, SMB) et postes connus')), fil, nav))),
+      el('div', { class: 'ym-w' }, el('h3', {}, ic('box', 16), `Bibliothèque (${isos.length})`, el('small', { class: 'r' }, B.dossier ?? '')),
+        isos.length ? el('div', { class: 'ym-iso' }, ...isos.map((f) => el('div', { class: 'c' }, el('img', { src: f.icone ?? '', alt: '', width: '44', height: '44' }),
+          el('div', { class: 't' }, el('b', {}, f.nom), el('small', {}, `${f.systeme}${f.detail ? ` · ${f.detail}` : ''}${f.arch ? ` · ${f.arch}` : ''}${f.edition ? ` · ${f.edition}` : ''}`),
+            el('small', {}, `${octets(f.taille)} · ${date(f.ajoute)}${f.sha256 ? ` · ${f.sha256.slice(0, 12)}…${f.editeur ? ' ✓ éditeur' : ''}` : ''}`),
+            el('div', { class: 'ym-row' }, el('span', { class: `ym-chip${f.antivirus?.verdict === 'bloqué' ? ' bad' : ''}` }, f.ancienne ? 'ancienne (old)' : `antivirus : ${f.antivirus?.verdict ?? 'non analysé'}`), ...(f.vms ?? []).map((m) => el('span', { class: 'ym-chip' }, m))),
+            el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn', type: 'button', onclick: async () => { const r = await post('fiche_iso', { iso: f.id }); await window.OdinDialog?.alert(r.text); } }, 'Fiche'),
+              el('button', { class: 'ym-btn', type: 'button', 'aria-label': `Retirer ${f.nom}`, onclick: async () => { note(await act('retirer_iso', { iso: f.id })); redraw(); } }, ic('trash', 15)))))))
+          : el('p', { class: 'ym-empty' }, 'Aucune ISO pour l\'instant : importe-en une, ou laisse Andromède télécharger celles que tu suis.')),
+      el('div', { class: 'ym-w ym-f' }, el('h3', {}, ic('shield', 16), 'Vérification de toutes les ISO', el('small', { class: 'r' }, 'empreinte, antivirus, nouvelles versions')),
+        el('div', { class: 'ym-row' }, el('label', { for: 'ymVf' }, 'Fréquence'), freq, el('label', { for: 'ymVj' }, 'Jour'), jour, el('label', { for: 'ymVh' }, 'Heure'), heure,
+          el('button', { class: 'ym-btn', type: 'button', onclick: async () => { const r = await post('verification_iso', { frequence: freq.value, jour: Number(jour.value), heure: heure.value }); vOut.textContent = r.text; note(r); } }, 'Planifier'),
+          el('button', { class: 'ym-btn pri', type: 'button', onclick: async (e) => { const b = e.currentTarget; b.disabled = true; vOut.textContent = 'Vérification en cours (empreinte de chaque image)…'; const r = await post('verifier_isos'); b.disabled = false; vOut.textContent = r.text; note(r); } }, 'Vérifier maintenant')), vOut));
+    void parcourir();
   }
   async function quarantaine(root, D, redraw) {
     const q = (D.machines ?? []).filter((m) => m.quarantaine);
@@ -215,7 +318,7 @@
     root.append(el('div', { class: 'ym-lay' }, list, main));
     const run = async (b, action, input) => { b.disabled = true; out.textContent = '…'; const x = await act(action, input); b.disabled = false; out.textContent = x.text; note(x); if (x.ok !== false) redraw(); };
     main.append(el('div', { class: 'ym-top' }, el('div', {}, el('h2', {}, m.nom, ' ', el('span', { class: 'ym-chip bad', style: 'font-size:12px;vertical-align:middle' }, `en quarantaine depuis ${new Date(Q.depuis).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`)), el('p', {}, `${m.systeme} ${m.version} · ${m.genre === 'lxc' ? 'LXC' : 'VM'} · ${m.ip} (bloc fermé) · ${Q.raison}`)),
-      el('div', { class: 'ym-row', style: 'margin-left:auto' }, el('button', { class: 'ym-btn blue', type: 'button', disabled: m.genre === 'vm', title: m.genre === 'vm' ? 'Pas encore pour une VM' : '', onclick: (e) => run(e.currentTarget, 'analyser_machine', { machine: m.id }) }, ic('search', 14), 'Analyse complète'))));
+      el('div', { class: 'ym-row', style: 'margin-left:auto' }, el('button', { class: 'ym-btn', type: 'button', title: 'La machine démarre sans aucun réseau, seulement pour l\'analyser', onclick: (e) => run(e.currentTarget, 'demarrer_machine', { machine: m.id, analyse: true }) }, ic('play', 14), 'Démarrer en mode analyse'), el('button', { class: 'ym-btn blue', type: 'button', disabled: m.genre === 'vm', title: m.genre === 'vm' ? 'Pas encore pour une VM' : '', onclick: (e) => run(e.currentTarget, 'analyser_machine', { machine: m.id }) }, ic('search', 14), 'Analyse complète'))));
     const ch = det.chemin ?? [], colr = (n) => (n === 'critique' ? 'var(--ybad)' : n === 'haute' ? 'var(--ywarn)' : 'var(--yblue)');
     main.append(el('div', { class: 'ym-w' }, el('h3', {}, 'D\'où vient le souci', el('small', {}, 'retracé par Odin à partir des alertes')),
       ch.length ? el('div', { class: 'ym-tl' }, ...ch.map((a) => el('div', { style: `color:${colr(a.niveau)}` }, el('span', {}, new Date(a.at).toLocaleTimeString('fr-FR')), el('i', {}, ic('alert', 18)), el('b', {}, a.titre.slice(0, 60)), el('span', {}, a.module)))) : el('p', { class: 'ym-empty' }, 'Aucune alerte liée à cette machine : isolée à ta demande.')));
@@ -233,11 +336,11 @@
     const root = el('div', { class: 'ym' }), body = el('div', { class: 'ym' }), gen = el('div', {}, ...(generic ?? [])), tabs = el('div', { class: 'ym-tabs', role: 'tablist' }), sub = el('p', {});
     root.append(el('div', { class: 'ym-top' }, el('div', {}, el('h2', {}, 'Toutes les machines'), sub), tabs), body, gen); host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
+      tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
       gen.hidden = S.tab !== 'serveurs'; body.hidden = S.tab === 'serveurs'; if (S.tab === 'serveurs') return;
       const r = await post('tableau_machines'), D = r.data ?? {}, n = el('div', { class: 'ym' }), all = D.machines ?? [];
       sub.textContent = `${all.filter((m) => m.genre === 'lxc').length} LXC et ${all.filter((m) => m.genre === 'vm').length} VM sur ce PC · rangées par système`;
-      if (S.tab === 'creer') creer(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
+      if (S.tab === 'creer') creer(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);
       body.replaceChildren(...n.childNodes);
     };
     await redraw();

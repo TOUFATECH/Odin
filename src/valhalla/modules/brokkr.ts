@@ -37,7 +37,7 @@ export function espConfig(name: string, parts: string[], o: { wifi: string; mqtt
 export const brokkr: Module = {
   id: 'brokkr', name: 'Héphaïstos', family: 'Maison',
   what: 'L\'atelier des modules connectés : trouver, brancher sur Odin, commander et préparer les prises et modules ESP.',
-  does: ['trouve les prises et modules flashés sur le réseau (Tasmota, ESPHome)', 'les branche sur le relais d\'Odin en un clic (ils apparaissent ensuite dans Appareils)', 'commandes directes (allumer, consommation, redémarrer)', 'prépare la configuration d\'un nouveau module ESP (température, relais, mouvement, porte)', 'mise à jour du micrologiciel (avec ton accord)'],
+  does: ['trouve les prises et modules flashés sur le réseau (Tasmota, ESPHome)', 'les branche sur le relais d\'Odin en un clic (ils apparaissent ensuite dans Constellation)', 'commandes directes (allumer, consommation, redémarrer)', 'prépare la configuration d\'un nouveau module ESP (température, relais, mouvement, porte)', 'mise à jour du micrologiciel (avec ton accord)'],
   from: ['ESPHome', 'Tasmota'], upstream: ['esphome/esphome', 'arendst/Tasmota'],
   modes: ['Prises flashées'],
   words: ['tasmota', 'esphome', 'esp32', 'esp8266', 'module', 'modules', 'prise connectee', 'prise connectée', 'flasher', 'micrologiciel', 'firmware'],
@@ -54,13 +54,13 @@ export const brokkr: Module = {
       return { text: found.map((m) => `- ${m.name} (${m.kind} ${m.version ?? ''}) ${m.ip}${m.mqtt ? ` · relais : ${m.mqtt}` : ' · pas branché'}`).join('\n') || 'Aucun module trouvé.' };
     } },
     { id: 'brancher', label: 'Brancher sur Odin', what: 'Configure le module pour qu\'il parle au relais d\'Odin', params: [{ key: 'ip', label: 'Adresse du module', kind: 'text', required: true }, { key: 'odin', label: 'Adresse d\'Odin sur le réseau', kind: 'text', required: true }, { key: 'port', label: 'Port du relais', kind: 'number', default: 1883 }], run: async (ctx, i) => {
-      const pass = process.env.MQTT_PASSWORD; if (!pass) throw new Error('mot de passe du relais absent du coffre (MQTT_PASSWORD) : ouvre la page Appareils une fois');
+      const pass = process.env.MQTT_PASSWORD; if (!pass) throw new Error('mot de passe du relais absent du coffre (MQTT_PASSWORD) : ouvre la page Constellation une fois');
       if (!/^\d+\.\d+\.\d+\.\d+$/.test(s(i.odin))) throw new Error('adresse d\'Odin : une adresse IP du réseau local (ex. 192.168.1.20)');
       const port = Number(i.port) || 1883;
       // SetOption19 0 : le module s'annonce au format Tasmota d'aujourd'hui (tasmota/discovery/…), compris par Appareils.
       await tasmota(ctx, s(i.ip), `Backlog MqttHost ${s(i.odin)}; MqttPort ${port}; MqttUser odin; MqttPassword ${pass}; SetOption19 0`);
       ctx.saveSettings({ modules: mods(ctx).map((m) => (m.ip === s(i.ip) ? { ...m, mqtt: s(i.odin) } : m)) });
-      return { text: `🔌 ${s(i.ip)} branché sur Odin : il redémarre puis apparaît dans Appareils.` };
+      return { text: `🔌 ${s(i.ip)} branché sur Odin : il redémarre puis apparaît dans Constellation.` };
     } },
     { id: 'commande', label: 'Commande', what: 'Commande directe à un module Tasmota', params: [{ key: 'ip', label: 'Adresse', kind: 'text', required: true }, { key: 'commande', label: 'Commande (Power on, Status 8…)', kind: 'text', required: true }], run: async (ctx, i) => { if (/^(reset|upgrade|otaurl|password|webpassword)/i.test(s(i.commande))) throw new Error('commande sensible : utilise l\'action dédiée'); return { text: JSON.stringify(await tasmota(ctx, s(i.ip), s(i.commande))) }; } },
     { id: 'mettre_a_jour', label: 'Mettre à jour', what: 'Met à jour le micrologiciel Tasmota (officiel)', params: [{ key: 'ip', label: 'Adresse', kind: 'text', required: true }], grave: (i) => `mettre à jour le micrologiciel de ${s(i.ip)}`, run: async (ctx, i) => { await tasmota(ctx, s(i.ip), 'Upgrade 1'); return { text: `⬆ Mise à jour lancée sur ${s(i.ip)} (2 à 3 minutes).` }; } },

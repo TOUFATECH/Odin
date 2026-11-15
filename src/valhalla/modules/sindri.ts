@@ -6,7 +6,10 @@
 // mois) qui garde toujours la chaîne dont une sauvegarde gardée a besoin. Destinations : disque, serveur SFTP,
 // partage réseau (copie vérifiée). Commandes avant et après (avec ton accord). Restauration par le navigateur :
 // parcourir une version, télécharger un fichier, remettre un dossier ou tout.
-// Pas encore : l'agent installé sur les PC (sauvegarde poussée par le PC) et l'image disque complète (système entier).
+// Agent des PC (../sindri/agent.ts, installé par Satellites) : chaque PC pousse lui-même, toutes les heures, ce qui a
+// changé (instantané VSS sous Windows quand il le peut) ; restauration sur le PC depuis le navigateur.
+// Image disque complète (../sindri/image.ts) : le disque entier d'un poste (dd / partclone, VSS + copie brute,
+// hdiutil / asr), rangée comme le reste (dédupliquée, chiffrée, vérifiée, rotation), remise sur un disque.
 
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, scryptSync } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, openSync, readSync, closeSync, utimesSync, chmodSync } from 'node:fs';
@@ -15,6 +18,8 @@ import { gunzipSync, gzipSync } from 'node:zlib';
 import type { ModCtx, Module, Section } from '../types.ts';
 import { walk } from './ullr.ts';
 import { decrire, essayer, lireDestination, transportDe, type Destination, type Transport } from '../sindri/transport.ts';
+import { actionsAgentSindri, lancerAgent } from '../sindri/agent.ts';
+import { actionsImage, faireImage, type InfoImage } from '../sindri/image.ts';
 
 const CHUNK = 1024 * 1024;
 export type TypeSauvegarde = 'complète' | 'incrémentielle' | 'différentielle';
@@ -31,6 +36,10 @@ export interface Snapshot {
   parent?: string;
   /** incrémentielle ou différentielle : tous les fichiers présents ce jour-là (les autres ont été effacés depuis) */
   present?: string[];
+  /** sauvegarde poussée par l'agent d'un PC */
+  poste?: { nom: string; vss: boolean; sautes: number; ouverts?: string[] };
+  /** image disque complète : les pièces du disque (voir ../sindri/image.ts) */
+  image?: InfoImage;
 }
 export interface Plan {
   name: string; paths: string[]; repo: string; at: string; keep: { last: number; daily: number; weekly: number; monthly: number };
@@ -40,6 +49,9 @@ export interface Plan {
   /** où vont les sauvegardes (absent : le dossier `repo`) */ destination?: Destination;
   /** destination distante : garder aussi la copie sur la machine d'Odin (restauration rapide) */ garderLocal?: boolean;
   /** commandes lancées avant et après (accord du propriétaire à l'enregistrement) */ avant?: string; apres?: string;
+  /** plan d'un PC du foyer : le poste dont l'agent pousse ses sauvegardes (rien n'est lancé d'ici à heure fixe) */ agent?: string;
+  /** plan d'image disque : le poste et son disque (vide : le disque du système) */ image?: { poste: string; disque?: string };
+  /** une sauvegarde tous les N jours (images disque ; absent : chaque jour) */ tousLes?: number;
 }
 
 export class Repo {
@@ -117,7 +129,7 @@ export function sauvegarder(repo: Repo, plan: Pick<Plan, 'name' | 'paths' | 'exc
 export function backup(repo: Repo, plan: Pick<Plan, 'name' | 'paths' | 'exclude'>, now = new Date()): Snapshot { return sauvegarder(repo, plan, 'complète', now); }
 /** Où va un fichier restauré, sous le dossier cible : « /home/a/x » → cible/home/a/x ; « C:\\Users\\a\\x » → cible\\C\\Users\\a\\x. */
 export const under = (target: string, path: string) => join(target, path.replace(/^([A-Za-z]):/, '$1').replace(/^[\\/]+/, ''));
-const contenu = (repo: Repo, snap: Snapshot) => (snap.parent ? [...vue(repo.snapshots(), snap).values()] : snap.files);
+export const contenu = (repo: Repo, snap: Snapshot) => (snap.parent ? [...vue(repo.snapshots(), snap).values()] : snap.files);
 function ecrire(repo: Repo, f: FileEntry, out: string) {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, Buffer.concat(f.chunks.map((c) => repo.get(c))));
@@ -155,16 +167,16 @@ export function typeDuJour(p: Pick<Plan, 'schema' | 'completeTous'>, mine: Snaps
 
 // ---------------- Dépôt, destination, commandes ----------------
 const s = (v: unknown) => String(v ?? '');
-const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined) ?? [];
-const distant = (p: Plan) => Boolean(p.destination && p.destination.genre !== 'disque');
-const slug = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'plan';
+export const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined) ?? [];
+export const distant = (p: Plan) => Boolean(p.destination && p.destination.genre !== 'disque');
+export const slug = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'plan';
 /** Le dossier du dépôt sur la machine d'Odin : la destination si c'est un disque, sinon une copie de travail. */
-const racine = (ctx: ModCtx, p: Plan) => (distant(p) ? join(ctx.dir, 'caches', slug(p.name)) : p.destination?.dossier ?? p.repo);
+export const racine = (ctx: ModCtx, p: Plan) => (distant(p) ? join(ctx.dir, 'caches', slug(p.name)) : p.destination?.dossier ?? p.repo);
 const motDePasse = () => { const pw = process.env.SINDRI_PASSWORD; if (!pw) throw new Error('mot de passe des sauvegardes absent : range-le dans le coffre (SINDRI_PASSWORD)'); return pw; };
 function repoOf(_ctx: ModCtx, path: string, p?: Plan, connus?: Set<string>): Repo { return new Repo(path, motDePasse(), { niveau: NIVEAU[p?.compression ?? 'normale'] ?? 6, ...(connus ? { connus } : {}) }); }
-const depot = (ctx: ModCtx, p: Plan) => repoOf(ctx, racine(ctx, p), p);
+export const depot = (ctx: ModCtx, p: Plan) => repoOf(ctx, racine(ctx, p), p);
 /** Ouvre le dépôt d'un plan ; pour une destination distante, rapatrie d'abord la configuration et l'index s'ils manquent ici. */
-async function ouvrir(ctx: ModCtx, p: Plan, t?: Transport, loin?: Map<string, number>): Promise<Repo> {
+export async function ouvrir(ctx: ModCtx, p: Plan, t?: Transport, loin?: Map<string, number>): Promise<Repo> {
   const root = racine(ctx, p);
   if (t && loin) {
     const manque = [...loin.keys()].filter((r) => (r === 'config' || (r.startsWith('snapshots/') && !r.endsWith('.oublié'))) && !existsSync(join(root, r)));
@@ -192,7 +204,7 @@ export async function envoyerDepot(repo: Repo, t: Transport, garderLocal = true,
   return { envoyes: a.length, octets: a.reduce((n, [, o]) => n + o, 0) };
 }
 /** Rapatrie les morceaux qui manquent ici (destination distante sans copie locale) avant de restaurer. */
-async function rapatrier(ctx: ModCtx, p: Plan, repo: Repo, ids: string[]): Promise<number> {
+export async function rapatrier(ctx: ModCtx, p: Plan, repo: Repo, ids: string[]): Promise<number> {
   const manque = [...new Set(ids)].filter((id) => !existsSync(repo.chunkPath(id))); if (!manque.length) return 0;
   if (!p.destination || !distant(p)) throw new Error(`${manque.length} morceau(x) manquent dans le dépôt`);
   await transportDe(ctx.home, p.destination).recuperer(manque.map((id) => ({ rel: chunkRel(id), local: repo.chunkPath(id) })));
@@ -203,8 +215,11 @@ async function commande(ctx: ModCtx, cmd: string, etat: 'avant' | 'réussie' | '
   const r = process.platform === 'win32' ? await ctx.run('cmd', ['/d', '/s', '/c', cmd], { timeoutMs: 1_800_000 }) : await ctx.run('sh', ['-c', cmd, 'odin-sauvegarde', etat], { timeoutMs: 1_800_000 });
   return { ok: r.code === 0, texte: ((r.code === 0 ? r.out : r.err || r.out).trim().split('\n').at(-1) ?? '').slice(0, 160) || `code ${r.code}` };
 }
-const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return `${Math.round(b * 10) / 10} ${u[i]}`; };
+export const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return `${Math.round(b * 10) / 10} ${u[i]}`; };
 async function runPlan(ctx: ModCtx, p: Plan, forcer?: TypeSauvegarde): Promise<string> {
+  // PC du foyer : c'est l'agent du poste qui sauvegarde (Satellites le lance) ; image disque : tout le disque du poste.
+  if (p.agent) return lancerAgent(ctx, p);
+  if (p.image) return faireImage(ctx, p);
   // Mode Osiris (lien Phénix → Hydre) : un instantané de chaque machine virtuelle du plan, juste avant la sauvegarde.
   const vmNotes: string[] = [];
   for (const vmid of p.vms ?? []) { const r = await ctx.call('ymir', 'instantane', { vmid, nom: `sindri-${ctx.now().toISOString().slice(0, 10).replace(/-/g, '')}` }, `avant la sauvegarde « ${p.name} »`).catch((e) => ({ ok: false, text: (e as Error).message })); vmNotes.push(`${r.ok === false ? '✗' : '✓'} machine ${vmid}`); }
@@ -228,7 +243,7 @@ async function runPlan(ctx: ModCtx, p: Plan, forcer?: TypeSauvegarde): Promise<s
   return texte;
 }
 /** Le plan et la sauvegarde d'un identifiant d'instantané (sans réseau). */
-function trouverInstantane(ctx: ModCtx, id: string): { p: Plan; repo: Repo; snap: Snapshot } {
+export function trouverInstantane(ctx: ModCtx, id: string): { p: Plan; repo: Repo; snap: Snapshot } {
   for (const p of plans(ctx)) { if (!existsSync(join(racine(ctx, p), 'config'))) continue; const repo = depot(ctx, p), snap = repo.snapshots().find((x) => x.id === id); if (snap) return { p, repo, snap }; }
   throw new Error('instantané introuvable');
 }
@@ -265,8 +280,8 @@ const paramsDestination = [
 
 export const sindri: Module = {
   id: 'sindri', name: 'Phénix', family: 'Machines',
-  what: 'Les sauvegardes : complètes, incrémentielles ou différentielles, compressées et chiffrées, vers un disque, un serveur SFTP ou un partage réseau, avec rotation, et la restauration par le navigateur.',
-  does: ['sauvegarde complète, incrémentielle (ce qui a changé depuis la dernière) ou différentielle (depuis la dernière complète), une complète refaite régulièrement', 'compression au choix (aucune, rapide, normale, forte) et chiffrement AES-256 avant d\'écrire quoi que ce soit', 'déduplication : un morceau identique n\'est stocké qu\'une fois', 'destinations : disque (USB, disque monté), serveur SFTP / SSH, partage réseau Windows ou NAS, copie vérifiée', 'commandes avant et après la sauvegarde (avec ton accord)', 'rotation (derniers, jours, semaines, mois) qui garde toujours la chaîne d\'une sauvegarde gardée', 'restauration par le navigateur : parcourir une version, télécharger un fichier, remettre un dossier ou tout', 'vérification de l\'intégrité chaque semaine', 'mode Oïkos : partages des PC du foyer', 'mode Osiris : exports de machines virtuelles', 'alerte si une sauvegarde échoue ou prend du retard', 'pas encore : l\'agent installé sur les PC, et l\'image disque complète (système entier)'],
+  what: 'Les sauvegardes : dossiers, PC du foyer (agent toutes les heures) et images disque complètes ; complètes, incrémentielles ou différentielles, compressées et chiffrées, vers un disque, un serveur SFTP ou un partage réseau, avec rotation, et la restauration par le navigateur.',
+  does: ['sauvegarde complète, incrémentielle (ce qui a changé depuis la dernière) ou différentielle (depuis la dernière complète), une complète refaite régulièrement', 'compression au choix (aucune, rapide, normale, forte) et chiffrement AES-256 avant d\'écrire quoi que ce soit', 'déduplication : un morceau identique n\'est stocké qu\'une fois', 'destinations : disque (USB, disque monté), serveur SFTP / SSH, partage réseau Windows ou NAS, copie vérifiée', 'commandes avant et après la sauvegarde (avec ton accord)', 'rotation (derniers, jours, semaines, mois) qui garde toujours la chaîne d\'une sauvegarde gardée', 'restauration par le navigateur : parcourir une version, télécharger un fichier, remettre un dossier ou tout', 'vérification de l\'intégrité chaque semaine', 'mode Oïkos : partages des PC du foyer', 'mode Osiris : exports de machines virtuelles', 'alerte si une sauvegarde échoue ou prend du retard', 'agent sur les PC du foyer (installé par Satellites) : sauvegarde incrémentielle toutes les heures vers Odin, instantané VSS des fichiers ouverts sous Windows, restauration sur le PC depuis le navigateur (avec ton accord)', 'image disque complète d\'un poste (Linux : partclone ou dd ; Windows : VSS et copie brute ; Mac : hdiutil, remise par asr), dédupliquée, vérifiée, avec rotation, remise sur un disque (avec ton accord)'],
   from: ['Restic', 'UrBackup', 'Cobian Backup', 'Proxmox Backup Server'], upstream: ['restic/restic', 'uroni/urbackup_backend', 'proxmox/proxmox-backup'],
   modes: ['Oïkos · PC du foyer', 'Osiris · machines virtuelles'],
   words: ['sauvegarde', 'sauvegardes', 'sauvegarder', 'backup', 'restaurer', 'restauration', 'récupérer un fichier', 'recuperer', 'instantane', 'instantané', 'archive', 'incrémentielle', 'incrementielle', 'différentielle', 'differentielle', 'cobian', 'urbackup'],
@@ -350,6 +365,8 @@ export const sindri: Module = {
         if (p.destination && distant(p)) { const t = transportDe(ctx.home, p.destination), l = await t.liste(), x = [...l.keys()].filter((r) => (r.startsWith('data/') && !garde.has(r.split('/').pop()!)) || (r.startsWith('snapshots/') && !existsSync(join(repo.root, r)))); await t.effacer(x); loin = x.length; }
         return { text: `🧹 ${p.name} : ${oublies.length} vieille(s) version(s) et ${morts.length} morceau(x) effacés (${human(morts.reduce((n, [, o]) => n + o, 0))})${loin ? `, ${loin} fichier(s) sur la destination` : ''}.` };
       } },
+    ...actionsAgentSindri,
+    ...actionsImage,
   ],
   view(ctx) {
     const l = (ctx.settings.last as Record<string, { at: string; ok: boolean; files: number; bytes: number; added: number; type?: string; error?: string }>) ?? {};
@@ -366,7 +383,8 @@ export const sindri: Module = {
       kpis: [{ label: 'Plans', value: String(ps.length) }, { label: 'En retard', value: String(late.length), tone: late.length ? 'attention' : 'bon' }, { label: 'Dernière réussie', value: Object.values(l).filter((x) => x.ok).sort((a, b) => b.at.localeCompare(a.at))[0]?.at.slice(0, 16).replace('T', ' ') ?? '—' }],
       sections: [
         { kind: 'table', onglet: 'Plans', title: 'Plans', columns: ['Plan', 'Dossiers', 'Destination', 'Sorte', 'Dernière'], empty: 'Aucun plan : crée-en un (onglet Nouveau).', rows: ps.map((p) => ({ cells: [p.name, p.paths.join(', '), p.destination ? decrire(p.destination) : p.repo, resumePlan(p), l[p.name] ? `${l[p.name].ok ? '✓' : '✗'} ${l[p.name].at.slice(5, 16).replace('T', ' ')} · ${l[p.name].type ?? 'complète'} · ${human(l[p.name].bytes ?? 0)}` : 'jamais'], tone: !l[p.name] ? 'attention' : l[p.name].ok ? 'bon' : 'mauvais', actions: [{ action: 'sauvegarder', label: 'Maintenant', input: { plan: p.name } }, { action: 'sauvegarder', label: 'Complète', input: { plan: p.name, sorte: 'complète' } }, { action: 'instantanes', label: 'Versions', input: { plan: p.name } }] })) },
-        { kind: 'list', onglet: 'Plans', title: 'Pas encore', items: [{ title: 'L\'agent sur les PC', detail: 'Pour l\'instant Phénix lit les dossiers de la machine d\'Odin (et les partages montés) ; l\'agent qui pousse la sauvegarde depuis chaque PC viendra ensuite.' }, { title: 'L\'image disque complète', detail: 'Le système entier d\'un PC (pour le remettre sur un disque neuf) viendra plus tard ; aujourd\'hui : fichiers et dossiers.' }] },
+        { kind: 'form', onglet: 'Restaurer', title: 'Restaurer sur le PC', action: 'restaurer_pc', submit: 'Restaurer sur le PC', params: actionsAgentSindri.find((a) => a.id === 'restaurer_pc')?.params ?? [], aide: 'Pour les plans « PC · … » : l\'agent du PC remet les fichiers (avec ton accord).' },
+        { kind: 'form', onglet: 'Nouveau', title: 'Image disque d\'un poste', action: 'image_plan', submit: 'Créer', params: actionsImage.find((a) => a.id === 'image_plan')?.params ?? [], aide: 'L\'agent des PC s\'installe depuis Satellites (« Installer la sauvegarde »).' },
         ...versions,
         { kind: 'form', onglet: 'Restaurer', title: 'Parcourir une sauvegarde', action: 'parcourir', submit: 'Ouvrir', params: [{ key: 'instantane', label: 'Instantané (vide : le plus récent)', kind: 'text', default: '' }, { key: 'dossier', label: 'Dossier (vide : la racine)', kind: 'text', default: '' }], aide: 'Chaque fichier du dossier ouvert a son bouton « Télécharger ».' },
         { kind: 'form', onglet: 'Restaurer', title: 'Télécharger un fichier', action: 'telecharger', submit: 'Préparer', params: [{ key: 'instantane', label: 'Instantané', kind: 'text', required: true }, { key: 'chemin', label: 'Chemin du fichier', kind: 'text', required: true }] },
@@ -391,9 +409,10 @@ export const sindri: Module = {
     const now = ctx.now(), hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     const l = (ctx.settings.last as Record<string, { at: string }>) ?? {};
     for (const p of plans(ctx)) {
-      if (p.at === hm && (!l[p.name] || now.getTime() - Date.parse(l[p.name].at) > 3600_000)) {
+      const tous = (p.tousLes ?? 1) * 864e5, retard = p.agent ? 7 * 864e5 : tous + 26 * 3600_000;
+      if (p.at === hm && (!l[p.name] || now.getTime() - Date.parse(l[p.name].at) > (p.tousLes ? tous - 3600_000 : 3600_000))) {
         try { await runPlan(ctx, p); } catch (e) { ctx.saveSettings({ last: { ...l, [p.name]: { at: now.toISOString(), ok: false, error: (e as Error).message } } }); ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » échouée`, detail: (e as Error).message, key: `fail:${p.name}` }); ctx.emit('sauvegarde_echec', { plan: p.name, erreur: (e as Error).message }); }
-      } else if (l[p.name] && now.getTime() - Date.parse(l[p.name].at) > 50 * 3600_000) ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » en retard`, detail: `Dernière : ${l[p.name].at.slice(0, 16).replace('T', ' ')}`, key: `late:${p.name}` });
+      } else if (l[p.name] && now.getTime() - Date.parse(l[p.name].at) > Math.max(50 * 3600_000, retard)) ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » en retard`, detail: `Dernière : ${l[p.name].at.slice(0, 16).replace('T', ' ')}`, key: `late:${p.name}` });
     }
     if (now.getDay() === 0 && hm === '04:30') await Promise.resolve(sindri.actions.find((x) => x.id === 'verifier')!.run(ctx, {})).catch(() => undefined);
   } },

@@ -7,10 +7,12 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { accord } from '../../core/genre.ts';
 import type { ModCtx, Module, Param, Tone } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
 import { homeDevices } from './midgard.ts';
 import { nourrir, oublier } from '../gna/historique.ts';
+import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export const THEMES: Record<string, { label: string; dark: boolean }> = {
@@ -100,27 +102,143 @@ export function keyRights(ctx: ModCtx, key: string): Key | undefined {
 }
 
 // ---------------- Météo (Open-Meteo, sans clé ; ou ton propre serveur Open-Meteo : réglages meteoApi / meteoGeo) ----------------
-export interface Weather { place: string; lat?: number; lon?: number; temp: number; feels?: number; code: number; humidity?: number; wind?: number; hi?: number; lo?: number; rain?: number; sunrise?: string; sunset?: string; days: Array<{ day: string; code: number; hi: number; lo: number }>; hours: Array<{ t: string; temp: number }>; at: number }
+export interface Weather { place: string; lat?: number; lon?: number; /** fuseau horaire du lieu (ex. Indian/Mayotte) */ fuseau?: string; /** unités d'affichage (les nombres restent en °C et km/h) */ unites?: Unites; temp: number; feels?: number; code: number; humidity?: number; wind?: number; hi?: number; lo?: number; rain?: number; sunrise?: string; sunset?: string; days: Array<{ day: string; code: number; hi: number; lo: number }>; hours: Array<{ t: string; temp: number }>; at: number }
 let wx: Weather | undefined, wxErr = '';
 export const WCODE: Record<number, [string, string]> = { 0: ['Ciel dégagé', '☀️'], 1: ['Plutôt dégagé', '🌤'], 2: ['Partiellement nuageux', '⛅'], 3: ['Couvert', '☁️'], 45: ['Brouillard', '🌫'], 48: ['Brouillard givrant', '🌫'], 51: ['Bruine', '🌦'], 53: ['Bruine', '🌦'], 55: ['Bruine forte', '🌧'], 61: ['Pluie faible', '🌦'], 63: ['Pluie', '🌧'], 65: ['Forte pluie', '🌧'], 66: ['Pluie verglaçante', '🌧'], 67: ['Pluie verglaçante', '🌧'], 71: ['Neige faible', '🌨'], 73: ['Neige', '🌨'], 75: ['Forte neige', '❄️'], 80: ['Averses', '🌦'], 81: ['Averses', '🌧'], 82: ['Violentes averses', '⛈'], 95: ['Orage', '⛈'], 96: ['Orage et grêle', '⛈'], 99: ['Orage et grêle', '⛈'] };
 export const wword = (c: number) => (WCODE[c] ?? ['Temps variable', '🌡'])[0];
+/**
+ * Le lieu d'Odin : l'endroit exact où il est installé (village ou ville). La météo, l'heure locale (fuseau), le thème
+ * automatique, les événements du jour et le briefing du matin s'en servent. Il se règle par son nom (« ma ville est
+ * Dembéni », la carte météo, la page de Hestia) ou par la position de l'appareil (bouton « Me localiser » : le GPS
+ * d'un téléphone est précis ; un ordinateur donne souvent une position approximative, et Odin le dit).
+ * Tant que rien n'est réglé : Mamoudzou.
+ */
+export const LIEU_PAR_DEFAUT = 'Mamoudzou';
+export interface Lieu { nom: string; lat: number; lon: number; pays?: string; region?: string; fuseau?: string }
+/**
+ * Ce qui découle du lieu (pays → unités, heure sur 12 ou 24 h, devise, fêtes), avec ce que tu as réglé à la main
+ * par-dessus (réglages `unites`, `heure`, `devise` : vides = automatique).
+ */
+export function regionActuelle(ctx: ModCtx): Region & { manuel: string[] } {
+  const r = regionDe(s(ctx.settings.pays) || PAYS_PAR_DEFAUT), manuel: string[] = [];
+  const u = s(ctx.settings.unites), h = s(ctx.settings.heure), d = s(ctx.settings.devise).toUpperCase();
+  if (u === 'metrique' || u === 'imperial') { r.unites = u; manuel.push('unités'); }
+  if (h === '24h' || h === '12h') { r.heure = h; manuel.push('heure'); }
+  if (/^[A-Z]{3}$/.test(d)) { r.devise = d; manuel.push('devise'); }
+  return { ...r, manuel };
+}
+/** Dit au reste d'Odin où il est (thème, événements, consignes du modèle). À appeler après tout changement, et au démarrage. */
+export function publierLieu(ctx: ModCtx): void {
+  const lat = Number(ctx.settings.lat), lon = Number(ctx.settings.lon), nom = s(ctx.settings.villeNom) || s(ctx.settings.ville);
+  setLieuCourant(nom ? { nom, ...(ctx.settings.lat && Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : {}), ...(s(ctx.settings.fuseau) ? { fuseau: s(ctx.settings.fuseau) } : {}), region: regionActuelle(ctx), ...(ctx.settings.suppose === true ? { suppose: true } : {}) } : undefined);
+}
+/** Un lieu vient de changer : s'il est dans un autre pays, les réglages faits à la main (unités, heure, devise) repassent en automatique. */
+function nouveauPays(ctx: ModCtx, pays?: string): Record<string, unknown> {
+  return pays && pays !== (s(ctx.settings.pays) || PAYS_PAR_DEFAUT) ? { unites: '', heure: '', devise: '' } : {};
+}
+/**
+ * Où la connexion Internet de la machine sort (utile pour un serveur loué : la ville du centre de données). Demandé
+ * seulement quand tu dis « configure-toi tout seul » : l'adresse publique de la machine est vue par ce service
+ * (réglable : `lieuConnexion`). À la maison, c'est approximatif (souvent la grande ville voisine) : Odin le dit.
+ */
+export async function lieuDeLaConnexion(ctx: ModCtx): Promise<Lieu | undefined> {
+  try {
+    const j = await (await ctx.fetch(s(ctx.settings.lieuConnexion) || 'https://ipapi.co/json/', { headers: { 'user-agent': 'Odin (assistant personnel)' }, signal: AbortSignal.timeout(10_000) })).json() as Record<string, unknown>;
+    const lat = Number(j.latitude ?? j.lat), lon = Number(j.longitude ?? j.lon), nom = s(j.city), tz = typeof j.timezone === 'string' ? j.timezone : s((j.timezone as { id?: string } | undefined)?.id), pays = s(j.country_code || j.countryCode || j.country).toUpperCase();
+    if (!nom || !Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return undefined;
+    return { nom: nom.slice(0, 80), lat: Math.round(lat * 1e4) / 1e4, lon: Math.round(lon * 1e4) / 1e4, ...(/^[A-Z]{2}$/.test(pays) ? { pays } : {}), ...(s(j.region || j.country_name) ? { region: s(j.region || j.country_name).slice(0, 80) } : {}), ...(tz && fuseauValide(tz) ? { fuseau: tz } : {}) };
+  } catch { return undefined; }
+}
+/** Ce que l'horloge de la machine laisse supposer, tant que rien n'est réglé (au démarrage, sans rien demander à Internet). */
+export function supposerLieu(ctx: ModCtx, tz = Intl.DateTimeFormat().resolvedOptions().timeZone, force = false): boolean {
+  if (!force && s(ctx.settings.ville)) return false;
+  const g = lieuDuFuseau(tz); if (!g) return false;
+  ctx.saveSettings({ ville: g.ville, villeNom: g.ville, pays: g.pays, fuseau: tz, lat: '', lon: '', suppose: true }); wx = undefined;
+  return true;
+}
+/** Une phrase qui dit comment Odin est réglé pour ce lieu. */
+export function texteRegion(ctx: ModCtx): string {
+  const r = regionActuelle(ctx), nom = s(ctx.settings.villeNom) || s(ctx.settings.ville) || LIEU_PAR_DEFAUT, tz = s(ctx.settings.fuseau);
+  let heure = ''; try { heure = new Intl.DateTimeFormat('fr-FR', { hour: 'numeric', minute: '2-digit', hour12: r.heure === '12h', ...(tz ? { timeZone: tz } : {}) }).format(ctx.now()); } catch { /* fuseau inconnu de la machine */ }
+  const fetes = Object.entries(r.fetes).filter(([, on]) => on).map(([k]) => k);
+  return `Je suis ${accord('réglé', 'réglée')} pour ${nom} (${r.nom})${ctx.settings.suppose === true ? `, supposé d'après l'horloge de la machine` : ''} : ${tz ? `fuseau ${tz}${heure ? ` (il est ${heure})` : ''}, ` : ''}${r.unites === 'imperial' ? 'degrés Fahrenheit et miles' : 'degrés Celsius et kilomètres'}, heure sur ${r.heure === '12h' ? '12 heures' : '24 heures'}, prix en ${r.devise}${fetes.length ? `, fêtes ajoutées : ${fetes.join(', ')}` : ''}${r.manuel.length ? ` (réglé à la main : ${r.manuel.join(', ')})` : ''}.`;
+}
+let lieuChange: ((l: Lieu) => void) | undefined;
+/** Prévenu à chaque changement de lieu (Odin recopie la ville dans le briefing du matin). */
+export function surLieu(f: ((l: Lieu) => void) | undefined): void { lieuChange = f; }
+const sansAccent = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+/**
+ * Les lieux qui portent ce nom (Open-Meteo, sans clé), le plus probable d'abord : celui du pays ou de la région
+ * précisés (« Dembéni, Mayotte »), sinon celui du pays où est Odin (réglage `pays`), sinon celui de Mayotte (son pays
+ * d'origine), sinon le premier proposé. Les autres sont toujours cités, pour pouvoir corriger.
+ */
+export async function trouverLieux(ctx: ModCtx, nom: string): Promise<Lieu[]> {
+  const [ville, precision] = nom.split(',').map((x) => x.trim()), pays = (s(ctx.settings.pays) || 'YT').toUpperCase();
+  if (!ville) return [];
+  const g = await (await ctx.fetch(`${s(ctx.settings.meteoGeo) || 'https://geocoding-api.open-meteo.com'}/v1/search?name=${encodeURIComponent(ville)}&count=10&language=fr`, { signal: AbortSignal.timeout(10_000) })).json() as { results?: Array<{ name: string; latitude: number; longitude: number; country_code?: string; country?: string; admin1?: string; timezone?: string }> };
+  const rang = (x: { country?: string; country_code?: string; admin1?: string }) => (precision && [x.country, x.country_code, x.admin1].some((y) => y && sansAccent(y) === sansAccent(precision)) ? 0 : x.country_code?.toUpperCase() === pays ? 1 : x.country_code?.toUpperCase() === PAYS_PAR_DEFAUT ? 2 : 3);
+  return (g.results ?? []).map((r, i) => ({ r, i })).sort((a, b) => rang(a.r) - rang(b.r) || a.i - b.i)
+    .map(({ r }) => ({ nom: r.name || ville, lat: r.latitude, lon: r.longitude, ...(r.country_code ? { pays: r.country_code.toUpperCase() } : {}), ...(r.admin1 || r.country ? { region: [r.admin1, r.country].filter(Boolean).filter((x, i, l) => l.indexOf(x) === i).join(', ') } : {}), ...(r.timezone ? { fuseau: r.timezone } : {}) }));
+}
+/**
+ * Le nom du village où se trouve une position (OpenStreetMap Nominatim, sans clé ; adresse réglable : `lieuInverse`).
+ * Rend « Village (Commune) » quand les deux sont connus. Rien si le service ne répond pas.
+ */
+export async function nommerPosition(ctx: ModCtx, lat: number, lon: number): Promise<{ nom: string; pays?: string; region?: string } | undefined> {
+  try {
+    const r = await (await ctx.fetch(`${s(ctx.settings.lieuInverse) || 'https://nominatim.openstreetmap.org'}/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=16&accept-language=fr`, { headers: { 'user-agent': 'Odin (assistant personnel)' }, signal: AbortSignal.timeout(10_000) })).json() as { address?: Record<string, string> };
+    const a = r.address ?? {}, village = a.village || a.hamlet || a.suburb || a.neighbourhood || a.quarter || a.town || a.city, commune = a.municipality || a.town || a.city || a.county;
+    const nom = village && commune && sansAccent(village) !== sansAccent(commune) ? `${village} (${commune})` : village || commune;
+    return nom ? { nom: nom.slice(0, 80), ...(a.country_code ? { pays: a.country_code.toUpperCase() } : {}), ...(a.state || a.country ? { region: a.state || a.country } : {}) } : undefined;
+  } catch { return undefined; }
+}
+/** Change le lieu par son nom : il est d'abord cherché (rien ne change s'il est introuvable), puis gardé avec son vrai nom, ses coordonnées et son fuseau. Rend aussi les autres lieux du même nom. */
+export async function changerLieu(ctx: ModCtx, ville: string): Promise<Lieu & { autres: Lieu[] }> {
+  const v = ville.replace(/\s+/g, ' ').trim().slice(0, 80); if (!v) throw new Error('dis-moi le nom du village ou de la ville (par exemple « ma ville est Dembéni »)');
+  let l: Lieu[]; try { l = await trouverLieux(ctx, v); } catch { throw new Error('je n\'arrive pas à chercher ce lieu pour l\'instant (pas d\'Internet ?) : le lieu n\'a pas changé'); }
+  const g = l[0]; if (!g) throw new Error(`je ne trouve pas « ${v} » : vérifie l'orthographe, ou précise le pays (« ${v}, Mayotte »)`);
+  ctx.saveSettings({ ville: v, villeNom: g.nom, lat: g.lat, lon: g.lon, precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined;
+  publierLieu(ctx); lieuChange?.(g);
+  return { ...g, autres: l.slice(1, 5) };
+}
+/** Change le lieu par la position de l'appareil (GPS) : le village est nommé d'après la position ; `precision` en mètres. */
+export async function changerPosition(ctx: ModCtx, lat: number, lon: number, precision?: number): Promise<Lieu & { precision?: number; nomme: boolean }> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new Error('position illisible : la latitude va de -90 à 90, la longitude de -180 à 180');
+  const la = Math.round(lat * 1e5) / 1e5, lo = Math.round(lon * 1e5) / 1e5, n = await nommerPosition(ctx, la, lo);
+  const nom = n?.nom ?? `Position ${la.toFixed(3)}, ${lo.toFixed(3)}`, p = precision !== undefined && Number.isFinite(precision) && precision >= 0 ? Math.round(precision) : undefined;
+  ctx.saveSettings({ ville: nom, villeNom: nom, lat: la, lon: lo, precisionM: p ?? '', suppose: '', ...nouveauPays(ctx, n?.pays), ...(n?.pays ? { pays: n.pays } : {}) }); wx = undefined;
+  const g: Lieu = { nom, lat: la, lon: lo, ...(n?.pays ? { pays: n.pays } : {}), ...(n?.region ? { region: n.region } : {}) };
+  publierLieu(ctx); lieuChange?.(g);
+  return { ...g, ...(p !== undefined ? { precision: p } : {}), nomme: Boolean(n) };
+}
+/** Le lieu en place (rien : jamais réglé, Odin se croit à Mamoudzou). */
+export function lieuDe(ctx: ModCtx): (Lieu & { precision?: number }) | undefined {
+  const lat = Number(ctx.settings.lat), lon = Number(ctx.settings.lon);
+  if (!s(ctx.settings.ville) || !ctx.settings.lat || !Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
+  return { nom: s(ctx.settings.villeNom) || s(ctx.settings.ville), lat, lon, ...(s(ctx.settings.pays) ? { pays: s(ctx.settings.pays) } : {}), ...(s(ctx.settings.fuseau) ? { fuseau: s(ctx.settings.fuseau) } : {}), ...(Number(ctx.settings.precisionM) > 0 ? { precision: Number(ctx.settings.precisionM) } : {}) };
+}
+/** Les prévisions d'un point précis (Open-Meteo), sans rien garder : sert au lieu d'Odin et à « la météo à … » d'un autre endroit. */
+export async function previsions(ctx: ModCtx, lat: number, lon: number, place: string): Promise<Weather> {
+  const r = await (await ctx.fetch(`${s(ctx.settings.meteoApi) || 'https://api.open-meteo.com'}/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=7`, { signal: AbortSignal.timeout(10_000) })).json() as { timezone?: string; current: Record<string, number>; hourly: { time: string[]; temperature_2m: number[] }; daily: { time: string[]; weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[]; sunrise: string[]; sunset: string[] } };
+  const now = new Date().toISOString().slice(0, 13), from = Math.max(0, r.hourly.time.findIndex((t) => t.slice(0, 13) >= now));
+  return { place, lat, lon, ...(typeof r.timezone === 'string' && r.timezone ? { fuseau: r.timezone } : {}), unites: regionActuelle(ctx).unites, temp: Math.round(r.current.temperature_2m), feels: Math.round(r.current.apparent_temperature), code: r.current.weather_code, humidity: r.current.relative_humidity_2m, wind: Math.round(r.current.wind_speed_10m), rain: r.current.precipitation, hi: Math.round(r.daily.temperature_2m_max[0]), lo: Math.round(r.daily.temperature_2m_min[0]), sunrise: r.daily.sunrise[0]?.slice(11, 16), sunset: r.daily.sunset[0]?.slice(11, 16), days: r.daily.time.map((d, i) => ({ day: d, code: r.daily.weather_code[i], hi: Math.round(r.daily.temperature_2m_max[i]), lo: Math.round(r.daily.temperature_2m_min[i]) })), hours: r.hourly.time.slice(from, from + 24).map((t, i) => ({ t: t.slice(11, 16), temp: Math.round(r.hourly.temperature_2m[from + i]) })), at: Date.now() };
+}
 export async function weather(ctx: ModCtx, fresh = false): Promise<Weather | undefined> {
   if (!fresh && wx && Date.now() - wx.at < 15 * 60_000) return wx;
-  const place = s(ctx.settings.ville) || 'Mamoudzou';
+  let place = s(ctx.settings.villeNom) || s(ctx.settings.ville) || LIEU_PAR_DEFAUT;
   try {
     let lat = Number(ctx.settings.lat), lon = Number(ctx.settings.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || !ctx.settings.lat) {
-      const g = await (await ctx.fetch(`${s(ctx.settings.meteoGeo) || 'https://geocoding-api.open-meteo.com'}/v1/search?name=${encodeURIComponent(place)}&count=1&language=fr`, { signal: AbortSignal.timeout(10_000) })).json() as { results?: Array<{ latitude: number; longitude: number }> };
-      if (!g.results?.[0]) throw new Error(`lieu introuvable : ${place}`);
-      lat = g.results[0].latitude; lon = g.results[0].longitude; ctx.saveSettings({ lat, lon });
+      const g = (await trouverLieux(ctx, s(ctx.settings.ville) || LIEU_PAR_DEFAUT))[0];
+      if (!g) throw new Error(`lieu introuvable : ${place}`);
+      lat = g.lat; lon = g.lon; place = g.nom; ctx.saveSettings({ lat, lon, villeNom: g.nom, ...(g.fuseau ? { fuseau: g.fuseau } : {}) });
     }
-    const r = await (await ctx.fetch(`${s(ctx.settings.meteoApi) || 'https://api.open-meteo.com'}/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=7`, { signal: AbortSignal.timeout(10_000) })).json() as { current: Record<string, number>; hourly: { time: string[]; temperature_2m: number[] }; daily: { time: string[]; weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[]; sunrise: string[]; sunset: string[] } };
-    const now = new Date().toISOString().slice(0, 13), from = Math.max(0, r.hourly.time.findIndex((t) => t.slice(0, 13) >= now));
-    wx = { place, lat, lon, temp: Math.round(r.current.temperature_2m), feels: Math.round(r.current.apparent_temperature), code: r.current.weather_code, humidity: r.current.relative_humidity_2m, wind: Math.round(r.current.wind_speed_10m), rain: r.current.precipitation, hi: Math.round(r.daily.temperature_2m_max[0]), lo: Math.round(r.daily.temperature_2m_min[0]), sunrise: r.daily.sunrise[0]?.slice(11, 16), sunset: r.daily.sunset[0]?.slice(11, 16), days: r.daily.time.map((d, i) => ({ day: d, code: r.daily.weather_code[i], hi: Math.round(r.daily.temperature_2m_max[i]), lo: Math.round(r.daily.temperature_2m_min[i]) })), hours: r.hourly.time.slice(from, from + 24).map((t, i) => ({ t: t.slice(11, 16), temp: Math.round(r.hourly.temperature_2m[from + i]) })), at: Date.now() };
+    wx = await previsions(ctx, lat, lon, place);
+    if (wx.fuseau && wx.fuseau !== s(ctx.settings.fuseau)) { ctx.saveSettings({ fuseau: wx.fuseau }); publierLieu(ctx); }
     wxErr = ''; return wx;
   } catch (e) { wxErr = (e as Error).message; return wx; }
 }
-export const weatherText = (w?: Weather) => (w ? `À ${w.place} : ${w.temp} °C, ${wword(w.code).toLowerCase()}${w.hi !== undefined ? ` (min ${w.lo}°, max ${w.hi}°)` : ''}${w.humidity !== undefined ? `, humidité ${w.humidity} %` : ''}${w.wind !== undefined ? `, vent ${w.wind} km/h` : ''}.` : `Météo indisponible${wxErr ? ` (${wxErr})` : ''}.`);
+export const weatherText = (w?: Weather) => (w ? `À ${w.place} : ${temperature(w.temp, w.unites)}, ${wword(w.code).toLowerCase()}${w.hi !== undefined && w.lo !== undefined ? ` (min ${degres(w.lo, w.unites)}, max ${degres(w.hi, w.unites)})` : ''}${w.humidity !== undefined ? `, humidité ${w.humidity} %` : ''}${w.wind !== undefined ? `, vent ${vitesse(w.wind, w.unites)}` : ''}.` : `Météo indisponible${wxErr ? ` (${wxErr})` : ''}.`);
 
 // ---------------- L'état des applis (tuiles d'état) ----------------
 export interface AppState { id: string; name: string; family: string; alerts: number; kpis: Array<{ label: string; value: string; tone?: Tone }> }
@@ -149,7 +267,8 @@ const TILE: Param[] = [
 ];
 
 // ---------------- La fenêtre d'Odin : pages de modules d'applis, modifiables (maquettes validées) ----------------
-export type WidgetKind = 'chiffres' | 'section' | 'meteo' | 'bouton';
+/** « heure » : la date, l'heure et le lieu d'Odin (son fuseau). « site » : une sonde de Pulsar (un site surveillé), nommée par `label`. */
+export type WidgetKind = 'chiffres' | 'section' | 'meteo' | 'bouton' | 'heure' | 'site';
 export interface Widget { id: string; kind: WidgetKind; w: 1 | 2 | 3; module?: string; section?: string; label?: string; action?: string; input?: Record<string, string> }
 export interface FPage { id: string; name: string; maison?: boolean; widgets: Widget[] }
 export interface Layout { pages: FPage[] }
@@ -157,7 +276,7 @@ const wid = () => randomBytes(4).toString('hex');
 /** La fenêtre de départ : ce qui compte le plus, avec les applis présentes. */
 export function defaultLayout(ids: string[]): Layout {
   const has = (m: string) => ids.includes(m), w = (kind: WidgetKind, module?: string, size: 1 | 2 | 3 = 1): Widget => ({ id: wid(), kind, w: size, ...(module ? { module } : {}) });
-  const maison: Widget[] = [w('meteo'), ...['midgard', 'himinbjorg'].filter(has).map((m) => w('chiffres', m))];
+  const maison: Widget[] = [w('heure'), w('meteo'), ...['midgard', 'himinbjorg'].filter(has).map((m) => w('chiffres', m))];
   const reseau: Widget[] = ['vidarr', 'ran', 'vordr'].filter(has).map((m) => w('chiffres', m, m === 'ran' ? 2 : 1));
   const secu: Widget[] = ['ullr', 'garmr', 'eir'].filter(has).map((m) => w('chiffres', m));
   const mach: Widget[] = ['ymir', 'naglfar'].filter(has).map((m) => w('chiffres', m));
@@ -172,16 +291,18 @@ export function cleanLayout(raw: unknown, ids: string[]): Layout {
     const pp = (p ?? {}) as Record<string, unknown>, name = str(pp.name, 24) || `Page ${pages.length + 1}`, widgets: Widget[] = [];
     for (const x of (Array.isArray(pp.widgets) ? pp.widgets : []).slice(0, 24)) {
       const o = (x ?? {}) as Record<string, unknown>, kind = String(o.kind) as WidgetKind;
-      if (!['chiffres', 'section', 'meteo', 'bouton'].includes(kind)) continue;
+      if (!['chiffres', 'section', 'meteo', 'bouton', 'heure', 'site'].includes(kind)) continue;
       const w = ([1, 2, 3].includes(Number(o.w)) ? Number(o.w) : 1) as 1 | 2 | 3, module = str(o.module, 40);
-      if (kind !== 'meteo' && !ids.includes(module)) continue;
-      const out: Widget = { id: /^[0-9a-f]{8}$/.test(String(o.id)) ? String(o.id) : wid(), kind, w, ...(kind !== 'meteo' ? { module } : {}) };
+      const libre = kind === 'meteo' || kind === 'heure'; // sans appli derrière
+      if (!libre && !ids.includes(module)) continue;
+      if (kind === 'site' && (module !== 'vordr' || !str(o.label, 60))) continue; // un site surveillé = une sonde de Pulsar, par son nom
+      const out: Widget = { id: /^[0-9a-f]{8}$/.test(String(o.id)) ? String(o.id) : wid(), kind, w, ...(libre ? {} : { module }) };
       if (kind === 'section') { out.section = str(o.section, 80); if (!out.section) continue; }
       if (kind === 'bouton') {
         out.action = str(o.action, 40); out.label = str(o.label, 40) || out.action; if (!out.action) continue;
         const inp = (o.input && typeof o.input === 'object' ? o.input : {}) as Record<string, unknown>;
         out.input = Object.fromEntries(Object.entries(inp).slice(0, 12).filter(([k]) => /^[a-z_][a-z0-9_]{0,30}$/i.test(k)).map(([k, v]) => [k, str(v, 300)]));
-      } else if (o.label) out.label = str(o.label, 40);
+      } else if (o.label) out.label = str(o.label, kind === 'site' ? 60 : 40);
       widgets.push(out);
     }
     pages.push({ id: /^[0-9a-f]{8}$/.test(String(pp.id)) ? String(pp.id) : wid(), name, ...(pp.maison ? { maison: true } : {}), widgets });
@@ -208,9 +329,65 @@ export const gladsheim: Module = {
       const l = cleanLayout(raw, ctx.modules().map((m) => m.id)); ctx.saveSettings({ fenetre: l });
       return { text: `✓ Fenêtre rangée : ${l.pages.map((p) => `${p.name} (${p.widgets.length})`).join(', ')}.`, data: l };
     } },
-    { id: 'meteo', label: 'Météo', what: 'Le temps qu\'il fait (et le lieu choisi)', read: true, params: [{ key: 'ville', label: 'Ville (vide : celle déjà choisie)', kind: 'text', default: '' }], words: ['météo de la maison', 'la météo', 'quel temps fait-il', 'météo', 'meteo', 'température dehors'], run: async (ctx, i) => {
-      const v = s(i.ville).trim(); if (v && v !== s(ctx.settings.ville)) { ctx.saveSettings({ ville: v.slice(0, 80), lat: '', lon: '' }); wx = undefined; }
-      const w = await weather(ctx, Boolean(v)); return { text: `${weatherText(w)}${w?.days[1] ? ` Demain : ${wword(w.days[1].code).toLowerCase()}, ${w.days[1].lo}° à ${w.days[1].hi}°.` : ''}`, data: w };
+    { id: 'meteo', label: 'Météo', what: 'Le temps qu\'il fait là où est Odin, ou dans une autre ville si tu la nommes (sans changer le lieu d\'Odin)', read: true, params: [{ key: 'ville', label: 'Autre ville (vide : là où est Odin)', kind: 'text', default: '' }], words: ['météo de la maison', 'la météo', 'quel temps fait-il', 'météo', 'meteo', 'température dehors'], run: async (ctx, i) => {
+      // Une autre ville : la météo de là-bas, sans changer le lieu d'Odin (pour le changer : l'action « lieu »).
+      const v = s(i.ville).trim(), ici = sansAccent(v) === sansAccent(s(ctx.settings.villeNom) || s(ctx.settings.ville) || LIEU_PAR_DEFAUT);
+      if (v && !ici) { const g = (await trouverLieux(ctx, v))[0]; if (!g) throw new Error(`je ne trouve pas « ${v} » : vérifie l'orthographe, ou précise le pays (« ${v}, France »)`); return { text: weatherText(await previsions(ctx, g.lat, g.lon, g.nom)), data: { ailleurs: true } }; }
+      const w = await weather(ctx); return { text: `${weatherText(w)}${w?.days[1] ? ` Demain : ${wword(w.days[1].code).toLowerCase()}, ${degres(w.days[1].lo, w.unites)} à ${degres(w.days[1].hi, w.unites)}.` : ''}${!s(ctx.settings.ville) ? ` (Lieu par défaut : ${LIEU_PAR_DEFAUT}. Pour le changer : « ma ville est … ».)` : ctx.settings.suppose === true ? ` (Je me crois à ${s(ctx.settings.villeNom) || s(ctx.settings.ville)} d'après l'horloge de la machine. Si ce n'est pas ça : « ma ville est … ».)` : ''}`, data: w };
+    } },
+    { id: 'lieu', label: 'Changer de lieu (météo)', what: 'La ville où tu es : la météo, le thème automatique et les phrases d\'Odin s\'en servent', params: [{ key: 'ville', label: 'Ville (ex. Dembéni ; « Ville, pays » si plusieurs portent ce nom)', kind: 'text', required: true }],
+      words: ['ma ville est', 'change ma ville', 'change de ville', 'change le lieu de la météo', 'lieu de la météo', 'j\'habite à'],
+      undo: (_i, r) => { const d = r.data as { avant?: string } | undefined; return d?.avant ? { action: 'lieu', input: { ville: d.avant }, label: `lieu remis à ${d.avant}` } : undefined; },
+      run: async (ctx, i) => {
+        const avant = s(ctx.settings.ville) || LIEU_PAR_DEFAUT, g = await changerLieu(ctx, s(i.ville).trim());
+        const w = await weather(ctx, true), ailleurs = g.autres.filter((x) => x.region && x.region !== g.region);
+        return { text: `📍 C'est noté : Odin est à ${g.nom}${g.region ? ` (${g.region})` : ''}. ${weatherText(w)}${ailleurs.length ? `\nD'autres lieux portent ce nom (${ailleurs.map((x) => x.region).slice(0, 3).join(' ; ')}) : si ce n'est pas le bon, précise « ${g.nom}, pays ».` : ''}`, data: { lieu: g, avant } };
+      } },
+    { id: 'lieu_position', label: 'Me localiser (position de l\'appareil)', what: 'Règle le lieu d\'Odin sur la position exacte de l\'appareil (GPS). Pour trouver le nom du village, la position est envoyée une fois à OpenStreetMap', quick: false,
+      params: [{ key: 'lat', label: 'Latitude', kind: 'number', required: true }, { key: 'lon', label: 'Longitude', kind: 'number', required: true }, { key: 'precision', label: 'Précision (mètres)', kind: 'number' }],
+      undo: (_i, r) => { const d = r.data as { avant?: string } | undefined; return d?.avant ? { action: 'lieu', input: { ville: d.avant }, label: `lieu remis à ${d.avant}` } : undefined; },
+      run: async (ctx, i) => {
+        const avant = s(ctx.settings.ville) || LIEU_PAR_DEFAUT, g = await changerPosition(ctx, Number(i.lat), Number(i.lon), i.precision === undefined || i.precision === '' ? undefined : Number(i.precision));
+        const w = await weather(ctx, true), flou = g.precision !== undefined && g.precision > 1500;
+        return { text: `📍 ${g.nomme ? `Tu es à ${g.nom}` : `Position gardée (${g.lat}, ${g.lon}), mais je n'ai pas pu trouver le nom du village`}${g.precision !== undefined ? ` (position à ± ${g.precision >= 1000 ? `${(g.precision / 1000).toFixed(1).replace('.', ',')} km` : `${g.precision} m`})` : ''}. ${weatherText(w)}${flou ? '\n⚠ Cet appareil donne une position approximative : si le village n\'est pas le bon, dis « ma ville est … » ou localise-toi depuis ton téléphone (GPS).' : ''}`, data: { lieu: g, avant } };
+      } },
+    { id: 'se_configurer', label: 'Se configurer d\'après le lieu', what: 'Odin se règle pour un lieu : la ville ou la position que tu donnes (« Paris », « New York, États-Unis », « -12.84, 45.18 »), ou, sans rien dire, là où il se trouve d\'après sa connexion Internet (son adresse publique est alors vue par un service de localisation) puis l\'horloge de la machine. Fuseau, unités, heure, devise et fêtes suivent',
+      params: [{ key: 'ou', label: 'Ville, « Ville, pays » ou position « latitude, longitude » (vide : Odin cherche tout seul)', kind: 'text' }], words: ['configure-toi', 'configure toi tout seul', 'localise-toi tout seul', 'règle-toi pour'],
+      undo: (_i, r) => { const d = r.data as { avant?: string } | undefined; return d?.avant ? { action: 'lieu', input: { ville: d.avant }, label: `lieu remis à ${d.avant}` } : undefined; },
+      run: async (ctx, i) => {
+        const avant = s(ctx.settings.ville), ou = s(i.ou).trim(), pos = /^(-?\d{1,2}(?:[.,]\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:[.,]\d+)?)$/.exec(ou);
+        let comment = '';
+        if (pos) { const g = await changerPosition(ctx, Number(pos[1].replace(',', '.')), Number(pos[2].replace(',', '.'))); comment = g.nomme ? `position ${g.lat}, ${g.lon}` : `position ${g.lat}, ${g.lon} (nom du village introuvable)`; }
+        else if (ou) { await changerLieu(ctx, ou); comment = 'lieu que tu m' + "'" + 'as donné'; }
+        else {
+          const g = await lieuDeLaConnexion(ctx);
+          if (g) { ctx.saveSettings({ ville: g.nom, villeNom: g.nom, lat: g.lat, lon: g.lon, precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined; publierLieu(ctx); lieuChange?.(g); comment = 'd' + "'" + 'après ma connexion Internet : c' + "'" + 'est approximatif, dis « ma ville est … » si le village n' + "'" + 'est pas le bon'; }
+          else if (supposerLieu(ctx, undefined, true)) { publierLieu(ctx); comment = 'd' + "'" + 'après l' + "'" + 'horloge de la machine, faute de réponse du service de localisation'; }
+          else throw new Error('je n' + "'" + 'arrive pas à me localiser ' + accord('tout seul', 'toute seule') + ' (pas de réponse du service, et l' + "'" + 'horloge de la machine ne dit pas où je suis) : dis-moi « configure-toi pour Paris » ou « ma ville est … »');
+        }
+        ctx.saveSettings({ unites: '', heure: '', devise: '' }); publierLieu(ctx);
+        const w = await weather(ctx, true);
+        return { text: `📍 ${texteRegion(ctx)} (${comment})\n${weatherText(w)}`, data: { lieu: lieuDe(ctx), region: regionActuelle(ctx), avant: avant || undefined } };
+      } },
+    { id: 'region', label: 'Réglages régionaux', what: 'Régler à la main ce qui découle du lieu : pays, fuseau horaire, unités, heure sur 12 ou 24 heures, devise (« automatique » : d\'après le lieu)', quick: false,
+      params: [{ key: 'pays', label: 'Pays (2 lettres : FR, YT, US… ; vide : inchangé)', kind: 'text' }, { key: 'fuseau', label: 'Fuseau horaire (ex. Europe/Paris ; vide : inchangé)', kind: 'text' },
+        { key: 'unites', label: 'Unités', kind: 'select', options: ['inchangé', 'automatique', 'métriques (°C, km)', 'impériales (°F, miles)'], default: 'inchangé' },
+        { key: 'heure', label: 'Heure', kind: 'select', options: ['inchangé', 'automatique', '24 heures', '12 heures'], default: 'inchangé' }, { key: 'devise', label: 'Devise (3 lettres : EUR, USD… ; « auto » : d\'après le pays ; vide : inchangé)', kind: 'text' }],
+      run: (ctx, i) => {
+        const patch: Record<string, unknown> = {}, pays = s(i.pays).trim().toUpperCase(), tz = s(i.fuseau).trim(), u = s(i.unites), h = s(i.heure), d = s(i.devise).trim().toUpperCase();
+        if (pays) { if (!/^[A-Z]{2}$/.test(pays)) throw new Error('le pays s' + "'" + 'écrit en deux lettres (FR, YT, US…)'); patch.pays = pays; }
+        if (tz) { if (!fuseauValide(tz)) throw new Error(`fuseau horaire inconnu : « ${tz} » (exemples : Europe/Paris, Indian/Mayotte, America/New_York)`); patch.fuseau = tz; }
+        if (/^auto/.test(u)) patch.unites = ''; else if (/^m/.test(u)) patch.unites = 'metrique'; else if (/^imp/.test(u)) patch.unites = 'imperial';
+        if (/^auto/.test(h)) patch.heure = ''; else if (/^24/.test(h)) patch.heure = '24h'; else if (/^12/.test(h)) patch.heure = '12h';
+        if (d) { if (d === 'AUTO' || d === 'AUTOMATIQUE') patch.devise = ''; else if (/^[A-Z]{3}$/.test(d)) patch.devise = d; else throw new Error('la devise s' + "'" + 'écrit en trois lettres (EUR, USD…), ou « auto »'); }
+        if (!Object.keys(patch).length) throw new Error('rien à changer : donne au moins un réglage');
+        ctx.saveSettings(patch); wx = undefined; publierLieu(ctx);
+        return { text: `✓ ${texteRegion(ctx)}`, data: { region: regionActuelle(ctx) } };
+      } },
+    { id: 'region_actuelle', label: 'Comment Odin est réglé pour son lieu', what: 'Le lieu d\'Odin et ce qui en découle : fuseau, unités, heure, devise, fêtes', read: true, words: ['réglages régionaux actuels', 'pour quel lieu es-tu réglé'], run: (ctx) => ({ text: `📍 ${texteRegion(ctx)}`, data: { lieu: lieuDe(ctx) ?? null, region: regionActuelle(ctx), suppose: ctx.settings.suppose === true, ville: s(ctx.settings.villeNom) || s(ctx.settings.ville) || LIEU_PAR_DEFAUT, fuseau: s(ctx.settings.fuseau) } }) },
+    { id: 'lieu_actuel', label: 'Où est Odin', what: 'Le lieu réglé pour Odin (village, coordonnées, fuseau horaire)', read: true, words: ['quel lieu est réglé', 'lieu réglé pour la météo'], run: (ctx) => {
+      const l = lieuDe(ctx);
+      return l ? { text: `📍 Odin est à ${l.nom} (${l.lat}, ${l.lon})${l.fuseau ? `, fuseau ${l.fuseau}` : ''}${l.precision ? `, position à ± ${l.precision} m` : ''}.`, data: l } : { text: `Aucun lieu n'est réglé : je me crois à ${LIEU_PAR_DEFAUT}. Dis « ma ville est … », ou touche « Me localiser » sur la carte météo.`, data: null };
     } },
     { id: 'bouton', label: 'Ajouter un bouton', what: 'Un bouton vers une action de n\'importe quelle appli', params: TILE, words: ['ajoute un bouton'], run: (ctx, i) => {
       const m = ctx.modules().find((x) => x.id === s(i.appli).trim().toLowerCase() || x.name.toLowerCase() === s(i.appli).trim().toLowerCase()); if (!m) throw new Error(`appli inconnue : ${s(i.appli)}`);

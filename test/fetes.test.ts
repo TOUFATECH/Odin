@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { easter, eventsOn, hijri, inRamadan, todayEvent, upcoming } from '../src/valhalla/fetes.ts';
-import { cleanClicks, cleanEvents, odinColor } from '../src/valhalla/modules/apparence.ts';
+import { autoTheme, cleanClicks, cleanEvents } from '../src/valhalla/modules/apparence.ts';
 
 test('Pâques par le comput', () => {
   assert.equal(easter(2026), '2026-04-05');
@@ -49,13 +49,15 @@ test('prochains événements : une ligne par fête', () => {
   assert.equal(l.find((e) => e.id === 'halloween')?.on, false);
 });
 
-test('couleur d\'Odin en automatique : marée, vent, nuit, chaud, froid', () => {
-  assert.equal(odinColor(14, { code: 63, temp: 27 }, true)?.color, '#16306b');
-  assert.equal(odinColor(14, { code: 0, temp: 27, wind: 50 })?.color, '#f2f6fa');
-  assert.equal(odinColor(23, { code: 0, temp: 27 })?.color, '#f4d35e');
-  assert.equal(odinColor(13, { code: 0, temp: 33 })?.color, '#ffd23a');
-  assert.equal(odinColor(13, { code: 0, temp: 18 })?.color, '#5b8fd9');
-  assert.equal(odinColor(13, { code: 0, temp: 26 }), undefined);
+test('thème automatique : temps, puis température, puis moment de la journée selon l\'humeur', () => {
+  const at = (h: number, humeur?: string) => autoTheme(h, undefined, humeur).id;
+  assert.deepEqual([3, 5, 6, 11, 12, 16, 17, 20, 21, 0, 2].map((h) => at(h)), ['veille', 'veille', 'ciel', 'ciel', 'plage', 'plage', 'coucher', 'coucher', 'nuit', 'nuit', 'nuit']);
+  assert.deepEqual([at(4, 'joie'), at(9, 'rire'), at(14, 'fatigue'), at(19, 'triste'), at(23, 'excite')], ['aurore', 'printemps', 'lagon', 'lavande', 'espace'], 'les thèmes du moment varient avec l\'humeur');
+  assert.equal(autoTheme(4, { code: 63, temp: 25 }).id, 'pluie'); assert.equal(autoTheme(14, { code: 96 }).id, 'orage'); assert.equal(autoTheme(14, { code: 73 }).id, 'neige');
+  assert.equal(autoTheme(14, { code: 45, temp: 22 }).id, 'foret'); assert.equal(autoTheme(14, { code: 0, temp: 22, wind: 60 }).id, 'ocean');
+  const temp = (x: number) => autoTheme(14, { code: 0, temp: x }).id;
+  assert.deepEqual([-3, 0, 5, 12, 17, 18, 27, 28, 31, 33, 36].map(temp), ['gel', 'gel', 'froid', 'frais', 'frais', 'plage', 'plage', 'chaud', 'chaud', 'torride', 'canicule']);
+  assert.equal(autoTheme(14, { code: 63, temp: 36 }).id, 'pluie', 'le temps passe avant la température');
 });
 
 test('réglages nettoyés : clics, événements', () => {
@@ -70,7 +72,10 @@ test('la fenêtre d\'Odin : pages rangées, nettoyées, jamais d\'appli inventé
   const ids = ['vidarr', 'ran', 'vordr', 'ullr', 'ymir', 'naglfar', 'midgard'];
   const d = defaultLayout(ids);
   assert.deepEqual(d.pages.map((p) => p.name), ['Maison', 'Réseau', 'Sécurité', 'Machines']);
-  assert.ok(d.pages[0].maison && d.pages[0].widgets[0].kind === 'meteo');
+  assert.ok(d.pages[0].maison && d.pages[0].widgets[0].kind === 'heure' && d.pages[0].widgets[1].kind === 'meteo', 'la page Maison commence par l\'heure et le lieu, puis la météo');
+  // Les deux modules du 15/11/2026 : « heure » (sans appli derrière) et « site » (une sonde de Pulsar, par son nom).
+  const n = cleanLayout({ pages: [{ name: 'Maison', maison: true, widgets: [{ kind: 'heure', w: 2 }, { kind: 'site', module: 'vordr', label: 'Mon site' }, { kind: 'site', module: 'vordr' }, { kind: 'site', module: 'vidarr', label: 'Faux' }, { kind: 'site', module: 'inventee', label: 'x' }] }] }, ids).pages[0];
+  assert.deepEqual(n.widgets.map((w) => `${w.kind}:${w.module ?? ''}:${w.label ?? ''}:${w.w}`), ['heure:::2', 'site:vordr:Mon site:1'], 'un site sans nom, ou hors de Pulsar, est écarté');
   const l = cleanLayout({ pages: [{ id: 'zz', name: 'Ma\u0000 page très très longue qui déborde', maison: 1, widgets: [
     { kind: 'chiffres', module: 'vidarr', w: 9 }, { kind: 'chiffres', module: 'inventee' }, { kind: 'section', module: 'ran' }, { kind: 'section', module: 'ran', section: 'Flux en direct' },
     { kind: 'bouton', module: 'vidarr', action: 'bloquer', input: { quoi: 'youtube', 'mauvaise clé!': 'x' }, label: 'Bloquer YouTube' }, { kind: 'script', module: 'vidarr' }, { kind: 'meteo' }] }] }, ids);

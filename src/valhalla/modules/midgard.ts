@@ -117,7 +117,7 @@ export const midgard: Module = {
       kpis: [{ label: 'Allumés', value: String(on) }, { label: 'Scènes', value: String(scenes(ctx).length) }, { label: 'Box reliées', value: ctx.settings.haUrl ? '1' : '0' }],
       sections: [
         ...rooms.map((r) => ({ kind: 'table' as const, title: r, columns: ['Appareil', 'Type', 'État'], rows: d.filter((x) => (x.room || 'Sans pièce') === r).map((x) => ({ cells: [x.name, x.kind, `${x.state ?? '?'}${x.unit ? ` ${x.unit}` : ''}`], tone: (/^on$/i.test(x.state ?? '') ? 'bon' : undefined) as 'bon' | undefined, actions: x.commandTopic ? [{ action: 'commander', label: 'Allumer', input: { appareil: x.id, valeur: 'on' } }, { action: 'commander', label: 'Éteindre', input: { appareil: x.id, valeur: 'off' } }] : [] })) })),
-        ...(d.length ? [] : [{ kind: 'text' as const, title: 'Aucun appareil', text: 'Branche tes appareils sur le relais (page Appareils) ou relie ta box domotique à droite.' }]),
+        ...(d.length ? [] : [{ kind: 'text' as const, title: 'Aucun appareil', text: 'Branche tes appareils sur le relais (page Constellation) ou relie ta box domotique à droite.' }]),
       ],
       side: [{ kind: 'list', title: 'Scènes', items: scenes(ctx).map((x) => ({ title: x.name, detail: x.steps.map((st) => `${st.appareil} = ${st.valeur}`).join(', ') })), empty: 'Aucune scène.' }, { kind: 'form', title: 'Créer une scène', action: 'creer_scene', submit: 'Créer', params: midgard.actions.find((a) => a.id === 'creer_scene')?.params ?? [] }, { kind: 'form', title: 'Relier une box', action: 'pont', submit: 'Relier', params: midgard.actions.find((a) => a.id === 'pont')?.params ?? [] }],
     };

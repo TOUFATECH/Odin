@@ -110,15 +110,16 @@ test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), 
     const up = (await w.act('eitri', 'mettre_a_jour')).text;
     assert.match(up, /✅ Ubuntu \(bureau, LTS\) 24\.04\.3 \(293 Ko\), empreinte vérifiée/); assert.match(up, /✔ Debian \(netinst\) 13\.2\.0 : à jour/);
     assert.deepEqual(readFileSync(join(w.dir, 'Ubuntu', 'ubuntu-24.04.3-desktop-amd64.iso')), iso3);
-    assert.ok(existsSync(join(w.dir, 'ubuntu-24.04.2-desktop-amd64.iso')), '2 versions gardées : l\'ancienne reste');
+    assert.ok(!existsSync(join(w.dir, 'ubuntu-24.04.2-desktop-amd64.iso')) && existsSync(join(w.dir, 'Ubuntu', 'old', 'ubuntu-24.04.2-desktop-amd64.iso')), 'l\'ancienne version part dans « old », à côté de la nouvelle');
     assert.ok(w.alerts.some((a) => a.title === '⬇ Ubuntu (bureau, LTS) 24.04.3 : téléchargement') && w.alerts.some((a) => a.title === '✅ Ubuntu (bureau, LTS) 24.04.3 téléchargé'));
-    // Nouvelle version : la plus ancienne (24.04.2) est retirée, on garde 24.04.3 et 24.04.4.
+    // Nouvelle version : 24.04.3 part dans « old », où une seule ancienne est gardée (24.04.2 est supprimée).
     w.web.routes.set('https://releases.ubuntu.com/', '<a href="24.04.3/">24.04.3/</a><a href="24.04.4/">24.04.4/</a>');
     w.web.routes.set('https://releases.ubuntu.com/24.04.4/SHA256SUMS', `${sha(iso4)} *ubuntu-24.04.4-desktop-amd64.iso\n`);
     w.web.routes.set('https://releases.ubuntu.com/24.04.4/ubuntu-24.04.4-desktop-amd64.iso', iso4);
     assert.match((await w.act('eitri', 'telecharger', { nom: 'ubuntu' })).text, /24\.04\.4 .* · retiré : 24\.04\.2/);
     assert.ok(!existsSync(join(w.dir, 'ubuntu-24.04.2-desktop-amd64.iso')));
-    assert.deepEqual(readdirSync(join(w.dir, 'Ubuntu')).sort(), ['ubuntu-24.04.3-desktop-amd64.iso', 'ubuntu-24.04.4-desktop-amd64.iso']);
+    assert.deepEqual(readdirSync(join(w.dir, 'Ubuntu')).sort(), ['old', 'ubuntu-24.04.4-desktop-amd64.iso']);
+    assert.deepEqual(readdirSync(join(w.dir, 'Ubuntu', 'old')), ['ubuntu-24.04.3-desktop-amd64.iso'], 'une seule ancienne version gardée');
     // Empreinte fausse : le fichier est jeté, alerte rouge.
     w.web.routes.set('https://releases.ubuntu.com/', '<a href="24.04.5/">24.04.5/</a>');
     w.web.routes.set('https://releases.ubuntu.com/24.04.5/SHA256SUMS', `${'f'.repeat(64)} *ubuntu-24.04.5-desktop-amd64.iso\n`);
@@ -172,13 +173,14 @@ test('Hermès : installateurs depuis GitHub, antivirus (mis de côté), source �
     w.web.routes.set('https://api.github.com/repos/ip7z/7zip/releases/latest', JSON.stringify({ tag_name: '25.01', html_url: 'h', assets: [{ name: '7z2501-x64.exe', browser_download_url: 'https://github.com/ip7z/7zip/releases/download/25.01/7z2501-x64.exe', size: exe.length, digest: `sha256:${sha(exe)}` }] }));
     w.web.routes.set('https://github.com/ip7z/7zip/releases/download/25.01/7z2501-x64.exe', exe);
     assert.match((await w.act('fjalar', 'mettre_a_jour')).text, /✅ 7-Zip 2501 .*empreinte vérifiée/);
-    assert.ok(existsSync(join(w.sdir, '7-Zip', '7z2501-x64.exe')) && existsSync(join(w.sdir, '7z2408-x64.exe')));
-    // Un installateur piégé (fichier test EICAR) : mis de côté, l'ancien reste.
+    assert.ok(existsSync(join(w.sdir, '7-Zip', '7z2501-x64.exe')) && existsSync(join(w.sdir, '7-Zip', 'old', '7z2408-x64.exe')) && !existsSync(join(w.sdir, '7z2408-x64.exe')), 'l\'ancienne version part dans « old »');
+    // Un installateur piégé (fichier test EICAR) : il part en quarantaine dans Asclépios (quarantaine d'abord), l'ancien reste.
     const bad = Buffer.from(EICAR);
     w.web.routes.set('https://api.github.com/repos/pbatard/rufus/releases/latest', JSON.stringify({ tag_name: 'v4.11', html_url: 'h', assets: [{ name: 'rufus-4.11.exe', browser_download_url: 'https://github.com/pbatard/rufus/releases/download/v4.11/rufus-4.11.exe', size: bad.length, digest: `sha256:${sha(bad)}` }] }));
     w.web.routes.set('https://github.com/pbatard/rufus/releases/download/v4.11/rufus-4.11.exe', bad);
     assert.match((await w.act('fjalar', 'telecharger', { nom: 'rufus' })).text, /🛡 Rufus 4\.11 mis de côté/);
-    assert.ok(!existsSync(join(w.sdir, 'Rufus', 'rufus-4.11.exe')) && existsSync(join(w.sdir, '.mis-de-cote', 'rufus-4.11.exe')));
+    assert.ok(!existsSync(join(w.sdir, 'Rufus', 'rufus-4.11.exe')), 'jamais rangé avec les logiciels');
+    assert.ok((w.v.ctx('ullr').settings.quarantine as Array<{ nom?: string; origine?: string }>).some((q) => q.nom === 'rufus-4.11.exe' && /Hermès/.test(q.origine ?? '')), 'en quarantaine dans Asclépios');
     assert.ok(w.alerts.some((a) => a.level === 'critique' && /Rufus 4\.11 mis de côté/.test(a.title)));
     // Une source à soi (dépôt GitHub + motif).
     assert.equal((await w.act('fjalar', 'ajouter_source', { nom: 'Outil', depot: 'pas un depot', motif: 'x-{version}.exe' })).ok, false);

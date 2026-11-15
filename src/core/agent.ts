@@ -25,13 +25,15 @@ import type { AgentEvent, Message, ToolCall } from '../types.ts';
 import type { Athena } from '../yggdrasil/skills.ts';
 import { chooseCut, historyTokens, repairHistory, SUMMARY_PROMPT, transcriptForSummary } from './compaction.ts';
 import { buildSystemPrompt } from './prompt.ts';
-import { extractMood, guessMood, type Mood } from '../mood/mood.ts';
-import { polishReply } from './style.ts';
+import { extractMood, guessMood, setCurrentMood, type Mood } from '../mood/mood.ts';
+import { parlerNaturel, polishReply } from './style.ts';
+import { accord, accorder, genreOdin } from './genre.ts';
 import { offlineAct } from './offline-act.ts';
 import { MANY, needsThinking, pendingProposal, proposeNear, tryDirect } from './direct.ts';
 import { forget as forgetAcquis, keep as keepAcquis, learn as learnAcquis, LEARNABLE, linkWords, loadAcquis, MAX_STEPS, missionOf } from '../learn/acquis.ts';
 import { syncQuotidien } from '../learn/quotidien.ts';
 import { brainOf } from '../tools/brain.ts';
+import { brainBlock, consultBrain } from '../brain/contexte.ts';
 import { isReminderJob, reminderText, whenFr } from '../cron/reminders.ts';
 import { savingsText } from '../providers/savings.ts';
 import { adminDiagnosis } from '../machines/access.ts';
@@ -248,13 +250,15 @@ export class Agent {
         redact: (x) => redactor.redact(x),
         adminSecret: Boolean(home && owner && isLocalAdminLabel(pendingSecretLabel(home) ?? '')),
         texts: {
-          reminders: () => { const l = muninn.listJobs().filter(isReminderJob).sort((x, y) => x.next_run - y.next_run).slice(0, 10); return l.length ? `Tes rappels :\n${l.map((j) => `- ${whenFr(new Date(j.next_run))} : ${reminderText(j)}`).join('\n')}` : 'Aucun rappel programmé.'; },
+          reminders: () => { const l = muninn.listJobs().filter(isReminderJob).sort((x, y) => x.next_run - y.next_run).slice(0, 10); return l.length ? `Tes rappels :\n${l.map((j) => `- ${whenFr(new Date(j.next_run))} : ${reminderText(j)}`).join('\n')}` : 'Tu n\'as aucun rappel en attente.'; },
           savings: () => savingsText(muninn, this.deps.router.routes.map((r) => ({ name: r.provider.name, priceIn: r.cfg.priceInPerM, priceOut: r.cfg.priceOutPerM }))),
           rights: home ? () => { const g = adminDiagnosis(home); return `Sur cette machine : ${g.state}.${g.ok || !g.fix ? '' : `\n${g.fix}`}`; } : undefined,
         },
       }).catch(() => undefined);
       if (d?.done) {
-        const text = redactor.redact(d.text);
+        // Odin, homme ou femme : ce qu'il dit de lui s'accorde (« je me suis arrêtée là »), même dans une réponse toute faite.
+        // Et une réponse toute faite ne commence pas par « Erreur : » : c'est dit comme on parle (« Ça n'a pas marché : … »).
+        const text = accorder(parlerNaturel(redactor.redact(d.text)), genreOdin(cfg));
         const res: RunResult = { text, steps: 0, toolCalls: d.tools, tokensIn: 0, tokensOut: 0, costUsd: 0, tainted, stopReason: 'done', decisions, notices: [], ai: { needed: false, why: d.why } };
         muninn.addMessage(o.sessionId, { role: 'assistant', content: text });
         emit({ type: 'text', text });
@@ -264,7 +268,7 @@ export class Agent {
         try { muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: text.slice(0, 1500), provider: '', models: `fait sans IA (${d.why})`, turnId: rc?.turnId, cost: 0, tools: [], memories: [], lessons: [], decisions })); } catch { /* trace facultative */ }
         if (d.tools > 0 && trusted) { try { recordTask(muninn, { at: Date.now(), goal: userText.replace(/\s+/g, ' ').slice(0, 140), ok: true, tools: ['sans IA'], result: text.replace(/\s+/g, ' ').slice(0, 160) }); } catch { /* facultatif */ } }
         res.mood = guessMood(text, { blocked: 0, errors: 0, approvals: 0, stopReason: 'done', toolCalls: d.tools, userText });
-        if (res.mood) emit({ type: 'mood', mood: res.mood });
+        if (res.mood) { setCurrentMood(res.mood); emit({ type: 'mood', mood: res.mood }); }
         syncDaily();
         return res;
       }
@@ -299,6 +303,16 @@ export class Agent {
       tasksInProgress: depth > 0 ? undefined : (() => { const ms = [...muninn.interruptedMissions(Date.now() - 7 * 86_400_000), ...muninn.stalledMissions(Date.now() - 3 * 86_400_000)].filter((m) => m.session_id !== o.sessionId).slice(0, 5); return ms.length ? ms.map((m) => `- ${m.goal.slice(0, 140)} → ${m.status}${m.last_tool ? ` (dernière étape : ${m.last_tool})` : ''}${m.result ? ` — ${m.result.replace(/\s+/g, ' ').slice(0, 160)}` : ''}`).join('\n') : undefined; })(),
       pinned: muninn.pinned(),
       recalled: recalledNow,
+      // Le Cerveau est consulté avant de répondre : notes, fiches des applis, liens [[…]] suivis, applis utiles.
+      // (Un membre de la maison n'a que les applis : les notes du propriétaire restent privées.)
+      brain: depth > 0 ? undefined : (() => {
+        try {
+          const c = consultBrain({ vault: owner ? brainOf(ctx) : undefined, apps: valhallaOf() }, userText.split('\n\n[Précision d')[0]);
+          // « Odin consulte » : le chemin suivi (notes, liens, applis, dans l'ordre) s'allume sur la carte du Cerveau.
+          if (c.etapes.length) emit({ type: 'consulte', etapes: c.etapes });
+          return brainBlock(c) || undefined;
+        } catch { return undefined; }
+      })(),
       lessons: lessonsNow,
       skillsIndex: this.deps.skills.index(),
       skillsHint: depth > 0 ? undefined : relevantSkills(userText, this.deps.skills.list()),
@@ -312,6 +326,7 @@ export class Agent {
       speaker: o.speaker,
       rights: this.deps.home ? rightsSummary(this.deps.home) : undefined,
       tone: activeProfile(cfg),
+      genre: genreOdin(cfg),
       status: depth > 0 ? undefined : this.statusSnapshot(),
       features: depth > 0 ? undefined : (() => { try { return featuresPrompt(features({ cfg, devices: this.deps.inventory?.list({ status: 'all' }) ?? [], recentUserText: [], dismissed: new Set(), machines: this.deps.home ? listMachines(this.deps.home).length : 0 })); } catch { return undefined; } })(),
     });
@@ -401,7 +416,7 @@ export class Agent {
             const tipKey = `tip-local-brain:${new Date().toDateString()}`;
             if (!this.deps.router.routes.some((r) => r.cfg.tier === 'local' || /localhost|127\.0\.0\.1/.test(r.cfg.baseUrl ?? '')) && !muninn.getKv(tipKey)) {
               muninn.setKv(tipKey, '1');
-              res.text += '\n\n💡 Pour que je réfléchisse aussi sans Internet, installe un modèle local sur ma machine : curl -fsSL https://ollama.com/install.sh | sh puis ollama pull qwen3:4b. Je le trouve tout seul au prochain démarrage.';
+              res.text += '\n\n💡 Pour que je réfléchisse aussi sans Internet, installe un modèle local sur ma machine : curl -fsSL https://ollama.com/install.sh | sh puis ollama pull qwen3:4b. Je le trouve ' + accord('tout seul', 'toute seule', genreOdin(cfg)) + ' au prochain démarrage.';
             }
             if (!off.handled) queueAsk(muninn, { text: userText, sessionId: o.sessionId, channel, peer, at: Date.now() });
             emit({ type: 'text', text: off.text });
@@ -416,7 +431,8 @@ export class Agent {
 
       const tagged = extractMood(reply.text);
       if (tagged.mood) modelMood = tagged.mood;
-      const shown = !reply.toolCalls.length && depth === 0 ? polishReply(tagged.text, tools.all().map((x) => x.name)) : tagged.text;
+      // La charte, puis les accords (un modèle peut oublier qu'Odin est une femme : « je suis prêt » → « prête »).
+      const shown = !reply.toolCalls.length && depth === 0 ? accorder(polishReply(tagged.text, tools.all().map((x) => x.name)), genreOdin(cfg)) : tagged.text;
       const assistant: Message = { role: 'assistant', content: redactor.redact(shown), toolCalls: reply.toolCalls.length ? reply.toolCalls : undefined };
       // La réflexion (DeepSeek, Kimi) suit le tour pour le modèle, mais n'est ni montrée ni enregistrée.
       history.push(reply.reasoning ? { ...assistant, reasoning: redactor.redact(reply.reasoning) } : assistant);
@@ -558,7 +574,7 @@ export class Agent {
     res.tainted = tainted;
     res.suspicious = turn.suspicious;
     res.mood = depth > 0 ? undefined : (res.stopReason === 'done' && modelMood) || guessMood(res.text, { ...moodCtx, stopReason: res.stopReason, toolCalls: res.toolCalls, userText });
-    if (res.mood) emit({ type: 'mood', mood: res.mood });
+    if (res.mood) { setCurrentMood(res.mood); emit({ type: 'mood', mood: res.mood }); }
     if (turn.suspicious) muninn.markSuspicious(o.sessionId);
     if (res.stopReason !== 'done' && res.text) muninn.addMessage(o.sessionId, { role: 'assistant', content: res.text });
 

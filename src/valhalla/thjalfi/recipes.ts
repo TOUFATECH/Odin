@@ -147,11 +147,15 @@ export interface Answer {
   software?: Array<{ name: string; url: string; args: string; msi: boolean }>;
   /** Debian / RHEL : dépôt (adresse) */
   repo?: string; mirror?: string;
+  /** à la fin, poser le compagnon d'Odin (Satellites : antivirus, mises à jour, failles, bulles) */
+  compagnon?: boolean;
 }
 const yamlStr = (s: string) => JSON.stringify(s);
+/** Le compagnon d'Odin, posé au premier démarrage (script servi par Genèse, avec son jeton à lui). */
+const compagnonLinux = (a: Answer) => (a.compagnon ? `(curl -fsS "${a.report.replace('/etat/', '/seed/')}/compagnon.sh" || wget -qO- "${a.report.replace('/etat/', '/seed/')}/compagnon.sh") | sh >/var/log/odin-compagnon-installation.log 2>&1; ` : '');
 /** La fin commune sous Linux : un petit service qui prévient Odin au premier démarrage (nom pris, adresse). */
 function linuxFirstBoot(a: Answer): string {
-  return `[Unit]\nDescription=Odin Genèse : fin du deploiement\nWants=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=/bin/sh -c 'IP=$(hostname -I | cut -d" " -f1); (curl -fsS "${a.report}?e=fini&nom=$(hostname)&ip=$IP" || wget -qO- "${a.report}?e=fini&nom=$(hostname)&ip=$IP") >/dev/null 2>&1; systemctl disable odin-thjalfi.service'\n[Install]\nWantedBy=multi-user.target\n`;
+  return `[Unit]\nDescription=Odin Genèse : fin du deploiement\nWants=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=/bin/sh -c 'IP=$(hostname -I | cut -d" " -f1); (curl -fsS "${a.report}?e=fini&nom=$(hostname)&ip=$IP" || wget -qO- "${a.report}?e=fini&nom=$(hostname)&ip=$IP") >/dev/null 2>&1; ${compagnonLinux(a)}systemctl disable odin-thjalfi.service'\n[Install]\nWantedBy=multi-user.target\n`;
 }
 const b64 = (s: string) => Buffer.from(s).toString('base64');
 
@@ -239,6 +243,8 @@ export function windowsAfter(a: Answer): string {
     const file = `$dir\\${s.url.split('/').pop()!.replace(/[^\w.+-]/g, '_')}`;
     lines.push(`try { (New-Object Net.WebClient).DownloadFile('${s.url}', "${file}"); ${s.msi ? `Start-Process msiexec.exe -ArgumentList '/i', "\`"${file}\`"", '/qn', '/norestart' -Wait` : `Start-Process "${file}" -ArgumentList '${s.args.replace(/'/g, "''")}' -Wait`}; Dire "logiciel" "&nom=${encodeURIComponent(s.name)}&ok=1" } catch { Dire "logiciel" "&nom=${encodeURIComponent(s.name)}&ok=0" }`);
   }
+  // Le compagnon d'Odin (son propre PowerShell, lancé à part : ses « exit » n'arrêtent pas ce script).
+  if (a.compagnon) lines.push(`try { $c = Join-Path $dir 'compagnon.ps1'; (New-Object Net.WebClient).DownloadFile('${a.report.replace(/\/etat\//, '/w/')}/compagnon.ps1', $c); Start-Process powershell.exe -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "\`"$c\`"" -Wait -WindowStyle Hidden; Dire "logiciel" "&nom=Compagnon%20d%27Odin&ok=1" } catch { Dire "logiciel" "&nom=Compagnon%20d%27Odin&ok=0" }`);
   lines.push('$ip = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike "*Loopback*" } | Select-Object -First 1).IPAddress', 'Dire "fini" "&nom=$env:COMPUTERNAME&ip=$ip"', 'Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue');
   return `${lines.join('\r\n')}\r\n`;
 }

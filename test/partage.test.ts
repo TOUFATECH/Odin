@@ -130,10 +130,10 @@ test('un vrai Odin : liens public et privé, accord, invités, onglet, ouverture
     assert.deepEqual(info2.partage.invites.personnes.map((p) => p.login).sort(), ['awa', 'bao']); assert.deepEqual(info2.partage.invites.groupes, ['amis', 'famille']);
     assert.ok(!JSON.stringify(info2).includes('phrase'), 'aucun mot de passe dans la liste des invités');
     assert.match(String((await creer({ id: 'ullr', type: 'prive', personnes: ['inconnu'] })).error), /Inconnu dans Persona : inconnu/);
-    const pourAwa = await creer({ id: 'ullr', type: 'prive', personnes: 'awa', onglet: 'règles' });
-    assert.equal(pourAwa.ok, true, pourAwa.error); assert.equal(pourAwa.partage!.onglet, 'Règles'); assert.match(String(pourAwa.text), /pour awa\.$/);
+    const pourAwa = await creer({ id: 'ullr', type: 'prive', personnes: 'awa', onglet: 'sources' });
+    assert.equal(pourAwa.ok, true, pourAwa.error); assert.equal(pourAwa.partage!.onglet, 'Sources'); assert.match(String(pourAwa.text), /pour awa\.$/);
     const va1 = await ouvrir(pourAwa.chemin!, awa); assert.equal(va1.status, 200); const tawa = lisible(await va1.text());
-    assert.match(tawa, /Asclépios/); assert.match(tawa, /onglet « Règles »/);
+    assert.match(tawa, /Asclépios/); assert.match(tawa, /onglet « Sources »/);
     const vueUllr = ((await v.json('/api/valhalla/view?id=ullr')).body.view) as { sections: Array<{ title: string; onglet?: string; kind: string }> };
     for (const s of vueUllr.sections.filter((x) => x.onglet === 'Analyser' && !['form', 'depot', 'actions'].includes(x.kind))) assert.ok(!tawa.includes(`>${s.title}<`), `« ${s.title} » (autre onglet) n'est pas dans la copie`);
     const vb = await ouvrir(pourAwa.chemin!, bao); assert.equal(vb.status, 403); assert.match(lisible(await vb.text()), /pas pour toi/);

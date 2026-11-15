@@ -6,6 +6,8 @@
 //   node : { id, label, sub?, color?, hub?, size?, off?, alert?: { n, level: 'grave'|'attention' }, update?: n, title?, selected? }
 //   edge : [a, b]  ou  { a, b, w?: épaisseur 0-6, arrow?: 'to'|'both', title?, color?, dash? } ; opts.onEdge(a, b) au clic sur un lien
 //   node.ring : couleur d'un anneau (nouvel appareil, site dangereux…) ; node.square : carré (Odin, box, Internet)
+//   opts.echanges : les points sont des applis → les échanges en direct entre applis allument leurs liens
+//   (OdinGraph.echanges.recevoir(e) ; le Cerveau s'en sert aussi avec OdinGraph.echanges.dessiner/brancher)
 (() => {
   'use strict';
   if (window.OdinGraph) return;
@@ -28,6 +30,123 @@
   const el = (t, a = {}, ...kids) => { const n = document.createElement(t); for (const [k, v] of Object.entries(a)) { if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'class') n.className = v; else n.setAttribute(k, v === true ? '' : v); } for (const k of kids.flat()) if (k != null && k !== false) n.append(k.nodeType ? k : document.createTextNode(String(k))); return n; };
   const cssVar = (n, d, at = document.documentElement) => getComputedStyle(at).getPropertyValue(n).trim() || d;
 
+  // ---------- Échanges entre applis ----------
+  // Quand une appli demande quelque chose à une autre, le serveur envoie { de, vers, action, phase, ok, at } (jamais les
+  // données). Le lien entre les deux devient blanc et brille quelques secondes ; une comète part de l'appli qui demande
+  // et avance vers celle à qui on demande ; la réponse revient en petits points (verts : bonne, rouges : échec).
+  // Beaucoup d'échanges : regroupés par paire d'applis, au plus 40 liens allumés et 4 impulsions par lien.
+  const ECH = { allume: 3500, aller: 1200, retour: 900, groupe: 250, parLien: 4, liens: 40 };
+  const doux = (p) => (p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2);
+  /** « Vérifier le 2e site » → « vérifier le 2e site » (sauf un sigle : « DNS »). */
+  const minuscule = (s) => (s && !/^[A-ZÀ-Þ]{2}/.test(s) ? s[0].toLowerCase() + s.slice(1) : s || '');
+  function moteurEchanges(now = () => Date.now()) {
+    const liens = new Map(), branches = new Set();
+    let raf = 0;
+    /** Un échange (ou la liste des dernières secondes, avec l'heure du serveur `maintenant` pour la rejouer à sa date). */
+    function recevoir(x, maintenant) {
+      const list = (Array.isArray(x) ? x : [x]).filter((e) => e && typeof e.de === 'string' && typeof e.vers === 'string' && e.de !== e.vers);
+      const t = now(), decal = typeof maintenant === 'number' ? t - maintenant : null;
+      for (const e of list) {
+        const quand = decal === null ? t : (Date.parse(e.at) || t) + decal;
+        if (t - quand >= ECH.allume) continue;
+        const cle = `${e.de}>${e.vers}`;
+        let l = liens.get(cle);
+        if (!l) {
+          if (liens.size >= ECH.liens) { let vieux = null; for (const [k, y] of liens) if (!vieux || y.jusqua < liens.get(vieux).jusqua) vieux = k; liens.delete(vieux); }
+          l = { cle, de: e.de, vers: e.vers, deNom: '', versNom: '', libelle: '', action: '', n: 0, ok: true, debut: quand, jusqua: 0, imp: [] };
+          liens.set(cle, l);
+        }
+        l.deNom = e.deNom || l.deNom; l.versNom = e.versNom || l.versNom; l.libelle = e.libelle || l.libelle; l.action = e.action || l.action;
+        let t0 = quand;
+        if (e.phase === 'reponse') {
+          l.ok = e.ok !== false;
+          // La réponse repart quand la demande est arrivée (sinon les deux se croiseraient pour une action rapide).
+          const aller = l.imp.filter((p) => p.sens === 'aller').pop(); if (aller) t0 = Math.max(t0, aller.t0 + ECH.aller * 0.85);
+        } else { l.n++; l.debut = quand; }
+        const sens = e.phase === 'reponse' ? 'retour' : 'aller';
+        l.jusqua = Math.max(l.jusqua, t0 + ECH.allume, t0 + (sens === 'aller' ? ECH.aller : ECH.retour) + 600);
+        const proche = l.imp.find((p) => p.sens === sens && Math.abs(t0 - p.t0) < ECH.groupe);
+        if (proche) { proche.x++; if (sens === 'retour') proche.ok = proche.ok && e.ok !== false; } else { l.imp.push({ sens, t0, ok: e.ok !== false, x: 1 }); if (l.imp.length > ECH.parLien) l.imp.shift(); }
+      }
+      if (list.length) reveil();
+    }
+    /** Les liens allumés à l'instant `t`, avec la position (0 → 1) de chaque impulsion. Les liens éteints sont oubliés. */
+    function actifs(t = now()) {
+      const out = [];
+      for (const [k, l] of liens) {
+        if (t >= l.jusqua) { liens.delete(k); continue; }
+        const duree = (p) => (p.sens === 'aller' ? ECH.aller : ECH.retour);
+        l.imp = l.imp.filter((p) => t - p.t0 < duree(p));
+        out.push({ cle: l.cle, de: l.de, vers: l.vers, deNom: l.deNom, versNom: l.versNom, libelle: l.libelle, action: l.action, n: l.n, ok: l.ok, depart: t - l.debut, force: Math.max(0, Math.min(1, (l.jusqua - t) / 700)), impulsions: l.imp.filter((p) => t >= p.t0).map((p) => ({ sens: p.sens, ok: p.ok, x: p.x, p: (t - p.t0) / duree(p) })) });
+      }
+      return out;
+    }
+    /** « Phénix demande à Arche : vérifier le 2e site » */
+    const etiquette = (l) => `${l.deNom || l.de} demande à ${l.versNom || l.vers} : ${minuscule(l.libelle || l.action)}${l.n > 1 ? ` (${l.n} fois)` : ''}${l.ok === false ? ' — échec' : ''}`;
+    /**
+     * Dessine les liens allumés sur un canevas déjà placé (translation et zoom faits). `noeud(idAppli, nom)` → { id, x, y, r }
+     * ou rien (appli absente du graphe) ; `relies(idA, idB)` : un lien existe déjà (sinon : pointillé, le temps de l'échange).
+     * Rend les segments dessinés (pour l'étiquette au survol).
+     */
+    function dessiner(ctx, o) {
+      const segs = [], k = o.k || 1, reduit = Boolean(o.reduit);
+      for (const l of actifs(o.t ?? now())) {
+        const A = o.noeud(l.de, l.deNom), B = o.noeud(l.vers, l.versNom);
+        if (!A || !B || A.id === B.id) continue;
+        const dx = B.x - A.x, dy = B.y - A.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+        const ra = Math.min((A.r || 0) + 2 / k, d * 0.3), rb = Math.min((B.r || 0) + 2 / k, d * 0.3);
+        const ax = A.x + ux * ra, ay = A.y + uy * ra, bx = B.x - ux * rb, by = B.y - uy * rb;
+        const sur = (e, x0, y0, x1, y1) => [x0 + (x1 - x0) * e, y0 + (y1 - y0) * e];
+        const trait = (c, w) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); };
+        ctx.save(); ctx.globalAlpha = l.force; ctx.lineCap = 'round';
+        if (o.relies && !o.relies(A.id, B.id)) ctx.setLineDash([6 / k, 5 / k]);
+        trait('rgba(0,0,0,.35)', 4.4 / k); // contour sombre : le blanc reste lisible sur un fond clair
+        ctx.shadowColor = 'rgba(255,255,255,.9)'; ctx.shadowBlur = reduit ? 4 : 12; trait('#FFFFFF', 2.2 / k); ctx.shadowBlur = 0; ctx.setLineDash([]);
+        // Flèche fixe au bout : c'est à cette appli qu'on demande.
+        const L = 10 / k, W = L * 0.55; ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - ux * L - uy * W, by - uy * L + ux * W); ctx.lineTo(bx - ux * L + uy * W, by - uy * L - ux * W); ctx.closePath(); ctx.fill();
+        if (!reduit) {
+          // Une onde part de l'appli qui demande.
+          if (l.depart >= 0 && l.depart < 700) { const q = l.depart / 700; ctx.globalAlpha = l.force * (1 - q); ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 2 / k; ctx.beginPath(); ctx.arc(A.x, A.y, (A.r || 0) + (3 + 16 * q) / k, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = l.force; }
+          for (const p of l.impulsions) {
+            const e = doux(Math.min(1, p.p));
+            if (p.sens === 'aller') {
+              // La comète : une traîne qui s'efface derrière, une tête brillante devant (plus grosse si plusieurs demandes groupées).
+              const [hx, hy] = sur(e, ax, ay, bx, by), [tx, ty] = sur(Math.max(0, e - 0.3), ax, ay, bx, by);
+              const g = ctx.createLinearGradient(tx, ty, hx, hy); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.95)');
+              ctx.strokeStyle = g; ctx.lineWidth = 4 / k; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
+              ctx.shadowColor = '#9FD8FF'; ctx.shadowBlur = 14; ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(hx, hy, (4.2 + Math.min(3, p.x - 1)) / k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+            } else {
+              // La réponse : trois petits points qui reviennent, plus discrets.
+              ctx.fillStyle = p.ok ? GREEN : RED;
+              for (let i = 0; i < 3; i++) { const [x, y] = sur(Math.max(0, e - i * 0.05), bx, by, ax, ay); ctx.globalAlpha = l.force * (0.85 - i * 0.22); ctx.beginPath(); ctx.arc(x, y, 2.2 / k, 0, Math.PI * 2); ctx.fill(); }
+              ctx.globalAlpha = l.force;
+            }
+          }
+        }
+        ctx.restore();
+        segs.push({ ax: A.x, ay: A.y, bx: B.x, by: B.y, texte: etiquette(l) });
+      }
+      return segs;
+    }
+    /** Un graphe se branche : il est redessiné tant qu'un lien est allumé (au plus `fps` fois par seconde), puis une dernière fois. */
+    function brancher(redessiner, vivant = () => true, fps = 60) { const b = { redessiner, vivant, pas: 1000 / fps, vu: 0 }; branches.add(b); if (liens.size) reveil(); return () => branches.delete(b); }
+    function reveil() { if (!raf && branches.size && typeof requestAnimationFrame === 'function') raf = requestAnimationFrame(boucle); }
+    function boucle() {
+      raf = 0; const t = now(), encore = actifs(t).length > 0;
+      for (const b of [...branches]) { if (!b.vivant()) { branches.delete(b); continue; } if (!encore || t - b.vu >= b.pas - 4) { b.vu = t; try { b.redessiner(); } catch { /* un graphe fermé entre-temps */ } } }
+      if (encore) reveil();
+    }
+    return { recevoir, actifs, etiquette, dessiner, brancher, vider: () => liens.clear() };
+  }
+  /** L'étiquette du lien allumé sous le pointeur (coordonnées du graphe), ou ''. */
+  function survolEchange(segs, p, k = 1) {
+    let best = '', bd = 6 / k;
+    for (const s of segs || []) { const dx = s.bx - s.ax, dy = s.by - s.ay, L = dx * dx + dy * dy || 1, t = Math.max(0, Math.min(1, ((p.x - s.ax) * dx + (p.y - s.ay) * dy) / L)), d = Math.hypot(p.x - (s.ax + t * dx), p.y - (s.ay + t * dy)); if (d < bd) { bd = d; best = s.texte; } }
+    return best;
+  }
+  const echanges = moteurEchanges();
+  const reduitMouvement = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function mount(host, opts) {
     if (!document.getElementById('ogCss')) document.head.append(el('style', { id: 'ogCss' }, css));
     const cv = el('canvas', { role: 'img', 'aria-label': opts.label || 'Graphe' });
@@ -43,6 +162,9 @@
     const ctx = cv.getContext('2d');
     let hoverEdge = null; let nodes = [], edges = [], byId = new Map(), view = { x: 0, y: 0, k: 1 }, hover = null, drag = null, pan = null, heat = 1, raf = 0, fitted = false, query = '';
     const pos = new Map(); // id → {x, y} gardé entre deux mises à jour
+    // Échanges entre applis (opts.echanges : les points sont des applis, par leur identifiant) : liens allumés en direct.
+    let echSegs = [], echTitre = false; const reduit = reduitMouvement();
+    if (opts.echanges) echanges.brancher(() => { if (!raf) draw(); }, () => box.isConnected);
 
     function setData(d) {
       const old = byId;
@@ -123,6 +245,8 @@
         if (e.dash) ctx.setLineDash([]);
         if (e.arrow) { arrowHead(a, b, ctx.strokeStyle, e.w); if (e.arrow === 'both') arrowHead(b, a, ctx.strokeStyle, e.w); }
       }
+      ctx.globalAlpha = 1;
+      if (opts.echanges) echSegs = echanges.dessiner(ctx, { k: view.k, reduit, noeud: (id) => { const n = byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) }; }, relies: (x, y) => edges.some(([a, b]) => (a.id === x && b.id === y) || (a.id === y && b.id === x)) });
       ctx.lineWidth = 1 / view.k;
       ctx.globalAlpha = 1;
       for (const n of nodes) {
@@ -168,6 +292,9 @@
       if (pan) { if (Math.hypot(e.clientX - pan.sx, e.clientY - pan.sy) > 4) pan.moved = true; view.x = pan.vx + e.clientX - pan.sx; view.y = pan.vy + e.clientY - pan.sy; draw(); return; }
       const p = at(e), n = pick(p), ed = n || !opts.onEdge ? null : pickEdge(p);
       if (n !== hover || ed !== hoverEdge) { hover = n; hoverEdge = ed; cv.classList.toggle('on', !!(n || ed)); const c = n && opts.card ? opts.card(n) : null; cv.title = c ? '' : n ? (n.title || n.label) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; showCard(n, c); draw(); }
+      // Lien allumé sous le pointeur : « Phénix demande à Arche : vérifier le 2e site ».
+      const lab = n ? '' : survolEchange(echSegs, p, view.k);
+      if (lab) { cv.title = lab; cv.classList.add('on'); echTitre = true; } else if (echTitre) { echTitre = false; cv.title = n ? (cv.title) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; cv.classList.toggle('on', !!(n || ed)); }
     });
     const up = (e) => {
       touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
@@ -200,5 +327,5 @@
     setData(opts);
     return { update: setData, fit, el: box };
   }
-  window.OdinGraph = { mount };
+  window.OdinGraph = { mount, echanges, moteurEchanges, survolEchange };
 })();

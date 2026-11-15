@@ -22,6 +22,8 @@ import { findMachine, listMachines, saveMachine, type Machine } from '../../mach
 import { isolerSurPoste, lirePoste, remettreSurPoste, type BilanLecture, type FichierLu } from '../../machines/lecture.ts';
 import { lienDeMaison, lienPropre, nomDeLien, telecharger } from '../lien.ts';
 import { choixDePoste } from '../postes.ts';
+import { aBloquer, analyser, brancherGarde, menaceDe, raisons, type Arrivee, type Passage } from '../ullr/garde.ts';
+import { journalDe } from '../base/journal.ts';
 import type { ModCtx, Module, Section } from '../types.ts';
 
 export { BASE_RULES };
@@ -40,7 +42,9 @@ const EICAR = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$
 interface Detection { id: string; at: string; file: string; sha256: string; threat: string; klass: string; level: 'critique' | 'haute' | 'moyenne'; score: number; by: string; why: string[]; action: string; attack?: string; /** trouvé sur un autre poste : son identifiant dans le coffre, son nom, et où est le fichier là-bas */ poste?: string; posteNom?: string; distant?: { partage?: string; relatif: string } }
 /** Un fichier mis à l'écart sur un autre poste (renommé sur place, réversible). */
 interface QDistant { id: string; poste: string; posteNom: string; partage?: string; relatif: string; vers: string; file: string; sha256: string; threat: string; at: string }
-interface Q { id: string; file: string; sha256: string; threat: string; level: string; at: string; size: number }
+interface Q { id: string; file: string; sha256: string; threat: string; level: string; at: string; size: number; /** en attente de ta décision (accepter / refuser) jusqu'à `decideAvant`, puis en quarantaine */ etat?: 'attente' | 'quarantaine'; decideAvant?: string;/** bloqué à l'arrivée (quarantaine d'abord) : d'où, par quoi, pourquoi, pour quel usage */ origine?: string; source?: string; par?: string; pourquoi?: string[]; usage?: string; score?: number; nom?: string }
+/** Le registre de la quarantaine (dans la base ASCLEPIOS_ODIN dès qu'elle est prête) : chaque blocage, libération, suppression, réanalyse. */
+interface QEvt { at: string; quoi: 'bloqué' | 'isolé' | 'libéré' | 'supprimé' | 'réanalysé' | 'accepté' | 'refusé' | 'mis en quarantaine'; id: string; nom?: string; fichier?: string; sha256?: string; menace?: string; niveau?: string; origine?: string; source?: string; par?: string; pourquoi?: string[]; detail?: string }
 interface Plan { name: string; target: string; every: 'heure' | 'jour' | 'semaine'; at: string; exclude: string[]; last?: string; /** prochain passage prévu */ next?: string }
 /** Le prochain passage d'un plan après `from` : dans une heure, ou à l'heure dite le jour (ou la semaine) qui vient. */
 export function nextRun(p: Pick<Plan, 'every' | 'at'>, from: Date, ranAt?: Date): Date {
@@ -57,7 +61,7 @@ interface State { intel: Intel; set?: RuleSet; setKey?: string; corr: Correlator
 const states = new Map<string, State>();
 function st(ctx: ModCtx): State {
   let x = states.get(ctx.dir);
-  if (!x) { x = { intel: new Intel(ctx.dir), corr: new Correlator((ctx.settings.incidents as Incident[] | undefined) ?? []), watchers: [], pending: new Map(), bursts: new Map(), burstAt: 0, busy: false, seen: new Map() }; x.intel.load(); states.set(ctx.dir, x); }
+  if (!x) { x = { intel: new Intel(ctx.dir), corr: new Correlator((ctx.settings.incidents as Incident[] | undefined) ?? []), watchers: [], pending: new Map(), bursts: new Map(), burstAt: 0, busy: false, seen: new Map() }; x.intel.load(); states.set(ctx.dir, x); /* dès qu'Asclépios sert, son gardien tient le point de passage commun */ brancherGarde((a) => garder(ctx, a)); }
   return x;
 }
 const exc = (ctx: ModCtx): Exceptions => ({ paths: [], hashes: [], rules: [], ...((ctx.settings.exceptions as Partial<Exceptions> | undefined) ?? {}) });
@@ -70,6 +74,25 @@ const plans = (ctx: ModCtx): Plan[] => (ctx.settings.plans as Plan[] | undefined
 const reports = (ctx: ModCtx): Array<Omit<Report, 'detections' | 'errors'> & { hits: number }> => (ctx.settings.reports as never[] | undefined) ?? [];
 const qdir = (ctx: ModCtx) => { const d = join(ctx.dir, 'quarantaine'); mkdirSync(d, { recursive: true, mode: 0o700 }); return d; };
 const fctx = (ctx: ModCtx): FetchCtx => ({ fetch: ctx.fetch, key: (n) => process.env[n] || undefined, url: (id, fb) => s((ctx.settings.urls as Record<string, string> | undefined)?.[id]) || fb, now: () => ctx.now() });
+/** L'état de chaque source : dernier passage, réussi ou non, nombre de signatures, échecs de suite. */
+interface EtatSource { at?: string; ok?: boolean; err?: string; count?: number; echecs?: number }
+const etatsSources = (ctx: ModCtx): Record<string, EtatSource> => (ctx.settings.sourcesEtat as Record<string, EtatSource> | undefined) ?? {};
+/** Délai (secondes) laissé au propriétaire pour accepter ou refuser un élément détecté ; ensuite, quarantaine. */
+const delaiDecision = (ctx: ModCtx) => Math.max(10, Math.min(86_400, Number(ctx.settings.delaiDecision) || 120));
+/** Prochain passage d'une source automatique (d'après le dernier passage réussi et son rythme). */
+export function prochainPassage(derniere: string | undefined, everyHours: number | undefined, now: Date): Date {
+  const t = derniere ? Date.parse(derniere) + (everyHours ?? 24) * 3600_000 : now.getTime();
+  return new Date(Math.max(t, now.getTime()));
+}
+/** Vue des sources : d'où viennent les signatures, dernière et prochaine mise à jour, nombre, état. */
+export function vueSources(ctx: ModCtx): Array<{ id: string; nom: string; apporte: string; mode: string; active: boolean; derniere?: string; prochaine?: string; nombre?: number; etat: 'ok' | 'échec' | 'clé absente' | 'désactivée' | 'jamais' | 'à la demande' | 'référence' | 'Méduse'; erreur?: string; echecs: number; licence: string; site: string }> {
+  const m = st(ctx).intel.manifest(), due = (ctx.settings.due as Record<string, string> | undefined) ?? {}, et = etatsSources(ctx), now = ctx.now();
+  return SOURCES.map((q) => {
+    const z = m?.sources.find((x) => x.id === q.id), e = et[q.id], miss = Boolean(q.needs && !process.env[q.needs]), on = q.fetch ? srcOn(ctx, q.id) : false;
+    const etat = q.mode === 'référence' ? 'référence' : q.mode === 'à la demande' ? 'à la demande' : !q.fetch ? 'Méduse' : !on ? 'désactivée' : miss ? 'clé absente' : e && e.ok === false ? 'échec' : z || e?.ok ? 'ok' : 'jamais';
+    return { id: q.id, nom: q.name, apporte: q.gives, mode: q.mode, active: on, derniere: z?.at ?? (e?.ok ? e.at : undefined), prochaine: q.fetch && on && !miss ? prochainPassage(due[q.id], q.everyHours, now).toISOString() : undefined, nombre: z?.count ?? e?.count, etat, erreur: e?.ok === false ? e.err : undefined, echecs: e?.echecs ?? 0, licence: q.licence, site: q.home };
+  });
+}
 const srcOn = (ctx: ModCtx, id: string) => { const o = (ctx.settings.sources as Record<string, boolean> | undefined)?.[id]; return o ?? Boolean(SOURCES.find((x) => x.id === id)?.on); };
 
 /** Toutes les règles en service : de base, les tiennes (Grimoire), et celles importées (YARA), moins celles mises de côté. */
@@ -158,7 +181,66 @@ function isolate(ctx: ModCtx, file: string, v: { sha256: string; threat: string;
   writeFileSync(join(qdir(ctx), id), b, { mode: 0o600 }); rmSync(file, { force: true });
   const q: Q = { id, file, sha256: v.sha256, threat: v.threat, level: v.level, at: ctx.now().toISOString(), size: b.length };
   ctx.saveSettings({ quarantine: [...qlist(ctx), q] });
+  registre(ctx, { at: q.at, quoi: 'isolé', id, fichier: file, sha256: q.sha256, menace: q.threat, niveau: q.level, origine: 'analyse d\'Asclépios' });
   return q;
+}
+/** Sans réponse dans le délai, un élément détecté passe de « en attente de ta décision » à « en quarantaine ». */
+export function passerEnQuarantaine(ctx: ModCtx): number {
+  const now = ctx.now().getTime(), dus = qlist(ctx).filter((q) => q.etat === 'attente' && q.decideAvant && Date.parse(q.decideAvant) <= now);
+  if (!dus.length) return 0;
+  ctx.saveSettings({ quarantine: qlist(ctx).map((q) => (dus.some((d) => d.id === q.id) ? { ...q, etat: 'quarantaine' as const } : q)) });
+  for (const q of dus) registre(ctx, { at: ctx.now().toISOString(), quoi: 'mis en quarantaine', id: q.id, sha256: q.sha256, detail: 'pas de réponse dans le délai' });
+  return dus.length;
+}
+const qjournal = (ctx: ModCtx) => journalDe<QEvt>(ctx, 'ullr', 'quarantaine.jsonl', { garder: 5000 });
+function registre(ctx: ModCtx, e: QEvt): void { try { qjournal(ctx).ajouter(e); } catch { /* disque plein : la quarantaine elle-même est faite */ } }
+/** L'historique de la quarantaine (le plus récent d'abord). */
+export const historiqueQuarantaine = (ctx: ModCtx, n = 200): QEvt[] => qjournal(ctx).tout().slice(-n).reverse();
+
+// ---------------------------------------------------------------- Quarantaine d'abord : ce qui arrive de l'extérieur
+/**
+ * Le gardien d'Asclépios (branché dans `quarantaineDabord`, src/valhalla/ullr/garde.ts) : analyse avec la base
+ * de signatures et tes exceptions ; s'il faut bloquer, le fichier (ou le contenu) part en quarantaine AVANT tout
+ * usage, la détection est notée, et tu reçois une notification : quoi, pourquoi, ce qui a été fait, quoi faire.
+ */
+export async function garder(ctx: ModCtx, a: Arrivee): Promise<Passage> {
+  const nom = a.nom ?? (a.fichier ? basename(a.fichier) : 'fichier');
+  const { verdict: v, taille } = await analyser(a, knowledge(ctx));
+  const top = menaceDe(v), pourquoi = raisons(v), par = top ? [...new Set(flat(v).map((f) => f.by))].join(' + ') : undefined;
+  const libere = ((ctx.settings.released as string[] | undefined) ?? []).includes(v.sha256);
+  const bloque = !libere && aBloquer(v);
+  const base = { analyse: true, sha256: v.sha256, taille, menace: top?.threat, niveau: v.level, score: v.score, par, pourquoi, gardien: 'asclepios' as const };
+  if (!bloque) {
+    // Un simple soupçon n'arrête rien, mais il est dit (et noté parmi les détections, à vérifier).
+    const doute = !libere && Boolean(top && v.level);
+    if (doute && !a.silencieux) ctx.alert({ level: 'moyenne', title: `Asclépios : ${nom} à vérifier`, detail: `Venu de ${a.origine}${a.source ? ` (${a.source})` : ''}. Rien de sûr, seulement des indices : ${pourquoi.slice(0, 2).join(' ; ')}. Il n'a pas été bloqué.`, key: `arrivee-doute:${v.sha256}` });
+    return { ...base, ok: true, bloque: false, texte: libere ? `✓ ${nom} : libéré par toi auparavant, laissé passer.` : doute ? `⚠ ${nom} : à vérifier (${top!.threat}), pas bloqué.` : `✓ ${nom} : rien de dangereux trouvé.` };
+  }
+  // En quarantaine AVANT tout usage : brouillé, à l'écart, réversible.
+  const id = randomBytes(6).toString('hex'), now = ctx.now().toISOString();
+  const b = a.donnees ? Buffer.from(a.donnees) : readFileSync(a.fichier!);
+  for (let i = 0; i < b.length; i++) b[i] ^= 0xa5;
+  writeFileSync(join(qdir(ctx), id), b, { mode: 0o600 });
+  if (a.fichier) rmSync(a.fichier, { force: true });
+  const dest = a.destination ?? a.fichier ?? join(ctx.dir, 'liberes', nom.replace(/[\\/:*?"<>|]/g, '_'));
+  const q: Q = { id, file: dest, sha256: v.sha256, threat: top?.threat ?? 'menace', level: v.level ?? 'haute', at: now, size: b.length, origine: a.origine, source: a.source, par, pourquoi, usage: a.usage, score: v.score, nom, etat: 'attente', decideAvant: new Date(ctx.now().getTime() + delaiDecision(ctx) * 1000).toISOString() };
+  ctx.saveSettings({ quarantine: [...qlist(ctx), q] });
+  registre(ctx, { at: now, quoi: 'bloqué', id, nom, fichier: dest, sha256: v.sha256, menace: q.threat, niveau: q.level, origine: a.origine, source: a.source, par, pourquoi });
+  const d: Detection = { id: randomBytes(4).toString('hex'), at: now, file: dest, sha256: v.sha256, threat: q.threat, klass: top?.klass ?? 'malware', level: q.level as Detection['level'], score: v.score, by: par ?? 'règle', why: pourquoi, action: 'bloqué à l\'arrivée (quarantaine)', attack: top?.attack };
+  ctx.saveSettings({ hits: [d, ...dets(ctx)].slice(0, 300) });
+  const essai = flat(v).every((f) => f.klass === 'test');
+  if (!a.silencieux) {
+    ctx.alert({ level: essai ? 'haute' : 'critique', title: `Asclépios a bloqué ${nom}`,
+      detail: [`Quoi : ${nom}, venu de ${a.origine}${a.source ? ` (${a.source})` : ''}.`,
+        `Pourquoi : ${q.threat}, trouvé par ${par ?? 'analyse'}. ${pourquoi.slice(0, 3).join(' ; ')}.`,
+        `Ce qui a été fait : mis à l'écart (n° ${id}) AVANT ${a.usage ? `de ${a.usage}` : 'tout usage'} ; rien n'a été ouvert, installé ni lancé.${essai ? ' C\'est le fichier d\'essai des antivirus : inoffensif, traité comme un vrai virus.' : ''}`,
+        `À toi de décider : « Accepter » (il est rangé à sa place) ou « Refuser » (il est supprimé définitivement). Sans réponse dans ${Math.round(delaiDecision(ctx) / 60) || 1} min, il reste en quarantaine.`].join('\n'),
+      key: `arrivee:${v.sha256}`, data: { empreinte: v.sha256, quarantaine: id, origine: a.origine, decision: true },
+      steps: ['Ne le récupère pas par un autre chemin et ne l\'ouvre pas.', `Regarde le détail dans Asclépios → Quarantaine (n° ${id}) : la signature, la règle ou l'indice trouvé.`, '« Accepter » seulement si tu es sûr que c\'est une erreur (Odin te demande ton accord) ; « Refuser » le supprime définitivement.'],
+      fix: { action: 'refuser', input: { id }, label: 'Refuser (supprimer)' } });
+    ctx.emit('menace', { fichier: dest, menace: q.threat, gravité: q.level, action: 'bloqué à l\'arrivée', score: v.score, empreinte: v.sha256, genre: top?.klass ?? 'malware', origine: a.origine });
+  }
+  return { ...base, ok: false, bloque: true, quarantaine: id, texte: `🚫 ${nom} est bloqué par l'antivirus (${q.threat}, trouvé par ${par ?? 'analyse'}) : mis en quarantaine (n° ${id}), il n'est ni utilisé ni lancé.` };
 }
 function release(ctx: ModCtx, id: string): Q {
   const q = qlist(ctx).find((x) => x.id === id || x.file === id); if (!q) throw new Error('introuvable dans la quarantaine');
@@ -166,6 +248,7 @@ function release(ctx: ModCtx, id: string): Q {
   mkdirSync(dirname(q.file), { recursive: true }); writeFileSync(q.file, b); rmSync(join(qdir(ctx), q.id), { force: true });
   // Un fichier que tu as fait remettre en place n'est pas remis en quarantaine dans ton dos (il reste listé).
   ctx.saveSettings({ quarantine: qlist(ctx).filter((x) => x.id !== q.id), released: [...new Set([q.sha256, ...((ctx.settings.released as string[] | undefined) ?? [])])].filter(Boolean).slice(0, 300) });
+  registre(ctx, { at: ctx.now().toISOString(), quoi: 'libéré', id: q.id, nom: q.nom, fichier: q.file, sha256: q.sha256, menace: q.threat, origine: q.origine });
   return q;
 }
 
@@ -341,7 +424,7 @@ async function update(ctx: ModCtx, only?: string[], force = false): Promise<{ li
   const x = st(ctx); if (x.busy) return { lines: ['Une mise à jour est déjà en cours.'] };
   x.busy = true;
   try {
-    const due = (ctx.settings.due as Record<string, string> | undefined) ?? {}, patches: Patch[] = [], lines: string[] = [], seen: Record<string, string> = {};
+    const due = (ctx.settings.due as Record<string, string> | undefined) ?? {}, patches: Patch[] = [], lines: string[] = [], seen: Record<string, string> = {}, etats: Record<string, EtatSource> = {};
     for (const src of SOURCES.filter((q) => q.fetch && (only ? only.includes(q.id) : srcOn(ctx, q.id)))) {
       if (!force && !only && due[src.id] && ctx.now().getTime() - Date.parse(due[src.id]) < (src.everyHours ?? 24) * 3600_000) continue;
       if (src.needs && !process.env[src.needs]) { lines.push(`○ ${src.name} : clé absente (${src.needs}), source en attente`); continue; }
@@ -349,9 +432,16 @@ async function update(ctx: ModCtx, only?: string[], force = false): Promise<{ li
         const r = await src.fetch!(fctx(ctx));
         patches.push({ hashes: r.hashes, iocs: r.iocs, yara: r.yara, kev: r.kev, stamp: { id: src.id, at: ctx.now().toISOString(), count: r.count, licence: src.licence, note: r.note } });
         seen[src.id] = ctx.now().toISOString(); lines.push(`✓ ${src.name} : ${r.count} ${src.gives}${r.note ? ` (${r.note})` : ''}`);
-      } catch (e) { lines.push(`✗ ${src.name} : ${(e as Error).message.slice(0, 140)}`); }
+        etats[src.id] = { at: ctx.now().toISOString(), ok: true, count: r.count, echecs: 0 };
+      } catch (e) {
+        const msg = (e as Error).message.slice(0, 140), avant = etatsSources(ctx)[src.id];
+        lines.push(`✗ ${src.name} : ${msg}`);
+        etats[src.id] = { ...(avant ?? {}), at: ctx.now().toISOString(), ok: false, err: msg, echecs: (avant?.echecs ?? 0) + 1 };
+        // Une source qui échoue : tu le sais (la base reste celle d'avant, rien n'est perdu).
+        ctx.alert({ level: (avant?.echecs ?? 0) >= 2 ? 'haute' : 'moyenne', title: `Asclépios : la source ${src.name} a échoué`, detail: `Quoi : la mise à jour des ${src.gives} depuis ${src.name} n'a pas pu se faire (${etats[src.id].echecs} fois de suite). Pourquoi : ${msg}. Ce qui a été fait : les signatures déjà en service restent actives ; Odin réessaiera au prochain passage.`, key: `source-echec:${src.id}`, steps: ['Vérifie que ce PC a accès à Internet.', src.needs ? `Vérifie la clé ${src.needs} (Asclépios → Réglages → Clés des sources).` : `Regarde si le site ${src.home} répond.`, 'Relance « Mettre à jour » pour cette source dans Asclépios → Sources.'], fix: { action: 'mettre_a_jour', input: { source: src.id }, label: 'Réessayer' } });
+      }
     }
-    ctx.saveSettings({ due: { ...due, ...seen }, checkedAt: ctx.now().toISOString() });
+    ctx.saveSettings({ due: { ...due, ...seen }, checkedAt: ctx.now().toISOString(), sourcesEtat: { ...etatsSources(ctx), ...etats } });
     if (!patches.length) return { lines: lines.length ? lines : ['Tout est déjà à jour.'] };
     try {
       const m = x.intel.build(patches, (cand) => validate(ctx, cand), ctx.now()); x.set = undefined;
@@ -534,8 +624,42 @@ export const ullr: Module = {
       return { text: `🧊 ${f} est en quarantaine (${q.id}) : il ne peut plus être lancé, et tu peux le remettre en place.`, data: { id: q.id } };
     } },
     { id: 'restaurer', label: 'Sortir de quarantaine', what: 'Remet le fichier à sa place', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }], grave: (i) => `remettre en place le fichier en quarantaine ${s(i.id)}`, run: (ctx, i) => { const q = release(ctx, s(i.id)); return { text: `↩ ${q.file} restauré.` }; } },
-    { id: 'supprimer', label: 'Supprimer de la quarantaine', what: 'Efface définitivement un fichier isolé', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }], grave: (i) => `supprimer définitivement le fichier en quarantaine ${s(i.id)}`, run: (ctx, i) => { const q = qlist(ctx).find((x) => x.id === s(i.id)); if (!q) throw new Error('introuvable'); rmSync(join(qdir(ctx), q.id), { force: true }); ctx.saveSettings({ quarantine: qlist(ctx).filter((x) => x.id !== q.id) }); return { text: `🗑 ${q.file} supprimé définitivement.` }; } },
-    { id: 'quarantaine', quick: false, label: 'Quarantaine', what: 'Fichiers isolés', read: true, run: (ctx) => ({ text: qlist(ctx).map((q) => `- ${q.id} · ${q.threat} · ${q.file} · ${q.at.slice(0, 10)}`).join('\n') || 'Quarantaine vide.' }) },
+    { id: 'supprimer', label: 'Supprimer de la quarantaine', what: 'Efface définitivement un fichier isolé', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }], grave: (i) => `supprimer définitivement le fichier en quarantaine ${s(i.id)}`, run: (ctx, i) => { const q = qlist(ctx).find((x) => x.id === s(i.id)); if (!q) throw new Error('introuvable'); rmSync(join(qdir(ctx), q.id), { force: true }); ctx.saveSettings({ quarantine: qlist(ctx).filter((x) => x.id !== q.id) }); registre(ctx, { at: ctx.now().toISOString(), quoi: 'supprimé', id: q.id, nom: q.nom, fichier: q.file, sha256: q.sha256, menace: q.threat, origine: q.origine }); return { text: `🗑 ${q.file} supprimé définitivement.` }; } },
+    { id: 'quarantaine', quick: false, label: 'Quarantaine', what: 'Ce qui est bloqué ou isolé : d\'où ça vient, quand, ce qui a été trouvé, l\'empreinte', read: true, words: ['quarantaine', 'elements bloques', 'fichiers bloques', 'ce qui est bloque'], run: (ctx) => ({ text: qlist(ctx).map((q) => `- ${q.id} · ${q.threat} · ${q.nom ?? basename(q.file)} · ${q.origine ?? 'analyse d\'Asclépios'}${q.source ? ` (${q.source})` : ''} · ${q.at.slice(0, 16).replace('T', ' ')} · trouvé par ${q.par ?? 'analyse'} · empreinte ${q.sha256.slice(0, 16)}…`).join('\n') || 'Quarantaine vide.', data: qlist(ctx) }) },
+    { id: 'detail_quarantaine', quick: false, label: 'Détail d\'un élément en quarantaine', what: 'Pourquoi il est bloqué (signature, règle ou indice), d\'où il vient, son empreinte, et ce que tu peux faire', read: true, params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }], run: (ctx, i) => {
+      const q = qlist(ctx).find((x) => x.id === s(i.id)); if (!q) throw new Error('introuvable dans la quarantaine');
+      const h = historiqueQuarantaine(ctx, 5000).filter((e) => e.id === q.id).reverse();
+      return { text: [`🧊 ${q.nom ?? basename(q.file)} — ${q.threat} (risque ${q.level}${q.score !== undefined ? `, score ${q.score}/100` : ''})`, `D'où : ${q.origine ?? 'analyse d\'Asclépios'}${q.source ? ` · ${q.source}` : ''}${q.usage ? ` · devait servir à : ${q.usage}` : ''}`, `Quand : ${new Date(q.at).toLocaleString('fr-FR')} · taille ${human(q.size)}`, `Trouvé par : ${q.par ?? 'analyse'}`, ...(q.pourquoi ?? []).map((w) => `- ${w}`), `Empreinte SHA-256 : ${q.sha256}`, `S'il est libéré, il ira : ${q.file}`, ...h.map((e) => `· ${e.at.slice(0, 16).replace('T', ' ')} ${e.quoi}${e.detail ? ` — ${e.detail}` : ''}`), 'Que faire : « Réanalyser » avec les signatures du jour ; « Supprimer » s\'il est dangereux ; « Libérer » seulement si tu es sûr (Odin te demandera ton accord).'].join('\n'), data: { ...q, historique: h } };
+    } },
+    { id: 'liberer', label: 'Libérer', what: 'Sort un élément de la quarantaine et le remet là où il allait : il pourra être utilisé, installé ou lancé', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }],
+      grave: (i, ctx) => { const q = ctx ? qlist(ctx).find((x) => x.id === s(i.id)) : undefined; return `libérer ${q ? `${q.nom ?? basename(q.file)} (bloqué pour : ${q.threat})` : `l'élément ${s(i.id)}`} : il pourra être ouvert, installé ou lancé, et ne sera plus bloqué`; },
+      run: (ctx, i) => { const q = release(ctx, s(i.id)); ctx.emit('libere', { fichier: q.file, origine: q.origine ?? '', empreinte: q.sha256 }); return { text: `↩ ${q.nom ?? basename(q.file)} libéré : rangé à sa place (${q.file}), comme si de rien n'était. Son empreinte ne sera plus bloquée.`, data: { fichier: q.file } }; } },
+    { id: 'accepter', label: 'Accepter', what: 'Réponse à une détection : tu acceptes l\'élément, il est rangé à sa place habituelle', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }],
+      grave: (i, ctx) => { const q = ctx ? qlist(ctx).find((x) => x.id === s(i.id)) : undefined; return `accepter ${q ? `${q.nom ?? basename(q.file)} malgré la détection « ${q.threat} »` : `l'élément ${s(i.id)}`} : il sera rangé à sa place et pourra être utilisé`; },
+      run: (ctx, i) => { const q = release(ctx, s(i.id)); registre(ctx, { at: ctx.now().toISOString(), quoi: 'accepté', id: q.id, sha256: q.sha256 }); ctx.emit('libere', { fichier: q.file, origine: q.origine ?? '', empreinte: q.sha256 }); return { text: `✓ ${q.nom ?? basename(q.file)} accepté : rangé dans ${q.file}.`, data: { fichier: q.file } }; } },
+    { id: 'refuser', label: 'Refuser', what: 'Réponse à une détection : l\'élément est SUPPRIMÉ définitivement (on ne peut pas revenir en arrière)', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }], words: ['refuse le fichier'],
+      run: (ctx, i) => { const q = qlist(ctx).find((x) => x.id === s(i.id)); if (!q) throw new Error('introuvable dans la quarantaine'); rmSync(join(qdir(ctx), q.id), { force: true }); ctx.saveSettings({ quarantine: qlist(ctx).filter((x) => x.id !== q.id) }); registre(ctx, { at: ctx.now().toISOString(), quoi: 'refusé', id: q.id, nom: q.nom, sha256: q.sha256, menace: q.threat, origine: q.origine, detail: 'supprimé définitivement' }); return { text: `🗑 ${q.nom ?? basename(q.file)} refusé : supprimé définitivement (il n'a jamais été utilisé).` }; } },
+    { id: 'bloquer', label: 'Bloquer', what: 'Supprime définitivement un élément de la quarantaine : il ne pourra plus jamais être libéré', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }],
+      grave: (i, ctx) => { const q = ctx ? qlist(ctx).find((x) => x.id === s(i.id)) : undefined; return `bloquer ${q ? q.nom ?? basename(q.file) : `l'élément ${s(i.id)}`} : il sera SUPPRIMÉ automatiquement et définitivement, sans retour possible`; },
+      run: (ctx, i) => { const q = qlist(ctx).find((x) => x.id === s(i.id)); if (!q) throw new Error('introuvable dans la quarantaine'); rmSync(join(qdir(ctx), q.id), { force: true }); ctx.saveSettings({ quarantine: qlist(ctx).filter((x) => x.id !== q.id) }); registre(ctx, { at: ctx.now().toISOString(), quoi: 'supprimé', id: q.id, nom: q.nom, sha256: q.sha256, menace: q.threat, origine: q.origine, detail: 'bloqué : supprimé définitivement' }); return { text: `⛔ ${q.nom ?? basename(q.file)} bloqué : supprimé définitivement.` }; } },
+    { id: 'delai_decision', quick: false, label: 'Délai pour décider', what: 'Le temps laissé pour accepter ou refuser un élément détecté, avant la quarantaine', params: [{ key: 'secondes', label: 'Secondes (10 à 86400)', kind: 'number', default: 120 }], run: (ctx, i) => { ctx.saveSettings({ delaiDecision: Math.max(10, Math.min(86_400, Number(i.secondes) || 120)) }); return { text: `Délai pour décider : ${delaiDecision(ctx)} s ; ensuite, quarantaine.` }; } },
+    { id: 'etat_sources', quick: false, label: 'État des sources', what: 'Chaque source : dernière et prochaine mise à jour, nombre de signatures, échec éventuel, et les failles récemment déclarées', read: true, words: ['etat des sources', 'sources des signatures', 'failles recentes'], run: (ctx) => {
+      const l = vueSources(ctx), x = st(ctx).intel, kev = [...x.kev()].sort((a, b) => b.added.localeCompare(a.added)).slice(0, 10);
+      return { text: [...l.filter((q) => q.mode === 'automatique').map((q) => `- ${q.nom} : ${q.etat}${q.nombre !== undefined ? ` · ${q.nombre} ${q.apporte}` : ''}${q.derniere ? ` · dernière ${q.derniere.slice(0, 16).replace('T', ' ')}` : ''}${q.prochaine ? ` · prochaine ${q.prochaine.slice(0, 16).replace('T', ' ')}` : ''}${q.erreur ? ` · ✗ ${q.erreur}` : ''}`), `Total : ${x.hashCount()} empreintes, ${x.iocCount()} indicateurs, ${ruleSet(ctx).rules.length} règles.`, ...(kev.length ? ['Failles récemment déclarées (CISA KEV) :', ...kev.map((k) => `- ${k.added} · ${k.cve} · ${k.vendor} ${k.product} : ${k.name}${k.ransomware ? ' (rançongiciels)' : ''}`)] : [])].join('\n'), data: { sources: l, failles: kev } };
+    } },
+    { id: 'reanalyser', label: 'Réanalyser', what: 'Analyse de nouveau un élément en quarantaine avec les signatures du jour (il reste en quarantaine)', params: [{ key: 'id', label: 'Identifiant', kind: 'text', required: true }], run: (ctx, i) => {
+      const q = qlist(ctx).find((x) => x.id === s(i.id)); if (!q) throw new Error('introuvable dans la quarantaine');
+      const b = readFileSync(join(qdir(ctx), q.id)); for (let k = 0; k < b.length; k++) b[k] ^= 0xa5;
+      const v = scanBuffer(q.nom ?? basename(q.file), b, knowledge(ctx)), bad = aBloquer(v), top = menaceDe(v);
+      registre(ctx, { at: ctx.now().toISOString(), quoi: 'réanalysé', id: q.id, sha256: q.sha256, detail: bad ? `toujours dangereux (${top?.threat})` : top ? `seulement des indices (${top.threat})` : 'plus rien trouvé' });
+      ctx.saveSettings({ quarantine: qlist(ctx).map((x) => (x.id === q.id ? { ...x, ...(top ? { threat: top.threat, pourquoi: raisons(v), score: v.score } : {}) } : x)) });
+      return { text: bad ? `🧊 Toujours dangereux : ${top?.threat} (${raisons(v)[0] ?? ''}). Il reste en quarantaine.` : top ? `⚠ Plus de signature sûre, seulement des indices (${top.threat}). Il reste en quarantaine : libère-le si tu connais sa provenance.` : `✓ Plus rien trouvé avec les signatures d'aujourd'hui (version ${st(ctx).intel.current()}). Il reste en quarantaine : libère-le si tu veux.`, data: { dangereux: bad, score: v.score } };
+    } },
+    { id: 'verifier_arrivee', quick: false, label: 'Analyser à l\'arrivée', what: 'Quarantaine d\'abord : un fichier venu de l\'extérieur est analysé avant tout usage ; s\'il est dangereux, il part en quarantaine', params: [{ key: 'chemin', label: 'Fichier', kind: 'text', required: true }, { key: 'origine', label: 'D\'où il vient', kind: 'text', default: 'une appli d\'Odin' }, { key: 'source', label: 'Adresse ou nom d\'origine', kind: 'text', default: '' }, { key: 'usage', label: 'À quoi il va servir', kind: 'text', default: '' }], run: async (ctx, i) => {
+      const f = s(i.chemin).trim(); if (!f || !existsSync(f)) throw new Error('fichier introuvable');
+      const p = await garder(ctx, { fichier: f, origine: s(i.origine) || 'une appli d\'Odin', source: s(i.source) || undefined, usage: s(i.usage) || undefined });
+      return { ok: !p.bloque, text: p.texte, data: p };
+    } },
     { id: 'mettre_a_jour', label: 'Mettre à jour les signatures', what: 'Interroge les sources, teste le résultat, puis active une nouvelle version signée', params: [{ key: 'source', label: 'Une seule source (vide = toutes)', kind: 'text', default: '' }], words: ['mets a jour', 'mise a jour', 'signatures', 'empreintes'], run: async (ctx, i) => { const r = await update(ctx, s(i.source) ? [s(i.source)] : undefined, true); return { text: r.lines.join('\n'), data: { version: r.version } }; } },
     { id: 'sources', label: 'Sources', what: 'D\'où viennent les signatures : état, licence, dernière mise à jour', read: true, words: ['sources'], run: (ctx) => { const m = st(ctx).intel.manifest(); return { text: SOURCES.map((q) => { const z = m?.sources.find((x) => x.id === q.id); return `- ${q.name} (${q.gives}) : ${q.mode === 'référence' ? 'référence, non branchée' : q.mode === 'à la demande' ? (q.needs && !process.env[q.needs] ? `à la demande · clé absente (${q.needs})` : 'à la demande · prête') : !q.fetch ? 'tenue à jour par l\'appli Méduse' : !srcOn(ctx, q.id) ? 'désactivée' : q.needs && !process.env[q.needs] ? `en attente de la clé ${q.needs}` : z ? `${z.count} le ${z.at.slice(0, 16).replace('T', ' ')}` : 'jamais mise à jour'} — ${q.licence}`; }).join('\n') }; } },
     { id: 'cles', quick: false, label: 'Clés des sources', what: 'Range la clé gratuite d\'abuse.ch (MalwareBazaar, ThreatFox, URLhaus) ou de VirusTotal avec les secrets d\'Odin',
@@ -609,8 +733,8 @@ export const ullr: Module = {
     } },
     { id: 'protection', quick: false, label: 'Protection en continu', what: 'Analyse à l\'arrivée (téléchargements, supports amovibles) et réponse automatique', params: [{ key: 'actif', label: 'Analyser à l\'arrivée', kind: 'boolean', default: true }, { key: 'quarantaine', label: 'Quarantaine automatique quand c\'est sûr', kind: 'boolean', default: true }, { key: 'dossiers', label: 'Autres dossiers à surveiller (un par ligne)', kind: 'textarea', default: '' }], run: (ctx, i) => { ctx.saveSettings({ onArrival: i.actif !== false, auto: i.quarantaine !== false, watch: s(i.dossiers).split('\n').map((q) => q.trim()).filter((q) => q && existsSync(q)) }); startWatch(ctx); return { text: `Protection en continu ${i.actif !== false ? 'active' : 'coupée'} · quarantaine automatique ${i.quarantaine !== false ? 'active (seulement quand une empreinte ou une règle sûre correspond)' : 'coupée'} · ${st(ctx).watchers.length} dossier(s) surveillé(s).` }; } },
   ],
-  start(ctx) { const x = st(ctx), l = x.intel.load(); for (const r of l.refused) ctx.alert({ level: 'haute', title: 'Asclépios : paquet de signatures refusé', detail: `Version ${r.version} : ${r.why}. ${l.version ? `Retour à la version ${l.version}.` : 'Les règles de base restent en service.'}`, key: `sig:${r.version}` }); x.set = undefined; startWatch(ctx); },
-  stop() { for (const x of states.values()) { for (const w of x.watchers) w.close(); x.watchers = []; for (const t of x.pending.values()) clearTimeout(t); x.pending.clear(); if (x.running) x.running.cancel = true; } states.clear(); },
+  start(ctx) { const x = st(ctx), l = x.intel.load(); for (const r of l.refused) ctx.alert({ level: 'haute', title: 'Asclépios : paquet de signatures refusé', detail: `Version ${r.version} : ${r.why}. ${l.version ? `Retour à la version ${l.version}.` : 'Les règles de base restent en service.'}`, key: `sig:${r.version}` }); x.set = undefined; startWatch(ctx); brancherGarde((a) => garder(ctx, a)); },
+  stop() { brancherGarde(undefined); for (const x of states.values()) { for (const w of x.watchers) w.close(); x.watchers = []; for (const t of x.pending.values()) clearTimeout(t); x.pending.clear(); if (x.running) x.running.cancel = true; } states.clear(); },
   view(ctx, q) {
     const x = st(ctx), m = x.intel.manifest(), last = reports(ctx)[0], open = x.corr.incidents.filter((i) => i.state === 'ouvert'), name = (id: string) => ctx.modules().find((y) => y.id === id)?.name ?? id;
     const age = m ? Math.round((ctx.now().getTime() - Date.parse(m.at)) / 3600_000) : undefined;
@@ -618,7 +742,7 @@ export const ullr: Module = {
     const P = choixDePoste(ctx, q, { partages: true }), poste = P.actuel ? listMachines(ctx.home).find((z) => z.id === P.actuel) : undefined;
     const hits = dets(ctx).filter((d) => !poste || d.poste === poste.id).slice(0, 40), rap = reports(ctx).filter((r) => !poste || (r as { distant?: { poste: string } }).distant?.poste === poste.id).slice(0, 12);
     const act = (id: string) => ullr.actions.find((a) => a.id === id)!.params!;
-    const A = 'Analyser', R = 'Résultats', G = 'Règles', S = 'Réglages';
+    const A = 'Analyser', R = 'Quarantaine', Qn = R, So = 'Sources', G = So, S = 'Réglages';
     const sections: Section[] = [
       // ——— Analyser : ce qu'on vient faire le plus souvent
       { kind: 'depot', onglet: A, title: 'Un fichier de cet appareil', action: 'fichier', champ: 'chemin', texte: 'Dépose un fichier ici', bouton: 'Choisir un fichier', aide: 'Envoyé à Odin, analysé, puis effacé d\'Odin.' },
@@ -633,11 +757,16 @@ export const ullr: Module = {
       // ——— Résultats
       ...(poste ? [] : [{ kind: 'table' as const, onglet: R, title: 'Incidents (signaux reliés entre les applis)', columns: ['Quand', 'Incident', 'Risque', 'Vu par', 'État'], empty: '✓ Aucun incident.', rows: x.corr.incidents.slice(0, 15).map((i) => ({ cells: [i.at.slice(5, 16).replace('T', ' '), i.title, `${i.score}/100`, i.apps.join(', '), i.state], tone: i.state !== 'ouvert' ? 'neutre' as const : i.level === 'critique' ? 'mauvais' as const : 'attention' as const, actions: i.state === 'ouvert' ? [{ action: 'incident', label: 'Traité', input: { incident: i.id, etat: 'traité' } }, { action: 'incident', label: 'Ignorer', input: { incident: i.id, etat: 'ignoré' } }] : [] })) }]),
       { kind: 'table', onglet: R, title: poste ? `Détections sur ${poste.label}` : 'Détections', columns: ['Quand', 'Menace', 'Fichier', 'Score', 'Trouvée par', 'Action'], empty: '✓ Rien trouvé.', rows: hits.map((h) => ({ cells: [h.at.slice(5, 16).replace('T', ' '), h.threat, h.file, `${h.score}/100`, h.by, h.action], tone: h.action.startsWith('fausse') ? 'neutre' as const : h.level === 'critique' ? 'mauvais' as const : 'attention' as const, actions: h.action === 'à vérifier' ? [h.poste ? { action: 'isoler_distant', label: 'Isoler sur le poste', input: { detection: h.id } } : { action: 'isoler', label: 'Isoler', input: { fichier: h.file, menace: h.threat } }, { action: 'faux_positif', label: 'Fausse alerte', input: { detection: h.id } }] : h.action === 'en quarantaine' ? [{ action: 'faux_positif', label: 'Fausse alerte', input: { detection: h.id } }] : [] })) },
-      { kind: 'table', onglet: R, title: 'Quarantaine', columns: ['Menace', 'Fichier d\'origine', 'Depuis'], empty: 'Vide.', rows: [...(poste ? [] : qlist(ctx).map((z) => ({ cells: [z.threat, z.file, z.at.slice(0, 16).replace('T', ' ')], actions: [{ action: 'restaurer', label: 'Restaurer', input: { id: z.id } }, { action: 'supprimer', label: 'Supprimer', input: { id: z.id } }] }))), ...qdist(ctx).filter((z) => !poste || z.poste === poste.id).map((z) => ({ cells: [z.threat, `${z.file} (mis à l'écart sur le poste)`, z.at.slice(0, 16).replace('T', ' ')], actions: [{ action: 'restaurer_distant', label: 'Remettre en place', input: { id: z.id } }] }))] },
+      { kind: 'table', onglet: Qn, title: 'Quarantaine', columns: ['État', 'Élément', 'Origine', 'Quand', 'Détection', 'Empreinte'], empty: '✓ Rien en quarantaine.', rows: [...(poste ? [] : qlist(ctx).map((z) => ({ cells: [z.etat === 'attente' ? `à décider avant ${new Date(z.decideAvant ?? z.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'en quarantaine', z.nom ?? basename(z.file), `${z.origine ?? 'analyse d\'Asclépios'}${z.source ? ` · ${z.source}` : ''}`, z.at.slice(0, 16).replace('T', ' '), `${z.threat} (${z.par ?? 'analyse'})`, `${z.sha256.slice(0, 16)}…`], tone: z.etat === 'attente' ? 'attention' as const : 'mauvais' as const,
+        actions: [{ action: 'detail_quarantaine', label: 'Pourquoi ?', input: { id: z.id } }, ...(z.etat === 'attente' ? [{ action: 'accepter', label: 'Accepter', input: { id: z.id } }, { action: 'refuser', label: 'Refuser', input: { id: z.id } }] : [{ action: 'liberer', label: 'Libérer', input: { id: z.id } }, { action: 'bloquer', label: 'Bloquer (supprimer)', input: { id: z.id } }]), { action: 'reanalyser', label: 'Réanalyser', input: { id: z.id } }] }))), ...qdist(ctx).filter((z) => !poste || z.poste === poste.id).map((z) => ({ cells: [z.threat, `${z.file} (mis à l'écart sur le poste)`, z.at.slice(0, 16).replace('T', ' ')], actions: [{ action: 'restaurer_distant', label: 'Remettre en place', input: { id: z.id } }] }))] },
       { kind: 'table', onglet: R, title: poste ? `Rapports de ${poste.label}` : 'Rapports', columns: ['Quand', 'Cible', 'Fichiers', 'Détections', 'Durée'], empty: poste ? 'Ce poste n\'a pas encore été analysé.' : 'Aucune analyse faite.', rows: rap.map((r) => ({ cells: [r.at.slice(0, 16).replace('T', ' '), r.target, String(r.files), String(r.hits), `${Math.round(r.ms / 1000)} s`], tone: r.hits ? 'attention' as const : 'bon' as const, actions: [{ action: 'rapport', label: 'Lire', input: { rapport: r.id } }] })) },
       { kind: 'text', onglet: R, large: true, title: 'Ce qu\'il faut savoir', text: 'Aucun antivirus ne détecte 100 % des menaces, celui-ci non plus. Une empreinte connue ou une règle sûre déclenche la quarantaine (réversible). Un simple faisceau d\'indices est marqué « à vérifier » : c\'est toi qui décides. Rien n\'est jamais supprimé sans ton accord, et aucun fichier n\'est envoyé sur Internet (seulement des empreintes).' },
       // ——— Règles
-      { kind: 'table', onglet: G, title: 'Sources des signatures', columns: ['Source', 'Apporte', 'État', 'Licence et conditions'], rows: SOURCES.map((z) => { const y = m?.sources.find((w) => w.id === z.id), miss = Boolean(z.needs && !process.env[z.needs]); return { cells: [z.name, z.gives, z.mode === 'référence' ? 'référence (non branchée)' : z.mode === 'à la demande' ? (miss ? `clé absente (${z.needs})` : 'à la demande') : !z.fetch ? 'gérée par Méduse' : !srcOn(ctx, z.id) ? 'désactivée' : miss ? `clé absente (${z.needs})` : y ? `${y.count} · ${y.at.slice(0, 10)}` : 'pas encore mise à jour', z.licence], tone: z.mode === 'référence' ? 'neutre' as const : miss || (z.fetch && !srcOn(ctx, z.id)) ? 'attention' as const : 'bon' as const, actions: z.fetch ? [{ action: 'source', label: srcOn(ctx, z.id) ? 'Désactiver' : 'Activer', input: { source: z.id, actif: !srcOn(ctx, z.id) } }] : [] }; }) },
+      { kind: 'actions', onglet: So, title: 'Mises à jour automatiques', boutons: [{ action: 'mettre_a_jour', label: 'Tout mettre à jour maintenant', input: {}, primary: true }], aide: `Chaque source se met à jour toute seule à son rythme (Odin vérifie chaque heure). Une source qui échoue t'est signalée ; les signatures déjà en service restent actives. Dernier contrôle : ${ctx.settings.checkedAt ? new Date(s(ctx.settings.checkedAt)).toLocaleString('fr-FR') : 'jamais'}.` },
+      { kind: 'table', onglet: So, title: 'Sources des signatures', columns: ['Source', 'Apporte', 'Dernière', 'Prochaine', 'Nombre', 'État', 'Licence et conditions'], rows: vueSources(ctx).map((z) => { const dt = (x?: string) => (x ? new Date(x).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'); const lib = z.etat === 'échec' ? `✗ échec (${z.echecs}×) : ${z.erreur ?? ''}` : z.etat === 'clé absente' ? `clé absente (${SOURCES.find((w) => w.id === z.id)?.needs})` : z.etat === 'Méduse' ? 'gérée par Méduse' : z.etat === 'référence' ? 'référence (non branchée)' : z.etat === 'jamais' ? 'pas encore mise à jour' : z.etat;
+        return { cells: [z.nom, z.apporte, dt(z.derniere), dt(z.prochaine), z.nombre !== undefined ? String(z.nombre) : '—', lib, z.licence], tone: z.etat === 'échec' ? 'mauvais' as const : z.etat === 'référence' || z.etat === 'Méduse' ? 'neutre' as const : z.etat === 'ok' || z.etat === 'à la demande' ? 'bon' as const : 'attention' as const,
+          actions: SOURCES.find((w) => w.id === z.id)?.fetch ? [...(z.active ? [{ action: 'mettre_a_jour', label: 'Mettre à jour', input: { source: z.id } }] : []), { action: 'source', label: z.active ? 'Désactiver' : 'Activer', input: { source: z.id, actif: !z.active } }] : [] }; }) },
+      { kind: 'table', onglet: So, title: 'Failles récemment déclarées (CISA KEV : exploitées par des attaquants)', columns: ['Ajoutée', 'Faille', 'Éditeur et produit', 'Ce que c\'est', 'Rançongiciels'], empty: 'Pas encore de catalogue (source CISA KEV).', rows: [...x.intel.kev()].sort((a, b) => b.added.localeCompare(a.added)).slice(0, 15).map((k) => ({ cells: [k.added, k.cve, `${k.vendor} ${k.product}`, k.name, k.ransomware ? 'oui' : 'non'], tone: k.ransomware ? 'mauvais' as const : 'attention' as const })) },
       { kind: 'form', onglet: G, title: 'Grimoire · nouvelle règle', action: 'regle', submit: 'Ajouter', params: act('regle') },
       // ——— Réglages
       { kind: 'table', onglet: S, title: 'Analyses planifiées', columns: ['Plan', 'Cible', 'Quand', 'Dernière', 'Prochaine'], empty: 'Aucune : les téléchargements sont analysés à l\'arrivée, les sites web chaque nuit.', rows: plans(ctx).map((p) => ({ cells: [p.name, p.target, `chaque ${p.every}${p.every === 'heure' ? '' : ` à ${p.at}`}`, p.last ? p.last.slice(0, 16).replace('T', ' ') : 'jamais', p.next ? new Date(p.next).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'], actions: [{ action: 'analyser', label: 'Lancer', input: { dossier: p.target, exclusions: p.exclude.join('\n') } }, { action: 'retirer_plan', label: 'Retirer', input: { nom: p.name } }] })) },
@@ -648,18 +777,20 @@ export const ullr: Module = {
     return {
       subtitle: x.running ? `Analyse en cours : ${x.running.target} · ${x.running.files} fichiers · ${x.running.hits} détection(s)${x.running.etape ? ` · ${x.running.etape}` : ''}` : `Base version ${m?.version ?? 0}${age !== undefined ? ` (il y a ${age < 48 ? `${age} h` : `${Math.round(age / 24)} j`})` : ' (règles de base)'} · ${x.intel.hashCount() ? `${x.intel.hashCount()} empreintes` : 'pas d\'empreintes (clé abuse.ch absente)'} · ${ruleSet(ctx).rules.length} règles · ${x.watchers.length} dossier${x.watchers.length > 1 ? 's' : ''} surveillé${x.watchers.length > 1 ? 's' : ''}`,
       tabs: ['Hippocrate · console', 'Grimoire · règles', 'Galien · sites web', 'Quarantaine'],
-      onglets: [A, R, G, S],
+      onglets: [A, R, So, S],
       postes: { ...P, titre: 'Analyser un autre poste', texte: 'Windows, Mac, Linux ou NAS. Rien n\'est installé sur le poste, rien n\'y est touché sans ton accord.',
         ensuite: { titre: 'Quoi analyser ?', champ: 'quoi', defaut: 'rapide', action: 'analyser_poste', envoyer: 'Lancer l\'analyse de {poste}', aide: 'Odin te prévient à la fin. Aucun antivirus ne détecte tout.',
           cartes: [{ valeur: 'rapide', titre: 'Analyse rapide', detail: 'Les dossiers des utilisateurs et ce qui se lance au démarrage.' }, { valeur: 'tout', titre: 'Tout le poste', detail: 'Tous les disques. Plus long : Odin continue seul.' }, { valeur: 'dossier', titre: 'Un seul dossier', detail: 'Un dossier ou un partage que tu choisis.', demande: { champ: 'ou', label: 'Quel dossier ou quel partage ?', exemple: 'C:, D:\\Factures, Photos, /home/fatima' } }] } },
       ...(x.running ? { refreshMs: 3000 } : {}),
       kpis: [{ label: 'Incidents ouverts', value: String(open.length), tone: open.some((i) => i.level === 'critique') ? 'mauvais' : open.length ? 'attention' : 'bon' }, { label: 'Détections', value: String(dets(ctx).filter((d) => d.action === 'à vérifier').length), hint: 'à vérifier', tone: dets(ctx).some((d) => d.action === 'à vérifier') ? 'attention' : 'bon' }, { label: 'Quarantaine', value: String(qlist(ctx).length) }, { label: 'Dernière analyse', value: last ? `${last.files} fichier${last.files > 1 ? 's' : ''}` : '—', hint: last ? `${last.target} · ${new Date(last.at).toLocaleString('fr-FR')}` : undefined }, { label: 'Signatures', value: m ? `v${m.version}` : 'de base', hint: `${x.intel.hashCount()} empreintes · ${x.intel.iocCount()} indicateurs${x.intel.hashCount() ? '' : ' · sans clé abuse.ch, pas d\'empreintes de malwares (encadré « Clés des sources »)'}`, tone: age === undefined || age > 72 ? 'attention' : 'bon' }],
-      sections,
+      // L'onglet « Quarantaine » commence par la quarantaine elle-même, puis les détections, incidents et rapports.
+      sections: [...sections.filter((z) => z.title === 'Quarantaine'), ...sections.filter((z) => z.title !== 'Quarantaine')],
     };
   },
   watch: { every: 60, async run(ctx) {
     const x = st(ctx), now = ctx.now();
     checkCanaries(ctx);
+    passerEnQuarantaine(ctx);
     // Un fichier envoyé pour analyse mais jamais analysé (page fermée, connexion coupée) ne reste pas : effacé au bout d'une heure.
     try { const d = join(ctx.dir, 'depots'); for (const f of readdirSync(d)) { const p = join(d, f); if (now.getTime() - statSync(p).mtimeMs > 3_600_000) rmSync(p, { force: true }); } } catch { /* pas de dossier d'arrivée : rien à faire */ }
     // Supports amovibles : un nouveau support monté est analysé (les 20 000 premiers fichiers).

@@ -24,6 +24,10 @@ export interface Machine {
   cpu: number; ram: number; disque: number; ip: string; mac: string; cree: number;
   /** LXC : distribution et version du modèle ; VM : l'ISO d'installation */
   modele?: { dist: string; release: string }; iso?: string; uefi?: boolean;
+  /** VM : ce qu'Hydre a réglé selon le système de l'ISO (Windows : SATA ou virtio + pilotes, TPM ; Linux : virtio) */
+  profil?: { disque: 'virtio' | 'sata'; reseau: 'virtio' | 'e1000'; tpm?: boolean; pilotes?: string };
+  /** logiciels d'Hermès installés dans la machine (pour les mises à jour) */
+  logiciels?: Array<{ source: string; nom: string; version: string; at: number }>;
   apps: string[]; paquets: string[]; quarantaine?: Quarantaine; arretVoulu?: boolean;
   /** un modèle : il ne démarre pas, on crée des machines depuis lui (copie, puis ressources et adresse à elles) */
   estModele?: boolean;
@@ -85,14 +89,18 @@ export function parseLxcInfo(out: string): { state?: string; pid?: number; ip?: 
 
 // ---------------- VM : commandes ----------------
 /** La ligne de commande QEMU (pure) : KVM si présent, sinon émulation ; écran capturable par QMP ; réseau par une carte TAP. */
-export function qemuArgs(m: Machine, dir: string, o: { kvm: boolean; ovmf?: string; installer?: string; qmp?: string }): string[] {
+export function qemuArgs(m: Machine, dir: string, o: { kvm: boolean; ovmf?: string; installer?: string; qmp?: string; tpm?: string }): string[] {
   const a = ['-name', `odin-${m.nom}`, '-machine', `q35,accel=${o.kvm ? 'kvm' : 'tcg'}`, '-cpu', o.kvm ? 'host' : 'max', '-smp', String(m.cpu), '-m', `${m.ram}M`,
-    '-drive', `file=${join(dir, 'disque.qcow2')},if=virtio,format=qcow2`, '-display', 'none', '-vga', 'std',
+    ...(m.profil?.disque === 'sata' ? ['-device', 'ahci,id=ahci0', '-drive', `file=${join(dir, 'disque.qcow2')},if=none,id=d0,format=qcow2`, '-device', 'ide-hd,drive=d0,bus=ahci0.0'] : ['-drive', `file=${join(dir, 'disque.qcow2')},if=virtio,format=qcow2`]), '-display', 'none', '-vga', 'std',
     '-qmp', `unix:${o.qmp ?? join(dir, 'qmp.sock')},server=on,wait=off`, '-pidfile', join(dir, 'pid'), '-daemonize', '-usb', '-device', 'usb-tablet'];
   if (m.uefi && o.ovmf) a.push('-bios', o.ovmf);
   if (o.installer) a.push('-cdrom', o.installer, '-boot', 'once=d');
+  // Pilotes virtio pour Windows : second lecteur de CD pendant l'installation.
+  if (o.installer && m.profil?.pilotes) a.push('-drive', `file=${m.profil.pilotes},media=cdrom,readonly=on,index=3`);
+  // Puce TPM 2.0 virtuelle (swtpm lancé à côté, par Hydre).
+  if (m.profil?.tpm && o.tpm) a.push('-chardev', `socket,id=tpm0,path=${o.tpm}`, '-tpmdev', 'emulator,id=tpm0,chardev=tpm0', '-device', 'tpm-tis,tpmdev=tpm0');
   if (m.quarantaine) a.push('-nic', 'none');
-  else a.push('-netdev', `tap,id=n0,ifname=${ifname(m)},script=no,downscript=no`, '-device', `virtio-net-pci,netdev=n0,mac=${m.mac}`);
+  else a.push('-netdev', `tap,id=n0,ifname=${ifname(m)},script=no,downscript=no`, '-device', `${m.profil?.reseau === 'e1000' ? 'e1000' : 'virtio-net-pci'},netdev=n0,mac=${m.mac}`);
   return a;
 }
 /** Le fichier du disque d'un LXC monté en boucle (« lxc.rootfs.path = loop:/…/rootdev »), ou rien pour un disque en dossier. Pur. */
@@ -260,8 +268,10 @@ export class Local {
   }
 
   // ----- marche / arrêt -----
-  async demarrer(m: Machine, installer?: string): Promise<void> {
+  async demarrer(m: Machine, installer?: string, o: { analyse?: boolean } = {}): Promise<void> {
     if (m.estModele) throw new Error(`${m.nom} est un modèle : il ne démarre pas, crée une machine depuis lui`);
+    // En quarantaine : pas de démarrage normal ; seulement le mode analyse, sans aucun réseau.
+    if (m.quarantaine && !o.analyse) throw new Error(`${m.nom} est en quarantaine (${m.quarantaine.raison}) : elle ne démarre qu'en mode analyse, sans réseau. Sors-la de quarantaine une fois l'origine trouvée.`);
     if (m.genre === 'lxc') { await this.must('lxc-start', ['-P', this.lxcDir, '-n', m.nom, '-d'], 'démarrage'); }
     else {
       const d = this.vmDir(m), tap = ifname(m), r = this.reseau();
@@ -270,7 +280,10 @@ export class Local {
         await this.must('ip', ['link', 'set', tap, 'master', r.pont, 'up'], `branchement de ${tap} sur ${r.pont}`);
       }
       rmSync(this.qmpSock(m), { force: true });
-      await this.must('qemu-system-x86_64', qemuArgs(m, d, { kvm: this.kvm(), ovmf: this.ovmf(), installer, qmp: this.qmpSock(m) }), 'démarrage de la VM', 60_000);
+      // Windows 11 : puce TPM virtuelle (swtpm), son état gardé avec la VM.
+      let tpm: string | undefined;
+      if (m.profil?.tpm && await this.ctx.has('swtpm')) { tpm = join(d, 'tpm.sock'); mkdirSync(join(d, 'tpm'), { recursive: true }); rmSync(tpm, { force: true }); await this.run('swtpm', ['socket', '--tpmstate', `dir=${join(d, 'tpm')}`, '--ctrl', `type=unixio,path=${tpm}`, '--tpm2', '--daemon'], 15_000); }
+      await this.must('qemu-system-x86_64', qemuArgs(m, d, { kvm: this.kvm(), ovmf: this.ovmf(), installer, qmp: this.qmpSock(m), tpm }), 'démarrage de la VM', 60_000);
     }
     m.arretVoulu = false; this.update(m);
   }
@@ -349,7 +362,7 @@ export class Local {
     if (m.genre === 'vm') { if (existsSync(this.vmDir(m))) writeFileSync(join(this.vmDir(m), 'vm.json'), JSON.stringify(m, null, 1)); this.update(m); return `adresse ${ip} réservée : dans le système de la VM, règle la même adresse fixe (masque /${r.masque}, passerelle ${r.passerelle}, DNS ${r.dns})`; }
     const cf = join(this.lxcDir, m.nom, 'config'); if (existsSync(cf)) writeFileSync(cf, rewriteConfig(readFileSync(cf, 'utf8'), lxcConfig(m, r, this.lxcDir)));
     this.update(m);
-    if ((await this.etat(m)).state === 'en marche') { await this.arreter(m); await this.demarrer(m); return 'appliquée (machine redémarrée)'; }
+    if ((await this.etat(m)).state === 'en marche') { await this.arreter(m); await this.demarrer(m, undefined, { analyse: Boolean(m.quarantaine) }); return 'appliquée (machine redémarrée)'; }
     return 'appliquée au prochain démarrage';
   }
   /** Console d'un LXC : lance une commande dedans et rend sa sortie (texte de la machine : une donnée). */

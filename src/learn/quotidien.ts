@@ -12,6 +12,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { basename } from 'node:path';
+import { accord } from '../core/genre.ts';
 import { formatNote, isoDay, parseNote, safeName, vaultEvents, type NoteMeta, type Vault } from '../brain/vault.ts';
 import { fold, forget, loadAcquis, loadLinks, missionOf, stepsOf, wordsOf, type Acquis, type Kv, type Shape, type Step, type WordLink } from './acquis.ts';
 
@@ -95,7 +96,7 @@ export function missionNote(m: Mission, c: NoteCtx): { meta: NoteMeta; body: str
     m.all.map((a) => `- « ${plain(a.phrase)} » — ${a.origin === 'lien' ? `relié le ${fr(a.at)} : tu m'as dit oui` : `appris le ${fr(a.at)} : une IA l'avait réglé`}${a.uses ? ` · utilisé ${a.uses} fois` : ''}`).join('\n'),
     ...(values.length ? ['## Ce qui peut changer', `${values.map((x) => `« ${plain(x.v)} » (${SHAPES[x.shape]})`).join(', ')} : la même phrase avec une autre valeur marche aussi. L'appli et l'action, elles, ne changent jamais.`] : []),
     '## Comment je l\'ai appris',
-    `Le ${fr(m.at)}, une IA a réglé cette demande ${steps.length > 1 ? `en ${steps.length} actions` : 'en une action'}. J'ai retenu « cette phrase → ${steps.length > 1 ? 'ces actions' : 'cette action'} ». ${m.uses ? `Depuis, je l'ai refaite seul ${m.uses} fois, la dernière le ${fr(m.last)}.` : 'Je ne l\'ai pas encore refaite seul.'}`,
+    `Le ${fr(m.at)}, une IA a réglé cette demande ${steps.length > 1 ? `en ${steps.length} actions` : 'en une action'}. J'ai retenu « cette phrase → ${steps.length > 1 ? 'ces actions' : 'cette action'} ». ${m.uses ? `Depuis, je l'ai refaite ${accord('seul', 'seule')} ${m.uses} fois, la dernière le ${fr(m.last)}.` : `Je ne l'ai pas encore refaite ${accord('seul', 'seule')}.`}`,
     ...(linked.length ? ['## Mots que j\'ai reliés', linked.map((l) => `- « ${plain(l.said[0])} » = « ${plain(l.said[1])} »`).join('\n')] : []),
     ...(near.length ? ['## Missions proches', near.map((x) => `- ${linkTo(x.m, c)} (mots en commun : ${x.common.map(plain).join(', ')})`).join('\n')] : []),
     '## Pour me le faire oublier',
@@ -118,9 +119,9 @@ export function hubNote(all: Mission[], links: WordLink[], paths: Map<string, st
     '> Ce que je sais refaire **sans IA**, parce que je l\'ai appris en te parlant. Note tenue par Odin.',
     '## Comment ça marche',
     [
-      '1. **Tu demandes.** Si je sais déjà le faire seul, je le fais, sans IA.',
+      `1. **Tu demandes.** Si je sais déjà le faire ${accord('seul', 'seule')}, je le fais, sans IA.`,
       '2. **Sinon, une IA s\'en charge.** Si elle règle ta demande par une action, ou par quelques actions à la suite, je retiens « cette phrase → ces actions » : c\'est une mission.',
-      '3. **La fois suivante, je la refais seul.** La même phrase, ou la même avec une autre valeur (une autre adresse, un autre nom).',
+      `3. **La fois suivante, je la refais ${accord('seul', 'seule')}.** La même phrase, ou la même avec une autre valeur (une autre adresse, un autre nom).`,
       '4. **Je fais des liens.** Deux façons de dire la même mission ? Je relie le mot qui change (« lampe » = « lumière »).',
       '5. **Quand aucune IA ne répond, je réfléchis avec ces liens.** Si ta phrase ressemble à une mission que je connais, je te dis comment j\'ai fait le lien, et je te demande avant d\'agir. Après ton oui, cette façon de le dire est retenue.',
     ].join('\n'),

@@ -15,6 +15,8 @@ import { revoquerPersonne } from '../sso/etat.ts';
 import { brancherPersona } from '../sso/registre.ts';
 import { arreterFluxSauvegardes } from '../sso/sauvegardes.ts';
 import { arreterFluxVenus } from '../sso/fiches.ts';
+import { groupesActions, groupesSections, reappliquer } from '../sso/groupes.ts';
+import { comptesActions, comptesSections } from '../sso/comptes.ts';
 import { CIEL_JS } from '../../web/ciel.ts';
 
 export interface Person { id: string; login: string; name: string; email?: string; groups: string[]; hash: string; totp?: string; totpPending?: string; active: boolean; created: number; lastLogin?: number; fails: number; lockedUntil?: number }
@@ -53,7 +55,8 @@ export function check(cookie: string, domain: string, _ip?: string): { user: str
   const p = people(ctx).find((y) => y.login === x.login && y.active); if (!p) return undefined;
   if (Date.now() - x.seen > 60_000) ctx.saveSettings({ sessions: ss.map((y) => (y === x ? { ...y, seen: Date.now() } : y)) });
   const r = rules(ctx).find((y) => y.domain === domain) ?? rules(ctx).find((y) => y.domain.startsWith('*.') && domain.endsWith(y.domain.slice(1)));
-  if (r && !r.groups.includes('*') && !r.groups.some((g) => p.groups.includes(g))) return 'refusé';
+  // Le groupe admin entre partout (comme pour les applis) ; sinon un des groupes du site, ou « * ».
+  if (r && !r.groups.includes('*') && !p.groups.includes('admin') && !r.groups.some((g) => p.groups.includes(g))) return 'refusé';
   return { user: p.login, groups: p.groups };
 }
 export const portalDomain = () => (appCtx ? conf(appCtx).portal || undefined : undefined);
@@ -176,8 +179,13 @@ const ADD: Param[] = [{ key: 'login', label: 'Identifiant (ex. awa)', kind: 'tex
 
 export const varModule: Module = {
   id: 'var', name: 'Persona', family: 'Accès',
-  what: 'Les identités : les personnes et leurs groupes, un seul compte (et la double authentification) pour entrer sur tous les sites du proxy, avec sessions, verrouillage et journal.',
-  does: ['personnes, groupes, comptes coupés ou réactivés', 'portail de connexion à la mascotte d\'Odin : une connexion pour tous les sites du proxy Valgrind (connexion unique)', 'double authentification par code (appli Google Authenticator, Aegis…), obligatoire par groupe', 'sites réservés à des groupes ; l\'identité est transmise au service (Remote-User, Remote-Groups)', 'sessions ouvertes visibles et coupables, durée réglable', 'verrouillage après 5 essais, adresse bannie par Cerbère, alerte, journal des connexions', 'mots de passe choisis par Odin rangés dans le coffre', 'graphe : personnes, groupes, sites, sessions'],
+  what: 'Les identités : les personnes et leurs groupes d\'accès, un seul compte (mot de passe et double authentification, ou clé d\'accès) pour Odin, ses applis, les logiciels OpenID et les sites du proxy, avec invitations, mot de passe oublié, sessions, verrouillage et journal.',
+  does: ['personnes, groupes, comptes coupés ou réactivés', 'portail de connexion à la mascotte d\'Odin : une connexion pour tous les sites du proxy Valgrind (connexion unique)', 'double authentification par code (appli Google Authenticator, Aegis…), obligatoire par groupe', 'sites réservés à des groupes ; l\'identité est transmise au service (Remote-User, Remote-Groups)', 'sessions ouvertes visibles et coupables, durée réglable', 'verrouillage après 5 essais, adresse bannie par Cerbère, alerte, journal des connexions', 'mots de passe choisis par Odin rangés dans le coffre', 'graphe : personnes, groupes, sites, sessions',
+    'groupes d\'accès : créer, renommer, supprimer, y mettre des personnes, leur donner des applis d\'Odin et des sites ; droits appliqués partout (ports des applis, interface d\'Odin, proxy, connexion unique)',
+    'fournisseur OpenID Connect pour les logiciels qui le savent (Nextcloud, Gitea, Grafana, Penpot, Home Assistant…) : inscription du logiciel, configuration donnée, écran « Autoriser ? » la première fois',
+    'clés d\'accès (passkeys, WebAuthn) : chacun ajoute les siennes dans « Mon compte », connexion sans mot de passe sur le portail',
+    'invitation par lien (envoyé par e-mail ou donné à la main) : la personne choisit son identifiant et son mot de passe',
+    'mot de passe oublié : un lien par e-mail (30 minutes, une seule fois), toutes ses connexions coupées ensuite'],
   from: ['Authelia', 'Authentik', 'Keycloak'], upstream: ['authelia/authelia', 'goauthentik/authentik', 'keycloak/keycloak'],
   words: ['identité', 'identités', 'connexion unique', 'sso', 'comptes', 'utilisateurs', 'double authentification', '2fa', 'groupes', 'portail de connexion'],
   actions: [
@@ -193,7 +201,7 @@ export const varModule: Module = {
     }, undo: (i) => ({ action: 'retirer', input: { login: i.login }, label: 'Retirer la personne' }) },
     { id: 'modifier', label: 'Modifier une personne', what: 'Nom, groupes, compte actif', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }, { key: 'groupes', label: 'Groupes (vide : inchangés)', kind: 'text', default: '' }, { key: 'actif', label: 'Compte', kind: 'select', options: ['inchangé', 'actif', 'coupé'], default: 'inchangé' }], run: (ctx, i) => {
       const p = { ...byLogin(ctx, i.login) }; if (s(i.nom)) p.name = s(i.nom).slice(0, 60); if (s(i.groupes)) p.groups = groupsOf(i.groupes); if (s(i.actif) === 'actif') p.active = true; if (s(i.actif) === 'coupé') p.active = false;
-      savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? p : x))); if (!p.active) ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) });
+      savePeople(ctx, people(ctx).map((x) => (x.id === p.id ? p : x))); if (!p.active) { ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); revoquerPersonne(ctx, p.login); } else reappliquer(ctx);
       return { text: `✏️ ${p.name} : groupes ${p.groups.join(', ') || '—'}, compte ${p.active ? 'actif' : 'coupé (sessions fermées)'}.` };
     } },
     { id: 'retirer', label: 'Retirer une personne', what: 'Son compte et ses sessions disparaissent', quick: false, params: [{ key: 'login', label: 'Identifiant', kind: 'text', required: true }], grave: () => 'supprimer ce compte (ses sessions sont fermées tout de suite)', run: (ctx, i) => { const p = byLogin(ctx, i.login); savePeople(ctx, people(ctx).filter((x) => x.id !== p.id)); ctx.saveSettings({ sessions: sessions(ctx).filter((x) => x.login !== p.login) }); return { text: `🗑 ${p.name} retiré.` }; } },
@@ -239,13 +247,15 @@ export const varModule: Module = {
       return { text: l.length ? l.map((p) => `- ${p.name} (${p.login}) : ${p.groups.join(', ')}${p.active ? '' : ' · coupé'}`).join('\n') : 'Personne pour l\'instant.', data: { people: l } };
     } },
     ...ssoActions,
+    ...groupesActions,
+    ...comptesActions,
     { id: 'journal', label: 'Journal des connexions', what: 'Qui s\'est connecté, d\'où, et les échecs', read: true, run: (ctx) => ({ text: journal(ctx).slice(-40).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`).join('\n') || 'Rien.' }) },
   ],
   view(ctx) {
     appCtx = ctx;
     const ps = people(ctx), ss = sessions(ctx), rs = rules(ctx), c = conf(ctx), now = Date.now(), j = journal(ctx), fails = j.filter((e) => !e.ok && now - e.t < 86400_000).length;
     return {
-      onglets: ['Personnes', 'Applis', 'Accès'],
+      onglets: ['Personnes', 'Groupes', 'Applis', 'Accès'],
       subtitle: c.portal ? `Portail ${c.portal} · ${ps.length} personne(s) · ${ss.length} session(s)` : 'À régler : le nom du portail de connexion (Réglages).',
       kpis: [{ label: 'Personnes', value: String(ps.length) }, { label: 'Sessions ouvertes', value: String(ss.length), tone: 'bon' }, { label: 'Double authentification', value: `${ps.filter((p) => p.totp).length} / ${ps.length}`, tone: ps.some((p) => !p.totp) ? 'attention' : 'bon' }, { label: 'Échecs (24 h)', value: String(fails), tone: fails > 10 ? 'mauvais' : fails ? 'attention' : 'bon' }],
       sections: [
@@ -254,6 +264,8 @@ export const varModule: Module = {
         { kind: 'table', title: 'Personnes', columns: ['Nom', 'Identifiant', 'Groupes', 'Double auth.', 'Dernière connexion'], empty: 'Personne.', rows: ps.map((p) => ({ cells: [p.name, p.login, p.groups.join(', ') || '—', p.totp ? 'oui' : 'non', p.lastLogin ? new Date(p.lastLogin).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais'], tone: !p.active ? 'neutre' as const : p.lockedUntil && p.lockedUntil > now ? 'mauvais' as const : undefined, actions: [{ action: 'double_auth', label: 'Double auth.', input: { login: p.login } }] })) },
         { kind: 'log', title: 'Journal des connexions', lines: j.slice(-25).reverse().map((e) => `${new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} ${e.ok ? '✅' : '❌'} ${e.login} depuis ${e.ip} (${e.why})`) },
         ...ssoSections(ctx),
+        ...groupesSections(ctx),
+        ...comptesSections(ctx),
         { kind: 'list', title: 'Liens avec les prochaines applis', items: [{ title: 'Hélios (photos)', detail: 'les albums visibles selon les groupes' }, { title: 'Plume (bureau)', detail: 'le bureau à distance réservé aux admins, avec code' }] },
       ],
       side: [{ kind: 'form', title: 'Ajouter une personne', action: 'ajouter', submit: 'Ajouter', params: ADD }, { kind: 'form', title: 'Réserver un site', action: 'proteger_site', submit: 'Réserver', params: varModule.actions.find((a) => a.id === 'proteger_site')!.params! }, { kind: 'form', title: 'Réglages du portail', action: 'reglages', submit: 'Enregistrer', params: varModule.actions.find((a) => a.id === 'reglages')!.params! }],

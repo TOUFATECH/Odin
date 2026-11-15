@@ -53,7 +53,7 @@
     const r = await api('/api/runes/bases'); if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
     bases = r.bases;
     const side = el('nav', { class: 'ru-side', 'aria-label': 'Bases' }, ...bases.map((b) => el('button', { class: 'ru-b', type: 'button', 'aria-current': b.id === (id ?? base?.id) ? 'page' : undefined, onclick: () => { viewId = null; open(b.id); } }, el('span', {}, `${b.icon || '🗂'} ${b.name}`), el('small', {}, String(b.count)))),
-      el('button', { class: 'btn small', type: 'button', style: 'margin-top:8px', onclick: async () => { const n = prompt('Nom de la nouvelle base ?'); if (!n) return; const x = await api('/api/runes/base/create', { name: n, props: [{ label: 'Statut', type: 'statut' }, { label: 'Date', type: 'date' }] }); if (x.ok) open(x.base.id); else alert(x.error); } }, '+ Nouvelle base'));
+      el('button', { class: 'btn small', type: 'button', style: 'margin-top:8px', onclick: async () => { const n = await window.OdinDialog.prompt('Nom de la nouvelle base ?'); if (!n) return; const x = await api('/api/runes/base/create', { name: n, props: [{ label: 'Statut', type: 'statut' }, { label: 'Date', type: 'date' }] }); if (x.ok) open(x.base.id); else await window.OdinDialog.alert(x.error); } }, '+ Nouvelle base'));
     const main = el('div', { id: 'ruMain' }, el('p', { class: 'sub' }, bases.length ? 'Choisis une base.' : 'Aucune base : crée-en une, ou demande à Odin (« crée une base Clients »).'));
     box.replaceChildren(el('div', { class: 'ru-l' }, side, main));
     const pick = id ?? base?.id ?? bases[0]?.id; if (pick) await load(pick);
@@ -67,16 +67,16 @@
     const bar = el('div', { class: 'ru-bar' },
       el('div', { class: 'ru-views', role: 'group', 'aria-label': 'Vues' }, ...base.views.map((v) => el('button', { type: 'button', 'aria-pressed': String(v.id === viewId), onclick: () => { viewId = v.id; load(base.id); } }, v.name))),
       el('label', { for: 'ruQ', class: 'sr' }, 'Rechercher'), el('input', { id: 'ruQ', type: 'search', placeholder: 'Rechercher…', value: q, onchange: (e) => { q = e.target.value; load(base.id); } }),
-      el('select', { 'aria-label': 'Nouvelle vue', class: 'ru-newv', onchange: async (e) => { const t = e.target.value; e.target.value = ''; if (!t) return; const date = base.props.find((p) => p.type === 'date')?.key, grp = base.props.find((p) => p.type === 'statut' || p.type === 'sélection')?.key; const x = await api('/api/runes/view/save', { base: base.id, view: { name: t[0].toUpperCase() + t.slice(1), type: t, ...(t === 'tableau' ? { groupBy: grp } : {}), ...(t === 'calendrier' || t === 'chronologie' ? { date } : {}) } }); if (x.ok) { viewId = x.base.views.at(-1).id; load(base.id); } else alert(x.error); } }, el('option', { value: '' }, '+ Vue…'), ...['table', 'tableau', 'calendrier', 'galerie', 'liste', 'chronologie'].map((t) => el('option', { value: t }, t))),
+      el('select', { 'aria-label': 'Nouvelle vue', class: 'ru-newv', onchange: async (e) => { const t = e.target.value; e.target.value = ''; if (!t) return; const date = base.props.find((p) => p.type === 'date')?.key, grp = base.props.find((p) => p.type === 'statut' || p.type === 'sélection')?.key; const x = await api('/api/runes/view/save', { base: base.id, view: { name: t[0].toUpperCase() + t.slice(1), type: t, ...(t === 'tableau' ? { groupBy: grp } : {}), ...(t === 'calendrier' || t === 'chronologie' ? { date } : {}) } }); if (x.ok) { viewId = x.base.views.at(-1).id; load(base.id); } else await window.OdinDialog.alert(x.error); } }, el('option', { value: '' }, '+ Vue…'), ...['table', 'tableau', 'calendrier', 'galerie', 'liste', 'chronologie'].map((t) => el('option', { value: t }, t))),
       el('button', { class: 'btn small', type: 'button', onclick: addProp }, '+ Propriété'),
       el('a', { class: 'btn small', href: `/api/runes/export?base=${encodeURIComponent(base.id)}`, download: '' }, 'Exporter CSV'),
-      el('label', { class: 'btn small', for: 'ruImp' }, 'Importer CSV'), el('input', { id: 'ruImp', type: 'file', accept: '.csv,text/csv', hidden: true, onchange: async (e) => { const f = e.target.files[0]; if (!f) return; const x = await api('/api/runes/import', { base: base.id, csv: await f.text() }); alert(x.ok ? `${x.count} fiche(s) importée(s).` : x.error); load(base.id); } }));
+      el('label', { class: 'btn small', for: 'ruImp' }, 'Importer CSV'), el('input', { id: 'ruImp', type: 'file', accept: '.csv,text/csv', hidden: true, onchange: async (e) => { const f = e.target.files[0]; if (!f) return; const x = await api('/api/runes/import', { base: base.id, csv: await f.text() }); await window.OdinDialog.alert(x.ok ? `${x.count} fiche(s) importée(s).` : x.error); load(base.id); } }));
     const t = r.view.type;
     const body = t === 'tableau' ? board(r) : t === 'calendrier' ? calendar(r) : t === 'galerie' ? gallery(r) : t === 'liste' ? list(r) : t === 'chronologie' ? timeline(r) : table(r);
-    main.replaceChildren(bar, body, el('form', { class: 'ru-add', onsubmit: async (e) => { e.preventDefault(); const v = $('#ruNew').value.trim(); if (!v) return; const x = await api('/api/runes/row/add', { base: base.id, title: v }); if (x.ok) load(base.id); else alert(x.error); } }, el('label', { for: 'ruNew', class: 'sr' }, 'Nouvelle fiche'), el('input', { id: 'ruNew', placeholder: '+ Nouvelle fiche', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Ajouter')));
+    main.replaceChildren(bar, body, el('form', { class: 'ru-add', onsubmit: async (e) => { e.preventDefault(); const v = $('#ruNew').value.trim(); if (!v) return; const x = await api('/api/runes/row/add', { base: base.id, title: v }); if (x.ok) load(base.id); else await window.OdinDialog.alert(x.error); } }, el('label', { for: 'ruNew', class: 'sr' }, 'Nouvelle fiche'), el('input', { id: 'ruNew', placeholder: '+ Nouvelle fiche', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Ajouter')));
   }
   const visible = (r) => (r.view.visible?.length ? base.props.filter((p) => r.view.visible.includes(p.key)) : base.props);
-  async function update(row, key, value) { const x = await api('/api/runes/row/update', { path: row.path, base: base.id, props: { [key]: value } }); if (!x.ok) { alert(x.error); load(base.id); } else if (x.fired) load(base.id); }
+  async function update(row, key, value) { const x = await api('/api/runes/row/update', { path: row.path, base: base.id, props: { [key]: value } }); if (!x.ok) { await window.OdinDialog.alert(x.error); load(base.id); } else if (x.fired) load(base.id); }
   function cell(row, p) {
     const v = row.values[p.key] ?? row.meta[p.key];
     if (RO.includes(p.type)) return el('td', { class: 'ru-ro' }, String(fmt(v)));
@@ -115,11 +115,11 @@
   function list(r) { return el('ul', { class: 'va-list', style: 'list-style:none;padding:0' }, ...r.rows.map((row) => el('li', { style: 'padding:8px 0;border-bottom:1px solid var(--line)' }, el('b', {}, row.title), ' ', ...visible(r).slice(0, 3).map((p) => (row.values[p.key] ?? row.meta[p.key]) ? el('span', { class: 'ru-pill' }, fmt(row.values[p.key] ?? row.meta[p.key])) : null)))); }
   function timeline(r) { const key = r.view.date; return el('div', { class: 'ru-tl' }, ...[...r.rows].sort((a, b) => String(a.values[key] ?? a.meta[key] ?? '').localeCompare(String(b.values[key] ?? b.meta[key] ?? ''))).map((row) => el('div', {}, el('span', { class: 'sub' }, String(row.values[key] ?? row.meta[key] ?? '—')), el('b', {}, row.title)))); }
   async function addProp() {
-    const label = prompt('Nom de la propriété ?'); if (!label) return;
-    const type = prompt('Type : texte, nombre, sélection, multi, statut, date, case, lien, email, téléphone, formule', 'texte'); if (!type) return;
+    const label = await window.OdinDialog.prompt('Nom de la propriété ?'); if (!label) return;
+    const type = await window.OdinDialog.prompt('Type : texte, nombre, sélection, multi, statut, date, case, lien, email, téléphone, formule', 'texte'); if (!type) return;
     const prop = { label, type: type.trim() };
-    if (prop.type === 'formule') prop.formula = prompt('Formule (ex. prop("Prix") * prop("Quantité"))') ?? '';
-    const x = await api('/api/runes/prop/add', { base: base.id, prop }); if (!x.ok) alert(x.error); load(base.id);
+    if (prop.type === 'formule') prop.formula = (await window.OdinDialog.prompt('Formule (ex. prop("Prix") * prop("Quantité"))')) ?? '';
+    const x = await api('/api/runes/prop/add', { base: base.id, prop }); if (!x.ok) await window.OdinDialog.alert(x.error); load(base.id);
   }
   function init() { document.head.append(el('style', {}, css)); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

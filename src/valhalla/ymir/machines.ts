@@ -6,6 +6,8 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Action, ModCtx } from '../types.ts';
 import { famille, Local, MODELES, nomAuto, newMac, slug, TOUCHES, type Genre, type Machine } from './local.ts';
+import { bibliotheque, pilotesVirtio, profilVm, trouverIso } from './isos.ts';
+import { bibliothequeActions, synchroEspace } from './bibliotheque.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? Math.max(lo, Math.min(hi, Math.round(x))) : d; };
@@ -47,7 +49,7 @@ export function machinesActions(): Action[] {
     { id: 'tableau_machines', label: 'Tableau des machines', what: 'Tout pour l\'écran Machines : machines et état, ce PC, catégories, modèles, ISO, applis', read: true, run: async (ctx) => {
       const L = new Local(ctx), l = L.list(), st = await Promise.all(l.map((m) => L.etat(m).catch(() => ({ state: 'inconnue' as const }))));
       return { text: `${l.length} machine(s)`, data: {
-        machines: l.map((m, i) => ({ ...m, etat: st[i] })), hote: await L.hote(), categories: categories(ctx), reseau: L.reseau(), modeles: MODELES, touches: Object.keys(TOUCHES), gabarits: l.filter((m) => m.estModele).map((m) => ({ id: m.id, nom: m.nom, genre: m.genre, systeme: m.systeme, version: m.version })), isos: L.isos(await eitriDir(ctx)), apps: APPS,
+        machines: l.map((m, i) => ({ ...m, etat: st[i] })), hote: await L.hote(), categories: categories(ctx), reseau: L.reseau(), modeles: MODELES, touches: Object.keys(TOUCHES), gabarits: l.filter((m) => m.estModele).map((m) => ({ id: m.id, nom: m.nom, genre: m.genre, systeme: m.systeme, version: m.version })), isos: await (async () => { await synchroEspace(ctx); const l = await bibliotheque(ctx), pil = pilotesVirtio(l), h = { ovmf: Boolean(L.ovmf()), swtpm: await ctx.has('swtpm'), kvm: L.kvm() }; return l.map((f) => ({ id: f.id, nom: f.nom, chemin: f.chemin, taille: f.taille, systeme: f.systeme, detail: f.detail, distribution: f.distribution, origine: f.origine, sha256: f.sha256, antivirus: f.antivirus, pilotes: f.pilotes, profil: f.pilotes ? undefined : profilVm(f, h, pil) })); })(), apps: APPS,
         manque: { lxc: await L.manque('lxc'), vm: await L.manque('vm') }, kvm: L.kvm(), autoIsoler: ctx.settings.autoIsoler !== false,
       } };
     } },
@@ -58,35 +60,40 @@ export function machinesActions(): Action[] {
       return { text: ok ? `L'adresse ${ip} est libre.` : `L'adresse ${ip} est déjà prise.`, ok, data: { ip, libre: ok } };
     } },
     { id: 'creer_machine', label: 'Créer une machine', what: 'Un LXC (léger, depuis une image officielle signée) ou une VM (depuis une ISO d\'Andromède) : nom automatique, ressources, adresse vérifiée, applis d\'Odin branchées', external: true,
-      params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['lxc', 'vm'], default: 'lxc' }, { key: 'modele', label: 'Modèle LXC (ex. debian trixie)', kind: 'text', default: 'debian trixie' }, { key: 'iso', label: 'ISO d\'Andromède (VM)', kind: 'text', default: '' },
+      params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['lxc', 'vm'], default: 'lxc' }, { key: 'modele', label: 'Modèle LXC (ex. debian trixie)', kind: 'text', default: 'debian trixie' }, { key: 'iso', label: 'ISO de la bibliothèque (VM)', kind: 'text', default: '' }, { key: 'macos_compris', label: 'macOS : j\'ai compris les limites (licence Apple, chargeur OpenCore)', kind: 'boolean', default: false },
         { key: 'fin', label: 'Fin du nom (ex. Nextcloud famille)', kind: 'text', default: '' }, { key: 'nom', label: 'Nom complet (remplace le nom automatique)', kind: 'text', default: '' },
         { key: 'coeurs', label: 'Cœurs', kind: 'number', default: 2 }, { key: 'memoire', label: 'Mémoire (Go)', kind: 'number', default: 2 }, { key: 'disque', label: 'Disque (Go)', kind: 'number', default: 32 },
         { key: 'ip', label: 'Adresse IP (vide : la première libre)', kind: 'text', default: '' }, { key: 'categorie', label: 'Catégorie', kind: 'text', default: '' },
         { key: 'apps', label: 'Applis d\'Odin (ullr, vordr, vidarr, sindri)', kind: 'text', default: 'ullr, vordr, vidarr, sindri' }, { key: 'paquets', label: 'Logiciels en plus (paquets, ex. nextcloud, postgresql)', kind: 'text', default: '' }, { key: 'uefi', label: 'VM en UEFI', kind: 'boolean', default: true }],
       words: ['crée une machine', 'cree une machine', 'nouvelle machine', 'crée un lxc', 'crée une vm', 'nouveau conteneur lxc'], run: async (ctx, i) => {
         const L = new Local(ctx), genre = (s(i.genre) === 'vm' ? 'vm' : 'lxc') as Genre, now = ctx.now();
-        let systeme = '', version = '', modele: Machine['modele'], iso: string | undefined;
+        let systeme = '', version = '', modele: Machine['modele'], iso: string | undefined, prof: ReturnType<typeof profilVm> | undefined;
         if (genre === 'lxc') {
           const q = s(i.modele || 'debian trixie').toLowerCase(), md = MODELES.find((x) => `${x.dist} ${x.release}` === q) ?? MODELES.find((x) => q.includes(x.dist) && (q.includes(x.release) || q.includes(x.version) && x.version)) ?? MODELES.find((x) => q.includes(x.dist) || q.includes(x.titre.toLowerCase()));
           if (!md) throw new Error(`modèle inconnu : « ${s(i.modele)} » (${MODELES.map((x) => `${x.dist} ${x.release}`).join(', ')})`);
           modele = { dist: md.dist, release: md.release }; systeme = md.titre; version = md.version;
         } else {
-          const l = L.isos(await eitriDir(ctx)), q = s(i.iso).toLowerCase(), f = l.find((x) => x.nom.toLowerCase() === q) ?? l.find((x) => q.length >= 3 && x.nom.toLowerCase().includes(q));
-          if (!f) throw new Error(q ? `ISO introuvable dans Andromède : « ${s(i.iso)} »` : 'choisis l\'ISO d\'installation');
-          iso = f.chemin; const w = /win(?:dows)?[-_ ]?(1[01])/i.exec(f.nom); systeme = w ? `Windows ${w[1]}` : (f.nom.split(/[-_ ]/)[0] ?? 'Système').replace(/^./, (c) => c.toUpperCase()); version = /(\d+(?:\.\d+){0,2})/.exec(f.nom.replace(/win(?:dows)?[-_ ]?1[01]/i, ''))?.[1] ?? '';
+          // L'ISO vient de la bibliothèque commune (Andromède et importées) : son chemin est utilisé tel quel, sans copie.
+          await synchroEspace(ctx);
+          const f = await trouverIso(ctx, i.iso);
+          if (f.antivirus?.verdict === 'bloqué') throw new Error(`${f.nom} est bloquée par l'antivirus`);
+          prof = profilVm(f, { ovmf: Boolean(L.ovmf()), swtpm: await ctx.has('swtpm'), kvm: L.kvm() }, pilotesVirtio(await bibliotheque(ctx)));
+          if (prof.avertissement && i.macos_compris !== true && i.macos_compris !== 'true') throw new Error(`${prof.avertissement} Coche « j'ai compris » pour continuer.`);
+          iso = f.chemin; systeme = f.systeme === 'Linux' ? (f.distribution ?? 'Linux') : f.systeme === 'Windows' ? (f.detail || 'Windows') : f.systeme === 'macOS' ? 'macOS' : (f.detail || 'Système');
+          version = /^Windows /.test(systeme) ? '' : f.version ?? /(\d+(?:\.\d+){0,2})/.exec(f.detail)?.[1] ?? '';
         }
         const nom = s(i.nom).trim() ? slug(s(i.nom)) : nomAuto(systeme, version, now, s(i.fin));
         let ip = s(i.ip).trim();
         if (ip) { if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) throw new Error('adresse IP invalide'); if (!(await L.ipDispo(ip))) throw new Error(`l'adresse ${ip} est déjà prise`); }
         else { ip = (await L.prochaineIp()) ?? ''; if (!ip) throw new Error('plus d\'adresse libre sur le réseau des machines'); }
         const cat = s(i.categorie).trim(), apps = list(i.apps).map((x) => x.toLowerCase()).filter((x) => APPS.some((a) => a.id === x)), paquets = list(i.paquets).map((x) => x.toLowerCase());
-        const m: Machine = { id: randomBytes(6).toString('hex'), nom, genre, systeme, version, famille: famille(systeme), ...(cat ? { categorie: cat } : {}), cpu: n(i.coeurs, 2, 1, 64), ram: n(i.memoire, 2, 1, 512) * 1024, disque: n(i.disque, 32, 4, 8192), ip, mac: newMac(), cree: now.getTime(), modele, iso, uefi: genre === 'vm' && i.uefi !== false && i.uefi !== 'false', apps, paquets };
-        const notes = await L.creer(m, { installer: iso });
+        const m: Machine = { id: randomBytes(6).toString('hex'), nom, genre, systeme, version, famille: famille(systeme), ...(cat ? { categorie: cat } : {}), cpu: n(i.coeurs, 2, 1, 64), ram: n(i.memoire, 2, 1, 512) * 1024, disque: n(i.disque, 32, 4, 8192), ip, mac: newMac(), cree: now.getTime(), modele, iso, uefi: genre === 'vm' && (prof ? prof.uefi : i.uefi !== false && i.uefi !== 'false'), ...(prof ? { profil: { disque: prof.disque, reseau: prof.reseau, tpm: prof.tpm, ...(prof.pilotes ? { pilotes: prof.pilotes } : {}) } } : {}), apps, paquets };
+        const notes = [...(prof ? prof.notes.map((x) => `· ${x}`) : []), ...(prof?.avertissement ? ['⚠ macOS : limites acceptées (licence Apple, chargeur OpenCore non fourni).'] : []), ...(await L.creer(m, { installer: iso }))];
         const b = await brancher(ctx, L, m);
         ctx.emit('machine_creee', { nom: m.nom, genre, ip });
         return { text: `✅ ${m.nom} créée (${genre === 'lxc' ? 'LXC' : 'VM'} ${systeme} ${version}, ${m.cpu} cœur(s), ${m.ram / 1024} Go, ${m.disque} Go) · ${ip}${genre === 'vm' ? ' · l\'installation de l\'ISO commence : regarde son écran dans Machines' : ''}${notes.length ? `\n${notes.join('\n')}` : ''}${b.length ? `\n${b.join('\n')}` : ''}`, data: m };
       } },
-    { id: 'demarrer_machine', label: 'Démarrer', what: 'Démarre une machine de ce PC', params: [machineParam], words: ['démarre la machine', 'allume la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine); await L.demarrer(m); return { text: `▶ ${m.nom} démarrée${m.quarantaine ? ' (toujours sans réseau : en quarantaine)' : ''}.` }; }, undo: (i) => ({ action: 'arreter_machine', input: { machine: i.machine }, label: 'Arrêter' }) },
+    { id: 'demarrer_machine', label: 'Démarrer', what: 'Démarre une machine de ce PC (en quarantaine : seulement en mode analyse, sans réseau)', params: [machineParam, { key: 'analyse', label: 'Mode analyse (sans réseau)', kind: 'boolean', default: false }], words: ['démarre la machine', 'allume la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine), an = i.analyse === true || i.analyse === 'true'; await L.demarrer(m, undefined, { analyse: an }); if (m.quarantaine) { m.quarantaine.journal.push({ at: Date.now(), quoi: 'Démarrée en mode analyse, sans réseau' }); L.update(m); } return { text: `▶ ${m.nom} démarrée${m.quarantaine ? ' en mode analyse (sans aucun réseau : en quarantaine)' : ''}.` }; }, undo: (i) => ({ action: 'arreter_machine', input: { machine: i.machine }, label: 'Arrêter' }) },
     { id: 'arreter_machine', label: 'Arrêter', what: 'Arrêt propre d\'une machine de ce PC', params: [machineParam, { key: 'forcer', label: 'Forcer (comme débrancher)', kind: 'boolean', default: false }], grave: (i) => `${i.forcer === true || i.forcer === 'true' ? 'couper net' : 'éteindre'} la machine ${s(i.machine)}`, words: ['éteins la machine', 'arrête la machine'], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine); await L.arreter(m, i.forcer === true || i.forcer === 'true'); return { text: `⏹ ${m.nom} : arrêt demandé.` }; }, undo: (i) => ({ action: 'demarrer_machine', input: { machine: i.machine }, label: 'Redémarrer' }) },
     { id: 'apercu_machine', label: 'Aperçu', what: 'L\'écran d\'une VM ou la console d\'un LXC, en direct', read: true, params: [machineParam], run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine), a = await L.apercu(m).catch((e) => ({ erreur: (e as Error).message })); return { text: 'erreur' in a ? `Aperçu indisponible : ${a.erreur}` : a.lignes ? a.lignes.join('\n') || '(console vide)' : a.png ? 'capture de l\'écran' : 'machine éteinte', data: a }; } },
     { id: 'ressources_machine', label: 'Ressources', what: 'Processeur et mémoire d\'une machine (tout de suite pour un LXC)', params: [machineParam, { key: 'coeurs', label: 'Cœurs', kind: 'number', required: true }, { key: 'memoire', label: 'Mémoire (Go)', kind: 'number', required: true }], run: async (ctx, i) => {
@@ -181,13 +188,19 @@ export function machinesActions(): Action[] {
       if (m.genre === 'vm') throw new Error('pour une VM, Odin ne lit pas encore son disque : analyse-la de l\'intérieur, ou exporte-la et analyse le .ody');
       const r = await ctx.call('ullr', 'analyser', { dossier: join(L.lxcDir, m.nom, 'rootfs') }, `analyse complète de ${m.nom}`);
       const det = Number((r.data as { detections?: number } | undefined)?.detections ?? (r.ok === false ? 1 : 0)), propre = r.ok !== false && det === 0;
+      // Un virus trouvé dans une machine : elle part en quarantaine dans Hydre (réseau coupé, démarrage en mode analyse seulement).
+      if (!propre && !m.quarantaine) {
+        await L.isoler(m, `virus trouvé par l'antivirus (${det} détection(s))`); ctx.emit('machine_isolee', { nom: m.nom, ip: m.ip });
+        ctx.alert({ level: 'critique', title: `🔒 ${m.nom} en quarantaine : virus trouvé`, detail: `Quoi : la machine ${m.nom} (${m.ip}). Pourquoi : l'antivirus a trouvé ${det} menace(s) sur son disque — ${r.text.split('\n').slice(0, 3).join(' ; ')}. Ce qui a été fait : réseau coupé, elle ne démarre plus qu'en mode analyse.`, key: `ymir-virus-${m.id}`, steps: ['Regarde le détail dans Hydre → Quarantaine et dans Asclépios → Résultats.', 'Trouve l\'origine (logiciel installé, fichier reçu).', 'Nettoie, relance l\'analyse complète, puis sors la machine de quarantaine (Odin te demande ton accord).'], fix: { action: 'quarantaine_machine', input: { machine: m.id }, label: 'Voir le détail' } });
+      }
       if (m.quarantaine) { m.quarantaine.analyse = { at: Date.now(), propre, texte: r.text.split('\n')[0] }; m.quarantaine.journal.push({ at: Date.now(), quoi: propre ? 'Analyse complète : rien trouvé' : `Analyse complète : ${det} détection(s)`, detail: 'antivirus d\'Odin' }); L.update(m); }
       return { text: `${propre ? '✅' : '⚠'} ${m.nom} : ${r.text}`, ok: propre, data: { propre, detections: det } };
     } },
-    { id: 'liberer_machine', label: 'Sortir de quarantaine', what: 'Rebranche la machine sur le réseau (seulement après une analyse propre)', params: [machineParam, { key: 'sans_analyse', label: 'Sans analyse propre (à tes risques)', kind: 'boolean', default: false }], grave: (i) => `rebrancher la machine ${s(i.machine)} sur le réseau${i.sans_analyse === true || i.sans_analyse === 'true' ? ' SANS analyse propre' : ''}`, run: async (ctx, i) => {
+    { id: 'liberer_machine', label: 'Sortir de quarantaine', what: 'Rebranche la machine sur le réseau (seulement après une analyse propre)', params: [machineParam, { key: 'origine', label: 'Origine trouvée (ce qui l\'a infectée)', kind: 'text', default: '' }, { key: 'sans_analyse', label: 'Sans analyse propre (à tes risques)', kind: 'boolean', default: false }], grave: (i) => `rebrancher la machine ${s(i.machine)} sur le réseau${s(i.origine) ? ` (origine : ${s(i.origine)})` : ''}${i.sans_analyse === true || i.sans_analyse === 'true' ? ' SANS analyse propre' : ''}`, run: async (ctx, i) => {
       const L = new Local(ctx), m = L.find(i.machine), q = m.quarantaine; if (!q) return { text: `${m.nom} n'est pas en quarantaine.`, ok: false };
       const force = i.sans_analyse === true || i.sans_analyse === 'true';
       if (!force && !(q.analyse?.propre && q.analyse.at > q.depuis)) throw new Error('lance d\'abord une analyse complète : la machine sort quand elle est propre');
+      if (s(i.origine)) q.journal.push({ at: Date.now(), quoi: `Origine identifiée : ${s(i.origine)}` });
       await L.liberer(m);
       for (const j of q.journal) if (j.annuler?.module === 'vidarr' && !j.fait) await ctx.call(j.annuler.module, j.annuler.action, j.annuler.input, `fin de quarantaine de ${m.nom}`).catch(() => undefined);
       ctx.emit('machine_liberee', { nom: m.nom, ip: m.ip });
@@ -198,6 +211,7 @@ export function machinesActions(): Action[] {
       const al = [...ctx.alerts({ q: m.ip, limit: 40 }), ...ctx.alerts({ q: m.nom, limit: 40 })].filter((a) => !seen.has(a.id) && seen.add(a.id)).sort((a, b) => a.at.localeCompare(b.at)).slice(-12);
       return { text: m.quarantaine ? `${m.nom} en quarantaine depuis ${new Date(m.quarantaine.depuis).toLocaleString('fr-FR')} : ${m.quarantaine.raison}` : `${m.nom} n'est pas en quarantaine.`, data: { machine: m, chemin: al.map((a) => ({ at: a.at, titre: a.title, detail: a.detail ?? '', module: a.module, niveau: a.level })) } };
     } },
+    ...bibliothequeActions(),
     { id: 'auto_isoler', label: 'Règle « rouge = isoler »', what: 'Odin isole tout seul une machine visée par une alerte critique (tu peux annuler)', params: [{ key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => { const on = i.actif !== false && i.actif !== 'false'; ctx.saveSettings({ autoIsoler: on }); return { text: on ? 'Règle active : une alerte critique sur une machine l\'isole tout de suite.' : 'Règle coupée : Odin te prévient seulement.' }; } },
   ];
 }

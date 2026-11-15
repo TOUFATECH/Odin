@@ -1,9 +1,12 @@
 // Les notifications d'Odin (maquette validée « Notifications : pastille sur Odin et pop-up au clic ») : plus de texte
 // par-dessus l'écran. Une pastille posée sur Odin, partout (toutes les pages, Discussion et téléphone compris) : un point
-// par notification non lue (la plus récente d'abord, 6 points au maximum), de la couleur de sa sorte, et le nombre.
+// par notification non lue (la plus récente d'abord, 6 points au maximum), de la couleur de son urgence (grave rouge, souci jaune, information verte), et le nombre.
 // Grave : la pastille clignote en rouge et la mascotte passe au rouge (et le dit si la voix est activée).
 // Toucher Odin (ou la pastille) : la petite fenêtre s'ouvre avec la liste ; toucher une notification l'ouvre
 // (détail, boutons) et la marque lue. « Tout lu » vide la pastille. Les conseils complets restent dans le panneau.
+// 15/11 : la pastille est petite et discrète (points + nombre, sans fond ni bulle) ; au survol, l'infobulle d'Odin
+// donne le nombre et un résumé court. « Que veux-tu ? » dit aussi ce qu'on peut faire sur la page affichée, et
+// « Explique-moi pas à pas » (ou taper « aide ») ouvre le mode d'emploi de la page (guide.js).
 (() => {
   'use strict';
   if (window.OdinNotices) return;
@@ -27,9 +30,11 @@
     else if (tinted) { tinted = false; const t = window.OdinThemes?.current?.(); if (t) window.OdinThemes.apply(t); else window.OdinFace?.tintBase?.(null); void window.OdinThemes?.sync?.(); }
   }
   const css = `
-  #odinBubble{position:fixed;z-index:60;left:0;top:0;box-sizing:border-box;display:inline-flex;align-items:center;gap:3px;height:26px;padding:0 9px 0 7px;border-radius:13px;background:#171A20;border:1.5px solid var(--pc,#9166e6);color:#fff;font:800 14px/1 inherit;box-shadow:0 6px 14px rgba(0,0,0,.35);cursor:pointer}
-  #odinBubble .ob-pts{display:inline-flex;align-items:center;gap:3px}#odinBubble .ob-pts i{display:block;width:8px;height:8px;border-radius:50%}
-  #odinBubble .ob-n{margin-left:3px}
+  /* La pastille (15/11) : petite et discrète, seulement des points de couleur et le nombre (pas de fond, pas de bulle). */
+  #odinBubble{position:fixed;z-index:60;left:0;top:0;box-sizing:border-box;display:inline-flex;align-items:center;gap:2px;height:16px;padding:0 3px;border-radius:8px;background:transparent;color:var(--ink,#eef0f6);font:700 12px/1 var(--body,system-ui,sans-serif);white-space:nowrap;max-width:max-content;overflow:visible;cursor:pointer}
+  #odinBubble .ob-pts{display:inline-flex;align-items:center;gap:2px}#odinBubble .ob-pts i{display:block;width:7px;height:7px;border-radius:50%;box-shadow:0 0 0 1.5px var(--bg,#101A24)}
+  #odinBubble .ob-n{margin-left:2px;text-shadow:0 0 2px var(--bg,#101A24),0 0 2px var(--bg,#101A24),0 0 3px var(--bg,#101A24)}
+  #odinBubble:focus-visible{outline:2px solid var(--accent,#7AA2FF);outline-offset:2px}
   /* Au doigt : une zone de toucher plus grande, vers le haut et les côtés seulement (jamais sur Odin). */
   @media (pointer:coarse){#odinBubble::after{content:'';position:absolute;inset:-12px -9px 0}}
   #odinTalk .ot-tl{height:28px;padding:0 9px;border:0;border-radius:9px;background:rgba(255,255,255,.06);color:#c9ceda;font:500 12.5px inherit;cursor:pointer;flex:none}
@@ -48,24 +53,31 @@
   #odinTalk .ot-pr b{font-size:13.5px}#odinTalk .ot-pr span{display:block;font-size:12px;color:#b9c0cf}
   #odinTalk .ot-seg{display:flex;gap:2px;background:rgba(0,0,0,.25);border-radius:10px;padding:3px}#odinTalk .ot-seg button{flex:1;height:28px;border:0;border-radius:8px;background:none;color:#b9c0cf;font:600 12px inherit;cursor:pointer}#odinTalk .ot-seg button[aria-pressed=true]{background:rgba(255,255,255,.12);color:#fff}
   #odinTalk .ot-it{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 4px;border-radius:9px;cursor:pointer}#odinTalk .ot-it:hover{background:rgba(255,255,255,.05)}#odinTalk .ot-it b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}#odinTalk .ot-it time{color:#9aa1b2;font-size:11.5px}
-  #odinBubble .ob-dot{width:22px;height:22px;border-radius:50%;flex:none}
-  #odinBubble .ob-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-  #odinBubble .ob-say{width:26px;height:26px;border:0;border-radius:13px;background:transparent;color:inherit;display:grid;place-items:center;cursor:pointer;opacity:.8;flex:none}
-  #odinBubble .ob-say:hover{background:rgba(255,255,255,.12)}
-  /* Au doigt : la zone qu'on touche fait 44 px, sans changer le dessin du petit bouton. */
-  @media (pointer:coarse){#odinBubble .ob-say{position:relative}#odinBubble .ob-say::after{content:'';position:absolute;inset:-9px}}
-  #odinBubble .ob-tail{position:absolute;width:12px;height:12px;transform:rotate(45deg);background:inherit;border-radius:2px}
   @keyframes obPop{0%{opacity:0;transform:scale(.3)}100%{opacity:1;transform:none}}
   #odinBubble.pop{animation:obPop .45s cubic-bezier(.3,1.6,.5,1)}
-  @keyframes obBlink{0%,100%{box-shadow:0 6px 16px rgba(0,0,0,.3),0 0 0 0 rgba(239,79,67,.55)}50%{box-shadow:0 6px 16px rgba(0,0,0,.3),0 0 0 6px rgba(239,79,67,0)}}
-  #odinBubble.grave{animation:obPop .45s cubic-bezier(.3,1.6,.5,1),obBlink 1.6s .45s infinite}
+  @keyframes obBlink{0%,100%{box-shadow:0 0 0 1.5px var(--bg,#101A24),0 0 0 0 rgba(239,79,67,.7)}50%{box-shadow:0 0 0 1.5px var(--bg,#101A24),0 0 0 5px rgba(239,79,67,0)}}
+  #odinBubble.grave .ob-pts i{animation:obBlink 1.6s .45s infinite}
   #odinTalk{position:fixed;z-index:61;left:0;top:0;width:min(300px,calc(100vw - 24px));box-sizing:border-box;border-radius:18px;background:rgba(30,34,48,.97);color:#eef0f6;border:1px solid rgba(255,255,255,.1);box-shadow:0 10px 24px rgba(0,0,0,.4);padding:8px;display:flex;flex-direction:column;gap:8px;font:14px/1.45 inherit}
   #odinTalk[hidden]{display:none}
+  #odinTalk .ot-help{margin:0 2px;padding:8px 10px;border-radius:12px;background:rgba(90,111,219,.16);font-size:13px;color:#d6dbea}#odinTalk .ot-help p{margin:0 0 6px;white-space:pre-line}#odinTalk .ot-help .ot-acts{padding:0}#odinTalk .ot-help .ot-acts button.p{background:#5a6fdb;color:#fff}
   #odinTalk .ot-h{display:flex;align-items:flex-start;gap:8px;padding:2px 4px 0}
   #odinTalk .ot-h b{font-weight:600;flex:1;min-width:0}
   #odinTalk .ot-dot{width:14px;height:14px;border-radius:50%;flex:none;margin-top:3px}
   #odinTalk .ot-x{width:28px;height:28px;border:0;border-radius:9px;background:transparent;color:#c9ceda;cursor:pointer;flex:none}
   #odinTalk .ot-d{margin:0 4px;font-size:13px;color:#b9c0cf;white-space:pre-line;max-height:30vh;overflow:auto}
+  /* La réponse d'Odin dans sa bulle (15/11) : mise en forme comme dans la Discussion (pages/rendu.js), taille bornée,
+     elle défile à l'intérieur ; la bulle s'élargit un peu pour une réponse, sans jamais dépasser l'écran. */
+  #odinTalk.ot-rep{width:min(400px,calc(100vw - 24px))}
+  #odinTalk .ot-d.ot-md{white-space:normal;max-height:min(52vh,440px);overscroll-behavior:contain;padding-right:4px;color:#d6dbea;font-size:13.5px;line-height:1.5}
+  #odinTalk .md,#odinAdvice .md{--text:#eef0f6;--muted:#b9c0cf;--dim:#9aa1b2;--line:rgba(255,255,255,.14);--panel:rgba(255,255,255,.06);gap:6px}
+  #odinTalk .ot-det .md{margin-bottom:4px}
+  #odinTalk .ot-open{align-self:flex-start;margin:0 4px;border:0;background:none;color:#9fb4ff;font-family:inherit;font-weight:500;font-size:12px;cursor:pointer;padding:2px 0;text-decoration:underline;text-underline-offset:2px}
+  /* Arrivée et départ en douceur (rien de tout ça si l'appareil demande moins d'animations). */
+  @keyframes otIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+  @keyframes otOut{to{opacity:0;transform:translateY(6px) scale(.97)}}
+  #odinTalk.ot-in{animation:otIn .18s cubic-bezier(.2,.8,.3,1)}
+  #odinTalk.ot-ghost{animation:otOut .16s ease-in forwards;pointer-events:none}
+  @media (prefers-reduced-motion:reduce){#odinTalk.ot-in,#odinTalk.ot-ghost{animation:none}}
   #odinTalk .ot-acts{display:flex;flex-wrap:wrap;gap:6px;padding:0 2px}
   #odinTalk .ot-acts button{height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:inherit;font:500 13px inherit;padding:0 10px;cursor:pointer}
   #odinTalk .ot-acts button.p{border:0;color:#1a0d02;font-weight:600}
@@ -97,12 +109,17 @@
   .odin.alarm .body > circle{fill:#D9452E}
   @keyframes obPulse{0%,100%{filter:drop-shadow(0 0 0 rgba(238,106,85,.7))}50%{filter:drop-shadow(0 0 12px rgba(238,106,85,.9))}}
   .odin.alarm svg{animation:obPulse 1.4s infinite}
-  @media (prefers-reduced-motion:reduce){#odinBubble.pop,#odinBubble.grave,.odin.alarm svg{animation:none}}`;
+  @media (prefers-reduced-motion:reduce){#odinBubble.pop,#odinBubble.grave .ob-pts i,.odin.alarm svg{animation:none}}`;
   const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'on') for (const [ev, f] of Object.entries(v)) e.addEventListener(ev, f); else if (v !== undefined && v !== null && v !== false) e.setAttribute(k, v === true ? '' : String(v)); } for (const k of kids.flat()) if (k !== null && k !== undefined && k !== false) e.append(k); return e; };
   const api = async (url, body) => { const r = await fetch(url, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : { headers: { 'x-odin': '1' } }); return r.json(); };
+  // La même mise en forme que la Discussion (pages/rendu.js) : titres, listes, gras, tableaux, images, logos des applis.
+  // Le texte n'est jamais mis en HTML ; sans le moteur (pas encore chargé), le texte brut.
+  const rich = (t) => (window.OdinRendu ? window.OdinRendu.md(String(t ?? ''), { compact: true }) : String(t ?? ''));
+  const line = (t) => (window.OdinRendu ? window.OdinRendu.inline(String(t ?? '')) : String(t ?? ''));
+  const moinsAnimer = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; } };
   const ago = (iso) => { const s = (Date.now() - Date.parse(iso)) / 1000; return s < 60 ? 'à l\'instant' : s < 3600 ? `il y a ${Math.round(s / 60)} min` : new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); };
 
-  let bubble, tail, panel, talk, ttail, current = null, hideT = 0, raf = 0, waiting = false, later = null;
+  let bubble, panel, talk, ttail, current = null, hideT = 0, raf = 0, waiting = false, later = null;
   const history = [];
   /** Les notifications déjà lues (sur cet appareil). */
   let lues = new Set();
@@ -125,7 +142,7 @@
   function mascots() { return [...document.querySelectorAll('.odin')]; }
   function placeBubble() {
     raf = 0; if (!bubble) return;
-    const box = !talk.hidden ? talk : !bubble.hidden ? bubble : null, tl = box === talk ? ttail : tail; if (!box) return;
+    const box = !talk.hidden ? talk : !bubble.hidden ? bubble : null, tl = ttail; if (!box) return;
     const m = 12, room = innerHeight - 2 * m;
     // La petite fenêtre « Que veux-tu ? » ne dépasse jamais de l'écran : plus haute que lui, elle défile à l'intérieur.
     if (box === talk) { const big = talk.scrollHeight > room + 1, mh = big ? `${room}px` : ''; if (talk.style.maxHeight !== mh) { talk.style.maxHeight = mh; talk.style.overflowY = big ? 'auto' : ''; } }
@@ -162,8 +179,10 @@
   function build() {
     if (bubble) return;
     document.head.append(el('style', {}, css));
-    tail = el('span', { class: 'ob-tail', 'aria-hidden': 'true' });
     bubble = el('div', { id: 'odinBubble', hidden: true, role: 'status', 'aria-live': 'polite' });
+    // Au survol : le nombre et un résumé court (les titres des plus récentes), dans l'infobulle d'Odin.
+    bubble.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') window.OdinCompanion?.tip?.(summary(), bubble, 150); });
+    bubble.addEventListener('pointerleave', () => window.OdinCompanion?.untip?.());
     document.body.append(bubble);
     ttail = el('span', { class: 'ot-tail', 'aria-hidden': 'true' });
     talk = el('section', { id: 'odinTalk', hidden: true, 'aria-label': 'Parler à Odin', on: { keydown: (e) => { if (e.key === 'Escape') closeTalk(); } } });
@@ -174,6 +193,15 @@
   function setAlarm(on) { for (const o of mascots()) o.classList.toggle('alarm', on); }
 
   // ---------- La pastille sur Odin : un point par notification non lue (6 au maximum) et le nombre ----------
+  // Couleur d'un point de la pastille (15/11, demandé par le propriétaire) : selon l'urgence seulement.
+  // Grave = rouge, souci (moyen) = jaune, simple information = vert. Au plus 6 points ; au-delà, seulement le nombre total.
+  const DOT = { grave: '#ef4f43', souci: '#f2c230', ok: '#34c77b' };
+  /** Le résumé court de la pastille : le nombre, puis les titres des trois plus récentes. */
+  function summary() {
+    const L = unread(), n = L.length, grave = L.some((x) => x.level === 'grave');
+    const lines = L.slice(0, 3).map((x) => `• ${String(x.title).slice(0, 60)}`);
+    return `${n} notification${n > 1 ? 's' : ''} non lue${n > 1 ? 's' : ''}${grave ? ', dont une urgence' : ''}\n${lines.join('\n')}${n > 3 ? `\n… et ${n - 3} autre${n > 4 ? 's' : ''}` : ''}\nTouche pour les voir.`;
+  }
   function badge(pop) {
     build();
     const L = unread(), n = L.length, grave = L.some((x) => x.level === 'grave');
@@ -182,8 +210,8 @@
     bubble.style.setProperty('--pc', first);
     bubble.classList.toggle('grave', grave);
     bubble.setAttribute('role', 'button'); bubble.tabIndex = 0;
-    bubble.setAttribute('aria-label', `${n} notification${n > 1 ? 's' : ''} non lue${n > 1 ? 's' : ''}${grave ? ', dont une urgence' : ''}. Touche pour les voir.`);
-    bubble.replaceChildren(el('span', { class: 'ob-pts', 'aria-hidden': 'true' }, ...L.slice(0, 6).map((x) => el('i', { style: `background:${TONE[toneOf(x)][2]}` }))), el('span', { class: 'ob-n' }, String(n)));
+    bubble.setAttribute('aria-label', summary());
+    bubble.replaceChildren(el('span', { class: 'ob-pts', 'aria-hidden': 'true' }, ...L.slice(0, 6).map((x) => el('i', { style: `background:${DOT[x.level] || DOT.ok}` }))), el('span', { class: 'ob-n' }, String(n)));
     bubble.onclick = () => talkTo(null);
     bubble.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); talkTo(null); } };
     const was = !bubble.hidden; bubble.hidden = false;
@@ -222,25 +250,41 @@
     const items = history.slice(0, 12); if (!items.length) return null;
     const box = el('div', { class: 'ot-list' });
     for (const x of items) {
-      const [, , dot] = TONE[toneOf(x)], det = el('div', { class: 'ot-det', hidden: true }, x.detail ?? '',
+      const [, , dot] = TONE[toneOf(x)], det = el('div', { class: 'ot-det', hidden: true }, x.detail ? rich(x.detail) : null,
         el('div', { class: 'ot-acts' }, ...x.actions.slice(0, 2).map((a, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', style: i === 0 ? `background:${dot}` : undefined, on: { click: () => runAction(a, det.querySelector('.ot-out') || det.appendChild(el('div', { class: 'ot-out' }))) } }, a.label)),
           el('button', { type: 'button', on: { click: () => { closeTalk(); open(x); } } }, 'Conseils')));
       const row = el('div', { class: 'ot-it', role: 'button', tabindex: '0', 'aria-expanded': 'false', 'data-lu': lues.has(x.id) ? '' : undefined,
         on: { click: () => { const o = row.getAttribute('aria-expanded') !== 'true'; for (const r of box.querySelectorAll('.ot-it')) { r.setAttribute('aria-expanded', 'false'); r.nextSibling.hidden = true; } row.setAttribute('aria-expanded', String(o)); det.hidden = !o; if (o) { row.setAttribute('data-lu', ''); lire(x); head(); } follow(); },
           keydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } } },
-        protOf(x) ? protPill(protOf(x), 11) : el('i', { style: `background:${dot}`, 'aria-hidden': 'true' }), el('b', {}, x.title, el('small', {}, x.app)), el('time', {}, ago(x.at)));
+        protOf(x) ? protPill(protOf(x), 11) : el('i', { style: `background:${dot}`, 'aria-hidden': 'true' }), el('b', {}, line(x.title), el('small', {}, x.app)), el('time', {}, ago(x.at)));
       box.append(row, det);
     }
     return box;
   }
   let head = () => {};
+  // « aide », « que veux-tu ? », « je suis perdu »… : Odin explique la page affichée (guide.js) au lieu d'envoyer la question.
+  const AIDE = /^(aide|help|\?+|que veux[- ]tu|explique[- ]moi( (cette|la) page)?|comment (ça|ca) (marche|fonctionne)|que (puis|peux)[- ]je faire( ici)?|qu'?est[- ]ce que je peux faire( ici)?|je suis perdue?)\s*[?!.]*$/i;
+  /** Ce qu'on peut faire sur la page affichée, en deux phrases (guide.js), et le bouton pour tout voir pas à pas. */
+  function helpBox() {
+    const G = window.OdinGuide; if (!G?.parole) return null;
+    // Ce qu'Odin dit vient de son moteur (parole.ts) : l'étape suivante de la page ou une nouvelle utile, jamais deux fois ; rien de neuf : il se tait.
+    const txt = el('p', {}, 'Je regarde la page…'), acts = el('div', { class: 'ot-acts' }), box = el('div', { class: 'ot-help' }, txt, acts);
+    G.parole('toucher').then((r) => {
+      if (!r || (!r.texte && !r.propositions?.length)) { box.remove(); follow(); return; }
+      txt.textContent = r.texte || ''; txt.hidden = !r.texte;
+      acts.replaceChildren(...(r.propositions || []).map((p, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', on: { click: () => { closeTalk(true); G.lancer(p); } } }, p.label)));
+      follow();
+    }).catch(() => { box.remove(); follow(); });
+    return box;
+  }
   function talkTo(n) {
-    build(); clearTimeout(hideT); bubble.hidden = true;
-    const [, , dot] = n ? TONE[toneOf(n)] : TONE.info, out = el('p', { class: 'ot-d', role: 'status', 'aria-live': 'polite', hidden: !n?.detail }, n?.detail ?? '');
+    build(); clearTimeout(hideT); bubble.hidden = true; window.OdinCompanion?.untip?.();
+    const [, , dot] = n ? TONE[toneOf(n)] : TONE.info, out = el('div', { class: `ot-d${n?.detail ? ' ot-md' : ''}`, role: 'status', 'aria-live': 'polite', hidden: !n?.detail }, n?.detail ? rich(n.detail) : '');
+    talk.classList.remove('ot-rep');
     const input = el('input', { type: 'text', placeholder: n ? 'Réponds à Odin…' : 'Dis-moi… (« allume le salon »)', 'aria-label': 'Parle à Odin', enterkeyhint: 'send' });
     const mic = el('button', { type: 'button', class: 'ot-mic', 'aria-label': 'Parler au micro', 'aria-pressed': 'false' }, svg('M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3', 15));
     mic.onclick = () => { if (!SR) { out.hidden = false; out.textContent = 'Ce navigateur ne sait pas écrire ce que tu dis (Chrome, Edge ou Safari).'; return; } if (mic._r) { mic._r.stop(); return; } const r = new SR(), base = input.value.trim() ? `${input.value.trim()} ` : ''; let done = ''; r.lang = 'fr-FR'; r.continuous = true; r.interimResults = true; mic._r = r; mic.setAttribute('aria-pressed', 'true'); r.onresult = (ev) => { let live = ''; for (let k = ev.resultIndex; k < ev.results.length; k++) { if (ev.results[k].isFinal) done += ev.results[k][0].transcript; else live += ev.results[k][0].transcript; } input.value = `${base}${done}${live}`.replace(/\s+/g, ' ').trimStart(); }; r.onend = () => { mic._r = null; mic.setAttribute('aria-pressed', 'false'); input.focus(); }; try { r.start(); } catch { mic._r = null; } };
-    const form = el('form', { on: { submit: async (e) => { e.preventDefault(); const q = input.value.trim(); if (!q) return; input.value = ''; out.hidden = false; out.textContent = 'Odin réfléchit…'; waiting = true; const where = [document.title, location.hash.slice(1)].filter(Boolean).join(' · '); const ok = await window.OdinChat?.send?.(n ? `${q}\n\n[à propos de : ${n.app} · ${n.title}]` : q, where); if (!ok) { waiting = false; out.textContent = 'Je n\'ai pas pu envoyer : réessaie.'; } } } }, input, mic, el('button', { type: 'submit', class: 'ot-go', 'aria-label': 'Envoyer' }, svg('M5 12h14M13 6l6 6-6 6', 15)));
+    const form = el('form', { on: { submit: async (e) => { e.preventDefault(); const q = input.value.trim(); if (!q) return; if (!n && AIDE.test(q) && window.OdinGuide?.open) { closeTalk(true); window.OdinGuide.open(); return; } input.value = ''; out.hidden = false; out.textContent = 'Odin réfléchit…'; waiting = true; const where = [document.title, location.hash.slice(1)].filter(Boolean).join(' · '); const ok = await window.OdinChat?.send?.(n ? `${q}\n\n[à propos de : ${n.app} · ${n.title}]` : q, where); if (!ok) { waiting = false; out.textContent = 'Je n\'ai pas pu envoyer : réessaie.'; } } } }, input, mic, el('button', { type: 'submit', class: 'ot-go', 'aria-label': 'Envoyer' }, svg('M5 12h14M13 6l6 6-6 6', 15)));
     const list = n ? null : notifList(), nb = unread().length, titre = el('b', {}, n ? n.title : nb ? `${nb} nouvelle${nb > 1 ? 's' : ''} notification${nb > 1 ? 's' : ''}` : 'Que veux-tu ?');
     const toutLu = !n && nb ? el('button', { type: 'button', class: 'ot-tl', on: { click: () => { lire(null); talkTo(null); } } }, 'Tout lu') : null;
     head = () => { const k = unread().length; titre.textContent = k ? `${k} nouvelle${k > 1 ? 's' : ''} notification${k > 1 ? 's' : ''}` : 'Que veux-tu ?'; if (!k) toutLu?.remove(); };
@@ -248,11 +292,14 @@
     talk.replaceChildren(...[
       el('div', { class: 'ot-h' }, el('span', { class: 'ot-dot', style: `background:${dot}`, 'aria-hidden': 'true' }), titre, toutLu, el('button', { type: 'button', class: 'ot-x', 'aria-label': 'Fermer', on: { click: () => closeTalk() } }, '×')),
       out,
+      n ? null : helpBox(),
       list,
       n || nb ? null : protBox(),
       n ? el('div', { class: 'ot-acts' }, ...n.actions.slice(0, 2).map((a, i) => el('button', { type: 'button', class: i === 0 ? 'p' : '', style: i === 0 ? `background:${dot}` : undefined, on: { click: () => runAction(a, out) } }, a.label)), el('button', { type: 'button', on: { click: () => { closeTalk(); open(n); } } }, 'Que faire ?')) : null,
       form, ttail].filter(Boolean));
-    talk.hidden = false; follow(); setTimeout(() => input.focus({ preventScroll: true }), 30);
+    const was = talk.hidden; talk.hidden = false;
+    if (was) { talk.classList.remove('ot-in'); void talk.offsetWidth; talk.classList.add('ot-in'); }
+    follow(); setTimeout(() => input.focus({ preventScroll: true }), 30);
     window.OdinCompanion?.pin?.(60_000);
   }
   /** Un toucher sur Odin : qui te protège (Antivirus = Asclépios, Malware = Némésis) et leurs dernières alertes. */
@@ -267,11 +314,32 @@
     api('/api/valhalla/act', { module: 'ullr', action: 'etat', input: {} }).then((r) => { if (r?.ok) st.ullr.textContent = String(r.text).split('\n')[0].replace(/^[^\p{L}\d]+/u, '').slice(0, 90); }).catch(() => {});
     return el('div', { class: 'ot-prot' }, el('small', {}, 'Qui te protège'), row('ullr', 'Asclépios'), row('skogul', 'Némésis'), seg, list);
   }
-  function closeTalk(quiet) { if (!talk || talk.hidden) return; talk.hidden = true; talk._list = false; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); later = null; badge(); }
-  /** La réponse d'Odin arrive : elle s'affiche dans la petite fenêtre (et Odin la dit si la voix est activée). */
+  /** La bulle s'en va en douceur : une copie inerte s'efface à sa place (la vraie est déjà fermée). */
+  function ghostOut() {
+    if (moinsAnimer() || !talk.offsetWidth) return;
+    const g = talk.cloneNode(true); g.classList.remove('ot-in'); g.classList.add('ot-ghost'); g.setAttribute('aria-hidden', 'true'); g.inert = true; g.removeAttribute('aria-label');
+    document.body.append(g); setTimeout(() => g.remove(), 200);
+  }
+  function closeTalk(quiet) { if (!talk || talk.hidden) return; ghostOut(); talk.hidden = true; talk.classList.remove('ot-in', 'ot-rep'); talk._list = false; waiting = false; if (!quiet) window.OdinCompanion?.pin?.(0); later = null; badge(); }
+  // Échap ou un toucher en dehors : la bulle se ferme (pas pendant une image en grand ni une fenêtre de confirmation).
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && talk && !talk.hidden && !document.getElementById('mdZoom') && !document.querySelector('dialog[open]')) closeTalk(); });
+  document.addEventListener('pointerdown', (e) => {
+    if (!talk || talk.hidden || waiting) return;
+    if (e.target.closest?.('#odinTalk, #odinBubble, #odinAdvice, #buddyRoam, .odin, #mdZoom, dialog, [role=dialog], [role=alertdialog]')) return;
+    closeTalk();
+  }, true);
+  /** La réponse d'Odin arrive : elle s'affiche dans la petite fenêtre, mise en forme (et Odin la dit si la voix est activée). */
   function reply(text) {
     if (!talk || talk.hidden || !waiting) return false; waiting = false;
-    const out = talk.querySelector('.ot-d'); out.hidden = false; out.textContent = String(text).replace(/\[humeur:[^\]]*\]/g, '').trim().slice(0, 1200); follow(); return true;
+    const out = talk.querySelector('.ot-d'), t = String(text).replace(/\[humeur:[^\]]*\]/g, '').trim();
+    out.hidden = false; out.classList.add('ot-md'); talk.classList.add('ot-rep'); talk.querySelector('.ot-open')?.remove();
+    // La réponse prend la place : l'aide de la page, la liste et « Qui te protège » s'effacent (la bulle reste petite).
+    talk.querySelectorAll('.ot-help, .ot-list, .ot-prot, .ot-tl').forEach((x) => x.remove());
+    if (talk._list) { const b = talk.querySelector('.ot-h b'); if (b) b.textContent = 'Odin te répond'; }
+    out.replaceChildren(rich(t.length > 8000 ? `${t.slice(0, 8000)}…` : t));
+    // Une longue réponse se lit mieux en entier dans la Discussion.
+    if (t.length > 600 && !location.hash.startsWith('#chat')) out.after(el('button', { type: 'button', class: 'ot-open', on: { click: () => { closeTalk(true); location.hash = '#chat'; } } }, 'Lire dans la Discussion'));
+    out.scrollTop = 0; follow(); return true;
   }
   // ---------- Toucher la bulle : la page du problème + les conseils ----------
   function goTo(n) {
@@ -283,12 +351,12 @@
     try {
       let r;
       if (a.module === '_manip') {
-        if (a.action === 'annuler' && !window.confirm(`${a.label} ?`)) { out.textContent = 'Rien n\'a été changé.'; return; }
+        if (a.action === 'annuler' && !(await window.OdinDialog.confirm(`${a.label} ?`))) { out.textContent = 'Rien n\'a été changé.'; return; }
         r = await api('/api/valhalla/manip', { id: a.input.id, keep: a.action === 'garder', confirm: true });
       }
       else {
         r = await api('/api/valhalla/act', { module: a.module, action: a.action, input: a.input });
-        if (r.confirm) { if (!window.confirm(r.confirm)) { out.textContent = 'Annulé : rien n\'a été fait.'; return; } r = await api('/api/valhalla/act', { module: a.module, action: a.action, input: a.input, confirm: true }); }
+        if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) { out.textContent = 'Annulé : rien n\'a été fait.'; return; } r = await api('/api/valhalla/act', { module: a.module, action: a.action, input: a.input, confirm: true }); }
       }
       out.textContent = r.ok ? `✓ ${r.text ?? 'Fait.'}` : `✗ ${r.text ?? r.error ?? 'échec'}`;
       if (r.ok && current?.level === 'grave') setAlarm(false);
@@ -301,16 +369,16 @@
     const listen = () => window.OdinSay?.(`${n.title}. ${n.detail ?? ''} Ce que je te conseille : ${n.steps.map((s, i) => `${i + 1}, ${s}`).join(' ')}`, true);
     panel.replaceChildren(...[
       el('div', { class: 'oa-head' }, el('span', { class: 'oa-chip', style: `background:${color}` }, `${n.kind} · ${n.app}`), el('button', { type: 'button', class: 'oa-close', 'aria-label': 'Fermer', on: { click: closePanel } }, '×')),
-      el('h3', {}, n.title),
-      n.detail ? el('p', { class: 'oa-d' }, n.detail) : null,
-      el('div', { class: 'oa-s' }, 'Ce que je te conseille'),
-      el('ol', {}, n.steps.map((s) => el('li', {}, s))),
+      el('h3', {}, line(n.title)),
+      n.detail ? el('div', { class: 'oa-d' }, rich(n.detail)) : null,
+      n.steps.length ? el('div', { class: 'oa-s' }, 'Ce que je te conseille') : null,
+      n.steps.length ? el('ol', {}, n.steps.map((s) => el('li', {}, line(s)))) : null,
       ai,
       el('div', { class: 'oa-acts' },
         n.actions.map((a) => el('button', { type: 'button', class: a.primary ? 'p' : '', style: a.primary ? `background:${color}` : undefined, on: { click: () => runAction(a, out) } }, a.label)),
         n.page ? el('button', { type: 'button', on: { click: () => goTo(n) } }, 'Aller sur la page') : null,
         el('button', { type: 'button', on: { click: listen } }, 'Écouter'),
-        el('button', { type: 'button', on: { click: async (e) => { e.target.disabled = true; ai.hidden = false; ai.textContent = 'Odin réfléchit…'; try { const r = await api('/api/valhalla/notice_advice', { id: n.id }); ai.textContent = r.ok ? r.text : `✗ ${r.error}`; if (r.ok) window.OdinSay?.(r.text, false); } catch (x) { ai.textContent = `✗ ${x.message}`; } e.target.disabled = false; } } }, 'Demander conseil à Odin')),
+        el('button', { type: 'button', on: { click: async (e) => { e.target.disabled = true; ai.hidden = false; ai.textContent = 'Odin réfléchit…'; try { const r = await api('/api/valhalla/notice_advice', { id: n.id }); if (r.ok) ai.replaceChildren(rich(r.text)); else ai.textContent = `✗ ${r.error}`; if (r.ok) window.OdinSay?.(r.text, false); } catch (x) { ai.textContent = `✗ ${x.message}`; } e.target.disabled = false; } } }, 'Demander conseil à Odin')),
       out,
       history.length > 1 ? el('div', { class: 'oa-prev' }, el('div', { class: 'oa-s' }, 'Avant'), history.filter((x) => x.id !== n.id).slice(0, 5).map((x) => el('button', { type: 'button', on: { click: () => open(x) } }, el('span', { class: 'oa-dot', style: `background:${COLORS[x.level]}` }), el('span', {}, `${ago(x.at)} · ${x.app} — ${x.title}`)))) : null].filter(Boolean));
     panel.hidden = false; panel.querySelector('.oa-close').focus();
@@ -330,7 +398,7 @@
       saveLues(); badge(true); setAlarm(unread().some((x) => x.level === 'grave'));
     } catch { /* pas connecté : rien */ }
   }
-  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice() };
+  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice(), unread: () => unread().length };
   addEventListener('resize', follow);
   const start = () => setTimeout(boot, 1200);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

@@ -1,5 +1,28 @@
 [
  {
+  "id": "v1360",
+  "at": "2026-11-15T19:00:00+03:00",
+  "date": "2026-11-15",
+  "version": "1.36.0",
+  "title": "Odin connaît son lieu, se range tout seul et protège ce qui arrive",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Odin connaît l'endroit où il est installé : dis « ma ville est … » ou touche « Me localiser ». La météo, l'heure, les unités, la devise et les fêtes suivent.",
+   "33 thèmes : le thème automatique suit la fête du jour, le temps, la température, puis le moment de la journée et l'humeur d'Odin. Odin prend la couleur du thème.",
+   "Un seul Cerveau : tes souvenirs y sont rangés, et Odin le consulte avant chaque réponse.",
+   "Les confirmations s'affichent dans une fenêtre aux couleurs d'Odin, plus jamais dans celle du navigateur.",
+   "Odin se déplace en contournant ce que tu fais, ne répète plus ses phrases, et sa pastille de notifications est réduite à quelques points de couleur.",
+   "Tout ce qui vient de l'extérieur passe d'abord par l'antivirus : en cas de doute, tu acceptes, tu refuses, ou ça reste en quarantaine.",
+   "Bibliothèque d'ISO et de logiciels : dossier scanné, fiche complète, mises à jour avec l'ancienne version gardée dans « old », vérification chaque mois.",
+   "Écran de la maison : heure du lieu, site surveillé, et modules à déplacer en les glissant.",
+   "Chaque appli a sa base de données à son nom, et Odin peut y lire pour te répondre.",
+   "Persona : groupes d'accès, clés d'accès, invitation par lien, mot de passe oublié. Le Compagnon d'Odin protège chaque poste."
+  ]
+ },
+ {
   "id": "v1350",
   "at": "2026-11-15T12:00:00+03:00",
   "date": "2026-11-15",

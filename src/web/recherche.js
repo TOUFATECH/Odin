@@ -149,7 +149,7 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
   }
   function sourcesTab() {
     const all = thread.flatMap((e, i) => e.sources.map((x) => ({ ...x, i })));
-    return el('div', { class: 'slist' }, ...all.map((x, k) => el('a', { class: 'card', href: x.url, target: '_blank', rel: 'noopener noreferrer' }, el('span', { class: 'src', style: { padding: 0 } }, mono(x.domain, k)), el('span', { style: { minWidth: 0 } }, el('b', {}, `${x.n}. ${x.title}`), el('small', {}, `${x.domain}${x.engines?.length ? ` · ${x.engines.join(', ')}` : ''}`), x.snippet ? el('p', {}, x.snippet.slice(0, 220)) : null))));
+    return el('div', { class: 'slist' }, ...all.map((x, k) => el('a', { class: 'card', href: x.url, target: '_blank', rel: 'noopener noreferrer' }, el('span', { class: 'src', style: { padding: 0 } }, x.thumb && /^https?:\/\//.test(x.thumb) ? el('img', { src: `/api/recherche/vignette?u=${encodeURIComponent(x.thumb)}`, alt: '', loading: 'lazy', style: { width: '44px', height: '44px', objectFit: 'cover', borderRadius: '8px', flex: 'none' }, onerror: (ev) => ev.currentTarget.replaceWith(mono(x.domain, k)) }) : mono(x.domain, k)), el('span', { style: { minWidth: 0 } }, el('b', {}, `${x.n}. ${x.title}`), el('small', {}, `${x.domain}${x.engines?.length ? ` · ${x.engines.join(', ')}` : ''}`), x.snippet ? el('p', {}, x.snippet.slice(0, 220)) : null))));
   }
   function mediaTab(kind) {
     const q = thread[0]?.q, wrap = el('div', {});

@@ -11,6 +11,7 @@ import { totp } from '../modules/brisingamen.ts';
 import { personaPage } from './registre.ts';
 import type { Accounts } from '../../web/account.ts';
 import { b64u, desceller, sceller, sha256, sha256hex, signer, signeur, verifier, type Signeur } from './jwt.ts';
+import { WEBAUTHN_JS } from './cles-acces.ts';
 import {
   ACCES_MIN, GRACE_RENOUV, POSTE_INACTIF, POSTE_MAX, RENOUV_INACTIF, RENOUV_MAX, aDroit, applisDe, client, clients, lierProprietaire, messageRefus, nomAppli, noter, nouvelId,
   parSub, persona, personnes, retourPermis, revoquerPoste, revoquerSession, sauverPostes, sauverSessions, sessionValide, sessionsApplis, sessionsPostes, trouver, vivante,
@@ -135,23 +136,26 @@ const esc = (x: string) => x.replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};
 function page(res: ServerResponse, status: number, titre: string, corps: string, formTo = ''): void {
   const nonce = randomBytes(16).toString('base64');
   res.writeHead(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'x-content-type-options': 'nosniff', 'referrer-policy': 'same-origin',
-    'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; form-action 'self'${formTo}; frame-ancestors 'none'; base-uri 'none'` });
-  res.end(personaPage(titre, corps, nonce));
+    'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; form-action 'self'${formTo}; frame-ancestors 'none'; base-uri 'none'` });
+  // « __NONCE__ » : le petit programme de la page (clé d'accès) reçoit le nonce de cette réponse.
+  res.end(personaPage(titre, corps.replaceAll('__NONCE__', nonce), nonce));
 }
 const pageErreur = (res: ServerResponse, status: number, titre: string, texte: string) => page(res, status, titre, `<div class="card"><h1>${esc(titre)}</h1><p>${esc(texte)}</p></div>`);
-interface Demande { c: string; redirect: string; state: string; nonce: string; challenge: string; scope: string; appareil: Appareil; exp: number; code?: { sub: string } }
+interface Demande { c: string; redirect: string; state: string; nonce: string; challenge: string; scope: string; appareil: Appareil; exp: number; /** consentement attendu de cette personne */ sub?: string; via?: string }
 const demandes = new Map<string, Demande>();
+/** Cette demande de connexion (page du portail encore ouverte) existe-t-elle ? (clé d'accès) */
+export const demandeValide = (id: string) => { const x = demandes.get(id); return Boolean(x && x.exp > Date.now() && !x.sub); };
 interface Code { c: string; redirect: string; challenge: string; nonce: string; sub: string; scope: string; authTime: number; appareil: Appareil; exp: number; used?: boolean; sid?: string }
 const codes = new Map<string, Code>();
 const SESSION_COOKIE = 'odin_var';
 function cookieSso(token: string, maxAge: number, https: boolean) { return `${SESSION_COOKIE}=${token}; Path=/sso; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${https ? '; Secure' : ''}`; }
 /** La personne de la session Persona de ce navigateur sur Odin (cookie sur /sso). */
-function sessionNavigateur(ctx: ModCtx, req: IncomingMessage): { p: Personne; id: string } | undefined {
+export function sessionNavigateur(ctx: ModCtx, req: IncomingMessage): { p: Personne; id: string } | undefined {
   const tok = /(?:^|;\s*)odin_var=([A-Za-z0-9_-]{20,100})/.exec(s(req.headers.cookie))?.[1]; if (!tok) return undefined;
   const all = (ctx.settings.sessions as Array<{ id: string; login: string; expires: number }> | undefined) ?? [], h = sha256hex(tok), x = all.find((y) => y.id === h && y.expires > Date.now());
   const p = x ? personnes(ctx).find((y) => y.login === x.login && y.active) : undefined; return p && x ? { p, id: h } : undefined;
 }
-function ouvrirNavigateur(ctx: ModCtx, req: IncomingMessage, res: ServerResponse, p: Personne, d: DepsSSO): void {
+export function ouvrirNavigateur(ctx: ModCtx, req: IncomingMessage, res: ServerResponse, p: Personne, d: DepsSSO): void {
   const token = randomBytes(32).toString('base64url'), now = Date.now(), hours = Number(ctx.settings.hours ?? 12);
   const all = ((ctx.settings.sessions as Array<{ expires: number }> | undefined) ?? []).filter((x) => x.expires > now);
   ctx.saveSettings({ sessions: [...all, { id: sha256hex(token), login: p.login, created: now, expires: now + hours * 3600_000, ip: d.ip, agent: s(req.headers['user-agent']).slice(0, 120), seen: now, ou: 'sso' }].slice(-200) });
@@ -166,6 +170,12 @@ const formTo = (uri: string) => { try { const u = new URL(uri); return /^https?:
 function finir(ctx: ModCtx, res: ServerResponse, dm: Demande, p: Personne, iss: string, d: DepsSSO, via: string): void {
   const c = client(ctx, dm.c)!;
   if (!aDroit(ctx, p, c.id)) { noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `SSO ${c.nom} · pas le droit` }); return renvoi(res, dm.redirect, { error: 'access_denied', error_description: messageRefus(ctx, c.id), state: dm.state, iss }); }
+  // Un logiciel qui n'est pas d'Odin (Nextcloud, Gitea…) : la personne dit une fois ce qu'elle lui laisse voir.
+  if (!c.prereg && !consenti(ctx, p.id, c.id)) {
+    for (const [k, v] of demandes) if (v.exp < Date.now()) demandes.delete(k);
+    const id = b64u(randomBytes(18)); demandes.set(id, { ...dm, sub: p.id, via, exp: Date.now() + 10 * 60_000 });
+    return consentement(res, id, dm, c, p);
+  }
   const code = b64u(randomBytes(32));
   codes.set(sha256hex(code), { c: c.id, redirect: dm.redirect, challenge: dm.challenge, nonce: dm.nonce, sub: p.id, scope: dm.scope, authTime: Date.now(), appareil: dm.appareil, exp: Date.now() + 60_000 });
   for (const [k, v] of codes) if (v.exp < Date.now() - 600_000) codes.delete(k);
@@ -179,7 +189,19 @@ function formulaire(res: ServerResponse, id: string, dm: Demande, ctx: ModCtx, e
 ${etape === 'mdp' ? `<label for="l">Identifiant ou e-mail</label><input id="l" name="identifiant" autocomplete="username" autocapitalize="none" spellcheck="false" required value="${esc(ident)}" autofocus>
 <label for="p">Mot de passe</label><input id="p" name="motdepasse" type="password" autocomplete="current-password" required>` : `<input type="hidden" name="identifiant" value="${esc(ident)}">
 <label for="c">Code</label><input id="c" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus>`}
-${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}<button type="submit">${etape === 'code' ? 'Vérifier' : 'Se connecter'}</button></form></div>`, formTo(dm.redirect));
+${err ? `<p class="err" role="alert">${esc(err)}</p>` : ''}<button type="submit">${etape === 'code' ? 'Vérifier' : 'Se connecter'}</button></form>
+${etape === 'mdp' ? `<button type="button" class="ghost" id="cle" hidden>Se connecter avec une clé d'accès</button><p class="err" id="clemsg" role="alert"></p><p><a href="/sso/oubli" style="color:inherit">Mot de passe oublié ?</a></p>
+<script nonce="__NONCE__">${WEBAUTHN_JS}const cb=document.getElementById('cle');if(window.PublicKeyCredential&&isSecureContext){cb.hidden=false;cb.onclick=async()=>{const m=document.getElementById('clemsg');m.textContent='';cb.disabled=true;const d=document.querySelector('[name=demande]').value;try{await odinCleSigner('/sso/cle/debut','/sso/cle/fin',{demande:d});const f=document.createElement('form');f.method='post';f.action='/sso/autoriser';for(const[k,v]of[['demande',d],['suite','1']]){const i=document.createElement('input');i.type='hidden';i.name=k;i.value=v;f.append(i);}document.body.append(f);f.submit();}catch(e){m.textContent=e.name==='NotAllowedError'?'Annulé.':e.message;cb.disabled=false;}};}</script>` : ''}</div>`, formTo(dm.redirect));
+}
+/** A-t-elle déjà autorisé ce logiciel ? (« Autoriser » une fois suffit ; retirable dans Persona) */
+const consenti = (ctx: ModCtx, sub: string, c: string) => Boolean(((ctx.settings.ssoConsentements as Record<string, number> | undefined) ?? {})[`${sub}:${c}`]);
+/** « Autoriser Gitea ? » : ce que le logiciel verra. */
+function consentement(res: ServerResponse, id: string, dm: Demande, c: Client, p: Personne): void {
+  const sc = dm.scope.split(/\s+/), voit = ['ton identifiant et ton nom', ...(sc.includes('email') && p.email ? ['ton adresse e-mail'] : []), ...(sc.includes('groups') ? ['tes groupes'] : [])];
+  let hote = ''; try { hote = new URL(dm.redirect).host; } catch { hote = dm.redirect; }
+  page(res, 200, `Autoriser ${c.nom} · Odin`, `<div class="card"><h1>Autoriser ${esc(c.nom)} ?</h1><p>${esc(p.name)}, le logiciel ${esc(c.nom)} (${esc(hote)}) veut se connecter avec ton compte Odin. Il verra : ${esc(voit.join(', '))}. Jamais ton mot de passe.</p>
+<form method="post" action="/sso/autoriser"><input type="hidden" name="demande" value="${esc(id)}"><input type="hidden" name="consentement" value="oui"><button type="submit">Autoriser</button></form>
+<form method="post" action="/sso/autoriser"><input type="hidden" name="demande" value="${esc(id)}"><input type="hidden" name="consentement" value="non"><button class="ghost" type="submit">Refuser</button></form></div>`, formTo(dm.redirect));
 }
 
 // ---------------- CORS (applis web déclarées)
@@ -237,6 +259,22 @@ async function autoriser(ctx: ModCtx, req: IncomingMessage, res: ServerResponse,
     const b = await lireCorps(req, 8000); if (!b.ok) return pageErreur(res, 400, 'Formulaire illisible', 'Recommence depuis l\'appli.');
     const id = b.v.demande ?? '', dm = demandes.get(id);
     if (!dm || dm.exp < Date.now()) return pageErreur(res, 400, 'Demande expirée', 'La page de connexion est restée ouverte trop longtemps : recommence depuis l\'appli.');
+    // Réponse à « Autoriser ce logiciel ? » : seulement par la personne connectée sur ce navigateur.
+    if (b.v.consentement) {
+      const nav = sessionNavigateur(ctx, req), p = nav?.p ?? (d.proprietaireConnecte() ? lierProprietaire(ctx) : undefined);
+      if (!dm.sub || !p || p.id !== dm.sub) return pageErreur(res, 403, 'Refusé', 'Cette demande n\'est pas la tienne : recommence depuis le logiciel.');
+      demandes.delete(id); const c = client(ctx, dm.c)!;
+      if (b.v.consentement !== 'oui') { noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `SSO ${c.nom} · refusé par la personne` }); return renvoi(res, dm.redirect, { error: 'access_denied', error_description: `Tu as refusé que ${c.nom} utilise ton compte Odin.`, state: dm.state, iss }); }
+      ctx.saveSettings({ ssoConsentements: { ...((ctx.settings.ssoConsentements as Record<string, number> | undefined) ?? {}), [`${p.id}:${c.id}`]: Date.now() } });
+      noter(ctx, { login: p.login, ip: d.ip, ok: true, why: `SSO ${c.nom} · autorisé par la personne` });
+      return finir(ctx, res, { ...dm, sub: undefined }, p, iss, d, dm.via ?? 'consentement');
+    }
+    if (dm.sub) return pageErreur(res, 400, 'Demande expirée', 'Recommence depuis l\'appli.');
+    // Après une connexion par clé d'accès (la session du navigateur vient d'être ouverte).
+    if (b.v.suite === '1') {
+      const nav = sessionNavigateur(ctx, req); if (!nav) return formulaire(res, id, dm, ctx, 'mdp', '', 'La clé d\'accès n\'a pas ouvert de session : recommence.', 401);
+      demandes.delete(id); return finir(ctx, res, dm, nav.p, iss, d, 'clé d\'accès');
+    }
     const r = await verifierPersonne(ctx, d, s(b.v.identifiant), b.v.motdepasse ?? '', s(b.v.code).replace(/\s/g, ''), `SSO ${nomAppli(ctx, dm.c)}`);
     if (!r.ok) return r.code === 'code_requis' ? formulaire(res, id, dm, ctx, 'code', s(b.v.identifiant)) : formulaire(res, id, dm, ctx, 'mdp', s(b.v.identifiant), r.message, r.status);
     demandes.delete(id); ouvrirNavigateur(ctx, req, res, r.p, d);
@@ -257,6 +295,9 @@ async function autoriser(ctx: ModCtx, req: IncomingMessage, res: ServerResponse,
   const prompt = s(q.get('prompt'));
   if (prompt !== 'login') {
     const nav = sessionNavigateur(ctx, req);
+    // prompt=none : jamais d'écran, donc pas de page « Autoriser ? » non plus.
+    const deja = nav?.p ?? (d.proprietaireConnecte() ? lierProprietaire(ctx) : undefined);
+    if (deja && prompt === 'none' && !c.prereg && !consenti(ctx, deja.id, c.id) && aDroit(ctx, deja, c.id)) return back('consent_required', `Autorise d'abord ${c.nom} dans Odin.`);
     if (nav) return finir(ctx, res, dm, nav.p, iss, d, 'session du navigateur');
     if (d.proprietaireConnecte()) { const p = lierProprietaire(ctx); if (p) return finir(ctx, res, dm, p, iss, d, 'session du propriétaire'); }
     // Le cookie de l'interface d'Odin est « SameSite=Strict » : arrivé depuis un autre site, le navigateur ne l'envoie pas.

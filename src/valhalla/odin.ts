@@ -3,9 +3,11 @@
 // Talos ; IA d'Odin quand elle est là (sinon tout marche par mots-clés).
 
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import type { Odin } from '../runtime.ts';
 import { writeSecret } from '../settings.ts';
+import { setConfigValue } from '../config.ts';
 import { brainOf } from '../tools/brain.ts';
 import { draupnirOf } from '../tools/draupnir.ts';
 import { runesOf } from '../tools/runes.ts';
@@ -30,10 +32,12 @@ import { askr } from './modules/askr.ts';
 import { valgrind } from './modules/valgrind.ts';
 import { varModule } from './modules/var.ts';
 import { bru, setOdinWeb } from './modules/bru.ts';
+import { brancherAdresseOdin, brancherCourrier } from './sso/registre.ts';
+import { buildMail, smtpSend } from '../tools/mail.ts';
 import { Notices } from './notices.ts';
 import { skidbladnir } from './modules/skidbladnir.ts';
 import { eitri } from './modules/eitri.ts';
-import { gladsheim } from './modules/gladsheim.ts';
+import { gladsheim, publierLieu, supposerLieu, surLieu } from './modules/gladsheim.ts';
 import { gna } from './modules/gna.ts';
 import { pegase } from './modules/pegase.ts';
 import { agora } from './modules/agora.ts';
@@ -78,6 +82,8 @@ import { idunn, idunnKeys } from './modules/idunn.ts';
 import { ullr, ullrKeys } from './modules/ullr.ts';
 import { syncSheets } from './fiches.ts';
 import { AppJournal } from './journal.ts';
+import { brancherMemoire } from './base/trace.ts';
+import { ParoleOdin, setParole } from './parole.ts';
 import { ymir } from './modules/ymir.ts';
 import { Valhalla } from './service.ts';
 import type { Module, NotifyOpts } from './types.ts';
@@ -153,7 +159,10 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   setReseau(odin.inventory ? () => odin.inventory!.list({ status: 'all' }).filter((d) => d.status !== 'removed').map((d) => ({ ip: d.ip, nom: d.label || d.name || d.hostname || undefined, kind: d.kind || undefined, os: d.os || undefined, ports: d.ports, enLigne: d.status === 'online' })) : undefined);
   // Bifröst peut publier l'interface d'Odin elle-même sous ton domaine.
   setOdinWeb(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
-  const devices = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
+  // Persona (invitations, mot de passe oublié) et le compagnon des postes : l'adresse d'Odin et sa boîte d'envoi.
+  brancherAdresseOdin(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
+  brancherCourrier(async (a, sujet, texte) => { const c = odin.cfg.mail; await smtpSend(c, [a], buildMail(c.from || c.user, [a], sujet, texte)); });
+  const devices =() => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
   return ([...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, gna, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora] as Module[]).map(rename);
 }
 
@@ -195,6 +204,18 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   const ha = odin.cfg.homeAssistant?.url, pve = odin.cfg.proxmox?.url;
   for (const id of ['midgard', 'bragi', 'aegir']) if (ha && !v.ctx(id).settings.haUrl) v.ctx(id).saveSettings({ haUrl: ha });
   if (pve && !((v.ctx('ymir').settings.servers as unknown[] | undefined)?.length)) v.ctx('ymir').saveSettings({ servers: [{ name: 'principal', url: pve }] });
+  // Le lieu d'Odin (Hestia) et la ville du briefing du matin ne font qu'un : la ville déjà donnée pour le briefing sert
+  // de lieu tant que rien n'est réglé ; un lieu changé dans Hestia (nom ou position de l'appareil) est recopié pour le briefing.
+  const ville = (odin.cfg.journal.city ?? '').trim();
+  if (ville && !v.ctx('gladsheim').settings.ville) v.ctx('gladsheim').saveSettings({ ville });
+  // Rien de réglé : ce que l'horloge de la machine laisse supposer (Europe/Paris → Paris…), sans rien demander à Internet.
+  supposerLieu(v.ctx('gladsheim')); publierLieu(v.ctx('gladsheim'));
+  surLieu((l) => {
+    try {
+      odin.cfg.journal.city = l.nom; setConfigValue(odin.paths, ['journal', 'city'], l.nom);
+      odin.muninn.setKv(`weather-geo:${l.nom.toLowerCase()}`, JSON.stringify({ lat: l.lat, lon: l.lon, name: l.nom }));
+    } catch { /* la configuration n'est pas inscriptible : le lieu de Hestia reste bon */ }
+  });
   if (!existsSync(odin.paths.home)) return () => {};
   setValhalla(v);
   // Les fiches des applis dans le Cerveau : ce qu'elles font et comment elles se relient, jamais leurs réglages.
@@ -210,16 +231,29 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   v.events.on('event', toFlows); v.events.on('alert', alertToFlows);
   // Les bulles de la mascotte (alertes, décisions d'Odin) : relayées en direct aux pages ouvertes.
   const notices = new Notices(v);
+  // Ce que dit la mascotte (tous les écrans) : la page ouverte, les alertes, le Cerveau, la mémoire ; jamais deux fois la même chose.
+  setParole(new ParoleOdin({
+    modules: () => v.modules(),
+    view: (id) => v.module(id)?.view(v.ctx(id), new URLSearchParams()),
+    alerts: (o) => v.alerts(o),
+    vault: () => brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }),
+    souvenirs: (q, n) => odin.muninn.findMemories(q, n),
+    demandes: () => odin.muninn.listSessions(6).filter((x) => !/^(cron|breaker|auto):/i.test(x.id)).flatMap((x) => odin.muninn.allMessages(x.id).filter((r) => r.role === 'user' && !r.tainted).slice(-1)).sort((a, b) => b.created_at - a.created_at).map((r) => r.content),
+    habitudes: () => odin.muninn.habits(),
+    taches: () => odin.muninn.listJobs(),
+  }, join(odin.paths.home, 'valhalla', 'parole.json')));
   // Le lien de toutes les applis avec la mémoire d'Odin : une note par jour dans le Cerveau (sans secret).
   let journal: AppJournal | undefined; try { journal = new AppJournal(v, brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }), (t) => odin.redactor.redact(t)); } catch { /* Cerveau indisponible */ }
   void v.start();
-  return () => { void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
+  // Chaque consultation d'une base d'appli par Odin est retenue par sa mémoire (sujet « base <appli> ») : « quand as-tu regardé la base de Phénix ? »
+  brancherMemoire((texte, sujet) => { odin.muninn.remember(texte, 'agent', 'fact', 'base alexandrie', { subject: sujet, topic: 'consultation', source: 'Alexandrie' }); });
+  return () => { brancherMemoire(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
 }
 
 /** Pour Talos : action d'une appli, sans personne → actions graves refusées. */
 export const moduleDep = (module: string, action: string, input: Record<string, unknown>) => {
   const v = valhallaOf(); if (!v) return Promise.resolve({ ok: false, text: 'applis d\'Odin non démarrées' });
-  return v.act(module, action, input, { auto: true, by: 'automatisation', why: 'automatisation Talos' });
+  return v.act(module, action, input, { auto: true, by: 'automatisation', why: 'automatisation Talos', de: 'draupnir' });
 };
 
 /** « Qui fait quoi » : toutes les applis, leurs liens, et les usages de prédilection. */

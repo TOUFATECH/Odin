@@ -12,7 +12,7 @@
     return n;
   };
   const post = async (module, action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module, action, input, confirm }) })).json();
-  const act = async (module, action, input) => { let r = await post(module, action, input); if (r.confirm) { if (!confirm(r.confirm)) return { ok: false, text: 'Annulé.' }; r = await post(module, action, input, true); } return r; };
+  const act = async (module, action, input) => { let r = await post(module, action, input); if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { ok: false, text: 'Annulé.' }; r = await post(module, action, input, true); } return r; };
   const BLUE = '#5b8def', GREEN = '#34c77b', ORANGE = '#f0a020';
   const CSS = `
 .ec{display:flex;flex-direction:column;gap:14px;margin:0 0 18px}

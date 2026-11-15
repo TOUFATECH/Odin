@@ -89,6 +89,10 @@ export async function dropFile(inbox: string | undefined, name: string, mime: st
   mkdirSync(inbox, { recursive: true });
   const safe = basename(name).replace(/[^\w.\-À-ÿ ]+/g, '_').replace(/^\.+/, '').slice(0, 120) || 'fichier';
   const dest = join(inbox, `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}-${safe}`);
+  // Quarantaine d'abord : la pièce jointe est analysée avant d'être écrite ; dangereuse, elle part en quarantaine.
+  const { quarantaineDabord } = await import('../valhalla/ullr/garde.ts');
+  const passage = await quarantaineDabord({ donnees: Buffer.from(data), nom: safe, destination: dest, origine: 'Pièce jointe reçue par messagerie' });
+  if (passage.bloque) return `[Pièce jointe bloquée par l'antivirus : ${safe} (${passage.menace ?? 'menace'}). Elle est en quarantaine dans Asclépios et n'a pas été enregistrée ; dis-le à la personne.]`;
   writeFileSync(dest, data);
   return `[Fichier reçu : inbox/${basename(dest)} (${mime || 'type inconnu'}, ${Math.round(data.byteLength / 1024)} Ko)]`;
 }

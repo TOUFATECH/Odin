@@ -5,12 +5,29 @@ utiliser la base de données ». Les applis qui rangent leurs **données** en fi
 PostgreSQL gérée par Alexandrie (`urdr`). Odin lit ces bases (lecture seule, vues prévues) pour répondre ; il ne sert
 plus lui-même de base. Zéro SQLite, zéro Docker.
 
+## 0. La règle (décision du propriétaire, 15/11/2026) — vaut pour TOUTE appli, présente ou future (Vénus comprise)
+
+- **Toutes les données d'une appli sont dans Alexandrie**, dans **SA base**, nommée d'après son nom affiché, sans
+  accents ni espaces, en majuscules, suivi de `_ODIN` : Phénix → `PHENIX_ODIN`, Alexandrie → `ALEXANDRIE_ODIN`,
+  Vénus → `VENUS_ODIN`, Persona → `PERSONA_ODIN`, Bifröst → `BIFROST_ODIN`.
+- **Une seule fonction** calcule ce nom : `nomBase()` dans `src/valhalla/base/noms.ts` (utilisée partout : création,
+  renommage, lecture par Odin, liste d'Alexandrie, sauvegardes, fiches du Cerveau).
+- Le **compte PostgreSQL de l'appli porte le même nom** (`PHENIX_ODIN`) et n'entre que dans sa base.
+- PostgreSQL met en minuscules un nom écrit sans guillemets : les noms sont **toujours entre guillemets** dans le SQL
+  (`ident()`), et passés tels quels aux programmes (`pg_dump -d PHENIX_ODIN`, `createdb`) qui gardent la casse.
+- Une donnée qui reste en fichier doit être **déclarée avec sa raison** dans `src/valhalla/base/inventaire.ts`
+  (réglages de démarrage, secret, gros fichiers binaires, nécessaire pour démarrer la base, cœur d'Odin) ; la liste
+  « à faire » (pas encore migrée) est fermée. **`test/bases-odin.test.ts` parcourt `allModules()`** : une nouvelle
+  appli absente de l'inventaire, avec une donnée en fichier sans raison, ou dont la base ne suit pas la règle (unique,
+  majuscules, `_ODIN`), fait échouer les essais.
+
 ## 1. Principes
 
-- **Une base `odin`**, **un schéma PostgreSQL par appli** (`pegase`, `persona`, `journaux`…), **un compte par appli**
-  (`odin_app_<id>`) qui n'a de droits que sur son schéma. Un schéma commun `odin_base` (versions des migrations,
-  écritures en attente déjà reprises). Un compte `odin_lecture` qui ne voit **que les vues** `v_*` prévues pour Odin
-  (jamais les colonnes sensibles : empreintes de jetons, adresses IP, réglages privés).
+- **Une base PostgreSQL par appli** (`NOM_ODIN`, voir §0), **un schéma par partie** dans cette base (`pegase`,
+  `journaux`…), **un compte par appli** (même nom que sa base) qui n'a de droits que sur sa base. Un compte
+  `odin_lecture` qui ne voit **que les vues** `v_*` prévues pour Odin (jamais les colonnes sensibles : empreintes de
+  jetons, adresses IP, réglages privés). Avant le 15/11, toutes les applis partageaient une base `odin` (un schéma
+  par appli) : voir §9 (déménagement).
 - **Requêtes paramétrées seulement** : la couche commune refuse un texte SQL qui contient une valeur collée (guillemet
   simple) ; seules les migrations (écrites dans le code) passent par le protocole simple.
 - **Même interface qu'avant** pour chaque appli : la mémoire de l'appli reste la même (lectures synchrones), seul le
@@ -92,21 +109,29 @@ N = normal.
 ## 5. Schéma
 
 ```
-base odin
-├── odin_base           (admin)   migrations(app, version, nom, faite) · reprises(app, n)
-├── pegase              (odin_app_pegase)
-│   ├── enregistrements(profil, col, id, data jsonb, maj, appareil, suppr, jour)  PK(profil, col, id)
-│   ├── prefs(profil PK, voir, agenda_cle)
-│   ├── appareils(id PK, profil, nom, plateforme, cree, vu, ip, jeton, sso, revoque, synchro, envoyes, recus)
-│   ├── copies(profil, id, date, raison, nombres jsonb, cols jsonb)  PK(profil, id)
-│   └── vues : v_historique (seulement les profils qui laissent voir), v_favoris, v_agenda, v_appareils (sans jeton ni IP)
-└── journaux            (odin_app_journaux)
-    ├── entrees(n bigserial, journal, quand, donnees jsonb)  (alertes, bulles, connexions Persona, historique Arche…)
-    └── vues : v_alertes, v_bulles, v_sauvegardes  (pas de vue sur les connexions : IP)
+base "PEGASE_ODIN"        (compte "PEGASE_ODIN")
+└── pegase
+    ├── _migrations(version, nom, faite) · _demenagement(source, lignes, fait)
+    ├── enregistrements(profil, col, id, data jsonb, maj, appareil, suppr, jour)  PK(profil, col, id)
+    ├── prefs(profil PK, voir, agenda_cle)
+    ├── appareils(id PK, profil, nom, plateforme, cree, vu, ip, jeton, sso, revoque, synchro, envoyes, recus)
+    ├── copies(profil, id, date, raison, nombres jsonb, cols jsonb)  PK(profil, id)
+    └── vues : v_historique (seulement les profils qui laissent voir), v_donnees, v_agenda, v_appareils (sans jeton ni IP)
+base "FORSETI_ODIN", "PERSONA_ODIN", "ARCHE_ODIN", "ALEXANDRIE_ODIN", "ECHO_ODIN", "ARACHNE_ODIN", "HERMES_ODIN",
+     "ANDROMEDE_ODIN", "NEBULEUSE_ODIN", "SIRENES_ODIN", "GENESE_ODIN", "MASCOTTE_ODIN"…   (compte du même nom)
+└── journaux
+    ├── entrees(n bigserial, uid PK, journal, quand, donnees jsonb)  — seulement les journaux de CETTE appli
+    └── vues : v_alertes, v_bulles, v_sauvegardes, v_connexions (sans IP), v_evenements_sites
 ```
 
-Rôles : `odin` (admin, crée les schémas et les comptes), `odin_app_<id>` (propriétaire de son schéma, rien
-d'autre : `REVOKE ALL ON SCHEMA public`), `odin_lecture` (USAGE sur les schémas, SELECT sur les vues `v_*` seulement).
+Journal → base : `alertes` → FORSETI_ODIN, `bulles` → MASCOTTE_ODIN, `connexions` → PERSONA_ODIN, `arche` →
+ARCHE_ODIN, `requetes` et `liens_bases` → ALEXANDRIE_ODIN, `rodd` → ECHO_ODIN, `idunn` → ARACHNE_ODIN,
+`forge_<appli>` → la base de l'appli, `loki` → SIRENES_ODIN, `thjalfi` → GENESE_ODIN, `skidbladnir` →
+NEBULEUSE_ODIN (`proprietaireJournal()` dans `noms.ts`).
+
+Rôles : `odin` (admin, crée les bases et les comptes, propriétaire des bases), `"<NOM>_ODIN"` (propriétaire de ses
+schémas, CONNECT sur sa base seulement : `REVOKE ALL ON DATABASE … FROM PUBLIC`, `REVOKE ALL ON SCHEMA public`),
+`odin_lecture` (CONNECT sur chaque base, USAGE sur les schémas, SELECT sur les vues `v_*` seulement).
 
 ## 6. Le socle (`src/valhalla/base/`)
 
@@ -145,3 +170,60 @@ puis revenue ».
 | Rödd, Iðunn, Forge (historiques) | **en base** (même journal commun) | `test/journaux-base.test.ts` |
 | Agora | à faire après sa fusion (même modèle que Pégase : `DefAppli` + support) | — |
 | Les autres (§3) | à faire, une à la fois | — |
+
+## 9. Une base par appli (15/11) : nommage, déménagement, renommage
+
+- **Création** (`BaseOdin.baseDe()`, `src/valhalla/base/index.ts`) : au premier branchement d'une appli, sa base
+  `"NOM_ODIN"` et son compte du même nom sont créés (mot de passe généré, rangé dans les secrets sous `base-<id>`),
+  la base est inscrite dans la liste d'Alexandrie (entrée `odin-<id>`, compte `odin_lecture`).
+- **Déménagement** (`demenagement.ts`) : si l'ancienne base commune `odin` existe, ce qu'elle contient pour l'appli est
+  **copié** dans sa base (mêmes tables, migrations déjà passées), recompté, puis noté dans `<schéma>._demenagement` :
+  le refaire ne double rien. L'ancienne base n'est **jamais modifiée ni effacée** : elle reste dans Alexandrie comme
+  « Ancienne base commune d'Odin (copie de secours) » ; on pourra l'effacer à la main quand tout sera vérifié.
+  L'ancien journal d'attente commun (`valhalla/journaux/.attente-base.jsonl`) est réparti dans celui de chaque appli
+  (`valhalla/journaux/<appli>/`), l'ancien fichier est gardé à côté (`.reparti-<date>`).
+- **Renommage** (`renommage.ts`) : quand le nom affiché d'une appli change, ou qu'une base a été créée sans guillemets
+  (minuscules), Odin fait `ALTER DATABASE "ancien" RENAME TO "NOUVEAU"` (plus de nouvelle connexion, connexions
+  restantes fermées, puis rouvertes), et renomme le compte (mot de passe remis). Idempotent ; les deux noms existent :
+  rien n'est touché. Les noms sont gardés dans `valhalla/urdr/noms-bases.json` (nom, nom précédent).
+  **Retour arrière** : action d'Alexandrie « Renommer la base d'une appli » avec `nom = ancien` (le nom est alors
+  gardé, Odin ne remet pas la règle).
+- **Sauvegardes** : la sauvegarde chiffrée de chaque nuit fait un `pg_dump` **par base** (`<NOM>-<date>.dump.odinbk`),
+  restaurable à côté (`<NOM>_RESTAUREE_<date>`). Arche (`skuld`) passe le nom de la base tel quel à `pg_dump` /
+  `pg_restore` / `createdb` : la casse est gardée (essai dans `test/bases-odin.test.ts`).
+- **Bases des logiciels installés par Argo** (`app_<nom>`, créées par `provision()` pour n8n, Nextcloud…) : **pas
+  renommées** pour l'instant. Leur nom est écrit dans la configuration du conteneur (variables `DATABASE_URL`…) : il
+  faut renommer la base ET changer la configuration du conteneur ensemble, conteneur arrêté. À faire avec l'accord du
+  propriétaire, appli par appli (la fonction `renommerBase()` est prête).
+
+## 10. Odin a accès à toutes les bases (lecture seule) et garde la trace de tous les liens
+
+- **Action d'Alexandrie « Lire la base d'une appli »** (`base_lire`, `lecture.ts`) : l'appli est trouvée par son nom
+  (« la base de Phénix » → `PHENIX_ODIN`) ; sans requête, les vues lisibles et leur nombre de lignes ; avec une
+  requête, une seule instruction `SELECT` / `WITH … SELECT` (tout mot qui écrit est refusé avant d'aller à la base),
+  lancée dans une transaction `READ ONLY` avec délai, par le compte `odin_lecture` (vues seulement), 200 lignes au
+  plus ; les colonnes secrètes (mot de passe, jeton, clé, empreinte, chiffré, adresse IP…) et les valeurs qui
+  ressemblent à un jeton sont masquées. L'agent de discussion sait l'utiliser (description de l'outil `valhalla`).
+- **Traçabilité** (`trace.ts`, journal `liens_bases` dans `ALEXANDRIE_ODIN`, repli `valhalla/urdr/liens-bases.jsonl`) :
+  chaque lecture/écriture d'Odin dans la base d'une appli (par `base_lire` ou par Alexandrie Studio), chaque création,
+  migration, déménagement et renommage : qui, quelle base, quelles tables, quand, pourquoi, nombre de lignes —
+  **jamais les valeurs**. Action « Liens d'Odin avec les bases » (`base_traces`).
+- **Mémoire** : chaque consultation est retenue par Mnémosyne (sujet « base <appli> ») : Odin peut répondre « quand
+  as-tu regardé la base de Phénix ? ».
+- **Cerveau** : la fiche de chaque appli (`fiches.ts`) a une partie « Sa base » : nom de la base, tables, ce qui reste
+  en fichier et pourquoi, liens (Odin la lit, Alexandrie l'héberge, sauvegardée chaque nuit).
+
+## 11. Inventaire au 15/11 (détail : `src/valhalla/base/inventaire.ts`, action « Où sont les données des applis »)
+
+| | Applis |
+|---|---|
+| **Déjà en base** (avant le 15/11) | Pégase (`PEGASE_ODIN`) ; journaux : alertes (`FORSETI_ODIN`), bulles (`MASCOTTE_ODIN`), connexions de Persona (`PERSONA_ODIN`), historique d'Arche (`ARCHE_ODIN`), requêtes d'Alexandrie (`ALEXANDRIE_ODIN`), Écho, Arachné, Hermès / Andromède (forge) |
+| **Migrées le 15/11** (même mécanisme `journalDe` : copie de secours, repère, retour en fichiers possible) | Sirènes (attaques vues, `SIRENES_ODIN`), Genèse (historique des installations, `GENESE_ODIN`), Nébuleuse (journal des synchronisations, `NEBULEUSE_ODIN`), traçabilité des liens (`ALEXANDRIE_ODIN`) |
+| **Restent en fichiers, à migrer** (liste fermée, une à la fois) | Pythie, Chronos, Pharos, Plume, Dédale, Agora, Pulsar, Atlas, Tirésias, Cerbère, Méduse, Sphinx, Hestia, Ulysse, Gygès |
+| **Restent en fichiers, pour une raison** | réglages de démarrage (toutes les applis), secrets (Persona, Thésauros, Zéphyr, Vortex, Bifröst, Genèse, Satellites…), gros fichiers (Phénix : dépôt des sauvegardes ; Hélios, Olympie, Cyclope, Vénus, Perséphone, Ariane, Asclépios…), démarrage de la base (Argo, Hydre, liste des bases), cœur d'Odin (mémoire, Cerveau, Logos, Athéna, Talos) |
+
+Aucun SQLite (seul `muninn/migrate.ts` sait lire l'ancien `odin.db`, pour le convertir une fois), aucune autre base.
+
+**Vénus** (`freyja`, base prévue `VENUS_ODIN`) : dans Odin, Vénus n'a que des réglages et des médias (fichiers). Le
+serveur Venus (dépôt à part) doit, s'il garde des données, demander sa base à Alexandrie sous ce nom ; Odin la lira
+alors comme les autres (`base_lire`, appli « Vénus »).

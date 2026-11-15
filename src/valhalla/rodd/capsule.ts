@@ -1,5 +1,6 @@
 // Écho · la capsule de dictée sur les PC du parc. Satellites (l'agent du parc) l'installe par SSH dans
-// ~/.odin-capsule/ du poste, la règle, la vérifie et la retire ; Écho reçoit ses dictées (POST /api/rodd/capsule).
+// ~/.odin-capsule/ du poste (Linux, macOS ; Windows : voir capsule-windows.ts), la règle, la vérifie et la retire ;
+// Écho reçoit ses dictées (POST /api/rodd/capsule).
 //
 // Chaque capsule a son jeton à elle, tiré au hasard à l'installation. Odin n'en garde que l'empreinte (SHA-256) :
 // le jeton lui-même n'existe que sur le poste, dans un fichier lisible par son seul propriétaire (600). Retirer la
@@ -10,7 +11,7 @@ import { createHash, randomBytes, timingSafeEqual, X509Certificate } from 'node:
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-export const VERSION_CAPSULE = '1.0.0';
+export const VERSION_CAPSULE = '1.1.0';
 export interface Inscrite { poste: string; empreinte: string; at: string; mode: string; version: string }
 
 export const fichierCapsules = (home: string) => join(home, 'valhalla', 'rodd', 'capsules.json');

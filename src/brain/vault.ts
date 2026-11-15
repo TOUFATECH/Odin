@@ -98,11 +98,22 @@ export function safeName(title: string): string {
   return title.replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'Sans titre';
 }
 const noteKey = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\.md$/, '').trim();
+/** Le texte d'une note sans accents ni majuscules, calculé une fois par note lue (la recherche le relit à chaque demande). */
+const FOLDED = new WeakMap<Note, { title: string; body: string; props: string; tags: string }>();
+function folded(n: Note): { title: string; body: string; props: string; tags: string } {
+  let f = FOLDED.get(n);
+  if (!f) { f = { title: noteKey(n.title), body: noteKey(n.body), props: noteKey(JSON.stringify(n.meta)), tags: n.tags.join(' ') }; FOLDED.set(n, f); }
+  return f;
+}
 
 // ---------------- Coffre ----------------
 
 export class Vault {
   private cache?: { at: number; notes: Note[] };
+  /** Notes déjà lues (chemin → note) : une note dont la date et la taille n'ont pas bougé n'est pas relue. */
+  private known = new Map<string, Note>();
+  /** Index des notes (chemin, nom de fichier, titre) : `find` ne parcourt plus tout le Cerveau. */
+  private idx?: { notes: Note[]; byPath: Map<string, Note>; byKey: Map<string, Note> };
   readonly root: string;
   constructor(root: string) { this.root = root; mkdirSync(root, { recursive: true }); }
 
@@ -126,23 +137,38 @@ export class Vault {
         const p = join(dir, e.name);
         if (e.isDirectory()) walk(p, depth + 1);
         else if (e.isFile() && extname(e.name) === '.md' && notes.length < 20_000) {
-          const st = statSync(p);
+          const st = statSync(p), rel = relative(this.root, p).split(sep).join('/');
+          // Rien n'a bougé depuis la dernière lecture : la note déjà lue sert (le Cerveau répond vite, même gros).
+          const old = this.known.get(rel);
+          if (old && old.mtime === st.mtimeMs && old.size === st.size) { notes.push(old); continue; }
           const text = st.size < 2_000_000 ? readFileSync(p, 'utf8') : '';
           const { meta, body } = parseNote(text);
-          notes.push({ path: relative(this.root, p).split(sep).join('/'), title: String(meta.titre ?? meta.title ?? basename(e.name, '.md')), meta, body, links: extractLinks(body), tags: extractTags(body, meta), mtime: st.mtimeMs, size: st.size });
+          notes.push({ path: rel, title: String(meta.titre ?? meta.title ?? basename(e.name, '.md')), meta, body, links: extractLinks(body), tags: extractTags(body, meta), mtime: st.mtimeMs, size: st.size });
         }
       }
     };
     walk(this.root, 0);
+    this.known = new Map(notes.map((n) => [n.path, n]));
     this.cache = { at: Date.now(), notes };
     return notes;
   }
-  private invalidate() { this.cache = undefined; }
+  /** Après une écriture d'Odin : tout est relu (une note réécrite dans la même milliseconde garderait sa date). */
+  private invalidate() { this.cache = undefined; this.idx = undefined; this.known.clear(); }
 
   /** Trouve une note par chemin, nom de fichier ou titre (comme les liens d'Obsidian). */
   find(ref: string): Note | undefined {
     const k = noteKey(ref.split('/').pop() ?? ref), path = ref.replace(/\.md$/, '');
-    return this.all().find((n) => n.path.replace(/\.md$/, '') === path) ?? this.all().find((n) => noteKey(basename(n.path)) === k || noteKey(n.title) === k);
+    const notes = this.all();
+    if (this.idx?.notes !== notes) {
+      // La première note qui porte ce chemin, ce nom de fichier ou ce titre (même ordre qu'avant l'index).
+      const byPath = new Map<string, Note>(), byKey = new Map<string, Note>();
+      for (const n of notes) {
+        const p = n.path.replace(/\.md$/, ''); if (!byPath.has(p)) byPath.set(p, n);
+        for (const key of [noteKey(basename(n.path)), noteKey(n.title)]) if (!byKey.has(key)) byKey.set(key, n);
+      }
+      this.idx = { notes, byPath, byKey };
+    }
+    return this.idx.byPath.get(path) ?? this.idx.byKey.get(k);
   }
 
   read(path: string): Note | undefined { return this.find(path); }
@@ -295,7 +321,7 @@ export class Vault {
     if (!words.length) return [];
     const out: Array<{ note: Note; score: number; snippet: string }> = [];
     for (const n of this.all()) {
-      const title = noteKey(n.title), body = noteKey(n.body), props = noteKey(JSON.stringify(n.meta)), tags = n.tags.join(' ');
+      const { title, body, props, tags } = folded(n);
       let score = 0, hit = -1;
       for (const w of words) {
         if (title.includes(w)) score += 10;

@@ -114,7 +114,12 @@ export const imageView: Tool = {
       if (buf.byteLength > 20 * 1024 * 1024) return 'Image trop lourde (20 Mo au plus).';
       const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic', 'image/bmp': 'bmp', 'image/tiff': 'tiff' } as Record<string, string>)[type.split(';')[0]] ?? 'jpg';
       const dir = join(ctx.workspace, 'inbox'); mkdirSync(dir, { recursive: true });
-      p = join(dir, `image-${Date.now()}.${ext}`); writeFileSync(p, buf);
+      p = join(dir, `image-${Date.now()}.${ext}`);
+      // Quarantaine d'abord : ce qu'Odin télécharge est analysé avant d'être écrit et ouvert.
+      const { quarantaineDabord } = await import('../valhalla/ullr/garde.ts');
+      const passage = await quarantaineDabord({ donnees: Buffer.from(buf), nom: `image.${ext}`, destination: p, origine: 'Téléchargement d\'Odin (image d\'un lien)', source: s(i.path).trim() });
+      if (passage.bloque) return `Téléchargement bloqué par l'antivirus (${passage.menace ?? 'menace'}) : le fichier est en quarantaine dans Asclépios, je ne l'ai pas ouvert.`;
+      writeFileSync(p, buf);
     } else p = toolPath(ctx, p);
     if (!ctx.vision) return 'Aucun modèle qui voit les images n\'est disponible pour l\'instant (ajoute Claude, GPT ou Kimi dans Réglages → Modèle).';
     let ext = extname(p).slice(1).toLowerCase(), mime = IMAGE_MIME[ext];

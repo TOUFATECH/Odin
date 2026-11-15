@@ -205,7 +205,7 @@
   async function runFull(mod, action, input, confirmed) {
     if (mod === cur && pagePostes && viewQ[mod]?.poste && !input?.poste && actParams[action]?.some((p) => p.key === 'poste')) input = { ...input, poste: viewQ[mod].poste };
     const r = await api('/api/valhalla/act', { module: mod, action, input, confirm: confirmed === true });
-    if (r.confirm) { if (!window.confirm(r.confirm)) return { text: 'Annulé.', files: [] }; return runFull(mod, action, input, true); }
+    if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { text: 'Annulé.', files: [] }; return runFull(mod, action, input, true); }
     if (r.ok && r.data && (r.data.svg || r.data.conf)) show(r.text, r.data);
     setTimeout(() => cur === mod && openApp(mod, true), 600);
     const files = r.ok && Array.isArray(r.fichiers) ? r.fichiers.map((f) => ({ nom: String(f.nom), href: `/api/valhalla/fichier?${new URLSearchParams({ module: String(r.module || mod), ref: String(f.ref) })}` })) : [];
@@ -391,7 +391,7 @@
   }
   async function runOther(m, action, input) {
     const r = await api('/api/valhalla/act', { module: m, action, input });
-    if (r.confirm) { if (!window.confirm(r.confirm)) return 'Annulé.'; const x = await api('/api/valhalla/act', { module: m, action, input, confirm: true }); return x.ok ? x.text : `✗ ${x.text ?? x.error}`; }
+    if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return 'Annulé.'; const x = await api('/api/valhalla/act', { module: m, action, input, confirm: true }); return x.ok ? x.text : `✗ ${x.text ?? x.error}`; }
     // « Ouvrir » dans une autre appli : on y va (ex. la base d'une appli dans Alexandrie Studio).
     if (r.ok && action === 'ouvrir') { window.OdinOpenWant = { module: m, ...input }; setTimeout(() => openApp(m), 50); return r.text; }
     setTimeout(() => cur && openApp(cur, true), 600);
@@ -411,7 +411,7 @@
     if (window.OdinAppIcons) {
       const grid = el('div', { class: 'va-appgrid', role: 'list', 'aria-label': 'Tes applis' });
       for (const m of [...st.modules].sort((a, b) => a.name.localeCompare(b.name, 'fr'))) { const b = el('button', { type: 'button', class: 'va-appbtn', role: 'listitem', title: m.what, onclick: () => openApp(m.id) }); b.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 52); b.append(el('span', {}, m.name)); grid.append(b); }
-      box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Tes applis'), grid));
+      box.append(el('section', { class: 'va-sec' }, el('h2', {}, `Tes applis (${st.modules.length})`), grid));
     }
     // Ce qu'Odin a fait de lui-même : à garder ou à annuler. Et l'état de la protection, en une ligne.
     const top = el('div', { class: 'va-top' }); box.append(top);
@@ -450,7 +450,7 @@
         alert: m.alerts ? { n: m.alerts, level: m.grave ? 'grave' : 'attention' } : undefined, update: m.updates || 0,
         title: `${m.name} — ${m.what}${m.alerts ? ` · ${m.alerts} alerte(s)` : ''}${m.updates ? ` · ${m.updates} nouveauté(s) de son projet d'origine` : ''}` }))];
     const edges = [...fams.map((f) => ['odin', `fam:${f}`]), ...st.modules.map((m) => [`fam:${m.family}`, m.id]), ...st.links.filter((l) => l.from !== l.to).map((l) => [l.from, l.to])];
-    const data = { nodes, edges, card: (n) => { const m = st.modules.find((x) => x.id === n.id); return m ? appCard(m) : null; }, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
+    const data = { nodes, edges, echanges: true, card: (n) => { const m = st.modules.find((x) => x.id === n.id); return m ? appCard(m) : null; }, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
     if (graphUi && into.contains(graphUi.el)) graphUi.update(data); else graphUi = window.OdinGraph.mount(into, data);
   }
   /** Les manips d'Odin (réflexes, soins, automatisations) qui attendent ta décision. */
@@ -464,7 +464,7 @@
       const decide = async (id, keep, confirmed, btn) => {
         if (btn) btn.disabled = true;
         const x = await api('/api/valhalla/manip', { id, keep, confirm: confirmed === true });
-        if (x.confirm) { if (window.confirm(x.confirm)) return decide(id, keep, true, btn); if (btn) btn.disabled = false; return; }
+        if (x.confirm) { if (await window.OdinDialog.confirm(x.confirm, { danger: true })) return decide(id, keep, true, btn); if (btn) btn.disabled = false; return; }
         toast(x.text ?? (x.ok ? 'Fait.' : 'Impossible.')); draw();
       };
       const row = (m) => el('li', { class: 'va-manip' }, el('div', {}, el('b', {}, m.label), el('small', {}, m.text), el('small', {}, `${new Date(m.at).toLocaleString('fr-FR')} · ${m.by === 'odin' ? 'Odin, de lui-même' : m.by === 'réflexe' ? 'par réflexe' : m.by === 'automatisation' ? 'par une automatisation' : 'à la demande d\'un assistant'}${m.why ? ` · ${m.why}` : ''}`)),
@@ -510,7 +510,7 @@
       const inp = el('input', { class: 'va-champ', type: 'number', min: 1, max: 65535, inputmode: 'numeric', value: a.port ?? '', placeholder: 'aucun', id: `va-port-${id}`, style: 'max-width:140px' });
       const demande = async (faire, extra = {}) => {
         st.className = 'va-essai'; st.textContent = 'Un instant…';
-        let x; try { x = await api('/api/ports', { appli: id, faire, ...extra }); if (x.confirm) { if (!window.confirm(x.confirm)) { st.textContent = 'Annulé : rien n\'a changé.'; return; } x = await api('/api/ports', { appli: id, faire, ...extra, confirm: true }); } } catch (e) { x = { ok: false, error: e.message }; }
+        let x; try { x = await api('/api/ports', { appli: id, faire, ...extra }); if (x.confirm) { if (!(await window.OdinDialog.confirm(x.confirm, { danger: true }))) { st.textContent = 'Annulé : rien n\'a changé.'; return; } x = await api('/api/ports', { appli: id, faire, ...extra, confirm: true }); } } catch (e) { x = { ok: false, error: e.message }; }
         if (!x.ok) { st.className = 'va-essai ko'; st.textContent = `✗ ${x.error || x.text || 'refusé'}`; return; }
         dessine(x.appli, x.interface); st.className = 'va-essai ok'; st.textContent = x.text;
       };
@@ -630,7 +630,7 @@
       const corps = { id, type: type.value, jours: Number(jours.value) || undefined, ...(portee?.value ? { onglet: portee.value } : {}), ...(poste ? { poste } : {}), vue: viewQ[id] ?? {}, personnes: [...gens.querySelectorAll('input:checked')].map((x) => x.value), ...(confirm ? { confirm: true } : {}) };
       let y; try { y = await api('/api/valhalla/partage', corps); } catch (e) { y = { ok: false, error: e.message }; }
       btn.disabled = false;
-      if (y.confirm) { if (window.confirm(y.confirm)) return creer(btn, true); dit(false, 'Annulé : aucun lien créé.'); return; }
+      if (y.confirm) { if (await window.OdinDialog.confirm(y.confirm, { danger: true })) return creer(btn, true); dit(false, 'Annulé : aucun lien créé.'); return; }
       if (!y.ok) { dit(false, `✗ ${y.error}`); return; }
       const champ = el('input', { class: 'va-champ', type: 'text', readonly: true, value: y.lien, 'aria-label': 'Lien du partage' });
       lien.hidden = false; lien.replaceChildren(el('div', {}, champ), el('button', { class: 'btn primary', type: 'button', onclick: async (e) => { try { await navigator.clipboard.writeText(y.lien); e.currentTarget.textContent = 'Copié'; } catch { champ.select(); e.currentTarget.textContent = 'Sélectionné : copie-le'; } } }, 'Copier le lien'));
@@ -825,7 +825,7 @@
       openApp(id, true);
     }, Math.max(800, v.refreshMs));
   }
-  async function badge() { if (!appShown()) return; try { const a = (st ?? await api('/api/valhalla/catalog')).modules?.reduce((n, m) => n + (m.alerts ?? 0), 0) ?? 0; const b = $('#b-apps'); if (b) { b.hidden = !a; b.textContent = String(a); } } catch { /* rien */ } }
+  async function badge() { if (!appShown()) return; try { const a = (st ?? await api('/api/valhalla/catalog')).modules?.reduce((n, m) => n + (m.alerts ?? 0), 0) ?? 0; const b = $('#b-apps'); if (b) { b.hidden = !a; b.textContent = String(a); b.classList.add('alert'); const t = `${a} alerte${a > 1 ? 's' : ''} à voir dans tes applis`; b.title = t; b.setAttribute('aria-label', t); } } catch { /* rien */ } }
   function init() {
     const s = el('style', {}, css); document.head.append(s);
     $('#vaBack')?.addEventListener('click', () => { window.OdinShow?.('apps'); });

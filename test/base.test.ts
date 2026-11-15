@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { pgDisponible, pgJetable } from './banc/pg-jetable.ts';
 import { BaseAttente, BaseOdin, utiliserBase } from '../src/valhalla/base/index.ts';
 import { Reserve } from '../src/valhalla/base/pool.ts';
+import { Pg } from '../src/valhalla/urdr/pg.ts';
 import { restaurerACote, sauvegardes, sauvegarder } from '../src/valhalla/base/sauvegarde.ts';
 import { essayerMachine, lancer, programmes } from '../src/valhalla/base/serveur.ts';
 import { chmodSync, chownSync, mkdirSync, mkdtempSync, rmSync, writeFileSync as ecrire } from 'node:fs';
@@ -35,10 +36,13 @@ test('socle : base prête, comptes par appli isolés, lecture par les vues seule
     a.ecrire(['mettre', 'x', JSON.stringify({ k: "l'apostrophe ; DROP TABLE t" })]); await a.vider();
     assert.deepEqual((await a.q('SELECT v->>$1 FROM t', ['k'])).rows, [["l'apostrophe ; DROP TABLE t"]], 'la valeur passe en paramètre');
     await assert.rejects(() => a.q("SELECT * FROM t WHERE id = 'x'"), /valeur est collée/, 'valeur collée dans le SQL : refusée');
-    await assert.rejects(() => a.q('SELECT * FROM essai_b.t'), /permission denied/, 'une appli ne lit pas le schéma d\'une autre');
-    // Le compte de lecture d'Odin : inscrit dans Alexandrie, les vues seulement.
-    const al = bases(pg.home).find((x) => x.id === 'odin'); assert.equal(al?.utilisateur, 'odin_lecture'); assert.ok(password(pg.home, 'odin'));
-    const lect = new Reserve({ host: '127.0.0.1', port: pg.cible.port, user: 'odin_lecture', password: password(pg.home, 'odin'), database: 'odin', ssl: 'non' });
+    await assert.rejects(() => a.q('SELECT * FROM essai_b.t'), /permission denied|does not exist/, 'une appli ne lit pas la base d\'une autre');
+    // Une base par appli, au nom NOM_ODIN (entre guillemets : les majuscules sont gardées), et son compte du même nom.
+    assert.equal(a.nomDeBase, 'ESSAI_A_ODIN'); assert.equal(a.role, 'ESSAI_A_ODIN');
+    await assert.rejects(() => Pg.connect({ host: '127.0.0.1', port: pg.cible.port, user: 'ESSAI_A_ODIN', password: password(pg.home, 'base-essai_a'), database: 'ESSAI_B_ODIN', ssl: 'non' }), /permission denied|not have CONNECT/, 'le compte d\'une appli n\'entre pas dans la base d\'une autre');
+    // Le compte de lecture d'Odin : inscrit dans Alexandrie (une entrée par base), les vues seulement.
+    const al = bases(pg.home).find((x) => x.id === 'odin-essai_a'.replace('_', '-')); assert.equal(al?.utilisateur, 'odin_lecture'); assert.equal(al?.base, 'ESSAI_A_ODIN'); assert.ok(password(pg.home, 'odin'));
+    const lect = new Reserve({ host: '127.0.0.1', port: pg.cible.port, user: 'odin_lecture', password: password(pg.home, 'odin'), database: 'ESSAI_A_ODIN', ssl: 'non' });
     assert.deepEqual((await lect.q('SELECT id FROM essai_a.v_t')).rows, [['x']]);
     await assert.rejects(() => lect.q('SELECT v FROM essai_a.t'), /permission denied/, 'les tables : non');
     await lect.fermer();

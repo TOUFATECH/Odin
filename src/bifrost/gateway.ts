@@ -39,6 +39,7 @@ import { armNag, clearNag, dueNags, isReminderJob, nags, reminderReply, reminder
 import { morningBriefing } from './briefing.ts';
 import { resolveShortcut } from '../learn/shortcuts.ts';
 import { QUEUE_KEY, type QueuedAsk } from '../core/offline.ts';
+import { accord, accorder, commandeGenre } from '../core/genre.ts';
 import { applyParental, extend as extendParental } from '../home/parental.ts';
 import { checkLocalAlerts } from '../guard/alerts.ts';
 import { alarmTime, getAlarm, haPhoneAlarm, twilioCall, wakeText } from '../home/alarm.ts';
@@ -82,7 +83,8 @@ export function replyModeCommand(text: string): 'voix' | 'texte' | undefined {
 export function voiceGenderCommand(text: string): 'homme' | 'femme' | undefined {
   const t = text.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’`]/g, '\'').replace(/[.!?\s]+$/, '').replace(/^odin[\s,]+/, '');
   const m = /^(?:(?:parle(?:-| )?(?:moi)? avec|prends|reprends|mets|utilise|choisis|je veux|passe (?:a|sur)) )?(?:(?:une|ta|la) )?voix (?:d'|de )(homme|femme)(?: desormais| maintenant| a partir de maintenant)?$/.exec(t);
-  return m ? (m[1] as 'homme' | 'femme') : undefined;
+  // Les autres façons de le dire (« parle comme un homme », « sois une femme », « voix féminine ») : core/genre.ts.
+  return m ? (m[1] as 'homme' | 'femme') : commandeGenre(text);
 }
 
 export class Gateway {
@@ -105,13 +107,15 @@ export class Gateway {
     // Odin s'installe tout seul pour comprendre les vocaux : il te prévient.
     setVoiceNotifier((msg) => { void this.tellOwner(msg, 'home', true).catch(() => {}); });
     // Confiance apprise : Odin te dit ce qu'il fera seul désormais, et comment revenir en arrière.
-    const onLearned = (kv: unknown, tr: Trust) => { if (kv === odin.muninn) void this.tellOwner(`🧠 J'ai remarqué que tu acceptes toujours : « ${tr.example.slice(0, 120)} ». Désormais je le fais seul et je te le signale. Dis « redemande-moi » pour revenir comme avant.`, 'home', true).catch(() => {}); };
+    const onLearned = (kv: unknown, tr: Trust) => { if (kv === odin.muninn) void this.tellOwner(`🧠 J'ai remarqué que tu acceptes toujours : « ${tr.example.slice(0, 120)} ». Désormais je le fais ${accord('seul', 'seule')} et je te le signale. Dis « redemande-moi » pour revenir comme avant.`, 'home', true).catch(() => {}); };
     habitEvents.on('learned', onLearned);
     this.offLearned = () => habitEvents.off('learned', onLearned);
   }
   private offLearned?: () => void;
 
   add(ch: Channel): this {
+    // Odin, homme ou femme : ce qu'il envoie de tout fait (« je suis prêt », « désolé ») s'accorde au réglage en cours.
+    { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, accorder(text), opts); }
     // Hors de l'application : jamais de marqueur d'humeur dans le texte (Telegram, Signal, WhatsApp…).
     if (ch.name !== 'web') { const send = ch.send.bind(ch); ch.send = (peer, text, opts) => send(peer, stripMood(text), opts); }
     this.channels.set(ch.name, ch); return this;
@@ -348,10 +352,11 @@ export class Gateway {
     // Voix d'homme ou de femme, à la demande (sans IA) : « parle avec une voix de femme », « reprends ta voix d'homme ».
     const genre = owner ? voiceGenderCommand(text) : undefined;
     if (genre) {
-      const { setConfigValue } = await import('../config.ts');
-      setConfigValue(this.odin.paths, ['voice', 'gender'], genre); this.odin.cfg.voice.gender = genre;
+      // Le seul réglage « Odin : homme ou femme » : la voix et les accords du texte suivent tout de suite.
+      const { applySettings } = await import('../settings.ts');
+      applySettings(this.odin.paths, this.odin.cfg, 'genre', { genre });
       for (const c of this.channels.values()) c.notify?.('state');
-      return ch.send(m.peer, genre === 'femme' ? '👩 D\'accord, je parle maintenant avec une voix de femme.' : '👨 D\'accord, je parle maintenant avec une voix d\'homme.');
+      return ch.send(m.peer, genre === 'femme' ? '👩 D\'accord, je prends une voix de femme, et je parle de moi au féminin.' : '👨 D\'accord, je prends une voix d\'homme, et je parle de moi au masculin.');
     }
     // Quelle IA a traité quoi (journal réel) : /ia, /ia 5, /ia tout, /ia bilan, /ia eco (les économies).
     const ia = /^\/ia\b\s*(tout|bilan|eco|[ée]conomies|\d+)?/i.exec(text);
@@ -863,7 +868,7 @@ export class Gateway {
         : `⚠️ La version ${v.disk} d'Odin est installée mais ne se charge pas : je reste en ${v.running}.${aside}\n${c.output.slice(0, 600)}`, 'home', true);
       return false;
     }
-    if (c.healed) await this.tellOwner(`🔧 La version ${v.disk} ne se chargeait pas : je l'ai réparée tout seul.${aside} Je redémarre dessus.`, 'home', true).catch(() => undefined);
+    if (c.healed) await this.tellOwner(`🔧 La version ${v.disk} ne se chargeait pas : je l'ai réparée ${accord('tout seul', 'toute seule')}.${aside} Je redémarre dessus.`, 'home', true).catch(() => undefined);
     this.odin.muninn.setKv('updated-to', `${v.running}→${v.disk}`);
     restartSelf(1500);
     return true;
@@ -886,7 +891,7 @@ export class Gateway {
     const auto = this.odin.cfg.mimir.autonomy === 'breaker' || this.odin.cfg.mimir.autonomy === 'autonome';
     if (auto) { await t.ch.send(t.peer, this.activateHabit(k, t.ch.name, t.peer, true)).catch(() => {}); return k; }
     setKnown(this.odin.muninn, k);
-    await t.ch.send(t.peer, `🧠 J'ai remarqué que tu me demandes souvent « ${h.sample.slice(0, 120)} » ${habitWhen(h)}.\nVeux-tu que je le prépare tout seul, juste avant, et que je te l'envoie ?`, { habit: { key: h.key } }).catch(() => {});
+    await t.ch.send(t.peer, `🧠 J'ai remarqué que tu me demandes souvent « ${h.sample.slice(0, 120)} » ${habitWhen(h)}.\nTu veux que je le prépare ${accord('tout seul', 'toute seule')}, juste avant, et que je te l'envoie ?`, { habit: { key: h.key } }).catch(() => {});
     return k;
   }
   /** Met l'habitude en place (tâche planifiée 10 min avant l'heure habituelle) ; renvoie le message pour le propriétaire. */
@@ -897,8 +902,8 @@ export class Gateway {
     for (const c of this.channels.values()) c.notify?.('jobs');
     const when = cronFr(cron);
     return self
-      ? `🧠 J'ai remarqué que tu me demandes souvent « ${k.habit.sample.slice(0, 120)} » ${habitWhen(k.habit)}. Désormais je le prépare tout seul (${when}) et je te l'envoie. Dis « oublie cette habitude » pour arrêter.`
-      : `✅ C'est noté : je le prépare tout seul (${when}) et je te l'envoie. Dis « oublie cette habitude » pour arrêter.`;
+      ? `🧠 J'ai remarqué que tu me demandes souvent « ${k.habit.sample.slice(0, 120)} » ${habitWhen(k.habit)}. Désormais je le prépare ${accord('tout seul', 'toute seule')} (${when}) et je te l'envoie. Dis « oublie cette habitude » pour arrêter.`
+      : `✅ C'est noté : je le prépare ${accord('tout seul', 'toute seule')} (${when}) et je te l'envoie. Dis « oublie cette habitude » pour arrêter.`;
   }
 
   /**

@@ -5,11 +5,11 @@
 // Écrit pour Odin (MIT) : SearXNG (AGPL) n'est pas copié, Odin l'interroge ou le lance à côté.
 import type { SearchResult } from '../../tools/search.ts';
 
-export interface Source { n: number; title: string; url: string; domain: string; snippet: string; engines: string[]; text?: string; published?: string }
-export type Focus = 'tout' | 'actualites' | 'wikipedia' | 'science' | 'videos' | 'images';
+export interface Source { n: number; title: string; url: string; domain: string; snippet: string; engines: string[]; text?: string; published?: string; /** vignette (image, miniature de vidéo) quand un moteur la donne */ thumb?: string }
+export type Focus = 'tout' | 'actualites' | 'wikipedia' | 'science' | 'videos' | 'images' | 'sons';
 export const FOCUS: Record<Focus, { label: string; searx: string; hint?: string }> = {
   tout: { label: 'Tout', searx: 'general' }, actualites: { label: 'Actualités', searx: 'news' }, wikipedia: { label: 'Wikipédia', searx: 'general', hint: 'site:fr.wikipedia.org' },
-  science: { label: 'Science', searx: 'science' }, videos: { label: 'Vidéos', searx: 'videos' }, images: { label: 'Images', searx: 'images' },
+  science: { label: 'Science', searx: 'science' }, videos: { label: 'Vidéos', searx: 'videos' }, images: { label: 'Images', searx: 'images' }, sons: { label: 'Sons', searx: 'music' },
 };
 
 /** Adresse sans pisteurs ni ancre, pour reconnaître la même page venue de deux moteurs. Pur. */
@@ -20,6 +20,8 @@ export function normUrl(u: string): string {
     return `${x.protocol}//${x.hostname}${x.pathname.replace(/\/+$/, '')}${x.search}`.toLowerCase();
   } catch { return u.trim().toLowerCase(); }
 }
+/** La vignette d'un résultat (SearXNG la donne pour les images, les vidéos, certaines pages), en http(s) seulement. Pur. */
+const thumbOf = (r: SearchResult): string | undefined => { const t = (r as SearchResult & { thumb?: string }).thumb; return t && /^https?:\/\//i.test(t) ? t.slice(0, 2000) : undefined; };
 export const domainOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
 /**
@@ -31,14 +33,15 @@ export function fuse(lists: Array<{ engine: string; results: SearchResult[] }>, 
   for (const l of lists) l.results.forEach((r, i) => {
     if (!/^https?:\/\//i.test(r.url)) return;
     const key = normUrl(r.url), cur = map.get(key), add = 1 / (k + i + 1), es = (r as SearchResult & { engines?: string[] }).engines?.length ? (r as SearchResult & { engines?: string[] }).engines! : [l.engine];
-    if (cur) { for (const e of es) cur.engines.add(e); cur.score += add; if ((r.snippet?.length ?? 0) > (cur.r.snippet?.length ?? 0)) cur.r = { ...cur.r, snippet: r.snippet }; }
+    if (cur) { for (const e of es) cur.engines.add(e); cur.score += add; if ((r.snippet?.length ?? 0) > (cur.r.snippet?.length ?? 0)) cur.r = { ...cur.r, snippet: r.snippet }; if (!thumbOf(cur.r) && thumbOf(r)) cur.r = { ...cur.r, thumb: thumbOf(r) } as SearchResult; }
     else map.set(key, { r, engines: new Set(es), score: add * (es.length > 1 ? 1 + 0.25 * (es.length - 1) : 1) });
   });
   // Pas plus de 3 pages d'un même site : la réponse s'appuie sur des sources variées.
   const per = new Map<string, number>(), out: Source[] = [];
   for (const x of [...map.values()].sort((a, b) => b.score - a.score)) {
     const d = domainOf(x.r.url), n = per.get(d) ?? 0; if (n >= 3) continue; per.set(d, n + 1);
-    out.push({ n: out.length + 1, title: x.r.title.trim() || d, url: x.r.url, domain: d, snippet: (x.r.snippet ?? '').trim().slice(0, 500), engines: [...x.engines] });
+    const th = thumbOf(x.r);
+    out.push({ n: out.length + 1, title: x.r.title.trim() || d, url: x.r.url, domain: d, snippet: (x.r.snippet ?? '').trim().slice(0, 500), engines: [...x.engines], ...(th ? { thumb: th } : {}) });
     if (out.length >= max) break;
   }
   return out;

@@ -17,7 +17,7 @@
   const act = async (action, input = {}, confirm = false) => {
     const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'ivaldi', action, input, confirm }) });
     const j = await r.json().catch(() => ({ ok: false, text: `Odin répond ${r.status}` }));
-    if (j.confirm && !confirm) return window.confirm(j.confirm) ? act(action, input, true) : { ok: false, text: 'Annulé.' };
+    if (j.confirm && !confirm) return (await window.OdinDialog.confirm(j.confirm, { danger: true })) ? act(action, input, true) : { ok: false, text: 'Annulé.' };
     return j;
   };
   const CSS = `
@@ -274,7 +274,7 @@
         // L'accord est demandé une fois par fichier ouvert (enregistrer remplace le fichier sur le disque).
         const enregistrer = async () => { const deja = S.accords.has(S.fichier); const x = await act('enregistrer_fichier', { fichier: S.fichier, contenu: zone.value }, deja); if (x.ok !== false) { S.accords.add(S.fichier); sale = false; } et.textContent = x.ok === false ? x.text : 'Enregistré'; };
         const ia = el('div', { class: 'dd-ia', hidden: true });
-        const demander = async () => { const q = window.prompt('Ta question sur ce fichier'); if (!q) return; ia.hidden = false; ia.textContent = 'L\'IA réfléchit…'; const x = await act('demander_ia', { fichier: S.fichier, question: q }); ia.textContent = x.text; };
+        const demander = async () => { const q = await window.OdinDialog.prompt('Ta question sur ce fichier'); if (!q) return; ia.hidden = false; ia.textContent = 'L\'IA réfléchit…'; const x = await act('demander_ia', { fichier: S.fichier, question: q }); ia.textContent = x.text; };
         droite.append(el('div', { class: 'dd-bar' }, el('span', { class: 'dd-sub' }, S.fichier.slice(racine.length + 1)), el('button', { type: 'button', onclick: enregistrer }, 'Enregistrer'), el('button', { type: 'button', onclick: demander }, 'Demander à l\'IA'), et), el('div', { class: 'dd-ed' }, pre, zone), ia);
         void sale;
       }

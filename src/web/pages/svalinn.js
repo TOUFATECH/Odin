@@ -13,7 +13,7 @@
   };
   const post = async (action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'svalinn', action, input, confirm }) })).json();
   /** Une action : si elle est grave, ton accord d'abord (la phrase dit exactement ce qui va changer). */
-  const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!confirm(`${r.confirm}\n\nLa box est sauvegardée juste avant ; si le Wi-Fi ne revient pas, l'ancien réglage revient tout seul.`)) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
+  const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!(await window.OdinDialog.confirm(`${r.confirm}\n\nLa box est sauvegardée juste avant ; si le Wi-Fi ne revient pas, l'ancien réglage revient tout seul.`, { danger: true }))) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
   const P = {
     shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', wifi: 'M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0M12 19h.01', router: 'M4 14h16v6H4zM8 17h.01M12 17h.01M7 14l3-6M17 14l-3-6',
     speed: 'M12 14l4-4M4 18a9 9 0 1 1 16 0', alert: 'M12 3 2 20h20zM12 10v4M12 17h.01', users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21v-1a6 6 0 0 1 12 0v1M16 3.5a4 4 0 0 1 0 7.5M22 21v-1a6 6 0 0 0-4-5.6',

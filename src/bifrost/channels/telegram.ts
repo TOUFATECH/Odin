@@ -167,6 +167,10 @@ export class TelegramChannel implements Channel {
       const name = safeName(file.file_name ?? basename(path));
       mkdirSync(this.opts.inbox, { recursive: true });
       const dest = join(this.opts.inbox, `${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}-${name}`);
+      // Quarantaine d'abord : la pièce jointe est analysée avant d'être écrite ; dangereuse, elle part en quarantaine.
+      const { quarantaineDabord } = await import('../../valhalla/ullr/garde.ts');
+      const passage = await quarantaineDabord({ donnees: Buffer.from(data), nom: name, destination: dest, origine: 'Pièce jointe (Telegram)' });
+      if (passage.bloque) { await this.send(base.peer, `🚫 ${name} est bloqué par l'antivirus (${passage.menace ?? 'menace'}) : je ne l'ai pas ouvert, il est en quarantaine dans Asclépios.`); return undefined; }
       writeFileSync(dest, data);
       const rel = `inbox/${basename(dest)}`;
       // Photo ou vidéo sans légende : Odin regarde et dit ce qu'il y a (et ce qui est dit, pour une vidéo).

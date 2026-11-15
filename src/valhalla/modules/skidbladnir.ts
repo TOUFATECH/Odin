@@ -11,6 +11,7 @@ import { FilesServer, human, type Hub, type Link, type SpaceView, type Who } fro
 import * as S from '../skidbladnir/store.ts';
 import { syncPair, type Way } from '../skidbladnir/sync.ts';
 import { mascotSvg } from './var.ts';
+import { journalDe } from '../base/journal.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 export interface Space { id: string; name: string; path?: string; read: string[]; write: string[]; quotaGb: number; versions: number }
@@ -44,8 +45,12 @@ const usedCache = new Map<string, { at: number; n: number }>();
 const tries = new Map<string, number[]>();
 export const filesServer = () => srv;
 
-function journal(ctx: ModCtx, e: Record<string, unknown>): void { try { mkdirSync(ctx.dir, { recursive: true }); appendFileSync(join(ctx.dir, 'journal.jsonl'), `${JSON.stringify({ at: Date.now(), ...e })}\n`); } catch { /* disque plein */ } }
-function readJournal(ctx: ModCtx, n = 60): Array<Record<string, unknown> & { at: number }> { try { return readFileSync(join(ctx.dir, 'journal.jsonl'), 'utf8').trim().split('\n').slice(-n).map((l) => JSON.parse(l)).reverse(); } catch { return []; } }
+// Le journal des synchronisations : dans la base de l'appli (NEBULEUSE_ODIN, journal « skidbladnir ») dès qu'elle est
+// prête, sinon dans journal.jsonl (même mécanisme que les autres journaux : rien n'est perdu, retour en fichiers possible).
+type LigneJournal = Record<string, unknown> & { at: number };
+const jSync = (ctx: ModCtx) => journalDe<LigneJournal>(ctx, 'skidbladnir', 'journal.jsonl', { garder: 2000 });
+function journal(ctx: ModCtx, e: Record<string, unknown>): void { try { jSync(ctx).ajouter({ at: Date.now(), ...e }); } catch { /* disque plein */ } }
+function readJournal(ctx: ModCtx, n = 60): LigneJournal[] { try { return jSync(ctx).tout().slice(-n).reverse(); } catch { return []; } }
 async function refreshPeople(ctx: ModCtx): Promise<void> { try { const r = await ctx.call('var', 'personnes', {}, 'connaître les groupes'); people = ((r.data as { people?: Person[] } | undefined)?.people) ?? people; } catch { /* Persona absent */ } }
 
 function view(ctx: ModCtx, sp: Space, groups: string[]): SpaceView | undefined {

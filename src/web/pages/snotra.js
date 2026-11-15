@@ -20,7 +20,7 @@
   const act = async (action, input = {}, confirm = false) => {
     const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'snotra', action, input, confirm }) });
     const j = await r.json().catch(() => ({ ok: false, text: `Odin répond ${r.status}` }));
-    if (j.confirm && !confirm) return window.confirm(j.confirm) ? act(action, input, true) : { ok: false, text: 'Annulé.' };
+    if (j.confirm && !confirm) return (await window.OdinDialog.confirm(j.confirm, { danger: true })) ? act(action, input, true) : { ok: false, text: 'Annulé.' };
     return j;
   };
   const telecharger = (f) => { const a = el('a', { href: `/api/valhalla/fichier?module=snotra&ref=${encodeURIComponent(f.ref)}`, download: f.nom }); document.body.append(a); a.click(); a.remove(); };
@@ -77,7 +77,7 @@
     const r = await act('tableaux'); const l = (r.data ?? []).filter((d) => d.genre === genre);
     if (!S[cle] || !l.some((d) => d.id === S[cle])) S[cle] = l[0]?.id ?? null;
     const sel = el('select', { 'aria-label': genre === 'schema' ? 'Schéma' : 'Tableau', onchange: (e) => { S[cle] = e.target.value; ouvrir(); } }, ...l.map((d) => el('option', { value: d.id, selected: d.id === S[cle] }, d.nom)));
-    const nouveau = async () => { const nom = window.prompt('Nom du nouveau ' + (genre === 'schema' ? 'schéma' : 'tableau'), genre === 'schema' ? 'Schéma' : 'Tableau'); if (nom == null) return; const x = await act('enregistrer_tableau', { nom, genre, contenu: '{}' }); if (x.ok !== false) { S[cle] = x.data.id; ouvrir(); } };
+    const nouveau = async () => { const nom = await window.OdinDialog.prompt('Nom du nouveau ' + (genre === 'schema' ? 'schéma' : 'tableau'), genre === 'schema' ? 'Schéma' : 'Tableau'); if (nom == null) return; const x = await act('enregistrer_tableau', { nom, genre, contenu: '{}' }); if (x.ok !== false) { S[cle] = x.data.id; ouvrir(); } };
     return { l, barre: [l.length ? sel : null, el('button', { type: 'button', onclick: nouveau }, 'Nouveau')] };
   }
   const exporter = async (id, format) => {
@@ -85,11 +85,11 @@
     if (r.fichiers?.[0]) return telecharger(r.fichiers[0]);
     if (format === 'png') {
       // Pas de programme pour le PNG sur la machine d'Odin : le navigateur le fait à partir du SVG.
-      const s = await act('exporter_tableau', { id, format: 'svg' }); const svg = s.data?.svg; if (!svg) return window.alert(r.text);
+      const s = await act('exporter_tableau', { id, format: 'svg' }); const svg = s.data?.svg; if (!svg) return window.OdinDialog.alert(r.text);
       const img = new Image(); img.onload = () => { const c = el('canvas', { width: img.naturalWidth || 800, height: img.naturalHeight || 600 }); const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0); c.toBlob((b) => { const a = el('a', { href: URL.createObjectURL(b), download: 'tableau.png' }); document.body.append(a); a.click(); a.remove(); }, 'image/png'); };
       img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; return;
     }
-    window.alert(r.text);
+    await window.OdinDialog.alert(r.text);
   };
   /** Un point du pointeur dans les coordonnées du dessin. */
   const point = (svg, e) => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const m = svg.getScreenCTM(); const q = m ? p.matrixTransform(m.inverse()) : p; return { x: Math.round(q.x), y: Math.round(q.y) }; };
@@ -129,14 +129,14 @@
         }
       };
       let geste = null;
-      svg.addEventListener('pointerdown', (e) => {
+      svg.addEventListener('pointerdown', async (e) => {
         const p = point(svg, e); svg.setPointerCapture(e.pointerId);
         if (E.outil === 'select') {
           const id = e.target.closest?.('[data-id]')?.getAttribute('data-id') ?? null; E.sel = id; dessiner();
           if (id) { garder(); geste = { t: 'deplacer', id, p, bouge: false }; }
           return;
         }
-        if (E.outil === 'texte') { const t = window.prompt('Texte'); if (t && t.trim()) { garder(); d.formes.push({ id: `f${Date.now().toString(36)}`, t: 'texte', x: p.x, y: p.y, w: 0, h: 0, texte: t, couleur: E.couleur, ep: 1 }); changer(); } return; }
+        if (E.outil === 'texte') { const t = await window.OdinDialog.prompt('Texte'); if (t && t.trim()) { garder(); d.formes.push({ id: `f${Date.now().toString(36)}`, t: 'texte', x: p.x, y: p.y, w: 0, h: 0, texte: t, couleur: E.couleur, ep: 1 }); changer(); } return; }
         garder();
         const f = { id: `f${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: E.outil, x: p.x, y: p.y, w: 0, h: 0, couleur: E.couleur, ep: E.ep, ...(E.outil === 'trait' ? { pts: [0, 0] } : {}) };
         d.formes.push(f); geste = { t: 'creer', f }; dessiner();
@@ -192,7 +192,7 @@
     const hote = el('div', { class: 'pl' }); root.append(hote);
     const ouvrir = async () => {
       const c = await choix(hote, 'schema', 'schema', ouvrir);
-      const reseau = el('button', { type: 'button', onclick: async () => { const r = await act('schema_reseau'); if (r.ok === false) return window.alert(r.text); S.schema = r.data.id; ouvrir(); } }, 'Schéma de mon réseau');
+      const reseau = el('button', { type: 'button', onclick: async () => { const r = await act('schema_reseau'); if (r.ok === false) return window.OdinDialog.alert(r.text); S.schema = r.data.id; ouvrir(); } }, 'Schéma de mon réseau');
       let d = S.schema ? (await act('ouvrir_tableau', { id: S.schema })).data : null;
       if (!d) { hote.replaceChildren(el('div', { class: 'pl-bar' }, ...c.barre, reseau), el('p', { class: 'pl-sub' }, 'Aucun schéma : « Nouveau » en crée un vide, « Schéma de mon réseau » part des appareils d\'Atlas.')); return; }
       const E = { mode: 'deplacer', sel: null, lienDe: null, histo: [], minuteur: 0, sale: false };
@@ -206,7 +206,7 @@
       const boutons = modes.map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(E.mode === k), 'data-mode': k, onclick: () => { E.mode = k; E.lienDe = null; boutons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === k))); } }, t));
       const annuler = () => { const x = E.histo.pop(); if (x) { Object.assign(d, JSON.parse(x)); E.sel = null; changer(); } };
       const supprimer = () => { if (!E.sel) return; garder(); d.blocs = d.blocs.filter((b) => b.id !== E.sel); d.liens = d.liens.filter((l) => l.de !== E.sel && l.vers !== E.sel); E.sel = null; changer(); };
-      const renommer = () => { const b = d.blocs.find((x) => x.id === E.sel); if (!b) return; const n = window.prompt('Nom', b.nom); if (n == null) return; garder(); b.nom = n.trim() || b.nom; const ip = window.prompt('Adresse IP (facultatif)', b.ip ?? ''); if (ip != null) { if (ip.trim()) b.ip = ip.trim(); else delete b.ip; } changer(); };
+      const renommer = async () => { const b = d.blocs.find((x) => x.id === E.sel); if (!b) return; const n = await window.OdinDialog.prompt('Nom', b.nom); if (n == null) return; garder(); b.nom = n.trim() || b.nom; const ip = await window.OdinDialog.prompt('Adresse IP (facultatif)', b.ip ?? ''); if (ip != null) { if (ip.trim()) b.ip = ip.trim(); else delete b.ip; } changer(); };
       const dessiner = () => {
         svg.replaceChildren();
         const occ = d.blocs.map((b) => [b.gx, b.gy]), mx = Math.max(6, ...occ.map(([a, b]) => Math.max(Math.abs(a), Math.abs(b)) + 2));

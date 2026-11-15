@@ -24,13 +24,13 @@ test('offlineAct : agit avec les outils, ne tente rien d\'incompris', async () =
   const states = (i: Record<string, unknown>) => STATES.split('\n').filter((l) => (!i.domain || l.startsWith(`${i.domain}.`)) && (!i.search || l.toLowerCase().includes(String(i.search)))).join('\n');
   const run = async (name: string, input: Record<string, unknown>) => { calls.push([name, input]); return { ok: true, content: name === 'ha_states' ? states(input) : 'Fait.' }; };
   const has = () => true;
-  assert.match((await offlineAct('Allume la lumière du salon', run, has))!, /Plafonnier salon : allumé/);
+  assert.match((await offlineAct('Allume la lumière du salon', run, has))!, /j'ai allumé Plafonnier salon/);
   assert.deepEqual(calls.at(-1), ['ha_call', { domain: 'light', service: 'turn_on', entity_id: 'light.salon_plafond' }]);
   await offlineAct('éteins tout', run, has);
   assert.deepEqual(calls.at(-1), ['ha_call', { domain: 'light', service: 'turn_off', entity_id: 'all' }]);
-  assert.match((await offlineAct('mets la clim à 22', run, has))!, /Clim salon : 22 °C/);
+  assert.match((await offlineAct('mets la clim à 22', run, has))!, /j'ai mis Clim salon à 22 °C/);
   assert.deepEqual(calls.at(-1)![1], { domain: 'climate', service: 'set_temperature', entity_id: 'climate.salon', data: '{"temperature":22}' });
-  assert.match((await offlineAct('ferme le volet du salon', run, has))!, /Volet salon : fermé/);
+  assert.match((await offlineAct('ferme le volet du salon', run, has))!, /j'ai fermé Volet salon/);
   assert.match((await offlineAct('bonne nuit', run, has))!, /Bonne nuit/);
   assert.deepEqual(calls.at(-1), ['mode_set', { mode: 'sommeil' }]);
   assert.match((await offlineAct('note que le code du portail est dans le carnet', run, has))!, /Noté/);
@@ -55,7 +55,7 @@ test('agent sans Internet : il allume quand même, via Heimdall, et répond tout
     const r = await o.agent.run('Allume la lumière du salon', { sessionId: 'web:principal', channel: 'web' });
     assert.deepEqual(r.ai?.needed, false);
     assert.match(r.ai?.why ?? '', /action reconnue : Maison/);
-    assert.match(r.text, /Plafonnier salon : allumé/);
+    assert.match(r.text, /j'ai allumé Plafonnier salon/);
     assert.equal(haCalls, 1);
     assert.equal(o.approvals.length, 1, 'action « external » : Heimdall a demandé, comme avec un modèle');
     // Un appareil qu'Odin ne retrouve pas tel quel : c'est pour l'IA. Elle est injoignable → le cerveau de secours répond.

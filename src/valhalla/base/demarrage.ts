@@ -29,7 +29,7 @@ export function demarrerBaseOdin(home: string, v?: Valhalla, o: { log?: (t: stri
     void (async () => {
       const k = cleSauvegardes(home);
       if (k.nouvelle && coffre) await coffre('Clé des sauvegardes de la base d\'Odin', 'odin', k.cle, 'sauvegardes chiffrées (valhalla/urdr/sauvegardes/odin)').catch(() => undefined);
-      const r = await sauvegarder(b); log(`sauvegarde chiffrée : ${r.fichier} (${r.elements} éléments relus)`);
+      const r = await sauvegarder(b); log(`sauvegarde chiffrée de ${r.bases.join(', ')} (${r.elements} éléments relus)`);
     })().catch((e) => ctx?.alert({ level: 'moyenne', title: 'Base d\'Odin : sauvegarde en échec', detail: (e as Error).message, key: 'base:sauvegarde' }));
   }, 3600_000);
   nuit.unref?.();

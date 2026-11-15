@@ -238,7 +238,7 @@
     let vue = null, etat = null, tuiles = new Map();
     const demander = async (action, input = {}) => {
       let r = await api(action, input, false);
-      if (r && r.confirm) { if (!window.confirm(r.confirm)) return { ok: false, annule: true, text: 'Annulé.' }; r = await api(action, input, true); }
+      if (r && r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { ok: false, annule: true, text: 'Annulé.' }; r = await api(action, input, true); }
       return r ?? { ok: false, text: 'Odin n\'a pas répondu : réessaie.' };
     };
     const dire = (r) => { if (r.annule) return; S.msg = { texte: r.text ?? r.error ?? (r.ok ? 'Fait.' : 'Impossible.'), ok: r.ok !== false, fichiers: (r.fichiers ?? []).map((f) => ({ nom: String(f.nom), href: fichier(String(f.ref)) })) }; };

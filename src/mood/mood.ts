@@ -94,3 +94,10 @@ Tu as un visage (une petite boule dorée) dont la couleur montre ton humeur. Com
 
 /** Texte sans aucun marqueur d'humeur (« [humeur:joie] », « [humeur=neutre] », « [joie] » en tête) : pour Telegram, Signal, WhatsApp… */
 export function stripMood(text: string): string { return extractMood(text).text; }
+
+// ---------------- L'humeur du moment (sert au thème automatique : les thèmes « libres » varient avec elle) ----------------
+let courante: { mood: Mood; at: number } = { mood: 'neutre', at: 0 };
+/** Retient la dernière humeur d'Odin (à chaque réponse). */
+export function setCurrentMood(m: Mood | undefined, at = Date.now()): void { if (m && isMood(m)) courante = { mood: m, at }; }
+/** La dernière humeur d'Odin ; au bout de 3 heures sans réponse, il redevient tranquille. */
+export function currentMood(now = Date.now()): Mood { return now - courante.at < 3 * 3600_000 ? courante.mood : 'neutre'; }

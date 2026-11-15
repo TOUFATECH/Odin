@@ -90,5 +90,7 @@ export type AgentEvent =
   | { type: 'budget'; tokens: number; costUsd: number }
   /** Humeur d'Odin (visage dans l'interface, autocollant Telegram). */
   | { type: 'mood'; mood: string }
+  /** « Odin consulte » : le chemin suivi dans le Cerveau avant de répondre (notes, liens, applis, dans l'ordre ; jamais leur contenu). */
+  | { type: 'consulte'; etapes: Array<{ de: string; vers: string; deNom: string; versNom: string; libelle: string }> }
   /** Décision de Heimdall/Mímir sur une action, pour la transparence. */
   | { type: 'decision'; tool: string; summary: string; allowed: boolean; via?: 'policy' | 'human' | 'mimir' | 'grant' | 'breaker'; severity?: 'routine' | 'important' | 'grave' | 'blocked'; why: string };

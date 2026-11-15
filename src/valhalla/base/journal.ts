@@ -10,6 +10,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { BaseAttente, inscrireMigrable, quandBase, type AppliBase, type BaseOdin, type DefAppli } from './index.ts';
+import { Attente, type Ligne } from './attente.ts';
+import { proprietaireJournal } from './noms.ts';
 
 export const DEF_JOURNAUX: DefAppli = {
   id: 'journaux',
@@ -35,6 +37,26 @@ GRANT SELECT ON v_evenements_sites TO odin_lecture`,
     ajout: 'INSERT INTO entrees (uid, journal, quand, donnees) VALUES ($1, $2, $3, $4::jsonb) ON CONFLICT (uid) DO NOTHING',
   },
 };
+
+/** Les journaux d'une appli, dans SA base (schéma « journaux » de NOM_ODIN) : mêmes tables et vues pour toutes. */
+export function defJournaux(appli: string): DefAppli {
+  return { ...DEF_JOURNAUX, id: appli === 'journaux' ? 'journaux' : `journaux_${appli}`, schema: 'journaux', appli, demenagement: { colonne: 'journal', garder: (v) => proprietaireJournal(v) === appli } };
+}
+/** Dossier du journal d'attente des journaux d'une appli. */
+export const dossierJournaux = (home: string, appli: string) => join(home, 'valhalla', 'journaux', appli);
+
+/**
+ * Avant (une seule base commune), tous les journaux partageaient UN journal d'attente : ses écritures pas encore parties
+ * sont réparties dans celui de chaque appli (une fois). L'ancien fichier est gardé à côté (renommé), rien n'est perdu.
+ */
+export function repartirAttenteCommune(home: string): number {
+  const f = join(home, 'valhalla', 'journaux', '.attente-base.jsonl'); if (!existsSync(f)) return 0;
+  const l = new Attente(f).lignes(), parAppli = new Map<string, Ligne[]>();
+  for (const x of l) { const a = proprietaireJournal(String(x.p[1] ?? '')); parAppli.set(a, [...(parAppli.get(a) ?? []), x]); }
+  for (const [a, ls] of parAppli) new Attente(join(dossierJournaux(home, a), '.attente-base.jsonl')).ajouter(...ls);
+  renameSync(f, `${f}.reparti-${horodatage(Date.now())}`);
+  return l.length;
+}
 
 /** Le rangement d'avant la base : un fichier JSONL (par défaut), ou ce que l'appli fournit (ses réglages…). */
 export interface RangementJournal<T> {
@@ -95,7 +117,10 @@ export class Journal<T extends object> {
 
   private brancher(b: BaseOdin): void {
     if (existsSync(this.retour)) return;
-    const a = b.appli(DEF_JOURNAUX, join(b.home, 'valhalla', 'journaux')); this.appli = a;
+    // Le journal va dans la base de son appli (NOM_ODIN) : alertes → Forseti, connexions → Persona, arche → Arche…
+    repartirAttenteCommune(b.home);
+    const proprio = proprietaireJournal(this.nom);
+    const a = b.appli(defJournaux(proprio), dossierJournaux(b.home, proprio)); this.appli = a;
     if (existsSync(this.repere) && !this.memo) this.memo = [];
     let enCours: Promise<void> | undefined;
     const pret = () => (enCours ??= (async () => {

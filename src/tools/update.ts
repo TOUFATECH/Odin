@@ -6,6 +6,7 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { accord } from '../core/genre.ts';
 import { APP_ROOT, checkApp, restartSelf, restorePublished, updateApp } from './self.ts';
 import { obj, type Tool } from './registry.ts';
 
@@ -82,7 +83,7 @@ export function applyUpdate(root = APP_ROOT, home?: string): { ok: boolean; mess
   // 2. La nouvelle version elle-même ne se charge pas : retour complet au code d'avant, puis mes retouches par-dessus.
   git(root, ['reset', '--hard', before]);
   if (stashed && git(root, ['stash', 'pop']).status !== 0) git(root, ['reset', '--hard', before]);
-  return { ok: false, message: `La nouvelle version ne se charge pas : je suis resté en v${from}.\n${c.output.slice(0, 500)}`, from, to: from, restart: false };
+  return { ok: false, message: `La nouvelle version ne se charge pas : je suis ${accord('resté', 'restée')} en v${from}.\n${c.output.slice(0, 500)}`, from, to: from, restart: false };
 }
 
 /**

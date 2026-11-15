@@ -15,7 +15,7 @@
   };
   const post = async (action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'thjalfi', action, input, confirm }) })).json();
   /** Une action grave (effacer un disque) : ton accord d'abord, avec la phrase exacte. */
-  const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!confirm(r.confirm)) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
+  const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
   const P = {
     pc: 'M3 4h18v12H3zM8 20h8M12 16v4', check: 'M5 12l5 5L20 7', x: 'M6 6l12 12M18 6 6 18', disk: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3v12c0 1.7-3.6 3-8 3s-8-1.3-8-3zM4 6c0 1.7 3.6 3 8 3s8-1.3 8-3',
     phone: 'M7 2h10v20H7zM11 18h2', clock: 'M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', alert: 'M12 3 2 20h20zM12 10v4M12 17h.01',

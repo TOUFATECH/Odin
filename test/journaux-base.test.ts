@@ -60,10 +60,10 @@ test('journaux dans la base : alertes, bulles, historique d\'Arche, connexions d
     assert.deepEqual(l.slice(1), avant.alertes); assert.deepEqual(n.recent(50).slice(1), avant.bulles, 'la bulle de la panne, puis celles d\'avant');
     assert.deepEqual(connexions(v.ctx('var')).tout().map((x) => x.login), ['awa', 'awa', 'nour']);
     // 5. Odin lit les journaux pour répondre : les vues, jamais l'adresse IP des connexions.
-    let q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select titre, niveau from journaux.v_alertes order by quand desc limit 3' }); assert.match(q.text, /Pendant la panne/);
-    q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select * from journaux.v_connexions' }); assert.match(q.text, /nour/); assert.doesNotMatch(q.text, /192\.168|203\.0|10\.0\.0/);
-    q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select base, reussie, erreur from journaux.v_sauvegardes' }); assert.match(q.text, /disque plein/);
-    q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select donnees from journaux.entrees' }); assert.match(q.text, /permission denied/);
+    let q = await v.act('urdr', 'sql', { base: 'FORSETI_ODIN', requete: 'select titre, niveau from journaux.v_alertes order by quand desc limit 3' }); assert.match(q.text, /Pendant la panne/);
+    q = await v.act('urdr', 'sql', { base: 'PERSONA_ODIN', requete: 'select * from journaux.v_connexions' }); assert.match(q.text, /nour/); assert.doesNotMatch(q.text, /192\.168|203\.0|10\.0\.0/);
+    q = await v.act('urdr', 'sql', { base: 'ARCHE_ODIN', requete: 'select base, reussie, erreur from journaux.v_sauvegardes' }); assert.match(q.text, /disque plein/);
+    q = await v.act('urdr', 'sql', { base: 'FORSETI_ODIN', requete: 'select donnees from journaux.entrees' }); assert.match(q.text, /permission denied/);
     // Le journal des requêtes d'Alexandrie passe lui aussi dans la base (et garde ces requêtes).
     await lesMigrables().find((m) => m.id === 'journal:requetes')!.attendre();
     assert.equal(lesMigrables().find((m) => m.id === 'journal:requetes')!.etat().support, 'base');
@@ -87,9 +87,10 @@ test('journaux : Iðunn, Rödd, Forge par journalDe ; migration versionnée (v2 
     utiliserBase(b); await b.demarrer(); await tousPrets();
     assert.equal(j.support, 'base'); assert.equal(j.tout().length, 1);
     const v = new Valhalla(pg.home, [urdr]);
-    const q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select site, niveau, texte from journaux.v_evenements_sites' });
+    const q = await v.act('urdr', 'sql', { base: 'ARACHNE_ODIN', requete: 'select site, niveau, texte from journaux.v_evenements_sites' });
     assert.match(q.text, /toufatech\.yt \| haute \| le site ne répond plus/);
-    const a = b.applisBranchees().find((x) => x.id === 'journaux')!;
-    assert.deepEqual((await a.q('SELECT version, nom FROM _migrations ORDER BY version')).rows.map((x) => x[0]), ['1', '2']);
+    const a = b.applisBranchees().find((x) => x.id === 'journaux_idunn')!;
+    assert.equal(a.nomDeBase, 'ARACHNE_ODIN', 'les journaux d\'Arachné vont dans SA base');
+    assert.deepEqual((await a.q('SELECT version, nom FROM journaux._migrations ORDER BY version')).rows.map((x) => x[0]), ['1', '2']);
   } finally { utiliserBase(undefined); await b.arreter(); await pg.fin(); }
 });

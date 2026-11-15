@@ -10,6 +10,7 @@ import { examples } from './huginn.ts';
 import { LINKS, USAGES } from './links.ts';
 import type { Action, Module } from './types.ts';
 import { OLD_NAMES } from './names.ts';
+import { RAISONS, resume } from './base/inventaire.ts';
 
 const DIR = 'Odin', APPS = `${DIR}/Applis`, MINE = '## Mes notes';
 export interface Sheet { path: string; tags: string[]; body: string }
@@ -18,6 +19,17 @@ const kindOf = (a: Action) => [a.read ? 'lecture' : 'action', a.grave ? 'grave :
 /** Un texte de description ne doit pas créer de faux lien dans le Cerveau (« reliées par [[liens]] »). */
 const plain = (x: string) => x.replace(/\[\[([^\]]*)\]\]/g, '« $1 » entre doubles crochets');
 const FAMILY: Record<string, string> = { Données: 'ce que tu sais et ce que tu ranges', Machines: 'ce qui tourne', Accès: 'qui entre, et par où', Sécurité: 'ce qui protège', Maison: 'la maison et les écrans' };
+
+/** « Sa base » : le nom de sa base dans Alexandrie, ses tables, ce qui reste en fichier, et ses liens (qui la lit, la garde). */
+function baseSheet(m: Module): string[] {
+  const r = resume(m.id), tables = [...new Set(r.enBase.flatMap((x) => x.tables ?? []))], journaux = r.enBase.flatMap((x) => (x.journal ? [x.journal] : []));
+  return ['## Sa base',
+    `Ses données vont dans sa base **${r.base}** (gérée par [[Alexandrie]]).${r.enBase.length ? '' : ' Rien n\'y est encore rangé.'}`,
+    ...r.enBase.map((x) => `- en base : ${x.donnees}`),
+    ...(tables.length ? [`- tables : ${tables.join(', ')}${journaux.length ? ` (journaux : ${journaux.join(', ')})` : ''}`] : []),
+    ...r.enFichiers.map((x) => `- en fichiers : ${x.donnees} — ${RAISONS[x.raison ?? 'reglages']}`),
+    ...(r.enBase.length ? ['- liens : Odin la lit en lecture seule (vues seulement, secrets masqués) quand tu lui poses une question ; chaque lecture est notée dans la traçabilité d\'[[Alexandrie]] ; elle est sauvegardée chiffrée chaque nuit avec les autres bases.'] : [])];
+}
 
 /** La fiche d'une appli. Seulement ce que le code dit d'elle : rien de ce que tu y as réglé. */
 export function appSheet(m: Module, all: Module[]): Sheet {
@@ -41,6 +53,7 @@ export function appSheet(m: Module, all: Module[]): Sheet {
       ...out.map((l) => `- ${m.name} → ${link(l.to)} : quand ${l.when}, ${l.does}.`),
       ...self.map((l) => `- ${m.name} se soigne : quand ${l.when}, ${l.does}.`)] : []),
     ...(usages.length ? ['## Dans quels cas', ...usages.map((u) => `- Pour **${u.need}** : ${u.chain.map((c) => (c === m.id ? m.name : link(c))).join(' → ')}. ${u.why.charAt(0).toUpperCase()}${u.why.slice(1)}`)] : []),
+    ...baseSheet(m),
     ...(m.from.length ? ['## D\'où vient l\'idée', `Elle reprend les fonctions utiles de : ${m.from.join(', ')}. Odin suit leurs nouveautés (${link('kvasir')}).`] : []),
   ].join('\n\n').replace(/\n\n- /g, '\n- ');
   return { path: `${APPS}/${m.name}`, tags: ['odin', 'appli', m.family.toLowerCase()], body };
@@ -90,7 +103,7 @@ export function howSheet(all: Module[]): Sheet {
     '## Les applis et leurs liens',
     `Les applis sont rangées en familles (voir [[Les applis d'Odin]]) et reliées entre elles (voir [[Liens entre les applis]]). ${has('forseti') ? `Toutes les alertes arrivent dans un seul fil (${n('forseti')}).` : ''} ${has('ullr') ? `${n('ullr')} relie les signaux de toutes les applis pour reconnaître une attaque.` : ''} ${has('saga') ? `Ce que tu confies à Odin est rangé ici, dans le Cerveau (${n('saga')}).` : ''}`.trim(),
     '## Où est quoi',
-    '- **Discussion** : tu parles à Odin (interface web, Telegram, voix).\n- **Applis** : une page par appli, avec ses indicateurs, ses tableaux et ses boutons.\n- **Cerveau** : tes notes, le graphe, et ces fiches.\n- **Automatisations** (Talos) : « quand ceci arrive, fais cela », entre plusieurs applis.\n- **Réglages** : le modèle d\'IA, les accès, ton compte, le niveau d\'autonomie.',
+    '- **Discussion** : tu parles à Odin (interface web, Telegram, voix).\n- **Applis** : une page par appli, avec ses indicateurs, ses tableaux et ses boutons.\n- **Cerveau** : tes notes, le graphe, ces fiches et les souvenirs d\'Odin (rubrique Souvenirs). Odin le consulte avant de répondre et suit les liens entre les notes.\n- **Automatisations** (Talos) : « quand ceci arrive, fais cela », entre plusieurs applis.\n- **Réglages** : le modèle d\'IA, les accès, ton compte, le niveau d\'autonomie.',
   ].join('\n\n') };
 }
 

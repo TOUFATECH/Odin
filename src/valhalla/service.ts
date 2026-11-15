@@ -3,6 +3,7 @@
 // bon module pour un besoin, avec ou sans IA.
 
 import { Metrics, setMetrics } from './metrics.ts';
+import { accord } from '../core/genre.ts';
 import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -12,6 +13,7 @@ import { explainListen } from './hostports.ts';
 import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Module, NotifyOpts } from './types.ts';
 import { refusAppli } from './sso/acces.ts';
 import { Journal } from './base/journal.ts';
+import { noterEchange, numeroEchange, type Echange } from './echanges.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -73,7 +75,7 @@ export class Valhalla {
       fetch: this.deps.fetch ?? fetch,
       notify: async (t, o) => { await this.deps.notify?.(t, o); },
       ask: this.deps.ask,
-      call: (m, a, input = {}, why, o) => this.act(m, a, input, o?.interne ? { by: 'toi' } : { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}` }),
+      call: (m, a, input = {}, why, o) => this.act(m, a, input, o?.interne ? { by: 'toi', de: id } : { by: 'réflexe', why: why ?? `réflexe de ${this.mods.get(id)?.name ?? id}`, de: id }),
       now: () => this.deps.now?.() ?? new Date(),
       alerts: (o) => this.alerts(o),
       ack: (ids) => this.ack(ids),
@@ -112,7 +114,14 @@ export class Valhalla {
    * `by` : qui agit. Tout ce qui n'est pas « toi » et qui change quelque chose est noté dans le
    * journal des manips : tu es prévenu, et tu peux garder ou annuler.
    */
-  async act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string } = {}): Promise<ActionResult> {
+  act(moduleId: string, actionId: string, input: Record<string, unknown> = {}, o: { auto?: boolean; by?: By; why?: string; /** l'appli qui demande (appel entre applis) */ de?: string } = {}): Promise<ActionResult> {
+    if (!o.de) return this.agir(moduleId, actionId, input, o);
+    // Même promesse rendue que sans échange (aucune attente en plus pour l'appli qui appelle) : la réponse part juste après.
+    const { de, ...reste } = o, fin = this.echange(de, moduleId, actionId), p = this.agir(moduleId, actionId, input, reste);
+    if (fin) p.then((r) => fin(r.ok !== false), () => fin(false));
+    return p;
+  }
+  private async agir(moduleId: string, actionId: string, input: Record<string, unknown>, o: { auto?: boolean; by?: By; why?: string }): Promise<ActionResult> {
     const f = this.action(moduleId, actionId);
     if (!f) return { ok: false, text: `Action inconnue : ${moduleId} → ${actionId}` };
     const refus = refusAppli(f.m.id, o.by); if (refus) return { ok: false, text: refus }; // droits par appli (personne de Persona)
@@ -126,6 +135,20 @@ export class Valhalla {
       if (r.ok !== false && by !== 'toi' && !f.a.read && !f.a.quiet) this.noteManip(f.m, f.a, input, r, by, o.why);
       return { ok: true, ...r };
     } catch (e) { this.events.emit('action', { module: f.m.id, action: f.a.id, ok: false, by }); return { ok: false, text: `${f.m.name} · ${f.a.label} : ${(e as Error).message}` }; }
+  }
+
+  /**
+   * Une appli en appelle une autre : la demande, puis la réponse, partent en direct vers les pages ouvertes (le lien
+   * entre les deux brille dans les graphes). Seuls les identifiants et le nom de l'action sortent, jamais les données.
+   */
+  private echange(de: string, moduleId: string, actionId: string): ((ok: boolean) => void) | undefined {
+    const f = this.action(moduleId, actionId), src = this.mods.get(de);
+    if (!f || !src || f.m.id === de) return undefined;
+    const id = numeroEchange(), base = { id, de, vers: f.m.id, action: f.a.id, deNom: src.name, versNom: f.m.name, libelle: f.a.label };
+    const dire = (e: Echange) => { try { noterEchange(e); this.events.emit('echange', e); } catch { /* l'affichage ne gêne jamais l'appel */ } };
+    const quand = () => (this.deps.now?.() ?? new Date()).toISOString();
+    dire({ ...base, phase: 'demande', ok: true, at: quand() });
+    return (ok) => dire({ ...base, phase: 'reponse', ok, at: quand() });
   }
 
   /** Niveau d'autonomie d'Odin (prudent, équilibré, autonome, Breaker). */
@@ -143,7 +166,7 @@ export class Valhalla {
     const f = this.action(u.module, u.action)!;
     const why = f.a.grave?.(u.input, this.ctx(f.m.id));
     if (why && !o.confirm) return { ok: false, text: `${u.label} : ${why}. C'est une action grave : confirme-la.`, confirm: why, understood: u };
-    const r = await this.act(u.module, u.action, u.input, { by: o.by ?? 'toi' });
+    const r = await this.act(u.module, u.action, u.input, { by: o.by ?? 'toi', de: session.startsWith('appli:') ? session.slice(6) : undefined });
     return { ...r, text: `${u.label}\n${r.text}`, understood: u };
   }
 
@@ -182,7 +205,7 @@ export class Valhalla {
   /** Le message envoyé pour une manip (aussi lu par la mascotte). */
   manipText(x: Manip): string {
     const who = { odin: 'de moi-même', 'réflexe': 'par réflexe', automatisation: 'par une automatisation', assistant: 'à la demande d\'un autre assistant', toi: '' }[x.by];
-    const tail = x.state === 'à décider' ? (x.undo ? ` Réponds « garde ${x.id} » ou « annule ${x.id} ».` : ` Je ne sais pas l'annuler tout seul. Réponds « garde ${x.id} » pour la valider.`)
+    const tail = x.state === 'à décider' ? (x.undo ? ` Réponds « garde ${x.id} » ou « annule ${x.id} ».` : ` Je ne sais pas l'annuler ${accord('tout seul', 'toute seule')}. Réponds « garde ${x.id} » pour la valider.`)
       : x.state === 'gardée' && x.decidedBy?.startsWith('Odin') ? ` Je la garde (mode Breaker).${x.undo ? ` « annule ${x.id} » pour revenir en arrière.` : ''}` : '';
     return `🤖 Manip faite ${who} : ${x.label} — ${x.text}${x.why ? ` (${x.why})` : ''}.${tail}`;
   }
@@ -202,7 +225,7 @@ export class Valhalla {
     for (const x of pick) {
       if (keep) { if (x.state === 'annulée') { out.push(`${x.label} : déjà annulée.`); ok = false; continue; } x.state = 'gardée'; x.decidedBy = by; x.decidedAt = now; out.push(`✓ Gardé : ${x.label} — ${x.text}`); continue; }
       if (x.state === 'annulée') { out.push(`${x.label} : déjà annulée.`); continue; }
-      if (!x.undo) { out.push(`✗ ${x.label} : je ne sais pas l'annuler tout seul (${x.text}).`); ok = false; continue; }
+      if (!x.undo) { out.push(`✗ ${x.label} : je ne sais pas l'annuler ${accord('tout seul', 'toute seule')} (${x.text}).`); ok = false; continue; }
       const r = await this.act(x.undo.module ?? x.module, x.undo.action, x.undo.input, { by: 'toi' });
       if (r.ok === false) { out.push(`✗ ${x.label} : l'annulation a échoué (${r.text.slice(0, 160)}).`); ok = false; continue; }
       x.state = 'annulée'; x.decidedBy = by; x.decidedAt = now; out.push(`↩ Annulé : ${x.label} (${x.undo.label}).`);

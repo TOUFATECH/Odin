@@ -95,7 +95,7 @@ test('graphes des applis et de la carte : même composant, pastilles, servi par 
   const ui = readFileSync(new URL('../src/web/ui.html', import.meta.url), 'utf8');
   const va = readFileSync(new URL('../src/web/valhalla.js', import.meta.url), 'utf8');
   const server = readFileSync(new URL('../src/web/server.ts', import.meta.url), 'utf8');
-  assert.match(g, /window\.OdinGraph = \{ mount \}/);
+  assert.match(g, /window\.OdinGraph = \{ mount/);
   assert.ok(!/innerHTML|insertAdjacentHTML|eval\(/.test(g), 'aucun HTML brut');
   assert.match(ui, /src="\/graph\.js"/); assert.match(server, /url\.pathname === '\/graph\.js'/);
   assert.match(ui, /renderMapGraph/); assert.ok(!/data-mm=|id="netMap"/.test(ui), 'plus de plan : le graphe seul');

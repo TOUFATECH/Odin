@@ -16,6 +16,7 @@
 import { parseWhen } from '../cron/reminders.ts';
 import { alias, describeAcquis, fold, forget, keep, linkWords, loadAcquis, loadLinks, match, nearest, soft, stepsOf, used, type Acquis, type Kv } from '../learn/acquis.ts';
 import { offlineAct } from './offline-act.ts';
+import { accord, commandeGenre } from './genre.ts';
 
 export type DirectRun = (name: string, input: Record<string, unknown>) => Promise<{ ok: boolean; content: string; refused?: boolean }>;
 export interface DirectDeps {
@@ -120,7 +121,7 @@ export async function tryDirect(text: string, d: DirectDeps): Promise<Direct> {
     for (let k = 0; k < steps.length; k++) {
       const r = await run(steps[k].tool, steps[k].input);
       if (r.ok) { parts.push(many ? `${head(k)}\n${r.content}` : `${a.label}\n${r.content}`); continue; }
-      const stopped = many ? `\n\nJe me suis arrêté là : ${k} action${k > 1 ? 's' : ''} sur ${steps.length} faite${k > 1 ? 's' : ''}.` : '';
+      const stopped = many ? `\n\nJe me suis ${accord('arrêté', 'arrêtée')} là : ${k} action${k > 1 ? 's' : ''} sur ${steps.length} faite${k > 1 ? 's' : ''}.` : '';
       // Refusé (par toi, ou par une règle) : la réponse est le refus, et ce que j'ai appris reste.
       if (r.refused) return { done: true, text: `${[...parts, many ? `${head(k)}\n${r.content}` : r.content].join('\n\n')}${stopped}`, why: because, tools, acquis: a.id };
       // L'action apprise ne marche plus : on le note (deux échecs = oublié). Rien de fait encore : l'IA reprend la main.
@@ -161,7 +162,7 @@ export async function tryDirect(text: string, d: DirectDeps): Promise<Direct> {
   if (ask) {
     const target = soft(raw).slice(soft(raw).length - ask[1].length);
     const p = await preview(target, d);
-    return { done: true, text: p.done ? `Non : « ${target} », je sais le faire sans IA (${p.why}).` : `Oui : pour « ${target} », il faut une IA (${p.why}).`, why: 'je sais ce que je sais faire seul', tools: 0 };
+    return { done: true, text: p.done ? `Non : « ${target} », je sais le faire sans IA (${p.why}).` : `Oui : pour « ${target} », il faut une IA (${p.why}).`, why: `je sais ce que je sais faire ${accord('seul', 'seule')}`, tools: 0 };
   }
 
   const why = needsThinking(raw);
@@ -188,11 +189,11 @@ export async function tryDirect(text: string, d: DirectDeps): Promise<Direct> {
   // Odin lui-même : se redémarrer, se mettre à jour, dire où il en est, se régler. (Chaque action passe par l'outil, donc par Heimdall.)
   if (d.has('self_restart') && /^(?:redemarre|relance|reboote)(?:[- ]toi| odin|[- ]toi odin)(?: maintenant)?$|^(?:tu peux |peux[- ]tu )?(?:te |vous )(?:redemarrer|relancer)(?: maintenant)?$|^redemarrage d'odin$/.test(s)) {
     const r = await run('self_restart', {});
-    return { done: true, text: r.content, why: 'me redémarrer, je sais le faire seul', tools };
+    return { done: true, text: r.content, why: `me redémarrer, je sais le faire ${accord('seul', 'seule')}`, tools };
   }
   if (d.has('update_apply') && /^(?:mets[- ]toi a jour|mets a jour odin|mets odin a jour|fais (?:la|ta) mise a jour|installe (?:la|ta) (?:mise a jour|nouvelle version)|lance (?:la|ta) mise a jour)(?: maintenant)?$/.test(s)) {
     const r = await run('update_apply', {});
-    return { done: true, text: r.content, why: 'me mettre à jour, je sais le faire seul', tools };
+    return { done: true, text: r.content, why: `me mettre à jour, je sais le faire ${accord('seul', 'seule')}`, tools };
   }
   if (d.has('update_check') && /^(?:(?:y a[- ]t[- ]il|il y a|as[- ]tu) une (?:nouvelle version|mise a jour)|es[- ]tu a jour|tu es a jour|verifie (?:les|tes) mises a jour|quelle (?:est ta )?version(?: as[- ]tu| es[- ]tu)?|ta version)$/.test(s)) {
     const r = await run('update_check', {});
@@ -217,7 +218,7 @@ export async function tryDirect(text: string, d: DirectDeps): Promise<Direct> {
         .replace(/^\s*(?:de |d')/i, '').replace(/\s+/g, ' ').trim();
       if (what.length >= 2) {
         const r = await run('reminder_set', { at: stamp(when), text: what });
-        return { done: true, text: r.content, why: 'un rappel : je sais le programmer seul', tools };
+        return { done: true, text: r.content, why: `un rappel : je sais le programmer ${accord('seul', 'seule')}`, tools };
       }
     }
   }

@@ -14,6 +14,7 @@ import { findTools, resolveIn, resolveUser, setupScript, finalExec, type Plan, t
 import { defaultDir, isRoot, Store, type Image, type Mount, type Port, type Restart, type Spec, type State, type Status } from './store.ts';
 import { extractLayer, layerStream } from './tar.ts';
 import { bytes, resizeLive } from './scale.ts';
+import { Bloque, quarantaineDabord } from '../ullr/garde.ts';
 
 export interface RunOpts {
   image: string; name?: string; cmd?: string[]; entrypoint?: string[]; env?: Record<string, string>;
@@ -82,6 +83,13 @@ export class Engine {
         step(`Télécharger la couche ${i + 1}/${n}`, mo(l.size));
         const had = existsSync(this.store.blob(l.digest)) && statSync(this.store.blob(l.digest)).size === l.size;
         if (!had) await reg.blob(l, this.store.blob(l.digest), (k) => { done += k; progress({ phase: 'télécharger', done, total, layer: i + 1, layers: n }); });
+      }
+      // Quarantaine d'abord : chaque couche passe par l'antivirus AVANT d'être dépaquetée ; une seule dangereuse et
+      // l'image est refusée (rien n'est monté ni lancé), la couche part en quarantaine dans Asclépios.
+      step('Analyser l\'image (antivirus)', `${n} couche(s)`);
+      for (const [i, l] of manifest.layers.entries()) {
+        const p = await quarantaineDabord({ fichier: this.store.blob(l.digest), nom: `couche ${i + 1}/${n} de ${ref.name} (${l.digest.slice(7, 19)})`, origine: 'Argo · image Docker', source: ref.name, usage: 'lancer un conteneur' });
+        if (p.bloque) throw new Bloque({ ...p, texte: `image ${ref.name} refusée par l'antivirus : la couche ${i + 1}/${n} contient ${p.menace ?? 'une menace'} (trouvée par ${p.par ?? 'analyse'}). Rien n'a été dépaqueté ni lancé ; la couche est en quarantaine (n° ${p.quarantaine ?? '—'}).` });
       }
       step('Dépaqueter l\'image', mo(total));
       let read = 0; progress({ phase: 'monter', done: 0, total, layer: 0, layers: n });

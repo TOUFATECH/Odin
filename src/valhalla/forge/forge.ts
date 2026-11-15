@@ -17,7 +17,7 @@ const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === 
 const JOURS = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
 export interface Plan { days: number[]; at: string; date?: string; auto: boolean }
 export interface Found { source: Source; version: string; path: string; size: number; mtime: number }
-export interface Event { at: number; what: 'vérifié' | 'nouvelle version' | 'téléchargé' | 'supprimé' | 'échec' | 'empreinte fausse' | 'mis de côté' | 'repéré' | 'intègre' | 'abîmé'; source: string; name: string; version?: string; file?: string; size?: number; sha256?: string; ms?: number; detail?: string }
+export interface Event { at: number; what: 'vérifié' | 'nouvelle version' | 'téléchargé' | 'supprimé' | 'échec' | 'empreinte fausse' | 'mis de côté' | 'repéré' | 'intègre' | 'abîmé' | 'rangé dans old'; source: string; name: string; version?: string; file?: string; size?: number; sha256?: string; ms?: number; detail?: string; /** l'adresse d'origine du téléchargement */ url?: string; /** l'empreinte publiée par l'éditeur a été vérifiée */ editeur?: boolean }
 interface Job { source: string; name: string; file: string; version: string; done: number; total?: number; started: number; ctrl: AbortController }
 interface Custom { id: string; name: string; repo?: string; url?: string; pattern: string; sha256?: string }
 
@@ -42,7 +42,8 @@ export function scan(root: string, sources: Source[]): { found: Found[]; unknown
     let names: string[] = []; try { names = readdirSync(dir); } catch { return; }
     for (const n of names) {
       if (n.startsWith('.')) continue; const p = join(dir, n); let st; try { st = statSync(p); } catch { continue; }
-      if (st.isDirectory()) { if (depth < 2) walk(p, depth + 1); continue; }
+      // « old » : les anciennes versions mises de côté (Andromède) ; elles ne comptent pas comme versions suivies.
+      if (st.isDirectory()) { if (depth < 2 && n !== 'old') walk(p, depth + 1); continue; }
       const src = sources.find((x) => x.match.test(n)); const v = src ? src.match.exec(n)?.[1] : undefined;
       if (src && v) found.push({ source: src, version: v, path: p, size: st.size, mtime: st.mtimeMs }); else unknown.push(relative(root, p));
     }
@@ -54,6 +55,21 @@ export function scan(root: string, sources: Source[]): { found: Found[]; unknown
 export function toPrune(found: Found[], keep: number): Found[] {
   const by = new Map<string, Found[]>(); for (const f of found) by.set(f.source.id, [...(by.get(f.source.id) ?? []), f]);
   return [...by.values()].flatMap((l) => l.sort((a, b) => cmpVersion(b.version, a.version) || b.mtime - a.mtime).slice(Math.max(1, keep)));
+}
+/**
+ * Le ménage « old » : les autres versions de la même source passent dans « old » à côté de la nouvelle ; dans
+ * chaque « old », une seule version est gardée (la plus récente) et les autres sont supprimées. Pur (sauf la
+ * lecture des dossiers « old »).
+ */
+export function rangerOld(found: Found[], nouveau: string, src: Source): { deplacer: Array<{ de: string; vers: string }>; supprimer: Found[] } {
+  const oldDir = join(dirname(nouveau), 'old');
+  const deplacer = found.filter((f) => f.path !== nouveau && f.source.id === src.id).map((f) => ({ de: f.path, vers: join(oldDir, basename(f.path)), f }));
+  // Ce qui sera dans « old » : ce qui y est déjà + ce qu'on y met ; on garde la version la plus récente.
+  const deja: Found[] = []; try { for (const n of readdirSync(oldDir)) { const v = src.match.exec(n)?.[1]; if (v) { const p = join(oldDir, n), st = statSync(p); deja.push({ source: src, version: v, path: p, size: st.size, mtime: st.mtimeMs }); } } } catch { /* pas encore de « old » */ }
+  const tous = [...deja, ...deplacer.map((d) => ({ ...d.f, path: d.vers }))].sort((a, b) => cmpVersion(b.version, a.version) || b.mtime - a.mtime);
+  const garde = tous[0]?.path, supprimer = tous.filter((x) => x.path !== garde);
+  // Une version qu'on allait déplacer puis supprimer : supprimée directement à sa place d'origine.
+  return { deplacer: deplacer.filter((d) => d.vers === garde).map(({ de, vers }) => ({ de, vers })), supprimer: supprimer.map((x) => deplacer.find((d) => d.vers === x.path)?.f ?? x) };
 }
 export const sizeText = (n?: number) => (n === undefined ? '—' : n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2).replace('.', ',')} Go` : n >= 1024 ** 2 ? `${Math.round(n / 1024 ** 2)} Mo` : `${Math.max(1, Math.round(n / 1024))} Ko`);
 export const sha256File = (p: string) => new Promise<string>((ok, ko) => { const h = createHash('sha256'); createReadStream(p).on('data', (c) => h.update(c)).on('end', () => ok(h.digest('hex'))).on('error', ko); });
@@ -95,7 +111,13 @@ export interface ForgeOpts {
   id: string; name: string; kind: Kind; noun: string; nouns: string; from: string[]; upstream: string[]; words: string[];
   sources: Source[]; defaultDir: string; what: string; extraDoes?: string[];
   /** Après un téléchargement réussi (ex. l'antivirus pour les logiciels). Rend un motif pour mettre de côté. */
-  after?: (ctx: ModCtx, path: string, src: Source) => Promise<string | undefined>;
+  after?: (ctx: ModCtx, path: string, src: Source, rel?: Release & { checked?: boolean; sha?: string }) => Promise<string | undefined>;
+  /**
+   * Les anciennes versions vont dans un sous-dossier « old » à côté de la nouvelle (une seule ancienne gardée par
+   * source, la plus vieille est supprimée), au lieu de garder N versions côte à côte. `deplace` est prévenu de
+   * chaque déplacement (`vers` vide : fichier supprimé) pour que ceux qui s'en servent suivent (Hydre).
+   */
+  old?: { deplace?: (ctx: ModCtx, l: Array<{ de: string; vers: string; nouveau: string }>) => Promise<void> };
 }
 
 export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle: (ctx: ModCtx, why: string) => Promise<string> } {
@@ -145,12 +167,22 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     try {
       const r = await download(ctx.fetch as never, rel, dir, { signal: ctrl.signal, rate: Number(ctx.settings.debit) || undefined, progress: (d, t) => { job.done = d; job.total = t; } });
       const ms = Date.now() - job.started;
-      const hold = o.after ? await o.after(ctx, r.path, src).catch(() => undefined) : undefined;
-      if (hold) { const aside = join(root(ctx), '.mis-de-cote'); mkdirSync(aside, { recursive: true }); renameSync(r.path, join(aside, basename(r.path))); log(ctx, { what: 'mis de côté', source: src.id, name: src.name, version: rel.version, file: rel.file, detail: hold }); say(ctx, 'critique', `${src.name} ${rel.version} mis de côté`, `L'antivirus a trouvé : ${hold}. Le fichier n'a pas remplacé l'ancienne version.`, { steps: ['Ne lance pas ce fichier', 'Regarde le détail dans Asclépios', 'Garde l\'ancienne version en attendant'] }); return `🛡 ${src.name} ${rel.version} mis de côté (antivirus : ${hold}).`; }
-      log(ctx, { what: 'téléchargé', source: src.id, name: src.name, version: rel.version, file: rel.file, size: r.size, sha256: r.sha256, ms, detail: r.checked ? 'empreinte de l\'éditeur vérifiée' : 'l\'éditeur ne publie pas d\'empreinte' });
-      // Ménage : seulement les N dernières versions.
-      const pruned = toPrune(scan(root(ctx), [src]).found, keep(ctx));
-      for (const p of pruned) { rmSync(p.path, { force: true }); log(ctx, { what: 'supprimé', source: src.id, name: src.name, version: p.version, file: basename(p.path), size: p.size, detail: `on garde ${keep(ctx)} version(s)` }); }
+      const hold = o.after ? await o.after(ctx, r.path, src, { ...rel, checked: r.checked, sha: r.sha256 }).catch(() => undefined) : undefined;
+      if (hold) { const aside = join(root(ctx), '.mis-de-cote'); mkdirSync(aside, { recursive: true }); /* déjà parti en quarantaine (Asclépios) : rien à déplacer */ if (existsSync(r.path)) renameSync(r.path, join(aside, basename(r.path))); log(ctx, { what: 'mis de côté', source: src.id, name: src.name, version: rel.version, file: rel.file, detail: hold }); say(ctx, 'critique', `${src.name} ${rel.version} mis de côté`, `L'antivirus a trouvé : ${hold}. Le fichier n'a pas remplacé l'ancienne version.`, { steps: ['Ne lance pas ce fichier', 'Regarde le détail dans Asclépios', 'Garde l\'ancienne version en attendant'] }); return `🛡 ${src.name} ${rel.version} mis de côté (antivirus : ${hold}).`; }
+      log(ctx, { what: 'téléchargé', source: src.id, name: src.name, version: rel.version, file: rel.file, size: r.size, sha256: r.sha256, ms, url: rel.url, editeur: r.checked, detail: r.checked ? 'empreinte de l\'éditeur vérifiée' : 'l\'éditeur ne publie pas d\'empreinte' });
+      // Ménage : seulement les N dernières versions (ou : l'ancienne dans « old », une seule gardée).
+      let pruned: Found[];
+      if (o.old) {
+        const r2 = rangerOld(scan(root(ctx), [src]).found, r.path, src);
+        for (const m of r2.deplacer) { mkdirSync(dirname(m.vers), { recursive: true }); renameSync(m.de, m.vers); log(ctx, { what: 'rangé dans old', source: src.id, name: src.name, file: basename(m.de), detail: `remplacé par ${rel.version}` }); }
+        for (const x of r2.supprimer) { rmSync(x.path, { force: true }); log(ctx, { what: 'supprimé', source: src.id, name: src.name, version: x.version, file: basename(x.path), size: x.size, detail: 'une seule ancienne version gardée (old)' }); }
+        pruned = r2.supprimer;
+        const l = [...r2.deplacer.map((m) => ({ de: m.de, vers: m.vers, nouveau: r.path })), ...r2.supprimer.map((x) => ({ de: x.path, vers: '', nouveau: r.path }))];
+        if (l.length) await o.old.deplace?.(ctx, l).catch(() => undefined);
+      } else {
+        pruned = toPrune(scan(root(ctx), [src]).found, keep(ctx));
+        for (const p of pruned) { rmSync(p.path, { force: true }); log(ctx, { what: 'supprimé', source: src.id, name: src.name, version: p.version, file: basename(p.path), size: p.size, detail: `on garde ${keep(ctx)} version(s)` }); }
+      }
       say(ctx, 'info', `✅ ${src.name} ${rel.version} téléchargé`, `${sizeText(r.size)} en ${Math.max(1, Math.round(ms / 1000))} s · ${r.checked ? 'empreinte de l\'éditeur vérifiée' : 'sans empreinte publiée par l\'éditeur'}${pruned.length ? ` · ancienne version retirée : ${pruned.map((p) => p.version).join(', ')}` : ''}.`);
       ctx.emit('telecharge', { nom: src.name, version: rel.version, fichier: r.path });
       return `✅ ${src.name} ${rel.version} (${sizeText(r.size)})${r.checked ? ', empreinte vérifiée' : ''}${pruned.length ? ` · retiré : ${pruned.map((p) => p.version).join(', ')}` : ''}`;

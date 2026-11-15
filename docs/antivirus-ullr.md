@@ -307,3 +307,40 @@ isolé, qui n'existe pas ici.
 | Classifieur par apprentissage automatique | non fait |
 | OpenID Connect, plusieurs organisations, rôles | non fait (un seul propriétaire, compte et sessions) |
 | Double authentification | non fait (recommandé) |
+
+## 10. Antivirus d'abord, partout (quarantaine d'abord)
+
+Tout ce qui vient de l'extérieur passe par UN point de passage avant d'être utilisé, installé ou lancé :
+`quarantaineDabord()` (`src/valhalla/ullr/garde.ts`). Asclépios y branche son gardien (signatures, exceptions,
+quarantaine) ; sans lui, un gardien de secours analyse quand même avec les règles de base.
+
+| Ce qui arrive | Où c'est branché |
+|---|---|
+| ISO importées dans Hydre (envoi, lien, dossier, partage) et ISO téléchargées par Andromède | `forge/bibliotheque.ts` (`importer`), `modules/eitri.ts` (`after`) |
+| Installateurs téléchargés ou déposés dans Hermès, logiciel installé dans une machine | `modules/fjalar.ts`, `ymir/bibliotheque.ts` |
+| Images Docker / OCI tirées par Argo : chaque couche, avant d'être dépaquetée | `hringhorni/engine.ts` (`pull`) |
+| Fichier joint dans la discussion, fichier déposé dans une appli (Plume, Alchimie…) | `web/server.ts` (`/api/upload`, `/api/valhalla/depot`) |
+| Pièces jointes des messageries (Telegram, Discord, Signal) | `bifrost/channel.ts` (`dropFile`), `bifrost/channels/telegram.ts` |
+| Image téléchargée par Odin depuis un lien | `tools/files.ts` (`image_view`) |
+| Fichier envoyé par Pégase pour avis | `modules/pegase.ts` (`analyserFichier`) |
+| Nébuleuse, Alchimie (lien), Agora, Champollion | déjà analysés avant usage par l'action « fichier » d'Asclépios (leur propre mise de côté) |
+
+Ce qui bloque : une empreinte connue, une règle sûre, le fichier d'essai EICAR, ou un score critique (85 et plus).
+Un simple indice ne bloque pas : il est signalé « à vérifier ».
+
+**Quand c'est bloqué.** Le fichier est mis à l'écart (brouillé, dans `quarantaine/`) avant tout usage, et tu reçois
+une notification : *quoi* (le fichier, d'où il vient), *pourquoi* (empreinte, règle ou indice trouvé), *ce qui a été
+fait*, *quoi faire*. Tu **acceptes** (il est rangé à sa place, avec ton accord) ou tu **refuses** (supprimé
+définitivement). Sans réponse dans le délai (2 minutes par défaut, action « Délai pour décider »), il reste en
+quarantaine. Depuis l'onglet **Quarantaine** : « Pourquoi ? » (détail), « Réanalyser », « Libérer » (grave : rangé à
+son emplacement habituel, comme si de rien n'était) et « Bloquer » (grave : supprimé définitivement). Chaque étape
+est notée dans le registre (journal `ullr`, base `ASCLEPIOS_ODIN`).
+
+**Sources (onglet Sources).** Pour chaque source : ce qu'elle apporte, dernière et prochaine mise à jour, nombre de
+signatures, état. Les sources automatiques se mettent à jour seules à leur rythme (contrôle chaque heure) ; « Mettre
+à jour » le fait à la demande. Une source qui échoue déclenche une alerte (les signatures en service restent
+actives). Les failles récemment déclarées (CISA KEV) sont listées. Nouvelle source : **ClamAV daily** (signatures
+officielles, fichier `.cvd` lu sans ClamAV ; désactivée par défaut car lourde).
+
+Essais : `test/antivirus-partout.test.ts`, `test/hydre-iso.test.ts`, `test/bibliotheque-commune.test.ts`,
+`test/genese-bibliotheque.test.ts`.

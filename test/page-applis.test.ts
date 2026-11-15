@@ -65,7 +65,8 @@ test('pages des applis : onglets courts et tous utilisés, « Sur quel poste ? �
 
     // Asclépios : quatre onglets, les trois cartes de la maquette dans « Analyser », les chiffres clés gardés.
     const ullr = await va.module('ullr')!.view(va.ctx('ullr'), new URLSearchParams());
-    assert.deepEqual(ullr.onglets, ['Analyser', 'Résultats', 'Règles', 'Réglages']);
+    // (Depuis le 15/11/2026 : « Quarantaine » et « Sources » remplacent « Résultats » et « Règles », qui y sont fondus.)
+    assert.deepEqual(ullr.onglets, ['Analyser', 'Quarantaine', 'Sources', 'Réglages']);
     assert.deepEqual(ullr.sections.filter((s) => s.onglet === 'Analyser').map((s) => `${s.kind}:${s.title}`), ['depot:Un fichier de cet appareil', 'form:Le fichier d\'un lien', 'actions:Cette machine', 'form:Vérifier une adresse web']);
     const carte = ullr.sections.find((s) => s.kind === 'actions') as Extract<Section, { kind: 'actions' }>;
     assert.deepEqual(carte.boutons.map((b) => [b.label, b.input?.dossier, Boolean(b.primary)]), [['Analyse rapide', 'rapide', true], ['Tout analyser', 'tout', false]]);

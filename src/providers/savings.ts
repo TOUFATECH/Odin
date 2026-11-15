@@ -6,6 +6,8 @@
 //     auraient coûté si tout était parti vers ton modèle le plus cher.
 // Quand il n'y a pas encore assez de demandes pour comparer, Odin le dit au lieu d'inventer un chiffre.
 
+import { accord } from '../core/genre.ts';
+
 export interface SavingsData {
   /** Tâches faites sans IA. */
   direct: number;
@@ -72,7 +74,7 @@ export function savingsReport(s: Savings): string {
     L.push(s.avoidedUsd !== undefined
       ? `  Ça t'a évité environ ${money(s.avoidedUsd)} et ${count(s.avoidedTokens ?? 0)} jetons (une demande confiée à une IA te coûte en moyenne ${money(s.avgTurnUsd ?? 0)}, mesuré sur ${s.aiTurns} demandes).`
       : '  Je chiffrerai ce que ça évite dès que quelques demandes seront passées par une IA (il m\'en faut trois pour comparer).');
-  } else L.push('- Aucune tâche faite sans IA pour l\'instant : je prends la main dès qu\'une demande correspond à une action que je sais faire seul.');
+  } else L.push(`- Aucune tâche faite sans IA pour l'instant : je prends la main dès qu'une demande correspond à une action que je sais faire ${accord('seul', 'seule')}.`);
   if (s.aiTurns) L.push(`- ${s.aiTurns} demande${s.aiTurns > 1 ? 's' : ''} confiée${s.aiTurns > 1 ? 's' : ''} à une IA (${s.aiCalls} appel${s.aiCalls > 1 ? 's' : ''}) : ${money(s.spentUsd)} dépensé${s.spentUsd >= 2 ? 's' : ''}.`);
   if (s.cheaperUsd > 0 && s.reference) L.push(`- En envoyant chaque demande au modèle le moins cher qui convient, plutôt que tout à ${s.reference} : environ ${money(s.cheaperUsd)} gagnés.`);
   if (s.reasons.length) L.push(`- Fait sans IA, le plus souvent : ${s.reasons.slice(0, 4).map((r) => `${r.reason.replace(/^action reconnue : /, '').slice(0, 60)} (${r.n})`).join(' ; ')}.`);

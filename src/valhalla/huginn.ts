@@ -7,6 +7,7 @@
 // mêmes accords que si un modèle l'avait demandée).
 
 import { isIP } from 'node:net';
+import { accord } from '../core/genre.ts';
 import { parseWhen } from '../cron/reminders.ts';
 import { LINKS, USAGES } from './links.ts';
 import { forgetsId } from './names.ts';
@@ -311,7 +312,7 @@ function doubtOf(e: Evidence): { text: string; near: boolean } | undefined {
   const lead = toks[0];
   if (!known(lead) && !par.has(stem(lead)) && !named.has(stem(lead))) return far(`« ${lead} » n'est pas une action que je connais pour ${m.name}`);
   const left = toks.filter((w) => !known(w) && !par.has(stem(w)) && !named.has(stem(w)) && !free.has(stem(w)) && !typed(w));
-  if (left.length) { const u = [...new Set(left)]; return { text: `je ne suis pas sûr d'avoir tout compris (${u.slice(0, 3).map((w) => `« ${w} »`).join(', ')})`, near: e.designated && u.length === 1 }; }
+  if (left.length) { const u = [...new Set(left)]; return { text: `je ne suis pas ${accord('sûr', 'sûre')} d'avoir tout compris (${u.slice(0, 3).map((w) => `« ${w} »`).join(', ')})`, near: e.designated && u.length === 1 }; }
   return undefined;
 }
 

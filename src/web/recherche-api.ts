@@ -38,8 +38,15 @@ export async function rechercheRoute(req: IncomingMessage, res: ServerResponse, 
   if (req.method === 'GET' && p === '/api/recherche/vignette') {
     try {
       const u = assertPublicUrl(s(url.searchParams.get('u'))); if (!/^https?:$/.test(u.protocol)) throw new Error('adresse refusée');
-      const r = await (ctx.fetch as typeof fetch)(u.toString(), { signal: AbortSignal.timeout(8000), redirect: 'error', headers: { accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif' } });
-      const type = r.headers.get('content-type') ?? ''; if (!r.ok || !/^image\/(png|jpe?g|gif|webp|avif)$/i.test(type.split(';')[0].trim())) throw new Error('pas une image');
+      // Une redirection (fréquente : icône d'un site, miniature) est suivie à la main, deux fois au plus, vers une adresse publique.
+      let cible = u, r: Response | undefined;
+      for (let k = 0; k < 3; k++) {
+        r = await (ctx.fetch as typeof fetch)(cible.toString(), { signal: AbortSignal.timeout(8000), redirect: 'manual', headers: { accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,image/x-icon' } });
+        const loc = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null; if (!loc) break;
+        cible = assertPublicUrl(new URL(loc, cible).toString()); if (!/^https?:$/.test(cible.protocol)) throw new Error('adresse refusée');
+      }
+      // Aussi l'icône d'un site (favicon.ico), affichée quand un résultat n'a pas de vignette. Jamais de SVG (il peut contenir du script).
+      const type = r?.headers.get('content-type') ?? ''; if (!r?.ok || !/^image\/(png|jpe?g|gif|webp|avif|x-icon|vnd\.microsoft\.icon)$/i.test(type.split(';')[0].trim())) throw new Error('pas une image');
       const b = Buffer.from(await r.arrayBuffer()); if (b.length > 3_000_000) throw new Error('trop lourde');
       res.writeHead(200, { 'content-type': type.split(';')[0].trim(), 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'" }); res.end(b);
     } catch { res.writeHead(404); res.end(); }

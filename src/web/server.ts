@@ -13,6 +13,7 @@
 import { dictee } from '../valhalla/modules/rodd.ts';
 import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
+import { echangeBus, echangesRecents } from '../valhalla/echanges.ts';
 import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
 import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -56,12 +57,16 @@ import { CIEL_JS } from './ciel.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
 import { pegaseRoute } from './pegase-api.ts';
+import { recevoirMorceau } from './morceaux.ts';
+import { quarantaineDabord } from '../valhalla/ullr/garde.ts';
 import { agoraRoute } from './agora-api.ts';
 import { plumeRoute } from './plume-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { terminalApi } from './terminal-api.ts';
 import { exportApi } from './export-api.ts';
 import { capsuleRoute } from './capsule-api.ts';
+import { compagnonRoute } from '../valhalla/compagnon/api.ts';
+import { agentRoute } from './phenix-agent-api.ts';
 import { orpheeApi } from './orphee-api.ts';
 import { partageApi, partagePublic } from './partage-api.ts';
 import { serverHandle } from '../valhalla/mcp.ts';
@@ -163,6 +168,8 @@ const GUIDE_JS = (() => { try { return readFileSync(new URL('./guide.js', import
 const EVOLUTION_JS = (() => { try { return readFileSync(new URL('./evolution.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const GRAPH_JS = (() => { try { return readFileSync(new URL('./graph.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const PACKETS_JS = (() => { try { return readFileSync(new URL('./packets.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+// Les fenêtres de dialogue au style d'Odin (à la place de confirm, alert et prompt du navigateur).
+const DIALOG_JS = (() => { try { return readFileSync(new URL('./dialog.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 // Les pages dessinées à part pour certaines applis (Alexandrie Studio, Écho, Zéphyr…) : src/web/pages/<appli>.js
 const PAGES_JS: Record<string, Buffer> = (() => { try { return Object.fromEntries(readdirSync(new URL('./pages/', import.meta.url)).filter((n) => /^[a-z0-9-]+\.js$/.test(n)).map((n) => [n, readFileSync(new URL(`./pages/${n}`, import.meta.url))])); } catch { return {}; } })();
 // Plume partout : le script et son CSS (glissé dedans : la page n'accepte que les styles écrits par ses scripts).
@@ -266,8 +273,11 @@ export class WebChannel implements Channel {
     if (opts.tls) setDotMaterial({ key: opts.tls.key, cert: opts.tls.cert });
     // Les bulles de la mascotte partent en direct vers toutes les pages ouvertes (téléphone compris).
     noticeBus.on('notice', this.onNotice);
+    // Les échanges entre applis (qui demande quoi à qui, sans les données) : les liens brillent dans les graphes.
+    echangeBus.on('echange', this.onEchange);
   }
   private onNotice = (n: unknown): void => { this.push({ type: 'notice', notice: n }); };
+  private onEchange = (e: unknown): void => { this.push({ type: 'echange', echange: e }); };
 
   /** Lien à ouvrir sur cette machine. */
   get url(): string {
@@ -397,6 +407,8 @@ export class WebChannel implements Channel {
       console.log(`[web] ${p.login} refusé sur le port direct de ${direct} (pas le droit) depuis ${ip}`);
       return json(res, 403, { ok: false, etat: 'refus', refuse: true, error: messageRefus(ctx, direct), accueil: this.accueilRefus(req, nomAppli(ctx, direct)) });
     }
+    // Par l'interface d'Odin elle-même : il faut le droit « odin » (groupes d'accès de Persona).
+    if (!direct && !aDroit(ctx, p, 'odin')) return json(res, 403, { ok: false, etat: 'refus', refuse: true, error: messageRefus(ctx, 'odin') });
     res.setHeader('set-cookie', ouvrirSessionMembre(ctx, p, { ip, agent: String(req.headers['user-agent'] ?? ''), https: this.secure || this.viaHttps(req), via: `${via}${direct ? ` · port direct de ${nomAppli(ctx, direct)}` : ' · interface d\'Odin'}` }));
     return json(res, 200, { ok: true, etat: 'ok' });
   }
@@ -552,7 +564,7 @@ export class WebChannel implements Channel {
 
   async stop(): Promise<void> {
     this.directs?.stop();
-    noticeBus.off('notice', this.onNotice);
+    noticeBus.off('notice', this.onNotice); echangeBus.off('echange', this.onEchange);
     this.codexServer?.close();
     this.codexDevice?.abort();
     for (const c of this.clients) c.end();
@@ -593,11 +605,11 @@ export class WebChannel implements Channel {
       const nonce = randomBytes(16).toString('base64');
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
-        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob:; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; media-src 'self' blob: https:; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://www.dailymotion.com; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
         'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY',
         // Fenêtre isolée des autres sites ; seuls le micro et la caméra servent (voix, photo) ; l'ancien filtre XSS des navigateurs est coupé (la politique de contenu fait mieux).
         'cross-origin-opener-policy': 'same-origin', 'x-xss-protection': '0',
-        'permissions-policy': 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()',
+        'permissions-policy': 'camera=(self), microphone=(self), geolocation=(self), payment=(), usb=(), serial=(), hid=(), midi=(), magnetometer=(), gyroscope=(), accelerometer=(), browsing-topics=()',
         // HSTS seulement avec un vrai certificat (le tien, ou celui du tunnel / proxy HTTPS) : jamais avec le certificat auto-signé du réseau local.
         ...((this.tls && !this.tls.selfSigned) || (ip.startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? ''))) ? { 'strict-transport-security': 'max-age=31536000' } : {}),
       });
@@ -666,6 +678,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/notices.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(NOTICES_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/packets.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PACKETS_JS); }
+    if (url.pathname === '/dialog.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(DIALOG_JS); }
     if (url.pathname === '/graph.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GRAPH_JS); }
     if (url.pathname === '/evolution.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(EVOLUTION_JS); }
     if (url.pathname === '/guide.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(GUIDE_JS); }
@@ -786,7 +799,11 @@ export class WebChannel implements Channel {
       return json(res, 200, { ok: true });
     }
     // Écho : la capsule de dictée d'un PC du parc entre avec son propre jeton (pas de session).
+    // Le compagnon d'Odin d'un poste du parc entre avec son propre jeton (pas de session).
+    if (url.pathname.startsWith('/api/compagnon/') && await compagnonRoute(req, res, url, { home: this.odin.paths.home, echec: () => this.throttle.fail(ip) })) return;
     if (url.pathname === '/api/rodd/capsule' && await capsuleRoute(req, res, url, { ip, home: this.odin.paths.home, voix: () => this.odin.cfg.voice, echec: () => this.throttle.fail(ip) })) return;
+    // Phénix : l'agent de sauvegarde d'un PC du parc entre avec son propre jeton (pas de session).
+    if (url.pathname.startsWith('/api/sindri/agent/') && await agentRoute(req, res, url, { ip, home: this.odin.paths.home, echec: () => this.throttle.fail(ip) })) return;
     if (!this.authed(req)) {
       // Cookie périmé (nouveau jeton) : on le fait oublier au navigateur, pour qu'il n'insiste pas en boucle.
       const w = this.who(req), hasAccount = this.accounts.exists();
@@ -815,6 +832,7 @@ export class WebChannel implements Channel {
     if (req.method === 'GET' && url.pathname === '/api/stream') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
       res.write(': ok\n\n');
+      { const recents = echangesRecents(); if (recents.length) res.write(`data: ${JSON.stringify({ type: 'echanges', maintenant: Date.now(), list: recents })}\n\n`); }
       this.clients.add(res);
       const sess = this.sessionOf(req); if (sess && !/^Bearer\s+/i.test(req.headers.authorization ?? '')) this.streamSession.set(res, sess);
       req.on('close', () => { this.clients.delete(res); this.streamSession.delete(res); });
@@ -1025,8 +1043,17 @@ export class WebChannel implements Channel {
           req.on('end', () => out.end(() => ok(n))); req.on('error', ko);
         }).catch((e) => { try { unlinkSync(dest); } catch { /* rien */ } throw e; });
         if (!size) { unlinkSync(dest); return json(res, 200, { ok: false, error: 'fichier vide' }); }
+        // Quarantaine d'abord : le fichier joint est analysé avant qu'Odin l'ouvre.
+        const passage = await quarantaineDabord({ fichier: dest, nom: uploadName(raw), origine: 'Fichier joint dans la discussion' }, valhallaOf()?.ctx('ullr')); if (passage.bloque) return json(res, 200, { ok: false, error: passage.texte, bloque: true });
         return json(res, 200, { ok: true, file: `inbox/${name}`, type: String(req.headers['content-type'] ?? ''), size });
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
+    }
+    if (url.pathname === '/api/valhalla/morceau') {
+      // Un gros fichier (ISO…) envoyé en morceaux reprenables : chaque morceau s'ajoute dans le dossier d'arrivée de l'appli.
+      const va = valhallaOf(); if (!va) return json(res, 503, { ok: false, error: 'applis non démarrées' });
+      const mod = url.searchParams.get('module') ?? '', d = va.module(mod)?.depot?.(va.ctx(mod));
+      if (!d) { req.resume(); return json(res, 200, { ok: false, error: 'cette appli ne reçoit pas de fichier' }); }
+      return json(res, 200, await recevoirMorceau(req, d.dossier, url.searchParams.get('envoi') ?? '', Number(url.searchParams.get('debut') ?? 0)));
     }
     if (url.pathname === '/api/valhalla/depot') {
       // Un fichier envoyé depuis l'appareil pour une action d'appli (réglage « depot ») : écrit en flux là où l'appli
@@ -1047,6 +1074,8 @@ export class WebChannel implements Channel {
           req.on('end', () => out.end(() => ok(n))); req.on('error', ko);
         });
         if (!size) { unlinkSync(dest); return json(res, 200, { ok: false, error: 'fichier vide' }); }
+        // Quarantaine d'abord : un fichier déposé est analysé avant que l'appli s'en serve (Asclépios analyse lui-même ce qu'on lui envoie ; Hydre analyse l'ISO à l'import).
+        if (mod !== 'ullr' && mod !== 'ymir') { const p = await quarantaineDabord({ fichier: dest, nom, origine: `Fichier déposé dans ${m.name}` }, va.ctx(mod)); if (p.bloque) return json(res, 200, { ok: false, error: p.texte, bloque: true }); }
         return json(res, 200, { ok: true, ref: d.ref(nom), nom, size });
       } catch (e) { if (dest) { try { unlinkSync(dest); } catch { /* rien à retirer */ } } return json(res, 200, { ok: false, error: (e as Error).message }); }
     }

@@ -4,6 +4,7 @@
 // d'un contenu extérieur. Chaque action est inscrite dans le journal d'audit.
 
 import { spawn } from 'node:child_process';
+import { accord } from '../core/genre.ts';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
@@ -158,12 +159,12 @@ export async function runUpdates(ctx: CareCtx, plan: UpdatePlan, stampFile: stri
       const fixed: string[] = [], still: string[] = [];
       for (const s of stopped) { const x = await runWhere(ctx, t.where, `sudo systemctl restart ${s.replace(/[^\w@.:-]/g, '')} && systemctl is-active ${s.replace(/[^\w@.:-]/g, '')}`, 60_000); (x.out.includes('active') && x.code === 0 ? fixed : still).push(s.replace(/\.service$/, '')); }
       lines.push(`✅ ${label} : à jour${snapOk ? ` (instantané « ${snap} » gardé)` : ''}${rebooted}.${fixed.length ? ` Relancé : ${fixed.join(', ')}.` : ''}${still.length ? ` ⚠ Ne redémarrent pas : ${still.join(', ')}.` : ''}`);
-      if (still.length && snapOk && plan.rollbackOnFailure && t.vmid) { try { await pveDo(ctx, t.vmid, 'rollback', snap); lines.push(`↩ ${label} : services en panne après la mise à jour, je suis revenu à l'instantané « ${snap} ».`); } catch { /* signalé ci-dessus */ } }
+      if (still.length && snapOk && plan.rollbackOnFailure && t.vmid) { try { await pveDo(ctx, t.vmid, 'rollback', snap); lines.push(`↩ ${label} : services en panne après la mise à jour, je suis ${accord('revenu', 'revenue')} à l'instantané « ${snap} ».`); } catch { /* signalé ci-dessus */ } }
       continue;
     }
     const tail = r.out.trim().split('\n').slice(-3).join(' · ').slice(0, 300);
     if (snapOk && plan.rollbackOnFailure && t.vmid) {
-      try { await pveDo(ctx, t.vmid, 'rollback', snap); lines.push(`↩ ${label} : la mise à jour a échoué (${tail}) ; je suis revenu à l'instantané « ${snap} ».`); } catch (e) { lines.push(`🔴 ${label} : mise à jour échouée et retour arrière impossible (${(e as Error).message}).`); }
+      try { await pveDo(ctx, t.vmid, 'rollback', snap); lines.push(`↩ ${label} : la mise à jour a échoué (${tail}) ; je suis ${accord('revenu', 'revenue')} à l'instantané « ${snap} ».`); } catch (e) { lines.push(`🔴 ${label} : mise à jour échouée et retour arrière impossible (${(e as Error).message}).`); }
     } else lines.push(`🔴 ${label} : la mise à jour a échoué (${tail})${snapOk ? ` — instantané « ${snap} » disponible pour revenir en arrière` : ''}.`);
   }
   // Après les mises à jour, les services surveillés répondent-ils toujours ?

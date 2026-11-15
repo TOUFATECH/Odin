@@ -60,7 +60,13 @@ export function brainGet(odin: Odin, path: string, q: URLSearchParams): unknown 
       return { ok: true, note: { path: n.path, title: n.title, meta: n.meta, body: n.body, tags: n.tags, mtime: n.mtime }, links: out, backlinks: v.backlinks(n.path).map((o) => ({ path: o.path, title: o.title })), mentions: v.unlinkedMentions(n.path).map((o) => ({ path: o.path, title: o.title })) };
     }
     case '/api/brain/graph': return { ok: true, ...v.graph({ center: q.get('center') || undefined, depth: Number(q.get('depth')) || 1 }) };
-    case '/api/brain/search': return { ok: true, results: v.search(q.get('q') ?? '', 30).map((r) => ({ path: r.note.path, title: r.note.title, type: String(r.note.meta.type ?? 'note'), snippet: r.snippet })) };
+    // La recherche du Cerveau trouve aussi les souvenirs d'Odin (la mémoire fait partie du Cerveau).
+    case '/api/brain/search': {
+      const query = q.get('q') ?? '';
+      let memories: Array<{ id: number; content: string; pinned: boolean }> = [];
+      try { memories = (odin.muninn?.findMemories(query, 10) ?? []).map((m) => ({ id: m.id, content: m.content, pinned: m.pinned === 1 })); } catch { /* mémoire facultative */ }
+      return { ok: true, results: v.search(query, 30).map((r) => ({ path: r.note.path, title: r.note.title, type: String(r.note.meta.type ?? 'note'), snippet: r.snippet })), memories };
+    }
     case '/api/brain/db': { const t = q.get('type') ?? 'projet'; return { ok: true, type: t, def: TYPES[t], rows: v.database(t) }; }
     default: return undefined;
   }

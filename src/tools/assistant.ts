@@ -73,7 +73,7 @@ export const maintenanceSet: Tool = {
 
 export const voiceSet: Tool = {
   name: 'voice_set',
-  description: 'Change la voix d\'Odin : homme ou femme (« parle avec une voix de femme », « reprends ta voix d\'homme »). voix : nom ou identifiant d\'une voix précise (facultatif ; OpenAI : nova, shimmer, coral pour une femme, onyx, echo, ash pour un homme).',
+  description: 'Odin, homme ou femme : change sa voix ET sa façon de parler de lui (accords : prêt / prête) (« parle avec une voix de femme », « parle comme un homme », « reprends ta voix d\'homme »). voix : nom ou identifiant d\'une voix précise (facultatif ; OpenAI : nova, shimmer, coral pour une femme, onyx, echo, ash pour un homme).',
   risk: 'write',
   schema: obj({ genre: str('homme | femme'), voix: str('voix précise (facultatif)') }, ['genre']),
   summarize: (i) => `voix d'Odin : ${s(i.genre)}${s(i.voix) ? ` (${s(i.voix)})` : ''}`,
@@ -81,9 +81,13 @@ export const voiceSet: Tool = {
     const g = /^f/i.test(s(i.genre)) ? 'femme' : 'homme';
     const v = s(i.voix);
     if (v && !/^[A-Za-z0-9_.-]{1,80}$/.test(v)) throw new Error('nom de voix invalide');
+    // Le seul réglage « Odin : homme ou femme » : la voix et les accords du texte suivent ; le choix est noté comme fait.
     setCfg(ctx, ['voice', 'gender'], g);
+    setCfg(ctx, ['voice', 'genderChosen'], true);
     if (v) setCfg(ctx, g === 'femme' ? ['voice', 'femaleVoiceId'] : ['voice', 'tts', 'voiceId'], v);
-    return `Voix d'Odin : ${g === 'femme' ? 'une voix de femme' : 'une voix d\'homme'}${v ? ` (${v})` : ''}. C'est pris en compte dès la prochaine réponse vocale.`;
+    return g === 'femme'
+      ? `C'est fait : je prends une voix de femme${v ? ` (${v})` : ''} et je parle de moi au féminin. Tu l'entendras dès ma prochaine réponse.`
+      : `C'est fait : je prends une voix d'homme${v ? ` (${v})` : ''} et je parle de moi au masculin. Tu l'entendras dès ma prochaine réponse.`;
   },
 };
 

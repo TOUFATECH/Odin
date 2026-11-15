@@ -138,8 +138,10 @@
   }
   const ACTIONS = {
     rien: () => {},
-    rire: (b) => { window.OdinFace?.flash(b, 'rire', 2600); window.OdinCompanion?.act?.('act-joy', 1100); say('Hé, ça chatouille !'); },
-    phrase: (b) => { window.OdinFace?.flash(b, 'malice', 2600); say('Depuis tout à l\'heure tu me cliques dessus… dis-moi ce que tu veux !'); },
+    // Il rit sans rien dire (une phrase toute faite reviendrait à l'identique à chaque fois).
+    rire: (b) => { window.OdinFace?.flash(b, 'rire', 2600); window.OdinCompanion?.act?.('act-joy', 1100); },
+    // Une phrase : quelque chose de neuf et d'utile sur la page affichée (moteur parole.ts), sinon il se tait.
+    phrase: async (b) => { window.OdinFace?.flash(b, 'malice', 2600); try { const r = await window.OdinGuide?.parole?.('clic'); if (r?.texte) say(r.texte); } catch { /* il se tait */ } },
     avertir: (b, n) => { window.OdinFace?.flash(b, 'inquiet', 2600); const h = NEXT_HIDE(); say(h && h > n ? `Encore ${h - n} et je me cache sur tous tes écrans.` : 'Attention, encore un peu et je me cache !', 'souci'); },
     cacher: async () => { D = { ...(D || {}), cache: true }; applyHidden(); try { await api('cacher'); } catch { /* */ } },
     muet: (b) => { window.OdinFace?.mute?.(true); window.OdinFace?.flash(b, 'gene', 2000); say('Je me tais. (Réglages → Voix pour me rendre la parole.)'); },

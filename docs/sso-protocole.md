@@ -555,3 +555,31 @@ Renouvellement : même `POST /sso/jeton` avec `grant_type=refresh_token`, `refre
   `PENPOT_FLAGS=… enable-login-with-oidc`, `PENPOT_OIDC_CLIENT_ID`, `PENPOT_OIDC_CLIENT_SECRET`, `PENPOT_OIDC_BASE_URI`
   (= l'`issuer` d'Odin), `PENPOT_OIDC_SCOPES=openid profile email groups`, adresse de retour
   `https://<penpot>/api/auth/oidc/callback` ; `PENPOT_SSRF_ALLOWED_HOSTS` si Odin est sur une adresse privée.
+
+## 13. Groupes d'accès, logiciels OpenID, clés d'accès, invitations, mot de passe oublié (Persona)
+
+- **Groupes** (Persona → onglet « Groupes », ou par phrase) : `creer_groupe`, `renommer_groupe` (le nouveau nom remplace
+  l'ancien dans les fiches, les droits des applis, les sites du proxy et la double authentification), `supprimer_groupe`,
+  `mettre_dans_groupe`, `sortir_du_groupe`, `double_auth_groupe`, `donner_site` / `retirer_site`. Un droit perdu coupe tout
+  de suite les connexions d'applis concernées (jetons révoqués) ; le reste relit les droits à chaque requête. Le groupe
+  `admin` a toujours tout, y compris les sites du proxy ; il ne se renomme ni ne se supprime.
+- **Entrer dans l'interface d'Odin** demande le droit `odin` (par son port à elle) ; sans lui : `403 refuse` (connexion
+  refusée, API fermée). Par le port d'une appli, seul le droit sur cette appli compte.
+- **Logiciels OpenID** (`inscrire_logiciel`) : Nextcloud (`/apps/user_oidc/code`), Gitea (`/user/oauth2/Odin/callback`),
+  Grafana (`/login/generic_oauth`), Penpot (`/api/auth/oidc/callback`), Home Assistant (intégration communautaire
+  hass-openid, `/auth/openid/callback`) ou « autre ». Client confidentiel, secret dans Thésauros. **Consentement** : pour
+  toute appli non préinscrite, la première connexion d'une personne montre « Autoriser <logiciel> ? » (ce qu'il verra) ;
+  le choix est gardé (`oublier_autorisation` pour le retirer). Avec `prompt=none` et sans consentement : `consent_required`.
+- **Clés d'accès** (WebAuthn, sans dépendance) : `GET /sso/compte` (« Mon compte ») → `POST /sso/compte/cle/debut|fin`
+  (inscription : vérification de la personne exigée, attestation « none ») ; sur le portail, bouton « Se connecter avec une
+  clé d'accès » → `POST /sso/cle/debut|fin` (`{ demande }`), puis `POST /sso/autoriser` `demande=…&suite=1`. Algorithmes :
+  ES256, EdDSA, RS256. Compteur qui recule = clé copiée, refusée. Une clé d'accès vaut deux facteurs (double
+  authentification obligatoire remplie). **Jamais par une adresse IP** (règle de WebAuthn) : il faut un nom avec un vrai
+  certificat, ou `localhost`.
+- **Invitation** (`inviter` : nom, groupes, e-mail facultatif, 1 à 30 jours) : lien `/sso/invitation?j=…` à usage unique
+  (Odin n'en garde que le SHA-256), envoyé par e-mail (boîte de Réglages → Mail) ou donné à la main (QR code). La personne
+  choisit identifiant et mot de passe ; si un de ses groupes exige la double authentification, elle règle son code sur place.
+- **Mot de passe oublié** : `/sso/oubli` (identifiant ou e-mail ; même réponse que le compte existe ou non, 5 demandes par
+  adresse et par heure) → e-mail avec `/sso/oubli/nouveau?j=…` (30 minutes, une fois) → nouveau mot de passe (+ code si
+  double authentification) ; compte déverrouillé, toutes les connexions coupées, alerte au propriétaire. Le compte du
+  propriétaire n'est pas concerné (son mot de passe est celui d'Odin). Adresse mise dans les liens : `adresse_liens`.

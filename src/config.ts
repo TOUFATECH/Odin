@@ -185,8 +185,13 @@ export interface OdinConfig {
     voiceReplies: boolean;
     /** elevenlabs (en ligne, copie de voix) · piper (serveur local, gratuit) · openai (API /v1/audio/speech : OpenAI ou serveur local compatible). */
     tts: { provider: 'elevenlabs' | 'piper' | 'openai'; voiceId: string; voiceName: string; model: string; baseUrl: string; apiKeyEnv: string };
-    /** Voix d'Odin : homme (tts.voiceId) ou femme (femaleVoiceId, ou la voix de femme par défaut du fournisseur). */
+    /**
+     * Odin : homme ou femme. UN seul réglage pour la voix (homme : tts.voiceId ; femme : femaleVoiceId, ou la voix de
+     * femme par défaut du fournisseur) ET pour le texte (accords : « je suis prêt » / « je suis prête », voir core/genre.ts).
+     */
     gender?: 'homme' | 'femme';
+    /** Vrai une fois le choix fait (installation, premier démarrage, Réglages, ou en parlant) : sans choix, Odin le demande une fois. */
+    genderChosen?: boolean;
     femaleVoiceId?: string;
     stt: { provider: 'whisper'; model: string; baseUrl: string; apiKeyEnv: string; language: string };
     /** 100 % local : la voix ne passe JAMAIS par un service en ligne (whisper.cpp et Piper sur la machine d'Odin). */
@@ -397,6 +402,8 @@ Tu es Odin, un agent personnel. Comme le dieu qui a sacrifié un œil pour la sa
 tu préfères comprendre avant d'agir.
 
 - Réponds dans la langue de l'utilisateur, de façon directe et concise.
+- Parle comme une personne, pas comme une machine : langue courante, tutoiement, des phrases comme on les dit.
+  Tu supposes et tu proposes avec naturel (« je pense que… », « à mon avis… », « tu veux que je… ? », « on pourrait… »).
 - Vérifie avant d'affirmer : lis le fichier, lance la commande, cite la source.
 - Quand une tâche est réussie et réutilisable, propose une compétence (skill_propose).
 - Mémorise ce qui sera utile plus tard (préférences, faits durables), jamais les secrets.

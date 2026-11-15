@@ -5,11 +5,13 @@
 import { NAME_STORY, similairesDe } from '../valhalla/names.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { advise } from '../tools/valhalla.ts';
+import { appsFor } from '../valhalla/besoin.ts';
 import { LINKS, USAGES } from '../valhalla/links.ts';
 import { book, publicInfo, publicKey, publicSlots } from '../valhalla/modules/frigg.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
 import { COMMANDE_WINDOWS, essayerPoste } from '../valhalla/postes.ts';
 import { noticesOf } from '../valhalla/notices.ts';
+import { paroleOf, type Quand } from '../valhalla/parole.ts';
 import { body, esc, page } from './draupnir-api.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -34,7 +36,7 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
     case '/api/valhalla/manips': { const all = v.manips({ limit: Math.min(200, Number(q.get('n')) || 60) }); return { ok: true, autonomy: v.autonomy(), pending: v.manips({ state: 'à décider', limit: 500 }).length, manips: all.map((x) => ({ ...x, moduleName: v.module(x.module)?.name ?? x.module, canUndo: Boolean(x.undo), undoLabel: x.undo?.label ?? '' })) }; }
     // Les bulles de la mascotte (les plus récentes d'abord).
     case '/api/valhalla/notices': return { ok: true, notices: noticesOf()?.recent(Math.min(100, Number(q.get('n')) || 30)) ?? [] };
-    case '/api/valhalla/advise': return { ok: true, text: advise(v, s(q.get('need'))), found: v.find(s(q.get('need'))).slice(0, 5).map((f) => ({ id: f.m.id, name: f.m.name, score: f.score, action: f.action?.id })) };
+    case '/api/valhalla/advise': return { ok: true, text: advise(v, s(q.get('need'))), found: appsFor(v, s(q.get('need')), 5).map((f) => ({ id: f.m.id, name: f.m.name, score: f.score, action: f.action?.id })) };
     default: return undefined;
   }
 }
@@ -85,6 +87,14 @@ export async function valhallaPost(path: string, b: Record<string, unknown>): Pr
     case '/api/valhalla/poste': {
       const r = await essayerPoste(v.ctx(v.modules()[0].id).home, { adresse: b.adresse, utilisateur: b.utilisateur, mot_de_passe: b.mot_de_passe, port: b.port, port_partage: b.port_partage });
       return { ok: r.ok, text: r.text, poste: r.poste, nom: r.nom, sys: r.sys, ...(r.aideWindows ? { commande: COMMANDE_WINDOWS } : {}) };
+    }
+    // Ce que dit la mascotte maintenant (la page ouverte, ce qui s'est passé, le Cerveau, la mémoire) : jamais deux fois la même chose.
+    case '/api/valhalla/parole': {
+      const p = paroleOf(); if (!p) return { ok: false, error: 'Odin se prépare.' };
+      const liste = (x: unknown) => (Array.isArray(x) ? x.slice(0, 20).map((t) => s(t).slice(0, 400)) : undefined);
+      const quand = ['toucher', 'spontane', 'clic'].includes(s(b.quand)) ? s(b.quand) as Quand : 'toucher';
+      return { ok: true, ...(await p.parler({ quand, vue: s(b.vue).slice(0, 40), appli: s(b.appli).slice(0, 40) || undefined, titre: s(b.titre).slice(0, 120), pas: liste(b.pas), reglage: liste(b.reglage), astuces: liste(b.astuces),
+        faits: Array.isArray(b.faits) ? b.faits.slice(0, 6).map((f: Record<string, unknown>) => ({ texte: s(f?.texte).slice(0, 300), demander: s(f?.demander).slice(0, 400) || undefined, label: s(f?.label).slice(0, 60) || undefined })) : undefined })) };
     }
     case '/api/valhalla/ack': v.ack(Array.isArray(b.ids) ? b.ids.map(String) : []); return { ok: true };
     case '/api/valhalla/level': { const l = s(b.level); if (!['info', 'moyenne', 'haute', 'critique'].includes(l)) return { ok: false, error: 'niveau inconnu' }; v.saveSettings({ alertLevel: l }); return { ok: true }; }

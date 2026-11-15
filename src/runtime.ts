@@ -60,6 +60,7 @@ import type { Judge } from './mimir/client.ts';
 import { buildJudge } from './mimir/factory.ts';
 import { Mimir } from './mimir/decisions.ts';
 import { loadEnvFile } from './settings.ts';
+import { brancherGenre } from './core/genre.ts';
 
 export interface Odin {
   paths: OdinPaths;
@@ -163,6 +164,8 @@ export function createOdin(opts: CreateOptions = {}): Odin {
     persona = persona.replace(OLD_RULE, "- Ce que l'utilisateur te demande, fais-le directement : Heimdall s'occupe des validations quand il le faut.");
     try { writeFileSync(paths.persona, persona); } catch { /* lecture seule : la consigne du code prime de toute façon */ }
   }
+  // Odin, homme ou femme : les phrases toutes faites lisent le réglage en cours (il peut changer sans redémarrer).
+  brancherGenre(() => cfg.voice.gender);
   const embedder = opts.provider ? undefined : makeEmbedder(cfg);
   const agent = new Agent({ embedder, paths, cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, home: paths.home, persona, send: opts.send, inventory, mimir });
   return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, close: () => { closeBrowsers(); muninn.close(); } };

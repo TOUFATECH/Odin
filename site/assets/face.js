@@ -116,7 +116,9 @@
     for (const k of ['brows', 'mouth', 'cheeks', 'extra']) f[k].innerHTML = '';
     // Mouvement des yeux propre à l'humeur : taille, écart, hauteur, et petite animation ; jamais inclinés.
     const e = (m.eyes && typeof m.eyes === 'object') ? m.eyes : {};
-    const [lx, ly] = e.l || [1, 1], [rx, ry] = e.r || [1, 1], [dx, dy] = e.d || [0, 0];
+    // Yeux en pastille pour toutes les humeurs ; seule la concentration a les yeux carrés.
+    const pastille = (v) => (key === 'concentration' ? v : [Math.min(v[0], 1.15), Math.max(v[1], 0.72)]);
+    const [lx, ly] = pastille(e.l || [1, 1]), [rx, ry] = pastille(e.r || [1, 1]), [dx, dy] = e.d || [0, 0];
     el.style.setProperty('--lsx', lx); el.style.setProperty('--lsy', ly);
     el.style.setProperty('--rsx', rx); el.style.setProperty('--rsy', ry);
     el.style.setProperty('--edx', `${dx}px`); el.style.setProperty('--edy', `${dy}px`);

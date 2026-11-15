@@ -1,4 +1,4 @@
-// Odin, ton guide, sur toutes les pages. Sa bulle s’ouvre par « Explique-moi », « Quoi de neuf » ou une question (plus par un clic sur la mascotte) :
+// Odin, ton guide, sur toutes les pages. Sa bulle s’ouvre par « Explique-moi pas à pas » (dans « Que veux-tu ? », quand on touche Odin, ou en tapant « aide »), « Quoi de neuf » ou une question :
 // - tu lui parles directement, où que tu sois : c'est la même conversation que la page Discussion (il voit
 //   la page ou l'appli ouverte), il te répond dans la bulle, et à voix haute tant que tu ne l'as pas coupé
 //   (Réglages → Voix, ou le bouton 🔊 de la bulle) ;
@@ -23,8 +23,8 @@
     chat: ['Discussion', 'Ici tu me parles, par écrit ou à la voix. Dis ce que tu veux obtenir : un résumé, un fichier, une action.',
       ['Écris ta demande et appuie sur Entrée ; joins des fichiers avec le trombone ; le micro dicte.', 'Une action importante t\'est présentée avant : Oui ou Non.', 'Les conversations passées sont à gauche (renommer, épingler, supprimer).', 'Tu peux aussi me parler depuis n\'importe quelle page : touche-moi, c\'est la même conversation.'],
       ['Mon modèle d\'IA : Réglages → Modèle.', 'Ma voix et la lecture à voix haute : Réglages → Voix.', 'Mon autonomie (Prudent, Équilibré, Autonome) : Réglages → Autonomie.']],
-    brain: ['Cerveau', 'Ton deuxième cerveau : tes notes, reliées entre elles, avec leur graphe. J\'y range ce que tu me confies.',
-      ['« Nouvelle note » ou capture rapide ; [[un nom]] relie deux notes.', 'Le graphe montre les liens ; touche un point pour ouvrir la note.', '« Demander au cerveau » : je réponds à partir de tes notes, avec les sources.', '« Quotidien » : ce que je sais refaire sans IA, parce que je l\'ai appris en te parlant. Ouvre une mission pour voir ce que je fais et à quoi elle est reliée ; mets-la à la corbeille pour que je l\'oublie.'],
+    brain: ['Cerveau', 'Ton deuxième cerveau : tes notes, reliées entre elles, avec leur graphe, les fiches de mes applis et mes souvenirs. J\'y range ce que tu me confies, et je le consulte avant de te répondre.',
+      ['« Nouvelle note » ou capture rapide ; [[un nom]] relie deux notes.', '« Souvenirs » : ce que je retiens de toi (préférences, habitudes, corrections) ; relis, corrige, épingle ou fais-moi oublier. La recherche du Cerveau les trouve aussi.', 'Le graphe montre les liens ; touche un point pour ouvrir la note.', '« Demander au cerveau » : je réponds à partir de tes notes, avec les sources.', '« Quotidien » : ce que je sais refaire sans IA, parce que je l\'ai appris en te parlant. Ouvre une mission pour voir ce que je fais et à quoi elle est reliée ; mets-la à la corbeille pour que je l\'oublie.'],
       ['Les connecteurs (Telegram, mail, agenda, Notion…) remplissent le Cerveau quand ils sont configurés : chacun dit s\'il est actif ou ce qu\'il manque.', 'Les réglages du graphe (couleurs, étiquettes, forces) sont dans le panneau du graphe.']],
     net: ['Maison', 'Ta maison et ton réseau : les appareils, les pièces, les scènes.',
       ['La liste montre chaque appareil ; touche-le pour sa fiche (nom, pièce, bloquer sur la box).', 'Touche une machine : sous sa fiche, ses paquets réseau (Ariane, comme Wireshark) — « En direct » pour les voir passer, l\'historique en dessous, « Enregistrer en continu » pour tout garder.', 'Carte : un graphe où chaque appareil est relié à sa famille et à la box, comme le Cerveau. Pastille rouge : un risque repéré ou un appareil surveillé tombé ; point gris : hors ligne. Touche un point pour sa fiche.', 'L\'étoile : je te préviens quand l\'appareil tombe, puis quand il revient.', 'La carte place les appareils ; la sécurité liste ce qui est exposé.'],
@@ -40,8 +40,6 @@
       ['Les réservations et les nouveautés des applis s\'y rangent toutes seules quand l\'appli est reliée.', 'Exporter en CSV : bouton de la base.']],
     missions: ['Activité', 'Ce que je suis en train de faire et ce que j\'ai fait : missions longues, étapes, résultats.',
       ['Touche une mission pour voir ses étapes ; « Arrêter » l\'interrompt.'], ['Une mission se lance depuis la Discussion (« occupe-toi de… »).']],
-    memory: ['Mémoire', 'Ce que je retiens de toi : tes préférences, tes habitudes, ce que tu m\'as corrigé.',
-      ['Relis, corrige ou efface chaque souvenir.', 'Dis « retiens que… » dans la Discussion pour en ajouter un.'], ['Rien ne sort de ta machine : la mémoire est stockée chez toi.']],
     skills: ['Compétences', 'Mes savoir-faire : des recettes que je suis pas à pas.',
       ['Touche une compétence pour la lire ; les brouillons attendent ta validation.'], ['Tu peux modifier une recette ; l\'ancienne version reste récupérable.']],
     jobs: ['Tâches planifiées', 'Ce que je fais à heure fixe : rappels, rapports, vérifications.',
@@ -51,6 +49,9 @@
     settings: ['Réglages', 'Mon modèle d\'IA, ma voix, mon autonomie, tes accès et ton compte.',
       ['Les rubriques sont à gauche, dans l\'ordre conseillé : Modèle, Telegram, Voix, Autonomie, Droits, Réseau…', 'Chaque rubrique a un bouton « Tester » : il vérifie que tout marche.'],
       ['Commence par le Modèle (sans lui je réponds quand même, sans IA).', 'Puis Telegram pour me parler de partout, et la Voix.', 'Réglages → Plus : visite guidée et arbre d\'évolution.']],
+    device: ['Appareil', 'La fiche d\'un appareil de ta maison : son nom, sa pièce, ce qu\'il fait sur le réseau.',
+      ['« Identifier à fond » : je cherche ce qu\'est cet appareil (marque, système, services).', '« Renommer » : donne-lui un nom clair ; l\'étoile : je te préviens quand il tombe et quand il revient.', 'En bas, ses paquets réseau : « En direct » pour les voir passer.', '« ← Réseau » : retour à la liste.'],
+      ['Bloquer un appareil se fait sur la box : enregistre d\'abord son accès (Réglages → Réseau).']],
   };
 
   let box = null, anchor = null, seq = 0, downAt = null, cat = null, tree = null, thread = [], waiting = null;
@@ -112,7 +113,7 @@
 .guide-w{padding:0 16px 6px;font-size:12px;color:var(--muted)}
 .guide-x,.guide-v{flex:none;width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:transparent;color:inherit;font-size:16px;line-height:1;cursor:pointer}
 .guide-v[aria-pressed="false"]{opacity:.55}
-.guide-t{padding:0 16px 10px;overflow:auto;line-height:1.55;font-size:14.5px;overflow-wrap:anywhere}.guide-t ul{margin:0 0 8px;padding-left:20px}.guide-t li{margin:0 0 3px}
+.guide-t{padding:0 16px 10px;overflow:auto;line-height:1.55;font-size:14.5px;overflow-wrap:anywhere}.guide-t ul,.guide-t ol{margin:0 0 8px;padding-left:20px}.guide-t li{margin:0 0 3px}
 .guide-t h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}.guide-t p{margin:0 0 8px}
 .guide-t .me{margin:6px 0 6px 28px;padding:7px 10px;border-radius:12px 12px 4px 12px;background:var(--accent-soft,rgba(127,127,127,.14))}
 .guide-t .him{margin:6px 28px 6px 0}.guide-t .him.live{opacity:.85}
@@ -180,8 +181,10 @@
 
   const common = () => [{ label: 'Quoi de neuf', run: news }, { label: 'Arbre d\'évolution', run: () => { close(); window.OdinEvolution?.open(); } }, { label: 'Visite guidée', run: () => { close(); window.OdinTour?.start(true); } }];
   const section = (h, list) => [el('h3', {}, h), el('ul', {}, ...list.map((x) => el('li', {}, ...rich(x).flatMap((n) => [...n.childNodes]))))];
+  /** Une liste numérotée : les étapes, dans l'ordre. */
+  const steps = (h, list) => [el('h3', {}, h), el('ol', {}, ...list.map((x) => el('li', {}, ...rich(x).flatMap((n) => [...n.childNodes]))))];
 
-  /** Explique la page affichée, ou l'appli ouverte. */
+  /** Explique la page affichée, ou l'appli ouverte : ce qu'elle fait, puis comment s'en servir, pas à pas. */
   async function explain() {
     const v = view(), my = ++seq;
     if (v === 'app') {
@@ -190,21 +193,69 @@
       const m = await moduleByName(name); if (my !== seq) return;
       const g = manual(m);
       if (!g) { show(name || 'Appli', 'Je n\'ai pas encore la fiche de cette appli.', common()); return; }
-      show(name, [el('p', {}, g.what), ...(g.does.length ? section('Ce qu\'elle fait', g.does.slice(0, 6)) : [])], [
-        { label: 'Comment l\'utiliser', primary: true, run: () => show(`${name} : l'utiliser`, section('De A à Z', g.use), [{ label: 'La configurer', primary: true, run: () => show(`${name} : la configurer`, section('De A à Z', g.config), back()) }, ...back()]) },
-        { label: 'Comment la configurer', run: () => show(`${name} : la configurer`, section('De A à Z', g.config), back()) },
+      show(name, [el('p', {}, g.what), ...(g.does.length ? section('Ce qu\'elle fait', g.does.slice(0, 6)) : []), ...steps('Comment l\'utiliser, pas à pas', g.use)], [
+        { label: 'Comment la configurer', primary: true, run: () => show(`${name} : la configurer`, steps('Pas à pas', g.config), back()) },
         { label: 'Guide-moi pas à pas', run: () => ask(`Guide-moi pas à pas pour utiliser et configurer ${name}, en partant de ce que j'ai déjà réglé.`) },
         ...common(),
       ]);
       return;
     }
     const [title, text, use, config] = VIEWS[v] ?? ['Odin', 'Je suis Odin. Touche-moi sur n\'importe quelle page : je t\'explique ce qu\'elle fait, et tu peux me parler ici.', [], []];
-    show(title, text, [
-      ...(use?.length ? [{ label: 'Comment l\'utiliser', primary: true, run: () => show(`${title} : l'utiliser`, section('De A à Z', use), back()) }] : []),
-      ...(config?.length ? [{ label: 'Comment la régler', run: () => show(`${title} : la régler`, section('De A à Z', config), back()) }] : []),
+    show(title, [...rich(text), ...(use?.length ? steps('Comment l\'utiliser, pas à pas', use) : [])], [
+      ...(config?.length ? [{ label: 'Comment la régler', primary: true, run: () => show(`${title} : la régler`, steps('Pas à pas', config), back()) }] : []),
       ...common(),
     ]);
   }
+  const plain = (s) => String(s).replace(/\*\*/g, '');
+  // ---------- Ce qu'Odin dit maintenant (le moteur est dans Odin : src/valhalla/parole.ts) ----------
+  // Le même pour tous les écrans : il part de la page ouverte, des alertes, du Cerveau et de la mémoire, et ne
+  // répète jamais ce qu'il a déjà dit ou proposé. Ici, l'interface lui dit seulement où tu es et le mode d'emploi
+  // de la page (VIEWS) ; il en donne une étape à la fois.
+  let lastSaid = null;
+  /** `quand` : « toucher » (on touche Odin), « spontane » (il parle tout seul), « clic » (un clic rapide). */
+  async function parole(quand = 'toucher', extra = {}) {
+    const v = view(), m = v === 'app' ? await moduleByName(appName()) : null;
+    const page = m ? `app:${m.id}` : `${v}:${where()}`;
+    // La même fenêtre redessinée tout de suite (nouvelle notification, « Tout lu ») : il ne parle pas une deuxième fois.
+    if (quand === 'toucher' && lastSaid && lastSaid.page === page && Date.now() - lastSaid.at < 20_000) return lastSaid.r;
+    const V = VIEWS[v];
+    let r = null;
+    try { r = await post('/api/valhalla/parole', { quand, vue: v, appli: m?.id || '', titre: m ? m.name : where(), pas: V ? [V[1], ...(V[2] || [])].map(plain) : [], reglage: (V?.[3] || []).map(plain), ...extra }); } catch { r = null; }
+    if (!r?.ok) return null;
+    if (quand === 'toucher') lastSaid = { page, at: Date.now(), r };
+    return r;
+  }
+  /** Lance une proposition d'Odin (un bouton). Une action qui change quelque chose demande ton accord avant. */
+  async function lancer(p) {
+    if (!p) return;
+    if (p.guide === 'expliquer') { anchor = mascot(); explain(); return; }
+    if (p.guide === 'regler') { anchor = mascot(); regler(); return; }
+    if (p.demander) { anchor = mascot(); ask(p.demander); return; }
+    if (p.ouvrir) {
+      const [k, id] = String(p.ouvrir).split(':');
+      if (k === 'app') { window.OdinShow?.('apps'); setTimeout(() => window.OdinApps?.app?.(id), 150); } else if (k === 'vue') window.OdinShow?.(id);
+      return;
+    }
+    if (!p.act) return;
+    // Toujours la fenêtre au thème d'Odin ; si elle manque, rien n'est lancé sans accord.
+    const ok = (t) => (window.OdinDialog?.confirm ? window.OdinDialog.confirm(t) : Promise.resolve(false));
+    if (!p.act.read && !(await ok(`${p.label} ?`))) return;
+    anchor = mascot(); show(p.label, 'Je m\'en occupe…');
+    try {
+      const body = { module: p.act.module, action: p.act.action, input: p.act.input || {} };
+      let r = await post('/api/valhalla/act', body);
+      if (r.confirm) { if (!(await ok(r.confirm))) { show(p.label, 'Annulé : rien n\'a été fait.'); return; } r = await post('/api/valhalla/act', { ...body, confirm: true }); }
+      show(p.label, r.ok === false ? `✗ ${r.text || r.error || 'échec'}` : String(r.text || 'Fait.'));
+    } catch (e) { show(p.label, `✗ ${e.message}`); }
+  }
+  /** Comment régler la page affichée, pas à pas. */
+  async function regler() {
+    const v = view();
+    if (v === 'app') { const name = appName(), g = manual(await moduleByName(name)); show(`${name} : la régler`, g ? steps('Pas à pas', g.config) : 'Rien à régler ici.', back()); return; }
+    const V = VIEWS[v]; show(`${V?.[0] || where()} : la régler`, V?.[3]?.length ? steps('Pas à pas', V[3]) : 'Rien à régler ici.', back());
+  }
+  /** Ce qu'Odin dit quand on le touche (pour la petite fenêtre « Que veux-tu ? ») : vide s'il n'a rien de neuf. */
+  async function brief() { return (await parole('toucher'))?.texte || ''; }
   const back = () => [{ label: '← Cette page', run: explain }];
 
   // ---------- Quoi de neuf (lu dans l'arbre d'évolution) ----------
@@ -281,7 +332,8 @@
   function paintTip() {
     const w = where();
     const m = $('#buddyRoam');
-    if (m) { const t = `Odin — ${w} : touche-moi pour de l'aide, ou parle-moi`; m.setAttribute('aria-label', t); m.title = t; }
+    // Au survol, l'infobulle vient de companion.js (plus de « title » : elle ferait doublon).
+    if (m) { m.setAttribute('aria-label', `Odin — ${w} : touche-moi pour de l'aide, ou parle-moi`); m.removeAttribute('title'); }
     const i = $('#guideAsk');
     if (i) { const name = view() === 'app' ? appName() : w; i.placeholder = `Parle-moi${name ? ` de ${name}` : ''}…`; i.setAttribute('aria-label', `Parler à Odin (page ${w})`); }
   }
@@ -312,6 +364,6 @@
     addEventListener('odin:voice', paintVoice);
     setTimeout(announce, 4000);
   }
-  window.OdinGuide = { open: () => { anchor = mascot(); explain(); }, close: () => close(), ask: (q) => { anchor = mascot(); ask(q); }, news: () => { anchor = mascot(); news(); }, views: VIEWS, manual, catalog };
+  window.OdinGuide = { open: () => { anchor = mascot(); explain(); }, close: () => close(), ask: (q) => { anchor = mascot(); ask(q); }, news: () => { anchor = mascot(); news(); }, views: VIEWS, manual, catalog, where, brief, parole, lancer };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(start, 600)); else setTimeout(start, 600);
 })();

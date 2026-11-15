@@ -3,6 +3,7 @@
 // d'automatisations Talos qui relient plusieurs applis. Sert aussi à expliquer « qui fait quoi ».
 
 import type { Valhalla } from './service.ts';
+import { accord } from '../core/genre.ts';
 import { horn } from './modules/bragi.ts';
 import { observe } from './modules/ullr.ts';
 import { SENSORS } from './ullr/incidents.ts';
@@ -25,9 +26,9 @@ export const LINKS: Link[] = [
   { from: 'ymir', to: 'forseti', when: 'une machine virtuelle s\'arrête ou un nœud sature', does: 'alerte', auto: true, kind: 'donnée' },
   { from: 'hermod', to: 'forseti', when: 'une machine du parc disparaît du réseau', does: 'alerte', auto: true, kind: 'donnée' },
   { from: 'himinbjorg', to: 'midgard', when: 'mouvement détecté aux heures surveillées', does: 'la scène « Alerte intrusion » est lancée si elle existe', auto: true, kind: 'réflexe' },
-  { from: 'forseti', to: 'bragi', when: 'alerte critique', does: 'Triton la dit à voix haute sur les enceintes (si activé)', auto: true, kind: 'réflexe' },
+  { from: 'forseti', to: 'bragi', when: 'alerte critique', does: 'Orphée (Triton) la dit à voix haute sur les enceintes (si activé)', auto: true, kind: 'réflexe' },
   { from: 'appareils', to: 'midgard', when: 'un appareil change d\'état', does: 'le tableau de bord de la maison est à jour ; les scènes le commandent', auto: true, kind: 'donnée' },
-  { from: 'brokkr', to: 'appareils', when: 'un module est branché sur Odin', does: 'il apparaît dans Appareils puis Midgard', auto: true, kind: 'donnée' },
+  { from: 'brokkr', to: 'appareils', when: 'un module est branché sur Odin', does: 'il apparaît dans Constellation puis Midgard', auto: true, kind: 'donnée' },
   { from: 'rodd', to: 'bragi', when: 'tu parles à Odin (web, téléphone, Telegram, Hestia)', does: 'tes mots de Écho sont soufflés à l\'écoute puis corrigés : ta voix est mieux comprise partout', auto: true, kind: 'donnée' },
   { from: 'volva', to: 'bragi', when: 'tu veux écouter une réponse de Pythie (« Écouter » sur sa page ou sous sa carte Telegram, « lis la dernière recherche »)', does: 'Orphée la lit avec la voix d\'Odin, d\'homme ou de femme selon ton réglage', auto: true, kind: 'réflexe' },
   { from: 'naglfar', to: 'urdr', when: 'une appli installée (Argo ou Hydre) a besoin d\'une base', does: 'elle reçoit SA base et son compte dans la base de données d\'Odin (jamais un fichier SQLite), ses variables sont remplies toutes seules, et sa base s\'ouvre dans Alexandrie Studio et SQL (bouton « Sa base (Alexandrie) »)', auto: true, kind: 'réflexe' },
@@ -145,9 +146,9 @@ export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
   { need: 'savoir si un fichier est dangereux', chain: ['ullr'], why: 'empreintes connues, règles et heuristiques, quarantaine.' },
   { need: 'surveiller la santé d\'une machine', chain: ['eir', 'skogul', 'forseti'], why: 'Hygie mesure, Némésis regarde les processus, Forseti alerte.' },
   { need: 'ne jamais perdre ses fichiers', chain: ['sindri', 'forseti'], why: 'sauvegardes chiffrées dédoublonnées, alerte si une sauvegarde échoue.' },
-  { need: 'accéder à la maison de l\'extérieur', chain: ['gjoll', 'hermod'], why: 'Vortex crée le VPN, Hermóðr réveille et pilote les machines.' },
+  { need: 'accéder à la maison de l\'extérieur', chain: ['gjoll', 'hermod'], why: 'Vortex crée le VPN, Satellites réveille et pilote les machines.' },
   { need: 'bloquer les pubs et les sites dangereux pour toute la maison', chain: ['vidarr', 'gjoll', 'forseti'], why: 'Sphinx filtre le DNS de la maison, Vortex l\'étend aux appareils en déplacement, Forseti alerte si un appareil cherche un site dangereux.' },
-  { need: 'piloter la maison', chain: ['brokkr', 'appareils', 'midgard', 'bragi'], why: 'Héphaïstos branche les modules, Appareils les connaît, Midgard les réunit en pièces et scènes, Orphée parle.' },
+  { need: 'piloter la maison', chain: ['brokkr', 'appareils', 'midgard', 'bragi'], why: 'Héphaïstos branche les modules, Constellation les connaît, Midgard les réunit en pièces et scènes, Orphée parle.' },
   { need: 'surveiller la maison', chain: ['himinbjorg', 'midgard', 'bragi'], why: 'caméras et mouvements, scène d\'alerte, annonce à voix haute.' },
   { need: 'regarder un film ou la télé', chain: ['freyja', 'midgard', 'bragi'], why: 'Vénus lance le titre sur l\'écran, Midgard règle l\'ambiance, Orphée te comprend à la voix.' },
   { need: 'gérer des rendez-vous clients', chain: ['frigg', 'runes', 'draupnir'], why: 'Chronos prend les rendez-vous, Papyrus garde les fiches clients, Talos envoie les rappels.' },
@@ -161,6 +162,15 @@ export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
   { need: 'savoir si un disque va lâcher', chain: ['durinn', 'sindri', 'forseti'], why: 'Tirésias lit la santé de chaque disque et prévient quand elle se dégrade, Phénix sauvegarde avant la panne, Forseti alerte.' },
   { need: 'garder ses mots de passe', chain: ['brisingamen'], why: 'coffre chiffré, codes à usage unique, vérification des fuites.' },
   { need: 'organiser ses idées et projets', chain: ['saga', 'runes', 'draupnir'], why: 'Thot relie les notes, Papyrus en fait des bases, Talos automatise.' },
+  // Les applis qui n'avaient aucun lien : chacune reliée à celles avec qui elle travaille pour un besoin.
+  { need: 'sauvegarder ses photos et vidéos', chain: ['sol', 'sindri', 'forseti'], why: 'Hélios range les photos et trouve les doublons, Phénix les met dans une sauvegarde chiffrée, Forseti prévient si la sauvegarde échoue.' },
+  { need: 'écouter de la musique ou la radio', chain: ['aegir', 'bragi', 'midgard'], why: 'Apollon trouve le titre ou la radio et le joue, Orphée te comprend à la voix, Midgard le met dans une scène.' },
+  { need: 'convertir un fichier ou lire le texte d\'un document', chain: ['dvalinn', 'champollion', 'saga'], why: 'Alchimie change le format (vidéo, image, PDF), Champollion lit le texte et ce qui est dit, Thot garde le résultat dans le Cerveau.' },
+  { need: 'faire de la place sur une machine', chain: ['gefjon', 'eir', 'durinn'], why: 'Héraclès mesure et nettoie ce qui encombre (avec ton accord), Hygie suit l\'espace libre, Tirésias vérifie la santé des disques.' },
+  { need: 'jouer à des jeux rétro sur la télé', chain: ['leikvangr', 'midgard'], why: 'Olympie range les jeux et en lance un, Midgard règle l\'ambiance de la pièce.' },
+  { need: 'brancher les outils d\'une autre appli ou d\'un autre assistant', chain: ['ratatoskr', 'brisingamen'], why: 'Interprète branche le serveur MCP (ses actions graves restent soumises à ton accord), Thésauros garde ses jetons.' },
+  { need: 'changer l\'apparence d\'Odin', chain: ['apparence'], why: 'Aurore choisit le thème, à la main ou selon l\'heure et la météo.' },
+  { need: 'piloter Odin en ligne de commande', chain: ['commandes', 'draupnir'], why: 'Glyphes donne la commande de chaque action, Talos les enchaîne en automatisation.' },
 ];
 
 /** Branche les réflexes intégrés (ceux qui ne sont pas déjà dans les modules eux-mêmes). */
@@ -173,7 +183,7 @@ export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => v
   const care = (key: string, module: string, action: string, input: Record<string, unknown>, why: string, say: string): void => {
     const now = Date.now(); if (now - (lastCare.get(key) ?? 0) < 3600_000) return;
     lastCare.set(key, now);
-    if (v.autonomy() === 'prudent') { v.alert(module, { level: 'moyenne', title: `Je peux réparer : ${say}`, detail: `${why}. En niveau « Me demander », je ne fais rien seul : dis-le-moi (« ${say} ») ou passe en « Équilibré ».`, key: `soin:${key}` }); return; }
+    if (v.autonomy() === 'prudent') { v.alert(module, { level: 'moyenne', title: `Je peux réparer : ${say}`, detail: `${why}. En niveau « Me demander », je ne fais rien ${accord('seul', 'seule')} : dis-le-moi (« ${say} ») ou passe en « Équilibré ».`, key: `soin:${key}` }); return; }
     void v.act(module, action, input, { auto: true, by: 'odin', why });
   };
   const hasUllr = v.modules().some((m) => m.id === 'ullr');
@@ -181,14 +191,14 @@ export function wireReflexes(v: Valhalla, o: { retryMs?: number } = {}): () => v
     // Asclépios relie les signaux de toutes les applis en incidents (jamais bloquant pour le reste).
     if (hasUllr) try { observe(v.ctx('ullr'), e); } catch (err) { console.error(`[ullr] incident : ${(err as Error).message}`); }
     if (e.module === 'skogul' && e.type === 'suspect' && e.data.pid) {
-      void v.act('ullr', 'fichier', { chemin: `/proc/${Number(e.data.pid)}/exe` }, { auto: true, by: 'réflexe' }).then((r) => { if (r.ok && /⚠/.test(r.text)) v.alert('ullr', { level: 'critique', title: 'Processus suspect confirmé par Asclépios', detail: r.text.slice(0, 500), key: `proc:${String(e.data.pid)}` }); });
+      void v.act('ullr', 'fichier', { chemin: `/proc/${Number(e.data.pid)}/exe` }, { auto: true, by: 'réflexe', de: e.module }).then((r) => { if (r.ok && /⚠/.test(r.text)) v.alert('ullr', { level: 'critique', title: 'Processus suspect confirmé par Asclépios', detail: r.text.slice(0, 500), key: `proc:${String(e.data.pid)}` }); });
     }
     if (e.module === 'himinbjorg' && e.type === 'mouvement' && e.data['surveillé'] !== false) {
       const sc = ((v.ctx('midgard').settings.scenes as Array<{ name: string }> | undefined) ?? []).find((x) => /intrusion/i.test(x.name));
-      if (sc) void v.act('midgard', 'scene', { scene: sc.name }, { auto: true, by: 'réflexe', why: `mouvement sur la caméra ${String(e.data['caméra'] ?? '')} aux heures surveillées` });
+      if (sc) void v.act('midgard', 'scene', { scene: sc.name }, { auto: true, by: 'réflexe', why: `mouvement sur la caméra ${String(e.data['caméra'] ?? '')} aux heures surveillées`, de: e.module });
     }
     // Chronos → Papyrus : chaque réservation crée ou met à jour la fiche du client.
-    if (e.module === 'frigg' && e.type === 'reservation' && e.data.name) void v.act('runes', 'client', { nom: String(e.data.name), contact: String(e.data.contact ?? ''), rendez_vous: String(e.data.start ?? ''), prestation: String(e.data.service ?? '') }, { auto: true, by: 'réflexe', why: 'nouvelle réservation' });
+    if (e.module === 'frigg' && e.type === 'reservation' && e.data.name) void v.act('runes', 'client', { nom: String(e.data.name), contact: String(e.data.contact ?? ''), rendez_vous: String(e.data.start ?? ''), prestation: String(e.data.service ?? '') }, { auto: true, by: 'réflexe', why: 'nouvelle réservation', de: e.module });
     // Arachné : chaque mise en production est essayée ; un essai raté propose le retour en arrière (action grave : jamais lancée seule).
     if (e.module === 'idunn' && e.type === 'deploiement_ok' && e.data.production === true && e.data.site) {
       const name = String(e.data.site);

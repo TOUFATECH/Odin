@@ -11,9 +11,11 @@ envoie le son à Odin (sur le réseau de la maison seulement), et tape le texte 
 - Le son ne touche jamais le disque : il reste en mémoire le temps de l'envoi.
 - La capsule ne parle qu'à Odin, avec son jeton à elle ; si l'empreinte du certificat d'Odin est connue, la
   connexion est refusée avec tout autre serveur.
-- Seule la bibliothèque standard de Python 3 est utilisée ; pour le micro : arecord, parecord, ffmpeg ou sox.
+- Seule la bibliothèque standard de Python 3 est utilisée ; pour le micro : arecord, parecord, ffmpeg ou sox
+  (sous Windows, le micro du système directement, sans rien installer).
+- Sous Windows, « capsule.py veiller » (lancé à l'ouverture de session) attend Ctrl+Espace et lance la dictée.
 
-Commandes :  dicter [--secondes N] [--mode M] [--fichier essai.wav]   ·   etat   ·   essai   ·   regler --mode M
+Commandes :  dicter [--secondes N] [--mode M] [--fichier essai.wav]   ·   etat   ·   essai   ·   regler --mode M   ·   veiller
 """
 
 import argparse
@@ -34,7 +36,7 @@ import wave
 from urllib.parse import urlencode, urlparse
 import http.client
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 ICI = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(ICI, "capsule.json")
 TAUX = 16000
@@ -66,7 +68,96 @@ def enregistreur():
         return ["sox", "-q", "-d", "-t", "raw", "-r", "16000", "-c", "1", "-b", "16", "-e", "signed-integer", "-"]
     if shutil.which("ffmpeg") and s == "Linux":
         return ["ffmpeg", "-loglevel", "quiet", "-f", "pulse", "-i", "default", "-ac", "1", "-ar", "16000", "-f", "s16le", "-"]
+    if s == "Windows":
+        return ["winmm"]  # le micro de Windows, lu directement (voir micro_windows)
     return None
+
+
+def sans_fenetre():
+    """Sous Windows, les programmes lancés par la capsule n'ouvrent pas de fenêtre noire."""
+    return {"creationflags": 0x08000000} if platform.system() == "Windows" else {}
+
+
+def journal(texte):
+    """Une ligne dans capsule.log (la veille n'a pas de console) ; le fichier reste petit."""
+    try:
+        f = os.path.join(ICI, "capsule.log")
+        if os.path.exists(f) and os.path.getsize(f) > 100000:
+            os.replace(f, f + ".1")
+        with open(f, "a", encoding="utf-8") as h:
+            h.write(time.strftime("%Y-%m-%d %H:%M:%S ") + str(texte)[:500] + "\n")
+    except OSError:
+        pass
+
+
+def micro_windows():
+    """Le micro de Windows (winmm, rien à installer) : des blocs de 100 ms en PCM 16 bits, 16 kHz, mono."""
+    import ctypes
+    from ctypes import wintypes
+
+    class FORMAT(ctypes.Structure):
+        _fields_ = [("wFormatTag", wintypes.WORD), ("nChannels", wintypes.WORD), ("nSamplesPerSec", wintypes.DWORD), ("nAvgBytesPerSec", wintypes.DWORD), ("nBlockAlign", wintypes.WORD), ("wBitsPerSample", wintypes.WORD), ("cbSize", wintypes.WORD)]
+
+    class ENTETE(ctypes.Structure):
+        _fields_ = [("lpData", ctypes.c_void_p), ("dwBufferLength", wintypes.DWORD), ("dwBytesRecorded", wintypes.DWORD), ("dwUser", ctypes.c_size_t), ("dwFlags", wintypes.DWORD), ("dwLoops", wintypes.DWORD), ("lpNext", ctypes.c_void_p), ("reserved", ctypes.c_size_t)]
+
+    w = ctypes.windll.winmm
+    P = ctypes.POINTER(ENTETE)
+    w.waveInOpen.argtypes = [ctypes.POINTER(ctypes.c_void_p), wintypes.UINT, ctypes.POINTER(FORMAT), ctypes.c_size_t, ctypes.c_size_t, wintypes.DWORD]
+    for nom in ("waveInPrepareHeader", "waveInUnprepareHeader", "waveInAddBuffer"):
+        getattr(w, nom).argtypes = [ctypes.c_void_p, P, wintypes.UINT]
+    for nom in ("waveInStart", "waveInReset", "waveInClose"):
+        getattr(w, nom).argtypes = [ctypes.c_void_p]
+    fmt = FORMAT(1, 1, TAUX, TAUX * 2, 2, 16, 0)
+    h = ctypes.c_void_p()
+    if w.waveInOpen(ctypes.byref(h), 0xFFFFFFFF, ctypes.byref(fmt), 0, 0, 0) != 0:
+        raise RuntimeError("micro introuvable ou refusé (Paramètres → Confidentialité → Microphone)")
+    taille, n = 3200, 8
+    tampons = [ctypes.create_string_buffer(taille) for _ in range(n)]
+    entetes = [ENTETE(ctypes.cast(t, ctypes.c_void_p), taille, 0, 0, 0, 0, None, 0) for t in tampons]
+    t = ctypes.sizeof(ENTETE)
+    try:
+        for e in entetes:
+            w.waveInPrepareHeader(h, ctypes.byref(e), t)
+            w.waveInAddBuffer(h, ctypes.byref(e), t)
+        w.waveInStart(h)
+        i = 0
+        while True:
+            e = entetes[i]
+            attente = time.time()
+            while not (e.dwFlags & 1):  # WHDR_DONE
+                if time.time() - attente > 3:
+                    raise RuntimeError("le micro ne donne plus de son")
+                time.sleep(0.01)
+            bloc = tampons[i].raw[: e.dwBytesRecorded]
+            e.dwFlags &= ~1
+            w.waveInAddBuffer(h, ctypes.byref(e), t)
+            i = (i + 1) % n
+            yield bloc
+    finally:
+        w.waveInReset(h)
+        for e in entetes:
+            w.waveInUnprepareHeader(h, ctypes.byref(e), t)
+        w.waveInClose(h)
+
+
+def blocs_micro():
+    """Le son du micro, bloc par bloc (100 ms)."""
+    cmd = enregistreur()
+    if not cmd:
+        raise RuntimeError("aucun programme pour le micro (installe arecord, parecord, ffmpeg ou sox)")
+    if cmd == ["winmm"]:
+        yield from micro_windows()
+        return
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, **sans_fenetre())
+    try:
+        while True:
+            bloc = p.stdout.read(3200)
+            if not bloc:
+                break
+            yield bloc
+    finally:
+        p.terminate()
 
 
 def frappe():
@@ -104,8 +195,9 @@ def ecrire(texte):
             subprocess.run(["pbcopy"], input=texte.encode("utf-8"), check=True)
             subprocess.run(["osascript", "-e", 'tell application "System Events" to keystroke "v" using command down'], check=True)
         elif m == "sendkeys":
-            subprocess.run(["clip"], input=texte.encode("utf-16-le"), check=True)
-            subprocess.run(["powershell", "-NoProfile", "-Command", "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"], check=True)
+            # La marque d'ordre des octets dit à « clip » que le texte est en UTF-16 (les accents restent justes).
+            subprocess.run(["clip"], input=b"\xff\xfe" + texte.encode("utf-16-le"), check=True, **sans_fenetre())
+            subprocess.run(["powershell", "-NoProfile", "-Command", "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"], check=True, **sans_fenetre())
         else:
             return False
         return True
@@ -123,15 +215,11 @@ def niveau(pcm):
 
 def ecouter(secondes, silence_s=1.2):
     """Écoute le micro jusqu'au silence (ou `secondes` au plus). Le son reste en mémoire."""
-    cmd = enregistreur()
-    if not cmd:
-        raise RuntimeError("aucun programme pour le micro (installe arecord, parecord, ffmpeg ou sox)")
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     son, fond, parle, muet, debut = bytearray(), None, False, 0.0, time.time()
+    flux = blocs_micro()
     try:
-        while time.time() - debut < secondes:
-            bloc = p.stdout.read(3200)  # 100 ms
-            if not bloc:
+        for bloc in flux:  # 100 ms
+            if time.time() - debut >= secondes:
                 break
             son += bloc
             db = niveau(bloc)
@@ -143,7 +231,7 @@ def ecouter(secondes, silence_s=1.2):
                 if muet >= silence_s:
                     break
     finally:
-        p.terminate()
+        flux.close()
     b = io.BytesIO()
     with wave.open(b, "wb") as w:
         w.setnchannels(1)
@@ -189,6 +277,45 @@ def envoyer(c, wav, mode):
     return d
 
 
+def bip(debut):
+    """Un petit son au début et à la fin de l'écoute (Windows)."""
+    try:
+        import winsound
+        winsound.MessageBeep(winsound.MB_OK if debut else winsound.MB_ICONASTERISK)
+    except Exception:
+        pass
+
+
+def veiller():
+    """Windows : attend Ctrl+Espace (toute la session) et lance une dictée à chaque pression."""
+    if platform.system() != "Windows":
+        print(json.dumps({"ok": False, "erreur": "la veille sur Ctrl+Espace n'existe que sous Windows (ailleurs : un raccourci du bureau lance « dicter »)"}, ensure_ascii=bool(os.environ.get("ODIN_JSON_ASCII"))))
+        return 2
+    import ctypes
+    from ctypes import wintypes
+    k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
+    k32.CreateMutexW.restype = wintypes.HANDLE
+    garde = k32.CreateMutexW(None, False, "Local\\OdinEchoCapsule")
+    if k32.GetLastError() == 183:  # déjà en veille dans cette session
+        return 0
+    with open(os.path.join(ICI, "veille.pid"), "w", encoding="utf-8") as f:
+        f.write(str(os.getpid()))
+    MOD_CONTROL, MOD_NOREPEAT, VK_SPACE, WM_HOTKEY = 0x0002, 0x4000, 0x20, 0x0312
+    if not u32.RegisterHotKey(None, 1, MOD_CONTROL | MOD_NOREPEAT, VK_SPACE):
+        journal("Ctrl+Espace est déjà pris par un autre programme : veille impossible")
+        return 1
+    journal("veille sur Ctrl+Espace")
+    en_cours, msg = None, wintypes.MSG()
+    try:
+        while u32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            if msg.message == WM_HOTKEY and (en_cours is None or en_cours.poll() is not None):
+                en_cours = subprocess.Popen([sys.executable, os.path.abspath(__file__), "dicter"], cwd=ICI, **sans_fenetre())
+    finally:
+        u32.UnregisterHotKey(None, 1)
+        k32.CloseHandle(garde)
+    return 0
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description="Capsule d'Écho : la dictée d'Odin sur ce poste")
     sous = p.add_subparsers(dest="cmd")
@@ -199,6 +326,7 @@ def main(argv=None):
     d.add_argument("--afficher", action="store_true", help="écrire le texte ici au lieu de le taper (essai)")
     sous.add_parser("etat")
     sous.add_parser("essai")
+    sous.add_parser("veiller")
     r = sous.add_parser("regler")
     r.add_argument("--mode", default="")
     a = p.parse_args(argv)
@@ -208,8 +336,10 @@ def main(argv=None):
             c = config()
         except Exception:
             pass
-        print(json.dumps({"ok": True, "version": VERSION, "python": platform.python_version(), "systeme": platform.system(), "enregistreur": (enregistreur() or [None])[0], "frappe": frappe(), "odin": c.get("odin", ""), "poste": c.get("poste", ""), "mode": c.get("mode", ""), "configuree": bool(c.get("jeton"))}, ensure_ascii=False))
+        print(json.dumps({"ok": True, "version": VERSION, "python": platform.python_version(), "systeme": platform.system(), "enregistreur": (enregistreur() or [None])[0], "frappe": frappe(), "odin": c.get("odin", ""), "poste": c.get("poste", ""), "mode": c.get("mode", ""), "configuree": bool(c.get("jeton"))}, ensure_ascii=bool(os.environ.get("ODIN_JSON_ASCII"))))
         return 0
+    if a.cmd == "veiller":
+        return veiller()
     if a.cmd == "regler":
         c = config()
         if a.mode:
@@ -218,7 +348,7 @@ def main(argv=None):
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(c, f, ensure_ascii=False)
         os.replace(CONFIG + ".tmp", CONFIG)
-        print(json.dumps({"ok": True, "mode": c.get("mode", "")}, ensure_ascii=False))
+        print(json.dumps({"ok": True, "mode": c.get("mode", "")}, ensure_ascii=bool(os.environ.get("ODIN_JSON_ASCII"))))
         return 0
     if a.cmd == "essai":
         c = config()
@@ -236,7 +366,9 @@ def main(argv=None):
             with open(a.fichier, "rb") as f:
                 wav, parle = f.read(), True
         else:
+            bip(True)
             wav, parle = ecouter(a.secondes)
+            bip(False)
         if not parle:
             print("(rien entendu)")
             return 1
@@ -253,5 +385,7 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except RuntimeError as e:
-        print("Écho : %s" % e, file=sys.stderr)
+        journal(e)
+        if sys.stderr:
+            print("Écho : %s" % e, file=sys.stderr)
         sys.exit(1)

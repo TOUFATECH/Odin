@@ -8,7 +8,8 @@
 import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { importYara, unzip } from './engine.ts';
+import { gunzipSync } from 'node:zlib';
+import { importYara, untar, unzip } from './engine.ts';
 
 const H = 32, HREC = 35;            // empreinte : 32 octets + famille (2) + source (1)
 const IREC = 9;                     // indicateur : 8 octets (empreinte tronquée de « genre:valeur ») + source (1)
@@ -247,6 +248,12 @@ export function parseKev(json: string): Kev[] {
   try { return ((JSON.parse(json) as { vulnerabilities?: Array<Record<string, string>> }).vulnerabilities ?? []).map((v) => ({ cve: v.cveID, vendor: v.vendorProject, product: v.product, name: v.vulnerabilityName, added: v.dateAdded, ransomware: /known/i.test(v.knownRansomwareCampaignUse ?? '') && !/unknown/i.test(v.knownRansomwareCampaignUse ?? '') })).filter((k) => /^CVE-\d{4}-\d+$/.test(k.cve)); } catch { return []; }
 }
 
+/** Un fichier de signatures ClamAV (.cvd) : en-tête de 512 octets, puis une archive tar compressée ; on garde les empreintes SHA-256 (.hsb, .hsu). */
+export function parseCvd(b: Buffer): Array<{ sha: string; family?: string }> {
+  if (!b.subarray(0, 11).toString('latin1').startsWith('ClamAV-VDB:')) throw new Error('ce n\'est pas un fichier de signatures ClamAV (.cvd)');
+  const tar = gunzipSync(b.subarray(512), { maxOutputLength: 1024 * 1024 * 1024 });
+  return untar(tar, 5000).filter((e) => /\.hs[bu]$/i.test(e.name) && e.data).flatMap((e) => parseClamHsb(e.data!.toString('utf8')));
+}
 // ---------------------------------------------------------------- Les sources
 export interface FetchCtx { fetch: typeof fetch; key(name: string): string | undefined; url(id: string, fallback: string): string; now(): Date }
 export interface Source {
@@ -283,6 +290,8 @@ export const SOURCES: Source[] = [
     fetch: async (c) => { const z = unzip(await get(c, c.url('yara-forge', 'https://github.com/YARAHQ/yara-forge/releases/latest/download/yara-forge-rules-core.zip'), {}, 300_000), { maxEach: 64 * 1024 * 1024 }); const y = z.entries.find((e) => /\.yar$/.test(e.name) && e.data); if (!y?.data) throw new Error('archive de règles illisible'); return { yara: { 'yara-forge.core': y.data.toString('utf8') }, count: 1 }; } },
   { id: 'cisa-kev', name: 'CISA KEV', what: 'Failles réellement exploitées par des attaquants (à corriger en premier)', home: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog', gives: 'failles', mode: 'automatique', everyHours: 24, on: true, licence: 'Domaine public (gouvernement des États-Unis)',
     fetch: async (c) => { let t = ''; for (const u of [c.url('cisa-kev', 'https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json'), 'https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json']) { try { t = (await get(c, u)).toString('utf8'); if (parseKev(t).length) break; } catch { /* source suivante */ } } const kev = parseKev(t); if (!kev.length) throw new Error('catalogue indisponible'); return { kev, count: kev.length }; } },
+  { id: 'clamav-daily', name: 'ClamAV daily (signatures officielles)', what: 'Empreintes SHA-256 des signatures officielles de ClamAV (fichier daily.cvd, mis à jour plusieurs fois par jour)', home: 'https://www.clamav.net/', gives: 'empreintes', mode: 'automatique', everyHours: 24, on: false, licence: 'Signatures publiées par Cisco Talos pour ClamAV (GPL) ; fichier lourd (environ 60 Mo), à activer si tu veux',
+    fetch: async (c) => { const hashes = parseCvd(await get(c, c.url('clamav-daily', 'https://database.clamav.net/daily.cvd'), { 'user-agent': 'Odin (ClamAV compatible)' }, 600_000)); if (!hashes.length) throw new Error('aucune empreinte SHA-256 dans le fichier'); return { hashes, count: hashes.length }; } },
   { id: 'virustotal', name: 'VirusTotal', what: 'Avis de dizaines d\'antivirus sur une empreinte (jamais d\'envoi de fichier)', home: 'https://www.virustotal.com/', gives: 'réputation', mode: 'à la demande', needs: 'VT_API_KEY', licence: 'Clé gratuite : 4 demandes par minute, 500 par jour, interdite dans un produit ou service commercial' },
   { id: 'malwarebazaar-api', name: 'MalwareBazaar (recherche)', what: 'Famille et étiquettes d\'une empreinte', home: 'https://bazaar.abuse.ch/api/', gives: 'réputation', mode: 'à la demande', needs: 'ABUSE_CH_KEY', licence: 'Même clé abuse.ch ; usage raisonnable' },
   { id: 'circl', name: 'CIRCL hashlookup', what: 'Fichiers connus de logiciels légitimes : évite les fausses alertes', home: 'https://www.circl.lu/services/hashlookup/', gives: 'fichiers sains', mode: 'à la demande', licence: 'Service public gratuit du CIRCL (Luxembourg)' },

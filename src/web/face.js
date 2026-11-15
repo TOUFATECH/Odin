@@ -36,8 +36,12 @@
     blue: ['#2F6FE0', '#3F82F0', '#7EAEF8', '#C3DBFF'],
     pink: ['#E0457B', '#EE6A97', '#F7A3C0', '#FFD3E2'],
   };
+  /** La seule humeur aux yeux carrés (décision du 15/11/2026) ; toutes les autres gardent les yeux en pastille. */
+  const SQUARE_MOOD = 'concentration';
+  /** Les humeurs qui gardent leur couleur même au repos : la colère (alerte grave). */
+  const ALWAYS_TINT = new Set(['colere']);
   const L = 47.5, R = 72.5, Y = 56;
-  // Yeux en pilule (9 × 22) : décision du 14/11/2026, plus de yeux en pilule.
+  // Yeux en pastille (pilule debout, 9 × 22) : la forme par défaut d'Odin, partout.
   const pill = (x, y = Y, h = 22) => `<rect class="eye" x="${x - 4.5}" y="${y - h / 2}" width="9" height="${h}" rx="4.5" fill="${W}"/>`;
   const line = (d, w = 4) => `<path d="${d}" fill="none" stroke="${W}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
   const heart = (cx, cy, s = 6.5) => `<path class="eye" d="M${cx} ${cy + s * .95}C${cx - s * 1.7} ${cy - s * .1} ${cx - s * .75} ${cy - s * 1.45} ${cx} ${cy - s * .45}C${cx + s * .75} ${cy - s * 1.45} ${cx + s * 1.7} ${cy - s * .1} ${cx} ${cy + s * .95}Z" fill="${W}"/>`;
@@ -105,9 +109,14 @@
     return { body, eyes: body.querySelector('.eyes'), brows: body.querySelector('.brows'), mouth: body.querySelector('.mouth'), cheeks: body.querySelector('.cheeks'), extra: body.querySelector('.extra') };
   }
 
-  function set(el, mood) {
+  /**
+   * Humeur d'Odin. Au repos, il garde la couleur du thème (décision du 15/11/2026) : l'humeur se voit à ses yeux et
+   * à ses mouvements. Sa couleur d'humeur n'apparaît qu'un instant (`passing`, voir flash), sauf la colère (alerte grave : rouge).
+   */
+  function set(el, mood, passing = false) {
     const m = MOODS[mood] || MOODS.neutre, key = MOODS[mood] ? mood : 'neutre';
-    if (!el || el.dataset.mood === key) return;
+    if (!el || (el.dataset.mood === key && Boolean(el._passing) === passing)) return;
+    el._passing = passing;
     const svg = el.querySelector('svg'), f = svg && face(svg); if (!f) return;
     el.dataset.mood = key;
     // Les yeux restent dans .eyes (ils suivent le doigt et clignent) ; seul leur dessin change.
@@ -116,14 +125,17 @@
     for (const k of ['brows', 'mouth', 'cheeks', 'extra']) f[k].innerHTML = '';
     // Mouvement des yeux propre à l'humeur : taille, écart, hauteur, et petite animation ; jamais inclinés.
     const e = (m.eyes && typeof m.eyes === 'object') ? m.eyes : {};
-    const [lx, ly] = e.l || [1, 1], [rx, ry] = e.r || [1, 1], [dx, dy] = e.d || [0, 0];
+    // Yeux en pastille (pilule debout) pour toutes les humeurs : jamais aplatis en carré ou en trait.
+    // Une seule humeur a les yeux carrés : la concentration (SQUARE_MOOD).
+    const pastille = (v) => (key === SQUARE_MOOD ? v : [Math.min(v[0], 1.15), Math.max(v[1], 0.72)]);
+    const [lx, ly] = pastille(e.l || [1, 1]), [rx, ry] = pastille(e.r || [1, 1]), [dx, dy] = e.d || [0, 0];
     el.style.setProperty('--lsx', lx); el.style.setProperty('--lsy', ly);
     el.style.setProperty('--rsx', rx); el.style.setProperty('--rsy', ry);
     el.style.setProperty('--edx', `${dx}px`); el.style.setProperty('--edy', `${dy}px`);
     [...el.classList].filter((c) => c.startsWith('e-')).forEach((c) => el.classList.remove(c));
     if (e.a) el.classList.add(`e-${e.a}`);
     // Couleur de l'humeur (transition douce), halos compris.
-    const tint = m.tint || MOODS.neutre.tint;
+    const tint = (passing || ALWAYS_TINT.has(key)) && m.tint ? m.tint : MOODS.neutre.tint;
     svg.querySelectorAll('[id^="odinBody"] stop').forEach((st, i) => { st.style.stopColor = tint[i] || tint[3]; });
     svg.querySelectorAll('[id^="odinHalo"] stop').forEach((st) => { st.style.stopColor = tint[3]; });
     // La barre de saisie de la discussion prend la couleur d'Odin.
@@ -207,8 +219,9 @@
     if (!el) return;
     clearTimeout(el._flash);
     if (!el._base) el._base = el.dataset.mood || 'neutre';
-    set(el, mood);
-    el._flash = setTimeout(() => { set(el, el._base); el._base = null; }, ms);
+    set(el, mood, true);
+    // Fini : retour à l'humeur de fond, et plus d'expression passagère en cours (base() peut de nouveau agir tout de suite).
+    el._flash = setTimeout(() => { el._flash = null; set(el, el._base || 'neutre'); el._base = null; }, ms);
   }
   /** Change l'humeur « de fond » (celle à laquelle on revient après une expression passagère). */
   function base(el, mood) { if (!el) return; if (el._flash) el._base = mood; else set(el, mood); }
@@ -219,7 +232,7 @@
     const ok = typeof hex === 'string' && /^#[0-9a-f]{6}$/i.test(hex);
     const mix = (h, w, k) => { const a = parseInt(h.slice(1), 16), b = w ? 255 : 0; const c = [16, 8, 0].map((s) => Math.round(((a >> s) & 255) * (1 - k) + b * k)); return `#${c.map((x) => x.toString(16).padStart(2, '0')).join('')}`; };
     MOODS.neutre.tint = ok ? [mix(hex, false, .14), hex, mix(hex, true, .32), mix(hex, true, .62)] : NEUTRE.slice();
-    document.querySelectorAll('.odin').forEach((el) => { if ((el.dataset.mood || 'neutre') === 'neutre') { delete el.dataset.mood; set(el, 'neutre'); } });
+    document.querySelectorAll('.odin').forEach((el) => { if (el._flash) return; const md = el.dataset.mood || 'neutre'; delete el.dataset.mood; set(el, md); });
   }
   window.OdinFace = { MOODS, set, all, flash, base, own, sound, mute, blinkSounds, tintBase, get soundOn() { return soundOn; } };
 })();

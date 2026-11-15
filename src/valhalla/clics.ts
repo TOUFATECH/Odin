@@ -14,7 +14,7 @@ export const CLICK_CATALOG: ClickAction[] = [
   { id: 'serveur_redemarrer', label: 'Redémarrer tout le serveur', app: 'Odin', ask: 'Je redémarre tout le serveur ? Tout s\'arrête 1 à 2 minutes.', grave: true, def: null, run: { fn: 'redemarrer_serveur' } },
   { id: 'odin_redemarrer', label: 'Redémarrer Odin seulement', app: 'Odin', ask: 'Je me redémarre (le serveur reste allumé) ?', grave: false, def: 5, run: { fn: 'redemarrer_odin' } },
   { id: 'faire_le_point_sante_du_serveur', label: 'Faire le point santé du serveur', app: 'Hygie', ask: 'Je regarde processeur, mémoire, disques et je te dis ?', grave: false, def: 6, run: { act: ['eir', 'etat'] } },
-  { id: 'annuler_ma_derniere_manip', label: 'Annuler ma dernière manip', app: 'Odin', ask: 'J\'annule ce que j\'ai fait seul en dernier ?', grave: false, def: null, run: { say: 'Annule ta dernière manip.' } },
+  { id: 'annuler_ma_derniere_manip', label: 'Annuler ma dernière manip', app: 'Odin', ask: 'J\'annule la dernière chose que j\'ai faite sans te demander ?', grave: false, def: null, run: { say: 'Annule ta dernière manip.' } },
   { id: 'sauvegarder_maintenant', label: 'Sauvegarder maintenant', app: 'Arche', ask: 'Je lance une sauvegarde des bases maintenant ?', grave: false, def: null, run: { say: 'Sauvegarde les bases maintenant.' } },
   { id: 'analyse_antivirus_rapide', label: 'Analyse antivirus rapide', app: 'Asclépios', ask: 'J\'analyse tes téléchargements et ton bureau ?', grave: false, def: 9, run: { act: ['ullr', 'analyser'] } },
   { id: 'cacher', label: 'Me cacher sur tous tes écrans', app: 'Aurore', ask: 'Je me cache partout ? (Réglages → Apparence pour me rappeler)', grave: false, def: 10, run: { fn: 'cacher' } },
@@ -107,7 +107,7 @@ export const CLICK_CATALOG: ClickAction[] = [
   { id: 'mode_panique_tout_proteger', label: 'Mode panique : tout protéger', app: 'Cerbère', ask: 'Je bloque tout ce qui vient de dehors et je te préviens ?', grave: true, def: 98, run: { say: 'Mode panique : bloque tout ce qui vient de dehors et préviens-moi.' } },
   { id: 'maintenance_complete', label: 'Maintenance complète', app: 'Odin', ask: 'Sauvegarde, mises à jour puis redémarrage du serveur ?', grave: true, def: 99, run: { say: 'Fais une maintenance complète : sauvegarde, mises à jour, puis redémarre le serveur.' } },
   { id: 'surprise', label: 'Surprise', app: 'Odin', ask: 'Tu as cliqué 100 fois ! Je te fais une surprise ?', grave: false, def: 100, run: { fn: 'surprise' } },
-  { id: 'phrase', label: 'Une phrase drôle', app: 'Odin', ask: '', grave: false, def: null, run: { fn: 'phrase' } },
+  { id: 'phrase', label: 'Une phrase utile sur la page (jamais la même)', app: 'Odin', ask: '', grave: false, def: null, run: { fn: 'phrase' } },
   { id: 'avertir', label: 'Il prévient avant de se cacher', app: 'Odin', ask: '', grave: false, def: null, run: { fn: 'avertir' } },
 ];
 const BY_ID = new Map(CLICK_CATALOG.map((a) => [a.id, a]));

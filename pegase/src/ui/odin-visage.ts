@@ -53,7 +53,8 @@ export const HUMEURS: Record<string, { t: [string, string, string, string]; y: [
 /** Odin dans une humeur donnée (couleur du corps et des halos, taille des yeux). */
 export function odinVisage(humeur = 'neutre'): string {
   const h = HUMEURS[humeur] ?? HUMEURS.neutre;
-  const [a, b, c, d] = h.t, [sx, sy] = h.y;
+  // Yeux en pastille pour toutes les humeurs ; seule la concentration a les yeux carrés.
+  const [a, b, c, d] = h.t, [sx, sy] = humeur === 'concentration' ? h.y : [Math.min(h.y[0], 1.15), Math.max(h.y[1], 0.72)];
   return unique(ODIN_SVG
     .replace(/(class="s1"[^>]*stop-color=")#[0-9A-Fa-f]{6}/, `$1${a}`).replace(/(class="s2"[^>]*stop-color=")#[0-9A-Fa-f]{6}/, `$1${b}`)
     .replace(/(class="s3"[^>]*stop-color=")#[0-9A-Fa-f]{6}/, `$1${c}`).replace(/(class="s4"[^>]*stop-color=")#[0-9A-Fa-f]{6}/, `$1${d}`)

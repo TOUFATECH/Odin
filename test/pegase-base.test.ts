@@ -97,10 +97,10 @@ test('Pégase dans la base : migration (identique avant/après), relance, base a
     assert.equal(m3.col('p1', 'favoris').get('f2')?.suppr, undefined, 'f2 revient'); assert.equal(m3.col('p1', 'favoris').get('f3')?.suppr, true, 'f3 effacé');
     // 7. Odin (l'IA) lit la base par Alexandrie : vues oui (historique de p1 qui laisse tout voir, pas celui de p2), tables non, écriture non.
     const v = new Valhalla(pg.home, [urdr]);
-    let q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select adresse from pegase.v_historique order by quand' });
+    let q = await v.act('urdr', 'sql', { base: 'PEGASE_ODIN', requete: 'select adresse from pegase.v_historique order by quand' });
     assert.match(q.text, /starlink/); assert.doesNotMatch(q.text, /prive\.yt/, 'historique d\'un profil qui ne laisse pas voir : caché');
-    q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select jeton, ip from pegase.appareils' }); assert.match(q.text, /permission denied/);
-    q = await v.act('urdr', 'sql', { base: 'odin', requete: 'select * from pegase.v_appareils' }); assert.doesNotMatch(q.text, /192\.168/, 'jamais l\'adresse IP');
+    q = await v.act('urdr', 'sql', { base: 'PEGASE_ODIN', requete: 'select jeton, ip from pegase.appareils' }); assert.match(q.text, /permission denied/);
+    q = await v.act('urdr', 'sql', { base: 'PEGASE_ODIN', requete: 'select * from pegase.v_appareils' }); assert.doesNotMatch(q.text, /192\.168/, 'jamais l\'adresse IP');
     // 8. Retour en fichiers : un Odin sans base relit exactement la même chose.
     const apresBase = await contenu(m3);
     const t = await lesMigrables().find((x) => x.id === 'pegase')!.retour(); assert.match(t, /revenu en fichiers/);

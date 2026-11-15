@@ -367,6 +367,14 @@ export class Mnemosyne {
     return scored.map((r) => this.memories.get(r.id)!);
   }
 
+  /**
+   * Les souvenirs qui touchent une recherche, sans les compter comme « utilisés » (recherche du Cerveau,
+   * interface). Ceux venus d'un contenu non fiable sont laissés de côté.
+   */
+  findMemories(query: string, limit = 10): MemoryRow[] {
+    return this.memIndex.search(query, (id) => { const m = this.memories.get(id); return Boolean(m && live(m) && m.origin !== 'untrusted'); }, limit).map(({ id }) => this.memories.get(id)!).filter(Boolean);
+  }
+
   /** Mémoires épinglées : toujours présentes dans le prompt (préférences clés). */
   pinned(): MemoryRow[] { return this.memories.filter((m) => m.pinned === 1 && m.origin !== 'untrusted' && live(m)).sort((a, b) => a.id - b.id).slice(0, 20); }
   listMemories(limit = 50): MemoryRow[] { return this.memories.all().sort((a, b) => b.last_used_at - a.last_used_at).slice(0, limit); }

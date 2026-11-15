@@ -386,14 +386,14 @@ test('un vrai Odin : export de quatre applis de genres différents dans les quat
         assert.ok(!texte.includes(cle), 'l\'adresse secrète de réservation n\'est dans aucun export');
       }
     }
-    // Un seul onglet (Ullr : « Règles ») ; un onglet inconnu est refusé ; un poste inconnu retombe sur cette machine.
+    // Un seul onglet (Ullr : « Sources ») ; un onglet inconnu est refusé ; un poste inconnu retombe sur cette machine.
     const vueUllr = ((await v.json('/api/valhalla/view?id=ullr')).body.view) as View;
-    const regles = vueUllr.sections.filter((s) => s.onglet === 'Règles' && !['form', 'depot', 'actions'].includes(s.kind)).map((s) => s.title);
+    const regles = vueUllr.sections.filter((s) => s.onglet === 'Sources' && !['form', 'depot', 'actions'].includes(s.kind)).map((s) => s.title);
     assert.ok(regles.length >= 1);
-    r = await prendre({ id: 'ullr', format: 'json', onglet: 'Règles' }); assert.equal(r.status, 200);
-    assert.match(String(r.headers.get('content-disposition')), new RegExp(`filename\\*=UTF-8''${encodeURIComponent(`Asclépios - Règles - ${jour()}.json`)}$`));
-    const pu = await r.json() as PageExport; assert.equal(pu.onglet, 'Règles'); assert.deepEqual(pu.sections.map((s) => s.title), regles); assert.ok(pu.sections.every((s) => s.onglet === 'Règles'));
-    r = await prendre({ id: 'ullr', format: 'md', onglet: 'Nulle part' }); assert.equal(r.status, 400); assert.match((await r.json() as { error: string }).error, /n'a pas d'onglet « Nulle part »\. Ses onglets : Analyser, Résultats, Règles, Réglages\./);
+    r = await prendre({ id: 'ullr', format: 'json', onglet: 'Sources' }); assert.equal(r.status, 200);
+    assert.match(String(r.headers.get('content-disposition')), new RegExp(`filename\\*=UTF-8''${encodeURIComponent(`Asclépios - Sources - ${jour()}.json`)}$`));
+    const pu = await r.json() as PageExport; assert.equal(pu.onglet, 'Sources'); assert.deepEqual(pu.sections.map((s) => s.title), regles); assert.ok(pu.sections.every((s) => s.onglet === 'Sources'));
+    r = await prendre({ id: 'ullr', format: 'md', onglet: 'Nulle part' }); assert.equal(r.status, 400); assert.match((await r.json() as { error: string }).error, /n'a pas d'onglet « Nulle part »\. Ses onglets : Analyser, Quarantaine, Sources, Réglages\./);
     r = await prendre({ id: 'eir', format: 'json', poste: 'pas-de-tel-poste' }); assert.equal(r.status, 200); assert.equal((await r.json() as PageExport).poste, undefined);
     // L'adresse secrète de Chronos est masquée, et la copie le dit.
     const chronos = await (await prendre({ id: 'frigg', format: 'md' })).text();

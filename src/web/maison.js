@@ -121,7 +121,8 @@ main{padding:22px 26px 120px;min-width:0}
 .btn{border:1px solid var(--line);background:var(--card2);border-radius:12px;min-width:40px;height:40px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}.dev.on .btn{background:rgba(255,255,255,.18);border-color:transparent}
 .sw{width:52px;height:30px;border-radius:15px;border:0;background:var(--card2);position:relative;margin-left:auto;flex:none;box-shadow:inset 0 0 0 1px var(--line)}.sw::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s}.sw[aria-checked=true]{background:rgba(255,255,255,.35)}.sw[aria-checked=true]::after{left:25px}
 input[type=range]{width:100%;accent-color:#fff}.slide{position:relative;flex:1;min-width:180px;height:46px;border-radius:23px;background:rgba(255,255,255,.12);border:1px solid var(--line);overflow:hidden}.slide input{position:absolute;inset:0;opacity:0;width:100%;height:100%}.slide span{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;color:var(--muted);pointer-events:none}.slide i{position:absolute;top:4px;left:4px;width:38px;height:38px;border-radius:50%;background:var(--accent);pointer-events:none}
-.wx{background:linear-gradient(160deg,color-mix(in srgb,var(--accent2) 40%,var(--card)),var(--card))}.wx .now{display:flex;align-items:center;gap:14px}.wx .ico{font-size:58px;line-height:1}.wx .days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12.5px;margin-top:12px}.wx .days b{display:block;font-size:20px;margin:2px 0}
+.wx{background:linear-gradient(160deg,color-mix(in srgb,var(--accent2) 40%,var(--card)),var(--card))}.fe-barre{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}.fe-barre .btn{text-decoration:none}.fw-outils{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.fw-outils button{min-width:42px;min-height:42px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font:inherit;font-size:16px;cursor:pointer}.fw-outils .fw-poignee{cursor:grab;touch-action:none}.card.glisse{opacity:.55;outline:2px dashed var(--accent)}.card.cible{outline:3px solid var(--accent)}.fh .fh-j::first-letter{text-transform:uppercase}
+.wx .now{display:flex;align-items:center;gap:14px}.wx .lieu-btn{background:none;border:0;padding:0;margin:-4px 0 8px;color:var(--muted);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;min-height:32px}.wx .lieu{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}.wx .lieu[hidden]{display:none}.wx .lieu input{flex:1 1 160px;min-width:0;min-height:40px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font:inherit}.wx .ico{font-size:58px;line-height:1}.wx .days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:12.5px;margin-top:12px}.wx .days b{display:block;font-size:20px;margin:2px 0}
 .kv{display:grid;grid-template-columns:auto auto;gap:2px 12px;font-size:13px;color:var(--muted);margin-left:auto;text-align:right}.kv b{color:var(--text);font-weight:600}
 .clock .big{font-size:56px;letter-spacing:-.02em}
 .tile{display:flex;flex-direction:column;align-items:flex-start;gap:10px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:20px;padding:14px;min-height:104px;color:var(--text)}.tile .em{font-size:24px;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--card2)}.tile:hover{border-color:var(--accent)}
@@ -204,6 +205,27 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     }
     return el('div', { class: `card dev${on ? ' on' : ''}${d.kind === 'serrure' || d.kind === 'lecteur' ? ' w2' : ''}`, 'data-dev': d.id }, head, ctl);
   }
+  // Le lieu d'Odin (là où il est installé) : par son nom, ou par la position de cet appareil (GPS d'un téléphone : précis ;
+  // un ordinateur : souvent approximatif, Odin le dit). Seulement pour qui a tous les droits. L'état du petit formulaire
+  // est gardé ici, car la page se redessine toutes les 15 secondes.
+  const lieuUi = { ouvert: false, valeur: '', focus: false };
+  function lieuBar() {
+    if (!D || D.rights !== 'complet') return [];
+    const dire = (action, input) => { lieuUi.ouvert = false; lieuUi.valeur = ''; return act('/api/valhalla/act', { module: 'gladsheim', action, input }); };
+    const inp = el('input', { type: 'text', value: lieuUi.valeur, placeholder: 'Village ou ville (ex. Dembéni)', 'aria-label': 'Village ou ville', autocomplete: 'off', maxlength: '80', oninput: (e) => { lieuUi.valeur = e.target.value; }, onfocus: () => { lieuUi.focus = true; }, onblur: () => { lieuUi.focus = false; } });
+    const ici = () => {
+      if (!navigator.geolocation) return toast('Cet appareil ne donne pas sa position : écris le nom du village.');
+      toast('Je cherche ta position…');
+      navigator.geolocation.getCurrentPosition(
+        (p) => dire('lieu_position', { lat: p.coords.latitude, lon: p.coords.longitude, precision: p.coords.accuracy }),
+        (e) => toast(e.code === 1 ? 'Tu as refusé de donner la position : écris le nom du village.' : 'Position introuvable pour l\'instant : écris le nom du village.'),
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+    };
+    const form = el('form', { class: 'lieu', hidden: !lieuUi.ouvert, onsubmit: (e) => { e.preventDefault(); const v = inp.value.trim(); if (v) dire('lieu', { ville: v }); } },
+      inp, el('button', { class: 'btn', type: 'submit' }, 'OK'), el('button', { class: 'btn', type: 'button', title: 'Ta position est envoyée une fois à OpenStreetMap pour trouver le nom du village', onclick: ici }, '📍 Me localiser'));
+    if (lieuUi.ouvert && lieuUi.focus) setTimeout(() => { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }, 0);
+    return [el('button', { class: 'lieu-btn', type: 'button', 'aria-expanded': String(lieuUi.ouvert), onclick: () => { lieuUi.ouvert = !lieuUi.ouvert; lieuUi.focus = lieuUi.ouvert; draw(); } }, lieuUi.ouvert ? 'Fermer' : 'Changer de lieu'), form];
+  }
   function weatherCard(w) {
     if (!w) return el('div', { class: 'card wx w2' }, el('h3', {}, 'Météo'), el('p', { class: 'muted' }, 'Météo indisponible : choisis la ville dans Odin (Hestia).'));
     const ICO = { 0: '☀️', 1: '🌤', 2: '⛅', 3: '☁️', 45: '🌫', 48: '🌫', 51: '🌦', 53: '🌦', 55: '🌧', 61: '🌦', 63: '🌧', 65: '🌧', 71: '🌨', 73: '🌨', 75: '❄️', 80: '🌦', 81: '🌧', 82: '⛈', 95: '⛈', 96: '⛈', 99: '⛈' };
@@ -212,14 +234,23 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     const hs = w.hours || [], min = Math.min(...hs.map((h) => h.temp)), max = Math.max(...hs.map((h) => h.temp)), span = Math.max(1, max - min);
     const pts = hs.map((h, i) => `${(i / Math.max(1, hs.length - 1)) * 300},${48 - ((h.temp - min) / span) * 40}`).join(' ');
     return el('div', { class: 'card wx w2' },
-      el('h3', {}, `Météo · ${w.place}`),
+      el('h3', {}, `Météo · ${w.place}`), ...lieuBar(),
       el('div', { class: 'now' }, el('span', { class: 'ico', 'aria-hidden': 'true' }, ICO[w.code] || '🌡'), el('div', {}, el('div', { class: 'big' }, `${w.temp}°`), el('div', {}, w.word), el('div', { class: 'muted' }, `Min ${w.lo}° · Max ${w.hi}°${w.feels !== undefined ? ` · ressenti ${w.feels}°` : ''}`)),
         el('div', { class: 'kv' }, 'Humidité', el('b', {}, `${w.humidity ?? '—'} %`), 'Vent', el('b', {}, `${w.wind ?? '—'} km/h`), 'Lever', el('b', {}, w.sunrise || '—'), 'Coucher', el('b', {}, w.sunset || '—'))),
       hs.length ? S('svg', { viewBox: '0 0 300 52', width: '100%', height: '52', role: 'img', 'aria-label': `Température des 24 prochaines heures, de ${min}° à ${max}°`, style: 'margin-top:8px' }, S('polyline', { points: pts, fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round', opacity: '.85' })) : null,
       el('div', { class: 'days' }, ...(w.days || []).map((d) => el('div', {}, days[new Date(`${d.day}T12:00`).getDay()], el('b', { 'aria-hidden': 'true' }, ICO[d.code] || '·'), `${d.hi}° `, el('span', { class: 'muted' }, `${d.lo}°`)))));
   }
   const clock = el('div', { class: 'big' }), clockSub = el('div', { class: 'muted' });
-  function tick() { const n = new Date(); clock.textContent = n.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); clockSub.textContent = n.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }); }
+  // L'heure et la date sont celles du lieu d'Odin (son fuseau), pas celles de l'appareil qui affiche l'écran.
+  function tick() {
+    const n = new Date(), l = D?.lieu, o = l?.fuseau ? { timeZone: l.fuseau } : {};
+    let h, j;
+    try { h = n.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: Boolean(l?.heure12), ...o }); j = n.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', ...o }); }
+    catch { h = n.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); j = n.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+    clock.textContent = h; clockSub.textContent = l?.nom ? `${j} · ${l.nom}` : j;
+    for (const x of document.querySelectorAll('.fh-h')) x.textContent = h;
+    for (const x of document.querySelectorAll('.fh-j')) x.textContent = j;
+  }
   setInterval(tick, 10_000); tick();
   const week = (d) => { const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7)); return Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7); };
   const hello = () => { const h = new Date().getHours(); return h < 5 ? 'Bonne nuit' : h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : h < 22 ? 'Bonsoir' : 'Bonne nuit'; };
@@ -244,11 +275,88 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
   }
   let soon = 0; const drawSoon = () => { clearTimeout(soon); soon = setTimeout(() => { const f = document.activeElement?.type === 'search'; draw(); if (f) { const i = document.querySelector('.search input'); i?.focus(); i?.setSelectionRange(999, 999); } }, 150); };
   /** La fenêtre d'Odin : ses pages « écran de la maison » (modules d'applis, météo, boutons). */
+  // ---------- Mode « Modifier » de l'écran (tous les droits seulement) : déplacer les modules et les boutons en les
+  // glissant (souris ou doigt) ou avec ◀ ▶, changer leur taille, les retirer, en ajouter. Tout est rangé par Hestia
+  // (la même fenêtre que sur l'accueil d'Odin) ; les autres modules s'ajoutent depuis l'accueil d'Odin, bouton Modifier.
+  let edition = false, glisse = false, L = null;
+  const valhalla = (module, action, input = {}) => api('/api/valhalla/act', { module, action, input });
+  const pageL = (id) => L?.pages.find((x) => x.id === id);
+  async function ranger() {
+    try { const r = await valhalla('gladsheim', 'regler_fenetre', { fenetre: JSON.stringify(L) }); if (r.ok === false) toast(r.text || 'Impossible de ranger la fenêtre.'); else if (r.data) L = r.data; } catch (e) { toast(e.message); }
+    await load();
+  }
+  async function modifier(on) {
+    if (on) { try { const r = await valhalla('gladsheim', 'fenetre'); L = r.data; } catch (e) { return toast(e.message); } if (!L?.pages) return toast('La fenêtre n\'est pas disponible pour l\'instant.'); }
+    edition = on;
+    // Une fenêtre jamais rangée est refaite à chaque lecture (ses modules changent de numéro) : on la range une
+    // première fois en entrant, pour que les modules gardent leur numéro pendant qu'on les déplace.
+    if (on) await ranger(); else draw();
+  }
+  /** La page de l'écran de la maison où ajouter (créée s'il n'y en a pas encore). */
+  function pageMaison() { let p = L.pages.find((x) => x.maison); if (!p) { p = { id: '', name: 'Maison', maison: true, widgets: [] }; L.pages.unshift(p); } return p; }
+  const ajouter = (w) => { pageMaison().widgets.push({ id: '', w: 1, ...w }); return ranger(); };
+  function bouger(pid, wid, d) { const l = pageL(pid)?.widgets, i = l?.findIndex((x) => x.id === wid) ?? -1, j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; ranger(); }
+  function poser(pid, wid, versPage, avant) {
+    const de = pageL(pid)?.widgets, i = de?.findIndex((x) => x.id === wid) ?? -1, vers = pageL(versPage)?.widgets; if (i < 0 || !vers) return draw();
+    const [w] = de.splice(i, 1), j = vers.findIndex((x) => x.id === avant); vers.splice(j < 0 ? vers.length : j, 0, w); ranger();
+  }
+  function taille(pid, wid) { const w = pageL(pid)?.widgets.find((x) => x.id === wid); if (!w) return; w.w = w.w >= 2 ? 1 : 2; ranger(); }
+  async function retirer(pid, wid, titre) { if (!(await confirmBox(`Retirer « ${titre} » de l'écran ?`))) return; const p = pageL(pid); if (!p) return; p.widgets = p.widgets.filter((x) => x.id !== wid); ranger(); }
+  function glisser(e, card, pid, wid) {
+    e.preventDefault(); const h = e.currentTarget; let cible = null; glisse = true;
+    try { h.setPointerCapture(e.pointerId); } catch { /* pointeur déjà relâché */ }
+    card.classList.add('glisse');
+    const mv = (ev) => { const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-fw]'); cible?.classList.remove('cible'); cible = t && t !== card ? t : null; cible?.classList.add('cible'); };
+    const fin = () => { h.removeEventListener('pointermove', mv); h.removeEventListener('pointerup', fin); h.removeEventListener('pointercancel', fin); glisse = false; card.classList.remove('glisse'); if (cible) poser(pid, wid, cible.dataset.fp, cible.dataset.fw); else draw(); };
+    h.addEventListener('pointermove', mv); h.addEventListener('pointerup', fin); h.addEventListener('pointercancel', fin);
+  }
+  /** En mode Modifier : la poignée et les commandes d'un module. */
+  function outils(card, w, p) {
+    card.dataset.fw = w.id; card.dataset.fp = p.id;
+    if (!edition) return card;
+    const b = (texte, nom, f) => el('button', { type: 'button', 'aria-label': `${nom} : ${w.title}`, title: nom, onclick: f }, texte);
+    const poignee = el('button', { type: 'button', class: 'fw-poignee', 'aria-label': `Déplacer ${w.title} (glisser, ou les flèches ◀ ▶)`, title: 'Glisser pour déplacer' }, '⠿');
+    poignee.addEventListener('pointerdown', (e) => glisser(e, card, p.id, w.id));
+    card.append(el('div', { class: 'fw-outils' }, poignee, b('◀', 'Avant', () => bouger(p.id, w.id, -1)), b('▶', 'Après', () => bouger(p.id, w.id, 1)), b('↔', 'Taille', () => taille(p.id, w.id)), b('✕', 'Retirer', () => retirer(p.id, w.id, w.title))));
+    return card;
+  }
+  /** Un site à surveiller, visible sur l'écran : Pulsar le vérifie ensuite tout seul. */
+  function siteSurveille() {
+    const nom = el('input', { type: 'text', placeholder: 'Nom (ex. Mon site)', 'aria-label': 'Nom du site', maxlength: '60' }), url = el('input', { type: 'url', placeholder: 'https://exemple.fr', 'aria-label': 'Adresse du site' });
+    const d = el('dialog', { 'aria-label': 'Site surveillé' }, el('p', {}, 'Quel site surveiller ? Son état s\'affichera sur l\'écran.'), el('div', { class: 'lieu', style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, nom, url),
+      el('div', { class: 'acts' }, el('button', { class: 'btn', onclick: () => d.close() }, 'Annuler'), el('button', { class: 'btn', onclick: async () => {
+        const n = nom.value.trim(), u = url.value.trim(); if (!n || !/^https?:\/\/\S+$/i.test(u)) return toast('Donne un nom et une adresse qui commence par http:// ou https://.');
+        d.close(); const r = await valhalla('vordr', 'ajouter', { nom: n, genre: 'http', cible: u }).catch((e) => ({ ok: false, text: e.message }));
+        if (r.ok === false && !/existe déjà/i.test(r.text || '')) return toast(r.text || 'Pulsar a refusé.');
+        await ajouter({ kind: 'site', module: 'vordr', label: n });
+      } }, 'Surveiller')));
+    d.addEventListener('close', () => d.remove()); document.body.append(d); d.showModal(); nom.focus();
+  }
+  function barreEdition() {
+    if (!D || D.rights !== 'complet') return [];
+    if (!edition) return [el('div', { class: 'fe-barre' }, el('button', { class: 'btn', type: 'button', onclick: () => modifier(true) }, '✎ Modifier l\'écran'))];
+    return [el('div', { class: 'fe-barre' }, el('button', { class: 'btn', type: 'button', onclick: () => ajouter({ kind: 'heure' }) }, '＋ Heure et lieu'), el('button', { class: 'btn', type: 'button', onclick: () => ajouter({ kind: 'meteo' }) }, '＋ Météo'),
+      el('button', { class: 'btn', type: 'button', onclick: siteSurveille }, '＋ Site surveillé'), el('a', { class: 'btn', href: '/', target: window.top !== window ? '_blank' : null, rel: 'noopener', title: 'Tous les modules des applis et les boutons sur mesure : accueil d\'Odin, bouton Modifier' }, 'Tous les modules…'),
+      el('button', { class: 'btn', type: 'button', onclick: () => modifier(false) }, '✓ Terminé')),
+    el('p', { class: 'muted', style: { margin: '0 0 10px' } }, 'Glisse un module par sa poignée ⠿ pour le poser ailleurs, ou utilise ◀ ▶. ↔ change sa taille, ✕ le retire.')];
+  }
   function fenetrePages() {
-    return (D.fenetre || []).filter((p) => p.widgets.length).flatMap((p) => [el('h2', { class: 'sec' }, p.name), el('div', { class: 'grid' }, ...p.widgets.map(fWidget))]);
+    const pages = (D.fenetre || []).filter((p) => p.widgets.length || edition);
+    return [...barreEdition(), ...pages.flatMap((p) => [el('h2', { class: 'sec' }, p.name), el('div', { class: 'grid' }, ...p.widgets.map((w) => outils(fWidget(w), w, p)))])];
   }
   function fWidget(w) {
     if (w.kind === 'meteo') return weatherCard(D.weather);
+    if (w.kind === 'heure') {
+      const l = D.lieu || {}, soleil = D.weather?.sunrise ? ` · ☀ ${D.weather.sunrise} – ${D.weather.sunset}` : '';
+      setTimeout(tick, 0);
+      return el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw fh` }, el('h3', {}, w.title), el('div', { class: 'big fh-h' }), el('div', { class: 'fh-j' }), el('div', { class: 'muted' }, `${l.nom || 'Lieu non réglé'}${l.fuseau ? ` · ${l.fuseau}` : ''}${l.suppose ? ' · supposé' : ''}${soleil}`));
+    }
+    if (w.kind === 'site') {
+      const so = w.sonde, c = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, el('h3', {}, `Site · ${w.title}`));
+      c.append(so ? el('ul', { class: 'fl' }, el('li', { class: so.tone || '' }, el('b', {}, so.etat || '—'), el('span', { class: 'muted' }, [so.cible, so.temps].filter(Boolean).join(' · '))), el('li', {}, el('b', {}, 'Disponibilité'), el('span', { class: 'muted' }, `24 h : ${so.jour || '—'} · 30 jours : ${so.mois || '—'}`)))
+        : el('p', { class: 'muted' }, 'Cette sonde n\'existe pas (ou plus) dans Pulsar.'));
+      return c;
+    }
     const card = el('div', { class: `card${w.w >= 2 ? ' w2' : ''} fw` }, el('h3', {}, w.app && w.app !== w.title ? `${w.app} · ${w.title}` : w.title));
     if (w.kind === 'bouton') { card.append(el('button', { class: 'scene', style: { marginTop: '10px' }, onclick: () => act('/api/maison/fenetre', { id: w.id }) }, `${w.grave ? '⚠ ' : '⚡ '}${w.title}`)); return card; }
     if (w.kind === 'chiffres') { card.append(el('div', { class: 'fk' }, ...(w.kpis || []).map((k) => el('div', { class: `fki ${k.tone || ''}` }, el('small', {}, k.label), el('b', {}, k.value))))); if (!w.kpis?.length) card.append(el('p', { class: 'muted' }, 'Pas de chiffres pour cette appli.')); return card; }
@@ -338,7 +446,7 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
       const d = await api('/api/maison/etat'); if (!d.ok) throw new Error(d.error || 'erreur');
       let th = d.theme; if (d.rights !== 'complet') try { th = localStorage.getItem('odin.maison.theme') || th; } catch { /* */ }
       if (!D || D.theme !== th) applyTheme(th);
-      D = { ...d, theme: th }; nuit.cacher(); draw();
+      D = { ...d, theme: th }; nuit.cacher(); if (!glisse) draw(); // pas de redessin pendant qu'on glisse un module
       // Odin d'aujourd'hui (le même que partout) : caché ou non, fête du jour.
       if (d.mascotte) { window.OdinMascotte?.onState?.(d.mascotte); const c = d.mascotte.event?.color || d.mascotte.odin?.color; if (c) window.OdinFace?.tintBase?.(c); }
       // Nouvelles bulles : la mascotte les annonce (rouge et à voix haute si c'est grave).

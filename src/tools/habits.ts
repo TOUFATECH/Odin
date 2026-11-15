@@ -1,6 +1,7 @@
 // Ce qu'Odin a appris de tes habitudes : le voir, l'oublier, lui redemander de te demander.
 
 import { forgetHabit, habitWhen, knownHabits, revokeTrust, trusts } from '../learn/habits.ts';
+import { accord } from '../core/genre.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { obj, str, type Tool } from './registry.ts';
@@ -15,8 +16,8 @@ export const habitsList: Tool = {
   async run(_i, ctx) {
     const k = knownHabits(ctx.muninn), t = trusts(ctx.muninn).filter((x) => x.learned);
     const lines: string[] = [];
-    if (k.length) lines.push('Routines :', ...k.map((h) => `- [${h.key}] « ${h.habit.sample.slice(0, 90)} » ${habitWhen(h.habit)} — ${h.state === 'active' ? 'je le prépare tout seul' : h.state === 'proposed' ? 'proposé, en attente de ta réponse' : 'refusé (je ne le propose plus)'}`));
-    if (t.length) lines.push('Je fais seul (tu l\'acceptes toujours) :', ...t.map((x) => `- [${x.key}] ${x.example} (accepté ${x.yes} fois)`));
+    if (k.length) lines.push('Routines :', ...k.map((h) => `- [${h.key}] « ${h.habit.sample.slice(0, 90)} » ${habitWhen(h.habit)} — ${h.state === 'active' ? `je le prépare ${accord('tout seul', 'toute seule')}` : h.state === 'proposed' ? 'proposé, en attente de ta réponse' : 'refusé (je ne le propose plus)'}`));
+    if (t.length) lines.push(`Je fais ${accord('seul', 'seule')} (tu l'acceptes toujours) :`, ...t.map((x) => `- [${x.key}] ${x.example} (accepté ${x.yes} fois)`));
     return lines.length ? lines.join('\n') : 'Je n\'ai pas encore repéré d\'habitude : il me faut voir une même demande au moins 3 jours.';
   },
 };

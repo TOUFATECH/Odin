@@ -74,6 +74,8 @@ export async function analyserFichier(ctx: ModCtx, nom: string, contenu: Buffer,
     : verdict === 'douteux' ? `⚠ ${nom} est douteux : ${menaces.join(', ')}. Ouvre-le seulement si tu sais d'où il vient.`
     : `✓ Rien de connu dans ${nom}. (Aucun antivirus ne voit tout : reste prudent avec les fichiers inattendus.)`;
   if (verdict === 'bloque') ctx.alert({ level: 'haute', title: `Pégase : fichier bloqué (${nom.slice(0, 60)})`, detail: `${texte}\n${profil ? `Profil : ${nomDe(profil)}. ` : ''}Empreinte : ${v?.sha256 ?? '?'}`, key: `pegase:bloque:${v?.sha256 ?? nom}` });
+  // Le même point de passage que tout le reste (quarantaine d'abord) : le fichier bloqué est gardé, consultable dans Asclépios.
+  if (verdict === 'bloque') await (await import('../ullr/garde.ts')).quarantaineDabord({ donnees: contenu, nom: propre, origine: 'Pégase · téléchargement', ...(profil ? { source: nomDe(profil) } : {}), silencieux: true }, ctx).catch(() => undefined);
   ctx.emit('telechargement_analyse', { fichier: nom.slice(0, 80), verdict, ...(menaces.length ? { menaces: menaces.join(', ') } : {}) });
   return { ok: true, verdict, ...(v?.level ? { niveau: v.level } : {}), menaces, ...(v?.sha256 ? { sha256: v.sha256 } : {}), texte };
 }

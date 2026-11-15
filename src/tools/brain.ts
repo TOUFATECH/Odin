@@ -31,8 +31,11 @@ export const brainSearch: Tool = {
   async run(i, ctx) {
     const v = brainOf(ctx);
     const r = v.search(s(i.question), Math.min(20, Number(i.limite) || 8));
-    if (!r.length) return `Rien dans le Cerveau sur « ${s(i.question)} » (${v.all().length} notes au total).`;
-    const text = r.map((x) => `- [[${x.note.title}]] (${x.note.path}${x.note.meta.type ? `, ${x.note.meta.type}` : ''}${x.note.tags.length ? `, #${x.note.tags.slice(0, 4).join(' #')}` : ''}) : ${x.snippet}`).join('\n');
+    // Les souvenirs font partie du Cerveau : ils sont cherchés en même temps (ceux de confiance seulement).
+    let mem: Array<{ id: number; content: string }> = [];
+    try { mem = ctx.muninn?.findMemories?.(s(i.question), 5) ?? []; } catch { /* mémoire facultative */ }
+    if (!r.length && !mem.length) return `Rien dans le Cerveau sur « ${s(i.question)} » (${v.all().length} notes au total).`;
+    const text = [r.map((x) => `- [[${x.note.title}]] (${x.note.path}${x.note.meta.type ? `, ${x.note.meta.type}` : ''}${x.note.tags.length ? `, #${x.note.tags.slice(0, 4).join(' #')}` : ''}) : ${x.snippet}`).join('\n'), mem.length ? `Souvenirs :\n${mem.map((m) => `- ${m.content} (#${m.id})`).join('\n')}` : ''].filter(Boolean).join('\n');
     return r.some((x) => untrustedNote(x.note.meta)) ? { output: wrapUntrusted('cerveau', text), tainted: true } : text;
   },
 };

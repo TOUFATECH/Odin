@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { userInfo } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { accord } from '../core/genre.ts';
 
 export type AdminMode = 'root' | 'nopasswd' | 'password' | 'none' | 'absent' | 'blocked';
 
@@ -216,7 +217,7 @@ export function fixAdmin(o: FixOptions = {}): FixResult {
 
   // 2. Le service : retirer ce qui interdit de devenir administrateur.
   if (unit) {
-    if (on(props.DynamicUser)) { lines.push(`✗ Le service « ${unit} » utilise un compte temporaire (DynamicUser) : je ne peux pas le rendre administrateur tout seul. Donne-lui un vrai compte (User=…), puis relance cette commande.`); return { ok: false, lines }; }
+    if (on(props.DynamicUser)) { lines.push(`✗ Le service « ${unit} » utilise un compte temporaire (DynamicUser) : je ne peux pas le rendre administrateur ${accord('tout seul', 'toute seule')}. Donne-lui un vrai compte (User=…), puis relance cette commande.`); return { ok: false, lines }; }
     const dir = join(root, 'etc', 'systemd', 'system', `${unit}.d`), file = join(dir, '90-odin-administrateur.conf');
     const before = existsSync(file) ? readFileSync(file, 'utf8') : undefined;
     const restart = () => { sh('systemctl', ['daemon-reload']); return sh('systemctl', ['restart', unit]); };

@@ -174,7 +174,7 @@ section{padding-block:clamp(56px,9vw,104px)}
 @keyframes e-sink{0%,100%{transform:translateY(0)}50%{transform:translateY(1.5px)}}
 @keyframes e-shiver{0%,100%{transform:translateX(0)}50%{transform:translateX(.8px)}}
 @keyframes e-shy{0%,100%{transform:translateX(0)}50%{transform:translateX(2.5px)}}
-@keyframes e-droop{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
+@keyframes e-droop{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.8)}}
 @keyframes e-attent{0%,100%{transform:scale(1)}50%{transform:scale(1.06,1.1)}}
 @media (prefers-reduced-motion:reduce){.odin .brow{animation:none!important}}
 .odin .eye{transform-box:fill-box;transform-origin:center;animation:o-blink 5.2s infinite}

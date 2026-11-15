@@ -2,6 +2,7 @@
 // le propriétaire a donné dans la discussion. Le modèle ne voit jamais ni l'ancien ni le nouveau mot de passe.
 
 import { setConfigValue } from '../config.ts';
+import { accord } from '../core/genre.ts';
 import { writeSecret } from '../settings.ts';
 import { forgetSecret, onboardMachine, pendingSecretLabel, takeSecret } from '../machines/onboard.ts';
 import { adminDiagnosis, adminMode, adminPassword, checkSudoPassword, installNopasswd, setAdminPassword } from '../machines/access.ts';
@@ -53,9 +54,9 @@ export const adminEnable: Tool = {
     if (!ctx.home) return 'Coffre indisponible.';
     const mode = adminMode(ctx.home);
     const resume = () => (resumeVoiceInstall((msg) => void ctx.send?.(ctx.channel, ctx.peer, msg).catch(() => undefined), ctx.home) ? ' Je relance l\'installation de l\'écoute, qui attendait ces droits : je te préviens quand c\'est prêt.' : '');
-    if (mode === 'root' || mode === 'nopasswd') return `Je suis déjà administrateur de cette machine : rien à faire.${resume()}`;
+    if (mode === 'root' || mode === 'nopasswd') return `Je suis déjà ${accord('administrateur', 'administratrice')} de cette machine : rien à faire.${resume()}`;
     // Service verrouillé, sudo absent, Windows non élevé : un mot de passe n'y changerait rien. La vraie cause, et la commande exacte.
-    if (mode === 'absent' || mode === 'blocked') { const d = adminDiagnosis(ctx.home); return `Je ne peux pas devenir administrateur moi-même ici : ${d.state}.\n${d.fix}`; }
+    if (mode === 'absent' || mode === 'blocked') { const d = adminDiagnosis(ctx.home); return `Je ne peux pas devenir ${accord('administrateur', 'administratrice')} moi-même ici : ${d.state}.\n${d.fix}`; }
     const pw = takeSecret(ctx.home) ?? adminPassword(ctx.home);
     if (!pw) return 'Il me faut une seule fois le mot de passe de ta session sur cette machine : écris « le mot de passe admin de ce poste est … » (il ne sera ni affiché ni lu par l\'IA), et je m\'occupe du reste.';
     const c = checkSudoPassword(pw, ctx.home);
