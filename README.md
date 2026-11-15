@@ -9,7 +9,7 @@
 ![Node 22.18+](https://img.shields.io/badge/node-%E2%89%A5%2022.18-blue)
 ![macOS · Linux · Windows](https://img.shields.io/badge/macOS%20%C2%B7%20Linux%20%C2%B7%20Windows-ok-lightgrey)
 
-[Installation](#installation) · [Premiers pas](#premiers-pas) · [Utilisation](#utilisation) · [Décisions et autonomie](#décisions-et-autonomie) · [Sécurité](#sécurité) · [Commandes](#toutes-les-commandes) · [Dépannage](#dépannage)
+[Installation](#installation) · [Premiers pas](#premiers-pas) · [Utilisation](#utilisation) · [Décisions et autonomie](#décisions-et-autonomie) · [Sécurité](#sécurité) · [Commandes](#toutes-les-commandes) · [Dépannage](#dépannage) · [Odin OS](#odin-os)
 
 </div>
 
@@ -854,8 +854,21 @@ npm run check      # vérification des types + tests
 
 Ajouter un outil = un objet avec un nom, une description, un **niveau de risque** et une fonction `run` ; Heimdall et Mímir s'occupent du reste.
 
+### Suivi du projet
+
+- [AVANCEMENT.md](AVANCEMENT.md) : où en est le projet, chantiers ouverts, journal des sessions de travail.
+- [docs/applicatifs-odin.xlsx](docs/applicatifs-odin.xlsx) : toutes les applis, leur état (terminée, en cours, pas commencée), les logiciels dont elles s'inspirent, ce qu'elles font et l'histoire de leur nom.
+
 ## Licence
 
 [MIT](LICENSE) © TOUFATECH
 
 Le dictionnaire français de Plume vient de Grammalecte (MPL 2.0) : fichiers inchangés, avec leur licence à côté.
+
+---
+
+## Odin OS
+
+**Odin OS est un projet distinct** : le système d'exploitation d'Odin, construit sur Ubuntu 26.04 LTS, dont le bureau est servi par Odin. Son code est sur la branche [`odin-os`](https://github.com/TOUFATECH/Odin/tree/odin-os), séparé de l'application présentée ci-dessus ; les applis d'Odin y seront réunies par la suite.
+
+Présentation complète : [ODIN-OS.md](ODIN-OS.md).
