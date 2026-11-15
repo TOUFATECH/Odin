@@ -58,6 +58,8 @@ export interface MenuIn {
   ecran?: boolean;
   /** l'habillage de l'écran texte (image de fond, couleurs) : lignes iPXE déjà prêtes (voir ecran.ts textLook) */
   look?: string[];
+  /** le thème du menu texte : « matrix » a son titre et ses séparateurs à lui (maquette « Thèmes du démarrage réseau ») */
+  texte?: string;
   /** l'écran graphique sur le PC lui-même (petit système) : lignes iPXE après « :ecran » ; sans elles, on attend un choix fait sur un téléphone */
   kiosk?: string[];
   /** la famille d'une entrée (Windows, Linux, Serveurs, Outils), pour ranger le menu */
@@ -75,7 +77,8 @@ export function menu(m: MenuIn): string {
     L.push('echo', 'echo ODIN - Genese : demarrage par le reseau', 'echo Carte reseau .... ${netX/mac}', 'echo Micrologiciel ... ${platform} ${buildarch}', 'echo Adresse ......... ${netX/ip}', `echo Serveur Odin .... ${host} OK`, 'echo',
       'prompt --key 0x1b --timeout 2500 Menu dans 3 s   (Echap : demarrer sur le disque de ce PC) && goto local ||', '');
   }
-  L.push(`menu ODIN - Choisis un systeme pour ce PC (${m.mac})`);
+  const matrix = m.texte === 'matrix';
+  L.push(matrix ? `menu ODIN :: CHOISIS UN SYSTEME (${m.mac})` : `menu ODIN - Choisis un systeme pour ce PC (${m.mac})`);
   if (m.ecran) L.push(`item ecran Choisir sur l'ecran d'Odin ${m.kiosk?.length ? '(ici en graphique, ou sur un telephone)' : '(telephone ou PC du reseau)'}`);
   L.push('item local Demarrer sur le disque de cette machine');
   // Les systèmes rangés par famille (maquette « Démarrage réseau ») : Windows, Linux, Serveurs, Outils
@@ -83,7 +86,7 @@ export function menu(m: MenuIn): string {
   const order = ['Windows', 'Linux', 'Serveurs', 'Outils', 'ISO'], groups = [...new Set(m.entries.map(fam))].sort((a, b) => order.indexOf(a) - order.indexOf(b));
   let lastFam = '';
   for (const e of [...m.entries].sort((a, b) => groups.indexOf(fam(a)) - groups.indexOf(fam(b)))) {
-    if (fam(e) !== lastFam) { lastFam = fam(e); L.push(`item --gap -- --- ${q(lastFam).toUpperCase()} ${'-'.repeat(Math.max(3, 44 - lastFam.length))}`); } const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
+    if (fam(e) !== lastFam) { lastFam = fam(e); L.push(matrix ? `item --gap -- // ${q(lastFam).toUpperCase()} ${'/'.repeat(Math.max(3, 41 - lastFam.length))}` : `item --gap -- --- ${q(lastFam).toUpperCase()} ${'-'.repeat(Math.max(3, 44 - lastFam.length))}`); } const label = `${q(e.name)} - ${q(m.auto?.id === e.id ? e.recipe.label : e.recipe.label.replace(/\(installation automatique\)/, '(installation)'))}`; L.push(`item e-${e.id} ${label.length > 62 ? `${label.slice(0, 61)}.` : label}`); }
   L.push('item --gap --', 'item shell Ligne de commande iPXE');
   L.push(`choose --default ${m.def === 'local' || (m.def === 'ecran' && m.ecran) ? m.def : `e-${m.def}`} --timeout ${Math.max(0, Math.round(m.timeout * 1000))} sel || goto local`, 'goto ${sel}', '');
   L.push(':local', 'echo Demarrage sur le disque...', 'iseq ${platform} efi && exit 1 ||', 'sanboot --no-describe --drive 0x80 || exit 1', '');

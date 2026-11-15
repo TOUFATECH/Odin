@@ -65,7 +65,21 @@
   const ORDER = ['démarrage réseau', 'chargeur', 'menu', 'chargement', 'installation', 'logiciels', 'fini'];
   const hhmm = (t) => new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const mins = (ms) => Math.max(0, Math.round(ms / 60000));
-  const THEME_DOT = { nuit: '#ffd166', mayotte: '#0f8a83', espace: '#8b5cf6', ocean: '#22b3e6', odin: '#ffffff' };
+  // Les 13 thèmes gardés sur la maquette « Thèmes du démarrage réseau » : 9 pour l'écran graphique, 4 pour le menu texte.
+  const THEME_DOT = { bleu: '#2a4bd1', matrix: '#3dff7a', ocean: '#2b8fd6', lune: '#d9d4c4', ciel: '#4aa8ff', galaxie: '#a03cff', mayotte: '#0f8a83', couchant: '#ff6a3d', clair: '#f6f7fb' };
+  const TEXTE_DOT = { matrix: '#3dff7a', lune: '#f4f1e8', aurore: '#7dffcf', neon: '#ff4fd8', classique: '#9aa3b5' };
+  /** Ton image de fond : recadrée à la taille de l'écran et assombrie dans le navigateur, puis envoyée à Odin. */
+  async function envoyerImage(cle, file, o) {
+    const bmp = await createImageBitmap(file), cv = document.createElement('canvas'); cv.width = o.w; cv.height = o.h;
+    const g = cv.getContext('2d'), k = Math.max(o.w / bmp.width, o.h / bmp.height), w = bmp.width * k, h = bmp.height * k;
+    g.fillStyle = '#000'; g.fillRect(0, 0, o.w, o.h); g.drawImage(bmp, (o.w - w) / 2, (o.h - h) / 2, w, h);
+    if (o.voile) { g.fillStyle = `rgba(0,0,0,${o.voile})`; g.fillRect(0, 0, o.w, o.h); }
+    const type = o.type === 'png' ? 'image/png' : 'image/jpeg', blob = await new Promise((ok) => cv.toBlob(ok, type, 0.86));
+    if (!blob) throw new Error('le navigateur n\'a pas pu préparer l\'image');
+    const r = await (await fetch(`/api/valhalla/image?module=thjalfi&key=${encodeURIComponent(cle)}`, { method: 'POST', headers: { 'x-odin': '1', 'content-type': type }, body: blob })).json();
+    if (!r.ok) throw new Error(r.error || 'envoi refusé');
+    return r.ref;
+  }
   const sw = (on, label, onchange) => el('button', { class: 'tj-sw', type: 'button', role: 'switch', 'aria-checked': String(Boolean(on)), 'aria-label': label, onclick: (e) => { const b = e.currentTarget, v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(v)); onchange(v); } });
   const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Genèse', app: 'Genèse' }); };
 
@@ -124,13 +138,32 @@
     const chips = el('div', { class: 'tj-chips' }, ...Object.entries(D.themes ?? {}).map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(e.theme === k), onclick: (ev) => { e.theme = k; for (const b of chips.children) b.setAttribute('aria-pressed', 'false'); ev.currentTarget.setAttribute('aria-pressed', 'true'); } }, el('i', { style: `background:${THEME_DOT[k] ?? '#999'}` }), t)));
     const wait = el('input', { type: 'number', min: '1', max: '60', value: String(e.attente ?? 5), 'aria-label': 'Minutes d\'attente' });
     const out = el('p', { class: 'tj-note', role: 'status' });
+    // Le thème du menu texte (iPXE) : enregistré avec le reste par « Enregistrer ».
+    const chipsTexte = el('div', { class: 'tj-chips' }, ...Object.entries(D.textes ?? {}).map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String((e.texte ?? 'matrix') === k), onclick: (ev) => { e.texte = k; for (const b of chipsTexte.children) b.setAttribute('aria-pressed', 'false'); ev.currentTarget.setAttribute('aria-pressed', 'true'); } }, el('i', { style: `background:${TEXTE_DOT[k] ?? '#999'}` }), t)));
+    // Ton image en arrière-plan (maquette) : « Choisir une image… » l'envoie tout de suite ; « Sans mon image » remet le décor du thème.
+    const FONDS = { texte: { cle: 'fond_texte', sans: 'sans_fond_texte', nom: 'Menu texte (iPXE)', w: 1024, h: 768, type: 'png', voile: 0.5 }, graphique: { cle: 'fond_graphique', sans: 'sans_fond_graphique', nom: 'Écran graphique', w: 1920, h: 1080, type: 'jpeg', voile: 0.3 } };
+    const fondLigne = (kind) => {
+      const f = FONDS[kind], etat = el('small', {}, D.fonds?.[kind] ? 'ton image est en place' : 'décor du thème');
+      const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'position:absolute;width:1px;height:1px;opacity:0', 'aria-label': `Image de fond, ${f.nom}`, onchange: async (ev) => {
+        const img = ev.target.files?.[0]; if (!img) return; etat.textContent = 'envoi…';
+        try { const ref = await envoyerImage(f.cle, img, f), x = await post('ecran', { [f.cle]: ref }); etat.textContent = x.ok === false ? 'image refusée' : 'ton image est en place'; out.textContent = x.text; }
+        catch (err) { etat.textContent = 'image refusée'; out.textContent = err.message; }
+        ev.target.value = '';
+      } });
+      return el('div', { class: 'tj-row' }, el('span', {}, f.nom, ' ', etat), el('span', { style: 'display:flex;gap:6px;flex-wrap:wrap' },
+        el('label', { class: 'tj-pill n', style: 'cursor:pointer;position:relative' }, 'Choisir une image…', file),
+        el('button', { class: 'tj-pill n', type: 'button', onclick: async () => { const x = await post('ecran', { [f.sans]: true }); etat.textContent = 'décor du thème'; out.textContent = x.text; } }, 'Sans mon image')));
+    };
     root.append(el('div', { class: 'tj-grid' },
       el('div', { class: 'tj-w' }, el('h3', {}, 'Disposition par défaut'), disp, el('p', { class: 'tj-note' }, 'Sur l\'écran, la touche D change de disposition sans toucher à ce réglage.')),
       el('div', { class: 'tj-w' }, el('h3', {}, 'Thème par défaut'), chips,
         el('div', { class: 'tj-row' }, el('span', {}, 'Proposer l\'écran dans le menu de démarrage'), sw(e.actif, 'Proposer l\'écran', (v) => { e.actif = v; })),
         el('div', { class: 'tj-row' }, el('span', {}, 'L\'écran par défaut ', el('small', {}, '(sinon le disque de la machine)')), sw(e.parDefaut, 'Écran par défaut', (v) => { e.parDefaut = v; })),
         el('div', { class: 'tj-row' }, el('span', {}, 'Sans choix, la machine reprend son disque après'), wait, el('small', {}, 'min')),
-        el('p', { class: 'tj-note' }, 'Sur l\'écran, la touche T change de thème le temps de la session.'))));
+        el('p', { class: 'tj-note' }, 'Sur l\'écran, la touche T change de thème le temps de la session.')),
+      el('div', { class: 'tj-w' }, el('h3', {}, 'Thème du menu texte (iPXE)'), chipsTexte, el('p', { class: 'tj-note' }, 'Le menu en mode texte, au tout début du démarrage : flèches, Entrée, Échap.')),
+      el('div', { class: 'tj-w' }, el('h3', {}, 'Ton image en arrière-plan'), fondLigne('texte'), fondLigne('graphique'),
+        el('p', { class: 'tj-note' }, 'Menu texte : l\'image est réduite à 1024 × 768 et assombrie, le menu passe par-dessus dans son cadre. Écran graphique : l\'image remplit l\'écran, avec un voile aux couleurs du thème. Sans image, chaque thème garde son décor.'))));
     root.append(el('div', { class: 'tj-btns' }, el('button', { class: 'tj-pill pri', type: 'button', onclick: async (ev) => { ev.currentTarget.disabled = true; const x = await post('ecran', { ...e, attente: Number(wait.value) }); ev.currentTarget.disabled = false; out.textContent = x.text; note(x); } }, 'Enregistrer'),
       D.url ? el('a', { class: 'tj-pill n', href: `${D.url}?apercu`, target: '_blank', rel: 'noopener' }, 'Voir l\'aperçu') : el('span', { class: 'tj-note', style: 'margin:0' }, 'Allume Genèse pour voir l\'aperçu.'), out));
   }

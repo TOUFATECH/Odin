@@ -267,7 +267,7 @@ export function thjalfi(): Module {
       return codename && existsSync(join(d, 'linux')) && existsSync(join(d, 'initrd.gz')) ? { kernel: `boot/debian/${codename}/linux`, initrd: `boot/debian/${codename}/initrd.gz` } : undefined;
     };
     const look = textLook(ec.texte, fondPerso(ctx, 'texte') || ec.texte !== 'classique' ? `${base(ctx)}/ecran/fond-texte.png` : undefined);
-    return menu({ base: base(ctx), mac, entries: list.map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! })), def, timeout, auto, netboot: nb, ecran: ec.actif && Boolean(mac), look, family: (e) => category(e.recipe, e.name), kiosk: (() => { const k = kiosk(ctx); return k && mac ? kioskBoot({ base: base(ctx), mac, branch: k.branch }) : undefined; })() });
+    return menu({ base: base(ctx), mac, entries: list.map((i) => ({ id: i.id, name: i.name, recipe: i.recipe! })), def, timeout, auto, netboot: nb, ecran: ec.actif && Boolean(mac), look, texte: ec.texte, family: (e) => category(e.recipe, e.name), kiosk: (() => { const k = kiosk(ctx); return k && mac ? kioskBoot({ base: base(ctx), mac, branch: k.branch }) : undefined; })() });
   }
 
   // ---------------- L'écran d'Odin (choisir sur un téléphone ou un PC du réseau) ----------------
@@ -567,7 +567,7 @@ export function thjalfi(): Module {
       const fil = m.flatMap((x) => x.steps.map((st) => ({ at: st.at, mac: x.mac, nom: x.host ?? x.mac, etape: st.step, detail: st.detail ?? '' }))).sort((a, b) => b.at - a.at).slice(0, 40);
       const today = h.filter((d) => now - d.at < 864e5);
       return { text: `${demandes(ctx).filter((d) => d.statut === 'attente').length} demande(s) à décider · ${m.filter((x) => !FINAL.includes(x.step)).length} en cours`, data: {
-        allume: Boolean(http), url: http ? `${base(ctx)}/ecran` : '', ecran: ecranCfg(ctx), themes: THEMES, dispositions: DISPOSITIONS,
+        allume: Boolean(http), url: http ? `${base(ctx)}/ecran` : '', ecran: ecranCfg(ctx), themes: THEMES, dispositions: DISPOSITIONS, textes: { ...Object.fromEntries(Object.entries(TEXT_THEMES).map(([k, t]) => [k, t.label])), classique: 'Classique (sans décor)' }, fonds: { texte: fondPerso(ctx, 'texte'), graphique: fondPerso(ctx, 'graphique') },
         demandes: demandes(ctx).filter((d) => d.statut === 'attente' || now - (d.decide ?? d.at) < 864e5).reverse(),
         enCours: m.filter((x) => !FINAL.includes(x.step)).sort((a, b) => b.updated - a.updated),
         fil, chiffres: { enCours: m.filter((x) => !FINAL.includes(x.step)).length, aujourdhui: today.filter((d) => d.result === 'fini').length, echecs: today.filter((d) => d.result !== 'fini').length, total: h.filter((d) => d.result === 'fini').length, isos: l.filter((i) => i.recipe).length },
