@@ -1,8 +1,8 @@
-// Événements de l'année, couleurs automatiques d'Odin, clics et pouvoirs (réglages) : calculs purs.
+// Événements de l'année, couleurs automatiques d'Odin, clics (réglages) : calculs purs.
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { easter, eventsOn, hijri, inRamadan, todayEvent, upcoming } from '../src/valhalla/fetes.ts';
-import { cleanClicks, cleanEvents, cleanPowers, odinColor, POWERS, powerForWeather } from '../src/valhalla/modules/apparence.ts';
+import { cleanClicks, cleanEvents, odinColor } from '../src/valhalla/modules/apparence.ts';
 
 test('Pâques par le comput', () => {
   assert.equal(easter(2026), '2026-04-05');
@@ -56,17 +56,11 @@ test('couleur d\'Odin en automatique : marée, vent, nuit, chaud, froid', () => 
   assert.equal(odinColor(13, { code: 0, temp: 33 })?.color, '#ffd23a');
   assert.equal(odinColor(13, { code: 0, temp: 18 })?.color, '#5b8fd9');
   assert.equal(odinColor(13, { code: 0, temp: 26 }), undefined);
-  assert.equal(powerForWeather({ code: 95 }), 'foudre');
-  assert.equal(powerForWeather({ code: 0, temp: 34 }), 'feu');
 });
 
-test('réglages nettoyés : clics, pouvoirs, événements', () => {
+test('réglages nettoyés : clics, événements', () => {
   const c = cleanClicks({ 3: 'rire', 10: 'rien', 25: 'cacher', 6: 'piratage' });
   assert.equal(c[3], 'rire'); assert.equal(c[10], undefined); assert.equal(c[25], undefined); assert.equal(c[6], undefined); assert.equal(c[20], 'redemarrer');
-  const p = cleanPowers({ actif: true, favoris: ['feu', 'inconnu'], choix: 'meteo', quand: { clic: true } });
-  assert.deepEqual(p.favoris, ['feu']); assert.equal(p.choix, 'meteo'); assert.equal(p.quand.clic, true); assert.equal(p.quand.ferme, true);
-  assert.equal(cleanPowers({}).actif, false, 'désactivés au départ');
-  assert.equal(Object.keys(POWERS).length, 38);
   const e = cleanEvents({ choix: { noel: false, faux: true }, pauses: ['2026-12-24', 'x'], anniversaire: '13-40', decalageHijri: 9 });
   assert.deepEqual(e.choix, { noel: false }); assert.deepEqual(e.pauses, ['2026-12-24']); assert.equal(e.anniversaire, undefined); assert.equal(e.decalageHijri, 2);
 });

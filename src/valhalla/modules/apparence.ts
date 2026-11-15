@@ -4,7 +4,7 @@
 // sauf orage). Les couleurs et décors sont dans l'interface (themes.js) ; ici : le choix et la règle automatique.
 import type { ModCtx, Module } from '../types.ts';
 import { CLICK_CATALOG, cleanClicks2 } from '../clics.ts';
-import { EVENTS, EVENT_BY_ID, inRamadan, todayEvent, upcoming, ymd, type EventsCfg } from '../fetes.ts';
+import { EVENTS, EVENT_BY_ID, todayEvent, upcoming, ymd, type EventsCfg } from '../fetes.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 export const THEME_NAMES: Record<string, string> = {
@@ -40,41 +40,9 @@ export function odinColor(hour: number, w?: Wx & { wind?: number }, highTide = f
   if (w?.temp !== undefined && w.temp <= 20) return { color: '#5b8fd9', why: `il fait frais (${w.temp}°)` };
   return undefined;
 }
-/** Les 38 pouvoirs (maquettes validées, + Éclair et Téléportation) et leur famille. */
-export const POWERS: Record<string, { name: string; fam: string }> = {
-  feu: { name: 'Boule de feu', fam: 'Feu' }, jet: { name: 'Rayon de feu', fam: 'Feu' }, lave: { name: 'Lave', fam: 'Feu' }, meteores: { name: 'Météores', fam: 'Feu' }, comete: { name: 'Comète', fam: 'Feu' },
-  vague: { name: 'Vague', fam: 'Eau' }, bulles: { name: 'Bulles', fam: 'Eau' }, glace: { name: 'Glace', fam: 'Eau' }, blizzard: { name: 'Blizzard', fam: 'Eau' },
-  rochers: { name: 'Rochers', fam: 'Terre' }, seisme: { name: 'Séisme', fam: 'Terre' }, sable: { name: 'Tempête de sable', fam: 'Terre' }, cristaux: { name: 'Cristaux', fam: 'Terre' },
-  tornade: { name: 'Tornade', fam: 'Air' }, rafale: { name: 'Rafale', fam: 'Air' },
-  foudre: { name: 'Foudre', fam: 'Ciel' }, orage: { name: 'Orage', fam: 'Ciel' }, etoiles: { name: 'Étoiles filantes', fam: 'Ciel' }, soleil: { name: 'Rayon de soleil', fam: 'Ciel' }, aurore: { name: 'Aurore boréale', fam: 'Ciel' }, trounoir: { name: 'Trou noir', fam: 'Ciel' },
-  lianes: { name: 'Lianes', fam: 'Nature' }, petales: { name: 'Pétales', fam: 'Nature' }, feuilles: { name: 'Feuilles d\'automne', fam: 'Nature' }, poison: { name: 'Poison', fam: 'Nature' },
-  laser: { name: 'Laser des yeux', fam: 'Magie' }, runes: { name: 'Papyrus', fam: 'Magie' }, onde: { name: 'Onde de choc', fam: 'Magie' }, ombre: { name: 'Ombre', fam: 'Magie' }, lumiere: { name: 'Lumière sacrée', fam: 'Magie' }, pixels: { name: 'Pixels', fam: 'Magie' }, aimant: { name: 'Aimant', fam: 'Magie' },
-  gungnir: { name: 'Gungnir, la lance', fam: 'Nordique' }, corbeaux: { name: 'Logos et Mnémosyne', fam: 'Nordique' }, bifrost: { name: 'Bifröst', fam: 'Nordique' }, eclair: { name: 'Éclair', fam: 'Ciel' }, teleport: { name: 'Téléportation', fam: 'Magie' }, artifice: { name: 'Feu d\'artifice', fam: 'Fête' },
-};
-/** Le pouvoir qui va avec le thème ou la météo. */
-export const powerForTheme: Record<string, string> = { glace: 'glace', neige: 'blizzard', pluie: 'vague', orage: 'foudre', ocean: 'bulles', plage: 'vague', desert: 'sable', foret: 'lianes', automne: 'feuilles', printemps: 'petales', nuit: 'etoiles', espace: 'trounoir', aurore: 'aurore', coucher: 'feu', montagne: 'rochers', ciel: 'rafale', paysage: 'feuilles', vacances: 'bulles', mayotte: 'vague', valhalla: 'gungnir' };
-export function powerForWeather(w?: Wx & { wind?: number }): string {
-  const c = w?.code;
-  if (c !== undefined && c >= 95) return 'foudre';
-  if (c !== undefined && ((c >= 51 && c <= 67) || (c >= 80 && c <= 82))) return 'vague';
-  if (c !== undefined && ((c >= 71 && c <= 77) || c === 85 || c === 86)) return 'blizzard';
-  if (w?.wind !== undefined && w.wind >= 35) return 'rafale';
-  if (w?.temp !== undefined && w.temp >= 30) return 'feu';
-  if (w?.temp !== undefined && w.temp <= 18) return 'glace';
-  return 'lumiere';
-}
 /** Ce que font les clics rapides sur Odin (maquette validée) ; chaque nombre se règle. */
-export const CLICK_ACTIONS: Record<string, string> = { rien: 'Rien', rire: 'Il rit', phrase: 'Une phrase', avertir: 'Il prévient', cacher: 'Se cacher partout', muet: 'Couper sa voix', theme: 'Thème au hasard', pouvoir: 'Un pouvoir au hasard', redemarrer: 'Proposer de redémarrer' };
+export const CLICK_ACTIONS: Record<string, string> = { rien: 'Rien', rire: 'Il rit', phrase: 'Une phrase', avertir: 'Il prévient', cacher: 'Se cacher partout', muet: 'Couper sa voix', theme: 'Thème au hasard', redemarrer: 'Proposer de redémarrer' };
 export const DEFAULT_CLICKS: Record<string, string> = { 5: 'rire', 7: 'phrase', 8: 'avertir', 10: 'cacher', 12: 'muet', 15: 'theme', 20: 'redemarrer' };
-export interface PowersCfg { actif?: boolean; quand?: { ouvre?: boolean; ferme?: boolean; supprime?: boolean; fenetre?: boolean; clic?: boolean }; choix?: 'hasard' | 'favoris' | 'theme' | 'meteo'; favoris?: string[]; force?: 'discrete' | 'normale' | 'spectaculaire'; son?: boolean }
-export const DEFAULT_POWERS: Required<Omit<PowersCfg, 'quand'>> & { quand: Required<NonNullable<PowersCfg['quand']>> } = { actif: false, quand: { ouvre: true, ferme: true, supprime: true, fenetre: true, clic: false }, choix: 'favoris', favoris: ['feu', 'foudre', 'glace', 'lumiere'], force: 'normale', son: false };
-/** Réglages des pouvoirs nettoyés (valeurs inconnues ignorées). Pur. */
-export function cleanPowers(p: unknown): typeof DEFAULT_POWERS {
-  const x = (p && typeof p === 'object' ? p : {}) as PowersCfg, q = { ...DEFAULT_POWERS.quand };
-  for (const k of Object.keys(q) as Array<keyof typeof q>) if (typeof x.quand?.[k] === 'boolean') q[k] = x.quand[k] as boolean;
-  const fav = Array.isArray(x.favoris) ? x.favoris.filter((f) => POWERS[f]).slice(0, 38) : DEFAULT_POWERS.favoris;
-  return { actif: x.actif === true, quand: q, choix: ['hasard', 'favoris', 'theme', 'meteo'].includes(x.choix as string) ? x.choix as 'favoris' : DEFAULT_POWERS.choix, favoris: fav.length ? fav : DEFAULT_POWERS.favoris, force: ['discrete', 'normale', 'spectaculaire'].includes(x.force as string) ? x.force as 'normale' : 'normale', son: x.son === true };
-}
 export function cleanClicks(c: unknown): Record<string, string> {
   const out: Record<string, string> = { ...DEFAULT_CLICKS };
   if (c && typeof c === 'object') for (const [k, v] of Object.entries(c as Record<string, unknown>)) { const n = Number(k); if (Number.isInteger(n) && n >= 2 && n <= 20 && typeof v === 'string' && CLICK_ACTIONS[v]) { if (v === 'rien') delete out[k]; else out[k] = v; } }
@@ -84,7 +52,7 @@ export function cleanEvents(e: unknown): EventsCfg {
   const x = (e && typeof e === 'object' ? e : {}) as EventsCfg, md = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
   const choix: Record<string, boolean> = {}; for (const [k, v] of Object.entries(x.choix ?? {})) if (EVENT_BY_ID[k] && typeof v === 'boolean') choix[k] = v;
   return {
-    actif: x.actif !== false, themes: x.themes !== false, choix, pauses: (x.pauses ?? []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(-200), ramadanSeul: x.ramadanSeul !== false, ramadanSansPouvoirs: x.ramadanSansPouvoirs === true,
+    actif: x.actif !== false, themes: x.themes !== false, choix, pauses: (x.pauses ?? []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(-200), ramadanSeul: x.ramadanSeul !== false,
     decalageHijri: Math.max(-2, Math.min(2, Math.round(Number(x.decalageHijri) || 0))), anniversaire: md.test(x.anniversaire ?? '') ? x.anniversaire : undefined,
     famille: (x.famille ?? []).filter((f) => f && typeof f.nom === 'string' && md.test(f.date)).map((f) => ({ nom: f.nom.slice(0, 40), date: f.date })).slice(0, 50),
   };
@@ -125,7 +93,7 @@ export const apparence: Module = (() => {
     what: 'Les 20 thèmes d\'Odin : couleurs, décor et couleur d\'Odin au repos, choisis par toi ou selon l\'heure et la météo.',
     does: ['20 thèmes (Glace, Vacances, Paysage, Ciel, Nuit étoilée, Plage, Mayotte…)', 'le même thème sur tous tes écrans', 'automatique : nuit, matin, journée, fin de journée, pluie, orage, chaleur', 'Odin prend la couleur du thème au repos ; ses humeurs gardent leurs couleurs', '« Odin, change ton thème », aussi sur Telegram'],
     from: [], upstream: [],
-    words: ['change ton thème', 'change de thème', 'thème d\'odin', 'mets le thème', 'remets automatique', 'thèmes', 'réapparais', 'cache-toi', 'tes pouvoirs', 'pouvoirs d\'odin', 'prochaines fêtes', 'événements de l\'année'],
+    words: ['change ton thème', 'change de thème', 'thème d\'odin', 'mets le thème', 'remets automatique', 'thèmes', 'réapparais', 'cache-toi', 'prochaines fêtes', 'événements de l\'année'],
     actions: [
       { id: 'etat', label: 'Thème actuel', what: 'Le thème d\'Odin en ce moment, et pourquoi', read: true, quiet: true, words: ['quel thème', 'thème actuel'], run: async (ctx) => {
         const n = await now(ctx); return { text: `🎨 Thème : ${THEME_NAMES[n.theme]} (${n.mode === 'auto' ? `automatique : ${n.why}` : 'choisi par toi'}).`, data: { mode: n.mode, theme: n.theme, name: THEME_NAMES[n.theme], why: n.why } };
@@ -145,31 +113,24 @@ export const apparence: Module = (() => {
           ctx.saveSettings({ mode: 'fixe', theme: id });
           return { text: `🎨 Je passe en ${THEME_NAMES[id]}${why ? ` : ${why}` : ''}. Tu en préfères un autre ? ${others(id)}. Dis « remets automatique » pour suivre l'heure et la météo.`, data: { mode: 'fixe', theme: id } };
         } },
-      { id: 'mascotte', label: 'Odin : apparence du moment', what: 'Thème, couleur d\'Odin (météo, marée, nuit), événement du jour, clics, pouvoirs : ce que tous tes écrans affichent', read: true, quiet: true, run: async (ctx) => {
+      { id: 'mascotte', label: 'Odin : apparence du moment', what: 'Thème, couleur d\'Odin (météo, marée, nuit), événement du jour, clics : ce que tous tes écrans affichent', read: true, quiet: true, run: async (ctx) => {
         const n = await now(ctx), tz = s(ctx.settings.fuseau) || 'Indian/Mayotte', day = ymd(ctx.now(), tz), ev = cleanEvents(ctx.settings.evenements), m = (ctx.settings.mascotte ?? {}) as { cache?: boolean; clics?: unknown; clics2?: unknown; clicsOn?: boolean };
         const color = n.mode === 'auto' ? odinColor(hourIn(ctx.now(), tz), n.wx, n.wx ? await highTide(ctx, n.wx.lat, n.wx.lon) : false) : undefined;
-        const event = todayEvent(day, ev), p = cleanPowers(ctx.settings.pouvoirs), mute = ev.ramadanSansPouvoirs && inRamadan(day, ev);
-        const power = p.choix === 'theme' ? (event?.power ?? powerForTheme[n.theme] ?? 'feu') : p.choix === 'meteo' ? powerForWeather(n.wx) : undefined;
-        const data = { mode: n.mode, theme: n.theme, why: n.why, odin: color, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, pouvoirs: { ...p, actif: p.actif && !mute, coupeRamadan: mute, pouvoir: power }, evenements: ev };
-        return { text: `🎨 ${THEME_NAMES[n.theme]}${color ? ` · Odin ${color.why}` : ''}${event ? ` · ${event.name}` : ''} · pouvoirs ${data.pouvoirs.actif ? 'activés' : 'coupés'}${data.cache ? ' · Odin caché' : ''}`, data };
+        const event = todayEvent(day, ev);
+        const data = { mode: n.mode, theme: n.theme, why: n.why, odin: color, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev };
+        return { text: `🎨 ${THEME_NAMES[n.theme]}${color ? ` · Odin ${color.why}` : ''}${event ? ` · ${event.name}` : ''}${data.cache ? ' · Odin caché' : ''}`, data };
       } },
-      { id: 'regler_mascotte', label: 'Régler Odin (clics, pouvoirs, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, pouvoirs, evenements)', quiet: true, quick: false,
+      { id: 'regler_mascotte', label: 'Régler Odin (clics, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, evenements)', quiet: true, quick: false,
         params: [{ key: 'reglages', label: 'Réglages (JSON)', kind: 'text', required: true }], run: (ctx, i) => {
           let j: Record<string, unknown>; try { j = JSON.parse(s(i.reglages)) as Record<string, unknown>; } catch { throw new Error('réglages illisibles'); }
           const patch: Record<string, unknown> = {};
           if (j.mascotte && typeof j.mascotte === 'object') { const m = j.mascotte as { cache?: unknown; clics?: unknown; clics2?: unknown; clicsOn?: unknown }, old = (ctx.settings.mascotte ?? {}) as Record<string, unknown>; patch.mascotte = { ...old, ...(typeof m.cache === 'boolean' ? { cache: m.cache } : {}), ...(m.clics !== undefined ? { clics: cleanClicks(m.clics) } : {}), ...(m.clics2 !== undefined ? { clics2: cleanClicks2(m.clics2) } : {}), ...(typeof m.clicsOn === 'boolean' ? { clicsOn: m.clicsOn } : {}) }; }
-          if (j.pouvoirs !== undefined) patch.pouvoirs = cleanPowers({ ...cleanPowers(ctx.settings.pouvoirs), ...(j.pouvoirs as object), quand: { ...cleanPowers(ctx.settings.pouvoirs).quand, ...((j.pouvoirs as PowersCfg).quand ?? {}) } });
           if (j.evenements !== undefined) patch.evenements = cleanEvents({ ...cleanEvents(ctx.settings.evenements), ...(j.evenements as object) });
           if (!Object.keys(patch).length) throw new Error('rien à enregistrer');
           ctx.saveSettings(patch); return { text: '✓ Réglages d\'Odin enregistrés.', data: patch };
         } },
       { id: 'cacher', label: 'Odin se cache', what: 'Odin disparaît de tous tes écrans (il revient par Réglages → Apparence, ou « Odin, reviens »)', words: ['cache-toi partout', 'disparais partout'], run: (ctx) => { ctx.saveSettings({ mascotte: { ...((ctx.settings.mascotte ?? {}) as object), cache: true } }); return { text: '🙈 Je me cache sur tous tes écrans. Pour me revoir : Réglages → Apparence → Odin, ou dis « Odin, reviens ».' }; } },
       { id: 'montrer', label: 'Odin revient', what: 'Odin réapparaît sur tous tes écrans', words: ['réapparais à l\'écran', 'reviens à l\'écran', 'montre-toi'], run: (ctx) => { ctx.saveSettings({ mascotte: { ...((ctx.settings.mascotte ?? {}) as object), cache: false } }); return { text: '👋 Me revoilà !' }; } },
-      { id: 'pouvoirs', label: 'Pouvoirs d\'Odin', what: 'Active ou coupe les pouvoirs (animations quand un onglet s\'ouvre ou se ferme, quand tu supprimes…)', params: [{ key: 'etat', label: 'État', kind: 'select', options: ['activer', 'couper'], default: 'activer' }],
-        words: ['coupe tes pouvoirs', 'active tes pouvoirs', 'désactive tes pouvoirs', 'pouvoirs d\'odin'], run: (ctx, i) => {
-          const on = !/coup|désactiv|desactiv|off|non/i.test(s(i.etat)); ctx.saveSettings({ pouvoirs: { ...cleanPowers(ctx.settings.pouvoirs), actif: on } });
-          return { text: on ? '⚡ Pouvoirs activés : je m\'en sers quand un onglet s\'ouvre ou se ferme, et quand tu supprimes quelque chose.' : '✋ Pouvoirs coupés : plus aucun pouvoir, nulle part.' };
-        } },
       { id: 'evenements', label: 'Événements de l\'année', what: 'Les prochaines fêtes et anniversaires, et ce qui est activé', read: true, words: ['prochaines fêtes', 'événements de l\'année', 'quelle fête aujourd\'hui'], run: (ctx) => {
         const ev = cleanEvents(ctx.settings.evenements), tz = s(ctx.settings.fuseau) || 'Indian/Mayotte', day = ymd(ctx.now(), tz), t = todayEvent(day, ev), list = upcoming(day, 366, ev);
         const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', timeZone: 'UTC' });

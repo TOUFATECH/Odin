@@ -150,8 +150,6 @@ const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', 
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const THEMES_JS = (() => { try { return readFileSync(new URL('./themes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const NOTICES_JS = (() => { try { return readFileSync(new URL('./notices.js', import.meta.url)); } catch { return Buffer.from(''); } })();
-const POWERS_JS = (() => { try { return readFileSync(new URL('./powers.js', import.meta.url)); } catch { return Buffer.from(''); } })();
-const POWERS3_JS = (() => { try { return readFileSync(new URL('./powers3.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const MASCOTTE_JS = (() => { try { return readFileSync(new URL('./mascotte.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const ALCHIMIE_JS = (() => { try { return readFileSync(new URL('./alchimie.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const FENETRE_JS = (() => { try { return readFileSync(new URL('./fenetre.js', import.meta.url)); } catch { return Buffer.from(''); } })();
@@ -587,8 +585,6 @@ export class WebChannel implements Channel {
     if (url.pathname === '/valhalla.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VALHALLA_JS); }
     if (url.pathname === '/flows.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FLOWS_JS); }
     if (url.pathname === '/themes.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(THEMES_JS); }
-    if (url.pathname === '/powers3.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'access-control-allow-origin': '*' }); return void res.end(POWERS3_JS); }
-    if (url.pathname === '/powers.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff', 'access-control-allow-origin': '*' }); return void res.end(POWERS_JS); }
     if (url.pathname === '/fenetre.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(FENETRE_JS); }
     if (url.pathname === '/alchimie.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(ALCHIMIE_JS); }
     if (url.pathname === '/ciel.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(CIEL_JS); }
@@ -843,14 +839,14 @@ export class WebChannel implements Channel {
     // Raccourci Siri / Android / Home Assistant : jeton dans « Authorization: Bearer … » (jamais par
     // cookie : une page piégée ne peut donc pas s'en servir), réponse en texte simple quand Odin a fini.
     // Serveur MCP d'Odin (Interprète) : applis exposées aux autres assistants, jeton Bearer obligatoire.
-    // Odin d'aujourd'hui pour les autres applis (Venus/Vénus) : caché ou non, fête du jour, couleur, pouvoirs.
+    // Odin d'aujourd'hui pour les autres applis (Venus/Vénus) : caché ou non, fête du jour, couleur.
     if (req.method === 'GET' && url.pathname === '/api/mascotte') {
       if (!/^Bearer\s+/i.test(req.headers.authorization ?? '')) return json(res, 401, { error: 'jeton Bearer requis' });
       const v = valhallaOf(); if (!v) return json(res, 503, { error: 'applis non démarrées' });
       const r = await v.act('apparence', 'mascotte', {}, { by: 'toi', why: 'une appli reliée (Venus)' });
       const d = (r.data ?? {}) as Record<string, unknown>;
       res.setHeader('cache-control', 'no-store');
-      return json(res, 200, { ok: r.ok !== false, cache: d.cache, event: d.event, odin: d.odin, pouvoirs: d.pouvoirs, clics: d.clics, clicsOn: d.clicsOn, theme: d.theme, day: d.day });
+      return json(res, 200, { ok: r.ok !== false, cache: d.cache, event: d.event, odin: d.odin, clics: d.clics, clicsOn: d.clicsOn, theme: d.theme, day: d.day });
     }
     if (url.pathname === '/mcp') {
       if (!/^Bearer\s+/i.test(req.headers.authorization ?? '')) return json(res, 401, { error: 'jeton Bearer requis' });

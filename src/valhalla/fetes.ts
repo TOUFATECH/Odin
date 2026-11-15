@@ -13,28 +13,26 @@ export interface EventDef {
   says: string;
   /** actif sans réglage */
   on: boolean;
-  /** les pouvoirs prennent cette matière ce jour-là (si le choix est « selon le thème ») */
-  power?: string;
 }
 
 export const EVENTS: EventDef[] = [
-  { id: 'anniversaire', name: 'Ton anniversaire', group: 'famille', color: '#ff6ad5', accessory: 'gateau', says: 'Joyeux anniversaire !', on: true, power: 'artifice' },
-  { id: 'famille', name: 'Anniversaires de la famille', group: 'famille', color: '#ff9ac8', accessory: 'gateau', says: 'C\'est l\'anniversaire de {nom} aujourd\'hui !', on: true, power: 'artifice' },
-  { id: 'nouvelan', name: 'Nouvel An', group: 'fetes', color: '#ffd36a', accessory: 'cotillons', says: 'Bonne année !', on: true, power: 'artifice' },
-  { id: 'carnaval', name: 'Carnaval', group: 'fetes', color: '#ff9a2a', accessory: 'masque', says: 'C\'est carnaval !', on: false, power: 'artifice' },
-  { id: 'paques', name: 'Pâques', group: 'fetes', color: '#7a4527', accessory: 'oeuf', says: 'Joyeuses Pâques !', on: true, power: 'petales' },
+  { id: 'anniversaire', name: 'Ton anniversaire', group: 'famille', color: '#ff6ad5', accessory: 'gateau', says: 'Joyeux anniversaire !', on: true },
+  { id: 'famille', name: 'Anniversaires de la famille', group: 'famille', color: '#ff9ac8', accessory: 'gateau', says: 'C\'est l\'anniversaire de {nom} aujourd\'hui !', on: true },
+  { id: 'nouvelan', name: 'Nouvel An', group: 'fetes', color: '#ffd36a', accessory: 'cotillons', says: 'Bonne année !', on: true },
+  { id: 'carnaval', name: 'Carnaval', group: 'fetes', color: '#ff9a2a', accessory: 'masque', says: 'C\'est carnaval !', on: false },
+  { id: 'paques', name: 'Pâques', group: 'fetes', color: '#7a4527', accessory: 'oeuf', says: 'Joyeuses Pâques !', on: true },
   { id: 'abolition', name: 'Abolition de l\'esclavage à Mayotte', group: 'fetes', color: '#34c77b', says: '27 avril : on se souvient.', on: true },
   { id: 'travail', name: 'Fête du travail', group: 'fetes', color: '#2a2f3a', eyes: '#ffffff', says: 'Pas de travail aujourd\'hui : repose-toi.', on: true },
-  { id: 'musique', name: 'Fête de la musique', group: 'fetes', color: '#5a6fdb', accessory: 'note', says: 'Fête de la musique !', on: true, power: 'onde' },
-  { id: 'nationale', name: 'Fête nationale', group: 'fetes', color: '#3d6fe0', accessory: 'cotillons', says: 'Bon 14 juillet !', on: true, power: 'artifice' },
-  { id: 'noel', name: 'Noël', group: 'fetes', color: '#2f8f4e', accessory: 'bonnet', says: 'Joyeux Noël !', on: true, power: 'blizzard' },
-  { id: 'ramadan', name: 'Ramadan', group: 'religieuses', color: '#f2f2f2', eyes: '#2a2f3a', accessory: 'lune', says: 'Ramadan moubarak.', on: true, power: 'lumiere' },
-  { id: 'aidfitr', name: 'Aïd el-Fitr', group: 'religieuses', color: '#34c77b', accessory: 'lune', says: 'Aïd moubarak !', on: true, power: 'lumiere' },
-  { id: 'aidkebir', name: 'Aïd el-Kébir', group: 'religieuses', color: '#0fa3a0', accessory: 'lune', says: 'Aïd moubarak !', on: true, power: 'lumiere' },
-  { id: 'valentin', name: 'Saint-Valentin', group: 'ailleurs', color: '#ef4f43', accessory: 'coeur', says: 'Bonne Saint-Valentin !', on: false, power: 'petales' },
-  { id: 'patrick', name: 'Saint-Patrick', group: 'ailleurs', color: '#34c77b', accessory: 'trefle', says: 'Happy St Patrick\'s Day!', on: false, power: 'feuilles' },
-  { id: 'halloween', name: 'Halloween', group: 'ailleurs', color: '#ff7a1a', accessory: 'citrouille', says: 'Bouh ! Joyeux Halloween !', on: false, power: 'ombre' },
-  { id: 'thanksgiving', name: 'Thanksgiving', group: 'ailleurs', color: '#b08a5a', says: 'Happy Thanksgiving!', on: false, power: 'feuilles' },
+  { id: 'musique', name: 'Fête de la musique', group: 'fetes', color: '#5a6fdb', accessory: 'note', says: 'Fête de la musique !', on: true },
+  { id: 'nationale', name: 'Fête nationale', group: 'fetes', color: '#3d6fe0', accessory: 'cotillons', says: 'Bon 14 juillet !', on: true },
+  { id: 'noel', name: 'Noël', group: 'fetes', color: '#2f8f4e', accessory: 'bonnet', says: 'Joyeux Noël !', on: true },
+  { id: 'ramadan', name: 'Ramadan', group: 'religieuses', color: '#f2f2f2', eyes: '#2a2f3a', accessory: 'lune', says: 'Ramadan moubarak.', on: true },
+  { id: 'aidfitr', name: 'Aïd el-Fitr', group: 'religieuses', color: '#34c77b', accessory: 'lune', says: 'Aïd moubarak !', on: true },
+  { id: 'aidkebir', name: 'Aïd el-Kébir', group: 'religieuses', color: '#0fa3a0', accessory: 'lune', says: 'Aïd moubarak !', on: true },
+  { id: 'valentin', name: 'Saint-Valentin', group: 'ailleurs', color: '#ef4f43', accessory: 'coeur', says: 'Bonne Saint-Valentin !', on: false },
+  { id: 'patrick', name: 'Saint-Patrick', group: 'ailleurs', color: '#34c77b', accessory: 'trefle', says: 'Happy St Patrick\'s Day!', on: false },
+  { id: 'halloween', name: 'Halloween', group: 'ailleurs', color: '#ff7a1a', accessory: 'citrouille', says: 'Bouh ! Joyeux Halloween !', on: false },
+  { id: 'thanksgiving', name: 'Thanksgiving', group: 'ailleurs', color: '#b08a5a', says: 'Happy Thanksgiving!', on: false },
 ];
 export const EVENT_BY_ID = Object.fromEntries(EVENTS.map((e) => [e.id, e]));
 
@@ -49,8 +47,6 @@ export interface EventsCfg {
   pauses?: string[];
   /** pendant le Ramadan, les autres événements sont coupés */
   ramadanSeul?: boolean;
-  /** pendant le Ramadan, pas de pouvoirs */
-  ramadanSansPouvoirs?: boolean;
   /** décalage (en jours, −2 à +2) des dates musulmanes, si l'annonce officielle diffère */
   decalageHijri?: number;
   /** ton anniversaire (MM-JJ) */
@@ -84,12 +80,12 @@ export function hijri(iso: string, shift = 0): { day: number; month: number; yea
 /** 4e jeudi de novembre. */
 const thanksgiving = (y: number) => { const first = new Date(Date.UTC(y, 10, 1)).getUTCDay(); return `${y}-11-${pad(1 + ((4 - first + 7) % 7) + 21)}`; };
 
-export interface TodayEvent { id: string; name: string; color: string; eyes?: string; accessory?: string; says: string; power?: string; date: string }
+export interface TodayEvent { id: string; name: string; color: string; eyes?: string; accessory?: string; says: string; date: string }
 
 /** Les événements qui tombent ce jour-là (sans tenir compte des réglages), le plus important d'abord. */
 export function eventsOn(iso: string, cfg: EventsCfg = {}): TodayEvent[] {
   const y = Number(iso.slice(0, 4)), md = iso.slice(5), out: TodayEvent[] = [];
-  const add = (id: string, extra: Partial<TodayEvent> = {}) => { const e = EVENT_BY_ID[id]; out.push({ id, name: e.name, color: e.color, eyes: e.eyes, accessory: e.accessory, says: e.says, power: e.power, date: iso, ...extra }); };
+  const add = (id: string, extra: Partial<TodayEvent> = {}) => { const e = EVENT_BY_ID[id]; out.push({ id, name: e.name, color: e.color, eyes: e.eyes, accessory: e.accessory, says: e.says, date: iso, ...extra }); };
   if (cfg.anniversaire && cfg.anniversaire === md) add('anniversaire');
   for (const f of cfg.famille ?? []) if (f.date === md && f.nom) add('famille', { name: `Anniversaire de ${f.nom}`, says: EVENT_BY_ID.famille.says.replace('{nom}', f.nom) });
   const h = hijri(iso, cfg.decalageHijri ?? 0);

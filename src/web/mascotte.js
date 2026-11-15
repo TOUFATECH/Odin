@@ -1,7 +1,7 @@
 // Odin, la mascotte (maquettes validées) : les clics rapides (1 = « Que veux-tu ? », 2 et 3 = rien, de 4 à 100 une action
 // choisie par toi dans Réglages → Apparence, toujours confirmée avant d'être faite ; voir src/valhalla/clics.ts), ses habits de fête (bonnet de Noël, œuf de Pâques et son
-// lapin, lune du Ramadan…), sa phrase du jour, ses pouvoirs, et les réglages (Réglages → Apparence) : Odin,
-// Pouvoirs, Événements de l'année. Tout est gardé par Odin : les mêmes réglages sur tous tes écrans.
+// lapin, lune du Ramadan…), sa phrase du jour, et les réglages (Réglages → Apparence) : Odin,
+// Événements de l'année. Tout est gardé par Odin : les mêmes réglages sur tous tes écrans.
 (() => {
   'use strict';
   if (window.OdinMascotte) return;
@@ -9,7 +9,7 @@
   const save = async (patch) => { await api('regler_mascotte', { reglages: JSON.stringify(patch) }); await window.OdinThemes?.sync?.(); };
   const NS = 'http://www.w3.org/2000/svg';
   { const st = document.createElement('style'); st.textContent = 'html.odin-hidden .odin.roam,html.odin-hidden .pet,html.odin-hidden #odinEgg,html.odin-hidden #odinTaps{display:none!important}.odin.ev-dark-eyes .eye{fill:#2a2f3a}.odin .odin-acc{pointer-events:none}'; document.head.append(st); }
-  let D = null; // le dernier état d'Odin (thème, événement, clics, pouvoirs, événements)
+  let D = null; // le dernier état d'Odin (thème, événement, clics, événements)
   try { D = JSON.parse(localStorage.getItem('odin.mascotte') || 'null'); } catch { /* */ }
   const bud = () => document.getElementById('buddyRoam') || document.querySelector('.pet');
   const say = (title, level = 'ok') => (window.OdinMascotte?.sayHook ? window.OdinMascotte.sayHook(title, level) : window.OdinNotices?.local?.({ title, level, kind: 'Odin', app: 'Odin' }));
@@ -144,7 +144,6 @@
     cacher: async () => { D = { ...(D || {}), cache: true }; applyHidden(); try { await api('cacher'); } catch { /* */ } },
     muet: (b) => { window.OdinFace?.mute?.(true); window.OdinFace?.flash(b, 'gene', 2000); say('Je me tais. (Réglages → Voix pour me rendre la parole.)'); },
     theme: () => window.OdinThemes?.choose?.('au hasard'),
-    pouvoir: (b) => { const r = b.getBoundingClientRect(), t = document.querySelector('.view.on .card, .view.on article, .view.on section'); if (t && window.OdinPowers) { const c = window.OdinPowers.cfg; window.OdinPowers.configure({ ...c }); void window.OdinPowers.demo(t); } else window.OdinPowers?.burst?.(r.left + r.width / 2, r.top); },
     redemarrer: () => restartAsk(),
   };
   function restartAsk() {
@@ -176,7 +175,7 @@
     const fn = a.run?.fn || '';
     // 4 clics (réglage proposé) : Alchimie s'ouvre tout de suite au-dessus d'Odin, sans question (rien n'est fait sans toi).
     if (fn === 'alchimie') { if (window.OdinAlchimie) window.OdinAlchimie.quatre(b, n); else { window.OdinShow?.('apps'); setTimeout(() => window.OdinApps?.app?.('dvalinn'), 150); } return; }
-    if (['rire', 'phrase', 'avertir', 'theme', 'pouvoir'].includes(fn)) return void ACTIONS[fn]?.(b, n);
+    if (['rire', 'phrase', 'avertir', 'theme'].includes(fn)) return void ACTIONS[fn]?.(b, n);
     if (!(await confirmAsk(`${n} clics : ${a.label}`, a.ask || `${a.label} ?`, a.grave))) { say('D\'accord, je ne fais rien.'); return; }
     try {
       if (a.run?.act) {
@@ -196,7 +195,7 @@
       else if (fn.startsWith('vue:')) window.OdinShow?.(fn.slice(4));
       else if (fn.startsWith('app:')) { window.OdinShow?.('apps'); setTimeout(() => window.OdinApps?.app?.(fn.slice(4)), 150); }
       else if (fn === 'nouveautes') window.OdinGuide?.news?.();
-      else if (fn === 'surprise') { ACTIONS.rire(b, n); ACTIONS.pouvoir(b, n); window.OdinPowers?.sparkle?.(b.getBoundingClientRect().left + 30, b.getBoundingClientRect().top + 30, 160); say('Cent clics ! Tu es le champion de la patience. 🎉'); }
+      else if (fn === 'surprise') { ACTIONS.rire(b, n); say('Cent clics ! Tu es le champion de la patience. 🎉'); }
     } catch (e) { say(`✗ ${e.message}`, 'souci'); }
   }
   /** Un toucher sur Odin : 1 = lui parler ; plusieurs toucher rapides = l'action réglée pour ce nombre, quand tu t'arrêtes. */
@@ -218,7 +217,6 @@
   let greeted = '';
   function onState(d) {
     D = d; try { localStorage.setItem('odin.mascotte', JSON.stringify(d)); } catch { /* */ }
-    window.OdinPowers?.configure?.(d.pouvoirs || {});
     dress(); applyHidden();
     const key = `${d.day}:${d.event?.id || ''}`;
     try { greeted = localStorage.getItem('odin.fete') || ''; } catch { /* */ }
@@ -227,8 +225,8 @@
   }
   document.documentElement.addEventListener('odin-mascotte', (e) => onState(e.detail));
 
-  // ---------------------------------------------------------------- Réglages → Apparence : Odin, Pouvoirs, Événements
-  const LABELS = { rien: 'Rien', rire: 'Il rit', phrase: 'Une phrase', avertir: 'Il prévient', cacher: 'Se cacher partout', muet: 'Couper sa voix', theme: 'Thème au hasard', pouvoir: 'Un pouvoir', redemarrer: 'Proposer de redémarrer' };
+  // ---------------------------------------------------------------- Réglages → Apparence : Odin, Événements
+  const LABELS = { rien: 'Rien', rire: 'Il rit', phrase: 'Une phrase', avertir: 'Il prévient', cacher: 'Se cacher partout', muet: 'Couper sa voix', theme: 'Thème au hasard', redemarrer: 'Proposer de redémarrer' };
   const GROUPS = { famille: 'Toi et ta famille', fetes: 'Fêtes', religieuses: 'Religieuses', ailleurs: 'Côté anglais et ailleurs' };
   const h = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) { if (k === 'on') for (const [ev, f] of Object.entries(v)) e.addEventListener(ev, f); else if (k === 'style') e.style.cssText = v; else if (v === true) e.setAttribute(k, ''); else if (v !== false && v !== undefined) e.setAttribute(k, v); } for (const c of kids.flat()) if (c !== undefined && c !== null && c !== false) e.append(c instanceof Node ? c : document.createTextNode(String(c))); return e; };
   const check = (label, on, change, hint) => h('label', { class: 'check' }, h('input', { type: 'checkbox', ...(on ? { checked: true } : {}), on: { change: (e) => change(e.target.checked) } }), ` ${label}`, hint ? h('span', { class: 'hint', style: 'display:block;margin-left:24px' }, hint) : '');
@@ -239,9 +237,7 @@
     const card = document.querySelector('article.card[data-sec="apparence"]'); if (!card || !D) return;
     let box = card.querySelector('#odinMascotteBox');
     if (!box) { box = h('div', { id: 'odinMascotteBox', style: 'display:flex;flex-direction:column;gap:18px;margin-top:14px' }); card.append(box); const st = document.createElement('style'); st.textContent = '#odinMascotteBox .mc-head{display:flex;gap:8px;align-items:center;margin:6px 0}#odinMascotteBox .mc-head input{flex:1;min-width:0;height:44px;box-sizing:border-box;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:10px;padding:0 12px;font:inherit}#odinMascotteBox .mc-pos{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;white-space:nowrap}#odinMascotteBox .mc-arrow{width:52px;height:52px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);font:700 32px/1 system-ui,sans-serif;cursor:pointer;flex:none}#odinMascotteBox .mc-arrow:disabled{opacity:.35;cursor:default}#odinMascotteBox .mc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:8px}#odinMascotteBox .mc-row{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--panel)}#odinMascotteBox .mc-row.off{opacity:.75}#odinMascotteBox .mc-n{display:grid;place-items:center;height:30px;border-radius:15px;background:var(--accent,#2457c5);color:var(--on-accent,#fff);font-weight:700;font-variant-numeric:tabular-nums}#odinMascotteBox .mc-row.off .mc-n{background:var(--line);color:var(--muted)}#odinMascotteBox .mc-t{min-width:0}#odinMascotteBox .mc-t b{display:block;font-size:14px}#odinMascotteBox .mc-t small{color:var(--muted);font-size:12px}#odinMascotteBox .mc-in{display:grid;justify-items:end;gap:4px}#odinMascotteBox .mc-in input{width:72px;height:38px;text-align:center;font:700 16px system-ui,sans-serif;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:10px}#odinMascotteBox .mc-in input.bad{border-color:#c0392b;outline:2px solid rgba(192,57,43,.3)}#odinMascotteBox .mc-err{color:#c0392b;font-size:12px;max-width:220px;text-align:right}#odinMascotteBox h3{margin:0;font-size:15px}#odinMascotteBox .mrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#odinMascotteBox .pw{display:flex;flex-wrap:wrap;gap:6px}#odinMascotteBox .pw button{min-height:32px;border-radius:16px;border:1px solid var(--line);background:none;color:var(--ink);padding:0 10px;font-size:13px;cursor:pointer}#odinMascotteBox .pw button[aria-pressed=true]{background:var(--accent);color:var(--on-accent);border-color:transparent}#odinMascotteBox .evg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 16px}#odinMascotteBox .demo{height:56px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:flex;align-items:center;padding:0 14px;font-size:13px;max-width:280px}'; document.head.append(st); }
-    const p = D.pouvoirs || {}, q = p.quand || {}, ev = D.evenements || {}, clics = D.clics || {};
-    const P = window.OdinPowers?.POWERS || {};
-    const sp = (patch) => void save({ pouvoirs: patch });
+    const ev = D.evenements || {}, clics = D.clics || {};
     const se = (patch) => void save({ evenements: patch }).then(loadEvents).then(paint);
     // Clics sur Odin : chaque action a son nombre (4 à 100), un nombre = une action ; 18 actions par page.
     const cat = D.clicsCatalogue || [], numOf = (id) => { for (const [k, v] of Object.entries(clics)) if (v === id) return Number(k); return null; };
@@ -268,7 +264,6 @@
         h('div', { class: 'mc-in' }, h('input', { type: 'number', inputmode: 'numeric', min: '4', max: '100', placeholder: 'aucun', value: n ?? '', 'aria-label': `Nombre de clics pour ${a.label}`, ...(clickErr[a.id] ? { class: 'bad' } : {}), on: { change: (e) => setNum(a, e.target.value) } }), clickErr[a.id] ? h('span', { class: 'mc-err', role: 'alert' }, clickErr[a.id]) : null)); })),
       h('div', { class: 'mrow' }, h('button', { type: 'button', class: 'btn', on: { click: () => { clickErr = {}; void save({ mascotte: { clics2: null } }); } } }, 'Remettre les nombres proposés'), h('span', { class: 'hint' }, `${Object.keys(clics).length} actions ont un nombre sur ${cat.length}`)),
     ];
-    const demoEl = h('div', { class: 'demo', 'data-power': 'non' }, 'Un onglet d\'essai');
     const groups = {};
     for (const e of events?.events || []) (groups[e.group] ??= []).push(e);
     box.replaceChildren(
@@ -277,23 +272,11 @@
         check('Clics sur Odin activés', D.clicsOn !== false, (on) => void save({ mascotte: { clicsOn: on } }), 'Coupé : un clic ouvre seulement « Que veux-tu ? ».'),
         h('p', { class: 'hint', style: 'margin:8px 0 4px' }, '1 clic = « Que veux-tu ? » ; 2 et 3 = rien ; à partir de 4, l\'action dont tu as mis le nombre. Odin te demande toujours avant de faire.'),
         ...rows),
-      h('section', { 'aria-label': 'Pouvoirs' }, h('h3', {}, 'Pouvoirs d\'Odin'),
-        check('Pouvoirs activés', p.actif || p.coupeRamadan, (on) => sp({ actif: on }), p.coupeRamadan ? 'Coupés pendant le Ramadan (réglage des événements).' : 'Désactivés au départ. Coupés : plus aucun pouvoir, nulle part, et celui en cours s\'arrête aussitôt.'),
-        h('div', { class: 'mrow', style: 'margin-top:6px' }, [['ouvre', 'Un onglet s\'ouvre'], ['ferme', 'Un onglet se ferme'], ['supprime', 'Supprimer'], ['fenetre', 'Une fenêtre s\'ouvre ou se ferme'], ['clic', 'Clic n\'importe où']].map(([k, t]) => check(t, q[k], (on) => sp({ quand: { [k]: on } })))),
-        h('p', { class: 'hint', style: 'margin:8px 0 4px' }, 'Quel pouvoir :'),
-        seg([['hasard', 'Au hasard'], ['favoris', 'Mes favoris'], ['theme', 'Selon le thème'], ['meteo', 'Selon la météo']], p.choix, (v) => sp({ choix: v }), 'Quel pouvoir'),
-        h('div', { class: 'pw', role: 'group', 'aria-label': 'Pouvoirs favoris', style: 'margin-top:8px' }, Object.entries(P).map(([id, x]) => h('button', { type: 'button', 'aria-pressed': String((p.favoris || []).includes(id)), title: x.name, on: { click: () => { const f = new Set(p.favoris || []); if (f.has(id)) f.delete(id); else f.add(id); sp({ favoris: [...f] }); } } }, x.name))),
-        h('p', { class: 'hint', style: 'margin:8px 0 4px' }, 'Force :'),
-        seg([['discrete', 'Discrète'], ['normale', 'Normale'], ['spectaculaire', 'Spectaculaire']], p.force, (v) => sp({ force: v }), 'Force'),
-        check('Son des pouvoirs', p.son, (on) => sp({ son: on })),
-        h('div', { class: 'mrow', style: 'margin-top:8px' }, demoEl, h('select', { id: 'powerTry', 'aria-label': 'Pouvoir à essayer' }, Object.entries(P).map(([id, x]) => h('option', { value: id }, x.name))), h('button', { type: 'button', class: 'btn', 'data-power': 'non', on: { click: () => void window.OdinPowers?.demo(demoEl, box.querySelector('#powerTry').value) } }, 'Essayer')),
-        h('p', { class: 'hint' }, 'Partout : l\'interface d\'Odin, l\'écran de la maison (Hestia) et Venus. Jamais sur le texte ni pendant une vidéo ; coupé si ton appareil demande moins d\'animations. Un pouvoir ne supprime rien.')),
       h('section', { 'aria-label': 'Événements de l\'année' }, h('h3', {}, 'Événements de l\'année'),
         check('Événements activés', ev.actif !== false, (on) => se({ actif: on }), 'Odin change de couleur ou d\'habit ces jours-là. Coupé : plus aucun événement.'),
         check('Le jour d\'un événement, tout Odin prend son thème', ev.themes !== false, (on) => se({ themes: on })),
         h('div', { class: 'evg', style: 'margin-top:6px' }, Object.entries(GROUPS).map(([g, t]) => h('div', {}, h('p', { class: 'hint', style: 'margin:6px 0 2px;font-weight:600' }, t), (groups[g] || []).map((e) => check(e.name, e.on, (on) => se({ choix: { ...(ev.choix || {}), [e.id]: on } })))))),
         check('Pendant le Ramadan, couper les autres événements', ev.ramadanSeul !== false, (on) => se({ ramadanSeul: on })),
-        check('Pas de pouvoirs pendant le Ramadan', ev.ramadanSansPouvoirs, (on) => se({ ramadanSansPouvoirs: on })),
         h('div', { class: 'mrow' }, h('span', {}, 'Dates musulmanes :'), seg([[-1, '−1 jour'], [0, 'calendrier'], [1, '+1 jour']], ev.decalageHijri || 0, (v) => se({ decalageHijri: v }), 'Décalage des dates musulmanes')),
         h('div', { class: 'mrow' }, h('span', {}, 'Ton anniversaire :'), h('input', { type: 'date', 'aria-label': 'Ton anniversaire', value: ev.anniversaire ? `2000-${ev.anniversaire}` : '', on: { change: (e) => se({ anniversaire: e.target.value ? e.target.value.slice(5) : '' }) } })),
         h('div', { class: 'mrow' }, h('span', {}, 'Famille :'), (ev.famille || []).map((f, i) => h('span', { class: 'chip' }, `${f.nom} (${f.date.split('-').reverse().join('/')})`, h('button', { type: 'button', 'aria-label': `Retirer ${f.nom}`, 'data-power': 'oui', on: { click: () => se({ famille: (ev.famille || []).filter((_, j) => j !== i) }) } }, '×'))),

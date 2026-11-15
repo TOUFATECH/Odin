@@ -1,5 +1,22 @@
 [
  {
+  "id": "v1330",
+  "at": "2026-11-15T05:00:00+03:00",
+  "date": "2026-11-15",
+  "version": "1.33.0",
+  "title": "Odin n'a plus de pouvoirs",
+  "planets": [
+   "applis"
+  ],
+  "kind": "version",
+  "details": [
+   "Les animations de pouvoirs (feu, glace, foudre…) sont retirées partout : interface, écran de la maison, Venus.",
+   "Réglages → Apparence n'a plus de rubrique « Pouvoirs d'Odin » ; les clics sur Odin n'ont plus l'action « Lancer un pouvoir ».",
+   "Odin ne se téléporte plus avec des étincelles : il se déplace normalement.",
+   "Les thèmes, les couleurs d'Odin, ses humeurs, les fêtes de l'année et ses clics restent."
+  ]
+ },
+ {
   "id": "v1320",
   "at": "2026-11-14T22:40:00+03:00",
   "date": "2026-11-14",

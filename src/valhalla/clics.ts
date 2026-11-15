@@ -55,7 +55,6 @@ export const CLICK_CATALOG: ClickAction[] = [
   { id: 'fermer_tous_les_ports_ouverts', label: 'Fermer tous les ports ouverts', app: 'Valgrind', ask: 'Je ferme les ports ouverts (sauf ceux d\'Odin) ?', grave: true, def: 45, run: { act: ['valgrind', 'fermer_ports'] } },
   { id: 'theme', label: 'Changer de thème au hasard', app: 'Aurore', ask: 'Je change de thème ?', grave: false, def: 46, run: { fn: 'theme' } },
   { id: 'changer_ma_couleur', label: 'Changer ma couleur', app: 'Aurore', ask: 'Je prends une autre couleur ?', grave: false, def: 47, run: { say: 'Change de couleur.' } },
-  { id: 'pouvoir', label: 'Lancer un pouvoir', app: 'Odin', ask: 'Je lance un pouvoir sur la page ?', grave: false, def: 48, run: { fn: 'pouvoir' } },
   { id: 'rire', label: 'Rire', app: 'Odin', ask: 'Tu veux me faire rire ?', grave: false, def: 49, run: { fn: 'rire' } },
   { id: 'lire_la_page_a_voix_haute', label: 'Lire la page à voix haute', app: 'Orphée', ask: 'Je te lis cette page ?', grave: false, def: 50, run: { say: 'Lis-moi cette page à voix haute.' } },
   { id: 'resumer_la_page', label: 'Résumer la page', app: 'Odin', ask: 'Je te résume cette page ?', grave: false, def: 51, run: { say: 'Résume-moi cette page.' } },

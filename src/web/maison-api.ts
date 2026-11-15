@@ -84,7 +84,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
       'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; frame-ancestors ${frame}; base-uri 'none'; form-action 'none'`,
       'permissions-policy': 'microphone=(self), camera=(), geolocation=(), payment=(), usb=()',
     });
-    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0e14"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><title>Maison · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>L'écran de la maison a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/powers3.js"></script><script nonce="${nonce}" src="/powers.js"></script><script nonce="${nonce}" src="/mascotte.js"></script><script nonce="${nonce}" src="/app-icons.js"></script><script nonce="${nonce}" src="/alchimie.js"></script><script nonce="${nonce}" src="/ciel.js"></script><script nonce="${nonce}" src="/maison.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
+    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0e14"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><title>Maison · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>L'écran de la maison a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/mascotte.js"></script><script nonce="${nonce}" src="/app-icons.js"></script><script nonce="${nonce}" src="/alchimie.js"></script><script nonce="${nonce}" src="/ciel.js"></script><script nonce="${nonce}" src="/maison.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
     return true;
   }
   // OwnTracks (mode HTTP) : chaque téléphone de la famille envoie sa position avec ses identifiants ; Odin répond
@@ -117,7 +117,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
       network.splice(80);
     }
     const rooms = [...new Set(dev.map((x) => x.room || 'Maison'))].map((r) => ({ name: r, devices: dev.filter((x) => (x.room || 'Maison') === r).map((x) => ({ id: x.id, name: x.name, kind: x.kind, state: x.state ?? '', unit: x.unit ?? '' })) }));
-    // Odin d'aujourd'hui : le même sur tous les écrans (caché ou non, fête, couleur, pouvoirs).
+    // Odin d'aujourd'hui : le même sur tous les écrans (caché ou non, fête, couleur).
     const mascotte = await v.act('apparence', 'mascotte', {}, { by: 'toi', why: 'écran de la maison' }).then((r) => r.data).catch(() => undefined);
     const tiles = tilesOf(g).map((t) => ({ id: t.id, label: t.label, icon: t.icon, color: t.color, module: t.module, grave: Boolean(v.action(t.module, t.action)?.a.grave?.(t.input, v.ctx(t.module))) }));
     // La fenêtre d'Odin : ses pages marquées « écran de la maison ». Une tablette « maison » ne voit que la météo, les
