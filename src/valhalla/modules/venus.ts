@@ -7,6 +7,9 @@
 import { bestMatch, venusApi, venusConf, venusTool, type VCard, type VenusConf } from '../../tools/venus.ts';
 import type { ModCtx, Module } from '../types.ts';
 import { actionRestaurer, carteSauvegarde } from '../sso/persona.ts';
+import { ajouterLivre, chapitresAudio, chapitresText, corpsEnvie, enviesLivres, enviesText, lirePage, livres, noterProgression, progressions, reprise, retirerLivre, trouverLivre, venusFichier, type EnvieLivre } from '../venus/odyssee.ts';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 
 interface Rec { id: number; channel: string; title: string; start: number; stop: number; status: string; error?: string }
 /** États d'un enregistrement dans Venus → mots simples. */
@@ -108,13 +111,17 @@ export function venus(url: () => string): Module {
   const tool = (input: Record<string, unknown>) => venusTool.run(input, { venus: { url: url() } } as never).then((r) => (typeof r === "string" ? r : r.output));
   const recordings = async (): Promise<Rec[]> => (await venusApi<{ recordings: Rec[] }>(conf(), 'GET', '/api/recordings')).recordings ?? [];
   const bygulQuery = (i: Record<string, unknown>) => { const k = kindOf(s(i.type)), y = s(i.annee); const q = new URLSearchParams({ q: s(i.titre), kind: k, ...(k === 'movie' && y ? { year: y } : {}), ...(k === 'episode' ? { season: y || '1', episode: s(i.episode) || '1' } : {}) }); return venusApi<{ results: BygulHit[]; errors: string[] }>(conf(), 'GET', `/api/admin/acquire/search?${q}`); };
+  /** Un livre audio de Venus, par numéro ou par titre. */
+  const livreAudio = async (q: string): Promise<VCard> => { const cards = await venusApi<VCard[]>(conf(), 'GET', '/api/library?type=audiobook'); const c = /^\d+$/.test(q) ? cards.find((x) => x.id === Number(q)) : bestMatch(cards, q); if (!c) throw new Error(`aucun livre audio « ${q} » dans Venus`); return c; };
   const m: Module = {
     id: 'freyja', name: 'Vénus', family: 'Maison',
     what: 'Ton serveur multimédia : films, séries, chaînes, programmes, enregistrements, sur tous tes écrans.',
     does: ['lance un film, une série ou une chaîne sur l\'écran choisi (« mets One Piece sur la télé du salon »)', 'guide des programmes : ce qui passe maintenant et ce soir', 'enregistre une émission ou toutes ses diffusions', 'liste les écrans où Venus est ouvert', 'recherche dans toute la bibliothèque', 'ma liste et demandes de nouveaux titres', 'alerte si un enregistrement échoue', 'te prévient quand un épisode arrive (et quand la VF arrive)', 'demande la VF d\'un titre à Radarr / Sonarr', 'met le dernier épisode, le suivant ou S2E5 d\'une série'],
     from: ['Venus (TOUFATECH)', 'Jellyfin', 'Plex'], upstream: ['TOUFATECH/Venus'],
     modes: ['Odéon · bibliothèque et télé en direct', 'Delta · sources', 'Hnoss · demandes', 'Sirius · films', 'Pléiades · séries et animés', 'Odyssée · livres et livres audio', 'Comète · téléchargements'],
-    words: ['venus', 'vénus', 'freyja', 'film', 'films', 'serie', 'série', 'series', 'chaine', 'chaîne', 'tele', 'télé', 'television', 'programme tv', 'ce soir a la tele', 'enregistre', 'enregistrement', 'anime', 'regarder', 'vf', 'version francaise', 'episode', 'épisode', 'episodes', 'épisodes'],
+    words: ['venus', 'vénus', 'freyja', 'film', 'films', 'serie', 'série', 'series', 'chaine', 'chaîne', 'tele', 'télé', 'television', 'programme tv', 'ce soir a la tele', 'enregistre', 'enregistrement', 'anime', 'regarder', 'vf', 'version francaise', 'episode', 'épisode', 'episodes', 'épisodes', 'odyssee', 'odyssée', 'epub', 'cbz', 'livre audio', 'livres audio', 'mes livres'],
+    // Odyssée : un livre (EPUB) ou une bande dessinée (CBZ) envoyé depuis l'appareil arrive ici, puis rejoint la bibliothèque de lecture.
+    depot: (ctx) => ({ dossier: join(ctx.dir, 'depots'), ref: (nom) => join(ctx.dir, 'depots', nom) }),
     actions: [
       { id: 'etat', label: 'État', what: 'Serveur joignable, lecture en cours', read: true, run: async () => { const st = await venusApi<{ name?: string; version?: string; authenticated?: boolean; profile?: { name?: string }; elsewhere?: { title: string; device: string } | null }>(conf(), 'GET', '/api/status'); if (st.authenticated === false) throw new Error('Venus refuse la clé API : crées-en une dans Venus → Serveur → Clés API, puis range-la dans le coffre (VENUS_API_KEY)'); return { text: `${st.name ?? 'Venus'} ${st.version ?? ''} · profil ${st.profile?.name ?? '—'}${st.elsewhere ? ` · en lecture : ${st.elsewhere.title} sur ${st.elsewhere.device}` : ''}` }; } },
       { id: 'adresse', label: 'Adresse de Venus', what: 'L\'adresse du serveur Venus relié (pour la surveillance de Pulsar)', read: true, quiet: true, run: async () => ({ text: url() ? `Venus : ${url()}` : 'Venus n\'est pas relié.', data: { url: url() } }) },
@@ -260,9 +267,71 @@ export function venus(url: () => string): Module {
       { id: 'ma_liste', label: 'Ma liste', what: 'Titres gardés pour plus tard', read: true, run: async () => { const l = await venusApi<Array<{ title: string; year?: number; type: string }>>(conf(), 'GET', '/api/mylist'); return { text: l.slice(0, 40).map((x) => `- ${x.title}${x.year ? ` (${x.year})` : ''}`).join('\n') || 'Liste vide.' }; } },
       { id: 'demander', label: 'Demander un titre', what: 'Titre absent de la bibliothèque (via la demande de Venus)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'série'], default: 'film' }], run: async (_c, i) => { const r = await venusApi<{ state?: string }>(conf(), 'POST', '/api/discover/request', { type: i.type === 'série' ? 'tv' : 'movie', title: s(i.titre) }); return { text: `📥 Demande envoyée : « ${s(i.titre)} »${r.state ? ` (${r.state})` : ''}.` }; } },
       actionRestaurer('venus'),
+      // ---- Odyssée : livres et livres audio
+      { id: 'livres_envies', label: 'Envies de livres', what: 'Odyssée : les livres et livres audio demandés à Venus, et où ils en sont', read: true, words: ['envies de livres', 'livres demandes', 'livres demandés', 'mes envies de livres'], run: async () => {
+        const d = await venusApi<{ wants?: EnvieLivre[] }>(conf(), 'GET', '/api/admin/acquire');
+        return { text: enviesText(d.wants ?? []), data: enviesLivres(d.wants ?? []) };
+      } },
+      { id: 'livre_vouloir', label: 'Je veux ce livre', what: 'Odyssée : envoie l\'envie d\'un livre ou d\'un livre audio à Venus, qui le cherche, le télécharge et le range', params: [{ key: 'type', label: 'Type', kind: 'select', options: ['livre', 'livre audio'], default: 'livre' }, { key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'auteur', label: 'Auteur', kind: 'text', default: '' }], words: ['je veux lire', 'envie de lire', 'trouve moi le livre', 'trouve-moi le livre'], run: async (_c, i) => {
+        const corps = corpsEnvie(s(i.type), s(i.titre), s(i.auteur));
+        const r = await venusApi<{ id?: number; search?: { ok: boolean; why?: string } }>(conf(), 'POST', '/api/admin/acquire/wants', corps);
+        return { text: `${corps.kind === 'audiobook' ? '🎧' : '📖'} Envie envoyée à Venus : « ${corps.title} »${corps.author ? ` de ${corps.author}` : ''}${r.search ? (r.search.ok ? ' · trouvé, téléchargement lancé.' : ` · pas encore trouvé${r.search.why ? ` (${r.search.why})` : ''} : Venus continue de chercher.`) : '.'}`, data: r };
+      } },
+      { id: 'livres_venus', label: 'Livres sur Venus', what: 'Odyssée : les livres et livres audio rangés dans Venus', read: true, words: ['livres sur venus', 'livres de venus'], run: async () => {
+        const [b, a] = await Promise.all([venusApi<VCard[]>(conf(), 'GET', '/api/library?type=book').catch(() => [] as VCard[]), venusApi<VCard[]>(conf(), 'GET', '/api/library?type=audiobook').catch(() => [] as VCard[])]);
+        return { text: [...b.map((x) => `- 📖 n° ${x.id} ${x.title}`), ...a.map((x) => `- 🎧 n° ${x.id} ${x.title}`)].join('\n') || 'Aucun livre dans Venus.', data: { livres: b, audio: a } };
+      } },
+      { id: 'livre_ajouter', label: 'Ajouter un livre à lire', what: 'Odyssée : un EPUB ou un CBZ envoyé depuis ton appareil, ou un livre de Venus (numéro ou titre), rejoint ta bibliothèque de lecture', params: [{ key: 'fichier', label: 'Fichier EPUB ou CBZ', kind: 'text', default: '', depot: {}, help: 'Envoyé depuis cet appareil, ou son chemin sur la machine d\'Odin.' }, { key: 'venus', label: 'ou livre de Venus (numéro ou titre)', kind: 'text', default: '' }], run: async (ctx, i) => {
+        const f = s(i.fichier), v = s(i.venus);
+        if (f) {
+          if (!existsSync(f) || !statSync(f).isFile()) throw new Error(`fichier introuvable : ${f}`);
+          const envoye = dirname(f) === join(ctx.dir, 'depots');
+          try { const l = ajouterLivre(ctx.dir, basename(f), readFileSync(f), { source: 'depot', maintenant: ctx.now() }); return { text: `📚 « ${l.titre} » ajouté (${l.format.toUpperCase()}) : « lis ${l.titre} ».`, data: l }; }
+          finally { if (envoye) rmSync(f, { force: true }); }
+        }
+        if (!v) throw new Error('donne un fichier EPUB ou CBZ, ou le numéro ou le titre d\'un livre de Venus');
+        const cards = await venusApi<VCard[]>(conf(), 'GET', '/api/library?type=book');
+        const c = /^\d+$/.test(v) ? cards.find((x) => x.id === Number(v)) : bestMatch(cards, v);
+        if (!c) throw new Error(`aucun livre « ${v} » dans Venus`);
+        const data = await venusFichier(conf(), `/api/items/${c.id}/download`);
+        const l = ajouterLivre(ctx.dir, c.title, data, { source: 'venus', venusId: c.id, titre: c.title, maintenant: ctx.now() });
+        return { text: `📚 « ${l.titre} » récupéré de Venus (${l.format.toUpperCase()}) : « lis ${l.titre} ».`, data: l };
+      } },
+      { id: 'mes_livres', label: 'Mes livres', what: 'Odyssée : ta bibliothèque de lecture et où tu en es', read: true, words: ['mes livres', 'ma bibliotheque de lecture', 'ma bibliothèque de lecture'], run: (ctx) => {
+        const p = progressions(ctx.dir), l = livres(ctx.dir);
+        return { text: l.map((b) => `- ${b.format === 'cbz' ? '🗯' : '📖'} ${b.titre}${b.auteur ? ` (${b.auteur})` : ''}${p[b.id] ? ` · ${b.format === 'cbz' ? 'page' : 'chapitre'} ${p[b.id].chapitre + 1}` : ' · pas commencé'}`).join('\n') || 'Aucun livre : ajoute un EPUB ou un CBZ, ou un livre de Venus.', data: l.map((b) => ({ ...b, progression: p[b.id] ?? null })) };
+      } },
+      { id: 'livre_lire', label: 'Lire un livre', what: 'Odyssée : ouvre un chapitre (EPUB) ou une page (CBZ) ; sans numéro, reprend là où tu t\'étais arrêté', read: true, quiet: true, external: true, params: [{ key: 'livre', label: 'Livre (titre)', kind: 'text', required: true }, { key: 'chapitre', label: 'Chapitre ou page (vide = reprendre)', kind: 'text', default: '' }], words: ['lis le livre', 'ouvre le livre', 'reprends ma lecture'], run: (ctx, i) => {
+        const l = trouverLivre(ctx.dir, s(i.livre)); if (!l) throw new Error(`aucun livre « ${s(i.livre)} » dans ta bibliothèque de lecture`);
+        const p = progressions(ctx.dir)[l.id], n = s(i.chapitre) ? Number(s(i.chapitre)) - 1 : p?.chapitre ?? 0;
+        const page = lirePage(ctx.dir, l, n);
+        noterProgression(ctx.dir, l.id, page.chapitre, s(i.chapitre) || !p ? 0 : p.position, ctx.now());
+        return { text: `${l.titre} · ${l.format === 'cbz' ? 'page' : 'chapitre'} ${page.chapitre + 1} sur ${page.total}${page.type === 'html' ? ` : ${page.chapitres[page.chapitre]}` : ''}`, data: page };
+      } },
+      { id: 'livre_position', label: 'Noter où j\'en suis', what: 'Odyssée : garde le chapitre (ou la page) et la position dans le chapitre (0 à 1)', quiet: true, quick: false, params: [{ key: 'livre', label: 'Livre', kind: 'text', required: true }, { key: 'chapitre', label: 'Chapitre ou page', kind: 'number', required: true }, { key: 'position', label: 'Position (0 à 1)', kind: 'number', default: 0 }], run: (ctx, i) => {
+        const l = trouverLivre(ctx.dir, s(i.livre)); if (!l) throw new Error(`aucun livre « ${s(i.livre)} »`);
+        const p = noterProgression(ctx.dir, l.id, Number(i.chapitre) - 1, Math.min(1, Number(i.position) || 0), ctx.now());
+        return { text: `🔖 ${l.titre} : ${l.format === 'cbz' ? 'page' : 'chapitre'} ${p.chapitre + 1} noté.`, data: p };
+      } },
+      { id: 'livre_retirer', label: 'Retirer un livre', what: 'Odyssée : retire un livre de ta bibliothèque de lecture (sur Odin seulement, pas dans Venus)', quick: false, params: [{ key: 'livre', label: 'Livre', kind: 'text', required: true }], run: (ctx, i) => {
+        const l = trouverLivre(ctx.dir, s(i.livre)); if (!l || !retirerLivre(ctx.dir, l.id)) throw new Error(`aucun livre « ${s(i.livre)} »`);
+        return { text: `« ${l.titre} » retiré de ta bibliothèque de lecture.` };
+      } },
+      { id: 'audio_chapitres', label: 'Livre audio : chapitres', what: 'Odyssée : les chapitres d\'un livre audio de Venus et où reprendre', read: true, params: [{ key: 'livre', label: 'Livre audio (numéro ou titre)', kind: 'text', required: true }], words: ['chapitres du livre audio', 'reprends mon livre audio'], run: async (ctx, i) => {
+        const c = await livreAudio(s(i.livre)), ch = chapitresAudio(await venusApi(conf(), 'GET', `/api/items/${c.id}/chapters`));
+        const r = reprise(ch, progressions(ctx.dir)[`a${c.id}`]);
+        return { text: `🎧 ${c.title}\n${r.texte}\n${chapitresText(ch, r.chapitre)}`, data: { livre: c, chapitres: ch, reprise: r } };
+      } },
+      { id: 'audio_position', label: 'Livre audio : noter où j\'en suis', what: 'Odyssée : garde le chapitre et la position (secondes dans le chapitre) d\'un livre audio', quiet: true, quick: false, params: [{ key: 'livre', label: 'Livre audio (numéro ou titre)', kind: 'text', required: true }, { key: 'chapitre', label: 'Chapitre', kind: 'number', required: true }, { key: 'position', label: 'Position (secondes)', kind: 'number', default: 0 }], run: async (ctx, i) => {
+        const c = await livreAudio(s(i.livre)), p = noterProgression(ctx.dir, `a${c.id}`, Number(i.chapitre) - 1, Number(i.position) || 0, ctx.now());
+        return { text: `🔖 ${c.title} : chapitre ${p.chapitre + 1}, ${Math.round(p.position)} s.`, data: p };
+      } },
     ],
-    async view() {
-      if (!url() || !process.env.VENUS_API_KEY) return { subtitle: 'Venus n\'est pas relié.', sections: [...carteSauvegarde('venus'), { kind: 'text', title: 'Relier Venus', text: 'Réglages → Maison → Venus : l\'adresse de ton serveur, et une clé API créée dans Venus (Serveur → Clés API), rangée dans le coffre (VENUS_API_KEY).' }] };
+    async view(ctx) {
+      // Odyssée : la bibliothèque de lecture d'Odin marche aussi sans Venus (livres déposés).
+      const prog = progressions(ctx.dir), lect = livres(ctx.dir);
+      const odyssee = { kind: 'list' as const, title: 'Odyssée · mes livres', items: lect.map((b) => ({ title: b.titre, detail: `${b.format === 'cbz' ? 'bande dessinée' : 'livre'}${b.auteur ? ` · ${b.auteur}` : ''}${b.source === 'venus' ? ' · de Venus' : ''}`, meta: prog[b.id] ? `${b.format === 'cbz' ? 'page' : 'chapitre'} ${prog[b.id].chapitre + 1}` : 'pas commencé' })), empty: 'Aucun livre : ajoute un EPUB ou un CBZ (« Ajouter un livre à lire »).' };
+      if (!url() || !process.env.VENUS_API_KEY) return { subtitle: 'Venus n\'est pas relié.', sections: [...carteSauvegarde('venus'), odyssee, { kind: 'text', title: 'Relier Venus', text: 'Réglages → Maison → Venus : l\'adresse de ton serveur, et une clé API créée dans Venus (Serveur → Clés API), rangée dans le coffre (VENUS_API_KEY).' }] };
       const [recs, screens] = await Promise.all([recordings().catch(() => [] as Rec[]), venusApi<Array<{ name: string; tv: boolean; playing: boolean }>>(conf(), 'GET', '/api/devices/open').catch(() => [])]);
       const next = recs.filter((r) => ['scheduled', 'recording'].includes(r.status)).sort((a, b) => a.start - b.start), failed = recs.filter(failedRec);
       return {
@@ -272,6 +341,7 @@ export function venus(url: () => string): Module {
           ...carteSauvegarde('venus'),
           { kind: 'table', title: 'Écrans', columns: ['Écran', 'Type', 'État'], empty: 'Aucun écran n\'a Venus ouvert.', rows: screens.map((x) => ({ cells: [x.name, x.tv ? 'télé' : 'appareil', x.playing ? 'en lecture' : 'ouvert'], tone: x.playing ? 'bon' as const : undefined })) },
           { kind: 'table', title: 'Enregistrements', columns: ['Émission', 'Chaîne', 'Quand', 'État'], empty: 'Aucun enregistrement.', rows: [...next, ...failed].slice(0, 30).map((r) => ({ cells: [r.title, r.channel, hm(r.start), `${REC[r.status] ?? r.status}${r.error ? ` : ${r.error.slice(0, 80)}` : ''}`], tone: failedRec(r) ? 'mauvais' as const : r.status === 'recording' ? 'bon' as const : undefined, actions: failedRec(r) ? [] : [{ action: 'annuler_enregistrement', label: 'Annuler', input: { titre: r.title } }] })) },
+          odyssee,
         ],
         side: [{ kind: 'form', title: 'Regarder', action: 'regarder', submit: 'Lancer', params: m.actions.find((a) => a.id === 'regarder')?.params ?? [] }, { kind: 'form', title: 'Enregistrer', action: 'enregistrer', submit: 'Programmer', params: m.actions.find((a) => a.id === 'enregistrer')?.params ?? [] }],
       };
