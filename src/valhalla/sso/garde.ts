@@ -24,6 +24,7 @@ export interface DepsGarde extends DepsSSO {
   /** ouvre la session habituelle du propriétaire (cookie de l'interface) */ ouvrirSessionProprio(): void;
   /** l'état complet de l'interface (vidé pour un membre) */ etat(): unknown;
   /** l'adresse de Vénus (son adresse de retour préinscrite) */ venus?: string;
+  /** la page de connexion de l'interface d'Odin (son port à elle), avec le message de refus pour cette appli */ accueil?: (appli: string) => string;
 }
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v)).trim();
 
@@ -70,8 +71,16 @@ export async function gardeSSO(req: IncomingMessage, res: ServerResponse, url: U
   if (await routeVenus(req, res, url)) return true;
   const m = membreDe(s(req.headers.cookie)); if (!m) return false;
   const { p, ctx } = m, v = valhallaOf();
-  // Port direct d'une appli.
-  if (d.direct && !aDroit(ctx, p, d.direct)) { erreur(res, 403, 'refuse', messageRefus(ctx, d.direct)); return true; }
+  // Port direct d'une appli : sans le droit, la page renvoie à l'écran de connexion d'Odin (la session est fermée) ;
+  // les appels de l'API reçoivent le refus en clair et l'adresse de cet écran.
+  if (d.direct && !aDroit(ctx, p, d.direct)) {
+    noter(ctx, { login: p.login, ip: d.ip, ok: false, why: `port direct · ${nomAppli(ctx, d.direct)} · pas le droit` });
+    if ((req.method ?? 'GET') === 'GET' && path === '/' && d.accueil) {
+      fermerSessionMembre(ctx, m.h);
+      res.writeHead(303, { location: d.accueil(d.direct), 'set-cookie': clearSessionCookie(d.https), 'cache-control': 'no-store' }); res.end(); return true;
+    }
+    erreur(res, 403, 'refuse', messageRefus(ctx, d.direct), d.accueil ? { accueil: d.accueil(d.direct) } : {}); return true;
+  }
   for (const [re, mod] of PAGES) if (re.test(path)) { if (!aDroit(ctx, p, mod)) { erreur(res, 403, 'refuse', messageRefus(ctx, mod)); return true; } return false; }
   if (!path.startsWith('/api/') && path !== '/mcp') return false; // la page d'Odin, ses scripts, ses images
   const meth = req.method ?? 'GET';
@@ -136,9 +145,19 @@ async function odinParPersona(req: IncomingMessage, res: ServerResponse, url: UR
   const sub = consommerCode(s(url.searchParams.get('code')), retour, st.verifier), p = sub ? personnes(ctx).find((x) => x.id === sub) : undefined;
   if (!p || !p.active) { page('Connexion impossible', 'Le code de connexion n\'est plus valable : recommence.'); return true; }
   if (p.proprio || p.id === lierProprietaire(ctx)?.id) { d.ouvrirSessionProprio(); noter(ctx, { login: p.login, ip: d.ip, ok: true, why: 'interface d\'Odin (propriétaire) · Persona' }); res.writeHead(303, { location: '/' }); res.end(); return true; }
-  const token = randomBytes(32).toString('base64url'), hours = Number(ctx.settings.hours ?? 12);
+  const cookie = ouvrirSessionMembre(ctx, p, { ip: d.ip, agent: s(req.headers['user-agent']), https: d.https, via: 'interface d\'Odin · Persona' });
+  res.writeHead(303, { location: '/', 'set-cookie': cookie, 'cache-control': 'no-store' }); res.end(); return true;
+}
+
+/** Ouvre une session « membre » de l'interface d'Odin pour cette personne de Persona ; rend le cookie à poser. */
+export function ouvrirSessionMembre(ctx: ModCtx, p: Personne, o: { ip: string; agent: string; https: boolean; via: string }): string {
+  const token = randomBytes(32).toString('base64url'), hours = Number(ctx.settings.hours ?? 12), now = Date.now();
   const all = ((ctx.settings.sessions as Array<{ expires: number }> | undefined) ?? []).filter((x) => x.expires > now);
-  ctx.saveSettings({ sessions: [...all, { id: sha256hex(token), login: p.login, created: now, expires: now + hours * 3600_000, ip: d.ip, agent: s(req.headers['user-agent']).slice(0, 120), seen: now, ou: 'odin' }].slice(-200) });
-  noter(ctx, { login: p.login, ip: d.ip, ok: true, why: 'interface d\'Odin · Persona' });
-  res.writeHead(303, { location: '/', 'set-cookie': sessionCookie(token, d.https), 'cache-control': 'no-store' }); res.end(); return true;
+  ctx.saveSettings({ sessions: [...all, { id: sha256hex(token), login: p.login, created: now, expires: now + hours * 3600_000, ip: o.ip, agent: o.agent.slice(0, 120), seen: now, ou: 'odin' }].slice(-200) });
+  noter(ctx, { login: p.login, ip: o.ip, ok: true, why: o.via });
+  return sessionCookie(token, o.https);
+}
+/** Ferme la session « membre » dont le cookie a cette empreinte. */
+export function fermerSessionMembre(ctx: ModCtx, h: string): void {
+  ctx.saveSettings({ sessions: ((ctx.settings.sessions as Array<{ id: string }> | undefined) ?? []).filter((x) => x.id !== h) });
 }

@@ -4,7 +4,7 @@
 > Ce fichier dit où en est le projet, sans tout relire. Il est tenu à jour à chaque session de travail
 > (voir « Comment tenir ce fichier à jour » tout en bas).
 >
-> Dernière mise à jour : **2026-11-15** · version du code : **1.33.0** (`package.json`) · branche : `main`
+> Dernière mise à jour : **2026-11-15** · version du code : **1.34.0** (`package.json`) · branche : `main`
 
 ---
 
@@ -179,6 +179,7 @@ Dans l'onglet « Catalogue », les 79 logiciels ajoutés le 15/11 restent à év
 
 | Date | Session | Ce qui a été fait | Prochaine étape |
 |---|---|---|---|
+| 2026-11-15 | Connexion par port d'appli | v1.34.0 : sur le port d'une appli, connexion par e-mail et mot de passe (propriétaire ou personne de Persona) ou par QR code autorisé depuis un téléphone déjà connecté ; sans droit sur l'appli : pas de session, retour à l'écran de connexion d'Odin (`?refus=`). Essais : `test/connexion-qr.test.ts` (6/6). Les essais `ports-directs` qui demandent Linux échouent sur Windows, avant comme après. | Port d'Odin 8888 et un port dédié par appli (demandé, pas commencé). |
 | 2026-11-15 | Organisation | Classeur réorganisé par appli : nom validé en 1re colonne, lignes triées par appli, colonne Port (d'après `src/valhalla/ports.ts`), état en dernière colonne coloré (vert / jaune / rouge, gris = à évaluer), texte replié dans les cellules. | — |
 | 2026-11-15 | Couleurs et noms | Classeur : lignes colorées selon l'état (vert codé, jaune en cours, rouge pas codé, gris à évaluer), couleurs qui suivent les listes déroulantes ; 11 noms proposés (onglet « Noms proposés », en bleu, à valider) pour Forseti, Valgrind, Midgard, Hnoss et 7 chantiers sans nom. Code inchangé. | Valider ou refuser les noms proposés ; une fois validés, les reporter dans `src/valhalla/names.ts` (NAMES, NAME_STORY). |
 | 2026-11-15 | Catalogue | Tableau du propriétaire corrigé et versé dans `docs/odin-couverture-catalogue.xlsx` (remplace `applicatifs-odin.xlsx`) : Gygès, Tirésias, Perséphone, Ulysse passés à « Codé » ; Partage/export « En cours » (Google Docs) ; lignes Pégase, SSO, Vénus remplies ; Excalidraw « Codé », Penpot « En cours » ; noms grecs partout ; 79 logiciels ajoutés ; onglet « Corrections ». | Évaluer les 79 logiciels ajoutés ; revérifier les « En cours » du catalogue. |

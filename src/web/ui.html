@@ -1128,8 +1128,15 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <input id="siEmail" name="email" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="254">
     <label for="siPass">Mot de passe</label>
     <div class="lg-pass"><input id="siPass" name="password" type="password" autocomplete="current-password" required maxlength="200"><button class="btn" type="button" id="siShow" aria-pressed="false" aria-controls="siPass">Voir</button></div>
+    <div id="siCodeBox" hidden style="display:flex;flex-direction:column;gap:6px"><label for="siCode">Code à 6 chiffres (appli d'authentification)</label><input id="siCode" name="one-time-code" autocomplete="one-time-code" inputmode="numeric" maxlength="8"></div>
     <span class="hint lg-err" role="alert" id="siErr"></span>
     <button class="btn primary" type="submit" id="siBtn">Se connecter</button>
+    <button class="btn" type="button" id="siQrBtn">Scanner un QR code avec mon téléphone</button>
+    <div id="siQr" hidden style="display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center">
+      <img id="siQrImg" alt="QR code de connexion à scanner avec un téléphone déjà connecté à Odin" width="200" height="200" style="background:#fff;border-radius:12px;padding:6px">
+      <span class="sub">Scanne-le avec un téléphone déjà connecté à Odin, puis touche « Autoriser ». Code : <b id="siQrCode" style="letter-spacing:.12em"></b></span>
+      <span class="sub" role="status" id="siQrEtat">En attente du téléphone…</span>
+    </div>
     <a class="btn" href="/sso/odin" id="siPersona">J'ai un compte Persona (famille, invité)</a>
     <details class="lg-more"><summary>Mot de passe oublié ?</summary>
       <div class="sub">Sur la machine d'Odin, tape : <code>odin compte oublier</code>. Le compte est effacé (pas tes données) et un nouveau lien de première connexion s'affiche.</div>
@@ -1920,15 +1927,41 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (ACCOUNT) {
       $('#signinBox').hidden = false; $('#tokenBox').hidden = true;
       showPass($('#siShow'), $('#siPass'));
+      // Renvoyé ici depuis le port d'une appli sans en avoir le droit : on le dit.
+      const refus = new URLSearchParams(location.search).get('refus');
+      if (refus) { $('#siErr').textContent = `Tu n'as pas accès à ${refus.slice(0, 60)}. Connecte-toi avec un compte qui y a droit, ou demande l'accès à l'administrateur d'Odin.`; history.replaceState(null, '', location.pathname); }
+      // Refus sur le port d'une appli : retour à l'écran de connexion d'Odin (son port à lui).
+      const rejete = (r) => { if (!r.refuse || !r.accueil) return false; $('#siErr').textContent = r.error || 'Tu n\'as pas accès à cette appli.'; setTimeout(() => location.replace(r.accueil), 2500); return true; };
       $('#signinBox').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = $('#siEmail').value.trim(), password = $('#siPass').value;
+        const email = $('#siEmail').value.trim(), password = $('#siPass').value, code = $('#siCode').value.trim();
         if (!email || !password) { $('#siErr').textContent = 'Indique ton adresse e-mail et ton mot de passe.'; return; }
         $('#siBtn').disabled = true; $('#siErr').textContent = '';
-        const r = await post('/api/account/login', { email, password });
+        const r = await post('/api/account/login', { email, password, ...(code ? { code } : {}) });
         if (r.ok) return location.replace('/');
-        $('#siErr').textContent = r.error || 'Connexion impossible.'; $('#siBtn').disabled = false; $('#siPass').value = ''; $('#siPass').focus();
+        if (rejete(r)) return;
+        if (r.code === 'code_requis') { $('#siCodeBox').hidden = false; $('#siErr').textContent = r.error; $('#siBtn').disabled = false; $('#siCode').focus(); return; }
+        $('#siErr').textContent = r.error || 'Connexion impossible.'; $('#siBtn').disabled = false; $('#siPass').value = ''; $('#siCode').value = ''; $('#siPass').focus();
       });
+      // Connexion par QR code : un téléphone déjà connecté à Odin autorise cet écran.
+      let qrSecret = '', qrMinuterie = 0;
+      const qrSuivre = async () => {
+        const s = await fetch('/api/connexion-qr/etat', { method: 'POST', headers: { 'x-odin': '1', 'x-qr': qrSecret } }).then(async (x) => ({ status: x.status, ...(await x.json().catch(() => ({}))) })).catch(() => ({ etat: 'attente' }));
+        if (s.ok) { $('#siQrEtat').textContent = 'Autorisé : ouverture…'; return location.replace('/'); }
+        if (rejete(s)) { $('#siQr').hidden = true; return; }
+        if (s.etat === 'refus') { $('#siQrEtat').textContent = s.error || 'Refusé sur le téléphone.'; return; }
+        if (s.etat === 'expire') return qrDebut();
+        qrMinuterie = setTimeout(qrSuivre, 2000);
+      };
+      const qrDebut = async () => {
+        clearTimeout(qrMinuterie);
+        const r = await post('/api/connexion-qr/debut', {});
+        if (!r.ok) { $('#siQr').hidden = true; $('#siErr').textContent = r.error || 'QR code impossible : connecte-toi avec ton e-mail et ton mot de passe.'; return; }
+        qrSecret = r.secret; $('#siQrCode').textContent = r.code; $('#siQrEtat').textContent = 'En attente du téléphone…';
+        $('#siQrImg').src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(r.svg)))}`;
+        $('#siQr').hidden = false; qrMinuterie = setTimeout(qrSuivre, 2000);
+      };
+      $('#siQrBtn').addEventListener('click', () => { $('#siQrBtn').hidden = true; void qrDebut(); });
       for (const i of $$('#signinBox input')) i.addEventListener('input', () => { $('#siErr').textContent = ''; });
       setTimeout(() => $('#siEmail').focus(), 60);
       return;

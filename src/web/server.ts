@@ -81,7 +81,11 @@ import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
 import { activationPage } from './activate.ts';
 import { setMascot as setVarMascot } from '../valhalla/modules/var.ts';
-import { estMembre, gardeSSO, sessionMembre } from '../valhalla/sso/garde.ts';
+import { estMembre, gardeSSO, membreDe, ouvrirSessionMembre, sessionMembre } from '../valhalla/sso/garde.ts';
+import { aDroit, messageRefus, nomAppli, persona, personnes, trouver } from '../valhalla/sso/etat.ts';
+import { verifierPersonne } from '../valhalla/sso/oidc.ts';
+import { ConnexionQr, DUREE_QR, type Qui } from './connexion-qr.ts';
+import { pageConnexionQr } from './connexion-qr-page.ts';
 import { svg as qrSvg } from '../valhalla/qr.ts';
 import { Accounts, SESSION_RE, clearSessionCookie, sessionCookie, type Via } from './account.ts';
 import { activityFeed, guessIntents } from '../core/today.ts';
@@ -241,6 +245,8 @@ export class WebChannel implements Channel {
    * un code et un QR code ; le téléphone crée le compte avec ce code ; l'écran entre tout seul.
    */
   private activations = new Map<string, { secret: string; exp: number; done?: boolean }>();
+  /** Connexion d'un écran par QR code, autorisée depuis un téléphone déjà connecté (voir connexion-qr.ts). */
+  private qr = new ConnexionQr();
   /** Flux ouverts par un navigateur connecté : coupés dès que sa session est fermée (déconnexion, mot de passe changé). */
   private streamSession = new Map<ServerResponse, string>();
   private dropDeadStreams(): void { for (const [res, sess] of this.streamSession) if (!this.accounts.valid(sess)) { this.streamSession.delete(res); this.clients.delete(res); try { res.end(); } catch { /* déjà fermé */ } } }
@@ -363,6 +369,69 @@ export class WebChannel implements Channel {
     if (!/^(localhost|127\.|::1$)/.test(host)) return `${scheme}://${raw}`;
     const lan = Object.entries(networkInterfaces()).filter(([n]) => !VIRTUAL_IFACE.test(n)).flatMap(([, l]) => l ?? []).find((i) => i && i.family === 'IPv4' && !i.internal && isPrivateHost(i.address))?.address;
     return `${scheme}://${lan ?? host}${port ? `:${port}` : ''}`;
+  }
+  /** La même adresse, mais sur le port de l'interface d'Odin (un port direct renvoie là). */
+  private surInterface(origin: string): string { const u = new URL(origin); u.port = String(this.port); return u.origin; }
+  /** L'écran de connexion d'Odin (son port à lui, même adresse que le navigateur), qui dit à quelle appli l'accès a été refusé. */
+  private accueilRefus(req: IncomingMessage, appli: string): string {
+    const scheme = this.secure || this.viaHttps(req) ? 'https' : 'http', host = String(req.headers.host ?? `localhost:${this.port}`);
+    return `${this.surInterface(`${scheme}://${host}`)}/?refus=${encodeURIComponent(appli.slice(0, 60))}`;
+  }
+  /** Qui est connecté sur ce navigateur : le propriétaire, ou une personne de Persona (undefined : personne). */
+  private quiConnecte(req: IncomingMessage): Qui | undefined {
+    if (this.accounts.valid(this.sessionOf(req))) return { proprio: true };
+    const m = membreDe(String(req.headers.cookie ?? '')); return m ? { login: m.p.login } : undefined;
+  }
+  /**
+   * Fait entrer cette personne sur ce navigateur. Par le port direct d'une appli, une personne de Persona doit avoir le
+   * droit d'utiliser cette appli : sinon, pas de session, et l'adresse de l'écran de connexion d'Odin pour y retourner.
+   */
+  private entrer(req: IncomingMessage, res: ServerResponse, qui: Qui, direct: string | undefined, via: Via): void {
+    const ip = this.clientIp(req).replace(/^fwd:/, '');
+    if ('proprio' in qui) { this.accounts.close(this.sessionOf(req)); this.openSession(req, res, via); return json(res, 200, { ok: true, etat: 'ok' }); }
+    const ctx = persona(), p = ctx ? personnes(ctx).find((x) => x.login === qui.login && x.active) : undefined;
+    if (!ctx || !p) return json(res, 403, { ok: false, etat: 'refus', error: 'Cette personne ne peut plus se connecter à Odin.' });
+    if (direct && !aDroit(ctx, p, direct)) {
+      console.log(`[web] ${p.login} refusé sur le port direct de ${direct} (pas le droit) depuis ${ip}`);
+      return json(res, 403, { ok: false, etat: 'refus', refuse: true, error: messageRefus(ctx, direct), accueil: this.accueilRefus(req, nomAppli(ctx, direct)) });
+    }
+    res.setHeader('set-cookie', ouvrirSessionMembre(ctx, p, { ip, agent: String(req.headers['user-agent'] ?? ''), https: this.secure || this.viaHttps(req), via: `${via}${direct ? ` · port direct de ${nomAppli(ctx, direct)}` : ' · interface d\'Odin'}` }));
+    return json(res, 200, { ok: true, etat: 'ok' });
+  }
+  /** Connexion par QR code : l'écran (début, état) et le téléphone connecté (page, voir, décider). */
+  private async routeQr(req: IncomingMessage, res: ServerResponse, url: URL, ip: string, direct: string | undefined): Promise<void> {
+    if (req.method === 'GET' && url.pathname === '/connexion-qr') {
+      const nonce = randomBytes(16).toString('base64');
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store', 'x-frame-options': 'DENY' });
+      return void res.end(pageConnexionQr(nonce, MASCOT));
+    }
+    if (req.method !== 'POST') return json(res, 404, { error: 'introuvable' });
+    if (req.headers['x-odin'] !== '1') return json(res, 403, { error: 'en-tête x-odin manquant' });
+    if (!this.accounts.exists()) return json(res, 403, { ok: false, error: 'Odin n\'a pas encore de compte.' });
+    const b = await readJson(req, 4 * 1024).catch(() => ({} as Record<string, unknown>));
+    switch (url.pathname) {
+      case '/api/connexion-qr/debut': {
+        const d = this.qr.debut(String(req.headers['user-agent'] ?? ''), ip.replace(/^fwd:/, ''), direct);
+        if (!d) return json(res, 429, { ok: false, error: 'Trop de demandes : attends quelques minutes, ou connecte-toi avec ton e-mail et ton mot de passe.' });
+        const lien = `${direct ? this.surInterface(this.publicOrigin(req)) : this.publicOrigin(req)}/connexion-qr?c=${d.code}`;
+        return json(res, 200, { ok: true, secret: d.secret, code: `${d.code.slice(0, 4)}-${d.code.slice(4)}`, url: lien, svg: qrSvg(lien, { scale: 4, margin: 2 }), expire: Date.now() + DUREE_QR });
+      }
+      case '/api/connexion-qr/etat': {
+        const st = this.qr.collecter(String(req.headers['x-qr'] ?? ''));
+        if (st.etat !== 'ok') return json(res, 200, { ok: false, etat: st.etat });
+        return this.entrer(req, res, st.qui, direct ?? st.appli, 'QR code');
+      }
+      case '/api/connexion-qr/voir': case '/api/connexion-qr/decider': {
+        const qui = this.quiConnecte(req);
+        if (!qui) return json(res, 401, { ok: false, error: 'Connecte-toi d\'abord à Odin sur ce téléphone.' });
+        const ctx = persona(), nom = 'proprio' in qui ? (this.accounts.profile()?.prenom ?? 'toi') : (personnes(ctx!).find((x) => x.login === qui.login)?.name ?? qui.login);
+        const d = url.pathname.endsWith('/voir') ? this.qr.voir(String(b.c ?? '')) : this.qr.decider(String(b.c ?? ''), qui, b.ok === true);
+        if (!d) { this.throttle.fail(ip); return json(res, 404, { ok: false, error: 'Demande introuvable ou expirée : scanne à nouveau le QR code de l\'écran.' }); }
+        if (url.pathname.endsWith('/decider')) console.log(`[web] connexion par QR code ${d.etat === 'ok' ? 'autorisée' : 'refusée'} par ${'proprio' in qui ? 'le propriétaire' : qui.login} pour ${d.appareil} (${d.ip})`);
+        return json(res, 200, { ok: true, qui: nom, demande: { ...d, ...(d.appli ? { appli: nomAppli(ctx, d.appli) } : {}) } });
+      }
+    }
+    return json(res, 404, { error: 'introuvable' });
   }
   /** Derrière un tunnel ou un proxy HTTPS, le cookie doit aussi être marqué « Secure ». */
   private viaHttps(req: IncomingMessage): boolean { return this.clientIp(req).startsWith('fwd:') && /https/i.test(String(req.headers['x-forwarded-proto'] ?? '')); }
@@ -502,10 +571,12 @@ export class WebChannel implements Channel {
     // (ni clé d'API, ni liens publics, ni création de compte : tout cela reste sur le port de l'interface).
     const direct = this.directs?.appOf(req.socket);
     if (direct && this.who(req) !== 'session' && !(this.accounts.exists() && directOpen(req.method ?? '', url.pathname))) return json(res, this.accounts.exists() ? 401 : 403, { error: this.accounts.exists() ? 'connexion requise' : `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${this.port}).`, account: this.accounts.exists(), direct: true });
+    // Connexion par QR code : l'écran qui attend, et le téléphone déjà connecté qui autorise (avant la garde des membres).
+    if (url.pathname === '/connexion-qr' || url.pathname.startsWith('/api/connexion-qr/')) return void await this.routeQr(req, res, url, ip, direct);
     // Plume partout (le correcteur pendant qu'on écrit) : chaque personne, son réglage (avant la garde des membres).
     if (url.pathname.startsWith('/api/plume/') && await plumeRoute(req, res, url, { proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', fail: () => this.throttle.fail(ip), ip })) return;
     // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
-    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state() })) return;
+    if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)) })) return;
 
     if (req.method === 'GET' && url.pathname === '/') {
       const t = url.searchParams.get('token');
@@ -686,6 +757,15 @@ export class WebChannel implements Channel {
           this.stateCache = undefined;
           return json(res, 200, { ok: true, prenom: p.prenom });
         } catch (e) { return json(res, 400, { ok: false, error: (e as Error).message }); }
+      }
+      // Une personne de Persona (famille, invité) se connecte avec le même formulaire : session « membre », et par le
+      // port direct d'une appli, seulement si elle a le droit d'utiliser cette appli.
+      const pctx = persona(), membre = pctx && typeof b.email === 'string' ? trouver(pctx, b.email) : undefined;
+      if (pctx && membre && !membre.proprio && (membre.email ?? '').toLowerCase() !== (this.accounts.profile()?.email ?? '').toLowerCase()) {
+        const v = await verifierPersonne(pctx, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => false, version: RUNNING }, String(b.email), String(b.password ?? ''), String(b.code ?? '').replace(/\s/g, ''), direct ? `port direct de ${nomAppli(pctx, direct)}` : 'interface d\'Odin');
+        if (!v.ok) { if (v.attente) res.setHeader('retry-after', String(v.attente)); return json(res, v.status, { ok: false, error: v.message, code: v.code, retryAfter: v.attente ?? 0 }); }
+        this.throttle.success(ip);
+        return this.entrer(req, res, { login: v.p.login }, direct, 'mot de passe');
       }
       const r = await this.accounts.login(b.email, b.password);
       if (!r.ok) {

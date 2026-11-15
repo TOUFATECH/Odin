@@ -222,7 +222,7 @@ export class DirectPorts {
 /** Sans session, un port direct ne sert que l'écran de connexion : la page, ses fichiers, et la connexion elle-même. Pur. */
 export function directOpen(method: string, path: string): boolean {
   if (method === 'GET') return path === '/' || path === '/health' || /^\/(?:[\w-]+\.(?:js|png|svg|ico|webmanifest)|pages\/[a-z0-9-]+\.js|fonts\/[\w.-]+\.woff2)$/.test(path);
-  return method === 'POST' && (path === '/api/account/login' || path === '/api/account/logout');
+  return method === 'POST' && (path === '/api/account/login' || path === '/api/account/logout' || path === '/api/connexion-qr/debut' || path === '/api/connexion-qr/etat');
 }
 /** L'écran où mène le port direct d'une appli (Thot, Papyrus et Talos ont leur propre écran). Pur. */
 export const directView = (app: string): string => ({ saga: 'brain', runes: 'runes', draupnir: 'flows' } as Record<string, string>)[app] ?? `app=${app}`;
