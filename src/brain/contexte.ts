@@ -8,6 +8,8 @@
 import type { Note, Vault } from './vault.ts';
 import { appsFor, fold, keywords, type AppFinder } from '../valhalla/besoin.ts';
 import { USAGES } from '../valhalla/links.ts';
+import type { LiensVivants } from './liens-vivants.ts';
+import { rappelParAssociation, type Influx } from './rappel.ts';
 
 export interface BrainHit { title: string; path: string; snippet: string; via: string; untrusted: boolean; links: string[] }
 export interface BrainApp { id: string; name: string; what: string; action?: { id: string; label: string; grave: boolean }; actions: Array<{ id: string; label: string; read: boolean; grave: boolean }>; usage?: { need: string; chain: string[] }; sheet?: string }
@@ -17,7 +19,13 @@ export interface BrainApp { id: string; name: string; what: string; action?: { i
  * Cerveau et le graphe des applis allument ces liens pendant la réponse. Jamais le contenu des notes.
  */
 export interface BrainStep { de: string; vers: string; deNom: string; versNom: string; libelle: string }
-export interface BrainContext { notes: BrainHit[]; apps: BrainApp[]; memories: string[]; etapes: BrainStep[] }
+export interface BrainContext {
+  notes: BrainHit[]; apps: BrainApp[]; memories: string[]; etapes: BrainStep[];
+  /** L'activation propagée le long des liens vivants, pour la carte (titres, ids et nombres seulement). */
+  influx?: Influx[];
+  /** Comment chaque note est entrée (côté serveur seulement, jamais dans le prompt ni vers la carte). */
+  entres?: Array<{ id: string; par: 'direct' | 'lien' | 'association'; de?: string }>;
+}
 
 const APPS_DIR = 'Odin/Applis/';
 /** Les notes « carrefour » (liste des applis, carte des liens…) : utiles à lire, mais elles touchent tout. */
@@ -39,27 +47,30 @@ function snippetOf(n: Note, words: string[], max = 220): string {
  * Ce que le Cerveau sait sur une demande. `apps` : les applis d'Odin (facultatif) ; `memories` : les
  * souvenirs (facultatif : dans la discussion ils sont déjà donnés à part).
  */
-export function consultBrain(o: { vault?: Vault; apps?: AppFinder; memories?: (q: string) => Array<{ content: string }> }, request: string, limit = 8): BrainContext {
+export function consultBrain(o: { vault?: Vault; apps?: AppFinder; memories?: (q: string) => Array<{ content: string }>; liens?: LiensVivants; souvenirs?: number[]; now?: number }, request: string, limit = 8): BrainContext {
   const words = keywords(request);
   const out: BrainContext = { notes: [], apps: [], memories: [], etapes: [] };
   if (!words.length) return out;
   const seen = new Set<string>();
   const step = (de: string, deNom: string, vers: string, versNom: string, libelle: string) => { if (de !== vers && out.etapes.length < 24 && !out.etapes.some((e) => e.de === de && e.vers === vers)) out.etapes.push({ de, vers, deNom, versNom, libelle }); };
   /** `from` : la note d'où part le lien suivi (sinon Odin lui-même). */
-  const add = (n: Note, via: string, from?: { path: string; title: string }) => {
+  const add = (n: Note, via: string, from?: { path: string; title: string }, sansEtape = false) => {
     if (seen.has(n.path) || out.notes.length >= limit) return;
     seen.add(n.path);
     const bad = untrusted(n);
     out.notes.push({ title: n.title, path: n.path, snippet: bad ? '' : snippetOf(n, words), via, untrusted: bad, links: n.links });
+    if (sansEtape) return; // l'étape est posée par l'appelant (rappel par association)
     // La fiche d'une appli déjà consultée est le point de cette appli sur la carte : pas d'étape en double.
     if (!from && n.path.startsWith(APPS_DIR) && out.apps.some((a) => a.name === n.title)) return;
     if (from) step(from.path, from.title, n.path, n.title, `suivre le lien vers [[${n.title}]]`);
     else step('odin', 'Odin', n.path, n.title, n.path.startsWith(APPS_DIR) ? 'lire la fiche' : 'lire la note');
   };
+  const scores = new Map<string, number>(); // score de chaque appli retenue (point de départ des liens vivants)
   // 1. Les applis qui répondent au besoin, et leur fiche dans le Cerveau.
   if (o.apps) {
     for (const f of appsFor(o.apps, request, 3)) {
       if (f.score < 3) continue;
+      scores.set(f.m.id, f.score);
       const sheet = o.vault?.find(`${APPS_DIR}${f.m.name}`);
       const u = f.usage ? { need: f.usage, chain: appsChain(o.apps, f.usage) } : undefined;
       out.apps.push({ id: f.m.id, name: f.m.name, what: f.m.what, action: f.action ? { id: f.action.id, label: f.action.label, grave: Boolean(f.action.grave) } : undefined, actions: f.m.actions.slice(0, 8).map((a) => ({ id: a.id, label: a.label, read: Boolean(a.read), grave: Boolean(a.grave) })), usage: u, sheet: sheet?.title });
@@ -80,17 +91,23 @@ export function consultBrain(o: { vault?: Vault; apps?: AppFinder; memories?: (q
     const sheets = found.filter((n) => n.path.startsWith(APPS_DIR) && hits(n, words) >= need);
     for (const n of mine.slice(0, 3)) add(n, 'ta note, trouvée par la recherche');
     for (const n of sheets.slice(0, 2)) add(n, 'trouvée par la recherche');
+    const retenues = out.notes.map((n) => n.path); // les points de départ des liens vivants
     // 3. Les liens [[…]] de ces notes sont suivis : une note reliée qui touche la demande est ajoutée.
     //    Les liens de tes notes d'abord ; une fiche d'appli reliée doit toucher la demande autant qu'une note trouvée.
+    //    Jamais les liens d'une note venue de l'extérieur : ils ne doivent pas faire remonter d'autres notes.
     const order = [...out.notes].sort((a, b) => Number(a.path.startsWith('Odin/')) - Number(b.path.startsWith('Odin/')));
     for (const from of order) {
       if (out.notes.length >= limit) break;
+      if (from.untrusted) continue;
       for (const l of from.links) {
         const n = o.vault.find(l); if (!n || seen.has(n.path) || HUB(n)) continue;
         const sheet = n.path.startsWith(APPS_DIR), app = sheet && out.apps.some((a) => a.name === n.title);
         if (app || hits(n, words) >= (sheet ? need : 1)) add(n, `liée depuis [[${from.title}]]`, from);
       }
     }
+    // 3 bis. Liens vivants : l'activation se propage le long des liens selon leur force ; une note fiable très
+    //        activée remonte même sans mot commun (rappel par association, 2 au plus).
+    if (o.liens && o.liens.actif()) rappelParAssociation({ liens: o.liens, vault: o.vault, apps: o.apps, out, words, limit, retenues, found, scores, souvenirs: o.souvenirs ?? [], now: o.now ?? Date.now(), add: (n, via) => add(n, via, undefined, true), step, hits: (n) => hits(n, words) });
   }
   // 4. Les souvenirs (la mémoire fait partie du Cerveau).
   if (o.memories) out.memories = o.memories(request).slice(0, 5).map((m) => m.content);

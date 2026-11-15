@@ -91,6 +91,8 @@ export type AgentEvent =
   /** Humeur d'Odin (visage dans l'interface, autocollant Telegram). */
   | { type: 'mood'; mood: string }
   /** « Odin consulte » : le chemin suivi dans le Cerveau avant de répondre (notes, liens, applis, dans l'ordre ; jamais leur contenu). */
-  | { type: 'consulte'; etapes: Array<{ de: string; vers: string; deNom: string; versNom: string; libelle: string }> }
+  | { type: 'consulte'; etapes: Array<{ de: string; vers: string; deNom: string; versNom: string; libelle: string }>; influx?: Array<{ de: string; vers: string; deNom: string; versNom: string; a: number; saut: 0 | 1 | 2; f: number; o: 'ecrit' | 'usage' | 'appris' | 'odin'; entre: boolean }> }
+  /** Liens vivants du Cerveau changés pendant ce tour (ids de la carte, titres et nombres seulement). */
+  | { type: 'liens'; changes: Array<{ de: string; vers: string; deNom: string; versNom: string; f: number; o: 'ecrit' | 'usage' | 'appris'; n: number; vu: number }> }
   /** Décision de Heimdall/Mímir sur une action, pour la transparence. */
   | { type: 'decision'; tool: string; summary: string; allowed: boolean; via?: 'policy' | 'human' | 'mimir' | 'grant' | 'breaker'; severity?: 'routine' | 'important' | 'grave' | 'blocked'; why: string };

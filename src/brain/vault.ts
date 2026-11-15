@@ -225,6 +225,7 @@ export class Vault {
     renameSync(from, to);
     const oldName = basename(n.path, '.md'), newName = basename(to, '.md');
     this.invalidate();
+    vaultEvents.emit('renommée', { ancien: n.path, nouveau: relative(this.root, to).split(sep).join('/') }); // les liens vivants suivent (pas « change »)
     let changed = 0;
     if (oldName !== newName) {
       const re = new RegExp(`(!?\\[\\[)${oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}((?:[#^][^\\]|]*)?(?:\\|[^\\]]*)?\\]\\])`, 'gi');

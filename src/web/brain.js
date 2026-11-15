@@ -446,14 +446,15 @@
   // forces (Barnes-Hut) : des milliers de notes restent fluides. Réglages à droite, retenus.
   let raf = 0;
   function stopGraph() { cancelAnimationFrame(raf); raf = 0; }
-  const GDEF = { color: 'centres', folders: true, cards: true, intro: true, tags: false, connectors: true, orphans: true, guessed: true, nodeSize: 1, linkWidth: 1, labelAt: 1.1, arrows: false, center: 0.5, repel: 1, link: 1, distance: 1, light: false, q: '' };
+  const NEU = window.OdinNeurones; // liens vivants (pages/neurones.js) ; absent : la carte d'avant
+  const GDEF = { forces: true, color: 'centres', folders: true, cards: true, intro: true, tags: false, connectors: true, orphans: true, guessed: true, nodeSize: 1, linkWidth: 1, labelAt: 1.1, arrows: false, center: 0.5, repel: 1, link: 1, distance: 1, light: false, q: '' };
   const GS = (() => { try { return { ...GDEF, ...JSON.parse(localStorage.getItem('odin.graphe') || '{}') }; } catch { return { ...GDEF }; } })();
   const saveGS = () => { try { localStorage.setItem('odin.graphe', JSON.stringify(GS)); } catch {} };
   let G = null; // { data, reheat, draw }
 
   async function renderGraph(intro = false) {
     stopGraph();
-    const r = await api('/api/brain/graph');
+    const r = await api('/api/brain/graph?forces=1');
     const main = $('#brMain');
     const cv = el('canvas', { id: 'brCv', class: 'br-cv', role: 'img', 'aria-label': `Graphe : ${r.nodes.length} éléments, ${r.edges.length} liens. La liste sous le graphe donne le même contenu.` });
     const wrap = el('div', { class: `br-cvw g-dark${GS.light ? ' g-light' : ''}` }, cv, el('div', { id: 'brTip', class: 'br-tip', hidden: true }), graphSettings(), el('div', { class: 'g-count' }, `${r.nodes.length} notes · ${r.edges.length} liens`));
@@ -473,8 +474,9 @@
         tog('folders', 'Dossiers (liens vers leurs notes)'), tog('tags', 'Étiquettes'), tog('connectors', 'Connecteurs'), tog('orphans', 'Notes isolées'), tog('guessed', 'Liens devinés')),
       sec('Groupes', true, row('Couleurs', el('select', { onchange: (e) => { GS.color = e.target.value; saveGS(); G?.draw(); } }, ...[['centres', 'Centres en couleur'], ['type', 'Par type de note'], ['aucune', 'Sans couleur']].map(([v, l]) => el('option', { value: v, selected: GS.color === v ? true : undefined }, l)))),
         el('div', { class: 'g-legend' }, ...Object.entries(TYPE_LABEL).filter(([k]) => k !== 'connecteur').map(([k, l]) => el('span', {}, el('i', { style: `background:${TYPE_COLOR[k]}` }), l)))),
-      sec('Affichage', false, rng('nodeSize', 'Taille des points', 0.4, 2.5, 0.1), rng('linkWidth', 'Épaisseur des liens', 0.3, 3, 0.1), rng('labelAt', 'Noms visibles dès le zoom', 0.3, 3, 0.1), tog('cards', 'Cartes en zoomant'), tog('intro', 'Animation d\'ouverture'), tog('arrows', 'Flèches'), tog('light', 'Fond clair')),
+      sec('Affichage', false, rng('nodeSize', 'Taille des points', 0.4, 2.5, 0.1), rng('linkWidth', 'Épaisseur des liens', 0.3, 3, 0.1), rng('labelAt', 'Noms visibles dès le zoom', 0.3, 3, 0.1), tog('cards', 'Cartes en zoomant'), tog('intro', 'Animation d\'ouverture'), tog('arrows', 'Flèches'), tog('forces', 'Montrer la force des liens'), tog('light', 'Fond clair')),
       sec('Forces', false, rng('center', 'Attraction du centre', 0, 1.5, 0.05, true), rng('repel', 'Répulsion', 0.2, 3, 0.1, true), rng('link', 'Force des liens', 0.1, 2.5, 0.1, true), rng('distance', 'Longueur des liens', 0.3, 3, 0.1, true)),
+      NEU ? sec('Liens vivants', false, (() => { const h = el('div', {}); NEU.reglages(h, () => renderGraph()); return h; })()) : null,
       el('div', { class: 'g-acts' }, el('button', { type: 'button', class: 'br-mini', onclick: () => renderGraph(true) }, 'Rejouer'), el('button', { type: 'button', class: 'br-mini', onclick: () => G?.reheat(1) }, 'Animer'), el('button', { type: 'button', class: 'br-mini', onclick: () => G?.fit() }, 'Recadrer'), el('button', { type: 'button', class: 'br-mini', onclick: () => { Object.assign(GS, GDEF); saveGS(); renderGraph(); } }, 'Par défaut')),
     );
     const btn = el('button', { type: 'button', class: 'g-gear', 'aria-label': 'Réglages du graphe', 'aria-expanded': 'false', 'aria-controls': 'gPanel', onclick: (e) => { panel.hidden = !panel.hidden; e.currentTarget.setAttribute('aria-expanded', String(!panel.hidden)); } }, ico('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', 18));
@@ -515,7 +517,9 @@
     const PAL = GS.light ? { bg: '#F7F7F8', node: '#8B9099', link: 'rgba(60,64,72,.22)', linkHi: accent, text: '#2A2D33', dim: 0.12 } : { bg: '#1E1F22', node: '#A6A9AF', link: 'rgba(170,174,182,.22)', linkHi: accent, text: '#DADCE0', dim: 0.1 };
     // Données : notes (+ étiquettes en nœuds si demandé), filtres.
     let nodes = data.nodes.filter((n) => GS.connectors || n.type !== 'connecteur').map((n) => ({ ...n }));
-    let edges = data.edges.filter((e) => GS.guessed || e.kind === 'lien' || e.kind === 'source');
+    let edges = data.edges.filter((e) => GS.guessed || e.kind === 'lien' || e.kind === 'source' || e.kind === 'appris' || e.kind === 'frein');
+    // Liens vivants : les liens appris et les freins seulement si la force est montrée ; sinon, l'aspect d'avant (sans f).
+    edges = edges.filter((e) => (e.kind !== 'appris' && e.kind !== 'frein') || (NEU && GS.forces)).map((e) => (NEU && GS.forces) || (e.f === undefined && !e.fr) ? e : (({ f, o, n, vu, fr, ...x }) => x)(e));
     if (GS.tags) {
       const tags = new Map();
       for (const n of nodes) for (const t of n.tags || []) { if (!tags.has(t)) tags.set(t, { id: `#${t}`, title: `#${t}`, type: 'étiquette', tags: [], degree: 0 }); edges.push({ from: n.id, to: `#${t}`, kind: 'tag' }); }
@@ -547,7 +551,16 @@
     const view = { x: W / 2, y: H / 2, k: 1 };
     // Échanges entre applis en direct : la fiche d'une appli (Odin/Applis/<nom>) est son point ; leur lien brille (graph.js).
     const ECH = window.OdinGraph?.echanges, fichesApplis = new Map(nodes.filter((n) => n.folder === 'Odin/Applis').map((n) => [n.title, n])); let echSegs = [];
-    ECH?.brancher(() => { if (!raf) draw(); }, () => cv.isConnected, 30);
+    // Échanges et neurones passent par une seule demande d'image : jamais deux dessins dans la même trame, 30 i/s au plus.
+    let trame = 0, derniere = 0;
+    const bientot = () => { if (trame) return; if (typeof requestAnimationFrame !== 'function') { if (!raf) draw(); return; } trame = requestAnimationFrame((t) => { trame = 0; if (t - derniere < 30) { bientot(); return; } derniere = t; if (!raf) draw(); }); };
+    ECH?.brancher(bientot, () => cv.isConnected, 30);
+    // Liens vivants : même résolveur que les échanges (Odin au centre, une appli par sa fiche) ; heure du serveur pour « il y a… ».
+    const noeudCarte = (id, nom) => { if (id === 'odin') return { id: 'odin', x: 0, y: 0, r: 0 }; const n = fichesApplis.get(nom) || byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) }; };
+    const decal = typeof data.neurones?.maintenant === 'number' ? data.neurones.maintenant - Date.now() : 0; let lienVu = null;
+    // L'explication d'un lien ne reste pas affichée quand le pointeur part ou que la vue bouge (elle ne correspondrait plus).
+    const cacherLien = () => { if (!lienVu) return; lienVu = null; if (!hover) $('#brTip').hidden = true; };
+    NEU?.brancher(bientot, () => cv.isConnected, { edges, noeud: (id, nom) => fichesApplis.get(nom) || byId.get(id), actif: () => GS.forces });
     let hover = null, drag = null, pan = null, alpha = 1, moved = false;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const radius = (n) => (n.type === 'connecteur' ? 6 : n.type === 'dossier' ? 5 + Math.sqrt(n.degree) * 0.9 : n.type === 'étiquette' ? 3 : 2.4 + Math.sqrt(n.degree) * 1.8) * GS.nodeSize;
@@ -628,17 +641,21 @@
       const match = (n) => search && n.title.toLowerCase().includes(search);
       const lw = (0.7 * GS.linkWidth) / view.k;
       // Liens
+      if (NEU && GS.forces) NEU.dessinerLiens(ctx, edges, { k: view.k, lw, alpha: hover || search ? 0.35 : 1, hover, light: GS.light, link: PAL.link, linkHi: PAL.linkHi, rayon: radius });
+      else {
       ctx.lineWidth = lw; ctx.strokeStyle = PAL.link; ctx.globalAlpha = hover || search ? 0.35 : 1;
       ctx.beginPath();
       for (const e of edges) { if (hover && (e.a === hover || e.b === hover)) continue; ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); }
       ctx.stroke();
       if (hover) { ctx.globalAlpha = 1; ctx.strokeStyle = PAL.linkHi; ctx.lineWidth = lw * 2; ctx.beginPath(); for (const e of edges) if (e.a === hover || e.b === hover) { ctx.moveTo(e.a.x, e.a.y); ctx.lineTo(e.b.x, e.b.y); } ctx.stroke(); }
+      }
       if (GS.arrows) { ctx.fillStyle = PAL.link; for (const e of edges) { const r = radius(e.b) + 2, dx = e.b.x - e.a.x, dy = e.b.y - e.a.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d, x = e.b.x - ux * r, y = e.b.y - uy * r, s = 4 / view.k; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - ux * s - uy * s * 0.6, y - uy * s + ux * s * 0.6); ctx.lineTo(x - ux * s + uy * s * 0.6, y - uy * s - ux * s * 0.6); ctx.fill(); } }
       if (ECH) echSegs = ECH.dessiner(ctx, { k: view.k, reduit: reduce, noeud: (id, nom) => {
         // « Odin consulte » : Odin part du centre de la carte ; une note est trouvée par son chemin, une appli par sa fiche.
         if (id === 'odin') return { id: 'odin', x: 0, y: 0, r: 0 };
         const n = fichesApplis.get(nom) || byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) };
       }, relies: (a, b) => Boolean(nb.get(a)?.has(b)) });
+      if (NEU) NEU.dessinerPoints(ctx, { k: view.k, reduit: reduce, noeud: noeudCarte, t: Date.now() }); // halo du point consulté, puis anneau de repos
       // Points
       for (const n of nodes) {
         const lit = !hover || n === hover || hi.has(n.id), src = S.sources.has(n.id) || match(n);
@@ -690,6 +707,7 @@
     let follow = false;
     function followStep() { const to = fitTarget(), cx = (W / 2 - view.x) / view.k, cy = (H / 2 - view.y) / view.k, k = Math.exp(Math.log(view.k) + (Math.log(to.k) - Math.log(view.k)) * 0.08), nx = cx + (to.cx - cx) * 0.08, ny = cy + (to.cy - cy) * 0.08; view.k = k; view.x = W / 2 - nx * k; view.y = H / 2 - ny * k; }
     function loop(now = performance.now()) {
+      if (cam || follow) cacherLien();
       if (cam) { tick(); camStep(now); draw(); raf = requestAnimationFrame(loop); return; }
       if (!reduce && alpha > 0.005) { tick(); if (follow) followStep(); draw(); raf = requestAnimationFrame(loop); } else { if (follow) { follow = false; fit(); } draw(); raf = 0; }
     }
@@ -725,10 +743,20 @@
       if (ECH) cv.title = h ? '' : window.OdinGraph.survolEchange(echSegs, at(e), view.k); // « Phénix demande à Arche : … »
       if (h !== hover) { hover = h; cv.style.cursor = h ? 'pointer' : 'grab'; const tip = $('#brTip'); if (h) { tip.hidden = false; tip.textContent = `${h.title} · ${TYPE_LABEL[h.type] || h.type} · ${h.degree} lien${h.degree > 1 ? 's' : ''}`; } else tip.hidden = true; if (!raf) draw(); }
     };
-    cv.onpointerleave = () => { if (hover) { hover = null; $('#brTip').hidden = true; if (!raf) draw(); } };
-    cv.onpointerdown = (e) => { cam = null; follow = false; cv.setPointerCapture(e.pointerId); moved = false; const h = at(e).node; if (h) drag = h; else pan = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; };
+    cv.onpointerleave = () => { cacherLien(); if (hover) { hover = null; $('#brTip').hidden = true; if (!raf) draw(); } };
+    // Liens vivants : au survol d'un lien, pourquoi il existe ; clic droit sur un lien appris : l'oublier (après confirmation).
+    const nomDe = (id) => byId.get(id)?.title || id;
+    cv.addEventListener('pointermove', (e) => { if (!NEU || !GS.forces || drag || pan || hover) return; const l = NEU.pickLien(edges, at(e), view.k), tip = $('#brTip'); if (l) { tip.hidden = false; tip.textContent = NEU.texteLien(l, nomDe, Date.now() + decal); cv.title = ''; } else if (lienVu) tip.hidden = true; lienVu = l; });
+    cv.oncontextmenu = async (e) => {
+      const l = NEU && GS.forces ? NEU.pickLien(edges, at(e), view.k) : null; if (!l || l.kind !== 'appris') return;
+      e.preventDefault(); drag = null; pan = null;
+      if (!window.OdinDialog || !(await window.OdinDialog.confirm(`Oublier le lien appris entre « ${nomDe(l.from)} » et « ${nomDe(l.to)} » ? Odin ne le réapprendra pas pendant 90 jours.`, { danger: true }))) return;
+      const x = await api('/api/brain/liens/oublier', { quoi: 'lien', de: l.from, vers: l.to }).catch(() => null);
+      if (x?.ok) { const i = edges.indexOf(l); if (i >= 0) edges.splice(i, 1); lienVu = null; $('#brTip').hidden = true; if (!raf) draw(); }
+    };
+    cv.onpointerdown = (e) => { cam = null; follow = false; cacherLien(); cv.setPointerCapture(e.pointerId); moved = false; const h = at(e).node; if (h) drag = h; else pan = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; };
     cv.onpointerup = () => { const n = drag; drag = null; pan = null; if (n && !moved && n.type !== 'connecteur' && n.type !== 'étiquette') openNote(n.id); else if (n && !moved && n.type === 'dossier') { $('#brQ').value = n.folder; onSearch(); openSide(); } else if (n && !moved && n.type === 'étiquette') { $('#brQ').value = n.title.slice(1); onSearch(); openSide(); } };
-    cv.onwheel = (e) => { e.preventDefault(); cam = null; follow = false; const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top, f = Math.exp(-e.deltaY * 0.0015); const k = Math.max(0.05, Math.min(6, view.k * f)); view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; if (!raf) draw(); };
+    cv.onwheel = (e) => { e.preventDefault(); cam = null; follow = false; cacherLien(); const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top, f = Math.exp(-e.deltaY * 0.0015); const k = Math.max(0.05, Math.min(6, view.k * f)); view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; if (!raf) draw(); };
     return { reheat, draw: () => { if (!raf) draw(); }, fit, data };
   }
 

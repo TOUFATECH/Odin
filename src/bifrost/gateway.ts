@@ -22,6 +22,7 @@ import { DEFAULT_CONFIG } from '../config.ts';
 import { routingReport } from '../providers/journal.ts';
 import { stripMood } from '../mood/mood.ts';
 import { brainOf } from '../tools/brain.ts';
+import { liensDe } from '../brain/liens-vivants.ts';
 const DEFAULT_CONTINUOUS = DEFAULT_CONFIG.continuous;
 import { gardenMemory, type GardenReport } from '../muninn/garden.ts';
 import { extractSecret, keepSecret } from '../machines/onboard.ts';
@@ -647,6 +648,7 @@ export class Gateway {
     }
     const mstamp = join(this.odin.paths.logs, 'memory-decay.txt');
     if (!(existsSync(mstamp) && readFileSync(mstamp, 'utf8').trim() === new Date(now).toDateString())) { writeFileSync(mstamp, new Date(now).toDateString()); const n = this.odin.muninn.decay(now); if (n) console.error(`[mémoire] ${n} souvenir(s) périmé(s) oublié(s)`); this.odin.muninn.pruneRoutes(now); const gone = this.odin.muninn.purgeTrash(now); if (gone) console.error(`[mémoire] ${gone} conversation(s) effacée(s) de la corbeille`); }
+    try { liensDe(this.odin.muninn).nuitSiBesoin(now, { occupe: this.aborts.size > 0, demo: Boolean(this.odin.demo), vault: brainOf({ home: this.odin.paths.home, careCfg: this.odin.cfg, workspace: this.odin.paths.workspace }) }); } catch { /* liens vivants : facultatif */ }
     // Index des documents : chaque nuit vers 3 h (seuls les fichiers modifiés sont relus).
     const dstamp = join(this.odin.paths.logs, 'docs-index.txt'), d = new Date(now);
     const ddirs = docDirs(cfg.docs.dirs, this.odin.paths.workspace);

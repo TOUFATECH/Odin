@@ -4958,11 +4958,13 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       else if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) { notifyOwner('Odin a besoin de toi', d.event.summary || 'Une validation est demandée.'); approvalCard(d.event); moodFlash('inquiet', 4000); }
       else if (d.type === 'event' && d.event.type === 'approval_done') approvalDone(d.event);
       else if (d.type === 'event' && d.event.type === 'mood') { if (d.peer === peer) { modelMoodAt = Date.now(); moodBase(d.event.mood, true); } }
+      else if (d.type === 'event' && d.event.type === 'liens') window.OdinNeurones?.liens(d.event.changes); // forces des liens du Cerveau : pas une étape du fil
       else if (d.type === 'event' && d.peer === peer && d.event.type !== 'text' && d.event.type !== 'thinking' && d.event.type !== 'budget') { addActivity(d.event); moodFromEvent(d.event); }
       else if (d.type === 'refresh') refresh();
       if (d.type === 'notice') window.OdinNotices?.push(d.notice);
       if (d.type === 'echange' || d.type === 'echanges') window.OdinGraph?.echanges?.recevoir(d.echange ?? d.list, d.maintenant); // liens qui brillent entre applis
       if (d.type === 'event' && d.peer === peer && d.event.type === 'consulte') consulte(d.event.etapes); // le chemin suivi dans le Cerveau
+      if (d.type === 'event' && d.peer === peer && d.event.type === 'consulte') window.OdinNeurones?.influx(d.event.influx, d.event.etapes); // l'influx qui se propage (pages/neurones.js)
       if (d.type === 'message' && d.peer === peer) consulte(null);
       if (d.type === 'event' && d.event.type === 'approval' && d.peer === peer) window.OdinNotices?.local({ kind: 'Odin a besoin de toi', title: d.event.summary || 'Une validation est demandée.', steps: ['Ouvre la Discussion : Odin t\'explique ce qu\'il veut faire.', 'Accepte ou refuse : rien ne part sans toi.'], page: { view: 'chat' } });
     };

@@ -103,7 +103,7 @@ export function howSheet(all: Module[]): Sheet {
     '## Les applis et leurs liens',
     `Les applis sont rangées en familles (voir [[Les applis d'Odin]]) et reliées entre elles (voir [[Liens entre les applis]]). ${has('forseti') ? `Toutes les alertes arrivent dans un seul fil (${n('forseti')}).` : ''} ${has('ullr') ? `${n('ullr')} relie les signaux de toutes les applis pour reconnaître une attaque.` : ''} ${has('saga') ? `Ce que tu confies à Odin est rangé ici, dans le Cerveau (${n('saga')}).` : ''}`.trim(),
     '## Où est quoi',
-    '- **Discussion** : tu parles à Odin (interface web, Telegram, voix).\n- **Applis** : une page par appli, avec ses indicateurs, ses tableaux et ses boutons.\n- **Cerveau** : tes notes, le graphe, ces fiches et les souvenirs d\'Odin (rubrique Souvenirs). Odin le consulte avant de répondre et suit les liens entre les notes.\n- **Automatisations** (Talos) : « quand ceci arrive, fais cela », entre plusieurs applis.\n- **Réglages** : le modèle d\'IA, les accès, ton compte, le niveau d\'autonomie.',
+    '- **Discussion** : tu parles à Odin (interface web, Telegram, voix).\n- **Applis** : une page par appli, avec ses indicateurs, ses tableaux et ses boutons.\n- **Cerveau** : tes notes, le graphe, ces fiches et les souvenirs d\'Odin (rubrique Souvenirs). Odin le consulte avant de répondre et suit les liens entre les notes. Les liens entre les notes vivent : ceux qui servent ensemble se renforcent, les autres s\'effacent doucement, et Odin en apprend de nouveaux sans jamais toucher à tes notes.\n- **Automatisations** (Talos) : « quand ceci arrive, fais cela », entre plusieurs applis.\n- **Réglages** : le modèle d\'IA, les accès, ton compte, le niveau d\'autonomie.',
   ].join('\n\n') };
 }
 

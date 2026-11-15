@@ -27,7 +27,7 @@ const REG = R('réglages de l\'appli (réglages.json)', 'reglages');
 export const INVENTAIRE: Record<string, Rangement[]> = {
   // Cœur d'Odin
   huginn: [R('règles de compréhension (dans le code), demandes en attente (mémoire vive)', 'coeur')],
-  muninn: [R('mémoire d\'Odin (~/.odin/memoire/, fichiers JSONL)', 'coeur')],
+  muninn: [R('mémoire d\'Odin (~/.odin/memoire/, fichiers JSONL) + forces des liens du Cerveau (cerveau-liens)', 'coeur')],
   yggdrasil: [R('compétences (dossiers de compétences)', 'coeur')],
   hlidskjalf: [R('empreintes des appareils (fichiers de l\'inventaire réseau)', 'coeur')],
   saga: [R('Cerveau : notes Markdown (le dossier du Cerveau)', 'coeur')],

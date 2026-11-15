@@ -5,6 +5,8 @@
 import { isoDay, sourceOf, TYPES, type NoteMeta } from '../brain/vault.ts';
 import type { Odin } from '../runtime.ts';
 import { brainOf } from '../tools/brain.ts';
+import { liensDe } from '../brain/liens-vivants.ts';
+import { valhallaOf } from '../valhalla/odin.ts';
 
 const vaultOf = (odin: Odin) => brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace });
 
@@ -59,7 +61,13 @@ export function brainGet(odin: Odin, path: string, q: URLSearchParams): unknown 
       const out = n.links.map((l) => ({ target: l, path: v.find(l)?.path }));
       return { ok: true, note: { path: n.path, title: n.title, meta: n.meta, body: n.body, tags: n.tags, mtime: n.mtime }, links: out, backlinks: v.backlinks(n.path).map((o) => ({ path: o.path, title: o.title })), mentions: v.unlinkedMentions(n.path).map((o) => ({ path: o.path, title: o.title })) };
     }
-    case '/api/brain/graph': return { ok: true, ...v.graph({ center: q.get('center') || undefined, depth: Number(q.get('depth')) || 1 }) };
+    case '/api/brain/graph': {
+      const g = v.graph({ center: q.get('center') || undefined, depth: Number(q.get('depth')) || 1 });
+      // ?forces=1 : la force des liens, les liens appris et les freins (liens vivants). Sans : réponse inchangée.
+      if (q.get('forces') === '1' && odin.muninn) { try { return { ok: true, ...liensDe(odin.muninn).versCarte(g, v, valhallaOf(), Date.now()) }; } catch { /* repli : graphe simple */ } }
+      return { ok: true, ...g };
+    }
+    case '/api/brain/liens': return liensDe(odin.muninn).etat(v, valhallaOf(), Date.now());
     // La recherche du Cerveau trouve aussi les souvenirs d'Odin (la mémoire fait partie du Cerveau).
     case '/api/brain/search': {
       const query = q.get('q') ?? '';
@@ -90,6 +98,12 @@ export async function brainPost(odin: Odin, path: string, b: Record<string, unkn
       case '/api/brain/trash': return { ok: true, path: v.trash(s(b.path)) };
       case '/api/brain/restore': return { ok: true, path: v.restore(s(b.file)) };
       case '/api/brain/daily': return { ok: true, path: v.daily(), date: isoDay(new Date()) };
+      // Liens vivants (propriétaire seulement, comme tout /api/brain/* ; la page confirme avant d'oublier).
+      case '/api/brain/liens/reglage': {
+        if (typeof b.actif !== 'boolean') return { ok: false, error: 'actif : vrai ou faux' };
+        return { ok: true, actif: liensDe(odin.muninn).regler(b.actif) };
+      }
+      case '/api/brain/liens/oublier': return liensDe(odin.muninn).oublier(s(b.quoi), { de: b.de === undefined ? undefined : s(b.de), vers: b.vers === undefined ? undefined : s(b.vers), vault: v, apps: valhallaOf() }, Date.now());
       case '/api/brain/capture': {
         const src = s(b.source).trim();
         if (!src) return { ok: false, error: 'rien à capturer' };

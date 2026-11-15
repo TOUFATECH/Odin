@@ -53,9 +53,10 @@
         let l = liens.get(cle);
         if (!l) {
           if (liens.size >= ECH.liens) { let vieux = null; for (const [k, y] of liens) if (!vieux || y.jusqua < liens.get(vieux).jusqua) vieux = k; liens.delete(vieux); }
-          l = { cle, de: e.de, vers: e.vers, deNom: '', versNom: '', libelle: '', action: '', n: 0, ok: true, debut: quand, jusqua: 0, imp: [] };
+          l = { cle, de: e.de, vers: e.vers, deNom: '', versNom: '', libelle: '', action: '', n: 0, ok: true, debut: quand, jusqua: 0, imp: [], a: 0 };
           liens.set(cle, l);
         }
+        l.a = Math.max(l.a ?? 0, typeof e.a === 'number' ? e.a : 1); // intensité (influx du Cerveau) ; sans `a` : pleine
         l.deNom = e.deNom || l.deNom; l.versNom = e.versNom || l.versNom; l.libelle = e.libelle || l.libelle; l.action = e.action || l.action;
         let t0 = quand;
         if (e.phase === 'reponse') {
@@ -77,7 +78,7 @@
         if (t >= l.jusqua) { liens.delete(k); continue; }
         const duree = (p) => (p.sens === 'aller' ? ECH.aller : ECH.retour);
         l.imp = l.imp.filter((p) => t - p.t0 < duree(p));
-        out.push({ cle: l.cle, de: l.de, vers: l.vers, deNom: l.deNom, versNom: l.versNom, libelle: l.libelle, action: l.action, n: l.n, ok: l.ok, depart: t - l.debut, force: Math.max(0, Math.min(1, (l.jusqua - t) / 700)), impulsions: l.imp.filter((p) => t >= p.t0).map((p) => ({ sens: p.sens, ok: p.ok, x: p.x, p: (t - p.t0) / duree(p) })) });
+        out.push({ cle: l.cle, de: l.de, vers: l.vers, deNom: l.deNom, versNom: l.versNom, libelle: l.libelle, action: l.action, n: l.n, ok: l.ok, a: l.a ?? 1, depart: t - l.debut, force: Math.max(0, Math.min(1, (l.jusqua - t) / 700)), impulsions: l.imp.filter((p) => t >= p.t0).map((p) => ({ sens: p.sens, ok: p.ok, x: p.x, p: (t - p.t0) / duree(p) })) });
       }
       return out;
     }
@@ -98,10 +99,11 @@
         const ax = A.x + ux * ra, ay = A.y + uy * ra, bx = B.x - ux * rb, by = B.y - uy * rb;
         const sur = (e, x0, y0, x1, y1) => [x0 + (x1 - x0) * e, y0 + (y1 - y0) * e];
         const trait = (c, w) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); };
+        const m = 0.6 + 0.4 * (l.a ?? 1); // un influx faible fait un trait plus fin (sans `a` : m = 1, aspect inchangé)
         ctx.save(); ctx.globalAlpha = l.force; ctx.lineCap = 'round';
         if (o.relies && !o.relies(A.id, B.id)) ctx.setLineDash([6 / k, 5 / k]);
         trait('rgba(0,0,0,.35)', 4.4 / k); // contour sombre : le blanc reste lisible sur un fond clair
-        ctx.shadowColor = 'rgba(255,255,255,.9)'; ctx.shadowBlur = reduit ? 4 : 12; trait('#FFFFFF', 2.2 / k); ctx.shadowBlur = 0; ctx.setLineDash([]);
+        ctx.shadowColor = 'rgba(255,255,255,.9)'; ctx.shadowBlur = reduit ? 4 : 12; trait('#FFFFFF', 2.2 * m / k); ctx.shadowBlur = 0; ctx.setLineDash([]);
         // Flèche fixe au bout : c'est à cette appli qu'on demande.
         const L = 10 / k, W = L * 0.55; ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - ux * L - uy * W, by - uy * L + ux * W); ctx.lineTo(bx - ux * L + uy * W, by - uy * L - ux * W); ctx.closePath(); ctx.fill();
         if (!reduit) {
@@ -114,7 +116,7 @@
               const [hx, hy] = sur(e, ax, ay, bx, by), [tx, ty] = sur(Math.max(0, e - 0.3), ax, ay, bx, by);
               const g = ctx.createLinearGradient(tx, ty, hx, hy); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.95)');
               ctx.strokeStyle = g; ctx.lineWidth = 4 / k; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
-              ctx.shadowColor = '#9FD8FF'; ctx.shadowBlur = 14; ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(hx, hy, (4.2 + Math.min(3, p.x - 1)) / k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+              ctx.shadowColor = '#9FD8FF'; ctx.shadowBlur = 14; ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(hx, hy, (4.2 + Math.min(3, p.x - 1)) * m / k, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
             } else {
               // La réponse : trois petits points qui reviennent, plus discrets.
               ctx.fillStyle = p.ok ? GREEN : RED;

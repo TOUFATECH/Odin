@@ -33,7 +33,8 @@ import { MANY, needsThinking, pendingProposal, proposeNear, tryDirect } from './
 import { forget as forgetAcquis, keep as keepAcquis, learn as learnAcquis, LEARNABLE, linkWords, loadAcquis, MAX_STEPS, missionOf } from '../learn/acquis.ts';
 import { syncQuotidien } from '../learn/quotidien.ts';
 import { brainOf } from '../tools/brain.ts';
-import { brainBlock, consultBrain } from '../brain/contexte.ts';
+import { brainBlock, consultBrain, type BrainContext } from '../brain/contexte.ts';
+import { apprendreDeLAgent, liensDe } from '../brain/liens-vivants.ts';
 import { isReminderJob, reminderText, whenFr } from '../cron/reminders.ts';
 import { savingsText } from '../providers/savings.ts';
 import { adminDiagnosis } from '../machines/access.ts';
@@ -283,6 +284,7 @@ export class Agent {
     const lessonsNow = depth > 0 ? [] : muninn.lessons(userText, 6);
     const memUsed = recalledNow.map((m) => m.content), lessonsUsed = lessonsNow.map((m) => m.content);
     const turnStart = Date.now();
+    let consultTour: BrainContext | undefined; // ce que le Cerveau a donné à ce tour (liens vivants : apprentissage en fin de tour)
     const system = buildSystemPrompt({
       persona: this.deps.persona,
       userBrief: this.deps.home ? userBrief(this.deps.home) : '',
@@ -307,9 +309,11 @@ export class Agent {
       // (Un membre de la maison n'a que les applis : les notes du propriétaire restent privées.)
       brain: depth > 0 ? undefined : (() => {
         try {
-          const c = consultBrain({ vault: owner ? brainOf(ctx) : undefined, apps: valhallaOf() }, userText.split('\n\n[Précision d')[0]);
+          const liens = owner && liensDe(muninn).actif() ? liensDe(muninn) : undefined;
+          const c = consultBrain({ vault: owner ? brainOf(ctx) : undefined, apps: valhallaOf(), liens, souvenirs: recalledNow.map((m) => m.id) }, userText.split('\n\n[Précision d')[0]);
+          consultTour = c;
           // « Odin consulte » : le chemin suivi (notes, liens, applis, dans l'ordre) s'allume sur la carte du Cerveau.
-          if (c.etapes.length) emit({ type: 'consulte', etapes: c.etapes });
+          if (c.etapes.length || c.influx?.length) emit({ type: 'consulte', etapes: c.etapes, ...(c.influx?.length ? { influx: c.influx } : {}) });
           return brainBlock(c) || undefined;
         } catch { return undefined; }
       })(),
@@ -587,6 +591,10 @@ export class Agent {
     // Le fil de la conversation : compressé après chaque échange, pour ne jamais le perdre (même compacté, même des jours plus tard).
     if (depth === 0 && cfg.learning.observe && trusted) {
       learning.push(this.updateThread(o.sessionId, userText, res.text, turnLog, tainted, signal).catch(() => undefined));
+    }
+    // Liens vivants du Cerveau : ce qui a servi ensemble se relie (usage confirmé seulement, propriétaire, tour fiable).
+    if (depth === 0 && trusted && !tainted && !turn.suspicious && owner && !o.unattended && res.stopReason === 'done' && consultTour) {
+      try { const changes = apprendreDeLAgent(muninn, { consult: consultTour, texte: res.text, turnLog, souvenirs: recalledNow.map((m) => m.id), demande: userText.split('\n\n[Précision d')[0], vault: brainOf(ctx), apps: valhallaOf() }, Date.now()); if (changes.length) emit({ type: 'liens', changes }); } catch { /* facultatif */ }
     }
     // Journal des tâches (sans modèle) : ce qui a été fait, avec quel résultat → MEMORY.md, à chaque tâche.
     if (depth === 0 && res.toolCalls > 0 && !tainted && trusted) {

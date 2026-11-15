@@ -77,6 +77,21 @@ export class Table<T extends Row> {
     let n = 0; for (const [k, r] of [...this.rows]) if (fn(r)) { this.rows.delete(k); this.write({ d: k }); n++; } return n;
   }
 
+  /**
+   * Beaucoup de changements d'un coup (lignes écrites, lignes effacées) : un seul ajout en fin de fichier, ou une
+   * réécriture propre quand le lot touche une grande part de la table. Au lieu de milliers d'écritures séparées.
+   */
+  enBloc(puts: T[], dels: Key[]): void {
+    const ops: object[] = [];
+    for (const k of dels) if (this.rows.delete(k) && !this.volatile.delete(k)) ops.push({ d: k });
+    for (const r of puts) { const k = this.keyOf(r); this.rows.set(k, r); this.bump(r); ops.push({ p: r }); }
+    if (!this.file || !ops.length) return;
+    if (ops.length > 500 && ops.length * 2 > this.rows.size) { this.compact(); return; }
+    appendFileSync(this.file, `${ops.map((o) => JSON.stringify(o)).join('\n')}\n`);
+    this.ops += ops.length;
+    if (this.ops > 2000 && this.ops > this.rows.size * 3) this.compact();
+  }
+
   /** Réécrit le fichier sans les anciennes versions ni les lignes effacées (effacement réel sur le disque). */
   compact(): void {
     if (!this.file) return;
