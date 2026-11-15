@@ -49,6 +49,7 @@ test('Arche : copie vérifiée au 2e site, copie abîmée repérée, rattrapage,
     await new Promise((r3) => setTimeout(r3, 1100));
     const ko = await v.act('skuld', 'sauvegarder', { base: 'notes' }); assert.match(ko.text, /💾 Notes sauvegardée .*⚠ 2e site : poste « poste-inconnu » inconnu/);
     assert.ok(v.alerts().some((a) => /copie au 2e site ratée/.test(a.title)));
-    assert.match((await v.act('skuld', 'second_site', {})).text, /Plus de 2e site/);
+    assert.match((await v.act('skuld', 'second_site', {})).text, /coche « Retirer le 2e site »/, 'une demande vide ne retire rien');
+    assert.match((await v.act('skuld', 'second_site', { retirer: true })).text, /Plus de 2e site/);
   } finally { useTools(); v.stop(); rmSync(home, { recursive: true, force: true }); }
 });
