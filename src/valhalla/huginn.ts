@@ -503,3 +503,15 @@ export function helpText(v: Valhalla): string {
   const fam = [...new Set(v.modules().map((m) => m.family))];
   return fam.map((f) => `${f} : ${v.modules().filter((m) => m.family === f).map((m) => `${m.name} (« ${examples(m)[0]} »)`).join(', ')}`).join('\n');
 }
+
+// ---------------------------------------------------------------- Logos pour la voix
+export { apprendreVoix, correctionDite, corrigerVoix, vocabulaire } from './huginn-voix.ts';
+import { corrigerVoix as corriger, vocabulaire as vocab_voix, type Correction } from './huginn-voix.ts';
+/**
+ * Une phrase DITE (transcrite, donc parfois de travers) : Logos corrige d'abord les mots qui sonnent comme un mot
+ * connu (« nase » → NAS), puis comprend la phrase corrigée. `doute` : la ligne à dire quand la correction est incertaine.
+ */
+export async function comprendreVoix(v: Valhalla, text: string, session = 'principal', o: { home?: string; prononciations?: Record<string, string>; now?: Date } = {}): Promise<{ compris: Understood | undefined; texte: string; corrections: Correction[]; doute?: string }> {
+  const c = corriger(text, vocab_voix({ modules: v.modules(), home: o.home, prononciations: o.prononciations }));
+  return { compris: await understand(v, c.texte, session, o.now), texte: c.texte, corrections: c.corrections, ...(c.doute ? { doute: c.doute } : {}) };
+}
