@@ -2,7 +2,8 @@
 // MongoDB ; plans (chaque heure, toutes les 6 h, chaque nuit, chaque semaine), durée de garde (jours,
 // semaines, mois), chaque sauvegarde relue pour être sûre, historique, restauration avec ton accord
 // (dans une nouvelle base à côté, conseillé, ou par-dessus après une sauvegarde de l'état actuel).
-// Les bases viennent d'Alexandrie ; les archives restent sur la machine d'Odin (dossier protégé).
+// Les bases viennent d'Alexandrie ; les archives restent sur la machine d'Odin (dossier protégé) et, si un 2e site est
+// réglé (disque, partage réseau ou serveur SFTP), chacune y est copiée puis relue (empreinte SHA-256 comparée).
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { bases, findBase, password, saveBases, setPassword, type Base } from '../urdr/bases.ts';
@@ -10,11 +11,12 @@ import { dump, extOf, keep, restore, verify, type Tools } from '../skuld/dump.ts
 import { engine } from './naglfar.ts';
 import type { ModCtx, Module, Section } from '../types.ts';
 import { Journal, fichierJsonl } from '../base/journal.ts';
+import { decrire, essayer, lireDestination, sha256Fichier, transportDe, type Destination } from '../sindri/transport.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
 export type Every = 'heure' | '6h' | 'nuit' | 'semaine';
 export interface Plan { base: string; toutes: Every; heure: number; garde: { jours: number; semaines: number; mois: number }; actif: boolean }
-export interface Entry { at: string; base: string; ok: boolean; fichier?: string; taille?: number; verif?: string; erreur?: string; raison?: string; ms: number }
+export interface Entry { at: string; base: string; ok: boolean; fichier?: string; taille?: number; verif?: string; erreur?: string; raison?: string; ms: number; /** copie au 2e site : où, vérifiée */ copie?: string; /** la copie au 2e site a échoué (la sauvegarde, elle, est bonne) */ copieErreur?: string }
 
 const DEFAULT_TOOLS = (ctx: ModCtx): Tools => ({ inContainer: (ct, argv) => engine().execArgs(ct, argv), has: (c) => ctx.has(c) });
 let tools: (ctx: ModCtx) => Tools = DEFAULT_TOOLS;
@@ -44,6 +46,25 @@ export function due(p: Plan, last: Date | undefined, now: Date): boolean {
   return age >= 6 * 24 * h && atHour && now.getDay() === 0;
 }
 
+// ---------------- 2e site ----------------
+const site = (ctx: ModCtx) => ctx.settings.secondSite as Destination | undefined;
+const dossierBase = (b: Base) => b.id.replace(/[^\w.@+-]/g, '_').slice(0, 80) || 'base';
+/**
+ * Copie une archive au 2e site, puis la relit là-bas (empreinte SHA-256 comparée à celle d'ici) ; enlève du 2e site
+ * les archives qui ne sont plus gardées ici (même durée de garde des deux côtés). Rend où elle est, vérifiée.
+ */
+export async function copierAuSite(ctx: ModCtx, b: Base, fichier: string, d = site(ctx)): Promise<string> {
+  if (!d) throw new Error('aucun 2e site réglé');
+  const t = transportDe(ctx.home, d), nom = fichier.split(/[\\/]/).pop()!, rel = `${dossierBase(b)}/${nom}`;
+  const ici = await sha256Fichier(fichier);
+  await t.envoyer([{ local: fichier, rel }]);
+  const la = await t.empreinte(rel);
+  if (la !== ici) { await t.effacer([rel]).catch(() => undefined); throw new Error(`la copie sur ${t.nom} est différente de l'original (empreintes différentes) : retirée`); }
+  const garde = new Set(archives(ctx, b).map((a) => a.f)), loin = await t.liste(), vieux = [...loin.keys()].filter((r) => r.startsWith(`${dossierBase(b)}/`) && !garde.has(r.slice(dossierBase(b).length + 1)));
+  if (vieux.length) await t.effacer(vieux);
+  return `copiée et vérifiée sur ${t.nom}`;
+}
+
 /** Sauvegarde, relit, applique la durée de garde ; note tout dans l'historique. */
 export async function backupNow(ctx: ModCtx, b: Base, raison = 'à la main'): Promise<Entry> {
   const t0 = Date.now(), at = ctx.now(), dir = archDir(ctx, b); mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -51,9 +72,15 @@ export async function backupNow(ctx: ModCtx, b: Base, raison = 'à la main'): Pr
   try {
     const t = tools(ctx); await dump(ctx.home, b, tmp, t);
     const v = await verify(b, tmp, t); renameSync(tmp, file);
-    const e: Entry = { at: at.toISOString(), base: b.id, ok: true, fichier: file, taille: statSync(file).size, verif: v, raison, ms: Date.now() - t0 }; record(ctx, e);
+    const e: Entry = { at: at.toISOString(), base: b.id, ok: true, fichier: file, taille: statSync(file).size, verif: v, raison, ms: Date.now() - t0 };
     const p = plans(ctx).find((x) => x.base === b.id);
     if (p) { const all = archives(ctx, b), k = keep(all.map((a) => a.at), p.garde, at); for (const a of all) if (!k.has(a.at)) rmSync(a.path, { force: true }); }
+    // 2e site : la sauvegarde est bonne même si la copie rate (alerte, et « Rattraper » la refera).
+    if (site(ctx)) {
+      try { e.copie = await copierAuSite(ctx, b, file); }
+      catch (err) { e.copieErreur = (err as Error).message; ctx.alert({ level: 'haute', title: `💾 ${b.nom} : copie au 2e site ratée`, detail: e.copieErreur, key: `skuld-site-${b.id}`, fix: { action: 'rattraper_site', label: 'Rattraper', input: {} } }); }
+    }
+    record(ctx, e);
     return e;
   } catch (err) { rmSync(tmp, { force: true }); const e: Entry = { at: at.toISOString(), base: b.id, ok: false, erreur: (err as Error).message, raison, ms: Date.now() - t0 }; record(ctx, e); return e; }
 }
@@ -61,14 +88,40 @@ const pick = (ctx: ModCtx, b: Base, q: string) => { const l = archives(ctx, b); 
 
 export const skuld: Module = {
   id: 'skuld', name: 'Arche', family: 'Données',
-  what: 'La sauvegarde de tes bases de données (comme Portabase) : plans, durée de garde, chaque sauvegarde relue, restauration avec ton accord.',
-  does: ['PostgreSQL (pg_dump, dans le conteneur pour une base hébergée par Odin), MySQL / MariaDB (mysqldump), MongoDB (mongodump)', 'plans : chaque heure, toutes les 6 h, chaque nuit, chaque semaine', 'durée de garde : jours, puis une par semaine, puis une par mois', 'chaque sauvegarde est relue (base rouverte ou archive listée)', 'restaurer dans une nouvelle base à côté (conseillé) ou par-dessus, toujours avec ton accord', 'sauvegarde automatique avant toute requête Alexandrie qui modifie une base', 'alerte si une sauvegarde échoue'],
+  what: 'La sauvegarde de tes bases de données (comme Portabase) : plans, durée de garde, chaque sauvegarde relue et copiée à un 2e site (vérifiée), restauration avec ton accord.',
+  does: ['PostgreSQL (pg_dump, dans le conteneur pour une base hébergée par Odin), MySQL / MariaDB (mysqldump), MongoDB (mongodump)', 'plans : chaque heure, toutes les 6 h, chaque nuit, chaque semaine', 'durée de garde : jours, puis une par semaine, puis une par mois', 'chaque sauvegarde est relue (base rouverte ou archive listée)', 'restaurer dans une nouvelle base à côté (conseillé) ou par-dessus, toujours avec ton accord', 'sauvegarde automatique avant toute requête Alexandrie qui modifie une base', 'copie de chaque sauvegarde à un 2e site (disque, partage réseau ou SFTP), relue et comparée (empreinte SHA-256), même durée de garde', 'alerte si une sauvegarde ou sa copie échoue'],
   from: ['Portabase'], upstream: ['Portabase/portabase'],
   words: ['sauvegarde de la base', 'sauvegarder la base', 'sauvegarde des bases', 'backup base', 'pg_dump', 'restaurer la base', 'portabase', 'skuld'],
   actions: [
     { id: 'sauvegarder', label: 'Sauvegarder maintenant', what: 'Sauvegarde une base tout de suite et relit la sauvegarde', params: [{ key: 'base', label: 'Base', kind: 'text', required: true }, { key: 'raison', label: 'Pourquoi', kind: 'text', default: 'à la main' }], words: ['sauvegarde la base', 'sauvegarde maintenant'], run: async (ctx, i) => {
       const b = findBase(ctx.home, s(i.base)), e = await backupNow(ctx, b, s(i.raison) || 'à la main');
-      return e.ok ? { text: `💾 ${b.nom} sauvegardée (${mo(e.taille!)}, ${e.verif}).` } : { text: `❌ Sauvegarde de ${b.nom} impossible : ${e.erreur}`, ok: false };
+      return e.ok ? { text: `💾 ${b.nom} sauvegardée (${mo(e.taille!)}, ${e.verif}).${e.copie ? ` 2e site : ${e.copie}.` : e.copieErreur ? ` ⚠ 2e site : ${e.copieErreur}` : ''}` } : { text: `❌ Sauvegarde de ${b.nom} impossible : ${e.erreur}`, ok: false };
+    } },
+    { id: 'second_site', label: '2e site', what: 'Où copier chaque sauvegarde en plus (disque, partage réseau ou serveur SFTP) ; l\'endroit est essayé tout de suite (écriture puis relecture). Tout vide : plus de 2e site', quick: false,
+      params: [{ key: 'genre', label: 'Genre', kind: 'select', options: ['disque', 'partage', 'sftp'], default: 'disque' }, { key: 'dossier', label: 'Dossier', kind: 'text', default: '', help: 'disque : chemin absolu ; partage : dossier dans le partage ; SFTP : dossier sur le serveur' }, { key: 'poste', label: 'Poste ou serveur (partage, SFTP)', kind: 'text', default: '', help: 'un poste du coffre des machines, ou sftp://compte@adresse' }, { key: 'partage', label: 'Nom du partage', kind: 'text', default: '' }],
+      run: async (ctx, i) => {
+        const d = lireDestination(i); if (!d) { ctx.saveSettings({ secondSite: undefined }); return { text: 'Plus de 2e site : les sauvegardes restent seulement sur la machine d\'Odin.' }; }
+        const essai = await essayer(transportDe(ctx.home, d)); ctx.saveSettings({ secondSite: d });
+        return { text: `🏝 2e site : ${decrire(d)} (${essai}). Chaque nouvelle sauvegarde y sera copiée et vérifiée ; « Rattraper » copie celles d'avant.` };
+      } },
+    { id: 'rattraper_site', label: 'Rattraper le 2e site', what: 'Copie au 2e site les sauvegardes gardées qui n\'y sont pas encore, chacune vérifiée', quick: false, run: async (ctx) => {
+      const d = site(ctx); if (!d) throw new Error('aucun 2e site réglé');
+      const t = transportDe(ctx.home, d), loin = await t.liste(), out: string[] = []; let n = 0;
+      for (const b of bases(ctx.home)) for (const a of archives(ctx, b)) {
+        if (loin.get(`${dossierBase(b)}/${a.f}`) === a.size) continue;
+        try { await copierAuSite(ctx, b, a.path, d); n++; } catch (e) { out.push(`✗ ${b.nom} ${a.at.slice(0, 16).replace('T', ' ')} : ${(e as Error).message}`); }
+      }
+      return { text: `${n ? `🏝 ${n} sauvegarde(s) copiée(s) et vérifiée(s) sur ${t.nom}.` : `Le 2e site (${t.nom}) avait déjà tout.`}${out.length ? `\n${out.join('\n')}` : ''}`, ok: !out.length };
+    } },
+    { id: 'verifier_site', label: 'Vérifier le 2e site', what: 'Relit chaque copie du 2e site et compare son empreinte à l\'original', read: true, quick: false, run: async (ctx) => {
+      const d = site(ctx); if (!d) return { text: 'Aucun 2e site réglé.', ok: false };
+      const t = transportDe(ctx.home, d), loin = await t.liste(), out: string[] = []; let ok = 0, manque = 0;
+      for (const b of bases(ctx.home)) for (const a of archives(ctx, b)) {
+        const rel = `${dossierBase(b)}/${a.f}`; if (!loin.has(rel)) { manque++; continue; }
+        if ((await t.empreinte(rel)) === await sha256Fichier(a.path)) ok++; else out.push(`✗ ${b.nom} ${a.at.slice(0, 16).replace('T', ' ')} : copie différente de l'original`);
+      }
+      if (out.length) ctx.alert({ level: 'critique', title: '2e site : des copies de sauvegarde sont abîmées', detail: out.slice(0, 5).join(' ; '), key: 'skuld-site-abime', fix: { action: 'rattraper_site', label: 'Recopier', input: {} } });
+      return { text: `${ok} copie(s) identiques à l'original sur ${t.nom}${manque ? `, ${manque} pas encore copiée(s) (« Rattraper »)` : ''}${out.length ? `\n${out.join('\n')}` : ''}.`, ok: !out.length };
     } },
     { id: 'plan', label: 'Planifier', what: 'Sauvegardes automatiques d\'une base et durée de garde', quick: false, params: [{ key: 'base', label: 'Base', kind: 'text', required: true }, { key: 'toutes', label: 'Quand', kind: 'select', options: ['nuit', 'heure', '6h', 'semaine'], default: 'nuit' }, { key: 'heure', label: 'Heure (nuit, semaine)', kind: 'number', default: 3 }, { key: 'jours', label: 'Garder tout pendant (jours)', kind: 'number', default: 7 }, { key: 'semaines', label: 'Puis une par semaine (semaines)', kind: 'number', default: 4 }, { key: 'mois', label: 'Puis une par mois (mois)', kind: 'number', default: 6 }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => {
       const b = findBase(ctx.home, s(i.base)), toutes = (['heure', '6h', 'nuit', 'semaine'].includes(s(i.toutes)) ? s(i.toutes) : 'nuit') as Every, n = (v: unknown, d: number, max: number) => { const x = v === undefined || v === '' ? d : Math.floor(Number(v)); return Number.isFinite(x) ? Math.min(max, Math.max(0, x)) : d; };
@@ -96,7 +149,10 @@ export const skuld: Module = {
       { kind: 'cards', title: 'Bases suivies', items: l.map((b) => { const p = ps.find((x) => x.base === b.id), e = last(b.id), arch = archives(ctx, b); return { title: b.nom, sub: `${({ postgres: 'PostgreSQL', sqlite: 'SQLite', mysql: 'MySQL / MariaDB', mongodb: 'MongoDB' })[b.type]} · ${p ? (p.actif ? `${when(p.toutes, p.heure)} · garde ${p.garde.jours} j · ${p.garde.semaines} sem. · ${p.garde.mois} mois` : 'plan en pause') : 'pas de plan'}`, badge: e ? (e.ok ? `ok · ${e.at.slice(5, 16).replace('T', ' ')}` : 'échec') : 'jamais', tone: e ? (e.ok ? 'bon' as const : 'mauvais' as const) : 'attention' as const, meta: `${arch.length} sauvegarde${arch.length > 1 ? 's' : ''} · ${mo(arch.reduce((n, a) => n + a.size, 0))}`, actions: [{ action: 'sauvegarder', label: 'Sauvegarder', input: { base: b.id } }, ...(arch.length ? [{ action: 'restaurer', label: 'Restaurer', input: { base: b.id, ou: 'nouvelle base' } }] : []), ...(p ? [] : [{ action: 'plan', label: 'Chaque nuit', input: { base: b.id, toutes: 'nuit' } }])] }; }), empty: 'Aucune base : ajoute-les dans Alexandrie (créer ou relier).' },
       { kind: 'table', title: 'Historique', columns: ['Quand', 'Base', 'État', 'Taille', 'Détail'], rows: h.slice(0, 20).map((e) => ({ cells: [e.at.slice(0, 16).replace('T', ' '), l.find((b) => b.id === e.base)?.nom ?? e.base, e.ok ? 'ok' : 'échec', e.taille ? mo(e.taille) : '—', e.ok ? `${e.verif ?? e.raison ?? ''}` : e.erreur ?? ''], tone: e.ok ? undefined : 'mauvais' as const })), empty: 'Aucune sauvegarde pour l\'instant.' },
     ];
-    return { subtitle: 'Sauvegarde des bases de données', kpis: [{ label: 'Bases', value: String(l.length) }, { label: 'Avec un plan', value: String(ps.filter((p) => p.actif).length) }, { label: 'En échec', value: String(fails), tone: fails ? 'mauvais' : 'bon' }], sections };
+    const d = site(ctx), derniere = h.find((e) => e.ok && (e.copie || e.copieErreur));
+    sections.push({ kind: 'form', title: d ? `2e site : ${decrire(d)}` : '2e site (copie de chaque sauvegarde ailleurs)', action: 'second_site', submit: d ? 'Changer' : 'Régler', params: skuld.actions.find((a) => a.id === 'second_site')?.params ?? [], aide: 'Disque (USB, NAS monté), partage réseau ou serveur SFTP : chaque sauvegarde y est copiée puis relue (empreinte comparée).' });
+    if (d) sections.push({ kind: 'actions', title: '2e site', boutons: [{ action: 'rattraper_site', label: 'Rattraper', primary: true }, { action: 'verifier_site', label: 'Vérifier les copies' }], aide: derniere ? (derniere.copie ? `Dernière copie : ${derniere.at.slice(0, 16).replace('T', ' ')}, ${derniere.copie}.` : `Dernière copie ratée : ${derniere.copieErreur}`) : 'Aucune copie pour l\'instant.' });
+    return { subtitle: 'Sauvegarde des bases de données', kpis: [{ label: 'Bases', value: String(l.length) }, { label: 'Avec un plan', value: String(ps.filter((p) => p.actif).length) }, { label: 'En échec', value: String(fails), tone: fails ? 'mauvais' : 'bon' }, { label: '2e site', value: d ? (derniere?.copieErreur ? 'en échec' : 'copie vérifiée') : 'aucun', tone: !d ? 'attention' : derniere?.copieErreur ? 'mauvais' : 'bon' }], sections };
   },
   watch: { every: 60, async run(ctx) {
     const now = ctx.now(), h = history(ctx, 2000);
