@@ -8,6 +8,7 @@
 // Aucune dépendance : fetch + FormData de Node.
 
 import { applyMots, mots, prompt } from './mots.ts';
+import { garderAudio } from './audio-brut.ts';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -161,7 +162,9 @@ export async function hear(audio: Uint8Array | { file: string }, mime: string, v
   if (bytes && bytes.byteLength === 0) throw new Error('enregistrement vide');
   const big = 'file' in audio || (bytes?.byteLength ?? 0) > 24 * 1024 * 1024;
   // Tes mots (Écho) : soufflés à Whisper, puis corrigés après — pour la dictée comme pour tout ce que tu dis à Odin.
-  const words = mots(), fix = (h: Heard): Heard => (words.length ? { ...h, text: applyMots(h.text, words), segments: h.segments?.map((x) => ({ ...x, text: applyMots(x.text, words) })) } : h);
+  // L'audio brut n'est gardé que si « Garder l'audio brut » est coché (jamais en mode privé) : voir audio-brut.ts.
+  const keep = (h: Heard): Heard => { if (bytes) { try { garderAudio(v.privacy, bytes, mime, { texte: h.text }); } catch { /* disque plein : la réponse passe avant */ } } return h; };
+  const words = mots(), fix = (h: Heard): Heard => keep(words.length ? { ...h, text: applyMots(h.text, words), segments: h.segments?.map((x) => ({ ...x, text: applyMots(x.text, words) })) } : h);
   const local = (a: typeof audio) => hearLocal(a, v.stt.language || 'auto', undefined, big ? 3 * 3600_000 : 300_000, prompt(words)).then(fix).then(remember);
   if (remoteStt(v, env) && !big) {
     try { return remember(fix(await hearRemote(bytes!, mime, v, signal, env, prompt(words)))); } catch (e) {
