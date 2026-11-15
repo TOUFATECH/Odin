@@ -363,7 +363,7 @@ const MOODS_FR = {
   gene: ['Gêné', OWN], fatigue: ['Fatigué', 'la nuit, ou après trois minutes sans rien'], ecoute: ['Écoute', 'tu écris, tu parles, ou une demande attend ton accord'], regarde: ['Regarde', 'il lit une page ou une image'],
   parle: ['Parle', OWN], cache: ['Se cache les yeux', 'tu tapes un mot de passe'],
 };
-const moodName = (m) => (MOODS_FR[m] || [m])[0];
+const moodName = (m) => (MOODS_FR[m] || [window.OdinFace?.MOODS?.[m]?.nom || m])[0]; // les nouvelles émotions prennent leur nom dans la palette du visage
 let baseMood = 'neutre';
 function moodBase(m, withSound) { if (withSound && m !== baseMood) F?.sound(m); baseMood = m; for (const b of faces()) F?.base(b, m); }
 function moodFlash(m, ms = 2000) { for (const b of faces()) F?.flash(b, m, ms); }

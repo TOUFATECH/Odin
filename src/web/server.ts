@@ -160,6 +160,8 @@ const RUNES_JS = (() => { try { return readFileSync(new URL('./runes.js', import
 const APP_ICONS_JS = (() => { try { return readFileSync(new URL('./app-icons.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const VALHALLA_JS = (() => { try { return readFileSync(new URL('./valhalla.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const COMPANION_JS = (() => { try { return readFileSync(new URL('./companion.js', import.meta.url)); } catch { return Buffer.from(''); } })();
+/** La vie intérieure d'Odin (besoins, caractère du jour, émotions, comportements) : chargée juste avant companion.js. */
+const VIE_JS = (() => { try { return readFileSync(new URL('./vie.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const THEMES_JS = (() => { try { return readFileSync(new URL('./themes.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const NOTICES_JS = (() => { try { return readFileSync(new URL('./notices.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const MASCOTTE_JS = (() => { try { return readFileSync(new URL('./mascotte.js', import.meta.url)); } catch { return Buffer.from(''); } })();
@@ -679,6 +681,7 @@ export class WebChannel implements Channel {
     if (url.pathname === '/ciel.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(CIEL_JS); }
     if (url.pathname === '/mascotte.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(MASCOTTE_JS); }
     if (url.pathname === '/notices.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(NOTICES_JS); }
+    if (url.pathname === '/vie.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(VIE_JS); }
     if (url.pathname === '/companion.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(COMPANION_JS); }
     if (url.pathname === '/packets.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(PACKETS_JS); }
     if (url.pathname === '/dialog.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); return void res.end(DIALOG_JS); }

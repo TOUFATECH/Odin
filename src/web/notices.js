@@ -152,8 +152,11 @@
       let bx = a ? a.r.right + 10 - w : innerWidth - w - m, by = a ? a.r.top - h - 2 : innerHeight - h - 90;
       if (a && by < m) by = a.r.bottom + 2;
       bx = Math.min(Math.max(m, bx), innerWidth - w - m); by = Math.min(Math.max(m, by), innerHeight - h - m);
+      // Elle ne suit Odin image par image que tant qu'il bouge : 3 images sans changement, et la boucle s'arrête (follow() la relance).
+      const pose = `${Math.round(bx)},${Math.round(by)}`; calme = pose === posee ? calme + 1 : 0; posee = pose;
       box.style.left = `${Math.round(bx)}px`; box.style.top = `${Math.round(by)}px`;
-      raf = requestAnimationFrame(placeBubble); return;
+      if (calme < 3) raf = requestAnimationFrame(placeBubble);
+      return;
     }
     let x, y, below = false, cx;
     if (a) {
@@ -166,7 +169,8 @@
     } else { x = innerWidth - w - m; y = innerHeight - h - 90; cx = x + w - 40; }
     // Ni au-dessus ni au-dessous d'Odin il n'y a la place : elle reste dans l'écran (sa pointe se cache, elle ne touche plus Odin).
     const cale = y + h > innerHeight - m || y < m;
-    if (cale) y = Math.max(m, innerHeight - h - m);
+    // Elle se met alors à côté de lui (à gauche, sinon à droite) s'il y a la largeur : il n'est pas caché derrière sa propre fenêtre.
+    if (cale) { y = Math.max(m, innerHeight - h - m); if (a) { const g = a.r.left - w - 12, d = a.r.right + 12; if (g >= m) x = g; else if (d + w <= innerWidth - m) x = d; } }
     tl.style.display = cale ? 'none' : '';
     box.style.transform = '';
     box.style.left = `${Math.round(x)}px`; box.style.top = `${Math.round(y)}px`;
@@ -174,7 +178,14 @@
     tl.style.left = `${Math.round(tx)}px`; tl.style.top = below ? '-6px' : ''; tl.style.bottom = below ? '' : '-6px';
     raf = requestAnimationFrame(placeBubble);
   }
-  function follow() { if (!raf) raf = requestAnimationFrame(placeBubble); }
+  let calme = 0, posee = '';
+  function follow() { calme = 0; if (!raf) raf = requestAnimationFrame(placeBubble); }
+  // La boucle de placement reprend quand Odin bouge (il prévient : OdinNotices.suivre), quand une mascotte commence à glisser,
+  // quand la page défile ou change de taille ; et deux fois par seconde par sécurité, tant que la pastille ou la petite fenêtre est là.
+  document.addEventListener('transitionrun', (e) => { if (e.target instanceof Element && e.target.classList.contains('odin')) follow(); }, true);
+  addEventListener('resize', follow, { passive: true });
+  document.addEventListener('scroll', follow, { passive: true, capture: true });
+  setInterval(() => { if (bubble && (!bubble.hidden || !talk.hidden)) follow(); }, 500);
 
   function build() {
     if (bubble) return;
@@ -398,7 +409,7 @@
       saveLues(); badge(true); setAlarm(unread().some((x) => x.level === 'grave'));
     } catch { /* pas connecté : rien */ }
   }
-  window.OdinNotices = { boot, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice(), unread: () => unread().length };
+  window.OdinNotices = { boot, suivre: follow, push: (n) => show(n), open, hide, talk: () => talkTo(null), closeTalk: () => closeTalk(true), reply, local: (n) => show({ id: `l${Date.now()}`, at: new Date().toISOString(), steps: [], actions: [], app: 'Odin', kind: n.kind ?? 'Un souci', level: 'souci', ...n }), list: () => history.slice(), unread: () => unread().length };
   addEventListener('resize', follow);
   const start = () => setTimeout(boot, 1200);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();

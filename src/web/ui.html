@@ -1842,11 +1842,11 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   const MOOD_LABEL = { neutre: 'tranquille', joie: 'content', rire: 'rieur', amour: 'attendri', fierte: 'fier', excite: 'enthousiaste', clin: 'complice', malice: 'malicieux', surprise: 'surpris', reflexion: 'pensif', concentration: 'concentré', confus: 'perplexe', inquiet: 'inquiet', triste: 'triste', colere: 'fâché', peur: 'effrayé', gene: 'gêné', fatigue: 'fatigué', ecoute: 'à l\'écoute', regarde: 'attentif', parle: 'parle', cache: 'ne regarde pas' };
   const buddies = () => ['#buddy', '#buddyM', '#buddyChat', '#buddyRoam', '#login .odin'].map((q) => document.querySelector(q)).filter(Boolean);
   let baseMood = 'neutre', held = 0, lastAct = Date.now();
-  const label = (m) => { const t = document.querySelector('#buddyTxt'); if (t) t.textContent = MOOD_LABEL[m] || m; };
+  const label = (m) => { const t = document.querySelector('#buddyTxt'); if (t) t.textContent = window.OdinFace?.MOODS?.[m]?.nom || MOOD_LABEL[m] || m; };
   function moodBase(m, withSound) { if (withSound && m !== baseMood) window.OdinFace?.sound(m); baseMood = m; if (!held) { buddies().forEach((b) => window.OdinFace?.base(b, m)); label(m); } }
   function moodFlash(m, ms = 2000) { if (held) return; buddies().forEach((b) => window.OdinFace?.flash(b, m, ms)); label(m); clearTimeout(moodFlash._t); moodFlash._t = setTimeout(() => { if (!held) label(baseMood); }, ms); }
-  function moodHold(m) { held++; buddies().forEach((b) => { clearTimeout(b._flash); b._flash = null; b._base = null; window.OdinFace?.set(b, m); }); label(m); }
-  function moodRelease() { held = Math.max(0, held - 1); if (!held) { buddies().forEach((b) => window.OdinFace?.set(b, baseMood)); label(baseMood); } }
+  function moodHold(m) { if (!held) moodHold._avant = baseMood; held++; buddies().forEach((b) => { clearTimeout(b._flash); b._flash = null; b._base = null; window.OdinFace?.set(b, m); }); label(m); }
+  function moodRelease() { held = Math.max(0, held - 1); if (!held) { const neuf = baseMood !== moodHold._avant; buddies().forEach((b) => { window.OdinFace?.set(b, baseMood); if (neuf) window.OdinFace?.base(b, baseMood); }); label(baseMood); } } // une humeur arrivée pendant la tenue (réponse reçue pendant que tu écrivais) est montrée à la fin
   function moodFromEvent(e) {
     if (e.type === 'tool_start') moodFlash(/vision|image|photo|web|fetch|scan|net|look|camera/i.test(e.name) ? 'regarde' : 'concentration', 1600);
     else if (e.type === 'tool_end' && !e.ok) moodFlash('confus', 1800);
@@ -1870,7 +1870,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   document.addEventListener('focusin', (e) => { if (e.target instanceof HTMLInputElement && e.target.type === 'password') { moodHold('cache'); e.target._held = true; } });
   document.addEventListener('focusout', (e) => { if (e.target instanceof HTMLInputElement && e.target._held) { e.target._held = false; moodRelease(); } });
   document.addEventListener('change', (e) => { const t = e.target; if (t instanceof HTMLInputElement && t.type === 'checkbox') moodFlash(t.checked ? 'joie' : 'neutre', 1400); });
-  document.addEventListener('click', (e) => { const b = e.target.closest?.('button'); if (b && /breaker/i.test(b.textContent + (b.dataset.autonomy || ''))) moodFlash('excite', 3000); else if (b && b.dataset.view) moodFlash(b.dataset.view === 'settings' ? 'concentration' : b.dataset.view === 'net' ? 'regarde' : 'joie', 1300); });
+  document.addEventListener('click', (e) => { const b = e.target.closest?.('button'); if (b && /breaker/i.test(b.textContent + (b.dataset.autonomy || ''))) moodFlash('excite', 3000); else if (b && b.dataset.view) moodFlash(b.dataset.view === 'settings' ? 'concentration' : 'regarde', 1300); });
   // Vie autonome : il s'endort quand on l'oublie, se réveille dès qu'on revient, et vit un peu tout seul.
   for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { const was = Date.now() - lastAct > 180000; lastAct = Date.now(); if (was && baseMood === 'fatigue') moodBase('surprise'); }, { passive: true });
   // Humeur de fond choisie par la mascotte elle-même selon la situation (sauf si Odin vient d'en choisir une).
@@ -1895,8 +1895,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   setInterval(() => {
     if (held || document.hidden) return;
     const cm = contextMood(); if (cm && cm !== baseMood && Date.now() - lastAct <= 180000) moodBase(cm);
-    if (Date.now() - lastAct > 180000) { if (baseMood !== 'fatigue') moodBase('fatigue'); return; }
-    if (Math.random() < 0.35) moodFlash(['regarde', 'reflexion', 'clin', 'joie', 'malice'][Math.floor(Math.random() * 5)], 2200);
+    // Plus d'humeur tirée au sort : ce qu'il montre a une raison. Avec le moteur de vie (vie.js), c'est lui qui connaît sa fatigue.
+    if (Date.now() - lastAct > 180000) { if (baseMood !== 'fatigue' && !window.OdinVie?.actif) moodBase('fatigue'); return; }
   }, 20000);
   const el = (tag, attrs = {}, ...kids) => {
     const n = document.createElement(tag);
@@ -1916,8 +1916,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     // Odin en liberté : ses clics rapides sont comptés par mascotte.js (4 = Alchimie), il ne se fâche pas.
     if (f._taps.length >= 4 && !f.classList.contains('roam')) { f._taps = []; f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('angry'); window.OdinFace?.sound('angry'); window.OdinFace?.flash(f, 'colere', 3000); setTimeout(() => f.classList.remove('angry'), 3050); return; }
     f.classList.remove('bounce'); void f.offsetWidth; f.classList.add('bounce'); setTimeout(() => f.classList.remove('bounce'), 950);
+    // Odin en liberté répond lui-même à l'appel (« oui ? », vie.js) ; les autres : content au 1er toucher, complice au 2e, surpris au 3e (jamais au hasard).
+    if (f.classList.contains('roam') && window.OdinVie?.actif) return;
     window.OdinFace?.sound('bounce');
-    window.OdinFace?.flash(f, ['joie', 'rire', 'clin', 'surprise', 'amour', 'excite'][Math.floor(Math.random() * 6)], 2200);
+    window.OdinFace?.flash(f, ['joie', 'clin', 'surprise'][Math.min(f._taps.length, 3) - 1], 2200);
   });
   if (!AUTHED) {
     $('#login').hidden = false;
@@ -4168,7 +4170,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       });
       return;
     }
-    moodFlash(['joie', 'clin', 'excite'][Math.floor(Math.random() * 3)], 2000);
+    moodFlash(acts.length ? 'clin' : 'joie', 2000); // complice quand il propose quelque chose, content sinon
     say(line.filter(Boolean).join(' ') || 'Une idée :', acts.slice(0, 4), 20000);
   }
   // ---------- Odin se déplace dans toute la discussion ----------
@@ -4176,7 +4178,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   // saute de joie ou de déception selon ce qu'il dit, avance, penche la tête, tourne sur lui-même.
   const reduceMove = matchMedia('(prefers-reduced-motion:reduce)');
   let away = false, moveT = 0;
-  function homeRect() { const r = bud.getBoundingClientRect(); const rx = parseFloat(bud.style.getPropertyValue('--rx')) || 0, ry = parseFloat(bud.style.getPropertyValue('--ry')) || 0; return { x: r.left - rx, y: r.top - ry, w: r.width, h: r.height }; }
+  // Sa place de repos se lit sur le déplacement en cours (pas sur sa cible) : pendant un trajet, la cible faussait le calcul à chaque frappe et il sortait de l'écran.
+  function homeRect() { const r = bud.getBoundingClientRect(), t = getComputedStyle(bud).translate.split(' ').map(parseFloat); const rx = (Number.isFinite(t[0]) ? t[0] : 0) - (parseFloat(bud.style.getPropertyValue('--dx')) || 0), ry = (Number.isFinite(t[1]) ? t[1] : 0) - (parseFloat(bud.style.getPropertyValue('--dy')) || 0); return { x: r.left - rx, y: r.top - ry, w: r.width, h: r.height }; }
   // Aller vers un point de l'écran (centre d'Odin), en restant dans la discussion.
   function goTo(cx, cy, how = 'walk') {
     if (!thread || drag) return;
@@ -4222,10 +4225,10 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       const question = /\?\s*$/.test(text.trim().split('\n').filter(Boolean).at(-1) || '');
       setTimeout(() => {
         if (sad) { window.OdinFace?.flash(bud, 'triste', 2200); act('act-sad', 1500); }
-        else if (happy) { window.OdinFace?.flash(bud, 'joie', 2200); act(Math.random() < .5 ? 'act-joy' : 'act-spin', 1100); }
+        else if (happy) { window.OdinFace?.flash(bud, 'joie', 2200); act(/parfait|réussi|✓/.test(s) ? 'act-spin' : 'act-joy', 1100); }
         else if (question) { window.OdinFace?.flash(bud, 'reflexion', 2000); act('act-tilt', 1700); }
         else if (text.length > 700) { act('act-advance', 1200); goTo(r.left + 60, sitY, 'walk'); }
-        else act(Math.random() < .3 ? 'act-wobble' : 'act-tilt', 1600);
+        else act(text.length < 80 ? 'act-wobble' : 'act-tilt', 1600);
       }, 900);
       setTimeout(() => { lookFree(); if (document.activeElement !== $('#input')) goHome(); }, 7000);
     }, 800);
@@ -4244,16 +4247,17 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
   setInterval(() => {
     const A = ASSIST(); if (!$('#v-chat').classList.contains('on') || busy || !tip.hidden || drag) return;
     const idle = Date.now() - idleSince;
-    if (A.roam && idle > 20_000 && Math.random() < .4 && thread) {
-      const tr = thread.getBoundingClientRect(), roll = Math.random();
+    // Avec le moteur de vie (vie.js), c'est lui qui décide de ses gestes ici. Sans lui : un tour sur trois, à tour de rôle (plus rien au hasard).
+    if (A.roam && !window.OdinVie?.actif && idle > 20_000 && thread && (bud._tour = (bud._tour || 0) + 1) % 3 === 0) {
+      const tr = thread.getBoundingClientRect(), roll = ((bud._tour / 3) % 6) / 6 + .05;
       // Promenade dans la marge libre à droite des messages seulement (il ne cache jamais une réponse).
       const edge = Math.max(0, ...[...msgs.querySelectorAll('.msg')].map((m) => m.getBoundingClientRect()).filter((m) => m.bottom > tr.top && m.top < tr.bottom).map((m) => m.right)), free = tr.right - Math.max(edge, tr.left) - 100;
-      if (roll < .45 && free > 40) { goTo(Math.max(edge, tr.left) + 60 + Math.random() * free, tr.top + 110 + Math.random() * (tr.height - 260), 'walk'); window.OdinFace?.flash(bud, ['regarde', 'malice', 'joie'][Math.floor(Math.random() * 3)], 2400); }
+      if (roll < .45 && free > 40) { goTo(Math.max(edge, tr.left) + 60 + free * ((bud._tour % 7) / 7), tr.top + 110 + (tr.height - 260) * ((bud._tour % 5) / 5), 'walk'); window.OdinFace?.flash(bud, 'regarde', 2400); }
       else if (roll < .6) act('act-spin', 950);
       else if (roll < .75) { const last = [...msgs.querySelectorAll('.msg.assistant')].at(-1); if (last) { const r = last.getBoundingClientRect(), side = tr.right - r.right > 84; goTo(side ? r.right + 40 : Math.min(r.right - 30, tr.right - 50), side ? Math.max(r.top + 26, tr.top + 90) : Math.max(r.top - 22, tr.top + 90), 'hopto'); setTimeout(() => act('act-sit', 3000), 800); } }
       else if (roll < .85) act('act-advance', 1200);
       else goHome();
-      setTimeout(() => { if (Date.now() - idleSince > 20_000 && Math.random() < .5) goHome(); }, 6000 + Math.random() * 3000);
+      setTimeout(() => { if (Date.now() - idleSince > 20_000) goHome(); }, 7500);
     }
     // Conseil spontané : après 90 s sans rien faire, au plus une fois toutes les 10 minutes ; le moteur de parole
     // choisit ce qui est neuf et utile (alertes, mémoire, conseils jamais donnés) ou se tait. Plus de tirage au hasard.
@@ -4983,6 +4987,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 <script nonce="__NONCE__" src="/app-icons.js"></script>
 <script nonce="__NONCE__" src="/valhalla.js"></script>
 <script nonce="__NONCE__" src="/fenetre.js"></script>
+<script nonce="__NONCE__" src="/vie.js"></script>
 <script nonce="__NONCE__" src="/companion.js"></script>
 <script nonce="__NONCE__" src="/notices.js"></script>
 <script nonce="__NONCE__" src="/mascotte.js"></script>

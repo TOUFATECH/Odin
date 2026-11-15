@@ -4,7 +4,7 @@
 
 import { postNotice } from '../valhalla/notices.ts';
 import { vendorOf } from '../hlidskjalf/vendors.ts';
-import { MOODS, moodSticker } from '../mood/stickers.ts';
+import { MOODS, cleAutocollant, moodSticker } from '../mood/stickers.ts';
 import { MOOD_EMOJI, type Mood } from '../mood/mood.ts';
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -404,13 +404,14 @@ export class Gateway {
       });
       // Habitudes : on retient ce que le propriétaire demande, et quand (jamais le contenu des réponses).
       if (owner && r.stopReason === 'done') { try { recordAsk(this.odin.muninn, m.text, used); } catch { /* pas bloquant */ } }
-      // Son visage : l'autocollant de son humeur (ses yeux) quand elle change.
+      // Son visage : l'autocollant de son humeur (ses yeux) quand elle change. Deux émotions du même socle
+      // (colère puis rage) ont le même autocollant : il n'est pas renvoyé.
       const mood = r.mood && MOODS[r.mood] ? r.mood : undefined;
-      if (mood && ch.sendSticker && this.odin.cfg.mood.stickers && this.lastMood.get(sessionId) !== mood) {
+      if (mood && ch.sendSticker && this.odin.cfg.mood.stickers && this.lastMood.get(sessionId) !== (cleAutocollant(mood) ?? mood)) {
         const webp = moodSticker(mood);
         if (webp) await ch.sendSticker(m.peer, webp).catch((e) => console.error('[humeur]', (e as Error).message));
       }
-      if (mood) this.lastMood.set(sessionId, mood);
+      if (mood) this.lastMood.set(sessionId, cleAutocollant(mood) ?? mood);
       // Sa réaction : un émoji à la fin du texte (même taille que le texte), sur Telegram.
       // Sur Telegram, le canal ajoute son visage (émoji personnalisé, ou l'émoji classique) à la fin.
       // Quelle IA a traité la demande : discret dans l'application, sur demande ailleurs (/ia).

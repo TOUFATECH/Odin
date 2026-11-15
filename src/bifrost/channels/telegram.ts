@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { buttonText, buttonsFor, type Channel, chunk, type Inbound } from '../channel.ts';
 import type { AgentEvent } from '../../types.ts';
-import { isMood, MOOD_EMOJI, MOOD_IDS, stripMood, type Mood } from '../../mood/mood.ts';
+import { isMood, MOOD_EMOJI, MOOD_IDS, socle, stripMood, type Mood } from '../../mood/mood.ts';
 import { audioKind } from '../../voice/voice.ts';
 
 export interface TelegramOptions {
@@ -407,7 +407,9 @@ export class TelegramChannel implements Channel {
     const parts = chunk(text);
     for (const [k, part] of parts.entries()) {
       const last = k === parts.length - 1;
-      const face = last && mood ? (this.faces[mood] && Date.now() > this.facesOff ? ` <tg-emoji emoji-id="${this.faces[mood]}">${MOOD_EMOJI[mood]}</tg-emoji>` : ` ${MOOD_EMOJI[mood]}`) : '';
+      // Son visage personnalisé : celui de l'humeur, sinon celui de son socle ; l'icône écrite en clair reste la sienne.
+      const visage = mood ? this.faces[mood] ?? this.faces[socle(mood)] : undefined;
+      const face = last && mood ? (visage && Date.now() > this.facesOff ? ` <tg-emoji emoji-id="${visage}">${MOOD_EMOJI[mood]}</tg-emoji>` : ` ${MOOD_EMOJI[mood]}`) : '';
       const html = (f: string) => this.call('sendMessage', { chat_id: peer, text: tgHtml(part) + f, parse_mode: 'HTML', link_preview_options: { is_disabled: true } }).catch(() => ({ ok: false, description: 'réseau' })) as Promise<{ ok: boolean; description?: string; parameters?: { retry_after?: number } }>;
       let r = await html(face);
       // Telegram demande d'attendre (trop de messages d'un coup), ou le réseau a hoqueté : on réessaie la version mise en forme.

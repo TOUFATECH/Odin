@@ -8,7 +8,7 @@
   const api = async (action, input = {}) => { const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'apparence', action, input }) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };
   const save = async (patch) => { await api('regler_mascotte', { reglages: JSON.stringify(patch) }); await window.OdinThemes?.sync?.(); };
   const NS = 'http://www.w3.org/2000/svg';
-  { const st = document.createElement('style'); st.textContent = 'html.odin-hidden .odin.roam,html.odin-hidden .pet,html.odin-hidden #odinEgg,html.odin-hidden #odinTaps{display:none!important}.odin.ev-dark-eyes .eye{fill:#2a2f3a}.odin .odin-acc{pointer-events:none}'; document.head.append(st); }
+  { const st = document.createElement('style'); st.textContent = 'html.odin-hidden .odin.roam,html.odin-hidden .pet,html.odin-hidden #odinEgg,html.odin-hidden #odinTaps{display:none!important}.odin.ev-dark-eyes .eye:not(.plein){fill:#2a2f3a}.odin .odin-acc{pointer-events:none}'; document.head.append(st); }
   let D = null; // le dernier état d'Odin (thème, événement, clics, événements)
   try { D = JSON.parse(localStorage.getItem('odin.mascotte') || 'null'); } catch { /* */ }
   const bud = () => document.getElementById('buddyRoam') || document.querySelector('.pet');
@@ -27,13 +27,16 @@
     note: '<path d="M96 2 v18 a5 4 0 1 1 -3 -3.5 V6 l12 -3 v4Z" fill="#9aa8ff"/>',
     oeuf: '', // Pâques : Odin devient en chocolat (voir CHOC plus bas), pas d'objet sur la tête
   };
+  /** Une couleur sombre ? (des yeux sombres ne vont que sur un corps clair : la fête du travail demande des yeux blancs sur un corps sombre) */
+  const sombre = (hex) => { const m = /^#([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return false; const n = parseInt(m[1], 16); return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) < 128; };
   function dress() {
     const ev = D?.event, acc = ev?.accessory && ACC[ev.accessory] !== undefined ? ACC[ev.accessory] : '';
     for (const o of document.querySelectorAll('.odin')) {
       const svg = o.querySelector('svg'); if (!svg) continue;
       let g = svg.querySelector(':scope > g.odin-acc');
       if (!acc) { g?.remove(); } else { if (!g) { g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'odin-acc'); svg.append(g); } if (g.dataset.k !== ev.accessory) { g.innerHTML = acc; g.dataset.k = ev.accessory; } }
-      o.classList.toggle('ev-dark-eyes', Boolean(ev?.eyes));
+      // Les yeux sombres seulement si la fête les demande sombres (sur un visage dessiné, c'est le visage lui-même qui choisit son encre selon la couleur du corps).
+      o.classList.toggle('ev-dark-eyes', sombre(ev?.eyes));
       choc(svg, ev?.accessory === 'oeuf');
     }
     egg(ev?.accessory === 'oeuf');
@@ -205,7 +208,16 @@
     const now = Date.now(); taps = taps.length && now - taps[taps.length - 1] < 1200 ? [...taps, now] : [now];
     const n = taps.length; clearTimeout(tapT);
     if (n === 1) (talk || window.OdinNotices?.talk)?.();
-    else { if (n === 2) window.OdinNotices?.closeTalk?.(); window.OdinFace?.flash(b, n >= 8 ? 'surprise' : 'joie', 900); window.OdinCompanion?.act?.('act-tilt', 500); }
+    else {
+      if (n === 2) window.OdinNotices?.closeTalk?.();
+      // Plus tu touches vite et longtemps, plus il s'étonne : curieux (2 et 3), intéressé (4 à 7), étonné (8 à 11), stupéfait (12 et plus).
+      // Le visage arbitre (ressent) ; avec un ancien visage, un éclat de l'humeur d'origine la plus proche.
+      const [id, repli] = n >= 12 ? ['stupeur', 'surprise'] : n >= 8 ? ['etonnement', 'surprise'] : n >= 4 ? ['interet', 'regarde'] : ['curiosite', 'regarde'];
+      // C'est toi qui le touches : son étonnement passe devant ce qu'il montrait (l'écoute de l'appel est lâchée, l'émotion passe même sur une autre toute fraîche).
+      const F = window.OdinFace;
+      if (typeof F?.ressent === 'function') { F.lacher?.(b, 'appel'); F.ressent(b, id, { ms: 900, force: true, sansHabitude: true, source: 'clics' }); } else F?.flash(b, repli, 900);
+      window.OdinCompanion?.act?.('act-tilt', 500);
+    }
     showBadge(n);
     tapT = setTimeout(() => {
       if (badge) badge.hidden = true; taps = [];

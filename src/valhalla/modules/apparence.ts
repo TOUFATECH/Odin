@@ -12,7 +12,7 @@
 import type { ModCtx, Module } from '../types.ts';
 import { CLICK_CATALOG, cleanClicks2 } from '../clics.ts';
 import { EVENTS, EVENT_BY_ID, todayEvent, upcoming, ymd, type EventsCfg } from '../fetes.ts';
-import { currentMood } from '../../mood/mood.ts';
+import { currentMood, humeurVive, socle } from '../../mood/mood.ts';
 import { lieuCourant } from '../lieu.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
@@ -60,7 +60,7 @@ export function autoTheme(hour: number, w?: Wx, humeur = 'neutre'): { id: string
   if (w?.wind !== undefined && w.wind >= 50) return { id: 'ocean', why: `grand vent (${w.wind} km/h)${at}` };
   if (t !== undefined) { const b = TEMPERATURES.find((x) => t <= x.max); if (b?.id) return { id: b.id, why: `il fait ${t}°${at}` }; }
   const h = hour < 3 ? hour + 24 : hour, m = MOMENTS.find((x) => h >= x.from && h < x.to) ?? MOMENTS[1];
-  const i = JOYEUX.has(humeur) ? 1 : DOUX.has(humeur) ? 2 : 0;
+  const i = JOYEUX.has(socle(humeur)) ? 1 : DOUX.has(socle(humeur)) ? 2 : 0; // une émotion de la palette compte comme son socle
   return { id: m.ids[i], why: `${m.why}${i ? `, Odin est ${i === 1 ? 'joyeux' : 'd\'humeur douce'}` : ''}` };
 }
 /** Ce que font les clics rapides sur Odin (maquette validée) ; chaque nombre se règle. */
@@ -131,7 +131,7 @@ export const apparence: Module = (() => {
         const n = await now(ctx), tz = fuseauDe(ctx, n.wx ?? await meteo(ctx)), day = ymd(ctx.now(), tz), ev = selonLePays(cleanEvents(ctx.settings.evenements)), m = (ctx.settings.mascotte ?? {}) as { cache?: boolean; clics?: unknown; clics2?: unknown; clicsOn?: boolean };
         // Odin prend la couleur du thème affiché : plus de couleur à part selon la météo (décision du 15/11/2026).
         const event = todayEvent(day, ev);
-        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev };
+        const data = { mode: n.mode, theme: n.theme, why: n.why, event, day, cache: m.cache === true, clics: cleanClicks2(m.clics2), clicsOn: m.clicsOn !== false, clicsCatalogue: CLICK_CATALOG, evenements: ev, humeur: humeurVive(ctx.now().getTime()), maintenant: ctx.now().getTime() };
         return { text: `🎨 ${THEME_NAMES[n.theme]}${event ? ` · ${event.name}` : ''}${data.cache ? ' · Odin caché' : ''}`, data };
       } },
       { id: 'regler_mascotte', label: 'Régler Odin (clics, événements)', what: 'Enregistre les réglages venus de l\'écran Réglages → Apparence (JSON : mascotte, evenements)', quiet: true, quick: false,
