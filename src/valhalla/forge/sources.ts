@@ -8,7 +8,7 @@
 
 export type Kind = 'iso' | 'logiciel';
 export interface Release { version: string; url: string; file: string; sha256?: string; size?: number; page?: string }
-type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
+export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 export interface Source {
   id: string; name: string; kind: Kind; family: string;
   /** Une phrase : ce que c'est. */
@@ -24,6 +24,10 @@ export interface Source {
   latest?: (f: Fetch) => Promise<Release>;
   /** Source ajoutée par l'utilisateur (dépôt GitHub ou adresse directe). */
   custom?: boolean;
+  /** Pour le Store (filtres) : système, architecture, type (ISO : bureau, serveur, utilitaire…), catégorie (logiciels). Absents : déduits (voir store.ts). */
+  systeme?: string; arch?: string; type?: string;
+  /** Venue d'un index en ligne (Homebrew…) : gardée dans les réglages pour être surveillée comme les autres. */
+  enLigne?: string;
 }
 
 // ---------------- Outils purs ----------------
@@ -59,26 +63,26 @@ export function highest(names: string[], re: RegExp): { name: string; version: s
   for (const n of names) { const m = re.exec(n); if (m && (!best || cmpVersion(m[1], best.version) > 0)) best = { name: n, version: m[1] }; }
   return best;
 }
-const text = async (f: Fetch, url: string) => { const r = await f(url, { headers: { 'user-agent': 'Odin-Eitri/1', accept: '*/*' }, signal: AbortSignal.timeout(20_000) }); if (!r.ok) throw new Error(`${new URL(url).host} répond ${r.status}`); return r.text(); };
-const json = async <T>(f: Fetch, url: string, headers: Record<string, string> = {}) => JSON.parse(await text2(f, url, headers)) as T;
+export const text = async (f: Fetch, url: string) => { const r = await f(url, { headers: { 'user-agent': 'Odin-Eitri/1', accept: '*/*' }, signal: AbortSignal.timeout(20_000) }); if (!r.ok) throw new Error(`${new URL(url).host} répond ${r.status}`); return r.text(); };
+export const json = async <T>(f: Fetch, url: string, headers: Record<string, string> = {}) => JSON.parse(await text2(f, url, headers)) as T;
 const text2 = async (f: Fetch, url: string, headers: Record<string, string>) => { const r = await f(url, { headers: { 'user-agent': 'Odin-Eitri/1', ...headers }, signal: AbortSignal.timeout(20_000) }); if (!r.ok) throw new Error(`${new URL(url).host} répond ${r.status}`); return r.text(); };
 const join = (base: string, rel: string) => new URL(rel, base.endsWith('/') ? base : `${base}/`).toString();
 
 // ---------------- Façons de trouver la dernière version ----------------
 /** Un fichier d'empreintes à une adresse fixe : le fichier qui correspond est la dernière version. */
-const sumsAt = (dir: string, sums: string, re: RegExp) => async (f: Fetch): Promise<Release> => {
+export const sumsAt = (dir: string, sums: string, re: RegExp) => async (f: Fetch): Promise<Release> => {
   const s = parseSums(await text(f, join(dir, sums))), h = highest([...s.keys()], re); if (!h) throw new Error('aucun fichier reconnu dans les empreintes officielles');
   return { version: h.version, file: h.name.split('/').pop()!, url: join(dir, h.name), sha256: s.get(h.name) };
 };
 /** Un index de dossiers par version (« 24.04.3/ ») puis un fichier d'empreintes dans le dossier le plus récent. */
-const indexThenSums = (index: string, dirRe: RegExp, sums: string | RegExp, re: RegExp, sub = '') => async (f: Fetch): Promise<Release> => {
+export const indexThenSums = (index: string, dirRe: RegExp, sums: string | RegExp, re: RegExp, sub = '') => async (f: Fetch): Promise<Release> => {
   const d = highest(parseIndex(await text(f, index)), dirRe); if (!d) throw new Error('aucune version trouvée sur le site officiel');
   const dir = join(index, `${d.name.replace(/\/?$/, '/')}${sub}`);
   const sumsName = typeof sums === 'string' ? sums : parseIndex(await text(f, dir)).find((n) => sums.test(n)); if (!sumsName) throw new Error('fichier d\'empreintes introuvable');
   return sumsAt(dir, sumsName, re)(f);
 };
 /** Un index de fichiers, chaque fichier avec son « .sha256 » à côté. */
-const indexSidecar = (dir: string, re: RegExp) => async (f: Fetch): Promise<Release> => {
+export const indexSidecar = (dir: string, re: RegExp) => async (f: Fetch): Promise<Release> => {
   const h = highest(parseIndex(await text(f, dir)).filter((n) => !/\.(sha256|sha512|asc|sig|md5)$/i.test(n)), re); if (!h) throw new Error('aucun fichier reconnu sur le site officiel');
   const sha = /([a-f0-9]{64})/i.exec(await text(f, join(dir, `${h.name}.sha256`)))?.[1]?.toLowerCase();
   return { version: h.version, file: h.name, url: join(dir, h.name), sha256: sha };

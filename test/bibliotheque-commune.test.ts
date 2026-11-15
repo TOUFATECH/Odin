@@ -119,12 +119,12 @@ test('Hermès : le dossier des logiciels est scanné (installateurs déposés à
     // La fiche complète.
     const fiche = (await w.v.act('fjalar', 'fiche_logiciel', { nom: 'MonOutil' })).text;
     for (const re of [/📦 MonOutil-2\.3\.1-x64\.exe/, /Logiciel : Mon Outil · éditeur TOUFATECH · version 2\.3\.1\.0 · pour Windows \(x86_64\)/, /Taille : .* · ajouté le /, /Liens : .*origine déposé dans le dossier/, new RegExp(`Empreinte SHA-256 : ${exe.sha256}`), /Antivirus : sain \(/, /Dernière vérification : jamais/, /Installé sur : aucune/]) assert.match(fiche, re);
-    // La page : onglet « Logiciels » avec les cartes (icône) et le dossier.
+    // La page : « Disponibles » montre le dossier (cartes avec icône) ; le dossier et la vérification sont dans « Réglages ».
     const vue = await w.v.module('fjalar')!.view(w.v.ctx('fjalar'), new URLSearchParams());
-    assert.deepEqual(vue.onglets, ['Logiciels', 'Mises à jour']);
-    const cartes = vue.sections.find((s) => s.kind === 'cards' && s.title === 'Bibliothèque (4)') as { items: Array<{ title: string; icon?: string; badge?: string }> };
-    assert.ok(cartes.items.every((c) => c.icon?.startsWith('data:image/') && c.badge === 'sain'));
-    assert.ok(vue.sections.some((s) => s.title === 'Dossier des logiciels') && vue.sections.some((s) => s.title === 'Vérification de toute la bibliothèque'));
+    assert.deepEqual(vue.onglets, ['Store', 'Disponibles', 'Surveillés', 'Réglages']);
+    const cartes = vue.sections.find((s) => s.kind === 'cards' && s.title === 'Dans ton dossier (4)') as { onglet?: string; items: Array<{ title: string; icon?: string; meta?: string }> };
+    assert.equal(cartes.onglet, 'Disponibles'); assert.ok(cartes.items.every((c) => c.icon?.startsWith('data:image/') && /antivirus : sain/.test(c.meta ?? '')));
+    assert.ok(vue.sections.some((s) => s.title === 'Dossier' && s.onglet === 'Réglages') && vue.sections.some((s) => s.title === 'Surveillance et vérification des logiciels' && s.onglet === 'Réglages'));
     // Vérification : mensuelle par défaut, replanifiable ; compte rendu (notification + historique) ; un fichier abîmé se voit.
     assert.deepEqual((({ frequence, jour, heure }) => ({ frequence, jour, heure }))((await w.v.act('fjalar', 'plan_verification_logiciels')).data as { frequence: string; jour: number; heure: string }), { frequence: 'mois', jour: 1, heure: '04:00' });
     assert.match((await w.v.act('fjalar', 'verification_logiciels', { frequence: 'semaine', jour: 3, heure: '6:30' })).text, /chaque semaine \(mercredi\) à 06:30\. Prochaine : /);
@@ -182,10 +182,10 @@ test('ISO : l\'espace ISO est scanné (ISO déposées à la main), fiche complè
     // La fiche montre tout.
     const fiche = (await w.v.act('ymir', 'fiche_iso', { iso: 'ubuntu-24.04.3' })).text;
     for (const re of [/📀 ubuntu-24\.04\.3-live-server-amd64\.iso/, /Système : Linux · Ubuntu Server 24\.04\.3 · version 24\.04\.3 · x86_64 · serveur/, /Taille : .* · ajoutée le /, /Source : /, /Empreinte SHA-256 : [a-f0-9]{64}/, /Antivirus : sain \(/, /Dernière vérification : jamais/, /Machines qui l'utilisent : aucune/]) assert.match(fiche, re);
-    // L'onglet « ISO » d'Andromède : emplacement, bibliothèque, vérification.
+    // La page d'Andromède : le dossier dans « Disponibles », l'emplacement et la vérification dans « Réglages ».
     const vue = await w.v.module('eitri')!.view(w.v.ctx('eitri'), new URLSearchParams());
-    assert.deepEqual(vue.onglets, ['ISO', 'Mises à jour']);
-    assert.ok(vue.sections.some((s) => s.title === 'Emplacement des ISO (espace ISO, commun avec Hydre)') && vue.sections.some((s) => s.title === 'Bibliothèque (3 ISO)') && vue.sections.some((s) => s.title === 'Vérification de toutes les ISO'));
+    assert.deepEqual(vue.onglets, ['Store', 'Disponibles', 'Surveillés', 'Réglages']);
+    assert.ok(vue.sections.some((s) => s.title === 'Dossier' && s.onglet === 'Réglages') && vue.sections.some((s) => s.title === 'Dans ton dossier (3)' && s.onglet === 'Disponibles') && vue.sections.some((s) => s.title === 'Surveillance et vérification des ISO' && s.onglet === 'Réglages'));
     // Vérification : mensuelle par défaut ; replanifiée depuis Andromède, relue par Hydre (un seul réglage).
     const plan = async () => (({ frequence, jour, heure }) => ({ frequence, jour, heure }))((await w.v.act('ymir', 'plan_verif_iso')).data as { frequence: string; jour: number; heure: string });
     assert.deepEqual(await plan(), { frequence: 'mois', jour: 1, heure: '04:00' });

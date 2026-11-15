@@ -64,6 +64,14 @@
 .ym-env{display:flex;flex-direction:column;gap:5px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}.ym-env:first-child{border-top:0}.ym-env .l{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.ym-env .l b{flex:1;min-width:0;overflow-wrap:anywhere}.ym-env .l span{color:var(--muted);font-variant-numeric:tabular-nums}
 .ym-bar{height:10px;border-radius:999px;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden}.ym-bar i{display:block;height:100%;width:0;border-radius:999px;background:var(--ya) linear-gradient(110deg,transparent 0 40%,rgba(255,255,255,.38) 50%,transparent 60% 100%);background-size:220% 100%;transition:width .35s ease;animation:ymBar 1.3s linear infinite}.ym-bar.fin i{animation:none;background:var(--yok)}.ym-bar.ko i{animation:none;background:var(--ybad)}
 @keyframes ymBar{from{background-position:120% 0}to{background-position:-120% 0}}@media (prefers-reduced-motion:reduce){.ym-bar i{animation:none;transition:none}}
+.ym-load{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:240px;padding:28px 16px;text-align:center}.ym-load.petit{min-height:120px;padding:14px 10px}
+.ym-load .b{position:relative;width:min(440px,88%);height:16px;border-radius:999px;background:color-mix(in srgb,var(--ink) 9%,var(--panel));border:1px solid var(--line);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
+.ym-load .b i{position:absolute;top:0;bottom:0;left:-42%;width:42%;border-radius:999px;background:linear-gradient(90deg,transparent,var(--accent,var(--ya)) 28%,var(--accent,var(--ya)) 72%,transparent);animation:ymFile 1.05s cubic-bezier(.4,0,.6,1) infinite}
+.ym-load .b.p i{left:0;width:var(--p,0%);background:var(--accent,var(--ya));animation:none;transition:width .35s ease}
+.ym-load .b::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 0 40%,rgba(255,255,255,.5) 50%,transparent 60% 100%);background-size:240% 100%;animation:ymReflet 1.5s linear infinite;pointer-events:none}
+.ym-load .pc{font-size:24px;font-weight:800;letter-spacing:-.4px;color:var(--ink);font-variant-numeric:tabular-nums;min-height:1.2em}.ym-load p{margin:0;color:var(--ink);font-size:14px;max-width:560px;overflow-wrap:anywhere}.ym-load small{color:var(--muted);font-size:12.5px;font-variant-numeric:tabular-nums}
+@keyframes ymFile{from{left:-42%}to{left:100%}}@keyframes ymReflet{from{background-position:130% 0}to{background-position:-130% 0}}
+@media (prefers-reduced-motion:reduce){.ym-load .b i,.ym-load .b::after{animation:none}.ym-load .b::after{display:none}.ym-load .b:not(.p) i{left:0;width:100%;opacity:.4}.ym-load .b.p i{transition:none}}
 .ym-iso{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:12px}.ym-iso .c{border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;gap:12px;min-width:0;background:color-mix(in srgb,var(--panel) 92%,transparent)}.ym-iso img{width:44px;height:44px;border-radius:11px;flex:none}.ym-iso .t{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}.ym-iso b{font-size:14px;overflow-wrap:anywhere}.ym-iso small{color:var(--muted);font-size:12px;overflow-wrap:anywhere}
 .ym-nav{display:flex;flex-direction:column;gap:2px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}.ym-nav button{display:flex;gap:8px;align-items:center;min-height:36px;padding:0 10px;border:0;border-radius:9px;background:none;color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}.ym-nav button:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}.ym-nav button span{margin-left:auto;color:var(--muted);font-size:12px}
 `;
@@ -237,8 +245,28 @@
     suivi({ recu: file.size, total: file.size, etape: 'antivirus' });
     return post('importer_iso', { envoi: id, nom: file.name });
   }
+  /**
+   * La barre de chargement, au centre de la zone : une bande qui file tant qu'on ne sait pas combien il reste, puis le
+   * pourcentage qui monte ; dessous, ce qui se passe (et un détail : vitesse, temps restant). Aux couleurs du thème ;
+   * fixe, avec le pourcentage, si l'appareil réduit les animations. `maj({ pct, texte, detail })` la met à jour
+   * (`pct: null` : retour au mouvement continu).
+   */
+  function charge(texte, o = {}) {
+    const bar = el('div', { class: 'b', role: 'progressbar', 'aria-label': texte, 'aria-valuemin': '0', 'aria-valuemax': '100' }, el('i', {})), pc = el('div', { class: 'pc', 'aria-hidden': 'true' }), t = el('p', { role: 'status' }, texte), d = el('small', {});
+    const n = el('div', { class: `ym-load${o.petit ? ' petit' : ''}` }, bar, pc, t, d);
+    n.maj = (x = {}) => {
+      if (x.texte != null) { t.textContent = x.texte; bar.setAttribute('aria-label', x.texte); }
+      if (x.detail != null) d.textContent = x.detail;
+      if (x.pct === null) { bar.classList.remove('p'); bar.removeAttribute('aria-valuenow'); pc.textContent = ''; }
+      else if (x.pct != null) { const k = Math.max(0, Math.min(100, Math.round(x.pct))); bar.classList.add('p'); bar.style.setProperty('--p', `${k}%`); bar.setAttribute('aria-valuenow', String(k)); pc.textContent = `${k} %`; }
+    };
+    return n;
+  }
   async function isoTab(root, D, redraw) {
     const B = (await post('bibliotheque_iso')).data ?? { dossier: '', isos: [] }, plan = (await post('plan_verif_iso')).data ?? {};
+    // Ce qui se passe en ce moment (import, téléchargement) : la barre au centre, en haut de l'onglet.
+    const centre = charge(''), boite = el('div', { class: 'ym-w' }, centre); boite.hidden = true;
+    const occupe = (texte, detail = '') => { boite.hidden = false; centre.maj({ pct: null, texte, detail }); boite.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, libre = () => { boite.hidden = true; };
     const file = el('div', { class: 'ym-w' }, el('h3', {}, ic('up', 16), 'Envois', el('small', { class: 'r' }, 'antivirus d\'abord, puis la bibliothèque'))); file.hidden = true;
     S.envois = S.envois ?? [];
     const ligne = (nom) => { const pct = el('span', {}, '0 %'), info = el('span', {}, 'en attente…'), bar = el('div', { class: 'ym-bar', role: 'progressbar', 'aria-label': `Envoi de ${nom}`, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, el('i', {})), msg = el('small', { style: 'color:var(--muted)', role: 'status' }); file.hidden = false; file.append(el('div', { class: 'ym-env' }, el('div', { class: 'l' }, el('b', {}, nom), pct, info), bar, msg)); return { pct, info, bar, msg }; };
@@ -246,15 +274,20 @@
       const l = [...files].filter((f) => /\.iso$/i.test(f.name)); const refus = [...files].length - l.length;
       if (refus) note({ ok: false, text: `${refus} fichier(s) ignoré(s) : seules les images .iso vont dans l'espace ISO.` });
       for (const f of l) {   // l'un après l'autre : la barre de chacun reste lisible, et le disque suit
-        const u = ligne(f.name);
+        const u = ligne(f.name), rang = l.length > 1 ? ` (${l.indexOf(f) + 1} sur ${l.length})` : '';
+        occupe(`J'envoie ${f.name}${rang}…`);
         try {
           const x = await envoyerIso(f, (p) => {
             const k = p.total ? Math.floor((p.recu / p.total) * 100) : 0; u.bar.firstChild.style.width = `${k}%`; u.bar.setAttribute('aria-valuenow', String(k)); u.pct.textContent = `${k} %`;
             u.info.textContent = p.etape === 'antivirus' ? 'analyse antivirus…' : p.attente ? 'connexion coupée, nouvel essai…' : `${octets(p.recu)} / ${octets(p.total)}${p.vitesse ? ` · ${octets(p.vitesse)}/s · reste ${duree(p.reste)}` : ''}${p.repris ? ' · reprise' : ''}`;
+            // La même chose en grand, au centre : le pourcentage qui monte, puis l'antivirus (durée inconnue : mouvement continu).
+            if (p.etape === 'antivirus') centre.maj({ pct: null, texte: `L'antivirus regarde ${f.name}…`, detail: 'elle entre dans la bibliothèque juste après' });
+            else centre.maj({ pct: k, texte: `J'envoie ${f.name}${rang}…`, detail: p.attente ? 'connexion coupée, nouvel essai…' : u.info.textContent });
           });
           u.bar.classList.add(x.ok === false ? 'ko' : 'fin'); u.info.textContent = x.ok === false ? 'bloquée' : 'dans la bibliothèque'; u.msg.textContent = x.text ?? ''; note(x);
         } catch (e) { u.bar.classList.add('ko'); u.info.textContent = 'arrêté'; u.msg.textContent = e.message; }
       }
+      libre();
       if (l.length) setTimeout(redraw, 1200);
     };
     const choix = el('input', { type: 'file', accept: '.iso', multiple: true, hidden: true, onchange: (e) => { void lancer(e.target.files); e.target.value = ''; } });
@@ -266,13 +299,13 @@
     const nav = el('div', { class: 'ym-nav' }), ou = { poste: '', partage: '', dossier: '' }, fil = el('small', { style: 'color:var(--muted)' });
     const parcourir = async () => {
       fil.textContent = ou.poste ? `${ou.posteNom} › ${ou.partage || 'partages'}${ou.dossier ? ` › ${ou.dossier}` : ''}` : ou.dossier || 'Ce PC et le réseau';
-      nav.replaceChildren(el('small', { style: 'padding:8px;color:var(--muted)' }, 'Lecture…'));
+      nav.replaceChildren(charge(ou.poste ? `Je lis les partages de ${ou.posteNom}…` : 'Je cherche tes images…', { petit: true }));
       const x = await post('parcourir', { poste: ou.poste, partage: ou.partage, dossier: ou.dossier }), d = x.data ?? {};
       const haut = (ou.poste || ou.dossier) ? [el('button', { type: 'button', onclick: () => { if (ou.dossier && ou.poste) ou.dossier = ou.dossier.split('/').slice(0, -1).join('/'); else if (ou.partage) ou.partage = ''; else { ou.poste = ''; ou.dossier = ''; } void parcourir(); } }, '‹ Retour')] : [];
       if (x.ok === false) { nav.replaceChildren(...haut, el('small', { class: 'ym-ko', style: 'padding:8px' }, x.text)); return; }
       nav.replaceChildren(...haut,
         ...(d.entrees ?? []).map((e) => el('button', { type: 'button', onclick: async (ev) => {
-          if (e.genre === 'iso') { const b = ev.currentTarget; b.disabled = true; out.textContent = `Import de ${e.nom}… (copie, puis antivirus)`; const r = await act('importer_iso', ou.poste ? { poste: ou.poste, partage: ou.partage, chemin: e.chemin } : { chemin: e.chemin }); out.textContent = r.text; note(r); b.disabled = false; if (r.ok !== false) setTimeout(redraw, 1200); return; }
+          if (e.genre === 'iso') { const b = ev.currentTarget; b.disabled = true; out.textContent = ''; occupe(`J'importe ${e.nom}…`, `${octets(e.taille ?? 0)} · copie, puis antivirus`); const r = await act('importer_iso', ou.poste ? { poste: ou.poste, partage: ou.partage, chemin: e.chemin } : { chemin: e.chemin }); libre(); out.textContent = r.text; note(r); b.disabled = false; if (r.ok !== false) setTimeout(redraw, 1200); return; }
           if (e.genre === 'partage') ou.partage = e.partage; else ou.dossier = e.chemin; void parcourir();
         } }, ic(e.genre === 'iso' ? 'save' : 'box', 15), e.nom, e.genre === 'iso' ? el('span', {}, `${octets(e.taille ?? 0)} · importer`) : null)),
         ...(!ou.poste && !ou.dossier ? (d.postes ?? []).map((p) => el('button', { type: 'button', onclick: () => { ou.poste = p.id; ou.posteNom = p.nom; ou.partage = ''; ou.dossier = ''; void parcourir(); } }, ic('screen', 15), p.nom, el('span', {}, `partages de ${p.hote}`))) : []),
@@ -280,13 +313,13 @@
     };
     const freq = el('select', { id: 'ymVf' }, ...[['mois', 'chaque mois'], ['semaine', 'chaque semaine'], ['jour', 'chaque jour']].map(([v, t]) => el('option', { value: v, selected: plan.frequence === v }, t))), jour = el('input', { id: 'ymVj', type: 'number', min: '0', max: '28', value: String(plan.jour ?? 1) }), heure = el('input', { id: 'ymVh', type: 'time', value: plan.heure ?? '04:00' }), vOut = el('p', { class: 'ym-out', role: 'status' }, plan.prochaine ? `Prochaine vérification : ${new Date(plan.prochaine).toLocaleString('fr-FR')}${plan.derniere ? ` · dernière : ${new Date(plan.derniere).toLocaleString('fr-FR')}` : ''}` : '');
     const isos = B.isos ?? [];
-    root.append(choix,
+    root.append(choix, boite,
       el('div', { class: 'ym-bot' },
         el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' },
           el('div', { class: 'ym-w' }, el('h3', {}, ic('up', 16), 'Importer des ISO'), drop),
           file,
           el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Depuis un lien'), el('label', { for: 'ymLien' }, 'Adresse http(s) de l\'image'), lien,
-            el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn pri', type: 'button', onclick: async (e) => { const b = e.currentTarget; if (!lien.value.trim()) return; b.disabled = true; out.textContent = 'Téléchargement (reprenable), puis antivirus…'; const r = await act('importer_iso', { lien: lien.value.trim() }); b.disabled = false; out.textContent = r.text; note(r); if (r.ok !== false) { lien.value = ''; setTimeout(redraw, 1200); } } }, ic('down', 15), 'Télécharger et importer')), out)),
+            el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn pri', type: 'button', onclick: async (e) => { const b = e.currentTarget; if (!lien.value.trim()) return; b.disabled = true; out.textContent = ''; occupe('Je télécharge l\'image…', `${lien.value.trim().slice(0, 90)} · reprenable, puis antivirus`); const r = await act('importer_iso', { lien: lien.value.trim() }); libre(); b.disabled = false; out.textContent = r.text; note(r); if (r.ok !== false) { lien.value = ''; setTimeout(redraw, 1200); } } }, ic('down', 15), 'Télécharger et importer')), out)),
         el('div', { style: 'display:flex;flex-direction:column;gap:12px;min-width:0' },
           el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Espace ISO', el('small', { class: 'r' }, 'commun à Hydre, Andromède et Genèse')), el('label', { for: 'ymEsp' }, 'Dossier où sont rangées les images (disque ou partage monté)'), esp,
             el('div', { class: 'ym-row' }, el('button', { class: 'ym-btn', type: 'button', onclick: async () => { const r = await act('espace_iso', { dossier: esp.value.trim() }); note(r); redraw(); } }, 'Enregistrer')),
@@ -338,6 +371,9 @@
     const redraw = async () => {
       tabs.replaceChildren(...[['machines', 'grid', 'Machines'], ['creer', 'plus', 'Créer'], ['iso', 'down', 'ISO'], ['quarantaine', 'lock', 'Quarantaine'], ['serveurs', 'list', 'Serveurs']].map(([id, i, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, ic(i, 15), t)));
       gen.hidden = S.tab !== 'serveurs'; body.hidden = S.tab === 'serveurs'; if (S.tab === 'serveurs') return;
+      // Premier affichage d'un onglet : la barre de chargement au centre (pas pendant le rafraîchissement discret des machines).
+      if (S.montre !== S.tab || !body.childNodes.length) body.replaceChildren(el('div', { class: 'ym-w' }, charge(S.tab === 'iso' ? 'Je lis tes images…' : S.tab === 'creer' ? 'Je prépare la liste des systèmes et des images…' : S.tab === 'quarantaine' ? 'Je regarde les machines en quarantaine…' : 'Je lis tes machines…')));
+      S.montre = S.tab;
       const r = await post('tableau_machines'), D = r.data ?? {}, n = el('div', { class: 'ym' }), all = D.machines ?? [];
       sub.textContent = `${all.filter((m) => m.genre === 'lxc').length} LXC et ${all.filter((m) => m.genre === 'vm').length} VM sur ce PC · rangées par système`;
       if (S.tab === 'creer') creer(n, D, redraw); else if (S.tab === 'iso') await isoTab(n, D, redraw); else if (S.tab === 'quarantaine') await quarantaine(n, D, redraw); else machines(n, D, redraw);

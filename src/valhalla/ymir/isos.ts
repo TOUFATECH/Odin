@@ -148,7 +148,7 @@ export const comptesRendus = (ctx: ModCtx, n = 20) => bibliothequeIso(ctx).compt
 export { prochaineVerif, verifDue, type PlanVerif };
 /** Vérifie toutes les ISO (empreinte, antivirus) et demande à Andromède s'il y a de nouvelles versions. */
 export async function verifierIsos(ctx: ModCtx) {
-  return bibliothequeIso(ctx).verifier(async () => { const r = await ctx.call('eitri', 'verifier', {}, 'vérification des ISO : nouvelles versions', { interne: true }); return r.text.split('\n').filter((x) => x.startsWith('🆕')).join('\n'); });
+  return bibliothequeIso(ctx).verifier(async () => { const r = await ctx.call('eitri', 'tournee', {}, 'surveillance des ISO : nouvelles versions', { interne: true }); return r.text.split('\n').filter((x) => /^(🆕|✅|❌|🛡)/u.test(x)).join('\n'); });
 }
 
 /** Andromède a rangé une ancienne version dans « old » (ou l'a supprimée) : les machines qui la citent suivent. */

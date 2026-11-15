@@ -12,6 +12,9 @@ import { open } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { Action, ModCtx, Module, Param, Section, Tone } from '../types.ts';
 import { cmpVersion, customSource, type Kind, type Release, type Source } from './sources.ts';
+import './catalogue.ts';
+import { chercherEnLigne, entrees, filtrer, iconeDe, metaDe, motifDe, reconnaitre, sourceHomebrew, valeursFiltres, type EntreeStore, type IndexEtat, type SuiviHomebrew, type Vue } from './store.ts';
+import type { Fiche } from './bibliotheque.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 const JOURS = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
@@ -118,6 +121,14 @@ export interface ForgeOpts {
    * chaque déplacement (`vers` vide : fichier supprimé) pour que ceux qui s'en servent suivent (Hydre).
    */
   old?: { deplace?: (ctx: ModCtx, l: Array<{ de: string; vers: string; nouveau: string }>) => Promise<void> };
+  /** La bibliothèque du dossier (fiches : antivirus, empreinte, système…), pour l'onglet « Disponibles ». */
+  bibliotheque?: (ctx: ModCtx) => Promise<Fiche[]>;
+  /** La surveillance (chaque mois par défaut) : son réglage en clair et le prochain passage. */
+  surveillance?: (ctx: ModCtx) => Promise<{ texte: string; prochaine?: string }>;
+  /** Des sections de plus dans l'onglet « Réglages » (vérification planifiée, import…). */
+  reglages?: (ctx: ModCtx) => Promise<Section[]> | Section[];
+  /** L'action qui montre la fiche d'un fichier de la bibliothèque (réglage `nom` : son identifiant). */
+  fiche?: { action: string; module?: string };
 }
 
 export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle: (ctx: ModCtx, why: string) => Promise<string> } {
@@ -127,7 +138,14 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
   const plan = (ctx: ModCtx): Plan => ({ days: [5], at: '03:00', auto: true, ...(ctx.settings.plan as Partial<Plan> | undefined) });
   const keep = (ctx: ModCtx) => Math.max(1, Math.min(5, Number(ctx.settings.garder) || 2));
   const customs = (ctx: ModCtx) => ((ctx.settings.customs as Custom[] | undefined) ?? []).map((c) => customSource({ ...c, kind: o.kind }));
-  const all = (ctx: ModCtx) => [...o.sources, ...customs(ctx)];
+  /** Les applications venues d'un index en ligne (Homebrew) et mises en surveillance : suivies comme le catalogue. */
+  const enLigne = (ctx: ModCtx) => ((ctx.settings.homebrew as SuiviHomebrew[] | undefined) ?? []).flatMap((x) => { try { return [sourceHomebrew(x)]; } catch { return []; } });
+  const all = (ctx: ModCtx) => [...o.sources, ...customs(ctx), ...enLigne(ctx)];
+  /** Ce que tu as retiré de la surveillance : plus vérifié, même si un fichier est dans le dossier. */
+  const ignores = (ctx: ModCtx) => new Set((ctx.settings.ignores as string[] | undefined) ?? []);
+  /** La dernière version vue de chaque source (gardée : sert au Store, aux Disponibles et aux Surveillés). */
+  const vues = (ctx: ModCtx): Record<string, Vue> => (ctx.settings.vues as Record<string, Vue> | undefined) ?? {};
+  const noterVue = (ctx: ModCtx, id: string, v: Vue) => { const l = { ...vues(ctx), [id]: v }; ctx.saveSettings({ vues: l }); };
   const followed = (ctx: ModCtx) => new Set((ctx.settings.suivis as string[] | undefined) ?? []);
   const byName = (ctx: ModCtx, q: unknown) => { const t = s(q).trim().toLowerCase(); const x = all(ctx).find((y) => y.id === t || y.name.toLowerCase() === t) ?? all(ctx).find((y) => y.name.toLowerCase().includes(t) && t.length >= 3); if (!x) throw new Error(`${o.noun} inconnu : « ${s(q)} » (voir le catalogue)`); return x; };
   // L'historique : dans la base d'Odin dès qu'elle est prête (journal « forge_<appli> »), sinon historique.jsonl.
@@ -138,9 +156,28 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
   const getLatest = async (ctx: ModCtx, src: Source, fresh = false): Promise<Release> => {
     const c = latestCache.get(src.id); if (!fresh && c && Date.now() - c.at < 3600_000) { if (c.r) return c.r; throw new Error(c.err); }
     if (!src.latest) throw new Error(src.manual ?? 'pas de source officielle automatique');
-    try { const r = await src.latest(ctx.fetch as never); latestCache.set(src.id, { at: Date.now(), r }); return r; } catch (e) { latestCache.set(src.id, { at: Date.now(), err: (e as Error).message }); throw e; }
+    try {
+      const r = await src.latest(ctx.fetch as never); latestCache.set(src.id, { at: Date.now(), r });
+      const avant = vues(ctx)[src.id];
+      noterVue(ctx, src.id, { version: r.version, at: Date.now(), ...(r.size ?? (avant?.version === r.version ? avant.taille : undefined) ? { taille: r.size ?? avant!.taille } : {}), ...(r.sha256 ? { sha256: r.sha256.toLowerCase() } : {}), url: r.url });
+      return r;
+    } catch (e) { latestCache.set(src.id, { at: Date.now(), err: (e as Error).message }); const avant = vues(ctx)[src.id]; if (!src.manual) noterVue(ctx, src.id, { ...(avant ?? { version: '' }), at: Date.now(), erreur: (e as Error).message.slice(0, 160) }); throw e; }
   };
-  const tracked = (ctx: ModCtx, f: Found[]) => { const ids = followed(ctx); for (const x of f) ids.add(x.source.id); return all(ctx).filter((x) => ids.has(x.id)); };
+  /** La taille d'un fichier annoncée par le site (demande d'en-têtes seulement) ; rien si le site ne la donne pas. */
+  const tailleDe = async (ctx: ModCtx, url: string): Promise<number | undefined> => { try { const r = await ctx.fetch(url, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(8000), headers: { 'user-agent': 'Odin-Eitri/1' } }); const n = Number(r.headers.get('content-length')); return r.ok && n > 0 ? n : undefined; } catch { return undefined; } };
+  /** Relit la dernière version (et la taille) de ces sources sur leurs sites officiels, six à la fois ; une source en panne n'arrête pas les autres. */
+  const actualiser = async (ctx: ModCtx, l: Source[]): Promise<void> => {
+    const file = l.filter((x) => x.latest); let k = 0;
+    await Promise.all(Array.from({ length: Math.min(6, file.length) }, async () => { for (;;) { const src = file[k++]; if (!src) return; try { const r = await getLatest(ctx, src, true); if (!vues(ctx)[src.id]?.taille) { const n = r.size ?? await tailleDe(ctx, r.url); if (n) noterVue(ctx, src.id, { ...vues(ctx)[src.id], taille: n }); } } catch { /* notée dans les versions vues */ } } }));
+  };
+  /** Les fichiers du dossier reconnus autrement que par leur nom (empreinte de l'éditeur, contenu lu) : source → versions. Tenu à jour par « Disponibles ». */
+  const reconnus = (ctx: ModCtx): Record<string, string[]> => (ctx.settings.reconnus as Record<string, string[]> | undefined) ?? {};
+  /** Les versions présentes de chaque source : par le nom des fichiers, et par ce qu'Odin a reconnu autrement. */
+  const presentsDe = (ctx: ModCtx, found: Found[]) => { const m = new Map<string, string[]>(); for (const x of found) m.set(x.source.id, [...(m.get(x.source.id) ?? []), x.version]); for (const [id, l] of Object.entries(reconnus(ctx))) m.set(id, [...new Set([...(m.get(id) ?? []), ...l])]); return m; };
+  const tracked = (ctx: ModCtx, f: Found[]) => { const ids = followed(ctx); for (const x of f) ids.add(x.source.id); for (const x of Object.keys(reconnus(ctx))) ids.add(x); for (const x of ignores(ctx)) ids.delete(x); return all(ctx).filter((x) => ids.has(x.id)); };
+  /** Les entrées du Store : tout le catalogue, avec ce qui est présent, surveillé, en cours, et la dernière version vue. */
+  const catalogueStore = (ctx: ModCtx, found: Found[]): EntreeStore[] => { const pres = presentsDe(ctx, found); return entrees({ sources: all(ctx), presents: pres, suivis: new Set(tracked(ctx, found).map((x) => x.id)), vues: vues(ctx), enCours: new Set(jobs.keys()) }); };
+  const surveiller = (ctx: ModCtx, id: string) => ctx.saveSettings({ suivis: [...new Set([...followed(ctx), id])], ignores: [...ignores(ctx)].filter((y) => y !== id) });
   const icon = async (ctx: ModCtx, src: Source): Promise<string> => {
     const k = src.id; if (icons.has(k)) return icons.get(k)!;
     const file = join(ctx.dir, 'icones', `${k.replace(/[^\w-]/g, '_')}.json`);
@@ -203,7 +240,7 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       const r0 = root(ctx); mkdirSync(r0, { recursive: true });
       const sc = scan(r0, all(ctx)), list = only ? [only] : tracked(ctx, sc.found), out: string[] = [];
       for (const src of list) {
-        const mine = sc.found.filter((f) => f.source.id === src.id).sort((a, b) => cmpVersion(b.version, a.version)), have = mine[0]?.version;
+        const have = [...(presentsDe(ctx, sc.found).get(src.id) ?? [])].sort((a, b) => cmpVersion(b, a))[0];
         let rel: Release;
         try { rel = await getLatest(ctx, src, true); } catch (e) {
           if (src.manual) { out.push(`ℹ ${src.name}${have ? ` ${have}` : ''} : ${src.manual} ${src.page}`); continue; }
@@ -217,6 +254,37 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       ctx.saveSettings({ lastRun: Date.now() });
       return out.length ? out.join('\n') : `Rien à suivre : choisis des ${o.nouns} dans le catalogue, ou mets les tiens dans ${r0}.`;
     } finally { running = false; }
+  }
+
+  // ---------------- Disponibles et Surveillés (les mêmes données pour les actions, la page et le Store) ----------------
+  interface Disponible { id: string; nom: string; chemin: string; taille: number; icone: string; antivirus: string; ancienne: boolean; catalogue?: string; source?: string; versionReconnue?: string; par?: string; derniere?: string; etat: string; manuel?: boolean }
+  /** Ce qui est dans le dossier, comparé au catalogue : nom du fichier, empreinte de l'éditeur, ce qui est lu dans le fichier. */
+  async function disponibles(ctx: ModCtx): Promise<Disponible[]> {
+    const sc = scan(root(ctx), all(ctx)), V = vues(ctx), S = all(ctx);
+    const fiches: Fiche[] = o.bibliotheque ? await o.bibliotheque(ctx).catch(() => [] as Fiche[]) : sc.found.map((x) => ({ id: x.path, nom: basename(x.path), chemin: x.path, taille: x.size, ajoute: x.mtime, origine: 'déposée' as const }));
+    const autres: Record<string, string[]> = {};
+    const l = fiches.map((x) => {
+      const r = x.ancienne ? { ...reconnaitre(x, S, V), etat: 'ancienne version (old)' } : reconnaitre(x, S, V), m = r.source ? metaDe(r.source) : undefined;
+      return { id: x.id, nom: x.nom, chemin: x.chemin, taille: x.taille, icone: x.icone ?? iconeDe(o.kind, { systeme: x.systeme ?? m?.systeme ?? 'Autre', nom: x.detail ?? x.nom, type: m?.type ?? '' }), antivirus: x.antivirus?.verdict ?? 'non analysé', ancienne: Boolean(x.ancienne),
+        ...(r.source ? { catalogue: r.source.name, source: r.source.id, ...(r.source.manual ? { manuel: true } : {}) } : {}), ...(r.version ? { versionReconnue: r.version } : {}), ...(r.par ? { par: r.par } : {}), ...(r.derniere ? { derniere: r.derniere } : {}), etat: r.etat };
+    });
+    // Un fichier renommé mais reconnu (empreinte, contenu) est surveillé comme les autres : sa source et sa version sont retenues.
+    for (const x of fiches) { if (x.ancienne) continue; const r = reconnaitre(x, S, V); if (r.source && r.par !== 'nom' && r.version) autres[r.source.id] = [...new Set([...(autres[r.source.id] ?? []), r.version])]; }
+    if (JSON.stringify(autres) !== JSON.stringify(reconnus(ctx))) ctx.saveSettings({ reconnus: autres });
+    return l;
+  }
+  /** Ce qui est surveillé : versions présentes, dernière version vue, téléchargement en cours, prochaine vérification. */
+  async function surveilles(ctx: ModCtx): Promise<{ texte: string; prochaine?: string; surveilles: Array<{ id: string; nom: string; icone: string; famille: string; presents: string[]; derniere?: string; vuLe?: number; erreur?: string; etat: string; manuel?: string; enCours?: { recu: number; total?: number; pct?: number } }> }> {
+    const sc = scan(root(ctx), all(ctx)), V = vues(ctx), now = new Date(), p = plan(ctx);
+    const surv = !ctx.settings.plan && o.surveillance ? await o.surveillance(ctx).catch(() => undefined) : undefined;
+    const prochain = surv?.prochaine ? new Date(surv.prochaine) : nextRun(p, now);
+    const texte = surv?.texte ?? `Vérification ${p.date ? `le ${p.date}` : p.days.length === 7 ? 'tous les jours' : `chaque ${p.days.map((d) => JOURS[d]).join(', ')}`} à ${p.at}${p.auto ? '' : ' (prévenir seulement)'}.`;
+    return { texte, ...(prochain ? { prochaine: prochain.toISOString() } : {}), surveilles: tracked(ctx, sc.found).map((src) => {
+      const la = [...(presentsDe(ctx, sc.found).get(src.id) ?? [])].sort((a, b) => cmpVersion(b, a)), v = V[src.id], j = jobs.get(src.id), m = metaDe(src), derniere = v?.version || undefined;
+      const etat = j ? 'en cours' : src.manual ? 'manuel' : derniere && (!la[0] || cmpVersion(derniere, la[0]) > 0) ? `nouvelle version ${derniere}` : la[0] ? (derniere ? 'à jour' : 'pas encore vérifié') : 'pas encore téléchargé';
+      return { id: src.id, nom: src.name, icone: iconeDe(o.kind, { systeme: m.systeme, nom: src.name, type: m.type }), famille: src.family, presents: la, ...(derniere ? { derniere, vuLe: v!.at } : {}), ...(v?.erreur ? { erreur: v.erreur } : {}), etat, ...(src.manual ? { manuel: src.manual } : {}),
+        ...(j ? { enCours: { recu: j.done, ...(j.total ? { total: j.total, pct: Math.min(100, Math.round((j.done / j.total) * 100)) } : {}) } } : {}) };
+    }) };
   }
 
   const PLAN: Param[] = [
@@ -243,15 +311,15 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       const f = followed(ctx); const fam = [...new Set(all(ctx).map((x) => x.family))];
       return { text: fam.map((g) => `${g} :\n${all(ctx).filter((x) => x.family === g).map((x) => `- ${f.has(x.id) ? '★ ' : ''}${x.name} (${x.id}) — ${x.about}${x.manual ? ' · manuel' : ''}`).join('\n')}`).join('\n') };
     } },
-    { id: 'suivre', label: `Suivre`, what: `Odin garde ce ${o.noun} à jour dans le dossier`, params: [{ key: 'nom', label: o.noun[0].toUpperCase() + o.noun.slice(1), kind: 'text', required: true }], words: [`suivre un ${o.noun}`, 'suivre'], run: (ctx, i) => { const x = byName(ctx, i.nom); ctx.saveSettings({ suivis: [...new Set([...followed(ctx), x.id])] }); return { text: `★ ${x.name} suivi${x.manual ? ` (manuel : ${x.manual})` : ' : téléchargé au prochain passage, ou tout de suite avec « Télécharger »'}.` }; }, undo: (i) => ({ action: 'ne_plus_suivre', input: { nom: i.nom }, label: 'Ne plus suivre' }) },
-    { id: 'ne_plus_suivre', label: 'Ne plus suivre', what: 'Les fichiers restent dans le dossier', quick: false, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], run: (ctx, i) => { const x = byName(ctx, i.nom); ctx.saveSettings({ suivis: [...followed(ctx)].filter((y) => y !== x.id) }); return { text: `☆ ${x.name} n'est plus suivi (s'il est dans le dossier, il reste reconnu).` }; } },
+    { id: 'suivre', label: `Suivre`, what: `Odin garde ce ${o.noun} à jour dans le dossier`, params: [{ key: 'nom', label: o.noun[0].toUpperCase() + o.noun.slice(1), kind: 'text', required: true }], words: [`suivre un ${o.noun}`, 'suivre'], run: (ctx, i) => { const x = byName(ctx, i.nom); surveiller(ctx, x.id); return { text: `★ ${x.name} suivi${x.manual ? ` (manuel : ${x.manual})` : ' : téléchargé au prochain passage, ou tout de suite avec « Télécharger »'}.` }; }, undo: (i) => ({ action: 'ne_plus_suivre', input: { nom: i.nom }, label: 'Ne plus suivre' }) },
+    { id: 'ne_plus_suivre', label: 'Ne plus suivre', what: 'Les fichiers restent dans le dossier', quick: false, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], run: (ctx, i) => { const x = byName(ctx, i.nom); ctx.saveSettings({ suivis: [...followed(ctx)].filter((y) => y !== x.id), ignores: [...new Set([...ignores(ctx), x.id])] }); return { text: `☆ ${x.name} n'est plus suivi : Odin ne le vérifie plus (s'il est dans le dossier, il reste reconnu et rien n'est effacé).` }; } },
     { id: 'verifier', label: 'Vérifier les mises à jour', what: 'Compare avec les sites officiels, sans rien télécharger', read: true, words: [`vérifie les mises à jour des ${o.nouns}`, `nouvelles versions des ${o.nouns}`], run: async (ctx) => {
       const sc = scan(root(ctx), all(ctx)), list = tracked(ctx, sc.found); if (!list.length) return { text: `Rien de suivi pour l'instant.` };
       const lines = await Promise.all(list.map(async (src) => { const have = sc.found.filter((f) => f.source.id === src.id).map((f) => f.version).sort(cmpVersion).pop(); try { const r = await getLatest(ctx, src, true); return `${have && cmpVersion(r.version, have) >= 0 && cmpVersion(r.version, have) === 0 ? '✔' : '🆕'} ${src.name} : ${have ?? 'rien'} → ${r.version}`; } catch (e) { return src.manual ? `ℹ ${src.name} ${have ?? ''} : manuel (${src.page})` : `❌ ${src.name} : ${(e as Error).message}`; } }));
       return { text: lines.join('\n') };
     } },
     { id: 'mettre_a_jour', label: 'Tout mettre à jour', what: 'Vérifie et télécharge maintenant tout ce qui est nouveau', words: [`mets à jour les ${o.nouns}`, `mettre à jour les ${o.nouns}`], run: async (ctx) => ({ text: await cycle(ctx, 'demande') }) },
-    { id: 'telecharger', label: 'Télécharger', what: `La dernière version d'un ${o.noun}, maintenant (il devient suivi)`, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], words: [`télécharge un ${o.noun}`, 'télécharge', 'telecharge'], run: async (ctx, i) => { const x = byName(ctx, i.nom); if (x.manual) return { ok: false, text: `${x.name} : ${x.manual}\nPage officielle : ${x.page}` }; ctx.saveSettings({ suivis: [...new Set([...followed(ctx), x.id])] }); return { text: await cycle(ctx, 'demande', x) }; } },
+    { id: 'telecharger', label: 'Télécharger', what: `La dernière version d'un ${o.noun}, maintenant (il devient suivi)`, params: [{ key: 'nom', label: o.noun, kind: 'text', required: true }], words: [`télécharge un ${o.noun}`, 'télécharge', 'telecharge'], run: async (ctx, i) => { const x = byName(ctx, i.nom); if (x.manual) return { ok: false, text: `${x.name} : ${x.manual}\nPage officielle : ${x.page}` }; surveiller(ctx, x.id); return { text: await cycle(ctx, 'demande', x) }; } },
     { id: 'annuler', label: 'Arrêter le téléchargement', what: 'Le fichier entamé reprendra la prochaine fois', quick: false, params: [{ key: 'nom', label: `${o.noun} (vide : tous)`, kind: 'text', default: '' }], run: (ctx, i) => { const l = [...jobs.values()].filter((j) => !s(i.nom).trim() || j.source === byName(ctx, i.nom).id); l.forEach((j) => j.ctrl.abort()); return { text: l.length ? `⏹ Arrêté : ${l.map((j) => j.name).join(', ')}.` : 'Aucun téléchargement en cours.' }; } },
     { id: 'programmer', label: 'Programmer', what: 'Jours et heure des vérifications (ou une date), et téléchargement automatique ou non', params: PLAN, words: [`programme les mises à jour des ${o.nouns}`, 'programmer'], run: (ctx, i) => {
       const hm = /^(\d{1,2})[:h](\d{2})?$/.exec(s(i.heure).trim() || '03:00'); if (!hm || Number(hm[1]) > 23 || Number(hm[2] ?? 0) > 59) throw new Error('heure sous la forme 03:00');
@@ -284,6 +352,52 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
       for (const f of sc.found) { const want = known.get(basename(f.path)); if (!want) { out.push(`· ${basename(f.path)} : pas téléchargé par Odin (rien à comparer)`); continue; } const got = await sha256File(f.path); const ok = got === want; log(ctx, { what: ok ? 'intègre' : 'abîmé', source: f.source.id, name: f.source.name, version: f.version, file: basename(f.path) }); if (!ok) say(ctx, 'haute', `${basename(f.path)} est abîmé`, 'Son empreinte ne correspond plus au téléchargement : retélécharge-le.', { fix: { action: 'telecharger', input: { nom: f.source.id }, label: 'Retélécharger' } }); out.push(`${ok ? '✔' : '❌'} ${basename(f.path)}`); }
       return { text: out.join('\n') || 'Aucun fichier reconnu.' };
     } },
+    // ---------------- Le Store, les Disponibles, les Surveillés ----------------
+    { id: 'store', label: 'Store', what: `Ce qui se télécharge depuis les dépôts officiels : catalogue (filtre par système, famille, architecture, ${o.kind === 'iso' ? 'type' : 'catégorie'} ; recherche par nom) et, si tu le demandes, les index officiels en ligne`, read: true, external: true,
+      params: [{ key: 'q', label: 'Nom', kind: 'text', default: '' }, { key: 'systeme', label: 'Système', kind: 'text', default: '' }, { key: 'famille', label: 'Famille', kind: 'text', default: '' }, { key: 'arch', label: 'Architecture', kind: 'text', default: '' }, { key: 'type', label: o.kind === 'iso' ? 'Type (bureau, serveur, utilitaire…)' : 'Catégorie', kind: 'text', default: '' }, { key: 'enligne', label: 'Chercher aussi dans les index officiels en ligne', kind: 'boolean', default: false }, { key: 'actualiser', label: 'Relire les versions sur les sites officiels', kind: 'boolean', default: false }],
+      words: ['store', `store des ${o.nouns}`, `cherche un ${o.noun}`], run: async (ctx, i) => {
+        const vrai = (v: unknown) => v === true || v === 'true', f = { q: s(i.q), systeme: s(i.systeme), famille: s(i.famille), arch: s(i.arch), type: s(i.type) };
+        let sc = scan(root(ctx), all(ctx));
+        if (vrai(i.actualiser)) { const ids = new Set(filtrer(catalogueStore(ctx, sc.found), f).map((e) => e.id)); await actualiser(ctx, all(ctx).filter((x) => ids.has(x.id))); sc = scan(root(ctx), all(ctx)); }
+        const tout = catalogueStore(ctx, sc.found), local = filtrer(tout, f);
+        // Les index en ligne : chacun répond ou non ; en panne, le catalogue local répond seul.
+        let index: IndexEtat[] = [], dehors: EntreeStore[] = [];
+        if (vrai(i.enligne) && f.q.trim()) { const r = await chercherEnLigne(ctx.fetch as never, o.kind, f.q, ctx.dir).catch((e) => ({ resultats: [] as EntreeStore[], index: [{ index: 'en ligne', ok: false, n: 0, erreur: (e as Error).message }] })); index = r.index; dehors = filtrer(r.resultats, { systeme: f.systeme, arch: f.arch }); }
+        const l = [...local, ...dehors];
+        const ligne = (e: EntreeStore) => `- ${e.nom}${e.version ? ` ${e.version}` : ''} · ${e.systeme} · ${e.type} · ${e.arch}${e.taille ? ` · ${sizeText(e.taille)}` : ''} · ${e.etat}${e.enLigne ? ` · ${e.famille}` : ''}`;
+        return { text: [`${local.length} sur ${tout.length} au catalogue${dehors.length ? `, ${dehors.length} en ligne` : ''}.`, ...l.slice(0, 80).map(ligne), ...index.map((x) => (x.ok ? `· ${x.index} : ${x.n} résultat(s)` : `· ${x.index} : en panne (${x.erreur}) — le catalogue local répond seul`))].join('\n'), data: { entrees: l, total: tout.length, filtres: valeursFiltres(tout), index, dossier: root(ctx) } };
+      } },
+    { id: 'telecharger_en_ligne', label: 'Télécharger depuis un index en ligne', what: `Un ${o.noun} trouvé dans un index officiel en ligne (Homebrew, GitHub) : téléchargé par l'antivirus d'abord, puis surveillé`, external: true,
+      params: [{ key: 'index', label: 'Index', kind: 'select', options: ['homebrew', 'github'], required: true }, { key: 'ref', label: 'Référence (nom dans l\'index, ou propriétaire/projet)', kind: 'text', required: true }, { key: 'fichier', label: 'Fichier (GitHub)', kind: 'text', default: '' }, { key: 'version', label: 'Version (GitHub)', kind: 'text', default: '' }, { key: 'nom', label: 'Nom affiché', kind: 'text', default: '' }], run: async (ctx, i) => {
+        const index = s(i.index), ref = s(i.ref).trim(), nom = s(i.nom).trim().slice(0, 60);
+        if (index === 'homebrew') {
+          if (o.kind !== 'logiciel') throw new Error('Homebrew ne publie que des logiciels');
+          const essai = sourceHomebrew({ ref, name: nom || ref }), rel = await essai.latest!(ctx.fetch as never);
+          const l = (ctx.settings.homebrew as SuiviHomebrew[] | undefined) ?? [];
+          if (!l.some((x) => x.ref === ref)) ctx.saveSettings({ homebrew: [...l, { ref, name: nom || ref, ...(rel.page ? { page: rel.page } : {}) }] });
+          surveiller(ctx, essai.id);
+          return { text: await cycle(ctx, 'demande', all(ctx).find((x) => x.id === essai.id)!) };
+        }
+        if (index === 'github') {
+          if (!/^[\w.-]+\/[\w.-]+$/.test(ref)) throw new Error('dépôt sous la forme proprietaire/projet');
+          const motif = motifDe(s(i.fichier).trim(), s(i.version).trim()); if (!motif) throw new Error('le nom de ce fichier ne contient pas sa version : ajoute-le par « Ajouter une source officielle » en écrivant le motif toi-même');
+          const base = nom || `${ref.split('/')[1]} (${(/\.([a-z0-9]+)$/i.exec(s(i.fichier))?.[1] ?? 'fichier').toLowerCase()})`, id = `perso-${base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+          const c: Custom = { id, name: base, repo: ref, pattern: motif }; customSource({ ...c, kind: o.kind });
+          if (!all(ctx).some((x) => x.id === id)) ctx.saveSettings({ customs: [...((ctx.settings.customs as Custom[] | undefined) ?? []), c] });
+          surveiller(ctx, id);
+          return { text: await cycle(ctx, 'demande', all(ctx).find((x) => x.id === id)!) };
+        }
+        throw new Error('index inconnu (une application Flathub s\'installe avec Flatpak : il n\'y a pas de fichier à télécharger)');
+      } },
+    { id: 'disponibles', label: 'Disponibles', what: `Ce qui est déjà dans ton dossier, comparé au catalogue : de quel ${o.noun} il s'agit, et s'il existe une version plus récente`, read: true, words: [`${o.nouns} disponibles`, 'disponibles'], run: async (ctx) => {
+      const l = await disponibles(ctx);
+      return { text: l.map((x) => `- ${x.nom} · ${x.catalogue ? `${x.catalogue}${x.versionReconnue ? ` ${x.versionReconnue}` : ''} (reconnu par ${x.par})` : 'pas au catalogue'} · ${x.etat === 'nouvelle version' ? `nouvelle version ${x.derniere}` : x.etat}`).join('\n') || `Rien dans ${root(ctx)}.`, data: { dossier: root(ctx), fichiers: l } };
+    } },
+    { id: 'surveilles', label: 'Surveillés', what: `Ce qu'Odin garde à jour : dernière version vue, prochaine vérification, téléchargement en cours`, read: true, words: [`${o.nouns} surveillés`, 'surveillés', 'surveilles'], run: async (ctx) => {
+      const r = await surveilles(ctx);
+      return { text: [`${r.texte} Prochaine vérification : ${r.prochaine ? new Date(r.prochaine).toLocaleString('fr-FR') : 'aucune'}.`, ...r.surveilles.map((x) => `- ${x.nom} · ${x.presents.length ? `dans le dossier : ${x.presents.join(', ')}` : 'pas encore dans le dossier'} · dernière version vue : ${x.derniere ?? '—'} · ${x.enCours ? `téléchargement ${x.enCours.pct !== undefined ? `${x.enCours.pct} %` : sizeText(x.enCours.recu)}` : x.etat}`)].join('\n') || 'Rien de surveillé.', data: r };
+    } },
+    { id: 'tournee', quick: false, label: 'Tournée de surveillance', what: 'Vérifie tout ce qui est surveillé et télécharge ce qui est nouveau (ou te prévient, selon ton réglage) : c\'est ce que fait la surveillance, chaque mois par défaut', run: async (ctx) => ({ text: await cycle(ctx, 'programmé') }) },
     { id: 'historique', label: 'Historique', what: 'Tout ce qui s\'est passé : vérifications, téléchargements, remplacements, échecs', read: true, words: [`historique des ${o.nouns}`, 'historique des téléchargements'], params: [{ key: 'n', label: 'Combien', kind: 'number', default: 30 }], run: (ctx, i) => ({ text: history(ctx, Math.max(1, Math.min(500, Number(i.n) || 30))).map((e) => `- ${new Date(e.at).toLocaleString('fr-FR')} · ${e.what} · ${e.name}${e.version ? ` ${e.version}` : ''}${e.size ? ` · ${sizeText(e.size)}` : ''}${e.detail ? ` · ${e.detail}` : ''}`).join('\n') || 'Rien pour l\'instant.' }) },
   ];
 
@@ -292,43 +406,60 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     does: [`reconnaît les ${o.nouns} déjà dans ton dossier (disque ou partage réseau monté)`, 'télécharge depuis les sites officiels seulement, empreinte de l\'éditeur vérifiée, reprise si coupure, débit maximum', 'vérifie aux jours et à l\'heure que tu programmes (ou à une date) ; télécharge tout seul ou te prévient', 'garde 2 versions (l\'ancienne et la nouvelle), nombre réglable', 'historique de tout, contrôle des fichiers abîmés, résumé chaque jour, bulles de la mascotte à chaque événement', 'icônes des éditeurs, catalogue, sources à toi (dépôt GitHub ou adresse officielle)', ...(o.extraDoes ?? [])],
     from: o.from, upstream: o.upstream, words: o.words, actions,
     async view(ctx) {
-      const r0 = root(ctx), sc = scan(r0, all(ctx)), list = tracked(ctx, sc.found), f = followed(ctx), now = new Date(), nx = nextRun(plan(ctx), now), p = plan(ctx);
-      const cards = await Promise.all(list.map(async (src) => {
-        const mine = sc.found.filter((x) => x.source.id === src.id).sort((a, b) => cmpVersion(b.version, a.version)), c = latestCache.get(src.id), j = jobs.get(src.id);
-        const newer = c?.r && (!mine[0] || cmpVersion(c.r.version, mine[0].version) > 0);
-        const state = j ? `téléchargement ${j.total ? `${Math.round((j.done / j.total) * 100)} %` : sizeText(j.done)}` : src.manual ? 'manuel' : newer ? `nouvelle version ${c!.r!.version}` : mine[0] ? (c?.r ? 'à jour' : 'pas encore vérifié') : 'pas encore téléchargé';
-        return { icon: await icon(ctx, src), title: src.name, sub: mine.length ? mine.map((m) => `${m.version} · ${sizeText(m.size)}`).join(' — ') : 'aucune version dans le dossier', badge: state, tone: (j ? 'attention' : newer || (!mine.length && !src.manual) ? 'attention' : src.manual ? undefined : 'bon') as Tone | undefined, progress: j?.total ? j.done / j.total : undefined, meta: src.family,
-          actions: [...(j ? [{ action: 'annuler', label: 'Arrêter', input: { nom: src.id } }] : src.manual ? [] : [{ action: 'telecharger', label: newer || !mine.length ? 'Télécharger' : 'Retélécharger', input: { nom: src.id } }]), ...(f.has(src.id) ? [{ action: 'ne_plus_suivre', label: 'Ne plus suivre', input: { nom: src.id } }] : [])] };
-      }));
-      const others = await Promise.all(all(ctx).filter((x) => !list.includes(x)).map(async (src) => ({ icon: await icon(ctx, src), title: src.name, sub: src.about, meta: src.family, badge: src.manual ? 'manuel' : '', actions: [{ action: 'suivre', label: 'Suivre', input: { nom: src.id } }] })));
+      const r0 = root(ctx), sc = scan(r0, all(ctx)), list = tracked(ctx, sc.found), now = new Date(), p = plan(ctx);
+      const S = 'Store', D = 'Disponibles', W = 'Surveillés', R = 'Réglages';
+      const [dispo, surv] = await Promise.all([disponibles(ctx), surveilles(ctx)]);
+      const quand = surv.prochaine ? new Date(surv.prochaine).toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'aucune';
+      // Surveillés : ce qu'Odin garde à jour (dernière version vue, prochaine vérification, téléchargement en cours).
+      const cards = surv.surveilles.map((x) => {
+        const mine = sc.found.filter((y) => y.source.id === x.id).sort((a, b) => cmpVersion(b.version, a.version));
+        const state = x.enCours ? `téléchargement ${x.enCours.pct !== undefined ? `${x.enCours.pct} %` : sizeText(x.enCours.recu)}` : x.etat;
+        return { icon: x.icone, title: x.nom, sub: mine.length ? mine.map((m) => `${m.version} · ${sizeText(m.size)}`).join(' — ') : x.presents.length ? `${x.presents.join(', ')} (fichier reconnu dans le dossier)` : 'aucune version dans le dossier', badge: state, tone: (x.enCours || /nouvelle version|pas encore téléchargé/.test(x.etat) ? 'attention' : x.manuel ? undefined : 'bon') as Tone | undefined, progress: x.enCours?.total ? x.enCours.recu / x.enCours.total : undefined,
+          meta: `${x.famille} · dernière version vue : ${x.derniere ?? '—'}${x.erreur ? ` (site en panne : ${x.erreur})` : ''} · prochaine vérification : ${quand}`,
+          actions: [...(x.enCours ? [{ action: 'annuler', label: 'Arrêter', input: { nom: x.id } }] : x.manuel ? [] : [{ action: 'telecharger', label: /nouvelle version|pas encore/.test(x.etat) ? 'Télécharger' : 'Retélécharger', input: { nom: x.id } }]), { action: 'ne_plus_suivre', label: 'Retirer', input: { nom: x.id } }] };
+      });
+      // Store : tout le catalogue des dépôts officiels (la page dessinée y ajoute la recherche, les filtres et les index en ligne).
+      const st = catalogueStore(ctx, sc.found), fv = valeursFiltres(st);
+      const storeCards = st.map((e) => ({ icon: e.icone, title: e.nom, sub: `${e.systeme} · ${e.type} · ${e.arch} — ${e.about}`, meta: `${e.version ? `version ${e.version}` : 'version : pas encore relue'}${e.taille ? ` · ${sizeText(e.taille)}` : ''}${e.presents.length ? ` · dans le dossier : ${e.presents.join(', ')}` : ''}${e.manuel ? ` · ${e.page}` : ''}`,
+        badge: e.surveille && e.etat === 'à télécharger' ? 'surveillé' : e.etat, tone: (e.etat === 'à jour' ? 'bon' : e.etat === 'nouvelle version' || e.etat === 'en cours' ? 'attention' : 'neutre') as Tone, actions: e.manuel ? [] : [{ action: 'telecharger', label: e.presents.length ? 'Retélécharger' : 'Télécharger', input: { nom: e.id } }] }));
+      // Disponibles : ce qui est déjà là, reconnu et comparé au catalogue.
+      const dispoCards = dispo.map((x) => ({ icon: x.icone, title: x.nom, sub: x.catalogue ? `${x.catalogue}${x.versionReconnue ? ` ${x.versionReconnue}` : ''} · reconnu par ${x.par}` : 'pas au catalogue (ajoute sa source officielle pour le suivre)', meta: `${sizeText(x.taille)} · antivirus : ${x.antivirus}${x.derniere ? ` · dernière version vue : ${x.derniere}` : ''}`,
+        badge: x.etat === 'nouvelle version' ? `nouvelle version ${x.derniere}` : x.etat, tone: (x.etat === 'à jour' ? 'bon' : x.etat === 'nouvelle version' ? 'attention' : 'neutre') as Tone,
+        actions: [...(o.fiche ? [{ action: o.fiche.action, label: 'Fiche', input: { nom: x.id, iso: x.id }, ...(o.fiche.module ? { module: o.fiche.module } : {}) }] : []), ...(x.etat === 'nouvelle version' && x.source && !x.manuel ? [{ action: 'telecharger', label: 'Mettre à jour', input: { nom: x.source } }] : [])] }));
       const h = history(ctx, 40), today = h.filter((e) => new Date(e.at).toDateString() === now.toDateString());
+      const plus = o.reglages ? await o.reglages(ctx) : [];
       const sections: Section[] = [
-        { kind: 'cards', title: `Mes ${o.nouns}`, items: cards, empty: `Rien de suivi : choisis dans le catalogue ci-dessous, ou mets tes ${o.nouns} dans ${r0}.` },
-        ...(sc.unknown.length ? [{ kind: 'list' as const, title: 'Fichiers non reconnus', items: sc.unknown.slice(0, 30).map((u) => ({ title: u, detail: '« Ajouter un suivi » avec le dépôt ou l\'adresse officielle pour qu\'Odin le garde à jour' })) }] : []),
-        { kind: 'table', title: 'Historique', columns: ['Quand', 'Quoi', o.noun[0].toUpperCase() + o.noun.slice(1), 'Version', 'Taille', 'Détail'], empty: 'Rien pour l\'instant.', rows: h.map((e) => ({ cells: [new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), e.what, e.name, e.version ?? '—', e.size ? sizeText(e.size) : '—', e.detail ?? ''], tone: (/échec|fausse|abîmé|mis de côté/.test(e.what) ? 'mauvais' : e.what === 'téléchargé' ? 'bon' : undefined) as Tone | undefined })) },
-        { kind: 'cards', title: 'Catalogue (sites officiels)', items: others, empty: 'Tout le catalogue est suivi.' },
+        { kind: 'form', onglet: S, title: 'Chercher dans le Store', action: 'store', submit: 'Chercher', params: [{ key: 'q', label: 'Nom', kind: 'text', default: '' }, { key: 'systeme', label: 'Système', kind: 'select', options: ['tous', ...fv.systemes], default: 'tous' }, { key: 'type', label: o.kind === 'iso' ? 'Type' : 'Catégorie', kind: 'select', options: ['tous', ...fv.types], default: 'tous' }, { key: 'arch', label: 'Architecture', kind: 'select', options: ['tous', ...fv.archs], default: 'tous' }, { key: 'enligne', label: 'Chercher aussi dans les index officiels en ligne', kind: 'boolean', default: false }], aide: `Uniquement les sites et dépôts officiels des éditeurs. ${o.kind === 'iso' ? 'En ligne : les fichiers publiés par un projet sur GitHub (écris « propriétaire/projet »).' : 'En ligne : Homebrew (macOS), Flathub (Linux), GitHub (« propriétaire/projet »).'}` },
+        { kind: 'cards', onglet: S, title: `Store (${st.length})`, items: storeCards, empty: 'Catalogue vide.' },
+        { kind: 'form', onglet: S, title: 'Ajouter une source officielle', action: 'ajouter_source', submit: 'Ajouter', params: actions.find((a) => a.id === 'ajouter_source')!.params!, aide: 'Pas au catalogue ? Donne le dépôt GitHub du projet ou l\'adresse officielle du fichier : il sera surveillé comme les autres.' },
+        { kind: 'cards', onglet: D, title: `Dans ton dossier (${dispo.length})`, items: dispoCards, empty: `Rien dans ${r0} pour l'instant : télécharge depuis le Store, ou dépose tes ${o.nouns} dans ce dossier.` },
+        ...(sc.unknown.length ? [{ kind: 'list' as const, onglet: D, title: 'Fichiers non reconnus', items: sc.unknown.slice(0, 30).map((u) => ({ title: u, detail: '« Ajouter une source officielle » (onglet Store) avec le dépôt ou l\'adresse officielle pour qu\'Odin le garde à jour' })) }] : []),
+        { kind: 'cards', onglet: W, title: `Mes ${o.nouns}`, items: cards, empty: `Rien de surveillé : télécharge depuis le Store (il sera surveillé tout seul), ou mets tes ${o.nouns} dans ${r0}.` },
+        { kind: 'actions', onglet: W, title: 'Surveillance', boutons: [{ action: 'mettre_a_jour', label: 'Vérifier et télécharger maintenant', primary: true }, { action: 'verifier', label: 'Vérifier seulement' }], aide: `${surv.texte} Prochaine vérification : ${quand}. Ce qui est déjà là n'est retéléchargé que s'il existe une version plus récente (l'ancienne va dans « old »).` },
+        { kind: 'form', onglet: R, title: 'Dossier', action: 'dossier', submit: 'Choisir', params: [{ key: 'chemin', label: 'Dossier (disque ou partage monté)', kind: 'text', required: true, default: r0 }], aide: `Odin y range ses téléchargements et y reconnaît tout ${o.noun} déposé à la main.` },
+        ...plus.map((x) => ({ ...x, onglet: R })),
+        { kind: 'form', onglet: R, title: 'Programmation à jours fixes (facultatif)', action: 'programmer', submit: 'Programmer', params: PLAN.map((x) => ({ ...x, default: x.key === 'jours' ? (p.days.length === 7 ? 'tous' : p.days.map((d) => JOURS[d]).join(', ')) : x.key === 'heure' ? p.at : x.key === 'date' ? p.date ?? '' : p.auto })), aide: 'Sans programmation, la surveillance suit la vérification de la bibliothèque (chaque mois par défaut).' },
+        { kind: 'table', onglet: R, title: 'Historique', columns: ['Quand', 'Quoi', o.noun[0].toUpperCase() + o.noun.slice(1), 'Version', 'Taille', 'Détail'], empty: 'Rien pour l\'instant.', rows: h.map((e) => ({ cells: [new Date(e.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), e.what, e.name, e.version ?? '—', e.size ? sizeText(e.size) : '—', e.detail ?? ''], tone: (/échec|fausse|abîmé|mis de côté/.test(e.what) ? 'mauvais' : e.what === 'téléchargé' ? 'bon' : 'neutre') as Tone })) },
       ];
       return {
-        subtitle: `${r0} · ${list.length} suivi(s) · ${p.date ? `le ${p.date}` : p.days.length === 7 ? 'tous les jours' : p.days.map((d) => JOURS[d]).join(', ')} à ${p.at}${p.auto ? '' : ' (prévenir seulement)'}`,
+        subtitle: `${r0} · ${list.length} surveillé(s) · ${surv.texte}`,
+        onglets: [S, D, W, R],
+        ...(jobs.size ? { refreshMs: 3000 } : {}),
         kpis: [
-          { label: 'Suivis', value: String(list.length) },
-          { label: 'À mettre à jour', value: String(list.filter((src) => { const c = latestCache.get(src.id), m = sc.found.filter((x) => x.source.id === src.id).map((x) => x.version).sort(cmpVersion).pop(); return c?.r && (!m || cmpVersion(c.r.version, m) > 0); }).length), tone: 'attention' },
+          { label: 'Surveillés', value: String(list.length) },
+          { label: 'À mettre à jour', value: String(surv.surveilles.filter((x) => /nouvelle version/.test(x.etat)).length) },
           { label: 'Aujourd\'hui', value: `${today.filter((e) => e.what === 'téléchargé').length} téléchargé(s)`, tone: today.some((e) => /échec|fausse/.test(e.what)) ? 'mauvais' : 'bon' },
           { label: 'Place prise', value: sizeText(sc.found.reduce((a, b) => a + b.size, 0)) },
-          { label: 'Prochain passage', value: nx ? nx.toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'aucun' },
+          { label: 'Prochaine vérification', value: quand },
         ],
         sections,
-        side: [
-          { kind: 'form', title: 'Dossier', action: 'dossier', submit: 'Choisir', params: [{ key: 'chemin', label: 'Dossier (disque ou partage monté)', kind: 'text', required: true, default: r0 }] },
-          { kind: 'form', title: 'Programmation', action: 'programmer', submit: 'Programmer', params: PLAN.map((x) => ({ ...x, default: x.key === 'jours' ? (p.days.length === 7 ? 'tous' : p.days.map((d) => JOURS[d]).join(', ')) : x.key === 'heure' ? p.at : x.key === 'date' ? p.date ?? '' : p.auto })) },
-          { kind: 'form', title: `Ajouter un suivi`, action: 'ajouter_source', submit: 'Ajouter', params: actions.find((a) => a.id === 'ajouter_source')!.params! },
-        ],
       };
     },
     // Chaque minute : passage programmé, et le résumé du jour.
     watch: { every: 60, async run(ctx) {
       const now = new Date();
-      if (due(plan(ctx), now, Number(ctx.settings.lastRun) || 0)) { const t = await cycle(ctx, 'programmé'); if (/❌/.test(t)) ctx.emit('passage', { resultat: t }); }
+      // Le passage « jours et heure » seulement si tu l'as programmé ; sinon c'est la surveillance de la bibliothèque (chaque mois par défaut) qui lance le passage.
+      if (ctx.settings.plan && due(plan(ctx), now, Number(ctx.settings.lastRun) || 0)) { const t = await cycle(ctx, 'programmé'); if (/❌/.test(t)) ctx.emit('passage', { resultat: t }); }
       const rh = s(ctx.settings.resume) || '19:00';
       if (rh !== 'non' && due({ days: [0, 1, 2, 3, 4, 5, 6], at: rh, auto: true }, now, Number(ctx.settings.lastSummary) || 0)) {
         ctx.saveSettings({ lastSummary: now.getTime() });

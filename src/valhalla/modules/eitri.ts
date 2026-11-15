@@ -2,10 +2,12 @@
 // réseau), gardés à jour depuis les sites officiels, empreinte vérifiée. Une nouvelle version remplace l'ancienne,
 // qui part dans un sous-dossier « old » (une seule ancienne gardée par ISO).
 // Reprend les idées d'ISOMan et des gestionnaires de miroirs (Netboot, Ventoy), réécrit pour Odin.
-// Son dossier est l'« espace ISO » commun avec Hydre : une seule bibliothèque, vue des deux côtés (onglet « ISO »).
+// Son dossier est l'« espace ISO » commun avec Hydre : une seule bibliothèque, vue des deux côtés.
+// La page (commune avec Hermès, forge/forge.ts) : « Store » (dépôts officiels), « Disponibles » (le dossier, comparé au
+// catalogue), « Surveillés » (ce qu'Odin garde à jour), « Réglages ».
 import { forgeModule } from '../forge/forge.ts';
 import { ISO } from '../forge/sources.ts';
-import type { View } from '../types.ts';
+import { planTexte, type Fiche, type PlanVerif } from '../forge/bibliotheque.ts';
 import { quarantaineDabord } from '../ullr/garde.ts';
 import { fichiersDeDemarrage } from '../ymir/isos.ts';
 
@@ -26,6 +28,18 @@ export const eitri = forgeModule({
   },
   // Une nouvelle version remplace l'ancienne, qui part dans « old » (une seule ancienne gardée) ; les machines d'Hydre suivent.
   old: { deplace: async (ctx, l) => { await ctx.call('ymir', 'iso_deplacee', { liste: JSON.stringify(l) }, 'ISO remplacée par une nouvelle version', { interne: true }); } },
+  // La bibliothèque est celle d'Hydre (même espace ISO) : fiches, antivirus, machines qui s'en servent.
+  bibliotheque: async (ctx) => (((await ctx.call('ymir', 'bibliotheque_iso', {}, 'ISO disponibles dans Andromède', { interne: true })).data as { isos?: Fiche[] } | undefined)?.isos ?? []),
+  // La surveillance suit la vérification des ISO (chaque mois par défaut, un seul réglage partagé avec Hydre).
+  surveillance: async (ctx) => { const d = (await ctx.call('ymir', 'plan_verif_iso', {}, 'surveillance des ISO', { interne: true })).data as PlanVerif & { prochaine?: string }; return { texte: `Surveillance ${planTexte(d)} : nouvelles versions, empreintes, antivirus.`, prochaine: d.prochaine }; },
+  fiche: { action: 'fiche_iso', module: 'ymir' },
+  reglages: async (ctx) => {
+    const pl = ((await ctx.call('ymir', 'plan_verif_iso', {}, 'réglages des ISO', { interne: true }).catch(() => undefined))?.data ?? {}) as Partial<PlanVerif>;
+    return [
+      { kind: 'form', title: 'Surveillance et vérification des ISO', action: 'verification_iso', submit: 'Planifier', params: [{ key: 'frequence', label: 'Fréquence', kind: 'select', options: ['mois', 'semaine', 'jour'], default: pl.frequence ?? 'mois' }, { key: 'jour', label: 'Jour (1 à 28 ; ou 0 = dimanche à 6 pour la semaine)', kind: 'number', default: pl.jour ?? 1 }, { key: 'heure', label: 'Heure', kind: 'text', default: pl.heure ?? '04:00' }], aide: 'À chaque passage : nouvelles versions de ce qui est surveillé, empreinte recalculée, antivirus, compte rendu. Réglage commun avec Hydre.' },
+      { kind: 'actions', title: 'Vérifier maintenant', boutons: [{ action: 'verifier_isos', label: 'Vérifier toutes les ISO', input: {} }] },
+    ];
+  },
 });
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
@@ -39,24 +53,3 @@ eitri.actions.push(
     run: async (ctx, i) => { const r = await ctx.call('ymir', 'verification_iso', i, 'vérification des ISO planifiée dans Andromède', { interne: true }); return { ok: r.ok, text: r.text, data: r.data }; } },
   { id: 'verifier_isos', label: 'Vérifier toutes les ISO', what: 'Maintenant : empreinte, antivirus, nouvelles versions ; compte rendu', run: async (ctx) => { const r = await ctx.call('ymir', 'verifier_isos', {}, 'vérification des ISO lancée dans Andromède', { interne: true }); return { ok: r.ok, text: r.text, data: r.data }; } },
 );
-
-// L'onglet « ISO » (le même que dans Hydre) : l'emplacement des ISO (espace ISO commun), la bibliothèque avec la fiche
-// de chaque ISO, et la vérification planifiée (mensuelle par défaut).
-const vueForge = eitri.view.bind(eitri);
-eitri.view = async (ctx, q): Promise<View> => {
-  const v = await vueForge(ctx, q), I = 'ISO', M = 'Versions';
-  const b = await ctx.call('ymir', 'bibliotheque_iso', {}, 'onglet ISO d\'Andromède', { interne: true }).catch(() => undefined);
-  const p = await ctx.call('ymir', 'plan_verif_iso', {}, 'onglet ISO d\'Andromède', { interne: true }).catch(() => undefined);
-  const l = ((b?.data as { isos?: Array<Record<string, unknown>> } | undefined)?.isos ?? []), pl = (p?.data ?? {}) as { frequence?: string; jour?: number; heure?: string };
-  const go = (n: unknown) => `${(Number(n) / 1024 ** 3).toFixed(2).replace('.', ',')} Go`, d = (n: unknown) => (Number(n) ? new Date(Number(n)).toLocaleDateString('fr-FR') : '—');
-  const av = (f: Record<string, unknown>) => s((f.antivirus as { verdict?: string } | undefined)?.verdict) || 'non analysé';
-  return { ...v, onglets: [I, M], sections: [
-    { kind: 'form', onglet: I, title: 'Emplacement des ISO (espace ISO, commun avec Hydre)', action: 'dossier', submit: 'Enregistrer', params: [{ key: 'chemin', label: 'Dossier (disque ou partage monté)', kind: 'text', required: true, default: s(ctx.settings.dossier) }], aide: 'Odin y range ses téléchargements et y reconnaît toute ISO déposée à la main.' },
-    { kind: 'table', onglet: I, title: `Bibliothèque (${l.length} ISO)`, columns: ['ISO', 'Système', 'Version', 'Arch.', 'Édition', 'Taille', 'Ajoutée', 'Empreinte', 'Antivirus', 'Vérifiée', 'Machines'], empty: 'Aucune ISO dans l\'emplacement.',
-      rows: l.map((f) => ({ cells: [s(f.nom), `${s(f.systeme)} · ${s(f.detail)}`, s(f.version) || '—', s(f.arch) || '—', s(f.edition) || '—', go(f.taille), d(f.ajoute), f.sha256 ? `${s(f.sha256).slice(0, 12)}…${f.editeur === true ? ' ✓ éditeur' : ''}` : '—', av(f), (f.verifiee as { at?: number } | undefined)?.at ? d((f.verifiee as { at: number }).at) : 'jamais', ((f.vms as string[] | undefined) ?? []).join(', ') || '—'],
-        tone: av(f) === 'sain' ? 'bon' as const : 'neutre' as const, actions: [{ action: 'fiche_iso', label: 'Fiche', input: { iso: f.id }, module: 'ymir' }] })) },
-    { kind: 'form', onglet: I, title: 'Vérification de toutes les ISO', action: 'verification_iso', submit: 'Planifier', params: [{ key: 'frequence', label: 'Fréquence', kind: 'select', options: ['mois', 'semaine', 'jour'], default: pl.frequence ?? 'mois' }, { key: 'jour', label: 'Jour (1 à 28 ; ou 0 = dimanche à 6 pour la semaine)', kind: 'number', default: pl.jour ?? 1 }, { key: 'heure', label: 'Heure', kind: 'text', default: pl.heure ?? '04:00' }], aide: p?.text ?? 'Empreinte recalculée, antivirus, nouvelles versions : un compte rendu à chaque passage.' },
-    { kind: 'actions', onglet: I, title: 'Vérifier maintenant', boutons: [{ action: 'verifier_isos', label: 'Vérifier toutes les ISO', input: {} }] },
-    ...v.sections.map((x) => ({ ...x, onglet: M })),
-  ] };
-};

@@ -39,8 +39,8 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   // Données
   urdr: [J('journal des requêtes', 'requetes'), J('traçabilité des liens d\'Odin avec les bases', 'liens_bases'), R('liste des bases (bases.json), base-odin.json', 'demarrage'), R('mots de passe des bases (secrets.json)', 'secret')],
   skidbladnir: [J('journal des synchronisations', 'skidbladnir'), R('fichiers synchronisés', 'binaire'), REG],
-  fjalar: [J('historique des constructions', 'forge_fjalar'), J('bibliothèque des logiciels : fiches (éditeur, version, empreinte, antivirus) et comptes rendus de vérification', 'fjalar'), R('dossiers gardés à jour (installateurs, anciennes versions dans « old »)', 'binaire')],
-  eitri: [J('historique des constructions', 'forge_eitri'), R('dossiers gardés à jour', 'binaire')],
+  fjalar: [J('historique des constructions', 'forge_fjalar'), J('bibliothèque des logiciels : fiches (éditeur, version, empreinte, antivirus) et comptes rendus de vérification', 'fjalar'), R('dossiers gardés à jour (installateurs, anciennes versions dans « old »), copie d\'un jour de l\'index Homebrew', 'binaire'), R('surveillance : ce qui est suivi ou retiré, dernière version vue de chaque source (réglages.json)', 'reglages')],
+  eitri: [J('historique des constructions', 'forge_eitri'), R('dossiers gardés à jour (ISO, anciennes versions dans « old »)', 'binaire'), R('surveillance : ce qui est suivi ou retiré, dernière version vue de chaque source (réglages.json)', 'reglages')],
   volva: [R('historique de recherche (historique.json)', 'a-faire'), REG],
   frigg: [R('réservations, horaires, services (réglages)', 'a-faire')],
   kvasir: [REG, R('veille : nouveautés suivies (réglages)', 'a-faire')],

@@ -225,20 +225,33 @@ export class Bibliotheque {
 
 // ---------------------------------------------------------------- Logos et icônes génériques (dessinés ici, aucune marque copiée)
 const svg = (corps: string, fond: string) => `data:image/svg+xml;base64,${Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="${fond}"/>${corps}</svg>`).toString('base64')}`;
-/** Un petit logo générique par famille de système (fenêtre, manchot, pomme stylisée, disque…). Pur. */
+/**
+ * Un petit logo générique par famille de système, dessiné ici : une fenêtre (Windows), un écran sur pied (macOS), un
+ * manchot (Linux, une couleur par distribution), un hexagone (BSD), un disque (autre). Aucun logo de marque. Pur.
+ */
 export function logoSysteme(f: Pick<Fiche, 'systeme' | 'distribution' | 'detail' | 'pilotes'>): string {
   const d = `${f.distribution ?? ''} ${f.detail ?? ''}`.toLowerCase();
   if (f.pilotes) return svg('<rect x="11" y="13" width="18" height="14" rx="2" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M15 13v-3M20 13v-3M25 13v-3M15 27v3M20 27v3M25 27v3" stroke="#fff" stroke-width="2.4"/>', '#64748b');
-  if (f.systeme === 'Windows') return svg('<path d="M10 11l9-1.3V19h-9zM21 9.4L30 8v11h-9zM10 21h9v9.3L10 29zM21 21h9v11l-9-1.4z" fill="#fff"/>', '#0a6cd6');
-  if (f.systeme === 'macOS') return svg('<path d="M26 22c0-3 2.4-4.4 2.5-4.5-1.4-2-3.5-2.2-4.2-2.3-1.8-.2-3.5 1-4.4 1s-2.3-1-3.8-1c-2 0-3.8 1.2-4.8 2.9-2 3.5-.5 8.7 1.5 11.6 1 1.4 2.1 3 3.6 2.9 1.4-.1 2-.9 3.7-.9s2.2.9 3.7.9c1.5 0 2.5-1.4 3.5-2.8.6-.9 1.1-1.8 1.5-2.8-.1 0-2.8-1.1-2.8-5zM23.2 13.2c.8-1 1.3-2.3 1.2-3.6-1.1.1-2.5.8-3.3 1.8-.7.8-1.4 2.2-1.2 3.5 1.3.1 2.5-.7 3.3-1.7z" fill="#fff"/>', '#6b7280');
+  if (f.systeme === 'Windows') return svg('<rect x="9" y="11" width="22" height="18" rx="2.5" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M9 16.5h22" stroke="#fff" stroke-width="2.4"/><circle cx="12.6" cy="13.8" r="1" fill="#fff"/><circle cx="16" cy="13.8" r="1" fill="#fff"/>', '#0a6cd6');
+  if (f.systeme === 'macOS') return svg('<rect x="9" y="10" width="22" height="15" rx="2.5" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M17 25l-1 5h8l-1-5M14 30h12" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>', '#6b7280');
+  if (f.systeme === 'BSD') return svg('<path d="M20 8l10 6v12l-10 6-10-6V14z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><text x="20" y="24" font-family="system-ui,sans-serif" font-size="8" font-weight="800" fill="#fff" text-anchor="middle">BSD</text>', '#ab2b28');
   if (f.systeme === 'Linux') {
-    if (/ubuntu/.test(d)) return svg('<circle cx="20" cy="20" r="8" fill="none" stroke="#fff" stroke-width="2.6"/><circle cx="12" cy="20" r="2.6" fill="#fff"/><circle cx="24" cy="13" r="2.6" fill="#fff"/><circle cx="24" cy="27" r="2.6" fill="#fff"/>', '#e95420');
-    if (/debian/.test(d)) return svg('<path d="M22 11a9 9 0 1 0 6 13" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><path d="M23 16a4.5 4.5 0 1 0 1 6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>', '#a80030');
-    if (/fedora/.test(d)) return svg('<circle cx="20" cy="20" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M23 13h-2.5a3 3 0 0 0-3 3v12M15 20h7" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>', '#3c6eb4');
-    // Les autres distributions : un manchot stylisé.
-    return svg('<ellipse cx="20" cy="22" rx="7.5" ry="9.5" fill="#fff"/><ellipse cx="20" cy="23.5" rx="4.6" ry="6.4" fill="#f5c542"/><circle cx="17.6" cy="16" r="1.2" fill="#222"/><circle cx="22.4" cy="16" r="1.2" fill="#222"/><path d="M18.5 18.5h3l-1.5 1.6z" fill="#f59e0b"/>', /mint/.test(d) ? '#5fa04e' : /arch/.test(d) ? '#1793d1' : /alpine/.test(d) ? '#0d597f' : /rocky|alma/.test(d) ? '#10b981' : /kali/.test(d) ? '#367bf0' : '#334155');
+    // Un manchot stylisé pour toutes les distributions ; la couleur du fond dit laquelle.
+    const fond = /ubuntu/.test(d) ? '#e95420' : /debian/.test(d) ? '#a80030' : /fedora/.test(d) ? '#3c6eb4' : /mint/.test(d) ? '#5fa04e' : /arch|manjaro/.test(d) ? '#1793d1' : /alpine/.test(d) ? '#0d597f' : /rocky|alma|red hat|rhel/.test(d) ? '#10b981' : /kali|tails/.test(d) ? '#367bf0' : /suse/.test(d) ? '#73ba25' : /proxmox/.test(d) ? '#e57000' : '#334155';
+    return svg('<ellipse cx="20" cy="22" rx="7.5" ry="9.5" fill="#fff"/><ellipse cx="20" cy="23.5" rx="4.6" ry="6.4" fill="#f5c542"/><circle cx="17.6" cy="16" r="1.2" fill="#222"/><circle cx="22.4" cy="16" r="1.2" fill="#222"/><path d="M18.5 18.5h3l-1.5 1.6z" fill="#f59e0b"/>', fond);
   }
   return svg('<circle cx="20" cy="20" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="20" cy="20" r="2.6" fill="#fff"/>', '#475569');
+}
+/** Une icône générique par catégorie de logiciel (globe, chevrons, lecture, clé, bouclier, réseau, page). Pur. */
+export function iconeCategorie(categorie: string): string {
+  const c = categorie.toLowerCase();
+  if (/internet|navigateur|courrier/.test(c)) return svg('<circle cx="20" cy="20" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M10 20h20M20 10c4 3.5 4 16.5 0 20M20 10c-4 3.5-4 16.5 0 20" fill="none" stroke="#fff" stroke-width="2"/>', '#0e7490');
+  if (/d[ée]velop/.test(c)) return svg('<path d="M16 14l-6 6 6 6M24 14l6 6-6 6" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>', '#4338ca');
+  if (/multim|vid[ée]o|son|image/.test(c)) return svg('<circle cx="20" cy="20" r="10" fill="none" stroke="#fff" stroke-width="2.4"/><path d="M17.5 15.5v9l7.5-4.5z" fill="#fff"/>', '#b45309');
+  if (/s[ée]curit/.test(c)) return svg('<path d="M20 9l9 3.4v6.6c0 5.6-3.9 9-9 10.2-5.1-1.2-9-4.6-9-10.2v-6.6z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 20l3 3 5-6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>', '#15803d');
+  if (/r[ée]seau/.test(c)) return svg('<circle cx="20" cy="12" r="3" fill="#fff"/><circle cx="12" cy="27" r="3" fill="#fff"/><circle cx="28" cy="27" r="3" fill="#fff"/><path d="M20 15v5M20 20l-7 5M20 20l7 5" stroke="#fff" stroke-width="2.2"/>', '#7c3aed');
+  if (/bureau/.test(c)) return svg('<path d="M13 9h10l5 5v17H13z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="M17 19h7M17 23h7M17 27h4" stroke="#fff" stroke-width="2"/>', '#be185d');
+  return svg('<path d="M27.5 12.5a5.5 5.5 0 0 0-7.6 6.4L11 27.8 13.2 30l8.9-8.9a5.5 5.5 0 0 0 6.4-7.6l-3.3 3.3-2.6-2.6z" fill="#fff"/>', '#475569');
 }
 /** Une icône générique par type d'installateur (quand le fichier n'en contient pas de lisible). Pur. */
 export function iconeType(nom: string): string {
