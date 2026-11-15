@@ -10,9 +10,10 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { isPrivateHost } from '../heimdall/policy.ts';
 import { FORMATS, GOOGLE_ABSENT } from '../valhalla/export/fichier.ts';
+import { googleDe } from '../valhalla/export/google.ts';
 import { STYLE_HASH, enHtml, h, pageHtml } from '../valhalla/export/html.ts';
 import { dateFr, prendre, refusDe, retraitsDe } from '../valhalla/export/page.ts';
 import { check as personneConnectee, portalUrl, within } from '../valhalla/modules/var.ts';
@@ -105,7 +106,7 @@ export async function partageApi(req: IncomingMessage, res: ServerResponse, url:
     const gens = await personnes(va), lieu = portee(req, o);
     json(res, 200, {
       ok: true, id: m.id, name: m.name,
-      export: { permis: true, formats: [...FORMATS.map((f) => ({ ...f, permis: true })), { id: 'gdoc', nom: 'Google Docs', ext: '', permis: false, raison: GOOGLE_ABSENT }], retire: retraitsDe(m.id).map((r) => ({ quoi: r.quoi, pourquoi: r.pourquoi })) },
+      export: { permis: true, formats: [...FORMATS.map((f) => ({ ...f, permis: true })), (() => { const g = googleDe(resolve(va.ctx(m.id).home)), e = g.etat(); return { id: 'gdoc', nom: 'Google Docs', ext: '', google: true, permis: e.connecte, raison: e.connecte ? '' : e.coffre ?? GOOGLE_ABSENT, client: e.client }; })()], retire: retraitsDe(m.id).map((r) => ({ quoi: r.quoi, pourquoi: r.pourquoi })) },
       partage: { permis: true, jours: DUREE, portee: lieu.portee, note: lieu.note, invites: { personnes: gens, groupes: [...new Set(gens.flatMap((g) => g.groupes))].sort(), note: noteInvites(va, req, gens) } },
       partages: magasin.liste(m.id).map(vu),
     });

@@ -579,6 +579,12 @@
       btn.disabled = true; exportEtat[id] = { k: 'cours', t: `Export en ${f.nom}…` }; majBouton(); dit(true, `Export en ${f.nom}…`); st.className = 'va-essai';
       try {
         const x = await fetch(`/api/valhalla/export?${new URLSearchParams({ ...ou(), id, format: f.id })}`, { headers: { 'x-odin': '1' } });
+        if (f.google) {
+          // Google Docs : le document est créé dans ton Drive ; on montre son lien (rien à télécharger).
+          const j = await x.json().catch(() => ({})); if (!j.ok) throw new Error(j.error ?? `refusé (${x.status})`);
+          exportEtat[id] = { k: 'fini', t: `Document Google : ${j.nom}` }; dit(true, `✓ ${j.nom} · `); st.append(el('a', { href: /^https:\/\/docs\.google\.com\//.test(j.lien) ? j.lien : '#', target: '_blank', rel: 'noopener noreferrer' }, 'Ouvrir dans Google Docs'));
+          btn.disabled = false; majBouton(); return;
+        }
         if (!x.ok) { const j = await x.json().catch(() => ({})); throw new Error(j.error ?? `refusé (${x.status})`); }
         const nom = decodeURIComponent((/filename\*=UTF-8''([^;]+)/i.exec(x.headers.get('content-disposition') ?? '') ?? [])[1] ?? '') || (/filename="([^"]+)"/i.exec(x.headers.get('content-disposition') ?? '') ?? [])[1] || `${r.name}.${f.ext}`;
         const url = URL.createObjectURL(await x.blob()), a = el('a', { href: url, download: nom }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
@@ -589,6 +595,23 @@
     const E = info.export, P = info.partage;
     const formats = el('div', { class: 'va-acts-bar' }, ...(E.formats ?? []).filter((f) => f.permis).map((f) => el('button', { class: 'btn', type: 'button', title: `Télécharger en ${f.nom}`, onclick: (e) => exporter(f, e.currentTarget) }, f.nom)));
     const pasPermis = (E.formats ?? []).filter((f) => !f.permis && f.raison);
+    // Relier Google (pour l'export Google Docs) : ton client OAuth (rangé dans le coffre), puis un code à saisir chez Google.
+    const gdoc = (E.formats ?? []).find((f) => f.google && !f.permis);
+    const relierGoogle = () => {
+      const boite = el('div', { style: 'display:flex;flex-direction:column;gap:8px;margin:8px 0 0' }), msg = el('p', { class: 'va-aide', role: 'status' });
+      const cid = el('input', { class: 'va-champ', type: 'text', autocomplete: 'off', placeholder: 'Identifiant du client (….apps.googleusercontent.com)', 'aria-label': 'Identifiant du client OAuth Google' });
+      const csec = el('input', { class: 'va-champ', type: 'password', autocomplete: 'off', placeholder: 'Secret du client', 'aria-label': 'Secret du client OAuth Google' });
+      const suivre = async () => { for (let i = 0; i < 360 && dlg.open; i++) { await new Promise((ok) => setTimeout(ok, 5000)); const e = await api('/api/valhalla/export/google/etat').catch(() => ({})); if (e.connecte) { msg.textContent = '✓ Compte Google relié : rouvre ce panneau pour exporter.'; return; } if (e.erreur) { msg.textContent = `✗ ${e.erreur}`; return; } } };
+      const code = async (b) => { b.disabled = true; const y = await api('/api/valhalla/export/google/connexion', {}).catch((e) => ({ ok: false, error: e.message })); b.disabled = false; if (!y.ok) { msg.textContent = `✗ ${y.error}`; return; } msg.replaceChildren(`Ouvre `, el('a', { href: /^https:\/\//.test(y.adresse) ? y.adresse : '#', target: '_blank', rel: 'noopener noreferrer' }, y.adresse), ` et saisis le code `, el('b', {}, y.code), '. Odin attend ta réponse…'); void suivre(); };
+      boite.append(
+        gdoc.client ? null : el('p', { class: 'va-aide', style: 'margin:0' }, 'Console Google Cloud → Identifiants → « ID client OAuth », type « Téléviseurs et appareils à saisie limitée », API Google Drive activée.'),
+        gdoc.client ? null : el('div', { class: 'va-ligne' }, cid, csec),
+        el('div', { class: 'va-acts-bar' },
+          gdoc.client ? null : el('button', { class: 'btn', type: 'button', onclick: async (e) => { const y = await api('/api/valhalla/export/google/client', { id: cid.value.trim(), secret: csec.value.trim() }).catch((x) => ({ ok: false, error: x.message })); csec.value = ''; msg.textContent = y.ok ? y.text : `✗ ${y.error}`; if (y.ok) { gdoc.client = true; e.currentTarget.remove(); cid.parentElement?.remove(); } } }, 'Enregistrer le client'),
+          el('button', { class: 'btn primary', type: 'button', onclick: (e) => code(e.currentTarget) }, 'Se connecter avec un code')),
+        msg);
+      return boite;
+    };
     // Partager
     const type = el('select', { class: 'va-champ', id: 'va-pt-type' }, el('option', { value: 'prive' }, 'Privé'), el('option', { value: 'public' }, 'Public'));
     const jours = el('input', { class: 'va-champ', id: 'va-pt-jours', type: 'number', min: 1, max: P?.jours?.max ?? 90, value: P?.jours?.defaut ?? 7, style: 'max-width:110px' });
@@ -618,6 +641,7 @@
       el('h3', { style: 'margin:16px 0 8px;font-size:16px' }, 'Exporter'), E.permis ? formats : el('p', { class: 'va-aide' }, E.raison),
       E.permis && E.retire?.length ? el('p', { class: 'va-aide', style: 'margin:6px 0 0' }, `Pas dans le fichier : ${E.retire.map((x) => x.quoi).join(', ')}.`) : null,
       ...(E.permis ? pasPermis.map((f) => el('p', { class: 'va-aide', style: 'margin:6px 0 0' }, `${f.nom} : ${f.raison}`)) : []),
+      E.permis && gdoc ? relierGoogle() : null,
       el('h3', { style: 'margin:18px 0 8px;font-size:16px' }, 'Partager'),
       P?.permis ? el('div', { style: 'display:flex;flex-direction:column;gap:10px' },
         el('div', { class: 'va-ligne' }, el('div', {}, el('label', { class: 'va-l', for: 'va-pt-type' }, 'Lien'), type), el('div', { style: 'flex:0 0 auto' }, el('label', { class: 'va-l', for: 'va-pt-jours' }, 'Jours'), jours)),

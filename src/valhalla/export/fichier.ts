@@ -1,6 +1,6 @@
 // Export des pages d'applis · le fichier remis à l'utilisateur.
 // Quatre formats écrits par Odin lui-même, sans rien installer : Markdown, JSON, Word et PDF.
-// Google Docs : Odin n'a pas (encore) de connexion à un compte Google ; plutôt que d'en inventer une, on le dit.
+// Google Docs : par la connexion Google du propriétaire (google.ts) ; tant qu'elle n'existe pas, on le dit.
 
 import { enDocx } from './docx.ts';
 import { enJson, enMarkdown } from './markdown.ts';
@@ -12,7 +12,7 @@ export type Format = 'md' | 'json' | 'docx' | 'pdf';
 export const FORMATS: ReadonlyArray<{ id: Format; nom: string; ext: string }> = [{ id: 'docx', nom: 'Word', ext: 'docx' }, { id: 'pdf', nom: 'PDF', ext: 'pdf' }, { id: 'md', nom: 'Markdown', ext: 'md' }, { id: 'json', nom: 'JSON', ext: 'json' }];
 export const estFormat = (v: string): v is Format => FORMATS.some((f) => f.id === v);
 /** Ce qu'on répond à qui demande Google Docs. */
-export const GOOGLE_ABSENT = 'Odin n\'est pas encore relié à un compte Google. En attendant : exporte en Word (.docx), puis ouvre ce fichier dans Google Docs (Fichier → Ouvrir → Importer).';
+export const GOOGLE_ABSENT = 'Odin n\'est pas encore relié à ton compte Google : relie-le ici (« Relier Google »), avec ton client OAuth et un code à saisir chez Google. En attendant : exporte en Word (.docx), puis ouvre ce fichier dans Google Docs (Fichier → Ouvrir → Importer).';
 export const estGoogle = (v: string) => /^(gdocs?|google(?:[ _-]?docs?)?)$/i.test(v);
 
 /** Un nom de fichier sans caractère gênant pour Windows, macOS ou Linux. */
