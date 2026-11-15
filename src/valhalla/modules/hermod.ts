@@ -5,7 +5,9 @@
 import { createSocket } from 'node:dgram';
 import { probe } from '../../hlidskjalf/discover.ts';
 import { findMachine, listMachines, runOnMachine, type Machine } from '../../machines/access.ts';
-import type { ModCtx, Module } from '../types.ts';
+import { capsules, desinscrire, empreinteOdin, inscrire, lireEtat, scriptEtat, scriptInstallation, scriptReglage, scriptRetrait } from '../rodd/capsule.ts';
+import { MODES } from './rodd.ts';
+import type { ActionResult, ModCtx, Module } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '');
 /** Paquet magique Wake-on-LAN : 6 × FF puis 16 × l'adresse MAC. */
@@ -20,12 +22,34 @@ const INVENTORY = `echo "os=$( (. /etc/os-release 2>/dev/null && echo $PRETTY_NA
 export function parseInventory(out: string): Record<string, string> { return Object.fromEntries(out.split('\n').map((l) => { const i = l.indexOf('='); return i > 0 ? [l.slice(0, i).trim(), l.slice(i + 1).trim()] : ['', '']; }).filter(([k]) => k)); }
 type Inv = Record<string, string> & { at: string; online: string };
 const inv = (ctx: ModCtx): Record<string, Inv> => (ctx.settings.inventory as Record<string, Inv> | undefined) ?? {};
+/** L'état rendu par une capsule, en une ligne. */
+function etatCapsule(e: Record<string, unknown> | undefined): string {
+  if (!e) return 'réponse illisible';
+  if (e.ok === false) return String(e.erreur ?? 'erreur');
+  return `version ${s(e.version)} · micro : ${e.enregistreur ? s(e.enregistreur) : 'aucun programme (installe arecord, parecord, ffmpeg ou sox)'} · écrit avec : ${s(e.frappe)}${e.mode ? ` · mise en forme : ${s(e.mode)}` : ''}`;
+}
+/**
+ * Écho sur un poste du parc : Satellites installe la capsule de dictée par SSH (Linux, macOS), avec un jeton à elle
+ * (Odin n'en garde que l'empreinte) et l'empreinte du certificat d'Odin (elle ne parle qu'à lui).
+ */
+async function installerCapsule(ctx: ModCtx, i: Record<string, unknown>): Promise<ActionResult> {
+  const m = machine(ctx, s(i.machine)), mode = (MODES as readonly string[]).includes(s(i.mode)) ? s(i.mode) : 'corrigé';
+  const odin = (s(i.adresse_odin) || s(ctx.settings.odinUrl)).trim().replace(/\/$/, '');
+  if (!/^https?:\/\/[^\s'"]+$/.test(odin)) throw new Error('donne l\'adresse d\'Odin vue depuis ce poste (ex. https://192.168.1.10:7777)');
+  const jeton = inscrire(ctx.home, m.label, mode, ctx.now());
+  const r = await runOnMachine(ctx.home, m, scriptInstallation({ odin, jeton, poste: m.label, mode, empreinte: /^https:/.test(odin) ? empreinteOdin(ctx.home) : '' }), { timeoutMs: 90_000 }).catch((e: Error) => ({ code: 1, out: JSON.stringify({ ok: false, erreur: e.message }) }));
+  const e = lireEtat(r.out);
+  if (r.code !== 0 || !e || e.ok === false) { desinscrire(ctx.home, m.label); throw new Error(`capsule non installée sur ${m.label} : ${etatCapsule(e)}`); }
+  ctx.saveSettings({ odinUrl: odin });
+  ctx.emit('capsule_installee', { poste: m.label });
+  return { text: `🎙 Capsule d'Écho installée sur ${m.label} (${etatCapsule(e)}).\nCrée sur ce poste un raccourci clavier qui lance : python3 ~/.odin-capsule/capsule.py dicter`, data: e };
+}
 function machine(ctx: ModCtx, name: string): Machine { const m = findMachine(ctx.home, name); if (!m) throw new Error(`machine inconnue : ${name} (ajoute-la dans Réglages → Machines)`); return m; }
 
 export const hermod: Module = {
   id: 'hermod', name: 'Satellites', family: 'Accès',
   what: 'Ton parc d\'ordinateurs : qui est allumé, l\'état de chacun, commandes à distance, réveil et prise en main.',
-  does: ['inventaire : système, mémoire, disque, mises à jour en attente', 'en ligne ou non (vérifié toutes les 5 minutes)', 'commande à distance (avec ton accord)', 'réveil à distance (Wake-on-LAN)', 'redémarrage à distance (avec ton accord)', 'mode Phaéton : prise en main du bureau quand la machine a un accès VNC ou bureau à distance', 'alerte si une machine disparaît ou si son disque se remplit'],
+  does: ['inventaire : système, mémoire, disque, mises à jour en attente', 'en ligne ou non (vérifié toutes les 5 minutes)', 'commande à distance (avec ton accord)', 'réveil à distance (Wake-on-LAN)', 'redémarrage à distance (avec ton accord)', 'mode Phaéton : prise en main du bureau quand la machine a un accès VNC ou bureau à distance', 'distribue et pilote la capsule de dictée d\'Écho sur les postes (installation, état, réglage, retrait)', 'alerte si une machine disparaît ou si son disque se remplit'],
   from: ['MeshCentral', 'RustDesk'], upstream: ['Ylianst/MeshCentral', 'rustdesk/rustdesk'],
   modes: ['Phaéton · prise en main'],
   words: ['parc', 'ordinateurs', 'ordinateur', 'pc', 'machine distante', 'a distance', 'à distance', 'reveiller', 'réveiller', 'wake on lan', 'prise en main', 'bureau a distance', 'bureau à distance', 'redemarrer le pc'],
@@ -35,6 +59,11 @@ export const hermod: Module = {
     { id: 'commande', label: 'Commande à distance', what: 'Exécute une commande sur une machine', params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }, { key: 'commande', label: 'Commande', kind: 'text', required: true }], grave: (i) => `exécuter « ${s(i.commande)} » sur ${s(i.machine)}`, run: async (ctx, i) => { const m = machine(ctx, s(i.machine)); const r = await runOnMachine(ctx.home, m, s(i.commande), { timeoutMs: 120_000 }); return { text: `${r.out.trim().slice(-8000) || '(aucune sortie)'}\n[${m.label} · code ${r.code}]` }; } },
     { id: 'reveiller', label: 'Réveiller', what: 'Allume une machine à distance (Wake-on-LAN)', params: [{ key: 'machine', label: 'Machine ou adresse MAC', kind: 'text', required: true }], words: ['reveille', 'réveille', 'allume le pc'], run: async (ctx, i) => { const q = s(i.machine); const mac = /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i.test(q) ? q : inv(ctx)[machine(ctx, q).id]?.mac; if (!mac) throw new Error('adresse MAC inconnue : rafraîchis l\'inventaire quand la machine est allumée'); await wake(mac); return { text: `⏰ Signal de réveil envoyé à ${q} (${mac}).` }; } },
     { id: 'redemarrer', label: 'Redémarrer', what: 'Redémarre une machine', params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }], grave: (i) => `redémarrer ${s(i.machine)}`, run: async (ctx, i) => { const m = machine(ctx, s(i.machine)); await runOnMachine(ctx.home, m, 'sudo shutdown -r +1 "Redémarrage demandé par Odin"', { timeoutMs: 30_000 }); return { text: `↻ ${m.label} redémarre dans une minute.` }; } },
+    { id: 'capsules', label: 'Capsules de dictée', what: 'Les postes du parc où la dictée d\'Écho est installée', read: true, words: ['capsules de dictee', 'capsules de dictée'], run: (ctx) => { const l = capsules(ctx.home); return { text: l.map((c) => `- ${c.poste} · ${c.mode} · installée le ${c.at.slice(0, 10)} (v${c.version})`).join('\n') || 'Aucune capsule de dictée sur le parc : « installe la capsule de dictée sur <poste> ».', data: l }; } },
+    { id: 'capsule_installer', label: 'Installer la dictée (Écho)', what: 'Installe la capsule de dictée d\'Écho sur un poste Linux ou Mac du parc (par SSH, dans son dossier personnel)', params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }, { key: 'adresse_odin', label: 'Adresse d\'Odin vue depuis ce poste', kind: 'text', default: '', help: 'Ex. https://192.168.1.10:7777 (retenue pour les postes suivants).' }, { key: 'mode', label: 'Mise en forme', kind: 'select', options: [...MODES], default: 'corrigé' }], words: ['installe la capsule de dictee', 'installe la capsule de dictée', 'installe la dictee sur', 'installe la dictée sur'], grave: (i) => `installer la capsule de dictée d\'Écho sur ${s(i.machine)}`, run: installerCapsule },
+    { id: 'capsule_etat', label: 'État de la capsule', what: 'Demande son état à la capsule de dictée d\'un poste', read: true, params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }], words: ['etat de la capsule', 'état de la capsule'], run: async (ctx, i) => { const m = machine(ctx, s(i.machine)); const r = await runOnMachine(ctx.home, m, scriptEtat(), { timeoutMs: 30_000 }); return { text: `${m.label} : ${etatCapsule(lireEtat(r.out))}`, data: lireEtat(r.out) }; } },
+    { id: 'capsule_regler', label: 'Régler la capsule', what: 'Change la mise en forme par défaut de la capsule d\'un poste', quick: false, params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }, { key: 'mode', label: 'Mise en forme', kind: 'select', options: [...MODES], default: 'corrigé' }], run: async (ctx, i) => { const m = machine(ctx, s(i.machine)), mode = (MODES as readonly string[]).includes(s(i.mode)) ? s(i.mode) : 'corrigé'; const r = await runOnMachine(ctx.home, m, scriptReglage(mode), { timeoutMs: 30_000 }); const e = lireEtat(r.out); if (r.code !== 0 || !e?.ok) throw new Error(`réglage refusé par ${m.label}`); return { text: `${m.label} : mise en forme « ${mode} ».` }; } },
+    { id: 'capsule_retirer', label: 'Retirer la capsule', what: 'Retire la capsule de dictée d\'un poste (son jeton ne vaut plus rien)', params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }], words: ['retire la capsule', 'desinstalle la capsule', 'désinstalle la capsule'], grave: (i) => `retirer la capsule de dictée de ${s(i.machine)}`, run: async (ctx, i) => { const m = machine(ctx, s(i.machine)); desinscrire(ctx.home, m.label); const r = await runOnMachine(ctx.home, m, scriptRetrait(), { timeoutMs: 30_000 }).catch(() => ({ code: 1, out: '' })); return { text: r.code === 0 ? `Capsule retirée de ${m.label}.` : `Jeton de ${m.label} révoqué ; le poste n'a pas répondu, son dossier ~/.odin-capsule reste à effacer.` }; } },
     { id: 'bureau', label: 'Prise en main (Phaéton)', what: 'Vérifie l\'accès au bureau à distance (VNC 5900 / RDP 3389) et donne l\'adresse', read: true, params: [{ key: 'machine', label: 'Machine', kind: 'text', required: true }], run: async (ctx, i) => { const m = machine(ctx, s(i.machine)); const vnc = (await probe(m.host, 5900, 1500)) === 'open', rdp = (await probe(m.host, 3389, 1500)) === 'open'; return { text: vnc ? `🖥 ${m.label} accepte le partage d'écran : vnc://${m.host}:5900` : rdp ? `🖥 ${m.label} accepte le bureau à distance Windows : ${m.host}:3389` : `${m.label} n'a ni VNC ni bureau à distance ouvert. Je peux l'activer : demande « active le partage d'écran sur ${m.label} ».` }; } },
   ],
   view(ctx) {

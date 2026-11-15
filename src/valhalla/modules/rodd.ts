@@ -6,6 +6,7 @@ import { journalDe } from '../base/journal.ts';
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { applyMots, learn, mots, saveMots, type Mot } from '../../voice/mots.ts';
+import { capsules } from '../rodd/capsule.ts';
 import type { ActionResult, ModCtx, Module } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -41,8 +42,9 @@ export function history(ctx: ModCtx, n = 50): Entry[] { return journalDe<Entry>(
 function keep(ctx: ModCtx, e: Entry) { if (ctx.settings.historique === false) return; journalDe<Entry>(ctx, 'rodd', 'historique.jsonl', { garder: 2000 }).ajouter(e); }
 
 /** Une dictée reçue (déjà transcrite) : tes mots, la mise en forme, ou une demande à Odin. */
-export async function dictee(ctx: ModCtx, raw: string, o: { mode?: Mode; ou?: string; langue?: string } = {}): Promise<ActionResult & { data: { texte: string; brut: string; odin?: string; ia: boolean } }> {
-  const brut = applyMots(raw, mots(ctx.home)), ask = forOdin(brut);
+/** `ordres: false` : « Odin, … » reste du texte (dictée venue d'une capsule d'un poste du parc, par exemple). */
+export async function dictee(ctx: ModCtx, raw: string, o: { mode?: Mode; ou?: string; langue?: string; ordres?: boolean } = {}): Promise<ActionResult & { data: { texte: string; brut: string; odin?: string; ia: boolean } }> {
+  const brut = applyMots(raw, mots(ctx.home)), ask = o.ordres === false ? undefined : forOdin(brut);
   if (ask) {
     const r = await ctx.order(ask).catch((e: Error) => ({ text: e.message, ok: false }));
     keep(ctx, { at: ctx.now().toISOString(), ou: o.ou ?? 'Odin (web)', brut, texte: ask, mode: 'Odin', odin: true });
@@ -57,7 +59,7 @@ export async function dictee(ctx: ModCtx, raw: string, o: { mode?: Mode; ou?: st
 export const rodd: Module = {
   id: 'rodd', name: 'Écho', family: 'Données',
   what: 'La dictée vocale partout (comme Murmure) : tu parles, le texte s\'écrit, corrigé si tu veux, avec tes mots ; « Odin, … » devient une demande.',
-  does: ['dictée 100 % locale (Whisper sur la machine d\'Odin)', 'mise en forme : tel quel, corrigé, mail, traduction, liste (IA d\'Odin ; sans IA : ponctuation de base)', 'tes mots : ce que tu dis → ce qu\'il faut écrire, appris aussi de tes corrections, partagés avec tout ce que tu dis à Odin', '« Odin, … » en dictée = une demande (les actions graves gardent ton accord)', 'historique des dictées (désactivable)'],
+  does: ['dictée 100 % locale (Whisper sur la machine d\'Odin)', 'mise en forme : tel quel, corrigé, mail, traduction, liste (IA d\'Odin ; sans IA : ponctuation de base)', 'tes mots : ce que tu dis → ce qu\'il faut écrire, appris aussi de tes corrections, partagés avec tout ce que tu dis à Odin', '« Odin, … » en dictée = une demande (les actions graves gardent ton accord)', 'historique des dictées (désactivable)', 'capsule de dictée sur les PC du parc : installée, réglée et retirée par Satellites ; le son reste en mémoire, et seul Odin le reçoit'],
   from: ['Murmure'], upstream: ['Kieirra/murmure'],
   words: ['dictee', 'dictée', 'dicter', 'reconnaissance vocale', 'mes mots', 'vocabulaire', 'rodd', 'rödd', 'murmure'],
   actions: [
@@ -83,7 +85,7 @@ export const rodd: Module = {
         { kind: 'form', title: 'Dicter (ou coller un texte dicté)', action: 'dicter', submit: 'Mettre en forme', params: [{ key: 'texte', label: 'Texte', kind: 'textarea', required: true }, { key: 'mode', label: 'Mise en forme', kind: 'select', options: [...MODES], default: String(ctx.settings.mode ?? 'corrigé') }] },
         { kind: 'list', title: 'Dernières dictées', items: h.map((e) => ({ title: e.texte.slice(0, 140), detail: e.odin ? 'demande à Odin' : `${e.mode}${e.brut !== e.texte ? ` · dicté : ${e.brut.slice(0, 80)}` : ''}`, meta: `${e.at.slice(11, 16)} · ${e.ou}`, tone: e.odin ? 'neutre' as const : undefined })), empty: 'Aucune dictée pour l\'instant.' },
       ],
-      side: [{ kind: 'table', title: 'Mes mots', columns: ['Mot', 'On entend'], rows: l.map((m) => ({ cells: [m.mot, m.entendus.join(', ')], actions: [{ action: 'retirer_mot', label: 'Retirer', input: { mot: m.mot } }] })), empty: 'Aucun mot.' }, { kind: 'form', title: 'Ajouter un mot', action: 'ajouter_mot', submit: 'Ajouter', params: [{ key: 'mot', label: 'Mot', kind: 'text', required: true }, { key: 'entendus', label: 'On entend', kind: 'text', default: '' }] }],
+      side: [{ kind: 'table', title: 'Mes mots', columns: ['Mot', 'On entend'], rows: l.map((m) => ({ cells: [m.mot, m.entendus.join(', ')], actions: [{ action: 'retirer_mot', label: 'Retirer', input: { mot: m.mot } }] })), empty: 'Aucun mot.' }, { kind: 'form', title: 'Ajouter un mot', action: 'ajouter_mot', submit: 'Ajouter', params: [{ key: 'mot', label: 'Mot', kind: 'text', required: true }, { key: 'entendus', label: 'On entend', kind: 'text', default: '' }] }, { kind: 'list', title: 'Capsules sur les PC du parc', items: capsules(ctx.home).map((c) => ({ title: c.poste, detail: `mise en forme : ${c.mode}`, meta: `installée le ${c.at.slice(0, 10)}` })), empty: 'Aucune : Satellites l\'installe sur un poste (« installe la capsule de dictée sur <poste> »).' }],
     };
   },
 };
