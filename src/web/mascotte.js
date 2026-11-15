@@ -35,8 +35,8 @@
       const svg = o.querySelector('svg'); if (!svg) continue;
       let g = svg.querySelector(':scope > g.odin-acc');
       if (!acc) { g?.remove(); } else { if (!g) { g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'odin-acc'); svg.append(g); } if (g.dataset.k !== ev.accessory) { g.innerHTML = acc; g.dataset.k = ev.accessory; } }
-      // Les yeux sombres seulement si la fête les demande sombres (sur un visage dessiné, c'est le visage lui-même qui choisit son encre selon la couleur du corps).
-      o.classList.toggle('ev-dark-eyes', sombre(ev?.eyes));
+      // Règle du propriétaire : les yeux d'Odin restent blancs, même un jour de fête qui les demandait sombres.
+      o.classList.remove('ev-dark-eyes');
       choc(svg, ev?.accessory === 'oeuf');
     }
     egg(ev?.accessory === 'oeuf');

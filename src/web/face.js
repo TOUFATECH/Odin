@@ -540,8 +540,8 @@ dialogue|Dialogue|ecoute|0|1|0
   // restent ceux de la page ; s'ils manquent (site, page Maison, page Recherche), le visage reste lisible sans eux.
   const CSS = `
 .odin{--o-encre:#fff}
-.odin.ev-dark-eyes{--o-encre:#2a2f3a}
-.odin .plein{fill:var(--o-encre);transition:fill var(--o-fondu,.7s) ease}.odin .trait,.odin .bord{stroke:var(--o-encre);transition:stroke var(--o-fondu,.7s) ease}
+.odin.ev-dark-eyes{--o-encre:#fff}
+.odin .plein{fill:var(--o-encre);filter:var(--o-ombre,none);transition:fill var(--o-fondu,.7s) ease}.odin .trait,.odin .bord{stroke:var(--o-encre);transition:stroke var(--o-fondu,.7s) ease}
 .odin stop{transition:stop-color var(--o-fondu,.7s) ease}
 .odin .body{transform-origin:60px 60px;transform:translate(var(--o-px,0px),var(--o-py,0px)) rotate(var(--o-rot,0deg)) scale(var(--o-sx,1),var(--o-sy,1));transition:transform .5s cubic-bezier(.3,1.3,.5,1)}
 .odin .body .eyes{scale:none;translate:none}
@@ -700,14 +700,19 @@ dialogue|Dialogue|ecoute|0|1|0
   const ENCRE_SOMBRE = '#2a2f3a', ENCRE_MINI = 2.5;
   /** La couleur du corps là où sont les yeux, les sourcils et la bouche : à mi-chemin des deux premières teintes. */
   const sousTraits = (t) => { const a = parseInt(t[0].slice(1), 16), b = parseInt(t[1].slice(1), 16); return `#${[16, 8, 0].map((d) => Math.round((((a >> d) & 255) + ((b >> d) & 255)) / 2).toString(16).padStart(2, '0')).join('')}`; };
-  /** L'encre des traits : blanche tant qu'elle se lit sur le corps (2,5 pour 1 au moins), sombre sur un corps clair (joie, thème jaune, Ramadan…). */
-  const encre = (t) => (contraste('#ffffff', sousTraits(t)) >= ENCRE_MINI ? W : ENCRE_SOMBRE);
+  /**
+   * Règle du propriétaire (15/11/2026) : les pastilles des yeux restent BLANCHES, quelle que soit la situation (émotion, thème, fête).
+   * Sur un corps clair, où le blanc se perdrait, une ombre douce passe derrière la pastille : elle reste blanche et on la voit encore.
+   * Ne jamais revenir à des yeux sombres sans son accord (ENCRE_SOMBRE ne sert plus).
+   */
+  const encre = () => W;
+  const ombre = (t) => (contraste('#ffffff', sousTraits(t)) >= ENCRE_MINI ? 'none' : 'drop-shadow(0 0 1.6px rgba(20,24,34,.6))');
   /** La couleur portée (4 teintes, halos compris) et l'encre qui va avec. La barre de saisie de la discussion prend celle de #buddyChat. */
   function teinter(el, t) {
     const svg = el.querySelector('svg'); if (!svg) return;
     svg.querySelectorAll('[id^="odinBody"] stop').forEach((st, i) => { st.style.stopColor = t[i] || t[3]; });
     svg.querySelectorAll('[id^="odinHalo"] stop').forEach((st) => { st.style.stopColor = t[3]; });
-    el.style.setProperty('--o-c0', t[0]); el.style.setProperty('--o-c2', t[2]); el.style.setProperty('--o-encre', encre(t));
+    el.style.setProperty('--o-c0', t[0]); el.style.setProperty('--o-c2', t[2]); el.style.setProperty('--o-encre', encre(t)); el.style.setProperty('--o-ombre', ombre(t));
     if (el.id === 'buddyChat') DOC.documentElement.style.setProperty('--odin-tint', t[1]);
   }
   const tailleDe = (el) => { const l = el.clientWidth || 0; return !l || l >= 47 ? 'grand' : l >= 31 ? 'petit' : 'mini'; };

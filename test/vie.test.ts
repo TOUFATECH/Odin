@@ -860,8 +860,8 @@ test('companion.js, mascotte.js, ui.html, notices.js : les corrections de la rel
   assert.match(comp, /scanMemo = new Map\(\)/); assert.match(comp, /if \(!m\.txt\) m\.txt = textRects\(top\);/);
   assert.match(comp, /function put\(x, y\) \{[^\n]*suivi\(\); \}/); assert.match(comp, /function setSize\(s\) \{[^\n]*suivi\(\); \}/);
   // --- mascotte.js ---
-  // Yeux sombres seulement si la fête les demande sombres (le 1er mai demande des yeux blancs sur un corps sombre), et jamais par-dessus l'encre choisie par le visage.
-  assert.match(masc, /o\.classList\.toggle\('ev-dark-eyes', sombre\(ev\?\.eyes\)\);/);
+  // Règle du propriétaire : les yeux restent blancs, même un jour de fête (la classe des yeux sombres n'est plus jamais posée).
+  assert.match(masc, /o\.classList\.remove\('ev-dark-eyes'\);/); assert.ok(!masc.includes("toggle('ev-dark-eyes'"));
   assert.ok(masc.includes('.odin.ev-dark-eyes .eye:not(.plein){fill:#2a2f3a}'));
   const sombre = new Function(`${/const sombre = [^\n]*/.exec(masc)?.[0] ?? ''}; return sombre;`)() as (h: unknown) => boolean;
   assert.deepEqual(['#ffffff', '#2a2f3a', '#f2f2f2', '', undefined, 'rouge'].map((c) => sombre(c)), [false, true, false, false, false, false]);

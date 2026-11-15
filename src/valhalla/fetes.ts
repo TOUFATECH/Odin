@@ -26,7 +26,7 @@ export const EVENTS: EventDef[] = [
   { id: 'musique', name: 'Fête de la musique', group: 'fetes', color: '#5a6fdb', accessory: 'note', says: 'Fête de la musique !', on: true },
   { id: 'nationale', name: 'Fête nationale', group: 'fetes', color: '#3d6fe0', accessory: 'cotillons', says: 'Bon 14 juillet !', on: true },
   { id: 'noel', name: 'Noël', group: 'fetes', color: '#2f8f4e', accessory: 'bonnet', says: 'Joyeux Noël !', on: true },
-  { id: 'ramadan', name: 'Ramadan', group: 'religieuses', color: '#f2f2f2', eyes: '#2a2f3a', accessory: 'lune', says: 'Ramadan moubarak.', on: true },
+  { id: 'ramadan', name: 'Ramadan', group: 'religieuses', color: '#f2f2f2', eyes: '#ffffff', accessory: 'lune', says: 'Ramadan moubarak.', on: true },
   { id: 'aidfitr', name: 'Aïd el-Fitr', group: 'religieuses', color: '#34c77b', accessory: 'lune', says: 'Aïd moubarak !', on: true },
   { id: 'aidkebir', name: 'Aïd el-Kébir', group: 'religieuses', color: '#0fa3a0', accessory: 'lune', says: 'Aïd moubarak !', on: true },
   { id: 'valentin', name: 'Saint-Valentin', group: 'ailleurs', color: '#ef4f43', accessory: 'coeur', says: 'Bonne Saint-Valentin !', on: false },

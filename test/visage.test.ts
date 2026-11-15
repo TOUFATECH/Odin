@@ -513,30 +513,26 @@ test('usure et retombée : un cran plus léger seulement dans les vraies échell
   assert.deepEqual(retombe('honte'), ['honte', false, 'neutre']);
 });
 
-test('encre des traits : blanche tant qu\'elle se lit, sombre sur un corps clair (émotions, thèmes, fêtes)', async () => {
-  const lisible = (t: string[], encre: string, quoi: string) => {
-    assert.match(encre, /^#(fff|2a2f3a)$/, quoi);
-    assert.ok(contraste(encre === '#fff' ? '#ffffff' : encre, sousTraits(t)) >= 2.5, `${quoi} : encre ${encre} sur ${sousTraits(t)}`);
-    // Le blanc reste le choix tant qu'il se lit.
-    if (contraste('#ffffff', sousTraits(t)) >= 2.5) assert.equal(encre, '#fff', `${quoi} : le blanc suffisait`);
-  };
+test('yeux : les pastilles restent blanches quelle que soit la situation (émotions, thèmes, fêtes) ; ombre douce sur un corps clair', async () => {
   const encreDe = (id: string, f: Visage = F) => (f.dessin(id) as DessinEncre).encre;
-  for (const m of liste()) lisible(m.tint, encreDe(m.id), m.id);
-  // Les émotions claires (joie, espoir, étonnement…) ont l'encre sombre ; les sombres gardent le blanc.
-  assert.deepEqual(['joie', 'espoir', 'serenite', 'etonnement', 'soulagement'].map((id) => encreDe(id)), Array(5).fill('#2a2f3a'));
-  assert.deepEqual(['neutre', 'rage', 'colere', 'triste', 'peur', 'concentration', 'sommeil'].map((id) => encreDe(id)), Array(7).fill('#fff'));
-  // Au repos, il a la couleur du thème : chaque couleur de mascotte des thèmes, et chaque couleur de fête, garde un visage lisible.
+  // RÈGLE DU PROPRIÉTAIRE : la pastille reste blanche, pour les 66 émotions, à toutes les tailles.
+  for (const m of liste()) for (const taille of TAILLES) assert.equal((F.dessin(m.id, { taille }) as DessinEncre).encre, '#fff', `${m.id} (${taille}) : yeux blancs`);
+  // Y compris sur les corps clairs (joie, espoir, étonnement…), où le blanc se lit mal : c'est l'ombre derrière la pastille qui aide.
+  const clairs = liste().filter((m) => contraste('#ffffff', sousTraits(m.tint)) < 2.5).map((m) => m.id);
+  assert.ok(clairs.includes('joie') && clairs.includes('espoir') && clairs.length >= 8, `${clairs.length} émotions au corps clair`);
+  for (const id of clairs) assert.equal(encreDe(id), '#fff', id);
+  // Au repos, il a la couleur du thème : blanc pour chaque couleur de mascotte des thèmes et pour chaque couleur de fête.
   const themes = [...readFileSync(new URL('../src/web/themes.js', import.meta.url), 'utf8').matchAll(/"?mascot"?\s*:\s*['"](#[0-9a-fA-F]{6})['"]/g)].map((x) => x[1]);
   assert.ok(themes.length >= 40, `${themes.length} couleurs de thème lues`);
   const { EVENTS } = await import('../src/valhalla/fetes.ts');
   const f = charger();
-  for (const c of [...themes, ...EVENTS.map((e) => e.color)]) {
-    f.tintBase(c);
-    lisible(net(f.dessin('neutre').tint), encreDe('neutre', f), `repos ${c}`);
-  }
-  // Le 1er mai (corps sombre) : encre blanche ; le Ramadan (corps clair) : encre sombre.
+  for (const c of [...themes, ...EVENTS.map((e) => e.color)]) { f.tintBase(c); assert.equal(encreDe('neutre', f), '#fff', `repos ${c} : yeux blancs`); }
+  // Le 1er mai (corps sombre) comme le Ramadan (corps clair) : toujours blancs.
   f.tintBase('#2a2f3a'); assert.equal(encreDe('neutre', f), '#fff');
-  f.tintBase('#f2f2f2'); assert.equal(encreDe('neutre', f), '#2a2f3a');
+  f.tintBase('#f2f2f2'); assert.equal(encreDe('neutre', f), '#fff');
+  assert.match(SOURCE, /const encre = \(\) => W;/, 'l\'encre des yeux est toujours le blanc');
+  assert.match(SOURCE, /\.odin\.ev-dark-eyes\{--o-encre:#fff\}/, 'plus d\'yeux sombres un jour de fête');
+  assert.match(SOURCE, /el\.style\.setProperty\('--o-ombre', ombre\(t\)\)/, 'ombre douce derrière la pastille sur un corps clair');
   // La couleur portée pose son encre ; l'œil reste une pastille d'une seule couleur (pas de goutte dedans).
   assert.match(SOURCE, /el\.style\.setProperty\('--o-encre', encre\(t\)\)/);
   assert.ok(contraste('#ffffff', '#4A98EC') >= 2.5); assert.ok(!F.dessin('gratitude').yeux[0].includes('#4A98EC'));
