@@ -14,6 +14,7 @@ import { machinesActions, machinesWatch } from '../ymir/machines.ts';
 import { dossierArrivees } from '../ymir/isos.ts';
 import { logicielsHermes, retards, surveillerIsos } from '../ymir/bibliotheque.ts';
 import { Local } from '../ymir/local.ts';
+import { tacheVerification } from '../forge/bibliotheque.ts';
 import { join } from 'node:path';
 
 export interface PveServer { name: string; url: string; token?: string }
@@ -149,6 +150,8 @@ export const ymir: Module = {
       side: [{ kind: 'list', title: 'Asgard · nœuds', items: nodes.map((n) => ({ title: `${n.server} / ${n.node}`, detail: `${Math.round((n.cpu ?? 0) * 100)} % CPU · ${gb(n.mem)} / ${gb(n.maxmem)}`, tone: n.status === 'online' ? 'bon' : 'mauvais' })), empty: 'Aucun nœud.' }, { kind: 'form', title: 'Relier un serveur', action: 'serveur', submit: 'Ajouter', params: ymir.actions.find((a) => a.id === 'serveur')?.params ?? [] }],
     };
   },
+  // Talos : la vérification des ISO (chaque mois le 1er à 4 h par défaut), réglable et lançable depuis les automatismes.
+  taches: () => [tacheVerification({ id: 'verification_iso', nom: 'Vérification des ISO', quoi: 'Empreinte recalculée, nouvelle analyse antivirus, nouvelles versions, compte rendu.', cleVerif: 'verifIso', action: 'verifier_isos' })],
   watch: { every: 60, async run(ctx) {
     await machinesWatch(ctx).catch(() => undefined);
     await surveillerIsos(ctx).catch(() => undefined);

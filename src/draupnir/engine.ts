@@ -50,7 +50,7 @@ export interface Deps {
   module?(module: string, action: string, input: Record<string, unknown>): Promise<{ ok?: boolean; text: string; data?: unknown }>;
 }
 
-export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'json' | 'cron'; options?: string[]; default?: unknown; help?: string; required?: boolean }
+export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'json' | 'cron' | 'rythme'; options?: string[]; default?: unknown; help?: string; required?: boolean }
 export interface NodeDef {
   type: string; label: string; group: 'Déclencheurs' | 'Thot' | 'Papyrus' | 'Odin' | 'Applis' | 'Logique' | 'Données' | 'Web';
   what: string; trigger?: boolean; params: Param[];

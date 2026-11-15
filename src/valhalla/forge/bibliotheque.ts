@@ -12,8 +12,10 @@ import { basename, join, relative, resolve } from 'node:path';
 import { journalDe } from '../base/journal.ts';
 import { lienPropre } from '../lien.ts';
 import { quarantaineDabord, type Passage } from '../ullr/garde.ts';
-import type { Action, ModCtx, Section } from '../types.ts';
+import type { Action, ModCtx, Section, TacheAppli } from '../types.ts';
 import { download } from './forge.ts';
+import { tacheEnPause } from '../automatismes.ts';
+import { depuisPlanVerif, fuseauOdin, instant, lireHeure, murale, prochaine, versPlanVerif, type Rythme } from '../../draupnir/rythme.ts';
 
 export interface Fiche {
   id: string; nom: string; chemin: string; taille: number; sha256?: string; ajoute: number;
@@ -66,22 +68,17 @@ export const tailleTexte = (n: number) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).t
 export interface PlanVerif { frequence: 'jour' | 'semaine' | 'mois'; /** jour de la semaine (0 = dimanche) ou du mois (1 à 28) */ jour: number; heure: string; derniere?: number }
 export const PLAN_DEFAUT: PlanVerif = { frequence: 'mois', jour: 1, heure: '04:00' };
 export const planDe = (ctx: ModCtx, cleVerif: string): PlanVerif => ({ ...PLAN_DEFAUT, ...((ctx.settings[cleVerif] as Partial<PlanVerif> | undefined) ?? {}) });
-/** Le prochain passage après `now` (et après la dernière vérification). Pur. */
-export function prochaineVerif(p: PlanVerif, now: Date): Date {
-  const [h, m] = p.heure.split(':').map(Number), d = new Date(now); d.setHours(h || 0, m || 0, 0, 0);
-  for (let k = 0; k < 400; k++) {
-    const c = new Date(d); c.setDate(d.getDate() + k);
-    if (p.frequence === 'semaine' && c.getDay() !== p.jour) continue;
-    if (p.frequence === 'mois' && c.getDate() !== Math.max(1, Math.min(28, p.jour))) continue;
-    if (c > now && (!p.derniere || c.getTime() > p.derniere)) return c;
-  }
-  return new Date(now.getTime() + 30 * 86_400_000);
+/** Le prochain passage après `now` (et après la dernière vérification), à l'heure du lieu d'Odin (comme Talos l'écrit). Pur. */
+export function prochaineVerif(p: PlanVerif, now: Date, fuseau?: string): Date {
+  const apres = p.derniere && p.derniere > now.getTime() ? new Date(p.derniere) : now;
+  return prochaine(depuisPlanVerif(p), apres, fuseau) ?? new Date(now.getTime() + 30 * 86_400_000);
 }
-/** La vérification est-elle due ? Jamais faite : à la première heure prévue ; sinon, le passage après la dernière est arrivé. Pur. */
-export function verifDue(p: PlanVerif, now: Date): boolean {
-  if (p.derniere) return prochaineVerif({ ...p, derniere: undefined }, new Date(p.derniere)) <= now;
-  const [h, m] = p.heure.split(':').map(Number), d = new Date(now); d.setHours(h || 0, m || 0, 0, 0);
-  return now >= d && (p.frequence === 'jour' || (p.frequence === 'semaine' ? now.getDay() === p.jour : now.getDate() === Math.max(1, Math.min(28, p.jour))));
+/** La vérification est-elle due ? Jamais faite : à la première heure prévue ; sinon, le passage après la dernière est arrivé. Heure du lieu. Pur. */
+export function verifDue(p: PlanVerif, now: Date, fuseau?: string): boolean {
+  if (p.derniere) return prochaineVerif({ ...p, derniere: undefined }, new Date(p.derniere), fuseau) <= now;
+  const tz = fuseauOdin(fuseau), w = murale(now.getTime(), tz), [h, m] = (lireHeure(p.heure) ?? '04:00').split(':').map(Number);
+  const jour = p.frequence === 'jour' || (p.frequence === 'semaine' ? w.wd === p.jour : w.d === Math.max(1, Math.min(28, p.jour)));
+  return jour && now >= instant(w.y, w.mo, w.d, h, m, tz);
 }
 /** Lit le formulaire du plan (fréquence, jour, heure). Pur. */
 export function lirePlan(i: Record<string, unknown>, avant: PlanVerif): PlanVerif {
@@ -90,10 +87,29 @@ export function lirePlan(i: Record<string, unknown>, avant: PlanVerif): PlanVeri
   const j = s(i.jour) === '' ? (f === 'semaine' ? Math.min(6, avant.jour) : avant.jour) : f === 'semaine' ? Math.max(0, Math.min(6, Number(i.jour) || 0)) : Math.max(1, Math.min(28, Number(i.jour) || 1));
   return { ...avant, frequence: f, jour: j, heure: h };
 }
+/** La tâche « vérification de la bibliothèque » déclarée pour Talos (son plan reste dans le réglage `cleVerif`). */
+export function tacheVerification(o: { id: string; nom: string; quoi: string; cleVerif: string; action: string }): TacheAppli {
+  return {
+    id: o.id, nom: o.nom, quoi: o.quoi, permis: ['jour', 'semaine', 'mois'], lancer: { action: o.action },
+    rythme: (ctx) => depuisPlanVerif(planDe(ctx, o.cleVerif)),
+    regler: (ctx, r) => {
+      const p = versPlanVerif(r as Rythme);
+      if (!p) throw new Error('Pour cette vérification : tous les jours, un seul jour de la semaine, ou un jour du mois de 1 à 28.');
+      ctx.saveSettings({ [o.cleVerif]: { ...planDe(ctx, o.cleVerif), frequence: p.frequence, jour: p.jour, heure: p.heure } });
+    },
+    dernier: (ctx) => { const d = planDe(ctx, o.cleVerif).derniere; return d ? { at: new Date(d).toISOString() } : undefined; },
+    prochain: (ctx, now) => prochaineVerif(planDe(ctx, o.cleVerif), now),
+  };
+}
+/** La tâche Talos qui suspend la vérification planifiée d'un genre : [appli, tâche]. */
+export const tacheDuGenre = (g: Genre): [string, string] => (g.id === 'iso' ? ['ymir', 'verification_iso'] : ['fjalar', 'verification_logiciels']);
 export const planTexte = (p: PlanVerif) => `chaque ${p.frequence}${p.frequence === 'mois' ? ` (le ${p.jour})` : p.frequence === 'semaine' ? ` (${['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][p.jour]})` : ''} à ${p.heure}`;
 
 // ---------------------------------------------------------------- La bibliothèque d'un genre, dans un dossier
 export interface Import { fiche?: Fiche; passage: Passage; texte: string }
+export interface Verification { texte: string; abimes: string[]; bloques: string[]; nouvelles: string }
+/** Les vérifications en cours, par genre (ISO, logiciels). */
+const VERIFS_EN_COURS = new Map<string, Promise<Verification>>();
 export class Bibliotheque {
   private static cache = new Map<string, { cle: string; r: Partial<Fiche> }>();
   readonly ctx: ModCtx; readonly genre: Genre; readonly racine: string;
@@ -200,7 +216,16 @@ export class Bibliotheque {
    * Vérifie toute la bibliothèque : empreinte recalculée (fichier abîmé ?), nouvelle analyse antivirus, nouvelles
    * versions (`nouvelles`). Le compte rendu part en notification et reste dans l'historique.
    */
-  async verifier(nouvelles?: () => Promise<string>): Promise<{ texte: string; abimes: string[]; bloques: string[]; nouvelles: string }> {
+  verifier(nouvelles?: () => Promise<string>): Promise<Verification> {
+    // Une seule vérification à la fois par genre : la surveillance de l'appli et « Lancer maintenant » dans Talos
+    // reçoivent le même compte rendu au lieu de tout vérifier deux fois en même temps.
+    const k = this.genre.id, deja = VERIFS_EN_COURS.get(k);
+    if (deja) return deja;
+    const p = this.verifierSeul(nouvelles).finally(() => VERIFS_EN_COURS.delete(k));
+    VERIFS_EN_COURS.set(k, p);
+    return p;
+  }
+  private async verifierSeul(nouvelles?: () => Promise<string>): Promise<Verification> {
     const l = await this.liste(), lignes: string[] = [], abimes: string[] = [], bloques: string[] = [], g = this.genre;
     for (const f of l) {
       const sum = await sha256Fichier(f.chemin).catch(() => ''), abime = Boolean(f.sha256 && sum && f.sha256 !== sum);
@@ -303,5 +328,5 @@ export function actionsBibliotheque(o: { genre: Genre; racine: (ctx: ModCtx) => 
 export async function surveiller(ctx: ModCtx, g: Genre, racine: string, nouvelles?: () => Promise<string>): Promise<void> {
   const b = new Bibliotheque(ctx, g, racine);
   await b.scanner();
-  if (verifDue(b.plan(), ctx.now())) await b.verifier(nouvelles);
+  if (verifDue(b.plan(), ctx.now()) && !tacheEnPause(...tacheDuGenre(g))) await b.verifier(nouvelles);
 }

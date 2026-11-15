@@ -14,6 +14,7 @@ import type { Action, ActionResult, Alert, AlertIn, By, Level, Manip, ModCtx, Mo
 import { refusAppli } from './sso/acces.ts';
 import { Journal } from './base/journal.ts';
 import { noterEchange, numeroEchange, type Echange } from './echanges.ts';
+import { Automatismes } from './automatismes.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -49,8 +50,11 @@ export class Valhalla {
     this.events.setMaxListeners(100);
     // Les mesures gardées dans le temps (courbes, déclencheurs, tableaux de bord).
     this.metrics = new Metrics(join(this.dir, 'mesures'), deps.now ? () => deps.now!().getTime() : Date.now); setMetrics(this.metrics);
+    // Le registre des automatismes : tout ce que les applis font toutes seules, visible et réglable dans Talos.
+    this.automatismes = new Automatismes({ dir: this.dir, now: () => this.deps.now?.() ?? new Date(), modules: () => this.modules(), ctx: (id) => this.ctx(id), alert: (m, a) => this.alert(m, a), ack: (ids) => this.ack(ids), act: (m, a, i) => this.act(m, a, i, { by: 'toi' }) });
   }
   readonly metrics: Metrics;
+  readonly automatismes: Automatismes;
 
   modules(): Module[] { return [...this.mods.values()]; }
   module(id: string): Module | undefined {
@@ -97,12 +101,13 @@ export class Valhalla {
       // démarrent pas (sinon leurs serveurs et leurs minuteries resteraient ouverts après l'arrêt).
       if (tour !== this.tour) { try { m.stop?.(); } catch { /* rien */ } return; }
       if (m.watch) {
-        const tick = async () => { try { await m.watch!.run(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'info', title: `${m.name} : surveillance en échec`, detail: (e as Error).message, key: `watch:${m.id}` }); } };
-        this.timers.push(setTimeout(tick, 20_000 + Math.random() * 20_000) as unknown as ReturnType<typeof setInterval>, setInterval(tick, m.watch.every * 1000));
+        const tick = async () => { try { await m.watch!.run(this.ctx(m.id)); } catch (e) { this.alert(m.id, { level: 'info', title: `${m.name} : surveillance en échec`, detail: (e as Error).message, key: `watch:${m.id}` }); throw e; } };
+        // Le registre des automatismes (Talos) garde les minuteries : 20-40 s puis toutes les `every` secondes, pause, passage mesuré.
+        this.automatismes.armer(m, tick);
       }
     }
   }
-  stop(): void { this.tour++; if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } this.journalAlertes.fermer(); }
+  stop(): void { this.tour++; this.automatismes.arreter(); if (this.extraTimer) clearTimeout(this.extraTimer); this.extraTimer = undefined; for (const t of this.timers) { clearInterval(t); clearTimeout(t); } this.timers = []; for (const m of this.modules()) { try { m.stop?.(); } catch { /* rien */ } } try { this.metrics.flush(); } catch { /* disque */ } this.journalAlertes.fermer(); }
 
   // ---------------- Actions
   action(moduleId: string, actionId: string): { m: Module; a: Action } | undefined {

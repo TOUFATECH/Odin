@@ -35,6 +35,9 @@ import { genreOdin, lireGenre } from '../core/genre.ts';
 import { routingReport } from '../providers/journal.ts';
 import { startDraupnir } from '../draupnir/odin.ts';
 import { startValhalla, valhallaOf } from '../valhalla/odin.ts';
+import { brancherSources } from '../valhalla/automatismes.ts';
+import { draupnirOf } from '../tools/draupnir.ts';
+import { agendaPourChronos } from '../web/talos-api.ts';
 import { demarrerBaseOdin } from '../valhalla/base/demarrage.ts';
 import { startQuotidien } from '../learn/quotidien.ts';
 import { brainOf } from '../tools/brain.ts';
@@ -265,6 +268,8 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   const stopDraupnir = startDraupnir(odin, (t) => gw!.notifyOwner(t));
   // Valhalla (toutes les applis d'Odin) : alertes sur ta messagerie, liens entre applis, veille.
   const stopValhalla = startValhalla(odin, (t, o) => gw!.notifyOwner(t, o));
+  // Talos voit tout : tâches planifiées, automatisations, rappels de la passerelle (Telegram d'abord) et l'agenda de Chronos.
+  brancherSources({ jobs: odin.muninn, flows: () => draupnirOf(), rappels: { programmer: (t, q) => gw!.rappelProprietaire(t, q), annuler: (id) => odin.muninn.removeJob(id) }, moyen: () => gw!.nomMoyenProprietaire(), agenda: agendaPourChronos(odin) });
   // La base d'Odin (PostgreSQL géré par Alexandrie) : les données des applis ; préparée en arrière-plan.
   const stopBase = demarrerBaseOdin(odin.paths.home, valhallaOf());
   // Le Quotidien du Cerveau : ce qu'Odin sait refaire sans IA, en notes reliées aux applis (remises à jour au démarrage).

@@ -6,7 +6,7 @@
 // bibliothèque est vérifiée chaque mois par défaut.
 // Reprend les idées de Ketarin, WingetUI / UniGetUI et Chocolatey (dossier d'installateurs), réécrit pour Odin.
 import { join } from 'node:path';
-import { actionsBibliotheque, Bibliotheque, planTexte, prochaineVerif, surveiller } from '../forge/bibliotheque.ts';
+import { actionsBibliotheque, Bibliotheque, planTexte, prochaineVerif, surveiller, tacheVerification } from '../forge/bibliotheque.ts';
 import { forgeModule } from '../forge/forge.ts';
 import { GENRE_LOGICIEL } from '../forge/logiciels.ts';
 import { SOFT } from '../forge/sources.ts';
@@ -63,5 +63,8 @@ export const fjalar = forgeModule({
 fjalar.actions.push(...actionsBibliotheque({ genre: GENRE_LOGICIEL, racine: dossierLogiciels, nouvelles, utilisePar: installes }).map((a) => ({ ...a, id: a.id === 'bibliotheque' ? 'bibliotheque_logiciels' : a.id === 'fiche' ? 'fiche_logiciel' : a.id === 'importer' ? 'importer_logiciel' : a.id === 'verification' ? 'verification_logiciels' : a.id === 'verifier_tout' ? 'verifier_logiciels' : a.id === 'plan_verification' ? 'plan_verification_logiciels' : a.id })));
 
 // Surveillance : en plus des passages de la forge, le scan du dossier et la vérification planifiée.
+// Talos : la vérification des logiciels (chaque mois le 1er à 4 h par défaut), en plus de la tournée de la forge.
+const tachesForge = fjalar.taches;
+fjalar.taches = (ctx) => [...(tachesForge?.(ctx) ?? []), tacheVerification({ id: 'verification_logiciels', nom: 'Vérification des logiciels', quoi: 'Empreinte recalculée, nouvelle analyse antivirus, nouvelles versions, compte rendu.', cleVerif: GENRE_LOGICIEL.cleVerif, action: 'verifier_logiciels' })];
 const veille = fjalar.watch!.run.bind(fjalar.watch);
 fjalar.watch = { every: fjalar.watch!.every, async run(ctx) { await veille(ctx); await surveiller(ctx, GENRE_LOGICIEL, dossierLogiciels(ctx), () => nouvelles(ctx)).catch(() => undefined); } };

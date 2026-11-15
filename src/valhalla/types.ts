@@ -175,4 +175,28 @@ export interface Module {
   stop?(): void;
   /** surveillance périodique (alertes) ; appelée toutes les `every` secondes */
   watch?: { every: number; run(ctx: ModCtx): Promise<void> | void };
+  /** Les tâches à rythme que l'appli fait toute seule (vérification mensuelle, sauvegarde…) : listées dans Talos. Voir `TacheAppli`. */
+  taches?(ctx: ModCtx): TacheAppli[];
+}
+
+/** Le rythme d'une tâche (forme de src/draupnir/rythme.ts, recopiée ici pour éviter un lien entre les deux). */
+export type RythmeAppli =
+  | { genre: 'minutes'; n: number } | { genre: 'heures'; n: number; minute?: number } | { genre: 'jour'; heure: string }
+  | { genre: 'semaine'; jours: number[]; heure: string } | { genre: 'mois'; jour: number; heure: string }
+  | { genre: 'une_fois'; date: string; heure: string } | { genre: 'cron'; cron: string } | { genre: 'secondes'; n: number } | { genre: 'libre'; texte: string };
+/**
+ * Une tâche à rythme d'une appli, déclarée pour Talos (registre des automatismes) : son rythme reste rangé dans les
+ * réglages de l'appli, lu par `rythme` et changé par `regler`. L'appli saute son passage planifié quand
+ * `tacheEnPause(module, id)` (src/valhalla/automatismes.ts) le dit.
+ */
+export interface TacheAppli {
+  id: string; nom: string; quoi: string;
+  /** une tâche de sécurité (sa pause demande l'accord du propriétaire) */ securite?: boolean;
+  rythme(ctx: ModCtx): RythmeAppli;
+  /** change le rythme (lève une erreur en clair si ce rythme ne convient pas) ; absent : non réglable */
+  regler?(ctx: ModCtx, r: RythmeAppli): void;
+  /** les genres de rythme qu'on peut choisir */ permis?: Array<RythmeAppli['genre']>;
+  /** l'action de l'appli qui fait la tâche maintenant (« Lancer maintenant ») */ lancer: { action: string; input?: Record<string, unknown> };
+  /** le dernier passage connu de l'appli */ dernier?(ctx: ModCtx): { at: string; ok?: boolean; texte?: string } | undefined;
+  /** le prochain passage, si l'appli le calcule elle-même */ prochain?(ctx: ModCtx, now: Date): Date | undefined;
 }

@@ -7,6 +7,7 @@ import { basename, join } from 'node:path';
 import { cheminSmb, commandesSmb, dossierSmb, partagesSmb } from '../../machines/smb.ts';
 import { listMachines, type Machine as Poste } from '../../machines/access.ts';
 import { exigerSain } from '../ullr/garde.ts';
+import { tacheEnPause } from '../automatismes.ts';
 import type { Action, ModCtx } from '../types.ts';
 import { bibliotheque, bibliothequeIso, comptesRendus, dossierArrivees, espaceIso, importerIso, importerLien, isoDeplacee, planVerif, prochaineVerif, retirerIso, sansFiche, trouverIso, verifDue, verifierIsos, type FicheIso, type PlanVerif } from './isos.ts';
 import { Local, type Machine } from './local.ts';
@@ -196,5 +197,5 @@ export async function surveillerIsos(ctx: ModCtx): Promise<void> {
   await synchroEspace(ctx);
   const f = await bibliothequeIso(ctx).scanner();
   if (f) ctx.emit('iso_reconnue', { nom: f.nom, systeme: f.systeme ?? '' });
-  if (verifDue(planVerif(ctx), ctx.now())) await verifierIsos(ctx);
+  if (verifDue(planVerif(ctx), ctx.now()) && !tacheEnPause('ymir', 'verification_iso')) await verifierIsos(ctx);
 }

@@ -58,25 +58,54 @@
   const cat = (t) => st?.catalog.find((c) => c.type === t);
   const NODE_W = 190;
 
+  // Un autre écran de Talos (« Faire un lien ») a pris la page : la liste ne revient qu'à la demande.
+  let ailleurs = false, jeton = 0;
   async function openList() {
-    wf = null;
+    wf = null; ailleurs = false; const j = ++jeton;
     const box = $('#v-flows .body'); if (!box) return;
     $('#v-flows .head h1').textContent = 'Automatisations';
     $('#v-flows .head .sub').textContent = 'Talos, le moteur d\'Odin : décris ce que tu veux automatiser, ou pars d\'un modèle. Tout est relié à Thot, Papyrus et tes applis.';
     st = await api('/api/draupnir/state');
+    if (j !== jeton) return;
     box.replaceChildren();
     if (!st.ok) { box.append(el('p', { class: 'sub' }, st.error)); return; }
     const msg = el('p', { class: 'sub', role: 'status' });
     box.append(el('form', { class: 'dr-top', onsubmit: async (e) => { e.preventDefault(); const d = $('#drAsk').value.trim(); if (!d) return; msg.textContent = 'Odin écrit l\'automatisation…'; const r = await api('/api/draupnir/create', { description: d }); if (r.ok) openFlow(r.flow.id); else msg.textContent = `✗ ${r.error}`; } },
-      el('label', { for: 'drAsk', class: 'sr' }, 'Décris ton automatisation'), el('input', { id: 'drAsk', placeholder: 'Ex. chaque matin à 7 h, envoie-moi les tâches en retard', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Créer avec Odin'), el('button', { class: 'btn', type: 'button', onclick: newFlow }, 'Partir de zéro')), msg);
+      el('label', { for: 'drAsk', class: 'sr' }, 'Décris ton automatisation'), el('input', { id: 'drAsk', placeholder: 'Ex. chaque matin à 7 h, envoie-moi les tâches en retard', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Créer avec Odin'), lienBtn(), el('button', { class: 'btn', type: 'button', onclick: newFlow }, 'Partir de zéro')), msg);
     if (st.flows.length) box.append(el('div', { class: 'dr-list' }, ...st.flows.map((w) => el('article', { class: 'dr-card' },
       el('div', { class: 'dr-h' }, el('b', {}, w.name), el('input', { type: 'checkbox', class: 'g-sw', 'aria-label': `Activer ${w.name}`, checked: w.active ? true : undefined, onchange: async (e) => { if (e.target.checked && !(await window.OdinDialog.confirm(`Activer « ${w.name} » ? Elle agira seule ensuite.`))) { e.target.checked = false; return; } const r = await api('/api/draupnir/toggle', { id: w.id, on: e.target.checked }); if (!r.ok) { e.target.checked = !e.target.checked; await window.OdinDialog.alert(r.error); } } })),
       el('div', { class: 'dr-steps' }, w.nodes.map((n) => n.label).join(' → ')),
+      w.phrase || w.prochaineTexte ? el('div', { class: 'dr-steps' }, [w.phrase, w.active && w.prochaineTexte ? `Prochaine : ${w.prochaineTexte}` : ''].filter(Boolean).join(' · ')) : null,
       el('div', { class: 'dr-row' }, w.last ? el('span', { class: `pill ${w.last.status === 'succès' ? 'good' : w.last.status === 'erreur' ? 'bad' : ''}` }, `${w.last.status} · ${new Date(w.last.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`) : el('span', { class: 'pill' }, 'jamais lancée'), w.failed ? el('span', { class: 'pill bad' }, `${w.failed} échec(s)`) : null),
-      el('div', { class: 'dr-row' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openFlow(w.id) }, 'Ouvrir'), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const r = await api('/api/draupnir/run', { id: w.id }); e.target.disabled = false; await window.OdinDialog.alert(r.ok ? `${r.run.status}${r.run.error ? ` : ${r.run.error}` : ''}` : r.error); openList(); } }, 'Tester')))))); else box.append(el('p', { class: 'sub' }, 'Aucune automatisation pour l\'instant.'));
+      el('div', { class: 'dr-row' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openFlow(w.id) }, 'Ouvrir'), el('button', { class: 'btn small', type: 'button', onclick: (e) => lancer(e.currentTarget, w) }, 'Lancer maintenant')), el('div', { class: 'dr-steps', role: 'status' }))))); else box.append(el('p', { class: 'sub' }, 'Aucune automatisation pour l\'instant.'));
+    // Tout ce qui tourne tout seul dans Odin (applis, tâches planifiées, rappels) : la même liste, sous les automatisations.
+    if (window.OdinAutomatismes) { const zone = el('div', {}); box.append(zone); window.OdinAutomatismes.monter(zone); }
     box.append(el('section', { class: 'card', style: 'margin-bottom:16px' }, el('h2', { style: 'font-size:17px;margin:0 0 8px' }, 'Modèles prêts'), el('div', { class: 'dr-tpl' }, ...st.templates.map((t) => el('article', {}, el('b', {}, t.name), el('p', {}, t.what), el('button', { class: 'btn small', type: 'button', onclick: async (e) => { e.target.disabled = true; const r = await api('/api/draupnir/template', { id: t.id }); if (r.ok) openFlow(r.flow.id); else { e.target.textContent = `✗ ${r.error}`; } } }, 'Utiliser'))))));
     box.append(el('details', { class: 'card' }, el('summary', { style: 'cursor:pointer;min-height:40px;display:flex;align-items:center;font-weight:600' }, 'Importer une automatisation n8n (JSON)'),
       el('form', { onsubmit: async (e) => { e.preventDefault(); const r = await api('/api/draupnir/import', { json: $('#drImp').value }); if (r.ok) { if (r.todo?.length) await window.OdinDialog.alert(`À revoir :\n${r.todo.join('\n')}`); openFlow(r.flow.id); } else await window.OdinDialog.alert(r.error); } }, el('label', { for: 'drImp', class: 'sub' }, 'Colle le JSON exporté'), el('textarea', { id: 'drImp', style: 'width:100%;min-height:120px' }), el('button', { class: 'btn', type: 'submit' }, 'Importer'))));
+  }
+  /** « Faire un lien » : montré seulement quand Talos sait en faire (sinon la barre reste comme avant). */
+  function lienBtn() {
+    if (!window.OdinLien) return null;
+    const b = el('button', { class: 'btn', type: 'button', hidden: true, onclick: () => window.OdinLien.ouvrir() }, 'Faire un lien');
+    window.OdinLien.dispo().then((ok) => { b.hidden = !ok; });
+    return b;
+  }
+  /** « Lancer maintenant » d'une carte : le résultat reste sous la carte (pastille, texte, durée). */
+  async function lancer(btn, w) {
+    const out = btn.closest('article')?.querySelector('[role=status]'); btn.disabled = true;
+    const dit = (ok, texte, ms) => { if (out) out.replaceChildren(el('span', { class: `pill ${ok ? 'good' : 'bad'}` }, ok ? 'Réussi' : 'Échec'), ` ${texte ?? ''}${typeof ms === 'number' ? ` · ${ms} ms` : ''}`); };
+    if (out) out.textContent = 'Lancement…';
+    let r = await api('/api/draupnir/automatisme/lancer', { id: `flow:${w.id}` }).catch(() => ({}));
+    if (r?.ok === undefined) {
+      // Talos sans « Lancer maintenant » : on passe par le test d'avant.
+      r = await api('/api/draupnir/run', { id: w.id }).catch((e) => ({ ok: false, error: e.message }));
+      btn.disabled = false;
+      if (r.ok) dit(r.run.status === 'succès', `${r.run.status}${r.run.error ? ` : ${r.run.error}` : ''}`, r.run.ms); else dit(false, r.error);
+      return;
+    }
+    btn.disabled = false;
+    if (r.ok) dit(r.resultat?.ok !== false, r.resultat?.texte, r.resultat?.ms); else dit(false, r.error);
   }
   function newFlow() { wf = { id: '', name: 'Nouvelle automatisation', active: false, nodes: [{ name: 'Lancer', type: 'déclencheur.manuel', params: {}, position: [60, 160] }], connections: {} }; outs = {}; dirty = true; editor(); }
   async function openFlow(id) {
@@ -170,9 +199,19 @@
       return;
     }
     const c = cat(n.type), run = last?.nodes?.[n.name];
+    // Planning : seul le champ du mode choisi se montre (un nœud sans mode garde son planning cron, comme avant).
+    const planning = c?.type === 'déclencheur.planning' && (c.params ?? []).some((p) => p.key === 'mode'), mode = planning ? n.params.mode ?? 'cron' : undefined;
     const fields = (c?.params ?? []).map((p) => {
-      const id = `drp-${p.key}`, v = n.params[p.key] ?? p.default ?? '';
-      const set = (val) => { n.params[p.key] = val; dirty = true; };
+      if (planning && ((p.key === 'cron' && mode !== 'cron') || (p.key === 'minutes' && mode !== 'intervalle') || (p.kind === 'rythme' && mode !== 'simple'))) return [];
+      const id = `drp-${p.key}`, v = planning && p.key === 'mode' ? mode : n.params[p.key] ?? p.default ?? '';
+      const set = (val) => { n.params[p.key] = val; dirty = true; if (planning && p.key === 'mode') drawSide(); };
+      if (p.kind === 'rythme') {
+        // Le rythme en clair ; l'éditeur donne la valeur de départ tout de suite : ce n'est pas une modification.
+        const setR = (val) => { const avant = n.params[p.key] ?? p.default; if (JSON.stringify(val) === JSON.stringify(avant)) { if (n.params[p.key] === undefined) n.params[p.key] = val; return; } set(val); };
+        const input = window.OdinRythme ? window.OdinRythme.editeur({ valeur: v && typeof v === 'object' ? v : undefined, onChange: setR })
+          : el('textarea', { id, spellcheck: 'false', oninput: (e) => { try { setR(JSON.parse(e.target.value)); } catch { /* pas encore un JSON */ } } }, JSON.stringify(v, null, 2));
+        return [el('label', { for: id }, p.label, p.required ? ' *' : ''), input, p.help ? el('small', { class: 'sub' }, p.help) : null];
+      }
       const input = p.kind === 'select' ? el('select', { id, onchange: (e) => set(e.target.value) }, ...(p.options ?? []).map((o) => el('option', { selected: o === v ? true : undefined }, o)))
         : p.kind === 'boolean' ? el('input', { id, type: 'checkbox', checked: v === true ? true : undefined, onchange: (e) => set(e.target.checked) })
         : p.kind === 'textarea' || p.kind === 'json' ? el('textarea', { id, oninput: (e) => set(e.target.value), spellcheck: 'false' }, typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v))
@@ -218,5 +257,5 @@
   }
   function init() { document.head.append(el('style', {}, css)); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
-  window.OdinFlows = { open: () => { if (!wf) openList(); }, edit: openFlow };
+  window.OdinFlows = { open: () => { if (!wf && !ailleurs) openList(); }, edit: openFlow, liste: openList, prendre: () => { ailleurs = true; jeton++; wf = null; } };
 })();

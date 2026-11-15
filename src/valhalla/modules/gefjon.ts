@@ -5,7 +5,9 @@
 import { lstatSync, readdirSync, rmSync, statfsSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
-import type { Kpi, ModCtx, Module, Section } from '../types.ts';
+import type { Kpi, ModCtx, Module, RythmeAppli, Section, TacheAppli } from '../types.ts';
+import { tacheEnPause } from '../automatismes.ts';
+import { fuseauOdin, murale } from '../../draupnir/rythme.ts';
 import { basculer, carte, CATEGORIES_DISTANTES, cibleDe, demarrage, desinstaller, nettoyageDistant, programmes, type Carte, type Cible, type Lancement, type Programme } from '../gefjon/poste.ts';
 import { choixDePoste, PARAM_POSTE } from '../postes.ts';
 import { findMachine } from '../../machines/access.ts';
@@ -126,11 +128,41 @@ export interface PlanNettoyage { id: string; poste: string; nomPoste: string; ca
 const plansN = (ctx: ModCtx): PlanNettoyage[] => (ctx.settings.plansNettoyage as PlanNettoyage[] | undefined) ?? [];
 /** Le nettoyage planifié est-il dû maintenant ? (une fois dans l'heure choisie, chaque jour, le dimanche ou le 1er du mois) Pur. */
 export function nettoyageDu(p: PlanNettoyage, now: Date): boolean {
-  if (now.getHours() !== p.heure) return false;
+  // L'heure murale du lieu d'Odin (celle que Talos écrit), pas celle de la machine.
+  const w = murale(now.getTime(), fuseauOdin());
+  if (w.h !== p.heure) return false;
   const age = p.dernier ? now.getTime() - Date.parse(p.dernier) : Infinity;
   if (p.quand === 'jour') return age > 20 * 3600_000;
-  if (p.quand === 'semaine') return now.getDay() === 0 && age > 6 * 864e5;
-  return now.getDate() === 1 && age > 25 * 864e5;
+  if (p.quand === 'semaine') return w.wd === 0 && age > 6 * 864e5;
+  return w.d === 1 && age > 25 * 864e5;
+}
+/** L'identifiant Talos de la tâche d'un nettoyage planifié (sans « : »). */
+export const tacheDuNettoyage = (p: Pick<PlanNettoyage, 'id'>) => `nettoyage-${p.id.replace(/[^\w-]/g, '_').slice(0, 80)}`;
+/** Passe un nettoyage planifié (à son heure, ou lancé depuis Talos) et note son résultat. */
+async function passerNettoyage(ctx: ModCtx, p: PlanNettoyage, now: Date): Promise<{ ok: boolean; texte: string }> {
+  let resultat: string, ok = true;
+  try { const c = cibleDe(ctx, p.poste), r = await nettoyerPartout(ctx, c, p.categories); resultat = r.texte; ctx.emit('nettoyage_planifie', { poste: p.nomPoste, octets: r.octets }); }
+  catch (e) { ok = false; resultat = `échec : ${(e as Error).message}`; ctx.alert({ level: 'moyenne', title: `Héraclès : le nettoyage planifié de ${p.nomPoste} a échoué`, detail: (e as Error).message, key: `heracles:plan:${p.id}` }); }
+  ctx.saveSettings({ plansNettoyage: plansN(ctx).map((x) => (x.id === p.id ? { ...x, dernier: now.toISOString(), resultat: resultat.slice(0, 200) } : x)) });
+  return { ok, texte: resultat };
+}
+const RYTHME_NETTOYAGE = (p: PlanNettoyage): RythmeAppli => {
+  const heure = `${String(p.heure).padStart(2, '0')}:00`;
+  return p.quand === 'jour' ? { genre: 'jour', heure } : p.quand === 'semaine' ? { genre: 'semaine', jours: [0], heure } : { genre: 'mois', jour: 1, heure };
+};
+function tachesGefjon(ctx: ModCtx): TacheAppli[] {
+  return plansN(ctx).map((p) => ({
+    id: tacheDuNettoyage(p), nom: `Nettoyage de ${p.nomPoste}`, quoi: `Libère : ${p.categories.join(', ')}.`,
+    rythme: () => RYTHME_NETTOYAGE(p), permis: ['jour', 'semaine', 'mois'],
+    regler: (c: ModCtx, r: RythmeAppli) => {
+      const h = 'heure' in r ? /^(\d\d):00$/.exec(r.heure)?.[1] : undefined;
+      const quand = r.genre === 'jour' ? 'jour' : r.genre === 'semaine' && r.jours.length === 1 && r.jours[0] === 0 ? 'semaine' : r.genre === 'mois' && r.jour === 1 ? 'mois' : undefined;
+      if (!h || !quand) throw new Error('Un nettoyage planifié se règle à une heure pile : chaque jour, le dimanche, ou le 1er du mois.');
+      c.saveSettings({ plansNettoyage: plansN(c).map((x) => (x.id === p.id ? { ...x, quand, heure: Number(h) } : x)) });
+    },
+    lancer: { action: 'lancer_nettoyage', input: { id: p.id } },
+    dernier: () => (p.dernier ? { at: p.dernier, ok: !/^échec/.test(p.resultat ?? ''), ...(p.resultat ? { texte: p.resultat } : {}) } : undefined),
+  }));
 }
 /** Nettoie des catégories sur un poste (ici ou ailleurs) ; rend une phrase. */
 async function nettoyerPartout(ctx: ModCtx, c: Cible, liste: string[]): Promise<{ texte: string; octets: number }> {
@@ -217,6 +249,11 @@ export const gefjon: Module = {
         ctx.saveSettings({ plansNettoyage: [...plansN(ctx).filter((x) => x.id !== p.id), p] });
         return { text: `🗓 Nettoyage de ${c.nom} : ${p.categories.join(', ')}, ${({ jour: 'chaque jour', semaine: 'chaque dimanche', mois: 'le 1er du mois' })[quand]} à ${heure} h.` };
       } },
+    { id: 'lancer_nettoyage', label: 'Lancer un nettoyage planifié', what: 'Passe maintenant un nettoyage déjà planifié (mêmes catégories, accord déjà donné au planning)', quick: false, params: [{ key: 'id', label: 'Nettoyage planifié (ici, ou le poste)', kind: 'text', required: true }], run: async (ctx, i) => {
+      const p = plansN(ctx).find((x) => x.id === s(i.id) || x.nomPoste === s(i.id)); if (!p) throw new Error('Aucun nettoyage planifié sous ce nom.');
+      const r = await passerNettoyage(ctx, p, ctx.now());
+      return { text: `${p.nomPoste} : ${r.texte}`, ok: r.ok };
+    } },
     { id: 'retirer_nettoyage', label: 'Arrêter un nettoyage planifié', what: 'Plus de nettoyage automatique sur ce poste', quick: false, params: [posteParam], run: (ctx, i) => {
       const c = cibleDe(ctx, i.poste), id = c.genre === 'ici' ? 'ici' : c.genre === 'smb' ? c.m.id : c.poste.id, avant = plansN(ctx);
       ctx.saveSettings({ plansNettoyage: avant.filter((x) => x.id !== id) });
@@ -265,14 +302,12 @@ export const gefjon: Module = {
   },
   // Toutes les 5 minutes : les nettoyages planifiés ; toutes les 6 heures : une seule alerte utile, le disque presque plein
   // ET Héraclès qui peut y faire de la place (pas d'annonce sinon).
+  taches: tachesGefjon,
   watch: { every: 300, async run(ctx) {
     const now = ctx.now();
     for (const p of plansN(ctx)) {
-      if (!nettoyageDu(p, now)) continue;
-      let resultat: string;
-      try { const c = cibleDe(ctx, p.poste), r = await nettoyerPartout(ctx, c, p.categories); resultat = r.texte; ctx.emit('nettoyage_planifie', { poste: p.nomPoste, octets: r.octets }); }
-      catch (e) { resultat = `échec : ${(e as Error).message}`; ctx.alert({ level: 'moyenne', title: `Héraclès : le nettoyage planifié de ${p.nomPoste} a échoué`, detail: (e as Error).message, key: `heracles:plan:${p.id}` }); }
-      ctx.saveSettings({ plansNettoyage: plansN(ctx).map((x) => (x.id === p.id ? { ...x, dernier: now.toISOString(), resultat: resultat.slice(0, 200) } : x)) });
+      if (!nettoyageDu(p, now) || tacheEnPause('gefjon', tacheDuNettoyage(p))) continue;
+      await passerNettoyage(ctx, p, now);
     }
     if (now.getTime() - (dernierPlein.get(ctx.dir) ?? 0) < 6 * 3600_000) return; dernierPlein.set(ctx.dir, now.getTime());
     const d = place(ctx); if (!d || d.libre / d.total >= 0.1) return;

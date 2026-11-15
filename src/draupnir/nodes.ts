@@ -45,9 +45,11 @@ const pass = (_c: unknown, items: Item[]) => [items];
 export const NODES: NodeDef[] = [
   // ---------------- Déclencheurs (ils ne font que transmettre ce qui les a lancés)
   { type: 'déclencheur.manuel', label: 'Lancer à la main', group: 'Déclencheurs', trigger: true, what: 'Bouton « Exécuter », ou Odin quand tu lui demandes.', params: [], run: pass },
-  { type: 'déclencheur.planning', label: 'Planning', group: 'Déclencheurs', trigger: true, what: 'À heure fixe ou toutes les N minutes.', params: [
-    { key: 'mode', label: 'Rythme', kind: 'select', options: ['cron', 'intervalle'], default: 'cron' },
-    { key: 'cron', label: 'Quand (cron)', kind: 'cron', default: '30 7 * * *', help: 'minute heure jour mois jour-semaine. Ex. 30 7 * * 1-5 = 7 h 30 en semaine' },
+  { type: 'déclencheur.planning', label: 'Planning', group: 'Déclencheurs', trigger: true, what: 'Tous les jours, chaque semaine, chaque mois, une seule fois, toutes les N minutes ou heures (à l\'heure du lieu d\'Odin), ou un planning cron.', params: [
+    // Un nœud sans « mode » (ancien, importé) garde son planning cron ; un nœud ajouté part en « simple ».
+    { key: 'mode', label: 'Rythme', kind: 'select', options: ['simple', 'cron', 'intervalle'], default: 'simple' },
+    { key: 'rythme', label: 'Quand', kind: 'rythme', default: { genre: 'jour', heure: '07:30' }, help: 'Tous les jours à 7 h 30, chaque lundi à 9 h, chaque mois le 1er…' },
+    { key: 'cron', label: 'Quand (cron, pour les experts)', kind: 'cron', default: '30 7 * * *', help: 'minute heure jour mois jour-semaine. Ex. 30 7 * * 1-5 = 7 h 30 en semaine' },
     { key: 'minutes', label: 'Toutes les N minutes', kind: 'number', default: 60 },
   ], run: pass },
   { type: 'déclencheur.webhook', label: 'Webhook', group: 'Déclencheurs', trigger: true, what: 'Une adresse que n\'importe quelle appli peut appeler (formulaire, site, autre service).', params: [

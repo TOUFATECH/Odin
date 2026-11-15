@@ -4,7 +4,40 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { nextRun, parseCron } from '../cron/cron.ts';
+import { lireRythme, phrase, prochaine, type Rythme } from './rythme.ts';
+
+/** Le rythme d'un nœud Planning : mode « simple » (rythme en clair), « intervalle », sinon cron (compté à l'heure du lieu). */
+export function planningDe(p: Record<string, unknown>): { rythme: Rythme; phrase: string; cron?: string } | undefined {
+  if (p.mode === 'intervalle') { const r: Rythme = { genre: 'minutes', n: Math.max(1, Math.min(1440, Math.round(Number(p.minutes) || 60))) }; return { rythme: r, phrase: phrase(r) }; }
+  if (p.mode === 'simple') { const r = lireRythme(p.rythme); return r ? { rythme: r, phrase: phrase(r) } : undefined; }
+  const expr = String(p.cron || '30 7 * * *'), r = lireRythme({ genre: 'cron', cron: expr });
+  return r ? { rythme: r, phrase: phrase(r), cron: expr } : undefined;
+}
+/** Le nom qu'un lien donne à un nœud Planning d'après sa phrase (40 caractères au plus, comme construireLien). */
+const nomPlanning = (dit: string) => (dit.length > 40 ? `${dit.slice(0, 39).trimEnd()}…` : dit);
+/**
+ * Un lien (origin 'lien') dont le rythme a changé : les noms que Talos avait tirés de l'ancienne phrase (nœud Planning,
+ * nom de l'automatisation, description) suivent la nouvelle. Un nom changé à la main reste tel quel. Pur.
+ */
+export function suivreRythme(avant: Workflow | undefined, apres: Partial<Workflow>): Partial<Workflow> {
+  if (!avant || apres.origin !== 'lien' || !Array.isArray(apres.nodes)) return apres;
+  let name = apres.name, settings = apres.settings, connections = apres.connections;
+  const nodes = apres.nodes.map((n) => ({ ...n }));
+  for (const n of nodes) {
+    if (n.type !== 'déclencheur.planning') continue;
+    const a = avant.nodes.find((x) => x.name === n.name && x.type === 'déclencheur.planning');
+    const vieux = a ? planningDe(a.params ?? {})?.phrase : undefined, neuf = planningDe(n.params ?? {})?.phrase;
+    if (!vieux || !neuf || vieux === neuf) continue;
+    if (typeof name === 'string' && name.startsWith(`${vieux} → `)) name = `${neuf}${name.slice(vieux.length)}`;
+    const d = settings?.description;
+    if (typeof d === 'string' && d.startsWith(`${vieux} → `)) settings = { ...settings, description: `${neuf}${d.slice(vieux.length)}` };
+    const ancien = n.name, nouveau = nomPlanning(neuf);
+    if (ancien !== nomPlanning(vieux) || nouveau === ancien || nodes.some((x) => x.name === nouveau)) continue;
+    n.name = nouveau;
+    connections = Object.fromEntries(Object.entries(connections ?? {}).map(([k, sorties]) => [k === ancien ? nouveau : k, sorties.map((l) => (l ?? []).map((x) => (x.node === ancien ? { ...x, node: nouveau } : x)))]));
+  }
+  return { ...apres, ...(name !== undefined ? { name } : {}), ...(settings !== undefined ? { settings } : {}), ...(connections !== undefined ? { connections } : {}), nodes };
+}
 import { checkFlow, execute, normalize, type Deps, type Execution, type FlowNode, type Item, type Workflow } from './engine.ts';
 import { runCode } from './code.ts';
 import { CATALOG, NODES, parseFeed } from './nodes.ts';
@@ -34,7 +67,7 @@ export class Talos {
   get(id: string): Workflow | undefined { const f = this.file(id); return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) as Workflow : this.list().find((w) => w.name.toLowerCase() === id.toLowerCase()); }
   save(input: Partial<Workflow>): Workflow {
     const old = input.id ? this.get(input.id) : undefined;
-    const wf = normalize({ ...input, createdAt: old?.createdAt ?? input.createdAt });
+    const wf = normalize(suivreRythme(old, { ...input, createdAt: old?.createdAt ?? input.createdAt }));
     // Webhook : chaque déclencheur reçoit un chemin secret (l'adresse ne se devine pas).
     for (const n of wf.nodes) if ((n.type === 'déclencheur.webhook' || n.type === 'déclencheur.formulaire') && !String(n.params.chemin ?? '').match(/^[\w-]{12,}$/)) n.params.chemin = randomBytes(12).toString('base64url');
     const err = checkFlow(wf, CATALOG);
@@ -74,6 +107,8 @@ export class Talos {
   }
 
   // ---------------- Exécuter
+  /** Une exécution de cette automatisation tourne-t-elle (quel que soit son déclencheur) ? */
+  enCours(id: string): boolean { for (const k of this.running) if (k.startsWith(`${id}:`)) return true; return false; }
   async run(id: string, items?: Item[], mode: Execution['mode'] = 'manuel', trigger?: string, opts: { depth?: number; stopAfter?: string; pinned?: Record<string, Array<Record<string, unknown>>> } = {}): Promise<Execution> {
     const wf = this.get(id); if (!wf) throw new Error('automatisation introuvable');
     // Une même automatisation ne tourne pas deux fois en même temps (sauf test manuel).
@@ -148,11 +183,23 @@ export class Talos {
       if (n.disabled) continue;
       const p = n.params ?? {};
       if (n.type === 'déclencheur.planning') {
-        if (p.mode === 'intervalle') ts.push(setInterval(() => void this.fire(wf.id, n.name, [{ json: { heure: new Date().toISOString() } }]), Math.max(1, Number(p.minutes) || 60) * 60_000));
-        else {
-          const expr = String(p.cron || '30 7 * * *');
-          try { parseCron(expr); } catch { continue; }
-          const plan = () => { const at = nextRun(expr, new Date()).getTime() - Date.now(); const t = setTimeout(() => { void this.fire(wf.id, n.name, [{ json: { heure: new Date().toISOString() } }]); plan(); }, Math.min(at, 2 ** 31 - 1)); ts.push(t); };
+        const pl = planningDe(p);
+        if (p.mode === 'intervalle') ts.push(setInterval(() => void this.fire(wf.id, n.name, [{ json: { heure: new Date().toISOString(), rythme: pl?.phrase ?? '' } }]), Math.max(1, Number(p.minutes) || 60) * 60_000));
+        else if (pl) {
+          // Mode simple (rythme en clair) ou cron : à l'heure du lieu d'Odin. Une minuterie à la fois, replanifiée après
+          // chaque passage (et avant l'heure si le délai dépasse la borne des minuteries).
+          const une = pl.rythme.genre === 'une_fois' ? `une_fois:${wf.id}:${n.name}:${JSON.stringify(pl.rythme)}` : '';
+          if (une && this.state<string>(une)) continue; // déjà partie : rien n'est rejoué
+          const slot = ts.length; ts.push(setTimeout(() => {}, 0));
+          const plan = () => {
+            const at = prochaine(pl.rythme, new Date()); if (!at) return;
+            ts[slot] = setTimeout(() => {
+              if (Date.now() < at.getTime() - 1000) { plan(); return; }
+              if (une) this.state(une, at.toISOString());
+              void this.fire(wf.id, n.name, [{ json: { heure: new Date().toISOString(), rythme: pl.phrase } }]);
+              if (!une) plan();
+            }, Math.max(0, Math.min(at.getTime() - Date.now(), 2 ** 31 - 1)));
+          };
           plan();
         }
       } else if (n.type === 'déclencheur.flux' || n.type === 'déclencheur.surveille') {

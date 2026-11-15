@@ -4,9 +4,14 @@
 
 import { randomBytes } from 'node:crypto';
 import type { ModCtx, Module } from '../types.ts';
+import { actionRendezVous, annulerRappel, ongletsChronos } from '../frigg/perso.ts';
+import { agissant } from '../sso/acces.ts';
 
 export interface Service { name: string; minutes: number; price?: number }
-export interface Booking { id: string; service: string; start: string; end: string; name: string; contact: string; note?: string; status: 'attente' | 'confirmé' | 'annulé'; created: string; reminded?: boolean }
+export interface Booking { id: string; service: string; start: string; end: string; name: string; contact: string; note?: string; status: 'attente' | 'confirmé' | 'annulé'; created: string; reminded?: boolean;
+  /** un rendez-vous à toi (« planifie un rendez-vous mardi à 15 h »), pas celui d'un client */ perso?: boolean;
+  lieu?: string; /** quand le rappel part (« 1 h avant », « la veille à 18 h »…, « aucun ») */ rappel?: string;
+  /** la tâche de rappel de la passerelle (Telegram d'abord) */ rappelJob?: string; /** le début, instant exact (ISO) */ debut?: string }
 /** Horaires : un jour (0 = dimanche) → plages « 9:00-12:00,14:00-18:00 ». */
 export type Hours = Record<string, string>;
 const s = (v: unknown) => String(v ?? '');
@@ -21,7 +26,7 @@ const local = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.
 export function freeSlots(day: string, minutes: number, h: Hours, taken: Booking[], now = new Date(), step = 15): string[] {
   const d = new Date(`${day}T00:00`); if (Number.isNaN(d.getTime())) return [];
   const ranges = (h[String(d.getDay())] ?? '').split(',').map((r) => r.trim().split('-')).filter((r) => r.length === 2);
-  const busy = taken.filter((b) => b.status !== 'annulé' && b.start.startsWith(day)).map((b) => [hm(b.start.slice(11)), hm(b.end.slice(11))]);
+  const busy = taken.filter((b) => b.status !== 'annulé' && !b.perso && b.start.startsWith(day)).map((b) => [hm(b.start.slice(11)), hm(b.end.slice(11))]);
   const out: string[] = [];
   for (const [a, b] of ranges) for (let t = hm(a); t + minutes <= hm(b); t += step) {
     const at = new Date(d.getTime() + t * 60_000); if (at <= now) continue;
@@ -48,9 +53,12 @@ export function publicKey(ctx: ModCtx): string { let k = s(ctx.settings.publicKe
 export function publicInfo(ctx: ModCtx): { title: string; services: Service[] } { return { title: s(ctx.settings.title) || 'Prendre rendez-vous', services: services(ctx) }; }
 export function publicSlots(ctx: ModCtx, service: string, day: string): string[] { const sv = services(ctx).find((x) => x.name === service); return sv ? freeSlots(day, sv.minutes, hours(ctx), bookings(ctx), ctx.now()) : []; }
 
+/** Les réservations que celui qui agit peut voir : un membre ne voit pas les rendez-vous perso du propriétaire. */
+const visibles = (ctx: ModCtx): Booking[] => (agissant() ? bookings(ctx).filter((b) => !b.perso) : bookings(ctx));
 function setStatus(ctx: ModCtx, id: string, status: Booking['status']): Booking {
-  const b = bookings(ctx).find((x) => x.id === id); if (!b) throw new Error('rendez-vous introuvable');
-  ctx.saveSettings({ bookings: bookings(ctx).map((x) => (x.id === id ? { ...x, status } : x)) });
+  const b = visibles(ctx).find((x) => x.id === id); if (!b) throw new Error('rendez-vous introuvable');
+  ctx.saveSettings({ bookings: bookings(ctx).map((x) => (x.id === id ? { ...x, status, ...(status === 'annulé' && x.rappelJob ? { rappelJob: undefined } : {}) } : x)) });
+  if (status === 'annulé' && b.rappelJob) annulerRappel(b.rappelJob); // un rendez-vous annulé n'est plus rappelé
   ctx.emit(status === 'annulé' ? 'reservation_annulee' : 'reservation_confirmee', { ...b, status });
   return { ...b, status };
 }
@@ -62,7 +70,7 @@ export const frigg: Module = {
   from: ['Cal.com', 'Easy!Appointments', 'Calendso'], upstream: ['calcom/cal.com', 'alextselegidis/easyappointments'],
   words: ['rendez-vous', 'rdv', 'reservation', 'réservation', 'creneau', 'créneau', 'prestation', 'agenda du salon', 'prendre rendez-vous', 'disponibilites', 'disponibilités'],
   actions: [
-    { id: 'agenda', label: 'Rendez-vous à venir', what: 'Les prochains rendez-vous', read: true, words: ['a venir', 'à venir', 'prochains', 'aujourd hui', 'demain'], run: (ctx) => { const now = local(ctx.now()); const l = bookings(ctx).filter((b) => b.status !== 'annulé' && b.end >= now).sort((a, b) => a.start.localeCompare(b.start)); return { text: l.map((b) => `- ${b.start.replace('T', ' ')} · ${b.name} · ${b.service}${b.status === 'attente' ? ' (à confirmer)' : ''}`).join('\n') || 'Aucun rendez-vous à venir.' }; } },
+    { id: 'agenda', label: 'Rendez-vous à venir', what: 'Les prochains rendez-vous', read: true, words: ['a venir', 'à venir', 'prochains', 'aujourd hui', 'demain'], run: (ctx) => { const now = local(ctx.now()); const l = visibles(ctx).filter((b) => b.status !== 'annulé' && b.end >= now).sort((a, b) => a.start.localeCompare(b.start)); return { text: l.map((b) => `- ${b.start.replace('T', ' ')} · ${b.name} · ${b.service}${b.status === 'attente' ? ' (à confirmer)' : ''}`).join('\n') || 'Aucun rendez-vous à venir.' }; } },
     { id: 'creneaux', label: 'Créneaux libres', what: 'Pour une prestation et un jour', read: true, params: [{ key: 'service', label: 'Prestation', kind: 'text', required: true }, { key: 'jour', label: 'Jour (AAAA-MM-JJ)', kind: 'text', required: true }], words: ['creneaux', 'créneaux', 'libre', 'dispo'], run: (ctx, i) => { const sv = services(ctx).find((x) => x.name.toLowerCase() === s(i.service).toLowerCase()); if (!sv) throw new Error('prestation inconnue'); const f = freeSlots(s(i.jour), sv.minutes, hours(ctx), bookings(ctx), ctx.now()); return { text: f.length ? f.join(', ') : 'Aucun créneau libre ce jour-là.', data: f }; } },
     { id: 'reserver', undo: (_i, r) => { const id = (r.data as { id?: string } | undefined)?.id; return id ? { action: 'annuler', input: { id }, label: 'rendez-vous annulé' } : undefined; }, label: 'Réserver', what: 'Ajoute un rendez-vous', params: [{ key: 'service', label: 'Prestation', kind: 'text', required: true }, { key: 'jour', label: 'Jour (AAAA-MM-JJ)', kind: 'text', required: true }, { key: 'heure', label: 'Heure (HH:MM)', kind: 'text', required: true }, { key: 'nom', label: 'Nom', kind: 'text', required: true }, { key: 'contact', label: 'Téléphone ou e-mail', kind: 'text', required: true }, { key: 'note', label: 'Note', kind: 'text', default: '' }], run: (ctx, i) => { const b = book(ctx, { service: s(i.service), jour: s(i.jour), heure: s(i.heure), nom: s(i.nom), contact: s(i.contact), note: s(i.note) }); return { text: `📅 ${b.name} · ${b.service} · ${b.start.replace('T', ' à ')}`, data: { id: b.id } }; } },
     { id: 'confirmer', label: 'Confirmer', what: 'Confirme une demande', params: [{ key: 'id', label: 'Rendez-vous', kind: 'text', required: true }], run: (ctx, i) => { const b = setStatus(ctx, s(i.id), 'confirmé'); return { text: `✓ ${b.name} confirmé.` }; } },
@@ -74,11 +82,15 @@ export const frigg: Module = {
       ctx.saveSettings({ hours: h }); return { text: `🕘 Horaires enregistrés (${Object.keys(h).length} jour(s)).` };
     } },
     { id: 'page', label: 'Page publique', what: 'Lien à donner à tes clients', read: true, run: (ctx) => ({ text: `Lien de réservation : /r/${publicKey(ctx)} (à ajouter après l'adresse publique d'Odin).`, data: { path: `/r/${publicKey(ctx)}` } }) },
+    // Un rendez-vous à toi, avec son rappel sur ta messagerie (Telegram d'abord), sans IA au moment de l'envoi.
+    actionRendezVous,
   ],
   view(ctx) {
-    const now = local(ctx.now()), up = bookings(ctx).filter((b) => b.status !== 'annulé' && b.end >= now).sort((a, b) => a.start.localeCompare(b.start));
+    // Un membre ne voit pas les rendez-vous perso du propriétaire (ni dans les compteurs, ni dans « À venir »).
+    const now = local(ctx.now()), up = visibles(ctx).filter((b) => b.status !== 'annulé' && b.end >= now).sort((a, b) => a.start.localeCompare(b.start));
     const today = up.filter((b) => b.start.startsWith(now.slice(0, 10))), wait = up.filter((b) => b.status === 'attente');
-    return {
+    // Trois onglets : Agenda (tous les plannings), Rendez-vous, Réglages (frigg/perso.ts).
+    return ongletsChronos(ctx, {
       subtitle: `${up.length} rendez-vous à venir · ${wait.length} à confirmer`,
       kpis: [{ label: 'Aujourd\'hui', value: String(today.length) }, { label: 'À confirmer', value: String(wait.length), tone: wait.length ? 'attention' : 'bon' }, { label: 'Prestations', value: String(services(ctx).length) }],
       sections: [
@@ -87,12 +99,13 @@ export const frigg: Module = {
         { kind: 'text', title: 'Page publique', text: `Tes clients réservent sur /r/${publicKey(ctx)} — sans compte. ${ctx.settings.confirm === false ? 'Réservations confirmées automatiquement.' : 'Chaque demande attend ta confirmation.'}` },
       ],
       side: [{ kind: 'form', title: 'Ajouter une prestation', action: 'prestation', submit: 'Ajouter', params: frigg.actions.find((a) => a.id === 'prestation')?.params ?? [] }, { kind: 'form', title: 'Horaires', action: 'horaires', submit: 'Enregistrer', params: frigg.actions.find((a) => a.id === 'horaires')?.params ?? [] }],
-    };
+    });
   },
   watch: { every: 900, run(ctx) {
     // Rappel la veille (une fois).
     const t = ctx.now(), tomorrow = local(new Date(t.getTime() + 86_400_000)).slice(0, 10);
-    const due = bookings(ctx).filter((b) => b.status === 'confirmé' && !b.reminded && b.start.startsWith(tomorrow));
+    // Les rendez-vous à toi ont leur propre rappel (passerelle) : seuls ceux des clients sont rappelés ici.
+    const due = bookings(ctx).filter((b) => b.status === 'confirmé' && !b.perso && !b.reminded && b.start.startsWith(tomorrow));
     if (!due.length || t.getHours() < 17) return;
     void ctx.notify(`📅 Demain :\n${due.map((b) => `- ${b.start.slice(11)} ${b.name} (${b.service}) · ${b.contact}`).join('\n')}`);
     ctx.saveSettings({ bookings: bookings(ctx).map((b) => (due.some((d) => d.id === b.id) ? { ...b, reminded: true } : b)) });

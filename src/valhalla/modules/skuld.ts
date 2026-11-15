@@ -9,7 +9,9 @@ import { dirname, join } from 'node:path';
 import { bases, findBase, password, saveBases, setPassword, type Base } from '../urdr/bases.ts';
 import { dump, extOf, keep, restore, verify, type Tools } from '../skuld/dump.ts';
 import { engine } from './naglfar.ts';
-import type { ModCtx, Module, Section } from '../types.ts';
+import type { ModCtx, Module, RythmeAppli, Section, TacheAppli } from '../types.ts';
+import { tacheEnPause } from '../automatismes.ts';
+import { fuseauOdin, murale } from '../../draupnir/rythme.ts';
 import { Journal, fichierJsonl } from '../base/journal.ts';
 import { decrire, essayer, lireDestination, sha256Fichier, transportDe, type Destination } from '../sindri/transport.ts';
 
@@ -41,9 +43,41 @@ export function due(p: Plan, last: Date | undefined, now: Date): boolean {
   const age = now.getTime() - last.getTime(), h = 3600_000;
   if (p.toutes === 'heure') return age >= h - 60_000;
   if (p.toutes === '6h') return age >= 6 * h - 60_000;
-  const atHour = now.getHours() === p.heure;
+  // L'heure murale du lieu d'Odin (celle que Talos écrit), pas celle de la machine.
+  const w = murale(now.getTime(), fuseauOdin()), atHour = w.h === p.heure;
   if (p.toutes === 'nuit') return age >= 20 * h && atHour;
-  return age >= 6 * 24 * h && atHour && now.getDay() === 0;
+  return age >= 6 * 24 * h && atHour && w.wd === 0;
+}
+
+// ---------------- Talos : une tâche par plan (« Sauvegarde de <base> »), réglable et qu'on peut mettre en pause ----------------
+/** L'identifiant Talos de la tâche d'un plan (sans « : », qui sépare les morceaux d'un identifiant de ligne). */
+export const tacheDuPlanBase = (base: string) => `plan-${base.replace(/[^\w-]/g, '_').slice(0, 80)}`;
+const deux = (n: number) => String(n).padStart(2, '0');
+export function rythmePlanBase(p: Plan): RythmeAppli {
+  if (p.toutes === 'heure') return { genre: 'heures', n: 1 };
+  if (p.toutes === '6h') return { genre: 'heures', n: 6 };
+  if (p.toutes === 'nuit') return { genre: 'jour', heure: `${deux(p.heure)}:00` };
+  return { genre: 'semaine', jours: [0], heure: `${deux(p.heure)}:00` };
+}
+function planDepuisRythme(p: Plan, r: RythmeAppli): Plan {
+  if (r.genre === 'heures' && (r.n === 1 || r.n === 6) && !r.minute) return { ...p, toutes: r.n === 1 ? 'heure' : '6h' };
+  const heure = 'heure' in r ? /^(\d\d):00$/.exec(r.heure)?.[1] : undefined;
+  if (r.genre === 'jour' && heure) return { ...p, toutes: 'nuit', heure: Number(heure) };
+  if (r.genre === 'semaine' && heure && r.jours.length === 1 && r.jours[0] === 0) return { ...p, toutes: 'semaine', heure: Number(heure) };
+  throw new Error('Une sauvegarde de base se règle toutes les heures, toutes les 6 heures, chaque jour à une heure pile, ou le dimanche à une heure pile.');
+}
+function tachesSkuld(ctx: ModCtx): TacheAppli[] {
+  const h = history(ctx, 2000);
+  return plans(ctx).filter((p) => p.actif).map((p) => {
+    let nom = p.base, bid = p.base; try { const b = findBase(ctx.home, p.base); nom = b.nom; bid = b.id; } catch { /* base retirée */ }
+    return {
+      id: tacheDuPlanBase(p.base), nom: `Sauvegarde de ${nom}`, quoi: `Sauvegarde, relit et garde ${p.garde.jours} j, ${p.garde.semaines} sem., ${p.garde.mois} mois.`,
+      rythme: () => rythmePlanBase(p), permis: ['heures', 'jour', 'semaine'],
+      regler: (c: ModCtx, r: RythmeAppli) => { const n = planDepuisRythme(p, r); c.saveSettings({ plans: plans(c).map((x) => (x.base === p.base ? n : x)) }); },
+      lancer: { action: 'sauvegarder', input: { base: p.base, raison: 'lancée depuis Talos' } },
+      dernier: () => { const e = h.find((x) => x.base === bid); return e ?{ at: e.at, ok: e.ok, ...(e.ok ? {} : { texte: e.erreur }) } : undefined; },
+    };
+  });
 }
 
 // ---------------- 2e site ----------------
@@ -157,12 +191,13 @@ export const skuld: Module = {
     if (d) sections.push({ kind: 'actions', title: '2e site', boutons: [{ action: 'rattraper_site', label: 'Rattraper', primary: true }, { action: 'verifier_site', label: 'Vérifier les copies' }], aide: derniere ? (derniere.copie ? `Dernière copie : ${derniere.at.slice(0, 16).replace('T', ' ')}, ${derniere.copie}.` : `Dernière copie ratée : ${derniere.copieErreur}`) : 'Aucune copie pour l\'instant.' });
     return { subtitle: 'Sauvegarde des bases de données', kpis: [{ label: 'Bases', value: String(l.length) }, { label: 'Avec un plan', value: String(ps.filter((p) => p.actif).length) }, { label: 'En échec', value: String(fails), tone: fails ? 'mauvais' : 'bon' }, { label: '2e site', value: d ? (derniere?.copieErreur ? 'en échec' : 'copie vérifiée') : 'aucun', tone: !d ? 'attention' : derniere?.copieErreur ? 'mauvais' : 'bon' }], sections };
   },
+  taches: tachesSkuld,
   watch: { every: 60, async run(ctx) {
     const now = ctx.now(), h = history(ctx, 2000);
     for (const p of plans(ctx)) {
       let b: Base; try { b = findBase(ctx.home, p.base); } catch { continue; }
       const lastOk = h.find((e) => e.base === b.id && e.ok && e.raison !== 'restaurée par-dessus'), lastTry = h.find((e) => e.base === b.id);
-      if (!due(p, lastOk ? new Date(lastOk.at) : undefined, now)) continue;
+      if (!due(p, lastOk ? new Date(lastOk.at) : undefined, now) || tacheEnPause('skuld', tacheDuPlanBase(p.base))) continue;
       if (lastTry && !lastTry.ok && now.getTime() - Date.parse(lastTry.at) < 3600_000) continue; // un essai par heure après un échec
       const e = await backupNow(ctx, b, 'plan');
       if (!e.ok) ctx.alert({ level: 'haute', title: `💾 Sauvegarde de ${b.nom} ratée`, detail: e.erreur, key: `skuld-${b.id}`, steps: ['Regarde l\'erreur dans Arche', 'Mot de passe changé ? redonne-le dans Alexandrie (« relier » à nouveau)', 'Puis « Sauvegarder maintenant »'], fix: { action: 'sauvegarder', label: 'Réessayer', input: { base: b.id } } });

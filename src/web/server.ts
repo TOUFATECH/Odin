@@ -61,6 +61,7 @@ import { recevoirMorceau } from './morceaux.ts';
 import { quarantaineDabord } from '../valhalla/ullr/garde.ts';
 import { agoraRoute } from './agora-api.ts';
 import { plumeRoute } from './plume-api.ts';
+import { epinglesRoute } from './epingles-api.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { terminalApi } from './terminal-api.ts';
 import { exportApi } from './export-api.ts';
@@ -595,6 +596,8 @@ export class WebChannel implements Channel {
     if (url.pathname === '/connexion-qr' || url.pathname.startsWith('/api/connexion-qr/')) return void await this.routeQr(req, res, url, ip, direct);
     // Plume partout (le correcteur pendant qu'on écrit) : chaque personne, son réglage (avant la garde des membres).
     if (url.pathname.startsWith('/api/plume/') && await plumeRoute(req, res, url, { proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', fail: () => this.throttle.fail(ip), ip })) return;
+    // Épingles du menu (« Plus ») : par compte, propriétaire ou membre (avant la garde des membres ; la route filtre elle-même).
+    if (url.pathname === '/api/epingles' && await epinglesRoute(req, res, url, { proprietaire: () => this.authed(req), fail: () => this.throttle.fail(ip) })) return;
     // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
     if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)) })) return;
 

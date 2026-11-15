@@ -9,6 +9,8 @@ import { secretHint, writeSecret } from '../settings.ts';
 import { draupnirOf } from '../tools/draupnir.ts';
 import { runesOf } from '../tools/runes.ts';
 import { linkTemplates } from '../valhalla/links.ts';
+import { valhallaOf } from '../valhalla/odin.ts';
+import { infosFlow, talosGet, talosPost } from './talos-api.ts';
 
 const allTemplates = () => [...templates(), ...linkTemplates()] as Array<{ id: string; name: string; what: string; flow: Record<string, unknown> }>;
 import type { NoteMeta } from '../brain/vault.ts';
@@ -26,13 +28,14 @@ export async function draupnirGet(odin: Odin, path: string, q: URLSearchParams, 
   switch (path) {
     case '/api/draupnir/state': {
       const creds = Object.keys(process.env).filter((k) => /^DRAUPNIR_[A-Z0-9_]+$/.test(k)).map((k) => ({ name: k.slice(9), ...secretHint(k) }));
-      return { ok: true, base, flows: d.list().map((w) => { const r = d.runs(w.id, 5); return { id: w.id, name: w.name, active: w.active, nodes: w.nodes.map((n) => ({ name: n.name, type: n.type, label: CATALOG.get(n.type)?.label ?? n.type })), updatedAt: w.updatedAt, last: r[0] ? { status: r[0].status, at: r[0].startedAt, error: r[0].error } : null, failed: r.filter((x) => x.status === 'erreur').length }; }), catalog: catalogForUi(), templates: allTemplates().map((t) => ({ id: t.id, name: t.name, what: t.what })), creds };
+      return { ok: true, base, flows: d.list().map((w) => { const r = d.runs(w.id, 5), i = infosFlow(w, valhallaOf()); return { id: w.id, name: w.name, active: w.active, nodes: w.nodes.map((n) => ({ name: n.name, type: n.type, label: CATALOG.get(n.type)?.label ?? n.type })), updatedAt: w.updatedAt, last: r[0] ? { status: r[0].status, at: r[0].startedAt, error: r[0].error } : null, failed: r.filter((x) => x.status === 'erreur').length, ...(i.phrase ? { phrase: i.phrase } : {}), ...(i.prochaine ? { prochaine: i.prochaine, prochaineTexte: i.prochaineTexte } : {}), applis: i.applis, ...(i.origin ? { origin: i.origin } : {}) }; }), catalog: catalogForUi(), templates: allTemplates().map((t) => ({ id: t.id, name: t.name, what: t.what })), creds };
     }
     case '/api/draupnir/flow': {
       const w = d.get(s(q.get('id'))); if (!w) return { ok: false, error: 'automatisation introuvable' };
       return { ok: true, flow: w, outputs: Object.fromEntries(w.nodes.map((n) => [n.name, outs(n.type, n.params)])), runs: d.runs(w.id, 20), versions: d.versions(w.id) };
     }
-    default: return undefined;
+    // Automatismes, onglet « Auto », liens, rythmes, agenda (talos-api.ts).
+    default: return talosGet(odin, path, q);
   }
 }
 
@@ -57,7 +60,7 @@ export async function draupnirPost(odin: Odin, path: string, b: Record<string, u
         writeSecret(odin.paths, `DRAUPNIR_${name}`, s(b.value));
         return { ok: true, name };
       }
-      default: return undefined;
+      default: return await talosPost(odin, path, b);
     }
   } catch (e) { return { ok: false, error: (e as Error).message }; }
 }

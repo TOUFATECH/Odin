@@ -15,6 +15,8 @@ import { cmpVersion, customSource, type Kind, type Release, type Source } from '
 import './catalogue.ts';
 import { chercherEnLigne, entrees, filtrer, iconeDe, metaDe, motifDe, reconnaitre, sourceHomebrew, valeursFiltres, type EntreeStore, type IndexEtat, type SuiviHomebrew, type Vue } from './store.ts';
 import type { Fiche } from './bibliotheque.ts';
+import { tacheEnPause } from '../automatismes.ts';
+import { fuseauOdin, instant, lireHeure, murale, prochaine } from '../../draupnir/rythme.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 const JOURS = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
@@ -25,18 +27,18 @@ interface Job { source: string; name: string; file: string; version: string; don
 interface Custom { id: string; name: string; repo?: string; url?: string; pattern: string; sha256?: string }
 
 // ---------------- Pur ----------------
-/** Le prochain passage programmé après `now` (jours de la semaine + heure, ou une date). Pur. */
-export function nextRun(p: Plan, now: Date): Date | undefined {
-  const [h, m] = p.at.split(':').map(Number);
-  if (p.date) { const d = new Date(`${p.date}T${p.at}:00`); return d > now ? d : undefined; }
-  for (let k = 0; k <= 7; k++) { const d = new Date(now); d.setDate(d.getDate() + k); d.setHours(h, m, 0, 0); if (d > now && p.days.includes(d.getDay())) return d; }
-  return undefined;
+/** Le prochain passage programmé après `now` (jours de la semaine + heure, ou une date), à l'heure du lieu d'Odin. Pur. */
+export function nextRun(p: Plan, now: Date, fuseau?: string): Date | undefined {
+  const heure = lireHeure(p.at); if (!heure) return undefined;
+  return prochaine(p.date ? { genre: 'une_fois', date: p.date, heure } : { genre: 'semaine', jours: p.days, heure }, now, fuseau);
 }
-/** Le passage est-il dû (heure passée aujourd'hui, pas encore fait depuis) ? Pur. */
-export function due(p: Plan, now: Date, last: number): boolean {
-  const [h, m] = p.at.split(':').map(Number), at = new Date(now); at.setHours(h, m, 0, 0);
-  if (p.date) { const d = new Date(`${p.date}T${p.at}:00`); return now >= d && last < d.getTime(); }
-  return p.days.includes(now.getDay()) && now >= at && last < at.getTime();
+/** Le passage est-il dû (heure passée aujourd'hui, pas encore fait depuis) ? Heure du lieu d'Odin. Pur. */
+export function due(p: Plan, now: Date, last: number, fuseau?: string): boolean {
+  const heure = lireHeure(p.at); if (!heure) return false;
+  const tz = fuseauOdin(fuseau), [h, m] = heure.split(':').map(Number);
+  if (p.date) { const [y, mo, d] = p.date.split('-').map(Number), t = instant(y, mo, d, h, m, tz); return now >= t && last < t.getTime(); }
+  const w = murale(now.getTime(), tz), at = instant(w.y, w.mo, w.d, h, m, tz);
+  return p.days.includes(w.wd) && now >= at && last < at.getTime();
 }
 /** Reconnaît les fichiers d'un dossier (2 niveaux). Pur sauf la lecture du dossier. */
 export function scan(root: string, sources: Source[]): { found: Found[]; unknown: string[] } {
@@ -455,11 +457,27 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
         sections,
       };
     },
+    // Talos : la tournée (recherche des nouvelles versions), aux jours programmés ou avec la vérification de la bibliothèque.
+    taches: () => [{
+      id: 'tournee', nom: o.kind === 'iso' ? 'Recherche de nouvelles ISO' : 'Recherche de nouvelles versions',
+      quoi: `Vérifie tout ce qui est surveillé et télécharge ce qui est nouveau (ou te prévient, selon ton réglage).`,
+      rythme: (ctx) => { const p = ctx.settings.plan ? plan(ctx) : undefined; return p ? (p.date ? { genre: 'une_fois', date: p.date, heure: p.at } : { genre: 'semaine', jours: p.days, heure: p.at }) : { genre: 'libre', texte: o.kind === 'iso' ? 'avec la vérification des ISO de Hydre' : 'avec la vérification de la bibliothèque' }; },
+      permis: ['semaine', 'une_fois'],
+      regler: (ctx, r) => {
+        const avant = plan(ctx);
+        if (r.genre === 'semaine') ctx.saveSettings({ plan: { days: r.jours, at: r.heure, auto: avant.auto } });
+        else if (r.genre === 'une_fois') ctx.saveSettings({ plan: { days: avant.days, at: r.heure, date: r.date, auto: avant.auto } });
+        else throw new Error('La tournée se programme à jours fixes chaque semaine, ou une seule fois.');
+      },
+      lancer: { action: 'tournee' },
+      dernier: (ctx) => (Number(ctx.settings.lastRun) ? { at: new Date(Number(ctx.settings.lastRun)).toISOString() } : undefined),
+      prochain: (ctx, now) => (ctx.settings.plan ? nextRun(plan(ctx), now) : undefined),
+    }],
     // Chaque minute : passage programmé, et le résumé du jour.
     watch: { every: 60, async run(ctx) {
       const now = new Date();
       // Le passage « jours et heure » seulement si tu l'as programmé ; sinon c'est la surveillance de la bibliothèque (chaque mois par défaut) qui lance le passage.
-      if (ctx.settings.plan && due(plan(ctx), now, Number(ctx.settings.lastRun) || 0)) { const t = await cycle(ctx, 'programmé'); if (/❌/.test(t)) ctx.emit('passage', { resultat: t }); }
+      if (ctx.settings.plan && due(plan(ctx), now, Number(ctx.settings.lastRun) || 0) && !tacheEnPause(o.id, 'tournee')) { const t = await cycle(ctx, 'programmé'); if (/❌/.test(t)) ctx.emit('passage', { resultat: t }); }
       const rh = s(ctx.settings.resume) || '19:00';
       if (rh !== 'non' && due({ days: [0, 1, 2, 3, 4, 5, 6], at: rh, auto: true }, now, Number(ctx.settings.lastSummary) || 0)) {
         ctx.saveSettings({ lastSummary: now.getTime() });

@@ -501,6 +501,12 @@ export class Mnemosyne {
   /** Avance la prochaine exécution AVANT de lancer la tâche : au plus une exécution même après un crash. */
   advanceJob(id: string, lastRun: number, nextRun: number): void { this.jobs.patch(id, { last_run: lastRun, next_run: nextRun }); }
   removeJob(id: string): boolean { return this.jobs.delete(id); }
+  /** Talos : mettre une tâche en pause (0) ou la reprendre (1). */
+  setJobEnabled(id: string, on: boolean): void { this.jobs.patch(id, { enabled: on ? 1 : 0 }); }
+  /** Talos : décaler la prochaine exécution (ou « lancer maintenant » : prochaine = maintenant). */
+  setJobNext(id: string, next: number): void { this.jobs.patch(id, { next_run: next }); }
+  /** Talos : changer le rythme d'une tâche. */
+  setJobCron(id: string, cron: string, next: number): void { this.jobs.patch(id, { cron, next_run: next }); }
 
   // ---------- Autorisations permanentes (« toujours autoriser ») ----------
 

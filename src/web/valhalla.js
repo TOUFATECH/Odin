@@ -106,6 +106,8 @@
   const viewQ = {};
   /** L'onglet ouvert, l'écran à part ouvert, « En savoir plus » déplié, l'ajout de poste en cours : par appli, le temps de la visite. */
   const tabSel = {}, ecran = {}, plusOuvert = {}, assist = {};
+  /** Ce que Talos dit de l'appli (onglet commun « Auto ») : lu une fois par visite, relu après une action de Talos ; null : pas d'onglet. */
+  const autoData = {};
   /** Ce qui est déposé dans une zone de dépôt et pas encore envoyé (fichier, lien, choix faits) : gardé quand la page se redessine. */
   const depots = new Map();
   /** Les réglages de chaque action de la page ouverte, et si la page a « Sur quel poste ? ». */
@@ -410,7 +412,8 @@
     // Toutes les applis, avec leur icône (comme un menu démarrer) : un clic l'ouvre
     if (window.OdinAppIcons) {
       const grid = el('div', { class: 'va-appgrid', role: 'list', 'aria-label': 'Tes applis' });
-      for (const m of [...st.modules].sort((a, b) => a.name.localeCompare(b.name, 'fr'))) { const b = el('button', { type: 'button', class: 'va-appbtn', role: 'listitem', title: m.what, onclick: () => openApp(m.id) }); b.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 52); b.append(el('span', {}, m.name)); grid.append(b); }
+      // Chaque tuile a, à côté (jamais dedans), son petit bouton « Épingler au menu ».
+      for (const m of [...st.modules].sort((a, b) => a.name.localeCompare(b.name, 'fr'))) { const b = el('button', { type: 'button', class: 'va-appbtn', title: m.what, onclick: () => openApp(m.id) }); b.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 52); b.append(el('span', {}, m.name)); grid.append(el('div', { class: 'va-appcell', role: 'listitem' }, b, window.OdinEpingles?.bouton(`appli:${m.id}`, m.name, { petit: true }) ?? null)); }
       box.append(el('section', { class: 'va-sec' }, el('h2', {}, `Tes applis (${st.modules.length})`), grid));
     }
     // Ce qu'Odin a fait de lui-même : à garder ou à annuler. Et l'état de la protection, en une ligne.
@@ -554,7 +557,7 @@
     const plus = titre ? null : fiche(id, r);
     if (plus) { plus.open = plusOuvert[id] ?? ficheOuverte(); plus.addEventListener('toggle', () => { plusOuvert[id] = plus.open; ficheOuverte(plus.open); }); }
     return el('div', { class: 'va-head' }, el('button', { class: 'btn va-back', type: 'button', id: 'vaRetour', title: `Retour : ${retour.label}`, onclick: retour.go }, ico(I.retour), el('span', {}, retour.label)), titre ? null : ic,
-      el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), titre ? null : boutonPartage(id, r), plus);
+      el('div', { class: 'va-tt' }, el('h1', {}, titre?.titre ?? r.name), el('p', { class: 'va-desc' }, titre?.texte ?? r.what), !titre && v.subtitle && v.subtitle !== r.what ? el('p', { class: 'va-etat', role: 'status' }, v.subtitle) : null), titre ? null : boutonPartage(id, r), titre ? null : window.OdinEpingles?.bouton(`appli:${id}`, r.name) ?? null, plus);
   }
   /**
    * « Exporter et partager » (en haut de la page) : la page en Word, PDF, Markdown ou JSON (toute la page ou l'onglet
@@ -727,11 +730,14 @@
   }
   /** Une page à onglets : chaque section dans le sien, en cartes côte à côte ; les chiffres clés ferment le premier onglet. */
   function pageOnglets(id, r) {
-    const v = r.view, noms = v.onglets, sel = noms.includes(tabSel[id]) ? tabSel[id] : noms[0], dernier = noms[noms.length - 1];
+    // « Auto » (commun à toutes les applis) vient après les onglets de l'appli ; « dernier » reste son dernier à elle.
+    const v = r.view, auto = autoData[id], noms = window.OdinOngletAuto?.logique.ongletsAvecAuto(v.onglets, Boolean(auto)) ?? v.onglets, sel = noms.includes(tabSel[id]) ? tabSel[id] : noms[0], dernier = v.onglets[v.onglets.length - 1];
     const va = (n) => { tabSel[id] = n; render(id, r, true).then(() => document.getElementById(`va-tab-${noms.indexOf(n)}`)?.focus()); };
     const liste = el('div', { class: 'va-onglets', role: 'tablist', 'aria-label': `Parties de ${r.name}` }, ...noms.map((n, i) => el('button', { type: 'button', role: 'tab', id: `va-tab-${i}`, 'aria-selected': String(n === sel), 'aria-controls': 'va-panneau', tabindex: n === sel ? '0' : '-1', onclick: () => va(n),
       onkeydown: (e) => { const k = e.key, j = k === 'ArrowRight' ? (i + 1) % noms.length : k === 'ArrowLeft' ? (i - 1 + noms.length) % noms.length : k === 'Home' ? 0 : k === 'End' ? noms.length - 1 : -1; if (j >= 0) { e.preventDefault(); va(noms[j]); } } }, n)));
     const panneau = el('div', { class: 'va-cells', role: 'tabpanel', id: 'va-panneau', 'aria-labelledby': `va-tab-${noms.indexOf(sel)}` });
+    if (auto) window.OdinOngletAuto.decorer(liste.lastChild, r.name);
+    if (auto && sel === window.OdinOngletAuto.ONGLET) { panneau.append(window.OdinOngletAuto.panneau(id, auto, { recharger: () => rechargerAuto(id) })); return [liste, panneau]; }
     const toutes = [...v.sections, ...(v.side ?? [])], LARGES = new Set(['table', 'log', 'graph', 'courbe', 'steps', 'cards']);
     const large = (b) => { b.classList.add('va-large'); return b; };
     const aVoir = r.alerts.some((x) => !x.ack), alertesBox = () => large(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes'), alerts(r.alerts)));
@@ -792,6 +798,22 @@
     }
     return [top, wide, el('div', { class: 'va-page' }, main, side)];
   }
+  /** Une page sans onglets (ou dessinée à la main) quand Talos a quelque chose à montrer : deux onglets, « Page » et « Auto ». */
+  async function pageAvecAuto(id, r, quiet) {
+    const O = window.OdinOngletAuto, noms = [O.PAGE, O.ONGLET], sel = noms.includes(tabSel[id]) ? tabSel[id] : noms[0];
+    const va = (n) => { tabSel[id] = n; render(id, r, true).then(() => document.getElementById(`va-tab-${noms.indexOf(n)}`)?.focus()); };
+    const liste = el('div', { class: 'va-onglets', role: 'tablist', 'aria-label': `Parties de ${r.name}` }, ...noms.map((n, i) => el('button', { type: 'button', role: 'tab', id: `va-tab-${i}`, 'aria-selected': String(n === sel), 'aria-controls': 'va-panneau', tabindex: n === sel ? '0' : '-1', onclick: () => va(n),
+      onkeydown: (e) => { const k = e.key, j = k === 'ArrowRight' || k === 'ArrowLeft' ? 1 - i : k === 'Home' ? 0 : k === 'End' ? 1 : -1; if (j >= 0) { e.preventDefault(); va(noms[j]); } } }, n)));
+    O.decorer(liste.lastChild, r.name);
+    if (sel === O.ONGLET) return [liste, el('div', { class: 'va-cells', role: 'tabpanel', id: 'va-panneau', 'aria-labelledby': 'va-tab-1' }, O.panneau(id, autoData[id], { recharger: () => rechargerAuto(id) }))];
+    return [liste, el('div', { role: 'tabpanel', id: 'va-panneau', 'aria-labelledby': 'va-tab-0' }, ...(await pageSimple(id, r, quiet)))];
+  }
+  /** Après une action de Talos dans l'onglet « Auto » : relit ce que Talos dit de l'appli, puis redessine. */
+  async function rechargerAuto(id) {
+    if (!window.OdinOngletAuto) return;
+    autoData[id] = await window.OdinOngletAuto.charger(id);
+    if (cur === id) openApp(id, true);
+  }
   /** Dessine la page d'une appli à partir de sa vue (sans la redemander : sert aussi au changement d'onglet). */
   async function render(id, r, quiet) {
     const box = $('#v-app .body'); if (!box) return;
@@ -800,18 +822,21 @@
     // L'écran « Ajouter un poste » garde ce que tu y as tapé : la page ne le redessine pas pendant que tu le remplis.
     if (v.postes && ecran[id] === 'poste') { if (!(quiet && box.querySelector('.va-ecran'))) { box.replaceChildren(ecranPoste(id, r)); box.scrollTop = 0; } return; }
     const haut = resultBox(`p:${id}`);   // le résultat d'un écran à part (« analyse de PC-SALON lancée ») reste en haut de la page
-    const corps = v.onglets?.length && !window.OdinPages?.[id] ? pageOnglets(id, r) : await pageSimple(id, r, quiet);
+    const corps = v.onglets?.length && !window.OdinPages?.[id] ? pageOnglets(id, r) : autoData[id] && window.OdinOngletAuto ? await pageAvecAuto(id, r, quiet) : await pageSimple(id, r, quiet);
     if (cur !== id) return;
     box.replaceChildren(...[entete(id, r, { label: 'Applis', go: () => window.OdinShow?.('apps') }), v.postes ? selecteur(id, r) : null, haut.out, haut.dl, haut.close, ...corps].filter(Boolean));
   }
   async function openApp(id, quiet) {
     // Une nouvelle visite repart de zéro : cette machine, premier onglet, sans anciens résultats ni fichier en attente.
-    if (!quiet || cur !== id) { kept.clear(); depots.clear(); if (viewQ[id]) delete viewQ[id].poste; delete tabSel[id]; delete ecran[id]; delete assist[id]; }
+    if (!quiet || cur !== id) { kept.clear(); depots.clear(); if (viewQ[id]) delete viewQ[id].poste; delete tabSel[id]; delete ecran[id]; delete assist[id]; delete autoData[id]; }
     cur = id;
-    if (!quiet) window.OdinShow?.('app');
+    if (!quiet) { window.OdinShow?.('app'); document.dispatchEvent(new CustomEvent('odin:appli', { detail: { id } })); }
     const box = $('#v-app .body'); if (!box) return;
     if (!quiet) box.replaceChildren(el('p', { class: 'sub' }, 'Chargement…'));
+    // L'onglet « Auto » : demandé à Talos une fois par visite, en même temps que la page.
+    const auto = !(id in autoData) && window.OdinOngletAuto ? window.OdinOngletAuto.charger(id) : null;
     const r = await api(`/api/valhalla/view?${new URLSearchParams({ ...(viewQ[id] ?? {}), id })}`);
+    if (auto) { const a = await auto; if (cur === id) autoData[id] = a; }
     if (cur !== id) return;
     if (!r.ok) { box.replaceChildren(el('p', { class: 'sub' }, r.error)); return; }
     await render(id, r, quiet);

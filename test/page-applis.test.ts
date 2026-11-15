@@ -3,6 +3,8 @@
 // est vérifié dans un vrai navigateur.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { T } from './banc/lib.ts';
 import { vraiOdin } from './banc/odin-vrai.ts';
 import { valhallaOf } from '../src/valhalla/odin.ts';
@@ -32,6 +34,15 @@ test('Alchimie : ce qu\'un fichier peut devenir, rangé par genre (pur)', () => 
   for (const n of ['programme.exe', 'sans-extension', 'https://exemple.fr/']) { const r = conversionsPossibles(n); assert.deepEqual(r.groupes, [], n); assert.ok(r.refus && r.refus.length > 10, n); }
 });
 
+test('onglet commun « Auto » : un mot court, réservé, ajouté par le cadre après les onglets de l\'appli (pages/appli-auto.js)', () => {
+  const win: { OdinOngletAuto?: { ONGLET: string; PAGE: string; logique: { ongletsAvecAuto: (o: string[] | undefined, m: boolean) => string[] | undefined } } } = {};
+  vm.runInNewContext(readFileSync(new URL('../src/web/pages/appli-auto.js', import.meta.url), 'utf8'), { window: win, URLSearchParams });
+  const A = win.OdinOngletAuto!;
+  assert.equal(A.ONGLET, 'Auto'); assert.equal(A.PAGE, 'Page');
+  for (const o of [A.ONGLET, A.PAGE]) assert.ok(o.length >= 3 && o.length <= 12 && !/\s/.test(o));
+  assert.deepEqual([...A.logique.ongletsAvecAuto(['Analyser', 'Réglages'], true)!], ['Analyser', 'Réglages', 'Auto']);
+});
+
 test('pages des applis : onglets courts et tous utilisés, « Sur quel poste ? » cohérent, zones de dépôt et cartes branchées sur de vraies actions', { timeout: 180_000 }, async () => {
   const tt = new T();
   try {
@@ -45,6 +56,8 @@ test('pages des applis : onglets courts et tous utilisés, « Sur quel poste ? �
         avecOnglets++;
         assert.ok(v.onglets.length >= 2 && v.onglets.length <= 4, `${m.id} : 2 à 4 onglets`); assert.equal(new Set(v.onglets).size, v.onglets.length, `${m.id} : onglets tous différents`);
         for (const o of v.onglets) assert.ok(o.length >= 3 && o.length <= 12 && !/\s/.test(o), `${m.id} : l'onglet « ${o} » est un mot court (il tient sur une ligne, même sur téléphone)`);
+        // « Auto » et « Page » sont ajoutés par le cadre de la page (onglet commun des automatisations), en plus des 2 à 4 de l'appli.
+        for (const o of ['Auto', 'Page']) assert.ok(!v.onglets.includes(o), `${m.id} : « ${o} » est réservé à l'onglet commun ajouté par le cadre de la page`);
         for (const s of toutes) if (s.onglet !== undefined) assert.ok(v.onglets.includes(s.onglet), `${m.id} : la section « ${s.title} » va dans un onglet qui existe (${s.onglet})`);
         for (const o of v.onglets.slice(0, -1)) assert.ok(toutes.some((s) => (s.onglet ?? v.onglets![0]) === o), `${m.id} : l'onglet « ${o} » n'est pas vide`);
       } else for (const s of toutes) assert.equal(s.onglet, undefined, `${m.id} : une section dit son onglet seulement si la page a des onglets`);

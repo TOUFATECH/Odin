@@ -11,7 +11,12 @@ import { join } from 'node:path';
 import type { Approver, ApprovalAnswer, ApprovalRequest } from '../heimdall/policy.ts';
 import type { Odin } from '../runtime.ts';
 import { nextRun } from '../cron/cron.ts';
+import { prochaineCron } from '../draupnir/rythme.ts';
+import { nomMoyen } from '../valhalla/automatismes.ts';
 import type { Channel, Inbound } from './channel.ts';
+
+/** La prochaine exécution d'une tâche planifiée, comptée à l'heure du lieu d'Odin (sinon celle de la machine). */
+export const prochaineTache = (cron: string, now: number): number => (prochaineCron(cron, new Date(now)) ?? nextRun(cron, new Date(now))).getTime();
 import { formatReport, hasChanges, type ScanReport } from '../hlidskjalf/inventory.ts';
 import { type DiscoverFn, scanNetwork, shouldRunFull } from '../hlidskjalf/scan.ts';
 import { auditNetwork, autoBackup, diskUsage, healthCheck, newAlerts } from '../guard/watch.ts';
@@ -1021,6 +1026,16 @@ export class Gateway {
     void pushAll(this.odin.paths.home, { title: 'Odin — rappel', body: text, view: 'home', tag: `odin-rappel-${id}` }).catch(() => 0);
     return { ch: ch.name, peer: to };
   }
+  /**
+   * Un rappel pour le propriétaire, sur son moyen relié (Telegram d'abord), envoyé sans IA avec ses boutons. Sans
+   * messagerie reliée, il est quand même programmé : la passerelle le note alors dans logs/cron.md.
+   */
+  rappelProprietaire(texte: string, quand: Date): string | undefined {
+    const t = this.ownerTarget();
+    return this.addReminder(texte, t?.ch.name ?? '', t?.peer ?? '', quand);
+  }
+  /** Le nom du moyen relié du propriétaire (« Telegram »…), ou undefined si aucune messagerie n'est reliée. */
+  nomMoyenProprietaire(): string | undefined { const t = this.ownerTarget(); return t ? nomMoyen(t.ch.name) : undefined; }
   /** Programme un rappel ponctuel (« plus tard »). */
   addReminder(text: string, channel: string, peer: string, when: Date): string {
     const id = `rem_${Date.now().toString(36)}`;
@@ -1168,14 +1183,14 @@ export class Gateway {
       if (isReminderJob(job)) {
         // Rappel : envoyé avec ses boutons, puis relancé tant que ce n'est pas fait. Ponctuel : supprimé ; récurrent : prochaine date.
         if (job.cron === '@reminder') this.odin.muninn.removeJob(job.id);
-        else this.odin.muninn.advanceJob(job.id, now, nextRun(job.cron, new Date(now)).getTime());
+        else this.odin.muninn.advanceJob(job.id, now, prochaineTache(job.cron, now));
         const text = reminderText(job), id = job.cron === '@reminder' ? job.id : `${job.id}_${now.toString(36)}`;
         const sent = await this.sendReminder(id, text, job.channel, job.peer, 0).catch(() => false as const);
         if (sent) armNag(this.odin.muninn, { id, text, channel: sent.ch, peer: sent.peer }, now);
         else appendFileSync(join(this.odin.paths.logs, 'cron.md'), `\n## ${new Date(now).toISOString()} · rappel\n${text}\n`);
         continue;
       }
-      this.odin.muninn.advanceJob(job.id, now, nextRun(job.cron, new Date(now)).getTime());
+      this.odin.muninn.advanceJob(job.id, now, prochaineTache(job.cron, now));
       // Script programmé : il tourne directement, sans le modèle (rapide, gratuit) ; on ne te dérange que s'il échoue.
       const sj = parseScriptJob(job.prompt);
       if (sj) {

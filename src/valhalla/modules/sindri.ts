@@ -20,6 +20,11 @@ import { walk } from './ullr.ts';
 import { decrire, essayer, lireDestination, transportDe, type Destination, type Transport } from '../sindri/transport.ts';
 import { actionsAgentSindri, lancerAgent } from '../sindri/agent.ts';
 import { actionsImage, faireImage, type InfoImage } from '../sindri/image.ts';
+import { tacheEnPause } from '../automatismes.ts';
+import { dateMurale, fuseauOdin, murale } from '../../draupnir/rythme.ts';
+
+/** L'identifiant Talos de la tâche d'un plan (sans « : », stable tant que le plan garde son nom). */
+export const tacheDuPlan = (p: { name: string }) => `plan-${p.name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'sans-nom'}`;
 
 const CHUNK = 1024 * 1024;
 export type TypeSauvegarde = 'complète' | 'incrémentielle' | 'différentielle';
@@ -216,7 +221,16 @@ async function commande(ctx: ModCtx, cmd: string, etat: 'avant' | 'réussie' | '
   return { ok: r.code === 0, texte: ((r.code === 0 ? r.out : r.err || r.out).trim().split('\n').at(-1) ?? '').slice(0, 160) || `code ${r.code}` };
 }
 export const human = (b: number) => { const u = ['o', 'Ko', 'Mo', 'Go', 'To']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return `${Math.round(b * 10) / 10} ${u[i]}`; };
-async function runPlan(ctx: ModCtx, p: Plan, forcer?: TypeSauvegarde): Promise<string> {
+/** Les sauvegardes en cours, par plan : la surveillance et « Lancer maintenant » ne sauvegardent pas deux fois en même temps. */
+const PLANS_EN_COURS = new Map<string, Promise<string>>();
+function runPlan(ctx: ModCtx, p: Plan, forcer?: TypeSauvegarde): Promise<string> {
+  const deja = PLANS_EN_COURS.get(p.name);
+  if (deja) return deja;
+  const x = runPlanSeul(ctx, p, forcer).finally(() => PLANS_EN_COURS.delete(p.name));
+  PLANS_EN_COURS.set(p.name, x);
+  return x;
+}
+async function runPlanSeul(ctx: ModCtx, p: Plan, forcer?: TypeSauvegarde): Promise<string> {
   // PC du foyer : c'est l'agent du poste qui sauvegarde (Satellites le lance) ; image disque : tout le disque du poste.
   if (p.agent) return lancerAgent(ctx, p);
   if (p.image) return faireImage(ctx, p);
@@ -405,15 +419,24 @@ export const sindri: Module = {
       const d = versTelechargement(ctx, repo, f); return join(dlDir(ctx), d.ref.slice(3));
     } catch { return undefined; }
   },
+  // Talos : une tâche par plan lancé d'ici (« Sauvegarde <plan> », tous les jours à l'heure du plan, réglable).
+  taches: (ctx) => plans(ctx).filter((p) => !p.agent).map((p) => ({
+    id: tacheDuPlan(p), nom: `Sauvegarde ${p.name}`, quoi: `${p.image ? 'Image disque' : p.paths.join(', ')} → ${p.destination ? decrire(p.destination) : p.repo}`,
+    rythme: () => ((p.tousLes ?? 1) > 1 ? { genre: 'libre' as const, texte: `Tous les ${p.tousLes} jours à ${p.at.replace(/^0(\d)/, '$1').replace(':00', ' h').replace(':', ' h ')}` } : { genre: 'jour' as const, heure: p.at }),
+    ...((p.tousLes ?? 1) > 1 ? {} : { permis: ['jour' as const], regler: (c: ModCtx, r: { genre: string; heure?: string }) => { if (r.genre !== 'jour' || !r.heure) throw new Error('Une sauvegarde se règle à une heure, chaque jour.'); c.saveSettings({ plans: plans(c).map((q) => (q.name === p.name ? { ...q, at: r.heure! } : q)) }); } }),
+    lancer: { action: 'sauvegarder', input: { plan: p.name } },
+    dernier: (c: ModCtx) => { const x = (c.settings.last as Record<string, { at: string; ok?: boolean }> | undefined)?.[p.name]; return x ? { at: x.at, ok: x.ok !== false } : undefined; },
+  })),
   watch: { every: 60, async run(ctx) {
-    const now = ctx.now(), hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    // L'heure murale du lieu d'Odin (celle que Talos écrit), pas celle de la machine.
+    const now = ctx.now(), hm = dateMurale(now).heure, dimanche = murale(now.getTime(), fuseauOdin()).wd === 0;
     const l = (ctx.settings.last as Record<string, { at: string }>) ?? {};
     for (const p of plans(ctx)) {
       const tous = (p.tousLes ?? 1) * 864e5, retard = p.agent ? 7 * 864e5 : tous + 26 * 3600_000;
-      if (p.at === hm && (!l[p.name] || now.getTime() - Date.parse(l[p.name].at) > (p.tousLes ? tous - 3600_000 : 3600_000))) {
+      if (p.at === hm && !tacheEnPause('sindri', tacheDuPlan(p)) && (!l[p.name] || now.getTime() - Date.parse(l[p.name].at) > (p.tousLes ? tous - 3600_000 : 3600_000))) {
         try { await runPlan(ctx, p); } catch (e) { ctx.saveSettings({ last: { ...l, [p.name]: { at: now.toISOString(), ok: false, error: (e as Error).message } } }); ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » échouée`, detail: (e as Error).message, key: `fail:${p.name}` }); ctx.emit('sauvegarde_echec', { plan: p.name, erreur: (e as Error).message }); }
       } else if (l[p.name] && now.getTime() - Date.parse(l[p.name].at) > Math.max(50 * 3600_000, retard)) ctx.alert({ level: 'haute', title: `Sauvegarde « ${p.name} » en retard`, detail: `Dernière : ${l[p.name].at.slice(0, 16).replace('T', ' ')}`, key: `late:${p.name}` });
     }
-    if (now.getDay() === 0 && hm === '04:30') await Promise.resolve(sindri.actions.find((x) => x.id === 'verifier')!.run(ctx, {})).catch(() => undefined);
+    if (dimanche && hm === '04:30') await Promise.resolve(sindri.actions.find((x) => x.id === 'verifier')!.run(ctx, {})).catch(() => undefined);
   } },
 };

@@ -1201,6 +1201,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <button class="tab" data-view="skills"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.3 5.2 5.2 2.3-5.2 2.3L12 18.5l-2.3-5.2L4.5 11l5.2-2.3z"/><path d="M19 17v4M17 19h4"/></svg><span class="lbl">Compétences</span> <span class="badge" id="b-drafts" hidden>0</span></button>
     <button class="tab" data-view="jobs"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span class="lbl">Tâches planifiées</span></button>
     <button class="tab" data-view="audit"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7.5 2.8v5.7c0 4.4-3.2 7.9-7.5 9-4.3-1.1-7.5-4.6-7.5-9V5.8z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg><span class="lbl">Décisions</span></button>
+    <div id="navEpingles" class="nav-epingles" role="group" aria-label="Épinglés"></div>
     </div>
     <button class="tab" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span> <span class="badge" id="b-settings" hidden>!</span></button>
     <div class="foot"><div id="usage">—</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span id="appVer" class="dim" style="font-size:11px"></span><button type="button" id="updBtn" class="upd-btn" title="Mises à jour d'Odin">Mises à jour</button></div><button class="theme-btn" id="themeBtn" type="button" title="Thème de l'interface">Thème : auto</button></div>
@@ -2070,6 +2071,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     if (v === 'flows') window.OdinFlows?.open();
     if (v === 'apps') window.OdinApps?.open();
     if (v === 'runes') window.OdinRunes?.open();
+    document.dispatchEvent(new CustomEvent('odin:vue', { detail: { vue: v } }));
     for (const s of document.querySelectorAll('.view')) s.classList.toggle('on', s.id === 'v-' + v);
     try { localStorage.setItem('odin.view', v); } catch {}
     const main = document.querySelector('#v-' + v + ' .body'); if (main) main.scrollTop = 0;

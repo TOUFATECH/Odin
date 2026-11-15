@@ -25,6 +25,7 @@ import { choixDePoste } from '../postes.ts';
 import { aBloquer, analyser, brancherGarde, menaceDe, raisons, type Arrivee, type Passage } from '../ullr/garde.ts';
 import { journalDe } from '../base/journal.ts';
 import type { ModCtx, Module, Section } from '../types.ts';
+import { tacheEnPause } from '../automatismes.ts';
 
 export { BASE_RULES };
 export type { Rule };
@@ -787,6 +788,13 @@ export const ullr: Module = {
       sections: [...sections.filter((z) => z.title === 'Quarantaine'), ...sections.filter((z) => z.title !== 'Quarantaine')],
     };
   },
+  // Talos : la mise à jour des signatures (Odin vérifie chaque heure, chaque source à son rythme), lançable, non réglable.
+  taches: () => [{
+    id: 'sources', nom: 'Mise à jour des signatures', quoi: 'Interroge les sources de l\'antivirus (chacune à son rythme), teste le résultat, puis active la nouvelle version.', securite: true,
+    rythme: () => ({ genre: 'heures', n: 1 }), lancer: { action: 'mettre_a_jour' },
+    dernier: (ctx) => (s(ctx.settings.checkedAt) ? { at: s(ctx.settings.checkedAt) } : undefined),
+    prochain: (ctx, now) => { const t = Date.parse(s(ctx.settings.checkedAt) || ''); return new Date(Number.isFinite(t) ? Math.max(now.getTime(), t + 3600_000) : now.getTime() + 60_000); },
+  }],
   watch: { every: 60, async run(ctx) {
     const x = st(ctx), now = ctx.now();
     checkCanaries(ctx);
@@ -797,7 +805,7 @@ export const ullr: Module = {
     const mounts = new Set(removable()); if (x.mounts && ctx.settings.usb !== false) for (const mnt of mounts) if (!x.mounts.has(mnt) && !x.running) { ctx.emit('support_branche', { dossier: mnt }); void runScan(ctx, mnt, { max: 20_000 }).then((r) => { if (r.detections.length) ctx.alert({ level: 'haute', title: `Asclépios : ${r.detections.length} menace(s) sur le support ${basename(mnt)}`, detail: reportText(r).slice(0, 700), key: `usb:${mnt}:${r.id}` }); }).catch(() => undefined); }
     x.mounts = mounts;
     // Sources dues (chacune à son rythme), hors de toute analyse en cours.
-    if (!x.running && !x.busy && now.getTime() - Date.parse(s(ctx.settings.checkedAt) || '2000-01-01') > 3600_000) void update(ctx).catch(() => undefined);
+    if (!x.running && !x.busy && now.getTime() - Date.parse(s(ctx.settings.checkedAt) || '2000-01-01') > 3600_000 && !tacheEnPause('ullr', 'sources')) void update(ctx).catch(() => undefined);
     // Analyses planifiées : chacune à son prochain passage (un passage manqué pendant un arrêt est rattrapé une fois).
     const night: Plan = { name: 'Sites web (chaque nuit)', target: 'sites web', every: 'jour', at: '03:10', exclude: [], last: s(ctx.settings.siteAt) || undefined, next: s(ctx.settings.siteNext) || undefined };
     const all: Plan[] = [...plans(ctx), ...(ctx.settings.nightSites === false || !PROFILES(ctx)['sites web'].some((p) => existsSync(p)) ? [] : [night])];
