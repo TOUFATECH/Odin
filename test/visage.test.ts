@@ -237,6 +237,10 @@ test('dessin : complet pour les 66 émotions, 66 visages différents (yeux, coul
     }
     assert.equal(D.genre, 'pastille', `${m.id} : des yeux en pastille`);
   }
+  // Chaque émotion a ses pastilles à elle : 66 paires d'yeux différentes (forme, taille, écart, hauteur), sans compter la couleur ni le mouvement.
+  const paires = new Map<string, string>();
+  for (const m of liste()) { const D = F.dessin(m.id), k = JSON.stringify([D.forme, D.mesure, D.vars['--edx'], D.vars['--edy']]); assert.ok(!paires.has(k), `mêmes yeux : ${m.id} et ${paires.get(k)}`); paires.set(k, m.id); }
+  assert.equal(paires.size, 66);
   assert.match(SOURCE, /const YEUX_SEULS = true;/, 'la règle « yeux seuls » est allumée');
   assert.ok(F.dessin('cache').classes.includes('sans-clin') && F.dessin('cache').classes.includes('sans-coup'));
   assert.ok(F.dessin('rage').classes.includes('o-vive')); assert.ok(!F.dessin('colere').classes.includes('o-vive'));
