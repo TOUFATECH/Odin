@@ -217,3 +217,35 @@ export async function renommerSmb(m: Compte, partage: string, de: string, vers: 
     }
   }
 }
+
+// ---------------- Écrire et relire sur un partage (destinations des sauvegardes de Phénix et d'Arche) ----------------
+export interface EntreeSmb { nom: string; dossier: boolean; octets: number; /** date de modification (heure du poste), en ms */ quand?: number }
+const MOIS: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+/** Une ligne de « ls » : nom, dossier ou fichier, taille et date. Pur. */
+export function entreeLs(l: string): EntreeSmb | undefined {
+  const e = ligneLs(l); if (!e) return undefined;
+  const d = /\w{3} (\w{3}) ([ \d]\d) (\d\d):(\d\d):(\d\d) (\d{4})\s*$/.exec(l);
+  const quand = d && d[1] in MOIS ? new Date(Number(d[6]), MOIS[d[1]], Number(d[2]), Number(d[3]), Number(d[4]), Number(d[5])).getTime() : undefined;
+  return { nom: e.nom, dossier: e.attrs.includes('D'), octets: e.octets, ...(quand !== undefined ? { quand } : {}) };
+}
+/** Un chemin dans un partage, écrit pour smbclient (barres obliques inversées, sans barre au début ni à la fin). Pur. */
+export const cheminSmb = (x: string) => x.replace(/\//g, '\\').replace(/^\\+|\\+$/g, '');
+/**
+ * Une suite de commandes smbclient sur un partage (une seule connexion) : rend tout ce que smbclient a écrit.
+ * Lève une erreur claire si la connexion elle-même est refusée. Aucune ligne ne peut contenir de retour à la ligne.
+ */
+export async function commandesSmb(m: Compte, partage: string, lignes: string[], ms = 300_000): Promise<string> {
+  if (!nomOk(partage) || lignes.some((l) => /[\r\n\0]/.test(l))) throw new Error('nom de partage ou de fichier invalide');
+  const a = acces(m), r = await court([`//${hote(m)}/${partage}`, ...a.args], a.env, `${lignes.join('\n')}\nexit\n`, ms);
+  if (/smbclient n'est pas installé/.test(r.out)) throw new Error('smbclient n\'est pas installé sur la machine d\'Odin (paquet « smbclient »)');
+  if (panneConnexion(r.out)) throw new Error(erreurSmb(r.out) ?? 'connexion au partage refusée');
+  return r.out;
+}
+/** Le contenu d'un seul dossier d'un partage (sans descendre), avec les dates. Dossier absent : liste vide. */
+export async function dossierSmb(m: Compte, partage: string, dossier = ''): Promise<EntreeSmb[]> {
+  const d = cheminSmb(dossier); if (d && !nomOk(d)) throw new Error('nom de dossier invalide');
+  const out = await commandesSmb(m, partage, [`ls "${d ? `${d}\\` : ''}*"`], 60_000);
+  if (/NT_STATUS_(OBJECT_NAME_NOT_FOUND|OBJECT_PATH_NOT_FOUND|NO_SUCH_FILE|NOT_A_DIRECTORY)/.test(out)) return [];
+  if (/NT_STATUS_ACCESS_DENIED/.test(out)) throw new Error('le poste refuse d\'ouvrir ce dossier avec ce compte');
+  return out.split('\n').map(entreeLs).filter((x): x is EntreeSmb => Boolean(x));
+}
