@@ -25,6 +25,8 @@ export interface Machine {
   /** LXC : distribution et version du modèle ; VM : l'ISO d'installation */
   modele?: { dist: string; release: string }; iso?: string; uefi?: boolean;
   apps: string[]; paquets: string[]; quarantaine?: Quarantaine; arretVoulu?: boolean;
+  /** un modèle : il ne démarre pas, on crée des machines depuis lui (copie, puis ressources et adresse à elles) */
+  estModele?: boolean;
 }
 export interface Etat { state: 'en marche' | 'éteinte' | 'inconnue'; pid?: number; cpuPct?: number; ramMo?: number; ip?: string }
 
@@ -92,6 +94,29 @@ export function qemuArgs(m: Machine, dir: string, o: { kvm: boolean; ovmf?: stri
   if (m.quarantaine) a.push('-nic', 'none');
   else a.push('-netdev', `tap,id=n0,ifname=${ifname(m)},script=no,downscript=no`, '-device', `virtio-net-pci,netdev=n0,mac=${m.mac}`);
   return a;
+}
+/** Le fichier du disque d'un LXC monté en boucle (« lxc.rootfs.path = loop:/…/rootdev »), ou rien pour un disque en dossier. Pur. */
+export function disqueLxc(config: string): string | undefined {
+  const m = /^\s*lxc\.rootfs\.path\s*=\s*loop:(.+)$/m.exec(config); return m?.[1].trim() || undefined;
+}
+const QC_SIMPLES: Record<string, string> = { ' ': 'spc', '\n': 'ret', '\t': 'tab', '-': 'minus', '=': 'equal', '[': 'bracket_left', ']': 'bracket_right', '\\': 'backslash', ';': 'semicolon', '\'': 'apostrophe', '`': 'grave_accent', ',': 'comma', '.': 'dot', '/': 'slash' };
+const QC_MAJ: Record<string, string> = { '!': '1', '@': '2', '#': '3', $: '4', '%': '5', '^': '6', '&': '7', '*': '8', '(': '9', ')': '0', _: 'minus', '+': 'equal', '{': 'bracket_left', '}': 'bracket_right', '|': 'backslash', ':': 'semicolon', '"': 'apostrophe', '~': 'grave_accent', '<': 'comma', '>': 'dot', '?': 'slash' };
+/** Les touches spéciales qu'on peut envoyer à l'écran d'une VM. */
+export const TOUCHES: Record<string, string[]> = { 'entrée': ['ret'], 'échap': ['esc'], tab: ['tab'], effacer: ['backspace'], suppr: ['delete'], haut: ['up'], bas: ['down'], gauche: ['left'], droite: ['right'], 'ctrl-alt-suppr': ['ctrl', 'alt', 'delete'], 'ctrl-c': ['ctrl', 'c'], 'ctrl-d': ['ctrl', 'd'], f2: ['f2'], f12: ['f12'] };
+/**
+ * Un texte tapé au clavier de la VM : une suite de touches QMP (« send-key », codes du clavier américain QWERTY).
+ * Lève une erreur sur un caractère qu'un clavier américain ne tape pas (accents…). Pur.
+ */
+export function qcodes(texte: string): string[][] {
+  const out: string[][] = [];
+  for (const c of texte.replace(/\r\n?/g, '\n')) {
+    if (/^[a-z0-9]$/.test(c)) out.push([c]);
+    else if (/^[A-Z]$/.test(c)) out.push(['shift', c.toLowerCase()]);
+    else if (c in QC_SIMPLES) out.push([QC_SIMPLES[c]]);
+    else if (c in QC_MAJ) out.push(['shift', QC_MAJ[c]]);
+    else throw new Error(`caractère impossible à taper dans la VM : « ${c} » (clavier américain, sans accents)`);
+  }
+  return out;
 }
 /** Une commande QMP (socket de la VM) : renvoie la réponse « return ». */
 export function qmp(sock: string, execute: string, args?: Record<string, unknown>, timeoutMs = 8000): Promise<unknown> {
@@ -236,6 +261,7 @@ export class Local {
 
   // ----- marche / arrêt -----
   async demarrer(m: Machine, installer?: string): Promise<void> {
+    if (m.estModele) throw new Error(`${m.nom} est un modèle : il ne démarre pas, crée une machine depuis lui`);
     if (m.genre === 'lxc') { await this.must('lxc-start', ['-P', this.lxcDir, '-n', m.nom, '-d'], 'démarrage'); }
     else {
       const d = this.vmDir(m), tap = ifname(m), r = this.reseau();
@@ -289,10 +315,64 @@ export class Local {
     writeFileSync(join(this.vmDir(m), 'vm.json'), JSON.stringify(m, null, 1)); this.update(m);
     return 'pour une VM : au prochain démarrage';
   }
+  /** Agrandit le disque (jamais plus petit : réduire abîmerait la machine), machine éteinte. */
+  async agrandir(m: Machine, go: number): Promise<string> {
+    if (!Number.isInteger(go) || go < 1 || go > 65536) throw new Error('taille du disque invalide (en Go)');
+    if (go < m.disque) throw new Error(`${m.nom} a ${m.disque} Go : un disque ne se réduit pas (ses fichiers seraient abîmés), seulement plus grand`);
+    if (go === m.disque) return 'rien à changer';
+    if ((await this.etat(m)).state === 'en marche') throw new Error(`arrête d'abord ${m.nom} pour agrandir son disque`);
+    let how: string;
+    if (m.genre === 'lxc') {
+      const cf = join(this.lxcDir, m.nom, 'config'), f = existsSync(cf) ? disqueLxc(readFileSync(cf, 'utf8')) : undefined;
+      if (!f) how = 'disque en dossier, sans limite fixe : nouvelle taille notée';
+      else {
+        await this.must('truncate', ['-s', `${go}G`, f], 'agrandir le fichier du disque');
+        await this.run('e2fsck', ['-fy', f], 600_000); // vérifie avant d'agrandir (un code non nul peut seulement dire « corrigé »)
+        await this.must('resize2fs', [f], 'agrandir le système de fichiers', 600_000);
+        how = 'disque et système de fichiers agrandis';
+      }
+    } else {
+      await this.must('qemu-img', ['resize', join(this.vmDir(m), 'disque.qcow2'), `${go}G`], 'agrandir le disque', 600_000);
+      how = 'disque agrandi : étends ensuite la partition dans le système de la VM (Gestion des disques sous Windows, growpart sous Linux)';
+    }
+    m.disque = go; if (m.genre === 'vm') writeFileSync(join(this.vmDir(m), 'vm.json'), JSON.stringify(m, null, 1));
+    this.update(m); return how;
+  }
+  /** Change l'adresse IP fixe (vérifiée libre). Un LXC en marche redémarre pour la prendre. */
+  async changerIp(m: Machine, ip: string): Promise<string> {
+    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip) || ip.split('.').some((x) => Number(x) > 255)) throw new Error('adresse IP invalide');
+    const r = this.reseau();
+    if (!ip.startsWith(`${r.prefixe}.`) || ip === r.passerelle || /\.(0|255)$/.test(ip)) throw new Error(`l'adresse doit être dans le réseau des machines (${r.prefixe}.2 à ${r.prefixe}.254, sauf la passerelle)`);
+    if (ip === m.ip) return 'rien à changer';
+    if (!(await this.ipDispo(ip, m.id))) throw new Error(`l'adresse ${ip} est déjà prise`);
+    m.ip = ip;
+    if (m.genre === 'vm') { if (existsSync(this.vmDir(m))) writeFileSync(join(this.vmDir(m), 'vm.json'), JSON.stringify(m, null, 1)); this.update(m); return `adresse ${ip} réservée : dans le système de la VM, règle la même adresse fixe (masque /${r.masque}, passerelle ${r.passerelle}, DNS ${r.dns})`; }
+    const cf = join(this.lxcDir, m.nom, 'config'); if (existsSync(cf)) writeFileSync(cf, rewriteConfig(readFileSync(cf, 'utf8'), lxcConfig(m, r, this.lxcDir)));
+    this.update(m);
+    if ((await this.etat(m)).state === 'en marche') { await this.arreter(m); await this.demarrer(m); return 'appliquée (machine redémarrée)'; }
+    return 'appliquée au prochain démarrage';
+  }
+  /** Console d'un LXC : lance une commande dedans et rend sa sortie (texte de la machine : une donnée). */
+  async commande(m: Machine, cmd: string): Promise<{ code: number; lignes: string[] }> {
+    if (m.genre !== 'lxc') throw new Error('pour une VM, tape au clavier de son écran');
+    if (!cmd.trim() || cmd.length > 4000 || cmd.includes('\0')) throw new Error('commande vide ou trop longue');
+    if ((await this.etat(m)).state !== 'en marche') throw new Error(`${m.nom} est éteinte : démarre-la d'abord`);
+    const r = await this.run('lxc-attach', ['-P', this.lxcDir, '-n', m.nom, '--', 'sh', '-c', cmd], 120_000);
+    return { code: r.code, lignes: consoleTail(`${r.out}${r.err ? `\n${r.err}` : ''}`.slice(-40_000), 200) };
+  }
+  /** Clavier d'une VM : tape un texte et / ou une touche spéciale sur son écran (QMP). Rend le nombre de touches. */
+  async taper(m: Machine, texte: string, touche?: string): Promise<number> {
+    if (m.genre !== 'vm') throw new Error('pour un LXC, envoie une commande à sa console');
+    const suite = qcodes(texte.slice(0, 2000));
+    if (touche) { const t = TOUCHES[touche]; if (!t) throw new Error(`touche inconnue (${Object.keys(TOUCHES).join(', ')})`); suite.push(t); }
+    const sock = this.qmpSock(m); if ((await this.etat(m)).state !== 'en marche' || !existsSync(sock)) throw new Error(`${m.nom} est éteinte : démarre-la d'abord`);
+    for (const keys of suite) await qmp(sock, 'send-key', { keys: keys.map((k) => ({ type: 'qcode', data: k })) });
+    return suite.length;
+  }
   async cloner(src: Machine, nom: string): Promise<Machine> {
     if ((await this.etat(src)).state === 'en marche') throw new Error(`arrête d'abord ${src.nom} (une copie se fait machine éteinte)`);
     const r = this.reseau(), ip = await this.prochaineIp(); if (!ip) throw new Error('plus d\'adresse libre sur le réseau des machines');
-    const m: Machine = { ...structuredClone(src), id: randomBytes(6).toString('hex'), nom: slug(nom), ip, mac: newMac(), cree: Date.now(), quarantaine: undefined, arretVoulu: true };
+    const m: Machine = { ...structuredClone(src), id: randomBytes(6).toString('hex'), nom: slug(nom), ip, mac: newMac(), cree: Date.now(), quarantaine: undefined, arretVoulu: true, estModele: undefined };
     if (this.list().some((x) => x.nom === m.nom)) throw new Error(`le nom « ${m.nom} » est déjà pris`);
     if (m.genre === 'lxc') {
       await this.must('lxc-copy', ['-P', this.lxcDir, '-n', src.nom, '-N', m.nom], 'copie', 1_800_000);

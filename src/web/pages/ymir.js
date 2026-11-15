@@ -123,18 +123,41 @@
     const h = D.hote ?? { coeurs: 8, ramTotal: 8 * 1024 ** 3 }, cpu = el('input', { type: 'range', min: '1', max: String(h.coeurs), value: String(m.cpu), 'aria-label': 'Processeur' }), ram = el('input', { type: 'range', min: '1', max: String(Math.max(1, Math.floor(h.ramTotal / 1024 ** 3))), value: String(Math.max(1, Math.round(m.ram / 1024))), 'aria-label': 'Mémoire' });
     const cv = el('b', {}, `${m.cpu} → ${m.cpu}`), rv = el('b', {}, `${Math.round(m.ram / 1024)} → ${Math.round(m.ram / 1024)} Go`);
     cpu.oninput = () => { cv.textContent = `${m.cpu} → ${cpu.value}`; }; ram.oninput = () => { rv.textContent = `${Math.round(m.ram / 1024)} → ${ram.value} Go`; };
+    // Le disque ne fait que grandir (le curseur part de la taille actuelle).
+    const dk = el('input', { type: 'range', min: String(m.disque), max: String(Math.max(m.disque * 4, 512)), value: String(m.disque), 'aria-label': 'Disque' }), dv = el('b', {}, `${m.disque} Go`);
+    dk.oninput = () => { dv.textContent = dk.value === String(m.disque) ? `${m.disque} Go` : `${m.disque} → ${dk.value} Go`; };
+    const ipIn = el('input', { value: m.ip, 'aria-label': 'Adresse IP fixe', style: 'min-height:34px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px;font:inherit;width:140px' });
     const out = el('p', { class: 'ym-out', role: 'status' });
+    // Console : une commande dans un LXC, ou le clavier de l'écran d'une VM. La réponse vient de la machine (une donnée).
+    const run = m.etat?.state === 'en marche', cOut = el('pre', { class: 'ym-out', style: 'max-height:220px;overflow:auto;font:12px/1.4 ui-monospace,monospace;background:#0f1530;color:#9fe3b0;border-radius:10px;padding:8px 10px;margin:8px 0 0', role: 'status' });
+    const cIn = el('input', { 'aria-label': m.genre === 'lxc' ? 'Commande' : 'Texte à taper', placeholder: m.genre === 'lxc' ? 'ex. df -h' : 'texte (clavier américain)', disabled: !run, style: 'flex:1;min-width:0;min-height:34px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);padding:0 10px;font:13px ui-monospace,monospace' });
+    const touche = m.genre === 'vm' ? el('select', { class: 'ym-btn', 'aria-label': 'Touche spéciale', disabled: !run }, el('option', { value: '' }, 'touche…'), ...(D.touches ?? []).map((t) => el('option', { value: t }, t))) : null;
+    const envoyer = async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      const x = m.genre === 'lxc' ? await act('console_machine', { machine: m.id, commande: cIn.value }) : await act('clavier_machine', { machine: m.id, texte: cIn.value, touche: touche?.value ?? '' });
+      b.disabled = false; cOut.textContent = `${cOut.textContent ? `${cOut.textContent}\n` : ''}${m.genre === 'lxc' ? `$ ${cIn.value}\n` : ''}${x.text}`; cOut.scrollTop = cOut.scrollHeight;
+      if (x.ok !== false) { cIn.value = ''; if (touche) touche.value = ''; } note(x);
+    };
+    cIn.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.parentElement.querySelector('.ym-send')?.click(); } };
     const tile = (i, t, sub, fn) => el('button', { class: 'ym-tile', type: 'button', onclick: async () => { out.textContent = '…'; const x = await fn(); if (x) { out.textContent = x.text ?? ''; note(x); if (x.ok !== false) redraw(); } else out.textContent = ''; } }, el('span', { class: 'ib' }, ic(i, 16)), el('span', {}, el('b', {}, t), el('span', {}, sub)));
     return el('div', { class: 'ym-bot' },
       el('div', { class: 'ym-w' }, el('h3', {}, `Ressources de ${m.nom}`, el('span', { class: 'r ym-chip' }, m.genre === 'lxc' ? (m.etat?.state === 'en marche' ? 'en marche : sans l\'arrêter' : 'éteinte') : 'VM : au prochain démarrage')),
-        el('div', { class: 'ym-sl' }, el('span', {}, 'Processeur'), cpu, cv), el('div', { class: 'ym-sl' }, el('span', {}, 'Mémoire'), ram, rv),
-        el('div', { class: 'ym-row', style: 'margin-top:8px' }, el('button', { class: 'ym-btn pri', type: 'button', onclick: async () => { const x = await post('ressources_machine', { machine: m.id, coeurs: Number(cpu.value), memoire: Number(ram.value) }); out.textContent = x.text; note(x); redraw(); } }, 'Appliquer'),
+        el('div', { class: 'ym-sl' }, el('span', {}, 'Processeur'), cpu, cv), el('div', { class: 'ym-sl' }, el('span', {}, 'Mémoire'), ram, rv), el('div', { class: 'ym-sl' }, el('span', {}, 'Disque'), dk, dv),
+        el('div', { class: 'ym-row', style: 'margin-top:6px' }, el('span', { style: 'font-size:13.5px;width:90px' }, 'Adresse fixe'), ipIn, el('button', { class: 'ym-btn', type: 'button', onclick: async () => { if (ipIn.value.trim() === m.ip) return; const x = await act('ip_machine', { machine: m.id, ip: ipIn.value.trim() }); out.textContent = x.text; note(x); if (x.ok !== false) redraw(); } }, 'Changer')),
+        el('div', { class: 'ym-row', style: 'margin-top:8px' }, el('button', { class: 'ym-btn pri', type: 'button', onclick: async () => {
+          const x = await post('ressources_machine', { machine: m.id, coeurs: Number(cpu.value), memoire: Number(ram.value) }); let t = x.text; note(x);
+          if (Number(dk.value) > m.disque) { const y = await act('disque_machine', { machine: m.id, disque: Number(dk.value) }); t += `\n${y.text}`; note(y); }
+          out.textContent = t; redraw();
+        } }, 'Appliquer'),
           el('label', { style: 'font-size:12.5px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-left:auto' }, 'Catégorie', el('select', { class: 'ym-btn', onchange: async (e) => { note(await post('ranger_machine', { machine: m.id, categorie: e.target.value })); redraw(); } }, el('option', { value: '' }, '—'), ...(D.categories ?? []).map((c) => el('option', { value: c.nom, selected: m.categorie === c.nom }, c.nom))))), out),
       el('div', { class: 'ym-tiles' },
         tile('up', 'Exporter en .ody', 'Toute la machine dans un fichier vérifié (machine éteinte).', () => { const d = prompt('Dossier de destination (vide : Machines dans ton dossier) ?', ''); return d === null ? null : post('exporter_machine', { machine: m.id, dossier: d }); }),
         tile('down', 'Importer un .ody', 'Odin vérifie le fichier et l\'antivirus avant de la créer.', () => { const f = prompt('Chemin du fichier .ody ?'); return f ? post('importer_machine', { fichier: f }) : null; }),
         tile('copy', 'Cloner', 'La même, avec un autre nom et une autre adresse.', () => { const n = prompt('Nom de la copie ?', `${m.nom}-copie`); return n ? post('cloner_machine', { machine: m.id, nom: n }) : null; }),
-        tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' }))));
+        tile('save', 'Sauvegarder', (m.apps ?? []).includes('sindri') ? 'Chaque nuit avec Phénix.' : 'Exporte-la en .ody, ou ajoute Phénix à la création.', async () => ({ text: (m.apps ?? []).includes('sindri') ? 'Phénix la sauvegarde chaque nuit (plan « Machine ' + m.nom + ' »).' : 'Pas de sauvegarde automatique pour cette machine : exporte-la en .ody.' })),
+        tile('grid', m.estModele ? 'Ce n\'est plus un modèle' : 'Faire un modèle', m.estModele ? 'Elle redevient une machine qui démarre.' : 'Machine éteinte : on crée ensuite des machines depuis elle.', () => post('modele_machine', { machine: m.id, modele: !m.estModele }))),
+      el('div', { class: 'ym-w', style: 'grid-column:1/-1' }, el('h3', {}, ic('term', 16), m.genre === 'lxc' ? `Console de ${m.nom}` : `Clavier de ${m.nom}`, el('small', { class: 'r' }, run ? (m.genre === 'lxc' ? 'chaque commande demande ton accord' : 'tape sur son écran (aperçu au-dessus)') : 'machine éteinte')),
+        el('div', { class: 'ym-row' }, cIn, touche, el('button', { class: 'ym-btn pri ym-send', type: 'button', disabled: !run, onclick: envoyer }, m.genre === 'lxc' ? 'Lancer' : 'Envoyer')), cOut));
   }
   function creer(root, D, redraw) {
     const C = S.create; if (C.apps === null) C.apps = new Set((D.apps ?? []).filter((a) => a.reco).map((a) => a.id));
@@ -151,6 +174,18 @@
     ip.onchange = check; void check();
     const paq = el('input', { id: 'ymPaq', placeholder: 'ex. nextcloud, postgresql, redis', disabled: C.genre === 'vm' });
     const miss = C.genre === 'lxc' ? D.manque?.lxc ?? [] : D.manque?.vm ?? [];
+    // Depuis un modèle : la copie d'une machine rangée comme modèle, avec les ressources et l'adresse choisies ici.
+    const G = D.gabarits ?? [];
+    if (G.length) {
+      const gs = el('select', { id: 'ymGab' }, ...G.map((g) => el('option', { value: g.id }, `${g.nom} (${g.genre === 'lxc' ? 'LXC' : 'VM'} ${g.systeme} ${g.version})`))), gn = el('input', { id: 'ymGabNom', placeholder: 'nom de la nouvelle machine' }), go2 = el('p', { class: 'ym-out', role: 'status' });
+      root.append(el('div', { class: 'ym-w ym-f' }, el('h3', {}, ic('copy', 16), 'Depuis un modèle', el('small', { class: 'r' }, 'copie prête, ressources et adresse ci-dessous')),
+        el('label', { for: 'ymGab' }, 'Modèle'), gs, el('label', { for: 'ymGabNom' }, 'Nom'), gn,
+        el('div', { class: 'ym-row', style: 'margin-top:6px' }, el('button', { class: 'ym-btn pri', type: 'button', onclick: async (e) => {
+          const b = e.currentTarget; b.disabled = true; go2.textContent = 'Copie du modèle…';
+          const x = await act('creer_depuis_modele', { modele: gs.value, nom: gn.value, coeurs: Number(document.querySelector('.ym-sl input[aria-label="Processeur"]')?.value) || '', memoire: Number(document.querySelector('.ym-sl input[aria-label="Mémoire"]')?.value) || '', ip: document.getElementById('ymIp')?.value.trim() ?? '', apps: [...C.apps].join(',') });
+          b.disabled = false; go2.textContent = x.text; note(x); if (x.ok !== false) { S.tab = 'machines'; S.sel = x.data?.id ?? null; setTimeout(redraw, 1500); }
+        } }, ic('plus', 15), 'Créer depuis ce modèle')), go2));
+    }
     root.append(el('div', { class: 'ym-bot ym-bot-cr' },
       el('div', { style: 'display:flex;flex-direction:column;gap:12px' },
         el('div', { class: 'ym-w ym-f' }, el('h3', {}, 'Système'), el('div', { class: 'ym-seg', role: 'group', 'aria-label': 'Genre' }, ...[['lxc', 'LXC (léger)'], ['vm', 'VM']].map(([k, t]) => el('button', { type: 'button', 'aria-pressed': String(C.genre === k), onclick: () => { C.genre = k; redraw(); } }, t))),

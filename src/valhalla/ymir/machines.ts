@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Action, ModCtx } from '../types.ts';
-import { famille, Local, MODELES, nomAuto, newMac, slug, type Genre, type Machine } from './local.ts';
+import { famille, Local, MODELES, nomAuto, newMac, slug, TOUCHES, type Genre, type Machine } from './local.ts';
 
 const s = (v: unknown) => (v === undefined || v === null ? '' : String(v));
 const n = (v: unknown, d: number, lo: number, hi: number) => { const x = Number(v); return Number.isFinite(x) && x > 0 ? Math.max(lo, Math.min(hi, Math.round(x))) : d; };
@@ -47,7 +47,7 @@ export function machinesActions(): Action[] {
     { id: 'tableau_machines', label: 'Tableau des machines', what: 'Tout pour l\'écran Machines : machines et état, ce PC, catégories, modèles, ISO, applis', read: true, run: async (ctx) => {
       const L = new Local(ctx), l = L.list(), st = await Promise.all(l.map((m) => L.etat(m).catch(() => ({ state: 'inconnue' as const }))));
       return { text: `${l.length} machine(s)`, data: {
-        machines: l.map((m, i) => ({ ...m, etat: st[i] })), hote: await L.hote(), categories: categories(ctx), reseau: L.reseau(), modeles: MODELES, isos: L.isos(await eitriDir(ctx)), apps: APPS,
+        machines: l.map((m, i) => ({ ...m, etat: st[i] })), hote: await L.hote(), categories: categories(ctx), reseau: L.reseau(), modeles: MODELES, touches: Object.keys(TOUCHES), gabarits: l.filter((m) => m.estModele).map((m) => ({ id: m.id, nom: m.nom, genre: m.genre, systeme: m.systeme, version: m.version })), isos: L.isos(await eitriDir(ctx)), apps: APPS,
         manque: { lxc: await L.manque('lxc'), vm: await L.manque('vm') }, kvm: L.kvm(), autoIsoler: ctx.settings.autoIsoler !== false,
       } };
     } },
@@ -103,6 +103,55 @@ export function machinesActions(): Action[] {
       ctx.saveSettings({ categories: [...categories(ctx).filter((x) => x.nom !== nom), { nom, couleur: c }] }); return { text: `Catégorie « ${nom} » ajoutée.` };
     } },
     { id: 'cloner_machine', label: 'Cloner', what: 'La même machine, avec un autre nom et une autre adresse (machine éteinte)', params: [machineParam, { key: 'nom', label: 'Nom de la copie', kind: 'text', required: true }], run: async (ctx, i) => { const L = new Local(ctx), m = await L.cloner(L.find(i.machine), s(i.nom)); return { text: `📄 ${m.nom} : copie prête (${m.ip}), éteinte.`, data: m }; } },
+    { id: 'disque_machine', label: 'Agrandir le disque', what: 'Donne plus de place au disque d\'une machine éteinte (jamais moins : ses fichiers seraient abîmés)', params: [machineParam, { key: 'disque', label: 'Nouvelle taille (Go)', kind: 'number', required: true }],
+      grave: (i) => `agrandir le disque de la machine ${s(i.machine)} à ${s(i.disque)} Go`, run: async (ctx, i) => {
+        const L = new Local(ctx), m = L.find(i.machine), go = Math.round(Number(i.disque));
+        const how = await L.agrandir(m, go); return { text: `💽 ${m.nom} : disque de ${m.disque} Go — ${how}.`, data: { disque: m.disque } };
+      } },
+    { id: 'ip_machine', label: 'Changer l\'adresse IP', what: 'Une autre adresse fixe pour la machine (vérifiée libre sur le réseau)', params: [machineParam, { key: 'ip', label: 'Nouvelle adresse IP', kind: 'text', required: true }],
+      grave: (i) => `changer l'adresse de la machine ${s(i.machine)} pour ${s(i.ip)} (un LXC en marche redémarre)`, run: async (ctx, i) => {
+        const L = new Local(ctx), m = L.find(i.machine), avant = m.ip, how = await L.changerIp(m, s(i.ip).trim());
+        if (avant !== m.ip && m.apps.includes('vidarr')) await ctx.call('vidarr', 'nom_local', { nom: `${m.nom}.maison`, valeur: m.ip }, `nouvelle adresse de ${m.nom}`).catch(() => undefined);
+        if (avant !== m.ip && m.apps.includes('vordr')) await ctx.call('vordr', 'ajouter', { nom: m.nom, genre: 'ping', cible: m.ip, groupe: 'Machines' }, `nouvelle adresse de ${m.nom}`).catch(() => undefined);
+        return { text: `🌐 ${m.nom} : ${avant} → ${m.ip} — ${how}.`, data: { ip: m.ip } };
+      } },
+    { id: 'console_machine', label: 'Console', what: 'Lance une commande dans un LXC et montre ce qu\'elle répond (la réponse vient de la machine : une donnée, jamais un ordre)', external: true, quick: false, params: [machineParam, { key: 'commande', label: 'Commande', kind: 'text', required: true }],
+      grave: (i) => `lancer « ${s(i.commande).slice(0, 120)} » dans la machine ${s(i.machine)} (avec ses droits d'administrateur)`, run: async (ctx, i) => {
+        const L = new Local(ctx), m = L.find(i.machine), r = await L.commande(m, s(i.commande));
+        return { text: `${r.code === 0 ? '' : `⚠ code ${r.code}\n`}${r.lignes.join('\n') || '(rien affiché)'}`, ok: r.code === 0, data: r };
+      } },
+    { id: 'clavier_machine', label: 'Taper sur l\'écran', what: 'Tape un texte (clavier américain) et / ou une touche spéciale sur l\'écran d\'une VM', quick: false, params: [machineParam, { key: 'texte', label: 'Texte', kind: 'text', default: '' }, { key: 'touche', label: 'Touche spéciale', kind: 'select', options: ['', ...Object.keys(TOUCHES)], default: '' }],
+      grave: (i) => `taper au clavier de la machine ${s(i.machine)}${s(i.touche) ? ` (touche ${s(i.touche)})` : ''}`, run: async (ctx, i) => {
+        const L = new Local(ctx), m = L.find(i.machine), n = await L.taper(m, s(i.texte), s(i.touche) || undefined);
+        return { text: `⌨ ${n} touche(s) envoyée(s) à ${m.nom}.`, data: { touches: n } };
+      } },
+    { id: 'modele_machine', label: 'Faire un modèle', what: 'Range une machine éteinte comme modèle (elle ne démarre plus) : on crée ensuite des machines depuis elle, déjà prêtes', params: [machineParam, { key: 'modele', label: 'Modèle', kind: 'boolean', default: true }], run: async (ctx, i) => {
+      const L = new Local(ctx), m = L.find(i.machine), on = i.modele !== false && i.modele !== 'false';
+      if (on && (await L.etat(m)).state === 'en marche') throw new Error(`arrête d'abord ${m.nom} : un modèle se fait machine éteinte`);
+      if (on) { m.estModele = true; m.arretVoulu = true; } else delete m.estModele; L.update(m);
+      return { text: on ? `📐 ${m.nom} est un modèle : « Créer depuis un modèle » en fait des copies prêtes.` : `${m.nom} redevient une machine normale.` };
+    } },
+    { id: 'creer_depuis_modele', label: 'Créer depuis un modèle', what: 'Une nouvelle machine copiée d\'un modèle (ou d\'une machine éteinte) : son nom, ses ressources, son adresse fixe, ses applis d\'Odin', external: true,
+      params: [{ key: 'modele', label: 'Modèle (nom de la machine)', kind: 'text', required: true }, { key: 'nom', label: 'Nom de la nouvelle machine', kind: 'text', required: true }, { key: 'coeurs', label: 'Cœurs (vide : comme le modèle)', kind: 'number', default: '' }, { key: 'memoire', label: 'Mémoire en Go (vide : comme le modèle)', kind: 'number', default: '' }, { key: 'disque', label: 'Disque en Go (vide : comme le modèle)', kind: 'number', default: '' },
+        { key: 'ip', label: 'Adresse IP (vide : la première libre)', kind: 'text', default: '' }, { key: 'categorie', label: 'Catégorie', kind: 'text', default: '' }, { key: 'apps', label: 'Applis d\'Odin (vide : comme le modèle)', kind: 'text', default: '' }, { key: 'demarrer', label: 'Démarrer tout de suite', kind: 'boolean', default: true }],
+      words: ['crée une machine depuis le modèle', 'depuis un modèle'], run: async (ctx, i) => {
+        const L = new Local(ctx), src = L.find(i.modele), notes: string[] = [];
+        if (!s(i.nom).trim()) throw new Error('donne un nom à la nouvelle machine');
+        const m = await L.cloner(src, s(i.nom));
+        try {
+          const ip = s(i.ip).trim(); if (ip) notes.push(`adresse : ${await L.changerIp(m, ip)}`);
+          const h = await L.hote(), c = s(i.coeurs) ? n(i.coeurs, m.cpu, 1, h.coeurs) : m.cpu, r = s(i.memoire) ? n(i.memoire, m.ram / 1024, 1, Math.max(1, Math.floor(h.ramTotal / 1024 ** 3))) * 1024 : m.ram;
+          if (c !== m.cpu || r !== m.ram) await L.ressources(m, c, r);
+          if (s(i.disque) && Number(i.disque) > m.disque) notes.push(`disque : ${await L.agrandir(m, Math.round(Number(i.disque)))}`);
+          const cat = s(i.categorie).trim(); if (cat) m.categorie = cat;
+          if (s(i.apps).trim()) m.apps = list(i.apps).map((x) => x.toLowerCase()).filter((x) => APPS.some((a) => a.id === x));
+          L.update(m);
+          if (i.demarrer !== false && i.demarrer !== 'false') await L.demarrer(m);
+        } catch (e) { notes.push(`⚠ ${(e as Error).message}`); }
+        const b = await brancher(ctx, L, m);
+        ctx.emit('machine_creee', { nom: m.nom, genre: m.genre, ip: m.ip, modele: src.nom });
+        return { text: `✅ ${m.nom} créée depuis ${src.nom} (${m.genre === 'lxc' ? 'LXC' : 'VM'} ${m.systeme} ${m.version}, ${m.cpu} cœur(s), ${m.ram / 1024} Go, ${m.disque} Go) · ${m.ip}${notes.length ? `\n${notes.join('\n')}` : ''}${b.length ? `\n${b.join('\n')}` : ''}`, data: m };
+      } },
     { id: 'supprimer_machine', label: 'Supprimer', what: 'Supprime une machine et son disque', params: [machineParam], grave: (i) => `supprimer la machine ${s(i.machine)} et tout son disque (exporte-la en .ody avant si tu veux la garder)`, run: async (ctx, i) => { const L = new Local(ctx), m = L.find(i.machine); await L.supprimer(m); return { text: `🗑 ${m.nom} supprimée.` }; } },
     { id: 'exporter_machine', label: 'Exporter en .ody', what: 'Toute la machine dans un seul fichier vérifié (empreinte), par exemple vers ton NAS', params: [machineParam, { key: 'dossier', label: 'Dossier de destination', kind: 'text', default: '' }], run: async (ctx, i) => {
       const L = new Local(ctx), m = L.find(i.machine), d = s(i.dossier).trim() || s(ctx.settings.dossierOdy) || join(ctx.home, 'Machines');
