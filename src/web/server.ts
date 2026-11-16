@@ -10,6 +10,7 @@
 // - en-tête x-odin obligatoire sur chaque POST (contre les requêtes intersites) ;
 // - CSP stricte : aucun script externe, script de la page autorisé par nonce.
 
+import { rythmeEnClair } from './talos-api.ts';
 import { dictee } from '../valhalla/modules/rodd.ts';
 import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
@@ -1213,7 +1214,7 @@ export class WebChannel implements Channel {
       skills: (() => { const st = muninn.skillStats(); return skills.list().map((s) => { const x = st.find((y) => y.name === s.name); const n = (x?.ok ?? 0) + (x?.fails ?? 0); return { name: s.name, description: s.description, version: s.version, origin: s.origin, params: s.meta.params ?? '', uses: x?.uses ?? 0, ok: x?.ok ?? 0, fails: x?.fails ?? 0, avgS: n ? Math.round((x!.total_ms / n) / 100) / 10 : 0, cost: x?.cost_usd ?? 0, lastUsed: x?.last_used ?? 0, files: skills.files(s.name).map((f) => f.name), intact: skills.intact(s.name) }; }); })(),
       scripts: listScripts(this.odin.paths.workspace).slice(0, 100),
       drafts: skills.drafts().map((s) => { const cur = skills.get(s.name); return { name: s.name, description: s.description, version: s.version, origin: s.origin, reason: s.meta.reason ?? '', warnings: s.meta.warnings ?? '', body: s.body, diff: cur ? lineDiff(cur.body, s.body) : '' }; }),
-      jobs: muninn.listJobs(),
+      jobs: muninn.listJobs().map((j) => ({ ...j, enClair: rythmeEnClair(j) })),
       grants: muninn.listGrants(),
       autonomy: cfg.mimir.autonomy,
       autonomyNow: this.odin.heimdall.effectiveAutonomy(),

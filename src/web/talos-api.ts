@@ -79,6 +79,8 @@ function rythmeJob(j: JobRow): Rythme {
   if (j.cron === '@reminder') { const m = dateMurale(new Date(j.next_run)); return { genre: 'une_fois', date: m.date, heure: m.heure }; }
   return depuisCron(j.cron);
 }
+/** Le rythme d'une tâche planifiée en phrase claire (« Chaque jour à 18 h »), comme Talos le montre. */
+export function rythmeEnClair(j: JobRow): string { try { return phrase(rythmeJob(j)); } catch { return j.cron; } }
 function ligneJob(c: Contexte, j: JobRow): Ligne {
   const rappel = isReminderJob(j), r = rythmeJob(j), unique = j.cron === '@reminder';
   const bk = rappel && c.v?.module('frigg') ? bookingsDe(c.v.ctx('frigg')).find((b) => b.rappelJob === j.id) : undefined;
