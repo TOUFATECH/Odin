@@ -13,6 +13,7 @@
 import { rythmeEnClair } from './talos-api.ts';
 import { dictee } from '../valhalla/modules/rodd.ts';
 import { conversationRoute } from './conversation-api.ts';
+import { archiveRoute } from './rodd-archive-api.ts';
 import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
 import { echangeBus, echangesRecents } from '../valhalla/echanges.ts';
@@ -903,6 +904,9 @@ export class WebChannel implements Channel {
     if (await partageApi(req, res, url, { ip, acces: this.access, origine: () => this.publicOrigin(req), connus: (t) => this.odin.redactor.redact(t) })) return;
     // Les terminaux et l'aperçu des projets de Dédale (propriétaire seulement).
     if (await terminalApi(req, res, url)) return;
+    // Écho : la copie sonore d'une conversation, écoutée et téléchargée par le navigateur (<audio>, lien de
+    // téléchargement) : un GET, sans en-tête x-odin, protégé par la session déjà vérifiée plus haut.
+    if (req.method === 'GET' && url.pathname === '/api/rodd/archive/son' && await archiveRoute(req, res, url, { odin: this.odin })) return;
     if (req.method === 'GET' && url.pathname === '/api/valhalla/fichier') {
       // Remettre à l'appareil un fichier produit par une appli (résultat d'une conversion…). L'appli décide (`retrait`) ;
       // le fichier part toujours comme un téléchargement, jamais comme une page affichée par Odin.
@@ -1035,6 +1039,7 @@ export class WebChannel implements Channel {
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
     if (url.pathname.startsWith('/api/rodd/conversation/') && await conversationRoute(req, res, url, { odin: this.odin, voix: () => voiceFor(v, this.odin.cfg) })) return;
+    if (url.pathname.startsWith('/api/rodd/archive/') && await archiveRoute(req, res, url, { odin: this.odin })) return;
     if (url.pathname === '/api/voice/clone') {
       // Copie d'une voix : un enregistrement d'une à quelques minutes ; l'accord est noté avant qu'il parte (voix-api.ts).
       try {

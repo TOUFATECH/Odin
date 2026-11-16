@@ -94,6 +94,8 @@ export class HistoriqueConversation {
     const l = this.memo.filter((x) => !conv || x.conv === conv).slice(-Math.max(1, Math.min(GARDER, n))).reverse();
     return l.flatMap((x) => { const c = this.ouvrir(x.chiffre); return c ? [{ id: x.uid, conv: x.conv, at: x.at, ...c }] : []; });
   }
+  /** Combien de tours gardés pour cette conversation (sans déchiffrer). */
+  compte(conv: string): number { return this.memo.reduce((n, x) => n + (x.conv === conv ? 1 : 0), 0); }
   /** Les conversations (début, nombre de tours), la plus récente d'abord. */
   conversations(): Array<{ conv: string; debut: string; n: number }> {
     const m = new Map<string, { conv: string; debut: string; n: number; fin: string }>();

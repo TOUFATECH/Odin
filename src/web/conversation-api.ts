@@ -4,7 +4,8 @@
 //   /api/rodd/conversation/texte  : un texte écrit ou corrigé → traduit (sans écoute)
 //   /api/rodd/conversation/dire   : le son de la traduction, ou « dis-le avec la voix du navigateur »
 //
-// - Le son n'est jamais gardé : ni sur le disque, ni dans la mémoire des tours (seulement le texte, 2 minutes).
+// - Le son n'est pas gardé par défaut (la mémoire des tours ne garde que le texte, 2 minutes). S'il est ALLUMÉ pour la
+//   conversation (archive), chaque tour est scellé avec la clé de la machine par EnregistrementConversation ; jamais en clair.
 // - Rien du texte des personnes n'est écrit dans les journaux de la console.
 // - Jamais de traduction inventée : un échec donne traduit '' et erreurTraduction.
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -16,6 +17,8 @@ import { tierOf } from '../providers/router.ts';
 import { BCP47, estLangue, inacheve, LANGUES, nettoyer, NOMS, pasCompris, propositions, reglagesConversation, type Langue, type Qui, type Reglages } from '../valhalla/rodd/conversation.ts';
 import { dire, ecouterTour, etatEcoute, etatTraduction, traduire, voixPour, type Deps } from '../valhalla/rodd/conversation-moteur.ts';
 import { garderTours, historiqueDe, idValide, nouvelId } from '../valhalla/rodd/conversation-historique.ts';
+import { enregistrementDe } from '../valhalla/rodd/conversation-son.ts';
+import { noterConversation } from '../valhalla/rodd/conversation-memoire.ts';
 
 export interface OptionsConversation {
   odin: Pick<Odin, 'cfg' | 'agent' | 'demo' | 'paths'>;
@@ -63,10 +66,17 @@ function retenir(r: Omit<Retenu, 'quand'>): void {
 const retenu = (id: string | null | undefined) => { const x = id ? retenus.get(id) : undefined; return x && Date.now() - x.quand <= MEMOIRE_MS ? x : undefined; };
 
 /** Le modèle d'Odin pour traduire : aucun en mode démo (jamais de faux texte). */
-function modeleDe(odin: OptionsConversation['odin']): Deps['modele'] {
+export function modeleDe(odin: OptionsConversation['odin']): Deps['modele'] {
   if (odin.demo) return undefined;
   const p = odin.cfg.providers ?? [];
   return { demander: (s, u, sig) => odin.agent.ask(s, u, 800, sig), local: p.length > 0 && p.every((x) => tierOf(x) === 'local'), nom: p[0]?.model ?? '' };
+}
+
+/** Dès qu'une conversation est gardée (premier tour conservé), un POINTEUR NEUTRE entre dans la mémoire d'Odin — sans
+ * attendre le résumé — pour qu'elle reste retrouvable (« retrouve ma conversation avec le livreur japonais de mardi »).
+ * Le détail (texte, résumé) reste chiffré dans la base de l'appli ; la mémoire ne reçoit que titre, langues et date. */
+function noterSiNouvelle(histo: ReturnType<typeof historiqueDe>, conv: string, reglages: Reglages, at: string): void {
+  if (histo.compte(conv) === 1) noterConversation({ conv, titre: '', langues: [NOMS[reglages.moi].fr, NOMS[reglages.lui].fr], nTours: 1, date: at });
 }
 
 export async function conversationRoute(req: IncomingMessage, res: ServerResponse, url: URL, o: OptionsConversation): Promise<boolean> {
@@ -101,7 +111,7 @@ export async function conversationRoute(req: IncomingMessage, res: ServerRespons
       const entendu = nettoyer(brut, de) || brut;
       const t0 = Date.now(), tr = await traduire(entendu, de, vers, reglages, deps, undefined, qui), ms = { ecoute: 0, traduction: Date.now() - t0 };
       const id = remplace ?? nouvelId(), at = new Date().toISOString();
-      if (histo && tr.texte) { const c = { qui, de, vers, entendu, traduit: tr.texte, ...(remplace ? { corrige: true } : {}) }; if (!remplace || !histo.remplacer(remplace, c)) histo.ajouter({ ...c, id, conv, at }); }
+      if (histo && tr.texte) { const c = { qui, de, vers, entendu, traduit: tr.texte, ...(remplace ? { corrige: true } : {}) }; if (!remplace || !histo.remplacer(remplace, c)) histo.ajouter({ ...c, id, conv, at }); noterSiNouvelle(histo, conv, reglages, at); }
       retenir({ id, conv, qui, de, vers, brut: entendu, at, entendu, traduit: tr.texte, moteur: tr.texte ? tr.moteur : null });
       json(res, 200, tour({ id, conv, qui, de, vers, entendu, brut, tr, ms }));
       return true;
@@ -135,7 +145,11 @@ export async function conversationRoute(req: IncomingMessage, res: ServerRespons
     const brut = prec ? `${prec.brut} ${e.brut}`.trim() : e.brut, entendu = prec ? nettoyer(brut, de) : e.entendu;
     const t1 = Date.now(), tr = await traduire(entendu, de, vers, reglages, deps, undefined, qui), traduction = Date.now() - t1;
     const id = prec?.id ?? nouvelId(), at = new Date().toISOString();
-    if (histo && tr.texte) { const c = { qui, de, vers, entendu, traduit: tr.texte }; if (!prec || !histo.remplacer(id, c)) histo.ajouter({ ...c, id, conv, at }); }
+    // Copie sonore (seulement si le propriétaire l'a allumée pour cette conversation, et jamais en mode privé) : le son
+    // scellé avec la clé de la machine. En mode privé, rien n'est gardé — ni le texte, ni le son.
+    const prive = Boolean(v.privacy?.privateMode || o.odin.cfg.voice?.privacy?.privateMode);
+    const enr = enregistrementDe(ctx); if (enr.actif(conv) && !prive) { try { enr.ajouter(conv, id, son); } catch { /* copie sonore indisponible : le reste marche */ } }
+    if (histo && tr.texte) { const c = { qui, de, vers, entendu, traduit: tr.texte }; if (!prec || !histo.remplacer(id, c)) histo.ajouter({ ...c, id, conv, at }); noterSiNouvelle(histo, conv, reglages, at); }
     retenir({ id, conv, qui, de, vers, brut, at, entendu, traduit: tr.texte, moteur: tr.texte ? tr.moteur : null });
     json(res, 200, tour({ id, conv, qui, de, vers, entendu, brut, tr, ms: { ecoute, traduction }, incertain: e.incertain }));
   } catch (x) {

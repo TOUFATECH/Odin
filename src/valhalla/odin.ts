@@ -89,6 +89,7 @@ import { ullr, ullrKeys } from './modules/ullr.ts';
 import { syncSheets } from './fiches.ts';
 import { AppJournal } from './journal.ts';
 import { brancherMemoire } from './base/trace.ts';
+import { brancherMemoireConversation } from './rodd/conversation-memoire.ts';
 import { ParoleOdin, setParole } from './parole.ts';
 import { ymir } from './modules/ymir.ts';
 import { Valhalla } from './service.ts';
@@ -255,7 +256,13 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   void v.start();
   // Chaque consultation d'une base d'appli par Odin est retenue par sa mémoire (sujet « base <appli> ») : « quand as-tu regardé la base de Phénix ? »
   brancherMemoire((texte, sujet) => { odin.muninn.remember(texte, 'agent', 'fact', 'base alexandrie', { subject: sujet, topic: 'consultation', source: 'Alexandrie' }); });
-  return () => { brancherMemoire(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
+  // Écho : une conversation traduite laisse un POINTEUR NEUTRE dans la mémoire (titre, langues, date) ; le détail reste
+  // chiffré dans la base de l'appli. Jamais de transcription ni de résumé ici (la mémoire d'Odin est en clair).
+  brancherMemoireConversation({
+    noter: (p) => { const sujet = `conversation:${p.conv}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); odin.muninn.remember(p.titre, p.parProprietaire ? 'owner' : 'agent', 'conversation', `écho conversation ${p.langues.join(' ')}`.slice(0, 120), { subject: sujet, topic: 'echo', source: 'Écho' }); },
+    oublier: (conv) => { const sujet = `conversation:${conv}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); },
+  });
+  return () => { brancherMemoire(undefined); brancherMemoireConversation(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
 }
 
 /** Pour Talos : action d'une appli, sans personne → actions graves refusées. */

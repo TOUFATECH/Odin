@@ -11,6 +11,9 @@ import type { Langue, Voyage } from '../rodd/conversation.ts';
 // Chargés à la demande : conversation.ts lit adresseMaison de capsule-api.ts, qui importe ce module (cycle au démarrage).
 const C = () => import('../rodd/conversation.ts');
 const historiqueDe = async (ctx: ModCtx) => (await import('../rodd/conversation-historique.ts')).historiqueDe(ctx);
+const enregistrementDe = async (ctx: ModCtx) => (await import('../rodd/conversation-son.ts')).enregistrementDe(ctx);
+const resumeDe = async (ctx: ModCtx) => (await import('../rodd/conversation-resume.ts')).resumeDe(ctx);
+const oublierConversation = async (conv: string) => (await import('../rodd/conversation-memoire.ts')).oublierConversation(conv);
 import type { ActionResult, ModCtx, Module } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -77,7 +80,7 @@ const CHAMPS_CONV = ['ecoute', 'pause', 'local', 'garder', 'moteur', 'serveur', 
 export const rodd: Module = {
   id: 'rodd', name: 'Écho', family: 'Données',
   what: 'La dictée vocale partout (comme Murmure) : tu parles, le texte s\'écrit, corrigé si tu veux, avec tes mots ; « Odin, … » devient une demande ; mode conversation : chacun parle sa langue (français, anglais, japonais), Odin traduit à voix haute.',
-  does: ['dictée 100 % locale (Whisper sur la machine d\'Odin)', 'mise en forme : tel quel, corrigé, mail, traduction, liste (IA d\'Odin ; sans IA : ponctuation de base)', 'tes mots : ce que tu dis → ce qu\'il faut écrire, appris aussi de tes corrections, partagés avec tout ce que tu dis à Odin', '« Odin, … » en dictée = une demande (les actions graves gardent ton accord)', 'historique des dictées (désactivable)', 'capsule de dictée sur les PC du parc : installée, réglée et retirée par Satellites ; le son reste en mémoire, et seul Odin le reçoit', 'conversation traduite à deux, français, anglais, japonais dans tous les sens : Odin reconnaît qui parle et dit la traduction à voix haute', 'historique des conversations : texte seul, chiffré, effaçable, exportable ; le son n\'est jamais gardé'],
+  does: ['dictée 100 % locale (Whisper sur la machine d\'Odin)', 'mise en forme : tel quel, corrigé, mail, traduction, liste (IA d\'Odin ; sans IA : ponctuation de base)', 'tes mots : ce que tu dis → ce qu\'il faut écrire, appris aussi de tes corrections, partagés avec tout ce que tu dis à Odin', '« Odin, … » en dictée = une demande (les actions graves gardent ton accord)', 'historique des dictées (désactivable)', 'capsule de dictée sur les PC du parc : installée, réglée et retirée par Satellites ; le son reste en mémoire, et seul Odin le reçoit', 'conversation traduite à deux, français, anglais, japonais dans tous les sens : Odin reconnaît qui parle et dit la traduction à voix haute', 'historique des conversations : texte seul, chiffré, effaçable, exportable', 'archive d\'une conversation : copie sonore en option (chiffrée avec la clé de la machine, le son n\'est gardé que si tu l\'allumes), résumé texte par le modèle d\'Odin (modifiable), rangée dans la mémoire d\'Odin par un pointeur neutre ; tout s\'efface vraiment'],
   from: ['Murmure'], upstream: ['Kieirra/murmure'],
   words: ['dictee', 'dictée', 'dicter', 'reconnaissance vocale', 'mes mots', 'vocabulaire', 'rodd', 'rödd', 'murmure', 'traduction en direct', 'traduis ce que dit', 'conversation traduite', 'parle japonais', 'parle anglais', 'conversation en anglais', 'conversation en japonais', 'mode conversation'],
   actions: [
@@ -111,14 +114,31 @@ export const rodd: Module = {
         ctx.saveSettings({ conversation: r });
         return { text: `Réglé : toi en ${NOMS[r.moi].fr}, en face en ${NOMS[r.lui].fr}${r.local ? ', tout sur la machine' : ''}.`, data: r };
       } },
-    { id: 'conv_historique', label: 'Conversations traduites', what: 'Les derniers tours traduits (texte seul)', read: true, quick: false,
+    { id: 'conv_historique', label: 'Conversations traduites', what: 'Les derniers tours traduits (texte seul), avec résumé et copie sonore si gardés', read: true, quick: false,
       run: async (ctx, i) => {
         const h = await historiqueDe(ctx), garde = (await lireReglages(ctx)).garder, conv = s(i.conv) || undefined, items = h.lister(Math.min(500, Math.max(1, Number(i.n) || 100)), conv);
-        const { heureLocale } = await C(); // l'heure locale, comme l'export (pas l'heure UTC de la date ISO)
-        return { text: items.slice(0, 20).map((t) => `${heureLocale(t.at)} · ${t.qui === 'moi' ? 'moi' : 'en face'} · ${t.entendu.slice(0, 80)} → ${t.traduit.slice(0, 80)}`).join('\n') || 'Aucune conversation gardée.', data: { items, garde, conversations: h.conversations() } };
+        const { heureLocale, NOMS } = await C(); // l'heure locale, comme l'export (pas l'heure UTC de la date ISO)
+        const enr = await enregistrementDe(ctx), res = await resumeDe(ctx);
+        const conversations = h.conversations().map((c) => {
+          const tc = h.lister(500, c.conv), langues = [...new Set(tc.flatMap((t) => [NOMS[t.de].fr, NOMS[t.vers].fr]))];
+          return { ...c, titre: `Conversation du ${c.debut.slice(0, 10)}, ${langues.join(' ↔ ') || '—'}, ${c.n} tour${c.n > 1 ? 's' : ''}`, langues, resume: { existe: res.existe(c.conv) }, son: { existe: enr.existe(c.conv), octets: enr.taille(c.conv) } };
+        });
+        // Les conversations qui n'ont qu'une copie sonore (texte non gardé : mode privé, ou « garder » décoché) restent
+        // visibles et supprimables, pour que le son ne reste jamais orphelin sur le disque.
+        const vus = new Set(conversations.map((c) => c.conv));
+        for (const c of enr.convs()) { if (vus.has(c) || !enr.existe(c)) continue; conversations.push({ conv: c, debut: '', n: 0, titre: 'Conversation enregistrée (son seul)', langues: [], resume: { existe: res.existe(c) }, son: { existe: true, octets: enr.taille(c) } }); }
+        return { text: items.slice(0, 20).map((t) => `${heureLocale(t.at)} · ${t.qui === 'moi' ? 'moi' : 'en face'} · ${t.entendu.slice(0, 80)} → ${t.traduit.slice(0, 80)}`).join('\n') || 'Aucune conversation gardée.', data: { items, garde, conversations } };
       } },
-    { id: 'conv_effacer', label: 'Effacer les conversations', what: 'Efface une conversation, ou toutes', quick: false,
-      run: async (ctx, i) => { const conv = s(i.conv) || undefined, n = (await historiqueDe(ctx)).effacer(conv); return { text: `🧹 ${conv ? 'Conversation effacée' : 'Toutes les conversations effacées'} (${n} tour${n > 1 ? 's' : ''}).` }; } },
+    { id: 'conv_effacer', label: 'Effacer les conversations', what: 'Efface une conversation, ou toutes (texte, copie sonore, résumé et pointeur de mémoire)', quick: false,
+      run: async (ctx, i) => {
+        const conv = s(i.conv) || undefined, h = await historiqueDe(ctx), enr = await enregistrementDe(ctx), res = await resumeDe(ctx);
+        // « Tout effacer » balaie aussi les conversations qui n'ont qu'une copie sonore (sans texte gardé) : le son
+        // chiffré ne doit jamais rester orphelin sur le disque.
+        const convs = conv ? [conv] : [...new Set([...h.conversations().map((c) => c.conv), ...enr.convs()])];
+        const n = h.effacer(conv);
+        for (const c of convs) { enr.effacer(c); res.effacer(c); await oublierConversation(c); }
+        return { text: `🧹 ${conv ? 'Conversation effacée' : 'Toutes les conversations effacées'} (${n} tour${n > 1 ? 's' : ''}) : texte, copie sonore, résumé et pointeur de mémoire.` };
+      } },
     { id: 'conv_exporter', label: 'Exporter une conversation', what: 'La conversation en texte (fichier .txt)', read: true, quick: false,
       run: async (ctx, i) => { const e = (await historiqueDe(ctx)).exporter(s(i.conv) || undefined); return { text: e.texte, data: e }; } },
   ],

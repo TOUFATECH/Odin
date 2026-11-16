@@ -182,7 +182,42 @@
   /** La hauteur de la scène face à face : l'écran, moins ce qui est au-dessus et la barre du bas d'Odin. */
   const hauteurScene = (haut, bas) => `max(320px, calc(100dvh - ${Math.max(0, Math.round(Number(haut) || 0))}px - ${Math.max(0, Math.round(Number(bas) || 0))}px - 12px))`;
 
-  const logique = { autre, attendu, disposition, choisirVoix, niveau, reechantillonner, coller, encoderWav, vad, peutDireAutre, garderSuite, heureLocale, enfants, hauteurScene, PROPOSE, BCP };
+  /** « 1,2 Mo », « 340 Ko », « 0 o » : la taille d'un son gardé, pour l'annoncer sans affoler. */
+  function libelleTaille(octets) {
+    const o = Math.max(0, Math.round(Number(octets) || 0));
+    if (o < 1024) return `${o} o`;
+    if (o < 1024 * 1024) return `${(o / 1024).toFixed(o < 10 * 1024 ? 1 : 0).replace('.', ',')} Ko`;
+    return `${(o / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`;
+  }
+
+  /** « 1 min 05 », « 12 s » : une durée en secondes, pour annoncer la part d'enregistrement gardée. */
+  function libelleDuree(secondes) {
+    const s = Math.max(0, Math.round(Number(secondes) || 0));
+    return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')}`;
+  }
+
+  /** La date d'une conversation en clair « 16/11/2026, 14:02 » (heure locale), ou « — » si la date manque. */
+  function dateConv(iso) {
+    const d = new Date(iso); if (!Number.isFinite(d.getTime())) return '—';
+    const j = (n) => String(n).padStart(2, '0');
+    return `${j(d.getDate())}/${j(d.getMonth() + 1)}/${d.getFullYear()}, ${j(d.getHours())}:${j(d.getMinutes())}`;
+  }
+
+  /** Les codes de langue d'une conversation, dans l'ordre d'apparition (pour un titre neutre « fr ↔ ja »). */
+  function languesConv(tours) {
+    const vus = [];
+    for (const t of tours || []) for (const c of [t && t.de, t && t.vers]) if (c && !vus.includes(c)) vus.push(c);
+    return vus;
+  }
+
+  /** L'état du voyant d'enregistrement : rouge et annoncé quand ça tourne, éteint sinon. */
+  function etatRec(enr) {
+    const actif = !!(enr && enr.actif);
+    const octets = Math.max(0, Math.round(Number(enr && enr.sonOctets) || 0));
+    return { actif, bouton: actif ? 'Arrêter l\'enregistrement' : 'Enregistrer cette conversation', annonce: actif ? `Enregistrement en cours${octets ? ` · ${libelleTaille(octets)}` : ''}` : '', taille: octets ? libelleTaille(octets) : '' };
+  }
+
+  const logique = { autre, attendu, disposition, choisirVoix, niveau, reechantillonner, coller, encoderWav, vad, peutDireAutre, garderSuite, heureLocale, enfants, hauteurScene, libelleTaille, libelleDuree, dateConv, languesConv, etatRec, PROPOSE, BCP };
 
   // ---------------------------------------------------------------- la page
   const P = {
@@ -192,6 +227,7 @@
     tourCourant: null, suiteDe: null, sonTour: [], dernierSon: null, dernierTour: null, attenteDire: 0, attenteTour: null,
     arme: null, armeMinuteur: 0, appui: null, nav: null, navChoisi: false, panneau: false, tiroir: false, horsPaire: null,
     verrou: null, derniereParole: 0, ecouteurs: [], dispo: '',
+    enr: { conv: null, actif: false, peut: true, sonOctets: 0, limite: null }, enrVoulu: false, convOuverte: null,
   };
 
   const el = (t, a = {}, ...kids) => {
@@ -207,6 +243,13 @@
     const r = await api(chemin, corps, type);
     try { return await r.json(); } catch { return { ok: false, error: `Réponse inattendue d'Odin (${r.status}).` }; }
   };
+  // L'archive d'Écho (lot « serveur ») : son gardé, transcription conservée, résumé. Jamais d'erreur jetée : la vue reste.
+  const archive = async (chemin, corps) => {
+    try {
+      const r = await fetch(`/api/rodd/archive/${chemin}`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(corps ?? {}) });
+      try { return await r.json(); } catch { return { ok: false, error: `Réponse inattendue d'Odin (${r.status}).` }; }
+    } catch (e) { return { ok: false, error: e.message, absent: true }; }
+  };
 
   const langue = (qui) => (qui === 'moi' ? P.reglages?.moi : P.reglages?.lui) || 'fr';
   const T = (qui) => TEXTES[langue(qui)] || TEXTES.fr;
@@ -219,48 +262,60 @@
   const vivant = () => !!P.racine?.isConnected;
 
   const CSS = `
-.rc{display:flex;flex-direction:column;gap:12px;min-width:0}
+.rc{--moi:#4f8cff;--lui:#3ecf8e;display:flex;flex-direction:column;gap:14px;min-width:0}
 .rc *{box-sizing:border-box}
 .rc [hidden]{display:none!important}
 .rc-ecrire button{white-space:nowrap;flex:none}
 .rc [lang=ja]{font-family:'Hiragino Sans','Yu Gothic UI','Noto Sans JP',system-ui,sans-serif}
 .rc .rd-btn,.rc .rc-ib{min-height:44px}
 .rc-mut{color:var(--mut2,#9aa1b2);font-size:13px;margin:0}
-.rc-scene{display:grid;gap:10px;min-width:0}
+.rc-scene{display:grid;gap:12px;min-width:0}
 .rc-scene.cote{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"barre barre" "moi lui"}
 .rc-scene.face{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:"lui" "barre" "moi";min-height:320px}
 .rc-m[data-qui=moi]{grid-area:moi}.rc-m[data-qui=lui]{grid-area:lui}.rc-barre{grid-area:barre}
 .rc-scene.face .rc-m[data-qui=lui]{transform:rotate(180deg)}
-.rc-m{display:flex;flex-direction:column;gap:10px;padding:16px 18px;min-width:0;min-height:0;overflow:auto}
-.rc-m[data-qui=lui]{border-color:#3ecf8e33}
+.rc-m{--c:var(--moi);display:flex;flex-direction:column;gap:11px;padding:18px 20px;min-width:0;min-height:0;overflow:auto;position:relative;border:1px solid color-mix(in srgb,var(--c) 26%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--c) 9%,#171a22) 0%,#14161dcc 60%)}
+.rc-m::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px;background:linear-gradient(180deg,var(--c),transparent)}
+.rc-m[data-qui=lui]{--c:var(--lui);border-color:color-mix(in srgb,var(--lui) 30%,transparent)}
 .rc-tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
-.rc-tete b{font-size:15px}
+.rc-tete b{font-size:15.5px;color:var(--c)}
+.rc-pers{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700;color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 45%,transparent)}
 .rc-role{font-size:12px;color:var(--mut2,#9aa1b2)}
-.rc-etat{margin-left:auto;font:600 13px inherit;color:var(--b,#4f8cff);min-height:18px}
-.rc-grand{margin:0;font-size:clamp(24px,4vw,32px);font-weight:600;line-height:1.35;overflow-wrap:anywhere;flex:1 1 auto;min-height:1.4em}
-.rc-grand.vide{color:var(--mut2,#9aa1b2);font-size:17px;font-weight:500}
-.rc-petit{align-self:flex-start;max-width:100%;text-align:left;background:#ffffff08;border:1px dashed #ffffff2a;border-radius:12px;padding:8px 12px;min-height:44px;color:#cfd3dd;font-size:14px;line-height:1.45;cursor:pointer;overflow-wrap:anywhere;font-family:inherit}
+.rc-etat{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font:600 13px inherit;color:var(--c);min-height:18px}
+.rc-etat:empty{display:none}
+.rc-etat::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c);animation:rc-pulse 1.3s ease-in-out infinite}
+.rc-grand{margin:0;font-size:clamp(24px,4vw,33px);font-weight:600;line-height:1.35;overflow-wrap:anywhere;flex:1 1 auto;min-height:1.4em;letter-spacing:-.2px}
+.rc-grand.vide{color:var(--mut2,#9aa1b2);font-size:17px;font-weight:500;letter-spacing:0}
+.rc-petit{align-self:flex-start;max-width:100%;text-align:left;background:#ffffff08;border:1px dashed color-mix(in srgb,var(--c) 40%,#ffffff2a);border-radius:12px;padding:8px 12px;min-height:44px;color:#cfd3dd;font-size:14px;line-height:1.45;cursor:pointer;overflow-wrap:anywhere;font-family:inherit}
+.rc-petit:hover{border-style:solid;color:#fff}
 .rc-petit small{display:block;font-size:11.5px;color:var(--mut2,#9aa1b2)}
 .rc-edit{display:flex;flex-direction:column;gap:8px}
-.rc-edit textarea,.rc-ecrire input,.rc-panneau input[type=text]{width:100%;min-width:0;min-height:44px;border-radius:12px;border:1px solid #ffffff1a;background:#0b0d12;color:var(--ink2,#eef0f6);padding:8px 12px;font:15px/1.45 inherit}
+.rc-edit textarea,.rc-ecrire input,.rc-panneau input[type=text],.rc-resume textarea{width:100%;min-width:0;min-height:44px;border-radius:12px;border:1px solid #ffffff1a;background:#0b0d12;color:var(--ink2,#eef0f6);padding:8px 12px;font:15px/1.45 inherit}
 .rc-edit textarea{min-height:72px;resize:vertical}
 .rc-notes{display:flex;gap:6px;flex-wrap:wrap}
 .rc-actes{display:flex;gap:8px;flex-wrap:wrap}
 .rc-ecrire{display:flex;gap:8px;min-width:0}
-.rc-parler{width:100%;min-height:52px;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none}
-.rc-parler.on{border-color:#ff3b3b88;color:#ff6b6b;background:#ff3b3b1a}
-.rc-barre{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:10px 12px;min-width:0}
-.rc-go{min-height:48px;padding:0 18px;border-radius:999px;display:inline-flex;align-items:center;gap:10px;font:700 14px inherit;cursor:pointer;border:1px solid #4f8cff66;background:#4f8cff26;color:#dbe6ff}
-.rc-go.on{border-color:#ff3b3b77;background:#ff3b3b1f;color:#ffd6d6}
+.rc-parler{width:100%;min-height:52px;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;border-color:color-mix(in srgb,var(--c) 55%,transparent)!important;color:var(--c)!important;background:color-mix(in srgb,var(--c) 14%,transparent)!important}
+.rc-parler.on{border-color:#ff3b3b88!important;color:#ff6b6b!important;background:#ff3b3b1a!important}
+.rc-barre{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:12px 14px;min-width:0}
+.rc-go{min-height:48px;padding:0 20px;border-radius:999px;display:inline-flex;align-items:center;gap:10px;font:700 14px inherit;cursor:pointer;border:1px solid #4f8cff66;background:linear-gradient(180deg,#4f8cff33,#4f8cff1a);color:#dbe6ff;box-shadow:0 6px 18px #4f8cff22}
+.rc-go:hover{border-color:#4f8cffaa}
+.rc-go.on{border-color:#ff3b3b77;background:linear-gradient(180deg,#ff3b3b2a,#ff3b3b14);color:#ffd6d6;box-shadow:0 6px 18px #ff3b3b22}
 .rc-voyant{width:12px;height:12px;border-radius:50%;background:#5b6070;flex:none}
 .rc-voyant.on{background:#ff3b3b;animation:rc-bat 1.1s ease-in-out infinite}
 .rc-statut{font:600 13px inherit;color:var(--mut2,#9aa1b2);min-width:0;flex:1 1 160px;text-align:center;overflow-wrap:anywhere}
+.rc-rec{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;font:600 13px inherit;cursor:pointer;border:1px solid #ffffff1a;background:#ffffff0a;color:#cfd3dd}
+.rc-rec:hover{border-color:#ffffff33;color:#fff}
+.rc-rec .pt{width:11px;height:11px;border-radius:50%;background:#7a8192;flex:none}
+.rc-rec.on{border-color:#ff3b3b88;background:#ff3b3b1f;color:#ffd6d6}
+.rc-rec.on .pt{background:#ff3b3b;box-shadow:0 0 10px #ff3b3b;animation:rc-bat 1.1s ease-in-out infinite}
 .rc-ib{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#ffffff0a;border:1px solid #ffffff14;color:#cfd3dd;cursor:pointer;font-size:18px}
+.rc-ib:hover{color:#fff;border-color:#ffffff30}
 .rc-ib[aria-expanded=true]{border-color:#4f8cff77;color:#fff}
 .rc-band{padding:12px 16px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.45}
 .rc-band.alerte{border-color:#f5a62466}
 .rc-band pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;background:#0b0d12;border-radius:10px;padding:8px 10px;font-size:12.5px}
-.rc-panneau{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.rc-panneau,.rc-liste{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
 .rc-panneau .rd-seg{flex-wrap:wrap!important;overflow:visible!important;max-width:100%}
 .rc-panneau .rd-seg button{white-space:normal!important}
 .rc-ligne{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
@@ -268,14 +323,26 @@
 .rc-ligne label{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
 .rc-ligne input[type=checkbox]{width:20px;height:20px}
 .rc-ligne input[type=range]{flex:1 1 160px;min-width:0;max-width:320px}
-.rc-tiroir{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
-.rc-it{display:flex;flex-direction:column;gap:3px;padding:9px 0;border-bottom:1px solid #ffffff14;min-width:0}
-.rc-it:last-child{border-bottom:0}
-.rc-it small{color:var(--mut2,#9aa1b2);font-size:12px}
-.rc-it span{overflow-wrap:anywhere;font-size:14px}
+.rc-conv{border:1px solid #ffffff14;border-radius:16px;padding:13px 15px;display:flex;flex-direction:column;gap:9px;background:#ffffff06}
+.rc-conv.ici{border-color:#4f8cff55;background:#4f8cff10}
+.rc-conv-h{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;min-width:0}
+.rc-conv-h b{font-size:15px;overflow-wrap:anywhere}
+.rc-conv-h .meta{flex:1 1 180px;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rc-conv-h small{color:var(--mut2,#9aa1b2);font-size:12px}
+.rc-tours{padding:4px 0;display:flex;flex-direction:column;gap:7px;max-height:280px;overflow:auto}
+.rc-tour{display:flex;flex-direction:column;gap:2px;border-left:2px solid color-mix(in srgb,var(--c,#4f8cff) 55%,transparent);padding:2px 0 2px 10px}
+.rc-tour[data-qui=lui]{--c:var(--lui)}.rc-tour[data-qui=moi]{--c:var(--moi)}
+.rc-tour small{color:var(--mut2,#9aa1b2);font-size:11.5px}
+.rc-tour .e{font-size:13.5px;overflow-wrap:anywhere}.rc-tour .t{font-size:13.5px;color:#cfe0ff;overflow-wrap:anywhere}
+.rc-resume{display:flex;flex-direction:column;gap:9px;background:#3ecf8e0f;border:1px solid #3ecf8e33;border-radius:14px;padding:13px 15px}
+.rc-resume textarea{min-height:92px;resize:vertical}
+.rc-resume audio{width:100%;height:38px}
+.rc-son{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rc-son audio{flex:1 1 220px;min-width:0;height:40px}
 @keyframes rc-bat{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.6}}
-@media (prefers-reduced-motion:reduce){.rc-voyant.on{animation:none}}
-@media (max-width:480px){.rc-ligne>span:first-child{min-width:0;flex:1 1 100%}.rc-m{padding:12px 14px}.rc-barre{padding:8px}.rc-statut{order:9;flex:1 1 100%;font-size:12.5px}}
+@keyframes rc-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@media (prefers-reduced-motion:reduce){.rc-voyant.on,.rc-rec.on .pt,.rc-etat::before{animation:none}}
+@media (max-width:480px){.rc-ligne>span:first-child{min-width:0;flex:1 1 100%}.rc-m{padding:13px 15px}.rc-barre{padding:9px}.rc-statut{order:9;flex:1 1 100%;font-size:12.5px}}
 `;
 
   // ---------------------------------------------------------------- état, écouteurs
@@ -365,7 +432,8 @@
     const et = el('span', { class: 'rc-etat', role: 'status', 'aria-live': 'polite', lang: l });
     P.ui.etat[qui] = et;
     return el('section', { class: 'rd-g rc-m', 'data-qui': qui, lang: l, 'aria-label': `${qui === 'moi' ? 'Ma moitié' : 'Moitié de l\'interlocuteur'} : ${nomLocal(l)}` },
-      el('div', { class: 'rc-tete' }, el('b', { lang: l }, nomLocal(l)), el('span', { class: 'rc-role', lang: 'fr' }, qui === 'moi' ? 'moi' : 'interlocuteur'), et),
+      el('div', { class: 'rc-tete' }, el('span', { class: 'rc-pers', 'aria-hidden': 'true' }, qui === 'moi' ? '•' : '••'),
+        el('b', { lang: l }, nomLocal(l)), el('span', { class: 'rc-role', lang: 'fr' }, qui === 'moi' ? 'moi' : 'interlocuteur'), et),
       grand, notes, petit, actes, bouton, ecrire);
   }
 
@@ -393,11 +461,16 @@
     const go = el('button', { class: 'rc-go', type: 'button', 'aria-pressed': String(!!P.micro), onclick: () => (P.micro ? arreterMicro('Micro coupé.') : commencer()) }, voyant, goTexte);
     const st = el('span', { class: 'rc-statut', role: 'status', 'aria-live': 'polite' }, P.statut || '');
     const inter = el('button', { class: 'rd-btn n', type: 'button', hidden: !P.voix, onclick: () => arreterVoix() }, 'Interrompre');
+    const vrec = etatRec(P.enr);
+    const actifRec = vrec.actif || (!P.enr.actif && P.enrVoulu);
+    const rec = el('button', { class: `rc-rec${actifRec ? ' on' : ''}`, type: 'button', 'aria-pressed': String(actifRec),
+      title: 'Garder une copie sonore de cette conversation, chiffrée sur la machine', 'aria-label': vrec.bouton + (actifRec ? ' (annoncé)' : ''),
+      onclick: () => basculerEnr() }, el('span', { class: 'pt', 'aria-hidden': 'true' }), actifRec ? 'Enregistrement' : 'Enregistrer');
     Object.assign(P.ui, { voyant, go, goTexte, statut: st, interrompre: inter });
-    return el('div', { class: 'rd-g rc-barre' }, go, st, inter,
+    return el('div', { class: 'rd-g rc-barre' }, go, rec, st, inter,
       el('button', { class: 'rc-ib', type: 'button', title: 'Inverser les deux langues', 'aria-label': 'Inverser les deux langues', onclick: () => regler({ moi: P.reglages.lui, lui: P.reglages.moi }) }, '⇅'),
       el('button', { class: 'rc-ib', type: 'button', title: 'Réglages de la conversation', 'aria-label': 'Réglages de la conversation', 'aria-expanded': String(P.panneau), onclick: () => { P.panneau = !P.panneau; rendre(); } }, '⚙'),
-      el('button', { class: 'rd-btn n', type: 'button', 'aria-expanded': String(P.tiroir), onclick: () => { P.tiroir = !P.tiroir; rendre(); } }, 'Historique'));
+      el('button', { class: 'rd-btn n', type: 'button', 'aria-expanded': String(P.tiroir), onclick: () => { P.tiroir = !P.tiroir; rendre(); } }, 'Conversations'));
   }
 
   function bandeaux() {
@@ -478,43 +551,120 @@
   }
 
   function tiroir() {
-    const corps = el('div', {}, el('p', { class: 'rc-mut' }, 'Chargement…'));
-    const box = el('section', { class: 'rd-g rc-tiroir', 'aria-label': 'Historique de la conversation' },
-      el('div', { class: 'rc-ligne' }, el('b', { style: 'font-size:16px' }, 'Historique'), el('button', { class: 'rd-btn n', type: 'button', style: 'margin-left:auto', onclick: () => { P.tiroir = false; rendre(); } }, 'Fermer')),
+    const corps = el('div', { style: 'display:flex;flex-direction:column;gap:12px' }, el('p', { class: 'rc-mut' }, 'Chargement…'));
+    const box = el('section', { class: 'rd-g rc-liste', 'aria-label': 'Conversations passées' },
+      el('div', { class: 'rc-ligne' }, el('b', { style: 'font-size:16px' }, 'Conversations passées'), el('button', { class: 'rd-btn n', type: 'button', style: 'margin-left:auto', onclick: () => { P.tiroir = false; rendre(); } }, 'Fermer')),
       corps);
     remplirTiroir(corps);
     return box;
   }
 
-  async function remplirTiroir(corps) {
-    const r = await P.act('conv_historique', { n: 200 }).catch(() => null);
-    const d = r?.data ?? { items: [], garde: true, conversations: [] };
-    const items = [...(d.items || [])].sort((a, b) => (a.conv === P.conv ? 0 : 1) - (b.conv === P.conv ? 0 : 1));
-    const courante = P.conv && items.some((i) => i.conv === P.conv);
+  const qui = (q) => (q === 'moi' ? 'Moi' : 'Interlocuteur');
+
+  /** Télécharge un texte en fichier .txt (jamais une fenêtre native : un lien cliqué puis retiré). */
+  function telecharger(texte, nom) {
+    const url = URL.createObjectURL(new Blob([texte], { type: 'text/plain;charset=utf-8' }));
+    const a = el('a', { href: url, download: nom || 'conversation.txt', style: 'display:none' }); document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  /** Les tours d'une conversation, dans la liste (qui a parlé, langues, texte entendu, traduction, heure). */
+  function transcription(tours) {
+    return el('div', { class: 'rc-tours', 'aria-label': 'Transcription' }, ...tours.map((i) => el('div', { class: 'rc-tour', 'data-qui': i.qui === 'moi' ? 'moi' : 'lui' },
+      el('small', {}, `${heureLocale(i.at)} · ${qui(i.qui)} · ${nomFr(i.de)} → ${nomFr(i.vers)}${i.corrige ? ' · corrigé' : ''}`),
+      el('span', { class: 'e', lang: i.de }, i.entendu || ''), el('span', { class: 't', lang: i.vers }, i.traduit || '—'))));
+  }
+
+  /** Le bloc résumé d'une conversation : texte fait par le modèle d'Odin, modifiable et copiable, gardé avec la conversation. */
+  function blocResume(conv) {
+    const ta = el('textarea', { 'aria-label': 'Résumé de la conversation (modifiable)', placeholder: 'Pas encore de résumé.' });
+    const etatR = el('span', { class: 'rc-mut' }, 'Chargement du résumé…');
+    const copier = el('button', { class: 'rc-ib', type: 'button', title: 'Copier le résumé', 'aria-label': 'Copier le résumé', onclick: async (e) => { try { await navigator.clipboard.writeText(ta.value); e.currentTarget.style.color = '#3ecf8e'; } catch { ta.select(); } } }, '⧉');
+    const resumer = el('button', { class: 'rd-btn g', type: 'button', onclick: async () => {
+      resumer.disabled = true; etatR.textContent = 'Odin résume…';
+      const r = await archive('resume', { conv });
+      resumer.disabled = false;
+      if (r && r.ok && typeof r.texte === 'string') { ta.value = r.texte; etatR.textContent = r.modele ? `Résumé par ${r.modele}.` : 'Résumé fait.'; enreg.hidden = false; }
+      else { etatR.textContent = ''; await window.OdinDialog.alert(r?.aide || r?.error || 'Impossible de résumer : aucun modèle d\'Odin configuré.'); }
+    } }, 'Résumer');
+    const enreg = el('button', { class: 'rd-btn', type: 'button', hidden: true, onclick: async () => {
+      const r = await archive('resume-modifier', { conv, texte: ta.value });
+      etatR.textContent = r && r.ok ? 'Modifications enregistrées.' : (r?.error || 'Enregistrement refusé.'); if (r && r.ok) enreg.hidden = true;
+    } }, 'Enregistrer les modifications');
+    ta.addEventListener('input', () => { enreg.hidden = false; });
+    (async () => {
+      const r = await archive('resume-lire', { conv });
+      if (r && r.ok && r.texte) { ta.value = r.texte; etatR.textContent = r.modifie ? 'Résumé modifié par vous.' : 'Résumé gardé.'; }
+      else if (r && r.absent) { etatR.textContent = 'Le résumé n\'est pas encore disponible sur cette machine.'; resumer.disabled = true; }
+      else etatR.textContent = 'Aucun résumé : touchez « Résumer ».';
+    })();
+    return el('div', { class: 'rc-resume', 'aria-label': 'Résumé' },
+      el('div', { class: 'rc-ligne' }, el('b', { style: 'font-size:14px;color:#3ecf8e' }, 'Résumé'), resumer, el('span', { style: 'margin-left:auto' }, copier)),
+      ta, el('div', { class: 'rc-actes' }, enreg, etatR));
+  }
+
+  function carteConv(c, tours) {
+    const ici = c.conv === P.conv, ouverte = P.convOuverte === c.conv;
+    const codes = c.titre ? [] : languesConv(tours);
+    const titre = c.titre || (codes.length >= 2 ? `Conversation ${nomFr(codes[0])} ↔ ${nomFr(codes[1])}` : 'Conversation traduite');
+    const langs = (c.langues && c.langues.length ? c.langues : codes).map(nomFr).join(' ↔ ') || '—';
+    const son = c.son && c.son.existe ? c.son : null;
+    const url = `/api/rodd/archive/son?conv=${encodeURIComponent(c.conv)}`;
+    const sousTitre = `${dateConv(c.debut || (tours[0] && tours[0].at))} · ${langs} · ${c.n || tours.length} tour${(c.n || tours.length) > 1 ? 's' : ''}${son ? ` · son ${libelleTaille(son.octets)}` : ''}${ici ? ' · en cours' : ''}`;
+    const copier = async () => {
+      const x = await P.act('conv_exporter', { conv: c.conv });
+      const texte = x?.data?.texte; if (!texte) { await window.OdinDialog.alert(x?.text || x?.error || 'Rien à copier.'); return; }
+      try { await navigator.clipboard.writeText(texte); statut('Transcription copiée.'); } catch { telecharger(texte, x.data.nom); }
+    };
     const exporter = async () => {
-      const x = await P.act('conv_exporter', courante ? { conv: P.conv } : {});
+      const x = await P.act('conv_exporter', { conv: c.conv });
       if (!x?.data?.texte) { await window.OdinDialog.alert(x?.text || x?.error || 'Rien à exporter.'); return; }
-      const url = URL.createObjectURL(new Blob([x.data.texte], { type: 'text/plain;charset=utf-8' }));
-      const a = el('a', { href: url, download: x.data.nom || 'conversation.txt', style: 'display:none' }); document.body.append(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      telecharger(x.data.texte, x.data.nom || 'conversation.txt');
     };
-    const effacer = async (tout) => {
-      const ok = await window.OdinDialog.confirm(tout ? 'Effacer tout l\'historique des conversations traduites ?' : 'Effacer cette conversation de l\'historique ?', { ok: 'Effacer', danger: true });
+    const supprimer = async () => {
+      const ok = await window.OdinDialog.confirm(`Supprimer cette conversation ?\nSa transcription${son ? ', sa copie sonore' : ''} et son résumé seront effacés, sans retour.`, { ok: 'Supprimer', danger: true });
       if (!ok) return;
-      const x = await P.act('conv_effacer', tout ? {} : { conv: P.conv });
-      statut(x?.text || 'Effacé.'); remplirTiroir(corps);
+      const x = await P.act('conv_effacer', { conv: c.conv });
+      if (P.convOuverte === c.conv) P.convOuverte = null;
+      statut(x?.text || 'Conversation supprimée.'); remplirTiroir(P.ui.listeCorps);
     };
-    const qui = (q) => (q === 'moi' ? 'Moi' : 'Interlocuteur');
+    const tete = el('div', { class: 'rc-conv-h' },
+      el('div', { class: 'meta' }, el('b', {}, titre), el('small', {}, sousTitre)),
+      el('button', { class: 'rd-btn n', type: 'button', 'aria-expanded': String(ouverte), onclick: () => { P.convOuverte = ouverte ? null : c.conv; remplirTiroir(P.ui.listeCorps); } }, ouverte ? 'Fermer' : 'Ouvrir'));
+    const actes = el('div', { class: 'rc-actes' },
+      el('button', { class: 'rd-btn', type: 'button', onclick: copier }, 'Copier'),
+      el('button', { class: 'rd-btn n', type: 'button', onclick: exporter }, 'Exporter'),
+      son ? el('a', { class: 'rd-btn n', href: url, download: `${titre}.wav`, role: 'button' }, 'Télécharger le son') : null,
+      el('button', { class: 'rd-btn n', type: 'button', style: 'margin-left:auto;border-color:#ff6b6b55;color:#ff9a9a', onclick: supprimer }, 'Supprimer'));
+    const detail = ouverte ? el('div', { style: 'display:flex;flex-direction:column;gap:11px' },
+      son ? el('div', { class: 'rc-son' }, el('span', { class: 'rc-mut' }, 'Copie sonore'), el('audio', { controls: 'true', preload: 'none', src: url })) : null,
+      transcription(tours), blocResume(c.conv)) : null;
+    return el('div', { class: `rc-conv${ici ? ' ici' : ''}` }, tete, detail, actes);
+  }
+
+  async function remplirTiroir(corps) {
+    P.ui = P.ui || {}; P.ui.listeCorps = corps;
+    const r = await P.act('conv_historique', { n: 400 }).catch(() => null);
+    const d = r?.data ?? { items: [], garde: true, conversations: [] };
+    const items = d.items || [];
+    const parConv = new Map();
+    for (const i of items) { if (!parConv.has(i.conv)) parConv.set(i.conv, []); parConv.get(i.conv).push(i); }
+    // On part de la liste des conversations du serveur (la plus récente d'abord) ; à défaut, on la déduit des tours.
+    let convs = Array.isArray(d.conversations) && d.conversations.length ? [...d.conversations]
+      : [...parConv.keys()].map((conv) => ({ conv, debut: parConv.get(conv)[0]?.at, n: parConv.get(conv).length }));
+    if (P.conv && !convs.some((c) => c.conv === P.conv) && parConv.has(P.conv)) convs.unshift({ conv: P.conv, debut: parConv.get(P.conv)[0]?.at, n: parConv.get(P.conv).length });
+    convs = convs.sort((a, b) => (a.conv === P.conv ? 0 : 1) - (b.conv === P.conv ? 0 : 1));
+    const effacerTout = async () => {
+      const ok = await window.OdinDialog.confirm('Supprimer toutes les conversations traduites ?\nTranscriptions, copies sonores et résumés seront effacés, sans retour.', { ok: 'Tout supprimer', danger: true });
+      if (!ok) return;
+      const x = await P.act('conv_effacer', {}); P.convOuverte = null;
+      statut(x?.text || 'Tout effacé.'); remplirTiroir(corps);
+    };
     corps.replaceChildren(...enfants(
       d.garde === false ? el('p', { class: 'rc-mut' }, 'L\'historique n\'est pas gardé (réglage « Garder l\'historique »).') : null,
-      items.length ? null : el('p', { class: 'rc-mut' }, 'Aucune phrase traduite pour l\'instant.'),
-      ...items.map((i) => el('div', { class: 'rc-it' },
-        el('small', {}, `${heureLocale(i.at)} · ${qui(i.qui)} · ${nomFr(i.de)} → ${nomFr(i.vers)}${i.conv === P.conv ? ' · cette conversation' : ''}${i.corrige ? ' · corrigé' : ''}`),
-        el('span', { lang: i.de }, i.entendu || ''), el('span', { lang: i.vers, style: 'color:#cfe0ff' }, i.traduit || '—'))),
-      el('div', { class: 'rc-actes', style: 'margin-top:6px' },
-        items.length ? el('button', { class: 'rd-btn', type: 'button', onclick: exporter }, courante ? 'Exporter cette conversation' : 'Exporter') : null,
-        courante ? el('button', { class: 'rd-btn n', type: 'button', onclick: () => effacer(false) }, 'Effacer cette conversation') : null,
-        items.length ? el('button', { class: 'rd-btn n', type: 'button', onclick: () => effacer(true) }, 'Tout effacer') : null)));
+      convs.length ? null : el('p', { class: 'rc-mut' }, 'Aucune conversation gardée pour l\'instant.'),
+      ...convs.map((c) => carteConv(c, parConv.get(c.conv) || [])),
+      convs.length ? el('div', { class: 'rc-actes', style: 'margin-top:4px' }, el('button', { class: 'rd-btn n', type: 'button', onclick: effacerTout }, 'Tout supprimer')) : null));
   }
 
   // ---------------------------------------------------------------- réglages
@@ -545,13 +695,39 @@
   const nouvelleConv = () => { P.conv = `c-${Date.now().toString(36)}`; };
   const assurerConv = () => { if (!P.conv) nouvelleConv(); };
 
+  /** L'état d'enregistrement de la conversation en cours (voyant, place prise), lu auprès du serveur d'archive. */
+  async function chargerEnr() {
+    if (!P.conv) { P.enr = { conv: null, actif: false, peut: true, sonOctets: 0, limite: null }; return; }
+    const r = await archive('etat', { conv: P.conv });
+    if (r && r.ok) P.enr = { conv: P.conv, actif: !!r.enregistre, peut: r.peutEnregistrer !== false, sonOctets: Number(r.sonOctets) || 0, limite: r.limite || null };
+    else P.enr = { conv: P.conv, actif: P.enrVoulu, peut: !(r && r.absent), sonOctets: 0, limite: null };
+  }
+
+  /** Allume ou éteint la copie sonore de CETTE conversation (éteinte par défaut, toujours annoncée par le voyant rouge). */
+  async function basculerEnr() {
+    assurerConv();
+    const vise = !(P.enr.actif || (!P.enr.actif && P.enrVoulu && !P.enr.conv));
+    P.enrVoulu = vise;
+    const r = await archive('enregistrer', { conv: P.conv, actif: vise });
+    if (r && r.ok) { P.enr = { ...P.enr, conv: P.conv, actif: !!r.enregistre }; statut(r.enregistre ? 'Enregistrement : la copie sonore est gardée, chiffrée sur la machine.' : 'Enregistrement arrêté.'); }
+    else if (r && r.absent) { statut('L\'enregistrement n\'est pas encore disponible sur cette machine.'); P.enr = { ...P.enr, actif: false }; P.enrVoulu = false; }
+    else { await window.OdinDialog.alert(r?.error || 'Enregistrement refusé.'); P.enr = { ...P.enr, actif: false }; P.enrVoulu = false; }
+    rendre();
+  }
+
   async function commencer() {
     if (!P.etat.ecoute?.pret) {
       statut(P.navChoisi ? 'Touchez « Parler » dans votre moitié.' : 'Odin ne peut pas écouter : écrivez au clavier, ou voyez le bandeau ci-dessus.');
       return;
     }
     nouvelleConv(); P.vue = { moi: {}, lui: {} }; P.attendu = 'moi'; P.dernierSon = null; P.dernierTour = null; P.horsPaire = null;
-    if (await demarrerMicro()) rendre();
+    P.enr = { conv: P.conv, actif: false, peut: true, sonOctets: 0, limite: null };
+    if (await demarrerMicro()) {
+      // La personne avait demandé l'enregistrement avant de commencer : on l'allume pour cette conversation.
+      if (P.enrVoulu) { const r = await archive('enregistrer', { conv: P.conv, actif: true }); if (r && r.ok) P.enr.actif = !!r.enregistre; }
+      else chargerEnr().then(() => { if (vivant()) rendre(); });
+      rendre();
+    }
   }
 
   async function demarrerMicro() {
