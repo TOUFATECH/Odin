@@ -124,6 +124,27 @@
   /** Le choix de départ (iso / installe) selon le mode choisi dans le détail de la maquette. Pur. */
   function choixDepuisMode(mode) { return mode === 'installer' || mode === 'auto' ? 'installe' : 'iso'; }
 
+  // --- Logiciels à installer à la fin : filtrés par OS (miroir de logiciels-cle.ts côté serveur). Pur. ---
+  /** La famille d'un fichier d'installateur d'après son extension. Pur. */
+  function familleLogicielCle(fichier) {
+    const e = (/\.([a-z0-9]+)$/i.exec(String(fichier || '')) || [])[1];
+    const x = (e || '').toLowerCase();
+    if (['exe', 'msi', 'msix', 'msixbundle', 'appx'].includes(x)) return 'windows';
+    if (x === 'deb') return 'linux-deb';
+    if (x === 'rpm') return 'linux-rpm';
+    if (x === 'flatpakref' || x === 'flatpak') return 'linux-flatpak';
+    if (x === 'appimage') return 'linux-appimage';
+    if (['dmg', 'pkg'].includes(x)) return 'macos';
+    if (x === 'apk') return 'android';
+    if (x === 'zip') return 'archive';
+    return 'autre';
+  }
+  /** L'OS (windows / linux) d'un système côté clé. Pur. */
+  function osDuSystemeCle(sys) {
+    const t = `${(sys && sys.famille) || ''} ${(sys && sys.nom) || ''} ${(sys && sys.fichier) || ''}`.toLowerCase();
+    return (sys && sys.famille === 'windows') || /windows|win\b/.test(t) ? 'windows' : 'linux';
+  }
+
   /** Le descripteur SystemeCle (contrat) envoyé au serveur pour le plan et l'écriture. Pur. */
   function serialiser(s) {
     const o = { nom: s.nom, famille: s.famille, choix: s.choix, mode: s.mode || (s.choix === 'iso' ? 'demarrer' : 'installer') };
@@ -131,6 +152,8 @@
     if (s.persistance) o.persistance = s.persistance;
     if (s.installPartition) o.installPartition = s.installPartition;
     if (s.vmSource) o.vmSource = s.vmSource;
+    // Les logiciels COCHÉS pour CE système (déjà téléchargés, filtrés par OS) : copiés et installés à la fin.
+    if (Array.isArray(s.logiciels) && s.logiciels.length) o.logiciels = s.logiciels.map((l) => ({ id: l.id, fichier: l.fichier, nom: l.nom, silencieux: Boolean(l.silencieux) }));
     return o;
   }
 
@@ -379,6 +402,49 @@
       return grp;
     }
 
+    // Les logiciels DÉJÀ TÉLÉCHARGÉS qui conviennent à l'OS d'un système : Odin les propose, on coche ceux à « coller ».
+    async function chargerLogiciels(sys) {
+      sys._logChargement = true; dessiner();
+      let arr = [];
+      try { const r = await post('cle_logiciels', { os: osDuSystemeCle(sys), famille: sys.famille, nom: sys.nom, serveur: /server|serveur/i.test(sys.nom || '') }); const d = r && r.data; arr = (d && Array.isArray(d.logiciels)) ? d.logiciels : []; }
+      catch { arr = []; }
+      sys._logDispo = arr; sys._logChargement = false; sys._logOuvert = true;
+      dessiner();
+    }
+    function basculerLogiciel(sys, l) {
+      if (!Array.isArray(sys.logiciels)) sys.logiciels = [];
+      const i = sys.logiciels.findIndex((x) => x.fichier === l.fichier);
+      if (i >= 0) sys.logiciels.splice(i, 1); else sys.logiciels.push({ id: l.id, fichier: l.fichier, nom: l.nom, silencieux: Boolean(l.silencieux) });
+      dessiner();
+    }
+
+    // Le groupe LOGICIELS : pour chaque système, les logiciels de son OS (Windows → Windows, Linux → Linux), pris dans
+    // ce qui est déjà téléchargé (Hermès). On coche ceux à coller ; ceux sans mode silencieux connu sont signalés.
+    function groupeLogiciels() {
+      const grp = el('div', { class: 'clc-grp' }, el('h4', {}, 'Logiciels à installer à la fin (par système, filtrés par OS)'));
+      if (!etat.systemes.length) { grp.append(el('p', { class: 'clc-note' }, 'Ajoute d\'abord un système : Odin proposera les logiciels de son OS, pris dans ce qui est déjà téléchargé dans Hermès.')); return grp; }
+      for (const sys of etat.systemes) {
+        const os = osDuSystemeCle(sys), choisis = Array.isArray(sys.logiciels) ? sys.logiciels : [];
+        const tete = el('div', { class: 'clc-sys-h' }, el('b', {}, sys.nom || 'Système'), el('span', { class: 'clc-fam' }, os === 'windows' ? 'Windows' : 'Linux'),
+          el('button', { type: 'button', class: 'clc-pill', style: 'margin-left:auto', onclick: () => chargerLogiciels(sys) }, sys._logOuvert ? 'Relire' : 'Proposer les logiciels'));
+        const bloc = el('div', { class: 'clc-sys' }, tete);
+        if (sys._logChargement) bloc.append(el('p', { class: 'clc-note' }, 'Lecture des logiciels téléchargés…'));
+        else if (sys._logOuvert) {
+          const dispo = Array.isArray(sys._logDispo) ? sys._logDispo : [];
+          if (!dispo.length) bloc.append(el('p', { class: 'clc-note' }, `Aucun logiciel ${os === 'windows' ? 'Windows' : 'Linux'} déjà téléchargé. Télécharge-les dans Hermès (filtre « Système »), puis reviens.`));
+          for (const l of dispo) {
+            const coche = choisis.some((x) => x.fichier === l.fichier);
+            bloc.append(el('label', { class: 'clc-vm' },
+              el('input', { type: 'checkbox', checked: coche, onchange: () => basculerLogiciel(sys, l) }),
+              el('div', { class: 'in' }, el('b', {}, l.nom || l.fichier),
+                el('span', {}, l.silencieux ? 'installé en silencieux à la fin' : `copié, à installer à la main${l.note ? ` — ${l.note}` : ''}`))));
+          }
+        } else bloc.append(el('p', { class: 'clc-note' }, 'Clique « Proposer les logiciels » : Odin montre ceux de cet OS déjà téléchargés.'));
+        grp.append(bloc);
+      }
+      return grp;
+    }
+
     function dessiner() {
       const familles = ['windows', 'linux'];
       const noeuds = [
@@ -395,6 +461,8 @@
           ...etat.systemes.map((s) => carteSysteme(s, { maj: dessiner, retirer: retirerSysteme })),
           el('div', { class: 'clc-sous', style: 'margin-top:10px' },
             ...familles.map((f) => el('button', { type: 'button', class: 'clc-pill', onclick: () => ajouterSysteme(f) }, `+ ${{ windows: 'Windows', linux: 'Linux' }[f]}`)))),
+        // Les logiciels à installer à la fin, par système, filtrés par OS.
+        groupeLogiciels(),
         // Les VM d'Hydre.
         el('div', { class: 'clc-grp' }, el('h4', {}, 'Machines virtuelles (Hydre)', el('button', { type: 'button', class: 'clc-pill', style: 'margin-left:auto', onclick: chargerVms }, 'Lister')),
           el('div', { class: 'clc-vms' }, etat.vms.length
@@ -425,7 +493,7 @@
 
   window.OdinGeneseCleComposer = {
     ouvrir,
-    logique: { cibleDepuis, choix, limites, placeApproxGo, grosDisque, planResume, phraseOk, PHRASE, entreesMenu, serialiser, ORIGINE, TYPE_MENU, reglagesDefaut, familleDuSysteme, choixDepuisMode },
+    logique: { cibleDepuis, choix, limites, placeApproxGo, grosDisque, planResume, phraseOk, PHRASE, entreesMenu, serialiser, ORIGINE, TYPE_MENU, reglagesDefaut, familleDuSysteme, choixDepuisMode, familleLogicielCle, osDuSystemeCle },
     rendu: { carteSysteme, cartePlan },
   };
 })();

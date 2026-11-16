@@ -21,6 +21,7 @@ import { journalDe } from '../base/journal.ts';
 import { Iso } from '../thjalfi/iso.ts';
 import { ProxyDhcp, bootFor, type Firmware } from '../thjalfi/pxe.ts';
 import { debianPreseed, detect, kickstart, menu, odinCmd, silentArgs, ubuntuMetaData, ubuntuUserData, unattend, windowsAfter, winpeshl, type Answer, type Recipe } from '../thjalfi/recipes.ts';
+import { installeAuto } from '../thjalfi/logiciels-cle.ts';
 import { normMac, PxeHttp } from '../thjalfi/server.ts';
 import { DISPOSITIONS, TEXT_THEMES, category, TEXT_THEME_IDS, THEMES, odinSays, systems, textLook, textThemeOf, themeOf, type Disposition, type TextTheme } from '../thjalfi/ecran.ts';
 import { imageKind, textBackground } from '../thjalfi/fond.ts';
@@ -381,7 +382,11 @@ export function thjalfi(): Module {
         try { found = ((await ctx.call('fjalar', 'etat', {}, 'logiciels à installer sur la machine')).data as { fichiers?: typeof found } | undefined)?.fichiers ?? []; } catch { /* Hermès absent */ }
         for (const id of p.logiciels) {
           const f = found.filter((y) => y.source === id).sort((u, v) => (u.version < v.version ? 1 : -1))[0]; if (!f) continue;
-          const file = basename(f.chemin); files[file] = f.chemin; const sa = silentArgs(id, file);
+          const file = basename(f.chemin);
+          // On n'installe en silencieux que les installateurs Windows dont le mode est CONNU : les autres ne sont pas
+          // promis en silencieux (filtrage par OS + mode d'install sûr, logiciels-cle.ts). Les paquets Linux passent, eux, par les paquets du profil.
+          if (installeAuto(id, file) !== 'windows') continue;
+          files[file] = f.chemin; const sa = silentArgs(id, file);
           sw.push({ name: f.nom, url: `${base(ctx)}/logiciel/${x.token}/${encodeURIComponent(file)}`, args: sa.args, msi: sa.msi });
         }
         const all = sessions(ctx); if (all[x.token]) { all[x.token].files = files; saveSessions(ctx, all); }

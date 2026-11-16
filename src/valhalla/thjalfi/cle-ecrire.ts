@@ -16,6 +16,7 @@ import type { Action, ModCtx } from '../types.ts';
 import { journalDe } from '../base/journal.ts';
 import type { TextTheme } from './ecran.ts';
 import { apercu } from './scripts.ts';
+import { installeAuto, logicielsPourSysteme, osDuSysteme, type FicheLog } from './logiciels-cle.ts';
 import { classer, sourceReelle, sourceSimulee, type Disque, type Disques, type SourceDisques } from './disques.ts';
 import { planDualBoot, planRetrait, type Plan } from './cle-plan.ts';
 import { analyserVdisk, type AnalyseVdisk } from './vdisk.ts';
@@ -249,9 +250,12 @@ export async function ecrireCle(
  *  que ventoy.json référence (auto_install). Pur. */
 function scriptsDe(s: SystemeCle, prep: PreparationCle, token: string, o: OptionsEcriture): Record<string, string> {
   const answer = answerDe(prep, o);
-  if (s.recipe.os === 'windows') return apercu({ famille: 'windows', answer, fw: prep.schema === 'mbr' ? 'bios' : 'uefi', opt: { retirerExigences: true, effacerApres: false }, logiciels: prep.logiciels });
+  // Chaque système ne reçoit que SES logiciels (filtrés par OS), et on ne lance en silencieux que ceux dont le mode
+  // est connu : un installateur Windows va au script Windows, un paquet Linux (.deb) aux late-commands Linux ; les
+  // autres sont copiés sur la clé mais pas promis en silencieux (logiciels-cle.ts).
+  if (s.recipe.os === 'windows') return apercu({ famille: 'windows', answer, fw: prep.schema === 'mbr' ? 'bios' : 'uefi', opt: { retirerExigences: true, effacerApres: false }, logiciels: prep.logiciels.filter((l) => installeAuto(l.id, l.fichier) === 'windows') });
   const famille = s.recipe.kind === 'debian' ? 'debian' : s.recipe.kind === 'rhel' ? 'rhel' : 'ubuntu';
-  const scripts = apercu({ famille, answer, token, debsCle: prep.logiciels.map((l) => l.fichier).filter((f) => /\.deb$/i.test(f)) });
+  const scripts = apercu({ famille, answer, token, debsCle: prep.logiciels.filter((l) => installeAuto(l.id, l.fichier) === 'linux').map((l) => l.fichier) });
   // Aligner le nom du kickstart sur le contrat (ventoy.json pointe vers FICHIERS_ODIN.kickstart).
   if (scripts['ks.cfg'] !== undefined) { scripts[FICHIERS_ODIN.kickstart] = scripts['ks.cfg']; delete scripts['ks.cfg']; }
   return scripts;
@@ -311,6 +315,26 @@ export function cleUsb(): { actions: Action[] } {
       params: [{ key: 'fichier', label: 'Nom du fichier', kind: 'text', required: true }],
       words: ['machine virtuelle', 'vhd', 'vhdx', 'vmdk', 'qcow2'],
       run: (_ctx, i) => { const a: AnalyseVdisk = analyserVdisk(String(i.fichier)); return { ok: true, text: a.message, data: a }; },
+    },
+    {
+      id: 'cle_logiciels', label: 'Clé USB : logiciels pour un système', read: true,
+      what: 'Les logiciels DÉJÀ TÉLÉCHARGÉS (bibliothèque d\'Hermès) qui conviennent à l\'OS choisi (Windows pour un système Windows, Linux pour un système Linux) ; chacun est marqué « installé en silencieux à la fin » ou « à installer à la main »',
+      params: [{ key: 'os', label: 'OS (windows ou linux)', kind: 'text', default: '' }, { key: 'famille', label: 'Famille du système', kind: 'text', default: '' }, { key: 'nom', label: 'Nom du système', kind: 'text', default: '' }, { key: 'serveur', label: 'Système serveur', kind: 'boolean', default: false }],
+      words: ['logiciels de la clé', 'logiciels à coller', 'logiciels à installer sur la clé'],
+      run: async (ctx, i) => {
+        const osIn = String(i.os || '').toLowerCase();
+        const cible = osIn === 'windows' || osIn === 'linux'
+          ? { os: osIn as 'windows' | 'linux', serveur: i.serveur === true || i.serveur === 'true' }
+          : osDuSysteme({ famille: String(i.famille || ''), nom: String(i.nom || '') });
+        // Les logiciels téléchargés : la bibliothèque d'Hermès (fjalar). Absent ou vide : aucune promesse, liste vide.
+        let fiches: FicheLog[] = [];
+        try { fiches = (((await ctx.call('fjalar', 'etat', {}, 'logiciels téléchargés à coller sur la clé', { interne: true })).data as { fichiers?: FicheLog[] } | undefined)?.fichiers) ?? []; } catch { /* Hermès absent */ }
+        const dispo = logicielsPourSysteme(fiches, cible);
+        const txt = dispo.length
+          ? dispo.map((d) => `- ${d.nom}${d.version ? ` ${d.version}` : ''} · ${d.silencieux ? 'installé en silencieux à la fin' : `copié, à installer à la main (${d.note ?? d.methode})`}`).join('\n')
+          : `Aucun logiciel ${cible.os} déjà téléchargé. Télécharge-les d'abord dans Hermès (filtre « Système » = ${cible.os === 'windows' ? 'Windows' : 'Linux'}).`;
+        return { ok: true, text: txt, data: { os: cible.os, serveur: cible.serveur, logiciels: dispo } };
+      },
     },
     {
       id: 'cle_retirer', label: 'Clé USB : retirer Odin d\'un disque', quick: false,
