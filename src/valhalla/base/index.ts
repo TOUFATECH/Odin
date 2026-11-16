@@ -184,6 +184,8 @@ export class BaseOdin extends EventEmitter {
   private preparees = new Map<string, Promise<{ nom: string; motDePasse: string }>>(); private ancienne?: boolean;
   private minuterie?: ReturnType<typeof setInterval>; private enCours?: Promise<void>; private arretee = false;
   constructor(home: string, o: OptionsBase = {}) { super(); this.home = home; this.o = o; this.setMaxListeners(50); }
+  /** Complète les options (base préparée avant les applis, pour les réglages : le coffre arrive ensuite). */
+  regler(o: Partial<OptionsBase>): void { this.o = { ...this.o, ...o }; }
 
   /** Une appli (créée une fois) ; elle se branche dès que la base est prête. */
   appli(def: DefAppli, dossier: string): AppliBase {

@@ -30,7 +30,7 @@ import { SignalChannel } from '../bifrost/channels/signal.ts';
 import { WhatsAppChannel } from '../bifrost/channels/whatsapp.ts';
 import { MailChannel } from '../bifrost/channels/mail.ts';
 import { accessUrls, addedNetworks, addNetwork, allowedNetworks, bindHost, ensureTls, plageAutorisable, removeNetwork, servesTls, type TlsMaterial } from '../web/access.ts';
-import { applySettings, detectPreset, PRESETS, type ModelPreset } from '../settings.ts';
+import { applySettings, detectPreset, loadEnvFile, PRESETS, type ModelPreset } from '../settings.ts';
 import { genreOdin, lireGenre } from '../core/genre.ts';
 import { routingReport } from '../providers/journal.ts';
 import { startDraupnir } from '../draupnir/odin.ts';
@@ -39,6 +39,7 @@ import { brancherSources } from '../valhalla/automatismes.ts';
 import { draupnirOf } from '../tools/draupnir.ts';
 import { agendaPourChronos } from '../web/talos-api.ts';
 import { demarrerBaseOdin } from '../valhalla/base/demarrage.ts';
+import { amorcerReglages } from '../reglages-base.ts';
 import { startQuotidien } from '../learn/quotidien.ts';
 import { brainOf } from '../tools/brain.ts';
 import { codexToken, finishCodexLogin, listenCodexCallback, loadCodexAuth, removeCodexAuth, startCodexLogin, startDeviceLogin, waitDeviceLogin } from '../providers/codex.ts';
@@ -212,12 +213,20 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   let gw: Gateway | undefined;
   const send = (ch: string, peer: string, text: string, opts?: { secret?: boolean }) => gw!.send(ch, peer, text, opts);
   let odin: Odin;
+  // Les réglages d'abord : Odin joint sa base (Alexandrie) et y lit ses réglages, puis démarre le reste.
+  // Base absente : la dernière copie locale sert (alerte ci-dessous).
+  // (avant initHome : un dossier neuf ne doit pas envoyer une config par défaut par-dessus celle de la base ; clés
+  // d'API chargées d'abord : aucune ne doit partir dans la base)
+  try { loadEnvFile(odinPaths()); } catch { /* pas encore de clés */ }
+  const amorce = await amorcerReglages(odinPaths().home);
   try { odin = createOdin({ provider: demo ? demoProvider() : undefined, send }); if (demo) odin.demo = true; } catch (e) {
     if (!/Aucun fournisseur/.test((e as Error).message)) throw e;
     console.log(c.yellow('Aucun modèle configuré : démarrage en mode démo. Ouvre l\'interface web, onglet Réglages, pour en choisir un.'));
     odin = createOdin({ provider: demoProvider(), send });
     odin.demo = true;
   }
+  // Les réglages de la mémoire (réveil…) mis d'accord avec la base.
+  await amorce.brancherMemoire(odin.muninn);
   // Sans modèle : le cerveau de secours répond (mémoire, rappels, réseau…), pas un simple écho.
   if (odin.demo) odin.agent.deps.offlineOnly = true;
   const owners: Record<string, string[]> = {};
@@ -271,10 +280,11 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
   // Talos voit tout : tâches planifiées, automatisations, rappels de la passerelle (Telegram d'abord) et l'agenda de Chronos.
   brancherSources({ jobs: odin.muninn, flows: () => draupnirOf(), rappels: { programmer: (t, q) => gw!.rappelProprietaire(t, q), annuler: (id) => odin.muninn.removeJob(id) }, moyen: () => gw!.nomMoyenProprietaire(), agenda: agendaPourChronos(odin) });
   // La base d'Odin (PostgreSQL géré par Alexandrie) : les données des applis ; préparée en arrière-plan.
-  const stopBase = demarrerBaseOdin(odin.paths.home, valhallaOf());
+  const stopBase = demarrerBaseOdin(odin.paths.home, valhallaOf(), { base: amorce.base });
+  amorce.brancherAlertes((a) => valhallaOf()?.ctx('urdr').alert(a));
   // Le Quotidien du Cerveau : ce qu'Odin sait refaire sans IA, en notes reliées aux applis (remises à jour au démarrage).
   const stopQuotidien = startQuotidien({ vault: brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }), kv: odin.muninn, app: (ref) => valhallaOf()?.module(ref)?.name, redact: (t) => odin.redactor.redact(t) }, (line) => console.log(line));
-  const shutdown = async () => { stopQuotidien(); stopValhalla(); await stopBase(); stopDraupnir(); await gw!.stop(); odin.close(); };
+  const shutdown = async () => { amorce.arreter(); stopQuotidien(); stopValhalla(); await stopBase(); stopDraupnir(); await gw!.stop(); odin.close(); };
   // Rechargement demandé par l'onglet Réglages : on arrête tout puis on relance avec la nouvelle config.
   let reloading = false;
   const reload = async () => {
@@ -287,6 +297,8 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
       process.exit(1);
     }
   };
+  // La base revient après un démarrage sur la copie locale et change des réglages : les services sont relancés avec eux.
+  amorce.surChangement((cles) => { console.log(c.dim(`[réglages] relus dans la base : ${cles.join(', ')}`)); void reload(); });
   if (odin.cfg.web.enabled || openBrowser) {
     owners.web = ['*']; // quiconque détient le jeton local est le propriétaire
     const w = odin.cfg.web;

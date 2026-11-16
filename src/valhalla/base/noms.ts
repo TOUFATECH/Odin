@@ -11,6 +11,8 @@ export const AUTRES_NOMS: Record<string, string> = {
   mascotte: 'Mascotte',
   // journaux dont l'appli n'est pas connue (essais, anciens noms)
   journaux: 'Journaux',
+  // Odin lui-même : ses réglages et ceux des applis (base ODIN_ODIN, reglages-base.ts)
+  odin: 'Odin',
 };
 
 /** Le nom affiché d'une appli (ou son identifiant s'il n'est connu nulle part). */

@@ -15,6 +15,8 @@ import { refusAppli } from './sso/acces.ts';
 import { Journal } from './base/journal.ts';
 import { noterEchange, numeroEchange, type Echange } from './echanges.ts';
 import { Automatismes } from './automatismes.ts';
+import { enClair, fermer, migrerAppli, ouvrir, privesAppli } from '../prive.ts';
+import { reglageFichierEcrit } from '../reglages-note.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -67,11 +69,17 @@ export class Valhalla {
     const have = this.ctxs.get(id); if (have) return have;
     const dir = join(this.dir, id); mkdirSync(dir, { recursive: true });
     const sf = join(dir, 'réglages.json');
-    const settings: Record<string, unknown> = existsSync(sf) ? JSON.parse(readFileSync(sf, 'utf8')) : {};
+    // Les valeurs privées (position de la maison…) sont chiffrées dans le fichier, déchiffrées ici, en mémoire.
+    const home = join(this.dir, '..'), prives = privesAppli(id);
+    const brut: Record<string, unknown> = existsSync(sf) ? JSON.parse(readFileSync(sf, 'utf8')) : {};
+    const settings: Record<string, unknown> = prives.length ? ouvrir(home, brut) : brut;
+    // Écriture sûre : le dossier est recréé s'il a disparu, et le fichier est remplacé d'un coup (jamais à moitié écrit).
+    // Puis la base d'Odin (Alexandrie) en garde une copie quand elle est branchée (reglages-base.ts).
+    const ecrire = () => { mkdirSync(dir, { recursive: true }); const tmp = `${sf}.tmp`; writeFileSync(tmp, JSON.stringify(prives.length ? fermer(home, settings, prives) : settings, null, 2), { mode: 0o600 }); renameSync(tmp, sf); reglageFichierEcrit(home, sf); };
+    if (prives.length && enClair(brut, prives)) { migrerAppli(id, settings); try { ecrire(); } catch { /* relu en clair, chiffré au prochain enregistrement */ } }
     const c: ModCtx = {
-      home: join(this.dir, '..'), dir, settings,
-      // Écriture sûre : le dossier est recréé s'il a disparu, et le fichier est remplacé d'un coup (jamais à moitié écrit).
-      saveSettings: (patch) => { Object.assign(settings, patch); mkdirSync(dir, { recursive: true }); const tmp = `${sf}.tmp`; writeFileSync(tmp, JSON.stringify(settings, null, 2), { mode: 0o600 }); renameSync(tmp, sf); },
+      home, dir, settings,
+      saveSettings: (patch) => { Object.assign(settings, patch); ecrire(); },
       alert: (a) => this.alert(id, a),
       emit: (type, data = {}) => { this.events.emit('event', { module: id, type, data, at: (this.deps.now?.() ?? new Date()).toISOString() }); },
       run: this.deps.run ?? run,
@@ -274,7 +282,7 @@ export class Valhalla {
   ack(ids: string[]): void { const s = this.acked(); for (const i of ids) s.add(i); writeFileSync(join(this.dir, 'alertes-vues.json'), JSON.stringify([...s].slice(-5000))); }
 
   settings(): Record<string, unknown> { try { return JSON.parse(readFileSync(join(this.dir, 'réglages.json'), 'utf8')); } catch { return {}; } }
-  saveSettings(patch: Record<string, unknown>): void { writeFileSync(join(this.dir, 'réglages.json'), JSON.stringify({ ...this.settings(), ...patch }, null, 2)); }
+  saveSettings(patch: Record<string, unknown>): void { const f = join(this.dir, 'réglages.json'); writeFileSync(f, JSON.stringify({ ...this.settings(), ...patch }, null, 2)); reglageFichierEcrit(join(this.dir, '..'), f); }
 
   // ---------------- Choisir le module pour un besoin (sans IA : mots-clés)
   find(need: string): Array<{ m: Module; score: number; action?: Action }> {

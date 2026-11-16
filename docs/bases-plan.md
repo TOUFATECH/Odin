@@ -94,14 +94,16 @@ N = normal.
 | Hringhorni, Ymir | état des conteneurs et machines, images | P ; G | J | N | fichiers : nécessaires pour démarrer la base elle-même |
 | Sól, Leikvangr, Bragi, Himinbjörg, Dvalinn, Skíðblaðnir, Champollion | index de médias, dépôts, clips, photos, fichiers synchronisés | G | J | Pr | fichiers (binaires) ; index → base plus tard |
 | Mesures (`metrics.ts`) | courbes | M | C | N | base plus tard (séries) |
-| Réglages de toutes les applis (`réglages.json`) | réglages | P | R | N/S | **fichier** : lus au démarrage, avant que la base existe |
+| Réglages d'Odin et des applis (`config.json`, `réglages.json`, réglages de la mémoire : réveil…) | réglages | P | R | N/Pr/S | **base** `ODIN_ODIN` (table `reglages.reglages`, §12) ; le fichier reste comme copie de secours ; réglages d'une appli qui garde des secrets : fichier seulement |
 
 ## 4. Ce qui RESTE en fichier, et pourquoi
 
 1. **Secrets et clés** : mots de passe des bases, coffre, clés de signature, jetons, clés ACME, empreintes de mots de
    passe de Persona → coffre ou fichiers bloqués (`SECRET_FILES`), **jamais en clair en base**.
-2. **Réglages de démarrage** : `réglages.json` de chaque appli, `bases.json`, `base-odin.json`, état de Hringhorni —
-   il faut les lire **avant** que la base existe (et pour la faire démarrer).
+2. **Ce qu'il faut pour joindre la base** (l'amorce) : `base-odin.json` (où est le serveur), `bases.json`, les mots de
+   passe des bases (`secrets.json`, fichier bloqué), état de Hringhorni. Les **réglages** eux-mêmes sont dans la base
+   depuis le 16/11/2026 (décision du propriétaire : « au démarrage, ils lisent Alexandrie avant de démarrer », §12) ;
+   leurs fichiers restent comme **copie de secours**, tenue à jour à chaque enregistrement.
 3. **Gros fichiers binaires** : archives d'Arche, photos, clips, tuiles, ISO, documents, médias.
 4. **Le journal d'attente** (`.attente-base.jsonl`) : les écritures pas encore parties dans la base.
 5. **La copie de secours** (`avant-base-<date>/`) : les fichiers d'avant la migration, pour le retour.
@@ -227,3 +229,36 @@ Aucun SQLite (seul `muninn/migrate.ts` sait lire l'ancien `odin.db`, pour le con
 **Vénus** (`freyja`, base prévue `VENUS_ODIN`) : dans Odin, Vénus n'a que des réglages et des médias (fichiers). Le
 serveur Venus (dépôt à part) doit, s'il garde des données, demander sa base à Alexandrie sous ce nom ; Odin la lira
 alors comme les autres (`base_lire`, appli « Vénus »).
+
+## 12. Les réglages dans Alexandrie (16/11/2026) — `src/reglages-base.ts`
+
+Décision du propriétaire : « C'est possible de mettre les réglages dans Alexandrie. Au démarrage, ils lisent Alexandrie
+avant de démarrer. »
+
+- **Où** : la base d'Odin lui-même, `ODIN_ODIN` (`nomBase('odin')`, compte du même nom), schéma `reglages`, table
+  `reglages(cle text PK, valeur jsonb, maj timestamptz, empreinte text)` ; vue `v_reglages(cle, maj)` pour
+  `odin_lecture` (sans les valeurs). Clés : `config.json`, `valhalla/réglages.json`, `valhalla/<appli>/réglages.json`,
+  `memoire:<clé>` (réveil `alarm`, `discretion`, `cerveau-liens-actif`, `dry-run`).
+- **Démarrage** (`odin gateway` / `odin web`, `src/cli/main.ts`) : `amorcerReglages()` prépare la base (la même
+  `BaseOdin`, reprise ensuite par `demarrerBaseOdin`), attend qu'elle réponde (20 s si elle a déjà servi, 3 s sinon),
+  lit les réglages, les recopie dans les fichiers, PUIS `createOdin()` démarre le reste (qui lit les fichiers comme
+  avant). Les réglages de la mémoire sont mis d'accord juste après l'ouverture de la mémoire.
+- **Enregistrement** : `setConfigValue`, `saveSettings` des applis et de Valhalla, `setKv` des réglages de la mémoire
+  écrivent le fichier puis le signalent (`reglages-note.ts`) ; le réglage part dans la base par le journal d'attente
+  (`reglages-base/.attente-base.jsonl`) : base arrêtée, rien n'est perdu.
+- **Qui fait foi** : la base. Exception : un fichier plus récent que la base (modifié à la main, ou par une commande
+  `odin …` lancée sans la passerelle) y est envoyé au lieu d'être écrasé. Comparaison par empreinte du contenu
+  déchiffré, clés triées ; la plus récente gagne aussi dans la base (`maj`).
+- **Base absente au démarrage** (pas installée, panne) : Odin démarre avec la copie locale et l'alerte « Réglages lus
+  dans la copie locale » (Alexandrie). Quand la base revient : ce qui attendait part, la base fait foi, la copie est
+  resynchronisée ; si des réglages ont changé, les services sont relancés ; l'alerte se referme (« de nouveau dans la
+  base »). `ODIN_BASE=non` : tout reste en fichiers, comme avant.
+- **Migration** : au premier démarrage avec la base, les réglages des fichiers y sont copiés (les fichiers restent).
+- **Jamais de secret** : les réglages des applis qui gardent des secrets (inventaire : raison « secret » — Persona,
+  Thésauros, Bifröst, Hermod, Zéphyr…) restent seulement en fichier ; tout réglage qui contient un mot de passe, un
+  jeton, une empreinte (`hash`) ou une valeur de clé d'API connue de l'environnement d'Odin n'est pas envoyé.
+- **Données privées chiffrées** (`src/prive.ts`, clé de la machine du coffre : `chiffrerChamp`) : propriétaires des
+  messageries (identifiants Telegram, numéros, adresses), numéro Signal, `phoneId` WhatsApp, compte mail et agenda,
+  numéros du réveil, position de la maison (Hestia, arrondie à ~100 m), positions de la famille (`positions.json`
+  chiffré entier) ; en fichier, dans les copies d'annulation (`undo/*.bak`) et dans la base. Odin les lit déchiffrées en
+  mémoire. Les valeurs déjà en clair sont chiffrées au premier démarrage (`prive-migration.ts`).

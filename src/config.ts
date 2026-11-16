@@ -3,6 +3,9 @@
 // nom de la variable d'environnement qui les contient (apiKeyEnv).
 
 import { rememberBefore } from './undo.ts';
+import { enClair, fermer, ouvrir, PRIVES_CONFIG } from './prive.ts';
+import { chiffrerUndo } from './prive-migration.ts';
+import { reglageFichierEcrit } from './reglages-note.ts';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -385,7 +388,11 @@ export function validateConfig(c: OdinConfig): string[] {
 }
 
 export function loadConfig(paths: OdinPaths): OdinConfig {
-  const raw = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8').replace(/^\uFEFF/, '')) : {};
+  const brut = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8').replace(/^\uFEFF/, '')) as Record<string, unknown> : {};
+  // Les valeurs priv\u00E9es (num\u00E9ros, adresses, identifiants) sont chiffr\u00E9es dans le fichier : d\u00E9chiffr\u00E9es ici, en m\u00E9moire.
+  // Encore en clair (ancien Odin, fichier modifi\u00E9 \u00E0 la main) : chiffr\u00E9es dans le fichier tout de suite.
+  if (enClair(brut, PRIVES_CONFIG)) chiffrerConfigPrivee(paths, brut);
+  const raw = ouvrir(paths.home, brut);
   const cfg = merge(DEFAULT_CONFIG, raw);
   // Odin répond à voix haute tant que tu ne l'as pas coupé toi-même dans Réglages → Voix
   if (!cfg.voice.speakRepliesChosen) cfg.voice.speakReplies = true;
@@ -434,7 +441,10 @@ export function initHome(paths: OdinPaths): string[] {
 
 /** Modifie une clé de config.json (ex. ['network','enabled'], true) en gardant le reste. */
 export function setConfigValue(paths: OdinPaths, keyPath: string[], value: unknown): void {
-  const raw = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8').replace(/^\uFEFF/, '')) as Record<string, unknown> : {};
+  const brut = existsSync(paths.config) ? JSON.parse(readFileSync(paths.config, 'utf8').replace(/^\uFEFF/, '')) as Record<string, unknown> : {};
+  // Avant la copie d'annulation : plus rien de priv\u00E9 en clair dans le fichier (la copie le recopie tel quel).
+  if (enClair(brut, PRIVES_CONFIG)) chiffrerConfigPrivee(paths, brut);
+  const raw = ouvrir(paths.home, brut);
   let node: Record<string, unknown> = raw;
   for (const k of keyPath.slice(0, -1)) node = (node[k] ??= {}) as Record<string, unknown>;
   node[keyPath[keyPath.length - 1]] = value;
@@ -443,5 +453,18 @@ export function setConfigValue(paths: OdinPaths, keyPath: string[], value: unkno
   if (errs.length) throw new Error(errs.join('\n'));
   // Annulable : l'ancienne configuration est gardée (undo_recent / undo_apply).
   rememberBefore(paths.home, 'réglages', paths.config, `réglage ${keyPath.join('.')}`);
-  writeFileSync(paths.config, JSON.stringify(raw, null, 2), { mode: 0o600 });
+  writeFileSync(paths.config, JSON.stringify(fermer(paths.home, raw, PRIVES_CONFIG), null, 2), { mode: 0o600 });
+  // La base d'Odin (Alexandrie) garde aussi ce réglage, quand elle est branchée (reglages-base.ts).
+  reglageFichierEcrit(paths.home, paths.config);
+}
+
+/** Les erreurs d'un contenu de config.json (déchiffré) : vide = utilisable (réglages relus dans la base d'Odin). */
+export function erreursConfig(raw: unknown): string[] { try { return validateConfig(merge(DEFAULT_CONFIG, raw)); } catch (e) { return [(e as Error).message]; } }
+
+/** Migration : les valeurs privées encore en clair de config.json (et de ses copies d'annulation) sont chiffrées. */
+function chiffrerConfigPrivee(paths: OdinPaths, brut: Record<string, unknown>): void {
+  try {
+    writeFileSync(paths.config, JSON.stringify(fermer(paths.home, brut, PRIVES_CONFIG), null, 2), { mode: 0o600 });
+    chiffrerUndo(paths.home);
+  } catch (e) { console.error(`[réglages] valeurs privées de config.json pas encore chiffrées : ${(e as Error).message}`); }
 }

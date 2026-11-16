@@ -2,27 +2,32 @@
 // nuit (chiffrée). Son état va dans le fil d'alertes (Alexandrie) : « pas prête », « de nouveau prête ».
 // `ODIN_BASE=non` : pas de base (les applis restent en fichiers).
 import type { Valhalla } from '../service.ts';
-import { BaseOdin, utiliserBase } from './index.ts';
+import { BaseOdin, baseOdin, utiliserBase } from './index.ts';
 import { cleSauvegardes, sauvegardes, sauvegarder } from './sauvegarde.ts';
 import { tacheEnPause } from '../automatismes.ts';
 
-export function demarrerBaseOdin(home: string, v?: Valhalla, o: { log?: (t: string) => void } = {}): () => Promise<void> {
-  if (/^(non|0|false|off)$/i.test(process.env.ODIN_BASE ?? '')) return async () => {};
+// `base` : la base déjà préparée au démarrage pour lire les réglages (reglages-base.ts) : elle est reprise, pas recréée.
+export function demarrerBaseOdin(home: string, v?: Valhalla, o: { log?: (t: string) => void; base?: BaseOdin } = {}): () => Promise<void> {
+  if (!o.base && /^(non|0|false|off)$/i.test(process.env.ODIN_BASE ?? '')) return async () => {};
   const log = o.log ?? ((t: string) => console.log(`[base] ${t}`));
   const ctx = v?.ctx('urdr');
   const coffre = ctx ? async (nom: string, identifiant: string, mdp: string, site: string) => {
     const r = await ctx.call('brisingamen', 'ajouter', { nom, identifiant, mot_de_passe: mdp, site, coffre: 'TOUFATECH' }, 'ranger le mot de passe de la base d\'Odin', { interne: true });
     if (r.ok === false) throw new Error(r.text);
   } : undefined;
-  const b = new BaseOdin(home, { coffre, log });
+  const b = o.base ?? new BaseOdin(home, { coffre, log });
+  if (o.base) o.base.regler({ coffre, log });
   let vue = 0;
-  b.on('etat', (etat: string, message: string) => {
+  const surEtat = (etat: string, message: string) => {
     if (!ctx) return;
     if (etat === 'prete') { if (vue) ctx.alert({ level: 'info', title: 'Base d\'Odin de nouveau prête', detail: message, key: 'base:etat' }); vue = 0; }
     else { vue ||= Date.now(); ctx.alert({ level: etat === 'perdue' ? 'haute' : 'moyenne', title: 'Base d\'Odin pas prête', detail: message, steps: ['Odin marche quand même : les écritures des applis attendent sur le disque.', 'Regarde l\'état de la base dans Alexandrie (« état de la base d\'Odin »).', 'PostgreSQL de la machine : « systemctl status postgresql ».'], key: 'base:etat' }); }
-  });
-  utiliserBase(b);
-  void b.demarrer();
+  };
+  b.on('etat', surEtat);
+  if (baseOdin() !== b) utiliserBase(b);
+  // Base reprise : elle tourne déjà (son état « pas prête » a pu être annoncé avant que les alertes existent).
+  if (o.base) { if (b.etat === 'absente' || b.etat === 'perdue') surEtat(b.etat, b.message); }
+  else void b.demarrer();
   // Chaque heure : une sauvegarde chiffrée si la dernière a plus d'un jour. Visible dans Talos (tâche d'Alexandrie :
   // lancer maintenant, pause), une seule à la fois.
   let enCours: Promise<string> | undefined;

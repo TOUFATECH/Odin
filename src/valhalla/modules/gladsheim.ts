@@ -12,6 +12,7 @@ import type { ModCtx, Module, Param, Tone } from '../types.ts';
 import { valhallaOf } from '../odin.ts';
 import { homeDevices } from './midgard.ts';
 import { nourrir, oublier } from '../gna/historique.ts';
+import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../prive.ts';
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
 
 const s = (v: unknown) => String(v ?? '');
@@ -47,7 +48,9 @@ export function famille(dossier: string): Array<{ id: string; name: string; user
   try { const l = (JSON.parse(readFileSync(f, 'utf8')) as { members?: Member[] }).members; return (Array.isArray(l) ? l : []).filter((m) => m && typeof m.id === 'string').map((m) => ({ id: m.id, name: String(m.name ?? ''), user: String(m.user ?? '') })); } catch { return undefined; }
 }
 const fixesFile = (ctx: ModCtx) => join(ctx.dir, 'positions.json');
-function readFixes(ctx: ModCtx): Record<string, Fix[]> { try { return JSON.parse(readFileSync(fixesFile(ctx), 'utf8')) as Record<string, Fix[]>; } catch { return {}; } }
+// Les positions de la famille : fichier chiffré avec la clé de la machine (jamais en clair sur le disque).
+function readFixes(ctx: ModCtx): Record<string, Fix[]> { return lireFichierPrive<Record<string, Fix[]>>(ctx.home, fixesFile(ctx)) ?? {}; }
+const writeFixes = (ctx: ModCtx, all: Record<string, Fix[]>) => ecrireFichierPrive(ctx.home, fixesFile(ctx), all);
 /** Positions gardées `days` jours (1 par défaut), puis effacées. */
 function keepDays(ctx: ModCtx) { return Math.max(1, Math.min(30, Number(ctx.settings.positionsJours) || 1)); }
 /** OwnTracks (mode HTTP) : identifiants Basic d'un membre → le membre, ou rien. */
@@ -68,7 +71,7 @@ export function recordFix(ctx: ModCtx, m: Member, body: Record<string, unknown>,
     nourrir(trajetsDir(ctx), m.id, { t: f.at, lat: f.lat, lon: f.lon, ...(f.acc !== undefined ? { acc: f.acc } : {}), ...(vel !== undefined ? { vel } : {}), ...(alt !== undefined ? { alt } : {}) }, now);
   }
   for (const k of Object.keys(all)) { all[k] = all[k].filter((x) => x.at >= limit); if (!all[k].length || !members(ctx).some((x) => x.id === k)) delete all[k]; }
-  try { mkdirSync(ctx.dir, { recursive: true }); writeFileSync(fixesFile(ctx), JSON.stringify(all)); } catch { /* disque plein */ }
+  try { mkdirSync(ctx.dir, { recursive: true }); writeFixes(ctx, all); } catch { /* disque plein */ }
   return members(ctx).filter((x) => x.id !== m.id && all[x.id]?.length).flatMap((x) => { const f = all[x.id].at(-1)!; return [{ _type: 'card', tid: x.tid, name: x.name }, { _type: 'location', tid: x.tid, lat: f.lat, lon: f.lon, tst: Math.round(f.at / 1000), ...(f.acc ? { acc: f.acc } : {}), ...(f.batt !== undefined ? { batt: f.batt } : {}) }]; });
 }
 /** La dernière position de chaque membre (pour l'écran de la maison et la mascotte). */
@@ -197,7 +200,7 @@ export async function changerLieu(ctx: ModCtx, ville: string): Promise<Lieu & { 
   const v = ville.replace(/\s+/g, ' ').trim().slice(0, 80); if (!v) throw new Error('dis-moi le nom du village ou de la ville (par exemple « ma ville est Dembéni »)');
   let l: Lieu[]; try { l = await trouverLieux(ctx, v); } catch { throw new Error('je n\'arrive pas à chercher ce lieu pour l\'instant (pas d\'Internet ?) : le lieu n\'a pas changé'); }
   const g = l[0]; if (!g) throw new Error(`je ne trouve pas « ${v} » : vérifie l'orthographe, ou précise le pays (« ${v}, Mayotte »)`);
-  ctx.saveSettings({ ville: v, villeNom: g.nom, lat: g.lat, lon: g.lon, precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined;
+  ctx.saveSettings({ ville: v, villeNom: g.nom, lat: arrondirPosition(g.lat), lon: arrondirPosition(g.lon), precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined;
   publierLieu(ctx); lieuChange?.(g);
   return { ...g, autres: l.slice(1, 5) };
 }
@@ -206,8 +209,10 @@ export async function changerPosition(ctx: ModCtx, lat: number, lon: number, pre
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new Error('position illisible : la latitude va de -90 à 90, la longitude de -180 à 180');
   const la = Math.round(lat * 1e5) / 1e5, lo = Math.round(lon * 1e5) / 1e5, n = await nommerPosition(ctx, la, lo);
   const nom = n?.nom ?? `Position ${la.toFixed(3)}, ${lo.toFixed(3)}`, p = precision !== undefined && Number.isFinite(precision) && precision >= 0 ? Math.round(precision) : undefined;
-  ctx.saveSettings({ ville: nom, villeNom: nom, lat: la, lon: lo, precisionM: p ?? '', suppose: '', ...nouveauPays(ctx, n?.pays), ...(n?.pays ? { pays: n.pays } : {}) }); wx = undefined;
-  const g: Lieu = { nom, lat: la, lon: lo, ...(n?.pays ? { pays: n.pays } : {}), ...(n?.region ? { region: n.region } : {}) };
+  // Le village est nommé d'après la position exacte, mais seule une position arrondie à ~100 m est gardée (chiffrée).
+  const ga = arrondirPosition(la), go = arrondirPosition(lo);
+  ctx.saveSettings({ ville: nom, villeNom: nom, lat: ga, lon: go, precisionM: p ?? '', suppose: '', ...nouveauPays(ctx, n?.pays), ...(n?.pays ? { pays: n.pays } : {}) }); wx = undefined;
+  const g: Lieu = { nom, lat: ga, lon: go, ...(n?.pays ? { pays: n.pays } : {}), ...(n?.region ? { region: n.region } : {}) };
   publierLieu(ctx); lieuChange?.(g);
   return { ...g, ...(p !== undefined ? { precision: p } : {}), nomme: Boolean(n) };
 }
@@ -231,7 +236,7 @@ export async function weather(ctx: ModCtx, fresh = false): Promise<Weather | und
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || !ctx.settings.lat) {
       const g = (await trouverLieux(ctx, s(ctx.settings.ville) || LIEU_PAR_DEFAUT))[0];
       if (!g) throw new Error(`lieu introuvable : ${place}`);
-      lat = g.lat; lon = g.lon; place = g.nom; ctx.saveSettings({ lat, lon, villeNom: g.nom, ...(g.fuseau ? { fuseau: g.fuseau } : {}) });
+      lat = g.lat; lon = g.lon; place = g.nom; ctx.saveSettings({ lat: arrondirPosition(lat), lon: arrondirPosition(lon), villeNom: g.nom, ...(g.fuseau ? { fuseau: g.fuseau } : {}) });
     }
     wx = await previsions(ctx, lat, lon, place);
     if (wx.fuseau && wx.fuseau !== s(ctx.settings.fuseau)) { ctx.saveSettings({ fuseau: wx.fuseau }); publierLieu(ctx); }
@@ -361,7 +366,7 @@ export const gladsheim: Module = {
         else if (ou) { await changerLieu(ctx, ou); comment = 'lieu que tu m' + "'" + 'as donné'; }
         else {
           const g = await lieuDeLaConnexion(ctx);
-          if (g) { ctx.saveSettings({ ville: g.nom, villeNom: g.nom, lat: g.lat, lon: g.lon, precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined; publierLieu(ctx); lieuChange?.(g); comment = 'd' + "'" + 'après ma connexion Internet : c' + "'" + 'est approximatif, dis « ma ville est … » si le village n' + "'" + 'est pas le bon'; }
+          if (g) { ctx.saveSettings({ ville: g.nom, villeNom: g.nom, lat: arrondirPosition(g.lat), lon: arrondirPosition(g.lon), precisionM: '', suppose: '', ...nouveauPays(ctx, g.pays), ...(g.pays ? { pays: g.pays } : {}), ...(g.fuseau ? { fuseau: g.fuseau } : {}) }); wx = undefined; publierLieu(ctx); lieuChange?.(g); comment = 'd' + "'" + 'après ma connexion Internet : c' + "'" + 'est approximatif, dis « ma ville est … » si le village n' + "'" + 'est pas le bon'; }
           else if (supposerLieu(ctx, undefined, true)) { publierLieu(ctx); comment = 'd' + "'" + 'après l' + "'" + 'horloge de la machine, faute de réponse du service de localisation'; }
           else throw new Error('je n' + "'" + 'arrive pas à me localiser ' + accord('tout seul', 'toute seule') + ' (pas de réponse du service, et l' + "'" + 'horloge de la machine ne dit pas où je suis) : dis-moi « configure-toi pour Paris » ou « ma ville est … »');
         }
@@ -418,7 +423,7 @@ export const gladsheim: Module = {
     }, undo: (i) => ({ action: 'retirer_membre', input: { nom: i.nom }, label: 'Retirer le membre' }) },
     { id: 'retirer_membre', label: 'Retirer un membre', what: 'Ses identifiants ne marchent plus et ses positions sont effacées', quick: false, params: [{ key: 'nom', label: 'Prénom', kind: 'text', required: true }], run: (ctx, i) => {
       const m = members(ctx).find((x) => x.name.toLowerCase() === s(i.nom).trim().toLowerCase()); if (!m) throw new Error('membre introuvable');
-      ctx.saveSettings({ members: members(ctx).filter((x) => x.id !== m.id) }); const all = readFixes(ctx); delete all[m.id]; try { writeFileSync(fixesFile(ctx), JSON.stringify(all)); } catch { /* */ }
+      ctx.saveSettings({ members: members(ctx).filter((x) => x.id !== m.id) }); const all = readFixes(ctx); delete all[m.id]; try { writeFixes(ctx, all); } catch { /* */ }
       oublier(trajetsDir(ctx), m.id, true);   // et son historique de trajets (Ulysse), avec ses choix
       return { text: `🗑 ${m.name} retiré ; ses positions sont effacées.` };
     } },

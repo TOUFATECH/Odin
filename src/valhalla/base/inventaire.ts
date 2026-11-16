@@ -9,7 +9,7 @@ export type Support = 'base' | 'fichiers';
 /** Pourquoi une donnée reste en fichier (docs/bases-plan.md §4). */
 export type Raison = 'reglages' | 'secret' | 'binaire' | 'demarrage' | 'coeur' | 'a-faire';
 export const RAISONS: Record<Raison, string> = {
-  reglages: 'réglages lus au démarrage, avant que la base existe',
+  reglages: 'réglages : rangés dans la base d\'Odin (ODIN_ODIN, table reglages.reglages) ; le fichier réglages.json reste comme copie de secours, lue si la base ne répond pas au démarrage',
   secret: 'secret (clé, mot de passe, jeton) : coffre ou fichier bloqué, jamais en clair dans une base',
   binaire: 'gros fichiers (images, archives, médias, disques)',
   demarrage: 'nécessaire pour démarrer la base elle-même',
@@ -107,6 +107,8 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   midgard: [R('scènes (réglages)', 'reglages')],
   rodd: [J('historique des messages vocaux', 'rodd'), REG],
   mascotte: [J('bulles de la mascotte', 'bulles')],
+  // Odin lui-même : les réglages (config.json, réglages.json des applis sans secret, réveil et autres réglages de la mémoire)
+  odin: [B('réglages d\'Odin et des applis (clé → valeur JSON, date, empreinte ; valeurs privées chiffrées)', ['reglages.reglages']), R('amorce pour joindre la base (valhalla/urdr/base-odin.json) et copie de secours des réglages (fichiers)', 'demarrage')],
   journaux: [],
 };
 

@@ -58,11 +58,11 @@ test('lieu par son nom : le bon Dembéni (Mayotte), son nom exact, ses coordonn�
     assert.equal(r.ok, true, r.text);
     assert.match(r.text, /Odin est à Dembéni \(Mayotte\)\. À Dembéni : 29 °C/);
     assert.match(r.text, /D'autres lieux portent ce nom \(Grande Comore, Comores\)/, 'il dit qu\'un autre lieu porte ce nom');
-    assert.deepEqual(lieuDe(b.ctx()), { nom: 'Dembéni', lat: -12.8436, lon: 45.1814, pays: 'YT', fuseau: 'Indian/Mayotte' });
+    assert.deepEqual(lieuDe(b.ctx()), { nom: 'Dembéni', lat: -12.844, lon: 45.181, pays: 'YT', fuseau: 'Indian/Mayotte' });
     assert.deepEqual(recus.map((l) => l.nom), ['Dembéni'], 'le briefing du matin est prévenu');
-    assert.ok(b.vus.some((u) => u.includes('latitude=-12.8436') && u.includes('longitude=45.1814')), 'la météo est demandée pour ces coordonnées exactes');
+    assert.ok(b.vus.some((u) => u.includes('latitude=-12.844') && u.includes('longitude=45.181')), 'la météo est demandée pour ces coordonnées (gardées à ~100 m)');
     assert.match((await b.v.act('gladsheim', 'meteo', {})).text, /^À Dembéni : 29 °C/);
-    assert.match((await b.v.act('gladsheim', 'lieu_actuel', {})).text, /Odin est à Dembéni \(-12\.8436, 45\.1814\), fuseau Indian\/Mayotte/);
+    assert.match((await b.v.act('gladsheim', 'lieu_actuel', {})).text, /Odin est à Dembéni \(-12\.844, 45\.181\), fuseau Indian\/Mayotte/);
     // « Ville, pays » choisit un autre lieu du même nom ; le fuseau suit.
     assert.match((await b.v.act('gladsheim', 'lieu', { ville: 'Paris, Texas' })).text, /Odin est à Paris \(Texas, États-Unis\)/);
     assert.match((await b.v.act('gladsheim', 'lieu', { ville: 'Paris, France' })).text, /Odin est à Paris \(Île-de-France, France\)\. À Paris : 12 °C/);
@@ -87,7 +87,7 @@ test('lieu par la position de l\'appareil : village nommé d\'après la position
     assert.equal(r.ok, true, r.text);
     assert.match(r.text, /Tu es à Tsararano \(Dembéni\) \(position à ± 18 m\)\. À Tsararano \(Dembéni\) : 29 °C/);
     assert.doesNotMatch(r.text, /approximative/);
-    assert.deepEqual(lieuDe(b.ctx()), { nom: 'Tsararano (Dembéni)', lat: -12.84412, lon: 45.17877, pays: 'YT', fuseau: 'Indian/Mayotte', precision: 18 });
+    assert.deepEqual(lieuDe(b.ctx()), { nom: 'Tsararano (Dembéni)', lat: -12.844, lon: 45.179, pays: 'YT', fuseau: 'Indian/Mayotte', precision: 18 });
     // Un ordinateur sans GPS : ± 4 km, Odin prévient.
     r = await b.v.act('gladsheim', 'lieu_position', { lat: -12.95, lon: 45.2, precision: 4200 });
     assert.match(r.text, /position à ± 4,2 km/); assert.match(r.text, /position approximative : si le village n'est pas le bon/);
@@ -177,7 +177,7 @@ test('« configure-toi » : pour une ville, pour une position, ou tout seul (con
     connexion = { city: 'Francfort', region: 'Hesse', country_code: 'DE', latitude: 50.1109, longitude: 8.6821, timezone: 'Europe/Berlin' };
     r = await b.v.act('gladsheim', 'se_configurer', {});
     assert.match(r.text, /Je suis réglé pour Francfort \(Allemagne\) : fuseau Europe\/Berlin/); assert.match(r.text, /d'après ma connexion Internet : c'est approximatif/);
-    assert.deepEqual([lieuDe(b.ctx())?.nom, lieuDe(b.ctx())?.pays, lieuDe(b.ctx())?.lat], ['Francfort', 'DE', 50.1109]);
+    assert.deepEqual([lieuDe(b.ctx())?.nom, lieuDe(b.ctx())?.pays, lieuDe(b.ctx())?.lat], ['Francfort', 'DE', 50.111]); // position gardée à ~100 m (données privées)
     // Le service ne répond pas et l'horloge ne dit rien (UTC) : Odin le dit, rien ne change.
     connexion = undefined;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

@@ -211,6 +211,29 @@ export function writeSecretFile(f: string, text: string): void {
   write600(`${f}.enc`, seal(key, Buffer.from(text, 'utf8'), n));
   shred(f);
 }
+// ---------------- Champs privés (numéros, adresses, position…) ----------------
+// Une valeur privée dans un fichier de réglages (ou dans la base d'Odin) : chiffrée avec la clé de la machine, écrite
+// « odc1:<base64> ». Toujours la clé de la machine (jamais le mot de passe maître) : Odin doit lire ses réglages au
+// démarrage, coffre verrouillé ou pas.
+const CHAMP = 'odc1:';
+/** Une valeur déjà chiffrée par chiffrerChamp ? */
+export const champChiffre = (v: unknown): v is string => typeof v === 'string' && v.startsWith(CHAMP);
+/** Chiffre un texte avec la clé de la machine (coffre créé au besoin). */
+export function chiffrerChamp(home: string, texte: string): string {
+  mkdirSync(home, { recursive: true });
+  ensureVault(home);
+  const key = machineKey(home);
+  if (!key) throw new Error('clé de la machine indisponible');
+  return CHAMP + seal(key, Buffer.from(texte, 'utf8'), 'champ').toString('base64');
+}
+/** Déchiffre une valeur écrite par chiffrerChamp (une valeur en clair est rendue telle quelle) ; erreur si la clé ne l'ouvre pas. */
+export function dechiffrerChamp(home: string, v: string): string {
+  if (!champChiffre(v)) return v;
+  const key = machineKey(home, false);
+  if (!key) throw new Error('clé de la machine absente : valeur privée illisible');
+  return open(key, Buffer.from(v.slice(CHAMP.length), 'base64'), 'champ').toString('utf8');
+}
+
 /** Un fichier secret existe-t-il (chiffré ou pas encore) ? */
 export const secretFileExists = (f: string) => existsSync(`${f}.enc`) || existsSync(f);
 /** Supprime un fichier secret. */

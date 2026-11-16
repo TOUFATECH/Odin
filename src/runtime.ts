@@ -3,6 +3,9 @@
 // tout le monde lit la MÊME configuration validée.
 
 import { settingsTools } from './tools/reglages.ts';
+import { fermerKv, ouvrirKv } from './prive.ts';
+import { migrerDonneesPrivees } from './prive-migration.ts';
+import { KV_REGLAGES, reglageKvEcrit } from './reglages-note.ts';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanupRestore } from './backup.ts';
@@ -99,6 +102,10 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   ensureWorkspace(paths.workspace);
 
   const muninn = new Mnemosyne(paths.db);
+  // Réglages gardés dans la mémoire (réveil…) : champs privés chiffrés, copie dans la base d'Odin (reglages-base.ts).
+  muninn.gardeKv = { cles: new Set(KV_REGLAGES), lire: (k, v) => ouvrirKv(paths.home, k, v), ecrire: (k, v) => fermerKv(paths.home, k, v), ecrit: (k, v) => reglageKvEcrit(paths.home, k, v) };
+  // Données privées encore en clair (Odin d'avant) : chiffrées une fois.
+  try { const m = migrerDonneesPrivees(paths.home, muninn); if (m.length) console.error(`[réglages] données privées chiffrées : ${m.join(', ')}`); } catch (e) { console.error('[réglages]', (e as Error).message); }
   // Mode privé (Réglages → Voix) : suit le réglage en direct, sans redémarrer.
   Object.defineProperty(muninn, 'privateMode', { get: () => Boolean(cfg.voice.privacy?.privateMode), set: () => {}, configurable: true });
   const skills = new Athena(paths.skills, paths.drafts);

@@ -483,8 +483,21 @@ export class Mnemosyne {
       .map(({ claim, verdict, url, title, published, accessed, quote, stance, at }) => ({ claim, verdict, url, title, published, accessed, quote, stance, at }));
   }
 
-  getKv(key: string): string | undefined { return this.kv.get(key)?.value; }
-  setKv(key: string, value: string): void { if (value) this.kv.put({ key, value }); else this.kv.delete(key); }
+  /**
+   * Réglages gardés ici (réveil…) : leurs champs privés sont chiffrés sur le disque et déchiffrés à la lecture, et
+   * chaque enregistrement est signalé (copie dans la base d'Odin). Branché par runtime.ts ; sans lui, rien ne change.
+   */
+  gardeKv?: { cles: ReadonlySet<string>; lire(k: string, v: string): string; ecrire(k: string, v: string): string; ecrit?(k: string, v: string): void };
+  getKv(key: string): string | undefined { const v = this.kv.get(key)?.value; return v && this.gardeKv?.cles.has(key) ? this.gardeKv.lire(key, v) : v; }
+  setKv(key: string, value: string): void {
+    const g = this.gardeKv?.cles.has(key) ? this.gardeKv : undefined, v = value && g ? g.ecrire(key, value) : value;
+    if (v) this.kv.put({ key, value: v }); else this.kv.delete(key);
+    g?.ecrit?.(key, v);
+  }
+  /** La valeur telle qu'elle est gardée sur le disque (champs privés chiffrés). */
+  kvBrut(key: string): string | undefined { return this.kv.get(key)?.value; }
+  /** Réécrit le fichier des réglages (les anciennes lignes disparaissent). */
+  compacterKv(): void { this.kv.compact(); }
   kvPrefix(prefix: string): Record<string, string> {
     const out: Record<string, string> = {}; for (const r of this.kv.values()) if (r.key.startsWith(prefix)) out[r.key.slice(prefix.length)] = r.value; return out;
   }
