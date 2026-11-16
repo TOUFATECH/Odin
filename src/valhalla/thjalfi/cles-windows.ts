@@ -13,7 +13,9 @@ import { chiffrerChamp, dechiffrerChamp } from '../../vault.ts';
  * dans le nom d'une image quand CHAQUE groupe a au moins un de ses mots présent. L'ordre va du plus précis au plus
  * général (Server et Entreprise avant Pro et Famille).
  */
-export interface Edition { id: string; label: string; mots: string[][] }
+export interface Edition { id: string; label: string; mots: string[][]; /** faux pour XP et plus anciens : pas de fichier de réponses moderne, la clé se saisit pendant l'installation du système */ moderne?: boolean }
+/** Une édition où Odin peut injecter la clé tout seul (fichier de réponses moderne, Vista et après). Pur. */
+export const cleInjectable = (e: Edition | undefined): boolean => Boolean(e) && e!.moderne !== false;
 export const EDITIONS: Edition[] = [
   { id: 'windows-server-2025', label: 'Windows Server 2025', mots: [['server'], ['2025']] },
   { id: 'windows-server-2022', label: 'Windows Server 2022', mots: [['server'], ['2022']] },
@@ -24,6 +26,36 @@ export const EDITIONS: Edition[] = [
   { id: 'windows-10-entreprise', label: 'Windows 10 Entreprise', mots: [['10'], ['entreprise', 'enterprise']] },
   { id: 'windows-10-pro', label: 'Windows 10 Pro', mots: [['10'], ['pro', 'professionnel', 'professional']] },
   { id: 'windows-10-famille', label: 'Windows 10 Famille', mots: [['10'], ['famille', 'home', 'familiale']] },
+  // Anciens serveurs.
+  { id: 'windows-server-2016', label: 'Windows Server 2016', mots: [['server'], ['2016']] },
+  { id: 'windows-server-2012-r2', label: 'Windows Server 2012 R2', mots: [['server'], ['2012'], ['r2']] },
+  { id: 'windows-server-2012', label: 'Windows Server 2012', mots: [['server'], ['2012']] },
+  { id: 'windows-server-2008-r2', label: 'Windows Server 2008 R2', mots: [['server'], ['2008'], ['r2']] },
+  { id: 'windows-server-2008', label: 'Windows Server 2008', mots: [['server'], ['2008']] },
+  { id: 'windows-server-2003', label: 'Windows Server 2003', mots: [['server'], ['2003']], moderne: false },
+  // Windows 8.1 (avant Windows 8 pour ne pas confondre).
+  { id: 'windows-8-1-pro', label: 'Windows 8.1 Pro', mots: [['8.1'], ['pro', 'professionnel', 'professional']] },
+  { id: 'windows-8-1-famille', label: 'Windows 8.1 Famille', mots: [['8.1'], ['famille', 'home', 'familiale']] },
+  { id: 'windows-8-1', label: 'Windows 8.1', mots: [['8.1']] },
+  { id: 'windows-8-pro', label: 'Windows 8 Pro', mots: [['8'], ['pro', 'professionnel', 'professional']] },
+  { id: 'windows-8-famille', label: 'Windows 8 Famille', mots: [['8'], ['famille', 'home', 'familiale']] },
+  { id: 'windows-8', label: 'Windows 8', mots: [['8']] },
+  // Windows 7.
+  { id: 'windows-7-integrale', label: 'Windows 7 Intégrale', mots: [['7'], ['integrale', 'ultimate', 'intégrale']] },
+  { id: 'windows-7-entreprise', label: 'Windows 7 Entreprise', mots: [['7'], ['entreprise', 'enterprise']] },
+  { id: 'windows-7-pro', label: 'Windows 7 Professionnel', mots: [['7'], ['pro', 'professionnel', 'professional']] },
+  { id: 'windows-7-famille', label: 'Windows 7 Famille Premium', mots: [['7'], ['famille', 'home', 'familiale', 'premium']] },
+  { id: 'windows-7', label: 'Windows 7', mots: [['7']] },
+  // Windows Vista.
+  { id: 'windows-vista-integrale', label: 'Windows Vista Intégrale', mots: [['vista'], ['integrale', 'ultimate', 'intégrale']] },
+  { id: 'windows-vista', label: 'Windows Vista', mots: [['vista']] },
+  // Avant Vista : la clé se saisit pendant l'installation du système lui-même (pas de fichier de réponses moderne).
+  { id: 'windows-xp-pro', label: 'Windows XP Professionnel', mots: [['xp'], ['pro', 'professionnel', 'professional']], moderne: false },
+  { id: 'windows-xp', label: 'Windows XP', mots: [['xp']], moderne: false },
+  { id: 'windows-2000', label: 'Windows 2000', mots: [['2000']], moderne: false },
+  { id: 'windows-me', label: 'Windows Millennium (ME)', mots: [['millennium', 'winme']], moderne: false },
+  { id: 'windows-98', label: 'Windows 98', mots: [['98']], moderne: false },
+  { id: 'windows-95', label: 'Windows 95', mots: [['95']], moderne: false },
 ];
 export const editionParId = (id: string): Edition | undefined => EDITIONS.find((e) => e.id === id);
 /** L'édition d'après ce que choisit le propriétaire : par identifiant OU par libellé exact (casse ignorée). Pur. */
@@ -105,7 +137,7 @@ export function cleEnClair(home: string, dir: string, editionId: string): string
 }
 /** La clé à injecter pour une image Windows donnée : l'édition reconnue dans son nom, puis sa clé déposée (ou rien). */
 export function clePourImage(home: string, dir: string, nom: string, label = ''): string | undefined {
-  const ed = editionDeImage(nom, label); return ed ? cleEnClair(home, dir, ed.id) : undefined;
+  const ed = editionDeImage(nom, label); return cleInjectable(ed) ? cleEnClair(home, dir, ed!.id) : undefined;
 }
 /** Le fichier des clés existe-t-il (au moins une clé déposée) ? */
 export const fichierCles = (dir: string): boolean => existsSync(fichier(dir));

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EDITIONS, cleEnClair, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, indiceCle, masque, normaliserCle, supprimerCle } from '../src/valhalla/thjalfi/cles-windows.ts';
+import { EDITIONS, cleInjectable, editionParId, cleEnClair, clePourImage, clesPubliques, deposerCle, editionDeImage, editionDepuisChoix, indiceCle, masque, normaliserCle, supprimerCle } from '../src/valhalla/thjalfi/cles-windows.ts';
 import { unattend, type Answer } from '../src/valhalla/thjalfi/recipes.ts';
 
 test('clés Windows : format, reconnaissance, coffre, injection', () => {
@@ -26,7 +26,15 @@ test('clés Windows : format, reconnaissance, coffre, injection', () => {
   assert.equal(editionDeImage('Windows 10 Entreprise')?.id, 'windows-10-entreprise');
   assert.equal(editionDeImage('Win11_24H2_French_x64'), undefined, 'édition ambiguë : rien, donc pas d\'injection');
   assert.equal(editionDepuisChoix('Windows 11 Pro')?.id, 'windows-11-pro');
-  assert.equal(EDITIONS.length, 9);
+  // Toutes les versions de Windows sont dans la liste (des plus anciennes aux plus récentes).
+  assert.ok(EDITIONS.length >= 30, `beaucoup d'éditions (${EDITIONS.length})`);
+  assert.equal(editionDeImage('fr_windows_7_ultimate_x64.iso')?.id, 'windows-7-integrale');
+  assert.equal(editionDeImage('Windows 8.1 Pro')?.id, 'windows-8-1-pro', '8.1 avant 8');
+  assert.equal(editionDeImage('fr_windows_xp_professional.iso')?.id, 'windows-xp-pro');
+  assert.equal(editionDeImage('Windows 95')?.id, 'windows-95');
+  // Windows ancien (XP et avant) : reconnu, mais pas d'injection automatique (installation à l'ancienne).
+  assert.equal(cleInjectable(editionParId('windows-xp-pro')), false, 'XP : pas d\'injection auto');
+  assert.equal(cleInjectable(editionParId('windows-11-pro')), true, 'Windows 11 : injection auto');
 
   // --- Dépôt / coffre / lecture masquée ---
   const home = mkdtempSync(join(tmpdir(), 'odin-cle-home-')), dir = mkdtempSync(join(tmpdir(), 'odin-cle-dir-'));
