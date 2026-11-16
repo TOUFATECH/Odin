@@ -1,0 +1,433 @@
+{
+ "applis": [
+  {
+   "id": "huginn",
+   "nom": "Logos",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "muninn",
+   "nom": "Mnémosyne",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "yggdrasil",
+   "nom": "Athéna",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "hlidskjalf",
+   "nom": "Horus",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "saga",
+   "nom": "Thot",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "runes",
+   "nom": "Papyrus",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "draupnir",
+   "nom": "Talos",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "urdr",
+   "nom": "Alexandrie",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "skidbladnir",
+   "nom": "Nébuleuse",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "fjalar",
+   "nom": "Hermès",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "volva",
+   "nom": "Pythie",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "frigg",
+   "nom": "Chronos",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "kvasir",
+   "nom": "Pharos",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "commandes",
+   "nom": "Glyphes",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "syn",
+   "nom": "Zénith",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "eir",
+   "nom": "Hygie",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "naglfar",
+   "nom": "Argo",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "ymir",
+   "nom": "Hydre",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "idunn",
+   "nom": "Arachné",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "sindri",
+   "nom": "Phénix",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "vordr",
+   "nom": "Pulsar",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "askr",
+   "nom": "Atlas",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "thjalfi",
+   "nom": "Genèse",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "skogul",
+   "nom": "Némésis",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "garmr",
+   "nom": "Cerbère",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "geri",
+   "nom": "Méduse",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "ran",
+   "nom": "Ariane",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "ullr",
+   "nom": "Asclépios",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "loki",
+   "nom": "Sirènes",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "svalinn",
+   "nom": "Zéphyr",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "gjoll",
+   "nom": "Vortex",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "vidarr",
+   "nom": "Sphinx",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "var",
+   "nom": "Persona",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "bru",
+   "nom": "Bifröst",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "ratatoskr",
+   "nom": "Interprète",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "gna",
+   "nom": "Ulysse",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "himinbjorg",
+   "nom": "Cyclope",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "aegir",
+   "nom": "Apollon",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "apparence",
+   "nom": "Aurore",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "freyja",
+   "nom": "Vénus",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "dvalinn",
+   "nom": "Alchimie",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "mimisbrunnr",
+   "nom": "Chroniques",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "gefjon",
+   "nom": "Héraclès",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "sol",
+   "nom": "Hélios",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "fensalir",
+   "nom": "Pyramide",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "hlid",
+   "nom": "Thermopyles",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "ivaldi",
+   "nom": "Dédale",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "snotra",
+   "nom": "Plume",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "champollion",
+   "nom": "Champollion",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "leikvangr",
+   "nom": "Olympie",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "skuld",
+   "nom": "Arche",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "rodd",
+   "nom": "Écho",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "eitri",
+   "nom": "Andromède",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "hermod",
+   "nom": "Satellites",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "brisingamen",
+   "nom": "Thésauros",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "appareils",
+   "nom": "Constellation",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "brokkr",
+   "nom": "Héphaïstos",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "bragi",
+   "nom": "Orphée",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "heidrun",
+   "nom": "Héra",
+   "famille": "Maison",
+   "ecrit": true
+  },
+  {
+   "id": "hlin",
+   "nom": "Gygès",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "bifrost",
+   "nom": "Iris",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "durinn",
+   "nom": "Tirésias",
+   "famille": "Machines",
+   "ecrit": true
+  },
+  {
+   "id": "pegase",
+   "nom": "Pégase",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "hel",
+   "nom": "Perséphone",
+   "famille": "Données",
+   "ecrit": true
+  },
+  {
+   "id": "agora",
+   "nom": "Agora",
+   "famille": "Accès",
+   "ecrit": true
+  },
+  {
+   "id": "forseti",
+   "nom": "Forseti",
+   "famille": "Sécurité",
+   "ecrit": true
+  },
+  {
+   "id": "valgrind",
+   "nom": "Valgrind",
+   "famille": "Accès",
+   "ecrit": true
+  }
+ ],
+ "themes": 51,
+ "aRevoir": [
+  "Valhalla clair",
+  "Glace",
+  "Vacances",
+  "Paysage",
+  "Ciel",
+  "Plage et palmiers",
+  "Montagne",
+  "Désert",
+  "Neige",
+  "Mayotte",
+  "Printemps fleuri",
+  "Automne",
+  "Lagon",
+  "Savane",
+  "Gel (0° et moins)",
+  "Frais (10° à 17°)",
+  "Chaud (28° à 31°)",
+  "Torride (32° à 35°)",
+  "Noël",
+  "Pâques",
+  "27 avril",
+  "14 juillet",
+  "Saint-Patrick",
+  "Thanksgiving"
+ ]
+}
