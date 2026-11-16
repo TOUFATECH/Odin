@@ -138,6 +138,8 @@ export const LINKS: Link[] = [
   { from: 'agora', to: 'forseti', when: 'une installation imposée échoue, un appareil inconnu se présente ou un nouvel appareil s\'inscrit', does: 'alerte dans le fil commun, avec « Réessayer » ou « Retirer cet appareil »', auto: true, kind: 'donnée' },
   { from: 'archytas', to: 'draupnir', when: 'un script doit se lancer tout seul au bon moment', does: 'il devient une automatisation déclenchée par l\'heure ou un événement', auto: false, kind: 'donnée' },
   { from: 'archytas', to: 'saga', when: 'tu crées ou modifies un script', does: 'Odin le garde en mémoire et au Cerveau pour s\'en souvenir et l\'améliorer', auto: true, kind: 'donnée' },
+  { from: 'keryx', to: 'forseti', when: 'tu demandes une action de loin par message ou par appel', does: 'elle passe par les permissions et demande ton accord : une action grave ne part jamais sans toi', auto: true, kind: 'réflexe' },
+  { from: 'keryx', to: 'saga', when: 'tu écris à Odin ou il agit pour toi', does: 'l\'échange et l\'action sont gardés dans ta mémoire, consultables et effaçables', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */

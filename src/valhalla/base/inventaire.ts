@@ -25,6 +25,14 @@ const REG = R('réglages de l\'appli (réglages.json)', 'reglages');
 
 /** Pour chaque appli : ses données et leur rangement. */
 export const INVENTAIRE: Record<string, Rangement[]> = {
+  // Kéryx — l'assistant joignable de dehors : liste blanche, réglages, chronologie des échanges et actions, empreinte du
+  // code secret. Tout est privé : numéros et champs sensibles chiffrés (clé de la machine), repli FICHIER tant que la
+  // base KERYX_ODIN n'est pas là (PostgreSQL absent en développement) ; le mot de passe SIP va au coffre.
+  keryx: [
+    R('liste blanche de numéros (chiffrés) et réglages de Kéryx (valhalla/keryx/reglages.json)', 'secret'),
+    R('chronologie des échanges et des actions (valhalla/keryx/journal.jsonl, champs privés chiffrés) ; repli fichier tant que KERYX_ODIN n\'est pas là', 'secret'),
+    R('empreinte scrypt du code secret (keryx-secret) ; mot de passe SIP au coffre', 'secret'),
+  ],
   // Cœur d'Odin
   huginn: [R('règles de compréhension (dans le code), demandes en attente (mémoire vive)', 'coeur')],
   muninn: [R('mémoire d\'Odin (~/.odin/memoire/, fichiers JSONL) + forces des liens du Cerveau (cerveau-liens)', 'coeur')],
@@ -41,6 +49,7 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   // le schéma de la base ARCHYTAS_ODIN est défini (DEF_ARCHYTAS : tables scripts/versions/executions, vues
   // v_scripts/v_usage sans code), prêt pour la migration. Déclaré « secret » tant que c'est en fichiers.
   archytas: [R('scripts (code chiffré), versions et exécutions — fichiers chiffrés sous valhalla/archytas/ ; base ARCHYTAS_ODIN prête (schéma) pour la migration', 'secret')],
+  metis: [R('catalogue des modèles ouverts téléchargés (chemin, taille, empreinte SHA-256, quantification, mesures morceaux/s et mémoire) — base METIS_ODIN ; les fichiers GGUF restent hors base, lus par morceaux', 'reglages')],
   // Données
   urdr: [J('journal des requêtes', 'requetes'), J('traçabilité des liens d\'Odin avec les bases', 'liens_bases'), R('liste des bases (bases.json), base-odin.json', 'demarrage'), R('mots de passe des bases (secrets.json)', 'secret')],
   skidbladnir: [J('journal des synchronisations', 'skidbladnir'), R('fichiers synchronisés', 'binaire'), REG],

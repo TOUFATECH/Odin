@@ -121,7 +121,7 @@ export interface SourcesOdin {
 }
 /** Le nom affiché d'un canal de la passerelle (« telegram » → « Telegram »). */
 export function nomMoyen(canal: string): string {
-  const N: Record<string, string> = { telegram: 'Telegram', whatsapp: 'WhatsApp', discord: 'Discord', slack: 'Slack', signal: 'Signal', mail: 'E-mail', web: 'Discussion d\'Odin', http: 'Discussion d\'Odin' };
+  const N: Record<string, string> = { telegram: 'Telegram', whatsapp: 'WhatsApp', discord: 'Discord', slack: 'Slack', signal: 'Signal', mail: 'E-mail', web: 'Discussion d\'Odin', http: 'Discussion d\'Odin', keryx: 'Kéryx', sms: 'SMS', appel: 'Appel' };
   return N[canal] ?? (canal ? canal.charAt(0).toUpperCase() + canal.slice(1) : 'Discussion d\'Odin');
 }
 let sources: SourcesOdin = {};

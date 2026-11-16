@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { decryptBackup } from './backup.ts';
 import type { OdinConfig, OdinPaths } from './config.ts';
 import { backupDir, backupPassword } from './guard/watch.ts';
-import { makeEmbedder } from './muninn/embed.ts';
+import { chargerMoteur, embedderNoos } from './brain/nous/moteur.ts';
 import { listSubscriptions } from './push/webpush.ts';
 import type { Router } from './providers/router.ts';
 import { haApi } from './tools/homeassistant.ts';
@@ -54,8 +54,9 @@ export async function selfTest(o: { cfg: OdinConfig; paths: OdinPaths; router: R
   }, 'Réglages → Agenda : recolle l\'adresse iCal secrète.');
   await run('Proxmox', Boolean(cfg.proxmox.url && env.PROXMOX_TOKEN), async () => { const r = await pveApi(cfg.proxmox.url, env.PROXMOX_TOKEN!, 'GET', '/cluster/resources') as Array<{ type: string }>; return `${r.filter((x) => x.type === 'qemu' || x.type === 'lxc').length} VM / conteneur(s)`; }, 'Réglages → Proxmox : adresse https://IP:8006 et jeton avec les droits PVEVMAdmin.');
   await run('Home Assistant', Boolean(cfg.homeAssistant.url && env.HA_TOKEN), async () => `${(await haApi(cfg.homeAssistant.url, env.HA_TOKEN!, 'GET', '/states') as unknown[]).length} entités`, 'Réglages → Maison : jeton longue durée.');
-  const emb = makeEmbedder(cfg);
-  await run('Mémoire par le sens', Boolean(emb), async () => `${(await emb!.embed('test')).length} dimensions`, 'Sur la machine d\'Ollama : « ollama pull nomic-embed-text ».');
+  const moteurNoos = await chargerMoteur(o.paths.home).catch(() => undefined);
+  const emb = moteurNoos ? embedderNoos(moteurNoos) : undefined;
+  await run('Mémoire par le sens', Boolean(emb), async () => `${(await emb!.embed('test')).length} dimensions`, 'Métis/Noûs : la recherche par le sens s\'active quand le cerveau profond d\'Odin est prêt ; sinon, la recherche par mots suffit.');
   await run('Sauvegardes', cfg.autoBackup.enabled, async () => {
     const dir = backupDir(o.paths, cfg.autoBackup);
     const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.odinbk')).sort() : [];

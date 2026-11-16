@@ -96,7 +96,7 @@ export function secretHint(name: string, env: NodeJS.ProcessEnv = process.env): 
 
 // ---------------------------------------------------------------- Modèle
 
-export type ModelPreset = 'anthropic' | 'openrouter' | 'openai' | 'openai-codex' | 'deepseek' | 'kimi' | 'ollama' | 'custom';
+export type ModelPreset = 'anthropic' | 'openrouter' | 'openai' | 'openai-codex' | 'deepseek' | 'kimi' | 'custom';
 
 export const PRESETS: Record<Exclude<ModelPreset, 'custom'>, { label: string; model: string; baseUrl?: string; keyEnv?: SecretName; kind: 'anthropic' | 'openai' | 'openai-codex'; price?: [number, number]; models?: string[]; note?: string }> = {
   anthropic: { label: 'Anthropic (Claude)', kind: 'anthropic', model: 'claude-sonnet-5-5', keyEnv: 'ANTHROPIC_API_KEY', price: [3, 15] },
@@ -108,7 +108,6 @@ export const PRESETS: Record<Exclude<ModelPreset, 'custom'>, { label: string; mo
     note: 'Clé sur platform.deepseek.com. Très économique, bon en code et en raisonnement. Données traitées en Chine : coche « pas de données personnelles » si tu préfères.' },
   kimi: { label: 'Kimi (Moonshot)', kind: 'openai', model: 'kimi-k2.6', baseUrl: 'https://api.moonshot.ai/v1', keyEnv: 'MOONSHOT_API_KEY', price: [0.95, 4], models: ['kimi-k2.6'],
     note: 'Clé sur platform.kimi.ai. Très long contexte (256 k), bon en code et en tâches à outils. Données traitées en Chine : coche « pas de données personnelles » si tu préfères.' },
-  ollama: { label: 'Ollama (local, sans clé)', kind: 'openai', model: 'qwen3:14b', baseUrl: 'http://localhost:11434/v1' },
 };
 
 export function detectPreset(p: ProviderConfig | undefined): ModelPreset {
@@ -119,7 +118,7 @@ export function detectPreset(p: ProviderConfig | undefined): ModelPreset {
   if (p.baseUrl?.includes('deepseek.com')) return 'deepseek';
   if (p.baseUrl && /moonshot\.(ai|cn)|kimi\.ai/.test(p.baseUrl)) return 'kimi';
   if (p.baseUrl?.includes('api.openai.com')) return 'openai';
-  if (p.baseUrl && /localhost|127\.0\.0\.1/.test(p.baseUrl)) return 'ollama';
+  // Un modèle local ouvert passe par Métis (aucune adresse à régler) : pas de palier « serveur local » à détecter ici.
   return 'custom';
 }
 
@@ -136,7 +135,7 @@ export function providerFor(c: ModelChoice): ProviderConfig {
   }
   const p = PRESETS[c.preset];
   if (!p) throw new Error('fournisseur inconnu');
-  const baseUrl = c.preset === 'ollama' ? checkUrl(c.baseUrl || p.baseUrl) : p.baseUrl;
+  const baseUrl = p.baseUrl;
   const out: ProviderConfig = { kind: p.kind, model, ...(baseUrl ? { baseUrl } : {}), ...(p.keyEnv ? { apiKeyEnv: p.keyEnv } : {}) };
   if (p.price && model === p.model) { out.priceInPerM = p.price[0]; out.priceOutPerM = p.price[1]; }
   if (c.preset === 'deepseek' && model === 'deepseek-v4-pro') { out.priceInPerM = 0.66; out.priceOutPerM = 1.98; }
@@ -148,7 +147,7 @@ function checkUrl(u: string | undefined): string {
     const url = new URL(String(u ?? ''));
     if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error();
     return url.toString().replace(/\/$/, '');
-  } catch { throw new Error('adresse du service invalide (ex. http://localhost:11434/v1)'); }
+  } catch { throw new Error('adresse du service invalide (ex. https://api.exemple.com/v1)'); }
 }
 
 /** Essaie le modèle avec une toute petite demande : sert au bouton « Tester ». */

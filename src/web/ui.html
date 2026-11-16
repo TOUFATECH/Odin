@@ -1330,14 +1330,14 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       <div class="head"><div><h1>Réglages</h1><div class="sub">Tout se configure ici ; les clés restent sur ta machine.</div></div></div>
       <div class="snavrow"><div class="snav" id="snav" role="tablist" aria-label="Rubriques des réglages"><button type="button" class="schip" data-sec="modele" role="tab">Modèle</button><button type="button" class="schip" data-sec="telegram" role="tab">Telegram</button><button type="button" class="schip" data-sec="messageries" role="tab">Messageries</button><button type="button" class="schip" data-sec="maj" role="tab">Mises à jour</button><button type="button" class="schip" data-sec="voix" role="tab">Voix</button><button type="button" class="schip" data-sec="ecriture" role="tab">Écriture</button><button type="button" class="schip" data-sec="autonomie" role="tab">Autonomie</button><button type="button" class="schip" data-sec="droits" role="tab">Droits et machines</button><button type="button" class="schip" data-sec="reseau" role="tab">Réseau</button><button type="button" class="schip" data-sec="surveillance" role="tab">Surveillance</button><button type="button" class="schip" data-sec="proxmox" role="tab">Proxmox</button><button type="button" class="schip" data-sec="recherche" role="tab">Recherche</button><button type="button" class="schip" data-sec="personnes" role="tab">Personnes</button><button type="button" class="schip" data-sec="sauvegarde" role="tab">Sauvegarde</button><button type="button" class="schip" data-sec="entretien" role="tab">Entretien</button><button type="button" class="schip" data-sec="maison" role="tab">Maison</button><button type="button" class="schip" data-sec="venus" role="tab">Venus</button><button type="button" class="schip" data-sec="reveil" role="tab">Réveil</button><button type="button" class="schip" data-sec="apparence" role="tab">Apparence</button><button type="button" class="schip" data-sec="mail" role="tab">Mail</button><button type="button" class="schip" data-sec="agenda" role="tab">Agenda</button><button type="button" class="schip" data-sec="documents" role="tab">Documents</button><button type="button" class="schip" data-sec="personnalite" role="tab">Personnalité</button><button type="button" class="schip" data-sec="acces" role="tab">Accès</button><button type="button" class="schip more" data-sec="plus" role="tab" title="Fonctions à ajouter">＋ Ajouter</button></div><button type="button" class="schip sall-btn" id="sAllBtn" aria-expanded="false" aria-controls="sAll">☰ Tous les réglages</button></div><div class="sall" id="sAll" hidden></div>
       <div class="body settings">
-        <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, choisis Ollama pour un modèle 100 % local.
+        <div class="welcome" id="welcome" hidden><b>Bienvenue dans Odin.</b> Il reste une étape : choisis le modèle qui fera réfléchir Odin, colle ta clé, puis « Tester » et « Enregistrer ». Sans clé, télécharge un modèle ouvert dans Métis pour un cerveau 100 % local, sans serveur à côté.
           <div id="welcomeLinks" style="margin-top:12px;display:flex;flex-direction:column;gap:6px"></div></div>
         <div class="grid sgrid">
           <article class="card" data-sec="modele"><form class="form" id="f-model">
             <h2>Modèle</h2>
             <div class="field"><label>Fournisseur</label><div class="choices" id="presetChoices" role="group" aria-label="Fournisseur"></div></div>
             <div class="field"><label for="m-model">Nom du modèle</label><input id="m-model" autocomplete="off" spellcheck="false"><datalist id="pm-models"></datalist><span class="hint" id="m-note" hidden></span></div>
-            <div class="field" id="m-urlField"><label for="m-url">Adresse du service</label><input id="m-url" autocomplete="off" spellcheck="false" placeholder="http://localhost:11434/v1"></div>
+            <div class="field" id="m-urlField"><label for="m-url">Adresse du service</label><input id="m-url" autocomplete="off" spellcheck="false" placeholder="https://api.exemple.com/v1"></div>
             <div class="field" id="m-codexBox" hidden>
               <label>Connexion à ton compte ChatGPT</label>
               <div class="sub" id="cx-state">Non connecté.</div>
@@ -3745,7 +3745,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     ] },
     { name: 'Me configurer', steps: [
       { v: 'settings', q: '#snav', t: 'Passons aux réglages. Ils sont rangés par rubrique, et celles que tu utilises le plus passent en premier. « Tous les réglages » les montre toutes. Je te les présente dans l\'ordre où je te conseille de les faire.' },
-      { v: 'settings', sec: 'modele', q: S('modele'), t: 'Un : le Modèle, c\'est mon cerveau. Choisis-le en premier : OpenAI, Anthropic, Mistral, ou un modèle local. Tu peux fixer un budget par mois. Sans lui, je ne peux rien faire.' },
+      { v: 'settings', sec: 'modele', q: S('modele'), t: 'Un : le Modèle, c\'est mon cerveau. Choisis-le en premier : OpenAI, Anthropic, Mistral, ou un modèle local ouvert lu par Métis (aucune adresse à régler). Tu peux fixer un budget par mois. Sans lui, je ne peux rien faire.' },
       { v: 'settings', sec: 'telegram', q: S('telegram'), t: 'Deux : Telegram, pour me parler depuis ton téléphone, partout. Crée un bot avec BotFather, colle son jeton ici, puis envoie-moi un message.' },
       { v: 'settings', sec: 'voix', q: S('voix'), t: 'Trois : la Voix, pour me parler et m\'entendre. Whisper comprend ce que tu dis. Pour ma voix : ElevenLabs, OpenAI, ou Piper, gratuit et sur ta machine.' },
       { v: 'settings', sec: 'autonomie', q: S('autonomie'), t: 'Quatre : mon autonomie. Prudent : je te demande tout. Équilibré : je te demande seulement l\'important. Autonome : presque rien. Odin Breaker : j\'agis sans te demander et je te rends compte. Tu peux limiter le Breaker à la nuit.' },
@@ -4728,8 +4728,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     preset = p; const S = state.settings, P = S.presets[p];
     for (const b of document.querySelectorAll('#presetChoices .choice')) b.setAttribute('aria-pressed', String(b.dataset.preset === p));
     if (!keepModel) { $('#m-model').value = P ? P.model : ''; $('#m-url').value = P ? P.baseUrl : ''; }
-    $('#m-urlField').hidden = !(p === 'ollama' || p === 'custom');
-    if (!keepModel) pickTier(p === 'ollama' ? 'local' : 'standard');
+    $('#m-urlField').hidden = !(p === 'custom');
+    if (!keepModel) pickTier('standard');
     const keyEnv = p === 'custom' ? 'OPENAI_API_KEY' : P?.keyEnv;
     $('#m-keyField').hidden = !keyEnv;
     if (keyEnv) $('#m-keyHint').textContent = keyHint(keyEnv) + (p === 'anthropic' ? ' Clé sur console.anthropic.com.' : p === 'openrouter' ? ' Clé sur openrouter.ai/keys (Kimi : moonshotai/kimi-k2.6 · DeepSeek : deepseek/deepseek-v4-pro).' : '');

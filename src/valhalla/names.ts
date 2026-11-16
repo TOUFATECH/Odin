@@ -5,6 +5,8 @@ import type { Module } from './types.ts';
 
 /** Nom affiché de chaque appli (identifiant → nom). */
 export const NAMES: Record<string, string> = {
+ "keryx": "Kéryx",
+ "metis": "Métis",
  "archytas": "Archytas",
  "huginn": "Logos",
  "muninn": "Mnémosyne",
@@ -224,6 +226,8 @@ export function rename(m: Module): Module {
 
 /** D'où vient le nom de chaque appli (fiche au survol de la carte des Applis, haut de la page de l'appli), validé le 13/11/2026. */
 export const NAME_STORY: Record<string, string> = {
+ "keryx": "Kéryx, le héraut de la Grèce antique : celui qui porte les messages au loin et agit au nom de qui l'envoie. L'assistant d'Odin qu'on joint de dehors, qui s'occupe des mails et des rendez-vous à ta place.",
+ "metis": "Métis, la Titanide de la sagesse et de la ruse, la pensée qui conseille : le moteur qui fait tourner dans Odin les modèles de langue ouverts, sans serveur à côté.",
  "archytas": "Archytas de Tarente, l'inventeur de la colombe mécanique — premier automate autopropulsé de l'Antiquité : la fenêtre Script, là où Odin fabrique ses automatismes.",
  "saga": "Thot, le dieu égyptien de l'écriture et du savoir, scribe des dieux : il garde tout ce que tu notes.",
  "runes": "Le papyrus, la feuille sur laquelle l'Égypte ancienne écrivait ses registres et ses comptes.",
@@ -300,6 +304,8 @@ export const NAME_STORY: Record<string, string> = {
  *  « Catalogue », colonne B, et les projets d'origine des applis). Affichés en haut de la page de l'appli.
  *  Une liste vide veut dire « aucun » (appli propre à Odin). Toute nouvelle appli doit avoir sa ligne (test/homogene.test.ts). */
 export const SIMILAIRES: Record<string, string[]> = {
+ "keryx": ["Instinct"],
+ "metis": ["Ollama", "LM Studio", "vLLM", "Jan", "GPT4All", "KoboldCpp"],
  "archytas": ["Zapier", "n8n", "IFTTT", "Make", "Raccourcis", "Automator", "AutoHotkey", "Tasker"],
  "saga": ["Notion", "AppFlowy", "Blinko", "Obsidian", "Logseq", "AFFiNE", "Docmost"],
  "runes": ["Notion", "DumbAssets", "AppFlowy", "Focalboard", "AFFiNE", "NocoDB", "Baserow"],
@@ -373,6 +379,12 @@ export const SIMILAIRES: Record<string, string[]> = {
 };
 /** Le site officiel d'un applicatif similaire (seulement quand l'adresse est sûre ; sinon le nom seul est affiché). */
 export const SITES_SIMILAIRES: Record<string, string> = {
+ "Ollama": "https://ollama.com",
+ "LM Studio": "https://lmstudio.ai",
+ "vLLM": "https://docs.vllm.ai",
+ "Jan": "https://jan.ai",
+ "GPT4All": "https://www.nomic.ai/gpt4all",
+ "KoboldCpp": "https://github.com/LostRuins/koboldcpp",
  "Zapier": "https://zapier.com",
  "IFTTT": "https://ifttt.com",
  "Make": "https://www.make.com",

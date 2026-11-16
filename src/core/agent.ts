@@ -427,9 +427,9 @@ export class Agent {
             res.text = off.text; res.offline = true;
             // Sans modèle local, Odin ne peut plus réfléchir sans Internet : il le dit (une fois par jour).
             const tipKey = `tip-local-brain:${new Date().toDateString()}`;
-            if (!this.deps.router.routes.some((r) => r.cfg.tier === 'local' || /localhost|127\.0\.0\.1/.test(r.cfg.baseUrl ?? '')) && !muninn.getKv(tipKey)) {
+            if (!this.deps.router.routes.some((r) => r.cfg.tier === 'local') && !muninn.getKv(tipKey)) {
               muninn.setKv(tipKey, '1');
-              res.text += '\n\n💡 Pour que je réfléchisse aussi sans Internet, installe un modèle local sur ma machine : curl -fsSL https://ollama.com/install.sh | sh puis ollama pull qwen3:4b. Je le trouve ' + accord('tout seul', 'toute seule', genreOdin(cfg)) + ' au prochain démarrage.';
+              res.text += '\n\n💡 Pour que je réfléchisse aussi sans Internet, télécharge un modèle ouvert dans Métis (page Métis) : je le lis moi-même, sans serveur à côté. Je le trouve ' + accord('tout seul', 'toute seule', genreOdin(cfg)) + ' au prochain démarrage.';
             }
             if (!off.handled) queueAsk(muninn, { text: userText, sessionId: o.sessionId, channel, peer, at: Date.now() });
             emit({ type: 'text', text: off.text });
@@ -1024,7 +1024,7 @@ Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|miss
     };
     // Plongement NON bloquant : déjà en cache (demande répétée ou rapprochée) → on complète par le sens tout de
     // suite ; sinon on répond par les MOTS sans attendre le réseau, et on calcule le plongement en arrière-plan
-    // (un délai propre, jamais le signal du tour) pour la prochaine fois. La réponse ne dépend plus d'Ollama.
+    // (un délai propre, jamais le signal du tour) pour la prochaine fois. La réponse ne dépend d'aucun serveur de modèles à côté.
     const cache = this.plongements.plongement(e.model, query);
     if (cache) return avecSens(cache);
     void (async () => { try { const v = await e.embed(query, AbortSignal.timeout(4000)); this.plongements.poserPlongement(e.model, query, v); } catch { /* modèle d'embeddings indisponible : les mots suffisent */ } })();

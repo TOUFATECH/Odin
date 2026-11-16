@@ -23,6 +23,7 @@ import { voiceFor } from '../profiles.ts';
 import { brokkr } from './modules/brokkr.ts';
 import { eir } from './modules/eir.ts';
 import { forseti } from './modules/forseti.ts';
+import { keryxModule } from './keryx/module.ts';
 import { frigg } from './modules/frigg.ts';
 import { garmr } from './modules/garmr.ts';
 import { geri } from './modules/geri.ts';
@@ -176,7 +177,7 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Andromède : l'ISO de Windows suit la langue d'Odin (il n'a pas de langue d'interface à part : celle de sa voix, sinon son pays).
   brancherLangueOdin(() => ({ langue: odin.cfg.voice?.stt?.language }));
   const devices =() => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return ([...coreModules(odin), archytas, eir, skogul, forseti, garmr, geri, ran, ullr, loki, argos, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, zeus, gna,apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora, achille, atalante, dodone] as Module[]).map(rename);
+  return ([...coreModules(odin), archytas, eir, skogul, forseti, garmr, geri, ran, ullr, loki, argos, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, zeus, gna,apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora, achille, atalante, dodone, keryxModule] as Module[]).map(rename);
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */

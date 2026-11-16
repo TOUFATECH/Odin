@@ -76,7 +76,7 @@ export function serviceOf(baseUrl: string | undefined): string {
 
 const SERVICE: Record<string, string> = {
   anthropic: 'Anthropic', 'openai-codex': 'ChatGPT Codex', openai: 'OpenAI', openrouter: 'OpenRouter', deepseek: 'DeepSeek',
-  kimi: 'Kimi · Moonshot', nous: 'Nous', ollama: 'Ollama, local', local: 'local', compatible: 'service compatible', mock: 'Modèle de test', jev: 'Jev',
+  kimi: 'Kimi · Moonshot', nous: 'Nous', metis: 'Métis, local', ollama: 'modèle local (ancien journal)', local: 'local', compatible: 'service compatible', mock: 'Modèle de test', jev: 'Jev',
 };
 
 /** « claude-sonnet-5-5 » → « Claude Sonnet 5.5 », « gpt-6-luna » → « GPT-6 Luna ». Pur. */

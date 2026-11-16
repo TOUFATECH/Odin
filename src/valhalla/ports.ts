@@ -73,6 +73,8 @@ export const ODIN_PORTS: PortDef[] = [
   { app: 'freyja', name: 'Vénus (Venus)', port: 8920, proto: 'tcp', what: 'interface de Venus en HTTPS', where: 'réseau', optional: true, by: 'Venus', web: true },
   { app: 'freyja', name: 'Vénus (Venus)', port: 5433, proto: 'tcp', what: 'base PostgreSQL de Venus', where: 'machine', by: 'Venus' },
   { app: 'freyja', name: 'Comète', port: 51413, proto: 'tcp', what: 'téléchargements BitTorrent de Venus (pairs)', where: 'Internet', optional: true, by: 'Venus' },
+  // Kéryx : signalisation SIP d'un appel par la ligne du propriétaire. Éteint par défaut ; codé, pas encore essayé sur du vrai matériel.
+  { app: 'keryx', name: 'Kéryx', port: 21060, proto: 'udp', what: 'téléphonie SIP de Kéryx (ligne du propriétaire)', where: 'interne', optional: true },
 ];
 
 /** Les applis connues qu'on installe dans le moteur de conteneurs : leur port fixe sur la machine → leur port dedans. */
@@ -116,7 +118,6 @@ export const APP_PORTS: Array<{ match: RegExp; name: string; host: number; inner
   { match: /opensearch-dashboards/, name: 'OpenSearch Dashboards', host: 20160, inner: 5601 },
   { match: /guacamole/, name: 'Guacamole', host: 20161, inner: 8080 },
   { match: /searxng/, name: 'SearXNG', host: 20170, inner: 8080 },
-  { match: /ollama/, name: 'Ollama', host: 20180, inner: 11434 },
   { match: /(^|\/)nginx(:|$)/, name: 'nginx', host: 20200, inner: 80 },
   { match: /(^|\/)httpd(:|$)/, name: 'Apache', host: 20201, inner: 80 },
   { match: /wordpress/, name: 'WordPress', host: 20210, inner: 80 },

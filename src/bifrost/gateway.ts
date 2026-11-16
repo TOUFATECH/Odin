@@ -400,7 +400,9 @@ export class Gateway {
     try {
       const r = await this.odin.agent.run(m.text + langHint + plume, {
         // Un membre est de confiance (son texte n'est pas une « donnée externe »), mais son autonomie est plafonnée.
-        sessionId, channel: m.channel, peer: m.peer, trusted: owner || speaker?.role === 'member', signal: ctrl.signal, speaker,
+        // Kéryx est joint de DEHORS (numéro affiché usurpable) : même propriétaire et code prouvé, son texte reste une
+        // donnée non fiable (anti-injection : les actions peu réversibles redemandent alors confirmation « ok envoie »).
+        sessionId, channel: m.channel, peer: m.peer, trusted: (owner || speaker?.role === 'member') && m.channel !== 'keryx', signal: ctrl.signal, speaker,
         withoutAi: m.voice === true && this.odin.cfg.voice.brain === 'sans-ia',
         onEvent: (e) => {
           if (e.type === 'tool_start') used.push(e.name);

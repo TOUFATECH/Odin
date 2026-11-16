@@ -105,6 +105,7 @@ Résultat : 127 dépendances relevées, dont 36 instances externes, regroupées 
 - **Effort** : gros
 - **Déjà prévu** : non
 - **Où dans le code** : src/providers/router.ts:341-342 « tier: 'local', fallbackOnly: true … `ollama:${pick}` » ; src/muninn/embed.ts:12-14 « cfg.memory?.embedUrl … /:11434/ »
+- **Recodé le 2026-11-16** : « Métis » (moteur d'inférence GGUF écrit dans Odin, src/brain/metis/) remplace le serveur local réglé par adresse. La bascule est branchée au démarrage (migrerMetis dans src/runtime.ts : retire TOUT fournisseur local — Ollama :11434, LM Studio :1234, llama.cpp :8080 — neutralise memory.embedUrl en :11434, persiste et prévient le propriétaire une fois) ; la page est servie par /api/metis/page (propriétaire seul) ; le fichier GGUF est borné (hyper-paramètres démesurés refusés) et un modèle à géométrie trop grande pour la machine est refusé poliment AVANT toute allocation ; l'étiquette des plongements suit la version de Noûs (recalcul auto). **Reste (codé, pas encore essayé sur un vrai modèle)** : exécution dans un worker_threads (aujourd'hui le fil principal est gelé pendant une génération), noyau WASM tuilé pour les gros matmul (sinon repli JS scalaire) et mesure sur le vrai chemin, réutilisation de l'état chaud entre messages (poids retransposés à chaque message), échantillonnage top-p sans tri complet du vocabulaire.
 
 ### 1.11 Plume
 

@@ -131,7 +131,7 @@ export interface OdinConfig {
   docs: { dirs: string[] };
   /** Personnalités : ton et voix ; « auto » suit l'horaire (travail en semaine de 8 h à 18 h). */
   profiles: { active: string; auto: boolean; list: Array<{ id: string; name: string; tone: string; voiceId: string }> };
-  /** Mémoire : recherche par le sens (modèle local d'embeddings via Ollama). */
+  /** Mémoire : recherche par le sens (plongements LOCAUX par Noûs, ou un modèle ouvert lu par Métis ; aucun serveur). */
   memory?: { semantic: boolean; embedUrl: string; embedModel: string };
   /** Accès depuis l'extérieur : tunnel Tailscale ou Cloudflare (lancé avec Odin). */
   tunnel: { kind: 'none' | 'tailscale' | 'cloudflare' };
@@ -249,6 +249,9 @@ export interface OdinConfig {
     whatsapp?: { enabled: boolean; phoneId: string; owners: string[] };
     /** Écrire à Odin par mail (boîte de Réglages → Mail) ; propriétaires = adresses ; tag = mot obligatoire dans le sujet ('' = boîte dédiée). */
     mail?: { enabled: boolean; owners: string[]; tag: string; everySec: number };
+    /** Kéryx (l'assistant joignable de dehors) sur un bot messagerie dédié ; owners = liste blanche. Les réglages fins
+     * (ligne, autonomie, surveillances) vivent dans valhalla/keryx/reglages.json (page Kéryx), pas ici. */
+    keryx?: { enabled: boolean; tokenEnv: string; owners: string[] };
   };
 }
 
@@ -293,7 +296,8 @@ export const DEFAULT_CONFIG: OdinConfig = {
     { id: 'travail', name: 'Travail', tone: 'Professionnel, précis et concis ; va droit au but, structure tes réponses ; tutoiement.', voiceId: '' },
   ] },
   tunnel: { kind: 'none' },
-  memory: { semantic: true, embedUrl: '', embedModel: 'nomic-embed-text' },
+  // Plongements par Noûs (câblage runtime) ; embedUrl reste vide (toute ancienne adresse :11434 est neutralisée en migration).
+  memory: { semantic: true, embedUrl: '', embedModel: 'noos' },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8, direct: true },
   nous: { actif: true, corpusDepart: 'demander', filsJour: 1, filsNuit: 3, heuresNuit: 8, disqueMaxMo: 2000, delaiMsN1: 250, seuilReflexe: 0.90, arbitreGrand: false, metisRaisonnement: 'regles' },
@@ -317,6 +321,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   channels: {
     telegram: { enabled: false, tokenEnv: 'TELEGRAM_BOT_TOKEN', owners: [] },
     http: { enabled: false, port: 8889, tokenEnv: 'ODIN_HTTP_TOKEN' },
+    keryx: { enabled: false, tokenEnv: 'KERYX_TELEGRAM_TOKEN', owners: [] },
   },
 };
 

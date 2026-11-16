@@ -4,7 +4,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { loadConfig } from '../src/config.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
-import { envFile, loadEnvFile, providerFor, secretHint, writeSecret } from '../src/settings.ts';
+import { envFile, loadEnvFile, PRESETS, providerFor, secretHint, writeSecret } from '../src/settings.ts';
 import { readSecretFile } from '../src/vault.ts';
 import { makeOdin } from './helpers.ts';
 
@@ -38,9 +38,10 @@ test('clés : ~/.odin/env toujours chiffré sur le disque, relu sans écraser, j
   o.cleanup();
 });
 
-test('choix du modèle : préréglages, Ollama sans clé, adresses vérifiées', () => {
+test('choix du modèle : préréglages, modèle local par Métis (plus de preset serveur), adresses vérifiées', () => {
   assert.deepEqual(providerFor({ preset: 'anthropic', model: 'claude-sonnet-5-5' }), { kind: 'anthropic', model: 'claude-sonnet-5-5', apiKeyEnv: 'ANTHROPIC_API_KEY', priceInPerM: 3, priceOutPerM: 15 });
-  assert.deepEqual(providerFor({ preset: 'ollama', model: 'qwen3:14b', baseUrl: 'http://localhost:11434/v1/' }), { kind: 'openai', model: 'qwen3:14b', baseUrl: 'http://localhost:11434/v1' });
+  // Plus de préréglage « Ollama » (serveur local réglé par adresse) : le modèle local ouvert passe par Métis, sans adresse.
+  assert.ok(!('ollama' in PRESETS), 'le préréglage Ollama a disparu');
   assert.equal(providerFor({ preset: 'openrouter', model: 'x/y' }).apiKeyEnv, 'OPENROUTER_API_KEY');
   assert.throws(() => providerFor({ preset: 'custom', model: 'm', baseUrl: 'file:///etc/passwd' }), /adresse/);
   assert.throws(() => providerFor({ preset: 'anthropic', model: 'deux mots' }), /modèle/);

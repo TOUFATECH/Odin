@@ -13,7 +13,8 @@ import { machineSecrets } from './machines/access.ts';
 import { BROWSER_TOOLS, closeBrowsers } from './tools/browser.ts';
 import { webSearchTool } from './tools/search.ts';
 import { SELF_TOOLS } from './tools/self.ts';
-import { makeEmbedder } from './muninn/embed.ts';
+import type { Embedder } from './muninn/embed.ts';
+import { chargerMoteur, embedderNoos } from './brain/nous/moteur.ts';
 import { memoryProfile } from './tools/profile.ts';
 import { changePlan, recoveryPlanTool } from './tools/careplan.ts';
 import { evidenceSearch, webResearch } from './tools/research.ts';
@@ -34,12 +35,13 @@ import { MAIL_TOOLS } from './tools/mail.ts';
 import { CALENDAR_TOOLS } from './tools/calendar.ts';
 import { DOC_TOOLS } from './tools/docindex.ts';
 import { netSecurity } from './tools/network.ts';
-import { type OdinConfig, loadConfig, odinPaths, initHome, type OdinPaths, DEFAULT_PERSONA } from './config.ts';
+import { type OdinConfig, loadConfig, odinPaths, initHome, type OdinPaths, DEFAULT_PERSONA, setConfigValue } from './config.ts';
+import { migrerMetis } from './brain/metis/migration.ts';
 import { Agent } from './core/agent.ts';
 import { type Approver, denyAll, Heimdall } from './heimdall/policy.ts';
 import { Redactor } from './heimdall/redact.ts';
 import { Mnemosyne } from './muninn/store.ts';
-import { buildProvider, detectLocalBrain, type Route, Router } from './providers/router.ts';
+import { buildProvider, detecterMetis, type Route, Router } from './providers/router.ts';
 import { routeContext } from './providers/journal.ts';
 import { routingHistory } from './tools/routing.ts';
 import { BUILTIN_TOOLS, ensureWorkspace } from './tools/builtin.ts';
@@ -92,6 +94,17 @@ export interface CreateOptions {
   judge?: Judge;
 }
 
+/** Vrai si le catalogue Métis contient déjà un modèle de discussion (lecture synchrone, tolérante). Sert seulement à
+ *  choisir le texte de la notice de bascule ; aucune erreur n'est propagée. */
+function catalogueMetisChat(home: string): boolean {
+  try {
+    const f = join(home, 'metis', 'catalogue.json');
+    if (!existsSync(f)) return false;
+    const d = JSON.parse(readFileSync(f, 'utf8')) as { modeles?: Array<{ type?: string }> };
+    return Array.isArray(d.modeles) && d.modeles.some((m) => m && m.type === 'chat');
+  } catch { return false; }
+}
+
 export function createOdin(opts: CreateOptions = {}): Odin {
   const paths = odinPaths(opts.home);
   initHome(paths);
@@ -100,6 +113,25 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   let cfg = loadConfig(paths);
   if (opts.configOverride) cfg = opts.configOverride(cfg);
   ensureWorkspace(paths.workspace);
+
+  // Bascule vers Métis : l'ancienne dépendance (serveur local réglé par adresse — Ollama, LM Studio, llama.cpp) est
+  // retirée des fournisseurs, l'adresse d'embeddings en :11434 est neutralisée (sinon merge() la relirait), et le
+  // propriétaire est prévenu une seule fois. On persiste le changement pour que la bascule soit idempotente. GARDE-FOU :
+  // si le retrait laissait la liste des fournisseurs VIDE (installation qui n'avait que le serveur local), on la garde
+  // telle quelle en mémoire pour qu'Odin démarre quand même — Métis prendra le relais dès qu'un modèle ouvert est là.
+  if (!opts.provider) {
+    try {
+      const avantProviders = Array.isArray(cfg.providers) ? [...cfg.providers] : [];
+      const m = migrerMetis(cfg, catalogueMetisChat(paths.home));
+      if (m.change) {
+        const videeParRetrait = Array.isArray(cfg.providers) && cfg.providers.length === 0 && avantProviders.length > 0;
+        if (videeParRetrait) cfg.providers = avantProviders;
+        else if (m.providersRetires > 0) { try { setConfigValue(paths, ['providers'], cfg.providers); } catch (e) { console.error('[modèles] bascule Métis (fournisseurs)', (e as Error).message); } }
+        if (m.adresseEmbedRetiree) { try { setConfigValue(paths, ['memory', 'embedUrl'], ''); } catch (e) { console.error('[modèles] bascule Métis (embeddings)', (e as Error).message); } }
+        if (m.notice) console.error(`[modèles] ${m.notice}`);
+      }
+    } catch (e) { console.error('[modèles] bascule Métis', (e as Error).message); }
+  }
 
   const muninn = new Mnemosyne(paths.db);
   // Réglages gardés dans la mémoire (réveil…) : champs privés chiffrés, copie dans la base d'Odin (reglages-base.ts).
@@ -129,8 +161,8 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   router.onRoute = (e) => { try { muninn.recordRoute({ ...e, request: redactor.redact(e.request) }); } catch (x) { console.error('[routage]', (x as Error).message); } };
   // Budget mensuel : au-delà, seuls les modèles gratuits servent (voir Router.complete).
   router.overBudget = () => cfg.routing.monthlyBudgetUsd > 0 && muninn.monthCost() >= cfg.routing.monthlyBudgetUsd;
-  // Sans Internet : modèle local (Ollama) trouvé tout seul, ajouté en dernier recours.
-  if (!opts.provider && process.env.ODIN_NO_LOCAL_BRAIN !== '1') void detectLocalBrain(router).then((m) => { if (m) console.error(`[modèles] cerveau local de secours trouvé : ${m} (Ollama)`); }).catch(() => undefined);
+  // Sans Internet : modèle local ouvert (GGUF) lu par Métis, ajouté en dernier recours — aucun serveur à côté.
+  if (!opts.provider && process.env.ODIN_NO_LOCAL_BRAIN !== '1') void detecterMetis(router, paths.home).then((m) => { if (m) console.error(`[modèles] modèle local ouvert prêt (Métis) : ${m}`); }).catch(() => undefined);
   const cheapProvider = !opts.provider && cfg.cheapProvider ? buildProvider(cfg.cheapProvider, process.env, paths) : undefined;
   const cheapRouter = cheapProvider ? new Router([{ provider: cheapProvider, cfg: cfg.cheapProvider! }, ...router.routes]) : undefined;
   if (cheapRouter) { cheapRouter.onUsage = router.onUsage; cheapRouter.onRoute = router.onRoute; cheapRouter.overBudget = router.overBudget; }
@@ -173,7 +205,27 @@ export function createOdin(opts: CreateOptions = {}): Odin {
   }
   // Odin, homme ou femme : les phrases toutes faites lisent le réglage en cours (il peut changer sans redémarrer).
   brancherGenre(() => cfg.voice.gender);
-  const embedder = opts.provider ? undefined : makeEmbedder(cfg);
+  // Plongements de la mémoire par Noûs (cerveau profond d'Odin), chargé à la demande au premier besoin ; tant que
+  // Noûs n'est pas prêt, l'appel échoue proprement et la recherche par mots prend le relais (repli conservé).
+  let embedder: Embedder | undefined;
+  if (!opts.provider && cfg.memory?.semantic !== false) {
+    let moteurP: Promise<Awaited<ReturnType<typeof chargerMoteur>>> | undefined;
+    const charger = (): Promise<Awaited<ReturnType<typeof chargerMoteur>>> => (moteurP ??= chargerMoteur(paths.home).catch(() => undefined));
+    // L'étiquette du modèle suit la VERSION de Noûs (« noos-v<n> ») : quand Noûs réapprend et change de version, la
+    // mémoire voit l'étiquette changer (store.missingVectors) et recalcule ses repères toute seule. Une étiquette figée
+    // (« noos ») masquerait ce changement et mélangerait d'anciens vecteurs à la nouvelle géométrie. Tant que Noûs n'est
+    // pas chargé, l'étiquette reste « noos » (aucun vecteur n'est encore écrit avant le premier embed).
+    let moteurCharge: Awaited<ReturnType<typeof chargerMoteur>> | undefined;
+    embedder = {
+      get model(): string { return moteurCharge ? moteurCharge.modeleEmbedding : 'noos'; },
+      async embed(text: string, signal?: AbortSignal): Promise<Float32Array> {
+        const m = await charger();
+        if (!m) throw new Error('plongements indisponibles : Noûs pas encore prêt (repli recherche par mots)');
+        moteurCharge = m;
+        return embedderNoos(m).embed(text, signal);
+      },
+    };
+  }
   const agent = new Agent({ embedder, paths, cfg, router, cheapRouter, muninn, skills, tools, heimdall, redactor, workspace: paths.workspace, home: paths.home, persona, send: opts.send, inventory, mimir });
   return { paths, cfg, agent, muninn, skills, heimdall, tools, inventory, mimir, redactor, close: () => { closeBrowsers(); muninn.close(); } };
 }

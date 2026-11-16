@@ -58,6 +58,8 @@ import { evolutionTree } from './evolutions.ts';
 import { NETWORK as RAN_NETWORK, capture as ranCapture, flows as ranFlows, history as ranHistory, isPaused as ranIsPaused, packet as ranPacket, setOwnPort as ranOwnPort, sourcesFor as ranSources, startPump as ranPump, state as ranState } from '../valhalla/ran.ts';
 import { draupnirGet, draupnirPost, publicRoute, runesCsv, runesGet, runesPost } from './draupnir-api.ts';
 import { maisonRoute } from './maison-api.ts';
+import { keryxRoute } from './keryx-api.ts';
+import { metisRoute } from './metis-api.ts';
 import { CIEL_JS } from './ciel.ts';
 import { trajetsRoute } from './gna-api.ts';
 import { rechercheRoute } from './recherche-api.ts';
@@ -625,6 +627,10 @@ export class WebChannel implements Channel {
     if (url.pathname === '/api/epingles' && await epinglesRoute(req, res, url, { proprietaire: () => this.authed(req), fail: () => this.throttle.fail(ip) })) return;
     // Archytas (fenêtre Script) : scripts privés, propriétaire seul (le code n'est servi qu'au propriétaire).
     if (url.pathname.startsWith('/api/archytas/') && await archytasRoute(req, res, url, { proprietaire: () => this.authed(req) && !estMembre(req), home: this.odin.paths.home, fail: () => this.throttle.fail(ip) })) return;
+    // Kéryx (l'assistant joignable de dehors) : réglages, code secret, historique, essais — propriétaire seul.
+    if (url.pathname.startsWith('/api/keryx/') && await keryxRoute(req, res, url, { home: this.odin.paths.home, authed: this.authed(req) && !estMembre(req), fail: () => this.throttle.fail(ip), etatSup: () => { const c = this.odin.cfg.channels as Record<string, { enabled?: boolean } | undefined>; return { canauxActifs: ['telegram', 'signal', 'keryx'].filter((n) => c[n]?.enabled), mailBranche: Boolean(this.odin.cfg.mail.imapHost), agendaBranche: true }; } })) return;
+    // Métis (modèles de langue ouverts lus dans Odin, sans serveur) : catalogue et vitesse mesurée — propriétaire seul.
+    if (url.pathname.startsWith('/api/metis/') && await metisRoute(req, res, url, { home: this.odin.paths.home, authed: this.authed(req) && !estMembre(req), fail: () => this.throttle.fail(ip) })) return;
     // Connexion unique (Persona, OpenID, sauvegardes des applis) et droits par appli des personnes qui ne sont pas le propriétaire.
     if (await gardeSSO(req, res, url, { accounts: this.accounts, ip: ip.replace(/^fwd:/, ''), https: this.secure || this.viaHttps(req), fail: () => this.throttle.fail(ip), proprietaireConnecte: () => this.accounts.valid(this.sessionOf(req)), version: RUNNING, direct, venus: this.odin.cfg.venus?.url ?? '', ouvrirSessionProprio: () => this.openSession(req, res, 'mot de passe'), etat: () => this.state(), accueil: (appli) => this.accueilRefus(req, nomAppli(persona(), appli)) })) return;
 

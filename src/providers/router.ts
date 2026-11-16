@@ -17,6 +17,14 @@ import { OpenAIProvider } from './openai.ts';
 import { CodexProvider, loadCodexAuth } from './codex.ts';
 import { odinPaths, type OdinPaths } from '../config.ts';
 import { providerLabel, routeContext, serviceOf, type RouteAttempt, type RouteEntry } from './journal.ts';
+// Métis : modèle local ouvert (GGUF) lu et exécuté dans Odin, sans serveur réglé par adresse (remplace Ollama).
+// Le catalogue et l'ouverture viennent du lot « Lecteur et poids » de Métis (src/brain/metis/catalogue.ts) : importés
+// À LA DEMANDE (import dynamique) pour que ce module reste chargeable même si ce lot n'est pas encore livré.
+import { ProviderMetis } from '../brain/metis/provider.ts';
+import type { ModeleCatalogue, ModeleGguf } from '../brain/metis/types.ts';
+
+type ListerModeles = (home: string) => Promise<ModeleCatalogue[]>;
+type OuvrirModele = (id: string, home: string) => Promise<ModeleGguf>;
 
 export type Tier = 'local' | 'standard' | 'strong';
 export const TIER_RANK: Record<Tier, number> = { local: 0, standard: 1, strong: 2 };
@@ -326,19 +334,32 @@ export function shortError(e: unknown): string {
 }
 
 /**
- * Cerveau local trouvé tout seul : si Ollama tourne sur cette machine avec un modèle de discussion
- * et qu'aucun modèle local n'est configuré, il est ajouté en DERNIER RECOURS. Odin continue alors de
- * réfléchir sans Internet (lent sur un petit processeur, mais il répond et agit).
+ * Cerveau local trouvé tout seul : Métis scrute le catalogue des modèles ouverts (GGUF) téléchargés par Odin et, si
+ * un modèle de discussion est présent et qu'aucun modèle local n'est configuré, l'ajoute en DERNIER RECOURS. Odin
+ * continue alors de réfléchir sans Internet (lent sur un petit processeur, mais il répond et agit), SANS serveur à
+ * côté ni adresse à régler : le modèle tourne dans le processus d'Odin.
+ *
+ * `deps` permet d'injecter un faux catalogue pour les essais (aucun vrai modèle n'est touché).
  */
-export async function detectLocalBrain(router: Router, base = 'http://127.0.0.1:11434', fetchFn: typeof fetch = fetch): Promise<string | undefined> {
+export async function detecterMetis(
+  router: Router,
+  home: string,
+  deps: { lister?: ListerModeles; ouvrir?: OuvrirModele } = {},
+): Promise<string | undefined> {
   if (router.routes.some((r) => tierOf(r.cfg) === 'local')) return undefined;
-  const r = await fetchFn(`${base}/api/tags`, { signal: AbortSignal.timeout(2500) }).catch(() => undefined);
-  if (!r?.ok) return undefined;
-  const names = ((await r.json().catch(() => ({}))) as { models?: Array<{ name: string }> }).models?.map((m) => m.name) ?? [];
-  const chat = names.filter((n) => !/embed|nomic|bge|minilm|whisper|vision-only/i.test(n));
-  const pick = ['qwen3', 'qwen2.5', 'llama3', 'mistral', 'gemma', 'phi'].map((p) => chat.find((n) => n.startsWith(p))).find(Boolean) ?? chat[0];
-  if (!pick) return undefined;
-  const cfg: ProviderConfig = { kind: 'openai', model: pick, baseUrl: `${base}/v1`, tier: 'local', fallbackOnly: true };
-  router.routes.push({ provider: new OpenAIProvider('', cfg.baseUrl, `ollama:${pick}`), cfg });
-  return pick;
+  let lister = deps.lister;
+  let ouvrir = deps.ouvrir;
+  if (!lister || !ouvrir) {
+    // Lot « Lecteur et poids » de Métis, chargé à la demande : absent (pas encore livré, ou aucun catalogue) → pas de cerveau local.
+    try { const cat = await import('../brain/metis/catalogue.ts'); lister ??= cat.listerModeles; ouvrir ??= cat.ouvrir; }
+    catch { return undefined; }
+  }
+  const modeles = await lister(home).catch(() => []);
+  const chat = modeles.filter((m) => m.type === 'chat');
+  if (!chat.length) return undefined;
+  // On préfère le modèle le plus petit (le plus utilisable sur une machine modeste) ; la page Métis affiche la mesure.
+  const pick = chat.slice().sort((a, b) => a.tailleOctets - b.tailleOctets)[0];
+  const cfg: ProviderConfig = { kind: 'openai', model: pick.nom, tier: 'local', fallbackOnly: true, priceInPerM: 0, priceOutPerM: 0 };
+  router.routes.push({ provider: new ProviderMetis(() => ouvrir(pick.id, home), pick.nom, home), cfg });
+  return pick.nom;
 }

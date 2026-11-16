@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { offlineAct, parseHome, parseStates } from '../src/core/offline-act.ts';
-import { detectLocalBrain, Router } from '../src/providers/router.ts';
+import { detecterMetis, Router } from '../src/providers/router.ts';
+import type { ModeleCatalogue } from '../src/brain/metis/types.ts';
 import type { Tool } from '../src/tools/registry.ts';
 import type { ModelResponse, Provider } from '../src/types.ts';
 import { makeOdin } from './helpers.ts';
@@ -77,14 +78,21 @@ test('sans Internet : le service injoignable est mis de côté, la réponse de s
   assert.equal(n, 1, 'pendant 1 min, on ne refrappe pas à la porte');
 });
 
-test('cerveau local trouvé tout seul (Ollama), utilisé en dernier recours', async () => {
+test('modèle local ouvert trouvé par Métis, utilisé en dernier recours', async () => {
   const ok: ModelResponse = { text: 'ok', toolCalls: [], usage: { inputTokens: 1, outputTokens: 1 }, stopReason: 'end' };
   const r = new Router([{ provider: { name: 'anthropic:x', complete: async () => ok }, cfg: { kind: 'anthropic', model: 'x' } }]);
-  const fake = (async () => new Response(JSON.stringify({ models: [{ name: 'nomic-embed-text' }, { name: 'qwen3:4b' }] }), { status: 200 })) as unknown as typeof fetch;
-  assert.equal(await detectLocalBrain(r, 'http://127.0.0.1:11434', fake), 'qwen3:4b');
-  assert.equal(r.routes.at(-1)!.provider.name, 'ollama:qwen3:4b');
-  // Même pour une tâche « simple », le modèle trouvé tout seul passe après tes modèles configurés.
+  // Faux catalogue GGUF (aucun vrai modèle, aucune ouverture de fichier) : un modèle de discussion et un d'embeddings.
+  const catalogue: ModeleCatalogue[] = [
+    { id: 'q1', nom: 'qwen3-4b', chemin: '/x/qwen3-4b.gguf', arch: 'qwen3', tailleOctets: 2_500_000, empreinte: 'aa', quant: 'Q4_0', type: 'chat' },
+    { id: 'q2', nom: 'qwen3-1_7b', chemin: '/x/qwen3-1_7b.gguf', arch: 'qwen3', tailleOctets: 1_200_000, empreinte: 'bb', quant: 'Q4_0', type: 'chat' },
+    { id: 'e1', nom: 'nomic-embed', chemin: '/x/embed.gguf', arch: 'bert', tailleOctets: 500_000, empreinte: 'cc', quant: 'Q8_0', type: 'embeddings' },
+  ];
+  const deps = { lister: async (_home: string) => catalogue, ouvrir: async () => { throw new Error('ne doit pas ouvrir dans ce test'); } };
+  // On prend le plus petit modèle de DISCUSSION (le plus utilisable), jamais celui d'embeddings.
+  assert.equal(await detecterMetis(r, '/home', deps as never), 'qwen3-1_7b');
+  assert.equal(r.routes.at(-1)!.provider.name, 'metis:qwen3-1_7b');
+  // Même pour une tâche « simple », le modèle local passe après tes modèles configurés.
   assert.equal(r.order({ minTier: 'local' })[0].provider.name, 'anthropic:x');
-  // Déjà un modèle local configuré : rien n'est ajouté.
-  assert.equal(await detectLocalBrain(r, 'http://127.0.0.1:11434', fake), undefined);
+  // Déjà un modèle local présent : rien n'est ajouté.
+  assert.equal(await detecterMetis(r, '/home', deps as never), undefined);
 });

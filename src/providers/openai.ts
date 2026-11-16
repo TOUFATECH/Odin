@@ -1,5 +1,6 @@
 // Fournisseur « compatible OpenAI » (chat/completions). Un seul adaptateur couvre
-// OpenAI, OpenRouter, DeepSeek, Kimi (Moonshot), Nous Portal, Ollama (http://localhost:11434/v1), LM Studio, vLLM…
+// OpenAI, OpenRouter, DeepSeek, Kimi (Moonshot), Nous Portal et autres services compatibles en ligne.
+// (Le modèle local ouvert ne passe plus par ici : il est lu et exécuté dans Odin par Métis, sans adresse.)
 // DeepSeek et Kimi « réfléchissent » (reasoning_content) : cette réflexion est gardée pendant le tour
 // et renvoyée avec les appels d'outils, comme leurs API le demandent ; elle n'est jamais affichée.
 import { readSse } from './sse.ts';

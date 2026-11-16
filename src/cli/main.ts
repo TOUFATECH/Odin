@@ -29,6 +29,10 @@ import { SlackChannel } from '../bifrost/channels/slack.ts';
 import { SignalChannel } from '../bifrost/channels/signal.ts';
 import { WhatsAppChannel } from '../bifrost/channels/whatsapp.ts';
 import { MailChannel } from '../bifrost/channels/mail.ts';
+import { CanalKeryx } from '../valhalla/keryx/canal.ts';
+import { lireReglages } from '../valhalla/keryx/reglages.ts';
+import { configurerTrace } from '../valhalla/keryx/trace.ts';
+import { Proactif } from '../valhalla/keryx/proactif.ts';
 import { accessUrls, addedNetworks, addNetwork, allowedNetworks, bindHost, ensureTls, plageAutorisable, removeNetwork, servesTls, type TlsMaterial } from '../web/access.ts';
 import { applySettings, detectPreset, loadEnvFile, PRESETS, type ModelPreset } from '../settings.ts';
 import { genreOdin, lireGenre } from '../core/genre.ts';
@@ -266,6 +270,23 @@ async function gateway(openBrowser = false, reloaded = false): Promise<void> {
     tryAdd('WhatsApp', ['WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN'], () => (whatsapp = new WhatsAppChannel({ token: process.env.WHATSAPP_TOKEN!, phoneId: cc.whatsapp!.phoneId, verifyToken: process.env.WHATSAPP_VERIFY_TOKEN!, appSecret: process.env.WHATSAPP_APP_SECRET! }, chOpts)));
   }
   if (cc.mail?.enabled && odin.cfg.mail.imapHost) { owners.mail = cc.mail.owners.map((o) => String(o).toLowerCase()); gw.add(new MailChannel(odin.cfg.mail, owners.mail, cc.mail.tag ?? 'odin', cc.mail.everySec ?? 60)); }
+  // Kéryx — l'assistant joignable de dehors : couche auth + trace au-dessus d'un bot messagerie dédié. Défaut « aucune
+  // ligne » : il marche sur la messagerie, le SMS et l'appel restent éteints. La liste blanche (owners) rend les numéros
+  // connus propriétaires sur ce canal ; le code secret reste exigé par le canal avant d'agir. (Ajouter un numéro demande
+  // un redémarrage des canaux pour l'instant.)
+  configurerTrace(odin.paths.home);
+  if (cc.keryx?.enabled) {
+    const kToken = process.env[cc.keryx.tokenEnv];
+    if (!kToken) console.log(c.yellow(`[bifrost] Kéryx activé mais ${cc.keryx.tokenEnv} absente : canal ignoré (page Kéryx)`));
+    else {
+      owners.keryx = [...new Set([...cc.keryx.owners.map(String), ...lireReglages(odin.paths.home).numeros])];
+      const transportKeryx = new TelegramChannel(kToken, undefined, { ...chOpts, home: odin.paths.home, owner: cc.keryx.owners.map(String)[0] });
+      gw.add(new CanalKeryx(odin.paths.home, transportKeryx, () => lireReglages(odin.paths.home)));
+      // Initiative simple (rappels de rendez-vous), sans dépendance à une ligne ; minuteur léger (unref).
+      const proactifKeryx = new Proactif({ notifyOwner: (t, o) => gw!.notifyOwner(t, o), quietNow: (n) => gw!.quietNow(n) }, () => lireReglages(odin.paths.home));
+      setInterval(() => void proactifKeryx.passer().catch(() => {}), 60_000).unref?.();
+    }
+  }
   const http = odin.cfg.channels.http;
   if (http?.enabled) {
     const token = process.env[http.tokenEnv];
@@ -572,7 +593,7 @@ async function admin(): Promise<void> {
       } else {
         console.log(`Mímir : ${m.enabled ? c.green('activé') : 'désactivé'} · autonomie : ${c.bold(m.autonomy)} · juge configuré : ${m.judge} · juge effectif : ${odin.mimir?.judgeName ?? '—'} · clé ${m.apiKeyEnv} : ${key ? c.green('présente') : 'absente'}`);
         console.log(c.dim(`  Utilisé pour : ${Object.entries(m.uses).filter(([, v]) => v).map(([k]) => k).join(', ')}`));
-        console.log(c.dim('  Juges : local (sans clé, hors ligne) · llm (ton modèle, Ollama = sans clé) · jev (TypeSafe) · local+llm · local+jev'));
+        console.log(c.dim('  Juges : local (sans clé, hors ligne) · llm (ton modèle ; Métis = modèle local ouvert, sans clé) · jev (TypeSafe) · local+llm · local+jev'));
         console.log(c.dim('  Changer : odin mimir use local+llm · Mesurer : odin mimir eval [--judge=…] [--set=cases|holdout|fresh]'));
       }
     } else if (cmd === 'decisions') {
@@ -773,7 +794,7 @@ async function modelCmd(): Promise<void> {
   if (!pos[1]) {
     console.log('Modèles configurés (le premier est utilisé par défaut) :');
     cfg.providers.forEach((p, i) => console.log(`  ${i === 0 ? c.green('●') : '○'} ${detectPreset(p).padEnd(13)} ${p.model}${buildProvider(p, process.env, paths) ? '' : c.dim('  (non prêt)')}`));
-    console.log(c.dim(`\nChanger : odin model codex gpt-6-luna · odin model anthropic claude-sonnet-5-5 · odin model ollama qwen3:14b\nPréréglages : ${Object.keys(PRESETS).join(', ')}, codex`));
+    console.log(c.dim(`\nChanger : odin model codex gpt-6-luna · odin model anthropic claude-sonnet-5-5 · modèle local ouvert : page Métis (aucune adresse à régler)\nPréréglages : ${Object.keys(PRESETS).join(', ')}, codex`));
     return;
   }
   const preset = (pos[1] === 'codex' ? 'openai-codex' : pos[1]) as ModelPreset;
