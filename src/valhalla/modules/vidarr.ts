@@ -25,9 +25,32 @@ import * as ranDb from '../ran.ts';
 
 export interface ListMeta { id: string; name: string; url: string; kind: Lists['kind']; enabled: boolean; count?: number; updated?: string; error?: string }
 export const DEFAULT_LISTS: ListMeta[] = [
+  // Activées par défaut : une liste de pubs sûre, les sites dangereux, le contrôle parental.
   { id: 'pubs', name: 'Pubs et pisteurs', url: 'https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt', kind: 'blocage', enabled: true },
   { id: 'menaces', name: 'Sites dangereux (virus, hameçonnage)', url: 'https://urlhaus.abuse.ch/downloads/hostfile/', kind: 'menace', enabled: true },
   { id: 'parental', name: 'Contrôle parental (sites pour adultes)', url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/porn-only/hosts', kind: 'parental', enabled: true },
+  // Les listes de blocage de publicités les plus connues (désactivées par défaut : à activer dans l'interface, une liste suffit souvent, plusieurs se recoupent).
+  { id: 'stevenblack', name: 'StevenBlack (pubs + pisteurs)', url: 'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts', kind: 'blocage', enabled: false },
+  { id: 'hagezi-pro', name: 'HaGeZi Multi Pro (recommandée)', url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/pro.txt', kind: 'blocage', enabled: false },
+  { id: 'hagezi-light', name: 'HaGeZi Light (légère)', url: 'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/hosts/light.txt', kind: 'blocage', enabled: false },
+  { id: 'oisd-small', name: 'OISD Small (pubs essentielles)', url: 'https://small.oisd.nl/hosts', kind: 'blocage', enabled: false },
+  { id: 'oisd-big', name: 'OISD Big (pubs + pisteurs, large)', url: 'https://big.oisd.nl/hosts', kind: 'blocage', enabled: false },
+  { id: '1hosts-lite', name: '1Hosts Lite', url: 'https://raw.githubusercontent.com/badmojr/1Hosts/master/Lite/hosts.txt', kind: 'blocage', enabled: false },
+  { id: 'adaway', name: 'AdAway (pubs mobiles)', url: 'https://adaway.org/hosts.txt', kind: 'blocage', enabled: false },
+  { id: 'peter-lowe', name: "Peter Lowe (régies de pub)", url: 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext', kind: 'blocage', enabled: false },
+  { id: 'adguard-mobile', name: 'AdGuard Mobile (pubs appli)', url: 'https://adguardteam.github.io/HostlistsRegistry/assets/filter_11.txt', kind: 'blocage', enabled: false },
+  { id: 'adguard-tracking', name: 'AdGuard Pisteurs', url: 'https://adguardteam.github.io/HostlistsRegistry/assets/filter_3.txt', kind: 'blocage', enabled: false },
+  { id: 'easylist', name: 'EasyList (pubs, classique)', url: 'https://easylist.to/easylist/easylist.txt', kind: 'blocage', enabled: false },
+  { id: 'easyprivacy', name: 'EasyPrivacy (pisteurs)', url: 'https://easylist.to/easylist/easyprivacy.txt', kind: 'blocage', enabled: false },
+  { id: 'disconnect-ads', name: 'Disconnect (pubs)', url: 'https://s3.amazonaws.com/lists.disconnect.me/simple_ad.txt', kind: 'blocage', enabled: false },
+  { id: 'disconnect-track', name: 'Disconnect (pisteurs)', url: 'https://s3.amazonaws.com/lists.disconnect.me/simple_tracking.txt', kind: 'blocage', enabled: false },
+  { id: 'dan-pollock', name: 'Dan Pollock (someonewhocares)', url: 'https://someonewhocares.org/hosts/zero/hosts', kind: 'blocage', enabled: false },
+  { id: 'mvps', name: 'MVPS hosts', url: 'https://winhelp2002.mvps.org/hosts.txt', kind: 'blocage', enabled: false },
+  { id: 'frogeye-firstparty', name: 'Frogeye (pisteurs première main)', url: 'https://hostfiles.frogeye.fr/firstparty-trackers-hosts.txt', kind: 'blocage', enabled: false },
+  { id: 'goodbyeads', name: 'GoodbyeAds (mobile)', url: 'https://raw.githubusercontent.com/jerryn70/GoodbyeAds/master/Hosts/GoodbyeAds.txt', kind: 'blocage', enabled: false },
+  { id: 'notrack-tracker', name: 'NoTrack (pisteurs)', url: 'https://gitlab.com/quidsup/notrack-blocklists/-/raw/master/notrack-blocklist.txt', kind: 'blocage', enabled: false },
+  { id: 'firebog-ads', name: 'Firebog AdGuard DNS', url: 'https://v.firebog.net/hosts/AdguardDNS.txt', kind: 'blocage', enabled: false },
+  { id: 'yhosts', name: 'yhosts (international)', url: 'https://raw.githubusercontent.com/VeleSila/yhosts/master/hosts', kind: 'blocage', enabled: false },
 ];
 
 let srv: DnsServer | undefined, appCtx: ModCtx | undefined, compiled = new Map<string, Compiled>(), dhcp: DhcpServer | undefined, dotPort = 0;
