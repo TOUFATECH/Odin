@@ -100,6 +100,15 @@
 .va-share{flex:none;min-height:44px;gap:8px;font-size:15px}.va-share.va-busy{opacity:.8}.va-partage{max-width:min(620px,calc(100vw - 32px))}.va-partage .va-cartes label{flex-basis:200px}
 @media (max-width:700px){.va-desc,.va-etat,.va-plus{order:2}.va-share{width:44px;padding:0;justify-content:center}.va-share>span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
 .va-fin{display:flex;flex-wrap:wrap;align-items:center;gap:14px}.va-fin p{margin:0;flex:1 1 280px;min-width:0}
+#v-apps[data-vue=carte]>.body{padding:0;overflow:hidden;display:flex;flex-direction:column}#v-apps[data-vue=carte] .head .sub{display:none}
+#vaPaneCarte{flex:1;min-height:0;position:relative}#vaPaneCarte[hidden],#vaPaneApplis[hidden]{display:none}
+#vaPaneApplis.pe-plein{overflow:auto;padding:16px 28px 28px}.va-pe-sortie{display:none}#vaPaneApplis.pe-plein>.va-pe-sortie{display:flex;justify-content:flex-end;position:sticky;top:0;z-index:2;margin:0 0 12px}
+.va-hacts .seg button{display:inline-flex;align-items:center;gap:7px}.va-hacts svg{flex:none}.va-voir .badge[hidden]{display:none}
+.va-volet{position:fixed;inset:0 0 0 auto;margin:0;width:min(440px,100vw);max-width:100vw;height:100%;max-height:none;padding:0;border:0;border-left:1px solid var(--line);background:var(--bg);color:var(--ink);overflow:auto;box-shadow:var(--shadow)}
+.va-volet::backdrop{background:rgba(0,0,0,.4)}.va-volet[open]{animation:va-volet .18s ease-out}@keyframes va-volet{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+.va-volet-h{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;background:var(--bg);border-bottom:1px solid var(--line)}.va-volet-h h2{margin:0;font-size:18px}.va-volet-b{padding:14px 16px}
+@media (prefers-reduced-motion:reduce){.va-volet[open]{animation:none}}
+@media (max-width:860px){#v-apps .va-hacts{display:flex;flex-wrap:nowrap;gap:6px}#v-apps .va-hacts .seg{flex:1 1 auto;width:auto;min-width:0}#v-apps .va-hacts .seg button{padding:0 8px;font-size:13px;justify-content:center;min-width:0}#v-apps .va-hacts .hbtn{flex:none;width:44px;height:42px;padding:0}#v-apps .va-hacts .hbtn .hl{display:none}#v-apps .va-voir{position:relative;justify-content:center}#v-apps .va-voir .badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;font-size:11px;padding:0 5px}#vaPaneApplis.pe-plein{padding:12px 16px 20px}}
 `;
   let st = null, cur = null, busy = false;
   /** Paramètres de la vue de chaque appli (période du graphe…), gardés quand la page se redessine. */
@@ -399,38 +408,115 @@
     setTimeout(() => cur && openApp(cur, true), 600);
     return r.ok ? r.text : `✗ ${r.text ?? r.error}`;
   }
-  function toast(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:60;max-width:min(560px,calc(100% - 32px));box-shadow:var(--shadow);background:var(--panel)' }, t); document.body.append(n); setTimeout(() => n.remove(), 4500); }
+  function toast(t) { const n = el('div', { class: 'va-out', role: 'status', style: 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:60;max-width:min(560px,calc(100% - 32px));box-shadow:var(--shadow);background:var(--panel)' }, t); (document.querySelector('dialog[open]') ?? document.body).append(n); setTimeout(() => n.remove(), 4500); }
 
+  // ---------------------------------------------------------------- Page Applis en deux vues (16/11/2026)
+  // « Applications » (vue d'arrivée) : « J'ai besoin de… » et la grille de toutes les applis. « Carte » : la carte des
+  // applis en pleine page. On ne voit que la vue choisie (gardée dans le navigateur). Le squelette est construit une seule
+  // fois : aux ouvertures suivantes, tout est mis à jour sans rien détruire (la carte garde ses points et ses animations).
+  // Ce qui était dessous (manips à décider, protection, alertes récentes, qui fait quoi) est dans le volet « À voir ».
+  const VUE_CLE = 'odin.applis.vue';
+  const lireVue = () => { try { return localStorage.getItem(VUE_CLE) === 'carte' ? 'carte' : 'applis'; } catch { return 'applis'; } };
+  const IV = { applis: '<rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/>', carte: '<circle cx="6" cy="7" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.4 6.6l7.2-.4M7.2 9.3l3.6 6.4M16.8 8.2l-3.6 7.5"/>', voir: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>' };
+  let pageA = null;
   async function openCatalog() {
     const box = $('#v-apps .body'); if (!box) return;
     st = await api('/api/valhalla/catalog');
-    box.replaceChildren();
-    if (!st.ok) { box.append(el('p', { class: 'sub' }, st.error)); return; }
-    const ans = el('div', { class: 'va-ans', role: 'status', hidden: true });
-    box.append(el('form', { class: 'va-need', role: 'search', onsubmit: async (e) => { e.preventDefault(); const q = $('#vaNeed').value.trim(); if (!q) return; ans.hidden = false; ans.textContent = '…'; const r = await api(`/api/valhalla/advise?need=${encodeURIComponent(q)}`); ans.replaceChildren(r.text, r.found?.[0] ? el('div', { style: 'margin-top:10px' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openApp(r.found[0].id) }, `Ouvrir ${r.found[0].name}`)) : ''); } },
-      el('label', { for: 'vaNeed', class: 'sr' }, 'De quoi as-tu besoin ?'), el('input', { id: 'vaNeed', placeholder: 'J\'ai besoin de… (sauvegarder mes photos, bloquer un pirate, voir la caméra…)', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Trouver l\'appli')), ans);
-    // Toutes les applis, avec leur icône (comme un menu démarrer) : un clic l'ouvre
-    if (window.OdinAppIcons) {
-      const grid = el('div', { class: 'va-appgrid', role: 'list', 'aria-label': 'Tes applis' });
-      // Chaque tuile a, à côté (jamais dedans), son petit bouton « Épingler au menu ».
-      for (const m of [...st.modules].sort((a, b) => a.name.localeCompare(b.name, 'fr'))) { const b = el('button', { type: 'button', class: 'va-appbtn', title: m.what, onclick: () => openApp(m.id) }); b.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 52); b.append(el('span', {}, m.name)); grid.append(el('div', { class: 'va-appcell', role: 'listitem' }, b, window.OdinEpingles?.bouton(`appli:${m.id}`, m.name, { petit: true }) ?? null)); }
-      box.append(el('section', { class: 'va-sec' }, el('h2', {}, `Tes applis (${st.modules.length})`), grid));
-    }
-    // Ce qu'Odin a fait de lui-même : à garder ou à annuler. Et l'état de la protection, en une ligne.
-    const top = el('div', { class: 'va-top' }); box.append(top);
-    manips(top); protection(top);
-    // Les applis en graphe (comme le Cerveau), avec les alertes et les nouveautés en pastilles
-    const graph = el('div', { class: 'va-graph' });
-    box.append(graph);
-    drawGraph(graph);
-    const al = await api('/api/valhalla/alerts?n=30');
-    box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes récentes'),
-      el('div', { class: 'va-acts-bar' }, el('label', { for: 'vaLvl', class: 'sub' }, 'Sur ta messagerie à partir de :'), el('select', { id: 'vaLvl', onchange: async (e) => { await api('/api/valhalla/level', { level: e.target.value }); toast('Enregistré.'); } }, ...['info', 'moyenne', 'haute', 'critique'].map((l) => el('option', { selected: l === st.level ? true : undefined }, l))), el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/valhalla/ack', { ids: (al.alerts ?? []).map((a) => a.id) }); openCatalog(); } }, 'Tout marquer vu')),
-      alerts(al.alerts ?? [])));
-    box.append(el('section', { class: 'va-sec' }, el('h2', {}, 'Qui fait quoi : les liens entre applis'), el('ul', { class: 'va-list va-links' }, ...st.links.map((l) => el('li', {}, el('b', {}, l.from === l.to ? `${name(l.from)} · Odin répare seul` : `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`)))),
-      el('h2', { style: 'margin-top:16px' }, 'Usages de prédilection'), el('ul', { class: 'va-list' }, ...st.usages.map((u) => el('li', {}, el('b', {}, u.need), el('small', {}, `${u.chain.map(name).join(' → ')} — ${u.why}`))))));
+    if (!st.ok) { pageA = null; $('#v-apps .va-hacts')?.remove(); box.replaceChildren(el('p', { class: 'sub' }, st.error)); return; }
+    const neuf = !pageA || !box.contains(pageA.paneA);
+    if (neuf) pageA = squeletteApplis(box);
+    remplirGrille(pageA);
+    drawGraph(pageA.paneC);
+    if (neuf) choisirVue(lireVue(), false);
+    compterAVoir();
     badge();
   }
+  /** Le squelette de la page : les deux vues, et dans l'en-tête le choix de la vue, « À voir » et le plein écran. */
+  function squeletteApplis(box) {
+    const paneA = el('div', { id: 'vaPaneApplis' }), paneC = el('div', { id: 'vaPaneCarte' });
+    const ans = el('div', { class: 'va-ans', role: 'status', hidden: true });
+    const need = el('form', { class: 'va-need', role: 'search', onsubmit: async (e) => { e.preventDefault(); const q = $('#vaNeed').value.trim(); if (!q) return; ans.hidden = false; ans.textContent = '…'; const r = await api(`/api/valhalla/advise?need=${encodeURIComponent(q)}`); ans.replaceChildren(r.text, r.found?.[0] ? el('div', { style: 'margin-top:10px' }, el('button', { class: 'btn small primary', type: 'button', onclick: () => openApp(r.found[0].id) }, `Ouvrir ${r.found[0].name}`)) : ''); } },
+      el('label', { for: 'vaNeed', class: 'sr' }, 'De quoi as-tu besoin ?'), el('input', { id: 'vaNeed', placeholder: 'J\'ai besoin de… (sauvegarder mes photos, bloquer un pirate, voir la caméra…)', autocomplete: 'off' }), el('button', { class: 'btn primary', type: 'submit' }, 'Trouver l\'appli'));
+    const titre = el('h2', {}, 'Tes applis'), grid = el('div', { class: 'va-appgrid', role: 'list', 'aria-label': 'Tes applis' });
+    // En plein écran, la grille garde son bouton de sortie en haut (le bouton de l'en-tête est caché dessous).
+    const sortie = window.OdinPleinEcran ? el('div', { class: 'va-pe-sortie' }, window.OdinPleinEcran.bouton(paneA)) : null;
+    paneA.append(...[sortie, need, ans, el('section', { class: 'va-sec' }, titre, grid)].filter(Boolean));
+    const segB = (v, mot) => el('button', { type: 'button', 'aria-pressed': 'false', 'data-vue': v, onclick: () => choisirVue(v) }, ico(IV[v]), el('span', {}, mot));
+    const seg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Vue' }, segB('applis', 'Applications'), segB('carte', 'Carte'));
+    const nb = el('span', { class: 'badge', hidden: true });
+    const voir = el('button', { type: 'button', class: 'hbtn va-voir', 'aria-haspopup': 'dialog', 'aria-label': 'À voir', title: 'À voir : à décider, protection, alertes récentes, qui fait quoi', onclick: () => ouvrirVolet() }, ico(IV.voir), el('span', { class: 'hl' }, 'À voir'), nb);
+    const peSlot = el('span', { class: 'va-pe-slot', style: 'display:contents' });
+    const head = $('#v-apps .head'); head?.querySelector('.va-hacts')?.remove(); head?.append(el('div', { class: 'hacts va-hacts' }, seg, voir, peSlot));
+    box.replaceChildren(paneA, paneC);
+    return { vue: $('#v-apps'), paneA, paneC, grid, titre, seg, voir, nb, peSlot };
+  }
+  /** Montre une vue (« applis » ou « carte ») et la garde dans le navigateur. */
+  function choisirVue(v, garder = true) {
+    const p = pageA; if (!p) return;
+    const pe = window.OdinPleinEcran, a = pe?.actif(); if (a && p.vue?.contains(a)) pe.sortir();
+    if (p.vue) p.vue.dataset.vue = v;
+    p.paneA.hidden = v !== 'applis'; p.paneC.hidden = v !== 'carte';
+    for (const b of p.seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.vue === v));
+    if (garder) try { localStorage.setItem(VUE_CLE, v); } catch { /* navigateur sans stockage : le choix n'est pas gardé */ }
+    window.OdinFicheAppli?.cacher(0);
+    const cible = v === 'carte' ? graphUi?.el : p.paneA;
+    p.peSlot.replaceChildren(...(cible && pe ? [pe.bouton(cible)] : []));
+    if (v === 'carte') requestAnimationFrame(() => graphUi?.redessiner?.());
+  }
+  /** La grille de toutes les applis (comme un menu démarrer) : un clic l'ouvre ; sa fiche au survol, au focus, à l'appui long. */
+  function remplirGrille(p) {
+    p.titre.textContent = `Tes applis (${st.modules.length})`;
+    if (!window.OdinAppIcons) return;
+    const F = window.OdinFicheAppli, appli = (id) => () => st?.modules.find((x) => x.id === id);
+    // Chaque tuile a, à côté (jamais dedans), son petit bouton « Épingler au menu ».
+    p.grid.replaceChildren(...[...st.modules].sort((a, b) => a.name.localeCompare(b.name, 'fr')).map((m) => {
+      const b = el('button', { type: 'button', class: 'va-appbtn', title: F ? null : m.what, onclick: () => openApp(m.id) }); b.innerHTML = window.OdinAppIcons.tile(m.id, m.name, 52); b.append(el('span', {}, m.name));
+      F?.brancher(b, appli(m.id), { ouvrir: () => openApp(m.id) });
+      return el('div', { class: 'va-appcell', role: 'listitem' }, b, window.OdinEpingles?.bouton(`appli:${m.id}`, m.name, { petit: true }) ?? null);
+    }));
+  }
+  /** Le nombre sur « À voir » : alertes pas encore vues et manips à décider (en rouge s'il faut décider ou si c'est grave). */
+  async function compterAVoir() {
+    const p = pageA; if (!p) return;
+    const [al, mp] = await Promise.all([api('/api/valhalla/alerts?n=30').catch(() => null), api('/api/valhalla/manips?n=40').catch(() => null)]);
+    const nonVues = (al?.alerts ?? []).filter((a) => !a.ack), todo = (mp?.ok ? mp.manips : []).filter((m) => m.state === 'à décider');
+    const n = nonVues.length + todo.length, rouge = todo.length > 0 || nonVues.some((a) => ['critique', 'haute'].includes(String(a.level)));
+    p.nb.hidden = !n; p.nb.textContent = n > 99 ? '99+' : String(n); p.nb.classList.toggle('alert', rouge);
+    p.voir.setAttribute('aria-label', n ? `À voir : ${n} élément${n > 1 ? 's' : ''}` : 'À voir');
+  }
+  /** Une confirmation d'Odin demandée depuis le volet : le volet (modal) s'efface le temps de la question, sinon elle
+   *  resterait dessous, invisible et inerte ; il revient ensuite, le focus sur le bouton d'origine. */
+  async function confirmerHorsVolet(texte, btn) {
+    const d = $('#vaVolet'), etait = Boolean(d?.open);
+    if (etait) { d._vaPause = true; d.close(); }
+    try { return await window.OdinDialog.confirm(texte, { danger: true }); }
+    finally { if (etait) { d._vaPause = false; if (d.isConnected && !d.open) { d.showModal(); if (btn?.isConnected) btn.focus(); } } }
+  }
+  /** Le volet « À voir », collé à droite : à décider, protection, alertes récentes, qui fait quoi. Échap ou Fermer le ferme. */
+  function ouvrirVolet() {
+    let d = $('#vaVolet');
+    if (!d) {
+      d = el('dialog', { id: 'vaVolet', class: 'va-volet', 'aria-labelledby': 'vaVoletT' }); d.addEventListener('close', () => compterAVoir()); document.body.append(d);
+      // Ouvrir une appli ou changer d'écran depuis le volet le ferme : sinon la page arrive sous son fond, inerte.
+      const fermerVolet = () => { if (d.open && !d._vaPause) d.close(); };
+      document.addEventListener('odin:vue', fermerVolet); document.addEventListener('odin:appli', fermerVolet);
+    }
+    const aDecider = el('div'), prot = el('div'), alertesBox = el('div', {}, el('p', { class: 'sub' }, 'Lecture…'));
+    d.replaceChildren(el('div', { class: 'va-volet-h' }, el('h2', { id: 'vaVoletT' }, 'À voir'), el('button', { class: 'btn small', type: 'button', onclick: () => d.close() }, 'Fermer')),
+      el('div', { class: 'va-volet-b' }, aDecider, prot, alertesBox, quiFaitQuoi()));
+    if (!d.open) d.showModal();
+    // Ce qu'Odin a fait de lui-même : à garder ou à annuler. Et l'état de la protection, en une ligne.
+    manips(aDecider); protection(prot); alertesVolet(alertesBox);
+  }
+  /** Alertes récentes : le niveau envoyé sur ta messagerie, « Tout marquer vu », puis la liste. */
+  async function alertesVolet(into) {
+    const al = await api('/api/valhalla/alerts?n=30').catch(() => ({ alerts: [] }));
+    into.replaceChildren(el('section', { class: 'va-sec' }, el('h2', {}, 'Alertes récentes'),
+      el('div', { class: 'va-acts-bar' }, el('label', { for: 'vaLvl', class: 'sub' }, 'Sur ta messagerie à partir de :'), el('select', { id: 'vaLvl', onchange: async (e) => { await api('/api/valhalla/level', { level: e.target.value }); toast('Enregistré.'); } }, ...['info', 'moyenne', 'haute', 'critique'].map((l) => el('option', { selected: l === st?.level ? true : undefined }, l))), el('button', { class: 'btn small', type: 'button', onclick: async () => { await api('/api/valhalla/ack', { ids: (al.alerts ?? []).map((a) => a.id) }); alertesVolet(into); openCatalog(); } }, 'Tout marquer vu')),
+      alerts(al.alerts ?? [])));
+  }
+  const quiFaitQuoi = () => el('section', { class: 'va-sec' }, el('h2', {}, 'Qui fait quoi : les liens entre applis'), el('ul', { class: 'va-list va-links' }, ...(st?.links ?? []).map((l) => el('li', {}, el('b', {}, l.from === l.to ? `${name(l.from)} · Odin répare seul` : `${name(l.from)} → ${name(l.to)}`), el('small', {}, `Quand ${l.when} : ${l.does}`)))),
+    el('h2', { style: 'margin-top:16px' }, 'Usages de prédilection'), el('ul', { class: 'va-list' }, ...(st?.usages ?? []).map((u) => el('li', {}, el('b', {}, u.need), el('small', {}, `${u.chain.map(name).join(' → ')} — ${u.why}`)))));
   const name = (id) => st?.modules.find((m) => m.id === id)?.name ?? id;
   // Graphe des applis : Odin au centre, une famille par point vert, chaque appli reliée à sa famille et aux applis
   // avec lesquelles elle travaille. Pastille rouge ou orange : alertes ; bleue : nouveautés de son projet d'origine.
@@ -453,7 +539,9 @@
         alert: m.alerts ? { n: m.alerts, level: m.grave ? 'grave' : 'attention' } : undefined, update: m.updates || 0,
         title: `${m.name} — ${m.what}${m.alerts ? ` · ${m.alerts} alerte(s)` : ''}${m.updates ? ` · ${m.updates} nouveauté(s) de son projet d'origine` : ''}` }))];
     const edges = [...fams.map((f) => ['odin', `fam:${f}`]), ...st.modules.map((m) => [`fam:${m.family}`, m.id]), ...st.links.filter((l) => l.from !== l.to).map((l) => [l.from, l.to])];
-    const data = { nodes, edges, echanges: true, card: (n) => { const m = st.modules.find((x) => x.id === n.id); return m ? appCard(m) : null; }, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
+    // Carte en pleine page (vue « Carte ») : plein écran, clavier, liste lue par les lecteurs d'écran, fiche habillée et cliquable.
+    const ficheDe = (m) => (window.OdinFicheAppli ? window.OdinFicheAppli.construire(m, { ouvrir: () => openApp(m.id) }) : appCard(m));
+    const data = { nodes, edges, echanges: true, plein: true, liste: 'cachee', pleinEcran: true, clavier: true, carte: 'interactive', card: (n) => { const m = st.modules.find((x) => x.id === n.id); return m ? ficheDe(m) : null; }, label: 'Graphe des applis d\'Odin', search: 'Chercher une appli…', counter: (n, e) => `${st.modules.length} applis · ${e.length} liens`, onOpen: (id) => { if (id === 'odin' || id.startsWith('fam:')) return; openApp(id); } };
     if (graphUi && into.contains(graphUi.el)) graphUi.update(data); else graphUi = window.OdinGraph.mount(into, data);
   }
   /** Les manips d'Odin (réflexes, soins, automatisations) qui attendent ta décision. */
@@ -467,7 +555,7 @@
       const decide = async (id, keep, confirmed, btn) => {
         if (btn) btn.disabled = true;
         const x = await api('/api/valhalla/manip', { id, keep, confirm: confirmed === true });
-        if (x.confirm) { if (await window.OdinDialog.confirm(x.confirm, { danger: true })) return decide(id, keep, true, btn); if (btn) btn.disabled = false; return; }
+        if (x.confirm) { if (await confirmerHorsVolet(x.confirm, btn)) return decide(id, keep, true, btn); if (btn) btn.disabled = false; return; }
         toast(x.text ?? (x.ok ? 'Fait.' : 'Impossible.')); draw();
       };
       const row = (m) => el('li', { class: 'va-manip' }, el('div', {}, el('b', {}, m.label), el('small', {}, m.text), el('small', {}, `${new Date(m.at).toLocaleString('fr-FR')} · ${m.by === 'odin' ? 'Odin, de lui-même' : m.by === 'réflexe' ? 'par réflexe' : m.by === 'automatisation' ? 'par une automatisation' : 'à la demande d\'un assistant'}${m.why ? ` · ${m.why}` : ''}`)),

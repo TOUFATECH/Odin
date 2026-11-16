@@ -43,5 +43,7 @@
     if (onload && !im.complete) im.addEventListener('load', onload, { once: true });
     return im;
   }
-  window.OdinAppIcons = { tile, svg, image, has: (id) => !!ICONS[id], ids: () => Object.keys(ICONS) };
+  /** Les deux couleurs du dégradé de l'icône d'une appli ([début, fin]), ou null (pour habiller sa fiche). */
+  const couleurs = (id) => (ICONS[id]?.b ?? PENDING[id] ?? null); // PENDING : directement [début, fin]
+  window.OdinAppIcons = { tile, svg, image, couleurs, has: (id) => !!ICONS[id], ids: () => Object.keys(ICONS) };
 })();

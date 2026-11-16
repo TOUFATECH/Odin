@@ -25,7 +25,14 @@
 .og-alt ul{columns:2 220px;margin:6px 0 0;padding-left:18px}.og-alt li.og-ic{list-style:none;display:flex;gap:8px;align-items:flex-start;break-inside:avoid;margin:0 0 8px -18px}.og-alt li.og-ic>.og-li-ic{flex:none;border-radius:7px}.og-what{color:var(--muted);font-size:13px}.og-alt button{border:0;background:none;color:inherit;text-decoration:underline;padding:2px 0;cursor:pointer;text-align:left}
 .og-card{position:absolute;z-index:5;width:min(330px,calc(100% - 20px));pointer-events:none;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.4);padding:12px 14px;display:grid;gap:8px;font-size:13px;line-height:1.45;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
 .og-card.on{opacity:1;transform:none}.og-card[hidden]{display:none}
-@media (max-width:860px){.og{height:62vh}.og-leg{display:none}}`;
+.og.og-plein{height:100%;min-height:0;border-radius:0;border:0}.og-alt.sr{top:0;left:0;margin:0}
+.og-card.og-card-i{pointer-events:auto}.og-card:has(>.fa){padding:0;border:0;background:none;box-shadow:none;width:min(340px,calc(100% - 16px))}
+.og canvas:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.og-z .pe-btn{width:36px;height:36px;padding:0;justify-content:center;border-radius:10px;border:1px solid var(--field);background:var(--panel);color:inherit}
+.og-z .pe-btn .hl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media (pointer:coarse){.og-z button{width:44px;height:44px}}
+@media (prefers-reduced-motion:reduce){.og-card{transition:none}}
+@media (max-width:860px){.og{height:62vh}.og.og-plein{height:100%}.og-leg{display:none}}`;
   const RED = '#EE6A55', ORANGE = '#F0A040', BLUE = '#4F9DDE', GREEN = '#57C98A';
   const el = (t, a = {}, ...kids) => { const n = document.createElement(t); for (const [k, v] of Object.entries(a)) { if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'class') n.className = v; else n.setAttribute(k, v === true ? '' : v); } for (const k of kids.flat()) if (k != null && k !== false) n.append(k.nodeType ? k : document.createTextNode(String(k))); return n; };
   const cssVar = (n, d, at = document.documentElement) => getComputedStyle(at).getPropertyValue(n).trim() || d;
@@ -157,13 +164,20 @@
     const legend = opts.legend || [[RED, 'alerte / problème'], [ORANGE, 'à surveiller'], [BLUE, 'mise à jour'], ['#7d8791', 'hors ligne']];
     const leg = el('div', { class: 'og-leg', 'aria-hidden': 'true' }, ...legend.map(([c, l]) => el('span', {}, el('i', { style: `background:${c}` }), l)));
     const zb = (t, l, f) => el('button', { type: 'button', 'aria-label': l, onclick: f }, t);
-    const box = el('div', { class: `og${opts.dark ? ' og-dark' : ''}` }, cv, el('div', { class: 'og-bar' }, q, count), leg, el('div', { class: 'og-z' }, zb('+', 'Zoomer', () => zoom(1.25)), zb('−', 'Dézoomer', () => zoom(0.8)), zb('⤢', 'Tout voir', () => fit())));
-    const alt = el('details', { class: 'og-alt' }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}));
-    const card = el('div', { class: 'og-card', hidden: true, 'aria-hidden': 'true' }); box.append(card);
+    const zbar = el('div', { class: 'og-z' }, zb('+', 'Zoomer', () => zoom(1.25)), zb('−', 'Dézoomer', () => zoom(0.8)), zb('⤢', 'Tout voir', () => fit()));
+    const box = el('div', { class: `og${opts.dark ? ' og-dark' : ''}${opts.plein ? ' og-plein' : ''}` }, cv, el('div', { class: 'og-bar' }, q, count), leg, zbar);
+    // Liste « cachée » : invisible à l'œil, lue par les lecteurs d'écran (la carte en pleine page n'a rien dessous).
+    const alt = el('details', { class: `og-alt${opts.liste === 'cachee' ? ' sr' : ''}` }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}));
+    // Fiche interactive (opts.carte === 'interactive') : elle reçoit la souris (son bouton « Ouvrir ») et se cache 250 ms après.
+    const cardI = opts.carte === 'interactive';
+    const card = el('div', { class: `og-card${cardI ? ' og-card-i' : ''}`, hidden: true, 'aria-hidden': cardI ? null : 'true' }); box.append(card);
     host.replaceChildren(box, alt);
+    if (opts.pleinEcran && window.OdinPleinEcran) zbar.append(window.OdinPleinEcran.bouton(box));
     const ctx = cv.getContext('2d');
     let hoverEdge = null; let nodes = [], edges = [], byId = new Map(), view = { x: 0, y: 0, k: 1 }, hover = null, drag = null, pan = null, heat = 1, raf = 0, fitted = false, query = '';
     const pos = new Map(); // id → {x, y} gardé entre deux mises à jour
+    // Clavier : le point « actif » (le plus proche du centre) est entouré d'un anneau et montre sa fiche.
+    let actif = null, cardT = 0, cardDe = null;
     // Échanges entre applis (opts.echanges : les points sont des applis, par leur identifiant) : liens allumés en direct.
     let echSegs = [], echTitre = false; const reduit = reduitMouvement();
     if (opts.echanges) echanges.brancher(() => { if (!raf) draw(); }, () => box.isConnected);
@@ -212,7 +226,8 @@
     function kick() { if (!raf) raf = requestAnimationFrame(loop); }
     function loop() {
       raf = 0;
-      if (!box.isConnected) return;
+      // Carte enlevée ou cachée (autre vue) : la boucle s'arrête ; le ResizeObserver la relance au retour.
+      if (!box.isConnected || !size().w) return;
       if (heat > 0.02) { for (let i = 0; i < 2; i++) step(); }
       if (!fitted && heat < 0.4 && nodes.length) { fit(); fitted = true; }
       draw();
@@ -256,6 +271,7 @@
         ctx.globalAlpha = dim ? 0.18 : 1;
         if (query && match(n)) dot(n.x, n.y, r + 6, 'transparent', GREEN);
         if (n.selected) { dot(n.x, n.y, r + 8, 'transparent', BLUE); dot(n.x, n.y, r + 11, 'transparent', BLUE); }
+        if (n === actif) { ctx.save(); ctx.lineWidth = 3 / view.k; ctx.strokeStyle = cssVar('--accent', BLUE, box); ctx.beginPath(); ctx.arc(n.x, n.y, r + 7, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
         if (n.ring) { dot(n.x, n.y, r + 5, 'transparent', n.ring); dot(n.x, n.y, r + 6.5, 'transparent', n.ring); }
         if (n.square) { const c = n.off ? '#7d8791' : n.color || BLUE; ctx.fillStyle = c; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n.x - r, n.y - r, r * 2, r * 2, r * 0.3) : ctx.rect(n.x - r, n.y - r, r * 2, r * 2); ctx.fill(); if (n === hover) { ctx.lineWidth = 2 / view.k; ctx.strokeStyle = ink; ctx.stroke(); } }
         else if (n.img && n.img.complete && n.img.naturalWidth) { const s = r * 2, rr = r * 0.46; ctx.save(); if (n.off) ctx.filter = 'grayscale(1) brightness(.75)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(n.x - r, n.y - r, s, s, rr) : ctx.rect(n.x - r, n.y - r, s, s); ctx.closePath(); ctx.save(); ctx.clip(); ctx.drawImage(n.img, n.x - r, n.y - r, s, s); ctx.restore(); ctx.filter = 'none'; if (n === hover) { ctx.lineWidth = 2.5 / view.k; ctx.strokeStyle = ink; ctx.stroke(); } ctx.restore(); }
@@ -273,6 +289,8 @@
         }
       }
       ctx.globalAlpha = 1;
+      // La fiche suit son point (forces, déplacement, zoom) ; elle ne le recouvre jamais.
+      if (cardDe && !card.hidden) { const n = byId.get(cardDe.id); if (n) placerCarte(n); }
     }
 
     // ---------- Gestes ----------
@@ -284,7 +302,8 @@
       cv.setPointerCapture(e.pointerId); touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), k: view.k }; drag = pan = null; return; }
       const n = pick(at(e));
-      if (n) { drag = { n, sx: e.clientX, sy: e.clientY, moved: false }; heat = Math.max(heat, 0.3); kick(); } else pan = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false };
+      // Appui long (500 ms) au doigt sur un point : sa fiche s'affiche, sans ouvrir l'appli.
+      if (n) { drag = { n, sx: e.clientX, sy: e.clientY, moved: false, long: false }; if (e.pointerType !== 'mouse' && opts.card) { const d = drag; d.t = setTimeout(() => { if (drag === d && !d.moved) { d.long = true; voirCarte(n); } }, 500); } heat = Math.max(heat, 0.3); kick(); } else pan = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false };
       cv.classList.add('drag');
     });
     cv.addEventListener('pointermove', (e) => {
@@ -293,27 +312,62 @@
       if (drag) { const p = at(e); if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 4) drag.moved = true; drag.n.x = p.x; drag.n.y = p.y; drag.n.fixed = true; pos.set(drag.n.id, { x: p.x, y: p.y, fixed: true }); heat = Math.max(heat, 0.25); kick(); return; }
       if (pan) { if (Math.hypot(e.clientX - pan.sx, e.clientY - pan.sy) > 4) pan.moved = true; view.x = pan.vx + e.clientX - pan.sx; view.y = pan.vy + e.clientY - pan.sy; draw(); return; }
       const p = at(e), n = pick(p), ed = n || !opts.onEdge ? null : pickEdge(p);
-      if (n !== hover || ed !== hoverEdge) { hover = n; hoverEdge = ed; cv.classList.toggle('on', !!(n || ed)); const c = n && opts.card ? opts.card(n) : null; cv.title = c ? '' : n ? (n.title || n.label) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; showCard(n, c); draw(); }
+      if (n !== hover || ed !== hoverEdge) { hover = n; hoverEdge = ed; cv.classList.toggle('on', !!(n || ed)); const c = n && opts.card ? opts.card(n) : null; cv.title = c ? '' : n ? (n.title || n.label) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; if (n || !cardI) showCard(n, c); else cacherCarte(250); draw(); }
       // Lien allumé sous le pointeur : « Phénix demande à Arche : vérifier le 2e site ».
       const lab = n ? '' : survolEchange(echSegs, p, view.k);
       if (lab) { cv.title = lab; cv.classList.add('on'); echTitre = true; } else if (echTitre) { echTitre = false; cv.title = n ? (cv.title) : ed ? (ed.title || `${ed[0].label} → ${ed[1].label}`) : ''; cv.classList.toggle('on', !!(n || ed)); }
     });
     const up = (e) => {
       touches.delete(e.pointerId); if (touches.size < 2) pinch = null;
-      if (drag && !drag.moved) { drag.n.fixed = false; opts.onOpen?.(drag.n.id); }
-      if (pan && !pan.moved) { const ed = opts.onEdge && pickEdge(at(e)); if (ed) opts.onEdge(ed[0].id, ed[1].id); else { hover = null; draw(); } }
+      if (drag) clearTimeout(drag.t);
+      if (drag && !drag.moved) { drag.n.fixed = false; if (!drag.long) opts.onOpen?.(drag.n.id); }
+      if (pan && !pan.moved) { const ed = opts.onEdge && pickEdge(at(e)); if (ed) opts.onEdge(ed[0].id, ed[1].id); else { hover = null; if (cardI) cacherCarte(0); draw(); } }
       drag = pan = null; cv.classList.remove('drag');
     };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag && !pan) { hover = null; showCard(null); draw(); } });
-    /** La fiche de l'appli survolée, posée à côté du point (du côté où il y a de la place). */
+    cv.addEventListener('pointerleave', () => { if (!drag && !pan) { hover = null; if (cardI) cacherCarte(250); else showCard(null); draw(); } });
+    /** La fiche de l'appli survolée, posée à côté du point (du côté où il y a de la place, jamais sur le point). */
     function showCard(n, c) {
-      if (!n || !c) { card.classList.remove('on'); card.hidden = true; return; }
-      card.replaceChildren(c); card.hidden = false;
+      clearTimeout(cardT);
+      if (!n || !c) { card.classList.remove('on'); card.hidden = true; cardDe = null; return; }
+      if (cardDe === n && !card.hidden) return;
+      cardDe = n; card.replaceChildren(c); card.hidden = false;
+      placerCarte(n); requestAnimationFrame(() => card.classList.add('on'));
+    }
+    /** Pose la fiche à côté de son point (refait à chaque dessin : le point bouge encore, ou la vue se déplace). */
+    function placerCarte(n) {
       const { w, h } = size(), sx = w / 2 + view.x + n.x * view.k, sy = h / 2 + view.y + n.y * view.k, r = radius(n) * view.k, cw = card.offsetWidth, ch = card.offsetHeight;
-      let x = sx + r + 14; if (x + cw > w - 8) x = sx - r - 14 - cw; x = Math.max(8, Math.min(w - cw - 8, x));
-      const y = Math.max(8, Math.min(h - ch - 8, sy - ch / 2));
-      card.style.left = `${x}px`; card.style.top = `${y}px`; requestAnimationFrame(() => card.classList.add('on'));
+      const P = window.OdinFicheAppli?.logique?.placer;
+      let x, y;
+      if (P) ({ x, y } = P({ x: sx - r, y: sy - r, w: 2 * r, h: 2 * r }, { w: cw, h: ch }, { w, h }, 8));
+      else { x = sx + r + 14; if (x + cw > w - 8) x = sx - r - 14 - cw; x = Math.max(8, Math.min(w - cw - 8, x)); y = Math.max(8, Math.min(h - ch - 8, sy - ch / 2)); }
+      card.style.left = `${x}px`; card.style.top = `${y}px`;
+    }
+    function cacherCarte(ms) { clearTimeout(cardT); if (ms <= 0) showCard(null); else cardT = setTimeout(() => { if (!hover || hover !== cardDe) showCard(null); }, ms); }
+    const voirCarte = (n) => { const c = n && opts.card ? opts.card(n) : null; if (c) { cardDe = null; showCard(n, c); } };
+    // La fiche interactive reste ouverte tant que la souris ou le focus est dessus.
+    if (cardI) {
+      card.addEventListener('pointerenter', () => clearTimeout(cardT));
+      card.addEventListener('pointerleave', () => cacherCarte(250));
+      card.addEventListener('focusin', () => clearTimeout(cardT));
+      card.addEventListener('click', (e) => { if (e.target.closest?.('button')) setTimeout(() => cacherCarte(0), 0); }, true);
+      card.addEventListener('focusout', (e) => { if (!card.contains(e.relatedTarget) && e.relatedTarget !== cv) cacherCarte(250); });
+    }
+    // Clavier (opts.clavier) : flèches, + et −, 0, Entrée. Le point le plus proche du centre est « actif ».
+    function majActif() {
+      if (document.activeElement !== cv) return;
+      const pts = nodes.filter((x) => !x.hub).map((x) => ({ id: x.id, x: x.x, y: x.y }));
+      const P = window.OdinPleinEcran?.logique?.plusProche;
+      const id = P ? P(pts, -view.x / view.k, -view.y / view.k) : null;
+      const n = id ? byId.get(id) : null;
+      if (n !== actif) { actif = n; if (n) voirCarte(n); else showCard(null); }
+      draw();
+    }
+    if (opts.clavier && window.OdinPleinEcran) {
+      window.OdinPleinEcran.clavier(cv, { deplacer: (dx, dy) => { view.x += dx; view.y += dy; majActif(); }, zoomer: (f) => { zoom(f); majActif(); }, recadrer: () => { fit(); majActif(); }, ouvrir: () => { if (actif) opts.onOpen?.(actif.id); } });
+      // Au clavier seulement : un clic de souris sur la carte ne fait pas apparaître de fiche.
+      cv.addEventListener('focus', () => { actif = null; if (cv.matches(':focus-visible')) majActif(); });
+      cv.addEventListener('blur', (e) => { actif = null; if (!card.contains(e.relatedTarget)) showCard(null); draw(); });
     }
     cv.addEventListener('wheel', (e) => { e.preventDefault(); const r = cv.getBoundingClientRect(), mx = e.clientX - r.left - r.width / 2, my = e.clientY - r.top - r.height / 2, k2 = Math.min(4, Math.max(0.2, view.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12))); view.x = mx - ((mx - view.x) * k2) / view.k; view.y = my - ((my - view.y) * k2) / view.k; view.k = k2; draw(); }, { passive: false });
     function zoom(f) { view.k = Math.min(4, Math.max(0.2, view.k * f)); view.x *= f; view.y *= f; draw(); }
@@ -325,9 +379,10 @@
     }
     q.addEventListener('input', () => { query = q.value.trim().toLowerCase(); draw(); });
     q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { const n = nodes.find((x) => !x.hub && `${x.label} ${x.sub || ''} ${x.search || ''}`.toLowerCase().includes(query)); if (n) opts.onOpen?.(n.id); } });
-    new ResizeObserver(() => draw()).observe(box);
+    // La carte revient (autre vue, plein écran) : dessinée tout de suite, et ses forces repartent si elles bougeaient encore.
+    new ResizeObserver(() => { draw(); if (heat > 0.02) kick(); }).observe(box);
     setData(opts);
-    return { update: setData, fit, el: box };
+    return { update: setData, fit, el: box, redessiner: () => { if (box.isConnected && size().w) draw(); } };
   }
   window.OdinGraph = { mount, echanges, moteurEchanges, survolEchange };
 })();

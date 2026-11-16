@@ -1204,7 +1204,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     <div id="navEpingles" class="nav-epingles" role="group" aria-label="Épinglés"></div>
     </div>
     <button class="tab" data-view="settings"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="lbl">Réglages</span> <span class="badge" id="b-settings" hidden>!</span></button>
-    <div class="foot"><div id="usage">—</div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span id="appVer" class="dim" style="font-size:11px"></span><button type="button" id="updBtn" class="upd-btn" title="Mises à jour d'Odin">Mises à jour</button></div><button class="theme-btn" id="themeBtn" type="button" title="Thème de l'interface">Thème : auto</button></div>
+    <div class="foot" id="piedMenu"><button type="button" class="pm-ia" id="piedIA" hidden></button><div class="pm-l pm-conso" id="usage" hidden></div><div class="pm-l"><svg class="pm-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4"/></svg><span id="appVer" class="dim" style="font-size:11px"></span><button type="button" id="updBtn" class="upd-btn" title="Mises à jour d'Odin">Mises à jour</button></div><div class="pm-l"><svg class="pm-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor"/></svg><button class="theme-btn" id="themeBtn" type="button" title="Thème de l'interface">Thème : auto</button></div></div>
   </nav>
 
   <main>
@@ -4910,7 +4910,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     state = await api('/api/state');
     // Odin : homme ou femme. Les phrases toutes faites de l'interface s'accordent (OdinNaturel.accord) et la voix suit.
     if (window.OdinNaturel) window.OdinNaturel.genre = state?.settings?.voice?.gender === 'femme' ? 'femme' : 'homme';
-    $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
+    if (window.OdinPiedMenu) window.OdinPiedMenu.peindre(state); else $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;
     renderConvs(); renderMissions(); renderPeople(); renderRights(); renderSearch(); renderNet(); renderMemory(); renderSkills(); renderJobs(); renderAudit(); renderSettings(); renderAssist(); renderHome(); renderMap(); renderSec(); renderWatchSettings(); renderMore(); renderVault(); renderApp(); if ($('#v-device').classList.contains('on')) renderDevicePage(false); applyFeatures(); renderModels(); renderBreaker(); renderVoice(); labelTables(); $('#b-menu').hidden = !(pending.size || state.drafts.length || state.settings?.demo);
   }
 
@@ -4954,7 +4954,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       if (d.type === 'message' && d.peer === peer) dispatchEvent(new CustomEvent('odin:reply', { detail: { text: d.text } }));
       else if (d.type === 'event' && d.peer === peer && d.event.type === 'delta') dispatchEvent(new CustomEvent('odin:delta', { detail: { text: d.event.text } }));
       else if (d.type === 'event' && d.peer === peer && d.event.type === 'approval') dispatchEvent(new CustomEvent('odin:approval', { detail: d.event }));
-      if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text, d.model); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
+      if (d.type === 'message' && d.peer === peer) { liveEnd(); notifyOwner('Odin', d.text.replace(/\[humeur:[^\]]*\]/g, '')); addMsg('assistant', d.text, d.model); window.OdinPiedMenu?.noterModele(d.model); if (!/\/yes \S+/.test(d.text)) sayAloud(d.text.split('\n\n⚡')[0].split('\n\n🛡')[0]); if (!/\/yes \S+/.test(d.text)) setBusy(false); refresh(); }
       else if (d.type === 'message') refresh();
       else if (d.type === 'secret' && d.peer === peer) addSecret(d.text);
       else if (d.type === 'event' && d.event.type === 'delta' && d.peer === peer) liveAdd(d.event.text);

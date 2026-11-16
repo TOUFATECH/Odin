@@ -129,7 +129,10 @@
         el('div', { id: 'brAnswer', 'aria-live': 'polite' })),
       el('div', { id: 'brLinks' }),
     );
-    root.append(el('div', { class: 'br' }, side, main, aside));
+    const br = el('div', { class: 'br' }, side, main, aside);
+    root.append(br);
+    // Le panneau de gauche se replie en icônes et se déplie au survol, au focus ou à l'appui (pages/menu-replie.js).
+    window.OdinMenu?.brancher(br, { panneau: side, cle: 'odin.cerveau.epingle', libelle: 'Garder le panneau ouvert', largeur: 56 });
   }
   function navBtn(mode, icon, label) { return el('button', { type: 'button', class: 'br-item', 'data-mode': mode, onclick: () => (mode === 'journal' ? openDaily() : setMode(mode)) }, ico(icon), el('span', {}, label)); }
   function debounce(f, ms) { let t = 0; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; }
@@ -186,6 +189,9 @@
     parkMemories();
     S.mode = m;
     document.querySelector('.br')?.classList.toggle('br-wide', m === 'graphe');
+    // Graphe : il prend toute la page (l'en-tête s'efface, voir pages/menu-replie.js) ; on quitte son plein écran en partant.
+    $('#v-brain')?.classList.toggle('br-graphe', m === 'graphe');
+    if (m !== 'graphe') quitterPleinEcran();
     if (m !== 'page') S.path = null;
     stopGraph();
     if (m === 'accueil') renderHome();
@@ -248,6 +254,7 @@
     parkMemories();
     S.mode = 'page'; S.path = r.note.path; S.note = r.note; S.edit = false;
     document.querySelector('.br')?.classList.remove('br-wide');
+    $('#v-brain')?.classList.remove('br-graphe'); quitterPleinEcran();
     stopGraph();
     renderPage(r); renderLinks(r); renderSide(); closeSide();
   }
@@ -446,6 +453,9 @@
   // forces (Barnes-Hut) : des milliers de notes restent fluides. Réglages à droite, retenus.
   let raf = 0;
   function stopGraph() { cancelAnimationFrame(raf); raf = 0; }
+  // Plein écran du graphe (pages/plein-ecran.js) : absent, le graphe marche comme avant.
+  const grapheEnPlein = () => Boolean(window.OdinPleinEcran?.actif?.()?.classList?.contains('br-cvw'));
+  function quitterPleinEcran() { if (grapheEnPlein()) window.OdinPleinEcran.sortir(); }
   const NEU = window.OdinNeurones; // liens vivants (pages/neurones.js) ; absent : la carte d'avant
   const GDEF = { forces: true, color: 'centres', folders: true, cards: true, intro: true, tags: false, connectors: true, orphans: true, guessed: true, nodeSize: 1, linkWidth: 1, labelAt: 1.1, arrows: false, center: 0.5, repel: 1, link: 1, distance: 1, light: false, q: '' };
   const GS = (() => { try { return { ...GDEF, ...JSON.parse(localStorage.getItem('odin.graphe') || '{}') }; } catch { return { ...GDEF }; } })();
@@ -459,7 +469,11 @@
     const cv = el('canvas', { id: 'brCv', class: 'br-cv', role: 'img', 'aria-label': `Graphe : ${r.nodes.length} éléments, ${r.edges.length} liens. La liste sous le graphe donne le même contenu.` });
     const wrap = el('div', { class: `br-cvw g-dark${GS.light ? ' g-light' : ''}` }, cv, el('div', { id: 'brTip', class: 'br-tip', hidden: true }), graphSettings(), el('div', { class: 'g-count' }, `${r.nodes.length} notes · ${r.edges.length} liens`));
     const listAlt = el('details', { class: 'br-alt' }, el('summary', {}, 'Voir le graphe en liste'), el('ul', {}, ...r.nodes.filter((n) => n.type !== 'connecteur').sort((a, b) => b.degree - a.degree).slice(0, 300).map((n) => el('li', {}, el('button', { type: 'button', class: 'br-ln', onclick: () => openNote(n.id) }, n.title), el('span', { class: 'br-muted' }, ` · ${TYPE_LABEL[n.type] || n.type} · ${n.degree} lien${n.degree > 1 ? 's' : ''}`)))));
+    listAlt.classList.add('sr'); // lue par les lecteurs d'écran, cachée à l'œil : le graphe prend toute la place
+    const pe = window.OdinPleinEcran?.bouton?.(wrap); if (pe) wrap.querySelector('.g-tools')?.prepend(pe);
+    const etaitPlein = grapheEnPlein(); // un réglage redessine le graphe : il reste en plein écran
     main.replaceChildren(el('div', { class: 'br-gw' }, wrap, listAlt));
+    if (etaitPlein) window.OdinPleinEcran.remplacer(wrap);
     G = drawGraph(cv, r, intro && GS.intro);
   }
 
@@ -509,7 +523,7 @@
 
   function drawGraph(cv, data, intro = false) {
     const dpr = window.devicePixelRatio || 1;
-    const W = cv.clientWidth || 800, H = cv.clientHeight || 560;
+    let W = cv.clientWidth || 800, H = cv.clientHeight || 560;
     cv.width = W * dpr; cv.height = H * dpr;
     const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
     const css = getComputedStyle(document.documentElement);
@@ -553,7 +567,7 @@
     const ECH = window.OdinGraph?.echanges, fichesApplis = new Map(nodes.filter((n) => n.folder === 'Odin/Applis').map((n) => [n.title, n])); let echSegs = [];
     // Échanges et neurones passent par une seule demande d'image : jamais deux dessins dans la même trame, 30 i/s au plus.
     let trame = 0, derniere = 0;
-    const bientot = () => { if (trame) return; if (typeof requestAnimationFrame !== 'function') { if (!raf) draw(); return; } trame = requestAnimationFrame((t) => { trame = 0; if (t - derniere < 30) { bientot(); return; } derniere = t; if (!raf) draw(); }); };
+    const bientot = () => { if (trame) return; if (typeof requestAnimationFrame !== 'function') { if (!raf) draw(); return; } trame = requestAnimationFrame((t) => { trame = 0; if (t - derniere < 30) { bientot(); return; } derniere = t; if (!raf && cv.clientWidth) draw(); }); };
     ECH?.brancher(bientot, () => cv.isConnected, 30);
     // Liens vivants : même résolveur que les échanges (Odin au centre, une appli par sa fiche) ; heure du serveur pour « il y a… ».
     const noeudCarte = (id, nom) => { if (id === 'odin') return { id: 'odin', x: 0, y: 0, r: 0 }; const n = fichesApplis.get(nom) || byId.get(id); return n && { id: n.id, x: n.x, y: n.y, r: radius(n) }; };
@@ -757,6 +771,30 @@
     cv.onpointerdown = (e) => { cam = null; follow = false; cacherLien(); cv.setPointerCapture(e.pointerId); moved = false; const h = at(e).node; if (h) drag = h; else pan = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y }; };
     cv.onpointerup = () => { const n = drag; drag = null; pan = null; if (n && !moved && n.type !== 'connecteur' && n.type !== 'étiquette') openNote(n.id); else if (n && !moved && n.type === 'dossier') { $('#brQ').value = n.folder; onSearch(); openSide(); } else if (n && !moved && n.type === 'étiquette') { $('#brQ').value = n.title.slice(1); onSearch(); openSide(); } };
     cv.onwheel = (e) => { e.preventDefault(); cam = null; follow = false; cacherLien(); const b = cv.getBoundingClientRect(), mx = e.clientX - b.left, my = e.clientY - b.top, f = Math.exp(-e.deltaY * 0.0015); const k = Math.max(0.05, Math.min(6, view.k * f)); view.x = mx - (mx - view.x) * (k / view.k); view.y = my - (my - view.y) * (k / view.k); view.k = k; if (!raf) draw(); };
+    // La boîte change de taille (pleine page, plein écran, fenêtre) : le canevas suit, le centre reste au centre.
+    const boite = cv.parentElement;
+    if (boite && typeof ResizeObserver === 'function') {
+      const ro = new ResizeObserver(() => {
+        if (!cv.isConnected) { ro.disconnect(); return; }
+        const w = boite.clientWidth, h = boite.clientHeight;
+        if (!w || !h || (w === W && h === H)) return;
+        view.x += (w - W) / 2; view.y += (h - H) / 2; W = w; H = h;
+        cv.width = W * dpr; cv.height = H * dpr;
+        if (!raf) draw();
+      });
+      ro.observe(boite);
+    }
+    // Clavier (pages/plein-ecran.js) : flèches pour se déplacer, + et − pour zoomer, 0 pour tout voir, Entrée pour ouvrir.
+    window.OdinPleinEcran?.clavier?.(cv, {
+      deplacer: (dx, dy) => { cam = null; follow = false; cacherLien(); view.x += dx; view.y += dy; if (!raf) draw(); },
+      zoomer: (f) => { cam = null; follow = false; cacherLien(); const k = Math.max(0.05, Math.min(6, view.k * f)); view.x = W / 2 - (W / 2 - view.x) * (k / view.k); view.y = H / 2 - (H / 2 - view.y) * (k / view.k); view.k = k; if (!raf) draw(); },
+      recadrer: () => { cam = null; follow = false; fit(); },
+      ouvrir: () => {
+        const cx = (W / 2 - view.x) / view.k, cy = (H / 2 - view.y) / view.k; let best = null, bd = Infinity;
+        for (const n of notes) { const d = (n.x - cx) ** 2 + (n.y - cy) ** 2; if (d < bd) { best = n; bd = d; } }
+        if (best) openNote(best.id);
+      },
+    });
     return { reheat, draw: () => { if (!raf) draw(); }, fit, data };
   }
 

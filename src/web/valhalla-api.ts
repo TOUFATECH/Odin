@@ -3,6 +3,7 @@
 // sans script, sans compte, débit limité.
 
 import { NAME_STORY, similairesDe } from '../valhalla/names.ts';
+import { SURVOL } from '../valhalla/survol.ts';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { advise } from '../tools/valhalla.ts';
 import { appsFor } from '../valhalla/besoin.ts';
@@ -24,7 +25,7 @@ export async function valhallaGet(path: string, q: URLSearchParams): Promise<unk
       // Nouveautés des projets d'origine de chaque appli (veille de Pharos), ces 30 derniers jours : point bleu du graphe
       const since = Date.now() - 30 * 864e5, news = new Map<string, number>();
       try { for (const n of ((v.ctx('kvasir').settings.news as Array<{ module?: string; at?: string }> | undefined) ?? [])) if (n.module && Date.parse(n.at ?? '') > since) news.set(n.module, (news.get(n.module) ?? 0) + 1); } catch { /* veille pas encore lancée */ }
-      return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, story: NAME_STORY[m.id] ?? '', similaires: similairesDe(m), from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length, grave: alerts.some((a) => a.module === m.id && ['critique', 'haute'].includes(String(a.level))), updates: news.get(m.id) ?? 0 })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
+      return { ok: true, modules: v.modules().map((m) => ({ id: m.id, name: m.name, family: m.family, what: m.what, does: m.does, story: NAME_STORY[m.id] ?? '', similaires: similairesDe(m), survol: SURVOL[m.id] ?? null, from: m.from, modes: m.modes ?? [], actions: m.actions.map((a) => ({ id: a.id, label: a.label, what: a.what, params: a.params ?? [], read: Boolean(a.read), grave: Boolean(a.grave), quick: a.quick !== false })), alerts: alerts.filter((a) => a.module === m.id).length, grave: alerts.some((a) => a.module === m.id && ['critique', 'haute'].includes(String(a.level))), updates: news.get(m.id) ?? 0 })), links: LINKS, usages: USAGES, level: v.settings().alertLevel ?? 'haute' };
     }
     case '/api/valhalla/view': {
       const m = v.module(s(q.get('id'))); if (!m) return { ok: false, error: 'appli inconnue' };
