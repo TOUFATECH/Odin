@@ -88,7 +88,7 @@ test('sources officielles (faux sites) : Ubuntu, Debian, Fedora, GitHub, Firefox
   await assert.rejects(ISO.find((x) => x.id === 'arch')!.latest!(f), /répond 404/);
 });
 
-test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), reprise, garder 2, Windows manuel, historique, vue', async () => {
+test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), reprise, garder 2, Windows sans réponse de Microsoft, historique, vue', async () => {
   const w = world();
   try {
     assert.equal((await w.act('eitri', 'dossier', { chemin: '/etc/iso' })).ok, false);
@@ -102,7 +102,7 @@ test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), 
     w.web.routes.set('https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS', `${'0'.repeat(64)}  debian-13.2.0-amd64-netinst.iso\n`);
     // Vérifier sans télécharger.
     const ver = (await w.act('eitri', 'verifier')).text;
-    assert.match(ver, /🆕 Ubuntu \(bureau, LTS\) : 24\.04\.2 → 24\.04\.3/); assert.match(ver, /✔ Debian \(netinst\) : 13\.2\.0 → 13\.2\.0/); assert.match(ver, /ℹ Windows 11 .*manuel \(https:\/\/www\.microsoft\.com/);
+    assert.match(ver, /🆕 Ubuntu \(bureau, LTS\) : 24\.04\.2 → 24\.04\.3/); assert.match(ver, /✔ Debian \(netinst\) : 13\.2\.0 → 13\.2\.0/); assert.match(ver, /❌ Windows 11 : page officielle de Microsoft injoignable .*https:\/\/www\.microsoft\.com\/fr-fr\/software-download\/windows11/);
     assert.ok(!w.web.hits.some((h) => h.endsWith('.iso')), 'rien téléchargé');
     // Un fichier entamé (coupure) : la reprise demande la suite seulement.
     mkdirSync(join(w.dir, 'Ubuntu'), { recursive: true }); writeFileSync(join(w.dir, 'Ubuntu', '.ubuntu-24.04.3-desktop-amd64.iso.part'), iso3.subarray(0, 100_000));
@@ -127,8 +127,9 @@ test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), 
     assert.match((await w.act('eitri', 'telecharger', { nom: 'Ubuntu (bureau, LTS)' })).text, /❌ .*empreinte fausse/);
     assert.ok(!readdirSync(join(w.dir, 'Ubuntu'), { withFileTypes: true }).some((d) => d.name.includes('24.04.5')));
     assert.ok(w.alerts.some((a) => a.level === 'critique' && /empreinte fausse/.test(a.title)));
-    // Windows : jamais téléchargé automatiquement.
-    const win = await w.act('eitri', 'telecharger', { nom: 'windows11' }); assert.equal(win.ok, false); assert.match(win.text, /Microsoft ne permet pas/);
+    // Windows : la page de Microsoft ne répond pas (faux site) : rien n'est téléchargé, la page officielle est donnée (détail : microsoft-windows.test.ts).
+    const win = await w.act('eitri', 'telecharger', { nom: 'windows11' }); assert.match(win.text, /❌ Windows 11 : page officielle de Microsoft injoignable .*https:\/\/www\.microsoft\.com\/fr-fr\/software-download\/windows11/);
+    assert.ok(!w.web.hits.some((h) => /Win11.*\.iso/.test(h)), 'aucune ISO Windows demandée');
     // Fichier abîmé (contrôle des empreintes).
     writeFileSync(join(w.dir, 'Ubuntu', 'ubuntu-24.04.3-desktop-amd64.iso'), 'abîmé');
     const ctl = (await w.act('eitri', 'controler')).text; assert.match(ctl, /❌ ubuntu-24\.04\.3/); assert.match(ctl, /✔ ubuntu-24\.04\.4/);
@@ -139,7 +140,7 @@ test('Andromède : dossier, reconnaître, vérifier, télécharger (empreinte), 
     const cards = view.sections.find((x) => x.kind === 'cards' && x.title === 'Mes ISO') as { items: Array<{ title: string; icon?: string; badge?: string }> };
     assert.deepEqual(cards.items.map((c) => c.title).sort(), ['Debian (netinst)', 'Ubuntu (bureau, LTS)', 'Windows 11']);
     assert.ok(cards.items.every((c) => c.icon?.startsWith('data:image/')), 'icône (pavé de couleur hors ligne)');
-    assert.equal(cards.items.find((c) => c.title === 'Windows 11')!.badge, 'manuel');
+    assert.equal(cards.items.find((c) => c.title === 'Windows 11')!.badge, 'pas encore vérifié');
     assert.ok(view.sections.some((x) => x.kind === 'list' && x.title === 'Fichiers non reconnus'));
   } finally { w.end(); }
 });

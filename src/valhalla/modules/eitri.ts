@@ -6,6 +6,7 @@
 // La page (commune avec Hermès, forge/forge.ts) : « Store » (dépôts officiels), « Disponibles » (le dossier, comparé au
 // catalogue), « Surveillés » (ce qu'Odin garde à jour), « Réglages ».
 import { forgeModule } from '../forge/forge.ts';
+import { installerWindows } from '../forge/microsoft.ts';
 import { ISO } from '../forge/sources.ts';
 import { planTexte, type Fiche, type PlanVerif } from '../forge/bibliotheque.ts';
 import { quarantaineDabord } from '../ullr/garde.ts';
@@ -17,7 +18,7 @@ export const eitri = forgeModule({
   from: ['ISOMan', 'netboot.xyz', 'Ventoy'], upstream: ['netbootxyz/netboot.xyz', 'ventoy/Ventoy'],
   words: ['iso', 'isos', 'image iso', 'images iso', 'image disque', 'isoman', 'distribution linux', 'ubuntu', 'debian', 'fedora', 'proxmox'],
   sources: ISO,
-  extraDoes: ['Windows : Microsoft ne permet pas le téléchargement automatique, Odin repère tes ISO et donne la page officielle', 'clé USB de démarrage avec Rufus ou Ventoy, gardés à jour par Hermès', 'chaque ISO téléchargée passe par l\'antivirus (quarantaine d\'abord) puis rejoint la bibliothèque d\'Hydre (même espace ISO)', 'nouvelle version : l\'ancienne va dans « old » (une seule gardée), les machines d\'Hydre suivent', 'vérification de toutes les ISO, mensuelle par défaut (empreinte, antivirus, nouvelles versions)'],
+  extraDoes: ['Windows : version, empreintes et lien de l\'ISO demandés directement à Microsoft ; veille chaque jour (nouvelle version, nouveau Windows, nouveau Windows Server) ; si Microsoft refuse le lien, Odin donne la page officielle sans rien contourner','clé USB de démarrage avec Rufus ou Ventoy, gardés à jour par Hermès', 'chaque ISO téléchargée passe par l\'antivirus (quarantaine d\'abord) puis rejoint la bibliothèque d\'Hydre (même espace ISO)', 'nouvelle version : l\'ancienne va dans « old » (une seule gardée), les machines d\'Hydre suivent', 'vérification de toutes les ISO, mensuelle par défaut (empreinte, antivirus, nouvelles versions)'],
   // Quarantaine d'abord : l'ISO téléchargée est analysée (empreinte complète, début du fichier, fichiers de démarrage)
   // avant de remplacer l'ancienne ; puis sa fiche est faite dans la bibliothèque commune avec Hydre.
   after: async (ctx, path, _src, rel) => {
@@ -53,3 +54,5 @@ eitri.actions.push(
     run: async (ctx, i) => { const r = await ctx.call('ymir', 'verification_iso', i, 'vérification des ISO planifiée dans Andromède', { interne: true }); return { ok: r.ok, text: r.text, data: r.data }; } },
   { id: 'verifier_isos', label: 'Vérifier toutes les ISO', what: 'Maintenant : empreinte, antivirus, nouvelles versions ; compte rendu', run: async (ctx) => { const r = await ctx.call('ymir', 'verifier_isos', {}, 'vérification des ISO lancée dans Andromède', { interne: true }); return { ok: r.ok, text: r.text, data: r.data }; } },
 );
+// Windows chez Microsoft : la veille (Talos), ses actions et son réglage (forge/microsoft.ts).
+installerWindows(eitri);

@@ -7,7 +7,15 @@
 //   - donner une icône (celle du site de l'éditeur, gardée en cache par Odin ; sinon un pavé de couleur).
 
 export type Kind = 'iso' | 'logiciel';
-export interface Release { version: string; url: string; file: string; sha256?: string; size?: number; page?: string }
+export interface Release {
+  version: string; url: string; file: string; sha256?: string; size?: number; page?: string;
+  /** Pas de téléchargement possible cette fois (ex. Microsoft refuse le lien) : la raison ; la forge donne la page officielle. */
+  manuel?: string;
+  /** Une précision à dire (ex. « la langue d'Odin n'est pas proposée : ISO en anglais »). */
+  note?: string;
+  /** Le lien se demande au dernier moment (lien temporaire, demandes comptées par l'éditeur) : rend la version prête à télécharger. */
+  obtenir?: () => Promise<Release>;
+}
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 export interface Source {
   id: string; name: string; kind: Kind; family: string;
@@ -19,9 +27,10 @@ export interface Source {
   icon?: string; color: string;
   /** La page officielle (pour les éditeurs qui ne permettent pas le téléchargement automatique). */
   page: string;
-  /** Pas de téléchargement automatique possible (ex. Microsoft) : Odin prévient et donne la page officielle. */
+  /** Pas de téléchargement automatique possible (formulaire, compte…) : Odin prévient et donne la page officielle. */
   manual?: string;
-  latest?: (f: Fetch) => Promise<Release>;
+  /** `reglages` : les réglages de l'appli (ex. la langue de l'ISO de Windows). */
+  latest?: (f: Fetch, reglages?: Record<string, unknown>) => Promise<Release>;
   /** Source ajoutée par l'utilisateur (dépôt GitHub ou adresse directe). */
   custom?: boolean;
   /** Pour le Store (filtres) : système, architecture, type (ISO : bureau, serveur, utilitaire…), catégorie (logiciels). Absents : déduits (voir store.ts). */
@@ -116,8 +125,8 @@ export const ISO: Source[] = [
   { id: 'proxmox-backup', name: 'Proxmox Backup Server', kind: 'iso', family: 'Serveur', about: 'Serveur de sauvegarde Proxmox', match: /^proxmox-backup-server_(\d+\.\d+-\d+)\.iso$/, icon: 'https://www.proxmox.com/favicon.ico', color: '#E57000', page: 'https://www.proxmox.com/en/downloads', latest: sumsAt('https://enterprise.proxmox.com/iso/', 'SHA256SUMS', /^proxmox-backup-server_(\d+\.\d+-\d+)\.iso$/) },
   { id: 'clonezilla', name: 'Clonezilla Live', kind: 'iso', family: 'Outils', about: 'Copie et restauration de disques', match: /^clonezilla-live-(\d+\.\d+\.\d+-\d+)-amd64\.iso$/, icon: gh('stevenshiau'), color: '#2B6CB0', page: 'https://clonezilla.org/downloads.php', latest: github('stevenshiau/clonezilla', /^clonezilla-live-(\d+\.\d+\.\d+-\d+)-amd64\.iso$/) },
   { id: 'gparted', name: 'GParted Live', kind: 'iso', family: 'Outils', about: 'Partitionner un disque', match: /^gparted-live-(\d+\.\d+\.\d+-\d+)-amd64\.iso$/, color: '#4A5568', page: 'https://gparted.org/download.php', manual: 'GParted est publié sur SourceForge : Odin repère ta version et te donne la page officielle.' },
-  { id: 'windows11', name: 'Windows 11', kind: 'iso', family: 'Windows', about: 'Windows 11 (64 bits)', match: /^Win11_(\d\d[HhAa]\d)_[A-Za-z]+(?:_[A-Za-z]+)*_x64(?:v\d)?\.iso$/, icon: 'https://www.microsoft.com/favicon.ico', color: '#0078D4', page: 'https://www.microsoft.com/fr-fr/software-download/windows11', manual: 'Microsoft ne permet pas le téléchargement automatique de ses ISO : Odin repère tes ISO Windows, te prévient d\'une nouvelle version et ouvre la page officielle.' },
-  { id: 'windows10', name: 'Windows 10', kind: 'iso', family: 'Windows', about: 'Windows 10 (64 bits)', match: /^Win10_(\d\d[HhAa]\d)_[A-Za-z]+(?:_[A-Za-z]+)*_x64(?:v\d)?\.iso$/, icon: 'https://www.microsoft.com/favicon.ico', color: '#0078D4', page: 'https://www.microsoft.com/fr-fr/software-download/windows10', manual: 'Microsoft ne permet pas le téléchargement automatique de ses ISO : Odin repère tes ISO Windows et ouvre la page officielle.' },
+  { id: 'windows11', name: 'Windows 11', kind: 'iso', family: 'Windows', about: 'Windows 11 (64 bits)', match: /^Win11_(\d\d[HhAa]\d)_[A-Za-z]+(?:_[A-Za-z]+)*_x64(?:v\d)?\.iso$/, icon: 'https://www.microsoft.com/favicon.ico', color: '#0078D4', page: 'https://www.microsoft.com/fr-fr/software-download/windows11' }, // dernière version et lien : microsoft.ts
+  { id: 'windows10', name: 'Windows 10', kind: 'iso', family: 'Windows', about: 'Windows 10 (64 bits)', match: /^Win10_(\d\d[HhAa]\d)_[A-Za-z]+(?:_[A-Za-z]+)*_x64(?:v\d)?\.iso$/, icon: 'https://www.microsoft.com/favicon.ico', color: '#0078D4', page: 'https://www.microsoft.com/fr-fr/software-download/windows10' }, // dernière version et lien : microsoft.ts
   { id: 'windows-server', name: 'Windows Server', kind: 'iso', family: 'Windows', about: 'Windows Server (évaluation ou licence)', match: /^(?:SERVER_EVAL_)?.*?Windows[_ ]?Server[_ ]?(\d{4}).*\.iso$/i, icon: 'https://www.microsoft.com/favicon.ico', color: '#0078D4', page: 'https://www.microsoft.com/fr-fr/evalcenter', manual: 'Le centre d\'évaluation de Microsoft demande un formulaire : Odin ne le remplit pas à ta place.' },
 ];
 

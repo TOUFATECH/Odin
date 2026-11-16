@@ -33,6 +33,7 @@ import { valgrind } from './modules/valgrind.ts';
 import { varModule } from './modules/var.ts';
 import { bru, setOdinWeb } from './modules/bru.ts';
 import { brancherAdresseOdin, brancherCourrier } from './sso/registre.ts';
+import { brancherLangueOdin } from './forge/microsoft.ts';
 import { buildMail, smtpSend } from '../tools/mail.ts';
 import { Notices } from './notices.ts';
 import { skidbladnir } from './modules/skidbladnir.ts';
@@ -162,6 +163,8 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Persona (invitations, mot de passe oublié) et le compagnon des postes : l'adresse d'Odin et sa boîte d'envoi.
   brancherAdresseOdin(() => ({ port: odin.cfg.web.port, tls: odin.cfg.web.tls.enabled }));
   brancherCourrier(async (a, sujet, texte) => { const c = odin.cfg.mail; await smtpSend(c, [a], buildMail(c.from || c.user, [a], sujet, texte)); });
+  // Andromède : l'ISO de Windows suit la langue d'Odin (il n'a pas de langue d'interface à part : celle de sa voix, sinon son pays).
+  brancherLangueOdin(() => ({ langue: odin.cfg.voice?.stt?.language }));
   const devices =() => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
   return ([...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, gna, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora] as Module[]).map(rename);
 }

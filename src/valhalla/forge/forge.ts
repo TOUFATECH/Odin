@@ -159,7 +159,7 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
     const c = latestCache.get(src.id); if (!fresh && c && Date.now() - c.at < 3600_000) { if (c.r) return c.r; throw new Error(c.err); }
     if (!src.latest) throw new Error(src.manual ?? 'pas de source officielle automatique');
     try {
-      const r = await src.latest(ctx.fetch as never); latestCache.set(src.id, { at: Date.now(), r });
+      const r = await src.latest(ctx.fetch as never, ctx.settings); latestCache.set(src.id, { at: Date.now(), r });
       const avant = vues(ctx)[src.id];
       noterVue(ctx, src.id, { version: r.version, at: Date.now(), ...(r.size ?? (avant?.version === r.version ? avant.taille : undefined) ? { taille: r.size ?? avant!.taille } : {}), ...(r.sha256 ? { sha256: r.sha256.toLowerCase() } : {}), url: r.url });
       return r;
@@ -251,6 +251,10 @@ export function forgeModule(o: ForgeOpts): Module & { _jobs: () => Job[]; _cycle
         if (have && cmpVersion(rel.version, have) <= 0 && !force) { log(ctx, { what: 'vérifié', source: src.id, name: src.name, version: have, detail: 'à jour' }); out.push(`✔ ${src.name} ${have} : à jour`); continue; }
         log(ctx, { what: 'nouvelle version', source: src.id, name: src.name, version: rel.version, detail: have ? `tu as ${have}` : 'pas encore dans le dossier' });
         if (!plan(ctx).auto && why === 'programmé') { say(ctx, 'info', `🆕 ${src.name} ${rel.version} disponible`, have ? `Tu as ${have}.` : 'Pas encore dans ton dossier.', { fix: { action: 'telecharger', input: { nom: src.id }, label: 'Télécharger' } }); out.push(`🆕 ${src.name} ${rel.version} disponible (tu as ${have ?? 'rien'})`); continue; }
+        // Le lien demandé au dernier moment (Microsoft) ; un refus de l'éditeur : la page officielle, rien n'est contourné.
+        if (rel.obtenir) { try { rel = await rel.obtenir(); } catch (e) { rel = { ...rel, manuel: (e as Error).message }; } }
+        if (rel.note) { say(ctx, 'info', `ℹ ${src.name} ${rel.version}`, rel.note); out.push(`ℹ ${src.name} : ${rel.note}`); }
+        if (rel.manuel) { const pg = rel.page ?? src.page; log(ctx, { what: 'échec', source: src.id, name: src.name, version: rel.version, detail: `pas de lien : ${rel.manuel}` }); say(ctx, 'moyenne', `🆕 ${src.name} ${rel.version} : à prendre sur la page officielle`, `${have ? `Tu as ${have}. ` : ''}${rel.manuel} ${pg}`, { steps: ['Ouvre la page officielle', 'Télécharge l\'ISO dans la langue voulue', 'Dépose-la dans le dossier : Odin la reconnaît et vérifie l\'empreinte publiée'] }); out.push(`🆕 ${src.name} ${rel.version} disponible (tu as ${have ?? 'rien'}) : ${rel.manuel} ${pg}`); continue; }
         out.push(await fetchOne(ctx, src, rel));
       }
       ctx.saveSettings({ lastRun: Date.now() });
