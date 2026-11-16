@@ -148,6 +148,8 @@ export interface Answer {
   report: string;
   /** Windows : partage où sont les fichiers d'installation, et les logiciels à installer */
   share?: { unc: string; user?: string; password?: string };
+  /** Windows : la clé d'activation déposée pour l'édition de l'image (vide : installation sans activation) */
+  productKey?: string;
   software?: Array<{ name: string; url: string; args: string; msi: boolean }>;
   /** Debian / RHEL : dépôt (adresse) */
   repo?: string; mirror?: string;
@@ -225,7 +227,7 @@ export function unattend(a: Answer, fw: 'uefi' | 'bios'): string {
     <component name="Microsoft-Windows-Setup" ${arch}>
       <DiskConfiguration><Disk wcm:action="add"><DiskID>0</DiskID><WillWipeDisk>true</WillWipeDisk>${disk}</Disk></DiskConfiguration>
       <ImageInstall><OSImage><InstallTo><DiskID>0</DiskID><PartitionID>${part}</PartitionID></InstallTo><InstallFrom><MetaData wcm:action="add"><Key>/IMAGE/INDEX</Key><Value>1</Value></MetaData></InstallFrom></OSImage></ImageInstall>
-      <UserData><AcceptEula>true</AcceptEula><ProductKey><Key></Key><WillShowUI>OnError</WillShowUI></ProductKey></UserData>
+      <UserData><AcceptEula>true</AcceptEula><ProductKey><Key>${xml(a.productKey ?? '')}</Key><WillShowUI>OnError</WillShowUI></ProductKey></UserData>
     </component>
   </settings>
   <settings pass="specialize">
