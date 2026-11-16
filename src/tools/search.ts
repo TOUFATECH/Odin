@@ -1,12 +1,13 @@
 // Recherche sur le web (et sur un site ou un réseau social précis avec « site »).
-// Sans clé : DuckDuckGo (version HTML). Mieux, avec une clé ou ton instance : Brave Search,
-// Tavily, ou SearXNG (auto-hébergé, sans clé). Les résultats sont NON FIABLES : des données.
+// Sans clé : Lyncée, le moteur d'Odin (plusieurs moteurs interrogés par Odin lui-même, fusionnés), puis la page
+// de DuckDuckGo en secours. Avec une clé ou ton instance : Brave Search, Tavily, Exa, Google, ou ton instance
+// externe (facultative). Les résultats sont NON FIABLES : des données.
 
 import { wrapUntrusted } from '../heimdall/injection.ts';
 import { num, obj, str, type Tool } from './registry.ts';
 
 export interface SearchResult { title: string; url: string; snippet: string }
-export type SearchProvider = 'duckduckgo' | 'bing' | 'mojeek' | 'news' | 'brave' | 'tavily' | 'searxng' | 'exa' | 'google';
+export type SearchProvider = 'duckduckgo' | 'bing' | 'mojeek' | 'news' | 'brave' | 'tavily' | 'searxng' | 'exa' | 'google' | 'lyncee';
 
 const s = (v: unknown) => String(v ?? '');
 const decode = (t: string) => t.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/\s+/g, ' ').trim();
@@ -87,7 +88,7 @@ export function pickProvider(o: SearchOptions): SearchProvider {
   return 'duckduckgo';
 }
 
-export async function webSearch(query: string, count = 8, o: SearchOptions = {}): Promise<{ provider: SearchProvider; results: SearchResult[] }> {
+export async function webSearch(query: string, count = 8, o: SearchOptions = {}): Promise<{ provider: SearchProvider; results: SearchResult[]; /** moteurs en pause ou muets : la liste est partielle */ note?: string }> {
   const env = o.env ?? process.env, f = o.fetcher ?? fetch;
   const signal = o.signal ? AbortSignal.any([o.signal, AbortSignal.timeout(20_000)]) : AbortSignal.timeout(20_000);
   const n = Math.min(20, Math.max(1, count));
@@ -125,15 +126,40 @@ export async function webSearch(query: string, count = 8, o: SearchOptions = {})
     const d = await r.json() as { results?: Array<{ title: string; url: string; content?: string }> };
     return { provider, results: (d.results ?? []).slice(0, n).map((x) => ({ title: x.title, url: x.url, snippet: (x.content ?? '').slice(0, 400) })) };
   }
-  return keyless(provider as 'duckduckgo' | 'bing' | 'mojeek' | 'news', query, n, f, signal, !(o.provider && o.provider !== 'auto'));
+  // Sans clé ni instance (ou Lyncée choisi) : Lyncée d'abord, plusieurs moteurs fusionnés ; la page DuckDuckGo en secours.
+  const auto = !(o.provider && o.provider !== 'auto');
+  if (provider === 'lyncee' || (provider === 'duckduckgo' && auto)) {
+    let partiel: SearchResult[] = [], note = '';
+    const enPause = new Set<string>();
+    try {
+      const { chercherLyncee, phrasePause } = await import('../valhalla/volva/lyncee/meta.ts');
+      const r = await chercherLyncee(query, { categorie: 'web', n, fetcher: f, signal });
+      const results = r.resultats.map((x) => ({ title: x.title, url: x.url, snippet: x.snippet }));
+      const avis = [...new Set([...r.erreurs, ...r.pauses.map(phrasePause)])];
+      note = avis.length ? `Moteurs en pause ou sans réponse : ${avis.join(' ; ')}` : '';
+      // Accepté seulement si un grand moteur de pages a répondu (pas seulement Wikipédia) : sinon le secours d'abord.
+      if (results.length && r.moteurs.some((m) => m !== 'Wikipédia' && m !== 'Wikidata')) return { provider: 'lyncee', results, ...(note ? { note } : {}) };
+      partiel = results;
+      // Un service mis en pause par Lyncée n'est pas réinterrogé par le secours (jamais de nouvel essai déguisé).
+      for (const p of r.pauses) { if (p.id.startsWith('duckduckgo')) enPause.add('duckduckgo'); if (p.id.startsWith('bing')) enPause.add('bing'); }
+    } catch { /* Lyncée indisponible : la page DuckDuckGo en secours */ }
+    try {
+      const k = await keyless('duckduckgo', query, n, f, signal, true, enPause);
+      return { ...k, ...(note ? { note } : {}) };
+    } catch (err) {
+      if (partiel.length) return { provider: 'lyncee', results: partiel, note: note || 'Web : aucun grand moteur ne répond (au mieux Wikipédia)' };
+      throw err;
+    }
+  }
+  return keyless(provider as 'duckduckgo' | 'bing' | 'mojeek' | 'news', query, n, f, signal, auto);
 }
 
 /**
  * Moteurs sans clé. Si l'un est bloqué ou ne renvoie rien (limite atteinte), on passe tout seul au suivant :
  * DuckDuckGo → Bing → Mojeek. Les actualités passent par le flux RSS de Bing Actualités.
  */
-async function keyless(first: 'duckduckgo' | 'bing' | 'mojeek' | 'news', query: string, n: number, f: typeof fetch, signal: AbortSignal, chain = true): Promise<{ provider: SearchProvider; results: SearchResult[] }> {
-  const order = chain ? [first, ...(['duckduckgo', 'bing', 'mojeek'] as const).filter((x) => x !== first)] : [first];
+async function keyless(first: 'duckduckgo' | 'bing' | 'mojeek' | 'news', query: string, n: number, f: typeof fetch, signal: AbortSignal, chain = true, enPause: Set<string> = new Set()): Promise<{ provider: SearchProvider; results: SearchResult[] }> {
+  const order = (chain ? [first, ...(['duckduckgo', 'bing', 'mojeek'] as const).filter((x) => x !== first)] : [first]).filter((x) => !enPause.has(x));
   const errors: string[] = [];
   for (const p of order) {
     try {
@@ -162,10 +188,10 @@ async function keyless(first: 'duckduckgo' | 'bing' | 'mojeek' | 'news', query: 
   throw new Error(`Aucun moteur n'a répondu (${errors.join(' ; ')}). Essaie le navigateur (browser_open sur news.google.com ou bing.com), ou ajoute une clé Brave Search dans Réglages → Recherche.`);
 }
 
-/** Moteurs disponibles (clé présente) : on en interroge plusieurs pour ne pas dépendre d'un seul. */
+/** Moteurs disponibles (clé présente) : on en interroge plusieurs pour ne pas dépendre d'un seul. Lyncée réunit les moteurs sans clé. */
 export function availableProviders(o: SearchOptions = {}): SearchProvider[] {
   const env = o.env ?? process.env;
-  return [env.BRAVE_API_KEY && 'brave', env.TAVILY_API_KEY && 'tavily', env.EXA_API_KEY && 'exa', env.GOOGLE_CSE_KEY && env.GOOGLE_CSE_CX && 'google', o.searxngUrl && 'searxng', 'duckduckgo', 'bing', 'mojeek'].filter(Boolean) as SearchProvider[];
+  return [env.BRAVE_API_KEY && 'brave', env.TAVILY_API_KEY && 'tavily', env.EXA_API_KEY && 'exa', env.GOOGLE_CSE_KEY && env.GOOGLE_CSE_CX && 'google', o.searxngUrl && 'searxng', 'lyncee'].filter(Boolean) as SearchProvider[];
 }
 export interface MergedResult extends SearchResult { engines: string[]; queries: string[]; rank: number }
 /** Plusieurs requêtes × plusieurs moteurs, résultats fusionnés (même page = une seule entrée). */
@@ -203,11 +229,13 @@ export const webSearchTool: Tool = {
     if (!ctx.search?.provider || ctx.search.provider === 'auto') try {
       const { volvaResults } = await import('../valhalla/modules/volva.ts');
       const m = await volvaResults(query, Number(i.count ?? 8));
-      if (m?.results.length) return { output: wrapUntrusted('recherche:völva', `Recherche « ${query} » (Pythie : ${m.engines.join(', ')}) :\n${m.results.map((r, k) => `${k + 1}. ${r.title}\n   ${r.url}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n')}`), tainted: true };
+      // Seulement Wikipédia parce que les grands moteurs sont en pause : le moteur habituel (et son secours) d'abord.
+      const pauvre = m?.errors?.some((e) => e.startsWith('Web : aucun grand moteur')) && m.engines.every((e) => e === 'Wikipédia' || e === 'Wikidata');
+      if (m?.results.length && !pauvre) return { output: wrapUntrusted('recherche:völva', `Recherche « ${query} » (Pythie : ${m.engines.join(', ')}) :\n${m.results.map((r, k) => `${k + 1}. ${r.title}\n   ${r.url}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n')}${m.errors?.length ? `\n(Moteurs en pause ou sans réponse : ${[...new Set(m.errors)].slice(0, 6).join(' ; ')})` : ''}`), tainted: true };
     } catch { /* Pythie indisponible : moteur habituel */ }
     const cfg = ctx.search ?? {};
-    const { provider, results } = await webSearch(query, Number(i.count ?? 8), { provider: cfg.provider, searxngUrl: cfg.searxngUrl, signal: ctx.signal });
+    const { provider, results, note } = await webSearch(query, Number(i.count ?? 8), { provider: cfg.provider, searxngUrl: cfg.searxngUrl, signal: ctx.signal });
     const text = results.map((r, k) => `${k + 1}. ${r.title}\n   ${r.url}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n') || '(aucun résultat)';
-    return { output: wrapUntrusted(`recherche:${provider}`, `Recherche « ${query} » (${provider}) :\n${text}`), tainted: true };
+    return { output: wrapUntrusted(`recherche:${provider}`, `Recherche « ${query} » (${provider}) :\n${text}${note ? `\n(${note})` : ''}`), tainted: true };
   },
 };

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Odin</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="search" type="application/opensearchdescription+xml" title="Odin" href="/opensearch.xml">
 <script nonce="__NONCE__">try{if(localStorage.getItem("odin.skin")==="epure"){document.documentElement.dataset.skin="epure";document.documentElement.dataset.theme="light";}}catch(e){}</script>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -1556,7 +1557,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
           <article class="card" data-sec="recherche"><form class="form" id="f-search">
             <h2>Recherche web</h2>
-            <p class="sub" style="margin:0">Odin cherche sur le web, ou sur un site ou réseau précis (Reddit, X, YouTube, GitHub…). Sans rien régler, il utilise DuckDuckGo ; une clé Brave Search (gratuite jusqu'à un certain volume) ou Tavily donne des résultats plus fiables, et SearXNG reste chez toi.</p>
+            <p class="sub" style="margin:0">Odin cherche sur le web, ou sur un site ou réseau précis (Reddit, X, YouTube, GitHub…). Sans rien régler, Odin utilise Lyncée, son propre moteur (plusieurs moteurs fusionnés, sans clé) ; une clé Brave Search (gratuite jusqu'à un certain volume) ou Tavily donne des résultats plus fiables, et SearXNG reste chez toi.</p>
             <div class="field"><label for="s-provider">Moteur</label><select id="s-provider"><option value="auto">Automatique (le meilleur disponible)</option><option value="duckduckgo">DuckDuckGo (sans clé)</option><option value="brave">Brave Search (clé)</option><option value="tavily">Tavily (clé)</option><option value="exa">Exa — recherche par le sens (clé)</option><option value="google">Google Programmable Search (clé)</option><option value="searxng">SearXNG (ton instance)</option></select></div>
             <div class="field"><label for="s-brave">Clé Brave Search</label><input id="s-brave" type="password" autocomplete="off"><span class="hint" id="s-braveHint"></span></div>
             <div class="field"><label for="s-tavily">Clé Tavily</label><input id="s-tavily" type="password" autocomplete="off"><span class="hint" id="s-tavilyHint"></span></div><div class="field"><label for="s-exa">Clé Exa</label><input id="s-exa" type="password" autocomplete="off"><span class="hint" id="s-exaHint"></span></div><div class="field"><label for="s-gkey">Google Programmable Search : clé API et identifiant du moteur (cx)</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="s-gkey" type="password" autocomplete="off" placeholder="Clé API" style="flex:1 1 200px"><input id="s-gcx" autocomplete="off" placeholder="cx" style="flex:1 1 140px"></div><span class="hint" id="s-gHint"></span></div><span class="hint">La recherche vérifiée interroge jusqu'à trois moteurs à la fois : plus tu en relies, moins Odin dépend d'un seul (mais plusieurs moteurs peuvent renvoyer les mêmes sources : Odin vérifie aussi leur indépendance).</span>
@@ -1930,6 +1931,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     // Compte du propriétaire : créé à la première connexion (prénom, nom, e-mail, mot de passe),
     // exigé ensuite. Le serveur revérifie tout : ici, seulement de l'aide à la saisie.
     const ACCOUNT = __ACCOUNT__, SETUP = __SETUP__;
+    // Après la connexion, retour à la recherche demandée (seulement une page /recherche d'Odin, sinon l'accueil).
+    const suite = (() => { const x = new URLSearchParams(location.search).get('suite') || ''; return /^\/recherche(\?[^#\\\s]*)?$/.test(x) ? x : '/'; })();
     const post = (path, body) => fetch(path, { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) }).then(async (x) => ({ ...(await x.json().catch(() => ({}))), status: x.status })).catch(() => ({ ok: false, error: 'Odin ne répond pas.' }));
     const showPass = (btn, ...inputs) => btn.addEventListener('click', () => { const on = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', String(on)); btn.textContent = on ? 'Cacher' : 'Voir'; for (const i of inputs) i.type = on ? 'text' : 'password'; });
     if (ACCOUNT) {
@@ -1946,7 +1949,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         if (!email || !password) { $('#siErr').textContent = 'Indique ton adresse e-mail et ton mot de passe.'; return; }
         $('#siBtn').disabled = true; $('#siErr').textContent = '';
         const r = await post('/api/account/login', { email, password, ...(code ? { code } : {}) });
-        if (r.ok) return location.replace('/');
+        if (r.ok) return location.replace(suite);
         if (rejete(r)) return;
         if (r.code === 'code_requis') { $('#siCodeBox').hidden = false; $('#siErr').textContent = r.error; $('#siBtn').disabled = false; $('#siCode').focus(); return; }
         $('#siErr').textContent = r.error || 'Connexion impossible.'; $('#siBtn').disabled = false; $('#siPass').value = ''; $('#siCode').value = ''; $('#siPass').focus();
@@ -1955,7 +1958,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
       let qrSecret = '', qrMinuterie = 0;
       const qrSuivre = async () => {
         const s = await fetch('/api/connexion-qr/etat', { method: 'POST', headers: { 'x-odin': '1', 'x-qr': qrSecret } }).then(async (x) => ({ status: x.status, ...(await x.json().catch(() => ({}))) })).catch(() => ({ etat: 'attente' }));
-        if (s.ok) { $('#siQrEtat').textContent = 'Autorisé : ouverture…'; return location.replace('/'); }
+        if (s.ok) { $('#siQrEtat').textContent = 'Autorisé : ouverture…'; return location.replace(suite); }
         if (rejete(s)) { $('#siQr').hidden = true; return; }
         if (s.etat === 'refus') { $('#siQrEtat').textContent = s.error || 'Refusé sur le téléphone.'; return; }
         if (s.etat === 'expire') return qrDebut();
@@ -2010,7 +2013,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
         if (err) { $('#acErr').textContent = err; return; }
         $('#acBtn').disabled = true; $('#acErr').textContent = '';
         const r = await post('/api/account/create', v);
-        if (r.ok) return location.replace('/');
+        if (r.ok) return location.replace(suite);
         $('#acErr').textContent = r.error || 'Création impossible.'; $('#acBtn').disabled = false;
       });
       // Une erreur affichée disparaît dès que tu corriges.

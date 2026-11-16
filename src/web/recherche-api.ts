@@ -1,11 +1,15 @@
-// Pythie sur le web : la page /recherche (façon Perplexity), son script, et son API /api/recherche/*.
-// Réservé à ta session Odin. La page ne construit jamais de HTML à partir du texte des sources.
+// Pythie sur le web : la page /recherche (réponse rédigée avec ses sources), son script, et son API /api/recherche/*.
+// Aussi Odin comme moteur des navigateurs : /opensearch.xml, la page de résultats classique (/recherche?q=…, rendue
+// ici sans script), les suggestions pendant la frappe et le mode d'emploi (/recherche/navigateurs).
+// Réservé à ta session Odin (sauf la description, le mode d'emploi et les suggestions sans historique).
+// La page ne construit jamais de HTML à partir du texte des sources.
 import { readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { FOCUS, toMarkdown, type Focus } from '../valhalla/volva/engine.ts';
 import { activeEngines, ask, ENGINES, gather, history } from '../valhalla/modules/volva.ts';
-import { assertPublicUrl } from '../heimdall/policy.ts';
 import { valhallaOf } from '../valhalla/odin.ts';
+import { chercherVignette } from './vignette-sure.ts';
+import { descriptionOpenSearch, LIEN_RECHERCHE, origineSure, pageClassiqueRoute, pageNavigateurs, suggestionsRoute } from './recherche-navigateurs.ts';
 
 const JS = (() => { try { return readFileSync(new URL('./recherche.js', import.meta.url)); } catch { return Buffer.from(''); } })();
 const s = (v: unknown) => String(v ?? '');
@@ -16,14 +20,29 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
   try { const j = JSON.parse(Buffer.concat(parts).toString('utf8') || '{}') as unknown; return j && typeof j === 'object' ? j as Record<string, unknown> : {}; } catch { return {}; }
 }
 
-export async function rechercheRoute(req: IncomingMessage, res: ServerResponse, url: URL, d: { authed: boolean; mascot: string }): Promise<boolean> {
+export async function rechercheRoute(req: IncomingMessage, res: ServerResponse, url: URL, d: { authed: boolean; mascot: string; origine?: string; ip?: string }): Promise<boolean> {
   const p = url.pathname;
   if (p === '/recherche.js') { res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); res.end(JS); return true; }
+  // Odin comme moteur des navigateurs : la description (publique), le mode d'emploi (public), la page classique.
+  if ((p === '/opensearch.xml' || p === '/recherche/navigateurs') && req.method === 'GET') {
+    const o = origineSure(d.origine); if (!o) { res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }); res.end('adresse d\'Odin refusée'); return true; }
+    if (p === '/opensearch.xml') { res.writeHead(200, { 'content-type': 'application/opensearchdescription+xml; charset=utf-8', 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' }); res.end(descriptionOpenSearch(o)); return true; }
+    const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
+      'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` });
+    res.end(pageNavigateurs(o, nonce)); return true;
+  }
+  if (p === '/api/recherche/suggestions' && req.method === 'GET') {
+    const v = valhallaOf(); await suggestionsRoute(req, res, url, { authed: d.authed, ctx: v?.module('volva') ? v.ctx('volva') : undefined, ip: d.ip ?? '' }); return true;
+  }
+  if (p === '/recherche' && req.method === 'GET' && s(url.searchParams.get('q')).trim() && url.searchParams.get('mode') !== 'pythie') {
+    const v = valhallaOf(); await pageClassiqueRoute(res, url, { authed: d.authed, ctx: v?.module('volva') ? v.ctx('volva') : undefined }); return true;
+  }
   if (p === '/recherche' && req.method === 'GET') {
     const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString('base64');
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'x-frame-options': 'DENY',
       'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'` });
-    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f1116"><title>Pythie · Odin</title><link rel="icon" href="/favicon.svg"></head><body><noscript>Pythie a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/recherche.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
+    res.end(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f1116"><title>Pythie · Odin</title><link rel="icon" href="/favicon.svg">${LIEN_RECHERCHE}</head><body><noscript>Pythie a besoin de JavaScript.</noscript><template id="mascotte">${d.mascot}</template><script nonce="${nonce}" src="/face.js"></script><script nonce="${nonce}" src="/recherche.js"></script><script nonce="${nonce}" src="/plume.js"></script></body></html>`);
     return true;
   }
   if (!p.startsWith('/api/recherche/')) return false;
@@ -37,18 +56,10 @@ export async function rechercheRoute(req: IncomingMessage, res: ServerResponse, 
   // publiques seulement, 3 Mo au plus, et rien d'autre qu'une image.
   if (req.method === 'GET' && p === '/api/recherche/vignette') {
     try {
-      const u = assertPublicUrl(s(url.searchParams.get('u'))); if (!/^https?:$/.test(u.protocol)) throw new Error('adresse refusée');
-      // Une redirection (fréquente : icône d'un site, miniature) est suivie à la main, deux fois au plus, vers une adresse publique.
-      let cible = u, r: Response | undefined;
-      for (let k = 0; k < 3; k++) {
-        r = await (ctx.fetch as typeof fetch)(cible.toString(), { signal: AbortSignal.timeout(8000), redirect: 'manual', headers: { accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,image/x-icon' } });
-        const loc = r.status >= 300 && r.status < 400 ? r.headers.get('location') : null; if (!loc) break;
-        cible = assertPublicUrl(new URL(loc, cible).toString()); if (!/^https?:$/.test(cible.protocol)) throw new Error('adresse refusée');
-      }
-      // Aussi l'icône d'un site (favicon.ico), affichée quand un résultat n'a pas de vignette. Jamais de SVG (il peut contenir du script).
-      const type = r?.headers.get('content-type') ?? ''; if (!r?.ok || !/^image\/(png|jpe?g|gif|webp|avif|x-icon|vnd\.microsoft\.icon)$/i.test(type.split(';')[0].trim())) throw new Error('pas une image');
-      const b = Buffer.from(await r.arrayBuffer()); if (b.length > 3_000_000) throw new Error('trop lourde');
-      res.writeHead(200, { 'content-type': type.split(';')[0].trim(), 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'" }); res.end(b);
+      // Le nom est résolu une fois, puis Odin se connecte à l'adresse vérifiée (jamais le réseau de la maison), à
+      // chaque saut ; aussi l'icône d'un site (favicon.ico). Jamais de SVG.
+      const { type, corps: b } = await chercherVignette(s(url.searchParams.get('u')));
+      res.writeHead(200, { 'content-type': type, 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'" }); res.end(b);
     } catch { res.writeHead(404); res.end(); }
     return true;
   }

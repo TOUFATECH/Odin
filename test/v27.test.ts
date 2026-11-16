@@ -93,8 +93,9 @@ test('recherche sans clé : Bing, Mojeek, Bing Actualités ; bascule si DuckDuck
   const calls: string[] = [];
   const fetcher = (async (u: string) => { calls.push(String(u)); return new Response(String(u).includes('duckduckgo') ? '<html>limite</html>' : bing, { status: 200 }); }) as typeof fetch;
   const r = await webSearch('IA', 5, { fetcher, env: {} });
-  assert.equal(r.provider, 'bing'); assert.equal(r.results[0].url, 'https://exemple.fr/article-ia');
-  assert.ok(calls[0].includes('duckduckgo') && calls[1].includes('bing.com/search'));
+  // Sans clé, Lyncée passe devant (DuckDuckGo, Bing… ensemble) ; la chaîne DuckDuckGo → Bing reste le secours.
+  assert.ok(['lyncee', 'bing'].includes(r.provider), r.provider); assert.equal(r.results[0].url, 'https://exemple.fr/article-ia');
+  assert.ok(calls.some((c) => c.includes('duckduckgo')) && calls.some((c) => c.includes('bing.com/search')));
 });
 
 import { readOnlyCommand } from '../src/mimir/decisions.ts';

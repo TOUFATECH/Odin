@@ -154,7 +154,10 @@ fun EcranReglages(pegase: Pegase) {
 
         Section("Navigation") {
             T("Moteur de recherche", taille = 13.sp)
-            val moteurs = listOf(
+            // Relié à Odin : Odin en tête (sa page de résultats, plusieurs moteurs fusionnés chez toi).
+            val odinRecherche = s?.odin?.trimEnd('/')?.takeIf { it.isNotEmpty() }?.let { "$it/recherche?q=%s" }
+            val moteurs = listOfNotNull(
+                odinRecherche?.let { "Odin" to it },
                 "DuckDuckGo" to Adresse.RECHERCHE_DEFAUT,
                 "Qwant" to "https://www.qwant.com/?q=%s",
                 "Ecosia" to "https://www.ecosia.org/search?q=%s",

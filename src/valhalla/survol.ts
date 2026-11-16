@@ -47,7 +47,7 @@ export const SURVOL: Record<string, Survol> = {
   gna: { phrase: 'Les trajets de la famille sur une carte, que chacun garde ou efface.', faire: ['Allumer ou mettre en pause', 'Voir les trajets et les arrêts', 'Effacer une période'] },
   apparence: { phrase: 'Les couleurs d\'Odin, choisies par toi ou selon l\'heure et la météo.', faire: ['Choisir un thème', 'Suivre l\'heure et la météo', 'Garder le même thème partout', 'Fêter les jours du calendrier'] },
   commandes: { phrase: 'Une commande prête à copier pour chaque fonction de chaque appli.', faire: ['Trouver la commande d\'une demande', 'Copier un exemple prêt', 'Voir les options de chaque action'] },
-  volva: { phrase: 'Pose une question : Odin cherche partout et répond avec ses sources.', faire: ['Chercher sur plusieurs moteurs', 'Lire une réponse rédigée', 'Ouvrir les sources', 'Agir avec les applis d\'Odin'] },
+  volva: { phrase: 'Pose une question : Odin cherche partout et répond avec ses sources.', faire: ['Chercher sur plusieurs moteurs', 'Lire une réponse rédigée', 'Agir avec les applis d\'Odin', 'Mettre Odin dans ton navigateur'] },
   hermod: { phrase: 'Ton parc d\'ordinateurs : qui est allumé, son état, et la main à distance.', faire: ['Voir qui est en ligne', 'Lancer une commande à distance', 'Réveiller un poste', 'Redémarrer avec ton accord'] },
   ratatoskr: { phrase: 'Branche les outils d\'autres applis sur Odin, et ouvre Odin aux autres.', faire: ['Brancher un serveur d\'outils', 'Appeler un outil toi-même', 'Ouvrir Odin aux autres assistants'] },
   appareils: { phrase: 'Tous les appareils de la maison dans un seul registre.', faire: ['Reconnaître les appareils tout seuls', 'Voir qui est en ligne', 'Suivre l\'état de chaque appareil', 'Allumer ou éteindre d\'un geste'] },

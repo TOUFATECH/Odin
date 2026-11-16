@@ -17,10 +17,16 @@ export function versAdresse(texte: string, moteur: string, odin?: string): strin
 
 export function adresseRecherche(q: string, moteur: string, odin?: string): string {
   const e = encodeURIComponent(q);
-  if (moteur === 'pythie' && odin) return `${odin}/?q=${e}`;
+  if (moteur === 'pythie' && odin) return `${odin}/recherche?q=${e}`;
   if (moteur === 'google') return `https://www.google.com/search?q=${e}`;
   if (moteur === 'qwant') return `https://www.qwant.com/?q=${e}`;
   return `https://duckduckgo.com/?q=${e}`;
+}
+
+/** À la liaison avec Odin : Pégase cherche avec Odin, sauf si la personne a déjà choisi un moteur elle-même. */
+export function moteurApresLiaison(r: { moteur: string; moteurChoisi?: boolean }): 'pythie' | undefined {
+  // Seulement depuis le moteur par défaut : un Google ou un Qwant choisi avant cette version (sans moteurChoisi) est gardé.
+  return !r.moteurChoisi && r.moteur === 'duckduckgo' ? 'pythie' : undefined;
 }
 
 /** Le domaine lisible d'une adresse (sans « www. »). */

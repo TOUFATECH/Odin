@@ -10,6 +10,7 @@ import type { Collection, Enregistrement, EtatSynchro } from '../commun/types';
 import { COLLECTIONS } from '../commun/types';
 import { FichierChiffre } from './stockage';
 import type { ProfilOuvert } from './profil';
+import { moteurApresLiaison } from './outils';
 
 // La bibliothèque cliente de la connexion unique d'Odin, copiée telle quelle depuis clients/odin-sso.mjs (MIT).
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -230,6 +231,8 @@ export class Synchro {
       const pr = this.p.profil();
       if (pr.nom !== lien.profil.nom || pr.email !== lien.profil.email) this.p.mettre('profil', { ...pr, nom: lien.profil.nom, email: lien.profil.email, lettre: (lien.profil.nom || 'T').trim().slice(0, 1).toUpperCase() });
     }
+    // Relié à Odin : Pégase cherche avec Odin, sauf si la personne a choisi son moteur elle-même.
+    const m = moteurApresLiaison(this.p.reglages()); if (m) this.p.mettreReglage('moteur', m);
     this.majEtat('encours');
     void this.ouvrirFlux();
     void this.verifier();

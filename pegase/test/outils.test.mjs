@@ -80,3 +80,17 @@ test('clic droit, affichage mobile, inspecteur', { timeout: 240_000 }, async () 
     await attendre(async () => (await ui.evaluate(() => window.pegase.etat())).onglets.some((o) => o.url.startsWith('view-source:')), 10_000);
   } finally { await fermer(); await web.fermer(); }
 });
+
+test('recherche avec Odin : la page de résultats d\'Odin, repli sans Odin, réglage à la liaison', async () => {
+  const { createRequire } = await import('node:module');
+  const { adresseRecherche, moteurApresLiaison } = createRequire(import.meta.url)('../dist/main/outils.js');
+  assert.equal(adresseRecherche('x', 'pythie', 'https://o'), 'https://o/recherche?q=x');
+  assert.equal(adresseRecherche('tour eiffel', 'pythie', 'https://o:8443'), 'https://o:8443/recherche?q=tour%20eiffel');
+  assert.equal(adresseRecherche('x', 'pythie'), 'https://duckduckgo.com/?q=x', 'sans Odin : DuckDuckGo');
+  assert.equal(moteurApresLiaison({ moteur: 'duckduckgo' }), 'pythie', 'jamais choisi : Odin');
+  assert.equal(moteurApresLiaison({ moteur: 'qwant', moteurChoisi: true }), undefined, 'choisi à la main : gardé');
+  assert.equal(moteurApresLiaison({ moteur: 'pythie' }), undefined);
+  // Migration : un moteur choisi avant que moteurChoisi existe (champ absent ou false) n'est pas remplacé.
+  assert.equal(moteurApresLiaison({ moteur: 'google' }), undefined, 'Google d\'avant la mise à jour : gardé');
+  assert.equal(moteurApresLiaison({ moteur: 'qwant', moteurChoisi: false }), undefined, 'Qwant d\'avant la mise à jour : gardé');
+});

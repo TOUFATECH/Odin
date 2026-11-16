@@ -1,9 +1,8 @@
-// Pythie · la recherche : une question en français, plusieurs moteurs interrogés ensemble (ton SearXNG, qui
-// réunit Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…, plus Brave, Wikipédia, Tavily, Exa selon
-// tes clés), résultats fusionnés et dédoublonnés, pages lues, réponse rédigée par l'IA réglée dans Odin avec
-// des sources numérotées cliquables, questions de suite, et les applis d'Odin qui peuvent agir sur le sujet.
-// Toutes les recherches d'Odin passent par Pythie quand il est réglé. Reprend les idées de Perplexica (Vane),
-// Perplexity et SearXNG (piloté à côté, jamais copié : SearXNG est sous AGPL).
+// Pythie · la recherche : une question en français, plusieurs moteurs interrogés ensemble (Lyncée, le moteur
+// d'Odin, qui interroge lui-même DuckDuckGo, Brave, Yahoo, Bing, Wikipédia… sans clé ni instance externe ; ton
+// instance externe si tu en as une ; Brave, Tavily, Exa selon tes clés), résultats fusionnés et dédoublonnés,
+// pages lues, réponse rédigée par l'IA réglée dans Odin avec des sources numérotées cliquables, questions de
+// suite, et les applis d'Odin qui peuvent agir sur le sujet. Toutes les recherches d'Odin passent par Pythie.
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,21 +15,26 @@ import { extractive, finish, FOCUS, fuse, parseInstant, parseSearx, parseWikiped
 import type { ActionResult, ModCtx, Module, Param } from '../types.ts';
 import { sonDit } from './bragi.ts';
 import { RESULTATS_DEFAUT, RESULTATS_MAX, resultatsMarkdown, resultatsParles, type Affichage, type Sorte } from '../volva/demande.ts';
+import { categorieDe, chercherLyncee, etatsLyncee, phrasePause, reglerLyncee, reprendreMoteur, verifierLyncee } from '../volva/lyncee/meta.ts';
+import { ADAPTATEURS } from '../volva/lyncee/adaptateurs.ts';
+import { CATEGORIES } from '../volva/lyncee/types.ts';
+import { effacerQuestions, noterQuestion } from '../volva/questions.ts';
 
 const s = (v: unknown) => String(v ?? '');
 /** Une réponse telle qu'on la dit : sans les renvois [1] ni les étoiles du gras. */
 export const spoken = (answer: string) => answer.replace(/\s*\[\d{1,2}\]/g, '').replace(/\*\*/g, '').slice(0, 4000);
 /** Les moteurs que Pythie sait interroger, et ce qu'il faut pour chacun. */
 export const ENGINES: Record<string, { label: string; need?: string; env?: string[]; note?: string; keyless?: boolean }> = {
-  searxng: { label: 'SearXNG (Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…)', need: 'ton instance SearXNG (« Installer SearXNG » la lance à côté d\'Odin)', note: 'SearXNG interroge ces moteurs comme un navigateur : leurs conditions d\'usage s\'appliquent ; garde un usage personnel et raisonnable.' },
+  lyncee: { label: 'Lyncée (plusieurs moteurs, sans clé)', keyless: true, note: 'DuckDuckGo, Brave, Yahoo, Bing, Wikipédia… interrogés par Odin lui-même' },
+  searxng: { label: 'SearXNG (ton instance, facultative)', need: 'ton instance (facultative : Lyncée suffit)', note: 'SearXNG interroge ces moteurs comme un navigateur : leurs conditions d\'usage s\'appliquent ; garde un usage personnel et raisonnable.' },
   brave: { label: 'Brave Search', env: ['BRAVE_API_KEY'], note: 'clé gratuite avec 5 $ de crédit par mois (environ 1 000 recherches)' },
   wikipedia: { label: 'Wikipédia', keyless: true },
   duckduckgo_ia: { label: 'DuckDuckGo (réponses instantanées)', keyless: true },
   tavily: { label: 'Tavily', env: ['TAVILY_API_KEY'] },
   exa: { label: 'Exa (recherche par le sens)', env: ['EXA_API_KEY'] },
-  google: { label: 'Google (Programmable Search)', env: ['GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX'], note: 'fermé aux nouveaux clients ; Google l\'arrête le 1er janvier 2027 : passe par SearXNG' },
+  google: { label: 'Google (Programmable Search)', env: ['GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX'], note: 'fermé aux nouveaux clients ; Google l\'arrête le 1er janvier 2027' },
   duckduckgo: { label: 'DuckDuckGo (page web)', keyless: true, note: 'secours sans clé' },
-  mojeek: { label: 'Mojeek (page web)', keyless: true, note: 'secours sans clé' },
+  mojeek: { label: 'Mojeek (page web)', keyless: true, note: 'souvent bloqué par un captcha' },
 };
 export interface Entry { id: string; at: number; q: string; focus: Focus; answer: string; sources: Source[]; engines: string[]; followups: string[]; apps: Array<{ id: string; name: string; action?: string; label?: string }>; ai: boolean; errors: string[]; read?: number; essentials?: Array<{ title: string; detail?: string }>; thread?: string }
 
@@ -43,6 +47,13 @@ export function activeEngines(ctx: ModCtx): string[] {
   const list = (chosen ?? Object.keys(ENGINES).filter((e) => !['duckduckgo', 'mojeek'].includes(e))).filter((e) => ENGINES[e] && ready(ctx, e));
   return list.some((e) => !['wikipedia', 'duckduckgo_ia'].includes(e)) || chosen ? list : [...list, 'duckduckgo'];
 }
+/** D'où viennent les suggestions pendant la frappe ('duckduckgo' et 'brave' reçoivent ce que tu tapes). */
+export const SUGGESTIONS = ['aucune', 'wikipedia', 'duckduckgo', 'brave'];
+const heureCourte =(t?: number) => (t ? new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '');
+/** Les moteurs de Lyncée, un par ligne : ✅ prêt, ⏸ en pause jusqu'à HH:MM (raison), ⚪ coupé. */
+function lignesLyncee(): string {
+  return etatsLyncee().map((m) => `${m.etat === 'pret' ? '✅' : m.etat === 'pause' ? '⏸' : '⚪'} ${m.etiquette}${m.id.includes('_') ? ` (${m.id})` : ''} — ${m.categories.map((c) => CATEGORIES[c].label).join(', ')}${m.etat === 'pause' ? ` — en pause jusqu'à ${heureCourte(m.jusqua)}${m.raison ? ` : ${m.raison}` : ''}` : m.etat === 'coupe' ? ' — coupé' : ''}`).join('\n');
+}
 const histFile = (ctx: ModCtx) => join(ctx.dir, 'historique.json');
 export function history(ctx: ModCtx): Entry[] { try { return JSON.parse(readFileSync(histFile(ctx), 'utf8')) as Entry[]; } catch { return []; } }
 function saveHistory(ctx: ModCtx, l: Entry[]): void { try { mkdirSync(ctx.dir, { recursive: true }); writeFileSync(histFile(ctx), JSON.stringify(l.slice(0, Math.max(10, Math.min(1000, Number(ctx.settings.garder) || 200))))); } catch { /* disque plein */ } }
@@ -53,6 +64,12 @@ export async function gather(ctx: ModCtx, q: string, focus: Focus = 'tout', n = 
   const query = FOCUS[focus].hint ? `${q} ${FOCUS[focus].hint}` : q;
   const lists = await Promise.all(activeEngines(ctx).map(async (e): Promise<{ engine: string; results: SearchResult[] }> => {
     try {
+      if (e === 'lyncee') {
+        // Lyncée : plusieurs moteurs sans clé, interrogés par Odin lui-même ; la catégorie remplace l'indice du focus.
+        const r = await chercherLyncee(q, { categorie: categorieDe(focus), n: Math.max(n, 10), fetcher: f, signal, delai: 6000, sans: activeEngines(ctx).includes('wikipedia') ? ['wikipedia'] : [] });
+        errors.push(...r.erreurs, ...r.pauses.map((p) => phrasePause(p)).filter((p) => !r.erreurs.includes(p)));
+        return { engine: 'Lyncée', results: r.resultats.map((x) => ({ title: x.title, url: x.url, snippet: x.snippet, engines: x.engines, ...(x.thumb ? { thumb: x.thumb } : {}), ...(x.published ? { published: x.published } : {}) })) };
+      }
       if (e === 'searxng') {
         const u = `${searxUrl(ctx)}/search?q=${encodeURIComponent(query)}&format=json&language=fr&categories=${FOCUS[focus].searx}${focus === 'actualites' ? '&time_range=week' : ''}`;
         const r = await f(u, { headers: { accept: 'application/json' }, signal }); if (!r.ok) throw new Error(r.status === 403 ? 'format json non activé dans settings.yml' : `HTTP ${r.status}`);
@@ -68,12 +85,12 @@ export async function gather(ctx: ModCtx, q: string, focus: Focus = 'tout', n = 
   return { lists, errors, answers: [...new Set(answers)].slice(0, 3), suggestions: [...new Set(suggestions)].slice(0, 5) };
 }
 /** Résultats fusionnés seulement (pour l'outil de recherche d'Odin), sans IA. */
-export async function volvaResults(q: string, n = 8): Promise<{ engines: string[]; results: SearchResult[] } | undefined> {
+export async function volvaResults(q: string, n = 8): Promise<{ engines: string[]; results: SearchResult[]; errors?: string[] } | undefined> {
   const v = valhallaOf(); if (!v?.module('volva')) return undefined;
   const ctx = v.ctx('volva'); if (ctx.settings.pourOdin === false || !activeEngines(ctx).length) return undefined;
   const g = await gather(ctx, q, 'tout', n), src = fuse(g.lists, n);
   if (!src.length) return undefined;
-  return { engines: [...new Set(src.flatMap((x) => x.engines))], results: src.map((x) => ({ title: x.title, url: x.url, snippet: `${x.snippet}${x.engines.length > 1 ? ` [${x.engines.join(', ')}]` : ''}` })) };
+  return { engines: [...new Set(src.flatMap((x) => x.engines))], results: src.map((x) => ({ title: x.title, url: x.url, snippet: `${x.snippet}${x.engines.length > 1 ? ` [${x.engines.join(', ')}]` : ''}` })), errors: g.errors };
 }
 
 /**
@@ -92,7 +109,8 @@ export async function resultats(ctx: ModCtx, i: Record<string, unknown>): Promis
   if (!q && reg.derniere?.q) { q = reg.derniere.q; if (!so) sorte = reg.derniere.sorte ?? 'pages'; }
   if (!q) throw new Error('dis-moi ce que je dois chercher');
   ctx.saveSettings({ derniere: { q, sorte } });
-  if (aff === 'navigateur') { const u = `/recherche?q=${encodeURIComponent(q)}`; return { text: `🔎 La recherche « ${q} » est prête dans Pythie : [Ouvrir dans le navigateur](${u})`, data: { lien: u } }; }
+  // Le Web est l'onglet par défaut de la page de résultats : pas de « &cat=web » (lien court, inchangé).
+  if (aff === 'navigateur') { const u = `/recherche?q=${encodeURIComponent(q)}${sorte === 'pages' ? '' : `&cat=${sorte === 'images' ? 'images' : 'videos'}`}`; return { text: `🔎 La recherche « ${q} » est prête dans Pythie : [Ouvrir dans le navigateur](${u})`, data: { lien: u } }; }
   const g = await gather(ctx, q, sorte === 'pages' ? 'tout' : sorte, Math.max(n, 8)), src = fuse(g.lists, n);
   const data = { question: q, sorte, n, sources: src, moteurs: [...new Set(src.flatMap((x) => x.engines))], erreurs: g.errors };
   const md = resultatsMarkdown(src, { q, sorte, affichage: aff, n });
@@ -116,12 +134,12 @@ export async function ask(ctx: ModCtx, q: string, o: { focus?: Focus; deep?: boo
   if (sources.length && ctx.ask) {
     try { const r = finish(await ctx.ask(prompt(q, sources, prev.map((h) => ({ q: h.q, a: h.answer })), deep)), sources.length); answer = r.text; followups = r.followups; essentials = r.essentials; ai = Boolean(answer); } catch (e) { g.errors.push(`IA : ${(e as Error).message.slice(0, 100)}`); }
   }
-  if (!answer) answer = sources.length ? `${g.answers.length ? `${g.answers.join('\n')}\n\n` : ''}${extractive(sources)}` : `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}. Règle au moins un moteur dans Pythie (SearXNG ou une clé Brave).`;
+  if (!answer) answer = sources.length ? `${g.answers.length ? `${g.answers.join('\n')}\n\n` : ''}${extractive(sources)}` : `Aucun résultat${g.errors.length ? ` (${g.errors.join(' ; ')})` : ''}. Lyncée n'a rien trouvé : reformule ta question, ou vérifie les moteurs dans Pythie.`;
   if (!followups.length) followups = g.suggestions.slice(0, 3);
   // Les applis d'Odin qui peuvent agir sur le sujet (« tu veux que je le fasse ? »).
   const v = valhallaOf(), apps = (v?.find(q) ?? []).filter((f) => f.score >= 2 && f.m.id !== 'volva').slice(0, 3).map((f) => ({ id: f.m.id, name: f.m.name, ...(f.action ? { action: f.action.id, label: f.action.label } : {}) }));
   const e: Entry = { id: randomBytes(5).toString('hex'), at: Date.now(), q, focus, answer, sources, engines: [...new Set(sources.flatMap((x) => x.engines))], followups, apps, ai, errors: g.errors, read: sources.filter((x) => x.text).length, essentials, ...(o.thread ? { thread: prev[0]?.thread ?? o.thread } : {}) };
-  saveHistory(ctx, [e, ...history(ctx)]);
+  saveHistory(ctx, [e, ...history(ctx)]); noterQuestion(ctx, q);
   ctx.emit('recherche', { question: q, sources: sources.length, moteurs: e.engines.join(', ') });
   return e;
 }
@@ -155,10 +173,11 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
   cfg = config;
   return {
     id: 'volva', name: 'Pythie', family: 'Données',
-    what: 'La recherche façon Perplexity : une question, tous tes moteurs (SearXNG avec Google, Bing, DuckDuckGo, Qwant…, Brave, Wikipédia), une réponse rédigée par ton IA avec des sources cliquables, et les applis d\'Odin qui peuvent agir.',
-    does: ['plusieurs moteurs ensemble : ton SearXNG (Google, Bing, DuckDuckGo, Qwant, Startpage, Mojeek, Yahoo…), Brave, Wikipédia, Tavily, Exa', 'résultats fusionnés et dédoublonnés (une page vue par plusieurs moteurs passe devant), 3 pages au plus par site', 'pages lues, réponse rédigée par l\'IA réglée dans Odin, chaque phrase avec ses sources [1][2], sans rien inventer', 'sans IA : les meilleurs extraits, chacun avec sa source', 'questions de suite, conversation (la suite comprend la question d\'avant), focus Actualités, Wikipédia, Science, Vidéos', 'les applis d\'Odin qui peuvent agir sur le sujet, avec leur bouton', 'historique, export Markdown et JSON, lien de partage, impression en PDF', 'toutes les recherches d\'Odin passent par Pythie quand il est réglé', 'installe et lance SearXNG à côté d\'Odin (Docker), en français, format JSON activé'],
+    what: 'La recherche d\'Odin : une question, Lyncée interroge plusieurs moteurs ensemble, une réponse rédigée par ton IA avec des sources cliquables, et les applis d\'Odin qui peuvent agir.',
+    modes: ['Lyncée · le moteur de recherche d\'Odin'],
+    does: ['Lyncée, le moteur d\'Odin : DuckDuckGo, Brave, Yahoo, Bing, Wikipédia, Wikidata… interrogés par Odin lui-même, sans clé et sans instance externe', 'santé des moteurs : un moteur qui bloque ou limite est mis en pause, jamais contourné, et la recherche continue avec les autres', 'Web, Actualités, Images et Vidéos avec leurs vignettes, Savoir (Wikipédia, Wikidata)', 'plus, si tu les as : Brave, Tavily, Exa avec une clé, ton instance externe (facultative)', 'résultats fusionnés et dédoublonnés (une page vue par plusieurs moteurs passe devant), 3 pages au plus par site', 'pages lues, réponse rédigée par l\'IA réglée dans Odin, chaque phrase avec ses sources [1][2], sans rien inventer', 'sans IA : les meilleurs extraits, chacun avec sa source', 'questions de suite, conversation (la suite comprend la question d\'avant), focus Actualités, Wikipédia, Science, Vidéos', 'les applis d\'Odin qui peuvent agir sur le sujet, avec leur bouton', 'historique, export Markdown et JSON, lien de partage, impression en PDF', 'toutes les recherches d\'Odin passent par Pythie et Lyncée', 'Odin comme moteur de recherche de tes navigateurs (mode d\'emploi : /recherche/navigateurs)', 'facultatif : installe et lance une instance externe à côté d\'Odin (Docker)'],
     from: ['Perplexity', 'Perplexica', 'SearXNG', 'Farfalle'], upstream: ['ItzCrazyKns/Perplexica', 'searxng/searxng', 'rashadphz/farfalle'],
-    words: ['völva', 'volva', 'recherche', 'cherche sur internet', 'moteur de recherche', 'perplexity', 'searxng', 'pose une question à internet'],
+    words: ['völva', 'volva', 'recherche', 'cherche sur internet', 'moteur de recherche', 'searxng', 'pose une question à internet', 'lyncée', 'lyncee', 'moteur de recherche du navigateur'],
     actions: [
       { id: 'chercher', label: 'Chercher', what: 'Une question en français : réponse sourcée', read: true, params: ASK, words: ['cherche sur internet', 'recherche sur le web', 'trouve-moi des infos sur'], run: async (ctx, i) => {
         const q = s(i.question).trim().slice(0, 1000); if (!q) throw new Error('pose une question');
@@ -176,7 +195,7 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         run: (ctx, i) => resultats(ctx, i) },
       { id: 'moteurs', label: 'Moteurs', what: 'Ce que chaque moteur demande et s\'il est prêt', read: true, words: ['moteurs de recherche'], run: (ctx) => {
         const act = new Set(activeEngines(ctx));
-        return { text: `${Object.entries(ENGINES).map(([k, x]) => `${act.has(k) ? '✅' : ready(ctx, k) ? '⚪' : '⛔'} ${x.label}${!ready(ctx, k) ? ` — il faut ${x.need ?? (x.env ?? []).join(' et ') + ' dans le coffre'}` : ''}${x.note ? ` (${x.note})` : ''}`).join('\n')}\nBing a arrêté son API en août 2025 : il reste joignable par SearXNG.` };
+        return { text: `${Object.entries(ENGINES).map(([k, x]) => `${act.has(k) ? '✅' : ready(ctx, k) ? '⚪' : '⛔'} ${x.label}${!ready(ctx, k) ? ` — il faut ${x.need ?? (x.env ?? []).join(' et ') + ' dans le coffre'}` : ''}${x.note ? ` (${x.note})` : ''}`).join('\n')}\n\nLyncée :\n${lignesLyncee()}\nBing a arrêté son API en août 2025 : Lyncée lit sa page de résultats quand elle répond.` };
       } },
       { id: 'moteur', label: 'Activer / couper un moteur', what: 'Choisir les moteurs interrogés', quick: false, params: [{ key: 'moteur', label: 'Moteur', kind: 'select', options: Object.keys(ENGINES), required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => {
         const e = s(i.moteur); if (!ENGINES[e]) throw new Error('moteur inconnu');
@@ -214,18 +233,45 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
         const r = await ctx.call('bragi', 'dire', { texte: spoken(e.answer) }, 'lire à voix haute la réponse de Pythie', { interne: true });
         return r.ok === false ? { ok: false, text: `Je n'ai pas pu lire la réponse : ${r.text}` } : { text: `🔊 « ${e.q.slice(0, 80)} » : la réponse est prête à écouter.`, fichiers: r.fichiers };
       } },
-      { id: 'oublier', label: 'Effacer l\'historique', what: 'Toutes les recherches gardées', quick: false, grave: () => 'effacer tout l\'historique des recherches', run: (ctx) => { saveHistory(ctx, []); writeFileSync(histFile(ctx), '[]'); return { text: '🧹 Historique effacé.' }; } },
-      { id: 'reglages', label: 'Réglages', what: 'Lire les pages, recherches d\'Odin par Pythie, historique', quick: false, params: [{ key: 'lire', label: 'Lire les pages (réponse plus juste)', kind: 'boolean', default: true }, { key: 'pour_odin', label: 'Les recherches d\'Odin passent par Pythie', kind: 'boolean', default: true }, { key: 'garder', label: 'Recherches gardées', kind: 'number', default: 200 }], run: (ctx, i) => { ctx.saveSettings({ lire: i.lire !== false, pourOdin: i.pour_odin !== false, garder: Math.max(10, Math.min(1000, Number(i.garder) || 200)) }); return { text: '⚙ Réglages de Pythie enregistrés.' }; } },
+      { id: 'oublier', label: 'Effacer l\'historique', what: 'Toutes les recherches gardées', quick: false, grave: () => 'effacer tout l\'historique des recherches', run: (ctx) => { saveHistory(ctx, []); writeFileSync(histFile(ctx), '[]'); effacerQuestions(ctx); return { text: '🧹 Historique effacé.' }; } },
+      { id: 'reglages', label: 'Réglages', what: 'Lire les pages, recherches d\'Odin par Pythie, historique', quick: false, params: [{ key: 'lire', label: 'Lire les pages (réponse plus juste)', kind: 'boolean', default: true }, { key: 'pour_odin', label: 'Les recherches d\'Odin passent par Pythie', kind: 'boolean', default: true }, { key: 'garder', label: 'Recherches gardées', kind: 'number', default: 200 }, { key: 'noter_questions', label: 'Noter mes questions (suggestions pendant la frappe, gardées chez toi)', kind: 'boolean', default: true }, { key: 'suggestions', label: 'Source des suggestions (duckduckgo et brave reçoivent ce que tu tapes)', kind: 'select', options: SUGGESTIONS, default: 'wikipedia' }], run: (ctx, i) => {
+        const sug = SUGGESTIONS.includes(s(i.suggestions)) ? s(i.suggestions) : 'wikipedia';
+        ctx.saveSettings({ lire: i.lire !== false, pourOdin: i.pour_odin !== false, garder: Math.max(10, Math.min(1000, Number(i.garder) || 200)), noterQuestions: i.noter_questions !== false, suggestions: sug });
+        return { text: `⚙ Réglages de Pythie enregistrés.${sug === 'duckduckgo' || sug === 'brave' ? ` Attention : ce que tu tapes part vers ${sug === 'brave' ? 'Brave' : 'DuckDuckGo'} pour les suggestions.` : ''}` };
+      } },
+      { id: 'reprendre_moteur', label: 'Reprendre un moteur de Lyncée', what: 'Lever tout de suite la pause d\'un moteur de Lyncée', quick: false, params: [{ key: 'moteur', label: 'Moteur', kind: 'select', options: ADAPTATEURS.map((a) => a.id), required: true }], run: (_ctx, i) => {
+        const id = s(i.moteur); if (!reprendreMoteur(id)) throw new Error('moteur de Lyncée inconnu');
+        return { text: `▶ ${ADAPTATEURS.find((a) => a.id === id)!.etiquette} reprend : Lyncée l'interroge de nouveau dès la prochaine recherche.` };
+      } },
+      { id: 'couper_moteur_lyncee', label: 'Activer / couper un moteur de Lyncée', what: 'Choisir les moteurs que Lyncée interroge', quick: false, params: [{ key: 'moteur', label: 'Moteur', kind: 'select', options: ADAPTATEURS.map((a) => a.id), required: true }, { key: 'actif', label: 'Actif', kind: 'boolean', default: true }], run: (ctx, i) => {
+        const id = s(i.moteur), a = ADAPTATEURS.find((x) => x.id === id); if (!a) throw new Error('moteur de Lyncée inconnu');
+        const coupes = new Set(Array.isArray(ctx.settings.lynceeCoupes) ? ctx.settings.lynceeCoupes as string[] : []); if (i.actif === false) coupes.add(id); else coupes.delete(id);
+        ctx.saveSettings({ lynceeCoupes: [...coupes] }); reglerLyncee({ coupes: [...coupes] });
+        return { text: `${i.actif === false ? '⚪ coupé' : '✅ actif'} dans Lyncée : ${a.etiquette} (${id}).` };
+      } },
+      { id: 'verifier_moteurs', label: 'Vérifier les moteurs de Lyncée', what: 'Une question neutre vers chaque moteur prêt, pour voir lesquels répondent aujourd\'hui', read: true, quick: false, run: async (ctx) => {
+        await verifierLyncee(ctx.fetch as typeof fetch, AbortSignal.timeout(60_000));
+        return { text: `Lyncée :\n${lignesLyncee()}` };
+      } },
     ],
     // Le son d'une réponse lue (fabriqué par Orphée) peut être remis à l'appareil depuis la page de Pythie.
     retrait: (ctx, ref) => sonDit(join(ctx.dir, '..', 'bragi'), ref),
+    start(ctx) {
+      // La santé des moteurs de Lyncée est gardée dans le dossier de Pythie ; les moteurs coupés par toi restent coupés.
+      reglerLyncee({ dossier: ctx.dir, coupes: Array.isArray(ctx.settings.lynceeCoupes) ? ctx.settings.lynceeCoupes as string[] : [] });
+      // Une seule fois : Lyncée s'ajoute aux moteurs déjà choisis (un Odin qui avait réglé ses moteurs le garde aussi).
+      const choisis = ctx.settings.moteurs as string[] | undefined;
+      if (Array.isArray(choisis) && !choisis.includes('lyncee') && ctx.settings.lynceeAjoute !== true) ctx.saveSettings({ moteurs: ['lyncee', ...choisis], lynceeAjoute: true });
+      else if (ctx.settings.lynceeAjoute !== true) ctx.saveSettings({ lynceeAjoute: true });
+    },
     async view(ctx) {
-      const h = history(ctx), act = activeEngines(ctx);
+      const h = history(ctx), act = activeEngines(ctx), ly = etatsLyncee(), prets = ly.filter((m) => m.etat === 'pret').length, enPause = ly.filter((m) => m.etat === 'pause').length;
       return {
         subtitle: `${act.length} moteur(s) : ${act.map((e) => ENGINES[e].label.split(' (')[0]).join(', ') || 'aucun'} · ${h.length} recherche(s) gardée(s)`,
-        kpis: [{ label: 'Moteurs', value: String(act.length), tone: act.length ? 'bon' : 'attention' }, { label: 'SearXNG', value: searxUrl(ctx) ? 'relié' : 'non', tone: searxUrl(ctx) ? 'bon' : 'attention' }, { label: 'IA', value: ctx.ask ? 'oui' : 'sans IA' }, { label: 'Recherches', value: String(h.length) }],
+        kpis: [{ label: 'Moteurs', value: String(act.length), tone: act.length ? 'bon' : 'attention' }, { label: 'Lyncée', value: `${prets} prêts · ${enPause} en pause`, tone: enPause ? 'attention' : 'bon' }, { label: 'IA', value: ctx.ask ? 'oui' : 'sans IA' }, { label: 'Recherches', value: String(h.length) }],
         sections: [
-          { kind: 'steps', title: 'Pythie', items: [{ title: 'Ouvrir la page de recherche', detail: '/recherche sur l\'adresse d\'Odin', done: true }, { title: 'SearXNG (Google, Bing, Qwant…)', detail: searxUrl(ctx) || 'pas encore : « Installer SearXNG » ou « Relier mon SearXNG »', done: Boolean(searxUrl(ctx)), action: 'installer_searxng', input: {}, button: 'Installer' }, { title: 'Une clé Brave (facultatif)', detail: 'BRAVE_API_KEY dans le coffre', done: Boolean(process.env.BRAVE_API_KEY) }] },
+          { kind: 'steps', title: 'Pythie', items: [{ title: 'Ouvrir la page de recherche', detail: '/recherche sur l\'adresse d\'Odin', done: true }, { title: 'Lyncée, le moteur d\'Odin', detail: `${prets} moteurs prêts${enPause ? `, ${enPause} en pause` : ''} (sans clé, sans instance externe)`, done: prets > 0 }, { title: 'Instance externe (facultatif)', detail: searxUrl(ctx) ? `reliée : ${searxUrl(ctx)}` : 'Lyncée suffit ; ton instance s\'ajoute si tu veux', done: true, action: 'installer_searxng', input: {}, button: 'Installer' }, { title: 'Une clé Brave (facultatif)', detail: 'BRAVE_API_KEY dans le coffre', done: Boolean(process.env.BRAVE_API_KEY) }, { title: 'Odin dans ton navigateur', detail: '/recherche/navigateurs', done: false }] },
+          { kind: 'table', title: 'Moteurs de Lyncée', columns: ['Moteur', 'Catégories', 'État', 'Jusqu\'à', 'Raison'], empty: 'Aucun moteur.', rows: ly.map((m) => ({ cells: [`${m.etiquette}${m.id.includes('_') ? ` (${m.id})` : ''}`, m.categories.map((c) => CATEGORIES[c].label).join(', '), m.etat === 'pret' ? 'prêt' : m.etat === 'pause' ? 'en pause' : 'coupé', m.etat === 'pause' ? heureCourte(m.jusqua) : '', m.raison ?? ''], ...(m.etat === 'pause' ? { actions: [{ action: 'reprendre_moteur', label: 'Reprendre', input: { moteur: m.id } }] } : {}) })) },
           { kind: 'table', title: 'Dernières recherches', columns: ['Quand', 'Question', 'Sources', 'Moteurs'], empty: 'Aucune recherche.', rows: h.slice(0, 30).map((x) => ({ cells: [new Date(x.at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), x.q, String(x.sources.length), x.engines.slice(0, 4).join(', ')], actions: [{ action: 'exporter', label: 'Markdown', input: { id: x.id } }] })) },
         ],
         side: [{ kind: 'form', title: 'Chercher', action: 'chercher', submit: 'Chercher', params: ASK }, { kind: 'form', title: 'Relier mon SearXNG', action: 'searxng', submit: 'Relier', params: [{ key: 'adresse', label: 'Adresse', kind: 'text', required: true }] }],

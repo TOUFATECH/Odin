@@ -45,7 +45,10 @@ function brancherReglages(el: HTMLElement, apres?: () => void): void {
   el.addEventListener('change', async (e) => {
     const t = e.target as HTMLInputElement; const cle = t.dataset.cle; if (!cle) return;
     const v = t.type === 'checkbox' ? t.checked : (['veilleMinutes', 'rangerHeures', 'transparence'].includes(cle) ? Number(t.value) : t.value);
-    await api.faire('reglage', { cle, valeur: v }); apres?.();
+    await api.faire('reglage', { cle, valeur: v });
+    // Un moteur choisi à la main reste le sien : la liaison avec Odin ne le remplace plus.
+    if (cle === 'moteur') await api.faire('reglage', { cle: 'moteurChoisi', valeur: true });
+    apres?.();
   });
 }
 /** Une petite question « retape ton mot de passe d'Odin » dans la page. */

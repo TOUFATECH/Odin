@@ -46,7 +46,7 @@ const MOTEURS = /(?:^|\.)(google|bing|duckduckgo|qwant|ecosia|startpage|search\.
 /** Ce qui a été cherché dans une visite (champ « recherche », sinon l'adresse d'un moteur de recherche). */
 export function rechercheDe(r: Rec): string | undefined {
   if (s(r.data.recherche)) return s(r.data.recherche).slice(0, 120);
-  try { const u = new URL(String(r.data.url)); if (MOTEURS.test(u.hostname)) return (u.searchParams.get('q') ?? u.searchParams.get('p') ?? '').slice(0, 120) || undefined; } catch { /* pas une adresse */ }
+  try { const u = new URL(String(r.data.url)); if (MOTEURS.test(u.hostname) || (/^\/recherche\/?$/.test(u.pathname) && u.searchParams.has('q'))) return (u.searchParams.get('q') ?? u.searchParams.get('p') ?? '').slice(0, 120) || undefined; } catch { /* pas une adresse */ }
   return undefined;
 }
 

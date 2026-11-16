@@ -233,9 +233,9 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
       busy = false; if (!r.ok) { toast(r.error || 'Recherche impossible'); draw(); return; }
       thread.push(r.entry); current = thread[0].id; history.replaceState(null, '', `/recherche#r=${thread[0].id}`); await refresh(); draw();
       setTimeout(() => document.querySelectorAll('.qa')[thread.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
-    } catch (e) { busy = false; draw(); toast(e.auth ? 'Connecte-toi à Odin d\'abord' : e.message); if (e.auth) setTimeout(() => { location.href = '/'; }, 1500); }
+    } catch (e) { busy = false; draw(); toast(e.auth ? 'Connecte-toi à Odin d\'abord' : e.message); if (e.auth) setTimeout(() => { location.href = '/?suite=' + encodeURIComponent('/recherche' + location.search); }, 1500); }
   }
   async function open(id) { const r = await api(`/api/recherche/entree?id=${encodeURIComponent(id)}`).catch(() => ({ ok: false })); if (r.ok) { thread = r.thread; current = id; tab = 'reponse'; audio = null; history.replaceState(null, '', `/recherche#r=${id}`); draw(); } }
-  async function refresh() { try { const r = await api('/api/recherche/etat'); if (r.ok) state = r; } catch (e) { if (e.auth) { root.replaceChildren(el('main', {}, el('div', { class: 'hero' }, el('h1', {}, 'Pythie'), el('p', {}, 'Connecte-toi à Odin pour chercher.'), el('a', { class: 'act', href: '/' }, 'Se connecter')))); throw e; } } }
+  async function refresh() { try { const r = await api('/api/recherche/etat'); if (r.ok) state = r; } catch (e) { if (e.auth) { root.replaceChildren(el('main', {}, el('div', { class: 'hero' }, el('h1', {}, 'Pythie'), el('p', {}, 'Connecte-toi à Odin pour chercher.'), el('a', { class: 'act', href: '/?suite=' + encodeURIComponent('/recherche' + location.search) }, 'Se connecter')))); throw e; } } }
   refresh().then(() => { draw(); const m = /r=([a-f0-9]{6,20})/.exec(location.hash); if (m) open(m[1]); const q = new URLSearchParams(location.search).get('q'); if (q) run(q, false); }).catch(() => 0);
 })();

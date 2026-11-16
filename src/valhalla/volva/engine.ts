@@ -1,8 +1,7 @@
-// Pythie — le moteur de recherche d'Odin, façon Perplexity : une question en français, plusieurs moteurs
-// interrogés ensemble (ton SearXNG, qui réunit Google, Bing, DuckDuckGo, Qwant, Startpage, Ecosia, Mojeek…,
-// plus Brave, Wikipédia et les autres clés que tu as), résultats fusionnés et dédoublonnés, pages lues, puis
-// une réponse rédigée par l'IA réglée dans Odin, chaque phrase appuyée par des sources numérotées cliquables.
-// Écrit pour Odin (MIT) : SearXNG (AGPL) n'est pas copié, Odin l'interroge ou le lance à côté.
+// Pythie — la recherche d'Odin : une question en français, plusieurs moteurs interrogés ensemble (Lyncée, le
+// moteur d'Odin, sans clé ; ton instance externe si tu en as une ; Brave, Wikipédia et les autres clés que tu as),
+// résultats fusionnés et dédoublonnés, pages lues, puis une réponse rédigée par l'IA réglée dans Odin, chaque
+// phrase appuyée par des sources numérotées cliquables. Code écrit pour Odin.
 import type { SearchResult } from '../../tools/search.ts';
 
 export interface Source { n: number; title: string; url: string; domain: string; snippet: string; engines: string[]; text?: string; published?: string; /** vignette (image, miniature de vidéo) quand un moteur la donne */ thumb?: string }
@@ -28,7 +27,7 @@ export const domainOf = (u: string) => { try { return new URL(u).hostname.replac
  * Fusion des moteurs (rang réciproque) : une page bien classée par plusieurs moteurs passe devant.
  * Les doublons (même page, adresse un peu différente) ne comptent qu'une fois. Pur.
  */
-export function fuse(lists: Array<{ engine: string; results: SearchResult[] }>, max = 12, k = 60): Source[] {
+export function fuse(lists: Array<{ engine: string; results: SearchResult[] }>, max = 12, k = 60, parSite = 3): Source[] {
   const map = new Map<string, { r: SearchResult; engines: Set<string>; score: number }>();
   for (const l of lists) l.results.forEach((r, i) => {
     if (!/^https?:\/\//i.test(r.url)) return;
@@ -36,10 +35,10 @@ export function fuse(lists: Array<{ engine: string; results: SearchResult[] }>, 
     if (cur) { for (const e of es) cur.engines.add(e); cur.score += add; if ((r.snippet?.length ?? 0) > (cur.r.snippet?.length ?? 0)) cur.r = { ...cur.r, snippet: r.snippet }; if (!thumbOf(cur.r) && thumbOf(r)) cur.r = { ...cur.r, thumb: thumbOf(r) } as SearchResult; }
     else map.set(key, { r, engines: new Set(es), score: add * (es.length > 1 ? 1 + 0.25 * (es.length - 1) : 1) });
   });
-  // Pas plus de 3 pages d'un même site : la réponse s'appuie sur des sources variées.
+  // Pas plus de 3 pages d'un même site (réglable : 6 pour les images et les vidéos) : des sources variées.
   const per = new Map<string, number>(), out: Source[] = [];
   for (const x of [...map.values()].sort((a, b) => b.score - a.score)) {
-    const d = domainOf(x.r.url), n = per.get(d) ?? 0; if (n >= 3) continue; per.set(d, n + 1);
+    const d = (x.r as SearchResult & { site?: string }).site || domainOf(x.r.url), n = per.get(d) ?? 0; if (n >= parSite) continue; per.set(d, n + 1);
     const th = thumbOf(x.r);
     out.push({ n: out.length + 1, title: x.r.title.trim() || d, url: x.r.url, domain: d, snippet: (x.r.snippet ?? '').trim().slice(0, 500), engines: [...x.engines], ...(th ? { thumb: th } : {}) });
     if (out.length >= max) break;

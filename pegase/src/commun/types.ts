@@ -44,12 +44,14 @@ export interface Reglages {
   cookiesTiers: boolean; viderFermeture: boolean; garderSites: string[]; proposerMdp: boolean;
   /** Le thème suit le système (clair → Blanc, sombre → Noir). */
   themeAuto?: boolean;
+  /** La personne a choisi son moteur elle-même : la liaison avec Odin ne le change plus. */
+  moteurChoisi?: boolean;
 }
 export const REGLAGES_DEFAUT: Reglages = {
   theme: 'bleu', transparence: 60, veilleMinutes: 10, rangerHeures: 12, bloqueur: 'normal', cookiesRefus: true,
   videoAuto: true, dnsSecours: 'https://dns.quad9.net/dns-query', analyseOdin: false, moteur: 'duckduckgo',
   synchroHistorique: 'tout', pageAccueil: 'accueil',
-  cookiesTiers: true, viderFermeture: false, garderSites: [], proposerMdp: true,
+  cookiesTiers: true, viderFermeture: false, garderSites: [], proposerMdp: true, moteurChoisi: false,
 };
 
 export type EtatSynchro = { etat: 'local' | 'ok' | 'encours' | 'horsligne'; attente: number; odin?: string; derniere?: number };

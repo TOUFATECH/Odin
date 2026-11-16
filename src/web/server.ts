@@ -14,7 +14,7 @@ import { rythmeEnClair } from './talos-api.ts';
 import { dictee } from '../valhalla/modules/rodd.ts';
 import { conversationRoute } from './conversation-api.ts';
 import { archiveRoute } from './rodd-archive-api.ts';
-import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
+import { adresseLan } from './adresse-lan.ts';
 import { noticeBus } from '../valhalla/notices.ts';
 import { demarrer as demarrerSondeInternet, etatInternet, surChangement as surChangementInternet } from '../net/etat-internet.ts';
 import { echangeBus, echangesRecents } from '../valhalla/echanges.ts';
@@ -397,8 +397,15 @@ export class WebChannel implements Channel {
     const scheme = this.secure || this.viaHttps(req) ? 'https' : 'http', raw = String(req.headers.host ?? `localhost:${this.port}`);
     const host = raw.replace(/:\d+$/, '').replace(/^\[|\]$/g, ''), port = /:(\d+)$/.exec(raw)?.[1];
     if (!/^(localhost|127\.|::1$)/.test(host)) return `${scheme}://${raw}`;
-    const lan = Object.entries(networkInterfaces()).filter(([n]) => !VIRTUAL_IFACE.test(n)).flatMap(([, l]) => l ?? []).find((i) => i && i.family === 'IPv4' && !i.internal && isPrivateHost(i.address))?.address;
+    const lan = adresseLan(networkInterfaces());
     return `${scheme}://${lan ?? host}${port ? `:${port}` : ''}`;
+  }
+  /**
+   * L'adresse exacte d'où le navigateur consulte Odin (schéma + en-tête Host, vérifié ensuite par origineSure) : le
+   * moteur de recherche ajouté vise la même origine que la page, donc la même session.
+   */
+  private requestOrigin(req: IncomingMessage): string {
+    return `${this.secure || this.viaHttps(req) ? 'https' : 'http'}://${String(req.headers.host ?? `localhost:${this.port}`)}`;
   }
   /** La même adresse, mais sur le port de l'interface d'Odin (un port direct renvoie là). */
   private surInterface(origin: string): string { const u = new URL(origin); u.port = String(this.port); return u.origin; }
@@ -721,9 +728,10 @@ export class WebChannel implements Channel {
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=86400' });
       return void res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#0B0E14"/><path d="M16 5 23 12 16 19 9 12Z M9 12 7 27 M23 12 25 27 M16 19 9 27 M16 19 23 27" fill="none" stroke="#E2A93B" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>');
     }
-    // Mímir, la recherche façon Perplexity : sa page, son script et son API (ta session seulement).
-    if (url.pathname === '/recherche' || url.pathname === '/recherche.js' || url.pathname.startsWith('/api/recherche/')) {
-      if (await rechercheRoute(req, res, url, { authed: this.authed(req), mascot: MASCOT })) return;
+    // Pythie, la recherche d'Odin : sa page, son script et son API (ta session), et Odin comme moteur des navigateurs
+    // (description OpenSearch, mode d'emploi et suggestions sans historique : publics).
+    if (url.pathname === '/recherche' || url.pathname === '/recherche.js' || url.pathname.startsWith('/api/recherche/') || url.pathname === '/opensearch.xml' || url.pathname === '/recherche/navigateurs') {
+      if (await rechercheRoute(req, res, url, { authed: this.authed(req), mascot: MASCOT, origine: this.requestOrigin(req), ip })) return;
     }
     // L'écran de la maison (Hestia) : sa page, son script et son API (session, ou clé de tablette).
     if (url.pathname === '/maison' || url.pathname === '/maison.js' || url.pathname.startsWith('/api/maison/') || url.pathname === '/api/owntracks') {
