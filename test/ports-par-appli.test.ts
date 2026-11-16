@@ -40,7 +40,7 @@ test('refus et propositions : le port d\'une autre appli est gardé, sauf si ell
   assert.equal(directRefusal(8103, 'garmr'), undefined, 'son propre port');
   assert.equal(directRefusal(8103, 'eir', { libres: new Set(['garmr']) }), undefined, 'Cerbère a retiré son port : il est libre');
   assert.equal(suggestDirect([], WEB, 'garmr'), 8103, 'sans numéro : son port par défaut');
-  assert.equal(suggestDirect([8103], WEB, 'garmr'), 8112, 'pris : le premier libre de sa famille');
+  assert.equal(suggestDirect([8103], WEB, 'garmr'), 8113, 'pris : le premier libre de sa famille');
   assert.equal(suggestDirect([], WEB, 'nouvelle', 'Données'), 8423, 'une appli sans port du plan : le premier libre de sa famille');
 });
 

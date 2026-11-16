@@ -10,8 +10,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
 import { valhallaOf } from '../odin.ts';
 import { intelOf } from '../modules/ullr.ts';
+import { estMalveillante } from '../modules/geri.ts';
 import type { ModCtx } from '../types.ts';
 import { bulle, conseils, failles, modifierFiche, posteDuJeton, type Analyse, type Appli, type Maj, type Rapport } from './compagnon.ts';
+import { normaliserTelemetrie } from './telemetrie.ts';
+import { ingererTelemetrie } from '../argos/endpoints.ts';
+import { corrélerPoste } from '../argos/incidents-parc.ts';
 
 const s = (v: unknown, n = 200) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
 function json(res: ServerResponse, status: number, body: unknown): void { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }); res.end(JSON.stringify(body)); }
@@ -31,7 +35,7 @@ const maj = (x: unknown): Maj | undefined => { const o = x as Record<string, unk
 export interface OptionsCompagnon { home: string; echec(): void }
 /** Rend true si la requête est servie ici. */
 export async function compagnonRoute(req: IncomingMessage, res: ServerResponse, url: URL, o: OptionsCompagnon): Promise<boolean> {
-  const quoi = /^\/api\/compagnon\/(consignes|rapport|analyse|majs|signatures)$/.exec(url.pathname)?.[1]; if (!quoi) return false;
+  const quoi = /^\/api\/compagnon\/(consignes|rapport|analyse|majs|signatures|telemetrie)$/.exec(url.pathname)?.[1]; if (!quoi) return false;
   const jeton = /^Bearer\s+([a-f0-9]{64})$/i.exec(s(req.headers.authorization, 200))?.[1] ?? '', p = posteDuJeton(o.home, jeton.toLowerCase());
   if (!p) { o.echec(); json(res, 401, { ok: false, message: 'Compagnon inconnu d\'Odin (retiré ou réinstallé ?) : réinstalle-le depuis Satellites.' }); return true; }
   const v = valhallaOf(), hermod = v?.module('hermod') ? v.ctx('hermod') : undefined, ullr = v?.module('ullr') ? v.ctx('ullr') : undefined, r = reglages(hermod), now = Date.now();
@@ -48,7 +52,7 @@ export async function compagnonRoute(req: IncomingMessage, res: ServerResponse, 
   if (quoi === 'consignes') {
     let sortir: Record<string, unknown> = {};
     modifierFiche(o.home, p.poste, (f) => {
-      sortir = { ok: true, poste: p.poste, bulles: f.consignes.bulles, analyser: Boolean(f.consignes.analyser), appliquer_majs: Boolean(f.consignes.appliquer_majs), rapport: Boolean(f.consignes.rapport) || !f.rapport, majs: r.majs, majs_heure: r.heure, quarantaine: r.quarantaine, analyse_tous: r.analyseHeures * 3600, rapport_tous: 6 * 3600, pause: 60 };
+      sortir = { ok: true, poste: p.poste, bulles: f.consignes.bulles, analyser: Boolean(f.consignes.analyser), appliquer_majs: Boolean(f.consignes.appliquer_majs), rapport: Boolean(f.consignes.rapport) || !f.rapport, telemetrie: Boolean(f.consignes.telemetrie), reponses: f.consignes.reponses ?? [], majs: r.majs, majs_heure: r.heure, quarantaine: r.quarantaine, analyse_tous: r.analyseHeures * 3600, rapport_tous: 6 * 3600, telemetrie_tous: 5 * 60, pause: 60 };
       f.vu = now; f.consignes = { bulles: [] };
     });
     json(res, 200, sortir); return true;
@@ -80,6 +84,20 @@ export async function compagnonRoute(req: IncomingMessage, res: ServerResponse, 
       qui.emit('compagnon_detection', { poste: p.poste, n: dets.length, fichiers: dets.map((d) => d.fichier).slice(0, 10) });
     }
     json(res, 200, { ok: true }); return true;
+  }
+  if (quoi === 'telemetrie') {
+    // La télémétrie EDR d'un poste pour Argos : processus, connexions sortantes, persistance. C'est une donnée, jamais
+    // un ordre. Argos la range (dernière + chronologie) et en tire des incidents par poste (même moteur qu'Asclépios).
+    const t = normaliserTelemetrie(p.poste, b, now);
+    const { nouveaux } = ingererTelemetrie(o.home, t);
+    const argos = v?.module('argos') ? v.ctx('argos') : undefined;
+    // Les connexions sortantes du poste sont comparées aux listes d'adresses malveillantes de Méduse (FireHOL, Feodo) :
+    // sans cela, un poste qui parle à son serveur de commande (C2) ne lèverait aucun incident.
+    const geriCtx = v?.module('geri') ? v.ctx('geri') : undefined;
+    const malveillante = geriCtx ? estMalveillante(geriCtx) : undefined;
+    const { annonces } = corrélerPoste(o.home, t, (id) => v?.module(id)?.name ?? id, { malveillante });
+    for (const inc of annonces) (argos ?? hermod)?.alert({ level: inc.level, title: `${p.poste} : ${inc.title}`, detail: inc.signals.slice(-6).map((x) => x.text).join('\n'), key: `argos-${p.poste}-${inc.id}` });
+    json(res, 200, { ok: true, evenements: nouveaux.length, incidents: annonces.length }); return true;
   }
   // majs
   const bilan = (Array.isArray(b.bilan) ? b.bilan : []).slice(0, 10).map((x) => { const d = x as Record<string, unknown>; return { gestionnaire: s(d.gestionnaire, 20), ok: d.ok === true, fin: s(d.fin, 400) }; });

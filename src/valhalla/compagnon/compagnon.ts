@@ -12,8 +12,9 @@ import { createHash, randomBytes, timingSafeEqual, X509Certificate } from 'node:
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { PS_PROTEGER, PS_PYTHON, PS_SORTIR, psTexte } from '../../machines/windows.ts';
+import type { ConsigneReponse } from './reponse.ts';
 
-export const VERSION_COMPAGNON = '1.0.0';
+export const VERSION_COMPAGNON = '1.1.0';
 export type SystemePoste = 'posix' | 'windows';
 export interface Inscrit { poste: string; empreinte: string; at: string; version: string; systeme?: SystemePoste; via?: 'satellites' | 'genese'; machine?: string }
 export interface Bulle { id: string; t: number; titre: string; texte: string; niveau: 'info' | 'attention' | 'haute'; cle?: string }
@@ -26,7 +27,7 @@ export interface Faille { cve: string; logiciel: string; version: string; produi
 export interface Fiche {
   poste: string; vu?: number; rapport?: Rapport; analyse?: Analyse; majs?: { t: number; bilan: Array<{ gestionnaire: string; ok: boolean; fin: string }>; redemarrage: boolean };
   failles?: Faille[]; detections?: Array<Detection & { t: number }>;
-  consignes: { analyser?: boolean; appliquer_majs?: boolean; rapport?: boolean; bulles: Bulle[] };
+  consignes: { analyser?: boolean; appliquer_majs?: boolean; rapport?: boolean; /** Argos demande la télémétrie EDR (processus, connexions, persistance) */ telemetrie?: boolean; /** réponses à appliquer sur le poste (tuer, quarantaine, isoler) : données, jamais un ordre libre */ reponses?: ConsigneReponse[]; bulles: Bulle[] };
   /** les conseils déjà donnés (clé → date) : on ne répète pas la même bulle avant un jour */
   dits?: Record<string, number>;
 }

@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { BASE_RULES, compileGaldr, flat, hay, importYara, phishing, readable, RuleSet, scanBuffer, sureOf, urlRisk, combine, type CRule, type Finding, type Knowledge, type Rule, type Verdict } from '../ullr/engine.ts';
 import { Correlator, SENSORS, story, toSignal, type Incident } from '../ullr/incidents.ts';
 import { Intel, parseClamHsb, parseHashList, reputation, reputationText, SOURCES, type FetchCtx, type Patch, type Reputation } from '../ullr/intel.ts';
+import { Blanche } from '../ullr/nsrl.ts';
 import { findMachine, listMachines, saveMachine, type Machine } from '../../machines/access.ts';
 import { isolerSurPoste, lirePoste, remettreSurPoste, type BilanLecture, type FichierLu } from '../../machines/lecture.ts';
 import { lienDeMaison, lienPropre, nomDeLien, telecharger } from '../lien.ts';
@@ -58,13 +59,15 @@ export function nextRun(p: Pick<Plan, 'every' | 'at'>, from: Date, ranAt?: Date)
 interface Report { id: string; at: string; target: string; plan?: string; files: number; bytes: number; ms: number; state: 'terminé' | 'arrêté'; version: number; detections: Detection[]; errors: string[]; /** analyse d'un autre poste : par où, et ce qui n'a pas pu être lu */ distant?: { poste: string; via: 'ssh' | 'smb'; gros: number; illisibles: number; dossiersRefuses: number; notes: string[] } }
 interface Exceptions { paths: string[]; hashes: string[]; rules: string[] }
 interface Running { id: string; target: string; files: number; hits: number; started: number; cancel: boolean; /** où en est l'analyse d'un autre poste, en une phrase */ etape?: string }
-interface State { intel: Intel; set?: RuleSet; setKey?: string; corr: Correlator; watchers: FSWatcher[]; running?: Running; pending: Map<string, ReturnType<typeof setTimeout>>; bursts: Map<string, number[]>; burstAt: number; mounts?: Set<string>; busy: boolean; /** dernier signal reçu de chaque appli */ seen: Map<string, number> }
+interface State { intel: Intel; blanche: Blanche; set?: RuleSet; setKey?: string; corr: Correlator; watchers: FSWatcher[]; running?: Running; pending: Map<string, ReturnType<typeof setTimeout>>; bursts: Map<string, number[]>; burstAt: number; mounts?: Set<string>; busy: boolean; /** dernier signal reçu de chaque appli */ seen: Map<string, number> }
 const states = new Map<string, State>();
 function st(ctx: ModCtx): State {
   let x = states.get(ctx.dir);
-  if (!x) { x = { intel: new Intel(ctx.dir), corr: new Correlator((ctx.settings.incidents as Incident[] | undefined) ?? []), watchers: [], pending: new Map(), bursts: new Map(), burstAt: 0, busy: false, seen: new Map() }; x.intel.load(); states.set(ctx.dir, x); /* dès qu'Asclépios sert, son gardien tient le point de passage commun */ brancherGarde((a) => garder(ctx, a)); }
+  if (!x) { x = { intel: new Intel(ctx.dir), blanche: new Blanche(ctx.dir), corr: new Correlator((ctx.settings.incidents as Incident[] | undefined) ?? []), watchers: [], pending: new Map(), bursts: new Map(), burstAt: 0, busy: false, seen: new Map() }; x.intel.load(); states.set(ctx.dir, x); /* dès qu'Asclépios sert, son gardien tient le point de passage commun */ brancherGarde((a) => garder(ctx, a)); }
   return x;
 }
+/** La liste blanche locale (NSRL/CIRCL) de cette installation — primitive pure réutilisée par la console EDR. */
+export const blancheOf = (ctx: ModCtx): Blanche => st(ctx).blanche;
 const exc = (ctx: ModCtx): Exceptions => ({ paths: [], hashes: [], rules: [], ...((ctx.settings.exceptions as Partial<Exceptions> | undefined) ?? {}) });
 const userRules = (ctx: ModCtx): Rule[] => (ctx.settings.rules as Rule[] | undefined) ?? [];
 const disabled = (ctx: ModCtx): string[] => (ctx.settings.disabledRules as string[] | undefined) ?? [];
@@ -90,8 +93,10 @@ export function vueSources(ctx: ModCtx): Array<{ id: string; nom: string; apport
   const m = st(ctx).intel.manifest(), due = (ctx.settings.due as Record<string, string> | undefined) ?? {}, et = etatsSources(ctx), now = ctx.now();
   return SOURCES.map((q) => {
     const z = m?.sources.find((x) => x.id === q.id), e = et[q.id], miss = Boolean(q.needs && !process.env[q.needs]), on = q.fetch ? srcOn(ctx, q.id) : false;
-    const etat = q.mode === 'référence' ? 'référence' : q.mode === 'à la demande' ? 'à la demande' : !q.fetch ? 'Méduse' : !on ? 'désactivée' : miss ? 'clé absente' : e && e.ok === false ? 'échec' : z || e?.ok ? 'ok' : 'jamais';
-    return { id: q.id, nom: q.name, apporte: q.gives, mode: q.mode, active: on, derniere: z?.at ?? (e?.ok ? e.at : undefined), prochaine: q.fetch && on && !miss ? prochainPassage(due[q.id], q.everyHours, now).toISOString() : undefined, nombre: z?.count ?? e?.count, etat, erreur: e?.ok === false ? e.err : undefined, echecs: e?.echecs ?? 0, licence: q.licence, site: q.home };
+    // La liste blanche locale (NSRL/CIRCL) n'est pas un paquet de signatures : son état vient de son propre fichier.
+    const bl = q.id === 'nsrl' ? st(ctx).blanche.etat() : undefined;
+    const etat = bl ? (bl.present ? 'ok' : 'jamais') : q.mode === 'référence' ? 'référence' : q.mode === 'à la demande' ? 'à la demande' : !q.fetch ? 'Méduse' : !on ? 'désactivée' : miss ? 'clé absente' : e && e.ok === false ? 'échec' : z || e?.ok ? 'ok' : 'jamais';
+    return { id: q.id, nom: q.name, apporte: q.gives, mode: q.mode, active: on, derniere: bl?.construitLe ?? z?.at ?? (e?.ok ? e.at : undefined), prochaine: q.fetch && on && !miss ? prochainPassage(due[q.id], q.everyHours, now).toISOString() : undefined, nombre: bl ? bl.entrees : z?.count ?? e?.count, etat, erreur: e?.ok === false ? e.err : undefined, echecs: e?.echecs ?? 0, licence: q.licence, site: q.home };
   });
 }
 const srcOn = (ctx: ModCtx, id: string) => { const o = (ctx.settings.sources as Record<string, boolean> | undefined)?.[id]; return o ?? Boolean(SOURCES.find((x) => x.id === id)?.on); };
@@ -260,8 +265,12 @@ async function handle(ctx: ModCtx, v: Verdict, o: { auto?: boolean; quiet?: bool
   if (!sureOf(v) && v.score < 60 && SYSTEM.test(slash(v.file))) return undefined;
   const top = [...all].sort((a, b) => b.score - a.score)[0];
   let sure = sureOf(v), action = 'à vérifier', level = v.level, extra = '';
+  // En tête de chaîne : un fichier dont l'empreinte est dans la liste blanche locale (NSRL/CIRCL) est connu-sain.
+  // On ne demande alors AUCUNE réputation en ligne (MalwareBazaar, VirusTotal) : on court-circuite.
+  const sain = !sure && st(ctx).blanche.contient(v.sha256);
+  if (sain) { level = 'moyenne'; extra = 'fichier connu-sain (liste blanche locale NSRL/CIRCL) : vérification en ligne inutile, probablement une fausse alerte'; }
   // Soupçon sans preuve : on demande l'avis des bases de réputation (empreinte seulement), si une clé est là.
-  if (!sure && v.score >= 60 && ctx.settings.reputation !== false && (process.env.VT_API_KEY || process.env.ABUSE_CH_KEY)) {
+  if (!sure && !sain && v.score >= 60 && ctx.settings.reputation !== false && (process.env.VT_API_KEY || process.env.ABUSE_CH_KEY)) {
     const r = await rep(ctx, v.sha256).catch(() => undefined), t = r ? reputationText(r) : undefined;
     if (t?.malicious) { sure = true; level = 'critique'; extra = t.text; } else if (t?.trusted) { level = 'moyenne'; extra = `${t.text} : probablement une fausse alerte`; }
   }

@@ -19,7 +19,7 @@ export const SURVOL: Record<string, Survol> = {
   skogul: { phrase: 'Surveille les programmes et signale tout comportement anormal.', faire: ['Repérer un programme suspect', 'Détecter un mineur de cryptomonnaie', 'Voir un nouveau port ouvert'] },
   forseti: { phrase: 'Le centre de sécurité : toutes les alertes et la chasse aux menaces.', faire: ['Voir toutes les alertes au même endroit', 'Chercher une menace', 'Surveiller les fichiers sensibles', 'Vérifier les règles de sécurité'] },
   garmr: { phrase: 'Bannit ceux qui essaient d\'entrer de force sur tes machines.', faire: ['Bannir après plusieurs échecs', 'Voir qui a été banni', 'Gérer la liste des adresses sûres', 'Lever un bannissement'] },
-  geri: { phrase: 'Surveille les connexions de la machine et repère les adresses dangereuses.', faire: ['Comparer aux adresses malveillantes', 'Repérer les ports de pirates', 'Voir qui parle à qui'] },
+  geri: { phrase: 'L\'anti-malware d\'Odin : connexions, adresses, DNS et comportements dangereux.', faire: ['Comparer aux adresses malveillantes', 'Repérer les connexions vers des pirates', 'Suivre les comportements suspects', 'Arrêter un rançongiciel en action'] },
   ran: { phrase: 'Lit le trafic du réseau en détail et t\'explique qui parle à qui.', faire: ['Capturer le trafic d\'une machine', 'Lire chaque paquet en détail', 'Voir la carte des échanges', 'Reconnaître les sites et les applis'] },
   ullr: { phrase: 'L\'antivirus d\'Odin : fichiers, téléchargements, clés USB et liens.', faire: ['Analyser un dossier ou une clé USB', 'Vérifier un lien ou un message', 'Mettre un fichier en quarantaine', 'Mettre à jour les signatures'] },
   loki: { phrase: 'De faux services qui attirent les pirates, notent tout et les font bannir.', faire: ['Poser des pièges à pirates', 'Voir ce que tentent les robots', 'Faire bannir les attaquants'] },
@@ -80,4 +80,5 @@ export const SURVOL: Record<string, Survol> = {
   atalante: { phrase: 'Tes téléchargements en file, rapides, repris après coupure et analysés.', faire: ['Ajouter un lien à la file', 'Limiter la vitesse', 'Programmer aux heures creuses', 'Vérifier l\'empreinte du fichier'] },
   dodone: { phrase: 'Envoie des requêtes à tes services web et vérifie leurs réponses.', faire: ['Ranger tes requêtes en collections', 'Garder tes jetons au coffre', 'Tester le code et le contenu', 'Importer une collection existante'] },
   agora: { phrase: 'Le magasin d\'applis de la maison : chacun reçoit ce à quoi il a droit.', faire: ['Donner des applis à un groupe', 'Installer d\'office ou proposer', 'Retirer en quittant le groupe', 'Voir qui a droit à quoi'] },
+  argos: { phrase: 'La sécurité de tout ton parc en un écran : protections, postes et réponses.', faire: ['Voir l\'état des protections', 'Suivre chaque poste du parc', 'Répondre sur un poste à distance', 'Mettre à jour les sources chaque jour'] },
 };

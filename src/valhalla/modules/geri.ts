@@ -1,12 +1,17 @@
-// Méduse — détection d'intrusion réseau et journal des connexions (mode « Clio ») : chaque connexion de
-// la machine est comparée aux listes publiques d'adresses malveillantes (mises à jour chaque jour),
-// aux ports typiques des pirates, et notée dans un journal (qui parle à qui, depuis quand).
-// Une adresse malveillante est bannie par Cerbère, l'alerte part dans Forseti.
+// Méduse — l'anti-malware d'Odin pour CE QUI N'EST PAS UN FICHIER : les connexions sortantes (comparées à
+// toutes les listes d'adresses malveillantes — FireHOL, Feodo Tracker des botnets, et les indicateurs
+// ThreatFox/URLhaus d'Asclépios), les requêtes DNS, et le COMPORTEMENT des programmes (règles Sigma :
+// persistance, tâche planifiée, service, processus anormal, connexion). Chaque connexion est aussi notée
+// dans un journal (qui parle à qui, depuis quand). Une adresse malveillante est bannie par Cerbère,
+// l'alerte part dans Forseti. Le cerveau de décision est pur (src/valhalla/geri/malveillant.ts), réutilisé
+// sans doublon par la console EDR.
 
 import { isIP } from 'node:net';
 import { lookup as dnsLookup, reverse as dnsReverse } from 'node:dns/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { chargerPlusieurs, type RegleCompilee } from '../geri/sigma.ts';
+import { verdictComportement } from '../geri/malveillant.ts';
 import { isPrivateV4 } from '../../hlidskjalf/discover.ts';
 import { deepIdentify, formatDeep } from '../../hlidskjalf/deep.ts';
 import { pageTitle } from '../../hlidskjalf/identify.ts';
@@ -43,8 +48,20 @@ async function refresh(ctx: ModCtx): Promise<number> {
   writeFileSync(join(ctx.dir, 'listes.txt'), text); cache = parseList(text); ctx.saveSettings({ listsAt: ctx.now().toISOString() });
   return cache.length;
 }
+/** Pour la console EDR (Argos) : « cette IP est-elle dans les listes d'adresses malveillantes de Méduse ? », sur les connexions sortantes des postes du parc. Réutilise les mêmes listes, sans doublon. */
+export function estMalveillante(ctx: ModCtx): (ip: string) => boolean { const l = list(ctx); return (ip) => inList(ip, l); }
 type JournalRow = { prog: string; dest: string; first: string; last: string; n: number };
 function journal(ctx: ModCtx): Record<string, JournalRow> { try { return JSON.parse(readFileSync(join(ctx.dir, 'journal.json'), 'utf8')); } catch { return {}; } }
+
+// Règles de comportement au format Sigma : lues depuis sigma.yml (une ou plusieurs règles, séparées par « --- »),
+// compilées une fois et gardées en cache. Mises à jour par Talos (source dédiée), testées avant activation ailleurs.
+let regles: { regles: RegleCompilee[]; ecartees: number } | undefined;
+function sigma(ctx: ModCtx): { regles: RegleCompilee[]; ecartees: number } {
+  if (!regles) { const f = join(ctx.dir, 'sigma.yml'); regles = existsSync(f) ? chargerPlusieurs(readFileSync(f, 'utf8')) : { regles: [], ecartees: 0 }; }
+  return regles;
+}
+/** Recharge les règles Sigma depuis le disque (après une mise à jour de la source). */
+export function rechargerSigma(ctx: ModCtx): number { regles = undefined; return sigma(ctx).regles.length; }
 
 const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T | undefined> => Promise.race([p.catch(() => undefined), new Promise<undefined>((r) => setTimeout(() => r(undefined), ms))]);
 /** Ce qu'on analyse : une adresse IP, un nom de machine, ou un lien. Pur. */
@@ -101,18 +118,22 @@ async function analyser(ctx: ModCtx, raw: string): Promise<{ text: string; data:
 
 export const geri: Module = {
   id: 'geri', name: 'Méduse', family: 'Sécurité',
-  what: 'Surveille les connexions réseau de la machine : adresses malveillantes connues, ports de pirates, et journal de qui parle à qui.',
-  does: ['compare chaque connexion aux listes publiques d\'adresses malveillantes (mises à jour chaque jour)', 'repère les ports typiques des pirates (minage, portes dérobées, IRC)', 'journal des connexions (mode Clio) : programme, destination, première et dernière fois', 'bannit les adresses malveillantes via Cerbère', 'alerte quand un programme contacte une nouvelle destination à l\'étranger la nuit', 'analyse d\'une adresse, d\'un poste ou d\'un lien : appareil de la maison identifié à fond, adresse d\'Internet située (nom, pays, listes), lien vérifié (page, antivirus)'],
-  from: ['Suricata', 'Zeek'], upstream: ['OISF/suricata', 'zeek/zeek'],
+  what: 'L\'anti-malware d\'Odin pour ce qui n\'est pas un fichier : connexions sortantes vers des serveurs malveillants (adresses, domaines, liens), requêtes DNS dangereuses, et comportement des programmes (règles Sigma : persistance, tâches planifiées, services, processus anormaux, rançongiciel en action). Journal de qui parle à qui.',
+  does: ['compare chaque connexion aux listes publiques d\'adresses malveillantes (FireHOL, Feodo Tracker) et aux indicateurs ThreatFox et URLhaus d\'Asclépios (domaines, liens)', 'repère les ports typiques des pirates (minage, portes dérobées, IRC)', 'surveille le comportement des programmes avec des règles Sigma (persistance, tâche planifiée, service, processus anormal, connexion)', 'repère un rançongiciel en action (corrélation)', 'journal des connexions (mode Clio) : programme, destination, première et dernière fois', 'bannit les adresses malveillantes via Cerbère', 'alerte quand un programme contacte une nouvelle destination à l\'étranger la nuit', 'analyse d\'une adresse, d\'un poste ou d\'un lien : appareil de la maison identifié à fond, adresse d\'Internet située (nom, pays, listes), lien vérifié (page, antivirus)'],
+  from: ['Malwarebytes', 'Suricata', 'Zeek'], upstream: ['OISF/suricata', 'zeek/zeek'],
   modes: ['Clio · journal des connexions'],
-  words: ['intrusion', 'connexion', 'connexions', 'trafic', 'reseau suspect', 'réseau suspect', 'qui parle', 'adresse malveillante', 'botnet', 'freki', 'ids'],
+  words: ['intrusion', 'connexion', 'connexions', 'trafic', 'reseau suspect', 'réseau suspect', 'qui parle', 'adresse malveillante', 'botnet', 'freki', 'ids', 'malware', 'logiciel malveillant', 'anti-malware', 'antimalware', 'comportement', 'sigma', 'rançongiciel', 'rancongiciel', 'persistance'],
   actions: [
+    { id: 'etat', label: 'État de l\'anti-malware', what: 'En une phrase : les listes d\'adresses malveillantes sont-elles à jour, combien de réseaux et de règles connus ?', read: true, words: ['etat anti-malware', 'état anti-malware', 'etat meduse', 'état méduse'],
+      run: (ctx) => { const n = list(ctx).length, nr = sigma(ctx).regles.length, at = ctx.settings.listsAt ? Date.parse(String(ctx.settings.listsAt)) : 0, retard = !at || ctx.now().getTime() - at > 2 * 86_400_000; return { ok: !retard, text: `${retard ? '⚠' : '✓'} ${n} réseaux malveillants connus${nr ? `, ${nr} règle(s) Sigma` : ''} · listes à jour : ${at ? new Date(at).toLocaleString('fr-FR') : 'jamais'}${retard ? ' (en retard : lance « Mettre à jour les listes »)' : ''}.`, data: { reseaux: n, regles: nr } }; } },
     { id: 'connexions', label: 'Connexions en cours', what: 'Qui parle à qui en ce moment', read: true, words: ['connexions', 'qui parle'], run: async (ctx) => { const c = parseSs((await ctx.run('ss', ['-tunpH', 'state', 'established'], { timeoutMs: 10_000 })).out).filter((x) => !isPrivateV4(x.rip)); return { text: c.map((x) => `- ${x.prog} → ${x.rip}:${x.rport}${inList(x.rip, list(ctx)) ? ' ⚠ MALVEILLANTE' : ''}`).join('\n') || 'Aucune connexion vers Internet.', data: c }; } },
     { id: 'journal', label: 'Journal des connexions', what: 'Destinations vues récemment, par programme', read: true, words: ['journal', 'historique'], run: (ctx) => { const j = Object.values(journal(ctx)).sort((a, b) => b.last.localeCompare(a.last)).slice(0, 60); return { text: j.map((r) => `- ${r.prog} → ${r.dest} · ${r.n} fois · dernière ${r.last.slice(0, 16).replace('T', ' ')}`).join('\n') || 'Journal vide.', data: j }; } },
     { id: 'listes', label: 'Mettre à jour les listes', what: 'Télécharge les listes d\'adresses malveillantes', run: async (ctx) => ({ text: `🛰 ${await refresh(ctx)} réseaux malveillants connus.` }) },
     { id: 'analyser', label: 'Analyser une adresse, un poste ou un lien', what: 'Une adresse IP (de la maison ou d\'Internet), un nom de machine ou un lien : ce que c\'est, où c\'est, et si c\'est connu comme dangereux. Sans rien forcer.', read: true, external: true, params: [{ key: 'cible', label: 'Adresse IP, nom ou lien', kind: 'text', required: true, help: 'ex. 192.168.1.20 · 8.8.8.8 · nas.maison · https://exemple.fr' }],
       words: ['analyse l\'adresse', 'analyse cette adresse', 'analyse cette ip', 'analyse l\'ip', 'analyse ce lien', 'analyse ce poste', 'analyse le poste', 'c\'est quoi cette ip', 'identifie cette adresse'], run: (ctx, i) => analyser(ctx, String(i.cible ?? '')) },
     { id: 'verifier', label: 'Vérifier une adresse', what: 'Est-elle dans les listes ?', read: true, params: [{ key: 'ip', label: 'Adresse IP', kind: 'text', required: true }], run: (ctx, i) => { const ip = String(i.ip).trim(); return { text: inList(ip, list(ctx)) ? `⚠ ${ip} est dans les listes d'adresses malveillantes.` : `✓ ${ip} n'est dans aucune liste.` }; } },
+    { id: 'comportement', label: 'Juger un comportement', what: 'Un événement d\'un poste (processus, persistance, registre, tâche planifiée, service, connexion) est comparé aux règles Sigma chargées.', read: true, external: true, params: [{ key: 'evenement', label: 'Événement (JSON : Image, CommandLine…)', kind: 'text', required: true, help: 'ex. {"Image":"powershell.exe","CommandLine":"-enc ..."}' }],
+      words: ['comportement', 'sigma', 'juge ce comportement'], run: (ctx, i) => { let ev: Record<string, unknown>; try { ev = JSON.parse(String(i.evenement ?? '{}')); } catch { throw new Error('événement illisible : donne un objet JSON'); } const s = sigma(ctx); const v = verdictComportement(ev, s.regles); return { text: `${v.malveillant ? '⚠' : '✓'} ${v.raison}.${s.regles.length ? ` (${s.regles.length} règle(s) Sigma chargée(s)${s.ecartees ? `, ${s.ecartees} écartée(s)` : ''}.)` : ' (Aucune règle Sigma chargée pour l\'instant.)'}`, data: v as unknown as Record<string, unknown> }; } },
   ],
   async view(ctx) {
     const c = parseSs((await ctx.run('ss', ['-tunpH', 'state', 'established'], { timeoutMs: 10_000 })).out).filter((x) => !isPrivateV4(x.rip));

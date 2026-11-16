@@ -80,7 +80,8 @@ export const NAMES: Record<string, string> = {
  "agora": "Agora",
  "achille": "Achille",
  "atalante": "Atalante",
- "dodone": "Dodone"
+ "dodone": "Dodone",
+ "argos": "Argos"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
@@ -289,7 +290,8 @@ export const NAME_STORY: Record<string, string> = {
  "achille": "Achille, le héros grec que rien ne blessait, sauf le talon : il cherche le point faible de tes propres sites avant qu'un autre le trouve.",
  "atalante": "Atalante, la chasseresse grecque que personne ne battait à la course : tes téléchargements arrivent vite et reprennent là où ils s'étaient arrêtés.",
  "dodone": "Dodone, le plus ancien oracle de Grèce : on y gravait sa question sur une lamelle de plomb, et le chêne de Zeus répondait. Tu écris ta requête, le serveur répond, Odin vérifie la réponse.",
- "agora": "L'agora d'Athènes, la grande place du marché : chacun y trouvait ce qu'il lui fallait. Ici, chaque personne y trouve ce à quoi elle a droit."
+ "agora": "L'agora d'Athènes, la grande place du marché : chacun y trouvait ce qu'il lui fallait. Ici, chaque personne y trouve ce à quoi elle a droit.",
+ "argos": "Argos Panoptès, le géant aux cent yeux de la mythologie grecque, qui ne dormait jamais tout entier : il voyait tout. La console qui garde l'œil sur tout le parc."
 };
 
 /** « Applicatifs similaires existants » : les logiciels dont chaque appli s'inspire (tableau du propriétaire, feuille
@@ -303,7 +305,7 @@ export const SIMILAIRES: Record<string, string[]> = {
  "skogul": ["Falco"],
  "forseti": ["Wazuh", "Security Onion", "VulnX"],
  "garmr": ["Fail2ban", "BunkerWeb", "CrowdSec", "pfBlockerNG"],
- "geri": ["Suricata", "Security Onion", "Snort", "Zeek"],
+ "geri": ["Malwarebytes", "Suricata", "Security Onion", "Snort", "Zeek", "OpenSnitch"],
  "ran": ["Suricata", "Zeek", "Security Onion", "Wireshark", "Sniffnet", "Snort", "tcpdump"],
  "ullr": ["ClamAV", "ClamWin", "ClamUI", "YARA", "Linux Malware Detect", "VulnX", "MalwareBazaar", "VirusTotal"],
  "loki": ["T-Pot", "OpenCanary", "Modern Honey Network", "CommunityHoneyNetwork", "Cowrie", "Endlessh", "Heralding", "Dionaea", "SNARE", "TANNER", "ElasticPot", "RedisHoneyPot", "Mailoney", "Wordpot", "Honeytrap", "Conpot", "ADBHoney", "DDoSPot", "SentryPeer"],
@@ -363,7 +365,8 @@ export const SIMILAIRES: Record<string, string[]> = {
  "agora": ["Microsoft Intune", "Google Play Console", "Munki"],
  "achille": ["Burp Suite", "OWASP ZAP", "mitmproxy"],
  "atalante": ["Internet Download Manager", "JDownloader", "Motrix"],
- "dodone": ["Postman", "Insomnia", "Bruno", "Hoppscotch"]
+ "dodone": ["Postman", "Insomnia", "Bruno", "Hoppscotch"],
+ "argos": ["Wazuh", "Velociraptor", "OpenEDR", "osquery", "CrowdStrike Falcon", "Microsoft Defender for Endpoint"]
 };
 /** Le site officiel d'un applicatif similaire (seulement quand l'adresse est sûre ; sinon le nom seul est affiché). */
 export const SITES_SIMILAIRES: Record<string, string> = {
@@ -469,6 +472,7 @@ export const SITES_SIMILAIRES: Record<string, string> = {
  "Logseq": "https://logseq.com",
  "Maigret": "https://github.com/soxoj/maigret",
  "MalwareBazaar": "https://bazaar.abuse.ch",
+ "Malwarebytes": "https://www.malwarebytes.com",
  "Matter Server": "https://github.com/home-assistant-libs/python-matter-server",
  "MCP Inspector": "https://github.com/modelcontextprotocol/inspector",
  "MeshCentral": "https://meshcentral.com",
@@ -503,6 +507,7 @@ export const SITES_SIMILAIRES: Record<string, string> = {
  "OpenMediaVault": "https://www.openmediavault.org",
  "OpenMQTTGateway": "https://github.com/1technophile/OpenMQTTGateway",
  "OpenSearch": "https://opensearch.org",
+ "OpenSnitch": "https://github.com/evilsocket/opensnitch",
  "openWakeWord": "https://github.com/dscripka/openWakeWord",
  "OPNsense": "https://opnsense.org",
  "ownCloud": "https://owncloud.com",
@@ -592,6 +597,11 @@ export const SITES_SIMILAIRES: Record<string, string> = {
  "Viseron": "https://github.com/roflcoopter/viseron",
  "VulnX": "https://github.com/projectdiscovery/vulnx",
  "Wazuh": "https://wazuh.com",
+ "Velociraptor": "https://docs.velociraptor.app",
+ "OpenEDR": "https://www.openedr.com",
+ "osquery": "https://www.osquery.io",
+ "CrowdStrike Falcon": "https://www.crowdstrike.com",
+ "Microsoft Defender for Endpoint": "https://www.microsoft.com/security/business/endpoint-security/microsoft-defender-endpoint",
  "wg-easy": "https://github.com/wg-easy/wg-easy",
  "WhatsMyName": "https://github.com/WebBreacher/WhatsMyName",
  "Whisper": "https://github.com/openai/whisper",

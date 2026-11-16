@@ -9,7 +9,7 @@ import { isIP } from 'node:net';
 import { isPrivateV4 } from '../../hlidskjalf/discover.ts';
 
 /** `anchor` : un vrai indice d'attaque (peut ouvrir un incident). Sans lui, le signal n'est que du contexte : il pèse peu et n'ouvre rien seul. */
-export interface Signal { at: number; app: string; type: string; keys: string[]; weight: number; text: string; anchor?: boolean; attack?: string; ip?: string; file?: string; pid?: number; prog?: string }
+export interface Signal { at: number; app: string; type: string; keys: string[]; weight: number; text: string; anchor?: boolean; attack?: string; ip?: string; file?: string; pid?: number; prog?: string; /** le poste du parc d'où vient le signal (Satellites) ; absent : la machine d'Odin. Les signaux d'un poste ne se mêlent qu'entre eux (corrélation par poste d'Argos). */ poste?: string }
 export interface Incident { id: string; at: string; updated: string; title: string; kind: string; score: number; level: 'critique' | 'haute' | 'moyenne'; apps: string[]; signals: Signal[]; state: 'ouvert' | 'traité' | 'ignoré'; done: string[]; proposed: string[]; told: number; /** note du Cerveau qui raconte l'incident */ note?: string }
 export interface Response { kind: 'bannir'; ip: string; why: string }
 
@@ -79,6 +79,9 @@ export function toSignal(e: { module: string; type: string; data: Record<string,
 /** Les mêmes choses comptent pour un incident : même adresse, même programme, même fichier ; ou la machine entière dans les mêmes minutes. */
 const LOOSE = new Set(['machine', 'porte', 'lieu', 'rançon']);
 function related(inc: Incident, sig: Signal): boolean {
+  // Un signal attaché à un poste du parc ne se relie qu'aux signaux du même poste (la machine d'Odin n'a pas de poste :
+  // comportement inchangé pour elle, tous ses signaux ayant un poste vide).
+  if ((sig.poste ?? '') !== (inc.signals[0]?.poste ?? '')) return false;
   const keys = new Set(inc.signals.flatMap((x) => x.keys));
   if (sig.keys.some((k) => !LOOSE.has(k) && keys.has(k))) return true;
   // Clés larges (la machine, la porte d'Odin) : seulement si c'est proche dans le temps (15 minutes).
@@ -136,9 +139,12 @@ export class Correlator {
     const before = inc.level, t = title(inc.signals, apps);
     inc.title = t.title; inc.kind = t.kind; inc.score = score(inc.signals); inc.level = inc.score >= 85 ? 'critique' : inc.score >= 60 ? 'haute' : 'moyenne';
     inc.apps = [...new Set(inc.signals.map((x) => apps(x.app)))]; inc.updated = new Date(now).toISOString();
-    // Réponses : bannir les adresses extérieures impliquées (annulable) ; le reste est proposé.
+    // Réponses : bannir les adresses extérieures impliquées (annulable) ; le reste est proposé. Un incident de poste du
+    // parc (signaux portant un `poste`) n'est PAS banni ici : Argos n'exécute pas ce bannissement (et un ban au pare-feu
+    // d'Odin ne protégerait pas la sortie du poste). On n'inscrit donc rien dans `done` qui n'a pas eu lieu.
     const responses: Response[] = [];
-    if (inc.score >= 60) for (const ip of new Set(inc.signals.map((x) => x.ip).filter((x): x is string => Boolean(x)))) {
+    const surPoste = Boolean(inc.signals[0]?.poste);
+    if (inc.score >= 60 && !surPoste) for (const ip of new Set(inc.signals.map((x) => x.ip).filter((x): x is string => Boolean(x)))) {
       // Jamais une adresse du réseau local ; et pas deux fois la même (déjà bannie par Sirènes, Méduse ou toi).
       if (isPrivateV4(ip) || ip === '127.0.0.1' || ip.includes(':') || inc.done.includes(`bannir ${ip}`) || inc.signals.some((x) => x.app === 'garmr' && x.type === 'banni' && x.ip === ip)) continue;
       inc.done.push(`bannir ${ip}`); responses.push({ kind: 'bannir', ip, why: `incident « ${inc.title} »` });

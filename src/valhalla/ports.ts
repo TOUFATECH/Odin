@@ -29,7 +29,7 @@ export const FAMILY_BASE: Record<string, number> = { 'Sécurité': 8100, 'Accès
  */
 export const DEFAULT_DIRECT: Record<string, number> = {
   // Sécurité
-  ran: 8101, ullr: 8102, garmr: 8103, forseti: 8104, hlin: 8105, geri: 8106, skogul: 8107, loki: 8108, hlid: 8109, svalinn: 8110, achille: 8111,
+  ran: 8101, ullr: 8102, garmr: 8103, forseti: 8104, hlin: 8105, geri: 8106, skogul: 8107, loki: 8108, hlid: 8109, svalinn: 8110, achille: 8111, argos: 8112,
   // Accès et réseau
   agora: 8201, bru: 8202, ratatoskr: 8203, pegase: 8204, var: 8205, hermod: 8206, vidarr: 8207, brisingamen: 8208, valgrind: 8209, gjoll: 8210,
   // Machines

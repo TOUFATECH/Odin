@@ -142,6 +142,7 @@ export const LINKS: Link[] = [
 export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
   { need: 'suivre des mesures dans le temps (tableau de bord)', chain: ['eir', 'vordr', 'syn'], why: 'Hygie et Pulsar mesurent, Zénith affiche les courbes et prévient quand un seuil est dépassé.' },
   { need: 'protéger un serveur ouvert sur Internet', chain: ['loki', 'garmr', 'geri', 'forseti'], why: 'Sirènes attire et repère les pirates, Cerbère les bannit, Méduse surveille ce qui sort, Forseti rassemble tout.' },
+  { need: 'surveiller la sécurité de tout le parc (EDR)', chain: ['argos', 'ullr', 'geri', 'hermod'], why: 'Argos commande et résume l\'antivirus Asclépios (fichiers) et l\'anti-malware Méduse (connexions, comportement), suit chaque poste par le compagnon de Satellites, relie les incidents et répond avec ton accord.' },
   { need: 'retrouver des fichiers effacés ou une partition perdue', chain: ['hel', 'ullr', 'forseti'], why: 'Perséphone lit le support sans y écrire et range ce qu\'elle retrouve sur un autre disque, Asclépios analyse les fichiers retrouvés, Forseti garde le résumé.' },
   { need: 'savoir si un fichier est dangereux', chain: ['ullr'], why: 'empreintes connues, règles et heuristiques, quarantaine.' },
   { need: 'surveiller la santé d\'une machine', chain: ['eir', 'skogul', 'forseti'], why: 'Hygie mesure, Némésis regarde les processus, Forseti alerte.' },

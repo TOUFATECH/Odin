@@ -550,9 +550,123 @@ def bulles_locales(nouvelles):
 
 
 # ---------------------------------------------------------------- Le service
+# ---------------------------------------------------------------- Télémétrie EDR (pour Argos)
+def _lignes(txt):
+    return [l for l in (txt or "").splitlines() if l.strip()]
+
+
+def telemetrie():
+    """Processus (avec filiation), connexions sortantes, persistance. Données brutes : Odin (Argos) les range et
+    en tire des incidents. Rien n'est jugé ni exécuté ici."""
+    import re
+    procs, conns, pers = [], [], []
+    famille = {"Windows": "windows", "Linux": "linux", "Darwin": "macos"}.get(SYSTEME, "linux")
+    if SYSTEME == "Windows":
+        _, out = powershell("Get-CimInstance Win32_Process | ForEach-Object { '{0}|{1}|{2}|{3}|{4}' -f $_.ProcessId,$_.ParentProcessId,$_.Name,$_.ExecutablePath,$_.CommandLine }", 60)
+        for l in _lignes(out):
+            p = l.split("|")
+            if len(p) >= 3 and p[0].strip().isdigit():
+                procs.append({"pid": int(p[0]), "ppid": int(p[1]) if p[1].strip().isdigit() else 0, "nom": p[2].strip(), "chemin": (p[3] if len(p) > 3 else "").strip(), "ligne": (p[4] if len(p) > 4 else "").strip()})
+        _, out = sortie(["netstat", "-ano"], 60)
+        for l in _lignes(out):
+            col = l.split()
+            if len(col) < 5 or col[0].upper() not in ("TCP", "UDP"):
+                continue
+            if col[0].upper() == "TCP" and "ESTABLISHED" not in l.upper():
+                continue
+            rem = col[2]
+            cut = rem.rfind(":")
+            if cut < 0:
+                continue
+            rip = rem[:cut].strip("[]")
+            if rip in ("0.0.0.0", "*", "127.0.0.1", "::1", "::") or not rem[cut + 1:].isdigit():
+                continue
+            conns.append({"proto": col[0].lower(), "rip": rip, "rport": int(rem[cut + 1:]), "pid": int(col[-1]) if col[-1].isdigit() else 0})
+        try:
+            import winreg
+            for ruche, racine, chemin in (("HKLM", winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run"), ("HKCU", winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run")):
+                try:
+                    k = winreg.OpenKey(racine, chemin)
+                    i = 0
+                    while True:
+                        try:
+                            n, v, _ = winreg.EnumValue(k, i)
+                            i += 1
+                            pers.append({"genre": "run", "nom": str(n)[:200], "cible": str(v)[:400], "emplacement": ruche + "\\" + chemin})
+                        except OSError:
+                            break
+                except OSError:
+                    pass
+        except ImportError:
+            pass
+    else:
+        _, out = sortie(["ps", "-eo", "pid=,ppid=,user=,comm=,args="], 60)
+        for l in _lignes(out):
+            parts = l.split(None, 4)
+            if len(parts) >= 4 and parts[0].isdigit():
+                procs.append({"pid": int(parts[0]), "ppid": int(parts[1]) if parts[1].isdigit() else 0, "utilisateur": parts[2], "nom": parts[3], "ligne": parts[4] if len(parts) > 4 else ""})
+        code, out = sortie(["ss", "-tunpH", "state", "established"], 30)
+        for l in _lignes(out):
+            col = l.split()
+            if len(col) < 5 or col[0] not in ("tcp", "udp"):
+                continue
+            rem = col[4]
+            cut = rem.rfind(":")
+            if cut < 0 or not rem[cut + 1:].isdigit():
+                continue
+            rip = rem[:cut].strip("[]").replace("::ffff:", "")
+            if rip.startswith(("127.", "::1", "fe80", "0.0.0.0")):
+                continue
+            m = re.search(r'"([^"]+)".*?pid=(\d+)', l)
+            conns.append({"proto": col[0], "rip": rip, "rport": int(rem[cut + 1:]), "prog": m.group(1) if m else "", "pid": int(m.group(2)) if m else 0})
+        if SYSTEME == "Darwin":
+            for base in ("/Library/LaunchAgents", "/Library/LaunchDaemons", os.path.expanduser("~/Library/LaunchAgents")):
+                try:
+                    for f in os.listdir(base):
+                        if f.endswith(".plist"):
+                            pers.append({"genre": "launchdaemon" if "Daemons" in base else "launchagent", "nom": f[:-6], "cible": os.path.join(base, f), "emplacement": base})
+                except OSError:
+                    pass
+        else:
+            for base, genre in (("/etc/systemd/system", "systemd"), (os.path.expanduser("~/.config/systemd/user"), "systemd"), ("/etc/cron.d", "cron")):
+                try:
+                    for f in os.listdir(base):
+                        pers.append({"genre": genre, "nom": f[:200], "cible": os.path.join(base, f), "emplacement": base})
+                except OSError:
+                    pass
+    return {"sys": famille, "processus": procs[:4000], "connexions": conns[:2000], "persistance": pers[:2000]}
+
+
+def appliquer_reponses(c, reponses):
+    """Applique les consignes de réponse d'Argos (données structurées, jamais une commande libre). Prudent :
+    seuls l'arrêt d'un processus et la mise à l'écart d'un fichier sont faits ici ; une isolation réseau est laissée
+    aux garde-fous du poste (journalisée, non appliquée tant qu'un opérateur ne l'a pas validée localement)."""
+    for r in reponses or []:
+        genre = r.get("genre")
+        try:
+            if genre == "tuer" and isinstance(r.get("pid"), int) and r["pid"] > 1:
+                if SYSTEME == "Windows":
+                    sortie(["taskkill", "/PID", str(r["pid"]), "/T", "/F"], 20)
+                else:
+                    sortie(["kill", "-TERM", str(r["pid"])], 10)
+            elif genre == "quarantaine" and r.get("fichier"):
+                f = r["fichier"]
+                q = os.path.join(ICI, "quarantaine")
+                os.makedirs(q, exist_ok=True)
+                if os.path.exists(f):
+                    dest = os.path.join(q, os.path.basename(f) + "." + uuid.uuid4().hex + ".odin")
+                    shutil.move(f, dest)
+                    reg = lire_json(os.path.join(ETAT, "quarantaine-reponse.json"), [])
+                    reg.append({"origine": f, "ecarte": dest, "t": time.time()})
+                    ecrire_json(os.path.join(ETAT, "quarantaine-reponse.json"), reg[-200:])
+            # « isoler » / « rendre_reseau » : notés mais non appliqués automatiquement (garde-fou : jamais couper un poste tout seul).
+        except (OSError, RuntimeError, subprocess.SubprocessError) as e:
+            print("Compagnon : réponse « %s » non appliquée (%s)" % (genre, str(e)[:120]), file=sys.stderr)
+
+
 def tourner(c):
     dernier = lire_json(os.path.join(ETAT, "horloge.json"), {})
-    rapport_tous, analyse_tous, majs_heure = 6 * 3600, 24 * 3600, 3
+    rapport_tous, analyse_tous, majs_heure, telemetrie_tous = 6 * 3600, 24 * 3600, 3, 5 * 60
     while True:
         maintenant = time.time()
         consignes = {}
@@ -562,7 +676,9 @@ def tourner(c):
             rapport_tous = int(consignes.get("rapport_tous", rapport_tous))
             analyse_tous = int(consignes.get("analyse_tous", analyse_tous))
             majs_heure = int(consignes.get("majs_heure", majs_heure))
+            telemetrie_tous = int(consignes.get("telemetrie_tous", telemetrie_tous))
             c["quarantaine"] = consignes.get("quarantaine", True)
+            appliquer_reponses(c, consignes.get("reponses", []))
         except (OSError, RuntimeError, socket.error, ValueError) as e:
             print("Compagnon : Odin injoignable (%s)" % str(e)[:120], file=sys.stderr)
         demande_locale = os.path.exists(os.path.join(DEMANDES, "analyser"))
@@ -588,6 +704,9 @@ def tourner(c):
             if consignes.get("rapport") or maintenant - dernier.get("rapport", 0) > rapport_tous:
                 rapport(c)
                 dernier["rapport"] = maintenant
+            if consignes.get("telemetrie") or maintenant - dernier.get("telemetrie", 0) > telemetrie_tous:
+                odin(c, "POST", "/api/compagnon/telemetrie", telemetrie())
+                dernier["telemetrie"] = maintenant
         except (OSError, RuntimeError, socket.error, ValueError) as e:
             print("Compagnon : %s" % str(e)[:200], file=sys.stderr)
         ecrire_json(os.path.join(ETAT, "horloge.json"), dernier)

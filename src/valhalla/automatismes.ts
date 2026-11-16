@@ -41,6 +41,7 @@ const T = (nom: string, quoi: string, permis: GenreRythme[], securite = false): 
 /** Une entrée par appli qui a une surveillance (`watch`). Un essai vérifie qu'il n'en manque aucune et qu'il n'y en a pas en trop. */
 export const CLASSEMENT: Record<string, Classement> = {
   agora: V('Ordres aux appareils', 'Signale un ordre en attente depuis plus d\'un jour et remet le store d\'accord.'),
+  argos: V('Mises à jour de sécurité', 'Veille que l\'antivirus, l\'anti-malware et leurs sources sont à jour ; prévient si une vérification a pris du retard.', true),
   bru: V('Tunnel Cloudflare', 'Relance le tunnel et prévient s\'il est coupé.'),
   dvalinn: V('File des conversions', 'Reprend les travaux en attente et efface les dossiers de travail de plus d\'un jour.'),
   eir: V('Santé de la machine', 'Disque, mémoire, processeur, température et mesures des courbes.'),
