@@ -43,7 +43,7 @@ export function findBrowser(env = process.env): string | undefined {
   return candidates.find((c) => existsSync(c));
 }
 
-export const BROWSER_HINT = 'Aucun navigateur Chrome/Chromium/Edge trouvé. Installe-en un : Linux « sudo apt install chromium » (ou « npx playwright install chromium »), macOS/Windows : Google Chrome ou Edge. Tu peux aussi indiquer son chemin dans ODIN_BROWSER.';
+export const BROWSER_HINT = 'Aucun navigateur Chrome/Chromium/Edge trouvé : pour une recherche sur Internet, utilise web_search (le moteur de recherche d\'Odin) puis web_fetch pour lire une page — ils ne demandent aucun navigateur. Le navigateur n\'est utile que pour cliquer et remplir une page interactive ; pour l\'activer, installe-en un : Linux « sudo apt install chromium » (ou « npx playwright install chromium »), macOS/Windows : Google Chrome ou Edge, ou indique son chemin dans ODIN_BROWSER.';
 
 // ---------------- Protocole DevTools ----------------
 
