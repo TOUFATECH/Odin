@@ -227,15 +227,15 @@ function vue(ctx: ModCtx) {
     { kind: 'form', onglet: 'Collections', title: 'Enregistrer une requête', action: 'enregistrer', submit: 'Enregistrer', params: actions.find((a) => a.id === 'enregistrer')!.params! },
     { kind: 'form', onglet: 'Collections', title: 'Programmer une collection', action: 'programmer', submit: 'Programmer', params: actions.find((a) => a.id === 'programmer')!.params! },
     { kind: 'form', onglet: 'Collections', title: 'Importer', action: 'importer', submit: 'Importer', params: actions.find((a) => a.id === 'importer')!.params!, aide: 'Les scripts JavaScript d\'une collection ne sont jamais exécutés ; les secrets vont au coffre.' },
-    { kind: 'table', onglet: 'Environnements', title: 'Environnements', columns: ['Nom', 'Variables', 'Secrets au coffre'], empty: 'Aucun environnement.',
+    { kind: 'table', onglet: 'Variables', title: 'Environnements', columns: ['Nom', 'Variables', 'Secrets au coffre'], empty: 'Aucun environnement.',
       rows: st.environnements.map((x) => ({ cells: [`${x.nom}${x.id === e?.id ? ' (en cours)' : ''}`, Object.entries(x.variables).map(([k, v]) => `${k}=${masquer(ctx, v).slice(0, 40)}`).join(', ') || '—', cf.noms(x.id).map((n) => `${n} = ${MASQUE} au coffre`).join(', ') || '—'], tone: (x.id === e?.id ? 'bon' : 'neutre') as Tone })) },
-    { kind: 'form', onglet: 'Environnements', title: 'Environnement', action: 'environnement', submit: 'Enregistrer', params: actions.find((a) => a.id === 'environnement')!.params! },
-    { kind: 'form', onglet: 'Environnements', title: 'Ranger un secret', action: 'secret', submit: 'Ranger au coffre', params: actions.find((a) => a.id === 'secret')!.params!, aide: 'La valeur est chiffrée et n\'est jamais réaffichée.' },
+    { kind: 'form', onglet: 'Variables', title: 'Environnement', action: 'environnement', submit: 'Enregistrer', params: actions.find((a) => a.id === 'environnement')!.params! },
+    { kind: 'form', onglet: 'Variables', title: 'Ranger un secret', action: 'secret', submit: 'Ranger au coffre', params: actions.find((a) => a.id === 'secret')!.params!, aide: 'La valeur est chiffrée et n\'est jamais réaffichée.' },
     { kind: 'table', onglet: 'Historique', title: 'Derniers envois', columns: ['Quand', 'Requête', 'Résultat', 'Tests'], empty: 'Aucun envoi.',
       rows: h.map((l) => ({ cells: [new Date(l.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }), `${l.collection ? `${l.collection} · ` : ''}${l.methode} ${l.url.slice(0, 80)}`, l.erreur ? `erreur : ${l.erreur}` : `${l.code} · ${l.ms} ms`, l.tests.length ? `${l.tests.filter((t) => t.ok).length}/${l.tests.length}` : '—'], tone: (l.erreur || l.tests.some((t) => !t.ok) ? 'mauvais' : l.tests.length ? 'bon' : 'neutre') as Tone })) },
   ];
   return {
-    subtitle: 'Requêtes de tes services web', onglets: ['Envoyer', 'Collections', 'Environnements', 'Historique'],
+    subtitle: 'Requêtes de tes services web', onglets: ['Envoyer', 'Collections', 'Variables', 'Historique'],
     kpis: [
       { label: 'Collections', value: String(st.collections.length) },
       { label: 'Programmées', value: String(Object.keys(programmes(ctx)).length) },
