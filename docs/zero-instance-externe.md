@@ -181,17 +181,39 @@ Résultat : 127 dépendances relevées, dont 36 instances externes, regroupées 
 11. PostgreSQL odin-pg et Samba : selon la décision du propriétaire (livrer les binaires avec Odin ; « Pithos » WebDAV en complément de Samba si voulu).
 12. Ensuite, facultatif, outils locaux : « Ichnée » (lecture de /proc et /sys à la place de ss, ip, lsblk, findmnt, dpkg-query), « Égide » (pare-feu par nft seul pour Cerbère et Thermopyles), « Dictys » (capture réseau native pour Ariane), « Apelle » (SVG → PNG pour Plume et Alexandrie). Tous ces noms sont libres dans src (vérifié) ; « Dédale », « Écho », « Arachné », « Hestia », « Oïkos », « Mnémosyne », « Héphaïstos », « Hermès », « Iris » et « Mimir », proposés par certains auditeurs, sont déjà pris.
 
-## 3. Décisions à prendre par le propriétaire
+## 3. Décision du propriétaire (16/11/2026)
 
-- PostgreSQL (odin-pg) : Odin le crée, le lance et le sauvegarde lui-même. Le considères-tu comme « interne » (on le garde, livré avec Odin) ou faut-il un jour un moteur de base écrit dans Odin (énorme chantier) ?
-- Home Assistant : accepte-t-on de le garder en simple importation le temps de construire Eunomia, ou faut-il couper tout de suite les fonctions qui en dépendent (énergie, réveil, annonces, musique sur enceintes) ?
-- Samba (partages Pyramide) : c'est un démon du système, nécessaire pour les PC Windows. Le garder (installé par Odin) ou ajouter Pithos (WebDAV) ?
-- Jusqu'où recoder les outils locaux tiers (ffmpeg, tesseract, LibreOffice, qemu, OpenSSH, smbclient, git, cloudflared, Chromium) ? Proposition : on les garde comme outils lancés par Odin, mais Odin doit les installer lui-même s'ils manquent (aujourd'hui install.sh ne fait que les suggérer).
-- Docker : faut-il l'interdire complètement dans Odin (bacs à sable, github_app, Pythie), au profit de Hringhorni seul ?
-- Passerelle MCP (Interprète) et options « relier un serveur tiers » : exception assumée à la règle, ou on les retire ?
-- STRATA (Zeus) et Penpot (Plume) : on les retire tout de suite ?
-- OwnTracks sur les téléphones (Hestia, Ulysse) : faut-il le remplacer par l'envoi de position dans l'appli téléphone d'Odin ?
-- Le mode « tout sur la machine » doit-il refuser tout service en ligne (modèles, voix, météo), ou seulement les serveurs tiers à monter ?
+« Tu me recodes tout ce qui n'a pas été codé. Je ne dois dépendre d'aucune dépendance, à part les liens de mise à jour, les liens de téléchargement et autres. Toutes les applis, tout doit être codé : les gros, les petits, les moyens, tout. Aucune dépendance externe. »
+
+Familles citées : moteur de recherche, serveur Venus séparé, serveur domotique, passerelles Zigbee, Z-Wave et Matter, serveur de modèles local, cerveau local, mémoire par le sens, serveur de traduction, canal Signal, Docker, serveur de correction, serveur d'agenda, installation d'applis libres, serveurs de voix, serveur de maquettes, serveurs d'outils, partage de fichiers du système, serveur de prévision météo. Demande ajoutée : la prise de rendez-vous (voir Héméra).
+
+Restent permis : les liens de mise à jour et de téléchargement (fichiers de données, dictionnaires, modèles, images, listes) et les services d'Internet qui sont des sources par nature.
+
+### File des recodages (une équipe par chantier, deux équipes au plus à la fois)
+
+| # | Chantier | Nom dans Odin | Remplace | État |
+|---|---|---|---|---|
+| 1 | Moteur de recherche natif | Lyncée (dans Pythie) | le méta-moteur en conteneur | en cours de code |
+| 2 | Réseau de neurones du Cerveau | Noûs | — (nouveau ; fournira les plongements de la mémoire) | en cours d'étude |
+| 3 | Vénus native | Vénus | le serveur Venus séparé | prêt à lancer |
+| 4 | Petits retraits | — | Docker, serveurs de voix à part, lien de maquettes, mode « base de la machine », serveurs d'outils tiers | prêt à lancer |
+| 5 | Agenda natif et prise de rendez-vous | Héméra | le serveur d'agenda extérieur | prêt à lancer |
+| 6 | Modèles de langue ouverts dans Odin | Métis | le serveur de modèles local | après Noûs |
+| 7 | Domotique native | Eunomia | le serveur domotique | prêt à lancer |
+| 8 | Son sur les enceintes | Stentor | le passage par le serveur domotique | après Eunomia |
+| 9 | Traduction hors ligne | Glossa | le serveur de traduction | après Métis |
+| 10 | Correcteur natif | Grammatiké | le serveur de correction | prêt à lancer |
+| 11 | Partages de fichiers natifs | Pithos | le démon de partage du système | prêt à lancer |
+| 12 | Zigbee natif | Mélissa | la passerelle logicielle | après Eunomia |
+| 13 | Z-Wave natif | Néréide | la passerelle logicielle | après Mélissa |
+| 14 | Matter natif | Atome | le serveur à côté | après Eunomia |
+| 15 | Canal Signal natif | Angélia | le pont en conteneur | prêt à lancer |
+| 16 | Prévisions à 1, 2 et 3 mois calculées par Odin | (dans Zeus) | le serveur de prévision à monter | prêt à lancer |
+
+### Ce qui reste à trancher
+
+- Le serveur de base de données (odin-pg) : non cité par le propriétaire. Odin le crée, le lance et le sauvegarde lui-même ; le mode « base déjà présente sur la machine » est retiré au chantier 4. Écrire un moteur de base de données dans Odin n'est pas conseillé (toutes les données de la maison en dépendent).
+- Les outils locaux lancés par Odin (section 4) : non cités ; gardés pour l'instant.
 
 ## 4. Outils locaux lancés par Odin (pas des instances)
 
