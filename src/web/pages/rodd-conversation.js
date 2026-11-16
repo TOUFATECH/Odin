@@ -337,6 +337,10 @@
 .rc-resume{display:flex;flex-direction:column;gap:9px;background:#3ecf8e0f;border:1px solid #3ecf8e33;border-radius:14px;padding:13px 15px}
 .rc-resume textarea{min-height:92px;resize:vertical}
 .rc-resume audio{width:100%;height:38px}
+.rc-corrige{display:flex;flex-direction:column;gap:9px;background:#ffffff08;border:1px solid #ffffff1a;border-radius:14px;padding:13px 15px}
+.rc-corr{display:flex;flex-direction:column;gap:2px;border-left:2px solid #3ecf8e55;padding-left:9px}
+.rc-corr .av{color:#9aa0ab;text-decoration:line-through}
+.rc-corr .ap{color:#eef0f6}
 .rc-son{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .rc-son audio{flex:1 1 220px;min-width:0;height:40px}
 @keyframes rc-bat{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.6}}
@@ -603,6 +607,38 @@
       ta, el('div', { class: 'rc-actes' }, enreg, etatR));
   }
 
+  /** Corriger l'orthographe d'une transcription gardée : chaque tour est corrigé DANS SA LANGUE par le modèle d'Odin.
+   * On montre l'avant / après (ce qui a changé), puis le propriétaire garde (texte chiffré remplacé) ou annule. */
+  function blocCorrection(conv) {
+    const etat = el('span', { class: 'rc-mut' });
+    const liste = el('div', { style: 'display:flex;flex-direction:column;gap:7px' });
+    const garder = el('button', { class: 'rd-btn g', type: 'button' }, 'Garder les corrections');
+    const annuler = el('button', { class: 'rd-btn n', type: 'button', onclick: () => { liste.replaceChildren(); actes.hidden = true; etat.textContent = 'Corrections annulées.'; } }, 'Annuler');
+    const actes = el('div', { class: 'rc-actes', hidden: true }, garder, annuler);
+    const corriger = el('button', { class: 'rd-btn', type: 'button', onclick: async () => {
+      corriger.disabled = true; etat.textContent = 'Odin corrige l\'orthographe…'; liste.replaceChildren(); actes.hidden = true;
+      const r = await archive('corriger', { conv });
+      corriger.disabled = false;
+      if (!r || !r.ok) { etat.textContent = ''; await window.OdinDialog.alert(r?.aide || r?.error || 'Impossible de corriger : aucun modèle d\'Odin configuré.'); return; }
+      const changes = (r.tours || []).filter((t) => t.change);
+      if (!changes.length) { etat.textContent = 'Aucune faute trouvée : rien à corriger.'; return; }
+      etat.textContent = `${changes.length} tour${changes.length > 1 ? 's' : ''} à corriger (par ${r.modele || 'le modèle d\'Odin'}).`;
+      liste.replaceChildren(...changes.map((t) => el('div', { class: 'rc-corr' },
+        el('span', { class: 'av', lang: t.de }, t.avant), el('span', { class: 'ap', lang: t.de }, t.apres))));
+      actes.hidden = false;
+      garder.onclick = async () => {
+        garder.disabled = true;
+        const g = await archive('corriger-garder', { conv, corrections: changes.map((t) => ({ id: t.id, apres: t.apres })) });
+        garder.disabled = false; liste.replaceChildren(); actes.hidden = true;
+        etat.textContent = g && g.ok ? `Corrigé : ${g.n} tour${g.n > 1 ? 's' : ''} gardé${g.n > 1 ? 's' : ''}.` : (g?.error || 'Impossible de garder.');
+        if (g && g.ok) remplirTiroir(P.ui.listeCorps);
+      };
+    } }, 'Corriger l\'orthographe');
+    return el('div', { class: 'rc-corrige', 'aria-label': 'Corriger l\'orthographe' },
+      el('div', { class: 'rc-ligne' }, el('b', { style: 'font-size:14px' }, 'Orthographe'), corriger),
+      etat, liste, actes);
+  }
+
   function carteConv(c, tours) {
     const ici = c.conv === P.conv, ouverte = P.convOuverte === c.conv;
     const codes = c.titre ? [] : languesConv(tours);
@@ -638,7 +674,7 @@
       el('button', { class: 'rd-btn n', type: 'button', style: 'margin-left:auto;border-color:#ff6b6b55;color:#ff9a9a', onclick: supprimer }, 'Supprimer'));
     const detail = ouverte ? el('div', { style: 'display:flex;flex-direction:column;gap:11px' },
       son ? el('div', { class: 'rc-son' }, el('span', { class: 'rc-mut' }, 'Copie sonore'), el('audio', { controls: 'true', preload: 'none', src: url })) : null,
-      transcription(tours), blocResume(c.conv)) : null;
+      transcription(tours), blocCorrection(c.conv), blocResume(c.conv)) : null;
     return el('div', { class: `rc-conv${ici ? ' ici' : ''}` }, tete, detail, actes);
   }
 

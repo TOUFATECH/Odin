@@ -14,6 +14,7 @@ const historiqueDe = async (ctx: ModCtx) => (await import('../rodd/conversation-
 const enregistrementDe = async (ctx: ModCtx) => (await import('../rodd/conversation-son.ts')).enregistrementDe(ctx);
 const resumeDe = async (ctx: ModCtx) => (await import('../rodd/conversation-resume.ts')).resumeDe(ctx);
 const oublierConversation = async (conv: string) => (await import('../rodd/conversation-memoire.ts')).oublierConversation(conv);
+const dicteeArchive = () => import('../rodd/dictee-archive.ts');
 import type { ActionResult, ModCtx, Module } from '../types.ts';
 
 const s = (v: unknown) => String(v ?? '').trim();
@@ -59,7 +60,10 @@ export async function dictee(ctx: ModCtx, raw: string, o: { mode?: Mode; ou?: st
   }
   const mode = (MODES as readonly string[]).includes(o.mode ?? '') ? o.mode! : ((ctx.settings.mode as Mode) ?? 'corrigé');
   const r = await shape(ctx, brut, mode, o.langue);
-  keep(ctx, { at: ctx.now().toISOString(), ou: o.ou ?? 'Odin (web)', brut, texte: r.text, mode });
+  const at = ctx.now().toISOString(), ou = o.ou ?? 'Odin (web)';
+  keep(ctx, { at, ou, brut, texte: r.text, mode });
+  // La dictée est aussi gardée CHIFFRÉE (ECHO_ODIN) et laisse un repère NEUTRE en mémoire d'Odin (jamais le texte).
+  try { (await dicteeArchive()).rangerDictee(ctx, { at, ou, mode, texte: r.text, brut, langue: o.langue }); } catch { /* la mémoire ne doit jamais casser la dictée */ }
   return { text: r.text, data: { texte: r.text, brut, ia: r.ia } };
 }
 
@@ -96,6 +100,14 @@ export const rodd: Module = {
     { id: 'apprendre', label: 'Apprendre d\'une correction', what: 'Tu as corrigé une dictée : les mots changés sont appris', params: [{ key: 'avant', label: 'Texte dicté', kind: 'textarea', required: true }, { key: 'apres', label: 'Texte corrigé', kind: 'textarea', required: true }], quiet: true, run: (ctx, i) => { const before = mots(ctx.home), after = learn(s(i.avant), s(i.apres), before); saveMots(after, ctx.home); const n = after.reduce((k, m) => k + m.entendus.length, 0) - before.reduce((k, m) => k + m.entendus.length, 0); return { text: n ? `📖 ${n} mot${n > 1 ? 's' : ''} appris.` : 'Rien de nouveau à apprendre.' }; } },
     { id: 'historique', label: 'Dernières dictées', what: 'Les dernières dictées et demandes', read: true, words: ['dernieres dictees', 'dernières dictées', 'mes dictees'], run: (ctx) => { const h = history(ctx, 40); return { text: h.slice(0, 20).map((e) => `${e.at.slice(11, 16)} · ${e.ou} · ${e.odin ? 'Odin' : e.mode} · ${e.texte.slice(0, 100)}`).join('\n') || 'Aucune dictée.', data: { items: h, jour: history(ctx, 1000).filter((e) => Date.parse(e.at) > ctx.now().getTime() - 864e5).reduce((n, e) => { if (e.odin) n.demandes++; else n.dictees++; return n; }, { dictees: 0, demandes: 0 }), mode: String(ctx.settings.mode ?? 'corrigé'), garde: ctx.settings.historique !== false, ...ouvrirConversation(ctx) } }; } },
     { id: 'regler', label: 'Régler', what: 'Mise en forme par défaut, historique gardé ou non', quick: false, params: [{ key: 'mode', label: 'Mise en forme par défaut', kind: 'select', options: [...MODES], default: 'corrigé' }, { key: 'historique', label: 'Garder l\'historique', kind: 'boolean', default: true }], run: (ctx, i) => { ctx.saveSettings({ mode: (MODES as readonly string[]).includes(s(i.mode)) ? s(i.mode) : 'corrigé', historique: i.historique !== false && s(i.historique) !== 'false' }); return { text: `Réglé : ${s(i.mode) || 'corrigé'}, historique ${i.historique === false || s(i.historique) === 'false' ? 'non gardé' : 'gardé'}.` }; } },
+    { id: 'dictee_gardees', label: 'Dictées gardées', what: 'Les dictées gardées (texte chiffré sur ta machine), qu\'Odin retrouve par leur date', read: true, quick: false, words: ['dictees gardees', 'dictées gardées', 'souvenirs de dictee', 'mes paroles'],
+      run: async (ctx) => { const l = (await dicteeArchive()).dicteeArchiveDe(ctx).lister(200);
+        return { text: l.slice(0, 20).map((d) => `${d.at.slice(0, 16).replace('T', ' ')} · ${d.mode} · ${d.texte.slice(0, 100)}`).join('\n') || 'Aucune dictée gardée.', data: { items: l } }; } },
+    { id: 'dictee_effacer', label: 'Effacer des dictées', what: 'Efface une dictée gardée, ou toutes (texte chiffré et repère en mémoire d\'Odin, en cascade)', quick: false,
+      run: async (ctx, i) => { const id = s(i.id) || undefined, mod = await dicteeArchive(), a = mod.dicteeArchiveDe(ctx);
+        const ids = id ? [id] : a.lister(1000).map((d) => d.id); const n = a.effacer(id);
+        for (const x of ids) mod.oublierDictee(x);
+        return { text: `🧹 ${id ? 'Dictée effacée' : 'Toutes les dictées gardées effacées'} (${n}) : texte chiffré et repère en mémoire.` }; } },
     { id: 'ouvrir', label: 'Traduire une conversation', what: 'Chacun parle sa langue (français, anglais, japonais) : Odin reconnaît qui parle et traduit à voix haute', read: true, quiet: true, words: OUVRIR_MOTS, params: [{ key: 'langue', label: 'Langue de la personne en face', kind: 'select', options: ['', 'anglais', 'japonais', 'français'], default: '' }],
       run: async (ctx, i) => {
         const { langueNommee, voyage, NOMS } = await C(), l = langueNommee(i.langue), r = l ? voyage(await lireReglages(ctx), LANGUE_PAYS[l]) : await lireReglages(ctx);

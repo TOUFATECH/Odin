@@ -90,6 +90,7 @@ import { syncSheets } from './fiches.ts';
 import { AppJournal } from './journal.ts';
 import { brancherMemoire } from './base/trace.ts';
 import { brancherMemoireConversation } from './rodd/conversation-memoire.ts';
+import { brancherMemoireDictee } from './rodd/dictee-archive.ts';
 import { ParoleOdin, setParole } from './parole.ts';
 import { ymir } from './modules/ymir.ts';
 import { Valhalla } from './service.ts';
@@ -262,7 +263,13 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
     noter: (p) => { const sujet = `conversation:${p.conv}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); odin.muninn.remember(p.titre, p.parProprietaire ? 'owner' : 'agent', 'conversation', `écho conversation ${p.langues.join(' ')}`.slice(0, 120), { subject: sujet, topic: 'echo', source: 'Écho' }); },
     oublier: (conv) => { const sujet = `conversation:${conv}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); },
   });
-  return () => { brancherMemoire(undefined); brancherMemoireConversation(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
+  // Écho : une DICTÉE gardée laisse un REPÈRE NEUTRE en mémoire (date, mise en forme), jamais le texte (chiffré dans
+  // la base de l'appli). Rien n'est effacé tout seul ; une suppression retire le repère en cascade.
+  brancherMemoireDictee({
+    noter: (p) => { const sujet = `dictee:${p.dic}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); const jour = p.date.slice(0, 10); odin.muninn.remember(`Dictée du ${jour}${p.mode && p.mode !== 'tel quel' ? ` (${p.mode})` : ''}`, 'owner', 'dictee', `écho dictée ${p.mode}`.slice(0, 120), { subject: sujet, topic: 'echo', source: 'Écho' }); },
+    oublier: (dic) => { const sujet = `dictee:${dic}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); },
+  });
+  return () => { brancherMemoire(undefined); brancherMemoireConversation(undefined); brancherMemoireDictee(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
 }
 
 /** Pour Talos : action d'une appli, sans personne → actions graves refusées. */

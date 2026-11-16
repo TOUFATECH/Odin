@@ -18,6 +18,7 @@ import { historiqueDe, idValide } from '../valhalla/rodd/conversation-historique
 import { enregistrementDe, MAX_OCTETS, MAX_SECONDES } from '../valhalla/rodd/conversation-son.ts';
 import { resumeDe, resumer } from '../valhalla/rodd/conversation-resume.ts';
 import { noterConversation } from '../valhalla/rodd/conversation-memoire.ts';
+import { corrigerTours } from '../valhalla/rodd/conversation-correction.ts';
 import { modeleDe, type OptionsConversation } from './conversation-api.ts';
 
 export interface OptionsArchive {
@@ -38,6 +39,7 @@ async function lireJson(req: IncomingMessage): Promise<Record<string, unknown> |
 }
 
 const AIDE = 'Configure un modèle dans Réglages → Modèle (le résumé est écrit par le modèle d\'Odin, jamais inventé).';
+const AIDE_CORR = 'Configure un modèle dans Réglages → Modèle (la correction est écrite par le modèle d\'Odin, jamais inventée).';
 /** Le modèle utilisable pour résumer : aucun en mode démo, aucun modèle en ligne si « tout sur la machine ». */
 function modeleUtilisable(modele: ReturnType<typeof modeleDe>, reglages: Pick<Reglages, 'local'>): ReturnType<typeof modeleDe> {
   if (!modele) return undefined;
@@ -54,7 +56,7 @@ function languesDe(tours: Array<{ de: keyof typeof NOMS; vers: keyof typeof NOMS
 export async function archiveRoute(req: IncomingMessage, res: ServerResponse, url: URL, o: OptionsArchive): Promise<boolean> {
   if (!url.pathname.startsWith('/api/rodd/archive/')) return false;
   const quoi = url.pathname.slice('/api/rodd/archive/'.length);
-  if (!['etat', 'enregistrer', 'son', 'resume', 'resume-lire', 'resume-modifier'].includes(quoi)) { json(res, 404, { ok: false, error: 'route inconnue' }); return true; }
+  if (!['etat', 'enregistrer', 'son', 'resume', 'resume-lire', 'resume-modifier', 'corriger', 'corriger-garder'].includes(quoi)) { json(res, 404, { ok: false, error: 'route inconnue' }); return true; }
   const methode = quoi === 'son' ? 'GET' : 'POST';
   if (req.method !== methode) { res.writeHead(405, { allow: methode, 'cache-control': 'no-store' }); res.end(); return true; }
   // x-odin seulement pour les POST : le GET 'son' (écoute et téléchargement par le navigateur) ne peut pas poser cet
@@ -99,6 +101,31 @@ export async function archiveRoute(req: IncomingMessage, res: ServerResponse, ur
       const texte = String(b.texte ?? '').trim();
       resumes.ecrire(conv, texte, { modifie: true });
       json(res, 200, { ok: true });
+      return true;
+    }
+    if (quoi === 'corriger') {
+      // Corrige l'orthographe de la transcription gardée, chaque tour dans SA langue. On montre seulement l'avant/après ;
+      // rien n'est écrit tant que le propriétaire n'a pas touché « Garder » (route corriger-garder).
+      const modele = modeleUtilisable(o.modele ?? modeleDe(o.odin), reglages);
+      if (!modele) { json(res, 200, { ok: false, error: reglages.local ? 'Le modèle configuré est en ligne (« tout sur la machine » est coché) : aucune correction.' : 'Aucun modèle d\'Odin n\'est configuré : pas de correction.', aide: AIDE_CORR }); return true; }
+      const tours = historiqueDe(ctx).lister(500, conv);
+      if (!tours.length) { json(res, 200, { ok: false, error: 'Aucune transcription gardée à corriger pour cette conversation.' }); return true; }
+      const corrections = await corrigerTours(tours, modele);
+      json(res, 200, { ok: true, tours: corrections, modele: modele.nom || 'modèle d\'Odin' });
+      return true;
+    }
+    if (quoi === 'corriger-garder') {
+      // Garde les corrections choisies : remplace le texte ENTENDU du tour (chiffré) et le marque « corrigé ».
+      const histo = historiqueDe(ctx);
+      const parId = new Map(histo.lister(500, conv).map((t) => [t.id, t]));
+      const liste = Array.isArray(b.corrections) ? b.corrections as Array<{ id?: unknown; apres?: unknown }> : [];
+      let n = 0;
+      for (const c of liste) {
+        const t = idValide(c.id) ? parId.get(c.id) : undefined; if (!t) continue;
+        const apres = String(c.apres ?? '').trim(); if (!apres || apres === (t.entendu || '').trim()) continue;
+        if (histo.remplacer(t.id, { qui: t.qui, de: t.de, vers: t.vers, entendu: apres, traduit: t.traduit, corrige: true })) n++;
+      }
+      json(res, 200, { ok: true, n });
       return true;
     }
     // quoi === 'resume' : fabrique le résumé par le modèle d'Odin.
