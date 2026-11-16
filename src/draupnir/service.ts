@@ -54,7 +54,9 @@ export class Talos {
   constructor(home: string, deps: Deps, hooks: { onRun?(ex: Execution): void } = {}) {
     this.hooks = hooks;
     // Sous-automatisations et code isolé : branchés ici pour que chaque nœud y ait accès.
-    this.deps = { code: runCode, ...deps, runFlow: (idOrName, items, depth) => this.call(idOrName, items, depth) };
+    // replanifierFlux : quand Internet revient, un flux mis « en attente d'Internet » est relancé
+    // depuis son déclencheur, au lieu d'attendre seulement son prochain créneau planifié.
+    this.deps = { code: runCode, replanifierFlux: (id) => { const wf = this.get(id); const start = wf?.nodes.find((n) => CATALOG.get(n.type)?.trigger); if (wf?.active && start) void this.fire(id, start.name, []).catch(() => { /* une relance ratée ne fait pas tomber Odin */ }); }, ...deps, runFlow: (idOrName, items, depth) => this.call(idOrName, items, depth) };
     this.dir = join(home, 'draupnir');
     for (const d of ['flows', 'runs', 'state', 'corbeille', 'versions']) mkdirSync(join(this.dir, d), { recursive: true });
   }

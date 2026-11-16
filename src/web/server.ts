@@ -16,6 +16,7 @@ import { conversationRoute } from './conversation-api.ts';
 import { archiveRoute } from './rodd-archive-api.ts';
 import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
+import { demarrer as demarrerSondeInternet, etatInternet, surChangement as surChangementInternet } from '../net/etat-internet.ts';
 import { echangeBus, echangesRecents } from '../valhalla/echanges.ts';
 import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { isIP } from 'node:net';
@@ -272,6 +273,14 @@ export class WebChannel implements Channel {
   readonly accounts: Accounts;
   /** Jeton précédent après rotation : refusé, mais pas compté comme une attaque. */
   private lastToken = '';
+  /** Sonde Internet partagée : démarrée paresseusement au premier /api/state (ne touche pas le démarrage). */
+  private sondeInternetDemarree = false;
+  private demarrerSondeInternet(): void {
+    if (this.sondeInternetDemarree) return;
+    this.sondeInternetDemarree = true;
+    surChangementInternet(() => this.notify('state'));
+    demarrerSondeInternet();
+  }
 
   constructor(odin: Odin, hooks: WebHooks, opts: { port: number; host: string; token: string; access?: WebAccess; tls?: TlsMaterial; /** coût du hachage (tests seulement) */ scryptN?: number }) {
     this.odin = odin; this.hooks = hooks;
@@ -523,6 +532,9 @@ export class WebChannel implements Channel {
   notify(topic: string): void { this.stateCache = undefined; this.push({ type: 'refresh', topic }); }
 
   async start(onMessage: (m: Inbound) => Promise<void>): Promise<void> {
+    // Sonde Internet dès le démarrage : une tâche de Talos planifiée avant toute visite du tableau de bord
+    // classe alors correctement l'état réseau (sinon elle se croirait en ligne). Idempotent.
+    this.demarrerSondeInternet();
     const handler = (req: IncomingMessage, res: ServerResponse) => {
       void this.route(req, res, onMessage).catch((e) => {
         const msg = (e as Error).message;
@@ -1200,6 +1212,7 @@ export class WebChannel implements Channel {
   }
 
   private state(): unknown {
+    this.demarrerSondeInternet();
     const { muninn, skills, inventory, cfg } = this.odin;
     const auditFile = join(this.odin.paths.logs, 'audit.jsonl');
     const audit = existsSync(auditFile) ? readFileSync(auditFile, 'utf8').trim().split('\n').slice(-40).reverse().map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) : [];
@@ -1210,6 +1223,7 @@ export class WebChannel implements Channel {
       conversations: (() => { const pins = muninn.kvPrefix('pin:'), titles = muninn.kvPrefix('title:'); return muninn.listSessions(200).filter((s) => s.id.startsWith('web:')).map((s) => ({ peer: s.id.slice(4), title: titles[s.id.slice(4)] || s.title, updated: s.updated_at, tainted: s.tainted === 1, pinned: Boolean(pins[s.id.slice(4)]) })).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updated - a.updated).slice(0, 80); })(),
       usage: day,
       network: { enabled: cfg.network.enabled, intervalMin: cfg.network.intervalMin, lastScan: inventory.lastScan() ?? null },
+      internet: etatInternet(),
       devices: inventory.list({ status: 'all' }).map((d) => {
         // Les règles s'améliorent : un appareil resté « inconnu » est reclassé à l'affichage.
         const kind = d.kind === 'inconnu' ? classify({ ...d, isGateway: false }) : d.kind;

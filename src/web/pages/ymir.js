@@ -15,7 +15,10 @@
     for (const c of kids.flat(9)) if (c != null && c !== false) n.append(c instanceof Node ? c : document.createTextNode(String(c)));
     return n;
   };
-  const post = async (action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'ymir', action, input, confirm }) })).json();
+  const post = async (action, input = {}, confirm = false) => {
+    try { return await (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'ymir', action, input, confirm }) })).json(); }
+    catch { return { ok: false, text: 'Odin est injoignable pour l\'instant (connexion indisponible).' }; }
+  };
   const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
   const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: 'Hydre', app: 'Hydre' }); };
   const P = {
@@ -285,7 +288,7 @@
             else centre.maj({ pct: k, texte: `J'envoie ${f.name}${rang}…`, detail: p.attente ? 'connexion coupée, nouvel essai…' : u.info.textContent });
           });
           u.bar.classList.add(x.ok === false ? 'ko' : 'fin'); u.info.textContent = x.ok === false ? 'bloquée' : 'dans la bibliothèque'; u.msg.textContent = x.text ?? ''; note(x);
-        } catch (e) { u.bar.classList.add('ko'); u.info.textContent = 'arrêté'; u.msg.textContent = e.message; }
+        } catch (e) { u.bar.classList.add('ko'); u.info.textContent = 'arrêté'; u.msg.textContent = (window.OdinReseau && !window.OdinReseau.enLigne()) ? 'Envoi interrompu : connexion indisponible. Il reprendra au retour d\'Internet.' : (e && /fetch|network|load failed|NetworkError|Failed/i.test(String(e.message)) ? 'Envoi interrompu : connexion indisponible pour l\'instant.' : (e?.message || 'Envoi interrompu.')); }
       }
       libre();
       if (l.length) setTimeout(redraw, 1200);

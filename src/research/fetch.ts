@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { inflateSync } from 'node:zlib';
 import { assertPublicUrl, isPrivateHost } from '../heimdall/policy.ts';
+import { classerErreur } from '../net/fetch-propre.ts';
 
 export const BROWSER_HEADERS: Record<string, string> = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
@@ -67,7 +68,8 @@ export async function politeFetch(raw: string, o: { signal?: AbortSignal; pause?
     const host = url.hostname;
     let res: Response | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
-      res = await paced(host, () => f(url, { redirect: 'manual', headers: { ...BROWSER_HEADERS, ...(cookies(host) ? { cookie: cookies(host) } : {}) }, signal: AbortSignal.any([...(o.signal ? [o.signal] : []), AbortSignal.timeout(25_000)]) }), o.signal, o.pause);
+      try { res = await paced(host, () => f(url, { redirect: 'manual', headers: { ...BROWSER_HEADERS, ...(cookies(host) ? { cookie: cookies(host) } : {}) }, signal: AbortSignal.any([...(o.signal ? [o.signal] : []), AbortSignal.timeout(25_000)]) }), o.signal, o.pause); }
+      catch (e) { if ((e as Error).name === 'AbortError' && o.signal?.aborted) throw e; throw new Error(classerErreur(e, host).message); }
       keepCookies(host, res);
       if (res.status !== 429 && res.status !== 503) break;
       // Trop de requêtes : on attend ce que le site demande (60 s max), puis on réessaie.

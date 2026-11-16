@@ -10,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { understand } from '../valhalla/huginn.ts';
 import { cleanLayout, defaultLayout, type Layout } from '../valhalla/modules/gladsheim.ts';
 import type { Module } from '../valhalla/types.ts';
-import { LIEU_PAR_DEFAUT, THEMES, appStates, familyNow, keyRights, memberOf, recordFix, regionActuelle, tilesOf, weather, weatherText, wword } from '../valhalla/modules/gladsheim.ts';
+import { LIEU_PAR_DEFAUT, THEMES, appStates, familyNow, keyRights, meteoAncienne, memberOf, recordFix, regionActuelle, tilesOf, weather, weatherText, wword } from '../valhalla/modules/gladsheim.ts';
 import { cameraNames, preview } from '../valhalla/modules/himinbjorg.ts';
 import { homeDevices, homePeople, homeScenes } from '../valhalla/modules/midgard.ts';
 import { netState } from '../valhalla/modules/vidarr.ts';
@@ -131,7 +131,7 @@ export async function maisonRoute(req: IncomingMessage, res: ServerResponse, url
     // La fenêtre d'Odin : ses pages marquées « écran de la maison ». Une tablette « maison » ne voit que la météo, les
     // chiffres des applis de la famille Maison et les boutons sans action grave ; ta session (ou une clé « complet ») voit tout.
     const fenetre = await maisonPages(v, full);
-    json(res, 200, { ok: true, fenetre, rights: who.rights, name: d.name, theme: s(g.settings.theme) || 'verre', themes: Object.fromEntries(Object.entries(THEMES).map(([k, x]) => [k, x.label])), weather: w ? { ...w, word: wword(w.code) } : undefined, lieu: { nom: s(g.settings.villeNom) || s(g.settings.ville) || LIEU_PAR_DEFAUT, fuseau: s(g.settings.fuseau), heure12: regionActuelle(g).heure === '12h', suppose: g.settings.suppose === true }, rooms, scenes: homeScenes(mid).map((x) => x.name), tiles, apps, network, cameras: full ? cameraNames(v.ctx('himinbjorg')) : [], people, mascotte, notices: who.rights === 'complet' ? noticesOf()?.recent(8) ?? [] : [], at: Date.now() });
+    json(res, 200, { ok: true, fenetre, rights: who.rights, name: d.name, theme: s(g.settings.theme) || 'verre', themes: Object.fromEntries(Object.entries(THEMES).map(([k, x]) => [k, x.label])), weather: w ? { ...w, word: wword(w.code), ...(meteoAncienne().ancien ? { ancien: true, motif: meteoAncienne().motif } : {}) } : undefined, lieu: { nom: s(g.settings.villeNom) || s(g.settings.ville) || LIEU_PAR_DEFAUT, fuseau: s(g.settings.fuseau), heure12: regionActuelle(g).heure === '12h', suppose: g.settings.suppose === true }, rooms, scenes: homeScenes(mid).map((x) => x.name), tiles, apps, network, cameras: full ? cameraNames(v.ctx('himinbjorg')) : [], people, mascotte, notices: who.rights === 'complet' ? noticesOf()?.recent(8) ?? [] : [], at: Date.now() });
     return true;
   }
   // Aperçu d'une caméra (Cyclope) : une image JPEG, rafraîchie par la page.

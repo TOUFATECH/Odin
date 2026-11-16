@@ -61,7 +61,17 @@
     const ids = [...new Set(page().widgets.filter((w) => w.module && w.kind !== 'bouton').map((w) => w.module))];
     await Promise.all(ids.map(async (id) => { try { const r = await api(`/api/valhalla/view?id=${encodeURIComponent(id)}`); if (r.ok) views.set(id, r.view); } catch { /* hors ligne */ } }));
   }
-  async function weather() { try { const r = await act('gladsheim', 'meteo', {}); return r.ok ? r.data : null; } catch { return null; } }
+  let meteoVue = null; // la dernière météo reçue, remontrée (marquée ancienne) quand Internet est coupé
+  async function weather() { try { const r = await act('gladsheim', 'meteo', {}); if (r.ok && r.data) { meteoVue = r.data; return r.data; } return null; } catch { return null; } }
+  // Météo absente : distinguer « pas d'Internet » (on remontre la dernière, marquée ancienne) de « ville non réglée ».
+  function meteoRepli() {
+    if (window.OdinReseau && !window.OdinReseau.enLigne() && window.OdinHorsLigne) {
+      const net = window.OdinReseau.etat(), v = meteoVue;
+      return window.OdinHorsLigne.message({ quoi: 'La météo n\'a pas pu être mise à jour', hote: 'api.open-meteo.com', depuis: net && net.depuis,
+        ancien: v ? `${Math.round(v.temp ?? v.now?.temp ?? 0)}° ${v.text ?? v.now?.text ?? ''}${v.place || v.ville ? ` · ${v.place ?? v.ville}` : ''}`.trim() : undefined, onReessayer: () => draw() });
+    }
+    return el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Hestia).');
+  }
   /** Le lieu d'Odin (village, fuseau, heure sur 12 ou 24 h) : gardé une minute. */
   let lieuVu = null, lieuAt = 0;
   async function lieu() {
@@ -95,7 +105,7 @@
     if (w.kind === 'meteo') {
       const d = await weather();
       box.append(head(w.label || 'Météo', 'Hestia', '☀', 'gladsheim'), d ? el('div', {}, el('div', { class: 'fe-wx' }, el('b', {}, `${Math.round(d.temp ?? d.now?.temp ?? 0)}°`), el('div', {}, el('div', {}, d.text ?? d.now?.text ?? ''), el('small', { class: 'sub' }, d.place ?? d.ville ?? ''))),
-        Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => { const at = typeof h.t === 'string' ? h.t.replace(':00', ' h').replace(':', ' h ') : `${h.h ?? h.hour ?? ''} h`, t = Number(h.temp ?? h.t); return el('span', {}, Number.isFinite(t) ? `${at} · ${Math.round(t)}°` : at); })) : null) : el('p', { class: 'fe-err' }, 'Météo indisponible (choisis ta ville dans Hestia).'));
+        Array.isArray(d.hours) && d.hours.length ? el('div', { class: 'fe-hours' }, ...d.hours.slice(0, 5).map((h) => { const at = typeof h.t === 'string' ? h.t.replace(':00', ' h').replace(':', ' h ') : `${h.h ?? h.hour ?? ''} h`, t = Number(h.temp ?? h.t); return el('span', {}, Number.isFinite(t) ? `${at} · ${Math.round(t)}°` : at); })) : null) : meteoRepli());
       return box;
     }
     if (w.kind === 'heure') { box.append(head(w.label || 'Heure et lieu', 'Hestia', '🕒', 'gladsheim'), horloge(await lieu())); return box; }

@@ -98,8 +98,10 @@ export async function download(fetchFn: (u: string, i?: RequestInit) => Promise<
   const fh = await open(part, have ? 'a' : 'w'); let done = have; const t0 = Date.now();
   try {
     const reader = res.body!.getReader();
+    // Délai d'inactivité : si plus rien n'arrive pendant 2 min, on coupe au lieu de bloquer sans fin.
+    const lire = () => { let m: ReturnType<typeof setTimeout>; return Promise.race([reader.read(), new Promise<never>((_, ko) => { m = setTimeout(() => { reader.cancel().catch(() => {}); ko(new Error('téléchargement interrompu : plus rien reçu depuis 2 min')); }, 120_000); })]).finally(() => clearTimeout(m!)); };
     for (;;) {
-      const { done: end, value } = await reader.read(); if (end) break;
+      const { done: end, value } = await lire(); if (end) break;
       h.update(value); await fh.write(value); done += value.length; o.progress?.(done, total);
       // Débit maximum (Mo/s) : on attend ce qu'il faut.
       if (o.rate) { const ahead = (done - have) / (o.rate * 1024 * 1024) * 1000 - (Date.now() - t0); if (ahead > 20) await new Promise((w) => setTimeout(w, Math.min(ahead, 2000))); }

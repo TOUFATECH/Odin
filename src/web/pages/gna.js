@@ -121,7 +121,16 @@
     const boite = el('div', { class: 'ul-carte' });
     const dessin = sv('svg', { class: 'ul-svg', role: 'img', 'aria-label': o.titre, tabindex: '0' });
     const barre = el('i'), texte = el('span'), echelle = el('div', { class: 'ul-echelle', 'aria-hidden': 'true' }, texte, barre), credit = el('div', { class: 'ul-credit' }, o.fond ? o.attribution : '');
-    let W = 0, H = 0, z = 13, cx = 0, cy = 0, ox = 0, oy = 0, monde = null, fondG = null, grille = null, vues = new Set(), file = [], enVol = 0, tour = 0, vivant = true, deplace = false, glisse = 0;
+    let W = 0, H = 0, z = 13, cx = 0, cy = 0, ox = 0, oy = 0, monde = null, fondG = null, grille = null, vues = new Set(), file = [], enVol = 0, tour = 0, vivant = true, deplace = false, glisse = 0, posees = 0, ratees = 0;
+    // Le fond de carte vient d'Internet (tuiles) : s'il ne charge pas et qu'Internet est coupé, on l'explique au lieu de laisser un fond plat muet.
+    const couvre = el('div', { style: 'position:absolute;left:8px;right:8px;bottom:8px;display:none;z-index:2' });
+    function majFond() {
+      if (o.fond && posees === 0 && ratees > 0 && window.OdinReseau && !window.OdinReseau.enLigne() && window.OdinHorsLigne) {
+        const net = window.OdinReseau.etat();
+        couvre.replaceChildren(window.OdinHorsLigne.message({ quoi: 'Le fond de carte n\'a pas pu être chargé', hote: 'tile.openstreetmap.org', depuis: net && net.depuis, onReessayer: () => { vues = new Set(); posees = 0; ratees = 0; tracer(); } }));
+        couvre.style.display = '';
+      } else { couvre.style.display = 'none'; couvre.replaceChildren(); }
+    }
     const cadre = () => {
       const t = o.choisi ? o.trajets.filter((x) => x.n === o.choisi) : o.trajets, pts = t.flatMap((x) => x.points);
       if (!o.choisi || !pts.length) { for (const a of o.arrets) pts.push([a.lat, a.lon]); for (const l of o.lieux ?? []) pts.push([l.lat, l.lon]); }
@@ -161,14 +170,15 @@
         const n = 2 ** z, zz = z, g = fondG, dx = ox, dy = oy; enVol++;
         Promise.resolve(o.tuile(zz, ((tx % n) + n) % n, ty)).catch(() => null).then((src) => {
           enVol--;
-          if (vivant && t === tour && src) g.append(sv('image', { href: src, x: tx * T - dx, y: ty * T - dy, width: T, height: T, preserveAspectRatio: 'none' }));
+          if (vivant && t === tour && src) { posees++; g.append(sv('image', { href: src, x: tx * T - dx, y: ty * T - dy, width: T, height: T, preserveAspectRatio: 'none' })); } else if (!src) ratees++;
           if (vivant) pomper();
+          if (vivant && enVol === 0 && !file.length) majFond();
         });
       }
     }
     function tracer() {
       if (!W) return;
-      tour++; vues = new Set(); file = [];
+      tour++; vues = new Set(); file = []; posees = 0; ratees = 0; majFond();
       dessin.setAttribute('viewBox', `0 0 ${W} ${H}`); dessin.setAttribute('width', W); dessin.setAttribute('height', H);
       ox = Math.round(cx); oy = Math.round(cy);
       const X = (lon) => mx(lon, z) - ox, Y = (lat) => my(lat, z) - oy;
@@ -218,7 +228,7 @@
     boite.append(dessin, el('div', { class: 'ul-zoom' },
       el('button', { type: 'button', class: 'ul-b', 'aria-label': 'Agrandir la carte', title: 'Agrandir', onclick: () => zoomer(1) }, '+'),
       el('button', { type: 'button', class: 'ul-b', 'aria-label': 'Réduire la carte', title: 'Réduire', onclick: () => zoomer(-1) }, '−'),
-      el('button', { type: 'button', class: 'ul-b', 'aria-label': 'Recadrer la carte', title: 'Recadrer', onclick: () => { cadrer(); tracer(); } }, '⤢')), echelle, credit);
+      el('button', { type: 'button', class: 'ul-b', 'aria-label': 'Recadrer la carte', title: 'Recadrer', onclick: () => { cadrer(); tracer(); } }, '⤢')), echelle, credit, couvre);
     const mesurer = () => {
       const w = Math.floor(boite.clientWidth); if (!vivant || !w || w === W) return;
       W = w; H = Math.round(Math.max(260, Math.min(520, w * 0.64)));

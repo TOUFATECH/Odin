@@ -135,11 +135,27 @@
   function video(m, title) {
     const label = title || m.site || fileName(m.url) || 'Vidéo';
     const frame = el('div', { class: 'md-vframe' }), thumb = m.thumb ? imgSrc(m.thumb) : null;
-    const play = el('button', { type: 'button', class: 'md-vplay', 'aria-label': `Lire la vidéo : ${label}`, onclick: () => {
-      frame.replaceChildren(m.embed
-        ? el('iframe', { src: m.embed, title: label, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin', sandbox: 'allow-scripts allow-same-origin allow-presentation allow-popups' })
-        : el('video', { src: m.url, controls: true, autoplay: true, playsinline: true, preload: 'metadata' }));
-    } }, thumb ? el('img', { src: thumb, alt: '', loading: 'lazy', onerror: (e) => e.currentTarget.remove() }) : null, el('span', { class: 'md-vic', 'aria-hidden': 'true' }, '▶'), m.site ? el('span', { class: 'md-vsite' }, m.site) : null);
+    const hoteDe = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return m.site || ''; } };
+    // Repli propre quand la vidéo (intégrée depuis un autre site) ne peut pas charger : jamais la page d'erreur du navigateur.
+    const horsLigne = () => {
+      if (!window.OdinHorsLigne) return el('div', { class: 'md-alt' }, `[vidéo indisponible : ${label} — connexion indisponible]`);
+      const net = window.OdinReseau && window.OdinReseau.etat && window.OdinReseau.etat();
+      return window.OdinHorsLigne.message({ quoi: `La vidéo « ${label} » n'a pas pu être chargée`, hote: hoteDe(m.embed || m.url), depuis: net && net.depuis, onReessayer: lire });
+    };
+    function lire() {
+      if (m.embed && window.OdinReseau && !window.OdinReseau.enLigne()) { frame.replaceChildren(horsLigne()); return; }
+      if (m.embed) {
+        const ifr = el('iframe', { src: m.embed, title: label, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true, referrerpolicy: 'strict-origin-when-cross-origin', sandbox: 'allow-scripts allow-same-origin allow-presentation allow-popups' });
+        let charge = false; ifr.addEventListener('load', () => { charge = true; });
+        frame.replaceChildren(ifr);
+        // Délai maximal : si l'intégration n'a pas chargé, on explique au lieu de laisser une page d'erreur.
+        setTimeout(() => { if (!charge && frame.contains && frame.contains(ifr)) frame.replaceChildren(horsLigne()); }, 12000);
+      } else {
+        frame.replaceChildren(el('video', { src: m.url, controls: true, autoplay: true, playsinline: true, preload: 'metadata', onerror: () => frame.replaceChildren(horsLigne()) }));
+      }
+    }
+    const play = el('button', { type: 'button', class: 'md-vplay', 'aria-label': `Lire la vidéo : ${label}`, onclick: lire },
+      thumb ? el('img', { src: thumb, alt: '', loading: 'lazy', onerror: (e) => e.currentTarget.remove() }) : null, el('span', { class: 'md-vic', 'aria-hidden': 'true' }, '▶'), m.site ? el('span', { class: 'md-vsite' }, m.site) : null);
     frame.append(play);
     return el('div', { class: 'md-video' }, frame, el('div', { class: 'md-mt' }, label), actions(m.url, label, m.file));
   }

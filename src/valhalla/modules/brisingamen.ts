@@ -64,9 +64,18 @@ export const brisingamen: Module = {
     } },
     { id: 'bilan', label: 'Bilan de sécurité', what: 'Fuites, réutilisés, faibles', read: true, words: ['bilan', 'fuite', 'fuites', 'faibles', 'reutilises', 'réutilisés'], run: (ctx) => { const a = audit(load(ctx)); return { text: `Fuites connues : ${a.breached.length}\nRéutilisés : ${a.reused.length} (${[...new Set(a.reused.map((x) => x.name))].join(', ') || '—'})\nTrop faibles : ${a.weak.length} (${a.weak.map((x) => x.name).join(', ') || '—'})\nComptes avec 2FA : ${a.totp}` }; } },
     { id: 'fuites', label: 'Vérifier les fuites', what: 'Compare à la base publique des mots de passe volés (seuls 5 caractères d\'empreinte partent)', run: async (ctx) => {
-      const items = load(ctx); let n = 0;
-      for (const it of items) { if (!it.password) continue; const h = createHash('sha1').update(it.password).digest('hex').toUpperCase(); const r = await ctx.fetch(`https://api.pwnedpasswords.com/range/${h.slice(0, 5)}`, { headers: { 'Add-Padding': 'true' }, signal: AbortSignal.timeout(15_000) }); if (!r.ok) continue; it.breached = (await r.text()).split('\n').some((l) => l.startsWith(h.slice(5)) && !l.endsWith(':0')); if (it.breached) n++; }
+      const items = load(ctx); let n = 0, echec = false;
+      for (const it of items) {
+        if (!it.password) continue;
+        const h = createHash('sha1').update(it.password).digest('hex').toUpperCase();
+        let r: Awaited<ReturnType<typeof ctx.fetch>>;
+        try { r = await ctx.fetch(`https://api.pwnedpasswords.com/range/${h.slice(0, 5)}`, { headers: { 'Add-Padding': 'true' }, signal: AbortSignal.timeout(15_000) }); }
+        catch { echec = true; break; } // service injoignable (pas d'Internet ?) : on s'arrête proprement
+        if (!r.ok) continue;
+        it.breached = (await r.text()).split('\n').some((l) => l.startsWith(h.slice(5)) && !l.endsWith(':0')); if (it.breached) n++;
+      }
       store(ctx, items); if (n) ctx.alert({ level: 'haute', title: `${n} mot(s) de passe trouvé(s) dans des fuites`, detail: 'Change-les depuis Thésauros.', key: `breach:${n}` });
+      if (echec && n === 0) return { text: '🌐 Impossible de vérifier les fuites pour l\'instant : le service (pwnedpasswords) est injoignable. Réessaie quand Internet sera revenu.' };
       return { text: n ? `⚠ ${n} mot(s) de passe trouvé(s) dans des fuites publiques.` : '✓ Aucun de tes mots de passe n\'est dans les fuites connues.' };
     } },
   ],

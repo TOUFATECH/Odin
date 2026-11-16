@@ -5,6 +5,7 @@
 import { readSse } from './sse.ts';
 import type { CompletionRequest, Message, ModelResponse, Provider, ToolCall } from '../types.ts';
 import { HttpError } from './http.ts';
+import { fluxAvecInactivite } from '../net/fetch-propre.ts';
 
 /** Convertit l'historique Odin vers le format OpenAI (pur, testable). */
 export function toOpenAIMessages(system: string, messages: Message[], withReasoning = false): Array<Record<string, unknown>> {
@@ -52,10 +53,13 @@ export class OpenAIProvider implements Provider {
         ...(req.tools.length ? { tools: req.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } })) } : {}),
         ...(req.onDelta ? { stream: true, stream_options: { include_usage: true } } : {}),
       }),
-      signal: req.signal,
+      // Hors flux : délai TOTAL (pas d'attente sans fin si le service gèle). En flux : pas d'échéance
+      // absolue (elle couperait une réponse longue mais saine) ; c'est un délai d'INACTIVITÉ sur le flux
+      // qui protège du gel (voir fluxAvecInactivite plus bas).
+      signal: req.signal ?? (req.onDelta ? undefined : AbortSignal.timeout(120_000)),
     });
     if (!res.ok) throw new HttpError(res.status, await res.text(), res.headers.get('retry-after'));
-    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return openaiStream(res.body, req.onDelta);
+    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return openaiStream(fluxAvecInactivite(res, 120_000).body!, req.onDelta);
     const data = (await res.json()) as {
       choices: Array<{ message: { content: string | null; reasoning_content?: string | null; tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }> }; finish_reason: string }>;
       usage?: { prompt_tokens: number; completion_tokens: number };

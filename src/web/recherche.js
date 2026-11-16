@@ -18,7 +18,13 @@
     wifi: 'M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0M12 19h.01', app: 'M4 4h6.5v6.5H4zM13.5 4H20v6.5h-6.5zM4 13.5h6.5V20H4zM13.5 13.5H20V20h-6.5z', book: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5',
   };
   const icon = (k, z = 18) => el('svg', { viewBox: '0 0 24 24', width: z, height: z, 'aria-hidden': 'true', svg: true }, el('path', { d: P[k], fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', svg: true }));
-  const api = async (p, body) => { const r = await fetch(p, body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body), credentials: 'same-origin' } : { credentials: 'same-origin' }); const j = await r.json().catch(() => ({})); if (r.status === 401) { const e = new Error('connexion requise'); e.auth = true; throw e; } return j; };
+  // Tout appel porte un délai maximal : jamais de spinner sans fin. Les erreurs réseau brutes (« Failed to fetch ») deviennent du français clair.
+  const api = async (p, body, ms = 45000) => {
+    let r;
+    try { r = await fetch(p, { ...(body ? { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify(body) } : {}), credentials: 'same-origin', signal: AbortSignal.timeout(ms) }); }
+    catch (e) { throw new Error(e && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'Odin met trop de temps à répondre (délai dépassé) : réessaie dans un instant.' : 'Odin est injoignable pour l\'instant (connexion indisponible).'); }
+    const j = await r.json().catch(() => ({})); if (r.status === 401) { const e = new Error('connexion requise'); e.auth = true; throw e; } return j;
+  };
 
   document.head.append(el('style', {}, `
 @font-face{font-family:Plex;src:url(/fonts/ibm-plex-sans-latin-400-normal.woff2) format('woff2');font-weight:400}@font-face{font-family:Plex;src:url(/fonts/ibm-plex-sans-latin-600-normal.woff2) format('woff2');font-weight:600}
@@ -155,7 +161,7 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
     const q = thread[0]?.q, wrap = el('div', {});
     if (!q) return wrap;
     const key = `${kind}:${q}`;
-    const show = (r) => { wrap.replaceChildren(r.ok ? (r.items.length ? el('div', { class: 'media' }, ...r.items.map((x) => el('a', { class: 'card', href: x.url, target: '_blank', rel: 'noopener noreferrer' }, x.thumb ? el('img', { src: `/api/recherche/vignette?u=${encodeURIComponent(x.thumb)}`, alt: '', loading: 'lazy', onerror: (ev) => ev.currentTarget.replaceWith(el('div', { class: 'ph' }, icon(kind === 'videos' ? 'play' : 'app', 22))) }) : el('div', { class: 'ph' }, icon(kind === 'videos' ? 'play' : 'app', 22)), el('b', {}, x.title), el('small', {}, x.domain)))) : el('p', { class: 'note' }, `Aucun${kind === 'videos' ? 'e vidéo' : 'e image'} trouvée.${r.errors?.length ? ` (${r.errors[0]})` : ''}`)) : el('p', { class: 'note' }, r.error)); };
+    const show = (r) => { wrap.replaceChildren(r.ok ? (r.items.length ? el('div', { class: 'media' }, ...r.items.map((x) => el('a', { class: 'card', href: x.url, target: '_blank', rel: 'noopener noreferrer' }, x.thumb ? el('img', { src: `/api/recherche/vignette?u=${encodeURIComponent(x.thumb)}`, alt: '', loading: 'lazy', onerror: (ev) => ev.currentTarget.replaceWith(el('div', { class: 'ph' }, icon(kind === 'videos' ? 'play' : 'app', 22))) }) : el('div', { class: 'ph' }, icon(kind === 'videos' ? 'play' : 'app', 22)), el('b', {}, x.title), el('small', {}, x.domain)))) : el('p', { class: 'note' }, `Aucun${kind === 'videos' ? 'e vidéo' : 'e image'} trouvée.${r.errors?.length ? ` (${r.errors[0]})` : ''}`)) : el('div', {}, el('p', { class: 'note' }, r.error || `${kind === 'videos' ? 'Les vidéos' : 'Les images'} n'ont pas pu être chargées (connexion indisponible pour l'instant).`), el('button', { class: 'act', type: 'button', style: { marginTop: '8px' }, onclick: () => { delete medias[key]; draw(); } }, icon('arrow', 16), 'Réessayer'))); };
     if (medias[key]) show(medias[key]);
     else { wrap.append(el('div', { class: 'wait' }, el('div', { class: 'bar' }), el('div', { class: 'bar', style: { width: '70%' } }))); api('/api/recherche/medias', { question: q, kind }).then((r) => { medias[key] = r; show(r); }).catch((e) => show({ ok: false, error: e.message })); }
     return wrap;
@@ -221,7 +227,9 @@ aside.right{display:flex;flex-direction:column;gap:14px;position:sticky;top:16px
   async function run(q, follow) {
     if (busy) return; busy = q; tab = 'reponse'; audio = null; if (!follow) thread = []; draw(); scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     try {
-      const r = await api('/api/recherche/chercher', { question: q, focus, approfondie: deep, ...(follow && thread.length ? { suite: thread[0].thread || thread[0].id } : {}) });
+      // Une recherche approfondie lit jusqu'à 14 sources et enchaîne plusieurs appels au modèle : elle dépasse
+      // souvent 45 s sans être bloquée. On laisse donc plus de temps en mode approfondi avant de couper.
+      const r = await api('/api/recherche/chercher', { question: q, focus, approfondie: deep, ...(follow && thread.length ? { suite: thread[0].thread || thread[0].id } : {}) }, deep ? 180000 : 45000);
       busy = false; if (!r.ok) { toast(r.error || 'Recherche impossible'); draw(); return; }
       thread.push(r.entry); current = thread[0].id; history.replaceState(null, '', `/recherche#r=${thread[0].id}`); await refresh(); draw();
       setTimeout(() => document.querySelectorAll('.qa')[thread.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);

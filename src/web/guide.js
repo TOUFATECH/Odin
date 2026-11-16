@@ -246,7 +246,7 @@
       let r = await post('/api/valhalla/act', body);
       if (r.confirm) { if (!(await ok(r.confirm))) { show(p.label, 'Annulé : rien n\'a été fait.'); return; } r = await post('/api/valhalla/act', { ...body, confirm: true }); }
       show(p.label, r.ok === false ? `✗ ${r.text || r.error || 'échec'}` : String(r.text || 'Fait.'));
-    } catch (e) { show(p.label, `✗ ${e.message}`); }
+    } catch (e) { show(p.label, (window.OdinReseau && !window.OdinReseau.enLigne()) ? '✗ Pas d\'Internet pour l\'instant : Odin continue en local, réessaie au retour.' : (/fetch|network|load failed|NetworkError|Failed/i.test(String(e.message)) ? '✗ Odin est injoignable pour l\'instant (connexion indisponible).' : `✗ ${e.message}`)); }
   }
   /** Comment régler la page affichée, pas à pas. */
   async function regler() {

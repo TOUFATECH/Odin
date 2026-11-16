@@ -14,6 +14,7 @@ import { homeDevices } from './midgard.ts';
 import { nourrir, oublier } from '../gna/historique.ts';
 import { arrondirPosition, ecrireFichierPrive, lireFichierPrive } from '../../prive.ts';
 import { PAYS_PAR_DEFAUT, degres, fuseauValide, lieuDuFuseau, regionDe, setLieuCourant, temperature, vitesse, type Region, type Unites } from '../lieu.ts';
+import { fetchPropre } from '../../net/fetch-propre.ts';
 
 const s = (v: unknown) => String(v ?? '');
 export const THEMES: Record<string, { label: string; dark: boolean }> = {
@@ -178,7 +179,9 @@ const sansAccent = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0
 export async function trouverLieux(ctx: ModCtx, nom: string): Promise<Lieu[]> {
   const [ville, precision] = nom.split(',').map((x) => x.trim()), pays = (s(ctx.settings.pays) || 'YT').toUpperCase();
   if (!ville) return [];
-  const g = await (await ctx.fetch(`${s(ctx.settings.meteoGeo) || 'https://geocoding-api.open-meteo.com'}/v1/search?name=${encodeURIComponent(ville)}&count=10&language=fr`, { signal: AbortSignal.timeout(10_000) })).json() as { results?: Array<{ name: string; latitude: number; longitude: number; country_code?: string; country?: string; admin1?: string; timezone?: string }> };
+  const res = await fetchPropre(`${s(ctx.settings.meteoGeo) || 'https://geocoding-api.open-meteo.com'}/v1/search?name=${encodeURIComponent(ville)}&count=10&language=fr`, { fetch: ctx.fetch, timeoutMs: 10_000, label: 'La recherche de lieu' });
+  if (!res.ok || !res.reponse) throw new Error(res.erreur ?? 'service de lieux injoignable');
+  const g = await res.reponse.json().catch(() => ({})) as { results?: Array<{ name: string; latitude: number; longitude: number; country_code?: string; country?: string; admin1?: string; timezone?: string }> };
   const rang = (x: { country?: string; country_code?: string; admin1?: string }) => (precision && [x.country, x.country_code, x.admin1].some((y) => y && sansAccent(y) === sansAccent(precision)) ? 0 : x.country_code?.toUpperCase() === pays ? 1 : x.country_code?.toUpperCase() === PAYS_PAR_DEFAUT ? 2 : 3);
   return (g.results ?? []).map((r, i) => ({ r, i })).sort((a, b) => rang(a.r) - rang(b.r) || a.i - b.i)
     .map(({ r }) => ({ nom: r.name || ville, lat: r.latitude, lon: r.longitude, ...(r.country_code ? { pays: r.country_code.toUpperCase() } : {}), ...(r.admin1 || r.country ? { region: [r.admin1, r.country].filter(Boolean).filter((x, i, l) => l.indexOf(x) === i).join(', ') } : {}), ...(r.timezone ? { fuseau: r.timezone } : {}) }));
@@ -224,7 +227,9 @@ export function lieuDe(ctx: ModCtx): (Lieu & { precision?: number }) | undefined
 }
 /** Les prévisions d'un point précis (Open-Meteo), sans rien garder : sert au lieu d'Odin et à « la météo à … » d'un autre endroit. */
 export async function previsions(ctx: ModCtx, lat: number, lon: number, place: string): Promise<Weather> {
-  const r = await (await ctx.fetch(`${s(ctx.settings.meteoApi) || 'https://api.open-meteo.com'}/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=7`, { signal: AbortSignal.timeout(10_000) })).json() as { timezone?: string; current: Record<string, number>; hourly: { time: string[]; temperature_2m: number[] }; daily: { time: string[]; weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[]; sunrise: string[]; sunset: string[] } };
+  const res = await fetchPropre(`${s(ctx.settings.meteoApi) || 'https://api.open-meteo.com'}/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=7`, { fetch: ctx.fetch, timeoutMs: 10_000, label: 'La météo' });
+  if (!res.ok || !res.reponse) throw new Error(res.erreur ?? 'Open-Meteo ne répond pas');
+  const r = await res.reponse.json().catch(() => ({})) as { timezone?: string; current: Record<string, number>; hourly: { time: string[]; temperature_2m: number[] }; daily: { time: string[]; weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[]; sunrise: string[]; sunset: string[] } };
   const now = new Date().toISOString().slice(0, 13), from = Math.max(0, r.hourly.time.findIndex((t) => t.slice(0, 13) >= now));
   return { place, lat, lon, ...(typeof r.timezone === 'string' && r.timezone ? { fuseau: r.timezone } : {}), unites: regionActuelle(ctx).unites, temp: Math.round(r.current.temperature_2m), feels: Math.round(r.current.apparent_temperature), code: r.current.weather_code, humidity: r.current.relative_humidity_2m, wind: Math.round(r.current.wind_speed_10m), rain: r.current.precipitation, hi: Math.round(r.daily.temperature_2m_max[0]), lo: Math.round(r.daily.temperature_2m_min[0]), sunrise: r.daily.sunrise[0]?.slice(11, 16), sunset: r.daily.sunset[0]?.slice(11, 16), days: r.daily.time.map((d, i) => ({ day: d, code: r.daily.weather_code[i], hi: Math.round(r.daily.temperature_2m_max[i]), lo: Math.round(r.daily.temperature_2m_min[i]) })), hours: r.hourly.time.slice(from, from + 24).map((t, i) => ({ t: t.slice(11, 16), temp: Math.round(r.hourly.temperature_2m[from + i]) })), at: Date.now() };
 }
@@ -243,6 +248,8 @@ export async function weather(ctx: ModCtx, fresh = false): Promise<Weather | und
     wxErr = ''; return wx;
   } catch (e) { wxErr = (e as Error).message; return wx; }
 }
+/** Vrai si la dernière mise à jour météo a échoué : le cache encore montré est « ancien ». */
+export function meteoAncienne(): { ancien: boolean; motif: string } { return { ancien: Boolean(wxErr), motif: wxErr }; }
 export const weatherText = (w?: Weather) => (w ? `À ${w.place} : ${temperature(w.temp, w.unites)}, ${wword(w.code).toLowerCase()}${w.hi !== undefined && w.lo !== undefined ? ` (min ${degres(w.lo, w.unites)}, max ${degres(w.hi, w.unites)})` : ''}${w.humidity !== undefined ? `, humidité ${w.humidity} %` : ''}${w.wind !== undefined ? `, vent ${vitesse(w.wind, w.unites)}` : ''}.` : `Météo indisponible${wxErr ? ` (${wxErr})` : ''}.`);
 
 // ---------------- L'état des applis (tuiles d'état) ----------------
@@ -443,7 +450,7 @@ export const gladsheim: Module = {
     const t = tilesOf(ctx), w = await weather(ctx), dev = await homeDevices(valhallaOf()?.ctx('midgard') ?? ctx).catch(() => []);
     return {
       subtitle: `Thème « ${THEMES[s(ctx.settings.theme) || 'verre']?.label ?? 'Verre sombre'} » · ${t.length} bouton(s) · ${dev.length} appareil(s) · ${keys(ctx).length} clé(s) de tablette`,
-      kpis: [{ label: 'Météo', value: w ? `${w.temp} °C` : '—' }, { label: 'Appareils', value: String(dev.length) }, { label: 'Boutons', value: String(t.length) }, { label: 'Tablettes', value: String(keys(ctx).length) }],
+      kpis: [{ label: 'Météo', value: w ? `${w.temp} °C${wxErr ? ' (anciennes)' : ''}` : '—' }, { label: 'Appareils', value: String(dev.length) }, { label: 'Boutons', value: String(t.length) }, { label: 'Tablettes', value: String(keys(ctx).length) }],
       sections: [
         { kind: 'steps', title: 'L\'écran de la maison', items: [{ title: 'Ouvrir l\'écran', detail: '/maison sur l\'adresse d\'Odin', done: true }, { title: 'Une tablette murale ?', detail: 'Crée une clé de tablette (droits « maison » conseillés)', done: keys(ctx).length > 0 }, { title: 'Dans Home Assistant ?', detail: 'Autorise ta box et colle la carte « Page web »', done: Boolean(ctx.settings.haOrigin) }] },
         { kind: 'table', title: 'Boutons', columns: ['', 'Texte', 'Appli', 'Action'], empty: 'Aucun bouton.', rows: t.map((x) => ({ cells: [x.icon, x.label, ctx.modules().find((m) => m.id === x.module)?.name ?? x.module, x.action], actions: [{ action: 'retirer_bouton', label: 'Retirer', input: { nom: x.id } }] })) },

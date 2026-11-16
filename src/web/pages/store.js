@@ -65,7 +65,11 @@
     if (!document.getElementById('stCss')) document.head.append(el('style', { id: 'stCss' }, CSS));
     const S = etats[module] ?? (etats[module] = { tab: 'Store', q: '', systeme: '', type: '', arch: '', famille: '', enligne: false });
     if (!noms.includes(S.tab)) S.tab = 'Store';
-    const post = async (action, input = {}, confirm = false) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module, action, input, confirm }) })).json();
+    // Tout appel porte un délai maximal (jamais de barre de chargement sans fin) et rend un message propre si Odin est injoignable.
+    const post = async (action, input = {}, confirm = false, ms = 60000) => {
+      try { const r = await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module, action, input, confirm }), signal: AbortSignal.timeout(ms) }); return await r.json(); }
+      catch (e) { return { ok: false, text: e && (e.name === 'TimeoutError' || e.name === 'AbortError') ? 'Odin met trop de temps à répondre (délai dépassé) : réessaie.' : 'Odin est injoignable pour l\'instant (connexion indisponible).' }; }
+    };
     const act = async (action, input = {}) => { let r = await post(action, input); if (r.confirm) { if (!(await window.OdinDialog.confirm(r.confirm, { danger: true }))) return { ok: false, text: 'Annulé.' }; r = await post(action, input, true); } return r; };
     const note = (x) => { if (x?.text && x.text !== 'Annulé.') window.OdinNotices?.local?.({ title: x.text.split('\n')[0].slice(0, 160), level: x.ok === false ? 'souci' : 'ok', kind: appli?.name ?? 'Store', app: appli?.name ?? module }); };
 

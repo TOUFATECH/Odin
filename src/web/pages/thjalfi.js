@@ -149,7 +149,7 @@
       const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'position:absolute;width:1px;height:1px;opacity:0', 'aria-label': `Image de fond, ${f.nom}`, onchange: async (ev) => {
         const img = ev.target.files?.[0]; if (!img) return; etat.textContent = 'envoi…';
         try { const ref = await envoyerImage(f.cle, img, f), x = await post('ecran', { [f.cle]: ref }); etat.textContent = x.ok === false ? 'image refusée' : 'ton image est en place'; out.textContent = x.text; }
-        catch (err) { etat.textContent = 'image refusée'; out.textContent = err.message; }
+        catch (err) { etat.textContent = 'image refusée'; out.textContent = (window.OdinReseau && !window.OdinReseau.enLigne()) ? 'Envoi impossible : connexion indisponible. Réessaie au retour d\'Internet.' : (err && /fetch|network|load failed|NetworkError|Failed/i.test(String(err.message)) ? 'Envoi impossible : connexion indisponible pour l\'instant.' : (err?.message || 'Envoi impossible.')); }
         ev.target.value = '';
       } });
       return el('div', { class: 'tj-row' }, el('span', {}, f.nom, ' ', etat), el('span', { style: 'display:flex;gap:6px;flex-wrap:wrap' },

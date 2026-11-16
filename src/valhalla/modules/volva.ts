@@ -9,6 +9,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { politeFetch } from '../../research/fetch.ts';
 import { webSearch, type SearchProvider, type SearchResult } from '../../tools/search.ts';
+import { classerErreur } from '../../net/fetch-propre.ts';
+import { marquerService } from '../../net/etat-internet.ts';
 import { valhallaOf } from '../odin.ts';
 import { extractive, finish, FOCUS, fuse, parseInstant, parseSearx, parseWikipedia, prompt, toMarkdown, type Focus, type Source } from '../volva/engine.ts';
 import type { ActionResult, ModCtx, Module, Param } from '../types.ts';
@@ -61,7 +63,7 @@ export async function gather(ctx: ModCtx, q: string, focus: Focus = 'tout', n = 
       if (e === 'duckduckgo_ia') { const r = await f(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1&kl=fr-fr`, { signal }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return { engine: 'DuckDuckGo', results: parseInstant(await r.json()) }; }
       const r = await webSearch(query, n, { provider: e as SearchProvider, searxngUrl: searxUrl(ctx), fetcher: f, signal });
       return { engine: ENGINES[e].label.split(' (')[0], results: r.results };
-    } catch (err) { errors.push(`${ENGINES[e]?.label.split(' (')[0] ?? e} : ${(err as Error).message.slice(0, 120)}`); return { engine: e, results: [] }; }
+    } catch (err) { const nom = ENGINES[e]?.label.split(' (')[0] ?? e; const { message, etat } = classerErreur(err, nom); marquerService(nom, etat, message); errors.push(message); return { engine: e, results: [] }; }
   }));
   return { lists, errors, answers: [...new Set(answers)].slice(0, 3), suggestions: [...new Set(suggestions)].slice(0, 5) };
 }
@@ -184,7 +186,7 @@ export function volva(config: () => { searxngUrl?: string } = () => ({})): Modul
       } },
       { id: 'searxng', label: 'Relier mon SearXNG', what: 'L\'adresse de ton instance SearXNG (format JSON activé)', quick: false, params: [{ key: 'adresse', label: 'Adresse (http://…:8888)', kind: 'text', required: true }], run: async (ctx, i) => {
         const u = s(i.adresse).trim().replace(/\/$/, ''); if (!/^https?:\/\/[\w.:[\]-]+(\/[\w./-]*)?$/.test(u)) throw new Error('adresse invalide');
-        const r = await (ctx.fetch as typeof fetch)(`${u}/search?q=odin&format=json`, { signal: AbortSignal.timeout(10_000) }).catch((e: Error) => { throw new Error(`SearXNG injoignable : ${e.message}`); });
+        const r = await (ctx.fetch as typeof fetch)(`${u}/search?q=odin&format=json`, { signal: AbortSignal.timeout(10_000) }).catch((e: Error) => { throw new Error(classerErreur(e, 'SearXNG').message); });
         if (r.status === 403) throw new Error('SearXNG répond, mais le format JSON n\'est pas activé (search → formats → json dans settings.yml)');
         if (!r.ok) throw new Error(`SearXNG répond ${r.status}`);
         ctx.saveSettings({ searxng: u }); const d = parseSearx(await r.json());

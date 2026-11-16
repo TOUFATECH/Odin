@@ -4910,6 +4910,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
 
   async function refresh() {
     state = await api('/api/state');
+    // L'état d'Internet (state.internet) part vers OdinReseau et les pages, sans ouvrir de second flux.
+    try { window.dispatchEvent(new CustomEvent('odin:etat', { detail: state })); } catch { /* état indisponible */ }
     // Odin : homme ou femme. Les phrases toutes faites de l'interface s'accordent (OdinNaturel.accord) et la voix suit.
     if (window.OdinNaturel) window.OdinNaturel.genre = state?.settings?.voice?.gender === 'femme' ? 'femme' : 'homme';
     if (window.OdinPiedMenu) window.OdinPiedMenu.peindre(state); else $('#usage').textContent = `24 h : ${(state.usage.tokens_in + state.usage.tokens_out).toLocaleString('fr-FR')} jetons · ${state.usage.cost_usd.toFixed(3)} $`;

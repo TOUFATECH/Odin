@@ -131,9 +131,9 @@ export class TelegramChannel implements Channel {
 
   /** Télécharge un fichier Telegram (20 Mo au plus, limite de l'API des bots). */
   private async download(f: TgFile): Promise<{ data: Uint8Array; path: string }> {
-    const info = await (await fetch(`${this.url('getFile')}?file_id=${encodeURIComponent(f.file_id)}`)).json() as { ok: boolean; result?: { file_path: string } };
+    const info = await (await fetch(`${this.url('getFile')}?file_id=${encodeURIComponent(f.file_id)}`, { signal: AbortSignal.timeout(15_000) })).json() as { ok: boolean; result?: { file_path: string } };
     if (!info.ok || !info.result) throw new Error('fichier introuvable (plus de 20 Mo ?)');
-    const res = await fetch(`${this.api}/file/bot${this.token}/${info.result.file_path}`);
+    const res = await fetch(`${this.api}/file/bot${this.token}/${info.result.file_path}`, { signal: AbortSignal.timeout(120_000) });
     if (!res.ok) throw new Error(`téléchargement impossible (HTTP ${res.status})`);
     return { data: new Uint8Array(await res.arrayBuffer()), path: info.result.file_path };
   }

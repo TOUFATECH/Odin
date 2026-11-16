@@ -8,6 +8,8 @@ import { unreadSummary } from '../tools/mail.ts';
 import { isReminderJob, reminderText } from '../cron/reminders.ts';
 import { lieuCourant } from '../valhalla/lieu.ts';
 import { OPEN_METEO } from '../valhalla/zeus/sources.ts';
+import { fetchPropre } from '../net/fetch-propre.ts';
+import { enLigne } from '../net/etat-internet.ts';
 
 /** Code météo WMO → mots et émoji (pur). */
 export function weatherWords(code: number): [string, string] {
@@ -38,13 +40,15 @@ async function weather(odin: Odin): Promise<string | undefined> {
   const l = lieuCourant();
   let geo = l && typeof l.lat === 'number' && typeof l.lon === 'number' ? { lat: l.lat, lon: l.lon, name: l.nom } : null;
   if (!geo) {
-    const r = await fetch(`${OPEN_METEO.geocodage}?name=${encodeURIComponent(city)}&count=1&language=fr`, { signal: AbortSignal.timeout(10_000) });
-    const g = (await r.json() as { results?: Array<{ latitude: number; longitude: number; name: string }> }).results?.[0];
+    const r = await fetchPropre(`${OPEN_METEO.geocodage}?name=${encodeURIComponent(city)}&count=1&language=fr`, { timeoutMs: 10_000, label: 'La météo' });
+    if (!r.ok || !r.reponse) return `🌡 La météo n'a pas pu être mise à jour : ${r.erreur}.`;
+    const g = (await r.reponse.json().catch(() => ({})) as { results?: Array<{ latitude: number; longitude: number; name: string }> }).results?.[0];
     if (!g) return `🌡 Météo : je ne trouve pas la ville « ${city} » (Réglages → Journal).`;
     geo = { lat: g.latitude, lon: g.longitude, name: g.name };
   }
-  const r = await fetch(`${OPEN_METEO.previsions}?latitude=${geo.lat}&longitude=${geo.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=1`, { signal: AbortSignal.timeout(10_000) });
-  return weatherLine(geo.name, await r.json() as Parameters<typeof weatherLine>[1]);
+  const r = await fetchPropre(`${OPEN_METEO.previsions}?latitude=${geo.lat}&longitude=${geo.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=1`, { timeoutMs: 10_000, label: 'La météo' });
+  if (!r.ok || !r.reponse) return `🌡 La météo n'a pas pu être mise à jour : ${r.erreur}.`;
+  return weatherLine(geo.name, await r.reponse.json().catch(() => ({})) as Parameters<typeof weatherLine>[1]);
 }
 
 const hm = (d: Date) => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -69,6 +73,8 @@ export async function morningBriefing(odin: Odin, night: string, now = Date.now(
       parts.push(`📅 Agenda :\n${evs.slice(0, 8).map((e) => `• ${e.allDay ? 'Journée' : hm(e.start)} — ${clip(e.title, 80)}${e.location ? ` (${clip(e.location, 40)})` : ''}`).join('\n')}`);
       said.push(`Dans ton agenda : ${evs.slice(0, 5).map((e) => `${e.allDay ? '' : `à ${hm(e.start)}, `}${clip(e.title, 60)}`).join(' ; ')}.`);
     } else if (process.env.CALENDAR_ICS_URL) { parts.push('📅 Agenda : rien de prévu aujourd\'hui.'); said.push('Rien dans ton agenda aujourd\'hui.'); }
+  } else if (process.env.CALENDAR_ICS_URL && !enLigne()) {
+    parts.push('📅 Agenda : pas de mise à jour (pas de connexion Internet).');
   }
 
   // Mails non lus (seulement l'expéditeur et le sujet, coupés court)
@@ -77,7 +83,7 @@ export async function morningBriefing(odin: Odin, night: string, now = Date.now(
     if (m) {
       parts.push(m.count ? `✉️ ${m.count} mail${m.count > 1 ? 's' : ''} non lu${m.count > 1 ? 's' : ''} :\n${m.latest.map((x) => `• ${clip(x.from.replace(/\s*<[^>]*>/, ''), 30)} — ${clip(x.subject || '(sans sujet)', 70)}`).join('\n')}` : '✉️ Aucun mail non lu.');
       said.push(m.count ? `Tu as ${m.count} mail${m.count > 1 ? 's' : ''} non lu${m.count > 1 ? 's' : ''}.` : 'Aucun mail non lu.');
-    }
+    } else if (!enLigne()) { parts.push('✉️ Mails : pas de relevé (pas de connexion Internet).'); }
   }
 
   // Rappels et tâches du jour

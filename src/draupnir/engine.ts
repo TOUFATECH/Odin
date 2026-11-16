@@ -5,6 +5,8 @@
 // Expressions : {{ $json.champ }}, {{ $node["Nom"].json.champ }}, {{ $now }}, {{ $today }}, {{ $index }}.
 // Aucune évaluation de code : uniquement des chemins (pas d'injection possible par les données).
 
+import { doitAttendre, messageAttente, replanifierAuRetour } from './attente-internet.ts';
+
 export interface Item { json: Record<string, unknown> }
 export interface FlowNode { id?: string; name: string; type: string; params: Record<string, unknown>; position?: [number, number]; disabled?: boolean; note?: string }
 export interface Link { node: string; input?: number }
@@ -18,7 +20,7 @@ export interface Workflow {
 export interface NodeRun { count: number; items: Array<Record<string, unknown>>; ms: number; error?: string; outputs?: number[] }
 export interface Execution {
   id: string; workflowId: string; name: string; mode: 'manuel' | 'déclencheur' | 'test'; trigger?: string;
-  status: 'succès' | 'erreur' | 'en cours'; startedAt: string; ms: number; nodes: Record<string, NodeRun>; error?: string; failedNode?: string;
+  status: 'succès' | 'erreur' | 'en cours' | 'en-attente-internet'; startedAt: string; ms: number; nodes: Record<string, NodeRun>; error?: string; failedNode?: string;
   /** Réponse du webhook (nœud « Répondre »). */
   response?: { status: number; body: unknown };
 }
@@ -43,6 +45,8 @@ export interface Deps {
   /** Code JavaScript dans un processus isolé. */
   code?(source: string, items: Item[]): Promise<unknown>;
   notify?(text: string): Promise<void>;
+  /** Replanifie une automatisation mise « en attente d'Internet », appelée à son retour. */
+  replanifierFlux?(workflowId: string): void;
   fetch?: typeof fetch;
   sleep?(ms: number): Promise<void>;
   now?(): Date;
@@ -173,6 +177,15 @@ export async function execute(wf: Workflow, catalog: Map<string, NodeDef>, deps:
       }
     } catch (e) {
       const msg = (e as Error).message;
+      // Nœud qui a besoin d'Internet alors que la connexion est coupée : on attend son retour
+      // au lieu d'échouer en boucle à chaque passage.
+      if (doitAttendre(node, catalog)) {
+        const attente = messageAttente(node);
+        ex.nodes[node.name] = { count: 0, items: [], ms: Date.now() - t1, error: attente };
+        ex.status = 'en-attente-internet'; ex.error = attente; ex.failedNode = node.name;
+        replanifierAuRetour(() => { deps.replanifierFlux?.(wf.id); });
+        break;
+      }
       ex.nodes[node.name] = { count: 0, items: [], ms: Date.now() - t1, error: msg };
       ex.status = 'erreur'; ex.error = msg; ex.failedNode = node.name;
       break;

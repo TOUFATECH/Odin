@@ -2,6 +2,7 @@
 import { readSse } from './sse.ts';
 import type { CompletionRequest, Message, ModelResponse, Provider, ToolCall } from '../types.ts';
 import { HttpError } from './http.ts';
+import { fluxAvecInactivite } from '../net/fetch-propre.ts';
 
 type Block = Record<string, unknown>;
 
@@ -52,10 +53,13 @@ export class AnthropicProvider implements Provider {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': this.apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify(req.onDelta ? { ...body, stream: true } : body),
-      signal: req.signal,
+      // Hors flux : délai TOTAL (pas d'attente sans fin si le service gèle). En flux : pas d'échéance
+      // absolue (elle couperait une réponse longue mais saine) ; c'est un délai d'INACTIVITÉ sur le flux
+      // qui protège du gel (voir fluxAvecInactivite plus bas).
+      signal: req.signal ?? (req.onDelta ? undefined : AbortSignal.timeout(120_000)),
     });
     if (!res.ok) throw new HttpError(res.status, await res.text(), res.headers.get('retry-after'));
-    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return anthropicStream(res.body, req.onDelta);
+    if (req.onDelta && res.body && (res.headers.get('content-type') ?? '').includes('event-stream')) return anthropicStream(fluxAvecInactivite(res, 120_000).body!, req.onDelta);
     const data = (await res.json()) as {
       content: Array<{ type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> }>;
       stop_reason: string;

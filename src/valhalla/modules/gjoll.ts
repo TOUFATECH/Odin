@@ -290,7 +290,9 @@ export const gjoll: Module = {
       return { text: l.length ? [`Box${gw.name ? ` « ${gw.name} »` : ''} : ${l.length} port(s) ouvert(s).`, ...l.map((m) => `- ${m.external}/${m.proto} → ${m.client}:${m.internal} · ${m.desc || 'sans nom'}${m.client === gw.localIp ? ' (Odin)' : ''}${m.enabled ? '' : ' (désactivé)'}`)].join('\n') : 'Aucun port ouvert sur la box.', data: { mappings: l } };
     } },
     { id: 'detecter', label: 'Trouver mon adresse publique', what: 'Demande ton adresse Internet (service ipify) et la garde comme adresse de la maison', quick: false, run: async (ctx) => {
-      const r = await ctx.fetch('https://api.ipify.org', { signal: AbortSignal.timeout(8000) }), ip = (await r.text()).trim();
+      let ip = '';
+      try { const r = await ctx.fetch('https://api.ipify.org', { signal: AbortSignal.timeout(8000) }); ip = (await r.text()).trim(); }
+      catch { throw new Error('je n\'ai pas pu joindre le service d\'adresse publique (pas de connexion Internet ?) : réessaie plus tard'); }
       if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) throw new Error('adresse publique introuvable');
       const sv = await ready(ctx); ctx.saveSettings({ server: { ...sv, endpoint: ip } });
       return { text: `🌍 Ton adresse publique : ${ip}. Les appareils joindront ${ip}:${sv.port}. Si ta box change d'adresse (redémarrage), mets plutôt un nom de domaine.` };

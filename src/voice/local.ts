@@ -8,6 +8,7 @@ import { homedir, tmpdir } from 'node:os';
 import { accord } from '../core/genre.ts';
 import { join } from 'node:path';
 import { hasCommand } from '../learn/environment.ts';
+import { fetchPropre } from '../net/fetch-propre.ts';
 import { ADMIN_HINT, adminDiagnosis, sudoRefused, withAdmin } from '../machines/access.ts';
 
 export const voiceHome = (home = process.env.ODIN_HOME ?? join(homedir(), '.odin')) => join(home, 'voice');
@@ -34,9 +35,10 @@ export async function ensurePiperVoice(lang: string, home?: string): Promise<str
   if (existsSync(model) && existsSync(`${model}.json`)) return model;
   mkdirSync(d, { recursive: true });
   for (const ext of ['onnx', 'onnx.json']) {
-    const r = await fetch(`https://huggingface.co/rhasspy/piper-voices/resolve/main/${path}/${name}.${ext}`, { signal: AbortSignal.timeout(300_000) });
-    if (!r.ok) return undefined;
-    writeFileSync(join(d, `${name}.${ext}.part`), new Uint8Array(await r.arrayBuffer()));
+    // Téléchargement long : délai large, mais coupé proprement si le flux gèle (pas de blocage sans fin).
+    const r = await fetchPropre(`https://huggingface.co/rhasspy/piper-voices/resolve/main/${path}/${name}.${ext}`, { timeoutMs: 300_000, inactiviteMs: 60_000, hote: 'huggingface.co', label: 'La voix locale' });
+    if (!r.ok || !r.reponse) return undefined; // hors ligne ou service muet : pas de voix téléchargée, message propre côté registre
+    writeFileSync(join(d, `${name}.${ext}.part`), new Uint8Array(await r.reponse.arrayBuffer()));
     renameSync(join(d, `${name}.${ext}.part`), join(d, `${name}.${ext}`));
   }
   return model;

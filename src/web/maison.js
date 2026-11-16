@@ -226,15 +226,25 @@ dialog{border:1px solid var(--line);background:var(--card2);color:var(--text);bo
     if (lieuUi.ouvert && lieuUi.focus) setTimeout(() => { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }, 0);
     return [el('button', { class: 'lieu-btn', type: 'button', 'aria-expanded': String(lieuUi.ouvert), onclick: () => { lieuUi.ouvert = !lieuUi.ouvert; lieuUi.focus = lieuUi.ouvert; draw(); } }, lieuUi.ouvert ? 'Fermer' : 'Changer de lieu'), form];
   }
+  let meteoVue = null; // la dernière météo reçue, remontrée (marquée ancienne) quand elle ne peut plus être mise à jour
   function weatherCard(w) {
-    if (!w) return el('div', { class: 'card wx w2' }, el('h3', {}, 'Météo'), el('p', { class: 'muted' }, 'Météo indisponible : choisis la ville dans Odin (Hestia).'));
+    if (w) meteoVue = w;
+    if (!w) {
+      const v = meteoVue;
+      return el('div', { class: 'card wx w2' }, el('h3', {}, 'Météo'),
+        el('p', { class: 'muted' }, v ? 'La météo n\'a pas pu être mise à jour (connexion indisponible pour l\'instant).' : 'Météo indisponible : choisis la ville dans Odin (Hestia).'),
+        v ? el('p', { class: 'muted', style: 'opacity:.8;margin-top:6px' }, `Dernières prévisions (anciennes) : ${v.temp}° ${(v.word || '').toLowerCase()}${v.place ? ` à ${v.place}` : ''}.`) : null,
+        el('button', { class: 'btn', type: 'button', style: 'margin-top:8px', onclick: () => load() }, 'Réessayer'));
+    }
     const ICO = { 0: '☀️', 1: '🌤', 2: '⛅', 3: '☁️', 45: '🌫', 48: '🌫', 51: '🌦', 53: '🌦', 55: '🌧', 61: '🌦', 63: '🌧', 65: '🌧', 71: '🌨', 73: '🌨', 75: '❄️', 80: '🌦', 81: '🌧', 82: '⛈', 95: '⛈', 96: '⛈', 99: '⛈' };
     const days = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
     // Courbe des 24 prochaines heures.
     const hs = w.hours || [], min = Math.min(...hs.map((h) => h.temp)), max = Math.max(...hs.map((h) => h.temp)), span = Math.max(1, max - min);
     const pts = hs.map((h, i) => `${(i / Math.max(1, hs.length - 1)) * 300},${48 - ((h.temp - min) / span) * 40}`).join(' ');
+    const quand = (t) => { try { const o = D?.lieu?.fuseau ? { timeZone: D.lieu.fuseau } : {}; return new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', ...o }).replace(':', 'h'); } catch { return new Date(t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h'); } };
     return el('div', { class: 'card wx w2' },
       el('h3', {}, `Météo · ${w.place}`), ...lieuBar(),
+      w.ancien ? el('p', { class: 'muted', style: 'margin:4px 0 0;opacity:.8', title: w.motif || '' }, `Prévisions anciennes${w.at ? ` · dernière mise à jour ${quand(w.at)}` : ''} — connexion indisponible pour l'instant.`) : null,
       el('div', { class: 'now' }, el('span', { class: 'ico', 'aria-hidden': 'true' }, ICO[w.code] || '🌡'), el('div', {}, el('div', { class: 'big' }, `${w.temp}°`), el('div', {}, w.word), el('div', { class: 'muted' }, `Min ${w.lo}° · Max ${w.hi}°${w.feels !== undefined ? ` · ressenti ${w.feels}°` : ''}`)),
         el('div', { class: 'kv' }, 'Humidité', el('b', {}, `${w.humidity ?? '—'} %`), 'Vent', el('b', {}, `${w.wind ?? '—'} km/h`), 'Lever', el('b', {}, w.sunrise || '—'), 'Coucher', el('b', {}, w.sunset || '—'))),
       hs.length ? S('svg', { viewBox: '0 0 300 52', width: '100%', height: '52', role: 'img', 'aria-label': `Température des 24 prochaines heures, de ${min}° à ${max}°`, style: 'margin-top:8px' }, S('polyline', { points: pts, fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linejoin': 'round', opacity: '.85' })) : null,

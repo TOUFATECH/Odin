@@ -135,8 +135,10 @@ export async function telechargerMorceaux(f: Fetch, plan: Plan): Promise<Resulta
     const fh = await open(parts[k], 'a', 0o600);
     try {
       const lecteur = r.body!.getReader();
+      // Délai d'inactivité par morceau : plus rien pendant 2 min = on coupe (le morceau reprendra ensuite).
+      const lire = () => { let mn: ReturnType<typeof setTimeout>; return Promise.race([lecteur.read(), new Promise<never>((_, ko) => { mn = setTimeout(() => { lecteur.cancel().catch(() => undefined); ko(new Error('morceau interrompu : plus rien reçu depuis 2 min')); }, 120_000); })]).finally(() => clearTimeout(mn!)); };
       for (;;) {
-        const { done, value } = await lecteur.read(); if (done) break;
+        const { done, value } = await lire(); if (done) break;
         const reste = longueur - tailles[k], x = value.length > reste ? value.subarray(0, reste) : value;
         await fh.write(x); tailles[k] += x.length; avance();
         await debit.prendre(x.length);
