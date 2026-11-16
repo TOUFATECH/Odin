@@ -51,7 +51,7 @@ export function voiceOptions(b: Record<string, unknown>, v: Voice): Pick<Voice, 
   };
 }
 
-export const SECRET_NAMES = ['ABUSE_CH_KEY', 'VT_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'DEEPSEEK_API_KEY', 'MOONSHOT_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'NOTION_TOKEN', 'GITHUB_TOKEN', 'VERCEL_TOKEN', 'CLOUDFLARE_API_TOKEN', 'MQTT_PASSWORD', 'BRISINGAMEN_KEY', 'SINDRI_PASSWORD', 'TASMOTA_PASSWORD', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REFRESH_TOKEN'] as const;
+export const SECRET_NAMES = ['ABUSE_CH_KEY', 'VT_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'STT_API_KEY', 'CUSTOM_API_KEY', 'DEEPSEEK_API_KEY', 'MOONSHOT_API_KEY', 'TELEGRAM_BOT_TOKEN', 'JEV_API_KEY', 'ELEVENLABS_API_KEY', 'BRAVE_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'GOOGLE_CSE_KEY', 'GOOGLE_CSE_CX', 'PROXMOX_TOKEN', 'HA_TOKEN', 'MAIL_PASSWORD', 'CALDAV_PASSWORD', 'CALENDAR_ICS_URL', 'DISCORD_BOT_TOKEN', 'SLACK_BOT_TOKEN', 'SLACK_APP_TOKEN', 'WHATSAPP_TOKEN', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN', 'VENUS_API_KEY', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'NOTION_TOKEN', 'GITHUB_TOKEN', 'VERCEL_TOKEN', 'CLOUDFLARE_API_TOKEN', 'MQTT_PASSWORD', 'BRISINGAMEN_KEY', 'SINDRI_PASSWORD', 'TASMOTA_PASSWORD', 'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REFRESH_TOKEN'] as const;
 export type SecretName = (typeof SECRET_NAMES)[number];
 
 export const envFile = (paths: OdinPaths) => join(paths.home, 'env');
@@ -131,7 +131,8 @@ export function providerFor(c: ModelChoice): ProviderConfig {
   if (!model || model.length > 120 || /\s/.test(model)) throw new Error('nom de modèle invalide');
   if (c.preset === 'custom') {
     const baseUrl = checkUrl(c.baseUrl);
-    return { kind: 'openai', model, baseUrl, apiKeyEnv: 'OPENAI_API_KEY' };
+    // Sa propre clé : un service compatible ne doit pas écraser la clé du vrai OpenAI.
+    return { kind: 'openai', model, baseUrl, apiKeyEnv: 'CUSTOM_API_KEY' };
   }
   const p = PRESETS[c.preset];
   if (!p) throw new Error('fournisseur inconnu');
@@ -354,7 +355,8 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
     case 'voice': {
       const v = cfg.voice;
       if (str('elevenKey')) writeSecret(paths, 'ELEVENLABS_API_KEY', str('elevenKey')!);
-      if (str('sttKey')) writeSecret(paths, 'OPENAI_API_KEY', str('sttKey')!);
+      // La clé de transcription a son propre nom : elle n'écrase plus la clé OpenAI du modèle.
+      if (str('sttKey')) writeSecret(paths, 'STT_API_KEY', str('sttKey')!);
       const sttUrl = str('sttUrl')?.trim() || v.stt.baseUrl;
       if (!/^https?:\/\//.test(sttUrl)) throw new Error('adresse Whisper invalide (ex. https://api.openai.com/v1 ou http://localhost:8000/v1)');
       const lang = (str('language') ?? v.stt.language).trim();
@@ -380,7 +382,7 @@ export function applySettings(paths: OdinPaths, cfg: OdinConfig, section: string
         ...(str('gender') !== undefined ? { genderChosen: true } : {}),
         enabled: Boolean(b.enabled), speakRepliesChosen: true,
         tts: { provider, baseUrl: ttsUrl.replace(/\/$/, ''), apiKeyEnv: defaults.apiKeyEnv, voiceId, voiceName: voiceId ? (str('voiceName')?.trim() ?? (switched ? '' : v.tts.voiceName)) : '', model: str('ttsModel')?.trim() || (switched ? defaults.model : v.tts.model) },
-        stt: { ...v.stt, baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
+        stt: { ...v.stt, ...(str('sttKey') ? { apiKeyEnv: 'STT_API_KEY' } : {}), baseUrl: sttUrl.replace(/\/$/, ''), model: str('sttModel')?.trim() || v.stt.model, language: lang },
         // L'ancienne case « lire mes réponses » vaut le mode de réponse quand celui-ci n'est pas envoyé.
         ...voiceOptions({ ...b, replyMode: b.replyMode ?? (b.speakReplies === undefined ? undefined : b.speakReplies ? 'voix' : 'texte') }, v),
       };

@@ -1303,8 +1303,10 @@ export class WebChannel implements Channel {
       case 'alarm_save': {
         // Le réveil passe par l'outil (mêmes vérifications que quand tu le demandes à Odin).
         const { alarmTool } = await import('../home/alarm.ts');
-        if (typeof b.sid === 'string' && b.sid.trim()) writeSecret(this.odin.paths, 'TWILIO_ACCOUNT_SID', b.sid.trim());
-        if (typeof b.token === 'string' && b.token.trim()) writeSecret(this.odin.paths, 'TWILIO_AUTH_TOKEN', b.token.trim());
+        try {
+          if (typeof b.sid === 'string' && b.sid.trim()) { writeSecret(this.odin.paths, 'TWILIO_ACCOUNT_SID', b.sid.trim()); this.odin.redactor.add(b.sid.trim()); }
+          if (typeof b.token === 'string' && b.token.trim()) { writeSecret(this.odin.paths, 'TWILIO_AUTH_TOKEN', b.token.trim()); this.odin.redactor.add(b.token.trim()); }
+        } catch (e) { return { ok: false, error: (e as Error).message }; }
         const ctx = { muninn: this.odin.muninn } as never;
         try {
           if (b.vacFrom) await alarmTool.run({ action: 'vacances', du: String(b.vacFrom), au: String(b.vacTo || b.vacFrom) }, ctx);
@@ -1384,7 +1386,8 @@ export class WebChannel implements Channel {
       case 'settings_save': {
         let restart: boolean;
         try { restart = applySettings(this.odin.paths, this.odin.cfg, String(b.section), b); } catch (e) { return { ok: false, error: (e as Error).message }; }
-        for (const v of [b.apiKey, b.token, b.value, b.elevenKey, b.sttKey]) if (typeof v === 'string') this.odin.redactor.add(v.trim());
+        // Toute valeur secrète envoyée (clé, jeton, mot de passe…) est masquée tout de suite dans les journaux et les réponses.
+        for (const [k, v] of Object.entries(b)) if (typeof v === 'string' && v.trim().length >= 6 && (/key|token|secret|password|sid|^value$|ics/i.test(k))) this.odin.redactor.add(v.trim());
         if (restart && this.hooks.reload) {
           // On répond d'abord : la page se reconnecte toute seule au flux après le redémarrage.
           setTimeout(() => void this.hooks.reload!().catch((e) => console.error('[web] redémarrage :', (e as Error).message)), 200);
@@ -1555,9 +1558,11 @@ export class WebChannel implements Channel {
         const dir = String(b.dir ?? '').trim();
         if (dir && !isAbsolute(dir)) return { ok: false, error: 'dossier : un chemin absolu (ex. /mnt/nas/sauvegardes), ou vide pour ~/.odin/sauvegardes' };
         if (typeof b.password === 'string' && b.password) { try { setBackupPassword(this.odin.paths, b.password); } catch (e) { return { ok: false, error: (e as Error).message }; } }
-        Object.assign(a, { enabled: Boolean(b.enabled), hour: Math.min(23, Math.max(0, Math.round(Number(b.hour ?? a.hour)))), dir, keep: Math.min(60, Math.max(1, Math.round(Number(b.keep ?? a.keep)))) });
-        if (a.enabled && !hasBackupPassword(this.odin.paths)) return { ok: false, error: 'choisis un mot de passe pour les sauvegardes (8 caractères au moins)' };
-        setConfigValue(this.odin.paths, ['autoBackup'], a);
+        // Vérifier, écrire, PUIS changer la mémoire : Odin ne se croit jamais sauvegardé sans que ce soit enregistré.
+        const next = { ...a, enabled: Boolean(b.enabled), hour: Math.min(23, Math.max(0, Math.round(Number(b.hour ?? a.hour)))), dir, keep: Math.min(60, Math.max(1, Math.round(Number(b.keep ?? a.keep)))) };
+        if (next.enabled && !hasBackupPassword(this.odin.paths)) return { ok: false, error: 'choisis un mot de passe pour les sauvegardes (8 caractères au moins)' };
+        setConfigValue(this.odin.paths, ['autoBackup'], next);
+        Object.assign(a, next);
         break;
       }
       case 'backup_now': {

@@ -85,6 +85,8 @@ export function indexDocs(h: DocHost, dirs: string[], o: { maxFiles?: number; ma
 /** Dossiers à indexer : ceux choisis, sinon les dossiers habituels (Documents, Téléchargements, Bureau, fichiers reçus). */
 export function docDirs(chosen: string[] | undefined, workspace?: string): string[] {
   if (chosen?.length) return chosen;
+  // Dans les essais et les bancs de test, jamais les vrais dossiers de la personne (vie privée).
+  if (process.env.NODE_TEST_CONTEXT || process.env.ODIN_ESSAI) return workspace ? [join(workspace, 'inbox')].filter((d) => existsSync(d)) : [];
   const h = homedir();
   return [...['Documents', 'Téléchargements', 'Downloads', 'Bureau', 'Desktop', 'Images', 'Pictures'].map((d) => join(h, d)), ...(workspace ? [join(workspace, 'inbox')] : [])].filter((d) => { try { return existsSync(d) && statSync(d).isDirectory(); } catch { return false; } });
 }

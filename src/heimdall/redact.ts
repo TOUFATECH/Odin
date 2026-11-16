@@ -39,7 +39,8 @@ export class Redactor {
   /** Construit un masqueur à partir des variables d'environnement sensibles. */
   static fromEnv(env: NodeJS.ProcessEnv = process.env): Redactor {
     const values = Object.entries(env)
-      .filter(([k]) => /KEY|TOKEN|SECRET|PASSWORD/i.test(k))
+      // Aussi les secrets dont le nom ne le dit pas : adresse iCal secrète, identifiant Twilio, cx Google.
+      .filter(([k]) => /KEY|TOKEN|SECRET|PASSWORD|_SID$|ICS_URL|_CX$/i.test(k))
       .map(([, v]) => v ?? '');
     return new Redactor(values);
   }

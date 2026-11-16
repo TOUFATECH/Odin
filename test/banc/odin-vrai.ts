@@ -9,6 +9,9 @@ import type { Script } from '../../src/providers/mock.ts';
 import { makeOdin, type TestOdin } from '../helpers.ts';
 import { freePort, type T } from './lib.ts';
 
+// Banc de test : Odin ne lit jamais les vrais dossiers de la personne (Documents, Images…).
+process.env.ODIN_ESSAI ??= '1';
+
 export const COMPTE = { prenom: 'Awa', nom: 'Saïd', email: 'awa@exemple.yt', password: 'un-cheval-bleu-traverse-mamoudzou' };
 export interface VraiOdin { o: TestOdin; url: string; port: number; token: string; web: WebChannel; notified: string[]; /** cookie de session (si le compte a été créé) */ session: string; json(path: string, body?: unknown, headers?: Record<string, string>): Promise<{ status: number; body: Record<string, unknown>; headers: Headers }> }
 
