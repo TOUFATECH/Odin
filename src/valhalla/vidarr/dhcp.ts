@@ -57,14 +57,43 @@ export function osFromVendorClass(v: string | undefined): string | undefined {
 }
 /** Une MAC « privée » (bit local) : téléphone ou tablette récents en Wi-Fi, qui changent d'adresse par réseau. */
 export const randomMac = (mac: string) => /^.[26ae]/i.test(mac);
+
+/** L'état d'un appareil au niveau DHCP : actif (reçoit un bail), en pause (plus de renouvellement), bloqué (rien). */
+export type MacState = 'actif' | 'pause' | 'bloque';
+/**
+ * La politique d'accès par adresse MAC :
+ *  - mode « ouvert » : tout le monde reçoit une adresse, SAUF les MAC en pause ou bloquées.
+ *  - mode « liste » (liste d'autorisation) : seules les MAC approuvées (état « actif ») et les adresses fixes
+ *    reçoivent ; une MAC inconnue est ignorée et notée « en attente d'approbation ».
+ */
+export interface MacPolicy { mode: 'ouvert' | 'liste'; etats: Record<string, MacState>; attente: string[] }
+/**
+ * Ce que le DHCP fait pour une adresse MAC selon la politique : lui répondre (« ok »), ne rien lui renvoyer parce
+ * qu'elle est bloquée (« bloque »), refuser son bail parce qu'elle est en pause (« pause »), ou l'ignorer et la noter
+ * en attente parce qu'elle n'est pas encore approuvée (« attente »). Une adresse fixe passe toujours (sauf pause/bloc). Pur.
+ */
+export function macDecision(policy: MacPolicy | undefined, mac: string, isFixed: boolean): 'ok' | 'bloque' | 'pause' | 'attente' {
+  if (!policy) return 'ok';
+  const etat = policy.etats[mac.toLowerCase()];
+  if (etat === 'bloque') return 'bloque';
+  if (etat === 'pause') return 'pause';
+  if (policy.mode === 'liste' && !isFixed && etat !== 'actif') return 'attente';
+  return 'ok';
+}
 export interface DhcpConfig {
   /** adresse d'Odin sur le réseau (identifiant du serveur) */
   server: string;
   start: string; end: string; mask: string; router: string; dns: string[]; leaseSeconds: number; domain?: string;
   /** adresses fixes : MAC → adresse (et nom) */
   fixed: Array<{ mac: string; ip: string; name?: string }>;
+  /** la politique d'accès par adresse MAC (absente = tout le monde passe) */
+  macPolicy?: MacPolicy;
 }
-export interface DhcpDeps { config: () => DhcpConfig; leases: () => Lease[]; save: (l: Lease[]) => void; now?: () => number; onLease?: (l: Lease, isNew: boolean) => void; log?: (s: string) => void }
+export interface DhcpDeps { config: () => DhcpConfig; leases: () => Lease[]; save: (l: Lease[]) => void; now?: () => number; onLease?: (l: Lease, isNew: boolean) => void; log?: (s: string) => void;
+  /** une MAC inconnue (liste d'autorisation) ou refusée demande une adresse : à noter en attente, et à signaler */
+  onPending?: (mac: string, info: { name?: string; vendorClass?: string; requested?: string }) => void;
+  /** un événement de bail s'est produit (donné, renouvelé, libéré, refusé, bloqué) : à garder dans l'historique */
+  onEvent?: (mac: string, ip: string, action: 'donne' | 'renouvele' | 'libere' | 'refuse' | 'bloque' | 'attente', name?: string) => void }
 
 /** Nom propre pour le DNS (« Téléphone d'Awa » → « telephone-d-awa »). */
 export const hostLabel = (n: string) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
@@ -123,6 +152,16 @@ export class DhcpServer {
     const name = p.options.get(12)?.toString('utf8').replace(/[^\p{L}\p{N} ._'-]/gu, '').slice(0, 63) || undefined;
     const requested = p.options.get(50)?.length === 4 ? ipStr(p.options.get(50)!, 0) : undefined;
     const serverId = p.options.get(54)?.length === 4 ? ipStr(p.options.get(54)!, 0) : undefined;
+    // Contrôle d'accès par adresse MAC : bloquée → rien, en pause → NAK (ou pas d'OFFER), inconnue en liste → en attente.
+    const isFixed = c.fixed.some((f) => f.mac.toLowerCase() === p.mac);
+    const dec = macDecision(c.macPolicy, p.mac, isFixed);
+    if (dec === 'bloque') { this.d.log?.(`DHCP : ${p.mac} est bloqué, rien ne lui est renvoyé`); if (type === MSG.DISCOVER) this.d.onEvent?.(p.mac, requested ?? '', 'bloque'); return; }
+    if ((dec === 'attente' || dec === 'pause') && (type === MSG.DISCOVER || type === MSG.REQUEST)) {
+      if (dec === 'attente') { const vc = p.options.get(60)?.toString('latin1').replace(/[^\x20-\x7e]/g, '').slice(0, 60) || undefined; this.d.onPending?.(p.mac, { name, vendorClass: vc, requested }); this.d.log?.(`DHCP : ${p.mac} en attente d'approbation, ignoré`); this.d.onEvent?.(p.mac, requested ?? '', 'attente', name); return; }
+      if (type === MSG.REQUEST) { this.reply(p, MSG.NAK, '0.0.0.0'); this.d.onEvent?.(p.mac, requested ?? p.ciaddr, 'refuse', name); }   // en pause : NAK pour qu'il perde vite le réseau
+      this.d.log?.(`DHCP : ${p.mac} en pause, ${type === MSG.REQUEST ? 'bail refusé (NAK)' : 'pas d\'OFFER'}`);
+      return;
+    }
     if (type === MSG.DISCOVER) {
       const ip = this.pick(p.mac, requested); if (!ip) { this.d.log?.(`DHCP : plus d'adresse libre pour ${p.mac}`); return; }
       this.offered.set(p.mac, { ip, at: now }); this.reply(p, MSG.OFFER, ip); return;
@@ -136,7 +175,7 @@ export class DhcpServer {
       this.keep({ mac: p.mac, ip, name: fixed?.name ?? name ?? this.d.leases().find((l) => l.mac === p.mac)?.name, expires: now + c.leaseSeconds * 1000, ...(fixed ? { fixed: true } : {}), ...(p.options.get(60)?.length ? { vendorClass: p.options.get(60)!.toString('latin1').replace(/[^\x20-\x7e]/g, '').slice(0, 60) } : {}) });
       this.offered.delete(p.mac); this.reply(p, MSG.ACK, ip); return;
     }
-    if (type === MSG.RELEASE) { this.d.save(this.d.leases().map((l) => (l.mac === p.mac && !l.fixed ? { ...l, expires: now } : l))); return; }
+    if (type === MSG.RELEASE) { this.d.save(this.d.leases().map((l) => (l.mac === p.mac && !l.fixed ? { ...l, expires: now } : l))); this.d.onEvent?.(p.mac, p.ciaddr, 'libere'); return; }
     if (type === MSG.DECLINE) { if (requested) this.declined.set(requested, now + 3600_000); this.d.save(this.d.leases().filter((l) => !(l.mac === p.mac && l.ip === requested))); return; }
     if (type === MSG.INFORM) this.reply(p, MSG.ACK, p.ciaddr);
   }

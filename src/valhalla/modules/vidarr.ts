@@ -17,8 +17,9 @@ import { SERVICES, SOCIAL_ADS, cleanDomain, compile, isDomain, emptyList, type C
 import type { Schedule } from '../vidarr/server.ts';
 import { parseUpstream, upstreamTimes } from '../vidarr/resolve.ts';
 import { parse, query, TYPE, dataText } from '../vidarr/wire.ts';
-import { DhcpServer, detectDhcp, hostLabel, ipNum, type DhcpConfig, type Lease } from '../vidarr/dhcp.ts';
-import { catchUp, localDay, period, readDay, type Period } from '../vidarr/history.ts';
+import { DhcpServer, detectDhcp, hostLabel, ipNum, osFromVendorClass, randomMac, type DhcpConfig, type Lease, type MacPolicy, type MacState } from '../vidarr/dhcp.ts';
+import { catchUp, localDay, period, readDay, journalDay, type Period } from '../vidarr/history.ts';
+import { histTout, noterBail, noterRequete, requetesDeMachine, resumerRequetes, type PeriodeHist } from '../vidarr/historique-base.ts';
 import { networkGraph, type DeviceInfo } from '../vidarr/graph.ts';
 import { vendorOf } from '../../hlidskjalf/vendors.ts';
 import * as ranDb from '../ran.ts';
@@ -67,9 +68,15 @@ function dhcpNames(ctx: ModCtx): Record<string, string[]> {
   for (const l of leasesOf(ctx)) if (l.name && (l.fixed || l.expires > now)) { const h = hostLabel(l.name); if (h) { out[`${h}.${c.domain ?? 'maison'}`] = [l.ip]; out[h] = [l.ip]; } }
   return out;
 }
+/** La politique d'accès par adresse MAC (gardée dans les réglages de Sphinx). Par défaut : ouvert à tous. */
+function macPolicy(ctx: ModCtx): MacPolicy {
+  const d = ctx.settings.macPolicy as Partial<MacPolicy> | undefined;
+  return { mode: d?.mode === 'liste' ? 'liste' : 'ouvert', etats: { ...(d?.etats ?? {}) }, attente: [...(d?.attente ?? [])] };
+}
+const saveMacPolicy = (ctx: ModCtx, p: MacPolicy) => ctx.saveSettings({ macPolicy: p });
 function dhcpConfig(ctx: ModCtx): DhcpConfig {
   const d = ctx.settings.dhcp as Partial<DhcpConfig> | undefined, lan = lanAddress() ?? '192.168.1.2', base = lan.split('.').slice(0, 3).join('.');
-  return { server: lan, start: `${base}.100`, end: `${base}.199`, mask: '255.255.255.0', router: `${base}.1`, dns: [lan], leaseSeconds: 86400, domain: 'maison', fixed: [], ...d };
+  return { server: lan, start: `${base}.100`, end: `${base}.199`, mask: '255.255.255.0', router: `${base}.1`, dns: [lan], leaseSeconds: 86400, domain: 'maison', fixed: [], ...d, macPolicy: macPolicy(ctx) };
 }
 const ring: LogEntry[] = []; const RING = 50_000; const upstreamErrors: number[] = [];
 let inventoryName: ((ip: string) => string | undefined) | undefined;
@@ -125,6 +132,7 @@ function record(ctx: ModCtx, e: LogEntry): void {
   // Surveillance : si Internet ou les serveurs amont ne répondent plus, Odin le voit dans ses propres réponses.
   if (e.status === 'erreur') upstreamErrors.push(e.t); if (ring.length > RING) ring.splice(0, ring.length - RING);
   if (ctx.settings.journal === false) return;
+  noterRequete(ctx, e);   // historique durable (base VIDARR_ODIN dans Alexandrie, repli fichier)
   try { const dir = join(ctx.dir, 'journal'); mkdirSync(dir, { recursive: true }); appendFileSync(join(dir, `${day(e.t)}.jsonl`), `${JSON.stringify(e)}\n`); } catch { /* disque plein : le journal en mémoire reste */ }
 }
 function prune(ctx: ModCtx): void {
@@ -181,7 +189,16 @@ async function startDhcp(ctx: ModCtx): Promise<string> {
     config: () => dhcpConfig(ctx), leases: () => leasesOf(ctx), save: (l) => ctx.saveSettings({ leases: l }), now: () => ctx.now().getTime(),
     log: (l) => ctx.emit('dhcp_journal', { ligne: l }),
     // Lien DHCP → Forseti et registre : un appareil jamais vu rejoint le réseau.
-    onLease: (l, isNew) => { ctx.emit('dhcp_bail', { mac: l.mac, ip: l.ip, nom: l.name ?? '' }); if (isNew) ctx.emit('dhcp_nouveau', { ip: l.ip, mac: l.mac, nom: l.name ?? '' }); if (isNew) ctx.alert({ level: 'info', title: `Nouvel appareil sur le réseau : ${l.name ?? l.mac}`, detail: `Adresse ${l.ip} (MAC ${l.mac}). Si tu ne le connais pas, bloque-le (Réseau) ou donne-lui une adresse fixe et un nom (Sphinx → DHCP).`, key: `dhcp-nouveau-${l.mac}`, data: { ip: l.ip, mac: l.mac } }); },
+    onLease: (l, isNew) => { ctx.emit('dhcp_bail', { mac: l.mac, ip: l.ip, nom: l.name ?? '' }); noterBail(ctx, { t: ctx.now().getTime(), mac: l.mac, ip: l.ip, nom: l.name, utilisateur: inventoryName?.(l.ip), action: isNew ? 'donne' : 'renouvele' }); if (isNew) ctx.emit('dhcp_nouveau', { ip: l.ip, mac: l.mac, nom: l.name ?? '' }); if (isNew) ctx.alert({ level: 'info', title: `Nouvel appareil sur le réseau : ${l.name ?? l.mac}`, detail: `Adresse ${l.ip} (MAC ${l.mac}). Si tu ne le connais pas, bloque-le (Réseau) ou donne-lui une adresse fixe et un nom (Sphinx → DHCP).`, key: `dhcp-nouveau-${l.mac}`, data: { ip: l.ip, mac: l.mac } }); },
+    // Liste d'autorisation : une MAC inconnue demande une adresse → en attente d'approbation (elle n'a pas de réseau).
+    onPending: (mac, info) => {
+      const pol = macPolicy(ctx); if (pol.attente.includes(mac) || pol.etats[mac]) return;
+      saveMacPolicy(ctx, { ...pol, attente: [...pol.attente, mac] });
+      ctx.emit('dhcp_attente', { mac, nom: info.name ?? '' });
+      ctx.alert({ level: 'info', title: `Appareil en attente d'approbation : ${info.name ?? mac}`, detail: `Une adresse MAC inconnue (${mac})${info.vendorClass ? ` — ${osFromVendorClass(info.vendorClass)}` : ''} demande une adresse, mais la liste d'autorisation est active : cet appareil n'a pas de réseau tant que tu ne l'approuves pas (Sphinx → onglet DHCP).`, key: `dhcp-attente-${mac}`, data: { mac } });
+    },
+    // Historique durable des baux (donné, renouvelé, libéré, refusé, bloqué) : base VIDARR_ODIN, repli fichier.
+    onEvent: (mac, ip, action, name) => { if (action !== 'donne' && action !== 'renouvele') noterBail(ctx, { t: ctx.now().getTime(), mac, ip, nom: name ?? leasesOf(ctx).find((l) => l.mac === mac)?.name, utilisateur: inventoryName?.(ip), action }); },
   });
   const ports = (ctx.settings.dhcpPorts as [number, number] | undefined) ?? [67, 68];
   await d.start(ports[0], ports[1]); dhcp = d;
@@ -218,6 +235,38 @@ async function review(ctx: ModCtx): Promise<void> {
   ctx.emit('reseau_anomalie', { constats: findings.length });
 }
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/, MAC = /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i;
+const PERIODES: PeriodeHist[] = ['heure', 'jour', 'semaine', 'mois', 'annee'];
+/** L'état d'un appareil au niveau DHCP, lisible. */
+function etatMac(pol: MacPolicy, mac: string): 'actif' | 'pause' | 'bloque' | 'attente' {
+  const m = mac.toLowerCase();
+  if (pol.attente.includes(m)) return 'attente';
+  return pol.etats[m] ?? 'actif';
+}
+const ETAT_TEXTE: Record<string, string> = { actif: 'actif', pause: 'en pause', bloque: 'bloqué', attente: 'en attente d\'approbation' };
+/** Tout ce qu'on sait d'un appareil : son bail (DHCP) et ce qu'il a visité (DNS), sur une période. Récap par machine. */
+function ficheMachine(ctx: ModCtx, key: string, periode: PeriodeHist): {
+  mac: string; ip?: string; nom: string; fixe: boolean; etat: string; sys?: string; premier?: number; dernier?: number; utilisateur?: string;
+  total: number; bloquees: number; parListe: Array<[string, number]>; topSites: Array<[string, number]>; menaces: number; depuis: string;
+} {
+  const k = key.trim().toLowerCase().replace(/-/g, ':'), byMac = MAC.test(k), c = dhcpConfig(ctx), leases = leasesOf(ctx), pol = macPolicy(ctx);
+  const fixe = c.fixed.find((f) => (byMac ? f.mac === k : f.ip === key.trim()));
+  const lease = byMac ? leases.find((l) => l.mac === k) : leases.find((l) => l.ip === key.trim());
+  const mac = (lease?.mac ?? fixe?.mac ?? (byMac ? k : '')).toLowerCase();
+  if (!mac) throw new Error('appareil inconnu (donne une adresse MAC ou IP vue sur le réseau)');
+  const ip = lease?.ip ?? fixe?.ip;
+  const sys = osFromVendorClass(lease?.vendorClass);
+  const { dns, baux } = histTout(ctx), mine = baux.filter((b) => b.mac === mac);
+  const reqs = requetesDeMachine(dns, baux, mac, periode, ctx.now().getTime()), r = resumerRequetes(reqs);
+  const menaceNames = new Set(listsMeta(ctx).filter((l) => l.kind === 'menace').map((l) => l.name));
+  const menaces = reqs.filter((e) => e.statut === 'bloqué' && e.liste && menaceNames.has(e.liste)).length;
+  const depuis = { heure: 'la dernière heure', jour: 'les dernières 24 h', semaine: 'les 7 derniers jours', mois: 'les 30 derniers jours', annee: 'les 365 derniers jours' }[periode];
+  return {
+    mac, ip, nom: lease?.name ?? fixe?.name ?? (ip ? inventoryName?.(ip) : undefined) ?? mac, fixe: Boolean(fixe) || Boolean(lease?.fixed),
+    etat: ETAT_TEXTE[etatMac(pol, mac)], sys, premier: lease?.first ?? (mine.length ? Math.min(...mine.map((b) => b.t)) : undefined),
+    dernier: mine.length ? Math.max(...mine.map((b) => b.t)) : lease?.expires, utilisateur: ip ? inventoryName?.(ip) : undefined, ...r, menaces, depuis,
+  };
+}
+const quand = (t?: number) => (t ? new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
 const LIST_KINDS = ['blocage', 'menace', 'parental', 'autorisation'];
 const CLIENT_PARAMS: Param[] = [
@@ -441,6 +490,41 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         return { text: `📌 ${s(i.nom) || mac} aura toujours ${ip}${s(i.nom).trim() ? ` (et le nom ${hostLabel(s(i.nom))}.${c.domain ?? 'maison'})` : ''}.` };
       } },
       { id: 'dhcp_retirer_fixe', label: 'Retirer une adresse fixe', what: 'L\'appareil reprend une adresse de la plage', quick: false, params: [{ key: 'mac', label: 'Adresse MAC', kind: 'text', required: true }], run: (ctx, i) => { const c = dhcpConfig(ctx), mac = s(i.mac).toLowerCase(); if (!c.fixed.some((f) => f.mac === mac)) throw new Error('aucune adresse fixe pour cet appareil'); ctx.saveSettings({ dhcp: { ...(ctx.settings.dhcp as object ?? {}), fixed: c.fixed.filter((f) => f.mac !== mac) } }); return { text: '🗑 Adresse fixe retirée.' }; } },
+      { id: 'dhcp_mode', label: 'Mode du DHCP (ouvert / liste d\'autorisation)', what: 'Ouvert à tous, ou liste d\'autorisation (seuls les appareils approuvés reçoivent une adresse)', quick: false, params: [{ key: 'mode', label: 'Mode', kind: 'select', options: ['ouvert', 'liste'], default: 'ouvert' }], grave: (i) => s(i.mode) === 'liste' ? 'ne donner d\'adresse qu\'aux appareils approuvés (les autres perdront le réseau tant qu\'ils ne sont pas approuvés)' : undefined, run: (ctx, i) => {
+        const mode = s(i.mode) === 'liste' ? 'liste' : 'ouvert'; saveMacPolicy(ctx, { ...macPolicy(ctx), mode }); ctx.emit('dhcp_mode', { mode });
+        return { text: mode === 'liste' ? '🔒 Liste d\'autorisation : seuls les appareils approuvés (et les adresses fixes) reçoivent une adresse. Les inconnus apparaissent « en attente d\'approbation » et n\'ont pas de réseau tant que tu ne les approuves pas.' : '🔓 Ouvert : tout le monde reçoit une adresse, sauf les appareils que tu mets en pause ou que tu bloques.' };
+      } },
+      { id: 'dhcp_mac_etat', label: 'État DHCP d\'un appareil', what: 'Mettre en pause (perd le réseau à l\'expiration), bloquer (plus aucun paquet), ou réactiver un appareil', quick: false, params: [{ key: 'mac', label: 'Adresse MAC', kind: 'text', required: true }, { key: 'etat', label: 'État', kind: 'select', options: ['actif', 'pause', 'bloque'], default: 'actif' }, { key: 'nom', label: 'Nom (facultatif)', kind: 'text', default: '' }], words: ['mettre en pause', 'bloquer la mac', 'bloquer l\'appareil', 'couper le dhcp'], grave: (i) => ['pause', 'bloque'].includes(s(i.etat)) ? `${s(i.etat) === 'bloque' ? 'bloquer' : 'mettre en pause'} un appareil au niveau DHCP (il perdra le réseau)` : undefined, run: (ctx, i) => {
+        const mac = s(i.mac).trim().toLowerCase().replace(/-/g, ':'); if (!MAC.test(mac)) throw new Error('adresse MAC invalide');
+        const etat = (['actif', 'pause', 'bloque'].includes(s(i.etat)) ? s(i.etat) : 'actif') as MacState;
+        const c = dhcpConfig(ctx), lease = leasesOf(ctx).find((l) => l.mac === mac);
+        // Garde-fou : ne jamais bloquer la passerelle (la box) ni Odin lui-même.
+        if (etat !== 'actif' && lease && (lease.ip === c.router || lease.ip === c.server)) throw new Error('refusé : cet appareil est la passerelle (la box) ou Odin — le couper priverait tout le réseau');
+        const pol = macPolicy(ctx), etats = { ...pol.etats }; etats[mac] = etat;
+        saveMacPolicy(ctx, { ...pol, etats, attente: pol.attente.filter((x) => x !== mac) });
+        if (etat !== 'actif') noterBail(ctx, { t: ctx.now().getTime(), mac, ip: lease?.ip ?? '', nom: lease?.name, action: etat === 'bloque' ? 'bloque' : 'pause' });
+        ctx.emit('dhcp_mac_etat', { mac, etat });
+        const nom = s(i.nom).trim() || lease?.name || mac;
+        const warn = randomMac(mac) ? '\n⚠ Cette adresse MAC est « privée » (aléatoire) : le téléphone ou la tablette en change souvent et peut revenir avec une AUTRE adresse — le blocage sera alors contourné. Pour couper cet appareil pour de bon, donne-lui une adresse fixe ou bloque-le sur la box (par le Wi-Fi).' : '';
+        return { text: `${etat === 'bloque' ? `⛔ ${nom} bloqué : le DHCP ne lui renvoie plus aucun paquet (ni OFFER ni ACK), il perd le réseau.` : etat === 'pause' ? `⏸ ${nom} en pause : le DHCP ne renouvelle plus son bail (NAK au prochain renouvellement, pas de nouvel OFFER), il perd le réseau à l'expiration du bail.` : `✅ ${nom} réactivé : il reçoit de nouveau une adresse.`}${etat !== 'actif' ? warn : ''}` };
+      }, undo: (i) => ({ action: 'dhcp_mac_etat', input: { mac: i.mac, etat: 'actif' }, label: 'Réactiver' }) },
+      { id: 'dhcp_approuver', label: 'Approuver un appareil (liste d\'autorisation)', what: 'Un appareil en attente reçoit le droit d\'avoir une adresse', quick: false, params: [{ key: 'mac', label: 'Adresse MAC', kind: 'text', required: true }, { key: 'nom', label: 'Nom (facultatif)', kind: 'text', default: '' }], run: (ctx, i) => {
+        const mac = s(i.mac).trim().toLowerCase().replace(/-/g, ':'); if (!MAC.test(mac)) throw new Error('adresse MAC invalide');
+        const pol = macPolicy(ctx); saveMacPolicy(ctx, { ...pol, etats: { ...pol.etats, [mac]: 'actif' }, attente: pol.attente.filter((x) => x !== mac) }); ctx.emit('dhcp_approuver', { mac });
+        return { text: `✅ ${s(i.nom).trim() || mac} approuvé : il peut maintenant recevoir une adresse du DHCP d'Odin.${randomMac(mac) ? '\n(Son adresse MAC est « privée » : s\'il en change, il faudra l\'approuver de nouveau — ou lui donner une adresse fixe.)' : ''}` };
+      } },
+      { id: 'recap_machine', label: 'Fiche d\'un poste', what: 'Tout sur un appareil : son adresse, son état DHCP, son système, et les sites qu\'il a visités', read: true, words: ['fiche du poste', 'recap de la machine', 'que fait l\'appareil'], params: [{ key: 'mac', label: 'Adresse MAC ou IP', kind: 'text', required: true }, { key: 'periode', label: 'Période', kind: 'select', options: [...PERIODES], default: 'jour' }], run: (ctx, i) => {
+        const per = (PERIODES.includes(s(i.periode) as PeriodeHist) ? s(i.periode) : 'jour') as PeriodeHist;
+        const f = ficheMachine(ctx, s(i.mac), per);
+        const lignes = [
+          `📇 ${f.nom}${f.sys ? ` · ${f.sys}` : ''}${f.utilisateur && f.utilisateur !== f.nom ? ` · ${f.utilisateur}` : ''}`,
+          `DHCP : MAC ${f.mac}${f.ip ? ` · adresse ${f.ip}` : ''}${f.fixe ? ' (fixe)' : ''} · état ${f.etat}${f.premier ? ` · vu depuis ${quand(f.premier)}` : ''}${f.dernier ? ` · dernier signe ${quand(f.dernier)}` : ''}`,
+          `DNS (${f.depuis}) : ${f.total} requête(s), ${f.bloquees} bloquée(s)${f.menaces ? `, dont ${f.menaces} vers des sites dangereux` : ''}.`,
+          f.topSites.length ? `Sites les plus visités : ${f.topSites.slice(0, 6).map(([n, v]) => `${n} (${v})`).join(', ')}` : 'Aucun site visité sur la période.',
+          f.parListe.length ? `Bloqués par : ${f.parListe.map(([n, v]) => `${n} (${v})`).join(', ')}` : '',
+        ].filter(Boolean);
+        return { text: lignes.join('\n'), data: f };
+      } },
       { id: 'baux', label: 'Appareils du réseau (baux)', what: 'Qui a reçu quelle adresse', read: true, run: (ctx) => { const now = ctx.now().getTime(); return { data: leasesOf(ctx), text: leasesOf(ctx).sort((a, b) => ipNum(a.ip) - ipNum(b.ip)).map((l) => `- ${l.ip} · ${l.name ?? '(sans nom)'} · ${l.mac}${l.fixed ? ' · fixe' : l.expires > now ? ` · jusqu'à ${new Date(l.expires).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : ' · expiré'}`).join('\n') || 'Aucun bail.' }; } },
       { id: 'dns_chiffre', label: 'DNS chiffré (TLS)', what: 'Les appareils qui le savent (Android « DNS privé ») chiffrent leurs questions jusqu\'à Odin', quick: false, params: [{ key: 'actif', label: 'Actif', kind: 'boolean', default: true }, { key: 'port', label: 'Port', kind: 'number', default: 853 }], run: async (ctx, i) => {
         if (i.actif === false) { ctx.saveSettings({ dot: false }); if (srv) await startServer(ctx); return { text: '⚪ DNS chiffré (TLS) coupé.' }; }
@@ -495,6 +579,16 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
         { title: 'Télécharger les listes', detail: 'Pubs et pisteurs, sites dangereux, contrôle parental.', done: ls.some((l) => l.enabled && l.count), action: 'mettre_a_jour', button: 'Télécharger' },
         { title: 'Faire passer les appareils par Odin', detail: `Dans ta box (souvent http://192.168.1.1) : « DHCP » → « Serveur DNS » = ${lan ?? 'l\'adresse de cette machine'}. Ou appareil par appareil : réglages Wi-Fi → DNS manuel → ${lan ?? 'cette machine'}. Pour le VPN : coche « DNS d'Odin » dans Vortex.`, done: ring.some((e) => e.client !== '127.0.0.1' && e.client !== '::1') },
       ];
+      // Contrôle d'accès par MAC et récap par appareil.
+      const pol = dc.macPolicy ?? { mode: 'ouvert' as const, etats: {}, attente: [] };
+      const appareils = [...leasesOf(ctx), ...dc.fixed.filter((f) => !leasesOf(ctx).some((l) => l.mac === f.mac)).map((f) => ({ mac: f.mac, ip: f.ip, name: f.name, expires: 0, fixed: true }) as Lease)].sort((a, b) => ipNum(a.ip) - ipNum(b.ip));
+      const boutonsEtat = (mac: string, e: 'actif' | 'pause' | 'bloque' | 'attente') => [
+        { action: 'recap_machine', label: 'Fiche', input: { mac, periode: 'jour' } },
+        ...(e === 'actif' ? [{ action: 'dhcp_mac_etat', label: 'Pause', input: { mac, etat: 'pause' } }, { action: 'dhcp_mac_etat', label: 'Bloquer', input: { mac, etat: 'bloque' } }]
+          : e === 'pause' ? [{ action: 'dhcp_mac_etat', label: 'Réactiver', input: { mac, etat: 'actif' } }, { action: 'dhcp_mac_etat', label: 'Bloquer', input: { mac, etat: 'bloque' } }]
+          : e === 'bloque' ? [{ action: 'dhcp_mac_etat', label: 'Réactiver', input: { mac, etat: 'actif' } }] : []),
+      ];
+      const dhcpTitre = pol.mode === 'liste' ? 'Appareils du réseau (liste d\'autorisation)' : dhcp ? 'Appareils du réseau (DHCP d\'Odin en marche)' : 'Appareils du réseau (DHCP d\'Odin arrêté)';
       return {
         subtitle: `${srv ? `En marche sur le port ${srv.port}` : 'Arrêté'}${paused ? ' · blocage en pause' : ''} · ${d.upstreams.length} serveur(s) amont (${d.strategy})`,
         tabs: ['Tableau de bord', 'Journal', 'Listes', 'Appareils', 'Noms de la maison', 'Réglages'],
@@ -513,7 +607,10 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           { kind: 'table', title: 'Listes', columns: ['Liste', 'Type', 'Règles', 'Mise à jour', 'État'], rows: ls.map((l) => ({ cells: [l.name, l.kind, String(l.count ?? '—'), l.updated ? new Date(l.updated).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'jamais', l.error ? `⚠ ${l.error}` : l.enabled ? 'active' : 'coupée'], tone: l.error ? 'attention' as const : undefined, actions: [{ action: 'activer_liste', label: l.enabled ? 'Couper' : 'Activer', input: { id: l.id, active: !l.enabled } }, { action: 'retirer_liste', label: 'Retirer', input: { id: l.id } }] })) },
           { kind: 'table', title: 'Appareils avec réglages propres', columns: ['Appareil', 'Adresses', 'Filtrage', 'Parental', 'Recherche sûre', 'Services coupés'], empty: 'Tous les appareils suivent les réglages de la maison.', rows: d.clients.map((c) => ({ cells: [c.name, c.ids.join(', '), c.filtering ?? 'global', c.parental ? 'oui' : 'non', c.safeSearch ? 'oui' : 'non', (c.services ?? []).map((x) => SERVICES[x]?.label ?? x).join(', ') || '—'], actions: [{ action: 'retirer_appareil', label: 'Retirer', input: { nom: c.name } }] })) },
           { kind: 'table', title: 'Noms de la maison', columns: ['Nom', 'Répond'], empty: 'Aucun nom : ajoute « nas.maison → 192.168.1.10 » à droite.', rows: Object.entries(d.rewrites).map(([k, v]) => ({ cells: [k, v.join(', ')], actions: [{ action: 'retirer_nom', label: 'Retirer', input: { nom: k } }] })) },
-          { kind: 'table', title: dhcp ? 'Appareils du réseau (DHCP d\'Odin en marche)' : 'Appareils du réseau (DHCP d\'Odin arrêté)', columns: ['Adresse', 'Nom', 'MAC', 'Bail'], empty: dhcp ? 'Aucun appareil n\'a encore demandé d\'adresse.' : 'Le DHCP de la box donne les adresses. Pour qu\'Odin le fasse (noms des appareils, adresses fixes) : « Chercher un autre DHCP », coupe celui de la box, puis « Allumer le DHCP ».', rows: [...leasesOf(ctx), ...dhcpConfig(ctx).fixed.filter((f) => !leasesOf(ctx).some((l) => l.mac === f.mac)).map((f) => ({ mac: f.mac, ip: f.ip, name: f.name, expires: 0, fixed: true }) as Lease)].sort((a, b) => ipNum(a.ip) - ipNum(b.ip)).map((l) => ({ cells: [l.ip, l.name ?? '—', l.mac, l.fixed ? 'fixe' : l.expires > ctx.now().getTime() ? `jusqu'à ${new Date(l.expires).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}` : 'expiré'], tone: !l.fixed && l.expires <= ctx.now().getTime() ? 'attention' as const : undefined, actions: l.fixed ? [{ action: 'dhcp_retirer_fixe', label: 'Retirer l\'adresse fixe', input: { mac: l.mac } }] : [{ action: 'dhcp_fixe', label: 'Garder cette adresse', input: { mac: l.mac, ip: l.ip, nom: l.name ?? '' } }] })) },
+          { kind: 'text' as const, title: 'Accès au réseau par adresse MAC', text: pol.mode === 'liste' ? `🔒 Liste d'autorisation : seuls les appareils approuvés (et les adresses fixes) reçoivent une adresse. ${pol.attente.length} en attente, ${Object.values(pol.etats).filter((x) => x === 'bloque').length} bloqué(s), ${Object.values(pol.etats).filter((x) => x === 'pause').length} en pause. Change le mode à droite (« Mode du DHCP »).` : `🔓 Ouvert : tout le monde reçoit une adresse, sauf les appareils en pause (${Object.values(pol.etats).filter((x) => x === 'pause').length}) ou bloqués (${Object.values(pol.etats).filter((x) => x === 'bloque').length}). Passe en « liste d'autorisation » à droite pour n'autoriser que les appareils approuvés.`, tone: pol.mode === 'liste' ? 'attention' as const : undefined },
+          ...(pol.attente.length ? [{ kind: 'table' as const, title: 'En attente d\'approbation (liste d\'autorisation)', columns: ['MAC', 'Fabricant (deviné)', 'Remarque'], empty: 'Personne en attente.', rows: pol.attente.map((mac) => ({ cells: [mac, vendorOf(mac) ?? '—', randomMac(mac) ? '⚠ adresse MAC privée (peut changer)' : 'sans réseau tant qu\'il n\'est pas approuvé'], tone: 'attention' as const, actions: [{ action: 'dhcp_approuver', label: 'Approuver', input: { mac } }, { action: 'dhcp_mac_etat', label: 'Bloquer', input: { mac, etat: 'bloque' } }] })) }] : []),
+          { kind: 'table', title: dhcpTitre, columns: ['Adresse', 'Nom', 'MAC', 'État', 'Bail'], empty: dhcp ? 'Aucun appareil n\'a encore demandé d\'adresse.' : 'Le DHCP de la box donne les adresses. Pour qu\'Odin le fasse (noms des appareils, adresses fixes, pause/blocage par MAC) : « Chercher un autre DHCP », coupe celui de la box, puis « Allumer le DHCP ».', rows: appareils.map((l) => { const e = etatMac(pol, l.mac); return { cells: [l.ip, l.name ?? '—', l.mac, ETAT_TEXTE[e], l.fixed ? 'fixe' : l.expires > ctx.now().getTime() ? `jusqu'à ${quand(l.expires)}` : 'expiré'], tone: e === 'bloque' || e === 'pause' ? 'mauvais' as const : !l.fixed && l.expires <= ctx.now().getTime() ? 'attention' as const : undefined, actions: [...boutonsEtat(l.mac, e), ...(l.fixed ? [{ action: 'dhcp_retirer_fixe', label: 'Retirer l\'adresse fixe', input: { mac: l.mac } }] : [{ action: 'dhcp_fixe', label: 'Garder cette adresse', input: { mac: l.mac, ip: l.ip, nom: l.name ?? '' } }])] }; }) },
+          { kind: 'cards', title: 'Récap par appareil (DHCP + sites visités aujourd\'hui)', empty: 'Aucun appareil connu. Démarre le DHCP d\'Odin, ou les appareils apparaîtront dès qu\'ils demanderont une adresse.', items: appareils.map((l) => { const f = ficheMachine(ctx, l.mac, 'jour'); return { title: f.nom, sub: `${f.ip ?? l.mac}${f.sys ? ` · ${f.sys}` : ''}`, badge: f.etat, tone: f.etat === 'bloqué' || f.etat === 'en pause' ? 'mauvais' as const : undefined, meta: `${f.total} requête(s) · ${f.bloquees} bloquée(s)${f.menaces ? ` · ⚠ ${f.menaces} dangereuse(s)` : ''}${f.topSites.length ? ` · ${f.topSites.slice(0, 3).map(([n]) => n).join(', ')}` : ''}`, actions: [{ action: 'recap_machine', label: 'Fiche détaillée', input: { mac: l.mac, periode: 'jour' } }] }; }) },
           { kind: 'list', title: 'Pubs des réseaux bloquées (les vidéos passent)', empty: 'Coupé.', items: d.socialAds === false ? [] : Object.entries(SOCIAL_ADS).filter(([k]) => !(d.socialAdsOff ?? []).includes(k)).map(([, v]) => ({ title: v.label, meta: v.limit ? `limite : ${v.limit}` : undefined })) },
           { kind: 'table', title: 'Blocages à horaires', columns: ['Site ou machine', 'Quand', 'Pour'], empty: 'Aucun : « Bloquer un site à des horaires » ou « Couper une machine » à droite.', rows: [...(d.timed ?? []).map((x) => ({ cells: [x.rule.replace(/^\|\||\^$/g, ''), scheduleText(x.schedule), x.clients?.join(', ') || 'toute la maison'], actions: [{ action: 'retirer_horaire', label: 'Retirer', input: { domaine: x.rule.replace(/^\|\||\^$/g, '') } }] })), ...d.clients.filter((c) => c.cut).map((c) => ({ cells: [`⛔ ${c.name} (${c.ids.join(', ')})`, c.cutSchedule ? scheduleText(c.cutSchedule) : 'tout le temps', 'cette machine'], tone: 'attention' as const, actions: [{ action: 'retablir_machine', label: 'Rétablir', input: { ip: c.ids[0] } }] }))] },
           { kind: 'table', title: 'Règles perso', columns: ['Règle'], empty: 'Aucune règle perso.', rows: d.custom.map((r) => ({ cells: [r], actions: [{ action: 'retirer_regle', label: 'Retirer', input: { regle: r } }] })) },
@@ -530,6 +627,9 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
           { kind: 'form', title: 'Couper une machine d\'Internet', action: 'couper_machine', submit: 'Couper', params: m.actions.find((a) => a.id === 'couper_machine')!.params! },
           { kind: 'form', title: 'Bloquer un site à des horaires', action: 'bloquer_horaires', submit: 'Bloquer', params: m.actions.find((a) => a.id === 'bloquer_horaires')!.params! },
           { kind: 'form', title: 'Adresse fixe (DHCP)', action: 'dhcp_fixe', submit: 'Enregistrer', params: m.actions.find((a) => a.id === 'dhcp_fixe')!.params! },
+          { kind: 'form', title: 'Mode du DHCP', action: 'dhcp_mode', submit: 'Appliquer', params: m.actions.find((a) => a.id === 'dhcp_mode')!.params!, aide: 'Ouvert : tout le monde passe. Liste d\'autorisation : seuls les appareils approuvés reçoivent une adresse.' },
+          { kind: 'form', title: 'Pause / blocage d\'un appareil (DHCP)', action: 'dhcp_mac_etat', submit: 'Appliquer', params: m.actions.find((a) => a.id === 'dhcp_mac_etat')!.params!, aide: 'Pause : perd le réseau à l\'expiration du bail. Bloqué : plus aucun paquet DHCP.' },
+          { kind: 'form', title: 'Fiche d\'un poste', action: 'recap_machine', submit: 'Voir la fiche', params: m.actions.find((a) => a.id === 'recap_machine')!.params! },
           { kind: 'form', title: 'Nom de la maison', action: 'nom_local', submit: 'Ajouter', params: m.actions.find((a) => a.id === 'nom_local')!.params! },
           { kind: 'form', title: paused ? 'Blocage en pause' : 'Pause du blocage', action: paused ? 'reprendre' : 'pause', submit: paused ? 'Reprendre' : 'Mettre en pause', params: paused ? [] : m.actions.find((a) => a.id === 'pause')!.params! },
         ],
@@ -540,6 +640,8 @@ export function vidarr(o: { names?: () => ((ip: string) => string | undefined) |
       const f = o.names?.(); if (f) inventoryName = f;
       const g = o.devices?.(); if (g) deviceOf = g;
       loadLists(ctx);
+      // Rien perdu au redémarrage : on relit les requêtes du jour (gardées sur disque, aussi dans la base) dans l'anneau « direct ».
+      try { if (!ring.length) for (const e of journalDay(ctx.dir, localDay(ctx.now())).slice(-RING)) ring.push(e); } catch { /* repli : rien à relire */ }
       if (ctx.settings.dhcpOn === true) { try { await startDhcp(ctx); } catch (e) { ctx.alert({ level: 'critique', title: 'Le DHCP d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils ne reçoivent plus d'adresse : rallume le DHCP de la box.`, key: 'dhcp-demarrage' }); } }
       if (ctx.settings.on === true) { try { await startServer(ctx); } catch (e) { ctx.alert({ level: 'haute', title: 'Le DNS d\'Odin n\'a pas pu démarrer', detail: `${await explainListen(e)}. Les appareils qui passent par Odin n'ont plus de résolution de noms.`, key: 'dns-demarrage' }); } }
     },
