@@ -136,6 +136,8 @@ export const LINKS: Link[] = [
   { from: 'agora', to: 'ullr', when: 'un installateur entre dans le store', does: 'Asclépios l\'analyse d\'abord ; un installateur bloqué n\'entre pas dans le store', auto: true, kind: 'réflexe' },
   { from: 'agora', to: 'pegase', when: 'une nouvelle version de Pégase est publiée (vérifié chaque jour)', does: 'ses installateurs (Windows, Mac, Linux, Android) entrent dans le store, empreinte calculée : les appareils qui l\'ont d\'office se mettent à jour', auto: true, kind: 'donnée' },
   { from: 'agora', to: 'forseti', when: 'une installation imposée échoue, un appareil inconnu se présente ou un nouvel appareil s\'inscrit', does: 'alerte dans le fil commun, avec « Réessayer » ou « Retirer cet appareil »', auto: true, kind: 'donnée' },
+  { from: 'archytas', to: 'draupnir', when: 'un script doit se lancer tout seul au bon moment', does: 'il devient une automatisation déclenchée par l\'heure ou un événement', auto: false, kind: 'donnée' },
+  { from: 'archytas', to: 'saga', when: 'tu crées ou modifies un script', does: 'Odin le garde en mémoire et au Cerveau pour s\'en souvenir et l\'améliorer', auto: true, kind: 'donnée' },
 ];
 
 /** Usages de prédilection : besoin → chaîne d'applis. */

@@ -36,6 +36,11 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   bifrost: [R('passerelle des messageries (réglages, jetons des canaux)', 'secret')],
   commandes: [R('aucune donnée (les commandes viennent du code)', 'coeur')],
   apparence: [REG],
+  // Archytas (fenêtre Script) : scripts, versions, exécutions et trace datée. Le code d'un script est TOUJOURS
+  // chiffré (clé de la machine), jamais en clair. Pour l'instant en fichiers chiffrés (valhalla/archytas/) ;
+  // le schéma de la base ARCHYTAS_ODIN est défini (DEF_ARCHYTAS : tables scripts/versions/executions, vues
+  // v_scripts/v_usage sans code), prêt pour la migration. Déclaré « secret » tant que c'est en fichiers.
+  archytas: [R('scripts (code chiffré), versions et exécutions — fichiers chiffrés sous valhalla/archytas/ ; base ARCHYTAS_ODIN prête (schéma) pour la migration', 'secret')],
   // Données
   urdr: [J('journal des requêtes', 'requetes'), J('traçabilité des liens d\'Odin avec les bases', 'liens_bases'), R('liste des bases (bases.json), base-odin.json', 'demarrage'), R('mots de passe des bases (secrets.json)', 'secret')],
   skidbladnir: [J('journal des synchronisations', 'skidbladnir'), R('fichiers synchronisés', 'binaire'), REG],

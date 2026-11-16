@@ -177,11 +177,19 @@
     if (courant === appId) b.setAttribute('aria-current', 'page');
     return b;
   }
+  // La dernière tuile, permanente : la fenêtre Script (appli Archytas). Toujours visible, jamais comptée dans les 12, jamais retirable.
+  function tuileScript() {
+    const b = el('button', { class: 'tab nav-ep-app nav-ep-script', type: 'button', 'data-ep-app': 'archytas', title: 'Script — les automatisations qu\'Odin fabrique', onclick: () => window.OdinApps?.app('archytas') }, icone('archytas', 'Script', 20), el('span', { class: 'lbl' }, 'Script'));
+    if (courant === 'archytas') b.setAttribute('aria-current', 'page');
+    return b;
+  }
   /** Le menu « Plus » : les vues et les applis épinglées dans leur ordre, puis « Épingler une appli… ». */
   function dessiner() {
     const ancre = document.getElementById('navEpingles');
-    if (!ancre || statut !== 'pret') return;
+    if (!ancre) return;
     fermerMenus();
+    // La tuile « Script » reste là même avant qu'Odin réponde, ou s'il ne sait pas garder d'épingles.
+    if (statut !== 'pret') { ancre.replaceChildren(tuileScript()); return; }
     const lignes = [];
     for (const id of etat.epingles) {
       if (estVue(id)) { const b = boutonVue(id); if (!b) continue; b.hidden = false; lignes.push(rangee(id, b, nomVue(id))); continue; }
@@ -192,7 +200,7 @@
     const cachees = VUES.filter((v) => !etat.epingles.includes(v)).map(boutonVue).filter(Boolean);
     for (const b of cachees) b.hidden = true;
     const ajout = el('button', { class: 'tab nav-ep-add', type: 'button', 'aria-haspopup': 'dialog', onclick: ouvrirListe }, svg(I.epingle, 20), el('span', { class: 'lbl' }, 'Épingler une appli…'));
-    ancre.replaceChildren(...lignes, ...cachees, ajout);
+    ancre.replaceChildren(...lignes, ...cachees, tuileScript(), ajout);
   }
   function majBouton(b) {
     const id = b.dataset.epId, nom = b.dataset.epNom, oui = estEpingle(id);
@@ -269,6 +277,7 @@
 
   function init() {
     style();
+    dessiner(); // la tuile « Script » apparaît tout de suite, sans attendre la réponse d'Odin
     document.addEventListener('odin:appli', (e) => {
       courant = e.detail?.id ?? null; marquer();
       if (courant && estEpingle(`appli:${courant}`)) { const m = document.getElementById('navMore'); if (m?.hidden) document.getElementById('navMoreBtn')?.click(); }

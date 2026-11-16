@@ -30,6 +30,8 @@ import { parlerNaturel, polishReply } from './style.ts';
 import { accord, accorder, genreOdin } from './genre.ts';
 import { offlineAct } from './offline-act.ts';
 import { MANY, needsThinking, pendingProposal, proposeNear, tryDirect } from './direct.ts';
+import { ETAPE, Jalons } from './jalons.ts';
+import { CacheRequetes } from './cache-requete.ts';
 import { forget as forgetAcquis, keep as keepAcquis, learn as learnAcquis, LEARNABLE, linkWords, loadAcquis, MAX_STEPS, missionOf } from '../learn/acquis.ts';
 import { syncQuotidien } from '../learn/quotidien.ts';
 import { brainOf } from '../tools/brain.ts';
@@ -129,12 +131,16 @@ export interface RunResult {
   answeredBy?: string;
   /** IA utilisées pendant ce tour (réponse, sous-agents, relecture, juge…). */
   models?: Array<{ label: string; purpose: string; calls: number; costUsd: number }>;
+  /** Partage du temps de ce tour par sous-étape (jalons), pour l'afficher (« mémoire X ms · Cerveau Y ms · modèle Z ms »). */
+  timing?: Record<string, number>;
 }
 
 const SUBAGENT_FORBIDDEN = new Set(['delegate', 'send_message', 'schedule_task', 'schedule_cancel', 'reminder_set', 'skill_propose', 'memory_save', 'codex_run']);
 
 export class Agent {
   readonly deps: AgentDeps;
+  /** Cache des plongements de requêtes (demandes répétées/rapprochées) : embed non bloquant sur le chemin de réponse. */
+  private readonly plongements = new CacheRequetes();
   constructor(deps: AgentDeps) { this.deps = deps; }
 
   async run(userText: string, o: RunOptions): Promise<RunResult> {
@@ -265,8 +271,10 @@ export class Agent {
         emit({ type: 'text', text });
         // Journal : ce tour n'a coûté aucun jeton (c'est ce qui nourrit l'affichage des économies).
         const rc = routeContext();
-        try { muninn.recordRoute({ at: Date.now(), turnId: rc?.turnId ?? '', sessionId: o.sessionId, channel, request: rc?.request ?? '', purpose: 'sans-ia', provider: '', label: 'Sans IA', tier: '', minTier: '', need: taskCategory(userText), reason: d.why.slice(0, 300), attempts: [], ok: true, ms: Date.now() - t0, tokensIn: 0, tokensOut: 0, costUsd: 0 }); } catch { /* journal facultatif */ }
-        try { muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: text.slice(0, 1500), provider: '', models: `fait sans IA (${d.why})`, turnId: rc?.turnId, cost: 0, tools: [], memories: [], lessons: [], decisions })); } catch { /* trace facultative */ }
+        const msDirect = Date.now() - t0, tDirect = { [ETAPE.direct]: Math.round(msDirect * 100) / 100 };
+        res.timing = tDirect; // chemin court : le temps part dans la mémoire/les réflexes, aucun réseau
+        try { muninn.recordRoute({ at: Date.now(), turnId: rc?.turnId ?? '', sessionId: o.sessionId, channel, request: rc?.request ?? '', purpose: 'sans-ia', provider: '', label: 'Sans IA', tier: '', minTier: '', need: taskCategory(userText), reason: d.why.slice(0, 300), attempts: [], ok: true, ms: msDirect, tokensIn: 0, tokensOut: 0, costUsd: 0 }, tDirect); } catch { /* journal facultatif */ }
+        try { muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: text.slice(0, 1500), provider: '', models: `fait sans IA (${d.why})`, turnId: rc?.turnId, cost: 0, tools: [], memories: [], lessons: [], decisions, timing: tDirect })); } catch { /* trace facultative */ }
         if (d.tools > 0 && trusted) { try { recordTask(muninn, { at: Date.now(), goal: userText.replace(/\s+/g, ' ').slice(0, 140), ok: true, tools: ['sans IA'], result: text.replace(/\s+/g, ' ').slice(0, 160) }); } catch { /* facultatif */ } }
         res.mood = guessMood(text, { blocked: 0, errors: 0, approvals: 0, stopReason: 'done', toolCalls: d.tools, userText });
         if (res.mood) { setCurrentMood(res.mood); emit({ type: 'mood', mood: res.mood }); }
@@ -279,9 +287,10 @@ export class Agent {
     // 2. Compaction si l'historique dépasse le budget.
     await this.maybeCompact(o.sessionId, emit, signal);
 
-    // 3. Prompt système (stable pendant tout le tour).
-    const recalledNow = (await this.recallSmart(userText, cfg.learning.recallLimit, signal)).filter((m) => m.kind !== 'lesson');
-    const lessonsNow = depth > 0 ? [] : muninn.lessons(userText, 6);
+    // 3. Prompt système (stable pendant tout le tour). On pose les jalons pour voir où part le temps.
+    const jalons = new Jalons();
+    const recalledNow = (await jalons.mesureAsync(ETAPE.rappel, () => this.recallSmart(userText, cfg.learning.recallLimit, signal))).filter((m) => m.kind !== 'lesson');
+    const lessonsNow = depth > 0 ? [] : jalons.mesure(ETAPE.rappel, () => muninn.lessons(userText, 6));
     const memUsed = recalledNow.map((m) => m.content), lessonsUsed = lessonsNow.map((m) => m.content);
     const turnStart = Date.now();
     let consultTour: BrainContext | undefined; // ce que le Cerveau a donné à ce tour (liens vivants : apprentissage en fin de tour)
@@ -310,7 +319,7 @@ export class Agent {
       brain: depth > 0 ? undefined : (() => {
         try {
           const liens = owner && liensDe(muninn).actif() ? liensDe(muninn) : undefined;
-          const c = consultBrain({ vault: owner ? brainOf(ctx) : undefined, apps: valhallaOf(), liens, souvenirs: recalledNow.map((m) => m.id) }, userText.split('\n\n[Précision d')[0]);
+          const c = jalons.mesure(ETAPE.cerveau, () => consultBrain({ vault: owner ? brainOf(ctx) : undefined, apps: valhallaOf(), liens, souvenirs: recalledNow.map((m) => m.id) }, userText.split('\n\n[Précision d')[0]));
           consultTour = c;
           // « Odin consulte » : le chemin suivi (notes, liens, applis, dans l'ordre) s'allume sur la carte du Cerveau.
           if (c.etapes.length || c.influx?.length) emit({ type: 'consulte', etapes: c.etapes, ...(c.influx?.length ? { influx: c.influx } : {}) });
@@ -381,7 +390,7 @@ export class Agent {
         const flush = () => { flushT = undefined; if (pend) { emit({ type: 'delta', text: pend }); pend = ''; } };
         const onDelta = depth === 0 && cfg.agent.stream !== false ? (d: string) => { pend += d; flushT ??= setTimeout(flush, 80); } : undefined;
         if ((this.deps.offlineOnly || o.withoutAi) && depth === 0) throw new Error(o.withoutAi ? 'réglé sans IA pour la voix' : 'aucun modèle configuré');
-        reply = await router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal, onDelta }, routeOpts);
+        reply = await jalons.mesureAsync(ETAPE.modele, () => router.complete({ system, messages: history, tools: specs, maxTokens: cfg.agent.maxTokens, signal, onDelta }, routeOpts));
         if (flushT) { clearTimeout(flushT); flush(); }
         if (reply.notice && !res.notices.includes(reply.notice)) res.notices.push(reply.notice);
         lastProvider = reply.providerName;
@@ -497,14 +506,19 @@ export class Agent {
     if (depth === 0 && res.stopReason === 'done' && res.text) res.text = withSources(res.text, turnLog);
     // Relecture par un second modèle quand l'enjeu le justifie (actions sur la machine, faits du web).
     if (depth === 0 && res.stopReason === 'done' && res.text && cfg.agent.review !== false) {
-      const note = await this.review(userText, res.text, turnLog, signal).catch(() => '');
+      const note = await jalons.mesureAsync(ETAPE.relecture, () => this.review(userText, res.text, turnLog, signal).catch(() => ''));
       if (note) { res.text = `${res.text}\n\n⚠ À vérifier (relecture) : ${note}`; void this.learnLesson(res.text, `Relecture : ${note}`, 'agent', emit, signal).catch(() => undefined); }
     }
+    // Partage du temps du tour (jalons) : montré dans la réponse et rangé pour « Pourquoi ? ». Puis l'usage des
+    // souvenirs rappelés est écrit en UN bloc, APRÈS la réponse (retiré du chemin de lecture : réponse plus vive).
+    const decoupage = jalons.decoupage();
+    if (depth === 0 && Object.keys(decoupage).length) res.timing = decoupage;
+    try { muninn.viderUsages(); } catch { /* écriture d'usage facultative */ }
     // Trace du tour (pour « Pourquoi ? ») : outils utilisés, résultats, souvenirs et leçons pris en compte, décisions.
     if (depth === 0) {
       try {
         const tools = turnLog.flatMap((m) => (m.toolCalls ?? []).map((c) => ({ name: c.name, input: JSON.stringify(c.input).slice(0, 200), result: turnLog.find((r) => r.role === 'tool' && r.toolCallId === c.id)?.content.slice(0, 300) ?? '' })));
-        muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: res.text.slice(0, 1500), provider: lastProvider, models: turnSummary(routeContext()?.entries ?? []).line, turnId: routeContext()?.turnId, cost: res.costUsd, tools, memories: memUsed.slice(0, 10), lessons: lessonsUsed.slice(0, 6), decisions: res.decisions.slice(0, 10) }));
+        muninn.setKv(`trace:${o.sessionId}`, JSON.stringify({ at: Date.now(), question: userText.slice(0, 500), answer: res.text.slice(0, 1500), provider: lastProvider, models: turnSummary(routeContext()?.entries ?? []).line, turnId: routeContext()?.turnId, cost: res.costUsd, tools, memories: memUsed.slice(0, 10), lessons: lessonsUsed.slice(0, 6), decisions: res.decisions.slice(0, 10), timing: decoupage }));
       } catch { /* trace facultative */ }
     }
     // Résultat de ce tour pour le fournisseur : réussi, échoué, ou corrigé par toi (le tour d'avant).
@@ -1001,15 +1015,20 @@ Réponds UNIQUEMENT par un JSON : {"facts":[{"kind":"preference|environment|miss
   }
 
   /** Rappel : par mots (toujours), complété par le sens (si un modèle local est disponible). */
-  async recallSmart(query: string, limit: number, signal?: AbortSignal): Promise<ReturnType<Mnemosyne['recall']>> {
+  async recallSmart(query: string, limit: number, _signal?: AbortSignal): Promise<ReturnType<Mnemosyne['recall']>> {
     const byWords = this.deps.muninn.recall(query, limit);
     const e = this.deps.embedder;
     if (!e || !query.trim()) return byWords;
-    try {
-      const near = this.deps.muninn.nearest(e.model, await e.embed(query, signal ?? AbortSignal.timeout(4000)), limit);
-      const seen = new Set(byWords.map((m) => m.id));
-      return [...byWords, ...near.filter((m) => !seen.has(m.id))].slice(0, limit + 3);
-    } catch { return byWords; }
+    const avecSens = (v: Float32Array): ReturnType<Mnemosyne['recall']> => {
+      try { const near = this.deps.muninn.nearest(e.model, v, limit); const seen = new Set(byWords.map((m) => m.id)); return [...byWords, ...near.filter((m) => !seen.has(m.id))].slice(0, limit + 3); } catch { return byWords; }
+    };
+    // Plongement NON bloquant : déjà en cache (demande répétée ou rapprochée) → on complète par le sens tout de
+    // suite ; sinon on répond par les MOTS sans attendre le réseau, et on calcule le plongement en arrière-plan
+    // (un délai propre, jamais le signal du tour) pour la prochaine fois. La réponse ne dépend plus d'Ollama.
+    const cache = this.plongements.plongement(e.model, query);
+    if (cache) return avecSens(cache);
+    void (async () => { try { const v = await e.embed(query, AbortSignal.timeout(4000)); this.plongements.poserPlongement(e.model, query, v); } catch { /* modèle d'embeddings indisponible : les mots suffisent */ } })();
+    return byWords;
   }
 
   /** Estimation de la taille actuelle du contexte d'une session (pour /status). */

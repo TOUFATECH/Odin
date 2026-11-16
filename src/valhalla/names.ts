@@ -5,6 +5,7 @@ import type { Module } from './types.ts';
 
 /** Nom affiché de chaque appli (identifiant → nom). */
 export const NAMES: Record<string, string> = {
+ "archytas": "Archytas",
  "huginn": "Logos",
  "muninn": "Mnémosyne",
  "yggdrasil": "Athéna",
@@ -223,6 +224,7 @@ export function rename(m: Module): Module {
 
 /** D'où vient le nom de chaque appli (fiche au survol de la carte des Applis, haut de la page de l'appli), validé le 13/11/2026. */
 export const NAME_STORY: Record<string, string> = {
+ "archytas": "Archytas de Tarente, l'inventeur de la colombe mécanique — premier automate autopropulsé de l'Antiquité : la fenêtre Script, là où Odin fabrique ses automatismes.",
  "saga": "Thot, le dieu égyptien de l'écriture et du savoir, scribe des dieux : il garde tout ce que tu notes.",
  "runes": "Le papyrus, la feuille sur laquelle l'Égypte ancienne écrivait ses registres et ses comptes.",
  "draupnir": "Talos, le géant de bronze forgé par Héphaïstos, qui faisait seul sa ronde autour de la Crète, jour après jour : un automate.",
@@ -298,6 +300,7 @@ export const NAME_STORY: Record<string, string> = {
  *  « Catalogue », colonne B, et les projets d'origine des applis). Affichés en haut de la page de l'appli.
  *  Une liste vide veut dire « aucun » (appli propre à Odin). Toute nouvelle appli doit avoir sa ligne (test/homogene.test.ts). */
 export const SIMILAIRES: Record<string, string[]> = {
+ "archytas": ["Zapier", "n8n", "IFTTT", "Make", "Raccourcis", "Automator", "AutoHotkey", "Tasker"],
  "saga": ["Notion", "AppFlowy", "Blinko", "Obsidian", "Logseq", "AFFiNE", "Docmost"],
  "runes": ["Notion", "DumbAssets", "AppFlowy", "Focalboard", "AFFiNE", "NocoDB", "Baserow"],
  "draupnir": ["Node-RED", "AppDaemon", "n8n", "Activepieces"],
@@ -370,6 +373,13 @@ export const SIMILAIRES: Record<string, string[]> = {
 };
 /** Le site officiel d'un applicatif similaire (seulement quand l'adresse est sûre ; sinon le nom seul est affiché). */
 export const SITES_SIMILAIRES: Record<string, string> = {
+ "Zapier": "https://zapier.com",
+ "IFTTT": "https://ifttt.com",
+ "Make": "https://www.make.com",
+ "Raccourcis": "https://support.apple.com/fr-fr/guide/shortcuts/welcome/ios",
+ "Automator": "https://support.apple.com/fr-fr/guide/automator/welcome/mac",
+ "AutoHotkey": "https://www.autohotkey.com",
+ "Tasker": "https://tasker.joaoapps.com",
  "Burp Suite": "https://portswigger.net/burp",
  "OWASP ZAP": "https://www.zaproxy.org",
  "mitmproxy": "https://mitmproxy.org",

@@ -13,6 +13,8 @@ import { draupnirOf } from '../tools/draupnir.ts';
 import { runesOf } from '../tools/runes.ts';
 import { templates as flowTemplates } from '../draupnir/service.ts';
 import { LINKS, linkTemplates, wireReflexes } from './links.ts';
+import { archytas } from './archytas/module.ts';
+import { brancherArchytas } from './archytas/liens.ts';
 import { aegir } from './modules/aegir.ts';
 import { appareils } from './modules/appareils.ts';
 import { brisingamen } from './modules/brisingamen.ts';
@@ -174,7 +176,7 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Andromède : l'ISO de Windows suit la langue d'Odin (il n'a pas de langue d'interface à part : celle de sa voix, sinon son pays).
   brancherLangueOdin(() => ({ langue: odin.cfg.voice?.stt?.language }));
   const devices =() => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return ([...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, argos, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, zeus, gna,apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora, achille, atalante, dodone] as Module[]).map(rename);
+  return ([...coreModules(odin), archytas, eir, skogul, forseti, garmr, geri, ran, ullr, loki, argos, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, zeus, gna,apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora, achille, atalante, dodone] as Module[]).map(rename);
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */
@@ -258,6 +260,21 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   void v.start();
   // Chaque consultation d'une base d'appli par Odin est retenue par sa mémoire (sujet « base <appli> ») : « quand as-tu regardé la base de Phénix ? »
   brancherMemoire((texte, sujet) => { odin.muninn.remember(texte, 'agent', 'fact', 'base alexandrie', { subject: sujet, topic: 'consultation', source: 'Alexandrie' }); });
+  // Archytas (fenêtre Script) : chaque script est relié à la mémoire, au Cerveau et à Noûs (pont no-op sûr tant
+  // que Noûs n'est pas câblé). Jamais le code dans ces traces ; le résumé est masqué. Suppression : la trace part aussi.
+  try {
+    const cerveau = brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace });
+    brancherArchytas({
+      home: odin.paths.home,
+      redact: (t) => odin.redactor.redact(t),
+      nomAppli: (id) => v.module(id)?.name ?? id,
+      muninn: {
+        remember: (c, o, k, t, meta) => odin.muninn.remember(c, o, k, t, meta),
+        oublierSujet: (subject) => { let k = 0; for (const mm of odin.muninn.profile(subject).current) if (mm.subject === subject) { odin.muninn.forget(mm.id); k++; } return k; },
+      },
+      vault: cerveau,
+    });
+  } catch { /* le câblage d'Archytas ne gêne jamais le démarrage */ }
   // Écho : une conversation traduite laisse un POINTEUR NEUTRE dans la mémoire (titre, langues, date) ; le détail reste
   // chiffré dans la base de l'appli. Jamais de transcription ni de résumé ici (la mémoire d'Odin est en clair).
   brancherMemoireConversation({
@@ -270,7 +287,7 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
     noter: (p) => { const sujet = `dictee:${p.dic}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); const jour = p.date.slice(0, 10); odin.muninn.remember(`Dictée du ${jour}${p.mode && p.mode !== 'tel quel' ? ` (${p.mode})` : ''}`, 'owner', 'dictee', `écho dictée ${p.mode}`.slice(0, 120), { subject: sujet, topic: 'echo', source: 'Écho' }); },
     oublier: (dic) => { const sujet = `dictee:${dic}`.toLowerCase(); for (const m of odin.muninn.profile(sujet).current) if (m.subject === sujet) odin.muninn.forget(m.id); },
   });
-  return () => { brancherMemoire(undefined); brancherMemoireConversation(undefined); brancherMemoireDictee(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
+  return () => { brancherMemoire(undefined); brancherArchytas(undefined); brancherMemoireConversation(undefined); brancherMemoireDictee(undefined); void journal?.stop(); notices.stop(); unwire(); v.events.off('event', toFlows); v.events.off('alert', alertToFlows); v.stop(); setValhalla(undefined); };
 }
 
 /** Pour Talos : action d'une appli, sans personne → actions graves refusées. */

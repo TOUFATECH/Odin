@@ -11,6 +11,7 @@
 import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, relative, sep } from 'node:path';
+import { IndexNotes } from './index-notes.ts';
 
 export interface NoteMeta { [k: string]: string | number | boolean | string[] | undefined }
 export interface Note { path: string; title: string; meta: NoteMeta; body: string; links: string[]; tags: string[]; mtime: number; size: number }
@@ -114,6 +115,8 @@ export class Vault {
   private known = new Map<string, Note>();
   /** Index des notes (chemin, nom de fichier, titre) : `find` ne parcourt plus tout le Cerveau. */
   private idx?: { notes: Note[]; byPath: Map<string, Note>; byKey: Map<string, Note> };
+  /** Index inversé « mot → notes » pour `search` (reconstruit quand la liste des notes change). */
+  private rech?: { notes: Note[]; index: IndexNotes };
   readonly root: string;
   constructor(root: string) { this.root = root; mkdirSync(root, { recursive: true }); }
 
@@ -149,8 +152,13 @@ export class Vault {
     };
     walk(this.root, 0);
     this.known = new Map(notes.map((n) => [n.path, n]));
-    this.cache = { at: Date.now(), notes };
-    return notes;
+    // Si rien n'a bougé (mêmes objets-notes, même ordre), on RÉUTILISE le tableau précédent : l'index de
+    // recherche, construit par identité de ce tableau (voir search()), n'est alors PAS reconstruit à froid
+    // entre deux demandes espacées de plus de 3 s. Comparaison par identité, faite au plus une fois par 3 s.
+    const prev = this.cache?.notes;
+    const inchange = !!prev && prev.length === notes.length && prev.every((n, i) => n === notes[i]);
+    this.cache = { at: Date.now(), notes: inchange ? prev! : notes };
+    return this.cache.notes;
   }
   /** Après une écriture d'Odin : tout est relu (une note réécrite dans la même milliseconde garderait sa date). */
   private invalidate() { this.cache = undefined; this.idx = undefined; this.known.clear(); }
@@ -320,8 +328,13 @@ export class Vault {
   search(q: string, limit = 20): Array<{ note: Note; score: number; snippet: string }> {
     const words = noteKey(q).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2);
     if (!words.length) return [];
+    const notes = this.all();
+    // Index inversé « mot → notes » : on ne classe plus que les notes candidates au lieu de balayer TOUT le
+    // Cerveau (85-97 ms → quelques ms). Reconstruit seulement quand la liste des notes change (donc jamais
+    // entre deux demandes rapprochées). Résultat identique : les notes écartées auraient eu un score nul.
+    if (this.rech?.notes !== notes) { const index = new IndexNotes(); index.construire(notes); this.rech = { notes, index }; }
     const out: Array<{ note: Note; score: number; snippet: string }> = [];
-    for (const n of this.all()) {
+    for (const n of this.rech.index.candidats(q)) {
       const { title, body, props, tags } = folded(n);
       let score = 0, hit = -1;
       for (const w of words) {

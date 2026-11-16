@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path';
 import { TextIndex, queryWords, snippet } from './fulltext.ts';
 import { migrateFromSqlite } from './migrate.ts';
 import { Shelf, type Table } from './tables.ts';
+import { CacheVecteurs, cosinus, norme } from './vecteurs-ram.ts';
 import type { Message, ToolCall } from '../types.ts';
 import type { RouteEntry } from '../providers/journal.ts';
 
@@ -90,7 +91,7 @@ interface EvidenceRow { id: number; session_id: string; question: string; claim:
 interface SkillRow { name: string; uses: number; last_used: number; ok: number; fails: number; total_ms: number; cost_usd: number }
 interface UsageRow { id: number; session_id: string; provider: string; tokens_in: number; tokens_out: number; cost_usd: number; created_at: number; purpose: string }
 interface IdentityRow { channel: string; peer: string; user_id: string }
-interface RoutingRow { id: number; at: number; turn_id: string; session_id: string; channel: string; request: string; purpose: string; provider: string; label: string; tier: string; min_tier: string; need: string; reason: string; attempts: string; ok: number; ms: number; tokens_in: number; tokens_out: number; cost_usd: number }
+interface RoutingRow { id: number; at: number; turn_id: string; session_id: string; channel: string; request: string; purpose: string; provider: string; label: string; tier: string; min_tier: string; need: string; reason: string; attempts: string; ok: number; ms: number; tokens_in: number; tokens_out: number; cost_usd: number; jalons?: string }
 /** Conversation mise à la corbeille : effacée pour de bon après 7 jours, sauf si on l'annule. */
 export interface TrashRow { id: string; session: SessionRow; messages: MessageRow[]; deleted_at: number; memories: number[] }
 
@@ -128,6 +129,10 @@ export class Mnemosyne {
   private readonly bySession = new Map<string, MessageRow[]>();
   private readonly msgIndex = new TextIndex();
   private readonly memIndex = new TextIndex();
+  /** Vecteurs des souvenirs décodés gardés en RAM (plus de décodage base64 à chaque rappel par le sens). */
+  private readonly vecCache = new CacheVecteurs();
+  /** Usages des souvenirs (uses / last_used_at) mis de côté pendant le tour, écrits en UN bloc en fin de tour. */
+  private readonly usesEnAttente = new Map<number, { n: number; at: number }>();
 
   /**
    * `location` : « :memory: » (rien sur le disque), un dossier, ou l'ancien chemin `odin.db` :
@@ -307,12 +312,18 @@ export class Mnemosyne {
       || (m.origin === 'agent' && m.uses === 0 && m.last_used_at < now - 365 * day)));
     for (const m of gone) { this.memories.delete(m.id); this.memIndex.remove(m.id); }
     this.vectors.deleteWhere((v) => !this.memories.has(v.id));
+    if (gone.length) this.vecCache.vider(); // les vecteurs des souvenirs oubliés quittent la RAM
     return gone.length;
   }
 
   /** Leçons apprises (corrections, erreurs vérifiées) : les plus récentes et les plus pertinentes. */
   lessons(query = '', limit = 6): MemoryRow[] {
-    const rel = query ? this.recall(query, 20).filter((m) => m.kind === 'lesson') : [];
+    // Les leçons pertinentes sont cherchées SANS écrire (filtre kind==='lesson' direct) : plus d'appel à
+    // recall() ici, donc plus de ~20 écritures ni de fraîcheur/oubli faussés par une simple lecture.
+    const rel = query
+      ? this.memIndex.search(query, (id) => { const m = this.memories.get(id); return Boolean(m && live(m) && m.origin !== 'untrusted' && m.kind === 'lesson'); }, 20)
+          .map(({ id }) => this.memories.get(id)!).filter(Boolean)
+      : [];
     const recent = this.memories.filter((m) => m.kind === 'lesson' && live(m)).sort((a, b) => b.id - a.id).slice(0, limit);
     const seen = new Set<number>();
     return [...rel, ...recent].filter((m) => !seen.has(m.id) && seen.add(m.id)).slice(0, limit);
@@ -339,14 +350,13 @@ export class Mnemosyne {
   }
   /** Les souvenirs les plus proches d'un vecteur (cosinus). */
   nearest(model: string, q: Float32Array, limit = 6): MemoryRow[] {
-    const norm = (a: Float32Array) => Math.sqrt(a.reduce((s, x) => s + x * x, 0)) || 1, qn = norm(q);
+    const qn = norme(q);
     const out: Array<{ r: MemoryRow; s: number }> = [];
     for (const v of this.vectors.values()) {
       if (v.model !== model) continue;
       const r = this.memories.get(v.id); if (!r || !live(r) || r.origin === 'untrusted') continue;
-      const b = Buffer.from(v.vec, 'base64'), f = new Float32Array(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
-      let d = 0; for (let i = 0; i < Math.min(f.length, q.length); i++) d += f[i] * q[i];
-      out.push({ r, s: d / (norm(f) * qn) });
+      const { f, norm: fn } = this.vecCache.obtenir(v.id, v.vec); // décodé UNE fois, gardé en RAM
+      out.push({ r, s: cosinus(f, fn, q, qn) });
     }
     return out.filter((x) => x.s > 0.45).sort((a, b) => b.s - a.s).slice(0, limit).map((x) => x.r);
   }
@@ -363,8 +373,28 @@ export class Mnemosyne {
       const ageDays = (now - r.last_used_at) / 86_400_000;
       return { r, score: score * r.trust * (1 / (1 + ageDays / 30)) * (r.pinned ? 1.5 : 1) };
     }).sort((a, b) => b.score - a.score).slice(0, limit).map((x) => x.r);
-    for (const r of scored) this.memories.patch(r.id, { uses: r.uses + 1, last_used_at: now });
-    return scored.map((r) => this.memories.get(r.id)!);
+    // L'usage (uses / last_used_at) n'est PLUS écrit sur le disque ici : il est mis de côté et rangé en UN
+    // bloc en fin de tour (viderUsages). Cela retire ~28 écritures disque du chemin de lecture (réponse plus
+    // rapide) sans perdre la trace d'usage, écrite juste après la réponse.
+    for (const r of scored) { const e = this.usesEnAttente.get(r.id); this.usesEnAttente.set(r.id, { n: (e?.n ?? 0) + 1, at: now }); }
+    return scored;
+  }
+
+  /**
+   * Écrit en UN seul bloc les compteurs d'usage mis de côté par recall() pendant le tour (retirés du chemin de
+   * lecture). À appeler en fin de tour. Rend le nombre de souvenirs touchés. Sans effet si rien n'attend.
+   */
+  viderUsages(): number {
+    if (!this.usesEnAttente.size) return 0;
+    const puts: (MemoryRow & Record<string, unknown>)[] = [];
+    for (const [id, u] of this.usesEnAttente) {
+      const r = this.memories.get(id); if (!r) continue;
+      puts.push({ ...r, uses: r.uses + u.n, last_used_at: Math.max(r.last_used_at, u.at) });
+    }
+    const n = this.usesEnAttente.size;
+    this.usesEnAttente.clear();
+    if (puts.length) this.memories.enBloc(puts, []);
+    return n;
   }
 
   /**
@@ -392,7 +422,7 @@ export class Mnemosyne {
     else this.memories.put({ subject: '', topic: '', source: '', superseded_by: null, ...m } as MemoryRow & Record<string, unknown>);
     const r = this.memories.get(m.id)!; this.memIndex.add(r.id, `${r.content} ${r.tags ?? ''}`);
   }
-  forget(id: number): boolean { this.memIndex.remove(id); this.vectors.delete(id); return this.memories.delete(id); }
+  forget(id: number): boolean { this.memIndex.remove(id); this.vectors.delete(id); this.vecCache.oublier(id); this.usesEnAttente.delete(id); return this.memories.delete(id); }
   pin(id: number, on = true): void { this.memories.patch(id, { pinned: on ? 1 : 0 }); }
   /** Validation humaine d'une mémoire en quarantaine : elle devient fiable. */
   vouch(id: number): void { this.memories.patch(id, { origin: 'owner', trust: 1 }); }
@@ -539,8 +569,15 @@ export class Mnemosyne {
 
   // ---------- Journal des routages ----------
 
-  recordRoute(e: RouteEntry): void {
-    this.routing.insert({ at: e.at, turn_id: e.turnId, session_id: e.sessionId, channel: e.channel, request: e.request.slice(0, 160), purpose: e.purpose, provider: e.provider, label: e.label, tier: e.tier, min_tier: e.minTier, need: e.need, reason: e.reason.slice(0, 300), attempts: JSON.stringify(e.attempts.slice(0, 20)), ok: e.ok ? 1 : 0, ms: Math.round(e.ms), tokens_in: e.tokensIn, tokens_out: e.tokensOut, cost_usd: e.costUsd });
+  recordRoute(e: RouteEntry, jalons?: Record<string, number>): void {
+    this.routing.insert({ at: e.at, turn_id: e.turnId, session_id: e.sessionId, channel: e.channel, request: e.request.slice(0, 160), purpose: e.purpose, provider: e.provider, label: e.label, tier: e.tier, min_tier: e.minTier, need: e.need, reason: e.reason.slice(0, 300), attempts: JSON.stringify(e.attempts.slice(0, 20)), ok: e.ok ? 1 : 0, ms: Math.round(e.ms), tokens_in: e.tokensIn, tokens_out: e.tokensOut, cost_usd: e.costUsd, jalons: jalons && Object.keys(jalons).length ? JSON.stringify(jalons) : '' });
+  }
+  /** Le découpage du temps (jalons) rangé pour un tour, s'il y en a un (le dernier écrit l'emporte). */
+  routeJalons(turnId: string): Record<string, number> | undefined {
+    let found: string | undefined;
+    for (const r of this.routing.values()) if (r.turn_id === turnId && r.jalons) found = r.jalons;
+    if (!found) return undefined;
+    try { const j = JSON.parse(found); return j && typeof j === 'object' ? j as Record<string, number> : undefined; } catch { return undefined; }
   }
   /** Les chiffres des économies depuis une date : tâches faites sans IA, demandes confiées à une IA, par fournisseur. */
   savingsData(since: number): { direct: number; learned: number; aiTurns: number; aiCalls: number; spentUsd: number; tokens: number; byProvider: Array<{ provider: string; label: string; calls: number; tokensIn: number; tokensOut: number; costUsd: number }>; reasons: Array<{ reason: string; n: number }> } {
