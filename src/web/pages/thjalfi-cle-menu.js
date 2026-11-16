@@ -127,12 +127,17 @@
   /** Le menu dans un calque par-dessus la page (jamais une fenêtre native). */
   function ouvrir(entrees, opts) {
     if (typeof document === 'undefined') return;
+    const o = opts || {};
     const bg = el('div', { class: 'clm-bg', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Aperçu du menu de démarrage' });
     bg.append(el('style', {}, CSS));
     const fermer = () => bg.remove();
     const box = el('div', { class: 'clm-box' });
     box.append(el('div', { style: 'display:flex;justify-content:flex-end;margin-bottom:6px' }, el('button', { class: 'clm-x', type: 'button', 'aria-label': 'Fermer', onclick: fermer }, '×')));
-    box.append(construire(entrees, opts));
+    // L'aperçu montre ce que la clé affiche vraiment au boot : si la mascotte est activée, l'amorçage (mascotte + 3
+    // points) s'affiche AVANT le menu, et le menu reprend le thème choisi — comme l'écran réel (même maquette).
+    const EC = (typeof window !== 'undefined' && window.OdinEcranCartes) || null;
+    if (o.mascotteAccueil && EC && EC.accueil) box.append(EC.accueil({ ligne: 'Installation clé USB', delai: 1400 }));
+    box.append(construire(entrees, o));
     bg.append(box);
     bg.addEventListener('keydown', (e) => { if (e.key === 'Escape') fermer(); });
     bg.addEventListener('mousedown', (e) => { if (e.target === bg) fermer(); });

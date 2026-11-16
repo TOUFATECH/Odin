@@ -108,6 +108,22 @@
     return out;
   }
 
+  /**
+   * Les réglages de PRÉSENTATION de la clé, repris tels quels de la maquette validée « Démarrage réseau » (PXE) :
+   * le THÈME graphique (9 thèmes), le thème TEXTE (menu GRUB / iPXE), la DISPOSITION (éventail / affiches / liste),
+   * et la mascotte d'Odin au démarrage (ses yeux en pastille + les 3 points AVANT le menu). Pur : valeurs par défaut.
+   */
+  function reglagesDefaut() {
+    return { theme: 'bleu', texte: 'matrix', disposition: 'eventail', mascotteAccueil: true, fond: '' };
+  }
+  /** La famille côté clé (windows / linux) d'un système du catalogue, tirée de sa catégorie de la maquette. Pur. */
+  function familleDuSysteme(sys) {
+    const c = (sys && sys.category) || '';
+    return c === 'Windows' ? 'windows' : 'linux';
+  }
+  /** Le choix de départ (iso / installe) selon le mode choisi dans le détail de la maquette. Pur. */
+  function choixDepuisMode(mode) { return mode === 'installer' || mode === 'auto' ? 'installe' : 'iso'; }
+
   /** Le descripteur SystemeCle (contrat) envoyé au serveur pour le plan et l'écriture. Pur. */
   function serialiser(s) {
     const o = { nom: s.nom, famille: s.famille, choix: s.choix, mode: s.mode || (s.choix === 'iso' ? 'demarrer' : 'installer') };
@@ -208,7 +224,7 @@
     void tools;
     if (typeof document === 'undefined') return;
     const D = dialog();
-    const etat = { cible: cibleDepuis(disque), nomCible: disque.modele || disque.chemin || 'ce support', systemes: [], vms: [], racine: [], plan: null };
+    const etat = { cible: cibleDepuis(disque), nomCible: disque.modele || disque.chemin || 'ce support', systemes: [], vms: [], racine: [], plan: null, reglages: reglagesDefaut(), catalogue: [], catOuvert: false };
     let compteur = 0;
 
     const bg = el('div', { class: 'clc-bg', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Préparer ${etat.nomCible}` });
@@ -228,6 +244,21 @@
       dessiner();
     }
     function retirerSysteme(sys) { etat.systemes = etat.systemes.filter((s) => s !== sys); dessiner(); }
+
+    // La bibliothèque d'Odin (mêmes ISO / images que le démarrage réseau) : l'état de /ecran/etat donne la liste des
+    // systèmes, exactement formée comme la maquette (ecran.ts systems()). On la montre avec la MÊME présentation.
+    async function chargerCatalogue() {
+      try { const r = await fetch('/ecran/etat'); const d = await r.json(); etat.catalogue = Array.isArray(d && d.systemes) ? d.systemes : []; }
+      catch { etat.catalogue = []; }
+      etat.catOuvert = true;
+      dessiner();
+    }
+    // Un système choisi dans la maquette (Essayer / Installer / Installer pour moi) s'ajoute à la composition de la clé.
+    function ajouterDuCatalogue(sys, mode) {
+      const fichier = sys.name || sys.fichier || sys.id || '';
+      etat.systemes.push({ nom: sys.title || fichier || 'Système', fichier, famille: familleDuSysteme(sys), choix: choixDepuisMode(mode), mode: mode === 'essai' ? 'essai' : 'installer', defaut: etat.systemes.length === 0 });
+      dessiner();
+    }
 
     async function chargerVms() {
       const grille = box.querySelector('.clc-vms');
@@ -272,7 +303,9 @@
 
     async function apercuMenu() {
       const entrees = entreesMenu(etat);
-      if (window.OdinGeneseCleMenu && window.OdinGeneseCleMenu.ouvrir) window.OdinGeneseCleMenu.ouvrir(entrees, { defaut: (etat.systemes.find((s) => s.defaut) || {}).nom, delai: 10 });
+      // L'aperçu du menu de la clé montre la même chose que ce que la clé affichera au boot : le thème, la disposition,
+      // et (si la mascotte est activée) l'amorçage mascotte + 3 points AVANT le menu — comme l'écran réel.
+      if (window.OdinGeneseCleMenu && window.OdinGeneseCleMenu.ouvrir) window.OdinGeneseCleMenu.ouvrir(entrees, { defaut: (etat.systemes.find((s) => s.defaut) || {}).nom, delai: etat.reglages.delai || 10, theme: etat.reglages.theme, disposition: etat.reglages.disposition, mascotteAccueil: etat.reglages.mascotteAccueil });
       else await D.alert('L\'aperçu du menu n\'est pas chargé.');
     }
 
@@ -306,6 +339,46 @@
       if (res && res.ok !== false) fermer();
     }
 
+    // Le groupe PRÉSENTATION : on choisit le thème, la disposition et le thème texte de la maquette validée, et si la
+    // mascotte d'Odin ouvre l'écran. Réutilise les constantes de la maquette (OdinEcranCartes) quand elles sont là.
+    function groupePresentation() {
+      const EC = (typeof window !== 'undefined' && window.OdinEcranCartes && window.OdinEcranCartes.logique) || null;
+      const themes = EC ? EC.THEMES : { bleu: 'Bleu verre', matrix: 'Matrix', ocean: 'Voyage océan', lune: 'Lune', ciel: 'Ciel', galaxie: 'Galaxie', mayotte: 'Mayotte', couchant: 'Coucher de soleil', clair: 'Clair minimal' };
+      const textes = EC ? EC.TEXT_THEMES : { matrix: 'Matrix', lune: 'Lune', aurore: 'Aurore boréale', neon: 'Néon', classique: 'Classique' };
+      const disps = EC ? EC.DISP : { eventail: 'Éventail', affiches: 'Affiches', liste: 'Liste' };
+      const r = etat.reglages;
+      const pills = (obj, val, set) => el('div', { class: 'clc-sous' }, ...Object.entries(obj).map(([k, nom]) => el('button', { type: 'button', class: 'clc-pill' + (k === val ? ' sel' : ''), onclick: () => { set(k); dessiner(); } }, nom)));
+      return el('div', { class: 'clc-grp' }, el('h4', {}, 'Présentation (même maquette que le démarrage réseau)'),
+        el('p', { class: 'clc-note', style: 'margin:0 0 6px' }, 'Disposition des systèmes :'),
+        pills(disps, r.disposition, (k) => { r.disposition = k; }),
+        el('p', { class: 'clc-note', style: 'margin:8px 0 6px' }, 'Thème graphique (écran animé) :'),
+        pills(themes, r.theme, (k) => { r.theme = k; }),
+        el('p', { class: 'clc-note', style: 'margin:8px 0 6px' }, 'Thème texte (menu en ligne de commande) :'),
+        pills(textes, r.texte, (k) => { r.texte = k; }),
+        el('div', { class: 'clc-sys-f', style: 'margin-top:10px' },
+          el('span', { class: 'clc-note' }, 'Mascotte d\'Odin au démarrage (ses yeux + 3 points, AVANT le menu) :'),
+          el('button', { type: 'button', class: 'clc-pill' + (r.mascotteAccueil ? ' pri' : ''), onclick: () => { r.mascotteAccueil = !r.mascotteAccueil; dessiner(); } }, r.mascotteAccueil ? 'Activée' : 'Désactivée')),
+        el('p', { class: 'clc-note' }, 'Le fond d\'écran perso par thème déjà réglé dans Genèse est repris tel quel ; rien à refaire ici.'));
+    }
+
+    // Le groupe BIBLIOTHÈQUE : choisir les systèmes / ISO / images à mettre sur la clé AVEC la présentation de la
+    // maquette validée (éventail / affiches / liste, thèmes, cartes, détail Essayer / Installer). Même aspect que le
+    // démarrage réseau. Si OdinEcranCartes n'est pas là, on garde l'ajout « + Windows / + Linux » à la main.
+    function groupeCatalogue() {
+      const EC = (typeof window !== 'undefined' && window.OdinEcranCartes) || null;
+      const tete = el('h4', {}, 'Choisir un système (bibliothèque d\'Odin)',
+        el('button', { type: 'button', class: 'clc-pill', style: 'margin-left:auto', onclick: chargerCatalogue }, etat.catOuvert ? 'Relire' : 'Ouvrir la bibliothèque'));
+      const grp = el('div', { class: 'clc-grp' }, tete);
+      if (!etat.catOuvert) { grp.append(el('p', { class: 'clc-note' }, 'La même présentation que le démarrage réseau validé : choisis les ISO, images et systèmes dans l\'éventail / les affiches / la liste, avec le détail « Essayer / Installer ».')); return grp; }
+      if (EC && EC.rendre) {
+        if (etat.reglages.mascotteAccueil && EC.accueil) grp.append(EC.accueil({ ligne: 'Installation clé USB' }));
+        grp.append(EC.rendre({ systemes: etat.catalogue, theme: etat.reglages.theme, disposition: etat.reglages.disposition, onChoisir: ajouterDuCatalogue }));
+      } else {
+        grp.append(el('p', { class: 'clc-note' }, 'La présentation de la maquette n\'est pas chargée : ajoute les systèmes à la main ci-dessous.'));
+      }
+      return grp;
+    }
+
     function dessiner() {
       const familles = ['windows', 'linux'];
       const noeuds = [
@@ -314,6 +387,9 @@
             el('p', { class: 'sub' }, `${{ cle: 'Clé USB', 'disque-externe': 'Disque externe', 'disque-interne': 'Disque interne' }[etat.cible.genre]} · ${taille(etat.cible.tailleOctets)}${etat.cible.estOdin ? ' · déjà ODIN' : ''}`)),
           el('button', { class: 'clc-x', type: 'button', 'aria-label': 'Fermer', onclick: fermer }, '×')),
         grosDisque(etat.cible) ? el('div', { class: 'clc-warn' }, 'Gros disque externe : il peut tout contenir — plusieurs systèmes installés et beaucoup d\'ISO.') : null,
+        // La présentation (thème, disposition) et la bibliothèque, à la MÊME maquette que le démarrage réseau.
+        groupePresentation(),
+        groupeCatalogue(),
         // Les systèmes et leurs trois choix.
         el('div', { class: 'clc-grp' }, el('h4', {}, 'Systèmes', el('span', { class: 'clc-fam' }, String(etat.systemes.length))),
           ...etat.systemes.map((s) => carteSysteme(s, { maj: dessiner, retirer: retirerSysteme })),
@@ -349,7 +425,7 @@
 
   window.OdinGeneseCleComposer = {
     ouvrir,
-    logique: { cibleDepuis, choix, limites, placeApproxGo, grosDisque, planResume, phraseOk, PHRASE, entreesMenu, serialiser, ORIGINE, TYPE_MENU },
+    logique: { cibleDepuis, choix, limites, placeApproxGo, grosDisque, planResume, phraseOk, PHRASE, entreesMenu, serialiser, ORIGINE, TYPE_MENU, reglagesDefaut, familleDuSysteme, choixDepuisMode },
     rendu: { carteSysteme, cartePlan },
   };
 })();
