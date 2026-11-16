@@ -84,7 +84,7 @@ import { lineDiff } from '../yggdrasil/skills.ts';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { dnsServer, setDotMaterial } from '../valhalla/modules/vidarr.ts';
 import { push as vordrPush, statusPage } from '../valhalla/modules/vordr.ts';
-import { vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock } from '../vault.ts';
+import { readSecretFile, vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock, writeSecretFile } from '../vault.ts';
 import { getAlarm } from '../home/alarm.ts';
 import { Pairing, deviceName, type PairRequest } from './pairing.ts';
 import { activationPage } from './activate.ts';
@@ -112,10 +112,10 @@ import { savingsOf } from '../providers/savings.ts';
 
 export function ensureWebToken(paths: OdinPaths, rotate = false): string {
   const f = join(paths.home, 'web-token');
-  if (!rotate && existsSync(f)) return readFileSync(f, 'utf8').trim();
+  const old = rotate ? undefined : readSecretFile(f)?.trim();
+  if (old) return old;
   const t = randomBytes(24).toString('hex');
-  writeFileSync(f, t, { mode: 0o600 });
-  try { chmodSync(f, 0o600); } catch { /* Windows : droits gérés par le profil utilisateur */ }
+  writeSecretFile(f, t);
   return t;
 }
 

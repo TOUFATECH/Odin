@@ -6,7 +6,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { decryptBackup } from './backup.ts';
 import type { OdinConfig, OdinPaths } from './config.ts';
-import { backupDir } from './guard/watch.ts';
+import { backupDir, backupPassword } from './guard/watch.ts';
 import { makeEmbedder } from './muninn/embed.ts';
 import { listSubscriptions } from './push/webpush.ts';
 import type { Router } from './providers/router.ts';
@@ -60,7 +60,7 @@ export async function selfTest(o: { cfg: OdinConfig; paths: OdinPaths; router: R
     const dir = backupDir(o.paths, cfg.autoBackup);
     const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.odinbk')).sort() : [];
     if (!files.length) throw new Error('aucune sauvegarde encore (la première se fait la nuit, ou « Sauvegarder maintenant »)');
-    const pw = readFileSync(join(o.paths.home, 'backup-pass'), 'utf8');
+    const pw = backupPassword(o.paths);
     decryptBackup(readFileSync(join(dir, files.at(-1)!)), pw);
     return `dernière (${files.at(-1)}) déchiffrable : restauration possible`;
   }, 'Réglages → Sauvegarde : refais une sauvegarde ; vérifie le mot de passe.');

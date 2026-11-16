@@ -5,6 +5,7 @@
 
 import { createCipheriv, createECDH, createPrivateKey, hkdfSync, randomBytes, sign, type ECDH, type KeyObject } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readSecretFile, writeSecretFile } from '../vault.ts';
 import { join } from 'node:path';
 
 const b64u = (b: Buffer) => b.toString('base64url');
@@ -16,13 +17,13 @@ export interface Vapid { publicKey: string; privateJwk: { kty: string; crv: stri
 /** Clés VAPID d'Odin (créées une fois). */
 export function vapidKeys(home: string): Vapid {
   const f = join(home, 'vapid.json');
-  if (existsSync(f)) return JSON.parse(readFileSync(f, 'utf8')) as Vapid;
+  const old = readSecretFile(f);
+  if (old) return JSON.parse(old) as Vapid;
   const ecdh = createECDH('prime256v1'); ecdh.generateKeys();
   const pub = ecdh.getPublicKey();
   const jwk = { kty: 'EC', crv: 'P-256', d: b64u(ecdh.getPrivateKey()), x: b64u(pub.subarray(1, 33)), y: b64u(pub.subarray(33, 65)) };
   const v: Vapid = { publicKey: b64u(pub), privateJwk: jwk };
-  writeFileSync(f, JSON.stringify(v), { mode: 0o600 });
-  try { chmodSync(f, 0o600); } catch { /* Windows */ }
+  writeSecretFile(f, JSON.stringify(v));
   return v;
 }
 

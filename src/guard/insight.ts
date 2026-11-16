@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { decryptBackup } from '../backup.ts';
 import type { OdinConfig, OdinPaths } from '../config.ts';
 import { deviceLabel, type Device } from '../hlidskjalf/inventory.ts';
-import { backupDir, diskUsage } from './watch.ts';
+import { backupDir, backupPassword, diskUsage } from './watch.ts';
 
 export interface KV { getKv(k: string): string | undefined; setKv(k: string, v: string): void }
 
@@ -42,7 +42,7 @@ export function restoreTest(paths: OdinPaths, cfg: OdinConfig['autoBackup']): { 
   const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.odinbk')).sort() : [];
   if (!files.length) return { ok: false, text: 'aucune sauvegarde à tester' };
   try {
-    const zip = decryptBackup(readFileSync(join(dir, files.at(-1)!)), readFileSync(join(paths.home, 'backup-pass'), 'utf8'));
+    const zip = decryptBackup(readFileSync(join(dir, files.at(-1)!)), backupPassword(paths));
     const names = zip.toString('latin1');
     const missing = ['config.json', 'odin.db'].filter((n) => !names.includes(n));
     return missing.length ? { ok: false, text: `la sauvegarde ${files.at(-1)} ne contient pas : ${missing.join(', ')}` } : { ok: true, text: `la sauvegarde ${files.at(-1)} se restaure (déchiffrée, complète)` };

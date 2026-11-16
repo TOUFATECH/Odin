@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path';
 import { after, before, test } from 'node:test';
 import { ConnexionGoogle, corpsMultipart, nettoyer, reglerGoogle, titreDocument } from '../src/valhalla/export/google.ts';
 import type { PageExport } from '../src/valhalla/export/page.ts';
-import { vaultEnable, vaultLock } from '../src/vault.ts';
+import { readSecretFile, vaultEnable, vaultLock } from '../src/vault.ts';
 import { exportApi } from '../src/web/export-api.ts';
 
 const CLIENT_ID = '123456789-abcdefgh.apps.googleusercontent.com', CLIENT_SECRET = 'GOCSPX-secretDuClient42', DEVICE = 'AH-1Ng-code-appareil-secret';
@@ -122,7 +122,7 @@ test('connexion par code : attente, « ralentis », puis jeton durable rangé da
   const code = faux.appels.find((a) => a.chemin === '/oauth/device/code')!;
   assert.deepEqual(code.champs, { client_id: CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file' });
   // Les secrets sont dans le fichier env d'Odin (le coffre le chiffre quand il est activé), pas ailleurs.
-  const fichier = readFileSync(join(home, 'env'), 'utf8');
+  const fichier = readSecretFile(join(home, 'env'))!;
   assert.match(fichier, new RegExp(`GOOGLE_OAUTH_REFRESH_TOKEN=${REFRESH.replace(/[/.]/g, '\\$&')}`));
   assert.match(fichier, /GOOGLE_OAUTH_CLIENT_SECRET=/);
   const e = g.etat(); assert.equal(e.connecte, true); assert.equal(e.client, true); sansSecret(JSON.stringify(e), 'l\'état');
@@ -174,7 +174,7 @@ test('déconnexion : jeton révoqué chez Google puis oublié', async () => {
   remettre(); const home = nouveau(), env: NodeJS.ProcessEnv = {}; const g = await relier(home, env);
   assert.deepEqual(await g.deconnecter(), { revoque: true });
   assert.equal(faux.appels.find((a) => a.chemin === '/oauth/revoke')!.champs.token, REFRESH);
-  assert.equal(g.connecte(), false); assert.ok(!readFileSync(join(home, 'env'), 'utf8').includes(REFRESH));
+  assert.equal(g.connecte(), false); assert.ok(!(readSecretFile(join(home, 'env')) ?? '').includes(REFRESH));
 });
 
 test('coffre verrouillé : la connexion n\'est pas lisible et on le dit', () => {

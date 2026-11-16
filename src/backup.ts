@@ -9,6 +9,7 @@
 
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { exportMachineKey, importMachineKey } from './vault.ts';
 import { dirname, join, relative, sep } from 'node:path';
 import type { OdinPaths } from './config.ts';
 import { unzip, zip, type ZipEntry } from './files/zip.ts';
@@ -16,7 +17,7 @@ import { unzip, zip, type ZipEntry } from './files/zip.ts';
 const MAGIC = Buffer.from('ODINBK1');
 const SCRYPT = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 /** Jamais sauvegardé : journaux (volumineux, sans valeur) et certificat (régénéré) ; le jeton web est recréé. */
-const SKIP = new Set(['logs', 'web-cert', 'web-token', 'sessions.json', 'sessions.json.tmp', 'compte.json.tmp', 'odin.db-wal', 'odin.db-shm', 'odin.db-journal', 'node_modules', 'inbox']);
+const SKIP = new Set(['logs', 'web-cert', 'web-token', 'web-token.enc', 'sessions.json', 'sessions.json.tmp', 'compte.json.tmp', 'odin.db-wal', 'odin.db-shm', 'odin.db-journal', 'node_modules', 'inbox']);
 const MAX_FILE = 200 * 1024 * 1024;
 
 export interface BackupOptions {
@@ -75,6 +76,8 @@ export function createBackup(paths: OdinPaths, password: string, o: BackupOption
   const entries: ZipEntry[] = [];
   if (existsSync(paths.home)) walk(paths.home, paths.home, entries, o);
   if (!entries.length) throw new Error('rien à sauvegarder (dossier Odin vide)');
+  const cle = exportMachineKey(paths.home);
+  if (cle) entries.push({ name: '_cle-machine', data: cle });
   entries.push({ name: '_sauvegarde.json', data: Buffer.from(JSON.stringify({ format: 1, date: new Date().toISOString(), files: entries.length }, null, 2)) });
   return encryptBackup(zip(entries), password);
 }
@@ -90,6 +93,7 @@ export function restoreBackup(paths: OdinPaths, data: Buffer, password: string):
   const files = unzip(decryptBackup(data, password));
   if (!files.has('_sauvegarde.json') || !files.has('config.json')) throw new Error('sauvegarde incomplète (pas de config.json)');
   files.delete('_sauvegarde.json');
+  const cle = files.get('_cle-machine'); files.delete('_cle-machine');
   const replaced: string[] = [];
   for (const [name, buf] of files) {
     if (name.split('/').some((s) => s === '..' || s === '' || /^[A-Za-z]:/.test(s))) throw new Error(`chemin refusé dans l'archive : ${name}`);
@@ -98,6 +102,8 @@ export function restoreBackup(paths: OdinPaths, data: Buffer, password: string):
     if (existsSync(dest)) { replaced.push(name); rmSync(`${dest}.avant-restauration`, { force: true }); renameSync(dest, `${dest}.avant-restauration`); }
     writeFileSync(dest, buf, { mode: /^(env|web-token|compte\.json|admin\.json|machines\.json|vault\.json|backup-pass|vapid\.json|codex-auth\.json|push\.json|[^/]*\.enc)$/.test(name) ? 0o600 : 0o644 });
   }
+  // La clé de la machine qui va avec les secrets restaurés (nommée d'après le vault.json restauré).
+  if (cle) importMachineKey(paths.home, cle);
   // Restes d'une ancienne base SQLite (avant la mémoire en fichiers) : jamais relus, donc retirés.
   for (const suffix of ['-wal', '-shm', '-journal']) rmSync(paths.db + suffix, { force: true });
   return { files: files.size, replaced };

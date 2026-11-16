@@ -13,6 +13,7 @@
 import { readSse } from './sse.ts';
 import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readSecretFile, removeSecretFile, writeSecretFile } from '../vault.ts';
 import { createServer, type Server } from 'node:http';
 import { join } from 'node:path';
 import type { OdinPaths } from '../config.ts';
@@ -44,14 +45,12 @@ export interface CodexAuth {
 export const codexAuthFile = (paths: OdinPaths) => join(paths.home, 'codex-auth.json');
 
 export function loadCodexAuth(paths: OdinPaths): CodexAuth | undefined {
-  try { return JSON.parse(readFileSync(codexAuthFile(paths), 'utf8')) as CodexAuth; } catch { return undefined; }
+  try { const t = readSecretFile(codexAuthFile(paths)); return t ? JSON.parse(t) as CodexAuth : undefined; } catch { return undefined; }
 }
 export function saveCodexAuth(paths: OdinPaths, a: CodexAuth): void {
-  const f = codexAuthFile(paths);
-  writeFileSync(f, JSON.stringify(a, null, 2), { mode: 0o600 });
-  try { chmodSync(f, 0o600); } catch { /* Windows */ }
+  writeSecretFile(codexAuthFile(paths), JSON.stringify(a, null, 2));
 }
-export function removeCodexAuth(paths: OdinPaths): void { rmSync(codexAuthFile(paths), { force: true }); }
+export function removeCodexAuth(paths: OdinPaths): void { removeSecretFile(codexAuthFile(paths)); }
 
 /** Lit les « claims » d'un JWT sans le vérifier (seulement pour l'identifiant de compte et l'e-mail). */
 export function jwtClaims(token: string | undefined): Record<string, unknown> {

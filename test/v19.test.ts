@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CORRECTION, preferredProviders, recordOutcome, taskCategory } from '../src/core/agent.ts';
 import { anomalies, weeklyReport } from '../src/guard/insight.ts';
 import { rememberBefore, undo, undoList } from '../src/undo.ts';
 import { formatChecks } from '../src/selftest.ts';
-import { readSecretFile, vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock, writeSecretFile } from '../src/vault.ts';
+import { machineKeyFile, machineKeyLost, readSecretFile, resetVaultCache, vaultDisable, vaultEnable, vaultLock, vaultState, vaultUnlock, writeSecretFile } from '../src/vault.ts';
 import { speakPlan } from '../src/tools/homeassistant.ts';
 import { makeOdin } from './helpers.ts';
 
@@ -67,12 +67,19 @@ test('bilan de la semaine et rapport du test complet', () => {
   assert.equal(formatChecks([{ name: 'Mail', ok: false, detail: 'refusé', fix: 'mot de passe d\'application' }, { name: 'Agenda', ok: null, detail: 'non relié' }]), '❌ Mail : refusé\n   → mot de passe d\'application\n⚪ Agenda : non relié');
 });
 
-test('coffre : secrets chiffrés sur le disque, illisibles verrouillé, rendus en clair si désactivé', () => {
+test('coffre : secrets toujours chiffrés (clé de la machine), mot de passe maître en plus, illisibles verrouillé', () => {
   const home = mkdtempSync(join(tmpdir(), 'odin-vault-'));
   try {
     const env = join(home, 'env');
     writeSecretFile(env, 'HA_TOKEN=abc123\n');
     assert.equal(vaultState(home), 'off');
+    // Sans mot de passe maître : déjà chiffré, avec la clé de la machine rangée hors du dossier.
+    assert.ok(!existsSync(env) && existsSync(`${env}.enc`) && !readFileSync(`${env}.enc`).includes('abc123'), 'chiffré dès le départ');
+    assert.ok(!machineKeyFile(home).startsWith(home), 'la clé n\'est pas dans le dossier d\'Odin');
+    // Un ancien fichier en clair (Odin d'avant, restauration) est chiffré au premier passage.
+    writeFileSync(join(home, 'backup-pass'), 'motdepasse-sauvegarde');
+    assert.equal(readSecretFile(join(home, 'backup-pass')), 'motdepasse-sauvegarde');
+    assert.ok(!existsSync(join(home, 'backup-pass')) && existsSync(join(home, 'backup-pass.enc')));
     assert.throws(() => vaultEnable(home, 'court'), /trop court/);
     vaultEnable(home, 'un mot de passe solide');
     assert.ok(!existsSync(env) && existsSync(`${env}.enc`));
@@ -87,8 +94,18 @@ test('coffre : secrets chiffrés sur le disque, illisibles verrouillé, rendus e
     writeSecretFile(join(home, 'machines.json'), '[]');
     vaultDisable(home, 'un mot de passe solide');
     assert.equal(vaultState(home), 'off');
-    assert.equal(readFileSync(env, 'utf8'), 'HA_TOKEN=abc123\n');
-    assert.equal(readFileSync(join(home, 'machines.json'), 'utf8'), '[]');
+    // Mot de passe maître retiré : toujours chiffré (clé de la machine), toujours lisible par Odin.
+    assert.ok(!existsSync(env) && !existsSync(join(home, 'machines.json')));
+    assert.equal(readSecretFile(env), 'HA_TOKEN=abc123\n');
+    assert.equal(readSecretFile(join(home, 'machines.json')), '[]');
+    // Dossier déplacé : la clé suit (son nom est dans vault.json).
+    const ailleurs = `${home}-deplace`; renameSync(home, ailleurs);
+    try { assert.equal(readSecretFile(join(ailleurs, 'env')), 'HA_TOKEN=abc123\n'); } finally { renameSync(ailleurs, home); }
+    // Clé de la machine perdue : Odin repart (secrets mis de côté, jamais effacés) au lieu de planter.
+    rmSync(machineKeyFile(home)); resetVaultCache(home);
+    assert.equal(readSecretFile(env), undefined);
+    assert.ok(existsSync(`${env}.enc.illisible`) && machineKeyLost(home));
+    writeSecretFile(env, 'HA_TOKEN=neuf\n'); assert.equal(readSecretFile(env), 'HA_TOKEN=neuf\n');
   } finally { vaultLock(home); rmSync(home, { recursive: true, force: true }); }
 });
 

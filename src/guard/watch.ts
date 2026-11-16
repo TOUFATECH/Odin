@@ -9,6 +9,7 @@
 // Rien n'est modifié sur les appareils : Odin observe et prévient ; corriger reste une action validée.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync, statSync, writeFileSync } from 'node:fs';
+import { readSecretFile, secretFileExists, writeSecretFile } from '../vault.ts';
 import { connect } from 'node:tls';
 import { join } from 'node:path';
 import { createBackup } from '../backup.ts';
@@ -137,9 +138,15 @@ export interface AutoBackupConfig { enabled: boolean; hour: number; dir: string;
 const passFile = (paths: OdinPaths) => join(paths.home, 'backup-pass');
 export function setBackupPassword(paths: OdinPaths, pw: string): void {
   if (pw.length < 8) throw new Error('mot de passe de sauvegarde : 8 caractères au moins');
-  writeFileSync(passFile(paths), pw, { mode: 0o600 });
+  writeSecretFile(passFile(paths), pw);
 }
-export const hasBackupPassword = (paths: OdinPaths) => existsSync(passFile(paths));
+export const hasBackupPassword = (paths: OdinPaths) => secretFileExists(passFile(paths));
+/** Le mot de passe des sauvegardes (chiffré dans le coffre) ; erreur claire si le coffre est verrouillé. */
+export function backupPassword(paths: OdinPaths): string {
+  const pw = readSecretFile(passFile(paths));
+  if (pw === undefined) throw new Error(hasBackupPassword(paths) ? 'le coffre est verrouillé : sauvegarde suspendue jusqu\'au déverrouillage' : 'aucun mot de passe de sauvegarde');
+  return pw;
+}
 export const backupDir = (paths: OdinPaths, cfg: AutoBackupConfig) => cfg.dir.trim() || join(paths.home, 'sauvegardes');
 
 /** Fait la sauvegarde du jour si l'heure est passée et qu'elle n'existe pas encore ; garde les « keep » dernières. */
@@ -151,7 +158,7 @@ export function autoBackup(paths: OdinPaths, cfg: AutoBackupConfig, now = new Da
   if (!hasBackupPassword(paths)) return { error: 'sauvegarde automatique : aucun mot de passe (Réglages → Sauvegarde)' };
   try {
     mkdirSync(dir, { recursive: true });
-    writeFileSync(file, createBackup(paths, readFileSync(passFile(paths), 'utf8'), { workspace: true }), { mode: 0o600 });
+    writeFileSync(file, createBackup(paths, backupPassword(paths), { workspace: true }), { mode: 0o600 });
     const old = readdirSync(dir).filter((f) => /^odin-sauvegarde-\d{4}-\d{2}-\d{2}\.odinbk$/.test(f)).sort().reverse().slice(Math.max(1, cfg.keep));
     for (const f of old) rmSync(join(dir, f), { force: true });
     return { file };

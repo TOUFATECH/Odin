@@ -1,21 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { Gateway } from '../src/bifrost/gateway.ts';
 import { loadConfig } from '../src/config.ts';
 import { WebChannel, ensureWebToken } from '../src/web/server.ts';
 import { envFile, loadEnvFile, providerFor, secretHint, writeSecret } from '../src/settings.ts';
+import { readSecretFile } from '../src/vault.ts';
 import { makeOdin } from './helpers.ts';
 
-test('clés : ~/.odin/env écrit en 600, relu sans écraser, jamais renvoyé en clair', () => {
+test('clés : ~/.odin/env toujours chiffré sur le disque, relu sans écraser, jamais renvoyé en clair', () => {
   const o = makeOdin([]);
   const env: NodeJS.ProcessEnv = {};
   writeSecret(o.paths, 'ANTHROPIC_API_KEY', 'sk-ant-abcdefghijklmnop1234', env);
   writeSecret(o.paths, 'TELEGRAM_BOT_TOKEN', '123456:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi', env);
   writeSecret(o.paths, 'ANTHROPIC_API_KEY', 'sk-ant-zzzzzzzzzzzzzzzz9999', env); // remplacement, pas doublon
-  const text = readFileSync(envFile(o.paths), 'utf8');
+  const text = readSecretFile(envFile(o.paths))!;
   assert.equal(text.match(/ANTHROPIC_API_KEY/g)!.length, 1);
-  if (process.platform !== 'win32') assert.equal(statSync(envFile(o.paths)).mode & 0o777, 0o600);
+  // Sur le disque : seulement le fichier chiffré, jamais la clé en clair.
+  assert.ok(!existsSync(envFile(o.paths)) && existsSync(`${envFile(o.paths)}.enc`), 'env est chiffré');
+  assert.ok(!readFileSync(`${envFile(o.paths)}.enc`).includes('sk-ant-'), 'aucune clé lisible sur le disque');
+  if (process.platform !== 'win32') assert.equal(statSync(`${envFile(o.paths)}.enc`).mode & 0o777, 0o600);
   assert.deepEqual(secretHint('ANTHROPIC_API_KEY', env), { set: true, hint: '…9999' });
 
   const fresh: NodeJS.ProcessEnv = { TELEGRAM_BOT_TOKEN: 'déjà-là' };
@@ -69,7 +73,7 @@ test('onglet Réglages : état sans secret, enregistrement, redémarrage des ser
     assert.equal(cfg.providers[0].model, 'meta/llama-4');
     assert.equal(cfg.providers[0].apiKeyEnv, 'OPENROUTER_API_KEY');
     assert.doesNotMatch(readFileSync(o.paths.config, 'utf8'), /sk-or-v1/, 'la clé n\'est jamais dans config.json');
-    assert.match(readFileSync(envFile(o.paths), 'utf8'), /OPENROUTER_API_KEY=sk-or-v1-/);
+    assert.match(readSecretFile(envFile(o.paths))!, /OPENROUTER_API_KEY=sk-or-v1-/);
     const st2 = JSON.stringify(await (await fetch(`${B}/api/state`, { headers: h })).json());
     assert.doesNotMatch(st2, /abcdefghijklmnopqrstuvwxyz/, 'la page ne reçoit jamais la clé');
     assert.equal(o.redactor.redact('clé sk-or-v1-abcdefghijklmnopqrstuvwxyz'), 'clé [SECRET]');

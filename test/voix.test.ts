@@ -30,6 +30,7 @@ import { freePort, T, until } from './banc/lib.ts';
 import { vraiOdin, type VraiOdin } from './banc/odin-vrai.ts';
 import { telegramSim } from './banc/sim/telegram.ts';
 import { elevenSim, FFMPEG, FFPROBE, maisonVoix, PETIT_MP3, PETIT_OGG, piperSim, sonde, volume, vraiPiper, vraiServeurPiper, wav, wavRate, wavSeconds, type MaisonVoix } from './banc/sim/voix.ts';
+import { readSecretFile } from '../src/vault.ts';
 import { makeOdin } from './helpers.ts';
 
 const PHRASE = 'Bonjour, je suis Odin. Voici ma voix, fabriquée sur la machine.';
@@ -301,7 +302,8 @@ test('ElevenLabs par la page : la clé enregistrée dans Réglages → Voix rest
     assert.deepEqual(el.said.at(-1), { voice: 'XB0fDUnXU5powFXDhCwa', text: 'Bonjour, je parle avec ElevenLabs.', model: 'eleven_multilingual_v2', format: 'mp3_44100_128' });
     // La clé : dans le fichier des secrets (lisible par le propriétaire seulement), et nulle part ailleurs.
     const ou = contenant(v.o.paths.home, cle).map((f) => f.slice(v.o.paths.home.length + 1));
-    assert.deepEqual(ou, ['env']); assert.equal(statSync(join(v.o.paths.home, 'env')).mode & 0o777, 0o600);
+    // Chiffrée : on ne la trouve en clair dans AUCUN fichier, et le coffre la rend à Odin.
+    assert.deepEqual(ou, []); assert.match(readSecretFile(join(v.o.paths.home, 'env'))!, new RegExp(cle));
     assert.ok(isSecretFile('/home/x/.odin/env'), 'ce fichier est fermé aux outils de fichiers');
     const etat = JSON.stringify((await v.json('/api/state')).body);
     assert.ok(!etat.includes(cle), 'la page ne reçoit jamais la clé'); assert.match(etat, /"ELEVENLABS_API_KEY":\{"set":true,"hint":"…7788"\}/, 'seulement « enregistrée » et ses 4 derniers caractères');
