@@ -115,6 +115,7 @@
         navBtn('journal', IC.journal, 'Journal du jour'),
         navBtn('graphe', IC.graph, 'Graphe'),
         navBtn('souvenirs', IC.memory, 'Souvenirs'),
+        navBtn('nous', IC.star, 'Noûs'),
       ),
       el('div', { id: 'brResults', class: 'br-results', hidden: true }),
       el('div', { class: 'br-sec' }, el('div', { class: 'br-h' }, 'Bases'), el('div', { id: 'brBases' })),
@@ -198,6 +199,7 @@
     if (m === 'graphe') renderGraph(true);
     if (m === 'base') renderBase();
     if (m === 'souvenirs') renderMemories();
+    if (m === 'nous') window.OdinNous?.rendre($('#brMain'));
     if (S.tree) renderSide();
     closeSide();
     if (m !== 'page') renderLinks(null);

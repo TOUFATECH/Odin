@@ -55,7 +55,7 @@ export const SURVOL: Record<string, Survol> = {
   midgard: { phrase: 'Le tableau de bord de la maison, pièce par pièce, toutes box réunies.', faire: ['Voir chaque pièce', 'Lancer une scène', 'Relier une autre box', 'Allumer ou fermer d\'un geste'] },
   himinbjorg: { phrase: 'Tes caméras au même endroit : voir, détecter et enregistrer.', faire: ['Voir tes caméras en direct', 'Prendre une photo', 'Détecter les mouvements', 'Recevoir une alerte avec photo'] },
   bragi: { phrase: 'La voix d\'Odin : il comprend ce que tu dis et parle sur les enceintes.', faire: ['Comprendre un message vocal', 'Choisir la voix d\'Odin', 'Annoncer sur une enceinte', 'Lire les alertes à voix haute'] },
-  freyja: { phrase: 'Tes films, séries et chaînes, sur tous les écrans de la maison.', faire: ['Lancer un film sur la télé', 'Voir le guide des programmes', 'Enregistrer une émission', 'Chercher dans la bibliothèque'] },
+  freyja: { phrase: 'Tes films, séries, musique et YouTube sans pub, sur tous les écrans de la maison.', faire: ['Lancer un film sur la télé', 'Regarder YouTube sans pub', 'Piloter un écran avec un QR', 'Chercher dans la bibliothèque'] },
   aegir: { phrase: 'Ta musique et tes radios, à écouter sur les enceintes de la maison.', faire: ['Chercher un titre', 'Créer une liste de lecture', 'Écouter une radio', 'Choisir l\'enceinte'] },
   frigg: { phrase: 'Tes rendez-vous : créneaux libres et page de réservation à partager.', faire: ['Définir tes prestations', 'Régler tes horaires', 'Partager la page de réservation', 'Envoyer un rappel la veille'] },
   kvasir: { phrase: 'Les nouveautés des logiciels suivis par Odin, résumées pour toi.', faire: ['Suivre les nouvelles versions', 'Lire un résumé utile', 'Étudier un lien que tu envoies'] },

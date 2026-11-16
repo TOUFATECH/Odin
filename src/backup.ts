@@ -16,8 +16,9 @@ import { unzip, zip, type ZipEntry } from './files/zip.ts';
 
 const MAGIC = Buffer.from('ODINBK1');
 const SCRYPT = { N: 1 << 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
-/** Jamais sauvegardé : journaux (volumineux, sans valeur) et certificat (régénéré) ; le jeton web est recréé. */
-const SKIP = new Set(['logs', 'web-cert', 'web-token', 'web-token.enc', 'sessions.json', 'sessions.json.tmp', 'compte.json.tmp', 'odin.db-wal', 'odin.db-shm', 'odin.db-journal', 'node_modules', 'inbox']);
+/** Jamais sauvegardé : journaux (volumineux, sans valeur) et certificat (régénéré) ; le jeton web est recréé.
+ *  'cerveau-reseau' : les poids et le corpus de Noûs (liés à la machine, chiffrés) restent hors sauvegardes. */
+const SKIP = new Set(['logs', 'web-cert', 'web-token', 'web-token.enc', 'sessions.json', 'sessions.json.tmp', 'compte.json.tmp', 'odin.db-wal', 'odin.db-shm', 'odin.db-journal', 'node_modules', 'inbox', 'cerveau-reseau']);
 const MAX_FILE = 200 * 1024 * 1024;
 
 export interface BackupOptions {

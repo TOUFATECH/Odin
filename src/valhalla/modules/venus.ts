@@ -7,6 +7,12 @@
 import { bestMatch, venusApi, venusConf, venusTool, type VCard, type VenusConf } from '../../tools/venus.ts';
 import type { ModCtx, Module } from '../types.ts';
 import { actionRestaurer, carteSauvegarde } from '../sso/persona.ts';
+// Vénus natif (Odéon DANS Odin, sans serveur extérieur) : bibliothèque et écrans par Home Assistant, sur VENUS_ODIN.
+import { magasinVenus } from '../venus/base.ts';
+import { bibliotheque as bibNative, compter as compterNative, maListe as maListeNative, trouverOeuvre } from '../venus/bibliotheque.ts';
+import { decouvrirEcrans, envoyerSurEcran, type HaCaller } from '../venus/ecrans.ts';
+import { jetonFlux } from '../venus/cast.ts';
+import { haApi } from '../../tools/homeassistant.ts';
 import { ajouterLivre, chapitresAudio, chapitresText, corpsEnvie, enviesLivres, enviesText, lirePage, livres, noterProgression, progressions, reprise, retirerLivre, trouverLivre, venusFichier, type EnvieLivre } from '../venus/odyssee.ts';
 import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
@@ -109,6 +115,11 @@ const hm = (t: number) => new Date(t).toLocaleString('fr-FR', { weekday: 'short'
 export function venus(url: () => string): Module {
   const conf = (): VenusConf => venusConf({ venus: { url: url() } });
   const tool = (input: Record<string, unknown>) => venusTool.run(input, { venus: { url: url() } } as never).then((r) => (typeof r === "string" ? r : r.output));
+  // Natif : le magasin de Vénus (VENUS_ODIN), l'accès à Home Assistant (écrans), l'origine publique (liens de flux).
+  const mag = (ctx: ModCtx) => magasinVenus(ctx.home, ctx.dir);
+  const haDe = (ctx: ModCtx): HaCaller | undefined => { const u = String(ctx.settings.haUrl ?? '').replace(/\/$/, ''), t = process.env.HA_TOKEN; return u && t ? ((m, p, b) => haApi(u, t, m, p, b)) : undefined; };
+  const origineDe = (ctx: ModCtx) => String(ctx.settings.origin ?? process.env.ODIN_ORIGIN ?? '').replace(/\/$/, '');
+  const carteNat = (c: { titre: string; annee?: number; type: string }) => `- ${c.titre}${c.annee ? ` (${c.annee})` : ''} · ${({ film: 'film', serie: 'série', album: 'album', livre_audio: 'livre audio' } as Record<string, string>)[c.type] ?? c.type}`;
   const recordings = async (): Promise<Rec[]> => (await venusApi<{ recordings: Rec[] }>(conf(), 'GET', '/api/recordings')).recordings ?? [];
   const bygulQuery = (i: Record<string, unknown>) => { const k = kindOf(s(i.type)), y = s(i.annee); const q = new URLSearchParams({ q: s(i.titre), kind: k, ...(k === 'movie' && y ? { year: y } : {}), ...(k === 'episode' ? { season: y || '1', episode: s(i.episode) || '1' } : {}) }); return venusApi<{ results: BygulHit[]; errors: string[] }>(conf(), 'GET', `/api/admin/acquire/search?${q}`); };
   /** Un livre audio de Venus, par numéro ou par titre. */
@@ -123,14 +134,21 @@ export function venus(url: () => string): Module {
     // Odyssée : un livre (EPUB) ou une bande dessinée (CBZ) envoyé depuis l'appareil arrive ici, puis rejoint la bibliothèque de lecture.
     depot: (ctx) => ({ dossier: join(ctx.dir, 'depots'), ref: (nom) => join(ctx.dir, 'depots', nom) }),
     actions: [
-      { id: 'etat', label: 'État', what: 'Serveur joignable, lecture en cours', read: true, run: async () => { const st = await venusApi<{ name?: string; version?: string; authenticated?: boolean; profile?: { name?: string }; elsewhere?: { title: string; device: string } | null }>(conf(), 'GET', '/api/status'); if (st.authenticated === false) throw new Error('Venus refuse la clé API : crées-en une dans Venus → Serveur → Clés API, puis range-la dans le coffre (VENUS_API_KEY)'); return { text: `${st.name ?? 'Venus'} ${st.version ?? ''} · profil ${st.profile?.name ?? '—'}${st.elsewhere ? ` · en lecture : ${st.elsewhere.title} sur ${st.elsewhere.device}` : ''}` }; } },
+      { id: 'etat', label: 'État', what: 'Serveur joignable, lecture en cours', read: true, run: async (ctx) => {
+        if (!url() || !process.env.VENUS_API_KEY) { const c = compterNative(mag(ctx)); return { text: `Vénus (natif, dans Odin) : ${c.oeuvres} œuvre(s), ${c.episodes} épisode(s), ${c.pistes} piste(s) dans la bibliothèque VENUS_ODIN.`, data: c }; }
+        const st = await venusApi<{ name?: string; version?: string; authenticated?: boolean; profile?: { name?: string }; elsewhere?: { title: string; device: string } | null }>(conf(), 'GET', '/api/status'); if (st.authenticated === false) throw new Error('Venus refuse la clé API : crées-en une dans Venus → Serveur → Clés API, puis range-la dans le coffre (VENUS_API_KEY)'); return { text: `${st.name ?? 'Venus'} ${st.version ?? ''} · profil ${st.profile?.name ?? '—'}${st.elsewhere ? ` · en lecture : ${st.elsewhere.title} sur ${st.elsewhere.device}` : ''}` }; } },
       { id: 'adresse', label: 'Adresse de Venus', what: 'L\'adresse du serveur Venus relié (pour la surveillance de Pulsar)', read: true, quiet: true, run: async () => ({ text: url() ? `Venus : ${url()}` : 'Venus n\'est pas relié.', data: { url: url() } }) },
       { id: 'sante', label: 'Santé de Venus', what: 'En marche depuis, lectures en cours, analyse de la bibliothèque, place libre', read: true, words: ['sante de venus', 'santé de venus', 'venus va bien'], run: async () => {
         const h = await venusApi<VHealth>(conf(), 'GET', '/api/health');
         if (!h.ok) throw new Error('Venus ne répond pas correctement');
         return { text: santeText(h), data: h };
       } },
-      { id: 'regarder', label: 'Regarder', what: 'Film, série ou chaîne (nom ou numéro) sur un écran', params: [{ key: 'quoi', label: 'Quoi', kind: 'text', required: true }, { key: 'ou', label: 'Écran (facultatif)', kind: 'text', default: '' }], words: ['mets', 'regarder', 'lance'], run: async (_c, i) => ({ text: await tool({ action: 'regarder', quoi: s(i.quoi), ou: s(i.ou) }) }) },
+      { id: 'regarder', label: 'Regarder', what: 'Film, série ou chaîne (nom ou numéro) sur un écran', params: [{ key: 'quoi', label: 'Quoi', kind: 'text', required: true }, { key: 'ou', label: 'Écran (facultatif)', kind: 'text', default: '' }], words: ['mets', 'regarder', 'lance'], run: async (ctx, i) => {
+        // Natif : l'œuvre est dans VENUS_ODIN et un écran de la maison (Home Assistant) joue le flux d'Odin.
+        const ha = haDe(ctx), origine = origineDe(ctx);
+        if (ha && origine) { const oe = trouverOeuvre(mag(ctx), s(i.quoi)); if (oe) { try { const lien = `${origine}/venus/flux/${encodeURIComponent(oe.id)}?cle=${encodeURIComponent(jetonFlux(ctx.home, oe.id))}`; const ec = await envoyerSurEcran(ha, s(i.ou), lien, oe.data.type === 'album' || oe.data.type === 'livre_audio' ? 'audio' : 'video'); return { text: `▶️ « ${s(oe.data.titre)} » lancé sur ${ec.nom}.` }; } catch { /* repli sur le serveur externe */ } } }
+        return { text: await tool({ action: 'regarder', quoi: s(i.quoi), ou: s(i.ou) }) };
+      } },
       { id: 'programme', label: 'Programme', what: 'Ce qui passe maintenant (filtre facultatif)', read: true, params: [{ key: 'quoi', label: 'Chaîne ou émission', kind: 'text', default: '' }], words: ['programme', 'qu est ce qui passe', 'ce soir a la tele', 'programme tv'], run: async (_c, i) => ({ text: await tool({ action: 'programme', quoi: s(i.quoi) }) }) },
       { id: 'enregistrer', undo: (i) => ({ action: 'annuler_enregistrement', input: { titre: i.quoi }, label: 'enregistrement annulé' }), label: 'Enregistrer', what: 'Une émission du guide (24 h)', params: [{ key: 'quoi', label: 'Émission', kind: 'text', required: true }, { key: 'serie', label: 'Toutes les diffusions', kind: 'boolean', default: false }], words: ['enregistre'], run: async (_c, i) => ({ text: await tool({ action: 'enregistrer', quoi: s(i.quoi), serie: i.serie === true ? 'oui' : 'non' }) }) },
       { id: 'enregistrer_plage', label: 'Enregistrer une chaîne', what: 'Une chaîne, à une heure, pendant une durée (sans passer par le guide)', params: [{ key: 'chaine', label: 'Chaîne (nom ou numéro)', kind: 'text', required: true }, { key: 'debut', label: 'Début (HH:MM, vide = maintenant)', kind: 'text', default: '' }, { key: 'minutes', label: 'Durée (minutes)', kind: 'number', default: 60 }, { key: 'titre', label: 'Titre', kind: 'text', default: '' }], run: async (ctx, i) => {
@@ -160,8 +178,17 @@ export function venus(url: () => string): Module {
         ctx.saveSettings({ arrivals: v });
         return { text: v === 'rien' ? 'Je ne te préviens plus des arrivées sur Venus.' : v === 'vf' ? 'Je te préviens quand un épisode ou un film arrive en VF.' : 'Je te préviens de chaque épisode et film qui arrive sur Venus (avec la VF quand elle est là).' };
       } },
-      { id: 'ecrans', label: 'Écrans', what: 'Où Venus est ouvert', read: true, words: ['ecrans', 'écrans'], run: async () => ({ text: await tool({ action: 'ecrans' }) }) },
-      { id: 'chercher', label: 'Chercher', what: 'Dans la bibliothèque', read: true, params: [{ key: 'quoi', label: 'Titre', kind: 'text', required: true }], words: ['cherche', 'trouve'], run: async (_c, i) => ({ text: await tool({ action: 'chercher', quoi: s(i.quoi) }) }) },
+      { id: 'ecrans', label: 'Écrans', what: 'Les écrans de la maison (Home Assistant), sinon ceux où Venus est ouvert', read: true, words: ['ecrans', 'écrans'], run: async (ctx) => {
+        const ha = haDe(ctx);
+        if (ha) { try { const ec = await decouvrirEcrans(ha, mag(ctx)); if (ec.length) return { text: ec.map((e) => `- ${e.nom}${e.type === 'tv' ? ' (télé)' : e.type === 'enceinte' ? ' (enceinte)' : ''}${e.enLecture ? ' — en lecture' : ''}`).join('\n'), data: ec }; } catch { /* repli sur le serveur externe */ } }
+        return { text: await tool({ action: 'ecrans' }) };
+      } },
+      { id: 'chercher', label: 'Chercher', what: 'Dans la bibliothèque', read: true, params: [{ key: 'quoi', label: 'Titre', kind: 'text', required: true }], words: ['cherche', 'trouve'], run: async (ctx, i) => {
+        const nat = bibNative(mag(ctx), { q: s(i.quoi) });
+        if (!url()) return { text: nat.length ? nat.slice(0, 20).map(carteNat).join('\n') : `Rien dans la bibliothèque de Vénus pour « ${s(i.quoi)} ».`, data: nat };
+        const ext = await tool({ action: 'chercher', quoi: s(i.quoi) });
+        return { text: nat.length ? `${nat.slice(0, 12).map(carteNat).join('\n')}\n${ext}` : ext, data: { natif: nat } };
+      } },
       // ---------------- Médias automatiques (dans Venus) : Hnoss · Sirius · Pléiades · Odyssée · Comète
       { id: 'medias', label: 'Médias automatiques', what: 'Hnoss (demandes), Sirius (films), Pléiades (séries), Odyssée (livres), Comète (téléchargements) : envies, téléchargements en cours, rangés, journal', read: true, words: ['medias automatiques', 'médias automatiques', 'telechargements', 'téléchargements', 'en cours de telechargement', 'hnoss', 'gersemi', 'hildisvini', 'hildisvíni', 'folkvangr', 'fólkvangr', 'sjofn', 'sjöfn'], run: async () => {
         const d = await venusApi<MediaState>(conf(), 'GET', '/api/admin/acquire');
@@ -264,7 +291,12 @@ export function venus(url: () => string): Module {
         const r = await venusApi<{ ok: boolean; why?: string; pick?: { r: { title: string } } }>(conf(), 'POST', `/api/admin/acquire/wants/${w.id}/search`);
         return { text: r.ok ? `⬇ ${w.title} : ${r.pick?.r.title ?? 'version trouvée'}, téléchargement lancé.` : `${w.title} : ${r.why ?? 'rien trouvé'}.`, ok: r.ok };
       } },
-      { id: 'ma_liste', label: 'Ma liste', what: 'Titres gardés pour plus tard', read: true, run: async () => { const l = await venusApi<Array<{ title: string; year?: number; type: string }>>(conf(), 'GET', '/api/mylist'); return { text: l.slice(0, 40).map((x) => `- ${x.title}${x.year ? ` (${x.year})` : ''}`).join('\n') || 'Liste vide.' }; } },
+      { id: 'ma_liste', label: 'Ma liste', what: 'Titres gardés pour plus tard', read: true, run: async (ctx) => {
+        const nat = maListeNative(mag(ctx), 'moi');
+        if (nat.length || !url()) return { text: nat.length ? nat.slice(0, 40).map((x) => `- ${x.titre}${x.annee ? ` (${x.annee})` : ''}`).join('\n') : 'Liste vide.', data: nat };
+        const l = await venusApi<Array<{ title: string; year?: number; type: string }>>(conf(), 'GET', '/api/mylist');
+        return { text: l.slice(0, 40).map((x) => `- ${x.title}${x.year ? ` (${x.year})` : ''}`).join('\n') || 'Liste vide.' };
+      } },
       { id: 'demander', label: 'Demander un titre', what: 'Titre absent de la bibliothèque (via la demande de Venus)', params: [{ key: 'titre', label: 'Titre', kind: 'text', required: true }, { key: 'type', label: 'Type', kind: 'select', options: ['film', 'série'], default: 'film' }], run: async (_c, i) => { const r = await venusApi<{ state?: string }>(conf(), 'POST', '/api/discover/request', { type: i.type === 'série' ? 'tv' : 'movie', title: s(i.titre) }); return { text: `📥 Demande envoyée : « ${s(i.titre)} »${r.state ? ` (${r.state})` : ''}.` }; } },
       actionRestaurer('venus'),
       // ---- Odyssée : livres et livres audio
@@ -327,6 +359,7 @@ export function venus(url: () => string): Module {
         return { text: `🔖 ${c.title} : chapitre ${p.chapitre + 1}, ${Math.round(p.position)} s.`, data: p };
       } },
     ],
+    start(ctx) { mag(ctx).brancher(); },
     async view(ctx) {
       // Odyssée : la bibliothèque de lecture d'Odin marche aussi sans Venus (livres déposés).
       const prog = progressions(ctx.dir), lect = livres(ctx.dir);

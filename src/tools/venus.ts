@@ -6,6 +6,8 @@ import { request as httpReq } from 'node:http';
 import { request as httpsReq } from 'node:https';
 import { isPrivateV4 } from '../hlidskjalf/discover.ts';
 import { obj, str, type Tool, type ToolContext } from './registry.ts';
+import { ecransDepuisHa } from '../valhalla/venus/ecrans.ts';
+import { haApi, type HaState } from './homeassistant.ts';
 
 export interface VenusConf { url: string; key: string }
 export function venusConf(ctx: Pick<ToolContext, 'venus'>, env = process.env): VenusConf {
@@ -95,7 +97,13 @@ export const venusTool: Tool = {
   schema: obj({ action: str('regarder | programme | enregistrer | ecrans | chercher'), quoi: str('titre, chaîne ou numéro'), ou: str('écran (facultatif)'), serie: str('oui pour enregistrer toutes les diffusions') }, ['action']),
   summarize: (i) => `Venus : ${String(i.action)} ${String(i.quoi ?? '')}${i.ou ? ` sur ${String(i.ou)}` : ''}`,
   async run(i, ctx) {
-    const c = venusConf(ctx), a = norm(String(i.action ?? '')), q = String(i.quoi ?? '').trim(), where = norm(String(i.ou ?? ''));
+    const a = norm(String(i.action ?? '')), q = String(i.quoi ?? '').trim(), where = norm(String(i.ou ?? ''));
+    // Écrans natifs : les lecteurs de la maison (Home Assistant) si la box est reliée ; sinon le serveur externe.
+    if (a.startsWith('ecran')) {
+      const haU = (ctx.homeAssistant?.url ?? '').replace(/\/$/, ''), tok = process.env.HA_TOKEN;
+      if (haU && tok) { try { const ec = ecransDepuisHa(await haApi(haU, tok, 'GET', '/states') as HaState[]); if (ec.length) return ec.map((x) => `- ${x.nom}${x.type === 'tv' ? ' (télé)' : x.type === 'enceinte' ? ' (enceinte)' : ''}${x.enLecture ? ' — en lecture' : ''}`).join('\n'); } catch { /* repli sur le serveur externe */ } }
+    }
+    const c = venusConf(ctx);
     if (a.startsWith('ecran')) {
       const d = await venusApi<Array<{ id: string; name: string; tv: boolean; playing: boolean }>>(c, 'GET', '/api/devices/open');
       return d.length ? d.map((x) => `- ${x.name}${x.tv ? ' (télé)' : ''}${x.playing ? ' — en lecture' : ''}`).join('\n') : 'Aucun écran n\'a Venus ouvert en ce moment.';

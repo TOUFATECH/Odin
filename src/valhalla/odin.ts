@@ -213,7 +213,7 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   });
   // Réglages repris de la configuration d'Odin (une seule saisie).
   const ha = odin.cfg.homeAssistant?.url, pve = odin.cfg.proxmox?.url;
-  for (const id of ['midgard', 'bragi', 'aegir']) if (ha && !v.ctx(id).settings.haUrl) v.ctx(id).saveSettings({ haUrl: ha });
+  for (const id of ['midgard', 'bragi', 'aegir', 'freyja']) if (ha && !v.ctx(id).settings.haUrl) v.ctx(id).saveSettings({ haUrl: ha });
   if (pve && !((v.ctx('ymir').settings.servers as unknown[] | undefined)?.length)) v.ctx('ymir').saveSettings({ servers: [{ name: 'principal', url: pve }] });
   // Le lieu d'Odin (Hestia) et la ville du briefing du matin ne font qu'un : la ville déjà donnée pour le briefing sert
   // de lieu tant que rien n'est réglé ; un lieu changé dans Hestia (nom ou position de l'appareil) est recopié pour le briefing.

@@ -147,6 +147,28 @@ export interface OdinConfig {
     /** Apprendre des demandes qu'une IA règle par une action, ou par quelques actions à la suite, pour s'en passer ensuite (défaut : oui). */
     direct?: boolean;
   };
+  /** Noûs : le réseau profond du Cerveau (src/brain/nous/). Petit réseau entraîné sur la machine. */
+  nous?: {
+    /** Interrupteur général : à faux, Noûs n'apprend ni ne propose. */
+    actif: boolean;
+    /** Corpus de départ d'un réseau neuf : demander au propriétaire, sa seule mémoire, ou des textes libres du web. */
+    corpusDepart: 'demander' | 'memoire' | 'web';
+    /** Fils d'entraînement de jour (séance courte) et de nuit (séance longue). */
+    filsJour: number;
+    filsNuit: number;
+    /** Durée maximale d'une séance de nuit, en heures. */
+    heuresNuit: number;
+    /** Place maximale sur le disque pour le corpus et les points de reprise, en Mo. */
+    disqueMaxMo: number;
+    /** Délai laissé à Noûs pour proposer en N1/N2 (sinon la proposition d'Odin part seule), en ms. */
+    delaiMsN1: number;
+    /** Fiabilité (borne basse de Wilson) exigée pour qu'un réflexe N1 réponde seul. */
+    seuilReflexe: number;
+    /** Laisser un grand modèle arbitrer le duel (jamais d'appel payant sans ce réglage). */
+    arbitreGrand: boolean;
+    /** Qui porte le raisonnement : les règles d'Odin, ou Métis (un modèle ouvert réglé). */
+    metisRaisonnement: 'regles' | 'metis';
+  };
   /** Horus : inventaire du réseau local. */
   network: {
     enabled: boolean;
@@ -274,6 +296,7 @@ export const DEFAULT_CONFIG: OdinConfig = {
   memory: { semantic: true, embedUrl: '', embedModel: 'nomic-embed-text' },
   search: { provider: 'auto', searxngUrl: '' },
   learning: { proposeSkills: true, autoApproveSkills: 'breaker', observe: true, minToolCallsForReflection: 3, recallLimit: 8, direct: true },
+  nous: { actif: true, corpusDepart: 'demander', filsJour: 1, filsNuit: 3, heuresNuit: 8, disqueMaxMo: 2000, delaiMsN1: 250, seuilReflexe: 0.90, arbitreGrand: false, metisRaisonnement: 'regles' },
   network: { enabled: false, intervalMin: 30, fullEvery: 6, removeAfterDays: 7, notify: true },
   web: { enabled: true, port: 8888, access: 'lan', allowedNetworks: [], host: '127.0.0.1', tls: { enabled: true, cert: '', key: '' }, behindProxy: false, publicUrl: '', portsParAppli: true },
   voice: {

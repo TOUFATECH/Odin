@@ -66,6 +66,7 @@ import { quarantaineDabord } from '../valhalla/ullr/garde.ts';
 import { agoraRoute } from './agora-api.ts';
 import { plumeRoute } from './plume-api.ts';
 import { epinglesRoute } from './epingles-api.ts';
+import { venusRoute } from '../valhalla/venus/routes.ts';
 import { friggPublic, valhallaGet, valhallaPost } from './valhalla-api.ts';
 import { terminalApi } from './terminal-api.ts';
 import { exportApi } from './export-api.ts';
@@ -649,6 +650,16 @@ export class WebChannel implements Channel {
       return void res.end((direct && w === 'session' ? directPage(UI, direct, valhallaOf()?.module(direct)?.name) : UI).replace('<!--PAGES-->', Object.keys(PAGES_JS).sort().map((n) => `<script nonce="__NONCE__" src="/pages/${n}"></script>`).join('\n')).replaceAll('__NONCE__', nonce).replace('__ACCOUNT__', hasAccount ? 'true' : 'false').replace('__SETUP__', setup ? 'true' : 'false').replace('__AUTHED__', authed ? 'true' : 'false').replace('__CLAIM_WHY__', () => JSON.stringify(authed ? '' : this.claimRefusal(req) ?? '').replace(/</g, '\\u003c')));
     }
     if (url.pathname === '/health') return json(res, 200, { ok: true });
+    // Vénus (natif) : flux et transcodage, sous-titres, vignettes, bibliothèque, écrans + pilotage + QR, YouTube ;
+    // et la télécommande publique d'un seul écran /t/<jeton> (jeton limité/révocable, portée restreinte à cet écran).
+    if (url.pathname.startsWith('/venus/') || url.pathname.startsWith('/t/')) {
+      const haUrl = String(valhallaOf()?.ctx('midgard')?.settings?.haUrl ?? valhallaOf()?.ctx('freyja')?.settings?.haUrl ?? '').replace(/\/$/, '');
+      // L'origine publique sert au module (action « regarder » : l'adresse du flux qu'un écran va chercher). On la garde
+      // sur les réglages de freyja pour que le module l'ait aussi quand l'appel vient de la discussion (sans requête web).
+      const origin = this.publicOrigin(req);
+      try { const fctx = valhallaOf()?.ctx('freyja'); if (fctx && fctx.settings.origin !== origin) fctx.saveSettings({ origin }); } catch { /* sans gravité */ }
+      if (await venusRoute(req, res, url, { home: this.odin.paths.home, proprietaire: () => this.authed(req), fail: () => this.throttle.fail(ip), origin, ip: ip.replace(/^fwd:/, ''), ha: haUrl && process.env.HA_TOKEN ? { url: haUrl, token: process.env.HA_TOKEN } : undefined, ask: (t) => this.askAs('venus', t, onMessage, 20_000), profil: 'moi' })) return;
+    }
     // Pégase (le navigateur d'Odin) : ses routes, avec ses propres jetons d'appareil (voir pegase-api.ts).
     if (url.pathname.startsWith('/api/pegase/') && await pegaseRoute(req, res, url, { ip, proprietaire: () => this.authed(req), nomProprietaire: this.accounts.profile()?.prenom ?? '', emailProprietaire: this.accounts.profile()?.email, motDePasseProprietaire: async (e, mdp) => (await this.accounts.login(e, mdp)).ok, fail: () => this.throttle.fail(ip), ask: (peer, text) => this.askAs(peer, text, onMessage, 30_000), certificat: this.tls?.cert, version: RUNNING, origin: this.publicOrigin(req), pair: { collect: (sec) => this.pairing.collect(sec), request: (device, from) => { const r = this.pairing.request('', from, Date.now(), device); if (r) { void Promise.resolve(this.hooks.pairAsk?.({ id: r.id, code: r.code, device: r.device, ip: r.ip, at: r.at, state: r.state })).catch(() => 0); this.notify('state'); } return r; } } })) return;
     // Agora (le store d'Odin) : les stores des appareils, avec les jetons d'appli de la connexion unique (voir agora-api.ts).

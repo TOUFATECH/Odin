@@ -89,7 +89,7 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   // Maison
   himinbjorg: [R('enregistrements des caméras', 'binaire'), REG],
   aegir: [REG],
-  freyja: [R('chaînes, enregistrements, médias', 'binaire'), REG],
+  freyja: [B('bibliothèque, écrans, télécommandes, ma liste / historique / demandes, réglages YouTube (natif, sans serveur extérieur)', ['freyja.oeuvres', 'freyja.episodes', 'freyja.reprise', 'freyja.ma_liste', 'freyja.ecrans', 'freyja.telecommandes', 'freyja.yt_reglages']), R('fichiers médias (films, séries, musique, livres audio) et vignettes', 'binaire'), R('clés des sources et secrets des jetons de télécommande', 'secret')],
   sessrumnir: [R('partie de Vénus (réglages de Vénus)', 'reglages')],
   bygul: [R('partie de Vénus (réglages de Vénus)', 'reglages')],
   gersemi: [R('partie de Vénus (réglages de Vénus)', 'reglages')],
