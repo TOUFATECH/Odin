@@ -69,7 +69,7 @@ function serviceVoice(v: VoiceConfig): string {
   return v.tts.voiceId || (v.gender === 'femme' ? v.femaleVoiceId || d.femme : d.homme);
 }
 /** Le fournisseur de synthèse choisi est-il prêt (sans compter Piper installé sur la machine) ? */
-function providerReady(v: VoiceConfig, env = process.env): boolean {
+export function providerReady(v: VoiceConfig, env = process.env): boolean {
   if (v.localOnly) return false; // 100 % local : seul Piper sur la machine parle
   if (v.tts.provider === 'piper') return Boolean(v.tts.baseUrl) && v.tts.baseUrl !== 'local';
   if (v.tts.provider === 'openai') return (Boolean(key(v.tts.apiKeyEnv, env)) || isLocal(v.tts.baseUrl)) && Boolean(serviceVoice(v));
@@ -187,7 +187,7 @@ async function hearRemote(audio: Uint8Array, mime: string, v: VoiceConfig, signa
   form.append('model', v.stt.model);
   if (hint) form.append('prompt', hint);
   // Pas de langue imposée (sauf réglage autre que le français par défaut) : elle est détectée.
-  if (v.stt.language && v.stt.language !== 'fr' && v.stt.language !== 'auto') form.append('language', v.stt.language);
+  if (v.stt.language && v.stt.language !== 'fr' && v.stt.language !== 'auto') form.append('language', v.stt.language.replace(/!$/, ''));
   const verbose = v.stt.model === 'whisper-1' || !/gpt-4o/.test(v.stt.model);
   form.append('response_format', verbose ? 'verbose_json' : 'json');
   if (verbose) form.append('timestamp_granularities[]', 'segment');

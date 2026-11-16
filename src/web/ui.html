@@ -1312,7 +1312,7 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     </section>
 
     <section class="view" id="v-jobs" aria-label="Tâches planifiées">
-      <div class="head"><div><h1>Tâches planifiées</h1><div class="sub">Pour en créer : demande à Odin, par exemple « chaque jour à 18 h, fais mon rapport ». Elles tournent dans Odin (aucune tâche du système) et se règlent aussi dans Talos, avec tout ce qui est automatique. <button type="button" class="btn small" onclick="window.OdinApps?.app('draupnir')">Ouvrir Talos</button></div></div></div>
+      <div class="head"><div><h1>Tâches planifiées</h1><div class="sub">Pour en créer : demande à Odin, par exemple « chaque jour à 18 h, fais mon rapport ». Elles tournent dans Odin (aucune tâche du système) et se règlent aussi dans Talos, avec tout ce qui est automatique. <button type="button" class="btn small" id="jobsTalos">Ouvrir Talos</button></div></div></div>
       <div class="body"><div class="wrap"><table class="tbl"><thead><tr><th>Quand</th><th>Demande</th><th>Prochaine exécution</th><th></th></tr></thead><tbody id="jobs"></tbody></table></div></div>
     </section>
 
@@ -2834,6 +2834,8 @@ input.g-sw:checked{background:#4CC38A}.g-sw:checked::after{left:16px}
     const r = await api('/api/action', { kind: 'skill_import', source: src }); moodRelease();
     say(r.ok ? r.text : r.error, [], 12000);
   });
+  // Pas de gestionnaire écrit dans le HTML (la politique de sécurité de la page les bloque) : branché ici.
+  $('#jobsTalos')?.addEventListener('click', () => window.OdinApps?.app('draupnir'));
   function renderJobs() {
     $('#jobs').replaceChildren(...state.jobs.map((j) => el('tr', {}, el('td', {}, j.cron === '@reminder' ? `🔔 rappel · ${j.enClair || ''}` : (j.enClair || j.cron)), el('td', {}, j.prompt), el('td', {}, fmt(j.next_run)),
       el('td', {}, el('button', { class: 'btn small danger', onclick: async () => (await OdinDialog.confirm('Supprimer cette tâche ?', { danger: true })) && api('/api/action', { kind: 'cron_remove', id: j.id }) }, 'Supprimer')))));

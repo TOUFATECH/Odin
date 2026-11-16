@@ -101,6 +101,7 @@
 
   async function dictation(root, redraw) {
     const h = (await act('historique')).data ?? { items: [], jour: { dictees: 0, demandes: 0 }, mode: 'corrigé', garde: true };
+    if (h.ouvrirConversation) { S.tab = 'conversation'; return redraw(); }
     if (!S.mode) S.mode = h.mode;
     const st = el('div', { class: 'rd-st idle', role: 'status', 'aria-live': 'polite' }, el('i'), el('span', {}, 'Prêt'));
     const txt = el('p', { class: 'rd-txt ph' }, 'Maintiens Odin (ou Ctrl + Espace) et parle : il écrit ce que tu dis.');
@@ -204,16 +205,19 @@
   }
 
   window.OdinPages.rodd = async ({ host }) => {
+    const want = window.OdinOpenWant?.module === 'rodd' ? window.OdinOpenWant : undefined; if (want) { window.OdinOpenWant = undefined; S.tab = 'conversation'; }
     if (!document.getElementById('rdCss')) document.head.append(el('style', { id: 'rdCss' }, CSS));
-    if (S.rec) return; // une dictée en cours : on ne redessine pas sous ton doigt
+    if (S.rec || window.OdinEchoConversation?.occupe?.()) return; // dictée ou conversation en cours
     const root = el('div', { class: 'rd' }); host.append(root);
     const redraw = async () => {
-      const tabs = el('div', { class: 'rd-seg', role: 'tablist', style: 'margin:0 auto' }, ...[['dictee', 'Dictée'], ['mots', 'Mes mots']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
+      const tabs = el('div', { class: 'rd-seg', role: 'tablist', style: 'margin:0 auto' }, ...[['dictee', 'Dictée'], ['conversation', 'Conversation'], ['mots', 'Mes mots']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { if (S.tab === 'conversation' && id !== 'conversation') window.OdinEchoConversation?.arreter?.(); S.tab = id; redraw(); } }, t)));
       const head = el('div', { class: 'rd-top' }, el('span', { style: `width:40px;height:40px;border-radius:12px;background:#4f8cff1f;color:${BLUE};display:grid;place-items:center;box-shadow:inset 0 0 0 1px #4f8cff40` }, ic('mic', 20)),
-        el('div', {}, el('b', { style: 'font-size:19px;letter-spacing:-.2px' }, 'Écho'), el('div', { style: 'font-size:12.5px;color:var(--mut2)' }, 'Dictée vocale · reliée à la voix d\'Odin')), tabs, chip('● 100 % local · Whisper', GREEN));
+        el('div', {}, el('b', { style: 'font-size:19px;letter-spacing:-.2px' }, 'Écho'), el('div', { style: 'font-size:12.5px;color:var(--mut2)' }, 'Dictée vocale · reliée à la voix d\'Odin')), tabs, S.tab === 'conversation' ? null : chip('● 100 % local · Whisper', GREEN)); // la conversation montre son propre état (écoute, traduction)
       const body = el('div', { style: 'display:flex;flex-direction:column;gap:14px' });
       root.replaceChildren(head, body);
-      if (S.tab === 'mots') await words(body, redraw); else await dictation(body, redraw);
+      if (S.tab === 'mots') await words(body, redraw);
+      else if (S.tab === 'conversation') { if (window.OdinEchoConversation) await window.OdinEchoConversation.dessiner(body, { act }); else body.append(el('p', {}, 'Mode conversation indisponible.')); }
+      else await dictation(body, redraw);
     };
     await redraw();
   };

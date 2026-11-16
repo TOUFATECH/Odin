@@ -72,7 +72,8 @@ function run(cmd: string, args: string[], opts: { input?: string; env?: NodeJS.P
 }
 
 export interface Segment { start: number; end: number; text: string }
-export interface Heard { text: string; language: string; segments: Segment[] }
+/** `confiance` : probabilité de la langue reconnue par Whisper sur la machine (0 à 1), 0 si la ligne manquait. */
+export interface Heard { text: string; language: string; segments: Segment[]; confiance?: number }
 
 /** « [00:01:02.500 --> 00:01:05.000]  texte » (sortie de whisper.cpp) → segments horodatés. Pur. */
 export function parseWhisperOut(out: string): Segment[] {
@@ -97,13 +98,15 @@ export async function hearLocal(audio: Uint8Array | { file: string }, language =
     if (c.code !== 0) throw new Error(`conversion audio impossible : ${c.err.slice(-200)}`);
     // Langue détectée toute seule (« auto ») : il te répond dans la langue que tu parles.
     // (Sans -np : la ligne « auto-detected language » est écrite dans les journaux, les résultats restent seuls sur la sortie.)
-    const lang = !language || language === 'fr' ? 'auto' : language;
+    const lang = !language || language === 'fr' ? 'auto' : language.replace(/!$/, ''); // « fr! » : français imposé (« fr » seul = détection)
     const r = await run(w.bin, ['-m', w.model, '-l', lang, '-t', String(Math.min(8, Math.max(2, (await import('node:os')).availableParallelism?.() ?? 4))), '-f', wav, ...(hint ? ['--prompt', hint] : [])], { timeout: timeoutMs });
     if (r.code !== 0) throw new Error(`Whisper local : ${r.err.slice(-300)}`);
     const segments = parseWhisperOut(r.out);
-    const detected = /auto-detected language:\s*([a-z]{2,3})/i.exec(r.err)?.[1] ?? (lang === 'auto' ? 'fr' : lang);
+    const ligne = /auto-detected language:\s*([a-z]{2,3})(?:\s*\(p\s*=\s*([\d.]+)\))?/i.exec(r.err);
+    const detected = ligne?.[1] ?? (lang === 'auto' ? 'fr' : lang);
     const text = segments.length ? segments.map((x) => x.text).join(' ') : r.out.replace(/\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim();
-    return { text, language: detected, segments };
+    const p = ligne?.[2] !== undefined ? Number(ligne[2]) : lang === 'auto' ? 0 : undefined;
+    return { text, language: detected, segments, ...(p !== undefined && Number.isFinite(p) ? { confiance: p } : {}) };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 /** Audio → texte (compatibilité). */

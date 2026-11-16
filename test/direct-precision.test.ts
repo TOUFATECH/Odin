@@ -120,6 +120,7 @@ const SEUL: Array<[string, RegExp]> = [
   ['suspends les installations', /^thjalfi\.suspendre/], ['reprends les installations', /^thjalfi\.reprendre/], ['retire le mot de passe d\'installation', /^thjalfi\.retirer_mot_de_passe/],
   // Dite sans réglage, la phrase ne change rien (ni la portée, ni le mot de passe) : elle dit seulement où on en est.
   ['mot de passe d\'installation', /^thjalfi\.mot_de_passe(?!.*(tous les postes|non autoris))/],
+  ['conversation traduite en japonais', /^rodd\.ouvrir/],
 ];
 
 

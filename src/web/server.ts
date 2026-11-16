@@ -12,6 +12,7 @@
 
 import { rythmeEnClair } from './talos-api.ts';
 import { dictee } from '../valhalla/modules/rodd.ts';
+import { conversationRoute } from './conversation-api.ts';
 import { VIRTUAL_IFACE } from '../hlidskjalf/discover.ts';
 import { noticeBus } from '../valhalla/notices.ts';
 import { echangeBus, echangesRecents } from '../valhalla/echanges.ts';
@@ -1033,6 +1034,7 @@ export class WebChannel implements Channel {
         return json(res, 200, { ok: true, ...r.data, lang: h.language });
       } catch (e) { return json(res, 200, { ok: false, error: (e as Error).message }); }
     }
+    if (url.pathname.startsWith('/api/rodd/conversation/') && await conversationRoute(req, res, url, { odin: this.odin, voix: () => voiceFor(v, this.odin.cfg) })) return;
     if (url.pathname === '/api/voice/clone') {
       // Copie d'une voix : un enregistrement d'une à quelques minutes ; l'accord est noté avant qu'il parte (voix-api.ts).
       try {

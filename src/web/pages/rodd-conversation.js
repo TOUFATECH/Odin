@@ -1,0 +1,889 @@
+// Écho · mode « Conversation » : Odin traduit à voix haute une conversation à deux, entre le français, l'anglais et le japonais.
+// Je choisis MA langue et celle de MON INTERLOCUTEUR. Après un geste (« Commencer »), le micro reste ouvert : la page découpe
+// les tours de parole aux pauses, envoie chaque tour à Odin (/api/rodd/conversation/tour), qui reconnaît la langue (donc qui
+// parle), retire les hésitations et traduit ; la page dit la traduction dans la langue de l'autre. Les rôles s'inversent seuls.
+// Sur téléphone : deux moitiés, celle de l'interlocuteur retournée pour qu'il lise face à moi.
+// Rien n'est gardé dans le navigateur : ni texte, ni son (seul le son du dernier tour reste en mémoire, le temps de le renvoyer
+// si Odin hésite sur qui a parlé). Ce fichier ne touche ni la page ni le réseau à son chargement : tout part de dessiner().
+(() => {
+  'use strict';
+  const LANGUES = ['fr', 'en', 'ja'];
+  const BCP = { fr: 'fr-FR', en: 'en-US', ja: 'ja-JP' };
+  const NOM_LOCAL = { fr: 'Français', en: 'English', ja: '日本語' };
+  const NOM_FR = { fr: 'français', en: 'anglais', ja: 'japonais' };
+  const PROPOSE = { fr: ['en', 'ja'], en: ['fr', 'ja'], ja: ['fr', 'en'] };
+  const TAUX = 16000;
+
+  // Les textes de chaque moitié, dans sa langue (les réglages, eux, restent en français).
+  const TEXTES = {
+    fr: {
+      ecoute: 'J\'écoute…', traduction: 'Je traduis…', voix: 'Je parle…', aVous: 'À vous', appui: 'Maintenir pour parler', parler: 'Parler',
+      attente: 'En attente', ecrire: 'Écrire au lieu de parler', envoyer: 'Envoyer', corriger: 'Toucher pour corriger ce qui a été entendu',
+      retraduire: 'Retraduire', redire: 'Redire', annuler: 'Annuler', autre: 'C\'était l\'autre personne ?', pasDeVoix: 'Pas de voix pour cette langue sur cet appareil',
+      verifier: 'Nombres à vérifier', horsLigne: 'Traduction hors ligne, approximative', vide: 'Ici s\'affiche ce que dit l\'autre personne, dans votre langue.',
+      erreur: 'La traduction a échoué', entendu: 'Entendu', incertain: 'Pas sûr de qui a parlé', ecouteKo: 'Odin n\'a pas pu écouter',
+    },
+    en: {
+      ecoute: 'Listening…', traduction: 'Translating…', voix: 'Speaking…', aVous: 'Your turn', appui: 'Hold to talk', parler: 'Talk',
+      attente: 'Waiting', ecrire: 'Type instead of speaking', envoyer: 'Send', corriger: 'Tap to correct what was heard',
+      retraduire: 'Translate again', redire: 'Say it again', annuler: 'Cancel', autre: 'Was that the other person?', pasDeVoix: 'No voice for this language on this device',
+      verifier: 'Please check the numbers', horsLigne: 'Offline translation, approximate', vide: 'What the other person says appears here, in your language.',
+      erreur: 'Translation failed', entendu: 'Heard', incertain: 'Not sure who spoke', ecouteKo: 'Odin could not listen',
+    },
+    ja: {
+      ecoute: '聞いています…', traduction: '翻訳しています…', voix: '話しています…', aVous: 'どうぞお話しください', appui: '押しながら話してください', parler: '話す',
+      attente: 'お待ちください', ecrire: '話す代わりに入力する', envoyer: '送信する', corriger: 'タップして聞き取った内容を修正',
+      retraduire: 'もう一度翻訳する', redire: 'もう一度読み上げる', annuler: 'キャンセル', autre: '相手の方の発言でしたか？', pasDeVoix: 'この端末にはこの言語の音声がありません',
+      verifier: '数字をご確認ください', horsLigne: 'オフライン翻訳（おおよそ）', vide: '相手の方の言葉が、ここにあなたの言語で表示されます。',
+      erreur: '翻訳できませんでした', entendu: '聞き取った内容', incertain: 'どちらが話したか分かりません', ecouteKo: '聞き取りができませんでした',
+    },
+  };
+
+  // ---------------------------------------------------------------- logique pure (essayée sans navigateur)
+  const autre = (q) => (q === 'moi' ? 'lui' : 'moi');
+  const borne = (x, a, b) => Math.min(b, Math.max(a, x));
+
+  /** Qui doit parler ensuite : l'autre que celui qui vient de parler ; rien ne change tant qu'Odin n'est pas sûr. */
+  function attendu(actuel, tour) {
+    if (!tour || !tour.ok || (tour.qui !== 'moi' && tour.qui !== 'lui')) return actuel;
+    if (tour.incertain) return actuel;
+    if (tour.rien) return tour.qui; // pas compris : la même personne répète
+    return autre(tour.qui);
+  }
+
+  /** Face à face (téléphone : moitié du haut retournée) ou côte à côte (ordinateur). */
+  function disposition(largeur, tactile, faceAFace) {
+    const face = faceAFace === 'oui' ? true : faceAFace === 'non' ? false : (Number(largeur) <= 760 || !!tactile);
+    return { mode: face ? 'face' : 'cote', rotation: face };
+  }
+
+  /** Une voix du navigateur dans la bonne langue (jamais une voix française pour du japonais), ou null. */
+  function choisirVoix(voix, langue, localSeulement) {
+    const l = String(langue || '').slice(0, 2).toLowerCase(), cible = String(BCP[l] || langue || '').toLowerCase();
+    const code = (v) => String(v.lang || '').toLowerCase().replace('_', '-');
+    const bonnes = [...(voix || [])].filter((v) => v && code(v).split('-')[0] === l && (!localSeulement || v.localService === true));
+    if (!bonnes.length) return null;
+    return bonnes.find((v) => code(v) === cible && v.localService) || bonnes.find((v) => code(v) === cible) || bonnes.find((v) => v.localService) || bonnes[0];
+  }
+
+  /** Niveau d'un morceau de son (moyenne quadratique). */
+  function niveau(t) {
+    if (!t || !t.length) return 0;
+    let s = 0; for (let i = 0; i < t.length; i++) s += t[i] * t[i];
+    return Math.sqrt(s / t.length);
+  }
+
+  /** Change la fréquence d'un son (moyenne pour descendre, plus proche pour monter) : la durée reste la même. */
+  function reechantillonner(e, de, vers) {
+    if (!e || !e.length) return new Float32Array(0);
+    if (de === vers) return Float32Array.from(e);
+    const r = de / vers, n = Math.max(1, Math.round(e.length / r)), s = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = Math.min(e.length - 1, Math.floor(i * r)), b = Math.min(e.length, Math.max(a + 1, Math.floor((i + 1) * r)));
+      let t = 0; for (let j = a; j < b; j++) t += e[j];
+      s[i] = t / (b - a);
+    }
+    return s;
+  }
+
+  /** Recolle des morceaux de son. */
+  function coller(morceaux) {
+    let n = 0; for (const m of morceaux) n += m.length;
+    const s = new Float32Array(n); let o = 0;
+    for (const m of morceaux) { s.set(m, o); o += m.length; }
+    return s;
+  }
+
+  /** Un fichier WAV mono, 16 bits, à la fréquence donnée (16 kHz par défaut). */
+  function encoderWav(s, taux = TAUX) {
+    const n = s.length, buf = new ArrayBuffer(44 + n * 2), d = new DataView(buf);
+    const ecr = (o, t) => { for (let i = 0; i < t.length; i++) d.setUint8(o + i, t.charCodeAt(i)); };
+    ecr(0, 'RIFF'); d.setUint32(4, 36 + n * 2, true); ecr(8, 'WAVE'); ecr(12, 'fmt ');
+    d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true); d.setUint32(24, taux, true);
+    d.setUint32(28, taux * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); ecr(36, 'data'); d.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) { const v = borne(Number(s[i]) || 0, -1, 1); d.setInt16(44 + i * 2, v < 0 ? v * 0x8000 : v * 0x7fff, true); }
+    return new Uint8Array(buf);
+  }
+
+  /**
+   * Détecteur de parole : une image toutes les 50 ms (le niveau du micro). Rend un événement ou null :
+   * { type:'debut' } la parole commence (150 ms au-dessus du seuil) ;
+   * { type:'morceau' } après 8 s de parole, à la première pause de 0,4 s : un morceau part, le tour continue (« suite ») ;
+   * { type:'fin', raison:'pause'|'coupe', vide } fin du tour (silence de « pause » secondes, ou 30 s sans pause) ;
+   *   vide : rien n'a été dit depuis le dernier morceau ;
+   * { type:'ignore' } moins de 300 ms de parole (un bruit), ou la voix d'Odin s'est mise à parler.
+   * Le bruit de fond est appris pendant 500 ms, puis suivi (le plus bas sur 3 s, hors parole). Seuil = max(bruit × 3, 0,01).
+   * opt.voix : la voix d'Odin parle (aucun tour ne commence, le bruit n'est pas appris) ;
+   * opt.attente : on n'écoute pas encore (mode « un bouton chacun »), le bruit est appris.
+   */
+  function vad(o = {}) {
+    const pas = o.pas ?? 50, fen = Math.round(3000 / pas), recents = Math.round(500 / pas);
+    let pause = Math.round(borne(Number(o.pause) || 1.2, 0.8, 2.5) * 1000);
+    const E = { t: 0, bruit: 0, seuil: 0.01, parole: false, debut: 0, morceau: 0, dessus: 0, silence: 0, derniere: 0, parleMorceau: false, hist: [], recents: [] };
+    const apprendre = (n) => { E.hist.push(n); if (E.hist.length > fen) E.hist.shift(); E.bruit = Math.min(...E.hist); E.seuil = Math.max(E.bruit * 3, 0.01); };
+    const finir = () => { E.parole = false; E.dessus = 0; E.silence = 0; };
+    function image(n, opt = {}) {
+      E.t += pas; n = Number.isFinite(n) ? Math.max(0, n) : 0;
+      E.recents.push(n); if (E.recents.length > recents) E.recents.shift();
+      if (opt.voix) {
+        E.dessus = 0;
+        if (E.parole) { finir(); return { type: 'ignore', raison: 'voix' }; }
+        return null;
+      }
+      if (!E.parole) {
+        if (E.t <= 500 || opt.attente) { E.dessus = 0; apprendre(n); return null; }
+        if (n > E.seuil) {
+          E.dessus += pas;
+          if (E.dessus >= 150) {
+            E.parole = true; E.debut = E.t - E.dessus; E.morceau = E.debut; E.silence = 0; E.derniere = E.t; E.parleMorceau = true; E.dessus = 0;
+            return { type: 'debut', t: E.debut };
+          }
+          return null;
+        }
+        E.dessus = 0; apprendre(n); return null;
+      }
+      if (n > E.seuil) { E.silence = 0; E.derniere = E.t; E.parleMorceau = true; } else E.silence += pas;
+      if (E.silence >= pause) {
+        const parlee = E.derniere - E.debut, vide = !E.parleMorceau; finir();
+        if (parlee < 300) return { type: 'ignore', raison: 'court' };
+        return { type: 'fin', raison: 'pause', vide };
+      }
+      if (E.t - E.morceau >= 30000) {
+        finir();
+        // Le fond sonore a peut-être monté d'un coup : on le réapprend sur les 500 dernières millisecondes.
+        E.hist = [...E.recents]; E.bruit = Math.min(...E.hist); E.seuil = Math.max(E.bruit * 3, 0.01);
+        return { type: 'fin', raison: 'coupe', vide: false };
+      }
+      if (E.t - E.morceau >= 8000 && E.silence >= 400 && E.parleMorceau) { E.morceau = E.t; E.parleMorceau = false; return { type: 'morceau', raison: 'suite' }; }
+      return null;
+    }
+    return {
+      image,
+      etat: () => ({ t: E.t, bruit: E.bruit, seuil: E.seuil, parole: E.parole }),
+      regler: (p) => { pause = Math.round(borne(Number(p) || 1.2, 0.8, 2.5) * 1000); },
+    };
+  }
+
+  /** « C'était l'autre personne ? » : seulement quand Odin hésite sur QUI a parlé, pas quand la langue sort de la paire. */
+  const peutDireAutre = (tour) => !!(tour && tour.incertain && !tour.horsPaire);
+
+  /** Le dernier morceau d'un tour (« suite ») n'a rien apporté (souffle, bruit) : le tour d'avant reste, avec sa traduction. */
+  const garderSuite = (prec, r) => (prec && r && r.ok && (r.inchange || r.rien) ? prec : r);
+
+  /** L'heure locale « 14:02 » d'une date ISO (jamais l'heure UTC lue dans la chaîne). */
+  function heureLocale(iso) {
+    const d = new Date(iso); if (!Number.isFinite(d.getTime())) return '--:--';
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  /** Les enfants à poser (replaceChildren changerait un null en texte « null »). */
+  const enfants = (...k) => k.flat(9).filter((x) => x != null && x !== false);
+
+  /** La hauteur de la scène face à face : l'écran, moins ce qui est au-dessus et la barre du bas d'Odin. */
+  const hauteurScene = (haut, bas) => `max(320px, calc(100dvh - ${Math.max(0, Math.round(Number(haut) || 0))}px - ${Math.max(0, Math.round(Number(bas) || 0))}px - 12px))`;
+
+  const logique = { autre, attendu, disposition, choisirVoix, niveau, reechantillonner, coller, encoderWav, vad, peutDireAutre, garderSuite, heureLocale, enfants, hauteurScene, PROPOSE, BCP };
+
+  // ---------------------------------------------------------------- la page
+  const P = {
+    racine: null, act: null, etat: null, erreurEtat: '', reglages: null, conv: null, attendu: 'moi',
+    vue: { moi: {}, lui: {} }, etatMoitie: { moi: 'attente', lui: 'attente' }, ui: null, edition: null,
+    micro: null, voix: null, voixFin: 0, audio: null, stopVoix: null, file: Promise.resolve(),
+    tourCourant: null, suiteDe: null, sonTour: [], dernierSon: null, dernierTour: null, attenteDire: 0, attenteTour: null,
+    arme: null, armeMinuteur: 0, appui: null, nav: null, navChoisi: false, panneau: false, tiroir: false, horsPaire: null,
+    verrou: null, derniereParole: 0, ecouteurs: [], dispo: '',
+  };
+
+  const el = (t, a = {}, ...kids) => {
+    const n = document.createElement(t);
+    for (const [k, v] of Object.entries(a)) { if (v == null || v === false) continue; if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (k === 'class') n.className = v; else if (k === 'style') n.style.cssText = v; else n.setAttribute(k, v === true ? '' : v); }
+    for (const c of kids.flat(9)) if (c != null && c !== false) n.append(c instanceof Node ? c : document.createTextNode(String(c)));
+    return n;
+  };
+  const chip = (t, c, lang) => el('span', { class: 'rd-chip', lang, style: `background:${c}1f;color:${c};box-shadow:inset 0 0 0 1px ${c}40` }, t);
+  const actParDefaut = async (action, input = {}) => (await fetch('/api/valhalla/act', { method: 'POST', headers: { 'content-type': 'application/json', 'x-odin': '1' }, body: JSON.stringify({ module: 'rodd', action, input }) })).json();
+  const api = (chemin, corps, type) => fetch(`/api/rodd/conversation/${chemin}`, { method: 'POST', headers: { 'content-type': type || 'application/json', 'x-odin': '1' }, body: type ? corps : JSON.stringify(corps ?? {}) });
+  const apiJson = async (chemin, corps, type) => {
+    const r = await api(chemin, corps, type);
+    try { return await r.json(); } catch { return { ok: false, error: `Réponse inattendue d'Odin (${r.status}).` }; }
+  };
+
+  const langue = (qui) => (qui === 'moi' ? P.reglages?.moi : P.reglages?.lui) || 'fr';
+  const T = (qui) => TEXTES[langue(qui)] || TEXTES.fr;
+  const infoLangue = (code) => P.etat?.langues?.find?.((l) => l.code === code);
+  const nomLocal = (code) => infoLangue(code)?.nomLocal || NOM_LOCAL[code] || code;
+  const nomFr = (code) => infoLangue(code)?.nom || NOM_FR[code] || code;
+  const proposees = (moi) => { const p = infoLangue(moi)?.propose; return Array.isArray(p) && p.length ? p : PROPOSE[moi] || []; };
+  const tactile = () => { try { return !!window.matchMedia?.('(pointer: coarse)').matches; } catch { return false; } };
+  const enTrainDeParler = () => !!P.voix || Date.now() - P.voixFin < 400;
+  const vivant = () => !!P.racine?.isConnected;
+
+  const CSS = `
+.rc{display:flex;flex-direction:column;gap:12px;min-width:0}
+.rc *{box-sizing:border-box}
+.rc [hidden]{display:none!important}
+.rc-ecrire button{white-space:nowrap;flex:none}
+.rc [lang=ja]{font-family:'Hiragino Sans','Yu Gothic UI','Noto Sans JP',system-ui,sans-serif}
+.rc .rd-btn,.rc .rc-ib{min-height:44px}
+.rc-mut{color:var(--mut2,#9aa1b2);font-size:13px;margin:0}
+.rc-scene{display:grid;gap:10px;min-width:0}
+.rc-scene.cote{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"barre barre" "moi lui"}
+.rc-scene.face{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto minmax(0,1fr);grid-template-areas:"lui" "barre" "moi";min-height:320px}
+.rc-m[data-qui=moi]{grid-area:moi}.rc-m[data-qui=lui]{grid-area:lui}.rc-barre{grid-area:barre}
+.rc-scene.face .rc-m[data-qui=lui]{transform:rotate(180deg)}
+.rc-m{display:flex;flex-direction:column;gap:10px;padding:16px 18px;min-width:0;min-height:0;overflow:auto}
+.rc-m[data-qui=lui]{border-color:#3ecf8e33}
+.rc-tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.rc-tete b{font-size:15px}
+.rc-role{font-size:12px;color:var(--mut2,#9aa1b2)}
+.rc-etat{margin-left:auto;font:600 13px inherit;color:var(--b,#4f8cff);min-height:18px}
+.rc-grand{margin:0;font-size:clamp(24px,4vw,32px);font-weight:600;line-height:1.35;overflow-wrap:anywhere;flex:1 1 auto;min-height:1.4em}
+.rc-grand.vide{color:var(--mut2,#9aa1b2);font-size:17px;font-weight:500}
+.rc-petit{align-self:flex-start;max-width:100%;text-align:left;background:#ffffff08;border:1px dashed #ffffff2a;border-radius:12px;padding:8px 12px;min-height:44px;color:#cfd3dd;font-size:14px;line-height:1.45;cursor:pointer;overflow-wrap:anywhere;font-family:inherit}
+.rc-petit small{display:block;font-size:11.5px;color:var(--mut2,#9aa1b2)}
+.rc-edit{display:flex;flex-direction:column;gap:8px}
+.rc-edit textarea,.rc-ecrire input,.rc-panneau input[type=text]{width:100%;min-width:0;min-height:44px;border-radius:12px;border:1px solid #ffffff1a;background:#0b0d12;color:var(--ink2,#eef0f6);padding:8px 12px;font:15px/1.45 inherit}
+.rc-edit textarea{min-height:72px;resize:vertical}
+.rc-notes{display:flex;gap:6px;flex-wrap:wrap}
+.rc-actes{display:flex;gap:8px;flex-wrap:wrap}
+.rc-ecrire{display:flex;gap:8px;min-width:0}
+.rc-parler{width:100%;min-height:52px;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none}
+.rc-parler.on{border-color:#ff3b3b88;color:#ff6b6b;background:#ff3b3b1a}
+.rc-barre{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:10px 12px;min-width:0}
+.rc-go{min-height:48px;padding:0 18px;border-radius:999px;display:inline-flex;align-items:center;gap:10px;font:700 14px inherit;cursor:pointer;border:1px solid #4f8cff66;background:#4f8cff26;color:#dbe6ff}
+.rc-go.on{border-color:#ff3b3b77;background:#ff3b3b1f;color:#ffd6d6}
+.rc-voyant{width:12px;height:12px;border-radius:50%;background:#5b6070;flex:none}
+.rc-voyant.on{background:#ff3b3b;animation:rc-bat 1.1s ease-in-out infinite}
+.rc-statut{font:600 13px inherit;color:var(--mut2,#9aa1b2);min-width:0;flex:1 1 160px;text-align:center;overflow-wrap:anywhere}
+.rc-ib{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:#ffffff0a;border:1px solid #ffffff14;color:#cfd3dd;cursor:pointer;font-size:18px}
+.rc-ib[aria-expanded=true]{border-color:#4f8cff77;color:#fff}
+.rc-band{padding:12px 16px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.45}
+.rc-band.alerte{border-color:#f5a62466}
+.rc-band pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;background:#0b0d12;border-radius:10px;padding:8px 10px;font-size:12.5px}
+.rc-panneau{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.rc-panneau .rd-seg{flex-wrap:wrap!important;overflow:visible!important;max-width:100%}
+.rc-panneau .rd-seg button{white-space:normal!important}
+.rc-ligne{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.rc-ligne>span:first-child{min-width:190px;color:var(--mut2,#9aa1b2);font-size:13px}
+.rc-ligne label{display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
+.rc-ligne input[type=checkbox]{width:20px;height:20px}
+.rc-ligne input[type=range]{flex:1 1 160px;min-width:0;max-width:320px}
+.rc-tiroir{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.rc-it{display:flex;flex-direction:column;gap:3px;padding:9px 0;border-bottom:1px solid #ffffff14;min-width:0}
+.rc-it:last-child{border-bottom:0}
+.rc-it small{color:var(--mut2,#9aa1b2);font-size:12px}
+.rc-it span{overflow-wrap:anywhere;font-size:14px}
+@keyframes rc-bat{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:.6}}
+@media (prefers-reduced-motion:reduce){.rc-voyant.on{animation:none}}
+@media (max-width:480px){.rc-ligne>span:first-child{min-width:0;flex:1 1 100%}.rc-m{padding:12px 14px}.rc-barre{padding:8px}.rc-statut{order:9;flex:1 1 100%;font-size:12.5px}}
+`;
+
+  // ---------------------------------------------------------------- état, écouteurs
+  async function chargerEtat() {
+    try {
+      const r = await apiJson('etat', {});
+      if (r && r.ok && r.reglages) { P.etat = r; P.reglages = r.reglages; P.erreurEtat = ''; return true; }
+      P.erreurEtat = r?.error || 'Odin n\'a pas répondu.';
+    } catch (e) { P.erreurEtat = e.message; }
+    P.etat = null; return false;
+  }
+
+  function poser(cible, type, fn) { cible.addEventListener(type, fn); P.ecouteurs.push([cible, type, fn]); }
+  function retirer() { for (const [c, t, f] of P.ecouteurs) c.removeEventListener(t, f); P.ecouteurs = []; }
+
+  function statut(t) { P.statut = t; if (P.ui?.statut) P.ui.statut.textContent = t; }
+  function etat(qui, cle) {
+    P.etatMoitie[qui] = cle;
+    const n = P.ui?.etat?.[qui]; if (n) n.textContent = cle ? (TEXTES[langue(qui)]?.[cle] ?? '') : '';
+  }
+  function etatsRepos() {
+    const mode = P.reglages?.ecoute;
+    if (P.micro && mode === 'appui') { etat('moi', 'appui'); etat('lui', 'appui'); }
+    else if (P.micro) { etat(P.attendu, 'aVous'); etat(autre(P.attendu), mode === 'auto' ? 'ecoute' : ''); }
+    else { etat('moi', 'attente'); etat('lui', 'attente'); }
+    if (P.micro) statut(mode === 'auto' ? 'J\'écoute… parlez chacun votre tour.' : mode === 'boutons' ? 'Touchez « Parler » dans votre moitié, puis parlez.' : 'Maintenez « Parler » (ou la barre d\'espace pour vous) pendant que vous parlez.');
+  }
+  function majVoyant() {
+    const on = !!(P.micro || P.nav);
+    P.ui?.voyant?.classList.toggle('on', on);
+    if (P.ui?.go) { P.ui.go.classList.toggle('on', !!P.micro); P.ui.goTexte.textContent = P.micro ? 'Arrêter' : 'Commencer'; P.ui.go.setAttribute('aria-pressed', String(!!P.micro)); }
+  }
+
+  // ---------------------------------------------------------------- dessin
+  function rendre() {
+    if (!vivant() || !P.etat) return;
+    const R = P.reglages, disp = disposition(window.innerWidth || 1280, tactile(), R.faceAFace);
+    P.dispo = disp.mode;
+    P.ui = { etat: {} };
+    const scene = el('div', { class: `rc-scene ${disp.mode}` }, moitie('lui'), barre(), moitie('moi'));
+    const kids = [...bandeaux(), scene];
+    if (P.panneau) kids.push(panneau());
+    if (P.tiroir) kids.push(tiroir());
+    P.racine.replaceChildren(...kids);
+    majVoyant();
+    for (const q of ['moi', 'lui']) etat(q, P.etatMoitie[q]);
+    if (P.statut) statut(P.statut);
+    if (disp.mode === 'face') {
+      const haut = Math.max(0, Math.round(scene.getBoundingClientRect().top + (window.scrollY || 0)));
+      // La barre du bas d'Odin (téléphone) prend aussi de la place : sa hauteur compte la zone sûre du bas.
+      let bas = 0;
+      try { const b = document.querySelector('.bnav'); if (b && getComputedStyle(b).display !== 'none') bas = b.getBoundingClientRect().height; } catch { /* pas de barre */ }
+      scene.style.height = hauteurScene(haut, bas);
+    }
+  }
+
+  function moitie(qui) {
+    const l = langue(qui), t = TEXTES[l], v = P.vue[qui] || {}, sien = v.petit;
+    const grand = v.grand
+      ? el('p', { class: 'rc-grand', lang: v.grandLang || l }, v.grand)
+      : el('p', { class: 'rc-grand vide', lang: l }, t.vide);
+    const notes = el('div', { class: 'rc-notes' },
+      v.horsLigne ? chip(t.horsLigne, '#9aa1b2', l) : null,
+      v.verifier ? chip(`${t.verifier} : ${v.verifier}`, '#f5a624', l) : null,
+      v.sansVoix ? chip(t.pasDeVoix, '#f5a624', l) : null,
+      v.erreur ? chip(`${t.erreur}`, '#ff6b6b', l) : null,
+      v.erreurEcoute ? chip(t.ecouteKo, '#ff6b6b', l) : null);
+    let petit = null;
+    if (P.edition?.qui === qui) {
+      const ta = el('textarea', { lang: l, 'aria-label': t.corriger }); ta.value = P.edition.texte;
+      ta.addEventListener('input', () => { if (P.edition) P.edition.texte = ta.value; });
+      petit = el('div', { class: 'rc-edit' }, ta, el('div', { class: 'rc-actes' },
+        el('button', { class: 'rd-btn g', type: 'button', onclick: () => { const e = P.edition; P.edition = null; if (e.texte.trim()) envoyerTexte(e.texte.trim(), qui, e.id); else rendre(); } }, t.retraduire),
+        el('button', { class: 'rd-btn n', type: 'button', onclick: () => { P.edition = null; rendre(); } }, t.annuler)));
+      setTimeout(() => ta.focus(), 0);
+    } else if (sien && sien.entendu) {
+      petit = el('button', { class: 'rc-petit', type: 'button', lang: sien.de || l, title: t.corriger, 'aria-label': `${t.corriger} : ${sien.entendu}`, onclick: () => { P.edition = { qui, id: sien.id, texte: sien.entendu }; rendre(); } },
+        el('small', { lang: l }, `${t.entendu} ✎`), sien.entendu);
+    }
+    const actes = el('div', { class: 'rc-actes' },
+      v.incertain && P.dernierSon && P.dernierTour?.id === v.incertain ? el('button', { class: 'rd-btn', type: 'button', lang: l, onclick: () => cEtaitLAutre() }, t.autre) : null,
+      v.redire && v.redire.traduit ? el('button', { class: 'rd-btn n', type: 'button', lang: l, onclick: () => dire(v.redire.traduit, v.redire.vers, autre(qui)) }, t.redire) : null);
+    const bouton = boutonParler(qui, t);
+    const champ = el('input', { type: 'text', lang: l, placeholder: t.ecrire, 'aria-label': t.ecrire, enterkeyhint: 'send' });
+    const ecrire = el('form', { class: 'rc-ecrire', onsubmit: (e) => { e.preventDefault(); const x = champ.value.trim(); if (!x) return; champ.value = ''; envoyerTexte(x, qui); } },
+      champ, el('button', { class: 'rd-btn n', type: 'submit', lang: l }, t.envoyer));
+    const et = el('span', { class: 'rc-etat', role: 'status', 'aria-live': 'polite', lang: l });
+    P.ui.etat[qui] = et;
+    return el('section', { class: 'rd-g rc-m', 'data-qui': qui, lang: l, 'aria-label': `${qui === 'moi' ? 'Ma moitié' : 'Moitié de l\'interlocuteur'} : ${nomLocal(l)}` },
+      el('div', { class: 'rc-tete' }, el('b', { lang: l }, nomLocal(l)), el('span', { class: 'rc-role', lang: 'fr' }, qui === 'moi' ? 'moi' : 'interlocuteur'), et),
+      grand, notes, petit, actes, bouton, ecrire);
+  }
+
+  function boutonParler(qui, t) {
+    const mode = P.reglages.ecoute, navire = !P.etat.ecoute?.pret && P.navChoisi;
+    if (navire) return el('button', { class: 'rd-btn rc-parler', type: 'button', lang: langue(qui), onclick: () => ecouterNavigateur(qui) }, t.parler);
+    if (mode === 'boutons') {
+      return el('button', { class: `rd-btn rc-parler${P.arme === qui ? ' on' : ''}`, type: 'button', lang: langue(qui), 'aria-pressed': String(P.arme === qui), onclick: () => armer(qui) }, t.parler);
+    }
+    if (mode === 'appui') {
+      const b = el('button', { class: `rd-btn rc-parler${P.appui?.qui === qui ? ' on' : ''}`, type: 'button', lang: langue(qui) }, t.appui);
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); b.classList.add('on'); appuyer(qui); });
+      const lacher = () => { b.classList.remove('on'); relacher(qui); };
+      b.addEventListener('pointerup', lacher); b.addEventListener('pointercancel', lacher);
+      b.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat) { e.preventDefault(); appuyer(qui); } });
+      b.addEventListener('keyup', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); relacher(qui); } });
+      return b;
+    }
+    return null;
+  }
+
+  function barre() {
+    const voyant = el('span', { class: 'rc-voyant', 'aria-hidden': 'true' });
+    const goTexte = el('span', {}, P.micro ? 'Arrêter' : 'Commencer');
+    const go = el('button', { class: 'rc-go', type: 'button', 'aria-pressed': String(!!P.micro), onclick: () => (P.micro ? arreterMicro('Micro coupé.') : commencer()) }, voyant, goTexte);
+    const st = el('span', { class: 'rc-statut', role: 'status', 'aria-live': 'polite' }, P.statut || '');
+    const inter = el('button', { class: 'rd-btn n', type: 'button', hidden: !P.voix, onclick: () => arreterVoix() }, 'Interrompre');
+    Object.assign(P.ui, { voyant, go, goTexte, statut: st, interrompre: inter });
+    return el('div', { class: 'rd-g rc-barre' }, go, st, inter,
+      el('button', { class: 'rc-ib', type: 'button', title: 'Inverser les deux langues', 'aria-label': 'Inverser les deux langues', onclick: () => regler({ moi: P.reglages.lui, lui: P.reglages.moi }) }, '⇅'),
+      el('button', { class: 'rc-ib', type: 'button', title: 'Réglages de la conversation', 'aria-label': 'Réglages de la conversation', 'aria-expanded': String(P.panneau), onclick: () => { P.panneau = !P.panneau; rendre(); } }, '⚙'),
+      el('button', { class: 'rd-btn n', type: 'button', 'aria-expanded': String(P.tiroir), onclick: () => { P.tiroir = !P.tiroir; rendre(); } }, 'Historique'));
+  }
+
+  function bandeaux() {
+    const E = P.etat, R = P.reglages, out = [];
+    if (P.horsPaire && LANGUES.includes(P.horsPaire) && P.horsPaire !== R.moi && P.horsPaire !== R.lui) {
+      const h = P.horsPaire;
+      const ancien = P.dernierTour?.horsPaire === h ? P.dernierTour : null, attenduL = ancien ? langue(ancien.qui) : null;
+      out.push(el('div', { class: 'rd-g rc-band alerte' }, el('span', {}, `J'entends du ${nomFr(h)} : passer à ${nomFr(R.moi)} ↔ ${nomFr(h)} ?`),
+        el('div', { class: 'rc-actes' }, el('button', { class: 'rd-btn', type: 'button', onclick: () => changerPaire(h) }, 'Oui, changer'),
+          ancien && P.dernierSon && attenduL !== h ? el('button', { class: 'rd-btn n', type: 'button', onclick: () => { P.horsPaire = null; reecouterComme(ancien.qui); } }, `Non, c'était bien du ${nomFr(attenduL)}`) : null,
+          el('button', { class: 'rd-btn n', type: 'button', onclick: () => { P.horsPaire = null; P.dernierSon = null; rendre(); } }, 'Non'))));
+    }
+    if (!E.traduction?.pret) {
+      out.push(el('div', { class: 'rd-g rc-band alerte' },
+        el('b', {}, 'Pas de traduction possible pour l\'instant'),
+        el('span', {}, E.traduction?.raison || 'Aucun modèle d\'IA ni serveur de traduction sur la machine.'),
+        el('span', {}, 'Configure un modèle dans Réglages → Modèle, ou installe un serveur de traduction libre sur la machine (traduction hors ligne, approximative) :'),
+        el('pre', {}, E.traduction?.aide || 'pip install libretranslate\nlibretranslate --load-only en,fr,ja'),
+        el('div', {}, el('button', { class: 'rd-btn', type: 'button', onclick: () => window.OdinShow?.('settings') }, 'Ouvrir les Réglages'))));
+    }
+    if (!E.ecoute?.pret) {
+      const sr = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      out.push(el('div', { class: 'rd-g rc-band alerte' },
+        el('b', {}, 'Odin ne peut pas écouter'),
+        el('span', {}, E.ecoute?.raison || 'Whisper n\'est pas installé sur la machine, et aucun service d\'écoute n\'est configuré (Réglages → Voix).'),
+        el('span', {}, 'Vous pouvez toujours écrire au clavier dans chaque moitié.'),
+        E.navigateurEcoute && sr && !R.local
+          ? (P.navChoisi
+            ? chip('Écoute du navigateur : le son part au service du navigateur', '#f5a624')
+            : el('div', {}, el('button', { class: 'rd-btn n', type: 'button', onclick: () => { P.navChoisi = true; rendre(); } }, 'Utiliser l\'écoute du navigateur (le son part au service du navigateur)')))
+          : null));
+    } else if ((R.moi === 'ja' || R.lui === 'ja') && !E.ecoute?.japonais) {
+      out.push(el('div', { class: 'rd-g rc-band alerte' }, el('span', {}, `Le modèle d'écoute installé${E.ecoute?.modele ? ` (${E.ecoute.modele})` : ''} comprend mal le japonais : installe le modèle Whisper « small » (ou plus grand) depuis Réglages → Voix.`)));
+    }
+    return out;
+  }
+
+  function pastilles() {
+    const E = P.etat, e = E.ecoute || {}, tr = E.traduction || {}, vx = E.voix || {};
+    const ecoute = e.pret ? (e.ou === 'machine' ? `Écoute : sur la machine${e.modele ? ` (${e.modele})` : ''}` : 'Écoute : service configuré') : 'Écoute : indisponible';
+    const trad = tr.pret ? (tr.moteur === 'hors-ligne' ? `Traduction : hors ligne, approximative${tr.nom ? ` (${tr.nom})` : ''}` : `Traduction : modèle d'Odin${tr.nom ? ` (${tr.nom})` : ''}`) : 'Traduction : indisponible';
+    const mot = { machine: 'machine', service: 'service', navigateur: 'navigateur' };
+    const voix = `Voix : ${LANGUES.map((l) => `${NOM_FR[l]} ${mot[vx[l]] || '?'}`).join(' · ')}`;
+    return el('div', { class: 'rc-notes' }, chip(ecoute, e.pret ? '#3ecf8e' : '#ff6b6b'), chip(trad, tr.pret ? '#3ecf8e' : '#ff6b6b'), chip(voix, '#4f8cff'), E.local ? chip('Tout sur la machine', '#3ecf8e') : null);
+  }
+
+  function panneau() {
+    const R = P.reglages;
+    const seg = (label, valeurs, actuel, champ) => el('div', { class: 'rc-ligne' }, el('span', {}, label),
+      el('div', { class: 'rd-seg', role: 'group', 'aria-label': label }, ...valeurs.map(([v, t, lang]) => el('button', { type: 'button', lang, 'aria-pressed': String(actuel === v), onclick: () => regler({ [champ]: v }) }, t))));
+    const coche = (label, champ) => { const i = el('input', { type: 'checkbox' }); i.checked = !!R[champ]; i.addEventListener('change', () => regler({ [champ]: i.checked })); return el('label', {}, i, label); };
+    const curseur = (label, champ, min, max, pasR, unite) => {
+      const val = el('b', {}, `${String(R[champ]).replace('.', ',')} ${unite}`);
+      const i = el('input', { type: 'range', min, max, step: pasR, 'aria-label': label }); i.value = R[champ];
+      i.addEventListener('input', () => { val.textContent = `${String(i.value).replace('.', ',')} ${unite}`; });
+      i.addEventListener('change', () => regler({ [champ]: Number(i.value) }));
+      return el('div', { class: 'rc-ligne' }, el('span', {}, label), i, val);
+    };
+    const ordre = proposees(R.moi); // la langue proposée par défaut d'abord (ordre donné par Odin)
+    const serveur = el('input', { type: 'text', 'aria-label': 'Adresse du serveur de traduction sur la machine', inputmode: 'url', style: 'flex:1 1 220px;max-width:360px' }); serveur.value = R.serveur || '';
+    return el('section', { class: 'rd-g rc-panneau', 'aria-label': 'Réglages de la conversation' },
+      el('div', { class: 'rc-ligne' }, el('b', { style: 'font-size:16px' }, 'Réglages de la conversation'), el('button', { class: 'rd-btn n', type: 'button', style: 'margin-left:auto', onclick: () => { P.panneau = false; rendre(); } }, 'Fermer')),
+      pastilles(),
+      seg('Ma langue', LANGUES.map((c) => [c, `${nomLocal(c)}`, c]), R.moi, 'moi'),
+      seg('Langue de l\'interlocuteur', ordre.map((c) => [c, `${nomLocal(c)}`, c]), R.lui, 'lui'),
+      el('div', { class: 'rc-ligne' }, el('span', {}, 'En voyage'), el('div', { class: 'rc-actes' },
+        el('button', { class: 'rd-btn n', type: 'button', onclick: () => regler({ voyage: 'angleterre' }) }, 'Je pars en Angleterre'),
+        el('button', { class: 'rd-btn n', type: 'button', onclick: () => regler({ voyage: 'japon' }) }, 'Je pars au Japon'),
+        el('button', { class: 'rd-btn n', type: 'button', onclick: () => regler({ voyage: 'france' }) }, 'Je pars en France'))),
+      seg('Écoute', [['auto', 'Automatique'], ['boutons', 'Un bouton chacun'], ['appui', 'Appuyer pour parler']], R.ecoute, 'ecoute'),
+      curseur('Fin de phrase après un silence de', 'pause', 0.8, 2.5, 0.1, 's'),
+      el('div', { class: 'rc-ligne' }, el('span', {}, 'Voix'), coche('Dire ma phrase traduite', 'direMoi'), coche('Me dire sa réponse', 'direLui')),
+      curseur('Vitesse de la voix', 'vitesse', 0.7, 1.5, 0.05, '×'),
+      seg('Face à face (moitié retournée)', [['auto', 'Automatique'], ['oui', 'Oui'], ['non', 'Non']], R.faceAFace, 'faceAFace'),
+      el('div', { class: 'rc-ligne' }, el('span', {}, 'Confidentialité'), coche('Tout sur la machine (rien ne part à un service extérieur)', 'local'), coche('Garder l\'historique (texte seulement, chiffré)', 'garder')),
+      seg('Traduction par', [['auto', 'Automatique'], ['modele', 'Le modèle d\'Odin'], ['hors-ligne', 'Hors ligne (serveur sur la machine)']], R.moteur, 'moteur'),
+      el('div', { class: 'rc-ligne' }, el('span', {}, 'Serveur de traduction (maison)'), serveur, el('button', { class: 'rd-btn n', type: 'button', onclick: () => regler({ serveur: serveur.value.trim() }) }, 'Enregistrer')));
+  }
+
+  function tiroir() {
+    const corps = el('div', {}, el('p', { class: 'rc-mut' }, 'Chargement…'));
+    const box = el('section', { class: 'rd-g rc-tiroir', 'aria-label': 'Historique de la conversation' },
+      el('div', { class: 'rc-ligne' }, el('b', { style: 'font-size:16px' }, 'Historique'), el('button', { class: 'rd-btn n', type: 'button', style: 'margin-left:auto', onclick: () => { P.tiroir = false; rendre(); } }, 'Fermer')),
+      corps);
+    remplirTiroir(corps);
+    return box;
+  }
+
+  async function remplirTiroir(corps) {
+    const r = await P.act('conv_historique', { n: 200 }).catch(() => null);
+    const d = r?.data ?? { items: [], garde: true, conversations: [] };
+    const items = [...(d.items || [])].sort((a, b) => (a.conv === P.conv ? 0 : 1) - (b.conv === P.conv ? 0 : 1));
+    const courante = P.conv && items.some((i) => i.conv === P.conv);
+    const exporter = async () => {
+      const x = await P.act('conv_exporter', courante ? { conv: P.conv } : {});
+      if (!x?.data?.texte) { await window.OdinDialog.alert(x?.text || x?.error || 'Rien à exporter.'); return; }
+      const url = URL.createObjectURL(new Blob([x.data.texte], { type: 'text/plain;charset=utf-8' }));
+      const a = el('a', { href: url, download: x.data.nom || 'conversation.txt', style: 'display:none' }); document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    };
+    const effacer = async (tout) => {
+      const ok = await window.OdinDialog.confirm(tout ? 'Effacer tout l\'historique des conversations traduites ?' : 'Effacer cette conversation de l\'historique ?', { ok: 'Effacer', danger: true });
+      if (!ok) return;
+      const x = await P.act('conv_effacer', tout ? {} : { conv: P.conv });
+      statut(x?.text || 'Effacé.'); remplirTiroir(corps);
+    };
+    const qui = (q) => (q === 'moi' ? 'Moi' : 'Interlocuteur');
+    corps.replaceChildren(...enfants(
+      d.garde === false ? el('p', { class: 'rc-mut' }, 'L\'historique n\'est pas gardé (réglage « Garder l\'historique »).') : null,
+      items.length ? null : el('p', { class: 'rc-mut' }, 'Aucune phrase traduite pour l\'instant.'),
+      ...items.map((i) => el('div', { class: 'rc-it' },
+        el('small', {}, `${heureLocale(i.at)} · ${qui(i.qui)} · ${nomFr(i.de)} → ${nomFr(i.vers)}${i.conv === P.conv ? ' · cette conversation' : ''}${i.corrige ? ' · corrigé' : ''}`),
+        el('span', { lang: i.de }, i.entendu || ''), el('span', { lang: i.vers, style: 'color:#cfe0ff' }, i.traduit || '—'))),
+      el('div', { class: 'rc-actes', style: 'margin-top:6px' },
+        items.length ? el('button', { class: 'rd-btn', type: 'button', onclick: exporter }, courante ? 'Exporter cette conversation' : 'Exporter') : null,
+        courante ? el('button', { class: 'rd-btn n', type: 'button', onclick: () => effacer(false) }, 'Effacer cette conversation') : null,
+        items.length ? el('button', { class: 'rd-btn n', type: 'button', onclick: () => effacer(true) }, 'Tout effacer') : null)));
+  }
+
+  // ---------------------------------------------------------------- réglages
+  async function regler(champs) {
+    const r = await P.act('conv_regler', champs).catch((e) => ({ ok: false, error: e.message }));
+    if (!r?.ok || !r.data) { await window.OdinDialog.alert(r?.text || r?.error || 'Réglage refusé.'); return; }
+    const avant = P.reglages; P.reglages = r.data;
+    if (P.micro && avant.pause !== P.reglages.pause) P.micro.vad.regler(P.reglages.pause);
+    if (P.micro && avant.ecoute !== P.reglages.ecoute) { P.arme = null; P.appui = null; if (P.micro.rec) P.micro.rec = null; }
+    if (['local', 'moteur', 'serveur', 'moi', 'lui'].some((k) => avant[k] !== P.reglages[k])) {
+      const ancien = P.etat;
+      if (!(await chargerEtat())) { P.etat = ancien; P.reglages = r.data; }
+      if (P.micro && !P.etat.ecoute?.pret) { arreterMicro(P.etat.ecoute?.raison || 'Odin ne peut plus écouter : micro coupé.'); return; }
+    }
+    etatsRepos(); rendre();
+  }
+
+  // ---------------------------------------------------------------- micro
+  function deverrouillerSon() {
+    // Le geste de la personne autorise la lecture du son plus tard (iPhone) : un son muet, une phrase vide.
+    try {
+      const u = URL.createObjectURL(new Blob([encoderWav(new Float32Array(160))], { type: 'audio/wav' }));
+      const a = new Audio(u); a.volume = 0; a.onended = a.onerror = () => URL.revokeObjectURL(u); a.play().catch(() => URL.revokeObjectURL(u));
+    } catch { /* pas de son ici */ }
+    try { if (window.speechSynthesis && window.SpeechSynthesisUtterance) { const u = new SpeechSynthesisUtterance(''); u.volume = 0; window.speechSynthesis.speak(u); } } catch { /* rien */ }
+  }
+
+  const nouvelleConv = () => { P.conv = `c-${Date.now().toString(36)}`; };
+  const assurerConv = () => { if (!P.conv) nouvelleConv(); };
+
+  async function commencer() {
+    if (!P.etat.ecoute?.pret) {
+      statut(P.navChoisi ? 'Touchez « Parler » dans votre moitié.' : 'Odin ne peut pas écouter : écrivez au clavier, ou voyez le bandeau ci-dessus.');
+      return;
+    }
+    nouvelleConv(); P.vue = { moi: {}, lui: {} }; P.attendu = 'moi'; P.dernierSon = null; P.dernierTour = null; P.horsPaire = null;
+    if (await demarrerMicro()) rendre();
+  }
+
+  async function demarrerMicro() {
+    if (P.micro) return true;
+    if (!P.etat?.ecoute?.pret) { statut(P.etat?.ecoute?.raison || 'Odin ne peut pas écouter : écrivez au clavier.'); return false; }
+    deverrouillerSon();
+    const md = navigator.mediaDevices;
+    if (!md || !(window.AudioContext || window.webkitAudioContext)) { statut('Micro indisponible ici : ouvrez Odin en HTTPS, ou écrivez au clavier.'); return false; }
+    let flux;
+    try { flux = await md.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }); } catch { statut('Accès au micro refusé par le navigateur.'); return false; }
+    const AC = window.AudioContext || window.webkitAudioContext, ac = new AC();
+    try { await ac.resume(); } catch { /* déjà en route */ }
+    const src = ac.createMediaStreamSource(flux), an = ac.createAnalyser(); an.fftSize = 1024; src.connect(an);
+    // ScriptProcessorNode : la page n'a pas le droit de charger un module de traitement du son (règles de sécurité).
+    const sp = ac.createScriptProcessor(4096, 1, 1); src.connect(sp); sp.connect(ac.destination);
+    const M = { flux, ac, src, an, sp, taux: ac.sampleRate, avant: [], avantN: 0, rec: null, vad: vad({ pause: P.reglages.pause }), minuteur: 0 };
+    sp.onaudioprocess = (e) => {
+      e.outputBuffer.getChannelData(0).fill(0);
+      const x = reechantillonner(e.inputBuffer.getChannelData(0), M.taux, TAUX);
+      if (M.rec) { M.rec.push(x); return; }
+      M.avant.push(x); M.avantN += x.length;
+      // 400 ms gardées avant le début de la parole (plus les 150 ms qu'il faut pour la reconnaître).
+      while (M.avant.length > 1 && M.avantN - M.avant[0].length >= TAUX * 0.55) M.avantN -= M.avant.shift().length;
+    };
+    const tampon = new Float32Array(an.fftSize);
+    M.minuteur = setInterval(() => imageMicro(M, tampon), 50);
+    P.micro = M; P.derniereParole = Date.now();
+    try { P.verrou = await navigator.wakeLock?.request?.('screen'); } catch { P.verrou = null; }
+    assurerConv(); majVoyant(); etatsRepos();
+    return true;
+  }
+
+  function prendre(M) { const s = M.rec ? coller(M.rec) : new Float32Array(0); M.rec = []; return s; }
+
+  function imageMicro(M, tampon) {
+    if (P.micro !== M) return;
+    if (!vivant()) { arreter(); return; }
+    M.an.getFloatTimeDomainData(tampon);
+    const n = niveau(tampon), voix = enTrainDeParler();
+    if (voix) { M.avant = []; M.avantN = 0; P.derniereParole = Date.now(); }
+    if (P.appui) { M.vad.image(n, { attente: true }); return; }
+    const ev = M.vad.image(n, { voix, attente: P.reglages.ecoute === 'appui' || (P.reglages.ecoute === 'boutons' && !P.arme) });
+    if (ev) surEvenement(M, ev);
+    if (Date.now() - P.derniereParole > 180000) arreterMicro('Micro coupé : 3 minutes sans parole.');
+  }
+
+  function surEvenement(M, ev) {
+    if (ev.type === 'debut') {
+      M.rec = [...M.avant]; M.avant = []; M.avantN = 0; P.derniereParole = Date.now();
+      if (P.attenteDire) { clearTimeout(P.attenteDire); P.attenteDire = 0; P.suiteDe = P.attenteTour; P.attenteTour = null; P.sonTour = P.dernierSon ? [P.dernierSon] : []; }
+      clearTimeout(P.armeMinuteur);
+      const q = P.arme || P.suiteDe?.qui || P.attendu; etat(q, 'ecoute'); statut('J\'écoute…');
+    } else if (ev.type === 'morceau') {
+      envoyer(prendre(M), { fin: false });
+    } else if (ev.type === 'fin') {
+      const son = ev.vide ? null : prendre(M); M.rec = null;
+      envoyer(son, { fin: true });
+    } else if (ev.type === 'ignore') {
+      M.rec = null;
+      if (P.suiteDe && !P.tourCourant) { const t = P.suiteDe; P.suiteDe = null; finirTour(t); } else etatsRepos();
+    }
+  }
+
+  function armer(qui) {
+    (async () => {
+      if (!P.micro && !(await demarrerMicro())) return;
+      P.arme = qui; etat(qui, 'aVous'); statut(`À ${qui === 'moi' ? 'vous' : 'l\'interlocuteur'} : parlez.`);
+      clearTimeout(P.armeMinuteur); P.armeMinuteur = setTimeout(() => { if (P.arme === qui && !P.micro?.rec) { P.arme = null; etatsRepos(); rendre(); } }, 10000);
+      rendre();
+    })();
+  }
+
+  function appuyer(qui) {
+    if (P.appui) return;
+    P.appui = { qui, t0: Date.now(), lache: false };
+    (async () => {
+      if (!P.micro && !(await demarrerMicro())) { P.appui = null; return; }
+      const A = P.appui; if (!A || A.qui !== qui) return;
+      if (A.lache) { P.appui = null; statut('Trop court : maintenez pendant que vous parlez.'); return; }
+      const M = P.micro; M.rec = [...M.avant]; M.avant = []; M.avantN = 0; A.t0 = Date.now(); P.derniereParole = Date.now();
+      etat(qui, 'ecoute'); statut('J\'écoute…');
+    })();
+  }
+
+  function relacher(qui) {
+    const A = P.appui; if (!A || A.qui !== qui) return;
+    const M = P.micro;
+    if (!M || !M.rec) { A.lache = true; return; }
+    P.appui = null;
+    const son = prendre(M); M.rec = null;
+    if (Date.now() - A.t0 < 300 || son.length < TAUX * 0.3) { statut('Trop court : maintenez pendant que vous parlez.'); etatsRepos(); return; }
+    envoyer(son, { fin: true, qui });
+  }
+
+  function arreterMicro(message) {
+    const M = P.micro; if (!M) return;
+    P.micro = null; clearInterval(M.minuteur); clearTimeout(P.armeMinuteur);
+    const reste = M.rec && M.rec.length ? coller(M.rec) : null;
+    try { M.sp.onaudioprocess = null; M.sp.disconnect(); M.src.disconnect(); } catch { /* déjà débranché */ }
+    for (const t of M.flux.getTracks()) t.stop();
+    M.ac.close().catch(() => {});
+    try { P.verrou?.release?.().catch?.(() => {}); } catch { /* rien */ } P.verrou = null;
+    P.arme = null; P.appui = null;
+    if (reste && reste.length >= TAUX * 0.3 && vivant()) envoyer(reste, { fin: true });
+    else if (P.attenteTour) { const t = P.attenteTour; clearTimeout(P.attenteDire); P.attenteDire = 0; P.attenteTour = null; direTour(t); }
+    majVoyant(); etatsRepos(); if (message) statut(message);
+    if (vivant()) rendre();
+  }
+
+  // ---------------------------------------------------------------- tours
+  function envoyer(son, { fin, qui }) {
+    assurerConv();
+    const quiF = qui || P.arme || null;
+    if (fin) P.arme = null;
+    P.file = P.file.then(async () => {
+      let tour = P.tourCourant || P.suiteDe;
+      if (son && son.length >= TAUX * 0.3) {
+        P.sonTour.push(son);
+        etat(tour?.qui || quiF || P.attendu, 'traduction'); statut('Je traduis…');
+        const q = new URLSearchParams({ conv: P.conv, qui: tour ? tour.qui : (quiF || 'auto'), attendu: P.attendu });
+        if (tour) q.set('suite', tour.id);
+        const r = await apiJson(`tour?${q}`, new Blob([encoderWav(son)], { type: 'audio/wav' }), 'audio/wav');
+        if (!r || !r.ok) {
+          const msg = r?.code === 'vide' ? '' : (r?.error || 'Odin n\'a pas pu traiter ce tour.');
+          if (fin) { P.tourCourant = null; P.suiteDe = null; P.sonTour = []; if (tour) await finirTour(tour); else etatsRepos(); }
+          // Le message s'écrit APRÈS le retour au repos (qui réécrit la barre d'état), et dans la moitié concernée.
+          if (msg) await erreurEcoute(tour?.qui || quiF || P.attendu, msg, r?.code);
+          return;
+        }
+        const garde = garderSuite(tour, r);
+        if (garde === r) { tour = r; P.tourCourant = r; afficherTour(r); }
+      }
+      if (fin) { P.tourCourant = null; P.suiteDe = null; if (tour) await finirTour(tour); else { P.sonTour = []; etatsRepos(); } }
+    }).catch((e) => { statut(e.message); });
+  }
+
+  async function finirTour(tour) {
+    const total = P.sonTour.reduce((n, s) => n + s.length, 0);
+    P.dernierSon = total && total <= TAUX * 60 ? coller(P.sonTour) : null; P.sonTour = [];
+    P.dernierTour = tour;
+    P.attendu = attendu(P.attendu, tour);
+    if (tour.incertain && P.dernierSon) rendre(); // montre « C'était l'autre personne ? »
+    if (tour.inacheve && P.micro) {
+      P.attenteTour = tour;
+      P.attenteDire = setTimeout(() => { P.attenteDire = 0; const t = P.attenteTour; P.attenteTour = null; if (t) direTour(t); }, 1500);
+      return;
+    }
+    await direTour(tour);
+  }
+
+  function afficherTour(tour, { correction } = {}) {
+    const s = tour.qui === 'lui' ? 'lui' : 'moi', o = autre(s);
+    P.vue[s] = { ...(P.vue[s] || {}), petit: tour, incertain: peutDireAutre(tour) ? tour.id : null, erreur: !!tour.erreurTraduction && !tour.rien, erreurEcoute: '', redire: correction ? tour : null };
+    if (tour.rien) {
+      P.vue[s].grand = tour.message || ''; P.vue[s].grandLang = tour.de;
+    } else {
+      P.vue[o] = { ...(P.vue[o] || {}), grand: tour.traduit || '', grandLang: tour.vers, horsLigne: tour.moteur === 'hors-ligne', verifier: tour.verifier || '', sansVoix: false };
+    }
+    if (tour.horsPaire) P.horsPaire = tour.horsPaire;
+    if (tour.erreurTraduction) statut(`Traduction impossible : ${tour.erreurTraduction}`);
+    else if (tour.verifier) statut(`Nombres à vérifier : ${tour.verifier}`);
+    if (P.edition && P.edition.id === tour.id) P.edition = null;
+    rendre();
+  }
+
+  async function direTour(tour) {
+    if (!tour || !tour.ok || !vivant()) { etatsRepos(); return; }
+    const R = P.reglages;
+    if (tour.rien) {
+      if (tour.message && (tour.qui === 'moi' ? R.direLui : R.direMoi)) await dire(tour.message, tour.de, tour.qui);
+      etatsRepos(); return;
+    }
+    // Une phrase vide ou une traduction en échec ne se dit jamais.
+    if (!tour.traduit || tour.erreurTraduction) { etatsRepos(); if (tour.erreurTraduction) statut(`Traduction impossible : ${tour.erreurTraduction}`); return; }
+    if (tour.qui === 'moi' ? R.direMoi : R.direLui) await dire(tour.traduit, tour.vers, autre(tour.qui));
+    etatsRepos();
+  }
+
+  /** « C'était l'autre personne ? » : le son gardé repart avec l'autre personne imposée, puis il est oublié. */
+  function cEtaitLAutre() { const ancien = P.dernierTour; if (ancien) return reecouterComme(autre(ancien.qui)); }
+
+  /** Le son gardé repart avec cette personne (donc sa langue) imposée, puis il est oublié. */
+  async function reecouterComme(qui) {
+    const son = P.dernierSon, ancien = P.dernierTour; if (!son || !ancien) return;
+    P.dernierSon = null;
+    P.vue[ancien.qui] = { ...(P.vue[ancien.qui] || {}), incertain: null, petit: null };
+    P.vue[qui] = { ...(P.vue[qui] || {}), grand: '' };
+    etat(qui, 'traduction'); statut('Je traduis…');
+    const q = new URLSearchParams({ conv: P.conv, qui, attendu: qui });
+    const r = await apiJson(`tour?${q}`, new Blob([encoderWav(son)], { type: 'audio/wav' }), 'audio/wav');
+    if (!r?.ok) { rendre(); statut(r?.error || 'Odin n\'a pas pu réécouter.'); return; }
+    r.incertain = false; P.dernierTour = r; afficherTour(r); P.attendu = attendu(P.attendu, r);
+    await direTour(r);
+  }
+
+  /** Une erreur d'écoute : dite dans la barre d'état ET dans la moitié de la personne ; micro coupé si l'écoute n'est plus possible. */
+  async function erreurEcoute(qui, msg, code) {
+    P.vue[qui] = { ...(P.vue[qui] || {}), erreurEcoute: msg };
+    if (code === 'ecoute' && P.micro && (await chargerEtat()) && !P.etat.ecoute?.pret) { arreterMicro(msg); return; }
+    if (vivant()) rendre();
+    statut(msg);
+  }
+
+  /** « Oui, changer » : la langue entendue devient celle de l'interlocuteur, et sa phrase est traduite tout de suite. */
+  async function changerPaire(h) {
+    const ancien = P.dernierTour?.horsPaire === h ? P.dernierTour : null;
+    P.horsPaire = null; P.dernierSon = null;
+    await regler({ lui: h });
+    if (ancien && ancien.entendu && P.reglages?.lui === h) envoyerTexte(ancien.entendu, 'lui');
+  }
+
+  function envoyerTexte(texte, qui, remplace) {
+    assurerConv();
+    P.file = P.file.then(async () => {
+      etat(qui, 'traduction'); statut('Je traduis…');
+      const r = await apiJson('texte', { conv: P.conv, texte, qui, ...(remplace ? { remplace } : {}) });
+      if (!r?.ok) { etatsRepos(); rendre(); statut(r?.error || 'Odin n\'a pas pu traduire ce texte.'); return; }
+      afficherTour(r, { correction: !!remplace });
+      if (remplace) { etatsRepos(); return; }
+      P.dernierTour = r; P.dernierSon = null; P.attendu = attendu(P.attendu, r);
+      await direTour(r);
+    }).catch((e) => statut(e.message));
+  }
+
+  // Repli : l'écoute du navigateur (choisie explicitement ; le son part au service du navigateur).
+  function ecouterNavigateur(qui) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // « tout sur la machine » ou « 100 % local » de la voix (navigateurEcoute faux) : le son ne part jamais au navigateur.
+    if (!SR || P.nav || P.reglages.local || !P.etat?.navigateurEcoute) return;
+    deverrouillerSon();
+    const r = new SR(); r.lang = BCP[langue(qui)]; r.interimResults = false; r.continuous = false; r.maxAlternatives = 1;
+    P.nav = r; majVoyant(); etat(qui, 'ecoute'); statut('J\'écoute (navigateur)…');
+    r.onresult = (e) => { const t = [...e.results].map((x) => x[0]?.transcript || '').join(' ').trim(); if (t) envoyerTexte(t, qui); };
+    r.onerror = (e) => statut(`Écoute du navigateur : ${e.error || 'erreur'}`);
+    r.onend = () => { if (P.nav === r) P.nav = null; majVoyant(); };
+    try { r.start(); } catch (e) { P.nav = null; majVoyant(); statut(e.message); }
+  }
+
+  // ---------------------------------------------------------------- voix
+  async function dire(texte, lang, pourQui) {
+    texte = String(texte || '').trim();
+    if (!texte || !LANGUES.includes(lang) || !vivant()) return;
+    arreterVoix();
+    const jeton = {}; P.voix = jeton;
+    if (P.ui?.interrompre) P.ui.interrompre.hidden = false;
+    etat(pourQui, 'voix'); statut('Je parle…');
+    try {
+      const r = await api('dire', { texte, langue: lang });
+      if (P.voix !== jeton) return;
+      const type = r.headers.get('content-type') || '';
+      if (r.ok && type.startsWith('audio/')) { await jouer(await r.blob(), jeton); return; }
+      const j = await r.json().catch(() => ({ ok: false, error: 'Réponse inattendue d\'Odin.' }));
+      if (j.ok && j.navigateur) {
+        const ok = await direNavigateur(texte, lang, !!j.localSeulement, jeton);
+        if (!ok && P.voix === jeton) { P.vue[pourQui] = { ...(P.vue[pourQui] || {}), sansVoix: true }; rendre(); }
+      } else statut(j.error || 'Voix indisponible.');
+    } catch (e) { statut(`Voix : ${e.message}`); } finally {
+      if (P.voix === jeton) { P.voix = null; P.voixFin = Date.now(); P.stopVoix = null; if (P.ui?.interrompre) P.ui.interrompre.hidden = true; }
+    }
+  }
+
+  function jouer(blob, jeton) {
+    const url = URL.createObjectURL(blob), a = new Audio(url);
+    P.audio = a;
+    return new Promise((ok) => {
+      const fin = () => { URL.revokeObjectURL(url); if (P.audio === a) P.audio = null; ok(); };
+      a.onended = fin; a.onerror = fin; P.stopVoix = () => { a.pause(); fin(); };
+      if (P.voix !== jeton) { fin(); return; }
+      a.play().catch(fin);
+    });
+  }
+
+  async function direNavigateur(texte, lang, localSeulement, jeton) {
+    const ss = window.speechSynthesis;
+    if (!ss || !window.SpeechSynthesisUtterance) return false;
+    let voix = ss.getVoices();
+    if (!voix.length) { await new Promise((ok) => { const t = setTimeout(ok, 900); ss.addEventListener?.('voiceschanged', () => { clearTimeout(t); ok(); }, { once: true }); }); voix = ss.getVoices(); }
+    const v = choisirVoix(voix, lang, localSeulement);
+    if (!v || P.voix !== jeton) return false;
+    const u = new SpeechSynthesisUtterance(texte); u.voice = v; u.lang = v.lang; u.rate = borne(Number(P.reglages.vitesse) || 1, 0.7, 1.5);
+    await new Promise((ok) => {
+      const garde = setTimeout(ok, Math.max(6000, texte.length * 180));
+      const fin = () => { clearTimeout(garde); ok(); };
+      u.onend = fin; u.onerror = fin; P.stopVoix = () => { ss.cancel(); fin(); };
+      ss.speak(u);
+    });
+    return true;
+  }
+
+  function arreterVoix() {
+    if (!P.voix && !P.audio) return;
+    P.voix = null; P.voixFin = Date.now();
+    try { P.stopVoix?.(); } catch { /* rien */ }
+    try { window.speechSynthesis?.cancel(); } catch { /* rien */ }
+    P.stopVoix = null; P.audio = null;
+    if (P.ui?.interrompre) P.ui.interrompre.hidden = true;
+  }
+
+  // ---------------------------------------------------------------- ce que voit rodd.js
+  async function dessiner(host, o = {}) {
+    retirer();
+    P.act = o.act || actParDefaut;
+    if (!document.getElementById('rcCss')) document.head.append(el('style', { id: 'rcCss' }, CSS));
+    const racine = el('div', { class: 'rc' }, el('p', { class: 'rc-mut' }, 'Chargement du mode conversation…'));
+    host.append(racine); P.racine = racine;
+    const pret = await chargerEtat();
+    // La page d'Écho a pu se redessiner pendant le chargement : seul le cadre encore à l'écran est rempli.
+    if (!racine.isConnected) return;
+    P.racine = racine;
+    if (!pret) {
+      racine.replaceChildren(el('div', { class: 'rd-g rc-band alerte' }, el('b', {}, 'Mode conversation indisponible'), el('span', {}, P.erreurEtat)));
+      return;
+    }
+    if (!P.micro) { P.etatMoitie = { moi: 'attente', lui: 'attente' }; if (!P.statut) statut('Touchez « Commencer » : Odin écoute, traduit et parle pour vous deux.'); }
+    poser(document, 'visibilitychange', () => { if (document.hidden && P.micro) arreterMicro('Micro coupé : la page est passée en arrière-plan.'); });
+    poser(window, 'resize', () => { if (!vivant()) { retirer(); return; } const d = disposition(window.innerWidth || 1280, tactile(), P.reglages.faceAFace).mode; if (d !== P.dispo && !P.edition) rendre(); });
+    const champ = (e) => /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target?.tagName || '') || e.target?.isContentEditable;
+    poser(document, 'keydown', (e) => { if (!vivant()) { retirer(); return; } if (P.reglages?.ecoute === 'appui' && e.code === 'Space' && !e.repeat && !champ(e)) { e.preventDefault(); appuyer('moi'); } });
+    poser(document, 'keyup', (e) => { if (P.reglages?.ecoute === 'appui' && e.code === 'Space' && P.appui?.qui === 'moi') { e.preventDefault(); relacher('moi'); } });
+    rendre();
+  }
+
+  const occupe = () => !!(P.micro || P.nav);
+
+  function arreter() {
+    clearTimeout(P.attenteDire); P.attenteDire = 0; P.attenteTour = null;
+    arreterMicro();
+    arreterVoix();
+    try { P.nav?.abort?.(); } catch { /* rien */ } P.nav = null;
+    P.edition = null;
+    retirer();
+  }
+
+  window.OdinEchoConversation = { dessiner, occupe, arreter, logique, TEXTES };
+})();

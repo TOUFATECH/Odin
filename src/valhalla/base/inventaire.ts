@@ -105,7 +105,7 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   appareils: [R('appareils connectés (réglages)', 'reglages')],
   brokkr: [R('modules ESP / Tasmota (réglages)', 'reglages')],
   midgard: [R('scènes (réglages)', 'reglages')],
-  rodd: [J('historique des messages vocaux', 'rodd'), REG],
+  rodd: [J('historique des messages vocaux', 'rodd'), B('conversations traduites (texte seul, chiffré, effaçable)', ['conversation.tours']), REG],
   zeus: [J('prévisions gardées chaque jour par source et mesures du lendemain, sans nom ni position du lieu', 'zeus'), REG],
   achille: [J('échanges, refus et rejeux, en-têtes secrets masqués', 'achille'), R('autorité de certification locale (ca.json, clé chiffrée)', 'secret'), REG],
   atalante: [J('historique des téléchargements', 'atalante'), R('file d\'attente reprise au démarrage (file.json, liens chiffrés)', 'reglages'), R('fichiers reçus', 'binaire')],
