@@ -84,6 +84,7 @@ export const NAMES: Record<string, string> = {
  "achille": "Achille",
  "atalante": "Atalante",
  "dodone": "Dodone",
+ "theia": "Théia",
  "argos": "Argos"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
@@ -296,6 +297,7 @@ export const NAME_STORY: Record<string, string> = {
  "achille": "Achille, le héros grec que rien ne blessait, sauf le talon : il cherche le point faible de tes propres sites avant qu'un autre le trouve.",
  "atalante": "Atalante, la chasseresse grecque que personne ne battait à la course : tes téléchargements arrivent vite et reprennent là où ils s'étaient arrêtés.",
  "dodone": "Dodone, le plus ancien oracle de Grèce : on y gravait sa question sur une lamelle de plomb, et le chêne de Zeus répondait. Tu écris ta requête, le serveur répond, Odin vérifie la réponse.",
+ "theia": "Théia, titane grecque de la vue et de la lumière, mère du Soleil, de la Lune et de l'Aurore : c'est l'œil d'Odin. Elle regarde les images, lit le texte de tous les documents (même scannés) et suit le fil d'une vidéo entière, chez toi, sans rien envoyer dehors.",
  "agora": "L'agora d'Athènes, la grande place du marché : chacun y trouvait ce qu'il lui fallait. Ici, chaque personne y trouve ce à quoi elle a droit.",
  "argos": "Argos Panoptès, le géant aux cent yeux de la mythologie grecque, qui ne dormait jamais tout entier : il voyait tout. La console qui garde l'œil sur tout le parc."
 };
@@ -375,6 +377,7 @@ export const SIMILAIRES: Record<string, string[]> = {
  "achille": ["Burp Suite", "OWASP ZAP", "mitmproxy"],
  "atalante": ["Internet Download Manager", "JDownloader", "Motrix"],
  "dodone": ["Postman", "Insomnia", "Bruno", "Hoppscotch"],
+ "theia": ["CLIP", "Tesseract", "LLaVA", "Google Lens", "SigLIP", "moondream", "TrOCR", "OCRmyPDF", "GPT-4 Vision"],
  "argos": ["Wazuh", "Velociraptor", "OpenEDR", "osquery", "CrowdStrike Falcon", "Microsoft Defender for Endpoint"]
 };
 /** Le site officiel d'un applicatif similaire (seulement quand l'adresse est sûre ; sinon le nom seul est affiché). */

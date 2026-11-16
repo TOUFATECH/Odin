@@ -15,6 +15,9 @@ import { freeName } from '../skidbladnir/store.ts';
 import { extOf, familyOf } from '../dvalinn/plan.ts';
 import { dvalinn, resolveFile, workDir } from './dvalinn.ts';
 import { analyse, report, type Analyse } from '../champollion/analyse.ts';
+import { readDocx, readPptx, readXlsx, toCsv } from '../../files/office.ts';
+import { readPdf } from '../../files/pdf.ts';
+import { lireDocument } from '../theia/documents.ts';
 import { hearLocal } from '../../voice/local.ts';
 import type { ModCtx, Module } from '../types.ts';
 
@@ -47,25 +50,43 @@ export async function extract(ctx: ModCtx, file: string, langs = LANGS): Promise
     const h = await hear(file, ctx.home).catch((e: Error) => { throw new Error(/non installé/.test(e.message) ? 'pour écouter, installe la voix locale d\'Odin (Orphée → « installer la voix locale »)' : e.message); });
     return { text: h.text, how: `ce qui est dit (${h.language})` };
   }
-  const work = workDir(ctx);
-  try {
-    let pdf = file;
-    if (fam === 'document' || fam === 'tableur' || fam === 'presentation') {
-      await need(ctx, 'soffice', 'libreoffice');
+  // Formats modernes et ouverts : lus NATIVEMENT dans Odin, sans aucun logiciel de bureautique (ni soffice, ni pdftotext
+  // obligatoire). Word/Excel/PowerPoint comme files/office.ts ; OpenDocument, RTF et HTML comme Théia (documents.ts).
+  if (ext === 'docx') return { text: readDocx(readFileSync(file)), how: 'texte du document (Word, lu nativement)' };
+  if (ext === 'xlsx' || ext === 'xlsm') return { text: readXlsx(readFileSync(file)).map((sh) => `## Feuille « ${sh.name} »\n${toCsv(sh.rows)}`).join('\n\n'), how: 'texte du classeur (Excel, lu nativement)' };
+  if (ext === 'pptx') return { text: readPptx(readFileSync(file)), how: 'texte de la présentation (PowerPoint, lu nativement)' };
+  if (['odt', 'ods', 'odp', 'rtf', 'html', 'htm', 'xhtml'].includes(ext)) {
+    const d = lireDocument(readFileSync(file), file);
+    if (d.lu) return { text: d.texte, how: `texte du document (${d.via}, lu nativement)` };
+  }
+  if (fam === 'pdf') {
+    const r = readPdf(readFileSync(file), file);
+    const pages = Math.max(1, r.pages);
+    // Assez de texte sélectionnable : c'est un PDF-texte, lu sans rien installer.
+    if (r.text.replace(/\s+/g, '').length / pages >= 40) return { text: r.text, how: `texte du PDF (${r.via})` };
+    // PDF scanné (pas de texte) : les pages sont lues en images. Tesseract tant que l'œil de Théia n'a pas ses poids
+    // ouverts ; sinon, honnêtement, « page non lue » (rien n'est inventé).
+    if (await ctx.has('pdftoppm') && await ctx.has('tesseract')) {
+      const work = workDir(ctx);
+      try {
+        await ctx.run('pdftoppm', ['-r', '200', '-png', '-l', '40', file, join(work, 'p')], { timeoutMs: 600_000 });
+        const imgs = readdirSync(work).filter((f) => /^p-\d+\.png$/.test(f)).sort();
+        if (imgs.length) { const parts: string[] = []; for (const im of imgs) parts.push(await ocrImage(ctx, join(work, im), langs)); return { text: parts.join('\n\f'), how: `PDF scanné : texte reconnu sur ${imgs.length} page(s)` }; }
+      } finally { rmSync(work, { recursive: true, force: true }); }
+    }
+    return { text: r.text, how: r.text ? `texte du PDF (${r.via})` : 'PDF scanné : page non lue (reconnaissance de texte pas encore disponible)' };
+  }
+  // Vieux formats binaires d'avant 2007 (.doc/.xls/.ppt) : repli explicite LibreOffice, honnêtement « lu en partie ».
+  if (['doc', 'xls', 'ppt'].includes(ext)) {
+    if (!(await ctx.has('soffice'))) return { text: '', how: `vieux format ${ext} : non lu (LibreOffice absent) — à convertir en .docx/.xlsx/.pptx` };
+    const work = workDir(ctx);
+    try {
       await ctx.run('soffice', [`-env:UserInstallation=file://${join(work, '.lo')}`, '--headless', '--norestore', '--convert-to', 'pdf', '--outdir', work, file], { timeoutMs: 180_000 });
-      pdf = join(work, `${basename(file, extname(file))}.pdf`); if (!existsSync(pdf)) throw new Error('document illisible');
-    } else if (fam !== 'pdf') throw new Error(`type de fichier non pris en charge : ${ext || basename(file)}`);
-    await need(ctx, 'pdftotext', 'poppler-utils');
-    const r = await ctx.run('pdftotext', ['-layout', pdf, '-'], { timeoutMs: 120_000 });
-    const pages = Math.max(1, (r.out.match(/\f/g) ?? []).length);
-    // Peu de texte par page = un PDF scanné : on lit les pages en images
-    if (r.out.replace(/\s+/g, '').length / pages >= 40) return { text: r.out, how: fam === 'pdf' ? 'texte du PDF' : 'texte du document' };
-    await need(ctx, 'pdftoppm', 'poppler-utils');
-    await ctx.run('pdftoppm', ['-r', '200', '-png', '-l', '40', pdf, join(work, 'p')], { timeoutMs: 600_000 });
-    const imgs = readdirSync(work).filter((f) => /^p-\d+\.png$/.test(f)).sort();
-    const parts: string[] = []; for (const im of imgs) parts.push(await ocrImage(ctx, join(work, im), langs));
-    return { text: parts.join('\n\f'), how: `PDF scanné : texte reconnu sur ${imgs.length} page(s)` };
-  } finally { rmSync(work, { recursive: true, force: true }); }
+      const pdf = join(work, `${basename(file, extname(file))}.pdf`); if (!existsSync(pdf)) throw new Error('document illisible');
+      return { text: readPdf(readFileSync(pdf)).text, how: `vieux format ${ext} converti par LibreOffice (lu en partie)` };
+    } finally { rmSync(work, { recursive: true, force: true }); }
+  }
+  throw new Error(`type de fichier non pris en charge : ${ext || basename(file)}`);
 }
 
 /** Avant de lire : l'antivirus (Asclépios) regarde le fichier ; un fichier dangereux n'est pas ouvert. */

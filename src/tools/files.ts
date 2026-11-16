@@ -121,7 +121,7 @@ export const imageView: Tool = {
       if (passage.bloque) return `Téléchargement bloqué par l'antivirus (${passage.menace ?? 'menace'}) : le fichier est en quarantaine dans Asclépios, je ne l'ai pas ouvert.`;
       writeFileSync(p, buf);
     } else p = toolPath(ctx, p);
-    if (!ctx.vision) return 'Aucun modèle qui voit les images n\'est disponible pour l\'instant (ajoute Claude, GPT ou Kimi dans Réglages → Modèle).';
+    if (!ctx.vision) return 'Aucun modèle qui voit les images n\'est disponible pour l\'instant (ajoute Claude, GPT ou Kimi dans Réglages → Modèle, ou active Théia, la vision locale d\'Odin).';
     let ext = extname(p).slice(1).toLowerCase(), mime = IMAGE_MIME[ext];
     // Format exotique ou photo trop lourde : convertie en JPEG 1600 px (FFmpeg).
     if (!mime || statSync(p).size > 4 * 1024 * 1024) {
