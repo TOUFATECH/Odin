@@ -14,6 +14,9 @@ import type { Action, Module, Param } from '../valhalla/types.ts';
  */
 export const EVENEMENTS: Record<string, string[]> = {
   agora: ['ordre', 'annule', 'fin', 'store', 'retire'],
+  achille: ['proxy_allume', 'proxy_eteint', 'refus_hors_portee', 'defaut_trouve'],
+  atalante: ['termine', 'bloque', 'echec'],
+  dodone: ['collection_terminee', 'test_echoue'],
   appareils: ['disponibilite', 'etat'],
   bragi: ['ordre'],
   bru: ['publie', 'tunnel_arrete', 'tunnel_relance'],
@@ -48,6 +51,7 @@ export const EVENEMENTS: Record<string, string[]> = {
   venus: ['arrivee', 'enregistrement_echoue'],
   freyja: ['arrivee', 'enregistrement_echoue'],
   vidarr: ['dhcp_bail', 'dhcp_journal', 'dhcp_nouveau', 'dns_amont_panne', 'dns_inondation', 'dns_menace', 'machine_coupee', 'reseau_anomalie'],
+  zeus: ['releve', 'bilan', 'source_en_panne'],
   volva: ['recherche'],
   vordr: ['panne', 'probleme', 'retour'],
   ymir: ['vm_arretee', 'iso_reconnue', 'logiciel_installe', 'machine_creee', 'machine_isolee', 'machine_liberee'],

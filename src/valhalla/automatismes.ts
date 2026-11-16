@@ -83,7 +83,11 @@ export const CLASSEMENT: Record<string, Classement> = {
   durinn: T('Relevé SMART des disques', 'Relevé SMART des disques (toutes les 6 h par poste).', ['heures']),
   fensalir: V('Disques du NAS', 'Remplissage et panne SMART.'),
   frigg: T('Rappel des rendez-vous clients', 'Rappel la veille des rendez-vous des clients (après 17 h). Les rendez-vous perso passent par les rappels.', []),
+  zeus: V('Relevés et bilan de la météo', 'Garde chaque matin ce que chaque source prévoit, puis le compare avec ce qui a été mesuré.'),
   sol: T('Indexation des photos', 'Indexe les nouvelles photos.', ['heures', 'jour']),
+  achille: V('Contrôle passif de tes sites', 'Une fois par semaine, une seule page par site déclaré : en-têtes, cookies, certificat.', true),
+  atalante: V('File des téléchargements', 'Fait avancer la file et respecte les heures creuses.'),
+  dodone: V('Collections programmées', 'Lance chaque collection à son rythme et prévient quand un test échoue.'),
   eitri: V('Passage programmé et résumé du jour', 'Passage aux jours programmés et résumé du jour.'),
   fjalar: V('Passage programmé, scan du dossier des logiciels', 'Passage aux jours programmés, logiciels déposés à la main, vérification planifiée.'),
 };
@@ -150,7 +154,7 @@ export function tacheEnPause(module: string, tache: string): boolean { return ac
 
 const PAS = 30_000, GARDER = 20, MAX_PAUSE_SECU = 24 * 3600_000;
 /** Les surveillances qui font un long travail dans leur passage (sauvegardes, vérifications, téléchargements) : 6 h avant d'être dites bloquées. */
-const LONGUES = new Set(['sindri', 'skuld', 'ymir', 'eitri', 'fjalar', 'gefjon', 'skidbladnir', 'dvalinn', 'sol', 'kvasir', 'durinn', 'brisingamen', 'leikvangr', 'pegase']);
+const LONGUES = new Set(['sindri', 'skuld', 'ymir', 'eitri', 'fjalar', 'gefjon', 'skidbladnir', 'dvalinn', 'sol', 'kvasir', 'durinn', 'brisingamen', 'leikvangr', 'pegase', 'atalante']);
 /** Les surveillances qui protègent sans être des veilles de sécurité : leur pause sans fin pose une alerte haute. */
 const PROTEGENT = new Set(['sindri', 'skuld', 'svalinn']);
 

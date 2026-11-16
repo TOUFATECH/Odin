@@ -4,6 +4,8 @@
 // Les titres d'actualité sont donnés tels quels avec leur lien : jamais lus comme des consignes.
 
 import { webSearch } from '../tools/search.ts';
+import { lieuCourant } from '../valhalla/lieu.ts';
+import { OPEN_METEO } from '../valhalla/zeus/sources.ts';
 
 type Kv = { getKv(k: string): string | undefined | null; setKv(k: string, v: string): void };
 
@@ -42,14 +44,15 @@ export async function checkLocalAlerts(kv: Kv, place: string, region: string, no
   // Météo
   if (place) {
     try {
-      const k = `weather-geo:${place.toLowerCase()}`;
-      let geo = JSON.parse(kv.getKv(k) ?? 'null') as { lat: number; lon: number; name: string } | null;
+      // La position vient du lieu d'Odin (Hestia, chiffré) ; elle n'est jamais recopiée en clair dans la mémoire.
+      const l = lieuCourant();
+      let geo = l && typeof l.lat === 'number' && typeof l.lon === 'number' ? { lat: l.lat, lon: l.lon, name: l.nom } : null;
       if (!geo) {
-        const g = (await (await fetchFn(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(place)}&count=1&language=fr`, { signal: AbortSignal.timeout(10_000) })).json() as { results?: Array<{ latitude: number; longitude: number; name: string }> }).results?.[0];
-        if (g) { geo = { lat: g.latitude, lon: g.longitude, name: g.name }; kv.setKv(k, JSON.stringify(geo)); }
+        const g = (await (await fetchFn(`${OPEN_METEO.geocodage}?name=${encodeURIComponent(place)}&count=1&language=fr`, { signal: AbortSignal.timeout(10_000) })).json() as { results?: Array<{ latitude: number; longitude: number; name: string }> }).results?.[0];
+        if (g) geo = { lat: g.latitude, lon: g.longitude, name: g.name };
       }
       if (geo) {
-        const f = await (await fetchFn(`https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&daily=weather_code,precipitation_sum,wind_gusts_10m_max&timezone=auto&forecast_days=3`, { signal: AbortSignal.timeout(10_000) })).json() as { daily?: Daily };
+        const f = await (await fetchFn(`${OPEN_METEO.previsions}?latitude=${geo.lat}&longitude=${geo.lon}&daily=weather_code,precipitation_sum,wind_gusts_10m_max&timezone=auto&forecast_days=3`, { signal: AbortSignal.timeout(10_000) })).json() as { daily?: Daily };
         if (f.daily) out.push(...severeWeather(f.daily, geo.name));
       }
     } catch { /* météo indisponible */ }

@@ -6,6 +6,8 @@ import type { Odin } from '../runtime.ts';
 import { fetchEvents } from '../tools/calendar.ts';
 import { unreadSummary } from '../tools/mail.ts';
 import { isReminderJob, reminderText } from '../cron/reminders.ts';
+import { lieuCourant } from '../valhalla/lieu.ts';
+import { OPEN_METEO } from '../valhalla/zeus/sources.ts';
 
 /** Code météo WMO → mots et émoji (pur). */
 export function weatherWords(code: number): [string, string] {
@@ -32,16 +34,16 @@ export function weatherLine(city: string, d: { daily?: { weather_code?: number[]
 async function weather(odin: Odin): Promise<string | undefined> {
   const city = (odin.cfg.journal.city ?? '').trim();
   if (!city) return undefined;
-  const k = `weather-geo:${city.toLowerCase()}`;
-  let geo = JSON.parse(odin.muninn.getKv(k) ?? 'null') as { lat: number; lon: number; name: string } | null;
+  // La position vient du lieu d'Odin (Hestia, chiffré) ; elle n'est jamais recopiée en clair dans la mémoire.
+  const l = lieuCourant();
+  let geo = l && typeof l.lat === 'number' && typeof l.lon === 'number' ? { lat: l.lat, lon: l.lon, name: l.nom } : null;
   if (!geo) {
-    const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=fr`, { signal: AbortSignal.timeout(10_000) });
+    const r = await fetch(`${OPEN_METEO.geocodage}?name=${encodeURIComponent(city)}&count=1&language=fr`, { signal: AbortSignal.timeout(10_000) });
     const g = (await r.json() as { results?: Array<{ latitude: number; longitude: number; name: string }> }).results?.[0];
     if (!g) return `🌡 Météo : je ne trouve pas la ville « ${city} » (Réglages → Journal).`;
     geo = { lat: g.latitude, lon: g.longitude, name: g.name };
-    odin.muninn.setKv(k, JSON.stringify(geo));
   }
-  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=1`, { signal: AbortSignal.timeout(10_000) });
+  const r = await fetch(`${OPEN_METEO.previsions}?latitude=${geo.lat}&longitude=${geo.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=1`, { signal: AbortSignal.timeout(10_000) });
   return weatherLine(geo.name, await r.json() as Parameters<typeof weatherLine>[1]);
 }
 

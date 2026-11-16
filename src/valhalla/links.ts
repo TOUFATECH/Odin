@@ -167,8 +167,12 @@ export const USAGES: Array<{ need: string; chain: string[]; why: string }> = [
   { need: 'écouter de la musique ou la radio', chain: ['aegir', 'bragi', 'midgard'], why: 'Apollon trouve le titre ou la radio et le joue, Orphée te comprend à la voix, Midgard le met dans une scène.' },
   { need: 'convertir un fichier ou lire le texte d\'un document', chain: ['dvalinn', 'champollion', 'saga'], why: 'Alchimie change le format (vidéo, image, PDF), Champollion lit le texte et ce qui est dit, Thot garde le résultat dans le Cerveau.' },
   { need: 'faire de la place sur une machine', chain: ['gefjon', 'eir', 'durinn'], why: 'Héraclès mesure et nettoie ce qui encombre (avec ton accord), Hygie suit l\'espace libre, Tirésias vérifie la santé des disques.' },
+  { need: 'savoir si la météo annoncée est fiable', chain: ['zeus', 'gladsheim'], why: 'Zeus compare les sources et dit qui avait vu juste, Hestia montre la météo de la maison.' },
   { need: 'jouer à des jeux rétro sur la télé', chain: ['leikvangr', 'midgard'], why: 'Olympie range les jeux et en lance un, Midgard règle l\'ambiance de la pièce.' },
   { need: 'brancher les outils d\'une autre appli ou d\'un autre assistant', chain: ['ratatoskr', 'brisingamen'], why: 'Interprète branche le serveur MCP (ses actions graves restent soumises à ton accord), Thésauros garde ses jetons.' },
+  { need: 'télécharger un gros fichier sans risque', chain: ['atalante', 'ullr'], why: 'Atalante télécharge en plusieurs morceaux et reprend après coupure, Asclépios vérifie le site avant et le fichier après.' },
+  { need: 'tester la sécurité de mon propre site', chain: ['achille', 'idunn', 'forseti'], why: 'Achille relève les défauts de tes propres sites, Arachné surveille qu\'ils répondent, Forseti garde les alertes.' },
+  { need: 'tester mes requêtes vers un service web', chain: ['dodone', 'draupnir'], why: 'Dodone envoie les requêtes et vérifie les réponses, Talos lance les collections à leur rythme.' },
   { need: 'changer l\'apparence d\'Odin', chain: ['apparence'], why: 'Aurore choisit le thème, à la main ou selon l\'heure et la météo.' },
   { need: 'piloter Odin en ligne de commande', chain: ['commandes', 'draupnir'], why: 'Glyphes donne la commande de chaque action, Talos les enchaîne en automatisation.' },
 ];

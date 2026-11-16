@@ -39,6 +39,7 @@ Validé le 15/11/2026 et en place depuis la v1.35.0 : le plan est dans `src/valh
 | 8108 | Sirènes | 2323, 2222, 2200, 8081, 9201, 6380, 2525, 2121… (pièges : imitent de vrais services) |
 | 8109 | Thermopyles | — |
 | 8110 | Zéphyr | — |
+| 8111 | Achille | 8890 (proxy d'essai, à la demande) |
 
 ## Accès et réseau (82xx)
 
@@ -96,6 +97,8 @@ Validé le 15/11/2026 et en place depuis la v1.35.0 : le plan est dans `src/valh
 | 8418 | Talos | — |
 | 8419 | Thot | — |
 | 8420 | Zénith | — |
+| 8421 | Atalante | — |
+| 8422 | Dodone | — |
 
 ## Maison et médias (85xx)
 
@@ -113,3 +116,4 @@ Validé le 15/11/2026 et en place depuis la v1.35.0 : le plan est dans `src/valh
 | 8510 | Orphée | — |
 | 8511 | Ulysse | — |
 | 8512 | Vénus | 8096 (Venus) · 8920 (Venus HTTPS) · 5433 (base de Venus) · 51413 (BitTorrent) |
+| 8513 | Zeus | — |

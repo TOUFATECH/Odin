@@ -87,12 +87,16 @@ N = normal.
 | Völva (`volva`) | historique de recherche | P | J | Pr | base |
 | Vörðr (`vordr`) | sondes, problèmes, historique | M | C | N | base |
 | Frigg (`frigg`) | réservations, horaires, services | P | J | Pr | base |
+| Achille (`achille`) | échanges, refus et rejeux (en-têtes secrets masqués, corps jamais gardés) ; autorité locale `ca.json` (clé chiffrée) | P | J | **S** | journal `achille` → base `ACHILLE_ODIN` ; `ca.json` = fichier |
+| Atalante (`atalante`) | historique des téléchargements (hôte et chemin, sans paramètres) ; file d'attente `file.json` (liens chiffrés) ; fichiers reçus | P ; G | J | Pr | journal `atalante` → base `ATALANTE_ODIN` ; file et fichiers = fichiers |
+| Dodone (`dodone`) | collections et environnements (versions), historique des envois ; secrets `coffre.json` (chiffrés) | P | J | **S** | journaux `dodone` et `dodone_envois` → base `DODONE_ODIN` ; coffre = fichier |
 | Kvasir, Syn, Heidrun, Aegir, Midgard, Hermod, Askr… | réglages de l'appli + petites listes | P | R | N | fichiers (réglages) ; listes → base au cas par cas |
 | Snotra, Ivaldi, Hel (agent « applis ») | dossiers, documents | P ; G | R | Pr | EN DERNIER, petits changements ; documents = fichiers |
 | Thésauros (`brisingamen`) | coffre chiffré `coffre.bin` | P | R | **S** | fichier chiffré (c'est le coffre) |
 | Þjálfi, Svalinn, Valgrind, Bru… | secrets (`secrets.json`, clés ACME, jetons de tunnel) | P | R | **S** | fichiers bloqués `SECRET_FILES` |
 | Hringhorni, Ymir | état des conteneurs et machines, images | P ; G | J | N | fichiers : nécessaires pour démarrer la base elle-même |
 | Sól, Leikvangr, Bragi, Himinbjörg, Dvalinn, Skíðblaðnir, Champollion | index de médias, dépôts, clips, photos, fichiers synchronisés | G | J | Pr | fichiers (binaires) ; index → base plus tard |
+| Zeus (`zeus`) | prévisions gardées chaque jour par source, mesures (archive Open-Meteo) ; sans nom ni position du lieu (empreinte courte) | P | J | N | base (journal `zeus`, `ZEUS_ODIN`) |
 | Mesures (`metrics.ts`) | courbes | M | C | N | base plus tard (séries) |
 | Réglages d'Odin et des applis (`config.json`, `réglages.json`, réglages de la mémoire : réveil…) | réglages | P | R | N/Pr/S | **base** `ODIN_ODIN` (table `reglages.reglages`, §12) ; le fichier reste comme copie de secours ; réglages d'une appli qui garde des secrets : fichier seulement |
 

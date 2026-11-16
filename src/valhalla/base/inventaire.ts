@@ -106,6 +106,10 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   brokkr: [R('modules ESP / Tasmota (réglages)', 'reglages')],
   midgard: [R('scènes (réglages)', 'reglages')],
   rodd: [J('historique des messages vocaux', 'rodd'), REG],
+  zeus: [J('prévisions gardées chaque jour par source et mesures du lendemain, sans nom ni position du lieu', 'zeus'), REG],
+  achille: [J('échanges, refus et rejeux, en-têtes secrets masqués', 'achille'), R('autorité de certification locale (ca.json, clé chiffrée)', 'secret'), REG],
+  atalante: [J('historique des téléchargements', 'atalante'), R('file d\'attente reprise au démarrage (file.json, liens chiffrés)', 'reglages'), R('fichiers reçus', 'binaire')],
+  dodone: [J('collections et environnements', 'dodone'), J('historique des envois', 'dodone_envois'), R('jetons et clés des environnements (coffre.json, chiffrés)', 'secret')],
   mascotte: [J('bulles de la mascotte', 'bulles')],
   // Odin lui-même : les réglages (config.json, réglages.json des applis sans secret, réveil et autres réglages de la mémoire)
   odin: [B('réglages d\'Odin et des applis (clé → valeur JSON, date, empreinte ; valeurs privées chiffrées)', ['reglages.reglages']), R('amorce pour joindre la base (valhalla/urdr/base-odin.json) et copie de secours des réglages (fichiers)', 'demarrage')],

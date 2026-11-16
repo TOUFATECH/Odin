@@ -67,7 +67,12 @@ import { leikvangr } from './modules/leikvangr.ts';
 import { snotra } from './modules/snotra.ts';
 import { hlin } from './modules/hlin.ts';
 import { durinn } from './modules/durinn.ts';
+import { zeus } from './modules/zeus.ts';
+import { purgerPositionsEnClair } from './zeus/sources.ts';
 import { hel } from './modules/hel.ts';
+import { achille } from './modules/achille.ts';
+import { atalante } from './modules/atalante.ts';
+import { dodone } from './modules/dodone.ts';
 import { loki } from './modules/loki.ts';
 import { midgard } from './modules/midgard.ts';
 import { ratatoskr } from './modules/ratatoskr.ts';
@@ -166,7 +171,7 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Andromède : l'ISO de Windows suit la langue d'Odin (il n'a pas de langue d'interface à part : celle de sa voix, sinon son pays).
   brancherLangueOdin(() => ({ langue: odin.cfg.voice?.stt?.language }));
   const devices =() => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return ([...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, gna, apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora] as Module[]).map(rename);
+  return ([...coreModules(odin), eir, skogul, forseti, garmr, geri, ran, ullr, loki, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, zeus, gna,apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora, achille, atalante, dodone] as Module[]).map(rename);
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */
@@ -213,10 +218,10 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
   if (ville && !v.ctx('gladsheim').settings.ville) v.ctx('gladsheim').saveSettings({ ville });
   // Rien de réglé : ce que l'horloge de la machine laisse supposer (Europe/Paris → Paris…), sans rien demander à Internet.
   supposerLieu(v.ctx('gladsheim')); publierLieu(v.ctx('gladsheim'));
+  purgerPositionsEnClair(odin.muninn);
   surLieu((l) => {
     try {
       odin.cfg.journal.city = l.nom; setConfigValue(odin.paths, ['journal', 'city'], l.nom);
-      odin.muninn.setKv(`weather-geo:${l.nom.toLowerCase()}`, JSON.stringify({ lat: l.lat, lon: l.lon, name: l.nom }));
     } catch { /* la configuration n'est pas inscriptible : le lieu de Hestia reste bon */ }
   });
   if (!existsSync(odin.paths.home)) return () => {};

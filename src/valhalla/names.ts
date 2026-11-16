@@ -76,7 +76,11 @@ export const NAMES: Record<string, string> = {
  "durinn": "Tirésias",
  "pegase": "Pégase",
  "hel": "Perséphone",
- "agora": "Agora"
+ "zeus": "Zeus",
+ "agora": "Agora",
+ "achille": "Achille",
+ "atalante": "Atalante",
+ "dodone": "Dodone"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
  *  Odin ne les comprend plus et ne les affiche plus (tu as validé les nouveaux). */
@@ -280,7 +284,11 @@ export const NAME_STORY: Record<string, string> = {
  "hlin": "Gygès, le berger d'une légende grecque que raconte Platon : il trouva un anneau qui le rendait invisible. Ici, c'est toi qui décides de ce qu'on voit de toi.",
  "durinn": "Tirésias, le devin aveugle de Thèbes qui voyait venir les malheurs avant tout le monde : il lit les signes que tes disques donnent d'eux-mêmes et annonce la panne avant qu'elle n'arrive.",
  "pegase": "Pégase, le cheval ailé de la mythologie grecque, né du sang de Méduse : il emporte où tu veux aller, à travers le ciel. Ton navigateur, qui file sur le web et revient toujours à Odin.",
+ "zeus": "Zeus, le dieu grec du ciel, qui commande aux nuages, à la pluie et à la foudre : la météo, et la comparaison de ceux qui la prévoient.",
  "hel": "Perséphone, enlevée par Hadès et emmenée aux Enfers, revient chaque printemps à la lumière : elle ramène ce qu'on croyait perdu, partitions disparues et fichiers effacés.",
+ "achille": "Achille, le héros grec que rien ne blessait, sauf le talon : il cherche le point faible de tes propres sites avant qu'un autre le trouve.",
+ "atalante": "Atalante, la chasseresse grecque que personne ne battait à la course : tes téléchargements arrivent vite et reprennent là où ils s'étaient arrêtés.",
+ "dodone": "Dodone, le plus ancien oracle de Grèce : on y gravait sa question sur une lamelle de plomb, et le chêne de Zeus répondait. Tu écris ta requête, le serveur répond, Odin vérifie la réponse.",
  "agora": "L'agora d'Athènes, la grande place du marché : chacun y trouvait ce qu'il lui fallait. Ici, chaque personne y trouve ce à quoi elle a droit."
 };
 
@@ -351,10 +359,24 @@ export const SIMILAIRES: Record<string, string[]> = {
  "durinn": ["CrystalDiskInfo", "CrystalDiskMark"],
  "pegase": ["Firefox", "Chromium"],
  "hel": ["TestDisk", "PhotoRec"],
- "agora": ["Microsoft Intune", "Google Play Console", "Munki"]
+ "zeus": ["STRATA", "Open-Meteo", "Windy", "Meteoblue"],
+ "agora": ["Microsoft Intune", "Google Play Console", "Munki"],
+ "achille": ["Burp Suite", "OWASP ZAP", "mitmproxy"],
+ "atalante": ["Internet Download Manager", "JDownloader", "Motrix"],
+ "dodone": ["Postman", "Insomnia", "Bruno", "Hoppscotch"]
 };
 /** Le site officiel d'un applicatif similaire (seulement quand l'adresse est sûre ; sinon le nom seul est affiché). */
 export const SITES_SIMILAIRES: Record<string, string> = {
+ "Burp Suite": "https://portswigger.net/burp",
+ "OWASP ZAP": "https://www.zaproxy.org",
+ "mitmproxy": "https://mitmproxy.org",
+ "Internet Download Manager": "https://www.internetdownloadmanager.com",
+ "JDownloader": "https://jdownloader.org",
+ "Motrix": "https://motrix.app",
+ "Postman": "https://www.postman.com",
+ "Insomnia": "https://insomnia.rest",
+ "Bruno": "https://www.usebruno.com",
+ "Hoppscotch": "https://hoppscotch.io",
  "Activepieces": "https://www.activepieces.com",
  "AdGuard Home": "https://github.com/AdguardTeam/AdGuardHome",
  "AFFiNE": "https://affine.pro",
@@ -572,6 +594,10 @@ export const SITES_SIMILAIRES: Record<string, string> = {
  "Wyoming": "https://github.com/rhasspy/wyoming",
  "YARA": "https://virustotal.github.io/yara/",
  "Z-Wave JS UI": "https://github.com/zwave-js/zwave-js-ui",
+ "STRATA": "https://huggingface.co/nvidia/strata",
+ "Open-Meteo": "https://open-meteo.com",
+ "Windy": "https://www.windy.com",
+ "Meteoblue": "https://www.meteoblue.com",
  "Zabbix": "https://www.zabbix.com",
  "Zeek": "https://zeek.org",
  "Zigbee2MQTT": "https://www.zigbee2mqtt.io",
