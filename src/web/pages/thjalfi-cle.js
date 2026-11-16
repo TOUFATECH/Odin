@@ -93,7 +93,10 @@
     const sys = [...new Set(d.partitions.map((p) => p.systeme).filter((s) => s && LIB[s]))].map((s) => LIB[s]).join(' · ');
     const acts = el('div', { class: 'cle-act' });
     if (d.externe) {
-      acts.append(el('button', { class: 'cle-pill pri', onclick: () => outils.preparer(d) }, 'Préparer la clé ODIN'));
+      // Clé OU disque externe : la même préparation marche sur les deux ; un gros disque externe peut tout contenir.
+      const gros = d.genre === 'disque-externe' && d.tailleOctets > 130 * 1024 ** 3;
+      acts.append(el('button', { class: 'cle-pill pri', onclick: () => outils.preparer(d) }, gros ? 'Préparer ce disque (ODIN)' : 'Préparer la clé ODIN'));
+      if (gros) acts.append(el('span', { class: 'cle-note', style: 'flex-basis:100%;margin-top:4px' }, 'Gros disque externe : il peut tout contenir — plusieurs systèmes installés et beaucoup d\'ISO.'));
     } else {
       // append natif n'est pas el() : une valeur false/undefined y deviendrait le texte « undefined ». On n'ajoute
       // le bouton « Retirer » QUE si le disque est déjà ODIN.
@@ -131,6 +134,9 @@
         void recharger();
       },
       async preparer(d) {
+        // La composition complète (cible clé/disque, trois choix par système, VM d'Hydre, plan affiché, progression)
+        // se fait dans le composeur ; il montre le plan et demande l'accord (phrase exacte) avant toute écriture.
+        if (window.OdinGeneseCleComposer?.ouvrir) { await window.OdinGeneseCleComposer.ouvrir(d, { post, act }); void recharger(); return; }
         const efface = d.estOdin ? false : await window.OdinDialog.confirm(`La clé « ${d.modele || d.chemin} » (${taille(d.tailleOctets)}) n'est pas une clé ODIN. Tout son contenu sera effacé. Continuer ?`, { danger: true });
         if (!d.estOdin && !efface) return;
         // La composition complète (systèmes, thème…) se fait dans le formulaire ci-dessous ; ici, l'action pose le cadre.

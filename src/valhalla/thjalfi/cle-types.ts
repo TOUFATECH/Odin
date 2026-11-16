@@ -14,6 +14,51 @@ export type ModeDefaut = 'graphique' | 'texte';
 /** Ce que la clé fait d'un système : l'installer, l'essayer sans toucher au disque, ou juste le démarrer (disque virtuel, outil). */
 export type ModeSysteme = 'installer' | 'essai' | 'demarrer';
 
+/**
+ * Les TROIS CHOIX clairs offerts pour CHAQUE système (cœur de la demande du propriétaire), plus la copie d'une VM :
+ *  - 'iso'         : une ISO qui démarre (installateur ou système live) — ne garde pas les fichiers ; c'est le mode actuel ;
+ *  - 'installe'    : un système installé qui GARDE les fichiers (Windows To Go, ou Linux installé sur une partition) ;
+ *  - 'persistance' : un Linux live avec un fichier de persistance Ventoy (garde fichiers et réglages) ;
+ *  - 'vm'          : la copie d'un disque de machine virtuelle (VM locale d'Hydre, VM Proxmox, ou disque déposé).
+ * Le propriétaire mélange ce qu'il veut sur la même clé/le même disque, jusqu'à 20+ entrées.
+ */
+export type ChoixSysteme = 'iso' | 'installe' | 'persistance' | 'vm';
+
+/**
+ * D'où vient le disque d'une VM copiée sur la clé (lot A le remplit, lot B l'affiche) :
+ *  - 'hydre-locale' : une VM de CE PC gérée par Hydre (disque qcow2 lisible → copie directe possible) ;
+ *  - 'proxmox'      : une VM d'un serveur Proxmox du cluster — Hydre n'en expose PAS le disque, d'où la voie
+ *                     « disque exporté déposé » (vzdump/qm côté Proxmox, puis dépôt à la racine) ;
+ *  - 'depot'        : un disque de VM déjà exporté et déposé par la personne sur la clé/le disque.
+ */
+export interface SourceVm {
+  origine: 'hydre-locale' | 'proxmox' | 'depot';
+  /** l'identifiant de la VM côté serveur, quand il existe */
+  vmid?: number | string;
+  /** le serveur Proxmox d'où vient la VM, le cas échéant */
+  serveur?: string;
+  nom: string;
+  famille: 'windows' | 'linux' | 'inconnu';
+  /** le chemin du disque, quand Odin peut le lire (VM locale d'Hydre, ou disque exporté déposé) */
+  disque?: string;
+  /** vrai : la VM a été arrêtée proprement, ou un instantané pris, AVANT la copie (cohérence du disque) */
+  instantaneFait?: boolean;
+}
+
+/** Le genre d'une CIBLE d'écriture : la même préparation marche sur une clé USB comme sur un disque dur. */
+export type GenreCible = 'cle' | 'disque-externe' | 'disque-interne';
+/**
+ * Ce sur quoi Odin écrit : une clé USB OU un disque dur (externe USB, ou interne avec le double démarrage déjà
+ * fait par Genèse). Un gros disque externe peut tout contenir (plusieurs systèmes installés + beaucoup d'ISO).
+ */
+export interface Cible {
+  id: string;
+  genre: GenreCible;
+  tailleOctets: number;
+  /** vrai : la cible est déjà une clé/un disque ODIN (mise à jour sans tout effacer) */
+  estOdin: boolean;
+}
+
 /** Un système choisi dans la bibliothèque d'Odin et copié sur la clé (ISO, Windows compris). */
 export interface SystemeCle {
   /** le nom du fichier posé dans /ISO (ex. « ubuntu-24.04.3-desktop-amd64.iso ») */
@@ -24,6 +69,16 @@ export interface SystemeCle {
   mode: ModeSysteme;
   /** la recette d'installation d'Odin (réponses automatiques, logiciels) ; pour un simple démarrage elle peut rester minimale */
   recipe: Recipe;
+  /** le CHOIX clair de la personne pour CE système ; absent = 'iso' (comportement actuel) */
+  choix?: ChoixSysteme;
+  /** choix 'installe' sur un Windows : Windows To Go (VHDX appliqué par DISM, rendu amorçable par bcdboot) */
+  winToGo?: { tailleGo: number; editionWim?: string };
+  /** choix 'persistance' : le fichier de persistance Ventoy posé à côté de l'ISO (garde fichiers et réglages) */
+  persistance?: { label: string; tailleMo: number; fs: 'ext4' | 'ext2' | 'xfs'; conf?: boolean };
+  /** choix 'installe' sur un Linux : une vraie partition sur la clé/le disque où le système est installé */
+  installPartition?: { tailleGo: number };
+  /** choix 'vm' : d'où vient le disque de VM copié et préparé */
+  vmSource?: SourceVm;
 }
 
 /** Un disque de machine virtuelle copié sur la clé (/vdisk), façon extensions de Ventoy (VHD/VHDX, vDisk Linux). */
@@ -55,6 +110,8 @@ export interface PreparationCle {
   schema: Schema;
   secureBoot: boolean;
   label: 'ODIN';
+  /** la cible : clé USB OU disque dur (absent : une clé, comme avant) */
+  cible?: Cible;
   theme: Theme;
   texte: TextTheme;
   disposition: Disposition;
@@ -81,6 +138,10 @@ export const DISPOSITION_CLE = {
   iso: '/ISO',
   /** les disques de machines virtuelles (VHD/VHDX, vDisk Linux) */
   vdisk: '/vdisk',
+  /** les fichiers de persistance Linux posés à côté des ISO (greffon persistence de Ventoy) */
+  persistance: '/persistence',
+  /** la racine de la 1re partition ODIN : tout fichier déposé ici est scanné et indexé au démarrage */
+  racine: '/',
   /** les installeurs de logiciels copiés, rangés par système */
   logicielsWindows: '/logiciels/windows',
   logicielsLinux: '/logiciels/linux',
@@ -105,7 +166,24 @@ export const FICHIERS_ODIN = {
   kickstart: 'kickstart.cfg',
   apresWindows: 'apres.ps1',
   odinBoot: 'odin-boot',
+  /** le script d'indexation lancé au démarrage, qui range au menu tout fichier déposé à la racine */
+  odinScan: 'odin-scan',
 } as const;
+
+/**
+ * Le PLAN DE PLACE, affiché AVANT toute écriture (garde-fou du propriétaire) : combien de place prend chaque
+ * système choisi sur la cible, ce qui est effacé, ce qui reste, et les avertissements (cible trop petite, gros
+ * disque externe…). Lot A le calcule (cle-cible.ts), lot B l'affiche. Pur : aucune écriture.
+ */
+export interface PlanPlace {
+  /** vrai : le plan tient sur la cible ; faux : Odin s'arrête et dit pourquoi (blocage) */
+  possible: boolean;
+  blocage?: string;
+  partitions: Array<{ role: 'ISO ODIN' | 'WinToGo' | 'Linux installé' | 'persistance'; tailleGo: number; efface: boolean }>;
+  /** la place qui resterait libre sur la cible après ce plan, en Go */
+  resteGo: number;
+  avertissements: string[];
+}
 
 /** Le nom de la clé : toujours ODIN, en majuscules (étiquette de la 1re partition, exFAT, comme Ventoy). */
 export const NOM_CLE = 'ODIN' as const;

@@ -9,6 +9,7 @@
 import { THEMES } from './ecran.ts';
 import type { PreparationCle, Schema } from './cle-types.ts';
 import { DISPOSITION_CLE, FICHIERS_ODIN } from './cle-types.ts';
+import { entreesPersistance, entreesVdiskAuto } from './cle-install.ts';
 
 /** La version de Ventoy qu'Odin installe, et où la prendre (dépôt officiel). Mise à jour en changeant ces valeurs. */
 export const VENTOY_VERSION = '1.1.18';
@@ -162,7 +163,13 @@ export function buildVentoyJson(prep: PreparationCle): string {
     .filter((s) => s.mode === 'installer')
     .map((s) => ({ image: cheminIso(s.fichier), archive: cheminOdin(`inject-${s.fichier.replace(/\.[^.]+$/, '')}.tar.gz`) }));
 
-  const doc: Record<string, unknown> = { control, theme, menu_alias, menu_class };
+  // Lot A : les systèmes installés / copiés (Windows To Go, VM) posés dans /vdisk reçoivent leur icône au menu, et
+  // les systèmes « persistance » émettent le tableau `persistence` de Ventoy (fichier de persistance à côté de l'ISO).
+  const autoClasse = entreesVdiskAuto(prep.systemes);
+  const persistence = entreesPersistance(prep.systemes);
+
+  const doc: Record<string, unknown> = { control, theme, menu_alias, menu_class: autoClasse.length ? menu_class.concat(autoClasse) : menu_class };
+  if (persistence.length) doc.persistence = persistence;
   if (auto_install.length) doc.auto_install = auto_install;
   if (injection.length) doc.injection = injection;
   if (prep.motDePasse) {

@@ -24,6 +24,10 @@ import { analyserVdisk, type AnalyseVdisk } from './vdisk.ts';
 import type { PreparationCle, SystemeCle } from './cle-types.ts';
 import { FICHIERS_ODIN } from './cle-types.ts';
 import { buildVentoyJson, descripteurVentoy, type DescripteurVentoy } from './cle-boot.ts';
+import { planWinToGo, specPersistance, commandePersistance, planInstallLinux } from './cle-install.ts';
+import { listerVms, planCopieVm } from './cle-vm.ts';
+import { ciblesEcrivables, planPlace } from './cle-cible.ts';
+import { classerRacine, buildScriptScan } from './cle-racine.ts';
 import { buildGrubTheme } from './cle-grub.ts';
 import { buildEcranOffline } from './ecran-offline.ts';
 import { tarGz } from './ecran-pc.ts';
@@ -69,6 +73,12 @@ export interface IoCle {
   empreinte(destRelatif: string): Promise<string>;
   /** l'écriture a-t-elle été annulée ? */
   annule(): boolean;
+  /** lot A : fabrique un VHDX Windows To Go (DISM /Apply-Image + bcdboot, posé dans /vdisk) ; rend son empreinte */
+  creerVhdxWinToGo?(destRelatif: string, commandes: string[], onProgress?: (recu: number, total: number) => void): Promise<string>;
+  /** lot A : crée un fichier de persistance Linux (mkfs ext, étiquette de la distribution) ; rend son empreinte */
+  creerPersistance?(destRelatif: string, commandes: string[]): Promise<string>;
+  /** lot A : copie le disque d'une VM (conversion + préparation) et le pose dans /vdisk ; rend son empreinte */
+  copierDisqueVm?(source: string, destRelatif: string, onProgress?: (recu: number, total: number) => void): Promise<string>;
 }
 
 /** Une IO simulée pour les essais : garde tout en mémoire, calcule de vraies empreintes, ne touche à rien. */
@@ -84,6 +94,10 @@ export function ioSimulee(sources: Record<string, string> = {}): IoCle & { fichi
     async ecrireBinaire(dest: string, contenu: Buffer) { const h = createHash('sha256').update(contenu).digest('hex'); fichiers.set(dest, `h:${h}`); return h; },
     async empreinte(dest: string) { const v = fichiers.get(dest) ?? ''; return v.startsWith('h:') ? v.slice(2) : empreinteDe(v); },
     annule: () => false,
+    // Lot A : les opérations lourdes, SIMULÉES (aucun vrai disque, aucune commande lancée) — on garde une empreinte du plan.
+    async creerVhdxWinToGo(dest: string, commandes: string[]) { const c = `wintogo:${commandes.join('\n')}`; fichiers.set(dest, c); return empreinteDe(c); },
+    async creerPersistance(dest: string, commandes: string[]) { const c = `persistance:${commandes.join('\n')}`; fichiers.set(dest, c); return empreinteDe(c); },
+    async copierDisqueVm(source: string, dest: string) { const c = `vm:${source}`; fichiers.set(dest, c); return empreinteDe(c); },
   };
   return io;
 }
@@ -94,7 +108,7 @@ export interface ResultatEcriture { ok: boolean; message: string; manifeste: Lig
 export interface Avancement { etape: string; fait: number; total: number }
 
 /** La disposition des fichiers sur la 1re partition ODIN (contrat, section 2). */
-export const DOSSIER = { iso: 'ISO', vdisk: 'vdisk', logicielsWindows: 'logiciels/windows', logicielsLinux: 'logiciels/linux', ventoy: 'ventoy', ecran: 'ecran-odin', odin: 'odin' } as const;
+export const DOSSIER = { iso: 'ISO', vdisk: 'vdisk', persistence: 'persistence', logicielsWindows: 'logiciels/windows', logicielsLinux: 'logiciels/linux', ventoy: 'ventoy', ecran: 'ecran-odin', odin: 'odin' } as const;
 
 /**
  * Écrit la clé : installe/met à jour Ventoy, copie les systèmes, images, disques virtuels et logiciels, pose
@@ -125,8 +139,10 @@ export async function ecrireCle(
   // Sécurité : jamais de mot de passe par défaut connu dans les scripts posés sur la clé (dépôt public).
   if (!o.motDePasse) return { ok: false, message: 'Écriture refusée : aucun mot de passe d\'administration fourni (il vient du coffre ou du propriétaire, jamais une valeur par défaut connue).', manifeste };
   const token = o.token ?? 'cle';
+  // Les systèmes INSTALLÉS / copiés du lot A (Windows To Go, persistance, copie de VM) : une étape lourde chacun.
+  const nbInstalles = prep.systemes.filter((s) => ['installe', 'persistance', 'vm'].includes(s.choix ?? 'iso')).length;
   // Le total des étapes, pour une barre de progression honnête.
-  const total = 1 + prep.systemes.length + prep.images.length + prep.vdisks.length + prep.logiciels.length + 4 + prep.systemes.length;
+  const total = 1 + prep.systemes.length + prep.images.length + prep.vdisks.length + prep.logiciels.length + nbInstalles + 4 + prep.systemes.length;
   let fait = 0;
   const avance = (etape: string) => { fait++; o.onProgress?.({ etape, fait, total }); };
   const stop = () => io.annule();
@@ -153,6 +169,45 @@ export async function ecrireCle(
     const famillesWindows = prep.systemes.some((s) => s.recipe.os === 'windows');
     for (const l of prep.logiciels) { if (stop()) return { ok: false, message: 'Écriture annulée.', manifeste }; const dest = `${famillesWindows ? DOSSIER.logicielsWindows : DOSSIER.logicielsLinux}/${l.fichier}`; await noter(dest, await io.copier(l.fichier, dest)); avance(`Logiciel : ${l.id}`); }
 
+    // 5b) Les VRAIS systèmes installés / copiés du lot A : Windows To Go, persistance Linux, copie d'un disque de
+    //     VM. Chaque opération lourde passe DERRIÈRE l'IO injectée (simulée en test : aucun vrai disque touché).
+    const grubInstalles: string[] = [];
+    for (const sy of prep.systemes) {
+      if (stop()) return { ok: false, message: 'Écriture annulée.', manifeste };
+      const choix = sy.choix ?? 'iso';
+      const base = sy.fichier.replace(/\.[^.]+$/, '').replace(/[^\w.+-]/g, '_');
+      // Famille insensible à la casse : un Windows « installé » est un Windows To Go, qu'il porte ou non winToGo.
+      const estWindows = String(sy.famille).toLowerCase() === 'windows';
+      if (choix === 'installe' && (sy.winToGo || estWindows) && io.creerVhdxWinToGo) {
+        const plan = planWinToGo(sy.fichier, sy.nom, { tailleGo: sy.winToGo?.tailleGo ?? 32 });
+        const dest = `${DOSSIER.vdisk}/${plan.vhdx.replace(/^.*\//, '')}`;
+        await noter(dest, await io.creerVhdxWinToGo(dest, plan.commandes));
+        avance(`Windows To Go : ${sy.nom}`);
+      } else if (choix === 'installe') {
+        // Linux installé complet : l'entrée GRUB chainload (planInstallLinux) rejoint le menu natif de Ventoy
+        // (ventoy_grub.cfg, écrit après la boucle). La création réelle de la partition dépend de l'IO réelle.
+        grubInstalles.push(planInstallLinux(sy).grubEntree);
+        avance(`Linux installé : ${sy.nom}`);
+      } else if (choix === 'persistance' && io.creerPersistance) {
+        const spec = sy.persistance ? { ...sy.persistance, conf: sy.persistance.conf ?? false } : specPersistance(sy.fichier);
+        const dest = `${DOSSIER.persistence}/${base}-${spec.label}.dat`;
+        await noter(dest, await io.creerPersistance(dest, commandePersistance(spec, dest)));
+        avance(`Persistance : ${sy.nom}`);
+      } else if (choix === 'vm' && sy.vmSource && io.copierDisqueVm) {
+        const plan = planCopieVm(sy.vmSource);
+        if (plan.possible && plan.destination) {
+          const dest = `${DOSSIER.vdisk}/${plan.destination.replace(/^.*\//, '')}`;
+          await noter(dest, await io.copierDisqueVm(sy.vmSource.disque ?? sy.vmSource.nom, dest));
+          avance(`Copie VM : ${sy.vmSource.nom}`);
+        }
+      }
+    }
+    // Les systèmes Linux installés : leurs entrées GRUB chainload posées dans le menu natif de Ventoy (ventoy_grub.cfg).
+    if (grubInstalles.length) {
+      const cfg = `# Menu Odin — systèmes Linux installés (chainload), chargé nativement par Ventoy.\n${grubInstalles.join('\n\n')}\n`;
+      await noter(`${DOSSIER.ventoy}/ventoy_grub.cfg`, await io.ecrire(`${DOSSIER.ventoy}/ventoy_grub.cfg`, cfg));
+    }
+
     // 6) ventoy.json (greffons, thème, menu, auto-install, injection des scripts).
     await noter(`${DOSSIER.ventoy}/ventoy.json`, await io.ecrire(`${DOSSIER.ventoy}/ventoy.json`, builders.buildVentoyJson(prep)));
     avance('ventoy.json');
@@ -177,6 +232,10 @@ export async function ecrireCle(
       }
       avance(`Scripts : ${s.nom}`);
     }
+
+    // 9b) L'indexeur « odin-scan » posé dans /odin : lancé au démarrage, il range au menu TOUT fichier déposé à la
+    //     racine de la clé (ISO, disque de VM, image). Sans lui, un simple dépôt à la racine n'apparaîtrait pas au menu.
+    await noter(`${DOSSIER.odin}/${FICHIERS_ODIN.odinScan}`, await io.ecrire(`${DOSSIER.odin}/${FICHIERS_ODIN.odinScan}`, buildScriptScan()));
 
     // 10) Revérification des empreintes.
     for (const m of manifeste) { const h = await io.empreinte(m.dest); if (h !== m.sha256) return { ok: false, message: `Vérification : ${m.dest} ne correspond pas à son empreinte.`, manifeste }; }
@@ -269,15 +328,75 @@ export function cleUsb(): { actions: Action[] } {
     {
       id: 'cle_preparer', label: 'Clé USB : préparer', quick: false,
       what: 'Écrit la clé ODIN (Ventoy officiel vérifié, systèmes, disques virtuels, logiciels, scripts) ; une clé déjà ODIN est mise à jour sans tout effacer',
-      params: [{ key: 'disque', label: 'Identifiant de la clé', kind: 'text', required: true }, { key: 'effacer', label: 'Tout effacer (clé non ODIN)', kind: 'boolean', default: false }],
-      grave: (i) => (i.effacer ? 'préparer une clé USB en effaçant tout son contenu' : 'préparer une clé USB ODIN'),
+      params: [{ key: 'cible', label: 'Cible (clé ou disque)', kind: 'text' }, { key: 'systemes', label: 'Systèmes composés', kind: 'textarea' }, { key: 'racine', label: 'Fichiers déposés à la racine', kind: 'textarea' }, { key: 'effacer', label: 'Tout effacer (cible non ODIN)', kind: 'boolean', default: false }],
+      grave: (i) => (i.effacer ? 'préparer une cible en effaçant tout son contenu' : 'préparer une cible ODIN'),
       words: ['préparer la clé', 'écrire la clé', 'créer une clé bootable'],
-      run: async (ctx) => {
-        // La préparation réelle est pilotée par la page (choix des systèmes, thème…), puis exécutée ici avec une
-        // IO réelle. Tant que la page n'a pas composé une PreparationCle complète, on renvoie l'état des disques.
-        const d = classer(await sourceDe(ctx).lister());
+      run: async (ctx, i) => {
+        // La page compose la cible et les systèmes (les TROIS choix) ; on revérifie le plan AVANT toute écriture.
+        // L'écriture réelle sur le disque passe par une IoCle RÉELLE (Ventoy officiel + systèmes installés), pas
+        // encore branchée : tant qu'elle n'existe pas, AUCUN disque n'est écrit — on le dit honnêtement. Les
+        // fonctions pures (plan, menu, persistance, Windows To Go, indexation) sont, elles, complètes et testées.
+        const cibles = ciblesEcrivables(await sourceDe(ctx).lister());
+        const idCible = i.cible && typeof i.cible === 'object' ? (i.cible as { id?: string }).id : i.cible;
+        const cible = cibles.find((c) => c.id === String(idCible));
         journal(ctx).ajouter({ at: Date.now(), dest: '(demande de préparation)', sha256: '', cible: 'ODIN' });
-        return { ok: true, text: 'Choisis une clé et les systèmes dans la page « Clé USB », puis valide : Odin affiche le plan et demande ton accord avant d\'écrire.', data: d };
+        if (!cible) return { ok: false, text: 'Choisis une clé ou un disque dans la page « Clé USB » avant d\'écrire.', data: { cibles } };
+        const systemes = (Array.isArray(i.systemes) ? i.systemes : []) as SystemeCle[];
+        const plan = planPlace(cible, systemes, { effacer: i.effacer === true || undefined });
+        if (!plan.possible) return { ok: false, text: plan.blocage ?? 'Cible trop petite : réduis la liste.', data: plan };
+        return { ok: true, text: `Plan vérifié pour ${cible.genre} (${systemes.length} système(s), reste ${plan.resteGo} Go). L'écriture réelle sur le disque n'est pas encore branchée : rien n'a été écrit. Le plan, le menu et l'indexation au démarrage sont prêts.`, data: plan };
+      },
+    },
+    {
+      id: 'cle_place', label: 'Clé USB : place et plan', read: true,
+      what: 'La place d\'une cible (clé USB ou disque dur) et le plan avant d\'écrire : ce qui est effacé, ce qui reste',
+      params: [{ key: 'cible', label: 'Cible (clé ou disque)', kind: 'text', required: true }, { key: 'systemes', label: 'Systèmes composés', kind: 'textarea' }],
+      words: ['place sur la clé', 'plan de la clé', 'combien de systèmes'],
+      run: async (ctx, i) => {
+        const cibles = ciblesEcrivables(await sourceDe(ctx).lister());
+        // La page envoie l'objet cible (ou, en secours, un identifiant) : on retrouve la cible réelle par son id.
+        const idCible = i.cible && typeof i.cible === 'object' ? (i.cible as { id?: string }).id : (i.cible ?? i.disque);
+        const cible = cibles.find((c) => c.id === String(idCible));
+        if (!cible) return { ok: false, text: 'Cible introuvable (choisis une clé, un disque externe, ou un disque ODIN).', data: { cibles } };
+        // Les systèmes composés dans la page : le plan réserve alors Windows To Go, Linux installé et la persistance,
+        // et peut REFUSER une cible trop petite. Sans eux, le garde-fou ne se déclencherait jamais.
+        const systemes = (Array.isArray(i.systemes) ? i.systemes : []) as SystemeCle[];
+        const plan = planPlace(cible, systemes);
+        return { ok: plan.possible, text: plan.possible ? `Cible ${cible.genre} de ${Math.round(cible.tailleOctets / 1024 ** 3)} Go · ${plan.partitions.length} partition(s), reste ${plan.resteGo} Go.` : (plan.blocage ?? 'Plan impossible : cible trop petite.'), data: plan };
+      },
+    },
+    {
+      id: 'cle_progres', label: 'Clé USB : progression de l\'écriture', read: true,
+      what: 'L\'avancement d\'une écriture en cours (barre de progression) ; aucune écriture en cours = terminé',
+      params: [{ key: 'cible', label: 'Cible (clé ou disque)', kind: 'text' }],
+      words: ['progression de la clé', 'avancement de l\'écriture', 'où en est la clé'],
+      // Aucune écriture longue n'est encore pilotée côté serveur (IoCle réelle non branchée) : la sonde reçoit une
+      // réponse propre (« terminé ») au lieu d'une action inconnue, et la barre se referme sans rester bloquée.
+      run: () => ({ ok: true, text: 'Aucune écriture en cours.', data: { pct: 0, etape: '', fini: true } }),
+    },
+    {
+      id: 'cle_vms', label: 'Clé USB : machines virtuelles à copier', read: true, external: true,
+      what: 'Les VM qu\'Odin peut copier sur la clé pour démarrer sur un vrai PC (VM locales d\'Hydre ; Proxmox : voie « disque exporté déposé »)',
+      words: ['copier une vm', 'vm sur la clé', 'proxmox sur clé'],
+      run: async (ctx) => {
+        const vms = await listerVms(ctx);
+        const locales = vms.filter((v) => v.origine === 'hydre-locale').length;
+        return { ok: true, text: vms.length ? `${vms.length} VM : ${locales} locale(s) copiable(s) directement ; les VM Proxmox passent par un disque exporté déposé à la racine.` : 'Aucune VM vue par Hydre (Proxmox non réglé, ou aucune VM locale).', data: vms };
+      },
+    },
+    {
+      id: 'cle_racine', label: 'Clé USB : fichiers déposés à la racine', read: true,
+      what: 'Classe les fichiers posés à la racine (ISO, disque de VM, image) : démarrables, à préparer, ou non démarrables (jamais exécutés)',
+      params: [{ key: 'cible', label: 'Cible (clé ou disque)', kind: 'text' }, { key: 'fichiers', label: 'Noms des fichiers déposés (virgules ou retours)', kind: 'textarea', default: '' }],
+      words: ['fichiers à la racine', 'déposer un fichier', 'scanner la clé'],
+      run: (_ctx, i) => {
+        // Les noms viennent d'une liste (page / test) ou d'un texte. La lecture du VRAI contenu de la racine d'une
+        // cible branchée se fait au DÉMARRAGE (odin-scan posé sur la clé) ; ici, on classe les noms donnés pour l'aperçu.
+        const brut = Array.isArray(i.fichiers) ? i.fichiers.join('\n') : String(i.fichiers ?? '');
+        const noms = brut.split(/[,\n]+/).map((x) => x.trim()).filter(Boolean);
+        const entrees = classerRacine(noms);
+        const demarrables = entrees.filter((e) => e.genre !== 'non-demarrable').length;
+        return { ok: true, text: noms.length ? `${entrees.length} fichier(s) : ${demarrables} démarrable(s) / à préparer, ${entrees.length - demarrables} non démarrable(s).` : 'Dépose un fichier (ISO, .img, .raw, .vhd, .vhdx, .vmdk, .qcow2, .vdi) sur la partition ODIN : il est reconnu tout seul au démarrage (odin-scan) et rangé au menu. Pour un aperçu ici, donne leurs noms.', data: entrees };
       },
     },
   ];

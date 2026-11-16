@@ -15,6 +15,24 @@ test('la page de Genèse branche bien l\'onglet « Clé USB » (OdinGeneseCle)',
   assert.match(tj, /window\.OdinGeneseCle\.dessiner\(/, 'appel du dessinateur de la clé');
 });
 
+test('carte de disque : le bouton « Préparer » apparaît sur un disque EXTERNE comme sur une clé', () => {
+  const cle = lire('src/web/pages/thjalfi-cle.js');
+  // La branche « externe » (clés ET disques externes) pose un bouton qui ouvre la préparation.
+  assert.match(cle, /if \(d\.externe\) \{[\s\S]*?class: 'cle-pill pri', onclick: \(\) => outils\.preparer\(d\)/, 'bouton Préparer sous d.externe');
+  // Un gros disque externe est annoncé comme pouvant tout contenir.
+  assert.match(cle, /Gros disque externe : il peut tout contenir/, 'avertissement « gros disque »');
+  // « Préparer » ouvre le composeur (cible, trois choix, VM, plan, progression) avant toute écriture.
+  assert.match(cle, /window\.OdinGeneseCleComposer\?\.ouvrir/, 'préparer ouvre le composeur');
+});
+
+test('carte de disque : les sections Externes et Internes sont inchangées', () => {
+  const cle = lire('src/web/pages/thjalfi-cle.js');
+  assert.match(cle, /'Disques externes'/, 'section Externes');
+  assert.match(cle, /'Disques internes'/, 'section Internes');
+  // Le double démarrage interne existant reste (plan, retirer).
+  assert.match(cle, /outils\.plan\(d\)/, 'plan de double démarrage interne gardé');
+});
+
 test('carte de disque : pas de « undefined » affiché sous un disque interne non-ODIN', () => {
   const cle = lire('src/web/pages/thjalfi-cle.js');
   // On n'ajoute le bouton « Retirer » qu'avec une garde explicite (sinon append natif insère le texte « undefined »).

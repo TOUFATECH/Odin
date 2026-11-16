@@ -326,7 +326,7 @@ export const SIMILAIRES: Record<string, string[]> = {
  "skidbladnir": ["Sync-in", "Erugo", "Syncthing", "PrivateBin", "ownCloud", "OpenCloud", "Cloudreve", "Pingvin Share", "ffsend", "Resilio Sync"],
  "eitri": ["ISOMan", "netboot.xyz", "Ventoy"],
  "fjalar": ["Ketarin", "UniGetUI", "Chocolatey"],
- "thjalfi": ["iVentoy", "netboot.xyz", "FOG Project", "Rufus", "Ventoy"],
+ "thjalfi": ["iVentoy", "netboot.xyz", "FOG Project", "Rufus", "Ventoy", "Windows To Go", "WoeUSB"],
  "gladsheim": ["Home Assistant", "Mushroom", "Bubble Card", "Homepage", "Dashy", "Homarr"],
  "gna": ["Dawarich", "OwnTracks Recorder"],
  "apparence": ["Theme Park"],
