@@ -246,7 +246,10 @@ export function unattend(a: Answer, fw: 'uefi' | 'bios'): string {
 /** Le script PowerShell lancé à la première ouverture de session : logiciels (silencieux), puis « fini ». */
 export function windowsAfter(a: Answer): string {
   const sw = a.software ?? [];
-  const lines = ['$ErrorActionPreference = "Continue"', `$odin = '${a.report}'`, 'function Dire($e, $x) { try { (New-Object Net.WebClient).DownloadString("$odin?e=$e$x") | Out-Null } catch {} }', 'Dire "logiciels" ""', '$dir = Join-Path $env:TEMP "odin-thjalfi"; New-Item -ItemType Directory -Force -Path $dir | Out-Null'];
+  const lines = ['$ErrorActionPreference = "Continue"', `$odin = '${a.report}'`, 'function Dire($e, $x) { try { (New-Object Net.WebClient).DownloadString("$odin?e=$e$x") | Out-Null } catch {} }', 'Dire "logiciels" ""', '$dir = Join-Path $env:TEMP "odin-thjalfi"; New-Item -ItemType Directory -Force -Path $dir | Out-Null',
+    // La fenêtre plein écran d'Odin (animé + 3 points + barre des logiciels) pendant que les logiciels s'installent ;
+    // elle se ferme toute seule à la fin. Page locale d'Odin (/ecran/fin), ouverte en kiosque (sans rien bloquer).
+    'try { $u = [uri]$odin; $fin = $u.Scheme + "://" + $u.Authority + "/ecran/fin"; $nav = (Get-Command msedge -ErrorAction SilentlyContinue).Source; if (-not $nav) { $nav = (Get-Command chrome -ErrorAction SilentlyContinue).Source }; if ($nav) { Start-Process $nav -ArgumentList "--kiosk", $fin, "--edge-kiosk-type=fullscreen", "--no-first-run", "--noerrdialogs" } } catch {}'];
   for (const s of sw) {
     const file = `$dir\\${s.url.split('/').pop()!.replace(/[^\w.+-]/g, '_')}`;
     lines.push(`try { (New-Object Net.WebClient).DownloadFile('${s.url}', "${file}"); ${s.msi ? `Start-Process msiexec.exe -ArgumentList '/i', "\`"${file}\`"", '/qn', '/norestart' -Wait` : `Start-Process "${file}" -ArgumentList '${s.args.replace(/'/g, "''")}' -Wait`}; Dire "logiciel" "&nom=${encodeURIComponent(s.name)}&ok=1" } catch { Dire "logiciel" "&nom=${encodeURIComponent(s.name)}&ok=0" }`);

@@ -1,6 +1,7 @@
 // Genèse · la page de l'écran de démarrage (servie par Genèse sur le réseau local, /ecran). Elle lit l'état
 // (/ecran/etat) et ne fait que demander (/ecran/choisir) ; rien n'est construit en HTML à partir des noms reçus.
 // Clavier : ← → ↑ ↓ choisir · Entrée essayer · I installer · A pour moi · D disposition · T thème · Échap retour.
+import { cssCommuns, odinSvg } from './ecrans-communs.ts';
 export function ecranPage(): string {
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Odin · démarrage par le réseau</title><style>
 :root{--ink:#eef2ff;--mut:#9fb0d8;--card:rgba(20,28,64,.72);--line:rgba(255,255,255,.12);--acc:#ffd166;--ok:#34c77b;--bad:#ef4f43;--blue:#5b8def}
@@ -37,13 +38,23 @@ footer{position:fixed;left:28px;right:28px;bottom:18px;display:flex;justify-cont
 main{height:auto;padding:0 16px 120px}.acts,.opts{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr);max-height:none}.list{max-height:none}.row{padding:10px}.row .lg{width:52px;height:52px;font-size:24px}.row b{font-size:16px}
 .bar{position:sticky;bottom:10px;left:auto;right:auto;margin-top:14px;flex-wrap:wrap;background:#14204f;gap:8px}.bar .sp{flex-basis:100%}.bar .sp div{display:none}.bar button{flex:1}.odin{position:static;max-width:none;margin:14px 16px 24px}.detail{grid-template-columns:1fr}.detail .po{display:none}.detail h1,.load h1{font-size:30px}.opt{min-height:0}}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center}.modal div{background:#14204f;border:1px solid var(--line);border-radius:20px;padding:24px;max-width:520px}
+/* La barre de chargement prend l'accent du thème (chaque thème a sa barre). La ligne serveur/clé et les 3 points. */
+.pg i{background:linear-gradient(90deg,var(--acc),#fff)!important}
+.srv{margin-top:18px;color:var(--mut);font-size:13px;letter-spacing:.04em}
+.od3{display:inline-flex;gap:9px;margin-top:14px}.od3 i{width:10px;height:10px;border-radius:50%;background:var(--acc);opacity:.35;animation:od3 1.2s ease-in-out infinite}.od3 i:nth-child(2){animation-delay:.2s}.od3 i:nth-child(3){animation-delay:.4s}
+@keyframes od3{0%,80%,100%{opacity:.3;transform:translateY(0)}40%{opacity:1;transform:translateY(-5px)}}
+@media (prefers-reduced-motion:reduce){.od3 i{animation:none}}
+.premier{max-width:520px;margin:12vh auto 0;text-align:center}.premier .face-big{width:140px;height:140px;margin:0 auto}
+${cssCommuns()}
 </style></head><body class="bleu"><div class="deco" id="deco"></div><div class="stars"></div><div class="tint"></div>
-<header><div class="logo">ᛟ ODIN <small>démarrage par le réseau</small></div><nav class="tabs" id="tabs"></nav><div class="disp" id="disp"></div><div class="clock"><b id="hh"></b><small id="dd"></small></div></header>
-<main id="main"></main><div class="odin" id="odin"><p id="say"></p><span class="face"><i></i><i></i></span></div>
+<header><div class="logo">ᛟ ODIN <small id="logoSub">démarrage par le réseau</small></div><nav class="tabs" id="tabs"></nav><div class="disp" id="disp"></div><div class="clock"><b id="hh"></b><small id="dd"></small></div></header>
+<main id="main"><div class="premier"><div class="face-big">${odinSvg({ anime: true })}</div><div class="od-points"><i></i><i></i><i></i></div><div class="srv" id="premierSrv">Odin démarre…</div></div></main><div class="odin" id="odin"><p id="say"></p><span class="face"><i></i><i></i></span></div>
 <footer><span id="left"></span><span id="keys"></span></footer>
 <script>
 'use strict';
-const MOBILE=matchMedia('(max-width:700px)').matches,qs=new URLSearchParams(location.search),MAC=qs.get('mac')||'',APERCU=qs.has('apercu');
+const MOBILE=matchMedia('(max-width:700px)').matches,qs=new URLSearchParams(location.search),MAC=qs.get('mac')||'',APERCU=qs.has('apercu'),CLE=qs.has('cle');
+// La ligne affichée partout : « Serveur Odin IP:port » (réseau) ou « Installation clé USB » (clé). L'état (S.serveur) prime.
+function ligneSrc(){if(CLE||!S||!S.serveur)return CLE?'Installation clé USB':(S&&S.serveur?'Serveur Odin '+S.serveur:'');return 'Serveur Odin '+S.serveur;}
 let goName='',S=null,cat='Tout',sel=0,view='choix',disp=null,theme=null,act=0,opt=0,msg='';
 const CATS=['Tout','Linux','Windows','Serveurs','Outils'],DISP={eventail:'Éventail',affiches:'Affiches',liste:'Liste'},THEMES=['bleu','matrix','ocean','lune','ciel','galaxie','mayotte','couchant','clair'],TINT={bleu:'rgba(11,20,64,.55)',matrix:'rgba(0,0,0,.6)',ocean:'rgba(3,40,80,.45)',lune:'rgba(11,12,20,.5)',ciel:'rgba(255,255,255,.35)',galaxie:'rgba(7,5,26,.5)',mayotte:'rgba(255,255,255,.3)',couchant:'rgba(43,16,85,.45)',clair:'rgba(246,247,251,.6)'},STARS=['bleu','lune','galaxie'];
 const $=(s)=>document.querySelector(s);
@@ -72,7 +83,7 @@ function setTheme(){const t=THEMES.includes(theme)?theme:'bleu',img=Boolean(S&&S
 }
 // Les touches ne sont plus affichées (maquette du 13/11) : elles marchent toujours, comme la souris (clic, molette).
 function keys(){}
-function header(){const t=$('#tabs');t.replaceChildren(...CATS.map((c)=>el('button',{class:c===cat?'on':'',onclick:()=>{cat=c;sel=0;draw();}},c)));$('#disp').replaceChildren(...Object.entries(DISP).map(([k,v])=>el('button',{class:k===disp?'on':'',onclick:()=>{disp=k;draw();}},v)));setTheme();}
+function header(){const t=$('#tabs');t.replaceChildren(...CATS.map((c)=>el('button',{class:c===cat?'on':'',onclick:()=>{cat=c;sel=0;draw();}},c)));$('#disp').replaceChildren(...Object.entries(DISP).map(([k,v])=>el('button',{class:k===disp?'on':'',onclick:()=>{disp=k;draw();}},v)));const sub=$('#logoSub');if(sub)sub.textContent=ligneSrc()||(CLE?'Installation clé USB':'démarrage par le réseau');setTheme();}
 function fan(m){{const x=cur();if(x&&!x.modes.includes(['essai','installer','auto'][act]))act=firstMode();}const l=list(),fanEl=el('div',{class:'fan'});l.forEach((x,i)=>{const d=i-sel;if(Math.abs(d)>3)return;const c=el('div',{class:'fc'+(d===0?' on':''),style:'background:'+grad(x.color)+';transform:translateX('+(d*215)+'px) translateZ('+(-Math.abs(d)*120)+'px) rotateY('+(-d*14)+'deg) scale('+(d===0?1.08:.9)+');opacity:'+(1-Math.abs(d)*.22)+';z-index:'+(10-Math.abs(d)),onclick:()=>{sel=i;draw();}},el('span',{class:'ic'},x.title.charAt(0)),el('b',{},x.title),el('small',{},(x.version?x.version+' · ':'')+gb(x.size)),badges(x));fanEl.append(c);});m.append(fanEl);
  const x=cur();if(!x)return;m.append(el('div',{class:'acts'},...['essai','installer','auto'].map((k,i)=>el('button',{class:'act'+(i===act?' on':''),disabled:!x.modes.includes(k)||undefined,onclick:()=>choose(k)},el('span',{},el('b',{},k==='auto'?'Installation automatique':MODE[k][0]),el('small',{},MODE[k][1])),el('span',{class:'k'},MODE[k][2])))));}
 function posters(m){m.append(el('div',{class:'grid'},...list().map((x,i)=>el('div',{class:'po'+(i===sel?' on':''),style:'background:'+grad(x.color),onclick:()=>{if(i===sel){view='detail';opt=firstMode();}sel=i;draw();}},badges(x),el('span',{class:'big'},x.title.charAt(0)),el('div',{},el('b',{},x.title),el('small',{},x.version))))));bar(m);}
@@ -85,7 +96,8 @@ const ORDER=['démarrage réseau','chargeur','menu','chargement','installation',
 function loading(m){const mc=S.machine,x=S.systemes.find((y)=>y.id===mc.iso)||{title:mc.isoName||'Système',version:''};const k=Math.max(0,ORDER.indexOf(mc.step)),pct=Math.round(Math.min(98,(k/6)*100+(mc.step==='installation'?Math.min(30,(Date.now()-mc.updated)/20000):0)));
  m.append(el('div',{class:'load'},el('div',{class:'q'},'EN COURS'),el('h1',{},x.title+' '+(x.version||'')),el('p',{},mc.detail||(mc.host?'Nom « '+mc.host+' »':'')),el('div',{class:'pg'},el('i',{style:'width:'+pct+'%'})),el('div',{style:'display:flex;justify-content:space-between;color:var(--mut);font-size:13px'},el('span',{},mc.step),el('b',{},pct+' %')),
  el('div',{class:'steps'},...[['Réseau','démarrage réseau'],['Chargeur','chargeur'],['Système','chargement'],['Installation','installation'],['Logiciels','logiciels']].map(([t,s])=>{const j=ORDER.indexOf(s);return el('span',{class:j<k?'ok':j===k?'cur':''},(j<k?'✓ ':'')+t);})),
- el('p',{style:'color:var(--mut);font-size:13px;margin-top:22px'},'Commencée à '+new Date(mc.started).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+' · écoulé '+Math.round((Date.now()-mc.started)/60000)+' min')));}
+ el('p',{style:'color:var(--mut);font-size:13px;margin-top:22px'},'Commencée à '+new Date(mc.started).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+' · écoulé '+Math.round((Date.now()-mc.started)/60000)+' min'),
+ el('div',{class:'od3'},el('i'),el('i'),el('i')),el('div',{class:'srv'},ligneSrc())));}
 function done(m){const mc=S.machine;m.append(el('div',{class:'wait'},el('h1',{},'✓ '+(mc.host||'Ce PC')+' est prêt'),el('p',{},(mc.isoName||'')+(mc.ip?' · '+mc.ip:'')+' · tu peux redémarrer sur le disque.'),el('p',{style:'color:var(--mut)'},'Odin a gardé le compte rendu dans Genèse.'),el('button',{class:'act',style:'margin:20px auto 0;display:inline-flex',onclick:()=>{view='choix_force';draw();}},'Choisir un autre système')));}
 function going(m){m.append(el('div',{class:'wait'},el('h1',{},'C\\'est parti'),el('p',{},'La machine démarre '+goName+' dans quelques secondes.'),el('p',{style:'color:var(--mut)'},'Tu peux suivre l\\'avancement ici.'),el('button',{class:'act',style:'margin:20px auto 0;display:inline-flex',onclick:()=>{view='choix';draw();}},'Changer d\\'avis')));}
 function waiting(m){const d=S.demande;m.append(el('div',{class:'wait'},el('h1',{},d&&d.statut==='refusee'?'Demande refusée':'J\\'attends ton accord…'),el('p',{},d&&d.statut==='refusee'?'Rien n\\'a été effacé. Choisis autre chose.':'Odin a prévenu ton téléphone et l\\'appli Odin. Dès que tu dis oui, l\\'installation démarre (le disque sera effacé).'),el('p',{style:'color:var(--mut)'},msg),d&&d.statut==='refusee'?el('button',{class:'act',style:'margin:20px auto 0;display:inline-flex',onclick:()=>{view='choix_force';draw();}},'Choisir autre chose'):null));}
@@ -103,6 +115,9 @@ addEventListener('keydown',(e)=>{const n=list().length;if(!S)return;const k=e.ke
  else if(k==='Enter'){if(disp==='eventail')return choose(['essai','installer','auto'][act]);view='detail';opt=firstMode();}else if(k==='i'||k==='I')return choose('installer');else if(k==='a'||k==='A')return choose('auto');
  else if(k==='d'||k==='D'){const l=Object.keys(DISP);disp=l[(l.indexOf(disp)+1)%l.length];}else if(k==='t'||k==='T')theme=THEMES[(THEMES.indexOf(theme)+1)%THEMES.length];else if(k==='Escape'){if(view==='go')view='choix';else return choose('disque');}else if(k==='Tab'){e.preventDefault();cat=CATS[(CATS.indexOf(cat)+1)%CATS.length];sel=0;}else return;draw();});
 addEventListener('wheel',(e)=>{if(!S||['load','done','wait','go','detail'].includes(view)||disp!=='eventail')return;const n=list().length;if(!n)return;sel=Math.max(0,Math.min(n-1,sel+(e.deltaY>0||e.deltaX>0?1:-1)));draw();},{passive:true});
+// Avant même la réponse de /ecran/etat (l'écran qu'on voit le plus longtemps au démarrage), honorer le mode clé :
+// le tout premier écran doit déjà dire « Installation clé USB » et non « démarrage par le réseau » / « Odin démarre… ».
+if(CLE){const ps=$('#premierSrv');if(ps)ps.textContent=ligneSrc();const sub=$('#logoSub');if(sub)sub.textContent='Installation clé USB';}
 clock();setInterval(clock,10000);load();setInterval(load,3000);
 </script></body></html>`;
 }

@@ -95,3 +95,41 @@ export function odinSays(sys: EcranSystem | undefined, fw: string): string {
   if (sys.modes.includes('essai')) return `${sys.title} : essaie-le d'abord, rien n'est écrit sur ton disque.`;
   return `${sys.title} : ${sys.blurb}`;
 }
+
+/**
+ * La barre de progression de chaque thème GRAPHIQUE : « chaque thème définit sa barre ». `track` est le fond de la
+ * barre, `fill` le remplissage qui avance, `glow` la lueur sous le remplissage (aux couleurs du thème). Servent à
+ * la vue « chargement » de l'écran réseau et de la clé (voir barreDuTheme dans ecrans-communs.ts). Pur.
+ */
+export const THEME_BARRES: Record<Theme, { track: string; fill: string; glow: string }> = {
+  bleu: { track: 'rgba(255,255,255,.14)', fill: 'linear-gradient(90deg,#5b8def,#9fd6ff)', glow: 'rgba(120,174,248,.55)' },
+  matrix: { track: 'rgba(61,255,122,.16)', fill: 'linear-gradient(90deg,#2fbf5a,#3dff7a)', glow: 'rgba(61,255,122,.6)' },
+  ocean: { track: 'rgba(3,40,80,.35)', fill: 'linear-gradient(90deg,#2b8fd6,#7fd3ff)', glow: 'rgba(127,211,255,.5)' },
+  lune: { track: 'rgba(255,255,255,.12)', fill: 'linear-gradient(90deg,#b3ad98,#f4f1e8)', glow: 'rgba(244,241,232,.45)' },
+  ciel: { track: 'rgba(11,42,74,.14)', fill: 'linear-gradient(90deg,#2f5a80,#4aa8ff)', glow: 'rgba(74,168,255,.5)' },
+  galaxie: { track: 'rgba(255,255,255,.12)', fill: 'linear-gradient(90deg,#a03cff,#ff3caa)', glow: 'rgba(201,162,255,.55)' },
+  mayotte: { track: 'rgba(6,50,58,.16)', fill: 'linear-gradient(90deg,#0f8a83,#26c6c6)', glow: 'rgba(38,198,198,.5)' },
+  couchant: { track: 'rgba(43,16,85,.3)', fill: 'linear-gradient(90deg,#ff6a3d,#ffd36b)', glow: 'rgba(255,211,107,.5)' },
+  clair: { track: 'rgba(11,42,74,.1)', fill: 'linear-gradient(90deg,#2457c5,#4aa8ff)', glow: 'rgba(36,87,197,.4)' },
+};
+
+/**
+ * Les glyphes de la barre de progression en TEXTE, par thème texte (menu GRUB / iPXE, là où le chargeur le permet) :
+ * `plein` pour la part faite, `vide` pour le reste, entre les crochets `[` et `]`. « classique » reprend des
+ * caractères simples qui passent partout. Pur.
+ */
+export const BARRE_TEXTE_GLYPHES: Record<TextTheme, { plein: string; vide: string }> = {
+  matrix: { plein: '#', vide: '.' },
+  lune: { plein: '=', vide: '-' },
+  aurore: { plein: '=', vide: ' ' },
+  neon: { plein: '#', vide: '-' },
+  classique: { plein: '=', vide: '-' },
+};
+
+/** La barre de progression en caractères (ex. « [####------]  40% ») pour un thème texte et un pourcentage. Pur. */
+export function barreTexte(theme: TextTheme, pct: number, largeur = 24): string {
+  const g = BARRE_TEXTE_GLYPHES[theme] ?? BARRE_TEXTE_GLYPHES.classique;
+  const p = Math.max(0, Math.min(100, Math.round(pct)));
+  const faits = Math.round((p / 100) * largeur);
+  return `[${g.plein.repeat(faits)}${g.vide.repeat(largeur - faits)}] ${String(p).padStart(3, ' ')}%`;
+}

@@ -177,11 +177,13 @@
     root.append(el('div', { class: 'tj-top' }, el('span', { class: 'tj-face', 'aria-hidden': 'true' }, el('i'), el('i')), el('div', {}, el('h2', {}, 'Odin te prévient'), el('p', {}, 'Déploiement réseau : chaque machine, de la demande à « c\'est prêt ».')), tabs), body, gen);
     host.append(root);
     const redraw = async () => {
-      tabs.replaceChildren(...[['odin', 'Odin te prévient'], ...(window.OdinGeneseSuivi?.onglets ?? []), ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
+      tabs.replaceChildren(...[['odin', 'Odin te prévient'], ...(window.OdinGeneseSuivi?.onglets ?? []), ...(window.OdinGeneseCle?.onglets ?? []), ['ecran', 'Écran de démarrage'], ['tout', 'Tout']].map(([id, t]) => el('button', { type: 'button', role: 'tab', 'aria-selected': String(S.tab === id), onclick: () => { S.tab = id; redraw(); } }, t)));
       gen.hidden = S.tab !== 'tout'; body.hidden = S.tab === 'tout';
       if (S.tab === 'tout') return;
       // Suivi des installations (thjalfi-suivi.js) : Installations, Historique, Protection.
       if (window.OdinGeneseSuivi?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await window.OdinGeneseSuivi.dessiner(n, tab, { post, act, el, ic, note, redraw }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
+      // Clé USB (thjalfi-cle.js) : onglet « Clé USB », même greffe que le suivi.
+      if (window.OdinGeneseCle?.onglets.some(([id]) => id === S.tab)) { const tab = S.tab, n = el('div', { class: 'tj' }); await window.OdinGeneseCle.dessiner(n, tab, { post, act, el, ic, note, redraw }); if (S.tab === tab) body.replaceChildren(...n.childNodes); return; }
       const r = await post('tableau'), D = r.data ?? {}, n = el('div', { class: 'tj' });
       if (S.tab === 'ecran') ecran(n, D, redraw); else await odin(n, D, redraw);
       body.replaceChildren(...n.childNodes);

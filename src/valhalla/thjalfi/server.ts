@@ -54,6 +54,8 @@ export interface HttpDeps {
     attente: (mac: string, fw: string, n: number, from: string) => Promise<string>;
     /** les images de fond : « texte » (PNG pour iPXE) et « graphique » (l'écran graphique) ; absente = rien */
     fond?: (kind: 'texte' | 'graphique') => { type: string; data: Buffer } | undefined;
+    /** la fenêtre plein écran d'Odin ouverte en fin d'installation (« /ecran/fin ») : page locale qui se ferme seule */
+    fin?: () => string;
   };
   /** Le suivi des installations (suivi.ts). Un poste a-t-il droit à ce fichier ? La raison du refus (403), ou rien. */
   garde?: (mac: string | undefined, from: string, quoi: 'fichier' | 'jeton') => string | undefined;
@@ -119,6 +121,7 @@ export class PxeHttp {
       const json = (x: unknown) => text(JSON.stringify(x), 'application/json; charset=utf-8');
       if (path === '/ecran' || path === '/ecran/') { r.setHeader('content-security-policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"); r.setHeader('x-content-type-options', 'nosniff'); return text(e.page(), 'text/html; charset=utf-8'); }
       if (path === '/ecran/etat') return json(await e.etat(mac, from));
+      if (path === '/ecran/fin' && e.fin) { r.setHeader('content-security-policy', "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"); r.setHeader('x-content-type-options', 'nosniff'); return text(e.fin(), 'text/html; charset=utf-8'); }
       if (path === '/ecran/choisir') return json(await e.choisir(mac, u.searchParams.get('iso') ?? '', u.searchParams.get('mode') ?? '', from));
       const fm = /^\/ecran\/fond-(texte|graphique)(?:\.\w+)?$/.exec(path);
       if (fm) { const f = e.fond?.(fm[1] as 'texte' | 'graphique'); if (!f) { r.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }); return void r.end('pas d\'image'); } r.writeHead(200, { 'content-type': f.type, 'cache-control': 'no-cache', 'content-length': f.data.length, 'x-content-type-options': 'nosniff' }); return void r.end(q.method === 'HEAD' ? undefined : f.data); }

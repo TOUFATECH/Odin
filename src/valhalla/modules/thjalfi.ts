@@ -27,9 +27,11 @@ import { imageKind, textBackground } from '../thjalfi/fond.ts';
 import { ALPINE_MIRROR, kioskBoot, kioskOverlay, parseLatest, untar } from '../thjalfi/ecran-pc.ts';
 import { gunzipSync } from 'node:zlib';
 import { ecranPage } from '../thjalfi/ecran-page.ts';
+import { fenetreFin } from '../thjalfi/ecrans-communs.ts';
 import { TftpServer } from '../thjalfi/tftp.ts';
 import { suivi, type FicheFin, type Passage, type Resultat } from '../thjalfi/suivi.ts';
 import { pxeHook } from '../vidarr/dhcp.ts';
+import { cleUsb } from '../thjalfi/cle-ecrire.ts';
 
 const s = (x: unknown) => (typeof x === 'string' ? x : x === undefined || x === null ? '' : String(x));
 type Step = 'démarrage réseau' | 'chargeur' | 'menu' | 'chargement' | 'installation' | 'logiciels' | 'fini' | 'sans nouvelles' | 'échec';
@@ -295,7 +297,7 @@ export function thjalfi(): Module {
     for (const i of list) isoNames.set(i.id, i.name);
     const now = ctx.now().getTime(), d = mac ? demandes(ctx).filter((x) => x.mac === mac && (x.statut === 'attente' || now - (x.decide ?? x.at) < 10 * 60_000)).at(-1) : undefined;
     const last = mac ? history(ctx, 300).find((h) => h.mac === mac && h.result === 'fini') : undefined;
-    return { mac, fw, systemes: sys, disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), relance: Boolean(mac && (choiceOf(ctx, mac) || (rules(ctx).find((x) => x.mac === mac)?.auto && !rules(ctx).find((x) => x.mac === mac)?.fait))), machine: S.publique(ctx, mac), demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last && S.publique(ctx, mac) ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
+    return { mac, fw, serveur: `${serverIp(ctx)}:${http?.port ?? ports(ctx).http}`, systemes: sys, disposition: ec.disposition, theme: ec.theme, fond: fondPerso(ctx, 'graphique'), relance: Boolean(mac && (choiceOf(ctx, mac) || (rules(ctx).find((x) => x.mac === mac)?.auto && !rules(ctx).find((x) => x.mac === mac)?.fait))), machine: S.publique(ctx, mac), demande: d ? { id: d.id, statut: d.statut, iso: d.iso } : null, dejaLa: last && S.publique(ctx, mac) ? `${last.isoName}${last.host ? ` (${last.host})` : ''}` : '', dit: { _: odinSays(undefined, fw), ...Object.fromEntries(sys.map((x) => [x.id, odinSays(x, fw)])) } };
   }
   async function ecranChoisir(ctx: ModCtx, mac: string, iso: string, mode: string): Promise<{ ok: boolean; texte: string }> {
     if (!mac) return { ok: false, texte: 'Il manque l\'adresse de la machine : ouvre l\'écran depuis le lien affiché par la machine.' };
@@ -447,7 +449,7 @@ export function thjalfi(): Module {
           if (r?.auto && !r.fait && r.iso === iso) { r.fait = true; ctx.saveSettings({ machines: all }); }
         }
       },
-      ecran: { page: () => ecranPage(), etat: (mac) => ecranEtat(ctx, mac), choisir: (mac, iso, mode) => ecranChoisir(ctx, mac, iso, mode), attente: async (mac, fw, n, from) => ecranAttente(ctx, mac, fw, n, from), fond: (kind) => fond(ctx, kind) },
+      ecran: { page: () => ecranPage(), etat: (mac) => ecranEtat(ctx, mac), choisir: (mac, iso, mode) => ecranChoisir(ctx, mac, iso, mode), attente: async (mac, fw, n, from) => ecranAttente(ctx, mac, fw, n, from), fond: (kind) => fond(ctx, kind), fin: () => fenetreFin({ theme: ecranCfg(ctx).theme }) },
       garde: (mac, from, quoi) => S.acces(ctx, mac, from, quoi), vu: (mac, q, from) => S.vu(ctx, mac, q, from), servi: (mac, from, id, n) => S.servi(ctx, mac, from, id, n), cle: (mac, fw, from, mdp, qui) => S.cle(ctx, mac, fw, from, mdp, qui),
       log: (t) => ctx.emit('journal', { texte: t }),
     });
@@ -607,13 +609,15 @@ export function thjalfi(): Module {
   ];
   // Suivi, fiche d'un poste, bloquer / débloquer, annuler, suspendre / reprendre, mot de passe d'installation, rapport.
   actions.push(...S.actions);
+  // Clé USB bootable (nouveau mode de Genèse, façon Rufus / Ventoy) : disques, plan de double démarrage, préparation.
+  actions.push(...cleUsb().actions);
 
   return {
     id: 'thjalfi', name: 'Genèse', family: 'Machines',
     what: 'Le déploiement par le réseau : les ISO d\'Andromède démarrent sur n\'importe quelle machine sans clé USB, s\'installent toutes seules sur les machines que tu autorises, avec les logiciels de Hermès ; tu suis chaque poste jusqu\'à la fin, tu peux le bloquer, annuler son installation ou exiger un mot de passe, et tout reste dans l\'historique.',
     does: ['démarrage par le réseau (PXE) en BIOS et UEFI, sans rien régler sur la box (proxy DHCP) ou avec le DHCP d\'Odin', 'les ISO d\'Andromède lues directement (ISO 9660, Joliet, Rock Ridge, UDF) sans extraction', 'installation automatique : Ubuntu (autoinstall), Debian (preseed), Fedora / Rocky / Alma (Kickstart), Windows (unattend, partage réseau)', 'profils : compte, langue, clavier, fuseau, paquets Linux, logiciels Windows de Hermès en silencieux', 'outils et systèmes live (Clonezilla, GParted, Arch, Alpine…) démarrés depuis le menu', 'suivi en direct : chaque poste reconnu (adresse MAC, nom, numéro de série, marque et modèle), ses étapes avec l\'heure, son avancement, jusqu\'à « terminée », « échouée » (avec la raison) ou « abandonnée » (plus de signe de vie)', 'bloquer un poste (son écran le dit, puis il démarre sur son disque), suspendre toutes les nouvelles installations, annuler une installation en cours (avec ton accord)', 'mot de passe d\'installation : le poste le tape avant d\'avoir le menu et les fichiers ; seule son empreinte est gardée ; 5 erreurs bloquent le poste 15 minutes', 'historique de toutes les installations dans la base de l\'appli, filtrable, avec un rapport (réussies, échecs, abandons, durée moyenne, par image) et un export pour tableur ; nombre de déploiements par ISO', 'Odin prévient : début d\'une installation, échec, abandon, réussite, poste inconnu, poste bloqué qui retente, mots de passe refusés', 'sécurité : machine inconnue = son propre disque ; installation automatique seulement si tu l\'autorises, une seule fois'],
     from: ['iVentoy', 'netboot.xyz', 'FOG Project'], upstream: ['ventoy/PXE', 'netbootxyz/netboot.xyz', 'FOGProject/fogproject', 'ipxe/ipxe', 'ipxe/wimboot'],
-    words: ['déploiement réseau', 'deploiement reseau', 'pxe', 'ipxe', 'iventoy', 'démarrage réseau', 'demarrage par le reseau', 'installer par le réseau', 'installation réseau', 'netboot', 'thjalfi', 'þjálfi', 'déployer une iso'],
+    words: ['déploiement réseau', 'deploiement reseau', 'pxe', 'ipxe', 'iventoy', 'démarrage réseau', 'demarrage par le reseau', 'installer par le réseau', 'installation réseau', 'netboot', 'thjalfi', 'þjálfi', 'déployer une iso', 'clé usb', 'clé bootable', 'rufus', 'ventoy', 'dual boot'],
     actions,
     async view(ctx) {
       C = ctx; const l = await isos(ctx), st = stats(ctx), def = s(ctx.settings.defaut) || 'local', now = ctx.now().getTime();
