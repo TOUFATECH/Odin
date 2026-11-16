@@ -11,6 +11,10 @@ import { join } from 'node:path';
 import { isPrivateV4 } from '../../hlidskjalf/discover.ts';
 import type { ModCtx, Module } from '../types.ts';
 import { journalDe } from '../base/journal.ts';
+import { country, countryName, flag, hasTable } from '../geoip.ts';
+import { lireAttaquants, voirAttaquant } from '../loki/attaquants.ts';
+import { jouerNouveauPiege } from '../loki/pieges.ts';
+import { brancherSocket, charger, estTerminal, fermerSession, lecteurHtml, lister, noter, ouvrirSession, phraseResume, rejouer, resume, sauver, type Session, versCast, versTexte } from '../loki/rejeu.ts';
 
 export interface Trap { id: string; name: string; proto: string; what: string; port: number; udp?: boolean }
 export const TRAPS: Trap[] = [
@@ -27,6 +31,13 @@ export const TRAPS: Trap[] = [
   { id: 'logi', name: 'Cassandre', proto: 'Téléphonie (SIP)', what: 'fausse centrale téléphonique : tentatives d\'appels frauduleux', port: 5061, udp: true },
   { id: 'hraesvelg', name: 'Éole', proto: 'Amplification (UDP)', what: 'repère les attaques par déni de service sans jamais répondre', port: 11212, udp: true },
   { id: 'surtr', name: 'Hécatonchires', proto: 'Tous ports', what: 'piège à tout : note les premiers octets sur des ports choisis', port: 2375 },
+  { id: 'vali', name: 'Morphée', proto: 'RDP (bureau à distance)', what: 'faux bureau Windows à distance : note le nom d\'utilisateur tenté', port: 3389 },
+  { id: 'nari', name: 'Narcisse', proto: 'VNC (écran à distance)', what: 'faux partage d\'écran : note le client qui se présente', port: 5900 },
+  { id: 'byleist', name: 'Circé', proto: 'Base MySQL/MariaDB', what: 'fausse base MySQL : note le nom d\'utilisateur essayé', port: 3306 },
+  { id: 'angrboda', name: 'Sibylle', proto: 'Base PostgreSQL', what: 'fausse base PostgreSQL : note l\'utilisateur et le mot de passe (en clair)', port: 54320 },
+  { id: 'helblindi', name: 'Protée', proto: 'MQTT (objets connectés)', what: 'faux serveur d\'objets connectés : note l\'objet, l\'utilisateur et le mot de passe', port: 18830 },
+  { id: 'sigyn', name: 'Tantale', proto: 'Partage Windows (SMB)', what: 'note les tentatives de partage de fichiers Windows', port: 4445 },
+  { id: 'eldr', name: 'Chimère', proto: 'API Docker', what: 'fausse API Docker exposée : note les commandes et l\'image qu\'on voudrait lancer', port: 23750 },
 ];
 
 export interface Hit { at: string; trap: string; ip: string; port: number; kind: 'connexion' | 'identifiants' | 'commande' | 'requête' | 'capture'; detail: string }
@@ -65,8 +76,14 @@ export class LokiEngine {
     this.ctx.emit('piege', { piège: h.trap, ip: h.ip, type: h.kind, détail: h.detail });
     const counts = (this.ctx.settings.byIp as Record<string, number> | undefined) ?? {};
     counts[h.ip] = (counts[h.ip] ?? 0) + 1; this.ctx.saveSettings({ byIp: counts });
-    if ((h.kind === 'identifiants' || h.kind === 'commande' || h.kind === 'capture') && this.ctx.settings.ban !== false && isIP(h.ip) && !isPrivateV4(h.ip)) void this.ctx.call('garmr', 'bannir', { ip: h.ip, raison: `piège ${h.trap} (${h.kind})`, source: 'Sirènes', minutes: 1440 }).catch(() => undefined);
+    // Liste locale « attaquants vus par mes pièges » : origine géo + partage à Méduse (toute la maison protégée, pas seulement les services d'Odin).
+    if (isIP(h.ip) === 4 && !isPrivateV4(h.ip) && h.ip !== '127.0.0.1') voirAttaquant(this.ctx.dir, h.ip, { at: hit.at, pays: this.pays(h.ip), piege: h.trap });
+    if ((h.kind === 'identifiants' || h.kind === 'commande' || h.kind === 'capture') && this.ctx.settings.ban !== false && isIP(h.ip) && !isPrivateV4(h.ip)) void this.ctx.call('garmr', 'bannir', { ip: h.ip, raison: `piège ${h.trap} (${h.kind})`, source: 'Sirènes', minutes: this.banMin() }).catch(() => undefined);
   }
+  /** Durée du bannissement d'un attaquant de piège (minutes, réglable ; défaut un jour). */
+  banMin(): number { const m = Number(this.ctx.settings.banMinutes); return Number.isFinite(m) && m > 0 ? Math.min(m, 525_600) : 1440; }
+  /** Le pays d'une adresse d'Internet (table locale DB-IP d'Odin), ou rien. Réutilise la géolocalisation existante. */
+  pays(ip: string): string | undefined { try { return isIP(ip) === 4 && hasTable(this.ctx.home) ? country(this.ctx.home, ip) : undefined; } catch { return undefined; } }
   async capture(trap: string, ip: string, url: string): Promise<void> {
     // On ne va chercher que des adresses publiques (jamais ton réseau), 10 Mo au plus ; rien n'est exécuté.
     try {
@@ -85,6 +102,10 @@ export class LokiEngine {
   private tcp(t: Trap, onConn: (s: Socket, ip: string) => void): Server {
     const srv = createServer((sock) => {
       const ip = (sock.remoteAddress ?? '').replace(/^::ffff:/, '');
+      // Chaque session est enregistrée (horodatée) pour un rejeu fidèle ; branché ici pour couvrir TOUS les pièges.
+      const sess = this.ouvrir(t, ip); (sock as unknown as { __sess?: Session }).__sess = sess;
+      brancherSocket(sock as unknown as { on(ev: string, cb: (d: unknown) => void): unknown; write: (...a: unknown[]) => unknown }, sess, () => Date.now());
+      sock.once('close', () => this.fermer(sess));
       sock.setTimeout(t.id === 'fenrir' ? 0 : 120_000, () => sock.destroy());
       sock.on('error', () => {});
       this.record({ trap: t.name, ip, port: t.port, kind: 'connexion', detail: t.proto });
@@ -93,6 +114,19 @@ export class LokiEngine {
     srv.maxConnections = 200;
     return srv;
   }
+  /** Ouvre l'enregistrement d'une session (horodatée, avec l'origine géo). */
+  private ouvrir(t: Trap, ip: string): Session { return ouvrirSession({ id: randomBytes(6).toString('hex'), trapId: t.id, trap: t.name, proto: t.proto, ip, port: t.port, pays: this.pays(ip), at: this.ctx.now().toISOString(), now: Date.now() }); }
+  /** Ferme une session, la range (rétention réglable), et prévient le propriétaire selon son réglage. */
+  private fermer(sess: Session): void {
+    if (sess.fin) return;
+    fermerSession(sess, this.ctx.now().toISOString());
+    try { sauver(this.ctx.dir, sess, this.garderSessions()); } catch { /* disque indisponible */ }
+    const r = resume(sess);
+    const mode = String(this.ctx.settings.prevenir ?? 'prise');
+    if (mode === 'prise' && r.notable) void this.ctx.notify(`🪤 Prise dans un piège (Sirènes) — ${phraseResume(r)}. Pour revoir l'attaque : Sirènes → onglet « Rejeu » → session ${r.id}.`).catch(() => undefined);
+  }
+  /** Combien de sessions garder (rétention réglable ; défaut 500). */
+  private garderSessions(): number { const n = Number(this.ctx.settings.garderSessions); return Number.isFinite(n) && n > 0 ? Math.min(n, 50_000) : 500; }
   private lines(sock: Socket, on: (line: string) => void): void { let buf = ''; sock.on('data', (d) => { buf += d.toString('latin1').replace(/\xff[\xfb-\xfe]./g, ''); if (buf.length > 65536) { sock.destroy(); return; } let i; while ((i = buf.search(/\r?\n/)) >= 0) { const l = buf.slice(0, i); buf = buf.slice(i + (buf[i] === '\r' ? 2 : 1)); on(l); } }); }
   build(t: Trap): Server | UdpSocket {
     const rec = (ip: string, kind: Hit['kind'], detail: string) => this.record({ trap: t.name, ip, port: t.port, kind, detail: detail.slice(0, 500) });
@@ -162,13 +196,22 @@ export class LokiEngine {
       case 'logi': case 'hraesvelg': {
         const u = createSocket('udp4');
         u.on('message', (m, r) => {
-          const ip = r.address; this.record({ trap: t.name, ip, port: t.port, kind: 'requête', detail: m.toString('latin1').split('\r\n')[0].replace(/[^\x20-\x7e]/g, '.').slice(0, 200) });
+          const ip = r.address, now = Date.now(), sess = this.ouvrir(t, ip); noter(sess, 'in', m.toString('latin1'), now);
+          this.record({ trap: t.name, ip, port: t.port, kind: 'requête', detail: m.toString('latin1').split('\r\n')[0].replace(/[^\x20-\x7e]/g, '.').slice(0, 200) });
           // Cassandre répond comme une vraie centrale (petite réponse) ; Éole ne répond jamais (pas d'amplification).
-          if (t.id === 'logi' && /^(REGISTER|INVITE|OPTIONS)/.test(m.toString('latin1'))) { const via = /^(Via:.*)$/mi.exec(m.toString('latin1'))?.[1] ?? ''; u.send(`SIP/2.0 401 Unauthorized\r\n${via}\r\nWWW-Authenticate: Digest realm="asterisk", nonce="${randomBytes(8).toString('hex')}"\r\nContent-Length: 0\r\n\r\n`, r.port, ip); }
+          if (t.id === 'logi' && /^(REGISTER|INVITE|OPTIONS)/.test(m.toString('latin1'))) { const via = /^(Via:.*)$/mi.exec(m.toString('latin1'))?.[1] ?? '', rep = `SIP/2.0 401 Unauthorized\r\n${via}\r\nWWW-Authenticate: Digest realm="asterisk", nonce="${randomBytes(8).toString('hex')}"\r\nContent-Length: 0\r\n\r\n`; noter(sess, 'out', rep, Date.now()); u.send(rep, r.port, ip); }
+          this.fermer(sess);
         });
         u.on('error', () => {});
         return u;
       }
+      case 'vali': case 'nari': case 'byleist': case 'angrboda': case 'helblindi': case 'sigyn': case 'eldr':
+        // Nouveaux pièges (RDP, VNC, MySQL, PostgreSQL, MQTT, SMB, Docker) : le faux service est dans src/valhalla/loki/pieges.ts.
+        return this.tcp(t, (s, ip) => {
+          const sess = (s as unknown as { __sess?: Session }).__sess;
+          const pris = (kind: Hit['kind'], detail: string) => { this.record({ trap: t.name, ip, port: t.port, kind, detail: detail.slice(0, 500) }); if (sess) noter(sess, 'note', `${kind}: ${detail}`, Date.now()); };
+          jouerNouveauPiege(t.id, s, { pris, lignes: (cb) => this.lines(s, cb), capture: (url) => void this.capture(t.name, ip, url) });
+        });
       default: throw new Error(`piège inconnu : ${t.id}`);
     }
   }
@@ -183,6 +226,12 @@ export class LokiEngine {
   running(): string[] { return [...this.servers.keys()]; }
   private journal() { return journalDe<Hit>(this.ctx, 'loki', 'attaques.jsonl', { garder: 5000 }); }
   hits(limit = 300): Hit[] { return this.journal().tout().slice(-limit).reverse(); }
+  /** Les sessions enregistrées (pour le rejeu), les plus récentes d'abord. */
+  sessions(limit = 60): Session[] { return lister(this.ctx.dir, limit); }
+  /** Une session par son identifiant (pour le rejeu). */
+  session(id: string): Session | undefined { return charger(this.ctx.dir, id); }
+  /** La liste locale des attaquants vus par les pièges (adresse, pays, nombre de prises). */
+  attaquants(): Record<string, { ip: string; n: number; premier: string; dernier: string; pays?: string; dernierPiege?: string }> { return lireAttaquants(this.ctx.dir); }
 }
 
 let engine: LokiEngine | undefined;
@@ -207,22 +256,49 @@ export const loki: Module = {
     } },
     { id: 'eteindre', label: 'Éteindre un piège', what: 'Arrête un piège', params: [{ key: 'piege', label: 'Piège', kind: 'select', options: TRAPS.map((t) => t.id), required: true }], run: (ctx, i) => { eng(ctx).stop(String(i.piege)); const o = on(ctx); delete o[String(i.piege)]; ctx.saveSettings({ on: o }); return { text: `⏹ ${String(i.piege)} éteint.` }; } },
     { id: 'activite', external: true, label: 'Activité des pièges', what: 'Ce que les pirates ont tenté', read: true, words: ['activite', 'activité', 'attaques', 'quoi de neuf'], run: (ctx) => { const h = eng(ctx).hits(40); return { text: h.map((x) => `- ${x.at.slice(5, 16).replace('T', ' ')} ${x.trap} · ${x.ip} · ${x.kind} : ${x.detail}`).join('\n') || 'Aucune activité.', data: h }; } },
-    { id: 'statistiques', label: 'Statistiques', what: 'Origines, mots de passe essayés, pièges les plus touchés', read: true, run: (ctx) => { const h = eng(ctx).hits(5000); const by = (k: (x: Hit) => string) => Object.entries(h.reduce<Record<string, number>>((a, x) => { const v = k(x); if (v) a[v] = (a[v] ?? 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 8); return { text: `Pièges : ${by((x) => x.trap).map(([k, v]) => `${k} ${v}`).join(', ')}\nAdresses : ${by((x) => x.ip).map(([k, v]) => `${k} (${v})`).join(', ')}\nIdentifiants les plus essayés : ${by((x) => (x.kind === 'identifiants' ? x.detail : '')).map(([k, v]) => `${k} ×${v}`).join(', ') || '—'}` }; } },
+    { id: 'statistiques', label: 'Statistiques', what: 'Origines (pays), mots de passe essayés, pièges les plus touchés', read: true, run: (ctx) => { const h = eng(ctx).hits(5000); const by = (k: (x: Hit) => string) => Object.entries(h.reduce<Record<string, number>>((a, x) => { const v = k(x); if (v) a[v] = (a[v] ?? 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const att = Object.values(eng(ctx).attaquants()), pays = Object.entries(att.reduce<Record<string, number>>((a, x) => { if (x.pays) a[x.pays] = (a[x.pays] ?? 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      return { text: `Pièges : ${by((x) => x.trap).map(([k, v]) => `${k} ${v}`).join(', ')}\nAdresses : ${by((x) => x.ip).map(([k, v]) => `${k} (${v})`).join(', ')}\nPays d'origine : ${pays.map(([k, v]) => `${flag(k)} ${countryName(k)} (${v})`).join(', ') || (hasTable(ctx.home) ? '—' : 'table des pays non téléchargée')}\nIdentifiants les plus essayés : ${by((x) => (x.kind === 'identifiants' ? x.detail : '')).map(([k, v]) => `${k} ×${v}`).join(', ') || '—'}`, data: { pieges: by((x) => x.trap), adresses: by((x) => x.ip), pays, attaquants: att.length } }; } },
+    { id: 'tout_allumer', label: 'Tout allumer', what: 'Démarre tous les pièges (sur leurs ports par défaut)', grave: () => 'ouvrir TOUS les pièges sur le réseau', words: ['tout allumer', 'allume tout', 'tous les pièges'], run: async (ctx) => { const faits: string[] = []; const o = { ...on(ctx) }; for (const t of TRAPS) { try { eng(ctx).stop(t.id); await eng(ctx).start(t, o[t.id] ?? t.port); o[t.id] = o[t.id] ?? t.port; faits.push(t.name); } catch { /* port pris */ } } ctx.saveSettings({ on: o }); return { text: `🪤 ${faits.length} piège(s) allumé(s). Rappel : un honeypot attire les attaquants — ne l'expose volontairement que sur des ports où tu ne fais tourner aucun vrai service.` }; } },
+    { id: 'tout_eteindre', label: 'Tout éteindre', what: 'Arrête tous les pièges', words: ['tout éteindre', 'éteins tout', 'arrête les pièges'], run: (ctx) => { eng(ctx).stop(); ctx.saveSettings({ on: {} }); return { text: '⏹ Tous les pièges sont éteints.' }; } },
+    { id: 'rejeu', external: true, label: 'Rejeu d\'une session', what: 'Rejoue une attaque au bon rythme (horodatée) et propose l\'export (texte, asciinema .cast, lecteur HTML)', read: true, params: [{ key: 'session', label: 'Numéro de session', kind: 'text', required: true }], words: ['rejeu', 'rejouer', 'revoir l\'attaque'], run: (ctx, i) => { const s = eng(ctx).session(String(i.session ?? '')); if (!s) return { ok: false, text: 'Session introuvable. Choisis-en une dans l\'onglet « Rejeu ».' }; const r = resume(s); return { text: `${versTexte(s)}\n— ${phraseResume(r)} —`, data: { session: s, resume: r, frames: rejouer(s), terminal: estTerminal(s.trapId) }, fichiers: [{ nom: `rejeu-${s.id}.txt`, ref: `txt/${s.id}` }, { nom: `rejeu-${s.id}.html`, ref: `html/${s.id}` }, ...(estTerminal(s.trapId) ? [{ nom: `rejeu-${s.id}.cast`, ref: `cast/${s.id}` }] : [])] }; } },
+    { id: 'graphe', label: 'Données du graphe des attaquants', what: 'Nœuds (pièges, attaquants, pays) et liens, pour une future vue en graphe', read: true, run: (ctx) => { const att = Object.values(eng(ctx).attaquants()); const noeuds = [...TRAPS.filter((t) => eng(ctx).running().includes(t.id)).map((t) => ({ id: `piege:${t.id}`, type: 'piège', label: t.name })), ...att.map((a) => ({ id: `ip:${a.ip}`, type: 'attaquant', label: a.ip, pays: a.pays, prises: a.n })), ...[...new Set(att.map((a) => a.pays).filter(Boolean))].map((cc) => ({ id: `pays:${cc}`, type: 'pays', label: `${flag(cc!)} ${countryName(cc!)}` }))]; const liens = [...att.flatMap((a) => [...(a.dernierPiege ? [{ a: `ip:${a.ip}`, b: `piege:${TRAPS.find((t) => t.name === a.dernierPiege)?.id ?? a.dernierPiege}` }] : []), ...(a.pays ? [{ a: `ip:${a.ip}`, b: `pays:${a.pays}` }] : [])])]; return { text: `${noeuds.length} nœud(s), ${liens.length} lien(s). La vue en graphe 3D est construite ailleurs (équipe « vue espace ») ; ici, seulement les données propres.`, data: { noeuds, liens } }; } },
+    { id: 'resume_jour', label: 'Résumé du jour', what: 'Résume les prises des dernières 24 h ; prévient le propriétaire si le réglage est « résumé quotidien »', read: true, words: ['résumé du jour', 'résumé quotidien'], run: async (ctx) => { const sessions = eng(ctx).sessions(500).filter((s) => Date.now() - Date.parse(s.debut) < 86_400_000); const resumes = sessions.map(resume), notables = resumes.filter((r) => r.notable); const texte = notables.length ? `🪤 ${notables.length} prise(s) notable(s) en 24 h :\n${notables.slice(0, 15).map((r) => `- ${phraseResume(r)} (session ${r.id})`).join('\n')}` : `Aucune prise notable en 24 h (${sessions.length} connexion(s) au total).`; if (String(ctx.settings.prevenir ?? 'prise') === 'quotidien' && notables.length) await ctx.notify(texte).catch(() => undefined); return { text: texte, data: { total: sessions.length, notables: notables.length } }; } },
+    { id: 'reglages', label: 'Réglages des pièges', what: 'Durée du bannissement d\'un attaquant, quand te prévenir, combien de sessions garder', params: [{ key: 'banMinutes', label: 'Bannissement d\'un attaquant (minutes)', kind: 'number', default: 1440, help: 'Durée pendant laquelle Cerbère coupe l\'attaquant.' }, { key: 'prevenir', label: 'Me prévenir', kind: 'select', options: ['prise', 'quotidien', 'jamais'], default: 'prise', help: 'prise = à chaque prise notable ; quotidien = un résumé par jour.' }, { key: 'garderSessions', label: 'Sessions gardées (rejeu)', kind: 'number', default: 500 }], run: (ctx, i) => { const patch: Record<string, unknown> = {}; if (i.banMinutes !== undefined && i.banMinutes !== '') patch.banMinutes = Number(i.banMinutes); if (i.prevenir) patch.prevenir = String(i.prevenir); if (i.garderSessions !== undefined && i.garderSessions !== '') patch.garderSessions = Number(i.garderSessions); ctx.saveSettings(patch); return { text: `Réglages enregistrés : bannissement ${eng(ctx).banMin()} min, me prévenir « ${String(ctx.settings.prevenir ?? 'prise')} », ${String(ctx.settings.garderSessions ?? 500)} sessions gardées.` }; } },
   ],
+  taches: () => [{ id: 'resume_quotidien', nom: 'Résumé des pièges', quoi: 'Chaque jour, résume les prises des pièges et, si tu l\'as réglé ainsi, te l\'envoie.', rythme: (cx) => ({ genre: 'jour', heure: typeof cx.settings.resumeHeure === 'string' ? cx.settings.resumeHeure : '08:00' }), permis: ['jour'], regler: (cx, r) => { if (r.genre !== 'jour') throw new Error('ce résumé tourne une fois par jour (choisis l\'heure)'); cx.saveSettings({ resumeHeure: r.heure }); }, lancer: { action: 'resume_jour' } }],
   async start(ctx) { for (const [id, port] of Object.entries(on(ctx))) { const t = TRAPS.find((x) => x.id === id); if (t) await eng(ctx).start(t, port).catch((e) => ctx.alert({ level: 'moyenne', title: `Piège ${t.name} : port ${port} indisponible`, detail: (e as Error).message, key: `port:${id}` })); } },
   stop() { engine?.stop(); },
-  view(ctx) {
+  // Export d'un rejeu : texte horodaté, asciinema .cast, ou lecteur HTML autonome. Fabriqué à la demande, local.
+  retrait(ctx, ref) {
+    const barre = ref.indexOf('/'); if (barre <= 0) return undefined;
+    const genre = ref.slice(0, barre), s = eng(ctx).session(ref.slice(barre + 1)); if (!s) return undefined;
+    const faire = genre === 'txt' ? versTexte : genre === 'cast' ? versCast : genre === 'html' ? lecteurHtml : undefined; if (!faire) return undefined;
+    const dir = join(ctx.dir, 'exports'); mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const f = join(dir, `${s.id}.${genre}`); try { writeFileSync(f, faire(s), { mode: 0o600 }); return f; } catch { return undefined; }
+  },
+  view(ctx, q) {
     const e = eng(ctx), h = e.hits(2000), day = h.filter((x) => Date.now() - Date.parse(x.at) < 86_400_000), ips = new Set(day.map((x) => x.ip));
     const creds = Object.entries(h.filter((x) => x.kind === 'identifiants').reduce<Record<string, number>>((a, x) => ({ ...a, [x.detail]: (a[x.detail] ?? 0) + 1 }), {})).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const att = Object.values(e.attaquants()), paysTop = Object.entries(att.reduce<Record<string, number>>((a, x) => { if (x.pays) a[x.pays] = (a[x.pays] ?? 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const sessions = e.sessions(60), choisie = q?.get('rejeu') ? e.session(q.get('rejeu')!) : undefined;
+    const rejeu = choisie ? [{ kind: 'log' as const, title: `Rejeu — ${choisie.trap} · ${choisie.ip}${choisie.pays ? ` ${flag(choisie.pays)} ${countryName(choisie.pays)}` : ''} (${estTerminal(choisie.trapId) ? 'terminal' : 'frise'})`, lines: versTexte(choisie).split('\n').slice(0, 400) }] : [];
     return {
       subtitle: `${e.running().length} piège(s) allumé(s) sur ${TRAPS.length}`,
       tabs: TRAPS.map((t) => t.name),
       kpis: [{ label: 'Attaques 24 h', value: String(day.length) }, { label: 'Adresses uniques 24 h', value: String(ips.size) }, { label: 'Captures', value: String(h.filter((x) => x.kind === 'capture').length), tone: h.some((x) => x.kind === 'capture') ? 'attention' : 'neutre' }, { label: 'Pièges allumés', value: `${e.running().length} / ${TRAPS.length}` }],
       sections: [
+        ...rejeu,
         { kind: 'table', title: 'Pièges', columns: ['Piège', 'Protocole', 'Ce qu\'il fait', 'Port', 'État'], rows: TRAPS.map((t) => { const p = on(ctx)[t.id]; return { cells: [t.name, t.proto, t.what, String(p ?? t.port), e.running().includes(t.id) ? 'allumé' : 'éteint'], tone: e.running().includes(t.id) ? 'bon' : 'neutre', actions: [e.running().includes(t.id) ? { action: 'eteindre', label: 'Éteindre', input: { piege: t.id } } : { action: 'allumer', label: 'Allumer', input: { piege: t.id } }] }; }) },
         { kind: 'table', title: 'Activité récente', columns: ['Quand', 'Piège', 'Adresse', 'Type', 'Détail'], empty: 'Aucune activité pour l\'instant.', rows: h.slice(0, 60).map((x) => ({ cells: [x.at.slice(5, 16).replace('T', ' '), x.trap, x.ip, x.kind, x.detail], tone: x.kind === 'capture' ? 'mauvais' : x.kind === 'identifiants' ? 'attention' : undefined })) },
+        { kind: 'table', title: 'Rejeu des attaques (sessions enregistrées)', columns: ['Quand', 'Piège', 'Adresse', 'Pays', 'Commandes', 'Durée'], empty: 'Aucune session enregistrée pour l\'instant.', rows: sessions.map((s) => { const r = resume(s); return { cells: [s.debut.slice(5, 16).replace('T', ' '), s.trap, s.ip, s.pays ? `${flag(s.pays)} ${countryName(s.pays)}` : '—', String(r.commandes.length), `${Math.round(r.duree / 1000)} s`], tone: r.notable ? 'attention' : undefined, actions: [{ action: 'rejeu', label: 'Rejeu', input: { session: s.id } }] }; }) },
       ],
-      side: [{ kind: 'list', title: 'Identifiants les plus essayés', items: creds.map(([k, v]) => ({ title: k, meta: `×${v}` })), empty: 'Rien encore.' }, { kind: 'text', title: 'Sécurité des pièges', text: 'Les pièges imitent des services sans jamais exécuter ce qu\'on leur envoie. Ils ne touchent pas à tes données. Les fichiers capturés restent isolés et sont analysés par Asclépios.' }],
+      side: [
+        { kind: 'list', title: 'Origine des attaquants', items: paysTop.map(([cc, n]) => ({ title: `${flag(cc)} ${countryName(cc)}`, meta: `${n}` })), empty: hasTable(ctx.home) ? 'Aucune encore.' : 'Télécharge la table des pays (Méduse) pour l\'origine géo.' },
+        { kind: 'list', title: 'Identifiants les plus essayés', items: creds.map(([k, v]) => ({ title: k, meta: `×${v}` })), empty: 'Rien encore.' },
+        { kind: 'form', title: 'Réglages', action: 'reglages', submit: 'Enregistrer', params: [{ key: 'banMinutes', label: 'Bannissement d\'un attaquant (minutes)', kind: 'number', default: e.banMin() }, { key: 'prevenir', label: 'Me prévenir', kind: 'select', options: ['prise', 'quotidien', 'jamais'], default: String(ctx.settings.prevenir ?? 'prise') }, { key: 'garderSessions', label: 'Sessions gardées (rejeu)', kind: 'number', default: Number(ctx.settings.garderSessions ?? 500) }], aide: 'Un honeypot attire les attaquants : à n\'exposer que volontairement, jamais sur un port où tourne un vrai service.' },
+        { kind: 'text', title: 'Sécurité des pièges', text: 'Les pièges imitent des services sans jamais exécuter ce qu\'on leur envoie, et ne touchent pas à tes données. Les adresses prises protègent aussi tout l\'appareil de la maison (Méduse). Les enregistrements des sessions restent chez toi : seul le résumé peut t\'être envoyé.' },
+      ],
     };
   },
 };

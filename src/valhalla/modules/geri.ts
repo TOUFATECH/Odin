@@ -16,6 +16,7 @@ import { isPrivateV4 } from '../../hlidskjalf/discover.ts';
 import { deepIdentify, formatDeep } from '../../hlidskjalf/deep.ts';
 import { pageTitle } from '../../hlidskjalf/identify.ts';
 import { country, countryName, flag, hasTable } from '../geoip.ts';
+import { reseauxAttaquants } from '../loki/attaquants.ts';
 import type { ModCtx, Module } from '../types.ts';
 
 export interface Conn { proto: string; local: string; remote: string; rip: string; rport: number; prog: string }
@@ -40,7 +41,7 @@ const BAD_PORTS: Record<number, string> = { 3333: 'pool de minage', 4444: 'porte
 const LISTS = ['https://iplists.firehol.org/files/firehol_level1.netset', 'https://feodotracker.abuse.ch/downloads/ipblocklist.txt'];
 
 let cache: Array<[number, number]> | undefined;
-function list(ctx: ModCtx): Array<[number, number]> { if (!cache) { const f = join(ctx.dir, 'listes.txt'); cache = existsSync(f) ? parseList(readFileSync(f, 'utf8')) : []; } return cache; }
+function list(ctx: ModCtx): Array<[number, number]> { if (!cache) { const f = join(ctx.dir, 'listes.txt'); cache = existsSync(f) ? parseList(readFileSync(f, 'utf8')) : []; } return [...cache, ...reseauxAttaquants(ctx.home)]; }
 async function refresh(ctx: ModCtx): Promise<number> {
   let text = '';
   for (const u of LISTS) { try { const r = await ctx.fetch(u, { signal: AbortSignal.timeout(30_000) }); if (r.ok) text += `${await r.text()}\n`; } catch { /* une liste indisponible */ } }

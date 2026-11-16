@@ -71,7 +71,7 @@ export const INVENTAIRE: Record<string, Rangement[]> = {
   geri: [R('journal des connexions vues (journal.json)', 'a-faire'), R('listes d\'adresses malveillantes et règles de comportement Sigma (fichiers, binaire/texte)', 'binaire')],
   ran: [R('paquets des 7 derniers jours (fichiers de capture)', 'binaire')],
   ullr: [J('registre de la quarantaine (blocages à l\'arrivée, libérations, suppressions, réanalyses)', 'ullr'), R('signatures, fichiers en quarantaine (brouillés), rapports', 'binaire'), R('liste blanche locale NSRL/CIRCL (filtre de Bloom, fichiers sains)', 'binaire'), R('clé des signatures', 'secret')],
-  loki: [J('attaques vues par les pièges', 'loki'), R('captures des pirates', 'binaire'), REG],
+  loki: [J('attaques vues par les pièges', 'loki'), R('captures des pirates, enregistrements des sessions (rejeu) et liste locale des attaquants vus par les pièges', 'binaire'), REG],
   svalinn: [R('appareils, état, secrets du tunnel', 'secret')],
   gjoll: [R('clés du VPN, appareils (réglages)', 'secret')],
   vidarr: [R('historique DNS, listes (réglages, fichiers téléchargés)', 'a-faire')],
