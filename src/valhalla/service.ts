@@ -17,6 +17,7 @@ import { noterEchange, numeroEchange, type Echange } from './echanges.ts';
 import { Automatismes } from './automatismes.ts';
 import { enClair, fermer, migrerAppli, ouvrir, privesAppli } from '../prive.ts';
 import { reglageFichierEcrit } from '../reglages-note.ts';
+import { relayerEvenement } from './pronoia/branchement.ts';
 
 const RANK: Record<Level, number> = { info: 0, moyenne: 1, haute: 2, critique: 3 };
 const ICON: Record<Level, string> = { info: 'ℹ️', moyenne: '🟡', haute: '🟠', critique: '🔴' };
@@ -81,7 +82,11 @@ export class Valhalla {
       home, dir, settings,
       saveSettings: (patch) => { Object.assign(settings, patch); ecrire(); },
       alert: (a) => this.alert(id, a),
-      emit: (type, data = {}) => { this.events.emit('event', { module: id, type, data, at: (this.deps.now?.() ?? new Date()).toISOString() }); },
+      emit: (type, data = {}) => {
+        const e = { module: id, type, data, at: (this.deps.now?.() ?? new Date()).toISOString() };
+        this.events.emit('event', e);
+        relayerEvenement(home, e); // Prónoia : après coup, jamais bloquant ; rien si elle est coupée ou absente
+      },
       run: this.deps.run ?? run,
       has: async (cmd) => (await (this.deps.run ?? run)('sh', ['-c', `command -v ${cmd.replace(/[^\w.-]/g, '')}`])).code === 0,
       fetch: this.deps.fetch ?? fetch,
@@ -195,7 +200,8 @@ export class Valhalla {
     let id = ''; do { id = Math.random().toString(36).slice(2, 6); } while (!/^[a-z]/.test(id) || all.some((x) => x.id === id));
     let undo: Manip['undo']; try { undo = a.undo?.(input, r, this.ctx(m.id)); } catch { /* pas d'annulation proposée */ }
     // Les mots de passe et jetons éventuels des réglages ne sont jamais recopiés dans le journal.
-    const safe = Object.fromEntries(Object.entries(input).map(([k, v]) => [k, (a.params ?? []).find((p) => p.key === k)?.kind === 'password' || /mot_?de_?passe|password|secret|jeton|token|cle\b|clé/i.test(k) ? '•••' : typeof v === 'string' ? v.slice(0, 300) : v]));
+    // Un réglage déclaré privé (numéro, nom d'une personne) non plus.
+    const safe = Object.fromEntries(Object.entries(input).map(([k, v]) => { const p = (a.params ?? []).find((x) => x.key === k); return [k, p?.kind === 'password' || p?.prive === true || /mot_?de_?passe|password|secret|jeton|token|cle\b|clé/i.test(k) ? '•••' : typeof v === 'string' ? v.slice(0, 300) : v]; }));
     const breaker = this.deps.autonomy?.() === 'breaker';
     // Simple tenue de registre par réflexe (une fiche créée, une configuration rangée au coffre) : rien à
     // annuler, rien à décider — c'est noté dans le journal, sans te déranger.

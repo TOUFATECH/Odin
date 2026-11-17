@@ -5,6 +5,7 @@ import { research } from '../research/research.ts';
 import { politeFetch } from '../research/fetch.ts';
 import { browserFor } from './browser.ts';
 import { obj, str, type Tool } from './registry.ts';
+import { signalerVerdicts } from '../valhalla/mathesis/signaux.ts';
 
 const s = (v: unknown) => String(v ?? '');
 
@@ -32,6 +33,8 @@ export const webResearch: Tool = {
       const src = r.sources.find((x) => x.n === e.source);
       if (src) ctx.muninn.addEvidence({ session: ctx.sessionId, question: r.question, claim: c.claim, verdict: c.verdict, url: src.page.finalUrl, title: src.page.title, site: src.site, published: src.page.published, accessed: src.page.accessed, quote: e.quote, stance: e.stance, tier: src.tier });
     }
+    // Mathésis : ce qui reste sans réponse sûre (ou à une seule source) rejoint sa liste de curiosité (rien en privé).
+    try { signalerVerdicts(r.question, r.claims, { prive: ctx.muninn.privateMode === true }); } catch { /* jamais bloquant */ }
     const meta = `\n\n— Moteurs : ${r.engines.join(', ')} · ${r.sources.length} source(s) lue(s), ${new Set(r.sources.map((x) => x.cluster)).size} groupe(s) indépendant(s)${r.errors.length ? ` · non lues : ${r.errors.slice(0, 3).join(' ; ')}` : ''}`;
     return { output: r.report + meta, tainted: true };
   },

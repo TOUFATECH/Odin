@@ -86,6 +86,8 @@ export const NAMES: Record<string, string> = {
  "dodone": "Dodone",
  "theia": "Théia",
  "syrinx": "Syrinx",
+ "mathesis": "Mathésis",
+ "pronoia": "Prónoia",
  "argos": "Argos"
 };
 /** Les anciens noms : seulement pour retrouver les fiches déjà écrites sous l'ancien nom et les renommer.
@@ -300,6 +302,8 @@ export const NAME_STORY: Record<string, string> = {
  "dodone": "Dodone, le plus ancien oracle de Grèce : on y gravait sa question sur une lamelle de plomb, et le chêne de Zeus répondait. Tu écris ta requête, le serveur répond, Odin vérifie la réponse.",
  "theia": "Théia, titane grecque de la vue et de la lumière, mère du Soleil, de la Lune et de l'Aurore : c'est l'œil d'Odin. Elle regarde les images, lit le texte de tous les documents (même scannés) et suit le fil d'une vidéo entière, chez toi, sans rien envoyer dehors.",
  "syrinx": "Syrinx, nymphe d'Arcadie changée en roseaux, d'où la flûte de Pan ; c'est aussi l'organe du chant des oiseaux : c'est l'oreille d'Odin. Elle écoute la parole, la musique et les bruits de la maison et dit ce qu'elle entend, chez toi, sans rien envoyer dehors.",
+ "mathesis": "Mathésis, en grec ancien « le fait d'apprendre », d'où vient le mot mathématiques : Odin apprend tout seul. Il cherche ce qu'il ne sait pas, lit des pages publiques et les dossiers que tu lui ouvres, recoupe ses sources et le range dans sa mémoire, sans jamais dépasser ce que tu lui permets.",
+ "pronoia": "Prónoia, en grec ancien « la prévoyance », penser avant : Odin estime ce qui va probablement arriver d'après ce qu'il a appris chez toi, le dit avec sa confiance et ses raisons, et mesure s'il a vu juste. Il propose, jamais il n'agit sur une simple prévision.",
  "agora": "L'agora d'Athènes, la grande place du marché : chacun y trouvait ce qu'il lui fallait. Ici, chaque personne y trouve ce à quoi elle a droit.",
  "argos": "Argos Panoptès, le géant aux cent yeux de la mythologie grecque, qui ne dormait jamais tout entier : il voyait tout. La console qui garde l'œil sur tout le parc."
 };
@@ -381,6 +385,8 @@ export const SIMILAIRES: Record<string, string[]> = {
  "dodone": ["Postman", "Insomnia", "Bruno", "Hoppscotch"],
  "theia": ["CLIP", "Tesseract", "LLaVA", "Google Lens", "SigLIP", "moondream", "TrOCR", "OCRmyPDF", "GPT-4 Vision"],
  "syrinx": ["Sonic Visualiser", "Essentia", "librosa", "Mixed In Key", "Whisper"],
+ "mathesis": ["Apache Nutch", "Heritrix", "Scrapy"],
+ "pronoia": ["Google Now", "SwiftKey"],
  "argos": ["Wazuh", "Velociraptor", "OpenEDR", "osquery", "CrowdStrike Falcon", "Microsoft Defender for Endpoint"]
 };
 /** Le site officiel d'un applicatif similaire (seulement quand l'adresse est sûre ; sinon le nom seul est affiché). */
@@ -651,6 +657,9 @@ export const SITES_SIMILAIRES: Record<string, string> = {
  "Open-Meteo": "https://open-meteo.com",
  "Windy": "https://www.windy.com",
  "Meteoblue": "https://www.meteoblue.com",
+ "Apache Nutch": "https://nutch.apache.org",
+ "Heritrix": "https://github.com/internetarchive/heritrix3",
+ "Scrapy": "https://scrapy.org",
  "Zabbix": "https://www.zabbix.com",
  "Zeek": "https://zeek.org",
  "Zigbee2MQTT": "https://www.zigbee2mqtt.io",

@@ -79,6 +79,10 @@ import { atalante } from './modules/atalante.ts';
 import { dodone } from './modules/dodone.ts';
 import { theia } from './theia/index.ts';
 import { syrinx } from './syrinx/index.ts';
+import { mathesis } from './mathesis/module.ts';
+import { optionsOdin as optionsMathesis } from './mathesis/branchement.ts';
+import { pronoia } from './pronoia/index.ts';
+import { optionsOdin as optionsPronoia } from './pronoia/branchement.ts';
 import { loki } from './modules/loki.ts';
 import { midgard } from './modules/midgard.ts';
 import { ratatoskr } from './modules/ratatoskr.ts';
@@ -163,7 +167,7 @@ export function coreModules(odin: Pick<Odin, 'paths' | 'cfg'>): Module[] {
   return [saga, runes, draupnir];
 }
 
-export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['tools']; inventory?: Odin['inventory'] }): Module[] {
+export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['tools']; inventory?: Odin['inventory']; muninn?: Odin['muninn'] }): Module[] {
   // Sphinx nomme les appareils qui l'interrogent d'après le registre réseau d'Odin.
   const names = () => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? deviceLabel(d) : undefined; } : undefined);
   // … et sait d'eux ce que le registre a vu : MAC, modèle, type, première fois vu (pour le graphe du réseau).
@@ -179,7 +183,7 @@ export function allModules(odin: Pick<Odin, 'paths' | 'cfg'> & { tools?: Odin['t
   // Andromède : l'ISO de Windows suit la langue d'Odin (il n'a pas de langue d'interface à part : celle de sa voix, sinon son pays).
   brancherLangueOdin(() => ({ langue: odin.cfg.voice?.stt?.language }));
   const devices =() => (odin.inventory ? (ip: string) => { const d = odin.inventory!.get(ip); return d ? { mac: d.mac || undefined, model: d.model || undefined, kind: d.kind || undefined, firstSeen: d.first_seen } : undefined; } : undefined);
-  return ([...coreModules(odin), archytas, eir, skogul, forseti, garmr, geri, ran, ullr, loki, argos, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, zeus, gna,apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora, achille, atalante, dodone, theia, syrinx(() => ({ voice: odin.cfg.voice })), keryxModule] as Module[]).map(rename);
+  return ([...coreModules(odin), archytas, eir, skogul, forseti, garmr, geri, ran, ullr, loki, argos, naglfar, urdr, skuld, rodd, svalinn, ymir, idunn, sindri, brisingamen, gjoll, vidarr({ names, devices }), vordr, askr({ seen }), valgrind, varModule, bru, skidbladnir, eitri, fjalar, thjalfi(), gladsheim, zeus, gna,apparence, commandes, volva(() => ({ searxngUrl: odin.cfg.search?.searxngUrl })), hermod, ratatoskr(() => odin.tools), appareils, brokkr, midgard, himinbjorg, bragi(() => (odin.cfg.voice?.tts ? voiceFor(odin.cfg.voice, odin.cfg) : odin.cfg.voice)), venus(() => odin.cfg.venus?.url ?? ''), aegir, frigg, kvasir, syn, dvalinn, champollion, mimisbrunnr, gefjon, sol, fensalir, hlid, ivaldi, heidrun, leikvangr, snotra, hlin, durinn, hel, pegase, agora, achille, atalante, dodone, theia, syrinx(() => ({ voice: odin.cfg.voice })), mathesis(() => optionsMathesis(odin)), pronoia(() => optionsPronoia(odin)), keryxModule] as Module[]).map(rename);
 }
 
 /** Prépare les secrets propres aux applis (créés une fois, rangés dans le coffre local). */
@@ -207,6 +211,16 @@ function ensureSecrets(odin: Odin): void {
  */
 export function seedBrain(odin: Pick<Odin, 'paths' | 'cfg'>): { written: number; total: number } {
   return syncSheets(brainOf({ home: odin.paths.home, careCfg: odin.cfg, workspace: odin.paths.workspace }), allModules(odin));
+}
+
+/**
+ * Oublie les souvenirs d'un sujet (le câblage d'Archytas : un script supprimé ne laisse pas de trace). La mémoire range
+ * le sujet en minuscules : on compare de même (sinon un script « Relevé » n'était jamais oublié). Rend le nombre oublié.
+ */
+export function oublierSujetMemoire(m: Pick<Odin['muninn'], 'profile' | 'forget'>, subject: string): number {
+  let k = 0;
+  for (const mm of m.profile(subject).current) if (mm.subject === subject.toLowerCase()) { m.forget(mm.id); k++; }
+  return k;
 }
 
 export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts) => Promise<void>, opts: { modules?: Module[] } = {}): () => void {
@@ -273,7 +287,7 @@ export function startValhalla(odin: Odin, notify: (text: string, o?: NotifyOpts)
       nomAppli: (id) => v.module(id)?.name ?? id,
       muninn: {
         remember: (c, o, k, t, meta) => odin.muninn.remember(c, o, k, t, meta),
-        oublierSujet: (subject) => { let k = 0; for (const mm of odin.muninn.profile(subject).current) if (mm.subject === subject) { odin.muninn.forget(mm.id); k++; } return k; },
+        oublierSujet: (subject) => oublierSujetMemoire(odin.muninn, subject),
       },
       vault: cerveau,
     });

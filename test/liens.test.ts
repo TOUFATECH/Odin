@@ -1139,6 +1139,108 @@ CHECKS['syrinx>theia'] = async (w) => {
   } finally { oreilleEssai(); }
 };
 
+CHECKS['mathesis>saga'] = async () => {
+  const { monter, html } = await import('./mathesis-outils-essai.ts');
+  const robots = { corps: 'User-agent: *\nDisallow:\n', type: 'text/plain' };
+  const fait = 'Le volcan Piton de la Fournaise culmine à 2632 mètres sur l\'île de La Réunion, au sud-est.';
+  const fait2 = 'Sur l\'île de La Réunion, le volcan Piton de la Fournaise culmine à 2632 mètres, au sud-est.';
+  const { m, muninn } = monter({
+    pages: { 'https://a.exemple.fr/robots.txt': robots, 'https://b.exemple.org/robots.txt': robots, 'https://a.exemple.fr/p': { corps: html('A', [fait]) }, 'https://b.exemple.org/q': { corps: html('B', [fait2]) } },
+    resultats: () => ['https://a.exemple.fr/p', 'https://b.exemple.org/q'],
+  });
+  m.curiosite.signaler({ sujet: 'Piton de la Fournaise', origine: 'question_sans_reponse' });
+  await m.tour({ manques: 1, revisites: 0 });
+  const range = muninn.recall('Piton Fournaise 2632 mètres', 10).find((x) => x.tags.includes('confiance:confirmé'));
+  assert.ok(range, 'ce qu\'Odin a appris tout seul est rangé dans la mémoire, confirmé par deux sources');
+  assert.match(range!.source ?? '', /^web:.*@\d{4}-\d{2}-\d{2}$/, 'avec sa source et sa date');
+  assert.equal(range!.origin, 'agent', 'jamais au rang de ce que tu as dit (« owner »)');
+};
+
+CHECKS['archytas>draupnir'] = async (w) => {
+  const { moteurPour } = await import('../src/valhalla/archytas/module.ts');
+  const m = moteurPour(w.home);
+  await m.creer({ nom: 'Arroser le jardin', mission: 'arroser le matin', description: 'arrose le jardin', genre: 'declaratif', etapes: [], declencheurs: [{ genre: 'horaire', rythme: '0 7 * * *' }] });
+  await m.creer({ nom: 'Code de nuit', mission: 'essai', description: 'code libre', genre: 'code', code: 'return 1', declencheurs: [{ genre: 'horaire', rythme: '0 3 * * *' }] });
+  const l = w.v.automatismes.lignes().filter((x) => x.appli === 'archytas' && x.sorte !== 'veille');
+  assert.ok(l.some((x) => x.nom === 'Script : Arroser le jardin'), 'le script déclaratif à déclencheur horaire est une tâche de Talos');
+  assert.ok(!l.some((x) => /Code de nuit/.test(x.nom)), 'un script « code » ne devient jamais une tâche de Talos');
+};
+CHECKS['archytas>saga'] = async (w) => {
+  const { brancherArchytas } = await import('../src/valhalla/archytas/liens.ts');
+  const { moteurPour } = await import('../src/valhalla/archytas/module.ts');
+  const { Mnemosyne } = await import('../src/muninn/store.ts');
+  const { oublierSujetMemoire } = await import('../src/valhalla/odin.ts');
+  const mem = new Mnemosyne(':memory:');
+  const fiches: string[] = [], corbeille: string[] = [];
+  brancherArchytas({
+    home: w.home,
+    muninn: { remember: (c, o, k, t, meta) => mem.remember(c, o, k, t, meta), oublierSujet: (s) => oublierSujetMemoire(mem, s) }, // le VRAI câblage d'odin.ts
+    vault: { write: (p, _m, corps) => { fiches.push(`${p}\n${corps}`); return p; }, trash: (p) => { corbeille.push(p); return p; } },
+  });
+  try {
+    const m = moteurPour(w.home);
+    await m.creer({ nom: 'Relevé compteur', mission: 'noter le compteur', description: 'note le compteur, mot de passe: hunter2', genre: 'declaratif', etapes: [{ faire: 'action', module: 'skuld', action: 'liste', entree: {} } as never], declencheurs: [{ genre: 'manuel' }] });
+    const souvenir = mem.profile('script:Relevé compteur').current.find((x) => x.subject === 'script:relevé compteur');
+    assert.ok(souvenir, 'le résumé du script est gardé dans la mémoire');
+    assert.doesNotMatch(souvenir!.content, /hunter2/, 'les secrets sont masqués');
+    assert.ok(fiches.some((f) => /^Odin\/Applis\/Archytas\/Relevé compteur/.test(f) && /\[\[/.test(f)), 'une fiche au Cerveau, reliée aux applis utilisées');
+    assert.ok(!fiches.some((f) => /hunter2/.test(f)));
+    await m.supprimer('Relevé compteur');
+    assert.ok(corbeille.some((p) => /Relevé compteur/.test(p)), 'supprimé : la fiche part à la corbeille');
+    assert.ok(!mem.profile('script:Relevé compteur').current.some((x) => x.subject === 'script:relevé compteur'), 'et le souvenir est oublié');
+  } finally { brancherArchytas(undefined); }
+};
+CHECKS['frigg>keryx'] = async (w) => {
+  const { brancherSources } = await import('../src/valhalla/automatismes.ts');
+  const { agendaPourChronos } = await import('../src/web/talos-api.ts');
+  const { setValhalla } = await import('../src/valhalla/odin.ts');
+  const { Proactif } = await import('../src/valhalla/keryx/proactif.ts');
+  const { ecrireReglages, lireReglages } = await import('../src/valhalla/keryx/reglages.ts');
+  const { configurerTrace } = await import('../src/valhalla/keryx/trace.ts');
+  const debut = new Date(Date.now() + 20 * 60_000).toISOString();
+  w.v.ctx('frigg').saveSettings({ bookings: [{ id: 'r1', service: 'Personnel', start: debut.slice(0, 16), end: debut.slice(0, 16), name: 'Dentiste', contact: '', status: 'confirmé', created: new Date().toISOString(), perso: true, rappel: 'aucun', debut }] });
+  setValhalla(w.v); brancherSources({ agenda: agendaPourChronos() }); configurerTrace(w.home);
+  try {
+    ecrireReglages(w.home, { surveillances: [{ id: 's1', quoi: 'rappel_rdv', reglage: '30 min', actif: true }] });
+    const dits: string[] = [];
+    let calme: string | undefined = 'heures calmes';
+    const p = new Proactif({ notifyOwner: async (t) => { dits.push(t); }, quietNow: () => calme }, () => lireReglages(w.home));
+    assert.equal(await p.passer(), 0, 'pendant les heures calmes, rien ne part');
+    calme = undefined;
+    assert.equal(await p.passer(), 1);
+    assert.match(dits[0], /Rendez-vous bientôt : « Rendez-vous : Dentiste/, 'Kéryx rappelle le rendez-vous de Chronos');
+    assert.equal(await p.passer(), 0, 'une seule fois');
+  } finally { setValhalla(undefined); brancherSources({ agenda: undefined }); }
+};
+CHECKS['theia>champollion'] = async (w) => {
+  const { zip } = await import('../src/files/zip.ts');
+  const { resolveFile } = await import('../src/valhalla/modules/dvalinn.ts');
+  const corps = '<office:text><text:p>Facture du plombier : 240 euros, à payer avant le 30 novembre.</text:p></office:text>';
+  const content = `<?xml version="1.0" encoding="UTF-8"?><office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"><office:body>${corps}</office:body></office:document-content>`;
+  const f = resolveFile(w.v.ctx('champollion'), 'atelier:facture.odt').abs;
+  writeFileSync(f, zip([{ name: 'mimetype', data: Buffer.from('application/vnd.oasis.opendocument.text'), store: true }, { name: 'content.xml', data: Buffer.from(content) }]));
+  const r = await w.v.act('champollion', 'lire', { fichier: 'atelier:facture.odt' });
+  assert.match(r.text, /Facture du plombier : 240 euros/, 'le texte du document OpenDocument est lu');
+  assert.match(r.text, /lu nativement/, 'par le lecteur de documents de Théia, sans logiciel de bureautique');
+  assert.ok(!w.ran.some((c) => /soffice|libreoffice|pdftotext/.test(c)), 'aucun outil de bureautique lancé');
+};
+CHECKS['eir>pronoia'] = async (w) => {
+  const { moteurPronoia } = await import('../src/valhalla/pronoia/index.ts');
+  const { oublierRelais } = await import('../src/valhalla/pronoia/branchement.ts');
+  oublierRelais();
+  w.v.module('pronoia')!.start!(w.v.ctx('pronoia'));
+  const p = moteurPronoia(w.home)!;
+  w.v.ctx('eir').emit('mesure', { cpu: 12, mem: 40, disque: 81 });
+  assert.ok(await until(() => p.magasin.etat.evenements.some((e) => e.appli === 'eir' && e.type === 'disque_occupe' && e.valeur === 81 && e.seuil === 95)), 'l\'occupation du disque mesurée par Hygie rejoint Prónoia');
+  w.v.ctx('eir').emit('mesure', { cpu: 12, mem: 40, disque: 82 });
+  await wait(60);
+  assert.equal(p.magasin.etat.evenements.filter((e) => e.appli === 'eir').length, 1, 'au plus une mesure gardée par heure');
+  p.couper(); oublierRelais();
+  w.v.ctx('eir').emit('mesure', { cpu: 12, mem: 40, disque: 83 });
+  await wait(60);
+  assert.equal(p.magasin.etat.evenements.filter((e) => e.appli === 'eir').length, 1, 'Prónoia coupée : rien n\'est reçu');
+};
+
 test('tous les liens entre applis sont automatiques, et chacun a sa vérification', () => {
   assert.ok(LINKS.length >= 32);
   assert.deepEqual(LINKS.filter((l) => l.auto !== true).map((l) => `${l.from}>${l.to}`), [], 'aucun lien « à activer »');

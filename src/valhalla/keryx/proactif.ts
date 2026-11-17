@@ -22,7 +22,8 @@ export function minutesAvant(s: Surveillance): number {
 /** Les rendez-vous qui tombent dans la fenêtre [now, now + avantMin] (pur, testable). */
 export function rdvImminents(items: ElementAgenda[], now: number, avantMin: number): ElementAgenda[] {
   const fin = now + avantMin * 60_000;
-  return items.filter((e) => { const t = Date.parse(e.quand); return Number.isFinite(t) && t >= now && t <= fin; });
+  // Seuls les RENDEZ-VOUS : l'agenda d'Odin contient aussi les tâches de Talos, qui ne sont pas à rappeler.
+  return items.filter((e) => { const t = Date.parse(e.quand); return e.sorte === 'rendez_vous' && Number.isFinite(t) && t >= now && t <= fin; });
 }
 
 /** Surveille et prévient. Garde en mémoire ce qui a déjà été dit pour ne pas répéter. */

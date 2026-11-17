@@ -90,6 +90,7 @@ N = normal.
 | Achille (`achille`) | échanges, refus et rejeux (en-têtes secrets masqués, corps jamais gardés) ; autorité locale `ca.json` (clé chiffrée) | P | J | **S** | journal `achille` → base `ACHILLE_ODIN` ; `ca.json` = fichier |
 | Atalante (`atalante`) | historique des téléchargements (hôte et chemin, sans paramètres) ; file d'attente `file.json` (liens chiffrés) ; fichiers reçus | P ; G | J | Pr | journal `atalante` → base `ATALANTE_ODIN` ; file et fichiers = fichiers |
 | Dodone (`dodone`) | collections et environnements (versions), historique des envois ; secrets `coffre.json` (chiffrés) | P | J | **S** | journaux `dodone` et `dodone_envois` → base `DODONE_ODIN` ; coffre = fichier |
+| Mathésis (`mathesis`) | liste de curiosité, journal « ce qu'Odin a appris tout seul » (cherché, lu, retenu, laissé), empreintes « déjà analysé », état des pages lues et des fichiers des dossiers ouverts, consignes des robots en cache, budgets du jour | M | C | Pr | **base** `MATHESIS_ODIN` (schéma `mathesis`, table `documents` au contenu CHIFFRÉ, vue `v_compteurs` seulement) ; repli en fichiers chiffrés tant qu'elle n'est pas prête |
 | Kvasir, Syn, Heidrun, Aegir, Midgard, Hermod, Askr… | réglages de l'appli + petites listes | P | R | N | fichiers (réglages) ; listes → base au cas par cas |
 | Snotra, Ivaldi, Hel (agent « applis ») | dossiers, documents | P ; G | R | Pr | EN DERNIER, petits changements ; documents = fichiers |
 | Thésauros (`brisingamen`) | coffre chiffré `coffre.bin` | P | R | **S** | fichier chiffré (c'est le coffre) |

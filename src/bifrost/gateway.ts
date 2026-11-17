@@ -56,6 +56,7 @@ import { syncMemoryFiles } from '../muninn/files.ts';
 import { episodeText, saveThread, toArchive } from '../muninn/threads.ts';
 import { applyUpdate as applyAppUpdate, checkForUpdate, lastUpdateInfo } from '../tools/update.ts';
 import { learnEnvironment } from '../learn/environment-map.ts';
+import { noterDemandeOdin } from '../valhalla/pronoia/branchement.ts';
 import { habitCron, habitEvents, habitPrompt, habitWhen, knownHabits, newHabits, pendingProposal, recordAsk, revokeTrust, setKnown, type Known, type Trust } from '../learn/habits.ts';
 
 export interface GatewayOptions {
@@ -412,6 +413,8 @@ export class Gateway {
       });
       // Habitudes : on retient ce que le propriétaire demande, et quand (jamais le contenu des réponses).
       if (owner && r.stopReason === 'done') { try { recordAsk(this.odin.muninn, m.text, used); } catch { /* pas bloquant */ } }
+      // Prónoia : juge ses prévisions de demande et apprend (rien si elle est coupée, absente ou en mode privé).
+      if (owner && r.stopReason === 'done') noterDemandeOdin(this.odin.paths.home, m.text, this.odin.cfg.voice.privacy?.privateMode === true);
       // Son visage : l'autocollant de son humeur (ses yeux) quand elle change. Deux émotions du même socle
       // (colère puis rage) ont le même autocollant : il n'est pas renvoyé.
       const mood = r.mood && MOODS[r.mood] ? r.mood : undefined;

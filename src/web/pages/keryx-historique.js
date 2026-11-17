@@ -33,7 +33,10 @@
 .kxh{display:flex;flex-direction:column;gap:12px;min-width:0}
 .kxh-barre{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .kxh-barre .kxh-count{font-size:12.5px;color:var(--muted);margin-right:auto}
-.kxh button.kxh-b{min-height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 12px;font:600 13px inherit;cursor:pointer}
+/* Téléphone : le compteur sur sa ligne, les boutons à gauche, et le coin droit de la barre laissé libre pour la mascotte
+   (elle mesure 46 px à cette largeur) : « Tout effacer » ne passe jamais sous elle. */
+@media (max-width:600px){.kxh-barre{padding-right:56px}.kxh-barre .kxh-count{flex-basis:100%;margin-right:0}}
+.kxh button.kxh-b{min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 12px;font:600 13px inherit;cursor:pointer}
 .kxh button.kxh-b.danger{color:var(--bad,#C0392B);border-color:color-mix(in srgb,var(--bad,#C0392B) 50%,var(--line))}
 .kxh button.kxh-b[disabled]{opacity:.5;cursor:default}
 .kxh-liste{display:flex;flex-direction:column;gap:8px}

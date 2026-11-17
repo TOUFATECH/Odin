@@ -34,3 +34,23 @@ test('proactif : un rappel qui tombe pendant les heures calmes repart une fois l
     assert.equal(await p.passer(now + 120_000), 0);
   } finally { brancherSources({ agenda: undefined }); rmSync(home, { recursive: true, force: true }); }
 });
+
+test('proactif : seuls les RENDEZ-VOUS sont rappelés, jamais une tâche de Talos dans la même fenêtre', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'keryx-proa-')); configurerTrace(home);
+  try {
+    const now = Date.parse('2026-11-16T10:00:00.000Z');
+    const dans = (min: number) => new Date(now + min * 60_000).toISOString();
+    brancherSources({ agenda: () => [
+      { quand: dans(10), quandTexte: 'à 14 h 10', titre: 'Sauvegarde de nuit', sorte: 'tache', appli: 'sindri' },
+      { quand: dans(15), quandTexte: 'à 14 h 15', titre: 'Veille des disques', sorte: 'veille', appli: 'durinn' },
+      { quand: dans(20), quandTexte: 'à 14 h 20', titre: 'Dentiste', sorte: 'rendez_vous', appli: 'frigg' },
+    ] });
+    const reglages: ReglagesKeryx = { ligne: 'aucune', numeros: [], autonomieApresSecret: 'prudent', actionGraveParAppel: 'interdite', surveillances: [{ id: 'r1', quoi: 'rappel_rdv', reglage: '30', actif: true }] };
+    const envoyes: string[] = [];
+    const p = new Proactif({ notifyOwner: async (t: string): Promise<void> => { envoyes.push(t); }, quietNow: (): string | undefined => undefined }, () => reglages);
+    assert.equal(await p.passer(now), 1, 'un seul rappel');
+    assert.equal(envoyes.length, 1);
+    assert.match(envoyes[0], /Dentiste/);
+    assert.doesNotMatch(envoyes.join('\n'), /Sauvegarde|Veille/);
+  } finally { brancherSources({ agenda: undefined }); rmSync(home, { recursive: true, force: true }); }
+});

@@ -46,7 +46,7 @@
 .kx-prive{display:flex;gap:10px;align-items:flex-start;border:1px solid color-mix(in srgb,var(--good,#2F8F4E) 50%,var(--line));background:color-mix(in srgb,var(--good,#2F8F4E) 10%,transparent);border-radius:12px;padding:12px 14px}
 .kx-prive .kx-bouclier{font-size:20px;line-height:1.2;flex:none}
 .kx-prive b{color:var(--ink)}
-.kx-prive p{margin:4px 0 0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.kx-prive p{margin:4px 0 0;font-size:12.5px;color:var(--ink);line-height:1.5}
 .kx-intro{font-size:13.5px;color:var(--muted);line-height:1.55;margin:0}
 .kx-etat{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .kx-cell{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px;min-width:0}

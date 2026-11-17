@@ -19,6 +19,8 @@ export interface Undo { action: string; input: Record<string, unknown>; label: s
 export interface Manip { id: string; at: string; module: string; action: string; label: string; input: Record<string, unknown>; text: string; by: By; why?: string; undo?: Undo; state: 'à décider' | 'gardée' | 'annulée'; decidedBy?: string; decidedAt?: string }
 
 export interface Param { key: string; label: string; kind: 'text' | 'textarea' | 'number' | 'select' | 'boolean' | 'password' | 'image'; options?: string[]; default?: unknown; required?: boolean; help?: string;
+  /** réglage privé (numéro de téléphone, nom d'une personne…) : saisi en clair, mais jamais recopié dans le journal des manips */
+  prive?: boolean;
   /** « image » : le navigateur la recadre à w × h, l'assombrit (voile 0-1), l'envoie, et l'action reçoit « image:<clé> » (fichier images/<clé>.png|jpg du module) */
   image?: { w: number; h: number; type: 'png' | 'jpeg'; voile?: number };
   /**

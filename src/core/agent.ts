@@ -50,6 +50,7 @@ import { identityLine, listScripts, scriptsIndex } from '../tools/scripts.ts';
 import { relevantSkills } from '../yggdrasil/skills.ts';
 import { features, featuresPrompt } from '../features.ts';
 import type { Tier } from '../providers/router.ts';
+import { odinCommenceARepondre } from '../valhalla/mathesis/occupe.ts';
 
 export interface AgentDeps {
   cfg: OdinConfig;
@@ -168,6 +169,9 @@ export class Agent {
     const rctx: RouteContext = depth > 0 && parent
       ? { ...parent, role: 'sous-agent', need: taskCategory(userText) }
       : { turnId: missionId ?? `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, sessionId: o.sessionId, channel, request: this.deps.redactor.redact(userText.replace(/\s+/g, ' ').trim().slice(0, 120)), need: taskCategory(userText), entries: [] };
+    // Mathésis (apprentissage autonome) s'arrête tant qu'Odin répond : un simple signal, posé juste avant le `try`
+    // pour que le `finally` le lève toujours.
+    const libre = depth === 0 ? odinCommenceARepondre() : undefined;
     try {
       const r = await withRouteContext(rctx, () => this.turn(userText, o, { emit: wrapped, channel, peer, depth, breaker, maxSteps, costCap, signal, trusted, spent, missionId }));
       if (depth === 0) { const sum = turnSummary(rctx.entries); r.turnId = rctx.turnId; r.answeredBy = sum.line || undefined; r.models = sum.models; }
@@ -177,7 +181,7 @@ export class Agent {
     } catch (e) {
       if (missionId) this.deps.muninn.endMission(missionId, signal.aborted ? 'arrêtée' : 'échouée', (e as Error).message, spent.usd);
       throw e;
-    } finally { untrack(); }
+    } finally { untrack(); libre?.(); }
   }
 
   private async turn(userText: string, o: RunOptions, t: { emit: (e: AgentEvent) => void; channel: string; peer: string; depth: number; breaker: OdinConfig['mimir']['breaker'] | undefined; maxSteps: number; costCap: number; signal: AbortSignal; trusted: boolean; spent: { usd: number }; missionId?: string }): Promise<RunResult> {
