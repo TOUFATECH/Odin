@@ -18,10 +18,13 @@ import { agendaPourChronos, contexteTalos, lignesTalos, talosGet, talosPost } fr
 import type { JobRow } from '../src/muninn/store.ts';
 import type { Module } from '../src/valhalla/types.ts';
 
-test('rendez-vous, rappel sur Telegram, Talos et l\'agenda', async () => {
+test('rendez-vous, rappel sur Telegram, Talos et l\'agenda', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'rdv-'));
   setLieuCourant({ nom: 'Mamoudzou', fuseau: 'Indian/Mayotte', region: regionDe('YT') });
   const now = new Date('2026-11-16T10:00:00Z'); // lundi 13 h à Mayotte
+  // L'horloge de tout l'essai est arrêtée à ce lundi : Talos lit l'heure réelle (« déjà passée », agenda) et, sans cela,
+  // l'essai changeait de résultat selon le jour et l'heure où on le lance. Seule la date est simulée, pas les minuteries.
+  t.mock.timers.enable({ apis: ['Date'], now: now.getTime() });
   // Une veille (jamais dans l'agenda) et Chronos.
   const veille: Module = { id: 'himinbjorg', name: 'Cyclope', family: 'Sécurité', what: 'x', does: [], from: [], upstream: [], words: [], actions: [], view: () => ({ sections: [] }), watch: { every: 10, run: () => {} } };
   const v = new Valhalla(home, [frigg, veille], { now: () => now });

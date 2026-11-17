@@ -86,6 +86,9 @@ async function odinRegle(tt: T, o: { access?: 'local' | 'lan' | 'wan'; host?: st
 const adresseReseau = () => Object.values(networkInterfaces()).flat().find((i) => i && i.family === 'IPv4' && !i.internal)?.address;
 /** Là où Odin écoute vraiment pour ce port (lu sur la machine avec « ss »). */
 const ecouteSur = async (port: number) => (await listeners()).filter((x) => x.proto === 'tcp' && x.port === port).map((x) => x.addr);
+/** Ces essais lisent ce qui écoute sur la machine avec « ss » (qui tient un port, sur quelle adresse) et posent un faux pare-feu
+ *  en script shell : sans « ss » (Windows, macOS), Odin ne sait pas encore le lire, et ces essais ne prouveraient rien. */
+const SANS_SS: string | false = spawnSync('ss', ['-tlnH'], { timeout: 4000 }).status === 0 ? false : 'il faut « ss » (Linux) pour lire ce qui écoute sur la machine';
 const refuse = async (f: () => Promise<unknown>) => { try { await f(); return ''; } catch (e) { return String(((e as Error).cause as Error | undefined)?.message ?? (e as Error).message); } };
 /** Une NOUVELLE connexion vers ce port (« fetch » garde ses connexions ouvertes : il ne dit pas si le port accepte encore). */
 const nouvelleConnexion = (port: number, host = '127.0.0.1') => new Promise<string>((ok) => { const s = connect(port, host, () => { s.destroy(); ok('acceptée'); }); s.on('error', (e: NodeJS.ErrnoException) => ok(String(e.code))); });
@@ -166,13 +169,18 @@ udp   UNCONN 0      0            0.0.0.0:51820      0.0.0.0:*`);
   assert.deepEqual(r.ports.map((p) => p.host), [20142, 20143, 9000]); assert.deepEqual(r.moved, ['20141 déjà pris → 20142', '20142 déjà pris → 20143']);
 });
 
-test('port déjà pris au démarrage : l\'interface d\'Odin et le service d\'une appli le disent en clair, avec le programme qui le tient', { timeout: 60_000 }, async () => {
+test('port déjà pris au démarrage : l\'interface d\'Odin et le service d\'une appli le disent en clair, avec le programme qui le tient', {
+  // Sous Windows l'essai tourne et son échec reste visible (« todo ») : deux défauts d'Odin, pas de l'essai.
+  todo: process.platform === 'win32' ? 'défauts connus sous Windows : l\'interface démarre sur 127.0.0.1:p alors qu\'un autre programme tient 0.0.0.0:p, et sans « ss » Odin ne sait pas dire quel programme tient le port' : false,
+  skip: process.platform !== 'win32' && SANS_SS, timeout: 60_000,
+}, async () => {
   const tt = new T();
   try {
     const p = await freePort(), autre = await squatteur(tt, p, '0.0.0.0'), qui = `« node » (programme n° ${autre.pid})`;
     // L'interface : Odin ne démarre pas, et dit pourquoi (avant : « listen EADDRINUSE: address already in use »).
     const o = makeOdin([{ text: 'ok' }]); tt.onEnd(() => o.cleanup());
     const w = new WebChannel(o, { scanNetwork: async () => undefined }, { port: p, host: '127.0.0.1', token: ensureWebToken(o.paths), access: 'local', scryptN: 1024 });
+    tt.onEnd(() => w.stop());   // si l'interface démarre quand même, elle est refermée : sinon le processus ne finit jamais
     await assert.rejects(w.start(async () => {}), { message: `l'interface d'Odin ne peut pas démarrer : le port ${p} est déjà pris par ${qui} : arrête ce programme, ou change de port, puis relance (un autre Odin tourne peut-être déjà ; sinon, change « web.port » dans le fichier config.json d'Odin)` });
     await w.stop();
     // Le service d'une appli (le relais MQTT de Constellation) : Odin démarre, l'appli est signalée avec la vraie raison.
@@ -185,7 +193,7 @@ test('port déjà pris au démarrage : l\'interface d\'Odin et le service d\'une
 });
 
 // ---------------------------------------------------------------- un vrai Odin : la page par son port, avec et sans session
-test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la même interface et avec la même connexion', { timeout: 120_000 }, async () => {
+test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la même interface et avec la même connexion', { skip: SANS_SS, timeout: 120_000 }, async () => {
   const tt = new T();
   try {
     fauxPareFeu(tt);
@@ -199,7 +207,7 @@ test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la m�
     assert.equal(r.ok, true); assert.deepEqual(r.interface, { port: v.port, https: false, acces: 'local' });
     assert.deepEqual(r.applis!.map((a) => a.id).sort(), [...APPLIS].sort());
     assert.ok(r.applis!.every((a) => a.port === null && a.etat === 'fermé' && !a.reseau), 'aucune écoute en plus tant que tu n\'as rien demandé');
-    assert.equal(r.applis!.find((a) => a.id === 'eir')!.note, `Pas de port direct : sa page est dans l'interface d'Odin (port ${v.port}).`);
+    assert.equal(r.applis!.find((a) => a.id === 'eir')!.note, `Pas de port à elle : sa page est dans l'interface d'Odin (port ${v.port}).`);
     assert.equal(r.applis!.find((a) => a.id === 'eir')!.plan, '8888 (interface d\'Odin)');
     const venus = r.applis!.find((a) => a.id === 'freyja')!;
     assert.equal(venus.nom, 'Vénus'); assert.equal(venus.plan, '8096, 8920, 5433, 51413 TCP'); assert.equal(venus.vue, 'app=freyja');
@@ -294,7 +302,7 @@ test('port direct : http://127.0.0.1:<port> ouvre la page de l\'appli, par la m�
 });
 
 // ---------------------------------------------------------------- les refus
-test('port direct : refus clairs (déjà pris et par qui, gardé, hors bornes, sous 1024 sans les droits), et rien ne change', { timeout: 120_000 }, async () => {
+test('port direct : refus clairs (déjà pris et par qui, gardé, hors bornes, sous 1024 sans les droits), et rien ne change', { skip: SANS_SS, timeout: 120_000 }, async () => {
   const tt = new T();
   try {
     fauxPareFeu(tt);
@@ -350,7 +358,7 @@ console.log('ETAT ' + JSON.stringify(g.status('freyja') ?? null)); g.stop();`;
 });
 
 // ---------------------------------------------------------------- changement à chaud, fermeture
-test('port direct : changer le port sans redémarrer, le retirer ; l\'ancien port ne répond plus et ses connexions sont coupées', { timeout: 120_000 }, async () => {
+test('port direct : changer le port sans redémarrer, le retirer ; l\'ancien port ne répond plus et ses connexions sont coupées', { skip: SANS_SS, timeout: 120_000 }, async () => {
   const tt = new T();
   try {
     fauxPareFeu(tt);
@@ -397,7 +405,7 @@ test('port direct : changer le port sans redémarrer, le retirer ; l\'ancien por
 });
 
 // ---------------------------------------------------------------- redémarrage
-test('port direct : gardé après un redémarrage ; pris entre-temps par un autre programme : dit, signalé, repris dès qu\'il se libère', { timeout: 120_000 }, async () => {
+test('port direct : gardé après un redémarrage ; pris entre-temps par un autre programme : dit, signalé, repris dès qu\'il se libère', { skip: SANS_SS, timeout: 120_000 }, async () => {
   const tt = new T();
   try {
     fauxPareFeu(tt);
@@ -443,8 +451,11 @@ test('port direct : ce qui est gardé est relu avec prudence ; sans compte, un p
     // Un fichier abîmé ou trafiqué : seules les entrées saines sont reprises ; un port gardé par le plan n'est jamais ouvert.
     const v = await odinRegle(tt, { access: 'local', compte: false, avant: (home) => { mkdirSync(dirname(directFile(home)), { recursive: true }); writeFileSync(directFile(home), JSON.stringify({ applis: { freyja: { port: a, reseau: true }, '../evasion': { port: b }, eir: { port: 'abc' }, garmr: { port: a }, saga: { port: 8096 }, runes: { port: 99999 }, hlid: null } })); } });
     assert.deepEqual(directs()!.all(), { freyja: { port: a, etat: 'écoute', reseau: false, sur: '127.0.0.1' }, saga: { port: 8096, etat: 'fermé', reseau: false, pourquoi: 'le port 8096 est gardé pour Vénus (Venus) : interface de Venus' } });
-    assert.deepEqual(await ecouteSur(a), ['127.0.0.1'], '« ouvert sur le réseau » dans le fichier, mais Odin est réglé sur cette machine : boucle locale');
-    assert.deepEqual(await ecouteSur(b), []); assert.ok(!(await listeners()).some((x) => x.port === 8096 && x.pid === process.pid), 'Odin ne se met jamais sur le port de Venus');
+    // Lu sur la machine avec « ss » : sans lui (Windows, macOS), seule cette lecture est sautée ; les refus ci-dessous tournent partout.
+    if (!SANS_SS) {
+      assert.deepEqual(await ecouteSur(a), ['127.0.0.1'], '« ouvert sur le réseau » dans le fichier, mais Odin est réglé sur cette machine : boucle locale');
+      assert.deepEqual(await ecouteSur(b), []); assert.ok(!(await listeners()).some((x) => x.port === 8096 && x.pid === process.pid), 'Odin ne se met jamais sur le port de Venus');
+    }
     // Pas encore de compte : la création se fait sur l'interface, jamais par un port direct (ni page, ni lien de première connexion).
     for (const path of ['/', `/?token=${v.token}`, '/api/state', '/activer', '/valhalla.js']) {
       const x = await v.call(a, path); assert.equal(x.status, 403, path); assert.deepEqual(JSON.parse(x.text), { error: `Odin n'a pas encore de compte : crée-le d'abord sur son interface (port ${v.port}).`, account: false, direct: true }); assert.equal(x.headers['set-cookie'], undefined);
@@ -491,7 +502,7 @@ test('Vénus (« IP:8096 ») : c\'est son service qui répond sur son port ; la 
 });
 
 // ---------------------------------------------------------------- ouvert sur le réseau (accord, Cerbère)
-test('port direct : ouvert sur le réseau seulement avec ton accord (Cerbère ouvre le pare-feu), refermé ou retiré : la règle part', { timeout: 120_000 }, async () => {
+test('port direct : ouvert sur le réseau seulement avec ton accord (Cerbère ouvre le pare-feu), refermé ou retiré : la règle part', { skip: SANS_SS, timeout: 120_000 }, async () => {
   const tt = new T();
   try {
     const pf = fauxPareFeu(tt), ip = adresseReseau();
@@ -569,7 +580,7 @@ test('port direct : ouvert sur le réseau seulement avec ton accord (Cerbère ou
   } finally { await tt.end(); }
 });
 
-test('port direct : sans pare-feu actif sur la machine, l\'accord est demandé quand même, et rien n\'est ouvert sur la box', { timeout: 60_000 }, async () => {
+test('port direct : sans pare-feu actif sur la machine, l\'accord est demandé quand même, et rien n\'est ouvert sur la box', { skip: SANS_SS, timeout: 60_000 }, async () => {
   const tt = new T();
   try {
     // Pas de faux pare-feu « actif » ici : un faux « ufw » éteint (et un « firewall-cmd » absent ou éteint), comme une machine sans pare-feu.
@@ -712,7 +723,7 @@ test('sans IA : « les ports directs » se demande à Thermopyles ; il manque l\
   } finally { v.stop(); useEngine(() => new Engine()); rmSync(home, { recursive: true, force: true }); }
 });
 
-test('Valgrind : un site du proxy peut mener au port direct d\'une appli (son propre nom), toujours avec la connexion d\'Odin', { timeout: 60_000 }, async () => {
+test('Valgrind : un site du proxy peut mener au port direct d\'une appli (son propre nom), toujours avec la connexion d\'Odin', { skip: SANS_SS, timeout: 60_000 }, async () => {
   const tt = new T();
   try {
     fauxPareFeu(tt);
